@@ -35,6 +35,7 @@ var domainIdempotencyOperations = map[string]struct{}{
 	"postFavoriteFolder":                            {},
 	"patchFavoriteFolder":                           {},
 	"deleteFavoriteFolder":                          {},
+	"deleteAdminGame":                               {},
 }
 
 type bufferedResponse struct {

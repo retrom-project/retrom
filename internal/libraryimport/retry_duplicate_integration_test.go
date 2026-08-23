@@ -235,10 +235,10 @@ SELECT id FROM import_items WHERE import_job_id=?
 	var auditDiff string
 	if err := database.SQL.QueryRowContext(ctx, `
 SELECT diff_json FROM review_events WHERE id=?
-`, secondGame.EventID).Scan(&auditDiff); err != nil ||
+	`, secondGame.EventID).Scan(&auditDiff); err != nil ||
 		!strings.Contains(auditDiff, `"duplicatePolicy":"ALLOW_NEW"`) ||
 		!strings.Contains(auditDiff, firstGame.GameID) ||
-		!strings.Contains(auditDiff, identityDigest) {
+		strings.Contains(auditDiff, identityDigest) {
 		t.Fatalf("duplicate audit diff = %s, error=%v", auditDiff, err)
 	}
 

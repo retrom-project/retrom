@@ -178,6 +178,26 @@ CREATE INDEX review_events_actor ON review_events(actor_user_id,created_at_ms,id
 
 CREATE INDEX review_events_history ON review_events(event_type,created_at_ms,id);
 
+CREATE TRIGGER review_events_v2_payload_free_insert
+BEFORE INSERT ON review_events
+WHEN EXISTS(
+  SELECT 1
+  FROM json_each(json_array(
+    NEW.before_json,NEW.after_json,NEW.diff_json,NEW.config_evidence_json,
+    NEW.dat_evidence_json,NEW.provider_evidence_json
+  )) document
+  JOIN json_tree(document.value) node
+  WHERE lower(COALESCE(node.key,'')) IN (
+    'assetid','candidateassetid','covercandidateassetid','coveruploadedassetid',
+    'backgroundcandidateassetid','screenshotcandidateassetids','selectedassets',
+    'blobid','archiveblobid','uploadid','uploadfileid','pegasusassetid',
+    'url','coverurl','videourl','path','relativepath','sourcepath',
+    'sha256','md5','hash','mime','mediatype','widthpx','heightpx',
+    'sourcemanifest','sourcemanifestdigest','dependencysnapshot','configsnapshot'
+  )
+)
+BEGIN SELECT RAISE(ABORT,'review event v2 contains payload evidence'); END;
+
 CREATE UNIQUE INDEX review_multidisc_attachment_active
 ON review_multidisc_attachments(import_item_id) WHERE state IN ('QUEUED','RUNNING');
 
@@ -324,6 +344,11 @@ BEGIN
   SELECT RAISE(ABORT, 'invalid BIOS delivery');
 END;
 
+CREATE TRIGGER bios_installations_payload_terminal
+BEFORE UPDATE OF blob_id,payload_released_at_ms ON bios_installations
+WHEN OLD.blob_id IS NULL AND NEW.blob_id IS NOT NULL
+BEGIN SELECT RAISE(ABORT,'released BIOS payload is terminal'); END;
+
 CREATE TRIGGER bios_requirements_delivery_update
 BEFORE UPDATE OF delivery_kind,emulator_path ON bios_requirements
 WHEN NOT (
@@ -348,7 +373,23 @@ END;
 
 CREATE TRIGGER content_hash_evidence_immutable_delete BEFORE DELETE ON content_hash_evidence BEGIN SELECT RAISE(ABORT, 'immutable'); END;
 
-CREATE TRIGGER content_hash_evidence_immutable_update BEFORE UPDATE ON content_hash_evidence BEGIN SELECT RAISE(ABORT, 'immutable'); END;
+CREATE TRIGGER content_hash_evidence_immutable_update
+BEFORE UPDATE ON content_hash_evidence
+WHEN NOT (
+  OLD.payload_released_at_ms IS NULL AND NEW.payload_released_at_ms IS NOT NULL
+  AND NEW.blob_id IS NULL AND NEW.archive_blob_id IS NULL AND NEW.archive_entry_ordinal IS NULL
+  AND NEW.id=OLD.id AND NEW.scrape_run_id=OLD.scrape_run_id AND NEW.profile=OLD.profile
+  AND NEW.crc32 IS OLD.crc32 AND NEW.md5 IS OLD.md5 AND NEW.sha1 IS OLD.sha1 AND NEW.sha256 IS OLD.sha256
+  AND NEW.query_order=OLD.query_order AND NEW.created_at_ms=OLD.created_at_ms
+  AND EXISTS(
+    SELECT 1 FROM metadata_scrape_runs run
+    LEFT JOIN import_items item ON item.id=run.import_item_id
+    LEFT JOIN games game ON game.id=run.game_id
+    WHERE run.id=OLD.scrape_run_id
+      AND (item.payload_state IN ('RELEASING','FAILED') OR game.payload_state IN ('RELEASING','FAILED'))
+  )
+)
+BEGIN SELECT RAISE(ABORT, 'immutable'); END;
 
 CREATE TRIGGER content_identity_claims_immutable_delete
 BEFORE DELETE ON content_identity_claims
@@ -390,15 +431,42 @@ BEGIN
   SELECT RAISE(ABORT,'immutable');
 END;
 
-CREATE TRIGGER game_assets_immutable_delete BEFORE DELETE ON game_assets BEGIN SELECT RAISE(ABORT,'immutable'); END;
+CREATE TRIGGER game_assets_immutable_delete BEFORE DELETE ON game_assets
+WHEN NOT EXISTS(
+  SELECT 1 FROM games
+  WHERE id=OLD.game_id AND (
+    status='PUBLISHED' AND current_metadata_revision_id<>OLD.metadata_revision_id OR
+    status='DELETED' AND payload_state IN ('RELEASING','FAILED')
+  )
+)
+BEGIN SELECT RAISE(ABORT,'immutable'); END;
 
 CREATE TRIGGER game_assets_immutable_update BEFORE UPDATE ON game_assets BEGIN SELECT RAISE(ABORT,'immutable'); END;
 
+CREATE TRIGGER game_assets_published_insert BEFORE INSERT ON game_assets
+WHEN NOT EXISTS(SELECT 1 FROM games WHERE id=NEW.game_id AND status='PUBLISHED')
+BEGIN SELECT RAISE(ABORT,'game payload owner is not published'); END;
+
 CREATE TRIGGER game_content_files_immutable_delete
-BEFORE DELETE ON game_content_files BEGIN SELECT RAISE(ABORT,'immutable'); END;
+BEFORE DELETE ON game_content_files
+WHEN NOT EXISTS(
+  SELECT 1 FROM game_content_revisions revision JOIN games game ON game.id=revision.game_id
+  WHERE revision.id=OLD.game_content_revision_id AND (
+    game.status='PUBLISHED' AND game.current_content_revision_id<>revision.id OR
+    game.status='DELETED' AND game.payload_state IN ('RELEASING','FAILED')
+  )
+)
+BEGIN SELECT RAISE(ABORT,'immutable'); END;
 
 CREATE TRIGGER game_content_files_immutable_update
 BEFORE UPDATE ON game_content_files BEGIN SELECT RAISE(ABORT,'immutable'); END;
+
+CREATE TRIGGER game_content_files_published_insert BEFORE INSERT ON game_content_files
+WHEN NOT EXISTS(
+  SELECT 1 FROM game_content_revisions revision JOIN games game ON game.id=revision.game_id
+  WHERE revision.id=NEW.game_content_revision_id AND game.status='PUBLISHED'
+)
+BEGIN SELECT RAISE(ABORT,'game payload owner is not published'); END;
 
 CREATE TRIGGER game_content_revisions_immutable_delete BEFORE DELETE ON game_content_revisions BEGIN SELECT RAISE(ABORT,'immutable'); END;
 
@@ -512,6 +580,11 @@ BEGIN
   ) THEN RAISE(ABORT,'current content owner mismatch') END;
 END;
 
+CREATE TRIGGER games_deleted_is_terminal
+BEFORE UPDATE OF status ON games
+WHEN OLD.status='DELETED' AND NEW.status<>'DELETED'
+BEGIN SELECT RAISE(ABORT,'deleted game is terminal'); END;
+
 CREATE TRIGGER import_item_core_validation_artifact_insert
 BEFORE INSERT ON import_item_core_validations
 WHEN NEW.prepublish_generation<>4 OR NOT EXISTS(
@@ -553,7 +626,16 @@ CREATE TRIGGER import_item_multidisc_entries_immutable_delete
 BEFORE DELETE ON import_item_multidisc_entries BEGIN SELECT RAISE(ABORT,'immutable'); END;
 
 CREATE TRIGGER import_item_multidisc_entries_immutable_update
-BEFORE UPDATE ON import_item_multidisc_entries BEGIN SELECT RAISE(ABORT,'immutable'); END;
+BEFORE UPDATE ON import_item_multidisc_entries
+WHEN NOT (
+  OLD.state='PRESENT' AND NEW.state='PAYLOAD_RELEASED'
+  AND NEW.upload_file_id IS NULL AND NEW.blob_id IS NULL AND NEW.payload_released_at_ms IS NOT NULL
+  AND EXISTS(
+    SELECT 1 FROM import_item_source_snapshots snapshot JOIN import_items item ON item.id=snapshot.import_item_id
+    WHERE snapshot.id=OLD.source_snapshot_id AND item.payload_state IN ('RELEASING','FAILED')
+  )
+)
+BEGIN SELECT RAISE(ABORT,'immutable'); END;
 
 CREATE TRIGGER import_item_multidisc_entries_owner_insert
 BEFORE INSERT ON import_item_multidisc_entries
@@ -570,13 +652,20 @@ OR NEW.state='PRESENT' AND NOT EXISTS(
 BEGIN SELECT RAISE(ABORT,'invalid multi-disc entry owner'); END;
 
 CREATE TRIGGER import_item_source_files_immutable_delete
-BEFORE DELETE ON import_item_source_files BEGIN SELECT RAISE(ABORT,'immutable'); END;
+BEFORE DELETE ON import_item_source_files
+WHEN NOT EXISTS(SELECT 1 FROM import_items WHERE id=OLD.import_item_id AND payload_state IN ('RELEASING','FAILED'))
+BEGIN SELECT RAISE(ABORT,'immutable'); END;
 
 CREATE TRIGGER import_item_source_files_immutable_update
 BEFORE UPDATE ON import_item_source_files BEGIN SELECT RAISE(ABORT,'immutable'); END;
 
 CREATE TRIGGER import_item_source_snapshot_files_immutable_delete
-BEFORE DELETE ON import_item_source_snapshot_files BEGIN SELECT RAISE(ABORT,'immutable'); END;
+BEFORE DELETE ON import_item_source_snapshot_files
+WHEN NOT EXISTS(
+  SELECT 1 FROM import_item_source_snapshots snapshot JOIN import_items item ON item.id=snapshot.import_item_id
+  WHERE snapshot.id=OLD.source_snapshot_id AND item.payload_state IN ('RELEASING','FAILED')
+)
+BEGIN SELECT RAISE(ABORT,'immutable'); END;
 
 CREATE TRIGGER import_item_source_snapshot_files_immutable_update
 BEFORE UPDATE ON import_item_source_snapshot_files BEGIN SELECT RAISE(ABORT,'immutable'); END;
@@ -595,7 +684,12 @@ WHEN NEW.revision_no<>(
 BEGIN SELECT RAISE(ABORT,'source snapshot revision must be contiguous'); END;
 
 CREATE TRIGGER import_item_validation_files_immutable_delete
-BEFORE DELETE ON import_item_validation_files BEGIN SELECT RAISE(ABORT,'immutable'); END;
+BEFORE DELETE ON import_item_validation_files
+WHEN NOT EXISTS(
+  SELECT 1 FROM import_item_core_validations validation JOIN import_items item ON item.id=validation.import_item_id
+  WHERE validation.id=OLD.import_item_core_validation_id AND item.payload_state IN ('RELEASING','FAILED')
+)
+BEGIN SELECT RAISE(ABORT,'immutable'); END;
 
 CREATE TRIGGER import_item_validation_files_immutable_update
 BEFORE UPDATE ON import_item_validation_files BEGIN SELECT RAISE(ABORT,'immutable'); END;
@@ -625,16 +719,64 @@ CREATE TRIGGER job_input_snapshots_immutable_delete BEFORE DELETE ON job_input_s
 CREATE TRIGGER job_input_snapshots_immutable_update BEFORE UPDATE ON job_input_snapshots BEGIN SELECT RAISE(ABORT, 'immutable'); END;
 
 CREATE TRIGGER launch_content_files_immutable_delete
-BEFORE DELETE ON launch_content_files BEGIN SELECT RAISE(ABORT,'immutable'); END;
+BEFORE DELETE ON launch_content_files
+WHEN NOT EXISTS(
+  SELECT 1 FROM launch_sessions launch
+  JOIN game_variant_revisions revision ON revision.id=launch.game_variant_revision_id
+  JOIN games game ON game.id=launch.game_id
+  WHERE launch.id=OLD.launch_session_id AND (
+    game.status='PUBLISHED' AND launch.state IN ('FINISHED','EXPIRED','REVOKED') AND (
+      game.current_content_revision_id<>revision.game_content_revision_id OR EXISTS(
+        SELECT 1 FROM json_each(revision.dependency_snapshot_json,'$.bios') dependency
+        JOIN bios_installations installation
+          ON installation.id=json_extract(dependency.value,'$.installationId')
+        WHERE installation.payload_released_at_ms IS NOT NULL
+      )
+    ) OR
+    game.status='DELETED' AND game.payload_state IN ('RELEASING','FAILED')
+  )
+)
+BEGIN SELECT RAISE(ABORT,'immutable'); END;
 
 CREATE TRIGGER launch_content_files_immutable_update
 BEFORE UPDATE ON launch_content_files BEGIN SELECT RAISE(ABORT,'immutable'); END;
 
+CREATE TRIGGER launch_content_files_published_insert BEFORE INSERT ON launch_content_files
+WHEN NOT EXISTS(
+  SELECT 1 FROM launch_sessions launch JOIN games game ON game.id=launch.game_id
+  WHERE launch.id=NEW.launch_session_id AND game.status='PUBLISHED'
+)
+BEGIN SELECT RAISE(ABORT,'game payload owner is not published'); END;
+
 CREATE TRIGGER launch_external_files_immutable_delete
-BEFORE DELETE ON launch_external_files BEGIN SELECT RAISE(ABORT, 'immutable'); END;
+BEFORE DELETE ON launch_external_files
+WHEN NOT EXISTS(
+  SELECT 1 FROM launch_sessions launch
+  JOIN game_variant_revisions revision ON revision.id=launch.game_variant_revision_id
+  JOIN games game ON game.id=launch.game_id
+  WHERE launch.id=OLD.launch_session_id AND (
+    game.status='PUBLISHED' AND launch.state IN ('FINISHED','EXPIRED','REVOKED') AND (
+      game.current_content_revision_id<>revision.game_content_revision_id OR EXISTS(
+        SELECT 1 FROM json_each(revision.dependency_snapshot_json,'$.bios') dependency
+        JOIN bios_installations installation
+          ON installation.id=json_extract(dependency.value,'$.installationId')
+        WHERE installation.payload_released_at_ms IS NOT NULL
+      )
+    ) OR
+    game.status='DELETED' AND game.payload_state IN ('RELEASING','FAILED')
+  )
+)
+BEGIN SELECT RAISE(ABORT, 'immutable'); END;
 
 CREATE TRIGGER launch_external_files_immutable_update
 BEFORE UPDATE ON launch_external_files BEGIN SELECT RAISE(ABORT, 'immutable'); END;
+
+CREATE TRIGGER launch_external_files_published_insert BEFORE INSERT ON launch_external_files
+WHEN NOT EXISTS(
+  SELECT 1 FROM launch_sessions launch JOIN games game ON game.id=launch.game_id
+  WHERE launch.id=NEW.launch_session_id AND game.status='PUBLISHED'
+)
+BEGIN SELECT RAISE(ABORT,'game payload owner is not published'); END;
 
 CREATE TRIGGER launch_external_files_kind_insert
 BEFORE INSERT ON launch_external_files
@@ -926,7 +1068,16 @@ END;
 
 CREATE TRIGGER provider_responses_immutable_delete BEFORE DELETE ON metadata_provider_responses BEGIN SELECT RAISE(ABORT, 'immutable'); END;
 
-CREATE TRIGGER provider_responses_immutable_update BEFORE UPDATE ON metadata_provider_responses BEGIN SELECT RAISE(ABORT, 'immutable'); END;
+CREATE TRIGGER provider_responses_immutable_update
+BEFORE UPDATE ON metadata_provider_responses
+WHEN NOT (
+  OLD.raw_payload_state='RETAINED' AND NEW.raw_payload_state='RELEASED'
+  AND NEW.raw_response_blob_id IS NULL AND NEW.raw_payload_released_at_ms IS NOT NULL
+  AND NEW.id=OLD.id AND NEW.provider=OLD.provider AND NEW.request_digest=OLD.request_digest
+  AND NEW.http_status IS OLD.http_status AND NEW.outcome=OLD.outcome
+  AND NEW.fetched_at_ms=OLD.fetched_at_ms AND NEW.expires_at_ms=OLD.expires_at_ms
+)
+BEGIN SELECT RAISE(ABORT, 'immutable'); END;
 
 CREATE TRIGGER review_arcade_parent_owner_insert
 BEFORE INSERT ON review_arcade_parent_attachments
@@ -1158,7 +1309,12 @@ WHEN NOT (
 BEGIN SELECT RAISE(ABORT,'invalid multi-disc attachment state transition'); END;
 
 CREATE TRIGGER review_preview_files_immutable_delete
-BEFORE DELETE ON review_preview_files BEGIN SELECT RAISE(ABORT,'immutable'); END;
+BEFORE DELETE ON review_preview_files
+WHEN NOT EXISTS(
+  SELECT 1 FROM review_preview_sessions preview JOIN import_items item ON item.id=preview.import_item_id
+  WHERE preview.id=OLD.preview_session_id AND item.payload_state IN ('RELEASING','FAILED')
+)
+BEGIN SELECT RAISE(ABORT,'immutable'); END;
 
 CREATE TRIGGER review_preview_files_immutable_update
 BEFORE UPDATE ON review_preview_files BEGIN SELECT RAISE(ABORT,'immutable'); END;
@@ -1264,6 +1420,7 @@ WHEN NOT EXISTS (
 BEGIN SELECT RAISE(ABORT,'invalid review runtime screenshot'); END;
 
 CREATE TRIGGER review_uploaded_assets_immutable_delete BEFORE DELETE ON review_uploaded_assets
+WHEN NOT EXISTS(SELECT 1 FROM import_items WHERE id=OLD.import_item_id AND payload_state IN ('RELEASING','FAILED'))
 BEGIN SELECT RAISE(ABORT, 'immutable'); END;
 
 CREATE TRIGGER review_uploaded_assets_immutable_update BEFORE UPDATE ON review_uploaded_assets
@@ -1333,6 +1490,10 @@ BEGIN
   ) THEN RAISE(ABORT, 'save state source launch mismatch') END;
 END;
 
+CREATE TRIGGER save_states_published_insert BEFORE INSERT ON save_states
+WHEN NOT EXISTS(SELECT 1 FROM games WHERE id=NEW.game_id AND status='PUBLISHED')
+BEGIN SELECT RAISE(ABORT,'game payload owner is not published'); END;
+
 CREATE TRIGGER save_states_source_launch_update
 BEFORE UPDATE OF source_launch_session_id,profile_id,game_id,game_variant_revision_id,core_artifact_id,dat_version_id,dos_entry_path
 ON save_states
@@ -1358,6 +1519,25 @@ CREATE TRIGGER scrape_attempts_immutable_update BEFORE UPDATE ON metadata_scrape
 CREATE TRIGGER scrape_candidates_immutable_delete BEFORE DELETE ON scrape_candidates BEGIN SELECT RAISE(ABORT, 'immutable'); END;
 
 CREATE TRIGGER scrape_candidates_immutable_update BEFORE UPDATE ON scrape_candidates BEGIN SELECT RAISE(ABORT, 'immutable'); END;
+
+CREATE TRIGGER scrape_candidate_assets_published_insert BEFORE INSERT ON scrape_candidate_assets
+WHEN EXISTS(
+  SELECT 1 FROM scrape_candidates candidate
+  JOIN metadata_scrape_runs run ON run.id=candidate.scrape_run_id
+  JOIN games game ON game.id=run.game_id
+  WHERE candidate.id=NEW.scrape_candidate_id AND game.status<>'PUBLISHED'
+)
+BEGIN SELECT RAISE(ABORT,'game payload owner is not published'); END;
+
+CREATE TRIGGER scrape_candidate_assets_published_update
+BEFORE UPDATE OF blob_id ON scrape_candidate_assets
+WHEN NEW.blob_id IS NOT NULL AND EXISTS(
+  SELECT 1 FROM scrape_candidates candidate
+  JOIN metadata_scrape_runs run ON run.id=candidate.scrape_run_id
+  JOIN games game ON game.id=run.game_id
+  WHERE candidate.id=NEW.scrape_candidate_id AND game.status<>'PUBLISHED'
+)
+BEGIN SELECT RAISE(ABORT,'game payload owner is not published'); END;
 
 CREATE TRIGGER server_bios_items_frozen_update
 BEFORE UPDATE ON server_bios_import_items
@@ -1449,7 +1629,35 @@ CREATE TRIGGER variant_dependencies_immutable_delete BEFORE DELETE ON variant_de
 CREATE TRIGGER variant_dependencies_immutable_update BEFORE UPDATE ON variant_dependencies BEGIN SELECT RAISE(ABORT, 'immutable'); END;
 
 CREATE TRIGGER variant_files_immutable_delete
-BEFORE DELETE ON variant_files BEGIN SELECT RAISE(ABORT,'immutable'); END;
+BEFORE DELETE ON variant_files
+WHEN NOT EXISTS(
+  SELECT 1 FROM game_variant_revisions revision
+  JOIN game_variants variant ON variant.id=revision.game_variant_id
+  JOIN games game ON game.id=variant.game_id
+  WHERE revision.id=OLD.game_variant_revision_id AND (
+    game.status='PUBLISHED' AND (
+      game.current_content_revision_id<>revision.game_content_revision_id OR
+      OLD.role='BIOS_BUNDLE' AND EXISTS(
+        SELECT 1 FROM json_each(revision.dependency_snapshot_json,'$.bios') dependency
+        JOIN bios_installations installation
+          ON installation.id=json_extract(dependency.value,'$.installationId')
+        WHERE installation.payload_released_at_ms IS NOT NULL
+          AND json_extract(dependency.value,'$.blobId')=OLD.blob_id
+      )
+    ) OR
+    game.status='DELETED' AND game.payload_state IN ('RELEASING','FAILED')
+  )
+)
+BEGIN SELECT RAISE(ABORT,'immutable'); END;
 
 CREATE TRIGGER variant_files_immutable_update
 BEFORE UPDATE ON variant_files BEGIN SELECT RAISE(ABORT,'immutable'); END;
+
+CREATE TRIGGER variant_files_published_insert BEFORE INSERT ON variant_files
+WHEN NOT EXISTS(
+  SELECT 1 FROM game_variant_revisions revision
+  JOIN game_variants variant ON variant.id=revision.game_variant_id
+  JOIN games game ON game.id=variant.game_id
+  WHERE revision.id=NEW.game_variant_revision_id AND game.status='PUBLISHED'
+)
+BEGIN SELECT RAISE(ABORT,'game payload owner is not published'); END;

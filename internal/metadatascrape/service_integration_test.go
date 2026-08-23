@@ -364,10 +364,11 @@ reason
 FROM review_events
 WHERE import_item_id=?
 AND event_type='APPROVED'
-`, approved.GameID, firstItemID).Scan(&publishedAssets, &providerEvidence, &storedReason); err != nil ||
+	`, approved.GameID, firstItemID).Scan(&publishedAssets, &providerEvidence, &storedReason); err != nil ||
 		publishedAssets != 1 ||
 		storedReason != reason ||
-		!strings.Contains(providerEvidence, candidateAssetID) {
+		!strings.Contains(providerEvidence, `"candidateSelected":true`) ||
+		strings.Contains(providerEvidence, candidateAssetID) {
 		t.Fatalf(
 			"published review assets/evidence = %d %s %q, error=%v",
 			publishedAssets,

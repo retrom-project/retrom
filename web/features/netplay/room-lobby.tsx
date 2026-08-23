@@ -180,7 +180,12 @@ function RoomActions({ busy, mutate, onConfirm, room, self, terminal }: {
   self: NetplayRoom["members"][number] | undefined;
   terminal: boolean;
 }) {
-  if (terminal) {return <div className="netplay-terminal"><h2>本次联机已结束</h2><p>原因：{room.endReason ?? "NORMAL"}</p><Link className="button" href="/netplay">返回联机首页</Link></div>;}
+  const terminalReasons: Record<string, string> = {
+    GAME_DELETED: "游戏已删除",
+    GAME_CONTENT_REPLACED: "游戏内容已替换",
+    BIOS_REPLACED: "运行所需 BIOS 已替换",
+  };
+  if (terminal) {return <div className="netplay-terminal"><h2>本次联机已结束</h2><p>原因：{room.endReason ? terminalReasons[room.endReason] ?? room.endReason : "NORMAL"}</p><Link className="button" href="/netplay">返回联机首页</Link></div>;}
   return <div className="netplay-actions">
     {self && room.permissions.canReady ? <button className={`button${self.ready ? " secondary" : ""}`} type="button" disabled={busy} onClick={() => void mutate(`/api/v1/netplay/rooms/${room.roomId}/members/me/ready`, "PUT", { ready: !self.ready }, true)}>{self.ready ? "取消准备" : "准备"}</button> : null}
     {room.permissions.host ? <><button className="button" type="button" disabled={busy || !room.permissions.canStart} onClick={() => void mutate(`/api/v1/netplay/rooms/${room.roomId}/start`, "POST", {})}>开始联机</button><button className="button secondary" type="button" disabled={busy || room.state !== "WAITING"} onClick={() => void mutate(`/api/v1/netplay/rooms/${room.roomId}/game`, "DELETE")}>更换游戏</button><button className="button danger" type="button" disabled={busy} onClick={() => onConfirm("close")}>关闭房间</button></> : self ? <button className="button secondary" type="button" disabled={busy} onClick={() => onConfirm("leave")}>离开房间</button> : null}
@@ -207,7 +212,7 @@ function ActiveRoomView({ busy, confirmAction, copied, error, mutate, onConfirm,
   return <div className="page-layout netplay-room-page">
     <PageHeader eyebrow={`房间 #${room.roomId.slice(0, 8)}`} title={title} description={description} actions={<Link className="button secondary" href="/netplay">联机首页</Link>} />
     {error ? <div className="feedback-banner bad" role="alert"><div>{error}</div></div> : null}
-    <div className="netplay-room-summary"><div><StatusBadge tone={statusTone}>{room.state}</StatusBadge><span>{room.members.length} 位玩家</span></div>{room.game && !terminal ? <button className="button secondary" type="button" onClick={onCopy}>{copied ? "已复制链接" : "复制房间链接"}</button> : null}</div>
+    <div className="netplay-room-summary"><div><StatusBadge tone={statusTone}>{room.state}</StatusBadge>{room.game?.status === "DELETED" ? <StatusBadge tone="bad">已删除</StatusBadge> : null}<span>{room.members.length} 位玩家</span></div>{room.game && !terminal ? <button className="button secondary" type="button" onClick={onCopy}>{copied ? "已复制链接" : "复制房间链接"}</button> : null}</div>
     <RoomSeats busy={busy} mutate={mutate} room={room} />
     <RoomActions busy={busy} mutate={mutate} onConfirm={onConfirm} room={room} self={self} terminal={terminal} />
     <ConfirmDialog open={confirmAction !== null} title={closing ? "关闭联机房间？" : "离开联机房间？"} tone="danger" busy={busy} confirmLabel={closing ? "关闭房间" : "离开房间"} onCancel={onConfirmCancel} onConfirm={() => {

@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"retrom/internal/cleanup"
+	"retrom/internal/payloadrelease"
 	"retrom/internal/tagging"
 
 	"github.com/google/uuid"
@@ -74,13 +75,6 @@ WHERE id=? AND review_pending_item_count>0
 	return requireSingleReviewMutation(jobResult, jobErr, "discard job aggregate")
 }
 
-func nullableJSON(value sql.NullString) any {
-	if value.Valid {
-		return json.RawMessage(value.String)
-	}
-	return nil
-}
-
 // Contract branches stay contiguous for a single auditable decision.
 func (service *Service) Discard(
 	ctx context.Context,
@@ -111,6 +105,11 @@ func (service *Service) Discard(
 	if err := transitionServerReview(ctx, transaction, itemID, "REVIEW_DISCARDED", nil, now); err != nil {
 		return DecisionResult{}, err
 	}
+	if err := scheduleTerminalPayloads(
+		ctx, transaction, itemID, evidence.importID, payloadrelease.ReasonImportDiscarded, now,
+	); err != nil {
+		return DecisionResult{}, err
+	}
 	eventID, err := insertDiscardReviewEvent(ctx, transaction, itemID, reason, evidence, now)
 	if err != nil {
 		return DecisionResult{}, err
@@ -128,7 +127,6 @@ type discardEvidence struct {
 	draftID            string
 	importID           string
 	metadataJSON       string
-	sourceManifestJSON string
 	configSnapshotJSON string
 	validationID       sql.NullString
 	datID              sql.NullString
@@ -149,19 +147,18 @@ func (service *Service) loadDiscardEvidence(
 ) (discardEvidence, error) {
 	var value discardEvidence
 	err := transaction.QueryRowContext(ctx, `
-SELECT d.id,i.import_job_id,d.metadata_json,d.version,source_snapshot.source_manifest_json,
+SELECT d.id,i.import_job_id,d.metadata_json,d.version,
   j.config_snapshot_json,d.selected_validation_id,v.dat_version_id,v.dependency_snapshot_json,
   d.selected_candidate_id,d.cover_candidate_asset_id,d.cover_uploaded_asset_id,
   d.background_candidate_asset_id
 FROM import_items i
 JOIN import_jobs j ON j.id=i.import_job_id
 JOIN review_drafts d ON d.import_item_id=i.id
-JOIN import_item_source_snapshots source_snapshot ON source_snapshot.id=d.effective_source_snapshot_id
 LEFT JOIN import_item_core_validations v ON v.id=d.selected_validation_id
 WHERE i.id=? AND i.state='REVIEW_PENDING'
 `, itemID).Scan(
 		&value.draftID, &value.importID, &value.metadataJSON, &value.currentVersion,
-		&value.sourceManifestJSON, &value.configSnapshotJSON, &value.validationID,
+		&value.configSnapshotJSON, &value.validationID,
 		&value.datID, &value.dependencySnapshot, &value.candidateID, &value.coverID,
 		&value.uploadedCoverID, &value.backgroundID,
 	)
@@ -237,8 +234,8 @@ INSERT INTO review_events(
   after_json,diff_json,config_evidence_json,dat_evidence_json,provider_evidence_json,
   reason,created_at_ms
 ) VALUES(?,?,'DISCARDED',?,?,?,?, 
-  '{"schemaVersion":1,"decision":"DISCARDED"}',
-  '{"schemaVersion":1,"decision":"DISCARDED"}',?,?,?,?,?)
+  '{"schemaVersion":2,"decision":"DISCARDED"}',
+  '{"schemaVersion":2,"decision":"DISCARDED"}',?,?,?,?,?)
 `, eventID.String(), itemID, actor.Kind, actor.UserID, actor.Label, string(beforeJSON),
 		string(configJSON), string(datJSON), string(providerJSON), nullableText(reason), now)
 	if err != nil {
@@ -249,29 +246,22 @@ INSERT INTO review_events(
 
 func marshalDiscardEvidence(evidence discardEvidence) ([]byte, []byte, []byte, []byte) {
 	beforeJSON, _ := json.Marshal(map[string]any{
-		"schemaVersion": 1, "metadata": json.RawMessage(evidence.metadataJSON),
-		"sourceManifest":       json.RawMessage(evidence.sourceManifestJSON),
-		"selectedValidationId": nullable(evidence.validationID), "tags": evidence.tags,
-		"selectedCandidateId": nullable(evidence.candidateID),
-		"selectedAssets": map[string]any{
-			"coverCandidateAssetId":      nullable(evidence.coverID),
-			"coverUploadedAssetId":       nullable(evidence.uploadedCoverID),
-			"backgroundCandidateAssetId": nullable(evidence.backgroundID),
+		"schemaVersion": 2, "metadata": json.RawMessage(evidence.metadataJSON),
+		"tags": evidence.tags,
+		"mediaSelection": map[string]any{
+			"cover":      evidence.coverID.Valid || evidence.uploadedCoverID.Valid,
+			"background": evidence.backgroundID.Valid,
 		},
 	})
 	configJSON, _ := json.Marshal(map[string]any{
-		"schemaVersion": 1, "configSnapshot": json.RawMessage(evidence.configSnapshotJSON),
-		"validationId": nullable(evidence.validationID),
+		"schemaVersion": 2, "validationAvailable": evidence.validationID.Valid,
 	})
 	datJSON, _ := json.Marshal(map[string]any{
-		"schemaVersion": 1, "datVersionId": nullable(evidence.datID),
-		"dependencySnapshot": nullableJSON(evidence.dependencySnapshot),
+		"schemaVersion": 2, "datMatched": evidence.datID.Valid,
 	})
 	providerJSON, _ := json.Marshal(map[string]any{
-		"schemaVersion": 1, "selectedCandidateId": nullable(evidence.candidateID),
-		"coverCandidateAssetId":      nullable(evidence.coverID),
-		"coverUploadedAssetId":       nullable(evidence.uploadedCoverID),
-		"backgroundCandidateAssetId": nullable(evidence.backgroundID),
+		"schemaVersion": 2, "selectedCandidateId": nullable(evidence.candidateID),
+		"candidateSelected": evidence.candidateID.Valid,
 	})
 	return beforeJSON, configJSON, datJSON, providerJSON
 }
@@ -470,8 +460,33 @@ WHERE id=?
 		now, newState, now, importID); err != nil {
 		return CancelResult{}, false, fmt.Errorf("libraryimport/review: cancel job aggregate: %w", err)
 	}
+	if err := scheduleCancelledPayloads(ctx, transaction, importID, now); err != nil {
+		return CancelResult{}, false, err
+	}
 	if err := transaction.Commit(); err != nil {
 		return CancelResult{}, false, fmt.Errorf("libraryimport/review: %w", err)
 	}
 	return CancelResult{ImportJobID: importID, State: newState, Version: version + 1}, pending, nil
+}
+
+func scheduleCancelledPayloads(ctx context.Context, transaction *sql.Tx, importID string, now int64) error {
+	itemIDs, err := payloadrelease.CollectScopeIDs(ctx, transaction, `
+SELECT id FROM import_items
+WHERE import_job_id=? AND state='CANCELLED' AND payload_state='RETAINED'
+ORDER BY id
+`, importID)
+	if err != nil {
+		return fmt.Errorf("libraryimport/review: list cancelled payloads: %w", err)
+	}
+	for _, itemID := range itemIDs {
+		if _, err := payloadrelease.ScheduleTerminalImportItem(
+			ctx, transaction, itemID, payloadrelease.ReasonImportCancelled, now,
+		); err != nil {
+			return fmt.Errorf("libraryimport/review: schedule cancelled payload: %w", err)
+		}
+	}
+	if _, err := payloadrelease.ScheduleTerminalImportJob(ctx, transaction, importID, now); err != nil {
+		return fmt.Errorf("libraryimport/review: schedule cancelled aggregate: %w", err)
+	}
+	return nil
 }

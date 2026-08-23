@@ -23,6 +23,7 @@ import (
 	"retrom/internal/cleanup"
 	"retrom/internal/dependencies"
 	"retrom/internal/libraryimport"
+	"retrom/internal/payloadrelease"
 	"retrom/internal/testassert"
 	"retrom/internal/testsupport"
 	"retrom/internal/uploads"
@@ -102,8 +103,23 @@ WHERE id=?
 		t.Fatal(err)
 	}
 
+	releaseService, err := payloadrelease.New(database.SQL, blobs, time.Now, 7*24*time.Hour)
+	testassert.False(t, err != nil, err)
+	t.Cleanup(releaseService.Close)
+	service := New(database.SQL, time.Now).WithBlobStore(blobs).WithPayloadRelease(releaseService)
+	saveID, launchID, savePayloads := seedReplacementSave(
+		t, ctx, database.SQL, blobs, published.GameID,
+	)
+	duplicateUpload := completeUpload(t, ctx, database.SQL, uploadService, "same-again.gba", []byte("original"))
+	unchanged, err := service.Schedule(ctx, published.GameID, duplicateUpload, initialVersion)
+	testassert.False(t, err != nil, err)
+	waitForJob(t, ctx, database.SQL, unchanged.JobID, "FAILED")
+	assertReplacementFailure(
+		t, ctx, database.SQL, unchanged.JobID, "GAME_CONTENT_UNCHANGED", published.GameID,
+		originalContent, saveID,
+	)
+
 	replacementUpload := completeUpload(t, ctx, database.SQL, uploadService, "replacement.gba", []byte("replacement"))
-	service := New(database.SQL, time.Now)
 	idempotencyKey := "01980000-0000-7000-8000-000000000099"
 	requestDigest := "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
 	scheduled, replayed, err := service.ScheduleIdempotent(
@@ -155,6 +171,10 @@ WHERE c.id=?
 		t.Fatal(err)
 	}
 	testassert.Falsef(t, testassert.Any(func() bool { return sourceKind != "ADMIN_REPLACE" }, func() bool { return sourceRef != scheduled.JobID }, func() bool { return variantContent != replacementContent }), "published revision = %s/%s/%s", sourceKind, sourceRef, variantContent)
+	assertSupersededContentReleased(
+		t, ctx, database.SQL, published.GameID, originalContent, saveID, launchID, savePayloads,
+	)
+	retainedSaveID, _, _ := seedReplacementSave(t, ctx, database.SQL, blobs, published.GameID)
 
 	if _, err := database.SQL.ExecContext(ctx, `
 UPDATE games
@@ -178,6 +198,12 @@ WHERE id=?
 		t.Fatal(err)
 	}
 	testassert.Falsef(t, afterFailure != replacementContent, "failed replacement changed current content: %s != %s", afterFailure, replacementContent)
+	var retainedSaveCount int
+	if err := database.SQL.QueryRowContext(
+		ctx, `SELECT count(*) FROM save_states WHERE id=?`, retainedSaveID,
+	).Scan(&retainedSaveCount); err != nil || retainedSaveCount != 1 {
+		t.Fatalf("failed replacement retained save count = %d, error=%v", retainedSaveCount, err)
+	}
 	var failedRevisionCount int
 	if err := database.SQL.QueryRowContext(ctx, `
 SELECT count(*)
@@ -235,7 +261,11 @@ SELECT current_content_revision_id,version FROM games WHERE id=?
 		"replacement/two.chd":    fakeReplacementCHD("two"),
 		"replacement/readme.txt": []byte("ignored"),
 	})
-	service := New(database.SQL, time.Now).WithBlobStore(blobs).WithMultiDiscImportEnabled(true)
+	releaseService, err := payloadrelease.New(database.SQL, blobs, time.Now, 7*24*time.Hour)
+	testassert.False(t, err != nil, err)
+	t.Cleanup(releaseService.Close)
+	service := New(database.SQL, time.Now).WithBlobStore(blobs).
+		WithPayloadRelease(releaseService).WithMultiDiscImportEnabled(true)
 	scheduled, err := service.ScheduleMode(
 		ctx, published.GameID, replacementUpload, "MULTI_DISC_M3U_V1", gameVersion,
 	)
@@ -251,6 +281,7 @@ WHERE game.id=?
 		t.Fatal(err)
 	}
 	testassert.Falsef(t, testassert.Any(func() bool { return currentContentID == originalContentID }, func() bool { return replacedVersion != gameVersion+1 }, func() bool { return contentKind != "MULTI_DISC_M3U_V1" }), "replacement = %s/%d/%s", currentContentID, replacedVersion, contentKind)
+	assertContentPayloadCount(t, ctx, database.SQL, originalContentID, 0)
 	var discCount, playlistCount int
 	if err := database.SQL.QueryRowContext(ctx, `
 SELECT (SELECT count(*) FROM game_content_files WHERE game_content_revision_id=? AND role='DISC'),
@@ -280,6 +311,51 @@ SELECT (SELECT count(*) FROM game_content_files WHERE game_content_revision_id=?
 		t.Fatal(err)
 	}
 	testassert.Falsef(t, testassert.Any(func() bool { return errorCode != "MULTI_DISC_FILE_MISSING" }, func() bool { return afterFailure != currentContentID }), "failed replacement = code=%s content=%s", errorCode, afterFailure)
+
+	unchangedUpload := completeDirectoryUpload(t, ctx, database.SQL, uploadService, map[string][]byte{
+		"same/game.m3u": []byte("one.chd\ntwo.chd\n"),
+		"same/one.chd":  fakeReplacementCHD("one"),
+		"same/two.chd":  fakeReplacementCHD("two"),
+	})
+	unchanged, err := service.ScheduleMode(
+		ctx, published.GameID, unchangedUpload, "MULTI_DISC_M3U_V1", replacedVersion,
+	)
+	testassert.False(t, err != nil, err)
+	waitForJob(t, ctx, database.SQL, unchanged.JobID, "FAILED")
+	assertReplacementFailure(
+		t, ctx, database.SQL, unchanged.JobID, "GAME_CONTENT_UNCHANGED", published.GameID,
+		currentContentID, "",
+	)
+
+	var sharedDiscBlobID, retiredDiscBlobID string
+	if err := database.SQL.QueryRowContext(ctx, `
+SELECT
+ (SELECT blob_id FROM game_content_files WHERE game_content_revision_id=? AND role='DISC'
+  ORDER BY sort_order LIMIT 1),
+ (SELECT blob_id FROM game_content_files WHERE game_content_revision_id=? AND role='DISC'
+  ORDER BY sort_order LIMIT 1 OFFSET 1)
+`, currentContentID, currentContentID).Scan(&sharedDiscBlobID, &retiredDiscBlobID); err != nil {
+		t.Fatal(err)
+	}
+	partialChangeUpload := completeDirectoryUpload(t, ctx, database.SQL, uploadService, map[string][]byte{
+		"next/game.m3u": []byte("one.chd\ntwo.chd\n"),
+		"next/one.chd":  fakeReplacementCHD("one"),
+		"next/two.chd":  fakeReplacementCHD("two-new"),
+	})
+	changed, err := service.ScheduleMode(
+		ctx, published.GameID, partialChangeUpload, "MULTI_DISC_M3U_V1", replacedVersion,
+	)
+	testassert.False(t, err != nil, err)
+	waitForJob(t, ctx, database.SQL, changed.JobID, "SUCCEEDED")
+	var latestContentID string
+	if err := database.SQL.QueryRowContext(ctx, `SELECT current_content_revision_id FROM games WHERE id=?`,
+		published.GameID).Scan(&latestContentID); err != nil {
+		t.Fatal(err)
+	}
+	assertContentPayloadCount(t, ctx, database.SQL, currentContentID, 0)
+	assertContentPayloadCount(t, ctx, database.SQL, latestContentID, 3)
+	assertBlobReferenceState(t, ctx, database.SQL, sharedDiscBlobID, true)
+	assertBlobReferenceState(t, ctx, database.SQL, retiredDiscBlobID, false)
 }
 
 func fakeReplacementCHD(payload string) []byte {

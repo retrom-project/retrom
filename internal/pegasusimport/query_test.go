@@ -42,7 +42,7 @@ CREATE TABLE pegasus_imports(
  discovered_video_count INTEGER,mapping_version INTEGER,version INTEGER,created_by_user_id TEXT,last_error_code TEXT,
  retryable INTEGER,created_at_ms INTEGER,updated_at_ms INTEGER,expires_at_ms INTEGER,completed_at_ms INTEGER
 );
-CREATE TABLE pegasus_import_items(id TEXT PRIMARY KEY,import_id TEXT,execution_state TEXT,error_code TEXT,error_details_json TEXT,retryable INTEGER,completed_at_ms INTEGER,updated_at_ms INTEGER);
+CREATE TABLE pegasus_import_items(id TEXT PRIMARY KEY,import_id TEXT,execution_state TEXT,error_code TEXT,error_details_json TEXT,retryable INTEGER,completed_at_ms INTEGER,version INTEGER,updated_at_ms INTEGER);
 CREATE TABLE jobs(
  id TEXT PRIMARY KEY,execution_no INTEGER,state TEXT,payload_json TEXT,attempt_count INTEGER,available_at_ms INTEGER,
  execution_started_at_ms INTEGER,execution_deadline_at_ms INTEGER,leased_until_ms INTEGER,heartbeat_at_ms INTEGER,
@@ -66,7 +66,7 @@ INSERT INTO pegasus_imports(
 );
 INSERT INTO pegasus_import_items VALUES(
  'item','import','COMMIT_FAILED','PEGASUS_LIBRARY_IMPORT_FAILED',
- '{"schemaVersion":1,"stage":"LIBRARY_IMPORT"}',1,2,2
+ '{"schemaVersion":1,"stage":"LIBRARY_IMPORT"}',1,2,1,2
 );
 INSERT INTO jobs VALUES('work',1,'SUCCEEDED','{}',1,1,1,1,NULL,NULL,2,NULL,NULL,NULL,NULL,NULL,1,2);
 `); err != nil {

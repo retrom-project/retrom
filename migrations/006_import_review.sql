@@ -24,6 +24,10 @@ CREATE TABLE import_jobs (
   ignored_file_count INTEGER NOT NULL DEFAULT 0,
   rejected_file_count INTEGER NOT NULL DEFAULT 0,
   last_error_code TEXT,
+  payload_state TEXT NOT NULL DEFAULT 'RETAINED' CHECK(payload_state IN ('RETAINED','RELEASING','RELEASED','FAILED')),
+  payload_release_job_id TEXT UNIQUE REFERENCES jobs(id),
+  payload_released_at_ms INTEGER,
+  payload_last_error_code TEXT,
   cancel_requested_at_ms INTEGER,
   cancel_reason TEXT,
   version INTEGER NOT NULL DEFAULT 1,
@@ -33,7 +37,13 @@ CREATE TABLE import_jobs (
 CHECK(resolved_rejected_file_count BETWEEN 0 AND rejected_file_count), reconfigured_from_import_job_id TEXT REFERENCES import_jobs(id), already_imported_item_count INTEGER NOT NULL DEFAULT 0
 CHECK(already_imported_item_count BETWEEN 0 AND discarded_item_count), already_imported_file_count INTEGER NOT NULL DEFAULT 0
 CHECK(already_imported_file_count >= 0),
-  CHECK(total_item_count = queued_item_count + running_item_count + review_pending_item_count + published_item_count + discarded_item_count + failed_item_count + cancelled_item_count)
+  CHECK(total_item_count = queued_item_count + running_item_count + review_pending_item_count + published_item_count + discarded_item_count + failed_item_count + cancelled_item_count),
+  CHECK(
+    payload_state='RETAINED' AND payload_release_job_id IS NULL AND payload_released_at_ms IS NULL AND payload_last_error_code IS NULL OR
+    payload_state='RELEASING' AND payload_release_job_id IS NOT NULL AND payload_released_at_ms IS NULL AND payload_last_error_code IS NULL OR
+    payload_state='RELEASED' AND payload_release_job_id IS NOT NULL AND payload_released_at_ms IS NOT NULL AND payload_last_error_code IS NULL OR
+    payload_state='FAILED' AND payload_release_job_id IS NOT NULL AND payload_released_at_ms IS NULL AND payload_last_error_code IS NOT NULL
+  )
 );
 
 CREATE TABLE import_job_files (
@@ -76,12 +86,22 @@ CREATE TABLE import_items (
   search_text TEXT NOT NULL,
   failed_stage TEXT CHECK(failed_stage IS NULL OR failed_stage IN ('HASHING','IDENTIFYING','SCRAPING')),
   last_error_code TEXT,
+  payload_state TEXT NOT NULL DEFAULT 'RETAINED' CHECK(payload_state IN ('RETAINED','RELEASING','RELEASED','FAILED')),
+  payload_release_job_id TEXT UNIQUE REFERENCES jobs(id),
+  payload_released_at_ms INTEGER,
+  payload_last_error_code TEXT,
   version INTEGER NOT NULL DEFAULT 1,
   created_at_ms INTEGER NOT NULL,
   updated_at_ms INTEGER NOT NULL,
   completed_at_ms INTEGER,
   UNIQUE(import_job_id, group_key),
-  CHECK((state IN ('FAILED_RETRYABLE','FAILED_FINAL')) = (failed_stage IS NOT NULL AND last_error_code IS NOT NULL))
+  CHECK((state IN ('FAILED_RETRYABLE','FAILED_FINAL')) = (failed_stage IS NOT NULL AND last_error_code IS NOT NULL)),
+  CHECK(
+    payload_state='RETAINED' AND payload_release_job_id IS NULL AND payload_released_at_ms IS NULL AND payload_last_error_code IS NULL OR
+    payload_state='RELEASING' AND payload_release_job_id IS NOT NULL AND payload_released_at_ms IS NULL AND payload_last_error_code IS NULL OR
+    payload_state='RELEASED' AND payload_release_job_id IS NOT NULL AND payload_released_at_ms IS NOT NULL AND payload_last_error_code IS NULL OR
+    payload_state='FAILED' AND payload_release_job_id IS NOT NULL AND payload_released_at_ms IS NULL AND payload_last_error_code IS NOT NULL
+  )
 );
 
 CREATE TABLE "import_item_source_files" (
@@ -189,10 +209,11 @@ CREATE TABLE import_item_multidisc_entries (
   source_reference TEXT NOT NULL,
   normalized_reference TEXT NOT NULL,
   canonical_name TEXT NOT NULL,
-  state TEXT NOT NULL CHECK(state IN ('PRESENT','MISSING')),
+  state TEXT NOT NULL CHECK(state IN ('PRESENT','MISSING','PAYLOAD_RELEASED')),
   upload_file_id TEXT REFERENCES upload_files(id),
   blob_id TEXT REFERENCES blobs(id),
   source_logical_name TEXT,
+  payload_released_at_ms INTEGER,
   created_at_ms INTEGER NOT NULL CHECK(created_at_ms>=0),
   PRIMARY KEY(source_snapshot_id,ordinal),
   UNIQUE(source_snapshot_id,normalized_reference),
@@ -201,8 +222,9 @@ CREATE TABLE import_item_multidisc_entries (
   CHECK(length(CAST(normalized_reference AS BLOB)) BETWEEN 1 AND 255),
   CHECK(canonical_name=printf('disc-%03d.chd',ordinal+1)),
   CHECK(
-    state='PRESENT' AND upload_file_id IS NOT NULL AND blob_id IS NOT NULL AND source_logical_name IS NOT NULL OR
-    state='MISSING' AND upload_file_id IS NULL AND blob_id IS NULL AND source_logical_name IS NULL
+    state='PRESENT' AND upload_file_id IS NOT NULL AND blob_id IS NOT NULL AND source_logical_name IS NOT NULL AND payload_released_at_ms IS NULL OR
+    state='MISSING' AND upload_file_id IS NULL AND blob_id IS NULL AND source_logical_name IS NULL AND payload_released_at_ms IS NULL OR
+    state='PAYLOAD_RELEASED' AND upload_file_id IS NULL AND blob_id IS NULL AND payload_released_at_ms IS NOT NULL
   )
 );
 
@@ -234,12 +256,12 @@ CREATE TABLE "review_events" (
   actor_label TEXT CHECK(actor_label IN (
     'release-setup','offline-recovery','startup-test-bootstrap','restore-security-fence'
   )),
-  before_json TEXT NOT NULL,
-  after_json TEXT NOT NULL,
-  diff_json TEXT NOT NULL,
-  config_evidence_json TEXT NOT NULL,
-  dat_evidence_json TEXT NOT NULL,
-  provider_evidence_json TEXT NOT NULL,
+  before_json TEXT NOT NULL CHECK(json_valid(before_json) AND json_extract(before_json,'$.schemaVersion')=2),
+  after_json TEXT NOT NULL CHECK(json_valid(after_json) AND json_extract(after_json,'$.schemaVersion')=2),
+  diff_json TEXT NOT NULL CHECK(json_valid(diff_json) AND json_extract(diff_json,'$.schemaVersion')=2),
+  config_evidence_json TEXT NOT NULL CHECK(json_valid(config_evidence_json) AND json_extract(config_evidence_json,'$.schemaVersion')=2),
+  dat_evidence_json TEXT NOT NULL CHECK(json_valid(dat_evidence_json) AND json_extract(dat_evidence_json,'$.schemaVersion')=2),
+  provider_evidence_json TEXT NOT NULL CHECK(json_valid(provider_evidence_json) AND json_extract(provider_evidence_json,'$.schemaVersion')=2),
   reason TEXT,
   created_at_ms INTEGER NOT NULL CHECK(created_at_ms>=0),
   CHECK(
@@ -274,6 +296,7 @@ CREATE TABLE review_arcade_parent_attachments (
   dat_version_id TEXT NOT NULL REFERENCES dat_versions(id),
   upload_file_id TEXT REFERENCES upload_files(id),
   accepted_blob_id TEXT REFERENCES blobs(id),
+  payload_released_at_ms INTEGER,
   original_filename TEXT NOT NULL CHECK(length(CAST(original_filename AS BLOB)) BETWEEN 1 AND 255),
   observed_size_bytes INTEGER CHECK(observed_size_bytes IS NULL OR observed_size_bytes >= 0),
   observed_sha256 TEXT CHECK(observed_sha256 IS NULL OR (length(observed_sha256)=64 AND observed_sha256=lower(observed_sha256))),
@@ -286,7 +309,10 @@ CREATE TABLE review_arcade_parent_attachments (
   updated_at_ms INTEGER NOT NULL CHECK(updated_at_ms >= created_at_ms),
   finished_at_ms INTEGER,
   CHECK(expected_logical_name=dependency_machine||'.zip'),
-  CHECK((state='ACCEPTED')=(accepted_blob_id IS NOT NULL AND result_source_snapshot_id IS NOT NULL)),
+  CHECK((state='ACCEPTED')=(result_source_snapshot_id IS NOT NULL)),
+  CHECK(state<>'ACCEPTED' AND accepted_blob_id IS NULL AND payload_released_at_ms IS NULL OR
+        state='ACCEPTED' AND accepted_blob_id IS NOT NULL AND payload_released_at_ms IS NULL OR
+        state='ACCEPTED' AND accepted_blob_id IS NULL AND payload_released_at_ms IS NOT NULL),
   CHECK((state IN ('REJECTED','FAILED_RETRYABLE','CANCELLED'))=(error_code IS NOT NULL)),
   CHECK((state IN ('ACCEPTED','REJECTED','FAILED_RETRYABLE','CANCELLED'))=(finished_at_ms IS NOT NULL)),
   CHECK(state IN ('QUEUED','RUNNING') OR upload_file_id IS NULL OR observed_size_bytes IS NOT NULL)
@@ -496,8 +522,15 @@ CREATE TABLE metadata_provider_responses (
   http_status INTEGER,
   outcome TEXT NOT NULL CHECK(outcome IN ('HIT','MISS','RATE_LIMITED','TIMEOUT','INVALID_RESPONSE','NETWORK_ERROR')),
   raw_response_blob_id TEXT REFERENCES blobs(id),
+  raw_payload_state TEXT NOT NULL CHECK(raw_payload_state IN ('NONE','RETAINED','RELEASED')),
+  raw_payload_released_at_ms INTEGER,
   fetched_at_ms INTEGER NOT NULL,
-  expires_at_ms INTEGER NOT NULL
+  expires_at_ms INTEGER NOT NULL,
+  CHECK(
+    raw_payload_state='NONE' AND raw_response_blob_id IS NULL AND raw_payload_released_at_ms IS NULL OR
+    raw_payload_state='RETAINED' AND raw_response_blob_id IS NOT NULL AND raw_payload_released_at_ms IS NULL OR
+    raw_payload_state='RELEASED' AND raw_response_blob_id IS NULL AND raw_payload_released_at_ms IS NOT NULL
+  )
 );
 
 CREATE TABLE metadata_scrape_runs (
@@ -580,6 +613,7 @@ CREATE TABLE content_hash_evidence (
   blob_id TEXT REFERENCES blobs(id),
   archive_blob_id TEXT,
   archive_entry_ordinal INTEGER,
+  payload_released_at_ms INTEGER,
   crc32 TEXT,
   md5 TEXT,
   sha1 TEXT,
@@ -588,7 +622,10 @@ CREATE TABLE content_hash_evidence (
   created_at_ms INTEGER NOT NULL,
   UNIQUE(scrape_run_id, profile, query_order),
   FOREIGN KEY(archive_blob_id, archive_entry_ordinal) REFERENCES archive_entries(archive_blob_id, ordinal),
-  CHECK((blob_id IS NOT NULL) != (archive_blob_id IS NOT NULL)),
+  CHECK(
+    payload_released_at_ms IS NULL AND ((blob_id IS NOT NULL) != (archive_blob_id IS NOT NULL)) OR
+    payload_released_at_ms IS NOT NULL AND blob_id IS NULL AND archive_blob_id IS NULL AND archive_entry_ordinal IS NULL
+  ),
   CHECK(crc32 IS NOT NULL OR md5 IS NOT NULL OR sha1 IS NOT NULL OR sha256 IS NOT NULL)
 );
 
@@ -610,4 +647,3 @@ CREATE TABLE dos_entries (
   direct_launch_safe INTEGER NOT NULL CHECK(direct_launch_safe IN (0,1)),
   PRIMARY KEY(game_content_revision_id, normalized_path)
 );
-

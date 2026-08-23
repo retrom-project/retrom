@@ -334,12 +334,15 @@ WHERE import_item_id=? AND version=?
 	}
 	eventID, _ := uuid.NewV7()
 	actor := reviewActor(ctx)
+	beforeEvent := marshalReviewEventV2(map[string]any{"metadata": json.RawMessage(before)})
+	afterEvent := marshalReviewEventV2(map[string]any{"metadata": json.RawMessage(encoded)})
 	if _, err := transaction.ExecContext(ctx, `
 INSERT INTO review_events(id,import_item_id,event_type,actor_kind,actor_user_id,actor_label,before_json,
 after_json,diff_json,config_evidence_json,dat_evidence_json,provider_evidence_json,created_at_ms)
-VALUES(?,?,'DRAFT_SAVED',?,?,?,?,?,?,'{}','{}','{}',?)
-`, eventID.String(), itemID, actor.Kind, actor.UserID, actor.Label, before,
-		string(encoded), string(encoded), now); err != nil {
+VALUES(?,?,'DRAFT_SAVED',?,?,?,?,?,?,?,?,?,?)
+`, eventID.String(), itemID, actor.Kind, actor.UserID, actor.Label, beforeEvent,
+		afterEvent, marshalReviewEventV2(map[string]any{"metadataChanged": true}),
+		emptyReviewEventV2, emptyReviewEventV2, emptyReviewEventV2, now); err != nil {
 		return 0, fmt.Errorf("libraryimport/server metadata: %w", err)
 	}
 	if err := transaction.Commit(); err != nil {
@@ -526,7 +529,7 @@ func transitionServerReview(
 	}
 	result, err := transaction.ExecContext(ctx, `
 UPDATE pegasus_import_items
-SET execution_state=?,published_game_id=?,updated_at_ms=?
+SET execution_state=?,published_game_id=?,version=version+1,updated_at_ms=?
 WHERE library_import_item_id=? AND execution_state='REVIEW_PENDING'
 `, state, gameID, now, importItemID)
 	if err != nil {

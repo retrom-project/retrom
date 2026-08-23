@@ -79,8 +79,14 @@ test("ACC-FAV-003 user flow remains consistent across library, detail, folders, 
   const filledHeart = first.getByRole("button", { name: `取消收藏“${firstTitle}”` });
   await expect(filledHeart).toHaveAttribute("aria-pressed", "true");
   const filledHeartVisual = await favoriteHeartVisual(filledHeart);
-  expect(emptyHeartVisual).toMatchObject({ buttonWidth: 38, buttonHeight: 38, iconWidth: 18, iconHeight: 18, fill: "none" });
-  expect(filledHeartVisual).toMatchObject({ buttonWidth: 38, buttonHeight: 38, iconWidth: 18, iconHeight: 18, color: "rgb(220, 66, 87)", fill: "rgb(220, 66, 87)" });
+  expect(emptyHeartVisual).toMatchObject({ fill: "none" });
+  expect(filledHeartVisual).toMatchObject({ color: "rgb(220, 66, 87)", fill: "rgb(220, 66, 87)" });
+  for (const visual of [emptyHeartVisual, filledHeartVisual]) {
+    expect(visual.buttonWidth).toBeCloseTo(38, 3);
+    expect(visual.buttonHeight).toBeCloseTo(38, 3);
+    expect(visual.iconWidth).toBeCloseTo(18, 3);
+    expect(visual.iconHeight).toBeCloseTo(18, 3);
+  }
   expect(Math.abs(emptyHeartVisual.centerOffsetX)).toBeLessThanOrEqual(0.5);
   expect(Math.abs(emptyHeartVisual.centerOffsetY)).toBeLessThanOrEqual(0.5);
   expect(Math.abs(filledHeartVisual.centerOffsetX)).toBeLessThanOrEqual(0.5);

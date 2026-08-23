@@ -291,7 +291,7 @@ test("ACC-UI-006 admin pages remain reachable at desktop breakpoints", async ({ 
   if (payload.items[0]) {
     await page.goto(`/admin/games/${payload.items[0].gameId}`);
     await pageCanvasGaps(page, ".admin-game-detail");
-    for (const heading of ["发布信息", "媒体", "游戏文件与运行环境", "管理操作", "从游戏库移除"]) {
+    for (const heading of ["发布信息", "媒体", "游戏文件与运行环境", "管理操作", "危险操作"]) {
       await expect(page.getByRole("heading", { name: heading })).toBeVisible();
     }
     for (const omittedTag of ["媒体资源", "运行状态正常", "维护工具", "危险区域"]) {

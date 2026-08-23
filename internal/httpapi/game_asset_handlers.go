@@ -13,6 +13,7 @@ import (
 	"retrom/internal/authn"
 	"retrom/internal/cleanup"
 	"retrom/internal/hasheous"
+	"retrom/internal/payloadrelease"
 )
 
 type gameAssetUpload struct {
@@ -225,25 +226,51 @@ AND version=?
 		writeError(writer, request, http.StatusConflict, "VERSION_CONFLICT", "游戏已被修改", map[string]any{})
 		return
 	}
+	if err := server.retireSupersededGameAssets(
+		request.Context(), transaction, request.PathValue("gameId"), revisionID.String(),
+	); err != nil {
+		server.databaseError(writer, request, err)
+		return
+	}
+	if _, err := payloadrelease.ScheduleConsumption(
+		request.Context(), transaction, consumptionID, now,
+	); err != nil {
+		server.databaseError(writer, request, err)
+		return
+	}
 	if err := transaction.Commit(); err != nil {
 		server.databaseError(writer, request, err)
 		return
 	}
-	writer.Header().Set("ETag", fmt.Sprintf(`"v%d"`, expected+1))
+	server.payloadReleases.Signal()
+	writeCreatedGameAsset(
+		writer, request, asset, assetID, revisionID.String(), body.Kind, body.Ordinal, expected+1, now,
+	)
+}
+
+func writeCreatedGameAsset(
+	writer http.ResponseWriter,
+	request *http.Request,
+	asset preparedGameAsset,
+	assetID, revisionID, kind string,
+	ordinal int64,
+	version, createdAtMS int64,
+) {
+	writer.Header().Set("ETag", fmt.Sprintf(`"v%d"`, version))
 	writeJSON(
 		writer,
 		http.StatusCreated,
 		map[string]any{
 			"assetId":            assetID,
 			"gameId":             request.PathValue("gameId"),
-			"metadataRevisionId": revisionID.String(),
-			"kind":               body.Kind,
-			"ordinal":            body.Ordinal,
+			"metadataRevisionId": revisionID,
+			"kind":               kind,
+			"ordinal":            ordinal,
 			"widthPx":            asset.width,
 			"heightPx":           asset.height,
 			"mediaType":          asset.mediaType,
-			"version":            expected + 1,
-			"createdAtMs":        now,
+			"version":            version,
+			"createdAtMs":        createdAtMS,
 		},
 	)
 }
@@ -309,10 +336,17 @@ source_kind,source_ref_id,created_at_ms
 		writeError(writer, request, http.StatusConflict, "VERSION_CONFLICT", "游戏已被修改", map[string]any{})
 		return
 	}
+	if err := server.retireSupersededGameAssets(
+		request.Context(), transaction, request.PathValue("gameId"), revisionID,
+	); err != nil {
+		server.databaseError(writer, request, err)
+		return
+	}
 	if err := transaction.Commit(); err != nil {
 		server.databaseError(writer, request, err)
 		return
 	}
+	server.payloadReleases.Signal()
 	writer.Header().Set("ETag", fmt.Sprintf(`"v%d"`, expected+1))
 	writer.WriteHeader(http.StatusNoContent)
 }
@@ -627,6 +661,7 @@ JOIN blobs b ON b.id=a.blob_id
 JOIN games g ON g.id=a.game_id
 WHERE a.id=?
 AND g.status='PUBLISHED'
+AND a.metadata_revision_id=g.current_metadata_revision_id
 `, request.PathValue("assetId")).
 		Scan(&digest, &mediaType)
 	if err != nil {

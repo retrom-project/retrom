@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"retrom/internal/multidisc"
+	"retrom/internal/payloadrelease"
 )
 
 type duplicateProgress struct {
@@ -22,6 +23,9 @@ func (run *creationRun) finalize() error {
 	}
 	if err := run.insertSucceededEvent(); err != nil {
 		return err
+	}
+	if _, err := payloadrelease.ScheduleTerminalImportJob(run.ctx, run.transaction, run.importID, run.now); err != nil {
+		return fmt.Errorf("libraryimport/service: schedule aggregate release: %w", err)
 	}
 	if run.reconfiguration == nil {
 		return nil

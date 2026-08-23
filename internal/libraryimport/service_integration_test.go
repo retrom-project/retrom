@@ -25,6 +25,7 @@ import (
 	"retrom/internal/corevalidation"
 	"retrom/internal/dependencies"
 	"retrom/internal/importing"
+	"retrom/internal/payloadrelease"
 	"retrom/internal/tagging"
 	"retrom/internal/testassert"
 	"retrom/internal/testsupport"
@@ -438,6 +439,41 @@ WHERE job.id=? AND item.id=?
 		t.Fatal(err)
 	}
 	testassert.Falsef(t, testassert.Any(func() bool { return discardedJobState != "COMPLETED" }, func() bool { return discardedJobPending != 0 }, func() bool { return discardedJobPublished != 1 }, func() bool { return discardedJobDiscarded != 1 }, func() bool { return discardedItemState != "DISCARDED" }), "discard aggregate = job:%s pending:%d published:%d discarded:%d item:%s", discardedJobState, discardedJobPending, discardedJobPublished, discardedJobDiscarded, discardedItemState)
+	releases, err := payloadrelease.New(database.SQL, blobs, time.Now, 7*24*time.Hour)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for attempt := 0; attempt < 10; attempt++ {
+		worked, runErr := releases.RunOnce(ctx)
+		if runErr != nil {
+			t.Fatal(runErr)
+		}
+		if !worked {
+			break
+		}
+	}
+	var releasedItems, releasedJobs, purgedFiles, sourceRows, uploadedAssetRows, publishedPayloadRows int64
+	if err := database.SQL.QueryRowContext(ctx, `
+SELECT
+ (SELECT count(*) FROM import_items WHERE import_job_id=? AND payload_state='RELEASED'),
+ (SELECT count(*) FROM import_jobs WHERE id=? AND payload_state='RELEASED'),
+ (SELECT count(*) FROM upload_files WHERE upload_session_id=? AND state='PURGED' AND final_blob_id IS NULL),
+ (SELECT count(*) FROM import_item_source_files WHERE import_item_id IN (?,?)),
+ (SELECT count(*) FROM review_uploaded_assets WHERE import_item_id IN (?,?)),
+ (SELECT count(*) FROM game_content_files file JOIN game_content_revisions revision ON revision.id=file.game_content_revision_id WHERE revision.game_id=?)+
+ (SELECT count(*) FROM game_assets WHERE game_id=?)
+`, created.ImportJobID, created.ImportJobID, upload.ID, itemID, discardItemID, itemID, discardItemID,
+		approved.GameID, approved.GameID).Scan(
+		&releasedItems, &releasedJobs, &purgedFiles, &sourceRows, &uploadedAssetRows, &publishedPayloadRows,
+	); err != nil {
+		t.Fatal(err)
+	}
+	testassert.Falsef(t, testassert.Any(
+		func() bool { return releasedItems != 2 }, func() bool { return releasedJobs != 1 },
+		func() bool { return purgedFiles != 2 }, func() bool { return sourceRows != 0 },
+		func() bool { return uploadedAssetRows != 0 }, func() bool { return publishedPayloadRows != 2 },
+	), "released import = items:%d job:%d files:%d source:%d assets:%d published:%d",
+		releasedItems, releasedJobs, purgedFiles, sourceRows, uploadedAssetRows, publishedPayloadRows)
 	var publishedDiscard, retainedBlob int
 	var beforeJSON, configEvidenceJSON, datEvidenceJSON string
 	var discardReason sql.NullString
@@ -457,10 +493,13 @@ WHERE id=?
 `, discardBlobID, discarded.EventID).Scan(&publishedDiscard, &retainedBlob, &beforeJSON, &configEvidenceJSON, &datEvidenceJSON, &discardReason); err != nil ||
 		publishedDiscard != 0 || retainedBlob != 1 ||
 		discardReason.Valid ||
-		!strings.Contains(beforeJSON, "sourceManifest") ||
+		strings.Contains(beforeJSON, "sourceManifest") ||
+		strings.Contains(beforeJSON, "selectedAssets") ||
 		!strings.Contains(beforeJSON, `"name":"待通关"`) ||
-		!strings.Contains(configEvidenceJSON, "configSnapshot") ||
-		!strings.Contains(datEvidenceJSON, "dependencySnapshot") {
+		strings.Contains(configEvidenceJSON, "configSnapshot") ||
+		strings.Contains(datEvidenceJSON, "dependencySnapshot") ||
+		!strings.Contains(configEvidenceJSON, `"validationAvailable":true`) ||
+		!strings.Contains(datEvidenceJSON, `"datMatched":false`) {
 		t.Fatalf("discard evidence = games:%d blob:%d before:%s config:%s dat:%s error=%v", publishedDiscard, retainedBlob, beforeJSON, configEvidenceJSON, datEvidenceJSON, err)
 	}
 	if _, err := database.SQL.ExecContext(ctx, `UPDATE review_events SET reason='tampered' WHERE id=?`, discarded.EventID); err == nil ||

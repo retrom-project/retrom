@@ -11,6 +11,7 @@ import (
 	"retrom/internal/cleanup"
 	"retrom/internal/corevalidation"
 	"retrom/internal/multidisc"
+	"retrom/internal/payloadrelease"
 )
 
 // Contract branches stay contiguous for a single auditable decision.
@@ -190,6 +191,17 @@ AND g.status='PUBLISHED'
 		service.fail(ctx, jobID, "GAME_CONTENT_SNAPSHOT_STALE")
 		return
 	}
+	unchanged, err := contentReplacementUnchanged(ctx, transaction, currentContent, prepared)
+	if err != nil {
+		cleanup.Rollback(transaction)
+		service.fail(ctx, jobID, "GAME_CONTENT_DATABASE_FAILED")
+		return
+	}
+	if unchanged {
+		cleanup.Rollback(transaction)
+		service.failUnchanged(ctx, jobID)
+		return
+	}
 	service.writeReplacement(
 		ctx, transaction, jobID, snapshot, prepared, biosSnapshot,
 		dependencySnapshotJSON, currentDAT, now, failTransaction,
@@ -352,6 +364,17 @@ AND version=?
 		failTransaction("GAME_CONTENT_SNAPSHOT_STALE")
 		return
 	}
+	if service.payloadReleases == nil {
+		failTransaction("GAME_CONTENT_DATABASE_FAILED")
+		return
+	}
+	impact, err := service.payloadReleases.RetireSupersededGameContent(
+		ctx, transaction, gameID, contentID, now,
+	)
+	if err != nil {
+		failTransaction("GAME_CONTENT_DATABASE_FAILED")
+		return
+	}
 	finished := service.now().UnixMilli()
 	jobResult, err := transaction.ExecContext(
 		ctx,
@@ -393,15 +416,31 @@ created_at_ms) VALUES(?,
 `,
 		jobID,
 		gameID,
-		fmt.Sprintf(`{"contentRevisionId":%q,"variantRevisionId":%q}`, contentID, revisionID),
+		fmt.Sprintf(
+			`{"contentRevisionId":%q,"variantRevisionId":%q,"retiredSaveStateCount":%d}`,
+			contentID, revisionID, impact.SaveStateCount,
+		),
 		finished,
 	); err != nil {
 		failTransaction("GAME_CONTENT_DATABASE_FAILED")
 		return
 	}
+	var consumptionID string
+	if err := transaction.QueryRowContext(ctx, `
+SELECT id FROM upload_consumptions WHERE consumer_type='GAME_FILE_REVISION_JOB' AND consumer_id=?
+`, jobID).Scan(&consumptionID); err != nil {
+		failTransaction("GAME_CONTENT_DATABASE_FAILED")
+		return
+	}
+	if _, err := payloadrelease.ScheduleConsumption(ctx, transaction, consumptionID, finished); err != nil {
+		failTransaction("GAME_CONTENT_DATABASE_FAILED")
+		return
+	}
 	if err := transaction.Commit(); err != nil {
 		service.fail(ctx, jobID, "GAME_CONTENT_DATABASE_FAILED")
+		return
 	}
+	service.payloadReleases.Signal()
 }
 
 func persistReplacementFiles(

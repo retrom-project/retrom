@@ -1303,11 +1303,10 @@
     #retrom-ui-review .rt-admin-action-card p { margin: 0 0 8px; color: var(--retrom-muted); font-size: 8px; }
     #retrom-ui-review .rt-admin-action-card-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 7px; }
     #retrom-ui-review .rt-admin-remove { border-color: color-mix(in srgb, var(--retrom-red) 36%, var(--retrom-line)); background: color-mix(in srgb, var(--retrom-red-soft) 28%, var(--retrom-panel)); }
-    #retrom-ui-review .rt-admin-remove summary { cursor: pointer; }
     #retrom-ui-review .rt-admin-remove .rt-admin-detail-panel-head { border-bottom-color: color-mix(in srgb, var(--retrom-red) 25%, var(--retrom-line)); }
-    #retrom-ui-review .rt-admin-remove-row { display: grid; grid-template-columns: minmax(0, 1fr) 420px; align-items: end; gap: 20px; }
+    #retrom-ui-review .rt-admin-remove-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 20px; }
     #retrom-ui-review .rt-admin-remove-row p { margin: 4px 0 0; color: var(--retrom-red); font-size: 8px; }
-    #retrom-ui-review .rt-admin-remove-confirm { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 7px; }
+    #retrom-ui-review .rt-admin-remove-confirm { display: flex; align-items: center; justify-content: flex-end; gap: 7px; }
 
     #retrom-ui-review .rt-bios-groups { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 14px; }
     #retrom-ui-review .rt-chip { padding: 7px 10px; border: 1px solid var(--retrom-line); border-radius: 999px; background: var(--retrom-panel); color: var(--retrom-muted); cursor: pointer; }
@@ -1489,7 +1488,8 @@
     #retrom-ui-review .rt-player-touch-button { position: absolute; width: 50px; height: 50px; display: grid; place-items: center; border: 1px solid rgb(255 255 255 / .7); border-radius: 50%; background: rgb(255 255 255 / .18); color: #fff; font-size: 20px; font-weight: 800; }
     #retrom-ui-review .rt-player-touch-button.is-a { right: 4px; bottom: 25px; }
     #retrom-ui-review .rt-player-touch-button.is-b { right: 70px; bottom: 4px; }
-    #retrom-ui-review .rt-player-top { position: absolute; z-index: 5; inset: 0 0 auto; height: 58px; padding: 0 16px; display: flex; align-items: center; gap: 13px; border-bottom: 1px solid #343d4f; background: linear-gradient(180deg,rgb(17 23 34 / 98%),rgb(17 23 34 / 92%)); box-shadow: 0 10px 30px rgb(0 0 0 / 28%); backdrop-filter: blur(12px); }
+    #retrom-ui-review .rt-player-top { position: absolute; z-index: 5; inset: 0 0 auto; height: 58px; padding: 0 16px; display: flex; align-items: center; gap: 13px; border-bottom: 1px solid #343d4f; background: linear-gradient(180deg,rgb(17 23 34 / 98%),rgb(17 23 34 / 92%)); box-shadow: 0 10px 30px rgb(0 0 0 / 28%); opacity: 0; pointer-events: none; transform: translateY(-100%); transition: opacity .16s ease, transform .16s ease; backdrop-filter: blur(12px); }
+    #retrom-ui-review .rt-player-top.is-visible { opacity: 1; pointer-events: auto; transform: translateY(0); }
     #retrom-ui-review .rt-player-back, #retrom-ui-review .rt-player-control { min-height: 34px; padding: 0 11px; display: inline-flex; align-items: center; justify-content: center; gap: 7px; border: 1px solid #343d4f; border-radius: 8px; color: #edf0f5; background: #171d29; font-size: 11px; font-weight: 650; }
     #retrom-ui-review .rt-player-back { width: 34px; padding: 0; flex: none; }
     #retrom-ui-review .rt-player-back svg, #retrom-ui-review .rt-player-control svg { width: 15px; height: 15px; }
@@ -2497,7 +2497,7 @@
       <section class="rt-page" data-page="netplay-player">
         <div class="rt-player-shell rt-netplay-player">
           <div class="rt-player-stage"><div class="rt-player-screen" role="img" aria-label="F-1 Race 联机游戏画面示意"><span class="rt-player-logo">F-1 RACE</span></div></div>
-          <div class="rt-player-top"><button type="button" class="rt-player-back" data-page-link="netplay-room" aria-label="退出本局并返回房间"><i data-lucide="arrow-left" aria-hidden="true"></i></button><div class="rt-player-title"><strong>F-1 Race</strong><div class="rt-player-meta">联机 · P1 · FCEUmm</div></div><span class="rt-netplay-player-badge">P1 · 房主</span><div class="rt-netplay-network" role="status"><span class="rt-status-dot" aria-hidden="true"></span><span>已同步 · 42 ms</span></div><div class="rt-player-actions"><button type="button" class="rt-player-control is-icon" aria-label="音量"><i data-lucide="volume-2" aria-hidden="true"></i></button><button type="button" class="rt-player-control is-icon" aria-label="全屏"><i data-lucide="maximize" aria-hidden="true"></i></button><button type="button" class="rt-player-control"><i data-lucide="pause" aria-hidden="true"></i>全局暂停</button><button type="button" class="rt-player-control" data-page-link="netplay-room"><i data-lucide="log-out" aria-hidden="true"></i>退出本局</button></div></div>
+          <div class="rt-player-top is-visible"><button type="button" class="rt-player-back" data-page-link="netplay-room" aria-label="退出本局并返回房间"><i data-lucide="arrow-left" aria-hidden="true"></i></button><div class="rt-player-title"><strong>F-1 Race</strong><div class="rt-player-meta">联机 · P1 · FCEUmm</div></div><span class="rt-netplay-player-badge">P1 · 房主</span><div class="rt-netplay-network" role="status"><span class="rt-status-dot" aria-hidden="true"></span><span>已同步 · 42 ms</span></div><div class="rt-player-actions"><button type="button" class="rt-player-control is-icon" aria-label="音量"><i data-lucide="volume-2" aria-hidden="true"></i></button><button type="button" class="rt-player-control is-icon" aria-label="全屏"><i data-lucide="maximize" aria-hidden="true"></i></button><button type="button" class="rt-player-control"><i data-lucide="pause" aria-hidden="true"></i>全局暂停</button><button type="button" class="rt-player-control" data-page-link="netplay-room"><i data-lucide="log-out" aria-hidden="true"></i>退出本局</button></div></div>
           <div class="rt-netplay-player-note" role="status">已完成初始状态同步，所有玩家从同一逻辑帧开始</div><div class="rt-netplay-footer"><span><strong>P1 森</strong> · P2 小林</span><span>已确认 1,842 帧 · 最近回滚 2 帧 · Epoch 1</span><span>本局不读取或写入个人存档</span></div>
         </div>
       </section>
@@ -2564,7 +2564,7 @@
         <div class="rt-player-shell">
           <div class="rt-player-orientation-gate" role="dialog" aria-modal="true" aria-labelledby="rt-orientation-title"><div class="rt-player-orientation-card"><i data-lucide="rotate-cw" aria-hidden="true"></i><h2 id="rt-orientation-title">请横屏继续游戏</h2><p>配置已经检查完成。横屏稳定后才会加载游戏内容并开始本次游玩。</p><button type="button" class="rt-player-control">重试全屏与横屏</button></div></div>
           <div class="rt-player-stage"><div class="rt-player-screen" role="img" aria-label="EmulatorJS 游戏画面占位"><span class="rt-player-logo">EMULATORJS</span></div><div class="rt-player-touch-controls" aria-hidden="true"><div class="rt-player-touch-zone rt-player-touch-dpad is-left"></div><div class="rt-player-touch-zone is-right"><span class="rt-player-touch-button is-b">B</span><span class="rt-player-touch-button is-a">A</span></div></div></div>
-          <div class="rt-player-top">
+          <div class="rt-player-top is-visible">
             <button type="button" class="rt-player-back" id="rt-exit-player" data-player-exit aria-label="返回并退出游戏"><i data-lucide="arrow-left" aria-hidden="true"></i></button>
             <div class="rt-player-title"><strong id="rt-player-game">NOeL 3</strong><div class="rt-player-meta" id="rt-player-core">Yabause · Saturn</div></div>
             <div class="rt-player-launch-state" id="rt-player-launch-state" role="status" aria-live="polite">可创建存档</div>
@@ -2573,7 +2573,7 @@
           <aside class="rt-player-debug" id="rt-player-debug-panel" aria-label="运行调试信息" aria-hidden="true"><header><div><span>实时运行诊断</span><h2>调试信息</h2></div><button type="button" class="rt-player-debug-close" data-close-player-debug aria-label="关闭调试信息面板"><i data-lucide="x" aria-hidden="true"></i></button></header><section><h3>实时</h3><dl><div><dt>帧率</dt><dd>59.9 FPS</dd></div><div><dt>核心帧计数</dt><dd>4,210</dd></div><div><dt>运行状态</dt><dd>运行中</dd></div><div><dt>游戏分辨率</dt><dd>704 × 480</dd></div></dl></section><section><h3>运行环境</h3><dl><div><dt>Core</dt><dd>Yabause</dd></div><div><dt>EmulatorJS</dt><dd>4.2.3</dd></div><div><dt>Player adapter</dt><dd>ejs-4.2.3-v2</dd></div><div><dt>输入模式</dt><dd>STANDARD</dd></div><div><dt>隔离能力</dt><dd>COOP/COEP + SAB</dd></div><div><dt>Player 模式</dt><dd>单机</dd></div></dl></section><section><h3>显示</h3><dl><div><dt>视口</dt><dd>2560 × 1440</dd></div><div><dt>像素比</dt><dd>1.00</dd></div><div><dt>光盘</dt><dd>2 / 3</dd></div></dl></section><footer>Artifact · yabause-wasm-4.2.3</footer></aside>
           <div class="rt-player-pause-overlay" id="rt-player-pause-overlay" aria-hidden="true"><div class="rt-player-pause-pill"><i data-lucide="pause" aria-hidden="true"></i><strong>已暂停</strong><small>点击游戏画面继续</small></div></div>
           <div class="rt-player-emulator-controls" id="rt-player-emulator-controls" aria-hidden="true"><div class="rt-player-emulator-group"><span class="rt-player-emulator-label">模拟器</span><button type="button"><i data-lucide="gamepad-2" aria-hidden="true"></i>控制</button><button type="button">▤ 显示</button><button type="button">⚙ Core 设置</button></div><label class="rt-player-emulator-rendering"><span class="rt-player-emulator-label">画面</span><select aria-label="画面模式"><option>清晰增强</option><option selected>锐利像素</option><option>增强锐化</option><option>平滑增强</option><option>原始画面</option></select></label><div class="rt-player-emulator-group"><label class="rt-player-emulator-volume"><span class="rt-player-emulator-label">音量</span><input type="range" min="0" max="100" value="72" aria-label="模拟器音量"></label><button type="button" aria-label="静音">🔊</button><button type="button" data-close-emulator-controls>收起</button></div></div>
-          <div class="rt-player-hint">移动鼠标显示 Retrom 控制</div>
+          <div class="rt-player-hint">移到屏幕顶部显示 Retrom 控制</div>
           <span class="rt-player-stage-state" id="rt-player-stage-state">一次点击后已自动运行</span>
         </div>
       </section>
@@ -2789,10 +2789,10 @@
         <div class="rt-workflow-chips"><span class="is-active">当前已加载 4</span><span>已发布 3</span><span>已丢弃 1</span></div>
         <div class="rt-history-layout">
           <div class="rt-review-queue-list">
-            <button class="rt-review-item" type="button" data-open-history><span class="rt-review-thumb" style="background:var(--retrom-cover-e)">1945</span><span><span class="rt-review-item-title">打击者1945加强版</span><span class="rt-review-item-source">审核完成时的信息快照 · Pegasus 封面</span></span><span class="rt-badge rt-badge-green">已发布</span><span>审核通过并发布</span><span>8 月 5 日 22:09</span><span>查看快照</span></button>
-            <button class="rt-review-item" type="button" data-open-history><span class="rt-review-thumb is-empty">BD</span><span><span class="rt-review-item-title">Bad Dump (U)</span><span class="rt-review-item-source">审核完成时的信息快照</span></span><span class="rt-badge rt-badge-red">已丢弃</span><span>管理员丢弃条目</span><span>8 月 4 日 19:32</span><span>查看快照</span></button>
-            <button class="rt-review-item" type="button" data-open-history><span class="rt-review-thumb" style="background:var(--retrom-cover-c)">DOOM</span><span><span class="rt-review-item-title">DOOM</span><span class="rt-review-item-source">审核完成时的信息快照</span></span><span class="rt-badge rt-badge-green">已发布</span><span>审核通过并发布</span><span>8 月 2 日 20:17</span><span>查看快照</span></button>
-            <button class="rt-review-item" type="button" data-open-history><span class="rt-review-thumb" style="background:var(--retrom-cover-e)">MF</span><span><span class="rt-review-item-title">Metroid Fusion</span><span class="rt-review-item-source">审核完成时的信息快照</span></span><span class="rt-badge rt-badge-green">已发布</span><span>审核通过并发布</span><span>7 月 29 日 18:44</span><span>查看快照</span></button>
+            <button class="rt-review-item" type="button" data-open-history><span><span class="rt-review-item-title">打击者1945加强版</span><span class="rt-review-item-source">Pegasus 导入 · 文字与结构化审计信息</span></span><span class="rt-badge rt-badge-green">已发布</span><span>审核通过并发布</span><span>8 月 5 日 22:09</span><span>查看决定</span></button>
+            <button class="rt-review-item" type="button" data-open-history><span><span class="rt-review-item-title">Bad Dump (U)</span><span class="rt-review-item-source">浏览器上传 · 文字与结构化审计信息</span></span><span class="rt-badge rt-badge-red">已丢弃</span><span>管理员丢弃条目</span><span>8 月 4 日 19:32</span><span>查看决定</span></button>
+            <button class="rt-review-item" type="button" data-open-history><span><span class="rt-review-item-title">DOOM</span><span class="rt-review-item-source">目录上传 · 文字与结构化审计信息</span></span><span class="rt-badge rt-badge-green">已发布</span><span>审核通过并发布</span><span>8 月 2 日 20:17</span><span>查看决定</span></button>
+            <button class="rt-review-item" type="button" data-open-history><span><span class="rt-review-item-title">Metroid Fusion</span><span class="rt-review-item-source">浏览器上传 · 文字与结构化审计信息</span></span><span class="rt-badge rt-badge-green">已发布</span><span>审核通过并发布</span><span>7 月 29 日 18:44</span><span>查看决定</span></button>
           </div>
         </div>
       </section>
@@ -2822,7 +2822,7 @@
         </div>
         <section class="rt-admin-detail-panel rt-admin-detail-wide"><div class="rt-admin-detail-panel-head"><h2>游戏文件与运行环境</h2></div><div class="rt-admin-detail-panel-body"><div class="rt-admin-runtime-grid"><div><span>内容布局</span><strong>多盘（M3U + 3 CHD）</strong></div><div><span>推荐运行方式</span><strong>Yabause</strong></div><div><span>兼容状态</span><strong style="color:var(--retrom-cyan)">可以运行</strong></div><div><span>最后验证</span><strong>今天 01:11</strong></div></div><div class="rt-disc-list"><div class="rt-disc-row"><strong>光盘 1</strong><span>disc-001.chd</span><code>51e03bbe…</code><span class="rt-badge rt-badge-green">已锁定</span></div><div class="rt-disc-row"><strong>光盘 2</strong><span>disc-002.chd</span><code>ef77f3f9…</code><span class="rt-badge rt-badge-green">已锁定</span></div><div class="rt-disc-row"><strong>光盘 3</strong><span>disc-003.chd</span><code>84095bf7…</code><span class="rt-badge rt-badge-green">已锁定</span></div></div><div class="rt-admin-technical">Canonical playlist SHA-256　29a78ff8… · 来源 M3U 只作为审核证据</div><div class="rt-admin-runtime-note"><span>替换时必须重新选择完整多盘目录；验证成功后创建新的不可变内容版本，失败不会切换当前版本。</span><button type="button" class="rt-button">替换多盘目录</button></div></div></section>
         <section class="rt-admin-detail-panel rt-admin-detail-wide"><div class="rt-admin-detail-panel-head"><h2>管理操作</h2></div><div class="rt-admin-detail-panel-body rt-admin-actions-grid"><div class="rt-admin-action-card"><h3>重新获取游戏资料</h3><p>查询完成后比较短元信息、当前/候选封面与完整简介；确认后才创建新版本。</p><button type="button" class="rt-button">重新查找游戏信息</button></div><div class="rt-admin-action-card"><h3>移动到其他游戏目录</h3><p>移动前检查目标目录推荐运行方式与兼容性，不修改文件与存档。</p><div class="rt-admin-action-card-row"><select class="rt-select"><option>选择目标目录…</option></select><button type="button" class="rt-button">预览移动影响</button></div></div></div></section>
-        <details class="rt-admin-detail-panel rt-admin-remove"><summary class="rt-admin-detail-panel-head"><h2>从游戏库移除</h2><span>展开危险操作</span></summary><div class="rt-admin-detail-panel-body rt-admin-remove-row"><div><strong>游戏将不再对用户可见。</strong><p>已有 4 份存档、审核历史及历史版本会继续保留；当前 0 个活动游戏会话。</p></div><div class="rt-admin-remove-confirm"><input class="rt-input" placeholder="输入完整游戏标题确认"><button type="button" class="rt-button rt-button-danger">移除游戏</button></div></div></details>
+        <section class="rt-admin-detail-panel rt-admin-remove"><div class="rt-admin-detail-panel-head"><h2>危险操作</h2></div><div class="rt-admin-detail-panel-body rt-admin-remove-row"><div><strong>永久删除游戏</strong><p>游戏会立即停止运行并成为文字墓碑；内容、媒体和 4 份存档将进入后台清理。</p></div><div class="rt-admin-remove-confirm"><span class="rt-badge rt-badge-amber">预计清理 770.8 MiB · 共享 18.6 MiB</span><button type="button" class="rt-button rt-button-danger" data-open-game-delete>永久删除游戏</button></div></div></section>
       </section>
 
       <section class="rt-page" data-page="admin-tags">
@@ -2997,8 +2997,17 @@
   <div class="rt-dialog-backdrop" data-history-dialog hidden>
     <section class="rt-dialog is-wide" role="dialog" aria-modal="true" aria-labelledby="rt-history-title">
       <div class="rt-panel-heading"><div><h2 id="rt-history-title">审核完成时的游戏信息</h2><p class="rt-dialog-copy">2026 年 8 月 5 日 22:09 · 通过并发布</p></div><button type="button" class="rt-button" data-close-history aria-label="关闭"><i data-lucide="x" aria-hidden="true"></i></button></div>
-      <div class="rt-snapshot"><div class="rt-cover rt-cover-e rt-snapshot-cover"><span class="rt-cover-title">1945 PLUS</span></div><div><h2>打击者1945加强版</h2><p class="rt-subtitle">Arcade · FBNeo 游戏 · 1999</p><div class="rt-info-list"><div class="rt-info-row"><span>开发商 / 发行商</span><span>Psikyo / Psikyo</span></div><div class="rt-info-row"><span>玩家人数</span><span>1–2 人</span></div><div class="rt-info-row"><span>运行方式</span><span>FBNeo</span></div><div class="rt-info-row"><span>采用来源</span><span>Pegasus 导入封面</span></div></div><div class="rt-section-head"><h3>当时的简介</h3></div><p class="rt-dialog-copy">审核历史使用最终事件关联的 Pegasus 来源封面，不读取发布后可能发生变化的当前游戏媒体。</p></div></div>
+      <div><h2>打击者1945加强版</h2><p class="rt-subtitle">Arcade · FBNeo 游戏 · 1999</p><div class="rt-info-list"><div class="rt-info-row"><span>开发商 / 发行商</span><span>Psikyo / Psikyo</span></div><div class="rt-info-row"><span>玩家人数</span><span>1–2 人</span></div><div class="rt-info-row"><span>运行方式</span><span>FBNeo</span></div><div class="rt-info-row"><span>来源类型</span><span>Pegasus 导入</span></div><div class="rt-info-row"><span>审核决定</span><span>通过并发布</span></div></div><div class="rt-section-head"><h3>当时的简介</h3></div><p class="rt-dialog-copy">审核历史只保留文字和结构化审计信息；封面、截图、视频和其他工作流 payload 已在终态释放。</p></div>
       <div class="rt-dialog-actions"><button type="button" class="rt-button rt-button-primary" data-close-history>关闭</button></div>
+    </section>
+  </div>
+
+  <div class="rt-dialog-backdrop" data-game-delete-dialog hidden>
+    <section class="rt-dialog is-wide" role="alertdialog" aria-modal="true" aria-labelledby="rt-game-delete-title">
+      <div class="rt-dialog-head"><span class="rt-dialog-mark" aria-hidden="true">!</span><div><h2 id="rt-game-delete-title">永久删除游戏</h2><p class="rt-dialog-copy">游戏会立即不可启动；后台将清理内容、媒体、存档与运行时 payload，审核和关系历史只保留文字墓碑。</p></div></div>
+      <div class="rt-dialog-impact"><ul><li>4 份存档、3 个内容版本、2 个媒体文件</li><li>0 个活动游戏会话、0 个联机房间</li><li>独占数据 770.8 MiB 将进入回收；共享数据 18.6 MiB 继续保留</li><li>来源：浏览器上传、Pegasus 导入</li></ul></div>
+      <div class="rt-notice">影响摘要刚刚计算；如果确认前数据变化，系统会要求刷新后重新确认。</div>
+      <div class="rt-dialog-actions"><button type="button" class="rt-button" data-close-game-delete>取消</button><button type="button" class="rt-button rt-button-danger" data-close-game-delete>永久删除并清理数据</button></div>
     </section>
   </div>
 
@@ -3407,6 +3416,37 @@
 
       let playerReturnPage = 'detail';
       let playerRunToken = 0;
+      const playerShell = root.querySelector('[data-page="play"] .rt-player-shell');
+      const playerTop = playerShell.querySelector('.rt-player-top');
+      const playerPauseOverlay = root.querySelector('#rt-player-pause-overlay');
+
+      function playerToolbarPinned() {
+        return playerPauseOverlay.classList.contains('is-open')
+          || root.querySelector('#rt-player-debug-panel').classList.contains('is-open')
+          || root.querySelector('#rt-player-menu').classList.contains('is-open')
+          || root.querySelector('#rt-player-disc-menu').classList.contains('is-open')
+          || root.querySelector('#rt-player-emulator-controls').classList.contains('is-open')
+          || !root.querySelector('[data-player-exit-dialog]').hidden
+          || playerTop.matches(':focus-within');
+      }
+
+      function hidePlayerToolbarIfClear() {
+        if (!playerToolbarPinned() && !playerTop.matches(':hover')) playerTop.classList.remove('is-visible');
+      }
+
+      playerShell.addEventListener('pointermove', (event) => {
+        const offsetY = event.clientY - playerShell.getBoundingClientRect().top;
+        if (offsetY >= 0 && offsetY <= 32) playerTop.classList.add('is-visible');
+      });
+      playerTop.addEventListener('pointerenter', () => playerTop.classList.add('is-visible'));
+      playerTop.addEventListener('pointerleave', hidePlayerToolbarIfClear);
+      playerTop.addEventListener('focusin', () => playerTop.classList.add('is-visible'));
+      playerTop.addEventListener('focusout', (event) => {
+        if (!playerTop.contains(event.relatedTarget)) hidePlayerToolbarIfClear();
+      });
+      playerShell.addEventListener('keydown', (event) => {
+        if (event.key === 'Tab') playerTop.classList.add('is-visible');
+      });
 
       function requestPlayerFullscreen() {
         const fullscreenTarget = document.documentElement;
@@ -3440,6 +3480,7 @@
         state.classList.add('is-loading');
         pauseOverlay.classList.remove('is-open');
         pauseOverlay.setAttribute('aria-hidden', 'true');
+        playerTop.classList.add('is-visible');
         showPage('play');
         requestPlayerFullscreen();
         if (needsValidation) window.setTimeout(() => {
@@ -3452,6 +3493,7 @@
           state.textContent = '可创建存档';
           stageState.textContent = '一次点击后已自动运行 · 已连接控制器 1';
           state.classList.remove('is-loading');
+          hidePlayerToolbarIfClear();
         }, needsValidation ? 1300 : 650);
       }
 
@@ -3467,15 +3509,16 @@
         startGame(button.dataset.quickStart, { fromSave: true, returnPage: sourcePage });
       }));
       root.querySelector('#rt-enter-fullscreen').addEventListener('click', requestPlayerFullscreen);
-      const playerPauseOverlay = root.querySelector('#rt-player-pause-overlay');
-      root.querySelector('.rt-player-top').addEventListener('click', (event) => {
+      playerTop.addEventListener('click', (event) => {
         if (event.target.closest('#rt-player-debug, #rt-player-disc, #rt-player-disc-menu')) return;
         playerPauseOverlay.classList.add('is-open');
         playerPauseOverlay.setAttribute('aria-hidden', 'false');
+        playerTop.classList.add('is-visible');
       });
       root.querySelector('.rt-player-screen').addEventListener('click', () => {
         playerPauseOverlay.classList.remove('is-open');
         playerPauseOverlay.setAttribute('aria-hidden', 'true');
+        hidePlayerToolbarIfClear();
       });
       root.querySelector('#rt-player-more').addEventListener('click', () => root.querySelector('#rt-player-menu').classList.toggle('is-open'));
       const playerDebugButton = root.querySelector('#rt-player-debug');
@@ -3719,6 +3762,9 @@
         row.addEventListener('keydown', (event) => { if (event.key === 'Enter' || event.key === ' ') openHistory(); });
       });
       root.querySelectorAll('[data-close-history]').forEach((button) => button.addEventListener('click', () => { historyDialog.hidden = true; }));
+      const gameDeleteDialog = root.querySelector('[data-game-delete-dialog]');
+      root.querySelector('[data-open-game-delete]').addEventListener('click', () => { gameDeleteDialog.hidden = false; });
+      root.querySelectorAll('[data-close-game-delete]').forEach((button) => button.addEventListener('click', () => { gameDeleteDialog.hidden = true; }));
 
       root.querySelectorAll('.rt-home-rail').forEach((rail) => rail.addEventListener('wheel', (event) => {
         if (rail.scrollWidth <= rail.clientWidth || Math.abs(event.deltaY) <= Math.abs(event.deltaX)) return;

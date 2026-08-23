@@ -304,16 +304,13 @@ UPDATE review_drafts SET version=version+1,updated_at_ms=? WHERE id=? AND versio
 		return MultiDiscAttachmentCreated{}, multiDiscAttachmentError(MultiDiscAttachmentErrorVersion, ErrInvalid)
 	}
 	eventID, _ := uuid.NewV7()
-	evidence, _ := json.Marshal(map[string]any{
-		"schemaVersion": 1, "attachmentId": input.AttachmentID,
-		"baseSourceSnapshotId": input.BaseSourceSnapshotID, "uploadId": input.UploadSessionID,
-		"expectedSetDigest": input.ExpectedSetDigest, "state": "QUEUED",
-	})
+	evidence := marshalReviewEventV2(map[string]any{"attachmentKind": "MULTI_DISC", "state": "QUEUED"})
 	if _, err := transaction.ExecContext(ctx, `
 INSERT INTO review_events(id,import_item_id,event_type,actor_kind,actor_user_id,actor_label,
 before_json,after_json,diff_json,config_evidence_json,dat_evidence_json,provider_evidence_json,created_at_ms)
-VALUES(?,?,'DISC_UPLOAD_REQUESTED','USER',?,NULL,'{}',?,?,'{}','{}','{}',?)
-`, eventID.String(), input.ImportItemID, input.RequestedByUserID, string(evidence), string(evidence), now); err != nil {
+VALUES(?,?,'DISC_UPLOAD_REQUESTED','USER',?,NULL,?,?,?,?,?,?,?)
+`, eventID.String(), input.ImportItemID, input.RequestedByUserID, emptyReviewEventV2, evidence, evidence,
+		emptyReviewEventV2, emptyReviewEventV2, emptyReviewEventV2, now); err != nil {
 		return MultiDiscAttachmentCreated{}, multiDiscAttachmentError(MultiDiscAttachmentErrorUnavailable, err)
 	}
 	return MultiDiscAttachmentCreated{

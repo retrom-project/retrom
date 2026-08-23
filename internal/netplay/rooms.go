@@ -26,6 +26,8 @@ type RoomMember struct {
 type RoomGame struct {
 	GameID            string `json:"gameId"`
 	Title             string `json:"title"`
+	Status            string `json:"status"`
+	Availability      string `json:"availability"`
 	PlatformName      string `json:"platformName"`
 	ProfileID         string `json:"profileId"`
 	CoreName          string `json:"coreName"`
@@ -224,7 +226,7 @@ FROM netplay_rooms WHERE id=?
 		var game RoomGame
 		game.GameID, game.ProfileID, game.MaxPlayers = gameID.String, profileID.String, int(maxPlayers.Int64)
 		if err := service.database.QueryRowContext(ctx, `
-SELECT metadata.title,platform.name,core.name,artifact.emulatorjs_version
+SELECT metadata.title,game.status,platform.name,core.name,artifact.emulatorjs_version
 FROM games game
 JOIN game_metadata_revisions metadata ON metadata.id=game.current_metadata_revision_id
 JOIN platform_instances instance ON instance.id=game.platform_instance_id
@@ -234,10 +236,11 @@ JOIN core_artifacts artifact ON artifact.id=revision.core_artifact_id
 JOIN cores core ON core.id=artifact.core_id
 WHERE game.id=?
 `, variantID.String, gameID.String).Scan(
-			&game.Title, &game.PlatformName, &game.CoreName, &game.EmulatorJSVersion,
+			&game.Title, &game.Status, &game.PlatformName, &game.CoreName, &game.EmulatorJSVersion,
 		); err != nil {
 			return Room{}, fmt.Errorf("netplay/get room game: %w", err)
 		}
+		game.Availability = game.Status
 		result.Game = &game
 	}
 	members, err := service.roomMembers(ctx, roomID, sessionID)

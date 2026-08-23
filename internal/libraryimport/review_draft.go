@@ -532,18 +532,19 @@ func (run *draftPatchRun) insertSavedEvent(
 ) error {
 	eventID, _ := uuid.NewV7()
 	beforeJSON, _ := json.Marshal(map[string]any{
-		"schemaVersion": 1, "metadata": json.RawMessage(run.metadataJSON), "tags": run.beforeTags,
+		"schemaVersion": 2, "metadata": json.RawMessage(run.metadataJSON), "tags": run.beforeTags,
 	})
 	afterJSON, _ := json.Marshal(map[string]any{
-		"schemaVersion": 1, "metadata": run.metadata, "tags": afterTags,
+		"schemaVersion": 2, "metadata": run.metadata, "tags": afterTags,
 	})
 	_, err := run.transaction.ExecContext(run.ctx, `
 INSERT INTO review_events(
   id,import_item_id,event_type,actor_kind,actor_user_id,actor_label,before_json,
   after_json,diff_json,config_evidence_json,dat_evidence_json,provider_evidence_json,created_at_ms
-) VALUES(?,?,'DRAFT_SAVED',?,?,?,?,?,?,'{}','{}','{}',?)
+) VALUES(?,?,'DRAFT_SAVED',?,?,?,?,?,?,?,?,?,?)
 `, eventID.String(), run.itemID, actorKind, actorUserID, actorLabel,
-		string(beforeJSON), string(afterJSON), string(afterJSON), now)
+		string(beforeJSON), string(afterJSON), marshalReviewEventV2(map[string]any{"metadataOrTagsChanged": true}),
+		emptyReviewEventV2, emptyReviewEventV2, emptyReviewEventV2, now)
 	if err != nil {
 		return fmt.Errorf("libraryimport/review: %w", err)
 	}

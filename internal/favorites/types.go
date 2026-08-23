@@ -84,6 +84,8 @@ type PlatformSummary struct {
 type GameItem struct {
 	GameID           string              `json:"gameId"`
 	Title            string              `json:"title"`
+	Status           string              `json:"status"`
+	Availability     string              `json:"availability"`
 	Platform         NamedResource       `json:"platform"`
 	PlatformInstance NamedResource       `json:"platformInstance"`
 	DefaultCore      NamedResource       `json:"defaultCore"`

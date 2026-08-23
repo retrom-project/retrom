@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { AppIcon } from "@/components/app-icon";
-import { EmptyState } from "@/components/ui";
+import { EmptyState, StatusBadge } from "@/components/ui";
 import { LaunchButton } from "@/features/player/launch-button";
 import { TagChips } from "@/components/tag-picker";
 import {
@@ -24,13 +24,14 @@ const periodOptions = [
 ] as const;
 
 function RecentGameRow({ game }: { game: RecentGame }) {
+  const deleted = game.status === "DELETED";
   return <article className="recent-history-row">
-    <Link className="recent-history-cover" href={`/games/${game.gameId}`} aria-label={`查看 ${game.title} 详情`}>
+    {deleted ? <div className="recent-history-cover" aria-label={`${game.title} 已删除`}><span aria-hidden="true">RETROM</span></div> : <Link className="recent-history-cover" href={`/games/${game.gameId}`} aria-label={`查看 ${game.title} 详情`}>
       {game.coverUrl ? <Image src={game.coverUrl} alt="" fill sizes="180px" unoptimized /> : <span aria-hidden="true">RETROM</span>}
-    </Link>
+    </Link>}
     <div className="recent-history-content">
       <div className="recent-history-main">
-        <Link href={`/games/${game.gameId}`}><h2>{game.title}</h2></Link>
+        {deleted ? <div><h2>{game.title}</h2><StatusBadge tone="bad">已删除</StatusBadge></div> : <Link href={`/games/${game.gameId}`}><h2>{game.title}</h2></Link>}
         <TagChips tags={game.tags ?? []} limit={2} label={`${game.title} 的标签`} />
         <p><AppIcon name="library" />{game.platform.name} · {game.platformInstance.name}</p>
       </div>
@@ -41,8 +42,7 @@ function RecentGameRow({ game }: { game: RecentGame }) {
       </div>
     </div>
     <div className="recent-history-actions">
-      <div className="recent-history-launch"><LaunchButton gameId={game.gameId} returnTo="/recent" label="再玩一次" /></div>
-      <Link className="recent-history-detail" href={`/games/${game.gameId}`}>查看详情 <span aria-hidden="true">›</span></Link>
+      {deleted ? <span className="recent-history-detail">已删除游戏</span> : <><div className="recent-history-launch"><LaunchButton gameId={game.gameId} returnTo="/recent" label="再玩一次" /></div><Link className="recent-history-detail" href={`/games/${game.gameId}`}>查看详情</Link></>}
     </div>
   </article>;
 }

@@ -154,6 +154,9 @@ function TaskDetail({ attention, detail, isMultiDisc, issueCount, item, stageInd
   const rejectedCount = item.unresolvedRejectedFileCount ?? item.rejectedFileCount;
   return <section className="import-task-detail" aria-label={`${item.platformInstanceName} 阶段详情`}>
     <TaskStages attention={attention} issueCount={issueCount} stageIndex={stageIndex} />
+    {detail?.value?.payloadState === "RELEASED" ? <p className="import-task-detail-message">源文件已清理；这里只保留文件名、大小与处理结果。</p> : null}
+    {detail?.value?.payloadState === "RELEASING" ? <p className="import-task-detail-message">正在清理源文件…</p> : null}
+    {detail?.value?.payloadState === "FAILED" ? <p className="import-task-detail-message bad">源文件清理失败，可在任务中心重试清理任务。</p> : null}
     {isMultiDisc ? <MultiDiscTaskDetail detail={detail} /> : null}
     {issueCount ? <><TaskProblem isMultiDisc={isMultiDisc} item={item} />{rejectedCount ? <div className="import-task-rejections" aria-label="未被接受的文件"><RejectedFiles detail={detail} /></div> : null}</> : null}
     {item.alreadyImportedItemCount ? <div className="import-task-rejections" aria-label="已导入并跳过的文件"><AlreadyImportedFiles detail={detail} /></div> : null}

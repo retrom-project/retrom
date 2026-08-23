@@ -1347,7 +1347,7 @@ export interface paths {
             };
             cookie?: never;
         };
-        /** @description Immutable before/after metadata and evidence captured for an approved or discarded review decision. The nullable coverUrl prefers the selected uploaded or candidate cover and falls back to the retained Pegasus source cover linked to the final ImportItem, so pre-existing Pegasus decisions remain renderable without using mutable current Game media. */
+        /** @description Immutable textual and structured metadata/evidence captured for an approved or discarded review decision. Terminal review history intentionally contains no replayable cover, video, Blob, URL, path, hash, dimensions, MIME type, or other CAS payload reference. */
         get: operations["getAdminReviewHistoryEvent"];
         put?: never;
         post?: never;
@@ -1439,6 +1439,7 @@ export interface paths {
         get: operations["getAdminGame"];
         put?: never;
         post?: never;
+        /** @description Permanently releases every game-owned and game-runtime payload while retaining a textual tombstone and relationship/history records. The impact digest must match the current management projection. */
         delete: operations["deleteAdminGame"];
         options?: never;
         head?: never;
@@ -1474,6 +1475,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
+        /** @description Creates a complete current media revision, retires all prior GameAsset leaves, and stages newly unreferenced payload for retention-aware GC. */
         post: operations["postAdminGameAsset"];
         delete?: never;
         options?: never;
@@ -1494,7 +1496,7 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        /** @description Removes the selected media kind by creating a new immutable metadata revision with the remaining complete media set. */
+        /** @description Removes the selected media kind by creating a new immutable metadata revision with the remaining complete media set, then retires prior GameAsset leaves. */
         delete: operations["deleteAdminGameAsset"];
         options?: never;
         head?: never;
@@ -1512,7 +1514,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Schedules a complete immutable content replacement. contentMode defaults strictly to STANDARD; MULTI_DISC_M3U_V1 requires a complete DIRECTORY upload and never uses review attachment repair. */
+        /** @description Schedules a destructive complete content replacement. Byte-identical single-ROM content or the same ordered multi-disc hashes fail terminally with GAME_CONTENT_UNCHANGED. A successful switch retires old content/runtime payload and deletes saves bound to superseded revisions; a failed replacement changes none of them. contentMode defaults strictly to STANDARD; MULTI_DISC_M3U_V1 requires a complete DIRECTORY upload and never uses review attachment repair. */
         post: operations["postAdminGameContentRevision"];
         delete?: never;
         options?: never;
@@ -2041,6 +2043,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
+        /** @description Installs a new active BIOS revision. Replacing the active installation releases its payload and invalidates saves and runtime sessions bound to the old BIOS snapshot. */
         post: operations["postAdminBIOSInstallation"];
         delete?: never;
         options?: never;
@@ -2109,6 +2112,7 @@ export interface paths {
             };
             cookie?: never;
         };
+        /** @description Serves only an asset owned by the published game's current metadata revision; retired asset IDs return 404. */
         get: operations["getContentAsset"];
         put?: never;
         post?: never;
@@ -2682,6 +2686,10 @@ export interface components {
             /** Format: uuid */
             gameId: string;
             title: string;
+            /** @enum {string} */
+            status: "PUBLISHED" | "DELETED";
+            /** @enum {string} */
+            availability: "PUBLISHED" | "DELETED";
             platform: components["schemas"]["FavoriteNamedResource"];
             platformInstance: components["schemas"]["FavoriteNamedResource"];
             defaultCore: components["schemas"]["FavoriteNamedResource"];
@@ -2801,6 +2809,10 @@ export interface components {
             /** Format: uuid */
             gameId: string;
             title: string;
+            /** @enum {string} */
+            status: "PUBLISHED" | "DELETED";
+            /** @enum {string} */
+            availability: "PUBLISHED" | "DELETED";
             platformName: string;
             profileId: string;
             coreName: string;
@@ -2843,7 +2855,7 @@ export interface components {
             /** Format: int64 */
             endedAtMs: number | null;
             /** @enum {string|null} */
-            endReason: "NORMAL" | "USER_EXIT" | "HOST_CLOSED" | "HOST_LOST" | "PEER_TIMEOUT" | "AUTH_REVOKED" | "START_TIMEOUT" | "PREPARE_FAILED" | "PROFILE_REVOKED" | "SERVER_RESTARTED" | "RESTORE" | "HARD_EXPIRED" | "ROLLBACK_WINDOW_EXCEEDED" | "STATE_RING_CAPACITY_EXCEEDED" | "STATE_TRANSFER_TIMEOUT" | "STATE_INVALID" | "NETPLAY_UNSTABLE" | "PEER_TOO_SLOW" | "PROTOCOL_VIOLATION" | "INTERNAL_ERROR" | null;
+            endReason: "NORMAL" | "USER_EXIT" | "HOST_CLOSED" | "HOST_LOST" | "PEER_TIMEOUT" | "AUTH_REVOKED" | "START_TIMEOUT" | "PREPARE_FAILED" | "PROFILE_REVOKED" | "SERVER_RESTARTED" | "RESTORE" | "HARD_EXPIRED" | "ROLLBACK_WINDOW_EXCEEDED" | "STATE_RING_CAPACITY_EXCEEDED" | "STATE_TRANSFER_TIMEOUT" | "STATE_INVALID" | "NETPLAY_UNSTABLE" | "PEER_TOO_SLOW" | "PROTOCOL_VIOLATION" | "INTERNAL_ERROR" | "GAME_DELETED" | "GAME_CONTENT_REPLACED" | "BIOS_REPLACED" | null;
         };
         NetplayRoomList: {
             items: components["schemas"]["NetplayRoom"][];
@@ -3079,6 +3091,7 @@ export interface components {
         };
         DeleteGameRequest: {
             confirmTitle: string;
+            impactDigest: string;
         };
         GameAssetRequest: {
             /** Format: uuid */
@@ -3522,6 +3535,10 @@ export interface components {
             metadataRelativePath: string;
             /** @enum {string} */
             executionState: "PENDING" | "COPYING" | "VALIDATING" | "REVIEW_PENDING" | "PUBLISHED" | "REVIEW_DISCARDED" | "SKIPPED_EXISTING" | "SKIPPED_MAPPING" | "BLOCKED_SOURCE" | "BLOCKED_CONTENT" | "SOURCE_CHANGED" | "READ_FAILED" | "COMMIT_FAILED" | "CANCELLED";
+            /** @enum {string} */
+            payloadState: "RETAINED" | "RELEASING" | "RELEASED" | "FAILED";
+            /** Format: uuid */
+            payloadReleaseJobId: string | null;
             /** @enum {string|null} */
             contentKind: "SINGLE_FILE" | "DOS_BUNDLE" | "MULTI_DISC_M3U_V1" | null;
             tags: components["schemas"]["TagReference"][];
@@ -6712,13 +6729,8 @@ export interface operations {
         };
         requestBody: components["requestBodies"]["DeleteGame"];
         responses: {
-            /** @description Deleted */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
+            200: components["responses"]["JSONResponse"];
+            202: components["responses"]["JSONResponse"];
         };
     };
     patchAdminGame: {

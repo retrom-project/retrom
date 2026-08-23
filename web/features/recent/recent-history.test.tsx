@@ -13,6 +13,8 @@ const games: RecentGame[] = [
   {
     gameId: "today",
     title: "1943: The Battle of Midway",
+    status: "PUBLISHED",
+    availability: "PUBLISHED",
     platform: { id: "arcade", name: "街机" },
     platformInstance: { id: "fbneo", name: "FBNeo 游戏" },
     lastPlayedAtMs: new Date(2026, 7, 8, 1, 20).getTime(),
@@ -23,6 +25,8 @@ const games: RecentGame[] = [
   {
     gameId: "older",
     title: "Pokémon Green",
+    status: "PUBLISHED",
+    availability: "PUBLISHED",
     platform: { id: "gbc", name: "Game Boy / Color" },
     platformInstance: { id: "handheld", name: "掌机收藏" },
     lastPlayedAtMs: nowMs - 40 * 86_400_000,
@@ -58,5 +62,16 @@ describe("recent history", () => {
     expect(screen.getByText("1943: The Battle of Midway")).toBeVisible();
     expect(screen.queryByText("Pokémon Green")).not.toBeInTheDocument();
     expect(document.querySelector(".recent-result-count")).toHaveTextContent("共 1 款");
+  });
+
+  it("keeps a deleted game as a text tombstone without payload or executable actions", () => {
+    const deleted = { ...games[0], status: "DELETED" as const, availability: "DELETED" as const, coverUrl: "/legacy-cover.png" };
+    render(<RecentHistory games={[deleted, games[1]]} nowMs={nowMs} />);
+
+    expect(screen.getByText("已删除")).toBeVisible();
+    expect(screen.getByText("已删除游戏")).toBeVisible();
+    expect(screen.queryByRole("link", { name: /1943: The Battle of Midway/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("img", { name: /1943: The Battle of Midway/ })).not.toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "再玩一次" })).toHaveLength(1);
   });
 });

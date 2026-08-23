@@ -18,6 +18,7 @@ import (
 	"retrom/internal/config"
 	"retrom/internal/dependencies"
 	"retrom/internal/libraryimport"
+	"retrom/internal/payloadrelease"
 	retromruntime "retrom/internal/runtime"
 	"retrom/internal/store"
 	"retrom/internal/tagging"
@@ -205,6 +206,46 @@ WHERE metadata.source_kind='SERVER_PEGASUS_IMPORT'`, mappedTag.TagID, externalTa
 	testassert.Falsef(t, testassert.Any(func() bool { return gameID == "" }, func() bool { return title != "Published Fixture" }, func() bool { return assetCount != 2 }, func() bool { return gameMappedTags != 1 }, func() bool { return gameExternalTags != 0 }), "published game = %q/%q assets=%d tags=%d/%d", gameID, title, assetCount, gameMappedTags, gameExternalTags)
 	decided, err := service.Get(ctx, created.ID)
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return decided.Counts.ReviewPending != 0 }, func() bool { return decided.Counts.Published != 1 }, func() bool { return decided.Counts.ReviewDiscarded != 1 }), "review decisions = %#v, error=%v", decided, err)
+	assertPegasusPayloadReleased(t, database.SQL, blobs, created.ID, gameID)
+}
+
+func assertPegasusPayloadReleased(
+	t *testing.T,
+	database *sql.DB,
+	blobs *blobstore.Store,
+	importID, gameID string,
+) {
+	t.Helper()
+	ctx := t.Context()
+	releases, err := payloadrelease.New(database, blobs, time.Now, 7*24*time.Hour)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for attempt := 0; attempt < 12; attempt++ {
+		worked, runErr := releases.RunOnce(ctx)
+		if runErr != nil {
+			t.Fatal(runErr)
+		}
+		if !worked {
+			break
+		}
+	}
+	var releasedPegasus, releasedImports, pegasusBlobRefs, gamePayloadRows int64
+	mustScanPegasusTest(t, database.QueryRowContext(ctx, `
+SELECT
+ (SELECT count(*) FROM pegasus_import_items WHERE import_id=? AND payload_state='RELEASED'),
+ (SELECT count(*) FROM import_items WHERE id IN (SELECT library_import_item_id FROM pegasus_import_items WHERE import_id=?) AND payload_state='RELEASED'),
+ (SELECT count(*) FROM pegasus_import_item_files file JOIN pegasus_import_items item ON item.id=file.item_id WHERE item.import_id=? AND (file.blob_id IS NOT NULL OR file.source_archive_blob_id IS NOT NULL))+
+ (SELECT count(*) FROM pegasus_import_item_assets asset JOIN pegasus_import_items item ON item.id=asset.item_id WHERE item.import_id=? AND asset.blob_id IS NOT NULL),
+ (SELECT count(*) FROM game_content_files file JOIN game_content_revisions revision ON revision.id=file.game_content_revision_id WHERE revision.game_id=?)+
+ (SELECT count(*) FROM game_assets WHERE game_id=?)
+`, importID, importID, importID, importID, gameID, gameID),
+		&releasedPegasus, &releasedImports, &pegasusBlobRefs, &gamePayloadRows)
+	testassert.Falsef(t, testassert.Any(
+		func() bool { return releasedPegasus != 2 }, func() bool { return releasedImports != 2 },
+		func() bool { return pegasusBlobRefs != 0 }, func() bool { return gamePayloadRows != 3 },
+	), "released Pegasus = items:%d imports:%d refs:%d game:%d",
+		releasedPegasus, releasedImports, pegasusBlobRefs, gamePayloadRows)
 }
 
 func createPegasusIntegrationSource(t *testing.T, dataDir string) string {

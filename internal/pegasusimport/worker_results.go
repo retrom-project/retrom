@@ -10,6 +10,7 @@ import (
 
 	"retrom/internal/cleanup"
 	"retrom/internal/libraryimport"
+	"retrom/internal/payloadrelease"
 )
 
 func (service *Service) attachLibraryResult(
@@ -75,14 +76,19 @@ func (service *Service) closeItemWithFailure(
 			revision = value
 		}
 	}
-	_, _ = service.database.ExecContext(
+	transaction, err := service.database.BeginTx(ctx, nil)
+	if err != nil {
+		return
+	}
+	defer cleanup.Rollback(transaction)
+	result, err := transaction.ExecContext(
 		ctx,
 		`UPDATE pegasus_import_items
 SET execution_state=?,error_code=?,retryable=?,
 error_details_json=?,
 existing_game_id=COALESCE(?,existing_game_id),
 existing_content_revision_id=COALESCE(?,existing_content_revision_id),
-completed_at_ms=?,updated_at_ms=?
+completed_at_ms=?,version=version+1,updated_at_ms=?
 WHERE id=? AND execution_state IN ('COPYING','VALIDATING')`,
 		state,
 		nullIfEmpty(code),
@@ -94,6 +100,13 @@ WHERE id=? AND execution_state IN ('COPYING','VALIDATING')`,
 		now,
 		itemID,
 	)
+	if err != nil || rowsAffected(result) != 1 {
+		return
+	}
+	if _, err := payloadrelease.ScheduleTerminalPegasusItem(ctx, transaction, itemID, now); err != nil {
+		return
+	}
+	_ = transaction.Commit()
 }
 
 func (service *Service) closeAssetWarning(ctx context.Context, itemID, kind, code string) {
@@ -225,7 +238,7 @@ func (service *Service) closeCancelled(ctx context.Context, unit work) (bool, er
 	defer cleanup.Rollback(transaction)
 	if _, err := transaction.ExecContext(ctx, `
 UPDATE pegasus_import_items
-SET execution_state='CANCELLED',error_code='CANCELLED',completed_at_ms=?,updated_at_ms=?
+SET execution_state='CANCELLED',error_code='CANCELLED',completed_at_ms=?,version=version+1,updated_at_ms=?
 WHERE import_id=? AND execution_state='PENDING'`, now, now, unit.ImportID); err != nil {
 		return false, fmt.Errorf("pegasusimport/cancel remaining items: %w", err)
 	}
@@ -253,6 +266,9 @@ INSERT INTO job_events(job_id,scope_type,scope_id,event_type,data_json,created_a
 VALUES(?,'PEGASUS_IMPORT',?,'CANCELLED','{"schemaVersion":1}',?)`,
 		unit.JobID, unit.ImportID, now); err != nil {
 		return false, fmt.Errorf("pegasusimport/create cancelled event: %w", err)
+	}
+	if err := scheduleTerminalItems(ctx, transaction, unit.ImportID, now); err != nil {
+		return false, err
 	}
 	if err := transaction.Commit(); err != nil {
 		return false, fmt.Errorf("pegasusimport/commit cancellation: %w", err)
@@ -323,6 +339,9 @@ INSERT INTO job_events(job_id,scope_type,scope_id,event_type,data_json,created_a
 VALUES(?,'PEGASUS_IMPORT',?,'SUCCEEDED',?,?)`,
 		unit.JobID, unit.ImportID, string(data), now); err != nil {
 		return fmt.Errorf("pegasusimport/create success event: %w", err)
+	}
+	if err := scheduleTerminalItems(ctx, transaction, unit.ImportID, now); err != nil {
+		return err
 	}
 	if err := transaction.Commit(); err != nil {
 		return fmt.Errorf("pegasusimport/commit finish: %w", err)

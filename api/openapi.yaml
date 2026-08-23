@@ -687,7 +687,7 @@ paths:
     parameters: [{ $ref: '#/components/parameters/ReviewEventID' }]
     get:
       operationId: getAdminReviewHistoryEvent
-      description: Immutable before/after metadata and evidence captured for an approved or discarded review decision. The nullable coverUrl prefers the selected uploaded or candidate cover and falls back to the retained Pegasus source cover linked to the final ImportItem, so pre-existing Pegasus decisions remain renderable without using mutable current Game media.
+      description: Immutable textual and structured metadata/evidence captured for an approved or discarded review decision. Terminal review history intentionally contains no replayable cover, video, Blob, URL, path, hash, dimensions, MIME type, or other CAS payload reference.
       responses:
         '200': { $ref: '#/components/responses/JSONResponse' }
   /api/v1/admin/tags:
@@ -758,10 +758,14 @@ paths:
         '200': { $ref: '#/components/responses/JSONResponse' }
     delete:
       operationId: deleteAdminGame
+      description: Permanently releases every game-owned and game-runtime payload while retaining a textual tombstone and relationship/history records. The impact digest must match the current management projection.
       parameters: [{ $ref: '#/components/parameters/IfMatch' }, { $ref: '#/components/parameters/IdempotencyKey' }]
       requestBody: { $ref: '#/components/requestBodies/DeleteGame' }
       responses:
-        '204': { description: Deleted }
+        '200':
+          $ref: '#/components/responses/JSONResponse'
+        '202':
+          $ref: '#/components/responses/JSONResponse'
   /api/v1/admin/games/{gameId}/tags:
     parameters: [{ $ref: '#/components/parameters/GameID' }]
     put:
@@ -774,6 +778,7 @@ paths:
     parameters: [{ $ref: '#/components/parameters/GameID' }]
     post:
       operationId: postAdminGameAsset
+      description: Creates a complete current media revision, retires all prior GameAsset leaves, and stages newly unreferenced payload for retention-aware GC.
       parameters: [{ $ref: '#/components/parameters/IfMatch' }, { $ref: '#/components/parameters/IdempotencyKey' }]
       requestBody: { $ref: '#/components/requestBodies/GameAsset' }
       responses:
@@ -782,7 +787,7 @@ paths:
     parameters: [{ $ref: '#/components/parameters/GameID' }, { $ref: '#/components/parameters/GameAssetKind' }]
     delete:
       operationId: deleteAdminGameAsset
-      description: Removes the selected media kind by creating a new immutable metadata revision with the remaining complete media set.
+      description: Removes the selected media kind by creating a new immutable metadata revision with the remaining complete media set, then retires prior GameAsset leaves.
       parameters: [{ $ref: '#/components/parameters/IfMatch' }, { $ref: '#/components/parameters/IdempotencyKey' }]
       responses:
         '204': { description: Asset kind removed }
@@ -790,7 +795,7 @@ paths:
     parameters: [{ $ref: '#/components/parameters/GameID' }]
     post:
       operationId: postAdminGameContentRevision
-      description: Schedules a complete immutable content replacement. contentMode defaults strictly to STANDARD; MULTI_DISC_M3U_V1 requires a complete DIRECTORY upload and never uses review attachment repair.
+      description: Schedules a destructive complete content replacement. Byte-identical single-ROM content or the same ordered multi-disc hashes fail terminally with GAME_CONTENT_UNCHANGED. A successful switch retires old content/runtime payload and deletes saves bound to superseded revisions; a failed replacement changes none of them. contentMode defaults strictly to STANDARD; MULTI_DISC_M3U_V1 requires a complete DIRECTORY upload and never uses review attachment repair.
       parameters: [{ $ref: '#/components/parameters/IfMatch' }, { $ref: '#/components/parameters/IdempotencyKey' }]
       requestBody: { $ref: '#/components/requestBodies/UploadReference' }
       responses:
@@ -1046,6 +1051,7 @@ paths:
     parameters: [{ $ref: '#/components/parameters/RequirementID' }]
     post:
       operationId: postAdminBIOSInstallation
+      description: Installs a new active BIOS revision. Replacing the active installation releases its payload and invalidates saves and runtime sessions bound to the old BIOS snapshot.
       parameters: [{ $ref: '#/components/parameters/IfMatch' }, { $ref: '#/components/parameters/IdempotencyKey' }]
       requestBody: { $ref: '#/components/requestBodies/InstallBIOS' }
       responses:
@@ -1073,6 +1079,7 @@ paths:
     parameters: [{ $ref: '#/components/parameters/AssetID' }]
     get:
       operationId: getContentAsset
+      description: Serves only an asset owned by the published game's current metadata revision; retired asset IDs return 404.
       responses:
         '200': { $ref: '#/components/responses/BinaryResponse' }
     head:
@@ -1685,10 +1692,12 @@ components:
     FavoriteGameItem:
       type: object
       additionalProperties: false
-      required: [gameId, title, platform, platformInstance, defaultCore, coverUrl, releaseYear, createdAtMs, lastPlayedAtMs, tags, favorite]
+      required: [gameId, title, status, availability, platform, platformInstance, defaultCore, coverUrl, releaseYear, createdAtMs, lastPlayedAtMs, tags, favorite]
       properties:
         gameId: { type: string, format: uuid }
         title: { type: string }
+        status: { type: string, enum: [PUBLISHED, DELETED] }
+        availability: { type: string, enum: [PUBLISHED, DELETED] }
         platform: { $ref: '#/components/schemas/FavoriteNamedResource' }
         platformInstance: { $ref: '#/components/schemas/FavoriteNamedResource' }
         defaultCore: { $ref: '#/components/schemas/FavoriteNamedResource' }
@@ -1867,10 +1876,12 @@ components:
     NetplayRoomGame:
       type: object
       additionalProperties: false
-      required: [gameId, title, platformName, profileId, coreName, emulatorjsVersion, maxPlayers]
+      required: [gameId, title, status, availability, platformName, profileId, coreName, emulatorjsVersion, maxPlayers]
       properties:
         gameId: { type: string, format: uuid }
         title: { type: string }
+        status: { type: string, enum: [PUBLISHED, DELETED] }
+        availability: { type: string, enum: [PUBLISHED, DELETED] }
         platformName: { type: string }
         profileId: { type: string }
         coreName: { type: string }
@@ -1915,7 +1926,7 @@ components:
         endReason:
           type: string
           nullable: true
-          enum: [NORMAL, USER_EXIT, HOST_CLOSED, HOST_LOST, PEER_TIMEOUT, AUTH_REVOKED, START_TIMEOUT, PREPARE_FAILED, PROFILE_REVOKED, SERVER_RESTARTED, RESTORE, HARD_EXPIRED, ROLLBACK_WINDOW_EXCEEDED, STATE_RING_CAPACITY_EXCEEDED, STATE_TRANSFER_TIMEOUT, STATE_INVALID, NETPLAY_UNSTABLE, PEER_TOO_SLOW, PROTOCOL_VIOLATION, INTERNAL_ERROR]
+          enum: [NORMAL, USER_EXIT, HOST_CLOSED, HOST_LOST, PEER_TIMEOUT, AUTH_REVOKED, START_TIMEOUT, PREPARE_FAILED, PROFILE_REVOKED, SERVER_RESTARTED, RESTORE, HARD_EXPIRED, ROLLBACK_WINDOW_EXCEEDED, STATE_RING_CAPACITY_EXCEEDED, STATE_TRANSFER_TIMEOUT, STATE_INVALID, NETPLAY_UNSTABLE, PEER_TOO_SLOW, PROTOCOL_VIOLATION, INTERNAL_ERROR, GAME_DELETED, GAME_CONTENT_REPLACED, BIOS_REPLACED]
     NetplayRoomList:
       type: object
       additionalProperties: false
@@ -2202,8 +2213,10 @@ components:
     DeleteGameRequest:
       type: object
       additionalProperties: false
-      required: [confirmTitle]
-      properties: { confirmTitle: { type: string, minLength: 1, maxLength: 200 } }
+      required: [confirmTitle, impactDigest]
+      properties:
+        confirmTitle: { type: string, minLength: 1, maxLength: 200 }
+        impactDigest: { type: string, pattern: '^[0-9a-f]{64}$' }
     GameAssetRequest:
       type: object
       additionalProperties: false
@@ -2690,7 +2703,7 @@ components:
     PegasusItem:
       type: object
       additionalProperties: false
-      required: [id, title, collectionId, collectionName, targetPlatformInstanceId, targetPlatformInstanceName, metadataRelativePath, executionState, contentKind, tags, media, warnings, discoveryCode, errorCode, failureDetails, runtimeCheck, retryable, reviewItemId, publishedGameId, existingGameId, existingMatches, updatedAtMs]
+      required: [id, title, collectionId, collectionName, targetPlatformInstanceId, targetPlatformInstanceName, metadataRelativePath, executionState, payloadState, payloadReleaseJobId, contentKind, tags, media, warnings, discoveryCode, errorCode, failureDetails, runtimeCheck, retryable, reviewItemId, publishedGameId, existingGameId, existingMatches, updatedAtMs]
       properties:
         id: { type: string, format: uuid }
         title: { type: string }
@@ -2700,6 +2713,8 @@ components:
         targetPlatformInstanceName: { type: string, nullable: true }
         metadataRelativePath: { type: string, maxLength: 4096 }
         executionState: { type: string, enum: [PENDING, COPYING, VALIDATING, REVIEW_PENDING, PUBLISHED, REVIEW_DISCARDED, SKIPPED_EXISTING, SKIPPED_MAPPING, BLOCKED_SOURCE, BLOCKED_CONTENT, SOURCE_CHANGED, READ_FAILED, COMMIT_FAILED, CANCELLED] }
+        payloadState: { type: string, enum: [RETAINED, RELEASING, RELEASED, FAILED] }
+        payloadReleaseJobId: { type: string, format: uuid, nullable: true }
         contentKind: { type: string, nullable: true, enum: [SINGLE_FILE, DOS_BUNDLE, MULTI_DISC_M3U_V1] }
         tags: { type: array, maxItems: 20, items: { $ref: '#/components/schemas/TagReference' } }
         media:

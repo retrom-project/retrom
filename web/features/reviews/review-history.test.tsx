@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ReviewHistory, type HistoryItem } from "./review-history";
@@ -20,32 +20,15 @@ describe("ReviewHistory", () => {
     expect(dialog).toHaveTextContent("1990");
   });
 
-  it("falls back to a placeholder when a historical cover is unavailable", async () => {
-    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ reviewEventId: "event-1", eventType: "APPROVED", reason: null, createdAtMs: item.createdAtMs, before: { metadata: { title: "1943: The Battle of Midway" }, selectedAssets: { coverCandidateAssetId: "cover-1" } } }), { status: 200, headers: { "Content-Type": "application/json" } })));
+  it("renders terminal history as text even when an unexpected legacy media field is present", async () => {
+    const mediaURL = "/api/v1/admin/review-assets/forbidden-cover";
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ reviewEventId: "event-1", eventType: "APPROVED", reason: null, createdAtMs: item.createdAtMs, coverUrl: mediaURL, before: { metadata: { title: "1943: The Battle of Midway" } } }), { status: 200, headers: { "Content-Type": "application/json" } })));
     const user = userEvent.setup();
     render(<ReviewHistory items={[item]} />);
 
     await user.click(screen.getByRole("button", { name: "查看“1941”的审核快照" }));
-    fireEvent.error(await screen.findByRole("img", { name: "1943: The Battle of Midway 审核时封面" }));
-    expect(screen.getByText("历史封面暂不可用")).toBeInTheDocument();
-  });
-
-  it("replays a manually uploaded cover from the review snapshot", async () => {
-    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ reviewEventId: "event-1", eventType: "APPROVED", reason: null, createdAtMs: item.createdAtMs, coverUrl: "/api/v1/admin/review-assets/uploaded-cover", before: { metadata: { title: "1943: The Battle of Midway" }, selectedAssets: { coverCandidateAssetId: "candidate-cover", coverUploadedAssetId: "uploaded-cover" } } }), { status: 200, headers: { "Content-Type": "application/json" } })));
-    const user = userEvent.setup();
-    render(<ReviewHistory items={[item]} />);
-
-    await user.click(screen.getByRole("button", { name: "查看“1941”的审核快照" }));
-    expect((await screen.findByRole("img", { name: "1943: The Battle of Midway 审核时封面" })).getAttribute("src")).toMatch(/\/api\/v1\/admin\/review-assets\/uploaded-cover$/);
-  });
-
-  it("replays a Pegasus source cover from the history projection", async () => {
-    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ reviewEventId: "event-1", eventType: "APPROVED", reason: null, createdAtMs: item.createdAtMs, coverUrl: "/api/v1/admin/review-assets/pegasus-item?kind=COVER", before: { metadata: { title: "Strikers 1945 Plus" }, selectedAssets: { coverCandidateAssetId: null, coverUploadedAssetId: null } } }), { status: 200, headers: { "Content-Type": "application/json" } })));
-    const user = userEvent.setup();
-    render(<ReviewHistory items={[item]} />);
-
-    await user.click(screen.getByRole("button", { name: "查看“1941”的审核快照" }));
-    expect((await screen.findByRole("img", { name: "Strikers 1945 Plus 审核时封面" })).getAttribute("src"))
-      .toMatch(/\/api\/v1\/admin\/review-assets\/pegasus-item\?kind=COVER$/);
+    expect(await screen.findByText("1943: The Battle of Midway")).toBeVisible();
+    expect(screen.queryByRole("img")).not.toBeInTheDocument();
+    expect(document.body.innerHTML).not.toContain(mediaURL);
   });
 });

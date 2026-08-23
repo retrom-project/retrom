@@ -278,9 +278,9 @@ func (service *Service) persistProviderResponse(
 	expiresAt := service.providerResponseExpiry(result.Outcome, now)
 	if _, err := transaction.ExecContext(ctx, `
 INSERT INTO metadata_provider_responses(id,provider,request_digest,http_status,outcome,
-raw_response_blob_id,fetched_at_ms,expires_at_ms) VALUES(?,'HASHEOUS',?,?,?,?,?,?)
+raw_response_blob_id,raw_payload_state,fetched_at_ms,expires_at_ms) VALUES(?,'HASHEOUS',?,?,?,?,?,?,?)
 `, responseID, result.RequestDigest, nullableStatus(result.HTTPStatus), string(result.Outcome),
-		rawBlobID, now, expiresAt); err != nil {
+		rawBlobID, providerPayloadState(rawBlobIDValue), now, expiresAt); err != nil {
 		return "", "", fmt.Errorf("metadatascrape/service: %w", err)
 	}
 	if result.Outcome == hasheous.OutcomeHit || result.Outcome == hasheous.OutcomeMiss {
@@ -294,6 +294,13 @@ expires_at_ms=excluded.expires_at_ms,updated_at_ms=excluded.updated_at_ms
 		}
 	}
 	return responseID, "NETWORK", nil
+}
+
+func providerPayloadState(blobID string) string {
+	if blobID == "" {
+		return "NONE"
+	}
+	return "RETAINED"
 }
 
 func (service *Service) persistRawResponse(
@@ -344,6 +351,17 @@ func (service *Service) persistResult(
 	}
 	defer cleanup.Rollback(transaction)
 	now := service.now().UnixMilli()
+	var writable int
+	if err := transaction.QueryRowContext(ctx, `
+SELECT count(*) FROM metadata_scrape_runs run
+LEFT JOIN games game ON game.id=run.game_id
+WHERE run.id=? AND (run.game_id IS NULL OR game.status='PUBLISHED')
+`, runID).Scan(&writable); err != nil {
+		return false, fmt.Errorf("metadatascrape/service: %w", err)
+	}
+	if writable != 1 {
+		return false, errGameDeleted
+	}
 	responseID, source, err := service.persistProviderResponse(ctx, transaction, result, cachedResponseID, now)
 	if err != nil {
 		return false, err

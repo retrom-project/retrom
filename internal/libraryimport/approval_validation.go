@@ -13,6 +13,7 @@ import (
 	"retrom/internal/contentcapability"
 	"retrom/internal/corevalidation"
 	"retrom/internal/multidisc"
+	"retrom/internal/payloadrelease"
 )
 
 // Resolution rows and aggregate repair must commit as one auditable operation.
@@ -97,6 +98,9 @@ SET reconfigured_from_import_job_id=?
 WHERE id=?
 `, input.sourceImportJobID, replacementImportJobID); err != nil {
 		return fmt.Errorf("libraryimport/reconfigure: %w", err)
+	}
+	if _, err := payloadrelease.ScheduleTerminalImportJob(ctx, transaction, input.sourceImportJobID, now); err != nil {
+		return fmt.Errorf("libraryimport/reconfigure source release: %w", err)
 	}
 	return nil
 }

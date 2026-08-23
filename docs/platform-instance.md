@@ -159,7 +159,7 @@ SQLite 无法仅靠上述外键验证 `platform_cores.enabled = 1` 或“GameVar
 4. Worker 复用 `CONTENT` GameContentFile；Arcade 只以该 ContentRevision 的 CONTENT/COMPANION 和目标 core 自己的活动 DAT 匹配 machine/entry/parent/BIOS（不得扫描无归属全局 Blob），并在事务外流式生成确定性 bundle；Host console 无依赖时只做索引判定。完成后短事务创建直接引用 ContentRevision 的 VariantRevision；READY 才切换 current，BLOCKED/INCOMPATIBLE 不成为 current。
 5. Player overlay 订阅 Job；SUCCEEDED 时以相同 body 和新 Idempotency-Key 自动再调用 `POST /launches`，此次取得 `201`/cookie 并继续同一次点击流程。没有确认页或人工第二次开始。FAILED/CANCELLED 则退出全屏并显示 Job 的稳定 Blocker。证据缺失使用 `LAUNCH_CORE_VALIDATION_UNAVAILABLE`；有界 Job 超时使用 `LAUNCH_CORE_VALIDATION_TIMEOUT`，不写半成品、不静默回退。
 
-按需创建的 revision 与导入预验证创建的 revision 使用同一领域服务、同一依赖快照和测试向量。管理侧替换游戏文件只有在新 GameContentRevision 对目录当前默认 core 验证 READY 时才原子提升 Game current content；其他 core 自动回到 `NEEDS_VALIDATION`，但旧 ContentRevision、VariantRevision 和旧存档继续可追溯、可按锁定 revision 启动。即使新旧 bytes/hash 相同，两次已接受替换也是两个 ContentRevision，不能用 digest 相等混淆审核时序。
+按需创建的 revision 与导入预验证创建的 revision 使用同一领域服务、同一依赖快照和测试向量。管理侧替换游戏文件只有在新 GameContentRevision 对目录当前默认 core 验证 READY 时才原子提升 Game current content；其他 core 自动回到 `NEEDS_VALIDATION`。成功切换会保留旧 ContentRevision/VariantRevision 的文字和结构化审计，但删除其 ContentFile/VariantFile、运行快照及绑定存档；失败不改变 current 或存档。单 ROM bytes 相同，或多盘的规范盘序与全部 Disc hash 相同，必须以 `GAME_CONTENT_UNCHANGED` 拒绝而不创建 revision。
 
 ## 6. 导入、识别与审核
 

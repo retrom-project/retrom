@@ -124,18 +124,16 @@ func recordAcceptedMultiDiscReviewEvent(
 	evidence acceptedMultiDiscEvidence,
 ) error {
 	eventID, _ := uuid.NewV7()
-	eventEvidence, _ := json.Marshal(map[string]any{
-		"schemaVersion": 1, "attachmentId": candidate.input.AttachmentID,
-		"baseSourceSnapshotId":   candidate.input.BaseSourceSnapshotID,
-		"resultSourceSnapshotId": evidence.sourceSnapshotID, "validationId": evidence.validationID,
-		"validationStatus": candidate.validationStatus, "state": "ACCEPTED",
+	eventEvidence := marshalReviewEventV2(map[string]any{
+		"attachmentKind": "MULTI_DISC", "validationStatus": candidate.validationStatus, "state": "ACCEPTED",
 	})
 	if _, err := transaction.ExecContext(ctx, `
 INSERT INTO review_events(id,import_item_id,event_type,actor_kind,actor_user_id,actor_label,
 before_json,after_json,diff_json,config_evidence_json,dat_evidence_json,provider_evidence_json,created_at_ms)
-VALUES(?,?,'DISC_ATTACHMENT_ACCEPTED','USER',?,NULL,'{}',?,?,'{}','{}','{}',?)
+VALUES(?,?,'DISC_ATTACHMENT_ACCEPTED','USER',?,NULL,?,?,?,?,?,?,?)
 `, eventID.String(), candidate.input.ImportItemID, candidate.input.RequestedByUserID,
-		string(eventEvidence), string(eventEvidence), evidence.now); err != nil {
+		emptyReviewEventV2, eventEvidence, eventEvidence, emptyReviewEventV2,
+		emptyReviewEventV2, emptyReviewEventV2, evidence.now); err != nil {
 		return multiDiscAttachmentStoreError("record review event", err)
 	}
 	return nil
@@ -299,17 +297,16 @@ INSERT INTO job_events(job_id,scope_type,scope_id,event_type,data_json,created_a
 		return
 	}
 	eventID, _ := uuid.NewV7()
-	evidence, _ := json.Marshal(map[string]any{
-		"schemaVersion": 1, "attachmentId": candidate.input.AttachmentID,
-		"baseSourceSnapshotId": candidate.input.BaseSourceSnapshotID,
-		"state":                "REJECTED", "errorCode": code,
+	evidence := marshalReviewEventV2(map[string]any{
+		"attachmentKind": "MULTI_DISC", "state": "REJECTED", "errorCode": code,
 	})
 	if _, err := transaction.ExecContext(ctx, `
 INSERT INTO review_events(id,import_item_id,event_type,actor_kind,actor_user_id,actor_label,
 before_json,after_json,diff_json,config_evidence_json,dat_evidence_json,provider_evidence_json,created_at_ms)
-VALUES(?,?,'DISC_ATTACHMENT_REJECTED','USER',?,NULL,'{}',?,?,'{}','{}','{}',?)
+VALUES(?,?,'DISC_ATTACHMENT_REJECTED','USER',?,NULL,?,?,?,?,?,?,?)
 `, eventID.String(), candidate.input.ImportItemID, candidate.input.RequestedByUserID,
-		string(evidence), string(evidence), now); err != nil {
+		emptyReviewEventV2, evidence, evidence, emptyReviewEventV2,
+		emptyReviewEventV2, emptyReviewEventV2, now); err != nil {
 		return
 	}
 	_ = transaction.Commit()

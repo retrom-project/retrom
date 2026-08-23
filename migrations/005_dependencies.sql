@@ -51,7 +51,7 @@ CHECK(delivery_kind IN ('BIOS_BUNDLE','EXTERNAL_FILE')), emulator_path TEXT,
 CREATE TABLE bios_installations (
   id TEXT PRIMARY KEY,
   requirement_id TEXT NOT NULL REFERENCES bios_requirements(id),
-  blob_id TEXT NOT NULL REFERENCES blobs(id),
+  blob_id TEXT REFERENCES blobs(id),
   original_filename TEXT NOT NULL,
   size_bytes INTEGER NOT NULL CHECK(size_bytes >= 0),
   md5 TEXT NOT NULL CHECK(length(md5) = 32),
@@ -65,7 +65,10 @@ CREATE TABLE bios_installations (
   created_at_ms INTEGER NOT NULL,
   updated_at_ms INTEGER NOT NULL, source_kind TEXT NOT NULL DEFAULT 'BROWSER_UPLOAD'
 CHECK(source_kind IN ('BROWSER_UPLOAD','SERVER_DIRECTORY')), server_import_candidate_id TEXT REFERENCES server_bios_import_candidates(id),
-  CHECK(NOT (status = 'INVALID' AND is_active = 1))
+  payload_released_at_ms INTEGER CHECK(payload_released_at_ms IS NULL OR payload_released_at_ms>=created_at_ms),
+  CHECK(NOT (status = 'INVALID' AND is_active = 1)),
+  CHECK(is_active=0 OR blob_id IS NOT NULL),
+  CHECK((blob_id IS NULL)=(payload_released_at_ms IS NOT NULL))
 );
 
 CREATE TABLE dat_versions (

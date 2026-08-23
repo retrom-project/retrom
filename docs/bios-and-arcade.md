@@ -94,7 +94,7 @@ EmulatorJS 4.2.3 manifest 另声明下列 12 个静态 Requirement；精确 size
 | `prosystem` | `7800 BIOS (U).rom` | `REQUIRED` | `BIOS_BUNDLE` |
 | `mednafen_pcfx` | `pcfx.rom` | `REQUIRED` | `BIOS_BUNDLE` |
 
-MelonDS 三项必须全部存在才能得到 READY。它们不进入根 BIOS bundle：Variant dependency snapshot 锁定 installation/version/blob/delivery/path，Launch 创建事务复制到 `launch_external_files`，配置只生成三个受 capability 保护的同源 URL。切换 active installation 后，旧 Launch 继续读旧 Blob，新 Launch 使用新 Blob；外部文件不得因当前 BIOS 状态变化而漂移。
+MelonDS 三项必须全部存在才能得到 READY。它们不进入根 BIOS bundle：Variant dependency snapshot 锁定 installation/version/blob/delivery/path，Launch 创建事务复制到 `launch_external_files`，配置只生成三个受 capability 保护的同源 URL。同一 Requirement 切换 active installation 是显式破坏性边界：事务撤销依赖旧 Installation 的 Launch/Play/Netplay，删除其运行 payload 与存档，再释放旧 Installation Blob；新 Launch 必须先以新 BIOS 生成 READY revision。外部文件不得在仍运行的 Launch 内静默漂移。
 
 ### 3.6 Arcade Core
 
@@ -273,4 +273,4 @@ Arcade DAT 没有管理员 HTTP API；运行时只通过审核、GameVariant、L
 
 STATIC 的可信 exact 要求全部已声明 size/hash 同时一致；否则依次按期望 size、精确 basename、较大 size 作低置信度选择，结果保持 `HASH_WARNING`。DAT_MACHINE 只把逻辑 `.zip` 交给全局串行 archive scanner，并优先安全、可启动、matched/aliased 更多且 mismatched/missing 更少的候选；最后以规范相对路径和确定性 ID 稳定排序。只以质量证据比较是否覆盖，身份、文件名或新扫描本身不增加质量。
 
-`replaceIfBetter=false` 保留任何 active Installation；开启后也只允许严格更优，禁止同分、证据不完整或降级替换。相同 bytes 且 Requirement version/catalog 未变时不创建 revision；Requirement 版本改变时相同 bytes 仍重验并可形成新 revision。提交前重新检查完整 catalog digest、Requirement/CoreArtifact/DAT 版本和 source bytes；漂移分别以稳定条目结果收口。完成后只对受影响的稳定 Variant 安排既有异步重校验，历史 Launch 快照不改写。
+`replaceIfBetter=false` 保留任何 active Installation；开启后也只允许严格更优，禁止同分、证据不完整或降级替换。相同 bytes 且 Requirement version/catalog 未变时不创建 revision；Requirement 版本改变时相同 bytes 仍重验并可形成新 revision。提交前重新检查完整 catalog digest、Requirement/CoreArtifact/DAT 版本和 source bytes；漂移分别以稳定条目结果收口。真正替换时，旧 Installation 行保留 filename/size/hash/status 和来源审计，但 `blob_id` 单向清空并记录 `payload_released_at_ms`；依赖它的存档、运行快照和旧 `BIOS_BUNDLE` VariantFile 载荷同步清理，活动 Launch/Play/Netplay 终止。旧 VariantRevision 只保留不可变依赖审计，当前 validation digest 因依赖变化失效，下一次 Launch 先走既有异步重校验并生成绑定新 BIOS 的 revision。

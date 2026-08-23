@@ -118,6 +118,11 @@ CREATE TABLE "pegasus_import_items" (
   discovery_code TEXT,
   error_code TEXT,
   retryable INTEGER NOT NULL DEFAULT 0 CHECK(retryable IN (0,1)),
+  version INTEGER NOT NULL DEFAULT 1 CHECK(version>=1),
+  payload_state TEXT NOT NULL DEFAULT 'RETAINED' CHECK(payload_state IN ('RETAINED','RELEASING','RELEASED','FAILED')),
+  payload_release_job_id TEXT REFERENCES jobs(id),
+  payload_released_at_ms INTEGER,
+  payload_last_error_code TEXT,
   library_import_job_id TEXT REFERENCES import_jobs(id),
   library_import_item_id TEXT REFERENCES import_items(id),
   published_game_id TEXT REFERENCES games(id),
@@ -137,7 +142,13 @@ CREATE TABLE "pegasus_import_items" (
   UNIQUE(import_id,metadata_relative_path,game_ordinal),
   CHECK((execution_state IN ('PENDING','COPYING','VALIDATING'))=(completed_at_ms IS NULL)),
   CHECK((execution_state='PUBLISHED')=(published_game_id IS NOT NULL)),
-  CHECK((execution_state='SKIPPED_EXISTING')=(existing_game_id IS NOT NULL AND existing_content_revision_id IS NOT NULL))
+  CHECK((execution_state='SKIPPED_EXISTING')=(existing_game_id IS NOT NULL AND existing_content_revision_id IS NOT NULL)),
+  CHECK(
+    payload_state='RETAINED' AND payload_release_job_id IS NULL AND payload_released_at_ms IS NULL AND payload_last_error_code IS NULL OR
+    payload_state='RELEASING' AND payload_release_job_id IS NOT NULL AND payload_released_at_ms IS NULL AND payload_last_error_code IS NULL OR
+    payload_state='RELEASED' AND payload_release_job_id IS NOT NULL AND payload_released_at_ms IS NOT NULL AND payload_last_error_code IS NULL OR
+    payload_state='FAILED' AND payload_release_job_id IS NOT NULL AND payload_released_at_ms IS NULL AND payload_last_error_code IS NOT NULL
+  )
 );
 
 CREATE TABLE pegasus_import_item_files (
@@ -152,12 +163,15 @@ CREATE TABLE pegasus_import_item_files (
   source_archive_entry_ordinal INTEGER,
   role TEXT CHECK(role IS NULL OR role IN ('CONTENT','DOS_SOURCE','COMPANION','PLAYLIST_SOURCE','DISC')),
   logical_name TEXT,
-  state TEXT NOT NULL CHECK(state IN ('DISCOVERED','COPIED','SOURCE_CHANGED','READ_FAILED','UNSUPPORTED')),
+  state TEXT NOT NULL CHECK(state IN ('DISCOVERED','COPIED','SOURCE_CHANGED','READ_FAILED','UNSUPPORTED','PAYLOAD_RELEASED')),
+  payload_released_at_ms INTEGER,
   created_at_ms INTEGER NOT NULL CHECK(created_at_ms>=0),
   updated_at_ms INTEGER NOT NULL CHECK(updated_at_ms>=created_at_ms),
   PRIMARY KEY(item_id,ordinal),
   UNIQUE(item_id,relative_path),
-  CHECK((source_archive_blob_id IS NULL)=(source_archive_entry_ordinal IS NULL))
+  CHECK((source_archive_blob_id IS NULL)=(source_archive_entry_ordinal IS NULL)),
+  CHECK(state='PAYLOAD_RELEASED' AND blob_id IS NULL AND source_archive_blob_id IS NULL AND payload_released_at_ms IS NOT NULL OR
+        state<>'PAYLOAD_RELEASED' AND payload_released_at_ms IS NULL)
 );
 
 CREATE TABLE pegasus_import_item_assets (
@@ -171,11 +185,14 @@ CREATE TABLE pegasus_import_item_assets (
   media_type TEXT,
   width_px INTEGER,
   height_px INTEGER,
-  state TEXT NOT NULL CHECK(state IN ('DISCOVERED','COPIED','MISSING','AMBIGUOUS','INVALID','TOO_LARGE','SOURCE_CHANGED','READ_FAILED')),
+  state TEXT NOT NULL CHECK(state IN ('DISCOVERED','COPIED','MISSING','AMBIGUOUS','INVALID','TOO_LARGE','SOURCE_CHANGED','READ_FAILED','PAYLOAD_RELEASED')),
+  payload_released_at_ms INTEGER,
   warning_code TEXT,
   created_at_ms INTEGER NOT NULL CHECK(created_at_ms>=0),
   updated_at_ms INTEGER NOT NULL CHECK(updated_at_ms>=created_at_ms),
   PRIMARY KEY(item_id,kind),
   CHECK(kind<>'COVER' OR media_type IS NULL OR (media_type IN ('image/png','image/jpeg','image/webp') AND width_px>0 AND height_px>0)),
-  CHECK(kind<>'VIDEO' OR media_type IS NULL OR (media_type IN ('video/mp4','video/webm') AND width_px IS NULL AND height_px IS NULL))
+  CHECK(kind<>'VIDEO' OR media_type IS NULL OR (media_type IN ('video/mp4','video/webm') AND width_px IS NULL AND height_px IS NULL)),
+  CHECK(state='PAYLOAD_RELEASED' AND blob_id IS NULL AND payload_released_at_ms IS NOT NULL OR
+        state<>'PAYLOAD_RELEASED' AND payload_released_at_ms IS NULL)
 );

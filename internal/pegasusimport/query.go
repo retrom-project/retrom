@@ -212,15 +212,21 @@ func (service *Service) Items(
 	rows, err := service.database.QueryContext(ctx, `
 SELECT item.id,item.title,item.collection_id,collection.name,
 collection.target_platform_instance_id,platform.name,
-item.metadata_relative_path,item.execution_state,item.content_kind,
+item.metadata_relative_path,item.execution_state,item.payload_state,item.payload_release_job_id,item.content_kind,
 item.warnings_json,item.discovery_code,item.error_code,item.error_details_json,item.retryable,
 item.library_import_item_id,
 item.published_game_id,item.existing_game_id,item.existing_matches_json,item.updated_at_ms,
 validation.status,validation.compatibility_code,validation.core_id,core.name,
 validation.dependency_snapshot_json,
 collection.tag_snapshot_json,
-EXISTS(SELECT 1 FROM pegasus_import_item_assets asset WHERE asset.item_id=item.id AND asset.kind='COVER'),
-EXISTS(SELECT 1 FROM pegasus_import_item_assets asset WHERE asset.item_id=item.id AND asset.kind='VIDEO')
+EXISTS(
+ SELECT 1 FROM pegasus_import_item_assets asset
+ WHERE asset.item_id=item.id AND asset.kind='COVER' AND asset.blob_id IS NOT NULL
+),
+EXISTS(
+ SELECT 1 FROM pegasus_import_item_assets asset
+ WHERE asset.item_id=item.id AND asset.kind='VIDEO' AND asset.blob_id IS NOT NULL
+)
 FROM pegasus_import_items item
 LEFT JOIN pegasus_import_collections collection ON collection.id=item.collection_id
 LEFT JOIN platform_instances platform ON platform.id=collection.target_platform_instance_id
@@ -275,13 +281,14 @@ LIMIT ?`,
 func scanItem(row rowScanner) (Item, error) {
 	var value Item
 	var collection, collectionName, target, targetName, kind sql.NullString
-	var discovery, itemError, failureDetails, reviewItem, published, existing sql.NullString
+	var discovery, itemError, failureDetails, reviewItem, published, existing, payloadReleaseJob sql.NullString
 	var validationStatus, compatibilityCode, coreID, coreName, dependencySnapshot sql.NullString
 	var warnings, existingMatches, tagSnapshot string
 	var retryable, hasCover, hasVideo int
 	if err := row.Scan(
 		&value.ID, &value.Title, &collection, &collectionName, &target, &targetName,
-		&value.MetadataRelativePath, &value.ExecutionState, &kind, &warnings, &discovery, &itemError, &failureDetails,
+		&value.MetadataRelativePath, &value.ExecutionState, &value.PayloadState, &payloadReleaseJob,
+		&kind, &warnings, &discovery, &itemError, &failureDetails,
 		&retryable, &reviewItem, &published, &existing, &existingMatches, &value.UpdatedAtMS,
 		&validationStatus, &compatibilityCode, &coreID, &coreName, &dependencySnapshot,
 		&tagSnapshot,
@@ -293,6 +300,7 @@ func scanItem(row rowScanner) (Item, error) {
 	value.TargetPlatformInstanceID = nullableString(target)
 	value.TargetPlatformInstanceName = nullableString(targetName)
 	value.ContentKind, value.DiscoveryCode = nullableString(kind), nullableString(discovery)
+	value.PayloadReleaseJobID = nullableString(payloadReleaseJob)
 	value.ErrorCode = nullableString(itemError)
 	if failureDetails.Valid {
 		var details FailureDetails

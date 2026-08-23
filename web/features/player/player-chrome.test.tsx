@@ -57,6 +57,15 @@ function props(overrides: Partial<Parameters<typeof PlayerChrome>[0]> = {}): Par
 }
 
 describe("PlayerChrome", () => {
+  it("keeps the running toolbar hidden until the reveal state is active", () => {
+    const { container, rerender } = render(<PlayerChrome {...props({ controlsVisible: false })} />);
+    const toolbar = container.querySelector(".player-toolbar");
+    expect(toolbar).not.toHaveClass("is-visible");
+
+    rerender(<PlayerChrome {...props({ controlsVisible: true })} />);
+    expect(toolbar).toHaveClass("is-visible");
+  });
+
   it("keeps a determinate save upload progress bar visible until completion", () => {
     const { rerender } = render(<PlayerChrome {...props({
       syncText: "正在上传存档 47%", syncTone: "busy", saveUploadProgress: 47,

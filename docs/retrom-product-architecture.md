@@ -121,8 +121,8 @@ flowchart LR
 ### 3.5 原始内容不可变并用 SHA-256 去重
 
 - 上传内容流式计算 SHA-256，写入本地内容寻址存储；相同内容只保存一个 Blob。
-- Blob 发布后不原地修改。替换游戏文件创建新的 GameContentRevision，并在默认核心验证 READY 后创建对应 GameVariantRevision、原子切换两个 current pointer；相同 Blob 仍可出现在不同内容修订的审计链中。
-- 存档继续引用其创建时的 revision；只要仍有引用，旧 Blob 不得垃圾回收。
+- Blob 发布后不原地修改。替换游戏文件只在规范化内容与 current 不同时创建新的 GameContentRevision，并在默认核心验证 READY 后创建对应 GameVariantRevision、原子切换两个 current pointer；完全相同的单 ROM 或盘序/Disc hash 相同的多盘输入被拒绝。
+- 目录默认核心、CoreArtifact 或 DAT 的变化不改写存档锁定的 revision；但管理员显式成功替换 ROM/多盘内容是破坏性边界，会删除旧内容绑定存档及运行 payload，再把失去最后引用的旧 Blob 交给宽限期 GC。替换失败不触碰 current 或存档。
 - 数据库保存逻辑关系、哈希、大小、MIME 和引用，不保存宿主机任意路径供浏览器使用。
 
 ### 3.6 模块化后端、双镜像与单一数据目录
@@ -156,6 +156,10 @@ Saturn/yabause 的 `MULTI_DISC_M3U_V1` 内容由同一物理目录中的一个�
 ### 3.11 标签是实例共享、管理员维护的分类
 
 Tag 必须先由管理员建立，再以稳定 ID 关联 Game、导入 ReviewDraft 或 Pegasus Collection；普通用户只能看到可见游戏已关联的活动标签。它与 Profile 私有 FavoriteFolder、单归属 PlatformInstance、metadata genre 和外部来源 tags 都是不同概念。重命名通过动态关系投影立即生效；删除还会推进受影响 owner version，使旧写入稳定冲突。两者都不改写游戏元信息/内容 revision，也不进入 Launch、Player 或存档。完整边界见 [游戏标签](./game-tags.md)。
+
+### 3.12 流程 payload 短期保留，Game 删除保留墓碑
+
+导入、审核与 Pegasus 流程只在可重试/待决期间保留 ROM、媒体、运行预览、provider raw response 等 CAS payload。发布、丢弃、最终失败或取消进入真终态后，持久 PayloadRelease Job 解除流程引用；ReviewEvent v2 长期只保存文字和结构化审计，不保存封面、视频或 CAS 定位信息。Game 永久删除保留原标题、不可变 revision 摘要、审核/操作/游玩/收藏/联机关系作为墓碑，同时异步释放 Game 内容、媒体、存档和运行 payload。Blob 物理删除统一经过共享引用保护和宽限期 GC，本地上传与 Pegasus 两条导入路径遵循同一 ownership registry。
 
 ## 4. 系统上下文
 

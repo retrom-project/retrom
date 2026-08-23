@@ -131,7 +131,7 @@ func (service *Service) queueImport(
 	}
 	if _, err := transaction.ExecContext(ctx, `
 UPDATE pegasus_import_items
-SET execution_state='SKIPPED_MAPPING',completed_at_ms=?,updated_at_ms=?
+SET execution_state='SKIPPED_MAPPING',completed_at_ms=?,version=version+1,updated_at_ms=?
 WHERE import_id=?
 AND collection_id IN (
   SELECT id FROM pegasus_import_collections WHERE import_id=? AND mapping_action='SKIP'
@@ -144,7 +144,7 @@ SET execution_state=CASE discovery_state
   WHEN 'BLOCKED_SOURCE' THEN 'BLOCKED_SOURCE'
   ELSE 'BLOCKED_CONTENT'
 END,
-completed_at_ms=?,updated_at_ms=?
+completed_at_ms=?,version=version+1,updated_at_ms=?
 WHERE import_id=?
 AND execution_state='PENDING'
 AND discovery_state!='READY'`, now, now, summary.ID); err != nil {
@@ -169,6 +169,9 @@ VALUES(
 '{"schemaVersion":1,"executionNo":1,"attempt":0}',?
 )`, jobID.String(), summary.ID, now); err != nil {
 		return fmt.Errorf("pegasusimport/queue event: %w", err)
+	}
+	if err := scheduleTerminalItems(ctx, transaction, summary.ID, now); err != nil {
+		return err
 	}
 	if err := transaction.Commit(); err != nil {
 		return fmt.Errorf("pegasusimport/commit start: %w", err)
@@ -295,7 +298,7 @@ func persistCancellation(ctx context.Context, transaction *sql.Tx, value cancell
 		newState, jobState, completed = "CANCEL_REQUESTED", "CANCEL_REQUESTED", nil
 	} else if _, err := transaction.ExecContext(ctx, `
 UPDATE pegasus_import_items
-SET execution_state='CANCELLED',error_code='CANCELLED',completed_at_ms=?,updated_at_ms=?
+SET execution_state='CANCELLED',error_code='CANCELLED',completed_at_ms=?,version=version+1,updated_at_ms=?
 WHERE import_id=? AND execution_state='PENDING'`, value.Now, value.Now, value.ImportID); err != nil {
 		return fmt.Errorf("pegasusimport/cancel pending items: %w", err)
 	}
@@ -334,6 +337,9 @@ before_json,after_json,diff_json,request_id,created_at_ms
 ?,'{}','{}',NULL,NULL,?
 )`, auditID.String(), value.UserID, value.ImportID, value.Now); err != nil {
 		return fmt.Errorf("pegasusimport/create cancel audit: %w", err)
+	}
+	if err := scheduleTerminalItems(ctx, transaction, value.ImportID, value.Now); err != nil {
+		return err
 	}
 	return nil
 }
@@ -416,7 +422,7 @@ func (service *Service) Retry(ctx context.Context, importID string, version int6
 	if _, err := transaction.ExecContext(ctx, `
 UPDATE pegasus_import_items
 SET execution_state='PENDING',error_code=NULL,error_details_json=NULL,retryable=0,
-completed_at_ms=NULL,updated_at_ms=?
+completed_at_ms=NULL,version=version+1,updated_at_ms=?
 WHERE import_id=?
 AND retryable=1
 AND execution_state IN ('SOURCE_CHANGED','READ_FAILED','COMMIT_FAILED')`, now, importID); err != nil {

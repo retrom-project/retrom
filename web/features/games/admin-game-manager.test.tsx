@@ -14,6 +14,8 @@ vi.mock("@/lib/upload", async (importOriginal) => {
 const game: AdminGame = {
   gameId: "game-1",
   status: "PUBLISHED",
+  payloadState: "RETAINED",
+  payloadReleaseJobId: null,
   title: "1943",
   description: "Battle of Midway",
   developer: "Capcom",
@@ -29,7 +31,12 @@ const game: AdminGame = {
   createdAtMs: 100,
   updatedAtMs: 200,
   generatedAtMs: 500,
-  deleteImpact: { saveStateCount: 44, reviewEventCount: 2, activeLaunchCount: 0 },
+  deleteImpact: {
+    impactDigest: "d".repeat(64), registeredBytes: "5242880", exclusiveBytes: "4194304",
+    sharedBytes: "1048576", blobCount: 4, saveStateCount: 44, assetCount: 2,
+    contentFileCount: 1, activeLaunchCount: 0, activeNetplayCount: 1,
+    reviewEventCount: 2, sourceKinds: ["USER_UPLOAD"],
+  },
   metadataRevisions: [{ id: "metadata-1", sourceKind: "MANUAL", sourceRefId: null, current: true, createdAtMs: 200 }],
   assets: [],
   contentRevisions: [{ id: "content-1", sourceKind: "IMPORT", sourceRefId: "upload-1", contentKind: "SINGLE", current: true, createdAtMs: 150, files: [{ role: "CONTENT", logicalName: "1943.zip", sortOrder: 0, sizeBytes: 4, sha256: "a".repeat(64) }] }],
@@ -56,20 +63,43 @@ describe("AdminGameManager", () => {
 
   it("renders the precise four-section workbench without the omitted section tags", () => {
     const { container } = render(<AdminGameManager game={game} platformInstances={directories} candidates={[]} />);
-    for (const heading of ["发布信息", "媒体", "游戏文件与运行环境", "管理操作", "从游戏库移除"]) {
+    for (const heading of ["发布信息", "媒体", "游戏文件与运行环境", "管理操作", "危险操作"]) {
       expect(screen.getByRole("heading", { name: heading })).toBeInTheDocument();
     }
     for (const omitted of ["媒体资源", "运行状态正常", "维护工具", "危险区域"]) {
       expect(screen.queryByText(omitted, { exact: true })).not.toBeInTheDocument();
     }
     expect(screen.queryByRole("navigation", { name: "游戏管理详情分区" })).not.toBeInTheDocument();
-    expect(screen.getByText("从游戏库移除").closest("details")).not.toHaveAttribute("open");
+    expect(screen.getByRole("button", { name: "永久删除游戏" })).toBeVisible();
     expect(container.querySelector(".admin-game-cover-slot > .admin-game-cover-frame")).not.toBeNull();
     expect(screen.getByRole("heading", { name: "封面" })).toBeVisible();
     expect(screen.getByRole("heading", { name: "视频预览" })).toBeVisible();
     expect(screen.queryByRole("heading", { name: "背景图" })).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "游戏截图" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "保存新版本" })).toBeDisabled();
+  });
+
+  it("confirms permanent deletion without a title field and submits the loaded title internally", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ payloadState: "RELEASING" }), {
+      status: 202,
+      headers: { "Content-Type": "application/json" },
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+    const user = userEvent.setup();
+    render(<AdminGameManager game={game} platformInstances={directories} candidates={[]} />);
+
+    await user.click(screen.getByRole("button", { name: "永久删除游戏" }));
+    const dialog = screen.getByRole("alertdialog", { name: "永久删除“1943”？" });
+    expect(within(dialog).queryByRole("textbox")).not.toBeInTheDocument();
+    expect(within(dialog).queryByText("输入完整游戏标题确认")).not.toBeInTheDocument();
+    const confirm = within(dialog).getByRole("button", { name: "永久删除游戏" });
+    expect(confirm).toBeEnabled();
+    await user.click(confirm);
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith("/api/v1/admin/games/game-1", expect.objectContaining({
+      method: "DELETE",
+      body: JSON.stringify({ confirmTitle: "1943", impactDigest: game.deleteImpact.impactDigest }),
+    })));
   });
 
   it("enables metadata save only for an unsaved change and disables it after success", async () => {
@@ -157,6 +187,7 @@ describe("AdminGameManager", () => {
     const dialog = screen.getByRole("alertdialog", { name: "替换游戏内容" });
     expect(within(dialog).queryByRole("checkbox", { name: /多盘游戏/ })).not.toBeInTheDocument();
     expect(within(dialog).getByText(/当前游戏目录只允许替换普通内容/)).toBeVisible();
+	expect(within(dialog).getByText(/44 份存档会永久失效/)).toBeVisible();
   });
 
   it("previews video only on demand and removes it through an immutable media revision", async () => {
@@ -200,7 +231,7 @@ describe("AdminGameManager", () => {
     await user.upload(within(dialog).getByLabelText("选择一份完整多盘目录"), files);
 
     expect(await within(dialog).findByText("目录完整，可以上传")).toBeVisible();
-    const confirm = within(dialog).getByRole("button", { name: "上传并创建内容版本" });
+    const confirm = within(dialog).getByRole("button", { name: "上传并替换内容" });
     expect(confirm).toBeEnabled();
     await user.click(confirm);
 
@@ -229,7 +260,26 @@ describe("AdminGameManager", () => {
 
     expect(await within(dialog).findByText("目录不完整，不能替换")).toBeVisible();
     expect(within(dialog).getByText("不能替换当前内容。")).toBeVisible();
-    expect(within(dialog).getByRole("button", { name: "上传并创建内容版本" })).toBeDisabled();
+    expect(within(dialog).getByRole("button", { name: "上传并替换内容" })).toBeDisabled();
     expect(upload.uploadFiles).not.toHaveBeenCalled();
   });
+
+	it("explains that an identical ROM was rejected without reporting a replacement", async () => {
+	  upload.uploadFiles.mockResolvedValue({ uploadId: "upload-same", uploadFileIds: ["same-file"] });
+	  upload.waitForJob.mockRejectedValue(new Error("GAME_CONTENT_UNCHANGED"));
+	  const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ jobId: "job-same" }), {
+		status: 202, headers: { "Content-Type": "application/json" },
+	  }));
+	  vi.stubGlobal("fetch", fetchMock);
+	  const user = userEvent.setup();
+	  render(<AdminGameManager game={game} platformInstances={directories} candidates={[]} />);
+
+	  await user.click(screen.getByRole("button", { name: "替换游戏文件" }));
+	  const dialog = screen.getByRole("alertdialog", { name: "替换游戏内容" });
+	  await user.upload(within(dialog).getByLabelText("选择新的游戏文件"), new File(["same"], "1943.zip"));
+	  await user.click(within(dialog).getByRole("button", { name: "上传并替换内容" }));
+
+	  expect(await screen.findByText("所选游戏文件与当前内容相同，未执行替换。")).toBeVisible();
+	  expect(screen.getByRole("alertdialog", { name: "替换游戏内容" })).toBeVisible();
+	});
 });

@@ -378,6 +378,16 @@ func (service *Service) persistManualSave(
 	); err != nil || replayed {
 		return previous, replayed, err
 	}
+	var writable int
+	if err := transaction.QueryRowContext(ctx, `
+SELECT count(*) FROM launch_sessions launch JOIN games game ON game.id=launch.game_id
+WHERE launch.id=? AND launch.game_id=? AND launch.state='ACTIVE' AND game.status='PUBLISHED'
+`, launchID, launch.gameID).Scan(&writable); err != nil {
+		return ManualResult{}, false, fmt.Errorf("saves/service: %w", err)
+	}
+	if writable != 1 {
+		return ManualResult{}, false, ErrCredential
+	}
 	now := service.now().UnixMilli()
 	stateID, err := blobstore.EnsureRecord(ctx, transaction, parsed.state, "application/octet-stream", now)
 	if err != nil {

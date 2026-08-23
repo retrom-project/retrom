@@ -8,7 +8,7 @@ import { reportMultiDiscPlayerEvent, type MultiDiscPlayerEvent } from "./multi-d
 import { setEmulatorPaused } from "./pause-control";
 import { captureBeforePause } from "./pause-screenshot";
 import { PlayerChrome, type PlayerChromeProps, type PlayerDebugRuntime } from "./player-chrome";
-import { shouldRevealPlayerControls } from "./player-controls-visibility";
+import { shouldRevealPlayerControls, shouldRevealPlayerControlsForKey } from "./player-controls-visibility";
 import type { PlayerDebugMetrics } from "./player-debug";
 import { applyVideoRenderingMode, readVideoRenderingMode, subscribeVideoRenderingMode, type VideoRenderingMode } from "./video-rendering";
 import {
@@ -132,8 +132,9 @@ export function PlayerShell({ launchId }: { launchId: string }) {
 
   const releaseControls = useCallback(() => {
     chromePinned.current = false;
-    showControls();
-  }, [showControls]);
+    clearControlsTimer();
+    setControlsVisible(!running.current || pausedRef.current);
+  }, [clearControlsTimer]);
 
   const toggleControls = useCallback(() => {
     if (controlsVisible) {
@@ -270,7 +271,7 @@ export function PlayerShell({ launchId }: { launchId: string }) {
 
 function PlayerShellView({ paused, orientationState, chromeProps, stage, frameRef, frameEnabled, state, message, gameTitle, orientationHelp, orientationButtonRef, onShowControls, onRevealControls, onSurface, onRetryLandscape }: { paused: boolean; orientationState: PlayerOrientationState; chromeProps: PlayerChromeProps; stage: RefObject<HTMLDivElement | null>; frameRef: RefObject<HTMLIFrameElement | null>; frameEnabled: boolean; state: ShellState; message: string; gameTitle: string; orientationHelp: string; orientationButtonRef: RefObject<HTMLButtonElement | null>; onShowControls: () => void; onRevealControls: (clientY: number) => void; onSurface: () => void; onRetryLandscape: () => void }) {
   const blocked = orientationState.phase === "orientation-blocked";
-  return <main className={`player-shell${paused ? " is-paused" : ""}${blocked ? " is-orientation-blocked" : ""}`} onKeyDown={onShowControls} onPointerMove={(event) => onRevealControls(event.clientY)}>
+  return <main className={`player-shell${paused ? " is-paused" : ""}${blocked ? " is-orientation-blocked" : ""}`} onKeyDown={(event) => {if (shouldRevealPlayerControlsForKey(event.key)) {onShowControls();}}} onPointerMove={(event) => onRevealControls(event.clientY)}>
     {!blocked ? <PlayerChrome {...chromeProps} /> : null}
     <PlayerStage blocked={blocked} stage={stage} frameRef={frameRef} frameEnabled={frameEnabled} state={state} message={message} onSurface={onSurface} />
     {blocked ? <OrientationGate state={orientationState} gameTitle={gameTitle} help={orientationHelp} buttonRef={orientationButtonRef} onRetry={onRetryLandscape} /> : null}

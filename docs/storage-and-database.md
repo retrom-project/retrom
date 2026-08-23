@@ -307,12 +307,14 @@ data/
 ## 7. 垃圾回收
 
 - GC、备份完整性检查和存储审计共用一份机器可读 `blob reference registry`，每个 schema 中的 Blob FK/JSON Blob 引用必须恰好登记为以下一类：`PROTECTIVE`（业务根引用）、`ARCHIVE_OWNERSHIP`（`archive_entries.archive_blob_id/materialized_blob_id` 的派生所有权边）或 `BOOKKEEPING`（`blob_gc_candidates.blob_id` 等不阻止删除的记账边）。未登记、重复登记或分类错误都使 CI 失败；不把可变 `ref_count` 作为事实源。
+- 业务释放同时使用代码内 `payload ownership registry`，其边集必须与 Blob registry 双向完全一致，并把每条边唯一归入 Game、运行时、ImportItem、PegasusItem、ScrapeRun、Upload、全局 TTL、全局耐久、Archive 或记账生命周期。PayloadRelease 只解除其 scope 被授权的边；BIOS 等全局耐久引用不受 Game/Import 清理影响。
 - GC 保护集先取所有 `PROTECTIVE` Blob，再对其中的 archive Blob 加入该 ArchiveEntry 已物化的内层 Blob；一期禁止 nested archive，因此一层闭包即完整。`ARCHIVE_OWNERSHIP` 不会反向把一个无业务根的 owning archive 变成永久受保护；`BOOKKEEPING` 从不进入保护集。备份不能直接采用这个 GC 保护集：它逐字节复制未裁剪的 SQLite 快照，所以必须复制快照中每一条 `blobs` 行对应的物理文件，包括尚在 GC 宽限期的无业务引用行；registry 用于证明所有引用边都命中这些 Blob 行。只有“物理文件存在但数据库没有 Blob 行”的 crash orphan 才不进入备份。
 - GameContentRevision、ImportItem/Upload/Job、Review snapshot、SaveState、媒体、旧 GameVariantRevision 和 DAT 均可能引用 Blob。
 - Pegasus 扫描阶段不写 Blob；执行阶段复制出的 item file、source archive 与 COVER/VIDEO 在 `pegasus_import_item_files/assets` 中形成 protective 边。发布后的 Game revision/Asset 继续独立保护相同 CAS bytes，计划历史与 Game 生命周期互不代替。
-- Discard、软删除或替换文件不立即删除 Blob。
-- 先进入默认 7 天回收保留期（配置只允许 1–30 天），之后在删除事务前后两次确认无引用才删除。
-- 过期的无消费 Upload archive 在失去最后 `PROTECTIVE` 边后可正常进入 GC，不能被自身 ArchiveEntry 永久保活。删除事务再次计算保护集并检查所有 entry 复合外键；有新引用即撤销 candidate。无引用 archive 先成组删索引再删 Blob 行，事务提交后才无跟随删除物理文件；失败可幂等重试。删除任务记录 `scheduled_at_ms`、`deleted_at_ms` 或失败时间。
+- Import publish/discard/final-fail/cancel、Pegasus 终态、替换文件/媒体消费完成会异步解除流程 payload；Game 永久删除会解除 Game/运行时及其已终态来源链的 payload。游戏媒体 current revision 切换还会在同一事务删除旧 GameAsset 叶子引用并登记 GC 候选，避免文字 metadata 历史长期保护旧封面/视频。领域事务不直接删除 Blob 或 CAS 文件。
+- 失去最后保护引用后先进入默认 7 天回收保留期，配置只允许 24 小时至 30 天；每个候选关联唯一 BLOB_GC Job。宽限到期时再次计算完整保护集，有新引用就撤销候选，不得误删共享内容。
+- 过期的无消费 Upload archive 在失去最后 `PROTECTIVE` 边后可正常进入 GC，不能被自身 ArchiveEntry 永久保活。删除事务再次计算保护集并检查所有 entry 复合外键；有新引用即撤销 candidate。无引用 archive 先成组删索引再删 Blob 行，事务提交后才删除物理文件；物理删除失败由同一 Job 输入幂等重试。UploadFile 最后一个 consumption 释放且没有领域叶子后转 `PURGED` 并清空 final Blob，但保留相对路径、声明/接收大小与结果。
+- Hasheous raw response 是独立 TTL owner：每小时按到期时间和 ID 每批最多 200 个处理；仍被 RUNNING ScrapeRun 使用时保留，安全到期后删除 cache pointer、清空 raw Blob、转 `RELEASED` 并进入相同候选流程。
 
 ### 7.1 已登记 CAS 容量分析
 
@@ -335,6 +337,8 @@ data/
 一个长期用途即使还被 Workflow 或 Runtime 引用，仍归长期用途；多个长期用途才归 `SHARED_DURABLE`。受保护 archive 的用途向已物化 member 单向传播，并与 member 自身用途取并集；无业务根 archive 的 ownership 不能反向保护自身或 member。容量语义表必须覆盖 registry 的每条 `PROTECTIVE` 边且不能留下已删除边，覆盖不一致使测试失败。
 
 顶层恒等式固定为 `registeredBytes = protectedBytes + unreferencedBytes = sum(categories[].bytes)`，`blobCount = sum(categories[].blobCount)`。存档详情另给有效/软删除行数、去重后的状态文件引用量和截图引用量；GC 候选详情给候选 Blob 数与引用量。这些详情是可能相互重叠的引用视图，不与九类容量相加。
+
+替换封面或移除视频后，失去最后引用的旧媒体会立即从 `MEDIA/protectedBytes` 转入 `UNREFERENCED/unreferencedBytes` 并登记候选；`registeredBytes` 与物理 CAS 文件在默认 7 天宽限期结束前保持不变。ROM 或多盘内容成功替换是显式破坏性边界：事务切换 current 后删除旧 ContentFile/VariantFile、旧运行快照与其绑定存档，失去最后引用的 Blob 同样立即转 `UNREFERENCED` 并登记候选；与 current 完全相同或验证失败的输入不得触发这些删除。同一 Requirement 的 BIOS 真正替换也会撤销依赖旧 Installation 的运行与存档、删除旧 `BIOS_BUNDLE` VariantFile 载荷、清空旧 Installation Blob 引用并登记候选；不同 Requirement/CoreArtifact 的安装仍是独立有效资产。这与上传工作流引用是否已经释放是两个独立不变量。
 
 明确不在本口径内的项目为 `DATABASE_FILES`、`UPLOAD_PARTS`、`JOB_SCRATCH`、`DEPENDENCY_ROOT`、`FILESYSTEM_OVERHEAD`、`UNREGISTERED_ORPHANS`、`VOLUME_FREE_SPACE`。因此该分析不能回答卷总量、剩余空间或完整磁盘占用，也不得提供清理动作。统一验证为 [`ACC-STOR-001`](./project-acceptance.md#acc-stor-001已登记-cas-容量分析)。
 

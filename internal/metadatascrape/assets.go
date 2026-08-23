@@ -110,8 +110,10 @@ func (service *Service) fetchPendingAsset(
 		data.MediaType,
 		service.now().UnixMilli(),
 	)
+	var updated int64
 	if registerErr == nil {
-		_, registerErr = transaction.ExecContext(
+		var updateResult interface{ RowsAffected() (int64, error) }
+		updateResult, registerErr = transaction.ExecContext(
 			ctx,
 			`
 UPDATE scrape_candidate_assets
@@ -125,6 +127,13 @@ version=version+1,
 updated_at_ms=?
 WHERE id=?
 AND status='PENDING'
+AND EXISTS(
+  SELECT 1 FROM scrape_candidates candidate
+  JOIN metadata_scrape_runs run ON run.id=candidate.scrape_run_id
+  LEFT JOIN games game ON game.id=run.game_id
+  WHERE candidate.id=scrape_candidate_assets.scrape_candidate_id
+    AND (run.game_id IS NULL OR game.status='PUBLISHED')
+)
 `,
 			blobID,
 			data.Width,
@@ -134,9 +143,16 @@ AND status='PENDING'
 			service.now().UnixMilli(),
 			asset.id,
 		)
+		if registerErr == nil {
+			updated, registerErr = updateResult.RowsAffected()
+		}
 	}
 	if registerErr == nil {
-		registerErr = transaction.Commit()
+		if updated != 1 {
+			registerErr = errGameDeleted
+		} else {
+			registerErr = transaction.Commit()
+		}
 	} else {
 		cleanup.Rollback(transaction)
 	}

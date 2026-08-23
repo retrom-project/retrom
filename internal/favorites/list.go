@@ -61,8 +61,8 @@ FROM favorite_games favorite
 JOIN games game ON game.id=favorite.game_id
 JOIN platform_instances instance ON instance.id=game.platform_instance_id
 WHERE favorite.profile_id=?
-AND game.status='PUBLISHED'
-AND instance.enabled=1
+AND game.status IN ('PUBLISHED','DELETED')
+AND (game.status='DELETED' OR instance.enabled=1)
 `, profileID, profileID).Scan(
 		&result.FavoriteCount, &result.UncategorizedCount, &result.FolderCount,
 	)
@@ -75,7 +75,7 @@ AND instance.enabled=1
 func queryFolders(ctx context.Context, transaction *sql.Tx, profileID string) ([]Folder, error) {
 	rows, err := transaction.QueryContext(ctx, `
 SELECT folder.id,folder.name,folder.version,folder.created_at_ms,folder.updated_at_ms,
-       count(CASE WHEN game.status='PUBLISHED' AND instance.enabled=1 THEN 1 END)
+       count(CASE WHEN game.status='DELETED' OR game.status='PUBLISHED' AND instance.enabled=1 THEN 1 END)
 FROM favorite_folders folder
 LEFT JOIN favorite_folder_games membership
   ON membership.profile_id=folder.profile_id AND membership.folder_id=folder.id
@@ -118,8 +118,8 @@ JOIN games game ON game.id=favorite.game_id
 JOIN platform_instances instance ON instance.id=game.platform_instance_id
 JOIN platforms platform ON platform.id=instance.platform_id
 WHERE favorite.profile_id=?
-AND game.status='PUBLISHED'
-AND instance.enabled=1
+AND game.status IN ('PUBLISHED','DELETED')
+AND (game.status='DELETED' OR instance.enabled=1)
 AND (
   ?='ALL'
   OR (?='UNCATEGORIZED' AND NOT EXISTS(
@@ -168,8 +168,8 @@ JOIN games game ON game.id=favorite.game_id
 JOIN platform_instances instance ON instance.id=game.platform_instance_id
 JOIN platforms platform ON platform.id=instance.platform_id
 WHERE favorite.profile_id=?
-AND game.status='PUBLISHED'
-AND instance.enabled=1
+AND game.status IN ('PUBLISHED','DELETED')
+AND (game.status='DELETED' OR instance.enabled=1)
 AND (
   ?='ALL'
   OR (?='UNCATEGORIZED' AND NOT EXISTS(
@@ -222,15 +222,15 @@ func parseCursorInt(values []string, index int) (int64, error) {
 
 const favoriteItemCandidatesSQL = `
 WITH candidates AS (
-  SELECT game.id AS game_id,metadata.title AS title,
+  SELECT game.id AS game_id,metadata.title AS title,game.status AS status,
          platform.id AS platform_id,platform.name AS platform_name,
          instance.id AS instance_id,instance.name AS instance_name,
          core.id AS core_id,core.name AS core_name,
-         (SELECT asset.id FROM game_assets asset
+         CASE WHEN game.status='PUBLISHED' THEN (SELECT asset.id FROM game_assets asset
           WHERE asset.game_id=game.id
           AND asset.metadata_revision_id=game.current_metadata_revision_id
           AND asset.kind='COVER'
-          ORDER BY asset.ordinal,asset.id LIMIT 1) AS cover_asset_id,
+          ORDER BY asset.ordinal,asset.id LIMIT 1) END AS cover_asset_id,
          metadata.release_year AS release_year,
          game.created_at_ms AS created_at_ms,
          (SELECT max(play.started_at_ms) FROM play_sessions play
@@ -250,8 +250,8 @@ WITH candidates AS (
   JOIN platforms platform ON platform.id=instance.platform_id
   JOIN cores core ON core.id=instance.default_core_id
   WHERE favorite.profile_id=?
-  AND game.status='PUBLISHED'
-  AND instance.enabled=1
+  AND game.status IN ('PUBLISHED','DELETED')
+  AND (game.status='DELETED' OR instance.enabled=1)
   AND (
     ?='ALL'
     OR (?='UNCATEGORIZED' AND NOT EXISTS(
@@ -275,7 +275,7 @@ WITH candidates AS (
 `
 
 const favoriteItemProjectionSQL = `
-SELECT game_id,title,platform_id,platform_name,instance_id,instance_name,core_id,core_name,
+SELECT game_id,title,status,platform_id,platform_name,instance_id,instance_name,core_id,core_name,
        cover_asset_id,release_year,created_at_ms,last_played_at_ms,favorited_at_ms
 FROM candidates
 WHERE 1=1
@@ -374,13 +374,14 @@ func scanFavoriteGame(rows *sql.Rows) (GameItem, error) {
 	var coverAssetID sql.NullString
 	var releaseYear, lastPlayed sql.NullInt64
 	if err := rows.Scan(
-		&item.GameID, &item.Title, &platformID, &platformName, &instanceID, &instanceName,
+		&item.GameID, &item.Title, &item.Status, &platformID, &platformName, &instanceID, &instanceName,
 		&coreID, &coreName, &coverAssetID, &releaseYear, &item.CreatedAtMS, &lastPlayed,
 		&item.Favorite.FavoritedAtMS,
 	); err != nil {
 		return GameItem{}, fmt.Errorf("favorites: scan game: %w", err)
 	}
 	item.Platform = NamedResource{ID: platformID, Name: platformName}
+	item.Availability = item.Status
 	item.PlatformInstance = NamedResource{ID: instanceID, Name: instanceName}
 	item.DefaultCore = NamedResource{ID: coreID, Name: coreName}
 	if coverAssetID.Valid {

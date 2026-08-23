@@ -14,5 +14,6 @@
   .admin-game-overview { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .admin-game-runtime-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .admin-game-action-grid { grid-template-columns: minmax(0, 1fr); }
-  .admin-game-remove form { grid-template-columns: minmax(0, 1fr); }
+  .admin-game-remove > .panel-body { align-items: stretch; flex-direction: column; }
+  .admin-game-remove > .panel-body > .button { align-self: flex-end; }
 }

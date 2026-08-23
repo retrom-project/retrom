@@ -9,7 +9,7 @@ import { roomMutation, type NetplayRoom } from "./client";
 
 function RoomCard({ room }: { room: NetplayRoom }) {
   return <Link className="netplay-room-card" href={`/netplay/rooms/${room.roomId}`}>
-    <div><StatusBadge tone={room.state === "RUNNING" ? "good" : room.state === "ENDED" || room.state === "EXPIRED" ? "neutral" : "warn"}>{room.state}</StatusBadge><span>#{room.roomId.slice(0, 8)}</span></div>
+    <div><StatusBadge tone={room.state === "RUNNING" ? "good" : room.state === "ENDED" || room.state === "EXPIRED" ? "neutral" : "warn"}>{room.state}</StatusBadge>{room.game?.status === "DELETED" ? <StatusBadge tone="bad">已删除</StatusBadge> : null}<span>#{room.roomId.slice(0, 8)}</span></div>
     <h2>{room.game?.title ?? "等待选择游戏"}</h2>
     <p>{room.game ? `${room.game.platformName} · ${room.game.coreName}` : "创建后先选择一个经过验证的联机游戏"}</p>
     <footer><span>{room.members.length} / {room.game?.maxPlayers ?? 4} 位玩家</span><strong>进入房间</strong></footer>
