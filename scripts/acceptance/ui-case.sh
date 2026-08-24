@@ -125,7 +125,26 @@ if [[ "$case_id" == "ACC-RUN-006" ]]; then
   python3 scripts/acceptance/seed-arcade-schema-v2-launch.py "$temporary_root/data/retrom.db" mame2003
 fi
 
-if [[ "$case_id" == "ACC-IMM-002" || "$case_id" == "ACC-IMM-006" ]]; then
+if [[ "$case_id" == "ACC-IMM-002" ]]; then
+  immersive_fixture_index=0
+  for fixture_id in mame2003 fbneo mame2003_plus; do
+    if (( immersive_fixture_index % 2 == 0 )); then
+      immersive_cover="$repository_root/testdata/public-roms/gba-smoke/gba-smoke-cover.png"
+    else
+      immersive_cover="$repository_root/testdata/public-roms/gba-smoke/emulationstation-smoke-cover.png"
+    fi
+    go run scripts/acceptance/seed-public-arcade-dat.go \
+      --database "$temporary_root/data/retrom.db" --fixture "$fixture_id"
+    RETROM_ACCEPTANCE_ORIGIN="$web_origin" \
+    RETROM_ACCEPTANCE_BACKEND="$backend_origin" \
+    RETROM_ACCEPTANCE_COVER_PATH="$immersive_cover" \
+    RETROM_ACCEPTANCE_RESULT_FILE="$temporary_root/$fixture_id.json" \
+      scripts/acceptance/arcade-flow.sh "$fixture_id"
+    immersive_fixture_index=$((immersive_fixture_index + 1))
+  done
+fi
+
+if [[ "$case_id" == "ACC-IMM-006" ]]; then
   go run scripts/acceptance/seed-public-arcade-dat.go \
     --database "$temporary_root/data/retrom.db" --fixture mame2003
   RETROM_ACCEPTANCE_ORIGIN="$web_origin" \

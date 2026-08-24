@@ -32,7 +32,13 @@ function game(index: number): ImmersiveGame {
 function page(items: ImmersiveGame[], nextCursor: string | null): ImmersiveGameList {
   return {
     generatedAtMs: 1_000,
-    platform: { platformId: "gba", platformName: "Game Boy Advance", gameCount: 60, lastPlayedAtMs: null },
+    platform: {
+      platformId: "gba",
+      platformName: "Game Boy Advance",
+      gameCount: 60,
+      lastPlayedAtMs: null,
+      featuredGames: [],
+    },
     items,
     nextCursor,
   };
@@ -70,7 +76,7 @@ describe("immersive game list view", () => {
     render(<GameListView platformId="gba" initialGameId={game(1).gameId} />);
     await screen.findByRole("listbox", { name: "Game Boy Advance 游戏" });
     expect(screen.getByRole("option", { selected: true })).toHaveTextContent("游戏 01");
-    expect(screen.getByRole("option", { selected: true })).toHaveFocus();
+    await waitFor(() => expect(screen.getByRole("option", { selected: true })).toHaveFocus());
     fireEvent.keyDown(window, { key: "ArrowDown" });
     fireEvent.keyDown(window, { key: "ArrowDown" });
     expect(screen.getByRole("option", { selected: true })).toHaveTextContent("游戏 02");

@@ -7,6 +7,7 @@ import { setActiveImmersiveGamepadIndex } from "./active-gamepad";
 import { ImmersiveChoiceDialog } from "./choice-dialog";
 import { ImmersiveShell } from "./immersive-shell";
 import type { NavigationAction } from "./input-model";
+import { PlatformCoverStack } from "./platform-cover-stack";
 import { wrapPlatformIndex } from "./platform-selection";
 import platformStyles from "./platform.module.css";
 import styles from "./immersive.module.css";
@@ -40,11 +41,18 @@ function relativePlayTime(lastPlayedAtMs: number | null, generatedAtMs: number) 
 
 function PlatformCard({ current, generatedAtMs, platform }: { current?: boolean; generatedAtMs: number; platform: ImmersivePlatform }) {
   return <article className={`${platformStyles.platformCard} ${platformTone(platform.platformId)} ${current ? platformStyles.currentPlatform : ""}`.trim()} aria-current={current ? "true" : undefined}>
-    <span className={platformStyles.platformCode}>{platformCode(platform)}</span>
-    <p>{current ? "当前平台" : "相邻平台"}</p>
-    <h2>{platform.platformName}</h2>
-    <strong>{platform.gameCount} 款游戏</strong>
-    <small>上次游玩：{relativePlayTime(platform.lastPlayedAtMs, generatedAtMs)}</small>
+    <div className={platformStyles.platformCopy}>
+      <span className={platformStyles.platformCode}>{platformCode(platform)}</span>
+      <p>{current ? "当前平台" : "相邻平台"}</p>
+      <h2>{platform.platformName}</h2>
+      <strong>{platform.gameCount} 款游戏</strong>
+      <small>上次游玩：{relativePlayTime(platform.lastPlayedAtMs, generatedAtMs)}</small>
+    </div>
+    {current ? <PlatformCoverStack
+      key={platform.platformId}
+      games={platform.featuredGames}
+      platformName={platform.platformName}
+    /> : null}
   </article>;
 }
 

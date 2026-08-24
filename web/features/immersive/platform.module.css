@@ -87,6 +87,10 @@
 }
 
 .currentPlatform {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) clamp(142px, 36%, 300px);
+  gap: clamp(18px, 2vw, 42px);
+  align-items: stretch;
   min-height: clamp(330px, 48dvh, 680px);
   background:
     radial-gradient(circle at 75% 18%, rgb(var(--platform-rgb) / 0.44), transparent 31%),
@@ -97,6 +101,15 @@
     0 0 0 7px rgb(var(--platform-rgb) / 0.13),
     0 42px 110px rgb(0 0 0 / 0.58),
     inset 0 1px 0 rgb(255 255 255 / 0.12);
+}
+
+.platformCopy {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  justify-content: flex-end;
+  min-width: 0;
+  height: 100%;
 }
 
 .platformTone0 {--platform-rgb: 80 214 202;}
@@ -135,6 +148,81 @@
 .platformCard small {
   color: var(--immersive-muted);
   font-size: clamp(15px, 1vw, 21px);
+}
+
+.coverStack {
+  position: relative;
+  align-self: center;
+  justify-self: end;
+  width: 100%;
+  max-width: 300px;
+  aspect-ratio: 5 / 7;
+}
+
+.coverStackItem {
+  position: absolute;
+  inset: 6% 9%;
+  margin: 0;
+  overflow: hidden;
+  background: #101522;
+  border: 1px solid rgb(255 255 255 / 0.2);
+  border-radius: clamp(10px, 1vw, 18px);
+  box-shadow: 0 22px 58px rgb(0 0 0 / 0.52);
+  transform-origin: 50% 82%;
+  transition: transform 420ms cubic-bezier(0.2, 0.78, 0.2, 1), opacity 260ms ease;
+}
+
+.coverStackItem img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.coverStackSlot0 {
+  z-index: 3;
+  opacity: 1;
+  transform: translate(0, 0) rotate(-1.5deg) scale(1);
+}
+
+.coverStackSlot1 {
+  z-index: 2;
+  opacity: 0.78;
+  transform: translate(13%, -3%) rotate(7deg) scale(0.92);
+}
+
+.coverStackSlot2 {
+  z-index: 1;
+  opacity: 0.54;
+  transform: translate(-11%, 5%) rotate(-8deg) scale(0.84);
+}
+
+.coverFallback {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  width: 100%;
+  height: 100%;
+  padding: clamp(12px, 1.4vw, 24px);
+  background:
+    radial-gradient(circle at 72% 20%, rgb(var(--platform-rgb) / 0.32), transparent 28%),
+    linear-gradient(145deg, #202943, #0e1322 72%);
+}
+
+.coverFallback span {
+  margin-bottom: auto;
+  color: var(--immersive-cyan);
+  font-size: clamp(9px, 0.65vw, 13px);
+  font-weight: 900;
+  letter-spacing: 0.2em;
+}
+
+.coverFallback strong {
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: var(--immersive-text);
+  font-size: clamp(15px, 1.25vw, 26px);
+  line-height: 1.08;
 }
 
 .platformPosition {
@@ -208,6 +296,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   .platformCard,
+  .coverStackItem,
   .platformPositionTrack i {transition: none;}
   .platformCarousel[data-direction] > * {animation: none;}
 }

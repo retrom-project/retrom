@@ -10,6 +10,12 @@ import {
 } from "./immersive-gamepad";
 
 type PlatformItem = {
+  featuredGames: Array<{
+    coverUrl: string | null;
+    gameId: string;
+    lastPlayedAtMs: number | null;
+    title: string;
+  }>;
   gameCount: number;
   lastPlayedAtMs: number | null;
   platformId: string;
@@ -199,6 +205,16 @@ test("ACC-IMM-002 platform carousel uses real counts and controller-only navigat
   expect(iconBox?.height).toBeLessThan(keyBox?.height ?? 0);
   await expect(current).toContainText(items[0]!.platformName);
   await expect(current).toContainText(`${items[0]!.gameCount} 款游戏`);
+  let coverStack = page.getByLabel(`${items[0]!.platformName} 最近游戏封面`);
+  expect(items[0]!.featuredGames).toHaveLength(3);
+  expect(items[0]!.featuredGames.every((game) => game.coverUrl !== null)).toBe(true);
+  await expect(coverStack.locator("figure")).toHaveCount(3);
+  await expect(page.locator('[data-platform-cover-stack="true"]')).toHaveCount(1);
+  const initialFront = await coverStack.locator('[data-cover-slot="0"]').getAttribute("data-game-id");
+  await expect.poll(
+    () => coverStack.locator('[data-cover-slot="0"]').getAttribute("data-game-id"),
+    { timeout: 4_000 },
+  ).not.toBe(initialFront);
   await page.waitForTimeout(180);
 
   await pressGamepad(page, standardButton.left);
@@ -209,6 +225,10 @@ test("ACC-IMM-002 platform carousel uses real counts and controller-only navigat
   expect(animationName).not.toBe("none");
   await expect.poll(async () => current.evaluate((element) => getComputedStyle(element).animationDuration)).toBe("0.32s");
   await expect(current).toContainText(items.at(-1)!.platformName);
+  coverStack = page.getByLabel(`${items.at(-1)!.platformName} 最近游戏封面`);
+  await expect(coverStack.locator("figure")).toHaveCount(Math.min(3, items.at(-1)!.featuredGames.length));
+  const coverStackBox = await coverStack.boundingBox();
+  expect((coverStackBox?.width ?? 0) / (coverStackBox?.height ?? 1)).toBeCloseTo(5 / 7, 1);
   await page.waitForTimeout(360);
   const currentAppearance = await current.evaluate((element) => {
     const style = getComputedStyle(element);

@@ -21,11 +21,21 @@ func immersiveAssetURL(assetID *string) any {
 }
 
 func immersivePlatformProjection(platform immersive.Platform) map[string]any {
+	featuredGames := make([]map[string]any, 0, len(platform.FeaturedGames))
+	for _, game := range platform.FeaturedGames {
+		featuredGames = append(featuredGames, map[string]any{
+			"gameId":         game.ID,
+			"title":          game.Title,
+			"coverUrl":       immersiveAssetURL(game.CoverAssetID),
+			"lastPlayedAtMs": game.LastPlayedAtMS,
+		})
+	}
 	return map[string]any{
 		"platformId":     platform.ID,
 		"platformName":   platform.Name,
 		"gameCount":      platform.GameCount,
 		"lastPlayedAtMs": platform.LastPlayedAtMS,
+		"featuredGames":  featuredGames,
 	}
 }
 

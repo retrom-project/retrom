@@ -230,6 +230,30 @@ printf '%s\n' "$approved" >"$evidence/approved.json"
 game_id="$(jq -r .gameId <<<"$approved")"
 printf 'arcade_flow=review_approved\n'
 
+attach_acceptance_cover() {
+  local cover_path="$1"
+  local cover_upload_file_id game_etag
+  [[ -f "$cover_path" ]] || {
+    echo "acceptance cover is missing: $cover_path" >&2
+    return 1
+  }
+  upload_files cover "$cover_path"
+  cover_upload_file_id="$(jq -er '.files[0].fileId' "$evidence/cover-result.json")"
+  curl --fail --silent --show-error "${common[@]}" -D "$evidence/game-headers" -o /dev/null \
+    "$backend/api/v1/admin/games/$game_id"
+  game_etag="$(awk 'tolower($1) == "etag:" {gsub("\r",""); print $2}' "$evidence/game-headers")"
+  curl --fail --silent --show-error "${common[@]}" "${write[@]}" \
+    -H 'Content-Type: application/json' -H "If-Match: $game_etag" -H "Idempotency-Key: $(new_id)" \
+    -d "$(jq -nc --arg uploadFileId "$cover_upload_file_id" \
+      '{uploadFileId:$uploadFileId,kind:"COVER",ordinal:0}')" \
+    "$backend/api/v1/admin/games/$game_id/assets" -o /dev/null
+  printf 'arcade_flow=cover_attached\n'
+}
+
+if [[ -n "${RETROM_ACCEPTANCE_COVER_PATH:-}" ]]; then
+  attach_acceptance_cover "$RETROM_ACCEPTANCE_COVER_PATH"
+fi
+
 assert_game_detail_uses_arcade_snapshot() {
   local response_name="$1"
   local snapshot_family="$2"

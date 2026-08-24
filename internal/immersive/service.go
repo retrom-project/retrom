@@ -83,7 +83,115 @@ ORDER BY platform.name COLLATE NOCASE,platform.id
 }
 
 func (service *Service) Platforms(ctx context.Context, profileID string) ([]Platform, error) {
-	return queryPlatforms(ctx, service.database, profileID)
+	transaction, err := service.database.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
+	if err != nil {
+		return nil, fmt.Errorf("immersive: begin platform transaction: %w", err)
+	}
+	defer func() { _ = transaction.Rollback() }()
+	platforms, err := queryPlatforms(ctx, transaction, profileID)
+	if err != nil {
+		return nil, err
+	}
+	featuredGames, err := queryFeaturedGames(ctx, transaction, profileID, "")
+	if err != nil {
+		return nil, err
+	}
+	attachFeaturedGames(platforms, featuredGames)
+	if err := transaction.Commit(); err != nil {
+		return nil, fmt.Errorf("immersive: commit platform transaction: %w", err)
+	}
+	return platforms, nil
+}
+
+func queryFeaturedGames(
+	ctx context.Context,
+	database querier,
+	profileID, platformID string,
+) ([]FeaturedGame, error) {
+	query := `
+WITH profile_play AS (
+  SELECT session.game_id,max(session.started_at_ms) AS last_played_at_ms
+  FROM play_sessions session
+  WHERE session.profile_id=?
+  GROUP BY session.game_id
+), ranked AS (
+  SELECT instance.platform_id,
+         game.id,
+         metadata.title,
+         (SELECT asset.id
+          FROM game_assets asset
+          WHERE asset.game_id=game.id
+          AND asset.metadata_revision_id=game.current_metadata_revision_id
+          AND asset.kind='COVER'
+          AND asset.ordinal=0
+          LIMIT 1) AS cover_asset_id,
+         profile_play.last_played_at_ms,
+         row_number() OVER (
+           PARTITION BY instance.platform_id
+           ORDER BY CASE WHEN profile_play.last_played_at_ms IS NULL THEN 1 ELSE 0 END,
+                    profile_play.last_played_at_ms DESC,
+                    game.created_at_ms DESC,
+                    game.id DESC
+         ) AS platform_rank
+  FROM games game
+  JOIN game_metadata_revisions metadata ON metadata.id=game.current_metadata_revision_id
+  JOIN platform_instances instance ON instance.id=game.platform_instance_id
+  LEFT JOIN profile_play ON profile_play.game_id=game.id
+  WHERE game.status='PUBLISHED'
+  AND instance.enabled=1
+`
+	arguments := []any{profileID}
+	if platformID != "" {
+		query += "  AND instance.platform_id=?\n"
+		arguments = append(arguments, platformID)
+	}
+	query += `)
+SELECT platform_id,id,title,cover_asset_id,last_played_at_ms
+FROM ranked
+WHERE platform_rank<=3
+ORDER BY platform_id,platform_rank
+`
+	rows, err := database.QueryContext(ctx, query, arguments...)
+	if err != nil {
+		return nil, fmt.Errorf("immersive: query featured games: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+	games := make([]FeaturedGame, 0)
+	for rows.Next() {
+		var game FeaturedGame
+		var coverAssetID sql.NullString
+		var lastPlayedAtMS sql.NullInt64
+		if err := rows.Scan(
+			&game.PlatformID,
+			&game.ID,
+			&game.Title,
+			&coverAssetID,
+			&lastPlayedAtMS,
+		); err != nil {
+			return nil, fmt.Errorf("immersive: scan featured game: %w", err)
+		}
+		game.CoverAssetID = nullableStringPointer(coverAssetID)
+		game.LastPlayedAtMS = nullableInt64Pointer(lastPlayedAtMS)
+		games = append(games, game)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("immersive: iterate featured games: %w", err)
+	}
+	return games, nil
+}
+
+func attachFeaturedGames(platforms []Platform, games []FeaturedGame) {
+	platformIndexes := make(map[string]int, len(platforms))
+	for index := range platforms {
+		platforms[index].FeaturedGames = make([]FeaturedGame, 0, 3)
+		platformIndexes[platforms[index].ID] = index
+	}
+	for _, game := range games {
+		index, found := platformIndexes[game.PlatformID]
+		if found {
+			platforms[index].FeaturedGames = append(platforms[index].FeaturedGames, game)
+		}
+	}
 }
 
 func queryPlatform(
@@ -237,6 +345,11 @@ func (service *Service) Games(
 	if err != nil {
 		return GamePage{}, err
 	}
+	featuredGames, err := queryFeaturedGames(ctx, transaction, profileID, platformID)
+	if err != nil {
+		return GamePage{}, err
+	}
+	platform.FeaturedGames = featuredGames
 	games, err := queryGames(ctx, transaction, profileID, platformID, limit, cursor)
 	if err != nil {
 		return GamePage{}, err

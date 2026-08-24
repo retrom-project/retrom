@@ -14,6 +14,15 @@ type Platform struct {
 	Name           string
 	GameCount      int64
 	LastPlayedAtMS *int64
+	FeaturedGames  []FeaturedGame
+}
+
+type FeaturedGame struct {
+	PlatformID     string
+	ID             string
+	Title          string
+	CoverAssetID   *string
+	LastPlayedAtMS *int64
 }
 
 type NamedResource struct {

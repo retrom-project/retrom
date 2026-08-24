@@ -327,7 +327,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description Returns the visible base platforms that contain at least one published game in an enabled game directory. Counts are shared-library values while lastPlayedAtMs is isolated to the authenticated Profile. */
+        /** @description Returns visible base platforms with shared-library counts and up to three cover previews ordered by the authenticated Profile's recent play history, then recent additions. */
         get: operations["getImmersivePlatforms"];
         put?: never;
         post?: never;
@@ -2960,6 +2960,15 @@ export interface components {
             platformName: string;
             /** Format: int64 */
             gameCount: number;
+            /** Format: int64 */
+            lastPlayedAtMs: number | null;
+            featuredGames: components["schemas"]["ImmersivePlatformFeaturedGame"][];
+        };
+        ImmersivePlatformFeaturedGame: {
+            /** Format: uuid */
+            gameId: string;
+            title: string;
+            coverUrl: string | null;
             /** Format: int64 */
             lastPlayedAtMs: number | null;
         };

@@ -2285,13 +2285,21 @@
     #retrom-ui-review .rt-im-heading h1 { margin:10px 0 8px;font-size:clamp(38px,4.6vw,76px);line-height:1.05 }
     #retrom-ui-review .rt-im-heading p { margin:0;color:#aaa5c0;font-size:clamp(15px,1.5vw,23px) }
     #retrom-ui-review .rt-im-platforms { flex:1;display:flex;align-items:center;justify-content:center;gap:clamp(20px,3vw,54px);perspective:1600px;position:relative;z-index:1 }
-    #retrom-ui-review .rt-im-platform { width:clamp(230px,24vw,410px);height:clamp(280px,38vh,440px);padding:32px;border:1px solid rgba(255,255,255,.12);border-radius:30px;display:flex;flex-direction:column;justify-content:space-between;background:linear-gradient(150deg,rgba(32,35,54,.95),rgba(18,20,33,.9));box-sizing:border-box;opacity:.34;filter:saturate(.52) brightness(.72);transform:scale(.76);box-shadow:0 30px 70px rgba(0,0,0,.24);transition:transform 320ms cubic-bezier(.2,.78,.2,1),opacity 320ms ease,filter 320ms ease }
+    #retrom-ui-review .rt-im-platform { width:clamp(190px,18vw,300px);height:clamp(280px,38vh,440px);padding:32px;border:1px solid rgba(255,255,255,.12);border-radius:30px;display:flex;flex-direction:column;justify-content:space-between;background:linear-gradient(150deg,rgba(32,35,54,.95),rgba(18,20,33,.9));box-sizing:border-box;opacity:.34;filter:saturate(.52) brightness(.72);transform:scale(.76);box-shadow:0 30px 70px rgba(0,0,0,.24);transition:transform 320ms cubic-bezier(.2,.78,.2,1),opacity 320ms ease,filter 320ms ease }
     #retrom-ui-review .rt-im-platform:first-child { transform:translateX(14%) scale(.76) rotateY(10deg) }
     #retrom-ui-review .rt-im-platform:last-child { transform:translateX(-14%) scale(.76) rotateY(-10deg) }
-    #retrom-ui-review .rt-im-platform.is-selected { opacity:1;filter:none;transform:translateY(-6px) scale(1);border-color:#826cff;background:linear-gradient(145deg,rgba(104,74,224,.95),rgba(43,29,101,.95));box-shadow:0 0 0 7px rgba(112,83,231,.16),0 42px 110px rgba(0,0,0,.58) }
+    #retrom-ui-review .rt-im-platform.is-selected { width:clamp(460px,42vw,760px);display:grid;grid-template-columns:minmax(0,1fr) minmax(142px,36%);gap:clamp(18px,2vw,42px);opacity:1;filter:none;transform:translateY(-6px) scale(1);border-color:#826cff;background:linear-gradient(145deg,rgba(104,74,224,.95),rgba(43,29,101,.95));box-shadow:0 0 0 7px rgba(112,83,231,.16),0 42px 110px rgba(0,0,0,.58) }
+    #retrom-ui-review .rt-im-platform-copy { min-width:0;display:flex;flex-direction:column;justify-content:space-between }
     #retrom-ui-review .rt-im-platform-code { width:88px;height:88px;border-radius:24px;display:grid;place-items:center;background:rgba(255,255,255,.12);font-size:27px;font-weight:900;letter-spacing:.06em }
     #retrom-ui-review .rt-im-platform h2 { margin:0 0 8px;font-size:clamp(27px,2.5vw,44px) }
     #retrom-ui-review .rt-im-platform p { margin:0;color:#d2cbea;font-size:15px;line-height:1.6 }
+    #retrom-ui-review .rt-im-platform-covers { position:relative;align-self:center;width:100%;aspect-ratio:5/7 }
+    #retrom-ui-review .rt-im-platform-cover { position:absolute;inset:6% 9%;margin:0;display:flex;flex-direction:column;justify-content:flex-end;padding:18px;overflow:hidden;border:1px solid rgba(255,255,255,.22);border-radius:16px;color:white;background:linear-gradient(155deg,#ecda91 0 18%,#283c61 19% 57%,#bd4d46 58% 69%,#101522 70%);box-shadow:0 22px 58px rgba(0,0,0,.52);box-sizing:border-box }
+    #retrom-ui-review .rt-im-platform-cover:nth-child(1) { z-index:3;transform:rotate(-1.5deg) }
+    #retrom-ui-review .rt-im-platform-cover:nth-child(2) { z-index:2;opacity:.78;transform:translate(13%,-3%) rotate(7deg) scale(.92) }
+    #retrom-ui-review .rt-im-platform-cover:nth-child(3) { z-index:1;opacity:.54;transform:translate(-11%,5%) rotate(-8deg) scale(.84) }
+    #retrom-ui-review .rt-im-platform-cover small { font-size:10px;font-weight:900;letter-spacing:.12em }
+    #retrom-ui-review .rt-im-platform-cover strong { font-size:18px;line-height:1.05 }
     #retrom-ui-review .rt-im-game-layout { flex:1;min-height:0;margin-top:38px;display:grid;grid-template-columns:minmax(300px,31vw) minmax(0,1fr);gap:clamp(28px,4vw,72px);position:relative;z-index:1 }
     #retrom-ui-review .rt-im-game-list { min-height:0;padding-right:16px;display:flex;flex-direction:column;justify-content:center;gap:10px }
     #retrom-ui-review .rt-im-game-row { padding:17px 22px;border-left:4px solid transparent;border-radius:0 16px 16px 0;color:#8f8ba3;font-size:clamp(18px,1.6vw,28px);font-weight:750;white-space:nowrap;overflow:hidden;text-overflow:ellipsis }
@@ -2355,9 +2363,9 @@
       <div class="rt-im-topbar"><div class="rt-im-brand"><span class="rt-im-brand-mark">R</span> 沉浸模式</div><div class="rt-im-help"><span><kbd role="img" aria-label="左右方向键"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 12h8M10 8l-4 4 4 4M14 8l4 4-4 4"></path></svg></kbd>切换</span><span><kbd data-button="A">A</kbd>进入</span><span><kbd data-button="B">B</kbd>退出</span></div></div>
       <header class="rt-im-heading"><span class="rt-im-eyebrow">选择平台</span><h1>你的游戏，在这里开始</h1><p>使用左右方向键浏览平台</p></header>
       <div class="rt-im-platforms">
-        <article class="rt-im-platform"><div class="rt-im-platform-code">GBA</div><div><h2>Game Boy Advance</h2><p>12 款游戏<br>上次游玩 · 昨天 22:14</p></div></article>
-        <article class="rt-im-platform is-selected"><div class="rt-im-platform-code">ARC</div><div><h2>Arcade</h2><p>28 款游戏<br>上次游玩 · 今天 15:16</p></div></article>
-        <article class="rt-im-platform"><div class="rt-im-platform-code">NES</div><div><h2>NES / Famicom</h2><p>9 款游戏<br>还没有游玩记录</p></div></article>
+        <article class="rt-im-platform"><div class="rt-im-platform-copy"><div class="rt-im-platform-code">GBA</div><div><h2>Game Boy Advance</h2><p>12 款游戏<br>上次游玩 · 昨天 22:14</p></div></div></article>
+        <article class="rt-im-platform is-selected"><div class="rt-im-platform-copy"><div class="rt-im-platform-code">ARC</div><div><h2>Arcade</h2><p>28 款游戏<br>上次游玩 · 今天 15:16</p></div></div><div class="rt-im-platform-covers" aria-label="Arcade 最近游戏封面"><figure class="rt-im-platform-cover"><small>最近游玩</small><strong>打击者 1945 加强版</strong></figure><figure class="rt-im-platform-cover"><small>最近游玩</small><strong>合金弹头</strong></figure><figure class="rt-im-platform-cover"><small>最近加入</small><strong>拳皇 98</strong></figure></div></article>
+        <article class="rt-im-platform"><div class="rt-im-platform-copy"><div class="rt-im-platform-code">NES</div><div><h2>NES / Famicom</h2><p>9 款游戏<br>还没有游玩记录</p></div></div></article>
       </div>
       <footer class="rt-im-footer"><span class="rt-im-eyebrow">02 / 03</span><div class="rt-im-help"><span><kbd>A</kbd>选择 Arcade</span></div></footer>
     </div>
