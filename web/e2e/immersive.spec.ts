@@ -202,12 +202,32 @@ test("ACC-IMM-002 platform carousel uses real counts and controller-only navigat
   await page.waitForTimeout(180);
 
   await pressGamepad(page, standardButton.left);
-  await expect(page.getByRole("listbox", { name: "游戏平台" })).toHaveAttribute("data-direction", "left");
-  const animationName = await current.locator("article").evaluate((element) => getComputedStyle(element).animationName);
+  const carousel = page.getByRole("listbox", { name: "游戏平台" });
+  await expect(carousel).toHaveAttribute("data-direction", "left");
+  await expect(carousel).toHaveAttribute("data-selected-index", String(items.length - 1));
+  const animationName = await current.evaluate((element) => getComputedStyle(element).animationName);
   expect(animationName).not.toBe("none");
+  await expect.poll(async () => current.evaluate((element) => getComputedStyle(element).animationDuration)).toBe("0.32s");
   await expect(current).toContainText(items.at(-1)!.platformName);
+  await page.waitForTimeout(360);
+  const currentAppearance = await current.evaluate((element) => {
+    const style = getComputedStyle(element);
+    return { opacity: Number(style.opacity), transform: style.transform };
+  });
+  const adjacentAppearance = await page.getByRole("option", { selected: false }).first().evaluate((element) => {
+    const style = getComputedStyle(element);
+    return { opacity: Number(style.opacity), transform: style.transform };
+  });
+  expect(currentAppearance.opacity).toBeGreaterThan(0.95);
+  expect(adjacentAppearance.opacity).toBeLessThan(0.5);
+  expect(adjacentAppearance.transform).not.toBe(currentAppearance.transform);
+  await expect(page.getByTestId("platform-position-indicator")).toHaveAttribute(
+    "style",
+    new RegExp(`translateX\\(${(items.length - 1) * 100}%\\)`),
+  );
   await pressGamepad(page, standardButton.right);
   await expect(current).toContainText(items[0]!.platformName);
+  await page.screenshot({ path: evidencePath(testInfo, "immersive-platform-carousel.png"), fullPage: true });
 
   await pressGamepad(page, standardButton.b);
   const exit = page.getByRole("alertdialog", { name: "退出沉浸模式？" });

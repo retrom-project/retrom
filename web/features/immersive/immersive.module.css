@@ -129,12 +129,6 @@
   vector-effect: non-scaling-stroke;
 }
 
-.platformView {
-  display: grid;
-  grid-template-rows: auto 1fr;
-  height: 100%;
-}
-
 .viewHeading p,
 .gameTitles > div:first-child p {
   margin: 0 0 8px;
@@ -149,93 +143,6 @@
   font-size: clamp(36px, 3.5vw, 72px);
   line-height: 1.1;
   letter-spacing: -0.04em;
-}
-
-.platformCarousel {
-  display: grid;
-  grid-template-columns: minmax(160px, 0.8fr) minmax(420px, 1.8fr) minmax(160px, 0.8fr);
-  gap: clamp(28px, 4vw, 80px);
-  align-items: center;
-  min-height: 0;
-  padding: 2dvh 0 4dvh;
-}
-
-.platformCarousel > :first-child,
-.platformCarousel > :last-child {
-  opacity: 0.48;
-  transform: scale(0.82);
-}
-
-.platformCarousel[data-direction="left"] .platformCard {
-  animation: platform-card-from-left 220ms cubic-bezier(0.22, 0.8, 0.28, 1);
-}
-
-.platformCarousel[data-direction="right"] .platformCard {
-  animation: platform-card-from-right 220ms cubic-bezier(0.22, 0.8, 0.28, 1);
-}
-
-.platformCard {
-  --platform-rgb: 80 214 202;
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
-  min-height: clamp(250px, 39dvh, 560px);
-  padding: clamp(26px, 3vw, 58px);
-  overflow: hidden;
-  background:
-    linear-gradient(145deg, rgb(var(--platform-rgb) / 0.18), transparent 48%),
-    var(--immersive-panel);
-  border: 2px solid rgb(255 255 255 / 0.1);
-  border-radius: 28px;
-  box-shadow: 0 30px 80px rgb(0 0 0 / 0.35);
-}
-
-.currentPlatform {
-  min-height: clamp(330px, 48dvh, 680px);
-  background:
-    radial-gradient(circle at 75% 18%, rgb(var(--platform-rgb) / 0.28), transparent 26%),
-    linear-gradient(145deg, rgb(117 96 255 / 0.38), transparent 55%),
-    var(--immersive-panel-strong);
-  border-color: var(--immersive-purple);
-  box-shadow: 0 0 0 6px rgb(117 96 255 / 0.14), 0 36px 100px rgb(0 0 0 / 0.48);
-}
-
-.platformTone0 {--platform-rgb: 80 214 202;}
-.platformTone1 {--platform-rgb: 117 96 255;}
-.platformTone2 {--platform-rgb: 244 170 86;}
-.platformTone3 {--platform-rgb: 101 180 255;}
-.platformTone4 {--platform-rgb: 225 106 151;}
-
-.platformCode {
-  margin: 0 0 auto;
-  color: rgb(247 245 240 / 0.18);
-  font-size: clamp(50px, 7vw, 140px);
-  font-weight: 900;
-  letter-spacing: -0.07em;
-}
-
-.platformCard p {
-  margin: 0 0 10px;
-  color: var(--immersive-cyan);
-  font-size: clamp(14px, 0.9vw, 20px);
-  font-weight: 800;
-}
-
-.platformCard h2 {
-  margin: 0 0 16px;
-  overflow-wrap: anywhere;
-  font-size: clamp(27px, 2.5vw, 54px);
-  line-height: 1.03;
-}
-
-.platformCard strong {
-  margin-bottom: 8px;
-  font-size: clamp(19px, 1.3vw, 28px);
-}
-
-.platformCard small {
-  color: var(--immersive-muted);
-  font-size: clamp(15px, 1vw, 21px);
 }
 
 .centerState {
@@ -720,16 +627,6 @@
   to {transform: rotate(360deg);}
 }
 
-@keyframes platform-card-from-left {
-  from {opacity: 0.35;transform: translateX(-72px);}
-  to {opacity: 1;transform: translateX(0);}
-}
-
-@keyframes platform-card-from-right {
-  from {opacity: 0.35;transform: translateX(72px);}
-  to {opacity: 1;transform: translateX(0);}
-}
-
 @media (width <= 1279px) {
   .shellHeader,
   .shellContent {
@@ -741,11 +638,6 @@
     left: 28px;
   }
 
-  .platformCarousel {
-    grid-template-columns: minmax(120px, 0.65fr) minmax(380px, 1.8fr) minmax(120px, 0.65fr);
-    gap: 22px;
-  }
-
   .gameListView {
     grid-template-columns: minmax(270px, 35%) minmax(0, 65%);
     gap: 22px;
@@ -754,8 +646,6 @@
 
 @media (prefers-reduced-motion: reduce) {
   .spinner {animation: none;}
-  .platformCarousel .platformCard {animation: none;}
-  .platformCarousel > *,
   .videoPanel video,
   .fullscreenRestore {transition: none;}
   .titleList button {scroll-behavior: auto;}

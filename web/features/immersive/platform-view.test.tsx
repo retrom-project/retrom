@@ -43,10 +43,15 @@ describe("immersive platform view", () => {
   it("marks the direction and remounts the carousel for each card transition", async () => {
     render(<PlatformView />);
     let carousel = await screen.findByRole("listbox", { name: "游戏平台" });
+    const indicator = screen.getByTestId("platform-position-indicator");
     expect(screen.getByRole("option", { selected: true })).toHaveTextContent("Game Boy Advance");
+    expect(carousel).toHaveAttribute("data-selected-index", "0");
+    expect(indicator).toHaveStyle({ transform: "translateX(0%)" });
     fireEvent.keyDown(window, { key: "ArrowRight" });
     carousel = screen.getByRole("listbox", { name: "游戏平台" });
     expect(carousel).toHaveAttribute("data-direction", "right");
+    expect(carousel).toHaveAttribute("data-selected-index", "1");
+    expect(screen.getByTestId("platform-position-indicator")).toHaveStyle({ transform: "translateX(100%)" });
     expect(screen.getByRole("option", { selected: true })).toHaveTextContent("NES / Famicom");
     fireEvent.keyDown(window, { key: "ArrowLeft" });
     expect(screen.getByRole("listbox", { name: "游戏平台" })).toHaveAttribute("data-direction", "left");

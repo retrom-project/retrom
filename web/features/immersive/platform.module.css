@@ -1,0 +1,213 @@
+.platformView {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  height: 100%;
+}
+
+.platformStage {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  min-height: 0;
+}
+
+.platformCarousel {
+  display: grid;
+  grid-template-columns: minmax(160px, 0.8fr) minmax(420px, 1.8fr) minmax(160px, 0.8fr);
+  gap: clamp(28px, 4vw, 80px);
+  align-items: center;
+  min-height: 0;
+  padding: 2dvh 0 1.5dvh;
+  perspective: 1600px;
+  isolation: isolate;
+}
+
+.platformCarousel > * {
+  min-width: 0;
+  transform-style: preserve-3d;
+}
+
+.platformCarousel > :first-child,
+.platformCarousel > :last-child {
+  opacity: 0.34;
+  filter: saturate(0.52) brightness(0.72);
+}
+
+.platformCarousel > :first-child {
+  transform: translateX(14%) scale(0.76) rotateY(10deg);
+}
+
+.platformCarousel > :nth-child(2) {
+  z-index: 2;
+  transform: translateY(-6px);
+}
+
+.platformCarousel > :last-child {
+  transform: translateX(-14%) scale(0.76) rotateY(-10deg);
+}
+
+.platformCarousel[data-direction="right"] > :first-child {
+  animation: platform-shift-to-left 320ms cubic-bezier(0.2, 0.78, 0.2, 1) both;
+}
+
+.platformCarousel[data-direction="right"] > :nth-child(2) {
+  animation: platform-focus-from-right 320ms cubic-bezier(0.2, 0.78, 0.2, 1) both;
+}
+
+.platformCarousel[data-direction="right"] > :last-child {
+  animation: platform-edge-from-right 320ms cubic-bezier(0.2, 0.78, 0.2, 1) both;
+}
+
+.platformCarousel[data-direction="left"] > :first-child {
+  animation: platform-edge-from-left 320ms cubic-bezier(0.2, 0.78, 0.2, 1) both;
+}
+
+.platformCarousel[data-direction="left"] > :nth-child(2) {
+  animation: platform-focus-from-left 320ms cubic-bezier(0.2, 0.78, 0.2, 1) both;
+}
+
+.platformCarousel[data-direction="left"] > :last-child {
+  animation: platform-shift-to-right 320ms cubic-bezier(0.2, 0.78, 0.2, 1) both;
+}
+
+.platformCard {
+  --platform-rgb: 80 214 202;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  min-height: clamp(250px, 39dvh, 560px);
+  padding: clamp(26px, 3vw, 58px);
+  overflow: hidden;
+  background:
+    linear-gradient(145deg, rgb(var(--platform-rgb) / 0.18), transparent 48%),
+    var(--immersive-panel);
+  border: 2px solid rgb(255 255 255 / 0.1);
+  border-radius: 28px;
+  box-shadow: 0 30px 80px rgb(0 0 0 / 0.35);
+  transition: border-color 180ms ease, box-shadow 180ms ease;
+}
+
+.currentPlatform {
+  min-height: clamp(330px, 48dvh, 680px);
+  background:
+    radial-gradient(circle at 75% 18%, rgb(var(--platform-rgb) / 0.44), transparent 31%),
+    linear-gradient(145deg, rgb(var(--platform-rgb) / 0.3), rgb(117 96 255 / 0.28) 52%, transparent 76%),
+    var(--immersive-panel-strong);
+  border-color: rgb(var(--platform-rgb) / 0.82);
+  box-shadow:
+    0 0 0 7px rgb(var(--platform-rgb) / 0.13),
+    0 42px 110px rgb(0 0 0 / 0.58),
+    inset 0 1px 0 rgb(255 255 255 / 0.12);
+}
+
+.platformTone0 {--platform-rgb: 80 214 202;}
+.platformTone1 {--platform-rgb: 117 96 255;}
+.platformTone2 {--platform-rgb: 244 170 86;}
+.platformTone3 {--platform-rgb: 101 180 255;}
+.platformTone4 {--platform-rgb: 225 106 151;}
+
+.platformCode {
+  margin: 0 0 auto;
+  color: rgb(247 245 240 / 0.18);
+  font-size: clamp(50px, 7vw, 140px);
+  font-weight: 900;
+  letter-spacing: -0.07em;
+}
+
+.platformCard p {
+  margin: 0 0 10px;
+  color: var(--immersive-cyan);
+  font-size: clamp(14px, 0.9vw, 20px);
+  font-weight: 800;
+}
+
+.platformCard h2 {
+  margin: 0 0 16px;
+  overflow-wrap: anywhere;
+  font-size: clamp(27px, 2.5vw, 54px);
+  line-height: 1.03;
+}
+
+.platformCard strong {
+  margin-bottom: 8px;
+  font-size: clamp(19px, 1.3vw, 28px);
+}
+
+.platformCard small {
+  color: var(--immersive-muted);
+  font-size: clamp(15px, 1vw, 21px);
+}
+
+.platformPosition {
+  display: grid;
+  grid-template-columns: auto clamp(140px, 14vw, 280px) auto;
+  gap: 14px;
+  align-items: center;
+  justify-content: center;
+  padding-bottom: clamp(8px, 1.5dvh, 20px);
+  color: rgb(247 245 240 / 0.58);
+  font-size: clamp(12px, 0.8vw, 16px);
+  font-variant-numeric: tabular-nums;
+  font-weight: 850;
+  letter-spacing: 0.12em;
+}
+
+.platformPositionTrack {
+  height: 5px;
+  overflow: hidden;
+  background: rgb(255 255 255 / 0.1);
+  border-radius: 999px;
+}
+
+.platformPositionTrack i {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, var(--immersive-cyan), var(--immersive-purple));
+  border-radius: inherit;
+  box-shadow: 0 0 18px rgb(117 96 255 / 0.72);
+  transition: transform 320ms cubic-bezier(0.2, 0.78, 0.2, 1);
+}
+
+@keyframes platform-focus-from-right {
+  from {opacity: 0.38;transform: translateX(34%) scale(0.78) rotateY(-10deg);}
+  72% {opacity: 1;transform: translateX(-1.5%) scale(1.025) rotateY(0);}
+  to {opacity: 1;transform: translateY(-6px);}
+}
+
+@keyframes platform-focus-from-left {
+  from {opacity: 0.38;transform: translateX(-34%) scale(0.78) rotateY(10deg);}
+  72% {opacity: 1;transform: translateX(1.5%) scale(1.025) rotateY(0);}
+  to {opacity: 1;transform: translateY(-6px);}
+}
+
+@keyframes platform-shift-to-left {
+  from {opacity: 1;filter: saturate(1) brightness(1);transform: translateX(74%) scale(1.08);}
+  to {opacity: 0.34;filter: saturate(0.52) brightness(0.72);transform: translateX(14%) scale(0.76) rotateY(10deg);}
+}
+
+@keyframes platform-shift-to-right {
+  from {opacity: 1;filter: saturate(1) brightness(1);transform: translateX(-74%) scale(1.08);}
+  to {opacity: 0.34;filter: saturate(0.52) brightness(0.72);transform: translateX(-14%) scale(0.76) rotateY(-10deg);}
+}
+
+@keyframes platform-edge-from-right {
+  from {opacity: 0;filter: saturate(0.35) brightness(0.55);transform: translateX(12%) scale(0.62) rotateY(-14deg);}
+  to {opacity: 0.34;filter: saturate(0.52) brightness(0.72);transform: translateX(-14%) scale(0.76) rotateY(-10deg);}
+}
+
+@keyframes platform-edge-from-left {
+  from {opacity: 0;filter: saturate(0.35) brightness(0.55);transform: translateX(-12%) scale(0.62) rotateY(14deg);}
+  to {opacity: 0.34;filter: saturate(0.52) brightness(0.72);transform: translateX(14%) scale(0.76) rotateY(10deg);}
+}
+
+@media (width <= 1279px) {
+  .platformCarousel {
+    grid-template-columns: minmax(120px, 0.65fr) minmax(380px, 1.8fr) minmax(120px, 0.65fr);
+    gap: 22px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .platformCard,
+  .platformPositionTrack i {transition: none;}
+  .platformCarousel[data-direction] > * {animation: none;}
+}

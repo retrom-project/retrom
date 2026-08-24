@@ -8,6 +8,7 @@ import { ImmersiveChoiceDialog } from "./choice-dialog";
 import { ImmersiveShell } from "./immersive-shell";
 import type { NavigationAction } from "./input-model";
 import { wrapPlatformIndex } from "./platform-selection";
+import platformStyles from "./platform.module.css";
 import styles from "./immersive.module.css";
 
 type ViewState = "loading" | "ready" | "empty" | "error" | "unauthorized";
@@ -19,7 +20,7 @@ function platformCode(platform: ImmersivePlatform) {
   return normalized.slice(0, 4) || "GAME";
 }
 
-const platformToneClasses = [styles.platformTone0, styles.platformTone1, styles.platformTone2, styles.platformTone3, styles.platformTone4];
+const platformToneClasses = [platformStyles.platformTone0, platformStyles.platformTone1, platformStyles.platformTone2, platformStyles.platformTone3, platformStyles.platformTone4];
 
 function platformTone(platformId: string) {
   let hash = 0;
@@ -38,8 +39,8 @@ function relativePlayTime(lastPlayedAtMs: number | null, generatedAtMs: number) 
 }
 
 function PlatformCard({ current, generatedAtMs, platform }: { current?: boolean; generatedAtMs: number; platform: ImmersivePlatform }) {
-  return <article className={`${styles.platformCard} ${platformTone(platform.platformId)} ${current ? styles.currentPlatform : ""}`.trim()} aria-current={current ? "true" : undefined}>
-    <span className={styles.platformCode}>{platformCode(platform)}</span>
+  return <article className={`${platformStyles.platformCard} ${platformTone(platform.platformId)} ${current ? platformStyles.currentPlatform : ""}`.trim()} aria-current={current ? "true" : undefined}>
+    <span className={platformStyles.platformCode}>{platformCode(platform)}</span>
     <p>{current ? "当前平台" : "相邻平台"}</p>
     <h2>{platform.platformName}</h2>
     <strong>{platform.gameCount} 款游戏</strong>
@@ -132,24 +133,40 @@ export function PlatformView({ initialPlatformId }: { initialPlatformId?: string
     ? [{ button: "horizontal", label: "选择平台" }, { button: "A", label: "进入" }, { button: "B", label: "退出沉浸模式" }]
     : [{ button: "A", label: state === "error" ? "重试" : "返回首页" }, { button: "B", label: "返回首页" }];
   return <ImmersiveShell help={help} inputEpoch={`${state}:${exitOpen}`} onAction={onAction}>
-    <section className={styles.platformView} aria-labelledby="platform-view-title">
+    <section className={platformStyles.platformView} aria-labelledby="platform-view-title">
       <div className={styles.viewHeading}><p>选择游戏平台</p><h1 id="platform-view-title">今天想玩哪个平台？</h1></div>
       {state === "loading" ? <div className={styles.centerState} role="status"><span className={styles.spinner} />正在读取游戏平台…</div> : null}
       {state === "empty" ? <div className={styles.centerState}><h2>还没有可游玩的游戏</h2><p>返回普通界面导入并发布游戏后再来看看。</p><button type="button" onClick={leave}>返回普通首页</button></div> : null}
       {state === "error" ? <div className={styles.centerState} role="alert"><h2>无法读取游戏平台</h2><p>请检查服务状态后重试。</p><button type="button" onClick={retry}>重试</button></div> : null}
       {state === "unauthorized" ? <div className={styles.centerState} role="alert"><h2>登录状态已失效</h2><p>请返回登录后重新进入沉浸模式。</p><button type="button" onClick={() => router.replace("/login")}>返回登录</button></div> : null}
-      {state === "ready" && selected ? <div
-        key={`${selected.platformId}:${transition.sequence}`}
-        className={styles.platformCarousel}
-        data-direction={transition.direction ?? undefined}
-        role="listbox"
-        tabIndex={0}
-        aria-label="游戏平台"
-        aria-activedescendant={`platform-${selected.platformId}`}
-      >
-        {neighbors.previous ? <div role="option" aria-selected="false"><PlatformCard platform={neighbors.previous} generatedAtMs={generatedAtMs} /></div> : <div />}
-        <div id={`platform-${selected.platformId}`} role="option" aria-selected="true"><PlatformCard current platform={selected} generatedAtMs={generatedAtMs} /></div>
-        {neighbors.next ? <div role="option" aria-selected="false"><PlatformCard platform={neighbors.next} generatedAtMs={generatedAtMs} /></div> : <div />}
+      {state === "ready" && selected ? <div className={platformStyles.platformStage}>
+        <div
+          key={`${selected.platformId}:${transition.sequence}`}
+          className={platformStyles.platformCarousel}
+          data-direction={transition.direction ?? undefined}
+          data-selected-index={selectedIndex}
+          role="listbox"
+          tabIndex={0}
+          aria-label="游戏平台"
+          aria-activedescendant={`platform-${selected.platformId}`}
+        >
+          {neighbors.previous ? <div role="option" aria-selected="false"><PlatformCard platform={neighbors.previous} generatedAtMs={generatedAtMs} /></div> : <div />}
+          <div id={`platform-${selected.platformId}`} role="option" aria-selected="true"><PlatformCard current platform={selected} generatedAtMs={generatedAtMs} /></div>
+          {neighbors.next ? <div role="option" aria-selected="false"><PlatformCard platform={neighbors.next} generatedAtMs={generatedAtMs} /></div> : <div />}
+        </div>
+        <div className={platformStyles.platformPosition} aria-hidden="true">
+          <span>{String(selectedIndex + 1).padStart(2, "0")}</span>
+          <div className={platformStyles.platformPositionTrack}>
+            <i
+              data-testid="platform-position-indicator"
+              style={{
+                width: `${100 / platforms.length}%`,
+                transform: `translateX(${selectedIndex * 100}%)`,
+              }}
+            />
+          </div>
+          <span>{String(platforms.length).padStart(2, "0")}</span>
+        </div>
       </div> : null}
     </section>
     {exitOpen ? <ImmersiveChoiceDialog

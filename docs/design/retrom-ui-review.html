@@ -2307,9 +2307,11 @@
     #retrom-ui-review .rt-im-eyebrow { color:#9d8fff;font-size:13px;font-weight:850;letter-spacing:.22em;text-transform:uppercase }
     #retrom-ui-review .rt-im-heading h1 { margin:10px 0 8px;font-size:clamp(38px,4.6vw,76px);line-height:1.05 }
     #retrom-ui-review .rt-im-heading p { margin:0;color:#aaa5c0;font-size:clamp(15px,1.5vw,23px) }
-    #retrom-ui-review .rt-im-platforms { flex:1;display:flex;align-items:center;justify-content:center;gap:clamp(20px,3vw,54px);perspective:1200px;position:relative;z-index:1 }
-    #retrom-ui-review .rt-im-platform { width:clamp(230px,24vw,410px);height:clamp(280px,38vh,440px);padding:32px;border:1px solid rgba(255,255,255,.12);border-radius:30px;display:flex;flex-direction:column;justify-content:space-between;background:linear-gradient(150deg,rgba(32,35,54,.95),rgba(18,20,33,.9));box-sizing:border-box;opacity:.5;transform:scale(.86);box-shadow:0 30px 70px rgba(0,0,0,.24);transition:transform 220ms cubic-bezier(.22,.8,.28,1),opacity 220ms ease }
-    #retrom-ui-review .rt-im-platform.is-selected { opacity:1;transform:scale(1);border-color:#826cff;background:linear-gradient(145deg,rgba(104,74,224,.95),rgba(43,29,101,.95));box-shadow:0 0 0 6px rgba(112,83,231,.16),0 36px 90px rgba(45,25,112,.48) }
+    #retrom-ui-review .rt-im-platforms { flex:1;display:flex;align-items:center;justify-content:center;gap:clamp(20px,3vw,54px);perspective:1600px;position:relative;z-index:1 }
+    #retrom-ui-review .rt-im-platform { width:clamp(230px,24vw,410px);height:clamp(280px,38vh,440px);padding:32px;border:1px solid rgba(255,255,255,.12);border-radius:30px;display:flex;flex-direction:column;justify-content:space-between;background:linear-gradient(150deg,rgba(32,35,54,.95),rgba(18,20,33,.9));box-sizing:border-box;opacity:.34;filter:saturate(.52) brightness(.72);transform:scale(.76);box-shadow:0 30px 70px rgba(0,0,0,.24);transition:transform 320ms cubic-bezier(.2,.78,.2,1),opacity 320ms ease,filter 320ms ease }
+    #retrom-ui-review .rt-im-platform:first-child { transform:translateX(14%) scale(.76) rotateY(10deg) }
+    #retrom-ui-review .rt-im-platform:last-child { transform:translateX(-14%) scale(.76) rotateY(-10deg) }
+    #retrom-ui-review .rt-im-platform.is-selected { opacity:1;filter:none;transform:translateY(-6px) scale(1);border-color:#826cff;background:linear-gradient(145deg,rgba(104,74,224,.95),rgba(43,29,101,.95));box-shadow:0 0 0 7px rgba(112,83,231,.16),0 42px 110px rgba(0,0,0,.58) }
     #retrom-ui-review .rt-im-platform-code { width:88px;height:88px;border-radius:24px;display:grid;place-items:center;background:rgba(255,255,255,.12);font-size:27px;font-weight:900;letter-spacing:.06em }
     #retrom-ui-review .rt-im-platform h2 { margin:0 0 8px;font-size:clamp(27px,2.5vw,44px) }
     #retrom-ui-review .rt-im-platform p { margin:0;color:#d2cbea;font-size:15px;line-height:1.6 }
