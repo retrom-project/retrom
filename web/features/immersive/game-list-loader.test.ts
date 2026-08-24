@@ -26,6 +26,7 @@ function page(items: ImmersiveGame[], nextCursor: string | null): ImmersiveGameL
       platformName: "Game Boy Advance",
       gameCount: 3,
       lastPlayedAtMs: null,
+      featuredGames: [],
     },
     items,
     nextCursor,

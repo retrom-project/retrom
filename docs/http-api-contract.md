@@ -745,9 +745,14 @@ M3U 与 library validation 保留现有 `MULTI_DISC_*`、`LAUNCH_*`、`ARCADE_*`
 `GET /api/v1/immersive/platforms` 返回：
 
 - 顶层 `generatedAtMs` 与 `items`；
-- 每项包含稳定 `platformId`、展示名 `platformName`、`gameCount` 与可空 `lastPlayedAtMs`；
+- 每项包含稳定 `platformId`、展示名 `platformName`、`gameCount`、可空 `lastPlayedAtMs`，以及最多三项
+  `featuredGames=[{gameId,title,coverUrl,lastPlayedAtMs}]`；
 - 只保留至少有一款可见游戏的已启用平台，按规范化平台名、`platformId` 稳定排序；
 - `lastPlayedAtMs` 为当前 Profile 在该平台所有可见游戏上的 `PlaySession.started_at_ms` 最大值，未游玩为 `null`。
+- `featuredGames` 先按当前 Profile 的 `lastPlayedAtMs DESC` 选择最近游玩游戏，再按游戏
+  `created_at_ms DESC,game_id DESC` 用尚未游玩的最近加入游戏补足三项；封面只投影当前 MetadataRevision 的
+  ordinal 0 `COVER`，缺失为 `null`。平台统计与预览必须在同一个只读事务中生成，不能跨请求拼接或泄漏其他
+  Profile 的最近游玩顺序。
 
 `GET /api/v1/immersive/platforms/{platformId}/games?cursor=&limit=` 返回：
 

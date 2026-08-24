@@ -25,8 +25,24 @@ beforeEach(() => {
   mocks.fetchPlatforms.mockResolvedValue({
     generatedAtMs: 1_000,
     items: [
-      { platformId: "gba", platformName: "Game Boy Advance", gameCount: 2, lastPlayedAtMs: null },
-      { platformId: "nes", platformName: "NES / Famicom", gameCount: 3, lastPlayedAtMs: 500 },
+      {
+        platformId: "gba",
+        platformName: "Game Boy Advance",
+        gameCount: 2,
+        lastPlayedAtMs: null,
+        featuredGames: [
+          { gameId: "gba-1", title: "Golden Sun", coverUrl: "/content/assets/gba-1", lastPlayedAtMs: null },
+        ],
+      },
+      {
+        platformId: "nes",
+        platformName: "NES / Famicom",
+        gameCount: 3,
+        lastPlayedAtMs: 500,
+        featuredGames: [
+          { gameId: "nes-1", title: "Adventure", coverUrl: "/content/assets/nes-1", lastPlayedAtMs: 500 },
+        ],
+      },
     ],
   });
 });
@@ -45,6 +61,8 @@ describe("immersive platform view", () => {
     let carousel = await screen.findByRole("listbox", { name: "游戏平台" });
     const indicator = screen.getByTestId("platform-position-indicator");
     expect(screen.getByRole("option", { selected: true })).toHaveTextContent("Game Boy Advance");
+    expect(screen.getByLabelText("Game Boy Advance 最近游戏封面")).toBeInTheDocument();
+    expect(screen.queryByLabelText("NES / Famicom 最近游戏封面")).not.toBeInTheDocument();
     expect(carousel).toHaveAttribute("data-selected-index", "0");
     expect(indicator).toHaveStyle({ transform: "translateX(0%)" });
     fireEvent.keyDown(window, { key: "ArrowRight" });
@@ -53,6 +71,7 @@ describe("immersive platform view", () => {
     expect(carousel).toHaveAttribute("data-selected-index", "1");
     expect(screen.getByTestId("platform-position-indicator")).toHaveStyle({ transform: "translateX(100%)" });
     expect(screen.getByRole("option", { selected: true })).toHaveTextContent("NES / Famicom");
+    expect(screen.getByLabelText("NES / Famicom 最近游戏封面")).toBeInTheDocument();
     fireEvent.keyDown(window, { key: "ArrowLeft" });
     expect(screen.getByRole("listbox", { name: "游戏平台" })).toHaveAttribute("data-direction", "left");
     expect(screen.getByRole("option", { selected: true })).toHaveTextContent("Game Boy Advance");

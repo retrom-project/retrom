@@ -33,11 +33,19 @@ type immersiveGameSeed struct {
 	VideoID     string
 }
 
+type immersiveFeaturedGameItem struct {
+	GameID         string  `json:"gameId"`
+	Title          string  `json:"title"`
+	CoverURL       *string `json:"coverUrl"`
+	LastPlayedAtMS *int64  `json:"lastPlayedAtMs"`
+}
+
 type immersivePlatformItem struct {
-	PlatformID     string `json:"platformId"`
-	PlatformName   string `json:"platformName"`
-	GameCount      int64  `json:"gameCount"`
-	LastPlayedAtMS *int64 `json:"lastPlayedAtMs"`
+	PlatformID     string                      `json:"platformId"`
+	PlatformName   string                      `json:"platformName"`
+	GameCount      int64                       `json:"gameCount"`
+	LastPlayedAtMS *int64                      `json:"lastPlayedAtMs"`
+	FeaturedGames  []immersiveFeaturedGameItem `json:"featuredGames"`
 }
 
 type immersivePlatformResponse struct {
@@ -94,6 +102,19 @@ func findImmersivePlatform(items []immersivePlatformItem, platformID string) *im
 		}
 	}
 	return nil
+}
+
+func assertImmersiveFeaturedGameOrder(
+	t *testing.T,
+	actual []immersiveFeaturedGameItem,
+	expected ...string,
+) {
+	t.Helper()
+	testassert.Falsef(t, len(actual) != len(expected), "featured games = %#v, expected IDs = %v", actual, expected)
+	for index, gameID := range expected {
+		testassert.Falsef(t, actual[index].GameID != gameID,
+			"featured game %d = %#v, expected ID = %s", index, actual[index], gameID)
+	}
 }
 
 func TestImmersiveOpenAPIContractIsTypedAndBounded(t *testing.T) {
@@ -244,8 +265,8 @@ func TestImmersiveProjectionIsStableAndProfileIsolated(t *testing.T) {
 	server.now = func() time.Time { return fixedNow }
 	seeds := []immersiveGameSeed{
 		{GameID: "01980000-0000-7000-8000-00000000aa01", MetadataID: "01980000-0000-7000-8000-00000000ba01", ContentID: "01980000-0000-7000-8000-00000000ca01", Title: "alpha", Description: "Current alpha", CoverID: "01980000-0000-7000-8000-00000000da01", VideoID: "01980000-0000-7000-8000-00000000ea01"},
-		{GameID: "01980000-0000-7000-8000-00000000aa02", MetadataID: "01980000-0000-7000-8000-00000000ba02", ContentID: "01980000-0000-7000-8000-00000000ca02", Title: "Alpha", Description: "Second alpha"},
-		{GameID: "01980000-0000-7000-8000-00000000aa03", MetadataID: "01980000-0000-7000-8000-00000000ba03", ContentID: "01980000-0000-7000-8000-00000000ca03", Title: "beta", Description: "Beta"},
+		{GameID: "01980000-0000-7000-8000-00000000aa02", MetadataID: "01980000-0000-7000-8000-00000000ba02", ContentID: "01980000-0000-7000-8000-00000000ca02", Title: "Alpha", Description: "Second alpha", CoverID: "01980000-0000-7000-8000-00000000da02"},
+		{GameID: "01980000-0000-7000-8000-00000000aa03", MetadataID: "01980000-0000-7000-8000-00000000ba03", ContentID: "01980000-0000-7000-8000-00000000ca03", Title: "beta", Description: "Beta", CoverID: "01980000-0000-7000-8000-00000000da03"},
 	}
 	for index, seed := range seeds {
 		seedImmersiveGame(t, server, seed, int64(1000+index))
@@ -258,11 +279,19 @@ func TestImmersiveProjectionIsStableAndProfileIsolated(t *testing.T) {
 
 	platforms := immersiveGET(t, server, "/api/v1/immersive/platforms")
 	platformPage := decodeImmersiveResponse[immersivePlatformResponse](t, platforms)
-	testassert.Falsef(t, platforms.Code != http.StatusOK || platformPage.GeneratedAtMS != fixedNow.UnixMilli(),
-		"platforms = %d %#v", platforms.Code, platformPage)
+	testassert.Falsef(t, platforms.Code != http.StatusOK, "platforms = %d %s", platforms.Code, platforms.Body.String())
+	testassert.Falsef(t, platformPage.GeneratedAtMS != fixedNow.UnixMilli(),
+		"platform page = %#v", platformPage)
 	localGBA := findImmersivePlatform(platformPage.Items, "gba")
 	testassert.Falsef(t, localGBA == nil || localGBA.GameCount != 3 || localGBA.LastPlayedAtMS == nil ||
 		*localGBA.LastPlayedAtMS != 5000, "local GBA platform = %#v", localGBA)
+	assertImmersiveFeaturedGameOrder(t, localGBA.FeaturedGames,
+		seeds[1].GameID, seeds[0].GameID, seeds[2].GameID)
+	testassert.Falsef(t, localGBA.FeaturedGames[0].CoverURL == nil,
+		"local GBA featured cover = %#v", localGBA.FeaturedGames[0])
+	testassert.Falsef(t, *localGBA.FeaturedGames[0].CoverURL != "/content/assets/"+seeds[1].CoverID ||
+		localGBA.FeaturedGames[2].LastPlayedAtMS != nil,
+		"local GBA featured games = %#v", localGBA.FeaturedGames)
 
 	first := immersiveGET(t, server, "/api/v1/immersive/platforms/gba/games?limit=2")
 	firstPage := decodeImmersiveResponse[immersiveGameResponse](t, first)
@@ -297,6 +326,8 @@ func TestImmersiveProjectionIsStableAndProfileIsolated(t *testing.T) {
 	otherGBA := findImmersivePlatform(otherPlatforms.Items, "gba")
 	testassert.Falsef(t, otherGBA == nil || otherGBA.LastPlayedAtMS == nil || *otherGBA.LastPlayedAtMS != 9000,
 		"other GBA platform = %#v", otherGBA)
+	assertImmersiveFeaturedGameOrder(t, otherGBA.FeaturedGames,
+		seeds[2].GameID, seeds[1].GameID, seeds[0].GameID)
 	foreignCursor := immersiveGET(t, server, "/api/v1/immersive/platforms/gba/games?limit=2&cursor="+
 		url.QueryEscape(*firstPage.NextCursor))
 	testassert.Falsef(t, foreignCursor.Code != http.StatusBadRequest ||
@@ -405,6 +436,13 @@ func TestImmersiveMediaAlwaysUsesCurrentRevisionAndRemovedAssetsDisappear(t *tes
 		*page.Items[0].CoverURL != "/content/assets/"+replacement.CoverID || page.Items[0].VideoURL == nil ||
 		*page.Items[0].VideoURL != "/content/assets/"+replacement.VideoID,
 		"replacement projection = %#v", page)
+	platformPage := decodeImmersiveResponse[immersivePlatformResponse](t,
+		immersiveGET(t, server, "/api/v1/immersive/platforms"))
+	gba := findImmersivePlatform(platformPage.Items, "gba")
+	testassert.Falsef(t, gba == nil || len(gba.FeaturedGames) != 1 ||
+		gba.FeaturedGames[0].CoverURL == nil ||
+		*gba.FeaturedGames[0].CoverURL != "/content/assets/"+replacement.CoverID,
+		"replacement featured cover = %#v", gba)
 	for assetID, payload := range map[string]string{
 		replacement.CoverID: "replacement-cover",
 		replacement.VideoID: "replacement-video",

@@ -185,7 +185,7 @@ paths:
   /api/v1/immersive/platforms:
     get:
       operationId: getImmersivePlatforms
-      description: Returns the visible base platforms that contain at least one published game in an enabled game directory. Counts are shared-library values while lastPlayedAtMs is isolated to the authenticated Profile.
+      description: Returns visible base platforms with shared-library counts and up to three cover previews ordered by the authenticated Profile's recent play history, then recent additions.
       responses:
         '200': { $ref: '#/components/responses/ImmersivePlatformListResponse' }
   /api/v1/immersive/platforms/{platformId}/games:
@@ -1892,11 +1892,24 @@ components:
     ImmersivePlatformSummary:
       type: object
       additionalProperties: false
-      required: [platformId, platformName, gameCount, lastPlayedAtMs]
+      required: [platformId, platformName, gameCount, lastPlayedAtMs, featuredGames]
       properties:
         platformId: { type: string, pattern: '^[a-z0-9-]{1,64}$' }
         platformName: { type: string, minLength: 1 }
         gameCount: { type: integer, format: int64, minimum: 1 }
+        lastPlayedAtMs: { type: integer, format: int64, minimum: 0, nullable: true }
+        featuredGames:
+          type: array
+          maxItems: 3
+          items: { $ref: '#/components/schemas/ImmersivePlatformFeaturedGame' }
+    ImmersivePlatformFeaturedGame:
+      type: object
+      additionalProperties: false
+      required: [gameId, title, coverUrl, lastPlayedAtMs]
+      properties:
+        gameId: { type: string, format: uuid }
+        title: { type: string, minLength: 1 }
+        coverUrl: { type: string, nullable: true, pattern: '^/content/assets/' }
         lastPlayedAtMs: { type: integer, format: int64, minimum: 0, nullable: true }
     ImmersiveNamedResource:
       type: object
