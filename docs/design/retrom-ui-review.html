@@ -2284,6 +2284,56 @@
     #retrom-ui-review .rt-storage-scope { margin-top:14px;padding:16px;border:1px solid var(--retrom-line);border-radius:13px;background:var(--retrom-panel-raised);color:var(--retrom-muted);font-size:11px }
     #retrom-ui-review .rt-storage-scope strong { color:var(--retrom-text) }
     @media(max-width:760px){#retrom-ui-review .rt-storage-summary,#retrom-ui-review .rt-storage-categories,#retrom-ui-review .rt-storage-details{grid-template-columns:1fr}}
+    #retrom-ui-review .rt-immersive-design { min-height:100vh;color:#f8f7ff;background:#090c16;font-family:Inter,&quot;Noto Sans SC&quot;,sans-serif;overflow:hidden }
+    #retrom-ui-review .rt-immersive-design::before { content:&quot;&quot;;position:fixed;inset:0;pointer-events:none;background:radial-gradient(circle at 68% 34%,rgba(103,75,223,.34),transparent 34%),radial-gradient(circle at 18% 82%,rgba(25,160,176,.17),transparent 28%) }
+    #retrom-ui-review .rt-im-stage { position:relative;min-height:100vh;padding:clamp(28px,4vw,76px) clamp(36px,6vw,112px);display:flex;flex-direction:column;box-sizing:border-box }
+    #retrom-ui-review .rt-im-brand { display:flex;align-items:center;gap:16px;color:#c7c2e8;font-size:14px;font-weight:800;letter-spacing:.2em;text-transform:uppercase }
+    #retrom-ui-review .rt-im-brand-mark { width:38px;height:38px;border-radius:12px;display:grid;place-items:center;background:linear-gradient(145deg,#7658f5,#4b2fc7);box-shadow:0 12px 30px rgba(77,46,198,.4);font-size:20px;letter-spacing:0 }
+    #retrom-ui-review .rt-im-help { display:flex;gap:26px;align-items:center;color:#aaa5c3;font-size:13px;font-weight:700 }
+    #retrom-ui-review .rt-im-help kbd { min-width:28px;height:28px;margin-right:8px;border:1px solid rgba(255,255,255,.2);border-radius:999px;display:inline-grid;place-items:center;color:white;background:rgba(255,255,255,.09);box-shadow:none }
+    #retrom-ui-review .rt-im-topbar { display:flex;justify-content:space-between;align-items:center;position:relative;z-index:1 }
+    #retrom-ui-review .rt-im-entry { background:linear-gradient(120deg,rgba(12,16,29,.82),rgba(21,18,38,.75)),radial-gradient(circle at 35% 35%,#52607b,#151827 54%,#090b12) }
+    #retrom-ui-review .rt-im-entry-copy { margin:auto 0;width:min(720px,62vw);opacity:.46;filter:blur(.3px) }
+    #retrom-ui-review .rt-im-entry-copy strong { display:block;font-size:clamp(42px,5vw,86px);line-height:1.05 }
+    #retrom-ui-review .rt-im-entry-copy p { max-width:580px;color:#cbc6dd;font-size:clamp(16px,1.6vw,25px);line-height:1.7 }
+    #retrom-ui-review .rt-im-backdrop { position:absolute;inset:0;display:grid;place-items:center;padding:30px;background:rgba(3,5,11,.74);backdrop-filter:blur(12px) }
+    #retrom-ui-review .rt-im-dialog { width:min(690px,76vw);padding:48px;border:1px solid rgba(255,255,255,.14);border-radius:28px;background:linear-gradient(145deg,rgba(28,31,49,.98),rgba(15,17,29,.98));box-shadow:0 34px 100px rgba(0,0,0,.5);text-align:center }
+    #retrom-ui-review .rt-im-dialog h1 { margin:0;font-size:38px }
+    #retrom-ui-review .rt-im-dialog p { margin:16px auto 32px;max-width:540px;color:#b9b5cc;font-size:17px;line-height:1.65 }
+    #retrom-ui-review .rt-im-actions { display:grid;grid-template-columns:1fr 1fr;gap:18px }
+    #retrom-ui-review .rt-im-action { min-height:68px;border:1px solid rgba(255,255,255,.18);border-radius:18px;color:#eae7f6;background:rgba(255,255,255,.06);font-size:18px;font-weight:800 }
+    #retrom-ui-review .rt-im-action.is-selected { border-color:#8f79ff;background:#674bdf;box-shadow:0 0 0 5px rgba(114,83,233,.2),0 18px 48px rgba(65,39,166,.38) }
+    #retrom-ui-review .rt-im-heading { margin:clamp(55px,9vh,110px) 0 0;position:relative;z-index:1 }
+    #retrom-ui-review .rt-im-eyebrow { color:#9d8fff;font-size:13px;font-weight:850;letter-spacing:.22em;text-transform:uppercase }
+    #retrom-ui-review .rt-im-heading h1 { margin:10px 0 8px;font-size:clamp(38px,4.6vw,76px);line-height:1.05 }
+    #retrom-ui-review .rt-im-heading p { margin:0;color:#aaa5c0;font-size:clamp(15px,1.5vw,23px) }
+    #retrom-ui-review .rt-im-platforms { flex:1;display:flex;align-items:center;justify-content:center;gap:clamp(20px,3vw,54px);perspective:1200px;position:relative;z-index:1 }
+    #retrom-ui-review .rt-im-platform { width:clamp(230px,24vw,410px);height:clamp(280px,38vh,440px);padding:32px;border:1px solid rgba(255,255,255,.12);border-radius:30px;display:flex;flex-direction:column;justify-content:space-between;background:linear-gradient(150deg,rgba(32,35,54,.95),rgba(18,20,33,.9));box-sizing:border-box;opacity:.5;transform:scale(.86);box-shadow:0 30px 70px rgba(0,0,0,.24) }
+    #retrom-ui-review .rt-im-platform.is-selected { opacity:1;transform:scale(1);border-color:#826cff;background:linear-gradient(145deg,rgba(104,74,224,.95),rgba(43,29,101,.95));box-shadow:0 0 0 6px rgba(112,83,231,.16),0 36px 90px rgba(45,25,112,.48) }
+    #retrom-ui-review .rt-im-platform-code { width:88px;height:88px;border-radius:24px;display:grid;place-items:center;background:rgba(255,255,255,.12);font-size:27px;font-weight:900;letter-spacing:.06em }
+    #retrom-ui-review .rt-im-platform h2 { margin:0 0 8px;font-size:clamp(27px,2.5vw,44px) }
+    #retrom-ui-review .rt-im-platform p { margin:0;color:#d2cbea;font-size:15px;line-height:1.6 }
+    #retrom-ui-review .rt-im-game-layout { flex:1;min-height:0;margin-top:38px;display:grid;grid-template-columns:minmax(300px,31vw) minmax(0,1fr);gap:clamp(28px,4vw,72px);position:relative;z-index:1 }
+    #retrom-ui-review .rt-im-game-list { min-height:0;padding-right:16px;display:flex;flex-direction:column;justify-content:center;gap:10px }
+    #retrom-ui-review .rt-im-game-row { padding:17px 22px;border-left:4px solid transparent;border-radius:0 16px 16px 0;color:#8f8ba3;font-size:clamp(18px,1.6vw,28px);font-weight:750;white-space:nowrap;overflow:hidden;text-overflow:ellipsis }
+    #retrom-ui-review .rt-im-game-row.is-selected { border-left-color:#9b88ff;color:white;background:linear-gradient(90deg,rgba(112,82,230,.48),rgba(112,82,230,.04));font-size:clamp(23px,2vw,34px) }
+    #retrom-ui-review .rt-im-game-preview { min-height:0;display:grid;grid-template-rows:minmax(0,1fr) auto;gap:24px }
+    #retrom-ui-review .rt-im-media { min-height:320px;border:1px solid rgba(255,255,255,.11);border-radius:30px;display:grid;grid-template-columns:minmax(190px,34%) minmax(0,1fr);gap:24px;padding:24px;background:rgba(13,16,27,.78);box-shadow:0 30px 70px rgba(0,0,0,.3) }
+    #retrom-ui-review .rt-im-cover { min-height:0;border-radius:20px;background:linear-gradient(155deg,#eed889 0 16%,#213b5b 17% 55%,#d14f3d 56% 66%,#141a28 67%);box-shadow:0 22px 50px rgba(0,0,0,.4);position:relative;overflow:hidden }
+    #retrom-ui-review .rt-im-cover::after { content:&quot;1945\A PLUS&quot;;white-space:pre;position:absolute;left:12%;bottom:11%;font-size:clamp(28px,3vw,58px);line-height:.82;font-weight:950;color:white;text-shadow:0 3px 0 #8c2c29 }
+    #retrom-ui-review .rt-im-video { border-radius:20px;display:grid;place-items:center;background:radial-gradient(circle at 50% 42%,rgba(93,113,155,.65),transparent 18%),linear-gradient(#101522 0 62%,#262738 63% 65%,#090b11 66%);overflow:hidden }
+    #retrom-ui-review .rt-im-video span { width:74px;height:74px;border:1px solid rgba(255,255,255,.35);border-radius:999px;display:grid;place-items:center;background:rgba(0,0,0,.34);font-size:27px }
+    #retrom-ui-review .rt-im-description { padding:0 8px 10px }
+    #retrom-ui-review .rt-im-description h1 { margin:0 0 10px;font-size:clamp(30px,3vw,54px) }
+    #retrom-ui-review .rt-im-description p { margin:0;color:#aaa6bb;font-size:clamp(14px,1.25vw,20px);line-height:1.7 }
+    #retrom-ui-review .rt-im-player { display:grid;place-items:center;background:#020305 }
+    #retrom-ui-review .rt-im-game-frame { width:min(1180px,84vw);aspect-ratio:4/3;border:1px solid #303443;background:radial-gradient(circle at 50% 35%,#463a51,#171a27 38%,#050609 70%);box-shadow:0 0 100px rgba(97,76,180,.2) }
+    #retrom-ui-review .rt-im-pause { position:absolute;inset:0;display:grid;place-items:center;background:rgba(4,5,10,.76);backdrop-filter:blur(8px) }
+    #retrom-ui-review .rt-im-menu { width:min(660px,76vw);padding:42px;border:1px solid rgba(255,255,255,.15);border-radius:28px;background:#171a27;box-shadow:0 35px 100px #000;text-align:center }
+    #retrom-ui-review .rt-im-menu h1 { margin:0 0 9px;font-size:34px }
+    #retrom-ui-review .rt-im-menu p { margin:0 0 30px;color:#aaa5ba }
+    #retrom-ui-review .rt-im-footer { margin-top:auto;display:flex;justify-content:space-between;align-items:center;position:relative;z-index:1 }
+    @media(max-width:1000px){#retrom-ui-review .rt-im-game-layout{grid-template-columns:34% minmax(0,1fr)}#retrom-ui-review .rt-im-media{grid-template-columns:40% minmax(0,1fr);padding:16px}.rt-im-help{gap:12px}}
   &lt;/style&gt;
 
   &lt;details class=&quot;rt-review-scenes&quot; open&gt;
@@ -2298,9 +2348,54 @@
       &lt;button type=&quot;button&quot; data-review-scene=&quot;netplay&quot;&gt;联机首页&lt;/button&gt;
       &lt;button type=&quot;button&quot; data-review-scene=&quot;netplay-room&quot;&gt;联机房间&lt;/button&gt;
       &lt;button type=&quot;button&quot; data-review-scene=&quot;netplay-player&quot;&gt;联机 Player&lt;/button&gt;
+      &lt;button type=&quot;button&quot; data-review-scene=&quot;immersive-entry&quot;&gt;沉浸入口&lt;/button&gt;
+      &lt;button type=&quot;button&quot; data-review-scene=&quot;immersive-platforms&quot;&gt;沉浸选平台&lt;/button&gt;
+      &lt;button type=&quot;button&quot; data-review-scene=&quot;immersive-games&quot;&gt;沉浸选游戏&lt;/button&gt;
+      &lt;button type=&quot;button&quot; data-review-scene=&quot;immersive-player&quot;&gt;沉浸游戏菜单&lt;/button&gt;
       &lt;button type=&quot;button&quot; data-review-scene=&quot;admin-users&quot;&gt;用户管理&lt;/button&gt;
     &lt;/div&gt;
   &lt;/details&gt;
+
+  &lt;section class=&quot;rt-immersive-design rt-im-entry&quot; data-immersive-page=&quot;immersive-entry&quot; aria-label=&quot;首页沉浸模式入口&quot; hidden&gt;
+    &lt;div class=&quot;rt-im-stage&quot;&gt;
+      &lt;div class=&quot;rt-im-topbar&quot;&gt;&lt;div class=&quot;rt-im-brand&quot;&gt;&lt;span class=&quot;rt-im-brand-mark&quot;&gt;R&lt;/span&gt; Retrom&lt;/div&gt;&lt;div class=&quot;rt-im-help&quot;&gt;&lt;span&gt;&lt;kbd&gt;A&lt;/kbd&gt;确认&lt;/span&gt;&lt;span&gt;&lt;kbd&gt;B&lt;/kbd&gt;取消&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;
+      &lt;div class=&quot;rt-im-entry-copy&quot;&gt;&lt;strong&gt;今天想玩什么？&lt;/strong&gt;&lt;p&gt;回到最近玩的游戏，或者从资料库里找点经典游戏。&lt;/p&gt;&lt;/div&gt;
+      &lt;div class=&quot;rt-im-backdrop&quot;&gt;
+        &lt;section class=&quot;rt-im-dialog&quot; role=&quot;dialog&quot; aria-modal=&quot;true&quot; aria-labelledby=&quot;rt-im-entry-title&quot;&gt;
+          &lt;div class=&quot;rt-im-eyebrow&quot;&gt;检测到手柄&lt;/div&gt;&lt;h1 id=&quot;rt-im-entry-title&quot;&gt;进入沉浸模式？&lt;/h1&gt;&lt;p&gt;为电视与手柄设计的独立体验。选平台、选游戏，然后直接开始游玩。&lt;/p&gt;
+          &lt;div class=&quot;rt-im-actions&quot;&gt;&lt;button type=&quot;button&quot; class=&quot;rt-im-action is-selected&quot;&gt;取消&lt;/button&gt;&lt;button type=&quot;button&quot; class=&quot;rt-im-action&quot;&gt;进入沉浸模式&lt;/button&gt;&lt;/div&gt;
+        &lt;/section&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+  &lt;/section&gt;
+
+  &lt;section class=&quot;rt-immersive-design&quot; data-immersive-page=&quot;immersive-platforms&quot; aria-label=&quot;沉浸模式平台选择&quot; hidden&gt;
+    &lt;div class=&quot;rt-im-stage&quot;&gt;
+      &lt;div class=&quot;rt-im-topbar&quot;&gt;&lt;div class=&quot;rt-im-brand&quot;&gt;&lt;span class=&quot;rt-im-brand-mark&quot;&gt;R&lt;/span&gt; 沉浸模式&lt;/div&gt;&lt;div class=&quot;rt-im-help&quot;&gt;&lt;span&gt;&lt;kbd&gt;←→&lt;/kbd&gt;切换&lt;/span&gt;&lt;span&gt;&lt;kbd&gt;A&lt;/kbd&gt;进入&lt;/span&gt;&lt;span&gt;&lt;kbd&gt;B&lt;/kbd&gt;退出&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;
+      &lt;header class=&quot;rt-im-heading&quot;&gt;&lt;span class=&quot;rt-im-eyebrow&quot;&gt;选择平台&lt;/span&gt;&lt;h1&gt;你的游戏，在这里开始&lt;/h1&gt;&lt;p&gt;使用左右方向键浏览平台&lt;/p&gt;&lt;/header&gt;
+      &lt;div class=&quot;rt-im-platforms&quot;&gt;
+        &lt;article class=&quot;rt-im-platform&quot;&gt;&lt;div class=&quot;rt-im-platform-code&quot;&gt;GBA&lt;/div&gt;&lt;div&gt;&lt;h2&gt;Game Boy Advance&lt;/h2&gt;&lt;p&gt;12 款游戏&lt;br&gt;上次游玩 · 昨天 22:14&lt;/p&gt;&lt;/div&gt;&lt;/article&gt;
+        &lt;article class=&quot;rt-im-platform is-selected&quot;&gt;&lt;div class=&quot;rt-im-platform-code&quot;&gt;ARC&lt;/div&gt;&lt;div&gt;&lt;h2&gt;Arcade&lt;/h2&gt;&lt;p&gt;28 款游戏&lt;br&gt;上次游玩 · 今天 15:16&lt;/p&gt;&lt;/div&gt;&lt;/article&gt;
+        &lt;article class=&quot;rt-im-platform&quot;&gt;&lt;div class=&quot;rt-im-platform-code&quot;&gt;NES&lt;/div&gt;&lt;div&gt;&lt;h2&gt;NES / Famicom&lt;/h2&gt;&lt;p&gt;9 款游戏&lt;br&gt;还没有游玩记录&lt;/p&gt;&lt;/div&gt;&lt;/article&gt;
+      &lt;/div&gt;
+      &lt;footer class=&quot;rt-im-footer&quot;&gt;&lt;span class=&quot;rt-im-eyebrow&quot;&gt;02 / 03&lt;/span&gt;&lt;div class=&quot;rt-im-help&quot;&gt;&lt;span&gt;&lt;kbd&gt;A&lt;/kbd&gt;选择 Arcade&lt;/span&gt;&lt;/div&gt;&lt;/footer&gt;
+    &lt;/div&gt;
+  &lt;/section&gt;
+
+  &lt;section class=&quot;rt-immersive-design&quot; data-immersive-page=&quot;immersive-games&quot; aria-label=&quot;沉浸模式游戏选择&quot; hidden&gt;
+    &lt;div class=&quot;rt-im-stage&quot;&gt;
+      &lt;div class=&quot;rt-im-topbar&quot;&gt;&lt;div class=&quot;rt-im-brand&quot;&gt;&lt;span class=&quot;rt-im-brand-mark&quot;&gt;ARC&lt;/span&gt; Arcade&lt;/div&gt;&lt;div class=&quot;rt-im-help&quot;&gt;&lt;span&gt;&lt;kbd&gt;↑↓&lt;/kbd&gt;选择游戏&lt;/span&gt;&lt;span&gt;&lt;kbd&gt;A&lt;/kbd&gt;开始&lt;/span&gt;&lt;span&gt;&lt;kbd&gt;B&lt;/kbd&gt;返回&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;
+      &lt;div class=&quot;rt-im-game-layout&quot;&gt;
+        &lt;nav class=&quot;rt-im-game-list&quot; aria-label=&quot;Arcade 游戏&quot;&gt;&lt;div class=&quot;rt-im-game-row&quot;&gt;合金弹头&lt;/div&gt;&lt;div class=&quot;rt-im-game-row&quot;&gt;四国战机 2&lt;/div&gt;&lt;div class=&quot;rt-im-game-row is-selected&quot;&gt;打击者 1945 加强版&lt;/div&gt;&lt;div class=&quot;rt-im-game-row&quot;&gt;原生兽&lt;/div&gt;&lt;div class=&quot;rt-im-game-row&quot;&gt;拳皇 98&lt;/div&gt;&lt;/nav&gt;
+        &lt;article class=&quot;rt-im-game-preview&quot;&gt;&lt;div class=&quot;rt-im-media&quot;&gt;&lt;div class=&quot;rt-im-cover&quot; aria-label=&quot;封面&quot;&gt;&lt;/div&gt;&lt;div class=&quot;rt-im-video&quot; aria-label=&quot;视频预览&quot;&gt;&lt;span&gt;▶&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&quot;rt-im-description&quot;&gt;&lt;span class=&quot;rt-im-eyebrow&quot;&gt;Psikyo · 1999 · 飞行射击&lt;/span&gt;&lt;h1&gt;打击者 1945 加强版&lt;/h1&gt;&lt;p&gt;经典纵向飞行射击。选择战机，穿越密集弹幕并挑战多阶段首领；支持单人或双人协作。&lt;/p&gt;&lt;/div&gt;&lt;/article&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+  &lt;/section&gt;
+
+  &lt;section class=&quot;rt-immersive-design rt-im-player&quot; data-immersive-page=&quot;immersive-player&quot; aria-label=&quot;沉浸模式游戏菜单&quot; hidden&gt;
+    &lt;div class=&quot;rt-im-game-frame&quot; aria-label=&quot;暂停的游戏画面&quot;&gt;&lt;/div&gt;
+    &lt;div class=&quot;rt-im-pause&quot;&gt;&lt;section class=&quot;rt-im-menu&quot; role=&quot;dialog&quot; aria-modal=&quot;true&quot; aria-labelledby=&quot;rt-im-menu-title&quot;&gt;&lt;span class=&quot;rt-im-eyebrow&quot;&gt;游戏已暂停&lt;/span&gt;&lt;h1 id=&quot;rt-im-menu-title&quot;&gt;打击者 1945 加强版&lt;/h1&gt;&lt;p&gt;选择继续游戏，或退出并返回游戏列表。&lt;/p&gt;&lt;div class=&quot;rt-im-actions&quot;&gt;&lt;button type=&quot;button&quot; class=&quot;rt-im-action is-selected&quot;&gt;取消&lt;/button&gt;&lt;button type=&quot;button&quot; class=&quot;rt-im-action&quot;&gt;退出游戏&lt;/button&gt;&lt;/div&gt;&lt;div class=&quot;rt-im-help&quot; style=&quot;justify-content:center;margin-top:24px&quot;&gt;&lt;span&gt;&lt;kbd&gt;A&lt;/kbd&gt;确认&lt;/span&gt;&lt;span&gt;&lt;kbd&gt;B&lt;/kbd&gt;取消&lt;/span&gt;&lt;/div&gt;&lt;/section&gt;&lt;/div&gt;
+  &lt;/section&gt;
 
   &lt;section class=&quot;rt-auth-scene&quot; data-auth-page=&quot;setup&quot; aria-label=&quot;首次设置&quot; hidden&gt;
     &lt;div class=&quot;rt-auth-layout&quot;&gt;
@@ -3102,7 +3197,14 @@
       }
       function showAuthPage(page) {
         app.hidden = true;
+        root.querySelectorAll('[data-immersive-page]').forEach((element) =&gt; { element.hidden = true; });
         root.querySelectorAll('[data-auth-page]').forEach((element) =&gt; { element.hidden = element.dataset.authPage !== page; });
+        selectReviewScene(page);
+      }
+      function showImmersivePage(page) {
+        app.hidden = true;
+        root.querySelectorAll('[data-auth-page]').forEach((element) =&gt; { element.hidden = true; });
+        root.querySelectorAll('[data-immersive-page]').forEach((element) =&gt; { element.hidden = element.dataset.immersivePage !== page; });
         selectReviewScene(page);
       }
       function setReviewScope(scope) {
@@ -3124,6 +3226,7 @@
         const serverImportDetails = ['admin-server-import-detail', 'admin-pegasus-import-detail', 'admin-emulationstation-import-detail'];
         const activeNavigationTarget = page === 'detail' ? 'library' : ['netplay-room', 'netplay-player'].includes(page) ? 'netplay' : page === 'admin-game-detail' ? 'admin-games' : serverImportDetails.includes(page) ? 'admin-server-import' : page;
         app.hidden = false;
+        root.querySelectorAll('[data-immersive-page]').forEach((element) =&gt; { element.hidden = true; });
         root.querySelectorAll('[data-auth-page]').forEach((element) =&gt; { element.hidden = true; });
         app.classList.toggle('is-playing', page === 'play' || page === 'netplay-player');
         root.querySelectorAll('.rt-page').forEach((element) =&gt; element.classList.toggle('is-active', element.dataset.page === page));
@@ -3194,6 +3297,7 @@
       root.querySelectorAll('[data-review-scene]').forEach((button) =&gt; button.addEventListener('click', () =&gt; {
         const scene = button.dataset.reviewScene;
         if (authPageNames.has(scene)) showAuthPage(scene);
+        else if (scene.startsWith('immersive-')) showImmersivePage(scene);
         else if (scene === 'admin-users') { setMode('admin'); showPage(scene); }
         else { setMode('user'); showPage(scene); }
       }));
@@ -3899,6 +4003,8 @@
       const applyRequestedView = (requestedView) =&gt; {
         if (authPageNames.has(requestedView)) {
           showAuthPage(requestedView);
+        } else if (requestedView.startsWith('immersive-')) {
+          showImmersivePage(requestedView);
         } else if (requestedView.startsWith('game-')) {
           setMode('user');
           openGame(requestedView.slice(5));

@@ -43,6 +43,12 @@ describe("ConfirmDialog", () => {
     expect(leading).not.toHaveBeenCalled();
   });
 
+  it("keeps focus inside a dialog whose decisions are neutral-gate locked", () => {
+    render(<ConfirmDialog open interactionDisabled title="等待中立输入" onCancel={() => undefined} onConfirm={() => undefined} />);
+    expect(screen.getByRole("alertdialog", { name: "等待中立输入" })).toHaveFocus();
+    expect(screen.getAllByRole("button").every((button) => button.hasAttribute("disabled"))).toBe(true);
+  });
+
   it("can portal the viewport layer out of a transformed card", () => {
     render(<article data-testid="card" style={{ transform: "translateY(-3px)" }}>
       <ConfirmDialog open portalToBody title="取消收藏？" onCancel={() => undefined} onConfirm={() => undefined} />

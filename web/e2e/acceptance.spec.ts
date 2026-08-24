@@ -159,7 +159,7 @@ test("ACC-UI-004 loading, empty, retryable error, warning, and blocker states ar
   await expect(page.getByRole("button", { name: "重新加载" })).toBeVisible();
   await page.screenshot({ path: evidencePath(testInfo, "state-error.png"), fullPage: true });
 
-  await page.goto("/admin/bios?scope=FULL_CATALOG");
+  await page.goto("/admin/bios?scope=FULL_CATALOG&q=gba_bios.bin");
   await expect(page.getByRole("heading", { name: "BIOS 文件" })).toBeVisible();
   const gbaRow = page.getByRole("row").filter({ hasText: "gba_bios.bin" });
   await gbaRow.locator('input[type="file"]').setInputFiles({ name: "gba_bios.bin", mimeType: "application/octet-stream", buffer: Buffer.from("retrom-invalid-bios\n") });
@@ -168,6 +168,7 @@ test("ACC-UI-004 loading, empty, retryable error, warning, and blocker states ar
   await expect(gbaRow.getByText("当前 MD5", { exact: true })).toBeVisible();
   await page.screenshot({ path: evidencePath(testInfo, "state-warning.png"), fullPage: true });
 
+  await page.goto("/admin/bios?scope=FULL_CATALOG&quick=REQUIRED&status=MISSING");
   const blockerRow = page.getByRole("row").filter({ hasText: "缺少文件" }).filter({ hasText: "必需" }).first();
   await expect(blockerRow.getByText("必需", { exact: false })).toBeVisible();
   await expect(blockerRow.getByRole("button", { name: "选择 BIOS 文件" })).toBeVisible();

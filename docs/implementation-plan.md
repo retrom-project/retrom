@@ -126,7 +126,7 @@ flowchart LR
 
 ### M8：Saturn 多盘垂直切片
 
-范围：当前 manifest V7/compatibility V5、`ejs-4.2.3-v2`、有界 M3U 解析、递归目录分组、缺盘审核补传、generation 4 验证、规范 playlist/Disc Launch 锁定、Player 换盘、带盘号状态存档与完整目录内容替换。启用门禁为 `ACC-MDISC-001`–`008`；PSX、3DO、PC-FX 在没有独立真实兼容证据前保持 fail closed。
+范围：当前 manifest V7/compatibility V5、普通 `ejs-4.2.3-v3`、有界 M3U 解析、递归目录分组、缺盘审核补传、generation 4 验证、规范 playlist/Disc Launch 锁定、Player 换盘、带盘号状态存档与完整目录内容替换。启用门禁为 `ACC-MDISC-001`–`008`；PSX、3DO、PC-FX 在没有独立真实兼容证据前保持 fail closed。
 
 ### M9：收藏与收藏夹垂直切片
 
@@ -181,6 +181,23 @@ flowchart LR
 范围：先同步导入、数据、HTTP、UI、质量、验收契约与 OpenAPI，再在 clean `001`–`010` lineage 内完成严格 EmulationStation XML parser、受信 root 下精确小写 `gamelist.xml` 的递归 no-follow 扫描、每份有效清单一个 Collection 的显式 `IMPORT|SKIP` 映射、来源/目标快照与漂移检查、异步复制和普通 library import/review handoff。扫描期只读取有界 XML、目录 facts、M3U 和媒体/CHD 头，不读取完整游戏内容、不写业务 Blob；执行期复用普通去重、CoreValidation、DAT、BIOS、M3U/Arcade 依赖、审核、严格 READY 快速审批与 payload release。Worker 在 `REVIEW_PENDING` 停止，只有普通 Approve 或现有快速审批事务创建 Game。前端把服务器导入页扩展为 BIOS、Pegasus、EmulationStation 三张等权卡，接通 EmulationStation 三步 Drawer、可恢复详情和来源限定审核入口。
 
 退出门禁：完整执行 `ACC-ES-001`–`006`，并回归 `ACC-PEG-001`–`006`、`ACC-IMP-001/003/007/008/009`、`ACC-MDISC-001/004`、`ACC-BIOS-003/006`、`ACC-CAS-002`、`ACC-BKP-001`、`ACC-GAME-001/003`。必须运行 `make quality-structure-check`、`make fmt-check`、`make build`、`make test`、`make lint-go`、`make integration-test`、`make web-install`、`make web-lint`、`make web-typecheck`、`make web-test`、`make web-build`、`make api-generate`、`make api-check`、`make public-fixtures-check`、`make web-e2e` 与 `make ci`。验收必须分别证明“一个所选目录含多个子目录且每个子目录各有 `gamelist.xml`”与“一个无子目录的目录内只有一份 `gamelist.xml` 和多份游戏文件”均正确扫描、逐 Collection 映射并交接审核；项目自有 GBA EmulationStation fixture 必须从真实扫描、审核、发布走到 mGBA 核心帧，发布后 Game 删除还须证明流程 payload、Game payload 与共享 Blob 引用按宽限期安全释放。授权本地 Batocera 目录只可用于隔离开发实例人工验证，不进入自动测试、证据正文或仓库。正式 UI 源、导出 HTML 和 390/1280/2560/物理 4K 150% 当次视觉与无障碍复核全部闭环后才可删除临时设计目录，本地图片不得提交。
+
+### M18：标准手柄沉浸模式垂直切片
+
+范围：先同步架构、HTTP、UI、运行时、依赖、质量、验收契约与 OpenAPI；增加 Profile 隔离的沉浸平台
+聚合和平台游戏 cursor 投影，不新增 migration。前端只在普通首页发现标准手柄并确认进入，随后由普通
+App Shell 之外的 `/immersive` 独立电视 UI 完成平台 carousel、游戏列表、当前 COVER/VIDEO/description 和
+默认单机 Launch。单机 Player 以 `experience=immersive` 显式启用活动手柄双击 Select+Start、输入全零、
+暂停所有权与“取消/退出游戏”菜单；普通 PC/移动和联机分支保持原状。普通 4.2.3/4.3.0-pre adapter
+升级精确 ID，联机 manifest/profile 继续使用其锁定的普通 adapter/联机 adapter 组合，不能隐式继承沉浸过滤。
+
+退出门禁：完整执行 `ACC-IMM-001`–`008`，回归 `ACC-RUN-001`–`012`、`ACC-MOB-005`–`007`、
+`ACC-MDISC-004`–`006`、`ACC-NP-010`–`022`、`ACC-ISO-001`–`003` 与普通首页/详情/存档 Case；运行
+OpenAPI、后端、集成、前端、结构、公开 fixture、data/dependency、`make web-e2e`、`make ci` 和两个镜像
+构建门禁。自动化必须经过真实 Game/媒体 API、Launch、内容端点、Player 和项目自有 GBA/Arcade Core，
+不得直接调用 React handler 或伪造 Core 成功。正式 UI 源、导出 HTML、1280×720、1920×1080、
+2560×1440 与物理 4K 150% 视觉复核闭环后才可删除临时设计目录。实体 standard-mapping 手柄 smoke 是
+发布条件；环境没有实体设备时结果必须明确为 `BLOCKED`，自动注入不能冒充实体通过。
 
 ## 5. 垂直切片提交规则
 

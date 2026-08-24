@@ -755,8 +755,29 @@ AND vf.logical_name='game.zip'
 }
 
 func validReturnTo(value, gameID string) bool {
-	if strings.ContainsAny(value, "?#%\\") {
+	if strings.ContainsAny(value, "#%\\") {
 		return false
 	}
-	return value == "/" || value == "/library" || value == "/saves" || value == "/games/"+gameID
+	if value == "/" || value == "/library" || value == "/saves" || value == "/games/"+gameID {
+		return true
+	}
+	return validImmersiveReturnTo(value, gameID)
+}
+
+func validImmersiveReturnTo(value, gameID string) bool {
+	const prefix = "/immersive/platforms/"
+	const separator = "?gameId="
+	if !strings.HasPrefix(value, prefix) || strings.Count(value, "?") != 1 {
+		return false
+	}
+	platformID, returnedGameID, found := strings.Cut(strings.TrimPrefix(value, prefix), separator)
+	if !found || returnedGameID != gameID || len(platformID) == 0 || len(platformID) > 64 {
+		return false
+	}
+	for _, character := range platformID {
+		if (character < 'a' || character > 'z') && (character < '0' || character > '9') && character != '-' {
+			return false
+		}
+	}
+	return true
 }

@@ -32,7 +32,7 @@ function props(overrides: Partial<Parameters<typeof PlayerChrome>[0]> = {}): Par
     debugMetrics: null,
     debugRuntime: {
       coreId: "fbneo", coreArtifactId: "artifact-1", emulatorJSVersion: "4.2.3",
-      playerAdapterId: "ejs-4.2.3-v2", inputMode: "STANDARD",
+      playerAdapterId: "ejs-4.2.3-v3", inputMode: "STANDARD",
       crossOriginIsolated: true, sharedArrayBuffer: true,
     },
     runtimeState: "running",

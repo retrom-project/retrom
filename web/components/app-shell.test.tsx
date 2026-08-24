@@ -34,6 +34,14 @@ afterEach(() => {
 });
 
 describe("AppShell", () => {
+  it("does not mount ordinary navigation around the independent immersive routes", () => {
+    shellState.pathname = "/immersive/platforms/gba";
+    const { container } = render(<AppShell><main data-testid="immersive-content">沉浸内容</main></AppShell>);
+    expect(screen.getByTestId("immersive-content")).toBeInTheDocument();
+    expect(container.querySelector(".app-frame")).toBeNull();
+    expect(screen.queryByRole("navigation")).not.toBeInTheDocument();
+  });
+
   it("closes the account menu when the user clicks outside it", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => new Response(null, { status: 200 })));
     const user = userEvent.setup();

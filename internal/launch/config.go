@@ -368,11 +368,15 @@ func (service *Service) buildLaunchConfig(
 	if err != nil {
 		return Config{}, err
 	}
+	playerAdapterID := version.Manifest.EmulatorJS.PlayerAdapter.ID
+	if isNetplay {
+		playerAdapterID = retromruntime.NetplayPlayerAdapterID
+	}
 	return Config{
 		Mode:              mode,
 		LaunchID:          launchID,
 		EmulatorJSVersion: emulatorVersion,
-		PlayerAdapterID:   version.Manifest.EmulatorJS.PlayerAdapter.ID,
+		PlayerAdapterID:   playerAdapterID,
 		Core:              coreID,
 		RuntimeCore:       compatibility.RuntimeCoreID,
 		CoreName:          coreName,

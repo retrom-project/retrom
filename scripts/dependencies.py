@@ -291,9 +291,6 @@ def validate_registry(manifests: list[dict[str, Any]]) -> None:
         if loader not in allowlist:
             raise CheckError("PLAYER_ADAPTER_LOADER_NOT_ALLOWLISTED")
         expected[adapter_id] = version
-    if registered != expected:
-        raise CheckError("PLAYER_ADAPTER_REGISTRY_DRIFT")
-
     netplay_entries = registry.get("netplayAdapters")
     if not isinstance(netplay_entries, list):
         raise CheckError("NETPLAY_ADAPTER_REGISTRY_INVALID")
@@ -310,7 +307,11 @@ def validate_registry(manifests: list[dict[str, Any]]) -> None:
         if not module_path.is_file():
             raise CheckError(f"NETPLAY_ADAPTER_IMPLEMENTATION_MISSING:{adapter_id}")
         netplay_registered[adapter_id] = version
-    validate_netplay_manifest(manifests, netplay_registered)
+    validate_netplay_manifest(manifests, registered, netplay_registered)
+    protocol = load_json(NETPLAY_MANIFEST_PATH)["protocol"]
+    expected[protocol["playerAdapterId"]] = "4.2.3"
+    if registered != expected:
+        raise CheckError("PLAYER_ADAPTER_REGISTRY_DRIFT")
 
 
 def validate_cps_fixture_layouts(manifests: list[dict[str, Any]]) -> None:
@@ -377,7 +378,7 @@ def validate_cps_fixture_layouts(manifests: list[dict[str, Any]]) -> None:
 
 
 def validate_netplay_manifest(
-    manifests: list[dict[str, Any]], netplay_adapters: dict[str, str]
+    manifests: list[dict[str, Any]], player_adapters: dict[str, str], netplay_adapters: dict[str, str]
 ) -> None:
     schema = load_json(NETPLAY_SCHEMA_PATH)
     if schema.get("$schema") != "https://json-schema.org/draft/2020-12/schema":
@@ -405,7 +406,12 @@ def validate_netplay_manifest(
 
     versions = {manifest["emulatorjs"]["version"]: manifest for manifest in manifests}
     runtime_manifest = versions.get("4.2.3")
-    if runtime_manifest is None or runtime_manifest["emulatorjs"]["player_adapter"]["id"] != protocol["playerAdapterId"]:
+    if (
+        runtime_manifest is None
+        or player_adapters.get(protocol["playerAdapterId"]) != "4.2.3"
+        or runtime_manifest["emulatorjs"]["player_adapter"]["id"]
+        == protocol["playerAdapterId"]
+    ):
         raise CheckError("NETPLAY_PLAYER_ADAPTER_DRIFT")
     artifacts = {
         item.get("core_id"): item

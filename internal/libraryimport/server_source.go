@@ -693,14 +693,13 @@ func (service *Service) copyExternalAssets(
 	now int64,
 ) error {
 	for _, asset := range assets {
-		var mediaType string
+		var blobID string
 		err := transaction.QueryRowContext(
 			ctx,
-			`SELECT media_type FROM blobs WHERE id=?`,
+			`SELECT id FROM blobs WHERE id=?`,
 			asset.BlobID,
-		).Scan(&mediaType)
-		if err != nil ||
-			mediaType != asset.MediaType {
+		).Scan(&blobID)
+		if err != nil || blobID != asset.BlobID {
 			return ErrInvalid
 		}
 		assetID, _ := uuid.NewV7()

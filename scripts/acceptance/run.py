@@ -306,6 +306,17 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
         360,
         "make public-fixtures-check && scripts/acceptance/ui-case.sh ACC-ES-006",
     ),
+    "ACC-IMM-001": (90, "scripts/acceptance/ui-case.sh ACC-IMM-001"),
+    "ACC-IMM-002": (120, "scripts/acceptance/ui-case.sh ACC-IMM-002"),
+    "ACC-IMM-003": (150, "scripts/acceptance/ui-case.sh ACC-IMM-003"),
+    "ACC-IMM-004": (180, "scripts/acceptance/ui-case.sh ACC-IMM-004"),
+    "ACC-IMM-005": (180, "scripts/acceptance/ui-case.sh ACC-IMM-005"),
+    "ACC-IMM-006": (180, "scripts/acceptance/ui-case.sh ACC-IMM-006"),
+    "ACC-IMM-007": (150, "scripts/acceptance/ui-case.sh ACC-IMM-007"),
+    "ACC-IMM-008": (
+        240,
+        "make data-check && make deps-check && scripts/acceptance/ui-case.sh ACC-IMM-008",
+    ),
     "ACC-MEDIA-001": (
         240,
         "go test ./internal/mediaasset ./internal/httpapi -run 'TestInspect|TestGameDetailReturnsCoreValidationChoicesAndDOSPrograms' -count=1 && scripts/acceptance/ui-case.sh ACC-MEDIA-001",

@@ -18,6 +18,8 @@ import { readBoundedResponse, reportsNativeExit } from "./player-shell-model";
 import { shouldRevealPlayerControlsForKey } from "./player-controls-visibility";
 import type { PlayerDebugRuntime } from "./player-chrome";
 import { handlePlayerPauseShortcut } from "./keyboard-controls";
+import type { ImmersiveGamepadFilter } from "./immersive-gamepad-filter";
+import { validateImmersivePlayerConfig } from "./immersive-player-config";
 
 type ShellState = "loading" | "running" | "error";
 type SyncTone = "synced" | "busy" | "warning";
@@ -25,6 +27,8 @@ type Mutable<T> = { current: T };
 
 export type PlayerBootstrapParams = {
   launchId: string;
+  experience: "standard" | "immersive";
+  immersiveGamepadFilter?: ImmersiveGamepadFilter;
   stage: RefObject<HTMLDivElement | null>; frameRef: RefObject<HTMLIFrameElement | null>; emulator: Mutable<EmulatorInstance | undefined>;
   returnTo: Mutable<string>; playerMode: Mutable<PlayerConfig["mode"]>; manualSaveAvailableRef: Mutable<boolean>;
   netplayConfig: Mutable<NonNullable<PlayerConfig["netplay"]> | null>; discSetRef: Mutable<DiscSet | null>;
@@ -38,8 +42,10 @@ export type PlayerBootstrapParams = {
   setFrameEnabled: Dispatch<SetStateAction<boolean>>; setSyncText: Dispatch<SetStateAction<string>>; setSyncTone: Dispatch<SetStateAction<SyncTone>>;
   setEmulatorVolume: Dispatch<SetStateAction<number>>; setEmulatorMuted: Dispatch<SetStateAction<boolean>>; setPaused: Dispatch<SetStateAction<boolean>>;
   setNetplayPaused: Dispatch<SetStateAction<boolean>>;
+  setImmersiveReturnTo: Dispatch<SetStateAction<string>>;
   reportPlayerEvent: (event: MultiDiscPlayerEvent) => void; revealControlsAtTopEdge: (clientY: number) => void; showControls: () => void;
   onKeyboardPause: () => void;
+  onImmersiveMenuShortcut: () => void;
   sendEvent: (kind: "start" | "heartbeat" | "finish") => Promise<void>; uploadManualState: (payload: { screenshot: Blob; format: string; state: Uint8Array }) => Promise<boolean>;
 };
 
@@ -68,17 +74,25 @@ async function bootstrapPlayer(params: PlayerBootstrapParams, resources: Bootstr
   if (!response.ok) {throw new Error(`LAUNCH_CONFIG_${response.status}`);}
   const config = await response.json() as PlayerConfig;
   validateConfig(config);
+  if (params.experience === "immersive") {validateImmersivePlayerConfig(config);}
   applyConfig(params, config);
   await prepareOrientation(params, config, controller);
   const frame = await prepareFrame(params, controller);
   await describeDiscSet(params, config, controller);
   const stateBytes = await fetchLaunchState(config, controller);
   const mounted = mountFrame(params, resources, controller, config, frame, stateBytes);
-  resources.cleanup = mountEmulatorJS(config, mounted.target, createMountCallbacks(mounted.context), mounted.context.frameWindow);
+  resources.cleanup = mountEmulatorJS(
+    config,
+    mounted.target,
+    createMountCallbacks(mounted.context),
+    mounted.context.frameWindow,
+    params.experience === "immersive" ? { immersiveGamepadFilter: params.immersiveGamepadFilter } : undefined,
+  );
 }
 
 function applyConfig(params: PlayerBootstrapParams, config: PlayerConfig) {
   params.returnTo.current = config.returnTo;
+  if (params.experience === "immersive") {params.setImmersiveReturnTo(config.returnTo);}
   params.playerMode.current = config.mode;
   params.manualSaveAvailableRef.current = canCreateRecoverableManualState(config);
   params.setManualSaveAvailable(params.manualSaveAvailableRef.current);
@@ -159,6 +173,16 @@ function mountFrame(params: PlayerBootstrapParams, resources: BootstrapResources
 }
 
 function installFrameControls(document: Document, frame: HTMLIFrameElement, inputMode: string, params: PlayerBootstrapParams) {
+  if (params.experience === "immersive") {
+    const key = (event: KeyboardEvent) => {
+      if (event.key.toLowerCase() !== "m") {return;}
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      params.onImmersiveMenuShortcut();
+    };
+    document.addEventListener("keydown", key, true);
+    return () => document.removeEventListener("keydown", key, true);
+  }
   const pointer = (event: PointerEvent) => params.revealControlsAtTopEdge(event.clientY);
   const key = (event: KeyboardEvent) => {
     if (shouldRevealPlayerControlsForKey(event.key)) {params.showControls();}

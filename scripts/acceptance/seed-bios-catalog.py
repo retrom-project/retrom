@@ -27,11 +27,12 @@ def main() -> int:
         template = connection.execute(
             """SELECT requirement.* FROM bios_requirements requirement
                JOIN core_artifacts artifact ON artifact.id=requirement.core_artifact_id
-               WHERE requirement.enabled=1 AND artifact.enabled=1 AND requirement.source_kind='STATIC'
+               WHERE requirement.enabled=1 AND artifact.enabled=1
+                 AND requirement.source_kind='STATIC' AND requirement.core_id='yabause'
                ORDER BY requirement.id LIMIT 1"""
         ).fetchone()
         if template is None:
-            raise RuntimeError("no enabled STATIC BIOS requirement is available as a seed template")
+            raise RuntimeError("the dedicated Yabause BIOS seed template is unavailable")
         columns = [row[1] for row in connection.execute("PRAGMA table_info(bios_requirements)")]
         placeholders = ",".join("?" for _ in columns)
         insert = f"INSERT INTO bios_requirements({','.join(columns)}) VALUES({placeholders})"

@@ -1,15 +1,7 @@
 import { mkdirSync } from "node:fs";
-import { execFileSync } from "node:child_process";
 import path from "node:path";
 import axe from "axe-core";
 import { expect, test, type Page, type TestInfo } from "@playwright/test";
-
-test.beforeAll(() => {
-  if (process.env.E2E_SERVER_IMPORT_SEED !== "1") {return;}
-  const database = process.env.RETROM_E2E_DATABASE;
-  if (!database) {throw new Error("RETROM_E2E_DATABASE is required for the server import E2E fixture");}
-  execFileSync("python3", [path.resolve(process.cwd(), "../scripts/acceptance/seed-bios-catalog.py"), database, "286"], { stdio: "inherit" });
-});
 
 test.beforeEach(async ({ page }, testInfo) => {
   if (testInfo.title.startsWith("ACC-BIOS-007") && testInfo.project.name !== "chrome-1280") {
@@ -346,7 +338,7 @@ test("ACC-PEG-006 project-owned Pegasus GBA source publishes and advances real e
   expect(configuration.gameTitle).toBe(title);
   expect(configuration.core).toBe("mgba");
   expect(configuration.coreName).toBe("mGBA");
-  expect(configuration.playerAdapterId).toBe("ejs-4.2.3-v2");
+  expect(configuration.playerAdapterId).toBe("ejs-4.2.3-v3");
   expect(configuration.emulatorjsVersion).toBe("4.2.3");
   expect(configuration.gameUrl).toMatch(/\/runtime\/launches\/[0-9a-f-]+\/game\/pegasus-smoke\.gba$/);
 

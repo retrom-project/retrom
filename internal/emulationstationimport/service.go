@@ -360,7 +360,8 @@ func (service *Service) execute(ctx context.Context, unit work) {
 	}
 	if unit.DeadlineAtMS > 0 {
 		var cancel context.CancelFunc
-		ctx, cancel = context.WithDeadline(ctx, time.UnixMilli(unit.DeadlineAtMS))
+		remaining := time.Duration(unit.DeadlineAtMS-service.now().UnixMilli()) * time.Millisecond
+		ctx, cancel = context.WithTimeout(ctx, remaining)
 		defer cancel()
 	}
 	heartbeatDone := make(chan struct{})

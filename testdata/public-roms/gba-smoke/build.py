@@ -22,8 +22,14 @@ OUTPUTS = {
     ),
 }
 GAMELIST_OUTPUT = Path(__file__).with_name("gamelist.xml")
-COVER_OUTPUT = Path(__file__).with_name("emulationstation-smoke-cover.png")
-VIDEO_OUTPUT = Path(__file__).with_name("emulationstation-smoke-video.webm")
+ORDINARY_COVER_OUTPUT = Path(__file__).with_name("gba-smoke-cover.png")
+ORDINARY_VIDEO_OUTPUT = Path(__file__).with_name("gba-smoke-video.webm")
+EMULATIONSTATION_COVER_OUTPUT = Path(__file__).with_name(
+    "emulationstation-smoke-cover.png"
+)
+EMULATIONSTATION_VIDEO_OUTPUT = Path(__file__).with_name(
+    "emulationstation-smoke-video.webm"
+)
 GAMELIST = b"""<?xml version="1.0" encoding="UTF-8"?>
 <gameList>
   <game>
@@ -352,17 +358,21 @@ def stored_zlib(payload: bytes) -> bytes:
     return bytes(result)
 
 
-def build_cover() -> bytes:
+def build_cover(
+    interior: tuple[int, int, int],
+    checker_light: tuple[int, int, int],
+    checker_dark: tuple[int, int, int],
+) -> bytes:
     rows = bytearray()
     for y_coordinate in range(COVER_HEIGHT):
         rows.append(0)
         for x_coordinate in range(COVER_WIDTH):
             if 8 <= x_coordinate < 62 and 10 <= y_coordinate < 88:
-                color = (75, 214, 197)
+                color = interior
             elif (x_coordinate // 7 + y_coordinate // 7) % 2 == 0:
-                color = (91, 70, 216)
+                color = checker_light
             else:
-                color = (16, 24, 39)
+                color = checker_dark
             rows.extend(color)
     header = struct.pack(">IIBBBBB", COVER_WIDTH, COVER_HEIGHT, 8, 2, 0, 0, 0)
     return (
@@ -373,8 +383,14 @@ def build_cover() -> bytes:
     )
 
 
-def build_video() -> bytes:
-    return base64.b64decode("".join(VIDEO_WEBM_BASE64.split()), validate=True)
+def build_video(*, distinct_ordinary_identity: bool) -> bytes:
+    payload = base64.b64decode("".join(VIDEO_WEBM_BASE64.split()), validate=True)
+    if distinct_ordinary_identity:
+        # The Segment has an unknown length, so a trailing zero-byte EBML Void
+        # is a valid, playback-neutral element and gives the ordinary upload
+        # fixture its own deterministic CAS identity.
+        return payload + b"\xec\x81\x00"
+    return payload
 
 
 def main() -> int:
@@ -391,8 +407,20 @@ def main() -> int:
         for output, (title, product_code) in OUTPUTS.items()
     }
     media = {
-        COVER_OUTPUT: build_cover(),
-        VIDEO_OUTPUT: build_video(),
+        ORDINARY_COVER_OUTPUT: build_cover(
+            (244, 186, 66),
+            (37, 99, 235),
+            (15, 23, 42),
+        ),
+        ORDINARY_VIDEO_OUTPUT: build_video(distinct_ordinary_identity=True),
+        EMULATIONSTATION_COVER_OUTPUT: build_cover(
+            (75, 214, 197),
+            (91, 70, 216),
+            (16, 24, 39),
+        ),
+        EMULATIONSTATION_VIDEO_OUTPUT: build_video(
+            distinct_ordinary_identity=False
+        ),
     }
     if arguments.check:
         for output, image in images.items():

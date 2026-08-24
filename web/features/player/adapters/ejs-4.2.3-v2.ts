@@ -9,6 +9,7 @@ import {
 } from "../dosbox-pure-state";
 import { retromShaders } from "../retrom-shaders";
 import { createRetromDefaultControls, type EmulatorDefaultControls } from "../keyboard-controls";
+import { installImmersiveGamepadFilter, type ImmersiveGamepadFilter } from "../immersive-gamepad-filter";
 import type { NetplayProfile } from "../netplay/controller";
 import {
   initializeMultiDiscSettings,
@@ -16,6 +17,7 @@ import {
   validatedExternalFiles,
   validateDiscSet,
 } from "./ejs-config";
+import { installArchiveWorkerCompatibility } from "./archive-worker-compatibility";
 
 export {
   captureManualScreenshot,
@@ -154,15 +156,13 @@ export type AdapterCallbacks = {
   onSaveState?: (payload: { screenshot: Blob; format: string; state: Uint8Array }) => void;
 };
 
+export type AdapterMountOptions = {
+  immersiveGamepadFilter?: ImmersiveGamepadFilter;
+};
+
 type EJSGameManagerConstructor = {
   prototype?: {
     writeFile?: (path: string, data: unknown) => unknown;
-  };
-};
-
-type EJSCompressionConstructor = {
-  prototype?: {
-    getWorkerFile?: (archiveType: string) => Promise<Blob>;
   };
 };
 
@@ -201,151 +201,18 @@ declare global {
     EJS_onSaveSave?: (payload: { screenshot: Blob; format: string; save: Uint8Array }) => void;
     EJS_emulator?: EmulatorInstance;
     EJS_GameManager?: EJSGameManagerConstructor;
-    EJS_COMPRESSION?: EJSCompressionConstructor;
   }
 }
 
-export const adapterID = "ejs-4.2.3-v2";
+export const adapterID = "ejs-4.2.3-v3";
+export const legacyNetplayAdapterID = "ejs-4.2.3-v2";
 
 const supportedAdapters: Record<string, string> = {
   "4.2.3": adapterID,
-  "4.3.0-pre": "ejs-4.3.0-pre-v1"
+  "4.3.0-pre": "ejs-4.3.0-pre-v2"
 };
 
 const normalizedExternalFileWriters = new WeakSet<(...args: never[]) => unknown>();
-const normalizedArchiveWorkerReaders = new WeakSet<(...args: never[]) => unknown>();
-
-const archiveWorkerRewrites = {
-  "7z": {
-    globalLookup: 'eval("_"+_0x222174)',
-    safeGlobalLookup: 'Module["_"+_0x222174]',
-    dynamicWrapper: "eval(_0x370f8c)",
-    safeWrapper: "(function(){return function(){return ccall(_0x405d7e,_0x2bdb59,_0x4f818b,Array.prototype.slice.call(arguments))}})()",
-  },
-  zip: {
-    globalLookup: 'eval("_"+_0x5d9040)',
-    safeGlobalLookup: 'Module["_"+_0x5d9040]',
-    dynamicWrapper: "eval(_0x6f14b3)",
-    safeWrapper: "(function(){return function(){return ccall(_0x557d23,_0x36bd20,_0x501373,Array.prototype.slice.call(arguments))}})()",
-  },
-} as const;
-
-type RewrittenArchiveType = keyof typeof archiveWorkerRewrites;
-
-function replaceArchiveWorkerFragment(source: string, fragment: string, replacement: string) {
-  const first = source.indexOf(fragment);
-  if (first < 0 || source.indexOf(fragment, first + fragment.length) >= 0) {
-    throw new Error("PLAYER_ARCHIVE_COMPATIBILITY_UNAVAILABLE");
-  }
-  return `${source.slice(0, first)}${replacement}${source.slice(first + fragment.length)}`;
-}
-
-function rewriteArchiveWorker(source: string, archiveType: RewrittenArchiveType) {
-  const rewrite = archiveWorkerRewrites[archiveType];
-  let rewritten = replaceArchiveWorkerFragment(source, rewrite.globalLookup, rewrite.safeGlobalLookup);
-  rewritten = replaceArchiveWorkerFragment(rewritten, rewrite.dynamicWrapper, rewrite.safeWrapper);
-  if (rewritten.includes("eval(")) {throw new Error("PLAYER_ARCHIVE_COMPATIBILITY_UNAVAILABLE");}
-  return rewritten;
-}
-
-function normalizeArchiveWorker(runtimeWindow: typeof window, constructor: EJSCompressionConstructor | undefined) {
-  const prototype = constructor?.prototype;
-  const original = prototype?.getWorkerFile;
-  if (!prototype || typeof original !== "function") {throw new Error("PLAYER_ARCHIVE_COMPATIBILITY_UNAVAILABLE");}
-  if (normalizedArchiveWorkerReaders.has(original as (...args: never[]) => unknown)) {return;}
-  const normalizedGetWorkerFile = async function (this: unknown, archiveType: string) {
-    const worker = await original.call(this, archiveType);
-    if (archiveType !== "7z" && archiveType !== "zip") {return worker;}
-    const source = await worker.text();
-    return new runtimeWindow.Blob([rewriteArchiveWorker(source, archiveType)], {
-      type: worker.type || "application/javascript",
-    });
-  };
-  normalizedArchiveWorkerReaders.add(normalizedGetWorkerFile as (...args: never[]) => unknown);
-  prototype.getWorkerFile = normalizedGetWorkerFile;
-}
-
-function installArchiveWorkerBlobCompatibility(runtimeWindow: typeof window) {
-  const previous = Object.getOwnPropertyDescriptor(runtimeWindow, "EJS_COMPRESSION");
-  if (previous && !previous.configurable) {
-    normalizeArchiveWorker(runtimeWindow, runtimeWindow.EJS_COMPRESSION);
-    return () => undefined;
-  }
-
-  let current = runtimeWindow.EJS_COMPRESSION;
-  if (current) {normalizeArchiveWorker(runtimeWindow, current);}
-  Object.defineProperty(runtimeWindow, "EJS_COMPRESSION", {
-    configurable: true,
-    enumerable: previous?.enumerable ?? true,
-    get: () => current,
-    set: (value: EJSCompressionConstructor | undefined) => {
-      normalizeArchiveWorker(runtimeWindow, value);
-      current = value;
-    },
-  });
-
-  return () => {
-    if (current) {
-      Object.defineProperty(runtimeWindow, "EJS_COMPRESSION", {
-        configurable: true,
-        enumerable: previous?.enumerable ?? true,
-        writable: true,
-        value: current,
-      });
-    } else if (previous) {
-      Object.defineProperty(runtimeWindow, "EJS_COMPRESSION", previous);
-    } else {
-      Reflect.deleteProperty(runtimeWindow, "EJS_COMPRESSION");
-    }
-  };
-}
-
-function archiveWorkerBaseURL(runtimeWindow: typeof window) {
-  if (runtimeWindow.location.protocol === "http:" || runtimeWindow.location.protocol === "https:") {return runtimeWindow.location.href;}
-  const parentLocation = runtimeWindow.parent.location;
-  if (parentLocation.protocol === "http:" || parentLocation.protocol === "https:") {return parentLocation.href;}
-  throw new Error("PLAYER_ARCHIVE_COMPATIBILITY_UNAVAILABLE");
-}
-
-function archiveWorkerRequestURL(runtimeWindow: typeof window, input: RequestInfo | URL, baseURL: string) {
-  const value = typeof input === "string"
-    ? input
-    : input instanceof runtimeWindow.URL
-      ? input.href
-      : input.url;
-  return new runtimeWindow.URL(value, baseURL);
-}
-
-function installArchiveWorkerResponseCompatibility(runtimeWindow: typeof window, config: PlayerConfig) {
-  const originalFetch = runtimeWindow.fetch;
-  if (typeof originalFetch !== "function") {throw new Error("PLAYER_ARCHIVE_COMPATIBILITY_UNAVAILABLE");}
-  const baseURL = archiveWorkerBaseURL(runtimeWindow);
-  const archiveWorkers = new Map<string, RewrittenArchiveType>([
-    [new runtimeWindow.URL("compression/extract7z.js", new runtimeWindow.URL(config.runtimeBaseUrl, baseURL)).href, "7z"],
-    [new runtimeWindow.URL("compression/extractzip.js", new runtimeWindow.URL(config.runtimeBaseUrl, baseURL)).href, "zip"],
-  ]);
-  const compatibleFetch: typeof runtimeWindow.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
-    const requestURL = archiveWorkerRequestURL(runtimeWindow, input, baseURL);
-    const archiveType = archiveWorkers.get(requestURL.href);
-    const response = await originalFetch.call(runtimeWindow, input, init);
-    if (!archiveType || (init?.method ?? (typeof input === "string" || "href" in input ? "GET" : input.method)).toUpperCase() !== "GET" || !response.ok) {
-      return response;
-    }
-    const headers = new runtimeWindow.Headers(response.headers);
-    headers.delete("content-length");
-    headers.delete("etag");
-    const ResponseConstructor = typeof runtimeWindow.Response === "function" ? runtimeWindow.Response : Response;
-    return new ResponseConstructor(rewriteArchiveWorker(await response.text(), archiveType), {
-      status: response.status,
-      statusText: response.statusText,
-      headers,
-    });
-  };
-  runtimeWindow.fetch = compatibleFetch;
-  return () => {
-    if (runtimeWindow.fetch === compatibleFetch) {runtimeWindow.fetch = originalFetch;}
-  };
-}
 
 function normalizeExternalFileWrites(constructor: EJSGameManagerConstructor | undefined) {
   const prototype = constructor?.prototype;
@@ -456,8 +323,9 @@ export function mountEmulatorJS(
   target: HTMLElement,
   callbacks?: AdapterCallbacks,
   playerWindow?: Window,
+  options?: AdapterMountOptions,
 ) {
-  return mountEmulatorJSRuntime(config, target, callbacks ?? {}, playerWindow ?? window);
+  return mountEmulatorJSRuntime(config, target, callbacks ?? {}, playerWindow ?? window, options ?? {});
 }
 
 function mountEmulatorJSRuntime(
@@ -465,8 +333,9 @@ function mountEmulatorJSRuntime(
   target: HTMLElement,
   callbacks: AdapterCallbacks,
   playerWindow: Window,
+  options: AdapterMountOptions,
 ) {
-  if (supportedAdapters[config.emulatorjsVersion] !== config.playerAdapterId) {throw new Error("PLAYER_ADAPTER_MISMATCH");}
+  if (!supportsPlayerAdapter(config, options)) {throw new Error("PLAYER_ADAPTER_MISMATCH");}
   validateConfig(config);
   const externalFiles = validatedExternalFiles(config);
   validateDiscSet(config, externalFiles);
@@ -537,6 +406,7 @@ function mountEmulatorJSRuntime(
   runtimeWindow.EJS_externalFiles = externalFiles;
   const compatibility = installCompatibilityLayers(
     config, runtimeWindow, externalFiles, explicitStateRestore, needsDOSBoxStateCompatibility,
+    options.immersiveGamepadFilter,
   );
   const script = runtimeWindow.document.createElement("script");
   script.src = config.loaderUrl;
@@ -546,8 +416,16 @@ function mountEmulatorJSRuntime(
   return () => {
     cleanupDeferredStart(); cleanupStartup(); script.remove(); compatibility.externalFiles();
     compatibility.archiveWorker(); compatibility.stateRestore(); compatibility.dosbox?.cleanup();
-    compatibility.netplay();
+    compatibility.netplay(); compatibility.gamepad();
   };
+}
+
+function supportsPlayerAdapter(config: PlayerConfig, options: AdapterMountOptions) {
+  if (config.mode === "netplay") {
+    return config.emulatorjsVersion === "4.2.3" && config.playerAdapterId === legacyNetplayAdapterID &&
+      options.immersiveGamepadFilter === undefined;
+  }
+  return supportedAdapters[config.emulatorjsVersion] === config.playerAdapterId;
 }
 
 function runtimeDefaultOptions(config: PlayerConfig) {
@@ -557,30 +435,37 @@ function runtimeDefaultOptions(config: PlayerConfig) {
   return { ...config.defaultCoreOptions };
 }
 
-function archiveWorkerCompatibility(runtimeWindow: typeof window, config: PlayerConfig) {
-  if (config.emulatorjsVersion === "4.2.3") {return installArchiveWorkerBlobCompatibility(runtimeWindow);}
-  if (config.emulatorjsVersion === "4.3.0-pre") {
-    return installArchiveWorkerResponseCompatibility(runtimeWindow, config);
-  }
-  return () => undefined;
-}
-
 function installCompatibilityLayers(
   config: PlayerConfig,
   runtimeWindow: typeof window,
   externalFiles: Record<string, string>,
   explicitStateRestore: boolean,
   needsDOSBoxStateCompatibility: boolean,
+  immersiveGamepadFilter: ImmersiveGamepadFilter | undefined,
 ) {
-  return {
+  const compatibility = {
     netplay: config.mode === "netplay" ? installEmulatorJs423NetplayCompatibility(runtimeWindow) : () => undefined,
     dosbox: needsDOSBoxStateCompatibility ? installDOSBoxPureStateCompatibility(runtimeWindow) : null,
     stateRestore: explicitStateRestore && !needsDOSBoxStateCompatibility
       ? installEmulatorJs423StateRestoreCompatibility(runtimeWindow, { waitForSerializable: true })
       : () => undefined,
-    archiveWorker: archiveWorkerCompatibility(runtimeWindow, config),
+    archiveWorker: installArchiveWorkerCompatibility(
+      runtimeWindow, config.emulatorjsVersion, config.runtimeBaseUrl,
+    ),
     externalFiles: config.emulatorjsVersion === "4.2.3" && Object.keys(externalFiles).length > 0
       ? installExternalFileCompatibility(runtimeWindow)
       : () => undefined,
   };
+  try {
+    return {
+      ...compatibility,
+      gamepad: immersiveGamepadFilter
+        ? installImmersiveGamepadFilter(runtimeWindow, immersiveGamepadFilter)
+        : () => undefined,
+    };
+  } catch (error) {
+    compatibility.externalFiles(); compatibility.archiveWorker(); compatibility.stateRestore();
+    compatibility.dosbox?.cleanup(); compatibility.netplay();
+    throw error;
+  }
 }

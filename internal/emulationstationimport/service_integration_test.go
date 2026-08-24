@@ -1,9 +1,11 @@
 package emulationstationimport
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"encoding/base64"
+	"os"
 	"path/filepath"
 	"runtime"
 	"testing"
@@ -59,6 +61,20 @@ VALUES(?,'emulationstation-profile','es-test','ES Test','ADMIN','ENABLED',1,1)`,
 	sourceRoot := createEmulationStationIntegrationSource(t, dataDirectory)
 	blobs, err := blobstore.Open(dataDirectory)
 	testassert.False(t, err != nil, err)
+	for _, name := range []string{"cover.png", "video.webm"} {
+		payload, readErr := os.ReadFile(filepath.Join(sourceRoot, name))
+		testassert.False(t, readErr != nil, readErr)
+		metadata, putErr := blobs.Put(bytes.NewReader(payload))
+		testassert.False(t, putErr != nil, putErr)
+		_, recordErr := blobstore.EnsureRecord(
+			ctx,
+			database.SQL,
+			metadata,
+			"application/octet-stream",
+			time.Now().UnixMilli(),
+		)
+		testassert.False(t, recordErr != nil, recordErr)
+	}
 	credentials, err := retromruntime.LoadOrCreateCredentials(dataDirectory)
 	testassert.False(t, err != nil, err)
 	importer := libraryimport.New(database.SQL, time.Now).WithBlobStore(blobs)
@@ -81,6 +97,7 @@ VALUES(?,'emulationstation-profile','es-test','ES Test','ADMIN','ENABLED',1,1)`,
 		func() bool { return scanned.State != "AWAITING_MAPPING" },
 		func() bool { return scanned.Counts.Games != 2 },
 		func() bool { return scanned.Counts.Covers != 1 },
+		func() bool { return scanned.Counts.Videos != 1 },
 	), "scanned summary = %#v, error = %v", scanned, err)
 	collections, err := service.Collections(ctx, created.ID, "", "", 10)
 	testassert.Falsef(t, err != nil || len(collections) != 1, "collections = %#v, error = %v", collections, err)
@@ -211,6 +228,8 @@ ORDER BY item.id LIMIT 1
 
 func createEmulationStationIntegrationSource(t *testing.T, dataDirectory string) string {
 	t.Helper()
+	_, filename, _, _ := runtime.Caller(0)
+	repositoryRoot := filepath.Clean(filepath.Join(filepath.Dir(filename), "..", ".."))
 	root := filepath.Join(dataDirectory, "source")
 	writeScanFile(t, root, "publish.nes", []byte("deterministic publish fixture"))
 	writeScanFile(t, root, "discard.nes", []byte("deterministic discard fixture"))
@@ -219,8 +238,14 @@ func createEmulationStationIntegrationSource(t *testing.T, dataDirectory string)
 	)
 	testassert.False(t, err != nil, err)
 	writeScanFile(t, root, "cover.png", cover)
+	video, err := os.ReadFile(filepath.Join(
+		repositoryRoot,
+		"testdata/public-roms/gba-smoke/emulationstation-smoke-video.webm",
+	))
+	testassert.False(t, err != nil, err)
+	writeScanFile(t, root, "video.webm", video)
 	writeScanFile(t, root, "gamelist.xml", []byte(`<gameList>
-<game><path>./publish.nes</path><name>Publish fixture</name><image>./cover.png</image></game>
+<game><path>./publish.nes</path><name>Publish fixture</name><image>./cover.png</image><video>./video.webm</video></game>
 <game><path>./discard.nes</path><name>Discard fixture</name><hidden>true</hidden></game>
 </gameList>`))
 	return root
@@ -264,7 +289,7 @@ SELECT
 		func() bool { return releasedSource != 2 },
 		func() bool { return releasedImports != 2 },
 		func() bool { return sourceBlobRefs != 0 },
-		func() bool { return gamePayloadRows != 2 },
+		func() bool { return gamePayloadRows != 3 },
 	), "released payload = source:%d imports:%d refs:%d game:%d",
 		releasedSource, releasedImports, sourceBlobRefs, gamePayloadRows)
 }

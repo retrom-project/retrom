@@ -360,6 +360,9 @@ async function verifyFullProductLifecycle(page: Page, testInfo: TestInfo) {
   await expect(reviewVideo).toBeVisible();
   await expect(reviewVideo).toHaveAttribute("src", reviewDetail.sourceMedia.videoUrl!);
   await expectVideoMetadata(reviewVideo);
+  await page.reload();
+  await expect(page.getByText(/来源：EmulationStation/)).toBeVisible();
+  await expect(page.getByRole("button", { name: "通过并发布" })).toBeEnabled();
   await page.getByRole("button", { name: "通过并发布" }).click();
   await expect(page.locator(".app-toast")).toContainText("游戏已成功发布", {
     timeout: 20_000,
@@ -425,7 +428,7 @@ async function verifyFullProductLifecycle(page: Page, testInfo: TestInfo) {
     gameTitle: title,
     core: "mgba",
     coreName: "mGBA",
-    playerAdapterId: "ejs-4.2.3-v2",
+    playerAdapterId: "ejs-4.2.3-v3",
     emulatorjsVersion: "4.2.3",
   });
   expect(config.gameUrl).toMatch(

@@ -47,6 +47,8 @@ Retrom 是供用户与可信朋友共享的自托管复古游戏 Web 平台。�
 - 使用 Hasheous 的免登录哈希查询作为一期元信息候选源；不集成 ScreenScraper。
 - 使用与具体 EmulatorJS/core artifact 绑定的 DAT 识别 Arcade machine、parent ROM 和 BIOS 依赖；DAT 不承担元信息刮削。
 - 支持游戏元信息、文件 revision、游戏目录和 BIOS 管理；Arcade DAT 只使用 core release 固定的内置版本。
+- 支持标准手柄从普通首页显式进入独立沉浸模式，只用手柄完成选择平台、选择游戏、普通单机游玩与返回；
+  沉浸模式不扩展到存档、联机、收藏、搜索、管理或普通 PC/移动页面导航。
 - 支持安全初始化、邀请注册、账户密码轮换以及管理员维护账号角色与状态。
 - 所有私有游玩、存档和启动数据按账号 Profile 隔离；管理员没有读取他人私有数据的旁路。
 - 可选启用两人异地联机房间；manifest 精确锁定 EmulatorJS 4.2.3 的 FCEUmm、FBNeo、SNES9x、Nestopia、MAME2003、MAME2003 Plus 与 FBA2012 CPS1/CPS2 core profile，覆盖其全部合格 READY 游戏；FCEUmm 使用 prediction/rollback，其余使用严格 lockstep，均只由服务端中继输入和状态，不传输画面或音频。
@@ -161,6 +163,20 @@ Tag 必须先由管理员建立，再以稳定 ID 关联 Game、导入 ReviewDra
 ### 3.12 流程 payload 短期保留，Game 删除保留墓碑
 
 导入、审核、Pegasus 与 EmulationStation 流程只在可重试/待决期间保留 ROM、媒体、运行预览、provider raw response 等 CAS payload。发布、丢弃、最终失败或取消进入真终态后，持久 PayloadRelease Job 解除流程引用；ReviewEvent v2 长期只保存文字和结构化审计，不保存封面、视频或 CAS 定位信息。Game 永久删除保留原标题、不可变 revision 摘要、审核/操作/游玩/收藏/联机关系作为墓碑，同时异步释放 Game 内容、媒体、存档和运行 payload。Blob 物理删除统一经过共享引用保护和宽限期 GC，浏览器上传、Pegasus 与 EmulationStation 三条导入路径遵循同一 ownership registry。
+
+### 3.13 沉浸模式是独立电视交互面
+
+普通 PC/平板/移动 App Shell 与沉浸模式是两套明确分离的 UI。普通首页只在可见期间观察 Chrome
+`mapping=standard` 手柄的按键上升沿，并以默认“取消”的应用内确认框征求进入；确认后的
+`/immersive` 与平台游戏列表使用独立全视口 Shell、电视排版、帮助条和焦点状态机，不先渲染普通侧栏、
+App Bar、底栏或游戏卡再通过 CSS 隐藏。
+
+沉浸模式只复用认证、已发布 Game/MetadataRevision、内容授权、LaunchSession 与 Player Core stage，不建立
+新的数据库状态。平台视图按基础平台显示可见游戏数和当前 Profile 最近启动时间，游戏列表只展示标题、
+当前 COVER/VIDEO 和 description；A 使用目录默认 Core、无 SaveState 创建普通单机 Launch。游戏中由活动
+导航手柄双击 Select+Start 打开只有“取消/退出游戏”的暂停菜单，其余输入仍交给 Core。普通 Player 与
+联机 Player 不识别该组合，也不继承沉浸输入过滤。完整页面、输入和验收契约分别见 UI、运行时、HTTP、
+依赖与统一验收文档。
 
 ## 4. 系统上下文
 

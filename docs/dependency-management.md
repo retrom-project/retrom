@@ -26,7 +26,7 @@ Git 只保存小型、可审查的来源清单、物化配方、大小、SHA-256
 
 当前两个 EmulatorJS manifest 的唯一有效格式为 schema V7，CoreArtifact compatibility 的唯一有效格式为 schema V5；校验器拒绝其他 schema，不读取已退役字段。每个 `selected_core_artifacts` 项都显式给出 `runtime_core_id`、loader 实际请求的 `requested_artifact_basename`、canvas policy、默认 option、input mode、启动动作、`supported_content_kinds` 与 report；校验器不根据 core ID 推导这些值。产品只在用户点击“创建存档”时创建 SaveState，不进行定时或退出自动保存。只有 `yabause` 同时声明 `MULTI_DISC_M3U_V1` 与 `multi_disc={max_discs:8,max_total_bytes:1073741824,delivery:EAGER_EXTERNAL_FILES}`，没有该对象或 kind 不匹配即不支持。`dosbox_pure`、`mednafen_psx_hw`、`ppsspp`、`azahar` 的 loader basename 分别为 `dosbox_pure-thread-wasm.data`、`mednafen_psx_hw-thread-wasm.data`、`ppsspp-thread-wasm.data`、`azahar-thread-wasm.data`，并与实际 THREAD_WASM 路径逐字匹配。`auxiliary_files` 当前只登记 `data/cores/ppsspp-assets.zip`，它和 36 份跨版本 core report 都必须在各自 runtime allowlist 中。4.2.3 联机适配器还精确发布 release 内的 `data/emulator.css` 与 loader 所列八个 `data/src/*` 文件；带指定 SaveState 的全部 4.2.3 单机 Launch 也使用这些受 size/SHA 约束的可审计源文件捕获原生 state-load 成败，并保持 EmulatorJS 自带的实验性 netplay transport 关闭。带指定 DOSBox Pure SaveState 的 4.3.0-pre Launch 同样只使用该 release 中按 size/SHA 固定的 `data/emulator.css`、ES module loader 及其完整静态 import closure；没有指定 SaveState 的普通单机模式继续使用 minified loader 资产。
 
-4.2.3 的 Player adapter 固定为 `ejs-4.2.3-v2`，registry 不保留无法由当前 manifest 解释的 fallback。4.2.3 与 4.3.0-pre 的 adapter 都对两份版本中逐字节相同的官方 `extract7z.js`、`extractzip.js` 执行运行时专题锁定的 CSP 兼容转换：4.2.3 保留既有 Worker Blob 转换，4.3.0-pre 因 compression 变为 module-private 而精确转换同源下载响应，再由 EmulatorJS 构造 Worker Blob。转换发生在浏览器内且任一源形状漂移即阻断，不能修改 runtime allowlist 中的官方 bytes、size/SHA 或许可关联证据。新版本不得仅因进入 registry 就自动继承转换，必须先证明其锁定 Worker 仍为已接受形状。dependency bootstrap 对同一 `(core_id, emulatorjs_version, sha256)` 保留 CoreArtifact ID；bundle/flavor/path/size/compatibility/enabled 等运行语义变化时原子递增 artifact version，逐字节等价的重复 bootstrap 连 `updated_at_ms` 也不改。VariantRevision 与 SaveState 精确绑定原 artifact ID；未发布且输入漂移的 validation 必须重新验证后才能发布。
+4.2.3 的普通 Player adapter 固定为 `ejs-4.2.3-v3`，4.3.0-pre 固定为 `ejs-4.3.0-pre-v2`；registry 仅为联机 manifest 显式保留 legacy `ejs-4.2.3-v2`，不保留其他无法由当前普通或联机 manifest 解释的 fallback。4.2.3 与 4.3.0-pre 的 adapter 都对两份版本中逐字节相同的官方 `extract7z.js`、`extractzip.js` 执行运行时专题锁定的 CSP 兼容转换：4.2.3 保留既有 Worker Blob 转换，4.3.0-pre 因 compression 变为 module-private 而精确转换同源下载响应，再由 EmulatorJS 构造 Worker Blob。转换发生在浏览器内且任一源形状漂移即阻断，不能修改 runtime allowlist 中的官方 bytes、size/SHA 或许可关联证据。新版本不得仅因进入 registry 就自动继承转换，必须先证明其锁定 Worker 仍为已接受形状。dependency bootstrap 对同一 `(core_id, emulatorjs_version, sha256)` 保留 CoreArtifact ID；bundle/flavor/path/size/compatibility/enabled 等运行语义变化时原子递增 artifact version，逐字节等价的重复 bootstrap 连 `updated_at_ms` 也不改。VariantRevision 与 SaveState 精确绑定原 artifact ID；未发布且输入漂移的 validation 必须重新验证后才能发布。
 
 `4.3.0-pre` 的 DOSBox Pure 状态兼容只允许作用于 manifest 已校验的精确 thread artifact：浏览器实例化时要求唯一 DOS marker 与恰好两个 4 MiB stack high-watermark 等长编码，再把这两个运行副本位置提升到 64 MiB；官方 core 文件、manifest size/SHA、runtime allowlist 与 CAS bytes 均不改写。兼容层同时绕过上游 `save_state_info` helper 对 stack pointer 的错误释放，并为指定 SaveState 使用延迟 native load。marker、计数、WASM validation 或 state 导出任一不符合时必须 fail closed；其他 core、其他 EmulatorJS 版本和不相关 WASM 不得继承该转换。升级 DOSBox Pure artifact 时必须重新取得源码/二进制证据并完成实际产品存档恢复 smoke，不能沿用旧 marker。
 
@@ -95,12 +95,12 @@ FB Alpha 2012 CPS-1/CPS-2 没有可直接复用的绑定 DAT。`make prepare-dep
     {
       "version": "4.2.3",
       "manifestSha256": "<sha256-of-exact-manifest-bytes>",
-      "playerAdapterId": "ejs-4.2.3-v2"
+      "playerAdapterId": "ejs-4.2.3-v3"
     },
     {
       "version": "4.3.0-pre",
       "manifestSha256": "<sha256-of-exact-manifest-bytes>",
-      "playerAdapterId": "ejs-4.3.0-pre-v1"
+      "playerAdapterId": "ejs-4.3.0-pre-v2"
     }
   ],
   "activeEmulatorjsVersion": "4.2.3",

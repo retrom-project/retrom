@@ -64,6 +64,56 @@ item_id="$(jq -r '.items[0].itemId' <<<"$reviews")"
 approved="$(curl --fail --silent --show-error "${common[@]}" "${write[@]}" -X POST -H 'Content-Type: application/json' -H 'If-Match: "v1"' -H "Idempotency-Key: $(new_id)" -d '{"reason":null}' "$backend/api/v1/admin/reviews/$item_id/approve")"
 game_id="$(jq -r .gameId <<<"$approved")"
 
+attach_game_asset() {
+  local asset_path="$1"
+  local relative_path="$2"
+  local kind="$3"
+  local asset_size asset_digest asset_upload asset_upload_id asset_file_id asset_etag asset_job asset_state game_etag
+  asset_size="$(stat -c %s "$asset_path")"
+  asset_digest="$(openssl dgst -sha256 -binary "$asset_path" | base64 -w0)"
+  asset_upload="$(curl --fail --silent --show-error "${common[@]}" "${write[@]}" \
+    -H 'Content-Type: application/json' -H "Idempotency-Key: $(new_id)" \
+    -d "$(jq -nc --arg path "$relative_path" --argjson size "$asset_size" '{sourceType:"FILES",files:[{clientFileId:"asset",relativePath:$path,sizeBytes:$size}]}')" \
+    "$backend/api/v1/admin/uploads")"
+  asset_upload_id="$(jq -r .uploadId <<<"$asset_upload")"
+  asset_file_id="$(jq -r '.files[0].fileId' <<<"$asset_upload")"
+  curl --fail --silent --show-error "${common[@]}" "${write[@]}" -X PUT \
+    -H 'Content-Type: application/octet-stream' \
+    -H "Content-Range: bytes 0-$((asset_size - 1))/$asset_size" \
+    -H "Content-Digest: sha-256=:$asset_digest:" \
+    --data-binary "@$asset_path" \
+    "$backend/api/v1/admin/uploads/$asset_upload_id/files/$asset_file_id/parts/0" -o /dev/null
+  curl --fail --silent --show-error "${common[@]}" -D "$evidence/asset-upload-headers" -o /dev/null \
+    "$backend/api/v1/admin/uploads/$asset_upload_id"
+  asset_etag="$(awk 'tolower($1) == "etag:" {gsub("\r",""); print $2}' "$evidence/asset-upload-headers")"
+  asset_job="$(curl --fail --silent --show-error "${common[@]}" "${write[@]}" -X POST \
+    -H "If-Match: $asset_etag" -H "Idempotency-Key: $(new_id)" \
+    "$backend/api/v1/admin/uploads/$asset_upload_id/complete")"
+  asset_state="QUEUED"
+  for _ in $(seq 1 100); do
+    asset_state="$(curl --fail --silent --show-error "${common[@]}" \
+      "$backend/api/v1/admin/jobs/$(jq -r .jobId <<<"$asset_job")" | jq -r .state)"
+    [[ "$asset_state" == "SUCCEEDED" ]] && break
+    [[ "$asset_state" == "FAILED" || "$asset_state" == "CANCELLED" ]] && return 1
+    sleep 0.1
+  done
+  [[ "$asset_state" == "SUCCEEDED" ]]
+  curl --fail --silent --show-error "${common[@]}" -D "$evidence/game-headers" -o /dev/null \
+    "$backend/api/v1/admin/games/$game_id"
+  game_etag="$(awk 'tolower($1) == "etag:" {gsub("\r",""); print $2}' "$evidence/game-headers")"
+  curl --fail --silent --show-error "${common[@]}" "${write[@]}" \
+    -H 'Content-Type: application/json' -H "If-Match: $game_etag" -H "Idempotency-Key: $(new_id)" \
+    -d "$(jq -nc --arg file "$asset_file_id" --arg kind "$kind" '{uploadFileId:$file,kind:$kind,ordinal:0}')" \
+    "$backend/api/v1/admin/games/$game_id/assets" -o /dev/null
+}
+
+attach_game_asset \
+  "$repository_root/testdata/public-roms/gba-smoke/gba-smoke-cover.png" \
+  "sudoku-cover.png" COVER
+attach_game_asset \
+  "$repository_root/testdata/public-roms/gba-smoke/gba-smoke-video.webm" \
+  "sudoku-video.webm" VIDEO
+
 launch_body="$(jq -nc --arg game "$game_id" '{gameId:$game,coreId:null,saveStateId:null,dosEntry:null,returnTo:("/games/"+$game),clientCapabilities:{secureContext:true,crossOriginIsolated:true,sharedArrayBuffer:true}}')"
 launch="$(curl --fail --silent --show-error "${common[@]}" "${write[@]}" -H "Content-Type: application/json" -H "Idempotency-Key: $(new_id)" -d "$launch_body" "$backend/api/v1/launches")"
 launch_id="$(jq -r .launchId <<<"$launch")"

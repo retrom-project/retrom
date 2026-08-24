@@ -24,6 +24,8 @@ type ConfirmDialogProps = {
   hideCancel?: boolean;
   portalToBody?: boolean;
   role?: "alertdialog" | "dialog";
+  dialogClassName?: string;
+  interactionDisabled?: boolean;
   onConfirm: () => void;
   onCancel: () => void;
   onLeading?: () => void;
@@ -36,6 +38,7 @@ const confirmDialogDefaults = {
   confirmDisabled: false,
   confirmLabel: "确认",
   hideCancel: false,
+  interactionDisabled: false,
   leadingBusy: false,
   leadingBusyLabel: "处理中…",
   leadingDisabled: false,
@@ -48,7 +51,7 @@ const confirmDialogDefaults = {
 export function ConfirmDialog(input: ConfirmDialogProps) {
   const props = { ...confirmDialogDefaults, ...input };
   const {
-    busy, cancelLabel, children, confirmDisabled, confirmLabel, description, hideCancel, leadingBusy,
+    busy, cancelLabel, children, confirmDisabled, confirmLabel, description, dialogClassName, hideCancel, interactionDisabled, leadingBusy,
     leadingBusyLabel, leadingDisabled, leadingLabel, onCancel, onConfirm, onLeading, onSecondary, open,
     portalToBody, role, secondaryLabel, title, tone, wide,
   } = props;
@@ -56,12 +59,13 @@ export function ConfirmDialog(input: ConfirmDialogProps) {
   const descriptionId = useId();
   const cancelRef = useRef<HTMLButtonElement>(null);
   const dialogRef = useRef<HTMLElement>(null);
-  const locked = busy || leadingBusy;
+  const locked = busy || leadingBusy || interactionDisabled;
 
   useEffect(() => {
     if (!open) {return;}
     const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    (cancelRef.current ?? dialogRef.current?.querySelector<HTMLElement>("button:not(:disabled)"))?.focus();
+    const safeCancel = cancelRef.current && !cancelRef.current.disabled ? cancelRef.current : null;
+    (safeCancel ?? dialogRef.current?.querySelector<HTMLElement>("button:not(:disabled)") ?? dialogRef.current)?.focus();
     return () => previous?.focus();
   }, [open]);
 
@@ -76,7 +80,8 @@ export function ConfirmDialog(input: ConfirmDialogProps) {
     >
       <section
         ref={dialogRef}
-        className={`app-dialog ${tone === "danger" ? "is-danger" : ""} ${wide ? "is-wide" : ""}`}
+        tabIndex={-1}
+        className={`app-dialog ${tone === "danger" ? "is-danger" : ""} ${wide ? "is-wide" : ""} ${dialogClassName ?? ""}`.trim()}
         role={role}
         aria-modal="true"
         aria-labelledby={titleId}

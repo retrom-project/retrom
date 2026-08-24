@@ -29,6 +29,10 @@ const designCaptures = [
   ["retrom-ui-netplay.png", "netplay", 2560, 1440],
   ["retrom-ui-netplay-room.png", "netplay-room", 2560, 1440],
   ["retrom-ui-netplay-player.png", "netplay-player", 2560, 1440],
+  ["retrom-ui-immersive-entry.png", "immersive-entry", 1280, 720],
+  ["retrom-ui-immersive-platforms.png", "immersive-platforms", 1920, 1080],
+  ["retrom-ui-immersive-games.png", "immersive-games", 1920, 1080],
+  ["retrom-ui-immersive-player.png", "immersive-player", 1920, 1080],
   ["retrom-ui-account.png", "account", 2560, 1440],
   ["retrom-ui-play.png", "play", 2560, 1440],
   ["retrom-ui-play-portrait.png", "play", 2560, 1440, "portrait"],
@@ -137,10 +141,14 @@ try {
     };
     if (["setup", "login", "register", "reset"].includes(view)) {
       await frame.locator(`[data-review-scene="${view}"]`).click();
+    } else if (view.startsWith("immersive-")) {
+      await frame.locator(`[data-review-scene="${view}"]`).click();
     } else if (view.startsWith("admin-")) {
       await frame.locator("#rt-mode-button").evaluate((element) => element.click());
     }
-    if (view === "account") {
+    if (view.startsWith("immersive-")) {
+      // The review-scene control above activates this independent TV shell.
+    } else if (view === "account") {
       await frame.locator('[data-review-scene="account"]').click();
     } else if (view === "detail") {
       await clickVisible('[data-open-game="metal"]');
@@ -163,9 +171,11 @@ try {
       if (view.startsWith("admin-")) {await activate(`[data-page-target="${view}"], [data-page-link="${view}"]`);}
       else {await clickVisible(`[data-page-target="${view}"], [data-page-link="${view}"]`);}
     }
-    const viewSelector = ["setup", "login", "register", "reset"].includes(view)
-      ? `[data-auth-page="${view}"]`
-      : `[data-page="${view}"]`;
+    const viewSelector = view.startsWith("immersive-")
+      ? `[data-immersive-page="${view}"]`
+      : ["setup", "login", "register", "reset"].includes(view)
+        ? `[data-auth-page="${view}"]`
+        : `[data-page="${view}"]`;
     await frame.locator(viewSelector).waitFor({ state: "visible" });
     await frame.locator(".rt-review-scenes").evaluate((element) => { element.hidden = true; });
     if (variant === "bios-entries") {await frame.locator("[data-open-bios-entries]").click();}

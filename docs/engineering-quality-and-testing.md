@@ -486,6 +486,18 @@ make web-e2e
 
 该切片运行 `make api-check`、后端四门禁、`make integration-test`、前端五门禁、`make web-e2e`、`ACC-TAG-001`–`005` 与 `make ci`。标签不进入 EmulatorJS、内容字节、Variant 或存档协议，因此不因本切片运行 core smoke、fixture 或依赖基线；若实际调用链改变则重新判定。
 
+## 13.1 沉浸模式测试矩阵
+
+沉浸模式必须同时覆盖纯输入状态机、独立 UI、后端只读投影、普通 Player adapter 与真实产品链路，不能用鼠标点击、直接调用 React handler 或独立 EmulatorJS 页面替代手柄路径：
+
+- 纯逻辑测试覆盖 standard mapping、轴阈值/回滞、中立门禁、A/B/方向沿触发、重复节流、断开/隐藏清零，以及 Select+Start 的 `100/60/650ms` 双组合键状态机；
+- HTTP 集成测试覆盖用户隔离、平台可见性、排序/聚合、媒体/描述投影、签名 cursor 的范围绑定、未知查询和隐藏平台 404；
+- React 测试使用可控 Gamepad source 覆盖首页入口弹窗、焦点保持、平台左右环绕、游戏上下浏览、700ms 视频延迟、错误/空状态和 B 返回；普通 PC/移动端导航与壳不得出现沉浸控件；
+- Player adapter 测试必须证明过滤器先于 loader 安装、仅过滤活动手柄的 Select/Start、第一次 chord 不泄漏、菜单期间所有本地手柄归零、取消只恢复本菜单拥有的暂停、退出完成并撤销 Launch、teardown 恢复原 `getGamepads`；4.2.3 与 4.3.0-pre 都要覆盖，联机 legacy adapter 不能继承过滤；
+- 产品 E2E 使用项目自有 GBA 与 Arcade fixture，经过真实登录、首页手柄入口、平台/游戏页、Launch/config/content、Player、EmulatorJS Core 和退出返回。至少一条 Arcade 路径覆盖多个手柄快照并证明只有活动手柄控制沉浸 UI；媒体存在时须走受权 COVER/VIDEO 端点。
+
+`ACC-IMM-001`–`008` 是唯一验收步骤事实源。修改输入过滤、普通 adapter manifest/registry、Player Shell 或沉浸 API 时，除聚焦测试外必须运行 `make data-check`、`make deps-check`、`make web-e2e` 及普通/联机既有回归；不得通过复用联机 adapter 或降低输入断言取得通过。
+
 ## 14. 维护规则
 
 - 升级 Go、Next.js、ESLint、TypeScript、Vitest 或 golangci-lint 时，单独提交配置变化，阅读迁移说明并运行完整 `make ci`；不能把工具升级与大功能混在一起掩盖行为变化。
