@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useEffectEvent, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useEffectEvent, useRef, useState, type ReactNode } from "react";
 import {
   consumeImmersivePlayerReturn,
   getActiveImmersiveGamepadIndex,
@@ -11,7 +11,10 @@ import {
 } from "./active-gamepad";
 import { browserGamepadSource, type GamepadFrame, type GamepadFrameSource } from "./gamepad-source";
 import { GamepadClaimModel, NavigationInputModel, isStandardGamepad, type NavigationAction } from "./input-model";
+import { ImmersiveBgmPrompt, ImmersiveSystemMenu } from "./immersive-system-menu";
+import { useImmersiveBackgroundAudio } from "./use-immersive-background-audio";
 import { useImmersiveFullscreen } from "./use-immersive-fullscreen";
+import { useImmersiveSystemMenu } from "./use-immersive-system-menu";
 import styles from "./immersive.module.css";
 
 export type HelpAction = Readonly<{ button: string; label: string }>;
@@ -31,7 +34,7 @@ function HelpButton({ button }: { button: string }) {
 }
 
 function keyboardAction(key: string): NavigationAction | null {
-  return ({ ArrowLeft: "left", ArrowRight: "right", ArrowUp: "up", ArrowDown: "down", Enter: "confirm", Escape: "cancel" } as const)[key as "ArrowLeft"] ?? null;
+  return ({ ArrowLeft: "left", ArrowRight: "right", ArrowUp: "up", ArrowDown: "down", Enter: "confirm", Escape: "cancel", s: "menu", S: "menu", y: "favorite", Y: "favorite" } as const)[key as "ArrowLeft"] ?? null;
 }
 
 function useSupportedViewport() {
@@ -69,13 +72,30 @@ export function ImmersiveShell({ children, help, inputEpoch, onAction, source = 
   const [inputModel] = useState(() => new NavigationInputModel(isImmersivePlayerReturnPending()));
   const claimRef = useRef(new GamepadClaimModel());
   const missingSinceMsRef = useRef<number | null>(null);
-  const handleAction = useEffectEvent(onAction);
   const {
     active: fullscreenActive,
     enterFullscreen,
     restoreVisible: fullscreenRestoreVisible,
     supported: fullscreenSupported,
   } = useImmersiveFullscreen();
+  const exitImmersive = useCallback(() => {
+    setActiveImmersiveGamepadIndex(null);
+    router.replace("/");
+  }, [router]);
+  const systemMenu = useImmersiveSystemMenu({
+    enterFullscreen,
+    fullscreenActive,
+    fullscreenSupported,
+    onBrowseAction: onAction,
+    onExit: exitImmersive,
+  });
+  const routeActions = useEffectEvent(systemMenu.handleActions);
+  const {
+    audioRef: backgroundAudioRef,
+    markBlocked: markBackgroundAudioBlocked,
+    retry: retryBackgroundAudio,
+    state: backgroundAudioState,
+  } = useImmersiveBackgroundAudio(systemMenu.preferences);
 
   useEffect(() => {
     consumeImmersivePlayerReturn();
@@ -122,20 +142,20 @@ export function ImmersiveShell({ children, help, inputEpoch, onAction, source = 
       missingSinceMsRef.current = null;
       setControllerState("ready");
       const update = inputModel.update(gamepad, frame.nowMs);
-      for (const action of update.actions) {handleAction(action);}
+      routeActions(update.actions);
     }
     return source.subscribe(onFrame);
   }, [inputModel, source]);
 
   useEffect(() => {
     inputModel.reset(120);
-  }, [inputEpoch, inputModel]);
+  }, [inputEpoch, inputModel, systemMenu.open]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key.toLowerCase() === "f" && fullscreenSupported && !fullscreenActive) {
         event.preventDefault();
-        enterFullscreen();
+        void enterFullscreen();
         return;
       }
       const action = keyboardAction(event.key);
@@ -147,7 +167,7 @@ export function ImmersiveShell({ children, help, inputEpoch, onAction, source = 
         return;
       }
       setControllerState("ready");
-      handleAction(action);
+      routeActions([action]);
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
@@ -165,19 +185,40 @@ export function ImmersiveShell({ children, help, inputEpoch, onAction, source = 
     <div className={styles.shellContent}>{children}</div>
     <footer className={styles.helpBar} aria-label="手柄操作提示">
       {help.map((item) => <span key={`${item.button}:${item.label}`}><HelpButton button={item.button} />{item.label}</span>)}
+      <span><HelpButton button="Select" />系统菜单</span>
     </footer>
     {fullscreenSupported && !fullscreenActive ? <button
       type="button"
       className={`${styles.fullscreenRestore} ${fullscreenRestoreVisible ? styles.fullscreenRestoreVisible : ""}`.trim()}
       aria-hidden={!fullscreenRestoreVisible}
       tabIndex={fullscreenRestoreVisible ? 0 : -1}
-      onClick={enterFullscreen}
+      onClick={() => void enterFullscreen()}
     ><span aria-hidden="true">⛶</span>进入全屏</button> : null}
+    <audio
+      ref={backgroundAudioRef}
+      src="/audio/immersive/insert-coin.ogg"
+      preload="auto"
+      loop
+      aria-hidden="true"
+      onError={markBackgroundAudioBlocked}
+    />
+    {backgroundAudioState === "blocked" ? <ImmersiveBgmPrompt onRetry={() => void retryBackgroundAudio()} /> : null}
+    {systemMenu.open ? <ImmersiveSystemMenu
+      announcement={systemMenu.announcement}
+      fullscreenActive={fullscreenActive}
+      fullscreenSupported={fullscreenSupported}
+      preferences={systemMenu.preferences}
+      selectedIndex={systemMenu.selectedIndex}
+      onActivate={systemMenu.activate}
+      onAdjust={systemMenu.commitPreference}
+      onClose={systemMenu.close}
+      onSelect={systemMenu.select}
+    /> : null}
     {controllerState === "waiting" ? <section className={styles.controllerOverlay} role="status" aria-live="polite">
       <div><span className={styles.controllerGlyph} aria-hidden="true">⌁</span><h2>等待手柄</h2><p>按下标准布局手柄上的任意按键以继续。</p><Link href="/" onClick={() => setActiveImmersiveGamepadIndex(null)}>返回首页</Link></div>
     </section> : null}
     {!supportedViewport ? <section className={styles.viewportOverlay} role="alert">
-      <div><h2>沉浸模式需要横屏大屏</h2><p>请使用至少 960 × 540 的横屏视口。</p><button type="button" onClick={() => {setActiveImmersiveGamepadIndex(null); router.replace("/");}}>返回普通首页</button></div>
+      <div><h2>沉浸模式需要横屏大屏</h2><p>请使用至少 960 × 540 的横屏视口。</p><button type="button" onClick={exitImmersive}>返回普通首页</button></div>
     </section> : null}
   </main>;
 }

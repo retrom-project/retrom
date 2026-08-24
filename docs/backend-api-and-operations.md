@@ -120,9 +120,18 @@ web/components/           无业务状态的通用组件
 
 ## 5. 内容端点与 LaunchSession capability
 
-浏览器不得获得宿主机路径、Blob ID 或能力秘密。`POST /api/v1/launches` 返回可记录的 UUIDv7 `launchId`，同时通过 `retrom_launch_<launchId>` HttpOnly cookie 下发 32-byte capability；数据库只保存其 SHA-256。Player URL 固定为 `/play/:launchId`，受控内容固定在 `/runtime/launches/:launchId/**`，因此 capability 不会进入 URL、Referer、JSON 或访问日志。
+浏览器不得获得宿主机路径、Blob ID/hash 或能力秘密。`POST /api/v1/launches` 返回可记录的 UUIDv7
+`launchId`，同时通过 `retrom_launch_<launchId>` HttpOnly cookie 下发 32-byte capability；数据库只保存其
+SHA-256。Player URL 固定为 `/play/:launchId`；config、状态和事件保留在 `/runtime/launches/:launchId/**`，
+ROM/BIOS/parent/外部盘片使用不含 launch ID 的 `/runtime/content/**`，并由相同 capability 派生的
+`/runtime/content/` 路径限定 HttpOnly grant 授权。capability 不进入 URL、Referer、JSON 或访问日志。
 
-固定 EmulatorJS 和发布媒体可以公开 immutable 缓存；ROM、parent、BIOS、持久保存和状态存档必须是 `private, no-store` 且 `Vary: Cookie`。允许路径、cookie scope/过期、单 Range、ETag、MIME 和错误隐藏的唯一契约见 [HTTP API 第 7–8 节](./http-api-contract.md#7-launch-创建与凭据)。Go 静态 handler 只能发布依赖 manifest allowlist，不能把物理目录直接挂为文件服务器。
+固定 EmulatorJS 与发布媒体可公开 immutable 缓存；媒体替换必须分配新 Asset URL。ROM、parent、BIOS 与
+多盘外部文件以带领域分隔的派生内容身份形成新 `/runtime/content/` URL，在有效 Launch content grant 下使用
+`private, max-age=31536000, immutable`，替换任一输入都必须改变 URL。状态存档、存档截图和 Launch config
+继续 `private, no-store`，不得进入共享或 immutable cache。允许路径、cookie scope/过期、单 Range、ETag、
+MIME 和错误隐藏的唯一契约见 [HTTP API 第 7–8 节](./http-api-contract.md#7-launch-创建与凭据)。Go 静态
+handler 只能发布依赖 manifest allowlist，不能把物理目录直接挂为文件服务器。
 
 ## 6. 后台任务
 

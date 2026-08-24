@@ -98,12 +98,15 @@
 .immersive-player-panel { width: min(620px, calc(100vw - 48px)); padding: 40px; display: grid; justify-items: center; gap: 14px; border: 1px solid rgb(255 255 255 / 15%); border-radius: 22px; background: rgb(14 18 27 / 96%); box-shadow: 0 28px 90px rgb(0 0 0 / 62%); text-align: center; }
 .immersive-player-panel h1, .immersive-player-panel p { margin: 0; }
 .immersive-player-panel h1 { color: #fff; font-size: clamp(28px, 5vw, 44px); }
-.immersive-player-panel > p:not(.immersive-player-eyebrow, .immersive-player-error) { color: #b9c1cf; font-size: 16px; }
+.immersive-player-panel > p:not(.immersive-player-eyebrow, .immersive-player-error, .immersive-player-notice, .immersive-player-unavailable) { color: #b9c1cf; font-size: 16px; }
 .immersive-player-eyebrow { color: #a99cff; font-size: 13px; font-weight: 800; letter-spacing: .09em; text-transform: uppercase; }
 .immersive-player-error { max-width: 480px; color: #ffb2ba; line-height: 1.55; }
-.immersive-player-actions { width: 100%; margin-top: 14px; display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+.immersive-player-actions { width: 100%; margin-top: 14px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
 .immersive-player-actions button { min-height: 76px; color: #eef1f6; border: 2px solid #414b5d; border-radius: 15px; background: #1a2230; font-size: 21px; font-weight: 800; cursor: pointer; }
 .immersive-player-actions button.is-selected { border-color: #a99cff; background: #5546bf; box-shadow: 0 0 0 5px rgb(169 156 255 / 18%); }
+.immersive-player-actions button:disabled { cursor: not-allowed; opacity: .48; }
+.immersive-player-notice { color: #9fe0bd; }
+.immersive-player-unavailable { color: #a6afbe; font-size: 13px; }
 .immersive-player-panel small { color: #8993a5; font-size: 13px; }
 .player-orientation-gate { position: absolute; z-index: 80; inset: 0; padding: max(24px, env(safe-area-inset-top)) max(24px, env(safe-area-inset-right)) max(24px, env(safe-area-inset-bottom)) max(24px, env(safe-area-inset-left)); display: grid; place-content: center; justify-items: center; gap: 10px; overflow-y: auto; color: #eef1f6; background: radial-gradient(circle at 50% 35%, #222a3c, #050609 66%); text-align: center; }
 .player-rotate-mark { width: 84px; height: 84px; margin-bottom: 4px; display: grid; place-items: center; border: 2px solid #6e62c9; border-radius: 22px; color: #b9aff9; background: #191c2b; transform: rotate(90deg); }

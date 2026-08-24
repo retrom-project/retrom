@@ -13,6 +13,7 @@ function item(gameId: string): ImmersiveGame {
   return {
     gameId,
     title: gameId,
+    titleInitial: gameId.slice(0, 1).toUpperCase(),
     description: "",
     releaseYear: null,
     developer: "",
@@ -22,6 +23,8 @@ function item(gameId: string): ImmersiveGame {
     coverUrl: null,
     videoUrl: null,
     lastPlayedAtMs: null,
+    favorited: false,
+    saveStates: [],
   };
 }
 

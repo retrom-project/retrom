@@ -2323,6 +2323,19 @@
     #retrom-ui-review .rt-im-platform-cover:nth-child(3) { z-index:1;opacity:.54;transform:translate(-11%,5%) rotate(-8deg) scale(.84) }
     #retrom-ui-review .rt-im-platform-cover small { font-size:10px;font-weight:900;letter-spacing:.12em }
     #retrom-ui-review .rt-im-platform-cover strong { font-size:18px;line-height:1.05 }
+    #retrom-ui-review .rt-im-destination-order { margin:18px 0 0;display:flex;gap:8px;align-items:center;position:relative;z-index:1;overflow:hidden }
+    #retrom-ui-review .rt-im-destination-order span { padding:7px 12px;border:1px solid rgba(255,255,255,.12);border-radius:999px;color:#8f8ba8;background:rgba(255,255,255,.04);font-size:11px;font-weight:800;white-space:nowrap }
+    #retrom-ui-review .rt-im-destination-order span.is-current { color:white;border-color:#927dff;background:#6547d6 }
+    #retrom-ui-review .rt-im-folders { display:flex;gap:10px;margin:22px 0 0;position:relative;z-index:1 }
+    #retrom-ui-review .rt-im-folder { padding:10px 16px;border:1px solid rgba(255,255,255,.13);border-radius:999px;color:#aaa5c0;background:rgba(255,255,255,.04);font-weight:750 }
+    #retrom-ui-review .rt-im-folder.is-selected { color:white;border-color:#8d78ff;background:rgba(103,75,223,.55);box-shadow:0 0 0 4px rgba(112,83,231,.13) }
+    #retrom-ui-review .rt-im-favorite-state { display:inline-flex;align-items:center;gap:8px;margin-top:14px;color:#ff9ebe;font-weight:800 }
+    #retrom-ui-review .rt-im-save-list { display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-top:18px }
+    #retrom-ui-review .rt-im-save { min-height:104px;padding:15px;border:1px solid rgba(255,255,255,.12);border-radius:17px;display:grid;grid-template-columns:112px minmax(0,1fr);gap:13px;color:#aaa5bc;background:rgba(255,255,255,.04);text-align:left }
+    #retrom-ui-review .rt-im-save.is-selected { color:white;border-color:#927dff;background:rgba(103,75,223,.32);box-shadow:0 0 0 4px rgba(112,83,231,.14) }
+    #retrom-ui-review .rt-im-save-shot { border-radius:10px;background:radial-gradient(circle at 52% 34%,#ba6a47 0 5%,transparent 6%),linear-gradient(#8994be 0 54%,#2d324b 55% 67%,#10131f 68%) }
+    #retrom-ui-review .rt-im-save strong,#retrom-ui-review .rt-im-save small { display:block }
+    #retrom-ui-review .rt-im-save small { margin-top:8px;line-height:1.45;color:#aaa5bc }
     #retrom-ui-review .rt-im-game-layout { flex:1;min-height:0;margin-top:38px;display:grid;grid-template-columns:minmax(300px,31vw) minmax(0,1fr);gap:clamp(28px,4vw,72px);position:relative;z-index:1 }
     #retrom-ui-review .rt-im-game-list { min-height:0;padding-right:16px;display:flex;flex-direction:column;justify-content:center;gap:10px }
     #retrom-ui-review .rt-im-game-row { padding:17px 22px;border-left:4px solid transparent;border-radius:0 16px 16px 0;color:#8f8ba3;font-size:clamp(18px,1.6vw,28px);font-weight:750;white-space:nowrap;overflow:hidden;text-overflow:ellipsis }
@@ -2343,6 +2356,15 @@
     #retrom-ui-review .rt-im-menu { width:min(660px,76vw);padding:42px;border:1px solid rgba(255,255,255,.15);border-radius:28px;background:#171a27;box-shadow:0 35px 100px #000;text-align:center }
     #retrom-ui-review .rt-im-menu h1 { margin:0 0 9px;font-size:34px }
     #retrom-ui-review .rt-im-menu p { margin:0 0 30px;color:#aaa5ba }
+    #retrom-ui-review .rt-im-menu .rt-im-actions { grid-template-columns:repeat(3,minmax(0,1fr)) }
+    #retrom-ui-review .rt-im-system-menu { width:min(760px,80vw);padding:36px;border:1px solid rgba(255,255,255,.15);border-radius:28px;background:linear-gradient(145deg,#1b1e2e,#11131f);box-shadow:0 35px 100px #000 }
+    #retrom-ui-review .rt-im-system-menu h1 { margin:7px 0 8px;font-size:36px }
+    #retrom-ui-review .rt-im-system-menu&gt;p { margin:0 0 24px;color:#aaa5ba }
+    #retrom-ui-review .rt-im-system-options { display:grid;gap:7px }
+    #retrom-ui-review .rt-im-system-option { min-height:52px;padding:0 16px;border:1px solid transparent;border-radius:13px;display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;color:#b5b0c7;background:rgba(255,255,255,.035) }
+    #retrom-ui-review .rt-im-system-option.is-selected { color:white;border-color:#927dff;background:rgba(103,75,223,.38);box-shadow:0 0 0 4px rgba(112,83,231,.12) }
+    #retrom-ui-review .rt-im-meter { width:180px;height:8px;border-radius:999px;background:rgba(255,255,255,.12);overflow:hidden }
+    #retrom-ui-review .rt-im-meter i { display:block;width:40%;height:100%;background:#9a85ff }
     #retrom-ui-review .rt-im-footer { margin-top:auto;display:flex;justify-content:space-between;align-items:center;position:relative;z-index:1 }
     @media(max-width:1000px){#retrom-ui-review .rt-im-game-layout{grid-template-columns:34% minmax(0,1fr)}#retrom-ui-review .rt-im-media{grid-template-columns:40% minmax(0,1fr);padding:16px}.rt-im-help{gap:12px}}
     @media(prefers-reduced-motion:reduce){#retrom-ui-review .rt-im-platform{transition:none}}
@@ -2361,8 +2383,10 @@
       &lt;button type=&quot;button&quot; data-review-scene=&quot;netplay-room&quot;&gt;联机房间&lt;/button&gt;
       &lt;button type=&quot;button&quot; data-review-scene=&quot;netplay-player&quot;&gt;联机 Player&lt;/button&gt;
       &lt;button type=&quot;button&quot; data-review-scene=&quot;immersive-entry&quot;&gt;沉浸入口&lt;/button&gt;
-      &lt;button type=&quot;button&quot; data-review-scene=&quot;immersive-platforms&quot;&gt;沉浸选平台&lt;/button&gt;
-      &lt;button type=&quot;button&quot; data-review-scene=&quot;immersive-games&quot;&gt;沉浸选游戏&lt;/button&gt;
+      &lt;button type=&quot;button&quot; data-review-scene=&quot;immersive-platforms&quot;&gt;沉浸选入口&lt;/button&gt;
+      &lt;button type=&quot;button&quot; data-review-scene=&quot;immersive-games&quot;&gt;沉浸收藏&lt;/button&gt;
+      &lt;button type=&quot;button&quot; data-review-scene=&quot;immersive-saves&quot;&gt;沉浸存档&lt;/button&gt;
+      &lt;button type=&quot;button&quot; data-review-scene=&quot;immersive-system-menu&quot;&gt;沉浸系统菜单&lt;/button&gt;
       &lt;button type=&quot;button&quot; data-review-scene=&quot;immersive-player&quot;&gt;沉浸游戏菜单&lt;/button&gt;
       &lt;button type=&quot;button&quot; data-review-scene=&quot;admin-users&quot;&gt;用户管理&lt;/button&gt;
     &lt;/div&gt;
@@ -2373,40 +2397,57 @@
       &lt;div class=&quot;rt-im-topbar&quot;&gt;&lt;div class=&quot;rt-im-brand&quot;&gt;&lt;span class=&quot;rt-im-brand-mark&quot;&gt;R&lt;/span&gt; Retrom&lt;/div&gt;&lt;div class=&quot;rt-im-help&quot;&gt;&lt;span&gt;&lt;kbd data-button=&quot;A&quot;&gt;A&lt;/kbd&gt;确认&lt;/span&gt;&lt;span&gt;&lt;kbd data-button=&quot;B&quot;&gt;B&lt;/kbd&gt;取消&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;
       &lt;div class=&quot;rt-im-backdrop&quot;&gt;
         &lt;section class=&quot;rt-im-dialog&quot; role=&quot;dialog&quot; aria-modal=&quot;true&quot; aria-labelledby=&quot;rt-im-entry-title&quot;&gt;
-          &lt;div class=&quot;rt-im-eyebrow&quot;&gt;检测到手柄&lt;/div&gt;&lt;h1 id=&quot;rt-im-entry-title&quot;&gt;进入沉浸模式？&lt;/h1&gt;&lt;p&gt;为电视与手柄设计的独立体验。选平台、选游戏，然后直接开始游玩。&lt;/p&gt;
+          &lt;div class=&quot;rt-im-eyebrow&quot;&gt;首页显式入口 · 已检测到手柄&lt;/div&gt;&lt;h1 id=&quot;rt-im-entry-title&quot;&gt;进入沉浸模式？&lt;/h1&gt;&lt;p&gt;为电视与手柄设计的独立体验。浏览全部、最近、收藏、存档或平台，然后直接开始游玩。&lt;/p&gt;
           &lt;div class=&quot;rt-im-actions&quot;&gt;&lt;button type=&quot;button&quot; class=&quot;rt-im-action is-selected&quot;&gt;取消&lt;/button&gt;&lt;button type=&quot;button&quot; class=&quot;rt-im-action&quot;&gt;进入沉浸模式&lt;/button&gt;&lt;/div&gt;
         &lt;/section&gt;
       &lt;/div&gt;
     &lt;/div&gt;
   &lt;/section&gt;
 
-  &lt;section class=&quot;rt-immersive-design&quot; data-immersive-page=&quot;immersive-platforms&quot; aria-label=&quot;沉浸模式平台选择&quot; hidden&gt;
+  &lt;section class=&quot;rt-immersive-design&quot; data-immersive-page=&quot;immersive-platforms&quot; aria-label=&quot;沉浸模式入口选择&quot; hidden&gt;
     &lt;div class=&quot;rt-im-stage&quot;&gt;
       &lt;button type=&quot;button&quot; class=&quot;rt-im-fullscreen-recovery&quot;&gt;⛶ 进入全屏&lt;/button&gt;
-      &lt;div class=&quot;rt-im-topbar&quot;&gt;&lt;div class=&quot;rt-im-brand&quot;&gt;&lt;span class=&quot;rt-im-brand-mark&quot;&gt;R&lt;/span&gt; 沉浸模式&lt;/div&gt;&lt;div class=&quot;rt-im-help&quot;&gt;&lt;span&gt;&lt;kbd role=&quot;img&quot; aria-label=&quot;左右方向键&quot;&gt;&lt;svg viewBox=&quot;0 0 24 24&quot; aria-hidden=&quot;true&quot;&gt;&lt;path d=&quot;M8 12h8M10 8l-4 4 4 4M14 8l4 4-4 4&quot;&gt;&lt;/path&gt;&lt;/svg&gt;&lt;/kbd&gt;切换&lt;/span&gt;&lt;span&gt;&lt;kbd data-button=&quot;A&quot;&gt;A&lt;/kbd&gt;进入&lt;/span&gt;&lt;span&gt;&lt;kbd data-button=&quot;B&quot;&gt;B&lt;/kbd&gt;退出&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;
-      &lt;header class=&quot;rt-im-heading&quot;&gt;&lt;span class=&quot;rt-im-eyebrow&quot;&gt;选择平台&lt;/span&gt;&lt;h1&gt;你的游戏，在这里开始&lt;/h1&gt;&lt;p&gt;使用左右方向键浏览平台&lt;/p&gt;&lt;/header&gt;
+      &lt;div class=&quot;rt-im-topbar&quot;&gt;&lt;div class=&quot;rt-im-brand&quot;&gt;&lt;span class=&quot;rt-im-brand-mark&quot;&gt;R&lt;/span&gt; 沉浸模式&lt;/div&gt;&lt;div class=&quot;rt-im-help&quot;&gt;&lt;span&gt;&lt;kbd role=&quot;img&quot; aria-label=&quot;左右方向键&quot;&gt;&lt;svg viewBox=&quot;0 0 24 24&quot; aria-hidden=&quot;true&quot;&gt;&lt;path d=&quot;M8 12h8M10 8l-4 4 4 4M14 8l4 4-4 4&quot;&gt;&lt;/path&gt;&lt;/svg&gt;&lt;/kbd&gt;切换&lt;/span&gt;&lt;span&gt;&lt;kbd data-button=&quot;A&quot;&gt;A&lt;/kbd&gt;进入&lt;/span&gt;&lt;span&gt;&lt;kbd data-button=&quot;B&quot;&gt;B&lt;/kbd&gt;退出&lt;/span&gt;&lt;span&gt;&lt;kbd style=&quot;font-size:8px&quot;&gt;SEL&lt;/kbd&gt;菜单&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;
+      &lt;header class=&quot;rt-im-heading&quot;&gt;&lt;span class=&quot;rt-im-eyebrow&quot;&gt;选择入口&lt;/span&gt;&lt;h1&gt;你的游戏，在这里开始&lt;/h1&gt;&lt;p&gt;先浏览四个资料库入口，再选择游戏平台&lt;/p&gt;&lt;/header&gt;
+      &lt;div class=&quot;rt-im-destination-order&quot; aria-label=&quot;入口固定顺序&quot;&gt;&lt;span&gt;01 全部游戏&lt;/span&gt;&lt;span class=&quot;is-current&quot;&gt;02 最近游玩&lt;/span&gt;&lt;span&gt;03 收藏游戏&lt;/span&gt;&lt;span&gt;04 我的存档&lt;/span&gt;&lt;span&gt;05 Arcade&lt;/span&gt;&lt;span&gt;06 Game Boy Advance&lt;/span&gt;&lt;/div&gt;
       &lt;div class=&quot;rt-im-platforms&quot;&gt;
-        &lt;article class=&quot;rt-im-platform&quot;&gt;&lt;div class=&quot;rt-im-platform-copy&quot;&gt;&lt;div class=&quot;rt-im-platform-code&quot;&gt;GBA&lt;/div&gt;&lt;div&gt;&lt;h2&gt;Game Boy Advance&lt;/h2&gt;&lt;p&gt;12 款游戏&lt;br&gt;上次游玩 · 昨天 22:14&lt;/p&gt;&lt;/div&gt;&lt;/div&gt;&lt;/article&gt;
-        &lt;article class=&quot;rt-im-platform is-selected&quot;&gt;&lt;div class=&quot;rt-im-platform-copy&quot;&gt;&lt;div class=&quot;rt-im-platform-code&quot;&gt;ARC&lt;/div&gt;&lt;div&gt;&lt;h2&gt;Arcade&lt;/h2&gt;&lt;p&gt;28 款游戏&lt;br&gt;上次游玩 · 今天 15:16&lt;/p&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&quot;rt-im-platform-covers&quot; aria-label=&quot;Arcade 最近游戏封面&quot;&gt;&lt;figure class=&quot;rt-im-platform-cover&quot;&gt;&lt;small&gt;最近游玩&lt;/small&gt;&lt;strong&gt;打击者 1945 加强版&lt;/strong&gt;&lt;/figure&gt;&lt;figure class=&quot;rt-im-platform-cover&quot;&gt;&lt;small&gt;最近游玩&lt;/small&gt;&lt;strong&gt;合金弹头&lt;/strong&gt;&lt;/figure&gt;&lt;figure class=&quot;rt-im-platform-cover&quot;&gt;&lt;small&gt;最近加入&lt;/small&gt;&lt;strong&gt;拳皇 98&lt;/strong&gt;&lt;/figure&gt;&lt;/div&gt;&lt;/article&gt;
-        &lt;article class=&quot;rt-im-platform&quot;&gt;&lt;div class=&quot;rt-im-platform-copy&quot;&gt;&lt;div class=&quot;rt-im-platform-code&quot;&gt;NES&lt;/div&gt;&lt;div&gt;&lt;h2&gt;NES / Famicom&lt;/h2&gt;&lt;p&gt;9 款游戏&lt;br&gt;还没有游玩记录&lt;/p&gt;&lt;/div&gt;&lt;/div&gt;&lt;/article&gt;
+        &lt;article class=&quot;rt-im-platform&quot;&gt;&lt;div class=&quot;rt-im-platform-copy&quot;&gt;&lt;div class=&quot;rt-im-platform-code&quot;&gt;ALL&lt;/div&gt;&lt;div&gt;&lt;h2&gt;全部游戏&lt;/h2&gt;&lt;p&gt;38 款游戏&lt;br&gt;跨平台浏览&lt;/p&gt;&lt;/div&gt;&lt;/div&gt;&lt;/article&gt;
+        &lt;article class=&quot;rt-im-platform is-selected&quot;&gt;&lt;div class=&quot;rt-im-platform-copy&quot;&gt;&lt;div class=&quot;rt-im-platform-code&quot;&gt;↺&lt;/div&gt;&lt;div&gt;&lt;h2&gt;最近游玩&lt;/h2&gt;&lt;p&gt;11 款游戏&lt;br&gt;上次游玩 · 今天 15:16&lt;/p&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&quot;rt-im-platform-covers&quot; aria-label=&quot;最近游玩封面&quot;&gt;&lt;figure class=&quot;rt-im-platform-cover&quot;&gt;&lt;small&gt;刚刚玩过&lt;/small&gt;&lt;strong&gt;打击者 1945 加强版&lt;/strong&gt;&lt;/figure&gt;&lt;figure class=&quot;rt-im-platform-cover&quot;&gt;&lt;small&gt;昨天&lt;/small&gt;&lt;strong&gt;合金弹头&lt;/strong&gt;&lt;/figure&gt;&lt;figure class=&quot;rt-im-platform-cover&quot;&gt;&lt;small&gt;本周&lt;/small&gt;&lt;strong&gt;拳皇 98&lt;/strong&gt;&lt;/figure&gt;&lt;/div&gt;&lt;/article&gt;
+        &lt;article class=&quot;rt-im-platform&quot;&gt;&lt;div class=&quot;rt-im-platform-copy&quot;&gt;&lt;div class=&quot;rt-im-platform-code&quot;&gt;♥&lt;/div&gt;&lt;div&gt;&lt;h2&gt;收藏游戏&lt;/h2&gt;&lt;p&gt;18 款游戏&lt;br&gt;4 个收藏夹&lt;/p&gt;&lt;/div&gt;&lt;/div&gt;&lt;/article&gt;
       &lt;/div&gt;
-      &lt;footer class=&quot;rt-im-footer&quot;&gt;&lt;span class=&quot;rt-im-eyebrow&quot;&gt;02 / 03&lt;/span&gt;&lt;div class=&quot;rt-im-help&quot;&gt;&lt;span&gt;&lt;kbd&gt;A&lt;/kbd&gt;选择 Arcade&lt;/span&gt;&lt;/div&gt;&lt;/footer&gt;
+      &lt;footer class=&quot;rt-im-footer&quot;&gt;&lt;span class=&quot;rt-im-eyebrow&quot;&gt;02 / 06&lt;/span&gt;&lt;div class=&quot;rt-im-help&quot;&gt;&lt;span&gt;&lt;kbd&gt;A&lt;/kbd&gt;打开最近游玩&lt;/span&gt;&lt;/div&gt;&lt;/footer&gt;
     &lt;/div&gt;
   &lt;/section&gt;
 
   &lt;section class=&quot;rt-immersive-design&quot; data-immersive-page=&quot;immersive-games&quot; aria-label=&quot;沉浸模式游戏选择&quot; hidden&gt;
     &lt;div class=&quot;rt-im-stage&quot;&gt;
-      &lt;div class=&quot;rt-im-topbar&quot;&gt;&lt;div class=&quot;rt-im-brand&quot;&gt;&lt;span class=&quot;rt-im-brand-mark&quot;&gt;ARC&lt;/span&gt; Arcade&lt;/div&gt;&lt;div class=&quot;rt-im-help&quot;&gt;&lt;span&gt;&lt;kbd role=&quot;img&quot; aria-label=&quot;上下方向键&quot;&gt;&lt;svg viewBox=&quot;0 0 24 24&quot; aria-hidden=&quot;true&quot;&gt;&lt;path d=&quot;M12 8v8M8 10l4-4 4 4M8 14l4 4 4-4&quot;&gt;&lt;/path&gt;&lt;/svg&gt;&lt;/kbd&gt;选择游戏&lt;/span&gt;&lt;span&gt;&lt;kbd role=&quot;img&quot; aria-label=&quot;左右方向键&quot;&gt;&lt;svg viewBox=&quot;0 0 24 24&quot; aria-hidden=&quot;true&quot;&gt;&lt;path d=&quot;M8 12h8M10 8l-4 4 4 4M14 8l4 4-4 4&quot;&gt;&lt;/path&gt;&lt;/svg&gt;&lt;/kbd&gt;快速翻页&lt;/span&gt;&lt;span&gt;&lt;kbd data-button=&quot;A&quot;&gt;A&lt;/kbd&gt;开始&lt;/span&gt;&lt;span&gt;&lt;kbd data-button=&quot;B&quot;&gt;B&lt;/kbd&gt;返回&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;
+      &lt;div class=&quot;rt-im-topbar&quot;&gt;&lt;div class=&quot;rt-im-brand&quot;&gt;&lt;span class=&quot;rt-im-brand-mark&quot;&gt;♥&lt;/span&gt; 收藏游戏 · 18 款&lt;/div&gt;&lt;div class=&quot;rt-im-help&quot;&gt;&lt;span&gt;&lt;kbd role=&quot;img&quot; aria-label=&quot;上下方向键&quot;&gt;&lt;svg viewBox=&quot;0 0 24 24&quot; aria-hidden=&quot;true&quot;&gt;&lt;path d=&quot;M12 8v8M8 10l4-4 4 4M8 14l4 4 4-4&quot;&gt;&lt;/path&gt;&lt;/svg&gt;&lt;/kbd&gt;选择游戏&lt;/span&gt;&lt;span&gt;&lt;kbd data-button=&quot;Y&quot;&gt;Y&lt;/kbd&gt;默认收藏&lt;/span&gt;&lt;span&gt;&lt;kbd data-button=&quot;A&quot;&gt;A&lt;/kbd&gt;开始&lt;/span&gt;&lt;span&gt;&lt;kbd data-button=&quot;B&quot;&gt;B&lt;/kbd&gt;返回&lt;/span&gt;&lt;span&gt;&lt;kbd style=&quot;font-size:8px&quot;&gt;SEL&lt;/kbd&gt;菜单&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;
+      &lt;div class=&quot;rt-im-folders&quot; aria-label=&quot;收藏夹&quot;&gt;&lt;button type=&quot;button&quot; class=&quot;rt-im-folder&quot;&gt;全部收藏 · 18&lt;/button&gt;&lt;button type=&quot;button&quot; class=&quot;rt-im-folder is-selected&quot;&gt;街机精选 · 8&lt;/button&gt;&lt;button type=&quot;button&quot; class=&quot;rt-im-folder&quot;&gt;想玩的 · 6&lt;/button&gt;&lt;button type=&quot;button&quot; class=&quot;rt-im-folder&quot;&gt;双人游戏 · 4&lt;/button&gt;&lt;/div&gt;
       &lt;div class=&quot;rt-im-game-layout&quot;&gt;
-        &lt;nav class=&quot;rt-im-game-list&quot; aria-label=&quot;Arcade 游戏&quot;&gt;&lt;div class=&quot;rt-im-game-row&quot;&gt;合金弹头&lt;/div&gt;&lt;div class=&quot;rt-im-game-row&quot;&gt;四国战机 2&lt;/div&gt;&lt;div class=&quot;rt-im-game-row is-selected&quot;&gt;打击者 1945 加强版&lt;/div&gt;&lt;div class=&quot;rt-im-game-row&quot;&gt;原生兽&lt;/div&gt;&lt;div class=&quot;rt-im-game-row&quot;&gt;拳皇 98&lt;/div&gt;&lt;/nav&gt;
-        &lt;article class=&quot;rt-im-game-preview&quot;&gt;&lt;div class=&quot;rt-im-media&quot;&gt;&lt;div class=&quot;rt-im-cover&quot; aria-label=&quot;封面&quot;&gt;&lt;/div&gt;&lt;div class=&quot;rt-im-video&quot; aria-label=&quot;视频预览&quot;&gt;&lt;span&gt;▶&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&quot;rt-im-description&quot;&gt;&lt;span class=&quot;rt-im-eyebrow&quot;&gt;Psikyo · 1999 · 飞行射击&lt;/span&gt;&lt;h1&gt;打击者 1945 加强版&lt;/h1&gt;&lt;p tabindex=&quot;0&quot;&gt;经典纵向飞行射击。选择战机，穿越密集弹幕并挑战多阶段首领；支持单人或双人协作。游戏保留了街机版高速推进、路线切换和多阶段 Boss 战，较长的完整简介会在这里形成可聚焦滚动区域，而不是直接截断。&lt;/p&gt;&lt;/div&gt;&lt;/article&gt;
+        &lt;nav class=&quot;rt-im-game-list&quot; aria-label=&quot;街机精选收藏夹&quot;&gt;&lt;div class=&quot;rt-im-game-row&quot;&gt;1941&lt;/div&gt;&lt;div class=&quot;rt-im-game-row&quot;&gt;四国战机 2&lt;/div&gt;&lt;div class=&quot;rt-im-game-row is-selected&quot;&gt;打击者 1945 加强版&lt;/div&gt;&lt;div class=&quot;rt-im-game-row&quot;&gt;合金弹头&lt;/div&gt;&lt;div class=&quot;rt-im-game-row&quot;&gt;拳皇 98&lt;/div&gt;&lt;/nav&gt;
+        &lt;article class=&quot;rt-im-game-preview&quot;&gt;&lt;div class=&quot;rt-im-media&quot;&gt;&lt;div class=&quot;rt-im-cover&quot; aria-label=&quot;封面&quot;&gt;&lt;/div&gt;&lt;div class=&quot;rt-im-video&quot; aria-label=&quot;视频预览&quot;&gt;&lt;span&gt;▶&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&quot;rt-im-description&quot;&gt;&lt;span class=&quot;rt-im-eyebrow&quot;&gt;S · Psikyo · 1999 · 飞行射击&lt;/span&gt;&lt;h1&gt;打击者 1945 加强版&lt;/h1&gt;&lt;p tabindex=&quot;0&quot;&gt;经典纵向飞行射击。选择战机，穿越密集弹幕并挑战多阶段首领；支持单人或双人协作。游戏保留了街机版高速推进、路线切换和多阶段 Boss 战，较长的完整简介会在这里形成可聚焦滚动区域，而不是直接截断。&lt;/p&gt;&lt;span class=&quot;rt-im-favorite-state&quot;&gt;♥ 已收藏 · Y 取消默认收藏&lt;/span&gt;&lt;/div&gt;&lt;/article&gt;
       &lt;/div&gt;
     &lt;/div&gt;
   &lt;/section&gt;
 
+  &lt;section class=&quot;rt-immersive-design&quot; data-immersive-page=&quot;immersive-saves&quot; aria-label=&quot;沉浸模式存档浏览&quot; hidden&gt;
+    &lt;div class=&quot;rt-im-stage&quot;&gt;
+      &lt;div class=&quot;rt-im-topbar&quot;&gt;&lt;div class=&quot;rt-im-brand&quot;&gt;&lt;span class=&quot;rt-im-brand-mark&quot;&gt;▣&lt;/span&gt; 我的存档 · 12 款游戏&lt;/div&gt;&lt;div class=&quot;rt-im-help&quot;&gt;&lt;span&gt;&lt;kbd role=&quot;img&quot; aria-label=&quot;上下方向键&quot;&gt;&lt;svg viewBox=&quot;0 0 24 24&quot; aria-hidden=&quot;true&quot;&gt;&lt;path d=&quot;M12 8v8M8 10l4-4 4 4M8 14l4 4 4-4&quot;&gt;&lt;/path&gt;&lt;/svg&gt;&lt;/kbd&gt;选择&lt;/span&gt;&lt;span&gt;&lt;kbd data-button=&quot;A&quot;&gt;A&lt;/kbd&gt;从存档开始&lt;/span&gt;&lt;span&gt;&lt;kbd data-button=&quot;B&quot;&gt;B&lt;/kbd&gt;返回&lt;/span&gt;&lt;span&gt;&lt;kbd style=&quot;font-size:8px&quot;&gt;SEL&lt;/kbd&gt;菜单&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;
+      &lt;div class=&quot;rt-im-game-layout&quot;&gt;
+        &lt;nav class=&quot;rt-im-game-list&quot; aria-label=&quot;有存档的游戏&quot;&gt;&lt;div class=&quot;rt-im-game-row&quot;&gt;1941 · 12 份&lt;/div&gt;&lt;div class=&quot;rt-im-game-row is-selected&quot;&gt;打击者 1945 加强版 · 2 份&lt;/div&gt;&lt;div class=&quot;rt-im-game-row&quot;&gt;塞尔达传说 · 4 份&lt;/div&gt;&lt;/nav&gt;
+        &lt;article class=&quot;rt-im-game-preview&quot;&gt;&lt;div class=&quot;rt-im-media&quot;&gt;&lt;div class=&quot;rt-im-cover&quot; aria-label=&quot;封面&quot;&gt;&lt;/div&gt;&lt;div class=&quot;rt-im-save-list&quot; aria-label=&quot;打击者 1945 加强版存档&quot;&gt;&lt;button type=&quot;button&quot; class=&quot;rt-im-save is-selected&quot;&gt;&lt;span class=&quot;rt-im-save-shot&quot; aria-label=&quot;存档截图&quot;&gt;&lt;/span&gt;&lt;span&gt;&lt;strong&gt;今天 15:16&lt;/strong&gt;&lt;small&gt;手动存档&lt;br&gt;从这里继续&lt;/small&gt;&lt;/span&gt;&lt;/button&gt;&lt;button type=&quot;button&quot; class=&quot;rt-im-save&quot;&gt;&lt;span class=&quot;rt-im-save-shot&quot; aria-label=&quot;存档截图&quot;&gt;&lt;/span&gt;&lt;span&gt;&lt;strong&gt;昨天 22:14&lt;/strong&gt;&lt;small&gt;手动存档&lt;br&gt;第二关&lt;/small&gt;&lt;/span&gt;&lt;/button&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&quot;rt-im-description&quot;&gt;&lt;span class=&quot;rt-im-eyebrow&quot;&gt;S · Arcade · FinalBurn Neo&lt;/span&gt;&lt;h1&gt;选择一份存档继续&lt;/h1&gt;&lt;p&gt;截图与状态只属于当前用户；A 将使用选中的存档创建普通单机 Launch，B 返回游戏列表后可无存档重新开始。&lt;/p&gt;&lt;/div&gt;&lt;/article&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+  &lt;/section&gt;
+
+  &lt;section class=&quot;rt-immersive-design rt-im-player&quot; data-immersive-page=&quot;immersive-system-menu&quot; aria-label=&quot;沉浸模式系统菜单&quot; hidden&gt;
+    &lt;div class=&quot;rt-im-game-frame&quot; aria-label=&quot;沉浸模式入口背景&quot;&gt;&lt;/div&gt;
+    &lt;div class=&quot;rt-im-pause&quot;&gt;&lt;section class=&quot;rt-im-system-menu&quot; role=&quot;dialog&quot; aria-modal=&quot;true&quot; aria-labelledby=&quot;rt-im-system-title&quot;&gt;&lt;span class=&quot;rt-im-eyebrow&quot;&gt;RETROM · SELECT&lt;/span&gt;&lt;h1 id=&quot;rt-im-system-title&quot;&gt;系统菜单&lt;/h1&gt;&lt;p&gt;调整沉浸模式的声音与显示。&lt;/p&gt;&lt;div class=&quot;rt-im-system-options&quot;&gt;&lt;div class=&quot;rt-im-system-option is-selected&quot;&gt;&lt;strong&gt;背景音乐音量&lt;/strong&gt;&lt;span style=&quot;display:flex;align-items:center;gap:10px&quot;&gt;&lt;span class=&quot;rt-im-meter&quot;&gt;&lt;i&gt;&lt;/i&gt;&lt;/span&gt;&lt;b&gt;40%&lt;/b&gt;&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;rt-im-system-option&quot;&gt;&lt;strong&gt;背景音乐静音&lt;/strong&gt;&lt;span&gt;有声音&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;rt-im-system-option&quot;&gt;&lt;strong&gt;游戏音量&lt;/strong&gt;&lt;span&gt;100%&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;rt-im-system-option&quot;&gt;&lt;strong&gt;游戏静音&lt;/strong&gt;&lt;span&gt;有声音&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;rt-im-system-option&quot;&gt;&lt;strong&gt;进入全屏&lt;/strong&gt;&lt;span&gt;A 确认&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;rt-im-system-option&quot;&gt;&lt;strong&gt;退出沉浸模式&lt;/strong&gt;&lt;span&gt;返回普通首页&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&quot;rt-im-help&quot; style=&quot;justify-content:center;margin-top:24px&quot;&gt;&lt;span&gt;上下选择&lt;/span&gt;&lt;span&gt;左右调整&lt;/span&gt;&lt;span&gt;&lt;kbd data-button=&quot;A&quot;&gt;A&lt;/kbd&gt;确认&lt;/span&gt;&lt;span&gt;&lt;kbd data-button=&quot;B&quot;&gt;B&lt;/kbd&gt;返回&lt;/span&gt;&lt;/div&gt;&lt;/section&gt;&lt;/div&gt;
+  &lt;/section&gt;
+
   &lt;section class=&quot;rt-immersive-design rt-im-player&quot; data-immersive-page=&quot;immersive-player&quot; aria-label=&quot;沉浸模式游戏菜单&quot; hidden&gt;
     &lt;div class=&quot;rt-im-game-frame&quot; aria-label=&quot;暂停的游戏画面&quot;&gt;&lt;/div&gt;
-    &lt;div class=&quot;rt-im-pause&quot;&gt;&lt;section class=&quot;rt-im-menu&quot; role=&quot;dialog&quot; aria-modal=&quot;true&quot; aria-labelledby=&quot;rt-im-menu-title&quot;&gt;&lt;span class=&quot;rt-im-eyebrow&quot;&gt;游戏已暂停&lt;/span&gt;&lt;h1 id=&quot;rt-im-menu-title&quot;&gt;打击者 1945 加强版&lt;/h1&gt;&lt;p&gt;选择继续游戏，或退出并返回游戏列表。&lt;/p&gt;&lt;div class=&quot;rt-im-actions&quot;&gt;&lt;button type=&quot;button&quot; class=&quot;rt-im-action is-selected&quot;&gt;取消&lt;/button&gt;&lt;button type=&quot;button&quot; class=&quot;rt-im-action&quot;&gt;退出游戏&lt;/button&gt;&lt;/div&gt;&lt;div class=&quot;rt-im-help&quot; style=&quot;justify-content:center;margin-top:24px&quot;&gt;&lt;span&gt;&lt;kbd data-button=&quot;A&quot;&gt;A&lt;/kbd&gt;确认&lt;/span&gt;&lt;span&gt;&lt;kbd data-button=&quot;B&quot;&gt;B&lt;/kbd&gt;取消&lt;/span&gt;&lt;/div&gt;&lt;/section&gt;&lt;/div&gt;
+    &lt;div class=&quot;rt-im-pause&quot;&gt;&lt;section class=&quot;rt-im-menu&quot; role=&quot;dialog&quot; aria-modal=&quot;true&quot; aria-labelledby=&quot;rt-im-menu-title&quot;&gt;&lt;span class=&quot;rt-im-eyebrow&quot;&gt;游戏已暂停 · SELECT + START × 2&lt;/span&gt;&lt;h1 id=&quot;rt-im-menu-title&quot;&gt;打击者 1945 加强版&lt;/h1&gt;&lt;p&gt;继续游戏、创建一份带截图的手动存档，或退出并返回原列表。&lt;/p&gt;&lt;div class=&quot;rt-im-actions&quot;&gt;&lt;button type=&quot;button&quot; class=&quot;rt-im-action is-selected&quot;&gt;取消&lt;/button&gt;&lt;button type=&quot;button&quot; class=&quot;rt-im-action&quot;&gt;创建存档&lt;/button&gt;&lt;button type=&quot;button&quot; class=&quot;rt-im-action&quot;&gt;退出游戏&lt;/button&gt;&lt;/div&gt;&lt;div class=&quot;rt-im-help&quot; style=&quot;justify-content:center;margin-top:24px&quot;&gt;&lt;span&gt;&lt;kbd data-button=&quot;A&quot;&gt;A&lt;/kbd&gt;确认&lt;/span&gt;&lt;span&gt;&lt;kbd data-button=&quot;B&quot;&gt;B&lt;/kbd&gt;取消&lt;/span&gt;&lt;/div&gt;&lt;/section&gt;&lt;/div&gt;
   &lt;/section&gt;
 
   &lt;section class=&quot;rt-auth-scene&quot; data-auth-page=&quot;setup&quot; aria-label=&quot;首次设置&quot; hidden&gt;
@@ -2538,6 +2579,7 @@
         &lt;section class=&quot;rt-home-layer rt-home-hero-layer&quot;&gt;
           &lt;div class=&quot;rt-page-head&quot;&gt;
             &lt;div&gt;&lt;h1&gt;今天想玩什么？&lt;/h1&gt;&lt;p class=&quot;rt-subtitle&quot;&gt;从最近的进度继续，或重新发现资料库里的经典游戏&lt;/p&gt;&lt;/div&gt;
+            &lt;button type=&quot;button&quot; class=&quot;rt-button rt-button-primary&quot; data-open-immersive-entry&gt;&lt;i data-lucide=&quot;gamepad-2&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;进入沉浸模式&lt;/button&gt;
           &lt;/div&gt;
           &lt;div class=&quot;rt-home-first&quot;&gt;
           &lt;section class=&quot;rt-home-panel rt-home-featured&quot;&gt;
@@ -3313,6 +3355,7 @@
         else if (scene === 'admin-users') { setMode('admin'); showPage(scene); }
         else { setMode('user'); showPage(scene); }
       }));
+      root.querySelector('[data-open-immersive-entry]').addEventListener('click', () =&gt; showImmersivePage('immersive-entry'));
 
       const userDrawer = root.querySelector('[data-user-drawer]');
       const userDrawerBackdrop = root.querySelector('[data-user-drawer-backdrop]');

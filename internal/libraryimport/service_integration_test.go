@@ -396,9 +396,10 @@ VALUES(?,?,?,?,'COVER',600,900,'image/png',?)
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return selected.Version != 6 }), "select uploaded review cover = %#v, error=%v", selected, err)
 	approved, err := importer.Approve(ctx, itemID, 6)
 	testassert.Falsef(t, err != nil, "approve: %v", err)
-	var title, variantStatus, publishedCoverBlobID string
+	var title, titleInitial, variantStatus, publishedCoverBlobID string
 	if err := database.SQL.QueryRowContext(ctx, `
 SELECT m.title,
+m.title_initial,
 r.status,
 (SELECT blob_id FROM game_assets WHERE game_id=g.id AND metadata_revision_id=g.current_metadata_revision_id AND kind='COVER')
 FROM games g
@@ -406,10 +407,15 @@ JOIN game_metadata_revisions m ON m.id=g.current_metadata_revision_id
 JOIN game_variants v ON v.game_id=g.id
 JOIN game_variant_revisions r ON r.id=v.current_revision_id
 WHERE g.id=?
-`, approved.GameID).Scan(&title, &variantStatus, &publishedCoverBlobID); err != nil {
+`, approved.GameID).Scan(&title, &titleInitial, &variantStatus, &publishedCoverBlobID); err != nil {
 		t.Fatal(err)
 	}
-	testassert.Falsef(t, testassert.Any(func() bool { return title != "Sudoku" }, func() bool { return variantStatus != "READY" }, func() bool { return publishedCoverBlobID != sourceBlobID }), "published title/status/cover = %s/%s/%s", title, variantStatus, publishedCoverBlobID)
+	testassert.Falsef(t, testassert.Any(
+		func() bool { return title != "Sudoku" },
+		func() bool { return titleInitial != "S" },
+		func() bool { return variantStatus != "READY" },
+		func() bool { return publishedCoverBlobID != sourceBlobID },
+	), "published title/initial/status/cover = %s/%s/%s/%s", title, titleInitial, variantStatus, publishedCoverBlobID)
 	var publishedTags int
 	if err := database.SQL.QueryRowContext(ctx, `
 SELECT count(*) FROM game_tags WHERE game_id=? AND tag_id=?

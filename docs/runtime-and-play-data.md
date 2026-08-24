@@ -195,7 +195,7 @@ Retrom 顶部工具栏是运行中的暂停边界：除光盘菜单与只读“�
 | 自动开始 | `EJS_startOnLoaded = true` |
 | Host 管理全屏 | `EJS_fullscreenOnLoaded = false` |
 
-线程核心的 override key 必须使用 loader 实测 basename：`dosbox_pure-thread-wasm.data`、`mednafen_psx_hw-thread-wasm.data`、`ppsspp-thread-wasm.data`。MelonDS 的 `externalFiles` 精确包含 `/retroarch/userdata/system/bios7.bin`、`bios9.bin`、`firmware.bin` 三个虚拟路径，URL 只能指向本 Launch 的 `/external-files/<logicalName>`；这些 Blob 在创建 Launch 时锁定，不能在 config GET 时重新选择 active BIOS。DOS 的 `externalFiles` 为空。
+线程核心的 override key 必须使用 loader 实测 basename：`dosbox_pure-thread-wasm.data`、`mednafen_psx_hw-thread-wasm.data`、`ppsspp-thread-wasm.data`。MelonDS 的 `externalFiles` 精确包含 `/retroarch/userdata/system/bios7.bin`、`bios9.bin`、`firmware.bin` 三个虚拟路径，URL 只能指向由本 Launch grant 授权的 `/runtime/content/external/{contentIdentity}/{logicalName}`；这些 Blob 在创建 Launch 时锁定，不能在 config GET 时重新选择 active BIOS。DOS 的 `externalFiles` 为空。
 
 NDS 三核心与 Azahar 的 `inputMode=POINTER`：Player 不向 iframe 合成额外的 `pointerdown/click`，真实浏览器事件直接到 EmulatorJS canvas。其他核心为 STANDARD。`startupActions` 最多 4 条，`delayMs` 上限 30,000、`durationMs` 上限 1,000，只在一次 `onGameStart` 后有界调用并释放 `simulateInput`。PPSSPP 使用 2,000/5,000ms 两条 120ms 确认动作；Beetle VB 使用 2,000/4,000/15,000/25,000ms 四条 120ms 动作。Strict Mode 重入不得重复调度，unmount/失败/退出必须取消 timer 并释放已按下控制，最后一次释放后不再自动输入。这是版本绑定的有限启动动作，不是通用宏功能。
 
@@ -308,12 +308,13 @@ socket/ping/write/单 peer 队列故障只关闭该 transport 并进入上述租
 
 普通 Player adapter、普通 Launch、显式状态存档和多盘路径保持原契约；联机 core profile 是否可选只由服务端 allowlist 中显式 `platformIds`、当前 READY revision 的精确 CoreArtifact 与当前依赖快照共同判断，不由前端 core 名称推断，也不按单个 ROM hash 建白名单。房间选择器从同一 eligibility 投影基础平台和游戏，不能另建前端平台白名单；房间锁定的 GameVariantRevision 继续保证所有参与者得到同一内容字节。
 
-## 14. 沉浸模式 Player 输入所有权
+## 14. 沉浸模式 Player 输入、声音与存档
 
-`/play/:launchId?experience=immersive` 只允许普通单机 Launch；联机 config、SaveState Launch、未知
-`experience` 或不属于站内沉浸游戏列表的 `returnTo` 不启用沉浸控制层。query 只选择前端呈现和输入所有权，
-不扩大 Launch capability。沉浸分支隐藏普通工具栏/揭示柄/存档/调试/设置，但复用同一 Core stage、config、
-内容 capability、PlaySession 和退出清理。普通 Player 与联机 Player 逐对象保持现有行为。
+`/play/:launchId?experience=immersive` 只允许普通单机 Launch；联机 config、未知 `experience` 或不属于站内
+沉浸游戏列表的 `returnTo` 不启用沉浸控制层。普通开始允许无 SaveState，从“我的存档”进入时允许同 Profile
+的既有 SaveState Launch；query 只选择前端呈现和输入所有权，不扩大 Launch capability。沉浸分支隐藏普通
+工具栏/揭示柄/联机/换盘/调试/设置，但复用同一 Core stage、config、内容 capability、PlaySession、手动
+SaveState 与退出清理。普通 Player 与联机 Player 逐对象保持现有行为。
 
 活动导航手柄来自进入沉浸模式时认领的 `mapping=standard` pad index；其他 pad 仍交给 Core。其 button 8
 Select 与 button 9 Start 的保留手势固定为：同一次 chord 的两键在 `100ms` 内先后按下且后按下时前键仍
@@ -329,11 +330,29 @@ EmulatorJS 会直接轮询浏览器 Gamepad API。卸载必须恢复原函数和
 形状在 loader 前以稳定错误阻断。
 
 第二次 chord 成立后先全零，再调用 adapter pause；只有确认暂停成功才显示菜单并记录
-`pauseOwner=IMMERSIVE_MENU`。菜单默认“取消”，另一个按钮为“退出游戏”；全部输入连续中立 `120ms` 后
-才接受左右/A/B。取消顺序为保持全零、关闭菜单、等待中立、只恢复本菜单拥有的暂停、交还游戏输入；
-Core 在打开前已暂停时不能越权恢复。退出先 finish/revoke，成功后 teardown 并
-`location.replace(returnTo)`；失败保留暂停与菜单并允许 A 重试、B 取消。页面隐藏、手柄断开和 teardown
-清空 pending chord，不能留下粘键或自动存档。
+`pauseOwner=IMMERSIVE_MENU`。菜单按“取消、创建存档、退出游戏”排列并默认取消；全部输入连续中立
+`120ms` 后才接受左右/A/B。取消顺序为保持全零、关闭菜单、等待中立、只恢复本菜单拥有的暂停、交还游戏
+输入；Core 在打开前已暂停时不能越权恢复。
+
+“创建存档”只有 adapter 同时支持状态捕获与 PNG 截图时可用；选择后在暂停所有权未变化的前提下复用普通
+手动存档上传事务，把当前 state、截图、Game、Variant/CoreArtifact 与多盘 discIndex 一起提交。上传中菜单
+保持暂停且禁用重复提交；成功显示可读结果后关闭菜单并只恢复本菜单拥有的暂停，失败保留菜单、暂停和重试
+入口。B 在请求前取消；请求已提交后不能伪装为撤销成功。退出先 finish/revoke，成功后 teardown 并
+`location.replace(returnTo)`；失败保留暂停与菜单并允许 A 重试、B 取消。取消、退出、页面隐藏、断开或
+teardown 都不会自动创建 SaveState，并清空 pending chord，不能留下粘键。
+
+浏览 Shell 的 BGM 固定来自随 Web release 追踪的站内 `/audio/immersive/insert-coin.ogg`，不运行时联网
+下载，使用 loop/preload 并尽力自动播放；仅在
+沉浸浏览路由挂载、页面可见、BGM 未静音且音量大于零时播放。隐藏、静音、音量为零、进入 Player、退出
+沉浸或卸载必须立即 pause；回到可见浏览页再尽力恢复。浏览器阻止自动播放时显示可由 A/点击触发的“启用
+背景音乐”，失败不阻断导航或 Launch，BGM 不得与 Core 游戏声音重叠。
+
+背景音乐与游戏声音各自拥有 `0..1` 音量和静音位，严格保存在 localStorage key
+`retrom:immersive:audio-preferences:v1` 的 `{bgmVolume,bgmMuted,gameVolume,gameMuted}`；默认分别为
+`0.4/false` 和 `1/false`。非法、未知字段或不可读 payload 整体回默认；localStorage 不可用时仅保持当前
+页面内存状态。Select 只在浏览 Shell 打开系统菜单；上下选择背景音乐音量/静音、游戏音量/静音、进入全屏、
+退出沉浸，左右以 0.1 调整音量，A 确认，B 关闭。游戏组设置在 Player Core 音频实例可用时应用；原生全屏
+仍受浏览器 user activation 限制，失败是可恢复展示状态而不是后端错误。
 
 普通 adapter ID 因此升级为 `ejs-4.2.3-v3` 与 `ejs-4.3.0-pre-v2`；新 ID 在非沉浸分支与前一普通 adapter
 行为等价，并只在显式沉浸 config 安装过滤。既有联机 profile 继续锁定 `ejs-4.2.3-v2` 与
@@ -342,4 +361,4 @@ Core 在打开前已暂停时不能越权恢复。退出先 finish/revoke，成�
 
 ## 15. 统一验收入口
 
-启动与全屏执行 `ACC-RUN-001`–`ACC-RUN-012`；移动方向门禁、横屏 HUD、P1/P2 暂停职责和请求时序执行 `ACC-MOB-005`–`ACC-MOB-007`；显式状态存档、普通开始隔离与恢复执行 `ACC-SAVE-001`–`ACC-SAVE-003`；多盘锁定、换盘与跨盘恢复执行 `ACC-MDISC-004`–`ACC-MDISC-006`；账户与 Player 数据隔离执行 `ACC-ISO-001`–`ACC-ISO-003` 与 `ACC-MDISC-008`；有效时长执行 `ACC-PLAY-001`；沉浸入口、平台/游戏浏览、真实单机 Core、双组合/输入隔离与普通/联机回归执行 `ACC-IMM-001`–`008`；事件映射及已登记核心的真实单机运行与跨源隔离分别由 `make web-e2e`、受影响产品集成测试和 `ACC-NET-001` 覆盖。联机协议、安全、feature flag 与单机回归由 `ACC-NP-010`–`013` 覆盖；八个精确 profile 的 rollback/严格 lockstep、后台恢复与重连身份由 `ACC-NP-014`–`022` 覆盖。具体已覆盖核心与边界以 [`core-runtime-validation.md`](./core-runtime-validation.md) 为准。
+启动与全屏执行 `ACC-RUN-001`–`ACC-RUN-012`；移动方向门禁、横屏 HUD、P1/P2 暂停职责和请求时序执行 `ACC-MOB-005`–`ACC-MOB-007`；显式状态存档、普通开始隔离与恢复执行 `ACC-SAVE-001`–`ACC-SAVE-003`；多盘锁定、换盘与跨盘恢复执行 `ACC-MDISC-004`–`ACC-MDISC-006`；账户与 Player 数据隔离执行 `ACC-ISO-001`–`ACC-ISO-003` 与 `ACC-MDISC-008`；有效时长执行 `ACC-PLAY-001`；沉浸入口、资料库/平台/游戏/存档浏览、BGM/系统菜单、真实单机 Core、显式创建存档、双组合/输入隔离与普通/联机回归执行 `ACC-IMM-001`–`012`；事件映射及已登记核心的真实单机运行与跨源隔离分别由 `make web-e2e`、受影响产品集成测试和 `ACC-NET-001` 覆盖。联机协议、安全、feature flag 与单机回归由 `ACC-NP-010`–`013` 覆盖；八个精确 profile 的 rollback/严格 lockstep、后台恢复与重连身份由 `ACC-NP-014`–`022` 覆盖。具体已覆盖核心与边界以 [`core-runtime-validation.md`](./core-runtime-validation.md) 为准。

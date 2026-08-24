@@ -82,7 +82,10 @@ database/sql + 既有 authn/cursor/idempotency
 ## 5. 页面接入与设计源
 
 - 一级导航顺序固定为首页、游戏库、我的存档、我的收藏、最近游玩；收藏页路由为 `/favorites`。
-- 游戏库卡片、游戏详情和收藏页共享服务端 Favorite 投影；首页、最近游玩、存档页和 Player 不新增首批收藏入口。
+- 普通游戏库卡片、游戏详情和收藏页共享服务端 Favorite 投影；普通首页、最近游玩、存档页和普通 Player
+  不新增首批收藏入口。独立沉浸 Shell 是例外消费者：固定“收藏游戏” destination 可浏览当前 Profile 的
+  Folder，任意沉浸游戏列表以 Y 调用默认收藏切换；新增 Favorite 不自动加入 Folder，取消 Favorite 原子移除
+  全部 Membership。它复用既有 API/隔离/事务，不建立第二套收藏状态。
 - 收藏页的 Rail、筛选、卡片、Folder 管理、批量栏、状态与无障碍细节见 [`ui-specification.md`](./ui-specification.md)。
 - 可维护的交互设计源是 [`design/retrom-ui-review.fragment.html`](./design/retrom-ui-review.fragment.html)，由它生成 [`design/retrom-ui-review.html`](./design/retrom-ui-review.html)。收藏主页面、Folder 管理与取消收藏确认可由 capture 脚本在本地生成图片复核，但图片由 `docs/design/.gitignore` 忽略且不被正式文档引用。设计中的标题、封面和数量仅用于评审，不进入 seed、fixture 或生产默认值。
 
@@ -92,6 +95,7 @@ database/sql + 既有 authn/cursor/idempotency
 - 首次进入的所有账号都是空收藏状态；不得从最近游玩、存档、平台图钉或浏览器历史推断收藏。
 - 发布前执行离线 backup。回滚应用时停止服务并恢复与目标二进制 lineage 精确匹配的完整数据根；不得局部删表、手工降低 `schema_migrations` 或让不匹配的二进制继续写库。
 - 数据与后端最低自动化见 [`engineering-quality-and-testing.md`](./engineering-quality-and-testing.md#71-后端与数据)，前端与浏览器最低自动化见 [`engineering-quality-and-testing.md`](./engineering-quality-and-testing.md#72-前端与浏览器)。
-- 正式通过只以 [`ACC-FAV-001`–`004`](./project-acceptance.md#16-收藏与收藏夹) 的当次结果为准；专题不复制 Case 流程或通过标准。
+- 普通收藏正式通过只以 [`ACC-FAV-001`–`004`](./project-acceptance.md#16-收藏与收藏夹) 的当次结果为准；
+  沉浸 Folder 与 Y 默认收藏由 `ACC-IMM-009` 覆盖。专题不复制 Case 流程或通过标准。
 
 当字段、route、UI 行为或验收标准变化时，必须修改其唯一事实源和对应自动化，不能在本专题建立第二份可执行契约。

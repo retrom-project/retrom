@@ -41,7 +41,7 @@ func TestAcceptanceNP011RecoveryClosesRunningSessionRoomAndLaunch(t *testing.T) 
 		args  []any
 	}{
 		{`INSERT INTO profiles(id,display_name,created_at_ms) VALUES(?,?,?)`, []any{profileID, "Host", now.UnixMilli()}},
-		{`INSERT INTO game_metadata_revisions(id,game_id,title,description,developer,publisher,genre,players,source_kind,created_at_ms) VALUES(?,?,'Recovery','','','','',2,'ADMIN_EDIT',?)`, []any{metadataID, gameID, now.UnixMilli()}},
+		{`INSERT INTO game_metadata_revisions(id,game_id,title,title_initial,description,developer,publisher,genre,players,source_kind,created_at_ms) VALUES(?,?,'Recovery','R','','','','',2,'ADMIN_EDIT',?)`, []any{metadataID, gameID, now.UnixMilli()}},
 		{`INSERT INTO game_content_revisions(id,game_id,source_kind,source_ref_id,source_manifest_json,source_manifest_digest,created_at_ms) VALUES(?,?,'ADMIN_REPLACE','recovery','{}',?,?)`, []any{contentID, gameID, strings.Repeat("1", 64), now.UnixMilli()}},
 		{`INSERT INTO games(id,platform_instance_id,status,current_metadata_revision_id,current_content_revision_id,search_text,version,created_at_ms,updated_at_ms) VALUES(?,(SELECT id FROM platform_instances WHERE catalog_template_key='nes/fceumm'),'PUBLISHED',?,?,'recovery',1,?,?)`, []any{gameID, metadataID, contentID, now.UnixMilli(), now.UnixMilli()}},
 		{`INSERT INTO core_artifacts(id,core_id,emulatorjs_version,bundle_version,flavor,relative_path,size_bytes,sha256,provenance_json,compatibility_config_json,enabled,version,created_at_ms,updated_at_ms) VALUES(?,'fceumm','4.2.3','test','WASM','cores/test.data',1,?,'{}','{}',1,1,?,?)`, []any{artifactID, strings.Repeat("4", 64), now.UnixMilli(), now.UnixMilli()}},

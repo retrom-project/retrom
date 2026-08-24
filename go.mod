@@ -3,8 +3,10 @@ module retrom
 go 1.26.5
 
 require (
+	github.com/coder/websocket v1.8.15
 	github.com/getkin/kin-openapi v0.142.0
 	github.com/google/uuid v1.6.0
+	github.com/mozillazg/go-pinyin v0.21.0
 	github.com/oapi-codegen/nethttp-middleware v1.2.0
 	github.com/oapi-codegen/runtime v1.6.0
 	golang.org/x/crypto v0.54.0
@@ -15,10 +17,7 @@ require (
 
 tool github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen
 
-require (
-	github.com/coder/websocket v1.8.15 // indirect
-	github.com/oapi-codegen/oapi-codegen/v2 v2.8.0 // indirect
-)
+require github.com/oapi-codegen/oapi-codegen/v2 v2.8.0 // indirect
 
 require (
 	github.com/andybalholm/brotli v1.2.2 // indirect

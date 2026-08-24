@@ -115,8 +115,8 @@ VALUES(?,?,?,?,?,?,?,?,?,'HASH_WARNING','{}',?,1,?,?)
 		args  []any
 	}{
 		{`PRAGMA defer_foreign_keys=ON`, nil},
-		{`INSERT INTO game_metadata_revisions(id,game_id,title,description,developer,publisher,genre,players,release_year,source_kind,source_ref_id,created_at_ms)
-VALUES(?,?,'MelonDS fixture','','','','',NULL,NULL,'IMPORT_REVIEW','fixture',?)`, []any{metadataID, gameID, now}},
+		{`INSERT INTO game_metadata_revisions(id,game_id,title,title_initial,description,developer,publisher,genre,players,release_year,source_kind,source_ref_id,created_at_ms)
+VALUES(?,?,'MelonDS fixture','M','','','','',NULL,NULL,'IMPORT_REVIEW','fixture',?)`, []any{metadataID, gameID, now}},
 		{`INSERT INTO game_content_revisions(id,game_id,source_kind,source_ref_id,source_manifest_json,source_manifest_digest,created_at_ms)
 VALUES(?,?,'IMPORT_REVIEW','fixture','{}',?,?)`, []any{contentID, gameID, strings.Repeat("a", 64), now}},
 		{`INSERT INTO games(id,platform_instance_id,status,current_metadata_revision_id,current_content_revision_id,search_text,version,created_at_ms,updated_at_ms)
@@ -181,13 +181,18 @@ func assertMelonDSLaunch(
 	configuration, err := service.Config(ctx, launch.LaunchID, launch.Capability)
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return configuration.Core != "melonds" }, func() bool { return configuration.RuntimeCore != "melonds" }, func() bool { return configuration.InputMode != "POINTER" }, func() bool { return len(configuration.ExternalFiles) != 3 }), "MelonDS config = %#v, error=%v", configuration, err)
 	for _, item := range requirements {
-		expectedURL := "/runtime/launches/" + launch.LaunchID + "/external-files/" + item.logicalName
-		testassert.CheckFalsef(t, configuration.ExternalFiles[item.virtualPath] != expectedURL, "external mapping %s = %q", item.virtualPath, configuration.ExternalFiles[item.virtualPath])
 		digest, blobErr := service.ExternalBlob(ctx, launch.LaunchID, launch.Capability, item.logicalName)
 		expectedDigest := item.oldDigest
 		if useNew {
 			expectedDigest = item.newDigest
 		}
+		expectedIdentity, identityErr := ExternalContentIdentity(expectedDigest)
+		expectedURL, urlErr := RuntimeContentURL("external", expectedIdentity, item.logicalName)
+		testassert.CheckFalsef(t, testassert.Any(
+			func() bool { return identityErr != nil },
+			func() bool { return urlErr != nil },
+			func() bool { return configuration.ExternalFiles[item.virtualPath] != expectedURL },
+		), "external mapping %s = %q", item.virtualPath, configuration.ExternalFiles[item.virtualPath])
 		testassert.CheckFalsef(t, testassert.Any(func() bool { return blobErr != nil }, func() bool { return digest != expectedDigest }), "external %s = %s, error=%v", item.logicalName, digest, blobErr)
 	}
 	bundle, err := service.BundleFiles(ctx, launch.LaunchID, launch.Capability, "BIOS_BUNDLE")

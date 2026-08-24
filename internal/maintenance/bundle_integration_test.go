@@ -50,9 +50,9 @@ func seedBackupFavorites(t *testing.T, database *sql.DB, profileID string) {
 	}
 	if _, err := transaction.ExecContext(context.Background(), `
 INSERT INTO game_metadata_revisions(
-  id,game_id,title,description,developer,publisher,genre,players,release_year,
+  id,game_id,title,title_initial,description,developer,publisher,genre,players,release_year,
   source_kind,source_ref_id,created_at_ms
-) VALUES(?,?,?,'','','','',NULL,1995,'ADMIN_EDIT',NULL,1000)
+) VALUES(?,?,?,'B','','','','',NULL,1995,'ADMIN_EDIT',NULL,1000)
 `, metadataID, backupGameID, "Backup favorite"); err != nil {
 		t.Fatal(err)
 	}

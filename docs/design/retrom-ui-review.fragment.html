@@ -2300,6 +2300,19 @@
     #retrom-ui-review .rt-im-platform-cover:nth-child(3) { z-index:1;opacity:.54;transform:translate(-11%,5%) rotate(-8deg) scale(.84) }
     #retrom-ui-review .rt-im-platform-cover small { font-size:10px;font-weight:900;letter-spacing:.12em }
     #retrom-ui-review .rt-im-platform-cover strong { font-size:18px;line-height:1.05 }
+    #retrom-ui-review .rt-im-destination-order { margin:18px 0 0;display:flex;gap:8px;align-items:center;position:relative;z-index:1;overflow:hidden }
+    #retrom-ui-review .rt-im-destination-order span { padding:7px 12px;border:1px solid rgba(255,255,255,.12);border-radius:999px;color:#8f8ba8;background:rgba(255,255,255,.04);font-size:11px;font-weight:800;white-space:nowrap }
+    #retrom-ui-review .rt-im-destination-order span.is-current { color:white;border-color:#927dff;background:#6547d6 }
+    #retrom-ui-review .rt-im-folders { display:flex;gap:10px;margin:22px 0 0;position:relative;z-index:1 }
+    #retrom-ui-review .rt-im-folder { padding:10px 16px;border:1px solid rgba(255,255,255,.13);border-radius:999px;color:#aaa5c0;background:rgba(255,255,255,.04);font-weight:750 }
+    #retrom-ui-review .rt-im-folder.is-selected { color:white;border-color:#8d78ff;background:rgba(103,75,223,.55);box-shadow:0 0 0 4px rgba(112,83,231,.13) }
+    #retrom-ui-review .rt-im-favorite-state { display:inline-flex;align-items:center;gap:8px;margin-top:14px;color:#ff9ebe;font-weight:800 }
+    #retrom-ui-review .rt-im-save-list { display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-top:18px }
+    #retrom-ui-review .rt-im-save { min-height:104px;padding:15px;border:1px solid rgba(255,255,255,.12);border-radius:17px;display:grid;grid-template-columns:112px minmax(0,1fr);gap:13px;color:#aaa5bc;background:rgba(255,255,255,.04);text-align:left }
+    #retrom-ui-review .rt-im-save.is-selected { color:white;border-color:#927dff;background:rgba(103,75,223,.32);box-shadow:0 0 0 4px rgba(112,83,231,.14) }
+    #retrom-ui-review .rt-im-save-shot { border-radius:10px;background:radial-gradient(circle at 52% 34%,#ba6a47 0 5%,transparent 6%),linear-gradient(#8994be 0 54%,#2d324b 55% 67%,#10131f 68%) }
+    #retrom-ui-review .rt-im-save strong,#retrom-ui-review .rt-im-save small { display:block }
+    #retrom-ui-review .rt-im-save small { margin-top:8px;line-height:1.45;color:#aaa5bc }
     #retrom-ui-review .rt-im-game-layout { flex:1;min-height:0;margin-top:38px;display:grid;grid-template-columns:minmax(300px,31vw) minmax(0,1fr);gap:clamp(28px,4vw,72px);position:relative;z-index:1 }
     #retrom-ui-review .rt-im-game-list { min-height:0;padding-right:16px;display:flex;flex-direction:column;justify-content:center;gap:10px }
     #retrom-ui-review .rt-im-game-row { padding:17px 22px;border-left:4px solid transparent;border-radius:0 16px 16px 0;color:#8f8ba3;font-size:clamp(18px,1.6vw,28px);font-weight:750;white-space:nowrap;overflow:hidden;text-overflow:ellipsis }
@@ -2320,6 +2333,15 @@
     #retrom-ui-review .rt-im-menu { width:min(660px,76vw);padding:42px;border:1px solid rgba(255,255,255,.15);border-radius:28px;background:#171a27;box-shadow:0 35px 100px #000;text-align:center }
     #retrom-ui-review .rt-im-menu h1 { margin:0 0 9px;font-size:34px }
     #retrom-ui-review .rt-im-menu p { margin:0 0 30px;color:#aaa5ba }
+    #retrom-ui-review .rt-im-menu .rt-im-actions { grid-template-columns:repeat(3,minmax(0,1fr)) }
+    #retrom-ui-review .rt-im-system-menu { width:min(760px,80vw);padding:36px;border:1px solid rgba(255,255,255,.15);border-radius:28px;background:linear-gradient(145deg,#1b1e2e,#11131f);box-shadow:0 35px 100px #000 }
+    #retrom-ui-review .rt-im-system-menu h1 { margin:7px 0 8px;font-size:36px }
+    #retrom-ui-review .rt-im-system-menu>p { margin:0 0 24px;color:#aaa5ba }
+    #retrom-ui-review .rt-im-system-options { display:grid;gap:7px }
+    #retrom-ui-review .rt-im-system-option { min-height:52px;padding:0 16px;border:1px solid transparent;border-radius:13px;display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;color:#b5b0c7;background:rgba(255,255,255,.035) }
+    #retrom-ui-review .rt-im-system-option.is-selected { color:white;border-color:#927dff;background:rgba(103,75,223,.38);box-shadow:0 0 0 4px rgba(112,83,231,.12) }
+    #retrom-ui-review .rt-im-meter { width:180px;height:8px;border-radius:999px;background:rgba(255,255,255,.12);overflow:hidden }
+    #retrom-ui-review .rt-im-meter i { display:block;width:40%;height:100%;background:#9a85ff }
     #retrom-ui-review .rt-im-footer { margin-top:auto;display:flex;justify-content:space-between;align-items:center;position:relative;z-index:1 }
     @media(max-width:1000px){#retrom-ui-review .rt-im-game-layout{grid-template-columns:34% minmax(0,1fr)}#retrom-ui-review .rt-im-media{grid-template-columns:40% minmax(0,1fr);padding:16px}.rt-im-help{gap:12px}}
     @media(prefers-reduced-motion:reduce){#retrom-ui-review .rt-im-platform{transition:none}}
@@ -2338,8 +2360,10 @@
       <button type="button" data-review-scene="netplay-room">联机房间</button>
       <button type="button" data-review-scene="netplay-player">联机 Player</button>
       <button type="button" data-review-scene="immersive-entry">沉浸入口</button>
-      <button type="button" data-review-scene="immersive-platforms">沉浸选平台</button>
-      <button type="button" data-review-scene="immersive-games">沉浸选游戏</button>
+      <button type="button" data-review-scene="immersive-platforms">沉浸选入口</button>
+      <button type="button" data-review-scene="immersive-games">沉浸收藏</button>
+      <button type="button" data-review-scene="immersive-saves">沉浸存档</button>
+      <button type="button" data-review-scene="immersive-system-menu">沉浸系统菜单</button>
       <button type="button" data-review-scene="immersive-player">沉浸游戏菜单</button>
       <button type="button" data-review-scene="admin-users">用户管理</button>
     </div>
@@ -2350,40 +2374,57 @@
       <div class="rt-im-topbar"><div class="rt-im-brand"><span class="rt-im-brand-mark">R</span> Retrom</div><div class="rt-im-help"><span><kbd data-button="A">A</kbd>确认</span><span><kbd data-button="B">B</kbd>取消</span></div></div>
       <div class="rt-im-backdrop">
         <section class="rt-im-dialog" role="dialog" aria-modal="true" aria-labelledby="rt-im-entry-title">
-          <div class="rt-im-eyebrow">检测到手柄</div><h1 id="rt-im-entry-title">进入沉浸模式？</h1><p>为电视与手柄设计的独立体验。选平台、选游戏，然后直接开始游玩。</p>
+          <div class="rt-im-eyebrow">首页显式入口 · 已检测到手柄</div><h1 id="rt-im-entry-title">进入沉浸模式？</h1><p>为电视与手柄设计的独立体验。浏览全部、最近、收藏、存档或平台，然后直接开始游玩。</p>
           <div class="rt-im-actions"><button type="button" class="rt-im-action is-selected">取消</button><button type="button" class="rt-im-action">进入沉浸模式</button></div>
         </section>
       </div>
     </div>
   </section>
 
-  <section class="rt-immersive-design" data-immersive-page="immersive-platforms" aria-label="沉浸模式平台选择" hidden>
+  <section class="rt-immersive-design" data-immersive-page="immersive-platforms" aria-label="沉浸模式入口选择" hidden>
     <div class="rt-im-stage">
       <button type="button" class="rt-im-fullscreen-recovery">⛶ 进入全屏</button>
-      <div class="rt-im-topbar"><div class="rt-im-brand"><span class="rt-im-brand-mark">R</span> 沉浸模式</div><div class="rt-im-help"><span><kbd role="img" aria-label="左右方向键"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 12h8M10 8l-4 4 4 4M14 8l4 4-4 4"></path></svg></kbd>切换</span><span><kbd data-button="A">A</kbd>进入</span><span><kbd data-button="B">B</kbd>退出</span></div></div>
-      <header class="rt-im-heading"><span class="rt-im-eyebrow">选择平台</span><h1>你的游戏，在这里开始</h1><p>使用左右方向键浏览平台</p></header>
+      <div class="rt-im-topbar"><div class="rt-im-brand"><span class="rt-im-brand-mark">R</span> 沉浸模式</div><div class="rt-im-help"><span><kbd role="img" aria-label="左右方向键"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 12h8M10 8l-4 4 4 4M14 8l4 4-4 4"></path></svg></kbd>切换</span><span><kbd data-button="A">A</kbd>进入</span><span><kbd data-button="B">B</kbd>退出</span><span><kbd style="font-size:8px">SEL</kbd>菜单</span></div></div>
+      <header class="rt-im-heading"><span class="rt-im-eyebrow">选择入口</span><h1>你的游戏，在这里开始</h1><p>先浏览四个资料库入口，再选择游戏平台</p></header>
+      <div class="rt-im-destination-order" aria-label="入口固定顺序"><span>01 全部游戏</span><span class="is-current">02 最近游玩</span><span>03 收藏游戏</span><span>04 我的存档</span><span>05 Arcade</span><span>06 Game Boy Advance</span></div>
       <div class="rt-im-platforms">
-        <article class="rt-im-platform"><div class="rt-im-platform-copy"><div class="rt-im-platform-code">GBA</div><div><h2>Game Boy Advance</h2><p>12 款游戏<br>上次游玩 · 昨天 22:14</p></div></div></article>
-        <article class="rt-im-platform is-selected"><div class="rt-im-platform-copy"><div class="rt-im-platform-code">ARC</div><div><h2>Arcade</h2><p>28 款游戏<br>上次游玩 · 今天 15:16</p></div></div><div class="rt-im-platform-covers" aria-label="Arcade 最近游戏封面"><figure class="rt-im-platform-cover"><small>最近游玩</small><strong>打击者 1945 加强版</strong></figure><figure class="rt-im-platform-cover"><small>最近游玩</small><strong>合金弹头</strong></figure><figure class="rt-im-platform-cover"><small>最近加入</small><strong>拳皇 98</strong></figure></div></article>
-        <article class="rt-im-platform"><div class="rt-im-platform-copy"><div class="rt-im-platform-code">NES</div><div><h2>NES / Famicom</h2><p>9 款游戏<br>还没有游玩记录</p></div></div></article>
+        <article class="rt-im-platform"><div class="rt-im-platform-copy"><div class="rt-im-platform-code">ALL</div><div><h2>全部游戏</h2><p>38 款游戏<br>跨平台浏览</p></div></div></article>
+        <article class="rt-im-platform is-selected"><div class="rt-im-platform-copy"><div class="rt-im-platform-code">↺</div><div><h2>最近游玩</h2><p>11 款游戏<br>上次游玩 · 今天 15:16</p></div></div><div class="rt-im-platform-covers" aria-label="最近游玩封面"><figure class="rt-im-platform-cover"><small>刚刚玩过</small><strong>打击者 1945 加强版</strong></figure><figure class="rt-im-platform-cover"><small>昨天</small><strong>合金弹头</strong></figure><figure class="rt-im-platform-cover"><small>本周</small><strong>拳皇 98</strong></figure></div></article>
+        <article class="rt-im-platform"><div class="rt-im-platform-copy"><div class="rt-im-platform-code">♥</div><div><h2>收藏游戏</h2><p>18 款游戏<br>4 个收藏夹</p></div></div></article>
       </div>
-      <footer class="rt-im-footer"><span class="rt-im-eyebrow">02 / 03</span><div class="rt-im-help"><span><kbd>A</kbd>选择 Arcade</span></div></footer>
+      <footer class="rt-im-footer"><span class="rt-im-eyebrow">02 / 06</span><div class="rt-im-help"><span><kbd>A</kbd>打开最近游玩</span></div></footer>
     </div>
   </section>
 
   <section class="rt-immersive-design" data-immersive-page="immersive-games" aria-label="沉浸模式游戏选择" hidden>
     <div class="rt-im-stage">
-      <div class="rt-im-topbar"><div class="rt-im-brand"><span class="rt-im-brand-mark">ARC</span> Arcade</div><div class="rt-im-help"><span><kbd role="img" aria-label="上下方向键"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8v8M8 10l4-4 4 4M8 14l4 4 4-4"></path></svg></kbd>选择游戏</span><span><kbd role="img" aria-label="左右方向键"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 12h8M10 8l-4 4 4 4M14 8l4 4-4 4"></path></svg></kbd>快速翻页</span><span><kbd data-button="A">A</kbd>开始</span><span><kbd data-button="B">B</kbd>返回</span></div></div>
+      <div class="rt-im-topbar"><div class="rt-im-brand"><span class="rt-im-brand-mark">♥</span> 收藏游戏 · 18 款</div><div class="rt-im-help"><span><kbd role="img" aria-label="上下方向键"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8v8M8 10l4-4 4 4M8 14l4 4 4-4"></path></svg></kbd>选择游戏</span><span><kbd data-button="Y">Y</kbd>默认收藏</span><span><kbd data-button="A">A</kbd>开始</span><span><kbd data-button="B">B</kbd>返回</span><span><kbd style="font-size:8px">SEL</kbd>菜单</span></div></div>
+      <div class="rt-im-folders" aria-label="收藏夹"><button type="button" class="rt-im-folder">全部收藏 · 18</button><button type="button" class="rt-im-folder is-selected">街机精选 · 8</button><button type="button" class="rt-im-folder">想玩的 · 6</button><button type="button" class="rt-im-folder">双人游戏 · 4</button></div>
       <div class="rt-im-game-layout">
-        <nav class="rt-im-game-list" aria-label="Arcade 游戏"><div class="rt-im-game-row">合金弹头</div><div class="rt-im-game-row">四国战机 2</div><div class="rt-im-game-row is-selected">打击者 1945 加强版</div><div class="rt-im-game-row">原生兽</div><div class="rt-im-game-row">拳皇 98</div></nav>
-        <article class="rt-im-game-preview"><div class="rt-im-media"><div class="rt-im-cover" aria-label="封面"></div><div class="rt-im-video" aria-label="视频预览"><span>▶</span></div></div><div class="rt-im-description"><span class="rt-im-eyebrow">Psikyo · 1999 · 飞行射击</span><h1>打击者 1945 加强版</h1><p tabindex="0">经典纵向飞行射击。选择战机，穿越密集弹幕并挑战多阶段首领；支持单人或双人协作。游戏保留了街机版高速推进、路线切换和多阶段 Boss 战，较长的完整简介会在这里形成可聚焦滚动区域，而不是直接截断。</p></div></article>
+        <nav class="rt-im-game-list" aria-label="街机精选收藏夹"><div class="rt-im-game-row">1941</div><div class="rt-im-game-row">四国战机 2</div><div class="rt-im-game-row is-selected">打击者 1945 加强版</div><div class="rt-im-game-row">合金弹头</div><div class="rt-im-game-row">拳皇 98</div></nav>
+        <article class="rt-im-game-preview"><div class="rt-im-media"><div class="rt-im-cover" aria-label="封面"></div><div class="rt-im-video" aria-label="视频预览"><span>▶</span></div></div><div class="rt-im-description"><span class="rt-im-eyebrow">S · Psikyo · 1999 · 飞行射击</span><h1>打击者 1945 加强版</h1><p tabindex="0">经典纵向飞行射击。选择战机，穿越密集弹幕并挑战多阶段首领；支持单人或双人协作。游戏保留了街机版高速推进、路线切换和多阶段 Boss 战，较长的完整简介会在这里形成可聚焦滚动区域，而不是直接截断。</p><span class="rt-im-favorite-state">♥ 已收藏 · Y 取消默认收藏</span></div></article>
       </div>
     </div>
   </section>
 
+  <section class="rt-immersive-design" data-immersive-page="immersive-saves" aria-label="沉浸模式存档浏览" hidden>
+    <div class="rt-im-stage">
+      <div class="rt-im-topbar"><div class="rt-im-brand"><span class="rt-im-brand-mark">▣</span> 我的存档 · 12 款游戏</div><div class="rt-im-help"><span><kbd role="img" aria-label="上下方向键"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8v8M8 10l4-4 4 4M8 14l4 4 4-4"></path></svg></kbd>选择</span><span><kbd data-button="A">A</kbd>从存档开始</span><span><kbd data-button="B">B</kbd>返回</span><span><kbd style="font-size:8px">SEL</kbd>菜单</span></div></div>
+      <div class="rt-im-game-layout">
+        <nav class="rt-im-game-list" aria-label="有存档的游戏"><div class="rt-im-game-row">1941 · 12 份</div><div class="rt-im-game-row is-selected">打击者 1945 加强版 · 2 份</div><div class="rt-im-game-row">塞尔达传说 · 4 份</div></nav>
+        <article class="rt-im-game-preview"><div class="rt-im-media"><div class="rt-im-cover" aria-label="封面"></div><div class="rt-im-save-list" aria-label="打击者 1945 加强版存档"><button type="button" class="rt-im-save is-selected"><span class="rt-im-save-shot" aria-label="存档截图"></span><span><strong>今天 15:16</strong><small>手动存档<br>从这里继续</small></span></button><button type="button" class="rt-im-save"><span class="rt-im-save-shot" aria-label="存档截图"></span><span><strong>昨天 22:14</strong><small>手动存档<br>第二关</small></span></button></div></div><div class="rt-im-description"><span class="rt-im-eyebrow">S · Arcade · FinalBurn Neo</span><h1>选择一份存档继续</h1><p>截图与状态只属于当前用户；A 将使用选中的存档创建普通单机 Launch，B 返回游戏列表后可无存档重新开始。</p></div></article>
+      </div>
+    </div>
+  </section>
+
+  <section class="rt-immersive-design rt-im-player" data-immersive-page="immersive-system-menu" aria-label="沉浸模式系统菜单" hidden>
+    <div class="rt-im-game-frame" aria-label="沉浸模式入口背景"></div>
+    <div class="rt-im-pause"><section class="rt-im-system-menu" role="dialog" aria-modal="true" aria-labelledby="rt-im-system-title"><span class="rt-im-eyebrow">RETROM · SELECT</span><h1 id="rt-im-system-title">系统菜单</h1><p>调整沉浸模式的声音与显示。</p><div class="rt-im-system-options"><div class="rt-im-system-option is-selected"><strong>背景音乐音量</strong><span style="display:flex;align-items:center;gap:10px"><span class="rt-im-meter"><i></i></span><b>40%</b></span></div><div class="rt-im-system-option"><strong>背景音乐静音</strong><span>有声音</span></div><div class="rt-im-system-option"><strong>游戏音量</strong><span>100%</span></div><div class="rt-im-system-option"><strong>游戏静音</strong><span>有声音</span></div><div class="rt-im-system-option"><strong>进入全屏</strong><span>A 确认</span></div><div class="rt-im-system-option"><strong>退出沉浸模式</strong><span>返回普通首页</span></div></div><div class="rt-im-help" style="justify-content:center;margin-top:24px"><span>上下选择</span><span>左右调整</span><span><kbd data-button="A">A</kbd>确认</span><span><kbd data-button="B">B</kbd>返回</span></div></section></div>
+  </section>
+
   <section class="rt-immersive-design rt-im-player" data-immersive-page="immersive-player" aria-label="沉浸模式游戏菜单" hidden>
     <div class="rt-im-game-frame" aria-label="暂停的游戏画面"></div>
-    <div class="rt-im-pause"><section class="rt-im-menu" role="dialog" aria-modal="true" aria-labelledby="rt-im-menu-title"><span class="rt-im-eyebrow">游戏已暂停</span><h1 id="rt-im-menu-title">打击者 1945 加强版</h1><p>选择继续游戏，或退出并返回游戏列表。</p><div class="rt-im-actions"><button type="button" class="rt-im-action is-selected">取消</button><button type="button" class="rt-im-action">退出游戏</button></div><div class="rt-im-help" style="justify-content:center;margin-top:24px"><span><kbd data-button="A">A</kbd>确认</span><span><kbd data-button="B">B</kbd>取消</span></div></section></div>
+    <div class="rt-im-pause"><section class="rt-im-menu" role="dialog" aria-modal="true" aria-labelledby="rt-im-menu-title"><span class="rt-im-eyebrow">游戏已暂停 · SELECT + START × 2</span><h1 id="rt-im-menu-title">打击者 1945 加强版</h1><p>继续游戏、创建一份带截图的手动存档，或退出并返回原列表。</p><div class="rt-im-actions"><button type="button" class="rt-im-action is-selected">取消</button><button type="button" class="rt-im-action">创建存档</button><button type="button" class="rt-im-action">退出游戏</button></div><div class="rt-im-help" style="justify-content:center;margin-top:24px"><span><kbd data-button="A">A</kbd>确认</span><span><kbd data-button="B">B</kbd>取消</span></div></section></div>
   </section>
 
   <section class="rt-auth-scene" data-auth-page="setup" aria-label="首次设置" hidden>
@@ -2515,6 +2556,7 @@
         <section class="rt-home-layer rt-home-hero-layer">
           <div class="rt-page-head">
             <div><h1>今天想玩什么？</h1><p class="rt-subtitle">从最近的进度继续，或重新发现资料库里的经典游戏</p></div>
+            <button type="button" class="rt-button rt-button-primary" data-open-immersive-entry><i data-lucide="gamepad-2" aria-hidden="true"></i>进入沉浸模式</button>
           </div>
           <div class="rt-home-first">
           <section class="rt-home-panel rt-home-featured">
@@ -3290,6 +3332,7 @@
         else if (scene === 'admin-users') { setMode('admin'); showPage(scene); }
         else { setMode('user'); showPage(scene); }
       }));
+      root.querySelector('[data-open-immersive-entry]').addEventListener('click', () => showImmersivePage('immersive-entry'));
 
       const userDrawer = root.querySelector('[data-user-drawer]');
       const userDrawerBackdrop = root.querySelector('[data-user-drawer-backdrop]');

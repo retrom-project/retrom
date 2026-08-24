@@ -163,9 +163,10 @@ func TestRuntimeAllowlistRejectsUnknownPath(t *testing.T) {
 func TestLaunchBundleHEADUsesCredentialProtectedHandler(t *testing.T) {
 	t.Parallel()
 	server := newTestServer(t)
+	identity := strings.Repeat("a", 64)
 	for _, path := range []string{
-		"/runtime/launches/01980000-0000-7000-8000-000000000001/bios/bundle.zip",
-		"/runtime/launches/01980000-0000-7000-8000-000000000001/parent/bundle.zip",
+		"/runtime/content/bios/" + identity + "/bundle.zip",
+		"/runtime/content/parent/" + identity + "/bundle.zip",
 	} {
 		recorder := httptest.NewRecorder()
 		server.Handler().ServeHTTP(recorder, httptest.NewRequestWithContext(context.Background(), http.MethodHead, path, nil))
@@ -245,7 +246,8 @@ VALUES(?,0,'epr-19730.ic8','epr-19730.ic8','epr-19730.ic8','ZIP','STORE',524288,
 
 func TestRestrictedBinaryEndpointsRejectMultipleRanges(t *testing.T) {
 	t.Parallel()
-	request := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/runtime/launches/id/game/game.zip", nil)
+	request := httptest.NewRequestWithContext(context.Background(), http.MethodGet,
+		"/runtime/content/game/"+strings.Repeat("a", 64)+"/game.zip", nil)
 	request.Header.Set("Range", "bytes=0-1,4-5")
 	recorder := httptest.NewRecorder()
 	testassert.Falsef(t, testassert.Any(func() bool { return !rejectMultipleRanges(recorder, request) }, func() bool { return recorder.Code != http.StatusRequestedRangeNotSatisfiable }, func() bool { return recorder.Header().Get("Content-Range") != "" }, func() bool { return !strings.Contains(recorder.Body.String(), `"code":"MULTIPLE_RANGES_UNSUPPORTED"`) }), "multiple range response = %d %s", recorder.Code, recorder.Body.String())

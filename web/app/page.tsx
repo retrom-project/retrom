@@ -3,6 +3,7 @@ import Link from "next/link";
 import { AppIcon } from "@/components/app-icon";
 import { EmptyState, PageHeader } from "@/components/ui";
 import { HorizontalRail, PlatformRail, type HomePlatform } from "@/features/home/home-rails";
+import { ImmersiveHomeEntry } from "@/features/home/immersive-home-entry";
 import { LaunchButton } from "@/features/player/launch-button";
 import { formatTime } from "@/lib/backend";
 import { backendJSON } from "@/lib/server-backend";
@@ -113,7 +114,7 @@ export default async function HomePage() {
   const home = await backendJSON<Home>("/api/v1/home");
   return <><ImmersiveEntryDialog /><div className="page-layout page-layout-home home-page">
     <section className="home-layer home-hero-layer" data-home-layer="1" aria-label="今天玩什么">
-      <PageHeader eyebrow="我的游戏" title="今天想玩什么？" description="回到最近玩的游戏，或者从资料库里找点经典游戏。" />
+      <PageHeader eyebrow="我的游戏" title="今天想玩什么？" description="回到最近玩的游戏，或者从资料库里找点经典游戏。" actions={<ImmersiveHomeEntry />} />
       <div className="home-first-layer" aria-label="最近游玩与快速开始">
         <FeaturedGamePanel game={home.featuredGame} />
         <QuickStart home={home} />

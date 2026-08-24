@@ -166,7 +166,9 @@ func publicHTTPRoute(request *http.Request) bool {
 		strings.HasPrefix(path, "/runtime/emulatorjs/")
 }
 
-func launchHTTPRoute(path string) bool { return strings.HasPrefix(path, "/runtime/launches/") }
+func launchHTTPRoute(path string) bool {
+	return strings.HasPrefix(path, "/runtime/launches/") || strings.HasPrefix(path, "/runtime/content/")
+}
 
 func (server *Server) validRequestOrigin(request *http.Request) bool {
 	values := request.Header.Values("Origin")
@@ -180,9 +182,10 @@ func (server *Server) validRequestOrigin(request *http.Request) bool {
 }
 
 var exactQueryAllowlists = map[string][]string{
-	"GET /api/v1/games":               {"q", "tagId", "platformId", "platformInstanceId", "sort", "cursor", "limit"},
-	"GET /api/v1/immersive/platforms": {},
-	"GET /api/v1/favorites":           {"scope", "folderId", "q", "platformId", "sort", "cursor", "limit"},
+	"GET /api/v1/games":                  {"q", "tagId", "platformId", "platformInstanceId", "sort", "cursor", "limit"},
+	"GET /api/v1/immersive/platforms":    {},
+	"GET /api/v1/immersive/destinations": {},
+	"GET /api/v1/favorites":              {"scope", "folderId", "q", "platformId", "sort", "cursor", "limit"},
 	"GET /api/v1/saves": {
 		"q", "gameId", "platformId", "platformInstanceId", "coreId", "availability", "sort", "cursor", "limit",
 	},
@@ -253,6 +256,10 @@ func queryParameterNames(request *http.Request) []string {
 }
 
 func immersiveQueryParameterNames(method, path string) []string {
+	if method == http.MethodGet && strings.HasPrefix(path, "/api/v1/immersive/libraries/") &&
+		strings.HasSuffix(path, "/games") {
+		return []string{"folderId", "cursor", "limit"}
+	}
 	if method == http.MethodGet && strings.HasPrefix(path, "/api/v1/immersive/platforms/") &&
 		strings.HasSuffix(path, "/games") {
 		return []string{"cursor", "limit"}

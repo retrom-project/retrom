@@ -40,13 +40,24 @@ func immersivePlatformProjection(platform immersive.Platform) map[string]any {
 }
 
 func immersiveGameProjection(game immersive.Game) map[string]any {
+	saveStates := make([]map[string]any, 0, len(game.SaveStates))
+	for _, saveState := range game.SaveStates {
+		saveStates = append(saveStates, map[string]any{
+			"saveStateId":   saveState.ID,
+			"name":          saveState.Name,
+			"createdAtMs":   saveState.CreatedAtMS,
+			"discIndex":     saveState.DiscIndex,
+			"screenshotUrl": "/content/save-states/" + saveState.ID + "/screenshot",
+		})
+	}
 	return map[string]any{
-		"gameId":      game.ID,
-		"title":       game.Title,
-		"description": game.Description,
-		"releaseYear": game.ReleaseYear,
-		"developer":   game.Developer,
-		"genre":       game.Genre,
+		"gameId":       game.ID,
+		"title":        game.Title,
+		"titleInitial": game.TitleInitial,
+		"description":  game.Description,
+		"releaseYear":  game.ReleaseYear,
+		"developer":    game.Developer,
+		"genre":        game.Genre,
 		"platformInstance": map[string]any{
 			"id": game.PlatformInstance.ID, "name": game.PlatformInstance.Name,
 		},
@@ -56,6 +67,8 @@ func immersiveGameProjection(game immersive.Game) map[string]any {
 		"coverUrl":       immersiveAssetURL(game.CoverAssetID),
 		"videoUrl":       immersiveAssetURL(game.VideoAssetID),
 		"lastPlayedAtMs": game.LastPlayedAtMS,
+		"favorited":      game.Favorited,
+		"saveStates":     saveStates,
 	}
 }
 
@@ -105,10 +118,14 @@ func (server *Server) decodeImmersiveGameCursor(
 		digest,
 		immersive.GameSortCode,
 	)
-	if err != nil || len(payload.SortValues) != 1 {
+	if err != nil || len(payload.SortValues) != 2 {
 		return immersive.GameCursor{}, errInvalidCursorPayload
 	}
-	return immersive.GameCursor{Title: payload.SortValues[0], ID: payload.ID}, nil
+	return immersive.GameCursor{
+		TitleInitial: payload.SortValues[0],
+		Title:        payload.SortValues[1],
+		ID:           payload.ID,
+	}, nil
 }
 
 func (server *Server) encodeImmersiveGameCursor(
@@ -119,7 +136,7 @@ func (server *Server) encodeImmersiveGameCursor(
 		OperationID:  immersiveGameOperationID,
 		FilterDigest: digest,
 		SortCode:     immersive.GameSortCode,
-		SortValues:   []string{next.Title},
+		SortValues:   []string{next.TitleInitial, next.Title},
 		ID:           next.ID,
 	})
 	if err != nil {

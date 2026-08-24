@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"retrom/internal/cleanup"
+	"retrom/internal/gametitle"
 	"retrom/internal/store"
 	"retrom/internal/testassert"
 	"retrom/internal/testsupport"
@@ -35,10 +36,10 @@ func insertFavoriteTestGame(t *testing.T, transaction *sql.Tx, gameID, suffix, t
 	contentID := "01980000-0000-7000-8000-00000000e3" + suffix
 	if _, err := transaction.ExecContext(context.Background(), `
 INSERT INTO game_metadata_revisions(
-  id,game_id,title,description,developer,publisher,genre,players,release_year,
+  id,game_id,title,title_initial,description,developer,publisher,genre,players,release_year,
   source_kind,source_ref_id,created_at_ms
-) VALUES(?,?,?,'','','','',NULL,NULLIF(?,0),'ADMIN_EDIT',NULL,1000)
-`, metadataID, gameID, title, year); err != nil {
+) VALUES(?,?,?,?,'','','','',NULL,NULLIF(?,0),'ADMIN_EDIT',NULL,1000)
+`, metadataID, gameID, title, gametitle.Initial(title), year); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := transaction.ExecContext(context.Background(), `

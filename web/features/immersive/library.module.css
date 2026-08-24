@@ -1,0 +1,68 @@
+.folderDetails {
+  place-items: center;
+  grid-template-columns: 1fr;
+  text-align: center;
+}
+
+.folderGlyph {
+  display: grid;
+  width: min(32vh, 340px);
+  aspect-ratio: 1;
+  place-items: center;
+  border: 1px solid rgb(255 255 255 / 14%);
+  border-radius: 32px;
+  color: #7ce9d8;
+  background: linear-gradient(145deg, #202940, #111625);
+  box-shadow: 0 28px 70px rgb(0 0 0 / 32%);
+  font-size: clamp(72px, 10vw, 150px);
+}
+
+.savePanel {
+  min-height: 0;
+}
+
+.savePreview {
+  display: grid;
+  min-height: 0;
+  grid-template-columns: minmax(180px, 42%) 1fr;
+  align-items: center;
+  gap: 24px;
+}
+
+.savePreview > div:last-child {
+  display: grid;
+  gap: 10px;
+}
+
+.savePreview time {
+  color: #aeb7ca;
+}
+
+.saveScreenshot {
+  position: relative;
+  overflow: hidden;
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  border: 2px solid rgb(255 255 255 / 18%);
+  border-radius: 16px;
+  background: #05070b;
+}
+
+.saveScreenshot img {
+  object-fit: contain;
+}
+
+.statusMessage {
+  position: fixed;
+  z-index: 40;
+  right: 32px;
+  bottom: 96px;
+  max-width: 420px;
+  margin: 0;
+  padding: 14px 18px;
+  border: 1px solid rgb(255 255 255 / 16%);
+  border-radius: 14px;
+  color: #f7f5f0;
+  background: rgb(13 18 31 / 94%);
+  box-shadow: 0 20px 50px rgb(0 0 0 / 32%);
+}

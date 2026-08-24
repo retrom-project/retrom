@@ -432,7 +432,7 @@ async function verifyFullProductLifecycle(page: Page, testInfo: TestInfo) {
     emulatorjsVersion: "4.2.3",
   });
   expect(config.gameUrl).toMatch(
-    /\/runtime\/launches\/[0-9a-f-]+\/game\/emulationstation-smoke\.gba$/,
+    /\/runtime\/content\/game\/[0-9a-f]{64}\/emulationstation-smoke\.gba$/,
   );
   const content = await page.request.get(config.gameUrl);
   expect(content.ok()).toBe(true);

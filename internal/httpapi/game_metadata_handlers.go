@@ -12,6 +12,7 @@ import (
 	"github.com/google/uuid"
 
 	"retrom/internal/cleanup"
+	"retrom/internal/gametitle"
 	"retrom/internal/libraryimport"
 	"retrom/internal/mediaasset"
 )
@@ -240,6 +241,7 @@ func (server *Server) createCandidateMetadataRevision(
 INSERT INTO game_metadata_revisions(id,
 game_id,
 title,
+title_initial,
 description,
 developer,
 publisher,
@@ -257,6 +259,7 @@ created_at_ms) VALUES(?,
 ?,
 ?,
 ?,
+?,
 'RESCRAPE_APPLY',
 ?,
 ?)
@@ -264,6 +267,7 @@ created_at_ms) VALUES(?,
 		revisionID.String(),
 		gameID,
 		metadata.Title,
+		gametitle.Initial(metadata.Title),
 		metadata.Description,
 		metadata.Developer,
 		metadata.Publisher,

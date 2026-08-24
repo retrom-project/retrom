@@ -9,7 +9,7 @@ import {
   standardButton,
 } from "./immersive-gamepad";
 
-type PlatformItem = {
+type DestinationItem = {
   featuredGames: Array<{
     coverUrl: string | null;
     gameId: string;
@@ -17,9 +17,10 @@ type PlatformItem = {
     title: string;
   }>;
   gameCount: number;
+  kind: "all" | "recent" | "favorites" | "saves" | "platform";
   lastPlayedAtMs: number | null;
-  platformId: string;
-  platformName: string;
+  destinationId: string;
+  name: string;
 };
 
 type GameItem = {
@@ -61,20 +62,22 @@ async function enterImmersive(page: Page) {
   await expect(dialog.getByRole("button", { name: "进入沉浸模式" })).toBeFocused();
   await pressGamepad(page, standardButton.a);
   await expect(page).toHaveURL(/\/immersive$/);
-  await expect(page.locator('[data-immersive-shell="true"]')).toBeVisible();
+  await expect(page.locator('[data-immersive-shell="true"]')).toHaveAttribute("data-controller-state", "ready");
+  await page.waitForTimeout(180);
 }
 
-async function platformItems(page: Page) {
-  const response = await page.request.get("/api/v1/immersive/platforms");
+async function destinationItems(page: Page) {
+  const response = await page.request.get("/api/v1/immersive/destinations");
   expect(response.ok()).toBe(true);
-  return (await response.json() as { items: PlatformItem[] }).items;
+  return (await response.json() as { items: DestinationItem[] }).items;
 }
 
 async function choosePlatform(page: Page, platformName: string) {
-  const items = await platformItems(page);
+  const items = await destinationItems(page);
   for (let attempt = 0; attempt < items.length; attempt += 1) {
     const current = page.getByRole("option", { selected: true });
-    if ((await current.textContent())?.includes(platformName)) {
+    const selected = items.find((item) => item.kind === "platform" && item.name === platformName);
+    if (selected && (await current.textContent())?.includes(selected.name)) {
       await page.waitForTimeout(180);
       return;
     }
@@ -111,15 +114,37 @@ async function selectGameForCore(page: Page, coreId: string) {
 async function selectGameByTitle(page: Page, title: string) {
   const selected = page.getByRole("option", { selected: true });
   if ((await selected.textContent())?.includes(title)) {return;}
-  await setGamepadButtons(page, 0, [standardButton.down]);
-  try {
-    await expect.poll(
-      async () => (await selected.textContent())?.includes(title) ?? false,
-      { intervals: [50], timeout: 20_000 },
-    ).toBe(true);
-  } finally {
-    await setGamepadButtons(page, 0, []);
+  const match = /\/immersive\/platforms\/([^?]+)/.exec(page.url());
+  if (!match) {throw new Error("IMMERSIVE_PLATFORM_ID_UNAVAILABLE");}
+  const titles: string[] = [];
+  let cursor: string | null = null;
+  do {
+    const suffix = cursor ? `&cursor=${encodeURIComponent(cursor)}` : "";
+    const response = await page.request.get(`/api/v1/immersive/platforms/${match[1]}/games?limit=50${suffix}`);
+    expect(response.ok()).toBe(true);
+    const payload = await response.json() as { items: GameItem[]; nextCursor: string | null };
+    titles.push(...payload.items.map((game) => game.title));
+    cursor = payload.nextCursor;
+  } while (cursor);
+  const targetIndex = titles.indexOf(title);
+  expect(targetIndex, `immersive game ${title}`).toBeGreaterThanOrEqual(0);
+  const selectedTitle = (await selected.textContent()) ?? "";
+  const selectedIndex = titles.findIndex((candidate) => selectedTitle.includes(candidate));
+  expect(selectedIndex, "selected immersive game index").toBeGreaterThanOrEqual(0);
+  const direction = targetIndex >= selectedIndex ? standardButton.right : standardButton.left;
+  const step = targetIndex >= selectedIndex ? standardButton.down : standardButton.up;
+  const distance = Math.abs(targetIndex - selectedIndex);
+  const pageMoves = Math.floor(distance / 8);
+  for (let index = 0; index < pageMoves; index += 1) {
+    await pressGamepad(page, direction, 0, 50, 130);
   }
+  if (targetIndex >= 50) {
+    await expect(page.getByRole("listbox").getByRole("option")).toHaveCount(titles.length);
+  }
+  for (let index = pageMoves * 8; index < distance; index += 1) {
+    await pressGamepad(page, step, 0, 50, 130);
+  }
+  await expect(selected).toContainText(title);
   await page.waitForTimeout(180);
 }
 
@@ -167,12 +192,28 @@ async function exitFromPlayerMenu(page: Page) {
   const finished = page.waitForResponse((response) =>
     /\/runtime\/launches\/[^/]+\/finish$/.test(response.url()) && response.request().method() === "POST");
   await pressGamepad(page, standardButton.right);
+  await pressGamepad(page, standardButton.right);
   await pressGamepad(page, standardButton.a);
   expect((await finished).ok()).toBe(true);
   await expect(page).toHaveURL(/\/immersive\/platforms\/[a-z0-9-]+\?gameId=[0-9a-f-]+$/);
 }
 
 test("ACC-IMM-001 home gamepad entry defaults to cancel and stays isolated", async ({ page }, testInfo) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(document.documentElement, "requestFullscreen", {
+      configurable: true,
+      value: () => Promise.reject(new DOMException("E2E denied", "NotAllowedError")),
+    });
+  });
+  await page.goto("/");
+  const explicitEntry = page.getByRole("button", { name: "进入沉浸模式" });
+  await expect(explicitEntry).toBeVisible();
+  await explicitEntry.focus();
+  await expect(explicitEntry).toBeFocused();
+  await explicitEntry.press("Enter");
+  await expect(page).toHaveURL(/\/immersive$/);
+  await expect(page.locator('[data-immersive-shell="true"]')).toBeVisible();
+
   const dialog = await claimEntry(page);
   await page.screenshot({ path: evidencePath(testInfo, "immersive-entry-confirmation.png"), fullPage: true });
   await pressGamepad(page, standardButton.b);
@@ -193,8 +234,14 @@ test("ACC-IMM-001 home gamepad entry defaults to cancel and stays isolated", asy
 });
 
 test("ACC-IMM-002 platform carousel uses real counts and controller-only navigation", async ({ page }, testInfo) => {
-  const items = await platformItems(page);
-  expect(items.length).toBeGreaterThanOrEqual(2);
+  const items = await destinationItems(page);
+  expect(items.length).toBeGreaterThanOrEqual(6);
+  expect(items.slice(0, 4).map(({ kind, name }) => ({ kind, name }))).toEqual([
+    { kind: "all", name: "全部游戏" },
+    { kind: "recent", name: "最近游玩" },
+    { kind: "favorites", name: "收藏游戏" },
+    { kind: "saves", name: "我的存档" },
+  ]);
   await enterImmersive(page);
   const current = page.getByRole("option", { selected: true });
   const horizontalKey = page.getByLabel("左右方向键");
@@ -203,11 +250,10 @@ test("ACC-IMM-002 platform carousel uses real counts and controller-only navigat
   expect(keyBox?.width).toBe(keyBox?.height);
   expect(iconBox?.width).toBeLessThan(keyBox?.width ?? 0);
   expect(iconBox?.height).toBeLessThan(keyBox?.height ?? 0);
-  await expect(current).toContainText(items[0]!.platformName);
+  await expect(current).toContainText(items[0]!.name);
   await expect(current).toContainText(`${items[0]!.gameCount} 款游戏`);
-  let coverStack = page.getByLabel(`${items[0]!.platformName} 最近游戏封面`);
+  let coverStack = page.getByLabel(`${items[0]!.name} 最近游戏封面`);
   expect(items[0]!.featuredGames).toHaveLength(3);
-  expect(items[0]!.featuredGames.every((game) => game.coverUrl !== null)).toBe(true);
   await expect(coverStack.locator("figure")).toHaveCount(3);
   await expect(page.locator('[data-platform-cover-stack="true"]')).toHaveCount(1);
   const initialFront = await coverStack.locator('[data-cover-slot="0"]').getAttribute("data-game-id");
@@ -224,8 +270,8 @@ test("ACC-IMM-002 platform carousel uses real counts and controller-only navigat
   const animationName = await current.evaluate((element) => getComputedStyle(element).animationName);
   expect(animationName).not.toBe("none");
   await expect.poll(async () => current.evaluate((element) => getComputedStyle(element).animationDuration)).toBe("0.32s");
-  await expect(current).toContainText(items.at(-1)!.platformName);
-  coverStack = page.getByLabel(`${items.at(-1)!.platformName} 最近游戏封面`);
+  await expect(current).toContainText(items.at(-1)!.name);
+  coverStack = page.getByLabel(`${items.at(-1)!.name} 最近游戏封面`);
   await expect(coverStack.locator("figure")).toHaveCount(Math.min(3, items.at(-1)!.featuredGames.length));
   const coverStackBox = await coverStack.boundingBox();
   expect((coverStackBox?.width ?? 0) / (coverStackBox?.height ?? 1)).toBeCloseTo(5 / 7, 1);
@@ -246,7 +292,8 @@ test("ACC-IMM-002 platform carousel uses real counts and controller-only navigat
     new RegExp(`translateX\\(${(items.length - 1) * 100}%\\)`),
   );
   await pressGamepad(page, standardButton.right);
-  await expect(current).toContainText(items[0]!.platformName);
+  await expect(current).toContainText(items[0]!.name);
+  await choosePlatform(page, "Arcade");
   await page.screenshot({ path: evidencePath(testInfo, "immersive-platform-carousel.png"), fullPage: true });
 
   await pressGamepad(page, standardButton.b);
@@ -255,7 +302,9 @@ test("ACC-IMM-002 platform carousel uses real counts and controller-only navigat
   await pressGamepad(page, standardButton.a);
   await expect(exit).toBeHidden();
   await pressGamepad(page, standardButton.a);
-  await expect(page).toHaveURL(new RegExp(`/immersive/platforms/${items[0]!.platformId}`));
+  const arcade = items.find((item) => item.kind === "platform" && item.name === "Arcade");
+  expect(arcade).toBeTruthy();
+  await expect(page).toHaveURL(new RegExp(`/immersive/platforms/${arcade!.destinationId}`));
   await page.screenshot({ path: evidencePath(testInfo, "immersive-platform.png"), fullPage: true });
 });
 
@@ -312,13 +361,14 @@ test("ACC-IMM-004 real GBA launch advances frames and returns to the selected ga
   await expect(page.getByRole("option", { selected: true })).toContainText("Sudoku");
 });
 
-test("ACC-IMM-005 reserved chord pauses, continues and exits without save writes", async ({ page }, testInfo) => {
+test("ACC-IMM-005 reserved chord pauses, continues, creates a save and exits", async ({ page }, testInfo) => {
   test.setTimeout(180_000);
   const saveWrites: string[] = [];
   page.on("request", (request) => {
     if (/\/runtime\/launches\/[^/]+\/save-states$/.test(request.url())) {saveWrites.push(request.url());}
   });
   await openPlatform(page, "Game Boy Advance");
+  await selectGameByTitle(page, "Sudoku");
   const { frame } = await launchSelectedGame(page);
 
   await setGamepadButtons(page, 0, [standardButton.select]);
@@ -334,10 +384,20 @@ test("ACC-IMM-005 reserved chord pauses, continues and exits without save writes
   const resumedAt = await frameNumber(frame);
   await expect.poll(() => frameNumber(frame), { timeout: 10_000 }).toBeGreaterThan(resumedAt + 10);
 
-  await openPlayerMenu(page);
+  const saveResponse = page.waitForResponse((response) =>
+    response.request().method() === "POST" && /\/runtime\/launches\/[^/]+\/save-states$/.test(response.url()));
+  const saveMenu = await openPlayerMenu(page);
+  await pressGamepad(page, standardButton.right);
+  await expect(saveMenu.getByRole("button", { name: "创建存档" })).toHaveAttribute("aria-current", "true");
+  await pressGamepad(page, standardButton.a);
+  expect((await saveResponse).status()).toBe(201);
+  await expect(saveMenu.getByRole("status")).toHaveText("存档已创建。", { timeout: 20_000 });
   await page.screenshot({ path: evidencePath(testInfo, "immersive-pause-menu.png"), fullPage: true });
+  await pressGamepad(page, standardButton.b);
+  await expect(saveMenu).toBeHidden();
+  await openPlayerMenu(page);
   await exitFromPlayerMenu(page);
-  expect(saveWrites).toEqual([]);
+  expect(saveWrites).toHaveLength(1);
 });
 
 test("ACC-IMM-006 Arcade keeps P2 input and gives menu ownership only to the active pad", async ({ page }, testInfo) => {

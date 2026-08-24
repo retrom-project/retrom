@@ -79,6 +79,7 @@ export async function pressGamepad(
 export const standardButton = {
   a: 0,
   b: 1,
+  y: 3,
   select: 8,
   start: 9,
   up: 12,

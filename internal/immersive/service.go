@@ -246,6 +246,7 @@ func queryGames(
 	query := `
 SELECT game.id,
        metadata.title,
+       metadata.title_initial,
        metadata.description,
        metadata.release_year,
        metadata.developer,
@@ -271,7 +272,11 @@ SELECT game.id,
        (SELECT max(session.started_at_ms)
         FROM play_sessions session
         WHERE session.game_id=game.id
-        AND session.profile_id=?)
+        AND session.profile_id=?),
+       EXISTS(
+         SELECT 1 FROM favorite_games favorite
+         WHERE favorite.profile_id=? AND favorite.game_id=game.id
+       )
 FROM games game
 JOIN game_metadata_revisions metadata ON metadata.id=game.current_metadata_revision_id
 JOIN platform_instances instance ON instance.id=game.platform_instance_id
@@ -280,16 +285,25 @@ WHERE instance.platform_id=?
 AND instance.enabled=1
 AND game.status='PUBLISHED'
 `
-	arguments := []any{profileID, platformID}
+	arguments := []any{profileID, profileID, platformID}
 	if cursor != nil {
 		query += `AND (
- metadata.title COLLATE NOCASE > ? COLLATE NOCASE
- OR (metadata.title COLLATE NOCASE = ? COLLATE NOCASE AND game.id>?)
+ metadata.title_initial>?
+ OR (metadata.title_initial=? AND metadata.title COLLATE NOCASE> ? COLLATE NOCASE)
+ OR (metadata.title_initial=? AND metadata.title COLLATE NOCASE=? COLLATE NOCASE AND game.id>?)
 )
 `
-		arguments = append(arguments, cursor.Title, cursor.Title, cursor.ID)
+		arguments = append(
+			arguments,
+			cursor.TitleInitial,
+			cursor.TitleInitial,
+			cursor.Title,
+			cursor.TitleInitial,
+			cursor.Title,
+			cursor.ID,
+		)
 	}
-	query += "ORDER BY metadata.title COLLATE NOCASE,game.id LIMIT ?"
+	query += "ORDER BY metadata.title_initial,metadata.title COLLATE NOCASE,game.id LIMIT ?"
 	arguments = append(arguments, limit+1)
 	rows, err := database.QueryContext(ctx, query, arguments...)
 	if err != nil {
@@ -304,6 +318,7 @@ AND game.status='PUBLISHED'
 		if err := rows.Scan(
 			&game.ID,
 			&game.Title,
+			&game.TitleInitial,
 			&game.Description,
 			&releaseYear,
 			&game.Developer,
@@ -315,6 +330,7 @@ AND game.status='PUBLISHED'
 			&coverAssetID,
 			&videoAssetID,
 			&lastPlayedAtMS,
+			&game.Favorited,
 		); err != nil {
 			return nil, fmt.Errorf("immersive: scan game: %w", err)
 		}
@@ -357,7 +373,7 @@ func (service *Service) Games(
 	var next *GameCursor
 	if len(games) > limit {
 		last := games[limit-1]
-		next = &GameCursor{Title: last.Title, ID: last.ID}
+		next = &GameCursor{TitleInitial: last.TitleInitial, Title: last.Title, ID: last.ID}
 		games = games[:limit]
 	}
 	if err := transaction.Commit(); err != nil {

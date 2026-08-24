@@ -37,10 +37,10 @@ VALUES('01980000-0000-7000-8000-00000000a401','Tag Admin',1);
 INSERT INTO users(id,profile_id,username,display_name,role,status,created_at_ms,updated_at_ms)
 VALUES('`+testAdminID+`','01980000-0000-7000-8000-00000000a401','tag.admin','Tag Admin','ADMIN','ENABLED',1,1);
 INSERT INTO game_metadata_revisions(
-  id,game_id,title,description,developer,publisher,genre,players,release_year,
+  id,game_id,title,title_initial,description,developer,publisher,genre,players,release_year,
   source_kind,source_ref_id,created_at_ms
 ) VALUES(
-  '01980000-0000-7000-8000-00000000f402','`+testGameID+`','Tagged Game','','','','',NULL,2001,
+  '01980000-0000-7000-8000-00000000f402','`+testGameID+`','Tagged Game','T','','','','',NULL,2001,
   'ADMIN_EDIT',NULL,1
 );
 INSERT INTO game_content_revisions(

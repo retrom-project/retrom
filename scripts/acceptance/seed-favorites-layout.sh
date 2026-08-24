@@ -21,12 +21,12 @@ DELETE FROM favorite_games WHERE profile_id=(SELECT profile_id FROM favorite_own
 
 WITH RECURSIVE generated(n) AS (SELECT 1 UNION ALL SELECT n+1 FROM generated WHERE n<50)
 INSERT OR IGNORE INTO game_metadata_revisions(
-  id,game_id,title,description,developer,publisher,genre,players,release_year,
+  id,game_id,title,title_initial,description,developer,publisher,genre,players,release_year,
   source_kind,source_ref_id,created_at_ms
 )
 SELECT printf('71000000-0000-7000-8000-%012d',n),
        printf('70000000-0000-7000-8000-%012d',n),
-       printf('Favorite Layout Game %02d',n),'Layout acceptance','','','Fixture',NULL,1980+n,
+       printf('Favorite Layout Game %02d',n),'F','Layout acceptance','','','Fixture',NULL,1980+n,
        'ADMIN_EDIT',NULL,1786001000000+n
 FROM generated;
 

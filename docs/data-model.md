@@ -52,7 +52,7 @@ User 状态变更、Credential/Session/Link 撤销、待用 Launch 终止与安�
 | --- | --- |
 | `blobs` | `id UUIDv7 PK`、唯一小写 `sha256`、`size_bytes`、实际 bytes 的非空小写 `md5/sha1/crc32`、首次入库时检测到的 `media_type`、`created_at_ms`；物理路径只由 SHA-256 推导。CAS 按 bytes 去重，Blob 级 `media_type` 只是首次登记元数据，不能覆盖或否决 `game_assets`、导入媒体记录等引用边已经完成的 MIME/尺寸校验。 |
 | `games` | `id PK`、非空 `platform_instance_id`、`status PUBLISHED/DELETED`、`payload_state RETAINED/RELEASING/RELEASED/FAILED`、可空唯一 `payload_release_job_id`、可空 `payload_released_at_ms/payload_last_error_code`、非空 `current_metadata_revision_id/current_content_revision_id/search_text`、`version`、`created_at_ms/updated_at_ms`、可空 `deleted_at_ms`；不得另存 `platform_id` 或 `default_core_id`。PUBLISHED 恰为 RETAINED；DELETED 恰为后三种状态并保留 current revision 作为文字审计。search_text 与 current metadata 必须同事务更新；改变目录默认 core 不改变 current content。 |
-| `game_metadata_revisions` | `id PK`、`game_id`、非空 title、非空但可为空串的 description/developer/publisher/genre、可空 players/release_year、`source_kind IMPORT_REVIEW/ADMIN_EDIT/RESCRAPE_APPLY/SERVER_PEGASUS_IMPORT/SERVER_EMULATIONSTATION_IMPORT`、可空 `source_ref_id`、`created_at_ms`；创建后 append-only。IMPORT_REVIEW 的 ref 必须是发布该 Game 的 ImportItem；两种 SERVER source 的 ref 必须是已交接到该 ImportItem、正处于审核发布边界的对应来源 Item；RESCRAPE_APPLY 必须是被应用且属于该 Game/current ContentRevision 有效 run 的 ScrapeCandidate；ADMIN_EDIT 的 ref 必须为 NULL，精确修改另由同事务 AuditEvent 关联 Game/revision ID。 |
+| `game_metadata_revisions` | `id PK`、`game_id`、非空 title、`title_initial TEXT NOT NULL`、非空但可为空串的 description/developer/publisher/genre、可空 players/release_year、`source_kind IMPORT_REVIEW/ADMIN_EDIT/RESCRAPE_APPLY/SERVER_PEGASUS_IMPORT/SERVER_EMULATIONSTATION_IMPORT`、可空 `source_ref_id`、`created_at_ms`；创建后 append-only。`title_initial` 严格为 `#`、`0..9` 或 `A..Z`：标题第一个 Unicode code point 是 ASCII 数字时原样保留、ASCII 字母时转大写、汉字时取其普通话拼音首字母并转大写，其他字符为 `#`；不得在查询时依赖 SQLite locale 临时推导。IMPORT_REVIEW 的 ref 必须是发布该 Game 的 ImportItem；两种 SERVER source 的 ref 必须是已交接到该 ImportItem、正处于审核发布边界的对应来源 Item；RESCRAPE_APPLY 必须是被应用且属于该 Game/current ContentRevision 有效 run 的 ScrapeCandidate；ADMIN_EDIT 的 ref 必须为 NULL，精确修改另由同事务 AuditEvent 关联 Game/revision ID。 |
 | `game_assets` | `id PK`、`game_id`、`metadata_revision_id`、`blob_id`、`kind COVER/BACKGROUND/SCREENSHOT/VIDEO`、`ordinal`、`width_px/height_px/media_type`、`created_at_ms`；`UNIQUE(metadata_revision_id, kind, ordinal)`。图片尺寸为正且 MIME 限 `image/png|image/jpeg|image/webp`；VIDEO 只允许 ordinal 0、`video/mp4|video/webm` 且尺寸为 null。只有 Game 的 current MetadataRevision 持有完整媒体清单；切换 current 时先为未变媒体创建新 Asset，再删除全部旧 revision 的 Asset 叶子引用并交给统一 GC。MetadataRevision 的文字/来源审计继续保留。Asset ID 存续期间 bytes 不变，但内容端点只接受 current Asset。 |
 | `game_content_revisions` | `id PK`、`game_id`、`source_kind IMPORT_REVIEW/ADMIN_REPLACE/SERVER_PEGASUS_IMPORT/SERVER_EMULATIONSTATION_IMPORT`、非空 `source_ref_id`、`source_manifest_json`、`source_manifest_digest`、`created_at_ms`；append-only。IMPORT_REVIEW ref 指向被 Approve 的 ImportItem，两种 SERVER source 的 ref 指向与该 ImportItem 一一关联的对应来源 Item，ADMIN_REPLACE ref 指向 `GAME_FILE_REVISION` Job。它只表示一次已接受的用户内容版本，不包含 core、DAT 或派生启动包；单 ROM bytes 相同，或多盘按盘序得到的全部 Disc hash 相同，必须以终态 `GAME_CONTENT_UNCHANGED` 拒绝，不能创建空审计 revision。 |
 | `game_content_files` | `(game_content_revision_id, role, logical_name) PK`、`blob_id`、可空 `source_archive_blob_id/source_archive_entry_ordinal`、`sort_order`；两个 source archive 字段同时空或同时非空，并复合引用对应 ArchiveEntry，其 `materialized_blob_id` 必须等于 `blob_id`。role 仅 `CONTENT/DOS_SOURCE/COMPANION`。逻辑名是安全规范相对路径；主机/掌机平台只允许一个 CONTENT，DOS 使用 DOS_SOURCE，Arcade CONTENT 是本机 ROMset ZIP，审核确认与其同属 bundle 的 parent/BIOS/base 源 archive 以 COMPANION 保留。 |
@@ -223,7 +223,8 @@ Migration 必须建立并测试：
 - trigger：GameContentRevision 的 source kind/ref 类型匹配；VariantRevision 的非空 default DOS entry 必须存在于其 ContentRevision 的 `dos_entries`；
 - trigger：GameContentFile 的可空 source archive pair 必须命中同一 ArchiveEntry，且 materialized Blob 与 `blob_id` 一致；
 - trigger：UploadSession `finalization_no >= 0`；FINALIZING 必须指向同 scope、同 `finalizationNo` 的当前 UPLOAD_FINALIZE Job，旧 Job 不可改写，COMPLETE 时所有文件 COMPLETE；插入 whole-session Upload consumption 时该 session 必须 COMPLETE 且没有任何既有 consumption，且 consumer ID 必须指向匹配的 ImportJob 或 `GAME_FILE_REVISION` Job；插入 file-level consumption 时该 session/file 必须 COMPLETE、该 session 没有 whole-session consumption，且 UploadFile 必须属于该 session；两方向都在同一写事务防竞态；
-- CHECK：所有 size/duration/version 非负，结束时刻不早于开始，XOR 路径/blob 约束成立；
+- CHECK：所有 size/duration/version 非负，结束时刻不早于开始，XOR 路径/blob 约束成立，MetadataRevision
+  `title_initial` 恰为单个 `#`、ASCII 数字或 ASCII 大写字母；
 - 索引：游戏搜索/目录/状态、存档 profile+game+created_at_ms、任务领取与 scope event、审核队列、DAT machine/hash、全部外键列。
 
 业务服务仍需在事务前返回可理解错误，trigger 是并发和遗漏的最后防线，不能以 trigger 错误字符串作为 HTTP 契约。
@@ -422,12 +423,25 @@ EmulationStation aggregate 状态为 `SCANNING/AWAITING_MAPPING/QUEUED/RUNNING/C
 
 EmulationStation 交接使用普通 ImportItem 上不可变的 `review_handoff_kind=EMULATIONSTATION` 作为耐久预留。`CreateServerSourceOnce` 必须把该预留与 ImportJob/ImportItem 原子创建，重试则按同一幂等键复用原 Item 和预留；在某个 EmulationStation Item 以 `library_import_item_id` 关联它且 source execution state 进入 `REVIEW_PENDING` 前，普通 Item 即使已经是 `REVIEW_PENDING`，也不得进入审核列表、详情、批量预览/创建、Approve、Discard 或待审核 KPI。attach 成功后这些入口同时开放，不能依赖短暂的内存标记或先暴露后补偿。
 
-## 24. 沉浸模式不新增持久化模型
+## 24. 沉浸模式复用既有持久化模型
 
-沉浸模式是现有用户资料、游戏平台、游戏、当前元数据/媒体与游玩会话的独立只读交互投影，不新增数据库表、状态机、migration、用户偏好或“当前平台/游戏”持久化字段。平台游戏数从当前可见且已发布、可运行的 Game/Variant 关系计算；上次游玩时间从当前 Profile 的 `play_sessions.started_at_ms` 聚合；封面、视频与描述只读取当前 revision 及现有受权内容端点。进入、退出、当前焦点和活动手柄索引只存在于浏览器内存，刷新或离开即清空。
+沉浸模式不新增专用数据库表、状态机、服务端偏好或“当前入口/平台/游戏”持久化字段。它从现有 Profile、
+Favorite/Folder、SaveState、游戏平台、当前元数据/媒体与游玩会话形成独立投影：入口和平台计数只统计当前
+可见且已发布、可运行的 Game/Variant；上次游玩时间来自当前 Profile 的 `play_sessions.started_at_ms`；收藏
+与收藏夹只读写当前 Profile 的既有关系；存档只读取当前 Profile 的未删除 SaveState；封面、视频和描述只读
+当前 MetadataRevision。进入、退出、当前焦点和活动手柄索引只存在于浏览器内存。
 
-沉浸 Player 仍创建普通单机 Launch 与 PlaySession，并沿用现有完成、撤销、有效游玩时长和永久删除规则。菜单暂停归属、双组合键状态与输入过滤均是前端运行态，不写入 SaveState、Launch 或审计表；关闭菜单不会自动存档，退出不会创建 SaveState。因而本能力不允许为了 UI 便利增加兼容列、空占位数据或历史迁移。
+`game_metadata_revisions.title_initial` 是所有生产写入路径在创建不可变 revision 时计算并冻结的通用排序键，
+不是沉浸会话状态。改名必须在同一事务创建含新 `title_initial` 的 MetadataRevision、复制未变字段/媒体、推进
+current pointer 和搜索投影；旧 revision 不回填或原地修改。沉浸的全部/收藏/存档/平台范围按
+`title_initial ASC,title COLLATE NOCASE ASC,game_id ASC` 稳定分页，最近范围例外地按本 Profile 最近游玩时间
+倒序，不能用标题键覆盖时序语义。
+
+沉浸 Player 仍创建普通单机 Launch 与 PlaySession，并沿用现有完成、撤销、有效游玩时长和永久删除规则。
+从存档启动只把所选 SaveState 交给既有 Launch 预检；Player 中“创建存档”显式复用普通手动 SaveState 的
+状态与截图上传事务。菜单暂停归属、双组合键、输入过滤、BGM 与两组音量偏好仍是前端运行态；偏好仅保存为
+严格版本化 localStorage payload，不进入数据库。关闭菜单或退出不会自动创建 SaveState。
 
 ## 25. 统一验收入口
 
-schema 与整数时间由 `ACC-DB-*` 覆盖；唯一归属由 `ACC-PLAT-*`；不可变 revision 与删除由 `ACC-GAME-*`、`ACC-SAVE-*`；Pegasus/VIDEO 由 `ACC-PEG-*` 与 `ACC-MEDIA-001`；EmulationStation schema、状态、来源互斥、handoff 与释放由 `ACC-ES-002`–`004`；标签由 `ACC-TAG-001`–`005`；状态机、lease 与快速审批由 `ACC-IMP-*`；凭据 hash 与内容授权由 `ACC-SEC-002`；沉浸模式零新增持久化模型、既有 Launch/PlaySession 复用与退出后无 SaveState 副作用由 `ACC-IMM-001`–`008` 覆盖。
+schema 与整数时间由 `ACC-DB-*` 覆盖；唯一归属由 `ACC-PLAT-*`；不可变 revision 与删除由 `ACC-GAME-*`、`ACC-SAVE-*`；Pegasus/VIDEO 由 `ACC-PEG-*` 与 `ACC-MEDIA-001`；EmulationStation schema、状态、来源互斥、handoff 与释放由 `ACC-ES-002`–`004`；标签由 `ACC-TAG-001`–`005`；状态机、lease 与快速审批由 `ACC-IMP-*`；凭据 hash 与内容授权由 `ACC-SEC-002`；沉浸模式对既有 Favorite/SaveState/Launch/PlaySession 的复用、`title_initial` 写入与排序、显式存档及无自动存档副作用由 `ACC-IMM-001`–`012` 覆盖。

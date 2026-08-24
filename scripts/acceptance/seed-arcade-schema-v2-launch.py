@@ -105,9 +105,9 @@ ORDER BY created_at_ms DESC,id DESC LIMIT 1
     connection.execute(
         """
 INSERT INTO game_metadata_revisions(
-  id,game_id,title,description,developer,publisher,genre,players,release_year,
+  id,game_id,title,title_initial,description,developer,publisher,genre,players,release_year,
   source_kind,source_ref_id,created_at_ms
-) VALUES(?,?,?,'Arcade schema-v2 runtime parser regression','','','',NULL,NULL,'ADMIN_EDIT',NULL,?)
+) VALUES(?,?,?,'A','Arcade schema-v2 runtime parser regression','','','',NULL,NULL,'ADMIN_EDIT',NULL,?)
 """,
         (metadata_id, game_id, title, now),
     )

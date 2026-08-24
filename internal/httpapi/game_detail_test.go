@@ -367,17 +367,21 @@ SELECT
 	applyRequest.Header.Set("Idempotency-Key", uuid.NewString())
 	server.Handler().ServeHTTP(apply, applyRequest)
 	testassert.Falsef(t, apply.Code != http.StatusOK, "apply game scrape candidate = %d: %s", apply.Code, apply.Body.String())
-	var appliedTitle string
+	var appliedTitle, appliedTitleInitial string
 	var preservedAssets int64
 	mustScanHTTPTest(t, server.database.QueryRowContext(context.Background(), `
-SELECT m.title,count(a.id)
+SELECT m.title,m.title_initial,count(a.id)
 FROM games g
 JOIN game_metadata_revisions m ON m.id=g.current_metadata_revision_id
 LEFT JOIN game_assets a ON a.game_id=g.id AND a.metadata_revision_id=m.id
 WHERE g.id=?
-GROUP BY m.title
-`, gameID), &appliedTitle, &preservedAssets)
-	testassert.Falsef(t, testassert.Any(func() bool { return appliedTitle != "Doom refreshed" }, func() bool { return preservedAssets != 2 }), "applied title/assets = %q/%d", appliedTitle, preservedAssets)
+GROUP BY m.title,m.title_initial
+`, gameID), &appliedTitle, &appliedTitleInitial, &preservedAssets)
+	testassert.Falsef(t, testassert.Any(
+		func() bool { return appliedTitle != "Doom refreshed" },
+		func() bool { return appliedTitleInitial != "D" },
+		func() bool { return preservedAssets != 2 },
+	), "applied title/initial/assets = %q/%s/%d", appliedTitle, appliedTitleInitial, preservedAssets)
 	assertRetiredGameAssetUnavailable(t, server, originalCoverAssetID)
 	assertRetiredGameAssetUnavailable(t, server, originalVideoAssetID)
 	videoUploadID := "01980000-0000-7000-8000-000000000111"
@@ -404,15 +408,23 @@ VALUES(?,?,'preview.mp4',?,?,?,'COMPLETE',?,?)
 	server.Handler().ServeHTTP(removeVideo, removeVideoRequest)
 	testassert.Falsef(t, testassert.Any(func() bool { return removeVideo.Code != http.StatusNoContent }, func() bool { return removeVideo.Header().Get("ETag") != `"v4"` }), "remove video = %d headers=%v: %s", removeVideo.Code, removeVideo.Header(), removeVideo.Body.String())
 	var currentVideos, retiredAssets int
+	var currentTitleInitial string
 	if err := server.database.QueryRowContext(context.Background(), `
 SELECT
 (SELECT count(*) FROM game_assets asset JOIN games game ON game.current_metadata_revision_id=asset.metadata_revision_id WHERE game.id=? AND asset.kind='VIDEO'),
 (SELECT count(*) FROM game_assets asset JOIN games game ON game.id=asset.game_id
- WHERE game.id=? AND asset.metadata_revision_id<>game.current_metadata_revision_id)
-`, gameID, gameID).Scan(&currentVideos, &retiredAssets); err != nil {
+ WHERE game.id=? AND asset.metadata_revision_id<>game.current_metadata_revision_id),
+(SELECT metadata.title_initial FROM games game
+ JOIN game_metadata_revisions metadata ON metadata.id=game.current_metadata_revision_id WHERE game.id=?)
+`, gameID, gameID, gameID).Scan(&currentVideos, &retiredAssets, &currentTitleInitial); err != nil {
 		t.Fatal(err)
 	}
-	testassert.Falsef(t, testassert.Any(func() bool { return currentVideos != 0 }, func() bool { return retiredAssets != 0 }), "retired game media = current videos:%d retired assets:%d", currentVideos, retiredAssets)
+	testassert.Falsef(t, testassert.Any(
+		func() bool { return currentVideos != 0 },
+		func() bool { return retiredAssets != 0 },
+		func() bool { return currentTitleInitial != "D" },
+	), "retired game media = current videos:%d retired assets:%d title initial:%s",
+		currentVideos, retiredAssets, currentTitleInitial)
 }
 
 func TestGameListUsesFilteredCursorPagesAndReturnsFacetsOnlyOnFirstPage(t *testing.T) {
@@ -435,8 +447,8 @@ func TestGameListUsesFilteredCursorPagesAndReturnsFacetsOnlyOnFirstPage(t *testi
 		createdAt := baseTime + int64(index)*1000
 		mustExecHTTPTest(t, transaction, `
 INSERT INTO game_metadata_revisions(
- id,game_id,title,description,developer,publisher,genre,players,release_year,source_kind,source_ref_id,created_at_ms
-) VALUES(?,?,?,'','','','',NULL,NULL,'IMPORT_REVIEW','pagination-fixture',?)
+ id,game_id,title,title_initial,description,developer,publisher,genre,players,release_year,source_kind,source_ref_id,created_at_ms
+) VALUES(?,?,?,'D','','','','',NULL,NULL,'IMPORT_REVIEW','pagination-fixture',?)
 `, metadataID, gameID, title, createdAt)
 		mustExecHTTPTest(t, transaction, `
 INSERT INTO game_content_revisions(
@@ -550,9 +562,9 @@ func seedRecentGameHistory(t *testing.T, database *sql.DB, coreArtifactID string
 		launchID := uuid.NewString()
 		playID := uuid.NewString()
 		mustExecHTTPTest(t, transaction, `
-INSERT INTO game_metadata_revisions(id,game_id,title,description,developer,publisher,genre,players,release_year,
+INSERT INTO game_metadata_revisions(id,game_id,title,title_initial,description,developer,publisher,genre,players,release_year,
 source_kind,source_ref_id,created_at_ms)
-VALUES(?,?,?,'','','','',NULL,NULL,'ADMIN_EDIT',NULL,?)
+VALUES(?,?,?,'R','','','','',NULL,NULL,'ADMIN_EDIT',NULL,?)
 `, metadataID, gameID, fmt.Sprintf("Recent fixture %02d", index), now)
 		mustExecHTTPTest(t, transaction, `
 INSERT INTO game_content_revisions(id,game_id,source_kind,source_ref_id,source_manifest_json,source_manifest_digest,created_at_ms)
@@ -610,6 +622,7 @@ PRAGMA defer_foreign_keys=ON
 INSERT INTO game_metadata_revisions(id,
 game_id,
 title,
+title_initial,
 description,
 developer,
 publisher,
@@ -621,6 +634,7 @@ source_ref_id,
 created_at_ms) VALUES(?,
 ?,
 'Doom',
+'D',
 '',
 '',
 '',

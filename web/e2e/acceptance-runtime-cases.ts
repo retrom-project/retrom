@@ -308,9 +308,9 @@ async function verifyPublicArcadeSmoke(
     emulatorjsVersion: "4.2.3",
     playerAdapterId: "ejs-4.2.3-v3",
   });
-  expect(configuration.gameUrl).toMatch(/\/game\/pacman\.zip$/);
-  expect(configuration.parentUrl).toMatch(/\/parent\/bundle\.zip$/);
-  expect(configuration.biosUrl).toMatch(/\/bios\/bundle\.zip$/);
+  expect(configuration.gameUrl).toMatch(/\/runtime\/content\/game\/[0-9a-f]{64}\/pacman\.zip$/);
+  expect(configuration.parentUrl).toMatch(/\/runtime\/content\/parent\/[0-9a-f]{64}\/bundle\.zip$/);
+  expect(configuration.biosUrl).toMatch(/\/runtime\/content\/bios\/[0-9a-f]{64}\/bundle\.zip$/);
   expect(configuration.runtimePathOverrides).toEqual(expectation.runtimePathOverrides);
 
   await expect(page.locator(".player-loading")).toBeHidden({ timeout: 60_000 });
@@ -415,8 +415,8 @@ async function verifyPersistedArcadeSchemaV2Launch(
     warnings: string[];
   };
   expect(configuration.runtimeCore).toBe(expectation.core);
-  expect(configuration.parentUrl).toMatch(/\/parent\/bundle\.zip$/);
-  expect(configuration.biosUrl).toMatch(/\/bios\/bundle\.zip$/);
+  expect(configuration.parentUrl).toMatch(/\/runtime\/content\/parent\/[0-9a-f]{64}\/bundle\.zip$/);
+  expect(configuration.biosUrl).toMatch(/\/runtime\/content\/bios\/[0-9a-f]{64}\/bundle\.zip$/);
   expect(configuration.warnings).toContain("REVIEW_SCREENSHOT_OVERRIDE");
   await expect(page.locator(".player-loading")).toBeHidden({ timeout: 60_000 });
   await expect(page.frameLocator('iframe[title="Retrom EmulatorJS Player"]').locator("canvas")).toBeVisible({ timeout: 10_000 });

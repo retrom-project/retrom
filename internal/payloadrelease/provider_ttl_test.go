@@ -79,8 +79,8 @@ func seedProviderRunningScrape(
 		args  []any
 	}{
 		{`PRAGMA defer_foreign_keys=ON`, nil},
-		{`INSERT INTO game_metadata_revisions(id,game_id,title,description,developer,publisher,genre,source_kind,created_at_ms)
-VALUES('provider-meta','provider-game','Provider game','','','','','ADMIN_EDIT',?)`, []any{now.UnixMilli()}},
+		{`INSERT INTO game_metadata_revisions(id,game_id,title,title_initial,description,developer,publisher,genre,source_kind,created_at_ms)
+VALUES('provider-meta','provider-game','Provider game','P','','','','','ADMIN_EDIT',?)`, []any{now.UnixMilli()}},
 		{`INSERT INTO game_content_revisions(id,game_id,content_kind,source_kind,source_ref_id,source_manifest_json,source_manifest_digest,created_at_ms)
 VALUES('provider-content','provider-game','SINGLE_FILE','ADMIN_REPLACE','provider-source','{}',?,?)`, []any{digest64("1"), now.UnixMilli()}},
 		{`INSERT INTO games(id,platform_instance_id,status,current_metadata_revision_id,current_content_revision_id,search_text,version,created_at_ms,updated_at_ms)

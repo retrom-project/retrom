@@ -12,11 +12,16 @@ import {
 } from "./immersive-controls";
 import { ImmersiveGamepadFilter } from "./immersive-gamepad-filter";
 import type { EmulatorInstance } from "./adapters/ejs-4.2.3-v2";
+import {
+  moveImmersiveMenuSelection,
+  selectableImmersiveMenuItem,
+  type ImmersiveMenuSelection,
+} from "./immersive-player-menu-model";
 
 export type ImmersivePlayerOverlay =
   | { kind: "closed" }
   | { kind: "closing" }
-  | { kind: "menu"; error: string; pending: boolean; selected: 0 | 1 }
+  | { kind: "menu"; error: string; notice: string; pending: boolean; selected: ImmersiveMenuSelection }
   | { kind: "reconnect"; ready: boolean };
 
 type Params = {
@@ -26,13 +31,17 @@ type Params = {
   running: boolean;
   setPaused: Dispatch<SetStateAction<boolean>>;
   exitStrict: () => Promise<void>;
+  saveAvailable: boolean;
+  saveGame: () => Promise<boolean>;
   onFatalError: (message: string) => void;
 };
 
 type PauseOwner = "menu" | "disconnect" | null;
 
 export function useImmersivePlayer(params: Params) {
-  const { enabled, emulator, pausedRef, running, setPaused, exitStrict, onFatalError } = params;
+  const {
+    enabled, emulator, pausedRef, running, setPaused, exitStrict, saveAvailable, saveGame, onFatalError,
+  } = params;
   const [overlay, setOverlay] = useState<ImmersivePlayerOverlay>({ kind: "closed" });
   const overlayRef = useRef(overlay);
   const runningRef = useRef(running);
@@ -70,7 +79,7 @@ export function useImmersivePlayer(params: Params) {
       }
     }
     menuReader.current.reset();
-    updateOverlay({ kind: "menu", error: "", pending: false, selected: 0 });
+    updateOverlay({ kind: "menu", error: "", notice: "", pending: false, selected: 0 });
   }, [emulator, enabled, filter, onFatalError, pausedRef, setPaused, updateOverlay]);
 
   useEffect(() => {
@@ -87,27 +96,56 @@ export function useImmersivePlayer(params: Params) {
     updateOverlay({ kind: "closing" });
   }, [filter, updateOverlay]);
 
+  const saveFromMenu = useCallback((current: Extract<ImmersivePlayerOverlay, { kind: "menu" }>) => {
+    if (!saveAvailable) {
+      updateOverlay({ ...current, error: "当前游戏无法创建可恢复存档。", notice: "" });
+      return;
+    }
+    updateOverlay({ ...current, error: "", notice: "正在创建存档…", pending: true });
+    void saveGame().then((saved) => {
+      const latest = overlayRef.current;
+      if (latest.kind !== "menu") {return;}
+      updateOverlay(saved
+        ? { ...latest, error: "", notice: "存档已创建。", pending: false }
+        : { ...latest, error: "创建存档失败，请重试。", notice: "", pending: false });
+    }).catch(() => {
+      const latest = overlayRef.current;
+      if (latest.kind === "menu") {
+        updateOverlay({ ...latest, error: "创建存档失败，请重试。", notice: "", pending: false });
+      }
+    });
+  }, [saveAvailable, saveGame, updateOverlay]);
+
   const runSelectedMenuAction = useCallback(() => {
     const current = overlayRef.current;
     if (current.kind !== "menu" || current.pending) {return;}
     if (current.selected === 0) {beginClose("menu"); return;}
-    updateOverlay({ ...current, error: "正在退出游戏…", pending: true });
+    if (current.selected === 1) {saveFromMenu(current); return;}
+    updateOverlay({ ...current, error: "", notice: "正在退出游戏…", pending: true });
     void exitStrictRef.current().catch(() => {
       const failed = overlayRef.current;
       if (failed.kind === "menu") {
-        updateOverlay({ ...failed, error: "退出失败。按 A 重试，或按 B 继续游戏。", pending: false });
+        updateOverlay({ ...failed, error: "退出失败。按 A 重试，或按 B 继续游戏。", notice: "", pending: false });
       }
     });
-  }, [beginClose, updateOverlay]);
+  }, [beginClose, saveFromMenu, updateOverlay]);
 
   const menuCancel = useCallback(() => {
     const current = overlayRef.current;
     if (current.kind === "menu" && !current.pending) {beginClose("menu");}
   }, [beginClose]);
-  const menuSelect = useCallback((selected: 0 | 1) => {
+  const menuSelect = useCallback((selected: ImmersiveMenuSelection) => {
     const current = overlayRef.current;
-    if (current.kind === "menu" && !current.pending) {updateOverlay({ ...current, selected });}
-  }, [updateOverlay]);
+    if (current.kind === "menu" && !current.pending && selectableImmersiveMenuItem(selected, saveAvailable)) {
+      updateOverlay({ ...current, selected });
+    }
+  }, [saveAvailable, updateOverlay]);
+  const menuMove = useCallback((direction: "left" | "right") => {
+    const current = overlayRef.current;
+    if (current.kind === "menu" && !current.pending) {
+      updateOverlay({ ...current, selected: moveImmersiveMenuSelection(current.selected, direction, saveAvailable) });
+    }
+  }, [saveAvailable, updateOverlay]);
 
   useEffect(() => {
     if (!enabled) {return;}
@@ -118,13 +156,13 @@ export function useImmersivePlayer(params: Params) {
       if (overlayRef.current.kind !== "menu") {return;}
       if (event.key === "Escape") {event.preventDefault(); menuCancel(); return;}
       if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
-        event.preventDefault(); menuSelect(overlayRef.current.selected === 0 ? 1 : 0); return;
+        event.preventDefault(); menuMove(event.key === "ArrowLeft" ? "left" : "right"); return;
       }
       if (event.key === "Enter") {event.preventDefault(); runSelectedMenuAction();}
     };
     window.addEventListener("keydown", keydown);
     return () => window.removeEventListener("keydown", keydown);
-  }, [enabled, menuCancel, menuSelect, requestMenu, runSelectedMenuAction]);
+  }, [enabled, menuCancel, menuMove, requestMenu, runSelectedMenuAction]);
 
   useEffect(() => {
     if (!enabled) {return;}
@@ -137,9 +175,9 @@ export function useImmersivePlayer(params: Params) {
       filter, activeIndex, overlayRef, pauseOwner, reconnectTarget, menuReader, closingGate,
       reconnectGate, previousPressed, previousReconnectA, suspended, emulator,
       pausedRef, setPaused, updateOverlay, beginClose,
-      menuCancel, menuSelect, runSelectedMenuAction, onFatalError,
+      menuCancel, menuMove, runSelectedMenuAction, onFatalError,
     });
-  }, [beginClose, emulator, enabled, filter, menuCancel, menuSelect, onFatalError, pausedRef, runSelectedMenuAction, running, setPaused, updateOverlay]);
+  }, [beginClose, emulator, enabled, filter, menuCancel, menuMove, onFatalError, pausedRef, runSelectedMenuAction, running, setPaused, updateOverlay]);
 
   useEffect(() => {
     if (!enabled) {return;}
@@ -155,7 +193,7 @@ export function useImmersivePlayer(params: Params) {
     };
   }, [enabled, filter]);
 
-  return { filter, menuCancel, menuSelect, overlay, requestMenu, runSelectedMenuAction };
+  return { filter, menuCancel, menuSelect, overlay, requestMenu, runSelectedMenuAction, saveAvailable };
 }
 
 type PollParams = {
@@ -176,7 +214,7 @@ type PollParams = {
   updateOverlay: (next: ImmersivePlayerOverlay) => void;
   beginClose: (owner: PauseOwner) => void;
   menuCancel: () => void;
-  menuSelect: (selected: 0 | 1) => void;
+  menuMove: (direction: "left" | "right") => void;
   runSelectedMenuAction: () => void;
   onFatalError: (message: string) => void;
 };
@@ -225,10 +263,7 @@ function pollMenu(params: PollParams, gamepads: (Gamepad | null)[], nowMs: numbe
   const action = params.menuReader.current.update(gamepads, params.activeIndex.current, nowMs);
   if (action === "cancel") {params.menuCancel(); return;}
   if (action === "confirm") {params.runSelectedMenuAction(); return;}
-  if (action === "left" || action === "right") {
-    const current = params.overlayRef.current;
-    if (current.kind === "menu") {params.menuSelect(current.selected === 0 ? 1 : 0);}
-  }
+  if (action === "left" || action === "right") {params.menuMove(action);}
 }
 
 function pollClosing(params: PollParams, gamepads: (Gamepad | null)[], nowMs: number) {
@@ -290,7 +325,7 @@ function pollReconnect(params: PollParams, gamepads: (Gamepad | null)[], nowMs: 
   if (!confirmed) {return;}
   if (params.reconnectTarget.current === "menu") {
     params.menuReader.current.reset();
-    params.updateOverlay({ kind: "menu", error: "", pending: false, selected: 0 });
+    params.updateOverlay({ kind: "menu", error: "", notice: "", pending: false, selected: 0 });
     return;
   }
   params.beginClose("disconnect");

@@ -2,16 +2,18 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { PlatformView } from "./platform-view";
 
-const mocks = vi.hoisted(() => ({ fetchPlatforms: vi.fn(), push: vi.fn(), replace: vi.fn() }));
+const mocks = vi.hoisted(() => ({ fetchDestinations: vi.fn(), push: vi.fn(), replace: vi.fn() }));
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: mocks.push, replace: mocks.replace }) }));
 vi.mock("./gamepad-source", () => ({ browserGamepadSource: { subscribe: () => () => undefined } }));
 vi.mock("./api", () => ({
   ImmersiveAPIError: class extends Error {constructor(public status: number, message: string) {super(message);}},
-  fetchImmersivePlatforms: mocks.fetchPlatforms,
+  fetchImmersiveDestinations: mocks.fetchDestinations,
 }));
 
 beforeEach(() => {
+  vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue();
+  vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => undefined);
   vi.stubGlobal("matchMedia", vi.fn(() => ({
     matches: true,
     media: "",
@@ -22,12 +24,13 @@ beforeEach(() => {
     removeListener: vi.fn(),
     dispatchEvent: vi.fn(),
   })));
-  mocks.fetchPlatforms.mockResolvedValue({
+  mocks.fetchDestinations.mockResolvedValue({
     generatedAtMs: 1_000,
     items: [
       {
-        platformId: "gba",
-        platformName: "Game Boy Advance",
+        destinationId: "gba",
+        kind: "platform",
+        name: "Game Boy Advance",
         gameCount: 2,
         lastPlayedAtMs: null,
         featuredGames: [
@@ -35,8 +38,9 @@ beforeEach(() => {
         ],
       },
       {
-        platformId: "nes",
-        platformName: "NES / Famicom",
+        destinationId: "nes",
+        kind: "platform",
+        name: "NES / Famicom",
         gameCount: 3,
         lastPlayedAtMs: 500,
         featuredGames: [
@@ -49,9 +53,10 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup();
-  mocks.fetchPlatforms.mockReset();
+  mocks.fetchDestinations.mockReset();
   mocks.push.mockReset();
   mocks.replace.mockReset();
+  vi.restoreAllMocks();
   vi.unstubAllGlobals();
 });
 

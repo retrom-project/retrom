@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"retrom/internal/cleanup"
+	"retrom/internal/gametitle"
 )
 
 func (run *approvalRun) persistGame() error {
@@ -39,12 +40,13 @@ func (run *approvalRun) persistGame() error {
 
 func (run *approvalRun) insertGameRevisions() error {
 	metadata := run.metadata
+	title := strings.TrimSpace(metadata.Title)
 	_, err := run.transaction.ExecContext(run.ctx, `
 INSERT INTO game_metadata_revisions(
-  id,game_id,title,description,developer,publisher,genre,players,release_year,
+  id,game_id,title,title_initial,description,developer,publisher,genre,players,release_year,
   source_kind,source_ref_id,created_at_ms
-) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)
-`, run.metadataID, run.gameID, strings.TrimSpace(metadata.Title), metadata.Description,
+) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)
+`, run.metadataID, run.gameID, title, gametitle.Initial(title), metadata.Description,
 		metadata.Developer, metadata.Publisher, metadata.Genre, metadata.Players, metadata.ReleaseYear,
 		run.input.metadataSourceKind, run.input.metadataSourceRefID, run.now)
 	if err != nil {

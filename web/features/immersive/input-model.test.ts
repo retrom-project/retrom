@@ -81,6 +81,27 @@ describe("immersive navigation input model", () => {
     expect(model.update(gamepad({ buttons: [0, 1] }), 123).actions).toEqual(["cancel"]);
   });
 
+  it("emits Select as a single menu edge only after the neutral gate", () => {
+    const model = new NavigationInputModel();
+    expect(model.update(gamepad({ buttons: [8] }), 0).actions).toEqual([]);
+    expect(model.update(gamepad({ buttons: [8] }), 500).neutralReady).toBe(false);
+    arm(model, 600);
+    expect(model.update(gamepad({ buttons: [8] }), 721).actions).toEqual(["menu"]);
+    expect(model.update(gamepad({ buttons: [8] }), 1_200).actions).toEqual([]);
+  });
+
+  it("emits Y as favorite and gives A, B and Select precedence", () => {
+    const model = new NavigationInputModel();
+    arm(model);
+    expect(model.update(gamepad({ buttons: [3] }), 121).actions).toEqual(["favorite"]);
+    model.update(gamepad(), 122);
+    expect(model.update(gamepad({ buttons: [0, 3] }), 123).actions).toEqual(["confirm"]);
+    model.update(gamepad(), 124);
+    expect(model.update(gamepad({ buttons: [1, 3] }), 125).actions).toEqual(["cancel"]);
+    model.update(gamepad(), 126);
+    expect(model.update(gamepad({ buttons: [3, 8] }), 127).actions).toEqual(["menu"]);
+  });
+
   it("resets edges and the neutral gate after disconnect", () => {
     const model = new NavigationInputModel();
     arm(model);

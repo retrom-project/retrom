@@ -13,11 +13,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/google/uuid"
 
 	"retrom/internal/authn"
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
+	"retrom/internal/gametitle"
 	"retrom/internal/httpapi/generated"
 	"retrom/internal/payloadrelease"
 	"retrom/internal/testassert"
@@ -117,19 +119,20 @@ func assertImmersiveFeaturedGameOrder(
 	}
 }
 
-func TestImmersiveOpenAPIContractIsTypedAndBounded(t *testing.T) {
-	t.Parallel()
-	specification, err := generated.GetSpec()
-	testassert.False(t, err != nil, err)
-	platforms := specification.Paths.Value("/api/v1/immersive/platforms")
-	games := specification.Paths.Value("/api/v1/immersive/platforms/{platformId}/games")
-	testassert.Falsef(t, platforms == nil || platforms.Get == nil ||
-		platforms.Get.OperationID != "GetImmersivePlatforms", "platform operation ID = %q", platforms.Get.OperationID)
-	testassert.Falsef(t, games == nil || games.Get == nil ||
-		games.Get.OperationID != "GetImmersivePlatformGames", "game operation ID = %q", games.Get.OperationID)
-	limit := specification.Components.Parameters["Limit50"].Value.Schema.Value
-	testassert.Falsef(t, limit.Max == nil || *limit.Max != 50 || limit.Min == nil || *limit.Min != 1,
-		"immersive limit schema = %#v", limit)
+func assertImmersiveOperation(
+	t *testing.T,
+	specification *openapi3.T,
+	path, operationID string,
+) {
+	t.Helper()
+	item := specification.Paths.Value(path)
+	testassert.Falsef(t, item == nil || item.Get == nil, "missing GET operation for %s", path)
+	testassert.Falsef(t, item.Get.OperationID != operationID,
+		"operation ID for %s = %q", path, item.Get.OperationID)
+}
+
+func assertImmersiveAdapterEnums(t *testing.T, specification *openapi3.T) {
+	t.Helper()
 	playerAdapter := specification.Components.Schemas["LaunchConfig"].Value.Properties["playerAdapterId"].Value
 	adapterEnums := make(map[string]bool, len(playerAdapter.Enum))
 	for _, value := range playerAdapter.Enum {
@@ -144,6 +147,22 @@ func TestImmersiveOpenAPIContractIsTypedAndBounded(t *testing.T) {
 		Properties["playerAdapterId"].Value
 	testassert.Falsef(t, len(netplayAdapter.Enum) != 1 || netplayAdapter.Enum[0] != "ejs-4.2.3-v2",
 		"netplay player adapter enum = %v", netplayAdapter.Enum)
+}
+
+func TestImmersiveOpenAPIContractIsTypedAndBounded(t *testing.T) {
+	t.Parallel()
+	specification, err := generated.GetSpec()
+	testassert.False(t, err != nil, err)
+	assertImmersiveOperation(t, specification, "/api/v1/immersive/platforms", "GetImmersivePlatforms")
+	assertImmersiveOperation(t, specification, "/api/v1/immersive/platforms/{platformId}/games",
+		"GetImmersivePlatformGames")
+	assertImmersiveOperation(t, specification, "/api/v1/immersive/destinations", "GetImmersiveDestinations")
+	assertImmersiveOperation(t, specification, "/api/v1/immersive/libraries/{libraryKind}/games",
+		"GetImmersiveLibraryGames")
+	limit := specification.Components.Parameters["Limit50"].Value.Schema.Value
+	testassert.Falsef(t, limit.Max == nil || *limit.Max != 50 || limit.Min == nil || *limit.Min != 1,
+		"immersive limit schema = %#v", limit)
+	assertImmersiveAdapterEnums(t, specification)
 }
 
 func seedImmersiveBlob(
@@ -194,9 +213,9 @@ func seedImmersiveGame(t *testing.T, server *Server, seed immersiveGameSeed, now
 	mustExecHTTPTest(t, transaction, "PRAGMA defer_foreign_keys=ON")
 	mustExecHTTPTest(t, transaction, `
 INSERT INTO game_metadata_revisions(
- id,game_id,title,description,developer,publisher,genre,players,release_year,source_kind,source_ref_id,created_at_ms
-) VALUES(?,?,?,?,'Retrom Studio','','Action',1,1999,'ADMIN_EDIT',NULL,?)
-`, seed.MetadataID, seed.GameID, seed.Title, seed.Description, now)
+ id,game_id,title,title_initial,description,developer,publisher,genre,players,release_year,source_kind,source_ref_id,created_at_ms
+) VALUES(?,?,?,?,?,'Retrom Studio','','Action',1,1999,'ADMIN_EDIT',NULL,?)
+`, seed.MetadataID, seed.GameID, seed.Title, gametitle.Initial(seed.Title), seed.Description, now)
 	mustExecHTTPTest(t, transaction, `
 INSERT INTO game_content_revisions(
  id,game_id,source_kind,source_ref_id,source_manifest_json,source_manifest_digest,created_at_ms
@@ -404,8 +423,8 @@ func replaceImmersiveMetadata(t *testing.T, server *Server, game immersiveGameSe
 	defer cleanup.Rollback(transaction)
 	mustExecHTTPTest(t, transaction, `
 INSERT INTO game_metadata_revisions(
- id,game_id,title,description,developer,publisher,genre,players,release_year,source_kind,source_ref_id,created_at_ms
-) VALUES(?,?,?,?,'New Studio','','Adventure',1,2001,'ADMIN_EDIT',NULL,2000)
+ id,game_id,title,title_initial,description,developer,publisher,genre,players,release_year,source_kind,source_ref_id,created_at_ms
+) VALUES(?,?,?,'R',?,'New Studio','','Adventure',1,2001,'ADMIN_EDIT',NULL,2000)
 `, replacement.MetadataID, game.GameID, replacement.Title, replacement.Description)
 	seedImmersiveAssets(t, server, transaction, replacement, "replacement-cover", "replacement-video", 2000)
 	mustExecHTTPTest(t, transaction, `

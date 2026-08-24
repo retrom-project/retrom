@@ -30,7 +30,30 @@ func TestGameCoverReplacementRetiresOldPayloadAndStagesCapacity(t *testing.T) {
 	seedGameDetailMedia(
 		t, server, transaction, gameID, metadataID, contentID, coverBlobID, coverAssetID, videoAssetID, &fixture,
 	)
+	oldCoverMetadata, err := server.blobs.Put(bytes.NewReader([]byte("old cover payload")))
+	testassert.False(t, err != nil, err)
+	mustExecHTTPTest(t, transaction, `
+UPDATE blobs SET sha256=?,size_bytes=?,md5=?,sha1=?,crc32=? WHERE id=?
+`, oldCoverMetadata.SHA256, oldCoverMetadata.Size, oldCoverMetadata.MD5, oldCoverMetadata.SHA1,
+		oldCoverMetadata.CRC32, coverBlobID)
 	mustCommitHTTPTest(t, transaction)
+	oldAssetURL := "/content/assets/" + coverAssetID
+	oldAsset := httptest.NewRecorder()
+	server.Handler().ServeHTTP(oldAsset, httptest.NewRequestWithContext(
+		context.Background(), http.MethodGet, oldAssetURL, nil,
+	))
+	oldETag := oldAsset.Header().Get("ETag")
+	testassert.Falsef(t, testassert.Any(
+		func() bool { return oldAsset.Code != http.StatusOK },
+		func() bool { return oldETag == "" },
+		func() bool { return oldAsset.Header().Get("Cache-Control") != "public, max-age=31536000, immutable" },
+	), "old cover response = %d headers=%v", oldAsset.Code, oldAsset.Header())
+	revalidatedRequest := httptest.NewRequestWithContext(context.Background(), http.MethodGet, oldAssetURL, nil)
+	revalidatedRequest.Header.Set("If-None-Match", oldETag)
+	revalidated := httptest.NewRecorder()
+	server.Handler().ServeHTTP(revalidated, revalidatedRequest)
+	testassert.Falsef(t, revalidated.Code != http.StatusNotModified || revalidated.Body.Len() != 0,
+		"old cover revalidation = %d body=%q", revalidated.Code, revalidated.Body.String())
 
 	png, err := base64.StdEncoding.DecodeString(
 		"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
@@ -61,6 +84,21 @@ VALUES(?,?,'replacement.png',?,?,?,'COMPLETE',?,?)
 	server.Handler().ServeHTTP(response, request)
 	testassert.Falsef(t, response.Code != http.StatusCreated,
 		"replace cover = %d %s", response.Code, response.Body.String())
+	var created struct {
+		AssetID string `json:"assetId"`
+	}
+	mustDecodeHTTPTest(t, response.Body.Bytes(), &created)
+	newAssetURL := "/content/assets/" + created.AssetID
+	newAsset := httptest.NewRecorder()
+	server.Handler().ServeHTTP(newAsset, httptest.NewRequestWithContext(
+		context.Background(), http.MethodGet, newAssetURL, nil,
+	))
+	testassert.Falsef(t, testassert.Any(
+		func() bool { return created.AssetID == "" || newAssetURL == oldAssetURL },
+		func() bool { return newAsset.Code != http.StatusOK },
+		func() bool { return newAsset.Header().Get("ETag") == "" || newAsset.Header().Get("ETag") == oldETag },
+		func() bool { return newAsset.Header().Get("Cache-Control") != "public, max-age=31536000, immutable" },
+	), "replacement cover response = %d headers=%v body=%s", newAsset.Code, newAsset.Header(), response.Body.String())
 	assertRetiredGameAssetUnavailable(t, server, coverAssetID)
 
 	var retiredAssets, candidateCount int64

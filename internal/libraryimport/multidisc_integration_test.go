@@ -285,22 +285,28 @@ WHERE game.id=? ORDER BY file.role,file.sort_order
 	})
 	testassert.False(t, err != nil, err)
 	configuration, err := launcher.Config(ctx, createdLaunch.LaunchID, createdLaunch.Capability)
+	expectedGameIdentity, expectedGameIdentityErr := launch.ContentIdentity(launch.ContentView{
+		Digest: playlistSHA, Format: "RETROM_MULTIDISC_M3U_V1", CoreID: "yabause",
+	})
+	expectedGameURL, expectedGameURLErr := launch.RuntimeContentURL("game", expectedGameIdentity, "playlist.m3u")
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return configuration.DiscSet == nil }, func() bool { return configuration.DiscSet.Count != 2 }, func() bool { return configuration.DiscSet.InitialDiscIndex != 0 }, func() bool {
-		return configuration.GameURL != "/runtime/launches/"+createdLaunch.LaunchID+"/game/playlist.m3u"
+		return expectedGameIdentityErr != nil || expectedGameURLErr != nil || configuration.GameURL != expectedGameURL
 	}), "multi-disc launch config = %#v, error=%v", configuration, err)
 	dimensions, err := launcher.MultiDiscTelemetryDimensions(ctx, createdLaunch.LaunchID, createdLaunch.Capability)
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return dimensions.PlatformKey != "saturn" }, func() bool { return dimensions.CoreKey != "yabause" }, func() bool { return dimensions.ArtifactVersion < 1 }, func() bool { return dimensions.DiscCount != 2 }), "multi-disc telemetry dimensions = %#v, error=%v", dimensions, err)
 	for index, entry := range configuration.DiscSet.Entries {
 		expectedName := fmt.Sprintf("disc-%03d.chd", index+1)
+		view, viewErr := launcher.External(ctx, createdLaunch.LaunchID, createdLaunch.Capability, expectedName)
+		expectedExternalIdentity, expectedExternalIdentityErr := launch.ExternalContentIdentity(view.Digest)
+		expectedExternalURL, expectedExternalURLErr := launch.RuntimeContentURL("external", expectedExternalIdentity, expectedName)
 		testassert.Falsef(t, testassert.Any(func() bool { return entry.Index != index }, func() bool { return entry.VirtualPath != "/"+expectedName }, func() bool {
-			return configuration.ExternalFiles[entry.VirtualPath] !=
-				"/runtime/launches/"+createdLaunch.LaunchID+"/external-files/"+expectedName
+			return viewErr != nil || expectedExternalIdentityErr != nil || expectedExternalURLErr != nil ||
+				configuration.ExternalFiles[entry.VirtualPath] != expectedExternalURL
 		}), "disc entry %d = %#v / %#v", index, entry, configuration.ExternalFiles)
 		if _, err := launcher.ExternalBlob(ctx, createdLaunch.LaunchID, createdLaunch.Capability, expectedName); err != nil {
 			t.Fatalf("locked disc %d: %v", index, err)
 		}
-		view, err := launcher.External(ctx, createdLaunch.LaunchID, createdLaunch.Capability, expectedName)
-		testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return view.Kind != "DISC" }, func() bool { return view.PlatformKey != "saturn" }, func() bool { return view.CoreKey != "yabause" }, func() bool { return view.DiscCount != 2 }, func() bool { return view.ArtifactVersion != dimensions.ArtifactVersion }), "observable disc %d = %#v, error=%v", index, view, err)
+		testassert.Falsef(t, testassert.Any(func() bool { return viewErr != nil }, func() bool { return view.Kind != "DISC" }, func() bool { return view.PlatformKey != "saturn" }, func() bool { return view.CoreKey != "yabause" }, func() bool { return view.DiscCount != 2 }, func() bool { return view.ArtifactVersion != dimensions.ArtifactVersion }), "observable disc %d = %#v, error=%v", index, view, viewErr)
 	}
 	if _, err := launcher.ExternalBlob(
 		ctx, createdLaunch.LaunchID, createdLaunch.Capability, "Disc One.CHD",

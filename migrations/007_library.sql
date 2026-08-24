@@ -32,6 +32,9 @@ CREATE TABLE "game_metadata_revisions" (
   id TEXT PRIMARY KEY,
   game_id TEXT NOT NULL REFERENCES games(id),
   title TEXT NOT NULL CHECK(length(title)>0),
+  title_initial TEXT NOT NULL CHECK(
+    length(title_initial)=1 AND (title_initial='#' OR title_initial GLOB '[0-9]' OR title_initial GLOB '[A-Z]')
+  ),
   description TEXT NOT NULL,
   developer TEXT NOT NULL,
   publisher TEXT NOT NULL,

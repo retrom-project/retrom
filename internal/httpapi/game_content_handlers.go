@@ -607,45 +607,9 @@ func (server *Server) patchAdminGame(writer http.ResponseWriter, request *http.R
 	applyPatchGameMetadata(&state.metadata, body)
 	revisionID, _ := uuid.NewV7()
 	now := server.now().UnixMilli()
-	_, err = transaction.ExecContext(
-		request.Context(),
-		`
-INSERT INTO game_metadata_revisions(id,
-game_id,
-title,
-description,
-developer,
-publisher,
-genre,
-players,
-release_year,
-source_kind,
-source_ref_id,
-created_at_ms) VALUES(?,
-?,
-?,
-?,
-?,
-?,
-?,
-?,
-?,
-'ADMIN_EDIT',
-NULL,
-?)
-`,
-		revisionID.String(),
-		request.PathValue("gameId"),
-		state.metadata.Title,
-		state.metadata.Description,
-		state.metadata.Developer,
-		state.metadata.Publisher,
-		state.metadata.Genre,
-		nullableInteger(state.metadata.Players),
-		nullableInteger(state.metadata.ReleaseYear),
-		now,
-	)
-	if err != nil {
+	if err := insertAdminGameMetadataRevision(
+		request.Context(), transaction, revisionID.String(), request.PathValue("gameId"), state.metadata, now,
+	); err != nil {
 		server.databaseError(writer, request, err)
 		return
 	}

@@ -81,9 +81,9 @@ func seedFavoriteHTTPGame(t *testing.T, server *Server, gameID, suffix, title st
 	}
 	if _, err := transaction.ExecContext(context.Background(), `
 INSERT INTO game_metadata_revisions(
-  id,game_id,title,description,developer,publisher,genre,players,release_year,
+  id,game_id,title,title_initial,description,developer,publisher,genre,players,release_year,
   source_kind,source_ref_id,created_at_ms
-) VALUES(?,?,?,'','','','',NULL,1994,'ADMIN_EDIT',NULL,1000)
+) VALUES(?,?,?,'F','','','','',NULL,1994,'ADMIN_EDIT',NULL,1000)
 `, metadataID, gameID, title); err != nil {
 		t.Fatal(err)
 	}

@@ -184,14 +184,20 @@ flowchart LR
 
 ### M18：标准手柄沉浸模式垂直切片
 
-范围：先同步架构、HTTP、UI、运行时、依赖、质量、验收契约与 OpenAPI；增加 Profile 隔离的沉浸平台
-聚合和平台游戏 cursor 投影，不新增 migration。前端只在普通首页发现标准手柄并确认进入，随后由普通
-App Shell 之外的 `/immersive` 独立电视 UI 完成平台 carousel、游戏列表、当前 COVER/VIDEO/description 和
-默认单机 Launch。单机 Player 以 `experience=immersive` 显式启用活动手柄双击 Select+Start、输入全零、
-暂停所有权与“取消/退出游戏”菜单；普通 PC/移动和联机分支保持原状。普通 4.2.3/4.3.0-pre adapter
-升级精确 ID，联机 manifest/profile 继续使用其锁定的普通 adapter/联机 adapter 组合，不能隐式继承沉浸过滤。
+范围：先同步架构、HTTP、UI、运行时、依赖、质量、验收契约与 OpenAPI；在 clean migration lineage 的不可变
+MetadataRevision 增加受约束 `title_initial` 并闭合导入、管理改名与重刮削写入。增加 Profile 隔离的
+destinations、资料库/收藏夹、平台游戏 cursor 与存档投影。普通首页同时提供显式入口和标准手柄确认；普通
+App Shell 之外的 `/immersive` 独立电视 UI 固定先展示全部/最近/收藏/存档，再展示平台，并完成标题排序、
+收藏夹、Y 默认收藏、SaveState 浏览/启动、COVER/VIDEO/description、BGM 和 Select 系统菜单。BGM/游戏两组
+音量偏好只使用版本化 localStorage，不新增服务端偏好表。
 
-退出门禁：完整执行 `ACC-IMM-001`–`008`，回归 `ACC-RUN-001`–`012`、`ACC-MOB-005`–`007`、
+单机 Player 以 `experience=immersive` 显式启用活动手柄双击 Select+Start、输入全零、暂停所有权与“取消/
+创建存档/退出游戏”菜单；显式存档复用普通 SaveState 链路，取消和退出不自动存档。媒体、ROM、BIOS、
+parent 与外部文件采用替换即换 URL 的不可变内容身份，SaveState 仍私有 no-store。普通 PC/移动和联机分支
+保持原状；普通 4.2.3/4.3.0-pre adapter 使用当前精确 ID，联机 manifest/profile 继续使用锁定的 legacy
+普通 adapter/联机 adapter 组合，不能隐式继承沉浸过滤。
+
+退出门禁：完整执行 `ACC-IMM-001`–`012`，回归 `ACC-RUN-001`–`012`、`ACC-MOB-005`–`007`、
 `ACC-MDISC-004`–`006`、`ACC-NP-010`–`022`、`ACC-ISO-001`–`003` 与普通首页/详情/存档 Case；运行
 OpenAPI、后端、集成、前端、结构、公开 fixture、data/dependency、`make web-e2e`、`make ci` 和两个镜像
 构建门禁。自动化必须经过真实 Game/媒体 API、Launch、内容端点、Player 和项目自有 GBA/Arcade Core，
