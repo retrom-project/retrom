@@ -287,7 +287,7 @@ Idempotency-Key: <uuid>
 }
 ```
 
-`coreId` 可省略以使用游戏目录默认核心；有 `saveStateId` 时服务端忽略默认核心并要求显式值（若给出）与存档一致。`returnTo` 只接受无 query、无 fragment、无 percent-encoding 的精确路径 `/`、`/library`、`/saves` 或 `/games/{gameId}`，且最后一种的 ID 必须等于 body 的 `gameId`；不接受 origin、反斜杠、协议相对或任意 URL。`clientCapabilities` 三个布尔字段必需，由点击时的 Chrome 环境读取；它们不是授权证据，但用于在签发 credential 前给 thread core 产生可理解 Blocker。Player 在加载 loader 前必须再次读取真实环境，任一值变差则终止为 `LAUNCH_THREADS_UNAVAILABLE`，不能只信请求快照。
+`coreId` 可省略以使用游戏目录默认核心；有 `saveStateId` 时服务端忽略默认核心并要求显式值（若给出）与存档一致。`returnTo` 通常只接受无 query、无 fragment、无 percent-encoding 的精确路径 `/`、`/library`、`/saves` 或 `/games/{gameId}`；沉浸启动另外只接受 `/immersive/platforms/{platformId}?gameId={gameId}`，其中 `platformId` 必须是 1..64 位小写 slug，且 query 中只能有与 body 相同的唯一 `gameId`。不接受 origin、反斜杠、协议相对或任意 URL。`clientCapabilities` 三个布尔字段必需，由点击时的 Chrome 环境读取；它们不是授权证据，但用于在签发 credential 前给 thread core 产生可理解 Blocker。Player 在加载 loader 前必须再次读取真实环境，任一值变差则终止为 `LAUNCH_THREADS_UNAVAILABLE`，不能只信请求快照。
 
 若所选 core 对 Game current ContentRevision 没有同 `validationInputDigest` 的完成结果，本端点在短事务创建/复用 `VARIANT_REVALIDATE` Job 并返回 `202`；此时不创建 LaunchSession、不设 cookie：
 
@@ -353,7 +353,7 @@ PlaySession 事件 API 位于 launch cookie 的限定 Path 内，同时要求正
 {
   "launchId": "0198...",
   "emulatorjsVersion": "4.2.3",
-  "playerAdapterId": "ejs-4.2.3-v2",
+  "playerAdapterId": "ejs-4.2.3-v3",
   "core": "mame2003",
   "runtimeCore": "mame2003",
   "coreName": "MAME 2003",
@@ -382,7 +382,7 @@ PlaySession 事件 API 位于 launch cookie 的限定 Path 内，同时要求正
 }
 ```
 
-`emulatorGameId` 是 `1..9007199254740991` 的 JSON integer；`gameName` 必须精确为 ASCII `retrom-` 加它的十进制表示。`gameTitle/coreName/platformName` 只用于 Player 工具栏的人类可读上下文，不参与 EJS 配置、运行选择或授权判断。`biosUrl`、`parentUrl`、`stateUrl` 与 `dosEntry` 可为 `null`；其他字段必需。`defaultCoreOptions` 是最多 32 项的 ASCII string→string map，禁止危险 key；DOS 的该 map 和 `externalFiles` 均不包含启动入口，启动入口只由锁定内容的虚拟 ZIP 视图表达。其他核心的 `externalFiles` 只能指向同一 Launch 锁定的 `/external-files/<logicalName>`。`emulatorjsVersion/playerAdapterId` 必须等于锁定 CoreArtifact 所属 manifest 的版本/adapter ID；`dosbox_pure`、`genesis_plus_gx_wide`、`azahar` 的新 Launch 为 `4.3.0-pre/ejs-4.3.0-pre-v1`，其余核心保持各自选定版本。所有 URL 必须是同源站内路径，响应不得含 capability、Blob ID/hash、宿主路径或客户端可改写 URL。
+`emulatorGameId` 是 `1..9007199254740991` 的 JSON integer；`gameName` 必须精确为 ASCII `retrom-` 加它的十进制表示。`gameTitle/coreName/platformName` 只用于 Player 工具栏的人类可读上下文，不参与 EJS 配置、运行选择或授权判断。`biosUrl`、`parentUrl`、`stateUrl` 与 `dosEntry` 可为 `null`；其他字段必需。`defaultCoreOptions` 是最多 32 项的 ASCII string→string map，禁止危险 key；DOS 的该 map 和 `externalFiles` 均不包含启动入口，启动入口只由锁定内容的虚拟 ZIP 视图表达。其他核心的 `externalFiles` 只能指向同一 Launch 锁定的 `/external-files/<logicalName>`。普通 `emulatorjsVersion/playerAdapterId` 必须等于锁定 CoreArtifact 所属 manifest 的版本/adapter ID；`dosbox_pure`、`genesis_plus_gx_wide`、`azahar` 的新 Launch 为 `4.3.0-pre/ejs-4.3.0-pre-v2`，其余 4.2.3 核心使用 `ejs-4.2.3-v3`。联机 config 由联机 manifest 精确锁定 legacy `ejs-4.2.3-v2`，不得用普通 manifest 当前 ID 覆盖。所有 URL 必须是同源站内路径，响应不得含 capability、Blob ID/hash、宿主路径或客户端可改写 URL。
 
 `startupActions` 最多 4 项，只接受 `event=GAME_START`、`kind=PRESS_CONTROL`、`delayMs=0..30000`、`durationMs=1..1000` 以及有界 player/control 整数；OpenAPI、后端 manifest/Launch 校验与 Player adapter 必须采用同一边界。动作是锁定 CoreArtifact 的只读兼容配置，不能由请求者编辑，也不能按 core ID 在任一端补默认值。
 
@@ -670,7 +670,7 @@ Aggregate `counts` 除扫描/映射/阻断/失败等既有字段外固定包含 
 
 稳定错误包括 `PEGASUS_METADATA_NOT_FOUND`、`PEGASUS_SCAN_LIMIT_EXCEEDED`、`PEGASUS_MAPPING_INCOMPLETE`、`PEGASUS_NO_COLLECTION_SELECTED`、`PEGASUS_SOURCE_CHANGED`、`PEGASUS_PLAN_EXPIRED`、`PEGASUS_IMPORT_ACTIVE`、`PEGASUS_LIBRARY_IMPORT_FAILED`、`SERVER_IMPORT_ROOT_CHANGED` 与 `SERVER_IMPORT_SOURCE_NOT_RESTORED`；Item/warning 使用 OpenAPI 的封闭状态与稳定 code。`failureDetails.causeCode` 至少区分 `SOURCE_FILE_LIMIT_EXCEEDED`、`LIBRARY_IMPORT_INPUT_INVALID`、`MULTI_DISC_MODE_UNAVAILABLE`、`DATABASE_BUSY`、`DATABASE_CONSTRAINT_FAILED`、`OPERATION_TIMEOUT`、`OPERATION_CANCELLED`、`METADATA_JSON_INVALID` 与 `INTERNAL_OPERATION_FAILED`。library validation 的 `LAUNCH_BIOS_MISSING`、`LAUNCH_PARENT_MISSING`、`ARCADE_CONTENT_MISSING_ENTRY`、`ARCADE_DEPENDENCY_MISMATCH`、`UNSUPPORTED_MERGED_ROMSET`、`UNSUPPORTED_CHD`、`ARCADE_DAT_UNAVAILABLE`、`ARCADE_DEPENDENCY_CYCLE` 与 `MULTI_DISC_FILE_MISSING` 等 compatibility code 必须原样保留，客户端不得根据 message 反推原因。
 
-`GET /api/v1/games/{gameId}` 增加可空 `videoUrl=/content/assets/{assetId}`，只指向 current MetadataRevision 的 ordinal 0 VIDEO；所有列表/Home/Recent/Favorites/Saves DTO 均无该字段。管理 `POST /api/v1/admin/games/{gameId}/assets` 接受 VIDEO，`DELETE .../assets/VIDEO` 以新 MetadataRevision 移除当前视频。current 切换后旧 Asset 行被删除，旧逻辑 URL 返回 404；同一 Asset ID 在存续期间仍沿用强 ETag、immutable cache、`nosniff`、完整 GET 与单 Range。非法/多 Range、不可见 Game 与未知/已退役 Asset 继续使用统一拒绝语义。
+`GET /api/v1/games/{gameId}` 增加可空 `videoUrl=/content/assets/{assetId}`，只指向 current MetadataRevision 的 ordinal 0 VIDEO；普通列表/Home/Recent/Favorites/Saves DTO 均无该字段，唯一额外用户投影是第 12.2 节的沉浸游戏平台列表。管理 `POST /api/v1/admin/games/{gameId}/assets` 接受 VIDEO，`DELETE .../assets/VIDEO` 以新 MetadataRevision 移除当前视频。current 切换后旧 Asset 行被删除，旧逻辑 URL 返回 404；同一 Asset ID 在存续期间仍沿用强 ETag、immutable cache、`nosniff`、完整 GET 与单 Range。非法/多 Range、不可见 Game 与未知/已退役 Asset 继续使用统一拒绝语义。
 
 ## 12.1 EmulationStation 服务器目录导入 API
 
@@ -737,6 +737,28 @@ EMULATIONSTATION_EXECUTION_FIELD_IGNORED
 ```
 
 M3U 与 library validation 保留现有 `MULTI_DISC_*`、`LAUNCH_*`、`ARCADE_*` code，不包装为模糊来源错误。`failureDetails.causeCode` 复用 Pegasus 的 `SOURCE_FILE_LIMIT_EXCEEDED/LIBRARY_IMPORT_INPUT_INVALID/MULTI_DISC_MODE_UNAVAILABLE/DATABASE_BUSY/DATABASE_CONSTRAINT_FAILED/OPERATION_TIMEOUT/OPERATION_CANCELLED/METADATA_JSON_INVALID/INTERNAL_OPERATION_FAILED`。HTTP 状态继续遵循统一 envelope；扫描期 XML/路径/容量问题进入 Job/aggregate，不把 create 伪装成同步解析。
+
+## 12.2 沉浸模式只读 API
+
+沉浸模式使用独立、只读的电视交互投影，不复用普通游戏库的搜索、筛选或管理 DTO。两个端点均要求有效 Profile 会话，只返回当前用户可见且已发布、可运行的游戏；查询不得暴露 Blob SHA、宿主路径、内容逻辑名或 Launch capability。
+
+`GET /api/v1/immersive/platforms` 返回：
+
+- 顶层 `generatedAtMs` 与 `items`；
+- 每项包含稳定 `platformId`、展示名 `platformName`、`gameCount` 与可空 `lastPlayedAtMs`；
+- 只保留至少有一款可见游戏的已启用平台，按规范化平台名、`platformId` 稳定排序；
+- `lastPlayedAtMs` 为当前 Profile 在该平台所有可见游戏上的 `PlaySession.started_at_ms` 最大值，未游玩为 `null`。
+
+`GET /api/v1/immersive/platforms/{platformId}/games?cursor=&limit=` 返回：
+
+- `limit` 默认且最大为 50；除此之外不接受搜索、排序、标签或状态查询参数；
+- 平台不存在、已禁用或对当前 Profile 没有可见游戏时统一返回 404 `IMMERSIVE_PLATFORM_NOT_FOUND`，不能泄露隐藏平台；
+- 按规范化游戏标题、`gameId` 稳定分页；签名 cursor 绑定 Profile、route、`platformId` 与 `limit`，过期、篡改或跨范围复用返回 400 `INVALID_CURSOR`；
+- 响应顶层 `platform` 固定为本页所属平台；每项包含 `gameId/title/platformInstanceId/platformInstanceName/defaultCoreId`、当前元数据中的可空 `description/releaseYear/developer/genre`、当前 Profile 的可空 `lastPlayedAtMs`，以及当前媒体中 ordinal 0 的可空 `coverUrl/videoUrl`；
+- 媒体 URL 必须继续进入既有受 AuthSession 保护的内容端点，不建立沉浸模式专用 Blob 旁路；
+- 响应包含 `generatedAtMs`、`items` 与可空 `nextCursor`。空的后续页返回 200 空数组，只有平台整体不可见时返回 404。
+
+两个响应都是当次读取快照的展示投影，不建立持久化沉浸会话。客户端返回后台再进入时重新获取平台和游戏数据，不依赖旧页面中的可见性或容量结论。
 
 ## 13. 受限联机 REST、SSE、WebSocket 与凭据
 

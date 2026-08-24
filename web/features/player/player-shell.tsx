@@ -21,11 +21,20 @@ import { usePlayerSession } from "./player-session";
 import { usePlayerRuntimeActions } from "./player-runtime-actions";
 import { usePlayerOrientationRuntime } from "./player-orientation-runtime";
 import { usePlayerRuntimeEffects } from "./player-runtime-effects";
+import { ImmersivePlayerMenu } from "./immersive-player-menu";
+import { useImmersivePlayer } from "./use-immersive-player";
+import { usePlayerKeyboardPause } from "./use-player-keyboard-pause";
 export { readBoundedResponse, reportsNativeExit } from "./player-shell-model";
 
 type ShellState = "loading" | "running" | "error";
 
-export function PlayerShell({ launchId }: { launchId: string }) {
+export function PlayerShell({
+  launchId,
+  experience = "standard",
+}: {
+  launchId: string;
+  experience?: "standard" | "immersive";
+}) {
   const { context } = useAuth();
   const userId = context.user?.userId;
   const stage = useRef<HTMLDivElement>(null);
@@ -33,6 +42,7 @@ export function PlayerShell({ launchId }: { launchId: string }) {
   const orientationButtonRef = useRef<HTMLButtonElement>(null);
   const emulator = useRef<EmulatorInstance | undefined>(undefined);
   const [state, setState] = useState<ShellState>("loading");
+  const [immersiveReturnTo, setImmersiveReturnTo] = useState("/immersive");
   const [message, setMessage] = useState("正在验证运行快照…");
   const [warnings, setWarnings] = useState<string[]>([]);
   const [toast, setToast] = useState("");
@@ -184,7 +194,20 @@ export function PlayerShell({ launchId }: { launchId: string }) {
     orientationStateRef, returnTo, netplayController, setOrientationState, setSaveUploadProgress,
     setSyncText, setSyncTone, showToast,
   }), [launchId, showToast]);
-  const { sendEvent, uploadManualState, exit } = usePlayerSession(sessionParams);
+  const { sendEvent, uploadManualState, exit, exitStrict } = usePlayerSession(sessionParams);
+  const handleImmersiveFatal = useCallback((error: string) => {
+    setMessage(error);
+    setState("error");
+  }, []);
+  const immersive = useImmersivePlayer({
+    enabled: experience === "immersive",
+    emulator,
+    pausedRef,
+    running: state === "running",
+    setPaused,
+    exitStrict,
+    onFatalError: handleImmersiveFatal,
+  });
 
   useEffect(() => {
     videoRenderingModeRef.current = videoRenderingMode;
@@ -193,14 +216,14 @@ export function PlayerShell({ launchId }: { launchId: string }) {
   }, [videoRenderingMode]);
 
   const bootstrapParams = useMemo(() => ({
-    launchId, stage, frameRef, emulator, returnTo, playerMode, manualSaveAvailableRef, netplayConfig, discSetRef,
+    launchId, experience, immersiveGamepadFilter: immersive.filter, stage, frameRef, emulator, returnTo, playerMode, manualSaveAvailableRef, netplayConfig, discSetRef,
     orientationStateRef, videoRenderingModeRef, lastAudibleVolume, pausedRef, started, finishing, heartbeat,
     toastTimer, netplayController, netplayPausedRef, setMessage, setState, setManualSaveAvailable,
     setNetplayPlayerNo, setWarnings, setGameTitle, setCoreName, setPlatformName, setDebugRuntime, setDiscSet,
     setDiscState, setOrientationState, setFrameEnabled, setSyncText, setSyncTone, setEmulatorVolume,
-    setEmulatorMuted, setPaused, setNetplayPaused, reportPlayerEvent, revealControlsAtTopEdge, showControls,
-    sendEvent, uploadManualState, onKeyboardPause,
-  }), [launchId, onKeyboardPause, reportPlayerEvent, revealControlsAtTopEdge, sendEvent, showControls, uploadManualState]);
+    setEmulatorMuted, setPaused, setNetplayPaused, setImmersiveReturnTo, reportPlayerEvent, revealControlsAtTopEdge, showControls,
+    sendEvent, uploadManualState, onKeyboardPause, onImmersiveMenuShortcut: immersive.requestMenu,
+  }), [experience, immersive.filter, immersive.requestMenu, launchId, onKeyboardPause, reportPlayerEvent, revealControlsAtTopEdge, sendEvent, showControls, uploadManualState]);
 
   usePlayerBootstrap(bootstrapParams);
 
@@ -221,30 +244,11 @@ export function PlayerShell({ launchId }: { launchId: string }) {
   const actions = usePlayerRuntimeActions(runtimeActionParams);
   const toggleNetplayPause = actions.toggleNetplayPause;
 
-  useEffect(() => {
-    keyboardPauseAction.current = () => {
-      if (!running.current || chromePinned.current || pausePending.current) {return;}
-      if (playerMode.current === "netplay") {
-        if (netplayConfig.current?.playerNo !== 1) {showToast("只有 P1 可以暂停联机", 3_000); return;}
-        void toggleNetplayPause();
-        return;
-      }
-      const nextPaused = !pausedRef.current;
-      if (!setEmulatorPaused(emulator.current, nextPaused)) {return;}
-      pausedRef.current = nextPaused;
-      setPaused(nextPaused);
-      if (nextPaused) {
-        showToast("游戏已暂停，按 P 或点击游戏画面继续");
-        setControlsVisible(true);
-        clearControlsTimer();
-        return;
-      }
-      lastManualScreenshot.current = null;
-      showToast("游戏已继续");
-      showControls();
-    };
-    return () => {keyboardPauseAction.current = () => undefined;};
-  }, [clearControlsTimer, showControls, showToast, toggleNetplayPause]);
+  usePlayerKeyboardPause({
+    emulator, keyboardPauseActionRef: keyboardPauseAction, playerMode, running, chromePinned, pausePending,
+    netplayPlayerNo, pausedRef, lastManualScreenshot, setPaused, setControlsVisible,
+    clearControlsTimer, showControls, showToast, toggleNetplayPause,
+  });
 
   const orientationParams = useMemo(() => ({
     frameRef, playerMode, netplayController, emulator, pausedRef, netplayPausedRef, orientationStateRef,
@@ -267,24 +271,28 @@ export function PlayerShell({ launchId }: { launchId: string }) {
     onToggleNetplayPause: () => void actions.toggleNetplayPause(), onToggleDebug: toggleDebug,
     onGameSurface: handleGameSurfaceInteraction, onExit: () => void exit(),
   };
-  return <PlayerShellView paused={paused} orientationState={orientationState} chromeProps={chromeProps} stage={stage} frameRef={frameRef} frameEnabled={frameEnabled} state={state} message={message} gameTitle={gameTitle} orientationHelp={orientationHelp} orientationButtonRef={orientationButtonRef} onShowControls={showControls} onRevealControls={revealControlsAtTopEdge} onSurface={handleGameSurfaceInteraction} onRetryLandscape={() => void retryLandscape()} />;
+  return <PlayerShellView experience={experience} immersive={immersive} paused={paused} orientationState={orientationState} chromeProps={chromeProps} stage={stage} frameRef={frameRef} frameEnabled={frameEnabled} state={state} message={message} returnTo={experience === "immersive" ? immersiveReturnTo : "/library"} gameTitle={gameTitle} orientationHelp={orientationHelp} orientationButtonRef={orientationButtonRef} onShowControls={showControls} onRevealControls={revealControlsAtTopEdge} onSurface={handleGameSurfaceInteraction} onRetryLandscape={() => void retryLandscape()} />;
 }
 
-function PlayerShellView({ paused, orientationState, chromeProps, stage, frameRef, frameEnabled, state, message, gameTitle, orientationHelp, orientationButtonRef, onShowControls, onRevealControls, onSurface, onRetryLandscape }: { paused: boolean; orientationState: PlayerOrientationState; chromeProps: PlayerChromeProps; stage: RefObject<HTMLDivElement | null>; frameRef: RefObject<HTMLIFrameElement | null>; frameEnabled: boolean; state: ShellState; message: string; gameTitle: string; orientationHelp: string; orientationButtonRef: RefObject<HTMLButtonElement | null>; onShowControls: () => void; onRevealControls: (clientY: number) => void; onSurface: () => void; onRetryLandscape: () => void }) {
+type ImmersiveController = ReturnType<typeof useImmersivePlayer>;
+
+function PlayerShellView({ experience, immersive, paused, orientationState, chromeProps, stage, frameRef, frameEnabled, state, message, returnTo, gameTitle, orientationHelp, orientationButtonRef, onShowControls, onRevealControls, onSurface, onRetryLandscape }: { experience: "standard" | "immersive"; immersive: ImmersiveController; paused: boolean; orientationState: PlayerOrientationState; chromeProps: PlayerChromeProps; stage: RefObject<HTMLDivElement | null>; frameRef: RefObject<HTMLIFrameElement | null>; frameEnabled: boolean; state: ShellState; message: string; returnTo: string; gameTitle: string; orientationHelp: string; orientationButtonRef: RefObject<HTMLButtonElement | null>; onShowControls: () => void; onRevealControls: (clientY: number) => void; onSurface: () => void; onRetryLandscape: () => void }) {
   const blocked = orientationState.phase === "orientation-blocked";
-  return <main className={`player-shell${paused ? " is-paused" : ""}${blocked ? " is-orientation-blocked" : ""}`} onKeyDown={(event) => {if (shouldRevealPlayerControlsForKey(event.key)) {onShowControls();}}} onPointerMove={(event) => onRevealControls(event.clientY)}>
-    {!blocked ? <PlayerChrome {...chromeProps} /> : null}
-    <PlayerStage blocked={blocked} stage={stage} frameRef={frameRef} frameEnabled={frameEnabled} state={state} message={message} onSurface={onSurface} />
+  const isImmersive = experience === "immersive";
+  return <main className={`player-shell${isImmersive ? " is-immersive" : ""}${paused ? " is-paused" : ""}${blocked ? " is-orientation-blocked" : ""}`} onKeyDown={(event) => {if (!isImmersive && shouldRevealPlayerControlsForKey(event.key)) {onShowControls();}}} onPointerMove={(event) => {if (!isImmersive) {onRevealControls(event.clientY);}}}>
+    {!blocked && !isImmersive ? <PlayerChrome {...chromeProps} /> : null}
+    <PlayerStage blocked={blocked} stage={stage} frameRef={frameRef} frameEnabled={frameEnabled} state={state} message={message} returnTo={returnTo} immersive={isImmersive} onSurface={isImmersive ? () => undefined : onSurface} />
+    {!blocked && isImmersive ? <ImmersivePlayerMenu overlay={immersive.overlay} onCancel={immersive.menuCancel} onSelect={immersive.menuSelect} onConfirm={immersive.runSelectedMenuAction} /> : null}
     {blocked ? <OrientationGate state={orientationState} gameTitle={gameTitle} help={orientationHelp} buttonRef={orientationButtonRef} onRetry={onRetryLandscape} /> : null}
   </main>;
 }
 
-function PlayerStage({ blocked, stage, frameRef, frameEnabled, state, message, onSurface }: { blocked: boolean; stage: RefObject<HTMLDivElement | null>; frameRef: RefObject<HTMLIFrameElement | null>; frameEnabled: boolean; state: ShellState; message: string; onSurface: () => void }) {
-  return <div className="player-stage" ref={stage} inert={blocked ? true : undefined} aria-hidden={blocked || undefined} onClick={onSurface}>{frameEnabled ? <iframe ref={frameRef} title="Retrom EmulatorJS Player" className="player-frame" src="about:blank" /> : null}{state !== "running" ? <PlayerLoading state={state} message={message} /> : null}</div>;
+function PlayerStage({ blocked, stage, frameRef, frameEnabled, state, message, returnTo, immersive, onSurface }: { blocked: boolean; stage: RefObject<HTMLDivElement | null>; frameRef: RefObject<HTMLIFrameElement | null>; frameEnabled: boolean; state: ShellState; message: string; returnTo: string; immersive: boolean; onSurface: () => void }) {
+  return <div className="player-stage" ref={stage} inert={blocked ? true : undefined} aria-hidden={blocked || undefined} onClick={onSurface}>{frameEnabled ? <iframe ref={frameRef} title="Retrom EmulatorJS Player" className="player-frame" src="about:blank" /> : null}{state !== "running" ? <PlayerLoading state={state} message={message} returnTo={returnTo} immersive={immersive} /> : null}</div>;
 }
 
-function PlayerLoading({ state, message }: { state: ShellState; message: string }) {
-  return <div className="player-loading">{state === "loading" ? <i /> : null}<strong>{message}</strong><p>{state === "error" ? <><span>凭据可能已过期或依赖不兼容。</span> <Link href="/library">返回游戏库</Link></> : "页面会在验证和指定存档恢复后自动开始，无需再次点击。"}</p></div>;
+function PlayerLoading({ state, message, returnTo, immersive }: { state: ShellState; message: string; returnTo: string; immersive: boolean }) {
+  return <div className="player-loading">{state === "loading" ? <i /> : null}<strong>{message}</strong><p>{state === "error" ? <><span>凭据可能已过期或依赖不兼容。</span> <Link href={returnTo}>{immersive ? "返回游戏列表" : "返回游戏库"}</Link></> : "页面会在验证和指定存档恢复后自动开始，无需再次点击。"}</p></div>;
 }
 
 function OrientationGate({ state, gameTitle, help, buttonRef, onRetry }: { state: PlayerOrientationState; gameTitle: string; help: string; buttonRef: RefObject<HTMLButtonElement | null>; onRetry: () => void }) {

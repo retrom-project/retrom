@@ -19,6 +19,7 @@ import (
 	"retrom/internal/firmware"
 	"retrom/internal/gamecontent"
 	"retrom/internal/hasheous"
+	"retrom/internal/immersive"
 	"retrom/internal/jobs"
 	"retrom/internal/launch"
 	"retrom/internal/libraryimport"
@@ -77,6 +78,7 @@ type Server struct {
 	importer                *libraryimport.Service
 	launcher                *launch.Service
 	jobService              *jobs.Service
+	immersive               *immersive.Service
 	firmware                *firmware.Service
 	metadata                *metadatascrape.Service
 	gameContent             *gamecontent.Service
@@ -176,6 +178,7 @@ func New(
 		importer:                importer,
 		launcher:                launcher,
 		jobService:              jobs.New(database, now),
+		immersive:               immersive.New(database),
 		firmware:                firmwareService,
 		serverImports:           serverImportService,
 		pegasusImports:          pegasusImportService,
@@ -237,6 +240,8 @@ func (server *Server) registerPublicRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/v1/recent-games", server.recentGames)
 	mux.HandleFunc("GET /api/v1/games", server.games)
 	mux.HandleFunc("GET /api/v1/games/{gameId}", server.game)
+	mux.HandleFunc("GET /api/v1/immersive/platforms", server.immersivePlatforms)
+	mux.HandleFunc("GET /api/v1/immersive/platforms/{platformId}/games", server.immersivePlatformGames)
 	mux.HandleFunc("GET /api/v1/favorites", server.favoritesList)
 	mux.HandleFunc("PUT /api/v1/favorites/{gameId}", server.putFavorite)
 	mux.HandleFunc("PUT /api/v1/favorites/{gameId}/folders", server.putFavoriteFolders)

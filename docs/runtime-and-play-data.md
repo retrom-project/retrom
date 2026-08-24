@@ -148,15 +148,15 @@ if (config.stateUrl !== null) window.EJS_loadStateURL = config.stateUrl;
 
 `EJS_fullscreenOnLoaded` 必须为 `false`：全屏由 Retrom host 在用户手势中唯一管理，避免 loader 稍后重复请求。`EJS_Buttons.exitEmulation=false` 从运行时配置移除 EmulatorJS 自带退出按钮，退出只能经过 Retrom 的确认和 PlaySession 结束流程。语言固定 `zh-CN`。v4.2.3 `loader.js` 对 `EJS_disableAutoLang` 的判断是 `!== false`，因此这里必须显式设为 `false` 才会禁用 system locale 分支；不能凭变量名改成 `true`。这样只请求 manifest 中的 `zh-CN.json`。`EJS_disableDatabases=true` 在 v4.2.3 只把 ROM/BIOS/core asset cache 换成 dummy storage，`EJS_disableLocalStorage=true` 关闭设置持久化，`EJS_CacheLimit=0` 防止 ROM cache；它们并不会关闭 `/data/saves` 的 IDBFS，也不会阻止 `saveDatabaseLoaded`。Retrom 必须按第 6 节在每次 Launch 清空该 IDBFS，防止普通开始复活浏览器历史保存；不得把开关名称误解为“所有 IndexedDB 均已禁用”。`EJS_gameID` 来自精确 GameVariantRevision 的稳定数字 surrogate，而不是 Game ID。
 
-官方 EmulatorJS 4.2.3 的 `GameManager.loadExternalFiles()` 以 `arraybuffer` 下载外部文件后，把裸 `ArrayBuffer` 直接交给 MEMFS；该组合会建立零长度文件，而主内容因先转换为 `Uint8Array` 不受影响。`ejs-4.2.3-v2` 只在本次 config 含 `externalFiles` 时、且必须在追加 loader script 之前安装版本绑定兼容层：捕获 `EJS_GameManager` 的定义，把其 `writeFile(path, data)` 收到的裸 `ArrayBuffer` 转为 `Uint8Array`，其他字符串和 typed-array 输入逐对象保留。无法安装时以 `PLAYER_EXTERNAL_FILES_COMPATIBILITY_UNAVAILABLE` 阻断，不能继续启动零长度 BIOS/光盘；不得修改或重新哈希已物化的第三方 runtime payload。升级 EmulatorJS 时必须先以真实 external-file smoke 复测，再决定新 adapter 是否仍需该兼容层，不能把 4.2.3 行为无条件继承到未知版本。
+官方 EmulatorJS 4.2.3 的 `GameManager.loadExternalFiles()` 以 `arraybuffer` 下载外部文件后，把裸 `ArrayBuffer` 直接交给 MEMFS；该组合会建立零长度文件，而主内容因先转换为 `Uint8Array` 不受影响。普通 `ejs-4.2.3-v3` 只在本次 config 含 `externalFiles` 时、且必须在追加 loader script 之前安装版本绑定兼容层：捕获 `EJS_GameManager` 的定义，把其 `writeFile(path, data)` 收到的裸 `ArrayBuffer` 转为 `Uint8Array`，其他字符串和 typed-array 输入逐对象保留。无法安装时以 `PLAYER_EXTERNAL_FILES_COMPATIBILITY_UNAVAILABLE` 阻断，不能继续启动零长度 BIOS/光盘；不得修改或重新哈希已物化的第三方 runtime payload。升级 EmulatorJS 时必须先以真实 external-file smoke 复测，再决定新 adapter 是否仍需该兼容层，不能把 4.2.3 行为无条件继承到未知版本。
 
-官方 EmulatorJS 4.2.3 与当前锁定的 4.3.0-pre 包含逐字节相同的 `extract7z.js`、`extractzip.js`；这两份旧 Emscripten Worker 都会通过两个 `eval` 分支解析导出函数和生成 `cwrap` wrapper。DOSBox Pure 的 4.3 thread core 自身是 7z artifact，所以即使游戏 ZIP 采用 whole-archive 模式，核心装载仍会先进入该 Worker。生产 CSP 只允许 `wasm-unsafe-eval`，不能为此开放 JavaScript `unsafe-eval`。`ejs-4.2.3-v2` 继续在追加 loader 前捕获该版本公开到 window 的 `EJS_COMPRESSION`，并转换其 Worker Blob；4.3 把 compression 类变成 module-private，`ejs-4.3.0-pre-v1` 因而必须在追加 loader 前安装 iframe 内的版本绑定下载兼容层，只精确匹配 `runtimeBaseUrl` 下同源、成功的 GET `compression/extract7z.js` 与 `compression/extractzip.js` 响应，并在 module-private compression 把响应构造成 Worker Blob 前完成转换。Player runtime 位于同源 `about:blank` iframe 时，URL 解析基准必须显式取同源父页面的 HTTP(S) URL，不能用不可解析相对路径的 `about:blank`。两条路径都要求导出函数只从既有 `Module` 属性读取，动态 `cwrap` 改用同一 worker 已提供的 `ccall`；每种 Worker 的两处源片段都必须恰好命中一次，转换后仍出现 `eval(` 或任一片段漂移都以 `PLAYER_ARCHIVE_COMPATIBILITY_UNAVAILABLE` 阻断。4.3 转换响应移除不再准确的 `Content-Length` 与 `ETag`，RAR、非 GET、非成功响应和其他 URL 逐对象保留，卸载 adapter 时恢复原 fetch；已物化的官方 runtime bytes、manifest hash 和许可证据不得改写，未知 EmulatorJS 版本不能继承该转换。
+官方 EmulatorJS 4.2.3 与当前锁定的 4.3.0-pre 包含逐字节相同的 `extract7z.js`、`extractzip.js`；这两份旧 Emscripten Worker 都会通过两个 `eval` 分支解析导出函数和生成 `cwrap` wrapper。DOSBox Pure 的 4.3 thread core 自身是 7z artifact，所以即使游戏 ZIP 采用 whole-archive 模式，核心装载仍会先进入该 Worker。生产 CSP 只允许 `wasm-unsafe-eval`，不能为此开放 JavaScript `unsafe-eval`。`ejs-4.2.3-v3` 继续在追加 loader 前捕获该版本公开到 window 的 `EJS_COMPRESSION`，并转换其 Worker Blob；4.3 把 compression 类变成 module-private，`ejs-4.3.0-pre-v2` 因而必须在追加 loader 前安装 iframe 内的版本绑定下载兼容层，只精确匹配 `runtimeBaseUrl` 下同源、成功的 GET `compression/extract7z.js` 与 `compression/extractzip.js` 响应，并在 module-private compression 把响应构造成 Worker Blob 前完成转换。Player runtime 位于同源 `about:blank` iframe 时，URL 解析基准必须显式取同源父页面的 HTTP(S) URL，不能用不可解析相对路径的 `about:blank`。两条路径都要求导出函数只从既有 `Module` 属性读取，动态 `cwrap` 改用同一 worker 已提供的 `ccall`；每种 Worker 的两处源片段都必须恰好命中一次，转换后仍出现 `eval(` 或任一片段漂移都以 `PLAYER_ARCHIVE_COMPATIBILITY_UNAVAILABLE` 阻断。4.3 转换响应移除不再准确的 `Content-Length` 与 `ETag`，RAR、非 GET、非成功响应和其他 URL 逐对象保留，卸载 adapter 时恢复原 fetch；已物化的官方 runtime bytes、manifest hash 和许可证据不得改写，未知 EmulatorJS 版本不能继承该转换。
 
 `runtimeBaseUrl` 与 `loaderUrl` 必须锁定 Launch 所选 CoreArtifact 的精确 `emulatorjs_version`，不能固定取当前 active 版本。对基线 v4.2.3，它们分别是 `/runtime/emulatorjs/4.2.3/data/` 与 `/runtime/emulatorjs/4.2.3/data/loader.js`；通用派生规则是给该版本 manifest 的 `emulatorjs.player_adapter.runtime_base_path_in_release/loader_path_in_release` 加 `/runtime/emulatorjs/<exact-version>/` 前缀，并要求 loader 属于 runtime base 且两者都命中 allowlist。它们只由 config 返回，前端不得拼版本、猜目录或回退 active 版本。`gameName` 固定为 `retrom-<emulatorGameId>`，只使用 ASCII 字母、数字与连字符，使 EJS 的 save key 在元信息重命名后仍稳定。
 
 `runtimePathOverrides` 对每个已接受版本精确包含一个键：该版本 loader 对所选 artifact 实际请求的 basename；值是该 CoreArtifact 的固定同源 URL。这两个值只由 CoreArtifact 的已校验 `compatibility_config_json.requestedArtifactBasename`、`emulatorjs_version` 和 `relative_path` 派生。v4.2.3 的普通 artifact 例如 `{"mgba-wasm.data":"/runtime/emulatorjs/4.2.3/data/cores/mgba-wasm.data"}`；`mame2003` 必须是 `{"mame2003-wasm.data":"/runtime/emulatorjs/4.2.3/overrides/mame2003-4.2.1-wasm.data"}`；DOSBox Pure 使用 `4.3.0-pre` 的 `dosbox_pure-thread-wasm.data`。其余 loader、CSS、语言、archive helper 和 core report 都从本次 config 的 runtime base 读取，不增加浮动 URL。`defaultCoreOptions` 先放固定 `webgl2Enabled: "enabled"`，再合并适用 BIOS Requirement；DOS 不再依赖旁置 config 或 core option。任何重复 key 异值在验证阶段失败，不能靠合并顺序覆盖。
 
-Player adapter 使用 manifest 声明的 `playerAdapterId → adapter` 显式 registry，不允许默认分支把未知 ID/版本当成 v4.2.3。机器可读 registry 固定为 `web/features/player/adapters/registry.json`，当前登记 `ejs-4.2.3-v2 → 4.2.3` 与 `ejs-4.3.0-pre-v1 → 4.3.0-pre`；后者同时服务 DOSBox Pure、Genesis Plus GX Wide 与 Azahar。两份 TypeScript 实现必须与 JSON 双向一一对应。浏览器收到未知或版本不匹配的 ID 时必须在加载 loader 前终止，不得回退 active 版本或任意旧 adapter。
+Player adapter 使用 manifest 声明的 `playerAdapterId → adapter` 显式 registry，不允许默认分支把未知 ID/版本当成 v4.2.3。机器可读 registry 固定为 `web/features/player/adapters/registry.json`，普通当前登记 `ejs-4.2.3-v3 → 4.2.3` 与 `ejs-4.3.0-pre-v2 → 4.3.0-pre`；后者同时服务 DOSBox Pure、Genesis Plus GX Wide 与 Azahar。联机另显式保留 `ejs-4.2.3-v2 → 4.2.3`，只可由锁定 netplay profile 引用。TypeScript 实现、普通 manifest 与联机 manifest 必须与 JSON 双向一致；浏览器收到未知或版本不匹配的 ID 时必须在加载 loader 前终止，不得回退 active 版本或任意旧 adapter。
 
 两个 adapter 在 loader 前写入同一份 `EJS_defaultControls`。键盘只保留下表绑定，未列出的肩键、摇杆、L3/R3、快存、快读、存档槽、快进、慢放、倒带以及 P3/P4 均为未绑定；每次 mount 必须生成全新配置，避免 EmulatorJS 按平台删减 control 时污染后续 Launch。这里的覆盖只改变 `value`，P1 的 `value2` 必须逐项保持锁定 EmulatorJS 的 `BUTTON_1..4`、D-pad、Select/Start、肩键和双摇杆默认值，P2/P3/P4 也不得新增或删除 gamepad 默认值。
 
@@ -243,7 +243,7 @@ DOSBox Pure 的显式 SaveState 只对锁定具体 `dos_entry` 的直接启动�
 
 `MULTI_DISC_M3U_V1` Launch 把 canonical playlist、全部 2–8 个 DISC Blob、连续 index、规范 `disc-NNN.chd` virtual path、CoreArtifact 和初始盘号一次锁定。`gameUrl` 只指向服务端生成的 `playlist.m3u`，`externalFiles` 包含每张盘的本 Launch 受限 URL；来源 M3U 名、原始 CHD 名和跨 Launch URL 都不可用于读取内容。Player 在加载 loader 前严格校验 `discSet`，对全部盘执行 HEAD 并显示盘数/总大小；任一盘缺失、长度无效或响应不在 capability 范围内都以 `PLAYER_DISC_SET_INVALID` 阻断，不能降级成单盘运行。
 
-EmulatorJS 4.2.3 使用 `ejs-4.2.3-v2` adapter。它在 `EJS_ready` 初始化运行时光盘设置，并要求 `getDiskCount/getCurrentDisk/setCurrentDisk` 全部存在。`EJS_onGameStart` 在同一暂停边界内核对真实盘数，切到 Launch 锁定的 `initialDiscIndex` 并回读；从 SaveState 启动时，Player 预先以 64 MiB 硬上限读取 state bytes，盘号确认后仍保持暂停，再进入第 7 节统一的 serialization-readiness 与原生 state task 完成门禁。多盘不设置 `EJS_loadStateURL`，从而避免运行时异步加载与换盘竞态；任一步失败都不恢复 main loop，也不提交 PlaySession start。
+EmulatorJS 4.2.3 普通模式使用 `ejs-4.2.3-v3` adapter。它在 `EJS_ready` 初始化运行时光盘设置，并要求 `getDiskCount/getCurrentDisk/setCurrentDisk` 全部存在。`EJS_onGameStart` 在同一暂停边界内核对真实盘数，切到 Launch 锁定的 `initialDiscIndex` 并回读；从 SaveState 启动时，Player 预先以 64 MiB 硬上限读取 state bytes，盘号确认后仍保持暂停，再进入第 7 节统一的 serialization-readiness 与原生 state task 完成门禁。多盘不设置 `EJS_loadStateURL`，从而避免运行时异步加载与换盘竞态；任一步失败都不恢复 main loop，也不提交 PlaySession start。
 
 多盘真实 smoke 在 `EJS_onGameStart` 后还必须从 MEMFS 读取全部 canonical external file 的长度，数量须等于盘数且逐项等于 fixture 锁定的 size；standalone 页先拒绝零长度，runner 再完成精确对照。这条断言专门防止外部文件下载成功、HTTP 200 但落盘为空或截断的回归。换盘动作只在当前 run 已抓到可辨识的游戏画面后开始；结果同时保存该游戏画面和换盘后的当前画面。内容可能在换盘后处于自身黑场/过场，因此换盘成功依赖每一步 `target/observed` 一致且 `frameAfter > frameBefore`，不能用最终单帧复杂度代替运行时回读，也不能用持续帧掩盖换盘前从未进入游戏的情况。
 
@@ -308,6 +308,38 @@ socket/ping/write/单 peer 队列故障只关闭该 transport 并进入上述租
 
 普通 Player adapter、普通 Launch、显式状态存档和多盘路径保持原契约；联机 core profile 是否可选只由服务端 allowlist 中显式 `platformIds`、当前 READY revision 的精确 CoreArtifact 与当前依赖快照共同判断，不由前端 core 名称推断，也不按单个 ROM hash 建白名单。房间选择器从同一 eligibility 投影基础平台和游戏，不能另建前端平台白名单；房间锁定的 GameVariantRevision 继续保证所有参与者得到同一内容字节。
 
-## 14. 统一验收入口
+## 14. 沉浸模式 Player 输入所有权
 
-启动与全屏执行 `ACC-RUN-001`–`ACC-RUN-012`；移动方向门禁、横屏 HUD、P1/P2 暂停职责和请求时序执行 `ACC-MOB-005`–`ACC-MOB-007`；显式状态存档、普通开始隔离与恢复执行 `ACC-SAVE-001`–`ACC-SAVE-003`；多盘锁定、换盘与跨盘恢复执行 `ACC-MDISC-004`–`ACC-MDISC-006`；账户与 Player 数据隔离执行 `ACC-ISO-001`–`ACC-ISO-003` 与 `ACC-MDISC-008`；有效时长执行 `ACC-PLAY-001`；事件映射及已登记核心的真实单机运行与跨源隔离分别由 `make web-e2e`、受影响产品集成测试和 `ACC-NET-001` 覆盖。联机协议、安全、feature flag 与单机回归由 `ACC-NP-010`–`013` 覆盖；八个精确 profile 的 rollback/严格 lockstep、后台恢复与重连身份由 `ACC-NP-014`–`022` 覆盖。具体已覆盖核心与边界以 [`core-runtime-validation.md`](./core-runtime-validation.md) 为准。
+`/play/:launchId?experience=immersive` 只允许普通单机 Launch；联机 config、SaveState Launch、未知
+`experience` 或不属于站内沉浸游戏列表的 `returnTo` 不启用沉浸控制层。query 只选择前端呈现和输入所有权，
+不扩大 Launch capability。沉浸分支隐藏普通工具栏/揭示柄/存档/调试/设置，但复用同一 Core stage、config、
+内容 capability、PlaySession 和退出清理。普通 Player 与联机 Player 逐对象保持现有行为。
+
+活动导航手柄来自进入沉浸模式时认领的 `mapping=standard` pad index；其他 pad 仍交给 Core。其 button 8
+Select 与 button 9 Start 的保留手势固定为：同一次 chord 的两键在 `100ms` 内先后按下且后按下时前键仍
+保持，两键随后完全释放；两次 chord 间至少有 `60ms` 完全释放，第二次首键须在第一次完全释放后
+`650ms` 内出现。单独 Select/Start 在 `100ms` 判定窗结束后透传，快速 tap 生成一次按下/释放脉冲。第一
+次完整 chord 作为前缀被抑制，超时不补发；第二次成立时立即抑制保留键并对所有本地手柄向 Core 输出
+全零按钮/轴。
+
+过滤器必须在 loader 首次读取 `navigator.getGamepads()` 前安装，并在 iframe 的同源 realm 返回全新快照：
+非活动 pad、非沉浸分支和不受控按钮逐对象保持；活动 pad 的 Select/Start 只按上述状态机输出；菜单、
+断开、隐藏、失焦或 teardown 时全部输入归零并显式产生 release。不能只在 React host 监听，因为
+EmulatorJS 会直接轮询浏览器 Gamepad API。卸载必须恢复原函数和全部 timer/listener；未知 adapter 或 realm
+形状在 loader 前以稳定错误阻断。
+
+第二次 chord 成立后先全零，再调用 adapter pause；只有确认暂停成功才显示菜单并记录
+`pauseOwner=IMMERSIVE_MENU`。菜单默认“取消”，另一个按钮为“退出游戏”；全部输入连续中立 `120ms` 后
+才接受左右/A/B。取消顺序为保持全零、关闭菜单、等待中立、只恢复本菜单拥有的暂停、交还游戏输入；
+Core 在打开前已暂停时不能越权恢复。退出先 finish/revoke，成功后 teardown 并
+`location.replace(returnTo)`；失败保留暂停与菜单并允许 A 重试、B 取消。页面隐藏、手柄断开和 teardown
+清空 pending chord，不能留下粘键或自动存档。
+
+普通 adapter ID 因此升级为 `ejs-4.2.3-v3` 与 `ejs-4.3.0-pre-v2`；新 ID 在非沉浸分支与前一普通 adapter
+行为等价，并只在显式沉浸 config 安装过滤。既有联机 profile 继续锁定 `ejs-4.2.3-v2` 与
+`ejs-netplay-4.2.3-v1`，不会继承沉浸过滤；依赖校验必须允许 manifest 当前普通 adapter 与联机 manifest
+的精确 legacy player adapter 分离，同时仍对两者的版本/实现登记 fail closed。
+
+## 15. 统一验收入口
+
+启动与全屏执行 `ACC-RUN-001`–`ACC-RUN-012`；移动方向门禁、横屏 HUD、P1/P2 暂停职责和请求时序执行 `ACC-MOB-005`–`ACC-MOB-007`；显式状态存档、普通开始隔离与恢复执行 `ACC-SAVE-001`–`ACC-SAVE-003`；多盘锁定、换盘与跨盘恢复执行 `ACC-MDISC-004`–`ACC-MDISC-006`；账户与 Player 数据隔离执行 `ACC-ISO-001`–`ACC-ISO-003` 与 `ACC-MDISC-008`；有效时长执行 `ACC-PLAY-001`；沉浸入口、平台/游戏浏览、真实单机 Core、双组合/输入隔离与普通/联机回归执行 `ACC-IMM-001`–`008`；事件映射及已登记核心的真实单机运行与跨源隔离分别由 `make web-e2e`、受影响产品集成测试和 `ACC-NET-001` 覆盖。联机协议、安全、feature flag 与单机回归由 `ACC-NP-010`–`013` 覆盖；八个精确 profile 的 rollback/严格 lockstep、后台恢复与重连身份由 `ACC-NP-014`–`022` 覆盖。具体已覆盖核心与边界以 [`core-runtime-validation.md`](./core-runtime-validation.md) 为准。

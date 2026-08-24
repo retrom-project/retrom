@@ -310,8 +310,44 @@ export interface paths {
             };
             cookie?: never;
         };
-        /** @description Published game detail from an enabled platform directory; coverUrl and videoUrl are nullable logical URLs of the current metadata revision's ordinal-zero COVER and VIDEO assets. No game list DTO exposes videoUrl. saveStateCount is the total non-deleted save count, and saveStates contains at most the eight newest owner-filtered entries with nullable discIndex/discLabel. */
+        /** @description Published game detail from an enabled platform directory; coverUrl and videoUrl are nullable logical URLs of the current metadata revision's ordinal-zero COVER and VIDEO assets. No ordinary game list DTO exposes videoUrl; the dedicated immersive platform projection is the only additional user read model. saveStateCount is the total non-deleted save count, and saveStates contains at most the eight newest owner-filtered entries with nullable discIndex/discLabel. */
         get: operations["getGame"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/immersive/platforms": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Returns the visible base platforms that contain at least one published game in an enabled game directory. Counts are shared-library values while lastPlayedAtMs is isolated to the authenticated Profile. */
+        get: operations["getImmersivePlatforms"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/immersive/platforms/{platformId}/games": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                platformId: components["parameters"]["PlatformID"];
+            };
+            cookie?: never;
+        };
+        /** @description Returns one visible platform and its title-ordered immersive game page. Text, COVER and VIDEO are projected only from each game's current metadata revision, and play history is isolated to the authenticated Profile. */
+        get: operations["getImmersivePlatformGames"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2919,6 +2955,45 @@ export interface components {
             skippedGameIds: string[];
             skippedFolderIds: string[];
         };
+        ImmersivePlatformSummary: {
+            platformId: string;
+            platformName: string;
+            /** Format: int64 */
+            gameCount: number;
+            /** Format: int64 */
+            lastPlayedAtMs: number | null;
+        };
+        ImmersiveNamedResource: {
+            id: string;
+            name: string;
+        };
+        ImmersiveGameItem: {
+            /** Format: uuid */
+            gameId: string;
+            title: string;
+            description: string;
+            releaseYear: number | null;
+            developer: string;
+            genre: string;
+            platformInstance: components["schemas"]["ImmersiveNamedResource"];
+            defaultCore: components["schemas"]["ImmersiveNamedResource"];
+            coverUrl: string | null;
+            videoUrl: string | null;
+            /** Format: int64 */
+            lastPlayedAtMs: number | null;
+        };
+        ImmersivePlatformList: {
+            /** Format: int64 */
+            generatedAtMs: number;
+            items: components["schemas"]["ImmersivePlatformSummary"][];
+        };
+        ImmersiveGameList: {
+            /** Format: int64 */
+            generatedAtMs: number;
+            platform: components["schemas"]["ImmersivePlatformSummary"];
+            items: components["schemas"]["ImmersiveGameItem"][];
+            nextCursor: string | null;
+        };
         RenameSaveRequest: {
             name: string;
         };
@@ -3095,7 +3170,8 @@ export interface components {
             /** Format: uuid */
             launchId: string;
             emulatorjsVersion: string;
-            playerAdapterId: string;
+            /** @enum {string} */
+            playerAdapterId: "ejs-4.2.3-v2" | "ejs-4.2.3-v3" | "ejs-4.3.0-pre-v2";
             core: string;
             runtimeCore: string;
             coreName: string;
@@ -5140,6 +5216,24 @@ export interface components {
                 "application/json": components["schemas"]["FavoriteFolder"];
             };
         };
+        /** @description Visible immersive platform summaries for the current Profile */
+        ImmersivePlatformListResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ImmersivePlatformList"];
+            };
+        };
+        /** @description One immersive platform and a cursor-paginated game projection for the current Profile */
+        ImmersiveGameListResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ImmersiveGameList"];
+            };
+        };
         /** @description Immutable launch configuration derived from the locked core artifact and dependencies */
         LaunchConfigResponse: {
             headers: {
@@ -5265,6 +5359,7 @@ export interface components {
         ContentDigest: string;
         LastEventID: string;
         GameID: string;
+        PlatformID: string;
         TagID: string;
         FavoriteFolderID: string;
         SaveStateID: string;
@@ -5968,6 +6063,35 @@ export interface operations {
         requestBody?: never;
         responses: {
             200: components["responses"]["JSONResponse"];
+        };
+    };
+    getImmersivePlatforms: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["ImmersivePlatformListResponse"];
+        };
+    };
+    getImmersivePlatformGames: {
+        parameters: {
+            query?: {
+                cursor?: components["parameters"]["Cursor"];
+                limit?: components["parameters"]["Limit50"];
+            };
+            header?: never;
+            path: {
+                platformId: components["parameters"]["PlatformID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["ImmersiveGameListResponse"];
         };
     };
     getFavorites: {

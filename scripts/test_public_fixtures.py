@@ -21,7 +21,15 @@ GBA_ROMS = {
     "emulationstation-smoke.gba": (b"RETROM ESTAT", b"RTES", "b2e50f15541e172933fd1f0d02355105233f5e36b55d121c07f39079f21347c5"),
 }
 EMULATIONSTATION_GAMELIST_SHA256 = "f58df21608d161b9d3d53bba57fa2744658d66ae603026265b01686a685db50c"
-EMULATIONSTATION_MEDIA = {
+GBA_MEDIA = {
+    "gba-smoke-cover.png": (
+        20_746,
+        "030146f84ab6b02269811286f2907b1cad59a67c281614ed0d864f94827865fb",
+    ),
+    "gba-smoke-video.webm": (
+        770,
+        "3b176271d963c9aacf5729d913e3b5d3ba13b87c57eaa936be8528f65f7cb939",
+    ),
     "emulationstation-smoke-cover.png": (
         20_746,
         "0d72b89ed87fcf349a3422d7f3888183ce57a3fa757bc6baab0365a70f7ccc02",
@@ -150,21 +158,36 @@ class PublicFixtureTests(unittest.TestCase):
             hashlib.sha256(referenced_rom.read_bytes()).hexdigest(),
         )
 
-    def test_emulationstation_media_have_locked_project_owned_bytes(self) -> None:
-        for name, (expected_size, expected_sha256) in EMULATIONSTATION_MEDIA.items():
+    def test_gba_media_have_locked_project_owned_bytes(self) -> None:
+        for name, (expected_size, expected_sha256) in GBA_MEDIA.items():
             with self.subTest(name=name):
                 payload = (FIXTURE_ROOT / name).read_bytes()
                 self.assertEqual(expected_size, len(payload))
                 self.assertEqual(expected_sha256, hashlib.sha256(payload).hexdigest())
-        cover = (FIXTURE_ROOT / "emulationstation-smoke-cover.png").read_bytes()
-        self.assertEqual(b"\x89PNG\r\n\x1a\n", cover[:8])
-        self.assertEqual((70, 98), (
-            int.from_bytes(cover[16:20], "big"),
-            int.from_bytes(cover[20:24], "big"),
-        ))
-        video = (FIXTURE_ROOT / "emulationstation-smoke-video.webm").read_bytes()
-        self.assertEqual(b"\x1a\x45\xdf\xa3", video[:4])
-        self.assertIn(b"webm", video[:128])
+        for name in ("gba-smoke-cover.png", "emulationstation-smoke-cover.png"):
+            with self.subTest(name=name):
+                cover = (FIXTURE_ROOT / name).read_bytes()
+                self.assertEqual(b"\x89PNG\r\n\x1a\n", cover[:8])
+                self.assertEqual(
+                    (70, 98),
+                    (
+                        int.from_bytes(cover[16:20], "big"),
+                        int.from_bytes(cover[20:24], "big"),
+                    ),
+                )
+        for name in ("gba-smoke-video.webm", "emulationstation-smoke-video.webm"):
+            with self.subTest(name=name):
+                video = (FIXTURE_ROOT / name).read_bytes()
+                self.assertEqual(b"\x1a\x45\xdf\xa3", video[:4])
+                self.assertIn(b"webm", video[:128])
+        self.assertNotEqual(
+            (FIXTURE_ROOT / "gba-smoke-cover.png").read_bytes(),
+            (FIXTURE_ROOT / "emulationstation-smoke-cover.png").read_bytes(),
+        )
+        self.assertNotEqual(
+            (FIXTURE_ROOT / "gba-smoke-video.webm").read_bytes(),
+            (FIXTURE_ROOT / "emulationstation-smoke-video.webm").read_bytes(),
+        )
 
     def test_arcade_smoke_outputs_match_their_generator(self) -> None:
         subprocess.run(

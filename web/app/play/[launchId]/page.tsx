@@ -1,6 +1,13 @@
 import { PlayerShell } from "@/features/player/player-shell";
 
-export default async function PlayPage({ params }: { params: Promise<{ launchId: string }> }) {
+export default async function PlayPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ launchId: string }>;
+  searchParams: Promise<{ experience?: string }>;
+}) {
   const { launchId } = await params;
-  return <PlayerShell launchId={launchId} />;
+  const query = await searchParams;
+  return <PlayerShell launchId={launchId} experience={query.experience === "immersive" ? "immersive" : "standard"} />;
 }

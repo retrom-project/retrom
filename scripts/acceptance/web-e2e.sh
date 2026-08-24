@@ -150,6 +150,7 @@ python3 scripts/acceptance/seed-arcade-schema-v2-launch.py "$temporary_root/data
 python3 scripts/acceptance/seed-arcade-schema-v2-launch.py "$temporary_root/data/retrom.db" fbneo
 scripts/acceptance/seed-review-queue.sh "$temporary_root/data/retrom.db"
 scripts/acceptance/seed-run-blocker.sh "$temporary_root/data/retrom.db"
+python3 scripts/acceptance/seed-bios-catalog.py "$temporary_root/data/retrom.db" 286
 netplay_expansion_results="$(jq -sc '[
   .[0] + {caseId:"ACC-NP-017",profileId:"snes9x-423-v1"},
   .[1] + {caseId:"ACC-NP-018",profileId:"nestopia-423-v1"},
@@ -176,7 +177,6 @@ netplay_expansion_results="$(jq -sc '[
   RETROM_MAME2003_PLATFORM_INSTANCE_ID="$(jq -r .platformInstanceId "$temporary_root/mame2003.json")" \
   RETROM_CORE_EXPANSION_RESULTS="$(jq -sc '.' "$temporary_root/netplay-snes9x.json" "$temporary_root/netplay-nestopia.json" "$temporary_root/netplay-mame2003_plus.json" "$temporary_root/netplay-fbalpha2012_cps1.json" "$temporary_root/netplay-fbalpha2012_cps2.json")" \
   RETROM_NETPLAY_EXPANSION_RESULTS="$netplay_expansion_results" \
-  E2E_SERVER_IMPORT_SEED="1" \
   npm run test:e2e)
 
 RETROM_DEV_STATE_DIR="$dev_state" RETROM_DATA_DIR="$temporary_root/data" "$repository_root/scripts/dev.sh" --stop

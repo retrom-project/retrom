@@ -33,9 +33,10 @@ export function usePlayerSession(params: PlayerSessionParams) {
   const uploadManualState = useCallback((payload: { screenshot: Blob; format: string; state: Uint8Array }) => queueManualState(payload, params, reportProgress), [params, reportProgress]);
 
   const exit = useCallback(() => exitPlayer(params, sendEvent), [params, sendEvent]);
+  const exitStrict = useCallback(() => exitImmersivePlayer(params, sendEvent), [params, sendEvent]);
 
   usePageHideFinish(params);
-  return { sendEvent, uploadManualState, exit };
+  return { sendEvent, uploadManualState, exit, exitStrict };
 }
 
 async function sendPlayerEvent(kind: "start" | "heartbeat" | "finish", params: PlayerSessionParams) {
@@ -71,6 +72,20 @@ async function exitPlayer(params: PlayerSessionParams, sendEvent: (kind: "start"
     await params.saveUploadQueue.current;
     await sendEvent("finish");
   } catch { /* expiry is already a terminal server state */ }
+  if (document.fullscreenElement) {await document.exitFullscreen().catch(() => undefined);}
+  window.location.replace(params.returnTo.current);
+}
+
+async function exitImmersivePlayer(
+  params: PlayerSessionParams,
+  sendEvent: (kind: "start" | "heartbeat" | "finish") => Promise<void>,
+) {
+  if (params.finishing.current) {return;}
+  const exiting = reducePlayerOrientation(params.orientationStateRef.current, { type: "exit" });
+  params.orientationStateRef.current = exiting.state;
+  params.setOrientationState(exiting.state);
+  if (exiting.effects.includes("unlock")) {unlockLandscape();}
+  await sendEvent("finish");
   if (document.fullscreenElement) {await document.exitFullscreen().catch(() => undefined);}
   window.location.replace(params.returnTo.current);
 }

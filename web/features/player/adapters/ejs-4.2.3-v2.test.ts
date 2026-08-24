@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { adapterID, captureManualScreenshot, captureManualState, captureReviewScreenshot, coreFramebufferNeedsCanvasOrientation, mountEmulatorJS, scheduleStartupActions, switchDisc, switchDiscPreservingPause, type PlayerConfig } from "./ejs-4.2.3-v2";
 import { netplayProfilePredictionFrames } from "./ejs-config";
+import { ImmersiveGamepadFilter } from "../immersive-gamepad-filter";
 
 const config: PlayerConfig = {
   mode: "single",
@@ -34,7 +35,7 @@ const config: PlayerConfig = {
 const dosConfig: PlayerConfig = {
   ...config,
   emulatorjsVersion: "4.3.0-pre",
-  playerAdapterId: "ejs-4.3.0-pre-v1",
+  playerAdapterId: "ejs-4.3.0-pre-v2",
   core: "dosbox_pure",
   runtimeCore: "dosbox_pure",
   dosEntry: "GAMES/DOOM.EXE",
@@ -81,6 +82,7 @@ function pinnedDOSBoxWasmShape() {
 const fbneoNetplayConfig: PlayerConfig = {
   ...config,
   mode: "netplay",
+  playerAdapterId: "ejs-4.2.3-v2",
   core: "fbneo",
   runtimeCore: "fbneo",
   coreName: "FinalBurn Neo",
@@ -160,6 +162,36 @@ describe("EmulatorJS adapter", () => {
     });
     expect(document.querySelector<HTMLScriptElement>("script[data-retrom-loader]")?.src).toContain(config.loaderUrl);
     cleanup();
+  });
+
+  it("installs and tears down immersive filtering before the loader is appended", () => {
+    const descriptor = Object.getOwnPropertyDescriptor(window.navigator, "getGamepads");
+    const nativeGetGamepads = vi.fn(() => [] as Gamepad[]);
+    Object.defineProperty(window.navigator, "getGamepads", {
+      configurable: true, value: nativeGetGamepads, writable: true,
+    });
+    const append = vi.spyOn(document.head, "append").mockImplementation((...nodes: (Node | string)[]) => {
+      expect(window.navigator.getGamepads).not.toBe(nativeGetGamepads);
+      HTMLElement.prototype.append.call(document.head, ...nodes);
+    });
+    const filter = new ImmersiveGamepadFilter({ activeGamepadIndex: 0, onMenuGesture: vi.fn() });
+    const cleanup = mountEmulatorJS(config, document.createElement("div"), {}, window, {
+      immersiveGamepadFilter: filter,
+    });
+    expect(append).toHaveBeenCalledOnce();
+    cleanup();
+    expect(window.navigator.getGamepads).toBe(nativeGetGamepads);
+    append.mockRestore();
+    if (descriptor) {Object.defineProperty(window.navigator, "getGamepads", descriptor);}
+    else {Reflect.deleteProperty(window.navigator, "getGamepads");}
+  });
+
+  it("never allows the legacy netplay adapter to inherit immersive filtering", () => {
+    const filter = new ImmersiveGamepadFilter({ activeGamepadIndex: 0, onMenuGesture: vi.fn() });
+    expect(() => mountEmulatorJS(fbneoNetplayConfig, document.createElement("div"), {}, window, {
+      immersiveGamepadFilter: filter,
+    })).toThrow("PLAYER_ADAPTER_MISMATCH");
+    expect(document.querySelector("script[data-retrom-loader]")).toBeNull();
   });
 
   it("uses the FBNeo profile prediction limit and disables non-deterministic hiscores in netplay", () => {

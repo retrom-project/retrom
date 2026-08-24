@@ -10,11 +10,11 @@
 
 | 核心/能力 | 实际入口 | 本机资源 | 覆盖边界 |
 | --- | --- | --- | --- |
-| `mgba` | `make web-e2e`、`ACC-RUN-002`、`ACC-PEG-006` | `testdata/public-roms/gba-smoke/gba-smoke.gba` 与 `pegasus-smoke.gba`；项目自有 MIT 夹具，使用不同 GBA header/内容身份，size/SHA-256 与生成一致性由各自消费者锁定 | 普通上传与 Pegasus 服务器目录两种真实 Retrom 导入入口，审核发布、Launch、受限内容端点、Player、Chrome canvas 与核心帧推进 |
+| `mgba` | `make web-e2e`、`ACC-RUN-002`、`ACC-PEG-006`、`ACC-IMM-004/005` | `testdata/public-roms/gba-smoke/gba-smoke.gba` 与 `pegasus-smoke.gba`；项目自有 MIT 夹具，使用不同 GBA header/内容身份，size/SHA-256 与生成一致性由各自消费者锁定 | 普通上传与 Pegasus 服务器目录两种真实 Retrom 导入入口，审核发布、Launch、受限内容端点、Player、Chrome canvas 与核心帧推进；沉浸路径额外覆盖手柄选平台/游戏、普通 Launch、双 Select+Start 暂停菜单、输入隔离和退出返回 |
 | `fceumm` | `make web-e2e`、`ACC-NP-014`、`ACC-NP-016` | `testdata/public-roms/nes-smoke/nes-smoke.nes`；项目自有 MIT iNES 1.0 NROM 程序，确定性读取 P1/P2 输入并更新画面 | 真实上传、导入、审核、发布、联机房间、双 Launch/cookie、两路受限内容、两个 Chrome Player、native state transfer/load、输入延迟触发 rollback、120-frame checkpoint digest 收敛、后台冻结恢复与 3 秒 transport drop 后同 session/new epoch 重连；无需 BIOS |
 | `nestopia` | `make web-e2e`、`ACC-RUN-009`、`ACC-NP-018` | 与 FCEUmm 由同一项目自有生成器产出功能等价但内容身份不同的 `nestopia-smoke.nes`，建立独立 Game/Variant | 普通上传、审核发布、单机 state capture/load 与两次独立 SaveState 恢复；严格 lockstep 双浏览器验证 119/239/719 及断线后 checkpoint、输入缓冲升降、冻结与断线重连。锁定 core 不恢复紧随 `NST\x1a` 根块的 8-byte libretro input trailer；传输、接收与 checkpoint 只对该精确动态位置作零值投影，其余 MEM 全量逐字节校验；无需 BIOS |
 | `snes9x` | `make web-e2e`、`ACC-RUN-008`、`ACC-NP-017` | `testdata/public-roms/snes-smoke/snes-smoke.sfc`；项目自有 MIT 32 KiB LoROM，显式初始化 WRAM/PPU/输入 | 真实上传、审核发布、单机可见 P1/P2/帧变化、native state 与两次 SaveState 恢复；严格 lockstep 双浏览器 checkpoint、缓冲升降、冻结、重连与最终 canvas 一致；整局任一合法检查点若出现一次边界瞬时差异，只接受完整 state 在 load 前已自然一致的唯一 no-op hash recovery，并要求新 epoch 连续两个 checkpoint 一致；取证块不作允许列表，SNES state 不作 byte mask；无需 BIOS/SRAM |
-| `mame2003` | `make web-e2e`、`ACC-RUN-006`、`ACC-NP-019` | `testdata/public-roms/arcade-smoke/`；项目自有 MIT 的 Z80 程序、图形/声音资源、小型 MAME XML 和测试 BIOS 角色归档 | `ACC-DAT-004` 独立证明 release 真实 DAT；产品 E2E 以 test-only `BUILTIN` DAT 覆盖 Split Child/Parent/BIOS、审核发布 schema v2、三路内容、4.2.1 override core、单机动画/遥测与严格 lockstep 双浏览器恢复；测试 BIOS 不被驱动执行 |
+| `mame2003` | `make web-e2e`、`ACC-RUN-006`、`ACC-NP-019`、`ACC-IMM-006` | `testdata/public-roms/arcade-smoke/`；项目自有 MIT 的 Z80 程序、图形/声音资源、小型 MAME XML 和测试 BIOS 角色归档 | `ACC-DAT-004` 独立证明 release 真实 DAT；产品 E2E 以 test-only `BUILTIN` DAT 覆盖 Split Child/Parent/BIOS、审核发布 schema v2、三路内容、4.2.1 override core、单机动画/遥测与严格 lockstep 双浏览器恢复；沉浸路径覆盖双 standard 手柄、Arcade 投币/Start、菜单活动手柄所有权和 teardown；测试 BIOS 不被驱动执行 |
 | `mame2003_plus` | `make web-e2e`、`ACC-RUN-010`、`ACC-NP-020` | `arcade-smoke/mame2003_plus/`；driver-visible member 与 MAME2003 相同，ZIP 使用项目自有固定 comment 取得独立内容身份 | 独立 test-only DAT、Split Child/Parent/BIOS、审核发布、三路内容、锁定 4.2.3 core、单机 state/恢复和严格 lockstep 双浏览器 checkpoint/冻结/重连；测试 BIOS 不被驱动执行 |
 | `fbneo` | `make web-e2e`、`ACC-RUN-007`、`ACC-NP-015`、`ACC-NP-016` | `testdata/public-roms/arcade-smoke/fbneo/`；项目自有 MIT 的双输入 Z80 程序、生成图形/PROM、Logiqx DAT 和测试 BIOS；生成器将其控制的 4 bytes 校正到锁定驱动所需 CRC32，完整 bytes 另由 SHA-1/SHA-256 固定 | `ACC-DAT-004` 独立证明 release 真实 DAT；单机链路覆盖 test-only DAT、Split Child/Parent/BIOS、审核发布、三路内容、Player 动画与遥测。双浏览器链路覆盖两个 Chrome Player、严格零 prediction/rollback、原始消息到达 RTT 驱动的 1–8 帧输入缓冲升降、720-frame checkpoint digest 收敛、后台冻结恢复与 3 秒 transport drop 后同 session/new epoch 重连；测试 BIOS 仅作为装配内容，不被 Pac-Man 驱动执行 |
 | `fbalpha2012_cps1` | `make web-e2e`、`ACC-RUN-011`、`ACC-NP-021` | `arcade-smoke/fbalpha2012_cps1/1941.zip`；按锁定 `1941` driver layout 生成的完整项目自有 68000/Z80/图形/静音 set | test-only DAT 的无 parent/BIOS 根集合、真实审核发布与内容端点、锁定 core 启动、程序 state marker/palette、输入/画面、两次 SaveState 恢复和严格 lockstep 双浏览器 checkpoint/冻结/重连；重连后执行 180 帧视觉稳定窗口，双端 PNG 必须一致且非纯黑 |
@@ -30,6 +30,7 @@
 - 自动化测试不得依赖操作者私有 ROM/BIOS，也不得在测试期间联网下载第三方游戏内容；没有合法公开 fixture 的核心必须明确登记为未覆盖。
 - 资源的大小和 SHA-256 应由最接近的实际消费者校验，不能依赖一个与产品链路分离的全局 example manifest。
 - 修改共享 loader、runtime config、内容字节协议、adapter 或存档协议时，运行所有现有受影响产品 E2E；对没有产品 E2E 的核心必须在交付说明中列为未覆盖，不能用独立页面或历史截图补齐。
+- 沉浸模式的自动 Gamepad 注入只证明可重复的输入与产品链路；发布结论还必须使用 Chrome 报告 `mapping=standard` 的实体手柄完成当次 smoke。缺少实体设备时标记 `BLOCKED`，不能把自动化结果提升为硬件兼容证据。
 - 修改共享画面模式、shader 注入或 canvas 合成策略时，mGBA、MAME 2003 与 FBNeo 的产品 E2E 都必须在默认“锐利像素”模式下确认 shader 关闭、`image-rendering: pixelated`、持续出帧与零页面异常；mGBA 还必须覆盖“清晰增强”自有 shader、增强锐化、原始画面、返回默认模式的即时切换、原生 Core→显示面板切换以及物理 4K 150% 截图。该结果只证明 Player 输出处理，不提高未登记 core 的运行覆盖等级。
 
 ## 4. MAME2003 版本覆盖

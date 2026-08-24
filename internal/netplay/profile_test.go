@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"retrom/internal/dependencies"
+	retromruntime "retrom/internal/runtime"
 	"retrom/internal/testassert"
 )
 
@@ -69,6 +70,17 @@ func TestRegistryRejectsContentSpecificProfileFields(t *testing.T) {
 	}
 }
 
+func TestRegistrySeparatesCurrentSinglePlayerAndLegacyNetplayAdapters(t *testing.T) {
+	t.Parallel()
+	contents, err := os.ReadFile(filepath.Join("..", "..", "data", ManifestRelativePath))
+	testassert.False(t, err != nil, err)
+	set := fixtureDependencySet()
+	set.Versions["4.2.3"].Manifest.EmulatorJS.PlayerAdapter.ID = PlayerAdapterID
+	if _, err := parseRegistry(contents, set); err == nil {
+		t.Fatal("legacy netplay adapter accepted as the current single-player manifest adapter")
+	}
+}
+
 func TestRegistryContainsOnlyTheEightArtifactBoundProfiles(t *testing.T) {
 	t.Parallel()
 	contents, err := os.ReadFile(filepath.Join("..", "..", "data", ManifestRelativePath))
@@ -116,7 +128,7 @@ func TestRegistryContainsOnlyTheEightArtifactBoundProfiles(t *testing.T) {
 func fixtureDependencySet() *dependencies.Set {
 	version := &dependencies.Version{}
 	version.Manifest.EmulatorJS.Version = "4.2.3"
-	version.Manifest.EmulatorJS.PlayerAdapter.ID = PlayerAdapterID
+	version.Manifest.EmulatorJS.PlayerAdapter.ID = retromruntime.SinglePlayerAdapter423ID
 	version.Manifest.EmulatorJS.SelectedCores = []dependencies.SelectedCore{
 		{CoreID: "fceumm", SHA256: "8c449fd5c36646fb0769423ed6ffa9efbdfc21fbfdc9bac7952b559d34d5b493", SupportedContentKinds: []string{"SINGLE_FILE"}},
 		{CoreID: "fbneo", SHA256: "315a25e0bcd61d58ee0d9e8b1dbf3740b9e0ca4b7d0726f848ce1068de73437c", SupportedContentKinds: []string{"SINGLE_FILE"}},

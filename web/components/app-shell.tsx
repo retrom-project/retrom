@@ -144,8 +144,17 @@ function mobileSection(pathname: string): "home" | "library" | "saves" | "favori
   return "more";
 }
 
+function usesStandaloneShell(pathname: string) {
+  return pathname.startsWith("/play/") || pathname === "/immersive" || pathname.startsWith("/immersive/");
+}
+
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
+  if (usesStandaloneShell(pathname)) {return <>{children}</>;}
+  return <StandardAppShell pathname={pathname}>{children}</StandardAppShell>;
+}
+
+function StandardAppShell({ children, pathname }: { children: ReactNode; pathname: string }) {
   const { context, logout } = useAuth();
   const health = useServiceHealth();
   const accountMenuRef = useRef<HTMLDetailsElement>(null);
@@ -166,7 +175,6 @@ export function AppShell({ children }: { children: ReactNode }) {
     document.addEventListener("pointerdown", closeAccountMenu);
     return () => document.removeEventListener("pointerdown", closeAccountMenu);
   }, []);
-  if (pathname.startsWith("/play/")) {return <>{children}</>;}
   const publicRoute = ["/setup", "/login", "/register", "/reset-password"].includes(pathname);
   if (context.instanceState === "INITIALIZATION_REQUIRED") {
     return pathname === "/setup" ? <>{children}</> : <FullScreenLoading />;

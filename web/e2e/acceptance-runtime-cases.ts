@@ -48,7 +48,7 @@ function registerRun002(): void {
     expect(configuration.gameTitle).toBe("Sudoku");
     expect(configuration.coreName).toBe("mGBA");
     expect(configuration.platformName).toBe("Game Boy Advance");
-    expect(configuration.playerAdapterId).toBe("ejs-4.2.3-v2");
+    expect(configuration.playerAdapterId).toBe("ejs-4.2.3-v3");
     expect(configuration.emulatorjsVersion).toBe("4.2.3");
     expect(configuration.gameUrl).not.toMatch(/(?:blob:|file:|\/home\/)/);
     await expect(page.locator(".player-shell")).toBeVisible();
@@ -108,7 +108,7 @@ function registerRun002(): void {
     await expect(debugPanel.getByText(/^\d+\.\d FPS$/)).toBeVisible({ timeout: 5_000 });
     await expect(debugPanel.getByText("mGBA", { exact: true })).toBeVisible();
     await expect(debugPanel.getByText("4.2.3", { exact: true })).toBeVisible();
-    await expect(debugPanel.getByText("ejs-4.2.3-v2", { exact: true })).toBeVisible();
+    await expect(debugPanel.getByText("ejs-4.2.3-v3", { exact: true })).toBeVisible();
     await expect(debugPanel.getByText("运行中", { exact: true })).toBeVisible();
     await expect(page.locator(".player-pause-overlay")).not.toHaveClass(/is-visible/);
     await page.screenshot({ path: evidencePath(testInfo, "player-debug.png"), fullPage: true });
@@ -207,7 +207,7 @@ function registerRun004(): void {
       Object.defineProperty(document, "fullscreenElement", { configurable: true, get: () => document.documentElement });
       Object.defineProperty(document, "exitFullscreen", { configurable: true, value: () => { record("fullscreen-exited"); return Promise.resolve(); } });
     });
-    await page.goto("/admin/bios?scope=FULL_CATALOG");
+    await page.goto("/admin/bios?scope=FULL_CATALOG&q=gba_bios.bin");
     const gbaRow = page.getByRole("row").filter({ hasText: "gba_bios.bin" });
     await gbaRow.locator('input[type="file"]').setInputFiles({ name: "gba_bios.bin", mimeType: "application/octet-stream", buffer: Buffer.from("retrom-invalid-bios\n") });
     await expect(gbaRow.getByText("校验值不一致", { exact: true })).toBeVisible();
@@ -306,7 +306,7 @@ async function verifyPublicArcadeSmoke(
     runtimeCore: expectation.core,
     coreName: expectation.coreName,
     emulatorjsVersion: "4.2.3",
-    playerAdapterId: "ejs-4.2.3-v2",
+    playerAdapterId: "ejs-4.2.3-v3",
   });
   expect(configuration.gameUrl).toMatch(/\/game\/pacman\.zip$/);
   expect(configuration.parentUrl).toMatch(/\/parent\/bundle\.zip$/);

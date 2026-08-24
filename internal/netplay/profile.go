@@ -13,12 +13,13 @@ import (
 	"strings"
 
 	"retrom/internal/dependencies"
+	retromruntime "retrom/internal/runtime"
 )
 
 const (
 	ProtocolVersion        = "retrom-netplay-v2"
 	WebSocketSubprotocol   = "retrom.netplay.v1"
-	PlayerAdapterID        = "ejs-4.2.3-v2"
+	PlayerAdapterID        = retromruntime.NetplayPlayerAdapterID
 	NetplayAdapterID       = "ejs-netplay-4.2.3-v1"
 	ControlCount           = 24
 	CheckpointEveryFrames  = 120
@@ -97,7 +98,7 @@ func parseRegistry(contents []byte, dependencySet *dependencies.Set) (*Registry,
 		return nil, fmt.Errorf("%w: protocol", ErrManifestInvalid)
 	}
 	version := dependencySet.Versions["4.2.3"]
-	if version == nil || version.Manifest.EmulatorJS.PlayerAdapter.ID != PlayerAdapterID {
+	if version == nil || version.Manifest.EmulatorJS.PlayerAdapter.ID != retromruntime.SinglePlayerAdapter423ID {
 		return nil, fmt.Errorf("%w: player adapter", ErrManifestInvalid)
 	}
 	cores := make(map[string]dependencies.SelectedCore, len(version.Manifest.EmulatorJS.SelectedCores))

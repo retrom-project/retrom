@@ -196,7 +196,13 @@ class NetplayManifestValidationTests(unittest.TestCase):
             dependencies.load_manifest("4.3.0-pre"),
         ]
         dependencies.validate_netplay_manifest(
-            manifests, {"ejs-netplay-4.2.3-v1": "4.2.3"}
+            manifests,
+            {
+                "ejs-4.2.3-v2": "4.2.3",
+                "ejs-4.2.3-v3": "4.2.3",
+                "ejs-4.3.0-pre-v2": "4.3.0-pre",
+            },
+            {"ejs-netplay-4.2.3-v1": "4.2.3"},
         )
 
     def test_rejects_unregistered_netplay_adapter(self) -> None:
@@ -207,7 +213,15 @@ class NetplayManifestValidationTests(unittest.TestCase):
         with self.assertRaisesRegex(
             dependencies.CheckError, "NETPLAY_ADAPTER_REGISTRY_DRIFT"
         ):
-            dependencies.validate_netplay_manifest(manifests, {})
+            dependencies.validate_netplay_manifest(
+                manifests,
+                {
+                    "ejs-4.2.3-v2": "4.2.3",
+                    "ejs-4.2.3-v3": "4.2.3",
+                    "ejs-4.3.0-pre-v2": "4.3.0-pre",
+                },
+                {},
+            )
 
 
 class CPSFixtureLayoutValidationTests(unittest.TestCase):

@@ -179,9 +179,23 @@ paths:
     parameters: [{ $ref: '#/components/parameters/GameID' }]
     get:
       operationId: getGame
-      description: Published game detail from an enabled platform directory; coverUrl and videoUrl are nullable logical URLs of the current metadata revision's ordinal-zero COVER and VIDEO assets. No game list DTO exposes videoUrl. saveStateCount is the total non-deleted save count, and saveStates contains at most the eight newest owner-filtered entries with nullable discIndex/discLabel.
+      description: Published game detail from an enabled platform directory; coverUrl and videoUrl are nullable logical URLs of the current metadata revision's ordinal-zero COVER and VIDEO assets. No ordinary game list DTO exposes videoUrl; the dedicated immersive platform projection is the only additional user read model. saveStateCount is the total non-deleted save count, and saveStates contains at most the eight newest owner-filtered entries with nullable discIndex/discLabel.
       responses:
         '200': { $ref: '#/components/responses/JSONResponse' }
+  /api/v1/immersive/platforms:
+    get:
+      operationId: getImmersivePlatforms
+      description: Returns the visible base platforms that contain at least one published game in an enabled game directory. Counts are shared-library values while lastPlayedAtMs is isolated to the authenticated Profile.
+      responses:
+        '200': { $ref: '#/components/responses/ImmersivePlatformListResponse' }
+  /api/v1/immersive/platforms/{platformId}/games:
+    parameters: [{ $ref: '#/components/parameters/PlatformID' }]
+    get:
+      operationId: getImmersivePlatformGames
+      description: Returns one visible platform and its title-ordered immersive game page. Text, COVER and VIDEO are projected only from each game's current metadata revision, and play history is isolated to the authenticated Profile.
+      parameters: [{ $ref: '#/components/parameters/Cursor' }, { $ref: '#/components/parameters/Limit50' }]
+      responses:
+        '200': { $ref: '#/components/responses/ImmersiveGameListResponse' }
   /api/v1/favorites:
     get:
       operationId: getFavorites
@@ -1875,6 +1889,59 @@ components:
           maxItems: 1000
           uniqueItems: true
           items: { type: string, format: uuid }
+    ImmersivePlatformSummary:
+      type: object
+      additionalProperties: false
+      required: [platformId, platformName, gameCount, lastPlayedAtMs]
+      properties:
+        platformId: { type: string, pattern: '^[a-z0-9-]{1,64}$' }
+        platformName: { type: string, minLength: 1 }
+        gameCount: { type: integer, format: int64, minimum: 1 }
+        lastPlayedAtMs: { type: integer, format: int64, minimum: 0, nullable: true }
+    ImmersiveNamedResource:
+      type: object
+      additionalProperties: false
+      required: [id, name]
+      properties:
+        id: { type: string }
+        name: { type: string, minLength: 1 }
+    ImmersiveGameItem:
+      type: object
+      additionalProperties: false
+      required: [gameId, title, description, releaseYear, developer, genre, platformInstance, defaultCore, coverUrl, videoUrl, lastPlayedAtMs]
+      properties:
+        gameId: { type: string, format: uuid }
+        title: { type: string, minLength: 1 }
+        description: { type: string }
+        releaseYear: { type: integer, nullable: true }
+        developer: { type: string }
+        genre: { type: string }
+        platformInstance: { $ref: '#/components/schemas/ImmersiveNamedResource' }
+        defaultCore: { $ref: '#/components/schemas/ImmersiveNamedResource' }
+        coverUrl: { type: string, nullable: true, pattern: '^/content/assets/' }
+        videoUrl: { type: string, nullable: true, pattern: '^/content/assets/' }
+        lastPlayedAtMs: { type: integer, format: int64, minimum: 0, nullable: true }
+    ImmersivePlatformList:
+      type: object
+      additionalProperties: false
+      required: [generatedAtMs, items]
+      properties:
+        generatedAtMs: { type: integer, format: int64, minimum: 0 }
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/ImmersivePlatformSummary' }
+    ImmersiveGameList:
+      type: object
+      additionalProperties: false
+      required: [generatedAtMs, platform, items, nextCursor]
+      properties:
+        generatedAtMs: { type: integer, format: int64, minimum: 0 }
+        platform: { $ref: '#/components/schemas/ImmersivePlatformSummary' }
+        items:
+          type: array
+          maxItems: 50
+          items: { $ref: '#/components/schemas/ImmersiveGameItem' }
+        nextCursor: { type: string, nullable: true }
     RenameSaveRequest:
       type: object
       additionalProperties: false
@@ -2095,7 +2162,7 @@ components:
         mode: { type: string, enum: [single, netplay] }
         launchId: { type: string, format: uuid }
         emulatorjsVersion: { type: string }
-        playerAdapterId: { type: string }
+        playerAdapterId: { type: string, enum: ['ejs-4.2.3-v2', 'ejs-4.2.3-v3', 'ejs-4.3.0-pre-v2'] }
         core: { type: string }
         runtimeCore: { type: string, pattern: '^[a-z0-9_]{1,64}$' }
         coreName: { type: string }
@@ -4046,6 +4113,12 @@ components:
         ETag: { schema: { type: string } }
         Location: { schema: { type: string } }
       content: { application/json: { schema: { $ref: '#/components/schemas/FavoriteFolder' } } }
+    ImmersivePlatformListResponse:
+      description: Visible immersive platform summaries for the current Profile
+      content: { application/json: { schema: { $ref: '#/components/schemas/ImmersivePlatformList' } } }
+    ImmersiveGameListResponse:
+      description: One immersive platform and a cursor-paginated game projection for the current Profile
+      content: { application/json: { schema: { $ref: '#/components/schemas/ImmersiveGameList' } } }
     LaunchConfigResponse:
       description: Immutable launch configuration derived from the locked core artifact and dependencies
       content:
@@ -4148,6 +4221,7 @@ components:
     ContentDigest: { name: Content-Digest, in: header, required: true, schema: { type: string } }
     LastEventID: { name: Last-Event-ID, in: header, schema: { type: string, pattern: '^[0-9]+$' } }
     GameID: { name: gameId, in: path, required: true, schema: { type: string, format: uuid } }
+    PlatformID: { name: platformId, in: path, required: true, schema: { type: string, pattern: '^[a-z0-9-]{1,64}$' } }
     TagID: { name: tagId, in: path, required: true, schema: { type: string, format: uuid } }
     FavoriteFolderID: { name: folderId, in: path, required: true, schema: { type: string, format: uuid } }
     SaveStateID: { name: saveStateId, in: path, required: true, schema: { type: string, format: uuid } }

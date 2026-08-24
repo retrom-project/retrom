@@ -28,6 +28,6 @@ export default defineConfig({
     { name: "chrome-1280", testIgnore: /mobile\.spec\.ts/, use: { ...devices["Desktop Chrome"], viewport: { width: 1280, height: 800 } } },
     { name: "chrome-1440p", testIgnore: /mobile\.spec\.ts/, use: { ...devices["Desktop Chrome"], viewport: { width: 2560, height: 1440 } } },
     { name: "chrome-4k-150", testIgnore: /mobile\.spec\.ts/, use: { ...devices["Desktop Chrome"], ...physical4KAt150Percent } },
-    { name: "chrome-mobile", testMatch: /mobile\.spec\.ts/, use: { ...devices["Pixel 5"], viewport: { width: 390, height: 844 } } }
+    { name: "chrome-mobile", testMatch: /mobile\.spec\.ts|immersive\.spec\.ts/, use: { ...devices["Pixel 5"], viewport: { width: 390, height: 844 } } }
   ]
 });

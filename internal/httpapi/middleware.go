@@ -180,8 +180,9 @@ func (server *Server) validRequestOrigin(request *http.Request) bool {
 }
 
 var exactQueryAllowlists = map[string][]string{
-	"GET /api/v1/games":     {"q", "tagId", "platformId", "platformInstanceId", "sort", "cursor", "limit"},
-	"GET /api/v1/favorites": {"scope", "folderId", "q", "platformId", "sort", "cursor", "limit"},
+	"GET /api/v1/games":               {"q", "tagId", "platformId", "platformInstanceId", "sort", "cursor", "limit"},
+	"GET /api/v1/immersive/platforms": {},
+	"GET /api/v1/favorites":           {"scope", "folderId", "q", "platformId", "sort", "cursor", "limit"},
 	"GET /api/v1/saves": {
 		"q", "gameId", "platformId", "platformInstanceId", "coreId", "availability", "sort", "cursor", "limit",
 	},
@@ -245,7 +246,18 @@ func queryParameterNames(request *http.Request) []string {
 	if names := exactQueryAllowlists[request.Method+" "+path]; names != nil {
 		return names
 	}
+	if names := immersiveQueryParameterNames(request.Method, path); names != nil {
+		return names
+	}
 	return resourceQueryParameterNames(request.Method, path)
+}
+
+func immersiveQueryParameterNames(method, path string) []string {
+	if method == http.MethodGet && strings.HasPrefix(path, "/api/v1/immersive/platforms/") &&
+		strings.HasSuffix(path, "/games") {
+		return []string{"cursor", "limit"}
+	}
+	return nil
 }
 
 func resourceQueryParameterNames(method, path string) []string {
