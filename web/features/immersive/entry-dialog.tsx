@@ -1,21 +1,15 @@
 "use client";
 
-import { useEffect, useEffectEvent, useRef, useState } from "react";
+import { useCallback, useEffect, useEffectEvent, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ConfirmDialog } from "@/components/confirm-dialog";
 import { getActiveImmersiveGamepadIndex, setActiveImmersiveGamepadIndex } from "./active-gamepad";
 import { browserGamepadSource, type GamepadFrame, type GamepadFrameSource } from "./gamepad-source";
+import { requestImmersiveFullscreen } from "./immersive-fullscreen";
 import { GamepadClaimModel, NavigationInputModel, isStandardGamepad, type NavigationAction } from "./input-model";
-import styles from "./immersive.module.css";
+import styles from "./entry.module.css";
 
 type EntryMode = "idle" | "locked" | "ready" | "cooldown" | "navigating";
 type EntrySelection = "cancel" | "enter";
-
-function focusSelection(selection: EntrySelection) {
-  const dialog = document.querySelector<HTMLElement>(".immersive-entry-dialog");
-  const buttons = dialog?.querySelectorAll<HTMLButtonElement>(".dialog-actions button:not(:disabled)");
-  buttons?.[selection === "cancel" ? 0 : 1]?.focus();
-}
 
 function selectedFromAction(action: NavigationAction, selection: EntrySelection) {
   return action === "left" ? "cancel" : action === "right" ? "enter" : selection;
@@ -32,14 +26,22 @@ export function ImmersiveEntryDialog({ source = browserGamepadSource }: { source
   const cooldownPadRef = useRef<number | null>(null);
   const claimModelRef = useRef(new GamepadClaimModel());
   const navigationRef = useRef(new NavigationInputModel());
+  const cancelButtonRef = useRef<HTMLButtonElement>(null);
+  const enterButtonRef = useRef<HTMLButtonElement>(null);
+  const dialogRef = useRef<HTMLElement>(null);
+  const returnFocusRef = useRef<HTMLElement | null>(null);
 
-  function choose(next: EntrySelection) {
+  const focusSelection = useCallback((next: EntrySelection) => {
+    (next === "cancel" ? cancelButtonRef : enterButtonRef).current?.focus();
+  }, []);
+
+  const choose = useCallback((next: EntrySelection) => {
     selectionRef.current = next;
     setSelection(next);
     if (modeRef.current === "ready") {
       focusSelection(next);
     }
-  }
+  }, [focusSelection]);
 
   function cancel() {
     if (modeRef.current === "idle" || modeRef.current === "cooldown") {return;}
@@ -50,12 +52,14 @@ export function ImmersiveEntryDialog({ source = browserGamepadSource }: { source
     setOpen(false);
     setReady(false);
     choose("cancel");
+    returnFocusRef.current?.focus();
   }
 
   function enter() {
     if (modeRef.current !== "ready") {return;}
     modeRef.current = "navigating";
     setOpen(false);
+    void requestImmersiveFullscreen();
     router.push("/immersive");
   }
 
@@ -79,6 +83,7 @@ export function ImmersiveEntryDialog({ source = browserGamepadSource }: { source
       setActiveImmersiveGamepadIndex(claim.claimedIndex);
       navigationRef.current.reset(120);
       choose("cancel");
+      returnFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
       modeRef.current = "locked";
       setOpen(true);
     }
@@ -126,19 +131,27 @@ export function ImmersiveEntryDialog({ source = browserGamepadSource }: { source
       updateDialog(frame);
     }
     return source.subscribe(onFrame);
-  }, [source]);
+  }, [choose, source]);
 
   useEffect(() => {
-    if (open && ready) {focusSelection(selection);}
-  }, [open, ready, selection]);
+    if (!open) {return;}
+    if (ready) {focusSelection(selection);}
+    else {dialogRef.current?.focus();}
+  }, [focusSelection, open, ready, selection]);
 
   useEffect(() => {
-    if (!open || !ready) {return;}
+    if (!open) {return;}
     const onKeyDown = (event: KeyboardEvent) => {
-      if (!["ArrowLeft", "ArrowRight", "Enter"].includes(event.key)) {return;}
+      if (event.key === "Escape") {
+        event.preventDefault();
+        cancel();
+        return;
+      }
+      if (!ready || !["ArrowLeft", "ArrowRight", "Enter", "Tab"].includes(event.key)) {return;}
       event.preventDefault();
       if (event.key === "ArrowLeft") {choose("cancel");}
       if (event.key === "ArrowRight") {choose("enter");}
+      if (event.key === "Tab") {choose(event.shiftKey ? "cancel" : selectionRef.current === "cancel" ? "enter" : "cancel");}
       if (event.key === "Enter") {
         if (selectionRef.current === "enter") {enter();} else {cancel();}
       }
@@ -149,18 +162,47 @@ export function ImmersiveEntryDialog({ source = browserGamepadSource }: { source
 
   return <>
     {notice ? <p className={styles.homeGamepadNotice} role="status">{notice}</p> : null}
-    <ConfirmDialog
-      open={open}
-      title="进入沉浸模式？"
-      description="使用手柄按平台浏览并启动游戏。沉浸模式采用独立的大屏界面，不包含存档、联机和管理功能。"
-      cancelLabel="取消"
-      confirmLabel="进入沉浸模式"
-      dialogClassName="immersive-entry-dialog"
-      interactionDisabled={!ready}
-      onCancel={cancel}
-      onConfirm={enter}
-    >
-      <p className={styles.entryHint}>{ready ? "A 确认 · B 取消 · 左右选择" : "请松开手柄按键…"}</p>
-    </ConfirmDialog>
+    {open ? <div className={styles.entryTakeover} data-immersive-entry="true" onPointerDown={(event) => {
+      if (event.currentTarget === event.target) {cancel();}
+    }}>
+      <header className={styles.entryHeader}>
+        <div><span aria-hidden="true">R</span><strong>RETROM</strong><small>沉浸模式</small></div>
+        <div className={styles.entryControls} aria-label="手柄操作提示">
+          <span><kbd data-button="A">A</kbd>确认</span><span><kbd data-button="B">B</kbd>取消</span>
+        </div>
+      </header>
+      <section
+        ref={dialogRef}
+        className={styles.entryDialog}
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby="immersive-entry-title"
+        aria-describedby="immersive-entry-description immersive-entry-status"
+        tabIndex={-1}
+      >
+        <p className={styles.entryEyebrow}>检测到标准布局手柄</p>
+        <h1 id="immersive-entry-title">进入沉浸模式？</h1>
+        <p id="immersive-entry-description">使用手柄按平台浏览并启动游戏。沉浸模式采用独立的大屏界面，不包含存档、联机和管理功能。</p>
+        <div className={styles.entryActions}>
+          <button
+            ref={cancelButtonRef}
+            className={selection === "cancel" ? styles.entrySelected : undefined}
+            type="button"
+            disabled={!ready}
+            onClick={cancel}
+          >取消</button>
+          <button
+            ref={enterButtonRef}
+            className={selection === "enter" ? styles.entrySelected : undefined}
+            type="button"
+            disabled={!ready}
+            onClick={enter}
+          >进入沉浸模式</button>
+        </div>
+        <p id="immersive-entry-status" className={styles.entryHint} role="status">
+          {ready ? "A 确认 · B 取消 · 左右选择" : "请松开手柄按键，稍候即可选择…"}
+        </p>
+      </section>
+    </div> : null}
   </>;
 }

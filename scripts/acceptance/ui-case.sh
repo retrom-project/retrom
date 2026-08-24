@@ -134,6 +134,15 @@ if [[ "$case_id" == "ACC-IMM-002" || "$case_id" == "ACC-IMM-006" ]]; then
     scripts/acceptance/arcade-flow.sh mame2003
 fi
 
+if [[ "$case_id" == "ACC-IMM-006" ]]; then
+  go run scripts/acceptance/seed-public-arcade-dat.go \
+    --database "$temporary_root/data/retrom.db" --fixture fbneo
+  RETROM_ACCEPTANCE_ORIGIN="$web_origin" \
+  RETROM_ACCEPTANCE_BACKEND="$backend_origin" \
+  RETROM_ACCEPTANCE_RESULT_FILE="$temporary_root/fbneo.json" \
+    scripts/acceptance/arcade-flow.sh fbneo
+fi
+
 if [[ "$case_id" == "ACC-RUN-007" ]]; then
   go run scripts/acceptance/seed-public-arcade-dat.go \
     --database "$temporary_root/data/retrom.db" --fixture fbneo

@@ -70,11 +70,33 @@ describe("immersive game list view", () => {
     render(<GameListView platformId="gba" initialGameId={game(1).gameId} />);
     await screen.findByRole("listbox", { name: "Game Boy Advance 游戏" });
     expect(screen.getByRole("option", { selected: true })).toHaveTextContent("游戏 01");
+    expect(screen.getByRole("option", { selected: true })).toHaveFocus();
     fireEvent.keyDown(window, { key: "ArrowDown" });
     fireEvent.keyDown(window, { key: "ArrowDown" });
     expect(screen.getByRole("option", { selected: true })).toHaveTextContent("游戏 02");
     fireEvent.keyDown(window, { key: "ArrowUp" });
     expect(screen.getByRole("option", { selected: true })).toHaveTextContent("游戏 01");
+  });
+
+  it("uses left and right to move by one visible page", async () => {
+    mocks.fetchGames.mockResolvedValue(page(Array.from({ length: 20 }, (_, index) => game(index)), null));
+    render(<GameListView platformId="gba" />);
+    await screen.findByRole("listbox", { name: "Game Boy Advance 游戏" });
+    fireEvent.keyDown(window, { key: "ArrowRight" });
+    expect(screen.getByRole("option", { selected: true })).toHaveTextContent("游戏 08");
+    fireEvent.keyDown(window, { key: "ArrowRight" });
+    expect(screen.getByRole("option", { selected: true })).toHaveTextContent("游戏 16");
+    fireEvent.keyDown(window, { key: "ArrowLeft" });
+    expect(screen.getByRole("option", { selected: true })).toHaveTextContent("游戏 08");
+  });
+
+  it("applies the first browse direction received while a returned list is loading", async () => {
+    let resolveInitial: (value: ImmersiveGameList) => void = () => undefined;
+    mocks.fetchGames.mockReturnValue(new Promise<ImmersiveGameList>((resolve) => {resolveInitial = resolve;}));
+    render(<GameListView platformId="gba" initialGameId={game(0).gameId} />);
+    fireEvent.keyDown(window, { key: "ArrowDown" });
+    resolveInitial(page([game(0), game(1)], null));
+    await waitFor(() => expect(screen.getByRole("option", { selected: true })).toHaveTextContent("游戏 01"));
   });
 
   it("starts only one cursor request while prefetch is in flight", async () => {

@@ -53,6 +53,16 @@ describe("immersive navigation input model", () => {
     expect(model.update(gamepad({ buttons: [0] }), 721).actions).toEqual(["confirm"]);
   });
 
+  it("accepts a safe direction immediately after Player return without accepting A or B", () => {
+    const model = new NavigationInputModel(true);
+    const update = model.update(gamepad({ buttons: [0, 13] }), 0);
+    expect(update).toMatchObject({ actions: ["down"], neutralReady: false });
+    expect(model.update(gamepad(), 20).neutralReady).toBe(false);
+    expect(model.update(gamepad(), 140).neutralReady).toBe(true);
+    model.reset();
+    expect(model.update(gamepad({ buttons: [13] }), 141).actions).toEqual([]);
+  });
+
   it("repeats held directions at 350 ms then every 120 ms and reacts immediately to reversal", () => {
     const model = new NavigationInputModel();
     arm(model);
@@ -61,6 +71,14 @@ describe("immersive navigation input model", () => {
     expect(model.update(gamepad({ buttons: [15] }), 550).actions).toEqual(["right"]);
     expect(model.update(gamepad({ buttons: [15] }), 670).actions).toEqual(["right"]);
     expect(model.update(gamepad({ buttons: [14] }), 671).actions).toEqual(["left"]);
+  });
+
+  it("orders a same-frame direction before A and gives B precedence over A", () => {
+    const model = new NavigationInputModel();
+    arm(model);
+    expect(model.update(gamepad({ buttons: [0, 15] }), 121).actions).toEqual(["right", "confirm"]);
+    model.update(gamepad(), 122);
+    expect(model.update(gamepad({ buttons: [0, 1] }), 123).actions).toEqual(["cancel"]);
   });
 
   it("resets edges and the neutral gate after disconnect", () => {

@@ -1,0 +1,55 @@
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { PlatformView } from "./platform-view";
+
+const mocks = vi.hoisted(() => ({ fetchPlatforms: vi.fn(), push: vi.fn(), replace: vi.fn() }));
+
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push: mocks.push, replace: mocks.replace }) }));
+vi.mock("./gamepad-source", () => ({ browserGamepadSource: { subscribe: () => () => undefined } }));
+vi.mock("./api", () => ({
+  ImmersiveAPIError: class extends Error {constructor(public status: number, message: string) {super(message);}},
+  fetchImmersivePlatforms: mocks.fetchPlatforms,
+}));
+
+beforeEach(() => {
+  vi.stubGlobal("matchMedia", vi.fn(() => ({
+    matches: true,
+    media: "",
+    onchange: null,
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+    addListener: vi.fn(),
+    removeListener: vi.fn(),
+    dispatchEvent: vi.fn(),
+  })));
+  mocks.fetchPlatforms.mockResolvedValue({
+    generatedAtMs: 1_000,
+    items: [
+      { platformId: "gba", platformName: "Game Boy Advance", gameCount: 2, lastPlayedAtMs: null },
+      { platformId: "nes", platformName: "NES / Famicom", gameCount: 3, lastPlayedAtMs: 500 },
+    ],
+  });
+});
+
+afterEach(() => {
+  cleanup();
+  mocks.fetchPlatforms.mockReset();
+  mocks.push.mockReset();
+  mocks.replace.mockReset();
+  vi.unstubAllGlobals();
+});
+
+describe("immersive platform view", () => {
+  it("marks the direction and remounts the carousel for each card transition", async () => {
+    render(<PlatformView />);
+    let carousel = await screen.findByRole("listbox", { name: "游戏平台" });
+    expect(screen.getByRole("option", { selected: true })).toHaveTextContent("Game Boy Advance");
+    fireEvent.keyDown(window, { key: "ArrowRight" });
+    carousel = screen.getByRole("listbox", { name: "游戏平台" });
+    expect(carousel).toHaveAttribute("data-direction", "right");
+    expect(screen.getByRole("option", { selected: true })).toHaveTextContent("NES / Famicom");
+    fireEvent.keyDown(window, { key: "ArrowLeft" });
+    expect(screen.getByRole("listbox", { name: "游戏平台" })).toHaveAttribute("data-direction", "left");
+    expect(screen.getByRole("option", { selected: true })).toHaveTextContent("Game Boy Advance");
+  });
+});

@@ -70,6 +70,17 @@ describe("immersive home entry dialog", () => {
     expect(push).toHaveBeenCalledWith("/immersive");
   });
 
+  it("applies a same-frame right and A in visual order instead of confirming cancel", () => {
+    const source = new ManualSource();
+    render(<ImmersiveEntryDialog source={source} />);
+    source.emit([pad()], 0);
+    source.emit([pad([3])], 1);
+    source.emit([pad()], 2);
+    source.emit([pad()], 122);
+    source.emit([pad([0, 15])], 123);
+    expect(push).toHaveBeenCalledWith("/immersive");
+  });
+
   it("keeps keyboard and mouse semantics aligned with the dialog", () => {
     const source = new ManualSource();
     render(<ImmersiveEntryDialog source={source} />);

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { fetchImmersiveGames, ImmersiveAPIError, launchImmersiveGame, type ImmersiveGame, type ImmersivePlatform } from "./api";
 import { ImmersiveChoiceDialog } from "./choice-dialog";
 import { fetchInitialGameList } from "./game-list-loader";
-import { initialGameIndex, mergeGamePage, moveGameIndex, shouldPrefetchGamePage } from "./game-list-state";
+import { initialGameIndex, mergeGamePage, moveGameIndex, pageGameIndex, shouldPrefetchGamePage } from "./game-list-state";
 import { ImmersiveShell } from "./immersive-shell";
 import type { NavigationAction } from "./input-model";
 import { MediaStage } from "./media-stage";
@@ -13,6 +13,11 @@ import styles from "./immersive.module.css";
 
 type ViewState = "loading" | "ready" | "empty" | "error" | "unauthorized";
 type LaunchState = "idle" | "pending" | "error";
+type BrowseAction = Extract<NavigationAction, "left" | "right" | "up" | "down">;
+
+function isBrowseAction(action: NavigationAction): action is BrowseAction {
+  return action === "left" || action === "right" || action === "up" || action === "down";
+}
 
 function gameMeta(game: ImmersiveGame) {
   return [game.releaseYear, game.developer, game.genre].filter((value) => value !== null && value !== "");
@@ -58,7 +63,13 @@ function GameReadyContent({ games, loadNext, onSelect, pageError, platform, retr
         <p>{selected.platformInstance.name} · {selected.defaultCore.name}</p>
         <h2>{selected.title}</h2>
         <div className={styles.gameMetadata}>{gameMeta(selected).map((value, index) => <span key={`${index}:${String(value)}`}>{value}</span>)}</div>
-        <p className={styles.description} aria-label={selected.description || "暂无游戏简介"}>{selected.description || "暂无游戏简介"}</p>
+        <p
+          key={selected.gameId}
+          className={styles.description}
+          data-immersive-description="true"
+          tabIndex={0}
+          aria-label={selected.description || "暂无游戏简介"}
+        >{selected.description || "暂无游戏简介"}</p>
       </div>
     </article>
   </>;
@@ -90,6 +101,7 @@ export function GameListView({ initialGameId, platformId }: { initialGameId?: st
   const [launchMessage, setLaunchMessage] = useState("");
   const requestGeneration = useRef(0);
   const nextRequest = useRef<AbortController | null>(null);
+  const pendingBrowseAction = useRef<BrowseAction | null>(null);
   const selectedRef = useRef<HTMLButtonElement>(null);
   const selected = selectedIndex >= 0 ? games[selectedIndex] : null;
 
@@ -150,8 +162,18 @@ export function GameListView({ initialGameId, platformId }: { initialGameId?: st
   useEffect(() => {
     if (!selected) {return;}
     replaceGameHint(platformId, selected.gameId);
+    selectedRef.current?.focus({ preventScroll: true });
     selectedRef.current?.scrollIntoView({ block: "center", behavior: "auto" });
   }, [platformId, selected]);
+
+  useEffect(() => {
+    if (state !== "ready" || selectedIndex < 0 || !pendingBrowseAction.current) {return;}
+    const action = pendingBrowseAction.current;
+    pendingBrowseAction.current = null;
+    setSelectedIndex((value) => action === "up" || action === "down"
+      ? moveGameIndex(value, action, games.length)
+      : pageGameIndex(value, action, games.length));
+  }, [games.length, selectedIndex, state]);
 
   const goBack = useCallback(() => router.push(`/immersive?platformId=${encodeURIComponent(platformId)}`), [platformId, router]);
 
@@ -182,6 +204,10 @@ export function GameListView({ initialGameId, platformId }: { initialGameId?: st
   }, [launchState, retryLaunch]);
 
   const handleViewStateAction = useCallback((action: NavigationAction) => {
+    if (state === "loading" && isBrowseAction(action)) {
+      pendingBrowseAction.current = action;
+      return true;
+    }
     if (state === "error") {
       if (action === "confirm") {retryInitial();}
       if (action === "cancel") {goBack();}
@@ -194,7 +220,7 @@ export function GameListView({ initialGameId, platformId }: { initialGameId?: st
 
   const handleReadyAction = useCallback((action: NavigationAction) => {
     if (retrySelected) {
-      if (action === "up" || action === "cancel") {setRetrySelected(false);}
+      if (action === "up" || action === "left" || action === "cancel") {setRetrySelected(false);}
       if (action === "confirm") {loadNext();}
       return;
     }
@@ -202,6 +228,9 @@ export function GameListView({ initialGameId, platformId }: { initialGameId?: st
     if (action === "down") {
       if (selectedIndex === games.length - 1 && pageError) {setRetrySelected(true);}
       else {setSelectedIndex((value) => moveGameIndex(value, "down", games.length));}
+    }
+    if (action === "left" || action === "right") {
+      setSelectedIndex((value) => pageGameIndex(value, action, games.length));
     }
     if (action === "confirm") {launch();}
     if (action === "cancel") {goBack();}
@@ -219,7 +248,12 @@ export function GameListView({ initialGameId, platformId }: { initialGameId?: st
   }, [games]);
 
   const help = state === "ready"
-    ? [{ button: "▲ ▼", label: "选择游戏" }, { button: "A", label: retrySelected ? "重试加载" : "开始游戏" }, { button: "B", label: "返回平台" }]
+    ? [
+      { button: "vertical", label: "选择游戏" },
+      { button: "horizontal", label: "快速翻页" },
+      { button: "A", label: retrySelected ? "重试加载" : "开始游戏" },
+      { button: "B", label: "返回平台" },
+    ]
     : [{ button: "A", label: state === "error" ? "重试" : "返回" }, { button: "B", label: "返回" }];
   return <ImmersiveShell help={help} inputEpoch={`${state}:${launchState}:${retrySelected}`} onAction={onAction}>
     <section className={styles.gameListView} aria-labelledby="game-list-title">

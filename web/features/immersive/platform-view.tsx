@@ -12,6 +12,7 @@ import styles from "./immersive.module.css";
 
 type ViewState = "loading" | "ready" | "empty" | "error" | "unauthorized";
 type ExitChoice = "continue" | "exit";
+type PlatformTransition = Readonly<{ direction: "left" | "right" | null; sequence: number }>;
 
 function platformCode(platform: ImmersivePlatform) {
   const normalized = platform.platformId.replaceAll(/[^a-z0-9]/gi, "").toUpperCase();
@@ -52,6 +53,7 @@ export function PlatformView({ initialPlatformId }: { initialPlatformId?: string
   const [platforms, setPlatforms] = useState<ImmersivePlatform[]>([]);
   const [generatedAtMs, setGeneratedAtMs] = useState(0);
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const [transition, setTransition] = useState<PlatformTransition>({ direction: null, sequence: 0 });
   const [exitOpen, setExitOpen] = useState(false);
   const [exitChoice, setExitChoice] = useState<ExitChoice>("continue");
   const selected = platforms[selectedIndex];
@@ -110,8 +112,10 @@ export function PlatformView({ initialPlatformId }: { initialPlatformId?: string
       return;
     }
     if (handleStateAction(action) || !selected) {return;}
-    if (action === "left") {setSelectedIndex((value) => wrapPlatformIndex(value, "left", platforms.length));}
-    if (action === "right") {setSelectedIndex((value) => wrapPlatformIndex(value, "right", platforms.length));}
+    if (action === "left" || action === "right") {
+      setSelectedIndex((value) => wrapPlatformIndex(value, action, platforms.length));
+      setTransition((current) => ({ direction: action, sequence: current.sequence + 1 }));
+    }
     if (action === "confirm") {router.push(`/immersive/platforms/${encodeURIComponent(selected.platformId)}`);}
     if (action === "cancel") {setExitChoice("continue"); setExitOpen(true);}
   }, [exitOpen, handleExitAction, handleStateAction, platforms.length, router, selected]);
@@ -125,7 +129,7 @@ export function PlatformView({ initialPlatformId }: { initialPlatformId?: string
   }, [platforms, selected, selectedIndex]);
 
   const help = state === "ready"
-    ? [{ button: "◀ ▶", label: "选择平台" }, { button: "A", label: "进入" }, { button: "B", label: "退出沉浸模式" }]
+    ? [{ button: "horizontal", label: "选择平台" }, { button: "A", label: "进入" }, { button: "B", label: "退出沉浸模式" }]
     : [{ button: "A", label: state === "error" ? "重试" : "返回首页" }, { button: "B", label: "返回首页" }];
   return <ImmersiveShell help={help} inputEpoch={`${state}:${exitOpen}`} onAction={onAction}>
     <section className={styles.platformView} aria-labelledby="platform-view-title">
@@ -134,7 +138,15 @@ export function PlatformView({ initialPlatformId }: { initialPlatformId?: string
       {state === "empty" ? <div className={styles.centerState}><h2>还没有可游玩的游戏</h2><p>返回普通界面导入并发布游戏后再来看看。</p><button type="button" onClick={leave}>返回普通首页</button></div> : null}
       {state === "error" ? <div className={styles.centerState} role="alert"><h2>无法读取游戏平台</h2><p>请检查服务状态后重试。</p><button type="button" onClick={retry}>重试</button></div> : null}
       {state === "unauthorized" ? <div className={styles.centerState} role="alert"><h2>登录状态已失效</h2><p>请返回登录后重新进入沉浸模式。</p><button type="button" onClick={() => router.replace("/login")}>返回登录</button></div> : null}
-      {state === "ready" && selected ? <div className={styles.platformCarousel} role="listbox" tabIndex={0} aria-label="游戏平台" aria-activedescendant={`platform-${selected.platformId}`}>
+      {state === "ready" && selected ? <div
+        key={`${selected.platformId}:${transition.sequence}`}
+        className={styles.platformCarousel}
+        data-direction={transition.direction ?? undefined}
+        role="listbox"
+        tabIndex={0}
+        aria-label="游戏平台"
+        aria-activedescendant={`platform-${selected.platformId}`}
+      >
         {neighbors.previous ? <div role="option" aria-selected="false"><PlatformCard platform={neighbors.previous} generatedAtMs={generatedAtMs} /></div> : <div />}
         <div id={`platform-${selected.platformId}`} role="option" aria-selected="true"><PlatformCard current platform={selected} generatedAtMs={generatedAtMs} /></div>
         {neighbors.next ? <div role="option" aria-selected="false"><PlatformCard platform={neighbors.next} generatedAtMs={generatedAtMs} /></div> : <div />}

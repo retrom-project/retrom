@@ -7,10 +7,29 @@ import (
 	"testing"
 )
 
+func TestSmokeDatabaseWaitsForBoundedAcceptanceWriterContention(t *testing.T) {
+	t.Parallel()
+	database, err := openSmokeDatabase(context.Background(), filepath.Join(t.TempDir(), "retrom.db"))
+	if err != nil {
+		t.Fatalf("open smoke database: %v", err)
+	}
+	t.Cleanup(func() {
+		if closeErr := database.Close(); closeErr != nil {
+			t.Errorf("close smoke database: %v", closeErr)
+		}
+	})
+	var timeoutMS int
+	if err := database.QueryRowContext(context.Background(), "PRAGMA busy_timeout").Scan(&timeoutMS); err != nil {
+		t.Fatalf("read busy timeout: %v", err)
+	}
+	if timeoutMS != acceptanceSQLiteBusyTimeoutMS {
+		t.Fatalf("busy timeout = %d, want %d", timeoutMS, acceptanceSQLiteBusyTimeoutMS)
+	}
+}
+
 func TestSmokeFixtureAllowlistLoadsEveryLockedCatalog(t *testing.T) {
 	t.Parallel()
 	for fixtureID, fixture := range smokeFixtures {
-		fixtureID, fixture := fixtureID, fixture
 		t.Run(fixtureID, func(t *testing.T) {
 			t.Parallel()
 			catalog, digest, path, err := loadSmokeCatalog(context.Background(), fixture)

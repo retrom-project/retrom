@@ -2290,12 +2290,12 @@
     #retrom-ui-review .rt-im-brand { display:flex;align-items:center;gap:16px;color:#c7c2e8;font-size:14px;font-weight:800;letter-spacing:.2em;text-transform:uppercase }
     #retrom-ui-review .rt-im-brand-mark { width:38px;height:38px;border-radius:12px;display:grid;place-items:center;background:linear-gradient(145deg,#7658f5,#4b2fc7);box-shadow:0 12px 30px rgba(77,46,198,.4);font-size:20px;letter-spacing:0 }
     #retrom-ui-review .rt-im-help { display:flex;gap:26px;align-items:center;color:#aaa5c3;font-size:13px;font-weight:700 }
-    #retrom-ui-review .rt-im-help kbd { min-width:28px;height:28px;margin-right:8px;border:1px solid rgba(255,255,255,.2);border-radius:999px;display:inline-grid;place-items:center;color:white;background:rgba(255,255,255,.09);box-shadow:none }
+    #retrom-ui-review .rt-im-help kbd { width:28px;min-width:28px;height:28px;margin-right:8px;border:1px solid rgba(255,255,255,.2);border-radius:50%;display:inline-grid;place-items:center;color:white;background:rgba(255,255,255,.09);box-shadow:none }
+    #retrom-ui-review .rt-im-help kbd svg { width:18px;height:18px;display:block;overflow:visible;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round }
+    #retrom-ui-review .rt-im-help kbd[data-button=&quot;A&quot;] { color:#6ee7ad;border-color:rgba(110,231,173,.5) }
+    #retrom-ui-review .rt-im-help kbd[data-button=&quot;B&quot;] { color:#ff8792;border-color:rgba(255,135,146,.5) }
     #retrom-ui-review .rt-im-topbar { display:flex;justify-content:space-between;align-items:center;position:relative;z-index:1 }
     #retrom-ui-review .rt-im-entry { background:linear-gradient(120deg,rgba(12,16,29,.82),rgba(21,18,38,.75)),radial-gradient(circle at 35% 35%,#52607b,#151827 54%,#090b12) }
-    #retrom-ui-review .rt-im-entry-copy { margin:auto 0;width:min(720px,62vw);opacity:.46;filter:blur(.3px) }
-    #retrom-ui-review .rt-im-entry-copy strong { display:block;font-size:clamp(42px,5vw,86px);line-height:1.05 }
-    #retrom-ui-review .rt-im-entry-copy p { max-width:580px;color:#cbc6dd;font-size:clamp(16px,1.6vw,25px);line-height:1.7 }
     #retrom-ui-review .rt-im-backdrop { position:absolute;inset:0;display:grid;place-items:center;padding:30px;background:rgba(3,5,11,.74);backdrop-filter:blur(12px) }
     #retrom-ui-review .rt-im-dialog { width:min(690px,76vw);padding:48px;border:1px solid rgba(255,255,255,.14);border-radius:28px;background:linear-gradient(145deg,rgba(28,31,49,.98),rgba(15,17,29,.98));box-shadow:0 34px 100px rgba(0,0,0,.5);text-align:center }
     #retrom-ui-review .rt-im-dialog h1 { margin:0;font-size:38px }
@@ -2308,7 +2308,7 @@
     #retrom-ui-review .rt-im-heading h1 { margin:10px 0 8px;font-size:clamp(38px,4.6vw,76px);line-height:1.05 }
     #retrom-ui-review .rt-im-heading p { margin:0;color:#aaa5c0;font-size:clamp(15px,1.5vw,23px) }
     #retrom-ui-review .rt-im-platforms { flex:1;display:flex;align-items:center;justify-content:center;gap:clamp(20px,3vw,54px);perspective:1200px;position:relative;z-index:1 }
-    #retrom-ui-review .rt-im-platform { width:clamp(230px,24vw,410px);height:clamp(280px,38vh,440px);padding:32px;border:1px solid rgba(255,255,255,.12);border-radius:30px;display:flex;flex-direction:column;justify-content:space-between;background:linear-gradient(150deg,rgba(32,35,54,.95),rgba(18,20,33,.9));box-sizing:border-box;opacity:.5;transform:scale(.86);box-shadow:0 30px 70px rgba(0,0,0,.24) }
+    #retrom-ui-review .rt-im-platform { width:clamp(230px,24vw,410px);height:clamp(280px,38vh,440px);padding:32px;border:1px solid rgba(255,255,255,.12);border-radius:30px;display:flex;flex-direction:column;justify-content:space-between;background:linear-gradient(150deg,rgba(32,35,54,.95),rgba(18,20,33,.9));box-sizing:border-box;opacity:.5;transform:scale(.86);box-shadow:0 30px 70px rgba(0,0,0,.24);transition:transform 220ms cubic-bezier(.22,.8,.28,1),opacity 220ms ease }
     #retrom-ui-review .rt-im-platform.is-selected { opacity:1;transform:scale(1);border-color:#826cff;background:linear-gradient(145deg,rgba(104,74,224,.95),rgba(43,29,101,.95));box-shadow:0 0 0 6px rgba(112,83,231,.16),0 36px 90px rgba(45,25,112,.48) }
     #retrom-ui-review .rt-im-platform-code { width:88px;height:88px;border-radius:24px;display:grid;place-items:center;background:rgba(255,255,255,.12);font-size:27px;font-weight:900;letter-spacing:.06em }
     #retrom-ui-review .rt-im-platform h2 { margin:0 0 8px;font-size:clamp(27px,2.5vw,44px) }
@@ -2325,7 +2325,8 @@
     #retrom-ui-review .rt-im-video span { width:74px;height:74px;border:1px solid rgba(255,255,255,.35);border-radius:999px;display:grid;place-items:center;background:rgba(0,0,0,.34);font-size:27px }
     #retrom-ui-review .rt-im-description { padding:0 8px 10px }
     #retrom-ui-review .rt-im-description h1 { margin:0 0 10px;font-size:clamp(30px,3vw,54px) }
-    #retrom-ui-review .rt-im-description p { margin:0;color:#aaa6bb;font-size:clamp(14px,1.25vw,20px);line-height:1.7 }
+    #retrom-ui-review .rt-im-description p { max-height:150px;margin:0;padding-right:10px;overflow-y:auto;color:#aaa6bb;font-size:clamp(14px,1.25vw,20px);line-height:1.7;scrollbar-color:rgba(117,96,255,.72) rgba(255,255,255,.07);scrollbar-width:thin }
+    #retrom-ui-review .rt-im-fullscreen-recovery { position:absolute;z-index:3;top:18px;right:28px;min-height:42px;padding:0 15px;color:#f8f7ff;background:rgba(18,24,39,.92);border:1px solid rgba(255,255,255,.18);border-radius:14px;font-weight:800;box-shadow:0 14px 42px rgba(0,0,0,.42) }
     #retrom-ui-review .rt-im-player { display:grid;place-items:center;background:#020305 }
     #retrom-ui-review .rt-im-game-frame { width:min(1180px,84vw);aspect-ratio:4/3;border:1px solid #303443;background:radial-gradient(circle at 50% 35%,#463a51,#171a27 38%,#050609 70%);box-shadow:0 0 100px rgba(97,76,180,.2) }
     #retrom-ui-review .rt-im-pause { position:absolute;inset:0;display:grid;place-items:center;background:rgba(4,5,10,.76);backdrop-filter:blur(8px) }
@@ -2334,6 +2335,7 @@
     #retrom-ui-review .rt-im-menu p { margin:0 0 30px;color:#aaa5ba }
     #retrom-ui-review .rt-im-footer { margin-top:auto;display:flex;justify-content:space-between;align-items:center;position:relative;z-index:1 }
     @media(max-width:1000px){#retrom-ui-review .rt-im-game-layout{grid-template-columns:34% minmax(0,1fr)}#retrom-ui-review .rt-im-media{grid-template-columns:40% minmax(0,1fr);padding:16px}.rt-im-help{gap:12px}}
+    @media(prefers-reduced-motion:reduce){#retrom-ui-review .rt-im-platform{transition:none}}
   &lt;/style&gt;
 
   &lt;details class=&quot;rt-review-scenes&quot; open&gt;
@@ -2358,8 +2360,7 @@
 
   &lt;section class=&quot;rt-immersive-design rt-im-entry&quot; data-immersive-page=&quot;immersive-entry&quot; aria-label=&quot;首页沉浸模式入口&quot; hidden&gt;
     &lt;div class=&quot;rt-im-stage&quot;&gt;
-      &lt;div class=&quot;rt-im-topbar&quot;&gt;&lt;div class=&quot;rt-im-brand&quot;&gt;&lt;span class=&quot;rt-im-brand-mark&quot;&gt;R&lt;/span&gt; Retrom&lt;/div&gt;&lt;div class=&quot;rt-im-help&quot;&gt;&lt;span&gt;&lt;kbd&gt;A&lt;/kbd&gt;确认&lt;/span&gt;&lt;span&gt;&lt;kbd&gt;B&lt;/kbd&gt;取消&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;
-      &lt;div class=&quot;rt-im-entry-copy&quot;&gt;&lt;strong&gt;今天想玩什么？&lt;/strong&gt;&lt;p&gt;回到最近玩的游戏，或者从资料库里找点经典游戏。&lt;/p&gt;&lt;/div&gt;
+      &lt;div class=&quot;rt-im-topbar&quot;&gt;&lt;div class=&quot;rt-im-brand&quot;&gt;&lt;span class=&quot;rt-im-brand-mark&quot;&gt;R&lt;/span&gt; Retrom&lt;/div&gt;&lt;div class=&quot;rt-im-help&quot;&gt;&lt;span&gt;&lt;kbd data-button=&quot;A&quot;&gt;A&lt;/kbd&gt;确认&lt;/span&gt;&lt;span&gt;&lt;kbd data-button=&quot;B&quot;&gt;B&lt;/kbd&gt;取消&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;
       &lt;div class=&quot;rt-im-backdrop&quot;&gt;
         &lt;section class=&quot;rt-im-dialog&quot; role=&quot;dialog&quot; aria-modal=&quot;true&quot; aria-labelledby=&quot;rt-im-entry-title&quot;&gt;
           &lt;div class=&quot;rt-im-eyebrow&quot;&gt;检测到手柄&lt;/div&gt;&lt;h1 id=&quot;rt-im-entry-title&quot;&gt;进入沉浸模式？&lt;/h1&gt;&lt;p&gt;为电视与手柄设计的独立体验。选平台、选游戏，然后直接开始游玩。&lt;/p&gt;
@@ -2371,7 +2372,8 @@
 
   &lt;section class=&quot;rt-immersive-design&quot; data-immersive-page=&quot;immersive-platforms&quot; aria-label=&quot;沉浸模式平台选择&quot; hidden&gt;
     &lt;div class=&quot;rt-im-stage&quot;&gt;
-      &lt;div class=&quot;rt-im-topbar&quot;&gt;&lt;div class=&quot;rt-im-brand&quot;&gt;&lt;span class=&quot;rt-im-brand-mark&quot;&gt;R&lt;/span&gt; 沉浸模式&lt;/div&gt;&lt;div class=&quot;rt-im-help&quot;&gt;&lt;span&gt;&lt;kbd&gt;←→&lt;/kbd&gt;切换&lt;/span&gt;&lt;span&gt;&lt;kbd&gt;A&lt;/kbd&gt;进入&lt;/span&gt;&lt;span&gt;&lt;kbd&gt;B&lt;/kbd&gt;退出&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;
+      &lt;button type=&quot;button&quot; class=&quot;rt-im-fullscreen-recovery&quot;&gt;⛶ 进入全屏&lt;/button&gt;
+      &lt;div class=&quot;rt-im-topbar&quot;&gt;&lt;div class=&quot;rt-im-brand&quot;&gt;&lt;span class=&quot;rt-im-brand-mark&quot;&gt;R&lt;/span&gt; 沉浸模式&lt;/div&gt;&lt;div class=&quot;rt-im-help&quot;&gt;&lt;span&gt;&lt;kbd role=&quot;img&quot; aria-label=&quot;左右方向键&quot;&gt;&lt;svg viewBox=&quot;0 0 24 24&quot; aria-hidden=&quot;true&quot;&gt;&lt;path d=&quot;M8 12h8M10 8l-4 4 4 4M14 8l4 4-4 4&quot;&gt;&lt;/path&gt;&lt;/svg&gt;&lt;/kbd&gt;切换&lt;/span&gt;&lt;span&gt;&lt;kbd data-button=&quot;A&quot;&gt;A&lt;/kbd&gt;进入&lt;/span&gt;&lt;span&gt;&lt;kbd data-button=&quot;B&quot;&gt;B&lt;/kbd&gt;退出&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;
       &lt;header class=&quot;rt-im-heading&quot;&gt;&lt;span class=&quot;rt-im-eyebrow&quot;&gt;选择平台&lt;/span&gt;&lt;h1&gt;你的游戏，在这里开始&lt;/h1&gt;&lt;p&gt;使用左右方向键浏览平台&lt;/p&gt;&lt;/header&gt;
       &lt;div class=&quot;rt-im-platforms&quot;&gt;
         &lt;article class=&quot;rt-im-platform&quot;&gt;&lt;div class=&quot;rt-im-platform-code&quot;&gt;GBA&lt;/div&gt;&lt;div&gt;&lt;h2&gt;Game Boy Advance&lt;/h2&gt;&lt;p&gt;12 款游戏&lt;br&gt;上次游玩 · 昨天 22:14&lt;/p&gt;&lt;/div&gt;&lt;/article&gt;
@@ -2384,17 +2386,17 @@
 
   &lt;section class=&quot;rt-immersive-design&quot; data-immersive-page=&quot;immersive-games&quot; aria-label=&quot;沉浸模式游戏选择&quot; hidden&gt;
     &lt;div class=&quot;rt-im-stage&quot;&gt;
-      &lt;div class=&quot;rt-im-topbar&quot;&gt;&lt;div class=&quot;rt-im-brand&quot;&gt;&lt;span class=&quot;rt-im-brand-mark&quot;&gt;ARC&lt;/span&gt; Arcade&lt;/div&gt;&lt;div class=&quot;rt-im-help&quot;&gt;&lt;span&gt;&lt;kbd&gt;↑↓&lt;/kbd&gt;选择游戏&lt;/span&gt;&lt;span&gt;&lt;kbd&gt;A&lt;/kbd&gt;开始&lt;/span&gt;&lt;span&gt;&lt;kbd&gt;B&lt;/kbd&gt;返回&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;
+      &lt;div class=&quot;rt-im-topbar&quot;&gt;&lt;div class=&quot;rt-im-brand&quot;&gt;&lt;span class=&quot;rt-im-brand-mark&quot;&gt;ARC&lt;/span&gt; Arcade&lt;/div&gt;&lt;div class=&quot;rt-im-help&quot;&gt;&lt;span&gt;&lt;kbd role=&quot;img&quot; aria-label=&quot;上下方向键&quot;&gt;&lt;svg viewBox=&quot;0 0 24 24&quot; aria-hidden=&quot;true&quot;&gt;&lt;path d=&quot;M12 8v8M8 10l4-4 4 4M8 14l4 4 4-4&quot;&gt;&lt;/path&gt;&lt;/svg&gt;&lt;/kbd&gt;选择游戏&lt;/span&gt;&lt;span&gt;&lt;kbd role=&quot;img&quot; aria-label=&quot;左右方向键&quot;&gt;&lt;svg viewBox=&quot;0 0 24 24&quot; aria-hidden=&quot;true&quot;&gt;&lt;path d=&quot;M8 12h8M10 8l-4 4 4 4M14 8l4 4-4 4&quot;&gt;&lt;/path&gt;&lt;/svg&gt;&lt;/kbd&gt;快速翻页&lt;/span&gt;&lt;span&gt;&lt;kbd data-button=&quot;A&quot;&gt;A&lt;/kbd&gt;开始&lt;/span&gt;&lt;span&gt;&lt;kbd data-button=&quot;B&quot;&gt;B&lt;/kbd&gt;返回&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;
       &lt;div class=&quot;rt-im-game-layout&quot;&gt;
         &lt;nav class=&quot;rt-im-game-list&quot; aria-label=&quot;Arcade 游戏&quot;&gt;&lt;div class=&quot;rt-im-game-row&quot;&gt;合金弹头&lt;/div&gt;&lt;div class=&quot;rt-im-game-row&quot;&gt;四国战机 2&lt;/div&gt;&lt;div class=&quot;rt-im-game-row is-selected&quot;&gt;打击者 1945 加强版&lt;/div&gt;&lt;div class=&quot;rt-im-game-row&quot;&gt;原生兽&lt;/div&gt;&lt;div class=&quot;rt-im-game-row&quot;&gt;拳皇 98&lt;/div&gt;&lt;/nav&gt;
-        &lt;article class=&quot;rt-im-game-preview&quot;&gt;&lt;div class=&quot;rt-im-media&quot;&gt;&lt;div class=&quot;rt-im-cover&quot; aria-label=&quot;封面&quot;&gt;&lt;/div&gt;&lt;div class=&quot;rt-im-video&quot; aria-label=&quot;视频预览&quot;&gt;&lt;span&gt;▶&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&quot;rt-im-description&quot;&gt;&lt;span class=&quot;rt-im-eyebrow&quot;&gt;Psikyo · 1999 · 飞行射击&lt;/span&gt;&lt;h1&gt;打击者 1945 加强版&lt;/h1&gt;&lt;p&gt;经典纵向飞行射击。选择战机，穿越密集弹幕并挑战多阶段首领；支持单人或双人协作。&lt;/p&gt;&lt;/div&gt;&lt;/article&gt;
+        &lt;article class=&quot;rt-im-game-preview&quot;&gt;&lt;div class=&quot;rt-im-media&quot;&gt;&lt;div class=&quot;rt-im-cover&quot; aria-label=&quot;封面&quot;&gt;&lt;/div&gt;&lt;div class=&quot;rt-im-video&quot; aria-label=&quot;视频预览&quot;&gt;&lt;span&gt;▶&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&quot;rt-im-description&quot;&gt;&lt;span class=&quot;rt-im-eyebrow&quot;&gt;Psikyo · 1999 · 飞行射击&lt;/span&gt;&lt;h1&gt;打击者 1945 加强版&lt;/h1&gt;&lt;p tabindex=&quot;0&quot;&gt;经典纵向飞行射击。选择战机，穿越密集弹幕并挑战多阶段首领；支持单人或双人协作。游戏保留了街机版高速推进、路线切换和多阶段 Boss 战，较长的完整简介会在这里形成可聚焦滚动区域，而不是直接截断。&lt;/p&gt;&lt;/div&gt;&lt;/article&gt;
       &lt;/div&gt;
     &lt;/div&gt;
   &lt;/section&gt;
 
   &lt;section class=&quot;rt-immersive-design rt-im-player&quot; data-immersive-page=&quot;immersive-player&quot; aria-label=&quot;沉浸模式游戏菜单&quot; hidden&gt;
     &lt;div class=&quot;rt-im-game-frame&quot; aria-label=&quot;暂停的游戏画面&quot;&gt;&lt;/div&gt;
-    &lt;div class=&quot;rt-im-pause&quot;&gt;&lt;section class=&quot;rt-im-menu&quot; role=&quot;dialog&quot; aria-modal=&quot;true&quot; aria-labelledby=&quot;rt-im-menu-title&quot;&gt;&lt;span class=&quot;rt-im-eyebrow&quot;&gt;游戏已暂停&lt;/span&gt;&lt;h1 id=&quot;rt-im-menu-title&quot;&gt;打击者 1945 加强版&lt;/h1&gt;&lt;p&gt;选择继续游戏，或退出并返回游戏列表。&lt;/p&gt;&lt;div class=&quot;rt-im-actions&quot;&gt;&lt;button type=&quot;button&quot; class=&quot;rt-im-action is-selected&quot;&gt;取消&lt;/button&gt;&lt;button type=&quot;button&quot; class=&quot;rt-im-action&quot;&gt;退出游戏&lt;/button&gt;&lt;/div&gt;&lt;div class=&quot;rt-im-help&quot; style=&quot;justify-content:center;margin-top:24px&quot;&gt;&lt;span&gt;&lt;kbd&gt;A&lt;/kbd&gt;确认&lt;/span&gt;&lt;span&gt;&lt;kbd&gt;B&lt;/kbd&gt;取消&lt;/span&gt;&lt;/div&gt;&lt;/section&gt;&lt;/div&gt;
+    &lt;div class=&quot;rt-im-pause&quot;&gt;&lt;section class=&quot;rt-im-menu&quot; role=&quot;dialog&quot; aria-modal=&quot;true&quot; aria-labelledby=&quot;rt-im-menu-title&quot;&gt;&lt;span class=&quot;rt-im-eyebrow&quot;&gt;游戏已暂停&lt;/span&gt;&lt;h1 id=&quot;rt-im-menu-title&quot;&gt;打击者 1945 加强版&lt;/h1&gt;&lt;p&gt;选择继续游戏，或退出并返回游戏列表。&lt;/p&gt;&lt;div class=&quot;rt-im-actions&quot;&gt;&lt;button type=&quot;button&quot; class=&quot;rt-im-action is-selected&quot;&gt;取消&lt;/button&gt;&lt;button type=&quot;button&quot; class=&quot;rt-im-action&quot;&gt;退出游戏&lt;/button&gt;&lt;/div&gt;&lt;div class=&quot;rt-im-help&quot; style=&quot;justify-content:center;margin-top:24px&quot;&gt;&lt;span&gt;&lt;kbd data-button=&quot;A&quot;&gt;A&lt;/kbd&gt;确认&lt;/span&gt;&lt;span&gt;&lt;kbd data-button=&quot;B&quot;&gt;B&lt;/kbd&gt;取消&lt;/span&gt;&lt;/div&gt;&lt;/section&gt;&lt;/div&gt;
   &lt;/section&gt;
 
   &lt;section class=&quot;rt-auth-scene&quot; data-auth-page=&quot;setup&quot; aria-label=&quot;首次设置&quot; hidden&gt;

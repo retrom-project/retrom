@@ -19,9 +19,9 @@ function useReducedMotion() {
 
 function Poster({ game, placeholder = false }: { game: ImmersiveGame; placeholder?: boolean }) {
   if (game.coverUrl && !placeholder) {
-    return <div className={styles.poster}><Image src={game.coverUrl} alt={`${game.title} 封面`} fill sizes="30vw" unoptimized /></div>;
+    return <div className={styles.poster} data-immersive-poster="true"><Image src={game.coverUrl} alt={`${game.title} 封面`} fill sizes="30vw" unoptimized /></div>;
   }
-  return <div className={`${styles.poster} ${styles.mediaPlaceholder}`} role="img" aria-label={`${game.title} 暂无封面`}>
+  return <div className={`${styles.poster} ${styles.mediaPlaceholder}`} data-immersive-poster="true" role="img" aria-label={`${game.title} 暂无封面`}>
     <span>RETROM</span><strong>{game.title}</strong><small>{game.defaultCore.name}</small>
   </div>;
 }
@@ -76,7 +76,7 @@ export function MediaStage({ game }: { game: ImmersiveGame }) {
   const showVideoPanel = Boolean(validVideoUrl && !videoFailed);
   return <div ref={stageRef} className={`${styles.mediaStage} ${showVideoPanel ? styles.withVideo : styles.coverOnly}`.trim()}>
     <Poster game={game} placeholder={!game.coverUrl} />
-    {showVideoPanel ? <div className={styles.videoPanel}>
+    {showVideoPanel ? <div className={styles.videoPanel} data-immersive-video-panel="true">
       {videoReady && !reducedMotion ? <video
         key={game.gameId}
         className={videoPlaying ? styles.videoPlaying : ""}

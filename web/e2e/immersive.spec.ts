@@ -40,6 +40,11 @@ async function claimEntry(page: Page) {
   await pressGamepad(page, standardButton.a);
   const dialog = page.getByRole("alertdialog", { name: "进入沉浸模式？" });
   await expect(dialog).toBeVisible();
+  const takeover = page.locator('[data-immersive-entry="true"]');
+  await expect(takeover).toBeVisible();
+  const takeoverBox = await takeover.boundingBox();
+  const viewport = page.viewportSize();
+  expect(takeoverBox).toEqual({ x: 0, y: 0, width: viewport?.width, height: viewport?.height });
   await expect(dialog.getByRole("button", { name: "取消" })).toBeFocused();
   return dialog;
 }
@@ -94,7 +99,7 @@ async function selectGameForCore(page: Page, coreId: string) {
   }
   const selected = page.getByRole("option", { selected: true });
   await expect(selected).toContainText(games[index]!.title);
-  return games[index]!;
+  return { game: games[index]!, games, index };
 }
 
 async function selectGameByTitle(page: Page, title: string) {
@@ -163,6 +168,7 @@ async function exitFromPlayerMenu(page: Page) {
 
 test("ACC-IMM-001 home gamepad entry defaults to cancel and stays isolated", async ({ page }, testInfo) => {
   const dialog = await claimEntry(page);
+  await page.screenshot({ path: evidencePath(testInfo, "immersive-entry-confirmation.png"), fullPage: true });
   await pressGamepad(page, standardButton.b);
   await expect(dialog).toBeHidden();
   await expect(page).toHaveURL(/\/$/);
@@ -174,6 +180,9 @@ test("ACC-IMM-001 home gamepad entry defaults to cancel and stays isolated", asy
 
   await enterImmersive(page);
   await expect(page.getByRole("navigation", { name: "主要导航" })).toHaveCount(0);
+  if (!await page.evaluate(() => Boolean(document.fullscreenElement))) {
+    await expect(page.getByRole("button", { name: /进入全屏/ })).toBeVisible();
+  }
   await page.screenshot({ path: evidencePath(testInfo, "immersive-entry.png"), fullPage: true });
 });
 
@@ -182,11 +191,20 @@ test("ACC-IMM-002 platform carousel uses real counts and controller-only navigat
   expect(items.length).toBeGreaterThanOrEqual(2);
   await enterImmersive(page);
   const current = page.getByRole("option", { selected: true });
+  const horizontalKey = page.getByLabel("左右方向键");
+  const keyBox = await horizontalKey.boundingBox();
+  const iconBox = await horizontalKey.locator("svg").boundingBox();
+  expect(keyBox?.width).toBe(keyBox?.height);
+  expect(iconBox?.width).toBeLessThan(keyBox?.width ?? 0);
+  expect(iconBox?.height).toBeLessThan(keyBox?.height ?? 0);
   await expect(current).toContainText(items[0]!.platformName);
   await expect(current).toContainText(`${items[0]!.gameCount} 款游戏`);
   await page.waitForTimeout(180);
 
   await pressGamepad(page, standardButton.left);
+  await expect(page.getByRole("listbox", { name: "游戏平台" })).toHaveAttribute("data-direction", "left");
+  const animationName = await current.locator("article").evaluate((element) => getComputedStyle(element).animationName);
+  expect(animationName).not.toBe("none");
   await expect(current).toContainText(items.at(-1)!.platformName);
   await pressGamepad(page, standardButton.right);
   await expect(current).toContainText(items[0]!.platformName);
@@ -209,12 +227,31 @@ test("ACC-IMM-003 game browser renders authorized cover video and description fa
   await expect(page).toHaveURL(/\/immersive\/platforms\/gba/);
   const listbox = page.getByRole("listbox", { name: /Game Boy Advance 游戏/ });
   await expect(listbox).toBeVisible();
+  await expect(page.getByLabel("上下方向键").locator("svg")).toBeVisible();
+  await expect(page.getByLabel("左右方向键").locator("svg")).toBeVisible();
   await selectGameByTitle(page, "Sudoku");
   const selected = listbox.getByRole("option", { selected: true });
   await expect(selected).toContainText("Sudoku");
   await expect(page.getByRole("img", { name: "Sudoku 封面" })).toBeVisible();
   await expect(page.locator("video")).toHaveCount(1, { timeout: 5_000 });
-  await expect(page.getByLabel(/暂无游戏简介|Retrom/)).toBeVisible();
+  const mediaHeights = await page.locator('[data-immersive-description="true"]').evaluate(() => {
+    const poster = document.querySelector<HTMLElement>('[data-immersive-poster="true"]');
+    const video = document.querySelector<HTMLElement>('[data-immersive-video-panel="true"]');
+    return { poster: poster?.getBoundingClientRect().height ?? 0, video: video?.getBoundingClientRect().height ?? 0 };
+  });
+  expect(mediaHeights.poster).toBeGreaterThan(0);
+  expect(Math.abs(mediaHeights.poster - mediaHeights.video)).toBeLessThanOrEqual(1);
+  const description = page.locator('[data-immersive-description="true"]');
+  await expect(description).toContainText("Retrom 的项目自有测试游戏");
+  const descriptionMetrics = await description.evaluate((element) => ({
+    clientHeight: element.clientHeight,
+    overflowY: getComputedStyle(element).overflowY,
+    scrollHeight: element.scrollHeight,
+  }));
+  expect(descriptionMetrics.overflowY).toBe("auto");
+  expect(descriptionMetrics.scrollHeight).toBeGreaterThan(descriptionMetrics.clientHeight);
+  await description.evaluate((element) => {element.scrollTop = element.scrollHeight;});
+  expect(await description.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
   await pressGamepad(page, standardButton.b);
   await expect(page).toHaveURL(/\/immersive\?platformId=gba$/);
   await page.screenshot({ path: evidencePath(testInfo, "immersive-game-list.png"), fullPage: true });
@@ -231,6 +268,7 @@ test("ACC-IMM-004 real GBA launch advances frames and returns to the selected ga
   await page.screenshot({ path: evidencePath(testInfo, "immersive-gba-running.png"), fullPage: true });
   await openPlayerMenu(page);
   await exitFromPlayerMenu(page);
+  await expect(page.getByRole("status").filter({ hasText: "等待手柄" })).toHaveCount(0);
   await expect(page.getByRole("option", { selected: true })).toContainText("Sudoku");
 });
 
@@ -265,7 +303,7 @@ test("ACC-IMM-005 reserved chord pauses, continues and exits without save writes
 test("ACC-IMM-006 Arcade keeps P2 input and gives menu ownership only to the active pad", async ({ page }, testInfo) => {
   test.setTimeout(180_000);
   await openPlatform(page, "Arcade");
-  await selectGameForCore(page, "mame2003");
+  const selectedGame = await selectGameForCore(page, "mame2003");
   const { frame } = await launchSelectedGame(page);
   await expect.poll(() => currentEmulatorBrightRatio(page), { timeout: 10_000 }).toBeGreaterThan(0.001);
 
@@ -283,9 +321,24 @@ test("ACC-IMM-006 Arcade keeps P2 input and gives menu ownership only to the act
   expect(filtered).toEqual([false, false]);
   await page.screenshot({ path: evidencePath(testInfo, "immersive-arcade-menu.png"), fullPage: true });
   await exitFromPlayerMenu(page);
+  expect(selectedGame.games.length).toBeGreaterThan(1);
+  const shell = page.locator('[data-immersive-shell="true"]');
+  expect(await page.evaluate(() => ({
+    focused: document.hasFocus(),
+    gamepads: Array.from(navigator.getGamepads()).filter(Boolean).length,
+  }))).toEqual({ focused: true, gamepads: 2 });
+  await expect(shell).toHaveAttribute("data-controller-state", "ready", { timeout: 2_000 });
+  const move = selectedGame.index === selectedGame.games.length - 1 ? "up" : "down";
+  const targetIndex = selectedGame.index + (move === "up" ? -1 : 1);
+  await pressGamepad(page, standardButton[move]);
+  await expect(page).toHaveURL(new RegExp(`gameId=${selectedGame.games[targetIndex]!.gameId}`));
 });
 
 test("ACC-IMM-007 immersive shell has no overflow and no serious accessibility violations", async ({ page }, testInfo: TestInfo) => {
+  const hydrationErrors: string[] = [];
+  page.on("console", (message) => {
+    if (message.type() === "error" && message.text().includes("hydrated")) {hydrationErrors.push(message.text());}
+  });
   await enterImmersive(page);
   if (testInfo.project.name === "chrome-1280") {
     await setGamepadConnected(page, 0, false);
@@ -306,6 +359,7 @@ test("ACC-IMM-007 immersive shell has no overflow and no serious accessibility v
   expect(violations).toEqual([]);
   await page.emulateMedia({ reducedMotion: "reduce" });
   await expect(page.locator('[data-immersive-shell="true"]')).toBeVisible();
+  expect(hydrationErrors).toEqual([]);
   await page.screenshot({ path: evidencePath(testInfo, "immersive-accessibility.png"), fullPage: true });
 });
 

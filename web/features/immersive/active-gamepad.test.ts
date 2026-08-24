@@ -1,8 +1,16 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { getActiveImmersiveGamepadIndex, setActiveImmersiveGamepadIndex } from "./active-gamepad";
+import {
+  consumeImmersivePlayerReturn,
+  getActiveImmersiveGamepadIndex,
+  markImmersivePlayerReturn,
+  setActiveImmersiveGamepadIndex,
+} from "./active-gamepad";
 
 describe("active immersive gamepad claim", () => {
-  afterEach(() => setActiveImmersiveGamepadIndex(null));
+  afterEach(() => {
+    setActiveImmersiveGamepadIndex(null);
+    consumeImmersivePlayerReturn();
+  });
 
   it("keeps the claimed index only in module memory", () => {
     const localCount = localStorage.length;
@@ -18,5 +26,12 @@ describe("active immersive gamepad claim", () => {
     setActiveImmersiveGamepadIndex(1);
     setActiveImmersiveGamepadIndex(null);
     expect(getActiveImmersiveGamepadIndex()).toBeNull();
+  });
+
+  it("consumes a player-return handoff exactly once", () => {
+    expect(consumeImmersivePlayerReturn()).toBe(false);
+    markImmersivePlayerReturn();
+    expect(consumeImmersivePlayerReturn()).toBe(true);
+    expect(consumeImmersivePlayerReturn()).toBe(false);
   });
 });

@@ -83,6 +83,11 @@ export class NavigationInputModel {
   private neutralSinceMs: number | null = null;
   private neutralDelayMs = 120;
   private armed = false;
+  private directionBeforeNeutralEnabled: boolean;
+
+  constructor(allowDirectionBeforeNeutral = false) {
+    this.directionBeforeNeutralEnabled = allowDirectionBeforeNeutral;
+  }
 
   reset(neutralDelayMs = 120) {
     this.previousButtons = [];
@@ -103,34 +108,33 @@ export class NavigationInputModel {
     else if (!this.armed && this.neutralSinceMs === null) {this.neutralSinceMs = nowMs;}
     if (!this.armed && this.neutralSinceMs !== null && nowMs - this.neutralSinceMs >= this.neutralDelayMs) {
       this.armed = true;
+      this.directionBeforeNeutralEnabled = false;
     }
     const neutralReady = this.armed;
     const pressed = gamepad.buttons.map(buttonPressed);
-    const actions = neutralReady ? this.actionsFor(gamepad, pressed, nowMs) : [];
+    const actions = neutralReady || this.directionBeforeNeutralEnabled
+      ? this.actionsFor(gamepad, pressed, nowMs, neutralReady)
+      : [];
     this.previousButtons = pressed;
     return { actions, neutral, neutralReady };
   }
 
-  private actionsFor(gamepad: GamepadSnapshot, pressed: boolean[], nowMs: number) {
+  private actionsFor(gamepad: GamepadSnapshot, pressed: boolean[], nowMs: number, buttonsAllowed = true) {
     const actions: NavigationAction[] = [];
-    if (pressed[0] && !this.previousButtons[0]) {actions.push("confirm");}
-    if (pressed[1] && !this.previousButtons[1]) {actions.push("cancel");}
     const nextDirection = digitalDirection(gamepad) ?? axisDirection(gamepad, this.direction);
     if (!nextDirection) {
       this.direction = null;
       this.nextRepeatAtMs = 0;
-      return actions;
-    }
-    if (nextDirection !== this.direction) {
+    } else if (nextDirection !== this.direction) {
       this.direction = nextDirection;
       this.nextRepeatAtMs = nowMs + INITIAL_REPEAT_MS;
       actions.push(nextDirection);
-      return actions;
-    }
-    if (nowMs >= this.nextRepeatAtMs) {
+    } else if (nowMs >= this.nextRepeatAtMs) {
       actions.push(nextDirection);
       this.nextRepeatAtMs = nowMs + REPEAT_MS;
     }
+    if (buttonsAllowed && pressed[1] && !this.previousButtons[1]) {actions.push("cancel");}
+    else if (buttonsAllowed && pressed[0] && !this.previousButtons[0]) {actions.push("confirm");}
     return actions;
   }
 }
