@@ -4,8 +4,8 @@ export type NetplayProfile = {
   profileId: string;
   platformIds: string[];
   emulatorjsVersion: "4.2.3";
-  playerAdapterId: "ejs-4.2.3-v3";
-  netplayAdapterId: "ejs-netplay-4.2.3-v2";
+  playerAdapterId: "ejs-4.2.3-v2";
+  netplayAdapterId: "ejs-netplay-4.2.3-v1";
   coreArtifactId: string;
   coreArtifactSha256: string;
   gameVariantRevisionId: string;

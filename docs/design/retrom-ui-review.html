@@ -1578,121 +1578,6 @@
     #retrom-ui-review .rt-player-exit-dialog .rt-dialog-copy { color: #aeb7c7; }
     #retrom-ui-review .rt-player-exit-dialog .rt-dialog-impact { color: #e8c8cc; border-color: #5b4147; background: #231f22; }
     #retrom-ui-review .rt-player-exit-dialog .rt-player-exit-save { margin-right: auto; }
-    #retrom-ui-review .rt-controller-scene {
-      position: absolute;
-      z-index: 45;
-      inset: 0;
-      display: flex;
-      justify-content: flex-end;
-      color: #f4f3ff;
-      background: rgb(7 10 16 / 52%);
-      backdrop-filter: blur(4px);
-    }
-    #retrom-ui-review .rt-controller-panel {
-      width: min(390px, 100%);
-      height: 100%;
-      padding: 28px 22px 20px;
-      display: flex;
-      flex-direction: column;
-      gap: 18px;
-      border-left: 1px solid #343d4f;
-      background: linear-gradient(160deg, #1a2030, #0f141f);
-      box-shadow: -24px 0 70px rgb(0 0 0 / 42%);
-    }
-    #retrom-ui-review .rt-controller-panel header {
-      display: flex;
-      align-items: center;
-      gap: 13px;
-    }
-    #retrom-ui-review .rt-controller-mark {
-      width: 46px;
-      height: 46px;
-      display: grid;
-      place-items: center;
-      flex: none;
-      color: #ddd7ff;
-      border: 1px solid #6250d2;
-      border-radius: 14px;
-      background: #282347;
-    }
-    #retrom-ui-review .rt-controller-panel h2 { margin: 2px 0 0; font-size: 22px; }
-    #retrom-ui-review .rt-controller-panel small { color: #9da6b6; }
-    #retrom-ui-review .rt-controller-menu-list { display: grid; gap: 7px; }
-    #retrom-ui-review .rt-controller-menu-list button {
-      min-height: 48px;
-      padding: 0 14px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      color: #e8ebf2;
-      border: 1px solid #313a4c;
-      border-radius: 11px;
-      background: #171e2a;
-      text-align: left;
-    }
-    #retrom-ui-review .rt-controller-menu-list button.is-focused {
-      color: #fff;
-      border-color: #9b8cf1;
-      background: #30275d;
-      box-shadow: 0 0 0 4px rgb(139 123 241 / 18%);
-    }
-    #retrom-ui-review .rt-controller-menu-list button.is-danger { color: #ffabb4; }
-    #retrom-ui-review .rt-controller-panel footer {
-      margin-top: auto;
-      padding-top: 14px;
-      display: flex;
-      flex-wrap: wrap;
-      gap: 12px;
-      color: #aeb7c6;
-      border-top: 1px solid #30394a;
-      font-size: 11px;
-    }
-    #retrom-ui-review .rt-controller-local-note {
-      padding: 12px;
-      color: #b7e7e9;
-      border: 1px solid #285c62;
-      border-radius: 10px;
-      background: #122b31;
-      line-height: 1.5;
-    }
-    #retrom-ui-review .rt-controller-reconnect-card {
-      width: min(470px, calc(100% - 32px));
-      margin: auto;
-      padding: 28px;
-      display: grid;
-      justify-items: center;
-      gap: 15px;
-      border: 1px solid #485268;
-      border-radius: 18px;
-      background: #151c28;
-      box-shadow: 0 28px 90px rgb(0 0 0 / 56%);
-      text-align: center;
-    }
-    #retrom-ui-review .rt-controller-reconnect-card .rt-button.is-focused {
-      border-color: #9b8cf1;
-      box-shadow: 0 0 0 4px rgb(139 123 241 / 18%);
-    }
-    #retrom-ui-review .rt-controller-hint-scene {
-      position: absolute;
-      z-index: 44;
-      left: 50%;
-      bottom: 18px;
-      padding: 10px 16px;
-      display: flex;
-      gap: 18px;
-      color: #eff1f6;
-      border: 1px solid #394355;
-      border-radius: 999px;
-      background: rgb(16 22 32 / 94%);
-      box-shadow: 0 14px 34px rgb(0 0 0 / 30%);
-      transform: translateX(-50%);
-      font-size: 11px;
-    }
-    @media (max-width: 760px) {
-      #retrom-ui-review .rt-controller-panel { width: 100%; border-left: 0; }
-      #retrom-ui-review .rt-controller-hint-scene { right: 10px; left: 10px; justify-content: center; transform: none; }
-    }
 
     @media (min-width: 1600px) {
       #retrom-ui-review { font-size: 15px; }
@@ -2413,10 +2298,6 @@
       &lt;button type=&quot;button&quot; data-review-scene=&quot;netplay&quot;&gt;联机首页&lt;/button&gt;
       &lt;button type=&quot;button&quot; data-review-scene=&quot;netplay-room&quot;&gt;联机房间&lt;/button&gt;
       &lt;button type=&quot;button&quot; data-review-scene=&quot;netplay-player&quot;&gt;联机 Player&lt;/button&gt;
-      &lt;button type=&quot;button&quot; data-review-scene=&quot;controller-home&quot;&gt;客厅导航&lt;/button&gt;
-      &lt;button type=&quot;button&quot; data-review-scene=&quot;controller-player&quot;&gt;手柄 Player 菜单&lt;/button&gt;
-      &lt;button type=&quot;button&quot; data-review-scene=&quot;controller-netplay-p2&quot;&gt;P2 本地菜单&lt;/button&gt;
-      &lt;button type=&quot;button&quot; data-review-scene=&quot;controller-reconnect&quot;&gt;手柄重连&lt;/button&gt;
       &lt;button type=&quot;button&quot; data-review-scene=&quot;admin-users&quot;&gt;用户管理&lt;/button&gt;
     &lt;/div&gt;
   &lt;/details&gt;
@@ -2737,7 +2618,7 @@
             &lt;div class=&quot;rt-player-launch-state&quot; id=&quot;rt-player-launch-state&quot; role=&quot;status&quot; aria-live=&quot;polite&quot;&gt;可创建存档&lt;/div&gt;
             &lt;div class=&quot;rt-player-actions&quot;&gt;&lt;button type=&quot;button&quot; class=&quot;rt-player-control rt-player-debug-toggle&quot; id=&quot;rt-player-debug&quot; aria-controls=&quot;rt-player-debug-panel&quot; aria-expanded=&quot;false&quot; aria-pressed=&quot;false&quot;&gt;&lt;i data-lucide=&quot;cpu&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;调试信息&lt;/button&gt;&lt;div class=&quot;rt-player-menu-wrap&quot;&gt;&lt;button type=&quot;button&quot; class=&quot;rt-player-control&quot; id=&quot;rt-player-disc&quot; aria-haspopup=&quot;menu&quot; aria-expanded=&quot;false&quot; aria-label=&quot;光盘 2 / 3&quot;&gt;&lt;i data-lucide=&quot;disc-3&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;光盘 2 / 3&lt;/button&gt;&lt;div class=&quot;rt-player-menu rt-player-disc-menu&quot; id=&quot;rt-player-disc-menu&quot; role=&quot;menu&quot;&gt;&lt;button type=&quot;button&quot; role=&quot;menuitemradio&quot; aria-checked=&quot;false&quot; data-disc-number=&quot;1&quot;&gt;&lt;span&gt;光盘 1&lt;/span&gt;&lt;small&gt;disc-001.chd&lt;/small&gt;&lt;/button&gt;&lt;button type=&quot;button&quot; role=&quot;menuitemradio&quot; aria-checked=&quot;true&quot; data-disc-number=&quot;2&quot;&gt;&lt;span&gt;光盘 2&lt;/span&gt;&lt;small&gt;当前&lt;/small&gt;&lt;/button&gt;&lt;button type=&quot;button&quot; role=&quot;menuitemradio&quot; aria-checked=&quot;false&quot; data-disc-number=&quot;3&quot;&gt;&lt;span&gt;光盘 3&lt;/span&gt;&lt;small&gt;disc-003.chd&lt;/small&gt;&lt;/button&gt;&lt;/div&gt;&lt;/div&gt;&lt;button type=&quot;button&quot; class=&quot;rt-player-control&quot;&gt;&lt;i data-lucide=&quot;save&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;创建存档&lt;/button&gt;&lt;button type=&quot;button&quot; class=&quot;rt-player-control is-icon&quot; aria-label=&quot;暂停&quot;&gt;&lt;i data-lucide=&quot;pause&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;&lt;/button&gt;&lt;button type=&quot;button&quot; class=&quot;rt-player-control is-icon&quot; id=&quot;rt-enter-fullscreen&quot; aria-label=&quot;全屏&quot;&gt;&lt;i data-lucide=&quot;maximize&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;&lt;/button&gt;&lt;div class=&quot;rt-player-menu-wrap&quot;&gt;&lt;button type=&quot;button&quot; class=&quot;rt-player-control is-icon&quot; id=&quot;rt-player-more&quot; aria-label=&quot;更多操作&quot;&gt;&lt;i data-lucide=&quot;ellipsis&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;&lt;/button&gt;&lt;div class=&quot;rt-player-menu&quot; id=&quot;rt-player-menu&quot;&gt;&lt;button type=&quot;button&quot; data-open-emulator-controls&gt;模拟器设置&lt;/button&gt;&lt;button type=&quot;button&quot;&gt;查看快捷键&lt;/button&gt;&lt;button type=&quot;button&quot;&gt;查看运行提醒&lt;/button&gt;&lt;hr&gt;&lt;button type=&quot;button&quot; class=&quot;is-danger&quot; data-player-exit&gt;退出游戏&lt;/button&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;
           &lt;/div&gt;
-          &lt;aside class=&quot;rt-player-debug&quot; id=&quot;rt-player-debug-panel&quot; aria-label=&quot;运行调试信息&quot; aria-hidden=&quot;true&quot;&gt;&lt;header&gt;&lt;div&gt;&lt;span&gt;实时运行诊断&lt;/span&gt;&lt;h2&gt;调试信息&lt;/h2&gt;&lt;/div&gt;&lt;button type=&quot;button&quot; class=&quot;rt-player-debug-close&quot; data-close-player-debug aria-label=&quot;关闭调试信息面板&quot;&gt;&lt;i data-lucide=&quot;x&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;&lt;/button&gt;&lt;/header&gt;&lt;section&gt;&lt;h3&gt;实时&lt;/h3&gt;&lt;dl&gt;&lt;div&gt;&lt;dt&gt;帧率&lt;/dt&gt;&lt;dd&gt;59.9 FPS&lt;/dd&gt;&lt;/div&gt;&lt;div&gt;&lt;dt&gt;核心帧计数&lt;/dt&gt;&lt;dd&gt;4,210&lt;/dd&gt;&lt;/div&gt;&lt;div&gt;&lt;dt&gt;运行状态&lt;/dt&gt;&lt;dd&gt;运行中&lt;/dd&gt;&lt;/div&gt;&lt;div&gt;&lt;dt&gt;游戏分辨率&lt;/dt&gt;&lt;dd&gt;704 × 480&lt;/dd&gt;&lt;/div&gt;&lt;/dl&gt;&lt;/section&gt;&lt;section&gt;&lt;h3&gt;运行环境&lt;/h3&gt;&lt;dl&gt;&lt;div&gt;&lt;dt&gt;Core&lt;/dt&gt;&lt;dd&gt;Yabause&lt;/dd&gt;&lt;/div&gt;&lt;div&gt;&lt;dt&gt;EmulatorJS&lt;/dt&gt;&lt;dd&gt;4.2.3&lt;/dd&gt;&lt;/div&gt;&lt;div&gt;&lt;dt&gt;Player adapter&lt;/dt&gt;&lt;dd&gt;ejs-4.2.3-v3&lt;/dd&gt;&lt;/div&gt;&lt;div&gt;&lt;dt&gt;输入模式&lt;/dt&gt;&lt;dd&gt;STANDARD&lt;/dd&gt;&lt;/div&gt;&lt;div&gt;&lt;dt&gt;隔离能力&lt;/dt&gt;&lt;dd&gt;COOP/COEP + SAB&lt;/dd&gt;&lt;/div&gt;&lt;div&gt;&lt;dt&gt;Player 模式&lt;/dt&gt;&lt;dd&gt;单机&lt;/dd&gt;&lt;/div&gt;&lt;/dl&gt;&lt;/section&gt;&lt;section&gt;&lt;h3&gt;显示&lt;/h3&gt;&lt;dl&gt;&lt;div&gt;&lt;dt&gt;视口&lt;/dt&gt;&lt;dd&gt;2560 × 1440&lt;/dd&gt;&lt;/div&gt;&lt;div&gt;&lt;dt&gt;像素比&lt;/dt&gt;&lt;dd&gt;1.00&lt;/dd&gt;&lt;/div&gt;&lt;div&gt;&lt;dt&gt;光盘&lt;/dt&gt;&lt;dd&gt;2 / 3&lt;/dd&gt;&lt;/div&gt;&lt;/dl&gt;&lt;/section&gt;&lt;footer&gt;Artifact · yabause-wasm-4.2.3&lt;/footer&gt;&lt;/aside&gt;
+          &lt;aside class=&quot;rt-player-debug&quot; id=&quot;rt-player-debug-panel&quot; aria-label=&quot;运行调试信息&quot; aria-hidden=&quot;true&quot;&gt;&lt;header&gt;&lt;div&gt;&lt;span&gt;实时运行诊断&lt;/span&gt;&lt;h2&gt;调试信息&lt;/h2&gt;&lt;/div&gt;&lt;button type=&quot;button&quot; class=&quot;rt-player-debug-close&quot; data-close-player-debug aria-label=&quot;关闭调试信息面板&quot;&gt;&lt;i data-lucide=&quot;x&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;&lt;/button&gt;&lt;/header&gt;&lt;section&gt;&lt;h3&gt;实时&lt;/h3&gt;&lt;dl&gt;&lt;div&gt;&lt;dt&gt;帧率&lt;/dt&gt;&lt;dd&gt;59.9 FPS&lt;/dd&gt;&lt;/div&gt;&lt;div&gt;&lt;dt&gt;核心帧计数&lt;/dt&gt;&lt;dd&gt;4,210&lt;/dd&gt;&lt;/div&gt;&lt;div&gt;&lt;dt&gt;运行状态&lt;/dt&gt;&lt;dd&gt;运行中&lt;/dd&gt;&lt;/div&gt;&lt;div&gt;&lt;dt&gt;游戏分辨率&lt;/dt&gt;&lt;dd&gt;704 × 480&lt;/dd&gt;&lt;/div&gt;&lt;/dl&gt;&lt;/section&gt;&lt;section&gt;&lt;h3&gt;运行环境&lt;/h3&gt;&lt;dl&gt;&lt;div&gt;&lt;dt&gt;Core&lt;/dt&gt;&lt;dd&gt;Yabause&lt;/dd&gt;&lt;/div&gt;&lt;div&gt;&lt;dt&gt;EmulatorJS&lt;/dt&gt;&lt;dd&gt;4.2.3&lt;/dd&gt;&lt;/div&gt;&lt;div&gt;&lt;dt&gt;Player adapter&lt;/dt&gt;&lt;dd&gt;ejs-4.2.3-v2&lt;/dd&gt;&lt;/div&gt;&lt;div&gt;&lt;dt&gt;输入模式&lt;/dt&gt;&lt;dd&gt;STANDARD&lt;/dd&gt;&lt;/div&gt;&lt;div&gt;&lt;dt&gt;隔离能力&lt;/dt&gt;&lt;dd&gt;COOP/COEP + SAB&lt;/dd&gt;&lt;/div&gt;&lt;div&gt;&lt;dt&gt;Player 模式&lt;/dt&gt;&lt;dd&gt;单机&lt;/dd&gt;&lt;/div&gt;&lt;/dl&gt;&lt;/section&gt;&lt;section&gt;&lt;h3&gt;显示&lt;/h3&gt;&lt;dl&gt;&lt;div&gt;&lt;dt&gt;视口&lt;/dt&gt;&lt;dd&gt;2560 × 1440&lt;/dd&gt;&lt;/div&gt;&lt;div&gt;&lt;dt&gt;像素比&lt;/dt&gt;&lt;dd&gt;1.00&lt;/dd&gt;&lt;/div&gt;&lt;div&gt;&lt;dt&gt;光盘&lt;/dt&gt;&lt;dd&gt;2 / 3&lt;/dd&gt;&lt;/div&gt;&lt;/dl&gt;&lt;/section&gt;&lt;footer&gt;Artifact · yabause-wasm-4.2.3&lt;/footer&gt;&lt;/aside&gt;
           &lt;div class=&quot;rt-player-pause-overlay&quot; id=&quot;rt-player-pause-overlay&quot; aria-hidden=&quot;true&quot;&gt;&lt;div class=&quot;rt-player-pause-pill&quot;&gt;&lt;i data-lucide=&quot;pause&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;&lt;strong&gt;已暂停&lt;/strong&gt;&lt;small&gt;点击游戏画面继续&lt;/small&gt;&lt;/div&gt;&lt;/div&gt;
           &lt;div class=&quot;rt-player-emulator-controls&quot; id=&quot;rt-player-emulator-controls&quot; aria-hidden=&quot;true&quot;&gt;&lt;div class=&quot;rt-player-emulator-group&quot;&gt;&lt;span class=&quot;rt-player-emulator-label&quot;&gt;模拟器&lt;/span&gt;&lt;button type=&quot;button&quot;&gt;&lt;i data-lucide=&quot;gamepad-2&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;控制&lt;/button&gt;&lt;button type=&quot;button&quot;&gt;▤ 显示&lt;/button&gt;&lt;button type=&quot;button&quot;&gt;⚙ Core 设置&lt;/button&gt;&lt;/div&gt;&lt;label class=&quot;rt-player-emulator-rendering&quot;&gt;&lt;span class=&quot;rt-player-emulator-label&quot;&gt;画面&lt;/span&gt;&lt;select aria-label=&quot;画面模式&quot;&gt;&lt;option&gt;清晰增强&lt;/option&gt;&lt;option selected&gt;锐利像素&lt;/option&gt;&lt;option&gt;增强锐化&lt;/option&gt;&lt;option&gt;平滑增强&lt;/option&gt;&lt;option&gt;原始画面&lt;/option&gt;&lt;/select&gt;&lt;/label&gt;&lt;div class=&quot;rt-player-emulator-group&quot;&gt;&lt;label class=&quot;rt-player-emulator-volume&quot;&gt;&lt;span class=&quot;rt-player-emulator-label&quot;&gt;音量&lt;/span&gt;&lt;input type=&quot;range&quot; min=&quot;0&quot; max=&quot;100&quot; value=&quot;72&quot; aria-label=&quot;模拟器音量&quot;&gt;&lt;/label&gt;&lt;button type=&quot;button&quot; aria-label=&quot;静音&quot;&gt;🔊&lt;/button&gt;&lt;button type=&quot;button&quot; data-close-emulator-controls&gt;收起&lt;/button&gt;&lt;/div&gt;&lt;/div&gt;
           &lt;div class=&quot;rt-player-hint&quot;&gt;移到屏幕顶部显示 Retrom 控制&lt;/div&gt;
@@ -3129,57 +3010,6 @@
         &lt;div class=&quot;rt-storage-scope&quot;&gt;&lt;strong&gt;仅计算已登记 CAS payload&lt;/strong&gt; · REGISTERED_CAS_PAYLOAD_V1&lt;br&gt;不包含 SQLite/WAL/SHM、上传分片、任务临时文件、依赖根、文件系统开销、未登记孤立文件和卷剩余空间。&lt;/div&gt;
       &lt;/section&gt;
     &lt;/main&gt;
-    &lt;div class=&quot;rt-controller-scene&quot; data-controller-scene=&quot;controller-home&quot; hidden&gt;
-      &lt;aside class=&quot;rt-controller-panel&quot; role=&quot;dialog&quot; aria-label=&quot;用户导航&quot;&gt;
-        &lt;header&gt;&lt;span class=&quot;rt-controller-mark&quot;&gt;&lt;i data-lucide=&quot;gamepad-2&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;&lt;/span&gt;&lt;div&gt;&lt;small&gt;客厅模式 · 手柄已连接&lt;/small&gt;&lt;h2&gt;用户导航&lt;/h2&gt;&lt;/div&gt;&lt;/header&gt;
-        &lt;div class=&quot;rt-controller-local-note&quot;&gt;浏览器未允许自动全屏，页面导航仍可继续。按 A 可再次尝试进入客厅全屏。&lt;/div&gt;
-        &lt;div class=&quot;rt-controller-menu-list&quot;&gt;
-          &lt;button type=&quot;button&quot; class=&quot;is-focused&quot;&gt;&lt;span&gt;首页&lt;/span&gt;&lt;small&gt;A · 进入&lt;/small&gt;&lt;/button&gt;
-          &lt;button type=&quot;button&quot;&gt;&lt;span&gt;游戏库&lt;/span&gt;&lt;small&gt;方向 · 移动&lt;/small&gt;&lt;/button&gt;
-          &lt;button type=&quot;button&quot;&gt;&lt;span&gt;我的存档&lt;/span&gt;&lt;small&gt;LB / RB · 分组&lt;/small&gt;&lt;/button&gt;
-          &lt;button type=&quot;button&quot;&gt;&lt;span&gt;我的收藏&lt;/span&gt;&lt;small&gt;&lt;/small&gt;&lt;/button&gt;
-          &lt;button type=&quot;button&quot;&gt;&lt;span&gt;最近游玩&lt;/span&gt;&lt;small&gt;&lt;/small&gt;&lt;/button&gt;
-          &lt;button type=&quot;button&quot;&gt;&lt;span&gt;联机游玩&lt;/span&gt;&lt;small&gt;&lt;/small&gt;&lt;/button&gt;
-          &lt;button type=&quot;button&quot;&gt;&lt;span&gt;手柄帮助&lt;/span&gt;&lt;small&gt;&lt;/small&gt;&lt;/button&gt;
-        &lt;/div&gt;
-        &lt;footer&gt;&lt;span&gt;方向 · 移动&lt;/span&gt;&lt;span&gt;A · 确认&lt;/span&gt;&lt;span&gt;B · 返回&lt;/span&gt;&lt;span&gt;Start · 导航&lt;/span&gt;&lt;/footer&gt;
-      &lt;/aside&gt;
-      &lt;div class=&quot;rt-controller-hint-scene&quot;&gt;&lt;span&gt;方向 · 移动&lt;/span&gt;&lt;span&gt;A · 确认&lt;/span&gt;&lt;span&gt;B · 返回&lt;/span&gt;&lt;span&gt;Start · 用户导航&lt;/span&gt;&lt;/div&gt;
-    &lt;/div&gt;
-    &lt;div class=&quot;rt-controller-scene&quot; data-controller-scene=&quot;controller-player&quot; hidden&gt;
-      &lt;aside class=&quot;rt-controller-panel&quot; role=&quot;dialog&quot; aria-label=&quot;Retrom 菜单&quot;&gt;
-        &lt;header&gt;&lt;span class=&quot;rt-controller-mark&quot;&gt;&lt;i data-lucide=&quot;gamepad-2&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;&lt;/span&gt;&lt;div&gt;&lt;small&gt;NOeL 3 · 游戏已暂停&lt;/small&gt;&lt;h2&gt;Retrom 菜单&lt;/h2&gt;&lt;/div&gt;&lt;/header&gt;
-        &lt;div class=&quot;rt-controller-menu-list&quot;&gt;
-          &lt;button type=&quot;button&quot; class=&quot;is-focused&quot;&gt;&lt;span&gt;继续游戏&lt;/span&gt;&lt;small&gt;A&lt;/small&gt;&lt;/button&gt;
-          &lt;button type=&quot;button&quot;&gt;&lt;span&gt;创建手动存档&lt;/span&gt;&lt;small&gt;&lt;/small&gt;&lt;/button&gt;
-          &lt;button type=&quot;button&quot;&gt;&lt;span&gt;画面、声音与高级设置&lt;/span&gt;&lt;small&gt;&lt;/small&gt;&lt;/button&gt;
-          &lt;button type=&quot;button&quot; class=&quot;is-danger&quot;&gt;&lt;span&gt;退出游戏&lt;/span&gt;&lt;small&gt;长按也只打开确认&lt;/small&gt;&lt;/button&gt;
-        &lt;/div&gt;
-        &lt;div class=&quot;rt-controller-local-note&quot;&gt;菜单占用手柄输入；返回游戏前必须先松开全部按键并保持中性。&lt;/div&gt;
-        &lt;footer&gt;&lt;span&gt;中心键 / Select + Start · 菜单&lt;/span&gt;&lt;span&gt;B · 继续游戏&lt;/span&gt;&lt;/footer&gt;
-      &lt;/aside&gt;
-    &lt;/div&gt;
-    &lt;div class=&quot;rt-controller-scene&quot; data-controller-scene=&quot;controller-netplay-p2&quot; hidden&gt;
-      &lt;aside class=&quot;rt-controller-panel&quot; role=&quot;dialog&quot; aria-label=&quot;Retrom 菜单&quot;&gt;
-        &lt;header&gt;&lt;span class=&quot;rt-controller-mark&quot;&gt;&lt;i data-lucide=&quot;gamepad-2&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;&lt;/span&gt;&lt;div&gt;&lt;small&gt;F-1 Race · P2&lt;/small&gt;&lt;h2&gt;Retrom 菜单&lt;/h2&gt;&lt;/div&gt;&lt;/header&gt;
-        &lt;div class=&quot;rt-controller-local-note&quot;&gt;&lt;strong&gt;这是本地菜单&lt;/strong&gt;&lt;br&gt;你的手柄输入已释放；房主和本局仍在继续运行。&lt;/div&gt;
-        &lt;div class=&quot;rt-controller-menu-list&quot;&gt;
-          &lt;button type=&quot;button&quot; class=&quot;is-focused&quot;&gt;&lt;span&gt;继续联机&lt;/span&gt;&lt;small&gt;A&lt;/small&gt;&lt;/button&gt;
-          &lt;button type=&quot;button&quot;&gt;&lt;span&gt;画面、声音与高级设置&lt;/span&gt;&lt;small&gt;&lt;/small&gt;&lt;/button&gt;
-          &lt;button type=&quot;button&quot; class=&quot;is-danger&quot;&gt;&lt;span&gt;退出本局&lt;/span&gt;&lt;small&gt;&lt;/small&gt;&lt;/button&gt;
-        &lt;/div&gt;
-        &lt;footer&gt;&lt;span&gt;P2 不申请全局暂停&lt;/span&gt;&lt;span&gt;系统键不发送给核心&lt;/span&gt;&lt;/footer&gt;
-      &lt;/aside&gt;
-    &lt;/div&gt;
-    &lt;div class=&quot;rt-controller-scene&quot; data-controller-scene=&quot;controller-reconnect&quot; hidden&gt;
-      &lt;section class=&quot;rt-controller-reconnect-card&quot; role=&quot;dialog&quot; aria-label=&quot;手柄重连&quot;&gt;
-        &lt;span class=&quot;rt-controller-mark&quot;&gt;&lt;i data-lucide=&quot;gamepad-2&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;&lt;/span&gt;
-        &lt;h2&gt;手柄已断开&lt;/h2&gt;
-        &lt;p&gt;已释放全部游戏输入并暂停。连接标准布局手柄并按任意键，然后松开所有按键。&lt;/p&gt;
-        &lt;div class=&quot;rt-dialog-actions&quot;&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button&quot;&gt;退出&lt;/button&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button rt-button-primary is-focused&quot;&gt;继续游戏&lt;/button&gt;&lt;/div&gt;
-        &lt;small&gt;替代手柄先声明，稳定中性 120ms 后才能继续。&lt;/small&gt;
-      &lt;/section&gt;
-    &lt;/div&gt;
     &lt;nav class=&quot;rt-mobile-bottom-nav&quot; aria-label=&quot;移动主导航&quot;&gt;
       &lt;button type=&quot;button&quot; class=&quot;is-active&quot; data-mobile-page=&quot;home&quot; data-page-link=&quot;home&quot;&gt;&lt;i data-lucide=&quot;house&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;&lt;span&gt;首页&lt;/span&gt;&lt;/button&gt;
       &lt;button type=&quot;button&quot; data-mobile-page=&quot;library&quot; data-page-link=&quot;library&quot;&gt;&lt;i data-lucide=&quot;library&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;&lt;span&gt;游戏库&lt;/span&gt;&lt;/button&gt;
@@ -3295,7 +3125,6 @@
         const activeNavigationTarget = page === 'detail' ? 'library' : ['netplay-room', 'netplay-player'].includes(page) ? 'netplay' : page === 'admin-game-detail' ? 'admin-games' : serverImportDetails.includes(page) ? 'admin-server-import' : page;
         app.hidden = false;
         root.querySelectorAll('[data-auth-page]').forEach((element) =&gt; { element.hidden = true; });
-        root.querySelectorAll('[data-controller-scene]').forEach((element) =&gt; { element.hidden = true; });
         app.classList.toggle('is-playing', page === 'play' || page === 'netplay-player');
         root.querySelectorAll('.rt-page').forEach((element) =&gt; element.classList.toggle('is-active', element.dataset.page === page));
         root.querySelectorAll('.rt-nav-button').forEach((button) =&gt; button.classList.toggle('is-active', button.dataset.pageTarget === activeNavigationTarget));
@@ -3366,13 +3195,6 @@
         const scene = button.dataset.reviewScene;
         if (authPageNames.has(scene)) showAuthPage(scene);
         else if (scene === 'admin-users') { setMode('admin'); showPage(scene); }
-        else if (scene.startsWith('controller-')) {
-          setMode('user');
-          const page = scene === 'controller-home' ? 'home' : scene === 'controller-netplay-p2' ? 'netplay-player' : 'play';
-          showPage(page);
-          root.querySelector(`[data-controller-scene=&quot;${scene}&quot;]`).hidden = false;
-          selectReviewScene(scene);
-        }
         else { setMode('user'); showPage(scene); }
       }));
 
@@ -4077,8 +3899,6 @@
       const applyRequestedView = (requestedView) =&gt; {
         if (authPageNames.has(requestedView)) {
           showAuthPage(requestedView);
-        } else if (requestedView.startsWith('controller-')) {
-          root.querySelector(`[data-review-scene=&quot;${requestedView}&quot;]`)?.click();
         } else if (requestedView.startsWith('game-')) {
           setMode('user');
           openGame(requestedView.slice(5));

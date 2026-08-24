@@ -89,7 +89,6 @@ describe("EmulatorJS 4.2.3 netplay bridge", () => {
   it("intercepts local controls and applies all canonical players for one exact frame", async () => {
     const native: Array<[number, number, number]> = [];
     const publicInput = vi.fn();
-    const toggleMainLoop = vi.fn();
     let frame = 3;
     const manager = {
       getState: () => raState([1]),
@@ -99,7 +98,7 @@ describe("EmulatorJS 4.2.3 netplay bridge", () => {
       runNetplayFrame: async () => { frame += 1; return frame; },
       simulateInput: publicInput,
       functions: { simulateInput: (player: number, control: number, value: number) => native.push([player, control, value]) },
-      toggleMainLoop,
+      toggleMainLoop: () => undefined,
     };
     const runtime: EmulatorInstance = { gameManager: manager, paused: false, muted: false, on: () => undefined };
     const bridge = new EJSNetplayFrameBridge(runtime);
@@ -118,7 +117,6 @@ describe("EmulatorJS 4.2.3 netplay bridge", () => {
     expect(native).not.toContainEqual([1, 6, 1]);
     expect(native.at(-1)).toEqual([3, 23, 0]);
     bridge.close();
-    expect(toggleMainLoop).not.toHaveBeenCalled();
     manager.simulateInput(0, 3, 0);
     expect(publicInput).toHaveBeenCalledWith(0, 3, 0);
   });

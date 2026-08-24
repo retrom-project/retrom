@@ -215,7 +215,7 @@ async function verifyCore(page: Page, testInfo: TestInfo, expectation: Expansion
   expect(initialConfiguration).toMatchObject({
     core: expectation.coreId,
     emulatorjsVersion: "4.2.3",
-    playerAdapterId: "ejs-4.2.3-v3",
+    playerAdapterId: "ejs-4.2.3-v2",
     runtimeCore: expectation.coreId,
     stateUrl: null,
   });

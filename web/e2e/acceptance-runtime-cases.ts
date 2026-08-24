@@ -48,7 +48,7 @@ function registerRun002(): void {
     expect(configuration.gameTitle).toBe("Sudoku");
     expect(configuration.coreName).toBe("mGBA");
     expect(configuration.platformName).toBe("Game Boy Advance");
-    expect(configuration.playerAdapterId).toBe("ejs-4.2.3-v3");
+    expect(configuration.playerAdapterId).toBe("ejs-4.2.3-v2");
     expect(configuration.emulatorjsVersion).toBe("4.2.3");
     expect(configuration.gameUrl).not.toMatch(/(?:blob:|file:|\/home\/)/);
     await expect(page.locator(".player-shell")).toBeVisible();
@@ -108,16 +108,17 @@ function registerRun002(): void {
     await expect(debugPanel.getByText(/^\d+\.\d FPS$/)).toBeVisible({ timeout: 5_000 });
     await expect(debugPanel.getByText("mGBA", { exact: true })).toBeVisible();
     await expect(debugPanel.getByText("4.2.3", { exact: true })).toBeVisible();
-    await expect(debugPanel.getByText("ejs-4.2.3-v3", { exact: true })).toBeVisible();
+    await expect(debugPanel.getByText("ejs-4.2.3-v2", { exact: true })).toBeVisible();
     await expect(debugPanel.getByText("运行中", { exact: true })).toBeVisible();
     await expect(page.locator(".player-pause-overlay")).not.toHaveClass(/is-visible/);
     await page.screenshot({ path: evidencePath(testInfo, "player-debug.png"), fullPage: true });
     await debugPanel.getByRole("button", { name: "关闭调试信息面板" }).click();
     await expect(page.locator("#player-debug-panel")).toHaveAttribute("aria-hidden", "true");
     await page.mouse.move(20, 20);
-    await page.getByRole("button", { name: "Retrom 菜单" }).click();
-    await expect(page.getByRole("menuitem", { name: "创建手动存档" })).toBeVisible();
-    await page.getByRole("menuitem", { name: "画面、声音与高级设置" }).click();
+    await page.getByRole("button", { name: "更多操作" }).click();
+    await expect(page.getByRole("menuitem", { name: /创建存档/ })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "创建存档", exact: true })).toBeVisible();
+    await page.getByRole("menuitem", { name: "模拟器设置" }).click();
     const renderingToolbar = page.getByRole("region", { name: "模拟器设置工具栏" });
     const renderingMode = renderingToolbar.getByRole("combobox", { name: "画面模式" });
     await expect(renderingMode).toHaveValue("pixel");
@@ -136,16 +137,12 @@ function registerRun002(): void {
       return runtimeWindow.EJS_emulator?.allSettings?.shader;
     })).toBe("retrom-adaptive-sharpen");
     await renderingToolbar.getByRole("button", { name: "收起" }).click();
-    const restoredMenu = page.getByRole("dialog", { name: "Retrom 菜单" });
-    await expect(restoredMenu).toBeVisible();
-    await restoredMenu.getByRole("menuitem", { name: "继续游戏" }).click();
-    await expect(restoredMenu).toBeHidden();
     await page.locator(".player-pause-overlay").click();
     await expect(page.locator(".player-shell")).not.toHaveClass(/is-paused/);
     await expect.poll(() => currentEmulatorBrightRatio(page), { timeout: 15_000, intervals: [500] }).toBeGreaterThan(0.02);
     await page.mouse.move(20, 20);
-    await page.getByRole("button", { name: "Retrom 菜单" }).click();
-    await page.getByRole("menuitem", { name: "画面、声音与高级设置" }).click();
+    await page.getByRole("button", { name: "更多操作" }).click();
+    await page.getByRole("menuitem", { name: "模拟器设置" }).click();
     await renderingMode.selectOption("original");
     await expect.poll(() => playerCanvas.evaluate((element) => getComputedStyle(element).imageRendering)).toBe("auto");
     await renderingMode.selectOption("pixel");
@@ -226,7 +223,7 @@ function registerRun004(): void {
     await page.screenshot({ path: evidencePath(testInfo, "bios-hash-warning-autostart.png"), fullPage: true });
     await page.mouse.move(20, 20);
     await page.getByRole("button", { name: "返回并退出游戏" }).click();
-    const exitDialog = page.getByRole("alertdialog", { name: /退出《.+》？/ });
+    const exitDialog = page.getByRole("alertdialog", { name: "退出游戏？" });
     await expect(exitDialog).toBeVisible();
     await exitDialog.getByRole("button", { name: "退出游戏", exact: true }).click();
     await expect(page).toHaveURL(/\/games\/[0-9a-f-]+$/);
@@ -309,7 +306,7 @@ async function verifyPublicArcadeSmoke(
     runtimeCore: expectation.core,
     coreName: expectation.coreName,
     emulatorjsVersion: "4.2.3",
-    playerAdapterId: "ejs-4.2.3-v3",
+    playerAdapterId: "ejs-4.2.3-v2",
   });
   expect(configuration.gameUrl).toMatch(/\/game\/pacman\.zip$/);
   expect(configuration.parentUrl).toMatch(/\/parent\/bundle\.zip$/);

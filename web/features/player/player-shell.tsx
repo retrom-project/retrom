@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type RefObject } from "react";
 import { useAuth } from "@/features/auth/auth-provider";
-import { useGamepad } from "@/features/gamepad/provider";
 import { captureManualScreenshot, type DiscSet, type DiscState, type EmulatorInstance, type ManualScreenshot, type PlayerConfig } from "./adapters/ejs-4.2.3-v2";
 import { reportMultiDiscPlayerEvent, type MultiDiscPlayerEvent } from "./multi-disc-telemetry";
 import { setEmulatorPaused } from "./pause-control";
@@ -22,35 +21,12 @@ import { usePlayerSession } from "./player-session";
 import { usePlayerRuntimeActions } from "./player-runtime-actions";
 import { usePlayerOrientationRuntime } from "./player-orientation-runtime";
 import { usePlayerRuntimeEffects } from "./player-runtime-effects";
-import { PlayerGamepadHostControls } from "./gamepad-host-controls";
-import { usePlayerGamepad } from "./use-player-gamepad";
 export { readBoundedResponse, reportsNativeExit } from "./player-shell-model";
 
 type ShellState = "loading" | "running" | "error";
 
-function usePlayerEventReporter(launchId: string) {
-  return useCallback((event: MultiDiscPlayerEvent) => {
-    void reportMultiDiscPlayerEvent(launchId, event).catch(() => undefined);
-  }, [launchId]);
-}
-
-function useVideoRenderingEffect(
-  mode: VideoRenderingMode,
-  emulator: RefObject<EmulatorInstance | undefined>,
-  frameRef: RefObject<HTMLIFrameElement | null>,
-  modeRef: RefObject<VideoRenderingMode>,
-) {
-  useEffect(() => {
-    modeRef.current = mode;
-    const canvas = emulator.current?.canvas
-      ?? frameRef.current?.contentDocument?.querySelector<HTMLCanvasElement>("canvas") ?? null;
-    applyVideoRenderingMode(emulator.current, canvas, mode);
-  }, [emulator, frameRef, mode, modeRef]);
-}
-
 export function PlayerShell({ launchId }: { launchId: string }) {
   const { context } = useAuth();
-  const gamepad = useGamepad();
   const userId = context.user?.userId;
   const stage = useRef<HTMLDivElement>(null);
   const frameRef = useRef<HTMLIFrameElement>(null);
@@ -115,9 +91,10 @@ export function PlayerShell({ launchId }: { launchId: string }) {
   const orientationStateRef = useRef<PlayerOrientationState>(initialPlayerOrientationState);
   const videoRenderingModeRef = useRef<VideoRenderingMode>("pixel");
   const keyboardPauseAction = useRef<() => void>(() => undefined);
-  const gamepadHost = useRef(new PlayerGamepadHostControls(gamepad.activeIndex));
 
-  const reportPlayerEvent = usePlayerEventReporter(launchId);
+  const reportPlayerEvent = useCallback((event: MultiDiscPlayerEvent) => {
+    void reportMultiDiscPlayerEvent(launchId, event).catch(() => undefined);
+  }, [launchId]);
 
   const clearControlsTimer = useCallback(() => {
     if (controlsTimer.current !== null) {window.clearTimeout(controlsTimer.current);}
@@ -209,12 +186,16 @@ export function PlayerShell({ launchId }: { launchId: string }) {
   }), [launchId, showToast]);
   const { sendEvent, uploadManualState, exit } = usePlayerSession(sessionParams);
 
-  useVideoRenderingEffect(videoRenderingMode, emulator, frameRef, videoRenderingModeRef);
+  useEffect(() => {
+    videoRenderingModeRef.current = videoRenderingMode;
+    const canvas = emulator.current?.canvas ?? frameRef.current?.contentDocument?.querySelector<HTMLCanvasElement>("canvas") ?? null;
+    applyVideoRenderingMode(emulator.current, canvas, videoRenderingMode);
+  }, [videoRenderingMode]);
 
   const bootstrapParams = useMemo(() => ({
     launchId, stage, frameRef, emulator, returnTo, playerMode, manualSaveAvailableRef, netplayConfig, discSetRef,
     orientationStateRef, videoRenderingModeRef, lastAudibleVolume, pausedRef, started, finishing, heartbeat,
-    toastTimer, netplayController, netplayPausedRef, gamepadHost, setMessage, setState, setManualSaveAvailable,
+    toastTimer, netplayController, netplayPausedRef, setMessage, setState, setManualSaveAvailable,
     setNetplayPlayerNo, setWarnings, setGameTitle, setCoreName, setPlatformName, setDebugRuntime, setDiscSet,
     setDiscState, setOrientationState, setFrameEnabled, setSyncText, setSyncTone, setEmulatorVolume,
     setEmulatorMuted, setPaused, setNetplayPaused, reportPlayerEvent, revealControlsAtTopEdge, showControls,
@@ -239,14 +220,6 @@ export function PlayerShell({ launchId }: { launchId: string }) {
   }), [discState, emulatorMuted, emulatorVolume, holdControls, netplayPaused, releaseControls, reportPlayerEvent, showToast, state, uploadManualState, userId]);
   const actions = usePlayerRuntimeActions(runtimeActionParams);
   const toggleNetplayPause = actions.toggleNetplayPause;
-
-  const playerGamepad = usePlayerGamepad({
-    activeIndex: gamepad.activeIndex, source: gamepad.source, claim: gamepad.claim,
-    releaseClaim: gamepad.releaseClaim, host: gamepadHost, emulator, running, pausedRef,
-    pausePending, pauseCapture, playerMode, netplayConfig, netplayPausedRef,
-    requestNetplayPause: actions.requestNetplayPause, pauseForToolbarInteraction, holdControls,
-    resumeSinglePlayer: handleGameSurfaceInteraction, releaseControls, showControls, showToast,
-  });
 
   useEffect(() => {
     keyboardPauseAction.current = () => {
@@ -285,7 +258,6 @@ export function PlayerShell({ launchId }: { launchId: string }) {
     syncText, syncTone, saveUploadProgress, saveAvailable: manualSaveAvailable, toast, warnings,
     emulatorToolbarOpen, emulatorVolume, emulatorMuted, videoRenderingMode, discSet, discState,
     netplayPlayerNo, netplayPaused, debugOpen, debugMetrics, debugRuntime, runtimeState: state,
-    gamepadMenuRequest: playerGamepad.menuRequest, gamepadExitRequest: playerGamepad.exitRequest,
     onHoldControls: holdControls, onReleaseControls: releaseControls, onToggleControls: toggleControls,
     onSave: actions.saveManualState, onPauseForToolbarInteraction: pauseForToolbarInteraction,
     onToggleFullscreen: () => void actions.toggleFullscreen(), onOpenEmulatorSettings: actions.openEmulatorSettings,
@@ -294,23 +266,17 @@ export function PlayerShell({ launchId }: { launchId: string }) {
     onChangeVideoRenderingMode: actions.changeVideoRenderingMode, onSelectDisc: actions.selectDisc,
     onToggleNetplayPause: () => void actions.toggleNetplayPause(), onToggleDebug: toggleDebug,
     onGameSurface: handleGameSurfaceInteraction, onExit: () => void exit(),
-    onSystemOverlayChange: playerGamepad.onSystemOverlayChange,
   };
-  return <PlayerShellView paused={paused} orientationState={orientationState} chromeProps={chromeProps} stage={stage} frameRef={frameRef} frameEnabled={frameEnabled} state={state} message={message} gameTitle={gameTitle} orientationHelp={orientationHelp} orientationButtonRef={orientationButtonRef} reconnectOpen={playerGamepad.reconnectOpen} reconnectReady={playerGamepad.reconnectReady} reconnectP2={netplayPlayerNo !== null && netplayPlayerNo !== 1} onReconnect={playerGamepad.onReconnect} onReconnectExit={() => void exit()} onShowControls={showControls} onRevealControls={revealControlsAtTopEdge} onSurface={handleGameSurfaceInteraction} onRetryLandscape={() => void retryLandscape()} />;
+  return <PlayerShellView paused={paused} orientationState={orientationState} chromeProps={chromeProps} stage={stage} frameRef={frameRef} frameEnabled={frameEnabled} state={state} message={message} gameTitle={gameTitle} orientationHelp={orientationHelp} orientationButtonRef={orientationButtonRef} onShowControls={showControls} onRevealControls={revealControlsAtTopEdge} onSurface={handleGameSurfaceInteraction} onRetryLandscape={() => void retryLandscape()} />;
 }
 
-function PlayerShellView({ paused, orientationState, chromeProps, stage, frameRef, frameEnabled, state, message, gameTitle, orientationHelp, orientationButtonRef, reconnectOpen, reconnectReady, reconnectP2, onReconnect, onReconnectExit, onShowControls, onRevealControls, onSurface, onRetryLandscape }: { paused: boolean; orientationState: PlayerOrientationState; chromeProps: PlayerChromeProps; stage: RefObject<HTMLDivElement | null>; frameRef: RefObject<HTMLIFrameElement | null>; frameEnabled: boolean; state: ShellState; message: string; gameTitle: string; orientationHelp: string; orientationButtonRef: RefObject<HTMLButtonElement | null>; reconnectOpen: boolean; reconnectReady: boolean; reconnectP2: boolean; onReconnect: () => void; onReconnectExit: () => void; onShowControls: () => void; onRevealControls: (clientY: number) => void; onSurface: () => void; onRetryLandscape: () => void }) {
+function PlayerShellView({ paused, orientationState, chromeProps, stage, frameRef, frameEnabled, state, message, gameTitle, orientationHelp, orientationButtonRef, onShowControls, onRevealControls, onSurface, onRetryLandscape }: { paused: boolean; orientationState: PlayerOrientationState; chromeProps: PlayerChromeProps; stage: RefObject<HTMLDivElement | null>; frameRef: RefObject<HTMLIFrameElement | null>; frameEnabled: boolean; state: ShellState; message: string; gameTitle: string; orientationHelp: string; orientationButtonRef: RefObject<HTMLButtonElement | null>; onShowControls: () => void; onRevealControls: (clientY: number) => void; onSurface: () => void; onRetryLandscape: () => void }) {
   const blocked = orientationState.phase === "orientation-blocked";
   return <main className={`player-shell${paused ? " is-paused" : ""}${blocked ? " is-orientation-blocked" : ""}`} onKeyDown={(event) => {if (shouldRevealPlayerControlsForKey(event.key)) {onShowControls();}}} onPointerMove={(event) => onRevealControls(event.clientY)}>
     {!blocked ? <PlayerChrome {...chromeProps} /> : null}
     <PlayerStage blocked={blocked} stage={stage} frameRef={frameRef} frameEnabled={frameEnabled} state={state} message={message} onSurface={onSurface} />
-    {reconnectOpen ? <GamepadReconnectOverlay ready={reconnectReady} p2={reconnectP2} onContinue={onReconnect} onExit={onReconnectExit} /> : null}
     {blocked ? <OrientationGate state={orientationState} gameTitle={gameTitle} help={orientationHelp} buttonRef={orientationButtonRef} onRetry={onRetryLandscape} /> : null}
   </main>;
-}
-
-function GamepadReconnectOverlay({ ready, p2, onContinue, onExit }: { ready: boolean; p2: boolean; onContinue: () => void; onExit: () => void }) {
-  return <div className="dialog-backdrop player-gamepad-reconnect"><section className="app-dialog" role="dialog" aria-modal="true" aria-label="手柄重连" data-player-reconnect="true" data-gamepad-scope data-gamepad-open="true"><div className="dialog-copy"><span className="dialog-mark" aria-hidden="true">🎮</span><div><h2>{p2 ? "P2 手柄已断开" : "手柄已断开"}</h2><p>{p2 ? "本地输入已释放；游戏仍由 P1 继续。" : "已释放全部游戏输入并暂停。"}</p></div></div><div className="dialog-impact"><p>{ready ? "标准布局手柄已就绪，请确认继续。" : "连接一个标准布局手柄并按任意键，然后松开所有按键。"}</p></div><div className="dialog-actions"><button className="button secondary" type="button" onClick={onExit}>退出</button><button className="button" type="button" data-gamepad-default="true" data-gamepad-back="true" disabled={!ready} onClick={onContinue}>继续游戏</button></div></section></div>;
 }
 
 function PlayerStage({ blocked, stage, frameRef, frameEnabled, state, message, onSurface }: { blocked: boolean; stage: RefObject<HTMLDivElement | null>; frameRef: RefObject<HTMLIFrameElement | null>; frameEnabled: boolean; state: ShellState; message: string; onSurface: () => void }) {

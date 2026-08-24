@@ -1,10 +1,8 @@
 import type { Metadata } from "next";
 import { AppShell } from "@/components/app-shell";
 import { AuthProvider } from "@/features/auth/auth-provider";
-import { GamepadProvider } from "@/features/gamepad/provider";
 import { loadAuthContext } from "@/features/auth/server";
 import "./globals.css";
-import "../features/gamepad/gamepad.css";
 
 export const metadata: Metadata = {
   title: { default: "Retrom", template: "%s · Retrom" },
@@ -19,9 +17,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
     <html lang="zh-CN">
       <body>
         <AuthProvider initialContext={initialContext}>
-          <GamepadProvider>
-            <AppShell>{children}</AppShell>
-          </GamepadProvider>
+          <AppShell>{children}</AppShell>
         </AuthProvider>
       </body>
     </html>

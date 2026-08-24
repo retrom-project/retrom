@@ -126,7 +126,7 @@ flowchart LR
 
 ### M8：Saturn 多盘垂直切片
 
-范围：当前 manifest V7/compatibility V5、`ejs-4.2.3-v3`、有界 M3U 解析、递归目录分组、缺盘审核补传、generation 4 验证、规范 playlist/Disc Launch 锁定、Player 换盘、带盘号状态存档与完整目录内容替换。启用门禁为 `ACC-MDISC-001`–`008`；PSX、3DO、PC-FX 在没有独立真实兼容证据前保持 fail closed。
+范围：当前 manifest V7/compatibility V5、`ejs-4.2.3-v2`、有界 M3U 解析、递归目录分组、缺盘审核补传、generation 4 验证、规范 playlist/Disc Launch 锁定、Player 换盘、带盘号状态存档与完整目录内容替换。启用门禁为 `ACC-MDISC-001`–`008`；PSX、3DO、PC-FX 在没有独立真实兼容证据前保持 fail closed。
 
 ### M9：收藏与收藏夹垂直切片
 
@@ -181,12 +181,6 @@ flowchart LR
 范围：先同步导入、数据、HTTP、UI、质量、验收契约与 OpenAPI，再在 clean `001`–`010` lineage 内完成严格 EmulationStation XML parser、受信 root 下精确小写 `gamelist.xml` 的递归 no-follow 扫描、每份有效清单一个 Collection 的显式 `IMPORT|SKIP` 映射、来源/目标快照与漂移检查、异步复制和普通 library import/review handoff。扫描期只读取有界 XML、目录 facts、M3U 和媒体/CHD 头，不读取完整游戏内容、不写业务 Blob；执行期复用普通去重、CoreValidation、DAT、BIOS、M3U/Arcade 依赖、审核、严格 READY 快速审批与 payload release。Worker 在 `REVIEW_PENDING` 停止，只有普通 Approve 或现有快速审批事务创建 Game。前端把服务器导入页扩展为 BIOS、Pegasus、EmulationStation 三张等权卡，接通 EmulationStation 三步 Drawer、可恢复详情和来源限定审核入口。
 
 退出门禁：完整执行 `ACC-ES-001`–`006`，并回归 `ACC-PEG-001`–`006`、`ACC-IMP-001/003/007/008/009`、`ACC-MDISC-001/004`、`ACC-BIOS-003/006`、`ACC-CAS-002`、`ACC-BKP-001`、`ACC-GAME-001/003`。必须运行 `make quality-structure-check`、`make fmt-check`、`make build`、`make test`、`make lint-go`、`make integration-test`、`make web-install`、`make web-lint`、`make web-typecheck`、`make web-test`、`make web-build`、`make api-generate`、`make api-check`、`make public-fixtures-check`、`make web-e2e` 与 `make ci`。验收必须分别证明“一个所选目录含多个子目录且每个子目录各有 `gamelist.xml`”与“一个无子目录的目录内只有一份 `gamelist.xml` 和多份游戏文件”均正确扫描、逐 Collection 映射并交接审核；项目自有 GBA EmulationStation fixture 必须从真实扫描、审核、发布走到 mGBA 核心帧，发布后 Game 删除还须证明流程 payload、Game payload 与共享 Blob 引用按宽限期安全释放。授权本地 Batocera 目录只可用于隔离开发实例人工验证，不进入自动测试、证据正文或仓库。正式 UI 源、导出 HTML 和 390/1280/2560/物理 4K 150% 当次视觉与无障碍复核全部闭环后才可删除临时设计目录，本地图片不得提交。
-
-### M18：手柄导航与客厅模式垂直切片
-
-范围：先把用户侧手柄范围、标准映射、声明/中性门限、空间焦点算法、导航面板、全屏提示、Player 系统键和输入所有权同步到 UI、运行时、依赖和验收事实源；再实现根 layout 常驻的渐进增强 provider，以及 Player loader 前的 Gamepad 过滤和 4×24 release。中心键与 Select+Start 只由 adapter 明确支持，普通单键保持游戏语义；单机、联机 P1/P2、窗口隐藏、断连替换和退出共用同一 ownership 状态机。任何 adapter ID 变化必须与依赖 manifest、联机 manifest、OpenAPI enum 和前端 registry 原子更新，未知版本 fail closed。
-
-退出门禁：完整执行 `ACC-GPAD-001`–`008`，回归 `ACC-RUN-002/006`、`ACC-SAVE-001`、`ACC-MDISC-005/007`、`ACC-NP-014`–`022` 与 `ACC-MOB-005/006/007`；运行 `make quality-structure-check`、后端四门禁、`make integration-test`、`make api-check`、前端五门禁、`make data-check`、`make deps-check`、`make web-e2e` 与 `make ci`。统一设计源必须覆盖用户导航、全屏拒绝、Player 菜单、安全退出、P2 本地层和断连重连的桌面/窄屏状态。候选 release 还必须由真实 XInput、DualShock 4/DualSense 与无中心键通用标准手柄完成 Chrome 物理 smoke；没有硬件时 M18 保持 `BLOCKED`，不能删除临时设计目录或用 synthetic Gamepad 代替。
 
 ## 5. 垂直切片提交规则
 

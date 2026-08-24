@@ -388,8 +388,8 @@ def validate_netplay_manifest(
     protocol = manifest.get("protocol")
     expected_protocol = {
         "version": "retrom-netplay-v2",
-        "playerAdapterId": "ejs-4.2.3-v3",
-        "netplayAdapterId": "ejs-netplay-4.2.3-v2",
+        "playerAdapterId": "ejs-4.2.3-v2",
+        "netplayAdapterId": "ejs-netplay-4.2.3-v1",
         "controlCount": 24,
         "checkpointEveryFrames": 120,
         "maxPredictionFrames": 8,

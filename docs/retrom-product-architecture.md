@@ -162,12 +162,6 @@ Tag 必须先由管理员建立，再以稳定 ID 关联 Game、导入 ReviewDra
 
 导入、审核、Pegasus 与 EmulationStation 流程只在可重试/待决期间保留 ROM、媒体、运行预览、provider raw response 等 CAS payload。发布、丢弃、最终失败或取消进入真终态后，持久 PayloadRelease Job 解除流程引用；ReviewEvent v2 长期只保存文字和结构化审计，不保存封面、视频或 CAS 定位信息。Game 永久删除保留原标题、不可变 revision 摘要、审核/操作/游玩/收藏/联机关系作为墓碑，同时异步释放 Game 内容、媒体、存档和运行 payload。Blob 物理删除统一经过共享引用保护和宽限期 GC，浏览器上传、Pegasus 与 EmulationStation 三条导入路径遵循同一 ownership registry。
 
-### 3.13 手柄导航是用户侧渐进增强，Player 只有一个输入所有者
-
-标准布局 Gamepad 可在已登录用户侧声明“客厅模式”：第一个产生输入的手柄只完成匿名索引声明，松开全部输入并稳定 120ms 后，方向键/左摇杆才按 DOM 空间关系移动焦点，A/B 分别确认/返回，LB/RB 切换同级分组，Start 打开用户导航。登录、注册、账户和全部管理页面不接管手柄；设备 ID、厂商、轴值和完整按键状态不写日志、数据库或分析事件。触摸、键盘和鼠标仍保持原行为，手柄只是渐进增强。
-
-进入 Player 后，同一手柄在“游戏输入”和“Retrom 覆盖层”之间只有一个所有者。中心键或 Select+Start 在 100ms 窗口内打开 Retrom 菜单并从传给 EmulatorJS 的 Gamepad 快照中归零；覆盖层打开、断连、页面隐藏或退出时先释放 4×24 个虚拟控制，再等待中性输入 120ms 才把所有权交回游戏。单机由 Retrom 暂停本地核心；联机只有 P1 可申请全局暂停，P2 只释放本地输入。未知映射、缺少中心键的设备和浏览器全屏拒绝都必须有可操作的替代路径，不能据设备名称推断布局。
-
 ## 4. 系统上下文
 
 ~~~mermaid

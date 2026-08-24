@@ -783,7 +783,7 @@
     "tag_commit": "e150dc0491ae747028919fb82d6598954976ede6",
     "release_published_at": "2025-07-05T19:41:36Z",
     "player_adapter": {
-      "id": "ejs-4.2.3-v3",
+      "id": "ejs-4.2.3-v2",
       "runtime_base_path_in_release": "data/",
       "loader_path_in_release": "data/loader.js"
     },

@@ -18,7 +18,6 @@ import { readBoundedResponse, reportsNativeExit } from "./player-shell-model";
 import { shouldRevealPlayerControlsForKey } from "./player-controls-visibility";
 import type { PlayerDebugRuntime } from "./player-chrome";
 import { handlePlayerPauseShortcut } from "./keyboard-controls";
-import type { PlayerGamepadHostControls } from "./gamepad-host-controls";
 
 type ShellState = "loading" | "running" | "error";
 type SyncTone = "synced" | "busy" | "warning";
@@ -39,7 +38,6 @@ export type PlayerBootstrapParams = {
   setFrameEnabled: Dispatch<SetStateAction<boolean>>; setSyncText: Dispatch<SetStateAction<string>>; setSyncTone: Dispatch<SetStateAction<SyncTone>>;
   setEmulatorVolume: Dispatch<SetStateAction<number>>; setEmulatorMuted: Dispatch<SetStateAction<boolean>>; setPaused: Dispatch<SetStateAction<boolean>>;
   setNetplayPaused: Dispatch<SetStateAction<boolean>>;
-  gamepadHost: Mutable<PlayerGamepadHostControls>;
   reportPlayerEvent: (event: MultiDiscPlayerEvent) => void; revealControlsAtTopEdge: (clientY: number) => void; showControls: () => void;
   onKeyboardPause: () => void;
   sendEvent: (kind: "start" | "heartbeat" | "finish") => Promise<void>; uploadManualState: (payload: { screenshot: Blob; format: string; state: Uint8Array }) => Promise<boolean>;
@@ -187,7 +185,6 @@ function createMountCallbacks(context: MountedContext) {
     onReady: (instance: EmulatorInstance) => handleReady(context, instance),
     onGameStart: () => handleGameStart(context),
     onSaveState: (payload: { screenshot: Blob; format: string; state: Uint8Array }) => {void context.params.uploadManualState(payload);},
-    gamepadHost: context.params.gamepadHost.current,
   };
 }
 
@@ -362,20 +359,8 @@ function netplayCallbacks(context: MountedContext, current: () => boolean) {
     onPaused: () => {if (current()) {params.netplayPausedRef.current = true; params.setNetplayPaused(true);}},
     onEnded: (reason: string) => {
       if (!current()) {return;}
-      params.finishing.current = true;
-      if (params.heartbeat.current !== null) {
-        window.clearInterval(params.heartbeat.current);
-        params.heartbeat.current = null;
-      }
       params.setSyncText("联机已结束"); params.setSyncTone("warning"); params.setMessage(reason);
-      window.setTimeout(() => {
-        // A terminal netplay session has no local save payload to flush.
-        // EmulatorJS 4.2.3 otherwise restarts and unmounts the core from its
-        // beforeunload listener, which raises ErrnoError as Chrome destroys
-        // the frame. Mark it stopped before leaving for a clean teardown.
-        if (params.emulator.current) {params.emulator.current.started = false;}
-        window.location.replace(params.returnTo.current);
-      }, 600);
+      void params.sendEvent("finish").catch(() => undefined).finally(() => window.setTimeout(() => window.location.replace(params.returnTo.current), 600));
     },
   };
 }
