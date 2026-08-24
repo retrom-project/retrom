@@ -1,8 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type RefObject } from "react";
 import { useAuth } from "@/features/auth/auth-provider";
+import { markImmersivePlayerReturn } from "@/features/immersive/active-gamepad";
 import { captureManualScreenshot, type DiscSet, type DiscState, type EmulatorInstance, type ManualScreenshot, type PlayerConfig } from "./adapters/ejs-4.2.3-v2";
 import { reportMultiDiscPlayerEvent, type MultiDiscPlayerEvent } from "./multi-disc-telemetry";
 import { setEmulatorPaused } from "./pause-control";
@@ -35,6 +37,7 @@ export function PlayerShell({
   launchId: string;
   experience?: "standard" | "immersive";
 }) {
+  const router = useRouter();
   const { context } = useAuth();
   const userId = context.user?.userId;
   const stage = useRef<HTMLDivElement>(null);
@@ -188,12 +191,16 @@ export function PlayerShell({
   }, [showControls, showToast]);
 
   const onKeyboardPause = useCallback(() => keyboardPauseAction.current(), []);
+  const replaceImmersiveRoute = useCallback((url: string) => {
+    markImmersivePlayerReturn();
+    router.replace(url);
+  }, [router]);
 
   const sessionParams = useMemo(() => ({
     launchId, emulator, playerMode, sequence, started, finishing, saveUploadQueue, discSetRef,
     orientationStateRef, returnTo, netplayController, setOrientationState, setSaveUploadProgress,
-    setSyncText, setSyncTone, showToast,
-  }), [launchId, showToast]);
+    setSyncText, setSyncTone, showToast, replaceImmersiveRoute,
+  }), [launchId, replaceImmersiveRoute, showToast]);
   const { sendEvent, uploadManualState, exit, exitStrict } = usePlayerSession(sessionParams);
   const handleImmersiveFatal = useCallback((error: string) => {
     setMessage(error);

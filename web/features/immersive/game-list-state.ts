@@ -1,5 +1,7 @@
 import type { ImmersiveGame } from "./api";
 
+const GAME_PAGE_STEP = 8;
+
 export function initialGameIndex(games: readonly ImmersiveGame[], requestedGameId?: string) {
   if (!games.length) {return -1;}
   const requested = requestedGameId ? games.findIndex((game) => game.gameId === requestedGameId) : -1;
@@ -9,6 +11,12 @@ export function initialGameIndex(games: readonly ImmersiveGame[], requestedGameI
 export function moveGameIndex(current: number, direction: "up" | "down", count: number) {
   if (count <= 0) {return -1;}
   const delta = direction === "up" ? -1 : 1;
+  return Math.max(0, Math.min(count - 1, current + delta));
+}
+
+export function pageGameIndex(current: number, direction: "left" | "right", count: number) {
+  if (count <= 0) {return -1;}
+  const delta = direction === "left" ? -GAME_PAGE_STEP : GAME_PAGE_STEP;
   return Math.max(0, Math.min(count - 1, current + delta));
 }
 

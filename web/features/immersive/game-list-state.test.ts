@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 import type { ImmersiveGame } from "./api";
-import { initialGameIndex, mergeGamePage, moveGameIndex, selectionAfterRemoval, shouldPrefetchGamePage } from "./game-list-state";
+import {
+  initialGameIndex,
+  mergeGamePage,
+  moveGameIndex,
+  pageGameIndex,
+  selectionAfterRemoval,
+  shouldPrefetchGamePage,
+} from "./game-list-state";
 
 function item(gameId: string): ImmersiveGame {
   return {
@@ -30,6 +37,14 @@ describe("immersive game list state", () => {
     expect(moveGameIndex(0, "up", 3)).toBe(0);
     expect(moveGameIndex(2, "down", 3)).toBe(2);
     expect(moveGameIndex(1, "up", 3)).toBe(0);
+  });
+
+  it("pages eight games with left and right while clamping to the list", () => {
+    expect(pageGameIndex(0, "right", 20)).toBe(8);
+    expect(pageGameIndex(8, "right", 20)).toBe(16);
+    expect(pageGameIndex(16, "right", 20)).toBe(19);
+    expect(pageGameIndex(19, "left", 20)).toBe(11);
+    expect(pageGameIndex(3, "left", 20)).toBe(0);
   });
 
   it("merges cursor pages without duplicating an existing game", () => {

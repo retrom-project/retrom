@@ -16,6 +16,7 @@ type PlayerSessionParams = {
   sequence: Mutable<number>; started: Mutable<boolean>; finishing: Mutable<boolean>; saveUploadQueue: Mutable<Promise<void>>;
   discSetRef: Mutable<DiscSet | null>; orientationStateRef: Mutable<PlayerOrientationState>; returnTo: Mutable<string>;
   netplayController: Mutable<NetplayController | null>;
+  replaceImmersiveRoute: (url: string) => void;
   setOrientationState: Dispatch<SetStateAction<PlayerOrientationState>>; setSaveUploadProgress: Dispatch<SetStateAction<number | null>>;
   setSyncText: Dispatch<SetStateAction<string>>; setSyncTone: Dispatch<SetStateAction<SyncTone>>;
   showToast: (message: string, timeout?: number) => void;
@@ -86,8 +87,7 @@ async function exitImmersivePlayer(
   params.setOrientationState(exiting.state);
   if (exiting.effects.includes("unlock")) {unlockLandscape();}
   await sendEvent("finish");
-  if (document.fullscreenElement) {await document.exitFullscreen().catch(() => undefined);}
-  window.location.replace(params.returnTo.current);
+  params.replaceImmersiveRoute(params.returnTo.current);
 }
 
 async function uploadState(payload: { screenshot: Blob; format: string; state: Uint8Array }, params: PlayerSessionParams, reportProgress: (progress: SaveUploadProgress) => void) {

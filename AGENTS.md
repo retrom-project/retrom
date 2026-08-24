@@ -106,6 +106,30 @@
 - 项目验收必须按 `docs/project-acceptance.md` 的 Case ID 和硬超时执行；不得临时合并 Case、复用历史截图，或加入 soak、压力、无限等待类验收。
 - 测试源码不因属于 fixture、集成或 E2E 获得结构性豁免；拆分时使用稳定行为命名的 case、builder 和断言 helper，不得删除、skip、合并验收 Case 或弱化断言。
 
+### 6.1 按影响面选择测试
+
+测试范围由“本次修改改变了哪个生产边界及其实际消费者”决定，不由文件名、历史失败或“更保险”决定。先用
+调用链、分支条件和契约确认影响面，再选择最近的单元/集成测试和精确验收 Case；不得无依据地把每次 UI 改动
+扩大成全部 Core、联机或全仓 E2E，也不得用一次全量运行代替应补的聚焦回归。
+
+| 修改场景 | 默认必须验证 | 何时扩大 |
+| --- | --- | --- |
+| Go 纯领域逻辑、parser、状态机 | 目标包单元测试 + 后端基础门禁 | 进入 SQLite/HTTP/后台任务事务时追加 integration |
+| migration、SQLite 约束、事务、HTTP route/DTO/error | 聚焦集成测试 + `make integration-test`；API 变化再跑 generate/check | 跨多个应用模块或影响面无法证明时跑 `make ci` |
+| 普通 Web 组件、排版、焦点、响应式 | 组件测试 + 前端基础门禁；有真实浏览器行为时跑对应 `ACC-UI/MOB/TAG/FAV/...` 精确 Case | 修改共享 App Shell、认证或全局样式时扩大到全部直接消费页面，不自动进入 Core/联机矩阵 |
+| 沉浸模式入口、平台/游戏浏览、媒体、焦点、全屏恢复、菜单或返回导航 | 受影响的 `ACC-IMM-001`–`008`；涉及真实启动/返回时至少覆盖 `004`–`006`，并保留 `008` 的普通 UI 隔离 | 只有改到共享 adapter、Core 帧执行、runtime config/content 或联机分支时才追加 `ACC-RUN/SAVE/NP` |
+| 普通 Player 外围 UI（工具栏、全屏、方向门禁、退出导航） | 对应 `ACC-RUN-002`–`004`、`ACC-MOB-*` 或领域精确 Case；共享分支需补普通/沉浸隔离 | 进入 iframe 装载、帧步进、state、输入 adapter 或内容装配时扩大到受影响 Core 产品 Case |
+| Core adapter、EmulatorJS 版本、运行配置、ROM/BIOS/Parent、存档/多盘恢复 | 对应 `ACC-RUN-*`、`ACC-SAVE-*`、`ACC-MDISC-*` 与受影响 Core 的真实产品链 | 修改所有 Core 共享 adapter/loader、manifest 或无法枚举消费者时运行完整 `make web-e2e` |
+| 联机房间/协议、canonical input、rollback/state transfer、联机 adapter | 对应 `ACC-NP-*` 聚焦测试；共享协议/controller 改动覆盖全部登记联机 profile | 普通或沉浸单机 UI 未进入联机分支时不得仅因复用 Player 文件而跑联机矩阵 |
+| 导入、审核、媒体、删除、容量/GC | 对应格式和链路的 `ACC-PEG/ES/GAME/MEDIA/STOR-*`，以及相关 HTTP/SQLite/CAS 集成测试 | 只有修改共享导入/审核/ownership/release 基础设施时扩大到所有直接消费者 |
+| 依赖 manifest、DAT、许可、镜像 | `data-check/prepare-deps/deps-check` 或 `build-images` | 物化结果进入 Player/Core 时再追加对应运行产品 Case |
+
+Case 的步骤、硬超时和通过标准只以 `docs/project-acceptance.md` 为准；上表只负责选用场景，不复制验收规范。
+执行聚焦浏览器验收使用 `make acceptance-case CASE=<Case ID>` 或文档登记的等价命令，并在交付中列出选择理由。
+完整 `make web-e2e`/`make ci` 只用于发布门禁、CI、共享测试夹具/全局 setup 变化、跨多个上述领域的改动、
+共享 adapter/loader/协议变化或无法可靠界定影响面。若运行中确认范围过大，应停止并清理该运行，改跑精确 Case；
+人工停止的 Case 只能报告为 interrupted，不能记作产品失败或 PASS。
+
 ## 7. 必跑门禁
 
 项目脚手架应实现 `docs/engineering-quality-and-testing.md` 规定的 Makefile 命令。涉及代码修改时按范围执行：
@@ -141,13 +165,16 @@ make web-build
 make integration-test
 ```
 
-影响 Player Shell 的浏览器交互、EmulatorJS 运行链路、core artifact、DAT、BIOS/Parent 装配或存档恢复时，还须运行实际产品 Chrome E2E：
+影响 Player Shell 的浏览器交互、EmulatorJS 运行链路、core artifact、DAT、BIOS/Parent 装配或存档恢复时，还须按
+第 6.1 节运行受影响的实际产品 Chrome E2E。默认先运行精确 Case，例如：
 
 ```bash
-make web-e2e
+make acceptance-case CASE=ACC-IMM-006
 ```
 
-`make web-e2e` 当前只代表其中已登记的真实产品场景；修改只影响特定 core、平台或内容类型时，还必须运行该分支已有的产品集成测试。若受影响核心没有产品路径 E2E，不得用独立 EmulatorJS 示例页冒充覆盖；必须在交付说明中明确未覆盖范围，并在最近的确定性产品边界补测试。
+只有第 6.1 节列出的全量条件成立时才运行 `make web-e2e`。该命令只代表其中已登记的真实产品场景；修改只影响
+特定 core、平台或内容类型时，应运行该分支已有的精确产品集成测试。若受影响核心没有产品路径 E2E，不得用
+独立 EmulatorJS 示例页冒充覆盖；必须在交付说明中明确未覆盖范围，并在最近的确定性产品边界补测试。
 
 跨端改动或影响范围不确定时运行：
 

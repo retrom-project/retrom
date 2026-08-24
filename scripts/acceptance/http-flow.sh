@@ -61,7 +61,33 @@ imported="$(curl --fail --silent --show-error "${common[@]}" "${write[@]}" -H "C
 import_id="$(jq -r .importJobId <<<"$imported")"
 reviews="$(curl --fail --silent --show-error "${common[@]}" "$backend/api/v1/admin/reviews?importJobId=$import_id")"
 item_id="$(jq -r '.items[0].itemId' <<<"$reviews")"
-approved="$(curl --fail --silent --show-error "${common[@]}" "${write[@]}" -X POST -H 'Content-Type: application/json' -H 'If-Match: "v1"' -H "Idempotency-Key: $(new_id)" -d '{"reason":null}' "$backend/api/v1/admin/reviews/$item_id/approve")"
+review_detail="$(curl --fail --silent --show-error "${common[@]}" "$backend/api/v1/admin/reviews/$item_id")"
+long_description="Retrom 的项目自有测试游戏，用于验证客厅距离下的完整简介阅读体验。"
+long_description+=" 玩家可以在数独棋盘中逐格填写数字，并随时检查当前选择与同行、同列和宫格的关系。"
+long_description+=" 这段固定说明会刻意超过沉浸模式简介容器的可见高度，以验证内容不会被截断。"
+long_description+=" 当简介较长时，用户仍应能够看到清晰的滚动区域，并通过鼠标滚轮或键盘浏览全部文字。"
+long_description+=" 切换到其他游戏再返回时，简介从开头重新展示，不沿用上一款游戏的滚动位置。"
+long_description+=" 封面和视频继续位于上方媒体区域，不会因为简介增长而被挤出页面。"
+long_description+=" 游戏列表仍由手柄上下方向选择，简介滚动只发生在获得焦点的正文区域。"
+long_description+=" 该说明不包含外部游戏资料，也不会作为生产默认元数据。"
+review_payload="$(jq -c --arg description "$long_description" '{
+  metadata:(.metadata + {description:$description}),
+  selectedCandidateId,
+  selectedAssets:{
+    coverCandidateAssetId:.selectedAssets.coverCandidateAssetId,
+    coverUploadedAssetId:(.selectedAssets.coverUploadedAssetId // null),
+    backgroundCandidateAssetId:.selectedAssets.backgroundCandidateAssetId,
+    screenshotCandidateAssetIds:.selectedAssets.screenshotCandidateAssetIds
+  },
+  defaultDosEntry,
+  tagIds:[(.tags // [])[].tagId]
+}' <<<"$review_detail")"
+patched_review="$(curl --fail --silent --show-error "${common[@]}" "${write[@]}" -X PATCH \
+  -H 'Content-Type: application/json' -H "If-Match: \"v$(jq -r .version <<<"$review_detail")\"" \
+  -d "$review_payload" "$backend/api/v1/admin/reviews/$item_id")"
+approved="$(curl --fail --silent --show-error "${common[@]}" "${write[@]}" -X POST \
+  -H 'Content-Type: application/json' -H "If-Match: \"v$(jq -r .version <<<"$patched_review")\"" \
+  -H "Idempotency-Key: $(new_id)" -d '{"reason":null}' "$backend/api/v1/admin/reviews/$item_id/approve")"
 game_id="$(jq -r .gameId <<<"$approved")"
 
 attach_game_asset() {

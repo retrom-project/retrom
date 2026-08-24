@@ -167,7 +167,7 @@ Tag 必须先由管理员建立，再以稳定 ID 关联 Game、导入 ReviewDra
 ### 3.13 沉浸模式是独立电视交互面
 
 普通 PC/平板/移动 App Shell 与沉浸模式是两套明确分离的 UI。普通首页只在可见期间观察 Chrome
-`mapping=standard` 手柄的按键上升沿，并以默认“取消”的应用内确认框征求进入；确认后的
+`mapping=standard` 手柄的按键上升沿，并以覆盖整个 viewport、默认“取消”的电视确认层征求进入；确认后的
 `/immersive` 与平台游戏列表使用独立全视口 Shell、电视排版、帮助条和焦点状态机，不先渲染普通侧栏、
 App Bar、底栏或游戏卡再通过 CSS 隐藏。
 
