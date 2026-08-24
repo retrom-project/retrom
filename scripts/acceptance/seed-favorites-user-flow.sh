@@ -13,12 +13,12 @@ BEGIN IMMEDIATE;
 PRAGMA defer_foreign_keys=ON;
 
 INSERT INTO game_metadata_revisions(
-  id,game_id,title,description,developer,publisher,genre,players,release_year,
+  id,game_id,title,title_initial,description,developer,publisher,genre,players,release_year,
   source_kind,source_ref_id,created_at_ms
 ) VALUES(
   '74000000-0000-7000-8000-000000000001',
   '74100000-0000-7000-8000-000000000001',
-  'Favorite User Flow Game','Favorite acceptance','','','Fixture',NULL,1999,
+  'Favorite User Flow Game','F','Favorite acceptance','','','Fixture',NULL,1999,
   'ADMIN_EDIT',NULL,1786003000001
 );
 

@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"net/url"
 	"os"
 	"path"
 	"slices"
@@ -456,17 +455,17 @@ type ReviewPreviewConfig struct {
 }
 
 type reviewPreviewConfigSource struct {
-	CredentialHash                                           []byte
-	State, ItemID, ArtifactID, EmulatorVersion, RelativePath string
-	CompatibilityJSON, CoreID, CoreName, Title, PlatformName string
-	LogicalName, ContentFormat, DependencyJSON               string
-	BootstrapExpires, HardExpires, EmulatorGameID            int64
-	RequiresThreads, CaptureAllowed                          int
-	DOSEntry                                                 sql.NullString
+	CredentialHash                                            []byte
+	State, ItemID, ArtifactID, EmulatorVersion, RelativePath  string
+	CompatibilityJSON, CoreID, CoreName, Title, PlatformName  string
+	LogicalName, ContentFormat, ContentDigest, DependencyJSON string
+	BootstrapExpires, HardExpires, EmulatorGameID             int64
+	RequiresThreads, CaptureAllowed                           int
+	DOSEntry                                                  sql.NullString
 }
 
 type reviewPreviewRuntimeFiles struct {
-	BIOSCount, ParentCount int
+	BIOSFiles, ParentFiles []BundleFile
 	ExternalFiles          map[string]string
 	DiscEntries            []DiscEntry
 }
@@ -506,6 +505,25 @@ func (service *Service) ReviewPreviewConfig(ctx context.Context, previewID, capa
 	startupActions := make([]dependencies.StartupAction, len(compatibility.StartupActions))
 	copy(startupActions, compatibility.StartupActions)
 	base := "/runtime/emulatorjs/" + source.EmulatorVersion + "/"
+	gameIdentity, err := ContentIdentity(ContentView{
+		Digest: source.ContentDigest, Format: source.ContentFormat, CoreID: source.CoreID,
+		DOSEntry: nullableStringPointer(source.DOSEntry),
+	})
+	if err != nil {
+		return Config{}, err
+	}
+	gameURL, err := RuntimeContentURL("game", gameIdentity, source.LogicalName)
+	if err != nil {
+		return Config{}, err
+	}
+	biosURL, err := reviewPreviewBundleURL("bios", runtimeFiles.BIOSFiles)
+	if err != nil {
+		return Config{}, err
+	}
+	parentURL, err := reviewPreviewBundleURL("parent", runtimeFiles.ParentFiles)
+	if err != nil {
+		return Config{}, err
+	}
 	return Config{
 		Mode: "single", LaunchID: previewID, EmulatorJSVersion: source.EmulatorVersion,
 		PlayerAdapterID: version.Manifest.EmulatorJS.PlayerAdapter.ID,
@@ -514,9 +532,9 @@ func (service *Service) ReviewPreviewConfig(ctx context.Context, previewID, capa
 		GameName: "retrom-review-" + previewID, GameTitle: source.Title, PlatformName: source.PlatformName,
 		RuntimeBaseURL:       base + strings.TrimSuffix(version.Manifest.EmulatorJS.PlayerAdapter.RuntimeBasePath, "/") + "/",
 		LoaderURL:            base + version.Manifest.EmulatorJS.PlayerAdapter.LoaderPath,
-		GameURL:              "/runtime/launches/" + previewID + "/game/" + url.PathEscape(source.LogicalName),
-		BIOSURL:              reviewPreviewBundleURL(previewID, "bios", runtimeFiles.BIOSCount),
-		ParentURL:            reviewPreviewBundleURL(previewID, "parent", runtimeFiles.ParentCount),
+		GameURL:              gameURL,
+		BIOSURL:              optionalRuntimeURL(biosURL),
+		ParentURL:            optionalRuntimeURL(parentURL),
 		StateURL:             nil,
 		InputMode:            compatibility.InputMode,
 		StartupActions:       startupActions,
@@ -542,8 +560,9 @@ SELECT preview.credential_sha256,preview.state,preview.bootstrap_expires_at_ms,p
 preview.import_item_id,artifact.id,artifact.emulatorjs_version,artifact.relative_path,
 artifact.compatibility_config_json,core.id,core.name,preview.title,instance.name,
 preview.content_logical_name,preview.content_format,preview.dependency_snapshot_json,
-preview.emulator_game_id,core.requires_threads,preview.capture_allowed,preview.default_dos_entry
+content_blob.sha256,preview.emulator_game_id,core.requires_threads,preview.capture_allowed,preview.default_dos_entry
 FROM review_preview_sessions preview
+JOIN blobs content_blob ON content_blob.id=preview.content_blob_id
 JOIN core_artifacts artifact ON artifact.id=preview.core_artifact_id AND artifact.enabled=1
 JOIN cores core ON core.id=artifact.core_id
 JOIN platform_instances instance ON instance.id=preview.target_platform_instance_id
@@ -553,6 +572,7 @@ WHERE preview.id=?
 		&source.ItemID, &source.ArtifactID, &source.EmulatorVersion, &source.RelativePath,
 		&source.CompatibilityJSON, &source.CoreID, &source.CoreName, &source.Title,
 		&source.PlatformName, &source.LogicalName, &source.ContentFormat, &source.DependencyJSON,
+		&source.ContentDigest,
 		&source.EmulatorGameID, &source.RequiresThreads, &source.CaptureAllowed, &source.DOSEntry,
 	)
 	if err != nil {
@@ -617,29 +637,38 @@ func (service *Service) reviewPreviewRuntimeFiles(
 		DiscEntries:   make([]DiscEntry, 0, 8),
 	}
 	rows, err := service.database.QueryContext(ctx, `
-SELECT role,logical_name,virtual_path FROM review_preview_files
-WHERE preview_session_id=? ORDER BY role,sort_order,logical_name
+SELECT file.role,file.logical_name,file.virtual_path,blob.sha256 FROM review_preview_files file
+JOIN blobs blob ON blob.id=file.blob_id
+WHERE file.preview_session_id=? ORDER BY file.role,file.sort_order,file.logical_name
 	`, previewID)
 	if err != nil {
 		return reviewPreviewRuntimeFiles{}, fmt.Errorf("review preview config: %w", err)
 	}
 	defer func() { cleanup.Error("close", rows.Close()) }()
 	for rows.Next() {
-		var role, name string
+		var role, name, digest string
 		var virtualPath sql.NullString
-		if err := rows.Scan(&role, &name, &virtualPath); err != nil {
+		if err := rows.Scan(&role, &name, &virtualPath, &digest); err != nil {
 			return reviewPreviewRuntimeFiles{}, fmt.Errorf("review preview config: %w", err)
 		}
 		switch role {
 		case "BIOS_BUNDLE":
-			result.BIOSCount++
+			result.BIOSFiles = append(result.BIOSFiles, BundleFile{LogicalName: name, SHA256: digest})
 		case "PARENT":
-			result.ParentCount++
+			result.ParentFiles = append(result.ParentFiles, BundleFile{LogicalName: name, SHA256: digest})
 		case "EXTERNAL_FILE", "DISC":
 			if !virtualPath.Valid {
 				return reviewPreviewRuntimeFiles{}, ErrBlocked
 			}
-			result.ExternalFiles[virtualPath.String] = reviewPreviewExternalURL(previewID, name)
+			externalIdentity, identityErr := ExternalContentIdentity(digest)
+			if identityErr != nil {
+				return reviewPreviewRuntimeFiles{}, identityErr
+			}
+			externalURL, urlErr := RuntimeContentURL("external", externalIdentity, name)
+			if urlErr != nil {
+				return reviewPreviewRuntimeFiles{}, urlErr
+			}
+			result.ExternalFiles[virtualPath.String] = externalURL
 			if role == "DISC" {
 				result.DiscEntries = append(result.DiscEntries, DiscEntry{
 					Index: len(result.DiscEntries), Label: fmt.Sprintf("光盘 %d", len(result.DiscEntries)+1),
@@ -654,10 +683,6 @@ WHERE preview_session_id=? ORDER BY role,sort_order,logical_name
 		return reviewPreviewRuntimeFiles{}, fmt.Errorf("review preview config: %w", err)
 	}
 	return result, nil
-}
-
-func reviewPreviewExternalURL(previewID, logicalName string) string {
-	return "/runtime/launches/" + previewID + "/external-files/" + url.PathEscape(logicalName)
 }
 
 func reviewPreviewDiscSet(
@@ -676,122 +701,16 @@ func reviewPreviewDiscSet(
 	}}, nil
 }
 
-func reviewPreviewBundleURL(previewID, kind string, count int) any {
-	if count == 0 {
-		return nil
+func reviewPreviewBundleURL(kind string, files []BundleFile) (string, error) {
+	if len(files) == 0 {
+		return "", nil
 	}
-	return "/runtime/launches/" + previewID + "/" + kind + "/bundle.zip"
-}
-
-func (service *Service) ReviewPreviewContent(
-	ctx context.Context,
-	previewID, capability, logicalName string,
-) (ContentView, error) {
-	var credentialHash []byte
-	var digest, state, format, coreID, platformKey string
-	var dosEntry sql.NullString
-	var hardExpires, artifactVersion int64
-	var discCount int
-	err := service.database.QueryRowContext(ctx, `
-SELECT preview.credential_sha256,preview.state,preview.hard_expires_at_ms,blob.sha256,
-preview.content_format,artifact.core_id,artifact.version,platform.id,preview.default_dos_entry,
-(SELECT count(*) FROM review_preview_files file WHERE file.preview_session_id=preview.id AND file.role='DISC')
-FROM review_preview_sessions preview
-JOIN blobs blob ON blob.id=preview.content_blob_id
-JOIN core_artifacts artifact ON artifact.id=preview.core_artifact_id
-JOIN platform_instances instance ON instance.id=preview.target_platform_instance_id
-JOIN platforms platform ON platform.id=instance.platform_id
-WHERE preview.id=? AND preview.content_logical_name=?
-`, previewID, logicalName).Scan(&credentialHash, &state, &hardExpires, &digest, &format,
-		&coreID, &artifactVersion, &platformKey, &dosEntry, &discCount)
-	if err != nil || !reviewPreviewCredential(service.now().UnixMilli(), capability, credentialHash, state, hardExpires) {
-		return ContentView{}, ErrCredential
-	}
-	var selected *string
-	if dosEntry.Valid {
-		selected = &dosEntry.String
-	}
-	return ContentView{
-		Digest: digest, Format: format, CoreID: coreID, DOSEntry: selected,
-		PlatformKey: platformKey, ArtifactVersion: artifactVersion, DiscCount: discCount,
-	}, nil
-}
-
-func (service *Service) ReviewPreviewExternal(
-	ctx context.Context,
-	previewID, capability, logicalName string,
-) (ExternalView, error) {
-	var credentialHash []byte
-	var digest, state, role, platformKey, coreKey string
-	var hardExpires, artifactVersion int64
-	var discCount int
-	err := service.database.QueryRowContext(ctx, `
-SELECT preview.credential_sha256,preview.state,preview.hard_expires_at_ms,blob.sha256,file.role,
-platform.id,artifact.core_id,artifact.version,
-(SELECT count(*) FROM review_preview_files disc WHERE disc.preview_session_id=preview.id AND disc.role='DISC')
-FROM review_preview_sessions preview
-JOIN review_preview_files file ON file.preview_session_id=preview.id AND file.role IN ('EXTERNAL_FILE','DISC')
-JOIN blobs blob ON blob.id=file.blob_id
-JOIN core_artifacts artifact ON artifact.id=preview.core_artifact_id
-JOIN platform_instances instance ON instance.id=preview.target_platform_instance_id
-JOIN platforms platform ON platform.id=instance.platform_id
-WHERE preview.id=? AND file.logical_name=?
-`, previewID, logicalName).Scan(&credentialHash, &state, &hardExpires, &digest, &role,
-		&platformKey, &coreKey, &artifactVersion, &discCount)
-	if err != nil || !reviewPreviewCredential(service.now().UnixMilli(), capability, credentialHash, state, hardExpires) {
-		return ExternalView{}, ErrCredential
-	}
-	kind := "BIOS"
-	if role == "DISC" {
-		kind = "DISC"
-	}
-	return ExternalView{
-		Digest: digest, Kind: kind, PlatformKey: platformKey, CoreKey: coreKey,
-		ArtifactVersion: artifactVersion, DiscCount: discCount,
-	}, nil
-}
-
-func (service *Service) ReviewPreviewBundleFiles(
-	ctx context.Context,
-	previewID, capability, kind string,
-) ([]BundleFile, error) {
-	if kind != "BIOS_BUNDLE" && kind != "PARENT" {
-		return nil, ErrCredential
-	}
-	var credentialHash []byte
-	var state string
-	var hardExpires int64
-	if err := service.database.QueryRowContext(ctx, `
-SELECT credential_sha256,state,hard_expires_at_ms FROM review_preview_sessions WHERE id=?
-`, previewID).Scan(&credentialHash, &state, &hardExpires); err != nil ||
-		!reviewPreviewCredential(service.now().UnixMilli(), capability, credentialHash, state, hardExpires) {
-		return nil, ErrCredential
-	}
-	rows, err := service.database.QueryContext(ctx, `
-SELECT file.logical_name,blob.sha256 FROM review_preview_files file
-JOIN blobs blob ON blob.id=file.blob_id
-WHERE file.preview_session_id=? AND file.role=? ORDER BY file.sort_order,file.logical_name
-`, previewID, kind)
+	identity, err := BundleIdentity(files)
 	if err != nil {
-		return nil, fmt.Errorf("review preview bundle: %w", err)
+		return "", err
 	}
-	defer func() { cleanup.Error("close", rows.Close()) }()
-	files := make([]BundleFile, 0)
-	for rows.Next() {
-		var file BundleFile
-		if err := rows.Scan(&file.LogicalName, &file.SHA256); err != nil {
-			return nil, fmt.Errorf("review preview bundle: %w", err)
-		}
-		files = append(files, file)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("review preview bundle rows: %w", err)
-	}
-	return files, nil
-}
-
-func reviewPreviewCredential(now int64, capability string, hash []byte, state string, hardExpires int64) bool {
-	return state == "ACTIVE" && hardExpires > now && retromruntime.MatchesCapability(capability, hash)
+	contentURL, err := RuntimeContentURL(kind, identity, "bundle.zip")
+	return contentURL, err
 }
 
 type ReviewScreenshot struct {

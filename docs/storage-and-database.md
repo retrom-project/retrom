@@ -287,10 +287,20 @@ data/
 - `HEAD`
 - Range 请求
 - `ETag: "<sha256>"`
-- 固定版本 EmulatorJS 与发布媒体：`Cache-Control: public, max-age=31536000, immutable`。
-- ROM、parent、BIOS、状态存档：仅经 launch cookie 的逻辑路径访问，`Cache-Control: private, no-store`、`Vary: Cookie`，URL 不含 Blob ID/hash。
+- 固定版本 EmulatorJS 与发布媒体：`Cache-Control: public, max-age=31536000, immutable`；媒体替换创建新
+  GameAsset ID 与 URL，current 切换后旧 URL 失效。
+- ROM、parent、BIOS 和多盘外部文件：仅经 `/runtime/content/` 的 Launch content grant 访问，URL 携带由
+  实际 bytes 与必要输出选项带领域分隔派生的内容身份而不暴露 Blob ID/hash；`Cache-Control: private,
+  max-age=31536000, immutable`。ROM 或 bundle 任一文件替换必须改变 URL，授权校验仍逐请求重算并匹配身份。
+- 状态存档与截图继续是 Profile 私有数据，使用 Launch/SaveState 逻辑 ID、`Cache-Control: private,
+  no-store` 与限定路径 cookie；不得因 ROM/BIOS 改为内容寻址而把存档设为 immutable 或跨用户复用。
 
-公开媒体以不可变 GameAsset ID 形成新 URL；固定运行时包含明确版本。受限内容由 LaunchSession 映射到不可变 VariantRevision。所有端点设置强 ETag、正确 MIME 与 `nosniff`；精确 Range 行为见 [HTTP API 契约](./http-api-contract.md)。
+公开媒体以不可变 GameAsset ID 形成新 URL；固定运行时包含明确版本。受限运行内容由 LaunchSession grant
+授权并以不可变内容身份形成 URL；替换只前移 identity，不原地改变同 URL bytes。所有端点设置强 ETag、
+正确 MIME 与 `nosniff`；精确授权、身份和 Range 行为见 [HTTP API 契约](./http-api-contract.md)。
+`private immutable` 只在同一浏览器缓存内复用；网络请求始终重新校验 grant、ACTIVE 状态与精确内容身份。
+硬删除/撤销后新的或强制网络请求立即失败；浏览器已经合法取得的私有缓存副本与已经下载到内存的 ROM 一样
+无法被服务器追溯擦除，因此 SaveState state/screenshot 等用户私有数据始终使用 `no-store`，不采用该策略。
 
 ## 6. Archive 安全
 

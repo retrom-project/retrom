@@ -368,7 +368,7 @@ test("game detail keeps its one-screen hierarchy and opens saves without navigat
   const runtimeButton = page.getByRole("button", { name: /更换/ });
   await runtimeButton.click();
   await expect(page.getByRole("alertdialog", { name: "更换运行方式" })).toBeVisible();
-  await page.getByRole("button", { name: "取消" }).click();
+  await page.getByRole("button", { name: "取消", exact: true }).click();
   await expect(page.getByRole("alertdialog", { name: "更换运行方式" })).toHaveCount(0);
 
   const expectedSaveCount = saves.items.filter((save) => save.gameId === preferredGameId).length;

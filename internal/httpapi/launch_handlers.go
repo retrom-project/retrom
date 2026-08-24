@@ -1,19 +1,14 @@
 package httpapi
 
 import (
-	"archive/zip"
 	"crypto/sha256"
 	"crypto/subtle"
 	"database/sql"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
-	"fmt"
-	"io"
 	"mime"
 	"net/http"
-	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -21,7 +16,6 @@ import (
 
 	"retrom/internal/authn"
 	"retrom/internal/cleanup"
-	"retrom/internal/dosbundle"
 	"retrom/internal/launch"
 	"retrom/internal/mediaasset"
 	retromruntime "retrom/internal/runtime"
@@ -166,11 +160,12 @@ func (server *Server) setLaunchCookie(writer http.ResponseWriter, launchID strin
 		return
 	}
 	capability := server.credentials.Capability(parsed)
+	encodedCapability := retromruntime.EncodeCapability(capability)
 	http.SetCookie(
 		writer,
 		&http.Cookie{
 			Name:     "retrom_launch_" + launchID,
-			Value:    retromruntime.EncodeCapability(capability),
+			Value:    encodedCapability,
 			Path:     "/runtime/launches/" + launchID + "/",
 			MaxAge:   86400,
 			HttpOnly: true,
@@ -178,6 +173,7 @@ func (server *Server) setLaunchCookie(writer http.ResponseWriter, launchID strin
 			Secure:   server.config.PublicOrigin.Scheme == "https",
 		},
 	)
+	server.setLaunchContentGrant(writer, launchID, encodedCapability, 86400)
 }
 
 func (server *Server) createReviewPreview(writer http.ResponseWriter, request *http.Request) {
@@ -288,300 +284,11 @@ func (server *Server) launchConfig(writer http.ResponseWriter, request *http.Req
 			)
 		}
 	}
+	server.setLaunchContentGrant(
+		writer, request.PathValue("launchId"), capability, 86400,
+	)
 	writer.Header().Set("Vary", "Cookie")
 	writeJSON(writer, http.StatusOK, configuration)
-}
-
-func (server *Server) launchGame(writer http.ResponseWriter, request *http.Request) {
-	if rejectMultipleRanges(writer, request) {
-		return
-	}
-	content, err := server.runtimeContent(request)
-	if err != nil {
-		writeError(writer, request, http.StatusUnauthorized, "LAUNCH_CREDENTIAL_INVALID", "启动内容不可用", map[string]any{})
-		return
-	}
-	isMultiDisc := content.Format == "RETROM_MULTIDISC_M3U_V1" && content.DiscCount >= 2
-	file, err := server.blobs.OpenDigest(content.Digest)
-	if err != nil {
-		if isMultiDisc {
-			logMultiDiscContentResponse(
-				request.Context(), request.PathValue("launchId"), content.PlatformKey, content.CoreID,
-				content.ArtifactVersion, content.DiscCount, "PLAYLIST", http.StatusServiceUnavailable, 0,
-				"CAS_UNAVAILABLE",
-			)
-		}
-		writeError(writer, request, http.StatusServiceUnavailable, "CAS_UNAVAILABLE", "游戏内容不可用", map[string]any{})
-		return
-	}
-	defer func() { cleanup.Error("close", file.Close()) }()
-	stat, err := file.Stat()
-	if err != nil {
-		if isMultiDisc {
-			logMultiDiscContentResponse(
-				request.Context(), request.PathValue("launchId"), content.PlatformKey, content.CoreID,
-				content.ArtifactVersion, content.DiscCount, "PLAYLIST", http.StatusServiceUnavailable, 0,
-				"CAS_UNAVAILABLE",
-			)
-		}
-		writeError(writer, request, http.StatusServiceUnavailable, "CAS_UNAVAILABLE", "游戏内容不可用", map[string]any{})
-		return
-	}
-	mediaType := mime.TypeByExtension(filepath.Ext(request.PathValue("logicalName")))
-	if content.Format == "RETROM_MULTIDISC_M3U_V1" {
-		mediaType = "audio/x-mpegurl; charset=utf-8"
-	}
-	if mediaType == "" {
-		mediaType = "application/octet-stream"
-	}
-	writer.Header().Set("Content-Type", mediaType)
-	writer.Header().Set("Cache-Control", "private, no-store")
-	writer.Header().Set("Vary", "Cookie")
-	body, etag, err := launchGameBody(file, stat.Size(), content)
-	if err != nil {
-		if isMultiDisc {
-			logMultiDiscContentResponse(
-				request.Context(), request.PathValue("launchId"), content.PlatformKey, content.CoreID,
-				content.ArtifactVersion, content.DiscCount, "PLAYLIST", http.StatusServiceUnavailable, 0,
-				"CAS_UNAVAILABLE",
-			)
-		}
-		writeError(writer, request, http.StatusServiceUnavailable, "CAS_UNAVAILABLE", "游戏内容不可用", map[string]any{})
-		return
-	}
-	writer.Header().Set("ETag", `"sha256-`+etag+`"`)
-	writer.Header().Set("Accept-Ranges", "bytes")
-	metricsWriter := &multiDiscResponseWriter{ResponseWriter: writer}
-	http.ServeContent(metricsWriter, request, request.PathValue("logicalName"), time.Unix(0, 0), body)
-	if isMultiDisc {
-		status := metricsWriter.status
-		if status == 0 {
-			status = http.StatusOK
-		}
-		resultCode := "OK"
-		if status >= http.StatusBadRequest {
-			resultCode = "HTTP_ERROR"
-		}
-		logMultiDiscContentResponse(
-			request.Context(), request.PathValue("launchId"), content.PlatformKey, content.CoreID,
-			content.ArtifactVersion, content.DiscCount, "PLAYLIST", status, metricsWriter.bytes, resultCode,
-		)
-	}
-}
-
-func (server *Server) runtimeContent(request *http.Request) (launch.ContentView, error) {
-	launchID := request.PathValue("launchId")
-	capability := server.launchCapability(request)
-	logicalName := request.PathValue("logicalName")
-	content, err := server.launcher.Content(request.Context(), launchID, capability, logicalName)
-	if err == nil {
-		return content, nil
-	}
-	content, err = server.launcher.ReviewPreviewContent(request.Context(), launchID, capability, logicalName)
-	if err != nil {
-		return launch.ContentView{}, fmt.Errorf("review preview content: %w", err)
-	}
-	return content, nil
-}
-
-func launchGameBody(file io.ReadSeeker, size int64, content launch.ContentView) (io.ReadSeeker, string, error) {
-	if content.Format != "RETROM_DOS_DIRECT_ZIP_V1" {
-		return file, content.Digest, nil
-	}
-	if content.CoreID != "dosbox_pure" {
-		return nil, "", fmt.Errorf("launch game body: %w", dosbundle.ErrInvalid)
-	}
-	var overlay *dosbundle.Overlay
-	var err error
-	readerAt, ok := file.(io.ReaderAt)
-	if !ok {
-		return nil, "", fmt.Errorf("launch game reader: %w", dosbundle.ErrInvalid)
-	}
-	if content.DOSEntry == nil {
-		overlay, err = dosbundle.NewMenu(readerAt, size)
-	} else {
-		overlay, err = dosbundle.New(readerAt, size, *content.DOSEntry)
-	}
-	if err != nil {
-		return nil, "", fmt.Errorf("build DOS overlay: %w", err)
-	}
-	digestInput := content.Format + "\x00" + content.Digest + "\x00" + nullableDOSEntry(content.DOSEntry)
-	digest := sha256.Sum256([]byte(digestInput))
-	return overlay, hex.EncodeToString(digest[:]), nil
-}
-
-func nullableDOSEntry(entry *string) string {
-	if entry == nil {
-		return "<menu>"
-	}
-	return *entry
-}
-
-func (server *Server) launchExternalFile(writer http.ResponseWriter, request *http.Request) {
-	if rejectMultipleRanges(writer, request) {
-		return
-	}
-	content, err := server.launcher.External(
-		request.Context(),
-		request.PathValue("launchId"),
-		server.launchCapability(request),
-		request.PathValue("logicalName"),
-	)
-	if err != nil {
-		content, err = server.launcher.ReviewPreviewExternal(
-			request.Context(), request.PathValue("launchId"), server.launchCapability(request),
-			request.PathValue("logicalName"),
-		)
-	}
-	if err != nil {
-		writeError(writer, request, http.StatusUnauthorized, "LAUNCH_CREDENTIAL_INVALID", "启动外部文件不可用", map[string]any{})
-		return
-	}
-	file, err := server.blobs.OpenDigest(content.Digest)
-	if err != nil {
-		if content.Kind == "DISC" {
-			logMultiDiscContentResponse(
-				request.Context(), request.PathValue("launchId"), content.PlatformKey, content.CoreKey,
-				content.ArtifactVersion, content.DiscCount, "DISC", http.StatusUnauthorized, 0,
-				"LAUNCH_CREDENTIAL_INVALID",
-			)
-		}
-		writeError(writer, request, http.StatusUnauthorized, "LAUNCH_CREDENTIAL_INVALID", "启动外部文件不可用", map[string]any{})
-		return
-	}
-	defer func() { cleanup.Error("close", file.Close()) }()
-	writer.Header().Set("Content-Type", "application/octet-stream")
-	writer.Header().Set("Cache-Control", "private, no-store")
-	writer.Header().Set("Vary", "Cookie")
-	writer.Header().Set("ETag", `"sha256-`+content.Digest+`"`)
-	writer.Header().Set("Accept-Ranges", "bytes")
-	metricsWriter := &multiDiscResponseWriter{ResponseWriter: writer}
-	http.ServeContent(metricsWriter, request, request.PathValue("logicalName"), time.Unix(0, 0), file)
-	if content.Kind == "DISC" {
-		status := metricsWriter.status
-		if status == 0 {
-			status = http.StatusOK
-		}
-		resultCode := "OK"
-		if status >= http.StatusBadRequest {
-			resultCode = "HTTP_ERROR"
-		}
-		logMultiDiscContentResponse(
-			request.Context(), request.PathValue("launchId"), content.PlatformKey, content.CoreKey,
-			content.ArtifactVersion, content.DiscCount, "DISC", status, metricsWriter.bytes, resultCode,
-		)
-	}
-}
-
-func (server *Server) launchBIOSBundle(writer http.ResponseWriter, request *http.Request) {
-	server.launchBundle(writer, request, "BIOS_BUNDLE")
-}
-
-func (server *Server) launchParentBundle(writer http.ResponseWriter, request *http.Request) {
-	server.launchBundle(writer, request, "PARENT")
-}
-
-func (server *Server) populateLaunchBundle(
-	archiveWriter *zip.Writer,
-	files []launch.BundleFile,
-) (string, string) {
-	for _, entry := range files {
-		if entry.LogicalName == "" || filepath.Base(entry.LogicalName) != entry.LogicalName ||
-			strings.Contains(entry.LogicalName, "\\") {
-			return "LAUNCH_DEPENDENCY_INVALID", "启动依赖清单无效"
-		}
-		destination, err := archiveWriter.CreateHeader(deterministicStoreZIPHeader(entry.LogicalName))
-		if err != nil {
-			return "CAS_UNAVAILABLE", "无法装配启动依赖"
-		}
-		source, err := server.blobs.OpenDigest(entry.SHA256)
-		if err != nil {
-			return "CAS_UNAVAILABLE", "启动依赖不可用"
-		}
-		_, copyErr := io.Copy(destination, source)
-		cleanup.Error("close", source.Close())
-		if copyErr != nil {
-			return "CAS_UNAVAILABLE", "无法读取启动依赖"
-		}
-	}
-	return "", ""
-}
-
-// Contract branches stay contiguous for a single auditable decision.
-func (server *Server) launchBundle(writer http.ResponseWriter, request *http.Request, kind string) {
-	if rejectMultipleRanges(writer, request) {
-		return
-	}
-	files, err := server.launcher.BundleFiles(
-		request.Context(),
-		request.PathValue("launchId"),
-		server.launchCapability(request),
-		kind,
-	)
-	if err != nil {
-		files, err = server.launcher.ReviewPreviewBundleFiles(
-			request.Context(), request.PathValue("launchId"), server.launchCapability(request), kind,
-		)
-	}
-	if errors.Is(err, launch.ErrCredential) {
-		writeError(writer, request, http.StatusUnauthorized, "LAUNCH_CREDENTIAL_INVALID", "启动会话不可用", map[string]any{})
-		return
-	}
-	if err != nil {
-		server.databaseError(writer, request, err)
-		return
-	}
-	if len(files) == 0 {
-		writeError(writer, request, http.StatusNotFound, "LAUNCH_CONTENT_NOT_FOUND", "启动依赖不存在", map[string]any{})
-		return
-	}
-	temporary, err := os.CreateTemp(filepath.Join(server.config.DataDir, "tmp", "jobs"), ".launch-bundle-")
-	if err != nil {
-		writeError(writer, request, http.StatusServiceUnavailable, "CAS_UNAVAILABLE", "无法装配启动依赖", map[string]any{})
-		return
-	}
-	temporaryPath := temporary.Name()
-	defer cleanup.Remove(temporaryPath)
-	if err := temporary.Chmod(0o600); err != nil {
-		cleanup.Error("close", temporary.Close())
-		writeError(writer, request, http.StatusServiceUnavailable, "CAS_UNAVAILABLE", "无法装配启动依赖", map[string]any{})
-		return
-	}
-	archiveWriter := zip.NewWriter(temporary)
-	if errorCode, errorMessage := server.populateLaunchBundle(archiveWriter, files); errorCode != "" {
-		cleanup.Error("close", archiveWriter.Close())
-		cleanup.Error("close", temporary.Close())
-		writeError(writer, request, http.StatusServiceUnavailable, errorCode, errorMessage, map[string]any{})
-		return
-	}
-	if err := archiveWriter.Close(); err != nil {
-		cleanup.Error("close", temporary.Close())
-		writeError(writer, request, http.StatusServiceUnavailable, "CAS_UNAVAILABLE", "无法完成启动依赖", map[string]any{})
-		return
-	}
-	if _, err := temporary.Seek(0, io.SeekStart); err != nil {
-		cleanup.Error("close", temporary.Close())
-		writeError(writer, request, http.StatusServiceUnavailable, "CAS_UNAVAILABLE", "无法读取启动依赖", map[string]any{})
-		return
-	}
-	digest := sha256.New()
-	if _, err := io.Copy(digest, temporary); err != nil {
-		cleanup.Error("close", temporary.Close())
-		writeError(writer, request, http.StatusServiceUnavailable, "CAS_UNAVAILABLE", "无法校验启动依赖", map[string]any{})
-		return
-	}
-	if _, err := temporary.Seek(0, io.SeekStart); err != nil {
-		cleanup.Error("close", temporary.Close())
-		writeError(writer, request, http.StatusServiceUnavailable, "CAS_UNAVAILABLE", "无法读取启动依赖", map[string]any{})
-		return
-	}
-	defer func() { cleanup.Error("close", temporary.Close()) }()
-	writer.Header().Set("Content-Type", "application/zip")
-	writer.Header().Set("Cache-Control", "private, no-store")
-	writer.Header().Set("Vary", "Cookie")
-	writer.Header().Set("ETag", `"sha256-`+hex.EncodeToString(digest.Sum(nil))+`"`)
-	writer.Header().Set("Accept-Ranges", "bytes")
-	http.ServeContent(writer, request, "bundle.zip", time.Unix(0, 0), temporary)
 }
 
 func (server *Server) launchStart(writer http.ResponseWriter, request *http.Request) {
@@ -626,6 +333,7 @@ func (server *Server) recordPlay(writer http.ResponseWriter, request *http.Reque
 				Secure:   server.config.PublicOrigin.Scheme == "https",
 			},
 		)
+		server.setLaunchContentGrant(writer, request.PathValue("launchId"), "", -1)
 	}
 	writeJSON(writer, http.StatusOK, result)
 }
@@ -764,14 +472,4 @@ func rejectMultipleRanges(writer http.ResponseWriter, request *http.Request) boo
 		return true
 	}
 	return false
-}
-
-func deterministicStoreZIPHeader(name string) *zip.FileHeader {
-	header := &zip.FileHeader{Name: name, Method: zip.Store}
-	header.SetMode(0o644)
-	// archive/zip otherwise emits an extended-timestamp extra field. These DOS
-	// fields are the only public API for the exact empty-Extra 1980 header.
-	header.ModifiedDate = 33 //nolint:staticcheck // Required by RETROM_EJS_DEP_ZIP_V1.
-	header.ModifiedTime = 0  //nolint:staticcheck // Required by RETROM_EJS_DEP_ZIP_V1.
-	return header
 }

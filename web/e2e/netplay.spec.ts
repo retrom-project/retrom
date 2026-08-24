@@ -47,22 +47,25 @@ async function recordProfileEligibility(
   gameId: string,
   profileId: NetplayProfileId,
 ) {
-  const [catalogResponse, detailResponse] = await Promise.all([
-    request.get("/api/v1/netplay/games?availability=ALL&limit=100"),
-    request.get(`/api/v1/games/${gameId}`),
-  ]);
-  const catalog = catalogResponse.ok()
-    ? await catalogResponse.json() as { items: CatalogGame[] }
-    : { items: [] };
-  const detail = detailResponse.ok()
-    ? await detailResponse.json() as { coreOptions?: unknown }
-    : {};
-  const game = catalog.items.find((item) => item.gameId === gameId);
+  const detailResponse = await request.get(`/api/v1/games/${gameId}`);
+  const detail = detailResponse.ok() ? await detailResponse.json() as { coreOptions?: unknown } : {};
+  let catalogStatus = 200;
+  let cursor: string | null = null;
+  let game: CatalogGame | undefined;
+  do {
+    const suffix = cursor ? `&cursor=${encodeURIComponent(cursor)}` : "";
+    const catalogResponse = await request.get(`/api/v1/netplay/games?availability=ALL&limit=100${suffix}`);
+    catalogStatus = catalogResponse.status();
+    if (!catalogResponse.ok()) {break;}
+    const catalog = await catalogResponse.json() as { items: CatalogGame[]; nextCursor: string | null };
+    game = catalog.items.find((item) => item.gameId === gameId);
+    cursor = game ? null : catalog.nextCursor;
+  } while (cursor);
   writeFileSync(evidencePath(testInfo, `${profileId}-eligibility.json`), `${JSON.stringify({
-    catalogStatus: catalogResponse.status(), detailStatus: detailResponse.status(), game,
+    catalogStatus, detailStatus: detailResponse.status(), game,
     coreOptions: detail.coreOptions ?? null,
   }, null, 2)}\n`);
-  expect(catalogResponse.ok(), "netplay eligibility catalog response").toBe(true);
+  expect(catalogStatus, "netplay eligibility catalog response").toBe(200);
   expect(detailResponse.ok(), "netplay game detail response").toBe(true);
   expect(game, `netplay catalog game ${gameId}`).toBeTruthy();
   expect(game).toMatchObject({ availability: "SUPPORTED", blockerCode: null });
@@ -471,7 +474,18 @@ async function verifyRoomPickerGame(browser: Browser, result: ExpansionResult) {
   const page = await host.newPage();
   try {
     await page.goto(`/netplay/rooms/${room.roomId}`);
-    await expect(page.getByRole("button", { name: game!.platformName, exact: true })).toBeVisible();
+    const platformButton = page.getByRole("button", { name: game!.platformName, exact: true });
+    for (let pageIndex = 0; pageIndex < 5 && await platformButton.count() === 0; pageIndex += 1) {
+      const loadMore = page.getByRole("button", { name: /加载更多|重试加载/ });
+      const loadedSummary = page.locator(".netplay-picker-title strong");
+      const previousSummary = await loadedSummary.textContent();
+      await expect(loadMore).toBeVisible();
+      await loadMore.click();
+      await expect.poll(async () =>
+        await platformButton.count() > 0 || await loadedSummary.textContent() !== previousSummary,
+      ).toBe(true);
+    }
+    await expect(platformButton).toBeVisible();
     const card = page.locator(".netplay-game-card")
       .filter({ has: page.getByRole("heading", { name: game!.title, exact: true }) })
       .filter({ has: page.getByText(game!.platformInstanceName, { exact: true }) });

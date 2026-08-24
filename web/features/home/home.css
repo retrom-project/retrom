@@ -10,6 +10,12 @@
 .home-metrics .kpi p { margin-top: 16px; }
 .home-page { padding-bottom: 2px; }
 .home-page .page-header { min-height: 76px; margin-bottom: 18px; }
+.home-immersive-entry { min-height: 44px; gap: 8px; border-color: #c9c1f2; color: var(--purple-dark); background: linear-gradient(135deg, #faf8ff, #f2fbfb); box-shadow: 0 8px 24px rgb(63 48 145 / 8%); }
+.home-immersive-entry:hover { border-color: #a99ee7; background: linear-gradient(135deg, #f1edff, #e9fafa); }
+.home-immersive-entry svg { width: 18px; height: 18px; }
+@media (max-width: 959px), (max-height: 539px), (orientation: portrait) {
+  .home-immersive-entry { display: none; }
+}
 .home-layer + .home-layer { margin-top: 18px; }
 .home-first-layer { display: grid; grid-template-columns: minmax(0, 1.62fr) minmax(330px, .78fr); gap: 18px; align-items: stretch; }
 .home-featured-panel { min-width: 0; overflow: hidden; border-color: #d8d1f6; box-shadow: 0 14px 38px rgb(63 48 145 / 8%); }

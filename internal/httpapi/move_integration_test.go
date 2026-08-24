@@ -316,6 +316,7 @@ func TestDefaultCoreImpactPaginationRejectsDriftAndPreservesSaveLaunch(t *testin
 INSERT INTO game_metadata_revisions(id,
 game_id,
 title,
+title_initial,
 description,
 developer,
 publisher,
@@ -328,6 +329,7 @@ created_at_ms)
 SELECT ?,
 game_id,
 title,
+title_initial,
 description,
 developer,
 publisher,
@@ -469,7 +471,7 @@ func TestGameMetadataRevisionProjectionAndOptimisticEdit(t *testing.T) {
 			http.MethodPatch,
 			"/api/v1/admin/games/"+gameID,
 			strings.NewReader(
-				`{"title":"Edited fixture","description":"Updated","developer":"Retrom","publisher":"Local","genre":"Puzzle","players":2,"releaseYear":2001}`,
+				`{"title":"打击者1945","description":"Updated","developer":"Retrom","publisher":"Local","genre":"Puzzle","players":2,"releaseYear":2001}`,
 			),
 		)
 		request.Header.Set("Content-Type", "application/json")
@@ -483,12 +485,15 @@ func TestGameMetadataRevisionProjectionAndOptimisticEdit(t *testing.T) {
 	testassert.Falsef(t, testassert.Any(func() bool { return edited.Code != http.StatusOK }, func() bool { return edited.Header().Get("ETag") != `"v2"` }), "metadata edit = %d %s", edited.Code, edited.Body.String())
 	stale := sendPatch(`"v1"`)
 	testassert.Falsef(t, testassert.Any(func() bool { return stale.Code != http.StatusConflict }, func() bool { return !strings.Contains(stale.Body.String(), `"code":"VERSION_CONFLICT"`) }), "stale metadata edit = %d %s", stale.Code, stale.Body.String())
-	var title, sourceKind string
+	var title, titleInitial, previousTitleInitial, sourceKind string
 	var sourceRef sql.NullString
 	var storedContent, ownerID string
 	var auditCount, revisionCount int64
 	if err := server.database.QueryRowContext(context.Background(), `
 SELECT m.title,
+m.title_initial,
+(SELECT previous.title_initial FROM game_metadata_revisions previous
+ WHERE previous.game_id=g.id AND previous.id<>g.current_metadata_revision_id),
 m.source_kind,
 m.source_ref_id,
 g.current_content_revision_id,
@@ -498,14 +503,28 @@ g.platform_instance_id,
 FROM games g
 JOIN game_metadata_revisions m ON m.id=g.current_metadata_revision_id
 WHERE g.id=?
-`, gameID).Scan(&title, &sourceKind, &sourceRef, &storedContent, &ownerID, &revisionCount, &auditCount); err != nil {
+`, gameID).Scan(
+		&title, &titleInitial, &previousTitleInitial, &sourceKind, &sourceRef,
+		&storedContent, &ownerID, &revisionCount, &auditCount,
+	); err != nil {
 		t.Fatal(err)
 	}
 	gbcID := testsupport.MustPlatformInstanceID(t, server.database, "gbc/gambatte")
-	testassert.Falsef(t, testassert.Any(func() bool { return title != "Edited fixture" }, func() bool { return sourceKind != "ADMIN_EDIT" }, func() bool { return sourceRef.Valid }, func() bool { return storedContent != contentID }, func() bool { return ownerID != gbcID }, func() bool { return revisionCount != 2 }, func() bool { return auditCount != 1 }), "metadata state = title:%s source:%s/%v content:%s owner:%s revisions:%d audits:%d", title, sourceKind, sourceRef, storedContent, ownerID, revisionCount, auditCount)
+	testassert.Falsef(t, testassert.Any(
+		func() bool { return title != "打击者1945" },
+		func() bool { return titleInitial != "D" },
+		func() bool { return previousTitleInitial != "M" },
+		func() bool { return sourceKind != "ADMIN_EDIT" },
+		func() bool { return sourceRef.Valid },
+		func() bool { return storedContent != contentID },
+		func() bool { return ownerID != gbcID },
+		func() bool { return revisionCount != 2 },
+		func() bool { return auditCount != 1 },
+	), "metadata state = title:%s initial:%s/%s source:%s/%v content:%s owner:%s revisions:%d audits:%d",
+		title, titleInitial, previousTitleInitial, sourceKind, sourceRef, storedContent, ownerID, revisionCount, auditCount)
 	public := httptest.NewRecorder()
 	handler.ServeHTTP(public, httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/games/"+gameID, nil))
-	testassert.Falsef(t, testassert.Any(func() bool { return public.Code != http.StatusOK }, func() bool { return !strings.Contains(public.Body.String(), `"title":"Edited fixture"`) }), "public game metadata = %d %s", public.Code, public.Body.String())
+	testassert.Falsef(t, testassert.Any(func() bool { return public.Code != http.StatusOK }, func() bool { return !strings.Contains(public.Body.String(), `"title":"打击者1945"`) }), "public game metadata = %d %s", public.Code, public.Body.String())
 }
 
 func TestGamePermanentDeleteIsIdempotentReleasesPayloadAndPreservesTombstone(t *testing.T) {
@@ -544,6 +563,8 @@ VALUES(?,?,'payload-history-admin','Payload History Admin','ADMIN','ENABLED',1,1
 		},
 	)
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return created.LaunchID == "" }), "create launch before deletion = %#v, error=%v", created, err)
+	launchConfiguration, err := server.launcher.Config(ctx, created.LaunchID, created.Capability)
+	testassert.False(t, err != nil, err)
 	var revisionID, artifactID, blobID string
 	if err := server.database.QueryRowContext(ctx, `
 SELECT r.id,
@@ -603,6 +624,15 @@ SELECT profile_id,?,? FROM launch_sessions WHERE id=?
 		t.Fatal(err)
 	}
 	handler, cookie, csrf := httpSession(t, server)
+	runtimeGrant := &http.Cookie{
+		Name: runtimeContentGrantPrefix + created.LaunchID, Value: created.Capability, Path: "/runtime/content/",
+	}
+	beforeDeleteRequest := httptest.NewRequestWithContext(ctx, http.MethodGet, launchConfiguration.GameURL, nil)
+	beforeDeleteRequest.AddCookie(runtimeGrant)
+	beforeDelete := httptest.NewRecorder()
+	handler.ServeHTTP(beforeDelete, beforeDeleteRequest)
+	testassert.Falsef(t, beforeDelete.Code != http.StatusOK,
+		"runtime content before delete = %d %s", beforeDelete.Code, beforeDelete.Body.String())
 	impact, err := payloadrelease.GameDeleteImpact(ctx, server.database, gameID)
 	if err != nil {
 		t.Fatal(err)
@@ -700,6 +730,14 @@ WHERE g.id=?
 		t.Fatal(err)
 	}
 	testassert.Falsef(t, testassert.Any(func() bool { return status != "DELETED" }, func() bool { return payloadState != "RELEASED" }, func() bool { return !deletedAt.Valid }, func() bool { return version != 2 }, func() bool { return saveCount != 0 }, func() bool { return metadataCount != 1 }, func() bool { return contentCount != 1 }, func() bool { return contentFileCount != 0 }, func() bool { return variantCount != 1 }, func() bool { return variantFileCount != 0 }, func() bool { return auditCount != 1 }, func() bool { return launchState != "REVOKED" }), "deleted aggregate = %s/%s/%v v%d saves:%d metadata:%d content:%d/%d variants:%d/%d audits:%d launch:%s", status, payloadState, deletedAt, version, saveCount, metadataCount, contentCount, contentFileCount, variantCount, variantFileCount, auditCount, launchState)
+	afterDeleteRequest := httptest.NewRequestWithContext(ctx, http.MethodGet, launchConfiguration.GameURL, nil)
+	afterDeleteRequest.Header.Set("Cache-Control", "no-cache")
+	afterDeleteRequest.AddCookie(runtimeGrant)
+	afterDelete := httptest.NewRecorder()
+	handler.ServeHTTP(afterDelete, afterDeleteRequest)
+	testassert.Falsef(t, afterDelete.Code != http.StatusUnauthorized ||
+		!strings.Contains(afterDelete.Body.String(), `"code":"LAUNCH_CREDENTIAL_INVALID"`),
+		"runtime content after hard delete = %d %s", afterDelete.Code, afterDelete.Body.String())
 	publicList := httptest.NewRecorder()
 	handler.ServeHTTP(publicList, httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/games?limit=100", nil))
 	testassert.Falsef(t, testassert.Any(func() bool { return publicList.Code != http.StatusOK }, func() bool { return strings.Contains(publicList.Body.String(), gameID) }), "deleted game remained public = %d %s", publicList.Code, publicList.Body.String())
@@ -819,9 +857,9 @@ AND enabled=1
 	}{
 		{`PRAGMA defer_foreign_keys=ON`, nil},
 		{`
-INSERT INTO game_metadata_revisions(id, game_id, title, description, developer, publisher, genre, players,
+INSERT INTO game_metadata_revisions(id, game_id, title, title_initial, description, developer, publisher, genre, players,
 release_year, source_kind, source_ref_id, created_at_ms)
-VALUES(?, ?, 'Move fixture', '', '', '', '', NULL, NULL, 'ADMIN_EDIT', NULL, ?)
+VALUES(?, ?, 'Move fixture', 'M', '', '', '', '', NULL, NULL, 'ADMIN_EDIT', NULL, ?)
 `, []any{metadataID, gameID, now}},
 		{`
 INSERT INTO game_content_revisions(id, game_id, source_kind, source_ref_id, source_manifest_json,
@@ -889,9 +927,9 @@ SELECT current_revision_id FROM game_variants WHERE game_id=? AND core_id='gamba
 		args  []any
 	}{
 		{`
-INSERT INTO game_metadata_revisions(id, game_id, title, description, developer, publisher, genre, players,
+INSERT INTO game_metadata_revisions(id, game_id, title, title_initial, description, developer, publisher, genre, players,
 release_year, source_kind, source_ref_id, created_at_ms)
-SELECT ?, ?, title || ?, description, developer, publisher, genre, players, release_year, source_kind, source_ref_id,
+SELECT ?, ?, title || ?, title_initial, description, developer, publisher, genre, players, release_year, source_kind, source_ref_id,
 created_at_ms
 FROM game_metadata_revisions
 WHERE id=(SELECT current_metadata_revision_id FROM games WHERE id=?)

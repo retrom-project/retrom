@@ -2,8 +2,8 @@
   "version": 1,
   "exceptions": [
     {
-      "path": "internal/httpapi/launch_handlers.go",
-      "line": 774,
+      "path": "internal/httpapi/runtime_content_handlers.go",
+      "line": 344,
       "symbol": "func deterministicStoreZIPHeader(name string) *zip.FileHeader",
       "linter": "staticcheck",
       "reason": "Required by RETROM_EJS_DEP_ZIP_V1.",
@@ -11,8 +11,8 @@
       "reviewAfter": "2027-08-22"
     },
     {
-      "path": "internal/httpapi/launch_handlers.go",
-      "line": 775,
+      "path": "internal/httpapi/runtime_content_handlers.go",
+      "line": 345,
       "symbol": "func deterministicStoreZIPHeader(name string) *zip.FileHeader",
       "linter": "staticcheck",
       "reason": "Required by RETROM_EJS_DEP_ZIP_V1.",

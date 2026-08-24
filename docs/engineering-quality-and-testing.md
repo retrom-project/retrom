@@ -491,12 +491,32 @@ make web-e2e
 沉浸模式必须同时覆盖纯输入状态机、独立 UI、后端只读投影、普通 Player adapter 与真实产品链路，不能用鼠标点击、直接调用 React handler 或独立 EmulatorJS 页面替代手柄路径：
 
 - 纯逻辑测试覆盖 standard mapping、轴阈值/回滞、中立门禁、A/B/方向沿触发、重复节流、断开/隐藏清零，以及 Select+Start 的 `100/60/650ms` 双组合键状态机；
-- HTTP 集成测试覆盖用户隔离、平台可见性、排序/聚合、媒体/描述投影、签名 cursor 的范围绑定、未知查询和隐藏平台 404；
-- React 测试使用可控 Gamepad source 覆盖全视口首页入口、焦点保持、同帧方向+A、平台左右环绕和定向动画、游戏上下浏览、长简介滚动、媒体等高、700ms 视频延迟、路由/隐藏时手柄认领保持、真实断连去抖、SSR 稳定时钟、全屏恢复、错误/空状态和 B 返回；普通 PC/移动端导航与壳不得出现沉浸控件；
-- Player adapter 测试必须证明过滤器先于 loader 安装、仅过滤活动手柄的 Select/Start、第一次 chord 不泄漏、菜单期间所有本地手柄归零、取消只恢复本菜单拥有的暂停、退出完成并撤销 Launch、teardown 恢复原 `getGamepads`；4.2.3 与 4.3.0-pre 都要覆盖，联机 legacy adapter 不能继承过滤；
-- 产品 E2E 使用项目自有 GBA 与 Arcade fixture，经过真实登录、首页手柄入口、平台/游戏页、Launch/config/content、Player、EmulatorJS Core 和退出返回。至少一条 Arcade 路径覆盖多个手柄快照并证明只有活动手柄控制沉浸 UI；媒体存在时须走受权 COVER/VIDEO 端点。
+- 标题首字符纯逻辑测试覆盖 ASCII 数字、大小写字母、常用与多音汉字的固定拼音首字母、符号/emoji/空白
+  回退 `#`；所有 MetadataRevision 生产 writer 和改名事务都断言同一字段与数据库值域，不能只测沉浸查询；
+- HTTP 集成测试覆盖 destinations 固定四卡顺序、Profile 隔离、平台可见性、收藏夹 ownership、存档投影、
+  `titleInitial/title/gameId` 分页与 recent 时序例外、媒体/描述 current revision、签名 cursor 的范围绑定、
+  未知 query、非法 folderId、隐藏平台 404 和媒体 revision 退役；
+- React 测试使用可控 Gamepad source 覆盖首页显式/手柄两种入口、焦点保持、同帧方向+A、destination 左右
+  环绕和定向动画、资料库/平台游戏浏览、收藏夹、Y 默认收藏、存档选择、长简介滚动、媒体等高、700ms
+  视频延迟、路由/隐藏时手柄认领保持、真实断连去抖、SSR 稳定时钟、错误/空状态和 B 返回；普通 PC/移动
+  导航与壳不得出现沉浸控件；
+- BGM/系统菜单测试使用可控 media、visibility、Fullscreen 和 localStorage，覆盖内置 OGG、自动播放阻断
+  提示、隐藏/静音/零音量/Player/卸载暂停、可见恢复、两组音量严格 v1 payload/default/failure、Select
+  菜单顺序、上下/左右/A/B 与全屏拒绝；测试不得真实播放或写全局用户状态；
+- Player adapter 测试必须证明过滤器先于 loader 安装、仅过滤活动手柄 Select/Start、第一次 chord 不泄漏、
+  菜单期间所有本地手柄归零、取消只恢复本菜单拥有的暂停、创建存档只走手动 state+截图链路且失败可重试、
+  退出完成并撤销 Launch、teardown 恢复原 `getGamepads`；4.2.3 与 4.3.0-pre 都覆盖，联机 legacy adapter
+  不能继承过滤；
+- 内容端点集成测试覆盖 Asset/ROM/多盘外部文件/BIOS/parent 相同 bytes URL 稳定、任一替换 URL 改变、旧
+  identity 授权失败或退役、immutable private/public cache header，以及 SaveState/state screenshot 始终
+  Profile 私有 no-store；
+- 产品 E2E 使用项目自有 GBA 与 Arcade fixture，经过真实登录、首页手柄入口、四类资料库/平台页、收藏与
+  存档、Launch/config/content、Player、创建存档、EmulatorJS Core 和退出返回。至少一条 Arcade 路径覆盖
+  多个手柄快照并证明只有活动手柄控制沉浸 UI；媒体存在时须走受权 COVER/VIDEO 端点。
 
-`ACC-IMM-001`–`008` 是唯一验收步骤事实源。修改输入过滤、普通 adapter manifest/registry、Player Shell 或沉浸 API 时，除聚焦测试外必须运行 `make data-check`、`make deps-check`、`make web-e2e` 及普通/联机既有回归；不得通过复用联机 adapter 或降低输入断言取得通过。
+`ACC-IMM-001`–`012` 是唯一验收步骤事实源。修改输入过滤、普通 adapter manifest/registry、Player Shell、
+沉浸 API 或内容身份缓存时，除聚焦测试外必须运行 `make data-check`、`make deps-check`、`make web-e2e` 及
+普通/联机既有回归；不得通过复用联机 adapter 或降低输入断言取得通过。
 
 ## 14. 维护规则
 

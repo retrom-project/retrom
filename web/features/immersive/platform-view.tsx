@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { fetchImmersivePlatforms, ImmersiveAPIError, type ImmersivePlatform } from "./api";
+import { fetchImmersiveDestinations, ImmersiveAPIError, type ImmersiveDestination } from "./api";
 import { setActiveImmersiveGamepadIndex } from "./active-gamepad";
 import { ImmersiveChoiceDialog } from "./choice-dialog";
 import { ImmersiveShell } from "./immersive-shell";
@@ -16,8 +16,8 @@ type ViewState = "loading" | "ready" | "empty" | "error" | "unauthorized";
 type ExitChoice = "continue" | "exit";
 type PlatformTransition = Readonly<{ direction: "left" | "right" | null; sequence: number }>;
 
-function platformCode(platform: ImmersivePlatform) {
-  const normalized = platform.platformId.replaceAll(/[^a-z0-9]/gi, "").toUpperCase();
+function platformCode(destination: ImmersiveDestination) {
+  const normalized = destination.destinationId.replaceAll(/[^a-z0-9]/gi, "").toUpperCase();
   return normalized.slice(0, 4) || "GAME";
 }
 
@@ -39,27 +39,31 @@ function relativePlayTime(lastPlayedAtMs: number | null, generatedAtMs: number) 
   return new Intl.DateTimeFormat("zh-CN", { month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" }).format(lastPlayedAtMs);
 }
 
-function PlatformCard({ current, generatedAtMs, platform }: { current?: boolean; generatedAtMs: number; platform: ImmersivePlatform }) {
-  return <article className={`${platformStyles.platformCard} ${platformTone(platform.platformId)} ${current ? platformStyles.currentPlatform : ""}`.trim()} aria-current={current ? "true" : undefined}>
+function PlatformCard({ current, destination, generatedAtMs }: {
+  current?: boolean;
+  destination: ImmersiveDestination;
+  generatedAtMs: number;
+}) {
+  return <article className={`${platformStyles.platformCard} ${platformTone(destination.destinationId)} ${current ? platformStyles.currentPlatform : ""}`.trim()} aria-current={current ? "true" : undefined}>
     <div className={platformStyles.platformCopy}>
-      <span className={platformStyles.platformCode}>{platformCode(platform)}</span>
-      <p>{current ? "当前平台" : "相邻平台"}</p>
-      <h2>{platform.platformName}</h2>
-      <strong>{platform.gameCount} 款游戏</strong>
-      <small>上次游玩：{relativePlayTime(platform.lastPlayedAtMs, generatedAtMs)}</small>
+      <span className={platformStyles.platformCode}>{platformCode(destination)}</span>
+      <p>{current ? destination.kind === "platform" ? "当前平台" : "当前入口" : "相邻入口"}</p>
+      <h2>{destination.name}</h2>
+      <strong>{destination.gameCount} 款游戏</strong>
+      <small>上次游玩：{relativePlayTime(destination.lastPlayedAtMs, generatedAtMs)}</small>
     </div>
     {current ? <PlatformCoverStack
-      key={platform.platformId}
-      games={platform.featuredGames}
-      platformName={platform.platformName}
+      key={destination.destinationId}
+      games={destination.featuredGames}
+      platformName={destination.name}
     /> : null}
   </article>;
 }
 
-export function PlatformView({ initialPlatformId }: { initialPlatformId?: string }) {
+export function PlatformView({ initialDestinationId }: { initialDestinationId?: string }) {
   const router = useRouter();
   const [state, setState] = useState<ViewState>("loading");
-  const [platforms, setPlatforms] = useState<ImmersivePlatform[]>([]);
+  const [platforms, setPlatforms] = useState<ImmersiveDestination[]>([]);
   const [generatedAtMs, setGeneratedAtMs] = useState(0);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [transition, setTransition] = useState<PlatformTransition>({ direction: null, sequence: 0 });
@@ -69,10 +73,10 @@ export function PlatformView({ initialPlatformId }: { initialPlatformId?: string
 
   const requestPlatforms = useCallback(() => {
     const controller = new AbortController();
-    void fetchImmersivePlatforms(controller.signal).then((result) => {
+    void fetchImmersiveDestinations(controller.signal).then((result) => {
       setPlatforms(result.items);
       setGeneratedAtMs(result.generatedAtMs);
-      const requested = result.items.findIndex((item) => item.platformId === initialPlatformId);
+      const requested = result.items.findIndex((item) => item.destinationId === initialDestinationId);
       setSelectedIndex(requested >= 0 ? requested : 0);
       setState(result.items.length ? "ready" : "empty");
     }).catch((error: unknown) => {
@@ -80,7 +84,7 @@ export function PlatformView({ initialPlatformId }: { initialPlatformId?: string
       setState(error instanceof ImmersiveAPIError && error.status === 401 ? "unauthorized" : "error");
     });
     return () => controller.abort();
-  }, [initialPlatformId]);
+  }, [initialDestinationId]);
 
   useEffect(() => requestPlatforms(), [requestPlatforms]);
 
@@ -125,7 +129,13 @@ export function PlatformView({ initialPlatformId }: { initialPlatformId?: string
       setSelectedIndex((value) => wrapPlatformIndex(value, action, platforms.length));
       setTransition((current) => ({ direction: action, sequence: current.sequence + 1 }));
     }
-    if (action === "confirm") {router.push(`/immersive/platforms/${encodeURIComponent(selected.platformId)}`);}
+    if (action === "confirm") {
+      if (selected.kind === "platform") {
+        router.push(`/immersive/platforms/${encodeURIComponent(selected.destinationId)}`);
+      } else {
+        router.push(`/immersive/library/${selected.kind}`);
+      }
+    }
     if (action === "cancel") {setExitChoice("continue"); setExitOpen(true);}
   }, [exitOpen, handleExitAction, handleStateAction, platforms.length, router, selected]);
 
@@ -149,18 +159,18 @@ export function PlatformView({ initialPlatformId }: { initialPlatformId?: string
       {state === "unauthorized" ? <div className={styles.centerState} role="alert"><h2>登录状态已失效</h2><p>请返回登录后重新进入沉浸模式。</p><button type="button" onClick={() => router.replace("/login")}>返回登录</button></div> : null}
       {state === "ready" && selected ? <div className={platformStyles.platformStage}>
         <div
-          key={`${selected.platformId}:${transition.sequence}`}
+          key={`${selected.destinationId}:${transition.sequence}`}
           className={platformStyles.platformCarousel}
           data-direction={transition.direction ?? undefined}
           data-selected-index={selectedIndex}
           role="listbox"
           tabIndex={0}
           aria-label="游戏平台"
-          aria-activedescendant={`platform-${selected.platformId}`}
+          aria-activedescendant={`platform-${selected.destinationId}`}
         >
-          {neighbors.previous ? <div role="option" aria-selected="false"><PlatformCard platform={neighbors.previous} generatedAtMs={generatedAtMs} /></div> : <div />}
-          <div id={`platform-${selected.platformId}`} role="option" aria-selected="true"><PlatformCard current platform={selected} generatedAtMs={generatedAtMs} /></div>
-          {neighbors.next ? <div role="option" aria-selected="false"><PlatformCard platform={neighbors.next} generatedAtMs={generatedAtMs} /></div> : <div />}
+          {neighbors.previous ? <div role="option" aria-selected="false"><PlatformCard destination={neighbors.previous} generatedAtMs={generatedAtMs} /></div> : <div />}
+          <div id={`platform-${selected.destinationId}`} role="option" aria-selected="true"><PlatformCard current destination={selected} generatedAtMs={generatedAtMs} /></div>
+          {neighbors.next ? <div role="option" aria-selected="false"><PlatformCard destination={neighbors.next} generatedAtMs={generatedAtMs} /></div> : <div />}
         </div>
         <div className={platformStyles.platformPosition} aria-hidden="true">
           <span>{String(selectedIndex + 1).padStart(2, "0")}</span>

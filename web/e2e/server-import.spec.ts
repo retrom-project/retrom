@@ -340,7 +340,9 @@ test("ACC-PEG-006 project-owned Pegasus GBA source publishes and advances real e
   expect(configuration.coreName).toBe("mGBA");
   expect(configuration.playerAdapterId).toBe("ejs-4.2.3-v3");
   expect(configuration.emulatorjsVersion).toBe("4.2.3");
-  expect(configuration.gameUrl).toMatch(/\/runtime\/launches\/[0-9a-f-]+\/game\/pegasus-smoke\.gba$/);
+  expect(configuration.gameUrl).toMatch(
+    /\/runtime\/content\/game\/[0-9a-f]{64}\/pegasus-smoke\.gba$/,
+  );
 
   const player = page.frameLocator('iframe[title="Retrom EmulatorJS Player"]');
   await expect(player.locator("canvas.ejs_canvas")).toBeVisible({ timeout: 60_000 });

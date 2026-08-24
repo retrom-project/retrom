@@ -47,8 +47,8 @@ Retrom 是供用户与可信朋友共享的自托管复古游戏 Web 平台。�
 - 使用 Hasheous 的免登录哈希查询作为一期元信息候选源；不集成 ScreenScraper。
 - 使用与具体 EmulatorJS/core artifact 绑定的 DAT 识别 Arcade machine、parent ROM 和 BIOS 依赖；DAT 不承担元信息刮削。
 - 支持游戏元信息、文件 revision、游戏目录和 BIOS 管理；Arcade DAT 只使用 core release 固定的内置版本。
-- 支持标准手柄从普通首页显式进入独立沉浸模式，只用手柄完成选择平台、选择游戏、普通单机游玩与返回；
-  沉浸模式不扩展到存档、联机、收藏、搜索、管理或普通 PC/移动页面导航。
+- 支持标准手柄从普通首页显式进入独立沉浸模式，只用手柄完成选择资料库入口或平台、浏览收藏夹与存档、
+  选择游戏、普通单机游玩、创建存档与返回；沉浸模式不扩展到联机、搜索、管理或普通 PC/移动页面导航。
 - 支持安全初始化、邀请注册、账户密码轮换以及管理员维护账号角色与状态。
 - 所有私有游玩、存档和启动数据按账号 Profile 隔离；管理员没有读取他人私有数据的旁路。
 - 可选启用两人异地联机房间；manifest 精确锁定 EmulatorJS 4.2.3 的 FCEUmm、FBNeo、SNES9x、Nestopia、MAME2003、MAME2003 Plus 与 FBA2012 CPS1/CPS2 core profile，覆盖其全部合格 READY 游戏；FCEUmm 使用 prediction/rollback，其余使用严格 lockstep，均只由服务端中继输入和状态，不传输画面或音频。
@@ -166,17 +166,21 @@ Tag 必须先由管理员建立，再以稳定 ID 关联 Game、导入 ReviewDra
 
 ### 3.13 沉浸模式是独立电视交互面
 
-普通 PC/平板/移动 App Shell 与沉浸模式是两套明确分离的 UI。普通首页只在可见期间观察 Chrome
-`mapping=standard` 手柄的按键上升沿，并以覆盖整个 viewport、默认“取消”的电视确认层征求进入；确认后的
-`/immersive` 与平台游戏列表使用独立全视口 Shell、电视排版、帮助条和焦点状态机，不先渲染普通侧栏、
-App Bar、底栏或游戏卡再通过 CSS 隐藏。
+普通 PC/平板/移动 App Shell 与沉浸模式是两套明确分离的 UI。普通首页提供可点击的显式入口，并只在可见
+期间观察 Chrome `mapping=standard` 手柄的按键上升沿；两种入口都以覆盖整个 viewport、默认“取消”的电视
+确认层征求进入。确认后的 `/immersive` 与游戏列表使用独立全视口 Shell、电视排版、帮助条和焦点状态机，
+不先渲染普通侧栏、App Bar、底栏或游戏卡再通过 CSS 隐藏。
 
-沉浸模式只复用认证、已发布 Game/MetadataRevision、内容授权、LaunchSession 与 Player Core stage，不建立
-新的数据库状态。平台视图按基础平台显示可见游戏数和当前 Profile 最近启动时间，游戏列表只展示标题、
-当前 COVER/VIDEO 和 description；A 使用目录默认 Core、无 SaveState 创建普通单机 Launch。游戏中由活动
-导航手柄双击 Select+Start 打开只有“取消/退出游戏”的暂停菜单，其余输入仍交给 Core。普通 Player 与
-联机 Player 不识别该组合，也不继承沉浸输入过滤。完整页面、输入和验收契约分别见 UI、运行时、HTTP、
-依赖与统一验收文档。
+沉浸模式不建立专用服务端会话或偏好模型，而是复用认证、Profile 私有 Favorite/Folder/SaveState、已发布
+Game/MetadataRevision、内容授权、LaunchSession 与 Player Core stage。首页先固定展示“全部游戏、最近游玩、
+收藏游戏、我的存档”，再按基础平台展示入口；收藏范围可进入既有收藏夹，游戏列表以 Y 切换未分类的默认
+收藏，存档范围可选择具体 SaveState 启动。非最近范围按 MetadataRevision 的 `title_initial/title/game_id`
+排序，最近范围按本 Profile 最近游玩倒序。浏览 Shell 循环播放站内 BGM，Select 打开背景音乐/游戏音量、
+静音、全屏和退出系统菜单；这些声音偏好只保存在浏览器 localStorage。
+
+游戏中由活动导航手柄双击 Select+Start 打开“取消、创建存档、退出游戏”菜单；创建存档显式复用普通手动
+SaveState 链路，取消与退出都不会自动存档。其余输入仍交给 Core。普通 Player 与联机 Player 不识别该组合，
+也不继承沉浸输入过滤。完整页面、输入和验收契约分别见 UI、运行时、HTTP、依赖与统一验收文档。
 
 ## 4. 系统上下文
 
@@ -199,7 +203,9 @@ flowchart LR
 
 - 所有页面经同源认证入口；匿名用户只能访问初始化、登录、邀请注册和密码重置页面，普通用户不能访问管理 API。
 - 两个应用只监听明文 HTTP；生产环境只向受信容器/主机网络开放，由前置 NG 终结 TLS 并提供 HTTPS。
-- ROM、BIOS、存档等只通过短时 LaunchSession capability cookie 授权的同源端点提供；URL 只有非秘密 `launchId`，不暴露宿主路径或内容 hash。
+- ROM、BIOS、parent 与多盘文件只通过短时 Launch content grant 授权的同源 `/runtime/content/` 端点提供；
+  URL 携带不可变内容身份，替换任一输入必须换 URL，但不暴露宿主路径或内部 Blob ID。SaveState 与截图继续
+  通过 Profile/Launch 限定的逻辑 ID 私有 no-store 端点提供。
 - NG 必须让页面、EmulatorJS 与受控内容端点保持同源，并保留/设置正确的 COOP/COEP/CORP 响应头；DOSBox Pure 等线程模式依赖该安全上下文。
 - 所有浏览器写入校验精确公开 `Origin`；已登录写入另校验内存中的 CSRF token。可信代理 CIDR 只用于规范化限流客户端 IP，不构成授权。
 - EmulatorJS、core artifact 和 DAT 均锁定版本，不依赖浮动 CDN。

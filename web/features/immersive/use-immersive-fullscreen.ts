@@ -18,10 +18,10 @@ export function useImmersiveFullscreen() {
     hideTimerRef.current = window.setTimeout(() => setRestoreVisible(false), RESTORE_VISIBLE_MS);
   }, []);
 
-  const enterFullscreen = useCallback(() => {
-    void requestImmersiveFullscreen().then((entered) => {
+  const enterFullscreen = useCallback(async () => {
+    const entered = await requestImmersiveFullscreen();
       if (!entered) {hideLater();}
-    });
+    return entered;
   }, [hideLater]);
 
   useEffect(() => {

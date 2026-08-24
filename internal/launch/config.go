@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"net/url"
 	"slices"
 	"strings"
 
@@ -127,7 +126,7 @@ func (service *Service) Config(ctx context.Context, launchID, capability string)
 	var state, coreID, coreName, artifactID, emulatorVersion, relativePath, compatibilityJSON string
 	var dependencySnapshotJSON, variantRevisionID, revisionCompatibilityCode string
 	var gameTitle, platformName string
-	var logicalName, contentFormat, returnTo string
+	var logicalName, contentFormat, contentDigest, returnTo string
 	var bootstrapExpires, hardExpires, emulatorGameID, initialDiscIndex int64
 	var requiresThreads int
 	var saveStateID, dosEntry sql.NullString
@@ -154,9 +153,10 @@ r.compatibility_code,
 l.game_variant_revision_id,
 metadata.title,
 platform.name,
-lc.logical_name,
-lc.format_version,
-l.return_to,
+	lc.logical_name,
+	lc.format_version,
+	content_blob.sha256,
+	l.return_to,
 l.save_state_id,
 l.dos_entry_path,
 l.initial_disc_index,
@@ -172,8 +172,9 @@ JOIN game_variant_revisions r ON r.id=l.game_variant_revision_id
 JOIN games g ON g.id=l.game_id
 JOIN game_metadata_revisions metadata ON metadata.id=g.current_metadata_revision_id
 JOIN platform_instances instance ON instance.id=g.platform_instance_id
-JOIN platforms platform ON platform.id=instance.platform_id
-JOIN launch_content_files lc ON lc.launch_session_id=l.id
+	JOIN platforms platform ON platform.id=instance.platform_id
+	JOIN launch_content_files lc ON lc.launch_session_id=l.id
+	JOIN blobs content_blob ON content_blob.id=lc.blob_id
 LEFT JOIN netplay_sessions session ON session.id=l.netplay_session_id
 WHERE l.id=?
 `, launchID).
@@ -198,6 +199,7 @@ WHERE l.id=?
 			&platformName,
 			&logicalName,
 			&contentFormat,
+			&contentDigest,
 			&returnTo,
 			&saveStateID,
 			&dosEntry,
@@ -246,7 +248,8 @@ AND state='CREATED'
 		dependencySnapshotJSON: dependencySnapshotJSON, variantRevisionID: variantRevisionID,
 		revisionCompatibilityCode: revisionCompatibilityCode, gameTitle: gameTitle,
 		platformName: platformName, logicalName: logicalName, contentFormat: contentFormat,
-		returnTo: returnTo, emulatorGameID: emulatorGameID, initialDiscIndex: initialDiscIndex,
+		contentDigest: contentDigest,
+		returnTo:      returnTo, emulatorGameID: emulatorGameID, initialDiscIndex: initialDiscIndex,
 		requiresThreads: requiresThreads, saveStateID: saveStateID, dosEntry: dosEntry,
 		netplaySessionID: netplaySessionID, netplayRoomID: netplayRoomID,
 		netplayProfileJSON: netplayProfileJSON, netplayPlayerNo: netplayPlayerNo,
@@ -306,7 +309,7 @@ func validConfigLifetime(
 type configBuildInput struct {
 	launchID, capability, coreID, coreName, artifactID, emulatorVersion, relativePath string
 	dependencySnapshotJSON, variantRevisionID, revisionCompatibilityCode              string
-	gameTitle, platformName, logicalName, contentFormat, returnTo                     string
+	gameTitle, platformName, logicalName, contentFormat, contentDigest, returnTo      string
 	emulatorGameID, initialDiscIndex                                                  int64
 	requiresThreads                                                                   int
 	saveStateID, dosEntry                                                             sql.NullString
@@ -337,18 +340,23 @@ func (service *Service) buildLaunchConfig(
 	if saveStateID.Valid && !isNetplay {
 		stateURL = "/runtime/launches/" + launchID + "/state"
 	}
-	biosURL, parentURL := any(nil), any(nil)
-	biosFiles, _ := service.BundleFiles(ctx, launchID, capability, "BIOS_BUNDLE")
-	parentFiles, _ := service.BundleFiles(ctx, launchID, capability, "PARENT")
-	if len(biosFiles) > 0 {
-		biosURL = "/runtime/launches/" + launchID + "/bios/bundle.zip"
-	}
-	if len(parentFiles) > 0 {
-		parentURL = "/runtime/launches/" + launchID + "/parent/bundle.zip"
+	biosURL, parentURL, err := service.launchDependencyURLs(ctx, launchID, capability)
+	if err != nil {
+		return Config{}, err
 	}
 	coreOptions, warnings, err := buildLaunchCoreOptions(
 		compatibility, revisionCompatibilityCode, dependencySnapshotJSON,
 	)
+	if err != nil {
+		return Config{}, err
+	}
+	gameIdentity, err := ContentIdentity(ContentView{
+		Digest: input.contentDigest, Format: contentFormat, CoreID: coreID, DOSEntry: nullableStringPointer(dosEntry),
+	})
+	if err != nil {
+		return Config{}, err
+	}
+	gameURL, err := RuntimeContentURL("game", gameIdentity, logicalName)
 	if err != nil {
 		return Config{}, err
 	}
@@ -390,7 +398,7 @@ func (service *Service) buildLaunchConfig(
 			"/",
 		) + "/",
 		LoaderURL:            base + version.Manifest.EmulatorJS.PlayerAdapter.LoaderPath,
-		GameURL:              "/runtime/launches/" + launchID + "/game/" + url.PathEscape(logicalName),
+		GameURL:              gameURL,
 		BIOSURL:              biosURL,
 		ParentURL:            parentURL,
 		StateURL:             stateURL,
@@ -406,6 +414,43 @@ func (service *Service) buildLaunchConfig(
 		ReturnTo:             returnTo,
 		Netplay:              netplayConfig,
 	}, nil
+}
+
+func (service *Service) launchDependencyURLs(
+	ctx context.Context,
+	launchID, capability string,
+) (any, any, error) {
+	biosURL, err := service.launchBundleURL(ctx, launchID, capability, "BIOS_BUNDLE", "bios")
+	if err != nil {
+		return nil, nil, err
+	}
+	parentURL, err := service.launchBundleURL(ctx, launchID, capability, "PARENT", "parent")
+	if err != nil {
+		return nil, nil, err
+	}
+	return optionalRuntimeURL(biosURL), optionalRuntimeURL(parentURL), nil
+}
+
+func (service *Service) launchBundleURL(
+	ctx context.Context,
+	launchID, capability, role, kind string,
+) (string, error) {
+	files, err := service.BundleFiles(ctx, launchID, capability, role)
+	if err != nil || len(files) == 0 {
+		return "", err
+	}
+	identity, err := BundleIdentity(files)
+	if err != nil {
+		return "", err
+	}
+	return RuntimeContentURL(kind, identity, "bundle.zip")
+}
+
+func optionalRuntimeURL(value string) any {
+	if value == "" {
+		return nil
+	}
+	return value
 }
 
 func buildLaunchCoreOptions(
@@ -451,12 +496,14 @@ func (service *Service) loadLaunchExternalFiles(
 ) (map[string]string, []DiscEntry, error) {
 	externalFiles := make(map[string]string)
 	externalRows, externalErr := service.database.QueryContext(ctx, `
-SELECT virtual_path,
-logical_name,
-kind
-FROM launch_external_files
-WHERE launch_session_id=?
-ORDER BY CASE kind WHEN 'DISC' THEN 0 ELSE 1 END,virtual_path
+SELECT file.virtual_path,
+file.logical_name,
+file.kind,
+blob.sha256
+FROM launch_external_files file
+JOIN blobs blob ON blob.id=file.blob_id
+WHERE file.launch_session_id=?
+ORDER BY CASE file.kind WHEN 'DISC' THEN 0 ELSE 1 END,file.virtual_path
 	`, launchID)
 	if externalErr != nil {
 		return nil, nil, fmt.Errorf("launch/service: %w", externalErr)
@@ -464,8 +511,8 @@ ORDER BY CASE kind WHEN 'DISC' THEN 0 ELSE 1 END,virtual_path
 	defer func() { cleanup.Error("close", externalRows.Close()) }()
 	discEntries := make([]DiscEntry, 0, 8)
 	for externalRows.Next() {
-		var virtualPath, externalName, kind string
-		if err := externalRows.Scan(&virtualPath, &externalName, &kind); err != nil || len(externalFiles) >= 16 {
+		var virtualPath, externalName, kind, digest string
+		if err := externalRows.Scan(&virtualPath, &externalName, &kind, &digest); err != nil || len(externalFiles) >= 16 {
 			return nil, nil, ErrBlocked
 		}
 		if _, duplicate := externalFiles[virtualPath]; duplicate {
@@ -483,7 +530,15 @@ ORDER BY CASE kind WHEN 'DISC' THEN 0 ELSE 1 END,virtual_path
 		} else if kind != "BIOS" {
 			return nil, nil, ErrBlocked
 		}
-		externalFiles[virtualPath] = "/runtime/launches/" + launchID + "/external-files/" + url.PathEscape(externalName)
+		externalIdentity, identityErr := ExternalContentIdentity(digest)
+		if identityErr != nil {
+			return nil, nil, identityErr
+		}
+		externalURL, urlErr := RuntimeContentURL("external", externalIdentity, externalName)
+		if urlErr != nil {
+			return nil, nil, urlErr
+		}
+		externalFiles[virtualPath] = externalURL
 	}
 	if err := externalRows.Err(); err != nil {
 		return nil, nil, fmt.Errorf("launch/service: %w", err)
@@ -613,4 +668,11 @@ func nullableString(value sql.NullString) any {
 		return value.String
 	}
 	return nil
+}
+
+func nullableStringPointer(value sql.NullString) *string {
+	if !value.Valid {
+		return nil
+	}
+	return &value.String
 }

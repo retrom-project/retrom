@@ -3,6 +3,9 @@ import { adapterID, captureManualScreenshot, captureManualState, captureReviewSc
 import { netplayProfilePredictionFrames } from "./ejs-config";
 import { ImmersiveGamepadFilter } from "../immersive-gamepad-filter";
 
+const gameContentIdentity = "a".repeat(64);
+const externalContentIdentity = "b".repeat(64);
+
 const config: PlayerConfig = {
   mode: "single",
   launchId: "01980000-0000-7000-8000-000000000001",
@@ -18,7 +21,7 @@ const config: PlayerConfig = {
   platformName: "Game Boy Advance",
   runtimeBaseUrl: "/runtime/emulatorjs/4.2.3/data/",
   loaderUrl: "/runtime/emulatorjs/4.2.3/data/loader.js",
-  gameUrl: "/runtime/launches/id/game/game.gba",
+  gameUrl: `/runtime/content/game/${gameContentIdentity}/game.gba`,
   biosUrl: null,
   parentUrl: null,
   stateUrl: null,
@@ -247,18 +250,24 @@ describe("EmulatorJS adapter", () => {
     start.remove();
   });
 
-  it("accepts only launch-scoped BIOS external files", () => {
+  it("accepts only content-addressed BIOS external files", () => {
     const target = document.createElement("div");
     const biosConfig = {
       ...config,
       externalFiles: {
-        "/retroarch/userdata/system/bios7.bin": `/runtime/launches/${config.launchId}/external-files/bios7.bin`
+        "/retroarch/userdata/system/bios7.bin": `/runtime/content/external/${externalContentIdentity}/bios7.bin`
       }
     };
     const cleanup = mountEmulatorJS(biosConfig, target);
     expect(window.EJS_externalFiles).toEqual(biosConfig.externalFiles);
     cleanup();
     expect(() => mountEmulatorJS({ ...biosConfig, externalFiles: { "/../bios7.bin": biosConfig.externalFiles["/retroarch/userdata/system/bios7.bin"] } }, target)).toThrow("PLAYER_EXTERNAL_FILES_INVALID");
+    expect(() => mountEmulatorJS({
+      ...biosConfig,
+      externalFiles: {
+        "/retroarch/userdata/system/bios7.bin": `/runtime/launches/${config.launchId}/external-files/bios7.bin`,
+      },
+    }, target)).toThrow("PLAYER_EXTERNAL_FILES_INVALID");
   });
 
   it("normalizes 4.2.3 external ArrayBuffer writes before the runtime starts", () => {
@@ -266,7 +275,7 @@ describe("EmulatorJS adapter", () => {
     const multiDiscConfig: PlayerConfig = {
       ...config,
       externalFiles: {
-        "/disc-001.chd": `/runtime/launches/${config.launchId}/external-files/disc-001.chd`
+        "/disc-001.chd": `/runtime/content/external/${externalContentIdentity}/disc-001.chd`
       }
     };
     const cleanup = mountEmulatorJS(multiDiscConfig, target);
@@ -396,12 +405,12 @@ describe("EmulatorJS adapter runtime controls", () => {
       ...config,
       core: "yabause",
       runtimeCore: "yabause",
-      gameUrl: `/runtime/launches/${config.launchId}/game/playlist.m3u`,
+      gameUrl: `/runtime/content/game/${gameContentIdentity}/playlist.m3u`,
       stateUrl: `/runtime/launches/${config.launchId}/state`,
       runtimePathOverrides: { "yabause-wasm.data": "/runtime/emulatorjs/4.2.3/data/cores/yabause-wasm.data" },
       externalFiles: {
-        "/disc-001.chd": `/runtime/launches/${config.launchId}/external-files/disc-001.chd`,
-        "/disc-002.chd": `/runtime/launches/${config.launchId}/external-files/disc-002.chd`
+        "/disc-001.chd": `/runtime/content/external/${externalContentIdentity}/disc-001.chd`,
+        "/disc-002.chd": `/runtime/content/external/${"c".repeat(64)}/disc-002.chd`
       },
       discSet: {
         contentKind: "MULTI_DISC_M3U_V1",
@@ -504,11 +513,12 @@ describe("EmulatorJS adapter runtime controls", () => {
 
   it("uses explicit native restore for every selected 4.2.3 state and DOSBox Pure", () => {
     const target = document.createElement("div");
-    const restoreCleanup = mountEmulatorJS({ ...config, stateUrl: "/runtime/launches/id/state" }, target);
+    const stateUrl = `/runtime/launches/${config.launchId}/state`;
+    const restoreCleanup = mountEmulatorJS({ ...config, stateUrl }, target);
     expect(window.EJS_loadStateURL).toBeUndefined();
     expect(window.EJS_DEBUG_XX).toBe(true);
     restoreCleanup();
-    const loaderCleanup = mountEmulatorJS({ ...dosConfig, stateUrl: "/runtime/launches/id/state" }, target);
+    const loaderCleanup = mountEmulatorJS({ ...dosConfig, stateUrl }, target);
     expect(window.EJS_loadStateURL).toBeUndefined();
     expect(window.EJS_DEBUG_XX).toBe(true);
     loaderCleanup();

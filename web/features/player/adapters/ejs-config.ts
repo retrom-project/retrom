@@ -6,16 +6,34 @@ function safeVirtualPath(value: string) {
   return value.slice(1).split("/").every((segment) => segment !== "" && segment !== "." && segment !== "..");
 }
 
+const contentIdentityPattern = "[0-9a-f]{64}";
+
+function runtimeContentLogicalName(source: string, kind: "game" | "external" | "bios" | "parent") {
+  const match = new RegExp(`^/runtime/content/${kind}/${contentIdentityPattern}/([^/?#]+)$`).exec(source);
+  if (!match || !/^(?:[A-Za-z0-9._~!$&'()*+,;=:@-]|%[0-9A-F]{2})+$/.test(match[1])) {return null;}
+  try {
+    const logicalName = decodeURIComponent(match[1]);
+    const byteLength = new TextEncoder().encode(logicalName).byteLength;
+    return byteLength >= 1 && byteLength <= 255 && logicalName !== "." && logicalName !== ".." &&
+      !/[\\/\u0000-\u001F\u007F]/u.test(logicalName) ? logicalName : null;
+  } catch {return null;}
+}
+
+function validRuntimeContentURLs(config: PlayerConfig) {
+  return runtimeContentLogicalName(config.gameUrl, "game") !== null &&
+    (config.biosUrl === null || runtimeContentLogicalName(config.biosUrl, "bios") === "bundle.zip") &&
+    (config.parentUrl === null || runtimeContentLogicalName(config.parentUrl, "parent") === "bundle.zip") &&
+    (config.stateUrl === null || config.stateUrl === `/runtime/launches/${config.launchId}/state`);
+}
+
 export function validatedExternalFiles(config: PlayerConfig): Record<string, string> {
   const entries = Object.entries(config.externalFiles);
   if (entries.length > 16) {throw new Error("PLAYER_EXTERNAL_FILES_INVALID");}
   const result: Record<string, string> = {};
   for (const [virtualPath, source] of entries) {
-    const externalPrefix = `/runtime/launches/${config.launchId}/external-files/`;
-    const logicalName = source.startsWith(externalPrefix) ? source.slice(externalPrefix.length) : "";
+    const logicalName = runtimeContentLogicalName(source, "external");
     if (!safeVirtualPath(virtualPath) || source.length > 1024 ||
-      !source.startsWith(externalPrefix) || !/^[A-Za-z0-9_(). -]{1,255}$/.test(logicalName) ||
-      logicalName === "." || logicalName === "..") {
+      logicalName === null) {
       throw new Error("PLAYER_EXTERNAL_FILES_INVALID");
     }
     result[virtualPath] = source;
@@ -29,7 +47,7 @@ function validDiscSetHeader(config: PlayerConfig) {
     discSet.count >= 2 && discSet.count <= 8 && Array.isArray(discSet.entries) &&
     discSet.entries.length === discSet.count && Number.isInteger(discSet.initialDiscIndex) &&
     discSet.initialDiscIndex >= 0 && discSet.initialDiscIndex < discSet.count &&
-    config.gameUrl === `/runtime/launches/${config.launchId}/game/playlist.m3u`;
+    runtimeContentLogicalName(config.gameUrl, "game") === "playlist.m3u";
 }
 
 function validDiscEntry(config: PlayerConfig, externalFiles: Record<string, string>, index: number) {
@@ -37,7 +55,7 @@ function validDiscEntry(config: PlayerConfig, externalFiles: Record<string, stri
   const canonicalName = `disc-${String(index + 1).padStart(3, "0")}.chd`;
   return Boolean(entry && entry.index === index && entry.label === `光盘 ${index + 1}` &&
     entry.virtualPath === `/${canonicalName}` &&
-    externalFiles[entry.virtualPath] === `/runtime/launches/${config.launchId}/external-files/${canonicalName}`);
+    runtimeContentLogicalName(externalFiles[entry.virtualPath] ?? "", "external") === canonicalName);
 }
 
 export function validateDiscSet(config: PlayerConfig, externalFiles: Record<string, string>) {
@@ -191,4 +209,5 @@ export function validateConfig(config: PlayerConfig) {
   if (config.inputMode !== "STANDARD" && config.inputMode !== "POINTER") {throw new Error("PLAYER_INPUT_MODE_INVALID");}
   if (!validCoreOptions(config)) {throw new Error("PLAYER_CORE_OPTIONS_INVALID");}
   if (!validStartupActions(config)) {throw new Error("PLAYER_STARTUP_ACTION_INVALID");}
+  if (!validRuntimeContentURLs(config)) {throw new Error("PLAYER_CONTENT_URL_INVALID");}
 }

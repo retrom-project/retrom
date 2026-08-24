@@ -196,6 +196,23 @@ paths:
       parameters: [{ $ref: '#/components/parameters/Cursor' }, { $ref: '#/components/parameters/Limit50' }]
       responses:
         '200': { $ref: '#/components/responses/ImmersiveGameListResponse' }
+  /api/v1/immersive/destinations:
+    get:
+      operationId: getImmersiveDestinations
+      description: Returns the four Profile-scoped library destinations first, followed by visible base platforms. Counts, recent-play clocks and cover previews are read from one snapshot.
+      responses:
+        '200': { $ref: '#/components/responses/ImmersiveDestinationListResponse' }
+  /api/v1/immersive/libraries/{libraryKind}/games:
+    parameters: [{ $ref: '#/components/parameters/ImmersiveLibraryKind' }]
+    get:
+      operationId: getImmersiveLibraryGames
+      description: Returns the authenticated Profile's all, recent, favorite or saved games. Only recent is ordered by play time; the other scopes use the persisted title initial, title and game id. Favorite folders are available only for the favorites scope.
+      parameters:
+        - { $ref: '#/components/parameters/FavoriteFolderIDQuery' }
+        - { $ref: '#/components/parameters/Cursor' }
+        - { $ref: '#/components/parameters/Limit50' }
+      responses:
+        '200': { $ref: '#/components/responses/ImmersiveLibraryGameListResponse' }
   /api/v1/favorites:
     get:
       operationId: getFavorites
@@ -1293,12 +1310,12 @@ paths:
               required: [metadata, state, screenshot]
       responses:
         '201': { $ref: '#/components/responses/JSONResponse' }
-  /runtime/launches/{launchId}/game/{logicalName}:
-    parameters: [{ $ref: '#/components/parameters/LaunchID' }, { $ref: '#/components/parameters/LogicalName' }]
+  /runtime/content/game/{contentIdentity}/{logicalName}:
+    parameters: [{ $ref: '#/components/parameters/ContentIdentity' }, { $ref: '#/components/parameters/LogicalName' }]
     get:
       security: []
       operationId: getRuntimeGame
-      description: Streams only the Launch-locked game object. Multi-disc playlist.m3u uses audio/x-mpegurl with the common single-Range contract.
+      description: Streams only an active Launch content grant's exact content-addressed game object. Multi-disc playlist.m3u uses audio/x-mpegurl with the common single-Range contract. Responses are private immutable and retain strong ETag validation.
       responses:
         '200': { $ref: '#/components/responses/BinaryResponse' }
     head:
@@ -1306,12 +1323,12 @@ paths:
       operationId: headRuntimeGame
       responses:
         '200': { $ref: '#/components/responses/BinaryResponse' }
-  /runtime/launches/{launchId}/external-files/{logicalName}:
-    parameters: [{ $ref: '#/components/parameters/LaunchID' }, { $ref: '#/components/parameters/LogicalName' }]
+  /runtime/content/external/{contentIdentity}/{logicalName}:
+    parameters: [{ $ref: '#/components/parameters/ContentIdentity' }, { $ref: '#/components/parameters/LogicalName' }]
     get:
       security: []
       operationId: getRuntimeExternalFile
-      description: Streams only a Launch-locked BIOS or canonical disc-NNN.chd external file with the common single-Range contract.
+      description: Streams only an active Launch content grant's exact content-addressed BIOS or canonical disc-NNN.chd external file with the common single-Range contract.
       responses:
         '200': { $ref: '#/components/responses/BinaryResponse' }
     head:
@@ -1319,8 +1336,8 @@ paths:
       operationId: headRuntimeExternalFile
       responses:
         '200': { $ref: '#/components/responses/BinaryResponse' }
-  /runtime/launches/{launchId}/bios/bundle.zip:
-    parameters: [{ $ref: '#/components/parameters/LaunchID' }]
+  /runtime/content/bios/{contentIdentity}/bundle.zip:
+    parameters: [{ $ref: '#/components/parameters/ContentIdentity' }]
     get:
       security: []
       operationId: getRuntimeBIOSBundle
@@ -1331,8 +1348,8 @@ paths:
       operationId: headRuntimeBIOSBundle
       responses:
         '200': { $ref: '#/components/responses/BinaryResponse' }
-  /runtime/launches/{launchId}/parent/bundle.zip:
-    parameters: [{ $ref: '#/components/parameters/LaunchID' }]
+  /runtime/content/parent/{contentIdentity}/bundle.zip:
+    parameters: [{ $ref: '#/components/parameters/ContentIdentity' }]
     get:
       security: []
       operationId: getRuntimeParentBundle
@@ -1921,10 +1938,11 @@ components:
     ImmersiveGameItem:
       type: object
       additionalProperties: false
-      required: [gameId, title, description, releaseYear, developer, genre, platformInstance, defaultCore, coverUrl, videoUrl, lastPlayedAtMs]
+      required: [gameId, title, titleInitial, description, releaseYear, developer, genre, platformInstance, defaultCore, coverUrl, videoUrl, lastPlayedAtMs, favorited, saveStates]
       properties:
         gameId: { type: string, format: uuid }
         title: { type: string, minLength: 1 }
+        titleInitial: { type: string, pattern: '^(#|[0-9A-Z])$' }
         description: { type: string }
         releaseYear: { type: integer, nullable: true }
         developer: { type: string }
@@ -1934,6 +1952,70 @@ components:
         coverUrl: { type: string, nullable: true, pattern: '^/content/assets/' }
         videoUrl: { type: string, nullable: true, pattern: '^/content/assets/' }
         lastPlayedAtMs: { type: integer, format: int64, minimum: 0, nullable: true }
+        favorited: { type: boolean }
+        saveStates:
+          type: array
+          items: { $ref: '#/components/schemas/ImmersiveSaveState' }
+    ImmersiveSaveState:
+      type: object
+      additionalProperties: false
+      required: [saveStateId, name, createdAtMs, discIndex, screenshotUrl]
+      properties:
+        saveStateId: { type: string, format: uuid }
+        name: { type: string, minLength: 1 }
+        createdAtMs: { type: integer, format: int64, minimum: 0 }
+        discIndex: { type: integer, minimum: 0, maximum: 7, nullable: true }
+        screenshotUrl: { type: string, pattern: '^/content/save-states/' }
+    ImmersiveDestinationSummary:
+      type: object
+      additionalProperties: false
+      required: [destinationId, kind, name, gameCount, lastPlayedAtMs, featuredGames]
+      properties:
+        destinationId: { type: string, minLength: 1, maxLength: 64 }
+        kind: { type: string, enum: [all, recent, favorites, saves, platform] }
+        name: { type: string, minLength: 1 }
+        gameCount: { type: integer, format: int64, minimum: 0 }
+        lastPlayedAtMs: { type: integer, format: int64, minimum: 0, nullable: true }
+        featuredGames:
+          type: array
+          maxItems: 3
+          items: { $ref: '#/components/schemas/ImmersivePlatformFeaturedGame' }
+    ImmersiveDestinationList:
+      type: object
+      additionalProperties: false
+      required: [generatedAtMs, items]
+      properties:
+        generatedAtMs: { type: integer, format: int64, minimum: 0 }
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/ImmersiveDestinationSummary' }
+    ImmersiveFavoriteFolder:
+      type: object
+      additionalProperties: false
+      required: [folderId, name, gameCount]
+      properties:
+        folderId: { type: string, format: uuid }
+        name: { type: string, minLength: 1, maxLength: 40 }
+        gameCount: { type: integer, format: int64, minimum: 0 }
+    ImmersiveLibraryGameList:
+      type: object
+      additionalProperties: false
+      required: [generatedAtMs, library, folder, folders, items, nextCursor]
+      properties:
+        generatedAtMs: { type: integer, format: int64, minimum: 0 }
+        library: { $ref: '#/components/schemas/ImmersiveDestinationSummary' }
+        folder:
+          nullable: true
+          allOf:
+            - { $ref: '#/components/schemas/ImmersiveFavoriteFolder' }
+        folders:
+          type: array
+          items: { $ref: '#/components/schemas/ImmersiveFavoriteFolder' }
+        items:
+          type: array
+          maxItems: 50
+          items: { $ref: '#/components/schemas/ImmersiveGameItem' }
+        nextCursor: { type: string, nullable: true }
     ImmersivePlatformList:
       type: object
       additionalProperties: false
@@ -2186,9 +2268,9 @@ components:
         platformName: { type: string }
         runtimeBaseUrl: { type: string }
         loaderUrl: { type: string }
-        gameUrl: { type: string }
-        biosUrl: { type: string, nullable: true }
-        parentUrl: { type: string, nullable: true }
+        gameUrl: { type: string, pattern: '^/runtime/content/game/[0-9a-f]{64}/[^/?#]+$' }
+        biosUrl: { type: string, nullable: true, pattern: '^/runtime/content/bios/[0-9a-f]{64}/bundle\.zip$' }
+        parentUrl: { type: string, nullable: true, pattern: '^/runtime/content/parent/[0-9a-f]{64}/bundle\.zip$' }
         stateUrl: { type: string, nullable: true }
         inputMode: { type: string, enum: [STANDARD, POINTER] }
         startupActions:
@@ -2208,7 +2290,7 @@ components:
           type: object
           maxProperties: 16
           propertyNames: { type: string, minLength: 1, maxLength: 512, pattern: '^/' }
-          additionalProperties: { type: string, minLength: 1, maxLength: 1024 }
+          additionalProperties: { type: string, minLength: 1, maxLength: 1024, pattern: '^/runtime/content/external/[0-9a-f]{64}/[^/?#]+$' }
         discSet: { $ref: '#/components/schemas/DiscSet' }
         dosEntry: { type: string, nullable: true }
         warnings: { type: array, items: { type: string } }
@@ -4132,6 +4214,12 @@ components:
     ImmersiveGameListResponse:
       description: One immersive platform and a cursor-paginated game projection for the current Profile
       content: { application/json: { schema: { $ref: '#/components/schemas/ImmersiveGameList' } } }
+    ImmersiveDestinationListResponse:
+      description: Current Profile immersive destinations
+      content: { application/json: { schema: { $ref: '#/components/schemas/ImmersiveDestinationList' } } }
+    ImmersiveLibraryGameListResponse:
+      description: Current Profile immersive library games
+      content: { application/json: { schema: { $ref: '#/components/schemas/ImmersiveLibraryGameList' } } }
     LaunchConfigResponse:
       description: Immutable launch configuration derived from the locked core artifact and dependencies
       content:
@@ -4168,6 +4256,7 @@ components:
       headers:
         ETag: { schema: { type: string } }
         Accept-Ranges: { schema: { type: string } }
+        Cache-Control: { schema: { type: string } }
       content:
         application/octet-stream:
           schema: { type: string, format: binary }
@@ -4235,6 +4324,7 @@ components:
     LastEventID: { name: Last-Event-ID, in: header, schema: { type: string, pattern: '^[0-9]+$' } }
     GameID: { name: gameId, in: path, required: true, schema: { type: string, format: uuid } }
     PlatformID: { name: platformId, in: path, required: true, schema: { type: string, pattern: '^[a-z0-9-]{1,64}$' } }
+    ImmersiveLibraryKind: { name: libraryKind, in: path, required: true, schema: { type: string, enum: [all, recent, favorites, saves] } }
     TagID: { name: tagId, in: path, required: true, schema: { type: string, format: uuid } }
     FavoriteFolderID: { name: folderId, in: path, required: true, schema: { type: string, format: uuid } }
     SaveStateID: { name: saveStateId, in: path, required: true, schema: { type: string, format: uuid } }
@@ -4256,6 +4346,7 @@ components:
     GameAssetKind: { name: assetKind, in: path, required: true, schema: { type: string, enum: [VIDEO] } }
     AssetID: { name: assetId, in: path, required: true, schema: { type: string, format: uuid } }
     LaunchID: { name: launchId, in: path, required: true, schema: { type: string, format: uuid } }
+    ContentIdentity: { name: contentIdentity, in: path, required: true, schema: { type: string, pattern: '^[0-9a-f]{64}$' } }
     NetplayRoomID: { name: roomId, in: path, required: true, schema: { type: string, format: uuid } }
     NetplayMemberID: { name: memberId, in: path, required: true, schema: { type: string, format: uuid } }
     NetplaySessionID: { name: sessionId, in: path, required: true, schema: { type: string, format: uuid } }

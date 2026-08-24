@@ -43,6 +43,7 @@ func TestMigrationsCreateCurrentSchemaAndReferenceCatalog(t *testing.T) {
 	assertColumns(t, database.SQL, "netplay_session_participants", "credential_sha256", "lease_expires_at_ms")
 	assertColumns(t, database.SQL, "netplay_events", "event_type", "data_json", "created_at_ms")
 	assertColumns(t, database.SQL, "launch_sessions", "netplay_session_id", "netplay_player_no", "save_access")
+	assertNotNullColumn(t, database.SQL, "game_metadata_revisions", "title_initial")
 	assertNotNullColumn(t, database.SQL, "save_states", "source_launch_session_id")
 	assertColumns(t, database.SQL, "dat_versions", "builtin_relative_path", "sha256", "parser_version", "parse_status")
 	assertColumns(t, database.SQL, "review_bulk_approvals", "source_flagged_count")
@@ -97,6 +98,37 @@ SELECT (SELECT count(*) FROM profiles),(SELECT count(*) FROM users),state FROM i
 	), "thread core catalog drifted")
 
 	assertCurrentClosedEnums(t, database.SQL)
+}
+
+func TestGameMetadataTitleInitialConstraint(t *testing.T) {
+	t.Parallel()
+	database, err := Open(t.Context(), filepath.Join(t.TempDir(), "retrom.db"), time.Now)
+	testassert.Falsef(t, err != nil, "Open() error = %v", err)
+	defer func() { cleanup.Error("close", database.Close()) }()
+	transaction, err := database.SQL.BeginTx(t.Context(), nil)
+	testassert.False(t, err != nil, err)
+	defer func() { cleanup.Error("rollback", transaction.Rollback()) }()
+	if _, err := transaction.ExecContext(t.Context(), "PRAGMA defer_foreign_keys=ON"); err != nil {
+		t.Fatal(err)
+	}
+	insert := func(id, initial string) error {
+		_, insertErr := transaction.ExecContext(t.Context(), `
+INSERT INTO game_metadata_revisions(
+ id,game_id,title,title_initial,description,developer,publisher,genre,source_kind,created_at_ms
+) VALUES(?,'missing-game','Game',?,'','','','','ADMIN_EDIT',1)
+`, id, initial)
+		return insertErr
+	}
+	for index, initial := range []string{"#", "0", "9", "A", "Z"} {
+		if err := insert(fmt.Sprintf("valid-%d", index), initial); err != nil {
+			t.Fatalf("valid title_initial %q rejected: %v", initial, err)
+		}
+	}
+	for index, initial := range []string{"", "a", "AA", "中", "É"} {
+		err := insert(fmt.Sprintf("invalid-%d", index), initial)
+		testassert.Truef(t, err != nil && strings.Contains(err.Error(), "CHECK constraint failed"),
+			"invalid title_initial %q error = %v", initial, err)
+	}
 }
 
 func assertCurrentClosedEnums(t *testing.T, database *sql.DB) {

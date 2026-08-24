@@ -12,6 +12,7 @@ import (
 
 	"retrom/internal/authn"
 	"retrom/internal/cleanup"
+	"retrom/internal/gametitle"
 	"retrom/internal/hasheous"
 	"retrom/internal/payloadrelease"
 )
@@ -27,7 +28,7 @@ type preparedGameAsset struct {
 	width, height               *int64
 }
 
-func insertGameAssetMetadataRevision(
+func insertAdminGameMetadataRevision(
 	ctx context.Context,
 	transaction *sql.Tx,
 	revisionID, gameID string,
@@ -36,12 +37,14 @@ func insertGameAssetMetadataRevision(
 ) error {
 	_, err := transaction.ExecContext(ctx, `
 INSERT INTO game_metadata_revisions(
-id,game_id,title,description,developer,publisher,genre,players,release_year,source_kind,source_ref_id,created_at_ms
-) VALUES(?,?,?,?,?,?,?,?,?,'ADMIN_EDIT',NULL,?)
-`, revisionID, gameID, metadata.Title, metadata.Description, metadata.Developer, metadata.Publisher,
-		metadata.Genre, nullableInteger(metadata.Players), nullableInteger(metadata.ReleaseYear), now)
+ id,game_id,title,title_initial,description,developer,publisher,genre,players,release_year,
+ source_kind,source_ref_id,created_at_ms
+) VALUES(?,?,?,?,?,?,?,?,?,?,'ADMIN_EDIT',NULL,?)
+`, revisionID, gameID, metadata.Title, gametitle.Initial(metadata.Title), metadata.Description,
+		metadata.Developer, metadata.Publisher, metadata.Genre, nullableInteger(metadata.Players),
+		nullableInteger(metadata.ReleaseYear), now)
 	if err != nil {
-		return fmt.Errorf("insert game asset metadata revision: %w", err)
+		return fmt.Errorf("insert admin game metadata revision: %w", err)
 	}
 	return nil
 }
@@ -132,7 +135,7 @@ func (server *Server) createGameAsset(writer http.ResponseWriter, request *http.
 	}
 	revisionID, _ := uuid.NewV7()
 	now := server.now().UnixMilli()
-	if err := insertGameAssetMetadataRevision(
+	if err := insertAdminGameMetadataRevision(
 		request.Context(), transaction, revisionID.String(), request.PathValue("gameId"), metadata, now,
 	); err != nil {
 		server.databaseError(writer, request, err)
@@ -308,13 +311,9 @@ func (server *Server) deleteGameAsset(writer http.ResponseWriter, request *http.
 	}
 	revisionID := newUUIDString()
 	now := server.now().UnixMilli()
-	if _, err := transaction.ExecContext(request.Context(), `
-INSERT INTO game_metadata_revisions(
-id,game_id,title,description,developer,publisher,genre,players,release_year,
-source_kind,source_ref_id,created_at_ms
-) VALUES(?,?,?,?,?,?,?,?,?,'ADMIN_EDIT',NULL,?)`, revisionID, request.PathValue("gameId"), metadata.Title,
-		metadata.Description, metadata.Developer, metadata.Publisher, metadata.Genre, nullableInteger(metadata.Players),
-		nullableInteger(metadata.ReleaseYear), now); err != nil {
+	if err := insertAdminGameMetadataRevision(
+		request.Context(), transaction, revisionID, request.PathValue("gameId"), metadata, now,
+	); err != nil {
 		server.databaseError(writer, request, err)
 		return
 	}

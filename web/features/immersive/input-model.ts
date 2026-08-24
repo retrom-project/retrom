@@ -8,7 +8,7 @@ export type GamepadSnapshot = Readonly<{
   mapping: string;
 }>;
 
-export type NavigationAction = "left" | "right" | "up" | "down" | "confirm" | "cancel";
+export type NavigationAction = "left" | "right" | "up" | "down" | "confirm" | "cancel" | "menu" | "favorite";
 
 export type NavigationUpdate = Readonly<{
   actions: readonly NavigationAction[];
@@ -76,6 +76,14 @@ function axisDirection(gamepad: GamepadSnapshot, previous: Direction | null): Di
   return sameSign && Math.abs(previousValue) >= AXIS_EXIT_THRESHOLD ? previous : entered;
 }
 
+function risingButtonAction(pressed: readonly boolean[], previous: readonly boolean[]): NavigationAction | null {
+  if (pressed[1] && !previous[1]) {return "cancel";}
+  if (pressed[0] && !previous[0]) {return "confirm";}
+  if (pressed[8] && !previous[8]) {return "menu";}
+  if (pressed[3] && !previous[3]) {return "favorite";}
+  return null;
+}
+
 export class NavigationInputModel {
   private previousButtons: boolean[] = [];
   private direction: Direction | null = null;
@@ -133,8 +141,8 @@ export class NavigationInputModel {
       actions.push(nextDirection);
       this.nextRepeatAtMs = nowMs + REPEAT_MS;
     }
-    if (buttonsAllowed && pressed[1] && !this.previousButtons[1]) {actions.push("cancel");}
-    else if (buttonsAllowed && pressed[0] && !this.previousButtons[0]) {actions.push("confirm");}
+    const buttonAction = buttonsAllowed ? risingButtonAction(pressed, this.previousButtons) : null;
+    if (buttonAction) {actions.push(buttonAction);}
     return actions;
   }
 }

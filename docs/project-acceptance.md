@@ -1306,15 +1306,15 @@ make acceptance-case CASE=<case-id>
 ### ACC-IMM-001：入口与独立交互隔离
 
 - 上限：90 秒。执行：`make acceptance-case CASE=ACC-IMM-001`。
-- 流程：首页注入任意 standard 手柄按键，使用左右、A、B 两次操作进入确认 Dialog；再访问普通游戏库、收藏与管理页注入同样输入。
-- 通过标准：确认层覆盖整个 viewport 且视觉来自沉浸电视设计，不呈现 PC Dialog；首次弹窗默认“取消”，B 或取消后仍在首页；再次触发可用左右切换并以 A 确认进入 `/immersive`，方向+A 落在同一采样帧仍执行切换后的选择。Dialog 存在时鼠标/键盘仍可用，关闭后 listener 完整释放；普通其他页面不响应沉浸入口，普通 PC/移动 App Shell 不被替换。原生全屏请求失败不阻断路由，恢复按钮只在非全屏且顶部 pointer 揭示期间出现，手柄组合不冒充浏览器用户激活。
+- 流程：首页先用键盘/鼠标激活显式“进入沉浸模式”，取消后再注入任意 standard 手柄按键，使用左右、A、B 两次操作确认；再访问普通游戏库、收藏与管理页注入同样输入。
+- 通过标准：首页始终有可聚焦显式入口，两种入口打开同一个覆盖整个 viewport 的电视确认层且不呈现 PC Dialog；首次弹窗默认“取消”，B 或取消后仍在首页；再次触发可用左右切换并以 A 确认进入 `/immersive`，方向+A 同帧仍执行切换后的选择。Dialog 存在时鼠标/键盘仍可用，关闭后 listener 完整释放；普通其他页面不响应自动沉浸入口，普通 PC/移动 App Shell 不被替换。原生全屏请求失败不阻断路由，恢复按钮只在非全屏且顶部 pointer 揭示期间出现。
 - 证据：首页全视口确认层与沉浸首页截图、URL/焦点/Gamepad 事件 trace、全屏请求/恢复控件和普通页面隔离断言。
 
-### ACC-IMM-002：平台选择
+### ACC-IMM-002：入口与平台选择
 
 - 上限：120 秒。执行：`make acceptance-case CASE=ACC-IMM-002`。
-- 流程：以至少两个平台的真实已发布游戏和 PlaySession 调用平台 API；其中通过正式导入与游戏资产接口在同一 Arcade 平台准备 3 款带项目自有封面的公开测试游戏。在 1280×720 与 1920×1080 使用手柄左右环绕、A 进入、B 触发退出确认。
-- 通过标准：仅展示有可见可运行游戏的平台，游戏数和最近游玩时间与 API/数据库事实一致；每个平台最多三项 `featuredGames` 按本 Profile 最近游玩倒序并以最近加入的未游玩游戏补足，只使用当前 MetadataRevision 封面且不泄漏其他 Profile 顺序。排序稳定，左右可循环。每次切换具有与方向一致的 `320ms` 三卡位过渡：旧主卡退到对侧相邻位、新主卡从操作方向进入中心、外侧卡淡入；静态主卡与相邻卡在缩放、透视、亮度和饱和度上有明确层级，当前位置数字及分段轨道同步更新，不能只让三张卡做相同淡入。只有当前主卡在固定 `5:7` 区域错位叠放最多三张封面；缺封面使用标题占位，三层每 `3s` 循环换位，切换平台重置，页面隐藏及 reduced-motion 停止轮换；`960×540` 到 4K 不溢出或挤压左侧信息。reduced-motion 关闭平台卡动画但保留静态主次层级，A 进入选中平台。底部方向/A/B 底座为圆形且 A 绿/B 红；上下和左右使用同一套粗细一致、视觉居中的矢量图标，图形不越过圆形边界；沉浸壳无普通侧栏、底栏、搜索、存档、联机或管理入口；B 不静默丢失页面状态。
+- 流程：以至少两个平台、收藏、存档和 PlaySession 的真实已发布游戏调用 destinations/platform API；其中通过正式导入与游戏资产接口在同一 Arcade 平台准备 3 款带项目自有封面的公开测试游戏。在 1280×720 与 1920×1080 使用手柄左右环绕、A 进入、B 触发退出确认。
+- 通过标准：前四卡严格为全部游戏、最近游玩、收藏游戏、我的存档，零计数资料库卡仍保留，之后才出现有可见可运行游戏的平台；各自计数、最近时间与当前 Profile 数据一致，不泄漏另一 Profile 的收藏/存档/顺序。每卡最多三项 `featuredGames` 只使用 current MetadataRevision 封面。左右循环且 `320ms` 三卡位过渡方向正确；静态主次卡在缩放、透视、亮度和饱和度上有明确层级，位置数字和分段轨道同步。当前卡固定 `5:7` 封面堆最多三层，缺封面使用标题占位，每 `3s` 循环，换卡重置，隐藏及 reduced-motion 停止；`960×540` 到 4K 不溢出。底部方向/A/B/Select 底座与矢量图标符合设计；沉浸壳无普通侧栏、底栏、搜索、联机或管理入口；B 不静默丢失页面状态。
 - 证据：API 响应、聚合断言、两 viewport 截图与完整手柄导航 trace。
 
 ### ACC-IMM-003：游戏媒体列表
@@ -1328,14 +1328,14 @@ make acceptance-case CASE=<case-id>
 
 - 上限：180 秒。执行：`make acceptance-case CASE=ACC-IMM-004`。
 - 流程：项目自有 GBA fixture 经过真实导入/发布数据，从首页手柄进入平台和游戏，A 创建普通 Launch 并进入带 `experience=immersive` 的 Player，等待 mGBA Core 帧推进，菜单退出后回原平台游戏列表。
-- 通过标准：config、ROM 和媒体只走受授权产品端点；Core canvas 非黑且帧推进；活动手柄索引从浏览页传给 Player；退出完成/撤销 Launch 与 PlaySession，回到原 Game 焦点，不创建 SaveState。
+- 通过标准：config、ROM 和媒体只走受授权产品端点；Core canvas 非黑且帧推进；活动手柄索引从浏览页传给 Player；退出完成/撤销 Launch 与 PlaySession，回到原 Game 焦点；没有选择“创建存档”时不创建 SaveState。
 - 证据：Launch/config/content/network trace、Core canvas/帧断言、Player 菜单和返回页截图、服务端完成状态。
 
 ### ACC-IMM-005：暂停菜单与输入隔离
 
 - 上限：180 秒。执行：`make acceptance-case CASE=ACC-IMM-005`。
-- 流程：在真实 GBA Player 中依次发送单独 Select、Start、一次完整 chord、满足 `100/60/650ms` 的双 chord；菜单中用左右/A/B 取消，再次打开并退出。
-- 通过标准：单键按判定窗后到 Core；第一次 chord 作为前缀被抑制且不打开菜单；第二次 chord 先将全部本地输入归零并确认 Core 暂停，菜单仅有“取消/退出游戏”且默认取消。取消只恢复本菜单拥有的暂停；退出执行 finish/revoke，无粘键、无自动存档、无输入穿透。
+- 流程：在真实 GBA Player 中依次发送单独 Select、Start、一次完整 chord、满足 `100/60/650ms` 的双 chord；菜单中用左右/A/B 取消，再次打开并创建存档，第三次打开后退出。
+- 通过标准：单键按判定窗后到 Core；第一次 chord 作为前缀被抑制且不打开菜单；第二次 chord 先将全部本地输入归零并确认 Core 暂停，菜单严格为“取消、创建存档、退出游戏”且默认取消。取消只恢复本菜单拥有的暂停；创建存档上传同一时刻的 state 与 PNG 截图且防重复提交，成功后可由当前 Profile 读取并恢复；不支持捕获时按钮禁用并说明。退出执行 finish/revoke，无粘键、无自动存档、无输入穿透。
 - 证据：fake-clock 状态机输出、Player adapter/Gamepad 快照、pause owner trace、菜单截图与网络时序。
 
 ### ACC-IMM-006：Arcade 与多输入回归
@@ -1359,7 +1359,66 @@ make acceptance-case CASE=<case-id>
 - 通过标准：未知或版本不匹配 adapter fail closed；新普通 adapter 在非沉浸分支与前代行为等价且不安装过滤；联机 config/adapter 不接受沉浸参数。既有普通启动、存档、多盘、移动 HUD 和八个联机 profile 不回退。
 - 证据：`data-check/deps-check`、adapter 单测、OpenAPI/schema 检查和既有产品 E2E 结果。
 
-实体 smoke 是发布必需的独立证据：至少使用一只 Chrome 报告 `mapping=standard` 的真实手柄完成“首页 Dialog→选平台→选游戏→真实 Core→双 chord 菜单→取消→再次打开并退出”。报告只记录浏览器版本、OS、standard mapping、按钮/轴数量和结果，不保存设备 ID。没有实体设备时自动化 Case 可以 PASS，但沉浸模式发布验收必须标记 `BLOCKED`，不得把注入 E2E 写成实体兼容通过。
+### ACC-IMM-009：资料库、标题首字符与默认收藏
+
+- 上限：180 秒。执行：`make acceptance-case CASE=ACC-IMM-009`。
+- 流程：为两个 Profile 准备以数字、大小写 ASCII、汉字、符号和 emoji 开头的游戏；建立未分类收藏及自定义
+  收藏夹，在全部/最近/收藏/收藏夹/平台范围跨过 50 项分页边界，并用 Y 收藏、取消、失败重试。
+- 通过标准：每次 MetadataRevision 写入的 `title_initial` 严格为 `#|0-9|A-Z`；数字原样、字母大写、汉字
+  使用锁定拼音首字母、其他为 `#`，改名的新 revision 在同一事务更新键。除最近范围外均按
+  `titleInitial/title COLLATE NOCASE/gameId` 无重复漏项；最近范围只按本 Profile 最近时间倒序。收藏视图可
+  切换本人 Folder，另一 Profile 的 Folder 统一不可见；Y 新增 Favorite 但不自动加入 Folder，取消同时移除
+  memberships，服务端失败不乐观伪造成功且旧 cursor 被丢弃。
+- 证据：fresh schema/约束与 writer 集成断言、API 分页 tuple、双 Profile HTTP trace、收藏视图截图及 Y 输入
+  trace。
+
+### ACC-IMM-010：存档浏览、从存档启动与创建
+
+- 上限：210 秒。执行：`make acceptance-case CASE=ACC-IMM-010`。
+- 流程：为同一游戏创建两份不同时间的可用手动存档和截图，另一个 Profile 建立同 Game 存档；从“我的存档”
+  浏览截图并选择旧存档启动，验证 Core 恢复，再从 Player 菜单创建一份新存档并返回列表。
+- 通过标准：入口计数与列表只包含当前 Profile 未删除存档，游戏和存档均按契约排序；截图走 Profile 私有
+  no-store 端点，跨 Profile 读取失败且不泄露存在性。Launch config 的 stateUrl 精确指向所选存档，真实 Core
+  恢复到对应画面；Player 创建的新 state/PNG 原子可见且只属于当前 Profile。取消、退出、失败上传和不支持
+  adapter 均不产生半份或自动存档。
+- 证据：双 Profile API/network trace、存档截图/选择 UI、Launch config、Core 恢复帧、新 SaveState 数据与
+  失败注入断言。
+
+### ACC-IMM-011：BGM、两组音量与 Select 系统菜单
+
+- 上限：150 秒。执行：`make acceptance-case CASE=ACC-IMM-011`。
+- 流程：以可控 HTMLMediaElement、visibility、localStorage 和 Fullscreen API，从入口浏览到列表、Player、
+  返回；模拟一次 autoplay 拒绝，再用 Select 打开菜单并逐项调整、静音，以 A 完成一次全屏成功、一次拒绝
+  与退出；实体手柄 smoke 还必须在未替换 Fullscreen API 时完成同一路径。
+- 通过标准：只请求站内 `/audio/immersive/insert-coin.ogg`，浏览时 loop/preload，自动播放拒绝显示可由 A/
+  点击恢复的提示且不阻断导航；隐藏、BGM 静音/零音量、进入 Player、退出或卸载立即暂停，返回可见浏览时
+  尽力恢复，BGM 与 Core 音频不重叠。系统菜单顺序严格为背景音乐音量/静音、游戏音量/静音、进入全屏/
+  退出；上下、左右 10%、A/B 与 live status 可访问。key `retrom:immersive:audio-preferences:v1` 只存四字段
+  严格 payload，默认 40%/100% 且均不静音；非法或 storage failure 回退但本次内存设置可用。游戏组值应用到
+  Core 音频；Chrome 标准手柄的 A 在同一输入处理链请求全屏，全屏成功和拒绝均如实反馈，拒绝不关闭菜单。
+- 证据：media 调用序列、localStorage payload、菜单截图/axe、Gamepad trace、Player 音量和 fullscreen
+  success/failure 断言。
+
+### ACC-IMM-012：内容身份 URL 与私有存档缓存
+
+- 上限：180 秒。执行：`make acceptance-case CASE=ACC-IMM-012`。
+- 流程：分别读取 current COVER/VIDEO、单 ROM、多盘其中一盘、BIOS 与 parent bundle；以完全相同 bytes
+  重建一次，再以不同 bytes 依次替换并创建新 Launch；最后读取状态存档和截图，并尝试用旧 grant/另一
+  Profile 读取。
+- 通过标准：同一不可变输入得到同一 identity/强 ETag；媒体替换创建新 Asset ID/URL，ROM、多盘外部文件、
+  BIOS 或 parent 任一有效 bytes/输出选项变化都产生新 `/runtime/content/` URL，任何已发 URL 的 bytes 不得
+  原地变化。媒体为 public immutable，运行内容为受 grant 保护的 private immutable；旧/错误 identity 与
+  无 grant 请求不泄露内容；同一内容的第二个 Launch 复用 URL，条件请求返回 304。Finish/撤销/硬删除后
+  强制网络请求失败。SaveState state/screenshot 始终使用逻辑 ID、`private, no-store` 和 Profile/Launch
+  限定授权，不因内容寻址进入共享缓存。
+- 证据：替换前后 config/URL/ETag/cache header、相同与不同 bytes 对照、旧授权负向请求、双 Profile 存档
+  trace。
+
+实体 smoke 是发布必需的独立证据：至少使用一只 Chrome 报告 `mapping=standard` 的真实手柄完成“首页
+Dialog→四类入口/平台→收藏或存档→选游戏→真实 Core→双 chord 菜单→创建存档→再次打开并退出”，并用
+Select 操作一次系统菜单。报告只记录浏览器版本、OS、standard mapping、按钮/轴数量和结果，不保存设备
+ID。没有实体设备时自动化 Case 可以 PASS，但沉浸模式发布验收必须标记 `BLOCKED`，不得把注入 E2E 写成
+实体兼容通过。
 
 ## 22. 缺陷处理与重验
 
@@ -1384,7 +1443,7 @@ make acceptance-case CASE=<case-id>
 - 当前明确登记的产品 E2E 与产品集成测试全部通过；[`core-runtime-validation.md`](./core-runtime-validation.md) 中未覆盖核心和 Saturn 真实浏览器运行缺口已如实列入最终报告，不得表述为已验证；
 - `ACC-NP-010`–`022` 全部通过；八个 profile 的双浏览器结果只表述为锁定 profile/artifact 与项目自有 fixture 的产品链路基线，不得扩大为任意 ROM 或未登记 core 兼容性；
 - `ACC-ES-001`–`006` 全部通过；两种目录结构、删除释放和真实 mGBA 游玩证据缺一不可，私有 Batocera source 不能替代公开确定性 fixture；
-- `ACC-IMM-001`–`008` 全部通过，且当次实体 standard 手柄 smoke 通过；缺少实体手柄时必须报告 `BLOCKED`，不能删除临时方案或宣称沉浸模式发布完成；
+- `ACC-IMM-001`–`012` 全部通过，且当次实体 standard 手柄 smoke 通过；缺少实体手柄时必须报告 `BLOCKED`，不能删除临时方案或宣称沉浸模式发布完成；
 - 本次发现的每个 bug 均有回归测试和 red/green 证据；
 - `make ci` 和两个镜像 build target 通过，且镜像构建没有启动服务；
 - 最终报告记录 commit/dirty 状态、环境、Case 结果、缺陷、未执行项和残余风险；
@@ -1414,6 +1473,6 @@ AI Agent 的最终交付摘要必须列出：总结果、失败/阻塞 Case ID�
 | 收藏与收藏夹 | `ACC-FAV-001`–`004` |
 | 游戏标签 | `ACC-TAG-001`–`005` |
 | 联机协议、安全、真实双浏览器核心与生命周期 | `ACC-NP-010`–`022` |
-| 沉浸模式独立 UI、手柄导航、真实单机 Player 与输入隔离 | `ACC-IMM-001`–`008`，以及实体 standard 手柄 smoke |
+| 沉浸模式独立 UI、资料库/收藏/存档导航、声音与系统菜单、真实单机 Player、内容身份缓存和输入隔离 | `ACC-IMM-001`–`012`，以及实体 standard 手柄 smoke |
 
 本文列出的范围不包含 soak、压力或性能基准；未来若需要性能专项，应另建不阻塞一期功能验收的测试计划，不能把长时间运行 Case 混入本文。

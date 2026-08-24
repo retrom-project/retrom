@@ -317,6 +317,20 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
         240,
         "make data-check && make deps-check && scripts/acceptance/ui-case.sh ACC-IMM-008",
     ),
+    "ACC-IMM-009": (
+        180,
+        "go test ./internal/gametitle ./internal/store ./internal/httpapi "
+        "-run 'TestInitial|TestGameMetadataTitleInitialConstraint|TestImmersiveDestinationsAndProfileLibraries|TestFavoriteHTTPContractLifecycleReplayIsolationAndProjection' -count=1 && "
+        "scripts/acceptance/ui-case.sh ACC-IMM-009",
+    ),
+    "ACC-IMM-010": (210, "scripts/acceptance/ui-case.sh ACC-IMM-010"),
+    "ACC-IMM-011": (150, "scripts/acceptance/ui-case.sh ACC-IMM-011"),
+    "ACC-IMM-012": (
+        180,
+        "go test ./internal/launch ./internal/httpapi "
+        "-run 'TestContentIdentityUsesBytesAndDOSProjection|TestBundleIdentityIsOrderIndependentAndBindsEveryMember|TestRuntimeContentURLRejectsUnsafeOrNonCanonicalInputs|TestLaunchContentGrantCookieHasRestrictedBrowserScope|TestRuntimeContentGrantsRejectMalformedDuplicateAndUnboundedCookies|TestGameCoverReplacementRetiresOldPayloadAndStagesCapacity|TestGameDetailReturnsCoreValidationChoicesAndDOSPrograms' -count=1 && "
+        "go test -tags=integration ./internal/httpapi -run '^TestRuntimeContentIsPrivateImmutableRevalidatesAndRevokes$' -count=1",
+    ),
     "ACC-MEDIA-001": (
         240,
         "go test ./internal/mediaasset ./internal/httpapi -run 'TestInspect|TestGameDetailReturnsCoreValidationChoicesAndDOSPrograms' -count=1 && scripts/acceptance/ui-case.sh ACC-MEDIA-001",

@@ -26,6 +26,7 @@ import { usePlayerRuntimeEffects } from "./player-runtime-effects";
 import { ImmersivePlayerMenu } from "./immersive-player-menu";
 import { useImmersivePlayer } from "./use-immersive-player";
 import { usePlayerKeyboardPause } from "./use-player-keyboard-pause";
+import { saveImmersivePlayerState } from "./immersive-player-save";
 export { readBoundedResponse, reportsNativeExit } from "./player-shell-model";
 
 type ShellState = "loading" | "running" | "error";
@@ -202,10 +203,8 @@ export function PlayerShell({
     setSyncText, setSyncTone, showToast, replaceImmersiveRoute,
   }), [launchId, replaceImmersiveRoute, showToast]);
   const { sendEvent, uploadManualState, exit, exitStrict } = usePlayerSession(sessionParams);
-  const handleImmersiveFatal = useCallback((error: string) => {
-    setMessage(error);
-    setState("error");
-  }, []);
+  const saveImmersiveGame = useCallback(() => saveImmersivePlayerState(emulator.current, manualSaveAvailableRef.current, uploadManualState), [uploadManualState]);
+  const handleImmersiveFatal = useImmersiveFatalHandler(setMessage, setState);
   const immersive = useImmersivePlayer({
     enabled: experience === "immersive",
     emulator,
@@ -213,6 +212,8 @@ export function PlayerShell({
     running: state === "running",
     setPaused,
     exitStrict,
+    saveAvailable: manualSaveAvailable,
+    saveGame: saveImmersiveGame,
     onFatalError: handleImmersiveFatal,
   });
 
@@ -281,6 +282,13 @@ export function PlayerShell({
   return <PlayerShellView experience={experience} immersive={immersive} paused={paused} orientationState={orientationState} chromeProps={chromeProps} stage={stage} frameRef={frameRef} frameEnabled={frameEnabled} state={state} message={message} returnTo={experience === "immersive" ? immersiveReturnTo : "/library"} gameTitle={gameTitle} orientationHelp={orientationHelp} orientationButtonRef={orientationButtonRef} onShowControls={showControls} onRevealControls={revealControlsAtTopEdge} onSurface={handleGameSurfaceInteraction} onRetryLandscape={() => void retryLandscape()} />;
 }
 
+function useImmersiveFatalHandler(setMessage: (message: string) => void, setState: (state: ShellState) => void) {
+  return useCallback((error: string) => {
+    setMessage(error);
+    setState("error");
+  }, [setMessage, setState]);
+}
+
 type ImmersiveController = ReturnType<typeof useImmersivePlayer>;
 
 function PlayerShellView({ experience, immersive, paused, orientationState, chromeProps, stage, frameRef, frameEnabled, state, message, returnTo, gameTitle, orientationHelp, orientationButtonRef, onShowControls, onRevealControls, onSurface, onRetryLandscape }: { experience: "standard" | "immersive"; immersive: ImmersiveController; paused: boolean; orientationState: PlayerOrientationState; chromeProps: PlayerChromeProps; stage: RefObject<HTMLDivElement | null>; frameRef: RefObject<HTMLIFrameElement | null>; frameEnabled: boolean; state: ShellState; message: string; returnTo: string; gameTitle: string; orientationHelp: string; orientationButtonRef: RefObject<HTMLButtonElement | null>; onShowControls: () => void; onRevealControls: (clientY: number) => void; onSurface: () => void; onRetryLandscape: () => void }) {
@@ -289,7 +297,7 @@ function PlayerShellView({ experience, immersive, paused, orientationState, chro
   return <main className={`player-shell${isImmersive ? " is-immersive" : ""}${paused ? " is-paused" : ""}${blocked ? " is-orientation-blocked" : ""}`} onKeyDown={(event) => {if (!isImmersive && shouldRevealPlayerControlsForKey(event.key)) {onShowControls();}}} onPointerMove={(event) => {if (!isImmersive) {onRevealControls(event.clientY);}}}>
     {!blocked && !isImmersive ? <PlayerChrome {...chromeProps} /> : null}
     <PlayerStage blocked={blocked} stage={stage} frameRef={frameRef} frameEnabled={frameEnabled} state={state} message={message} returnTo={returnTo} immersive={isImmersive} onSurface={isImmersive ? () => undefined : onSurface} />
-    {!blocked && isImmersive ? <ImmersivePlayerMenu overlay={immersive.overlay} onCancel={immersive.menuCancel} onSelect={immersive.menuSelect} onConfirm={immersive.runSelectedMenuAction} /> : null}
+    {!blocked && isImmersive ? <ImmersivePlayerMenu overlay={immersive.overlay} saveAvailable={immersive.saveAvailable} onCancel={immersive.menuCancel} onSelect={immersive.menuSelect} onConfirm={immersive.runSelectedMenuAction} /> : null}
     {blocked ? <OrientationGate state={orientationState} gameTitle={gameTitle} help={orientationHelp} buttonRef={orientationButtonRef} onRetry={onRetryLandscape} /> : null}
   </main>;
 }

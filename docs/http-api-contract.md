@@ -287,7 +287,7 @@ Idempotency-Key: <uuid>
 }
 ```
 
-`coreId` 可省略以使用游戏目录默认核心；有 `saveStateId` 时服务端忽略默认核心并要求显式值（若给出）与存档一致。`returnTo` 通常只接受无 query、无 fragment、无 percent-encoding 的精确路径 `/`、`/library`、`/saves` 或 `/games/{gameId}`；沉浸启动另外只接受 `/immersive/platforms/{platformId}?gameId={gameId}`，其中 `platformId` 必须是 1..64 位小写 slug，且 query 中只能有与 body 相同的唯一 `gameId`。不接受 origin、反斜杠、协议相对或任意 URL。`clientCapabilities` 三个布尔字段必需，由点击时的 Chrome 环境读取；它们不是授权证据，但用于在签发 credential 前给 thread core 产生可理解 Blocker。Player 在加载 loader 前必须再次读取真实环境，任一值变差则终止为 `LAUNCH_THREADS_UNAVAILABLE`，不能只信请求快照。
+`coreId` 可省略以使用游戏目录默认核心；有 `saveStateId` 时服务端忽略默认核心并要求显式值（若给出）与存档一致。`returnTo` 通常只接受无 query、无 fragment、无 percent-encoding 的精确路径 `/`、`/library`、`/saves` 或 `/games/{gameId}`；沉浸普通启动另外接受 `/immersive/platforms/{platformId}?gameId={gameId}`、`/immersive/library/{all|recent}?gameId={gameId}`，以及可选唯一 `folderId` 的 `/immersive/library/favorites?gameId={gameId}`。其中 `platformId` 必须是 1..64 位小写 slug，`gameId` 必须与 body 一致，`folderId` 必须是规范 UUID。沉浸存档恢复只接受 `/immersive/library/saves?gameId={gameId}&saveStateId={saveStateId}`，两个 ID 都必须与 body 一致；存档恢复不得返回普通沉浸平台或资料库。所有 query 均拒绝未知、重复或空字段。不接受 origin、反斜杠、协议相对或任意 URL。`clientCapabilities` 三个布尔字段必需，由点击时的 Chrome 环境读取；它们不是授权证据，但用于在签发 credential 前给 thread core 产生可理解 Blocker。Player 在加载 loader 前必须再次读取真实环境，任一值变差则终止为 `LAUNCH_THREADS_UNAVAILABLE`，不能只信请求快照。
 
 若所选 core 对 Game current ContentRevision 没有同 `validationInputDigest` 的完成结果，本端点在短事务创建/复用 `VARIANT_REVALIDATE` Job 并返回 `202`；此时不创建 LaunchSession、不设 cookie：
 
@@ -336,14 +336,14 @@ PlaySession 事件 API 位于 launch cookie 的限定 Path 内，同时要求正
 | 路径 | 授权与缓存 |
 | --- | --- |
 | `/runtime/emulatorjs/{configuredVersion}/...` | 固定公开运行时；当前配置 `4.2.3,4.3.0-pre`，后者包含 DOSBox Pure、Genesis Plus GX Wide 与 Azahar 定向覆盖。版本参数接受规范 SemVer prerelease，且必须在后端启动时已验证的依赖列表内；路径必须命中该版本 manifest allowlist。允许 EmulatorJS 自身附加且仅附加一次的 `v` cache-buster 查询参数，该参数不参与文件选择；其他查询键仍拒绝。`public, max-age=31536000, immutable`，强 ETag。CSP 禁止 CDN fallback。 |
-| `/content/assets/{assetId}` | 只用于已发布封面/截图等站内可见媒体；服务端解析逻辑 asset ID。内容 revision URL 不变更 bytes，`public, max-age=31536000, immutable`。浏览器必须携带当前 session 直接请求该逻辑 URL；前端不得把受保护媒体交给不会转发 session cookie 的 Next.js 图片优化器。 |
+| `/content/assets/{assetId}` | 只用于已发布封面/截图等站内可见媒体；服务端解析逻辑 asset ID。每个 Asset ID 在存续期内 bytes 不变，替换 COVER/VIDEO 等媒体必须创建新 Asset ID 与新 URL，current 切换后旧 URL 立即失效；`public, max-age=31536000, immutable`。浏览器必须携带当前 session 直接请求该逻辑 URL；前端不得把受保护媒体交给不会转发 session cookie 的 Next.js 图片优化器。 |
 | `/content/save-states/{saveStateId}/screenshot` | 只用于未删除、且所属游戏仍已发布的手动存档截图；服务端解析逻辑 SaveState ID，不向浏览器暴露 Blob ID。响应固定为 `private, no-store`，存档删除或游戏下架后立即不可读取。 |
 | `/api/v1/admin/review-assets/{assetId}` | 用于仍待审核 Item、候选媒体、人工上传审核媒体、Pegasus/EmulationStation 来源媒体或审核运行截图；服务器来源 `assetId` 为格式专属 Item ID 并带 `kind=COVER|VIDEO`（默认 COVER），封闭 UNION 必须恰好命中一个来源。响应为 `private, no-store`，不得把上游 URL 或 Blob ID 暴露给浏览器；ReviewEvent 本身不长期保留媒体。 |
 | `/runtime/launches/{launchId}/config` | 需要 launch/review-preview cookie，返回逻辑 URL 和非秘密配置；`private, no-store`、`Vary: Cookie`。审核预览另带 `reviewPreview={importItemId,captureAllowed,captureAfterMs:5000}`。 |
-| `/runtime/launches/{launchId}/game/{logicalName}` | 只允许本次正式 Launch 或审核预览快照清单内的运行内容；需要路径限定 cookie；`private, no-store`、`Vary: Cookie`。 |
-| `/runtime/launches/{launchId}/bios/bundle.zip` | 支持 GET/HEAD，只允许预检 bundle；需要 cookie；`private, no-store`、`Vary: Cookie`。HEAD 执行与 GET 相同的 capability、Launch 状态和 bundle 清单校验，返回相同的长度、ETag 与 Range 元数据但不返回 body。 |
-| `/runtime/launches/{launchId}/parent/bundle.zip` | 支持 GET/HEAD，只允许预检确定性 parent bundle；需要 cookie；`private, no-store`、`Vary: Cookie`。HEAD 执行与 GET 相同的 capability、Launch 状态和 bundle 清单校验，返回相同的长度、ETag 与 Range 元数据但不返回 body。 |
-| `/runtime/launches/{launchId}/external-files/{logicalName}` | 只允许本 Launch 创建事务锁定的外部 BIOS 文件；需要 cookie；`private, no-store`、`Vary: Cookie`。未锁定名、跨 Launch、错误/过期 cookie 与 Blob 缺失不得泄露存在性。 |
+| `/runtime/content/game/{contentIdentity}/{logicalName}` | 只允许任一当前有效正式 Launch 或审核预览 grant 已锁定、且服务器重新计算身份等于 path 的运行内容；content identity 由领域版本、格式、Core、实际 ROM digest 与影响输出的选项派生，不直接暴露 Blob hash。需要仅作用于 `/runtime/content/` 的 HttpOnly grant cookie；`private, max-age=31536000, immutable`。替换 ROM 或影响输出的配置必须产生新 identity/URL，旧授权不能读取新内容。 |
+| `/runtime/content/bios/{contentIdentity}/bundle.zip` | 支持 GET/HEAD；identity 由带领域版本、规范按逻辑名排序的 BIOS bundle 成员名与每个文件 digest 派生，不直接暴露成员 hash。任一成员替换都会产生新 URL；需要有效 content grant，`private, max-age=31536000, immutable`。HEAD 执行与 GET 相同的授权、Launch 状态和 bundle 清单校验。 |
+| `/runtime/content/parent/{contentIdentity}/bundle.zip` | 与 BIOS bundle 相同，但只服务确定性 parent bundle；任一成员变化产生新 identity/URL，`private, max-age=31536000, immutable`。 |
+| `/runtime/content/external/{contentIdentity}/{logicalName}` | 只允许有效 content grant 锁定的多盘或外部文件；identity 由带领域分隔的实际文件 digest 派生，不直接暴露 Blob hash，文件替换产生新 URL。未锁定名、错误 identity、跨 Launch、错误/过期 grant 与 Blob 缺失不得泄露存在性；`private, max-age=31536000, immutable`。 |
 | `/runtime/launches/{launchId}/state` | 只允许选中状态存档；需要 cookie；`private, no-store`、`Vary: Cookie`。 |
 | `/runtime/launches/{launchId}/review-screenshot` | 只接受审核预览 capability 和 `image/png`，先鉴权再有界流式读取 ≤10 MiB；仍匹配当前来源、目标平台和 CoreArtifact 的 READY 或阻断 preview 均可写，固定记录 `capturedAfterMs=5000`。普通 Launch、过期 cookie 或来源/配置漂移均拒绝。 |
 
@@ -364,9 +364,9 @@ PlaySession 事件 API 位于 launch cookie 的限定 Path 内，同时要求正
   "platformName": "Arcade",
   "runtimeBaseUrl": "/runtime/emulatorjs/4.2.3/data/",
   "loaderUrl": "/runtime/emulatorjs/4.2.3/data/loader.js",
-  "gameUrl": "/runtime/launches/0198.../game/ldrun.zip",
-  "biosUrl": "/runtime/launches/0198.../bios/bundle.zip",
-  "parentUrl": "/runtime/launches/0198.../parent/bundle.zip",
+  "gameUrl": "/runtime/content/game/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/ldrun.zip",
+  "biosUrl": "/runtime/content/bios/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/bundle.zip",
+  "parentUrl": "/runtime/content/parent/cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc/bundle.zip",
   "stateUrl": null,
   "inputMode": "STANDARD",
   "startupActions": [],
@@ -382,13 +382,18 @@ PlaySession 事件 API 位于 launch cookie 的限定 Path 内，同时要求正
 }
 ```
 
-`emulatorGameId` 是 `1..9007199254740991` 的 JSON integer；`gameName` 必须精确为 ASCII `retrom-` 加它的十进制表示。`gameTitle/coreName/platformName` 只用于 Player 工具栏的人类可读上下文，不参与 EJS 配置、运行选择或授权判断。`biosUrl`、`parentUrl`、`stateUrl` 与 `dosEntry` 可为 `null`；其他字段必需。`defaultCoreOptions` 是最多 32 项的 ASCII string→string map，禁止危险 key；DOS 的该 map 和 `externalFiles` 均不包含启动入口，启动入口只由锁定内容的虚拟 ZIP 视图表达。其他核心的 `externalFiles` 只能指向同一 Launch 锁定的 `/external-files/<logicalName>`。普通 `emulatorjsVersion/playerAdapterId` 必须等于锁定 CoreArtifact 所属 manifest 的版本/adapter ID；`dosbox_pure`、`genesis_plus_gx_wide`、`azahar` 的新 Launch 为 `4.3.0-pre/ejs-4.3.0-pre-v2`，其余 4.2.3 核心使用 `ejs-4.2.3-v3`。联机 config 由联机 manifest 精确锁定 legacy `ejs-4.2.3-v2`，不得用普通 manifest 当前 ID 覆盖。所有 URL 必须是同源站内路径，响应不得含 capability、Blob ID/hash、宿主路径或客户端可改写 URL。
+`emulatorGameId` 是 `1..9007199254740991` 的 JSON integer；`gameName` 必须精确为 ASCII `retrom-` 加它的十进制表示。`gameTitle/coreName/platformName` 只用于 Player 工具栏的人类可读上下文，不参与 EJS 配置、运行选择或授权判断。`biosUrl`、`parentUrl`、`stateUrl` 与 `dosEntry` 可为 `null`；其他字段必需。`defaultCoreOptions` 是最多 32 项的 ASCII string→string map，禁止危险 key；DOS 的该 map 和 `externalFiles` 均不包含启动入口，启动入口只由锁定内容的虚拟 ZIP 视图表达。其他核心的 `externalFiles` 只能指向由同一 Launch grant 授权的 `/runtime/content/external/{contentIdentity}/{logicalName}`。普通 `emulatorjsVersion/playerAdapterId` 必须等于锁定 CoreArtifact 所属 manifest 的版本/adapter ID；`dosbox_pure`、`genesis_plus_gx_wide`、`azahar` 的新 Launch 为 `4.3.0-pre/ejs-4.3.0-pre-v2`，其余 4.2.3 核心使用 `ejs-4.2.3-v3`。联机 config 由联机 manifest 精确锁定 legacy `ejs-4.2.3-v2`，不得用普通 manifest 当前 ID 覆盖。所有 URL 必须是同源站内路径，响应不得含 capability、Blob ID/hash、宿主路径或客户端可改写 URL。
 
 `startupActions` 最多 4 项，只接受 `event=GAME_START`、`kind=PRESS_CONTROL`、`delayMs=0..30000`、`durationMs=1..1000` 以及有界 player/control 整数；OpenAPI、后端 manifest/Launch 校验与 Player adapter 必须采用同一边界。动作是锁定 CoreArtifact 的只读兼容配置，不能由请求者编辑，也不能按 core ID 在任一端补默认值。
 
-`gameUrl` 的 `logicalName` 保留实际运行文件后缀；host console ZIP 已在入库时物化为唯一可运行 member，Arcade 与 DOS 才向 EJS 提供规范 ZIP。多盘 `gameUrl` 固定为本 Launch 的 `game/playlist.m3u`，`discSet` 包含 2–8 个连续 index、中文 label、规范 `/disc-NNN.chd` virtualPath 和锁定的 initial index；同一组 DISC URL 必须逐项出现在 `externalFiles`。BIOS/parent 外层 bundle 的结构见运行时专题。config response 先按严格 JSON schema 校验，再由 Player adapter 设置 globals；页面不得从 core 名称自行推导文件名、线程开关、option 或 URL。
+`gameUrl` 的 `logicalName` 保留实际运行文件后缀；host console ZIP 已在入库时物化为唯一可运行 member，Arcade 与 DOS 才向 EJS 提供规范 ZIP。多盘 `gameUrl` 固定为 `/runtime/content/game/{contentIdentity}/playlist.m3u`，`discSet` 包含 2–8 个连续 index、中文 label、规范 `/disc-NNN.chd` virtualPath 和锁定的 initial index；同一组 DISC URL 必须逐项出现在 `externalFiles`。BIOS/parent 外层 bundle 的结构见运行时专题。config response 先按严格 JSON schema 校验，再由 Player adapter 设置 globals；页面不得从 core 名称自行推导文件名、线程开关、option 或 URL。
 
 二进制端点支持 `GET`、`HEAD` 和单 Range；多 Range 返回 `416`。所有响应设置正确 MIME、`X-Content-Type-Options: nosniff`、`Accept-Ranges: bytes` 和强 ETag。DOS 的 `game.zip` 是从锁定基础 Blob与 entry 确定性派生的 seekable 虚拟 ZIP，HEAD/Range/完整 GET 必须同 size/ETag 且不落盘。受限 URL 不包含 Blob ID/hash，不设置 `public`，错误响应也不得泄露资源是否属于其他游戏。
+
+运行内容的 `private immutable` 响应只允许同一浏览器缓存复用，不进入共享缓存；不同 Launch 锁定相同输入时
+生成相同 URL，因此可以直接命中已有私有缓存。任何真正到达服务器的请求仍逐次验证 content grant、Launch/
+审核预览状态与 path identity。Finish、撤销、硬删除或到期后新的/强制网络请求必须失败；HTTP 无法追溯擦除
+浏览器先前已合法取得的 immutable 副本，这也是状态存档与存档截图继续 `private, no-store` 的原因。
 
 运行中写入要求正确 launch cookie：
 
@@ -399,7 +404,7 @@ PlaySession 事件 API 位于 launch cookie 的限定 Path 内，同时要求正
 
 OpenAPI 中 `putAdminUploadPart`、`postRuntimeSaveState` 与 `postRuntimeReviewScreenshot` 三个 operation 必须且只能标记 `x-retrom-streaming-body: true`；生成物应分别暴露 `io.Reader`/`multipart.Reader`，不能生成 `[]byte` 或先 `ParseMultipartForm`。启动时基于同一份已加载 spec 构建两条不可变的 `nethttp-middleware` validator chain：普通链保持 `Options.Options.ExcludeRequestBody=false`，流式链设置 `Options.Options.ExcludeRequestBody=true`。前置 kin-openapi router 先匹配 operation 并读取该 extension，再把请求分派给对应链；请求处理中不得修改共享 options。流式链仍验证 method/path/query/header/content-type，领域 handler 的流式检查才是 body 的权威门禁；不得另维护 URL skip 清单，也不得用全局 `Skipper` 跳过完整验证。所有 `operationId` 使用唯一 lowerCamelCase，格式为 HTTP 动词加稳定领域动作；已经发布后改名视为生成代码破坏性变更。
 
-`core` 表示产品目录 ID，`runtimeCore` 表示 EmulatorJS runtime ID；Player 只能把后者写入 `EJS_core`。`inputMode` 只允许 `STANDARD|POINTER`。`externalFiles` 当前只用于 Variant dependency snapshot 锁定的 MelonDS 三个绝对虚拟路径，其 URL 必须属于同一 Launch 的 external-files 前缀；最多 16 项，重复路径/逻辑名或跨 Launch URL 均阻断。主机/掌机 ZIP/7z 已在入库时物化为唯一可运行 member；PSP `.iso/.cso` 作为 raw CONTENT 返回，不做运行时转换。
+`core` 表示产品目录 ID，`runtimeCore` 表示 EmulatorJS runtime ID；Player 只能把后者写入 `EJS_core`。`inputMode` 只允许 `STANDARD|POINTER`。`externalFiles` 当前只用于 Variant dependency snapshot 锁定的 MelonDS 三个绝对虚拟路径，其 URL 必须属于 `/runtime/content/external/`、命中 config 的派生 content identity，并由同一 Launch grant 授权；最多 16 项，重复路径/逻辑名或跨 Launch URL 均阻断。主机/掌机 ZIP/7z 已在入库时物化为唯一可运行 member；PSP `.iso/.cso` 作为 raw CONTENT 返回，不做运行时转换。
 
 ## 9. 核心 API 路由表
 
@@ -420,7 +425,7 @@ OpenAPI 中 `putAdminUploadPart`、`postRuntimeSaveState` 与 `postRuntimeReview
 | Review 显式重刮削 | `POST /admin/reviews/{itemId}/scrape-candidates`：`{"metadataProvider":"HASHEOUS|NONE"}` + `If-Match` + `Idempotency-Key` | Item 必须 REVIEW_PENDING；HASHEOUS bypass cache 创建新 Run/Job 并返回 `202`，NONE 同事务创建 COMPLETED Run/SUCCEEDED Job 并返回 `201`；两者追加 SCRAPE_REQUESTED，不自动改 draft selection。 |
 | Review 通过 / Discard | discard 与无重复的 approve body 可为 `{}`；服务端为旧客户端继续接受可空 `reason`，新 UI 不采集发布说明或丢弃原因。重复内容确认的 approve body 为 `{"duplicatePolicy":"ALLOW_NEW","acknowledgedGameIds":[uuid...]}`；`If-Match` + `Idempotency-Key` | approve 只接受当前匹配的 READY selected Validation，且 title trim 后为 1–200 Unicode code points、无控制字符；在同一写事务 claim 内容身份并重查同平台 current published contents。命中且未精确确认时返回 `409 DUPLICATE_GAME_CONFIRMATION_REQUIRED` 和当前 games；确认后原子创建发布实体、复制 ValidationFiles 与候选/人工上传封面并把确认写入事件，不得在事务内重扫/打包。discard 不删除证据。 |
 | Review 快速审批 | preview：`GET /admin/review-bulk-approval-preview` + 当前审核筛选；create：`POST /admin/review-bulk-approvals` + preview digests + Idempotency-Key；cancel/retry：aggregate `If-Match` + Idempotency-Key | 只冻结严格 READY、无重复/active Attachment 的当前候选。每项复用普通 approve 事务并原子写 batch result；dependency evidence 按静态 BIOS/多盘 schema v1 或 Arcade schema v2 的对应分支核对，合法 Arcade v2 不能被当作 parser stale；截图 override 继续逐项。create stale/empty/active/too-large 使用上文稳定错误码，cancel 不回滚已发布项，worker infrastructure failure 才可领域 retry。 |
-| 游戏元信息 | `PATCH /admin/games/{gameId}` + `If-Match`；body 直接包含 title/description/developer/publisher/genre/players/releaseYear 中至少一个字段，例如 `{"title":"..."}`，不再包一层 metadata | 复制未变文本和当前完整 asset 清单，创建 MetadataRevision/Asset refs、更新 `games.search_text` 后切换 current；同一事务移除旧 revision 的 Asset 叶子引用，文字 revision 继续保留。 |
+| 游戏元信息 | `PATCH /admin/games/{gameId}` + `If-Match`；body 直接包含 title/description/developer/publisher/genre/players/releaseYear 中至少一个字段，例如 `{"title":"..."}`，不再包一层 metadata | 复制未变文本和当前完整 asset 清单，按最终 title 计算受约束 `title_initial`，创建 MetadataRevision/Asset refs、更新 `games.search_text` 后切换 current；改名与排序键必须同事务原子前移。同一事务移除旧 revision 的 Asset 叶子引用，文字 revision 继续保留。 |
 | 游戏媒体 | `POST /admin/games/{gameId}/assets`：`{"uploadFileId":"...","kind":"COVER|BACKGROUND|SCREENSHOT","ordinal":0}` + `If-Match` + `Idempotency-Key` | UploadFile 必须 COMPLETE 且为受支持图片；复制文本/未变媒体，创建完整新 MetadataRevision 清单并切换 current。COVER/BACKGROUND 的 ordinal 只能 0，SCREENSHOT 为 `0..31`。切换后旧 Asset URL 立即失效；失去最后引用的 Blob 转入等待回收，不承诺已登记 CAS 总量立即下降。 |
 | 游戏内容 revision | `POST /admin/games/{gameId}/content-revisions`：`{"uploadId":"..."}` + Game `If-Match` + `Idempotency-Key` | UploadSession 必须 COMPLETE、未消费，且按游戏基础平台恰好组成一个内容项。事务快照 Game current content、目录/version、默认 core/artifact/DAT，创建 `GAME_FILE_REVISION` Job 和 whole-session consumption，返回 `202`。Worker 在事务外安全扫描/物化/验证；单 ROM role/hash 序列相同，或多盘的盘序与全部 Disc hash 相同时，以不可重试 `GAME_CONTENT_UNCHANGED` 结束、释放 consumption 且不创建 revision。只有不同的新内容 READY 且快照仍一致时才原子创建 GameContentRevision/ContentFiles/VariantRevision、切换 Game content 与目标 Variant current，并删除旧 Content/Variant/Launch payload 及绑定旧 revision 的存档、结束旧运行；旧 revision 行作为结构化审计保留。其他失败不创建 revision、不改 current、不删除存档；配置/内容竞态及可修复依赖错误标为 retryable。 |
 | 重新刮削 | `POST /admin/games/{gameId}/scrape-candidates`：`{"metadataProvider":"HASHEOUS"}` + `If-Match` + `Idempotency-Key` | 对当时 Game current ContentRevision 建 MetadataScrapeRun 和有界后台任务，显式 bypass cache，不改 current metadata；若任务执行前 content 已变化则以 retryable conflict 结束，不能对旧内容冒充最新 run。 |
@@ -740,7 +745,16 @@ M3U 与 library validation 保留现有 `MULTI_DISC_*`、`LAUNCH_*`、`ARCADE_*`
 
 ## 12.2 沉浸模式只读 API
 
-沉浸模式使用独立、只读的电视交互投影，不复用普通游戏库的搜索、筛选或管理 DTO。两个端点均要求有效 Profile 会话，只返回当前用户可见且已发布、可运行的游戏；查询不得暴露 Blob SHA、宿主路径、内容逻辑名或 Launch capability。
+沉浸模式使用独立、只读的电视交互投影，不复用普通游戏库的搜索、筛选或管理 DTO。四个端点均要求有效
+Profile 会话，只返回当前用户可见且已发布、可运行的游戏；Favorite/Folder、SaveState 与 PlaySession
+投影必须使用 Principal 的 `profile_id`。查询不得暴露内部 Blob ID、宿主路径、内容逻辑名或 Launch
+capability；运行时内容身份只由 Launch config 的受权 URL 返回。
+
+`GET /api/v1/immersive/destinations` 在一个只读事务中返回 `generatedAtMs/items`。`items` 固定先按
+`all,recent,favorites,saves` 返回“全部游戏、最近游玩、收藏游戏、我的存档”四张卡，再追加有可见游戏的
+平台卡；四张资料库卡即使计数为零也保留，平台卡仍按规范化平台名、`platformId` 排序。每项包含
+`destinationId/kind/name/gameCount/lastPlayedAtMs/featuredGames`，预览最多三款，只使用 current COVER；
+Favorite、SaveState 和最近时间不得跨 Profile 聚合。
 
 `GET /api/v1/immersive/platforms` 返回：
 
@@ -758,12 +772,27 @@ M3U 与 library validation 保留现有 `MULTI_DISC_*`、`LAUNCH_*`、`ARCADE_*`
 
 - `limit` 默认且最大为 50；除此之外不接受搜索、排序、标签或状态查询参数；
 - 平台不存在、已禁用或对当前 Profile 没有可见游戏时统一返回 404 `IMMERSIVE_PLATFORM_NOT_FOUND`，不能泄露隐藏平台；
-- 按规范化游戏标题、`gameId` 稳定分页；签名 cursor 绑定 Profile、route、`platformId` 与 `limit`，过期、篡改或跨范围复用返回 400 `INVALID_CURSOR`；
-- 响应顶层 `platform` 固定为本页所属平台；每项包含 `gameId/title/platformInstanceId/platformInstanceName/defaultCoreId`、当前元数据中的可空 `description/releaseYear/developer/genre`、当前 Profile 的可空 `lastPlayedAtMs`，以及当前媒体中 ordinal 0 的可空 `coverUrl/videoUrl`；
+- 按 current MetadataRevision 的 `title_initial ASC,title COLLATE NOCASE ASC,gameId ASC` 稳定分页；签名 cursor 绑定 Profile、route、`platformId` 与 `limit`，过期、篡改或跨范围复用返回 400 `INVALID_CURSOR`；
+- 响应顶层 `platform` 固定为本页所属平台；每项包含 `gameId/title/titleInitial/platformInstance/defaultCore`、当前元数据中的 `description` 与可空 `releaseYear/developer/genre`、当前 Profile 的可空 `lastPlayedAtMs`、`favorited/saveStates`，以及 current 媒体 ordinal 0 的可空 `coverUrl/videoUrl`；
 - 媒体 URL 必须继续进入既有受 AuthSession 保护的内容端点，不建立沉浸模式专用 Blob 旁路；
 - 响应包含 `generatedAtMs`、`items` 与可空 `nextCursor`。空的后续页返回 200 空数组，只有平台整体不可见时返回 404。
 
-两个响应都是当次读取快照的展示投影，不建立持久化沉浸会话。客户端返回后台再进入时重新获取平台和游戏数据，不依赖旧页面中的可见性或容量结论。
+`GET /api/v1/immersive/libraries/{libraryKind}/games?folderId=&cursor=&limit=` 的 `libraryKind` 只接受
+`all|recent|favorites|saves`，`limit` 默认且最大 50。`folderId` 只可用于 favorites，必须属于当前 Profile；
+favorites 响应同时返回该 Profile 的 `folders` 与当前可空 `folder`，其他范围两者为空。all/favorites/saves
+使用上述 `titleInitial/title/gameId` 顺序；recent 例外地按本 Profile `lastPlayedAtMs DESC,gameId DESC`，没有
+游玩记录的游戏不进入 recent。saves 只列至少有一份当前可用存档的游戏，每项 `saveStates` 按
+`createdAtMs DESC,saveStateId DESC` 返回，截图 URL 继续是私有 no-store 端点。签名 cursor 绑定 Profile、
+libraryKind、folderId、limit 与排序版本；未知 query、非法组合、篡改或跨范围 cursor 均稳定拒绝。
+
+`ImmersiveGameItem` 的 `titleInitial` 只接受 `#|0-9|A-Z`；ASCII 数字原样、ASCII 字母转大写、首个汉字取
+拼音首字母大写、其他首字符为 `#`。该值来自不可变 MetadataRevision，不由 HTTP handler 临时推断。
+每个 item 的 `defaultCore` 必须来自当前 PlatformInstance 默认 Core；`favorited` 表示当前 Profile 是否收藏，
+Y 默认收藏写入仍使用既有 `PUT /api/v1/favorites/{gameId}`，不会自动加入任意 Folder。
+
+全部响应都是当次读取快照的展示投影，不建立持久化沉浸会话。客户端返回后台再进入时重新获取数据，不依赖
+旧页面中的可见性或容量结论；创建 Launch、切换收藏、创建存档仍调用各自既有写 API，不在只读投影中复制
+第二套状态机。
 
 ## 13. 受限联机 REST、SSE、WebSocket 与凭据
 

@@ -7,6 +7,7 @@ function game(videoUrl: string | null): ImmersiveGame {
   return {
     gameId: "00000000-0000-7000-8000-000000000001",
     title: "测试游戏",
+    titleInitial: "C",
     description: "简介",
     releaseYear: 2001,
     developer: "Retrom",
@@ -16,6 +17,8 @@ function game(videoUrl: string | null): ImmersiveGame {
     coverUrl: "/content/assets/cover",
     videoUrl,
     lastPlayedAtMs: null,
+    favorited: false,
+    saveStates: [],
   };
 }
 

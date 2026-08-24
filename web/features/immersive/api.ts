@@ -6,6 +6,10 @@ export type ImmersivePlatform = components["schemas"]["ImmersivePlatformSummary"
 export type ImmersivePlatformList = components["schemas"]["ImmersivePlatformList"];
 export type ImmersiveGame = components["schemas"]["ImmersiveGameItem"];
 export type ImmersiveGameList = components["schemas"]["ImmersiveGameList"];
+export type ImmersiveDestination = components["schemas"]["ImmersiveDestinationSummary"];
+export type ImmersiveDestinationList = components["schemas"]["ImmersiveDestinationList"];
+export type ImmersiveLibraryGameList = components["schemas"]["ImmersiveLibraryGameList"];
+export type ImmersiveLibraryKind = "all" | "recent" | "favorites" | "saves";
 type LaunchRequest = components["schemas"]["LaunchRequest"];
 
 export class ImmersiveAPIError extends Error {
@@ -35,6 +39,47 @@ export async function fetchImmersiveGames(platformId: string, cursor: string | n
   });
   if (!data) {throw new ImmersiveAPIError(response.status, errorMessage(error, "无法读取平台游戏"));}
   return data;
+}
+
+export async function fetchImmersiveDestinations(signal?: AbortSignal) {
+  const { data, error, response } = await api.GET("/api/v1/immersive/destinations", { signal });
+  if (!data) {throw new ImmersiveAPIError(response.status, errorMessage(error, "无法读取沉浸模式入口"));}
+  return data;
+}
+
+export async function fetchImmersiveLibraryGames(
+  kind: ImmersiveLibraryKind,
+  cursor: string | null,
+  folderId?: string,
+  signal?: AbortSignal,
+) {
+  const { data, error, response } = await api.GET("/api/v1/immersive/libraries/{libraryKind}/games", {
+    params: {
+      path: { libraryKind: kind },
+      query: { limit: 50, ...(cursor ? { cursor } : {}), ...(folderId ? { folderId } : {}) },
+    },
+    signal,
+  });
+  if (!data) {throw new ImmersiveAPIError(response.status, errorMessage(error, "无法读取沉浸游戏列表"));}
+  return data;
+}
+
+export async function setImmersiveFavorite(gameId: string, favorited: boolean) {
+  const response = await fetch(favorited
+    ? `/api/v1/favorites/${encodeURIComponent(gameId)}`
+    : "/api/v1/favorites/unfavorite", {
+    method: favorited ? "PUT" : "POST",
+    credentials: "same-origin",
+    headers: writeHeaders({
+      "Content-Type": "application/json",
+      ...(!favorited ? { "Idempotency-Key": newUuid() } : {}),
+    }),
+    body: JSON.stringify(favorited ? {} : { gameIds: [gameId] }),
+  });
+  if (!response.ok) {
+    const error: unknown = await response.json().catch(() => null);
+    throw new ImmersiveAPIError(response.status, errorMessage(error, favorited ? "无法收藏游戏" : "无法取消收藏"));
+  }
 }
 
 function waitForValidation(jobId: string) {
@@ -72,11 +117,11 @@ function readPlayUrl(value: unknown) {
   return `${url.pathname}${url.search}`;
 }
 
-export async function launchImmersiveGame(gameId: string, returnTo: string) {
+export async function launchImmersiveGame(gameId: string, returnTo: string, saveStateId: string | null = null) {
   const body: LaunchRequest = {
     gameId,
     coreId: null,
-    saveStateId: null,
+    saveStateId,
     dosEntry: null,
     returnTo,
     clientCapabilities: {

@@ -117,7 +117,7 @@
 | Go 纯领域逻辑、parser、状态机 | 目标包单元测试 + 后端基础门禁 | 进入 SQLite/HTTP/后台任务事务时追加 integration |
 | migration、SQLite 约束、事务、HTTP route/DTO/error | 聚焦集成测试 + `make integration-test`；API 变化再跑 generate/check | 跨多个应用模块或影响面无法证明时跑 `make ci` |
 | 普通 Web 组件、排版、焦点、响应式 | 组件测试 + 前端基础门禁；有真实浏览器行为时跑对应 `ACC-UI/MOB/TAG/FAV/...` 精确 Case | 修改共享 App Shell、认证或全局样式时扩大到全部直接消费页面，不自动进入 Core/联机矩阵 |
-| 沉浸模式入口、平台/游戏浏览、媒体、焦点、全屏恢复、菜单或返回导航 | 受影响的 `ACC-IMM-001`–`008`；涉及真实启动/返回时至少覆盖 `004`–`006`，并保留 `008` 的普通 UI 隔离 | 只有改到共享 adapter、Core 帧执行、runtime config/content 或联机分支时才追加 `ACC-RUN/SAVE/NP` |
+| 沉浸模式入口、平台/游戏浏览、资料库、收藏、存档、音频、焦点、全屏恢复、菜单或返回导航 | `ACC-IMM-001`–`012` 中与改动直接对应的精确 Case；涉及真实启动/返回时覆盖对应 Player Case，并保留普通 UI 隔离 | 只有改到共享 adapter、Core 帧执行、runtime config/content 或联机分支时才追加 `ACC-RUN/SAVE/NP` |
 | 普通 Player 外围 UI（工具栏、全屏、方向门禁、退出导航） | 对应 `ACC-RUN-002`–`004`、`ACC-MOB-*` 或领域精确 Case；共享分支需补普通/沉浸隔离 | 进入 iframe 装载、帧步进、state、输入 adapter 或内容装配时扩大到受影响 Core 产品 Case |
 | Core adapter、EmulatorJS 版本、运行配置、ROM/BIOS/Parent、存档/多盘恢复 | 对应 `ACC-RUN-*`、`ACC-SAVE-*`、`ACC-MDISC-*` 与受影响 Core 的真实产品链 | 修改所有 Core 共享 adapter/loader、manifest 或无法枚举消费者时运行完整 `make web-e2e` |
 | 联机房间/协议、canonical input、rollback/state transfer、联机 adapter | 对应 `ACC-NP-*` 聚焦测试；共享协议/controller 改动覆盖全部登记联机 profile | 普通或沉浸单机 UI 未进入联机分支时不得仅因复用 Player 文件而跑联机矩阵 |

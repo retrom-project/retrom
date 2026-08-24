@@ -20,6 +20,8 @@ import type { PlayerDebugRuntime } from "./player-chrome";
 import { handlePlayerPauseShortcut } from "./keyboard-controls";
 import type { ImmersiveGamepadFilter } from "./immersive-gamepad-filter";
 import { validateImmersivePlayerConfig } from "./immersive-player-config";
+import { getImmersiveAudioPreferences } from "@/features/immersive/immersive-audio-preferences";
+import { applyInitialPlayerVolume } from "./immersive-player-volume";
 
 type ShellState = "loading" | "running" | "error";
 type SyncTone = "synced" | "busy" | "warning";
@@ -217,10 +219,13 @@ function handleReady(context: MountedContext, instance: EmulatorInstance) {
   const { params, frameDocument, resources } = context;
   params.emulator.current = instance;
   applyVideoRenderingMode(instance, instance.canvas ?? frameDocument.querySelector<HTMLCanvasElement>("canvas"), params.videoRenderingModeRef.current);
-  const initialVolume = Math.min(1, Math.max(0, typeof instance.volume === "number" ? instance.volume : 0.5));
-  params.setEmulatorVolume(initialVolume);
-  params.setEmulatorMuted(instance.muted === true || initialVolume === 0);
-  if (initialVolume > 0) {params.lastAudibleVolume.current = initialVolume;}
+  const initialVolume = applyInitialPlayerVolume(
+    instance,
+    params.experience === "immersive" ? getImmersiveAudioPreferences() : null,
+  );
+  params.setEmulatorVolume(initialVolume.volume);
+  params.setEmulatorMuted(initialVolume.muted);
+  if (initialVolume.lastAudibleVolume !== null) {params.lastAudibleVolume.current = initialVolume.lastAudibleVolume;}
   lockNativeMenu(frameDocument, resources);
   instance.on("saveState", () => undefined);
   instance.on("saveDatabaseLoaded", () => clearTransientStorage(params, instance));

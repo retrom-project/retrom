@@ -20,10 +20,10 @@ WHERE g.status='PUBLISHED'
 ORDER BY g.updated_at_ms DESC,g.id DESC
 LIMIT 1;
 
-INSERT INTO game_metadata_revisions(id,game_id,title,description,developer,publisher,genre,players,release_year,source_kind,source_ref_id,created_at_ms)
+INSERT INTO game_metadata_revisions(id,game_id,title,title_initial,description,developer,publisher,genre,players,release_year,source_kind,source_ref_id,created_at_ms)
 SELECT '60000000-0000-7000-8000-000000000002',
        '60000000-0000-7000-8000-000000000001',
-       'Acceptance Missing FDS BIOS',description,developer,publisher,genre,players,release_year,source_kind,source_ref_id,1786000300000
+       'Acceptance Missing FDS BIOS','A',description,developer,publisher,genre,players,release_year,source_kind,source_ref_id,1786000300000
 FROM game_metadata_revisions
 WHERE id=(SELECT metadata_id FROM acceptance_game);
 

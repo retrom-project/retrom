@@ -2,12 +2,13 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { fetchImmersiveGames, ImmersiveAPIError, launchImmersiveGame, type ImmersiveGame, type ImmersivePlatform } from "./api";
+import { fetchImmersiveGames, ImmersiveAPIError, launchImmersiveGame, setImmersiveFavorite, type ImmersiveGame, type ImmersivePlatform } from "./api";
 import { ImmersiveChoiceDialog } from "./choice-dialog";
 import { fetchInitialGameList } from "./game-list-loader";
 import { initialGameIndex, mergeGamePage, moveGameIndex, pageGameIndex, shouldPrefetchGamePage } from "./game-list-state";
 import { ImmersiveShell } from "./immersive-shell";
 import type { NavigationAction } from "./input-model";
+import libraryStyles from "./library.module.css";
 import { MediaStage } from "./media-stage";
 import styles from "./immersive.module.css";
 
@@ -53,7 +54,7 @@ function GameReadyContent({ games, loadNext, onSelect, pageError, platform, retr
           tabIndex={index === selectedIndex && !retrySelected ? 0 : -1}
           key={game.gameId}
           onClick={() => onSelect(index)}
-        ><span>{String(index + 1).padStart(2, "0")}</span><strong>{game.title}</strong>{(titleCounts.get(game.title) ?? 0) > 1 ? <small>{game.platformInstance.name}</small> : null}</button>)}
+        ><span>{String(index + 1).padStart(2, "0")}</span><strong>{game.title}</strong>{game.favorited ? <small aria-label="已收藏">♥</small> : null}{(titleCounts.get(game.title) ?? 0) > 1 ? <small>{game.platformInstance.name}</small> : null}</button>)}
         {pageError ? <button type="button" role="option" aria-selected={retrySelected} tabIndex={retrySelected ? 0 : -1} className={retrySelected ? styles.selectedGame : ""} onClick={loadNext}><span>!</span><strong>加载失败，重试</strong></button> : null}
       </div>
     </aside>
@@ -88,6 +89,15 @@ function GameStateContent({ goBack, onRetry, onUnauthenticated, state }: {
   return null;
 }
 
+function handleRetrySelectionAction(
+  action: NavigationAction,
+  loadNext: () => void,
+  setRetrySelected: (selected: boolean) => void,
+) {
+  if (action === "up" || action === "left" || action === "cancel") {setRetrySelected(false);}
+  if (action === "confirm") {loadNext();}
+}
+
 export function GameListView({ initialGameId, platformId }: { initialGameId?: string; platformId: string }) {
   const router = useRouter();
   const [state, setState] = useState<ViewState>("loading");
@@ -99,6 +109,7 @@ export function GameListView({ initialGameId, platformId }: { initialGameId?: st
   const [retrySelected, setRetrySelected] = useState(false);
   const [launchState, setLaunchState] = useState<LaunchState>("idle");
   const [launchMessage, setLaunchMessage] = useState("");
+  const [favoritePending, setFavoritePending] = useState(false);
   const requestGeneration = useRef(0);
   const nextRequest = useRef<AbortController | null>(null);
   const pendingBrowseAction = useRef<BrowseAction | null>(null);
@@ -193,6 +204,20 @@ export function GameListView({ initialGameId, platformId }: { initialGameId?: st
     window.setTimeout(launch, 0);
   }, [launch]);
 
+  const toggleFavorite = useCallback(() => {
+    if (!selected || favoritePending) {return;}
+    const next = !selected.favorited;
+    setFavoritePending(true);
+    setLaunchMessage("");
+    void setImmersiveFavorite(selected.gameId, next).then(() => {
+      setGames((current) => current.map((game) => game.gameId === selected.gameId
+        ? { ...game, favorited: next }
+        : game));
+      setLaunchMessage(next ? "已收藏游戏。" : "已取消收藏。");
+    }).catch((error: unknown) => setLaunchMessage(error instanceof Error ? error.message : "收藏操作失败"))
+      .finally(() => setFavoritePending(false));
+  }, [favoritePending, selected]);
+
   const handleLaunchAction = useCallback((action: NavigationAction) => {
     if (launchState === "pending") {return true;}
     if (launchState === "error") {
@@ -219,9 +244,9 @@ export function GameListView({ initialGameId, platformId }: { initialGameId?: st
   }, [goBack, retryInitial, router, state]);
 
   const handleReadyAction = useCallback((action: NavigationAction) => {
+    if (favoritePending) {return;}
     if (retrySelected) {
-      if (action === "up" || action === "left" || action === "cancel") {setRetrySelected(false);}
-      if (action === "confirm") {loadNext();}
+      handleRetrySelectionAction(action, loadNext, setRetrySelected);
       return;
     }
     if (action === "up") {setSelectedIndex((value) => moveGameIndex(value, "up", games.length));}
@@ -233,8 +258,9 @@ export function GameListView({ initialGameId, platformId }: { initialGameId?: st
       setSelectedIndex((value) => pageGameIndex(value, action, games.length));
     }
     if (action === "confirm") {launch();}
+    if (action === "favorite") {toggleFavorite();}
     if (action === "cancel") {goBack();}
-  }, [games.length, goBack, launch, loadNext, pageError, retrySelected, selectedIndex]);
+  }, [favoritePending, games.length, goBack, launch, loadNext, pageError, retrySelected, selectedIndex, toggleFavorite]);
 
   const onAction = useCallback((action: NavigationAction) => {
     if (handleLaunchAction(action) || handleViewStateAction(action)) {return;}
@@ -252,6 +278,7 @@ export function GameListView({ initialGameId, platformId }: { initialGameId?: st
       { button: "vertical", label: "选择游戏" },
       { button: "horizontal", label: "快速翻页" },
       { button: "A", label: retrySelected ? "重试加载" : "开始游戏" },
+      { button: "Y", label: "收藏" },
       { button: "B", label: "返回平台" },
     ]
     : [{ button: "A", label: state === "error" ? "重试" : "返回" }, { button: "B", label: "返回" }];
@@ -263,6 +290,7 @@ export function GameListView({ initialGameId, platformId }: { initialGameId?: st
       }} /> : <GameStateContent state={state} goBack={goBack} onRetry={retryInitial} onUnauthenticated={() => router.replace("/login")} />}
     </section>
     {launchState === "pending" ? <div className={styles.launchOverlay} role="status"><span className={styles.spinner} /><h2>正在准备运行环境…</h2><p>检查游戏内容、核心与运行依赖</p></div> : null}
+    {launchMessage && launchState === "idle" ? <p className={libraryStyles.statusMessage} role="status">{launchMessage}</p> : null}
     {launchState === "error" ? <ImmersiveChoiceDialog title="无法启动游戏" description={launchMessage} selectedId="retry" choices={[{ id: "close", label: "返回列表" }, { id: "retry", label: "重试" }]} onChoose={(choice) => {if (choice === "retry") {retryLaunch();} else {setLaunchState("idle");}}} /> : null}
   </ImmersiveShell>;
 }

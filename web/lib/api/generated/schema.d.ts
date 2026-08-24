@@ -356,6 +356,42 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/immersive/destinations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Returns the four Profile-scoped library destinations first, followed by visible base platforms. Counts, recent-play clocks and cover previews are read from one snapshot. */
+        get: operations["getImmersiveDestinations"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/immersive/libraries/{libraryKind}/games": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                libraryKind: components["parameters"]["ImmersiveLibraryKind"];
+            };
+            cookie?: never;
+        };
+        /** @description Returns the authenticated Profile's all, recent, favorite or saved games. Only recent is ordered by play time; the other scopes use the persisted title initial, title and game id. Favorite folders are available only for the favorites scope. */
+        get: operations["getImmersiveLibraryGames"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/favorites": {
         parameters: {
             query?: never;
@@ -2504,17 +2540,17 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/runtime/launches/{launchId}/game/{logicalName}": {
+    "/runtime/content/game/{contentIdentity}/{logicalName}": {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                launchId: components["parameters"]["LaunchID"];
+                contentIdentity: components["parameters"]["ContentIdentity"];
                 logicalName: components["parameters"]["LogicalName"];
             };
             cookie?: never;
         };
-        /** @description Streams only the Launch-locked game object. Multi-disc playlist.m3u uses audio/x-mpegurl with the common single-Range contract. */
+        /** @description Streams only an active Launch content grant's exact content-addressed game object. Multi-disc playlist.m3u uses audio/x-mpegurl with the common single-Range contract. Responses are private immutable and retain strong ETag validation. */
         get: operations["getRuntimeGame"];
         put?: never;
         post?: never;
@@ -2524,17 +2560,17 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/runtime/launches/{launchId}/external-files/{logicalName}": {
+    "/runtime/content/external/{contentIdentity}/{logicalName}": {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                launchId: components["parameters"]["LaunchID"];
+                contentIdentity: components["parameters"]["ContentIdentity"];
                 logicalName: components["parameters"]["LogicalName"];
             };
             cookie?: never;
         };
-        /** @description Streams only a Launch-locked BIOS or canonical disc-NNN.chd external file with the common single-Range contract. */
+        /** @description Streams only an active Launch content grant's exact content-addressed BIOS or canonical disc-NNN.chd external file with the common single-Range contract. */
         get: operations["getRuntimeExternalFile"];
         put?: never;
         post?: never;
@@ -2544,12 +2580,12 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/runtime/launches/{launchId}/bios/bundle.zip": {
+    "/runtime/content/bios/{contentIdentity}/bundle.zip": {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                launchId: components["parameters"]["LaunchID"];
+                contentIdentity: components["parameters"]["ContentIdentity"];
             };
             cookie?: never;
         };
@@ -2562,12 +2598,12 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/runtime/launches/{launchId}/parent/bundle.zip": {
+    "/runtime/content/parent/{contentIdentity}/bundle.zip": {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                launchId: components["parameters"]["LaunchID"];
+                contentIdentity: components["parameters"]["ContentIdentity"];
             };
             cookie?: never;
         };
@@ -2980,6 +3016,7 @@ export interface components {
             /** Format: uuid */
             gameId: string;
             title: string;
+            titleInitial: string;
             description: string;
             releaseYear: number | null;
             developer: string;
@@ -2990,6 +3027,49 @@ export interface components {
             videoUrl: string | null;
             /** Format: int64 */
             lastPlayedAtMs: number | null;
+            favorited: boolean;
+            saveStates: components["schemas"]["ImmersiveSaveState"][];
+        };
+        ImmersiveSaveState: {
+            /** Format: uuid */
+            saveStateId: string;
+            name: string;
+            /** Format: int64 */
+            createdAtMs: number;
+            discIndex: number | null;
+            screenshotUrl: string;
+        };
+        ImmersiveDestinationSummary: {
+            destinationId: string;
+            /** @enum {string} */
+            kind: "all" | "recent" | "favorites" | "saves" | "platform";
+            name: string;
+            /** Format: int64 */
+            gameCount: number;
+            /** Format: int64 */
+            lastPlayedAtMs: number | null;
+            featuredGames: components["schemas"]["ImmersivePlatformFeaturedGame"][];
+        };
+        ImmersiveDestinationList: {
+            /** Format: int64 */
+            generatedAtMs: number;
+            items: components["schemas"]["ImmersiveDestinationSummary"][];
+        };
+        ImmersiveFavoriteFolder: {
+            /** Format: uuid */
+            folderId: string;
+            name: string;
+            /** Format: int64 */
+            gameCount: number;
+        };
+        ImmersiveLibraryGameList: {
+            /** Format: int64 */
+            generatedAtMs: number;
+            library: components["schemas"]["ImmersiveDestinationSummary"];
+            folder: components["schemas"]["ImmersiveFavoriteFolder"] | null;
+            folders: components["schemas"]["ImmersiveFavoriteFolder"][];
+            items: components["schemas"]["ImmersiveGameItem"][];
+            nextCursor: string | null;
         };
         ImmersivePlatformList: {
             /** Format: int64 */
@@ -5243,6 +5323,24 @@ export interface components {
                 "application/json": components["schemas"]["ImmersiveGameList"];
             };
         };
+        /** @description Current Profile immersive destinations */
+        ImmersiveDestinationListResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ImmersiveDestinationList"];
+            };
+        };
+        /** @description Current Profile immersive library games */
+        ImmersiveLibraryGameListResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ImmersiveLibraryGameList"];
+            };
+        };
         /** @description Immutable launch configuration derived from the locked core artifact and dependencies */
         LaunchConfigResponse: {
             headers: {
@@ -5303,6 +5401,7 @@ export interface components {
             headers: {
                 ETag?: string;
                 "Accept-Ranges"?: string;
+                "Cache-Control"?: string;
                 [name: string]: unknown;
             };
             content: {
@@ -5369,6 +5468,7 @@ export interface components {
         LastEventID: string;
         GameID: string;
         PlatformID: string;
+        ImmersiveLibraryKind: "all" | "recent" | "favorites" | "saves";
         TagID: string;
         FavoriteFolderID: string;
         SaveStateID: string;
@@ -5390,6 +5490,7 @@ export interface components {
         GameAssetKind: "VIDEO";
         AssetID: string;
         LaunchID: string;
+        ContentIdentity: string;
         NetplayRoomID: string;
         NetplayMemberID: string;
         NetplaySessionID: string;
@@ -6101,6 +6202,36 @@ export interface operations {
         requestBody?: never;
         responses: {
             200: components["responses"]["ImmersiveGameListResponse"];
+        };
+    };
+    getImmersiveDestinations: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["ImmersiveDestinationListResponse"];
+        };
+    };
+    getImmersiveLibraryGames: {
+        parameters: {
+            query?: {
+                folderId?: components["parameters"]["FavoriteFolderIDQuery"];
+                cursor?: components["parameters"]["Cursor"];
+                limit?: components["parameters"]["Limit50"];
+            };
+            header?: never;
+            path: {
+                libraryKind: components["parameters"]["ImmersiveLibraryKind"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["ImmersiveLibraryGameListResponse"];
         };
     };
     getFavorites: {
@@ -8605,7 +8736,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                launchId: components["parameters"]["LaunchID"];
+                contentIdentity: components["parameters"]["ContentIdentity"];
                 logicalName: components["parameters"]["LogicalName"];
             };
             cookie?: never;
@@ -8620,7 +8751,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                launchId: components["parameters"]["LaunchID"];
+                contentIdentity: components["parameters"]["ContentIdentity"];
                 logicalName: components["parameters"]["LogicalName"];
             };
             cookie?: never;
@@ -8635,7 +8766,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                launchId: components["parameters"]["LaunchID"];
+                contentIdentity: components["parameters"]["ContentIdentity"];
                 logicalName: components["parameters"]["LogicalName"];
             };
             cookie?: never;
@@ -8650,7 +8781,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                launchId: components["parameters"]["LaunchID"];
+                contentIdentity: components["parameters"]["ContentIdentity"];
                 logicalName: components["parameters"]["LogicalName"];
             };
             cookie?: never;
@@ -8665,7 +8796,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                launchId: components["parameters"]["LaunchID"];
+                contentIdentity: components["parameters"]["ContentIdentity"];
             };
             cookie?: never;
         };
@@ -8679,7 +8810,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                launchId: components["parameters"]["LaunchID"];
+                contentIdentity: components["parameters"]["ContentIdentity"];
             };
             cookie?: never;
         };
@@ -8693,7 +8824,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                launchId: components["parameters"]["LaunchID"];
+                contentIdentity: components["parameters"]["ContentIdentity"];
             };
             cookie?: never;
         };
@@ -8707,7 +8838,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                launchId: components["parameters"]["LaunchID"];
+                contentIdentity: components["parameters"]["ContentIdentity"];
             };
             cookie?: never;
         };
