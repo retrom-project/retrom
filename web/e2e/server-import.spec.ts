@@ -346,7 +346,7 @@ test("ACC-PEG-006 project-owned Pegasus GBA source publishes and advances real e
   expect(configuration.gameTitle).toBe(title);
   expect(configuration.core).toBe("mgba");
   expect(configuration.coreName).toBe("mGBA");
-  expect(configuration.playerAdapterId).toBe("ejs-4.2.3-v3");
+  expect(configuration.playerAdapterId).toBe("ejs-4.2.3-v2");
   expect(configuration.emulatorjsVersion).toBe("4.2.3");
   expect(configuration.gameUrl).toMatch(/\/runtime\/launches\/[0-9a-f-]+\/game\/pegasus-smoke\.gba$/);
 

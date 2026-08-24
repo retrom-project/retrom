@@ -353,7 +353,7 @@ PlaySession 事件 API 位于 launch cookie 的限定 Path 内，同时要求正
 {
   "launchId": "0198...",
   "emulatorjsVersion": "4.2.3",
-  "playerAdapterId": "ejs-4.2.3-v3",
+  "playerAdapterId": "ejs-4.2.3-v2",
   "core": "mame2003",
   "runtimeCore": "mame2003",
   "coreName": "MAME 2003",
@@ -382,7 +382,7 @@ PlaySession 事件 API 位于 launch cookie 的限定 Path 内，同时要求正
 }
 ```
 
-`emulatorGameId` 是 `1..9007199254740991` 的 JSON integer；`gameName` 必须精确为 ASCII `retrom-` 加它的十进制表示。`gameTitle/coreName/platformName` 只用于 Player 工具栏的人类可读上下文，不参与 EJS 配置、运行选择或授权判断。`biosUrl`、`parentUrl`、`stateUrl` 与 `dosEntry` 可为 `null`；其他字段必需。`defaultCoreOptions` 是最多 32 项的 ASCII string→string map，禁止危险 key；DOS 的该 map 和 `externalFiles` 均不包含启动入口，启动入口只由锁定内容的虚拟 ZIP 视图表达。其他核心的 `externalFiles` 只能指向同一 Launch 锁定的 `/external-files/<logicalName>`。`emulatorjsVersion/playerAdapterId` 必须等于锁定 CoreArtifact 所属 manifest 的版本/adapter ID；`dosbox_pure`、`genesis_plus_gx_wide`、`azahar` 的新 Launch 为 `4.3.0-pre/ejs-4.3.0-pre-v2`，其余核心保持各自选定版本。所有 URL 必须是同源站内路径，响应不得含 capability、Blob ID/hash、宿主路径或客户端可改写 URL。
+`emulatorGameId` 是 `1..9007199254740991` 的 JSON integer；`gameName` 必须精确为 ASCII `retrom-` 加它的十进制表示。`gameTitle/coreName/platformName` 只用于 Player 工具栏的人类可读上下文，不参与 EJS 配置、运行选择或授权判断。`biosUrl`、`parentUrl`、`stateUrl` 与 `dosEntry` 可为 `null`；其他字段必需。`defaultCoreOptions` 是最多 32 项的 ASCII string→string map，禁止危险 key；DOS 的该 map 和 `externalFiles` 均不包含启动入口，启动入口只由锁定内容的虚拟 ZIP 视图表达。其他核心的 `externalFiles` 只能指向同一 Launch 锁定的 `/external-files/<logicalName>`。`emulatorjsVersion/playerAdapterId` 必须等于锁定 CoreArtifact 所属 manifest 的版本/adapter ID；`dosbox_pure`、`genesis_plus_gx_wide`、`azahar` 的新 Launch 为 `4.3.0-pre/ejs-4.3.0-pre-v1`，其余核心保持各自选定版本。所有 URL 必须是同源站内路径，响应不得含 capability、Blob ID/hash、宿主路径或客户端可改写 URL。
 
 `startupActions` 最多 4 项，只接受 `event=GAME_START`、`kind=PRESS_CONTROL`、`delayMs=0..30000`、`durationMs=1..1000` 以及有界 player/control 整数；OpenAPI、后端 manifest/Launch 校验与 Player adapter 必须采用同一边界。动作是锁定 CoreArtifact 的只读兼容配置，不能由请求者编辑，也不能按 core ID 在任一端补默认值。
 

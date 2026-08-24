@@ -18,8 +18,8 @@ import (
 const (
 	ProtocolVersion        = "retrom-netplay-v2"
 	WebSocketSubprotocol   = "retrom.netplay.v1"
-	PlayerAdapterID        = "ejs-4.2.3-v3"
-	NetplayAdapterID       = "ejs-netplay-4.2.3-v2"
+	PlayerAdapterID        = "ejs-4.2.3-v2"
+	NetplayAdapterID       = "ejs-netplay-4.2.3-v1"
 	ControlCount           = 24
 	CheckpointEveryFrames  = 120
 	MaxPredictionFrames    = 8

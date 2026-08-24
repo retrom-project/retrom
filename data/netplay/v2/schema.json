@@ -13,8 +13,8 @@
       "required": ["version", "playerAdapterId", "netplayAdapterId", "controlCount", "checkpointEveryFrames", "maxPredictionFrames", "maxRollbackFrames", "canonicalHistoryFrames", "maxStateBytes", "allowedContentKinds"],
       "properties": {
         "version": { "const": "retrom-netplay-v2" },
-        "playerAdapterId": { "const": "ejs-4.2.3-v3" },
-        "netplayAdapterId": { "const": "ejs-netplay-4.2.3-v2" },
+        "playerAdapterId": { "const": "ejs-4.2.3-v2" },
+        "netplayAdapterId": { "const": "ejs-netplay-4.2.3-v1" },
         "controlCount": { "const": 24 },
         "checkpointEveryFrames": { "const": 120 },
         "maxPredictionFrames": { "const": 8 },

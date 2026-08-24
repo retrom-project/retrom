@@ -51,8 +51,8 @@ func TestRegistryRejectsContentSpecificProfileFields(t *testing.T) {
 	contents := []byte(`{
   "schemaVersion":4,
   "protocol":{
-    "version":"retrom-netplay-v2","playerAdapterId":"ejs-4.2.3-v3",
-    "netplayAdapterId":"ejs-netplay-4.2.3-v2","controlCount":24,
+    "version":"retrom-netplay-v2","playerAdapterId":"ejs-4.2.3-v2",
+    "netplayAdapterId":"ejs-netplay-4.2.3-v1","controlCount":24,
     "checkpointEveryFrames":120,"maxPredictionFrames":8,"maxRollbackFrames":120,
     "canonicalHistoryFrames":600,"maxStateBytes":1048576,
     "allowedContentKinds":["SINGLE_FILE"]

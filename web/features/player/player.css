@@ -36,16 +36,6 @@
 .player-menu-head,
 .player-menu-runtime { display: none; }
 .player-menu { position: absolute; right: 0; top: 42px; width: 220px; padding: 7px; display: grid; gap: 2px; border: 1px solid var(--player-line); border-radius: 10px; background: #171e2b; box-shadow: 0 18px 40px rgb(0 0 0 / 34%); }
-.player-system-menu { position: fixed; z-index: 60; inset: 0 0 0 auto; width: min(460px, 42vw); height: 100dvh; max-height: 100dvh; padding: 0 14px 18px; overflow-y: auto; align-content: start; gap: 4px; border-width: 0 0 0 1px; border-radius: 0; background: #111722; }
-.player-system-menu .player-menu-head { position: sticky; z-index: 2; top: 0; min-height: 76px; margin: 0 -14px 8px; padding: 12px 14px; display: flex; align-items: center; justify-content: space-between; gap: 12px; border-bottom: 1px solid #30394a; background: #151c28; }
-.player-system-menu .player-menu-head small,
-.player-system-menu .player-menu-head strong { display: block; }
-.player-system-menu .player-menu-head small { color: #9d91ef; font-size: 10px; letter-spacing: .08em; text-transform: uppercase; }
-.player-system-menu .player-menu-head strong { margin-top: 3px; color: white; font-size: 20px; }
-.player-system-menu .player-menu-head > button { width: 48px; min-height: 48px; padding: 0; justify-content: center; border: 1px solid #3a4456; background: #1d2533; }
-.player-system-menu .player-menu-runtime { min-height: 58px; padding: 8px 12px; display: grid; grid-template-columns: 36px minmax(0, 1fr); align-items: center; gap: 10px; border-bottom: 1px solid #293241; }
-.player-system-menu > button { min-height: 52px; padding: 7px 12px; font-size: 14px; }
-.player-system-menu > button:focus-visible { border: 2px solid #a99cff; outline: 2px solid #fff; outline-offset: 2px; background: #2a3348; transform: translateX(-4px); }
 .player-menu button { width: 100%; min-height: 35px; padding: 0 10px; display: flex; align-items: center; gap: 9px; color: #e7ebf2; border: 0; border-radius: 7px; background: transparent; cursor: pointer; text-align: left; font-size: 12px; }
 .player-menu button:hover { background: #232c3c; }
 .player-menu button.is-danger { color: #ff9ca7; }

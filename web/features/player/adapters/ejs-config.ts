@@ -129,7 +129,7 @@ function validNetplayConfig(config: PlayerConfig) {
 }
 
 function validNetplayRuntime(config: PlayerConfig) {
-  return config.emulatorjsVersion === "4.2.3" && config.playerAdapterId === "ejs-4.2.3-v3" &&
+  return config.emulatorjsVersion === "4.2.3" && config.playerAdapterId === "ejs-4.2.3-v2" &&
     config.stateUrl === null && !config.discSet;
 }
 
@@ -143,7 +143,7 @@ function validNetplayProfileIdentity(
   profile: NonNullable<PlayerConfig["netplay"]>["netplayProfile"],
 ) {
   return profile.schemaVersion === 1 && profile.protocolVersion === "retrom-netplay-v2" &&
-    profile.playerAdapterId === config.playerAdapterId && profile.netplayAdapterId === "ejs-netplay-4.2.3-v2" &&
+    profile.playerAdapterId === config.playerAdapterId && profile.netplayAdapterId === "ejs-netplay-4.2.3-v1" &&
     profile.coreArtifactId === config.coreArtifactId && profile.emulatorjsVersion === config.emulatorjsVersion &&
     profile.gameVariantRevisionId.length > 0 && /^[0-9a-f]{64}$/.test(profile.coreArtifactSha256) &&
     /^[0-9a-f]{64}$/.test(profile.sourceManifestDigest) && /^[0-9a-f]{64}$/.test(profile.dependencySnapshotDigest) &&

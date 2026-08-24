@@ -32,12 +32,10 @@ function props(overrides: Partial<Parameters<typeof PlayerChrome>[0]> = {}): Par
     debugMetrics: null,
     debugRuntime: {
       coreId: "fbneo", coreArtifactId: "artifact-1", emulatorJSVersion: "4.2.3",
-      playerAdapterId: "ejs-4.2.3-v3", inputMode: "STANDARD",
+      playerAdapterId: "ejs-4.2.3-v2", inputMode: "STANDARD",
       crossOriginIsolated: true, sharedArrayBuffer: true,
     },
     runtimeState: "running",
-    gamepadMenuRequest: 0,
-    gamepadExitRequest: 0,
     onHoldControls: vi.fn(),
     onReleaseControls: vi.fn(),
     onToggleControls: vi.fn(),
@@ -55,7 +53,6 @@ function props(overrides: Partial<Parameters<typeof PlayerChrome>[0]> = {}): Par
     onToggleDebug: vi.fn(),
     onGameSurface: vi.fn(),
     onExit: vi.fn(),
-    onSystemOverlayChange: vi.fn(),
     ...overrides,
   };
 }
@@ -88,7 +85,7 @@ describe("PlayerChrome", () => {
 
     expect(screen.getByRole("button", { name: "创建存档" })).toBeDisabled();
     await user.click(screen.getByRole("button", { name: "返回并退出游戏" }));
-    const dialog = screen.getByRole("alertdialog", { name: "退出《1943: The Battle of Midway》？" });
+    const dialog = screen.getByRole("alertdialog", { name: "退出游戏？" });
     expect(dialog).toHaveTextContent("当前从 DOS 程序菜单启动，无法创建可恢复存档");
     expect(within(dialog).getByRole("button", { name: "创建存档" })).toBeDisabled();
     expect(dialog).toHaveTextContent("选择一个具体 DOS 程序再开始");
@@ -104,8 +101,8 @@ describe("PlayerChrome", () => {
     expect(screen.queryByRole("button", { name: "暂停" })).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "全局暂停" }));
     expect(values.onToggleNetplayPause).toHaveBeenCalledOnce();
-    await user.click(screen.getByRole("button", { name: "Retrom 菜单" }));
-    expect(screen.queryByRole("menuitem", { name: "画面、声音与高级设置" })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "更多操作" }));
+    expect(screen.queryByRole("menuitem", { name: "模拟器设置" })).not.toBeInTheDocument();
   });
 
   it("shows the locked disc set and changes discs without exposing server paths", async () => {
@@ -168,7 +165,7 @@ describe("PlayerChrome", () => {
   it("renders compact game context and routes secondary controls through the more menu", async () => {
     const user = userEvent.setup();
     const values = props();
-    const { container, rerender } = render(<PlayerChrome {...values} />);
+    render(<PlayerChrome {...values} />);
 
     expect(screen.getByText("1943: The Battle of Midway")).toBeVisible();
     expect(screen.getByText("FinalBurn Neo · Arcade")).toBeVisible();
@@ -178,17 +175,13 @@ describe("PlayerChrome", () => {
     await user.click(screen.getByText("1943: The Battle of Midway"));
     expect(values.onPauseForToolbarInteraction).toHaveBeenCalledOnce();
 
-    await user.click(screen.getByRole("button", { name: "Retrom 菜单" }));
-    expect(screen.getByRole("button", { name: "Retrom 菜单" })).toHaveAttribute("aria-expanded", "true");
+    await user.click(screen.getByRole("button", { name: "更多操作" }));
+    expect(screen.getByRole("button", { name: "更多操作" })).toHaveAttribute("aria-expanded", "true");
     expect(screen.queryByRole("menuitem", { name: /创建存档/ })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "创建存档" })).toBeVisible();
-    await user.click(screen.getByRole("menuitem", { name: "画面、声音与高级设置" }));
+    await user.click(screen.getByRole("menuitem", { name: "模拟器设置" }));
     expect(values.onOpenEmulatorSettings).toHaveBeenCalledOnce();
-    rerender(<PlayerChrome {...values} emulatorToolbarOpen />);
-    expect(container.querySelector(".player-system-menu")).toHaveAttribute("inert");
-    await user.click(screen.getByRole("button", { name: "收起" }));
-    expect(values.onCloseEmulatorSettings).toHaveBeenCalledOnce();
-    expect(container.querySelector(".player-system-menu")).toBeInTheDocument();
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
   });
 
   it("opens the right-side diagnostics without pausing the running game", async () => {
@@ -242,7 +235,6 @@ describe("PlayerChrome", () => {
 
     const toolbar = screen.getByRole("region", { name: "模拟器设置工具栏" });
     expect(toolbar).toBeVisible();
-    expect(screen.getByRole("combobox", { name: "画面模式" })).toHaveFocus();
     expect(screen.getByRole("button", { name: "控制" })).toBeVisible();
     expect(screen.getByRole("button", { name: "显示" })).toBeVisible();
     expect(screen.getByRole("button", { name: "Core 设置" })).toBeVisible();
@@ -266,7 +258,7 @@ describe("PlayerChrome", () => {
     render(<PlayerChrome {...values} />);
 
     await user.click(screen.getByRole("button", { name: "返回并退出游戏" }));
-    const dialog = screen.getByRole("alertdialog", { name: "退出《1943: The Battle of Midway》？" });
+    const dialog = screen.getByRole("alertdialog", { name: "退出游戏？" });
     expect(dialog).toHaveTextContent("直接退出不会创建存档");
     expect(dialog).toHaveTextContent("只有点击“创建存档”才会保存当前位置");
     await user.click(within(dialog).getByRole("button", { name: "退出游戏" }));
@@ -281,15 +273,15 @@ describe("PlayerChrome", () => {
     render(<PlayerChrome {...values} />);
 
     await user.click(screen.getByRole("button", { name: "返回并退出游戏" }));
-    const dialog = screen.getByRole("alertdialog", { name: "退出《1943: The Battle of Midway》？" });
-    expect(within(dialog).getAllByRole("button").map((button) => button.textContent)).toEqual(["创建存档", "继续游戏", "退出游戏"]);
+    const dialog = screen.getByRole("alertdialog", { name: "退出游戏？" });
+    expect(within(dialog).getAllByRole("button").map((button) => button.textContent)).toEqual(["创建存档", "取消", "退出游戏"]);
 
     vi.mocked(values.onPauseForToolbarInteraction).mockClear();
     await user.click(within(dialog).getByRole("button", { name: "创建存档" }));
     expect(values.onPauseForToolbarInteraction).toHaveBeenCalledOnce();
     expect(values.onSave).toHaveBeenCalledOnce();
     expect(within(dialog).getByRole("button", { name: "正在创建…" })).toBeDisabled();
-    expect(within(dialog).getByRole("button", { name: "继续游戏" })).toBeDisabled();
+    expect(within(dialog).getByRole("button", { name: "取消" })).toBeDisabled();
     expect(within(dialog).getByRole("button", { name: "退出游戏" })).toBeDisabled();
     await user.keyboard("{Escape}");
     expect(dialog).toBeVisible();
@@ -309,12 +301,12 @@ describe("PlayerChrome", () => {
     render(<PlayerChrome {...values} />);
 
     await user.click(screen.getByRole("button", { name: "返回并退出游戏" }));
-    const dialog = screen.getByRole("alertdialog", { name: "退出《1943: The Battle of Midway》？" });
+    const dialog = screen.getByRole("alertdialog", { name: "退出游戏？" });
     await user.click(within(dialog).getByRole("button", { name: "创建存档" }));
 
     expect(await within(dialog).findByRole("button", { name: "重试创建存档" })).toBeEnabled();
     expect(within(dialog).getByText("创建存档失败，未生成不完整记录。可以重试或取消后继续游戏。")).toBeVisible();
-    expect(within(dialog).getByRole("button", { name: "继续游戏" })).toBeEnabled();
+    expect(within(dialog).getByRole("button", { name: "取消" })).toBeEnabled();
     expect(values.onExit).not.toHaveBeenCalled();
   });
 
@@ -322,36 +314,10 @@ describe("PlayerChrome", () => {
     const user = userEvent.setup();
     const values = props({ warnings: ["BIOS_HASH_WARNING"] });
     render(<PlayerChrome {...values} />);
-    await user.click(screen.getByRole("button", { name: "Retrom 菜单" }));
+    await user.click(screen.getByRole("button", { name: "更多操作" }));
     expect(screen.getByRole("menuitem", { name: "查看运行提醒" })).toBeVisible();
     await user.keyboard("{Escape}");
-    expect(screen.queryByRole("dialog", { name: "Retrom 菜单" })).not.toBeInTheDocument();
-    expect(values.onExit).not.toHaveBeenCalled();
-  });
-
-  it("opens the Retrom menu from a gamepad request and focuses the safe continue action", async () => {
-    const values = props();
-    const { rerender } = render(<PlayerChrome {...values} />);
-    rerender(<PlayerChrome {...values} gamepadMenuRequest={1} />);
-    const menu = await screen.findByRole("dialog", { name: "Retrom 菜单" });
-    expect(within(menu).getByRole("menuitem", { name: "继续游戏" })).toHaveFocus();
-    expect(values.onSystemOverlayChange).toHaveBeenLastCalledWith(true);
-  });
-
-  it("keeps the diagnostics panel outside Player menu pause ownership", () => {
-    const values = props();
-    const { rerender } = render(<PlayerChrome {...values} />);
-    vi.mocked(values.onSystemOverlayChange).mockClear();
-    rerender(<PlayerChrome {...values} debugOpen />);
-    expect(values.onSystemOverlayChange).not.toHaveBeenCalled();
-  });
-
-  it("turns a long gamepad request into confirmation without executing the dangerous action", async () => {
-    const values = props();
-    const { rerender } = render(<PlayerChrome {...values} />);
-    rerender(<PlayerChrome {...values} gamepadMenuRequest={1} gamepadExitRequest={1} />);
-    const dialog = await screen.findByRole("alertdialog", { name: "退出《1943: The Battle of Midway》？" });
-    expect(within(dialog).getByRole("button", { name: "继续游戏" })).toHaveFocus();
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
     expect(values.onExit).not.toHaveBeenCalled();
   });
 

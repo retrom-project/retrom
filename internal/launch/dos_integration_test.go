@@ -190,7 +190,7 @@ WHERE v.game_id=?
 	}
 	configuration, err := service.Config(ctx, direct.LaunchID, direct.Capability)
 	testassert.False(t, err != nil, err)
-	testassert.Falsef(t, testassert.Any(func() bool { return configuration.EmulatorJSVersion != "4.3.0-pre" }, func() bool { return configuration.PlayerAdapterID != "ejs-4.3.0-pre-v2" }, func() bool { return configuration.DOSEntry != selected }, func() bool { return configuration.DefaultCoreOptions["dosbox_pure_conf"] != "" }, func() bool { return len(configuration.ExternalFiles) != 0 }), "DOS direct config = %#v", configuration)
+	testassert.Falsef(t, testassert.Any(func() bool { return configuration.EmulatorJSVersion != "4.3.0-pre" }, func() bool { return configuration.PlayerAdapterID != "ejs-4.3.0-pre-v1" }, func() bool { return configuration.DOSEntry != selected }, func() bool { return configuration.DefaultCoreOptions["dosbox_pure_conf"] != "" }, func() bool { return len(configuration.ExternalFiles) != 0 }), "DOS direct config = %#v", configuration)
 	var directFormat, directLogicalName, directBlobID string
 	var blobCountAfter int
 	if err := database.SQL.QueryRowContext(ctx, `

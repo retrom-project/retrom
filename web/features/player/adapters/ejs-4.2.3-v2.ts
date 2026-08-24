@@ -9,8 +9,6 @@ import {
 } from "../dosbox-pure-state";
 import { retromShaders } from "../retrom-shaders";
 import { createRetromDefaultControls, type EmulatorDefaultControls } from "../keyboard-controls";
-import { PlayerGamepadHostControls, type PlayerGamepadHostBridge } from "../gamepad-host-controls";
-import { installPlayerGamepadFilter } from "../gamepad-filter";
 import type { NetplayProfile } from "../netplay/controller";
 import {
   initializeMultiDiscSettings,
@@ -97,7 +95,6 @@ export type StartupAction = {
 export type EmulatorInstance = {
   Module?: { postMainLoop?: () => void };
   canvas?: HTMLCanvasElement;
-  started?: boolean;
   allSettings?: Record<string, unknown>;
   paused?: boolean;
   volume?: number;
@@ -155,7 +152,6 @@ export type AdapterCallbacks = {
   onReady?: (emulator: EmulatorInstance) => void;
   onGameStart?: () => void | boolean;
   onSaveState?: (payload: { screenshot: Blob; format: string; state: Uint8Array }) => void;
-  gamepadHost?: PlayerGamepadHostBridge;
 };
 
 type EJSGameManagerConstructor = {
@@ -209,11 +205,11 @@ declare global {
   }
 }
 
-export const adapterID = "ejs-4.2.3-v3";
+export const adapterID = "ejs-4.2.3-v2";
 
 const supportedAdapters: Record<string, string> = {
   "4.2.3": adapterID,
-  "4.3.0-pre": "ejs-4.3.0-pre-v2"
+  "4.3.0-pre": "ejs-4.3.0-pre-v1"
 };
 
 const normalizedExternalFileWriters = new WeakSet<(...args: never[]) => unknown>();
@@ -540,12 +536,7 @@ function mountEmulatorJSRuntime(
   runtimeWindow.EJS_paths = { ...config.runtimePathOverrides };
   runtimeWindow.EJS_externalFiles = externalFiles;
   const compatibility = installCompatibilityLayers(
-    config,
-    runtimeWindow,
-    callbacks.gamepadHost ?? new PlayerGamepadHostControls(),
-    externalFiles,
-    explicitStateRestore,
-    needsDOSBoxStateCompatibility,
+    config, runtimeWindow, externalFiles, explicitStateRestore, needsDOSBoxStateCompatibility,
   );
   const script = runtimeWindow.document.createElement("script");
   script.src = config.loaderUrl;
@@ -555,7 +546,7 @@ function mountEmulatorJSRuntime(
   return () => {
     cleanupDeferredStart(); cleanupStartup(); script.remove(); compatibility.externalFiles();
     compatibility.archiveWorker(); compatibility.stateRestore(); compatibility.dosbox?.cleanup();
-    compatibility.netplay(); compatibility.gamepad();
+    compatibility.netplay();
   };
 }
 
@@ -577,13 +568,11 @@ function archiveWorkerCompatibility(runtimeWindow: typeof window, config: Player
 function installCompatibilityLayers(
   config: PlayerConfig,
   runtimeWindow: typeof window,
-  gamepadHost: PlayerGamepadHostBridge,
   externalFiles: Record<string, string>,
   explicitStateRestore: boolean,
   needsDOSBoxStateCompatibility: boolean,
 ) {
   return {
-    gamepad: installPlayerGamepadFilter(runtimeWindow, gamepadHost),
     netplay: config.mode === "netplay" ? installEmulatorJs423NetplayCompatibility(runtimeWindow) : () => undefined,
     dosbox: needsDOSBoxStateCompatibility ? installDOSBoxPureStateCompatibility(runtimeWindow) : null,
     stateRestore: explicitStateRestore && !needsDOSBoxStateCompatibility

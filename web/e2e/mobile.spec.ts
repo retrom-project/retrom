@@ -203,16 +203,16 @@ test("ACC-MOB-005 portrait Player validates config before it creates a frame or 
     if (await handle.getAttribute("aria-pressed") === "true") {await handle.click();}
     await handle.click();
     await expect(handle).toHaveAttribute("aria-pressed", "true");
-    const more = page.getByRole("button", { name: "Retrom 菜单" });
+    const more = page.getByRole("button", { name: "更多操作" });
     await expect(more).toBeVisible();
     await expect(more).toBeInViewport();
     await more.click();
-    const moreMenu = page.getByRole("dialog", { name: "Retrom 菜单" });
+    const moreMenu = page.getByRole("menu", { name: "Player 更多操作" });
     await expect(moreMenu).toBeVisible();
     const menuBounds = await moreMenu.boundingBox();
     expect(menuBounds?.y).toBeLessThanOrEqual(1);
     expect(menuBounds?.height).toBeGreaterThanOrEqual(viewport.height - 1);
-    await moreMenu.getByRole("menuitem", { name: "画面、声音与高级设置" }).click();
+    await moreMenu.getByRole("menuitem", { name: "模拟器设置" }).click();
     const settings = page.getByRole("region", { name: "模拟器设置工具栏" });
     await expect(settings).toBeVisible();
     await settings.getByRole("button", { name: "收起" }).click();

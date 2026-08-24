@@ -196,7 +196,7 @@ class NetplayManifestValidationTests(unittest.TestCase):
             dependencies.load_manifest("4.3.0-pre"),
         ]
         dependencies.validate_netplay_manifest(
-            manifests, {"ejs-netplay-4.2.3-v2": "4.2.3"}
+            manifests, {"ejs-netplay-4.2.3-v1": "4.2.3"}
         )
 
     def test_rejects_unregistered_netplay_adapter(self) -> None:

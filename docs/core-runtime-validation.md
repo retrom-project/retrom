@@ -30,7 +30,6 @@
 - 自动化测试不得依赖操作者私有 ROM/BIOS，也不得在测试期间联网下载第三方游戏内容；没有合法公开 fixture 的核心必须明确登记为未覆盖。
 - 资源的大小和 SHA-256 应由最接近的实际消费者校验，不能依赖一个与产品链路分离的全局 example manifest。
 - 修改共享 loader、runtime config、内容字节协议、adapter 或存档协议时，运行所有现有受影响产品 E2E；对没有产品 E2E 的核心必须在交付说明中列为未覆盖，不能用独立页面或历史截图补齐。
-- 修改 Player Gamepad 包装、系统键过滤或输入所有权时，至少用项目自有 GBA 与 MAME2003 Arcade 产品链验证单机核心输入和菜单，并回归八个锁定联机 profile。synthetic Gamepad 可以提供确定性浏览器回归，但不替代 `ACC-GPAD-008` 的 XInput、DualShock 4/DualSense 和无中心键标准手柄物理 smoke。
 - 修改共享画面模式、shader 注入或 canvas 合成策略时，mGBA、MAME 2003 与 FBNeo 的产品 E2E 都必须在默认“锐利像素”模式下确认 shader 关闭、`image-rendering: pixelated`、持续出帧与零页面异常；mGBA 还必须覆盖“清晰增强”自有 shader、增强锐化、原始画面、返回默认模式的即时切换、原生 Core→显示面板切换以及物理 4K 150% 截图。该结果只证明 Player 输出处理，不提高未登记 core 的运行覆盖等级。
 
 ## 4. MAME2003 版本覆盖
