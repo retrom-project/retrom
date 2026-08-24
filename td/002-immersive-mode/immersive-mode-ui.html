@@ -1,0 +1,997 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Retrom 沉浸模式 · 交互设计稿</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #080b14;
+      --bg-soft: #111729;
+      --panel: rgba(21, 28, 48, 0.92);
+      --panel-strong: #171e32;
+      --line: rgba(208, 216, 238, 0.18);
+      --line-strong: rgba(208, 216, 238, 0.38);
+      --text: #f7f5f0;
+      --muted: #aeb7ca;
+      --quiet: #737e96;
+      --purple: #7560ff;
+      --purple-soft: #a89cff;
+      --cyan: #50d6ca;
+      --danger: #e46d78;
+      --warm: #f4ba64;
+      --radius-xl: 28px;
+      --radius-lg: 18px;
+      --shadow: 0 30px 80px rgba(0, 0, 0, 0.42);
+      --safe-bottom: max(22px, env(safe-area-inset-bottom));
+    }
+
+    * { box-sizing: border-box; }
+
+    [hidden] { display: none !important; }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    button { font: inherit; }
+
+    button:focus-visible {
+      outline: 3px solid #fff;
+      outline-offset: 4px;
+    }
+
+    .app {
+      position: relative;
+      width: 100vw;
+      height: 100dvh;
+      isolation: isolate;
+      background:
+        radial-gradient(circle at 78% 18%, rgba(117, 96, 255, 0.20), transparent 34%),
+        radial-gradient(circle at 20% 82%, rgba(80, 214, 202, 0.10), transparent 35%),
+        linear-gradient(145deg, #080b14 0%, #0f1424 52%, #080b14 100%);
+    }
+
+    .app::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      z-index: -1;
+      pointer-events: none;
+      opacity: 0.16;
+      background: repeating-linear-gradient(to bottom, transparent 0 3px, rgba(255,255,255,.025) 3px 4px);
+    }
+
+    .screen {
+      position: absolute;
+      inset: 0;
+      display: none;
+    }
+
+    .screen.active { display: flex; }
+
+    .immersive-header {
+      position: absolute;
+      z-index: 5;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: clamp(74px, 8.5vh, 108px);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 clamp(34px, 4.5vw, 86px);
+      border-bottom: 1px solid rgba(255,255,255,.08);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+      letter-spacing: .08em;
+      font-size: clamp(18px, 1.3vw, 26px);
+      font-weight: 780;
+    }
+
+    .brand-mark {
+      width: 42px;
+      height: 42px;
+      display: grid;
+      place-items: center;
+      border-radius: 13px;
+      color: white;
+      background: linear-gradient(145deg, #8a76ff, #5238d5);
+      box-shadow: 0 10px 28px rgba(90, 65, 220, .4);
+    }
+
+    .mode-label, .clock {
+      color: var(--muted);
+      font-size: clamp(14px, 1vw, 20px);
+      letter-spacing: .05em;
+    }
+
+    .mode-label { margin-left: 10px; font-weight: 520; }
+
+    .helpbar {
+      position: absolute;
+      z-index: 7;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      min-height: clamp(68px, 8vh, 92px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: clamp(26px, 4vw, 68px);
+      padding: 14px 38px var(--safe-bottom);
+      color: var(--muted);
+      background: linear-gradient(to top, rgba(5,7,13,.98), rgba(8,11,20,.84));
+      border-top: 1px solid rgba(255,255,255,.09);
+      font-size: clamp(14px, 1.1vw, 22px);
+    }
+
+    .helpbar span { display: inline-flex; align-items: center; gap: 10px; white-space: nowrap; }
+
+    .keycap {
+      min-width: 34px;
+      height: 34px;
+      padding: 0 9px;
+      display: inline-grid;
+      place-items: center;
+      border-radius: 50%;
+      color: #080b14;
+      background: #f7f5f0;
+      font-size: 15px;
+      font-weight: 850;
+      box-shadow: 0 0 0 3px rgba(255,255,255,.12);
+    }
+
+    .keycap.wide { border-radius: 12px; min-width: 56px; }
+
+    /* Review controls are not part of the product UI. */
+    .review-tools {
+      position: fixed;
+      z-index: 100;
+      top: 12px;
+      right: 12px;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 7px;
+      max-width: 560px;
+      padding: 8px;
+      border: 1px solid rgba(255,255,255,.18);
+      border-radius: 14px;
+      background: rgba(5,7,13,.82);
+      backdrop-filter: blur(16px);
+      box-shadow: 0 14px 40px rgba(0,0,0,.3);
+    }
+
+    .review-tools::before {
+      content: "评审控制";
+      align-self: center;
+      padding: 0 5px;
+      color: var(--quiet);
+      font-size: 11px;
+      letter-spacing: .12em;
+    }
+
+    .review-tools button {
+      border: 1px solid rgba(255,255,255,.16);
+      border-radius: 8px;
+      padding: 7px 10px;
+      color: var(--muted);
+      background: rgba(255,255,255,.06);
+      cursor: pointer;
+      font-size: 12px;
+    }
+
+    .review-tools button:hover { color: #fff; background: rgba(255,255,255,.12); }
+
+    /* Existing desktop home is only a subdued context for the entry dialog. */
+    .standard-home {
+      align-items: stretch;
+      background: #f4f1ec;
+      color: #182033;
+    }
+
+    .standard-sidebar {
+      width: 230px;
+      padding: 32px 24px;
+      color: #eef0ff;
+      background: #111728;
+    }
+
+    .standard-sidebar .brand { margin-bottom: 52px; }
+
+    .standard-nav { display: grid; gap: 10px; }
+
+    .standard-nav span {
+      padding: 14px 16px;
+      border-radius: 11px;
+      color: #9ca6bc;
+      font-weight: 650;
+    }
+
+    .standard-nav span:first-child { color: white; background: rgba(117,96,255,.24); }
+
+    .standard-main { flex: 1; padding: 52px 54px; overflow: hidden; }
+
+    .standard-main small { color: #6250d2; font-weight: 750; }
+    .standard-main h1 { margin: 8px 0; font-size: 42px; }
+    .standard-main > p { color: #647087; }
+
+    .standard-hero {
+      height: 300px;
+      margin-top: 30px;
+      padding: 34px;
+      border: 1px solid #dfdbe8;
+      border-radius: 18px;
+      background: linear-gradient(120deg, #f8f7ff, #eefafa);
+      box-shadow: 0 18px 55px rgba(39, 41, 63, .08);
+    }
+
+    .standard-hero h2 { margin: 10px 0; font-size: 30px; }
+
+    .standard-row { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 18px; margin-top: 24px; }
+
+    .standard-card { height: 170px; border: 1px solid #e1dfe6; border-radius: 16px; background: white; }
+
+    .standard-home.dimmed .standard-sidebar,
+    .standard-home.dimmed .standard-main { filter: brightness(.38) saturate(.6); }
+
+    .dialog-layer {
+      position: absolute;
+      z-index: 50;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      padding: 28px;
+      background: rgba(4, 6, 12, .56);
+      backdrop-filter: blur(8px);
+    }
+
+    .dialog {
+      width: min(760px, calc(100vw - 56px));
+      padding: 42px 44px 34px;
+      border: 1px solid rgba(255,255,255,.22);
+      border-radius: 26px;
+      color: var(--text);
+      background: linear-gradient(150deg, rgba(30,38,62,.98), rgba(15,20,35,.98));
+      box-shadow: var(--shadow);
+    }
+
+    .dialog-kicker { color: var(--cyan); font-size: 13px; font-weight: 800; letter-spacing: .16em; }
+    .dialog h2 { margin: 12px 0 14px; font-size: clamp(30px, 3vw, 48px); }
+    .dialog p { margin: 0; color: var(--muted); font-size: clamp(16px, 1.35vw, 22px); line-height: 1.65; }
+
+    .dialog-actions {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0,1fr));
+      gap: 16px;
+      margin-top: 34px;
+    }
+
+    .choice-button {
+      min-height: 70px;
+      border: 2px solid var(--line);
+      border-radius: 16px;
+      color: var(--text);
+      background: rgba(255,255,255,.055);
+      cursor: pointer;
+      font-size: clamp(18px, 1.25vw, 24px);
+      font-weight: 750;
+      transition: transform .18s ease, border-color .18s ease, background .18s ease;
+    }
+
+    .choice-button.selected {
+      transform: translateY(-3px);
+      border-color: #fff;
+      background: linear-gradient(135deg, #7864ff, #5a45dd);
+      box-shadow: 0 14px 35px rgba(91,68,224,.34);
+    }
+
+    .dialog-help { margin-top: 24px; text-align: center; color: var(--quiet); font-size: 14px; }
+
+    .home-reopen {
+      position: absolute;
+      right: 40px;
+      bottom: 34px;
+      padding: 12px 18px;
+      border: 0;
+      border-radius: 12px;
+      color: white;
+      background: #6250d2;
+      cursor: pointer;
+    }
+
+    /* Platform view */
+    .system-view { flex-direction: column; }
+
+    .system-stage {
+      position: absolute;
+      top: clamp(100px, 12vh, 148px);
+      bottom: clamp(92px, 10vh, 116px);
+      left: 0;
+      right: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      perspective: 1500px;
+    }
+
+    .platform-track {
+      position: relative;
+      width: min(1500px, 92vw);
+      height: min(570px, 66vh);
+    }
+
+    .platform-card {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: min(590px, 38vw);
+      height: min(510px, 58vh);
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      overflow: hidden;
+      padding: clamp(28px, 3.2vw, 54px);
+      border: 1px solid rgba(255,255,255,.2);
+      border-radius: var(--radius-xl);
+      background: var(--platform-bg, linear-gradient(145deg,#5d49d6,#25204e));
+      box-shadow: var(--shadow);
+      transition: transform .22s ease, opacity .22s ease, filter .22s ease;
+    }
+
+    .platform-card::before {
+      content: attr(data-code);
+      position: absolute;
+      top: 7%;
+      right: 7%;
+      color: rgba(255,255,255,.1);
+      font-size: clamp(90px, 12vw, 210px);
+      font-weight: 900;
+      letter-spacing: -.09em;
+      line-height: .8;
+    }
+
+    .platform-card.current { transform: translate(-50%,-50%) scale(1); z-index: 3; }
+    .platform-card.prev { transform: translate(-155%,-50%) scale(.72) rotateY(11deg); opacity: .56; filter: saturate(.55); }
+    .platform-card.next { transform: translate(55%,-50%) scale(.72) rotateY(-11deg); opacity: .56; filter: saturate(.55); }
+    .platform-card.hidden { transform: translate(-50%,-50%) scale(.5); opacity: 0; pointer-events: none; }
+
+    .platform-card .eyebrow { color: rgba(255,255,255,.7); font-size: clamp(13px, .9vw, 17px); letter-spacing: .15em; }
+    .platform-card h1 { margin: 12px 0 8px; max-width: 90%; font-size: clamp(36px, 4vw, 70px); line-height: 1; }
+    .platform-stats { display: flex; gap: 22px; margin-top: 20px; color: rgba(255,255,255,.78); font-size: clamp(15px, 1.1vw, 21px); }
+    .platform-stats strong { color: #fff; }
+
+    .position-dots { position: absolute; bottom: 3%; left: 50%; display: flex; gap: 8px; transform: translateX(-50%); }
+    .position-dots i { width: 7px; height: 7px; border-radius: 50%; background: rgba(255,255,255,.22); }
+    .position-dots i.active { width: 28px; border-radius: 5px; background: var(--purple-soft); }
+
+    /* Gamelist */
+    .gamelist-view { flex-direction: column; }
+
+    .gamelist-layout {
+      position: absolute;
+      top: clamp(75px, 8.5vh, 108px);
+      bottom: clamp(72px, 8vh, 94px);
+      left: 0;
+      right: 0;
+      display: grid;
+      grid-template-columns: minmax(320px, 36%) minmax(0, 64%);
+    }
+
+    .game-list-panel {
+      min-width: 0;
+      padding: clamp(32px, 4vh, 58px) clamp(30px, 3.2vw, 62px);
+      border-right: 1px solid rgba(255,255,255,.1);
+      background: linear-gradient(90deg, rgba(6,9,17,.96), rgba(10,14,25,.83));
+    }
+
+    .game-list-panel .platform-overline { color: var(--cyan); font-weight: 800; letter-spacing: .13em; font-size: 13px; }
+    .game-list-panel h1 { margin: 8px 0 5px; font-size: clamp(26px, 2.3vw, 46px); }
+    .game-count { color: var(--quiet); font-size: clamp(13px, .9vw, 17px); }
+
+    .game-list {
+      position: relative;
+      height: calc(100% - 104px);
+      margin: 28px -18px 0;
+      padding: 6px 18px;
+      overflow: hidden;
+      list-style: none;
+    }
+
+    .game-row {
+      position: relative;
+      min-height: clamp(48px, 6vh, 72px);
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 10px 17px 10px 22px;
+      border: 1px solid transparent;
+      border-radius: 13px;
+      color: #7e879d;
+      font-size: clamp(17px, 1.45vw, 27px);
+      transition: color .16s ease, background .16s ease, transform .16s ease;
+    }
+
+    .game-row .index { width: 30px; color: #596177; font-size: .58em; font-variant-numeric: tabular-nums; }
+    .game-row .title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .game-row .directory { display: block; color: var(--quiet); font-size: 12px; margin-top: 3px; }
+
+    .game-row.selected {
+      transform: translateX(8px);
+      color: #fff;
+      border-color: rgba(255,255,255,.24);
+      background: linear-gradient(90deg, rgba(117,96,255,.34), rgba(117,96,255,.06));
+      font-weight: 760;
+    }
+
+    .game-row.selected::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 11px;
+      bottom: 11px;
+      width: 4px;
+      border-radius: 4px;
+      background: var(--purple-soft);
+    }
+
+    .game-detail-panel {
+      min-width: 0;
+      display: grid;
+      grid-template-rows: 62% 38%;
+      padding: clamp(24px, 3.1vw, 58px) clamp(32px, 4.3vw, 82px) 22px;
+    }
+
+    .media-stage {
+      min-height: 0;
+      display: grid;
+      grid-template-columns: minmax(150px, .33fr) minmax(300px, .67fr);
+      gap: clamp(20px, 2.4vw, 44px);
+      align-items: center;
+    }
+
+    .poster {
+      position: relative;
+      aspect-ratio: 5 / 7;
+      max-height: 92%;
+      overflow: hidden;
+      border: 1px solid rgba(255,255,255,.19);
+      border-radius: var(--radius-lg);
+      background: var(--poster, linear-gradient(155deg,#512f92,#11182e));
+      box-shadow: 0 24px 55px rgba(0,0,0,.4);
+    }
+
+    .poster::before {
+      content: attr(data-short);
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      padding: 18px;
+      color: rgba(255,255,255,.86);
+      font-size: clamp(24px, 2.4vw, 46px);
+      font-weight: 920;
+      line-height: .95;
+      text-align: center;
+      text-transform: uppercase;
+      text-shadow: 0 4px 18px rgba(0,0,0,.5);
+    }
+
+    .poster::after {
+      content: "RETROM CLASSICS";
+      position: absolute;
+      left: 18px;
+      right: 18px;
+      bottom: 18px;
+      padding-top: 12px;
+      border-top: 1px solid rgba(255,255,255,.38);
+      color: rgba(255,255,255,.62);
+      font-size: 10px;
+      letter-spacing: .18em;
+      text-align: center;
+    }
+
+    .video-frame {
+      position: relative;
+      aspect-ratio: 16 / 9;
+      overflow: hidden;
+      border: 1px solid rgba(255,255,255,.17);
+      border-radius: var(--radius-lg);
+      background: #05070d;
+      box-shadow: 0 24px 55px rgba(0,0,0,.35);
+    }
+
+    .video-frame::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background:
+        linear-gradient(90deg, transparent 48%, rgba(80,214,202,.8) 49% 51%, transparent 52%),
+        radial-gradient(circle at 30% 55%, #f3ba62 0 2%, transparent 3%),
+        radial-gradient(circle at 66% 38%, #8e7aff 0 3%, transparent 4%),
+        linear-gradient(#101a33 0 62%, #142d32 62% 66%, #0a0f1d 66%);
+      animation: demo-pan 4s ease-in-out infinite alternate;
+    }
+
+    .video-frame::after {
+      content: "VIDEO · 静音预览";
+      position: absolute;
+      left: 18px;
+      bottom: 16px;
+      padding: 8px 11px;
+      border: 1px solid rgba(255,255,255,.18);
+      border-radius: 9px;
+      color: rgba(255,255,255,.74);
+      background: rgba(5,7,13,.65);
+      font-size: 11px;
+      letter-spacing: .12em;
+    }
+
+    @keyframes demo-pan { from { transform: scale(1.02) translateX(-1%); } to { transform: scale(1.08) translateX(1%); } }
+
+    .description-panel {
+      position: relative;
+      min-height: 0;
+      padding-top: clamp(16px, 2.2vh, 30px);
+      border-top: 1px solid rgba(255,255,255,.11);
+      overflow: hidden;
+    }
+
+    .description-panel h2 { margin: 0; font-size: clamp(25px, 2.4vw, 48px); line-height: 1.1; }
+    .metadata { margin: 10px 0 13px; color: var(--purple-soft); font-size: clamp(13px, .95vw, 18px); font-weight: 720; }
+    .description-panel p { margin: 0; color: var(--muted); font-size: clamp(15px, 1.15vw, 22px); line-height: 1.62; }
+    .description-panel::after { content:""; position:absolute; left:0; right:0; bottom:0; height:44px; background:linear-gradient(transparent,#0c111f); pointer-events:none; }
+
+    /* Player mock */
+    .player-view { background: #000; }
+
+    .game-canvas {
+      position: absolute;
+      inset: 0;
+      overflow: hidden;
+      background:
+        radial-gradient(circle at 50% 86%, rgba(34, 90, 97, .95) 0 2%, transparent 3%),
+        radial-gradient(circle at 20% 30%, #fff 0 1px, transparent 2px),
+        radial-gradient(circle at 70% 18%, #fff 0 1px, transparent 2px),
+        radial-gradient(circle at 82% 48%, #fff 0 1px, transparent 2px),
+        linear-gradient(#05081a 0 64%, #1b2042 64% 68%, #09101b 68%);
+    }
+
+    .game-canvas::before {
+      content: "RETROM  •  SCORE 019450";
+      position: absolute;
+      top: 6%;
+      left: 0;
+      right: 0;
+      color: #f0bb62;
+      font-family: ui-monospace, monospace;
+      font-size: clamp(18px, 2.2vw, 42px);
+      font-weight: 800;
+      text-align: center;
+      letter-spacing: .12em;
+    }
+
+    .ship {
+      position: absolute;
+      left: 48%;
+      bottom: 16%;
+      width: clamp(38px, 4vw, 78px);
+      height: clamp(50px, 5vw, 98px);
+      transform: translateX(-50%);
+      clip-path: polygon(50% 0, 66% 54%, 100% 82%, 63% 76%, 50% 100%, 37% 76%, 0 82%, 34% 54%);
+      background: linear-gradient(90deg,#6d72a3,#f6f4ed 50%,#747bad);
+      animation: ship 2.2s ease-in-out infinite alternate;
+    }
+
+    @keyframes ship { from { transform: translateX(-50%) translateX(-70px); } to { transform: translateX(-50%) translateX(70px); } }
+
+    .player-hint {
+      position: absolute;
+      left: 50%;
+      bottom: 28px;
+      transform: translateX(-50%);
+      padding: 12px 20px;
+      border: 1px solid rgba(255,255,255,.15);
+      border-radius: 999px;
+      color: rgba(255,255,255,.76);
+      background: rgba(3,5,10,.74);
+      font-size: 14px;
+      transition: opacity .3s ease;
+    }
+
+    .player-menu-layer {
+      position: absolute;
+      z-index: 20;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      padding: 28px;
+      background: rgba(3,5,10,.68);
+      backdrop-filter: blur(12px) brightness(.42);
+    }
+
+    .player-menu {
+      width: min(760px, calc(100vw - 56px));
+      padding: 40px;
+      border: 1px solid rgba(255,255,255,.2);
+      border-radius: 28px;
+      background: linear-gradient(150deg, rgba(29,36,60,.98), rgba(12,17,30,.98));
+      box-shadow: var(--shadow);
+    }
+
+    .pause-status { display:flex; align-items:center; gap:10px; color:var(--cyan); font-size:14px; font-weight:800; letter-spacing:.12em; }
+    .pause-status::before { content:""; width:9px; height:9px; border-radius:50%; background:var(--cyan); box-shadow:0 0 0 6px rgba(80,214,202,.12); }
+    .player-menu h1 { margin: 15px 0 6px; font-size: clamp(30px, 3vw, 50px); }
+    .player-menu > p { margin: 0; color: var(--muted); line-height: 1.55; }
+    .player-menu .dialog-actions { margin-top: 30px; }
+    .choice-button.exit.selected { background: linear-gradient(135deg,#b44e60,#7f3040); }
+
+    .blocking-message {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      padding: 30px;
+      text-align: center;
+    }
+
+    .blocking-message > div { max-width: 680px; }
+    .blocking-message h1 { font-size: clamp(32px,4vw,66px); margin-bottom:12px; }
+    .blocking-message p { color:var(--muted); font-size:clamp(16px,1.2vw,22px); line-height:1.6; }
+
+    @media (max-width: 959px), (orientation: portrait) {
+      .app > .screen:not(.standard-home) { display: none !important; }
+      .app::before {
+        content: "沉浸模式需要横屏大屏\A请将窗口调整到至少 960 × 540";
+        white-space: pre;
+        position: fixed;
+        z-index: 200;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        padding: 30px;
+        color: var(--text);
+        background: var(--bg);
+        text-align: center;
+        font-size: 22px;
+        line-height: 1.7;
+      }
+      .review-tools { display: none; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+    }
+  </style>
+</head>
+<body>
+  <main id="app" class="app" aria-live="polite">
+    <section id="home" class="screen standard-home active dimmed" aria-label="普通首页进入沉浸模式示意">
+      <aside class="standard-sidebar">
+        <div class="brand"><span class="brand-mark">R</span><span>RETROM</span></div>
+        <div class="standard-nav"><span>首页</span><span>游戏库</span><span>我的存档</span><span>我的收藏</span><span>最近游玩</span></div>
+      </aside>
+      <div class="standard-main">
+        <small>我的游戏</small><h1>今天想玩什么？</h1><p>回到最近玩的游戏，或者从资料库里找点经典游戏。</p>
+        <div class="standard-hero"><small>最近玩的游戏</small><h2>打击者1945加强版</h2><p>Arcade · FBNeo 游戏</p></div>
+        <div class="standard-row"><div class="standard-card"></div><div class="standard-card"></div><div class="standard-card"></div><div class="standard-card"></div></div>
+      </div>
+      <button id="reopen-entry" class="home-reopen" type="button" hidden>模拟任意手柄按键</button>
+      <div id="entry-dialog" class="dialog-layer">
+        <section class="dialog" role="dialog" aria-modal="true" aria-labelledby="entry-title">
+          <div class="dialog-kicker">STANDARD CONTROLLER DETECTED</div>
+          <h2 id="entry-title">进入沉浸模式？</h2>
+          <p>使用手柄按平台浏览并启动游戏。沉浸模式采用独立的大屏界面，不包含存档、联机和管理功能。</p>
+          <div class="dialog-actions">
+            <button type="button" class="choice-button selected" data-entry="cancel">取消</button>
+            <button type="button" class="choice-button" data-entry="confirm">进入沉浸模式</button>
+          </div>
+          <div class="dialog-help">A 确认 · B 取消 · 左右选择</div>
+        </section>
+      </div>
+    </section>
+
+    <section id="system" class="screen system-view" aria-label="沉浸模式平台选择">
+      <header class="immersive-header">
+        <div class="brand"><span class="brand-mark">R</span><span>RETROM</span><span class="mode-label">沉浸模式</span></div>
+        <div class="clock" data-clock>20:40</div>
+      </header>
+      <div class="system-stage">
+        <div id="platform-track" class="platform-track"></div>
+      </div>
+      <footer class="helpbar"><span><b class="keycap wide">← →</b>选择平台</span><span><b class="keycap">A</b>进入</span><span><b class="keycap">B</b>退出沉浸模式</span></footer>
+    </section>
+
+    <section id="gamelist" class="screen gamelist-view" aria-label="沉浸模式游戏列表">
+      <header class="immersive-header">
+        <div class="brand"><span class="brand-mark">R</span><span>RETROM</span><span class="mode-label">沉浸模式</span></div>
+        <div class="clock" data-clock>20:40</div>
+      </header>
+      <div class="gamelist-layout">
+        <aside class="game-list-panel">
+          <div class="platform-overline">SELECT A GAME</div>
+          <h1 id="gamelist-platform">Arcade</h1>
+          <div id="gamelist-count" class="game-count">4 款游戏 · 上下选择</div>
+          <ol id="game-list" class="game-list" role="listbox" aria-label="游戏"></ol>
+        </aside>
+        <section class="game-detail-panel">
+          <div class="media-stage">
+            <div id="poster" class="poster" data-short="1945"></div>
+            <div id="video-frame" class="video-frame" role="img" aria-label="游戏视频静音预览"></div>
+          </div>
+          <article class="description-panel">
+            <h2 id="game-title">打击者1945加强版</h2>
+            <div id="game-metadata" class="metadata">1999 · Psikyo · 飞行射击</div>
+            <p id="game-description">驾驶经典战机穿越密集火力，在高速纵向卷轴关卡中挑战大型敌机与多阶段首领。选择不同机体，掌握蓄力攻击和炸弹时机。</p>
+          </article>
+        </section>
+      </div>
+      <footer class="helpbar"><span><b class="keycap wide">↑ ↓</b>选择游戏</span><span><b class="keycap">A</b>开始游戏</span><span><b class="keycap">B</b>返回平台</span></footer>
+    </section>
+
+    <section id="player" class="screen player-view" aria-label="沉浸模式游戏运行状态">
+      <div class="game-canvas"><div class="ship"></div></div>
+      <div id="player-hint" class="player-hint">双击 Select + Start 暂停并打开菜单</div>
+      <div id="player-menu-layer" class="player-menu-layer" hidden>
+        <section class="player-menu" role="dialog" aria-modal="true" aria-labelledby="player-menu-title">
+          <div class="pause-status">游戏已暂停</div>
+          <h1 id="player-menu-title">打击者1945加强版</h1>
+          <p>退出不会保存当前进度。选择取消会关闭菜单、取消暂停并恢复游戏。</p>
+          <div class="dialog-actions">
+            <button type="button" class="choice-button selected" data-player-action="resume">取消</button>
+            <button type="button" class="choice-button exit" data-player-action="exit">退出游戏</button>
+          </div>
+          <div class="dialog-help">A 确认 · B 取消 · 左右选择</div>
+        </section>
+      </div>
+    </section>
+
+    <div id="exit-dialog" class="dialog-layer" hidden>
+      <section class="dialog" role="dialog" aria-modal="true" aria-labelledby="exit-title">
+        <div class="dialog-kicker">IMMERSIVE MODE</div>
+        <h2 id="exit-title">退出沉浸模式？</h2>
+        <p>返回普通首页后，现有 PC 和移动端界面保持不变。</p>
+        <div class="dialog-actions">
+          <button type="button" class="choice-button selected" data-exit="stay">继续沉浸模式</button>
+          <button type="button" class="choice-button exit" data-exit="leave">返回普通首页</button>
+        </div>
+        <div class="dialog-help">A 确认 · B 继续沉浸模式 · 左右选择</div>
+      </section>
+    </div>
+  </main>
+
+  <nav class="review-tools" aria-label="设计稿评审控制">
+    <button type="button" data-scene="entry">进入弹窗</button>
+    <button type="button" data-scene="system">选平台</button>
+    <button type="button" data-scene="gamelist">选游戏</button>
+    <button type="button" data-scene="player">游戏运行</button>
+    <button type="button" data-scene="menu">暂停菜单</button>
+    <button type="button" id="simulate-chord">双击 Select+Start</button>
+  </nav>
+
+  <script>
+    const platforms = [
+      { id: "arcade", code: "ARC", name: "Arcade", count: 24, last: "今天 19:42", bg: "linear-gradient(145deg,#875b33,#3a1f2a 55%,#171327)" },
+      { id: "gba", code: "GBA", name: "Game Boy Advance", count: 18, last: "昨天 21:35", bg: "linear-gradient(145deg,#6f5cff,#27215c 55%,#171327)" },
+      { id: "nes", code: "NES", name: "NES / Famicom", count: 32, last: "8月18日", bg: "linear-gradient(145deg,#2d928e,#1c4e59 55%,#121d2c)" },
+      { id: "snes", code: "SFC", name: "Super Nintendo", count: 15, last: "尚未游玩", bg: "linear-gradient(145deg,#9b5d78,#49304f 55%,#191729)" }
+    ];
+
+    const gamesByPlatform = {
+      arcade: [
+        { title: "1941 - Counter Attack", short: "1941", year: "1990", studio: "Capcom", genre: "飞行射击", directory: "FBA2012 CPS-1", desc: "驾驶盟军战机穿过欧洲战场，在密集弹幕与巨型机械之间寻找安全航线。双人协作可共享火力并挑战高分。", poster: "linear-gradient(155deg,#a75c26,#432137 56%,#161328)" },
+        { title: "打击者1945加强版", short: "1945 PLUS", year: "1999", studio: "Psikyo", genre: "飞行射击", directory: "FBNeo 游戏", desc: "驾驶经典战机穿越密集火力，在高速纵向卷轴关卡中挑战大型敌机与多阶段首领。选择不同机体，掌握蓄力攻击和炸弹时机。", poster: "linear-gradient(155deg,#556a99,#b8713c 48%,#281d37)" },
+        { title: "Donkey Kong", short: "DONKEY KONG", year: "1981", studio: "Nintendo", genre: "平台动作", directory: "MAME2003 Plus", desc: "在层层钢架之间攀爬、跳跃并躲避滚落障碍，抵达顶端救出被困角色。规则简单，但节奏与路线要求精准。", poster: "linear-gradient(155deg,#c13d32,#efb43f 48%,#24325e)" },
+        { title: "Galaxian", short: "GALAXIAN", year: "1979", studio: "Namco", genre: "固定射击", directory: "MAME2003", desc: "抵挡外星舰队的俯冲攻击，在有限空间中判断弹道并逐波清理编队。经典星空背景与高分挑战构成纯粹街机体验。", poster: "linear-gradient(155deg,#252d78,#7c55b3 48%,#12162b)" }
+      ],
+      gba: [
+        { title: "Retrom GBA Smoke", short: "GBA SMOKE", year: "2026", studio: "Retrom", genre: "测试程序", directory: "mGBA 游戏", desc: "由 Retrom 项目拥有并确定性生成的公开测试程序，用于验证真实导入、媒体、Launch、内容端点和 mGBA 核心运行链路。", poster: "linear-gradient(155deg,#6b5ee8,#2d3574 50%,#15192e)" },
+        { title: "Advance Adventure", short: "ADVANCE", year: "2003", studio: "Demo Works", genre: "动作冒险", directory: "mGBA 游戏", desc: "穿越彩色遗迹，收集能力并打开通往下一片区域的道路。", poster: "linear-gradient(155deg,#258c7a,#e9b454 58%,#263149)" }
+      ],
+      nes: [
+        { title: "Retrom FCEUmm Netplay Smoke", short: "NES SMOKE", year: "2026", studio: "Retrom", genre: "测试程序", directory: "NES 游戏", desc: "项目自有 NES 程序，画面与输入均可确定性验证。沉浸模式只以普通单机启动，不进入联机房间。", poster: "linear-gradient(155deg,#b54251,#e3a74b 55%,#28204b)" },
+        { title: "Pixel Rally", short: "PIXEL RALLY", year: "1988", studio: "Demo Works", genre: "竞速", directory: "NES 游戏", desc: "在狭窄赛道中躲避障碍并争取最快圈速。", poster: "linear-gradient(155deg,#2f70a4,#49b6aa 55%,#1e2843)" }
+      ],
+      snes: [
+        { title: "Retrom SNES9x Netplay Smoke", short: "SNES SMOKE", year: "2026", studio: "Retrom", genre: "测试程序", directory: "SNES 游戏", desc: "项目自有 SNES 程序，用于锁定 SNES9x 的真实核心执行边界。", poster: "linear-gradient(155deg,#8252a8,#d4697e 55%,#202142)" }
+      ]
+    };
+
+    const state = { scene: "entry", platform: 0, game: 1, entryChoice: 0, exitChoice: 0, menuChoice: 0 };
+    const screens = ["home", "system", "gamelist", "player"];
+
+    function setScreen(name) {
+      screens.forEach((screen) => document.getElementById(screen).classList.toggle("active", screen === name));
+      state.scene = name;
+      document.getElementById("entry-dialog").hidden = true;
+      document.getElementById("exit-dialog").hidden = true;
+      document.getElementById("player-menu-layer").hidden = true;
+      if (name === "home") {
+        document.getElementById("home").classList.remove("dimmed");
+        document.getElementById("reopen-entry").hidden = false;
+      }
+      if (name === "system") renderPlatforms();
+      if (name === "gamelist") renderGames();
+    }
+
+    function openEntry() {
+      setScreen("home");
+      state.scene = "entry";
+      state.entryChoice = 0;
+      document.getElementById("home").classList.add("dimmed");
+      document.getElementById("reopen-entry").hidden = true;
+      document.getElementById("entry-dialog").hidden = false;
+      renderDialogChoices("entry", state.entryChoice);
+    }
+
+    function renderDialogChoices(kind, selected) {
+      document.querySelectorAll(`[data-${kind}]`).forEach((button, index) => button.classList.toggle("selected", index === selected));
+    }
+
+    function openExitDialog() {
+      state.exitChoice = 0;
+      document.getElementById("exit-dialog").hidden = false;
+      renderDialogChoices("exit", state.exitChoice);
+      state.scene = "exit";
+    }
+
+    function renderPlatforms() {
+      const track = document.getElementById("platform-track");
+      track.innerHTML = "";
+      platforms.forEach((platform, index) => {
+        const delta = (index - state.platform + platforms.length) % platforms.length;
+        const relation = delta === 0 ? "current" : delta === 1 ? "next" : delta === platforms.length - 1 ? "prev" : "hidden";
+        const article = document.createElement("article");
+        article.className = `platform-card ${relation}`;
+        article.dataset.code = platform.code;
+        article.style.setProperty("--platform-bg", platform.bg);
+        article.innerHTML = `<div class="eyebrow">GAME PLATFORM</div><h1>${platform.name}</h1><div class="platform-stats"><span><strong>${platform.count}</strong> 款游戏</span><span>上次游玩：<strong>${platform.last}</strong></span></div>`;
+        track.append(article);
+      });
+      const dots = document.createElement("div");
+      dots.className = "position-dots";
+      dots.innerHTML = platforms.map((_, index) => `<i class="${index === state.platform ? "active" : ""}"></i>`).join("");
+      track.append(dots);
+    }
+
+    function currentGames() { return gamesByPlatform[platforms[state.platform].id]; }
+
+    function renderGames() {
+      const platform = platforms[state.platform];
+      const games = currentGames();
+      state.game = Math.max(0, Math.min(state.game, games.length - 1));
+      document.getElementById("gamelist-platform").textContent = platform.name;
+      document.getElementById("gamelist-count").textContent = `${games.length} 款游戏 · 上下选择`;
+      const list = document.getElementById("game-list");
+      list.innerHTML = "";
+      games.forEach((game, index) => {
+        const item = document.createElement("li");
+        item.className = `game-row${index === state.game ? " selected" : ""}`;
+        item.setAttribute("role", "option");
+        item.setAttribute("aria-selected", String(index === state.game));
+        item.innerHTML = `<span class="index">${String(index + 1).padStart(2,"0")}</span><span class="title">${game.title}<small class="directory">${game.directory}</small></span>`;
+        item.addEventListener("click", () => { state.game = index; renderGames(); });
+        list.append(item);
+      });
+      renderGameDetail(games[state.game]);
+    }
+
+    function renderGameDetail(game) {
+      const poster = document.getElementById("poster");
+      poster.dataset.short = game.short;
+      poster.style.setProperty("--poster", game.poster);
+      document.getElementById("game-title").textContent = game.title;
+      document.getElementById("game-metadata").textContent = `${game.year} · ${game.studio} · ${game.genre}`;
+      document.getElementById("game-description").textContent = game.desc;
+      document.getElementById("video-frame").style.display = game.title === "Pixel Rally" ? "none" : "block";
+    }
+
+    function openPlayerMenu() {
+      if (state.scene !== "player") return;
+      state.menuChoice = 0;
+      state.scene = "menu";
+      document.getElementById("player-menu-layer").hidden = false;
+      document.getElementById("player-hint").style.opacity = "0";
+      renderDialogChoices("player-action", state.menuChoice);
+    }
+
+    function closePlayerMenu() {
+      document.getElementById("player-menu-layer").hidden = true;
+      document.getElementById("player-hint").style.opacity = "1";
+      state.scene = "player";
+    }
+
+    function move(delta) {
+      if (state.scene === "entry") {
+        state.entryChoice = (state.entryChoice + delta + 2) % 2;
+        renderDialogChoices("entry", state.entryChoice);
+      } else if (state.scene === "exit") {
+        state.exitChoice = (state.exitChoice + delta + 2) % 2;
+        renderDialogChoices("exit", state.exitChoice);
+      } else if (state.scene === "system") {
+        state.platform = (state.platform + delta + platforms.length) % platforms.length;
+        state.game = 0;
+        renderPlatforms();
+      } else if (state.scene === "gamelist") {
+        const games = currentGames();
+        state.game = Math.max(0, Math.min(games.length - 1, state.game + delta));
+        renderGames();
+      } else if (state.scene === "menu") {
+        state.menuChoice = (state.menuChoice + delta + 2) % 2;
+        renderDialogChoices("player-action", state.menuChoice);
+      }
+    }
+
+    function confirm() {
+      if (state.scene === "entry") {
+        if (state.entryChoice === 0) setScreen("home"); else setScreen("system");
+      } else if (state.scene === "exit") {
+        if (state.exitChoice === 0) { document.getElementById("exit-dialog").hidden = true; state.scene = "system"; }
+        else setScreen("home");
+      } else if (state.scene === "system") {
+        state.game = 0;
+        setScreen("gamelist");
+      } else if (state.scene === "gamelist") {
+        setScreen("player");
+      } else if (state.scene === "menu") {
+        if (state.menuChoice === 0) closePlayerMenu(); else setScreen("gamelist");
+      }
+    }
+
+    function back() {
+      if (state.scene === "entry") setScreen("home");
+      else if (state.scene === "exit") { document.getElementById("exit-dialog").hidden = true; state.scene = "system"; }
+      else if (state.scene === "system") openExitDialog();
+      else if (state.scene === "gamelist") setScreen("system");
+      else if (state.scene === "menu") closePlayerMenu();
+    }
+
+    document.addEventListener("keydown", (event) => {
+      if (["ArrowLeft","ArrowRight","ArrowUp","ArrowDown","Enter","Escape","a","A","b","B","m","M"].includes(event.key)) event.preventDefault();
+      if (event.key === "ArrowLeft" || event.key === "ArrowUp") move(-1);
+      if (event.key === "ArrowRight" || event.key === "ArrowDown") move(1);
+      if (event.key === "Enter" || event.key.toLowerCase() === "a") confirm();
+      if (event.key === "Escape" || event.key.toLowerCase() === "b") back();
+      if (event.key.toLowerCase() === "m") openPlayerMenu();
+    });
+
+    document.querySelectorAll("[data-entry]").forEach((button, index) => button.addEventListener("click", () => { state.entryChoice = index; confirm(); }));
+    document.querySelectorAll("[data-exit]").forEach((button, index) => button.addEventListener("click", () => { state.exitChoice = index; confirm(); }));
+    document.querySelectorAll("[data-player-action]").forEach((button, index) => button.addEventListener("click", () => { state.menuChoice = index; confirm(); }));
+    document.getElementById("reopen-entry").addEventListener("click", openEntry);
+    document.getElementById("simulate-chord").addEventListener("click", () => { if (state.scene !== "player") setScreen("player"); openPlayerMenu(); });
+
+    document.querySelectorAll("[data-scene]").forEach((button) => button.addEventListener("click", () => {
+      const scene = button.dataset.scene;
+      if (scene === "entry") openEntry();
+      if (scene === "system") setScreen("system");
+      if (scene === "gamelist") setScreen("gamelist");
+      if (scene === "player") setScreen("player");
+      if (scene === "menu") { setScreen("player"); openPlayerMenu(); }
+    }));
+
+    function updateClock() {
+      const value = new Intl.DateTimeFormat("zh-CN", { hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date());
+      document.querySelectorAll("[data-clock]").forEach((clock) => { clock.textContent = value; });
+    }
+
+    updateClock();
+    setInterval(updateClock, 30_000);
+    renderPlatforms();
+    renderGames();
+  </script>
+</body>
+</html>
