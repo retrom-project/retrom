@@ -96,6 +96,14 @@ describe("ImmersiveShell controller ownership", () => {
     expect(screen.queryByText("↕")).not.toBeInTheDocument();
   });
 
+  it("keeps the Select hint inside its circular key by rendering three dots", () => {
+    const source = new ManualSource();
+    render(<ImmersiveShell source={source} help={[]} onAction={() => undefined}><h1>平台视图</h1></ImmersiveShell>);
+    const selectKey = screen.getByRole("img", { name: "Select" });
+    expect(selectKey.querySelectorAll("svg circle")).toHaveLength(3);
+    expect(screen.queryByText("Select", { exact: true })).not.toBeInTheDocument();
+  });
+
   it("debounces a transient missing frame before releasing an active claim", () => {
     const source = new ManualSource();
     setActiveImmersiveGamepadIndex(2);
