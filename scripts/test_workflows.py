@@ -44,6 +44,7 @@ class GitHubWorkflowDependencyTests(unittest.TestCase):
         self.assertNotIn("  quality:", workflow)
         self.assertNotIn("needs: quality", workflow)
         self.assertNotIn("run: make ci", workflow)
+        self.assertNotIn("run: make prepare-deps", workflow)
 
 
 if __name__ == "__main__":
