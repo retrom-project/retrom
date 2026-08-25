@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { adapterID, captureManualScreenshot, captureManualState, captureReviewScreenshot, coreFramebufferNeedsCanvasOrientation, mountEmulatorJS, scheduleStartupActions, switchDisc, switchDiscPreservingPause, type PlayerConfig } from "./ejs-4.2.3-v2";
+import { adapterID, captureManualScreenshot, captureManualState, captureReviewScreenshot, coreFramebufferNeedsCanvasOrientation, mountEmulatorJS, scheduleStartupActions, screenshotPixelsHaveVisibleContent, switchDisc, switchDiscPreservingPause, type PlayerConfig } from "./ejs-4.2.3-v2";
 import { netplayProfilePredictionFrames } from "./ejs-config";
 import { ImmersiveGamepadFilter } from "../immersive-gamepad-filter";
 
@@ -613,6 +613,19 @@ describe("EmulatorJS adapter runtime controls", () => {
     expect(capture.format).toBe("png");
     expect(capture.screenshot.type).toBe("image/png");
     expect(new Uint8Array(await capture.screenshot.arrayBuffer())).toEqual(screenshotBytes);
+  });
+
+  it("classifies near-black framebuffers so manual capture can fall back to the displayed canvas", () => {
+    const pixels = new Uint8ClampedArray(64 * 64 * 4);
+    expect(screenshotPixelsHaveVisibleContent(pixels)).toBe(false);
+    for (let pixel = 0; pixel < 42; pixel += 1) {
+      const offset = pixel * 4;
+      pixels[offset] = 64;
+      pixels[offset + 1] = 64;
+      pixels[offset + 2] = 64;
+      pixels[offset + 3] = 255;
+    }
+    expect(screenshotPixelsHaveVisibleContent(pixels)).toBe(true);
   });
 
   it("uses the displayed canvas when a vertical core framebuffer is rotated", async () => {

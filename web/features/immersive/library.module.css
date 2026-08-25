@@ -17,39 +17,138 @@
   font-size: clamp(72px, 10vw, 150px);
 }
 
-.savePanel {
-  min-height: 0;
+.saveGameDetails {
+  grid-template-rows: minmax(0, 58%) minmax(0, 42%);
 }
 
-.savePreview {
+.saveDetails {
   display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  min-width: 0;
   min-height: 0;
-  grid-template-columns: minmax(180px, 42%) 1fr;
+  overflow: hidden;
+  padding: clamp(10px, 1vw, 18px) 0 clamp(8px, 0.8vw, 14px);
+  background: linear-gradient(155deg, rgb(25 33 54 / 88%), rgb(8 12 21 / 94%));
+  border-top: 1px solid rgb(255 255 255 / 10%);
+}
+
+.saveHeading {
+  display: flex;
   align-items: center;
-  gap: 24px;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 0 clamp(18px, 1.8vw, 34px);
 }
 
-.savePreview > div:last-child {
-  display: grid;
-  gap: 10px;
-}
-
-.savePreview time {
+.saveHeading p,
+.saveHeading span {
+  margin: 0;
   color: #aeb7ca;
+  font-size: clamp(14px, 0.9vw, 19px);
+}
+
+.saveHeading p {
+  color: #50d6ca;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+}
+
+.saveHeading strong {
+  margin-left: 8px;
+  color: #f7f5f0;
+  font-variant-numeric: tabular-nums;
+}
+
+.saveRail {
+  display: flex;
+  gap: clamp(12px, 1.3vw, 24px);
+  align-items: center;
+  min-width: 0;
+  min-height: 0;
+  padding: clamp(8px, 1vh, 16px) clamp(18px, 1.8vw, 34px) 4px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-behavior: smooth;
+  scrollbar-width: none;
+}
+
+.saveRail::-webkit-scrollbar {
+  display: none;
+}
+
+.saveCard {
+  display: grid;
+  flex: 0 0 clamp(100px, calc(24dvh - 60px), 210px);
+  gap: 6px;
+  min-width: 0;
+  max-height: 100%;
+  padding: 0;
+  color: #aeb7ca;
+  font: inherit;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  opacity: 0.58;
+  transform: scale(0.92);
+  transition: flex-basis 220ms ease, opacity 220ms ease, transform 220ms ease;
+}
+
+.selectedSaveCard {
+  flex-basis: clamp(210px, calc(54dvh - 130px), 500px);
+  color: #f7f5f0;
+  opacity: 1;
+  transform: scale(1);
 }
 
 .saveScreenshot {
   position: relative;
-  overflow: hidden;
+  display: block;
   width: 100%;
   aspect-ratio: 16 / 10;
+  overflow: hidden;
+  background: linear-gradient(145deg, #26314d, #111827);
   border: 2px solid rgb(255 255 255 / 18%);
-  border-radius: 16px;
-  background: #05070b;
+  border-radius: 12px;
+  box-shadow: 0 12px 32px rgb(0 0 0 / 30%);
+}
+
+.selectedSaveCard .saveScreenshot {
+  border-color: #927dff;
+  box-shadow: 0 0 0 4px rgb(117 96 255 / 18%), 0 18px 42px rgb(0 0 0 / 42%);
 }
 
 .saveScreenshot img {
-  object-fit: contain;
+  object-fit: cover;
+}
+
+.saveCard time {
+  justify-self: end;
+  padding-right: 4px;
+  font-size: clamp(13px, 0.85vw, 18px);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.saveCard:focus-visible {
+  outline: 4px solid #50d6ca;
+  outline-offset: 7px;
+  border-radius: 18px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .saveRail {scroll-behavior: auto;}
+  .saveCard {transition: none;}
+}
+
+@media (height <= 700px) {
+  .saveGameDetails {grid-template-rows: minmax(0, 52%) minmax(0, 48%);}
+  .saveDetails {padding-block: 6px;}
+  .saveHeading p,
+  .saveHeading span {font-size: 12px;}
+  .saveRail {padding-block: 4px;}
+  .saveCard {flex-basis: 90px;}
+  .selectedSaveCard {flex-basis: 190px;}
 }
 
 .statusMessage {

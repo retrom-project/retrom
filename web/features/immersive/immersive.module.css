@@ -115,6 +115,18 @@
   border-color: rgb(255 135 146 / 0.5);
 }
 
+.helpBar kbd[data-button="Select"] {
+  line-height: 0;
+}
+
+.helpBar kbd[data-button="Select"] svg {
+  display: block;
+  width: 24px;
+  height: 24px;
+  overflow: visible;
+  fill: currentcolor;
+}
+
 .helpBar kbd[data-button="horizontal"] svg,
 .helpBar kbd[data-button="vertical"] svg {
   display: block;
@@ -224,7 +236,7 @@
   margin-top: clamp(14px, 2dvh, 32px);
   overflow: auto;
   scrollbar-width: none;
-  mask-image: linear-gradient(transparent, #000 5%, #000 95%, transparent);
+  mask-image: linear-gradient(#000 0%, #000 95%, transparent 100%);
 }
 
 .titleList::-webkit-scrollbar {
@@ -234,7 +246,7 @@
 .titleList button {
   position: relative;
   display: grid;
-  grid-template-columns: 46px 1fr;
+  grid-template-columns: 46px minmax(0, 1fr) auto;
   gap: 0 12px;
   align-items: center;
   width: 100%;
@@ -250,12 +262,16 @@
 }
 
 .titleList button > span {
+  grid-row: 1 / span 2;
   color: rgb(174 183 202 / 0.5);
   font-size: clamp(14px, 0.85vw, 19px);
   font-variant-numeric: tabular-nums;
 }
 
 .titleList button strong {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  align-self: center;
   overflow: hidden;
   font-size: clamp(18px, 1.35vw, 30px);
   line-height: 1.15;
@@ -263,13 +279,29 @@
   white-space: nowrap;
 }
 
+.titleList button:has(> small:not(.favoriteIndicator)) strong {
+  grid-row: 1;
+}
+
 .titleList button small {
   grid-column: 2;
+  grid-row: 2;
   overflow: hidden;
   color: var(--immersive-muted);
   font-size: clamp(13px, 0.8vw, 17px);
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.titleList button .favoriteIndicator {
+  grid-column: 3;
+  grid-row: 1 / span 2;
+  align-self: center;
+  padding-left: 12px;
+  overflow: visible;
+  color: #ff4f64;
+  font-size: clamp(21px, 1.45vw, 32px);
+  line-height: 1;
 }
 
 .titleList .selectedGame {
@@ -460,18 +492,15 @@
   min-height: 0;
   padding-right: 12px;
   overflow-x: hidden;
-  overflow-y: auto;
+  overflow-y: hidden;
   color: var(--immersive-muted);
   font-size: clamp(16px, 1.05vw, 23px);
   line-height: 1.55;
   overscroll-behavior: contain;
-  scrollbar-color: rgb(117 96 255 / 0.72) rgb(255 255 255 / 0.07);
-  scrollbar-width: thin;
+  scrollbar-width: none;
 }
 
-.description::-webkit-scrollbar {width: 8px;}
-.description::-webkit-scrollbar-track {background: rgb(255 255 255 / 0.06);border-radius: 999px;}
-.description::-webkit-scrollbar-thumb {background: rgb(117 96 255 / 0.7);border-radius: 999px;}
+.description::-webkit-scrollbar {display: none;}
 
 .dialogBackdrop,
 .launchOverlay,
@@ -563,10 +592,14 @@
 .dialogButton:focus-visible,
 .centerState button:focus-visible,
 .controllerOverlay a:focus-visible,
-.viewportOverlay button:focus-visible,
-.titleList button:focus-visible {
+.viewportOverlay button:focus-visible {
   outline: 4px solid var(--immersive-cyan);
   outline-offset: 4px;
+}
+
+.titleList button:focus-visible {
+  outline: 3px solid var(--immersive-cyan);
+  outline-offset: -3px;
 }
 
 .choiceDialog small {

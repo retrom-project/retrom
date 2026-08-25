@@ -497,7 +497,7 @@ make web-e2e
   `titleInitial/title/gameId` 分页与 recent 时序例外、媒体/描述 current revision、签名 cursor 的范围绑定、
   未知 query、非法 folderId、隐藏平台 404 和媒体 revision 退役；
 - React 测试使用可控 Gamepad source 覆盖首页显式/手柄两种入口、焦点保持、同帧方向+A、destination 左右
-  环绕和定向动画、资料库/平台游戏浏览、收藏夹、Y 默认收藏、存档选择、长简介滚动、媒体等高、700ms
+  环绕和定向动画、资料库/平台游戏浏览、收藏夹、Y 默认收藏及红色右侧爱心、存档横向大/小框选择与非黑屏截图、长简介无滚动条自动滚动及 reduced-motion 静止、媒体等高、700ms
   视频延迟、路由/隐藏时手柄认领保持、真实断连去抖、SSR 稳定时钟、错误/空状态和 B 返回；普通 PC/移动
   导航与壳不得出现沉浸控件；
 - BGM/系统菜单测试使用可控 media、visibility、Fullscreen 和 localStorage，覆盖内置 OGG、自动播放阻断

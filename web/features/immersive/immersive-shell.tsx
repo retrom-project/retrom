@@ -21,7 +21,15 @@ export type HelpAction = Readonly<{ button: string; label: string }>;
 
 function HelpButton({ button }: { button: string }) {
   if (button !== "horizontal" && button !== "vertical") {
-    return <kbd data-button={button}>{button}</kbd>;
+    return button === "Select"
+      ? <kbd data-button={button} role="img" aria-label="Select">
+        <svg aria-hidden="true" viewBox="0 0 24 24">
+          <circle cx="6" cy="12" r="1.8" />
+          <circle cx="12" cy="12" r="1.8" />
+          <circle cx="18" cy="12" r="1.8" />
+        </svg>
+      </kbd>
+      : <kbd data-button={button}>{button}</kbd>;
   }
   const horizontal = button === "horizontal";
   return <kbd data-button={button} role="img" aria-label={horizontal ? "左右方向键" : "上下方向键"}>
