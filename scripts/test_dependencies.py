@@ -7,6 +7,7 @@ import copy
 import importlib.util
 import json
 import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -237,12 +238,54 @@ class CPSFixtureLayoutValidationTests(unittest.TestCase):
         ):
             dependencies.validate_registry(manifests)
 
-    def test_layout_matches_locked_source_and_production_dat(self) -> None:
+    def test_layout_matches_locked_source_without_production_dat(self) -> None:
         manifests = [
             dependencies.load_manifest("4.2.3"),
             dependencies.load_manifest("4.3.0-pre"),
         ]
-        dependencies.validate_cps_fixture_layouts(manifests)
+        with tempfile.TemporaryDirectory() as directory, mock.patch.object(
+            dependencies, "DATA_ROOT", Path(directory)
+        ):
+            dependencies.validate_cps_fixture_layouts(
+                manifests, require_production_dat=False
+            )
+
+    def test_data_check_dispatch_does_not_require_production_dat(self) -> None:
+        arguments = [
+            "dependencies.py",
+            "data-check",
+            "--versions",
+            "4.2.3,4.3.0-pre",
+        ]
+        with mock.patch.object(
+            dependencies,
+            "file_digest",
+            side_effect=AssertionError("data-check must not read payload files"),
+        ), mock.patch.object(
+            dependencies,
+            "validate_cps_fixture_layouts",
+            wraps=dependencies.validate_cps_fixture_layouts,
+        ) as validate_layouts, mock.patch.object(sys, "argv", arguments), mock.patch(
+            "builtins.print"
+        ):
+            self.assertEqual(dependencies.main(), 0)
+        validate_layouts.assert_called_once()
+        self.assertFalse(validate_layouts.call_args.kwargs["require_production_dat"])
+
+    def test_payload_layout_validation_still_requires_production_dat(self) -> None:
+        manifests = [
+            dependencies.load_manifest("4.2.3"),
+            dependencies.load_manifest("4.3.0-pre"),
+        ]
+        with tempfile.TemporaryDirectory() as directory, mock.patch.object(
+            dependencies, "DATA_ROOT", Path(directory)
+        ), self.assertRaisesRegex(
+            dependencies.CheckError,
+            "DEPENDENCY_FILE_MISSING:fbalpha2012-cps1.dat",
+        ):
+            dependencies.validate_cps_fixture_layouts(
+                manifests, require_production_dat=True
+            )
 
     def test_rejects_source_commit_drift(self) -> None:
         manifests = [dependencies.load_manifest("4.2.3")]
@@ -256,7 +299,9 @@ class CPSFixtureLayoutValidationTests(unittest.TestCase):
             dependencies.CheckError,
             "CPS_FIXTURE_LAYOUT_INVALID",
         ):
-            dependencies.validate_cps_fixture_layouts(manifests)
+            dependencies.validate_cps_fixture_layouts(
+                manifests, require_production_dat=False
+            )
 
 
 class ReleaseInputDigestTests(unittest.TestCase):
