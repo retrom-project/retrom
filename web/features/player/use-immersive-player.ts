@@ -33,6 +33,7 @@ type Params = {
   exitStrict: () => Promise<void>;
   saveAvailable: boolean;
   saveGame: () => Promise<boolean>;
+  beforeMenuPause: () => void;
   onFatalError: (message: string) => void;
 };
 
@@ -40,7 +41,7 @@ type PauseOwner = "menu" | "disconnect" | null;
 
 export function useImmersivePlayer(params: Params) {
   const {
-    enabled, emulator, pausedRef, running, setPaused, exitStrict, saveAvailable, saveGame, onFatalError,
+    enabled, emulator, pausedRef, running, setPaused, exitStrict, saveAvailable, saveGame, beforeMenuPause, onFatalError,
   } = params;
   const [overlay, setOverlay] = useState<ImmersivePlayerOverlay>({ kind: "closed" });
   const overlayRef = useRef(overlay);
@@ -69,6 +70,7 @@ export function useImmersivePlayer(params: Params) {
     if (!enabled || !runningRef.current || overlayRef.current.kind !== "closed") {return;}
     filter.setBlocked(true);
     if (!pausedRef.current) {
+      beforeMenuPause();
       if (setEmulatorPaused(emulator.current, true)) {
         pauseOwner.current = "menu";
         pausedRef.current = true;
@@ -80,7 +82,7 @@ export function useImmersivePlayer(params: Params) {
     }
     menuReader.current.reset();
     updateOverlay({ kind: "menu", error: "", notice: "", pending: false, selected: 0 });
-  }, [emulator, enabled, filter, onFatalError, pausedRef, setPaused, updateOverlay]);
+  }, [beforeMenuPause, emulator, enabled, filter, onFatalError, pausedRef, setPaused, updateOverlay]);
 
   useEffect(() => {
     filter.setOnMenuGesture(requestMenu);

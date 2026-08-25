@@ -24,6 +24,7 @@ export {
   captureManualState,
   captureReviewScreenshot,
   coreFramebufferNeedsCanvasOrientation,
+  screenshotPixelsHaveVisibleContent,
   type ManualScreenshot,
 } from "./ejs-screenshot";
 export {

@@ -2,7 +2,7 @@ import { execFileSync } from "node:child_process";
 import path from "node:path";
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import axe from "axe-core";
-import { currentEmulatorBrightRatio, evidencePath } from "./acceptance-support";
+import { currentEmulatorBrightRatio, evidencePath, locatorBrightRatio } from "./acceptance-support";
 import { installGamepads, pressGamepad, standardButton } from "./immersive-gamepad";
 
 const origin = process.env.RETROM_WEB_ORIGIN ?? "http://localhost:3000";
@@ -240,7 +240,21 @@ test("ACC-IMM-009 virtual libraries, custom folders and Y favorite stay controll
 
   await pressGamepad(page, standardButton.y);
   await expect(page.getByRole("status")).toHaveText("已收藏游戏。");
-  await expect(page.getByRole("option", { selected: true }).getByLabel("已收藏")).toBeVisible();
+  const selectedGame = page.getByRole("option", { selected: true });
+  const favorite = selectedGame.getByLabel("已收藏");
+  await expect(favorite).toBeVisible();
+  const favoriteLayout = await favorite.evaluate((heart) => {
+    const option = heart.closest('[role="option"]');
+    const heartBox = heart.getBoundingClientRect();
+    const optionBox = option?.getBoundingClientRect();
+    return {
+      color: getComputedStyle(heart).color,
+      rightGap: optionBox ? optionBox.right - heartBox.right : Number.POSITIVE_INFINITY,
+      rightSide: optionBox ? heartBox.left > optionBox.left + optionBox.width * 0.75 : false,
+    };
+  });
+  expect(favoriteLayout).toMatchObject({ color: "rgb(255, 79, 100)", rightSide: true });
+  expect(favoriteLayout.rightGap).toBeLessThan(32);
   await page.route("**/api/v1/favorites/unfavorite", (route) => route.fulfill({
     status: 503,
     contentType: "application/json",
@@ -323,12 +337,41 @@ test("ACC-IMM-010 save library selects an older save, restores it and creates an
     /\/content\/save-states\/[^/]+\/screenshot$/.test(response.url()) && response.status() === 200);
   await openDestination(page, "我的存档", /\/immersive\/library\/saves/);
   await selectOption(page, "Sudoku");
-  await expect(page.getByText(`我的存档 · 1 / ${saveTotal}`)).toBeVisible();
+  const saveDetails = page.locator('[data-immersive-save-details="true"]');
+  await expect(saveDetails.getByRole("img", { name: "Sudoku 封面" })).toBeVisible();
+  await expect(saveDetails.locator('[data-immersive-video-panel="true"]')).toBeVisible();
+  await expect(saveDetails.locator("h2")).toHaveCount(0);
+  const saveRail = page.getByRole("list", { name: "Sudoku 的存档" });
+  const saveLayout = await saveDetails.evaluate((details) => {
+    const media = details.firstElementChild?.getBoundingClientRect();
+    const rail = details.lastElementChild?.getBoundingClientRect();
+    return media && rail ? { mediaBottom: media.bottom, railTop: rail.top } : null;
+  });
+  expect(saveLayout?.mediaBottom).toBeLessThanOrEqual(saveLayout?.railTop ?? 0);
+  await expect(saveRail.getByRole("button")).toHaveCount(saveTotal);
+  await expect(saveRail.getByRole("button", { pressed: true })).toHaveAccessibleName(/第 1 份存档/);
+  await expect(saveRail.getByText(/^手动存档/u)).toHaveCount(0);
   expect((await screenshotResponse).headers()["cache-control"]).toBe("private, no-store");
+  const selectedScreenshot = saveRail.getByRole("button", { pressed: true }).getByRole("img");
+  await expect.poll(() => selectedScreenshot.evaluate((image: HTMLImageElement) => image.naturalWidth)).toBeGreaterThan(0);
+  await expect.poll(() => locatorBrightRatio(page, selectedScreenshot), { timeout: 5_000 }).toBeGreaterThan(0.01);
+  const saveCardWidths = await saveRail.getByRole("button").evaluateAll((cards) => cards.map((card) => ({
+    selected: card.getAttribute("aria-pressed") === "true",
+    width: card.getBoundingClientRect().width,
+  })));
+  const selectedWidth = saveCardWidths.find((card) => card.selected)?.width ?? 0;
+  expect(selectedWidth).toBeGreaterThan(Math.max(...saveCardWidths.filter((card) => !card.selected).map((card) => card.width)) * 1.5);
+  const selectedTimeBounds = await saveRail.getByRole("button", { pressed: true }).locator("time").evaluate((time) => {
+    const timeBox = time.getBoundingClientRect();
+    const panelBox = time.closest("section")?.getBoundingClientRect();
+    return panelBox ? { bottomInset: panelBox.bottom - timeBox.bottom, topInset: timeBox.top - panelBox.top } : null;
+  });
+  expect(selectedTimeBounds?.topInset).toBeGreaterThanOrEqual(0);
+  expect(selectedTimeBounds?.bottomInset).toBeGreaterThanOrEqual(0);
   const newestSaveId = new URL(page.url()).searchParams.get("saveStateId");
   expect(newestSaveId).toBeTruthy();
   await pressGamepad(page, standardButton.right);
-  await expect(page.getByText(`我的存档 · 2 / ${saveTotal}`)).toBeVisible();
+  await expect(saveRail.getByRole("button", { pressed: true })).toHaveAccessibleName(/第 2 份存档/);
   const selectedSaveId = new URL(page.url()).searchParams.get("saveStateId");
   expect(selectedSaveId).toBeTruthy();
   expect(selectedSaveId).not.toBe(newestSaveId);
