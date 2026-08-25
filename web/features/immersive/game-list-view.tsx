@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { fetchImmersiveGames, ImmersiveAPIError, launchImmersiveGame, setImmersiveFavorite, type ImmersiveGame, type ImmersivePlatform } from "./api";
+import { AutoScrollingDescription } from "./auto-scrolling-description";
 import { ImmersiveChoiceDialog } from "./choice-dialog";
 import { fetchInitialGameList } from "./game-list-loader";
 import { initialGameIndex, mergeGamePage, moveGameIndex, pageGameIndex, shouldPrefetchGamePage } from "./game-list-state";
@@ -54,7 +55,7 @@ function GameReadyContent({ games, loadNext, onSelect, pageError, platform, retr
           tabIndex={index === selectedIndex && !retrySelected ? 0 : -1}
           key={game.gameId}
           onClick={() => onSelect(index)}
-        ><span>{String(index + 1).padStart(2, "0")}</span><strong>{game.title}</strong>{game.favorited ? <small aria-label="已收藏">♥</small> : null}{(titleCounts.get(game.title) ?? 0) > 1 ? <small>{game.platformInstance.name}</small> : null}</button>)}
+        ><span>{String(index + 1).padStart(2, "0")}</span><strong>{game.title}</strong>{game.favorited ? <small className={styles.favoriteIndicator} aria-label="已收藏">♥</small> : null}{(titleCounts.get(game.title) ?? 0) > 1 ? <small>{game.platformInstance.name}</small> : null}</button>)}
         {pageError ? <button type="button" role="option" aria-selected={retrySelected} tabIndex={retrySelected ? 0 : -1} className={retrySelected ? styles.selectedGame : ""} onClick={loadNext}><span>!</span><strong>加载失败，重试</strong></button> : null}
       </div>
     </aside>
@@ -64,13 +65,11 @@ function GameReadyContent({ games, loadNext, onSelect, pageError, platform, retr
         <p>{selected.platformInstance.name} · {selected.defaultCore.name}</p>
         <h2>{selected.title}</h2>
         <div className={styles.gameMetadata}>{gameMeta(selected).map((value, index) => <span key={`${index}:${String(value)}`}>{value}</span>)}</div>
-        <p
+        <AutoScrollingDescription
           key={selected.gameId}
           className={styles.description}
-          data-immersive-description="true"
-          tabIndex={0}
-          aria-label={selected.description || "暂无游戏简介"}
-        >{selected.description || "暂无游戏简介"}</p>
+          text={selected.description || "暂无游戏简介"}
+        />
       </div>
     </article>
   </>;

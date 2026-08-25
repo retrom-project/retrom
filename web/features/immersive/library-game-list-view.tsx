@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -12,12 +11,14 @@ import {
   type ImmersiveLibraryGameList,
   type ImmersiveLibraryKind,
 } from "./api";
+import { AutoScrollingDescription } from "./auto-scrolling-description";
 import { ImmersiveChoiceDialog } from "./choice-dialog";
 import { mergeGamePage, moveGameIndex, pageGameIndex, shouldPrefetchGamePage } from "./game-list-state";
 import { ImmersiveShell } from "./immersive-shell";
 import type { NavigationAction } from "./input-model";
 import libraryStyles from "./library.module.css";
 import { MediaStage } from "./media-stage";
+import { ImmersiveSaveCarousel } from "./save-carousel";
 import styles from "./immersive.module.css";
 
 type ViewState = "loading" | "ready" | "empty" | "error" | "unauthorized";
@@ -46,12 +47,6 @@ function replaceLibraryHint(kind: ImmersiveLibraryKind, gameId: string, folderId
   window.history.replaceState(window.history.state, "", gameReturnPath(kind, gameId, folderId, saveStateId));
 }
 
-function formatSaveTime(value: number) {
-  return new Intl.DateTimeFormat("zh-CN", {
-    year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false,
-  }).format(value);
-}
-
 function LibraryTitleList({ entries, onSelect, selectedIndex, selectedRef }: {
   entries: readonly LibraryEntry[];
   onSelect: (index: number) => void;
@@ -72,7 +67,7 @@ function LibraryTitleList({ entries, onSelect, selectedIndex, selectedRef }: {
       <span>{entry.kind === "folder" ? "▣" : String(index + 1).padStart(2, "0")}</span>
       <strong>{entry.kind === "folder" ? entry.folder.name : entry.game.title}</strong>
       {entry.kind === "folder" ? <small>{entry.folder.gameCount} 款游戏</small> : null}
-      {entry.kind === "game" && entry.game.favorited ? <small aria-label="已收藏">♥</small> : null}
+      {entry.kind === "game" && entry.game.favorited ? <small className={styles.favoriteIndicator} aria-label="已收藏">♥</small> : null}
     </button>)}
   </div>;
 }
@@ -89,29 +84,6 @@ function FolderDetails({ folder }: { folder: Folder }) {
   </article>;
 }
 
-function SaveDetails({ game, saveIndex }: { game: ImmersiveGame; saveIndex: number }) {
-  const selectedSave = game.saveStates[saveIndex];
-  return <article className={styles.gameDetails}>
-    <MediaStage key={game.gameId} game={game} />
-    <div className={`${styles.descriptionPanel} ${libraryStyles.savePanel}`}>
-      <p>我的存档 · {saveIndex + 1} / {game.saveStates.length}</p>
-      <h2>{game.title}</h2>
-      {selectedSave ? <div className={libraryStyles.savePreview}>
-        <div className={libraryStyles.saveScreenshot}>
-          <Image
-            src={selectedSave.screenshotUrl}
-            alt={`${selectedSave.name} 存档截图`}
-            fill
-            sizes="34vw"
-            unoptimized
-          />
-        </div>
-        <div><strong>{selectedSave.name}</strong><time dateTime={new Date(selectedSave.createdAtMs).toISOString()}>{formatSaveTime(selectedSave.createdAtMs)}</time></div>
-      </div> : <p>该游戏暂无可用存档。</p>}
-    </div>
-  </article>;
-}
-
 function GameDetails({ game }: { game: ImmersiveGame }) {
   const metadata = [game.releaseYear, game.developer, game.genre].filter((value) => value !== null && value !== "");
   return <article className={styles.gameDetails}>
@@ -120,21 +92,38 @@ function GameDetails({ game }: { game: ImmersiveGame }) {
       <p>{game.platformInstance.name} · {game.defaultCore.name}</p>
       <h2>{game.title}</h2>
       <div className={styles.gameMetadata}>{metadata.map((value, index) => <span key={`${index}:${String(value)}`}>{value}</span>)}</div>
-      <p className={styles.description} tabIndex={0} aria-label={game.description || "暂无游戏简介"}>
-        {game.description || "暂无游戏简介"}
-      </p>
+      <AutoScrollingDescription className={styles.description} text={game.description || "暂无游戏简介"} />
     </div>
   </article>;
 }
 
-function LibraryReadyDetails({ kind, saveIndex, selected }: {
+function SaveDetails({ game, onSelectSave, saveIndex }: {
+  game: ImmersiveGame;
+  onSelectSave: (saveStateId: string) => void;
+  saveIndex: number;
+}) {
+  return <article className={`${styles.gameDetails} ${libraryStyles.saveGameDetails}`} data-immersive-save-details="true">
+    <MediaStage key={game.gameId} game={game} />
+    <ImmersiveSaveCarousel
+      gameTitle={game.title}
+      saves={game.saveStates}
+      selectedIndex={saveIndex}
+      onSelect={onSelectSave}
+    />
+  </article>;
+}
+
+function LibraryReadyDetails({ kind, onSelectSave, saveIndex, selected }: {
   kind: ImmersiveLibraryKind;
+  onSelectSave: (saveStateId: string) => void;
   saveIndex: number;
   selected: LibraryEntry | null;
 }) {
   if (selected?.kind === "folder") {return <FolderDetails folder={selected.folder} />;}
   if (!selected) {return null;}
-  if (kind === "saves") {return <SaveDetails game={selected.game} saveIndex={saveIndex} />;}
+  if (kind === "saves") {
+    return <SaveDetails game={selected.game} saveIndex={saveIndex} onSelectSave={onSelectSave} />;
+  }
   return <GameDetails game={selected.game} />;
 }
 
@@ -169,6 +158,7 @@ function LibraryGameListContent({
   message,
   onAction,
   onRetry,
+  onSelectSave,
   onSelect,
   page,
   saveIndex,
@@ -184,6 +174,7 @@ function LibraryGameListContent({
   message: string;
   onAction: (action: NavigationAction) => void;
   onRetry: () => void;
+  onSelectSave: (saveStateId: string) => void;
   onSelect: (index: number) => void;
   page: ImmersiveLibraryGameList | null;
   saveIndex: number;
@@ -212,7 +203,7 @@ function LibraryGameListContent({
         /> : null}
       </aside>
       {state === "ready"
-        ? <LibraryReadyDetails kind={kind} saveIndex={saveIndex} selected={selected} />
+        ? <LibraryReadyDetails kind={kind} saveIndex={saveIndex} selected={selected} onSelectSave={onSelectSave} />
         : <LibraryStateContent state={state} onRetry={onRetry} />}
     </section>
     {message && launchState !== "error"
@@ -419,6 +410,7 @@ export function LibraryGameListView({ folderId, initialGameId, initialSaveStateI
     selectedRef,
     state,
     onRetry: retryInitial,
+    onSelectSave: setSelectedSaveID,
     onSelect: setSelectedIndex,
   }} />;
 }

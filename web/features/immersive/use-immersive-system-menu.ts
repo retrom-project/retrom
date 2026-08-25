@@ -2,38 +2,26 @@
 
 import { useCallback, useState } from "react";
 import type { NavigationAction } from "./input-model";
+import type { ImmersiveAudioPreferences } from "./immersive-audio-preferences";
 import {
-  getImmersiveAudioPreferences,
-  saveImmersiveAudioPreferences,
-  type ImmersiveAudioPreferences,
-} from "./immersive-audio-preferences";
-import {
-  adjustSystemMenuPreference,
   immersiveSystemMenuItems,
   moveSystemMenuSelection,
   type ImmersiveSystemMenuItem,
   type MenuAdjustment,
 } from "./system-menu-model";
 
-export function useImmersiveSystemMenu({ enterFullscreen, fullscreenActive, fullscreenSupported, onBrowseAction, onExit }: {
+export function useImmersiveSystemMenu({ commitPreference, enterFullscreen, fullscreenActive, fullscreenSupported, onBrowseAction, onExit, preferences }: {
+  commitPreference: (item: ImmersiveSystemMenuItem, adjustment: MenuAdjustment) => void;
   enterFullscreen: () => Promise<boolean>;
   fullscreenActive: boolean;
   fullscreenSupported: boolean;
   onBrowseAction: (action: NavigationAction) => void;
   onExit: () => void;
+  preferences: ImmersiveAudioPreferences;
 }) {
   const [open, setOpen] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);
-  const [preferences, setPreferences] = useState<ImmersiveAudioPreferences>(getImmersiveAudioPreferences);
   const [announcement, setAnnouncement] = useState("");
-
-  const commitPreference = useCallback((item: ImmersiveSystemMenuItem, adjustment: MenuAdjustment) => {
-    setPreferences((current) => {
-      const next = adjustSystemMenuPreference(current, item, adjustment);
-      if (next !== current) {saveImmersiveAudioPreferences(next);}
-      return next;
-    });
-  }, []);
 
   const activate = useCallback((item: ImmersiveSystemMenuItem) => {
     if (item === "fullscreen") {

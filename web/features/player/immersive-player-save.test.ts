@@ -20,6 +20,20 @@ describe("saveImmersivePlayerState", () => {
     expect(upload).toHaveBeenCalledWith(expect.objectContaining({ format: "png", state: Uint8Array.of(1, 2, 3) }));
   });
 
+  it("reuses the screenshot requested before the immersive menu paused the core", async () => {
+    const instance = emulator(Uint8Array.of(1, 2, 3));
+    const prepared = new Blob(["running-frame"], { type: "image/png" });
+    const upload = vi.fn(async () => true);
+    await expect(saveImmersivePlayerState(
+      instance,
+      true,
+      upload,
+      Promise.resolve({ screenshot: prepared, format: "png" }),
+    )).resolves.toBe(true);
+    expect(instance.takeScreenshot).not.toHaveBeenCalled();
+    expect(upload).toHaveBeenCalledWith(expect.objectContaining({ screenshot: prepared }));
+  });
+
   it("does not capture or upload when recoverable saves are unavailable", async () => {
     const instance = emulator(Uint8Array.of(1));
     const upload = vi.fn(async () => true);

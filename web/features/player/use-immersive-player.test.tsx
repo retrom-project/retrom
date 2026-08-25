@@ -22,6 +22,7 @@ function renderImmersivePlayer(saveGame: () => Promise<boolean>, saveAvailable =
     exitStrict: vi.fn(async () => undefined),
     saveAvailable,
     saveGame,
+    beforeMenuPause: vi.fn(),
     onFatalError: vi.fn(),
   };
   const hook = renderHook(() => useImmersivePlayer(params));
@@ -53,6 +54,10 @@ describe("useImmersivePlayer save menu", () => {
     expect(result.current.overlay).toMatchObject({ kind: "menu", pending: true, notice: "正在创建存档…" });
     expect(current.gameManager?.toggleMainLoop).toHaveBeenCalledWith(false);
     expect(params.setPaused).toHaveBeenCalledWith(true);
+    expect(params.beforeMenuPause).toHaveBeenCalledOnce();
+    expect(params.beforeMenuPause.mock.invocationCallOrder[0]).toBeLessThan(
+      vi.mocked(current.gameManager!.toggleMainLoop!).mock.invocationCallOrder[0]!,
+    );
 
     await act(async () => {resolveSave(true); await pendingSave;});
     expect(result.current.overlay).toMatchObject({ kind: "menu", pending: false, notice: "存档已创建。" });
