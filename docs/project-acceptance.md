@@ -1379,7 +1379,7 @@ make acceptance-case CASE=<case-id>
   浏览截图并选择旧存档启动，验证 Core 恢复，再从 Player 菜单创建一份新存档并返回列表。
 - 通过标准：入口计数与列表只包含当前 Profile 未删除存档，游戏和存档均按契约排序；截图走 Profile 私有
   no-store 端点，跨 Profile 读取失败且不泄露存在性。Launch config 的 stateUrl 精确指向所选存档，真实 Core
-  恢复到对应画面；右侧不重复游戏名，上半区展示与其他游戏列表一致的封面/视频媒体舞台，下半区只展示从左到右排列的全部存档；当前存档框宽明显大于其他存档框，切换后保持可见且框下时间完整落在下半区容器内。截图加载成功且实际像素不为全黑/近全黑；不显示自动“手动存档 XXXX”名称，创建时间在每个框下方右对齐。Player 创建的新 state/PNG 原子可见且只属于当前 Profile。取消、退出、失败上传和不支持
+  恢复到对应画面；右侧不重复游戏名，上半区展示与其他游戏列表一致的封面/视频媒体舞台，并与平台游戏页保持相同约 62% 高度占比，下半区只展示从左到右排列的全部存档；存档轨道按下半区外层可用高度自适应，当前存档框宽明显大于其他存档框，切换后保持可见且框下时间完整落在容器内。截图加载成功且实际像素不为全黑/近全黑；不显示自动“手动存档 XXXX”名称，创建时间在每个框下方右对齐。Player 创建的新 state/PNG 原子可见且只属于当前 Profile。取消、退出、失败上传和不支持
   adapter 均不产生半份或自动存档。
 - 证据：双 Profile API/network trace、存档截图/选择 UI、Launch config、Core 恢复帧、新 SaveState 数据与
   失败注入断言。
@@ -1391,7 +1391,7 @@ make acceptance-case CASE=<case-id>
   返回；模拟一次 autoplay 拒绝，再用 Select 打开菜单并逐项调整、静音，以 A 完成一次全屏成功、一次拒绝
   与退出；实体手柄 smoke 还必须在未替换 Fullscreen API 时完成同一路径。
 - 通过标准：只请求站内 `/audio/immersive/insert-coin.ogg`，浏览时 loop/preload，自动播放拒绝显示可由 A/
-  点击恢复的提示且不阻断导航；隐藏、BGM 静音/零音量、进入 Player、退出或卸载立即暂停，返回可见浏览时
+  点击恢复的提示且不阻断导航；入口、任意平台和四类资料库之间的客户端导航保留同一音频节点、currentTime 与 playing 状态，不增加 pause/play 调用；隐藏、BGM 静音/零音量、进入 Player、退出或卸载立即暂停，返回可见浏览时
   尽力恢复，BGM 与 Core 音频不重叠。系统菜单顺序严格为背景音乐音量/静音、游戏音量/静音、进入全屏/
   退出；上下、左右 10%、A/B 与 live status 可访问。key `retrom:immersive:audio-preferences:v1` 只存四字段
   严格 payload，默认 40%/100% 且均不静音；非法或 storage failure 回退但本次内存设置可用。游戏组值应用到

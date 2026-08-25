@@ -10,14 +10,21 @@ import {
   setActiveImmersiveGamepadIndex,
 } from "./active-gamepad";
 import { browserGamepadSource, type GamepadFrame, type GamepadFrameSource } from "./gamepad-source";
+import { ImmersiveAudioProvider, useImmersiveAudio, useImmersiveAudioContext } from "./immersive-audio-provider";
 import { GamepadClaimModel, NavigationInputModel, isStandardGamepad, type NavigationAction } from "./input-model";
-import { ImmersiveBgmPrompt, ImmersiveSystemMenu } from "./immersive-system-menu";
-import { useImmersiveBackgroundAudio } from "./use-immersive-background-audio";
+import { ImmersiveSystemMenu } from "./immersive-system-menu";
 import { useImmersiveFullscreen } from "./use-immersive-fullscreen";
 import { useImmersiveSystemMenu } from "./use-immersive-system-menu";
 import styles from "./immersive.module.css";
 
 export type HelpAction = Readonly<{ button: string; label: string }>;
+type ImmersiveShellProps = Readonly<{
+  children: ReactNode;
+  help: readonly HelpAction[];
+  inputEpoch?: string | number;
+  onAction: (action: NavigationAction) => void;
+  source?: GamepadFrameSource;
+}>;
 
 function HelpButton({ button }: { button: string }) {
   if (button !== "horizontal" && button !== "vertical") {
@@ -64,14 +71,9 @@ function formatClock(value: Date) {
 type ControllerState = "checking" | "ready" | "waiting";
 const MISSING_GAMEPAD_GRACE_MS = 250;
 
-export function ImmersiveShell({ children, help, inputEpoch, onAction, source = browserGamepadSource }: {
-  children: ReactNode;
-  help: readonly HelpAction[];
-  inputEpoch?: string | number;
-  onAction: (action: NavigationAction) => void;
-  source?: GamepadFrameSource;
-}) {
+function ImmersiveShellContent({ children, help, inputEpoch, onAction, source = browserGamepadSource }: ImmersiveShellProps) {
   const router = useRouter();
+  const immersiveAudio = useImmersiveAudio();
   const supportedViewport = useSupportedViewport();
   const [controllerState, setControllerState] = useState<ControllerState>(() => (
     getActiveImmersiveGamepadIndex() === null ? "waiting" : "checking"
@@ -91,19 +93,15 @@ export function ImmersiveShell({ children, help, inputEpoch, onAction, source = 
     router.replace("/");
   }, [router]);
   const systemMenu = useImmersiveSystemMenu({
+    commitPreference: immersiveAudio.commitPreference,
     enterFullscreen,
     fullscreenActive,
     fullscreenSupported,
     onBrowseAction: onAction,
     onExit: exitImmersive,
+    preferences: immersiveAudio.preferences,
   });
   const routeActions = useEffectEvent(systemMenu.handleActions);
-  const {
-    audioRef: backgroundAudioRef,
-    markBlocked: markBackgroundAudioBlocked,
-    retry: retryBackgroundAudio,
-    state: backgroundAudioState,
-  } = useImmersiveBackgroundAudio(systemMenu.preferences);
 
   useEffect(() => {
     consumeImmersivePlayerReturn();
@@ -202,15 +200,6 @@ export function ImmersiveShell({ children, help, inputEpoch, onAction, source = 
       tabIndex={fullscreenRestoreVisible ? 0 : -1}
       onClick={() => void enterFullscreen()}
     ><span aria-hidden="true">⛶</span>进入全屏</button> : null}
-    <audio
-      ref={backgroundAudioRef}
-      src="/audio/immersive/insert-coin.ogg"
-      preload="auto"
-      loop
-      aria-hidden="true"
-      onError={markBackgroundAudioBlocked}
-    />
-    {backgroundAudioState === "blocked" ? <ImmersiveBgmPrompt onRetry={() => void retryBackgroundAudio()} /> : null}
     {systemMenu.open ? <ImmersiveSystemMenu
       announcement={systemMenu.announcement}
       fullscreenActive={fullscreenActive}
@@ -229,4 +218,10 @@ export function ImmersiveShell({ children, help, inputEpoch, onAction, source = 
       <div><h2>沉浸模式需要横屏大屏</h2><p>请使用至少 960 × 540 的横屏视口。</p><button type="button" onClick={exitImmersive}>返回普通首页</button></div>
     </section> : null}
   </main>;
+}
+
+export function ImmersiveShell(props: ImmersiveShellProps) {
+  const audio = useImmersiveAudioContext();
+  if (audio) {return <ImmersiveShellContent {...props} />;}
+  return <ImmersiveAudioProvider><ImmersiveShellContent {...props} /></ImmersiveAudioProvider>;
 }

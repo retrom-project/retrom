@@ -171,8 +171,8 @@
 }
 
 .audioPrompt {
-  position: absolute;
-  z-index: 12;
+  position: fixed;
+  z-index: 140;
   top: clamp(70px, 9dvh, 112px);
   right: 48px;
   display: flex;
