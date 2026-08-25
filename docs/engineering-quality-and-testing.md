@@ -501,7 +501,7 @@ make web-e2e
   视频延迟、路由/隐藏时手柄认领保持、真实断连去抖、SSR 稳定时钟、错误/空状态和 B 返回；普通 PC/移动
   导航与壳不得出现沉浸控件；
 - BGM/系统菜单测试使用可控 media、visibility、Fullscreen 和 localStorage，覆盖内置 OGG、自动播放阻断
-  提示、隐藏/静音/零音量/Player/卸载暂停、可见恢复、两组音量严格 v1 payload/default/failure、Select
+  提示、共享 layout 内跨入口/平台/资料库导航的同节点与播放位置连续性、隐藏/静音/零音量/Player/卸载暂停、可见恢复、两组音量严格 v1 payload/default/failure、Select
   菜单顺序、上下/左右/A/B 与全屏拒绝；测试不得真实播放或写全局用户状态；
 - Player adapter 测试必须证明过滤器先于 loader 安装、仅过滤活动手柄 Select/Start、第一次 chord 不泄漏、
   菜单期间所有本地手柄归零、取消只恢复本菜单拥有的暂停、创建存档只走手动 state+截图链路且失败可重试、

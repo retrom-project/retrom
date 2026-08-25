@@ -17,17 +17,14 @@
   font-size: clamp(72px, 10vw, 150px);
 }
 
-.saveGameDetails {
-  grid-template-rows: minmax(0, 58%) minmax(0, 42%);
-}
-
 .saveDetails {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
+  container-type: size;
   min-width: 0;
   min-height: 0;
   overflow: hidden;
-  padding: clamp(10px, 1vw, 18px) 0 clamp(8px, 0.8vw, 14px);
+  padding: clamp(6px, 0.65vw, 10px) 0 clamp(4px, 0.5vw, 8px);
   background: linear-gradient(155deg, rgb(25 33 54 / 88%), rgb(8 12 21 / 94%));
   border-top: 1px solid rgb(255 255 255 / 10%);
 }
@@ -65,7 +62,7 @@
   align-items: center;
   min-width: 0;
   min-height: 0;
-  padding: clamp(8px, 1vh, 16px) clamp(18px, 1.8vw, 34px) 4px;
+  padding: clamp(4px, 0.7cqh, 10px) clamp(18px, 1.8vw, 34px) 2px;
   overflow-x: auto;
   overflow-y: hidden;
   scroll-behavior: smooth;
@@ -78,8 +75,8 @@
 
 .saveCard {
   display: grid;
-  flex: 0 0 clamp(100px, calc(24dvh - 60px), 210px);
-  gap: 6px;
+  flex: 0 0 clamp(72px, calc((100cqh - 54px) * 0.72), 170px);
+  gap: 4px;
   min-width: 0;
   max-height: 100%;
   padding: 0;
@@ -94,7 +91,7 @@
 }
 
 .selectedSaveCard {
-  flex-basis: clamp(210px, calc(54dvh - 130px), 500px);
+  flex-basis: clamp(144px, calc((100cqh - 54px) * 1.5), 390px);
   color: #f7f5f0;
   opacity: 1;
   transform: scale(1);
@@ -124,7 +121,7 @@
 .saveCard time {
   justify-self: end;
   padding-right: 4px;
-  font-size: clamp(13px, 0.85vw, 18px);
+  font-size: clamp(11px, 0.78vw, 16px);
   font-variant-numeric: tabular-nums;
   line-height: 1.2;
   white-space: nowrap;
@@ -142,13 +139,10 @@
 }
 
 @media (height <= 700px) {
-  .saveGameDetails {grid-template-rows: minmax(0, 52%) minmax(0, 48%);}
-  .saveDetails {padding-block: 6px;}
+  .saveDetails {padding-block: 4px;}
   .saveHeading p,
   .saveHeading span {font-size: 12px;}
   .saveRail {padding-block: 4px;}
-  .saveCard {flex-basis: 90px;}
-  .selectedSaveCard {flex-basis: 190px;}
 }
 
 .statusMessage {

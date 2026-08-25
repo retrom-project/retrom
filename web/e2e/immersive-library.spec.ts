@@ -343,11 +343,18 @@ test("ACC-IMM-010 save library selects an older save, restores it and creates an
   await expect(saveDetails.locator("h2")).toHaveCount(0);
   const saveRail = page.getByRole("list", { name: "Sudoku 的存档" });
   const saveLayout = await saveDetails.evaluate((details) => {
+    const detailsBox = details.getBoundingClientRect();
     const media = details.firstElementChild?.getBoundingClientRect();
     const rail = details.lastElementChild?.getBoundingClientRect();
-    return media && rail ? { mediaBottom: media.bottom, railTop: rail.top } : null;
+    return media && rail ? {
+      mediaBottom: media.bottom,
+      mediaRatio: media.height / detailsBox.height,
+      railTop: rail.top,
+    } : null;
   });
   expect(saveLayout?.mediaBottom).toBeLessThanOrEqual(saveLayout?.railTop ?? 0);
+  expect(saveLayout?.mediaRatio).toBeGreaterThan(0.6);
+  expect(saveLayout?.mediaRatio).toBeLessThan(0.64);
   await expect(saveRail.getByRole("button")).toHaveCount(saveTotal);
   await expect(saveRail.getByRole("button", { pressed: true })).toHaveAccessibleName(/第 1 份存档/);
   await expect(saveRail.getByText(/^手动存档/u)).toHaveCount(0);
@@ -368,6 +375,30 @@ test("ACC-IMM-010 save library selects an older save, restores it and creates an
   });
   expect(selectedTimeBounds?.topInset).toBeGreaterThanOrEqual(0);
   expect(selectedTimeBounds?.bottomInset).toBeGreaterThanOrEqual(0);
+  await page.setViewportSize({ width: 960, height: 540 });
+  await expect.poll(() => saveRail.getByRole("button", { pressed: true })
+    .evaluate((card) => card.getBoundingClientRect().width)).toBeLessThan(selectedWidth);
+  const compactSaveLayout = await saveDetails.evaluate((details) => {
+    const detailsBox = details.getBoundingClientRect();
+    const media = details.firstElementChild?.getBoundingClientRect();
+    const rail = details.lastElementChild?.getBoundingClientRect();
+    const selectedCard = details.querySelector<HTMLElement>('[aria-pressed="true"]')?.getBoundingClientRect();
+    const selectedTime = details.querySelector<HTMLElement>('[aria-pressed="true"] time')?.getBoundingClientRect();
+    return media && rail && selectedCard && selectedTime ? {
+      mediaRatio: media.height / detailsBox.height,
+      selectedBottomInset: rail.bottom - selectedCard.bottom,
+      selectedTopInset: selectedCard.top - rail.top,
+      selectedWidth: selectedCard.width,
+      timeBottomInset: detailsBox.bottom - selectedTime.bottom,
+    } : null;
+  });
+  expect(compactSaveLayout).not.toBeNull();
+  expect(compactSaveLayout!.mediaRatio).toBeGreaterThan(0.6);
+  expect(compactSaveLayout!.mediaRatio).toBeLessThan(0.64);
+  expect(compactSaveLayout!.selectedWidth).toBeLessThan(selectedWidth);
+  expect(compactSaveLayout!.selectedTopInset).toBeGreaterThanOrEqual(0);
+  expect(compactSaveLayout!.selectedBottomInset).toBeGreaterThanOrEqual(0);
+  expect(compactSaveLayout!.timeBottomInset).toBeGreaterThanOrEqual(0);
   const newestSaveId = new URL(page.url()).searchParams.get("saveStateId");
   expect(newestSaveId).toBeTruthy();
   await pressGamepad(page, standardButton.right);
@@ -468,14 +499,44 @@ test("ACC-IMM-011 Select menu persists audio preferences and BGM follows browse 
   await page.screenshot({ path: evidencePath(testInfo, "immersive-system-menu.png"), fullPage: true });
   await pressGamepad(page, standardButton.b);
   await expect(menu).toBeHidden();
+  await chooseDestination(page, "Game Boy Advance");
+  const audioBeforeBrowseNavigation = await page.evaluate(() => ({
+    pause: Number(localStorage.getItem("retrom:e2e:bgm-pause-calls") ?? "0"),
+    play: Number(localStorage.getItem("retrom:e2e:bgm-play-calls") ?? "0"),
+  }));
+  await page.locator('audio[src="/audio/immersive/insert-coin.ogg"]').evaluate((audio: HTMLAudioElement) => {
+    audio.currentTime = 1;
+    (window as typeof window & { __retromE2EBgmNode?: HTMLAudioElement }).__retromE2EBgmNode = audio;
+  });
+
+  await pressGamepad(page, standardButton.a);
+  await expect(page).toHaveURL(/\/immersive\/platforms\/gba/);
+  const browseNavigation = await page.evaluate(() => {
+    const current = document.querySelector<HTMLAudioElement>('audio[src="/audio/immersive/insert-coin.ogg"]');
+    const saved = (window as typeof window & { __retromE2EBgmNode?: HTMLAudioElement }).__retromE2EBgmNode;
+    return {
+      currentTime: current?.currentTime ?? -1,
+      pause: Number(localStorage.getItem("retrom:e2e:bgm-pause-calls") ?? "0"),
+      play: Number(localStorage.getItem("retrom:e2e:bgm-play-calls") ?? "0"),
+      sameNode: current === saved,
+    };
+  });
+  expect(browseNavigation).toEqual({ ...audioBeforeBrowseNavigation, currentTime: 1, sameNode: true });
+  await page.waitForTimeout(180);
+  await pressGamepad(page, standardButton.b);
+  await expect(page).toHaveURL(/\/immersive\?platformId=gba$/);
+  await chooseDestination(page, "全部游戏");
+  await pressGamepad(page, standardButton.a);
+  await expect(page).toHaveURL(/\/immersive\/library\/all/);
+  expect(await page.evaluate(() => (
+    document.querySelector('audio[src="/audio/immersive/insert-coin.ogg"]')
+      === (window as typeof window & { __retromE2EBgmNode?: HTMLAudioElement }).__retromE2EBgmNode
+  ))).toBe(true);
+  await selectOption(page, "Sudoku");
   const audioBeforePlayer = await page.evaluate(() => ({
     pause: Number(localStorage.getItem("retrom:e2e:bgm-pause-calls") ?? "0"),
     play: Number(localStorage.getItem("retrom:e2e:bgm-play-calls") ?? "0"),
   }));
-
-  await pressGamepad(page, standardButton.a);
-  await expect(page).toHaveURL(/\/immersive\/library\/all/);
-  await selectOption(page, "Sudoku");
   const { frame } = await launchSelectedGame(page);
   await expect(page.locator('audio[src="/audio/immersive/insert-coin.ogg"]')).toHaveCount(0);
   expect(await page.evaluate(() => Number(localStorage.getItem("retrom:e2e:bgm-pause-calls") ?? "0")))
