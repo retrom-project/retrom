@@ -82,8 +82,8 @@ WHERE core_artifact_id=a.id
 AND is_active=1)
 FROM core_artifacts a
 WHERE a.core_id=?
-AND a.emulatorjs_version=?
-AND a.enabled=1
+AND a.runtime_version=?
+AND a.selected_for_new_bindings=1 AND a.available_for_launch=1
 `, coreID, server.config.ActiveEJSVersion).Scan(&artifactID, &datVersionID); err != nil {
 		return coreImpact{}, nil, nil, errInvalidCore
 	}

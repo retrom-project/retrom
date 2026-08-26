@@ -188,11 +188,7 @@ func TestBIOSArchiveEntriesProjectLockedDATAndPersistedZIPFacts(t *testing.T) {
 	transaction, err := server.database.BeginTx(context.Background(), nil)
 	testassert.False(t, err != nil, err)
 	defer cleanup.Rollback(transaction)
-	mustExecHTTPTest(t, transaction, `
-INSERT INTO core_artifacts(id,core_id,emulatorjs_version,bundle_version,flavor,relative_path,size_bytes,sha256,
-source_commit,provenance_json,compatibility_config_json,enabled,version,created_at_ms,updated_at_ms)
-VALUES(?,'mame2003_plus','4.2.3','test','WASM','data/cores/mame2003_plus-test.data',1,?,NULL,'{}','{}',1,1,?,?)
-`, artifactID, strings.Repeat("a", 64), now, now)
+	seedHTTPTestCoreArtifact(t, transaction, artifactID, "mame2003_plus", "data/cores/mame2003_plus-test.data", strings.Repeat("a", 64), "{}")
 	mustExecHTTPTest(t, transaction, `
 INSERT INTO blobs(id,sha256,size_bytes,md5,sha1,crc32,media_type,created_at_ms)
 VALUES(?,?,1024,?,?,?,'application/zip',?)
@@ -314,7 +310,7 @@ func TestImportProjectionsIncludeRejectedFileProblems(t *testing.T) {
 		t.Fatal(err)
 	}
 	var artifactID string
-	if err := server.database.QueryRowContext(context.Background(), `SELECT id FROM core_artifacts WHERE core_id='fceumm' AND enabled=1`).Scan(&artifactID); err != nil {
+	if err := server.database.QueryRowContext(context.Background(), `SELECT id FROM core_artifacts WHERE core_id='fceumm' AND selected_for_new_bindings=1`).Scan(&artifactID); err != nil {
 		t.Fatal(err)
 	}
 	const (
@@ -446,7 +442,7 @@ func TestImportOverviewCountsPegasusOnceAndHidesItsInternalJob(t *testing.T) {
 	}
 	var artifactID string
 	if err := server.database.QueryRowContext(context.Background(), `
-SELECT id FROM core_artifacts WHERE core_id='mgba' AND enabled=1
+SELECT id FROM core_artifacts WHERE core_id='mgba' AND selected_for_new_bindings=1
 `).Scan(&artifactID); err != nil {
 		t.Fatal(err)
 	}

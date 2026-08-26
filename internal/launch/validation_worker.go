@@ -202,13 +202,14 @@ func (service *Service) insertValidationRevision(
 	outcome variantValidationOutcome,
 ) error {
 	_, err := transaction.ExecContext(ctx, `
-INSERT INTO game_variant_revisions(id,game_variant_id,game_content_revision_id,core_artifact_id,
+INSERT INTO game_variant_revisions(id,game_variant_id,game_content_revision_id,core_artifact_id,route_key,
 dat_version_id,validation_input_digest,emulator_game_id,status,compatibility_code,
 dependency_snapshot_json,default_dos_entry,created_at_ms)
-VALUES(?,?,?,?,?,?,?,?,?,?,?,?)
-`, revisionID, variantID, contentID, artifactID, nullableSQL(datID), digest, emulatorGameID,
+SELECT ?,?,?,artifact.id,artifact.route_key,?,?,?,?,?,?,?,?
+FROM core_artifacts artifact WHERE artifact.id=? AND artifact.runtime_family='EMULATORJS'
+`, revisionID, variantID, contentID, nullableSQL(datID), digest, emulatorGameID,
 		outcome.status, outcome.code, outcome.dependencySnapshotJSON, nullableSQL(defaultDOSEntry),
-		service.now().UnixMilli())
+		service.now().UnixMilli(), artifactID)
 	if err != nil {
 		return fmt.Errorf("insert validation revision: %w", err)
 	}
@@ -334,7 +335,7 @@ AND f.role='CONTENT'
 ORDER BY f.sort_order,f.logical_name
 LIMIT 1),''),
 cr.content_kind,
-a.compatibility_config_json,
+a.compatibility_json,
 EXISTS(SELECT 1
 FROM platform_cores pc
 WHERE pc.platform_id=pi.platform_id

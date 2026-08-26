@@ -8,6 +8,7 @@ import (
 	"crypto/sha256"
 	"database/sql"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"path/filepath"
@@ -169,7 +170,7 @@ updated_at_ms) VALUES(?,
 SELECT id
 FROM core_artifacts
 WHERE core_id='fceumm'
-AND enabled=1
+AND selected_for_new_bindings=1
 `).Scan(&fceummArtifactID); err != nil {
 		t.Fatal(err)
 	}
@@ -222,23 +223,36 @@ SELECT state,error_code FROM jobs WHERE id=?
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return len(bundle) != 1 }, func() bool { return bundle[0].LogicalName != "gba_bios.bin" }, func() bool { return bundle[0].SHA256 != firmwareMetadata.SHA256 }), "BIOS bundle = %#v, error=%v", bundle, err)
 	contentDigest, err := service.ContentBlob(ctx, createdLaunch.LaunchID, createdLaunch.Capability, "Launch.gba")
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return contentDigest != base64DigestHex(digest) }), "content digest = %s, error = %v", contentDigest, err)
-	var lockedVariantRevisionID, lockedArtifactID string
+	var lockedContentRevisionID, lockedVariantRevisionID, lockedArtifactID string
+	var lockedAdapterABI, lockedDependencyJSON string
 	if err := database.SQL.QueryRowContext(ctx, `
-SELECT game_variant_revision_id,
-core_artifact_id
-FROM launch_sessions
-WHERE id=?
-`, createdLaunch.LaunchID).Scan(&lockedVariantRevisionID, &lockedArtifactID); err != nil {
+SELECT launch.game_content_revision_id,launch.game_variant_revision_id,launch.core_artifact_id,
+ artifact.adapter_id,revision.dependency_snapshot_json
+FROM launch_sessions launch
+JOIN core_artifacts artifact ON artifact.id=launch.core_artifact_id
+JOIN game_variant_revisions revision ON revision.id=launch.game_variant_revision_id
+WHERE launch.id=?
+`, createdLaunch.LaunchID).Scan(
+		&lockedContentRevisionID, &lockedVariantRevisionID, &lockedArtifactID,
+		&lockedAdapterABI, &lockedDependencyJSON,
+	); err != nil {
 		t.Fatal(err)
 	}
+	lockedDependencyDigest := sha256.Sum256([]byte(lockedDependencyJSON))
 	saveID, _ := uuid.NewV7()
 	if _, err := database.SQL.ExecContext(ctx, `
 INSERT INTO save_states(id,
 profile_id,
 game_id,
+game_content_revision_id,
 game_variant_revision_id,
 core_artifact_id,
-state_blob_id,
+adapter_abi,
+dependency_snapshot_sha256,
+payload_blob_id,
+payload_kind,
+payload_sha256,
+payload_size_bytes,
 screenshot_blob_id,
 source_launch_session_id,
 name,
@@ -253,6 +267,12 @@ updated_at_ms) VALUES(?,
 ?,
 ?,
 ?,
+?,
+'RUNTIME_STATE',
+?,
+?,
+?,
+?,
 'Locked mGBA save',
 0,
 1,
@@ -261,9 +281,14 @@ updated_at_ms) VALUES(?,
 `,
 		saveID.String(),
 		approved.GameID,
+		lockedContentRevisionID,
 		lockedVariantRevisionID,
 		lockedArtifactID,
+		lockedAdapterABI,
+		hex.EncodeToString(lockedDependencyDigest[:]),
 		firmwareBlobID,
+		firmwareMetadata.SHA256,
+		firmwareMetadata.Size,
 		firmwareBlobID,
 		createdLaunch.LaunchID,
 		time.Now().UnixMilli(),

@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import json
 import subprocess
 import unittest
 from pathlib import Path
@@ -78,6 +79,49 @@ class MakefileDependencyTests(unittest.TestCase):
             < e2e_position,
             output,
         )
+        self.assertIn("rpgmaker-smoke/build.py --check", output)
+
+    def test_web_e2e_startup_budget_covers_dependency_validation(self) -> None:
+        script = (REPOSITORY_ROOT / "scripts" / "acceptance" / "web-e2e.sh").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("server_start_timeout_seconds=300", script)
+        self.assertIn("SECONDS + server_start_timeout_seconds", script)
+        self.assertNotIn("deadline=$((SECONDS + 90))", script)
+
+    def test_web_e2e_uses_an_isolated_test_runtime_origin(self) -> None:
+        script = (REPOSITORY_ROOT / "scripts" / "acceptance" / "web-e2e.sh").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn(
+            'runtime_origin_template="http://{launchId}.rpg.localhost:${web_port}"',
+            script,
+        )
+        self.assertIn('RETROM_ALLOW_INSECURE_PUBLIC_ORIGIN="true"', script)
+        self.assertIn(
+            'RETROM_RPG_RUNTIME_ORIGIN_TEMPLATE="$runtime_origin_template"',
+            script,
+        )
+
+    def test_arcade_acceptance_selects_the_current_launchable_artifact(self) -> None:
+        script = (REPOSITORY_ROOT / "scripts" / "acceptance" / "arcade-flow.sh").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn(".selectedForNewBindings == true", script)
+        self.assertIn(".availableForLaunch == true", script)
+        self.assertNotIn(".enabled == true", script)
+
+    def test_arcade_schema_v2_seeder_preserves_runtime_identity(self) -> None:
+        script = (
+            REPOSITORY_ROOT / "scripts" / "acceptance" / "seed-arcade-schema-v2-launch.py"
+        ).read_text(encoding="utf-8")
+        self.assertIn("revision.route_key", script)
+        self.assertIn("core_artifact_id,route_key,dat_version_id", script)
+        self.assertIn('connection.execute("PRAGMA busy_timeout=30000")', script)
+
+    def test_public_fixture_targets_cover_rpgmaker_outputs(self) -> None:
+        self.assertIn("rpgmaker-smoke/build.py", self.dry_run("public-fixtures-generate"))
+        self.assertIn("rpgmaker-smoke/build.py --check", self.dry_run("public-fixtures-check"))
 
     def test_install_deps_covers_all_project_dependency_classes(self) -> None:
         output = self.dry_run("install-deps")
@@ -108,6 +152,18 @@ class MakefileDependencyTests(unittest.TestCase):
         makefile = (REPOSITORY_ROOT / "Makefile").read_text(encoding="utf-8")
         self.assertIn("RETROM_DEV_CONFIG ?= $(abspath .dev-data/dev.mk)", makefile)
         self.assertIn("-include $(RETROM_DEV_CONFIG)", makefile)
+        dev_script = (REPOSITORY_ROOT / "scripts" / "dev.sh").read_text(encoding="utf-8")
+        self.assertIn('next dev --hostname "$2" --port "$3" --webpack', dev_script)
+        package = json.loads((REPOSITORY_ROOT / "web" / "package.json").read_text(encoding="utf-8"))
+        self.assertTrue(package["scripts"]["dev"].endswith("--webpack"))
+
+    def test_rpg_runtime_uses_release_assets_without_a_local_build_target(self) -> None:
+        for target in ("prepare-deps", "dev"):
+            output = self.dry_run(target)
+            self.assertNotIn("build.py reproduce", output)
+            self.assertNotIn("docker run", output)
+        makefile = (REPOSITORY_ROOT / "Makefile").read_text(encoding="utf-8")
+        self.assertNotIn("reproduce-rpg-runtime", makefile)
 
     def test_ci_runs_the_structure_gate_without_warning_only_bypass(self) -> None:
         output = self.dry_run("ci")

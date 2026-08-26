@@ -1,4 +1,4 @@
-import { act, cleanup, render, screen, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { PlayerChrome } from "./player-chrome";
@@ -31,6 +31,7 @@ function props(overrides: Partial<Parameters<typeof PlayerChrome>[0]> = {}): Par
     debugOpen: false,
     debugMetrics: null,
     debugRuntime: {
+      runtimeFamily: "EMULATORJS",
       coreId: "fbneo", coreArtifactId: "artifact-1", emulatorJSVersion: "4.2.3",
       playerAdapterId: "ejs-4.2.3-v3", inputMode: "STANDARD",
       crossOriginIsolated: true, sharedArrayBuffer: true,
@@ -59,9 +60,12 @@ function props(overrides: Partial<Parameters<typeof PlayerChrome>[0]> = {}): Par
 
 describe("PlayerChrome", () => {
   it("keeps the running toolbar hidden until the reveal state is active", () => {
-    const { container, rerender } = render(<PlayerChrome {...props({ controlsVisible: false })} />);
+    const values = props({ controlsVisible: false });
+    const { container, rerender } = render(<PlayerChrome {...values} />);
     const toolbar = container.querySelector(".player-toolbar");
     expect(toolbar).not.toHaveClass("is-visible");
+    fireEvent.pointerEnter(screen.getByRole("button", { name: "显示 Player 控制栏" }));
+    expect(values.onToggleControls).toHaveBeenCalledOnce();
 
     rerender(<PlayerChrome {...props({ controlsVisible: true })} />);
     expect(toolbar).toHaveClass("is-visible");
@@ -86,6 +90,7 @@ describe("PlayerChrome", () => {
     expect(screen.getByRole("button", { name: "创建存档" })).toBeDisabled();
     await user.click(screen.getByRole("button", { name: "返回并退出游戏" }));
     const dialog = screen.getByRole("alertdialog", { name: "退出游戏？" });
+    expect(values.onPauseForToolbarInteraction).toHaveBeenCalledOnce();
     expect(dialog).toHaveTextContent("当前从 DOS 程序菜单启动，无法创建可恢复存档");
     expect(within(dialog).getByRole("button", { name: "创建存档" })).toBeDisabled();
     expect(dialog).toHaveTextContent("选择一个具体 DOS 程序再开始");
@@ -209,6 +214,35 @@ describe("PlayerChrome", () => {
     expect(within(panel).getByText("COOP/COEP + SAB")).toBeVisible();
     await user.click(within(panel).getByRole("button", { name: "关闭调试信息面板" }));
     expect(values.onToggleDebug).toHaveBeenCalledTimes(2);
+  });
+
+  it("keeps RPG runtime implementation details out of ordinary diagnostics", () => {
+    const internalValues = [
+      "RPGXP_MKXPZ_F2EFC98_V5", "mkxp-z-libretro-v4", "artifact-rpg-xp",
+    ];
+    render(<PlayerChrome {...props({
+      coreName: "RPG Maker XP",
+      debugOpen: true,
+      debugRuntime: {
+        runtimeFamily: "RPGMAKER",
+        coreId: "rpgmaker_xp",
+        coreArtifactId: internalValues[2],
+        emulatorJSVersion: internalValues[0],
+        playerAdapterId: internalValues[1],
+        inputMode: "STANDARD",
+        crossOriginIsolated: true,
+        sharedArrayBuffer: true,
+      },
+    })} />);
+
+    const panel = screen.getByRole("complementary", { name: "运行调试信息" });
+    expect(within(panel).getByText("RPG Maker XP")).toBeVisible();
+    expect(within(panel).getByText("RPG Maker")).toBeVisible();
+    expect(within(panel).queryByText("EmulatorJS")).not.toBeInTheDocument();
+    expect(within(panel).queryByText("Player adapter")).not.toBeInTheDocument();
+    for (const value of internalValues) {
+      expect(within(panel).queryByText(value)).not.toBeInTheDocument();
+    }
   });
 
   it("keeps the toolbar paused until the user returns to the game surface", async () => {

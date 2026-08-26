@@ -71,13 +71,20 @@ type SelectedAssets struct {
 }
 
 type DraftPatch struct {
-	TargetPlatformInstanceID *string                `json:"targetPlatformInstanceId,omitempty"`
-	Metadata                 *MetadataPatch         `json:"metadata,omitempty"`
-	SelectedValidationID     *string                `json:"selectedValidationId,omitempty"`
-	SelectedCandidateID      optionalNullableString `json:"selectedCandidateId,omitempty"`
-	SelectedAssets           *SelectedAssets        `json:"selectedAssets,omitempty"`
-	DefaultDOSEntry          optionalNullableString `json:"defaultDosEntry,omitempty"`
-	TagIDs                   []string               `json:"tagIds"`
+	TargetPlatformInstanceID *string                      `json:"targetPlatformInstanceId,omitempty"`
+	Metadata                 *MetadataPatch               `json:"metadata,omitempty"`
+	SelectedValidationID     *string                      `json:"selectedValidationId,omitempty"`
+	SelectedCandidateID      optionalNullableString       `json:"selectedCandidateId,omitempty"`
+	SelectedAssets           *SelectedAssets              `json:"selectedAssets,omitempty"`
+	DefaultDOSEntry          optionalNullableString       `json:"defaultDosEntry,omitempty"`
+	TagIDs                   []string                     `json:"tagIds"`
+	RuntimePackSelections    *[]RuntimePackSelectionPatch `json:"runtimePackSelections,omitempty"`
+	RPGSelfContainedOverride *bool                        `json:"rpgSelfContainedOverride,omitempty"`
+}
+
+type RuntimePackSelectionPatch struct {
+	Slot           int    `json:"slot"`
+	InstallationID string `json:"installationId"`
 }
 
 type DraftResult struct {
@@ -130,31 +137,35 @@ func (service *Service) PatchDraft(
 }
 
 type draftPatchRun struct {
-	service             *Service
-	ctx                 context.Context
-	transaction         *sql.Tx
-	itemID              string
-	expectedVersion     int64
-	patch               DraftPatch
-	draftID             string
-	targetID            string
-	validationID        string
-	effectiveSnapshotID string
-	metadataJSON        string
-	candidateID         sql.NullString
-	coverID             sql.NullString
-	uploadedCoverID     sql.NullString
-	backgroundID        sql.NullString
-	dosEntry            sql.NullString
-	metadata            map[string]any
-	beforeTags          []tagging.Reference
-	targetOrDOSChanged  bool
+	service                *Service
+	ctx                    context.Context
+	transaction            *sql.Tx
+	itemID                 string
+	expectedVersion        int64
+	patch                  DraftPatch
+	draftID                string
+	targetID               string
+	validationID           string
+	effectiveSnapshotID    string
+	metadataJSON           string
+	candidateID            sql.NullString
+	coverID                sql.NullString
+	uploadedCoverID        sql.NullString
+	backgroundID           sql.NullString
+	dosEntry               sql.NullString
+	metadata               map[string]any
+	beforeTags             []tagging.Reference
+	targetOrDOSChanged     bool
+	runtimeBindingRevision int64
+	isRPG                  bool
+	rpgBindingChanged      bool
 }
 
 func invalidDraftPatch(patch DraftPatch) bool {
 	noChange := patch.TargetPlatformInstanceID == nil && patch.Metadata == nil &&
 		patch.SelectedValidationID == nil && !patch.SelectedCandidateID.present &&
-		patch.SelectedAssets == nil && !patch.DefaultDOSEntry.present && len(patch.TagIDs) == 0
+		patch.SelectedAssets == nil && !patch.DefaultDOSEntry.present && len(patch.TagIDs) == 0 &&
+		patch.RuntimePackSelections == nil && patch.RPGSelfContainedOverride == nil
 	return patch.TagIDs == nil || noChange
 }
 
@@ -164,14 +175,15 @@ func (run *draftPatchRun) load() error {
 SELECT d.id,d.target_platform_instance_id,COALESCE(d.selected_validation_id,''),
   d.effective_source_snapshot_id,d.selected_candidate_id,d.cover_candidate_asset_id,
   d.cover_uploaded_asset_id,d.background_candidate_asset_id,d.default_dos_entry,
-  d.metadata_json,d.version
+  d.metadata_json,d.version,d.runtime_binding_revision,
+  EXISTS(SELECT 1 FROM rpgmaker_review_profiles profile WHERE profile.review_draft_id=d.id)
 FROM import_items i
 JOIN review_drafts d ON d.import_item_id=i.id
 WHERE i.id=? AND i.state='REVIEW_PENDING'
 `, run.itemID).Scan(
 		&run.draftID, &run.targetID, &run.validationID, &run.effectiveSnapshotID,
 		&run.candidateID, &run.coverID, &run.uploadedCoverID, &run.backgroundID,
-		&run.dosEntry, &run.metadataJSON, &currentVersion,
+		&run.dosEntry, &run.metadataJSON, &currentVersion, &run.runtimeBindingRevision, &run.isRPG,
 	)
 	if err != nil {
 		return ErrInvalid
@@ -193,7 +205,8 @@ WHERE i.id=? AND i.state='REVIEW_PENDING'
 func (run *draftPatchRun) applyChanges() error {
 	steps := []func() error{
 		run.applyMetadata, run.applyTarget, run.applySelectedValidation,
-		run.applySelectedCandidate, run.applyDefaultDOSEntry, run.refreshValidation,
+		run.applySelectedCandidate, run.applyDefaultDOSEntry, run.applyRPGMakerBinding,
+		run.refreshValidation,
 		run.applySelectedAssets,
 	}
 	for _, step := range steps {
@@ -300,6 +313,9 @@ func (run *draftPatchRun) applySelectedValidation() error {
 	if run.patch.SelectedValidationID == nil {
 		return nil
 	}
+	if run.isRPG {
+		return ErrInvalid
+	}
 	var targetID, snapshotID, status string
 	err := run.transaction.QueryRowContext(run.ctx, `
 SELECT target_platform_instance_id,source_snapshot_id,status
@@ -359,6 +375,9 @@ WHERE import_item_id=? AND normalized_path=? AND enabled=1
 
 func (run *draftPatchRun) refreshValidation() error {
 	if run.patch.SelectedValidationID != nil {
+		return nil
+	}
+	if run.isRPG {
 		return nil
 	}
 	validationID, err := run.service.ensureCompatibleDraftValidation(
@@ -503,11 +522,11 @@ UPDATE review_drafts
 SET target_platform_instance_id=?,selected_validation_id=NULLIF(?,''),
   selected_candidate_id=?,cover_candidate_asset_id=?,cover_uploaded_asset_id=?,
   background_candidate_asset_id=?,default_dos_entry=?,metadata_json=?,
-  version=version+1,updated_at_ms=?
+  version=version+1,runtime_binding_revision=runtime_binding_revision+?,updated_at_ms=?
 WHERE import_item_id=? AND version=?
 `, run.targetID, run.validationID, nullable(run.candidateID), nullable(run.coverID),
 		nullable(run.uploadedCoverID), nullable(run.backgroundID), nullable(run.dosEntry),
-		string(encoded), now, run.itemID, run.expectedVersion)
+		string(encoded), boolIncrement(run.rpgBindingChanged), now, run.itemID, run.expectedVersion)
 	if err != nil {
 		return fmt.Errorf("libraryimport/review: %w", err)
 	}
@@ -521,6 +540,13 @@ UPDATE import_items SET search_text=? WHERE id=?
 		return fmt.Errorf("libraryimport/review: %w", err)
 	}
 	return nil
+}
+
+func boolIncrement(value bool) int {
+	if value {
+		return 1
+	}
+	return 0
 }
 
 func (run *draftPatchRun) insertSavedEvent(

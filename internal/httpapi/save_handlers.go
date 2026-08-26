@@ -119,7 +119,8 @@ p.id,
 p.name,
 pi.id,
 pi.name,
-s.disc_index
+s.disc_index,
+s.screenshot_blob_id IS NOT NULL
 FROM save_states s
 JOIN games g ON g.id=s.game_id
 JOIN game_metadata_revisions m ON m.id=g.current_metadata_revision_id
@@ -143,6 +144,7 @@ JOIN platforms p ON p.id=pi.platform_id
 		var id, gameID, gameTitle, name, coreID, coreName, gameStatus string
 		var platformID, platformName, instanceID, instanceName string
 		var version, createdAtMS, activeDurationMS int64
+		var hasScreenshot bool
 		var discIndex sql.NullInt64
 		if err := rows.Scan(
 			&id,
@@ -160,6 +162,7 @@ JOIN platforms p ON p.id=pi.platform_id
 			&instanceID,
 			&instanceName,
 			&discIndex,
+			&hasScreenshot,
 		); err != nil {
 			server.databaseError(writer, request, err)
 			return
@@ -168,7 +171,7 @@ JOIN platforms p ON p.id=pi.platform_id
 			"saveStateId": id, "gameId": gameID, "gameTitle": gameTitle,
 			"name": name, "version": version, "createdAtMs": createdAtMS,
 			"discIndex": nullableInteger(discIndex), "discLabel": discLabel(discIndex),
-			"activeDurationMs": activeDurationMS, "screenshotUrl": saveStateScreenshotURL(id),
+			"activeDurationMs": activeDurationMS, "screenshotUrl": optionalSaveScreenshotURL(id, hasScreenshot),
 			"core": map[string]any{
 				"id":   coreID,
 				"name": coreName,
@@ -216,6 +219,13 @@ JOIN platforms p ON p.id=pi.platform_id
 	writeJSON(writer, http.StatusOK, map[string]any{
 		"generatedAtMs": server.now().UnixMilli(), "items": items, "nextCursor": nextCursor,
 	})
+}
+
+func optionalSaveScreenshotURL(saveStateID string, available bool) any {
+	if !available {
+		return nil
+	}
+	return saveStateScreenshotURL(saveStateID)
 }
 
 func (server *Server) patchSave(writer http.ResponseWriter, request *http.Request) {

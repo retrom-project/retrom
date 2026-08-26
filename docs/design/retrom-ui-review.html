@@ -2368,6 +2368,77 @@
     #retrom-ui-review .rt-im-footer { margin-top:auto;display:flex;justify-content:space-between;align-items:center;position:relative;z-index:1 }
     @media(max-width:1000px){#retrom-ui-review .rt-im-game-layout{grid-template-columns:34% minmax(0,1fr)}#retrom-ui-review .rt-im-media{grid-template-columns:40% minmax(0,1fr);padding:16px}.rt-im-help{gap:12px}}
     @media(prefers-reduced-motion:reduce){#retrom-ui-review .rt-im-platform{transition:none}}
+    #retrom-ui-review .rt-rpg-state-switch,#retrom-ui-review .rt-runtime-tabs { display:flex;gap:8px;align-items:center;flex-wrap:wrap }
+    #retrom-ui-review .rt-rpg-state-switch button,#retrom-ui-review .rt-runtime-tabs button { min-height:42px;padding:0 15px;border:1px solid var(--retrom-line);border-radius:999px;color:var(--retrom-muted);background:var(--retrom-panel-raised);font-weight:800 }
+    #retrom-ui-review .rt-rpg-state-switch button.is-active,#retrom-ui-review .rt-runtime-tabs button.is-active { color:var(--retrom-purple-deep);border-color:var(--retrom-purple);background:var(--retrom-purple-soft);box-shadow:0 0 0 3px rgb(111 73 196 / .1) }
+    #retrom-ui-review .rt-rpg-import-design { display:grid;grid-template-columns:minmax(0,1.35fr) minmax(320px,.65fr);gap:18px;align-items:start }
+    #retrom-ui-review .rt-rpg-import-main,#retrom-ui-review .rt-rpg-import-summary { display:grid;gap:14px }
+    #retrom-ui-review .rt-rpg-target { padding:20px;border:1px solid var(--retrom-line);border-radius:16px;background:var(--retrom-panel) }
+    #retrom-ui-review .rt-rpg-target-head { display:flex;justify-content:space-between;gap:16px;align-items:start }
+    #retrom-ui-review .rt-rpg-target h2,#retrom-ui-review .rt-rpg-target h3 { margin:5px 0 }
+    #retrom-ui-review .rt-rpg-target p { margin:0;color:var(--retrom-muted);line-height:1.55 }
+    #retrom-ui-review .rt-rpg-upload { min-height:270px;border:2px dashed var(--retrom-purple-light);border-radius:18px;display:grid;place-items:center;padding:28px;text-align:center;background:linear-gradient(145deg,var(--retrom-purple-soft),var(--retrom-panel)) }
+    #retrom-ui-review .rt-rpg-upload strong { display:block;margin:12px 0 7px;font-size:23px }
+    #retrom-ui-review .rt-rpg-upload p { max-width:650px;margin:0 auto 18px;color:var(--retrom-muted);line-height:1.55 }
+    #retrom-ui-review .rt-rpg-preflight { display:grid;gap:9px }
+    #retrom-ui-review .rt-rpg-preflight div { padding:11px 13px;border:1px solid var(--retrom-line);border-radius:11px;display:grid;grid-template-columns:minmax(120px,.6fr) minmax(0,1.4fr);gap:12px;background:var(--retrom-panel-raised) }
+    #retrom-ui-review .rt-rpg-preflight span { color:var(--retrom-muted);font-size:12px;font-weight:750 }
+    #retrom-ui-review .rt-rpg-state-panel { padding:16px;border:1px solid var(--retrom-line);border-radius:13px;background:var(--retrom-panel-raised) }
+    #retrom-ui-review .rt-rpg-state-panel h3 { margin:0 0 6px }
+    #retrom-ui-review .rt-rpg-state-panel p { margin:0;color:var(--retrom-muted);line-height:1.5 }
+    #retrom-ui-review .rt-rpg-state-panel.is-danger { border-color:#e7bbb5;background:#fff4f2 }
+    #retrom-ui-review .rt-rpg-review-design { display:grid;gap:16px }
+    #retrom-ui-review .rt-rpg-review-top { display:grid;grid-template-columns:minmax(0,1.5fr) minmax(310px,.5fr);gap:14px }
+    #retrom-ui-review .rt-rpg-review-columns { display:grid;grid-template-columns:minmax(300px,.64fr) minmax(620px,1.36fr);gap:14px;align-items:start }
+    #retrom-ui-review .rt-rpg-card { padding:18px;border:1px solid var(--retrom-line);border-radius:15px;background:var(--retrom-panel);box-shadow:var(--retrom-shadow-sm) }
+    #retrom-ui-review .rt-rpg-card h2,#retrom-ui-review .rt-rpg-card h3 { margin:0 0 7px }
+    #retrom-ui-review .rt-rpg-card p { margin:0;color:var(--retrom-muted);line-height:1.55 }
+    #retrom-ui-review .rt-rpg-binding { display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px;margin-top:14px }
+    #retrom-ui-review .rt-rpg-binding div,#retrom-ui-review .rt-rpg-evidence div { padding:12px;border:1px solid var(--retrom-line);border-radius:11px;background:var(--retrom-panel-raised) }
+    #retrom-ui-review .rt-rpg-binding span,#retrom-ui-review .rt-rpg-evidence span { display:block;color:var(--retrom-muted);font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.06em }
+    #retrom-ui-review .rt-rpg-binding strong,#retrom-ui-review .rt-rpg-evidence strong { display:block;margin-top:5px;overflow-wrap:anywhere }
+    #retrom-ui-review .rt-rpg-gates { counter-reset:rpg-gate;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;margin-top:14px }
+    #retrom-ui-review .rt-rpg-gate { counter-increment:rpg-gate;min-height:54px;padding:10px;border:1px solid #b8dcc8;border-radius:11px;display:grid;grid-template-columns:28px minmax(0,1fr) auto;gap:8px;align-items:center;background:#f2fbf6 }
+    #retrom-ui-review .rt-rpg-gate::before { content:counter(rpg-gate);width:24px;height:24px;border-radius:50%;display:grid;place-items:center;color:white;background:#26865a;font-size:11px;font-weight:900 }
+    #retrom-ui-review .rt-rpg-gate strong { min-width:0;font-size:12px;overflow-wrap:anywhere }
+    #retrom-ui-review .rt-rpg-gate span { color:#26704f;font-size:10px;font-weight:900 }
+    #retrom-ui-review .rt-rpg-evidence { display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;margin-top:12px }
+    #retrom-ui-review .rt-rpg-evidence div:last-child { border-color:#b8dcc8;background:#f2fbf6 }
+    #retrom-ui-review .rt-rpg-launches { margin-top:12px;padding:12px;border-radius:11px;background:#151522;color:#d9d6ec;font-family:ui-monospace,SFMono-Regular,monospace;font-size:11px;line-height:1.7;overflow-wrap:anywhere }
+    #retrom-ui-review .rt-rpg-decision { display:grid;gap:12px;align-content:start }
+    #retrom-ui-review .rt-rpg-decision-status { padding:14px;border:1px solid #b8dcc8;border-radius:12px;background:#f2fbf6;color:#236d4c;font-weight:800 }
+    #retrom-ui-review .rt-rpg-pack-summary { display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:16px 0 }
+    #retrom-ui-review .rt-rpg-pack-summary article { padding:15px;border:1px solid var(--retrom-line);border-radius:13px;background:var(--retrom-panel-raised) }
+    #retrom-ui-review .rt-rpg-pack-summary span,#retrom-ui-review .rt-rpg-pack-summary small { display:block;color:var(--retrom-muted) }
+    #retrom-ui-review .rt-rpg-pack-summary strong { display:block;margin:4px 0;font-size:22px }
+    #retrom-ui-review .rt-rpg-core-grid { display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px }
+    #retrom-ui-review .rt-rpg-core-card { padding:13px;border:1px solid var(--retrom-line);border-radius:12px;background:var(--retrom-panel) }
+    #retrom-ui-review .rt-rpg-core-card header { display:flex;justify-content:space-between;gap:8px;align-items:start }
+    #retrom-ui-review .rt-rpg-core-card strong,#retrom-ui-review .rt-rpg-core-card small,#retrom-ui-review .rt-rpg-core-card code { display:block }
+    #retrom-ui-review .rt-rpg-core-card small,#retrom-ui-review .rt-rpg-core-card code { margin-top:5px;color:var(--retrom-muted);font-size:10px;overflow-wrap:anywhere }
+    #retrom-ui-review .rt-rpg-pack-list { display:grid;gap:9px;margin-top:15px }
+    #retrom-ui-review .rt-rpg-pack-row { padding:13px;border:1px solid var(--retrom-line);border-radius:12px;display:grid;grid-template-columns:minmax(180px,1.4fr) minmax(150px,.8fr) minmax(150px,.8fr) auto;gap:12px;align-items:center;background:var(--retrom-panel) }
+    #retrom-ui-review .rt-rpg-pack-row strong,#retrom-ui-review .rt-rpg-pack-row small { display:block }
+    #retrom-ui-review .rt-rpg-pack-row small { color:var(--retrom-muted);margin-top:4px }
+    #retrom-ui-review .rt-rpg-pack-drawer .rt-rpg-drop { min-height:170px;border:2px dashed var(--retrom-purple-light);border-radius:14px;display:grid;place-items:center;padding:22px;text-align:center;background:var(--retrom-purple-soft) }
+    #retrom-ui-review .rt-rpg-rights { padding:12px;border:1px solid #e7c982;border-radius:11px;background:#fff9e9;color:#765b17;line-height:1.5 }
+    #retrom-ui-review .rt-rpg-player-chip { position:absolute;z-index:16;top:82px;left:24px;padding:9px 13px;border:1px solid rgb(180 159 255 / .48);border-radius:999px;color:#efeaff;background:rgb(58 36 112 / .86);font-size:12px;font-weight:900;backdrop-filter:blur(12px) }
+    #retrom-ui-review .rt-rpg-player-panel { position:absolute;z-index:15;top:78px;right:18px;bottom:76px;width:min(430px,38vw);padding:16px;overflow-y:auto;border:1px solid rgb(255 255 255 / .15);border-radius:17px;color:#f5f4ff;background:rgb(15 16 25 / .94);box-shadow:0 24px 70px rgb(0 0 0 / .48);backdrop-filter:blur(16px) }
+    #retrom-ui-review .rt-rpg-player-panel h2 { margin:4px 0 5px }
+    #retrom-ui-review .rt-rpg-player-panel p { margin:0;color:#aaa7be;font-size:12px;line-height:1.5 }
+    #retrom-ui-review .rt-rpg-player-gates { display:grid;gap:6px;margin-top:12px }
+    #retrom-ui-review .rt-rpg-player-gates div { min-height:34px;padding:7px 9px;border:1px solid rgb(95 187 136 / .34);border-radius:8px;display:grid;grid-template-columns:24px minmax(0,1fr) auto;gap:7px;align-items:center;background:rgb(35 112 74 / .14);font-size:10px }
+    #retrom-ui-review .rt-rpg-player-gates b { color:#7bd6a4 }
+    #retrom-ui-review .rt-rpg-player-confirm { position:absolute;z-index:17;left:20px;right:20px;bottom:16px;min-height:50px;padding:9px 12px;border:1px solid rgb(95 187 136 / .45);border-radius:13px;display:flex;align-items:center;justify-content:space-between;gap:14px;color:#ddf8e8;background:rgb(23 69 49 / .94) }
+    #retrom-ui-review .rt-rpg-save-naming { margin-bottom:16px;padding:16px;border:1px solid var(--retrom-purple-light);border-radius:15px;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:14px;align-items:center;background:linear-gradient(120deg,var(--retrom-purple-soft),var(--retrom-panel)) }
+    #retrom-ui-review .rt-rpg-save-naming h2 { margin:0 0 5px }
+    #retrom-ui-review .rt-rpg-save-naming p { margin:0;color:var(--retrom-muted) }
+    #retrom-ui-review .rt-rpg-save-edit { display:flex;gap:8px;align-items:center }
+    #retrom-ui-review .rt-rpg-save-edit .rt-input { width:230px }
+    #retrom-ui-review .rt-app[data-rpg-scene=&quot;import&quot;] [data-rpg-general-import],#retrom-ui-review .rt-app[data-rpg-scene=&quot;review&quot;] [data-review-workspace],#retrom-ui-review .rt-app[data-rpg-scene=&quot;review&quot;] [data-review-bulk-status] { display:none }
+    #retrom-ui-review .rt-app[data-rpg-scene=&quot;player&quot;] .rt-player-screen { background:radial-gradient(circle at 47% 38%,#9daec1 0 2%,transparent 3%),linear-gradient(#b8d0df 0 46%,#71824e 47% 58%,#283d2b 59% 72%,#11151c 73%); }
+    @media(max-width:1100px){#retrom-ui-review .rt-rpg-import-design,#retrom-ui-review .rt-rpg-review-top,#retrom-ui-review .rt-rpg-review-columns{grid-template-columns:1fr}#retrom-ui-review .rt-rpg-core-grid{grid-template-columns:repeat(2,minmax(0,1fr))}#retrom-ui-review .rt-rpg-player-panel{width:min(390px,47vw)} }
+    @media(max-width:760px){#retrom-ui-review .rt-rpg-binding,#retrom-ui-review .rt-rpg-evidence,#retrom-ui-review .rt-rpg-pack-summary,#retrom-ui-review .rt-rpg-core-grid{grid-template-columns:1fr}#retrom-ui-review .rt-rpg-gates{grid-template-columns:1fr}#retrom-ui-review .rt-rpg-pack-row{grid-template-columns:1fr}#retrom-ui-review .rt-rpg-target-head,#retrom-ui-review .rt-rpg-player-confirm,#retrom-ui-review .rt-rpg-save-naming,#retrom-ui-review .rt-rpg-save-edit{align-items:stretch;flex-direction:column;display:flex}#retrom-ui-review .rt-rpg-save-edit .rt-input{width:100%}#retrom-ui-review .rt-rpg-player-panel{top:72px;left:10px;right:10px;bottom:78px;width:auto;padding:12px}#retrom-ui-review .rt-rpg-player-chip{top:70px;left:12px}#retrom-ui-review .rt-rpg-player-panel .rt-rpg-player-gates{margin-top:56px}#retrom-ui-review .rt-rpg-player-confirm{left:10px;right:10px;bottom:10px} }
   &lt;/style&gt;
 
   &lt;details class=&quot;rt-review-scenes&quot; open&gt;
@@ -2389,6 +2460,11 @@
       &lt;button type=&quot;button&quot; data-review-scene=&quot;immersive-system-menu&quot;&gt;沉浸系统菜单&lt;/button&gt;
       &lt;button type=&quot;button&quot; data-review-scene=&quot;immersive-player&quot;&gt;沉浸游戏菜单&lt;/button&gt;
       &lt;button type=&quot;button&quot; data-review-scene=&quot;admin-users&quot;&gt;用户管理&lt;/button&gt;
+      &lt;button type=&quot;button&quot; data-review-scene=&quot;rpg-import&quot;&gt;RPG 导入&lt;/button&gt;
+      &lt;button type=&quot;button&quot; data-review-scene=&quot;rpg-review&quot;&gt;RPG 审核&lt;/button&gt;
+      &lt;button type=&quot;button&quot; data-review-scene=&quot;rpg-packs&quot;&gt;RPG 运行包&lt;/button&gt;
+      &lt;button type=&quot;button&quot; data-review-scene=&quot;rpg-player&quot;&gt;RPG Player&lt;/button&gt;
+      &lt;button type=&quot;button&quot; data-review-scene=&quot;rpg-saves&quot;&gt;RPG 存档&lt;/button&gt;
     &lt;/div&gt;
   &lt;/details&gt;
 
@@ -2619,6 +2695,10 @@
 
       &lt;section class=&quot;rt-page&quot; data-page=&quot;saves&quot;&gt;
         &lt;div class=&quot;rt-page-head&quot;&gt;&lt;div&gt;&lt;div class=&quot;rt-eyebrow&quot;&gt;我的游戏&lt;/div&gt;&lt;h1&gt;我的存档&lt;/h1&gt;&lt;p class=&quot;rt-subtitle&quot;&gt;查看保存画面，找到想恢复的游戏状态，并随时从这里继续。&lt;/p&gt;&lt;/div&gt;&lt;div class=&quot;rt-save-head-summary&quot;&gt;&lt;div&gt;&lt;span&gt;存档&lt;/span&gt;&lt;strong&gt;44 份&lt;/strong&gt;&lt;/div&gt;&lt;div&gt;&lt;span&gt;涉及游戏&lt;/span&gt;&lt;strong&gt;3 款&lt;/strong&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;
+        &lt;section class=&quot;rt-rpg-save-naming&quot; data-rpg-save-design hidden aria-labelledby=&quot;rt-rpg-save-title&quot;&gt;
+          &lt;div&gt;&lt;span class=&quot;rt-badge rt-badge-purple&quot;&gt;RPG Maker MZ · 手动存档&lt;/span&gt;&lt;h2 id=&quot;rt-rpg-save-title&quot; data-rpg-save-title&gt;魔王城入口&lt;/h2&gt;&lt;p&gt;新建时先使用安全的时间名称；用户可在“我的存档”中改成容易辨认的名称，恢复仍锁定原运行环境。&lt;/p&gt;&lt;/div&gt;
+          &lt;div class=&quot;rt-rpg-save-edit&quot;&gt;&lt;input class=&quot;rt-input&quot; value=&quot;魔王城入口&quot; maxlength=&quot;120&quot; aria-label=&quot;存档名称&quot; data-rpg-save-name&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button rt-button-primary&quot; data-rpg-save-rename&gt;保存名称&lt;/button&gt;&lt;/div&gt;
+        &lt;/section&gt;
         &lt;div class=&quot;rt-save-section-label&quot;&gt;&lt;h2&gt;最近保存&lt;/h2&gt;&lt;p&gt;最近创建的一份可用手动存档&lt;/p&gt;&lt;/div&gt;
         &lt;section class=&quot;rt-save-latest&quot; aria-label=&quot;最近保存&quot;&gt;&lt;div class=&quot;rt-save-latest-shot&quot;&gt;&lt;/div&gt;&lt;div class=&quot;rt-save-latest-copy&quot;&gt;&lt;div class=&quot;rt-save-latest-kicker&quot;&gt;&lt;i&gt;&lt;/i&gt;最近保存&lt;/div&gt;&lt;h2&gt;1943: The Battle of Midway&lt;/h2&gt;&lt;p&gt;Arcade · FinalBurn Neo&lt;/p&gt;&lt;div class=&quot;rt-save-latest-facts&quot;&gt;&lt;div&gt;&lt;span&gt;保存时间&lt;/span&gt;&lt;strong&gt;今天 01:20:12&lt;/strong&gt;&lt;/div&gt;&lt;div&gt;&lt;span&gt;当时已游玩&lt;/span&gt;&lt;strong&gt;少于 1 分钟&lt;/strong&gt;&lt;/div&gt;&lt;div&gt;&lt;span&gt;存档状态&lt;/span&gt;&lt;strong&gt;可以继续&lt;/strong&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&quot;rt-save-latest-actions&quot;&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button rt-button-primary&quot; data-quick-start=&quot;metal&quot; data-save-start=&quot;最近保存&quot;&gt;&lt;i data-lucide=&quot;play&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;从这里继续&lt;/button&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button&quot; data-open-game=&quot;metal&quot;&gt;查看游戏详情&lt;/button&gt;&lt;small&gt;直接恢复这份手动存档&lt;/small&gt;&lt;/div&gt;&lt;/section&gt;
         &lt;section class=&quot;rt-save-toolbar&quot; aria-label=&quot;筛选存档&quot;&gt;&lt;label class=&quot;rt-save-filter&quot;&gt;&lt;span&gt;搜索&lt;/span&gt;&lt;span class=&quot;rt-save-search&quot;&gt;&lt;i data-lucide=&quot;search&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;&lt;input class=&quot;rt-input&quot; type=&quot;search&quot; placeholder=&quot;搜索游戏或存档名称&quot;&gt;&lt;/span&gt;&lt;/label&gt;&lt;label class=&quot;rt-save-filter&quot;&gt;&lt;span&gt;游戏&lt;/span&gt;&lt;select class=&quot;rt-select&quot;&gt;&lt;option&gt;所有游戏&lt;/option&gt;&lt;option&gt;1941&lt;/option&gt;&lt;option&gt;1943: The Battle of Midway&lt;/option&gt;&lt;/select&gt;&lt;/label&gt;&lt;label class=&quot;rt-save-filter&quot;&gt;&lt;span&gt;存档状态&lt;/span&gt;&lt;select class=&quot;rt-select&quot;&gt;&lt;option&gt;可以继续&lt;/option&gt;&lt;option&gt;全部存档&lt;/option&gt;&lt;option&gt;当前不可用&lt;/option&gt;&lt;/select&gt;&lt;/label&gt;&lt;label class=&quot;rt-save-filter&quot;&gt;&lt;span&gt;排列&lt;/span&gt;&lt;select class=&quot;rt-select&quot;&gt;&lt;option&gt;最近保存优先&lt;/option&gt;&lt;option&gt;最早保存优先&lt;/option&gt;&lt;/select&gt;&lt;/label&gt;&lt;p&gt;当前显示 &lt;strong&gt;44&lt;/strong&gt; 份&lt;/p&gt;&lt;/section&gt;
@@ -2761,6 +2841,14 @@
         &lt;div class=&quot;rt-player-shell&quot;&gt;
           &lt;div class=&quot;rt-player-orientation-gate&quot; role=&quot;dialog&quot; aria-modal=&quot;true&quot; aria-labelledby=&quot;rt-orientation-title&quot;&gt;&lt;div class=&quot;rt-player-orientation-card&quot;&gt;&lt;i data-lucide=&quot;rotate-cw&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;&lt;h2 id=&quot;rt-orientation-title&quot;&gt;请横屏继续游戏&lt;/h2&gt;&lt;p&gt;配置已经检查完成。横屏稳定后才会加载游戏内容并开始本次游玩。&lt;/p&gt;&lt;button type=&quot;button&quot; class=&quot;rt-player-control&quot;&gt;重试全屏与横屏&lt;/button&gt;&lt;/div&gt;&lt;/div&gt;
           &lt;div class=&quot;rt-player-stage&quot;&gt;&lt;div class=&quot;rt-player-screen&quot; role=&quot;img&quot; aria-label=&quot;EmulatorJS 游戏画面占位&quot;&gt;&lt;span class=&quot;rt-player-logo&quot;&gt;EMULATORJS&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;rt-player-touch-controls&quot; aria-hidden=&quot;true&quot;&gt;&lt;div class=&quot;rt-player-touch-zone rt-player-touch-dpad is-left&quot;&gt;&lt;/div&gt;&lt;div class=&quot;rt-player-touch-zone is-right&quot;&gt;&lt;span class=&quot;rt-player-touch-button is-b&quot;&gt;B&lt;/span&gt;&lt;span class=&quot;rt-player-touch-button is-a&quot;&gt;A&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;
+          &lt;div class=&quot;rt-rpg-player-chip&quot; data-rpg-player-design hidden&gt;审核运行 · Restore Launch · server 28 / 28&lt;/div&gt;
+          &lt;aside class=&quot;rt-rpg-player-panel&quot; data-rpg-player-design hidden aria-label=&quot;RPG Maker 运行验证&quot;&gt;
+            &lt;span class=&quot;rt-badge rt-badge-green&quot;&gt;14 / 14 · AWAITING_DECISION&lt;/span&gt;&lt;h2&gt;精确恢复验证&lt;/h2&gt;&lt;p&gt;Original Launch · 01A-RPG-ORIGINAL&lt;br&gt;Restore Launch · 01A-RPG-RESTORE&lt;br&gt;lastGateSequence · 28 / 28&lt;/p&gt;&lt;p&gt;页面刷新会从服务端第一个未完成动作继续；已接受的 BEGIN / PASS 不会重复。&lt;/p&gt;
+            &lt;div class=&quot;rt-rpg-player-gates&quot;&gt;
+              &lt;div&gt;&lt;b&gt;01&lt;/b&gt;&lt;strong&gt;RUNTIME_READY · 运行时已就绪&lt;/strong&gt;&lt;span&gt;PASS&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;b&gt;02&lt;/b&gt;&lt;strong&gt;ENGINE_PROFILE · RPGMZ · mz-v1 · rpg-native-web-v1&lt;/strong&gt;&lt;span&gt;PASS&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;b&gt;03&lt;/b&gt;&lt;strong&gt;FRAMES_300 · 360 个连续帧&lt;/strong&gt;&lt;span&gt;PASS&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;b&gt;04&lt;/b&gt;&lt;strong&gt;INPUT · 真实输入已观察&lt;/strong&gt;&lt;span&gt;PASS&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;b&gt;05&lt;/b&gt;&lt;strong&gt;AUDIO · 实际游戏音频已确认&lt;/strong&gt;&lt;span&gt;PASS&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;b&gt;06&lt;/b&gt;&lt;strong&gt;INITIAL_POSITION_RECORDED · 地图 1 · X 4 · Y 7 · 变量 0&lt;/strong&gt;&lt;span&gt;PASS&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;b&gt;07&lt;/b&gt;&lt;strong&gt;SAVE_POINT_RECORDED · 地图 1 · X 8 · Y 7 · 变量 1&lt;/strong&gt;&lt;span&gt;PASS&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;b&gt;08&lt;/b&gt;&lt;strong&gt;CHECKPOINT_CREATED · NATIVE_SAVE_BUNDLE_V1 · SHA-256 4f1c…&lt;/strong&gt;&lt;span&gt;PASS&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;b&gt;09&lt;/b&gt;&lt;strong&gt;POST_SAVE_STATE_DIVERGED · 地图 1 · X 11 · Y 7 · 变量 2&lt;/strong&gt;&lt;span&gt;PASS&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;b&gt;10&lt;/b&gt;&lt;strong&gt;ORIGINAL_LAUNCH_ENDED · Original Launch 已结束&lt;/strong&gt;&lt;span&gt;PASS&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;b&gt;11&lt;/b&gt;&lt;strong&gt;RESTORE_STARTED · 不同 Restore Launch 已启动&lt;/strong&gt;&lt;span&gt;PASS&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;b&gt;12&lt;/b&gt;&lt;strong&gt;RESTORE_POSITION_VERIFIED · 地图 1 · X 8 · Y 7 · 变量 1&lt;/strong&gt;&lt;span&gt;PASS&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;b&gt;13&lt;/b&gt;&lt;strong&gt;RESTORE_SCREENSHOT · 恢复截图已关联&lt;/strong&gt;&lt;span&gt;PASS&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;b&gt;14&lt;/b&gt;&lt;strong&gt;RESTORE_INPUT · 地图 1 · X 9 · Y 7 · 变量 1&lt;/strong&gt;&lt;span&gt;PASS&lt;/span&gt;&lt;/div&gt;
+            &lt;/div&gt;
+          &lt;/aside&gt;
+          &lt;div class=&quot;rt-rpg-player-confirm&quot; data-rpg-player-design hidden role=&quot;status&quot;&gt;&lt;span&gt;&lt;strong&gt;机器证据已完成&lt;/strong&gt;&lt;br&gt;&lt;small&gt;A ≠ B、B ≠ C、恢复 = B，且恢复后输入位置 ≠ B&lt;/small&gt;&lt;/span&gt;&lt;button type=&quot;button&quot; class=&quot;rt-player-control&quot;&gt;返回审核决定&lt;/button&gt;&lt;/div&gt;
           &lt;div class=&quot;rt-player-top is-visible&quot;&gt;
             &lt;button type=&quot;button&quot; class=&quot;rt-player-back&quot; id=&quot;rt-exit-player&quot; data-player-exit aria-label=&quot;返回并退出游戏&quot;&gt;&lt;i data-lucide=&quot;arrow-left&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;&lt;/button&gt;
             &lt;div class=&quot;rt-player-title&quot;&gt;&lt;strong id=&quot;rt-player-game&quot;&gt;NOeL 3&lt;/strong&gt;&lt;div class=&quot;rt-player-meta&quot; id=&quot;rt-player-core&quot;&gt;Yabause · Saturn&lt;/div&gt;&lt;/div&gt;
@@ -2824,7 +2912,25 @@
           &lt;div class=&quot;rt-import-step&quot;&gt;&lt;span class=&quot;rt-step-number&quot;&gt;2&lt;/span&gt;&lt;span&gt;确认配置&lt;/span&gt;&lt;/div&gt;
           &lt;div class=&quot;rt-import-step&quot;&gt;&lt;span class=&quot;rt-step-number&quot;&gt;3&lt;/span&gt;&lt;span&gt;上传并验证&lt;/span&gt;&lt;/div&gt;
         &lt;/div&gt;
-        &lt;div class=&quot;rt-import-layout&quot;&gt;
+        &lt;section class=&quot;rt-rpg-import-design&quot; data-rpg-import-design hidden aria-label=&quot;RPG Maker 项目导入&quot;&gt;
+          &lt;div class=&quot;rt-rpg-import-main&quot;&gt;
+            &lt;section class=&quot;rt-rpg-target&quot;&gt;
+              &lt;div class=&quot;rt-rpg-target-head&quot;&gt;&lt;div&gt;&lt;span class=&quot;rt-badge rt-badge-purple&quot;&gt;目标游戏目录&lt;/span&gt;&lt;h2&gt;RPG Maker MZ 游戏&lt;/h2&gt;&lt;p&gt;所选核心固定为 RPG Maker MZ；Retrom 不根据文件内容静默改成另一版本。&lt;/p&gt;&lt;/div&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button&quot;&gt;更换游戏目录&lt;/button&gt;&lt;/div&gt;
+            &lt;/section&gt;
+            &lt;section class=&quot;rt-rpg-upload&quot;&gt;&lt;div&gt;&lt;div class=&quot;rt-drop-icon&quot;&gt;&lt;i data-lucide=&quot;folder-up&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;&lt;/div&gt;&lt;strong&gt;选择一个项目目录或 ZIP / 7z&lt;/strong&gt;&lt;p&gt;项目文件按原始相对路径上传。原始 native 文件可安全保存为导入证据，但运行发布只提供最小 Web payload，绝不执行 EXE、DLL、BAT 或 Node。&lt;/p&gt;&lt;div class=&quot;rt-drop-actions&quot;&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button rt-button-primary&quot;&gt;选择项目归档&lt;/button&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button&quot;&gt;选择项目目录&lt;/button&gt;&lt;/div&gt;&lt;/div&gt;&lt;/section&gt;
+            &lt;section class=&quot;rt-rpg-target&quot;&gt;&lt;h3&gt;项目预检&lt;/h3&gt;&lt;div class=&quot;rt-rpg-preflight&quot;&gt;&lt;div&gt;&lt;span&gt;项目根&lt;/span&gt;&lt;strong&gt;魔法少女露娜的劫难 / www&lt;/strong&gt;&lt;/div&gt;&lt;div&gt;&lt;span&gt;所选版本&lt;/span&gt;&lt;strong&gt;RPG Maker MZ · rmmz&lt;/strong&gt;&lt;/div&gt;&lt;div&gt;&lt;span&gt;内容证据&lt;/span&gt;&lt;strong&gt;一致 · js/rmmz_core.js 与 data/System.json&lt;/strong&gt;&lt;/div&gt;&lt;div&gt;&lt;span&gt;文件 / 总量&lt;/span&gt;&lt;strong&gt;1,284 个 · 412.6 MiB&lt;/strong&gt;&lt;/div&gt;&lt;div&gt;&lt;span&gt;运行包&lt;/span&gt;&lt;strong&gt;项目自包含 · 无 Retrom pack&lt;/strong&gt;&lt;/div&gt;&lt;div&gt;&lt;span&gt;阻断项&lt;/span&gt;&lt;strong&gt;0 · 可以上传并进入运行验证&lt;/strong&gt;&lt;/div&gt;&lt;/div&gt;&lt;/section&gt;
+          &lt;/div&gt;
+          &lt;aside class=&quot;rt-rpg-import-summary&quot;&gt;
+            &lt;section class=&quot;rt-rpg-target&quot;&gt;&lt;h2&gt;导入状态&lt;/h2&gt;&lt;p&gt;状态与失败原因原位保留；重试不要求重新选择已上传内容。&lt;/p&gt;&lt;div class=&quot;rt-rpg-state-switch&quot; style=&quot;margin-top:13px&quot; role=&quot;tablist&quot; aria-label=&quot;RPG 导入状态&quot;&gt;&lt;button type=&quot;button&quot; data-rpg-import-state=&quot;selected&quot;&gt;已选择&lt;/button&gt;&lt;button type=&quot;button&quot; data-rpg-import-state=&quot;scanning&quot;&gt;校验中&lt;/button&gt;&lt;button type=&quot;button&quot; data-rpg-import-state=&quot;blocked&quot;&gt;阻断&lt;/button&gt;&lt;button type=&quot;button&quot; class=&quot;is-active&quot; data-rpg-import-state=&quot;ready&quot;&gt;准备完成&lt;/button&gt;&lt;/div&gt;&lt;/section&gt;
+            &lt;section class=&quot;rt-rpg-state-panel&quot; data-rpg-import-panel=&quot;selected&quot; hidden&gt;&lt;h3&gt;等待确认目标&lt;/h3&gt;&lt;p&gt;尚未读取或上传内容；服务器扫描入口对 RPG 项目不可用。&lt;/p&gt;&lt;/section&gt;
+            &lt;section class=&quot;rt-rpg-state-panel&quot; data-rpg-import-panel=&quot;scanning&quot; hidden&gt;&lt;h3&gt;正在校验 1,284 个文件&lt;/h3&gt;&lt;p&gt;有界检查项目根、家族证据、路径和归档限制；不会执行其中的脚本或 native 文件。&lt;/p&gt;&lt;/section&gt;
+            &lt;section class=&quot;rt-rpg-state-panel is-danger&quot; data-rpg-import-panel=&quot;blocked&quot; hidden&gt;&lt;h3&gt;内容证据与所选版本冲突&lt;/h3&gt;&lt;p&gt;检测到 MV 入口，但目标目录选择 MZ。请更换目标目录后重新确认，Retrom 不会自动切换。&lt;/p&gt;&lt;/section&gt;
+            &lt;section class=&quot;rt-rpg-state-panel&quot; data-rpg-import-panel=&quot;ready&quot;&gt;&lt;span class=&quot;rt-badge rt-badge-green&quot;&gt;PREPARED&lt;/span&gt;&lt;h3&gt;准备完成&lt;/h3&gt;&lt;p&gt;上传校验已完成。条目将进入 RPG 专用审核，不会套用普通第 5 秒截图放行。&lt;/p&gt;&lt;/section&gt;
+            &lt;button type=&quot;button&quot; class=&quot;rt-button rt-button-primary&quot;&gt;上传并创建审核条目&lt;/button&gt;
+            &lt;p class=&quot;rt-subtitle&quot;&gt;服务器目录导入首版不支持 RPG Maker 项目。&lt;/p&gt;
+          &lt;/aside&gt;
+        &lt;/section&gt;
+        &lt;div class=&quot;rt-import-layout&quot; data-rpg-general-import&gt;
           &lt;div class=&quot;rt-dropzone&quot;&gt;&lt;div&gt;&lt;div class=&quot;rt-drop-icon&quot;&gt;&lt;i data-lucide=&quot;upload-cloud&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;&lt;/div&gt;&lt;h2&gt;将游戏文件或目录拖到这里&lt;/h2&gt;&lt;p class=&quot;rt-drop-copy&quot;&gt;支持普通 ROM、Arcade ZIP 与 DOS 内容目录；相对路径会完整保留。&lt;/p&gt;&lt;div class=&quot;rt-drop-actions&quot;&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button rt-button-primary&quot;&gt;选择文件&lt;/button&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button&quot; data-open-import-directory&gt;选择目录&lt;/button&gt;&lt;/div&gt;&lt;p class=&quot;rt-drop-copy&quot;&gt;选择内容后进入配置步骤，目标游戏目录不会默认选中。&lt;/p&gt;&lt;/div&gt;&lt;/div&gt;
           &lt;section class=&quot;rt-panel rt-multidisc-mode&quot;&gt;&lt;div class=&quot;rt-multidisc-mode-head&quot;&gt;&lt;div class=&quot;rt-multidisc-mode-copy&quot;&gt;&lt;span class=&quot;rt-badge rt-badge-purple&quot;&gt;Saturn · Yabause 支持&lt;/span&gt;&lt;h2&gt;多盘游戏（M3U + CHD）&lt;/h2&gt;&lt;p&gt;目录中检测到 M3U，已自动选择多盘模式。每个 M3U 的直接父目录形成一款游戏；提交时仍由服务端重新校验。&lt;/p&gt;&lt;/div&gt;&lt;label class=&quot;rt-confirm-row&quot;&gt;&lt;input type=&quot;checkbox&quot; checked&gt;&lt;span&gt;使用多盘模式&lt;/span&gt;&lt;/label&gt;&lt;/div&gt;&lt;div class=&quot;rt-multidisc-summary&quot;&gt;&lt;div&gt;&lt;span&gt;发现多盘游戏&lt;/span&gt;&lt;strong&gt;2&lt;/strong&gt;&lt;/div&gt;&lt;div&gt;&lt;span&gt;内容完整&lt;/span&gt;&lt;strong&gt;1&lt;/strong&gt;&lt;/div&gt;&lt;div&gt;&lt;span&gt;待补齐&lt;/span&gt;&lt;strong&gt;1&lt;/strong&gt;&lt;/div&gt;&lt;div&gt;&lt;span&gt;不可处理目录&lt;/span&gt;&lt;strong&gt;0&lt;/strong&gt;&lt;/div&gt;&lt;div&gt;&lt;span&gt;未关联文件&lt;/span&gt;&lt;strong&gt;3&lt;/strong&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&quot;rt-disc-list&quot;&gt;&lt;div class=&quot;rt-disc-row&quot;&gt;&lt;strong&gt;游戏 1&lt;/strong&gt;&lt;span&gt;Panzer Dragoon Saga / game.m3u&lt;/span&gt;&lt;code&gt;4 / 4 张&lt;/code&gt;&lt;span class=&quot;rt-badge rt-badge-green&quot;&gt;完整&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;rt-disc-row&quot;&gt;&lt;strong&gt;游戏 2&lt;/strong&gt;&lt;span&gt;NOeL 3 / NOeL 3.m3u&lt;/span&gt;&lt;code&gt;2 / 3 张&lt;/code&gt;&lt;span class=&quot;rt-badge rt-badge-amber&quot;&gt;缺光盘 3&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&quot;rt-dialog-actions&quot;&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button&quot;&gt;返回重选目录&lt;/button&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button rt-button-primary&quot;&gt;继续上传 2 个多盘游戏&lt;/button&gt;&lt;/div&gt;&lt;/section&gt;
           &lt;section class=&quot;rt-panel rt-import-settings&quot;&gt;&lt;div class=&quot;rt-section-head&quot;&gt;&lt;div&gt;&lt;h2&gt;批次默认标签&lt;/h2&gt;&lt;p class=&quot;rt-subtitle&quot;&gt;只选择已经建立的活动标签；每个待审核游戏都可再单独调整。&lt;/p&gt;&lt;/div&gt;&lt;span class=&quot;rt-badge rt-badge-purple&quot;&gt;2 / 20&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;rt-tag-picker&quot;&gt;&lt;div class=&quot;rt-tag-list&quot;&gt;&lt;span class=&quot;rt-tag-pill&quot;&gt;掌机　×&lt;/span&gt;&lt;span class=&quot;rt-tag-pill&quot;&gt;剧情　×&lt;/span&gt;&lt;/div&gt;&lt;input class=&quot;rt-input&quot; placeholder=&quot;搜索并添加标签&quot; aria-label=&quot;批次默认标签&quot;&gt;&lt;small&gt;没有合适标签时，请先前往标签管理建立。&lt;/small&gt;&lt;/div&gt;&lt;/section&gt;
@@ -2938,6 +3044,28 @@
           &lt;div class=&quot;rt-review-bulk-meter&quot; aria-label=&quot;快速审批进度 11 / 19&quot;&gt;&lt;i&gt;&lt;/i&gt;&lt;/div&gt;
           &lt;div class=&quot;rt-review-bulk-stats&quot;&gt;&lt;span&gt;&lt;small&gt;已发布&lt;/small&gt;&lt;strong&gt;10&lt;/strong&gt;&lt;/span&gt;&lt;span&gt;&lt;small&gt;需要人工处理&lt;/small&gt;&lt;strong&gt;1&lt;/strong&gt;&lt;/span&gt;&lt;span&gt;&lt;small&gt;失败&lt;/small&gt;&lt;strong&gt;0&lt;/strong&gt;&lt;/span&gt;&lt;span&gt;&lt;small&gt;未处理 / 取消&lt;/small&gt;&lt;strong&gt;8&lt;/strong&gt;&lt;/span&gt;&lt;/div&gt;
           &lt;div class=&quot;rt-review-bulk-results&quot;&gt;&lt;strong&gt;需要人工处理的项目&lt;/strong&gt;&lt;a href=&quot;#&quot;&gt;&lt;span&gt;Shock Troopers&lt;/span&gt;&lt;small&gt;发布前发现重复内容&lt;/small&gt;&lt;/a&gt;&lt;/div&gt;
+        &lt;/section&gt;
+        &lt;section class=&quot;rt-rpg-review-design&quot; data-rpg-review-design hidden aria-label=&quot;RPG Maker 运行审核详情&quot;&gt;
+          &lt;div class=&quot;rt-rpg-review-top&quot;&gt;
+            &lt;article class=&quot;rt-rpg-card&quot;&gt;
+              &lt;div class=&quot;rt-section-head&quot;&gt;&lt;div&gt;&lt;span class=&quot;rt-badge rt-badge-purple&quot;&gt;RPG Maker MZ · runtime binding r7&lt;/span&gt;&lt;h2&gt;魔法少女露娜的劫难&lt;/h2&gt;&lt;p&gt;原始项目已冻结为当前内容 revision；更换同平台目录会生成新 binding，并把本次验证标为历史。&lt;/p&gt;&lt;/div&gt;&lt;span class=&quot;rt-badge rt-badge-green&quot;&gt;机器验证通过&lt;/span&gt;&lt;/div&gt;
+              &lt;div class=&quot;rt-rpg-binding&quot;&gt;&lt;div&gt;&lt;span&gt;所选版本&lt;/span&gt;&lt;strong&gt;RPG Maker MZ&lt;/strong&gt;&lt;/div&gt;&lt;div&gt;&lt;span&gt;内容校验&lt;/span&gt;&lt;strong&gt;一致&lt;/strong&gt;&lt;/div&gt;&lt;div&gt;&lt;span&gt;运行包&lt;/span&gt;&lt;strong&gt;项目自包含&lt;/strong&gt;&lt;/div&gt;&lt;div&gt;&lt;span&gt;运行验证&lt;/span&gt;&lt;strong&gt;14 / 14 PASS&lt;/strong&gt;&lt;/div&gt;&lt;/div&gt;
+            &lt;/article&gt;
+            &lt;aside class=&quot;rt-rpg-card rt-rpg-decision&quot;&gt;&lt;div&gt;&lt;h2&gt;审核决定&lt;/h2&gt;&lt;p&gt;只有当前 binding 的机器 gate 全部 PASS 才可做人工决定；截图不能覆盖失败。&lt;/p&gt;&lt;/div&gt;&lt;div class=&quot;rt-rpg-decision-status&quot; data-rpg-review-decision&gt;AWAITING_DECISION · 可以决定&lt;/div&gt;&lt;div class=&quot;rt-rpg-state-switch&quot; role=&quot;tablist&quot; aria-label=&quot;验证展示状态&quot;&gt;&lt;button type=&quot;button&quot; data-rpg-review-state=&quot;blocked&quot;&gt;阻断&lt;/button&gt;&lt;button type=&quot;button&quot; data-rpg-review-state=&quot;running&quot;&gt;验证中&lt;/button&gt;&lt;button type=&quot;button&quot; data-rpg-review-state=&quot;stale&quot;&gt;已过期&lt;/button&gt;&lt;button type=&quot;button&quot; class=&quot;is-active&quot; data-rpg-review-state=&quot;decision&quot;&gt;待决定&lt;/button&gt;&lt;/div&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button&quot;&gt;标记失败&lt;/button&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button rt-button-primary&quot; data-rpg-review-approve&gt;通过并发布&lt;/button&gt;&lt;/aside&gt;
+          &lt;/div&gt;
+          &lt;div class=&quot;rt-rpg-review-columns&quot;&gt;
+            &lt;div style=&quot;display:grid;gap:14px&quot;&gt;
+              &lt;article class=&quot;rt-rpg-card&quot;&gt;&lt;h3&gt;运行与 pack&lt;/h3&gt;&lt;div class=&quot;rt-rpg-preflight&quot;&gt;&lt;div&gt;&lt;span&gt;Core / route&lt;/span&gt;&lt;strong&gt;rpgmaker_mz · RPGMZ_NATIVE_V3&lt;/strong&gt;&lt;/div&gt;&lt;div&gt;&lt;span&gt;Artifact&lt;/span&gt;&lt;strong&gt;v3 · selected&lt;/strong&gt;&lt;/div&gt;&lt;div&gt;&lt;span&gt;Adapter identity&lt;/span&gt;&lt;strong&gt;rpg-native-web-v1&lt;/strong&gt;&lt;/div&gt;&lt;div&gt;&lt;span&gt;Payload ABI&lt;/span&gt;&lt;strong&gt;rpg-native-save-v1&lt;/strong&gt;&lt;/div&gt;&lt;div&gt;&lt;span&gt;Pack slot&lt;/span&gt;&lt;strong&gt;无 · MV/MZ 项目自包含&lt;/strong&gt;&lt;/div&gt;&lt;div&gt;&lt;span&gt;隔离能力&lt;/span&gt;&lt;strong&gt;唯一 origin · sandbox iframe · MessageChannel&lt;/strong&gt;&lt;/div&gt;&lt;/div&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button&quot; style=&quot;margin-top:12px&quot;&gt;前往运行依赖&lt;/button&gt;&lt;/article&gt;
+              &lt;article class=&quot;rt-rpg-card&quot;&gt;&lt;h3&gt;不同 Launch 恢复&lt;/h3&gt;&lt;p&gt;Capability 只在各自 Player 内使用；审核页仅展示非秘密 Launch ID 用于关联。&lt;/p&gt;&lt;div class=&quot;rt-rpg-launches&quot;&gt;originalLaunchId&amp;nbsp; · 01A-RPG-ORIGINAL&lt;br&gt;restoreLaunchId&amp;nbsp;&amp;nbsp; · 01A-RPG-RESTORE&lt;br&gt;lastGateSequence · 28 / 28&lt;br&gt;checkpoint&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp; · save-state-r7&lt;/div&gt;&lt;/article&gt;
+              &lt;article class=&quot;rt-rpg-card&quot;&gt;&lt;h3&gt;位置与输入证据&lt;/h3&gt;&lt;div class=&quot;rt-rpg-evidence&quot;&gt;&lt;div&gt;&lt;span&gt;初始 A&lt;/span&gt;&lt;strong&gt;地图 1 · X 4 · Y 7 · 变量 0&lt;/strong&gt;&lt;/div&gt;&lt;div&gt;&lt;span&gt;保存 B&lt;/span&gt;&lt;strong&gt;地图 1 · X 8 · Y 7 · 变量 1&lt;/strong&gt;&lt;/div&gt;&lt;div&gt;&lt;span&gt;继续 C&lt;/span&gt;&lt;strong&gt;地图 1 · X 11 · Y 7 · 变量 2&lt;/strong&gt;&lt;/div&gt;&lt;div&gt;&lt;span&gt;恢复到 B&lt;/span&gt;&lt;strong&gt;地图 1 · X 8 · Y 7 · 变量 1&lt;/strong&gt;&lt;/div&gt;&lt;div&gt;&lt;span&gt;恢复后输入&lt;/span&gt;&lt;strong&gt;地图 1 · X 9 · Y 7 · 变量 1&lt;/strong&gt;&lt;/div&gt;&lt;/div&gt;&lt;p style=&quot;margin-top:10px&quot;&gt;已证明 A ≠ B、B ≠ C、恢复位置 = B，且恢复后输入位置 ≠ B。&lt;/p&gt;&lt;/article&gt;
+            &lt;/div&gt;
+            &lt;article class=&quot;rt-rpg-card&quot;&gt;
+              &lt;div class=&quot;rt-section-head&quot;&gt;&lt;div&gt;&lt;h2&gt;14 个有序 machine gate&lt;/h2&gt;&lt;p class=&quot;rt-subtitle&quot; data-rpg-review-copy&gt;最终状态 · 新 Player 页面会从服务端第一个未完成动作继续，不重放 BEGIN / PASS。&lt;/p&gt;&lt;/div&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button&quot;&gt;在 Player 中查看&lt;/button&gt;&lt;/div&gt;
+              &lt;div class=&quot;rt-rpg-gates&quot; aria-label=&quot;14 个运行验证 gate&quot;&gt;
+                &lt;div class=&quot;rt-rpg-gate&quot;&gt;&lt;strong&gt;RUNTIME_READY · 运行时已就绪&lt;/strong&gt;&lt;span&gt;PASS&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;rt-rpg-gate&quot;&gt;&lt;strong&gt;ENGINE_PROFILE · RPGMZ / mz-v1 / rpg-native-web-v1&lt;/strong&gt;&lt;span&gt;PASS&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;rt-rpg-gate&quot;&gt;&lt;strong&gt;FRAMES_300 · 360&lt;/strong&gt;&lt;span&gt;PASS&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;rt-rpg-gate&quot;&gt;&lt;strong&gt;INPUT · observed=true&lt;/strong&gt;&lt;span&gt;PASS&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;rt-rpg-gate&quot;&gt;&lt;strong&gt;AUDIO · observed=true&lt;/strong&gt;&lt;span&gt;PASS&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;rt-rpg-gate&quot;&gt;&lt;strong&gt;INITIAL_POSITION_RECORDED · 地图 1 / X 4 / Y 7 / 变量 0&lt;/strong&gt;&lt;span&gt;PASS&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;rt-rpg-gate&quot;&gt;&lt;strong&gt;SAVE_POINT_RECORDED · 地图 1 / X 8 / Y 7 / 变量 1&lt;/strong&gt;&lt;span&gt;PASS&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;rt-rpg-gate&quot;&gt;&lt;strong&gt;CHECKPOINT_CREATED · NATIVE_SAVE_BUNDLE_V1 / SHA-256 4f1c…&lt;/strong&gt;&lt;span&gt;PASS&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;rt-rpg-gate&quot;&gt;&lt;strong&gt;POST_SAVE_STATE_DIVERGED · 地图 1 / X 11 / Y 7 / 变量 2&lt;/strong&gt;&lt;span&gt;PASS&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;rt-rpg-gate&quot;&gt;&lt;strong&gt;ORIGINAL_LAUNCH_ENDED · original 已结束&lt;/strong&gt;&lt;span&gt;PASS&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;rt-rpg-gate&quot;&gt;&lt;strong&gt;RESTORE_STARTED · 不同 Launch&lt;/strong&gt;&lt;span&gt;PASS&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;rt-rpg-gate&quot;&gt;&lt;strong&gt;RESTORE_POSITION_VERIFIED · 地图 1 / X 8 / Y 7 / 变量 1&lt;/strong&gt;&lt;span&gt;PASS&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;rt-rpg-gate&quot;&gt;&lt;strong&gt;RESTORE_SCREENSHOT · 已关联&lt;/strong&gt;&lt;span&gt;PASS&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;rt-rpg-gate&quot;&gt;&lt;strong&gt;RESTORE_INPUT · 地图 1 / X 9 / Y 7 / 变量 1&lt;/strong&gt;&lt;span&gt;PASS&lt;/span&gt;&lt;/div&gt;
+              &lt;/div&gt;
+            &lt;/article&gt;
+          &lt;/div&gt;
         &lt;/section&gt;
         &lt;div class=&quot;rt-review-workspace&quot; data-review-workspace&gt;
           &lt;section class=&quot;rt-panel rt-review-queue&quot; aria-label=&quot;待审核队列&quot; data-review-view=&quot;list&quot;&gt;
@@ -3134,7 +3262,9 @@
       &lt;/section&gt;
 
       &lt;section class=&quot;rt-page&quot; data-page=&quot;admin-bios&quot;&gt;
-          &lt;div class=&quot;rt-page-head&quot;&gt;&lt;div&gt;&lt;div class=&quot;rt-eyebrow&quot;&gt;运行依赖&lt;/div&gt;&lt;h1&gt;BIOS 文件&lt;/h1&gt;&lt;p class=&quot;rt-subtitle&quot;&gt;管理游戏运行所需的系统文件。Arcade DAT 随核心版本由系统自动准备，无需手动上传或切换。&lt;/p&gt;&lt;/div&gt;&lt;/div&gt;
+          &lt;div class=&quot;rt-page-head&quot;&gt;&lt;div&gt;&lt;div class=&quot;rt-eyebrow&quot;&gt;管理后台&lt;/div&gt;&lt;h1&gt;运行依赖&lt;/h1&gt;&lt;p class=&quot;rt-subtitle&quot;&gt;BIOS 与 RPG Maker 运行包在同一页面分栏管理；深链会保留当前 tab。&lt;/p&gt;&lt;/div&gt;&lt;/div&gt;
+          &lt;div class=&quot;rt-runtime-tabs&quot; role=&quot;tablist&quot; aria-label=&quot;运行依赖分类&quot;&gt;&lt;button type=&quot;button&quot; class=&quot;is-active&quot; role=&quot;tab&quot; aria-selected=&quot;true&quot; data-runtime-tab=&quot;bios&quot;&gt;BIOS 文件&lt;/button&gt;&lt;button type=&quot;button&quot; role=&quot;tab&quot; aria-selected=&quot;false&quot; data-runtime-tab=&quot;rpgmaker&quot;&gt;RPG Maker 运行包&lt;/button&gt;&lt;/div&gt;
+          &lt;div data-runtime-panel=&quot;bios&quot; role=&quot;tabpanel&quot;&gt;
           &lt;div class=&quot;rt-runtime-scope&quot;&gt;&lt;button type=&quot;button&quot; class=&quot;is-active&quot;&gt;当前游戏库需要 &lt;strong&gt;12&lt;/strong&gt;&lt;/button&gt;&lt;button type=&quot;button&quot;&gt;完整 BIOS 目录 &lt;strong&gt;27&lt;/strong&gt;&lt;/button&gt;&lt;/div&gt;
           &lt;div class=&quot;rt-runtime-kpis&quot;&gt;&lt;article&gt;&lt;span&gt;当前范围&lt;/span&gt;&lt;strong&gt;12&lt;/strong&gt;&lt;small&gt;游戏库实际引用的依赖&lt;/small&gt;&lt;/article&gt;&lt;article&gt;&lt;span&gt;缺失 / 阻断&lt;/span&gt;&lt;strong&gt;2&lt;/strong&gt;&lt;small&gt;必需文件缺失会阻断相关游戏&lt;/small&gt;&lt;/article&gt;&lt;article&gt;&lt;span&gt;需要核对&lt;/span&gt;&lt;strong&gt;1&lt;/strong&gt;&lt;small&gt;哈希不同仍可启动，建议替换&lt;/small&gt;&lt;/article&gt;&lt;article&gt;&lt;span&gt;已就绪&lt;/span&gt;&lt;strong&gt;9&lt;/strong&gt;&lt;small&gt;已经安装并通过当前校验&lt;/small&gt;&lt;/article&gt;&lt;/div&gt;
           &lt;div class=&quot;rt-runtime-toolbar&quot;&gt;&lt;label&gt;搜索文件或运行方式&lt;input class=&quot;rt-input&quot; placeholder=&quot;例如 gba_bios.bin 或 mGBA&quot;&gt;&lt;/label&gt;&lt;label&gt;运行方式&lt;select class=&quot;rt-select&quot;&gt;&lt;option&gt;全部运行方式&lt;/option&gt;&lt;option&gt;FinalBurn Neo&lt;/option&gt;&lt;option&gt;mGBA&lt;/option&gt;&lt;/select&gt;&lt;/label&gt;&lt;label&gt;文件状态&lt;select class=&quot;rt-select&quot;&gt;&lt;option&gt;所有状态&lt;/option&gt;&lt;option&gt;缺少文件&lt;/option&gt;&lt;option&gt;校验值不一致&lt;/option&gt;&lt;option&gt;已安装并匹配&lt;/option&gt;&lt;/select&gt;&lt;/label&gt;&lt;/div&gt;
@@ -3147,6 +3277,27 @@
           &lt;/div&gt;
           &lt;div class=&quot;rt-runtime-section-head&quot;&gt;&lt;div&gt;&lt;h2&gt;已就绪与可选项&lt;/h2&gt;&lt;p&gt;这些依赖当前不会阻断游戏运行。&lt;/p&gt;&lt;/div&gt;&lt;span&gt;9 项&lt;/span&gt;&lt;/div&gt;
           &lt;div class=&quot;rt-runtime-list&quot;&gt;&lt;div class=&quot;rt-runtime-bios-row&quot;&gt;&lt;div class=&quot;rt-runtime-file&quot;&gt;&lt;i&gt;ZIP&lt;/i&gt;&lt;div&gt;&lt;button type=&quot;button&quot; class=&quot;rt-runtime-entry-button&quot; data-open-bios-entries&gt;stvbios.zip&lt;/button&gt;&lt;small&gt;必需 · 点击文件名核对 ZIP 内容&lt;/small&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&quot;rt-runtime-cell&quot;&gt;&lt;strong&gt;MAME 2003 Plus&lt;/strong&gt;&lt;small&gt;mame2003_plus&lt;/small&gt;&lt;/div&gt;&lt;span class=&quot;rt-badge rt-badge-green&quot;&gt;已安装并匹配&lt;/span&gt;&lt;div class=&quot;rt-runtime-cell&quot;&gt;&lt;strong&gt;当前游戏库已就绪&lt;/strong&gt;&lt;small&gt;DAT 条目级校验已通过&lt;/small&gt;&lt;/div&gt;&lt;div class=&quot;rt-runtime-actions&quot;&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button&quot;&gt;替换文件&lt;/button&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&quot;rt-runtime-bios-row&quot;&gt;&lt;div class=&quot;rt-runtime-file&quot;&gt;&lt;i&gt;BIOS&lt;/i&gt;&lt;div&gt;&lt;strong&gt;gb_bios.bin&lt;/strong&gt;&lt;small&gt;可选 · 按游戏内容决定是否需要&lt;/small&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&quot;rt-runtime-cell&quot;&gt;&lt;strong&gt;Gambatte&lt;/strong&gt;&lt;small&gt;gambatte&lt;/small&gt;&lt;/div&gt;&lt;span class=&quot;rt-badge rt-badge-green&quot;&gt;已安装并匹配&lt;/span&gt;&lt;div class=&quot;rt-runtime-cell&quot;&gt;&lt;strong&gt;当前游戏库已就绪&lt;/strong&gt;&lt;small&gt;未安装可选项不会作为必需依赖阻断&lt;/small&gt;&lt;/div&gt;&lt;div class=&quot;rt-runtime-actions&quot;&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button&quot;&gt;替换文件&lt;/button&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;
+          &lt;/div&gt;
+          &lt;div data-runtime-panel=&quot;rpgmaker&quot; role=&quot;tabpanel&quot; hidden&gt;
+            &lt;div class=&quot;rt-rpg-pack-summary&quot;&gt;&lt;article&gt;&lt;span&gt;已登记核心&lt;/span&gt;&lt;strong&gt;7&lt;/strong&gt;&lt;small&gt;2000 / 2003 / XP / VX / VX Ace / MV / MZ&lt;/small&gt;&lt;/article&gt;&lt;article&gt;&lt;span&gt;缺少运行包&lt;/span&gt;&lt;strong&gt;1&lt;/strong&gt;&lt;small&gt;VX Ace RTP 需要安装&lt;/small&gt;&lt;/article&gt;&lt;article&gt;&lt;span&gt;启动阻断&lt;/span&gt;&lt;strong&gt;1&lt;/strong&gt;&lt;small&gt;按 selected artifact 实时诊断&lt;/small&gt;&lt;/article&gt;&lt;/div&gt;
+            &lt;div class=&quot;rt-section-head&quot;&gt;&lt;div&gt;&lt;h2&gt;RPG Maker 核心路线诊断&lt;/h2&gt;&lt;p class=&quot;rt-subtitle&quot;&gt;内部 route 与 artifact 只对管理员展示；普通用户核心选择器不显示这些字段。&lt;/p&gt;&lt;/div&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button rt-button-primary&quot; data-open-rpg-pack-drawer&gt;上传运行包&lt;/button&gt;&lt;/div&gt;
+            &lt;div class=&quot;rt-rpg-core-grid&quot;&gt;
+              &lt;article class=&quot;rt-rpg-core-card&quot;&gt;&lt;header&gt;&lt;strong&gt;RPG Maker 2000&lt;/strong&gt;&lt;span class=&quot;rt-badge rt-badge-green&quot;&gt;可启动&lt;/span&gt;&lt;/header&gt;&lt;small&gt;rpgmaker_2000 · RPG2000_EASYRPG_0811_V4&lt;/small&gt;&lt;code&gt;0.8.1.1-v4 · easyrpg-web-v1&lt;/code&gt;&lt;/article&gt;
+              &lt;article class=&quot;rt-rpg-core-card&quot;&gt;&lt;header&gt;&lt;strong&gt;RPG Maker 2003&lt;/strong&gt;&lt;span class=&quot;rt-badge rt-badge-green&quot;&gt;可启动&lt;/span&gt;&lt;/header&gt;&lt;small&gt;rpgmaker_2003 · RPG2003_EASYRPG_0811_V4&lt;/small&gt;&lt;code&gt;0.8.1.1-v4 · easyrpg-web-v1&lt;/code&gt;&lt;/article&gt;
+              &lt;article class=&quot;rt-rpg-core-card&quot;&gt;&lt;header&gt;&lt;strong&gt;RPG Maker XP&lt;/strong&gt;&lt;span class=&quot;rt-badge rt-badge-green&quot;&gt;可启动&lt;/span&gt;&lt;/header&gt;&lt;small&gt;rpgmaker_xp · RPGXP_MKXPZ_F2EFC98_V5&lt;/small&gt;&lt;code&gt;f2efc98-v5 · mkxp-z-libretro-v4&lt;/code&gt;&lt;/article&gt;
+              &lt;article class=&quot;rt-rpg-core-card&quot;&gt;&lt;header&gt;&lt;strong&gt;RPG Maker VX&lt;/strong&gt;&lt;span class=&quot;rt-badge rt-badge-green&quot;&gt;可启动&lt;/span&gt;&lt;/header&gt;&lt;small&gt;rpgmaker_vx · RPGVX_MKXPZ_F2EFC98_V5&lt;/small&gt;&lt;code&gt;f2efc98-v5 · mkxp-z-libretro-v4&lt;/code&gt;&lt;/article&gt;
+              &lt;article class=&quot;rt-rpg-core-card&quot;&gt;&lt;header&gt;&lt;strong&gt;RPG Maker VX Ace&lt;/strong&gt;&lt;span class=&quot;rt-badge rt-badge-red&quot;&gt;缺少 pack&lt;/span&gt;&lt;/header&gt;&lt;small&gt;rpgmaker_vx_ace · RPGVXACE_MKXPZ_F2EFC98_V5&lt;/small&gt;&lt;code&gt;f2efc98-v5 · mkxp-z-libretro-v4&lt;/code&gt;&lt;/article&gt;
+              &lt;article class=&quot;rt-rpg-core-card&quot;&gt;&lt;header&gt;&lt;strong&gt;RPG Maker MV&lt;/strong&gt;&lt;span class=&quot;rt-badge rt-badge-green&quot;&gt;自包含&lt;/span&gt;&lt;/header&gt;&lt;small&gt;rpgmaker_mv · RPGMV_NATIVE_V3&lt;/small&gt;&lt;code&gt;v3 · rpg-native-web-v1&lt;/code&gt;&lt;/article&gt;
+              &lt;article class=&quot;rt-rpg-core-card&quot;&gt;&lt;header&gt;&lt;strong&gt;RPG Maker MZ&lt;/strong&gt;&lt;span class=&quot;rt-badge rt-badge-green&quot;&gt;自包含&lt;/span&gt;&lt;/header&gt;&lt;small&gt;rpgmaker_mz · RPGMZ_NATIVE_V3&lt;/small&gt;&lt;code&gt;v3 · rpg-native-web-v1&lt;/code&gt;&lt;/article&gt;
+            &lt;/div&gt;
+            &lt;div class=&quot;rt-runtime-section-head&quot;&gt;&lt;div&gt;&lt;h2&gt;运行包 installation&lt;/h2&gt;&lt;p&gt;声明名和文件摘要来自 pack definition；同一定义的多个 READY installation 并列保留。&lt;/p&gt;&lt;/div&gt;&lt;span&gt;5 个定义&lt;/span&gt;&lt;/div&gt;
+            &lt;div class=&quot;rt-rpg-pack-list&quot;&gt;
+              &lt;article class=&quot;rt-rpg-pack-row&quot;&gt;&lt;div&gt;&lt;strong&gt;RPG Maker 2000 RTP&lt;/strong&gt;&lt;small&gt;声明名 RPG2000 RTP · 1,126 个文件&lt;/small&gt;&lt;/div&gt;&lt;div&gt;&lt;strong&gt;82.4 MiB&lt;/strong&gt;&lt;small&gt;2026/8/24 上传&lt;/small&gt;&lt;/div&gt;&lt;div&gt;&lt;span class=&quot;rt-badge rt-badge-green&quot;&gt;READY&lt;/span&gt;&lt;small&gt;来源：自有合法介质&lt;/small&gt;&lt;/div&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button&quot; disabled title=&quot;3 个游戏正在引用&quot;&gt;删除 · 引用 3&lt;/button&gt;&lt;/article&gt;
+              &lt;article class=&quot;rt-rpg-pack-row&quot;&gt;&lt;div&gt;&lt;strong&gt;RPG Maker 2003 RTP&lt;/strong&gt;&lt;small&gt;声明名 RPG2003 RTP · 1,442 个文件&lt;/small&gt;&lt;/div&gt;&lt;div&gt;&lt;strong&gt;106.8 MiB&lt;/strong&gt;&lt;small&gt;2026/8/24 上传&lt;/small&gt;&lt;/div&gt;&lt;div&gt;&lt;span class=&quot;rt-badge rt-badge-green&quot;&gt;READY × 2&lt;/span&gt;&lt;small&gt;两个 installation 均保留&lt;/small&gt;&lt;/div&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button&quot;&gt;查看版本&lt;/button&gt;&lt;/article&gt;
+              &lt;article class=&quot;rt-rpg-pack-row&quot;&gt;&lt;div&gt;&lt;strong&gt;RPG Maker VX Ace RTP&lt;/strong&gt;&lt;small&gt;声明名 RPGVXAce RTP&lt;/small&gt;&lt;/div&gt;&lt;div&gt;&lt;strong&gt;—&lt;/strong&gt;&lt;small&gt;尚未上传&lt;/small&gt;&lt;/div&gt;&lt;div&gt;&lt;span class=&quot;rt-badge rt-badge-red&quot;&gt;MISSING&lt;/span&gt;&lt;small&gt;阻断绑定此 pack 的项目&lt;/small&gt;&lt;/div&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button rt-button-primary&quot; data-open-rpg-pack-drawer&gt;安装&lt;/button&gt;&lt;/article&gt;
+              &lt;article class=&quot;rt-rpg-pack-row&quot;&gt;&lt;div&gt;&lt;strong&gt;RPG Maker MV / MZ&lt;/strong&gt;&lt;small&gt;项目自包含&lt;/small&gt;&lt;/div&gt;&lt;div&gt;&lt;strong&gt;无需 pack&lt;/strong&gt;&lt;small&gt;无上传入口&lt;/small&gt;&lt;/div&gt;&lt;div&gt;&lt;span class=&quot;rt-badge rt-badge-green&quot;&gt;N/A&lt;/span&gt;&lt;small&gt;随项目 Web payload 发布&lt;/small&gt;&lt;/div&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button&quot; disabled&gt;无需操作&lt;/button&gt;&lt;/article&gt;
+            &lt;/div&gt;
+          &lt;/div&gt;
       &lt;/section&gt;
       &lt;section class=&quot;rt-page&quot; data-page=&quot;admin-storage&quot;&gt;
         &lt;div class=&quot;rt-page-head&quot;&gt;&lt;div&gt;&lt;div class=&quot;rt-eyebrow&quot;&gt;系统存储&lt;/div&gt;&lt;h1&gt;容量分析&lt;/h1&gt;&lt;p class=&quot;rt-subtitle&quot;&gt;查看 Retrom 已登记 CAS 数据的业务用途，定位长期数据、流程数据与等待回收内容。&lt;/p&gt;&lt;/div&gt;&lt;div class=&quot;rt-page-head-actions&quot;&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button rt-button-danger&quot; data-open-storage-cleanup&gt;立即清理&lt;/button&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button&quot;&gt;刷新分析&lt;/button&gt;&lt;/div&gt;&lt;/div&gt;
@@ -3175,6 +3326,13 @@
   &lt;div class=&quot;rt-dialog-backdrop&quot; data-review-bulk-dialog hidden&gt;&lt;section class=&quot;rt-dialog rt-review-bulk-dialog&quot; role=&quot;dialog&quot; aria-modal=&quot;true&quot; aria-labelledby=&quot;rt-review-bulk-title&quot;&gt;&lt;div&gt;&lt;span class=&quot;rt-badge rt-badge-purple&quot;&gt;严格 READY&lt;/span&gt;&lt;h2 id=&quot;rt-review-bulk-title&quot; style=&quot;margin-top:8px&quot;&gt;快速审批可直接发布的游戏&lt;/h2&gt;&lt;p class=&quot;rt-dialog-copy&quot;&gt;系统会冻结当前筛选范围，并在后台逐项重新验证后发布。&lt;/p&gt;&lt;/div&gt;&lt;div class=&quot;rt-review-bulk-preview&quot;&gt;&lt;div class=&quot;rt-review-bulk-scope&quot;&gt;&lt;strong&gt;审批范围&lt;/strong&gt;&lt;span data-review-dialog-scope&gt;Pegasus 批次的全部分页结果&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;rt-review-bulk-preview-counts&quot;&gt;&lt;span&gt;&lt;small&gt;可自动发布&lt;/small&gt;&lt;strong&gt;19&lt;/strong&gt;&lt;/span&gt;&lt;span&gt;&lt;small&gt;匹配待审核&lt;/small&gt;&lt;strong&gt;42&lt;/strong&gt;&lt;/span&gt;&lt;/div&gt;&lt;ul&gt;&lt;li&gt;检查未通过或证据已过期 &lt;strong&gt;12&lt;/strong&gt;&lt;/li&gt;&lt;li&gt;发现重复内容 &lt;strong&gt;3&lt;/strong&gt;&lt;/li&gt;&lt;li&gt;仅有运行截图人工放行 &lt;strong&gt;6&lt;/strong&gt;&lt;/li&gt;&lt;li&gt;附件仍在处理 &lt;strong&gt;2&lt;/strong&gt;&lt;/li&gt;&lt;li&gt;hidden/adult 来源标记需逐项核对 &lt;strong data-review-source-flagged&gt;0&lt;/strong&gt;&lt;/li&gt;&lt;/ul&gt;&lt;p class=&quot;rt-review-bulk-warning&quot;&gt;将使用当前已保存的信息。执行中发生变化的项目会被跳过；取消不会回滚已经发布的游戏。&lt;/p&gt;&lt;/div&gt;&lt;div class=&quot;rt-dialog-actions&quot;&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button&quot; data-close-review-bulk&gt;取消&lt;/button&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button rt-button-primary&quot; data-confirm-review-bulk&gt;确认快速发布 19 个游戏&lt;/button&gt;&lt;/div&gt;&lt;/section&gt;&lt;/div&gt;
 
   &lt;div class=&quot;rt-dialog-backdrop&quot; data-review-bulk-cancel-dialog hidden&gt;&lt;section class=&quot;rt-dialog&quot; role=&quot;alertdialog&quot; aria-modal=&quot;true&quot; aria-labelledby=&quot;rt-review-bulk-cancel-title&quot;&gt;&lt;div class=&quot;rt-dialog-head&quot;&gt;&lt;span class=&quot;rt-dialog-mark&quot; aria-hidden=&quot;true&quot;&gt;i&lt;/span&gt;&lt;div&gt;&lt;h2 id=&quot;rt-review-bulk-cancel-title&quot;&gt;停止快速审批？&lt;/h2&gt;&lt;p class=&quot;rt-dialog-copy&quot;&gt;只会停止尚未提交的项目；已经发布的游戏不会被撤销。&lt;/p&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&quot;rt-dialog-actions&quot;&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button&quot; data-close-review-bulk-cancel&gt;继续审批&lt;/button&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button rt-button-primary&quot; data-confirm-review-bulk-cancel&gt;停止未处理项目&lt;/button&gt;&lt;/div&gt;&lt;/section&gt;&lt;/div&gt;
+
+  &lt;button type=&quot;button&quot; class=&quot;rt-runtime-drawer-backdrop&quot; data-rpg-pack-drawer-backdrop aria-label=&quot;关闭运行包安装&quot; hidden&gt;&lt;/button&gt;
+  &lt;aside class=&quot;rt-runtime-drawer rt-rpg-pack-drawer&quot; data-rpg-pack-drawer role=&quot;dialog&quot; aria-modal=&quot;true&quot; aria-labelledby=&quot;rt-rpg-pack-drawer-title&quot; hidden&gt;
+    &lt;header&gt;&lt;div&gt;&lt;span class=&quot;rt-badge rt-badge-purple&quot;&gt;RPG Maker 运行包&lt;/span&gt;&lt;h2 id=&quot;rt-rpg-pack-drawer-title&quot; tabindex=&quot;-1&quot;&gt;安装新的 pack installation&lt;/h2&gt;&lt;p&gt;每次上传都创建新 installation，不静默替换已有 READY 版本。&lt;/p&gt;&lt;/div&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button&quot; data-close-rpg-pack-drawer aria-label=&quot;关闭&quot;&gt;&lt;i data-lucide=&quot;x&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;&lt;/button&gt;&lt;/header&gt;
+    &lt;div class=&quot;rt-runtime-drawer-body&quot;&gt;&lt;label class=&quot;rt-field&quot;&gt;&lt;span class=&quot;rt-label&quot;&gt;Pack definition&lt;/span&gt;&lt;select class=&quot;rt-select&quot;&gt;&lt;option&gt;RPG Maker VX Ace RTP&lt;/option&gt;&lt;option&gt;RPG Maker VX RTP&lt;/option&gt;&lt;option&gt;RPG Maker XP RTP&lt;/option&gt;&lt;/select&gt;&lt;/label&gt;&lt;div class=&quot;rt-rpg-drop&quot;&gt;&lt;div&gt;&lt;strong&gt;选择一个目录或 ZIP / 7z&lt;/strong&gt;&lt;p class=&quot;rt-subtitle&quot;&gt;将按 definition 校验声明名、必要文件、文件数与总量。&lt;/p&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button rt-button-primary&quot;&gt;选择运行包&lt;/button&gt;&lt;/div&gt;&lt;/div&gt;&lt;label class=&quot;rt-field&quot;&gt;&lt;span class=&quot;rt-label&quot;&gt;来源备注（可选）&lt;/span&gt;&lt;input class=&quot;rt-input&quot; placeholder=&quot;例如：自有合法介质&quot;&gt;&lt;/label&gt;&lt;div class=&quot;rt-rpg-rights&quot;&gt;&lt;strong&gt;仅上传你有权使用的运行包。&lt;/strong&gt;&lt;br&gt;Retrom 不提供或下载厂商 RTP；项目内容与运行包分开授权、分开存储。&lt;/div&gt;&lt;/div&gt;
+    &lt;footer&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button&quot; data-close-rpg-pack-drawer&gt;取消&lt;/button&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button rt-button-primary&quot; disabled&gt;校验并安装&lt;/button&gt;&lt;/footer&gt;
+  &lt;/aside&gt;
 
   &lt;div class=&quot;rt-dialog-backdrop&quot; data-bios-entries hidden&gt;&lt;section class=&quot;rt-dialog rt-bios-entry-dialog&quot; role=&quot;alertdialog&quot; aria-modal=&quot;true&quot; aria-labelledby=&quot;rt-bios-entry-title&quot;&gt;&lt;div class=&quot;rt-panel-heading&quot;&gt;&lt;div&gt;&lt;span class=&quot;rt-badge rt-badge-green&quot;&gt;DAT 条目对比&lt;/span&gt;&lt;h2 id=&quot;rt-bios-entry-title&quot; style=&quot;margin-top:7px&quot;&gt;stvbios.zip 内容对比&lt;/h2&gt;&lt;p class=&quot;rt-dialog-copy&quot;&gt;左侧为当前 DAT 要求列表，右侧为已安装 ZIP 内容列表；行背景表示状态，悬停可查看说明。&lt;/p&gt;&lt;/div&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button&quot; data-close-bios-entries aria-label=&quot;关闭&quot;&gt;&lt;i data-lucide=&quot;x&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;&lt;/button&gt;&lt;/div&gt;&lt;div class=&quot;rt-bios-entry-columns&quot;&gt;&lt;section class=&quot;rt-bios-entry-column&quot;&gt;&lt;header&gt;&lt;strong&gt;DAT 要求&lt;/strong&gt;&lt;span&gt;1 项&lt;/span&gt;&lt;/header&gt;&lt;ul class=&quot;rt-bios-entry-field-head&quot;&gt;&lt;li&gt;name&lt;/li&gt;&lt;li&gt;size&lt;/li&gt;&lt;li&gt;crc&lt;/li&gt;&lt;/ul&gt;&lt;ul class=&quot;rt-bios-entry-list&quot;&gt;&lt;li class=&quot;rt-bios-entry-card is-aliased&quot; title=&quot;内容匹配 · 文件名不同&quot;&gt;&lt;ul class=&quot;rt-bios-entry-facts&quot;&gt;&lt;li&gt;&lt;code&gt;epr19730.ic8&lt;/code&gt;&lt;/li&gt;&lt;li&gt;&lt;strong&gt;524,288 bytes&lt;/strong&gt;&lt;/li&gt;&lt;li&gt;&lt;code&gt;d0e0889d&lt;/code&gt;&lt;/li&gt;&lt;/ul&gt;&lt;/li&gt;&lt;/ul&gt;&lt;/section&gt;&lt;section class=&quot;rt-bios-entry-column&quot;&gt;&lt;header&gt;&lt;strong&gt;当前 ZIP 内容&lt;/strong&gt;&lt;span&gt;2 项&lt;/span&gt;&lt;/header&gt;&lt;ul class=&quot;rt-bios-entry-field-head&quot;&gt;&lt;li&gt;name&lt;/li&gt;&lt;li&gt;size&lt;/li&gt;&lt;li&gt;crc&lt;/li&gt;&lt;/ul&gt;&lt;ul class=&quot;rt-bios-entry-list&quot;&gt;&lt;li class=&quot;rt-bios-entry-card is-aliased&quot; title=&quot;内容匹配 · 文件名不同&quot;&gt;&lt;ul class=&quot;rt-bios-entry-facts&quot;&gt;&lt;li&gt;&lt;code&gt;epr-19730.ic8&lt;/code&gt;&lt;/li&gt;&lt;li&gt;&lt;strong&gt;524,288 bytes&lt;/strong&gt;&lt;/li&gt;&lt;li&gt;&lt;code&gt;d0e0889d&lt;/code&gt;&lt;/li&gt;&lt;/ul&gt;&lt;/li&gt;&lt;li class=&quot;rt-bios-entry-card is-extra&quot; title=&quot;ZIP 内额外文件&quot;&gt;&lt;ul class=&quot;rt-bios-entry-facts&quot;&gt;&lt;li&gt;&lt;code&gt;epr-17740.ic8&lt;/code&gt;&lt;/li&gt;&lt;li&gt;&lt;strong&gt;524,288 bytes&lt;/strong&gt;&lt;/li&gt;&lt;li&gt;&lt;code&gt;5c5aa63d&lt;/code&gt;&lt;/li&gt;&lt;/ul&gt;&lt;/li&gt;&lt;/ul&gt;&lt;/section&gt;&lt;/div&gt;&lt;div class=&quot;rt-dialog-actions&quot;&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button rt-button-primary&quot; data-close-bios-entries&gt;关闭&lt;/button&gt;&lt;/div&gt;&lt;/section&gt;&lt;/div&gt;
 
@@ -3276,9 +3434,53 @@
         root.querySelector('[data-review-source-flagged]').textContent = emulationStation ? '1' : '0';
         root.querySelectorAll('[data-review-item]').forEach((item) =&gt; { item.hidden = emulationStation ? item.dataset.reviewSource !== 'emulationstation' : item.dataset.reviewSource === 'emulationstation'; });
       }
+      function setRuntimeTab(tab) {
+        root.querySelectorAll('[data-runtime-tab]').forEach((button) =&gt; {
+          const active = button.dataset.runtimeTab === tab;
+          button.classList.toggle('is-active', active);
+          button.setAttribute('aria-selected', String(active));
+          button.tabIndex = active ? 0 : -1;
+        });
+        root.querySelectorAll('[data-runtime-panel]').forEach((panel) =&gt; { panel.hidden = panel.dataset.runtimePanel !== tab; });
+      }
+      function resetRpgDesign() {
+        delete app.dataset.rpgScene;
+        root.querySelectorAll('[data-rpg-import-design],[data-rpg-review-design],[data-rpg-player-design],[data-rpg-save-design]').forEach((element) =&gt; { element.hidden = true; });
+        root.querySelector('[data-review-page-title]').textContent = '待审核';
+        root.querySelector('#rt-player-game').textContent = 'NOeL 3';
+        root.querySelector('#rt-player-core').textContent = 'Yabause · Saturn';
+        root.querySelector('#rt-player-launch-state').textContent = '可创建存档';
+        root.querySelector('#rt-player-stage-state').textContent = '一次点击后已自动运行';
+        setRuntimeTab('bios');
+      }
+      function showRpgScene(scene) {
+        if (scene === 'rpg-player' || scene === 'rpg-saves') setMode('user');
+        else setMode('admin');
+        const page = scene === 'rpg-import' ? 'admin-import-new' : scene === 'rpg-review' ? 'admin-review' : scene === 'rpg-packs' ? 'admin-bios' : scene === 'rpg-player' ? 'play' : 'saves';
+        showPage(page);
+        app.dataset.rpgScene = scene.replace('rpg-', '');
+        if (scene === 'rpg-import') root.querySelector('[data-rpg-import-design]').hidden = false;
+        if (scene === 'rpg-review') {
+          root.querySelector('[data-rpg-review-design]').hidden = false;
+          root.querySelector('[data-review-page-title]').textContent = 'RPG Maker 审核';
+          root.querySelector('[data-review-position]').textContent = '当前条目 · MZ binding r7';
+        }
+        if (scene === 'rpg-packs') setRuntimeTab('rpgmaker');
+        if (scene === 'rpg-player') {
+          root.querySelectorAll('[data-rpg-player-design]').forEach((element) =&gt; { element.hidden = false; });
+          root.querySelector('#rt-player-game').textContent = '魔法少女露娜的劫难';
+          root.querySelector('#rt-player-core').textContent = 'RPG Maker MZ · Restore Launch';
+          root.querySelector('#rt-player-launch-state').textContent = '恢复后输入已验证';
+          root.querySelector('#rt-player-stage-state').textContent = 'Restore Launch 已恢复到 B，并记录不同的输入位置';
+          root.querySelector('[data-page=&quot;play&quot;] .rt-player-top').classList.add('is-visible');
+        }
+        if (scene === 'rpg-saves') root.querySelector('[data-rpg-save-design]').hidden = false;
+        selectReviewScene(scene);
+      }
       function showPage(page) {
         const serverImportDetails = ['admin-server-import-detail', 'admin-pegasus-import-detail', 'admin-emulationstation-import-detail'];
         const activeNavigationTarget = page === 'detail' ? 'library' : ['netplay-room', 'netplay-player'].includes(page) ? 'netplay' : page === 'admin-game-detail' ? 'admin-games' : serverImportDetails.includes(page) ? 'admin-server-import' : page;
+        resetRpgDesign();
         app.hidden = false;
         root.querySelectorAll('[data-immersive-page]').forEach((element) =&gt; { element.hidden = true; });
         root.querySelectorAll('[data-auth-page]').forEach((element) =&gt; { element.hidden = true; });
@@ -3298,6 +3500,33 @@
 
       root.querySelectorAll('[data-page-target]').forEach((button) =&gt; button.addEventListener('click', () =&gt; showPage(button.dataset.pageTarget)));
       root.querySelectorAll('[data-page-link]').forEach((button) =&gt; button.addEventListener('click', () =&gt; showPage(button.dataset.pageLink)));
+      root.querySelectorAll('[data-runtime-tab]').forEach((button) =&gt; button.addEventListener('click', () =&gt; setRuntimeTab(button.dataset.runtimeTab)));
+      root.querySelectorAll('[data-runtime-tab]').forEach((button) =&gt; button.addEventListener('keydown', (event) =&gt; {
+        const tabs = [...root.querySelectorAll('[data-runtime-tab]')];
+        const current = tabs.indexOf(event.currentTarget);
+        const target = event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1 : event.key === 'ArrowLeft' ? (current - 1 + tabs.length) % tabs.length : event.key === 'ArrowRight' ? (current + 1) % tabs.length : -1;
+        if (target &lt; 0) return;
+        event.preventDefault();
+        setRuntimeTab(tabs[target].dataset.runtimeTab);
+        tabs[target].focus();
+      }));
+      root.querySelectorAll('[data-rpg-import-state]').forEach((button) =&gt; button.addEventListener('click', () =&gt; {
+        root.querySelectorAll('[data-rpg-import-state]').forEach((candidate) =&gt; candidate.classList.toggle('is-active', candidate === button));
+        root.querySelectorAll('[data-rpg-import-panel]').forEach((panel) =&gt; { panel.hidden = panel.dataset.rpgImportPanel !== button.dataset.rpgImportState; });
+      }));
+      const reviewStateCopy = { blocked: ['BLOCKED · 先解决阻断', '当前 binding 缺少运行包，不能创建 validation。'], running: ['RUNNING · 8 / 14', '原 Launch 已创建 checkpoint；继续到 C 后将结束并创建 Restore Launch。'], stale: ['STALE · 需要重新验证', 'runtime binding 已变化；旧 gate 只作为历史证据，不允许发布。'], decision: ['AWAITING_DECISION · 可以决定', '最终状态 · 新 Player 页面会从服务端第一个未完成动作继续，不重放 BEGIN / PASS。'] };
+      root.querySelectorAll('[data-rpg-review-state]').forEach((button) =&gt; button.addEventListener('click', () =&gt; {
+        root.querySelectorAll('[data-rpg-review-state]').forEach((candidate) =&gt; candidate.classList.toggle('is-active', candidate === button));
+        const [decision, copy] = reviewStateCopy[button.dataset.rpgReviewState];
+        root.querySelector('[data-rpg-review-decision]').textContent = decision;
+        root.querySelector('[data-rpg-review-copy]').textContent = copy;
+        root.querySelector('[data-rpg-review-approve]').disabled = button.dataset.rpgReviewState !== 'decision';
+      }));
+      root.querySelector('[data-rpg-save-rename]').addEventListener('click', () =&gt; {
+        const input = root.querySelector('[data-rpg-save-name]');
+        root.querySelector('[data-rpg-save-title]').textContent = input.value.trim() || '未命名存档';
+        root.querySelector('[data-rpg-save-rename]').textContent = '已保存';
+      });
       const importDirectoryDialog = root.querySelector('[data-import-directory-dialog]');
       root.querySelector('[data-open-import-directory]').addEventListener('click', () =&gt; { importDirectoryDialog.hidden = false; });
       root.querySelectorAll('[data-close-import-directory]').forEach((button) =&gt; button.addEventListener('click', () =&gt; { importDirectoryDialog.hidden = true; }));
@@ -3314,6 +3543,22 @@
       root.querySelectorAll('[data-open-tag-drawer]').forEach((button) =&gt; button.addEventListener('click', () =&gt; { tagDrawer.hidden = false; tagDrawerBackdrop.hidden = false; root.querySelector('[data-tag-name-input]').focus(); }));
       root.querySelectorAll('[data-close-tag-drawer]').forEach((button) =&gt; button.addEventListener('click', closeTagDrawer));
       tagDrawerBackdrop.addEventListener('click', closeTagDrawer);
+      const rpgPackDrawer = root.querySelector('[data-rpg-pack-drawer]');
+      const rpgPackDrawerBackdrop = root.querySelector('[data-rpg-pack-drawer-backdrop]');
+      let rpgPackDrawerTrigger = null;
+      function closeRpgPackDrawer() {
+        rpgPackDrawer.hidden = true;
+        rpgPackDrawerBackdrop.hidden = true;
+        rpgPackDrawerTrigger?.focus();
+      }
+      root.querySelectorAll('[data-open-rpg-pack-drawer]').forEach((button) =&gt; button.addEventListener('click', () =&gt; {
+        rpgPackDrawerTrigger = button;
+        rpgPackDrawer.hidden = false;
+        rpgPackDrawerBackdrop.hidden = false;
+        root.querySelector('#rt-rpg-pack-drawer-title').focus();
+      }));
+      root.querySelectorAll('[data-close-rpg-pack-drawer]').forEach((button) =&gt; button.addEventListener('click', closeRpgPackDrawer));
+      rpgPackDrawerBackdrop.addEventListener('click', closeRpgPackDrawer);
       root.querySelector('[data-add-common-tags]').addEventListener('click', () =&gt; { root.querySelector('[data-common-tag-result]').hidden = false; });
       const tagDelete = root.querySelector('[data-tag-delete]');
       root.querySelectorAll('[data-open-tag-delete]').forEach((button) =&gt; button.addEventListener('click', () =&gt; { tagDelete.hidden = false; }));
@@ -3352,6 +3597,7 @@
         const scene = button.dataset.reviewScene;
         if (authPageNames.has(scene)) showAuthPage(scene);
         else if (scene.startsWith('immersive-')) showImmersivePage(scene);
+        else if (scene.startsWith('rpg-')) showRpgScene(scene);
         else if (scene === 'admin-users') { setMode('admin'); showPage(scene); }
         else { setMode('user'); showPage(scene); }
       }));

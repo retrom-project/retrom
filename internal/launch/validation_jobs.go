@@ -36,7 +36,7 @@ COALESCE(f.logical_name,''),
 content.content_kind,
 c.id,
 a.id,
-c.requires_threads,
+a.requires_threads,
 (SELECT id
 FROM dat_versions
 WHERE core_artifact_id=a.id
@@ -51,7 +51,9 @@ AND pc.enabled=1
 JOIN cores c ON c.id=pc.core_id
 AND c.enabled=1
 JOIN core_artifacts a ON a.core_id=c.id
-AND a.enabled=1
+AND a.runtime_family='EMULATORJS'
+AND a.selected_for_new_bindings=1
+AND a.available_for_launch=1
 WHERE g.id=?
 AND g.status='PUBLISHED'
 AND pi.enabled=1

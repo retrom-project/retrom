@@ -1,0 +1,932 @@
+{
+  "schemaVersion": 1,
+  "wrongCore": [
+    {
+      "fixture": "rpg2000",
+      "generation": "RPG2000",
+      "coreId": "rpgmaker_2000",
+      "targets": [
+        {
+          "coreId": "rpgmaker_2003",
+          "accepted": true,
+          "evidenceConfidence": "FAMILY_ONLY"
+        },
+        {
+          "coreId": "rpgmaker_xp",
+          "expectedCode": "RPG_SELECTED_CORE_MISMATCH",
+          "accepted": false
+        },
+        {
+          "coreId": "rpgmaker_vx",
+          "expectedCode": "RPG_SELECTED_CORE_MISMATCH",
+          "accepted": false
+        },
+        {
+          "coreId": "rpgmaker_vx_ace",
+          "expectedCode": "RPG_SELECTED_CORE_MISMATCH",
+          "accepted": false
+        },
+        {
+          "coreId": "rpgmaker_mv",
+          "expectedCode": "RPG_SELECTED_CORE_MISMATCH",
+          "accepted": false
+        },
+        {
+          "coreId": "rpgmaker_mz",
+          "expectedCode": "RPG_SELECTED_CORE_MISMATCH",
+          "accepted": false
+        }
+      ]
+    },
+    {
+      "fixture": "rpg2003",
+      "generation": "RPG2003",
+      "coreId": "rpgmaker_2003",
+      "targets": [
+        {
+          "coreId": "rpgmaker_2000",
+          "expectedCode": "RPG_SELECTED_CORE_MISMATCH",
+          "accepted": false
+        },
+        {
+          "coreId": "rpgmaker_xp",
+          "expectedCode": "RPG_SELECTED_CORE_MISMATCH",
+          "accepted": false
+        },
+        {
+          "coreId": "rpgmaker_vx",
+          "expectedCode": "RPG_SELECTED_CORE_MISMATCH",
+          "accepted": false
+        },
+        {
+          "coreId": "rpgmaker_vx_ace",
+          "expectedCode": "RPG_SELECTED_CORE_MISMATCH",
+          "accepted": false
+        },
+        {
+          "coreId": "rpgmaker_mv",
+          "expectedCode": "RPG_SELECTED_CORE_MISMATCH",
+          "accepted": false
+        },
+        {
+          "coreId": "rpgmaker_mz",
+          "expectedCode": "RPG_SELECTED_CORE_MISMATCH",
+          "accepted": false
+        }
+      ]
+    },
+    {
+      "fixture": "rpgxp",
+      "generation": "RPGXP",
+      "coreId": "rpgmaker_xp",
+      "targets": [
+        {
+          "coreId": "rpgmaker_2000",
+          "expectedCode": "RPG_SELECTED_CORE_MISMATCH",
+          "accepted": false
+        },
+        {
+          "coreId": "rpgmaker_2003",
+          "expectedCode": "RPG_SELECTED_CORE_MISMATCH",
+          "accepted": false
+        },
+        {
+          "coreId": "rpgmaker_vx",
+          "expectedCode": "RPG_SELECTED_CORE_MISMATCH",
+          "accepted": false
+        },
+        {
+          "coreId": "rpgmaker_vx_ace",
+          "expectedCode": "RPG_SELECTED_CORE_MISMATCH",
+          "accepted": false
+        },
+        {
+          "coreId": "rpgmaker_mv",
+          "expectedCode": "RPG_SELECTED_CORE_MISMATCH",
+          "accepted": false
+        },
+        {
+          "coreId": "rpgmaker_mz",
+          "expectedCode": "RPG_SELECTED_CORE_MISMATCH",
+          "accepted": false
+        }
+      ]
+    },
+    {
+      "fixture": "rpgvx",
+      "generation": "RPGVX",
+      "coreId": "rpgmaker_vx",
+      "targets": [
+        {
+          "coreId": "rpgmaker_2000",
+          "expectedCode": "RPG_SELECTED_CORE_MISMATCH",
+          "accepted": false
+        },
+        {
+          "coreId": "rpgmaker_2003",
+          "expectedCode": "RPG_SELECTED_CORE_MISMATCH",
+          "accepted": false
+        },
+        {
+          "coreId": "rpgmaker_xp",
+          "expectedCode": "RPG_SELECTED_CORE_MISMATCH",
+          "accepted": false
+        },
+        {
+          "coreId": "rpgmaker_vx_ace",
+          "expectedCode": "RPG_SELECTED_CORE_MISMATCH",
+          "accepted": false
+        },
+        {
+          "coreId": "rpgmaker_mv",
+          "expectedCode": "RPG_SELECTED_CORE_MISMATCH",
+          "accepted": false
+        },
+        {
+          "coreId": "rpgmaker_mz",
+          "expectedCode": "RPG_SELECTED_CORE_MISMATCH",
+          "accepted": false
+        }
+      ]
+    },
+    {
+      "fixture": "rpgvxace",
+      "generation": "RPGVXACE",
+      "coreId": "rpgmaker_vx_ace",
+      "targets": [
+        {
+          "coreId": "rpgmaker_2000",
+          "expectedCode": "RPG_SELECTED_CORE_MISMATCH",
+          "accepted": false
+        },
+        {
+          "coreId": "rpgmaker_2003",
+          "expectedCode": "RPG_SELECTED_CORE_MISMATCH",
+          "accepted": false
+        },
+        {
+          "coreId": "rpgmaker_xp",
+          "expectedCode": "RPG_SELECTED_CORE_MISMATCH",
+          "accepted": false
+        },
+        {
+          "coreId": "rpgmaker_vx",
+          "expectedCode": "RPG_SELECTED_CORE_MISMATCH",
+          "accepted": false
+        },
+        {
+          "coreId": "rpgmaker_mv",
+          "expectedCode": "RPG_SELECTED_CORE_MISMATCH",
+          "accepted": false
+        },
+        {
+          "coreId": "rpgmaker_mz",
+          "expectedCode": "RPG_SELECTED_CORE_MISMATCH",
+          "accepted": false
+        }
+      ]
+    },
+    {
+      "fixture": "malicious-rpgmv",
+      "generation": "RPGMV",
+      "coreId": "rpgmaker_mv",
+      "targets": [
+        {
+          "coreId": "rpgmaker_2000",
+          "expectedCode": "RPG_SELECTED_CORE_MISMATCH",
+          "accepted": false
+        },
+        {
+          "coreId": "rpgmaker_2003",
+          "expectedCode": "RPG_SELECTED_CORE_MISMATCH",
+          "accepted": false
+        },
+        {
+          "coreId": "rpgmaker_xp",
+          "expectedCode": "RPG_SELECTED_CORE_MISMATCH",
+          "accepted": false
+        },
+        {
+          "coreId": "rpgmaker_vx",
+          "expectedCode": "RPG_SELECTED_CORE_MISMATCH",
+          "accepted": false
+        },
+        {
+          "coreId": "rpgmaker_vx_ace",
+          "expectedCode": "RPG_SELECTED_CORE_MISMATCH",
+          "accepted": false
+        },
+        {
+          "coreId": "rpgmaker_mz",
+          "expectedCode": "RPG_SELECTED_CORE_MISMATCH",
+          "accepted": false
+        }
+      ]
+    },
+    {
+      "fixture": "malicious-rpgmz",
+      "generation": "RPGMZ",
+      "coreId": "rpgmaker_mz",
+      "targets": [
+        {
+          "coreId": "rpgmaker_2000",
+          "expectedCode": "RPG_SELECTED_CORE_MISMATCH",
+          "accepted": false
+        },
+        {
+          "coreId": "rpgmaker_2003",
+          "expectedCode": "RPG_SELECTED_CORE_MISMATCH",
+          "accepted": false
+        },
+        {
+          "coreId": "rpgmaker_xp",
+          "expectedCode": "RPG_SELECTED_CORE_MISMATCH",
+          "accepted": false
+        },
+        {
+          "coreId": "rpgmaker_vx",
+          "expectedCode": "RPG_SELECTED_CORE_MISMATCH",
+          "accepted": false
+        },
+        {
+          "coreId": "rpgmaker_vx_ace",
+          "expectedCode": "RPG_SELECTED_CORE_MISMATCH",
+          "accepted": false
+        },
+        {
+          "coreId": "rpgmaker_mv",
+          "expectedCode": "RPG_SELECTED_CORE_MISMATCH",
+          "accepted": false
+        }
+      ]
+    }
+  ],
+  "unsafe": [
+    {
+      "name": "dual-root",
+      "fixture": "negative-matrix/dual-root",
+      "sourceType": "DIRECTORY",
+      "coreId": "rpgmaker_mv",
+      "expectedCode": "RPG_PROJECT_ROOT_AMBIGUOUS",
+      "accepted": false
+    },
+    {
+      "name": "multi-generation",
+      "fixture": "malicious-rpgmv+malicious-rpgmz",
+      "sourceType": "COMPOSITE",
+      "coreId": "rpgmaker_mv",
+      "expectedCode": "RPG_GENERATION_AMBIGUOUS",
+      "accepted": false
+    },
+    {
+      "name": "rgss-conflict",
+      "fixture": "negative-matrix/rgss-conflict",
+      "sourceType": "DIRECTORY",
+      "coreId": "rpgmaker_xp",
+      "expectedCode": "RPG_RGSS_GENERATION_CONFLICT",
+      "accepted": false
+    },
+    {
+      "name": "lcf-truncated",
+      "fixture": "negative-matrix/lcf-truncated",
+      "sourceType": "DIRECTORY",
+      "coreId": "rpgmaker_2000",
+      "expectedCode": "RPG_LCF_INVALID",
+      "accepted": false
+    },
+    {
+      "name": "case-collision",
+      "fixture": "negative-matrix/case-collision",
+      "sourceType": "DIRECTORY",
+      "coreId": "rpgmaker_xp",
+      "expectedCode": "RPG_PATH_COLLISION",
+      "accepted": false
+    },
+    {
+      "name": "nfkc-collision",
+      "fixture": "negative-matrix/nfkc-collision",
+      "sourceType": "DIRECTORY",
+      "coreId": "rpgmaker_xp",
+      "expectedCode": "RPG_PATH_COLLISION",
+      "accepted": false
+    },
+    {
+      "name": "gencache-collision",
+      "fixture": "negative-matrix/gencache-collision",
+      "sourceType": "GENCACHE_COMPOSITE",
+      "coreId": "rpgmaker_2000",
+      "expectedCode": "IMPORT_INPUT_INVALID",
+      "accepted": false
+    },
+    {
+      "name": "traversal",
+      "fixture": "negative-matrix/archives/traversal.zip",
+      "sourceType": "FILES",
+      "coreId": "rpgmaker_mv",
+      "expectedCode": "IMPORT_INPUT_INVALID",
+      "accepted": false
+    },
+    {
+      "name": "symlink",
+      "fixture": "negative-matrix/archives/symlink.zip",
+      "sourceType": "FILES",
+      "coreId": "rpgmaker_mv",
+      "expectedCode": "IMPORT_INPUT_INVALID",
+      "accepted": false
+    },
+    {
+      "name": "bomb",
+      "fixture": "negative-matrix/archives/bomb.zip",
+      "sourceType": "FILES",
+      "coreId": "rpgmaker_mv",
+      "expectedCode": "ARCHIVE_LIMIT_EXCEEDED",
+      "accepted": false
+    },
+    {
+      "name": "external",
+      "fixture": "negative-matrix/external",
+      "sourceType": "DIRECTORY",
+      "coreId": "rpgmaker_mv",
+      "expectedCode": "RPG_NATIVE_DEPENDENCY_UNSUPPORTED",
+      "accepted": false
+    },
+    {
+      "name": "referenced-native",
+      "fixture": "negative-matrix/referenced-native",
+      "sourceType": "DIRECTORY",
+      "coreId": "rpgmaker_mv",
+      "expectedCode": "RPG_NATIVE_DEPENDENCY_UNSUPPORTED",
+      "accepted": false
+    },
+    {
+      "name": "opaque-native",
+      "fixture": "malicious-rpgmz",
+      "sourceType": "DIRECTORY",
+      "coreId": "rpgmaker_mz",
+      "expectedCode": "",
+      "accepted": true
+    }
+  ],
+  "nestedArchives": [
+    {
+      "generation": "RPG2000",
+      "fixture": "rpg2000",
+      "coreId": "rpgmaker_2000",
+      "sidecar": "negative-matrix/sidecars/nested-7z.7z",
+      "format": "7Z",
+      "detection": "extension"
+    },
+    {
+      "generation": "RPG2000",
+      "fixture": "rpg2000",
+      "coreId": "rpgmaker_2000",
+      "sidecar": "negative-matrix/sidecars/nested-7z-magic",
+      "format": "7Z",
+      "detection": "magic"
+    },
+    {
+      "generation": "RPG2000",
+      "fixture": "rpg2000",
+      "coreId": "rpgmaker_2000",
+      "sidecar": "negative-matrix/sidecars/nested-gzip.gz",
+      "format": "GZIP",
+      "detection": "extension"
+    },
+    {
+      "generation": "RPG2000",
+      "fixture": "rpg2000",
+      "coreId": "rpgmaker_2000",
+      "sidecar": "negative-matrix/sidecars/nested-gzip-magic",
+      "format": "GZIP",
+      "detection": "magic"
+    },
+    {
+      "generation": "RPG2000",
+      "fixture": "rpg2000",
+      "coreId": "rpgmaker_2000",
+      "sidecar": "negative-matrix/sidecars/nested-rar.rar",
+      "format": "RAR",
+      "detection": "extension"
+    },
+    {
+      "generation": "RPG2000",
+      "fixture": "rpg2000",
+      "coreId": "rpgmaker_2000",
+      "sidecar": "negative-matrix/sidecars/nested-rar-magic",
+      "format": "RAR",
+      "detection": "magic"
+    },
+    {
+      "generation": "RPG2000",
+      "fixture": "rpg2000",
+      "coreId": "rpgmaker_2000",
+      "sidecar": "negative-matrix/sidecars/nested-tar.tar",
+      "format": "TAR",
+      "detection": "extension"
+    },
+    {
+      "generation": "RPG2000",
+      "fixture": "rpg2000",
+      "coreId": "rpgmaker_2000",
+      "sidecar": "negative-matrix/sidecars/nested-tar-magic",
+      "format": "TAR",
+      "detection": "magic"
+    },
+    {
+      "generation": "RPG2000",
+      "fixture": "rpg2000",
+      "coreId": "rpgmaker_2000",
+      "sidecar": "negative-matrix/sidecars/nested-zip.zip",
+      "format": "ZIP",
+      "detection": "extension"
+    },
+    {
+      "generation": "RPG2000",
+      "fixture": "rpg2000",
+      "coreId": "rpgmaker_2000",
+      "sidecar": "negative-matrix/sidecars/nested-zip-magic",
+      "format": "ZIP",
+      "detection": "magic"
+    },
+    {
+      "generation": "RPG2003",
+      "fixture": "rpg2003",
+      "coreId": "rpgmaker_2003",
+      "sidecar": "negative-matrix/sidecars/nested-7z.7z",
+      "format": "7Z",
+      "detection": "extension"
+    },
+    {
+      "generation": "RPG2003",
+      "fixture": "rpg2003",
+      "coreId": "rpgmaker_2003",
+      "sidecar": "negative-matrix/sidecars/nested-7z-magic",
+      "format": "7Z",
+      "detection": "magic"
+    },
+    {
+      "generation": "RPG2003",
+      "fixture": "rpg2003",
+      "coreId": "rpgmaker_2003",
+      "sidecar": "negative-matrix/sidecars/nested-gzip.gz",
+      "format": "GZIP",
+      "detection": "extension"
+    },
+    {
+      "generation": "RPG2003",
+      "fixture": "rpg2003",
+      "coreId": "rpgmaker_2003",
+      "sidecar": "negative-matrix/sidecars/nested-gzip-magic",
+      "format": "GZIP",
+      "detection": "magic"
+    },
+    {
+      "generation": "RPG2003",
+      "fixture": "rpg2003",
+      "coreId": "rpgmaker_2003",
+      "sidecar": "negative-matrix/sidecars/nested-rar.rar",
+      "format": "RAR",
+      "detection": "extension"
+    },
+    {
+      "generation": "RPG2003",
+      "fixture": "rpg2003",
+      "coreId": "rpgmaker_2003",
+      "sidecar": "negative-matrix/sidecars/nested-rar-magic",
+      "format": "RAR",
+      "detection": "magic"
+    },
+    {
+      "generation": "RPG2003",
+      "fixture": "rpg2003",
+      "coreId": "rpgmaker_2003",
+      "sidecar": "negative-matrix/sidecars/nested-tar.tar",
+      "format": "TAR",
+      "detection": "extension"
+    },
+    {
+      "generation": "RPG2003",
+      "fixture": "rpg2003",
+      "coreId": "rpgmaker_2003",
+      "sidecar": "negative-matrix/sidecars/nested-tar-magic",
+      "format": "TAR",
+      "detection": "magic"
+    },
+    {
+      "generation": "RPG2003",
+      "fixture": "rpg2003",
+      "coreId": "rpgmaker_2003",
+      "sidecar": "negative-matrix/sidecars/nested-zip.zip",
+      "format": "ZIP",
+      "detection": "extension"
+    },
+    {
+      "generation": "RPG2003",
+      "fixture": "rpg2003",
+      "coreId": "rpgmaker_2003",
+      "sidecar": "negative-matrix/sidecars/nested-zip-magic",
+      "format": "ZIP",
+      "detection": "magic"
+    },
+    {
+      "generation": "RPGMV",
+      "fixture": "malicious-rpgmv",
+      "coreId": "rpgmaker_mv",
+      "sidecar": "negative-matrix/sidecars/nested-7z.7z",
+      "format": "7Z",
+      "detection": "extension"
+    },
+    {
+      "generation": "RPGMV",
+      "fixture": "malicious-rpgmv",
+      "coreId": "rpgmaker_mv",
+      "sidecar": "negative-matrix/sidecars/nested-7z-magic",
+      "format": "7Z",
+      "detection": "magic"
+    },
+    {
+      "generation": "RPGMV",
+      "fixture": "malicious-rpgmv",
+      "coreId": "rpgmaker_mv",
+      "sidecar": "negative-matrix/sidecars/nested-gzip.gz",
+      "format": "GZIP",
+      "detection": "extension"
+    },
+    {
+      "generation": "RPGMV",
+      "fixture": "malicious-rpgmv",
+      "coreId": "rpgmaker_mv",
+      "sidecar": "negative-matrix/sidecars/nested-gzip-magic",
+      "format": "GZIP",
+      "detection": "magic"
+    },
+    {
+      "generation": "RPGMV",
+      "fixture": "malicious-rpgmv",
+      "coreId": "rpgmaker_mv",
+      "sidecar": "negative-matrix/sidecars/nested-rar.rar",
+      "format": "RAR",
+      "detection": "extension"
+    },
+    {
+      "generation": "RPGMV",
+      "fixture": "malicious-rpgmv",
+      "coreId": "rpgmaker_mv",
+      "sidecar": "negative-matrix/sidecars/nested-rar-magic",
+      "format": "RAR",
+      "detection": "magic"
+    },
+    {
+      "generation": "RPGMV",
+      "fixture": "malicious-rpgmv",
+      "coreId": "rpgmaker_mv",
+      "sidecar": "negative-matrix/sidecars/nested-tar.tar",
+      "format": "TAR",
+      "detection": "extension"
+    },
+    {
+      "generation": "RPGMV",
+      "fixture": "malicious-rpgmv",
+      "coreId": "rpgmaker_mv",
+      "sidecar": "negative-matrix/sidecars/nested-tar-magic",
+      "format": "TAR",
+      "detection": "magic"
+    },
+    {
+      "generation": "RPGMV",
+      "fixture": "malicious-rpgmv",
+      "coreId": "rpgmaker_mv",
+      "sidecar": "negative-matrix/sidecars/nested-zip.zip",
+      "format": "ZIP",
+      "detection": "extension"
+    },
+    {
+      "generation": "RPGMV",
+      "fixture": "malicious-rpgmv",
+      "coreId": "rpgmaker_mv",
+      "sidecar": "negative-matrix/sidecars/nested-zip-magic",
+      "format": "ZIP",
+      "detection": "magic"
+    },
+    {
+      "generation": "RPGMZ",
+      "fixture": "malicious-rpgmz",
+      "coreId": "rpgmaker_mz",
+      "sidecar": "negative-matrix/sidecars/nested-7z.7z",
+      "format": "7Z",
+      "detection": "extension"
+    },
+    {
+      "generation": "RPGMZ",
+      "fixture": "malicious-rpgmz",
+      "coreId": "rpgmaker_mz",
+      "sidecar": "negative-matrix/sidecars/nested-7z-magic",
+      "format": "7Z",
+      "detection": "magic"
+    },
+    {
+      "generation": "RPGMZ",
+      "fixture": "malicious-rpgmz",
+      "coreId": "rpgmaker_mz",
+      "sidecar": "negative-matrix/sidecars/nested-gzip.gz",
+      "format": "GZIP",
+      "detection": "extension"
+    },
+    {
+      "generation": "RPGMZ",
+      "fixture": "malicious-rpgmz",
+      "coreId": "rpgmaker_mz",
+      "sidecar": "negative-matrix/sidecars/nested-gzip-magic",
+      "format": "GZIP",
+      "detection": "magic"
+    },
+    {
+      "generation": "RPGMZ",
+      "fixture": "malicious-rpgmz",
+      "coreId": "rpgmaker_mz",
+      "sidecar": "negative-matrix/sidecars/nested-rar.rar",
+      "format": "RAR",
+      "detection": "extension"
+    },
+    {
+      "generation": "RPGMZ",
+      "fixture": "malicious-rpgmz",
+      "coreId": "rpgmaker_mz",
+      "sidecar": "negative-matrix/sidecars/nested-rar-magic",
+      "format": "RAR",
+      "detection": "magic"
+    },
+    {
+      "generation": "RPGMZ",
+      "fixture": "malicious-rpgmz",
+      "coreId": "rpgmaker_mz",
+      "sidecar": "negative-matrix/sidecars/nested-tar.tar",
+      "format": "TAR",
+      "detection": "extension"
+    },
+    {
+      "generation": "RPGMZ",
+      "fixture": "malicious-rpgmz",
+      "coreId": "rpgmaker_mz",
+      "sidecar": "negative-matrix/sidecars/nested-tar-magic",
+      "format": "TAR",
+      "detection": "magic"
+    },
+    {
+      "generation": "RPGMZ",
+      "fixture": "malicious-rpgmz",
+      "coreId": "rpgmaker_mz",
+      "sidecar": "negative-matrix/sidecars/nested-zip.zip",
+      "format": "ZIP",
+      "detection": "extension"
+    },
+    {
+      "generation": "RPGMZ",
+      "fixture": "malicious-rpgmz",
+      "coreId": "rpgmaker_mz",
+      "sidecar": "negative-matrix/sidecars/nested-zip-magic",
+      "format": "ZIP",
+      "detection": "magic"
+    },
+    {
+      "generation": "RPGVX",
+      "fixture": "rpgvx",
+      "coreId": "rpgmaker_vx",
+      "sidecar": "negative-matrix/sidecars/nested-7z.7z",
+      "format": "7Z",
+      "detection": "extension"
+    },
+    {
+      "generation": "RPGVX",
+      "fixture": "rpgvx",
+      "coreId": "rpgmaker_vx",
+      "sidecar": "negative-matrix/sidecars/nested-7z-magic",
+      "format": "7Z",
+      "detection": "magic"
+    },
+    {
+      "generation": "RPGVXACE",
+      "fixture": "rpgvxace",
+      "coreId": "rpgmaker_vx_ace",
+      "sidecar": "negative-matrix/sidecars/nested-7z.7z",
+      "format": "7Z",
+      "detection": "extension"
+    },
+    {
+      "generation": "RPGVXACE",
+      "fixture": "rpgvxace",
+      "coreId": "rpgmaker_vx_ace",
+      "sidecar": "negative-matrix/sidecars/nested-7z-magic",
+      "format": "7Z",
+      "detection": "magic"
+    },
+    {
+      "generation": "RPGVXACE",
+      "fixture": "rpgvxace",
+      "coreId": "rpgmaker_vx_ace",
+      "sidecar": "negative-matrix/sidecars/nested-gzip.gz",
+      "format": "GZIP",
+      "detection": "extension"
+    },
+    {
+      "generation": "RPGVXACE",
+      "fixture": "rpgvxace",
+      "coreId": "rpgmaker_vx_ace",
+      "sidecar": "negative-matrix/sidecars/nested-gzip-magic",
+      "format": "GZIP",
+      "detection": "magic"
+    },
+    {
+      "generation": "RPGVXACE",
+      "fixture": "rpgvxace",
+      "coreId": "rpgmaker_vx_ace",
+      "sidecar": "negative-matrix/sidecars/nested-rar.rar",
+      "format": "RAR",
+      "detection": "extension"
+    },
+    {
+      "generation": "RPGVXACE",
+      "fixture": "rpgvxace",
+      "coreId": "rpgmaker_vx_ace",
+      "sidecar": "negative-matrix/sidecars/nested-rar-magic",
+      "format": "RAR",
+      "detection": "magic"
+    },
+    {
+      "generation": "RPGVXACE",
+      "fixture": "rpgvxace",
+      "coreId": "rpgmaker_vx_ace",
+      "sidecar": "negative-matrix/sidecars/nested-tar.tar",
+      "format": "TAR",
+      "detection": "extension"
+    },
+    {
+      "generation": "RPGVXACE",
+      "fixture": "rpgvxace",
+      "coreId": "rpgmaker_vx_ace",
+      "sidecar": "negative-matrix/sidecars/nested-tar-magic",
+      "format": "TAR",
+      "detection": "magic"
+    },
+    {
+      "generation": "RPGVXACE",
+      "fixture": "rpgvxace",
+      "coreId": "rpgmaker_vx_ace",
+      "sidecar": "negative-matrix/sidecars/nested-zip.zip",
+      "format": "ZIP",
+      "detection": "extension"
+    },
+    {
+      "generation": "RPGVXACE",
+      "fixture": "rpgvxace",
+      "coreId": "rpgmaker_vx_ace",
+      "sidecar": "negative-matrix/sidecars/nested-zip-magic",
+      "format": "ZIP",
+      "detection": "magic"
+    },
+    {
+      "generation": "RPGVX",
+      "fixture": "rpgvx",
+      "coreId": "rpgmaker_vx",
+      "sidecar": "negative-matrix/sidecars/nested-gzip.gz",
+      "format": "GZIP",
+      "detection": "extension"
+    },
+    {
+      "generation": "RPGVX",
+      "fixture": "rpgvx",
+      "coreId": "rpgmaker_vx",
+      "sidecar": "negative-matrix/sidecars/nested-gzip-magic",
+      "format": "GZIP",
+      "detection": "magic"
+    },
+    {
+      "generation": "RPGVX",
+      "fixture": "rpgvx",
+      "coreId": "rpgmaker_vx",
+      "sidecar": "negative-matrix/sidecars/nested-rar.rar",
+      "format": "RAR",
+      "detection": "extension"
+    },
+    {
+      "generation": "RPGVX",
+      "fixture": "rpgvx",
+      "coreId": "rpgmaker_vx",
+      "sidecar": "negative-matrix/sidecars/nested-rar-magic",
+      "format": "RAR",
+      "detection": "magic"
+    },
+    {
+      "generation": "RPGVX",
+      "fixture": "rpgvx",
+      "coreId": "rpgmaker_vx",
+      "sidecar": "negative-matrix/sidecars/nested-tar.tar",
+      "format": "TAR",
+      "detection": "extension"
+    },
+    {
+      "generation": "RPGVX",
+      "fixture": "rpgvx",
+      "coreId": "rpgmaker_vx",
+      "sidecar": "negative-matrix/sidecars/nested-tar-magic",
+      "format": "TAR",
+      "detection": "magic"
+    },
+    {
+      "generation": "RPGVX",
+      "fixture": "rpgvx",
+      "coreId": "rpgmaker_vx",
+      "sidecar": "negative-matrix/sidecars/nested-zip.zip",
+      "format": "ZIP",
+      "detection": "extension"
+    },
+    {
+      "generation": "RPGVX",
+      "fixture": "rpgvx",
+      "coreId": "rpgmaker_vx",
+      "sidecar": "negative-matrix/sidecars/nested-zip-magic",
+      "format": "ZIP",
+      "detection": "magic"
+    },
+    {
+      "generation": "RPGXP",
+      "fixture": "rpgxp",
+      "coreId": "rpgmaker_xp",
+      "sidecar": "negative-matrix/sidecars/nested-7z.7z",
+      "format": "7Z",
+      "detection": "extension"
+    },
+    {
+      "generation": "RPGXP",
+      "fixture": "rpgxp",
+      "coreId": "rpgmaker_xp",
+      "sidecar": "negative-matrix/sidecars/nested-7z-magic",
+      "format": "7Z",
+      "detection": "magic"
+    },
+    {
+      "generation": "RPGXP",
+      "fixture": "rpgxp",
+      "coreId": "rpgmaker_xp",
+      "sidecar": "negative-matrix/sidecars/nested-gzip.gz",
+      "format": "GZIP",
+      "detection": "extension"
+    },
+    {
+      "generation": "RPGXP",
+      "fixture": "rpgxp",
+      "coreId": "rpgmaker_xp",
+      "sidecar": "negative-matrix/sidecars/nested-gzip-magic",
+      "format": "GZIP",
+      "detection": "magic"
+    },
+    {
+      "generation": "RPGXP",
+      "fixture": "rpgxp",
+      "coreId": "rpgmaker_xp",
+      "sidecar": "negative-matrix/sidecars/nested-rar.rar",
+      "format": "RAR",
+      "detection": "extension"
+    },
+    {
+      "generation": "RPGXP",
+      "fixture": "rpgxp",
+      "coreId": "rpgmaker_xp",
+      "sidecar": "negative-matrix/sidecars/nested-rar-magic",
+      "format": "RAR",
+      "detection": "magic"
+    },
+    {
+      "generation": "RPGXP",
+      "fixture": "rpgxp",
+      "coreId": "rpgmaker_xp",
+      "sidecar": "negative-matrix/sidecars/nested-tar.tar",
+      "format": "TAR",
+      "detection": "extension"
+    },
+    {
+      "generation": "RPGXP",
+      "fixture": "rpgxp",
+      "coreId": "rpgmaker_xp",
+      "sidecar": "negative-matrix/sidecars/nested-tar-magic",
+      "format": "TAR",
+      "detection": "magic"
+    },
+    {
+      "generation": "RPGXP",
+      "fixture": "rpgxp",
+      "coreId": "rpgmaker_xp",
+      "sidecar": "negative-matrix/sidecars/nested-zip.zip",
+      "format": "ZIP",
+      "detection": "extension"
+    },
+    {
+      "generation": "RPGXP",
+      "fixture": "rpgxp",
+      "coreId": "rpgmaker_xp",
+      "sidecar": "negative-matrix/sidecars/nested-zip-magic",
+      "format": "ZIP",
+      "detection": "magic"
+    }
+  ]
+}

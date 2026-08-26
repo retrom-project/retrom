@@ -128,7 +128,7 @@ func (service *Service) buildMultiDiscAttachmentManifest(
 			Role: file.role, LogicalName: file.logicalName, BlobSHA256: file.blobSHA, SizeBytes: file.blobSize,
 		})
 	}
-	manifest, digest, err := contentmanifest.Build(manifestFiles)
+	manifest, digest, err := contentmanifest.Build(multidisc.ContentKind, manifestFiles)
 	if err != nil {
 		return multiDiscAttachmentStoreError("build manifest", err)
 	}
@@ -191,12 +191,12 @@ func currentMultiDiscAttachmentInput(
 	var platformVersion, artifactVersion int64
 	if err := transaction.QueryRowContext(ctx, `
 SELECT item.state,draft.effective_source_snapshot_id,platform.platform_id,platform.id,
-platform.version,platform.default_core_id,artifact.id,artifact.version,artifact.compatibility_config_json
+platform.version,platform.default_core_id,artifact.id,artifact.version,artifact.compatibility_json
 FROM import_items item
 JOIN review_drafts draft ON draft.id=? AND draft.import_item_id=item.id
 JOIN platform_instances platform ON platform.id=draft.target_platform_instance_id
 AND platform.enabled=1 AND platform.deleted_at_ms IS NULL
-JOIN core_artifacts artifact ON artifact.core_id=platform.default_core_id AND artifact.enabled=1
+JOIN core_artifacts artifact ON artifact.core_id=platform.default_core_id AND artifact.selected_for_new_bindings=1
 WHERE item.id=?
 `, candidate.input.ReviewDraftID, candidate.input.ImportItemID).Scan(
 		&itemState, &snapshotID, &platformID, &targetID, &platformVersion, &coreID,

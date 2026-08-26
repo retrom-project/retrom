@@ -237,7 +237,7 @@ func (server *Server) gameCoreOptions(ctx context.Context, gameID string) ([]map
 	rows, err := server.database.QueryContext(ctx, `
 SELECT c.id,
 c.name,
-c.requires_threads,
+COALESCE(bound_artifact.requires_threads,selected_artifact.requires_threads),
 pi.default_core_id,
 v.current_revision_id,
 r.id,
@@ -257,6 +257,9 @@ AND v.core_id=c.id
 LEFT
 JOIN game_variant_revisions r ON r.id=v.current_revision_id
 AND r.game_content_revision_id=g.current_content_revision_id
+LEFT JOIN core_artifacts bound_artifact ON bound_artifact.id=r.core_artifact_id
+LEFT JOIN core_artifacts selected_artifact ON selected_artifact.core_id=c.id
+AND selected_artifact.selected_for_new_bindings=1
 WHERE g.id=?
 ORDER BY c.name,
 c.id

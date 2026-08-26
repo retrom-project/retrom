@@ -1,0 +1,29 @@
+[
+  {
+    "generation": "RPGXP",
+    "directory": "rpgxp",
+    "marker": "RETROM RPGXP",
+    "projectMarker": "Game.rxproj",
+    "scriptsPath": "Data/Scripts.rxdata",
+    "rgssVersion": 1,
+    "accentRgb": [59, 130, 246]
+  },
+  {
+    "generation": "RPGVX",
+    "directory": "rpgvx",
+    "marker": "RETROM RPGVX",
+    "projectMarker": "Game.rvproj",
+    "scriptsPath": "Data/Scripts.rvdata",
+    "rgssVersion": 2,
+    "accentRgb": [168, 85, 247]
+  },
+  {
+    "generation": "RPGVXACE",
+    "directory": "rpgvxace",
+    "marker": "RETROM RPGVXACE",
+    "projectMarker": "Game.rvproj2",
+    "scriptsPath": "Data/Scripts.rvdata2",
+    "rgssVersion": 3,
+    "accentRgb": [244, 63, 94]
+  }
+]

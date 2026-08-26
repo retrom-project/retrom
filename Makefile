@@ -21,6 +21,7 @@ RETROM_MODE ?= test
 RETROM_HTTP_ADDR ?= 127.0.0.1:8080
 RETROM_PUBLIC_ORIGIN ?= https://dev.sendev.cc
 RETROM_ALLOW_INSECURE_PUBLIC_ORIGIN ?= true
+RETROM_RPG_RUNTIME_ORIGIN_TEMPLATE ?= https://{launchId}.rpg-runtime.dev.sendev.cc
 RETROM_MULTI_DISC_IMPORT_ENABLED ?= true
 RETROM_NETPLAY_ENABLED ?= true
 RETROM_NETPLAY_MAX_ACTIVE_ROOMS ?= 16
@@ -122,12 +123,14 @@ public-fixtures-generate:
 	@python3 testdata/public-roms/nes-smoke/build.py
 	@python3 testdata/public-roms/snes-smoke/build.py
 	@python3 testdata/public-roms/arcade-smoke/build.py
+	@python3 testdata/public-roms/rpgmaker-smoke/build.py
 
 public-fixtures-check:
 	@python3 testdata/public-roms/gba-smoke/build.py --check
 	@python3 testdata/public-roms/nes-smoke/build.py --check
 	@python3 testdata/public-roms/snes-smoke/build.py --check
 	@python3 testdata/public-roms/arcade-smoke/build.py --check
+	@python3 testdata/public-roms/rpgmaker-smoke/build.py --check
 
 web-e2e: prepare-e2e-browser public-fixtures-check
 	@PATH="$(NODE_HOME)/bin:$$PATH" scripts/acceptance/web-e2e.sh
@@ -138,6 +141,8 @@ data-check:
 	@python3 scripts/test_design_assets.py
 	@python3 scripts/test_public_fixtures.py
 	@python3 scripts/test_dependencies.py
+	@python3 scripts/test_rpgmaker_reproduction.py
+	@python3 scripts/test_rpgmaker_release_assets.py
 	@python3 scripts/test_fbalpha2012_dat.py
 	@python3 scripts/dependencies.py data-check --versions "$(RETROM_DEPENDENCY_VERSIONS)"
 
@@ -157,6 +162,7 @@ dev: api-generate-go prepare-deps web-install
 	 RETROM_HTTP_ADDR="$(RETROM_HTTP_ADDR)" \
 	 RETROM_PUBLIC_ORIGIN="$(RETROM_PUBLIC_ORIGIN)" \
 	 RETROM_ALLOW_INSECURE_PUBLIC_ORIGIN="$(RETROM_ALLOW_INSECURE_PUBLIC_ORIGIN)" \
+	 RETROM_RPG_RUNTIME_ORIGIN_TEMPLATE="$(RETROM_RPG_RUNTIME_ORIGIN_TEMPLATE)" \
 	 RETROM_MULTI_DISC_IMPORT_ENABLED="$(RETROM_MULTI_DISC_IMPORT_ENABLED)" \
 	 RETROM_NETPLAY_ENABLED="$(RETROM_NETPLAY_ENABLED)" \
 	 RETROM_NETPLAY_MAX_ACTIVE_ROOMS="$(RETROM_NETPLAY_MAX_ACTIVE_ROOMS)" \

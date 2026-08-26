@@ -28,6 +28,9 @@ import (
 	"retrom/internal/payloadrelease"
 	"retrom/internal/pegasusimport"
 	"retrom/internal/platforminstance"
+	"retrom/internal/rpgmaker/isolation"
+	"retrom/internal/rpgmaker/packs"
+	"retrom/internal/rpgmaker/runtimevalidation"
 	retromruntime "retrom/internal/runtime"
 	"retrom/internal/saves"
 	"retrom/internal/serverimport"
@@ -83,6 +86,9 @@ type Server struct {
 	metadata                *metadatascrape.Service
 	gameContent             *gamecontent.Service
 	saveService             *saves.Service
+	rpgValidations          *runtimevalidation.Service
+	rpgIsolation            *isolation.Service
+	runtimePacks            *packs.Service
 	favoriteService         *favorites.Service
 	tagService              *tagging.Service
 	serverImports           *serverimport.Service
@@ -139,7 +145,8 @@ func New(
 		panic(err)
 	}
 	scraper := metadatascrape.New(database, blobs, hasheous.New(nil, nil, now), now)
-	launcher := launch.New(database, dependencySet, credentials, now).WithBlobStore(blobs)
+	launcher := launch.New(database, dependencySet, credentials, now).WithBlobStore(blobs).
+		WithRPGRuntimeOriginTemplate(config.RPGRuntimeOriginTemplate)
 	launcher.ResumeQueuedValidationJobs()
 	importer := libraryimport.New(database, now, scraper).
 		WithBlobStore(blobs).
@@ -149,6 +156,8 @@ func New(
 	importer.ResumeReviewBulkJobs(context.Background())
 	firmwareService := firmware.New(database, now).WithBlobStore(blobs).
 		WithPayloadRelease(payloadReleaseService)
+	runtimePackService := packs.New(database, blobs, payloadReleaseService, now)
+	runtimePackService.ResumeQueuedJobs(context.Background())
 	serverImportService := serverimport.New(
 		database,
 		blobs,
@@ -190,6 +199,9 @@ func New(
 			WithPayloadRelease(payloadReleaseService).
 			WithMultiDiscImportEnabled(config.MultiDiscImportEnabled),
 		saveService:      saves.New(database, blobs, credentials, now),
+		rpgValidations:   runtimevalidation.New(database, blobs, now),
+		rpgIsolation:     isolation.New(database, config.RPGRuntimeOriginTemplate, now),
+		runtimePacks:     runtimePackService,
 		favoriteService:  favorites.New(database, now),
 		tagService:       tagging.New(database, now),
 		now:              now,
@@ -222,7 +234,7 @@ func (server *Server) Handler() http.Handler {
 	server.registerContentRoutes(mux)
 	server.registerRuntimeRoutes(mux)
 	mux.HandleFunc("/", server.notFound)
-	return server.baseMiddleware(server.openAPIHandler(mux))
+	return server.routeByRuntimeHost(server.baseMiddleware(server.openAPIHandler(mux)))
 }
 
 func (server *Server) registerPublicRoutes(mux *http.ServeMux) {
@@ -302,6 +314,15 @@ func (server *Server) registerAdminAccountRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/v1/admin/bios", server.bios)
 	mux.HandleFunc("GET /api/v1/admin/bios/{requirementId}/entries", server.biosEntries)
 	mux.HandleFunc("POST /api/v1/admin/bios/{requirementId}/installations", server.installBIOS)
+	mux.HandleFunc("GET /api/v1/admin/runtime-asset-packs", server.runtimeAssetPacks)
+	mux.HandleFunc(
+		"POST /api/v1/admin/runtime-asset-packs/installations",
+		server.installRuntimeAssetPack,
+	)
+	mux.HandleFunc(
+		"DELETE /api/v1/admin/runtime-asset-packs/installations/{installationId}",
+		server.deleteRuntimeAssetPack,
+	)
 }
 
 func (server *Server) registerAdminImportRoutes(mux *http.ServeMux) {
@@ -397,6 +418,22 @@ func (server *Server) registerAdminImportRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/v1/admin/reviews/{importItemId}/assets", server.createReviewAsset)
 	mux.HandleFunc("POST /api/v1/admin/reviews/{importItemId}/previews", server.createReviewPreview)
 	mux.HandleFunc(
+		"POST /api/v1/admin/reviews/{importItemId}/runtime-validations",
+		server.createRPGRuntimeValidation,
+	)
+	mux.HandleFunc(
+		"GET /api/v1/admin/reviews/{importItemId}/runtime-validations/{validationId}",
+		server.rpgRuntimeValidation,
+	)
+	mux.HandleFunc(
+		"POST /api/v1/admin/reviews/{importItemId}/runtime-validations/{validationId}/restore-launch",
+		server.createRPGRuntimeValidationRestore,
+	)
+	mux.HandleFunc(
+		"POST /api/v1/admin/reviews/{importItemId}/runtime-validations/{validationId}/decision",
+		server.decideRPGRuntimeValidation,
+	)
+	mux.HandleFunc(
 		"POST /api/v1/admin/reviews/{importItemId}/arcade-parent-attachments",
 		server.createReviewArcadeParentAttachment,
 	)
@@ -452,10 +489,14 @@ func (server *Server) registerContentRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/v1/admin/diagnostics", server.diagnostics)
 	mux.HandleFunc("GET /runtime/emulatorjs/{configuredVersion}/{runtimePath...}", server.runtimeFile)
 	mux.HandleFunc("HEAD /runtime/emulatorjs/{configuredVersion}/{runtimePath...}", server.runtimeFile)
+	mux.HandleFunc("GET /runtime/rpgmaker/{runtimeVersion}/{runtimePath...}", server.rpgMakerRuntimeFile)
+	mux.HandleFunc("HEAD /runtime/rpgmaker/{runtimeVersion}/{runtimePath...}", server.rpgMakerRuntimeFile)
 }
 
 func (server *Server) registerRuntimeRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /runtime/launches/{launchId}/config", server.launchConfig)
+	mux.HandleFunc("GET /runtime/rpg-project/{launchId}/{projectPath...}", server.launchRPGProjectFile)
+	mux.HandleFunc("HEAD /runtime/rpg-project/{launchId}/{projectPath...}", server.launchRPGProjectFile)
 	mux.HandleFunc("GET /runtime/content/game/{contentIdentity}/{logicalName}", server.launchGame)
 	mux.HandleFunc("HEAD /runtime/content/game/{contentIdentity}/{logicalName}", server.launchGame)
 	mux.HandleFunc("GET /runtime/content/external/{contentIdentity}/{logicalName}", server.launchExternalFile)
@@ -469,7 +510,12 @@ func (server *Server) registerRuntimeRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /runtime/launches/{launchId}/finish", server.launchFinish)
 	mux.HandleFunc("POST /runtime/launches/{launchId}/player-events", server.multiDiscPlayerEvent)
 	mux.HandleFunc("POST /runtime/launches/{launchId}/save-states", server.createSaveState)
+	mux.HandleFunc("GET /runtime/launches/{launchId}/checkpoint-status", server.checkpointStatus)
 	mux.HandleFunc("GET /runtime/launches/{launchId}/state", server.launchState)
 	mux.HandleFunc("HEAD /runtime/launches/{launchId}/state", server.launchState)
 	mux.HandleFunc("POST /runtime/launches/{launchId}/review-screenshot", server.storeReviewScreenshot)
+	mux.HandleFunc(
+		"POST /runtime/launches/{launchId}/rpgmaker-gates/events",
+		server.rpgMakerGateEvent,
+	)
 }

@@ -84,7 +84,7 @@ func (service *Service) prepareReplacement(
 			})
 		}
 		replacement.firstContentLogicalName = files[0].logicalName
-		manifest, digest, err := contentmanifest.Build(manifestFiles)
+		manifest, digest, err := contentmanifest.Build(replacement.contentKind, manifestFiles)
 		if err != nil {
 			return preparedReplacement{}, &replacementValidationError{code: "GAME_CONTENT_MANIFEST_INVALID"}
 		}
@@ -236,7 +236,7 @@ func buildPreparedMultiDiscReplacement(
 			Role: file.role, LogicalName: file.logicalName, BlobSHA256: file.sha256, SizeBytes: file.sizeBytes,
 		})
 	}
-	manifest, manifestDigest, err := contentmanifest.Build(manifestFiles)
+	manifest, manifestDigest, err := contentmanifest.Build(replacement.contentKind, manifestFiles)
 	if err != nil {
 		return preparedReplacement{}, &replacementValidationError{code: "GAME_CONTENT_MANIFEST_INVALID"}
 	}

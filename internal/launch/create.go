@@ -62,8 +62,18 @@ func (service *Service) prepareLaunch(
 	request CreateRequest,
 	selection launchSelection,
 ) (launchPreparation, error) {
-	if !validThreadCapabilities(selection.requiresThreads, request.ClientCapabilities) ||
-		service.dependencies.Versions[selection.emulatorVersion] == nil {
+	if !validThreadCapabilities(selection.requiresThreads, request.ClientCapabilities) {
+		return launchPreparation{}, ErrBlocked
+	}
+	if selection.runtimeFamily == "RPGMAKER" {
+		contentPlan, err := service.buildRPGProductContentPlan(ctx, selection)
+		if err != nil {
+			return launchPreparation{}, err
+		}
+		return launchPreparation{contentPlan: contentPlan}, nil
+	}
+	if selection.runtimeFamily != "EMULATORJS" ||
+		service.dependencies.Versions[selection.runtimeVersion] == nil {
 		return launchPreparation{}, ErrBlocked
 	}
 	compatibility, err := service.loadArtifactCompatibility(ctx, selection.artifactID)
@@ -86,8 +96,12 @@ func (service *Service) prepareLaunch(
 	if contentPlan.ContentKind != selection.contentKind {
 		return launchPreparation{}, ErrBlocked
 	}
+	primary, ok := contentPlan.singleFile()
+	if !ok {
+		return launchPreparation{}, ErrBlocked
+	}
 	if err := service.validateLaunchLogicalNames(
-		ctx, selection.variantRevisionID, contentPlan.LogicalName,
+		ctx, selection.variantRevisionID, primary.LogicalName,
 	); err != nil {
 		return launchPreparation{}, err
 	}
@@ -109,13 +123,13 @@ func validThreadCapabilities(requiresThreads int, capabilities Capabilities) boo
 }
 
 type launchSelection struct {
-	variantID, variantRevisionID, artifactID, selectedCore, emulatorVersion string
-	contentRevisionID, contentLogicalName, contentKind                      string
-	revisionCompatibilityCode                                               string
-	revisionDATID                                                           sql.NullString
-	requiresThreads                                                         int
-	savedDOSEntry                                                           sql.NullString
-	savedDiscIndex                                                          sql.NullInt64
+	variantID, variantRevisionID, artifactID, selectedCore, runtimeVersion string
+	contentRevisionID, contentLogicalName, contentKind, runtimeFamily      string
+	routeKey, revisionCompatibilityCode                                    string
+	revisionDATID                                                          sql.NullString
+	requiresThreads                                                        int
+	savedDOSEntry                                                          sql.NullString
+	savedDiscIndex                                                         sql.NullInt64
 }
 
 type launchSelectionResult struct {
@@ -150,12 +164,14 @@ func (service *Service) selectSavedLaunchVariant(
 SELECT s.game_variant_revision_id,
 s.core_artifact_id,
 a.core_id,
-a.emulatorjs_version,
-c.requires_threads,
+a.runtime_version,
+a.runtime_family,
+a.requires_threads,
 s.dos_entry_path,
 s.disc_index,
-r.game_content_revision_id,
+s.game_content_revision_id,
 content.content_kind,
+r.route_key,
 r.compatibility_code,
 COALESCE((SELECT file.logical_name FROM game_content_files file
 WHERE file.game_content_revision_id=r.game_content_revision_id
@@ -166,9 +182,10 @@ JOIN games g ON g.id=s.game_id
 JOIN platform_instances pi ON pi.id=g.platform_instance_id
 JOIN game_variant_revisions r ON r.id=s.game_variant_revision_id
 AND r.core_artifact_id=s.core_artifact_id
-JOIN game_content_revisions content ON content.id=r.game_content_revision_id
+AND r.game_content_revision_id=s.game_content_revision_id
+JOIN game_content_revisions content ON content.id=s.game_content_revision_id
 JOIN core_artifacts a ON a.id=s.core_artifact_id
-JOIN cores c ON c.id=a.core_id
+LEFT JOIN rpgmaker_variant_profiles rpg ON rpg.game_variant_revision_id=r.id
 WHERE s.id=?
 AND s.game_id=?
 AND s.profile_id=?
@@ -176,12 +193,15 @@ AND s.deleted_at_ms IS NULL
 AND g.status='PUBLISHED'
 AND pi.enabled=1
 AND r.status='READY'
+AND a.available_for_launch=1
+AND (a.runtime_family='EMULATORJS' OR
+  rpg.adapter_abi=s.adapter_abi AND rpg.dependency_snapshot_sha256=s.dependency_snapshot_sha256)
 `, *request.SaveStateID, request.GameID, profileID).
 		Scan(
 			&selection.variantRevisionID, &selection.artifactID, &selection.selectedCore,
-			&selection.emulatorVersion, &selection.requiresThreads, &selection.savedDOSEntry,
+			&selection.runtimeVersion, &selection.runtimeFamily, &selection.requiresThreads, &selection.savedDOSEntry,
 			&selection.savedDiscIndex, &selection.contentRevisionID, &selection.contentKind,
-			&selection.revisionCompatibilityCode, &selection.contentLogicalName,
+			&selection.routeKey, &selection.revisionCompatibilityCode, &selection.contentLogicalName,
 		)
 	if err != nil || request.CoreID != nil && coreID != selection.selectedCore {
 		return launchSelection{}, ErrBlocked
@@ -202,13 +222,15 @@ SELECT v.id,
 v.current_revision_id,
 r.core_artifact_id,
 a.core_id,
-a.emulatorjs_version,
-c.requires_threads,
+a.runtime_version,
+a.runtime_family,
+a.requires_threads,
 r.validation_input_digest,
 r.compatibility_code,
 r.game_content_revision_id,
 r.dat_version_id,
 content_revision.content_kind,
+r.route_key,
 COALESCE(content.logical_name,'')
 FROM games g
 JOIN platform_instances pi ON pi.id=g.platform_instance_id
@@ -216,8 +238,8 @@ JOIN game_variants v ON v.game_id=g.id
 JOIN game_variant_revisions r ON r.id=v.current_revision_id
 AND r.game_content_revision_id=g.current_content_revision_id
 JOIN core_artifacts a ON a.id=r.core_artifact_id
-AND a.enabled=1
-JOIN cores c ON c.id=a.core_id
+AND a.available_for_launch=1
+AND a.selected_for_new_bindings=1
 JOIN game_content_revisions content_revision ON content_revision.id=r.game_content_revision_id
 LEFT JOIN game_content_files content ON content.game_content_revision_id=r.game_content_revision_id
 AND content.role IN ('CONTENT','DISC')
@@ -225,6 +247,11 @@ WHERE g.id=?
 AND g.status='PUBLISHED'
 AND pi.enabled=1
 AND r.status='READY'
+AND (a.runtime_family='EMULATORJS' OR EXISTS(
+  SELECT 1 FROM rpgmaker_variant_profiles profile
+  WHERE profile.game_variant_revision_id=r.id AND profile.route_key=r.route_key
+    AND profile.artifact_set_sha256=a.artifact_set_sha256
+    AND profile.adapter_id=a.adapter_id))
 AND v.core_id=CASE WHEN ?='' THEN pi.default_core_id ELSE ? END
 ORDER BY CASE content.role WHEN 'CONTENT' THEN 0 ELSE 1 END,content.sort_order,content.logical_name
 LIMIT 1
@@ -234,22 +261,30 @@ LIMIT 1
 		&selection.variantRevisionID,
 		&selection.artifactID,
 		&selection.selectedCore,
-		&selection.emulatorVersion,
+		&selection.runtimeVersion,
+		&selection.runtimeFamily,
 		&selection.requiresThreads,
 		&validationInputDigest,
 		&selection.revisionCompatibilityCode,
 		&selection.contentRevisionID,
 		&selection.revisionDATID,
 		&selection.contentKind,
+		&selection.routeKey,
 		&selection.contentLogicalName,
 	); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
+			if service.isRPGMakerCore(ctx, coreID, request.GameID) {
+				return launchSelectionResult{}, ErrBlocked
+			}
 			created, ensureErr := service.ensureVariant(ctx, profileID, request, coreID, true)
 			return launchSelectionResult{retry: &created}, ensureErr
 		}
 		return launchSelectionResult{}, ErrBlocked
 	}
 	if selection.revisionCompatibilityCode == reviewScreenshotOverrideCode {
+		return launchSelectionResult{selection: selection}, nil
+	}
+	if selection.runtimeFamily == "RPGMAKER" {
 		return launchSelectionResult{selection: selection}, nil
 	}
 	expectedDigest, err := service.currentVariantDigest(ctx, selection)
@@ -363,41 +398,19 @@ func (service *Service) persistLaunch(
 	_, err = transaction.ExecContext(
 		ctx,
 		`
-INSERT INTO launch_sessions(id,
-profile_id,
-game_id,
-game_variant_revision_id,
-core_artifact_id,
-save_state_id,
-dos_entry_path,
-initial_disc_index,
-return_to,
-credential_sha256,
-state,
-bootstrap_expires_at_ms,
-hard_expires_at_ms,
-created_at_ms,
-updated_at_ms) VALUES(?,
-?,
-?,
-?,
-?,
-?,
-?,
-?,
-?,
-?,
-'CREATED',
-?,
-?,
-?,
-?)
+INSERT INTO launch_sessions(id,profile_id,purpose,game_id,game_content_revision_id,
+game_variant_revision_id,core_artifact_id,route_key,save_state_id,dos_entry_path,
+initial_disc_index,return_to,credential_sha256,state,bootstrap_expires_at_ms,
+hard_expires_at_ms,created_at_ms,updated_at_ms)
+VALUES(?,?,'PRODUCT',?,?,?,?,?,?,?,?,?,?,'CREATED',?,?,?,?)
 `,
 		launchID.String(),
 		profileID,
 		request.GameID,
+		selection.contentRevisionID,
 		variantRevisionID,
 		artifactID,
+		selection.routeKey,
 		request.SaveStateID,
 		selectedDOSEntry,
 		initialDiscIndex,
@@ -411,7 +424,15 @@ updated_at_ms) VALUES(?,
 	if err != nil {
 		return Created{}, fmt.Errorf("create launch session: %w", err)
 	}
-	if _, err := transaction.ExecContext(ctx, `
+	if selection.runtimeFamily == "RPGMAKER" {
+		if err := service.lockNativeBootstrapTicket(
+			ctx, transaction, launchID.String(), profileID, artifactID, now,
+		); err != nil {
+			return Created{}, err
+		}
+	}
+	for _, file := range contentPlan.Files {
+		if _, err := transaction.ExecContext(ctx, `
 INSERT INTO launch_content_files(launch_session_id,
 logical_name,
 blob_id,
@@ -421,8 +442,9 @@ created_at_ms) VALUES(?,
 ?,
 ?,
 ?)
-`, launchID.String(), contentPlan.LogicalName, contentPlan.BlobID, contentPlan.Format, now); err != nil {
-		return Created{}, fmt.Errorf("lock launch content: %w", err)
+	`, launchID.String(), file.LogicalName, file.BlobID, file.Format, now); err != nil {
+			return Created{}, fmt.Errorf("lock launch content: %w", err)
+		}
 	}
 	for _, disc := range contentPlan.Discs {
 		if _, err := transaction.ExecContext(ctx, `
@@ -432,11 +454,13 @@ VALUES(?,?,?,?,?,'DISC')
 			return Created{}, fmt.Errorf("lock launch disc: %w", err)
 		}
 	}
-	if err := service.lockExternalBIOS(
-		ctx, transaction, launchID.String(), variantRevisionID, now,
-		revisionCompatibilityCode == reviewScreenshotOverrideCode,
-	); err != nil {
-		return Created{}, err
+	if selection.runtimeFamily == "EMULATORJS" {
+		if err := service.lockExternalBIOS(
+			ctx, transaction, launchID.String(), variantRevisionID, now,
+			revisionCompatibilityCode == reviewScreenshotOverrideCode,
+		); err != nil {
+			return Created{}, err
+		}
 	}
 	if err := transaction.Commit(); err != nil {
 		return Created{}, fmt.Errorf("commit launch session: %w", err)
@@ -457,9 +481,9 @@ func (service *Service) loadArtifactCompatibility(
 ) (artifactCompatibility, error) {
 	var raw string
 	if err := service.database.QueryRowContext(ctx, `
-SELECT compatibility_config_json
+SELECT compatibility_json
 FROM core_artifacts
-WHERE id=?
+WHERE id=? AND runtime_family='EMULATORJS' AND available_for_launch=1
 `, artifactID).Scan(&raw); err != nil {
 		return artifactCompatibility{}, fmt.Errorf("launch/artifact compatibility: %w", err)
 	}

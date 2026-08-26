@@ -1,0 +1,2 @@
+window.Utils = { RPGMAKER_NAME: "MZ", RPGMAKER_VERSION: "1.9.0" };
+Utils.RPGMAKER_VERSION = "1.9.0";

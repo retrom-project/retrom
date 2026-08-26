@@ -1,15 +1,20 @@
-# EmulatorJS 运行时、快速启动与游玩数据
+# 浏览器运行时、快速启动与游玩数据
 
 | 属性 | 内容 |
 | --- | --- |
 | 文档状态 | 已审定 / 一期实施基线 |
-| 版本 | 1.2 |
-| 日期 | 2026-08-14 |
+| 版本 | 1.3 |
+| 日期 | 2026-08-25 |
 | EmulatorJS 基线 | v4.2.3 |
+| RPG Maker 基线 | 七个版本 core + `RetromRpgRuntime` 三类 adapter |
 
 ## 1. 用户可观察契约
 
-从游戏详情“开始游戏”、详情存档“继续”、“我的存档”或首页“继续游戏”发起时，一次点击完成“请求全屏 → 启动预检 → 加载运行时 → 自动开始”。正常路径没有 Retrom 的第二个 Start，也不显示 EmulatorJS `Play Now`。
+从游戏详情“开始游戏”、详情存档“继续”、“我的存档”或首页“继续游戏”发起时，一次点击完成“请求全屏 → 启动预检 → 加载运行时 → 自动开始”。创建 Launch 后必须使用完整 document navigation 进入 `/play/:launchId`，不得用 App Router soft navigation；只有完整导航才会安装该 Launch 响应的 exact RPG runtime `frame-src` CSP，沿用来源页面 CSP 会使 MV/MZ iframe 被浏览器拒绝。正常路径没有 Retrom 的第二个 Start，也不显示 EmulatorJS `Play Now`。
+
+RPG runtime 的 pause/resume 与 checkpoint 必须由统一 controller 串行执行。工具栏点击会先截取画面并异步暂停；紧随其后的手动存档必须等待该暂停转换结束后才进入 checkpoint，不能让 `RUNNING→PAUSED` 与 `RUNNING→CHECKPOINTING` 并发，否则 runtime 会被错误标记为失败且不会发出存档请求。
+
+Player 顶部中央的 HUD 手柄在桌面与移动 viewport 都必须保持于游戏 frame 之上：hover/focus 展开控制栏，click 切换展开状态。不能只依赖父 document 的顶边 `pointermove`，因为 MV/MZ 的跨源 iframe 内部指针事件按安全边界不会冒泡到父页面，否则用户将无法访问存档与退出控制。
 
 游戏库卡片仍进入详情；只有语义明确的开始/继续按钮直接启动。存档入口使用存档锁定的 Core、CoreArtifact、GameVariantRevision、DOS entry 和文件，不受游戏目录当前默认核心覆盖。
 
@@ -21,7 +26,7 @@ sequenceDiagram
     participant UI as Next.js Player Shell
     participant FS as Fullscreen API
     participant API as Go Launch API
-    participant EJS as 同源 EmulatorJS iframe
+    participant RT as Player runtime factory
     U->>UI: 点击开始 / 继续
     UI->>FS: 同步 requestFullscreen()
     UI->>UI: 在当前文档显示常驻全屏加载壳
@@ -29,15 +34,15 @@ sequenceDiagram
     alt 已 READY，预检通过
       API-->>UI: launchId + HttpOnly capability cookie
       UI->>UI: replace 到 /play/{launchId}
-      UI->>EJS: 加载 /runtime/launches/{launchId}/config
-      EJS->>EJS: startOnLoaded=true
-      EJS-->>U: 游戏开始
+      UI->>RT: 加载 config 并按 runtimeFamily 创建 adapter
+      RT->>RT: EmulatorJS 自动开始或 RetromRpgRuntime mount
+      RT-->>U: 游戏开始
     else 所选 Core 需要物化验证
       API-->>UI: 202 VALIDATION_PENDING + jobId
       UI->>UI: 在同一全屏加载壳等待 Job
       UI->>API: Job 成功后用新幂等键自动重调 launch
       API-->>UI: launchId + HttpOnly capability cookie
-      UI->>EJS: 自动加载并开始
+      UI->>RT: 自动加载并开始
     else 存在 Blocker
       API-->>UI: 422 LAUNCH_BLOCKED
       UI->>FS: exitFullscreen()
@@ -51,7 +56,7 @@ sequenceDiagram
 - Player controller/provider 放在 Next.js 根 layout 的常驻 Client Component。原始 click 同步请求全屏后，在来源 URL 上立即显示该 controller 的全视口 loading overlay；launch 成功才用 App Router `replace` 到 `/play/{launchId}`，且根 layout/controller 不得 remount。失败则移除 overlay、退出全屏并留在来源路由。不得引入 `/play/pending`、整页 navigation 或在 API 返回前伪造 launchId。加载壳只有阶段/错误/退出，没有第二个开始按钮；直接刷新 `/play/{launchId}` 则由同一 controller 从 cookie bootstrap。
 - 全屏被浏览器策略拒绝时，游戏仍在无普通导航的 Player Shell 自动运行，并显示非阻塞“进入全屏”。
 - 刷新 `/play/:launchId` 时，有本浏览器 launch cookie 才可恢复资源；无 cookie 显示“启动会话不可用”。因刷新没有 user activation，可以显示一次“进入全屏并继续”，但游戏 Start 仍不二次出现；Chrome 若同时阻止 AudioContext，画面继续自动运行并显示“点击恢复全屏/声音”，该点击只 resume audio/request fullscreen，不重新创建 Launch 或调用第二次 game start。
-- `Escape` 只退出浏览器全屏；左上返回与更多菜单中的“退出游戏”都先打开 Player 内的影响确认窗。确认窗最左侧提供“创建存档”，调用与工具栏相同的手动状态和截图原子创建事务；保存期间锁定弹窗内的离开动作，成功后保持确认窗并标记“已创建存档”，失败不创建不完整记录且允许原位重试。用户确认退出只 finish/revoke launch，不捕获或上传任何额外进度，然后返回 allowlist 的 `returnTo`。进入 `/play/:launchId` 与退出到 `returnTo` 都替换当前浏览器历史项，Player Shell 不留在后退栈中；退出后点击浏览器后退不能重新进入已经结束的游戏画面。取消确认不改变运行状态。
+- `Escape` 只退出浏览器全屏；左上返回与更多菜单中的“退出游戏”都先打开 Player 内的影响确认窗。确认窗最左侧提供“创建存档”，调用与工具栏相同的非空状态 payload 和可选截图原子创建事务；保存期间锁定弹窗内的离开动作，成功后保持确认窗并标记“已创建存档”，失败不创建不完整记录且允许原位重试。用户确认退出只 finish/revoke launch，不捕获或上传任何额外进度，然后返回 allowlist 的 `returnTo`。进入 `/play/:launchId` 与退出到 `returnTo` 都替换当前浏览器历史项，Player Shell 不留在后退栈中；退出后点击浏览器后退不能重新进入已经结束的游戏画面。取消确认不改变运行状态。
 
 ### 2.1 移动 Player 的方向门禁
 
@@ -89,6 +94,8 @@ sequenceDiagram
 
 ### 3.1 管理审核预览
 
+本节只适用于非 RPG Maker 内容。七个 RPG core 请求旧 preview endpoint 必须返回 `RPG_RUNTIME_VALIDATION_REQUIRED`；RPG 审核不得使用五秒截图或 `REVIEW_SCREENSHOT_OVERRIDE` 满足发布，而要创建正式 `purpose=RPG_RUNTIME_VALIDATION` Launch，走相同 LaunchConfig/content/Player/adapter/checkpoint 路径，并用不同 restore Launch 的实际位置恢复证明兼容性。
+
 审核页的“运行游戏”不是普通用户 Launch。`POST /api/v1/admin/reviews/{itemId}/previews` 为当前 `REVIEW_PENDING` Item 创建短时、capability-scoped 的审核快照并打开 `/admin/review-previews/{previewId}` 子窗体；它锁定当前有效 source snapshot、目标目录默认 CoreArtifact、最新 Validation 和实际存在的依赖。主 ROM 必须存在，已有 Parent、BIOS bundle、external file 与完整多盘内容按普通 Player 协议交付，缺失依赖被省略。DAT 驱动的 Arcade Validation 以其不可变 Arcade V2 `ValidationFiles` 作为 Parent/BIOS 交付事实源；没有 DAT 的普通平台才从当前普通 BIOS snapshot 装配 external file。预览不创建 Game、LaunchSession、PlaySession，不调用 start/heartbeat/finish，不加载或写入 SaveState，也绝不把“看起来可运行”升级成 READY。
 
 子窗体复用版本锁定的 Player adapter 与 canvas contain 规则。创建成功的 READY 或阻断预览都返回 `reviewPreview.captureAllowed=true`；在真实 `EJS_onGameStart` 回调发生后启动一次 5,000ms timer，通过 adapter 优先读取核心保存的最后一帧 PNG，使停止持续刷新的 ROM/BIOS 缺失错误页仍可进入审核证据；核心截图在 2 秒内不可用时回退到 EmulatorJS canvas 截图。截图上传到同一 preview capability 下的 `review-screenshot`。写入时仍须匹配当前来源快照、目标平台、CoreArtifact 和 prepublish generation；任一漂移都会拒绝旧截图。由于 EmulatorJS/WASM、用户激活和自动播放策略属于浏览器边界，后端不能脱离浏览器伪造这一画面；子窗体必须监听同源 iframe 的同步错误与未处理 Promise rejection，并在 30 秒内没有真实 `EJS_onGameStart` 时转为可见失败，不能永久停留在“正在加载”。弹窗、播放或截图上传被阻止时，审核页明确提示重试。
@@ -109,7 +116,8 @@ sequenceDiagram
 8. parent、BIOS/base archive 和必需 entry 完整；
 9. SaveState 与 VariantRevision/CoreArtifact 完全匹配；
 10. DOS entry 属于该 revision，派生 bundle 可生成；
-11. 需要线程的 core 已在客户端能力摘要中满足安全上下文、跨源隔离和 SharedArrayBuffer。
+11. 需要线程的 artifact 已在客户端能力摘要中满足安全上下文、跨源隔离和 SharedArrayBuffer；
+12. RPG Variant 的 core/generation/route/artifact/ABI/pack 与冻结 profile 和 manifest 完全一致，且 artifact 仍 available；不得重新探测或选择当前 latest。
 
 服务端错误码统一使用 `LAUNCH_` 前缀。缺少依赖、损坏内容、存档不兼容、DOS entry 消失和线程环境不满足是 Blocker；BIOS 文件存在但期望 hash 不同、可选 BIOS 缺失和 Fullscreen 拒绝是 Warning。客户端按 `level/code/details` 渲染，不能从中文 message 猜测。
 
@@ -152,9 +160,9 @@ if (config.stateUrl !== null) window.EJS_loadStateURL = config.stateUrl;
 
 官方 EmulatorJS 4.2.3 与当前锁定的 4.3.0-pre 包含逐字节相同的 `extract7z.js`、`extractzip.js`；这两份旧 Emscripten Worker 都会通过两个 `eval` 分支解析导出函数和生成 `cwrap` wrapper。DOSBox Pure 的 4.3 thread core 自身是 7z artifact，所以即使游戏 ZIP 采用 whole-archive 模式，核心装载仍会先进入该 Worker。生产 CSP 只允许 `wasm-unsafe-eval`，不能为此开放 JavaScript `unsafe-eval`。`ejs-4.2.3-v3` 继续在追加 loader 前捕获该版本公开到 window 的 `EJS_COMPRESSION`，并转换其 Worker Blob；4.3 把 compression 类变成 module-private，`ejs-4.3.0-pre-v2` 因而必须在追加 loader 前安装 iframe 内的版本绑定下载兼容层，只精确匹配 `runtimeBaseUrl` 下同源、成功的 GET `compression/extract7z.js` 与 `compression/extractzip.js` 响应，并在 module-private compression 把响应构造成 Worker Blob 前完成转换。Player runtime 位于同源 `about:blank` iframe 时，URL 解析基准必须显式取同源父页面的 HTTP(S) URL，不能用不可解析相对路径的 `about:blank`。两条路径都要求导出函数只从既有 `Module` 属性读取，动态 `cwrap` 改用同一 worker 已提供的 `ccall`；每种 Worker 的两处源片段都必须恰好命中一次，转换后仍出现 `eval(` 或任一片段漂移都以 `PLAYER_ARCHIVE_COMPATIBILITY_UNAVAILABLE` 阻断。4.3 转换响应移除不再准确的 `Content-Length` 与 `ETag`，RAR、非 GET、非成功响应和其他 URL 逐对象保留，卸载 adapter 时恢复原 fetch；已物化的官方 runtime bytes、manifest hash 和许可证据不得改写，未知 EmulatorJS 版本不能继承该转换。
 
-`runtimeBaseUrl` 与 `loaderUrl` 必须锁定 Launch 所选 CoreArtifact 的精确 `emulatorjs_version`，不能固定取当前 active 版本。对基线 v4.2.3，它们分别是 `/runtime/emulatorjs/4.2.3/data/` 与 `/runtime/emulatorjs/4.2.3/data/loader.js`；通用派生规则是给该版本 manifest 的 `emulatorjs.player_adapter.runtime_base_path_in_release/loader_path_in_release` 加 `/runtime/emulatorjs/<exact-version>/` 前缀，并要求 loader 属于 runtime base 且两者都命中 allowlist。它们只由 config 返回，前端不得拼版本、猜目录或回退 active 版本。`gameName` 固定为 `retrom-<emulatorGameId>`，只使用 ASCII 字母、数字与连字符，使 EJS 的 save key 在元信息重命名后仍稳定。
+`runtimeBaseUrl` 与 `loaderUrl` 必须锁定 Launch 所选 CoreArtifact 的精确 `runtime_version`，不能固定取当前 selected 版本。对基线 v4.2.3，它们分别是 `/runtime/emulatorjs/4.2.3/data/` 与 `/runtime/emulatorjs/4.2.3/data/loader.js`；通用派生规则是给该版本 manifest 的 `emulatorjs.player_adapter.runtime_base_path_in_release/loader_path_in_release` 加 `/runtime/emulatorjs/<exact-version>/` 前缀，并要求 loader 属于 runtime base 且两者都命中 allowlist。它们只由 config 返回，前端不得拼版本、猜目录或回退当前 selected 版本。`gameName` 固定为 `retrom-<emulatorGameId>`，只使用 ASCII 字母、数字与连字符，使 EJS 的 save key 在元信息重命名后仍稳定。
 
-`runtimePathOverrides` 对每个已接受版本精确包含一个键：该版本 loader 对所选 artifact 实际请求的 basename；值是该 CoreArtifact 的固定同源 URL。这两个值只由 CoreArtifact 的已校验 `compatibility_config_json.requestedArtifactBasename`、`emulatorjs_version` 和 `relative_path` 派生。v4.2.3 的普通 artifact 例如 `{"mgba-wasm.data":"/runtime/emulatorjs/4.2.3/data/cores/mgba-wasm.data"}`；`mame2003` 必须是 `{"mame2003-wasm.data":"/runtime/emulatorjs/4.2.3/overrides/mame2003-4.2.1-wasm.data"}`；DOSBox Pure 使用 `4.3.0-pre` 的 `dosbox_pure-thread-wasm.data`。其余 loader、CSS、语言、archive helper 和 core report 都从本次 config 的 runtime base 读取，不增加浮动 URL。`defaultCoreOptions` 先放固定 `webgl2Enabled: "enabled"`，再合并适用 BIOS Requirement；DOS 不再依赖旁置 config 或 core option。任何重复 key 异值在验证阶段失败，不能靠合并顺序覆盖。
+`runtimePathOverrides` 对每个已接受版本精确包含一个键：该版本 loader 对所选 artifact 实际请求的 basename；值是该 CoreArtifact 的固定同源 URL。这两个值只由 CoreArtifact 的已校验 `compatibility_json.requestedArtifactBasename`、`runtime_version` 和 `entry_path` 派生。v4.2.3 的普通 artifact 例如 `{"mgba-wasm.data":"/runtime/emulatorjs/4.2.3/data/cores/mgba-wasm.data"}`；`mame2003` 必须是 `{"mame2003-wasm.data":"/runtime/emulatorjs/4.2.3/overrides/mame2003-4.2.1-wasm.data"}`；DOSBox Pure 使用 `4.3.0-pre` 的 `dosbox_pure-thread-wasm.data`。其余 loader、CSS、语言、archive helper 和 core report 都从本次 config 的 runtime base 读取，不增加浮动 URL。`defaultCoreOptions` 先放固定 `webgl2Enabled: "enabled"`，再合并适用 BIOS Requirement；DOS 不再依赖旁置 config 或 core option。任何重复 key 异值在验证阶段失败，不能靠合并顺序覆盖。
 
 Player adapter 使用 manifest 声明的 `playerAdapterId → adapter` 显式 registry，不允许默认分支把未知 ID/版本当成 v4.2.3。机器可读 registry 固定为 `web/features/player/adapters/registry.json`，普通当前登记 `ejs-4.2.3-v3 → 4.2.3` 与 `ejs-4.3.0-pre-v2 → 4.3.0-pre`；后者同时服务 DOSBox Pure、Genesis Plus GX Wide 与 Azahar。联机另显式保留 `ejs-4.2.3-v2 → 4.2.3`，只可由锁定 netplay profile 引用。TypeScript 实现、普通 manifest 与联机 manifest 必须与 JSON 双向一致；浏览器收到未知或版本不匹配的 ID 时必须在加载 loader 前终止，不得回退 active 版本或任意旧 adapter。
 
@@ -181,7 +189,7 @@ Player config 额外提供人类可读的 `gameTitle/coreName/platformName`，�
 
 Retrom 顶部工具栏是运行中的暂停边界：除光盘菜单与只读“调试信息”面板外，点击工具栏区域或其中操作都先调用 `gameManager.toggleMainLoop(false)` 并同步设置实例 `paused=true`；工具栏内不提供恢复动作，随后点击实际游戏画面或在未被设置/弹层占用时按 `P` 才调用 `toggleMainLoop(true)` 并恢复 `paused=false`。光盘菜单是独立的原子运行时操作：打开菜单不暂停，真正换盘时只在 `setCurrentDisk` 与回读边界内短暂停止 main loop，并在成功或失败后恢复进入换盘前的暂停状态。进入运行态后工具栏立即自动隐藏；只有指针进入 viewport 顶部 32 CSS px、`Tab` 导航或焦点进入工具栏才重新显示，指针离开工具栏后立即收起。方向键、WASD、动作键、投币和开始等普通游戏输入不得唤出工具栏或刷新隐藏计时；显式按 `P` 暂停后仍按暂停态契约保持工具栏可见。普通画面区域的 pointermove 同样不得唤出，避免干扰 DOS/DS 等鼠标控制游戏。同源 iframe 内只把非 EmulatorJS 工具栏、弹窗、按钮或输入控件的画面点击映射为恢复，避免用户调整原生设置时误启动游戏。该状态进入后续 heartbeat/finish 的 `previousInterval.paused`，暂停区间不累计有效游玩时长；暂停期间工具栏和画面中央“点击游戏画面继续”浮层保持可见。EmulatorJS 底部工具栏与触屏右上角的原生虚拟手柄菜单入口默认由 iframe 级显示门禁锁定，启动时的 `menu.open()`、靠近边缘和画面点击都不能自行显示；只有 Retrom 更多菜单中的“模拟器设置”解除底栏门禁并调用本次 v4.2.3 实例的真实 `menu.open()`。运行时把工具栏重新收起时门禁自动恢复。这样继续使用 EJS 已装载的控制、显示、Core 和音量设置，同时不复制一套会与运行时状态分叉的设置面板。Retrom 自绘栏额外提供上述画面模式；从 Core 设置切换到显示设置必须先把原生嵌套导航复位到首页，再进入 Graphics Settings，不能把先前 Core panel 留在前景或隐藏 shader 入口。
 
-顶部“调试信息”按钮打开右侧只读诊断面板且保持游戏继续运行；面板打开期间固定显示顶部工具栏。面板每秒读取一次当前 adapter 暴露的 `gameManager.getFrameNum()`，以相邻采样的核心帧数差和单调时钟计算一位小数的“核心帧率”，不能用 CSS 动画或浏览器 `requestAnimationFrame` 次数伪造 FPS。面板同时展示累计核心帧数、运行/暂停/错误状态、canvas drawing-buffer 分辨率、viewport 与 DPR，以及 config 已锁定的 Core、CoreArtifact、EmulatorJS 版本、Player adapter、输入模式、单机/联机模式和当前 COOP/COEP/SharedArrayBuffer 能力。诊断只存在于当前浏览器 Player，会话结束即丢弃，不写数据库、不发遥测，也不得展示 capability、cookie、Blob hash 或宿主路径。
+顶部“调试信息”按钮打开右侧只读诊断面板且保持游戏继续运行；面板打开期间固定显示顶部工具栏。面板每秒读取一次当前 adapter 暴露的 `gameManager.getFrameNum()`，以相邻采样的核心帧数差和单调时钟计算一位小数的“核心帧率”，不能用 CSS 动画或浏览器 `requestAnimationFrame` 次数伪造 FPS。面板同时展示累计核心帧数、运行/暂停/错误状态、canvas drawing-buffer 分辨率、viewport 与 DPR、输入模式、单机/联机模式和当前 COOP/COEP/SharedArrayBuffer 能力。EmulatorJS 分支还显示 config 已锁定的 CoreArtifact、EmulatorJS 版本和 Player adapter；普通 RPG Maker Player 只显示用户所选完整版本核心名和“RPG Maker”运行类型，不显示 route、artifact、adapter 或 ABI，这些字段只在管理员审核内部诊断出现。诊断只存在于当前浏览器 Player，会话结束即丢弃，不写数据库、不发遥测，也不得展示 capability、cookie、Blob hash 或宿主路径。
 
 映射：
 
@@ -203,7 +211,7 @@ NDS 三核心与 Azahar 的 `inputMode=POINTER`：Player 不向 iframe 合成额
 
 不得使用不存在的 `EJS_onExit` 或 `EJS_onSaveUpdate`。产品只把 `EJS_onSaveState` 接到保存写路径，不接 `EJS_onSaveSave`，也不监听 `saveSaveFiles`。`exit` 只提交 PlaySession finish 和销毁资源；浏览器 `pagehide` 只 best-effort 提交 heartbeat/finish。定时器、运行时文件变化、退出和页面隐藏都不得生成或上传游戏进度。
 
-`EJS_onSaveState` 的真实 payload 是 `{ screenshot: Blob, format: string, state: Uint8Array }`。只有用户点击 Retrom 的“创建存档”才调用核心状态捕获；Retrom 必须同时上传非空 state 与截图，任一失败都不创建 SaveState。上传用浏览器实际写出的字节持续显示 0–100% 进度，直到服务器成功响应、失败响应或网络错误才结束；失败必须显示明确提醒。工具栏交互最迟在 750ms 暂停 main loop，但截图可以在独立的 5 秒有界窗口继续完成。截图优先读取 core framebuffer；如果 PNG 宽高与核心显示 aspect 的互换方向更匹配，说明竖屏 rotation 尚未应用，必须回退到显示 canvas，保证存档封面方向与玩家看到的方向一致。核心截图能力不可用时也回退显示 canvas。
+`EJS_onSaveState` 的真实 payload 是 `{ screenshot: Blob, format: string, state: Uint8Array }`。只有用户点击 Retrom 的“创建存档”才调用核心状态捕获；非空 state 是创建 SaveState 的必要输入，截图是同一 multipart 的可选最佳努力输入。state 捕获/校验或上传失败不得创建 SaveState；截图捕获失败不得丢弃有效 state，客户端应提交无 screenshot 的存档并显示“未生成预览图”的非阻断提示。上传用浏览器实际写出的字节持续显示 0–100% 进度，直到服务器成功响应、失败响应或网络错误才结束；浏览器 XHR 必须显式使用 300 秒 timeout，与同一路由的 NG、Next.js 和 Go 300 秒边界一致，超时按上传失败处理且不得留下不完整记录。工具栏交互最迟在 750ms 暂停 main loop，但截图可以在独立的 5 秒有界窗口继续完成。截图优先读取 core framebuffer；如果 PNG 宽高与核心显示 aspect 的互换方向更匹配，说明竖屏 rotation 尚未应用，必须回退到显示 canvas，保证存档封面方向与玩家看到的方向一致。核心截图能力不可用时也回退显示 canvas；所有路径都失败或得到全黑无效图时省略 screenshot part。
 
 EmulatorJS 即使设置 `EJS_disableDatabases=true`，仍会挂载并从 IDBFS 回灌 `/data/saves`。因此每个 Launch 都在 `saveDatabaseLoaded`、ROM/start 之前同步清空整个 mount；清理失败必须阻断启动。Player 不调用 `getSaveFilePath/loadSaveFiles` 注入服务器或浏览器遗留数据。这样没有 `saveStateId/stateUrl` 的“开始游戏/重新开始游戏”必然从游戏初始状态开始。
 
@@ -253,11 +261,11 @@ Player 在开始、盘数不一致、换盘成功/失败和跨盘状态恢复成
 
 ## 10. 显式状态存档
 
-SaveState 同时引用 Profile、Game、GameVariantRevision、CoreArtifact、可空 DatVersion、DOS entry、状态 Blob、截图 Blob、名称、累计有效时长和创建时刻。默认禁止跨 CoreArtifact 或 VariantRevision 恢复；未来若有显式迁移器，必须另建兼容结果，不能自动尝试。
+SaveState 同时引用 Profile、Game、GameContentRevision、GameVariantRevision、CoreArtifact、可空 DatVersion、DOS entry、必需状态 Blob、可空截图 Blob、名称、累计有效时长和创建时刻。默认禁止跨 CoreArtifact、ContentRevision 或 VariantRevision 恢复；未来若有显式迁移器，必须另建兼容结果，不能自动尝试。
 
 Profile 必须等于当前认证用户唯一绑定的私有 Profile。存档列表、详情、创建、恢复、软删除、最近游玩和累计时长都先按该 Profile 限定；客户端提交另一个 Profile ID、SaveState ID 或 Launch ID 不能扩大授权。用于写操作重放的 Idempotency-Key 同样按认证用户主体分区。
 
-当前产品唯一的进度保存入口是 SaveState。用户主动点击“创建存档”后，Player 捕获同一时刻的 state 与截图并通过 `/save-states` 原子创建记录；退出对话框中的“创建存档”也是同一显式动作。直接退出、定时运行、原生 save-file callback 与 `pagehide` 都不能创建存档。显式上传正在进行时退出会等待该上传完成，但不会额外捕获终态。
+当前产品唯一的进度保存入口是 SaveState。用户主动点击“创建存档”后，Player 捕获非空 state，并最佳努力捕获同一时刻的截图，通过 `/save-states` 原子创建记录；截图失败时省略该 multipart part，不能丢弃有效 state。退出对话框中的“创建存档”也是同一显式动作。直接退出、定时运行、原生 save-file callback 与 `pagehide` 都不能创建存档。显式上传正在进行时退出会等待该上传完成，但不会额外捕获终态。
 
 当前产品没有隐式或自动持久化子系统，Launch config 不包含相应字段，数据库和 HTTP API 也不保存这类记录。普通 Launch 总是从游戏初始状态开始；只有请求中显式指定、且通过 Profile/VariantRevision/CoreArtifact/DOS entry/盘号门禁的 SaveState 可以改变启动位置。
 
@@ -334,8 +342,8 @@ EmulatorJS 会直接轮询浏览器 Gamepad API。卸载必须恢复原函数和
 `120ms` 后才接受左右/A/B。取消顺序为保持全零、关闭菜单、等待中立、只恢复本菜单拥有的暂停、交还游戏
 输入；Core 在打开前已暂停时不能越权恢复。
 
-“创建存档”只有 adapter 同时支持状态捕获与 PNG 截图时可用；选择后在暂停所有权未变化的前提下复用普通
-手动存档上传事务，把当前 state、截图、Game、Variant/CoreArtifact 与多盘 discIndex 一起提交。上传中菜单
+“创建存档”只有 adapter 支持非空状态捕获时可用；PNG 截图仍按普通 Player 规则最佳努力生成，失败不禁用保存。选择后在暂停所有权未变化的前提下复用普通
+手动存档上传事务，把当前 state、可用时才提交的截图、Game、Variant/CoreArtifact 与多盘 discIndex 一起提交。上传中菜单
 保持暂停且禁用重复提交；成功显示可读结果后关闭菜单并只恢复本菜单拥有的暂停，失败保留菜单、暂停和重试
 入口。B 在请求前取消；请求已提交后不能伪装为撤销成功。退出先 finish/revoke，成功后 teardown 并
 `location.replace(returnTo)`；失败保留暂停与菜单并允许 A 重试、B 取消。取消、退出、页面隐藏、断开或
@@ -359,6 +367,63 @@ teardown 都不会自动创建 SaveState，并清空 pending chord，不能留�
 `ejs-netplay-4.2.3-v1`，不会继承沉浸过滤；依赖校验必须允许 manifest 当前普通 adapter 与联机 manifest
 的精确 legacy player adapter 分离，同时仍对两者的版本/实现登记 fail closed。
 
-## 15. 统一验收入口
+## 15. RPG Maker runtime factory 与 adapter
+
+Player 顶层只按服务端 config 的 `runtimeFamily` 选择 `EMULATORJS` 或 `RPGMAKER`。后者的唯一入口为 `web/features/player/rpg-runtime/index.ts`，第一方模块名固定 `RetromRpgRuntime`；它与 EmulatorJS adapter 平级且互不导入。Player Shell 不得出现 EasyRPG/mkxp/MV/MZ 分支，也不得根据项目文件或错误重算 route。
+
+`RetromRpgRuntime` 统一提供一次性 `mount`、`pause/resume`、`checkpoint`、`screenshot`、幂等 `exit`、状态/availability 读取和订阅；状态只允许 `CREATED→LOADING→RUNNING↔PAUSED→CHECKPOINTING→原状态`、活动态到 `EXITING→EXITED`、任意非终态到 FAILED。事件闭集为 READY、LOAD_PROGRESS、STATE_CHANGED、CHECKPOINT_AVAILABILITY_CHANGED、FATAL_ERROR、EXIT_REQUESTED。退出/失败必须释放 worker、audio、iframe、object URL、timer 和 listener。未知 core/generation/route/adapter 组合在下载前以稳定错误失败，任何 adapter 都不得调用另一 adapter。
+
+实现目录固定为 `web/features/player/rpg-runtime/`：`contract.ts` 是上述唯一公开协议，`controller.ts` 独占状态转换和失败/退出清理，`registry.ts` 独占浏览器内路线选择，三类实现分别位于 `easyrpg/`、`mkxp/`、`native-web/`。Player 只从该目录的 `index.ts` 创建或挂载 RPG runtime；为复用既有 Player 工具栏而产生的结构化 instance bridge 只把暂停、截图、checkpoint 和位置证据委托回同一个 controller，不能直接暴露第三方 adapter，也不能成为第二套路由入口。`web/features/player/rpg-runtime/registry.json` 是前端实现索引，`make data-check` 必须将它与 `data/dat/rpgmaker/v1/manifest.json` 的七条 clean-lineage 当前 route row 按 `coreId/generation/routeKey/adapterKind/adapterId` 双向核对，并验证每个 implementation 文件真实存在；未知、缺失或额外行都阻断构建。
+
+工厂在创建 adapter 前必须以编译时 registry 逐字段验证 `coreId+generation+routeKey+adapterKind+adapterId`，并用 `URL` 解析全部地址：只接受冻结 config 指定的 exact app/runtime origin 与固定 path prefix，拒绝 userinfo、fragment、协议相对 URL 和 redirect；浏览器不读取项目内容来重选路线。`checkpoint()` 只在 availability 为 available 时调用，adapter 只返回 payload 给 Player 的通用上传层，自身不持有应用认证凭据。availability 的 reason 闭集为 `NOT_ON_MAP/SAVE_DISABLED/MESSAGE_ACTIVE/EVENT_ACTIVE/BUSY/RUNTIME_NOT_READY/RUNTIME_FAILED/CHECKPOINT_ALREADY_CREATED/NETPLAY_UNSUPPORTED`，available 时 reason 必须为 null，unavailable 时必须为其中一项。
+
+七个 core 的运行路线固定为：
+
+- 2000/2003：`EASYRPG_WEB/easyrpg-web-v1`，共用固定 Wasm bytes，但分别强制命令行 `--engine rpg2k` 与 `--engine rpg2k3`。每 Launch 的游戏目录和 `Save/` mount 由不可复用的 launch ID 隔离；pre-run 先以 run dependency 阻止 main，等待 IDBFS `syncfs(true)` populate 完成，再把 restore bytes 和已校验 RTP bytes 写入其目标路径，最后置 `retromFileSystemReady=true` 并解除 dependency。populate、写入或路径创建任一步失败都 abort，adapter 也必须在读取 engine ready 前断言该 ready 位，不能启动新游戏掩盖恢复失败。`initApi` 后、引擎完成数据库初始化前，`retromState` 可以短暂不可解析或缺少完整字段；adapter 只在 30 秒硬期限内重试这种启动中状态，并且只在 `ready=true` 后核对最终 engine。最终 engine 错误立即 `RPG_ENGINE_PROFILE_MISMATCH`，持续未就绪则 `RPG_RUNTIME_TIMEOUT`；退出销毁模块和内存投影。
+- XP/VX/VX Ace：当前路线为 `f2efc98-v5/MKXP_LIBRETRO_WEB/mkxp-z-libretro-v4`，分别强制 `mkxp-z_rgssVersion=1|2|3`，固定 256 MiB serialize buffer；clean-lineage 不加载 v1/v2 adapter。核心资产仍来自 fork 的固定 `retrom-web-f2efc98-r3` Release，V5 只为等待位置 evidence 后再恢复的 adapter 行为建立新的不可变 route；不会覆盖 V4。该 Release 在 `retro_unserialize` 成功后的瞬时 sandbox lifecycle 窗口保护 movie-frame 查询，空 sandbox 时不得解引用 `boost::optional`。需要真实 COOP/COEP、SharedArrayBuffer、AudioWorklet、OPFS 和 Web Locks；每 Launch 写入 `/retrom-rpg/<launchId>/` 并持有同名 lock，退出后删除，不能回退到大内存路径或 `coi-serviceworker`。Player 的显示容器位于同源子 document，而 Nostalgist 在父 document 的模块 realm 执行并以该 realm 的 `HTMLCanvasElement` 校验目标；mkxp adapter 必须在自身 realm 创建 ID 始终为 `canvas` 的 canvas，再由 DOM adoption 放入 Player frame，禁止直接用子 document 构造，否则真实元素会被跨 realm `instanceof` 错误拒绝。mkxp 的硬件 WebGL context 由 RetroArch pthread 持有，截图必须从浏览器已显示的 canvas 编码 PNG；禁止从主线程调用 Nostalgist/RetroArch `SCREENSHOT` 导出函数，否则会跨线程进入无 GL context 的核心截图路径。Nostalgist 的 state path getter 只识别其内置 core map，不识别 Retrom 自定义的 `mkxp-z` core；adapter 固定 RetroArch 私有键 `input_save_state=f2`、`input_load_state=f4`、`input_pause_toggle=f6`，并且只能在已 adopt 的显示 canvas 聚焦后派发相应 keydown/keyup，让 RetroArch 在正常输入/渲染循环内执行 serialize、unserialize 与 pause/resume。禁止从浏览器主线程直接调用 `sendCommand("SAVE_STATE"|"LOAD_STATE")`、Nostalgist `pause/resume` 或底层 `_cmd_save_state/_cmd_load_state/_cmd_toggle_pause`，因为 mkxp pthread 持有 WebGL context，导出命令会在无 `GLctx` 的线程进入 `bindFramebuffer` 或 `useProgram` 并中断运行。由于 Retrom 不向 Nostalgist 传递会触发 custom-core map 的 `state` option，adapter 必须在启动前自行创建精确 `/home/web_user/retroarch/userdata/states/mkxp-z` 父目录；只创建 `/states` 会让 RetroArch save task 的 file open 持续失败而永远没有可轮询文件。RetroArch 在非 WinPhone 构建中默认启用 `savestate_file_compression`，但 rzip 输出既不是本契约要求的 RASTATE1 bytes，也会把大状态文件的最终可见性推迟到压缩完成；adapter 因而必须显式固定 `savestate_file_compression=false`。保存必须在 120 秒内从该目录的 `game.state` 收取结果；该运行时文件必须恰为 `RASTATE\x01` 8-byte header、`MEM `/little-endian 256 MiB size、256 MiB raw core bytes、`END `/zero-size footer，总长 268435480 bytes，不接受其他 block、trailing bytes 或长度。Retrom 持久化与上传只保留其中精确 268435456-byte raw core bytes，其 offset 0/4 必须为小端 `mkxp` magic/version 1，因而既有 API/DB 256 MiB 上限不包含也不需要容纳 RASTATE1 的 24-byte 运行时信封。恢复先验证 raw bytes并确定性重建该信封，在核心启动前写入同一精确路径；adapter 必须等精确 `retrom-position-v1` 文件已经由目标 RGSS runtime 生成且可读后才能发送 F4，只有目录存在不足以证明初始化完成。F4 后在 30 秒内等待 bridge 回读位置，其中 validation Launch 的全部字段必须等于服务端已冻结的 B，才能把 mount 声明为 ready；禁止持久化运行时信封、依赖 `.auto` 或只确认文件存在，也不得调用会触发内置 core map 查找的 Nostalgist `saveState/loadState`。Launch config 必须携带下载后 observed 的 JS/Wasm size/SHA 和 artifact-set digest；这些值用于同源内容响应与本机缓存完整性，不是远端 release 准入身份。经逐文件 observed digest 校验后重建的 core Blob 还必须分别固定为 `text/javascript` 与 `application/wasm`；无 MIME 的 JS Blob 虽可由顶层兼容导入路径读取，却会被 Chrome 的 ES module pthread worker 拒绝，导致四个 worker 永远不返回 `loaded`。adapter 在启动前创建 config 指定的 save/state 根；核心按游戏标题建立唯一 save 子目录后，V3 bridge 必须用相对路径直接写当前 PhysFS 游戏存档根，adapter 只从该精确目录读取位置记录。0 个游戏目录等待最多 30 秒、多个目录立即拒绝。`FRAMES_300` 在首个有效位置记录出现后才采样 bridge 的帧计数，标题页不会被误判为核心失败。
+  mkxp 恢复 readiness 不能只以游戏存档目录出现为准。核心启动后必须等唯一目录中的 `retrom-position-v1` 已真实存在且可读，证明 RGSS、位置 bridge 和 sandbox 已越过初始化边界，才允许派发 F4；目录已出现但 evidence 尚未生成时继续计入同一 30 秒等待。提前 F4 会让 restore task 与初始化交错并中断核心。多个游戏目录立即拒绝，超时稳定返回 bridge unavailable，不能退化为从游戏开头运行。
+- MV/MZ：`NATIVE_WEB/rpg-native-web-v1`，分别使用 `mv-v1|mz-v1` shape probe。完整 source snapshot/filesDigest 原样保留未引用的 desktop/native 文件；每次 Launch 另行冻结只含 `index.html` 与固定 Web 资源 MIME allowlist 的最小运行投影，排除根 `package.json` 和 native executable 后缀。项目自带 JavaScript 只运行在每 Launch 唯一且与 app 不同源的 iframe；父页只能经一次 MessageChannel 发送暂停、恢复、availability、checkpoint、screenshot、exit。channel envelope 固定协议版本、launchId、256-bit nonce 和严格递增 requestId；未知/额外字段、错误 origin/source/nonce、乱序、超限或 timeout 立即关闭 iframe 并失败。
+
+这里引入每 Launch 唯一的 `*.rpg-runtime.<app-domain>` origin 不是部署上的可选优化，而是执行用户上传 MV/MZ JavaScript 的安全边界。若项目脚本与 Retrom 应用同源，浏览器同源策略会允许它读取或改写父页面 DOM、以登录用户身份调用应用 API、接触同源存储，并可利用 `allow-scripts + allow-same-origin` 组合移除 iframe sandbox 后重新加载；恶意或被污染的插件因而可能冒充用户操作游戏库、存档和管理功能。若不同游戏复用同一个 runtime origin，还会共享 Cache Storage、IndexedDB 和潜在的持久 worker 状态，使一个游戏污染后续 Launch。独立 origin 配合 host-only HttpOnly capability cookie、exact `frame-src/frame-ancestors`、固定 `/__retrom/*` allowlist、禁外网与 service worker，才把项目权限限制到当前 Launch 的最小运行投影；缺少任一边界都必须阻断 Native Web 启动，不能降级为 app-origin 或共享 runtime origin。
+
+MV/MZ bridge 在实际 `Utils.RPGMAKER_NAME` 与所选 profile 一致、`SceneManager/DataManager/StorageManager` 已建立且首个引擎帧执行后即可报告 runtime ready；标题页允许位置为 `mapId=0`，不得等待进入地图才完成 mount。连续帧 gate 随后独立验证 300 帧，位置 gate 再等待 `mapId>0`；checkpoint availability 仍只在可保存地图、无消息和无活动事件时为 available。由此 `RUNTIME_READY` 只证明引擎与 channel 已运行，不能冒充“已到可保存位置”。
+
+MV/MZ restore bridge 收到并校验 bundle 后，必须先等待引擎的 `DataManager.isDatabaseLoaded()` 成功，再临时安装精确 slot 的 StorageManager override 并调用 `DataManager.loadGame`；等待最长 30 秒。MV 在调用 `loadGame` 前还必须把 `DataManager._globalInfo` 置为 `null`，迫使引擎从已经注入的 bundle key `0` 重读全局存档索引；否则标题页提前缓存的空数组会令真实存档槽被 `isThisGameFile` 误判为不存在。MZ 的 `StorageManager.saveObject/loadObject` 接口传递的是带 RPG Maker 类型信息的对象而不是最终压缩字符串；bridge 因而必须分别用同一引擎 realm 的 `JsonEx.stringify/parse` 保存和重建对象原型，禁止用普通 `JSON.stringify/parse` 生成表面字段相同但缺少原型方法的对象。MZ 在数据库就绪后还必须等待当前 boot scene 与 `ColorManager` windowskin 的 `getPixel` 能力完成初始化，才能调用 load 并切换 `Scene_Map`；切换后还必须等待该 `Scene_Map.isStarted()` 为真，证明 map data、display objects 和渲染资源已经完成，而不能只因 `$gameMap/$gamePlayer` 已从 save 中出现就返回 restore success。否则恢复位置虽已写回，地图窗口或截图会在首帧读取尚不存在的图形资源并中断，无法证明恢复后仍可输入。MZ 不使用 MV 私有缓存重置。bridge ready 只代表控制通道与引擎 profile 已就绪，不代表 `System.json` 等数据库对象或图形启动资源已加载。过早 load 会让 MV 的 `isThisGameFile` 解引用空系统元数据，或让 MZ 的地图窗口读取未初始化资源；缺少数据库 API或数据库等待超时分别以 `RPG_CHECKPOINT_DATABASE_UNAVAILABLE`、`RPG_CHECKPOINT_DATABASE_TIMEOUT` fail closed，图形启动等待超时以 `RPG_CHECKPOINT_RESTORE_TIMEOUT` 收口，不能吞错后进入新游戏。
+
+clean-lineage 当前只登记 `RPGMV_NATIVE_V3/RPGMZ_NATIVE_V3`；两者共用同一不可变 bridge bytes、`rpg-native-web-v1` 父子消息协议与 `rpg-native-save-v1` payload ABI，但 generation、route 与 CoreArtifact 仍分别冻结。服务端必须按 Launch 的 `coreArtifactId` 提供对应 bridge，不能按当前 selected artifact 或硬编码版本路径提供。以后若新增不可变 artifact，已发布 Variant/Save 仍按原 artifact 恢复，但本次开发数据重建不迁移 V1/V2 诊断路线。
+
+原生 Web 的 envelope 精确为 `{protocolVersion:1,launchId,nonce,requestId,type,body}`：父命令 requestId 从 1 起严格递增，同一时刻最多一个未完成命令；响应复用该 ID，bridge 主动事件固定 requestId=0 且只允许 availability/exit request/fatal error。非 plain structured-clone object、缺失或额外字段、响应 type 不匹配都以 `RPG_RUNTIME_PROTOCOL_VIOLATION` 终止。RFC 8785 control envelope 最大 64 KiB，transferable screenshot 最大 10 MiB、checkpoint 最大 64 MiB，二进制不得在 body 重复编码。从 iframe 首次导航起 bootstrap ready、ticket POST、channel ready 各 10 秒，shape probe/首个可运行 scene 各 30 秒，pause/resume/availability 各 5 秒，screenshot/exit 各 10 秒，checkpoint/restore 各 120 秒；超时以 `RPG_RUNTIME_TIMEOUT` 终止，取消/退出必须 abort 全部 fetch 并拒绝未完成 Promise。
+
+MV/MZ iframe sandbox 恰为 `allow-scripts allow-same-origin allow-pointer-lock`，不授予 forms、popups、top navigation、downloads 或 storage access。父页面 CSP `frame-src` 只加入该 Launch 的 exact origin；runtime host 只服务 HTTP 专题登记的 `/__retrom/*` allowlist。无凭据 bootstrap GET 收到父页面 exact-origin ticket 后，同源 POST 一次消费并取得 `HttpOnly; SameSite=Strict; Path=/__retrom/` host-only cookie；游戏脚本不得获得 ticket、cookie、MessagePort 或主应用 DOM。同一 Launch 的父页刷新只有在 app launch cookie 与 runtime host capability cookie 都仍有效时才可恢复：Config 可以投影同一已消费 ticket 作为不可重放的形状字段，runtime bootstrap GET 验证现有 HttpOnly cookie 后直接 `303 /__retrom/entry`，adapter 可在初始等待阶段接受 exact origin/source 的 bridge ready；无 cookie、伪造 cookie、错误 Host、撤销或过期都不得重新消费 ticket。entry 使用 `base-uri 'self'` 和固定 `/__retrom/project/` base，严禁外网、service worker、form、frame、object 与未知执行 MIME。正常退出时 runtime cleanup 与 Launch finish 都可能先撤销 capability：首次撤销时间不可变，后到的 Launch 终态级联必须跳过已撤销行，不得因二次撤销使 Launch 留在 `ACTIVE`。异常关闭依靠 origin 永不复用和 capability 到期隔离。
+
+## 16. 通用检查点与可证明恢复
+
+产品 UI 统一称“创建存档/恢复存档”，服务端资源仍为 SaveState，但 payload 是运行时检查点：既有 EJS 与 mkxp 使用 `RUNTIME_STATE`，EasyRPG/MV/MZ 使用 `NATIVE_SAVE_BUNDLE_V1`。EJS/EasyRPG/MV/MZ payload 上限 64 MiB，mkxp 256 MiB，可选截图上限 10 MiB。恢复必须精确匹配 content revision、variant revision、artifact、adapter ABI 与 dependency snapshot；任何差异都拒绝，不能尝试旧/new/latest/fallback。
+
+`NATIVE_SAVE_BUNDLE_V1` 的 manifest 必须按 RFC 8785 canonical JSON 编码；根字段顺序固定为 `engine,entries,resumeSlot,schemaVersion`，entry 字段顺序固定为 `key,mediaType,offset,sha256,sizeBytes,store`。浏览器编码结果必须能被 Go 解码器直接接受，不能只用同一份 TypeScript codec 自编码、自解码证明兼容。
+
+EasyRPG 只在地图、允许保存、无 message/transition/活动主 event 且 player 可移动时开放 checkpoint，在 frame boundary 用原生保存路径写保留 slot 100，导出该 slot 的精确 `Save/Save100.lsd` bytes。恢复 Launch 在 IDBFS populate 回调成功后、解除 pre-run dependency 前写入该文件，再以 `--load-game-id 100` 启动；必须同时满足 `retromFileSystemReady=true` 和引擎 map ready，失败不得进入新游戏。禁止在 populate 前写入后再被异步同步覆盖，也禁止不等待回调就启动 main。EasyRPG 构件启用了 Emscripten `EXIT_RUNTIME`，因此 adapter 创建 Module 时必须固定 `noExitRuntime=true`；否则 Player 工具栏暂停会把主循环取消误判为进程退出，无法再安全恢复主循环。mkxp 使用 libretro serialize/unserialize，保存和恢复都校验固定 magic/version/长度与 compatibility JSON；unserialize 失败不得改读原生 save。
+
+MV/MZ 只在 Scene_Map、允许保存、无 message/活动 event 且 DataManager 非 busy 时开放。bridge 以 `DataManager.maxSavefiles()+1` 的虚拟 slot 临时拦截 StorageManager 到私有内存，调用相应同步/Promise DataManager save，打包 slot bytes 与必要 companion key 后恢复所有 wrapper。restore Launch 在项目入口前写入空 unique-origin storage，shape probe 后调用对应 DataManager load 和固定 Scene_Load success transition；自动加载失败不得显示 title/new game。绕过标准 DataManager 或依赖 Node/native storage 的插件不受支持。
+
+运行验证和每世代产品验收都必须执行同一可证明流程：
+
+1. 在进入可运行地图后读取并记录初始 A=`mapId/playerX/playerY/fixtureState`；
+2. 通过真实输入移动或改变变量得到与 A 不同的保存点 B，冻结 B 后创建 checkpoint；
+3. 继续真实游玩到与 B 不同的 C，并回读证明差异；
+4. 结束原 Launch，服务端确认 checkpoint 完整并创建 `restoreLaunchId != launchId`；
+5. 新 Launch 自动恢复，重新回读全部字段，必须逐项等于 B，且至少一项不同于 A 和 C；
+6. 用 restore Launch capability 把恢复后 PNG 上传到通用 `review-screenshot` 端点，服务端直接关联当前 validation，再提交 `RESTORE_SCREENSHOT` gate，并同时验证预期版本 marker/engine profile。
+7. 截图 gate 通过后继续真实输入，回读与恢复位置 B 不同的 `mapId/playerX/playerY/fixtureState` 并提交 `RESTORE_INPUT`；只有该 gate PASS 后服务端才进入 `AWAITING_DECISION`。
+
+机器协议固定为 14 个有序 gate：`RUNTIME_READY → ENGINE_PROFILE → FRAMES_300 → INPUT → AUDIO → INITIAL_POSITION_RECORDED → SAVE_POINT_RECORDED → CHECKPOINT_CREATED → POST_SAVE_STATE_DIVERGED → ORIGINAL_LAUNCH_ENDED → RESTORE_STARTED → RESTORE_POSITION_VERIFIED → RESTORE_SCREENSHOT → RESTORE_INPUT`。每个 gate 都先 BEGIN 再 PASS/FAIL。validation Launch 的配置同时投影服务端 `lastGateSequence`、按上述顺序的 gate status/evidence、原/恢复 Launch ID、已存在 checkpoint evidence 与恢复截图关联状态；运行时授权页面刷新必须从第一个未完成动作继续，不得重新发送已完成的 BEGIN 或终态。
+
+runtime validation 和 restore Launch 的创建请求都必须在用户动作发生时重新读取并提交严格 `clientCapabilities={secureContext,crossOriginIsolated,sharedArrayBuffer}`；服务端在签发任一 Launch credential 前按冻结 artifact 的 `requires_threads` 校验，Player 挂载 adapter 前再次读取真实环境，任一能力变差都 fail closed。客户端能力只用于兼容门禁，不是授权证据，也不能替代 frozen binding。
+
+只证明 HTTP 201、Blob hash、bundle 解码、引擎 save/load 返回成功、同一进程内回载或仅比较截图都不构成恢复成功。验证 gate 任一步失败即 FAILED，审核员不能覆盖。PRODUCT 存档恢复同样必须通过对应 adapter 的自动恢复路径，不显示“加载成功”后再从头开局。
+
+## 17. 统一验收入口
+
+RPG Maker 七版本 core、三类 adapter、unique origin、runtime validation、A→B→C→不同 Launch 恢复到 B 与恢复后 `RESTORE_INPUT` 统一执行 `ACC-RPG-001`–`012`；这些 Case 不能由既有 `ACC-SAVE-*` 的 payload/Load API 断言替代。
 
 启动与全屏执行 `ACC-RUN-001`–`ACC-RUN-012`；移动方向门禁、横屏 HUD、P1/P2 暂停职责和请求时序执行 `ACC-MOB-005`–`ACC-MOB-007`；显式状态存档、普通开始隔离与恢复执行 `ACC-SAVE-001`–`ACC-SAVE-003`；多盘锁定、换盘与跨盘恢复执行 `ACC-MDISC-004`–`ACC-MDISC-006`；账户与 Player 数据隔离执行 `ACC-ISO-001`–`ACC-ISO-003` 与 `ACC-MDISC-008`；有效时长执行 `ACC-PLAY-001`；沉浸入口、资料库/平台/游戏/存档浏览、BGM/系统菜单、真实单机 Core、显式创建存档、双组合/输入隔离与普通/联机回归执行 `ACC-IMM-001`–`012`；事件映射及已登记核心的真实单机运行与跨源隔离分别由 `make web-e2e`、受影响产品集成测试和 `ACC-NET-001` 覆盖。联机协议、安全、feature flag 与单机回归由 `ACC-NP-010`–`013` 覆盖；八个精确 profile 的 rollback/严格 lockstep、后台恢复与重连身份由 `ACC-NP-014`–`022` 覆盖。具体已覆盖核心与边界以 [`core-runtime-validation.md`](./core-runtime-validation.md) 为准。

@@ -13,7 +13,10 @@ import (
 	"retrom/internal/authn"
 	"retrom/internal/cleanup"
 	"retrom/internal/cursor"
+	"retrom/internal/importing"
 	"retrom/internal/libraryimport"
+	"retrom/internal/rpgmaker/detector"
+	"retrom/internal/rpgmaker/fileset"
 	"retrom/internal/tagging"
 )
 
@@ -374,8 +377,51 @@ func (server *Server) createImport(writer http.ResponseWriter, request *http.Req
 		writeTagError(writer, request, err)
 		return
 	case err != nil:
-		writeError(writer, request, http.StatusConflict, "IMPORT_INPUT_INVALID", "上传或目标目录不可用于导入", map[string]any{})
+		status, code, message := importCreationError(err)
+		writeError(writer, request, status, code, message, map[string]any{})
 		return
 	}
 	writeJSON(writer, http.StatusAccepted, created)
+}
+
+func importCreationError(err error) (int, string, string) {
+	var detectionError *detector.Error
+	if errors.As(err, &detectionError) {
+		return detectorImportStatus(detectionError.Code), string(detectionError.Code), "RPG Maker 项目与所选版本不兼容"
+	}
+	var projectError *fileset.ProjectError
+	if errors.As(err, &projectError) {
+		status := http.StatusUnprocessableEntity
+		switch projectError.Code {
+		case fileset.CodeProjectNotFound:
+			status = http.StatusBadRequest
+		case fileset.CodeRootAmbiguous:
+			status = http.StatusConflict
+		case fileset.CodePathCollision:
+			status = http.StatusUnprocessableEntity
+		}
+		return status, string(projectError.Code), "RPG Maker 项目结构无效"
+	}
+	switch {
+	case errors.Is(err, importing.ErrArchiveLimitExceeded):
+		return http.StatusRequestEntityTooLarge, "ARCHIVE_LIMIT_EXCEEDED", "项目归档超过安全限制"
+	case errors.Is(err, importing.ErrArchiveEncrypted):
+		return http.StatusUnprocessableEntity, "ARCHIVE_ENCRYPTED_UNSUPPORTED", "不支持加密项目归档"
+	case errors.Is(err, importing.ErrArchiveVolumeUnsupported):
+		return http.StatusUnprocessableEntity, "ARCHIVE_VOLUME_UNSUPPORTED", "不支持分卷项目归档"
+	case errors.Is(err, importing.ErrArchiveCasefoldCollision):
+		return http.StatusUnprocessableEntity, "RPG_PATH_COLLISION", "RPG Maker 项目路径发生冲突"
+	default:
+		return http.StatusConflict, "IMPORT_INPUT_INVALID", "上传或目标目录不可用于导入"
+	}
+}
+
+func detectorImportStatus(code detector.Code) int {
+	if code == detector.CodeProjectNotFound {
+		return http.StatusBadRequest
+	}
+	if code == detector.CodeGenerationAmbiguous {
+		return http.StatusConflict
+	}
+	return http.StatusUnprocessableEntity
 }

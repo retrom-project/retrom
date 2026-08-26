@@ -88,7 +88,7 @@ AND core_id IN ('fbalpha2012_cps1','fbalpha2012_cps2')
 SELECT a.id,a.version,d.id
 FROM core_artifacts a
 JOIN dat_versions d ON d.core_artifact_id=a.id AND d.is_active=1
-WHERE a.core_id='fbneo' AND a.enabled=1
+WHERE a.core_id='fbneo' AND a.selected_for_new_bindings=1
 `).Scan(&artifactID, &artifactVersion, &selectedDATID); err != nil {
 		t.Fatal(err)
 	}

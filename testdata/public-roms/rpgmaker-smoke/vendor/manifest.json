@@ -1,0 +1,70 @@
+{
+  "schemaVersion": 1,
+  "source": "https://github.com/rpgtkoolmv/corescript",
+  "tag": "v1.3b",
+  "commit": "182e31449707ba7e406db0485c44c2a9d11e2dcd",
+  "archive": {
+    "path": "corescript-182e31449707ba7e406db0485c44c2a9d11e2dcd.tar.gz",
+    "size": 460310,
+    "sha256": "51edffd5dbe3ce377452cd1df36dc2168e3b3da95b17667ec20fc77fa304203c",
+    "downloadUrl": "https://codeload.github.com/rpgtkoolmv/corescript/tar.gz/182e31449707ba7e406db0485c44c2a9d11e2dcd"
+  },
+  "license": {
+    "spdx": "MIT",
+    "archivePath": "LICENSE",
+    "archiveSize": 1089,
+    "archiveSha256": "e3563d4b3ff63e95a154f75d207444d71c108dc1bb64f0bb8230c5ee65a13922",
+    "materializedPath": "../LICENSES/CoreScript-MIT.txt"
+  },
+  "components": [
+    {
+      "name": "CoreScript",
+      "files": ["rpg_core.js", "rpg_managers.js", "rpg_objects.js", "rpg_scenes.js", "rpg_sprites.js", "rpg_windows.js"],
+      "source": "https://github.com/rpgtkoolmv/corescript/tree/182e31449707ba7e406db0485c44c2a9d11e2dcd",
+      "licensePath": "../LICENSES/CoreScript-MIT.txt",
+      "copyrightHeader": "Copyright (c) 2015 KADOKAWA CORPORATION./YOJI OJIMA"
+    },
+    {
+      "name": "FPSMeter 0.3.1",
+      "files": ["fpsmeter.js"],
+      "source": "https://github.com/rpgtkoolmv/corescript/blob/182e31449707ba7e406db0485c44c2a9d11e2dcd/js/libs/fpsmeter.js",
+      "licensePath": "../LICENSES/CoreScript-MIT.txt",
+      "copyrightHeader": "FPSMeter 0.3.1 - 9th May 2013 | https://github.com/Darsain/fpsmeter"
+    },
+    {
+      "name": "iphone-inline-video",
+      "files": ["iphone-inline-video.browser.js"],
+      "source": "https://github.com/rpgtkoolmv/corescript/blob/182e31449707ba7e406db0485c44c2a9d11e2dcd/js/libs/iphone-inline-video.browser.js",
+      "licensePath": "../LICENSES/CoreScript-MIT.txt",
+      "copyrightHeader": "npm.im/iphone-inline-video"
+    },
+    {
+      "name": "LZ-String",
+      "files": ["lz-string.js"],
+      "source": "https://github.com/rpgtkoolmv/corescript/blob/182e31449707ba7e406db0485c44c2a9d11e2dcd/js/libs/lz-string.js",
+      "licensePath": "../LICENSES/CoreScript-MIT.txt",
+      "copyrightHeader": "The locked minified file has no embedded header; the CoreScript distribution LICENSE applies."
+    },
+    {
+      "name": "PixiJS 4.5.4",
+      "files": ["pixi.js"],
+      "source": "https://github.com/rpgtkoolmv/corescript/blob/182e31449707ba7e406db0485c44c2a9d11e2dcd/js/libs/pixi.js",
+      "licensePath": "../LICENSES/CoreScript-MIT.txt",
+      "copyrightHeader": "pixi.js - v4.5.4; pixi.js is licensed under the MIT License."
+    },
+    {
+      "name": "pixi-picture",
+      "files": ["pixi-picture.js"],
+      "source": "https://github.com/rpgtkoolmv/corescript/blob/182e31449707ba7e406db0485c44c2a9d11e2dcd/js/libs/pixi-picture.js",
+      "licensePath": "../LICENSES/CoreScript-MIT.txt",
+      "copyrightHeader": "The locked generated file has no embedded header; the CoreScript distribution LICENSE applies."
+    },
+    {
+      "name": "pixi-tilemap",
+      "files": ["pixi-tilemap.js"],
+      "source": "https://github.com/rpgtkoolmv/corescript/blob/182e31449707ba7e406db0485c44c2a9d11e2dcd/js/libs/pixi-tilemap.js",
+      "licensePath": "../LICENSES/CoreScript-MIT.txt",
+      "copyrightHeader": "The locked generated file has no embedded header; the CoreScript distribution LICENSE applies."
+    }
+  ]
+}

@@ -285,10 +285,15 @@ func TestArcadeV2EligibilityRequiresTheLockedDependencyBundle(t *testing.T) {
 		{`INSERT INTO blobs(id,sha256,size_bytes,md5,sha1,crc32,media_type,created_at_ms) VALUES(?,?,1,?,?,?,'application/octet-stream',?)`, []any{contentBlob, strings.Repeat("2", 64), strings.Repeat("3", 32), strings.Repeat("4", 40), strings.Repeat("5", 8), now.UnixMilli()}},
 		{`INSERT INTO blobs(id,sha256,size_bytes,md5,sha1,crc32,media_type,created_at_ms) VALUES(?,?,1,?,?,?,'application/octet-stream',?)`, []any{biosBlob, strings.Repeat("6", 64), strings.Repeat("7", 32), strings.Repeat("8", 40), strings.Repeat("9", 8), now.UnixMilli()}},
 		{`INSERT INTO game_content_files(game_content_revision_id,role,logical_name,blob_id,sort_order) VALUES(?,'CONTENT','child.zip',?,0)`, []any{contentID, contentBlob}},
-		{`INSERT INTO core_artifacts(id,core_id,emulatorjs_version,bundle_version,flavor,relative_path,size_bytes,sha256,provenance_json,compatibility_config_json,enabled,version,created_at_ms,updated_at_ms) VALUES(?,'fbneo','4.2.3','test','WASM','cores/fbneo.data',1,?,'{}','{}',1,1,?,?)`, []any{artifactID, strings.Repeat("a", 64), now.UnixMilli(), now.UnixMilli()}},
+		{`INSERT INTO core_artifacts(
+id,core_id,route_key,runtime_family,runtime_adapter_kind,runtime_version,adapter_id,entry_path,
+size_bytes,sha256,manifest_sha256,artifact_set_sha256,requires_threads,save_payload_kind,save_max_bytes,
+provenance_json,compatibility_json,selected_for_new_bindings,available_for_launch,version,created_at_ms,updated_at_ms)
+VALUES(?,'fbneo','DEFAULT','EMULATORJS','EMULATORJS','4.2.3','ejs-4.2.3-v3','cores/fbneo.data',
+1,?,?,?,0,'RUNTIME_STATE',67108864,'{}','{"adapterAbi":"emulatorjs-state-v1","defaultOptions":{}}',1,1,1,?,?)`, []any{artifactID, strings.Repeat("a", 64), strings.Repeat("d", 64), strings.Repeat("e", 64), now.UnixMilli(), now.UnixMilli()}},
 		{`INSERT INTO dat_versions(id,core_id,core_artifact_id,builtin_relative_path,sha256,parser_version,parse_status,is_active,version,created_at_ms,updated_at_ms,parsed_at_ms,activated_at_ms) VALUES(?,'fbneo',?,'data/dat/fbneo.xml',?,'1','READY',1,1,?,?,?,?)`, []any{datID, artifactID, strings.Repeat("b", 64), now.UnixMilli(), now.UnixMilli(), now.UnixMilli(), now.UnixMilli()}},
 		{`INSERT INTO game_variants(id,game_id,core_id,current_revision_id,version,created_at_ms,updated_at_ms) VALUES(?,?,'fbneo',NULL,1,?,?)`, []any{variantID, gameID, now.UnixMilli(), now.UnixMilli()}},
-		{`INSERT INTO game_variant_revisions(id,game_variant_id,game_content_revision_id,core_artifact_id,dat_version_id,validation_input_digest,emulator_game_id,status,compatibility_code,dependency_snapshot_json,created_at_ms) VALUES(?,?,?,?,?,?,1,'READY','READY',?,?)`, []any{revisionID, variantID, contentID, artifactID, datID, strings.Repeat("c", 64), snapshot, now.UnixMilli()}},
+		{`INSERT INTO game_variant_revisions(id,game_variant_id,game_content_revision_id,core_artifact_id,route_key,dat_version_id,validation_input_digest,emulator_game_id,status,compatibility_code,dependency_snapshot_json,created_at_ms) VALUES(?,?,?,?, 'DEFAULT',?,?,1,'READY','READY',?,?)`, []any{revisionID, variantID, contentID, artifactID, datID, strings.Repeat("c", 64), snapshot, now.UnixMilli()}},
 		{`UPDATE game_variants SET current_revision_id=? WHERE id=?`, []any{revisionID, variantID}},
 		{`INSERT INTO variant_dependencies(game_variant_revision_id,kind,logical_archive,dat_version_id,source_machine_name,required_entries_json,state,created_at_ms) VALUES(?,'BIOS_OR_BASE','bios.zip',?,'bios','["bios.bin"]','SATISFIED_EXTERNAL',?)`, []any{revisionID, datID, now.UnixMilli()}},
 		{`INSERT INTO variant_files(game_variant_revision_id,role,logical_name,blob_id,sort_order) VALUES(?,'BIOS_BUNDLE','bios.zip',?,0)`, []any{revisionID, biosBlob}},
@@ -403,12 +408,16 @@ VALUES(?,?,'ADMIN_REPLACE','prepare-fixture','{}',?,?)`, []any{contentID, gameID
 VALUES(?,(SELECT id FROM platform_instances WHERE catalog_template_key='nes/fceumm'),'PUBLISHED',?,?,'prepare fixture',1,?,?)`, []any{gameID, metadataID, contentID, now.UnixMilli(), now.UnixMilli()}},
 		{`INSERT INTO blobs(id,sha256,size_bytes,md5,sha1,crc32,media_type,created_at_ms) VALUES(?,?,32768,?,?,?,'application/octet-stream',?)`, []any{contentBlobID, strings.Repeat("9", 64), strings.Repeat("5", 32), strings.Repeat("6", 40), strings.Repeat("7", 8), now.UnixMilli()}},
 		{`INSERT INTO game_content_files(game_content_revision_id,role,logical_name,blob_id,sort_order) VALUES(?,'CONTENT','another-game.nes',?,0)`, []any{contentID, contentBlobID}},
-		{`INSERT INTO core_artifacts(id,core_id,emulatorjs_version,bundle_version,flavor,relative_path,size_bytes,sha256,provenance_json,compatibility_config_json,enabled,version,created_at_ms,updated_at_ms)
-VALUES(?,'fceumm','4.2.3','test','WASM','cores/test.data',1,?,'{}','{}',1,1,?,?)`, []any{artifactID, "8c449fd5c36646fb0769423ed6ffa9efbdfc21fbfdc9bac7952b559d34d5b493", now.UnixMilli(), now.UnixMilli()}},
+		{`INSERT INTO core_artifacts(
+id,core_id,route_key,runtime_family,runtime_adapter_kind,runtime_version,adapter_id,entry_path,
+size_bytes,sha256,manifest_sha256,artifact_set_sha256,requires_threads,save_payload_kind,save_max_bytes,
+provenance_json,compatibility_json,selected_for_new_bindings,available_for_launch,version,created_at_ms,updated_at_ms)
+VALUES(?,'fceumm','DEFAULT','EMULATORJS','EMULATORJS','4.2.3','ejs-4.2.3-v3','cores/test.data',
+1,?,?,?,0,'RUNTIME_STATE',67108864,'{}','{"adapterAbi":"emulatorjs-state-v1","defaultOptions":{}}',1,1,1,?,?)`, []any{artifactID, "8c449fd5c36646fb0769423ed6ffa9efbdfc21fbfdc9bac7952b559d34d5b493", strings.Repeat("a", 64), strings.Repeat("b", 64), now.UnixMilli(), now.UnixMilli()}},
 		{`INSERT INTO game_variants(id,game_id,core_id,current_revision_id,version,created_at_ms,updated_at_ms)
 VALUES(?,?,'fceumm',NULL,1,?,?)`, []any{variantID, gameID, now.UnixMilli(), now.UnixMilli()}},
-		{`INSERT INTO game_variant_revisions(id,game_variant_id,game_content_revision_id,core_artifact_id,validation_input_digest,emulator_game_id,status,compatibility_code,dependency_snapshot_json,created_at_ms)
-VALUES(?,?,?,?,?,9001,'READY','READY','{"schemaVersion":1,"bios":[]}',?)`, []any{variantRevisionID, variantID, contentID, artifactID, strings.Repeat("3", 64), now.UnixMilli()}},
+		{`INSERT INTO game_variant_revisions(id,game_variant_id,game_content_revision_id,core_artifact_id,route_key,validation_input_digest,emulator_game_id,status,compatibility_code,dependency_snapshot_json,created_at_ms)
+VALUES(?,?,?,?, 'DEFAULT',?,9001,'READY','READY','{"schemaVersion":1,"bios":[]}',?)`, []any{variantRevisionID, variantID, contentID, artifactID, strings.Repeat("3", 64), now.UnixMilli()}},
 		{`UPDATE game_variants SET current_revision_id=? WHERE id=?`, []any{variantRevisionID, variantID}},
 		{`UPDATE netplay_rooms SET state='WAITING',selected_game_id=?,selected_game_variant_revision_id=?,netplay_profile_id='fixture',profile_digest=?,max_players=2 WHERE id=?`, []any{gameID, variantRevisionID, strings.Repeat("4", 64), room.RoomID}},
 	}

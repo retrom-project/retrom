@@ -208,8 +208,18 @@ SELECT digest,media_type FROM (
   AND (i.state='REVIEW_PENDING' OR EXISTS (
     SELECT 1 FROM review_events e WHERE e.import_item_id=i.id AND e.event_type IN ('APPROVED','DISCARDED')
   ))
+  UNION ALL
+  SELECT b.sha256 AS digest,'image/png' AS media_type
+  FROM rpgmaker_runtime_validations validation
+  JOIN blobs b ON b.id=validation.evidence_screenshot_blob_id
+  JOIN import_items i ON i.id=validation.import_item_id
+  WHERE validation.id=?
+  AND (i.state='REVIEW_PENDING' OR EXISTS (
+    SELECT 1 FROM review_events e WHERE e.import_item_id=i.id AND e.event_type IN ('APPROVED','DISCARDED')
+  ))
 ) LIMIT 1
-`, request.PathValue("assetId"), request.PathValue("assetId"), request.PathValue("assetId")).Scan(&digest, &mediaType)
+`, request.PathValue("assetId"), request.PathValue("assetId"), request.PathValue("assetId"),
+		request.PathValue("assetId")).Scan(&digest, &mediaType)
 	if errors.Is(err, sql.ErrNoRows) {
 		kind := request.URL.Query().Get("kind")
 		if kind == "" {
@@ -415,6 +425,42 @@ func (server *Server) runtimeFile(writer http.ResponseWriter, request *http.Requ
 	mediaType := mime.TypeByExtension(filepath.Ext(runtimePath))
 	if mediaType == "" {
 		mediaType = "application/octet-stream"
+	}
+	writer.Header().Set("Content-Type", mediaType)
+	writer.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+	writer.Header().Set("Cross-Origin-Resource-Policy", "same-origin")
+	writer.Header().Set("ETag", `"sha256-`+declaration.SHA256+`"`)
+	http.ServeContent(writer, request, filepath.Base(runtimePath), time.Unix(0, 0), file)
+}
+
+func (server *Server) rpgMakerRuntimeFile(writer http.ResponseWriter, request *http.Request) {
+	runtimePath, declaration, ok := server.dependencies.RPGMakerFile(
+		request.PathValue("runtimeVersion"), request.PathValue("runtimePath"),
+	)
+	if !ok {
+		server.notFound(writer, request)
+		return
+	}
+	file, err := os.Open(runtimePath)
+	if err != nil {
+		server.notFound(writer, request)
+		return
+	}
+	defer func() { cleanup.Error("close", file.Close()) }()
+	info, err := file.Stat()
+	if err != nil || !info.Mode().IsRegular() || info.Size() != declaration.SizeBytes {
+		writeError(
+			writer, request, http.StatusServiceUnavailable, "DEPENDENCY_INVALID",
+			"RPG Maker 运行时依赖不可用", map[string]any{},
+		)
+		return
+	}
+	mediaType := map[string]string{
+		".js": "application/javascript; charset=utf-8", ".wasm": "application/wasm", ".rb": "text/plain; charset=utf-8",
+	}[strings.ToLower(filepath.Ext(request.PathValue("runtimePath")))]
+	if mediaType == "" {
+		server.notFound(writer, request)
+		return
 	}
 	writer.Header().Set("Content-Type", mediaType)
 	writer.Header().Set("Cache-Control", "public, max-age=31536000, immutable")

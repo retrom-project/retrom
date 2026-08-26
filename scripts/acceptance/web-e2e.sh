@@ -5,8 +5,10 @@ repository_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 temporary_root="$(mktemp -d "${TMPDIR:-/tmp}/retrom-web-e2e.XXXXXX")"
 backend_port=18084
 web_port=13004
+server_start_timeout_seconds=300
 backend_origin="http://127.0.0.1:${backend_port}"
 web_origin="http://localhost:${web_port}"
+runtime_origin_template="http://{launchId}.rpg.localhost:${web_port}"
 process_id=""
 dev_state="$temporary_root/dev-state"
 cp -p "$repository_root/web/next-env.d.ts" "$temporary_root/next-env.d.ts"
@@ -86,6 +88,8 @@ setsid make dev \
   RETROM_DATA_DIR="$temporary_root/data" \
   RETROM_HTTP_ADDR="127.0.0.1:${backend_port}" \
   RETROM_PUBLIC_ORIGIN="$web_origin" \
+  RETROM_ALLOW_INSECURE_PUBLIC_ORIGIN="true" \
+  RETROM_RPG_RUNTIME_ORIGIN_TEMPLATE="$runtime_origin_template" \
   NEXT_DEV_HOST="127.0.0.1" \
   NEXT_DEV_PORT="$web_port" \
   NEXT_DIST_DIR=".next-e2e" \
@@ -93,7 +97,7 @@ setsid make dev \
   >"$temporary_root/server.log" 2>&1 &
 process_id=$!
 
-deadline=$((SECONDS + 90))
+deadline=$((SECONDS + server_start_timeout_seconds))
 until curl --fail --silent "$backend_origin/health/ready" >/dev/null 2>&1 &&
   curl --fail --silent "$web_origin" >/dev/null 2>&1; do
   if ! kill -0 "$process_id" 2>/dev/null; then

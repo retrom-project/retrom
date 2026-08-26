@@ -2,21 +2,21 @@
   "version": 1,
   "exceptions": [
     {
-      "path": "internal/httpapi/runtime_content_handlers.go",
-      "line": 344,
-      "symbol": "func deterministicStoreZIPHeader(name string) *zip.FileHeader",
+      "path": "internal/rpgmaker/materializer/mkxpz.go",
+      "line": 70,
+      "symbol": "func StoreZIPHeader(name string) *zip.FileHeader",
       "linter": "staticcheck",
-      "reason": "Required by RETROM_EJS_DEP_ZIP_V1.",
-      "invariant": "The deterministic dependency ZIP header must retain the exact contract-defined DOS date and time values.",
+      "reason": "Required by the deterministic Store ZIP wire contract shared by launch bundles and mkxpz artifacts.",
+      "invariant": "The deterministic Store ZIP header must retain the exact contract-defined DOS date and time values.",
       "reviewAfter": "2027-08-22"
     },
     {
-      "path": "internal/httpapi/runtime_content_handlers.go",
-      "line": 345,
-      "symbol": "func deterministicStoreZIPHeader(name string) *zip.FileHeader",
+      "path": "internal/rpgmaker/materializer/mkxpz.go",
+      "line": 71,
+      "symbol": "func StoreZIPHeader(name string) *zip.FileHeader",
       "linter": "staticcheck",
-      "reason": "Required by RETROM_EJS_DEP_ZIP_V1.",
-      "invariant": "The deterministic dependency ZIP header must retain the exact contract-defined DOS date and time values.",
+      "reason": "Required by the deterministic Store ZIP wire contract shared by launch bundles and mkxpz artifacts.",
+      "invariant": "The deterministic Store ZIP header must retain the exact contract-defined DOS date and time values.",
       "reviewAfter": "2027-08-22"
     },
     {

@@ -37,11 +37,13 @@ def main() -> None:
     title = CORE_TITLES[core_id]
     connection = sqlite3.connect(database_path)
     connection.execute("PRAGMA foreign_keys=ON")
+    connection.execute("PRAGMA busy_timeout=30000")
     source = connection.execute(
         """
 SELECT game.platform_instance_id,
        game.current_content_revision_id,
        revision.core_artifact_id,
+       revision.route_key,
        revision.dat_version_id,
        revision.dependency_snapshot_json
 FROM games game
@@ -58,7 +60,7 @@ LIMIT 1
     ).fetchone()
     if source is None:
         raise SystemExit(f"no imported {core_id} Arcade schema-v2 revision is available")
-    platform_instance_id, source_content_id, artifact_id, dat_version_id, snapshot_json = source
+    platform_instance_id, source_content_id, artifact_id, route_key, dat_version_id, snapshot_json = source
     snapshot = json.loads(snapshot_json)
     if (
         snapshot.get("schemaVersion") != 2
@@ -156,16 +158,17 @@ VALUES(?,?,?,NULL,1,?,?)
     connection.execute(
         """
 INSERT INTO game_variant_revisions(
-  id,game_variant_id,game_content_revision_id,core_artifact_id,dat_version_id,
+  id,game_variant_id,game_content_revision_id,core_artifact_id,route_key,dat_version_id,
   validation_input_digest,emulator_game_id,status,compatibility_code,
   dependency_snapshot_json,default_dos_entry,created_at_ms
-) VALUES(?,?,?,?,?,?,?,'READY','REVIEW_SCREENSHOT_OVERRIDE',?,NULL,?)
+) VALUES(?,?,?,?,?,?,?,?,'READY','REVIEW_SCREENSHOT_OVERRIDE',?,NULL,?)
 """,
         (
             revision_id,
             variant_id,
             content_id,
             artifact_id,
+            route_key,
             dat_version_id,
             digest,
             emulator_game_id,

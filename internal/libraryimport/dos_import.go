@@ -16,6 +16,7 @@ import (
 	"retrom/internal/cleanup"
 	"retrom/internal/corevalidation"
 	"retrom/internal/importing"
+	"retrom/internal/rpgmaker/detector"
 )
 
 var (
@@ -107,21 +108,25 @@ type preparedArchive struct {
 }
 
 type preparedGroup struct {
-	sources            []preparedSource
-	dosEntries         []preparedDOSEntry
-	defaultDOSEntry    string
-	bundleBlobID       string
-	bundle             *blobstore.Metadata
-	validationStatus   string
-	compatibilityCode  string
-	dependencySnapshot string
-	titleSource        string
-	validationFiles    []preparedValidationFile
-	contentKind        string
-	groupKey           string
-	multiEntries       []preparedMultiDiscEntry
-	multiDependency    *corevalidation.MultiDiscSnapshot
-	canonicalPlaylist  *blobstore.Metadata
+	sources             []preparedSource
+	dosEntries          []preparedDOSEntry
+	defaultDOSEntry     string
+	bundleBlobID        string
+	bundle              *blobstore.Metadata
+	validationStatus    string
+	compatibilityCode   string
+	dependencySnapshot  string
+	titleSource         string
+	titleSourceExplicit bool
+	validationFiles     []preparedValidationFile
+	contentKind         string
+	groupKey            string
+	multiEntries        []preparedMultiDiscEntry
+	multiDependency     *corevalidation.MultiDiscSnapshot
+	canonicalPlaylist   *blobstore.Metadata
+	rpgProfile          *detector.Profile
+	rpgProjectRoot      string
+	rpgRemovedFiles     []string
 }
 
 type preparedMultiDiscEntry struct {

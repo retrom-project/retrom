@@ -5,7 +5,7 @@
   "type": "module",
   "packageManager": "npm@11.16.0",
   "scripts": {
-    "dev": "NODE_OPTIONS=--import=./scripts/netplay-upgrade-proxy.mjs next dev --hostname 127.0.0.1 --port 3000",
+    "dev": "NODE_OPTIONS=--import=./scripts/netplay-upgrade-proxy.mjs next dev --hostname 127.0.0.1 --port 3000 --webpack",
     "build": "next build",
     "start": "next start --hostname 0.0.0.0 --port 3000",
     "lint": "eslint . --max-warnings=0",
@@ -16,7 +16,9 @@
     "api:generate": "openapi-typescript ../api/openapi.yaml -o lib/api/generated/schema.d.ts"
   },
   "dependencies": {
+    "fflate": "0.8.2",
     "next": "16.3.0",
+    "nostalgist": "0.20.2",
     "openapi-fetch": "0.17.0",
     "react": "19.2.7",
     "react-dom": "19.2.7"

@@ -33,6 +33,7 @@ describe("authentication UI", () => {
     const fetchMock = vi.fn(async () => new Response(JSON.stringify(registered), { status: 201, headers: { "Content-Type": "application/json" } }));
     vi.stubGlobal("fetch", fetchMock);
     wrapped(<SetupForm />, { ...anonymous, instanceState: "INITIALIZATION_REQUIRED", mode: "release", authenticationState: "NOT_APPLICABLE" });
+    expect(screen.getByRole("button", { name: "创建管理员并进入 Retrom" }).closest("form")).toHaveAttribute("method", "post");
     const user = userEvent.setup();
     await user.type(screen.getByLabelText("初始化码", { selector: "input" }), "setup-proof");
     await user.type(screen.getByLabelText("管理员用户名"), "admin");
@@ -58,6 +59,7 @@ describe("authentication UI", () => {
   it("shows the test credential warning and normalizes login failures", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ error: { code: "AUTHENTICATION_FAILED", message: "internal detail" } }), { status: 401, headers: { "Content-Type": "application/json" } })));
     wrapped(<LoginForm />);
+    expect(screen.getByRole("button", { name: "登录" }).closest("form")).toHaveAttribute("method", "post");
     expect(screen.getByText(/默认管理员为 test \/ test/)).toBeInTheDocument();
     const user = userEvent.setup();
     await user.type(screen.getByLabelText("用户名"), "missing");
@@ -94,6 +96,7 @@ describe("authentication UI", () => {
     wrapped(<RegisterForm />);
     const user = userEvent.setup();
     await screen.findByText("普通用户");
+    expect(screen.getByRole("button", { name: "创建账号并进入 Retrom" }).closest("form")).toHaveAttribute("method", "post");
     await user.type(screen.getByLabelText("用户名"), "alice");
     await user.type(screen.getByLabelText("显示名称"), "Alice");
     await user.type(screen.getByLabelText("密码", { selector: "input" }), "a sufficiently long password");
@@ -110,6 +113,7 @@ describe("authentication UI", () => {
     const fetchMock = vi.fn(async () => new Response(JSON.stringify(registered), { status: 200, headers: { "Content-Type": "application/json" } }));
     vi.stubGlobal("fetch", fetchMock);
     wrapped(<AccountSettings />, registered);
+    expect(screen.getByRole("button", { name: "更新密码" }).closest("form")).toHaveAttribute("method", "post");
     expect(screen.getByText("@alice")).toBeInTheDocument();
     expect(screen.getByText("Alice")).toBeInTheDocument();
     expect(screen.queryByRole("textbox", { name: /用户名|显示名称/ })).not.toBeInTheDocument();

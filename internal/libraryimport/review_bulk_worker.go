@@ -275,7 +275,7 @@ SELECT import_item.state,draft.version,draft.effective_source_snapshot_id,valida
 FROM import_items import_item
 JOIN review_drafts draft ON draft.import_item_id=import_item.id
 JOIN platform_instances instance ON instance.id=draft.target_platform_instance_id
-LEFT JOIN core_artifacts artifact ON artifact.core_id=instance.default_core_id AND artifact.enabled=1
+LEFT JOIN core_artifacts artifact ON artifact.core_id=instance.default_core_id AND artifact.selected_for_new_bindings=1
 LEFT JOIN import_item_core_validations validation ON validation.id=(
  SELECT candidate.id FROM import_item_core_validations candidate
  WHERE candidate.import_item_id=import_item.id

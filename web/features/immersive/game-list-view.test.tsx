@@ -3,14 +3,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ImmersiveGame, ImmersiveGameList } from "./api";
 import { GameListView } from "./game-list-view";
 
-const mocks = vi.hoisted(() => ({ fetchGames: vi.fn(), favorite: vi.fn(), push: vi.fn(), replace: vi.fn() }));
+const mocks = vi.hoisted(() => ({ fetchGames: vi.fn(), favorite: vi.fn(), launch: vi.fn(), push: vi.fn(), replace: vi.fn(), replacePlayerDocument: vi.fn() }));
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: mocks.push, replace: mocks.replace }) }));
+vi.mock("@/lib/player-document-navigation", () => ({ replaceWithPlayerDocument: mocks.replacePlayerDocument }));
 vi.mock("./gamepad-source", () => ({ browserGamepadSource: { subscribe: () => () => undefined } }));
 vi.mock("./api", () => ({
   ImmersiveAPIError: class extends Error {constructor(public status: number, message: string) {super(message);}},
   fetchImmersiveGames: mocks.fetchGames,
-  launchImmersiveGame: vi.fn(),
+  launchImmersiveGame: mocks.launch,
   setImmersiveFavorite: mocks.favorite,
 }));
 
@@ -63,6 +64,7 @@ function matchMedia() {
 
 beforeEach(() => {
   matchMedia();
+  mocks.launch.mockResolvedValue("/play/0198abcd-1234-7123-8abc-1234567890ab?experience=immersive");
   vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue();
   vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => undefined);
   Object.defineProperty(HTMLElement.prototype, "scrollIntoView", { configurable: true, value: vi.fn() });
@@ -137,5 +139,17 @@ describe("immersive game list view", () => {
     fireEvent.keyDown(window, { key: "Y" });
     await waitFor(() => expect(mocks.favorite).toHaveBeenCalledWith(selected.gameId, true));
     expect(screen.getByLabelText("已收藏")).toBeInTheDocument();
+  });
+
+  it("loads the player in a new document after creating a Launch", async () => {
+    const selected = game(0);
+    mocks.fetchGames.mockResolvedValue(page([selected], null));
+    render(<GameListView platformId="gba" />);
+    await screen.findByRole("option", { selected: true });
+    fireEvent.keyDown(window, { key: "Enter" });
+
+    await waitFor(() => expect(mocks.replacePlayerDocument).toHaveBeenCalledWith(
+      "/play/0198abcd-1234-7123-8abc-1234567890ab?experience=immersive",
+    ));
   });
 });

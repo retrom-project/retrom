@@ -111,7 +111,7 @@ func prepareStaticBIOSDependencies(
 	artifactID, platformID string,
 	groups []preparedGroup,
 ) error {
-	if platformID == "arcade" {
+	if platformID == "arcade" || platformID == "rpgmaker" {
 		return nil
 	}
 	for index := range groups {

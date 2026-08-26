@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -30,6 +31,39 @@ func TestParsePublicOriginRequiresExplicitDevelopmentOptInForHTTPHosts(t *testin
 			t.Parallel()
 			_, err := parsePublicOrigin(test.value, test.allowInsecure)
 			testassert.Falsef(t, (err != nil) != test.wantErr, "parsePublicOrigin(%q, %t) error = %v", test.value, test.allowInsecure, err)
+		})
+	}
+}
+
+func TestParseRPGRuntimeOriginTemplateRequiresUniqueLaunchLabelAndMatchingScheme(t *testing.T) {
+	t.Parallel()
+	httpsOrigin, err := parsePublicOrigin("https://dev.sendev.cc", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	httpOrigin, err := parsePublicOrigin("http://app.localhost:3000", true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tests := []struct {
+		name          string
+		value         string
+		origin        *url.URL
+		allowInsecure bool
+		wantErr       bool
+	}{
+		{name: "release", value: "https://{launchId}.rpg-runtime.dev.sendev.cc", origin: httpsOrigin},
+		{name: "local test", value: "http://{launchId}.rpg.localhost:8080", origin: httpOrigin, allowInsecure: true},
+		{name: "mixed content", value: "http://{launchId}.rpg.localhost:8080", origin: httpsOrigin, allowInsecure: true, wantErr: true},
+		{name: "placeholder not leftmost", value: "https://rpg.{launchId}.dev.sendev.cc", origin: httpsOrigin, wantErr: true},
+		{name: "placeholder path", value: "https://runtime.dev.sendev.cc/{launchId}", origin: httpsOrigin, wantErr: true},
+		{name: "duplicate placeholder", value: "https://{launchId}.{launchId}.dev.sendev.cc", origin: httpsOrigin, wantErr: true},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			_, parseErr := parseRPGRuntimeOriginTemplate(test.value, test.origin, test.allowInsecure)
+			testassert.Falsef(t, (parseErr != nil) != test.wantErr, "parseRPGRuntimeOriginTemplate(%q) error = %v", test.value, parseErr)
 		})
 	}
 }

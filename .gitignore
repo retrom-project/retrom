@@ -35,6 +35,7 @@
 /data/*
 !/data/dat/
 !/data/dat/**
+/data/dat/**/__pycache__/
 !/data/auth/
 !/data/auth/**
 !/data/netplay/

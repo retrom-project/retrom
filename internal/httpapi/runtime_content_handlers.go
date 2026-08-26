@@ -18,6 +18,7 @@ import (
 	"retrom/internal/cleanup"
 	"retrom/internal/dosbundle"
 	"retrom/internal/launch"
+	"retrom/internal/rpgmaker/materializer"
 )
 
 func (server *Server) launchGame(writer http.ResponseWriter, request *http.Request) {
@@ -67,6 +68,54 @@ func (server *Server) launchGame(writer http.ResponseWriter, request *http.Reque
 	metricsWriter := &multiDiscResponseWriter{ResponseWriter: writer}
 	http.ServeContent(metricsWriter, request, request.PathValue("logicalName"), time.Unix(0, 0), body)
 	server.recordMultiDiscContentResponse(request, authorizedLaunchID, content, metricsWriter)
+}
+
+func (server *Server) launchRPGProjectFile(writer http.ResponseWriter, request *http.Request) {
+	if rejectMultipleRanges(writer, request) {
+		return
+	}
+	launchID := request.PathValue("launchId")
+	logicalName := request.PathValue("projectPath")
+	lockedLogicalName := logicalName
+	// EasyRPG's fixed loader requests index.json beside the project files. The
+	// generated index remains in a reserved launch namespace internally, so an
+	// uploaded project cannot replace it, and is exposed through this exact
+	// virtual alias only.
+	if logicalName == "index.json" {
+		lockedLogicalName = "__retrom__/index.json"
+	}
+	grant, valid := runtimeRPGProjectGrant(request, launchID)
+	if !valid {
+		writeError(
+			writer, request, http.StatusUnauthorized, "LAUNCH_CREDENTIAL_INVALID",
+			"RPG Maker 项目内容不可用", map[string]any{},
+		)
+		return
+	}
+	content, err := server.launcher.Content(request.Context(), launchID, grant.Capability, lockedLogicalName)
+	if err != nil || content.Format != "RPG_MAKER_PROJECT_V1" {
+		writeError(
+			writer, request, http.StatusUnauthorized, "LAUNCH_CREDENTIAL_INVALID",
+			"RPG Maker 项目内容不可用", map[string]any{},
+		)
+		return
+	}
+	file, err := server.blobs.OpenDigest(content.Digest)
+	if err != nil {
+		writeError(writer, request, http.StatusServiceUnavailable, "CAS_UNAVAILABLE", "RPG Maker 项目内容不可用", map[string]any{})
+		return
+	}
+	defer func() { cleanup.Error("close", file.Close()) }()
+	mediaType := mime.TypeByExtension(filepath.Ext(logicalName))
+	if mediaType == "" {
+		mediaType = "application/octet-stream"
+	}
+	writer.Header().Set("Content-Type", mediaType)
+	writer.Header().Set("Cache-Control", immutablePrivateContent)
+	writer.Header().Set("ETag", `"sha256-`+content.Digest+`"`)
+	writer.Header().Set("Accept-Ranges", "bytes")
+	writer.Header().Set("X-Content-Type-Options", "nosniff")
+	http.ServeContent(writer, request, filepath.Base(logicalName), time.Unix(0, 0), file)
 }
 
 func (server *Server) recordMultiDiscContentResponse(
@@ -228,7 +277,7 @@ func (server *Server) populateLaunchBundle(archiveWriter *zip.Writer, files []la
 		return strings.Compare(left.LogicalName, right.LogicalName)
 	})
 	for _, entry := range ordered {
-		destination, err := archiveWriter.CreateHeader(deterministicStoreZIPHeader(entry.LogicalName))
+		destination, err := archiveWriter.CreateHeader(materializer.StoreZIPHeader(entry.LogicalName))
 		if err != nil {
 			return "CAS_UNAVAILABLE", "无法装配启动依赖"
 		}
@@ -334,14 +383,4 @@ func (server *Server) runtimeBundleFiles(request *http.Request, kind string) ([]
 		}
 	}
 	return nil, launch.ErrCredential
-}
-
-func deterministicStoreZIPHeader(name string) *zip.FileHeader {
-	header := &zip.FileHeader{Name: name, Method: zip.Store}
-	header.SetMode(0o644)
-	// archive/zip otherwise emits an extended-timestamp extra field. These DOS
-	// fields are the only public API for the exact empty-Extra 1980 header.
-	header.ModifiedDate = 33 //nolint:staticcheck // Required by RETROM_EJS_DEP_ZIP_V1.
-	header.ModifiedTime = 0  //nolint:staticcheck // Required by RETROM_EJS_DEP_ZIP_V1.
-	return header
 }

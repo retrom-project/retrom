@@ -74,13 +74,20 @@ export async function captureManualScreenshot(instance: EmulatorInstance): Promi
 
 export const captureReviewScreenshot = captureManualScreenshot;
 
-export function captureManualState(instance: EmulatorInstance, capture: ManualScreenshot) {
-  const state = instance.gameManager?.getState?.();
+export async function captureManualState(instance: EmulatorInstance, capture: ManualScreenshot) {
+  const state = instance.gameManager?.getStateAsync
+    ? await instance.gameManager.getStateAsync()
+    : instance.gameManager?.getState?.();
   // The runtime lives in a same-origin iframe; realm-local instanceof checks
   // reject its otherwise valid Uint8Array and Blob values.
   if (!state || !ArrayBuffer.isView(state) || state.byteLength === 0) {throw new Error("PLAYER_STATE_UNAVAILABLE");}
   if (!capture.screenshot || typeof capture.screenshot.size !== "number" || capture.screenshot.size === 0) {
     throw new Error("PLAYER_SCREENSHOT_EMPTY");
   }
-  return { ...capture, state: new Uint8Array(state) };
+  return {
+    ...capture,
+    state: new Uint8Array(state),
+    payloadKind: instance.gameManager?.savePayloadKind ?? "RUNTIME_STATE",
+    validationPurpose: instance.gameManager?.validationPurpose ?? false,
+  };
 }

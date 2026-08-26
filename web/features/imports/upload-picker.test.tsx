@@ -2,13 +2,20 @@ import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type * as DirectoryAccess from "@/lib/directory-access";
+import type * as UploadModule from "@/lib/upload";
 import { UploadPicker } from "./upload-picker";
 
 const directoryAccess = vi.hoisted(() => ({ directoryPickerAvailable: vi.fn(), pickDirectory: vi.fn() }));
+const upload = vi.hoisted(() => ({ uploadFiles: vi.fn() }));
 
 vi.mock("@/lib/directory-access", async (loadOriginal) => {
   const original = await loadOriginal<typeof DirectoryAccess>();
   return { ...original, directoryPickerAvailable: directoryAccess.directoryPickerAvailable, pickDirectory: directoryAccess.pickDirectory };
+});
+
+vi.mock("@/lib/upload", async (loadOriginal) => {
+  const original = await loadOriginal<typeof UploadModule>();
+  return { ...original, uploadFiles: upload.uploadFiles };
 });
 
 vi.mock("next/navigation", () => ({
@@ -18,6 +25,7 @@ vi.mock("next/navigation", () => ({
 beforeEach(() => {
   directoryAccess.directoryPickerAvailable.mockReset().mockReturnValue(true);
   directoryAccess.pickDirectory.mockReset();
+  upload.uploadFiles.mockReset().mockResolvedValue({ uploadId: "rpg-upload", uploadFileIds: ["rpg-file"] });
 });
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
@@ -91,6 +99,29 @@ describe("UploadPicker", () => {
 
     await user.selectOptions(screen.getByRole("combobox", { name: "目标游戏目录" }), "arcade");
     expect(submit).toBeEnabled();
+  });
+
+  it("uses the explicit RPG Maker core directory and RPG project upload purpose", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ importJobId: "rpg-import" }), { status: 202, headers: { "Content-Type": "application/json" } }));
+    vi.stubGlobal("fetch", fetchMock);
+    const user = userEvent.setup();
+    render(<UploadPicker directories={[{
+      id: "rpg-mv", name: "RPG Maker MV", platformName: "RPG Maker", coreName: "RPG Maker MV",
+      importCapabilities: { contentModes: ["RPG_MAKER_PROJECT_V1"], multiDisc: null },
+    }]} />);
+
+    const project = new File(["project"], "game.zip", { type: "application/zip" });
+    await user.upload(screen.getByLabelText("选择导入文件"), project);
+    await user.click(screen.getByRole("button", { name: "下一步" }));
+    await user.selectOptions(screen.getByRole("combobox", { name: "目标游戏目录" }), "rpg-mv");
+    expect(screen.getByText("RPG Maker 项目")).toBeVisible();
+    expect(screen.getByText(/不会自动猜测或切换版本/)).toBeVisible();
+
+    await user.click(screen.getByRole("button", { name: "上传并验证 RPG Maker 项目" }));
+    expect(upload.uploadFiles).toHaveBeenCalledWith(expect.any(Array), expect.any(Function), "RPG_MAKER_PROJECT");
+    expect(fetchMock).toHaveBeenCalledWith("/api/v1/admin/imports", expect.objectContaining({
+      body: expect.stringContaining('"contentMode":"RPG_MAKER_PROJECT_V1"'),
+    }));
   });
 
   it("preflights a directory and blocks multi-disc mode on an unsupported target", async () => {

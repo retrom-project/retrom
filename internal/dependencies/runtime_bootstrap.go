@@ -14,7 +14,7 @@ import (
 func bootstrapDAT(
 	ctx context.Context,
 	transaction *sql.Tx,
-	versionName string,
+	artifactID string,
 	coreID string,
 	relativePath string,
 	digest string,
@@ -26,7 +26,7 @@ func bootstrapDAT(
 	explicitBIOSCount int64,
 	baseTargetCount int64,
 	unresolvedCount int64,
-	activeVersion bool,
+	selectedForNewBindings bool,
 	now time.Time,
 ) error {
 	expected := catalogStats{
@@ -34,10 +34,6 @@ func bootstrapDAT(
 		biosSetCount: biosSetCount, defaultBIOSSetCount: defaultBIOSCount,
 		explicitBIOSMachineCount: explicitBIOSCount, baseDependencyTargetCount: baseTargetCount,
 		unresolvedCloneofCount: unresolvedCount,
-	}
-	artifactID, err := findDATArtifact(ctx, transaction, versionName, coreID, activeVersion)
-	if err != nil {
-		return err
 	}
 	datID, err := findOrCreateDATVersionID(ctx, transaction, artifactID, digest)
 	if err != nil {
@@ -55,25 +51,10 @@ func bootstrapDAT(
 			return err
 		}
 	}
-	if !activeVersion {
+	if !selectedForNewBindings {
 		return nil
 	}
 	return retireSupersededBuiltInDAT(ctx, transaction, artifactID, datID, now)
-}
-
-func findDATArtifact(
-	ctx context.Context,
-	transaction *sql.Tx,
-	versionName, coreID string,
-	activeVersion bool,
-) (string, error) {
-	var artifactID string
-	if err := transaction.QueryRowContext(ctx,
-		"SELECT id FROM core_artifacts WHERE core_id = ? AND emulatorjs_version = ? AND enabled = ?",
-		coreID, versionName, boolToInteger(activeVersion)).Scan(&artifactID); err != nil {
-		return "", fmt.Errorf("find DAT core artifact: %w", err)
-	}
-	return artifactID, nil
 }
 
 func findOrCreateDATVersionID(
@@ -275,30 +256,25 @@ UPDATE core_artifacts SET version=version+1,updated_at_ms=? WHERE id=?
 	return nil
 }
 
-func boolToInteger(value bool) int {
-	if value {
-		return 1
-	}
-	return 0
-}
-
 func bootstrapCore(
 	ctx context.Context,
 	transaction *sql.Tx,
 	versionName string,
 	version *Version,
-	activeVersion bool,
+	selectedForNewBindings bool,
 	index int,
 	core SelectedCore,
 	component struct {
 		Repository, SourceCommit, Association string
 	},
 	now time.Time,
-) error {
+) (string, error) {
 	compatibility := coreCompatibility(core, version.Manifest.SchemaVersion)
 	association := sourceAssociation(component.Association)
 	provenance := map[string]any{
 		"schemaVersion": 1, "dependencyManifestSha256": version.ManifestSHA256,
+		"artifactFlavor":          core.ArtifactFlavor,
+		"coreBundleVersion":       core.BundleVersion,
 		"manifestEntryPointer":    fmt.Sprintf("/emulatorjs/selected_core_artifacts/%d", index),
 		"sourceAssociationStatus": association,
 		"sourceUrl":               component.Repository + "/tree/" + component.SourceCommit,
@@ -307,14 +283,15 @@ func bootstrapCore(
 	compatibilityJSON, _ := json.Marshal(compatibility)
 	provenanceJSON, _ := json.Marshal(provenance)
 	return persistBootstrappedCore(
-		ctx, transaction, versionName, activeVersion, core, now,
-		compatibilityJSON, provenanceJSON, nullableCommit(association, component.SourceCommit),
+		ctx, transaction, versionName, version, selectedForNewBindings, core, now,
+		compatibilityJSON, provenanceJSON,
 	)
 }
 
 func coreCompatibility(core SelectedCore, _ int) map[string]any {
 	result := map[string]any{
 		"schemaVersion": 5, "runtimeCoreId": core.RuntimeCoreID,
+		"adapterAbi":                core.AdapterABI,
 		"requestedArtifactBasename": core.RequestedArtifactBasename,
 		"canvasResizePolicy":        core.CanvasResizePolicy,
 		"defaultOptions":            core.DefaultOptions,
@@ -341,49 +318,51 @@ func sourceAssociation(value string) string {
 	return association
 }
 
-// The upsert remains contiguous so every persisted artifact field is auditable.
+// Artifact insertion remains contiguous so every immutable payload field is auditable.
 func persistBootstrappedCore(
 	ctx context.Context,
 	transaction *sql.Tx,
 	versionName string,
-	activeVersion bool,
+	version *Version,
+	selectedForNewBindings bool,
 	core SelectedCore,
 	now time.Time,
 	compatibilityJSON, provenanceJSON []byte,
-	sourceCommit any,
-) error {
+) (string, error) {
 	path := core.LocalPath
 	if core.PathInRelease != nil {
 		path = *core.PathInRelease
 	}
 	var id string
-	err := transaction.QueryRowContext(ctx,
-		"SELECT id FROM core_artifacts WHERE core_id = ? AND emulatorjs_version = ? AND sha256 = ?",
-		core.CoreID, versionName, core.SHA256).Scan(&id)
+	err := transaction.QueryRowContext(ctx, `
+SELECT id FROM core_artifacts
+WHERE core_id=? AND route_key='DEFAULT' AND artifact_set_sha256=?
+`, core.CoreID, core.ArtifactSetSHA256).Scan(&id)
 	if errors.Is(err, sql.ErrNoRows) {
 		generated, uuidErr := uuid.NewV7()
 		if uuidErr != nil {
-			return fmt.Errorf("generate core artifact id: %w", uuidErr)
+			return "", fmt.Errorf("generate core artifact id: %w", uuidErr)
 		}
 		id = generated.String()
 	} else if err != nil {
-		return fmt.Errorf("find core artifact: %w", err)
+		return "", fmt.Errorf("find core artifact: %w", err)
 	}
-	active := 0
-	if activeVersion {
-		active = 1
+	selected := 0
+	if selectedForNewBindings {
+		selected = 1
 	}
-	// Disable first so the partial unique index permits an active-version switch.
-	if active == 1 {
+	// Deselect first so the partial unique index permits a current-artifact switch.
+	if selected == 1 {
 		if _, err := transaction.ExecContext(
 			ctx,
-			`UPDATE core_artifacts SET enabled = 0, version = version + 1, updated_at_ms = ?
-WHERE core_id = ? AND enabled = 1 AND id != ?`,
+			`UPDATE core_artifacts
+SET selected_for_new_bindings=0,version=version+1,updated_at_ms=?
+WHERE core_id=? AND route_key='DEFAULT' AND selected_for_new_bindings=1 AND id<>?`,
 			now.UnixMilli(),
 			core.CoreID,
 			id,
 		); err != nil {
-			return fmt.Errorf("disable previous core artifact: %w", err)
+			return "", fmt.Errorf("deselect previous core artifact: %w", err)
 		}
 	}
 	_, err = transaction.ExecContext(
@@ -391,21 +370,31 @@ WHERE core_id = ? AND enabled = 1 AND id != ?`,
 		`
 INSERT INTO core_artifacts(id,
  core_id,
- emulatorjs_version,
- bundle_version,
- flavor,
- relative_path,
+ route_key,
+ runtime_family,
+ runtime_adapter_kind,
+ runtime_version,
+ adapter_id,
+ entry_path,
  size_bytes,
  sha256,
- source_commit,
+ manifest_sha256,
+ artifact_set_sha256,
+ requires_threads,
+ save_payload_kind,
+ save_max_bytes,
  provenance_json,
- compatibility_config_json,
- enabled,
+ compatibility_json,
+ selected_for_new_bindings,
+ available_for_launch,
  version,
  created_at_ms,
  updated_at_ms)
 VALUES(?,
 ?,
+'DEFAULT',
+'EMULATORJS',
+'EMULATORJS',
 ?,
 ?,
 ?,
@@ -413,65 +402,63 @@ VALUES(?,
 ?,
 ?,
 ?,
+?,
+'RUNTIME_STATE',
+67108864,
 ?,
 ?,
 ?,
 1,
+1,
 ?,
 ?)
-ON CONFLICT(core_id,
- emulatorjs_version,
- sha256) DO UPDATE SET
-  bundle_version=excluded.bundle_version,
- flavor=excluded.flavor,
- relative_path=excluded.relative_path,
-  size_bytes=excluded.size_bytes,
- source_commit=excluded.source_commit,
- provenance_json=excluded.provenance_json,
-  compatibility_config_json=excluded.compatibility_config_json,
- enabled=excluded.enabled,
- version=core_artifacts.version + CASE WHEN
-  core_artifacts.bundle_version IS NOT excluded.bundle_version OR
-  core_artifacts.flavor IS NOT excluded.flavor OR
-  core_artifacts.relative_path IS NOT excluded.relative_path OR
-  core_artifacts.size_bytes IS NOT excluded.size_bytes OR
-  core_artifacts.compatibility_config_json IS NOT excluded.compatibility_config_json OR
-  core_artifacts.enabled IS NOT excluded.enabled
- THEN 1 ELSE 0 END,
-  updated_at_ms=excluded.updated_at_ms
-WHERE core_artifacts.bundle_version IS NOT excluded.bundle_version
- OR core_artifacts.flavor IS NOT excluded.flavor
- OR core_artifacts.relative_path IS NOT excluded.relative_path
- OR core_artifacts.size_bytes IS NOT excluded.size_bytes
- OR core_artifacts.source_commit IS NOT excluded.source_commit
- OR core_artifacts.provenance_json IS NOT excluded.provenance_json
- OR core_artifacts.compatibility_config_json IS NOT excluded.compatibility_config_json
- OR core_artifacts.enabled IS NOT excluded.enabled
+ON CONFLICT(core_id,route_key,artifact_set_sha256) DO NOTHING
 `,
 		id,
 		core.CoreID,
 		versionName,
-		core.BundleVersion,
-		core.ArtifactFlavor,
+		version.Manifest.EmulatorJS.PlayerAdapter.ID,
 		path,
 		core.SizeBytes,
 		core.SHA256,
-		sourceCommit,
+		version.ManifestSHA256,
+		core.ArtifactSetSHA256,
+		boolToInteger(core.Threads),
 		string(provenanceJSON),
 		string(compatibilityJSON),
-		active,
+		selected,
 		now.UnixMilli(),
 		now.UnixMilli(),
 	)
 	if err != nil {
-		return fmt.Errorf("upsert core artifact: %w", err)
+		return "", fmt.Errorf("insert core artifact: %w", err)
 	}
-	return nil
+	if err := transaction.QueryRowContext(ctx, `
+SELECT id FROM core_artifacts
+WHERE core_id=? AND route_key='DEFAULT' AND artifact_set_sha256=?
+AND runtime_family='EMULATORJS' AND runtime_adapter_kind='EMULATORJS'
+AND runtime_version=? AND adapter_id=? AND entry_path=? AND size_bytes=? AND sha256=?
+AND manifest_sha256=? AND requires_threads=? AND save_payload_kind='RUNTIME_STATE'
+AND save_max_bytes=67108864 AND provenance_json=? AND compatibility_json=?
+AND available_for_launch=1
+`, core.CoreID, core.ArtifactSetSHA256, versionName, version.Manifest.EmulatorJS.PlayerAdapter.ID,
+		path, core.SizeBytes, core.SHA256, version.ManifestSHA256, boolToInteger(core.Threads),
+		string(provenanceJSON), string(compatibilityJSON)).Scan(&id); err != nil {
+		return "", fmt.Errorf("verify immutable core artifact: %w", err)
+	}
+	if _, err := transaction.ExecContext(ctx, `
+UPDATE core_artifacts
+SET selected_for_new_bindings=?,version=version+1,updated_at_ms=?
+WHERE id=? AND selected_for_new_bindings<>?
+`, selected, now.UnixMilli(), id, selected); err != nil {
+		return "", fmt.Errorf("select core artifact: %w", err)
+	}
+	return id, nil
 }
 
-func nullableCommit(association, commit string) any {
-	if association == "EXACT_COMMIT" {
-		return commit
+func boolToInteger(value bool) int {
+	if value {
+		return 1
 	}
-	return nil
+	return 0
 }

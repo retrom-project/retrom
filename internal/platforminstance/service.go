@@ -406,7 +406,7 @@ JOIN cores c ON c.id=pc.core_id AND c.enabled=1
 WHERE p.id=? AND p.enabled=1
 AND EXISTS(
   SELECT 1 FROM core_artifacts a
-  WHERE a.core_id=c.id AND a.enabled=1
+  WHERE a.core_id=c.id AND a.selected_for_new_bindings=1 AND a.available_for_launch=1
 )
 `, template.DefaultCoreID, template.PlatformID).
 			Scan(&reference.PlatformName, &reference.CoreName)

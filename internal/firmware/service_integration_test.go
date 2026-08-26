@@ -169,6 +169,9 @@ func seedFirmwareReplacementLifecycle(
 		`{"schemaVersion":1,"bios":[{"installationId":%q,"blobId":%q}]}`,
 		installationID, biosBlobID,
 	)
+	snapshotDigest := fmt.Sprintf("%x", sha256.Sum256([]byte(snapshot)))
+	statePayload := []byte("firmware-save-state")
+	stateDigest := fmt.Sprintf("%x", sha256.Sum256(statePayload))
 	transaction, err := database.BeginTx(ctx, nil)
 	if err != nil {
 		t.Fatal(err)
@@ -200,26 +203,31 @@ VALUES('firmware-content','CONTENT','firmware.gba',?,0)`, []any{contentBlobID}},
 VALUES('firmware-variant','firmware-game','mgba',NULL,?,?)`, []any{now, now}},
 		{
 			`INSERT INTO game_variant_revisions(id,game_variant_id,game_content_revision_id,core_artifact_id,
-validation_input_digest,emulator_game_id,status,compatibility_code,dependency_snapshot_json,created_at_ms)
-VALUES('firmware-variant-revision','firmware-variant','firmware-content',?, ?,800001,'READY','READY',?,?)`,
+route_key,validation_input_digest,emulator_game_id,status,compatibility_code,dependency_snapshot_json,created_at_ms)
+VALUES('firmware-variant-revision','firmware-variant','firmware-content',?,'DEFAULT',?,800001,'READY','READY',?,?)`,
 			[]any{artifactID, strings.Repeat("2", 64), snapshot, now},
 		},
 		{`UPDATE game_variants SET current_revision_id='firmware-variant-revision' WHERE id='firmware-variant'`, nil},
 		{`INSERT INTO variant_files(game_variant_revision_id,role,logical_name,blob_id,sort_order)
 VALUES('firmware-variant-revision','BIOS_BUNDLE','gba_bios.bin',?,0)`, []any{biosBlobID}},
 		{`INSERT INTO profiles(id,display_name,created_at_ms) VALUES('firmware-profile','Firmware',?)`, []any{now}},
-		{`INSERT INTO launch_sessions(id,profile_id,game_id,game_variant_revision_id,core_artifact_id,
-return_to,credential_sha256,state,bootstrap_expires_at_ms,idle_expires_at_ms,activated_at_ms,
+		{`INSERT INTO launch_sessions(id,profile_id,purpose,game_id,game_content_revision_id,
+game_variant_revision_id,core_artifact_id,route_key,return_to,credential_sha256,state,
+bootstrap_expires_at_ms,idle_expires_at_ms,activated_at_ms,
 hard_expires_at_ms,created_at_ms,updated_at_ms)
-VALUES('firmware-launch','firmware-profile','firmware-game','firmware-variant-revision',?,'/',?,'ACTIVE',
+VALUES('firmware-launch','firmware-profile','PRODUCT','firmware-game','firmware-content',
+'firmware-variant-revision',?,'DEFAULT','/',?,'ACTIVE',
 ?,?,?,?,?,?)`, []any{artifactID, make([]byte, 32), now + 60_000, now + 60_000, now, now + 120_000, now, now}},
 		{`INSERT INTO launch_content_files(launch_session_id,logical_name,blob_id,format_version,created_at_ms)
 VALUES('firmware-launch','firmware.gba',?,'SOURCE_V1',?)`, []any{contentBlobID, now}},
-		{`INSERT INTO save_states(id,profile_id,game_id,game_variant_revision_id,core_artifact_id,
-state_blob_id,screenshot_blob_id,name,active_duration_ms,created_at_ms,updated_at_ms,source_launch_session_id)
-VALUES('firmware-save','firmware-profile','firmware-game','firmware-variant-revision',?,?,?,
-'Firmware save',1,?,?,'firmware-launch')`, []any{artifactID, stateBlobID, screenshotBlobID, now, now}},
-		{`UPDATE launch_sessions SET save_state_id='firmware-save' WHERE id='firmware-launch'`, nil},
+		{
+			`INSERT INTO save_states(id,profile_id,game_id,game_content_revision_id,game_variant_revision_id,
+core_artifact_id,adapter_abi,dependency_snapshot_sha256,payload_blob_id,payload_kind,payload_sha256,
+payload_size_bytes,screenshot_blob_id,name,active_duration_ms,created_at_ms,updated_at_ms,source_launch_session_id)
+VALUES('firmware-save','firmware-profile','firmware-game','firmware-content','firmware-variant-revision',?,
+'emulatorjs-state-v1',?,?,'RUNTIME_STATE',?,?,?,'Firmware save',1,?,?,'firmware-launch')`,
+			[]any{artifactID, snapshotDigest, stateBlobID, stateDigest, len(statePayload), screenshotBlobID, now, now},
+		},
 	}
 	for _, statement := range statements {
 		if _, err := transaction.ExecContext(ctx, statement.query, statement.args...); err != nil {
@@ -355,7 +363,8 @@ func TestDATMachineBIOSScansUploadAndAcceptsContentMatchedFilenameAlias(t *testi
 	}
 	var artifactID string
 	if err := database.SQL.QueryRowContext(ctx, `
-SELECT id FROM core_artifacts WHERE core_id='mame2003_plus' AND enabled=1 LIMIT 1
+SELECT id FROM core_artifacts
+WHERE core_id='mame2003_plus' AND selected_for_new_bindings=1 AND available_for_launch=1 LIMIT 1
 `).Scan(&artifactID); err != nil {
 		t.Fatal(err)
 	}

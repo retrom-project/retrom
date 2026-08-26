@@ -75,6 +75,18 @@ func TestSevenZipWorkerRejectsUnsupportedContainers(t *testing.T) {
 	}
 }
 
+func TestSevenZipWorkerCanClassifyOpaqueNestedDataForRPGMakerNormalizer(t *testing.T) {
+	t.Parallel()
+	entries, err := ScanSevenZip(
+		context.Background(),
+		filepath.Join("testdata", "sevenzip", "nested.7z"),
+		RPGMakerArchiveLimits(),
+	)
+	if err != nil || len(entries) != 1 || entries[0].NestedArchive != NestedArchiveZIP {
+		t.Fatalf("RPG Maker nested classification = %#v, error=%v", entries, err)
+	}
+}
+
 func TestSevenZipPathValidationRejectsTraversalAndInvalidNames(t *testing.T) {
 	t.Parallel()
 	for _, name := range []string{"../game.a26", "/game.a26", "folder//game.a26", "C:/game.a26", "game\\name.a26"} {
@@ -141,6 +153,7 @@ func TestSevenZipEntryChecksumMismatchIsUnsafeNotNested(t *testing.T) {
 		"game.a26",
 		int64(len(payload)),
 		crc32.ChecksumIEEE(payload)+1,
+		false,
 	)
 	testassert.Falsef(t, testassert.Any(func() bool { return !errors.Is(err, ErrArchiveUnsafe) }, func() bool { return errors.Is(err, ErrNestedArchiveUnsupported) }), "hashSevenZipEntry() error = %v", err)
 }

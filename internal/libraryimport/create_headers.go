@@ -89,9 +89,9 @@ func (run *creationRun) insertUploadConsumption() error {
 INSERT INTO upload_consumptions(
   id,upload_session_id,upload_file_id,consumer_type,consumer_id,created_at_ms
 ) VALUES(?,?,NULL,'IMPORT_JOB',?,?)
-`, consumptionID.String(), run.plan.request.UploadID, run.importID, run.now)
+	`, consumptionID.String(), run.plan.request.UploadID, run.importID, run.now)
 	if err != nil {
-		return ErrInvalid
+		return fmt.Errorf("libraryimport/service: insert upload consumption: %w", err)
 	}
 	return nil
 }

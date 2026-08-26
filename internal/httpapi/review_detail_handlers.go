@@ -29,7 +29,7 @@ d.version,
 d.updated_at_ms,
 pi.id,
 pi.name,
-current_artifact.compatibility_config_json,
+current_artifact.compatibility_json,
 v.id,
 v.status,
 v.compatibility_code,
@@ -49,9 +49,8 @@ JOIN review_drafts d ON d.import_item_id=i.id
 JOIN import_item_source_snapshots source_snapshot ON source_snapshot.id=d.effective_source_snapshot_id
 JOIN platform_instances pi ON pi.id=d.target_platform_instance_id
 JOIN core_artifacts current_artifact ON current_artifact.core_id=pi.default_core_id
-AND current_artifact.enabled=1
-LEFT
-JOIN import_item_core_validations v ON v.id=(
+AND current_artifact.selected_for_new_bindings=1 AND current_artifact.available_for_launch=1
+LEFT JOIN import_item_core_validations v ON v.id=COALESCE(d.selected_validation_id,(
   SELECT candidate.id
 FROM import_item_core_validations candidate
 WHERE candidate.import_item_id=i.id
@@ -59,7 +58,7 @@ AND candidate.source_snapshot_id=d.effective_source_snapshot_id
 AND candidate.target_platform_instance_id=d.target_platform_instance_id
 AND candidate.core_artifact_id=current_artifact.id
 ORDER BY candidate.created_at_ms DESC,
-candidate.id DESC LIMIT 1)
+candidate.id DESC LIMIT 1))
 WHERE i.id=?
 AND i.state='REVIEW_PENDING'
 AND (i.review_handoff_kind='DIRECT' OR EXISTS(
@@ -109,12 +108,7 @@ AND NOT EXISTS(
 		server.databaseError(writer, request, err)
 		return
 	}
-	var metadataValue, sourceValue any
-	_ = json.Unmarshal([]byte(metadata), &metadataValue)
-	_ = json.Unmarshal([]byte(sourceManifest), &sourceValue)
-	if files, ok := sourceValue.([]any); ok {
-		sourceValue = map[string]any{"files": files}
-	}
+	metadataValue, sourceValue := reviewDocuments(metadata, sourceManifest)
 	dependencyValue := decodeOptionalJSON(dependencySnapshot)
 	evidence, err := server.loadReviewEvidence(request, itemID, sourceSnapshotID, reviewValidationInput{
 		validationID: validationID, validationStatus: validationStatus,
@@ -126,8 +120,12 @@ AND NOT EXISTS(
 		server.databaseError(writer, request, err)
 		return
 	}
-	gateReviewMultiDiscAttachment(evidence.multiDisc, evidence.validation.stale)
-	canApprove := evidence.validation.canApprove || evidence.runtimeScreenshot.value != nil
+	rpgMaker, hasRPGMaker, err := server.reviewRPGMaker(request.Context(), itemID)
+	if err != nil {
+		server.databaseError(writer, request, err)
+		return
+	}
+	canApprove := reviewApproval(&evidence, rpgMaker, hasRPGMaker)
 	reviewTags, err := server.activeReviewTags(request.Context(), itemID)
 	if err != nil {
 		server.databaseError(writer, request, err)
@@ -149,6 +147,7 @@ AND NOT EXISTS(
 		"uploadedAssets":               evidence.uploadedAssets, "sourceFiles": evidence.sourceFiles,
 		"sourceMedia":       evidence.sourceMedia.value,
 		"runtimeScreenshot": evidence.runtimeScreenshot.value,
+		"rpgMaker":          rpgMaker,
 		"duplicateGames":    evidence.duplicateGames, "contentIdentityDigest": evidence.contentIdentityDigest,
 		"arcadeDependencies":  evidence.arcadeDependencies,
 		"multiDisc":           evidence.multiDisc,
@@ -161,6 +160,29 @@ AND NOT EXISTS(
 			"screenshotCandidateAssetIds": evidence.screenshotIDs,
 		}, "dosEntries": evidence.dosEntries, "tags": reviewTags,
 	})
+}
+
+func reviewDocuments(metadata, sourceManifest string) (any, any) {
+	var metadataValue, sourceValue any
+	_ = json.Unmarshal([]byte(metadata), &metadataValue)
+	_ = json.Unmarshal([]byte(sourceManifest), &sourceValue)
+	if files, ok := sourceValue.([]any); ok {
+		sourceValue = map[string]any{"files": files}
+	}
+	return metadataValue, sourceValue
+}
+
+func reviewApproval(
+	evidence *reviewEvidence,
+	rpgMaker *reviewRPGMakerProjection,
+	hasRPGMaker bool,
+) bool {
+	gateReviewMultiDiscAttachment(evidence.multiDisc, evidence.validation.stale)
+	if !hasRPGMaker {
+		return evidence.validation.canApprove || evidence.runtimeScreenshot.value != nil
+	}
+	evidence.runtimeScreenshot = optionalReviewProjection{}
+	return rpgMaker.canApprove
 }
 
 type reviewEvidence struct {

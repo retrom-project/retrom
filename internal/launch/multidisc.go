@@ -23,12 +23,23 @@ type lockedDisc struct {
 	VirtualPath string
 }
 
-type launchContentPlan struct {
-	ContentKind string
+type lockedContentFile struct {
 	BlobID      string
 	LogicalName string
 	Format      string
+}
+
+type launchContentPlan struct {
+	ContentKind string
+	Files       []lockedContentFile
 	Discs       []lockedDisc
+}
+
+func (plan launchContentPlan) singleFile() (lockedContentFile, bool) {
+	if len(plan.Files) != 1 {
+		return lockedContentFile{}, false
+	}
+	return plan.Files[0], true
 }
 
 var (
@@ -45,7 +56,7 @@ func (service *Service) expectedMultiDiscDigest(
 	var variantID, contentKind, compatibilityJSON string
 	var artifactVersion int64
 	err := service.database.QueryRowContext(ctx, `
-SELECT variant.id,content.content_kind,artifact.version,artifact.compatibility_config_json
+SELECT variant.id,content.content_kind,artifact.version,artifact.compatibility_json
 FROM game_variant_revisions revision
 JOIN game_variants variant ON variant.id=revision.game_variant_id
 JOIN game_content_revisions content ON content.id=revision.game_content_revision_id
@@ -86,7 +97,7 @@ func (service *Service) multiDiscRevalidationInputs(
 	var revisionID, compatibilityJSON string
 	var artifactVersion int64
 	if err := service.database.QueryRowContext(ctx, `
-SELECT variant.current_revision_id,artifact.version,artifact.compatibility_config_json
+SELECT variant.current_revision_id,artifact.version,artifact.compatibility_json
 FROM game_variants variant
 JOIN core_artifacts artifact ON artifact.id=?
 WHERE variant.id=?
@@ -178,7 +189,8 @@ WHERE revision.id=?
 	if contentKind != multidisc.ContentKind {
 		blobID, logicalName, format, err := service.lockLaunchContent(ctx, variantRevisionID, coreID)
 		return launchContentPlan{
-			ContentKind: contentKind, BlobID: blobID, LogicalName: logicalName, Format: format,
+			ContentKind: contentKind,
+			Files:       []lockedContentFile{{BlobID: blobID, LogicalName: logicalName, Format: format}},
 		}, err
 	}
 	return service.buildMultiDiscLaunchContentPlan(ctx, variantRevisionID, contentID, snapshotJSON, compatibility)
@@ -226,8 +238,11 @@ AND file.logical_name='playlist.m3u'
 		return launchContentPlan{}, ErrBlocked
 	}
 	return launchContentPlan{
-		ContentKind: multidisc.ContentKind, BlobID: playlistBlobID, LogicalName: "playlist.m3u",
-		Format: "RETROM_MULTIDISC_M3U_V1", Discs: discs,
+		ContentKind: multidisc.ContentKind,
+		Files: []lockedContentFile{{
+			BlobID: playlistBlobID, LogicalName: "playlist.m3u", Format: "RETROM_MULTIDISC_M3U_V1",
+		}},
+		Discs: discs,
 	}, nil
 }
 

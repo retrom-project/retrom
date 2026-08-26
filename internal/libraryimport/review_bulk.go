@@ -170,7 +170,7 @@ func reviewBulkCandidatesQuery(scope ReviewBulkScope) (string, []any) {
 	query := `
 SELECT item.id,draft.version,draft.effective_source_snapshot_id,
        json_extract(draft.metadata_json,'$.title'),instance.id,instance.name,instance.platform_id,instance.version,
-       artifact.id,artifact.compatibility_config_json,artifact.version,
+       artifact.id,artifact.compatibility_json,artifact.version,
        validation.id,validation.status,validation.prepublish_generation,
        validation.platform_instance_version,validation.core_artifact_version,
        validation.dat_version_id,
@@ -191,7 +191,7 @@ FROM import_items item
 JOIN review_drafts draft ON draft.import_item_id=item.id
 JOIN import_item_source_snapshots source ON source.id=draft.effective_source_snapshot_id
 JOIN platform_instances instance ON instance.id=draft.target_platform_instance_id
-LEFT JOIN core_artifacts artifact ON artifact.core_id=instance.default_core_id AND artifact.enabled=1
+LEFT JOIN core_artifacts artifact ON artifact.core_id=instance.default_core_id AND artifact.selected_for_new_bindings=1
 LEFT JOIN import_item_core_validations validation ON validation.id=(
   SELECT candidate.id FROM import_item_core_validations candidate
   WHERE candidate.import_item_id=item.id

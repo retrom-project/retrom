@@ -3,8 +3,8 @@
 | 属性 | 内容 |
 | --- | --- |
 | 文档状态 | 已审定 / 一期实施基线 |
-| 版本 | 1.4 |
-| 日期 | 2026-08-24 |
+| 版本 | 1.5 |
+| 日期 | 2026-08-25 |
 | 元信息源 | Hasheous 公共 Hash Lookup |
 
 ## 1. 边界
@@ -41,6 +41,7 @@ Arcade 依赖细节见 [BIOS 与 Arcade DAT](./bios-and-arcade.md)，文件存�
 - `platform_id_snapshot`。
 - `default_core_id_snapshot`。
 - EmulatorJS 版本、Core artifact 文件名与 SHA-256。
+- RPG Maker 项目另冻结用户通过目标目录选择的版本 core、由 core 映射的 expected generation、route/artifact/adapter ABI、内容 evidence、pack selection 与 `runtime_binding_revision`；静态 evidence 不得改写版本 core。
 - Arcade `dat_version_id_snapshot`。
 - MetadataProvider 配置版本。
 - `created_at_ms`。
@@ -99,11 +100,12 @@ Job 交接只有一条实现路径：`IMPORT_ITEM_PIPELINE` 完成 hash、分组
 
 ## 5. 文件和目录分组
 
-分组输入是 COMPLETE UploadSession 的全部 UploadFile，先按规范 relative path UTF-8 bytes 升序固定顺序。每个文件都必须落到 `SOURCE/IGNORED/REJECTED` 之一并在任务页可见；不能因扩展名不认识就静默丢弃。一期只对规范 basename 恰为 `.DS_Store`、`Thumbs.db` 或以 `._` 开头的已知系统边车文件使用 `IGNORED_SYSTEM_SIDECAR`；其他不属于下表输入的文件标为 `REJECTED/UNSUPPORTED_CONTENT_FORMAT`，使 ImportJob 进入可见的 PARTIAL_FAILURE，不阻止其他合法 Item 进审核。
+分组输入是 COMPLETE UploadSession 的全部 UploadFile，先按规范 relative path UTF-8 bytes 升序固定顺序。每个文件都必须落到 `SOURCE/IGNORED/REJECTED` 之一并在任务页可见；不能因扩展名不认识就静默丢弃。一期只对规范 basename 恰为 `.DS_Store`、`Thumbs.db` 或以 `._` 开头的已知系统边车文件使用 `IGNORED_SYSTEM_SIDECAR`。其他不属于下表输入的文件标为 `REJECTED/UNSUPPORTED_CONTENT_FORMAT`，使 ImportJob 进入可见的 PARTIAL_FAILURE，不阻止其他合法 Item 进审核。
 
 - 单 ROM 主机/掌机：每个受支持的 raw ROM、ZIP 或 7z UploadFile 是一个 primary 分组，不按父目录把多个 ROM 误合为一个游戏。ZIP/7z 安全扫描后的唯一平台候选 entry 成为 Item `CONTENT`；raw ROM 自身成为 CONTENT。光盘类 CHD 与 PSP ISO/CSO 只作为 raw 单文件，不接受 archive wrapper。
 - Arcade：先用目标 CoreArtifact 锁定的活动 DAT，将每个安全顶层 ZIP 的 basename 精确解析为 machine。只有 `classification=NORMAL` 的 archive 形成自己的 primary Item；`EXPLICIT_BIOS` 和 `ROMOF_INFERENCE` 是依赖 archive，绝不单独发布成 Game。再根据每个 primary Item 的 DAT 闭包，把同 UploadSession 中精确 basename/machine 命中的 parent/BIOS/base ZIP 以 COMPANION 关联。NORMAL parent 可作为多个 Item 的 companion，同时仍可作为自己的 machine Item；不得扫全局 CAS 补依赖。被闭包引用的依赖 archive 为 SOURCE；未被任何 Item 引用的依赖 archive 为 `REJECTED/ARCADE_UNUSED_DEPENDENCY_ARCHIVE`，任务页引导用户改由 BIOS 管理安装或与需要它的 ROMset 同批导入，不创建假游戏。
 - MS-DOS：`sourceType=DIRECTORY` 时整个 session 的全部非 sidecar 文件是一个 Item，其 common root 从 relative path 派生；`sourceType=FILES` 时只允许恰一个 ZIP UploadFile。多个独立 ZIP/文件不猜测为一款 DOS 游戏，以 `AMBIGUOUS_DOS_BUNDLE` 拒绝并要求重新选择目录或单 ZIP。目录文件或 ZIP entry 逐项形成 DOS_SOURCE，后端生成确定性运行 bundle 但不改写原 bytes。
+- RPG Maker：只接受一次目录选择结果，或 `sourceType=FILES` 下恰一个 ZIP/7z；若干散文件、多归档或 URL 一律拒绝。规范化后最多 10,000 个项目文件，逐项形成 `PROJECT_FILE`；项目根内的 `.rgssad/.rgss2a/.rgss3a`、`RPG_RT.exe.7z`、工具 sidecar 和其他内层 archive 都按原始 bytes 作为不透明项目文件保留，绝不递归展开、识别其内层目录或执行其中内容。完整根目录/内容证据规则只由第 17 节执行。
 - 每个 Item 的 `ImportItemSourceFile` 是 source manifest 与 Approve 复制 GameContentFile 的唯一关系来源；`group_key` 使用数据模型的 canonical digest，重试不得因 worker 遍历顺序改变分组。
 - 浏览器目录上传优先从 Retrom 自绘 Dialog 调用 File System Access API 的 `showDirectoryPicker`，递归读取 `FileSystemDirectoryHandle` 并只传递以所选根目录开头的规范相对路径；Chrome / Edge 走该路径时，系统选择完成后不再出现“上传 N 个文件到此网站”的二次确认。Brave 虽基于 Chromium但禁用该 API，因此能力检测失败时回退到 `input[webkitdirectory]` 与 `File.webkitRelativePath`，并接受 Brave 自身不可绕过的原生上传确认。两条路径的选择结果都必须回到同一个 Dialog 展示根目录名、文件数、总大小和相对路径预览，管理员明确点击“使用此目录”后才进入导入配置；取消系统选择、Dialog 取消或 Escape 均不保留待确认文件。
 - 局域网开发允许通过非 localhost 的明文 HTTP 域名访问；该上下文可能只有 `crypto.getRandomValues`，没有 `crypto.randomUUID` 或 `crypto.subtle`。前端必须用 CSPRNG bytes 生成规范小写 UUIDv4，并以经过标准 SHA-256 向量验证的本地实现完成分块 digest fallback；不能降级为 `Math.random`、时间戳、跳过 `Content-Digest` 或把整个文件交给后端代算。
@@ -112,7 +114,7 @@ Job 交接只有一条实现路径：`IMPORT_ITEM_PIPELINE` 完成 hash、分组
 
 分组与扩展名规则从目标游戏目录的基础平台推导。默认核心是导入流水线唯一自动执行的兼容性目标；一期不得在导入后为其他核心自动投递后台验证。用户在详情页首次显式选择其他核心启动时，才按运行时专题的 `EnsureVariant` 流程按需验证。
 
-可接收格式固定如下；这里列出 Retrom 已验证并承诺接收的产品子集，不直接照搬某个核心声明的全部 `valid_extensions`。扩展名比较使用 ASCII case-insensitive，ZIP/7z entry 先执行本节与存储文档的路径、数量、展开大小和压缩比检查。ZIP entry 名优先采用标准 UTF-8；仅当 ZIP 明确标记名称为非 UTF-8 且原始字节不是合法 UTF-8 时，允许按 GB18030 严格解码一次，解码结果仍必须通过相同的 UTF-8、路径穿越、控制字符、重复路径和 ASCII casefold 碰撞检查。表外格式、加密/损坏/不安全 archive，以及 RAR/TAR、SFX/分卷/加密 7z 在分组前标为 `REJECTED`。普通 ROM wrapper 的 nested archive 仍拒绝；DOS ZIP 内的 archive 只作为不透明游戏文件保留且绝不递归展开，因此允许存在。压缩比门禁对超过 16 MiB 的单成员生效，小型空白存档即使高度可压缩也仍受总展开量和成员数上限约束。7z 仅用于表中标为“ZIP/7z”的唯一 ROM wrapper；Arcade、DOS、CHD、ISO、CSO、3DS、CCI 均不接受 7z。
+可接收格式固定如下；这里列出 Retrom 已验证并承诺接收的产品子集，不直接照搬某个核心声明的全部 `valid_extensions`。扩展名比较使用 ASCII case-insensitive，ZIP/7z entry 先执行本节与存储文档的路径、数量、展开大小和压缩比检查。ZIP entry 名优先采用标准 UTF-8；仅当 ZIP 明确标记名称为非 UTF-8 且原始字节不是合法 UTF-8 时，允许按 GB18030 严格解码一次，解码结果仍必须通过相同的 UTF-8、路径穿越、控制字符、重复路径和 ASCII casefold 碰撞检查。表外格式、加密/损坏/不安全 archive，以及 RAR/TAR、SFX/分卷/加密 7z 在分组前标为 `REJECTED`。普通 ROM wrapper 的 nested archive 仍拒绝；DOS 与 RPG Maker 项目根内的 archive 只作为不透明游戏文件保留且绝不递归展开，因此允许存在。压缩比门禁对超过 16 MiB 的单成员生效，小型空白存档即使高度可压缩也仍受总展开量和成员数上限约束。7z 仅用于表中标为“ZIP/7z”的唯一 ROM wrapper；Arcade、DOS、CHD、ISO、CSO、3DS、CCI 均不接受 7z。
 
 单 ROM 主机/掌机的 ZIP/7z 在后端物化唯一 primary entry 到 CAS，发布后的 GameContentRevision 以一个 `CONTENT` GameContentFile 指向物化后的原始 entry bytes；原 archive Blob、ArchiveEntry、`archiveFormat` 与两者 hash 继续作为来源/审核证据。运行时不得再次把这类 wrapper archive 交给 EmulatorJS 猜 entry。Arcade ZIP 和 DOS bundle 是有意的多 entry 运行内容，不适用这一物化规则；Arcade 的 `CONTENT` 是 ROMset ZIP，DOS 的每个安全成员/目录文件是带规范相对逻辑名的 `DOS_SOURCE`。
 
@@ -139,6 +141,7 @@ Job 交接只有一条实现路径：`IMPORT_ITEM_PIPELINE` 完成 hash、分组
 | Nintendo 3DS (`nintendo3ds`) | 单个原始 `.3ds` 或 `.cci` | 作为 `RAW_FILE_V1` CONTENT 直接交给 Azahar；本期不接受 archive wrapper 或其他 3DS 容器/可执行格式。 |
 | Arcade (`arcade`) | 一个未加密 `.zip` ROMset archive | 顶层 ZIP 必须精确命中活动 DAT machine；ZIP 本身不是 Hasheous hash 来源。只有 NORMAL machine 是 primary 候选。相同 UploadSession 中经 DAT 闭包明确采用的其他顶层 ZIP 作为该 Item 的 COMPANION parent/BIOS/base；NORMAL parent 也可形成自己的 Item，而 EXPLICIT_BIOS/ROMOF_INFERENCE 只能作为依赖。不能把无关全局 Blob 猜成依赖。 |
 | MS-DOS (`dos`) | 一个目录树，或一个未加密 `.zip` | 整棵目录/整个 ZIP 是一项，必须至少有一个 `.exe/.com/.bat` entry，全部候选均保留。`game/go/launch/play/run/start` 优先，setup/install/config/uninstall/readme/驱动/解包工具降权，再按扩展名、深度和路径稳定排序；这只决定审核默认值。目录输入会生成确定性 ZIP。ISO/CUE/IMG/VHD/M3U 和安装介质流程不在一期范围。 |
+| RPG Maker (`rpgmaker`) | 一个目录树，或恰一个安全 ZIP/7z | 整个规范项目只形成一个 Item，项目根内除世代对应会话存档外的文件逐行为 `PROJECT_FILE`，内层 archive 也按原始 bytes 保留但不递归展开。服务端只按“剥一层共同 packaging root→在 `.`/`www` 中恰选一个项目根→排除会话存档”的顺序规范化；根为零/两个、多世代或所选 core 与确凿证据冲突都拒绝，不搜索更深目录、不自动改核心。 |
 
 主机/掌机 ZIP 中零个 primary 候选是 `REJECTED/NO_SUPPORTED_CONTENT`，多个是 `REJECTED/AMBIGUOUS_PRIMARY_CONTENT`；两者都不创建 ImportItem，任务页列出文件和重打包/重新上传入口，不能用文件名打破平局，也不能宣称审核页支持一期不存在的“重新归组”。DOS 按上表是有意的多 entry bundle，不应用唯一 ROM entry 限制，但没有任何安全可执行候选时同样以 `REJECTED/NO_DOS_PROGRAM` 处理。Arcade ZIP 按 machine/DAT 规则识别，不应用主机唯一 entry 限制；未命中 DAT 的 archive 为 `REJECTED/ARCADE_MACHINE_NOT_FOUND`，命中但只是未使用依赖的 archive 使用上述独立 reason。
 
@@ -286,6 +289,8 @@ ImportItem 进入 `PUBLISHED/DISCARDED/FAILED_FINAL/CANCELLED` 后立即进入�
 
 ### 10.1 管理后台页面职责
 
+本小节出现的“审核 preview、`EJS_onGameStart`、第 5 秒截图和 `REVIEW_SCREENSHOT_OVERRIDE`”规则仅适用于非 RPG Maker 条目。RPG Maker 的“运行游戏”、发布条件和快速审批只执行第 17 节的正式 runtime validation/PASSED binding，不得继承下文任何截图放行语义。
+
 游戏入库使用“父级总览 + 五个同级子页”，不能再用一个页面内的 Tab 同时承载导入、任务和历史：
 
 | 页面 | 路由 | 主要问题 | 允许的主要操作 |
@@ -314,6 +319,8 @@ ImportItem 进入 `PUBLISHED/DISCARDED/FAILED_FINAL/CANCELLED` 后立即进入�
 “快速审批”先打开影响预览，明确 matched、严格 READY candidate，以及阻断截图放行、重复内容、活动 Parent/多盘补传和其他不 READY/已过期排除数。只有严格 `READY`、当前 generation/来源/目录/CoreArtifact/active DAT/BIOS/DOS entry/dependency snapshot 均一致、标题合法、没有重复内容和活动 Attachment 的 Item 才能进入 candidate；仅靠第 5 秒阻断截图启用逐项按钮的条目永不自动发布。dependency snapshot 必须按内容类型进入同一普通发布校验分支：静态 BIOS/多盘使用 `corevalidation` schema v1，Arcade 使用含 machine/DAT/closure/dependencies 的 schema v2，并重新核对当前 active DAT 的闭包、required entries 与冻结 ValidationFile；不得把合法 Arcade v2 送入 BIOS v1 解析器后误计为 stale。预览返回 scope digest 与候选 manifest digest；确认创建时服务端在一个事务重新枚举，任何筛选或 Item 输入漂移都以 `REVIEW_BULK_PREVIEW_STALE` 要求重新确认。空范围拒绝启动，单批上限 10,000，全实例同时只允许一个 active batch。
 
 后台按冻结顺序逐项复用普通 Approve 事务。成功 Item 的 Game/Revision/ReviewEvent、普通与对应服务器来源聚合和批次 `PUBLISHED` 结果必须同事务提交；ReviewEvent diff 增加 `approvalMode=QUICK_STRICT_READY` 和 `bulkApprovalId`，不建立第二套发布规则。处理前重复变为 `SKIPPED_DUPLICATE`，版本/Validation/来源漂移为 `SKIPPED_CHANGED`，严格门禁不再满足为 `SKIPPED_NOT_READY`，意外项故障为 `FAILED_FINAL` 并继续剩余项。取消只收口尚未提交的 Item；进程重启恢复未提交项，restore 使遗留批次以 `RESTORE_INTERRUPTED` 失败且不回滚已发布 Game。终态页面清除相关审核队列缓存、刷新列表，并提供逐项结果链接。
+
+审核详情的来源文件和单个 archive 成员审计预览分别最多渲染前 200 项并显示完整总数。完整清单仍保存在来源证据、参与内容摘要与发布，但不得作为 Client Component 属性重复发送或让数千行 DOM 阻塞审核操作 hydration。
 
 ## 11. API
 
@@ -375,6 +382,30 @@ Pegasus Collection 的 `IMPORT` mapping 必须显式提供 `tagIds`，`SKIP` 必
 
 EmulationStation Collection 使用完全相同的 `tagIds`、snapshot、删除并发与 handoff 规则；XML `genre` 或其他来源字段同样不能创建或按名称猜测 Retrom Tag，`SKIPPED_EXISTING` 不修改已有 GameTag。
 
-## 17. 统一验收入口
+## 17. RPG Maker 项目识别、运行包与发布验证
+
+`contentMode=RPG_MAKER_PROJECT_V1` 只接受一个 DIRECTORY，或 FILES 中恰一个 ZIP/7z；一次输入形成一个不可拆分项目 Item，逐文件 role 为 PROJECT_FILE。没有 metadata candidate 时，archive 项目的初始草稿标题只能取上传 archive 的安全 basename，目录项目只在所有上传路径共享一个非空顶层目录时取该目录名；不得从排序后的某个内部项目文件或插件名推导标题。目录最多 10,000 个可用文件；archive 扫描最多 20,000 entries，规范化后仍最多 10,000 个文件，单 entry 最多 8 GiB、总展开最多 32 GiB、压缩比最多 200。所有路径执行共享 SAFE_LOGICAL_PATH/no-follow/symlink/device/加密/穿越门禁。项目根内任何被扩展名或 magic 识别为 archive 的文件，包括 `.rgssad/.rgss2a/.rgss3a`、`RPG_RT.exe.7z` 和 MTool `audio/bgm/config`，都物化其自身原始 bytes、进入 PROJECT_FILE/filesDigest；扫描器只记录该 entry 是内层 archive，绝不打开内层目录、递归展开、猜密码或把内层 marker/脚本作为项目证据。所选 EasyRPG/mkxp 运行投影可把核心实际需要的不透明文件锁入确定性项目输入；Native Web 运行投影仍只允许固定 Web MIME allowlist，未列入的 archive/native 文件留在源快照且 unique-origin 内容端点固定 404。外层上传 ZIP/7z 的加密、分卷、路径、数量、展开大小和压缩比门禁保持不变。RGSS 游戏 `.mkxpz` 与所选 RTP `.mkxpz` 的未压缩 bytes 合计不得超过 `2,147,483,647`，否则返回 `RPG_RGSS_CONTENT_TOO_LARGE`。不得把散文件、多个 archive、URL 或多个项目拆成 ROM Item；Pegasus、EmulationStation 和通用服务端导入固定拒绝 `RPG_SERVER_IMPORT_UNSUPPORTED`。
+
+目标目录默认核心必须是七个版本 core 之一；服务端先由 core 固定映射 expected generation，再运行全部有界 signature parser。parser 只能返回 `EXACT(generation)|FAMILY_ONLY(RPG2K)|NO_MATCH|格式错误`，不能建议或选择 route。唯一 exact 相等为 MATCHED；唯一 exact 不同返回 `RPG_SELECTED_CORE_MISMATCH`；RPG2K family-only 只允许用户已选 2000/2003，保留 `RPG_VERSION_EVIDENCE_UNCONFIRMED` 和强制运行验证；多 family 为 ambiguous，无证据为 unsupported。任何结果都不得自动改目录/core/route。
+
+项目根规范化固定按以下顺序执行：删除 `__MACOSX/**`、任意目录的 `.DS_Store`、`Thumbs.db`、`desktop.ini`；对全部路径执行上述安全门禁；若全部剩余文件共享同一第一 segment 且物理根没有文件，只剥离这一层，绝不递归剥第二层；只比较 `.` 与 `www/` 两个候选，不递归搜索其他目录，恰一个包含任一完整 family marker 才成立，零个返回 `RPG_PROJECT_NOT_FOUND`、两个返回 `RPG_PROJECT_ROOT_AMBIGUOUS`；选择 `www/` 时外层 desktop wrapper 不进入项目；对最终路径同时建立 NFC 原文与 NFKC case-fold 索引，任一碰撞返回 `RPG_PATH_COLLISION`；世代确定后只对项目根文件按 ASCII case-insensitive 完整匹配排除会话状态：2000/2003 的 `Save[0-9]+.lsd`、`*.dyn`、`Save.lgs`、`easyrpg_log.txt`，以及对应 RGSS 世代的 `Save*.rxdata`、`Save*.rvdata` 或 `Save*.rvdata2`；这些排除项只进入审核诊断，不进入 content revision/filesDigest。其余项目根文件无论扩展名与内部格式均按原始 bytes 保留。规范化后以紧凑清单 V2 冻结 fileCount/totalBytes/filesDigest，精确文件仍逐行引用 CAS。MV/MZ runtime 内容读取先逐 byte 精确匹配；仅在精确项不存在时，按同一项目唯一 ASCII case-insensitive 候选回退，以兼容 Windows 项目中脚本与资源名的大小写差异。导入期碰撞门禁保证候选唯一，运行期仍重新证明恰有一个候选，否则 404；不得推广为 Unicode 模糊匹配或普通内容端点行为。
+
+世代证据必须满足：2000/2003 同时有有效 `RPG_RT.ldb/.lmt`，有界 LCF parser 仅在 `ldb_id=2003` 时 exact 2003，缺省/0 只能 family-only；XP/VX/VX Ace 的 `Game.ini`、Scripts 后缀、项目 marker、加密 archive 和 Library 前缀必须全部指向同一 RGSS1/2/3；MV/MZ 必须分别具备完整 `rpg_*`/`rmmz_*` marker、严格 System.json 和本地安全 index.html，路径逃逸、form/popup/top-navigation、确凿外网调用或确凿 Node/NW/native 运行依赖直接拒绝。单独存在 `.exe/.dll/.so/.dylib/.node/.bat/.cmd/.ps1` 只证明上传包同时携带 desktop wrapper，不证明 Web 路径会调用它；这些文件与其他项目文件一样按原始 bytes 保留为 `PROJECT_FILE`、进入 filesDigest，但不作为世代证据。Native Web Launch 从完整 source snapshot 另建最小运行投影，只锁定 `index.html` 与固定 Web 资源 MIME allowlist，排除根 `package.json` 和所有 native executable 后缀；因此 runtime 内容端点对被排除文件固定返回 404，而 source snapshot/filesDigest 不被删改。MV/MZ 官方 Web deployment 自带的 core/Pixi 与大量插件会保留由 `Utils.isNwjs()` 等浏览器假分支保护的 `process`、`nw` 和 `require(...)` 代码；静态导入允许这些不可达兼容分支，因为隔离 runtime 不注入 Node/NW API，实际执行到该分支或请求上述 native 文件必须在强制 runtime validation 中失败且不得发布。静态通过只进入审核，不等于可发布。
+
+2000/2003 parser 的实施规则是唯一的：`RPG_RT.ldb` 最大 64 MiB、`RPG_RT.lmt` 最大 16 MiB；大端 7-bit continuation varint 最多 5 bytes。LDB 必须以 `varint(11)+"LcfDataBase"` 开始，顺序解析不越界的顶层 `chunk_id/chunk_size/chunk_bytes`，再在 System chunk `0x16` 内找唯一 `ldb_id` 子 chunk `0x0A`；值恰为 2003 才是 exact 2003，缺失/默认/0 是 `FAMILY_ONLY(RPG2K)`，其他值为 `RPG_LCF_GENERATION_UNKNOWN`，重复/截断/溢出为 `RPG_LCF_INVALID`。LMT 必须以 `varint(10)+"LcfMapTree"` 开始，`party_map_id` 为正数且存在对应 `Map%04d.lmu`，否则 `RPG_LMT_INVALID`。可选 `RPG_RT.ini` 最大 64 KiB，只以 ASCII 解析 `[RPG_RT] FullPackageFlag`，只允许 UTF-8 BOM，NUL/冲突重复 key/非 ASCII 值返回 `RPG_INI_INVALID`。EasyRPG gencache key 必须等价于锁定上游 V2：NFKC 后小写，根文件保留扩展，子目录文件除 `.ini/.po` 外去掉最后扩展，目录用 `_dirname`；任何 key 或 `_dirname` 冲突都拒绝。
+
+RGSS parser 只接受根目录最大 64 KiB 的 `Game.ini` 和唯一 `[Game]` section；键名 ASCII case-insensitive、重复冲突/NUL/绝对或根逃逸路径拒绝。去 UTF-8 BOM 后先严格 UTF-8，失败才以 WHATWG `shift_jis`/CP932 解码并要求回编码 bytes 相同；禁止替换字符或主机 locale。`Scripts` 后缀 `.rxdata/.rvdata/.rvdata2` 唯一映射 XP/VX/VX Ace，且必须存在该文件，或存在唯一同世代 `.rgssad/.rgss2a/.rgss3a`；`.rxproj/.rvproj/.rvproj2`、archive、Scripts 后缀和可选 `Library=RGSS1|RGSS2|RGSS3` 出现的所有证据必须一致，否则 `RPG_RGSS_GENERATION_CONFLICT`。服务端不解密 RGSS archive。`RTP1..3` 空值表示无依赖，非空值以 NFKC case-fold 后的精确 declared name 进入 pack matcher，不猜标准 RTP。
+
+MV 根 marker 恰为两个公共文件 `index.html`/`data/System.json` 和八个 JS 文件 `js/rpg_core.js`、`js/rpg_managers.js`、`js/rpg_objects.js`、`js/rpg_scenes.js`、`js/rpg_sprites.js`、`js/rpg_windows.js`、`js/plugins.js`、`js/main.js`。MZ 恰为两个公共文件、八个对应 `js/rmmz_core.js`、`js/rmmz_managers.js`、`js/rmmz_objects.js`、`js/rmmz_scenes.js`、`js/rmmz_sprites.js`、`js/rmmz_windows.js`、`js/plugins.js`、`js/main.js`，以及 `js/libs/localforage.js`/`js/libs/localforage.min.js` 二选一。两组同时成立返回 `RPG_GENERATION_AMBIGUOUS`。`System.json` 最大 8 MiB，必须是单一 object，拒绝重复 key、非有限 number 和尾随内容；core JS 单文件最大 16 MiB，只有固定版本赋值形态可写 `engine_version`，未知版本保持 NULL 并交给 shape/gate。`index.html` 最大 2 MiB，必须用 HTML tokenizer；所有 script/link/媒体 URL 只能解析为存在的项目内 SAFE_LOGICAL_PATH，拒绝 `http/https`、协议相对、外部 base、`javascript:`/未知 scheme、form/popup/top-navigation。JS 中确凿的外网调用或全局 `window.open` 直接阻断；`process`、`nw`、`require(...)`、`node:` 等桌面兼容代码本身不作为静态可达性证明，隔离 runtime 永不提供对应 API且 runtime validation 必须覆盖真实启动路径。`.exe/.dll/.so/.dylib/.node/.bat/.cmd/.ps1` 可以作为不透明 `PROJECT_FILE` 留在项目快照，但 MIME allowlist 永不服务这些后缀，entry 转换也不得引用它们；它们不能进入 script/worker/wasm allowlist。MV 的 `.rpgmvp/.rpgmvo/.rpgmvm` 与 profile registry 锁定的 MZ opaque asset 只以 `application/octet-stream` 同源服务；Retrom 不解密、记录或提升项目 key。
+
+RTP 与 runtime pack 独立于 BIOS。2000/2003 的 `FullPackageFlag=1` 默认无 pack，否则绑定同世代精确 installation；审核员可声明 self-contained override，但仍须实际验证。RGSS 的非空 RTP1..3 按 `(generation,NFKC-casefold declared name)` 冻结精确 installation；零个 missing、多个 ambiguous。MV/MZ 不使用 Retrom pack。pack selection 是带 If-Match 的完整替换字段；安装实例只增不改，被 Variant/Save 引用时不得删除。
+
+RPG 审核详情的“运行游戏”创建 `RPG_RUNTIME_VALIDATION`，不打开旧 preview。创建 validation 和创建 restore Launch 都提交点击时重新读取的严格 `clientCapabilities={secureContext,crossOriginIsolated,sharedArrayBuffer}`，服务端在签发 credential 前校验冻结 artifact 的线程要求，不能复用旧摘要或让客户端提交其他冻结字段。validation 冻结 effective source/project fingerprint、selected core/generation/evidence、route/artifact/ABI/pack 与当前 `runtime_binding_revision`，15 分钟过期；状态固定为 `CREATED→STARTING→RUNNING→CHECKPOINTED→RESTORED→AWAITING_DECISION→PASSED|FAILED`。它必须进入地图、连续运行、验证输入/音频/profile，完成 A→B checkpoint→C、结束原 Launch、显式创建不同 restore Launch、逐字段恢复到 B，并由 restore Launch capability 上传恢复截图直接关联 validation；截图后还必须继续真实输入并通过 `RESTORE_INPUT`，只在全部机器 gate PASS 时允许管理员决定 PASS。机器失败不可 override。
+
+Approve 事务按 `(import_item_id,runtime_binding_revision)` 读取唯一未过期 PASSED，重新计算并逐字段比较 current effective snapshot、filesDigest、core、route/artifact、ABI 与 pack；匹配后才创建正式 Content/Profile/Variant，并把 validation ID 写入不可变发布证据。运行输入编辑递增 binding revision，使旧 PASS 仅保留历史；metadata/tag/media 编辑不递增。零匹配返回 `RPG_RUNTIME_VALIDATION_REQUIRED`，任何截图 override、旧 preview 或快速审批均不能绕过。RPG 快速审批只在同样 PASSED 且绑定完全一致时才是严格 READY candidate。
+
+## 18. 统一验收入口
+
+RPG Maker 项目形状、selected-core/evidence 分层、pack、runtime validation 和发布绑定执行 `ACC-RPG-001`–`012`。
 
 本专题统一执行 [一期项目验收规范](./project-acceptance.md) 的 `ACC-IMP-001`–`ACC-IMP-009`、`ACC-PEG-001`–`006` 与 `ACC-ES-001`–`006`；详情媒体执行 `ACC-MEDIA-001`，标签默认值、删除并发和原子发布执行 `ACC-TAG-003`–`004`。游戏目录唯一归属由 `ACC-PLAT-*`、时间与 CAS 约束由 `ACC-DB-*` 和 `ACC-CAS-*` 联合覆盖。流程、通过标准和证据只在统一文档维护。

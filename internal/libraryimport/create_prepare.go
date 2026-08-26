@@ -3,6 +3,7 @@ package libraryimport
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 
 	"retrom/internal/cleanup"
@@ -16,6 +17,11 @@ type creationTarget struct {
 	emulatorVersion     string
 	artifactPath        string
 	artifactSHA         string
+	artifactSetSHA      string
+	routeKey            string
+	runtimeFamily       string
+	adapterID           string
+	adapterABI          string
 	compatibilityConfig string
 	instanceVersion     int64
 	artifactVersion     int64
@@ -48,7 +54,8 @@ func normalizeCreateRequest(request CreateRequest) (CreateRequest, string, error
 	if contentMode == "" {
 		contentMode = contentcapability.ModeStandard
 	}
-	if contentMode != contentcapability.ModeStandard && contentMode != contentcapability.ModeMultiDiscM3UV1 {
+	if contentMode != contentcapability.ModeStandard && contentMode != contentcapability.ModeMultiDiscM3UV1 &&
+		contentMode != contentcapability.ModeRPGMakerProjectV1 {
 		return CreateRequest{}, "", ErrInvalid
 	}
 	if request.MetadataProvider != "NONE" && request.MetadataProvider != "HASHEOUS" {
@@ -65,12 +72,12 @@ func (service *Service) prepareCreation(ctx context.Context, rawRequest CreateRe
 	if request.MetadataProvider == "HASHEOUS" && service.scraper == nil {
 		return creationPlan{}, fmt.Errorf("libraryimport/service: %w", errMetadataScraperNotConfigured)
 	}
-	sourceType, err := service.loadCompletedUpload(ctx, request.UploadID)
+	purpose, sourceType, err := service.loadCompletedUpload(ctx, request.UploadID)
 	if err != nil {
 		return creationPlan{}, err
 	}
-	if contentMode == contentcapability.ModeMultiDiscM3UV1 && sourceType != "DIRECTORY" {
-		return creationPlan{}, ErrMultiDiscModeUnavailable
+	if err := validateCreationUpload(contentMode, sourceType, purpose); err != nil {
+		return creationPlan{}, err
 	}
 	target, err := service.loadCreationTarget(ctx, request.TargetPlatformInstanceID)
 	if err != nil {
@@ -91,12 +98,22 @@ func (service *Service) prepareCreation(ctx context.Context, rawRequest CreateRe
 		request: request, contentMode: contentMode, sourceType: sourceType,
 		target: target, datID: datID, files: files,
 	}
-	if contentMode == contentcapability.ModeMultiDiscM3UV1 {
+	switch contentMode {
+	case contentcapability.ModeMultiDiscM3UV1:
 		plan.dispositions, plan.groups, err = service.prepareMultiDiscFiles(files, *capabilities.MultiDisc)
-	} else {
+	case contentcapability.ModeRPGMakerProjectV1:
+		if target.platformID != "rpgmaker" {
+			return creationPlan{}, ErrInvalid
+		}
+		plan.dispositions, plan.groups, plan.archives, err = service.prepareRPGMakerProject(
+			ctx, sourceType, files, target.coreID,
+		)
+	case contentcapability.ModeStandard:
 		plan.dispositions, plan.groups, plan.archives = service.prepareImportFiles(
 			ctx, target.platformID, sourceType, files, datID,
 		)
+	default:
+		return creationPlan{}, ErrInvalid
 	}
 	if err != nil {
 		return creationPlan{}, err
@@ -104,35 +121,59 @@ func (service *Service) prepareCreation(ctx context.Context, rawRequest CreateRe
 	return plan, nil
 }
 
-func (service *Service) loadCompletedUpload(ctx context.Context, uploadID string) (string, error) {
-	var state, sourceType string
+func validateCreationUpload(contentMode, sourceType, purpose string) error {
+	if contentMode == contentcapability.ModeMultiDiscM3UV1 && sourceType != "DIRECTORY" {
+		return ErrMultiDiscModeUnavailable
+	}
+	if contentMode == contentcapability.ModeRPGMakerProjectV1 {
+		if purpose != "RPG_MAKER_PROJECT" {
+			return ErrInvalid
+		}
+		return nil
+	}
+	if purpose != "GENERAL" {
+		return ErrInvalid
+	}
+	return nil
+}
+
+func (service *Service) loadCompletedUpload(ctx context.Context, uploadID string) (string, string, error) {
+	var state, purpose, sourceType string
 	err := service.database.QueryRowContext(ctx, `
-SELECT state,source_type
+SELECT state,purpose,source_type
 FROM upload_sessions
 WHERE id=?
-`, uploadID).Scan(&state, &sourceType)
+`, uploadID).Scan(&state, &purpose, &sourceType)
 	if err != nil || state != "COMPLETE" {
-		return "", ErrInvalid
+		return "", "", ErrInvalid
 	}
-	return sourceType, nil
+	return purpose, sourceType, nil
 }
 
 func (service *Service) loadCreationTarget(ctx context.Context, instanceID string) (creationTarget, error) {
 	var target creationTarget
 	err := service.database.QueryRowContext(ctx, `
-SELECT pi.platform_id,pi.default_core_id,pi.version,a.id,a.emulatorjs_version,a.relative_path,
-a.sha256,a.version,a.compatibility_config_json
+SELECT pi.platform_id,pi.default_core_id,pi.version,a.id,a.runtime_version,a.entry_path,
+a.sha256,a.version,a.compatibility_json,a.artifact_set_sha256,a.route_key,a.runtime_family,a.adapter_id
 FROM platform_instances pi
-JOIN core_artifacts a ON a.core_id=pi.default_core_id AND a.enabled=1
+JOIN core_artifacts a ON a.core_id=pi.default_core_id AND a.selected_for_new_bindings=1
 WHERE pi.id=? AND pi.enabled=1 AND pi.deleted_at_ms IS NULL
 `, instanceID).Scan(
 		&target.platformID, &target.coreID, &target.instanceVersion, &target.artifactID,
 		&target.emulatorVersion, &target.artifactPath, &target.artifactSHA,
 		&target.artifactVersion, &target.compatibilityConfig,
+		&target.artifactSetSHA, &target.routeKey, &target.runtimeFamily, &target.adapterID,
 	)
 	if err != nil {
 		return creationTarget{}, ErrInvalid
 	}
+	var compatibility struct {
+		AdapterABI string `json:"adapterAbi"`
+	}
+	if json.Unmarshal([]byte(target.compatibilityConfig), &compatibility) != nil || compatibility.AdapterABI == "" {
+		return creationTarget{}, ErrInvalid
+	}
+	target.adapterABI = compatibility.AdapterABI
 	return target, nil
 }
 

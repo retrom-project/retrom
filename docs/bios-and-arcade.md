@@ -271,7 +271,7 @@ Arcade DAT 没有管理员 HTTP API；运行时只通过审核、GameVariant、L
 
 ## 12. 服务器目录批量导入
 
-任务创建时直接从数据库冻结所有 enabled CoreArtifact 的 enabled Requirement：STATIC 与活动 DAT 的 DAT_MACHINE 均包含，REQUIRED/OPTIONAL/CONDITIONAL 均包含；禁用 artifact、历史 DAT slot 和当前游戏库范围不参与。一个 Blob 可分别满足多个 Requirement，但 Installation 不跨 Requirement 共享。
+任务创建时直接从数据库冻结所有 `available_for_launch=1` CoreArtifact 的 `enabled=1` Requirement：STATIC 与活动 DAT 的 DAT_MACHINE 均包含，REQUIRED/OPTIONAL/CONDITIONAL 均包含；`available_for_launch=0` 的已退休 artifact、历史 DAT slot 和当前游戏库范围不参与。是否仍用于新绑定由 `selected_for_new_bindings` 独立表达，不能拿它替代这里的历史运行可用性门禁。一个 Blob 可分别满足多个 Requirement，但 Installation 不跨 Requirement 共享。
 
 STATIC 的可信 exact 要求全部已声明 size/hash 同时一致；否则依次按期望 size、精确 basename、较大 size 作低置信度选择，结果保持 `HASH_WARNING`。DAT_MACHINE 只把逻辑 `.zip` 交给全局串行 archive scanner，并优先安全、可启动、matched/aliased 更多且 mismatched/missing 更少的候选；最后以规范相对路径和确定性 ID 稳定排序。只以质量证据比较是否覆盖，身份、文件名或新扫描本身不增加质量。
 

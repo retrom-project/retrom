@@ -90,6 +90,18 @@ func TestDOSArchiveLimitsAllowBoundedSparseSavesAndOpaqueNestedData(t *testing.T
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return len(entries) != 1 }, func() bool { return entries[0].NormalizedPath != "GAME/DOSBOX/runtime.zip" }), "DOS opaque nested data = %#v, error=%v", entries, err)
 }
 
+func TestRPGMakerArchiveLimitsClassifyNestedDataWithoutRelaxingDefault(t *testing.T) {
+	t.Parallel()
+	nested := writeZIP(t, "www/audio/bgm/config", []byte("7z\xbc\xaf\x27\x1cnested payload"))
+	if _, err := ScanZIP(context.Background(), nested, DefaultArchiveLimits()); !errors.Is(err, ErrNestedArchiveUnsupported) {
+		t.Fatalf("default nested archive error = %v", err)
+	}
+	entries, err := ScanZIP(context.Background(), nested, RPGMakerArchiveLimits())
+	if err != nil || len(entries) != 1 || entries[0].NestedArchive != NestedArchiveSevenZip {
+		t.Fatalf("RPG Maker nested classification = %#v, error=%v", entries, err)
+	}
+}
+
 func TestZIPCompressionRatioStillRejectsLargeHighlyCompressedMembers(t *testing.T) {
 	t.Parallel()
 	large := writeZIP(t, "GAME/large.bin", bytes.Repeat([]byte{0}, (16<<20)+1))

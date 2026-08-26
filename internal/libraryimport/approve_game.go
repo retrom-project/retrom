@@ -35,7 +35,32 @@ func (run *approvalRun) persistGame() error {
 	); err != nil {
 		return err
 	}
-	return run.copyContentFiles()
+	if err := run.copyContentFiles(); err != nil {
+		return err
+	}
+	return run.copyRPGMakerContentProfile()
+}
+
+func (run *approvalRun) copyRPGMakerContentProfile() error {
+	if run.platformID != "rpgmaker" {
+		return nil
+	}
+	result, err := run.transaction.ExecContext(run.ctx, `
+INSERT INTO rpgmaker_content_profiles(
+  content_revision_id,evidence_family,evidence_generation,evidence_confidence,engine_version,
+  entry_html_path,file_count,total_bytes,project_fingerprint,requirements_sha256,analysis_json,created_at_ms
+)
+SELECT ?,evidence_family,evidence_generation,evidence_confidence,engine_version,entry_html_path,
+  file_count,total_bytes,project_fingerprint,requirements_sha256,analysis_json,?
+FROM rpgmaker_review_profiles WHERE review_draft_id=?
+`, run.contentID, run.now, run.draftID)
+	if err != nil {
+		return fmt.Errorf("libraryimport/rpgmaker content profile: %w", err)
+	}
+	if rows, _ := result.RowsAffected(); rows != 1 {
+		return ErrInvalid
+	}
+	return nil
 }
 
 func (run *approvalRun) insertGameRevisions() error {

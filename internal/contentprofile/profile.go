@@ -20,13 +20,15 @@ const (
 
 	ArchiveNone          ArchivePolicy = "NONE"
 	ArchiveSinglePrimary ArchivePolicy = "SINGLE_PRIMARY"
+	ArchiveProject       ArchivePolicy = "PROJECT"
 
 	RawFileFormat             = "RAW_FILE_V1"
 	SingleArchiveMemberFormat = "SINGLE_ARCHIVE_MEMBER_V1"
 
-	ContentKindSingleFile     ContentKind = "SINGLE_FILE"
-	ContentKindDOSBundle      ContentKind = "DOS_BUNDLE"
-	ContentKindMultiDiscM3UV1 ContentKind = "MULTI_DISC_M3U_V1"
+	ContentKindSingleFile      ContentKind = "SINGLE_FILE"
+	ContentKindDOSBundle       ContentKind = "DOS_BUNDLE"
+	ContentKindMultiDiscM3UV1  ContentKind = "MULTI_DISC_M3U_V1"
+	ContentKindRPGMakerProject ContentKind = "RPG_MAKER_PROJECT_V1"
 )
 
 var (
@@ -67,11 +69,17 @@ var registry = map[string]Profile{
 	"wonderswan":   single("wonderswan", ".ws", ".wsc"),
 	"mastersystem": single("mastersystem", ".sms"),
 	"nintendo3ds":  raw("nintendo3ds", ".3ds", ".cci"),
+	"rpgmaker": {
+		PlatformID: "rpgmaker", ArchivePolicy: ArchiveProject,
+		ArchiveFormats: []ArchiveFormat{ArchiveZIP, ArchiveSevenZip}, FormatCode: "RPG_MAKER_PROJECT_V1",
+		ContentKinds: []ContentKind{ContentKindRPGMakerProject},
+	},
 }
 
 var specialPlatformExtensions = map[string][]string{
-	"arcade": {".zip"},
-	"dos":    {".exe", ".com", ".bat"},
+	"arcade":   {".zip"},
+	"dos":      {".exe", ".com", ".bat"},
+	"rpgmaker": {".zip", ".7z"},
 }
 
 func single(platformID string, extensions ...string) Profile {
@@ -109,7 +117,7 @@ func ByPlatform(platformID string) (Profile, bool) {
 // Archive wrappers for single-ROM platforms are import transports and are not
 // included; Arcade ZIP and DOS executable entries are the payload themselves.
 func SupportedExtensions(platformID string) []string {
-	if profile, ok := registry[platformID]; ok {
+	if profile, ok := registry[platformID]; ok && len(profile.Extensions) > 0 {
 		return append([]string(nil), profile.Extensions...)
 	}
 	return append([]string(nil), specialPlatformExtensions[platformID]...)
@@ -144,7 +152,7 @@ func AcceptsRaw(platformID, logicalName string) bool {
 
 func AcceptsArchive(platformID string, format ArchiveFormat) bool {
 	profile, ok := registry[platformID]
-	if !ok || profile.ArchivePolicy != ArchiveSinglePrimary {
+	if !ok || profile.ArchivePolicy != ArchiveSinglePrimary && profile.ArchivePolicy != ArchiveProject {
 		return false
 	}
 	for _, allowed := range profile.ArchiveFormats {

@@ -1,0 +1,10 @@
+{
+  "generation": "RPGMV",
+  "directory": "rpgmv",
+  "marker": "RETROM RPGMV",
+  "sourceArchive": "vendor/corescript-182e31449707ba7e406db0485c44c2a9d11e2dcd.tar.gz",
+  "sourceArchiveSize": 460310,
+  "sourceArchiveSha256": "51edffd5dbe3ce377452cd1df36dc2168e3b3da95b17667ec20fc77fa304203c",
+  "sourcePrefix": "corescript-182e31449707ba7e406db0485c44c2a9d11e2dcd/",
+  "accentRgb": [64, 208, 255]
+}
