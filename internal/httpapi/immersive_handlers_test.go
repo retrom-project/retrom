@@ -133,7 +133,8 @@ func assertImmersiveOperation(
 
 func assertImmersiveAdapterEnums(t *testing.T, specification *openapi3.T) {
 	t.Helper()
-	playerAdapter := specification.Components.Schemas["LaunchConfig"].Value.Properties["playerAdapterId"].Value
+	playerAdapter := specification.Components.Schemas["EmulatorJSLaunchConfig"].Value.
+		Properties["playerAdapterId"].Value
 	adapterEnums := make(map[string]bool, len(playerAdapter.Enum))
 	for _, value := range playerAdapter.Enum {
 		if adapter, ok := value.(string); ok {
@@ -243,12 +244,7 @@ func seedImmersivePlay(
 	testassert.False(t, err != nil, err)
 	defer cleanup.Rollback(transaction)
 	artifactID := "01980000-0000-7000-8000-00000000fa01"
-	mustExecHTTPTest(t, transaction, `
-INSERT OR IGNORE INTO core_artifacts(
- id,core_id,emulatorjs_version,bundle_version,flavor,relative_path,size_bytes,sha256,source_commit,
- provenance_json,compatibility_config_json,enabled,version,created_at_ms,updated_at_ms
-) VALUES(?,'mgba','4.2.3','test','WASM','data/cores/mgba-test.data',1,?,NULL,'{}','{}',1,1,0,0)
-`, artifactID, strings.Repeat("a", 64))
+	seedHTTPTestCoreArtifact(t, transaction, artifactID, "mgba", "data/cores/mgba-test.data", strings.Repeat("a", 64), "{}")
 	variantID, revisionID, launchID, playID := uuid.NewString(), uuid.NewString(), uuid.NewString(), uuid.NewString()
 	mustExecHTTPTest(t, transaction, `
 INSERT INTO game_variants(id,game_id,core_id,current_revision_id,version,created_at_ms,updated_at_ms)
@@ -256,17 +252,20 @@ VALUES(?,?,'mgba',NULL,1,0,0)
 `, variantID, seed.GameID)
 	mustExecHTTPTest(t, transaction, `
 INSERT INTO game_variant_revisions(
- id,game_variant_id,game_content_revision_id,core_artifact_id,dat_version_id,validation_input_digest,
+ id,game_variant_id,game_content_revision_id,core_artifact_id,route_key,dat_version_id,validation_input_digest,
  emulator_game_id,status,compatibility_code,dependency_snapshot_json,default_dos_entry,created_at_ms
-) VALUES(?,?,?,?,NULL,?,?,'READY','READY','{}',NULL,0)
-`, revisionID, variantID, seed.ContentID, artifactID, strings.Repeat(fmt.Sprintf("%x", emulatorGameID%16), 64), emulatorGameID)
+) VALUES(?,?,?,?, 'DEFAULT',NULL,?,?,'READY','READY','{}',NULL,0)
+`, revisionID, variantID, seed.ContentID, artifactID,
+		strings.Repeat(fmt.Sprintf("%x", emulatorGameID%16), 64), emulatorGameID)
 	mustExecHTTPTest(t, transaction, "UPDATE game_variants SET current_revision_id=? WHERE id=?", revisionID, variantID)
 	mustExecHTTPTest(t, transaction, `
 INSERT INTO launch_sessions(
- id,profile_id,game_id,game_variant_revision_id,core_artifact_id,return_to,credential_sha256,state,
+ id,profile_id,purpose,game_id,game_content_revision_id,game_variant_revision_id,core_artifact_id,route_key,
+ return_to,credential_sha256,state,
  bootstrap_expires_at_ms,finished_at_ms,hard_expires_at_ms,created_at_ms,updated_at_ms,version
-) VALUES(?,?,?,?,?,'/',zeroblob(32),'FINISHED',?,?,?,?,?,1)
-`, launchID, profileID, seed.GameID, revisionID, artifactID, startedAtMS+1000, startedAtMS+500,
+) VALUES(?,?,'PRODUCT',?,?,?,?, 'DEFAULT','/',zeroblob(32),'FINISHED',?,?,?,?,?,1)
+`, launchID, profileID, seed.GameID, seed.ContentID, revisionID, artifactID,
+		startedAtMS+1000, startedAtMS+500,
 		startedAtMS+2000, startedAtMS, startedAtMS+500)
 	mustExecHTTPTest(t, transaction, `
 INSERT INTO play_sessions(

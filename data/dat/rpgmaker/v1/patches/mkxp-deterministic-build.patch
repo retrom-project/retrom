@@ -1,0 +1,46 @@
+diff --git a/libretro/Makefile b/libretro/Makefile
+index 2aa3b89..e02d7a6 100644
+--- a/libretro/Makefile
++++ b/libretro/Makefile
+@@ -156,7 +156,7 @@ $(OUTDIR)/ruby/mkxp-sandbox-ruby.h $(OUTDIR)/ruby/mkxp-sandbox-ruby-impl.h $(OUT
+ 	# Find all the function types declared using `FUNC_TYPE_DECL_EXTERN_T` and redeclare them as macros to fix the "initializer element is not constant" compilation error that occurs when using GCC versions earlier than 8.1.0
+ 	rm -f $(OUTDIR)/ruby/mkxp-sandbox-ruby-func-types.h
+ 	for func_type in $$($(GREP) -r 'FUNC_TYPE_DECL_EXTERN_T *([^()]*)' $(OUTDIR)/ruby/mkxp-sandbox-ruby-impl.h | $(GREP) -v '# *define' | $(SED) -e 's/FUNC_TYPE_DECL_EXTERN_T *( *\(.*\) *).*/\1/'); do \
+-		echo "#define $$func_type \"$$(od -N 32 -x /dev/urandom | cut -b 9- | tr -d ' \n' | $(SED) -e 's/.\{2\}/\\x&/g')\"" >> $(OUTDIR)/ruby/mkxp-sandbox-ruby-func-types.h; \
++		echo "#define $$func_type \"$$(printf '%s' "$$func_type" | sha256sum | cut -d ' ' -f 1 | $(SED) -e 's/.\{2\}/\\x&/g')\"" >> $(OUTDIR)/ruby/mkxp-sandbox-ruby-func-types.h; \
+ 	done
+ 	$(SED) -i 's/ *# *define * FUNC_TYPE_DECL_EXTERN_T *([^()]).*/#define FUNC_TYPE_DECL_EXTERN_T(x)/g' $(OUTDIR)/ruby/mkxp-sandbox-ruby-impl.h
+	$(SED) -i 's/ *# *define * FUNC_TYPE_EXTERN_T *([^()]).*/#define FUNC_TYPE_EXTERN_T(x) const char _mkxp_unused_##x[]/g' $(OUTDIR)/ruby/mkxp-sandbox-ruby-impl.h
+
+diff --git a/src/meson.build b/src/meson.build
+--- a/src/meson.build
++++ b/src/meson.build
+@@ -96,6 +96,7 @@ if get_option('libretro')
+         'CMAKE_CXX_BYTE_ORDER': host_endian == 'big' ? 'BIG_ENDIAN' : 'LITTLE_ENDIAN',
+         'CMAKE_POSITION_INDEPENDENT_CODE': use_pic,
+         'LIBTYPE': 'STATIC',
++        'ALSOFT_INSTALL': false,
+         'ALSOFT_DLOPEN': false,
+         'ALSOFT_UTILS': false,
+         'ALSOFT_NO_CONFIG_UTIL': true,
+@@ -139,6 +140,7 @@ if get_option('libretro')
+         'CMAKE_CXX_BYTE_ORDER': host_endian == 'big' ? 'BIG_ENDIAN' : 'LITTLE_ENDIAN',
+         'CMAKE_POSITION_INDEPENDENT_CODE': use_pic,
+         'BUILD_SHARED_LIBS': false,
++        'GCEM_INCLUDE_DIR': '/work/mkxp/subprojects/fluidsynth/gcem/include',
+         'enable-alsa': false,
+         'enable-aufile': false,
+         'enable-dbus': false,
+
+diff --git a/subprojects/packagefiles/theora/meson.build b/subprojects/packagefiles/theora/meson.build
+--- a/subprojects/packagefiles/theora/meson.build
++++ b/subprojects/packagefiles/theora/meson.build
+@@ -5,7 +5,7 @@ theoradec = declare_dependency(
+     link_with: library(
+         'theoradec',
+         c_args: get_option('cflags'),
+-        include_directories: 'include',
++        include_directories: ['include', '../ogg/include'],
+         sources: [
+             'lib/apiwrapper.c',
+             'lib/bitpack.c',

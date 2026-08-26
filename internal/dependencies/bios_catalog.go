@@ -205,28 +205,20 @@ func bootstrapStaticBIOS(
 	ctx context.Context,
 	transaction *sql.Tx,
 	versionName string,
-	selectedCoreIDs map[string]struct{},
+	selectedArtifacts map[string]string,
 	now time.Time,
 ) error {
 	if err := validateBIOSActivationOptions(staticBIOSCatalog); err != nil {
 		return err
 	}
 	for _, requirement := range staticBIOSCatalog {
-		if _, selected := selectedCoreIDs[requirement.coreID]; !selected {
+		artifactID, selected := selectedArtifacts[requirement.coreID]
+		if !selected {
 			continue
 		}
 		delivery := requirement.delivery
 		if delivery == "" {
 			delivery = "BIOS_BUNDLE"
-		}
-		var artifactID string
-		if err := transaction.QueryRowContext(ctx, `
-SELECT id
-FROM core_artifacts
-WHERE core_id=?
-AND emulatorjs_version=?
-`, requirement.coreID, versionName).Scan(&artifactID); err != nil {
-			return fmt.Errorf("find BIOS core artifact: %w", err)
 		}
 		canonical, _ := json.Marshal(
 			map[string]any{

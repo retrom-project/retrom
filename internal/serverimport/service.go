@@ -420,7 +420,7 @@ installation.id,installation.version,blob.sha256,installation.status,installatio
 dat.parse_status,dat.is_active
 FROM bios_requirements requirement
 JOIN cores core ON core.id=requirement.core_id
-JOIN core_artifacts artifact ON artifact.id=requirement.core_artifact_id AND artifact.enabled=1
+JOIN core_artifacts artifact ON artifact.id=requirement.core_artifact_id AND artifact.available_for_launch=1
 LEFT JOIN dat_versions dat ON dat.id=requirement.source_version AND dat.core_artifact_id=requirement.core_artifact_id
 LEFT JOIN bios_installations installation ON installation.requirement_id=requirement.id
  AND installation.is_active=1

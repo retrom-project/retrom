@@ -226,7 +226,7 @@ FROM netplay_rooms WHERE id=?
 		var game RoomGame
 		game.GameID, game.ProfileID, game.MaxPlayers = gameID.String, profileID.String, int(maxPlayers.Int64)
 		if err := service.database.QueryRowContext(ctx, `
-SELECT metadata.title,game.status,platform.name,core.name,artifact.emulatorjs_version
+SELECT metadata.title,game.status,platform.name,core.name,artifact.runtime_version
 FROM games game
 JOIN game_metadata_revisions metadata ON metadata.id=game.current_metadata_revision_id
 JOIN platform_instances instance ON instance.id=game.platform_instance_id

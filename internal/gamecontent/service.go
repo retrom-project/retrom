@@ -49,6 +49,7 @@ type jobSnapshot struct {
 	PlatformInstanceVersion   int64   `json:"platformInstanceVersion"`
 	CoreID                    string  `json:"coreId"`
 	CoreArtifactID            string  `json:"coreArtifactId"`
+	CoreArtifactRouteKey      string  `json:"coreArtifactRouteKey"`
 	CoreArtifactVersion       int64   `json:"coreArtifactVersion"`
 	CompatibilityConfigDigest string  `json:"compatibilityConfigDigest"`
 	ContentMode               string  `json:"contentMode"`
@@ -205,7 +206,7 @@ func (service *Service) scheduleFresh(
 	gameID, uploadID, contentMode, key, requestDigest, principalID string,
 	expectedVersion, now int64,
 ) (Scheduled, error) {
-	var contentID, instanceID, platformID, coreID, artifactID, compatibilityJSON string
+	var contentID, instanceID, platformID, coreID, artifactID, routeKey, compatibilityJSON string
 	var version, platformVersion, artifactVersion int64
 	var datID sql.NullString
 	err := transaction.QueryRowContext(ctx, `
@@ -214,8 +215,9 @@ g.platform_instance_id,
 pi.platform_id,
 pi.default_core_id,
 a.id,
+a.route_key,
 a.version,
-a.compatibility_config_json,
+a.compatibility_json,
 (SELECT id
 FROM dat_versions
 WHERE core_artifact_id=a.id
@@ -225,12 +227,12 @@ pi.version
 FROM games g
 JOIN platform_instances pi ON pi.id=g.platform_instance_id
 JOIN core_artifacts a ON a.core_id=pi.default_core_id
-AND a.enabled=1
+AND a.selected_for_new_bindings=1 AND a.available_for_launch=1
 WHERE g.id=?
 AND g.status='PUBLISHED'
 `, gameID).
 		Scan(
-			&contentID, &instanceID, &platformID, &coreID, &artifactID, &artifactVersion,
+			&contentID, &instanceID, &platformID, &coreID, &artifactID, &routeKey, &artifactVersion,
 			&compatibilityJSON, &datID, &version, &platformVersion,
 		)
 	if err != nil || version != expectedVersion {
@@ -248,8 +250,8 @@ AND g.status='PUBLISHED'
 	jobID, consumptionID, executionID := newID(), newID(), newID()
 	compatibilityDigest := corevalidation.CompatibilityConfigDigest(compatibilityJSON)
 	configInput := fmt.Sprintf(
-		"%s\x00%d\x00%s\x00%d\x00%s\x00%s\x00%s",
-		instanceID, platformVersion, artifactID, artifactVersion, compatibilityDigest,
+		"%s\x00%d\x00%s\x00%s\x00%d\x00%s\x00%s\x00%s",
+		instanceID, platformVersion, artifactID, routeKey, artifactVersion, compatibilityDigest,
 		contentMode, nullableText(datID),
 	)
 	configDigest := sha256.Sum256([]byte(configInput))
@@ -264,6 +266,7 @@ AND g.status='PUBLISHED'
 		PlatformInstanceVersion:   platformVersion,
 		CoreID:                    coreID,
 		CoreArtifactID:            artifactID,
+		CoreArtifactRouteKey:      routeKey,
 		CoreArtifactVersion:       artifactVersion,
 		CompatibilityConfigDigest: compatibilityDigest,
 		ContentMode:               contentMode,

@@ -32,18 +32,19 @@ func (run *creationRun) newGroupRecord(group *preparedGroup) (*groupRecord, erro
 	sourceSnapshotID, _ := uuid.NewV7()
 	validationID, _ := uuid.NewV7()
 	draftID, _ := uuid.NewV7()
+	contentKind := preparedGroupContentKind(*group)
 	manifestFiles, err := run.buildManifestFiles(group.sources)
 	if err != nil {
 		return nil, err
 	}
-	manifestJSON, manifestDigest, err := contentmanifest.Build(manifestFiles)
+	manifestJSON, manifestDigest, err := contentmanifest.Build(contentKind, manifestFiles)
 	if err != nil {
 		return nil, fmt.Errorf("libraryimport/service: %w", err)
 	}
 	return &groupRecord{
 		group: group, itemID: itemID.String(), sourceSnapshotID: sourceSnapshotID.String(),
 		validationID: validationID.String(), draftID: draftID.String(),
-		contentKind: preparedGroupContentKind(*group), manifestJSON: manifestJSON,
+		contentKind: contentKind, manifestJSON: manifestJSON,
 		manifestDigest: manifestDigest, uploadFileIDs: make(map[string]struct{}),
 	}, nil
 }

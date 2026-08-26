@@ -160,7 +160,8 @@ test("ACC-UI-004 loading, empty, retryable error, warning, and blocker states ar
   await page.screenshot({ path: evidencePath(testInfo, "state-error.png"), fullPage: true });
 
   await page.goto("/admin/bios?scope=FULL_CATALOG&q=gba_bios.bin");
-  await expect(page.getByRole("heading", { name: "BIOS 文件" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "运行依赖" })).toBeVisible();
+  await expect(page.getByRole("tab", { name: "BIOS 文件" })).toHaveAttribute("aria-selected", "true");
   const gbaRow = page.getByRole("row").filter({ hasText: "gba_bios.bin" });
   await gbaRow.locator('input[type="file"]').setInputFiles({ name: "gba_bios.bin", mimeType: "application/octet-stream", buffer: Buffer.from("retrom-invalid-bios\n") });
   await expect(gbaRow.getByText("校验值不一致", { exact: true })).toBeVisible();

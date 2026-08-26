@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { replaceWithPlayerDocument } from "@/lib/player-document-navigation";
 import {
   fetchImmersiveLibraryGames,
   ImmersiveAPIError,
@@ -98,13 +99,13 @@ function SaveDetails({ game, saveIndex }: { game: ImmersiveGame; saveIndex: numb
       <h2>{game.title}</h2>
       {selectedSave ? <div className={libraryStyles.savePreview}>
         <div className={libraryStyles.saveScreenshot}>
-          <Image
-            src={selectedSave.screenshotUrl}
-            alt={`${selectedSave.name} 存档截图`}
-            fill
-            sizes="34vw"
-            unoptimized
-          />
+          {selectedSave.screenshotUrl ? <Image
+              src={selectedSave.screenshotUrl}
+              alt={`${selectedSave.name} 存档截图`}
+              fill
+              sizes="34vw"
+              unoptimized
+            /> : <span>未提供截图</span>}
         </div>
         <div><strong>{selectedSave.name}</strong><time dateTime={new Date(selectedSave.createdAtMs).toISOString()}>{formatSaveTime(selectedSave.createdAtMs)}</time></div>
       </div> : <p>该游戏暂无可用存档。</p>}
@@ -338,12 +339,12 @@ export function LibraryGameListView({ folderId, initialGameId, initialSaveStateI
     setLaunchState("pending");
     setMessage("");
     void launchImmersiveGame(selectedGame.gameId, returnTo, saveState?.saveStateId ?? null)
-      .then((playURL) => router.replace(playURL))
+      .then(replaceWithPlayerDocument)
       .catch((error: unknown) => {
         setMessage(error instanceof Error ? error.message : "当前游戏无法启动");
         setLaunchState("error");
       });
-  }, [folderId, kind, launchState, router, saveIndex, selectedGame]);
+  }, [folderId, kind, launchState, saveIndex, selectedGame]);
 
   const toggleFavorite = useCallback(() => {
     if (!selectedGame || favoritePending) {return;}

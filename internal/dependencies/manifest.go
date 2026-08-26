@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 
 	"retrom/internal/cleanup"
@@ -91,6 +92,8 @@ type SelectedCore struct {
 	LocalPath                 string            `json:"local_path"`
 	SizeBytes                 int64             `json:"size_bytes"`
 	SHA256                    string            `json:"sha256"`
+	ArtifactSetSHA256         string            `json:"artifact_set_sha256"`
+	AdapterABI                string            `json:"adapter_abi"`
 	Threads                   bool              `json:"requires_threads"`
 	BundleVersion             string            `json:"bundle_version"`
 	ArtifactFlavor            string            `json:"artifact_flavor"`
@@ -138,6 +141,7 @@ type Set struct {
 	Versions map[string]*Version
 	Order    []string
 	Active   *Version
+	RPGMaker *RPGMakerVersion
 }
 
 func Load(root string, versions []string, active string) (*Set, error) {
@@ -153,6 +157,11 @@ func Load(root string, versions []string, active string) (*Set, error) {
 	if result.Active == nil {
 		return nil, fmt.Errorf("%w: active version", ErrInvalid)
 	}
+	rpgMaker, err := loadRPGMaker(root)
+	if err != nil {
+		return nil, err
+	}
+	result.RPGMaker = rpgMaker
 	return result, nil
 }
 
@@ -317,8 +326,43 @@ func validateSelectedCores(manifest Manifest, allowlist map[string]File) (map[st
 		if err := validateSelectedCore(core, allowlist); err != nil {
 			return nil, err
 		}
+		if artifactSetSHA256(manifest.EmulatorJS.RuntimeAllowlist, core) != core.ArtifactSetSHA256 {
+			return nil, fmt.Errorf("%w: artifact set digest", ErrInvalid)
+		}
 	}
 	return coreIDs, nil
+}
+
+type artifactSetEntry struct {
+	Path      string `json:"path"`
+	SHA256    string `json:"sha256"`
+	SizeBytes int64  `json:"sizeBytes"`
+}
+
+func artifactSetSHA256(runtimeAllowlist []File, core SelectedCore) string {
+	entriesByPath := make(map[string]artifactSetEntry, len(runtimeAllowlist)+1)
+	for _, file := range runtimeAllowlist {
+		entriesByPath[file.Path] = artifactSetEntry{
+			Path: file.Path, SHA256: file.SHA256, SizeBytes: file.SizeBytes,
+		}
+	}
+	path := core.LocalPath
+	if core.PathInRelease != nil {
+		path = *core.PathInRelease
+	}
+	entriesByPath[path] = artifactSetEntry{Path: path, SHA256: core.SHA256, SizeBytes: core.SizeBytes}
+	paths := make([]string, 0, len(entriesByPath))
+	for entryPath := range entriesByPath {
+		paths = append(paths, entryPath)
+	}
+	sort.Strings(paths)
+	entries := make([]artifactSetEntry, 0, len(paths))
+	for _, entryPath := range paths {
+		entries = append(entries, entriesByPath[entryPath])
+	}
+	canonical, _ := json.Marshal(entries)
+	digest := sha256.Sum256(canonical)
+	return hex.EncodeToString(digest[:])
 }
 
 func validateAuxiliaryFiles(manifest Manifest, allowlist map[string]File, coreIDs map[string]struct{}) error {
@@ -375,6 +419,7 @@ func validArtifactCapability(core SelectedCore) bool {
 		expectedFlavor = "OVERRIDE"
 	}
 	return core.BundleVersion != "" && core.ArtifactFlavor == expectedFlavor &&
+		core.AdapterABI == "emulatorjs-state-v1" &&
 		(core.CanvasResizePolicy == "NONE" || core.CanvasResizePolicy == "ON_GAME_START_TO_CSS_PIXELS")
 }
 

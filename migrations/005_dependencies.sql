@@ -3,22 +3,52 @@
 CREATE TABLE core_artifacts (
   id TEXT PRIMARY KEY,
   core_id TEXT NOT NULL REFERENCES cores(id),
-  emulatorjs_version TEXT NOT NULL,
-  bundle_version TEXT NOT NULL,
-  flavor TEXT NOT NULL CHECK(flavor IN ('WASM','THREAD_WASM','OVERRIDE')),
-  relative_path TEXT NOT NULL CHECK(relative_path NOT LIKE '/%' AND relative_path NOT LIKE '%..%'),
+  route_key TEXT NOT NULL CHECK(
+    length(route_key) BETWEEN 1 AND 160 AND route_key=upper(route_key)
+    AND route_key NOT GLOB '*[^A-Z0-9_]*'
+  ),
+  runtime_family TEXT NOT NULL CHECK(runtime_family IN ('EMULATORJS','RPGMAKER')),
+  runtime_adapter_kind TEXT NOT NULL CHECK(runtime_adapter_kind IN (
+    'EMULATORJS','EASYRPG_WEB','MKXP_LIBRETRO_WEB','NATIVE_WEB'
+  )),
+  runtime_version TEXT NOT NULL CHECK(
+    length(runtime_version) BETWEEN 1 AND 160 AND lower(runtime_version)<>'latest'
+  ),
+  adapter_id TEXT NOT NULL CHECK(length(adapter_id) BETWEEN 1 AND 160),
+  entry_path TEXT NOT NULL CHECK(
+    length(CAST(entry_path AS BLOB)) BETWEEN 1 AND 4096
+    AND entry_path NOT LIKE '/%' AND entry_path NOT LIKE '%\%'
+    AND entry_path NOT LIKE '%?%' AND entry_path NOT LIKE '%#%'
+    AND instr(entry_path,char(0))=0 AND entry_path NOT LIKE '%//%'
+    AND entry_path NOT LIKE './%' AND entry_path NOT LIKE '%/./%'
+    AND entry_path NOT LIKE '../%' AND entry_path NOT LIKE '%/../%'
+    AND entry_path NOT LIKE '%/.' AND entry_path NOT LIKE '%/..'
+  ),
   size_bytes INTEGER NOT NULL CHECK(size_bytes >= 0),
   sha256 TEXT NOT NULL CHECK(length(sha256) = 64 AND sha256 = lower(sha256)),
-  source_commit TEXT CHECK(source_commit IS NULL OR length(source_commit) = 40),
+  manifest_sha256 TEXT NOT NULL CHECK(length(manifest_sha256)=64 AND manifest_sha256=lower(manifest_sha256)),
+  artifact_set_sha256 TEXT NOT NULL CHECK(length(artifact_set_sha256)=64 AND artifact_set_sha256=lower(artifact_set_sha256)),
+  requires_threads INTEGER NOT NULL CHECK(requires_threads IN (0,1)),
+  save_payload_kind TEXT NOT NULL CHECK(save_payload_kind IN ('RUNTIME_STATE','NATIVE_SAVE_BUNDLE_V1')),
+  save_max_bytes INTEGER NOT NULL CHECK(save_max_bytes BETWEEN 1 AND 268435456),
   provenance_json TEXT NOT NULL,
-  compatibility_config_json TEXT NOT NULL,
-  enabled INTEGER NOT NULL CHECK(enabled IN (0,1)),
+  compatibility_json TEXT NOT NULL,
+  selected_for_new_bindings INTEGER NOT NULL CHECK(selected_for_new_bindings IN (0,1)),
+  available_for_launch INTEGER NOT NULL CHECK(available_for_launch IN (0,1)),
   version INTEGER NOT NULL DEFAULT 1 CHECK(version >= 1),
   created_at_ms INTEGER NOT NULL CHECK(created_at_ms >= 0),
   updated_at_ms INTEGER NOT NULL CHECK(updated_at_ms >= created_at_ms),
-  UNIQUE(core_id, emulatorjs_version, sha256),
-  UNIQUE(emulatorjs_version, relative_path),
-  UNIQUE(id, core_id)
+  retired_at_ms INTEGER CHECK(retired_at_ms IS NULL OR retired_at_ms>=created_at_ms),
+  UNIQUE(core_id,route_key,artifact_set_sha256),
+  UNIQUE(id,core_id),
+  CHECK(
+    runtime_family='EMULATORJS' AND runtime_adapter_kind='EMULATORJS' AND route_key='DEFAULT'
+    OR runtime_family='RPGMAKER' AND runtime_adapter_kind IN ('EASYRPG_WEB','MKXP_LIBRETRO_WEB','NATIVE_WEB') AND route_key<>'DEFAULT'
+  ),
+  CHECK(selected_for_new_bindings=0 OR available_for_launch=1 AND retired_at_ms IS NULL),
+  CHECK(runtime_adapter_kind<>'EASYRPG_WEB' OR requires_threads=0 AND save_payload_kind='NATIVE_SAVE_BUNDLE_V1'),
+  CHECK(runtime_adapter_kind<>'MKXP_LIBRETRO_WEB' OR requires_threads=1 AND save_payload_kind='RUNTIME_STATE'),
+  CHECK(runtime_adapter_kind<>'NATIVE_WEB' OR requires_threads=0 AND save_payload_kind='NATIVE_SAVE_BUNDLE_V1')
 );
 
 CREATE TABLE bios_requirements (
@@ -272,4 +302,106 @@ CREATE TABLE server_bios_import_items (
   CHECK((source_kind='STATIC' AND dat_version_id IS NULL AND dat_machine_name IS NULL) OR
         (source_kind='DAT_MACHINE' AND dat_version_id IS NOT NULL AND dat_machine_name IS NOT NULL)),
   CHECK((state IN ('PENDING','EVALUATING'))=(completed_at_ms IS NULL))
+);
+
+CREATE TABLE runtime_asset_pack_definitions (
+  id TEXT PRIMARY KEY,
+  kind TEXT NOT NULL CHECK(kind IN (
+    'RPG2000_RTP','RPG2003_RTP','RGSS1_RTP_STANDARD','RGSS2_RTP_RPGVX',
+    'RGSS3_RTP_RPGVXAce','RGSS_CUSTOM_RTP'
+  )),
+  generation TEXT NOT NULL CHECK(generation IN ('RPG2000','RPG2003','RPGXP','RPGVX','RPGVXACE')),
+  declared_name TEXT NOT NULL CHECK(
+    length(CAST(declared_name AS BLOB)) BETWEEN 1 AND 512 AND instr(declared_name,char(0))=0
+  ),
+  normalized_declared_name TEXT NOT NULL CHECK(
+    length(CAST(normalized_declared_name AS BLOB)) BETWEEN 1 AND 512
+    AND instr(normalized_declared_name,char(0))=0
+  ),
+  display_name TEXT NOT NULL CHECK(length(display_name) BETWEEN 1 AND 200),
+  required_layout_version TEXT NOT NULL CHECK(length(required_layout_version) BETWEEN 1 AND 160),
+  origin TEXT NOT NULL CHECK(origin IN ('BUILTIN','CUSTOM')),
+  enabled INTEGER NOT NULL CHECK(enabled IN (0,1)),
+  created_by_user_id TEXT REFERENCES users(id),
+  created_at_ms INTEGER NOT NULL CHECK(created_at_ms>=0),
+  UNIQUE(generation,normalized_declared_name),
+  UNIQUE(id,generation),
+  CHECK(
+    kind='RPG2000_RTP' AND generation='RPG2000' AND origin='BUILTIN' AND id='rpg2000_rtp'
+    OR kind='RPG2003_RTP' AND generation='RPG2003' AND origin='BUILTIN' AND id='rpg2003_rtp'
+    OR kind='RGSS1_RTP_STANDARD' AND generation='RPGXP' AND origin='BUILTIN' AND id='rgss1_standard'
+    OR kind='RGSS2_RTP_RPGVX' AND generation='RPGVX' AND origin='BUILTIN' AND id='rgss2_rpgvx'
+    OR kind='RGSS3_RTP_RPGVXAce' AND generation='RPGVXACE' AND origin='BUILTIN' AND id='rgss3_rpgvxace'
+    OR kind='RGSS_CUSTOM_RTP' AND generation IN ('RPGXP','RPGVX','RPGVXACE') AND origin='CUSTOM'
+  ),
+  CHECK((origin='BUILTIN' AND created_by_user_id IS NULL) OR (origin='CUSTOM' AND created_by_user_id IS NOT NULL))
+);
+
+INSERT INTO runtime_asset_pack_definitions(
+  id,kind,generation,declared_name,normalized_declared_name,display_name,
+  required_layout_version,origin,enabled,created_by_user_id,created_at_ms
+) VALUES
+  ('rpg2000_rtp','RPG2000_RTP','RPG2000','RPG2000_RTP','rpg2000_rtp','RPG Maker 2000 RTP','easy-rtp-layout-v1','BUILTIN',1,NULL,0),
+  ('rpg2003_rtp','RPG2003_RTP','RPG2003','RPG2003_RTP','rpg2003_rtp','RPG Maker 2003 RTP','easy-rtp-layout-v1','BUILTIN',1,NULL,0),
+  ('rgss1_standard','RGSS1_RTP_STANDARD','RPGXP','Standard','standard','RPG Maker XP RTP','mkxpz-v1','BUILTIN',1,NULL,0),
+  ('rgss2_rpgvx','RGSS2_RTP_RPGVX','RPGVX','RPGVX','rpgvx','RPG Maker VX RTP','mkxpz-v1','BUILTIN',1,NULL,0),
+  ('rgss3_rpgvxace','RGSS3_RTP_RPGVXAce','RPGVXACE','RPGVXAce','rpgvxace','RPG Maker VX Ace RTP','mkxpz-v1','BUILTIN',1,NULL,0);
+
+CREATE TABLE runtime_asset_pack_installations (
+  id TEXT PRIMARY KEY,
+  definition_id TEXT NOT NULL REFERENCES runtime_asset_pack_definitions(id),
+  files_digest TEXT NOT NULL CHECK(length(files_digest)=64 AND files_digest=lower(files_digest)),
+  file_count INTEGER NOT NULL CHECK(file_count BETWEEN 1 AND 10000),
+  total_bytes INTEGER NOT NULL CHECK(total_bytes BETWEEN 0 AND 536870912),
+  bundle_blob_id TEXT REFERENCES blobs(id),
+  bundle_sha256 TEXT CHECK(bundle_sha256 IS NULL OR length(bundle_sha256)=64 AND bundle_sha256=lower(bundle_sha256)),
+  status TEXT NOT NULL CHECK(status IN ('VALIDATING','READY','FAILED','DELETE_PENDING','DELETED')),
+  diagnostic_json TEXT NOT NULL CHECK(json_valid(diagnostic_json)),
+  source_note TEXT CHECK(
+    source_note IS NULL OR length(source_note)<=500 AND length(CAST(source_note AS BLOB))<=2000
+    AND instr(source_note,char(0))=0
+  ),
+  version INTEGER NOT NULL DEFAULT 1 CHECK(version>=1),
+  created_by_user_id TEXT NOT NULL REFERENCES users(id),
+  created_at_ms INTEGER NOT NULL CHECK(created_at_ms>=0),
+  validated_at_ms INTEGER CHECK(validated_at_ms IS NULL OR validated_at_ms>=created_at_ms),
+  deleted_at_ms INTEGER CHECK(deleted_at_ms IS NULL OR deleted_at_ms>=created_at_ms),
+  UNIQUE(id,definition_id),
+  UNIQUE(definition_id,files_digest),
+  CHECK((bundle_blob_id IS NULL)=(bundle_sha256 IS NULL)),
+  CHECK(
+    status='VALIDATING' AND validated_at_ms IS NULL AND deleted_at_ms IS NULL
+    OR status='READY' AND validated_at_ms IS NOT NULL AND deleted_at_ms IS NULL AND bundle_blob_id IS NOT NULL
+    OR status='FAILED' AND validated_at_ms IS NOT NULL AND deleted_at_ms IS NULL
+    OR status='DELETE_PENDING' AND validated_at_ms IS NOT NULL AND deleted_at_ms IS NULL
+    OR status='DELETED' AND validated_at_ms IS NOT NULL AND deleted_at_ms IS NOT NULL AND bundle_blob_id IS NULL
+  )
+);
+
+CREATE TABLE runtime_asset_pack_files (
+  installation_id TEXT NOT NULL REFERENCES runtime_asset_pack_installations(id),
+  path TEXT NOT NULL CHECK(
+    length(CAST(path AS BLOB)) BETWEEN 1 AND 4096 AND path NOT LIKE '/%' AND path NOT LIKE '%\%'
+    AND instr(path,char(0))=0 AND path NOT LIKE '%//%' AND path NOT LIKE './%'
+    AND path NOT LIKE '../%' AND path NOT LIKE '%/./%' AND path NOT LIKE '%/../%'
+    AND path NOT LIKE '%/.' AND path NOT LIKE '%/..'
+  ),
+  ordinal INTEGER NOT NULL CHECK(ordinal BETWEEN 0 AND 9999),
+  blob_id TEXT NOT NULL REFERENCES blobs(id),
+  size_bytes INTEGER NOT NULL CHECK(size_bytes BETWEEN 0 AND 536870912),
+  sha256 TEXT NOT NULL CHECK(length(sha256)=64 AND sha256=lower(sha256)),
+  PRIMARY KEY(installation_id,path),
+  UNIQUE(installation_id,ordinal)
+);
+
+CREATE TABLE game_variant_revision_runtime_packs (
+  game_variant_revision_id TEXT NOT NULL REFERENCES game_variant_revisions(id),
+  slot INTEGER NOT NULL CHECK(slot BETWEEN 0 AND 3),
+  declared_name TEXT NOT NULL CHECK(length(CAST(declared_name AS BLOB)) BETWEEN 1 AND 512),
+  normalized_declared_name TEXT NOT NULL CHECK(length(CAST(normalized_declared_name AS BLOB)) BETWEEN 1 AND 512),
+  definition_id TEXT NOT NULL REFERENCES runtime_asset_pack_definitions(id),
+  installation_id TEXT NOT NULL,
+  PRIMARY KEY(game_variant_revision_id,slot),
+  FOREIGN KEY(installation_id,definition_id)
+    REFERENCES runtime_asset_pack_installations(id,definition_id)
 );

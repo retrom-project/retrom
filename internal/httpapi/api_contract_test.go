@@ -40,6 +40,60 @@ func TestOpenAPIValidationAllowsPrereleaseRuntimeVersion(t *testing.T) {
 	testassert.Falsef(t, recorder.Code != http.StatusNotFound, "unconfigured prerelease runtime status = %d, body=%s", recorder.Code, recorder.Body.String())
 }
 
+func TestOpenAPIValidationAllowsRPGMakerRuntimeAndProjectFiles(t *testing.T) {
+	t.Parallel()
+	server := newTestServer(t)
+	handler := server.Handler()
+
+	runtimeResponse := httptest.NewRecorder()
+	handler.ServeHTTP(
+		runtimeResponse,
+		httptest.NewRequestWithContext(
+			context.Background(), http.MethodGet,
+			"/runtime/rpgmaker/0.8.1.1-v4/easyrpg-player.js", nil,
+		),
+	)
+	testassert.Falsef(
+		t,
+		testassert.Any(
+			func() bool { return runtimeResponse.Code != http.StatusOK },
+			func() bool {
+				return runtimeResponse.Header().Get("Content-Type") != "application/javascript; charset=utf-8"
+			},
+			func() bool {
+				return runtimeResponse.Header().Get("ETag") != `"sha256-53eda9a8039b2ae5fdf16b386aef5fcdb218592baaef5c55dcd638ce3dafa9f3"`
+			},
+			func() bool { return runtimeResponse.Body.Len() != 242161 },
+		),
+		"RPG Maker runtime response = %d headers=%v bytes=%d body-prefix=%q",
+		runtimeResponse.Code,
+		runtimeResponse.Header(),
+		runtimeResponse.Body.Len(),
+		runtimeResponse.Body.String()[:min(runtimeResponse.Body.Len(), 80)],
+	)
+
+	projectResponse := httptest.NewRecorder()
+	handler.ServeHTTP(
+		projectResponse,
+		httptest.NewRequestWithContext(
+			context.Background(), http.MethodGet,
+			"/runtime/rpg-project/01980000-0000-7000-8000-000000000001/Data/Actors.json", nil,
+		),
+	)
+	testassert.Falsef(
+		t,
+		testassert.Any(
+			func() bool { return projectResponse.Code != http.StatusUnauthorized },
+			func() bool {
+				return !strings.Contains(projectResponse.Body.String(), `"code":"LAUNCH_CREDENTIAL_INVALID"`)
+			},
+		),
+		"RPG Maker project response = %d body=%s",
+		projectResponse.Code,
+		projectResponse.Body.String(),
+	)
+}
+
 func TestOpenAPIValidationRejectsUnknownJSONAndMapsMissingPrecondition(t *testing.T) {
 	t.Parallel()
 	server := newTestServer(t)
@@ -69,6 +123,42 @@ func TestOpenAPIValidationRejectsUnknownJSONAndMapsMissingPrecondition(t *testin
 	recorder = httptest.NewRecorder()
 	handler.ServeHTTP(recorder, request)
 	testassert.Falsef(t, testassert.Any(func() bool { return recorder.Code != http.StatusPreconditionRequired }, func() bool { return !strings.Contains(recorder.Body.String(), `"code":"PRECONDITION_REQUIRED"`) }), "missing If-Match response = %d %s", recorder.Code, recorder.Body.String())
+}
+
+func TestRPGGateHTTPContractAcceptsNewPositionGatesAndRejectsUnknownGate(t *testing.T) {
+	t.Parallel()
+	server := newTestServer(t)
+	handler := server.Handler()
+	launchID := "01980000-0000-7000-8000-000000000091"
+	for _, test := range []struct{ gate, eventID string }{
+		{gate: "INITIAL_POSITION_RECORDED", eventID: "01980000-0000-7000-8000-000000000092"},
+		{gate: "RESTORE_INPUT", eventID: "01980000-0000-7000-8000-000000000093"},
+	} {
+		body := `{"sequence":1,"eventId":"` + test.eventID + `","gate":"` + test.gate +
+			`","phase":"PASS","observedAtMs":1,"evidence":{"mapId":1,"playerX":2,"playerY":3,"fixtureState":4}}`
+		request := httptest.NewRequestWithContext(
+			context.Background(), http.MethodPost,
+			"/runtime/launches/"+launchID+"/rpgmaker-gates/events", strings.NewReader(body),
+		)
+		request.Header.Set("Content-Type", "application/json")
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, request)
+		if response.Code != http.StatusUnauthorized ||
+			!strings.Contains(response.Body.String(), `"code":"LAUNCH_CREDENTIAL_INVALID"`) {
+			t.Fatalf("%s gate response = %d %s", test.gate, response.Code, response.Body.String())
+		}
+	}
+	unknown := httptest.NewRequestWithContext(
+		context.Background(), http.MethodPost,
+		"/runtime/launches/"+launchID+"/rpgmaker-gates/events",
+		strings.NewReader(`{"sequence":1,"eventId":"01980000-0000-7000-8000-000000000099","gate":"UNKNOWN","phase":"BEGIN","observedAtMs":1,"evidence":{}}`),
+	)
+	unknown.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, unknown)
+	if response.Code != http.StatusBadRequest || !strings.Contains(response.Body.String(), `"code":"INVALID_REQUEST"`) {
+		t.Fatalf("unknown RPG gate response = %d %s", response.Code, response.Body.String())
+	}
 }
 
 func TestOpenAPIHasExactlyFourStreamingOperations(t *testing.T) {

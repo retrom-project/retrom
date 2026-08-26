@@ -15,6 +15,7 @@ import (
 )
 
 type Config struct {
+	RuntimeFamily        string                       `json:"runtimeFamily"`
 	Mode                 string                       `json:"mode"`
 	LaunchID             string                       `json:"launchId"`
 	EmulatorJSVersion    string                       `json:"emulatorjsVersion"`
@@ -45,6 +46,7 @@ type Config struct {
 	ReturnTo             string                       `json:"returnTo"`
 	ReviewPreview        *ReviewPreviewConfig         `json:"reviewPreview,omitempty"`
 	Netplay              *NetplayConfig               `json:"netplay"`
+	RPGMaker             *RPGMakerConfig              `json:"-"`
 }
 
 type NetplayConfig struct {
@@ -121,7 +123,7 @@ type BundleFile struct {
 }
 
 // Contract branches stay contiguous for a single auditable decision.
-func (service *Service) Config(ctx context.Context, launchID, capability string) (Config, error) {
+func (service *Service) emulatorJSConfig(ctx context.Context, launchID, capability string) (Config, error) {
 	var credentialHash []byte
 	var state, coreID, coreName, artifactID, emulatorVersion, relativePath, compatibilityJSON string
 	var dependencySnapshotJSON, variantRevisionID, revisionCompatibilityCode string
@@ -142,10 +144,10 @@ l.hard_expires_at_ms,
 l.idle_expires_at_ms,
 a.core_id,
 a.id,
-a.emulatorjs_version,
-a.relative_path,
-a.compatibility_config_json,
-c.requires_threads,
+a.runtime_version,
+a.entry_path,
+a.compatibility_json,
+a.requires_threads,
 c.name,
 r.emulator_game_id,
 r.dependency_snapshot_json,
@@ -177,6 +179,9 @@ JOIN platform_instances instance ON instance.id=g.platform_instance_id
 	JOIN blobs content_blob ON content_blob.id=lc.blob_id
 LEFT JOIN netplay_sessions session ON session.id=l.netplay_session_id
 WHERE l.id=?
+AND l.purpose='PRODUCT'
+AND a.runtime_family='EMULATORJS'
+AND a.available_for_launch=1
 `, launchID).
 		Scan(
 			&credentialHash,
@@ -381,6 +386,7 @@ func (service *Service) buildLaunchConfig(
 		playerAdapterID = retromruntime.NetplayPlayerAdapterID
 	}
 	return Config{
+		RuntimeFamily:     "EMULATORJS",
 		Mode:              mode,
 		LaunchID:          launchID,
 		EmulatorJSVersion: emulatorVersion,

@@ -5,7 +5,9 @@ package gamecontent
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"database/sql"
+	"fmt"
 	"testing"
 	"time"
 
@@ -22,16 +24,19 @@ func seedReplacementSave(
 	gameID string,
 ) (string, string, []string) {
 	t.Helper()
-	var revisionID, artifactID, logicalName, contentBlobID string
+	var revisionID, contentID, artifactID, routeKey, dependencySnapshot, logicalName, contentBlobID string
 	if err := database.QueryRowContext(ctx, `
-SELECT variant.current_revision_id,revision.core_artifact_id,file.logical_name,file.blob_id
+SELECT variant.current_revision_id,revision.game_content_revision_id,revision.core_artifact_id,
+       revision.route_key,revision.dependency_snapshot_json,file.logical_name,file.blob_id
 FROM games game
 JOIN game_variants variant ON variant.game_id=game.id
 JOIN game_variant_revisions revision ON revision.id=variant.current_revision_id
 JOIN game_content_files file ON file.game_content_revision_id=revision.game_content_revision_id
 WHERE game.id=? AND revision.game_content_revision_id=game.current_content_revision_id
 ORDER BY file.sort_order,file.logical_name LIMIT 1
-`, gameID).Scan(&revisionID, &artifactID, &logicalName, &contentBlobID); err != nil {
+`, gameID).Scan(
+		&revisionID, &contentID, &artifactID, &routeKey, &dependencySnapshot, &logicalName, &contentBlobID,
+	); err != nil {
 		t.Fatal(err)
 	}
 	profileID, launchID, saveID := mustReplacementID(t), mustReplacementID(t), mustReplacementID(t)
@@ -43,10 +48,11 @@ ORDER BY file.sort_order,file.logical_name LIMIT 1
 		t.Fatal(err)
 	}
 	if _, err := database.ExecContext(ctx, `
-INSERT INTO launch_sessions(id,profile_id,game_id,game_variant_revision_id,core_artifact_id,
-return_to,credential_sha256,state,bootstrap_expires_at_ms,hard_expires_at_ms,created_at_ms,updated_at_ms)
-VALUES(?,?,?,?,?,'/',?,'CREATED',?,?,?,?)
-`, launchID, profileID, gameID, revisionID, artifactID, make([]byte, 32), now+60_000,
+INSERT INTO launch_sessions(id,profile_id,purpose,game_id,game_content_revision_id,game_variant_revision_id,
+core_artifact_id,route_key,return_to,credential_sha256,state,bootstrap_expires_at_ms,hard_expires_at_ms,
+created_at_ms,updated_at_ms)
+VALUES(?,?,'PRODUCT',?,?,?,?,?,'/',?,'CREATED',?,?,?,?)
+`, launchID, profileID, gameID, contentID, revisionID, artifactID, routeKey, make([]byte, 32), now+60_000,
 		now+120_000, now, now); err != nil {
 		t.Fatal(err)
 	}
@@ -56,19 +62,19 @@ VALUES(?,?,?,'SOURCE_V1',?)
 `, launchID, logicalName, contentBlobID, now); err != nil {
 		t.Fatal(err)
 	}
-	stateBlobID := ensureReplacementBlob(t, ctx, database, blobs, []byte("state-"+saveID))
+	statePayload := []byte("state-" + saveID)
+	stateBlobID := ensureReplacementBlob(t, ctx, database, blobs, statePayload)
 	screenshotBlobID := ensureReplacementBlob(t, ctx, database, blobs, []byte("screenshot-"+saveID))
+	stateDigest := sha256.Sum256(statePayload)
+	dependencyDigest := sha256.Sum256([]byte(dependencySnapshot))
 	if _, err := database.ExecContext(ctx, `
-INSERT INTO save_states(id,profile_id,game_id,game_variant_revision_id,core_artifact_id,
-state_blob_id,screenshot_blob_id,name,active_duration_ms,created_at_ms,updated_at_ms,source_launch_session_id)
-VALUES(?,?,?,?,?,?,?,'Before replacement',1000,?,?,?)
-`, saveID, profileID, gameID, revisionID, artifactID, stateBlobID, screenshotBlobID, now, now,
-		launchID); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := database.ExecContext(
-		ctx, `UPDATE launch_sessions SET save_state_id=? WHERE id=?`, saveID, launchID,
-	); err != nil {
+INSERT INTO save_states(id,profile_id,game_id,game_content_revision_id,game_variant_revision_id,
+core_artifact_id,adapter_abi,dependency_snapshot_sha256,payload_blob_id,payload_kind,payload_sha256,
+payload_size_bytes,screenshot_blob_id,name,active_duration_ms,created_at_ms,updated_at_ms,source_launch_session_id)
+VALUES(?,?,?,?,?,?,'emulatorjs-state-v1',?,?,'RUNTIME_STATE',?,?,?,'Before replacement',1000,?,?,?)
+`, saveID, profileID, gameID, contentID, revisionID, artifactID,
+		fmt.Sprintf("%x", dependencyDigest), stateBlobID, fmt.Sprintf("%x", stateDigest), len(statePayload),
+		screenshotBlobID, now, now, launchID); err != nil {
 		t.Fatal(err)
 	}
 	return saveID, launchID, []string{stateBlobID, screenshotBlobID}

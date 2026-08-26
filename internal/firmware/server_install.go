@@ -102,7 +102,7 @@ requirement.catalog_digest,
 requirement.version,
 artifact.version
 FROM bios_requirements requirement
-JOIN core_artifacts artifact ON artifact.id=requirement.core_artifact_id AND artifact.enabled=1
+JOIN core_artifacts artifact ON artifact.id=requirement.core_artifact_id AND artifact.available_for_launch=1
 WHERE requirement.id=? AND requirement.enabled=1
 `, request.RequirementID).Scan(&sourceKind, &sourceVersion, &catalogDigest, &version, &artifactVersion); err != nil ||
 		sourceKind != request.SourceKind || sourceVersion != request.SourceVersion ||

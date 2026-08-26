@@ -3,8 +3,8 @@
 | 属性 | 内容 |
 | --- | --- |
 | 文档状态 | 已审定 / 一期实施基线 |
-| 版本 | 1.5 |
-| 日期 | 2026-08-24 |
+| 版本 | 1.6 |
+| 日期 | 2026-08-25 |
 | 用途 | 规定实现顺序、依赖和里程碑退出条件，不复制领域规格 |
 
 ## 1. 使用方式
@@ -32,7 +32,9 @@ flowchart LR
     I --> G["Game / Metadata / Variant"]
     B --> G
     G --> L["目录、详情与 Launch"]
-    L --> R["Player / EmulatorJS"]
+    L --> R["Player runtime factory"]
+    R --> E["EmulatorJS"]
+    R --> RR["RetromRpgRuntime"]
     R --> P["存档、时长、恢复"]
     P --> A["完整验收与镜像"]
 ```
@@ -45,6 +47,7 @@ flowchart LR
 - 上传 bytes 必须先安全落入临时区/CAS，随后任务只引用 Blob/ArchiveEntry；worker 不接收浏览器路径或内存中的大文件对象。
 - Arcade 识别必须在目标 CoreArtifact 的 DAT 可用后进行；Hasheous 只生成展示候选，不能替代 DAT 或阻断无候选的审核。
 - Launch 只能引用已提交的 READY VariantRevision 和依赖快照；Player 不自行选择 core、DAT、BIOS、ROM 或 URL。
+- RPG Maker 发布前必须先冻结用户选择的版本 core、内容证据、route/artifact、adapter ABI、运行包和 `runtime_binding_revision`，并完成真实 runtime validation；Launch 只读该冻结绑定，不重新探测、不取 latest、不 fallback。
 - 依赖准备发生在 `make dev`/镜像 builder 前置阶段；同步启动只校验依赖字节并登记缺失的 DAT_PARSE Job，Worker 可从已校验的只读本地 payload 建索引，但任何进程都不能为方便实现而加入运行期下载。
 
 ## 3. Clean migration 落地顺序
@@ -52,15 +55,15 @@ flowchart LR
 项目首次发布前的唯一基线是下面的 current-schema 创建链；每张业务表只创建一次，不包含 ALTER/rename-copy-drop、业务回填或旧版本转换。首次公开发布后，已发布 migration 文件才进入不可改写的只追加纪律：
 
 1. `001_identity.sql`：账号、凭据、session、account link 与实例状态；
-2. `002_catalog.sql`：Platform/Core/reference relation 与零实例目录的 PlatformInstance；
+2. `002_catalog.sql`：Platform/Core/reference relation（含 `rpgmaker` 与七版本 core）与零实例目录的 PlatformInstance；
 3. `003_storage_jobs.sql`：Blob、Job/Event/Input、幂等、审计与 GC；
 4. `004_upload_archive.sql`：上传、归档与当前 consumer 闭集；
-5. `005_dependencies.sql`：BIOS 与 release-managed DAT；
-6. `006_import_review.sql`：导入、来源快照、验证、审核、preview 与快速审批；
-7. `007_library.sql`：Game/revision/content/variant/media/tag/favorite；
+5. `005_dependencies.sql`：通用 runtime artifact、BIOS、release-managed DAT 与 RPG runtime asset pack；
+6. `006_import_review.sql`：导入、来源快照、验证、审核、非 RPG preview、RPG runtime validation 与快速审批；
+7. `007_library.sql`：Game/revision/content/variant、RPG 内容/绑定 profile、media/tag/favorite；
 8. `008_server_import.sql`：Pegasus 与 EmulationStation 当前 review-handoff 模型；
-9. `009_runtime.sql`：Launch、PlaySession、显式 SaveState 与 Netplay；
-10. `010_cross_domain_invariants.sql`：只能在全部 owner table 存在后建立的索引和 trigger。
+9. `009_runtime.sql`：PRODUCT/RPG_RUNTIME_VALIDATION Launch、PlaySession、通用显式 checkpoint、隔离 runtime ticket/capability 与 Netplay；
+10. `010_cross_domain_invariants.sql`：只能在全部 owner table 存在后建立的 profile/route/artifact/pack/checkpoint/Launch 索引和 trigger。
 
 循环 current pointer 使用数据模型规定的 deferred FK；clean migration 全程保持 `foreign_keys=ON`，每条在事务中应用并记录 name/checksum，最终执行 `foreign_key_check` 与 schema introspection。运行时代码不按 migration 数字分支，不关闭外键，不回填业务数据，也不动态修补 schema。
 
@@ -204,6 +207,22 @@ OpenAPI、后端、集成、前端、结构、公开 fixture、data/dependency�
 不得直接调用 React handler 或伪造 Core 成功。正式 UI 源、导出 HTML、1280×720、1920×1080、
 2560×1440 与物理 4K 150% 视觉复核闭环后才可删除临时设计目录。实体 standard-mapping 手柄 smoke 是
 发布条件；环境没有实体设备时结果必须明确为 `BLOCKED`，自动注入不能冒充实体通过。
+
+### M19：RPG Maker 七版本核心垂直切片
+
+实施顺序固定为七个可独立验证的阶段，前一阶段门禁通过后才进入下一阶段：
+
+1. 合并正式契约和统一设计，修改 clean `002/004/005/006/007/009/010` migration 与 OpenAPI/生成 client；旧开发 lineage checksum 必须拒绝，开发数据由操作者在服务外归档或删除后重建，应用不得自动清理。
+2. 通用化 `core_artifacts` 和 LaunchConfig discriminated union；Player 顶层增加 `EMULATORJS|RPGMAKER` factory，既有 EJS 全部保持原行为，`RetromRpgRuntime` 先建立 contract、状态机和 fail-closed registry。
+3. 实现 `RPG_MAKER_PROJECT_V1` 目录/单归档规范化、V2 fileset、selected-core 内容校验、RTP/runtime pack、不可变 route binding 和 runtime validation 状态机；RPG server import 固定拒绝。
+4. 物化固定 EasyRPG 构件并接通 2000/2003；两者共用 bytes 但必须分别强制 `rpg2k/rpg2k3` engine profile、route 和 artifact row。
+5. 物化 threaded mkxp-z libretro 构件并接通 XP/VX/VX Ace；分别强制 RGSS1/2/3，OPFS/Web Locks/COOP/COEP 任一缺失即在下载前失败。
+6. 接通 MV/MZ 每 Launch unique-origin host、一次性 bootstrap、host-only HttpOnly capability、严格 CSP/MessageChannel、native bridge 与 storage bundle；游戏 JavaScript 永不进入应用 origin。
+7. 完成导入/审核/运行依赖/Player UI，执行全产品验证并把稳定设计合回正式契约与统一设计源，删除临时方案目录。
+
+每个世代退出门禁都必须经过浏览器上传、审核、PRODUCT 或验证 Launch、受授权内容端点和真实 Player；存档证据必须是 A→移动/改变变量到 B→创建检查点→继续到不同 C→结束原 Launch→创建不同 restore Launch→恢复后的地图/坐标/变量逐项等于 B 且不等于 A/C，生成恢复后截图，再继续真实输入并记录与 B 不同的 `RESTORE_INPUT`。只证明保存 API 成功、payload 可下载、同一进程 load 成功或画面看似相近均不合格。
+
+最终退出门禁：`ACC-RPG-001`–`012` 全部当次 PASS；依次运行 `make quality-structure-check`、后端/前端/集成/API/依赖/公开 fixture 门禁、`make web-e2e`、`make build-images`、`make ci`。MZ 必须另以操作者依法持有的 Web deployment 运行 `make acceptance-case CASE=ACC-RPG-008 RPG_MZ_SMOKE_ROOT=<licensed-web-deployment-directory>`；缺少该物料时只能报告 MZ 发布门禁未满足，不能以 shape harness 替代。
 
 ## 5. 垂直切片提交规则
 

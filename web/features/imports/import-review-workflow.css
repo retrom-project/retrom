@@ -272,6 +272,33 @@
 .review-preview-status button:hover { border-color: #6c5fd0; background: #242a37; }
 .review-preview-frame { width: 100%; height: 100%; border: 0; background: #05060a; }
 .review-workflow-left { min-width: 0; display: grid; gap: 16px; }
+.review-rpg-validation .panel-head > strong { color: var(--purple-dark); font-size: 11px; }
+.review-rpg-validation .panel-body { display: grid; gap: 14px; }
+.review-rpg-facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.review-rpg-facts > div { min-width: 0; padding: 9px 10px; display: grid; gap: 3px; border-radius: 9px; background: #f5f3fd; }
+.review-rpg-facts span, .review-rpg-roundtrip span { color: var(--muted); font-size: 10px; }
+.review-rpg-facts strong { overflow-wrap: anywhere; font-size: 12px; }
+.review-rpg-gates { margin: 0; padding: 0; display: grid; gap: 6px; list-style: none; }
+.review-rpg-gates li { min-height: 31px; padding: 6px 9px; display: flex; align-items: center; justify-content: space-between; gap: 12px; border: 1px solid var(--line); border-radius: 8px; font-size: 11px; }
+.review-rpg-gates li strong { color: var(--muted); font-size: 10px; }
+.review-rpg-gates li[data-status="PASSED"] { border-color: #afd9d2; background: var(--cyan-soft); }
+.review-rpg-gates li[data-status="PASSED"] strong { color: #0f737c; }
+.review-rpg-gates li[data-status="FAILED"] { border-color: #efb9b9; background: #fff1f1; }
+.review-rpg-gates li[data-status="FAILED"] strong { color: #a02f2f; }
+.review-rpg-roundtrip { padding: 10px; display: grid; gap: 4px; border: 1px solid #d8d1f6; border-radius: 9px; background: #fbfaff; }
+.review-rpg-roundtrip strong { font-size: 12px; }
+.review-rpg-pack-controls { padding: 11px; display: grid; gap: 10px; border: 1px solid #d8d1f6; border-radius: 9px; background: #fbfaff; }
+.review-rpg-pack-heading { display: flex; justify-content: space-between; align-items: start; gap: 12px; }
+.review-rpg-pack-heading strong { font-size: 12px; }
+.review-rpg-pack-heading p { margin: 3px 0 0; color: var(--muted); font-size: 9px; }
+.review-rpg-pack-heading a { color: var(--purple-dark); font-size: 10px; font-weight: 760; }
+.review-rpg-self-contained { padding: 9px; display: flex; align-items: start; gap: 8px; border-radius: 8px; background: white; }
+.review-rpg-self-contained span { display: grid; gap: 2px; }
+.review-rpg-self-contained strong { font-size: 10px; }
+.review-rpg-self-contained small { color: var(--muted); font-size: 9px; }
+.review-rpg-pack-select { display: grid; gap: 5px; color: #596477; font-size: 10px; font-weight: 720; }
+.review-rpg-pack-select select { width: 100%; min-width: 0; height: 38px; padding: 0 9px; color: var(--ink); border: 1px solid var(--line); border-radius: 8px; background: white; }
+.review-rpg-pack-error { margin: 0; color: var(--danger); font-size: 10px; }
 .review-multidisc-card .panel-head small { display: block; margin-top: 5px; color: var(--muted); font-size: 10px; }
 .review-multidisc-list { margin: 0; padding: 0; display: grid; gap: 7px; list-style: none; }
 .review-multidisc-list li { min-width: 0; padding: 10px 12px; display: flex; align-items: center; justify-content: space-between; gap: 12px; border: 1px solid var(--line); border-radius: 9px; }

@@ -226,7 +226,7 @@ func (service *Service) reviewPreviewSource(ctx context.Context, itemID string) 
 	var validationID, validationStatus, dependencySnapshot sql.NullString
 	err := service.database.QueryRowContext(ctx, `
 SELECT draft.effective_source_snapshot_id,draft.target_platform_instance_id,instance.name,platform.id,
-artifact.id,artifact.emulatorjs_version,core.id,core.name,artifact.compatibility_config_json,core.requires_threads,
+artifact.id,artifact.runtime_version,core.id,core.name,artifact.compatibility_json,artifact.requires_threads,
 COALESCE(json_extract(draft.metadata_json,'$.title'),''),snapshot.content_kind,
 validation.id,validation.status,validation.dependency_snapshot_json,draft.default_dos_entry,
 draft.selected_validation_id,validation.dat_version_id
@@ -236,7 +236,8 @@ JOIN import_item_source_snapshots snapshot ON snapshot.id=draft.effective_source
 JOIN platform_instances instance ON instance.id=draft.target_platform_instance_id
  AND instance.enabled=1 AND instance.deleted_at_ms IS NULL
 JOIN platforms platform ON platform.id=instance.platform_id
-JOIN core_artifacts artifact ON artifact.core_id=instance.default_core_id AND artifact.enabled=1
+JOIN core_artifacts artifact ON artifact.core_id=instance.default_core_id
+ AND artifact.runtime_family='EMULATORJS' AND artifact.selected_for_new_bindings=1
 JOIN cores core ON core.id=artifact.core_id
 LEFT JOIN import_item_core_validations validation ON validation.id=(
  SELECT candidate.id FROM import_item_core_validations candidate
@@ -557,13 +558,14 @@ func (service *Service) reviewPreviewConfigSource(
 	var source reviewPreviewConfigSource
 	err := service.database.QueryRowContext(ctx, `
 SELECT preview.credential_sha256,preview.state,preview.bootstrap_expires_at_ms,preview.hard_expires_at_ms,
-preview.import_item_id,artifact.id,artifact.emulatorjs_version,artifact.relative_path,
-artifact.compatibility_config_json,core.id,core.name,preview.title,instance.name,
+preview.import_item_id,artifact.id,artifact.runtime_version,artifact.entry_path,
+artifact.compatibility_json,core.id,core.name,preview.title,instance.name,
 preview.content_logical_name,preview.content_format,preview.dependency_snapshot_json,
-content_blob.sha256,preview.emulator_game_id,core.requires_threads,preview.capture_allowed,preview.default_dos_entry
+content_blob.sha256,preview.emulator_game_id,artifact.requires_threads,preview.capture_allowed,preview.default_dos_entry
 FROM review_preview_sessions preview
 JOIN blobs content_blob ON content_blob.id=preview.content_blob_id
-JOIN core_artifacts artifact ON artifact.id=preview.core_artifact_id AND artifact.enabled=1
+JOIN core_artifacts artifact ON artifact.id=preview.core_artifact_id
+ AND artifact.runtime_family='EMULATORJS' AND artifact.available_for_launch=1
 JOIN cores core ON core.id=artifact.core_id
 JOIN platform_instances instance ON instance.id=preview.target_platform_instance_id
 WHERE preview.id=?

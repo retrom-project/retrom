@@ -247,18 +247,7 @@ func writeEmulationStationHTTPFixture(t *testing.T, path, title string) {
 
 func seedEmulationStationHTTPArtifact(t *testing.T, server *Server) {
 	t.Helper()
-	if _, err := server.database.ExecContext(context.Background(), `
-INSERT INTO core_artifacts(
-id,core_id,emulatorjs_version,bundle_version,flavor,relative_path,size_bytes,sha256,
-source_commit,provenance_json,compatibility_config_json,enabled,version,created_at_ms,updated_at_ms
-)
-VALUES(
-'emulationstation-http-artifact','fceumm','4.2.3','emulationstation-http','WASM',
-'data/emulationstation-http.js',1,lower(hex(zeroblob(32))),NULL,'{}',
-'{"schemaVersion":5,"supportedContentKinds":["SINGLE_FILE"]}',1,1,1,1
-)`); err != nil {
-		t.Fatal(err)
-	}
+	seedHTTPTestCoreArtifact(t, server.database, "emulationstation-http-artifact", "fceumm", "data/emulationstation-http.js", strings.Repeat("0", 64), `{"schemaVersion":5,"supportedContentKinds":["SINGLE_FILE"]}`)
 }
 
 func waitForEmulationStationMapping(

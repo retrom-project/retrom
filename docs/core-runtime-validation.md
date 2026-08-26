@@ -2,7 +2,7 @@
 
 ## 1. 文档职责
 
-本文定义 EmulatorJS 核心的产品链路验证边界。核心版本、artifact、SHA-256、DAT 与 adapter 映射以 [`data/dat/`](../data/dat/) 的版本化 manifest 和前端 adapter registry 为机器事实源。公开产品 E2E 使用 [`testdata/public-roms/`](../testdata/public-roms/) 中由本项目源码确定性生成并许可分发的 GBA、NES、SNES 与 Arcade 测试程序。自动化测试不读取操作者私有 ROM/BIOS；`make dev` 的 `.dev-data/` 服务器导入语料也不属于测试 fixture。
+本文定义 EmulatorJS 与 RPG Maker 版本核心的产品链路验证边界。核心版本、artifact、SHA-256、DAT 与 adapter 映射以 [`data/dat/`](../data/dat/) 的版本化 manifest 和前端 adapter registry 为机器事实源。公开产品 E2E 使用 [`testdata/public-roms/`](../testdata/public-roms/) 中由本项目源码确定性生成并许可分发的 GBA、NES、SNES、Arcade 与 RPG Maker 测试程序。自动化测试不读取操作者私有 ROM/BIOS/商业游戏；`make dev` 的 `.dev-data/` 服务器导入语料也不属于测试 fixture。
 
 独立 HTML 页面直接装载 EmulatorJS 会绕过 Retrom 的导入、审核、发布、Launch capability、内容端点和 Player，因此不能作为产品集成或验收证据。仓库不再维护这种 example runner，也不再用逐核心独立页面的成功结果宣称 Retrom 已覆盖对应核心。
 
@@ -20,6 +20,20 @@
 | `fbalpha2012_cps1` | `make web-e2e`、`ACC-RUN-011`、`ACC-NP-021` | `arcade-smoke/fbalpha2012_cps1/1941.zip`；按锁定 `1941` driver layout 生成的完整项目自有 68000/Z80/图形/静音 set | test-only DAT 的无 parent/BIOS 根集合、真实审核发布与内容端点、锁定 core 启动、程序 state marker/palette、输入/画面、两次 SaveState 恢复和严格 lockstep 双浏览器 checkpoint/冻结/重连；重连后执行 180 帧视觉稳定窗口，双端 PNG 必须一致且非纯黑 |
 | `fbalpha2012_cps2` | `make web-e2e`、`ACC-RUN-012`、`ACC-NP-022` | `arcade-smoke/fbalpha2012_cps2/spf2xjd.zip` 与项目自有 marker-only `spf2t.zip`；Phoenix 明文程序，不含第三方 bytes | 锁定 core loader 实际要求的 child/parent 装配、审核 schema v2 `PARENT SATISFIED_EXTERNAL`、`parentUrl` 非空而 `biosUrl` 为空、程序 state marker/palette、单机两次恢复和严格 lockstep 双浏览器 checkpoint/冻结/重连；marker 父归档不被 driver 执行；重连后执行 180 帧视觉稳定窗口，双端 PNG 必须一致且非纯黑 |
 | Saturn 多盘 | `ACC-MDISC-001`–`008` | 普通测试使用确定性临时夹具 | 产品 parser、导入、发布、Launch 内容协议、Player adapter 换盘与存档恢复；当前不包含真实 ROM 的浏览器运行 |
+
+RPG Maker 每个用户可见版本核心使用一个独立完整游戏项目，不以 marker-only 文件、格式 parser 或独立引擎页面冒充产品验证：
+
+| 版本核心 | 产品验收入口 | 合法游戏输入 | 必须证明的边界 |
+| --- | --- | --- | --- |
+| `rpgmaker_2000` | `ACC-RPG-002`、`ACC-RPG-012` | `testdata/public-roms/rpgmaker-smoke/rpg2000/`；012 的第二次导入使用同一生成源的 `rpg2000-compat/`；均为 Retrom 自有 MIT 游戏，由固定 JSON 和有界 LCF writer 确定性生成，不含 RTP | 选择 2000 核心后经上传、审核、EasyRPG Launch 和 Player 进入地图；bridge 回读 RPG2k profile，并执行 A→B 保存→C→不同 Launch 恢复 B→恢复后输入；012 用两个不同 files digest 证明新旧 artifact 绑定，不得重复上传同一内容冒充第二项目 |
+| `rpgmaker_2003` | `ACC-RPG-003` | `testdata/public-roms/rpgmaker-smoke/rpg2003/`；同一 MIT 生成体系的独立 LCF 游戏，`ldb_id=2003`，bytes 与 marker 独立 | 证明 2003 route/engine profile，不因与 2000 共用文件形态或 runtime bytes 而 fallback；其余精确恢复门禁与 2000 相同 |
+| `rpgmaker_xp` | `ACC-RPG-004` | `testdata/public-roms/rpgmaker-smoke/rpgxp/`；Retrom 自有 MIT Ruby 程序经确定性 Marshal 4.8/zlib 生成，不含厂商默认 RGSS script/RTP | RGSS1 threaded mkxp artifact、可见可移动色块、变量、最多 256 MiB runtime state、不同 Launch 精确恢复，以及禁线程环境在下载前 fail closed |
+| `rpgmaker_vx` | `ACC-RPG-005` | `testdata/public-roms/rpgmaker-smoke/rpgvx/`；同一 MIT 源生成的独立 RGSS2 游戏 | RGSS2 route、可见画面、输入/音频和 A/B/C/restore 全字段门禁；不得以 XP/Ace profile 启动 |
+| `rpgmaker_vx_ace` | `ACC-RPG-006` | `testdata/public-roms/rpgmaker-smoke/rpgvxace/`；同一 MIT 源生成的独立 RGSS3 游戏 | RGSS3 route、可见画面、输入/音频和 A/B/C/restore 全字段门禁；不得以 XP/VX profile 启动 |
+| `rpgmaker_mv` | `ACC-RPG-007` | `testdata/public-roms/rpgmaker-smoke/rpgmv/`；Retrom 自有 MIT 游戏数据/素材，加锁定 MIT `rpgtkoolmv/corescript` 输入 | 只在每 Launch unique runtime origin 执行项目 JavaScript，进入 `Scene_Map`、连续 300 帧、标准 DataManager checkpoint、不同 Launch 恢复和恢复后输入；app origin 不执行游戏脚本 |
+| `rpgmaker_mz` | `ACC-RPG-008` | 操作者依法持有、自包含且可下载/部署的 MZ Web Browser 游戏目录或单 ZIP/7z，由 `RPG_MZ_SMOKE_ROOT` 指定；不得提交、镜像或记录其内容/绝对路径 | 与 MV 相同的 unique-origin、场景/帧/输入/音频/精确恢复门禁，并证明 MZ Promise save profile；缺少合法输入时 Case 必须 BLOCKED，不能用 shape harness 代替 |
+
+上述六个公开项目的唯一生成源、逐 byte 锁定和许可证由同目录 `README.md`、`LICENSE`、`fixture-manifest.json` 与 `make public-fixtures-check` 共同约束。MZ 输入只允许通过 Retrom 上传链消费；自动化不得在本机直接打开或运行操作者项目。任何外部可下载游戏只能作为不提交的补充兼容 smoke，不能取代这些确定性产品 Case，也不能因下载页面可访问就推断资源、RTP、默认脚本或插件可再分发。
 
 其余 enabled core 目前只有 manifest/schema、依赖物化、adapter 配置、协议或相邻纯逻辑测试，尚没有走完整 Retrom 产品链路的真实浏览器 E2E。发布或依赖升级不能把这些结构检查解释为“核心已实际启动”。表中联机基线只覆盖精确 artifact/profile 和项目自有 fixture，不证明其他 ROM 或 core 版本；新增覆盖仍应扩展 `make web-e2e` 或对应产品 E2E，并使用项目自有或有明确再分发许可、可确定性生成且能够提交的测试程序。
 

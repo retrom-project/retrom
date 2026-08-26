@@ -161,15 +161,24 @@ WHERE import_id=?
 		}
 		time.Sleep(10 * time.Millisecond)
 	}
+	var sourceState, sourceError, sourceDetails string
+	var retryable int
+	if err := server.database.QueryRowContext(context.Background(), `
+SELECT execution_state,coalesce(error_code,''),coalesce(error_details_json,''),retryable
+FROM emulationstation_import_items
+WHERE import_id=?
+`, importID).Scan(&sourceState, &sourceError, &sourceDetails, &retryable); err != nil {
+		t.Fatalf("read blocked source item: %v", err)
+	}
 	var itemID, itemState, handoffKind string
 	if err := server.database.QueryRowContext(context.Background(), `
 SELECT id,state,review_handoff_kind
 FROM import_items
 WHERE review_handoff_kind='EMULATIONSTATION'
 `).Scan(&itemID, &itemState, &handoffKind); err != nil {
-		t.Fatal(err)
+		t.Fatalf("read reserved review item after source %s/%s retryable=%d details=%s: %v",
+			sourceState, sourceError, retryable, sourceDetails, err)
 	}
-	var sourceState string
 	var sourceItemID *string
 	if err := server.database.QueryRowContext(context.Background(), `
 SELECT execution_state,library_import_item_id

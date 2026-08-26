@@ -12,6 +12,7 @@ import (
 
 	"retrom/internal/cleanup"
 	"retrom/internal/dependencies"
+	"retrom/internal/platformcatalog"
 	"retrom/internal/platforminstance"
 	"retrom/internal/store"
 	"retrom/internal/testassert"
@@ -58,14 +59,23 @@ func TestApplyCreatesCatalogAtomicallyAndReplays(t *testing.T) {
 	service, database := newService(t)
 	before, err := service.Recommendations(t.Context())
 	testassert.False(t, err != nil, err)
-	testassert.Falsef(t, testassert.Any(func() bool { return before.Summary.TotalCount != 27 }, func() bool { return before.Summary.MissingCount != 27 }), "before summary = %#v", before.Summary)
+	expectedTemplates := len(platformcatalog.Current().Templates)
+	testassert.Falsef(t, testassert.Any(
+		func() bool { return before.Summary.TotalCount != expectedTemplates },
+		func() bool { return before.Summary.MissingCount != expectedTemplates },
+	), "before summary = %#v", before.Summary)
 	response, err := service.Apply(t.Context(), actor(), testUserID, "11111111-1111-4111-8111-111111111111")
 	testassert.False(t, err != nil, err)
 	var result platforminstance.ApplyResult
 	if err := json.Unmarshal(response.Body, &result); err != nil {
 		t.Fatal(err)
 	}
-	testassert.Falsef(t, testassert.Any(func() bool { return result.Summary.CreatedCount != 27 }, func() bool { return result.Summary.CoveredCount != 0 }, func() bool { return result.Summary.RemainingMissingCount != 0 }, func() bool { return len(result.Created) != 27 }), "apply result = %#v", result.Summary)
+	testassert.Falsef(t, testassert.Any(
+		func() bool { return result.Summary.CreatedCount != expectedTemplates },
+		func() bool { return result.Summary.CoveredCount != 0 },
+		func() bool { return result.Summary.RemainingMissingCount != 0 },
+		func() bool { return len(result.Created) != expectedTemplates },
+	), "apply result = %#v", result.Summary)
 	replay, err := service.Apply(t.Context(), actor(), testUserID, "11111111-1111-4111-8111-111111111111")
 	testassert.False(t, err != nil, err)
 	testassert.False(t, testassert.Any(func() bool { return !replay.Replayed }, func() bool { return string(replay.Body) != string(response.Body) }), "idempotent replay did not return the stored response")
@@ -77,7 +87,11 @@ SELECT (SELECT count(*) FROM platform_instances WHERE deleted_at_ms IS NULL),
 `).Scan(&directories, &catalogKeys, &audits); err != nil {
 		t.Fatal(err)
 	}
-	testassert.Falsef(t, testassert.Any(func() bool { return directories != 27 }, func() bool { return catalogKeys != 27 }, func() bool { return audits != 27 }), "created counts = directories:%d keys:%d audits:%d", directories, catalogKeys, audits)
+	testassert.Falsef(t, testassert.Any(
+		func() bool { return directories != expectedTemplates },
+		func() bool { return catalogKeys != expectedTemplates },
+		func() bool { return audits != expectedTemplates },
+	), "created counts = directories:%d keys:%d audits:%d", directories, catalogKeys, audits)
 }
 
 func TestCoveragePreservesEquivalentCustomizedDisabledAndDeletedChoices(t *testing.T) {
@@ -164,7 +178,11 @@ SELECT count(*),count(DISTINCT catalog_template_key) FROM platform_instances
 `).Scan(&directories, &distinctKeys); err != nil {
 		t.Fatal(err)
 	}
-	testassert.Falsef(t, testassert.Any(func() bool { return directories != 27 }, func() bool { return distinctKeys != 27 }), "concurrent counts = %d/%d", directories, distinctKeys)
+	expectedTemplates := len(platformcatalog.Current().Templates)
+	testassert.Falsef(t, testassert.Any(
+		func() bool { return directories != expectedTemplates },
+		func() bool { return distinctKeys != expectedTemplates },
+	), "concurrent counts = %d/%d", directories, distinctKeys)
 }
 
 func TestValidateCatalogFailsClosedOnDisabledRelationship(t *testing.T) {

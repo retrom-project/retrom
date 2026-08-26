@@ -24,6 +24,7 @@ var (
 var knownVariables = map[string]struct{}{
 	"RETROM_HTTP_ADDR": {}, "RETROM_PUBLIC_ORIGIN": {}, "RETROM_DATA_DIR": {},
 	"RETROM_ALLOW_INSECURE_PUBLIC_ORIGIN": {},
+	"RETROM_RPG_RUNTIME_ORIGIN_TEMPLATE":  {},
 	"RETROM_DB_PATH":                      {}, "RETROM_DEPENDENCY_ROOT": {}, "RETROM_DEPENDENCY_VERSIONS": {},
 	"RETROM_ACTIVE_EMULATORJS_VERSION": {}, "RETROM_TRUSTED_PROXIES": {},
 	"RETROM_STARTUP_CHECK_TIMEOUT": {}, "RETROM_LOG_LEVEL": {},
@@ -41,24 +42,25 @@ var ignoredPrefixes = []string{
 }
 
 type Config struct {
-	Mode                   Mode
-	HTTPAddr               string
-	PublicOrigin           *url.URL
-	DataDir                string
-	DBPath                 string
-	DependencyRoot         string
-	DependencyVersions     []string
-	ActiveEJSVersion       string
-	TrustedProxies         []netip.Prefix
-	StartupCheckTimeout    time.Duration
-	LogLevel               string
-	MultiDiscImportEnabled bool
-	ServerImportRoots      []ServerImportRoot
-	NetplayEnabled         bool
-	NetplayMaxActiveRooms  int
-	NetplayRoomIdleDraft   time.Duration
-	NetplayRoomIdleWaiting time.Duration
-	NetplayReconnectLease  time.Duration
+	Mode                     Mode
+	HTTPAddr                 string
+	PublicOrigin             *url.URL
+	RPGRuntimeOriginTemplate string
+	DataDir                  string
+	DBPath                   string
+	DependencyRoot           string
+	DependencyVersions       []string
+	ActiveEJSVersion         string
+	TrustedProxies           []netip.Prefix
+	StartupCheckTimeout      time.Duration
+	LogLevel                 string
+	MultiDiscImportEnabled   bool
+	ServerImportRoots        []ServerImportRoot
+	NetplayEnabled           bool
+	NetplayMaxActiveRooms    int
+	NetplayRoomIdleDraft     time.Duration
+	NetplayRoomIdleWaiting   time.Duration
+	NetplayReconnectLease    time.Duration
 }
 
 type ServerImportRoot struct {
@@ -159,7 +161,8 @@ func Load(mode Mode) (Config, error) {
 	}
 	return Config{
 		Mode: mode, HTTPAddr: network.httpAddr, PublicOrigin: network.publicOrigin,
-		DataDir: base.dataDir, DBPath: base.dbPath, DependencyRoot: base.dependencyRoot,
+		RPGRuntimeOriginTemplate: network.rpgRuntimeOriginTemplate,
+		DataDir:                  base.dataDir, DBPath: base.dbPath, DependencyRoot: base.dependencyRoot,
 		DependencyVersions: base.versions, ActiveEJSVersion: base.active,
 		TrustedProxies: network.proxies, StartupCheckTimeout: runtimeOptions.startupTimeout,
 		LogLevel: runtimeOptions.logLevel, MultiDiscImportEnabled: runtimeOptions.multiDiscImportEnabled,
@@ -212,9 +215,10 @@ func loadBaseConfig() (baseConfig, error) {
 }
 
 type networkConfig struct {
-	publicOrigin *url.URL
-	httpAddr     string
-	proxies      []netip.Prefix
+	publicOrigin             *url.URL
+	rpgRuntimeOriginTemplate string
+	httpAddr                 string
+	proxies                  []netip.Prefix
 }
 
 func loadNetworkConfig(mode Mode) (networkConfig, error) {
@@ -224,6 +228,13 @@ func loadNetworkConfig(mode Mode) (networkConfig, error) {
 	}
 	publicOrigin, err := parsePublicOrigin(
 		os.Getenv("RETROM_PUBLIC_ORIGIN"), mode == ModeTest && allowInsecure == "true",
+	)
+	if err != nil {
+		return networkConfig{}, err
+	}
+	rpgRuntimeOriginTemplate, err := parseRPGRuntimeOriginTemplate(
+		os.Getenv("RETROM_RPG_RUNTIME_ORIGIN_TEMPLATE"), publicOrigin,
+		mode == ModeTest && allowInsecure == "true",
 	)
 	if err != nil {
 		return networkConfig{}, err
@@ -239,7 +250,49 @@ func loadNetworkConfig(mode Mode) (networkConfig, error) {
 	if err != nil {
 		return networkConfig{}, err
 	}
-	return networkConfig{publicOrigin: publicOrigin, httpAddr: httpAddr, proxies: proxies}, nil
+	return networkConfig{
+		publicOrigin: publicOrigin, rpgRuntimeOriginTemplate: rpgRuntimeOriginTemplate,
+		httpAddr: httpAddr, proxies: proxies,
+	}, nil
+}
+
+func parseRPGRuntimeOriginTemplate(value string, publicOrigin *url.URL, allowInsecure bool) (string, error) {
+	const marker = "00000000-0000-4000-8000-000000000000"
+	if !validRPGRuntimeTemplatePrefix(value, allowInsecure) {
+		return "", fmt.Errorf("%w: RETROM_RPG_RUNTIME_ORIGIN_TEMPLATE", errInvalidConfig)
+	}
+	concrete := strings.Replace(value, "{launchId}", marker, 1)
+	parsed, err := url.Parse(concrete)
+	if err != nil || !validRPGRuntimeTemplateURL(parsed, concrete, marker, publicOrigin, allowInsecure) {
+		return "", fmt.Errorf("%w: RETROM_RPG_RUNTIME_ORIGIN_TEMPLATE", errInvalidConfig)
+	}
+	return value, nil
+}
+
+func validRPGRuntimeTemplatePrefix(value string, allowInsecure bool) bool {
+	if value == "" || strings.Count(value, "{launchId}") != 1 {
+		return false
+	}
+	return strings.HasPrefix(value, "https://{launchId}.") ||
+		allowInsecure && strings.HasPrefix(value, "http://{launchId}.")
+}
+
+func validRPGRuntimeTemplateURL(
+	parsed *url.URL,
+	concrete, marker string,
+	publicOrigin *url.URL,
+	allowInsecure bool,
+) bool {
+	if parsed.User != nil || parsed.Host == "" || parsed.Path != "" || parsed.RawQuery != "" ||
+		parsed.Fragment != "" || parsed.String() != concrete || publicOrigin == nil {
+		return false
+	}
+	hostParts := strings.Split(parsed.Hostname(), ".")
+	if len(hostParts) == 0 || hostParts[0] != marker || concrete == publicOrigin.String() {
+		return false
+	}
+	validScheme := parsed.Scheme == "https" || allowInsecure && parsed.Scheme == "http"
+	return validScheme && parsed.Scheme == publicOrigin.Scheme
 }
 
 type runtimeOptions struct {

@@ -113,6 +113,10 @@ export type EmulatorInstance = {
   capture?: { photo?: { source?: string; format?: string; upscale?: number } };
   takeScreenshot?: (source: string, format: string, upscale: number) => Promise<{ blob: Blob; format: string }>;
   gameManager?: {
+    savePayloadKind?: "RUNTIME_STATE" | "NATIVE_SAVE_BUNDLE_V1";
+    validationPurpose?: boolean;
+    getRpgPosition?: () => { mapId: number; playerX: number; playerY: number; fixtureState: number };
+    getCheckpointAvailability?: () => { available: boolean; reason: string | null };
     FS?: {
       analyzePath: (path: string) => { exists: boolean };
       mkdir: (path: string) => void;
@@ -130,6 +134,7 @@ export type EmulatorInstance = {
     getDiskCount?: () => number;
     getCurrentDisk?: () => number;
     getState?: () => Uint8Array;
+    getStateAsync?: () => Promise<Uint8Array>;
     getVideoDimensions?: (dimension: "aspect" | "width" | "height") => number | undefined;
     loadState?: (bytes: Uint8Array) => void;
     setCurrentDisk?: (index: number) => void;
@@ -150,10 +155,18 @@ export type EmulatorInstance = {
   downloadType?: { rom?: { dontExtractIfCore?: string[] } };
 };
 
+export type ManualStatePayload = {
+  screenshot: Blob;
+  format: string;
+  state: Uint8Array;
+  payloadKind?: "RUNTIME_STATE" | "NATIVE_SAVE_BUNDLE_V1";
+  validationPurpose?: boolean;
+};
+
 export type AdapterCallbacks = {
   onReady?: (emulator: EmulatorInstance) => void;
   onGameStart?: () => void | boolean;
-  onSaveState?: (payload: { screenshot: Blob; format: string; state: Uint8Array }) => void;
+  onSaveState?: (payload: ManualStatePayload) => void;
 };
 
 export type AdapterMountOptions = {
@@ -197,7 +210,7 @@ declare global {
     EJS_defaultControls?: EmulatorDefaultControls;
     EJS_onGameStart?: () => void;
     EJS_ready?: () => void;
-    EJS_onSaveState?: (payload: { screenshot: Blob; format: string; state: Uint8Array }) => void;
+    EJS_onSaveState?: (payload: ManualStatePayload) => void;
     EJS_onSaveSave?: (payload: { screenshot: Blob; format: string; save: Uint8Array }) => void;
     EJS_emulator?: EmulatorInstance;
     EJS_GameManager?: EJSGameManagerConstructor;

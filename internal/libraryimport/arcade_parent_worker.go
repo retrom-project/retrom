@@ -347,6 +347,6 @@ ORDER BY file.role,file.logical_name
 		}
 		manifestFiles = append(manifestFiles, manifest)
 	}
-	contents, digest, err := contentmanifest.Build(manifestFiles)
+	contents, digest, err := contentmanifest.Build("SINGLE_FILE", manifestFiles)
 	return files, string(contents), digest, err
 }

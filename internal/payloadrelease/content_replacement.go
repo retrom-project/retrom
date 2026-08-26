@@ -70,7 +70,7 @@ JOIN game_variant_revisions revision ON revision.id=file.game_variant_revision_i
 JOIN game_variants variant ON variant.id=revision.game_variant_id
 WHERE variant.game_id=? AND revision.game_content_revision_id<>?
 UNION ALL
-SELECT save.state_blob_id FROM save_states save
+SELECT save.payload_blob_id FROM save_states save
 JOIN game_variant_revisions revision ON revision.id=save.game_variant_revision_id
 WHERE save.game_id=? AND revision.game_content_revision_id<>?
 UNION ALL

@@ -140,7 +140,15 @@ fixture_sha256="$(openssl dgst -sha256 "$fixture_root/$game_archive" | awk '{pri
 printf 'arcade_flow=fixtures_verified\n'
 
 core_artifacts="$(curl --fail --silent --show-error "${common[@]}" "$backend/api/v1/admin/core-artifacts")"
-core_artifact_id="$(jq -er --arg coreId "$core_id" '.items[] | select(.coreId == $coreId and .enabled == true) | .id' <<<"$core_artifacts")"
+core_artifact_id="$(jq -er --arg coreId "$core_id" '
+  .items[]
+  | select(
+      .coreId == $coreId
+      and .selectedForNewBindings == true
+      and .availableForLaunch == true
+    )
+  | .id
+' <<<"$core_artifacts")"
 if [[ "$dependency_mode" == "mame" ]]; then
   upload_files bios "$fixture_root/retrombios.zip"
   bios_upload_file_id="$(jq -r '.files[0].fileId' "$evidence/bios-result.json")"

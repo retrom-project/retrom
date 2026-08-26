@@ -158,8 +158,8 @@ func multiDiscSaveRequest(t *testing.T, discIndex int) *http.Request {
 		"Content-Type":        {"application/json"},
 	})
 	testassert.False(t, err != nil, err)
-	_, _ = fmt.Fprintf(metadata, `{"name":"跨盘存档","discIndex":%d}`, discIndex)
-	state, err := writer.CreateFormFile("state", "state.bin")
+	_, _ = fmt.Fprintf(metadata, `{"payloadKind":"RUNTIME_STATE","name":"跨盘存档","discIndex":%d}`, discIndex)
+	state, err := writer.CreateFormFile("payload", "state.bin")
 	testassert.False(t, err != nil, err)
 	_, _ = state.Write([]byte("multi-disc-state"))
 	screenshot, err := writer.CreatePart(textproto.MIMEHeader{

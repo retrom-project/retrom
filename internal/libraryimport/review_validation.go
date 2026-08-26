@@ -81,10 +81,10 @@ WHERE draft.import_item_id=?
 		return ErrInvalid
 	}
 	err = state.transaction.QueryRowContext(state.ctx, `
-SELECT p.version,p.default_core_id,a.id,a.version,a.compatibility_config_json,
+SELECT p.version,p.default_core_id,a.id,a.version,a.compatibility_json,
   (SELECT id FROM dat_versions WHERE core_artifact_id=a.id AND is_active=1)
 FROM platform_instances p
-JOIN core_artifacts a ON a.core_id=p.default_core_id AND a.enabled=1
+JOIN core_artifacts a ON a.core_id=p.default_core_id AND a.selected_for_new_bindings=1
 WHERE p.id=? AND p.enabled=1 AND p.deleted_at_ms IS NULL
 `, state.targetID).Scan(
 		&state.platformVersion, &state.coreID, &state.artifactID,

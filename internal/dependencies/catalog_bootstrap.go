@@ -43,10 +43,9 @@ func (set *Set) Bootstrap(ctx context.Context, database *sql.DB, now time.Time) 
 				Repository, SourceCommit, Association string
 			}{component.Repository, component.SourceCommit, component.BinaryAssociationStatus}
 		}
-		selectedCoreIDs := make(map[string]struct{}, len(version.Manifest.EmulatorJS.SelectedCores))
+		selectedArtifacts := make(map[string]string, len(version.Manifest.EmulatorJS.SelectedCores))
 		for index, core := range version.Manifest.EmulatorJS.SelectedCores {
-			selectedCoreIDs[core.CoreID] = struct{}{}
-			if err := bootstrapCore(
+			artifactID, bootstrapErr := bootstrapCore(
 				ctx,
 				transaction,
 				versionName,
@@ -56,11 +55,13 @@ func (set *Set) Bootstrap(ctx context.Context, database *sql.DB, now time.Time) 
 				core,
 				licenseComponents[core.SourceComponentID],
 				now,
-			); err != nil {
-				return err
+			)
+			if bootstrapErr != nil {
+				return bootstrapErr
 			}
+			selectedArtifacts[core.CoreID] = artifactID
 		}
-		if err := bootstrapStaticBIOS(ctx, transaction, versionName, selectedCoreIDs, now); err != nil {
+		if err := bootstrapStaticBIOS(ctx, transaction, versionName, selectedArtifacts, now); err != nil {
 			return err
 		}
 		for _, core := range version.Manifest.Cores {
@@ -70,7 +71,7 @@ func (set *Set) Bootstrap(ctx context.Context, database *sql.DB, now time.Time) 
 			if err := bootstrapDAT(
 				ctx,
 				transaction,
-				versionName,
+				selectedArtifacts[core.CoreID],
 				core.CoreID,
 				core.DAT.LocalPath,
 				core.DAT.SHA256,
@@ -88,6 +89,9 @@ func (set *Set) Bootstrap(ctx context.Context, database *sql.DB, now time.Time) 
 				return err
 			}
 		}
+	}
+	if err := bootstrapRPGMaker(ctx, transaction, set.RPGMaker, now); err != nil {
+		return err
 	}
 	if err := transaction.Commit(); err != nil {
 		return fmt.Errorf("commit dependency bootstrap: %w", err)
@@ -157,7 +161,18 @@ func (bootstrap *catalogBootstrap) runCore(versionName string, version *Version,
 		unresolvedCloneofCount:    core.ParseStats.UnresolvedCloneofCount,
 		unresolvedRomofCount:      core.ParseStats.UnresolvedRomofCount,
 	}
-	state, err := bootstrap.findDAT(versionName, core.CoreID, core.DAT.SHA256)
+	artifactSetSHA := ""
+	for _, selectedCore := range version.Manifest.EmulatorJS.SelectedCores {
+		if selectedCore.CoreID == core.CoreID {
+			artifactSetSHA = selectedCore.ArtifactSetSHA256
+			break
+		}
+	}
+	if artifactSetSHA == "" {
+		bootstrap.fail(fmt.Errorf("%w: DAT core artifact declaration missing", ErrInvalid))
+		return
+	}
+	state, err := bootstrap.findDAT(versionName, core.CoreID, artifactSetSHA, core.DAT.SHA256)
 	if err != nil {
 		bootstrap.fail(fmt.Errorf("find built-in DAT index: %w", err))
 		return
@@ -198,7 +213,9 @@ func (bootstrap *catalogBootstrap) runCore(versionName string, version *Version,
 	}
 }
 
-func (bootstrap *catalogBootstrap) findDAT(versionName, coreID, datSHA string) (builtInDATState, error) {
+func (bootstrap *catalogBootstrap) findDAT(
+	versionName, coreID, artifactSetSHA, datSHA string,
+) (builtInDATState, error) {
 	var state builtInDATState
 	err := bootstrap.database.QueryRowContext(bootstrap.ctx, `
 SELECT d.id,
@@ -211,8 +228,10 @@ JOIN core_artifacts a ON a.id=d.core_artifact_id
 WHERE d.sha256=?
 AND d.parser_version='retrom-dat-v1'
 AND a.core_id=?
-AND a.emulatorjs_version=?
-`, datSHA, coreID, versionName).
+AND a.runtime_family='EMULATORJS'
+AND a.runtime_version=?
+AND a.artifact_set_sha256=?
+`, datSHA, coreID, versionName, artifactSetSHA).
 		Scan(&state.id, &state.parseStatus, &state.indexed)
 	if err != nil {
 		return state, fmt.Errorf("query built-in DAT index: %w", err)
@@ -466,16 +485,16 @@ func activateBuiltInDAT(
 	now time.Time,
 ) error {
 	var artifactID, parseStatus string
-	var artifactEnabled, alreadyActive int
+	var artifactSelected, alreadyActive int
 	if err := transaction.QueryRowContext(ctx, `
-SELECT d.core_artifact_id,a.enabled,d.parse_status,d.is_active
+SELECT d.core_artifact_id,a.selected_for_new_bindings,d.parse_status,d.is_active
 FROM dat_versions d
 JOIN core_artifacts a ON a.id=d.core_artifact_id
 WHERE d.id=?
-`, datID).Scan(&artifactID, &artifactEnabled, &parseStatus, &alreadyActive); err != nil {
+`, datID).Scan(&artifactID, &artifactSelected, &parseStatus, &alreadyActive); err != nil {
 		return fmt.Errorf("inspect selected built-in DAT: %w", err)
 	}
-	if artifactEnabled == 0 {
+	if artifactSelected == 0 {
 		return nil
 	}
 	if parseStatus != "READY" {

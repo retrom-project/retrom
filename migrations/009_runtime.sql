@@ -3,9 +3,14 @@
 CREATE TABLE launch_sessions (
   id TEXT PRIMARY KEY,
   profile_id TEXT NOT NULL REFERENCES profiles(id),
-  game_id TEXT NOT NULL REFERENCES games(id),
-  game_variant_revision_id TEXT NOT NULL REFERENCES game_variant_revisions(id),
+  purpose TEXT NOT NULL DEFAULT 'PRODUCT' CHECK(purpose IN ('PRODUCT','RPG_RUNTIME_VALIDATION')),
+  game_id TEXT REFERENCES games(id),
+  game_content_revision_id TEXT REFERENCES game_content_revisions(id),
+  game_variant_revision_id TEXT REFERENCES game_variant_revisions(id),
   core_artifact_id TEXT NOT NULL REFERENCES core_artifacts(id),
+  route_key TEXT NOT NULL CHECK(length(route_key) BETWEEN 1 AND 160),
+  effective_source_snapshot_id TEXT REFERENCES import_item_source_snapshots(id),
+  rpgmaker_runtime_validation_id TEXT REFERENCES rpgmaker_runtime_validations(id),
   save_state_id TEXT REFERENCES save_states(id),
   dos_entry_path TEXT,
   return_to TEXT NOT NULL,
@@ -22,17 +27,29 @@ CREATE TABLE launch_sessions (
   CHECK(save_access IN ('NORMAL','NETPLAY_DISABLED')),
   CHECK(hard_expires_at_ms >= bootstrap_expires_at_ms),
   CHECK(state != 'ACTIVE' OR activated_at_ms IS NOT NULL),
-  CHECK((state IN ('FINISHED','EXPIRED','REVOKED')) = (finished_at_ms IS NOT NULL))
+  CHECK((state IN ('FINISHED','EXPIRED','REVOKED')) = (finished_at_ms IS NOT NULL)),
+  CHECK(
+    purpose='PRODUCT' AND game_id IS NOT NULL AND game_content_revision_id IS NOT NULL
+      AND game_variant_revision_id IS NOT NULL AND effective_source_snapshot_id IS NULL
+      AND rpgmaker_runtime_validation_id IS NULL
+    OR purpose='RPG_RUNTIME_VALIDATION' AND game_id IS NULL AND game_content_revision_id IS NULL
+      AND game_variant_revision_id IS NULL AND effective_source_snapshot_id IS NOT NULL
+      AND rpgmaker_runtime_validation_id IS NOT NULL AND save_state_id IS NULL
+      AND dos_entry_path IS NULL AND netplay_session_id IS NULL AND netplay_player_no IS NULL
+      AND save_access='NORMAL' AND initial_disc_index=0
+  )
 );
 
 CREATE TABLE "launch_content_files" (
-  launch_session_id TEXT PRIMARY KEY REFERENCES launch_sessions(id),
+  launch_session_id TEXT NOT NULL REFERENCES launch_sessions(id),
   logical_name TEXT NOT NULL CHECK(length(logical_name) BETWEEN 1 AND 512),
   blob_id TEXT NOT NULL REFERENCES blobs(id),
   format_version TEXT NOT NULL CHECK(format_version IN (
-    'SOURCE_V1','RETROM_DOS_DIRECT_ZIP_V1','RETROM_MULTIDISC_M3U_V1'
+    'SOURCE_V1','RETROM_DOS_DIRECT_ZIP_V1','RETROM_MULTIDISC_M3U_V1',
+    'RPG_MAKER_PROJECT_V1'
   )),
-  created_at_ms INTEGER NOT NULL CHECK(created_at_ms>=0)
+  created_at_ms INTEGER NOT NULL CHECK(created_at_ms>=0),
+  PRIMARY KEY(launch_session_id,logical_name)
 );
 
 CREATE TABLE launch_external_files (
@@ -63,19 +80,73 @@ CREATE TABLE save_states (
   id TEXT PRIMARY KEY,
   profile_id TEXT NOT NULL REFERENCES profiles(id),
   game_id TEXT NOT NULL REFERENCES games(id),
+  game_content_revision_id TEXT NOT NULL REFERENCES game_content_revisions(id),
   game_variant_revision_id TEXT NOT NULL REFERENCES game_variant_revisions(id),
   core_artifact_id TEXT NOT NULL REFERENCES core_artifacts(id),
+  adapter_abi TEXT NOT NULL,
+  dependency_snapshot_sha256 TEXT NOT NULL CHECK(
+    length(dependency_snapshot_sha256)=64 AND dependency_snapshot_sha256=lower(dependency_snapshot_sha256)
+  ),
   dat_version_id TEXT REFERENCES dat_versions(id),
   dos_entry_path TEXT,
-  state_blob_id TEXT NOT NULL REFERENCES blobs(id),
-  screenshot_blob_id TEXT NOT NULL REFERENCES blobs(id),
+  payload_blob_id TEXT NOT NULL REFERENCES blobs(id),
+  payload_kind TEXT NOT NULL CHECK(payload_kind IN ('RUNTIME_STATE','NATIVE_SAVE_BUNDLE_V1')),
+  native_profile TEXT CHECK(native_profile IS NULL OR native_profile IN ('EASYRPG_V1','RPGMV_V1','RPGMZ_V1')),
+  resume_slot INTEGER CHECK(resume_slot IS NULL OR resume_slot BETWEEN 1 AND 2147483647),
+  payload_sha256 TEXT NOT NULL CHECK(length(payload_sha256)=64 AND payload_sha256=lower(payload_sha256)),
+  payload_size_bytes INTEGER NOT NULL CHECK(payload_size_bytes BETWEEN 1 AND 268435456),
+  screenshot_blob_id TEXT REFERENCES blobs(id),
   name TEXT NOT NULL,
   active_duration_ms INTEGER NOT NULL CHECK(active_duration_ms >= 0),
   version INTEGER NOT NULL DEFAULT 1,
   created_at_ms INTEGER NOT NULL,
   updated_at_ms INTEGER NOT NULL,
-  deleted_at_ms INTEGER
-, source_launch_session_id TEXT NOT NULL REFERENCES launch_sessions(id), disc_index INTEGER CHECK(disc_index BETWEEN 0 AND 7));
+  deleted_at_ms INTEGER,
+  source_launch_session_id TEXT NOT NULL REFERENCES launch_sessions(id),
+  disc_index INTEGER CHECK(disc_index BETWEEN 0 AND 7),
+  CHECK(
+    payload_kind='RUNTIME_STATE' AND native_profile IS NULL AND resume_slot IS NULL
+    OR payload_kind='NATIVE_SAVE_BUNDLE_V1' AND native_profile IS NOT NULL AND resume_slot IS NOT NULL
+  )
+);
+
+CREATE TABLE rpgmaker_runtime_validation_checkpoints (
+  validation_id TEXT PRIMARY KEY REFERENCES rpgmaker_runtime_validations(id),
+  payload_blob_id TEXT NOT NULL REFERENCES blobs(id),
+  payload_kind TEXT NOT NULL CHECK(payload_kind IN ('RUNTIME_STATE','NATIVE_SAVE_BUNDLE_V1')),
+  native_profile TEXT CHECK(native_profile IS NULL OR native_profile IN ('EASYRPG_V1','RPGMV_V1','RPGMZ_V1')),
+  resume_slot INTEGER CHECK(resume_slot IS NULL OR resume_slot BETWEEN 1 AND 2147483647),
+  payload_sha256 TEXT NOT NULL CHECK(length(payload_sha256)=64 AND payload_sha256=lower(payload_sha256)),
+  size_bytes INTEGER NOT NULL CHECK(size_bytes BETWEEN 1 AND 268435456),
+  created_at_ms INTEGER NOT NULL CHECK(created_at_ms>=0),
+  CHECK(
+    payload_kind='RUNTIME_STATE' AND native_profile IS NULL AND resume_slot IS NULL
+    OR payload_kind='NATIVE_SAVE_BUNDLE_V1' AND native_profile IS NOT NULL AND resume_slot IS NOT NULL
+  )
+);
+
+CREATE TABLE isolated_runtime_bootstrap_tickets (
+  ticket_sha256 BLOB PRIMARY KEY CHECK(length(ticket_sha256)=32),
+  launch_id TEXT NOT NULL UNIQUE REFERENCES launch_sessions(id),
+  profile_id TEXT NOT NULL REFERENCES profiles(id),
+  expected_origin TEXT NOT NULL CHECK(
+    expected_origin LIKE 'https://%' OR expected_origin LIKE 'http://%localhost:%'
+  ),
+  expires_at_ms INTEGER NOT NULL CHECK(expires_at_ms>=0),
+  consumed_at_ms INTEGER CHECK(consumed_at_ms IS NULL OR consumed_at_ms BETWEEN 0 AND expires_at_ms)
+);
+
+CREATE TABLE isolated_runtime_capabilities (
+  credential_sha256 BLOB PRIMARY KEY CHECK(length(credential_sha256)=32),
+  launch_id TEXT NOT NULL UNIQUE REFERENCES launch_sessions(id),
+  profile_id TEXT NOT NULL REFERENCES profiles(id),
+  expected_origin TEXT NOT NULL CHECK(
+    expected_origin LIKE 'https://%' OR expected_origin LIKE 'http://%localhost:%'
+  ),
+  issued_at_ms INTEGER NOT NULL CHECK(issued_at_ms>=0),
+  expires_at_ms INTEGER NOT NULL CHECK(expires_at_ms>=issued_at_ms),
+  revoked_at_ms INTEGER CHECK(revoked_at_ms IS NULL OR revoked_at_ms>=issued_at_ms)
+);
 
 CREATE TABLE play_sessions (
   id TEXT PRIMARY KEY,

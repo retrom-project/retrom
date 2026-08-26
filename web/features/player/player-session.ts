@@ -2,12 +2,14 @@
 
 import { useCallback, useEffect, type Dispatch, type SetStateAction } from "react";
 import { newUuid } from "@/lib/crypto";
-import { readDiscState, type DiscSet, type EmulatorInstance, type PlayerConfig } from "./adapters/ejs-4.2.3-v2";
+import { readDiscState, type DiscSet, type EmulatorInstance, type ManualStatePayload, type PlayerConfig } from "./adapters/ejs-4.2.3-v2";
 import { uploadWithProgress, type SaveUploadProgress } from "./upload-with-progress";
 import { reducePlayerOrientation, unlockLandscape, type PlayerOrientationState } from "./orientation";
 import type { NetplayController } from "./netplay/controller";
+import { parseValidationCheckpointReceipt, type ValidationCheckpointReceipt } from "./rpg-validation-checkpoint-response";
 
 const SAVE_UPLOAD_PRESENTATION_MS = 400;
+const SAVE_UPLOAD_TIMEOUT_MS = 300_000;
 type Mutable<T> = { current: T };
 type SyncTone = "synced" | "busy" | "warning";
 
@@ -31,13 +33,19 @@ export function usePlayerSession(params: PlayerSessionParams) {
     params.setSyncTone("busy");
   }, [params]);
 
-  const uploadManualState = useCallback((payload: { screenshot: Blob; format: string; state: Uint8Array }) => queueManualState(payload, params, reportProgress), [params, reportProgress]);
+  const uploadManualState = useCallback(async (payload: ManualStatePayload) => Boolean(await queueStateUpload(payload, params, reportProgress)), [params, reportProgress]);
+  const uploadValidationCheckpoint = useCallback(async (payload: ManualStatePayload) => {
+    if (!payload.validationPurpose) {throw new Error("RPG_CHECKPOINT_RESPONSE_INVALID");}
+    const result = await queueStateUpload(payload, params, reportProgress);
+    if (!result || result === true) {throw new Error("RPG_CHECKPOINT_UPLOAD_FAILED");}
+    return result;
+  }, [params, reportProgress]);
 
   const exit = useCallback(() => exitPlayer(params, sendEvent), [params, sendEvent]);
   const exitStrict = useCallback(() => exitImmersivePlayer(params, sendEvent), [params, sendEvent]);
 
   usePageHideFinish(params);
-  return { sendEvent, uploadManualState, exit, exitStrict };
+  return { sendEvent, uploadManualState, uploadValidationCheckpoint, exit, exitStrict };
 }
 
 async function sendPlayerEvent(kind: "start" | "heartbeat" | "finish", params: PlayerSessionParams) {
@@ -51,7 +59,7 @@ async function sendPlayerEvent(kind: "start" | "heartbeat" | "finish", params: P
   if (kind === "finish") {params.finishing.current = true;}
 }
 
-function queueManualState(payload: { screenshot: Blob; format: string; state: Uint8Array }, params: PlayerSessionParams, reportProgress: (progress: SaveUploadProgress) => void) {
+function queueStateUpload(payload: ManualStatePayload, params: PlayerSessionParams, reportProgress: (progress: SaveUploadProgress) => void) {
   const result = params.saveUploadQueue.current.then(() => uploadState(payload, params, reportProgress));
   params.saveUploadQueue.current = result.then(() => undefined, () => undefined);
   return result.catch(() => {
@@ -90,7 +98,7 @@ async function exitImmersivePlayer(
   params.replaceImmersiveRoute(params.returnTo.current);
 }
 
-async function uploadState(payload: { screenshot: Blob; format: string; state: Uint8Array }, params: PlayerSessionParams, reportProgress: (progress: SaveUploadProgress) => void) {
+async function uploadState(payload: ManualStatePayload, params: PlayerSessionParams, reportProgress: (progress: SaveUploadProgress) => void) {
   if (!payload.screenshot.size || !payload.state.byteLength) {return rejectSave(params, "状态或截图为空，未创建存档。");}
   const discIndex = currentDiscIndex(params);
   if (discIndex === "unavailable") {return rejectSave(params, "无法读取当前光盘，未创建存档。");}
@@ -100,14 +108,23 @@ async function uploadState(payload: { screenshot: Blob; format: string; state: U
   await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()));
   let response: Awaited<ReturnType<typeof uploadWithProgress>>;
   try {
-    response = await uploadWithProgress({ url: `/runtime/launches/${params.launchId}/save-states`, method: "POST", headers: { "Idempotency-Key": newUuid() }, body: form, totalBytes: payload.state.byteLength + payload.screenshot.size, onProgress: reportProgress });
+    response = await uploadWithProgress({
+      url: `/runtime/launches/${params.launchId}/save-states`, method: "POST",
+      headers: { "Idempotency-Key": newUuid() }, body: form,
+      totalBytes: payload.state.byteLength + payload.screenshot.size,
+      timeoutMs: SAVE_UPLOAD_TIMEOUT_MS, onProgress: reportProgress,
+    });
   } finally {
     await waitForSaveUploadPresentation(startedAt);
     params.setSaveUploadProgress(null);
   }
   if (!response.ok) {return rejectSave(params, "手动存档失败，服务器未创建不完整记录");}
   params.setSyncText("已同步"); params.setSyncTone("synced"); params.showToast("手动存档和截图已保存");
-  return true;
+  return uploadResult(payload, response.body);
+}
+
+function uploadResult(payload: ManualStatePayload, responseBody: string): true | ValidationCheckpointReceipt {
+  return payload.validationPurpose ? parseValidationCheckpointReceipt(responseBody) : true;
 }
 
 function currentDiscIndex(params: PlayerSessionParams): number | undefined | "unavailable" {
@@ -118,11 +135,16 @@ function currentDiscIndex(params: PlayerSessionParams): number | undefined | "un
   } catch {return "unavailable";}
 }
 
-function createSaveForm(payload: { screenshot: Blob; format: string; state: Uint8Array }, discIndex: number | undefined) {
+function createSaveForm(payload: ManualStatePayload, discIndex: number | undefined) {
   const form = new FormData();
-  form.append("metadata", new Blob([JSON.stringify({ name: `手动存档 ${new Date().toLocaleString("zh-CN")}`, ...(discIndex === undefined ? {} : { discIndex }) })], { type: "application/json" }));
+  const metadata = {
+    payloadKind: payload.payloadKind ?? "RUNTIME_STATE",
+    ...(payload.validationPurpose ? {} : { name: `手动存档 ${new Date().toLocaleString("zh-CN")}` }),
+    ...(discIndex === undefined ? {} : { discIndex }),
+  };
+  form.append("metadata", new Blob([JSON.stringify(metadata)], { type: "application/json" }));
   const stateBytes = new Uint8Array(payload.state).slice().buffer;
-  form.append("state", new Blob([stateBytes], { type: "application/octet-stream" }), `state.${payload.format || "bin"}`);
+  form.append("payload", new Blob([stateBytes], { type: "application/octet-stream" }), "payload.bin");
   form.append("screenshot", payload.screenshot, `screenshot.${payload.format || "png"}`);
   return form;
 }

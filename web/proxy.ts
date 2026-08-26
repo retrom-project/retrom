@@ -2,6 +2,7 @@ import { randomBytes } from "node:crypto";
 import { NextResponse, type NextRequest } from "next/server";
 import { decideAuthRoute } from "@/features/auth/routing";
 import type { AuthContext } from "@/features/auth/types";
+import { playerFrameSource } from "@/lib/rpg-runtime-csp";
 
 const backend = process.env.NEXT_BACKEND_ORIGIN ?? "http://127.0.0.1:8080";
 
@@ -27,7 +28,7 @@ export async function proxy(request: NextRequest) {
     "style-src 'self' 'unsafe-inline'",
     "connect-src 'self' blob:",
     "worker-src 'self' blob:",
-    "frame-src 'self'",
+    `frame-src ${playerFrameSource(request.nextUrl.pathname, process.env.RETROM_RPG_RUNTIME_ORIGIN_TEMPLATE)}`,
     "img-src 'self' data: blob:",
     "media-src 'self' blob:",
     "font-src 'self' data:"

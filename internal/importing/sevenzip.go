@@ -49,7 +49,7 @@ func RunArchiveWorker(arguments []string) (bool, error) {
 	if len(arguments) == 0 || arguments[0] != archiveWorkerCommand {
 		return false, nil
 	}
-	if len(arguments) < 2 || len(arguments) > 6 {
+	if len(arguments) < 2 || len(arguments) > 7 {
 		return true, ErrArchiveUnsafe
 	}
 	if err := applyArchiveWorkerLimits(); err != nil {
@@ -109,6 +109,7 @@ func ScanSevenZip(ctx context.Context, path string, limits ArchiveLimits) ([]Arc
 		strconv.FormatInt(limits.MaxEntryBytes, 10),
 		strconv.FormatInt(limits.MaxExpandedBytes, 10),
 		strconv.FormatInt(limits.MaxCompressionRatio, 10),
+		strconv.FormatBool(limits.AllowNestedArchives),
 	)
 	if err != nil {
 		return nil, err
@@ -234,7 +235,7 @@ func runArchiveWorkerProcess(
 }
 
 func archiveLimitsFromArguments(arguments []string) (ArchiveLimits, error) {
-	if len(arguments) != 4 {
+	if len(arguments) != 5 {
 		return ArchiveLimits{}, ErrArchiveUnsafe
 	}
 	maxEntries, err := strconv.Atoi(arguments[0])
@@ -253,6 +254,10 @@ func archiveLimitsFromArguments(arguments []string) (ArchiveLimits, error) {
 	if err != nil {
 		return ArchiveLimits{}, ErrArchiveUnsafe
 	}
+	allowNestedArchives, err := strconv.ParseBool(arguments[4])
+	if err != nil {
+		return ArchiveLimits{}, ErrArchiveUnsafe
+	}
 	defaults := DefaultArchiveLimits()
 	if maxEntries < 0 || maxEntries > defaults.MaxEntries || maxEntryBytes < 0 ||
 		maxEntryBytes > defaults.MaxEntryBytes || maxExpandedBytes < 0 ||
@@ -262,6 +267,7 @@ func archiveLimitsFromArguments(arguments []string) (ArchiveLimits, error) {
 	return ArchiveLimits{
 		MaxEntries: maxEntries, MaxEntryBytes: maxEntryBytes,
 		MaxExpandedBytes: maxExpandedBytes, MaxCompressionRatio: maxRatio,
+		AllowNestedArchives: allowNestedArchives,
 	}, nil
 }
 
@@ -372,7 +378,7 @@ func scanSevenZipItem(
 		return ArchiveEntry{}, 0, false, classifySevenZipReadError(err, true)
 	}
 	entry, readErr := hashSevenZipEntry(
-		ctx, reader, ordinal, pathValue, folded, expanded, item.CRC32,
+		ctx, reader, ordinal, pathValue, folded, expanded, item.CRC32, limits.AllowNestedArchives,
 	)
 	closeErr := reader.Close()
 	if readErr != nil || closeErr != nil {
@@ -418,6 +424,7 @@ func hashSevenZipEntry(
 	pathValue, folded string,
 	expectedSize int64,
 	expectedCRC32 uint32,
+	allowNestedArchives bool,
 ) (ArchiveEntry, error) {
 	sha256Hash := sha256.New()
 	legacyHashes := legacychecksum.New()
@@ -450,7 +457,8 @@ func hashSevenZipEntry(
 	if written != expectedSize || crc32Hash.Sum32() != expectedCRC32 {
 		return ArchiveEntry{}, ErrArchiveUnsafe
 	}
-	if nestedArchive(pathValue, prefix[:min(int64(len(prefix)), written)]) {
+	nestedFormat := DetectNestedArchive(pathValue, prefix[:min(int64(len(prefix)), written)])
+	if !allowNestedArchives && nestedFormat != NestedArchiveNone {
 		return ArchiveEntry{}, ErrNestedArchiveUnsupported
 	}
 	return ArchiveEntry{
@@ -458,6 +466,7 @@ func hashSevenZipEntry(
 		ArchiveFormat: "SEVEN_Z", CompressionProfile: "SEVEN_Z_DECODER_VALIDATED", Size: written,
 		CRC32: hex.EncodeToString(crc32Hash.Sum(nil)), MD5: hex.EncodeToString(legacyHashes.MD5.Sum(nil)),
 		SHA1: hex.EncodeToString(legacyHashes.SHA1.Sum(nil)), SHA256: hex.EncodeToString(sha256Hash.Sum(nil)),
+		NestedArchive: nestedFormat,
 	}, nil
 }
 

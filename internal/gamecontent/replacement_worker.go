@@ -148,7 +148,7 @@ func (service *Service) persistPreparedReplacement(
 	}
 	var currentContent string
 	var currentVersion int64
-	var currentInstance, currentArtifact, currentCompatibilityJSON string
+	var currentInstance, currentArtifact, currentRouteKey, currentCompatibilityJSON string
 	var currentPlatformVersion, currentArtifactVersion int64
 	var currentDAT sql.NullString
 	if err := transaction.QueryRowContext(ctx, `
@@ -157,8 +157,9 @@ g.version,
 g.platform_instance_id,
 	pi.version,
 	a.id,
+	a.route_key,
 	a.version,
-	a.compatibility_config_json,
+	a.compatibility_json,
 	(SELECT id
 FROM dat_versions
 WHERE core_artifact_id=a.id
@@ -166,7 +167,7 @@ AND is_active=1)
 FROM games g
 JOIN platform_instances pi ON pi.id=g.platform_instance_id
 JOIN core_artifacts a ON a.core_id=pi.default_core_id
-AND a.enabled=1
+AND a.selected_for_new_bindings=1 AND a.available_for_launch=1
 WHERE g.id=?
 AND g.status='PUBLISHED'
 `, gameID).Scan(
@@ -175,6 +176,7 @@ AND g.status='PUBLISHED'
 		&currentInstance,
 		&currentPlatformVersion,
 		&currentArtifact,
+		&currentRouteKey,
 		&currentArtifactVersion,
 		&currentCompatibilityJSON,
 		&currentDAT,
@@ -184,6 +186,7 @@ AND g.status='PUBLISHED'
 		currentInstance != snapshot.PlatformInstanceID ||
 		currentPlatformVersion != snapshot.PlatformInstanceVersion ||
 		currentArtifact != snapshot.CoreArtifactID ||
+		currentRouteKey != snapshot.CoreArtifactRouteKey ||
 		currentArtifactVersion != snapshot.CoreArtifactVersion ||
 		corevalidation.CompatibilityConfigDigest(currentCompatibilityJSON) != snapshot.CompatibilityConfigDigest ||
 		nullableText(currentDAT) != pointerText(snapshot.DATVersionID) {
@@ -278,6 +281,7 @@ INSERT INTO game_variant_revisions(id,
 game_variant_id,
 game_content_revision_id,
 core_artifact_id,
+route_key,
 dat_version_id,
 validation_input_digest,
 emulator_game_id,
@@ -285,6 +289,7 @@ status,
 compatibility_code,
 dependency_snapshot_json,
 created_at_ms) VALUES(?,
+?,
 ?,
 ?,
 ?,
@@ -300,6 +305,7 @@ created_at_ms) VALUES(?,
 		variantID,
 		contentID,
 		artifactID,
+		snapshot.CoreArtifactRouteKey,
 		nullableValue(snapshot.DATVersionID),
 		validationInputDigest,
 		emulatorGameID,

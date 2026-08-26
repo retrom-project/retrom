@@ -393,11 +393,39 @@ func TestMultiDiscAttachmentHTTPContractAndReviewProjection(t *testing.T) {
 		bytes.Contains(reviewProjection.MultiDisc, []byte(`"blobId"`)) {
 		t.Fatalf("accepted review = %d %s", review.Code, review.Body.String())
 	}
-	if _, err := server.database.ExecContext(ctx, `
-UPDATE core_artifacts
-SET compatibility_config_json=json_set(compatibility_config_json,'$.multiDisc.maxDiscs',7)
-WHERE core_id='yabause' AND enabled=1
-`); err != nil {
+	var previousArtifactID string
+	if err := server.database.QueryRowContext(ctx, `
+SELECT id FROM core_artifacts
+WHERE core_id='yabause' AND selected_for_new_bindings=1
+`).Scan(&previousArtifactID); err != nil {
+		t.Fatal(err)
+	}
+	transaction, err := server.database.BeginTx(ctx, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = transaction.Rollback() }()
+	if _, err := transaction.ExecContext(ctx, `
+UPDATE core_artifacts SET selected_for_new_bindings=0,version=version+1,updated_at_ms=? WHERE id=?
+`, time.Now().UnixMilli(), previousArtifactID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := transaction.ExecContext(ctx, `
+INSERT INTO core_artifacts(
+ id,core_id,route_key,runtime_family,runtime_adapter_kind,runtime_version,adapter_id,entry_path,
+ size_bytes,sha256,manifest_sha256,artifact_set_sha256,requires_threads,save_payload_kind,
+ save_max_bytes,provenance_json,compatibility_json,selected_for_new_bindings,available_for_launch,
+ version,created_at_ms,updated_at_ms)
+SELECT ?,core_id,route_key,runtime_family,runtime_adapter_kind,runtime_version,adapter_id,entry_path,
+ size_bytes,sha256,manifest_sha256,?,requires_threads,save_payload_kind,
+ save_max_bytes,provenance_json,json_set(compatibility_json,'$.multiDisc.maxDiscs',7),1,1,
+ 1,?,?
+FROM core_artifacts WHERE id=?
+`, uuid.NewString(), strings.Repeat("d", 64), time.Now().UnixMilli(), time.Now().UnixMilli(),
+		previousArtifactID); err != nil {
+		t.Fatal(err)
+	}
+	if err := transaction.Commit(); err != nil {
 		t.Fatal(err)
 	}
 	staleRequest := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/admin/reviews/"+itemID, nil)

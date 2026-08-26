@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"retrom/internal/testassert"
@@ -14,14 +15,7 @@ import (
 func TestBIOSFullCatalogCursorTraverses286Items(t *testing.T) {
 	t.Parallel()
 	server := newTestServer(t)
-	if _, err := server.database.ExecContext(context.Background(), `
-INSERT INTO core_artifacts(id,core_id,emulatorjs_version,bundle_version,flavor,relative_path,size_bytes,sha256,
-source_commit,provenance_json,compatibility_config_json,enabled,version,created_at_ms,updated_at_ms)
-VALUES('bios-page-artifact','mgba','4.2.3','paging','WASM','data/paging.js',1,lower(hex(zeroblob(32))),
-NULL,'{}','{}',1,1,1,1)
-`); err != nil {
-		t.Fatal(err)
-	}
+	seedHTTPTestCoreArtifact(t, server.database, "bios-page-artifact", "mgba", "data/paging.js", strings.Repeat("0", 64), "{}")
 	transaction, err := server.database.BeginTx(context.Background(), nil)
 	testassert.False(t, err != nil, err)
 	for index := 0; index < 286; index++ {

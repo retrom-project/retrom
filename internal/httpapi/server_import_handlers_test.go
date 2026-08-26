@@ -50,11 +50,8 @@ func TestServerImportHTTPRootBoundaryAuthorizationAndIdempotency(t *testing.T) {
 		time.Now,
 	)
 	t.Cleanup(server.serverImports.Close)
+	seedHTTPTestCoreArtifact(t, server.database, "server-http-artifact", "mgba", "data/server-http.js", strings.Repeat("0", 64), "{}")
 	if _, err := server.database.ExecContext(context.Background(), `
-INSERT INTO core_artifacts(id,core_id,emulatorjs_version,bundle_version,flavor,relative_path,size_bytes,sha256,
-source_commit,provenance_json,compatibility_config_json,enabled,version,created_at_ms,updated_at_ms)
-VALUES('server-http-artifact','mgba','4.2.3','server-http','WASM','data/server-http.js',1,lower(hex(zeroblob(32))),
-NULL,'{}','{}',1,1,1,1);
 INSERT INTO bios_requirements(id,core_id,core_artifact_id,source_kind,dat_machine_name,logical_name,
 requirement_mode,condition_code,activation_options_json,catalog_digest,size_bytes,md5,sha1,sha256,
 source_url,source_version,enabled,version,created_at_ms,updated_at_ms,delivery_kind,emulator_path)

@@ -97,6 +97,47 @@ func TestCreateRejectsUnsafeAndDuplicatePaths(t *testing.T) {
 	}
 }
 
+func TestCreateEnforcesRPGUploadPurposeShape(t *testing.T) {
+	t.Parallel()
+	dataDir := t.TempDir()
+	database, err := store.Open(context.Background(), filepath.Join(dataDir, "retrom.db"), time.Now)
+	testassert.False(t, err != nil, err)
+	t.Cleanup(func() { cleanup.Error("close", database.Close()) })
+	blobs, err := blobstore.Open(dataDir)
+	testassert.False(t, err != nil, err)
+	service := New(database.SQL, blobs, dataDir, time.Now)
+
+	valid, err := service.Create(context.Background(), CreateRequest{
+		Purpose: "RPG_MAKER_PROJECT", SourceType: "FILES",
+		Files: []FileDeclaration{{ClientFileID: "project", RelativePath: "game.ZIP", SizeBytes: 1}},
+	})
+	testassert.Falsef(t, err != nil, "create RPG archive: %v", err)
+	if valid.Purpose != "RPG_MAKER_PROJECT" {
+		t.Fatalf("created purpose = %q", valid.Purpose)
+	}
+	loaded, err := service.Get(context.Background(), valid.ID)
+	testassert.Falsef(t, err != nil, "get RPG upload: %v", err)
+	if loaded.Purpose != "RPG_MAKER_PROJECT" {
+		t.Fatalf("loaded purpose = %q", loaded.Purpose)
+	}
+
+	invalidRequests := []CreateRequest{
+		{Purpose: "UNKNOWN", SourceType: "DIRECTORY", Files: []FileDeclaration{
+			{ClientFileID: "project", RelativePath: "game/Game.ini", SizeBytes: 1},
+		}},
+		{Purpose: "RPG_MAKER_PROJECT", SourceType: "FILES", Files: []FileDeclaration{{ClientFileID: "project", RelativePath: "game.exe", SizeBytes: 1}}},
+		{Purpose: "RUNTIME_ASSET_PACK", SourceType: "FILES", Files: []FileDeclaration{
+			{ClientFileID: "a", RelativePath: "a.zip", SizeBytes: 1},
+			{ClientFileID: "b", RelativePath: "b.zip", SizeBytes: 1},
+		}},
+	}
+	for _, request := range invalidRequests {
+		if _, err := service.Create(context.Background(), request); !errors.Is(err, ErrInvalid) {
+			t.Fatalf("Create(%#v) error = %v", request, err)
+		}
+	}
+}
+
 func TestCancelCreatedUploadIsVersionedAndTerminal(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()

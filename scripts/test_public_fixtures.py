@@ -7,8 +7,10 @@ import binascii
 import hashlib
 import json
 import subprocess
+import tarfile
 import unittest
 import zipfile
+import zlib
 from pathlib import Path
 from xml.etree import ElementTree
 
@@ -53,6 +55,73 @@ NES_ROMS = {
 }
 SNES_FIXTURE_ROOT = REPOSITORY_ROOT / "testdata" / "public-roms" / "snes-smoke"
 SNES_SHA256 = "408574e6a6b7db1273e21142789bc50e5a1acb529bcf61c059cced5cfe1082db"
+RPGMAKER_FIXTURE_ROOT = REPOSITORY_ROOT / "testdata" / "public-roms" / "rpgmaker-smoke"
+RPGMAKER_GENERATIONS = {
+    "rpg2000": "RPG2000",
+    "rpg2000-compat": "RPG2000",
+    "rpg2003": "RPG2003",
+    "rpgxp": "RPGXP",
+    "rpgvx": "RPGVX",
+    "rpgvxace": "RPGVXACE",
+    "rpgmv": "RPGMV",
+    "malicious-rpgmv": "RPGMV",
+    "malicious-rpgmz": "RPGMZ",
+    "negative-matrix": "SECURITY_MATRIX",
+}
+MV_CORE_SHA256 = {
+    "rpg_core.js": "cce476804212b28049fef8b5c117577d0e356eac4abe33804628931e1826dd41",
+    "rpg_managers.js": "aef81821786b12a3c27f8db510089663f6c2aabb1b1708dd065f765f3d1f9c18",
+    "rpg_objects.js": "d4278c2161193d9105787ee6b1ff5167c07ed23af4deef190b7705a326f1926e",
+    "rpg_scenes.js": "b10b50dcb62793e42fd807fa3034fb82a89c6cb7ab32afafbb366d6d0a7f248a",
+    "rpg_sprites.js": "3b434c9b81c4081d00dd9eca3900fe7564545c6b5a70e3b00cd263de4170a4c8",
+    "rpg_windows.js": "81343a9b3fb1c957f1c6098776f8ca263aac8431f3996b647caab36d6a03c5f3",
+}
+MV_LIBRARY_SHA256 = {
+    "fpsmeter.js": "fec43a13a522dafe9c28c3d30635a275af350edf3423de0349fb6fb9c01e9450",
+    "iphone-inline-video.browser.js": "688ce9e9460d08399b898519b6d6811f8bd6722369e266b1f2761002be608f72",
+    "lz-string.js": "7acc5ae524455fb67dee09375b4246386241f7dc4708dcdf8af0e78ca8267de7",
+    "pixi.js": "47097d24b261679366419f9e36196a3303c35fa3d06d0518edb7f1ab5417def0",
+    "pixi-picture.js": "f0e2af6190f2c53361047379ff0ae041568097f1b5beadcad28012f0aa5a99bb",
+    "pixi-tilemap.js": "7401aeac40f9af7f7e777ce7a03a99c39571fa744fdb97add34732d7f8984e06",
+}
+
+
+def read_marshal_integer(payload: bytes, offset: int) -> tuple[int, int]:
+    prefix = int.from_bytes(payload[offset : offset + 1], "little", signed=True)
+    offset += 1
+    if prefix == 0:
+        return 0, offset
+    if 5 < prefix < 128:
+        return prefix - 5, offset
+    if -129 < prefix < -5:
+        return prefix + 5, offset
+    size = abs(prefix)
+    value = int.from_bytes(payload[offset : offset + size], "little", signed=prefix < 0)
+    return value, offset + size
+
+
+def decode_single_rgss_script(payload: bytes) -> tuple[bytes, bytes]:
+    if not payload.startswith(b'\x04\x08['):
+        raise AssertionError("RGSS fixture is not a Ruby Marshal 4.8 array")
+    count, offset = read_marshal_integer(payload, 3)
+    if count != 1 or payload[offset : offset + 1] != b"[":
+        raise AssertionError("RGSS fixture must contain one script tuple")
+    tuple_size, offset = read_marshal_integer(payload, offset + 1)
+    if tuple_size != 3 or payload[offset : offset + 1] != b"i":
+        raise AssertionError("RGSS fixture script tuple is invalid")
+    script_id, offset = read_marshal_integer(payload, offset + 1)
+    if script_id != 1 or payload[offset : offset + 1] != b'"':
+        raise AssertionError("RGSS fixture script id/name is invalid")
+    name_size, offset = read_marshal_integer(payload, offset + 1)
+    name = payload[offset : offset + name_size]
+    offset += name_size
+    if payload[offset : offset + 1] != b'"':
+        raise AssertionError("RGSS fixture compressed source is invalid")
+    source_size, offset = read_marshal_integer(payload, offset + 1)
+    compressed = payload[offset : offset + source_size]
+    if offset + source_size != len(payload):
+        raise AssertionError("RGSS fixture contains trailing Marshal data")
+    return name, zlib.decompress(compressed)
 ARCADE_OUTPUTS = {
     "pacman.zip": (16782, "eb7575bf12b9616874aa8672f4bc8fa9f90142f94ba8683d8d18dce928989611"),
     "puckman.zip": (9578, "a7ca86aecb425661a66a4faee139ff386c906e513c988f583f5b9bae71073b34"),
@@ -93,6 +162,229 @@ FBNEO_MERGES = {
 
 
 class PublicFixtureTests(unittest.TestCase):
+    def test_rpgmaker_smoke_outputs_match_their_generator_and_manifest(self) -> None:
+        subprocess.run(
+            ["python3", str(RPGMAKER_FIXTURE_ROOT / "build.py"), "--check"],
+            cwd=REPOSITORY_ROOT,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        manifest = json.loads(
+            (RPGMAKER_FIXTURE_ROOT / "fixture-manifest.json").read_text(encoding="utf-8")
+        )
+        self.assertEqual(1, manifest["schemaVersion"])
+        self.assertEqual("generator/*.go", manifest["generator"])
+        declared: set[str] = set()
+        observed_generations: set[str] = set()
+        for entry in manifest["files"]:
+            relative = entry["path"]
+            self.assertNotIn(relative, declared)
+            declared.add(relative)
+            contents = (RPGMAKER_FIXTURE_ROOT / relative).read_bytes()
+            self.assertEqual(len(contents), entry["sizeBytes"])
+            self.assertEqual(hashlib.sha256(contents).hexdigest(), entry["sha256"])
+            directory = relative.split("/", 1)[0]
+            self.assertEqual(RPGMAKER_GENERATIONS[directory], entry["generation"])
+            observed_generations.add(entry["generation"])
+        actual = {
+            path.relative_to(RPGMAKER_FIXTURE_ROOT).as_posix()
+            for directory in RPGMAKER_GENERATIONS
+            for path in (RPGMAKER_FIXTURE_ROOT / directory).rglob("*")
+            if path.is_file()
+        }
+        self.assertEqual(actual, declared)
+        self.assertEqual(set(RPGMAKER_GENERATIONS.values()), observed_generations)
+
+    def test_rpgmaker_smoke_contains_no_vendor_runtime_or_executable(self) -> None:
+        forbidden_suffixes = {
+            ".exe", ".dll", ".so", ".dylib", ".node", ".bat", ".cmd", ".ps1",
+        }
+        allowed_opaque_native = {
+            "malicious-rpgmz/Game.exe", "malicious-rpgmz/nw.dll",
+            "malicious-rpgmz/plugin.node", "malicious-rpgmz/launcher.bat",
+            "negative-matrix/referenced-native/plugin.node",
+        }
+        observed_opaque_native: set[str] = set()
+        for directory in RPGMAKER_GENERATIONS:
+            for path in (RPGMAKER_FIXTURE_ROOT / directory).rglob("*"):
+                with self.subTest(path=path):
+                    self.assertFalse(path.is_symlink())
+                    if path.is_file() and path.suffix.lower() in forbidden_suffixes:
+                        relative = path.relative_to(RPGMAKER_FIXTURE_ROOT).as_posix()
+                        self.assertIn(relative, allowed_opaque_native)
+                        self.assertTrue(path.read_bytes().startswith(b"RETROM OWNED"))
+                        observed_opaque_native.add(relative)
+        self.assertEqual(allowed_opaque_native, observed_opaque_native)
+        archives = list((RPGMAKER_FIXTURE_ROOT / "vendor").glob("*.tar.gz"))
+        self.assertEqual(1, len(archives), "only the locked MIT CoreScript source archive is allowed")
+
+    def test_lcf_smoke_projects_have_generation_markers_and_owned_assets(self) -> None:
+        for directory, marker, ldb_id_encoding in (
+            ("rpg2000", b"RETROM RPG2000", b"\x0a\x01\x00"),
+            ("rpg2000-compat", b"RETROM RPG2000 V2", b"\x0a\x01\x00"),
+            ("rpg2003", b"RETROM RPG2003", b"\x0a\x02\x8f\x53"),
+        ):
+            root = RPGMAKER_FIXTURE_ROOT / directory
+            with self.subTest(directory=directory):
+                database = (root / "RPG_RT.ldb").read_bytes()
+                map_tree = (root / "RPG_RT.lmt").read_bytes()
+                game_map = (root / "Map0001.lmu").read_bytes()
+                self.assertTrue(database.startswith(b"\x0bLcfDataBase"))
+                self.assertTrue(map_tree.startswith(b"\x0aLcfMapTree"))
+                self.assertTrue(game_map.startswith(b"\x0aLcfMapUnit"))
+                self.assertIn(marker, map_tree)
+                self.assertIn(marker, game_map)
+                self.assertEqual(2, game_map.count(b"RETROM STATE CHANGED"))
+                self.assertIn(b"retrom-tone", game_map)
+                self.assertIn(b"retrom-marker", game_map)
+                self.assertIn(ldb_id_encoding, database)
+                for image_name in (
+                    "ChipSet/retrom-chipset.png",
+                    "CharSet/retrom-hero.png",
+                    "Picture/retrom-marker.png",
+                    "System/retrom-system.png",
+                ):
+                    image = (root / image_name).read_bytes()
+                    self.assertEqual(b"\x89PNG\r\n\x1a\n", image[:8])
+                    self.assertEqual(8, image[24], "LCF assets require 8-bit PNG samples")
+                    self.assertEqual(3, image[25], "LCF assets must be indexed-color PNGs")
+                self.assertEqual(b"RIFF", (root / "Sound/retrom-tone.wav").read_bytes()[:4])
+                self.assertIn(b"FullPackageFlag=1", (root / "RPG_RT.ini").read_bytes())
+
+    def test_rgss_smoke_archives_are_minimal_marshal_zlib_programs(self) -> None:
+        archives = (
+            ("rpgxp", "Data/Scripts.rxdata", b"RETROM RPGXP"),
+            ("rpgvx", "Data/Scripts.rvdata", b"RETROM RPGVX"),
+            ("rpgvxace", "Data/Scripts.rvdata2", b"RETROM RPGVXACE"),
+        )
+        for directory, relative, marker in archives:
+            with self.subTest(directory=directory):
+                payload = (RPGMAKER_FIXTURE_ROOT / directory / relative).read_bytes()
+                name, source = decode_single_rgss_script(payload)
+                self.assertEqual(b"Retrom Smoke", name)
+                self.assertIn(marker, source)
+                self.assertIn(b"$game_variables", source)
+                self.assertIn(b"Input.repeat?", source)
+                self.assertIn(b"Input.trigger?(Input::C)", source)
+                self.assertNotIn(b"Scene_Title", source)
+
+    def test_mv_source_and_outputs_have_locked_identities_and_licenses(self) -> None:
+        vendor_manifest = json.loads(
+            (RPGMAKER_FIXTURE_ROOT / "vendor/manifest.json").read_text(encoding="utf-8")
+        )
+        archive = RPGMAKER_FIXTURE_ROOT / "vendor" / vendor_manifest["archive"]["path"]
+        archive_bytes = archive.read_bytes()
+        self.assertEqual(vendor_manifest["archive"]["size"], len(archive_bytes))
+        self.assertEqual(vendor_manifest["archive"]["sha256"], hashlib.sha256(archive_bytes).hexdigest())
+        with tarfile.open(archive, "r:gz") as source:
+            prefix = f"corescript-{vendor_manifest['commit']}/"
+            archive_license = source.extractfile(prefix + vendor_manifest["license"]["archivePath"])
+            self.assertIsNotNone(archive_license)
+            license_bytes = archive_license.read()
+        self.assertEqual(vendor_manifest["license"]["archiveSize"], len(license_bytes))
+        self.assertEqual(vendor_manifest["license"]["archiveSha256"], hashlib.sha256(license_bytes).hexdigest())
+        self.assertEqual(license_bytes, (RPGMAKER_FIXTURE_ROOT / "LICENSES/CoreScript-MIT.txt").read_bytes())
+        self.assertEqual(
+            {"CoreScript", "FPSMeter 0.3.1", "iphone-inline-video", "LZ-String", "PixiJS 4.5.4", "pixi-picture", "pixi-tilemap"},
+            {component["name"] for component in vendor_manifest["components"]},
+        )
+        for name, expected in {**MV_CORE_SHA256, **MV_LIBRARY_SHA256}.items():
+            subdirectory = "libs" if name in MV_LIBRARY_SHA256 else ""
+            contents = (RPGMAKER_FIXTURE_ROOT / "rpgmv/js" / subdirectory / name).read_bytes()
+            self.assertEqual(expected, hashlib.sha256(contents).hexdigest())
+
+    def test_mv_smoke_uses_standard_data_manager_map_and_fixture_state(self) -> None:
+        root = RPGMAKER_FIXTURE_ROOT / "rpgmv"
+        system = json.loads((root / "data/System.json").read_text(encoding="utf-8"))
+        game_map = json.loads((root / "data/Map001.json").read_text(encoding="utf-8"))
+        self.assertEqual("RETROM RPGMV", system["gameTitle"])
+        self.assertEqual((1, 10, 8), (system["startMapId"], system["startX"], system["startY"]))
+        self.assertEqual("Retrom fixture state", system["variables"][1])
+        self.assertEqual((20, 15, 20 * 15 * 6), (game_map["width"], game_map["height"], len(game_map["data"])))
+        self.assertEqual([None], game_map["events"])
+        plugin = (root / "js/plugins/RetromSmoke.js").read_text(encoding="utf-8")
+        self.assertIn("DataManager.setupNewGame()", plugin)
+        self.assertIn('$gameVariables.setValue(1,', plugin)
+        self.assertIn("new WebAudio(toneUrl)", plugin)
+        index = (root / "index.html").read_text(encoding="utf-8")
+        for name in (*MV_LIBRARY_SHA256, *MV_CORE_SHA256, "plugins.js", "main.js"):
+            self.assertIn(name, index)
+
+    def test_rpgmaker_security_matrix_is_complete_and_byte_locked(self) -> None:
+        matrix = json.loads(
+            (RPGMAKER_FIXTURE_ROOT / "negative-matrix/matrix.json").read_text(encoding="utf-8")
+        )
+        self.assertEqual(1, matrix["schemaVersion"])
+        cores = {
+            "rpgmaker_2000", "rpgmaker_2003", "rpgmaker_xp", "rpgmaker_vx",
+            "rpgmaker_vx_ace", "rpgmaker_mv", "rpgmaker_mz",
+        }
+        wrong_pairs = {
+            (source["coreId"], target["coreId"])
+            for source in matrix["wrongCore"]
+            for target in source["targets"]
+        }
+        self.assertEqual(42, len(wrong_pairs))
+        self.assertEqual({(source, target) for source in cores for target in cores if source != target}, wrong_pairs)
+        accepted_wrong_core = [
+            (source["generation"], target)
+            for source in matrix["wrongCore"]
+            for target in source["targets"]
+            if target["accepted"]
+        ]
+        self.assertEqual(
+            [("RPG2000", {"coreId": "rpgmaker_2003", "accepted": True, "evidenceConfidence": "FAMILY_ONLY"})],
+            accepted_wrong_core,
+        )
+        unsafe_names = {case["name"] for case in matrix["unsafe"]}
+        self.assertEqual(
+            {
+                "dual-root", "multi-generation", "rgss-conflict", "lcf-truncated",
+                "case-collision", "nfkc-collision", "gencache-collision", "traversal", "symlink", "bomb",
+                "external", "referenced-native", "opaque-native",
+            },
+            unsafe_names,
+        )
+        self.assertEqual(
+            {"RPG2000", "RPG2003", "RPGXP", "RPGVX", "RPGVXACE", "RPGMV", "RPGMZ"},
+            {case["generation"] for case in matrix["nestedArchives"]},
+        )
+        self.assertEqual(70, len(matrix["nestedArchives"]))
+        self.assertEqual({"ZIP", "7Z", "RAR", "TAR", "GZIP"}, {case["format"] for case in matrix["nestedArchives"]})
+        self.assertEqual({"extension", "magic"}, {case["detection"] for case in matrix["nestedArchives"]})
+        archive_root = RPGMAKER_FIXTURE_ROOT / "negative-matrix/archives"
+        with zipfile.ZipFile(archive_root / "traversal.zip") as archive:
+            self.assertEqual(["../index.html"], archive.namelist())
+        with zipfile.ZipFile(archive_root / "symlink.zip") as archive:
+            mode = archive.infolist()[0].external_attr >> 16
+            self.assertEqual(0o120000, mode & 0o170000)
+        with zipfile.ZipFile(archive_root / "bomb.zip") as archive:
+            entry = archive.infolist()[0]
+            self.assertEqual(17 << 20, entry.file_size)
+            self.assertGreater(entry.file_size, entry.compress_size * 100)
+
+    def test_malicious_mv_mz_harnesses_are_project_owned_runtime_shapes(self) -> None:
+        for directory, engine, core in (
+            ("malicious-rpgmv", "MV", "rpg_core.js"),
+            ("malicious-rpgmz", "MZ", "rmmz_core.js"),
+        ):
+            root = RPGMAKER_FIXTURE_ROOT / directory
+            with self.subTest(directory=directory):
+                core_source = (root / "js" / core).read_text(encoding="utf-8")
+                runtime = (root / "js/main.js").read_text(encoding="utf-8")
+                self.assertIn(f'RPGMAKER_NAME: "{engine}"', core_source)
+                self.assertIn("__RETROM_MALICIOUS_RESULTS__", runtime)
+                for probe in (
+                    "parentDom", "appCookie", "topNavigation", "popup", "form",
+                    "externalFetch", "serviceWorker", "nonAllowlistApi",
+                ):
+                    self.assertIn(f'\"{probe}\"', runtime)
+                self.assertIn("DataManager", runtime)
+                self.assertIn("saveGame", runtime)
+                self.assertIn("loadGame", runtime)
+                self.assertIn("requestAnimationFrame", runtime)
+
     def test_gba_smoke_rom_matches_its_generator(self) -> None:
         subprocess.run(
             ["python3", str(FIXTURE_ROOT / "build.py"), "--check"],

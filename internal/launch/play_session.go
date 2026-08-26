@@ -28,13 +28,35 @@ func (service *Service) RecordPlay(
 		return PlayResult{}, fmt.Errorf("launch/service: %w", err)
 	}
 	defer cleanup.Rollback(transaction)
-	var credentialHash []byte
-	var launchState, profileID, gameID, variantRevisionID string
-	var hardExpires int64
-	var idleExpires sql.NullInt64
 	now := service.now().UnixMilli()
+	source, err := loadPlayLaunch(ctx, transaction, launchID, capability, now)
+	if err != nil {
+		return PlayResult{}, err
+	}
+	if source.purpose == "RPG_RUNTIME_VALIDATION" {
+		return recordRPGValidationPlay(ctx, transaction, launchID, source.state, kind, event, now)
+	}
+	return recordProductPlay(ctx, transaction, launchID, kind, event, now, source)
+}
+
+type playLaunchSource struct {
+	purpose, state, profileID string
+	gameID, variantRevisionID sql.NullString
+	idleExpires               sql.NullInt64
+}
+
+func loadPlayLaunch(
+	ctx context.Context,
+	transaction *sql.Tx,
+	launchID, capability string,
+	now int64,
+) (playLaunchSource, error) {
+	var source playLaunchSource
+	var credentialHash []byte
+	var hardExpires int64
 	if err := transaction.QueryRowContext(ctx, `
 SELECT credential_sha256,
+purpose,
 state,
 profile_id,
 game_id,
@@ -45,20 +67,35 @@ FROM launch_sessions
 WHERE id=?
 `, launchID).Scan(
 		&credentialHash,
-		&launchState,
-		&profileID,
-		&gameID,
-		&variantRevisionID,
+		&source.purpose,
+		&source.state,
+		&source.profileID,
+		&source.gameID,
+		&source.variantRevisionID,
 		&hardExpires,
-		&idleExpires,
+		&source.idleExpires,
 	); err != nil ||
 		!retromruntime.MatchesCapability(capability, credentialHash) ||
 		hardExpires <= now {
-		return PlayResult{}, ErrCredential
+		return playLaunchSource{}, ErrCredential
+	}
+	return source, nil
+}
+
+func recordProductPlay(
+	ctx context.Context,
+	transaction *sql.Tx,
+	launchID, kind string,
+	event PlayEvent,
+	now int64,
+	source playLaunchSource,
+) (PlayResult, error) {
+	if source.purpose != "PRODUCT" || !source.gameID.Valid || !source.variantRevisionID.Valid {
+		return PlayResult{}, ErrBlocked
 	}
 	var playID, playState string
 	var lastSequence, lastHeartbeat int64
-	err = transaction.QueryRowContext(ctx, `
+	err := transaction.QueryRowContext(ctx, `
 SELECT id,
 state,
 last_client_sequence,
@@ -72,8 +109,8 @@ WHERE launch_session_id=?
 	}
 	if kind == "start" {
 		return startPlaySession(
-			ctx, transaction, launchID, profileID, gameID, variantRevisionID,
-			launchState, playID, playState, err, event, now,
+			ctx, transaction, launchID, source.profileID, source.gameID.String, source.variantRevisionID.String,
+			source.state, playID, playState, err, event, now,
 		)
 	}
 	if errors.Is(err, sql.ErrNoRows) && kind == "finish" && event.ClientSequence == 0 &&
@@ -81,13 +118,86 @@ WHERE launch_session_id=?
 		return finishLaunchWithoutPlay(ctx, transaction, launchID, now)
 	}
 	if !validPlayProgress(
-		err, playState, launchState, idleExpires, event, lastSequence, kind, now,
+		err, playState, source.state, source.idleExpires, event, lastSequence, kind, now,
 	) {
 		return PlayResult{}, ErrBlocked
 	}
 	return recordPlayProgress(
 		ctx, transaction, launchID, playID, kind, event, lastHeartbeat, now,
 	)
+}
+
+// RPG runtime-validation launches deliberately do not create play_sessions:
+// they are not attached to a published game and therefore have no game_id to
+// account play time against. Config activation owns CREATED -> ACTIVE; the play
+// endpoint only accepts the normal player event shapes and closes the launch on
+// finish so a checkpointed validation can create its distinct restore launch.
+func recordRPGValidationPlay(
+	ctx context.Context,
+	transaction *sql.Tx,
+	launchID, launchState, kind string,
+	event PlayEvent,
+	now int64,
+) (PlayResult, error) {
+	if !validRPGPlayEvent(kind, event) {
+		return PlayResult{}, ErrBlocked
+	}
+	if launchState == "FINISHED" && kind == "finish" {
+		return rpgPlayResult(event.ClientSequence, "FINISHED"), nil
+	}
+	if launchState != "ACTIVE" {
+		return PlayResult{}, ErrBlocked
+	}
+	state := "ACTIVE"
+	if kind == "finish" {
+		if err := finishRPGValidationLaunch(ctx, transaction, launchID, now); err != nil {
+			return PlayResult{}, err
+		}
+		state = "FINISHED"
+	}
+	if err := transaction.Commit(); err != nil {
+		return PlayResult{}, fmt.Errorf("launch/service: %w", err)
+	}
+	return rpgPlayResult(event.ClientSequence, state), nil
+}
+
+func validRPGPlayEvent(kind string, event PlayEvent) bool {
+	if kind == "start" {
+		return event.ClientSequence == 0 && event.PreviousInterval == nil
+	}
+	if kind != "heartbeat" && kind != "finish" {
+		return false
+	}
+	return event.ClientSequence > 0 && event.PreviousInterval != nil ||
+		kind == "finish" && event.ClientSequence == 0 && event.PreviousInterval == nil
+}
+
+func finishRPGValidationLaunch(
+	ctx context.Context,
+	transaction *sql.Tx,
+	launchID string,
+	now int64,
+) error {
+	result, err := transaction.ExecContext(ctx, `
+UPDATE launch_sessions
+SET state='FINISHED',finished_at_ms=?,updated_at_ms=?,version=version+1
+WHERE id=? AND purpose='RPG_RUNTIME_VALIDATION' AND state='ACTIVE'
+`, now, now, launchID)
+	if err != nil {
+		return fmt.Errorf("launch/service: %w", err)
+	}
+	updated, err := result.RowsAffected()
+	if err != nil || updated != 1 {
+		return ErrBlocked
+	}
+	return nil
+}
+
+func rpgPlayResult(sequence int64, state string) PlayResult {
+	return PlayResult{
+		PlaySessionID: nil, ClientSequence: sequence,
+		AcceptedDuration: 0, State: state,
+	}
 }
 
 func replayPlayEvent(

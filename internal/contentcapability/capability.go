@@ -10,6 +10,7 @@ import (
 const (
 	ModeStandard          = "STANDARD"
 	ModeMultiDiscM3UV1    = "MULTI_DISC_M3U_V1"
+	ModeRPGMakerProjectV1 = "RPG_MAKER_PROJECT_V1"
 	DeliveryEagerExternal = "EAGER_EXTERNAL_FILES"
 	MaximumMultiDiscCount = 8
 	MaximumMultiDiscBytes = int64(1_073_741_824)
@@ -42,6 +43,9 @@ func Resolve(
 	compatibilityJSON string,
 ) ImportCapabilities {
 	result := ImportCapabilities{ContentModes: []string{ModeStandard}}
+	if platformID == "rpgmaker" && platformInstanceEnabled {
+		return ImportCapabilities{ContentModes: []string{ModeRPGMakerProjectV1}}
+	}
 	if !platformInstanceEnabled || !featureEnabled ||
 		!contentprofile.AllowsContentKind(platformID, contentprofile.ContentKindMultiDiscM3UV1) {
 		return result
@@ -66,6 +70,19 @@ func Resolve(
 // admission it intentionally does not consult the feature flag, so a frozen
 // in-flight review can be completed after admission is closed.
 func SupportsContentKind(compatibilityJSON, contentKind string) bool {
+	if contentKind == ModeRPGMakerProjectV1 {
+		var rpgCompatibility struct {
+			AdapterABI string `json:"adapterAbi"`
+		}
+		if json.Unmarshal([]byte(compatibilityJSON), &rpgCompatibility) != nil {
+			return false
+		}
+		return slices.Contains([]string{
+			"easyrpg-save-v1",
+			"mkxp-state-v1",
+			"rpg-native-save-v1",
+		}, rpgCompatibility.AdapterABI)
+	}
 	var compatibility compatibility
 	if json.Unmarshal([]byte(compatibilityJSON), &compatibility) != nil ||
 		compatibility.SchemaVersion != 5 ||

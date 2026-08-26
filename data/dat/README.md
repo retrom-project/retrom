@@ -14,6 +14,8 @@
 
 精确的 Player adapter ID、runtime base/loader、发布包、runtime allowlist、核心文件、源码提交、生成方式、文件大小、SHA-256 和解析统计位于 `emulatorjs/4.2.3/manifest.json`。adapter 的前端实现索引固定为 `web/features/player/adapters/registry.json`，由 `make data-check` 与 manifest 双向核对；版本目录是绑定关系的一部分，以后升级 EmulatorJS 时新增目录与精确 adapter，不覆盖旧基线。命令边界：
 
+每个 `selected_core_artifacts` 项还固定 `artifact_set_sha256` 与 `adapter_abi=emulatorjs-state-v1`。EJS artifact set 是该版本完整 `runtime_allowlist` 加当前 core 主入口的集合：同路径以主入口声明覆盖，规范项固定为 `{"path":path,"sha256":sha256,"sizeBytes":size}`，按 path 的 UTF-8 bytes 升序组成 canonical compact JSON array，再计算 lowercase SHA-256。`data-check` 和 Go 启动校验都会独立重算；bootstrap 把该摘要写入不可变 `core_artifacts.artifact_set_sha256`，把 adapter ABI 写入 canonical `compatibility_json.adapterAbi`。新绑定只切换 `selected_for_new_bindings`；旧 row 在精确引用消失前继续 `available_for_launch=1`，不得覆盖 artifact payload。
+
 ```bash
 make data-check     # 无 payload、无网络也可运行，只校验 Git 小文件
 make prepare-deps   # 按固定来源物化/校验 payload

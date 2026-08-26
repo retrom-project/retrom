@@ -1,0 +1,77 @@
+{
+  "schemaVersion": 1,
+  "routes": [
+    {
+      "coreId": "rpgmaker_2000",
+      "generation": "RPG2000",
+      "routeKey": "RPG2000_EASYRPG_0811_V4",
+      "adapterKind": "EASYRPG_WEB",
+      "adapterId": "easyrpg-web-v1",
+      "implementation": "easyrpg/adapter.ts"
+    },
+    {
+      "coreId": "rpgmaker_2003",
+      "generation": "RPG2003",
+      "routeKey": "RPG2003_EASYRPG_0811_V4",
+      "adapterKind": "EASYRPG_WEB",
+      "adapterId": "easyrpg-web-v1",
+      "implementation": "easyrpg/adapter.ts"
+    },
+    {
+      "coreId": "rpgmaker_2000",
+      "generation": "RPG2000",
+      "routeKey": "RPG2000_EASYRPG_0811_V5",
+      "adapterKind": "EASYRPG_WEB",
+      "adapterId": "easyrpg-web-v1",
+      "implementation": "easyrpg/adapter.ts"
+    },
+    {
+      "coreId": "rpgmaker_2003",
+      "generation": "RPG2003",
+      "routeKey": "RPG2003_EASYRPG_0811_V5",
+      "adapterKind": "EASYRPG_WEB",
+      "adapterId": "easyrpg-web-v1",
+      "implementation": "easyrpg/adapter.ts"
+    },
+    {
+      "coreId": "rpgmaker_xp",
+      "generation": "RPGXP",
+      "routeKey": "RPGXP_MKXPZ_F2EFC98_V5",
+      "adapterKind": "MKXP_LIBRETRO_WEB",
+      "adapterId": "mkxp-z-libretro-v4",
+      "implementation": "mkxp/adapter.ts"
+    },
+    {
+      "coreId": "rpgmaker_vx",
+      "generation": "RPGVX",
+      "routeKey": "RPGVX_MKXPZ_F2EFC98_V5",
+      "adapterKind": "MKXP_LIBRETRO_WEB",
+      "adapterId": "mkxp-z-libretro-v4",
+      "implementation": "mkxp/adapter.ts"
+    },
+    {
+      "coreId": "rpgmaker_vx_ace",
+      "generation": "RPGVXACE",
+      "routeKey": "RPGVXACE_MKXPZ_F2EFC98_V5",
+      "adapterKind": "MKXP_LIBRETRO_WEB",
+      "adapterId": "mkxp-z-libretro-v4",
+      "implementation": "mkxp/adapter.ts"
+    },
+    {
+      "coreId": "rpgmaker_mv",
+      "generation": "RPGMV",
+      "routeKey": "RPGMV_NATIVE_V3",
+      "adapterKind": "NATIVE_WEB",
+      "adapterId": "rpg-native-web-v1",
+      "implementation": "native-web/adapter.ts"
+    },
+    {
+      "coreId": "rpgmaker_mz",
+      "generation": "RPGMZ",
+      "routeKey": "RPGMZ_NATIVE_V3",
+      "adapterKind": "NATIVE_WEB",
+      "adapterId": "rpg-native-web-v1",
+      "implementation": "native-web/adapter.ts"
+    }
+  ]
+}

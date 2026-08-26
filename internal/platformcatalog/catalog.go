@@ -9,7 +9,7 @@ import (
 	"retrom/internal/contentprofile"
 )
 
-const Version = 1
+const Version = 2
 
 var ErrInvalid = errors.New("PLATFORM_CATALOG_INVALID")
 
@@ -91,6 +91,34 @@ var current = Catalog{Version: Version, Templates: []DirectoryTemplate{
 		Key: "nintendo3ds/azahar", PlatformID: "nintendo3ds", DefaultCoreID: "azahar",
 		Name: "Nintendo 3DS 游戏", CatalogOrder: 270,
 	},
+	{
+		Key: "rpgmaker/rpgmaker_2000", PlatformID: "rpgmaker", DefaultCoreID: "rpgmaker_2000",
+		Name: "RPG Maker 2000 游戏", CatalogOrder: 280,
+	},
+	{
+		Key: "rpgmaker/rpgmaker_2003", PlatformID: "rpgmaker", DefaultCoreID: "rpgmaker_2003",
+		Name: "RPG Maker 2003 游戏", CatalogOrder: 290,
+	},
+	{
+		Key: "rpgmaker/rpgmaker_xp", PlatformID: "rpgmaker", DefaultCoreID: "rpgmaker_xp",
+		Name: "RPG Maker XP 游戏", CatalogOrder: 300,
+	},
+	{
+		Key: "rpgmaker/rpgmaker_vx", PlatformID: "rpgmaker", DefaultCoreID: "rpgmaker_vx",
+		Name: "RPG Maker VX 游戏", CatalogOrder: 310,
+	},
+	{
+		Key: "rpgmaker/rpgmaker_vx_ace", PlatformID: "rpgmaker", DefaultCoreID: "rpgmaker_vx_ace",
+		Name: "RPG Maker VX Ace 游戏", CatalogOrder: 320,
+	},
+	{
+		Key: "rpgmaker/rpgmaker_mv", PlatformID: "rpgmaker", DefaultCoreID: "rpgmaker_mv",
+		Name: "RPG Maker MV 游戏", CatalogOrder: 330,
+	},
+	{
+		Key: "rpgmaker/rpgmaker_mz", PlatformID: "rpgmaker", DefaultCoreID: "rpgmaker_mz",
+		Name: "RPG Maker MZ 游戏", CatalogOrder: 340,
+	},
 }}
 
 func Current() Catalog {
@@ -124,7 +152,10 @@ func Validate(catalog Catalog) error {
 			return fmt.Errorf("%w: duplicate order %d", ErrInvalid, template.CatalogOrder)
 		}
 		extensions := contentprofile.SupportedExtensions(template.PlatformID)
-		if !validExtensions(extensions) {
+		// RPG Maker templates accept a browser directory in addition to a single
+		// ZIP/7z project. Their shape is validated by the RPG project importer,
+		// rather than the legacy single-file extension registry.
+		if template.PlatformID != "rpgmaker" && !validExtensions(extensions) {
 			return fmt.Errorf("%w: extensions for %q", ErrInvalid, template.PlatformID)
 		}
 		keys[template.Key] = struct{}{}

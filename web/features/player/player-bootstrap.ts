@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, type Dispatch, type RefObject, type SetStateAction } from "react";
-import { mountEmulatorJS, validateConfig, type DiscSet, type DiscState, type EmulatorInstance, type PlayerConfig } from "./adapters/ejs-4.2.3-v2";
+import { mountEmulatorJS, validateConfig, type DiscSet, type DiscState, type EmulatorInstance, type ManualStatePayload, type PlayerConfig } from "./adapters/ejs-4.2.3-v2";
 import { installCanvasContain } from "./canvas-fit";
 import { closeEmulatorSettingsPanels } from "./emulator-settings";
 import { prepareMultiDiscLaunch } from "./multi-disc-restore";
@@ -22,6 +22,9 @@ import type { ImmersiveGamepadFilter } from "./immersive-gamepad-filter";
 import { validateImmersivePlayerConfig } from "./immersive-player-config";
 import { getImmersiveAudioPreferences } from "@/features/immersive/immersive-audio-preferences";
 import { applyInitialPlayerVolume } from "./immersive-player-volume";
+import { describeRetromRpgRuntime, isRetromRpgRuntimeConfig, mountRetromRpgRuntime, validateRpgRuntimeConfig, type RpgRuntimeConfig } from "./rpg-runtime";
+import { RpgRuntimeValidationDriver } from "./rpg-runtime-validation";
+import type { ValidationCheckpointReceipt } from "./rpg-validation-checkpoint-response";
 
 type ShellState = "loading" | "running" | "error";
 type SyncTone = "synced" | "busy" | "warning";
@@ -45,20 +48,25 @@ export type PlayerBootstrapParams = {
   setEmulatorVolume: Dispatch<SetStateAction<number>>; setEmulatorMuted: Dispatch<SetStateAction<boolean>>; setPaused: Dispatch<SetStateAction<boolean>>;
   setNetplayPaused: Dispatch<SetStateAction<boolean>>;
   setImmersiveReturnTo: Dispatch<SetStateAction<string>>;
+  setRpgValidationDriver: Dispatch<SetStateAction<RpgRuntimeValidationDriver | null>>;
   reportPlayerEvent: (event: MultiDiscPlayerEvent) => void; revealControlsAtTopEdge: (clientY: number) => void; showControls: () => void;
   onKeyboardPause: () => void;
   onImmersiveMenuShortcut: () => void;
-  sendEvent: (kind: "start" | "heartbeat" | "finish") => Promise<void>; uploadManualState: (payload: { screenshot: Blob; format: string; state: Uint8Array }) => Promise<boolean>;
+  sendEvent: (kind: "start" | "heartbeat" | "finish") => Promise<void>;
+  uploadManualState: (payload: ManualStatePayload) => Promise<boolean>;
+  uploadValidationCheckpoint: (payload: ManualStatePayload) => Promise<ValidationCheckpointReceipt>;
 };
 
 type BootstrapResources = {
   cleanup?: () => void; canvasContain?: ReturnType<typeof installCanvasContain>; cleanupFrameControls?: () => void;
   nativeMenuObserver?: MutationObserver; ownedNetplayController?: NetplayController;
+  rpgRuntimeSubscription?: () => void; rpgValidationDriver?: RpgRuntimeValidationDriver;
 };
 
 type MountedContext = {
   params: PlayerBootstrapParams; resources: BootstrapResources; controller: AbortController; config: PlayerConfig;
   frame: HTMLIFrameElement; frameWindow: Window; frameDocument: Document; stateBytes: Uint8Array | null;
+  crossOriginFrame: boolean;
 };
 
 export function usePlayerBootstrap(params: PlayerBootstrapParams) {
@@ -74,7 +82,12 @@ async function bootstrapPlayer(params: PlayerBootstrapParams, resources: Bootstr
   params.setMessage("正在加载 Core、ROM 与依赖配置…");
   const response = await fetch(`/runtime/launches/${params.launchId}/config`, { credentials: "same-origin", cache: "no-store", signal: controller.signal });
   if (!response.ok) {throw new Error(`LAUNCH_CONFIG_${response.status}`);}
-  const config = await response.json() as PlayerConfig;
+  const rawConfig: unknown = await response.json();
+  if (isRetromRpgRuntimeConfig(rawConfig)) {
+    await bootstrapRpgMakerPlayer(params, resources, controller, rawConfig);
+    return;
+  }
+  const config = rawConfig as PlayerConfig;
   validateConfig(config);
   if (params.experience === "immersive") {validateImmersivePlayerConfig(config);}
   applyConfig(params, config);
@@ -92,6 +105,130 @@ async function bootstrapPlayer(params: PlayerBootstrapParams, resources: Bootstr
   );
 }
 
+async function bootstrapRpgMakerPlayer(
+  params: PlayerBootstrapParams,
+  resources: BootstrapResources,
+  controller: AbortController,
+  rpgConfig: RpgRuntimeConfig,
+) {
+  validateRpgRuntimeConfig(rpgConfig);
+  const validationDriver = createRpgValidationDriver(params, resources, controller, rpgConfig);
+  await validationDriver?.prepare();
+  const runtimeDescription = describeRetromRpgRuntime(rpgConfig);
+  const config = rpgShellConfig(rpgConfig, runtimeDescription);
+  applyRpgConfig(params, rpgConfig, config);
+  await prepareOrientation(params, config, controller);
+  const frame = await prepareFrame(params, controller);
+  const stateBytes = await fetchRpgCheckpoint(rpgConfig, controller);
+  const mounted = mountFrame(
+    params, resources, controller, config, frame, stateBytes,
+    runtimeDescription.crossOriginFrame,
+  );
+  params.setMessage("正在启动 RPG Maker 运行时…");
+  let mountedRuntime: Awaited<ReturnType<typeof mountRetromRpgRuntime>>;
+  try {
+    mountedRuntime = await mountRetromRpgRuntime(rpgConfig, mounted.target, {
+      frame: mounted.context.frame,
+      frameWindow: mounted.context.frameWindow,
+      restorePayload: stateBytes,
+      signal: controller.signal,
+    });
+  } catch (error) {
+    await validationDriver?.reportRuntimeFailure(error);
+    throw error;
+  }
+  if (controller.signal.aborted) {
+    await mountedRuntime.runtime.exit();
+    return;
+  }
+  try {
+    resources.cleanup = () => {void mountedRuntime.runtime.exit();};
+    resources.rpgRuntimeSubscription = mountedRuntime.runtime.subscribe((event) => {
+      if (event.type !== "CHECKPOINT_AVAILABILITY_CHANGED" || validationDriver) {return;}
+      params.manualSaveAvailableRef.current = event.availability.available;
+      params.setManualSaveAvailable(event.availability.available);
+    });
+    handleReady(mounted.context, mountedRuntime.playerInstance);
+    const availability = mountedRuntime.runtime.getCheckpointAvailability();
+    const canSave = !validationDriver && availability?.available === true;
+    params.manualSaveAvailableRef.current = canSave;
+    params.setManualSaveAvailable(canSave);
+    completeSinglePlayerStart(mounted.context, false, validationDriver ? "运行验证进行中" : undefined);
+  } catch (error) {
+    await validationDriver?.reportRuntimeFailure(error);
+    await mountedRuntime.runtime.exit();
+    throw error;
+  }
+  if (validationDriver) {
+    void validationDriver.attachRuntime(mountedRuntime.playerInstance).catch(() => {
+      params.setSyncText("运行验证失败");
+      params.setSyncTone("warning");
+    });
+  }
+}
+
+function createRpgValidationDriver(
+  params: PlayerBootstrapParams,
+  resources: BootstrapResources,
+  controller: AbortController,
+  config: RpgRuntimeConfig,
+) {
+  if (config.purpose !== "RPG_RUNTIME_VALIDATION") {return null;}
+  const driver = new RpgRuntimeValidationDriver({
+    config,
+    signal: controller.signal,
+    uploadCheckpoint: params.uploadValidationCheckpoint,
+    finishOriginalLaunch: async () => {
+      if (params.heartbeat.current !== null) {
+        window.clearInterval(params.heartbeat.current);
+        params.heartbeat.current = null;
+      }
+      await params.sendEvent("finish");
+    },
+  });
+  resources.rpgValidationDriver = driver;
+  params.setRpgValidationDriver(driver);
+  return driver;
+}
+
+function applyRpgConfig(params: PlayerBootstrapParams, rpgConfig: RpgRuntimeConfig, shellConfig: PlayerConfig) {
+  applyConfig(params, shellConfig);
+  params.setDebugRuntime({
+    runtimeFamily: "RPGMAKER", coreId: rpgConfig.coreId,
+    coreArtifactId: rpgConfig.artifactId,
+    emulatorJSVersion: rpgConfig.routeKey,
+    playerAdapterId: rpgConfig.adapter.adapterId,
+    inputMode: "STANDARD",
+    crossOriginIsolated: window.crossOriginIsolated,
+    sharedArrayBuffer: typeof SharedArrayBuffer !== "undefined",
+  });
+}
+
+function rpgShellConfig(config: RpgRuntimeConfig, runtime: ReturnType<typeof describeRetromRpgRuntime>): PlayerConfig {
+  return {
+    mode: "single", launchId: config.launchId, emulatorjsVersion: config.routeKey,
+    playerAdapterId: config.adapter.adapterId, core: config.coreId, runtimeCore: config.coreId,
+    coreName: config.coreName, coreArtifactId: config.artifactId, emulatorGameId: 0,
+    gameName: config.launchId, gameTitle: config.gameTitle, platformName: config.platformName,
+    runtimeBaseUrl: runtime.runtimeBaseUrl, loaderUrl: "", gameUrl: "", biosUrl: null, parentUrl: null,
+    stateUrl: config.checkpoint?.payloadUrl ?? null, inputMode: "STANDARD", startupActions: [],
+    requiresThreads: runtime.requiresThreads, runtimePathOverrides: {},
+    defaultCoreOptions: {}, externalFiles: {}, discSet: null, dosEntry: null,
+    warnings: config.warnings, returnTo: config.returnTo, netplay: null,
+  };
+}
+
+async function fetchRpgCheckpoint(config: RpgRuntimeConfig, controller: AbortController) {
+  if (!config.checkpoint) {return null;}
+  const response = await fetch(config.checkpoint.payloadUrl, {
+    credentials: "same-origin", cache: "no-store", signal: controller.signal,
+  });
+  if (!response.ok) {throw new Error("PLAYER_SAVE_STATE_UNAVAILABLE");}
+  const payload = await readBoundedResponse(response, 256 * 1024 * 1024);
+  if (!payload.byteLength) {throw new Error("PLAYER_SAVE_STATE_UNAVAILABLE");}
+  return payload;
+}
+
 function applyConfig(params: PlayerBootstrapParams, config: PlayerConfig) {
   params.returnTo.current = config.returnTo;
   if (params.experience === "immersive") {params.setImmersiveReturnTo(config.returnTo);}
@@ -104,7 +241,7 @@ function applyConfig(params: PlayerBootstrapParams, config: PlayerConfig) {
   params.setGameTitle(config.gameTitle);
   params.setCoreName(config.coreName || config.core);
   params.setPlatformName(config.platformName);
-  params.setDebugRuntime({ coreId: config.core, coreArtifactId: config.coreArtifactId, emulatorJSVersion: config.emulatorjsVersion, playerAdapterId: config.playerAdapterId, inputMode: config.inputMode, crossOriginIsolated: window.crossOriginIsolated, sharedArrayBuffer: typeof SharedArrayBuffer !== "undefined" });
+  params.setDebugRuntime({ runtimeFamily: "EMULATORJS", coreId: config.core, coreArtifactId: config.coreArtifactId, emulatorJSVersion: config.emulatorjsVersion, playerAdapterId: config.playerAdapterId, inputMode: config.inputMode, crossOriginIsolated: window.crossOriginIsolated, sharedArrayBuffer: typeof SharedArrayBuffer !== "undefined" });
   params.discSetRef.current = config.discSet ?? null;
   params.setDiscSet(config.discSet ?? null);
   params.setDiscState(null);
@@ -158,7 +295,15 @@ async function fetchLaunchState(config: PlayerConfig, controller: AbortControlle
   return stateBytes;
 }
 
-function mountFrame(params: PlayerBootstrapParams, resources: BootstrapResources, controller: AbortController, config: PlayerConfig, frame: HTMLIFrameElement, stateBytes: Uint8Array | null) {
+function mountFrame(
+  params: PlayerBootstrapParams,
+  resources: BootstrapResources,
+  controller: AbortController,
+  config: PlayerConfig,
+  frame: HTMLIFrameElement,
+  stateBytes: Uint8Array | null,
+  crossOriginFrame = false,
+) {
   if (!params.stage.current) {throw new Error("PLAYER_FRAME_UNAVAILABLE");}
   const frameWindow = frame.contentWindow;
   const frameDocument = frame.contentDocument;
@@ -171,7 +316,12 @@ function mountFrame(params: PlayerBootstrapParams, resources: BootstrapResources
   frameDocument.body.append(target);
   resources.canvasContain = installCanvasContain(frameDocument, () => params.emulator.current?.gameManager?.getVideoDimensions?.("aspect"));
   resources.cleanupFrameControls = installFrameControls(frameDocument, frame, config.inputMode, params);
-  return { target, context: { params, resources, controller, config, frame, frameWindow, frameDocument, stateBytes } satisfies MountedContext };
+  return {
+    target,
+    context: {
+      params, resources, controller, config, frame, frameWindow, frameDocument, stateBytes, crossOriginFrame,
+    } satisfies MountedContext,
+  };
 }
 
 function installFrameControls(document: Document, frame: HTMLIFrameElement, inputMode: string, params: PlayerBootstrapParams) {
@@ -210,7 +360,7 @@ function createMountCallbacks(context: MountedContext) {
   return {
     onReady: (instance: EmulatorInstance) => handleReady(context, instance),
     onGameStart: () => handleGameStart(context),
-    onSaveState: (payload: { screenshot: Blob; format: string; state: Uint8Array }) => {void context.params.uploadManualState(payload);},
+    onSaveState: (payload: ManualStatePayload) => {void context.params.uploadManualState(payload);},
   };
 }
 
@@ -332,7 +482,7 @@ function reportContentStartFailure(context: MountedContext, caught: unknown) {
   context.params.setMessage(caught instanceof Error ? caught.message : "PLAYER_DISC_SET_INVALID");
 }
 
-function completeSinglePlayerStart(context: MountedContext, resumeMainLoop: boolean) {
+function completeSinglePlayerStart(context: MountedContext, resumeMainLoop: boolean, syncTextOverride?: string) {
   const { params, controller, resources, frameWindow } = context;
   if (controller.signal.aborted) {return;}
   if (params.emulator.current) {
@@ -344,13 +494,29 @@ function completeSinglePlayerStart(context: MountedContext, resumeMainLoop: bool
   const orientation = reducePlayerOrientation(params.orientationStateRef.current, { type: "runtime-started", paused: false });
   params.orientationStateRef.current = orientation.state;
   params.setOrientationState(orientation.state);
-  frameWindow.requestAnimationFrame(() => resources.canvasContain?.refresh());
+  schedulePlayerCanvasRefresh(
+    context.crossOriginFrame,
+    frameWindow,
+    () => resources.canvasContain?.refresh(),
+  );
   void params.sendEvent("start").then(() => {
     params.setState("running");
-    params.setSyncText(params.manualSaveAvailableRef.current ? "可创建存档" : "程序菜单模式不可存档");
-    params.setSyncTone(params.manualSaveAvailableRef.current ? "synced" : "warning");
+    params.setSyncText(syncTextOverride ?? (params.manualSaveAvailableRef.current ? "可创建存档" : "程序菜单模式不可存档"));
+    params.setSyncTone(syncTextOverride ? "busy" : params.manualSaveAvailableRef.current ? "synced" : "warning");
     params.heartbeat.current = window.setInterval(() => {void params.sendEvent("heartbeat");}, 30_000);
   }).catch(() => {params.setState("error"); params.setMessage("PLAY_SESSION_EVENT_FAILED");});
+}
+
+export function schedulePlayerCanvasRefresh(
+  crossOriginFrame: boolean,
+  frameWindow: Window,
+  refresh: () => void,
+) {
+  if (crossOriginFrame) {
+    window.requestAnimationFrame(refresh);
+    return;
+  }
+  frameWindow.requestAnimationFrame(refresh);
 }
 
 function startNetplay(context: MountedContext) {
@@ -410,12 +576,17 @@ function handleBootstrapError(error: unknown, controller: AbortController, param
 
 function cleanupBootstrap(params: PlayerBootstrapParams, resources: BootstrapResources, controller: AbortController) {
   controller.abort(); resources.cleanup?.(); resources.canvasContain?.cleanup(); resources.cleanupFrameControls?.();
+  resources.rpgRuntimeSubscription?.();
   resources.ownedNetplayController?.dispose();
   if (params.netplayController.current === resources.ownedNetplayController) {params.netplayController.current = null;}
   closeEmulatorSettingsPanels(params.emulator.current);
   resources.nativeMenuObserver?.disconnect();
   if (params.heartbeat.current !== null) {window.clearInterval(params.heartbeat.current);}
   if (params.toastTimer.current !== null) {window.clearTimeout(params.toastTimer.current);}
+  const validationDriver = resources.rpgValidationDriver;
+  if (validationDriver) {
+    params.setRpgValidationDriver((current) => current === validationDriver ? null : current);
+  }
 }
 
 function formatPlayerBytes(bytes: number) {

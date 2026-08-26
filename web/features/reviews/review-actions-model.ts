@@ -18,6 +18,23 @@ export type ReviewSourceMedia = ReviewSourceMediaBase & (
   | { sourceKind: "PEGASUS"; pegasusImportId: string; emulationStationImportId?: never }
   | { sourceKind: "EMULATIONSTATION"; emulationStationImportId: string; pegasusImportId?: never }
 );
+export type RPGPosition = { mapId: number; playerX: number; playerY: number; fixtureState: number };
+export type RPGMachineGate = { gate: string; status: "NOT_STARTED" | "IN_PROGRESS" | "PASSED" | "FAILED"; begunAtMs: number | null; completedAtMs: number | null; evidence: unknown; failureCode: string | null };
+export type RPGRuntimeValidation = {
+  validationId: string; importItemId: string; reviewVersionAtCreate: number; runtimeBindingRevision: number;
+  launchId: string | null; restoreLaunchId: string | null; state: "CREATED" | "STARTING" | "RUNNING" | "CHECKPOINTED" | "RESTORED" | "AWAITING_DECISION" | "PASSED" | "FAILED" | "EXPIRED";
+  lastGateSequence: number; machineGates: RPGMachineGate[]; failureCode: string | null; expiresAtMs: number;
+  routeEvidence: { coreId: string; generation: string; evidenceGeneration: string | null; evidenceConfidence: "MATCHED" | "FAMILY_ONLY"; routeKey: string; adapterId: string; adapterAbi: string };
+  checkpointRoundTrip: { created: boolean; payloadKind: string | null; resumeSlot: number | null; sizeBytes: number | null; sha256: string | null; originalLaunchId: string | null; initialPosition: RPGPosition | null; savedPosition: RPGPosition | null; divergedPosition: RPGPosition | null; originalLaunchEnded: boolean; restoreLaunchId: string | null; restoreStarted: boolean; restoredPosition: RPGPosition | null; positionVerified: boolean; screenshotUrl: string | null; restoreInputPosition: RPGPosition | null; restoreInputVerified: boolean };
+  decision: { decision: "PASS" | "FAIL"; note: string; decidedAtMs: number } | null;
+};
+export type RPGMakerReview = {
+  selectedCoreId: string; generation: string; evidenceGeneration: string | null; evidenceConfidence: "MATCHED" | "FAMILY_ONLY";
+  selfContained: boolean; selfContainedOverride: boolean; runtimeBindingRevision: number;
+  runtimePackRequirements: Array<{ slot: number; declaredName: string; normalizedDeclaredName: string }>;
+  runtimePackSelections: Array<{ slot: number; declaredName: string; installationId: string }>;
+  runtimeValidation: RPGRuntimeValidation | null; runtimeValidationCurrent: boolean;
+};
 export type ReviewWorkspace = {
   itemId: string; version: number; platformInstance?: { id: string; name: string }; effectiveSourceSnapshotId?: string; canApprove?: boolean; validationStale?: boolean;
   arcadeDependencies?: ArcadeDependencies | null; multiDisc?: ReviewMultiDisc | null;
@@ -25,6 +42,7 @@ export type ReviewWorkspace = {
   validation: { id: string; status: string; current: boolean; compatibilityCode: string } | null;
   candidates: ReviewCandidate[]; uploadedAssets?: UploadedReviewAsset[];
   sourceMedia?: ReviewSourceMedia | null;
+  rpgMaker?: RPGMakerReview | null;
   runtimeScreenshot?: { screenshotId: string; validationId: string; coreArtifactId: string; widthPx: number; heightPx: number; capturedAfterMs: 5000; capturedAtMs: number; url: string } | null;
   scrapeRuns?: ReviewScrapeRun[]; selectedCandidateId: string | null;
   selectedAssets: { coverCandidateAssetId: string | null; coverUploadedAssetId?: string | null; backgroundCandidateAssetId: string | null; screenshotCandidateAssetIds: string[] };
@@ -35,7 +53,7 @@ export type ReviewWorkspace = {
 export type MetadataForm = { title: string; description: string; developer: string; publisher: string; genre: string; players: string; releaseYear: string };
 export type CoverSelection = { candidateId: string | null; uploadedId: string | null };
 export type PreviewAsset = { id: string; url: string; width: number; height: number };
-export type DraftPayload = { metadata: { title: string; description: string; developer: string; publisher: string; genre: string; players: number | null; releaseYear: number | null }; selectedCandidateId: string | null; selectedAssets: { coverCandidateAssetId: string | null; coverUploadedAssetId: string | null; backgroundCandidateAssetId: string | null; screenshotCandidateAssetIds: string[] }; defaultDosEntry: string | null; tagIds: string[] };
+export type DraftPayload = { metadata: { title: string; description: string; developer: string; publisher: string; genre: string; players: number | null; releaseYear: number | null }; selectedCandidateId: string | null; selectedAssets: { coverCandidateAssetId: string | null; coverUploadedAssetId: string | null; backgroundCandidateAssetId: string | null; screenshotCandidateAssetIds: string[] }; defaultDosEntry: string | null; tagIds: string[]; runtimePackSelections?: Array<{ slot: number; installationId: string }>; rpgSelfContainedOverride?: boolean };
 export type Comparison = { candidate: ReviewCandidate; current: MetadataForm; next: MetadataForm; currentCover: CoverSelection; nextCover: CoverSelection };
 
 export const compareFields: Array<{ key: keyof MetadataForm; label: string; multiline?: boolean; type?: "number" }> = [
@@ -59,7 +77,16 @@ export function toPayload(form: MetadataForm, candidateId: string | null, cover:
 }
 
 export function workspaceDraftPayload(review: ReviewWorkspace) {
-  return toPayload(metadataForm(review), review.selectedCandidateId, { candidateId: review.selectedAssets.coverCandidateAssetId, uploadedId: review.selectedAssets.coverUploadedAssetId ?? null }, review.selectedAssets.backgroundCandidateAssetId, review.selectedAssets.screenshotCandidateAssetIds, review.defaultDosEntry, review.tags ?? []);
+  return withRPGMakerDraft(toPayload(metadataForm(review), review.selectedCandidateId, { candidateId: review.selectedAssets.coverCandidateAssetId, uploadedId: review.selectedAssets.coverUploadedAssetId ?? null }, review.selectedAssets.backgroundCandidateAssetId, review.selectedAssets.screenshotCandidateAssetIds, review.defaultDosEntry, review.tags ?? []), review.rpgMaker);
+}
+
+export function withRPGMakerDraft(payload: DraftPayload, rpgMaker: RPGMakerReview | null | undefined): DraftPayload {
+  if (!rpgMaker) {return payload;}
+  return {
+    ...payload,
+    runtimePackSelections: rpgMaker.runtimePackSelections.map(({ slot, installationId }) => ({ slot, installationId })),
+    rpgSelfContainedOverride: rpgMaker.selfContainedOverride,
+  };
 }
 
 export function sameDraftPayload(left: DraftPayload, right: DraftPayload) {
@@ -148,7 +175,7 @@ export function saveStateLabel(state: "saved" | "pending" | "saving" | "error") 
   return "已实时保存";
 }
 
-export function reviewReadiness(validationStatus: string | null, validationCurrent: boolean, runtimeScreenshot: ReviewWorkspace["runtimeScreenshot"], serverCanApprove: boolean, parentState: string | undefined, multiDiscState: string | undefined) {
+export function reviewReadiness(validationStatus: string | null, validationCurrent: boolean, runtimeScreenshot: ReviewWorkspace["runtimeScreenshot"], serverCanApprove: boolean, parentState: string | undefined, multiDiscState: string | undefined, rpgMaker = false) {
   const active = (state: string | undefined) => state === "QUEUED" || state === "RUNNING";
   const parentAttachmentActive = active(parentState);
   const multiDiscAttachmentActive = active(multiDiscState);
@@ -157,7 +184,7 @@ export function reviewReadiness(validationStatus: string | null, validationCurre
     parentAttachmentActive,
     multiDiscAttachmentActive,
     validationReady,
-    screenshotOverride: Boolean(runtimeScreenshot) && !validationReady,
+    screenshotOverride: !rpgMaker && Boolean(runtimeScreenshot) && !validationReady,
     publishReady: serverCanApprove && !parentAttachmentActive && !multiDiscAttachmentActive,
   };
 }

@@ -1,0 +1,2 @@
+window.Utils = { RPGMAKER_NAME: "MV", RPGMAKER_VERSION: "1.6.2" };
+Utils.RPGMAKER_VERSION = "1.6.2";
