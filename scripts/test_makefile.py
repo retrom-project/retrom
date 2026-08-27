@@ -135,6 +135,7 @@ class MakefileDependencyTests(unittest.TestCase):
             "immersive.spec.ts",
             "immersive-library.spec.ts",
             "mobile.spec.ts",
+            "navigation.spec.ts",
             "server-import.spec.ts",
         ):
             immersive_cases = (REPOSITORY_ROOT / "web" / "e2e" / relative_path).read_text(encoding="utf-8")
