@@ -1628,7 +1628,10 @@ Review 与所需 validation Launch。`negative-matrix/matrix.json` 必须精确�
 - 流程：Case 必须在没有并发管理写入的全新独立 SQLite/CAS 中执行。明文 localhost 拓扑必须让
   `http://{launchId}.rpg.localhost:<backend-port>` 直接到达 Go，不得把 runtime origin 指向 Next 端口；
   后者会把 `/__retrom/bootstrap` 当应用页面重定向到登录页，driver 必须以
-  `BLOCKED/RPG_ACCEPTANCE_SECURITY_RUNTIME_ORIGIN_MISROUTED` 快速结束。若任一本次应接受的固定 fixture
+  `BLOCKED/RPG_ACCEPTANCE_SECURITY_RUNTIME_ORIGIN_MISROUTED` 快速结束。应用 origin 必须使用
+  `http://localhost:<web-port>` 而不是 `127.0.0.1`，否则 `*.rpg.localhost` 与应用跨 site，浏览器不会在 entry 请求
+  携带 `SameSite=Strict` capability；driver 以 `BLOCKED/RPG_ACCEPTANCE_SECURITY_RUNTIME_SITE_MISMATCH`
+  快速结束。若任一本次应接受的固定 fixture
   已被该实例导入，产品会返回 `alreadyImportedItemCount>0` 且不会创建新 Review；driver 必须在尝试
   Review/validation 前以 `BLOCKED` 和 `RPG_ACCEPTANCE_SECURITY_FRESH_DATABASE_REQUIRED` 结束，不能把零
   Review 降级为产品失败或复用旧 Review。先对七个 fixture 逐一选择其余六核心，但先独立执行 41 个应拒绝组合；批次前后分别通过正常管理列表 API 分页读取全部 ImportJob、待审核 Item 与 Game ID 集合，只把各集合的 count 与排序 ID 列表摘要写入证据。只有三组摘要前后逐字相同才继续；ImportJob 未创建即不存在可承载 validation/Launch 的 Review Item，因此该批次同时证明没有 validation/Launch，Game 集合不变证明没有发布数据。随后单独导入唯一允许的 2000 fixture→`rpgmaker_2003`，再提交 `.`/`www` 双根、多世代、RGSS 冲突、LCF 截断、case/NFKC/gencache 冲突、穿越、symlink、archive bomb、外链、确凿 Node/native 运行依赖，以及只携带但不被 Web 路径引用的 `.exe/.dll/.node/.bat`。

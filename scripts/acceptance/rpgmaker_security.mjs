@@ -7,7 +7,7 @@ import {
   createProductClient, directoryFiles, mergeFiles, overlayFile, reviewForImport,
   SecurityInputBlocked, singleFile,
 } from "./rpgmaker_security_upload.mjs";
-import { runtimeFrameEligible } from "./rpgmaker_security_runtime.mjs";
+import { requireLocalRuntimeSite, runtimeFrameEligible } from "./rpgmaker_security_runtime.mjs";
 
 const caseId = required("RETROM_RPG_CASE_ID");
 const caseDir = required("RETROM_RPG_CASE_DIR");
@@ -282,6 +282,7 @@ async function openValidationPlayer(context, client, created, screenshotName, in
   );
   await page.goto(`${baseUrl}${created.playerUrl}`, { waitUntil: "domcontentloaded" });
   config = await (await configResponse).json();
+  requireLocalRuntimeSite(baseUrl, config.adapter?.uniqueOrigin);
   await page.waitForFunction(() => document.querySelector("iframe") !== null, null, { timeout: 120_000 });
   const frame = await waitForHarnessFrame(page, inspectIsolation, config.adapter?.uniqueOrigin);
   await page.screenshot({ path: join(caseDir, "screenshots", screenshotName), fullPage: true });
