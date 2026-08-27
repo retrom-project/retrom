@@ -462,6 +462,13 @@ class EvidenceContractTests(unittest.TestCase):
         self.assertIn('item.defaultCoreId === "rpgmaker"', source)
         self.assertNotIn("item.defaultCoreId === config.coreId", source)
 
+    def test_generation_provision_can_resume_only_an_exact_unvalidated_review(self) -> None:
+        source = GENERATION_PROVISION_PATH.read_text()
+        self.assertIn('process.env.RETROM_RPG_PROVISION_RESUME_ITEM_ID', source)
+        self.assertIn('review.rpgMaker?.runtimeValidation !== null', source)
+        self.assertIn('review.sourceManifest?.filesDigest !== expected.filesDigest', source)
+        self.assertIn('"RPG_PROVISION_RESUME_REVIEW_INVALID"', source)
+
     def test_mv_generation_evidence_requires_two_origin_inventory(self) -> None:
         spec = rpgmaker.GENERATION_CASES["ACC-RPG-007"]
         payload = product_payload(spec, "a" * 64)
