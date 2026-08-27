@@ -3519,7 +3519,7 @@ export interface components {
         /** @enum {string} */
         RpgCoreID: "rpgmaker_2000" | "rpgmaker_2003" | "rpgmaker_xp" | "rpgmaker_vx" | "rpgmaker_vx_ace" | "rpgmaker_mv" | "rpgmaker_mz";
         /** @enum {string} */
-        CheckpointPayloadKind: "RUNTIME_STATE" | "NATIVE_SAVE_BUNDLE_V1";
+        CheckpointPayloadKind: "RUNTIME_STATE" | "NATIVE_SAVE_BUNDLE_V1" | "ONS_SAVE_BUNDLE_V1";
         /** @enum {string} */
         NativeCheckpointProfile: "EASYRPG_V1" | "RPGMV_V1" | "RPGMZ_V1";
         /** @enum {string} */

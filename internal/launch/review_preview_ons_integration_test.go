@@ -11,6 +11,9 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"mime/multipart"
+	"net/http"
+	"net/textproto"
 	"path/filepath"
 	"runtime"
 	"testing"
@@ -21,6 +24,7 @@ import (
 	"retrom/internal/dependencies"
 	"retrom/internal/libraryimport"
 	retromruntime "retrom/internal/runtime"
+	retromsaves "retrom/internal/saves"
 	"retrom/internal/testsupport"
 	"retrom/internal/uploads"
 )
@@ -134,6 +138,106 @@ WHERE game.id=?
 		contentKind != onsProjectFormat || compatibilityCode != reviewScreenshotOverrideCode {
 		t.Fatalf("published ONS = %s/%s, %v", contentKind, compatibilityCode, err)
 	}
+	assertONSProductRoundTrip(
+		t, ctx, service, database.SQL, blobs, credentials, approved.GameID, pngBody,
+	)
+}
+
+func assertONSProductRoundTrip(
+	t *testing.T,
+	ctx context.Context,
+	service *Service,
+	database *sql.DB,
+	blobs *blobstore.Store,
+	credentials *retromruntime.Credentials,
+	gameID string,
+	screenshot []byte,
+) {
+	t.Helper()
+	created, err := service.Create(ctx, "ons-preview-profile", CreateRequest{
+		GameID: gameID, ReturnTo: "/games/" + gameID,
+		ClientCapabilities: Capabilities{SecureContext: true},
+	})
+	if err != nil {
+		t.Fatalf("Create(ONS product) error = %v", err)
+	}
+	config, err := service.Config(ctx, created.LaunchID, created.Capability)
+	if err != nil || config.ONS == nil || config.ONS.Purpose != "PRODUCT" || config.ONS.Checkpoint != nil {
+		t.Fatalf("Config(ONS product) = %#v, %v", config, err)
+	}
+	index, err := service.ProjectIndex(ctx, created.LaunchID, created.Capability)
+	if err != nil || !bytes.Contains(index.Contents, []byte(`"path":"0.txt"`)) ||
+		!bytes.Contains(index.Contents, []byte(`"path":"default.ttf"`)) {
+		t.Fatalf("ProjectIndex(ONS product) = %s, %v", index.Contents, err)
+	}
+	content, err := service.Content(ctx, created.LaunchID, created.Capability, "0.txt")
+	if err != nil || content.Format != onsProjectFormat {
+		t.Fatalf("Content(ONS product) = %#v, %v", content, err)
+	}
+	saveService := retromsaves.New(database, blobs, credentials, time.Now)
+	checkpoint := []byte("RETROM ONS CHECKPOINT V1")
+	result, replayed, err := saveService.CreateManual(
+		ctx, created.LaunchID, created.Capability, "ons-product-save-1",
+		onsManualRequest(t, checkpoint, screenshot),
+	)
+	if err != nil || replayed || result.PayloadKind != "ONS_SAVE_BUNDLE_V1" || result.SaveStateID == "" ||
+		result.NativeProfile != nil || result.ResumeSlot != nil {
+		t.Fatalf("CreateManual(ONS) = %#v, replayed=%v, err=%v", result, replayed, err)
+	}
+	restored, err := service.Create(ctx, "ons-preview-profile", CreateRequest{
+		GameID: gameID, SaveStateID: &result.SaveStateID, ReturnTo: "/games/" + gameID,
+		ClientCapabilities: Capabilities{SecureContext: true},
+	})
+	if err != nil || restored.LaunchID == created.LaunchID {
+		t.Fatalf("Create(ONS restore) = %#v, %v", restored, err)
+	}
+	restoreConfig, err := service.Config(ctx, restored.LaunchID, restored.Capability)
+	if err != nil || restoreConfig.ONS == nil || restoreConfig.ONS.Checkpoint == nil ||
+		restoreConfig.ONS.Checkpoint.PayloadKind != "ONS_SAVE_BUNDLE_V1" ||
+		restoreConfig.ONS.Checkpoint.PayloadURL != "/runtime/launches/"+restored.LaunchID+"/state" {
+		t.Fatalf("Config(ONS restore) = %#v, %v", restoreConfig, err)
+	}
+	digest, err := saveService.StateDigest(ctx, restored.LaunchID, restored.Capability)
+	expected := sha256.Sum256(checkpoint)
+	if err != nil || digest != fmt.Sprintf("%x", expected) {
+		t.Fatalf("StateDigest(ONS restore) = %s, %v", digest, err)
+	}
+}
+
+func onsManualRequest(t *testing.T, checkpoint, screenshot []byte) *http.Request {
+	t.Helper()
+	var body bytes.Buffer
+	writer := multipart.NewWriter(&body)
+	metadataHeader := make(textproto.MIMEHeader)
+	metadataHeader.Set("Content-Disposition", `form-data; name="metadata"; filename="metadata.json"`)
+	metadataHeader.Set("Content-Type", "application/json")
+	metadata, err := writer.CreatePart(metadataHeader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, _ = metadata.Write([]byte(`{"payloadKind":"ONS_SAVE_BUNDLE_V1","name":"ONS 手动存档"}`))
+	payload, err := writer.CreateFormFile("payload", "checkpoint.bin")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, _ = payload.Write(checkpoint)
+	screenshotHeader := make(textproto.MIMEHeader)
+	screenshotHeader.Set("Content-Disposition", `form-data; name="screenshot"; filename="screenshot.png"`)
+	screenshotHeader.Set("Content-Type", "image/png")
+	screenshotPart, err := writer.CreatePart(screenshotHeader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, _ = screenshotPart.Write(screenshot)
+	if err := writer.Close(); err != nil {
+		t.Fatal(err)
+	}
+	request, err := http.NewRequestWithContext(context.Background(), http.MethodPost, "/", &body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	request.Header.Set("Content-Type", writer.FormDataContentType())
+	return request
 }
 
 func createONSReviewItem(

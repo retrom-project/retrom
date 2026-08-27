@@ -72,6 +72,13 @@ func (service *Service) prepareLaunch(
 		}
 		return launchPreparation{contentPlan: contentPlan}, nil
 	}
+	if selection.runtimeFamily == "ONS" {
+		contentPlan, err := service.buildONSProductContentPlan(ctx, selection)
+		if err != nil {
+			return launchPreparation{}, err
+		}
+		return launchPreparation{contentPlan: contentPlan}, nil
+	}
 	if selection.runtimeFamily != "EMULATORJS" ||
 		service.dependencies.Versions[selection.runtimeVersion] == nil {
 		return launchPreparation{}, ErrBlocked
@@ -195,6 +202,7 @@ AND pi.enabled=1
 AND r.status='READY'
 AND a.available_for_launch=1
 AND (a.runtime_family='EMULATORJS' OR
+  a.runtime_family='ONS' AND json_extract(a.compatibility_json,'$.adapterAbi')=s.adapter_abi OR
   rpg.adapter_abi=s.adapter_abi AND rpg.dependency_snapshot_sha256=s.dependency_snapshot_sha256)
 `, *request.SaveStateID, request.GameID, profileID).
 		Scan(
@@ -247,7 +255,7 @@ WHERE g.id=?
 AND g.status='PUBLISHED'
 AND pi.enabled=1
 AND r.status='READY'
-AND (a.runtime_family='EMULATORJS' OR EXISTS(
+AND (a.runtime_family IN ('EMULATORJS','ONS') OR EXISTS(
   SELECT 1 FROM rpgmaker_variant_profiles profile
   WHERE profile.game_variant_revision_id=r.id AND profile.route_key=r.route_key
     AND profile.artifact_set_sha256=a.artifact_set_sha256

@@ -64,6 +64,15 @@ func validatePayloadBinding(launch launchSnapshot, path string) (nativeBinding, 
 		}
 		return nativeBinding{}, nil
 	}
+	if launch.payloadKind == "ONS_SAVE_BUNDLE_V1" {
+		if launch.generation != "" {
+			return nativeBinding{}, ErrCheckpointInvalid
+		}
+		return nativeBinding{}, nil
+	}
+	if launch.payloadKind != "NATIVE_SAVE_BUNDLE_V1" {
+		return nativeBinding{}, ErrCheckpointInvalid
+	}
 	contents, err := os.ReadFile(path)
 	if err != nil {
 		return nativeBinding{}, fmt.Errorf("saves/service: %w", err)

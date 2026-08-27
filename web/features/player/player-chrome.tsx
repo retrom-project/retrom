@@ -13,7 +13,7 @@ type SyncTone = "synced" | "busy" | "warning";
 type ExitSaveState = "idle" | "saving" | "saved" | "error";
 
 export type PlayerDebugRuntime = {
-  runtimeFamily: "" | "EMULATORJS" | "RPGMAKER";
+  runtimeFamily: "" | "EMULATORJS" | "RPGMAKER" | "ONS";
   coreId: string;
   coreArtifactId: string;
   emulatorJSVersion: string;
@@ -303,9 +303,12 @@ function LiveDebug({ metrics, runningLabel }: { metrics: PlayerDebugMetrics | nu
 }
 
 function RuntimeDebug({ runtime, coreName, playerNo }: { runtime: PlayerDebugRuntime; coreName: string; playerNo: number | null }) {
-  const implementation = runtime.runtimeFamily === "RPGMAKER"
-    ? <div><dt>运行类型</dt><dd>RPG Maker</dd></div>
-    : <><div><dt>EmulatorJS</dt><dd>{runtime.emulatorJSVersion || "—"}</dd></div><div><dt>Player adapter</dt><dd title={runtime.playerAdapterId}>{runtime.playerAdapterId || "—"}</dd></div></>;
+  let implementation = <><div><dt>EmulatorJS</dt><dd>{runtime.emulatorJSVersion || "—"}</dd></div><div><dt>Player adapter</dt><dd title={runtime.playerAdapterId}>{runtime.playerAdapterId || "—"}</dd></div></>;
+  if (runtime.runtimeFamily === "RPGMAKER") {
+    implementation = <div><dt>运行类型</dt><dd>RPG Maker</dd></div>;
+  } else if (runtime.runtimeFamily === "ONS") {
+    implementation = <><div><dt>运行类型</dt><dd>ONScripter</dd></div><div><dt>Runtime</dt><dd>{runtime.emulatorJSVersion || "—"}</dd></div><div><dt>Player adapter</dt><dd title={runtime.playerAdapterId}>{runtime.playerAdapterId || "—"}</dd></div></>;
+  }
   return <section><h3>运行环境</h3><dl><div><dt>Core</dt><dd title={runtime.coreId}>{coreName || runtime.coreId || "—"}</dd></div>{implementation}<div><dt>输入模式</dt><dd>{runtime.inputMode || "—"}</dd></div><div><dt>隔离能力</dt><dd>{runtime.crossOriginIsolated && runtime.sharedArrayBuffer ? "COOP/COEP + SAB" : "未完整启用"}</dd></div><div><dt>Player 模式</dt><dd>{playerNo === null ? "单机" : `联机 · P${playerNo}`}</dd></div></dl></section>;
 }
 

@@ -174,7 +174,8 @@ func decodeMetadataField(decoder *json.Decoder, name string, metadata *manualMet
 }
 
 func validMetadataForLaunch(metadata manualMetadata, launch launchSnapshot) bool {
-	if metadata.PayloadKind != "RUNTIME_STATE" && metadata.PayloadKind != "NATIVE_SAVE_BUNDLE_V1" {
+	if metadata.PayloadKind != "RUNTIME_STATE" && metadata.PayloadKind != "NATIVE_SAVE_BUNDLE_V1" &&
+		metadata.PayloadKind != "ONS_SAVE_BUNDLE_V1" {
 		return false
 	}
 	if launch.purpose == "RPG_RUNTIME_VALIDATION" {
