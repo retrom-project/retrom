@@ -185,6 +185,8 @@ EasyRPG runtime 固定到 <https://github.com/xxxsen/Player> 的 release tag、t
 
 EasyRPG Player 为 GPLv3、liblcf 为 MIT、mkxp-z 为 GPLv2+、RetroArch 为 GPLv3、Nostalgist 为 MIT；镜像必须为适用 GPL 组合提供精确对应源码、Retrom patch、build scripts 与许可证/书面源码提供方式。MV/MZ runtime 和插件是用户内容，Retrom 不宣称或取得其再分发权。manifest/registry/adapter/许可任一改变必须运行 `make data-check`、`make prepare-deps`、`make deps-check`，并让两个镜像的 `io.retrom.release-input-sha256` 完全相同。
 
+许可证与对应源码属于部署/分发物，不通过应用 HTTP API 或浏览器页面公开原文。管理员“运行依赖”页显示的 `coreId + routeKey + artifactId` 是追溯键：它必须唯一命中 RPG manifest 的 artifact 项，再由该项的 tagged runtime release、source archive/offer 和 `data/runtime/rpgmaker/v1/THIRD_PARTY_NOTICES` 定位完整许可与对应源码。镜像保留 notice、逐项许可原文及 corresponding-source；`ACC-RPG-001`、`ACC-RPG-012` 和 `ACC-PKG-001` 分别验证管理投影、历史 artifact 绑定和镜像内闭包。禁止新增返回许可 payload、宿主路径或对应源码 archive 的应用端点。
+
 ## 8. 统一验收入口
 
 小型 manifest 结构（包括联机 exact manifest 与 RPG route/artifact manifest）由 `ACC-QA-001` 的 `make data-check` 覆盖；RPG 固定 release repo/tag/tag commit/asset 形状/adapter ABI、registry 对齐、历史 artifact 恢复和许可/对应源码闭包由 `ACC-RPG-002`–`012` 覆盖；联机协议、安全、feature flag 与单机回归由 `ACC-NP-010`–`013` 覆盖，真实双端核心运行与生命周期由 `ACC-NP-014`–`022` 覆盖；完整 payload 准备与本地 observed digest 校验由 `ACC-DAT-001` 覆盖；密码 blocklist 的启动期校验与拒绝行为由 `ACC-AUTH-003` 覆盖；镜像内依赖、无启动期下载和许可文件由 `ACC-PKG-001` 覆盖；版本变化执行 `ACC-DAT-006`。
