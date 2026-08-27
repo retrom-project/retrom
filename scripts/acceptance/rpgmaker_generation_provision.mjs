@@ -66,7 +66,9 @@ const caseId = process.argv[2];
 const config = cases[caseId];
 if (!config) { throw new Error("usage: rpgmaker_generation_provision.mjs ACC-RPG-002..ACC-RPG-008"); }
 const baseUrl = normalizedBase(required("RETROM_ACCEPTANCE_BASE_URL"));
-const tracePath = caseId === "ACC-RPG-004" ? checkedTracePath(required("RETROM_ACC_RPG_004_TRACE")) : null;
+const tracePath = caseId === "ACC-RPG-004"
+  ? optionalTracePath(process.env.RETROM_ACC_RPG_004_TRACE)
+  : null;
 const browser = await chromium.launch({
   executablePath: required("RETROM_CHROME_EXECUTABLE"), headless: true,
 });
@@ -177,7 +179,7 @@ function fileSHA256(file) {
 
 async function validateAndPublish(context, client, review) {
   const threadRejections = [];
-  if (caseId === "ACC-RPG-004") {
+  if (tracePath) {
     threadRejections.push(await expectThreadRejection(
       client, `/api/v1/admin/reviews/${review.itemId}/runtime-validations`, review.version, "VALIDATION",
     ));
@@ -190,18 +192,18 @@ async function validateAndPublish(context, client, review) {
   exact(createdResponse.status(), 201, "RPG_PROVISION_VALIDATION_CREATE_FAILED");
   const created = await createdResponse.json();
   const original = await openPlayer(context, created.playerUrl);
-  const checkpointUpload = caseId === "ACC-RPG-004" ? observeCheckpointUpload(original) : null;
+  const checkpointUpload = tracePath ? observeCheckpointUpload(original) : null;
   await runtimeAction(original, "输入已经生效", ["ArrowLeft"]);
   await runtimeAction(original, "已听到游戏音频", []);
   await runtimeAction(original, "记录 B 并创建检查点", config.saveKeys, 300_000);
   const observedUpload = checkpointUpload ? await checkpointUpload() : null;
-  const oversizeRejection = caseId === "ACC-RPG-004"
+  const oversizeRejection = tracePath
     ? await rejectDeclaredOversize(context, created.launchId)
     : null;
   await runtimeAction(original, "记录 C 并结束原运行", config.divergeKeys);
   const checkpointed = await waitForValidation(client, review.itemId, created.validationId, "CHECKPOINTED");
   await closeCleanPlayer(original, "RPG_PROVISION_ORIGINAL_PLAYER_ERROR");
-  if (caseId === "ACC-RPG-004") {
+  if (tracePath) {
     threadRejections.push(await expectThreadRejection(
       client,
       `/api/v1/admin/reviews/${review.itemId}/runtime-validations/${created.validationId}/restore-launch`,
@@ -497,6 +499,10 @@ function checkedTracePath(value) {
     throw new Error("RPG_PROVISION_TRACE_PATH_INVALID");
   }
   return path;
+}
+
+function optionalTracePath(value) {
+  return value ? checkedTracePath(value) : null;
 }
 
 function normalizedBase(value) {

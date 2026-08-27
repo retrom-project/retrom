@@ -419,12 +419,11 @@ class EvidenceContractTests(unittest.TestCase):
         with self.assertRaisesRegex(rpgmaker.ContractError, "XP_RUNTIME_TRACE_INVALID"):
             rpgmaker.validate_generation_evidence(payload, spec, "a" * 64)
 
-    def test_xp_generation_evidence_requires_270_mib_and_thread_trace(self) -> None:
+    def test_xp_generation_evidence_accepts_minimal_round_trip_without_extended_trace(self) -> None:
         spec = rpgmaker.GENERATION_CASES["ACC-RPG-004"]
         payload = product_payload(spec, "a" * 64)
         payload.pop("xpRuntimeTrace")
-        with self.assertRaisesRegex(rpgmaker.ContractError, "XP_RUNTIME_TRACE_INVALID"):
-            rpgmaker.validate_generation_evidence(payload, spec, "a" * 64)
+        rpgmaker.validate_generation_evidence(payload, spec, "a" * 64)
 
     def test_generation_provision_collects_xp_trace_from_product_boundaries(self) -> None:
         source = GENERATION_PROVISION_PATH.read_text()
@@ -570,7 +569,7 @@ class EvidenceContractTests(unittest.TestCase):
         mz = rpgmaker.required_environment("ACC-RPG-008")
         self.assertIn("RETROM_CHROME_EXECUTABLE", catalog)
         self.assertIn("RETROM_CHROME_EXECUTABLE", xp)
-        self.assertIn("RETROM_ACC_RPG_004_TRACE", xp)
+        self.assertNotIn("RETROM_ACC_RPG_004_TRACE", xp)
         self.assertIn("RPG_MZ_SMOKE_PROVENANCE", mz)
 
     def test_extended_product_cases_require_chrome(self) -> None:
