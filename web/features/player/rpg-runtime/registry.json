@@ -72,6 +72,46 @@
       "adapterKind": "NATIVE_WEB",
       "adapterId": "rpg-native-web-v1",
       "implementation": "native-web/adapter.ts"
+    },
+    {
+      "coreId": "rpgmaker_mv",
+      "generation": "RPGMV",
+      "routeKey": "RPGMV_NATIVE_V4",
+      "adapterKind": "NATIVE_WEB",
+      "adapterId": "rpg-native-web-v2",
+      "implementation": "native-web/adapter.ts"
+    },
+    {
+      "coreId": "rpgmaker_mz",
+      "generation": "RPGMZ",
+      "routeKey": "RPGMZ_NATIVE_V4",
+      "adapterKind": "NATIVE_WEB",
+      "adapterId": "rpg-native-web-v2",
+      "implementation": "native-web/adapter.ts"
+    },
+    {
+      "coreId": "rpgmaker_mz",
+      "generation": "RPGMZ",
+      "routeKey": "RPGMZ_NATIVE_V5",
+      "adapterKind": "NATIVE_WEB",
+      "adapterId": "rpg-native-web-v3",
+      "implementation": "native-web/adapter.ts"
+    },
+    {
+      "coreId": "rpgmaker_mz",
+      "generation": "RPGMZ",
+      "routeKey": "RPGMZ_NATIVE_V6",
+      "adapterKind": "NATIVE_WEB",
+      "adapterId": "rpg-native-web-v4",
+      "implementation": "native-web/adapter.ts"
+    },
+    {
+      "coreId": "rpgmaker_mz",
+      "generation": "RPGMZ",
+      "routeKey": "RPGMZ_NATIVE_V7",
+      "adapterKind": "NATIVE_WEB",
+      "adapterId": "rpg-native-web-v5",
+      "implementation": "native-web/adapter.ts"
     }
   ]
 }

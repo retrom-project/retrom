@@ -64,6 +64,7 @@ flowchart LR
 8. `008_server_import.sql`：Pegasus 与 EmulationStation 当前 review-handoff 模型；
 9. `009_runtime.sql`：PRODUCT/RPG_RUNTIME_VALIDATION Launch、PlaySession、通用显式 checkpoint、隔离 runtime ticket/capability 与 Netplay；
 10. `010_cross_domain_invariants.sql`：只能在全部 owner table 存在后建立的 profile/route/artifact/pack/checkpoint/Launch 索引和 trigger。
+11. `011_emulatorjs_failed_revision_runtime.sql`：在不改写已应用 migration 的前提下更新 variant revision runtime trigger；失败态 EmulatorJS revision 可保留缺少 `emulator_game_id` 的诊断记录，`READY` 仍强制绑定实际游戏内容。
 
 循环 current pointer 使用数据模型规定的 deferred FK；clean migration 全程保持 `foreign_keys=ON`，每条在事务中应用并记录 name/checksum，最终执行 `foreign_key_check` 与 schema introspection。运行时代码不按 migration 数字分支，不关闭外键，不回填业务数据，也不动态修补 schema。
 

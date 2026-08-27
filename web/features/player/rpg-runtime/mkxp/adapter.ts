@@ -103,6 +103,10 @@ async function mountMkxpUnchecked(
       input_save_state: "f2",
       input_load_state: "f4",
       input_pause_toggle: "f6",
+      // The validation fixture changes its state through RGSS Input::C. mkxp-z
+      // maps that action to RetroPad A, so bind its browser key explicitly
+      // instead of inheriting a RetroArch/Nostalgist default that may drift.
+      input_player1_a: "x",
       // Retrom persists the exact raw core payload and validates an exact
       // RASTATE1 runtime envelope. RetroArch otherwise defaults to rzip for
       // savestates, which changes the file format and defers file visibility.
@@ -125,11 +129,10 @@ async function mountMkxpUnchecked(
     await nostalgist.exit();
     throw error;
   }
-  let evidencePath: string;
   try {
-    evidencePath = await prepareEvidencePath(fileSystem);
+    await prepareEvidencePath(fileSystem);
     if (restorePayload) {
-      await restoreStateAndWait(canvas, fileSystem, evidencePath, expectedRestorePosition(config));
+      await restoreStateAndWait(canvas, fileSystem, expectedRestorePosition(config));
     }
   } catch (error) {
     await nostalgist.exit();
@@ -156,10 +159,10 @@ async function mountMkxpUnchecked(
     gameManager: {
       savePayloadKind: "RUNTIME_STATE",
       validationPurpose: config.purpose === "RPG_RUNTIME_VALIDATION",
-      getRpgPosition: () => readPosition(fileSystem, evidencePath).position,
+      getRpgPosition: () => readCurrentPosition(fileSystem).position,
       getCheckpointAvailability: () => ({ available: true, reason: null }),
       getStateAsync: () => saveStateBytes(canvas, fileSystem, config.adapter.stateBufferBytes),
-      getFrameNum: () => readPosition(fileSystem, evidencePath).frameCount,
+      getFrameNum: () => readCurrentPosition(fileSystem).frameCount,
       getVideoDimensions: (dimension) => dimension === "aspect" ? canvas.width / canvas.height :
         dimension === "width" ? canvas.width : canvas.height,
       toggleMainLoop: async (running) => {
@@ -175,7 +178,7 @@ async function mountMkxpUnchecked(
   return {
     instance,
     engineProfile: expectedProfile,
-    position: () => readPosition(fileSystem, evidencePath).position,
+    position: () => readCurrentPosition(fileSystem).position,
     cleanup: async () => {
       await nostalgist.exit();
       target.replaceChildren();
@@ -214,19 +217,28 @@ function installRuntimeFiles(
 async function prepareEvidencePath(fileSystem: MkxpFileSystem) {
   // RetroArch first scopes savefile_directory by the core name and mkxp-z then
   // mounts its own mkxp-z/Saves directory below that effective save root.
-  const gameSaveRoot = `${saveRoot}/mkxp-z/mkxp-z/Saves`;
   const deadline = performance.now() + 30_000;
   while (performance.now() < deadline) {
-    const names = readDirectory(fileSystem, gameSaveRoot);
-    if (names.length > 1) {throw new Error("RPG_RUNTIME_BRIDGE_UNAVAILABLE");}
-    if (names.length === 1) {
-      const directory = `${gameSaveRoot}/${names[0]}`;
-      const evidencePath = `${directory}/${evidenceName}`;
-      if (fileSystem.analyzePath(evidencePath).exists) {return evidencePath;}
-    }
+    const evidencePath = currentEvidencePath(fileSystem);
+    if (evidencePath) {return evidencePath;}
     await new Promise((resolve) => setTimeout(resolve, 50));
   }
   throw new Error("RPG_RUNTIME_BRIDGE_UNAVAILABLE");
+}
+
+function currentEvidencePath(fileSystem: MkxpFileSystem) {
+  const gameSaveRoot = `${saveRoot}/mkxp-z/mkxp-z/Saves`;
+  const names = readDirectory(fileSystem, gameSaveRoot);
+  if (names.length > 1) {throw new Error("RPG_RUNTIME_BRIDGE_UNAVAILABLE");}
+  if (names.length !== 1) {return null;}
+  const evidencePath = `${gameSaveRoot}/${names[0]}/${evidenceName}`;
+  return fileSystem.analyzePath(evidencePath).exists ? evidencePath : null;
+}
+
+function readCurrentPosition(fileSystem: MkxpFileSystem) {
+  const evidencePath = currentEvidencePath(fileSystem);
+  if (!evidencePath) {throw new Error("RPG_RUNTIME_POSITION_UNAVAILABLE");}
+  return readPosition(fileSystem, evidencePath);
 }
 
 function readDirectory(fileSystem: MkxpFileSystem, path: string) {
@@ -315,14 +327,13 @@ function installRestoreState(fileSystem: MkxpFileSystem, state: Uint8Array, expe
 async function restoreStateAndWait(
   canvas: HTMLCanvasElement,
   fileSystem: MkxpFileSystem,
-  evidencePath: string,
   expected: RpgPosition | null,
 ) {
-  const before = tryReadPosition(fileSystem, evidencePath);
+  const before = tryReadCurrentPosition(fileSystem);
   await pressPrivateHotkey(canvas, loadStateHotkey);
   const deadline = performance.now() + 30_000;
   while (performance.now() < deadline) {
-    const restored = tryReadPosition(fileSystem, evidencePath);
+    const restored = tryReadCurrentPosition(fileSystem);
     if (restored && restored.frameCount !== before?.frameCount &&
       (!expected || samePosition(restored.position, expected))) {
       return;
@@ -347,8 +358,8 @@ function expectedRestorePosition(config: MkxpConfig): RpgPosition | null {
   };
 }
 
-function tryReadPosition(fileSystem: MkxpFileSystem, evidencePath: string) {
-  try {return readPosition(fileSystem, evidencePath);}
+function tryReadCurrentPosition(fileSystem: MkxpFileSystem) {
+  try {return readCurrentPosition(fileSystem);}
   catch (error) {
     if (error instanceof Error && error.message === "RPG_RUNTIME_POSITION_UNAVAILABLE") {return null;}
     throw error;

@@ -878,7 +878,7 @@ Launch config 顶层是 `runtimeFamily` discriminated union。`EMULATORJS` 保�
 
 - `EASYRPG_WEB`：`adapterId=easyrpg-web-v1`、强制 `engineMode=rpg2k|rpg2k3`、runtime/project/index URL、可空唯一 RTP archive、slot 100；
 - `MKXP_LIBRETRO_WEB`：clean-lineage 当前只允许 `adapterId=mkxp-z-libretro-v4`；config 分别返回 core JS 与 Wasm 的 `url/sizeBytes/sha256`、`artifactSetSha256`、固定 bridge、项目/pack archive URL 与 size/hash、强制 `rgssVersion=1|2|3`、`stateBufferBytes=268435456`。core 的 size/hash 是下载固定 tag Release asset 后记录的 observed cache coordinates，用于内容响应、Blob 重建与本机损坏检测；它们不是远端 Release 准入身份，同 tag 同名资产由固定 tag commit 与 adapter ABI 定义兼容性；
-- `NATIVE_WEB`：`adapterId=rpg-native-web-v1`、`bridgeProfile=mv-v1|mz-v1`、`uniqueOrigin/bootstrapUrl/bootstrapTicket`。
+- `NATIVE_WEB`：历史 V3/V4/V5/V6 Launch 分别使用 `adapterId=rpg-native-web-v1|v2|v3|v4`；当前 MV 仍选择 V4，当前 MZ V7 使用 `adapterId=rpg-native-web-v5`。五代均冻结 `bridgeProfile=mv-v1|mz-v1`、`uniqueOrigin/bootstrapUrl/bootstrapTicket`。ENGINE_PROFILE evidence 与 route projection 必须接受已登记的 adapter identity，并仍按 validation/Launch 冻结值精确匹配，不能只接受当前或历史其中一代。
 
 EasyRPG 与 mkxp 的同源内容端点属于严格 OpenAPI 契约，不能只在 Go router 中注册：
 

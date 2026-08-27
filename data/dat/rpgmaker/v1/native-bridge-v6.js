@@ -233,10 +233,8 @@
       function poll() {
         const manager = global.SceneManager;
         const colors = global.ColorManager;
-        const graphics = global.Graphics;
         const windowskin = colors && colors._windowskin;
-        if (manager && manager._scene && graphics && graphics.width > 0 && graphics.height > 0 &&
-          windowskin && typeof windowskin.getPixel === "function") {
+        if (manager && manager._scene && windowskin && typeof windowskin.getPixel === "function") {
           resolve();
           return;
         }

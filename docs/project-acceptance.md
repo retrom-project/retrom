@@ -60,7 +60,7 @@
 - 构建镜像 Case 需要 Docker daemon，但不授权启动容器；
 - 可选的已部署代理 Case 需要一个已由 NG 暴露的 HTTPS 地址，通过 `RETROM_ACCEPTANCE_BASE_URL` 提供；没有部署环境时只有明确标注的条件 Case 可为 `NOT_APPLICABLE`；
 - `ACC-RPG-008` 需要维护者依法持有、自包含且不含付费第三方素材/插件的 RPG Maker MZ Web Browser deployment，通过 `RPG_MZ_SMOKE_ROOT` 指定；它是声明 MZ 完成的 Required 外部前置，缺失时该 Case 为 `BLOCKED` 且整体不得声明全世代支持，不得由 Agent 下载或提交商业内容。
-- 自动化验收不得读取或下载操作者私有 ROM/BIOS。`testdata/public-roms/gba-smoke/`、`testdata/public-roms/nes-smoke/`、`testdata/public-roms/snes-smoke/` 与 `testdata/public-roms/arcade-smoke/` 中的测试程序均由 Retrom 自有源码确定性生成、使用 MIT 许可并随仓库提交，不包含第三方游戏或 BIOS bytes。
+- 自动化验收不得读取或下载操作者私有 ROM/BIOS。`testdata/public-roms/gba-smoke/`、`testdata/public-roms/nes-smoke/`、`testdata/public-roms/snes-smoke/`、`testdata/public-roms/arcade-smoke/` 与 `testdata/public-roms/rpgmaker-smoke/` 中的可提交测试程序均由 Retrom 自有源码确定性生成或使用清单锁定的 MIT MV CoreScript、随仓库保留许可且不包含第三方游戏、BIOS、RTP 或商业 runtime bytes。MZ 官方样例始终位于 ignored 操作者目录，只通过转换 provenance 进入 `ACC-RPG-008`。
 
 首次准备依赖可以执行：
 
@@ -1511,9 +1511,27 @@ Review 与所需 validation Launch。`negative-matrix/matrix.json` 必须精确�
 ### ACC-RPG-008：RPG Maker MZ
 
 - 上限：300 秒。执行：`make acceptance-case CASE=ACC-RPG-008 RPG_MZ_SMOKE_ROOT=<licensed-web-deployment-directory>`。
-- 流程：从操作者合法 MZ Web deployment 经 `rpgmaker_mz` 导入，在当前 `RPGMZ_NATIVE_V3` unique origin 执行 marker、300 帧、输入/音频与 A→B=1 保存→C=2→不同 Launch 恢复。
-- 通过标准：MZ generation/shape/route/artifact/bridge 精确绑定，map/xy/变量/截图回到 B；shape harness 不能替代真实产品结果。
-- 证据：只记录 files digest、engine version、route/artifact/bridge、Chrome 版本、gate 时长和结果，不复制项目，不记录内容/绝对路径/凭据。
+- 合法输入：官方 `nannnimo.zip` 只能从文档登记的 Gotcha Gotcha Games 下载地址取得并保留在 ignored 操作者目录，仓库不得提交或镜像。先用新输出目录执行：
+
+  ```bash
+  python3 scripts/acceptance/rpgmaker_mz_prepare.py \
+    --source-zip <absolute-nannnimo.zip> \
+    --output-root <absolute-new-retrom-mz-root> \
+    --provenance-output <absolute-new-provenance.json>
+  ```
+
+  工具固定验证原 ZIP 的 size/SHA，安全展开唯一 `nannnimo/` wrapper，只删除根说明 PDF 和九个随包 save，保留
+  `game.rmmzproject`，再注入 Retrom 自有 marker/变量插件；启动时直接进入官方 Map001 的 `(19,24)`，保留地图、
+  NPC、角色与场景渲染，确认输入会同时推进角色横坐标与 fixture 变量，确保 B/C/恢复后输入都不是仅变量变化、
+  静止画面或黑色背景上的 marker 覆盖层。它拒绝 traversal、symlink、路径碰撞、意外 exclusion、
+  非空输出与原始 `plugins.js` 漂移；provenance 绑定十个删除项、两个注入文件及最终 fileset digest/count/bytes。
+- fresh 前置：把上述新输出目录设为 `RPG_MZ_SMOKE_ROOT` 后执行
+  `node scripts/acceptance/rpgmaker_generation_provision.mjs ACC-RPG-008`；stdout 返回本次实际产品链的
+  `importItemId/validationId/gameId`。正式 Case 必须继续使用同一目录与同一 provenance，不能用旧 import、旧
+  validation 或手工拼接的转换说明替代。
+- 流程：将工具输出目录和 provenance 分别作为 `RPG_MZ_SMOKE_ROOT`、`RPG_MZ_SMOKE_PROVENANCE`，经 `rpgmaker_mz` 导入，在当前 `RPGMZ_NATIVE_V7` unique origin 执行 marker、300 帧、输入/音频与 A→B=1 保存→C=2→不同 Launch 恢复。
+- 通过标准：MZ generation/shape/route/artifact/bridge 精确绑定，转换 provenance 与实际项目逐字段一致，map/xy/变量/截图回到 B；恢复 PNG 必须含 marker 的精确 RGB，同时在排除固定 marker 矩形后仍达到独立的非黑像素和颜色桶下限，证明实际游戏地图可见；shape harness 或黑屏上的 marker 不能替代真实产品结果。
+- 证据：只记录来源 URL/版本/SHA、转换清单与 files digest、engine version、route/artifact/bridge、Chrome 版本、gate 时长和结果，不复制项目，不记录内容/绝对路径/凭据。
 
 ### ACC-RPG-009：RTP/资源包
 

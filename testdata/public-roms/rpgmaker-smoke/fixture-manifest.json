@@ -17,8 +17,8 @@
     {
       "path": "malicious-rpgmv/js/main.js",
       "generation": "RPGMV",
-      "sizeBytes": 6062,
-      "sha256": "de1ac695b8e13630d675bb53e4efd059052af0b7aa64c9aa1d9cdc34a3a82c74"
+      "sizeBytes": 6396,
+      "sha256": "4d5e732f715a4cec6acd5531d9d4f03e89d9d37f84e4c24ae95758f6aec44f53"
     },
     {
       "path": "malicious-rpgmv/js/plugins.js",
@@ -89,8 +89,8 @@
     {
       "path": "malicious-rpgmz/js/main.js",
       "generation": "RPGMZ",
-      "sizeBytes": 6062,
-      "sha256": "de1ac695b8e13630d675bb53e4efd059052af0b7aa64c9aa1d9cdc34a3a82c74"
+      "sizeBytes": 6396,
+      "sha256": "4d5e732f715a4cec6acd5531d9d4f03e89d9d37f84e4c24ae95758f6aec44f53"
     },
     {
       "path": "malicious-rpgmz/js/plugins.js",

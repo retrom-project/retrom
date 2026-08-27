@@ -32,6 +32,10 @@ SOURCE_BUILD_GUIDE = "data/dat/rpgmaker/v1/REPRODUCING.md"
 EXPECTED_FIXED_RUNTIME_FILES = {
     "f2efc98-v5/retrom_position.rb": (1487, "524a0b3210f33f5a01220134548eb2947678ca5ef7a75b5caf3cfea2804fd5fa", "adapter_bridge"),
     "v3/native-bridge.js": (17278, "69016c7d295705836032c84ba86cdd6dd0bf5839f5e34f8c1800ae0f5fd34adc", "adapter_bridge"),
+    "v4/native-bridge.js": (18251, "2ed0f359eefbb6dd15a5f0a5c6157ba7432814612ff1708f7fc1f00137956169", "adapter_bridge"),
+    "v5/native-bridge.js": (18761, "26c7ed699d4fab71ab9960e651a5eb5745e4450fb2ffbb9e6a7e96daca0a6a0d", "adapter_bridge"),
+    "v6/native-bridge.js": (18762, "30ebc2179a5c1cc394fd1240ca159ed2dfc8013b64bd159b8406f70bc1fc036f", "adapter_bridge"),
+    "v7/native-bridge.js": (18871, "ee07770e32525617b46fbc077e1de2187eb814240e3ae59d4a296f0e4ecb32a6", "adapter_bridge"),
 }
 EXPECTED_RELEASE_RUNTIME_FILES = {
     "0.8.1.1-v4/easyrpg-player.js": ("easyrpg", "easyrpg-player.js", "runtime_js"),
@@ -49,8 +53,13 @@ EXPECTED_ROUTES = {
     "RPGXP_MKXPZ_F2EFC98_V5": ("rpgmaker_xp", "RPGXP", "MKXP_LIBRETRO_WEB", "mkxp-z-libretro-v4", "f2efc98-v5", True),
     "RPGVX_MKXPZ_F2EFC98_V5": ("rpgmaker_vx", "RPGVX", "MKXP_LIBRETRO_WEB", "mkxp-z-libretro-v4", "f2efc98-v5", True),
     "RPGVXACE_MKXPZ_F2EFC98_V5": ("rpgmaker_vx_ace", "RPGVXACE", "MKXP_LIBRETRO_WEB", "mkxp-z-libretro-v4", "f2efc98-v5", True),
-    "RPGMV_NATIVE_V3": ("rpgmaker_mv", "RPGMV", "NATIVE_WEB", "rpg-native-web-v1", "v3", True),
-    "RPGMZ_NATIVE_V3": ("rpgmaker_mz", "RPGMZ", "NATIVE_WEB", "rpg-native-web-v1", "v3", True),
+    "RPGMV_NATIVE_V3": ("rpgmaker_mv", "RPGMV", "NATIVE_WEB", "rpg-native-web-v1", "v3", False),
+    "RPGMZ_NATIVE_V3": ("rpgmaker_mz", "RPGMZ", "NATIVE_WEB", "rpg-native-web-v1", "v3", False),
+    "RPGMV_NATIVE_V4": ("rpgmaker_mv", "RPGMV", "NATIVE_WEB", "rpg-native-web-v2", "v4", True),
+    "RPGMZ_NATIVE_V4": ("rpgmaker_mz", "RPGMZ", "NATIVE_WEB", "rpg-native-web-v2", "v4", False),
+    "RPGMZ_NATIVE_V5": ("rpgmaker_mz", "RPGMZ", "NATIVE_WEB", "rpg-native-web-v3", "v5", False),
+    "RPGMZ_NATIVE_V6": ("rpgmaker_mz", "RPGMZ", "NATIVE_WEB", "rpg-native-web-v4", "v6", False),
+    "RPGMZ_NATIVE_V7": ("rpgmaker_mz", "RPGMZ", "NATIVE_WEB", "rpg-native-web-v5", "v7", True),
 }
 
 EXPECTED_SOURCE_COMPONENTS = {
@@ -110,6 +119,10 @@ def validate_small_inputs(manifest: dict[str, Any]) -> None:
         "wasi_sdk_version", "binaryen_version", "easyrpg_patch_path",
         "easyrpg_patch_sha256", "mkxp_bridge_path", "mkxp_bridge_sha256",
         "native_bridge_v3_path", "native_bridge_v3_sha256",
+        "native_bridge_v4_path", "native_bridge_v4_sha256",
+        "native_bridge_v5_path", "native_bridge_v5_sha256",
+        "native_bridge_v6_path", "native_bridge_v6_sha256",
+        "native_bridge_v7_path", "native_bridge_v7_sha256",
     }
     if not isinstance(build, dict) or set(build) != build_keys:
         raise BuildError("RPG_RUNTIME_BUILD_DECLARATION_INVALID")
@@ -125,6 +138,10 @@ def validate_small_inputs(manifest: dict[str, Any]) -> None:
         ("easyrpg_patch_path", "easyrpg_patch_sha256"),
         ("mkxp_bridge_path", "mkxp_bridge_sha256"),
         ("native_bridge_v3_path", "native_bridge_v3_sha256"),
+        ("native_bridge_v4_path", "native_bridge_v4_sha256"),
+        ("native_bridge_v5_path", "native_bridge_v5_sha256"),
+        ("native_bridge_v6_path", "native_bridge_v6_sha256"),
+        ("native_bridge_v7_path", "native_bridge_v7_sha256"),
     ):
         relative = safe_path(build.get(path_key))
         expected = build.get(digest_key)
@@ -285,9 +302,17 @@ def validate_sources(sources: list[dict[str, Any]]) -> None:
 def materialize_bridges(manifest: dict[str, Any], runtime_root: Path) -> None:
     build = manifest["build"]
     native_v3 = (DAT_ROOT / safe_path(build["native_bridge_v3_path"])).read_bytes()
+    native_v4 = (DAT_ROOT / safe_path(build["native_bridge_v4_path"])).read_bytes()
+    native_v5 = (DAT_ROOT / safe_path(build["native_bridge_v5_path"])).read_bytes()
+    native_v6 = (DAT_ROOT / safe_path(build["native_bridge_v6_path"])).read_bytes()
+    native_v7 = (DAT_ROOT / safe_path(build["native_bridge_v7_path"])).read_bytes()
     copies = {
         "f2efc98-v5/retrom_position.rb": DAT_ROOT / safe_path(build["mkxp_bridge_path"]),
         "v3/native-bridge.js": native_v3,
+        "v4/native-bridge.js": native_v4,
+        "v5/native-bridge.js": native_v5,
+        "v6/native-bridge.js": native_v6,
+        "v7/native-bridge.js": native_v7,
     }
     for relative, source in copies.items():
         target = runtime_root / relative

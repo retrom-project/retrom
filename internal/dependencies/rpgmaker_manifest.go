@@ -80,6 +80,14 @@ type RPGMakerBuild struct {
 	MKXPBridgeSHA256         string `json:"mkxp_bridge_sha256"`
 	NativeBridgeV3Path       string `json:"native_bridge_v3_path"`
 	NativeBridgeV3SHA256     string `json:"native_bridge_v3_sha256"`
+	NativeBridgeV4Path       string `json:"native_bridge_v4_path"`
+	NativeBridgeV4SHA256     string `json:"native_bridge_v4_sha256"`
+	NativeBridgeV5Path       string `json:"native_bridge_v5_path"`
+	NativeBridgeV5SHA256     string `json:"native_bridge_v5_sha256"`
+	NativeBridgeV6Path       string `json:"native_bridge_v6_path"`
+	NativeBridgeV6SHA256     string `json:"native_bridge_v6_sha256"`
+	NativeBridgeV7Path       string `json:"native_bridge_v7_path"`
+	NativeBridgeV7SHA256     string `json:"native_bridge_v7_sha256"`
 }
 
 type RPGMakerVersion struct {
@@ -302,6 +310,10 @@ func validateRPGMakerBuild(version *RPGMakerVersion) error {
 		{build.EasyRPGPatchPath, build.EasyRPGPatchSHA256},
 		{build.MKXPBridgePath, build.MKXPBridgeSHA256},
 		{build.NativeBridgeV3Path, build.NativeBridgeV3SHA256},
+		{build.NativeBridgeV4Path, build.NativeBridgeV4SHA256},
+		{build.NativeBridgeV5Path, build.NativeBridgeV5SHA256},
+		{build.NativeBridgeV6Path, build.NativeBridgeV6SHA256},
+		{build.NativeBridgeV7Path, build.NativeBridgeV7SHA256},
 	} {
 		if err := validateRPGMakerBuildInput(version, input.path, input.digest); err != nil {
 			return err
@@ -341,8 +353,16 @@ func validateRPGMakerBuildInput(version *RPGMakerVersion, inputPath, expectedDig
 }
 
 func validateRPGMakerNativeBridges(version *RPGMakerVersion, build RPGMakerBuild) error {
-	current, currentExists := version.Allowlist["v3/native-bridge.js"]
-	if !currentExists || current.SHA256 != build.NativeBridgeV3SHA256 {
+	legacy, legacyExists := version.Allowlist["v3/native-bridge.js"]
+	v4, v4Exists := version.Allowlist["v4/native-bridge.js"]
+	v5, v5Exists := version.Allowlist["v5/native-bridge.js"]
+	v6, v6Exists := version.Allowlist["v6/native-bridge.js"]
+	current, currentExists := version.Allowlist["v7/native-bridge.js"]
+	if !legacyExists || legacy.SHA256 != build.NativeBridgeV3SHA256 ||
+		!v4Exists || v4.SHA256 != build.NativeBridgeV4SHA256 ||
+		!v5Exists || v5.SHA256 != build.NativeBridgeV5SHA256 ||
+		!v6Exists || v6.SHA256 != build.NativeBridgeV6SHA256 ||
+		!currentExists || current.SHA256 != build.NativeBridgeV7SHA256 {
 		return fmt.Errorf("%w: RPG Maker native bridge versions", ErrInvalid)
 	}
 	return nil

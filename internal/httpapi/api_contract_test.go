@@ -161,6 +161,30 @@ func TestRPGGateHTTPContractAcceptsNewPositionGatesAndRejectsUnknownGate(t *test
 	}
 }
 
+func TestRPGGateHTTPContractAcceptsRegisteredNativeWebAdapterEvidence(t *testing.T) {
+	t.Parallel()
+	for _, body := range []string{
+		`{"sequence":1,"eventId":"01980000-0000-7000-8000-000000000092","gate":"ENGINE_PROFILE","phase":"PASS","observedAtMs":1,"evidence":{"generation":"RPGMV","adapterId":"rpg-native-web-v2","engineProfile":"mv-v1"}}`,
+		`{"sequence":1,"eventId":"01980000-0000-7000-8000-000000000093","gate":"ENGINE_PROFILE","phase":"PASS","observedAtMs":1,"evidence":{"generation":"RPGMZ","adapterId":"rpg-native-web-v3","engineProfile":"mz-v1"}}`,
+		`{"sequence":1,"eventId":"01980000-0000-7000-8000-000000000094","gate":"ENGINE_PROFILE","phase":"PASS","observedAtMs":1,"evidence":{"generation":"RPGMZ","adapterId":"rpg-native-web-v4","engineProfile":"mz-v1"}}`,
+		`{"sequence":1,"eventId":"01980000-0000-7000-8000-000000000095","gate":"ENGINE_PROFILE","phase":"PASS","observedAtMs":1,"evidence":{"generation":"RPGMZ","adapterId":"rpg-native-web-v5","engineProfile":"mz-v1"}}`,
+	} {
+		server := newTestServer(t)
+		request := httptest.NewRequestWithContext(
+			context.Background(), http.MethodPost,
+			"/runtime/launches/01980000-0000-7000-8000-000000000091/rpgmaker-gates/events",
+			strings.NewReader(body),
+		)
+		request.Header.Set("Content-Type", "application/json")
+		response := httptest.NewRecorder()
+		server.Handler().ServeHTTP(response, request)
+		if response.Code != http.StatusUnauthorized ||
+			!strings.Contains(response.Body.String(), `"code":"LAUNCH_CREDENTIAL_INVALID"`) {
+			t.Fatalf("registered native Web gate response = %d %s", response.Code, response.Body.String())
+		}
+	}
+}
+
 func TestOpenAPIHasExactlyFourStreamingOperations(t *testing.T) {
 	t.Parallel()
 	specification, err := generated.GetSpec()

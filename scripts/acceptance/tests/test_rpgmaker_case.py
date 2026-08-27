@@ -223,6 +223,21 @@ class EvidenceContractTests(unittest.TestCase):
         with self.assertRaisesRegex(rpgmaker.ContractError, "RESTORE_VISUAL_INVALID"):
             rpgmaker.validate_generation_evidence(payload, spec, "a" * 64)
 
+    def test_mz_generation_rejects_marker_overlay_without_a_visible_game_scene(self) -> None:
+        spec = rpgmaker.GENERATION_CASES["ACC-RPG-008"]
+        payload = product_payload(spec, "a" * 64)
+        with tempfile.TemporaryDirectory() as directory:
+            screenshot = Path(directory) / "overlay-only.png"
+            marker_rgb = payload["inputProvenance"]["markerRgb"]
+            screenshot.write_bytes(test_mz_overlay_only_png(640, 480, marker_rgb))
+            logical_screenshot = payload["restoreVisualEvidence"]["screenshot"]
+            payload["restoreVisualEvidence"] = rpgmaker.png_visual_evidence(
+                screenshot, logical_screenshot, "RETROM RPGMZ", marker_rgb,
+                rpgmaker.MZ_SCENE_EXCLUSION,
+            )
+            with self.assertRaisesRegex(rpgmaker.ContractError, "RESTORE_VISUAL_INVALID"):
+                rpgmaker.validate_generation_evidence(payload, spec, "a" * 64)
+
     def test_generation_evidence_requires_sanitized_upload_import_transcript(self) -> None:
         spec = rpgmaker.GENERATION_CASES["ACC-RPG-006"]
         payload = product_payload(spec, "a" * 64)
@@ -264,6 +279,32 @@ class EvidenceContractTests(unittest.TestCase):
         payload = product_payload(spec, "a" * 64)
         payload["runtimeEnvironment"]["chromeVersion"] = ""
         payload["runtimeEnvironment"]["gateDurationsMs"] = []
+        with self.assertRaisesRegex(rpgmaker.ContractError, "RUNTIME_ENVIRONMENT_INVALID"):
+            rpgmaker.validate_generation_evidence(payload, spec, "a" * 64)
+
+    def test_mz_generation_evidence_requires_a_bound_transformation_recipe(self) -> None:
+        spec = rpgmaker.GENERATION_CASES["ACC-RPG-008"]
+        payload = product_payload(spec, "a" * 64)
+        del payload["inputProvenance"]["transformation"]
+        with self.assertRaisesRegex(rpgmaker.ContractError, "MZ_INPUT_PROVENANCE_INVALID"):
+            rpgmaker.validate_generation_evidence(payload, spec, "a" * 64)
+
+    def test_mz_generation_evidence_accepts_only_the_visible_map_v3_recipe(self) -> None:
+        spec = rpgmaker.GENERATION_CASES["ACC-RPG-008"]
+        payload = product_payload(spec, "a" * 64)
+        payload["inputProvenance"]["transformation"]["recipe"] = "RETROM_MZ_MINIMAL_V3"
+        rpgmaker.validate_generation_evidence(payload, spec, "a" * 64)
+        payload["inputProvenance"]["transformation"]["recipe"] = "RETROM_MZ_MINIMAL_V2"
+        with self.assertRaisesRegex(rpgmaker.ContractError, "MZ_TRANSFORMATION_INVALID"):
+            rpgmaker.validate_generation_evidence(payload, spec, "a" * 64)
+
+    def test_runtime_environment_accepts_playwright_numeric_chrome_version(self) -> None:
+        spec = rpgmaker.GENERATION_CASES["ACC-RPG-002"]
+        payload = product_payload(spec, "a" * 64)
+        payload["runtimeEnvironment"]["chromeVersion"] = "149.0.7827.55"
+        rpgmaker.validate_generation_evidence(payload, spec, "a" * 64)
+
+        payload["runtimeEnvironment"]["chromeVersion"] = "Chrome 149"
         with self.assertRaisesRegex(rpgmaker.ContractError, "RUNTIME_ENVIRONMENT_INVALID"):
             rpgmaker.validate_generation_evidence(payload, spec, "a" * 64)
 
@@ -804,6 +845,12 @@ def product_payload(spec, digest: str) -> dict:
             "licenseUrl": "https://example.test/LICENSE",
             "sourceUrl": "https://example.test/mz-smoke",
             "sourceVersion": "v1.0.0", "sourceSha256": "8" * 64,
+            "transformation": mz_transformation(digest, 10, 1024),
+        })
+        payload["restoreVisualEvidence"].update({
+            "sceneExclusion": dict(rpgmaker.MZ_SCENE_EXCLUSION),
+            "sceneNonBlackPixels": 640 * 480,
+            "sceneDistinctColorBuckets": 32,
         })
     if spec.generation == "RPGXP":
         payload["productLaunch"]["config"].update({
@@ -811,6 +858,32 @@ def product_payload(spec, digest: str) -> dict:
         })
         payload["xpRuntimeTrace"] = xp_runtime_trace("e" * 64)
     return payload
+
+
+def mz_transformation(digest: str, file_count: int, total_bytes: int) -> dict:
+    removed_names = [
+        "instructions.pdf", "save/config.rmmzsave", "save/global.rmmzsave",
+        *(f"save/file{index}.rmmzsave" for index in range(7)),
+    ]
+    return {
+        "schemaVersion": 1, "recipe": "RETROM_MZ_MINIMAL_V3",
+        "tool": "scripts/acceptance/rpgmaker_mz_prepare.py",
+        "sourceSizeBytes": rpgmaker.MZ_SOURCE_SIZE_BYTES,
+        "removedEntries": [
+            {
+                "logicalName": name,
+                "reason": "ROOT_DOCUMENTATION_EXCLUDED" if name.endswith(".pdf") else "PACKAGED_SAVE_EXCLUDED",
+                "sizeBytes": 1, "sha256": "7" * 64,
+            }
+            for name in removed_names
+        ],
+        "injectedFiles": [
+            {"logicalName": name, "sizeBytes": 1, "sha256": "6" * 64}
+            for name in ("js/plugins.js", "js/plugins/RetromMinimalAcceptance.js")
+        ],
+        "outputProjectFingerprint": digest,
+        "outputFileCount": file_count, "outputTotalBytes": total_bytes,
+    }
 
 
 def compatibility_state_payload() -> dict:
@@ -960,6 +1033,27 @@ def test_png(width: int, height: int, marker_rgb: list[int], solid: bool = False
                 color = [15, 23, 42]
             else:
                 color = [240, 240, 240]
+            rows.extend(color)
+    signature = b"\x89PNG\r\n\x1a\n"
+    return signature + png_chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0)) + \
+        png_chunk(b"IDAT", zlib.compress(bytes(rows), level=9)) + png_chunk(b"IEND", b"")
+
+
+def test_mz_overlay_only_png(width: int, height: int, marker_rgb: list[int]) -> bytes:
+    rows = bytearray()
+    for y in range(height):
+        rows.append(0)
+        for x in range(width):
+            if 24 <= x < 384 and 24 <= y < 32:
+                color = marker_rgb
+            elif 24 <= x < 384 and 32 <= y < 96:
+                color = [16, 24, 39]
+            elif 44 <= x < 300 and 48 <= y < 76:
+                color = [240, 240, 240]
+            elif width - 64 <= x < width - 32 and 40 <= y < 72:
+                color = [96, 96, 96]
+            else:
+                color = [0, 0, 0]
             rows.extend(color)
     signature = b"\x89PNG\r\n\x1a\n"
     return signature + png_chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0)) + \

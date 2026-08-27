@@ -21,14 +21,14 @@ function nativeConfig(origin: string) {
     returnTo: "/admin/reviews/item",
     warnings: [],
     generation: "RPGMV",
-    routeKey: "RPGMV_NATIVE_V3",
+    routeKey: "RPGMV_NATIVE_V4",
     artifactId: "0198abcd-1234-7123-8abc-1234567890ac",
     checkpoint: null,
     checkpointAvailability: { available: false, reason: "RUNTIME_NOT_READY" },
     runtimeValidation: emptyValidationResume(),
     adapter: {
       adapterKind: "NATIVE_WEB",
-      adapterId: "rpg-native-web-v1",
+      adapterId: "rpg-native-web-v2",
       bridgeProfile: "mv-v1",
       uniqueOrigin: origin,
       bootstrapUrl: `${origin}/__retrom/bootstrap`,
@@ -86,7 +86,7 @@ describe("RPG runtime registry", () => {
     const manifest = readJson<{ artifacts: ManifestRoute[] }>("../data/dat/rpgmaker/v1/manifest.json");
     const registry = readJson<{ schemaVersion: number; routes: FrontendRoute[] }>("features/player/rpg-runtime/registry.json");
     expect(registry.schemaVersion).toBe(1);
-    expect(registry.routes).toHaveLength(9);
+    expect(registry.routes).toHaveLength(14);
     const expected = manifest.artifacts.map((route) => ({
       adapterId: route.adapter_id,
       adapterKind: route.runtime_adapter_kind,
@@ -178,7 +178,7 @@ function configFor(route: Route): RpgRuntimeConfig {
   }
   const origin = `https://${launchId}.runtime.example.test`;
   return { ...common, adapter: {
-    adapterKind: "NATIVE_WEB", adapterId: "rpg-native-web-v1", bridgeProfile: route.bridgeProfile,
+    adapterKind: "NATIVE_WEB", adapterId: route.adapterId, bridgeProfile: route.bridgeProfile,
     uniqueOrigin: origin, bootstrapUrl: `${origin}/__retrom/bootstrap`, bootstrapTicket: "a".repeat(43),
   }};
 }

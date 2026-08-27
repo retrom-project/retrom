@@ -233,10 +233,8 @@
       function poll() {
         const manager = global.SceneManager;
         const colors = global.ColorManager;
-        const graphics = global.Graphics;
         const windowskin = colors && colors._windowskin;
-        if (manager && manager._scene && graphics && graphics.width > 0 && graphics.height > 0 &&
-          windowskin && typeof windowskin.getPixel === "function") {
+        if (manager && manager._scene && windowskin && typeof windowskin.getPixel === "function") {
           resolve();
           return;
         }
@@ -262,7 +260,7 @@
   }
 
   async function screenshot() {
-    for (let attempt = 0; attempt < 60; attempt += 1) {
+    for (let attempt = 0; attempt < 3; attempt += 1) {
       await new Promise((resolve) => global.requestAnimationFrame(resolve));
       try {
         const capture = screenshotCanvas();

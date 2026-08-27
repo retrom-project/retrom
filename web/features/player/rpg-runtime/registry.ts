@@ -45,6 +45,26 @@ export const rpgRuntimeRoutes = [
     coreId: "rpgmaker_mz", generation: "RPGMZ", routeKey: "RPGMZ_NATIVE_V3",
     adapterKind: "NATIVE_WEB", adapterId: "rpg-native-web-v1", bridgeProfile: "mz-v1",
   },
+  {
+    coreId: "rpgmaker_mv", generation: "RPGMV", routeKey: "RPGMV_NATIVE_V4",
+    adapterKind: "NATIVE_WEB", adapterId: "rpg-native-web-v2", bridgeProfile: "mv-v1",
+  },
+  {
+    coreId: "rpgmaker_mz", generation: "RPGMZ", routeKey: "RPGMZ_NATIVE_V4",
+    adapterKind: "NATIVE_WEB", adapterId: "rpg-native-web-v2", bridgeProfile: "mz-v1",
+  },
+  {
+    coreId: "rpgmaker_mz", generation: "RPGMZ", routeKey: "RPGMZ_NATIVE_V5",
+    adapterKind: "NATIVE_WEB", adapterId: "rpg-native-web-v3", bridgeProfile: "mz-v1",
+  },
+  {
+    coreId: "rpgmaker_mz", generation: "RPGMZ", routeKey: "RPGMZ_NATIVE_V6",
+    adapterKind: "NATIVE_WEB", adapterId: "rpg-native-web-v4", bridgeProfile: "mz-v1",
+  },
+  {
+    coreId: "rpgmaker_mz", generation: "RPGMZ", routeKey: "RPGMZ_NATIVE_V7",
+    adapterKind: "NATIVE_WEB", adapterId: "rpg-native-web-v5", bridgeProfile: "mz-v1",
+  },
 ] as const;
 
 type Route = typeof rpgRuntimeRoutes[number];

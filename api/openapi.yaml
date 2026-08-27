@@ -2578,7 +2578,7 @@ components:
       required: [adapterKind, adapterId, bridgeProfile, uniqueOrigin, bootstrapUrl, bootstrapTicket]
       properties:
         adapterKind: { type: string, enum: [NATIVE_WEB] }
-        adapterId: { type: string, enum: [rpg-native-web-v1] }
+        adapterId: { type: string, enum: [rpg-native-web-v1, rpg-native-web-v2, rpg-native-web-v3, rpg-native-web-v4, rpg-native-web-v5] }
         bridgeProfile: { type: string, enum: [mv-v1, mz-v1] }
         uniqueOrigin: { type: string, format: uri, pattern: '^https?://[^/?#]+$' }
         bootstrapUrl: { type: string, format: uri, pattern: '^https?://[^/?#]+/__retrom/bootstrap$' }
@@ -2759,7 +2759,7 @@ components:
       required: [generation, adapterId, engineProfile]
       properties:
         generation: { $ref: '#/components/schemas/RpgGeneration' }
-        adapterId: { type: string, enum: [easyrpg-web-v1, mkxp-z-libretro-v4, rpg-native-web-v1] }
+        adapterId: { type: string, enum: [easyrpg-web-v1, mkxp-z-libretro-v4, rpg-native-web-v1, rpg-native-web-v2, rpg-native-web-v3, rpg-native-web-v4, rpg-native-web-v5] }
         engineProfile: { type: string, enum: [rpg2k, rpg2k3, rgss1, rgss2, rgss3, mv-v1, mz-v1] }
     RpgFrameEvidence:
       type: object
@@ -2860,7 +2860,7 @@ components:
         routeKey: { type: string, pattern: '^RPG[A-Z0-9_]{1,95}$' }
         artifactId: { type: string, format: uuid }
         artifactSetSha256: { type: string, pattern: '^[0-9a-f]{64}$' }
-        adapterId: { type: string, enum: [easyrpg-web-v1, mkxp-z-libretro-v4, rpg-native-web-v1] }
+        adapterId: { type: string, enum: [easyrpg-web-v1, mkxp-z-libretro-v4, rpg-native-web-v1, rpg-native-web-v2, rpg-native-web-v3, rpg-native-web-v4, rpg-native-web-v5] }
         adapterAbi: { type: string, minLength: 1, maxLength: 160 }
         dependencySnapshotSha256: { type: string, pattern: '^[0-9a-f]{64}$' }
         projectFingerprint: { type: string, pattern: '^[0-9a-f]{64}$' }

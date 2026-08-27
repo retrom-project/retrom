@@ -1,10 +1,18 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { RpgRuntimeConfig } from "../contract";
 import { mountEasyRpg } from "./adapter";
 
 type EasyConfig = RpgRuntimeConfig & {
   adapter: Extract<RpgRuntimeConfig["adapter"], { adapterKind: "EASYRPG_WEB" }>;
 };
+
+afterEach(() => {
+  vi.restoreAllMocks();
+  delete (window as Window & { createEasyRpgPlayer?: unknown }).createEasyRpgPlayer;
+  Object.defineProperty(window, "createImageBitmap", { configurable: true, value: undefined });
+  document.head.querySelectorAll("script[data-retrom-rpg-runtime=easyrpg]").forEach((script) => script.remove());
+  document.body.replaceChildren();
+});
 
 describe("EasyRPG adapter cleanup", () => {
   it("removes the mount DOM and failed loader before rejecting", async () => {
@@ -76,6 +84,109 @@ describe("EasyRPG adapter cleanup", () => {
     mounted.cleanup();
     delete (window as Window & { createEasyRpgPlayer?: unknown }).createEasyRpgPlayer;
     target.remove();
+  });
+
+  it("forces the runtime WebGL context to retain the displayed frame for screenshots", async () => {
+    const target = document.createElement("div");
+    document.body.append(target);
+    const getContext = vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(null);
+    const createPlayer = vi.fn().mockImplementation(async () => {
+      const canvas = document.querySelector<HTMLCanvasElement>("#canvas");
+      expect(canvas).not.toBeNull();
+      canvas?.getContext("webgl", { alpha: false, preserveDrawingBuffer: false });
+      return {
+        FS: {},
+        api: {
+          createRetromCheckpoint: vi.fn(),
+          retromState: () => JSON.stringify({
+            engine: "RPG2000", ready: true, canCheckpoint: true,
+            frameCount: 1, mapId: 1, playerX: 10, playerY: 8, fixtureState: 0,
+          }),
+        },
+        canvas, retromFileSystemReady: true,
+        initApi: vi.fn(), pauseMainLoop: vi.fn(), resumeMainLoop: vi.fn(),
+      };
+    });
+    Object.defineProperty(window, "createEasyRpgPlayer", { configurable: true, value: createPlayer });
+    const mounting = mountEasyRpg(easyConfig(), target, window, null);
+    await vi.waitFor(() => expect(document.head.querySelector("script[data-retrom-rpg-runtime=easyrpg]")).not.toBeNull());
+    document.head.querySelector<HTMLScriptElement>("script[data-retrom-rpg-runtime=easyrpg]")
+      ?.dispatchEvent(new Event("load"));
+
+    const mounted = await mounting;
+    expect(getContext).toHaveBeenCalledWith("webgl", {
+      alpha: false,
+      preserveDrawingBuffer: true,
+    });
+    mounted.cleanup();
+    getContext.mockRestore();
+    delete (window as Window & { createEasyRpgPlayer?: unknown }).createEasyRpgPlayer;
+    target.remove();
+  });
+
+  it("waits for a non-black encoded frame before returning a screenshot", async () => {
+    const target = document.createElement("div");
+    document.body.append(target);
+    const black = new Blob(["black"], { type: "image/png" });
+    const screenshot = new Blob(["visible"], { type: "image/png" });
+    let sampled = black;
+    Object.defineProperty(window, "createImageBitmap", {
+      configurable: true,
+      value: vi.fn(async (blob: Blob) => {
+        sampled = blob;
+        return { width: 4, height: 4, close: vi.fn() } as unknown as ImageBitmap;
+      }),
+    });
+    const context2d = {
+      drawImage: vi.fn(),
+      getImageData: vi.fn(() => {
+        const data = new Uint8ClampedArray(4 * 4 * 4);
+        if (sampled === screenshot) {
+          for (let offset = 0; offset < data.length; offset += 4) {
+            data.set([45, 180, 138, 255], offset);
+          }
+        }
+        return { data } as ImageData;
+      }),
+    };
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockImplementation((contextId) =>
+      contextId === "2d" ? context2d as unknown as CanvasRenderingContext2D : null,
+    );
+    const toBlob = vi.fn((callback: BlobCallback) => {
+      callback(toBlob.mock.calls.length === 1 ? black : screenshot);
+    });
+    Object.defineProperty(window, "createEasyRpgPlayer", {
+      configurable: true,
+      value: vi.fn().mockImplementation(async () => {
+        const canvas = document.querySelector<HTMLCanvasElement>("#canvas");
+        expect(canvas).not.toBeNull();
+        if (!canvas) {throw new Error("test canvas missing");}
+        canvas.width = 4;
+        canvas.height = 4;
+        Object.defineProperty(canvas, "toBlob", { configurable: true, value: toBlob });
+        return {
+          FS: {},
+          api: {
+            createRetromCheckpoint: vi.fn(),
+            retromState: () => JSON.stringify({
+              engine: "RPG2000", ready: true, canCheckpoint: true,
+              frameCount: 1, mapId: 1, playerX: 10, playerY: 8, fixtureState: 0,
+            }),
+          },
+          canvas, retromFileSystemReady: true,
+          initApi: vi.fn(), pauseMainLoop: vi.fn(), resumeMainLoop: vi.fn(),
+        };
+      }),
+    });
+    const mounting = mountEasyRpg(easyConfig(), target, window, null);
+    await vi.waitFor(() => expect(document.head.querySelector("script[data-retrom-rpg-runtime=easyrpg]")).not.toBeNull());
+    document.head.querySelector<HTMLScriptElement>("script[data-retrom-rpg-runtime=easyrpg]")
+      ?.dispatchEvent(new Event("load"));
+
+    const mounted = await mounting;
+    await expect(mounted.instance.takeScreenshot?.()).resolves.toEqual({ blob: screenshot, format: "png" });
+    expect(toBlob).toHaveBeenCalledTimes(2);
+    mounted.cleanup();
   });
 
   it("waits through an incomplete startup state and validates the ready engine", async () => {

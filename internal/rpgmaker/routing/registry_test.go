@@ -12,8 +12,8 @@ func TestRegistryHasOneCurrentRouteForEveryVisibleCore(t *testing.T) {
 	if err := Validate(); err != nil {
 		t.Fatal(err)
 	}
-	if len(Entries()) != 9 {
-		t.Fatalf("entries = %d, want 9", len(Entries()))
+	if len(Entries()) != 14 {
+		t.Fatalf("entries = %d, want 14", len(Entries()))
 	}
 	for coreID := range supportedCoreIDs() {
 		generation, err := detector.GenerationForCore(coreID)

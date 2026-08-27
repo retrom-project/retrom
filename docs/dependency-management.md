@@ -170,8 +170,8 @@ route registry 与 manifest 必须双向一一对应。此次 dev clean-lineage 
 | `rpgmaker_xp` | `RPGXP_MKXPZ_F2EFC98_V5` | `mkxp-z-libretro-v4` | mkxp fork r3 固定 tag threaded Release + 相对写目录位置桥 + restore lifecycle guard；adapter 在位置 evidence 就绪后才发送恢复热键，RGSS1 |
 | `rpgmaker_vx` | `RPGVX_MKXPZ_F2EFC98_V5` | `mkxp-z-libretro-v4` | 相同 release assets、独立 artifact row，RGSS2 |
 | `rpgmaker_vx_ace` | `RPGVXACE_MKXPZ_F2EFC98_V5` | `mkxp-z-libretro-v4` | 相同 release assets、独立 artifact row，RGSS3 |
-| `rpgmaker_mv` | `RPGMV_NATIVE_V3` | `rpg-native-web-v1` | Retrom MV bridge v3；恢复前等待数据库就绪并使标题页缓存的全局存档索引失效；游戏自带 runtime |
-| `rpgmaker_mz` | `RPGMZ_NATIVE_V3` | `rpg-native-web-v1` | Retrom MZ bridge v3；恢复前等待数据库就绪；游戏自带 runtime |
+| `rpgmaker_mv` | `RPGMV_NATIVE_V4` | `rpg-native-web-v2` | Retrom MV bridge v4；恢复前等待数据库就绪并使标题页缓存的全局存档索引失效；截图从当前 Scene 渲染到临时 Bitmap 后编码，避免 WebGL drawing buffer 已丢弃时产生黑图；游戏自带 runtime |
+| `rpgmaker_mz` | `RPGMZ_NATIVE_V7` | `rpg-native-web-v5` | Retrom MZ bridge v7；恢复前同时等待数据库、windowskin 与正尺寸 Graphics 就绪，避免 Boot 未完成时过早切换 Scene；截图走当前 Scene 的离屏渲染并保留 60 帧硬上限；游戏自带 runtime |
 
 EasyRPG runtime 固定到 <https://github.com/xxxsen/Player> 的 release tag、tag commit、两个 asset 名称/URL 与 `easyrpg-save-v1`；mkxp runtime 固定到 <https://github.com/xxxsen/mkxp-z-libretro-emscripten> 的 release tag、tag commit、两个 asset 名称/URL 与 `mkxp-state-v1`。两个 workflow 再分别锁定 Player/liblcf/buildscripts 与 mkxp-z/RetroArch 等实际源码 commit。Retrom 不以远端 asset 的 expected SHA 准入，同 tag 同名 asset 按 adapter ABI 视为兼容；下载后 observed size/SHA 只用于本机缓存损坏检测、运行时逐文件投影与 artifact-set 冻结。必须使用正式 COOP/COEP，不物化 reference 的 `coi-serviceworker`。
 
@@ -179,7 +179,7 @@ EasyRPG runtime 固定到 <https://github.com/xxxsen/Player> 的 release tag、t
 
 每个 artifact 项必须包含 `coreId/routeKey/runtimeFamily/runtimeAdapterKind/runtimeVersion/adapterId/entryPath/requiresThreads/savePayloadKind/saveMaxBytes/compatibility/selectedForNewBindings/availableForLaunch` 及完整来源/构建/许可记录。共享 bytes 可以拥有相同 artifact-set digest，但每行只属于一个版本 core；同一 `coreId+routeKey` 永久只解释一个 artifact-set，payload bytes 或恢复语义变化必须创建新 route。bootstrap 会把未受引用的同 route 冲突行置为不可启动；若引用保护阻止退役则 readiness 必须失败，不能保留两个可启动解释。未知 route、adapter 或 manifest 漂移必须阻断 readiness；不存在默认 RPG route、latest 查找或跨 core fallback。
 
-此次实施经用户明确授权重建 dev DB/存储，因此不导入或继续提供未由固定 tagged Release 支撑的旧 V1/V2 route、bytes、Launch 与 save。`data/dat/rpgmaker/v1/manifest.json`、Go/TS registry 和 runtime allowlist 当前登记七条 selected route，另登记 EasyRPG r3 的两条 V5 available、非 selected route，合计九条；EasyRPG 2000/2003 的新绑定仍使用 r2/V4，其余五个核心使用各自当前 V3/V5 路线。后续升级必须先把新 tagged release 登记为 available 的新 route，完成产品验证后才切换新绑定，并在仍有正式引用时保留旧 artifact；不得原地覆盖已登记路线的 bytes。
+此次实施经用户明确授权重建 dev DB/存储，因此不导入或继续提供未由固定 tagged Release 支撑的旧 V1/V2 route、bytes、Launch 与 save。`data/dat/rpgmaker/v1/manifest.json`、Go/TS registry 和 runtime allowlist 当前选择七条 route，并保留其仍可启动的历史 route；EasyRPG 2000/2003 的新绑定仍使用 r2/V4，XP/VX/VX Ace 使用 V5，MV 使用 Native V4，MZ 使用 Native V7。后续升级必须先把新 tagged release 登记为 available 的新 route，完成产品验证后才切换新绑定，并在仍有正式引用时保留旧 artifact；不得原地覆盖已登记路线的 bytes。
 
 升级流程固定为“新增 route/artifact 和物化 bytes → 全产品验证 → 短事务切换 `selectedForNewBindings` → 保留旧 artifact”。只要旧 Variant/Save 引用仍存在，旧项必须继续列入 manifest/runtime allowlist/前端 registry 且 `availableForLaunch=true`；引用归零并有审计后才允许从后续 release 删除。不得覆盖路径中的旧 bytes。
 
