@@ -31,7 +31,7 @@ test("an application login rendered on the runtime origin blocks the acceptance 
 });
 
 test("local native runtime cookies require the shared rpg.localhost site", () => {
-  assert.doesNotThrow(() => requireLocalRuntimeSite("http://app.rpg.localhost:13004", runtimeOrigin));
+  assert.doesNotThrow(() => requireLocalRuntimeSite("http://retrom-app.rpg.localhost:13004", runtimeOrigin));
   for (const applicationOrigin of ["http://localhost:13004", "http://127.0.0.1:13004"]) {
     assert.throws(
       () => requireLocalRuntimeSite(applicationOrigin, runtimeOrigin),
