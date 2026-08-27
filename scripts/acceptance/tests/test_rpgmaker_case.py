@@ -289,12 +289,14 @@ class EvidenceContractTests(unittest.TestCase):
             {"ACC-RPG-010", "ACC-RPG-011"},
             set(rpgmaker.SECURITY_CASES),
         )
-        self.assertEqual({
-            "ACC-RPG-009": "RPG_SEVEN_CORE_MINIMAL_CLOSURE_REQUIRED",
-            "ACC-RPG-010": "RPG_SEVEN_CORE_MINIMAL_CLOSURE_REQUIRED",
-            "ACC-RPG-011": "RPG_SEVEN_CORE_MINIMAL_CLOSURE_REQUIRED",
-            "ACC-RPG-012": "RPG_SECOND_RUNTIME_RELEASE_REQUIRED",
-        }, rpgmaker.DEFERRED_CASES)
+        self.assertEqual(
+            {"ACC-RPG-012": "RPG_SECOND_RUNTIME_RELEASE_REQUIRED"},
+            rpgmaker.DEFERRED_CASES,
+        )
+        self.assertEqual(
+            {"ACC-RPG-009", "ACC-RPG-010", "ACC-RPG-011"},
+            rpgmaker.MINIMAL_CLOSURE_CASES,
+        )
         self.assertEqual("ACC-RPG-009", rpgmaker.PACK_CASE)
         self.assertEqual("ACC-RPG-012", rpgmaker.COMPATIBILITY_CASE)
         runner_spec = importlib.util.spec_from_file_location("acceptance_run", RUNNER_PATH)
@@ -537,6 +539,10 @@ class EvidenceContractTests(unittest.TestCase):
     def test_extended_product_cases_require_chrome(self) -> None:
         for case_id in ("ACC-RPG-009", "ACC-RPG-010", "ACC-RPG-011", "ACC-RPG-012"):
             self.assertIn("RETROM_CHROME_EXECUTABLE", rpgmaker.required_environment(case_id))
+        self.assertIn(
+            "RETROM_ACC_RPG_009_PROVISION_EVIDENCE",
+            rpgmaker.required_environment("ACC-RPG-009"),
+        )
 
     def test_isolation_is_deferred_before_product_driver(self) -> None:
         environment = {
@@ -554,6 +560,25 @@ class EvidenceContractTests(unittest.TestCase):
             result = json.loads((case_dir / "rpgmaker-product.json").read_text())
             self.assertEqual([], result["missingInputs"])
             self.assertEqual("RPG_SEVEN_CORE_MINIMAL_CLOSURE_REQUIRED", result["reason"])
+
+    def test_extended_cases_unlock_after_clean_seven_core_results(self) -> None:
+        with tempfile.TemporaryDirectory() as directory, mock.patch.dict(os.environ, {}, clear=True):
+            cases = Path(directory) / "cases"
+            for case_id in rpgmaker.GENERATION_CASES:
+                target = cases / case_id.lower()
+                target.mkdir(parents=True)
+                (target / "result.json").write_text(json.dumps({
+                    "caseId": case_id,
+                    "status": "PASS",
+                    "gitDirty": False,
+                    "productEvidence": {"caseId": case_id, "status": "PASS"},
+                }))
+            case_dir = cases / "acc-rpg-011"
+            with redirect_stdout(io.StringIO()):
+                self.assertEqual(3, rpgmaker.run("ACC-RPG-011", case_dir))
+            result = json.loads((case_dir / "rpgmaker-product.json").read_text())
+            self.assertEqual("缺少实际 Retrom 产品验收输入", result["reason"])
+            self.assertIn("RETROM_CHROME_EXECUTABLE", result["missingInputs"])
 
     def test_compatibility_is_deferred_before_state_inspection(self) -> None:
         environment = {
