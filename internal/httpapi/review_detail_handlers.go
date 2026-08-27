@@ -12,16 +12,7 @@ import (
 	"retrom/internal/contentcapability"
 )
 
-// Contract branches stay contiguous for a single auditable decision.
-func (server *Server) review(writer http.ResponseWriter, request *http.Request) {
-	var itemID, importJobID, metadata, platformID, platformName, sourceSnapshotID, sourceManifest string
-	var sourceContentKind, currentArtifactCompatibility string
-	var validationID, validationStatus, compatibilityCode, dependencySnapshot sql.NullString
-	var selectedValidationID sql.NullString
-	var validationGeneration sql.NullInt64
-	var selectedCandidateID, coverID, uploadedCoverID, backgroundID, defaultDOSEntry sql.NullString
-	var version, updatedAtMS int64
-	err := server.database.QueryRowContext(request.Context(), `
+const reviewDetailQuery = `
 SELECT i.id,
 i.import_job_id,
 d.metadata_json,
@@ -48,8 +39,13 @@ FROM import_items i
 JOIN review_drafts d ON d.import_item_id=i.id
 JOIN import_item_source_snapshots source_snapshot ON source_snapshot.id=d.effective_source_snapshot_id
 JOIN platform_instances pi ON pi.id=d.target_platform_instance_id
-JOIN core_artifacts current_artifact ON current_artifact.core_id=pi.default_core_id
-AND current_artifact.selected_for_new_bindings=1 AND current_artifact.available_for_launch=1
+LEFT JOIN rpgmaker_review_profiles rpg_profile ON rpg_profile.review_draft_id=d.id
+JOIN core_artifacts current_artifact ON current_artifact.id=CASE
+ WHEN pi.platform_id='rpgmaker' THEN rpg_profile.artifact_id ELSE (
+   SELECT selected.id FROM core_artifacts selected
+   WHERE selected.core_id=pi.default_core_id
+     AND selected.selected_for_new_bindings=1 AND selected.available_for_launch=1
+ ) END
 LEFT JOIN import_item_core_validations v ON v.id=COALESCE(d.selected_validation_id,(
   SELECT candidate.id
 FROM import_item_core_validations candidate
@@ -75,7 +71,20 @@ AND NOT EXISTS(
   WHERE emulationstation.library_import_item_id=i.id
   AND emulationstation.execution_state<>'REVIEW_PENDING'
 )
-`, request.PathValue("importItemId")).
+`
+
+// Contract branches stay contiguous for a single auditable decision.
+func (server *Server) review(writer http.ResponseWriter, request *http.Request) {
+	var itemID, importJobID, metadata, platformID, platformName, sourceSnapshotID, sourceManifest string
+	var sourceContentKind, currentArtifactCompatibility string
+	var validationID, validationStatus, compatibilityCode, dependencySnapshot sql.NullString
+	var selectedValidationID sql.NullString
+	var validationGeneration sql.NullInt64
+	var selectedCandidateID, coverID, uploadedCoverID, backgroundID, defaultDOSEntry sql.NullString
+	var version, updatedAtMS int64
+	err := server.database.QueryRowContext(
+		request.Context(), reviewDetailQuery, request.PathValue("importItemId"),
+	).
 		Scan(
 			&itemID,
 			&importJobID,
