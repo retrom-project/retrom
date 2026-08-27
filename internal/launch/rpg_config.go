@@ -174,6 +174,13 @@ WHERE launch.id=? AND artifact.available_for_launch=1
 		}
 		return Config{RuntimeFamily: "RPGMAKER", RPGMaker: &rpg}, nil
 	}
+	if family == "ONS" {
+		ons, err := service.onsProductConfig(ctx, launchID, capability)
+		if err != nil {
+			return Config{}, err
+		}
+		return Config{RuntimeFamily: "ONS", ONS: &ons}, nil
+	}
 	return Config{}, ErrCredential
 }
 
@@ -222,7 +229,7 @@ func (service *Service) rpgMakerConfig(
 	if err != nil {
 		return RPGMakerConfig{}, err
 	}
-	if err := service.activateRPGLaunch(ctx, launchID, source); err != nil {
+	if err := service.activateRuntimeLaunch(ctx, launchID, source.state); err != nil {
 		return RPGMakerConfig{}, err
 	}
 	reason := "RUNTIME_NOT_READY"
@@ -529,18 +536,18 @@ func rpgCorePaths(entryPath, compatibilityJSON string) (string, string) {
 	return compatibility.JSPath, compatibility.WasmPath
 }
 
-func (service *Service) activateRPGLaunch(
+func (service *Service) activateRuntimeLaunch(
 	ctx context.Context,
 	launchID string,
-	source rpgConfigSource,
+	state string,
 ) error {
-	if source.state != "CREATED" {
+	if state != "CREATED" {
 		return nil
 	}
 	now := service.now().UnixMilli()
 	transaction, err := service.database.BeginTx(ctx, nil)
 	if err != nil {
-		return fmt.Errorf("activate RPG Maker launch: %w", err)
+		return fmt.Errorf("activate runtime launch: %w", err)
 	}
 	defer func() { _ = transaction.Rollback() }()
 	result, err := transaction.ExecContext(ctx, `
@@ -548,13 +555,13 @@ UPDATE launch_sessions SET state='ACTIVE',activated_at_ms=?,updated_at_ms=?,vers
 WHERE id=? AND state='CREATED'
 `, now, now, launchID)
 	if err != nil {
-		return fmt.Errorf("activate RPG Maker launch: %w", err)
+		return fmt.Errorf("activate runtime launch: %w", err)
 	}
 	if changed, _ := result.RowsAffected(); changed != 1 {
 		return ErrCredential
 	}
 	if err := transaction.Commit(); err != nil {
-		return fmt.Errorf("activate RPG Maker launch: %w", err)
+		return fmt.Errorf("activate runtime launch: %w", err)
 	}
 	return nil
 }

@@ -46,7 +46,7 @@ CREATE TABLE "launch_content_files" (
   blob_id TEXT NOT NULL REFERENCES blobs(id),
   format_version TEXT NOT NULL CHECK(format_version IN (
     'SOURCE_V1','RETROM_DOS_DIRECT_ZIP_V1','RETROM_MULTIDISC_M3U_V1',
-    'RPG_MAKER_PROJECT_V1'
+    'RPG_MAKER_PROJECT_V1','ONS_PROJECT_V1'
   )),
   created_at_ms INTEGER NOT NULL CHECK(created_at_ms>=0),
   PRIMARY KEY(launch_session_id,logical_name)
@@ -90,7 +90,9 @@ CREATE TABLE save_states (
   dat_version_id TEXT REFERENCES dat_versions(id),
   dos_entry_path TEXT,
   payload_blob_id TEXT NOT NULL REFERENCES blobs(id),
-  payload_kind TEXT NOT NULL CHECK(payload_kind IN ('RUNTIME_STATE','NATIVE_SAVE_BUNDLE_V1')),
+  payload_kind TEXT NOT NULL CHECK(payload_kind IN (
+    'RUNTIME_STATE','NATIVE_SAVE_BUNDLE_V1','ONS_SAVE_BUNDLE_V1'
+  )),
   native_profile TEXT CHECK(native_profile IS NULL OR native_profile IN ('EASYRPG_V1','RPGMV_V1','RPGMZ_V1')),
   resume_slot INTEGER CHECK(resume_slot IS NULL OR resume_slot BETWEEN 1 AND 2147483647),
   payload_sha256 TEXT NOT NULL CHECK(length(payload_sha256)=64 AND payload_sha256=lower(payload_sha256)),
@@ -107,6 +109,7 @@ CREATE TABLE save_states (
   CHECK(
     payload_kind='RUNTIME_STATE' AND native_profile IS NULL AND resume_slot IS NULL
     OR payload_kind='NATIVE_SAVE_BUNDLE_V1' AND native_profile IS NOT NULL AND resume_slot IS NOT NULL
+    OR payload_kind='ONS_SAVE_BUNDLE_V1' AND native_profile IS NULL AND resume_slot IS NULL
   )
 );
 

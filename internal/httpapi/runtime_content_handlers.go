@@ -86,7 +86,7 @@ func (server *Server) launchProjectFile(writer http.ResponseWriter, request *htt
 		return
 	}
 	if logicalName == "index.json" {
-		if index, err := server.launcher.ReviewPreviewProjectIndex(
+		if index, err := server.launcher.ProjectIndex(
 			request.Context(), launchID, grant.Capability,
 		); err == nil {
 			serveProjectIndex(writer, request, index)

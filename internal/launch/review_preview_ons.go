@@ -12,6 +12,7 @@ import (
 	"retrom/internal/cleanup"
 	"retrom/internal/importing"
 	"retrom/internal/ons/detector"
+	retromruntime "retrom/internal/runtime"
 )
 
 const maximumONSProjectFiles = 100_000
@@ -53,6 +54,65 @@ type onsProjectIndex struct {
 type onsProjectIndexFile struct {
 	Path string `json:"path"`
 	URL  string `json:"url"`
+}
+
+func (service *Service) ProjectIndex(
+	ctx context.Context,
+	launchID, capability string,
+) (ProjectIndexView, error) {
+	if index, err := service.productONSProjectIndex(ctx, launchID, capability); err == nil {
+		return index, nil
+	}
+	return service.ReviewPreviewProjectIndex(ctx, launchID, capability)
+}
+
+func (service *Service) productONSProjectIndex(
+	ctx context.Context,
+	launchID, capability string,
+) (ProjectIndexView, error) {
+	var credentialHash []byte
+	var state, title, dependencyJSON string
+	var hardExpires int64
+	err := service.database.QueryRowContext(ctx, `
+SELECT launch.credential_sha256,launch.state,launch.hard_expires_at_ms,
+ metadata.title,revision.dependency_snapshot_json
+FROM launch_sessions launch
+JOIN core_artifacts artifact ON artifact.id=launch.core_artifact_id
+JOIN game_variant_revisions revision ON revision.id=launch.game_variant_revision_id
+JOIN games game ON game.id=launch.game_id
+JOIN game_metadata_revisions metadata ON metadata.id=game.current_metadata_revision_id
+WHERE launch.id=? AND launch.purpose='PRODUCT' AND artifact.runtime_family='ONS'
+ AND artifact.available_for_launch=1
+`, launchID).Scan(&credentialHash, &state, &hardExpires, &title, &dependencyJSON)
+	if err != nil || !retromruntime.MatchesCapability(capability, credentialHash) ||
+		state != "ACTIVE" || hardExpires <= service.now().UnixMilli() {
+		return ProjectIndexView{}, ErrCredential
+	}
+	profile, err := detector.ParseSnapshot(dependencyJSON)
+	if err != nil || len(title) > 500 {
+		return ProjectIndexView{}, ErrCredential
+	}
+	rows, err := service.database.QueryContext(ctx, `
+SELECT logical_name FROM launch_content_files
+WHERE launch_session_id=? AND format_version='ONS_PROJECT_V1'
+ORDER BY logical_name
+`, launchID)
+	if err != nil {
+		return ProjectIndexView{}, fmt.Errorf("load product ONS project index: %w", err)
+	}
+	defer func() { cleanup.Error("close", rows.Close()) }()
+	paths := make([]string, 0)
+	for rows.Next() {
+		var path string
+		if err := rows.Scan(&path); err != nil || len(paths) >= maximumONSProjectFiles {
+			return ProjectIndexView{}, ErrCredential
+		}
+		paths = append(paths, path)
+	}
+	if err := rows.Err(); err != nil {
+		return ProjectIndexView{}, fmt.Errorf("read product ONS project index: %w", err)
+	}
+	return buildONSProjectIndex(launchID, title, profile, paths)
 }
 
 func (service *Service) reviewPreviewONSContent(
@@ -119,11 +179,48 @@ WHERE id=? AND content_kind='ONS_PROJECT_V1' AND content_format='ONS_PROJECT_V1'
 	if err != nil {
 		return ProjectIndexView{}, err
 	}
+	paths := make([]string, len(files))
+	for index, file := range files {
+		paths[index] = file.Path
+	}
+	return buildONSProjectIndex(previewID, title, profile, paths)
+}
+
+func buildONSProjectIndex(
+	launchID, title string,
+	profile detector.Profile,
+	paths []string,
+) (ProjectIndexView, error) {
+	if len(paths) < 2 || len(paths) > maximumONSProjectFiles {
+		return ProjectIndexView{}, ErrCredential
+	}
+	files := make([]onsProjectIndexFile, 0, len(paths))
+	seen := make(map[string]struct{}, len(paths))
+	markerFound, fontFound := false, false
+	for _, logicalName := range paths {
+		normalized, err := importing.ValidateLogicalPath(logicalName)
+		folded := importing.ASCIICaseFold(normalized)
+		if err != nil || normalized != logicalName {
+			return ProjectIndexView{}, ErrCredential
+		}
+		if _, duplicate := seen[folded]; duplicate {
+			return ProjectIndexView{}, ErrCredential
+		}
+		seen[folded] = struct{}{}
+		markerFound = markerFound || normalized == profile.MarkerPath
+		fontFound = fontFound || normalized == profile.FontPath
+		files = append(files, onsProjectIndexFile{
+			Path: normalized, URL: "/runtime/projects/" + launchID + "/" + escapeProjectPath(normalized),
+		})
+	}
+	if !markerFound || !fontFound {
+		return ProjectIndexView{}, ErrCredential
+	}
 	contents, err := json.Marshal(onsProjectIndex{
 		Files: files, FontPath: profile.FontPath, SchemaVersion: 1, Title: title,
 	})
 	if err != nil {
-		return ProjectIndexView{}, fmt.Errorf("marshal review ONS project index: %w", err)
+		return ProjectIndexView{}, fmt.Errorf("marshal ONS project index: %w", err)
 	}
 	digest := sha256.Sum256(contents)
 	return ProjectIndexView{Contents: contents, SHA256: hex.EncodeToString(digest[:])}, nil

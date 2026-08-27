@@ -2482,7 +2482,7 @@ components:
       enum: [rpgmaker_2000, rpgmaker_2003, rpgmaker_xp, rpgmaker_vx, rpgmaker_vx_ace, rpgmaker_mv, rpgmaker_mz]
     CheckpointPayloadKind:
       type: string
-      enum: [RUNTIME_STATE, NATIVE_SAVE_BUNDLE_V1]
+      enum: [RUNTIME_STATE, NATIVE_SAVE_BUNDLE_V1, ONS_SAVE_BUNDLE_V1]
     NativeCheckpointProfile:
       type: string
       enum: [EASYRPG_V1, RPGMV_V1, RPGMZ_V1]

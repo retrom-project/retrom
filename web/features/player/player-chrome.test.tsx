@@ -245,6 +245,23 @@ describe("PlayerChrome", () => {
     }
   });
 
+  it("identifies the standalone ONS runtime without labeling it EmulatorJS", () => {
+    render(<PlayerChrome {...props({
+      coreName: "ONScripterYuri",
+      debugOpen: true,
+      debugRuntime: {
+        runtimeFamily: "ONS", coreId: "onscripter_yuri", coreArtifactId: "artifact-ons",
+        emulatorJSVersion: "v0.3.2", playerAdapterId: "ons-yuri-web", inputMode: "STANDARD",
+        crossOriginIsolated: true, sharedArrayBuffer: true,
+      },
+    })} />);
+    const panel = screen.getByRole("complementary", { name: "运行调试信息" });
+    expect(within(panel).getByText("ONScripter")).toBeVisible();
+    expect(within(panel).getByText("v0.3.2")).toBeVisible();
+    expect(within(panel).getByText("ons-yuri-web")).toBeVisible();
+    expect(within(panel).queryByText("EmulatorJS")).not.toBeInTheDocument();
+  });
+
   it("keeps the toolbar paused until the user returns to the game surface", async () => {
     const user = userEvent.setup();
     const calls: string[] = [];
