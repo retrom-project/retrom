@@ -1444,6 +1444,13 @@ ID。没有实体设备时自动化 Case 可以 PASS，但沉浸模式发布验�
 `rpgmaker-product.json`，并内嵌到统一 `result.json.productEvidence`；Cookie、CSRF、Launch capability 和宿主
 绝对路径不得进入这两个文件。
 
+002 至 008 的 fresh 产品记录统一由
+`node scripts/acceptance/rpgmaker_generation_provision.mjs ACC-RPG-NNN` 创建。该命令固定读取相应公开 fixture，
+执行 Upload/Import/Review、14 gate、不同 restore Launch、PASS decision 与发布，并只在 stdout 返回三个 ID；
+不得使用 ignored 临时 runner 或复用失败的 validation。004 还必须传入新的绝对
+`RETROM_ACC_RPG_004_TRACE`，008 还必须传入同次转换得到的 `RPG_MZ_SMOKE_ROOT`。provision 成功后，再把返回的
+三个 ID 交给相同 Case 的统一 runner 生成正式 `result.json`。
+
 `ACC-RPG-010` 与 `011` 不接受外部 fixture path 或预制 Import/Validation ID；runner 固定读取
 `testdata/public-roms/rpgmaker-smoke/fixture-manifest.json` 锁定的 `negative-matrix/`、
 `malicious-rpgmv/` 和 `malicious-rpgmz/`，在当次隔离实例中重新创建 `RPG_MAKER_PROJECT` Upload、Import、

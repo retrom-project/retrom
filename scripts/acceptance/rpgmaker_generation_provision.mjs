@@ -11,16 +11,49 @@ import {
 import { isLocalAcceptanceHostname } from "./rpgmaker_url.mjs";
 
 const cases = {
+  "ACC-RPG-002": {
+    coreId: "rpgmaker_2000", generation: "RPG2000", routeKey: "RPG2000_EASYRPG",
+    source: () => resolve("testdata/public-roms/rpgmaker-smoke/rpg2000"),
+    prefix: "rpg2000/", saveKeys: ["ArrowRight", "ArrowRight"],
+    divergeKeys: ["ArrowRight", "ArrowRight"],
+    restoreKeys: ["ArrowRight", "ArrowRight", "ArrowRight", "ArrowRight", "ArrowRight"],
+  },
+  "ACC-RPG-003": {
+    coreId: "rpgmaker_2003", generation: "RPG2003", routeKey: "RPG2003_EASYRPG",
+    source: () => resolve("testdata/public-roms/rpgmaker-smoke/rpg2003"),
+    prefix: "rpg2003/", saveKeys: ["ArrowRight", "ArrowRight"],
+    divergeKeys: ["ArrowRight", "ArrowRight"],
+    restoreKeys: ["ArrowRight", "ArrowRight", "ArrowRight", "ArrowRight", "ArrowRight"],
+  },
   "ACC-RPG-004": {
     coreId: "rpgmaker_xp", generation: "RPGXP", routeKey: "RPGXP_MKXP",
     source: () => resolve("testdata/public-roms/rpgmaker-smoke/rpgxp"),
     prefix: "rpgxp/", saveKeys: ["ArrowRight", "KeyX"],
     divergeKeys: ["ArrowRight", "KeyX"], restoreKeys: ["ArrowRight", "KeyX"],
   },
+  "ACC-RPG-005": {
+    coreId: "rpgmaker_vx", generation: "RPGVX", routeKey: "RPGVX_MKXP",
+    source: () => resolve("testdata/public-roms/rpgmaker-smoke/rpgvx"),
+    prefix: "rpgvx/", saveKeys: ["ArrowRight", "KeyX"],
+    divergeKeys: ["ArrowRight", "KeyX"], restoreKeys: ["ArrowRight", "KeyX"],
+  },
+  "ACC-RPG-006": {
+    coreId: "rpgmaker_vx_ace", generation: "RPGVXACE", routeKey: "RPGVXACE_MKXP",
+    source: () => resolve("testdata/public-roms/rpgmaker-smoke/rpgvxace"),
+    prefix: "rpgvxace/", saveKeys: ["ArrowRight", "KeyX"],
+    divergeKeys: ["ArrowRight", "KeyX"], restoreKeys: ["ArrowRight", "KeyX"],
+  },
+  "ACC-RPG-007": {
+    coreId: "rpgmaker_mv", generation: "RPGMV", routeKey: "RPGMV_NATIVE",
+    source: () => resolve("testdata/public-roms/rpgmaker-smoke/rpgmv"),
+    prefix: "rpgmv/", saveKeys: ["ArrowRight", "Enter"],
+    divergeKeys: ["ArrowRight", "Enter"], restoreKeys: ["ArrowRight", "Enter"],
+  },
   "ACC-RPG-008": {
     coreId: "rpgmaker_mz", generation: "RPGMZ", routeKey: "RPGMZ_NATIVE",
     source: () => resolve(required("RPG_MZ_SMOKE_ROOT")),
-    prefix: "rpgmz/", saveKeys: ["Enter"], divergeKeys: ["Enter"], restoreKeys: ["Enter"],
+    prefix: "rpgmz/", saveKeys: ["ArrowRight", "Enter"],
+    divergeKeys: ["ArrowRight", "Enter"], restoreKeys: ["ArrowRight", "Enter"],
   },
 };
 const falseCapabilities = {
@@ -31,7 +64,7 @@ const trueCapabilities = {
 };
 const caseId = process.argv[2];
 const config = cases[caseId];
-if (!config) { throw new Error("usage: rpgmaker_generation_provision.mjs ACC-RPG-004|ACC-RPG-008"); }
+if (!config) { throw new Error("usage: rpgmaker_generation_provision.mjs ACC-RPG-002..ACC-RPG-008"); }
 const baseUrl = normalizedBase(required("RETROM_ACCEPTANCE_BASE_URL"));
 const tracePath = caseId === "ACC-RPG-004" ? checkedTracePath(required("RETROM_ACC_RPG_004_TRACE")) : null;
 const browser = await chromium.launch({

@@ -413,6 +413,23 @@ class EvidenceContractTests(unittest.TestCase):
             self.assertIn(required, source)
         self.assertNotIn("sourcePath", source)
 
+    def test_generation_provision_covers_all_seven_current_routes_and_state_inputs(self) -> None:
+        source = GENERATION_PROVISION_PATH.read_text()
+        expected = {
+            "ACC-RPG-002": ("RPG2000_EASYRPG", 'restoreKeys: ["ArrowRight", "ArrowRight", "ArrowRight"'),
+            "ACC-RPG-003": ("RPG2003_EASYRPG", 'restoreKeys: ["ArrowRight", "ArrowRight", "ArrowRight"'),
+            "ACC-RPG-004": ("RPGXP_MKXP", 'saveKeys: ["ArrowRight", "KeyX"]'),
+            "ACC-RPG-005": ("RPGVX_MKXP", 'saveKeys: ["ArrowRight", "KeyX"]'),
+            "ACC-RPG-006": ("RPGVXACE_MKXP", 'saveKeys: ["ArrowRight", "KeyX"]'),
+            "ACC-RPG-007": ("RPGMV_NATIVE", 'saveKeys: ["ArrowRight", "Enter"]'),
+            "ACC-RPG-008": ("RPGMZ_NATIVE", 'saveKeys: ["ArrowRight", "Enter"]'),
+        }
+        for case_id, (route, input_sequence) in expected.items():
+            self.assertEqual(1, source.count(f'"{case_id}": {{'))
+            self.assertEqual(1, source.count(f'routeKey: "{route}"'))
+            self.assertIn(input_sequence, source)
+        self.assertIn("ACC-RPG-002..ACC-RPG-008", source)
+
     def test_mv_generation_evidence_requires_two_origin_inventory(self) -> None:
         spec = rpgmaker.GENERATION_CASES["ACC-RPG-007"]
         payload = product_payload(spec, "a" * 64)
