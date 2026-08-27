@@ -28,7 +28,7 @@ export async function proxy(request: NextRequest) {
     "style-src 'self' 'unsafe-inline'",
     "connect-src 'self' blob:",
     "worker-src 'self' blob:",
-    `frame-src ${playerFrameSource(request.nextUrl.pathname, process.env.RETROM_RPG_RUNTIME_ORIGIN_TEMPLATE)}`,
+    `frame-src ${playerFrameSource(process.env.RETROM_RPG_RUNTIME_ORIGIN_TEMPLATE)}`,
     "img-src 'self' data: blob:",
     "media-src 'self' blob:",
     "font-src 'self' data:"

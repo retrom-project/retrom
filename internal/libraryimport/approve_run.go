@@ -156,7 +156,7 @@ func (run *approvalRun) prepare() error {
 		return ErrInvalid
 	}
 	if run.platformID == "rpgmaker" {
-		if err := run.loadPassedRPGValidation(); err != nil {
+		if err := run.loadLaunchedRPGValidation(); err != nil {
 			return err
 		}
 	}
@@ -309,7 +309,7 @@ AND (p.platform_id='rpgmaker' AND EXISTS(
     ON runtime_validation.import_item_id=i.id
     AND runtime_validation.runtime_binding_revision=d.runtime_binding_revision
     AND runtime_validation.effective_source_snapshot_id=d.effective_source_snapshot_id
-  WHERE rpg_profile.review_draft_id=d.id AND runtime_validation.state='PASSED'
+  WHERE rpg_profile.review_draft_id=d.id AND runtime_validation.launch_id IS NOT NULL
     AND runtime_validation.core_id=rpg_profile.selected_core_id
     AND runtime_validation.generation=rpg_profile.generation
     AND runtime_validation.artifact_id=rpg_profile.artifact_id
@@ -331,7 +331,7 @@ AND v.dat_version_id IS (
 )
 `
 
-func (run *approvalRun) loadPassedRPGValidation() error {
+func (run *approvalRun) loadLaunchedRPGValidation() error {
 	err := run.transaction.QueryRowContext(run.ctx, `
 SELECT validation.id,profile.generation,profile.adapter_id,profile.adapter_abi,
 profile.artifact_set_sha256,profile.dependency_snapshot_sha256
@@ -341,7 +341,7 @@ JOIN rpgmaker_runtime_validations validation
   ON validation.import_item_id=draft.import_item_id
   AND validation.runtime_binding_revision=draft.runtime_binding_revision
   AND validation.effective_source_snapshot_id=draft.effective_source_snapshot_id
-  AND validation.state='PASSED'
+  AND validation.launch_id IS NOT NULL
   AND validation.core_id=profile.selected_core_id
   AND validation.generation=profile.generation
   AND validation.route_key=profile.route_key

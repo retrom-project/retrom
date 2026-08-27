@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, type Dispatch, type MutableRefObject, type SetStateAction } from "react";
+import { useCallback, type Dispatch, type MutableRefObject, type SetStateAction } from "react";
 import { newUuid } from "@/lib/crypto";
 import { writeHeaders } from "@/lib/api/client";
 import { responseError } from "@/lib/upload";
@@ -44,20 +44,6 @@ export function useRPGReviewValidation(params: RPGValidationParams) {
     return next;
   }, [reviewId, replaceValidation]);
 
-  useEffect(() => {
-    if (!validation || ["PASSED", "FAILED", "EXPIRED"].includes(validation.state)) {return;}
-    let cancelled = false;
-    const poll = async () => {
-      try {
-        await readValidation(validation.validationId);
-      } catch (error) {
-        if (!cancelled) {setToast({ message: error instanceof Error ? error.message : "无法刷新运行验证", tone: "warn" });}
-      }
-    };
-    const timer = window.setInterval(() => { void poll(); }, 1_000);
-    return () => { cancelled = true; window.clearInterval(timer); };
-  }, [readValidation, setToast, validation]);
-
   async function create() {
     const popup = openRPGPlayerWindow(setToast, "正在准备 RPG Maker 运行验证…");
     if (!popup) {return;}
@@ -72,7 +58,7 @@ export function useRPGReviewValidation(params: RPGValidationParams) {
       const created = await response.json() as { validationId: string; playerUrl: string };
       await readValidation(created.validationId);
       navigatePopup(popup, created.playerUrl);
-      setNotice("运行验证已创建；请在游戏窗口按顺序完成保存点与继续游玩验证。");
+      setNotice("游戏窗口已打开；确认游戏可运行后即可返回审核页发布，高级恢复验证为可选。");
     });
     if (!succeeded && !popup.closed) {popup.close();}
   }
@@ -205,7 +191,7 @@ export function RPGValidationCard({ value, disabled, onChange }: {
 }) {
   const validation = value.runtimeValidation;
   return <section className="panel review-rpg-validation">
-    <div className="panel-head"><div><h2>RPG Maker 运行验证</h2><p>发布前必须完成不同 Launch 的精确存档恢复。</p></div><strong>{validation && !value.runtimeValidationCurrent ? "历史验证" : validation?.state ?? "尚未开始"}</strong></div>
+    <div className="panel-head"><div><h2>RPG Maker 运行验证</h2><p>先运行一次游戏即可发布；机器门禁与跨 Launch 恢复是可选高级验证。</p></div><strong>{validation && !value.runtimeValidationCurrent ? "历史验证" : validation?.state ?? "尚未开始"}</strong></div>
     <div className="panel-body">
       <RPGValidationFacts value={value} />
       <RPGPackControls value={value} disabled={disabled} onChange={onChange} />
@@ -232,7 +218,7 @@ function RPGValidationFacts({ value }: { value: RPGMakerReview }) {
 }
 
 function RPGGateList({ validation }: { validation: RPGRuntimeValidation | null }) {
-  if (!validation) {return <p className="muted">点击“运行游戏”后，系统会按固定顺序采集机器证据。</p>;}
+  if (!validation) {return <p className="muted">点击“运行游戏”后即可发布；如需深入验证，可继续按固定顺序采集机器证据。</p>;}
   return <ol className="review-rpg-gates">{validation.machineGates.map((gate) => <li key={gate.gate} data-status={gate.status}><span>{gateLabels[gate.gate] ?? gate.gate}<small>{gateEvidenceText(gate.evidence)}</small></span><strong>{gateStatus(gate)}</strong></li>)}</ol>;
 }
 

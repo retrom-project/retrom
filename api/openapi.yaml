@@ -3083,7 +3083,10 @@ components:
       properties:
         uploadId: { type: string, format: uuid }
         targetPlatformInstanceId: { type: string, format: uuid }
-        metadataProvider: { type: string, enum: [HASHEOUS, NONE] }
+        metadataProvider:
+          type: string
+          enum: [HASHEOUS, NONE]
+          description: RPG_MAKER_PROJECT_V1 requests are normalized to NONE because projects have no single-ROM hash identity.
         tagIds:
           type: array
           maxItems: 20
@@ -4385,7 +4388,7 @@ components:
         change: {}
         chunkSizeBytes: {}
         class: {}
-        canApprove: {}
+        canApprove: { description: For RPG Maker, true after a current runtime-validation Launch has been created; advanced machine gates remain optional for the review decision. }
         canAttachMissingDiscs: {}
         canRetry: {}
         clientCapabilities: {}

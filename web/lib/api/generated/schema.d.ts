@@ -4033,7 +4033,10 @@ export interface components {
             uploadId: string;
             /** Format: uuid */
             targetPlatformInstanceId: string;
-            /** @enum {string} */
+            /**
+             * @description RPG_MAKER_PROJECT_V1 requests are normalized to NONE because projects have no single-ROM hash identity.
+             * @enum {string}
+             */
             metadataProvider: "HASHEOUS" | "NONE";
             tagIds: string[];
             /**
@@ -5234,6 +5237,7 @@ export interface components {
             change?: unknown;
             chunkSizeBytes?: unknown;
             class?: unknown;
+            /** @description For RPG Maker */
             canApprove?: unknown;
             canAttachMissingDiscs?: unknown;
             canRetry?: unknown;

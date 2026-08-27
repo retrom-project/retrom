@@ -175,9 +175,10 @@ export type LandscapeRequestResult = {
 };
 
 export async function requestFullscreenAndLandscape(root: HTMLElement = document.documentElement): Promise<LandscapeRequestResult> {
+  const fullscreenDocument = root.ownerDocument;
   const fullscreenRequest = root.requestFullscreen({ navigationUI: "hide" })
     .then(() => "active" as const)
-    .catch(() => document.fullscreenElement ? "active" as const : "denied" as const);
+    .catch(() => fullscreenDocument.fullscreenElement ? "active" as const : "denied" as const);
   const fullscreen = await fullscreenRequest;
   const orientation = screen.orientation as LockableOrientation | undefined;
   if (typeof orientation?.lock !== "function") {return { fullscreen, orientation: "unsupported" };}

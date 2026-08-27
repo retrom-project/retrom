@@ -4,16 +4,15 @@ import { replaceWithPlayerDocument } from "./player-document-navigation";
 const launchId = "0198abcd-1234-7123-8abc-1234567890ab";
 
 describe("replaceWithPlayerDocument", () => {
-  it("performs a full same-origin document navigation to the player", () => {
+  it("soft-navigates in the trusted-click fullscreen document", () => {
     const replace = vi.fn();
-    replaceWithPlayerDocument(`/play/${launchId}?experience=immersive`, {
-      origin: "https://retrom.example",
+    replaceWithPlayerDocument(
+      `/play/${launchId}?experience=immersive`,
       replace,
-    });
-
-    expect(replace).toHaveBeenCalledWith(
-      `https://retrom.example/play/${launchId}?experience=immersive`,
+      { origin: "https://retrom.example" },
     );
+
+    expect(replace).toHaveBeenCalledWith(`/play/${launchId}?experience=immersive`);
   });
 
   it.each([
@@ -21,9 +20,10 @@ describe("replaceWithPlayerDocument", () => {
     "/games/0198abcd-1234-7123-8abc-1234567890ab",
     "/play/not-a-launch",
   ])("rejects an invalid player destination: %s", (playURL) => {
-    expect(() => replaceWithPlayerDocument(playURL, {
-      origin: "https://retrom.example",
-      replace: vi.fn(),
-    })).toThrow("启动响应包含无效地址");
+    expect(() => replaceWithPlayerDocument(
+      playURL,
+      vi.fn(),
+      { origin: "https://retrom.example" },
+    )).toThrow("启动响应包含无效地址");
   });
 });

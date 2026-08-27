@@ -127,10 +127,12 @@ function RPGMakerConfiguration({ contentMode }: Pick<ConfigStepProps, "contentMo
   return <div className="feedback info" role="status">该目录明确选择了 RPG Maker 版本核心；整个目录或单个 ZIP/7z 会作为一个项目导入，不会自动猜测或切换版本。</div>;
 }
 
-function ImportConfigurationFields(props: Pick<ConfigStepProps, "directories" | "onProvider" | "onTarget" | "provider" | "reconfiguring" | "selectedDirectory" | "target">) {
+function ImportConfigurationFields(props: Pick<ConfigStepProps, "contentMode" | "directories" | "onProvider" | "onTarget" | "provider" | "reconfiguring" | "selectedDirectory" | "target">) {
   return <div className="form-grid import-config-grid">
     <div className="field"><label htmlFor="directory">目标游戏目录</label><select id="directory" value={props.target} onChange={(event) => props.onTarget(event.target.value)}><option value="" disabled>{props.directories.length ? "请选择目标游戏目录" : "暂无可用游戏目录"}</option>{props.directories.map((directory) => <option value={directory.id} key={directory.id}>{directory.name}</option>)}</select><small>{props.reconfiguring ? "可以保留原目录，也可以选择正确的平台目录后重新识别。" : "必须主动选择，避免将游戏导入到错误目录。"}</small></div>
-    <div className="field"><label htmlFor="provider">元信息来源</label><select id="provider" value={props.provider} onChange={(event) => props.onProvider(event.target.value)}><option value="HASHEOUS">Hasheous 哈希查询</option><option value="NONE">不刮削</option></select></div>
+    <div className="field"><label htmlFor="provider">元信息来源</label>{props.contentMode === "RPG_MAKER_PROJECT_V1"
+      ? <input id="provider" value="不刮削（RPG Maker 项目）" disabled />
+      : <select id="provider" value={props.provider} onChange={(event) => props.onProvider(event.target.value)}><option value="HASHEOUS">Hasheous 哈希查询</option><option value="NONE">不刮削</option></select>}</div>
     <div className="field"><label>游戏平台</label><input value={props.selectedDirectory?.platformName ?? "选择目录后显示"} disabled /></div>
     <div className="field"><label>推荐运行方式</label><input value={props.selectedDirectory?.coreName ?? "选择目录后显示"} disabled /></div>
   </div>;
@@ -143,7 +145,7 @@ function ConfigStep(props: ConfigStepProps & { sourceIsDirectory: boolean }) {
   return <section className="panel import-config-panel">
     <div className="panel-head"><div><h2>确认导入配置</h2><p>目标目录决定基础平台和推荐运行方式；配置会冻结到本次任务快照。</p></div><span className="status info"><i />步骤 2 / 3</span></div>
     <div className="panel-body">
-      <ImportConfigurationFields directories={props.directories} onProvider={props.onProvider} onTarget={props.onTarget} provider={props.provider} reconfiguring={props.reconfiguring} selectedDirectory={props.selectedDirectory} target={props.target} />
+      <ImportConfigurationFields contentMode={props.contentMode} directories={props.directories} onProvider={props.onProvider} onTarget={props.onTarget} provider={props.provider} reconfiguring={props.reconfiguring} selectedDirectory={props.selectedDirectory} target={props.target} />
       <div className="import-tag-config"><TagPicker label="批次默认标签" options={props.activeTags} selected={props.tags} onChange={props.onTags} disabled={props.busy} description="这些标签会冻结到任务配置，并作为每个待审核游戏的初始选择；审核时仍可逐项调整。" /></div>
       <MultiDiscConfiguration contentMode={props.contentMode} multiDiscLimits={props.multiDiscLimits} multiDiscSupported={props.multiDiscSupported} onContentMode={props.onContentMode} preflight={props.preflight} reconfiguring={props.reconfiguring} sourceIsDirectory={props.sourceIsDirectory} visibleCapabilityNotice={props.visibleCapabilityNotice} />
       <RPGMakerConfiguration contentMode={props.contentMode} />
@@ -227,6 +229,10 @@ function contentModeLabel(contentMode: ContentMode) {
   if (contentMode === "MULTI_DISC_M3U_V1") {return "多盘 M3U";}
   if (contentMode === "RPG_MAKER_PROJECT_V1") {return "RPG Maker 项目";}
   return "普通内容";
+}
+
+function effectiveMetadataProvider(contentMode: ContentMode, provider: string) {
+  return contentMode === "RPG_MAKER_PROJECT_V1" ? "NONE" : provider;
 }
 
 function capabilityNotice(sourceType: string, preflight: MultiDiscPreflight | null, target: string, supported: boolean) {
@@ -355,19 +361,20 @@ export function UploadPicker({ directories, activeTags = [], reconfigureSource =
     setBusy(true); setError(""); setCompletedJobId(""); setStep(3);
     try {
       let imported: Response;
+      const selectedProvider = effectiveMetadataProvider(contentMode, provider);
       if (reconfigureSource) {
         setProgress("正在复用已上传文件并按新配置重新识别…");
         imported = await fetch(`/api/v1/admin/imports/${reconfigureSource.importJobId}/reconfigure`, {
           method: "POST",
           credentials: "same-origin",
           headers: await writeHeaders({ "Content-Type": "application/json", "If-Match": `"v${reconfigureSource.version}"`, "Idempotency-Key": newUuid() }),
-          body: JSON.stringify({ targetPlatformInstanceId: target, metadataProvider: provider, tagIds: tags.map((tag) => tag.tagId) }),
+          body: JSON.stringify({ targetPlatformInstanceId: target, metadataProvider: selectedProvider, tagIds: tags.map((tag) => tag.tagId) }),
         });
       } else {
         const purpose = contentMode === "RPG_MAKER_PROJECT_V1" ? "RPG_MAKER_PROJECT" : "GENERAL";
         const uploaded = await uploadFiles(files.map((chosen) => ({ file: chosen.file, relativePath: chosen.path })), setProgress, purpose);
         setProgress("正在创建导入任务…");
-        imported = await fetch("/api/v1/admin/imports", { method: "POST", credentials: "same-origin", headers: await writeHeaders({ "Content-Type": "application/json", "Idempotency-Key": newUuid() }), body: JSON.stringify({ uploadId: uploaded.uploadId, targetPlatformInstanceId: target, metadataProvider: provider, contentMode, tagIds: tags.map((tag) => tag.tagId) }) });
+        imported = await fetch("/api/v1/admin/imports", { method: "POST", credentials: "same-origin", headers: await writeHeaders({ "Content-Type": "application/json", "Idempotency-Key": newUuid() }), body: JSON.stringify({ uploadId: uploaded.uploadId, targetPlatformInstanceId: target, metadataProvider: selectedProvider, contentMode, tagIds: tags.map((tag) => tag.tagId) }) });
       }
       if (!imported.ok) {throw new Error(await responseError(imported, reconfigureSource ? "无法按新配置创建导入任务，请刷新任务后重试" : "上传完成，但无法创建导入任务"));}
       const result = await imported.json() as { importJobId: string };

@@ -9,5 +9,6 @@ export default async function PlayPage({
 }) {
   const { launchId } = await params;
   const query = await searchParams;
-  return <PlayerShell launchId={launchId} experience={query.experience === "immersive" ? "immersive" : "standard"} />;
+  const experience = query.experience === "immersive" ? "immersive" : "standard";
+  return <PlayerShell launchId={launchId} experience={experience} />;
 }

@@ -141,7 +141,7 @@ describe("immersive game list view", () => {
     expect(screen.getByLabelText("已收藏")).toBeInTheDocument();
   });
 
-  it("loads the player in a new document after creating a Launch", async () => {
+  it("keeps fullscreen while soft-routing to a Launch", async () => {
     const selected = game(0);
     mocks.fetchGames.mockResolvedValue(page([selected], null));
     render(<GameListView platformId="gba" />);
@@ -150,6 +150,7 @@ describe("immersive game list view", () => {
 
     await waitFor(() => expect(mocks.replacePlayerDocument).toHaveBeenCalledWith(
       "/play/0198abcd-1234-7123-8abc-1234567890ab?experience=immersive",
+      mocks.replace,
     ));
   });
 });

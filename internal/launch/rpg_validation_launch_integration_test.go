@@ -15,6 +15,7 @@ import (
 	"github.com/google/uuid"
 
 	"retrom/internal/cleanup"
+	"retrom/internal/libraryimport"
 	retromruntime "retrom/internal/runtime"
 	"retrom/internal/testsupport"
 )
@@ -111,6 +112,49 @@ func TestRPGValidationLaunchLocksProjectAndRestoresAfterTerminalOriginal(t *test
 	}
 	assertRPGValidationConfigJSONShape(t, restoreUnion, 20, created.LaunchID, &restore.LaunchID)
 	assertRPGPlaySessionCount(t, database.SQL, restore.LaunchID, 0)
+}
+
+func TestRPGValidationLaunchAllowsReviewApprovalBeforeOptionalMachineGates(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	dataDir := t.TempDir()
+	now := time.UnixMilli(1_786_000_000_000)
+	database, err := testsupport.OpenDatabase(ctx, filepath.Join(dataDir, "retrom.db"), func() time.Time { return now })
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { cleanup.Error("close", database.Close()) })
+	seedLocalProfile(t, database.SQL)
+	fixture := seedRPGValidationLaunchFixture(t, database.SQL, now.UnixMilli())
+	mustRPGLaunchSQL(t, database.SQL, `UPDATE review_drafts SET metadata_json='{"title":"RPG smoke"}' WHERE import_item_id=?`, fixture.itemID)
+	credentials, err := retromruntime.LoadOrCreateCredentials(dataDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	launcher := New(database.SQL, nil, credentials, func() time.Time { return now })
+	created, err := launcher.CreateRPGValidation(
+		ctx, "local", fixture.validationID, "/admin/reviews/"+fixture.itemID, Capabilities{},
+	)
+	if err != nil {
+		t.Fatalf("create RPG validation launch: %v", err)
+	}
+	approved, err := libraryimport.New(database.SQL, func() time.Time { return now }).Approve(ctx, fixture.itemID, 2)
+	if err != nil {
+		t.Fatalf("approve after RPG validation launch: %v", err)
+	}
+	var validationID, validationState string
+	if err := database.SQL.QueryRowContext(ctx, `
+SELECT profile.runtime_validation_id,validation.state
+FROM games game
+JOIN game_variants variant ON variant.game_id=game.id
+JOIN rpgmaker_variant_profiles profile ON profile.game_variant_revision_id=variant.current_revision_id
+JOIN rpgmaker_runtime_validations validation ON validation.id=profile.runtime_validation_id
+WHERE game.id=?`, approved.GameID).Scan(&validationID, &validationState); err != nil {
+		t.Fatal(err)
+	}
+	if validationID != fixture.validationID || validationState != "STARTING" || created.LaunchID == "" {
+		t.Fatalf("published RPG launch evidence = %s/%s/%s", validationID, validationState, created.LaunchID)
+	}
 }
 
 func assertRPGValidationConfigJSONShape(
@@ -299,7 +343,7 @@ VALUES('rpg-snapshot','PROJECT_FILE',?,?,?, ?,?)`, file.logical, file.upload, fi
 	mustRPGLaunchSQL(t, database, `
 INSERT INTO review_drafts(id,import_item_id,target_platform_instance_id,metadata_json,
  runtime_binding_revision,version,created_at_ms,updated_at_ms,effective_source_snapshot_id)
-VALUES('rpg-review',?,'rpg-platform','{}',1,1,?,?,'rpg-snapshot')`, fixture.itemID, now, now)
+VALUES('01980000-0000-7000-8000-000000000901',?,'rpg-platform','{}',1,1,?,?,'rpg-snapshot')`, fixture.itemID, now, now)
 	mustRPGLaunchSQL(t, database, `
 INSERT INTO import_item_core_validations(id,import_item_id,target_platform_instance_id,
  platform_instance_version,core_id,core_artifact_id,core_artifact_version,prepublish_generation,
@@ -314,7 +358,7 @@ INSERT INTO import_item_validation_files(import_item_core_validation_id,role,log
 VALUES('rpg-core-validation','RPG_EASYRPG_INDEX','index.json',?,0,?)`, fixture.indexBlobID, now)
 	mustRPGLaunchSQL(t, database, `
 UPDATE review_drafts SET version=version+1,updated_at_ms=?
-WHERE id='rpg-review'`, now)
+WHERE id='01980000-0000-7000-8000-000000000901'`, now)
 	projectFingerprint, dependency := strings.Repeat("c", 64), strings.Repeat("f", 64)
 	mustRPGLaunchSQL(t, database, `
 INSERT INTO rpgmaker_review_profiles(
@@ -322,7 +366,7 @@ INSERT INTO rpgmaker_review_profiles(
  file_count,total_bytes,project_fingerprint,requirements_sha256,analysis_json,self_contained_override,
  route_key,artifact_id,artifact_set_sha256,adapter_id,adapter_abi,dependency_snapshot_sha256,
  created_at_ms,updated_at_ms)
-VALUES('rpg-review','rpgmaker_2000','RPG2000','RPG2K',NULL,'FAMILY_ONLY',2,20,?,?,'{}',1,
+VALUES('01980000-0000-7000-8000-000000000901','rpgmaker_2000','RPG2000','RPG2K',NULL,'FAMILY_ONLY',2,20,?,?,'{}',1,
  'RPG2000_EASYRPG_0811_V4','rpg-artifact',?,'easyrpg-web-v1','easyrpg-save-v1',?,?,?)`,
 		projectFingerprint, strings.Repeat("0", 64), artifactSet, dependency, now, now)
 	mustRPGLaunchSQL(t, database, `

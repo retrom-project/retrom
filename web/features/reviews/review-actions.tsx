@@ -203,7 +203,7 @@ export function ReviewActions({ review, activeTags = [], returnTo = "/admin/revi
 
 function effectiveCanApprove(rpgMaker: ReviewWorkspace["rpgMaker"], serverCanApprove: boolean) {
   if (!rpgMaker) {return serverCanApprove;}
-  return rpgMaker.runtimeValidationCurrent && rpgMaker.runtimeValidation?.state === "PASSED";
+  return rpgMaker.runtimeValidationCurrent && Boolean(rpgMaker.runtimeValidation?.launchId);
 }
 
 type ReviewViewModel = {
@@ -258,7 +258,7 @@ function ReviewSummary({ model }: { model: ReviewViewModel }) {
 }
 
 function reviewValidationLabel(model: ReviewViewModel) {
-  if (model.rpgMaker) {return effectiveCanApprove(model.rpgMaker, false) ? "RPG 运行验证通过" : "等待 RPG 运行验证";}
+  if (model.rpgMaker) {return effectiveCanApprove(model.rpgMaker, false) ? "已启动游戏，可发布" : "等待启动游戏";}
   if (model.validationReady) {return "运行检查通过";}
   if (model.screenshotOverride) {return "已取得运行截图";}
   return model.validationStatus === "READY" ? "运行检查更新中" : "运行检查未通过";
@@ -287,10 +287,8 @@ function RPGReviewDecision({ model }: { model: ReviewViewModel }) {
 
 function rpgDecisionMessage(rpgMaker: ReviewViewModel["rpgMaker"], validation: ReviewViewModel["rpgValidation"]["validation"]) {
   if (validation && !rpgMaker?.runtimeValidationCurrent) {return "当前绑定已变化；历史验证不能发布，请重新运行游戏。";}
-  if (validation?.state === "PASSED") {return "跨 Launch 精确恢复验证已经通过，可以发布。";}
-  if (validation?.state === "AWAITING_DECISION") {return "全部机器门禁已通过，请确认验证结论。";}
-  if (validation?.state !== "CHECKPOINTED") {return "必须运行游戏并完成全部机器门禁，截图不能人工放行。";}
-  return validation.checkpointRoundTrip.originalLaunchEnded ? "保存位置 B 与继续游玩位置 C 已记录，请启动不同 Launch 验证恢复。" : "请在原游戏窗口继续到 C 并结束原 Launch。";
+  if (validation?.launchId) {return "游戏 Launch 已创建；确认可运行后即可发布，高级恢复验证为可选。";}
+  return "请先运行一次游戏，随后即可通过并发布。";
 }
 
 function RPGValidationActions({ model }: { model: ReviewViewModel }) {

@@ -1,17 +1,20 @@
-const launchPath = /^\/play\/([0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})$/;
+const exampleLaunchId = "0198abcd-1234-7123-8abc-1234567890ab";
 
-export function playerFrameSource(pathname: string, template: string | undefined) {
-  const match = launchPath.exec(pathname);
-  if (!match || !template || template.split("{launchId}").length !== 2) {return "'self'";}
-  const launchId = match[1];
-  const raw = template.replace("{launchId}", launchId);
+export function playerFrameSource(template: string | undefined) {
+  if (!template || template.split("{launchId}").length !== 2) {return "'self'";}
+  const raw = template.replace("{launchId}", exampleLaunchId);
   try {
     const parsed = new URL(raw);
     if ((parsed.protocol !== "https:" && parsed.protocol !== "http:") || parsed.username || parsed.password ||
-      parsed.pathname !== "/" || parsed.search || parsed.hash || parsed.hostname.split(".")[0] !== launchId) {
+      parsed.pathname !== "/" || parsed.search || parsed.hash) {
       return "'self'";
     }
-    return `'self' ${parsed.origin}`;
+    const labels = parsed.hostname.split(".");
+    if (labels.length < 2 || labels[0] !== exampleLaunchId || labels.slice(1).some((label) => !label)) {
+      return "'self'";
+    }
+    const port = parsed.port ? `:${parsed.port}` : "";
+    return `'self' ${parsed.protocol}//*.${labels.slice(1).join(".")}${port}`;
   } catch {
     return "'self'";
   }

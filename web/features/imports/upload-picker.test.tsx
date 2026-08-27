@@ -116,6 +116,8 @@ describe("UploadPicker", () => {
     await user.selectOptions(screen.getByRole("combobox", { name: "目标游戏目录" }), "rpg-mv");
     expect(screen.getByText("RPG Maker 项目")).toBeVisible();
     expect(screen.getByText(/不会自动猜测或切换版本/)).toBeVisible();
+    expect(screen.getByLabelText("元信息来源")).toHaveValue("不刮削（RPG Maker 项目）");
+    expect(screen.getByLabelText("元信息来源")).toBeDisabled();
 
     await user.click(screen.getByRole("button", { name: "上一步" }));
     expect(screen.getByRole("heading", { name: "将 RPG Maker 项目归档或目录拖到这里" })).toBeVisible();
@@ -126,7 +128,7 @@ describe("UploadPicker", () => {
     await user.click(screen.getByRole("button", { name: "上传并验证 RPG Maker 项目" }));
     expect(upload.uploadFiles).toHaveBeenCalledWith(expect.any(Array), expect.any(Function), "RPG_MAKER_PROJECT");
     expect(fetchMock).toHaveBeenCalledWith("/api/v1/admin/imports", expect.objectContaining({
-      body: expect.stringContaining('"contentMode":"RPG_MAKER_PROJECT_V1"'),
+      body: JSON.stringify({ uploadId: "rpg-upload", targetPlatformInstanceId: "rpg-mv", metadataProvider: "NONE", contentMode: "RPG_MAKER_PROJECT_V1", tagIds: [] }),
     }));
   });
 
