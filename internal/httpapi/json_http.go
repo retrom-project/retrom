@@ -433,8 +433,8 @@ func (server *Server) runtimeFile(writer http.ResponseWriter, request *http.Requ
 	http.ServeContent(writer, request, filepath.Base(runtimePath), time.Unix(0, 0), file)
 }
 
-func (server *Server) rpgMakerRuntimeFile(writer http.ResponseWriter, request *http.Request) {
-	runtimePath, declaration, ok := server.dependencies.RPGMakerFile(
+func (server *Server) retromRuntimeFile(writer http.ResponseWriter, request *http.Request) {
+	runtimePath, declaration, ok := server.dependencies.RetromRuntimeFile(
 		request.PathValue("runtimeVersion"), request.PathValue("runtimePath"),
 	)
 	if !ok {
@@ -451,7 +451,7 @@ func (server *Server) rpgMakerRuntimeFile(writer http.ResponseWriter, request *h
 	if err != nil || !info.Mode().IsRegular() || info.Size() != declaration.SizeBytes {
 		writeError(
 			writer, request, http.StatusServiceUnavailable, "DEPENDENCY_INVALID",
-			"RPG Maker 运行时依赖不可用", map[string]any{},
+			"浏览器运行时依赖不可用", map[string]any{},
 		)
 		return
 	}

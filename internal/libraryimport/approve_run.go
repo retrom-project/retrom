@@ -45,6 +45,7 @@ type approvalRun struct {
 	artifactID                    string
 	routeKey                      string
 	artifactCompatibility         string
+	runtimeFamily                 string
 	draftVersion                  int64
 	artifactVersion               int64
 	datID                         sql.NullString
@@ -128,6 +129,7 @@ func (run *approvalRun) load() error {
 		&run.platformInstanceID, &run.validationID, &run.validationStatus, &run.metadataJSON,
 		&run.sourceSnapshotID, &run.sourceManifestJSON, &run.sourceManifestDigest,
 		&run.contentKind, &run.coreID, &run.artifactID, &run.routeKey, &run.artifactCompatibility,
+		&run.runtimeFamily,
 		&run.artifactVersion, &run.datID, &run.validationDOSEntry, &run.draftDOSEntry,
 		&run.dependencySnapshotJSON, &run.approvalScreenshotID, &run.draftVersion,
 		&run.candidateID, &run.coverID, &run.uploadedCoverID, &run.backgroundID,
@@ -267,7 +269,7 @@ const approvalDraftQuery = `
 SELECT d.id,i.state,i.import_job_id,j.config_snapshot_json,p.platform_id,
   d.target_platform_instance_id,v.id,v.status,d.metadata_json,source_snapshot.id,
   source_snapshot.source_manifest_json,source_snapshot.source_manifest_digest,
-  source_snapshot.content_kind,v.core_id,v.core_artifact_id,a.route_key,a.compatibility_json,
+  source_snapshot.content_kind,v.core_id,v.core_artifact_id,a.route_key,a.compatibility_json,a.runtime_family,
   v.core_artifact_version,v.dat_version_id,v.default_dos_entry,d.default_dos_entry,
   v.dependency_snapshot_json,
   (SELECT screenshot.id FROM review_runtime_screenshots screenshot

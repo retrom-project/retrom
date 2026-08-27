@@ -180,9 +180,9 @@ function validateEasy(config: RpgRuntimeConfig, route: Route) {
     "adapterId", "adapterKind", "checkpointSlot", "engineMode", "projectIndexUrl", "projectRootUrl",
     "rtpArchive", "runtimeBaseUrl",
   ])].every(Boolean) || adapter.adapterKind !== "EASYRPG_WEB" || !("engineMode" in route)) {return false;}
-  const root = `/runtime/rpg-project/${config.launchId}/`;
+  const root = `/runtime/projects/${config.launchId}/`;
   const mountPath = route.engineMode === "rpg2k" ? "/data/rtp/2000" : "/data/rtp/2003";
-  const runtime = `/runtime/rpgmaker/${route.runtimeVersion}/`;
+  const runtime = `/runtime/retrom-runtime/${route.runtimeVersion}/`;
   return [
     adapter.engineMode === route.engineMode, adapter.runtimeBaseUrl === runtime,
     validAppUrl(adapter.runtimeBaseUrl), adapter.projectRootUrl === root, validAppUrl(adapter.projectRootUrl),
@@ -201,8 +201,8 @@ function validateMkxp(config: RpgRuntimeConfig, route: Route) {
     "artifactSetSha256", "jsSha256", "jsSizeBytes", "jsUrl", "wasmSha256", "wasmSizeBytes", "wasmUrl",
   ]),
   exactKeys(adapter.projectArchive, ["sha256", "sizeBytes", "url"])].every(Boolean)) {return false;}
-  const runtime = `/runtime/rpgmaker/${route.runtimeVersion}/`;
-  const root = `/runtime/rpg-project/${config.launchId}/`;
+  const runtime = `/runtime/retrom-runtime/${route.runtimeVersion}/`;
+  const root = `/runtime/projects/${config.launchId}/`;
   return [
     adapter.rgssVersion === route.rgssVersion, adapter.stateBufferBytes === 268435456,
     adapter.runtimeBaseUrl === runtime, validAppUrl(adapter.runtimeBaseUrl),

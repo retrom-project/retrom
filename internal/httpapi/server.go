@@ -489,14 +489,14 @@ func (server *Server) registerContentRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/v1/admin/diagnostics", server.diagnostics)
 	mux.HandleFunc("GET /runtime/emulatorjs/{configuredVersion}/{runtimePath...}", server.runtimeFile)
 	mux.HandleFunc("HEAD /runtime/emulatorjs/{configuredVersion}/{runtimePath...}", server.runtimeFile)
-	mux.HandleFunc("GET /runtime/rpgmaker/{runtimeVersion}/{runtimePath...}", server.rpgMakerRuntimeFile)
-	mux.HandleFunc("HEAD /runtime/rpgmaker/{runtimeVersion}/{runtimePath...}", server.rpgMakerRuntimeFile)
+	mux.HandleFunc("GET /runtime/retrom-runtime/{runtimeVersion}/{runtimePath...}", server.retromRuntimeFile)
+	mux.HandleFunc("HEAD /runtime/retrom-runtime/{runtimeVersion}/{runtimePath...}", server.retromRuntimeFile)
 }
 
 func (server *Server) registerRuntimeRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /runtime/launches/{launchId}/config", server.launchConfig)
-	mux.HandleFunc("GET /runtime/rpg-project/{launchId}/{projectPath...}", server.launchRPGProjectFile)
-	mux.HandleFunc("HEAD /runtime/rpg-project/{launchId}/{projectPath...}", server.launchRPGProjectFile)
+	mux.HandleFunc("GET /runtime/projects/{launchId}/{projectPath...}", server.launchProjectFile)
+	mux.HandleFunc("HEAD /runtime/projects/{launchId}/{projectPath...}", server.launchProjectFile)
 	mux.HandleFunc("GET /runtime/content/game/{contentIdentity}/{logicalName}", server.launchGame)
 	mux.HandleFunc("HEAD /runtime/content/game/{contentIdentity}/{logicalName}", server.launchGame)
 	mux.HandleFunc("GET /runtime/content/external/{contentIdentity}/{logicalName}", server.launchExternalFile)

@@ -1,6 +1,8 @@
 package detector
 
 import (
+	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -25,14 +27,43 @@ type Index interface {
 }
 
 type Profile struct {
-	MarkerPath     string
-	FontPath       string
-	ScriptEncoding string
+	MarkerPath     string `json:"markerPath"`
+	FontPath       string `json:"fontPath"`
+	ScriptEncoding string `json:"scriptEncoding"`
+}
+
+type snapshot struct {
+	ONS           Profile `json:"ons"`
+	SchemaVersion int     `json:"schemaVersion"`
 }
 
 var markers = []string{"0.txt", "00.txt", "nscript.dat", "nscr_sec.dat"}
 
 func Markers() []string { return append([]string(nil), markers...) }
+
+func MarshalSnapshot(profile Profile) ([]byte, error) {
+	if !validProfile(profile) {
+		return nil, ErrProjectInvalid
+	}
+	contents, err := json.Marshal(snapshot{ONS: profile, SchemaVersion: 1})
+	if err != nil {
+		return nil, fmt.Errorf("marshal ONS profile: %w", err)
+	}
+	return contents, nil
+}
+
+func ParseSnapshot(contents string) (Profile, error) {
+	decoder := json.NewDecoder(bytes.NewBufferString(contents))
+	decoder.DisallowUnknownFields()
+	var value snapshot
+	if err := decoder.Decode(&value); err != nil {
+		return Profile{}, ErrProjectInvalid
+	}
+	if err := decoder.Decode(&struct{}{}); err != io.EOF || value.SchemaVersion != 1 || !validProfile(value.ONS) {
+		return Profile{}, ErrProjectInvalid
+	}
+	return value.ONS, nil
+}
 
 func Detect(index Index) (Profile, error) {
 	files := index.Files()
@@ -90,6 +121,21 @@ func preferredFont(files []File) string {
 		return ""
 	}
 	return fonts[0]
+}
+
+func validProfile(profile Profile) bool {
+	markerValid := false
+	for _, marker := range markers {
+		markerValid = markerValid || strings.EqualFold(profile.MarkerPath, marker)
+	}
+	return markerValid && validLogicalPath(profile.FontPath) &&
+		strings.EqualFold(path.Ext(profile.FontPath), ".ttf") &&
+		(profile.ScriptEncoding == "gbk" || profile.ScriptEncoding == "sjis" || profile.ScriptEncoding == "utf8")
+}
+
+func validLogicalPath(value string) bool {
+	return value != "" && len([]byte(value)) <= 1024 && path.Clean(value) == value &&
+		!strings.HasPrefix(value, "/") && !strings.Contains(value, `\`) && !strings.ContainsRune(value, 0)
 }
 
 func readProbe(index Index, markerPath string) ([]byte, error) {

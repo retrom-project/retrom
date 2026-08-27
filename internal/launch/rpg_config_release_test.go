@@ -24,13 +24,13 @@ func TestMKXPCoreConfigUsesObservedReleaseCoordinates(t *testing.T) {
 	}}
 
 	core, ok := mkxpCoreConfig(
-		set, "/runtime/rpgmaker/v0.2.0/", runtimeVersion,
+		set, "/runtime/retrom-runtime/v0.2.0/", runtimeVersion,
 		"mkxp-z_libretro.js", "mkxp-z_libretro.wasm", "c000000000000000000000000000000000000000000000000000000000000000",
 	)
 	if !ok || core.JSSizeBytes != 258192 || core.WasmSizeBytes != 42487229 ||
 		core.JSSHA256[0] != 'a' || core.WasmSHA256[0] != 'b' ||
-		core.JSURL != "/runtime/rpgmaker/v0.2.0/mkxp-z_libretro.js" ||
-		core.WasmURL != "/runtime/rpgmaker/v0.2.0/mkxp-z_libretro.wasm" {
+		core.JSURL != "/runtime/retrom-runtime/v0.2.0/mkxp-z_libretro.js" ||
+		core.WasmURL != "/runtime/retrom-runtime/v0.2.0/mkxp-z_libretro.wasm" {
 		t.Fatalf("mkxp core config = %#v, available=%v", core, ok)
 	}
 }
@@ -49,7 +49,7 @@ func TestMKXPCoreConfigRejectsWrongObservedRole(t *testing.T) {
 		},
 	}}
 	if _, ok := mkxpCoreConfig(
-		set, "/runtime/rpgmaker/v0.2.0/", "v0.2.0",
+		set, "/runtime/retrom-runtime/v0.2.0/", "v0.2.0",
 		"mkxp-z_libretro.js", "mkxp-z_libretro.wasm", "c",
 	); ok {
 		t.Fatal("mkxp core config accepted mismatched release role")

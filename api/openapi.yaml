@@ -1338,8 +1338,8 @@ paths:
       operationId: headRuntimeEmulatorJS
       responses:
         '200': { $ref: '#/components/responses/BinaryResponse' }
-  /runtime/rpgmaker/{runtimeVersion}/{runtimePath}:
-    x-retrom-router-template: /runtime/rpgmaker/{runtimeVersion}/{runtimePath:.+}
+  /runtime/retrom-runtime/{runtimeVersion}/{runtimePath}:
+    x-retrom-router-template: /runtime/retrom-runtime/{runtimeVersion}/{runtimePath:.+}
     parameters:
       - name: runtimeVersion
         in: path
@@ -1351,17 +1351,17 @@ paths:
         schema: { type: string }
     get:
       security: []
-      operationId: getRuntimeRpgMakerArtifact
-      description: Serves only a byte-exact RPG Maker runtime file declared by the immutable dependency manifest allowlist.
+      operationId: getRetromRuntimeArtifact
+      description: Serves only a declared retrom-runtime Release asset from the dependency manifest allowlist.
       responses:
         '200': { $ref: '#/components/responses/BinaryResponse' }
     head:
       security: []
-      operationId: headRuntimeRpgMakerArtifact
+      operationId: headRetromRuntimeArtifact
       responses:
         '200': { $ref: '#/components/responses/BinaryResponse' }
-  /runtime/rpg-project/{launchId}/{projectPath}:
-    x-retrom-router-template: /runtime/rpg-project/{launchId}/{projectPath:.+}
+  /runtime/projects/{launchId}/{projectPath}:
+    x-retrom-router-template: /runtime/projects/{launchId}/{projectPath:.+}
     parameters:
       - { $ref: '#/components/parameters/LaunchID' }
       - name: projectPath
@@ -1370,13 +1370,13 @@ paths:
         schema: { type: string }
     get:
       security: []
-      operationId: getRuntimeRpgMakerProjectFile
-      description: Serves one exact file from the immutable RPG project fileset locked by the authorized Launch; index.json is the reserved EasyRPG virtual index.
+      operationId: getRuntimeProjectFile
+      description: Serves one exact file from the immutable directory-runtime project fileset locked by the authorized Launch; index.json is a reserved virtual index.
       responses:
         '200': { $ref: '#/components/responses/BinaryResponse' }
     head:
       security: []
-      operationId: headRuntimeRpgMakerProjectFile
+      operationId: headRuntimeProjectFile
       responses:
         '200': { $ref: '#/components/responses/BinaryResponse' }
   /runtime/launches/{launchId}/config:
@@ -2413,11 +2413,13 @@ components:
       oneOf:
         - { $ref: '#/components/schemas/EmulatorJSLaunchConfig' }
         - { $ref: '#/components/schemas/RpgMakerLaunchConfig' }
+        - { $ref: '#/components/schemas/OnsLaunchConfig' }
       discriminator:
         propertyName: runtimeFamily
         mapping:
           EMULATORJS: '#/components/schemas/EmulatorJSLaunchConfig'
           RPGMAKER: '#/components/schemas/RpgMakerLaunchConfig'
+          ONS: '#/components/schemas/OnsLaunchConfig'
     EmulatorJSLaunchConfig:
       type: object
       additionalProperties: false
@@ -2621,6 +2623,49 @@ components:
           nullable: true
           allOf: [{ $ref: '#/components/schemas/RpgRuntimeValidationResume' }]
         adapter: { $ref: '#/components/schemas/RpgAdapterConfig' }
+    OnsAdapterConfig:
+      type: object
+      additionalProperties: false
+      required: [adapterKind, adapterId, runtimeBaseUrl, projectIndexUrl, scriptEncoding, checkpointSlot]
+      properties:
+        adapterKind: { type: string, enum: [ONS_YURI_WEB] }
+        adapterId: { type: string, enum: [ons-yuri-web] }
+        runtimeBaseUrl: { type: string, pattern: '^/runtime/retrom-runtime/[^/?#]+/$' }
+        projectIndexUrl: { type: string, pattern: '^/runtime/projects/[0-9a-f-]{36}/index\.json$' }
+        scriptEncoding: { type: string, enum: [gbk, sjis, utf8] }
+        checkpointSlot: { type: integer, enum: [999] }
+    OnsCheckpointRestore:
+      type: object
+      additionalProperties: false
+      required: [payloadKind, payloadUrl]
+      properties:
+        payloadKind: { type: string, enum: [ONS_SAVE_BUNDLE_V1] }
+        payloadUrl: { type: string, pattern: '^/runtime/launches/[0-9a-f-]{36}/state$' }
+    OnsLaunchConfig:
+      type: object
+      additionalProperties: false
+      required: [runtimeFamily, protocolVersion, mode, purpose, launchId, sessionId, coreId, coreName,
+        gameTitle, platformName, runtimeVersion, artifactId, returnTo, warnings, adapter, checkpoint]
+      properties:
+        runtimeFamily: { type: string, enum: [ONS] }
+        protocolVersion: { type: integer, enum: [1] }
+        mode: { type: string, enum: [single] }
+        purpose: { type: string, enum: [PRODUCT, REVIEW_PREVIEW] }
+        launchId: { type: string, format: uuid }
+        sessionId: { type: string, format: uuid }
+        coreId: { type: string, enum: [onscripter_yuri] }
+        coreName: { type: string, minLength: 1, maxLength: 200 }
+        gameTitle: { type: string, minLength: 1, maxLength: 500 }
+        platformName: { type: string, enum: [ONScripter] }
+        runtimeVersion: { type: string, minLength: 1, maxLength: 160 }
+        artifactId: { type: string, format: uuid }
+        returnTo: { type: string, minLength: 1, maxLength: 2048 }
+        warnings: { type: array, maxItems: 16, items: { type: string, maxLength: 200 } }
+        adapter: { $ref: '#/components/schemas/OnsAdapterConfig' }
+        checkpoint:
+          nullable: true
+          allOf: [{ $ref: '#/components/schemas/OnsCheckpointRestore' }]
+        reviewPreview: { $ref: '#/components/schemas/ReviewPreviewConfig' }
     RuntimeAssetPackKind:
       type: string
       enum: [RPG2000_RTP, RPG2003_RTP, RGSS1_RTP_STANDARD, RGSS2_RTP_RPGVX, RGSS3_RTP_RPGVXAce, RGSS_CUSTOM_RTP]

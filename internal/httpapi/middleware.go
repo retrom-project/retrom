@@ -163,7 +163,7 @@ func publicHTTPRoute(request *http.Request) bool {
 		return true
 	}
 	return (request.Method == http.MethodGet || request.Method == http.MethodHead) &&
-		(strings.HasPrefix(path, "/runtime/emulatorjs/") || strings.HasPrefix(path, "/runtime/rpgmaker/"))
+		(strings.HasPrefix(path, "/runtime/emulatorjs/") || strings.HasPrefix(path, "/runtime/retrom-runtime/"))
 }
 
 func launchHTTPRoute(path string) bool {

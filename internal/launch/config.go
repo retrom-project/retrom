@@ -47,6 +47,7 @@ type Config struct {
 	ReviewPreview        *ReviewPreviewConfig         `json:"reviewPreview,omitempty"`
 	Netplay              *NetplayConfig               `json:"netplay"`
 	RPGMaker             *RPGMakerConfig              `json:"-"`
+	ONS                  *ONSConfig                   `json:"-"`
 }
 
 type NetplayConfig struct {

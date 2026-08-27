@@ -140,6 +140,13 @@ func (configuration Config) MarshalJSON() ([]byte, error) {
 		}
 		return contents, nil
 	}
+	if configuration.ONS != nil {
+		contents, err := json.Marshal(configuration.ONS)
+		if err != nil {
+			return nil, fmt.Errorf("marshal ONS launch config: %w", err)
+		}
+		return contents, nil
+	}
 	type plainConfig Config
 	contents, err := json.Marshal(plainConfig(configuration))
 	if err != nil {
@@ -160,14 +167,14 @@ WHERE launch.id=? AND artifact.available_for_launch=1
 	if family == "EMULATORJS" {
 		return service.emulatorJSConfig(ctx, launchID, capability)
 	}
-	if family != "RPGMAKER" {
-		return Config{}, ErrCredential
+	if family == "RPGMAKER" {
+		rpg, err := service.rpgMakerConfig(ctx, launchID, capability)
+		if err != nil {
+			return Config{}, err
+		}
+		return Config{RuntimeFamily: "RPGMAKER", RPGMaker: &rpg}, nil
 	}
-	rpg, err := service.rpgMakerConfig(ctx, launchID, capability)
-	if err != nil {
-		return Config{}, err
-	}
-	return Config{RuntimeFamily: "RPGMAKER", RPGMaker: &rpg}, nil
+	return Config{}, ErrCredential
 }
 
 type rpgConfigSource struct {
@@ -400,8 +407,8 @@ func (service *Service) buildRPGAdapterConfig(
 	launchID string,
 	source rpgConfigSource,
 ) (any, error) {
-	runtimeBase := "/runtime/rpgmaker/" + source.runtimeVersion + "/"
-	projectRoot := "/runtime/rpg-project/" + launchID + "/"
+	runtimeBase := "/runtime/retrom-runtime/" + source.runtimeVersion + "/"
+	projectRoot := "/runtime/projects/" + launchID + "/"
 	switch source.runtimeKind {
 	case "EASYRPG_WEB":
 		return service.buildEasyRPGAdapterConfig(ctx, launchID, source, runtimeBase, projectRoot)
@@ -495,8 +502,8 @@ func mkxpCoreConfig(
 	set *dependencies.Set,
 	runtimeBase, runtimeVersion, jsPath, wasmPath, artifactSetSHA string,
 ) (MKXPCoreConfig, bool) {
-	_, jsFile, jsExists := set.RPGMakerFile(runtimeVersion, jsPath)
-	_, wasmFile, wasmExists := set.RPGMakerFile(runtimeVersion, wasmPath)
+	_, jsFile, jsExists := set.RetromRuntimeFile(runtimeVersion, jsPath)
+	_, wasmFile, wasmExists := set.RetromRuntimeFile(runtimeVersion, wasmPath)
 	if !jsExists || !wasmExists || jsFile.Role != "runtime_js" || wasmFile.Role != "runtime_wasm" {
 		return MKXPCoreConfig{}, false
 	}

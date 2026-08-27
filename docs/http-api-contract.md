@@ -882,8 +882,8 @@ Launch config 顶层是 `runtimeFamily` discriminated union。`EMULATORJS` 保�
 
 EasyRPG 与 mkxp 的同源内容端点属于严格 OpenAPI 契约，不能只在 Go router 中注册：
 
-- `GET|HEAD /runtime/rpgmaker/{runtimeVersion}/{runtimePath}` 只允许命中 RPG runtime manifest 的逐文件 allowlist，逐字节复核 size/hash 后返回不可变公共响应；未知版本、路径或 MIME 返回 404；
-- `GET|HEAD /runtime/rpg-project/{launchId}/{projectPath}` 只允许携带 config 响应设置的动态 cookie `retrom_launch_rpg_project_<launchId>`；其值是同一 Launch capability，属性固定为 `Path=/runtime/rpg-project/<launchId>/; HttpOnly; SameSite=Strict; Max-Age=86400`，不设置 `Domain`，HTTPS 增加 `Secure`。cookie 名、path 与请求中的 Launch ID 必须逐字匹配且恰有一份；结束 Launch 时删除。服务端从 Launch 冻结的 `RPG_MAKER_PROJECT_V1` fileset 返回一项，EasyRPG 的 `index.json` 只映射服务端保留的派生索引。响应为 private immutable、强 ETag、准确 MIME/长度并支持单 Range；未知、未授权或跨 Launch 文件不能回退到上传源或当前审核草稿。
+- `GET|HEAD /runtime/retrom-runtime/{runtimeVersion}/{runtimePath}` 只允许命中固定 retrom-runtime Release manifest 的逐文件 allowlist，本地逐字节复核 observed size/hash 后返回不可变公共响应；未知版本、路径或 MIME 返回 404；
+- `GET|HEAD /runtime/projects/{launchId}/{projectPath}` 只允许携带 config 响应设置的动态 cookie `retrom_launch_project_<launchId>`；其值是同一 Launch capability，属性固定为 `Path=/runtime/projects/<launchId>/; HttpOnly; SameSite=Strict; Max-Age=86400`，不设置 `Domain`，HTTPS 增加 `Secure`。cookie 名、path 与请求中的 Launch ID 必须逐字匹配且恰有一份；结束 Launch 时删除。服务端从 Product/Validation Launch 冻结的目录 fileset，或 ONS 审核预览创建时冻结的不可变 source snapshot 返回一项；`index.json` 是 EasyRPG/ONS adapter 使用的保留虚拟索引。响应为 private immutable、强 ETag、准确 MIME/长度并支持单 Range；未知、未授权或跨 Launch 文件不能回退到上传源、最新内容 revision 或可变 ReviewDraft。
 
 两条路径都必须以 `x-retrom-router-template` 保留含 `/` 的尾部路径。OpenAPI 中间件必须先识别它们再进入内容 handler；否则即使文件已物化也会被错误地提前映射为 404。
 

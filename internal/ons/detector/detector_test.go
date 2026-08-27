@@ -40,6 +40,22 @@ func TestDetectAcceptsEncryptedScriptAndDefaultsToGBK(t *testing.T) {
 	}
 }
 
+func TestSnapshotRoundTripRejectsUnknownFields(t *testing.T) {
+	t.Parallel()
+	profile := Profile{MarkerPath: "0.txt", FontPath: "font/default.ttf", ScriptEncoding: "utf8"}
+	contents, err := MarshalSnapshot(profile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	parsed, err := ParseSnapshot(string(contents))
+	if err != nil || parsed != profile {
+		t.Fatalf("ParseSnapshot() = %#v, %v", parsed, err)
+	}
+	if _, err := ParseSnapshot(`{"schemaVersion":1,"ons":{"markerPath":"0.txt","fontPath":"default.ttf","scriptEncoding":"utf8"},"extra":true}`); !errors.Is(err, ErrProjectInvalid) {
+		t.Fatalf("unknown field error = %v", err)
+	}
+}
+
 func TestDetectRequiresScriptAndFont(t *testing.T) {
 	t.Parallel()
 	for _, index := range []memoryIndex{{"0.txt": []byte("*define")}, {"default.ttf": {1}}} {

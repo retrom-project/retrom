@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"archive/zip"
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
@@ -70,39 +71,47 @@ func (server *Server) launchGame(writer http.ResponseWriter, request *http.Reque
 	server.recordMultiDiscContentResponse(request, authorizedLaunchID, content, metricsWriter)
 }
 
-func (server *Server) launchRPGProjectFile(writer http.ResponseWriter, request *http.Request) {
+func (server *Server) launchProjectFile(writer http.ResponseWriter, request *http.Request) {
 	if rejectMultipleRanges(writer, request) {
 		return
 	}
 	launchID := request.PathValue("launchId")
 	logicalName := request.PathValue("projectPath")
-	lockedLogicalName := logicalName
-	// EasyRPG's fixed loader requests index.json beside the project files. The
-	// generated index remains in a reserved launch namespace internally, so an
-	// uploaded project cannot replace it, and is exposed through this exact
-	// virtual alias only.
-	if logicalName == "index.json" {
-		lockedLogicalName = "__retrom__/index.json"
-	}
-	grant, valid := runtimeRPGProjectGrant(request, launchID)
+	grant, valid := runtimeProjectGrant(request, launchID)
 	if !valid {
 		writeError(
 			writer, request, http.StatusUnauthorized, "LAUNCH_CREDENTIAL_INVALID",
-			"RPG Maker 项目内容不可用", map[string]any{},
+			"项目内容不可用", map[string]any{},
 		)
 		return
 	}
-	content, err := server.launcher.Content(request.Context(), launchID, grant.Capability, lockedLogicalName)
-	if err != nil || content.Format != "RPG_MAKER_PROJECT_V1" {
+	if logicalName == "index.json" {
+		if index, err := server.launcher.ReviewPreviewProjectIndex(
+			request.Context(), launchID, grant.Capability,
+		); err == nil {
+			serveProjectIndex(writer, request, index)
+			return
+		}
+		// EasyRPG's loader requests index.json beside the project files. The
+		// generated index remains reserved internally, so uploads cannot replace it.
+		logicalName = "__retrom__/index.json"
+	}
+	content, err := server.launcher.Content(request.Context(), launchID, grant.Capability, logicalName)
+	if err != nil {
+		content, err = server.launcher.ReviewPreviewProjectContent(
+			request.Context(), launchID, grant.Capability, logicalName,
+		)
+	}
+	if err != nil || content.Format != "RPG_MAKER_PROJECT_V1" && content.Format != "ONS_PROJECT_V1" {
 		writeError(
 			writer, request, http.StatusUnauthorized, "LAUNCH_CREDENTIAL_INVALID",
-			"RPG Maker 项目内容不可用", map[string]any{},
+			"项目内容不可用", map[string]any{},
 		)
 		return
 	}
 	file, err := server.blobs.OpenDigest(content.Digest)
 	if err != nil {
-		writeError(writer, request, http.StatusServiceUnavailable, "CAS_UNAVAILABLE", "RPG Maker 项目内容不可用", map[string]any{})
+		writeError(writer, request, http.StatusServiceUnavailable, "CAS_UNAVAILABLE", "项目内容不可用", map[string]any{})
 		return
 	}
 	defer func() { cleanup.Error("close", file.Close()) }()
@@ -116,6 +125,14 @@ func (server *Server) launchRPGProjectFile(writer http.ResponseWriter, request *
 	writer.Header().Set("Accept-Ranges", "bytes")
 	writer.Header().Set("X-Content-Type-Options", "nosniff")
 	http.ServeContent(writer, request, filepath.Base(logicalName), time.Unix(0, 0), file)
+}
+
+func serveProjectIndex(writer http.ResponseWriter, request *http.Request, index launch.ProjectIndexView) {
+	writer.Header().Set("Content-Type", "application/json; charset=utf-8")
+	writer.Header().Set("Cache-Control", immutablePrivateContent)
+	writer.Header().Set("Cross-Origin-Resource-Policy", "same-origin")
+	writer.Header().Set("ETag", `"sha256-`+index.SHA256+`"`)
+	http.ServeContent(writer, request, "index.json", time.Unix(0, 0), bytes.NewReader(index.Contents))
 }
 
 func (server *Server) recordMultiDiscContentResponse(

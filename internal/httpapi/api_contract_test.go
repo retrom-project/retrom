@@ -40,7 +40,7 @@ func TestOpenAPIValidationAllowsPrereleaseRuntimeVersion(t *testing.T) {
 	testassert.Falsef(t, recorder.Code != http.StatusNotFound, "unconfigured prerelease runtime status = %d, body=%s", recorder.Code, recorder.Body.String())
 }
 
-func TestOpenAPIValidationAllowsRPGMakerRuntimeAndProjectFiles(t *testing.T) {
+func TestOpenAPIValidationAllowsRetromRuntimeAndProjectFiles(t *testing.T) {
 	t.Parallel()
 	server := newTestServer(t)
 	handler := server.Handler()
@@ -50,7 +50,7 @@ func TestOpenAPIValidationAllowsRPGMakerRuntimeAndProjectFiles(t *testing.T) {
 		runtimeResponse,
 		httptest.NewRequestWithContext(
 			context.Background(), http.MethodGet,
-			"/runtime/rpgmaker/v0.2.0/easyrpg-player.js", nil,
+			"/runtime/retrom-runtime/v0.3.0/easyrpg-player.js", nil,
 		),
 	)
 	testassert.Falsef(
@@ -63,7 +63,7 @@ func TestOpenAPIValidationAllowsRPGMakerRuntimeAndProjectFiles(t *testing.T) {
 			func() bool { return !strings.HasPrefix(runtimeResponse.Header().Get("ETag"), `"sha256-`) },
 			func() bool { return runtimeResponse.Body.Len() == 0 },
 		),
-		"RPG Maker runtime response = %d headers=%v bytes=%d body-prefix=%q",
+		"retrom-runtime response = %d headers=%v bytes=%d body-prefix=%q",
 		runtimeResponse.Code,
 		runtimeResponse.Header(),
 		runtimeResponse.Body.Len(),
@@ -75,7 +75,7 @@ func TestOpenAPIValidationAllowsRPGMakerRuntimeAndProjectFiles(t *testing.T) {
 		projectResponse,
 		httptest.NewRequestWithContext(
 			context.Background(), http.MethodGet,
-			"/runtime/rpg-project/01980000-0000-7000-8000-000000000001/Data/Actors.json", nil,
+			"/runtime/projects/01980000-0000-7000-8000-000000000001/Data/Actors.json", nil,
 		),
 	)
 	testassert.Falsef(
@@ -86,7 +86,7 @@ func TestOpenAPIValidationAllowsRPGMakerRuntimeAndProjectFiles(t *testing.T) {
 				return !strings.Contains(projectResponse.Body.String(), `"code":"LAUNCH_CREDENTIAL_INVALID"`)
 			},
 		),
-		"RPG Maker project response = %d body=%s",
+		"runtime project response = %d body=%s",
 		projectResponse.Code,
 		projectResponse.Body.String(),
 	)
