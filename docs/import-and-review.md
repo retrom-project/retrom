@@ -143,7 +143,7 @@ Job 交接只有一条实现路径：`IMPORT_ITEM_PIPELINE` 完成 hash、分组
 | Arcade (`arcade`) | 一个未加密 `.zip` ROMset archive | 顶层 ZIP 必须精确命中活动 DAT machine；ZIP 本身不是 Hasheous hash 来源。只有 NORMAL machine 是 primary 候选。相同 UploadSession 中经 DAT 闭包明确采用的其他顶层 ZIP 作为该 Item 的 COMPANION parent/BIOS/base；NORMAL parent 也可形成自己的 Item，而 EXPLICIT_BIOS/ROMOF_INFERENCE 只能作为依赖。不能把无关全局 Blob 猜成依赖。 |
 | MS-DOS (`dos`) | 一个目录树，或一个未加密 `.zip` | 整棵目录/整个 ZIP 是一项，必须至少有一个 `.exe/.com/.bat` entry，全部候选均保留。`game/go/launch/play/run/start` 优先，setup/install/config/uninstall/readme/驱动/解包工具降权，再按扩展名、深度和路径稳定排序；这只决定审核默认值。目录输入会生成确定性 ZIP。ISO/CUE/IMG/VHD/M3U 和安装介质流程不在一期范围。 |
 | RPG Maker (`rpgmaker`) | 一个目录树，或恰一个安全 ZIP/7z | 整个规范项目只形成一个 Item，项目根内除世代对应会话存档外的文件逐行为 `PROJECT_FILE`，内层 archive 也按原始 bytes 保留但不递归展开。服务端只按“剥一层共同 packaging root→在 `.`/`www` 中恰选一个项目根→排除会话存档”的顺序规范化；根为零/两个、多世代或所选 core 与确凿证据冲突都拒绝，不搜索更深目录、不自动改核心。 |
-| ONS (`ons`) | 一个目录树，或恰一个安全 ZIP/7z | 整个规范项目只形成一个 `ONS_PROJECT_V1` Item；识别结果冻结脚本 marker、字体路径与 `utf8/gbk` 编码。导入只证明项目形状可识别，初始兼容状态固定为 `ONS_RUNTIME_TRIAL_REQUIRED`，必须在审核页成功启动实际 ONS 核心后才能批准。 |
+| ONS (`ons`) | 一个目录树，或恰一个安全 ZIP/7z | 整个规范项目只形成一个 `ONS_PROJECT_V1` Item；识别结果冻结脚本 marker、字体路径与 `utf8/gbk` 编码。导入只证明项目形状可识别，初始兼容状态固定为 `ONS_RUNTIME_TRIAL_REQUIRED`。审核预览冻结当次全部项目文件，以 `retrom-runtime` 的 ONS adapter 实际启动；核心 READY 后继续运行 5 秒并成功上传真实 canvas PNG，才沿用运行截图人工放行机制解锁批准。预览不创建或恢复持久存档。 |
 
 主机/掌机 ZIP 中零个 primary 候选是 `REJECTED/NO_SUPPORTED_CONTENT`，多个是 `REJECTED/AMBIGUOUS_PRIMARY_CONTENT`；两者都不创建 ImportItem，任务页列出文件和重打包/重新上传入口，不能用文件名打破平局，也不能宣称审核页支持一期不存在的“重新归组”。DOS 按上表是有意的多 entry bundle，不应用唯一 ROM entry 限制，但没有任何安全可执行候选时同样以 `REJECTED/NO_DOS_PROGRAM` 处理。Arcade ZIP 按 machine/DAT 规则识别，不应用主机唯一 entry 限制；未命中 DAT 的 archive 为 `REJECTED/ARCADE_MACHINE_NOT_FOUND`，命中但只是未使用依赖的 archive 使用上述独立 reason。
 

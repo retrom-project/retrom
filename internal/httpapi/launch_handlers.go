@@ -301,8 +301,8 @@ func (server *Server) launchConfig(writer http.ResponseWriter, request *http.Req
 	server.setLaunchContentGrant(
 		writer, request.PathValue("launchId"), capability, 86400,
 	)
-	if configuration.RPGMaker != nil {
-		server.setLaunchRPGProjectGrant(
+	if configuration.RPGMaker != nil || configuration.ONS != nil {
+		server.setLaunchProjectGrant(
 			writer, request.PathValue("launchId"), capability, 86400,
 		)
 	}
@@ -353,7 +353,7 @@ func (server *Server) recordPlay(writer http.ResponseWriter, request *http.Reque
 			},
 		)
 		server.setLaunchContentGrant(writer, request.PathValue("launchId"), "", -1)
-		server.setLaunchRPGProjectGrant(writer, request.PathValue("launchId"), "", -1)
+		server.setLaunchProjectGrant(writer, request.PathValue("launchId"), "", -1)
 	}
 	writeJSON(writer, http.StatusOK, result)
 }

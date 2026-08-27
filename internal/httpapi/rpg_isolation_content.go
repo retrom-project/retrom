@@ -204,7 +204,7 @@ func (server *Server) rpgRuntimeBridge(
 		http.NotFound(writer, request)
 		return
 	}
-	runtimePath, declaration, ok := server.dependencies.RPGMakerFile(runtimeVersion, bridgePath)
+	runtimePath, declaration, ok := server.dependencies.RetromRuntimeFile(runtimeVersion, bridgePath)
 	if !ok {
 		writeError(
 			writer, request, http.StatusServiceUnavailable,

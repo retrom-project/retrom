@@ -283,7 +283,7 @@ func validSHA256(value string) bool {
 	return err == nil && len(decoded) == sha256.Size && value == strings.ToLower(value)
 }
 
-func (set *Set) RPGMakerFile(runtimeVersion, runtimePath string) (string, RPGMakerRuntimeFile, bool) {
+func (set *Set) RetromRuntimeFile(runtimeVersion, runtimePath string) (string, RPGMakerRuntimeFile, bool) {
 	if set == nil || set.RPGMaker == nil || !safeRelative(runtimeVersion) || !safeRelative(runtimePath) ||
 		strings.Contains(runtimeVersion, "/") {
 		return "", RPGMakerRuntimeFile{}, false

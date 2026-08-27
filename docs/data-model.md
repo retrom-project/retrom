@@ -329,9 +329,9 @@ Pegasus 表从 fresh schema 直接包含当前 review-handoff 状态、诊断、
 
 ## 15. 审核运行预览与第 5 秒截图
 
-`review_preview_sessions` 只保存非 RPG Maker 管理员从待审核条目创建的短时、不可变运行快照：锁定 ImportItem、有效来源快照、目标目录、默认 CoreArtifact、当次 Validation、主内容 Blob、依赖摘要、capability hash、启动/硬过期时间和是否允许截图。它不是 `launch_sessions` 或 `play_sessions`，不创建 Game、不累计游玩时长、不读写状态存档或持久存档。只有 `REVIEW_PENDING` 非 RPG Item、当前有效来源和 enabled 管理员能创建；主 ROM 始终必需，当前 Validation 中实际存在的 Parent、BIOS 和 external file 才复制为 `review_preview_files`，缺失依赖不会伪造占位。RPG core 请求该旧 preview 必须返回 `RPG_RUNTIME_VALIDATION_REQUIRED`。
+`review_preview_sessions` 只保存非 RPG Maker 管理员从待审核条目创建的短时、不可变运行快照：锁定 ImportItem、有效来源快照、目标目录、默认 CoreArtifact、当次 Validation、主内容 Blob、依赖摘要、capability hash、启动/硬过期时间和是否允许截图。它不是 `launch_sessions` 或 `play_sessions`，不创建 Game、不累计游玩时长、不读写状态存档或持久存档。只有 `REVIEW_PENDING` 非 RPG Item、当前有效来源和 enabled 管理员能创建；单文件内容始终必需，当前 Validation 中实际存在的 Parent、BIOS 和 external file 才复制为 `review_preview_files`，缺失依赖不会伪造占位。ONS 则把当次 source snapshot 的脚本 marker 作为主内容，并逐项锁定其余 `PROJECT_FILE`，由虚拟 `index.json` 暴露冻结列表；不能在请求时回读已变化的 ReviewDraft。RPG core 请求该旧 preview 必须返回 `RPG_RUNTIME_VALIDATION_REQUIRED`。
 
-`review_preview_files` 只允许 `PARENT/BIOS_BUNDLE/EXTERNAL_FILE/DISC`，行创建后不可更新或删除；Blob、逻辑名和可空虚拟路径必须属于创建时锁定的来源/Validation。`review_runtime_screenshots` 以 `(import_item_id,validation_id)` 唯一保存 PNG、CoreArtifact、来源快照、尺寸和固定 `captured_after_ms=5000`；重新运行会以新不可变 Blob 替换该 Validation 的当前截图引用。当前 trigger 允许 READY/阻断 Validation，并收紧到最新一次当前证据。
+`review_preview_files` 只允许 `PARENT/BIOS_BUNDLE/EXTERNAL_FILE/DISC/PROJECT_FILE`，行创建后不可更新或删除；Blob、逻辑名和可空虚拟路径必须属于创建时锁定的来源/Validation。`PROJECT_FILE` 只用于 ONS preview，必须是对应 source snapshot 中同名同 Blob 的规范相对路径且不带虚拟路径；其他 role 继续使用单文件名/既有虚拟路径规则。`review_runtime_screenshots` 以 `(import_item_id,validation_id)` 唯一保存 PNG、CoreArtifact、来源快照、尺寸和固定 `captured_after_ms=5000`；重新运行会以新不可变 Blob 替换该 Validation 的当前截图引用。当前 trigger 允许 READY/阻断 Validation，并收紧到最新一次当前证据。
 
 三张表的 Blob 外键全部进入唯一 reference registry；fresh schema 直接建立最终表、索引和 trigger。
 

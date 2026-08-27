@@ -497,13 +497,20 @@ CREATE TABLE review_preview_sessions (
   actor_user_id TEXT NOT NULL REFERENCES users(id),
   idempotency_key TEXT NOT NULL,
   title TEXT NOT NULL CHECK(length(CAST(title AS BLOB)) BETWEEN 1 AND 800),
-  content_kind TEXT NOT NULL CHECK(content_kind IN ('SINGLE_FILE','DOS_BUNDLE','MULTI_DISC_M3U_V1')),
+  content_kind TEXT NOT NULL CHECK(content_kind IN (
+    'SINGLE_FILE','DOS_BUNDLE','MULTI_DISC_M3U_V1','ONS_PROJECT_V1'
+  )),
   content_blob_id TEXT NOT NULL REFERENCES blobs(id),
   content_logical_name TEXT NOT NULL CHECK(length(CAST(content_logical_name AS BLOB)) BETWEEN 1 AND 512),
-  content_format TEXT NOT NULL CHECK(content_format IN ('SOURCE_V1','RETROM_DOS_DIRECT_ZIP_V1','RETROM_MULTIDISC_M3U_V1')),
+  content_format TEXT NOT NULL CHECK(content_format IN (
+    'SOURCE_V1','RETROM_DOS_DIRECT_ZIP_V1','RETROM_MULTIDISC_M3U_V1','ONS_PROJECT_V1'
+  )),
   dependency_snapshot_json TEXT NOT NULL,
   default_dos_entry TEXT,
-  emulator_game_id INTEGER NOT NULL CHECK(emulator_game_id>0),
+  emulator_game_id INTEGER CHECK(
+    content_kind='ONS_PROJECT_V1' AND emulator_game_id IS NULL OR
+    content_kind<>'ONS_PROJECT_V1' AND emulator_game_id>0
+  ),
   capture_allowed INTEGER NOT NULL CHECK(capture_allowed IN (0,1)),
   credential_sha256 BLOB NOT NULL CHECK(length(credential_sha256)=32),
   state TEXT NOT NULL CHECK(state IN ('CREATED','ACTIVE','EXPIRED','REVOKED')),
@@ -521,11 +528,12 @@ CREATE TABLE review_preview_sessions (
 
 CREATE TABLE review_preview_files (
   preview_session_id TEXT NOT NULL REFERENCES review_preview_sessions(id),
-  role TEXT NOT NULL CHECK(role IN ('PARENT','BIOS_BUNDLE','EXTERNAL_FILE','DISC')),
+  role TEXT NOT NULL CHECK(role IN ('PARENT','BIOS_BUNDLE','EXTERNAL_FILE','DISC','PROJECT_FILE')),
   logical_name TEXT NOT NULL CHECK(
-    length(CAST(logical_name AS BLOB)) BETWEEN 1 AND 255 AND
-    logical_name NOT LIKE '%/%' AND logical_name NOT LIKE '%\%' AND
-    logical_name NOT IN ('.','..') AND instr(logical_name,char(0))=0
+    length(CAST(logical_name AS BLOB)) BETWEEN 1 AND 1024 AND
+    logical_name NOT LIKE '%\%' AND logical_name NOT IN ('.','..') AND
+    instr(logical_name,char(0))=0 AND
+    (role='PROJECT_FILE' OR logical_name NOT LIKE '%/%')
   ),
   virtual_path TEXT,
   blob_id TEXT NOT NULL REFERENCES blobs(id),
@@ -534,13 +542,14 @@ CREATE TABLE review_preview_files (
   PRIMARY KEY(preview_session_id,role,logical_name),
   UNIQUE(preview_session_id,virtual_path),
   CHECK(
-    role IN ('PARENT','BIOS_BUNDLE') AND virtual_path IS NULL OR
-    role IN ('EXTERNAL_FILE','DISC') AND virtual_path IS NOT NULL AND
+    (role IN ('PARENT','BIOS_BUNDLE') AND virtual_path IS NULL) OR
+    (role='PROJECT_FILE' AND virtual_path IS NULL) OR
+    (role IN ('EXTERNAL_FILE','DISC') AND virtual_path IS NOT NULL AND
       substr(virtual_path,1,1)='/' AND virtual_path NOT LIKE '%\%' AND
       virtual_path NOT LIKE '%?%' AND virtual_path NOT LIKE '%#%' AND
       instr(virtual_path,char(0))=0 AND virtual_path NOT LIKE '%//%' AND
       virtual_path NOT LIKE '%/./%' AND virtual_path NOT LIKE '%/../%' AND
-      virtual_path NOT LIKE '%/.' AND virtual_path NOT LIKE '%/..'
+      virtual_path NOT LIKE '%/.' AND virtual_path NOT LIKE '%/..')
   )
 );
 

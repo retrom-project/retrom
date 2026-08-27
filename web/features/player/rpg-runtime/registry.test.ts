@@ -152,9 +152,9 @@ function configFor(route: Route): RpgRuntimeConfig {
     checkpointAvailability: { available: false, reason: "RUNTIME_NOT_READY" },
     runtimeValidation: null,
   };
-  const root = `/runtime/rpg-project/${launchId}/`;
+  const root = `/runtime/projects/${launchId}/`;
   if (route.adapterKind === "EASYRPG_WEB") {
-    const runtime = `/runtime/rpgmaker/${route.runtimeVersion}/`;
+    const runtime = `/runtime/retrom-runtime/${route.runtimeVersion}/`;
     return { ...common, adapter: {
       adapterKind: "EASYRPG_WEB", adapterId: "easyrpg-web", engineMode: route.engineMode,
       runtimeBaseUrl: runtime, projectRootUrl: root,
@@ -162,7 +162,7 @@ function configFor(route: Route): RpgRuntimeConfig {
     }};
   }
   if (route.adapterKind === "MKXP_LIBRETRO_WEB") {
-    const runtime = `/runtime/rpgmaker/${route.runtimeVersion}/`;
+    const runtime = `/runtime/retrom-runtime/${route.runtimeVersion}/`;
     return { ...common, adapter: {
       adapterKind: "MKXP_LIBRETRO_WEB", adapterId: route.adapterId,
       core: {

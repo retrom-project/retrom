@@ -15,7 +15,7 @@ type publishedVariantDependency struct {
 
 func (run *approvalRun) persistVariant() error {
 	var emulatorGameID any
-	if run.platformID != "rpgmaker" {
+	if run.runtimeFamily == "EMULATORJS" {
 		var nextID int64
 		if err := run.transaction.QueryRowContext(run.ctx, `
 SELECT COALESCE(MAX(emulator_game_id),1000)+1 FROM game_variant_revisions

@@ -2562,7 +2562,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/runtime/rpgmaker/{runtimeVersion}/{runtimePath}": {
+    "/runtime/retrom-runtime/{runtimeVersion}/{runtimePath}": {
         parameters: {
             query?: never;
             header?: never;
@@ -2572,17 +2572,17 @@ export interface paths {
             };
             cookie?: never;
         };
-        /** @description Serves only a byte-exact RPG Maker runtime file declared by the immutable dependency manifest allowlist. */
-        get: operations["getRuntimeRpgMakerArtifact"];
+        /** @description Serves only a declared retrom-runtime Release asset from the dependency manifest allowlist. */
+        get: operations["getRetromRuntimeArtifact"];
         put?: never;
         post?: never;
         delete?: never;
         options?: never;
-        head: operations["headRuntimeRpgMakerArtifact"];
+        head: operations["headRetromRuntimeArtifact"];
         patch?: never;
         trace?: never;
     };
-    "/runtime/rpg-project/{launchId}/{projectPath}": {
+    "/runtime/projects/{launchId}/{projectPath}": {
         parameters: {
             query?: never;
             header?: never;
@@ -2592,13 +2592,13 @@ export interface paths {
             };
             cookie?: never;
         };
-        /** @description Serves one exact file from the immutable RPG project fileset locked by the authorized Launch; index.json is the reserved EasyRPG virtual index. */
-        get: operations["getRuntimeRpgMakerProjectFile"];
+        /** @description Serves one exact file from the immutable directory-runtime project fileset locked by the authorized Launch; index.json is a reserved virtual index. */
+        get: operations["getRuntimeProjectFile"];
         put?: never;
         post?: never;
         delete?: never;
         options?: never;
-        head: operations["headRuntimeRpgMakerProjectFile"];
+        head: operations["headRuntimeProjectFile"];
         patch?: never;
         trace?: never;
     };
@@ -3464,7 +3464,7 @@ export interface components {
             captureAllowed: boolean;
             captureAfterMs: number;
         };
-        LaunchConfig: components["schemas"]["EmulatorJSLaunchConfig"] | components["schemas"]["RpgMakerLaunchConfig"];
+        LaunchConfig: components["schemas"]["EmulatorJSLaunchConfig"] | components["schemas"]["RpgMakerLaunchConfig"] | components["schemas"]["OnsLaunchConfig"];
         EmulatorJSLaunchConfig: {
             /**
              * @description discriminator enum property added by openapi-typescript
@@ -3643,6 +3643,54 @@ export interface components {
             checkpointAvailability: components["schemas"]["CheckpointAvailability"];
             runtimeValidation: components["schemas"]["RpgRuntimeValidationResume"] | null;
             adapter: components["schemas"]["RpgAdapterConfig"];
+        };
+        OnsAdapterConfig: {
+            /** @enum {string} */
+            adapterKind: "ONS_YURI_WEB";
+            /** @enum {string} */
+            adapterId: "ons-yuri-web";
+            runtimeBaseUrl: string;
+            projectIndexUrl: string;
+            /** @enum {string} */
+            scriptEncoding: "gbk" | "sjis" | "utf8";
+            /** @enum {integer} */
+            checkpointSlot: 999;
+        };
+        OnsCheckpointRestore: {
+            /** @enum {string} */
+            payloadKind: "ONS_SAVE_BUNDLE_V1";
+            payloadUrl: string;
+        };
+        OnsLaunchConfig: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            runtimeFamily: "ONS";
+            /** @enum {integer} */
+            protocolVersion: 1;
+            /** @enum {string} */
+            mode: "single";
+            /** @enum {string} */
+            purpose: "PRODUCT" | "REVIEW_PREVIEW";
+            /** Format: uuid */
+            launchId: string;
+            /** Format: uuid */
+            sessionId: string;
+            /** @enum {string} */
+            coreId: "onscripter_yuri";
+            coreName: string;
+            gameTitle: string;
+            /** @enum {string} */
+            platformName: "ONScripter";
+            runtimeVersion: string;
+            /** Format: uuid */
+            artifactId: string;
+            returnTo: string;
+            warnings: string[];
+            adapter: components["schemas"]["OnsAdapterConfig"];
+            checkpoint: components["schemas"]["OnsCheckpointRestore"] | null;
+            reviewPreview?: components["schemas"]["ReviewPreviewConfig"];
         };
         /** @enum {string} */
         RuntimeAssetPackKind: "RPG2000_RTP" | "RPG2003_RTP" | "RGSS1_RTP_STANDARD" | "RGSS2_RTP_RPGVX" | "RGSS3_RTP_RPGVXAce" | "RGSS_CUSTOM_RTP";
@@ -9675,7 +9723,7 @@ export interface operations {
             200: components["responses"]["BinaryResponse"];
         };
     };
-    getRuntimeRpgMakerArtifact: {
+    getRetromRuntimeArtifact: {
         parameters: {
             query?: never;
             header?: never;
@@ -9690,7 +9738,7 @@ export interface operations {
             200: components["responses"]["BinaryResponse"];
         };
     };
-    headRuntimeRpgMakerArtifact: {
+    headRetromRuntimeArtifact: {
         parameters: {
             query?: never;
             header?: never;
@@ -9705,7 +9753,7 @@ export interface operations {
             200: components["responses"]["BinaryResponse"];
         };
     };
-    getRuntimeRpgMakerProjectFile: {
+    getRuntimeProjectFile: {
         parameters: {
             query?: never;
             header?: never;
@@ -9720,7 +9768,7 @@ export interface operations {
             200: components["responses"]["BinaryResponse"];
         };
     };
-    headRuntimeRpgMakerProjectFile: {
+    headRuntimeProjectFile: {
         parameters: {
             query?: never;
             header?: never;

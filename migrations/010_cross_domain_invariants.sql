@@ -641,6 +641,8 @@ BEGIN
           AND NOT EXISTS(SELECT 1 FROM rpgmaker_variant_profiles profile WHERE profile.game_variant_revision_id=revision.id)
         OR artifact.runtime_family='RPGMAKER' AND revision.emulator_game_id IS NULL
           AND EXISTS(SELECT 1 FROM rpgmaker_variant_profiles profile WHERE profile.game_variant_revision_id=revision.id)
+        OR artifact.runtime_family='ONS' AND revision.emulator_game_id IS NULL
+          AND NOT EXISTS(SELECT 1 FROM rpgmaker_variant_profiles profile WHERE profile.game_variant_revision_id=revision.id)
       )
   ) THEN RAISE(ABORT, 'variant current must be ready and owned') END;
 END;
@@ -657,6 +659,8 @@ BEGIN
           AND NOT EXISTS(SELECT 1 FROM rpgmaker_variant_profiles profile WHERE profile.game_variant_revision_id=revision.id)
         OR artifact.runtime_family='RPGMAKER' AND revision.emulator_game_id IS NULL
           AND EXISTS(SELECT 1 FROM rpgmaker_variant_profiles profile WHERE profile.game_variant_revision_id=revision.id)
+        OR artifact.runtime_family='ONS' AND revision.emulator_game_id IS NULL
+          AND NOT EXISTS(SELECT 1 FROM rpgmaker_variant_profiles profile WHERE profile.game_variant_revision_id=revision.id)
       )
   ) THEN RAISE(ABORT, 'variant current must be ready and owned') END;
 END;
@@ -2087,9 +2091,26 @@ WHEN NOT EXISTS (
     SELECT 1 FROM import_item_validation_files file
     WHERE file.import_item_core_validation_id=NEW.validation_id AND file.role='MULTI_DISC_PLAYLIST'
       AND file.blob_id=NEW.content_blob_id AND file.logical_name=NEW.content_logical_name
+  ) OR NEW.content_kind='ONS_PROJECT_V1' AND NEW.content_format='ONS_PROJECT_V1' AND EXISTS (
+    SELECT 1 FROM import_item_source_snapshot_files file
+    WHERE file.source_snapshot_id=NEW.source_snapshot_id AND file.role='PROJECT_FILE'
+      AND file.blob_id=NEW.content_blob_id AND file.logical_name=NEW.content_logical_name
   )
 )
 BEGIN SELECT RAISE(ABORT,'invalid review preview snapshot'); END;
+
+CREATE TRIGGER review_preview_files_validate_insert
+BEFORE INSERT ON review_preview_files
+WHEN NEW.role='PROJECT_FILE' AND NOT EXISTS (
+  SELECT 1 FROM review_preview_sessions preview
+  JOIN import_item_source_snapshot_files source
+    ON source.source_snapshot_id=preview.source_snapshot_id
+    AND source.role='PROJECT_FILE'
+    AND source.logical_name=NEW.logical_name
+    AND source.blob_id=NEW.blob_id
+  WHERE preview.id=NEW.preview_session_id AND preview.content_kind='ONS_PROJECT_V1'
+)
+BEGIN SELECT RAISE(ABORT,'invalid review preview project file'); END;
 
 CREATE TRIGGER review_runtime_screenshots_validate_insert
 BEFORE INSERT ON review_runtime_screenshots
@@ -2681,6 +2702,7 @@ WHEN NOT EXISTS(
     AND (
       artifact.runtime_family='EMULATORJS' AND NEW.emulator_game_id IS NOT NULL
       OR artifact.runtime_family='RPGMAKER' AND NEW.emulator_game_id IS NULL
+      OR artifact.runtime_family='ONS' AND NEW.emulator_game_id IS NULL
     )
 )
 BEGIN SELECT RAISE(ABORT,'variant revision runtime mismatch'); END;

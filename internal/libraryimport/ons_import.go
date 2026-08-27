@@ -2,7 +2,6 @@ package libraryimport
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -156,13 +155,7 @@ func (service *Service) prepareONSArchive(
 
 func newONSGroup(sources []preparedSource, profile detector.Profile, titleSource string) preparedGroup {
 	sortPreparedSources(sources)
-	profileJSON, _ := json.Marshal(map[string]any{
-		"ons": map[string]any{
-			"fontPath": profile.FontPath, "markerPath": profile.MarkerPath,
-			"scriptEncoding": profile.ScriptEncoding,
-		},
-		"schemaVersion": 1,
-	})
+	profileJSON, _ := detector.MarshalSnapshot(profile)
 	return preparedGroup{
 		sources: sources, contentKind: string(contentprofile.ContentKindONSProject),
 		validationStatus: "BLOCKED", compatibilityCode: "ONS_RUNTIME_TRIAL_REQUIRED",
