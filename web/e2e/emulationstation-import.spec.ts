@@ -443,7 +443,7 @@ async function verifyFullProductLifecycle(page: Page, testInfo: TestInfo) {
   expect(contentBody).toHaveLength(romFixture.size);
   expect(contentHash).toBe(romFixture.sha256);
 
-  const player = page.frameLocator('iframe[title="Retrom EmulatorJS Player"]');
+  const player = page.frameLocator("iframe.player-frame");
   await expect(player.locator("canvas.ejs_canvas")).toBeVisible({ timeout: 60_000 });
   const frame = page.frames().find((candidate) => candidate !== page.mainFrame());
   expect(frame).toBeTruthy();
