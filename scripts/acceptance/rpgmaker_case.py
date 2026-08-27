@@ -77,11 +77,9 @@ PACK_CASE = "ACC-RPG-009"
 COMPATIBILITY_CASE = "ACC-RPG-012"
 SECURITY_CASES = {"ACC-RPG-010", "ACC-RPG-011"}
 DEFERRED_CASES = {
-    PACK_CASE: "RPG_SEVEN_CORE_MINIMAL_CLOSURE_REQUIRED",
-    "ACC-RPG-010": "RPG_SEVEN_CORE_MINIMAL_CLOSURE_REQUIRED",
-    "ACC-RPG-011": "RPG_SEVEN_CORE_MINIMAL_CLOSURE_REQUIRED",
     COMPATIBILITY_CASE: "RPG_SECOND_RUNTIME_RELEASE_REQUIRED",
 }
+MINIMAL_CLOSURE_CASES = {PACK_CASE, "ACC-RPG-010", "ACC-RPG-011"}
 COMPATIBILITY_EVIDENCE_ENVIRONMENTS = (
     "RETROM_ACC_RPG_012_PREPARE_EVIDENCE",
     "RETROM_ACC_RPG_012_OLD_PROVISION_EVIDENCE",
@@ -911,7 +909,10 @@ def required_environment(case_id: str) -> list[str]:
     if case_id == "ACC-RPG-008":
         common.extend(("RPG_MZ_SMOKE_ROOT", "RPG_MZ_SMOKE_PROVENANCE"))
     if case_id == PACK_CASE:
-        common.extend(("RETROM_ACC_RPG_009_PLAN", "RETROM_ACC_RPG_009_DATABASE"))
+        common.extend((
+            "RETROM_ACC_RPG_009_PLAN", "RETROM_ACC_RPG_009_DATABASE",
+            "RETROM_ACC_RPG_009_PROVISION_EVIDENCE",
+        ))
     if case_id == COMPATIBILITY_CASE:
         common.extend(("RETROM_ACC_RPG_012_DATABASE", "RETROM_ACC_RPG_012_STATE"))
         common.extend(COMPATIBILITY_EVIDENCE_ENVIRONMENTS)
@@ -1731,9 +1732,28 @@ def write_blocked(case_dir: Path, case_id: str, missing: list[str], reason: str)
     return 3
 
 
+def minimal_generation_closure_ready(case_dir: Path) -> bool:
+    cases_root = case_dir.parent
+    for case_id in GENERATION_CASES:
+        result_path = cases_root / case_id.lower() / "result.json"
+        try:
+            result = json.loads(result_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return False
+        if not isinstance(result, dict) or result.get("caseId") != case_id or \
+                result.get("status") != "PASS" or result.get("gitDirty") is not False:
+            return False
+        product = result.get("productEvidence")
+        if not isinstance(product, dict) or product.get("caseId") != case_id or product.get("status") != "PASS":
+            return False
+    return True
+
+
 def run(case_id: str, case_dir: Path) -> int:
     case_dir.mkdir(parents=True, exist_ok=True)
     (case_dir / "screenshots").mkdir(exist_ok=True)
+    if case_id in MINIMAL_CLOSURE_CASES and not minimal_generation_closure_ready(case_dir):
+        return write_blocked(case_dir, case_id, [], "RPG_SEVEN_CORE_MINIMAL_CLOSURE_REQUIRED")
     if case_id in DEFERRED_CASES:
         return write_blocked(case_dir, case_id, [], DEFERRED_CASES[case_id])
     missing = [name for name in required_environment(case_id) if not os.environ.get(name)]
