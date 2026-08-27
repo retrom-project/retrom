@@ -614,6 +614,8 @@ def synchronize_failure_defects(case_dir: Path) -> None:
     changed = False
     for result_path in sorted((case_dir / "attempts").glob("[0-9][0-9][0-9]/result.json")):
         result = json.loads(result_path.read_text(encoding="utf-8"))
+        if not isinstance(result, dict) or result.get("caseId") != case_dir.name.upper():
+            raise RuntimeError("ACCEPTANCE_DEFECT_RESULT_CASE_INVALID")
         if result.get("status") != "FAIL" or str(result.get("failureKind", "")).startswith("DEFECT_"):
             continue
         relative_result = relative(result_path, run_dir)

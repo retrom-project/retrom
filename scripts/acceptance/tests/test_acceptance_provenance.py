@@ -52,6 +52,39 @@ class AcceptanceProvenanceTests(unittest.TestCase):
             )
             self.assertEqual([defect["defectId"]], runner.unresolved_defect_ids(run_dir, "ACC-RPG-009"))
 
+    def test_archived_result_must_match_its_case_directory(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            run_dir = Path(directory) / "20260827T000000Z-01234567"
+            case_dir = run_dir / "cases" / "acc-rpg-012"
+            attempt = case_dir / "attempts" / "001"
+            attempt.mkdir(parents=True)
+            (run_dir / "defects.json").write_text("[]\n", encoding="utf-8")
+            (attempt / "result.json").write_text(json.dumps({
+                "caseId": "ACC-RPG-011", "status": "FAIL",
+                "assertions": [{"details": "wrong Case identity"}],
+            }), encoding="utf-8")
+
+            with self.assertRaisesRegex(RuntimeError, "ACCEPTANCE_DEFECT_RESULT_CASE_INVALID"):
+                runner.synchronize_failure_defects(case_dir)
+
+            self.assertEqual([], json.loads((run_dir / "defects.json").read_text(encoding="utf-8")))
+
+    def test_blocked_preflight_is_not_registered_as_a_product_defect(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            run_dir = Path(directory) / "20260827T000000Z-01234567"
+            case_dir = run_dir / "cases" / "acc-rpg-011"
+            attempt = case_dir / "attempts" / "001"
+            attempt.mkdir(parents=True)
+            (run_dir / "defects.json").write_text("[]\n", encoding="utf-8")
+            (attempt / "result.json").write_text(json.dumps({
+                "caseId": "ACC-RPG-011", "status": "BLOCKED",
+                "assertions": [{"details": "Chrome input missing"}],
+            }), encoding="utf-8")
+
+            runner.synchronize_failure_defects(case_dir)
+
+            self.assertEqual([], json.loads((run_dir / "defects.json").read_text(encoding="utf-8")))
+
     def test_resolution_is_fail_closed_and_links_red_and_green_results(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             run_dir = Path(directory) / "20260827T000000Z-01234567"
@@ -59,7 +92,10 @@ class AcceptanceProvenanceTests(unittest.TestCase):
             red_dir = case_dir / "attempts" / "001"
             red_dir.mkdir(parents=True)
             red_result = "cases/acc-rpg-012/attempts/001/result.json"
-            (red_dir / "result.json").write_text("{}\n", encoding="utf-8")
+            (red_dir / "result.json").write_text(json.dumps({
+                "caseId": "ACC-RPG-012", "status": "FAIL",
+                "assertions": [{"details": "restore mismatch"}],
+            }), encoding="utf-8")
             defect_id = "acc-rpg-012-attempt-001"
             (run_dir / "defects.json").write_text(json.dumps([{
                 "schemaVersion": 1, "defectId": defect_id, "caseId": "ACC-RPG-012",
@@ -134,10 +170,15 @@ class RPGDedicatedProvenanceContractTests(unittest.TestCase):
 
     def test_compatibility_phase_loader_binds_all_six_documents(self) -> None:
         identifier = lambda number: f"{number:08d}-1111-4111-8111-111111111111"
+        dirty_entries = [{"status": " M", "path": "scripts/acceptance/rpgmaker_case.py"}]
         repository = {
-            "gitCommit": "1" * 40, "gitDirty": False,
+            "gitCommit": "1" * 40, "gitDirty": True,
             "gitDirtySummary": {
-                "fileCount": 0, "sha256": hashlib.sha256(b"[]").hexdigest(), "entries": [],
+                "fileCount": len(dirty_entries),
+                "sha256": hashlib.sha256(json.dumps(
+                    dirty_entries, ensure_ascii=False, separators=(",", ":"),
+                ).encode()).hexdigest(),
+                "entries": dirty_entries,
             },
         }
         old_artifact = {"id": identifier(1), "routeKey": "OLD"}

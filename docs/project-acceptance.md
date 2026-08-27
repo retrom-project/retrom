@@ -1483,6 +1483,11 @@ Review 与所需 validation Launch。`negative-matrix/matrix.json` 必须精确�
 ### ACC-RPG-004：RPG Maker XP
 
 - 上限：300 秒。执行：`make acceptance-case CASE=ACC-RPG-004`。
+- fresh 前置：先用新的绝对 `RETROM_ACC_RPG_004_TRACE` 路径执行
+  `node scripts/acceptance/rpgmaker_generation_provision.mjs ACC-RPG-004`。该 provision 只从仓库锁定的 XP
+  fixture 走正式 Upload/Import/Review/Player 产品链，stdout 返回本次 `importItemId/validationId/gameId`；trace
+  文件以 `0600 + create-exclusive` 写入，记录实际 256 MiB multipart 请求、270 MiB+1 的 413 和 validation/
+  restore 两次禁线程拒绝，不记录 cookie、凭据或输入路径。随后把三个 ID 和同一 trace 传给正式 Case。
 - 流程：通过 `rpgmaker_xp` 导入 fixture，使用 RGSS1 线程 artifact 执行 A→B 保存→C→不同 Launch 恢复；另提交超过旧 75 MiB 但不超过 256 MiB route 上限的确定性合法 checkpoint，并在禁用线程的 Chrome 启动。
 - 通过标准：route=`RPGXP_MKXPZ_F2EFC98_V5`、RGSS1/profile/marker 正确；创建 validation 与 restore Launch 均提交当次严格 clientCapabilities，大 payload 穿过 Web/proxy/Go 且 bytes/digest 完整；地图/色坐标/变量逐项回到 B；两次请求中任一次报告非 secure context、非 `crossOriginIsolated` 或 SharedArrayBuffer 不可用时都在签发 Launch credential/下载项目 payload 前稳定失败，不能复用第一次摘要。
 - 证据：通用世代证据、payload 大小/哈希/trace 和禁线程负向结果。
@@ -1504,7 +1509,7 @@ Review 与所需 validation Launch。`negative-matrix/matrix.json` 必须精确�
 ### ACC-RPG-007：RPG Maker MV
 
 - 上限：300 秒。执行：`make acceptance-case CASE=ACC-RPG-007`。
-- 流程：通过 `rpgmaker_mv` 导入固定 MIT fixture，在当前 `RPGMV_NATIVE_V3` unique runtime origin 运行 300 连续帧，将 fixture 变量从 0 改为 B=1、创建 checkpoint、再改为 C=2，结束并从不同 Launch 恢复。
+- 流程：通过 `rpgmaker_mv` 导入固定 MIT fixture，在当前 `RPGMV_NATIVE_V4` unique runtime origin 运行 300 连续帧，将 fixture 变量从 0 改为 B=1、创建 checkpoint、再改为 C=2，结束并从不同 Launch 恢复。
 - 通过标准：MV route/profile/marker、帧、输入和音频 gate 通过；map/xy/变量/截图回到 B=1；普通 app origin 的 document/script/resource/cache 不存在游戏 JS 或项目资源。
 - 证据：通用世代证据、两个 origin 的 network/DOM/cache 清单和 A/B/C/restore 断言。
 
@@ -1620,16 +1625,18 @@ Review 与所需 validation Launch。`negative-matrix/matrix.json` 必须精确�
 ### ACC-RPG-010：版本选择与内容安全
 
 - 上限：600 秒。执行：`make acceptance-case CASE=ACC-RPG-010`。
-- 流程：对七个 fixture 逐一选择其余六核心；单独验证 2000 fixture 选 `rpgmaker_2003`；再提交 `.`/`www` 双根、多世代、RGSS 冲突、LCF 截断、case/NFKC/gencache 冲突、穿越、symlink、archive bomb、外链、确凿 Node/native 运行依赖，以及只携带但不被 Web 路径引用的 `.exe/.dll/.node/.bat`。内层归档矩阵在 2000/2003、RGSS、MV/MZ 项目根分别加入有扩展与仅 magic 可识别的 ZIP/7z/RAR/TAR/gzip 文件，并在其中放置伪项目 marker、路径穿越名和高压缩内容。
-- 通过标准：42 个非原版本组合中 41 个确凿冲突组合返回 `RPG_SELECTED_CORE_MISMATCH` 且不创建 validation/Launch/发布数据；唯一 2000→2003 `FAMILY_ONLY` 保留用户选择和 warning，validation 仍使用 `RPG2003_EASYRPG_0811_V4`/`--engine rpg2k3`，不自动改路由。每个项目根内层归档都只物化自身精确 bytes，形成 PROJECT_FILE/filesDigest 成员；EasyRPG 的原始项目内容或 RGSS 派生 bundle 必须携带该精确成员，Native Web 则遵守最小 Web MIME 投影，非 Web archive 后缀在 `/__retrom/project/*` 返回 404 而 source snapshot 摘要不变。内层 marker、路径与压缩内容从未被打开、递归展开或参与世代/项目根判断。未被 Web 路径引用的 native 文件同样逐 byte 保留为 PROJECT_FILE 并进入 filesDigest，但 `/__retrom/project/*` 对这些 executable 后缀固定返回 404；只有确凿运行依赖才以 `RPG_NATIVE_DEPENDENCY_UNSUPPORTED` 阻止发布。外层 archive bomb、穿越、symlink、多根及其他恶意/歧义输入仍以稳定错误在发布前失败且不落地可执行 payload。
-- 证据：42 组合的 selected/evidence/binding/side-effect 矩阵、family-only config、70 项内层 archive 原始 SHA/PROJECT_FILE/内容端点与“零内层 entry”矩阵、opaque native 文件 SHA/filesDigest/404 矩阵，以及外层安全负向结果。机器证据不得包含本机 fixture 路径，只记录清单相对名、内容摘要和产品 ID。
+- 流程：Case 必须在没有并发管理写入的专用验收时段执行。先对七个 fixture 逐一选择其余六核心，但先独立执行 41 个应拒绝组合；批次前后分别通过正常管理列表 API 分页读取全部 ImportJob、待审核 Item 与 Game ID 集合，只把各集合的 count 与排序 ID 列表摘要写入证据。只有三组摘要前后逐字相同才继续；ImportJob 未创建即不存在可承载 validation/Launch 的 Review Item，因此该批次同时证明没有 validation/Launch，Game 集合不变证明没有发布数据。随后单独导入唯一允许的 2000 fixture→`rpgmaker_2003`，再提交 `.`/`www` 双根、多世代、RGSS 冲突、LCF 截断、case/NFKC/gencache 冲突、穿越、symlink、archive bomb、外链、确凿 Node/native 运行依赖，以及只携带但不被 Web 路径引用的 `.exe/.dll/.node/.bat`。
+- family-only 验证：唯一 2000→2003 `FAMILY_ONLY` 必须真实创建 validation，通过 Player 完成有序 14 gate、创建 checkpoint、结束原 Launch、创建不同 restore Launch 并验证恢复位置与恢复后输入；config 必须冻结 `RPG2003_EASYRPG_0811_V4`、`EASYRPG_WEB`、`easyrpg-web-v1` 与 `engineMode=rpg2k3`。这里的 `engineMode=rpg2k3` 是 EasyRPG Web adapter 对原生命令行 `--engine rpg2k3` 的固定等价输入；验收不伪造宿主命令行字符串，也不允许自动改回 2000 路由。
+- 内层归档验证：矩阵在 2000/2003、XP/VX/VX Ace、MV/MZ 项目根分别加入有扩展与仅 magic 可识别的 ZIP/7z/RAR/TAR/gzip，共 70 项。每项必须经 Upload、Import、Review 和真实 runtime validation Launch；为避免 70 次重型 Player 启动，driver 使用 validation 创建响应设置的正式 capability cookie读取 Launch config，随后只读实际内容端点，并以 `clientSequence=0/previousInterval=null` 的正式 `finish` 事件安全结束 ACTIVE validation Launch。EasyRPG 必须同时从派生 `index.json` 找到逻辑成员并从 project endpoint 取回与 source SHA/size 精确相同的 bytes；RGSS 必须从 config 冻结的 `projectArchive` 内容端点下载派生 MKXPZ，先核验 archive SHA/size，再证明其中唯一 stored member 的名称与 bytes 精确匹配；Native Web 必须一次消费 bootstrap、从 unique-origin project endpoint 得到 404、调用 cleanup 撤销 capability，再结束 Launch。每项结束后重新 GET Review，要求 source `filesDigest` 不变；不得从本机 fixture 路径直接读取运行投影、绕过 content endpoint 或把创建 validation 当成运行证据。
+- 通过标准：41 个确凿冲突组合逐项固定返回 `422 RPG_SELECTED_CORE_MISMATCH`，且上述批次产品集合无变化；family-only 完成完整跨 Launch checkpoint round-trip。每个项目根内层归档只物化自身精确 bytes，`nestedEntryCount=0`，从未递归打开其中的 marker、路径或压缩内容，也不让这些内容参与世代/项目根判断。EasyRPG 原始项目端点或 RGSS 派生 bundle 携带该精确成员；Native Web 遵守最小 Web MIME 投影，非 Web archive 后缀和无扩展 magic sidecar 在 `/__retrom/project/*` 返回 404。未被 Web 路径引用的 native executable 文件仍逐 byte 保留为 PROJECT_FILE 并进入 filesDigest，但 runtime endpoint 固定 404；其验证不等待 ACC-RPG-011 的恶意探针，只等待真实画布、取得截图和四个 404，随后显式 cleanup capability 并 finish Launch。只有确凿运行依赖以 `RPG_NATIVE_DEPENDENCY_UNSUPPORTED` 阻止导入。13 项外层恶意/歧义矩阵的 accepted/status/code 必须与登记闭集逐项一致，不能只验证数量。
+- 证据：42 组合的 selected/evidence/binding 矩阵与 41 拒绝批次的前后 count/identity 摘要，family-only 的 config、14 gate、checkpoint round-trip 与两张不同 Launch 截图；70 项记录 generation/format/detection、source SHA/size/filesDigest、Import/Review/Validation/Launch/artifact/route ID、adapter kind、真实 content projection、派生容器 SHA、Launch FINISHED 及复查后的 filesDigest；另记录 opaque native 文件 SHA/filesDigest/404 矩阵和 13 项外层安全结果。机器证据不得包含 ID 明细集合、本机 fixture 路径、bootstrap ticket、cookie/capability 或资源 bytes，只记录清单相对名、内容摘要和产品 ID。
 
 ### ACC-RPG-011：原生 Web 独立运行源隔离
 
 - 上限：300 秒。执行：`make acceptance-case CASE=ACC-RPG-011`。
 - 流程：分别运行项目自有 MV/MZ malicious harness，尝试 parent DOM/app cookie、top navigation、popup、form、external fetch、service worker、非 allowlist API、ticket replay/过期和 Host confusion；同时执行合法 render、MessageChannel、截图和 checkpoint。
 - 通过标准：越权操作均被 browser/NG/Go 组合边界阻止，runtime Host 不接受 app session/API/HTML fallback，bootstrap GET 是唯一无凭据 GET 且 ticket 一次消费，CSP 含 `base-uri 'self'`；合法 bridge/render/save 仍成功。
-- 证据：两个 origin 的 CSP/cookie/Host/network/navigation/service-worker 记录、同 ticket 重放 410、已认证 capability reload 303→entry、MV/MZ 各自 14 gate 与不同 Launch checkpoint 合法功能证据；不得记录 bootstrap ticket 或 runtime capability。
+- 证据：必须恰有一份 MV 与一份 MZ harness；两个 origin 的 CSP/cookie/Host/network/navigation/service-worker 记录、同 ticket 重放 410、已认证 capability reload 303→entry、MV/MZ 各自冻结的 route/artifact/adapter、14 gate、不同 Launch checkpoint 与独立 original/restore 截图；四个 original/restore Launch ID 必须全局不同，两个世代的截图文件名不得复用或互相覆盖。不得记录 bootstrap ticket 或 runtime capability。缺少 Chrome 输入时 runner 必须在启动浏览器前以 `BLOCKED` 结束。
 
 ### ACC-RPG-012：构件与恢复兼容
 
@@ -1711,10 +1718,14 @@ Review 与所需 validation Launch。`negative-matrix/matrix.json` 必须精确�
   `RETROM_ACC_RPG_012_PREPARE_EVIDENCE`、`RETROM_ACC_RPG_012_OLD_PROVISION_EVIDENCE`、
   `RETROM_ACC_RPG_012_PROMOTE_EVIDENCE`、`RETROM_ACC_RPG_012_NEW_PROVISION_EVIDENCE`、
   `RETROM_ACC_RPG_012_DRIFT_EVIDENCE`、`RETROM_ACC_RPG_012_INSPECT_EVIDENCE`，再运行本 Case。runner 首先执行
+  前置检查；数据库、state、Chrome 或任一阶段 evidence 未提供时必须以 `BLOCKED`（exit 3）结束，不得启动浏览器，
+  也不得把操作输入缺失记录为产品 `FAIL`。输入完整后 runner 执行
   `inspect`，核对 DB/path/phase、
   selected/available、正向绑定、四个负向行与已恢复 trigger；之后登录真实 HTTP 产品，读取管理 artifact history，
-  用 old save 创建 Launch 并打开 Player。Player ready 后立即再次创建存档，旧 save 截图与恢复后截图 PNG bytes 必须
-  完全相同，以证明回到同一 B 点；再以无 save 的新游戏 Launch 证明 new route/artifact 实际运行。最后用 old game
+  用 old save 创建 Launch 并打开 Player。Player ready 后必须先在未展开工具栏、未暂停运行时的状态下观察画布至少
+  3 秒，并要求连续采样稳定；随后再打开调试面板核对绑定并创建存档，避免把 EasyRPG 恢复淡入中的中间帧误作
+  恢复结果。旧 save 截图与恢复后截图 PNG bytes 必须完全相同，以证明回到同一 B 点；再以无 save 的新游戏 Launch
+  证明 new route/artifact 实际运行。最后用 old game
   分别提交四个 tampered save ID；每次必须由 `POST /api/v1/launches` 返回 422 `LAUNCH_BLOCKED` 且响应不存在
   `launchId`。
 - 通过标准：new import 只绑定 new artifact；old save 仍使用冻结的 old route/artifact/pack/ABI 在不同 Launch 的
@@ -1725,7 +1736,8 @@ Review 与所需 validation Launch。`negative-matrix/matrix.json` 必须精确�
   launch ID、两张恢复位置截图的 SHA-256/逐 byte 等同性、四类 422 响应和四张用户截图；DB/state/依赖根绝对路径、
   Cookie、CSRF 与 Launch capability 不进入证据。`bindings.provisioningEvidence` 还必须保存六阶段 JSON 的 SHA-256
   与去敏 payload，并逐阶段证明 prepare→old product→promote→new product→drift→inspect 与最终 state 是同一条链；
-  任一阶段缺失、乱序或 ID/route/state 不一致均失败。
+  old/new product 的 repository dirty summary 只保存仓库相对路径，并以 UTF-8、无空白、固定 `status/path` 键序的 JSON
+  `entries` 数组重算 SHA-256；任一阶段缺失、乱序、摘要不一致或 ID/route/state 不一致均失败。
 
 ## 23. 缺陷处理与重验
 
@@ -1748,6 +1760,8 @@ runner 每次归档旧 `FAIL` 时会按 Case/attempt 将其确定性登记为 `O
 超时实际执行每条去重后的 `greenCommand`，将 stdout/stderr、退出码与超时状态写入 `greenEvidence`；任一命令失败
 则不调用产品 driver，重跑再次失败也不会关闭缺陷。`acceptance-report` 与 `ACC-QA-003` 对任何 open defect 或缺少
 red/green/root cause/fix/result/rerun 映射、green command 非零或超时的记录均失败。
+归档 result 的 `caseId` 必须与所在 `cases/acc-…` 目录精确对应，否则 defect 同步立即失败；操作输入缺失产生的
+`BLOCKED` 不是产品 defect，不得登记或要求伪造修复 commit。
 
 若错误只能在真实 EmulatorJS/Chrome 中出现，仍必须在最近确定性边界加自动化测试，并收紧实际 Retrom 产品 E2E 或 UI runner 断言。不得用“只能人工复现”免除固化，也不得新增绕过产品链路的独立 example 页面代替回归。
 

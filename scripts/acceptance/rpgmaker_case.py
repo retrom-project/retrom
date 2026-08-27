@@ -32,13 +32,17 @@ ENGINE_PROFILES = {
     "RPGVXACE": "rgss3", "RPGMV": "mv-v1", "RPGMZ": "mz-v1",
 }
 MARKERS = {
-    "RPG2000": ("RETROM RPG2000", (45, 180, 138)),
-    "RPG2003": ("RETROM RPG2003", (245, 158, 11)),
+    "RPG2000": ("RETROM RPG2000", (6, 25, 19)),
+    "RPG2003": ("RETROM RPG2003", (33, 21, 1)),
     "RPGXP": ("RETROM RPGXP", (59, 130, 246)),
     "RPGVX": ("RETROM RPGVX", (168, 85, 247)),
     "RPGVXACE": ("RETROM RPGVXACE", (244, 63, 94)),
     "RPGMV": ("RETROM RPGMV", (64, 208, 255)),
     "RPGMZ": ("RETROM RPGMZ", None),
+}
+LCF_SOURCE_ACCENTS = {
+    "RPG2000": (45, 180, 138),
+    "RPG2003": (245, 158, 11),
 }
 MZ_LICENSE_BASES = {
     "OPEN_SOURCE_LICENSE", "AUTHOR_PERMISSION", "OPERATOR_OWNED_PROJECT",
@@ -73,6 +77,47 @@ PACK_CASE = "ACC-RPG-009"
 COMPATIBILITY_CASE = "ACC-RPG-012"
 SECURITY_CASES = {"ACC-RPG-010", "ACC-RPG-011"}
 DEFERRED_CASES: dict[str, str] = {}
+COMPATIBILITY_EVIDENCE_ENVIRONMENTS = (
+    "RETROM_ACC_RPG_012_PREPARE_EVIDENCE",
+    "RETROM_ACC_RPG_012_OLD_PROVISION_EVIDENCE",
+    "RETROM_ACC_RPG_012_PROMOTE_EVIDENCE",
+    "RETROM_ACC_RPG_012_NEW_PROVISION_EVIDENCE",
+    "RETROM_ACC_RPG_012_DRIFT_EVIDENCE",
+    "RETROM_ACC_RPG_012_INSPECT_EVIDENCE",
+)
+ISOLATION_ROUTES = {
+    "RPGMV": ("rpgmaker_mv", "RPGMV_NATIVE_V4", "rpg-native-web-v2"),
+    "RPGMZ": ("rpgmaker_mz", "RPGMZ_NATIVE_V7", "rpg-native-web-v5"),
+}
+SECURITY_CORES = {
+    "RPG2000": "rpgmaker_2000", "RPG2003": "rpgmaker_2003", "RPGXP": "rpgmaker_xp",
+    "RPGVX": "rpgmaker_vx", "RPGVXACE": "rpgmaker_vx_ace", "RPGMV": "rpgmaker_mv",
+    "RPGMZ": "rpgmaker_mz",
+}
+SECURITY_ROUTES = {
+    "RPG2000": ("RPG2000_EASYRPG_0811_V4", "EASYRPG_WEB"),
+    "RPG2003": ("RPG2003_EASYRPG_0811_V4", "EASYRPG_WEB"),
+    "RPGXP": ("RPGXP_MKXPZ_F2EFC98_V5", "MKXP_LIBRETRO_WEB"),
+    "RPGVX": ("RPGVX_MKXPZ_F2EFC98_V5", "MKXP_LIBRETRO_WEB"),
+    "RPGVXACE": ("RPGVXACE_MKXPZ_F2EFC98_V5", "MKXP_LIBRETRO_WEB"),
+    "RPGMV": ("RPGMV_NATIVE_V4", "NATIVE_WEB"),
+    "RPGMZ": ("RPGMZ_NATIVE_V7", "NATIVE_WEB"),
+}
+SECURITY_UNSAFE = {
+    "dual-root": (False, 409, "RPG_PROJECT_ROOT_AMBIGUOUS"),
+    "multi-generation": (False, 409, "RPG_GENERATION_AMBIGUOUS"),
+    "rgss-conflict": (False, 422, "RPG_RGSS_GENERATION_CONFLICT"),
+    "lcf-truncated": (False, 422, "RPG_LCF_INVALID"),
+    "case-collision": (False, 422, "RPG_PATH_COLLISION"),
+    "nfkc-collision": (False, 422, "RPG_PATH_COLLISION"),
+    "gencache-collision": (False, 409, "IMPORT_INPUT_INVALID"),
+    "traversal": (False, 409, "IMPORT_INPUT_INVALID"),
+    "symlink": (False, 409, "IMPORT_INPUT_INVALID"),
+    "bomb": (False, 413, "ARCHIVE_LIMIT_EXCEEDED"),
+    "external": (False, 422, "RPG_NATIVE_DEPENDENCY_UNSUPPORTED"),
+    "referenced-native": (False, 422, "RPG_NATIVE_DEPENDENCY_UNSUPPORTED"),
+    "opaque-native": (True, 202, None),
+}
 PACK_SOURCE_NOTE = "Retrom-owned ACC-RPG-009 deterministic fixture; no vendor RTP bytes"
 PACK_UPLOAD_ROLES = {
     "rpg2000Rtp": ("RPG2000_RTP", None, None),
@@ -189,11 +234,22 @@ def public_fixture_marker(spec: GenerationCase) -> tuple[str, list[int], str]:
     matches = [row for row in rows if isinstance(row, dict) and row.get("generation") == spec.generation]
     if len(matches) != 1 or matches[0].get("directory") != spec.fixture_directory:
         raise ContractError("RPG_ACCEPTANCE_FIXTURE_SPEC_INVALID")
-    marker, rgb = matches[0].get("marker"), matches[0].get("accentRgb")
+    marker, source_rgb = matches[0].get("marker"), matches[0].get("accentRgb")
     expected_marker, expected_rgb = MARKERS[spec.generation]
-    if marker != expected_marker or not isinstance(rgb, list) or tuple(rgb) != expected_rgb:
+    if marker != expected_marker or not isinstance(source_rgb, list) or len(source_rgb) != 3 or any(
+        not isinstance(channel, int) or isinstance(channel, bool) or not 0 <= channel <= 255
+        for channel in source_rgb
+    ):
         raise ContractError("RPG_ACCEPTANCE_FIXTURE_SPEC_INVALID")
-    return marker, rgb, hashlib.sha256(contents).hexdigest()
+    if spec.generation in LCF_SOURCE_ACCENTS:
+        if tuple(source_rgb) != LCF_SOURCE_ACCENTS[spec.generation]:
+            raise ContractError("RPG_ACCEPTANCE_FIXTURE_SPEC_INVALID")
+        rendered_rgb = expected_rgb
+    else:
+        rendered_rgb = tuple(source_rgb)
+    if rendered_rgb is None or rendered_rgb != expected_rgb:
+        raise ContractError("RPG_ACCEPTANCE_FIXTURE_SPEC_INVALID")
+    return marker, list(rendered_rgb), hashlib.sha256(contents).hexdigest()
 
 
 def read_json_file(path_value: str, label: str) -> dict[str, Any]:
@@ -784,8 +840,7 @@ def validate_generation_evidence(
                 config.get("stateBufferBytes") != XP_STATE_BYTES or \
                 validation["checkpointRoundTrip"].get("sizeBytes") != XP_STATE_BYTES:
             raise ContractError("RPG_ACCEPTANCE_XP_RUNTIME_EVIDENCE_INVALID")
-        if "xpRuntimeTrace" in payload:
-            validate_xp_runtime_trace(payload["xpRuntimeTrace"], validation["checkpointRoundTrip"], config)
+        validate_xp_runtime_trace(payload.get("xpRuntimeTrace"), validation["checkpointRoundTrip"], config)
     if spec.generation in {"RPGMV", "RPGMZ"}:
         require_equal(config.get("bridgeProfile"), ENGINE_PROFILES[spec.generation], "PRODUCT_BRIDGE_PROFILE")
         validate_origin_inventory(payload.get("originInventory"), launch_id)
@@ -837,16 +892,21 @@ def validate_checkpoint(validation: dict[str, Any], gates: list[dict[str, Any]] 
 
 def required_environment(case_id: str) -> list[str]:
     common = ["RETROM_ACCEPTANCE_BASE_URL", "RETROM_ACCEPTANCE_USERNAME", "RETROM_ACCEPTANCE_PASSWORD"]
-    if case_id in GENERATION_CASES:
+    browser_cases = {"ACC-RPG-001", PACK_CASE, COMPATIBILITY_CASE, *SECURITY_CASES, *GENERATION_CASES}
+    if case_id in browser_cases:
         common.append("RETROM_CHROME_EXECUTABLE")
+    if case_id in GENERATION_CASES:
         prefix = case_id.replace("-", "_")
         common.extend(f"RETROM_{prefix}_{suffix}" for suffix in ("IMPORT_ITEM_ID", "VALIDATION_ID", "GAME_ID"))
+    if case_id == "ACC-RPG-004":
+        common.append("RETROM_ACC_RPG_004_TRACE")
     if case_id == "ACC-RPG-008":
         common.extend(("RPG_MZ_SMOKE_ROOT", "RPG_MZ_SMOKE_PROVENANCE"))
     if case_id == PACK_CASE:
         common.extend(("RETROM_ACC_RPG_009_PLAN", "RETROM_ACC_RPG_009_DATABASE"))
     if case_id == COMPATIBILITY_CASE:
         common.extend(("RETROM_ACC_RPG_012_DATABASE", "RETROM_ACC_RPG_012_STATE"))
+        common.extend(COMPATIBILITY_EVIDENCE_ENVIRONMENTS)
     return common
 
 
@@ -1233,9 +1293,15 @@ def validate_compatibility_evidence(payload: dict[str, Any], state: dict[str, An
             ) or len(rejections) != 4:
         raise ContractError("RPG_ACCEPTANCE_COMPATIBILITY_DRIFT_REJECTION_INVALID")
     bindings = payload.get("bindings")
-    if not isinstance(bindings, dict) or bindings.get("oldCheckpoint") != state["oldCheckpoint"] or \
+    if not isinstance(bindings, dict):
+        raise ContractError("RPG_ACCEPTANCE_COMPATIBILITY_BINDING_EVIDENCE_INVALID")
+    if "provisioningEvidence" not in bindings:
+        raise ContractError("RPG_ACCEPTANCE_COMPATIBILITY_PROVISIONING_EVIDENCE_INVALID")
+    if set(bindings) != {"oldCheckpoint", "newVariant", "provisioningEvidence"} or \
+            bindings.get("oldCheckpoint") != state["oldCheckpoint"] or \
             bindings.get("newVariant") != state["newVariant"]:
         raise ContractError("RPG_ACCEPTANCE_COMPATIBILITY_BINDING_EVIDENCE_INVALID")
+    validate_compatibility_provisioning(bindings.get("provisioningEvidence"), state)
     screenshots = payload.get("screenshots")
     if not isinstance(screenshots, list) or len(screenshots) != 4 or any(
         not isinstance(path, str) or not path.startswith("screenshots/") or path.startswith(("/", "screenshots/../"))
@@ -1254,56 +1320,398 @@ def validate_compatibility_evidence(payload: dict[str, Any], state: dict[str, An
             stack.extend(value)
 
 
+def validate_compatibility_provisioning(value: Any, state: dict[str, Any]) -> None:
+    if not isinstance(value, dict) or set(value) != {"schemaVersion", "phases"} or \
+            value.get("schemaVersion") != 1:
+        raise ContractError("RPG_ACCEPTANCE_COMPATIBILITY_PROVISIONING_EVIDENCE_INVALID")
+    phases = value.get("phases")
+    expected_names = {"prepare", "oldProvision", "promote", "newProvision", "drift", "inspect"}
+    if not isinstance(phases, dict) or set(phases) != expected_names:
+        raise ContractError("RPG_ACCEPTANCE_COMPATIBILITY_PROVISIONING_EVIDENCE_INVALID")
+    for phase in phases.values():
+        if not isinstance(phase, dict) or set(phase) != {"documentSha256", "payload"} or \
+                not SHA256.fullmatch(str(phase.get("documentSha256"))) or not isinstance(phase.get("payload"), dict):
+            raise ContractError("RPG_ACCEPTANCE_COMPATIBILITY_PROVISIONING_EVIDENCE_INVALID")
+    prepare = phases["prepare"]["payload"]
+    promote = phases["promote"]["payload"]
+    drift = phases["drift"]["payload"]
+    inspect = phases["inspect"]["payload"]
+    if not valid_compatibility_state_phase(prepare, "OLD_SELECTED") or \
+            not valid_compatibility_state_phase(promote, "NEW_SELECTED") or \
+            drift != state or inspect != state or \
+            phases["drift"]["documentSha256"] != phases["inspect"]["documentSha256"] or \
+            prepare.get("oldArtifact", {}).get("id") != state["oldArtifact"]["id"] or \
+            prepare.get("newArtifact", {}).get("id") != state["newArtifact"]["id"] or \
+            any(prepare.get(key) is not None for key in ("oldCheckpoint", "newVariant", "driftSaveStateIds")) or \
+            promote.get("oldCheckpoint") != state["oldCheckpoint"] or \
+            any(promote.get(key) is not None for key in ("newVariant", "driftSaveStateIds")):
+        raise ContractError("RPG_ACCEPTANCE_COMPATIBILITY_PROVISIONING_EVIDENCE_INVALID")
+    validate_compatibility_product_phase(phases["oldProvision"]["payload"], "OLD", state)
+    validate_compatibility_product_phase(phases["newProvision"]["payload"], "NEW", state)
+
+
+def valid_compatibility_state_phase(value: dict[str, Any], expected_phase: str) -> bool:
+    keys = {
+        "schemaVersion", "caseId", "phase", "databasePathSha256", "oldArtifact", "newArtifact",
+        "oldCheckpoint", "newVariant", "driftSaveStateIds", "updatedAtMs",
+    }
+    return set(value) == keys and value.get("schemaVersion") == 1 and \
+        value.get("caseId") == COMPATIBILITY_CASE and value.get("phase") == expected_phase and \
+        bool(SHA256.fullmatch(str(value.get("databasePathSha256"))))
+
+
+def validate_compatibility_product_phase(value: dict[str, Any], phase: str, state: dict[str, Any]) -> None:
+    keys = {"schemaVersion", "caseId", "phase", "importItemId", "validationId", "routeKey", "gameId", "repository"}
+    if phase == "OLD":
+        keys.add("saveStateId")
+    repository = value.get("repository")
+    summary = repository.get("gitDirtySummary") if isinstance(repository, dict) else None
+    if set(value) != keys or value.get("schemaVersion") != 1 or value.get("caseId") != COMPATIBILITY_CASE or \
+            value.get("phase") != phase or not UUID.fullmatch(str(value.get("importItemId"))) or \
+            not UUID.fullmatch(str(value.get("validationId"))) or not valid_compatibility_repository(repository, summary):
+        raise ContractError("RPG_ACCEPTANCE_COMPATIBILITY_PROVISIONING_EVIDENCE_INVALID")
+    binding = state["oldCheckpoint"] if phase == "OLD" else state["newVariant"]
+    if value.get("routeKey") != binding["routeKey"] or value.get("gameId") != binding["gameId"] or \
+            (phase == "OLD" and value.get("saveStateId") != binding["saveStateId"]):
+        raise ContractError("RPG_ACCEPTANCE_COMPATIBILITY_PROVISIONING_EVIDENCE_INVALID")
+
+
+def valid_compatibility_repository(repository: Any, summary: Any) -> bool:
+    if not isinstance(repository, dict) or set(repository) != {"gitCommit", "gitDirty", "gitDirtySummary"} or \
+            not re.fullmatch(r"(?:[0-9a-f]{40}|UNBORN)", str(repository.get("gitCommit"))) or \
+            not isinstance(summary, dict) or set(summary) != {"fileCount", "sha256", "entries"} or \
+            not SHA256.fullmatch(str(summary.get("sha256"))) or not isinstance(summary.get("entries"), list) or \
+            summary.get("fileCount") != len(summary["entries"]) or \
+            repository.get("gitDirty") is not bool(summary["entries"]):
+        return False
+    entries = summary["entries"]
+    if not all(isinstance(item, dict) and set(item) == {"status", "path"} and
+               isinstance(item.get("status"), str) and len(item["status"]) == 2 and
+               isinstance(item.get("path"), str) and item["path"] not in {"", "."} and
+               not Path(item["path"]).is_absolute() and ".." not in Path(item["path"]).parts
+               for item in entries):
+        return False
+    canonical = [{"status": item["status"], "path": item["path"]} for item in entries]
+    encoded = json.dumps(canonical, ensure_ascii=False, separators=(",", ":")).encode()
+    return hashlib.sha256(encoded).hexdigest() == summary["sha256"]
+
+
 def validate_security_evidence(payload: dict[str, Any], case_id: str) -> None:
     if payload.get("schemaVersion") != 1 or payload.get("caseId") != case_id or payload.get("status") != "PASS":
         raise ContractError("RPG_ACCEPTANCE_SECURITY_EVIDENCE_HEADER_INVALID")
     if case_id == "ACC-RPG-010":
-        wrong = payload.get("wrongCore")
-        unsafe = payload.get("unsafe")
-        nested = payload.get("nestedArchives")
-        family = payload.get("familyOnly")
-        opaque = payload.get("opaqueNative")
-        if not isinstance(wrong, list) or len(wrong) != 42 or sum(item.get("accepted") is True for item in wrong) != 1:
-            raise ContractError("RPG_ACCEPTANCE_WRONG_CORE_MATRIX_INCOMPLETE")
-        if any(item.get("code") != "RPG_SELECTED_CORE_MISMATCH" for item in wrong if not item.get("accepted")):
-            raise ContractError("RPG_ACCEPTANCE_WRONG_CORE_CODE_INVALID")
-        if not isinstance(unsafe, list) or len(unsafe) != 13 or not isinstance(nested, list) or len(nested) != 70:
-            raise ContractError("RPG_ACCEPTANCE_UNSAFE_MATRIX_INCOMPLETE")
-        if any(not SHA256.fullmatch(str(item.get("sha256", ""))) or
-               not SHA256.fullmatch(str(item.get("filesDigest", ""))) or item.get("nestedEntryCount") != 0
-               for item in nested):
-            raise ContractError("RPG_ACCEPTANCE_NESTED_ARCHIVE_EVIDENCE_INVALID")
-        if not isinstance(family, dict) or family.get("selectedCoreId") != "rpgmaker_2003" or \
-                family.get("evidenceConfidence") != "FAMILY_ONLY" or \
-                family.get("config", {}).get("routeKey") != "RPG2003_EASYRPG_0811_V4":
-            raise ContractError("RPG_ACCEPTANCE_FAMILY_ONLY_EVIDENCE_INVALID")
-        if not isinstance(opaque, dict) or not SHA256.fullmatch(str(opaque.get("filesDigest", ""))) or \
-                {item.get("name") for item in opaque.get("sourceFiles", [])} != \
-                {"Game.exe", "nw.dll", "plugin.node", "launcher.bat"} or \
-                any(not SHA256.fullmatch(str(item.get("sha256", ""))) for item in opaque.get("sourceFiles", [])) or \
-                any(item.get("status") != 404 for item in opaque.get("runtimeProjection", [])) or \
-                len(opaque.get("runtimeProjection", [])) != 4:
-            raise ContractError("RPG_ACCEPTANCE_OPAQUE_NATIVE_EVIDENCE_INVALID")
+        expected_keys = {
+            "schemaVersion", "caseId", "status", "wrongCore", "rejectedSideEffects", "unsafe",
+            "nestedArchives", "familyOnly", "opaqueNative", "screenshots",
+        }
+        if set(payload) != expected_keys:
+            raise ContractError("RPG_ACCEPTANCE_SECURITY_EVIDENCE_HEADER_INVALID")
+        validate_wrong_core_security(payload.get("wrongCore"), payload.get("rejectedSideEffects"))
+        validate_unsafe_security(payload.get("unsafe"))
+        validate_nested_security(payload.get("nestedArchives"))
+        validate_family_only_security(payload.get("familyOnly"))
+        validate_opaque_native_security(payload.get("opaqueNative"))
+        if payload.get("screenshots") != [
+            "screenshots/acc-rpg-010-family-only.png",
+            "screenshots/acc-rpg-010-family-only-restore.png",
+            "screenshots/acc-rpg-010-opaque-native.png",
+        ]:
+            raise ContractError("RPG_ACCEPTANCE_SECURITY_SCREENSHOT_INVALID")
         return
+    if set(payload) != {"schemaVersion", "caseId", "status", "harnesses", "screenshots"}:
+        raise ContractError("RPG_ACCEPTANCE_ISOLATION_EVIDENCE_HEADER_INVALID")
     harnesses = payload.get("harnesses")
-    if not isinstance(harnesses, list) or {item.get("generation") for item in harnesses} != {"RPGMV", "RPGMZ"}:
+    if not isinstance(harnesses, list) or len(harnesses) != 2 or \
+            any(not isinstance(item, dict) for item in harnesses) or \
+            {item.get("generation") for item in harnesses} != {"RPGMV", "RPGMZ"}:
         raise ContractError("RPG_ACCEPTANCE_ISOLATION_HARNESS_INCOMPLETE")
     for harness in harnesses:
-        bootstrap = harness.get("bootstrap")
-        gates = harness.get("machineGates")
-        if not isinstance(bootstrap, dict) or bootstrap.get("authenticatedReloadStatus") != 303 or \
-                bootstrap.get("replayStatus") != 410 or bootstrap.get("appHostEntryStatus") != 404 or \
-                bootstrap.get("runtimeApiStatus") != 404 or bootstrap.get("confusedHostStatus") != 404 or \
-                bootstrap.get("inactiveBootstrapStatus") != 410:
-            raise ContractError("RPG_ACCEPTANCE_ISOLATION_BOOTSTRAP_INVALID")
-        if not isinstance(gates, list) or [gate.get("gate") for gate in gates] != list(GATES) or \
-                any(gate.get("status") != "PASSED" for gate in gates):
-            raise ContractError("RPG_ACCEPTANCE_ISOLATION_GATES_INVALID")
-        validate_checkpoint({
-            "launchId": harness.get("originalLaunchId"),
-            "restoreLaunchId": harness.get("restoreLaunchId"),
-            "checkpointRoundTrip": harness.get("checkpointRoundTrip"),
-        })
+        validate_isolation_harness(harness)
+    launch_ids = [harness[key] for harness in harnesses for key in ("originalLaunchId", "restoreLaunchId")]
+    if len(set(launch_ids)) != len(launch_ids):
+        raise ContractError("RPG_ACCEPTANCE_ISOLATION_HARNESS_INCOMPLETE")
+    expected_screenshots = [
+        f"screenshots/acc-rpg-011-{generation.lower()}{suffix}.png"
+        for generation in ("RPGMV", "RPGMZ") for suffix in ("", "-restore")
+    ]
+    if payload.get("screenshots") != expected_screenshots:
+        raise ContractError("RPG_ACCEPTANCE_ISOLATION_SCREENSHOT_INVALID")
+
+
+def validate_wrong_core_security(wrong: Any, side_effects: Any) -> None:
+    row_keys = {
+        "sourceGeneration", "selectedCoreId", "accepted", "status", "code",
+        "evidenceConfidence", "bindingCreated", "sideEffectBatch",
+    }
+    expected_pairs = {
+        (generation, selected)
+        for generation, own_core in SECURITY_CORES.items()
+        for selected in SECURITY_CORES.values()
+        if selected != own_core
+    }
+    if not isinstance(wrong, list) or len(wrong) != 42 or any(
+        not isinstance(item, dict) or set(item) != row_keys for item in wrong
+    ):
+        raise ContractError("RPG_ACCEPTANCE_WRONG_CORE_MATRIX_INCOMPLETE")
+    actual = {(item["sourceGeneration"], item["selectedCoreId"]): item for item in wrong}
+    if set(actual) != expected_pairs or len(actual) != len(wrong):
+        raise ContractError("RPG_ACCEPTANCE_WRONG_CORE_MATRIX_INCOMPLETE")
+    accepted_pair = ("RPG2000", "rpgmaker_2003")
+    for pair, item in actual.items():
+        expected = pair == accepted_pair
+        expected_values = {
+            "accepted": expected, "status": 202 if expected else 422,
+            "code": None if expected else "RPG_SELECTED_CORE_MISMATCH",
+            "evidenceConfidence": "FAMILY_ONLY" if expected else None,
+            "bindingCreated": expected,
+            "sideEffectBatch": None if expected else "wrong-core-rejections-v1",
+        }
+        if any(item.get(key) != value for key, value in expected_values.items()):
+            raise ContractError("RPG_ACCEPTANCE_WRONG_CORE_MATRIX_INCOMPLETE")
+    validate_wrong_core_side_effects(side_effects)
+
+
+def validate_wrong_core_side_effects(value: Any) -> None:
+    keys = {
+        "schemaVersion", "batchId", "attemptedCount", "before", "after", "unchanged",
+        "importJobCreated", "reviewCreated", "validationOrLaunchCreated", "publishedGameCreated",
+    }
+    if not isinstance(value, dict) or set(value) != keys or value.get("schemaVersion") != 1 or \
+            value.get("batchId") != "wrong-core-rejections-v1" or value.get("attemptedCount") != 41 or \
+            value.get("unchanged") is not True or any(value.get(key) is not False for key in (
+                "importJobCreated", "reviewCreated", "validationOrLaunchCreated", "publishedGameCreated",
+            )) or value.get("before") != value.get("after") or not valid_side_effect_snapshot(value.get("before")):
+        raise ContractError("RPG_ACCEPTANCE_WRONG_CORE_SIDE_EFFECT_EVIDENCE_INVALID")
+
+
+def valid_side_effect_snapshot(value: Any) -> bool:
+    if not isinstance(value, dict) or set(value) != {"importJobs", "reviewItems", "games"}:
+        return False
+    return all(
+        isinstance(item, dict) and set(item) == {"count", "sha256"} and
+        isinstance(item.get("count"), int) and not isinstance(item.get("count"), bool) and
+        item["count"] >= 0 and SHA256.fullmatch(str(item.get("sha256", "")))
+        for item in value.values()
+    )
+
+
+def validate_unsafe_security(value: Any) -> None:
+    keys = {"name", "accepted", "status", "code"}
+    if not isinstance(value, list) or len(value) != len(SECURITY_UNSAFE) or any(
+        not isinstance(item, dict) or set(item) != keys for item in value
+    ):
+        raise ContractError("RPG_ACCEPTANCE_UNSAFE_MATRIX_INVALID")
+    actual = {item["name"]: item for item in value}
+    if set(actual) != set(SECURITY_UNSAFE) or len(actual) != len(value):
+        raise ContractError("RPG_ACCEPTANCE_UNSAFE_MATRIX_INVALID")
+    for name, expected in SECURITY_UNSAFE.items():
+        item = actual[name]
+        if (item["accepted"], item["status"], item["code"]) != expected:
+            raise ContractError("RPG_ACCEPTANCE_UNSAFE_MATRIX_INVALID")
+
+
+def validate_nested_security(value: Any) -> None:
+    row_keys = {
+        "generation", "format", "detection", "sidecar", "sha256", "sizeBytes", "filesDigest",
+        "postInspectionFilesDigest", "nestedEntryCount", "importJobId", "importItemId",
+        "contentIdentityDigest", "validationId", "launchId", "routeKey", "artifactId",
+        "adapterKind", "projection", "launchFinished",
+    }
+    expected = {
+        (generation, archive_format, detection)
+        for generation in SECURITY_CORES
+        for archive_format in ("7Z", "GZIP", "RAR", "TAR", "ZIP")
+        for detection in ("extension", "magic")
+    }
+    if not isinstance(value, list) or len(value) != 70 or any(
+        not isinstance(item, dict) or set(item) != row_keys for item in value
+    ):
+        raise ContractError("RPG_ACCEPTANCE_NESTED_ARCHIVE_EVIDENCE_INVALID")
+    actual = {(item["generation"], item["format"], item["detection"]): item for item in value}
+    if set(actual) != expected or len(actual) != len(value):
+        raise ContractError("RPG_ACCEPTANCE_NESTED_ARCHIVE_EVIDENCE_INVALID")
+    identifier_fields = ("importJobId", "importItemId", "validationId", "launchId")
+    for field in identifier_fields:
+        identifiers = [str(item.get(field, "")) for item in value]
+        if any(not UUID.fullmatch(identifier) for identifier in identifiers) or len(set(identifiers)) != len(identifiers):
+            raise ContractError("RPG_ACCEPTANCE_NESTED_ARCHIVE_EVIDENCE_INVALID")
+    for item in value:
+        if not valid_nested_security_row(item):
+            raise ContractError("RPG_ACCEPTANCE_NESTED_ARCHIVE_EVIDENCE_INVALID")
+
+
+def valid_nested_security_row(item: dict[str, Any]) -> bool:
+    generation = item["generation"]
+    route_key, adapter_kind = SECURITY_ROUTES[generation]
+    logical_name = item.get("sidecar")
+    if not isinstance(logical_name, str) or not logical_name.startswith("RetromNested/") or \
+            logical_name.count("/") != 1 or logical_name.endswith("/") or ".." in logical_name or \
+            not SHA256.fullmatch(str(item.get("sha256", ""))) or \
+            not isinstance(item.get("sizeBytes"), int) or isinstance(item.get("sizeBytes"), bool) or \
+            item["sizeBytes"] <= 0 or not SHA256.fullmatch(str(item.get("filesDigest", ""))) or \
+            item.get("postInspectionFilesDigest") != item.get("filesDigest") or item.get("nestedEntryCount") != 0 or \
+            not SHA256.fullmatch(str(item.get("contentIdentityDigest", ""))) or \
+            item.get("routeKey") != route_key or item.get("adapterKind") != adapter_kind or \
+            not UUID.fullmatch(str(item.get("artifactId", ""))) or item.get("launchFinished") is not True:
+        return False
+    projection = item.get("projection")
+    keys = {"kind", "status", "logicalName", "sha256", "sizeBytes", "containerSha256", "exactMember"}
+    if not isinstance(projection, dict) or set(projection) != keys or projection.get("logicalName") != logical_name:
+        return False
+    if adapter_kind == "NATIVE_WEB":
+        return projection == {
+            "kind": "NATIVE_WEB_DENIED", "status": 404, "logicalName": logical_name,
+            "sha256": None, "sizeBytes": None, "containerSha256": None, "exactMember": False,
+        }
+    expected_kind = "EASYRPG_PROJECT_FILE" if adapter_kind == "EASYRPG_WEB" else "MKXP_ARCHIVE_MEMBER"
+    return projection.get("kind") == expected_kind and projection.get("status") == 200 and \
+        projection.get("sha256") == item["sha256"] and projection.get("sizeBytes") == item["sizeBytes"] and \
+        SHA256.fullmatch(str(projection.get("containerSha256", ""))) is not None and \
+        projection.get("exactMember") is True
+
+
+def validate_family_only_security(value: Any) -> None:
+    keys = {
+        "importItemId", "selectedCoreId", "evidenceGeneration", "evidenceConfidence", "validationId",
+        "originalLaunchId", "restoreLaunchId", "config", "machineGates", "checkpointRoundTrip",
+    }
+    if not isinstance(value, dict) or set(value) != keys or any(
+        not UUID.fullmatch(str(value.get(key, "")))
+        for key in ("importItemId", "validationId", "originalLaunchId", "restoreLaunchId")
+    ) or value.get("selectedCoreId") != "rpgmaker_2003" or value.get("evidenceGeneration") is not None or \
+            value.get("evidenceConfidence") != "FAMILY_ONLY":
+        raise ContractError("RPG_ACCEPTANCE_FAMILY_ONLY_EVIDENCE_INVALID")
+    expected_config = {
+        "runtimeFamily": "RPGMAKER", "generation": "RPG2003", "coreId": "rpgmaker_2003",
+        "routeKey": "RPG2003_EASYRPG_0811_V4", "adapterId": "easyrpg-web-v1",
+        "adapterKind": "EASYRPG_WEB", "engineMode": "rpg2k3",
+    }
+    config = value.get("config")
+    if not isinstance(config, dict) or set(config) != {*expected_config, "artifactId"} or any(
+        config.get(key) != expected for key, expected in expected_config.items()
+    ) or not UUID.fullmatch(str(config.get("artifactId", ""))):
+        raise ContractError("RPG_ACCEPTANCE_FAMILY_ONLY_ROUTE_INVALID")
+    gates = value.get("machineGates")
+    if not isinstance(gates, list) or [item.get("gate") for item in gates if isinstance(item, dict)] != list(GATES) or \
+            any(item.get("status") != "PASSED" for item in gates):
+        raise ContractError("RPG_ACCEPTANCE_FAMILY_ONLY_GATES_INVALID")
+    engine = gates[1].get("evidence")
+    if not isinstance(engine, dict) or engine.get("generation") != "RPG2003" or \
+            engine.get("adapterId") != "easyrpg-web-v1" or engine.get("engineProfile") != "rpg2k3":
+        raise ContractError("RPG_ACCEPTANCE_FAMILY_ONLY_ENGINE_INVALID")
+    validate_checkpoint({
+        "launchId": value["originalLaunchId"], "restoreLaunchId": value["restoreLaunchId"],
+        "checkpointRoundTrip": value["checkpointRoundTrip"],
+    }, gates)
+
+
+def validate_opaque_native_security(value: Any) -> None:
+    keys = {
+        "importItemId", "generation", "filesDigest", "sourceFiles", "runtimeProjection",
+        "launchId", "runtimeOrigin", "launchFinished",
+    }
+    names = {"Game.exe", "nw.dll", "plugin.node", "launcher.bat"}
+    source = value.get("sourceFiles") if isinstance(value, dict) else None
+    runtime = value.get("runtimeProjection") if isinstance(value, dict) else None
+    if not isinstance(value, dict) or set(value) != keys or value.get("generation") != "RPGMZ" or \
+            not UUID.fullmatch(str(value.get("importItemId", ""))) or \
+            not UUID.fullmatch(str(value.get("launchId", ""))) or \
+            not SHA256.fullmatch(str(value.get("filesDigest", ""))) or \
+            value.get("launchFinished") is not True or \
+            not isinstance(source, list) or len(source) != 4 or {item.get("name") for item in source} != names or \
+            any(set(item) != {"name", "sha256", "sizeBytes"} or
+                not SHA256.fullmatch(str(item.get("sha256", ""))) or
+                not isinstance(item.get("sizeBytes"), int) or item["sizeBytes"] <= 0 for item in source) or \
+            not isinstance(runtime, list) or len(runtime) != 4 or {item.get("name") for item in runtime} != names or \
+            any(set(item) != {"name", "status"} or item.get("status") != 404 for item in runtime):
+        raise ContractError("RPG_ACCEPTANCE_OPAQUE_NATIVE_EVIDENCE_INVALID")
+    origin = urlparse(str(value.get("runtimeOrigin", "")))
+    if origin.scheme not in {"http", "https"} or origin.username or origin.password or origin.path or \
+            origin.query or origin.fragment or not (origin.hostname or "").startswith(f"{value['launchId']}."):
+        raise ContractError("RPG_ACCEPTANCE_OPAQUE_NATIVE_EVIDENCE_INVALID")
+
+
+def validate_isolation_harness(harness: dict[str, Any]) -> None:
+    keys = {
+        "generation", "importItemId", "validationId", "originalLaunchId", "restoreLaunchId",
+        "runtimeOrigin", "config", "originalScreenshot", "restoreScreenshot", "csp", "probes",
+        "securityRequests", "bootstrap", "machineGates", "checkpointRoundTrip",
+    }
+    generation = harness.get("generation")
+    if set(harness) != keys or generation not in ISOLATION_ROUTES or any(
+        not UUID.fullmatch(str(harness.get(key)))
+        for key in ("importItemId", "validationId", "originalLaunchId", "restoreLaunchId")
+    ):
+        raise ContractError("RPG_ACCEPTANCE_ISOLATION_HARNESS_INVALID")
+    validate_isolation_runtime(harness, str(generation))
+    validate_isolation_browser_boundary(harness)
+    bootstrap = harness.get("bootstrap")
+    gates = harness.get("machineGates")
+    if not isinstance(bootstrap, dict) or set(bootstrap) != {
+        "authenticatedReloadStatus", "replayStatus", "appHostEntryStatus", "runtimeApiStatus",
+        "confusedHostStatus", "inactiveBootstrapStatus",
+    } or bootstrap.get("authenticatedReloadStatus") != 303 or bootstrap.get("replayStatus") != 410 or \
+            bootstrap.get("appHostEntryStatus") != 404 or bootstrap.get("runtimeApiStatus") != 404 or \
+            bootstrap.get("confusedHostStatus") != 404 or bootstrap.get("inactiveBootstrapStatus") != 410:
+        raise ContractError("RPG_ACCEPTANCE_ISOLATION_BOOTSTRAP_INVALID")
+    if not isinstance(gates, list) or [gate.get("gate") for gate in gates] != list(GATES) or \
+            any(gate.get("status") != "PASSED" for gate in gates):
+        raise ContractError("RPG_ACCEPTANCE_ISOLATION_GATES_INVALID")
+    validate_checkpoint({
+        "launchId": harness.get("originalLaunchId"),
+        "restoreLaunchId": harness.get("restoreLaunchId"),
+        "checkpointRoundTrip": harness.get("checkpointRoundTrip"),
+    }, gates)
+
+
+def validate_isolation_runtime(harness: dict[str, Any], generation: str) -> None:
+    core_id, route_key, adapter_id = ISOLATION_ROUTES[generation]
+    config = harness.get("config")
+    expected_config = {
+        "runtimeFamily": "RPGMAKER", "generation": generation, "coreId": core_id,
+        "routeKey": route_key, "adapterId": adapter_id,
+    }
+    if not isinstance(config, dict) or set(config) != {*expected_config, "artifactId"} or any(
+        config.get(key) != value for key, value in expected_config.items()
+    ) or not UUID.fullmatch(str(config.get("artifactId"))):
+        raise ContractError("RPG_ACCEPTANCE_ISOLATION_ROUTE_INVALID")
+    origin = urlparse(str(harness.get("runtimeOrigin", "")))
+    hostname = origin.hostname or ""
+    if origin.scheme not in {"http", "https"} or origin.username or origin.password or \
+            origin.path or origin.query or origin.fragment or \
+            not hostname.startswith(f"{harness['originalLaunchId']}.") or \
+            (origin.scheme == "http" and not hostname.endswith("localhost")):
+        raise ContractError("RPG_ACCEPTANCE_ISOLATION_ORIGIN_INVALID")
+    expected_prefix = f"screenshots/acc-rpg-011-{generation.lower()}"
+    if harness.get("originalScreenshot") != f"{expected_prefix}.png" or \
+            harness.get("restoreScreenshot") != f"{expected_prefix}-restore.png":
+        raise ContractError("RPG_ACCEPTANCE_ISOLATION_SCREENSHOT_INVALID")
+
+
+def validate_isolation_browser_boundary(harness: dict[str, Any]) -> None:
+    csp = harness.get("csp")
+    probes = harness.get("probes")
+    requests = harness.get("securityRequests")
+    if not isinstance(csp, str) or "base-uri 'self'" not in csp or "worker-src 'self' blob:" not in csp or \
+            "connect-src 'self'" not in csp:
+        raise ContractError("RPG_ACCEPTANCE_ISOLATION_CSP_INVALID")
+    expected_probes = {
+        "parentDom": "blocked", "appCookie": "none", "topNavigation": "blocked", "popup": "blocked",
+        "form": {"attempted", "blocked"}, "externalFetch": "blocked", "nonAllowlistApi": "404",
+        "serviceWorker": "blocked", "complete": "true",
+    }
+    if not isinstance(probes, dict) or set(probes) != set(expected_probes) or any(
+        probes.get(key) not in expected if isinstance(expected, set) else probes.get(key) != expected
+        for key, expected in expected_probes.items()
+    ):
+        raise ContractError("RPG_ACCEPTANCE_ISOLATION_PROBE_INVALID")
+    if not isinstance(requests, list) or not requests or any(
+        not isinstance(item, dict) or set(item) != {"urlKind", "status"} or
+        item.get("urlKind") not in {"external", "nonAllowlistApi"} or not isinstance(item.get("status"), int) or
+        (item.get("urlKind") == "external" and item.get("status") != 0)
+        for item in requests
+    ) or not any(item.get("urlKind") == "nonAllowlistApi" and item.get("status") == 404 for item in requests):
+        raise ContractError("RPG_ACCEPTANCE_ISOLATION_NETWORK_INVALID")
 
 
 def write_blocked(case_dir: Path, case_id: str, missing: list[str], reason: str) -> int:
@@ -1398,7 +1806,7 @@ def run(case_id: str, case_dir: Path) -> int:
             "engineProfile": ENGINE_PROFILES[spec.generation],
             "gateDurationsMs": gate_durations(payload["validation"]["machineGates"]),
         })
-        if case_id == "ACC-RPG-004" and os.environ.get("RETROM_ACC_RPG_004_TRACE"):
+        if case_id == "ACC-RPG-004":
             payload["xpRuntimeTrace"] = read_json_file(
                 os.environ["RETROM_ACC_RPG_004_TRACE"], "XP_TRACE",
             )

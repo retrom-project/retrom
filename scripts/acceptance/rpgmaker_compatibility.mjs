@@ -70,6 +70,7 @@ async function restoreOldCheckpoint(context, writeHeaders, oldSave) {
   page.on("pageerror", (error) => pageErrors.push(error.message));
   await page.goto(`${baseUrl}${launch.playUrl}`, { waitUntil: "domcontentloaded" });
   await page.getByRole("status").filter({ hasText: "可创建存档" }).waitFor({ state: "attached", timeout: 120_000 });
+  await waitForStableRuntimeFrame(page);
   await assertPlayerBinding(page, config);
   const saveResponse = page.waitForResponse((response) =>
     response.request().method() === "POST" &&
@@ -163,6 +164,29 @@ async function revealProductToolbar(page) {
     await page.locator(".player-hud-handle").click();
   }
   await page.locator(".player-toolbar.is-visible").waitFor({ state: "visible" });
+}
+
+async function waitForStableRuntimeFrame(page) {
+  const minimumObservationMs = 3_000;
+  const startedAt = Date.now();
+  const deadline = startedAt + 10_000;
+  let previous = null;
+  let consecutive = 0;
+  while (Date.now() < deadline) {
+    let current = null;
+    for (const frame of page.frames()) {
+      const canvas = frame.locator("canvas").first();
+      if (await canvas.isVisible().catch(() => false)) {
+        current = await canvas.evaluate((element) => element.toDataURL("image/png")).catch(() => null);
+        if (current) { break; }
+      }
+    }
+    consecutive = previous === current && current ? consecutive + 1 : 0;
+    if (consecutive >= 2 && Date.now() - startedAt >= minimumObservationMs) { return; }
+    previous = current;
+    await page.waitForTimeout(250);
+  }
+  throw new Error("RPG_ACCEPTANCE_RESTORED_FRAME_NOT_STABLE");
 }
 
 async function createLaunch(request, writeHeaders, gameId, coreId, saveStateId, expected) {
