@@ -103,6 +103,32 @@ class MakefileDependencyTests(unittest.TestCase):
             script,
         )
 
+    def test_web_e2e_supports_a_focused_playwright_regression_without_changing_the_default(self) -> None:
+        script = (REPOSITORY_ROOT / "scripts" / "acceptance" / "web-e2e.sh").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("playwright_command=(npm run test:e2e)", script)
+        self.assertIn('e2e_grep="${RETROM_E2E_GREP:-}"', script)
+        self.assertIn("unset RETROM_E2E_GREP", script)
+        self.assertIn('playwright_command+=(-- --grep "$e2e_grep")', script)
+        self.assertIn('"${playwright_command[@]}"', script)
+
+    def test_runtime_e2e_uses_the_stable_player_frame_and_case_budgets(self) -> None:
+        runtime_cases = (
+            REPOSITORY_ROOT / "web" / "e2e" / "acceptance-runtime-cases.ts"
+        ).read_text(encoding="utf-8")
+        support = (
+            REPOSITORY_ROOT / "web" / "e2e" / "acceptance-support.ts"
+        ).read_text(encoding="utf-8")
+        ui_cases = (
+            REPOSITORY_ROOT / "web" / "e2e" / "acceptance.spec.ts"
+        ).read_text(encoding="utf-8")
+        stale_selector = 'iframe[title="Retrom EmulatorJS Player"]'
+        self.assertNotIn(stale_selector, runtime_cases)
+        self.assertNotIn(stale_selector, support)
+        self.assertGreaterEqual(runtime_cases.count('test.setTimeout(180_000)'), 3)
+        self.assertIn('test.setTimeout(180_000);\n  const routes = [', ui_cases)
+
     def test_arcade_acceptance_selects_the_current_launchable_artifact(self) -> None:
         script = (REPOSITORY_ROOT / "scripts" / "acceptance" / "arcade-flow.sh").read_text(
             encoding="utf-8"

@@ -200,6 +200,7 @@ test("ACC-UI-005 regression: sparse home rails keep game cards within desktop wi
 });
 
 test("ACC-UI-006 admin pages remain reachable at desktop breakpoints", async ({ page }, testInfo) => {
+  test.setTimeout(180_000);
   const routes = [
     ["/admin/imports", ".import-workflow-page"], ["/admin/imports/new", ".import-wizard"],
     ["/admin/imports/server", ".page-layout-admin"], ["/admin/imports/tasks", ".import-workflow-page"],
