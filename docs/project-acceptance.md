@@ -60,6 +60,7 @@
 - 构建镜像 Case 需要 Docker daemon，但不授权启动容器；
 - 可选的已部署代理 Case 需要一个已由 NG 暴露的 HTTPS 地址，通过 `RETROM_ACCEPTANCE_BASE_URL` 提供；没有部署环境时只有明确标注的条件 Case 可为 `NOT_APPLICABLE`；
 - `ACC-RPG-008` 需要维护者依法持有、自包含且不含付费第三方素材/插件的 RPG Maker MZ Web Browser deployment，通过 `RPG_MZ_SMOKE_ROOT` 指定；它是声明 MZ 完成的 Required 外部前置，缺失时该 Case 为 `BLOCKED` 且整体不得声明全世代支持，不得由 Agent 下载或提交商业内容。
+- `ACC-ONS-001` 需要操作者依法持有的 ONS 项目归档，通过 `RETROM_ONS_SMOKE_ARCHIVE` 指定；归档只进入当次隔离数据根，不提交、镜像或写入结构化证据，缺失时该 Case 为 `BLOCKED`。
 - 自动化验收不得读取或下载操作者私有 ROM/BIOS。`testdata/public-roms/gba-smoke/`、`testdata/public-roms/nes-smoke/`、`testdata/public-roms/snes-smoke/`、`testdata/public-roms/arcade-smoke/` 与 `testdata/public-roms/rpgmaker-smoke/` 中的可提交测试程序均由 Retrom 自有源码确定性生成或使用清单锁定的 MIT MV CoreScript、随仓库保留许可且不包含第三方游戏、BIOS、RTP 或商业 runtime bytes。MZ 官方样例始终位于 ignored 操作者目录，只通过转换 provenance 进入 `ACC-RPG-008`。
 
 首次准备依赖可以执行：
@@ -1758,6 +1759,13 @@ Review 与所需 validation Launch。`negative-matrix/matrix.json` 必须精确�
   old/new product 的 repository dirty summary 只保存仓库相对路径，并以 UTF-8、无空白、固定 `status/path` 键序的 JSON
   `entries` 数组重算 SHA-256；任一阶段缺失、乱序、摘要不一致或 ID/route/state 不一致均失败。
 
+### ACC-ONS-001：ONS 最小产品闭环
+
+- 上限：300 秒。执行：`RETROM_ONS_SMOKE_ARCHIVE=<absolute-licensed-archive> make acceptance-case CASE=ACC-ONS-001`；同时需要公共的 `RETROM_ACCEPTANCE_BASE_URL/USERNAME/PASSWORD` 与 `RETROM_CHROME_EXECUTABLE`，基础地址必须为 HTTPS origin。
+- 流程：经正式 Upload 创建 `ONS_PROJECT_V1` Import，等待唯一 Review；打开 ONS Review Preview，聚焦真实 canvas 并发送基本键盘输入，等待第 5 秒自动截图；审核通过并发布后创建 PRODUCT Launch，再次发送输入并从 Player 创建 `ONS_SAVE_BUNDLE_V1` 存档；关闭原页面，以该存档创建 ID 不同的第二个 PRODUCT Launch，等服务端 state 响应和 runtime restore ready，再发送恢复后输入。
+- 通过标准：预览、Product 输入前后、恢复和恢复后输入共五张实际 canvas PNG 均为非黑有效画面；Product 输入前后及恢复前后输入的 RGBA digest 必须变化；自动截图后审核按钮才可通过；checkpoint payload kind、大小和服务器回执有效；原/恢复 Launch 不同；浏览器没有 page error、console error 或意外 dialog。ScriptProcessor/WebGL 性能 warning 不作为失败。
+- 证据：当次 `result.json`、`ons-product.json` 与五张 PNG。结构化证据只含非秘密产品 ID、payload kind/size、尺寸/非黑像素/RGBA digest 和错误计数，不含归档路径、文件名、游戏 bytes、账号、CSRF、cookie 或 Launch capability。该 Case 只证明锁定 `retrom-runtime` tag 与本次样本的最小兼容性，不扩大为全部 ONS 游戏兼容声明。
+
 ## 23. 缺陷处理与重验
 
 任一 Case 出现非预期行为即登记 defect，不能在原结果上直接改成 PASS：
@@ -1796,6 +1804,7 @@ red/green/root cause/fix/result/rerun 映射、green command 非零或超时的�
 - `ACC-ES-001`–`006` 全部通过；两种目录结构、删除释放和真实 mGBA 游玩证据缺一不可，私有 Batocera source 不能替代公开确定性 fixture；
 - `ACC-IMM-001`–`012` 全部通过，且当次实体 standard 手柄 smoke 通过；缺少实体手柄时必须报告 `BLOCKED`，不能删除临时方案或宣称沉浸模式发布完成；
 - `ACC-RPG-001`–`012` 全部为当次 PASS；MZ 必须使用 `RPG_MZ_SMOKE_ROOT` 指定的合法真实 deployment，七个世代必须各至少一次在不同 Launch 精确恢复到 B 点并通过恢复后 `RESTORE_INPUT`；任一只有 API/hash/load success 证据的结果都不得通过；
+- `ACC-ONS-001` 为当次 PASS，且必须包含真实导入、可见画面、基本输入、存档、不同 Launch 恢复与恢复后输入；
 - 本次发现的每个 bug 均有回归测试和 red/green 证据；
 - `make ci` 和两个镜像 build target 通过，且镜像构建没有启动服务；
 - 最终报告记录 commit/dirty 状态、环境、Case 结果、缺陷、未执行项和残余风险；
@@ -1827,5 +1836,6 @@ AI Agent 的最终交付摘要必须列出：总结果、失败/阻塞 Case ID�
 | 联机协议、安全、真实双浏览器核心与生命周期 | `ACC-NP-010`–`022` |
 | 沉浸模式独立 UI、资料库/收藏/存档导航、声音与系统菜单、真实单机 Player、内容身份缓存和输入隔离 | `ACC-IMM-001`–`012`，以及实体 standard 手柄 smoke |
 | RPG Maker 七世代核心、项目导入、route/artifact、资源包、运行验证、原生 Web 隔离、跨 Launch checkpoint 精确恢复与恢复后输入 | `ACC-RPG-001`–`012` |
+| ONS 项目导入、审核试玩、发布、基本控制、存档与不同 Launch 恢复 | `ACC-ONS-001` |
 
 本文列出的范围不包含 soak、压力或性能基准；未来若需要性能专项，应另建不阻塞一期功能验收的测试计划，不能把长时间运行 Case 混入本文。
