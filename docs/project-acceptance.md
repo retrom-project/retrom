@@ -1629,7 +1629,8 @@ Review 与所需 validation Launch。`negative-matrix/matrix.json` 必须精确�
   `http://{launchId}.rpg.localhost:<backend-port>` 直接到达 Go，不得把 runtime origin 指向 Next 端口；
   后者会把 `/__retrom/bootstrap` 当应用页面重定向到登录页，driver 必须以
   `BLOCKED/RPG_ACCEPTANCE_SECURITY_RUNTIME_ORIGIN_MISROUTED` 快速结束。应用 origin 必须使用
-  `http://localhost:<web-port>` 而不是 `127.0.0.1`，否则 `*.rpg.localhost` 与应用跨 site，浏览器不会在 entry 请求
+  `http://app.rpg.localhost:<web-port>`（或同属 `rpg.localhost` site 的等价固定 Host），不能使用 `localhost` 或
+  `127.0.0.1`；否则 `*.rpg.localhost` 与应用跨 site，浏览器不会在 entry 请求
   携带 `SameSite=Strict` capability；driver 以 `BLOCKED/RPG_ACCEPTANCE_SECURITY_RUNTIME_SITE_MISMATCH`
   快速结束。若任一本次应接受的固定 fixture
   已被该实例导入，产品会返回 `alreadyImportedItemCount>0` 且不会创建新 Review；driver 必须在尝试
