@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  browserNavigationStatus,
+  runtimeBootstrapReplayStatus,
   runtimeProjectStatus,
   runtimeRequestStatus,
   requireLocalRuntimeSite,
@@ -81,4 +83,46 @@ test("runtime frame requests reject paths outside the isolated protocol", async 
     runtimeRequestStatus(frame, "/__retrom/project/Game.exe", "DELETE"),
     /RPG_ACCEPTANCE_SECURITY_RUNTIME_METHOD_INVALID/,
   );
+});
+
+test("runtime bootstrap diagnostics stay in Chromium", async () => {
+  const navigation = [];
+  let closed = false;
+  const page = {
+    on: (event, callback) => {
+      assert.equal(event, "response");
+      page.responseCallback = callback;
+    },
+    goto: async (url) => {
+      navigation.push(url);
+      page.responseCallback({ url: () => url, status: () => 303 });
+    },
+    close: async () => { closed = true; },
+  };
+  const context = { newPage: async () => page };
+  assert.equal(await browserNavigationStatus(context, `${runtimeOrigin}/__retrom/bootstrap`), 303);
+  assert.deepEqual(navigation, [`${runtimeOrigin}/__retrom/bootstrap`]);
+  assert.equal(closed, true);
+});
+
+test("bootstrap ticket replay executes inside the runtime frame", async () => {
+  const calls = [];
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (path, init) => {
+    calls.push({ path, init });
+    return { status: 410 };
+  };
+  const frame = { evaluate: async (callback, input) => callback(input) };
+  try {
+    assert.equal(await runtimeBootstrapReplayStatus(frame, "ticket-value"), 410);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+  assert.deepEqual(calls, [{
+    path: "/__retrom/bootstrap",
+    init: {
+      method: "POST", credentials: "same-origin", redirect: "manual",
+      headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ticket: "ticket-value" }),
+    },
+  }]);
 });

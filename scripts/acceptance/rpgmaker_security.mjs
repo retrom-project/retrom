@@ -8,7 +8,8 @@ import {
   SecurityInputBlocked, singleFile,
 } from "./rpgmaker_security_upload.mjs";
 import {
-  requireLocalRuntimeSite, runtimeFrameEligible, runtimeProjectStatus, runtimeRequestStatus,
+  browserNavigationStatus, requireLocalRuntimeSite, runtimeBootstrapReplayStatus,
+  runtimeFrameEligible, runtimeProjectStatus, runtimeRequestStatus,
 } from "./rpgmaker_security_runtime.mjs";
 import { normalizedBase } from "./rpgmaker_url.mjs";
 
@@ -225,10 +226,9 @@ async function isolationCase(context, client, instances) {
     );
     await completeOriginalValidation(launched.page, launched.frame, input.generation);
     const checkpointed = await waitForValidation(client, review.itemId, launched.validationId, "CHECKPOINTED");
-    const inactiveBootstrap = await context.request.get(launched.config.adapter.bootstrapUrl, {
-      failOnStatusCode: false, maxRedirects: 0,
-    });
-    launched.bootstrap.inactiveBootstrapStatus = inactiveBootstrap.status();
+    launched.bootstrap.inactiveBootstrapStatus = await browserNavigationStatus(
+      context, launched.config.adapter.bootstrapUrl,
+    );
     const restored = await createRestoreLaunch(
       context, client, review, checkpointed, basename(restoreScreenshot),
     );
@@ -295,7 +295,7 @@ async function openValidationPlayer(context, client, created, screenshotName, in
     throw new Error("RPG_ACCEPTANCE_ISOLATION_ORIGIN_INVALID");
   }
   const probes = inspectIsolation ? await frame.evaluate(() => window.__RETROM_MALICIOUS_RESULTS__) : null;
-  const bootstrap = inspectIsolation ? await bootstrapChecks(context, config, runtimeOrigin) : null;
+  const bootstrap = inspectIsolation ? await bootstrapChecks(context, frame, config, runtimeOrigin) : null;
   if (inspectIsolation) { validateIsolation(csp, probes, securityRequests); }
   return {
     page, frame, config, csp, probes, securityRequests, bootstrap,
@@ -651,25 +651,22 @@ function sha256(contents) {
   return createHash("sha256").update(contents).digest("hex");
 }
 
-async function bootstrapChecks(context, config, runtimeOrigin) {
+async function bootstrapChecks(context, frame, config, runtimeOrigin) {
   const isolated = config.adapter?.adapterKind === "NATIVE_WEB" ? config.adapter : null;
   if (!isolated?.bootstrapUrl || !isolated.bootstrapTicket) { throw new Error("RPG_ACCEPTANCE_BOOTSTRAP_CONFIG_MISSING"); }
-  const reload = await context.request.get(isolated.bootstrapUrl, { failOnStatusCode: false, maxRedirects: 0 });
-  const replay = await context.request.post(isolated.bootstrapUrl, {
-    headers: { Origin: runtimeOrigin, "Content-Type": "application/json" },
-    data: { ticket: isolated.bootstrapTicket }, failOnStatusCode: false,
-  });
+  const authenticatedReloadStatus = await browserNavigationStatus(context, isolated.bootstrapUrl);
+  const replayStatus = await runtimeBootstrapReplayStatus(frame, isolated.bootstrapTicket);
   const appHostEntry = await context.request.get(`${baseUrl}/__retrom/entry`, { failOnStatusCode: false });
-  const runtimeAPI = await context.request.get(`${runtimeOrigin}/api/v1/admin/reviews`, { failOnStatusCode: false });
+  const runtimeApiStatus = await runtimeRequestStatus(frame, "/api/v1/admin/reviews", "GET");
   const parsedRuntime = new URL(runtimeOrigin);
   const suffix = parsedRuntime.hostname.slice(parsedRuntime.hostname.indexOf("."));
-  const confusedHost = await context.request.get(
-    `${parsedRuntime.protocol}//not-a-launch${suffix}/__retrom/entry`, { failOnStatusCode: false },
+  const confusedHostStatus = await browserNavigationStatus(
+    context, `${parsedRuntime.protocol}//not-a-launch${suffix}/__retrom/entry`,
   );
   return {
-    authenticatedReloadStatus: reload.status(), replayStatus: replay.status(),
-    appHostEntryStatus: appHostEntry.status(), runtimeApiStatus: runtimeAPI.status(),
-    confusedHostStatus: confusedHost.status(), inactiveBootstrapStatus: null,
+    authenticatedReloadStatus, replayStatus,
+    appHostEntryStatus: appHostEntry.status(), runtimeApiStatus,
+    confusedHostStatus, inactiveBootstrapStatus: null,
   };
 }
 
