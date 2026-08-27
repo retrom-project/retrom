@@ -130,7 +130,12 @@ class MakefileDependencyTests(unittest.TestCase):
         self.assertNotIn(stale_selector, runtime_cases)
         self.assertNotIn(stale_selector, expansion_cases)
         self.assertNotIn(stale_selector, support)
-        for relative_path in ("immersive.spec.ts", "immersive-library.spec.ts"):
+        for relative_path in (
+            "emulationstation-import.spec.ts",
+            "immersive.spec.ts",
+            "immersive-library.spec.ts",
+            "server-import.spec.ts",
+        ):
             immersive_cases = (REPOSITORY_ROOT / "web" / "e2e" / relative_path).read_text(encoding="utf-8")
             self.assertNotIn(stale_selector, immersive_cases)
         self.assertGreaterEqual(runtime_cases.count('test.setTimeout(180_000)'), 3)
