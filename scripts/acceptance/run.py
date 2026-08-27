@@ -27,6 +27,8 @@ CURRENT = ARTIFACTS / "current-run"
 CASE_PATTERN = re.compile(r"^### (ACC-[A-Z]+-\d{3})[：:]", re.MULTILINE)
 CONDITIONAL_CASES = {"ACC-NET-002", "ACC-DAT-006"}
 RPG_CASES = {f"ACC-RPG-{number:03d}" for number in range(1, 13)}
+ONS_CASES = {"ACC-ONS-001"}
+PRODUCT_CASES = RPG_CASES | ONS_CASES
 
 
 # These commands are intentionally focused. Cases omitted here are emitted as
@@ -445,6 +447,10 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
         )
         for case_id in RPG_CASES
     },
+    "ACC-ONS-001": (
+        300,
+        ".cache/tools/node-v24.18.0-linux-x64/bin/node scripts/acceptance/ons_product.mjs",
+    ),
 }
 
 
@@ -912,23 +918,25 @@ def execute_case(case_id: str) -> int:
                 "RETROM_ACCEPTANCE_RUN_DIR": str(run_dir),
             },
         )
-        if case_id in RPG_CASES and return_code == 3 and not timed_out:
+        if case_id in PRODUCT_CASES and return_code == 3 and not timed_out:
             status = "BLOCKED"
             reason = "缺少实际产品输入或必须由主线执行的隔离场景"
         else:
             status = "PASS" if return_code == 0 and not timed_out else "FAIL"
             reason = "聚焦自动化断言通过" if status == "PASS" else ("命令超时" if timed_out else "聚焦自动化断言失败")
-        if case_id in RPG_CASES:
-            product_path = case_dir / "rpgmaker-product.json"
+        if case_id in PRODUCT_CASES:
+            product_path = case_dir / (
+                "ons-product.json" if case_id in ONS_CASES else "rpgmaker-product.json"
+            )
             if product_path.is_file():
                 product_evidence = json.loads(product_path.read_text(encoding="utf-8"))
                 expected_product_status = "BLOCKED" if status == "BLOCKED" else "PASS"
                 if status in {"PASS", "BLOCKED"} and product_evidence.get("status") != expected_product_status:
                     status = "FAIL"
-                    reason = "RPG Maker driver 退出状态与结构化产品证据不一致"
+                    reason = "产品 driver 退出状态与结构化产品证据不一致"
             elif status in {"PASS", "BLOCKED"}:
                 status = "FAIL"
-                reason = "RPG Maker driver 未生成结构化产品证据"
+                reason = "产品 driver 未生成结构化产品证据"
     else:
         return_code = 1
         reason = "UNIMPLEMENTED_ACCEPTANCE_CASE：尚无覆盖该 Case 全部通过标准的可执行检查"
@@ -940,7 +948,7 @@ def execute_case(case_id: str) -> int:
     for path in sorted((case_dir / "screenshots").glob("*.png")):
         evidence.append(relative(path, run_dir))
     if product_evidence is not None:
-        evidence.append(relative(case_dir / "rpgmaker-product.json", run_dir))
+        evidence.append(relative(product_path, run_dir))
     if defect_resolution is not None:
         evidence.append(relative(case_dir / "rerun-resolution.json", run_dir))
         evidence.extend(
