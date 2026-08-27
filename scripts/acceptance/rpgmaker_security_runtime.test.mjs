@@ -50,7 +50,7 @@ test("runtime content probes execute inside the authenticated browser frame", as
   const originalFetch = globalThis.fetch;
   globalThis.fetch = async (path, init) => {
     calls.push({ path, init });
-    return { status: path.endsWith("Game.exe") ? 404 : 204 };
+    return { status: path.endsWith("Game.exe") || path === "/api/v1/admin/reviews" ? 404 : 204 };
   };
   const frame = {
     evaluate: async (callback, input) => callback(input),
@@ -58,6 +58,7 @@ test("runtime content probes execute inside the authenticated browser frame", as
   try {
     assert.equal(await runtimeProjectStatus(frame, "Retrom Nested/Game.exe"), 404);
     assert.equal(await runtimeRequestStatus(frame, "/__retrom/cleanup", "POST"), 204);
+    assert.equal(await runtimeRequestStatus(frame, "/api/v1/admin/reviews", "GET"), 404);
   } finally {
     globalThis.fetch = originalFetch;
   }
@@ -69,6 +70,10 @@ test("runtime content probes execute inside the authenticated browser frame", as
     {
       path: "/__retrom/cleanup",
       init: { method: "POST", credentials: "same-origin", redirect: "manual" },
+    },
+    {
+      path: "/api/v1/admin/reviews",
+      init: { method: "GET", credentials: "same-origin", redirect: "manual" },
     },
   ]);
 });
