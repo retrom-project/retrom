@@ -94,7 +94,7 @@ class MakefileDependencyTests(unittest.TestCase):
             encoding="utf-8"
         )
         self.assertIn(
-            'runtime_origin_template="http://{launchId}.rpg.localhost:${web_port}"',
+            'runtime_origin_template="http://{launchId}.rpg.localhost:${backend_port}"',
             script,
         )
         self.assertIn('RETROM_ALLOW_INSECURE_PUBLIC_ORIGIN="true"', script)
