@@ -52,6 +52,7 @@ MZ_SOURCE_SIZE_BYTES = 98_413_632
 MZ_SCENE_EXCLUSION = {"x": 24, "y": 24, "width": 360, "height": 72}
 XP_STATE_BYTES = 268_435_456
 RPG_SAVE_REQUEST_LIMIT_BYTES = 283_115_520
+USER_CORE_ID = "rpgmaker"
 
 
 @dataclass(frozen=True)
@@ -65,7 +66,7 @@ class GenerationCase:
 
 
 GENERATION_CASES = {
-    "ACC-RPG-002": GenerationCase("rpgmaker_2000", "RPG2000", None, "FAMILY_ONLY", "RPG2000_EASYRPG", "rpg2000"),
+    "ACC-RPG-002": GenerationCase("rpgmaker_2000", "RPG2000", "RPG2000", "MATCHED", "RPG2000_EASYRPG", "rpg2000"),
     "ACC-RPG-003": GenerationCase("rpgmaker_2003", "RPG2003", "RPG2003", "MATCHED", "RPG2003_EASYRPG", "rpg2003"),
     "ACC-RPG-004": GenerationCase("rpgmaker_xp", "RPGXP", "RPGXP", "MATCHED", "RPGXP_MKXP", "rpgxp"),
     "ACC-RPG-005": GenerationCase("rpgmaker_vx", "RPGVX", "RPGVX", "MATCHED", "RPGVX_MKXP", "rpgvx"),
@@ -500,7 +501,7 @@ def validate_input_transcript(value: Any, spec: GenerationCase, artifact_id: str
     if not UUID.fullmatch(str(imported.get("importJobId"))) or \
             imported.get("uploadId") != upload["uploadId"] or imported.get("state") != "COMPLETED" or \
             imported.get("payloadState") not in {"RETAINED", "RELEASING", "RELEASED"} or \
-            imported.get("platformId") != "rpgmaker" or imported.get("defaultCoreId") != spec.core_id or \
+            imported.get("platformId") != "rpgmaker" or imported.get("defaultCoreId") != USER_CORE_ID or \
             imported.get("coreArtifactId") != artifact_id or not isinstance(counts, dict) or \
             set(counts) != expected_count_keys or counts.get("total") != 1 or counts.get("published") != 1 or \
             any(counts.get(key) != 0 for key in expected_count_keys - {"total", "published"}):
