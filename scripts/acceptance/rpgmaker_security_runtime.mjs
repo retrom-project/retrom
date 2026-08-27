@@ -54,3 +54,31 @@ export async function runtimeRequestStatus(frame, path, method) {
     return response.status;
   }, { requestPath: path, requestMethod: method });
 }
+
+export async function runtimeBootstrapReplayStatus(frame, ticket) {
+  if (typeof ticket !== "string" || !ticket) {
+    throw new Error("RPG_ACCEPTANCE_SECURITY_RUNTIME_TICKET_INVALID");
+  }
+  return frame.evaluate(async (bootstrapTicket) => {
+    const response = await fetch("/__retrom/bootstrap", {
+      method: "POST", credentials: "same-origin", redirect: "manual",
+      headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ticket: bootstrapTicket }),
+    });
+    return response.status;
+  }, ticket);
+}
+
+export async function browserNavigationStatus(context, url) {
+  const page = await context.newPage();
+  let status = null;
+  page.on("response", (response) => {
+    if (response.url() === url && status === null) { status = response.status(); }
+  });
+  try {
+    await page.goto(url, { waitUntil: "domcontentloaded", timeout: 120_000 });
+    if (status === null) { throw new Error("RPG_ACCEPTANCE_SECURITY_NAVIGATION_STATUS_MISSING"); }
+    return status;
+  } finally {
+    await page.close();
+  }
+}
