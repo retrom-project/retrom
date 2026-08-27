@@ -1318,14 +1318,14 @@ make acceptance-case CASE=<case-id>
 
 - 上限：120 秒。执行：`make acceptance-case CASE=ACC-IMM-002`。
 - 流程：以至少两个平台、收藏、存档和 PlaySession 的真实已发布游戏调用 destinations/platform API；其中通过正式导入与游戏资产接口在同一 Arcade 平台准备 3 款带项目自有封面的公开测试游戏。在 1280×720 与 1920×1080 使用手柄左右环绕、A 进入、B 触发退出确认。
-- 通过标准：前四卡严格为全部游戏、最近游玩、收藏游戏、我的存档，零计数资料库卡仍保留，之后才出现有可见可运行游戏的平台；各自计数、最近时间与当前 Profile 数据一致，不泄漏另一 Profile 的收藏/存档/顺序。每卡最多三项 `featuredGames` 只使用 current MetadataRevision 封面。左右循环且 `320ms` 三卡位过渡方向正确；静态主次卡在缩放、透视、亮度和饱和度上有明确层级，位置数字和分段轨道同步。当前卡固定 `5:7` 封面堆最多三层，缺封面使用标题占位，每 `3s` 循环，换卡重置，隐藏及 reduced-motion 停止；`960×540` 到 4K 不溢出。底部方向/A/B/Select 底座与矢量图标符合设计；沉浸壳无普通侧栏、底栏、搜索、联机或管理入口；B 不静默丢失页面状态。
+- 通过标准：前四卡严格为全部游戏、最近游玩、收藏游戏、我的存档，零计数资料库卡仍保留，之后才出现有可见可运行游戏的平台；各自计数、最近时间与当前 Profile 数据一致，不泄漏另一 Profile 的收藏/存档/顺序。每卡最多三项 `featuredGames` 只使用 current MetadataRevision 封面。左右循环且 `320ms` 三卡位过渡方向正确；静态主次卡在缩放、透视、亮度和饱和度上有明确层级，位置数字和分段轨道同步。当前卡固定 `5:7` 封面堆最多三层，缺封面使用标题占位，每 `3s` 循环，换卡重置，隐藏及 reduced-motion 停止；`960×540` 到 4K 不溢出。底部方向/A/B/Select 底座与矢量图标符合设计，Select 圆形内以三个矢量点几何居中且不溢出；沉浸壳无普通侧栏、底栏、搜索、联机或管理入口；B 不静默丢失页面状态。
 - 证据：API 响应、聚合断言、两 viewport 截图与完整手柄导航 trace。
 
 ### ACC-IMM-003：游戏媒体列表
 
 - 上限：150 秒。执行：`make acceptance-case CASE=ACC-IMM-003`。
 - 流程：在同一平台准备有 COVER+VIDEO+长 description、只有封面及无媒体的游戏，使用上下逐项浏览、左右每次快速翻 8 项并跨过 50 项分页边界，再以 B 返回平台页后重新进入。
-- 通过标准：左侧标题选择与右侧媒体/描述同步；COVER+VIDEO 并存时两容器高度测量误差不超过 1px；VIDEO 只为当前稳定选择在 700ms 后请求和播放，切走立即停止且页面最多一个 video；长 description 的 `scrollHeight` 大于容器且 `overflow-y:auto`，实际滚动后可到达后续正文，切换游戏重置顶部，不以行数截断；缺失或错误媒体有稳定回退，分页无重复/漏项。返回后平台焦点恢复，重新进入游戏列表时行为确定。
+- 通过标准：左侧标题选择与右侧媒体/描述同步；首项及其焦点描边不被顶部遮罩或滚动容器裁切，没有目录副标题的序号、标题和收藏心形在条目内垂直居中；COVER+VIDEO 并存时两容器高度测量误差不超过 1px；VIDEO 只为当前稳定选择在 700ms 后请求和播放，切走立即停止且页面最多一个 video；长 description 的 `scrollHeight` 大于容器且 `overflow-y:hidden`，顶部阅读停留后自动滚动到后续正文，到底停留并回到顶部，切换游戏重置顶部，隐藏时不推进，reduced-motion 下保持顶部静止且不截断辅助技术文本；缺失或错误媒体有稳定回退，分页无重复/漏项。返回后平台焦点恢复，重新进入游戏列表时行为确定。
 - 证据：媒体端点 network trace、DOM/分页断言、有/无媒体截图与 video 数量断言。
 
 ### ACC-IMM-004：真实 GBA 单机游玩闭环
@@ -1339,7 +1339,7 @@ make acceptance-case CASE=<case-id>
 
 - 上限：180 秒。执行：`make acceptance-case CASE=ACC-IMM-005`。
 - 流程：在真实 GBA Player 中依次发送单独 Select、Start、一次完整 chord、满足 `100/60/650ms` 的双 chord；菜单中用左右/A/B 取消，再次打开并创建存档，第三次打开后退出。
-- 通过标准：单键按判定窗后到 Core；第一次 chord 作为前缀被抑制且不打开菜单；第二次 chord 先将全部本地输入归零并确认 Core 暂停，菜单严格为“取消、创建存档、退出游戏”且默认取消。取消只恢复本菜单拥有的暂停；创建存档上传同一时刻的 state 与 PNG 截图且防重复提交，成功后可由当前 Profile 读取并恢复；不支持捕获时按钮禁用并说明。退出执行 finish/revoke，无粘键、无自动存档、无输入穿透。
+- 通过标准：单键按判定窗后到 Core；第一次 chord 作为前缀被抑制且不打开菜单；第二次 chord 先将全部本地输入归零、在 Core 暂停前发起运行帧截图并确认 Core 暂停，菜单严格为“取消、创建存档、退出游戏”且默认取消。取消只恢复本菜单拥有的暂停；创建存档复用暂停前截图并捕获暂停后的 state 一并上传，防止重复提交和暂停后黑帧，成功后可由当前 Profile 读取并恢复；不支持捕获时按钮禁用并说明。退出执行 finish/revoke，无粘键、无自动存档、无输入穿透。
 - 证据：fake-clock 状态机输出、Player adapter/Gamepad 快照、pause owner trace、菜单截图与网络时序。
 
 ### ACC-IMM-006：Arcade 与多输入回归
@@ -1372,7 +1372,7 @@ make acceptance-case CASE=<case-id>
   使用锁定拼音首字母、其他为 `#`，改名的新 revision 在同一事务更新键。除最近范围外均按
   `titleInitial/title COLLATE NOCASE/gameId` 无重复漏项；最近范围只按本 Profile 最近时间倒序。收藏视图可
   切换本人 Folder，另一 Profile 的 Folder 统一不可见；Y 新增 Favorite 但不自动加入 Folder，取消同时移除
-  memberships，服务端失败不乐观伪造成功且旧 cursor 被丢弃。
+  memberships，服务端失败不乐观伪造成功且旧 cursor 被丢弃。收藏后红色实心爱心固定在当前游戏项最右侧，不落入标题下方。
 - 证据：fresh schema/约束与 writer 集成断言、API 分页 tuple、双 Profile HTTP trace、收藏视图截图及 Y 输入
   trace。
 
@@ -1383,7 +1383,7 @@ make acceptance-case CASE=<case-id>
   浏览截图并选择旧存档启动，验证 Core 恢复，再从 Player 菜单创建一份新存档并返回列表。
 - 通过标准：入口计数与列表只包含当前 Profile 未删除存档，游戏和存档均按契约排序；截图走 Profile 私有
   no-store 端点，跨 Profile 读取失败且不泄露存在性。Launch config 的 stateUrl 精确指向所选存档，真实 Core
-  恢复到对应画面；Player 创建的新 state/PNG 原子可见且只属于当前 Profile。取消、退出、失败上传和不支持
+  恢复到对应画面；右侧不重复游戏名，上半区展示与其他游戏列表一致的封面/视频媒体舞台，并与平台游戏页保持相同约 62% 高度占比，下半区只展示从左到右排列的全部存档；存档轨道按下半区外层可用高度自适应，当前存档框宽明显大于其他存档框，切换后保持可见且框下时间完整落在容器内。截图加载成功且实际像素不为全黑/近全黑；不显示自动“手动存档 XXXX”名称，创建时间在每个框下方右对齐。Player 创建的新 state/PNG 原子可见且只属于当前 Profile。取消、退出、失败上传和不支持
   adapter 均不产生半份或自动存档。
 - 证据：双 Profile API/network trace、存档截图/选择 UI、Launch config、Core 恢复帧、新 SaveState 数据与
   失败注入断言。
@@ -1395,7 +1395,7 @@ make acceptance-case CASE=<case-id>
   返回；模拟一次 autoplay 拒绝，再用 Select 打开菜单并逐项调整、静音，以 A 完成一次全屏成功、一次拒绝
   与退出；实体手柄 smoke 还必须在未替换 Fullscreen API 时完成同一路径。
 - 通过标准：只请求站内 `/audio/immersive/insert-coin.ogg`，浏览时 loop/preload，自动播放拒绝显示可由 A/
-  点击恢复的提示且不阻断导航；隐藏、BGM 静音/零音量、进入 Player、退出或卸载立即暂停，返回可见浏览时
+  点击恢复的提示且不阻断导航；入口、任意平台和四类资料库之间的客户端导航保留同一音频节点、currentTime 与 playing 状态，不增加 pause/play 调用；隐藏、BGM 静音/零音量、进入 Player、退出或卸载立即暂停，返回可见浏览时
   尽力恢复，BGM 与 Core 音频不重叠。系统菜单顺序严格为背景音乐音量/静音、游戏音量/静音、进入全屏/
   退出；上下、左右 10%、A/B 与 live status 可访问。key `retrom:immersive:audio-preferences:v1` 只存四字段
   严格 payload，默认 40%/100% 且均不静音；非法或 storage failure 回退但本次内存设置可用。游戏组值应用到

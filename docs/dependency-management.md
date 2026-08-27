@@ -67,9 +67,9 @@ data/auth/password-blocklists/v1/
 
 | 命令 | 确切行为 |
 | --- | --- |
-| `make data-check` | 只校验已提交的小文件：EmulatorJS manifest schema V7、artifact compatibility V5、多盘 kind/limits、普通与联机 Player adapter registry 双向一致、netplay core-profile exact allowlist、DAT/许可字段与 `SHA256SUMS`；RPG aggregate Release identity、七条 route/artifact、adapter registry 和文件 allowlist 双向一致；以及密码 blocklist manifest 的固定 tag/commit、URL、行数、size/SHA 和 MIT 许可。无 payload、无网络时也必须通过。 |
+| `make data-check` | 只校验已提交的小文件：EmulatorJS manifest schema V7、artifact compatibility V5、多盘 kind/limits、普通与联机 Player adapter registry 双向一致、netplay core-profile exact allowlist、公开 CPS fixture 布局绑定的 source commit/DAT hash/machine count、DAT/许可字段与 `SHA256SUMS`；RPG aggregate Release identity、七条 route/artifact、adapter registry 和文件 allowlist 双向一致；以及密码 blocklist manifest 的固定 tag/commit、URL、行数、size/SHA 和 MIT 许可。不得打开被忽略的生产 DAT；无 payload、无网络时也必须通过。 |
 | `make prepare-deps` | 对 `RETROM_DEPENDENCY_VERSIONS` 中缺失/错误的 EmulatorJS runtime/core/DAT/许可、单一 `retrom-runtime` tag Release，以及账户密码 blocklist/许可执行固定来源下载、校验、必要的确定性转换、解包与原子发布，生成 notice；默认 EJS 版本为 `4.2.3,4.3.0-pre`，最后隐式执行 `deps-check`。已有正确缓存时不重复取得对应 payload。RPG runtime 只从 manifest 锁定的 aggregate release repo/tag/tag commit/asset URL 下载，不验证远端 expected SHA；下载后计算的 observed size/SHA 只用于同一本地缓存的损坏检测和诊断。本命令不调用 Docker、CMake、Meson、Emscripten 或任何 RPG runtime 编译器。任一必需 asset 缺失、URL/tag/commit/metadata 形状漂移、下载不完整或为符号链接都 fail closed，绝不从其他 ignored 路径复制或本地重建。 |
-| `make deps-check` | 不联网，逐个校验 EJS/RPG 运行时 allowlist、当前 selected artifact、本机 observed digest、可选 DAT、override 与许可输入，以及密码 blocklist 的 size/SHA/10,000 行和许可。缺少、额外发布或不匹配均失败。 |
+| `make deps-check` | 不联网，逐个校验 EJS/RPG 运行时 allowlist、当前 selected artifact、本机 observed digest、可选 DAT、override、许可输入、确定性 notice，以及密码 blocklist 的 size/SHA/10,000 行和许可；同时把公开 CPS fixture 的 ROM 布局逐项核对到已物化的生产 DAT。缺少、额外发布或不匹配均失败。 |
 | `make release-input-digest` | 不联网、不写工作树，按本节算法校验并只向 stdout 输出 64 位小写 `releaseInputDigest`；镜像 target 调用同一 helper，不复制 shell 算法。 |
 | `make dev` | 先依赖 `prepare-deps`，然后只启动宿主机 Go/Next.js 进程；依赖准备不改变“非 Docker”契约。 |
 

@@ -71,9 +71,9 @@
 | `make api-check` | 在临时目录用固定生成器验证 OpenAPI 和两端生成结果，逐字节比较已提交的 TypeScript schema，并拒绝 Go 生成物被跟踪或未被 ignore | 仅依赖产物 |
 | `make web-e2e` | 先执行 `prepare-e2e-browser`，再用缓存中固定 Chrome for Testing 运行关键 Playwright 场景，包括项目自有 GBA/NES/SNES/Arcade 单机与双浏览器联机产品链路 | 会写浏览器缓存并产生本地报告 |
 | `make public-fixtures-check` | 从仓库内唯一生成源重建公开 ROM/metadata fixture 到临时目录，逐字节核对 bytes、SHA-256、许可、三个 GBA 来源身份及真实产品消费者；不得读取私有 source | 否 |
-| `make data-check` | 离线校验 Makefile/GitHub Actions 的 clean-checkout 依赖顺序、`docs/design` 图片不跟踪/不引用边界，以及已提交的小型依赖 manifest/SHA-256/DAT/许可配方 schema；无 payload 也通过 | 否 |
+| `make data-check` | 离线校验 Makefile/GitHub Actions 的 clean-checkout 依赖顺序、`docs/design` 图片不跟踪/不引用边界，以及已提交的小型依赖 manifest/SHA-256/DAT/许可配方 schema；CPS fixture 只与已提交的 source commit/hash/count 元数据对齐，不读取生产 DAT，无 payload 也通过 | 否 |
 | `make prepare-deps` | 按固定 manifest 物化 EmulatorJS/core/五份 DAT/许可文件并生成 notice；两个 FBA2012 DAT 从锁定源码确定性原生生成两次；正确缓存不联网；完成后执行 `deps-check` | 会写被忽略的依赖缓存 |
-| `make deps-check` | 完全离线校验本地 allowlist、core、DAT、override、许可输入/notice 及 DAT 统计 | 否 |
+| `make deps-check` | 完全离线校验本地 allowlist、core、DAT、override、许可输入/notice、DAT 统计，以及 CPS fixture ROM 布局与已物化生产 DAT 的逐项一致性 | 否 |
 | `make release-input-digest` | 离线计算依赖专题规定的源码/依赖发布输入指纹，stdout 只输出 64 位小写 SHA-256 | 否 |
 | `make ci` | `quality-structure-check + api-check + backend-check + web-check + integration-test + data-check` | 仅依赖/构建产物与被忽略的 Go 生成物 |
 | `make dev` | 先生成被忽略的 Go API 文件并执行 `prepare-deps + web-install`，再在宿主机启动 Go/Next.js 本地进程并统一处理退出信号；不使用 Docker | 会写本地依赖/开发数据缓存与被忽略的 Go 生成物 |
@@ -502,11 +502,11 @@ RPG Maker fixture 必须遵守同一再分发规则：生成源、许可、固�
   `titleInitial/title/gameId` 分页与 recent 时序例外、媒体/描述 current revision、签名 cursor 的范围绑定、
   未知 query、非法 folderId、隐藏平台 404 和媒体 revision 退役；
 - React 测试使用可控 Gamepad source 覆盖首页显式/手柄两种入口、焦点保持、同帧方向+A、destination 左右
-  环绕和定向动画、资料库/平台游戏浏览、收藏夹、Y 默认收藏、存档选择、长简介滚动、媒体等高、700ms
+  环绕和定向动画、资料库/平台游戏浏览、收藏夹、Y 默认收藏及红色右侧爱心、存档横向大/小框选择与非黑屏截图、长简介无滚动条自动滚动及 reduced-motion 静止、媒体等高、700ms
   视频延迟、路由/隐藏时手柄认领保持、真实断连去抖、SSR 稳定时钟、错误/空状态和 B 返回；普通 PC/移动
   导航与壳不得出现沉浸控件；
 - BGM/系统菜单测试使用可控 media、visibility、Fullscreen 和 localStorage，覆盖内置 OGG、自动播放阻断
-  提示、隐藏/静音/零音量/Player/卸载暂停、可见恢复、两组音量严格 v1 payload/default/failure、Select
+  提示、共享 layout 内跨入口/平台/资料库导航的同节点与播放位置连续性、隐藏/静音/零音量/Player/卸载暂停、可见恢复、两组音量严格 v1 payload/default/failure、Select
   菜单顺序、上下/左右/A/B 与全屏拒绝；测试不得真实播放或写全局用户状态；
 - Player adapter 测试必须证明过滤器先于 loader 安装、仅过滤活动手柄 Select/Start、第一次 chord 不泄漏、
   菜单期间所有本地手柄归零、取消只恢复本菜单拥有的暂停、创建存档只走手动非空 state+可选截图链路且 payload 失败可重试、

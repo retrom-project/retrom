@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type RefObject } from "react";
 import { useAuth } from "@/features/auth/auth-provider";
 import { markImmersivePlayerReturn } from "@/features/immersive/active-gamepad";
-import { captureManualScreenshot, type DiscSet, type DiscState, type EmulatorInstance, type ManualScreenshot, type PlayerConfig } from "./adapters/ejs-4.2.3-v2";
+import { captureManualScreenshot, type DiscSet, type DiscState, type EmulatorInstance, type ManualScreenshot, type ManualStatePayload, type PlayerConfig } from "./adapters/ejs-4.2.3-v2";
 import { reportMultiDiscPlayerEvent, type MultiDiscPlayerEvent } from "./multi-disc-telemetry";
 import { setEmulatorPaused } from "./pause-control";
 import { captureBeforePause } from "./pause-screenshot";
@@ -32,6 +32,8 @@ import type { RpgRuntimeValidationDriver } from "./rpg-runtime-validation";
 export { readBoundedResponse, reportsNativeExit } from "./player-shell-model";
 
 type ShellState = "loading" | "running" | "error";
+type Mutable<T> = { current: T };
+type UploadManualState = (payload: ManualStatePayload) => Promise<boolean>;
 
 const initialDebugRuntime: PlayerDebugRuntime = {
   runtimeFamily: "",
@@ -39,13 +41,30 @@ const initialDebugRuntime: PlayerDebugRuntime = {
   crossOriginIsolated: false, sharedArrayBuffer: false,
 };
 
-export function PlayerShell({
-  launchId,
-  experience = "standard",
-}: {
-  launchId: string;
-  experience?: "standard" | "immersive";
-}) {
+function useImmersiveSaveActions(
+  emulatorRef: Mutable<EmulatorInstance | undefined>,
+  manualSaveAvailableRef: Mutable<boolean>,
+  pauseCaptureRef: Mutable<Promise<ManualScreenshot | null>>,
+  lastScreenshotRef: Mutable<ManualScreenshot | null>,
+  uploadManualState: UploadManualState,
+) {
+  const beginImmersivePauseCapture = useCallback(() => {
+    const current = emulatorRef.current;
+    lastScreenshotRef.current = null;
+    if (!current) {pauseCaptureRef.current = Promise.resolve(null); return;}
+    const capture = captureManualScreenshot(current).then((screenshot) => {
+      lastScreenshotRef.current = screenshot;
+      return screenshot;
+    });
+    pauseCaptureRef.current = captureBeforePause(capture, () => undefined);
+  }, [emulatorRef, lastScreenshotRef, pauseCaptureRef]);
+  const saveImmersiveGame = useCallback(() => saveImmersivePlayerState(
+    emulatorRef.current, manualSaveAvailableRef.current, uploadManualState, pauseCaptureRef.current,
+  ), [emulatorRef, manualSaveAvailableRef, pauseCaptureRef, uploadManualState]);
+  return { beginImmersivePauseCapture, saveImmersiveGame };
+}
+
+export function PlayerShell({ launchId, experience = "standard" }: { launchId: string; experience?: "standard" | "immersive" }) {
   const router = useRouter();
   const { context } = useAuth();
   const userId = context.user?.userId;
@@ -209,7 +228,7 @@ export function PlayerShell({
     setSyncText, setSyncTone, showToast, replaceImmersiveRoute,
   }), [launchId, replaceImmersiveRoute, showToast]);
   const { sendEvent, uploadManualState, uploadValidationCheckpoint, exit, exitStrict } = usePlayerSession(sessionParams);
-  const saveImmersiveGame = useCallback(() => saveImmersivePlayerState(emulator.current, manualSaveAvailableRef.current, uploadManualState), [uploadManualState]);
+  const { beginImmersivePauseCapture, saveImmersiveGame } = useImmersiveSaveActions(emulator, manualSaveAvailableRef, pauseCapture, lastManualScreenshot, uploadManualState);
   const handleImmersiveFatal = useImmersiveFatalHandler(setMessage, setState);
   const immersive = useImmersivePlayer({
     enabled: experience === "immersive",
@@ -220,6 +239,7 @@ export function PlayerShell({
     exitStrict,
     saveAvailable: manualSaveAvailable,
     saveGame: saveImmersiveGame,
+    beforeMenuPause: beginImmersivePauseCapture,
     onFatalError: handleImmersiveFatal,
   });
 

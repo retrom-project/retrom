@@ -2269,6 +2269,7 @@
     #retrom-ui-review .rt-im-help { display:flex;gap:26px;align-items:center;color:#aaa5c3;font-size:13px;font-weight:700 }
     #retrom-ui-review .rt-im-help kbd { width:28px;min-width:28px;height:28px;margin-right:8px;border:1px solid rgba(255,255,255,.2);border-radius:50%;display:inline-grid;place-items:center;color:white;background:rgba(255,255,255,.09);box-shadow:none }
     #retrom-ui-review .rt-im-help kbd svg { width:18px;height:18px;display:block;overflow:visible;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round }
+    #retrom-ui-review .rt-im-help kbd[data-button="Select"] svg { fill:currentColor;stroke:none }
     #retrom-ui-review .rt-im-help kbd[data-button="A"] { color:#6ee7ad;border-color:rgba(110,231,173,.5) }
     #retrom-ui-review .rt-im-help kbd[data-button="B"] { color:#ff8792;border-color:rgba(255,135,146,.5) }
     #retrom-ui-review .rt-im-topbar { display:flex;justify-content:space-between;align-items:center;position:relative;z-index:1 }
@@ -2307,16 +2308,22 @@
     #retrom-ui-review .rt-im-folder { padding:10px 16px;border:1px solid rgba(255,255,255,.13);border-radius:999px;color:#aaa5c0;background:rgba(255,255,255,.04);font-weight:750 }
     #retrom-ui-review .rt-im-folder.is-selected { color:white;border-color:#8d78ff;background:rgba(103,75,223,.55);box-shadow:0 0 0 4px rgba(112,83,231,.13) }
     #retrom-ui-review .rt-im-favorite-state { display:inline-flex;align-items:center;gap:8px;margin-top:14px;color:#ff9ebe;font-weight:800 }
-    #retrom-ui-review .rt-im-save-list { display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-top:18px }
-    #retrom-ui-review .rt-im-save { min-height:104px;padding:15px;border:1px solid rgba(255,255,255,.12);border-radius:17px;display:grid;grid-template-columns:112px minmax(0,1fr);gap:13px;color:#aaa5bc;background:rgba(255,255,255,.04);text-align:left }
-    #retrom-ui-review .rt-im-save.is-selected { color:white;border-color:#927dff;background:rgba(103,75,223,.32);box-shadow:0 0 0 4px rgba(112,83,231,.14) }
-    #retrom-ui-review .rt-im-save-shot { border-radius:10px;background:radial-gradient(circle at 52% 34%,#ba6a47 0 5%,transparent 6%),linear-gradient(#8994be 0 54%,#2d324b 55% 67%,#10131f 68%) }
-    #retrom-ui-review .rt-im-save strong,#retrom-ui-review .rt-im-save small { display:block }
-    #retrom-ui-review .rt-im-save small { margin-top:8px;line-height:1.45;color:#aaa5bc }
+    #retrom-ui-review .rt-im-save-stage { min-width:0;min-height:0;overflow:hidden;border:1px solid rgba(255,255,255,.11);border-radius:30px;display:grid;grid-template-rows:minmax(0,62%) minmax(0,38%);background:linear-gradient(155deg,rgba(25,33,54,.88),rgba(8,12,21,.94));box-shadow:0 30px 70px rgba(0,0,0,.3) }
+    #retrom-ui-review .rt-im-save-media { min-height:0;border:0;border-radius:0;padding:18px;box-shadow:none }
+    #retrom-ui-review .rt-im-save-carousel { min-width:0;min-height:0;padding:12px 0 10px;border-top:1px solid rgba(255,255,255,.11);display:grid;grid-template-rows:auto minmax(0,1fr) }
+    #retrom-ui-review .rt-im-save-heading { padding:0 32px;display:flex;align-items:center;justify-content:space-between;gap:20px;color:#aaa5bc;font-size:14px }
+    #retrom-ui-review .rt-im-save-heading strong { color:#50d6ca;letter-spacing:.08em }
+    #retrom-ui-review .rt-im-save-list { min-width:0;min-height:0;padding:10px 32px 4px;display:flex;gap:16px;align-items:center;overflow:hidden }
+    #retrom-ui-review .rt-im-save { flex:0 0 16%;padding:0;border:0;display:grid;gap:6px;color:#aaa5bc;background:transparent;text-align:left;opacity:.56;transform:scale(.92) }
+    #retrom-ui-review .rt-im-save.is-selected { flex-basis:32%;color:white;opacity:1;transform:none }
+    #retrom-ui-review .rt-im-save-shot { width:100%;aspect-ratio:16/10;border:2px solid rgba(255,255,255,.16);border-radius:16px;display:block;background:radial-gradient(circle at 52% 34%,#ba6a47 0 5%,transparent 6%),linear-gradient(#8994be 0 54%,#2d324b 55% 67%,#10131f 68%);box-shadow:0 16px 42px rgba(0,0,0,.3) }
+    #retrom-ui-review .rt-im-save.is-selected .rt-im-save-shot { border-color:#927dff;box-shadow:0 0 0 5px rgba(117,96,255,.18),0 26px 64px rgba(0,0,0,.42) }
+    #retrom-ui-review .rt-im-save time { justify-self:end;font-variant-numeric:tabular-nums;line-height:1.2;white-space:nowrap }
     #retrom-ui-review .rt-im-game-layout { flex:1;min-height:0;margin-top:38px;display:grid;grid-template-columns:minmax(300px,31vw) minmax(0,1fr);gap:clamp(28px,4vw,72px);position:relative;z-index:1 }
     #retrom-ui-review .rt-im-game-list { min-height:0;padding-right:16px;display:flex;flex-direction:column;justify-content:center;gap:10px }
-    #retrom-ui-review .rt-im-game-row { padding:17px 22px;border-left:4px solid transparent;border-radius:0 16px 16px 0;color:#8f8ba3;font-size:clamp(18px,1.6vw,28px);font-weight:750;white-space:nowrap;overflow:hidden;text-overflow:ellipsis }
+    #retrom-ui-review .rt-im-game-row { padding:17px 22px;border-left:4px solid transparent;border-radius:0 16px 16px 0;display:flex;align-items:center;gap:14px;color:#8f8ba3;font-size:clamp(18px,1.6vw,28px);font-weight:750;white-space:nowrap;overflow:hidden;text-overflow:ellipsis }
     #retrom-ui-review .rt-im-game-row.is-selected { border-left-color:#9b88ff;color:white;background:linear-gradient(90deg,rgba(112,82,230,.48),rgba(112,82,230,.04));font-size:clamp(23px,2vw,34px) }
+    #retrom-ui-review .rt-im-game-row .rt-im-row-heart { margin-left:auto;color:#ff4f64;font-size:1.05em }
     #retrom-ui-review .rt-im-game-preview { min-height:0;display:grid;grid-template-rows:minmax(0,1fr) auto;gap:24px }
     #retrom-ui-review .rt-im-media { min-height:320px;border:1px solid rgba(255,255,255,.11);border-radius:30px;display:grid;grid-template-columns:minmax(190px,34%) minmax(0,1fr);gap:24px;padding:24px;background:rgba(13,16,27,.78);box-shadow:0 30px 70px rgba(0,0,0,.3) }
     #retrom-ui-review .rt-im-cover { min-height:0;border-radius:20px;background:linear-gradient(155deg,#eed889 0 16%,#213b5b 17% 55%,#d14f3d 56% 66%,#141a28 67%);box-shadow:0 22px 50px rgba(0,0,0,.4);position:relative;overflow:hidden }
@@ -2325,7 +2332,7 @@
     #retrom-ui-review .rt-im-video span { width:74px;height:74px;border:1px solid rgba(255,255,255,.35);border-radius:999px;display:grid;place-items:center;background:rgba(0,0,0,.34);font-size:27px }
     #retrom-ui-review .rt-im-description { padding:0 8px 10px }
     #retrom-ui-review .rt-im-description h1 { margin:0 0 10px;font-size:clamp(30px,3vw,54px) }
-    #retrom-ui-review .rt-im-description p { max-height:150px;margin:0;padding-right:10px;overflow-y:auto;color:#aaa6bb;font-size:clamp(14px,1.25vw,20px);line-height:1.7;scrollbar-color:rgba(117,96,255,.72) rgba(255,255,255,.07);scrollbar-width:thin }
+    #retrom-ui-review .rt-im-description p { max-height:150px;margin:0;padding-right:10px;overflow-y:hidden;color:#aaa6bb;font-size:clamp(14px,1.25vw,20px);line-height:1.7;scrollbar-width:none }
     #retrom-ui-review .rt-im-fullscreen-recovery { position:absolute;z-index:3;top:18px;right:28px;min-height:42px;padding:0 15px;color:#f8f7ff;background:rgba(18,24,39,.92);border:1px solid rgba(255,255,255,.18);border-radius:14px;font-weight:800;box-shadow:0 14px 42px rgba(0,0,0,.42) }
     #retrom-ui-review .rt-im-player { display:grid;place-items:center;background:#020305 }
     #retrom-ui-review .rt-im-game-frame { width:min(1180px,84vw);aspect-ratio:4/3;border:1px solid #303443;background:radial-gradient(circle at 50% 35%,#463a51,#171a27 38%,#050609 70%);box-shadow:0 0 100px rgba(97,76,180,.2) }
@@ -2460,7 +2467,7 @@
   <section class="rt-immersive-design" data-immersive-page="immersive-platforms" aria-label="沉浸模式入口选择" hidden>
     <div class="rt-im-stage">
       <button type="button" class="rt-im-fullscreen-recovery">⛶ 进入全屏</button>
-      <div class="rt-im-topbar"><div class="rt-im-brand"><span class="rt-im-brand-mark">R</span> 沉浸模式</div><div class="rt-im-help"><span><kbd role="img" aria-label="左右方向键"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 12h8M10 8l-4 4 4 4M14 8l4 4-4 4"></path></svg></kbd>切换</span><span><kbd data-button="A">A</kbd>进入</span><span><kbd data-button="B">B</kbd>退出</span><span><kbd style="font-size:8px">SEL</kbd>菜单</span></div></div>
+      <div class="rt-im-topbar"><div class="rt-im-brand"><span class="rt-im-brand-mark">R</span> 沉浸模式</div><div class="rt-im-help"><span><kbd role="img" aria-label="左右方向键"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 12h8M10 8l-4 4 4 4M14 8l4 4-4 4"></path></svg></kbd>切换</span><span><kbd data-button="A">A</kbd>进入</span><span><kbd data-button="B">B</kbd>退出</span><span><kbd data-button="Select" role="img" aria-label="Select"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="12" r="1.8"></circle><circle cx="12" cy="12" r="1.8"></circle><circle cx="18" cy="12" r="1.8"></circle></svg></kbd>菜单</span></div></div>
       <header class="rt-im-heading"><span class="rt-im-eyebrow">选择入口</span><h1>你的游戏，在这里开始</h1><p>先浏览四个资料库入口，再选择游戏平台</p></header>
       <div class="rt-im-destination-order" aria-label="入口固定顺序"><span>01 全部游戏</span><span class="is-current">02 最近游玩</span><span>03 收藏游戏</span><span>04 我的存档</span><span>05 Arcade</span><span>06 Game Boy Advance</span></div>
       <div class="rt-im-platforms">
@@ -2474,21 +2481,21 @@
 
   <section class="rt-immersive-design" data-immersive-page="immersive-games" aria-label="沉浸模式游戏选择" hidden>
     <div class="rt-im-stage">
-      <div class="rt-im-topbar"><div class="rt-im-brand"><span class="rt-im-brand-mark">♥</span> 收藏游戏 · 18 款</div><div class="rt-im-help"><span><kbd role="img" aria-label="上下方向键"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8v8M8 10l4-4 4 4M8 14l4 4 4-4"></path></svg></kbd>选择游戏</span><span><kbd data-button="Y">Y</kbd>默认收藏</span><span><kbd data-button="A">A</kbd>开始</span><span><kbd data-button="B">B</kbd>返回</span><span><kbd style="font-size:8px">SEL</kbd>菜单</span></div></div>
+      <div class="rt-im-topbar"><div class="rt-im-brand"><span class="rt-im-brand-mark">♥</span> 收藏游戏 · 18 款</div><div class="rt-im-help"><span><kbd role="img" aria-label="上下方向键"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8v8M8 10l4-4 4 4M8 14l4 4 4-4"></path></svg></kbd>选择游戏</span><span><kbd data-button="Y">Y</kbd>默认收藏</span><span><kbd data-button="A">A</kbd>开始</span><span><kbd data-button="B">B</kbd>返回</span><span><kbd data-button="Select" role="img" aria-label="Select"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="12" r="1.8"></circle><circle cx="12" cy="12" r="1.8"></circle><circle cx="18" cy="12" r="1.8"></circle></svg></kbd>菜单</span></div></div>
       <div class="rt-im-folders" aria-label="收藏夹"><button type="button" class="rt-im-folder">全部收藏 · 18</button><button type="button" class="rt-im-folder is-selected">街机精选 · 8</button><button type="button" class="rt-im-folder">想玩的 · 6</button><button type="button" class="rt-im-folder">双人游戏 · 4</button></div>
       <div class="rt-im-game-layout">
-        <nav class="rt-im-game-list" aria-label="街机精选收藏夹"><div class="rt-im-game-row">1941</div><div class="rt-im-game-row">四国战机 2</div><div class="rt-im-game-row is-selected">打击者 1945 加强版</div><div class="rt-im-game-row">合金弹头</div><div class="rt-im-game-row">拳皇 98</div></nav>
-        <article class="rt-im-game-preview"><div class="rt-im-media"><div class="rt-im-cover" aria-label="封面"></div><div class="rt-im-video" aria-label="视频预览"><span>▶</span></div></div><div class="rt-im-description"><span class="rt-im-eyebrow">S · Psikyo · 1999 · 飞行射击</span><h1>打击者 1945 加强版</h1><p tabindex="0">经典纵向飞行射击。选择战机，穿越密集弹幕并挑战多阶段首领；支持单人或双人协作。游戏保留了街机版高速推进、路线切换和多阶段 Boss 战，较长的完整简介会在这里形成可聚焦滚动区域，而不是直接截断。</p><span class="rt-im-favorite-state">♥ 已收藏 · Y 取消默认收藏</span></div></article>
+        <nav class="rt-im-game-list" aria-label="街机精选收藏夹"><div class="rt-im-game-row">1941</div><div class="rt-im-game-row">四国战机 2</div><div class="rt-im-game-row is-selected"><span>打击者 1945 加强版</span><b class="rt-im-row-heart" aria-label="已收藏">♥</b></div><div class="rt-im-game-row">合金弹头</div><div class="rt-im-game-row">拳皇 98</div></nav>
+        <article class="rt-im-game-preview"><div class="rt-im-media"><div class="rt-im-cover" aria-label="封面"></div><div class="rt-im-video" aria-label="视频预览"><span>▶</span></div></div><div class="rt-im-description"><span class="rt-im-eyebrow">S · Psikyo · 1999 · 飞行射击</span><h1>打击者 1945 加强版</h1><p data-auto-scroll="true">经典纵向飞行射击。选择战机，穿越密集弹幕并挑战多阶段首领；支持单人或双人协作。游戏保留了街机版高速推进、路线切换和多阶段 Boss 战，较长的完整简介会在这里自动向下滚动，而不显示滚动条或直接截断。</p></div></article>
       </div>
     </div>
   </section>
 
   <section class="rt-immersive-design" data-immersive-page="immersive-saves" aria-label="沉浸模式存档浏览" hidden>
     <div class="rt-im-stage">
-      <div class="rt-im-topbar"><div class="rt-im-brand"><span class="rt-im-brand-mark">▣</span> 我的存档 · 12 款游戏</div><div class="rt-im-help"><span><kbd role="img" aria-label="上下方向键"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8v8M8 10l4-4 4 4M8 14l4 4 4-4"></path></svg></kbd>选择</span><span><kbd data-button="A">A</kbd>从存档开始</span><span><kbd data-button="B">B</kbd>返回</span><span><kbd style="font-size:8px">SEL</kbd>菜单</span></div></div>
+      <div class="rt-im-topbar"><div class="rt-im-brand"><span class="rt-im-brand-mark">▣</span> 我的存档 · 12 款游戏</div><div class="rt-im-help"><span><kbd role="img" aria-label="上下方向键"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8v8M8 10l4-4 4 4M8 14l4 4 4-4"></path></svg></kbd>选择</span><span><kbd data-button="A">A</kbd>从存档开始</span><span><kbd data-button="B">B</kbd>返回</span><span><kbd data-button="Select" role="img" aria-label="Select"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="12" r="1.8"></circle><circle cx="12" cy="12" r="1.8"></circle><circle cx="18" cy="12" r="1.8"></circle></svg></kbd>菜单</span></div></div>
       <div class="rt-im-game-layout">
         <nav class="rt-im-game-list" aria-label="有存档的游戏"><div class="rt-im-game-row">1941 · 12 份</div><div class="rt-im-game-row is-selected">打击者 1945 加强版 · 2 份</div><div class="rt-im-game-row">塞尔达传说 · 4 份</div></nav>
-        <article class="rt-im-game-preview"><div class="rt-im-media"><div class="rt-im-cover" aria-label="封面"></div><div class="rt-im-save-list" aria-label="打击者 1945 加强版存档"><button type="button" class="rt-im-save is-selected"><span class="rt-im-save-shot" aria-label="存档截图"></span><span><strong>今天 15:16</strong><small>手动存档<br>从这里继续</small></span></button><button type="button" class="rt-im-save"><span class="rt-im-save-shot" aria-label="存档截图"></span><span><strong>昨天 22:14</strong><small>手动存档<br>第二关</small></span></button></div></div><div class="rt-im-description"><span class="rt-im-eyebrow">S · Arcade · FinalBurn Neo</span><h1>选择一份存档继续</h1><p>截图与状态只属于当前用户；A 将使用选中的存档创建普通单机 Launch，B 返回游戏列表后可无存档重新开始。</p></div></article>
+        <article class="rt-im-save-stage"><div class="rt-im-media rt-im-save-media"><div class="rt-im-cover" aria-label="封面"></div><div class="rt-im-video" aria-label="视频预览"><span>▶</span></div></div><section class="rt-im-save-carousel"><header class="rt-im-save-heading"><strong>我的存档 · 1 / 3</strong><span>左右切换 · A 从这里继续</span></header><div class="rt-im-save-list" aria-label="打击者 1945 加强版存档"><button type="button" class="rt-im-save is-selected"><span class="rt-im-save-shot" aria-label="第 1 份存档截图"></span><time>今天 15:16</time></button><button type="button" class="rt-im-save"><span class="rt-im-save-shot" aria-label="第 2 份存档截图"></span><time>昨天 22:14</time></button><button type="button" class="rt-im-save"><span class="rt-im-save-shot" aria-label="第 3 份存档截图"></span><time>8 月 23 日 19:42</time></button></div></section></article>
       </div>
     </div>
   </section>
