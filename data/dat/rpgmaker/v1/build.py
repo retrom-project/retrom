@@ -34,15 +34,19 @@ EXPECTED_FILES = {
     "runtime/mkxp/mkxp-z_libretro.wasm": ("mkxp-z_libretro.wasm", "runtime_wasm", 64 << 20),
     "runtime/mkxp/position_bridge.rb": ("position_bridge.rb", "adapter_bridge", 16 << 10),
     "runtime/native/bridge.js": ("native-bridge.js", "adapter_bridge", 128 << 10),
+    "runtime/ons/onsyuri.js": ("onsyuri.js", "runtime_js", 1 << 20),
+    "runtime/ons/onsyuri.wasm": ("onsyuri.wasm", "runtime_wasm", 16 << 20),
+    "licenses/onsyuri/COPYING": ("onsyuri-COPYING", "license", 64 << 10),
 }
 EXPECTED_ROUTES = {
-    "RPG2000_EASYRPG": ("rpgmaker_2000", "RPG2000", "EASYRPG_WEB", "easyrpg-web", "easyrpg-save"),
-    "RPG2003_EASYRPG": ("rpgmaker_2003", "RPG2003", "EASYRPG_WEB", "easyrpg-web", "easyrpg-save"),
-    "RPGXP_MKXP": ("rpgmaker_xp", "RPGXP", "MKXP_LIBRETRO_WEB", "mkxp-libretro-web", "mkxp-state"),
-    "RPGVX_MKXP": ("rpgmaker_vx", "RPGVX", "MKXP_LIBRETRO_WEB", "mkxp-libretro-web", "mkxp-state"),
-    "RPGVXACE_MKXP": ("rpgmaker_vx_ace", "RPGVXACE", "MKXP_LIBRETRO_WEB", "mkxp-libretro-web", "mkxp-state"),
-    "RPGMV_NATIVE": ("rpgmaker_mv", "RPGMV", "NATIVE_WEB", "native-web", "native-save"),
-    "RPGMZ_NATIVE": ("rpgmaker_mz", "RPGMZ", "NATIVE_WEB", "native-web", "native-save"),
+    "RPG2000_EASYRPG": ("rpgmaker_2000", "RPGMAKER", "RPG2000", "EASYRPG_WEB", "easyrpg-web", "easyrpg-save"),
+    "RPG2003_EASYRPG": ("rpgmaker_2003", "RPGMAKER", "RPG2003", "EASYRPG_WEB", "easyrpg-web", "easyrpg-save"),
+    "RPGXP_MKXP": ("rpgmaker_xp", "RPGMAKER", "RPGXP", "MKXP_LIBRETRO_WEB", "mkxp-libretro-web", "mkxp-state"),
+    "RPGVX_MKXP": ("rpgmaker_vx", "RPGMAKER", "RPGVX", "MKXP_LIBRETRO_WEB", "mkxp-libretro-web", "mkxp-state"),
+    "RPGVXACE_MKXP": ("rpgmaker_vx_ace", "RPGMAKER", "RPGVXACE", "MKXP_LIBRETRO_WEB", "mkxp-libretro-web", "mkxp-state"),
+    "RPGMV_NATIVE": ("rpgmaker_mv", "RPGMAKER", "RPGMV", "NATIVE_WEB", "native-web", "native-save"),
+    "RPGMZ_NATIVE": ("rpgmaker_mz", "RPGMAKER", "RPGMZ", "NATIVE_WEB", "native-web", "native-save"),
+    "ONS_YURI": ("onscripter_yuri", "ONS", "ONS", "ONS_YURI_WEB", "ons-yuri-web", "ons-save"),
 }
 
 
@@ -75,7 +79,7 @@ def safe_path(value: object) -> PurePosixPath:
 def validate_manifest(manifest: object) -> None:
     if not isinstance(manifest, dict) or set(manifest) != {
         "schema_version", "runtime_id", "release", "runtime_files", "artifacts",
-    } or manifest.get("schema_version") != 2 or manifest.get("runtime_id") != "rpgmaker":
+    } or manifest.get("schema_version") != 3 or manifest.get("runtime_id") != "retrom-runtime":
         raise BuildError("RPG_RUNTIME_MANIFEST_INVALID")
     release = manifest.get("release")
     if not isinstance(release, dict) or set(release) != {
@@ -128,7 +132,7 @@ def validate_artifacts(value: object, tag: str) -> None:
     selected: set[str] = set()
     for artifact in value:
         required = {
-            "core_id", "generation", "route_key", "runtime_adapter_kind", "runtime_version",
+            "core_id", "runtime_family", "generation", "route_key", "runtime_adapter_kind", "runtime_version",
             "adapter_id", "adapter_abi", "entry_path", "file_paths", "requires_threads",
             "save_payload_kind", "save_max_bytes", "selected_for_new_bindings",
             "available_for_launch", "compatibility",
@@ -137,7 +141,7 @@ def validate_artifacts(value: object, tag: str) -> None:
             raise BuildError("RPG_RUNTIME_ARTIFACT_DECLARATION_INVALID")
         route = EXPECTED_ROUTES.get(artifact.get("route_key"))
         actual = tuple(artifact.get(key) for key in (
-            "core_id", "generation", "runtime_adapter_kind", "adapter_id", "adapter_abi",
+            "core_id", "runtime_family", "generation", "runtime_adapter_kind", "adapter_id", "adapter_abi",
         ))
         if route is None or actual != route or artifact["route_key"] in seen or artifact.get("runtime_version") != tag:
             raise BuildError("RPG_RUNTIME_ARTIFACT_ROUTE_INVALID")
@@ -150,7 +154,7 @@ def validate_artifacts(value: object, tag: str) -> None:
             raise BuildError("RPG_RUNTIME_ARTIFACT_FILES_INVALID")
         seen.add(artifact["route_key"])
         selected.add(artifact["core_id"])
-    if seen != set(EXPECTED_ROUTES) or len(selected) != 7:
+    if seen != set(EXPECTED_ROUTES) or len(selected) != 8:
         raise BuildError("RPG_RUNTIME_ARTIFACT_ROUTE_INVALID")
 
 

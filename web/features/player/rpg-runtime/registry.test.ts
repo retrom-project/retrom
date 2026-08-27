@@ -87,7 +87,7 @@ describe("RPG runtime registry", () => {
     const registry = readJson<{ schemaVersion: number; routes: FrontendRoute[] }>("features/player/rpg-runtime/registry.json");
     expect(registry.schemaVersion).toBe(1);
     expect(registry.routes).toHaveLength(7);
-    const expected = manifest.artifacts.map((route) => ({
+    const expected = manifest.artifacts.filter((route) => route.runtime_family === "RPGMAKER").map((route) => ({
       adapterId: route.adapter_id,
       adapterKind: route.runtime_adapter_kind,
       coreId: route.core_id,
@@ -129,6 +129,7 @@ type ManifestRoute = {
   generation: string;
   route_key: string;
   runtime_adapter_kind: string;
+  runtime_family: string;
 };
 
 type FrontendRoute = {

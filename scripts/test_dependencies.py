@@ -228,7 +228,7 @@ class RPGMakerDependencyTests(unittest.TestCase):
             {"schema_version", "runtime_id", "release", "runtime_files", "artifacts"},
             set(self.manifest),
         )
-        self.assertEqual(7, len(self.manifest["artifacts"]))
+        self.assertEqual(8, len(self.manifest["artifacts"]))
         serialized = json.dumps(self.manifest)
         for stale in ("source_archives", "runtime_releases", "recipe_path", "retrom-web-"):
             self.assertNotIn(stale, serialized)

@@ -2426,6 +2426,10 @@ BEFORE INSERT ON core_artifacts
 WHEN (
   NEW.runtime_family='RPGMAKER'
 ) <> EXISTS(SELECT 1 FROM rpgmaker_core_generations mapping WHERE mapping.core_id=NEW.core_id)
+OR NEW.core_id='onscripter_yuri' AND NEW.runtime_family<>'ONS'
+OR NEW.runtime_family='ONS' AND NOT (
+  NEW.core_id='onscripter_yuri' AND NEW.runtime_adapter_kind='ONS_YURI_WEB' AND NEW.route_key='ONS_YURI'
+)
 OR NEW.runtime_family='RPGMAKER' AND NOT (
   NEW.core_id IN ('rpgmaker_2000','rpgmaker_2003')
     AND NEW.runtime_adapter_kind='EASYRPG_WEB'

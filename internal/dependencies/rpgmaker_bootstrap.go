@@ -58,7 +58,7 @@ func retireUndeclaredRPGMakerArtifacts(
 	rows, err := transaction.QueryContext(ctx, `
 SELECT id,core_id,route_key,artifact_set_sha256
 FROM core_artifacts
-WHERE runtime_family='RPGMAKER' AND (selected_for_new_bindings=1 OR available_for_launch=1)
+WHERE runtime_family IN ('RPGMAKER','ONS') AND (selected_for_new_bindings=1 OR available_for_launch=1)
 `)
 	if err != nil {
 		return fmt.Errorf("list RPG Maker artifacts for retirement: %w", err)
@@ -102,9 +102,9 @@ func retireConflictingRPGMakerArtifacts(
 	if _, err := transaction.ExecContext(ctx, `
 UPDATE core_artifacts
 SET selected_for_new_bindings=0,available_for_launch=0,version=version+1,updated_at_ms=?
-WHERE runtime_family='RPGMAKER' AND core_id=? AND route_key=? AND artifact_set_sha256<>?
+WHERE runtime_family=? AND core_id=? AND route_key=? AND artifact_set_sha256<>?
 AND (selected_for_new_bindings=1 OR available_for_launch=1)
-`, now.UnixMilli(), artifact.CoreID, artifact.RouteKey, artifact.ArtifactSetSHA256); err != nil {
+`, now.UnixMilli(), artifact.RuntimeFamily, artifact.CoreID, artifact.RouteKey, artifact.ArtifactSetSHA256); err != nil {
 		return fmt.Errorf("retire conflicting RPG Maker artifact: %w", err)
 	}
 	return nil
@@ -160,9 +160,9 @@ INSERT INTO core_artifacts(
  entry_path,size_bytes,sha256,manifest_sha256,artifact_set_sha256,requires_threads,
  save_payload_kind,save_max_bytes,provenance_json,compatibility_json,
  selected_for_new_bindings,available_for_launch,version,created_at_ms,updated_at_ms)
-VALUES(?,?,?,'RPGMAKER',?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,1,?,?)
+VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,1,?,?)
 ON CONFLICT(core_id,route_key,artifact_set_sha256) DO NOTHING
-`, id, artifact.CoreID, artifact.RouteKey, artifact.RuntimeAdapterKind, artifact.RuntimeVersion,
+`, id, artifact.CoreID, artifact.RouteKey, artifact.RuntimeFamily, artifact.RuntimeAdapterKind, artifact.RuntimeVersion,
 		artifact.AdapterID, artifact.EntryPath, artifact.EntrySizeBytes, artifact.EntrySHA256,
 		version.ManifestSHA256, artifact.ArtifactSetSHA256, boolToInteger(artifact.RequiresThreads),
 		artifact.SavePayloadKind, artifact.SaveMaxBytes, string(provenance), string(compatibility),
@@ -172,12 +172,12 @@ ON CONFLICT(core_id,route_key,artifact_set_sha256) DO NOTHING
 	var storedManifest, storedProvenance string
 	if err := transaction.QueryRowContext(ctx, `
 SELECT id,manifest_sha256,provenance_json FROM core_artifacts
-WHERE core_id=? AND route_key=? AND runtime_family='RPGMAKER' AND runtime_adapter_kind=?
+WHERE core_id=? AND route_key=? AND runtime_family=? AND runtime_adapter_kind=?
 AND runtime_version=? AND adapter_id=? AND entry_path=? AND size_bytes=? AND sha256=?
 AND artifact_set_sha256=? AND requires_threads=?
 AND save_payload_kind=? AND save_max_bytes=? AND compatibility_json=?
 AND available_for_launch=?
-`, artifact.CoreID, artifact.RouteKey, artifact.RuntimeAdapterKind, artifact.RuntimeVersion,
+`, artifact.CoreID, artifact.RouteKey, artifact.RuntimeFamily, artifact.RuntimeAdapterKind, artifact.RuntimeVersion,
 		artifact.AdapterID, artifact.EntryPath, artifact.EntrySizeBytes, artifact.EntrySHA256,
 		artifact.ArtifactSetSHA256, boolToInteger(artifact.RequiresThreads),
 		artifact.SavePayloadKind, artifact.SaveMaxBytes, string(compatibility), available,
