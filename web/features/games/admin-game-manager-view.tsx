@@ -63,7 +63,7 @@ export type AdminGameManagerViewProps = {
   onRetryPayloadRelease: () => void;
   onRemoveVideo: () => void;
   onReplaceAsset: (file: File, kind: "COVER" | "VIDEO", ordinal: number) => void;
-  onReplaceContent: (files: File[], mode: "STANDARD" | "MULTI_DISC_M3U_V1") => Promise<boolean>;
+  onReplaceContent: (files: File[], mode: "STANDARD" | "MULTI_DISC_M3U_V1" | "RPG_MAKER_PROJECT_V1") => Promise<boolean>;
   onRescrape: () => void;
   onSaveMetadata: (event: FormEvent<HTMLFormElement>) => void;
   onSaveTags: () => void;
@@ -120,11 +120,21 @@ function DiscEvidence({ canonicalPlaylistSHA256, discs }: { canonicalPlaylistSHA
   return <div className="admin-game-disc-evidence"><div><strong>当前盘序</strong><code title={canonicalPlaylistSHA256}>playlist SHA-256 · {canonicalPlaylistSHA256 || "不可用"}</code></div><ol>{discs.map((disc, index) => <li key={disc.sha256}><span>光盘 {index + 1}</span><strong>{disc.logicalName}</strong><small>{formatBytes(disc.sizeBytes)} · {disc.sha256.slice(0, 12)}…</small></li>)}</ol></div>;
 }
 
+function replacementContentPresentation(contentKind: string | undefined, multiDiscAvailable: boolean) {
+  if (contentKind === "RPG_MAKER_PROJECT_V1") {
+    return { key: "rpgmaker", label: "RPG Maker 项目", mode: "RPG_MAKER_PROJECT_V1" as const };
+  }
+  if (contentKind === "MULTI_DISC_M3U_V1") {
+    return { key: "multi", label: "多盘 M3U", mode: "MULTI_DISC_M3U_V1" as const };
+  }
+  return { key: multiDiscAvailable ? "multi-capable" : "standard", label: "普通内容", mode: "STANDARD" as const };
+}
+
 function RuntimeManager(props: Pick<AdminGameManagerViewProps, "canonicalPlaylistSHA256" | "currentContent" | "currentDiscs" | "currentFile" | "currentInstance" | "currentRuntime" | "currentVariant" | "disabled" | "game" | "multiDiscReplacementLimits" | "onReplaceContent" | "runtime">) {
-  const multiDisc = props.currentContent?.contentKind === "MULTI_DISC_M3U_V1";
-  return <section className="panel admin-game-runtime" id="admin-game-runtime"><div className="panel-head"><h2>游戏文件与运行环境</h2></div><div className="panel-body"><div className="admin-game-runtime-grid"><div><span>当前游戏文件</span><strong>{props.currentFile}</strong></div><div><span>内容类型</span><strong>{multiDisc ? "多盘 M3U" : "普通内容"}</strong></div><div><span>推荐运行方式</span><strong>{props.currentInstance?.defaultCoreName ?? props.currentVariant?.coreName ?? "尚未配置"}</strong></div><div><span>兼容状态</span><strong className={props.runtime.tone}>{props.runtime.label}</strong></div><div><span>最后验证</span><strong>{formatTime(props.currentRuntime?.createdAtMs)}</strong></div></div>
+  const content = replacementContentPresentation(props.currentContent?.contentKind, props.multiDiscReplacementLimits !== null);
+  return <section className="panel admin-game-runtime" id="admin-game-runtime"><div className="panel-head"><h2>游戏文件与运行环境</h2></div><div className="panel-body"><div className="admin-game-runtime-grid"><div><span>当前游戏文件</span><strong>{props.currentFile}</strong></div><div><span>内容类型</span><strong>{content.label}</strong></div><div><span>推荐运行方式</span><strong>{props.currentInstance?.defaultCoreName ?? props.currentVariant?.coreName ?? "尚未配置"}</strong></div><div><span>兼容状态</span><strong className={props.runtime.tone}>{props.runtime.label}</strong></div><div><span>最后验证</span><strong>{formatTime(props.currentRuntime?.createdAtMs)}</strong></div></div>
     <DiscEvidence canonicalPlaylistSHA256={props.canonicalPlaylistSHA256} discs={props.currentDiscs} />
-    <div className="admin-game-runtime-note"><p>替换内容必须与当前 ROM 不同。新内容验证通过后才切换，并清理旧游戏文件、运行快照及其绑定存档；失败时不会改动当前内容。</p><GameContentReplacementDialog key={`${props.currentContent?.id ?? "none"}:${props.multiDiscReplacementLimits ? "multi" : "standard"}`} initialMode={multiDisc ? "MULTI_DISC_M3U_V1" : "STANDARD"} multiDiscLimits={props.multiDiscReplacementLimits} saveStateCount={props.game.deleteImpact.saveStateCount} disabled={props.disabled} onSubmit={props.onReplaceContent} /></div>
+    <div className="admin-game-runtime-note"><p>替换内容必须与当前 ROM 不同。新内容验证通过后才切换，并清理旧游戏文件、运行快照及其绑定存档；失败时不会改动当前内容。</p><GameContentReplacementDialog key={`${props.currentContent?.id ?? "none"}:${content.key}`} initialMode={content.mode} multiDiscLimits={props.multiDiscReplacementLimits} saveStateCount={props.game.deleteImpact.saveStateCount} disabled={props.disabled} onSubmit={props.onReplaceContent} /></div>
     <details className="admin-game-technical"><summary>技术详情</summary><div>{props.game.contentRevisions.map((revision) => <p key={revision.id}><strong>{revision.current ? "当前内容" : "历史内容"}</strong> · {revision.contentKind} · {formatTime(revision.createdAtMs)} · {revision.files.length ? revision.files.map((file) => file.logicalName).join("、") : "载荷已释放"}<code>{revision.id}</code></p>)}{props.game.variants.map((variant) => <p key={variant.id}><strong>{variant.coreName}</strong> · {variant.revisions.map((revision) => `${revision.current ? "当前" : "历史"} ${revision.status}`).join(" / ")}<code>{variant.id}</code></p>)}</div></details>
   </div></section>;
 }

@@ -3252,7 +3252,8 @@ WHEN NOT EXISTS(
   SELECT 1 FROM upload_sessions upload
   WHERE upload.id=NEW.upload_session_id AND (
     upload.purpose='GENERAL' AND NEW.consumer_type<>'RUNTIME_ASSET_PACK_INSTALLATION'
-    OR upload.purpose='RPG_MAKER_PROJECT' AND NEW.consumer_type='IMPORT_JOB'
+    OR upload.purpose='RPG_MAKER_PROJECT'
+      AND NEW.consumer_type IN ('IMPORT_JOB','GAME_FILE_REVISION_JOB')
     OR upload.purpose='ONS_PROJECT' AND NEW.consumer_type='IMPORT_JOB'
     OR upload.purpose='RUNTIME_ASSET_PACK'
       AND NEW.consumer_type='RUNTIME_ASSET_PACK_INSTALLATION'

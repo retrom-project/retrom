@@ -193,7 +193,7 @@ CREATE TABLE rpgmaker_variant_profiles (
   dependency_snapshot_sha256 TEXT NOT NULL CHECK(
     length(dependency_snapshot_sha256)=64 AND dependency_snapshot_sha256=lower(dependency_snapshot_sha256)
   ),
-  runtime_validation_id TEXT NOT NULL UNIQUE REFERENCES rpgmaker_runtime_validations(id)
+  runtime_validation_id TEXT UNIQUE REFERENCES rpgmaker_runtime_validations(id)
 );
 
 CREATE TABLE variant_dependencies (
