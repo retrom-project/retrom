@@ -504,6 +504,6 @@ func validateEmptyGateEvidence(
 func engineProfile(generation string) string {
 	return map[string]string{
 		"RPG2000": "rpg2k", "RPG2003": "rpg2k3", "RPGXP": "rgss1", "RPGVX": "rgss2",
-		"RPGVXACE": "rgss3", "RPGMV": "mv-v1", "RPGMZ": "mz-v1",
+		"RPGVXACE": "rgss3", "RPGMV": "RPGMV", "RPGMZ": "RPGMZ",
 	}[generation]
 }

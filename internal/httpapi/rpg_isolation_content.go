@@ -41,12 +41,12 @@ const rpgBootstrapDocument = `<!doctype html>
 (()=>{"use strict";
 const p=%s;
 let used=false;
-parent.postMessage({type:"RETROM_RPG_NATIVE_BOOTSTRAP_READY",protocolVersion:1},p);
+parent.postMessage({type:"RPG_RUNTIME_NATIVE_BOOTSTRAP_READY",protocolVersion:1},p);
 addEventListener("message",async e=>{
   const d=e.data;
   if(used||e.source!==parent||e.origin!==p||!d||typeof d!=="object"||
     Object.keys(d).sort().join(",")!=="protocolVersion,ticket,type"||
-    d.type!=="RETROM_RPG_NATIVE_BOOTSTRAP"||d.protocolVersion!==1||typeof d.ticket!=="string")return;
+    d.type!=="RPG_RUNTIME_NATIVE_BOOTSTRAP"||d.protocolVersion!==1||typeof d.ticket!=="string")return;
   used=true;
   try{
     const r=await fetch("/__retrom/bootstrap",{method:"POST",credentials:"same-origin",
@@ -54,7 +54,7 @@ addEventListener("message",async e=>{
     if(!r.ok)throw new Error();
     location.replace("/__retrom/entry");
   }catch(_){
-    parent.postMessage({type:"RETROM_RPG_NATIVE_BOOTSTRAP_FAILED",protocolVersion:1},p);
+    parent.postMessage({type:"RPG_RUNTIME_NATIVE_BOOTSTRAP_FAILED",protocolVersion:1},p);
   }
 });
 })()

@@ -31,7 +31,6 @@ RPG_MAKER_DAT_ROOT = DATA_ROOT / "dat/rpgmaker/v1"
 RPG_MAKER_MANIFEST_PATH = RPG_MAKER_DAT_ROOT / "manifest.json"
 RPG_MAKER_RUNTIME_ROOT = DATA_ROOT / "runtime/rpgmaker/v1"
 RPG_MAKER_BUILD_PATH = RPG_MAKER_DAT_ROOT / "build.py"
-RPG_MAKER_REPRODUCTION_PATH = RPG_MAKER_DAT_ROOT / "REPRODUCING.md"
 RPG_MAKER_PLAYER_REGISTRY_PATH = (
     REPOSITORY_ROOT / "web/features/player/rpg-runtime/registry.json"
 )
@@ -977,43 +976,12 @@ def image_export_entries(
     add(NETPLAY_MANIFEST_PATH, "netplay/v2/manifest.json")
     add(NETPLAY_SCHEMA_PATH, "netplay/v2/schema.json")
     add(RPG_MAKER_MANIFEST_PATH, "dat/rpgmaker/v1/manifest.json")
-    add(RPG_MAKER_REPRODUCTION_PATH, "dat/rpgmaker/v1/REPRODUCING.md")
-    build = rpg_maker_manifest["build"]
-    for key in (
-        "recipe_path", "easyrpg_patch_path", "mkxp_bridge_path", "native_bridge_v3_path",
-        "native_bridge_v4_path", "native_bridge_v5_path", "native_bridge_v6_path", "native_bridge_v7_path",
-    ):
-        relative = safe_relative_path(build[key], "RPG_RUNTIME_IMAGE_EXPORT_PATH_INVALID")
-        add(RPG_MAKER_DAT_ROOT / relative, f"dat/rpgmaker/v1/{relative}")
     for item in rpg_maker_manifest["runtime_files"]:
         relative = safe_relative_path(item["path_in_release"], "RPG_RUNTIME_IMAGE_EXPORT_PATH_INVALID")
         add(RPG_MAKER_RUNTIME_ROOT / relative, f"runtime/rpgmaker/v1/{relative}")
     add(
-        RPG_MAKER_RUNTIME_ROOT / ".release-assets-observed.json",
-        "runtime/rpgmaker/v1/.release-assets-observed.json",
-    )
-    for directory_name in ("corresponding-source", "licenses"):
-        directory = RPG_MAKER_RUNTIME_ROOT / directory_name
-        if directory.is_symlink() or not directory.is_dir():
-            raise CheckError(f"RPG_RUNTIME_IMAGE_EXPORT_SOURCE_INVALID:{directory_name}")
-        for source in sorted(directory.rglob("*")):
-            if source.is_symlink():
-                raise CheckError(f"RPG_RUNTIME_IMAGE_EXPORT_SOURCE_INVALID:{source.name}")
-            if source.is_dir():
-                continue
-            if not source.is_file():
-                raise CheckError(f"RPG_RUNTIME_IMAGE_EXPORT_SOURCE_INVALID:{source.name}")
-            relative = safe_relative_path(
-                source.relative_to(directory).as_posix(),
-                "RPG_RUNTIME_IMAGE_EXPORT_PATH_INVALID",
-            )
-            add(
-                source,
-                f"runtime/rpgmaker/v1/{directory_name}/{relative}",
-            )
-    add(
-        RPG_MAKER_RUNTIME_ROOT / "THIRD_PARTY_NOTICES",
-        "runtime/rpgmaker/v1/THIRD_PARTY_NOTICES",
+        RPG_MAKER_RUNTIME_ROOT / ".release-observed.json",
+        "runtime/rpgmaker/v1/.release-observed.json",
     )
     return entries
 

@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
-"""Unit tests for tag-pinned RPG runtime release assets."""
+"""Unit tests for the aggregate retrom-runtime Release consumer."""
 
 from __future__ import annotations
 
+import copy
 import importlib.util
+import io
 import json
 import sys
+import tarfile
 import tempfile
 import unittest
 from pathlib import Path
@@ -13,184 +16,114 @@ from unittest.mock import patch
 
 
 ROOT = Path(__file__).resolve().parents[1]
-MODULE_PATH = ROOT / "data/dat/rpgmaker/v1/release_assets.py"
-SPEC = importlib.util.spec_from_file_location("retrom_rpg_release_assets", MODULE_PATH)
+MODULE_PATH = ROOT / "data/dat/rpgmaker/v1/build.py"
+SPEC = importlib.util.spec_from_file_location("retrom_rpg_runtime_build", MODULE_PATH)
 if SPEC is None or SPEC.loader is None:
-    raise RuntimeError("RPG_RELEASE_ASSET_IMPORT_FAILED")
-RELEASES = importlib.util.module_from_spec(SPEC)
-sys.modules[SPEC.name] = RELEASES
-SPEC.loader.exec_module(RELEASES)
+    raise RuntimeError("RPG_RUNTIME_BUILD_IMPORT_FAILED")
+BUILD = importlib.util.module_from_spec(SPEC)
+sys.modules[SPEC.name] = BUILD
+SPEC.loader.exec_module(BUILD)
 
 
-def release(
-    release_id: str,
-    repository: str,
-    tag: str,
-    commit: str,
-    abi: str,
-    version: str,
-    basename: str,
-) -> dict[str, object]:
-    base = f"{repository}/releases/download/{tag}"
-    assets = [
+def metadata(manifest: dict[str, object]) -> bytes:
+    release = manifest["release"]
+    files = [
         {
-            "filename": f"{basename}.js",
-            "url": f"{base}/{basename}.js",
-            "path_in_release": f"{version}/{basename}.js",
-            "role": "runtime_js",
-            "max_size_bytes": 1024 * 1024,
-        },
-        {
-            "filename": f"{basename}.wasm",
-            "url": f"{base}/{basename}.wasm",
-            "path_in_release": f"{version}/{basename}.wasm",
-            "role": "runtime_wasm",
-            "max_size_bytes": 64 * 1024 * 1024,
-        },
-    ]
-    return {
-        "id": release_id,
-        "repository": repository,
-        "tag": tag,
-        "tag_commit": commit,
-        "adapter_abi": abi,
-        "binary_association": "TAGGED_RELEASE_COMPATIBLE",
-        "metadata_asset": {
-            "filename": "retrom-runtime-release.json",
-            "url": f"{base}/retrom-runtime-release.json",
-            "max_size_bytes": 65536,
-        },
-        "assets": assets,
-    }
-
-
-def declarations() -> list[dict[str, object]]:
-    return [
-        release(
-            "easyrpg",
-            "https://github.com/xxxsen/Player",
-            "retrom-web-0.8.1.1-r2",
-            "6" * 40,
-            "easyrpg-save-v1",
-            "0.8.1.1-v4",
-            "easyrpg-player",
-        ),
-        release(
-            "easyrpg-r3",
-            "https://github.com/xxxsen/Player",
-            "retrom-web-0.8.1.1-r3",
-            "7" * 40,
-            "easyrpg-save-v1",
-            "0.8.1.1-v5",
-            "easyrpg-player",
-        ),
-        release(
-            "mkxp",
-            "https://github.com/xxxsen/mkxp-z-libretro-emscripten",
-            "retrom-web-f2efc98-r1",
-            "8" * 40,
-            "mkxp-state-v1",
-            "f2efc98-v3",
-            "mkxp-z_libretro",
-        ),
-    ]
-
-
-def metadata(item: dict[str, object]) -> bytes:
-    assets = [
-        {
-            "filename": asset["filename"],
-            "observedSha256": "0" * 64,
-            "sizeBytes": 1,
+            "path": item["bundle_path"],
+            "filename": Path(item["bundle_path"]).name,
+            "sizeBytes": len(f"payload:{item['bundle_path']}".encode()),
+            "sha256": "metadata-digest-is-not-an-admission-coordinate",
         }
-        for asset in item["assets"]
+        for item in manifest["runtime_files"]
     ]
-    value = {
-        "adapterAbi": item["adapter_abi"],
-        "assets": assets,
-        "commit": item["tag_commit"],
-        "digestPolicy": "OBSERVED_CACHE_INTEGRITY_ONLY",
-        "repository": item["repository"],
+    return json.dumps({
         "schemaVersion": 1,
-        "tag": item["tag"],
-    }
-    if item["id"] == "mkxp":
-        value["sourceCommits"] = RELEASES.MKXP_SOURCE_COMMITS
-    return json.dumps(value).encode()
+        "repository": release["repository"],
+        "tag": release["tag"],
+        "commit": release["tag_commit"],
+        "version": release["tag"][1:],
+        "publicApiVersion": 1,
+        "files": files,
+    }).encode()
+
+
+def bundle(manifest: dict[str, object]) -> bytes:
+    output = io.BytesIO()
+    with tarfile.open(fileobj=output, mode="w:gz") as archive:
+        for item in manifest["runtime_files"]:
+            contents = f"payload:{item['bundle_path']}".encode()
+            record = tarfile.TarInfo(f"./{item['bundle_path']}")
+            record.size = len(contents)
+            archive.addfile(record, io.BytesIO(contents))
+    return output.getvalue()
 
 
 class RPGMakerReleaseAssetTests(unittest.TestCase):
-    def test_manifest_shape_rejects_expected_digest_and_floating_identity(self) -> None:
-        valid = declarations()
-        self.assertEqual({"easyrpg", "easyrpg-r3", "mkxp"}, set(RELEASES.validate(valid)))
-        for mutator in (
-            lambda values: values[0]["assets"][0].update({"sha256": "0" * 64}),
-            lambda values: values[0].update({"tag": "latest"}),
-            lambda values: values[0].update({"repository": "https://github.com/other/Player"}),
-            lambda values: values[1]["assets"][0].update({"url": "https://example.com/core.js"}),
-        ):
-            values = declarations()
-            mutator(values)
-            with self.assertRaises(RELEASES.ReleaseAssetError):
-                RELEASES.validate(values)
+    def setUp(self) -> None:
+        self.manifest = BUILD.load_manifest()
 
-    def test_materialize_records_observed_digest_and_detects_local_tamper(self) -> None:
-        values = declarations()
-        queues: list[bytes] = []
-        expected: dict[str, bytes] = {}
-        for item in values:
-            queues.append(metadata(item))
-            for asset in item["assets"]:
-                contents = f"payload:{asset['filename']}".encode()
-                queues.append(contents)
-                expected[asset["path_in_release"]] = contents
+    def test_manifest_contains_only_one_release_and_seven_current_routes(self) -> None:
+        BUILD.validate_manifest(self.manifest)
+        self.assertEqual(7, len(self.manifest["artifacts"]))
+        self.assertEqual(
+            set(BUILD.EXPECTED_ROUTES),
+            {item["route_key"] for item in self.manifest["artifacts"]},
+        )
+        serialized = json.dumps(self.manifest)
+        for stale in ("runtime_releases", "source_archives", "retrom-web-", "_V3", "_V4", "_V5", "_V6", "_V7"):
+            self.assertNotIn(stale, serialized)
+
+    def test_prepare_materializes_one_tag_directory_and_records_observed_integrity(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
-            with patch.object(RELEASES, "download_bytes", side_effect=queues):
-                RELEASES.materialize(values, root, offline=False)
-            observed = RELEASES.verify(values, root)
-            self.assertEqual(set(expected), set(observed))
-            for path, contents in expected.items():
-                self.assertEqual(contents, (root / path).read_bytes())
-            target = root / values[0]["assets"][0]["path_in_release"]
+            root = Path(temporary) / "runtime"
+            with patch.object(BUILD, "download_bytes", side_effect=[metadata(self.manifest), bundle(self.manifest)]):
+                BUILD.prepare(self.manifest, root, offline=False)
+            BUILD.verify_runtime(self.manifest, root)
+            self.assertEqual(
+                [self.manifest["release"]["tag"]],
+                sorted(path.name for path in root.iterdir() if path.is_dir()),
+            )
+            self.assertEqual(
+                f"payload:{self.manifest['runtime_files'][0]['bundle_path']}".encode(),
+                (root / self.manifest["runtime_files"][0]["path_in_release"]).read_bytes(),
+            )
+            observed = json.loads((root / BUILD.OBSERVED_FILENAME).read_text())
+            self.assertEqual(self.manifest["release"]["tag"], observed["tag"])
+            self.assertEqual(8, len(observed["files"]))
+
+    def test_release_metadata_sha_is_not_a_remote_admission_coordinate(self) -> None:
+        records = BUILD.validate_release_metadata(self.manifest, metadata(self.manifest))
+        self.assertEqual(
+            "metadata-digest-is-not-an-admission-coordinate",
+            records[self.manifest["runtime_files"][0]["bundle_path"]]["sha256"],
+        )
+
+    def test_local_tamper_and_offline_missing_release_fail_closed(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary) / "runtime"
+            with self.assertRaisesRegex(BUILD.BuildError, "RPG_RUNTIME_RELEASE_REQUIRED"):
+                BUILD.prepare(self.manifest, root, offline=True)
+            with patch.object(BUILD, "download_bytes", side_effect=[metadata(self.manifest), bundle(self.manifest)]):
+                BUILD.prepare(self.manifest, root, offline=False)
+            target = root / self.manifest["runtime_files"][0]["path_in_release"]
             target.write_bytes(b"tampered")
-            with self.assertRaisesRegex(
-                RELEASES.ReleaseAssetError, "RPG_RUNTIME_RELEASE_ASSET_MISMATCH"
-            ):
-                RELEASES.verify(values, root)
+            with self.assertRaisesRegex(BUILD.BuildError, "RPG_RUNTIME_FILE_MISMATCH"):
+                BUILD.verify_runtime(self.manifest, root)
 
-    def test_offline_missing_asset_fails_with_stable_path(self) -> None:
-        with tempfile.TemporaryDirectory() as temporary:
-            with self.assertRaisesRegex(
-                RELEASES.ReleaseAssetError,
-                "RPG_RUNTIME_RELEASE_ASSET_REQUIRED:0.8.1.1-v4/easyrpg-player.js",
-            ):
-                RELEASES.materialize(declarations(), Path(temporary), offline=True)
+    def test_rejects_migration_route_and_archive_link(self) -> None:
+        drifted = copy.deepcopy(self.manifest)
+        drifted["artifacts"][0]["route_key"] = "RPG2000_UNDECLARED"
+        with self.assertRaisesRegex(BUILD.BuildError, "RPG_RUNTIME_ARTIFACT_ROUTE_INVALID"):
+            BUILD.validate_manifest(drifted)
 
-    def test_release_metadata_requires_exact_tag_commit_and_abi(self) -> None:
-        item = declarations()[0]
-        RELEASES.validate_release_metadata(item, metadata(item))
-        value = json.loads(metadata(item))
-        value["commit"] = "0" * 40
-        with self.assertRaisesRegex(
-            RELEASES.ReleaseAssetError, "RPG_RUNTIME_RELEASE_METADATA_INVALID"
-        ):
-            RELEASES.validate_release_metadata(item, json.dumps(value).encode())
-
-    def test_mkxp_metadata_requires_exact_source_commits_and_asset_shape(self) -> None:
-        item = declarations()[2]
-        RELEASES.validate_release_metadata(item, metadata(item))
-        for mutate in (
-            lambda value: value["sourceCommits"].update({"mkxp-z": "0" * 40}),
-            lambda value: value["assets"][0].update({"unexpected": True}),
-            lambda value: value["assets"][0].update({"observedSha256": "invalid"}),
-        ):
-            value = json.loads(metadata(item))
-            mutate(value)
-            with self.assertRaisesRegex(
-                RELEASES.ReleaseAssetError, "RPG_RUNTIME_RELEASE_METADATA_INVALID"
-            ):
-                RELEASES.validate_release_metadata(item, json.dumps(value).encode())
+        output = io.BytesIO()
+        with tarfile.open(fileobj=output, mode="w:gz") as archive:
+            record = tarfile.TarInfo("runtime/easyrpg/easyrpg-player.js")
+            record.type = tarfile.SYMTYPE
+            record.linkname = "../../outside"
+            archive.addfile(record)
+        with self.assertRaisesRegex(BUILD.BuildError, "RPG_RUNTIME_RELEASE_ARCHIVE_INVALID"):
+            BUILD.extract_runtime_files(self.manifest, output.getvalue())
 
 
 if __name__ == "__main__":

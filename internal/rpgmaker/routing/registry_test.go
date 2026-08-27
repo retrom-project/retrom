@@ -12,8 +12,8 @@ func TestRegistryHasOneCurrentRouteForEveryVisibleCore(t *testing.T) {
 	if err := Validate(); err != nil {
 		t.Fatal(err)
 	}
-	if len(Entries()) != 14 {
-		t.Fatalf("entries = %d, want 14", len(Entries()))
+	if len(Entries()) != 7 {
+		t.Fatalf("entries = %d, want 7", len(Entries()))
 	}
 	for coreID := range supportedCoreIDs() {
 		generation, err := detector.GenerationForCore(coreID)
@@ -29,11 +29,12 @@ func TestRegistryHasOneCurrentRouteForEveryVisibleCore(t *testing.T) {
 	}
 }
 
-func TestCleanLineageDoesNotExposeUnmaterializedHistoricalRoutes(t *testing.T) {
+func TestCleanRegistryDoesNotExposeMigrationRoutes(t *testing.T) {
 	for _, test := range []struct{ coreID, route string }{
-		{coreID: "rpgmaker_2000", route: "RPG2000_EASYRPG_0811_V2"},
-		{coreID: "rpgmaker_xp", route: "RPGXP_MKXPZ_F2EFC98_V2"},
-		{coreID: "rpgmaker_mv", route: "RPGMV_NATIVE_V2"},
+		{coreID: "rpgmaker_2000", route: "RPG2000_UNDECLARED"},
+		{coreID: "rpgmaker_xp", route: "RPGXP_UNDECLARED"},
+		{coreID: "rpgmaker_mv", route: "RPGMV_UNDECLARED"},
+		{coreID: "rpgmaker_mz", route: "RPGMZ_UNDECLARED"},
 	} {
 		if _, err := ByRoute(test.coreID, test.route); !errors.Is(err, ErrUnavailable) {
 			t.Fatalf("ByRoute(%s,%s) error=%v", test.coreID, test.route, err)
@@ -41,14 +42,15 @@ func TestCleanLineageDoesNotExposeUnmaterializedHistoricalRoutes(t *testing.T) {
 	}
 }
 
-func TestTaggedHistoricalRouteIsAvailableButNeverCurrent(t *testing.T) {
-	entry, err := ByRoute("rpgmaker_2000", "RPG2000_EASYRPG_0811_V5")
-	if err != nil || entry.SelectedForNewBindings || entry.RuntimeVersion != "0.8.1.1-v5" {
-		t.Fatalf("historical route=%#v error=%v", entry, err)
-	}
+func TestRepositoryTagIsTheOnlyRuntimeVersion(t *testing.T) {
 	current, err := Current("rpgmaker_2000", detector.RPG2000)
-	if err != nil || current.RouteKey != "RPG2000_EASYRPG_0811_V4" {
+	if err != nil || current.RouteKey != "RPG2000_EASYRPG" || current.RuntimeVersion != "v0.2.0" {
 		t.Fatalf("current route=%#v error=%v", current, err)
+	}
+	for _, entry := range Entries() {
+		if entry.RuntimeVersion != current.RuntimeVersion || !entry.SelectedForNewBindings {
+			t.Fatalf("route carries a parallel version: %#v", entry)
+		}
 	}
 }
 
@@ -94,11 +96,11 @@ func TestRouteSpecificTechnicalRequirements(t *testing.T) {
 }
 
 func TestByRouteFindsCurrentShapeWithoutCrossCoreFallback(t *testing.T) {
-	entry, err := ByRoute("rpgmaker_vx_ace", "RPGVXACE_MKXPZ_F2EFC98_V5")
+	entry, err := ByRoute("rpgmaker_vx_ace", "RPGVXACE_MKXP")
 	if err != nil || entry.RGSSVersion != 3 {
 		t.Fatalf("route=%#v error=%v", entry, err)
 	}
-	if _, err := ByRoute("rpgmaker_vx", "RPGVXACE_MKXPZ_F2EFC98_V5"); !errors.Is(err, ErrUnavailable) {
+	if _, err := ByRoute("rpgmaker_vx", "RPGVXACE_MKXP"); !errors.Is(err, ErrUnavailable) {
 		t.Fatalf("cross-core route error=%v", err)
 	}
 }

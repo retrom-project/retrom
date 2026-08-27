@@ -21,15 +21,15 @@ function nativeConfig(origin: string) {
     returnTo: "/admin/reviews/item",
     warnings: [],
     generation: "RPGMV",
-    routeKey: "RPGMV_NATIVE_V4",
+    routeKey: "RPGMV_NATIVE",
     artifactId: "0198abcd-1234-7123-8abc-1234567890ac",
     checkpoint: null,
     checkpointAvailability: { available: false, reason: "RUNTIME_NOT_READY" },
     runtimeValidation: emptyValidationResume(),
     adapter: {
       adapterKind: "NATIVE_WEB",
-      adapterId: "rpg-native-web-v2",
-      bridgeProfile: "mv-v1",
+      adapterId: "native-web",
+      bridgeProfile: "RPGMV",
       uniqueOrigin: origin,
       bootstrapUrl: `${origin}/__retrom/bootstrap`,
       bootstrapTicket: "a".repeat(43),
@@ -86,7 +86,7 @@ describe("RPG runtime registry", () => {
     const manifest = readJson<{ artifacts: ManifestRoute[] }>("../data/dat/rpgmaker/v1/manifest.json");
     const registry = readJson<{ schemaVersion: number; routes: FrontendRoute[] }>("features/player/rpg-runtime/registry.json");
     expect(registry.schemaVersion).toBe(1);
-    expect(registry.routes).toHaveLength(14);
+    expect(registry.routes).toHaveLength(7);
     const expected = manifest.artifacts.map((route) => ({
       adapterId: route.adapter_id,
       adapterKind: route.runtime_adapter_kind,
@@ -108,7 +108,7 @@ describe("RPG runtime registry", () => {
     }
   });
 
-  it("accepts all current and historical rows and rejects every cross-generation combination", () => {
+  it("accepts the seven current rows and rejects every cross-generation combination", () => {
     const configurations = rpgRuntimeRoutes.map((route) => configFor(route));
     for (const configuration of configurations) {
       expect(() => validateRpgRuntimeConfig(configuration)).not.toThrow();
@@ -155,7 +155,7 @@ function configFor(route: Route): RpgRuntimeConfig {
   if (route.adapterKind === "EASYRPG_WEB") {
     const runtime = `/runtime/rpgmaker/${route.runtimeVersion}/`;
     return { ...common, adapter: {
-      adapterKind: "EASYRPG_WEB", adapterId: "easyrpg-web-v1", engineMode: route.engineMode,
+      adapterKind: "EASYRPG_WEB", adapterId: "easyrpg-web", engineMode: route.engineMode,
       runtimeBaseUrl: runtime, projectRootUrl: root,
       projectIndexUrl: `${root}index.json`, rtpArchive: null, checkpointSlot: 100,
     }};

@@ -7,9 +7,9 @@ import (
 	"retrom/internal/rpgmaker/routing"
 )
 
-func TestResolveRPGCreationRouteAcceptsRegisteredHistoricalRoute(t *testing.T) {
+func TestResolveRPGCreationRouteAcceptsRegisteredRoute(t *testing.T) {
 	t.Parallel()
-	route, err := routing.ByRoute("rpgmaker_2000", "RPG2000_EASYRPG_0811_V5")
+	route, err := routing.ByRoute("rpgmaker_2000", "RPG2000_EASYRPG")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -21,14 +21,14 @@ func TestResolveRPGCreationRouteAcceptsRegisteredHistoricalRoute(t *testing.T) {
 	if err != nil {
 		t.Fatalf("resolveRPGCreationRoute() error = %v", err)
 	}
-	if resolved.RouteKey != route.RouteKey || resolved.SelectedForNewBindings {
+	if resolved.RouteKey != route.RouteKey || !resolved.SelectedForNewBindings {
 		t.Fatalf("resolved route = %#v", resolved)
 	}
 }
 
 func TestResolveRPGCreationRouteRejectsGenerationOrAdapterDrift(t *testing.T) {
 	t.Parallel()
-	route, err := routing.ByRoute("rpgmaker_2000", "RPG2000_EASYRPG_0811_V5")
+	route, err := routing.ByRoute("rpgmaker_2000", "RPG2000_EASYRPG")
 	if err != nil {
 		t.Fatal(err)
 	}

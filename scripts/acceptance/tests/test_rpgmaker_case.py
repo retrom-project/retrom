@@ -289,7 +289,12 @@ class EvidenceContractTests(unittest.TestCase):
             {"ACC-RPG-010", "ACC-RPG-011"},
             set(rpgmaker.SECURITY_CASES),
         )
-        self.assertEqual({}, rpgmaker.DEFERRED_CASES)
+        self.assertEqual({
+            "ACC-RPG-009": "RPG_SEVEN_CORE_MINIMAL_CLOSURE_REQUIRED",
+            "ACC-RPG-010": "RPG_SEVEN_CORE_MINIMAL_CLOSURE_REQUIRED",
+            "ACC-RPG-011": "RPG_SEVEN_CORE_MINIMAL_CLOSURE_REQUIRED",
+            "ACC-RPG-012": "RPG_SECOND_RUNTIME_RELEASE_REQUIRED",
+        }, rpgmaker.DEFERRED_CASES)
         self.assertEqual("ACC-RPG-009", rpgmaker.PACK_CASE)
         self.assertEqual("ACC-RPG-012", rpgmaker.COMPATIBILITY_CASE)
         runner_spec = importlib.util.spec_from_file_location("acceptance_run", RUNNER_PATH)
@@ -516,7 +521,7 @@ class EvidenceContractTests(unittest.TestCase):
         for case_id in ("ACC-RPG-009", "ACC-RPG-010", "ACC-RPG-011", "ACC-RPG-012"):
             self.assertIn("RETROM_CHROME_EXECUTABLE", rpgmaker.required_environment(case_id))
 
-    def test_isolation_missing_chrome_blocks_before_product_driver(self) -> None:
+    def test_isolation_is_deferred_before_product_driver(self) -> None:
         environment = {
             "RETROM_ACCEPTANCE_BASE_URL": "https://retrom.example.test",
             "RETROM_ACCEPTANCE_USERNAME": "reviewer",
@@ -530,9 +535,10 @@ class EvidenceContractTests(unittest.TestCase):
                 self.assertEqual(3, rpgmaker.run("ACC-RPG-011", case_dir))
             run.assert_not_called()
             result = json.loads((case_dir / "rpgmaker-product.json").read_text())
-            self.assertEqual(["RETROM_CHROME_EXECUTABLE"], result["missingInputs"])
+            self.assertEqual([], result["missingInputs"])
+            self.assertEqual("RPG_SEVEN_CORE_MINIMAL_CLOSURE_REQUIRED", result["reason"])
 
-    def test_compatibility_missing_phase_evidence_blocks_before_state_inspection(self) -> None:
+    def test_compatibility_is_deferred_before_state_inspection(self) -> None:
         environment = {
             "RETROM_ACCEPTANCE_BASE_URL": "https://retrom.example.test",
             "RETROM_ACCEPTANCE_USERNAME": "reviewer",
@@ -549,7 +555,8 @@ class EvidenceContractTests(unittest.TestCase):
                 self.assertEqual(3, rpgmaker.run("ACC-RPG-012", case_dir))
             run.assert_not_called()
             result = json.loads((case_dir / "rpgmaker-product.json").read_text())
-            self.assertEqual(list(rpgmaker.COMPATIBILITY_EVIDENCE_ENVIRONMENTS), result["missingInputs"])
+            self.assertEqual([], result["missingInputs"])
+            self.assertEqual("RPG_SECOND_RUNTIME_RELEASE_REQUIRED", result["reason"])
 
     def test_missing_live_ids_are_blocked_and_machine_readable(self) -> None:
         with tempfile.TemporaryDirectory() as directory, mock.patch.dict(os.environ, {}, clear=True):
@@ -560,25 +567,15 @@ class EvidenceContractTests(unittest.TestCase):
             self.assertEqual("BLOCKED", result["status"])
             self.assertIn("RETROM_ACC_RPG_002_IMPORT_ITEM_ID", result["missingInputs"])
 
-    def test_compatibility_case_requires_fresh_database_state_instead_of_static_defer(self) -> None:
+    def test_compatibility_case_requires_a_second_runtime_release(self) -> None:
         with tempfile.TemporaryDirectory() as directory, mock.patch.dict(os.environ, {}, clear=True):
             case_dir = Path(directory)
             with redirect_stdout(io.StringIO()):
                 self.assertEqual(3, rpgmaker.run("ACC-RPG-012", case_dir))
             result = json.loads((case_dir / "rpgmaker-product.json").read_text())
             self.assertEqual("BLOCKED", result["status"])
-            self.assertEqual(
-                ["RETROM_ACCEPTANCE_BASE_URL", "RETROM_ACCEPTANCE_USERNAME", "RETROM_ACCEPTANCE_PASSWORD",
-                 "RETROM_CHROME_EXECUTABLE",
-                 "RETROM_ACC_RPG_012_DATABASE", "RETROM_ACC_RPG_012_STATE",
-                 "RETROM_ACC_RPG_012_PREPARE_EVIDENCE",
-                 "RETROM_ACC_RPG_012_OLD_PROVISION_EVIDENCE",
-                 "RETROM_ACC_RPG_012_PROMOTE_EVIDENCE",
-                 "RETROM_ACC_RPG_012_NEW_PROVISION_EVIDENCE",
-                 "RETROM_ACC_RPG_012_DRIFT_EVIDENCE",
-                 "RETROM_ACC_RPG_012_INSPECT_EVIDENCE"],
-                result["missingInputs"],
-            )
+            self.assertEqual([], result["missingInputs"])
+            self.assertEqual("RPG_SECOND_RUNTIME_RELEASE_REQUIRED", result["reason"])
 
     def test_pack_plan_v2_requires_named_input_review_and_reference_roles(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -1133,8 +1130,8 @@ def compatibility_state_payload() -> dict:
     identifiers = [f"{number:08d}-1111-4111-8111-111111111111" for number in range(1, 10)]
     artifact = lambda identifier, route, digest, selected: {
         "id": identifier, "coreId": "rpgmaker_2000", "generation": "RPG2000", "routeKey": route,
-        "artifactSetSha256": digest * 64, "adapterId": "easyrpg-web-v1",
-        "adapterAbi": "easyrpg-save-v1", "manifestSha256": "f" * 64,
+        "artifactSetSha256": digest * 64, "adapterId": "easyrpg-web",
+        "adapterAbi": "easyrpg-save", "manifestSha256": "f" * 64,
         "selectedForNewBindings": selected, "availableForLaunch": True,
     }
     fixture_root = Path(__file__).resolve().parents[3] / "testdata/public-roms/rpgmaker-smoke"
@@ -1143,19 +1140,19 @@ def compatibility_state_payload() -> dict:
     return {
         "schemaVersion": 1, "caseId": "ACC-RPG-012", "phase": "DRIFT_SEEDED",
         "databasePathSha256": "d" * 64,
-        "oldArtifact": artifact(identifiers[0], "RPG2000_EASYRPG_0811_V4", "a", False),
-        "newArtifact": artifact(identifiers[1], "RPG2000_EASYRPG_0811_V5", "b", True),
+        "oldArtifact": artifact(identifiers[0], "RPG2000_PREVIOUS_RELEASE", "a", False),
+        "newArtifact": artifact(identifiers[1], "RPG2000_NEXT_RELEASE", "b", True),
         "oldCheckpoint": {
             "gameId": identifiers[2], "saveStateId": identifiers[3], "contentRevisionId": identifiers[4],
             "variantRevisionId": identifiers[5], "artifactId": identifiers[0],
-            "routeKey": "RPG2000_EASYRPG_0811_V4", "adapterAbi": "easyrpg-save-v1",
+            "routeKey": "RPG2000_PREVIOUS_RELEASE", "adapterAbi": "easyrpg-save",
             "projectFingerprint": old_fingerprint,
             "dependencySnapshotSha256": "c" * 64, "runtimePacks": [],
         },
         "newVariant": {
             "gameId": identifiers[6], "contentRevisionId": identifiers[7], "variantRevisionId": identifiers[8],
-            "artifactId": identifiers[1], "routeKey": "RPG2000_EASYRPG_0811_V5",
-            "adapterAbi": "easyrpg-save-v1", "dependencySnapshotSha256": "e" * 64,
+            "artifactId": identifiers[1], "routeKey": "RPG2000_NEXT_RELEASE",
+            "adapterAbi": "easyrpg-save", "dependencySnapshotSha256": "e" * 64,
             "projectFingerprint": new_fingerprint,
             "runtimePacks": [],
         },
@@ -1286,10 +1283,10 @@ def content_security_evidence_payload() -> dict:
         ("opaque-native", True, 202, None),
     )
     routes = {
-        "RPG2000": "RPG2000_EASYRPG_0811_V4", "RPG2003": "RPG2003_EASYRPG_0811_V4",
-        "RPGXP": "RPGXP_MKXPZ_F2EFC98_V5", "RPGVX": "RPGVX_MKXPZ_F2EFC98_V5",
-        "RPGVXACE": "RPGVXACE_MKXPZ_F2EFC98_V5", "RPGMV": "RPGMV_NATIVE_V4",
-        "RPGMZ": "RPGMZ_NATIVE_V7",
+        "RPG2000": "RPG2000_EASYRPG", "RPG2003": "RPG2003_EASYRPG",
+        "RPGXP": "RPGXP_MKXP", "RPGVX": "RPGVX_MKXP",
+        "RPGVXACE": "RPGVXACE_MKXP", "RPGMV": "RPGMV_NATIVE",
+        "RPGMZ": "RPGMZ_NATIVE",
     }
     nested = []
     for generation_index, generation in enumerate(cores):
@@ -1339,7 +1336,7 @@ def content_security_evidence_payload() -> dict:
         if gate["gate"] in positions:
             gate["evidence"] = positions[gate["gate"]]
         if gate["gate"] == "ENGINE_PROFILE":
-            gate["evidence"]["adapterId"] = "easyrpg-web-v1"
+            gate["evidence"]["adapterId"] = "easyrpg-web"
     opaque_names = ("Game.exe", "nw.dll", "plugin.node", "launcher.bat")
     return {
         "schemaVersion": 1, "caseId": "ACC-RPG-010", "status": "PASS", "wrongCore": wrong,
@@ -1360,8 +1357,8 @@ def content_security_evidence_payload() -> dict:
             "validationId": pack_uuid(803), "originalLaunchId": original, "restoreLaunchId": restore,
             "config": {
                 "runtimeFamily": "RPGMAKER", "generation": "RPG2003", "coreId": "rpgmaker_2003",
-                "routeKey": "RPG2003_EASYRPG_0811_V4", "artifactId": pack_uuid(804),
-                "adapterId": "easyrpg-web-v1", "adapterKind": "EASYRPG_WEB", "engineMode": "rpg2k3",
+                "routeKey": "RPG2003_EASYRPG", "artifactId": pack_uuid(804),
+                "adapterId": "easyrpg-web", "adapterKind": "EASYRPG_WEB", "engineMode": "rpg2k3",
             },
             "machineGates": gates, "checkpointRoundTrip": checkpoint,
         },
@@ -1408,9 +1405,9 @@ def isolation_evidence_payload() -> dict:
             "config": {
                 "runtimeFamily": "RPGMAKER", "generation": generation,
                 "coreId": "rpgmaker_mv" if generation == "RPGMV" else "rpgmaker_mz",
-                "routeKey": "RPGMV_NATIVE_V4" if generation == "RPGMV" else "RPGMZ_NATIVE_V7",
+                "routeKey": "RPGMV_NATIVE" if generation == "RPGMV" else "RPGMZ_NATIVE",
                 "artifactId": f"{index}5555555-5555-4555-8555-555555555555",
-                "adapterId": "rpg-native-web-v2" if generation == "RPGMV" else "rpg-native-web-v5",
+                "adapterId": "native-web",
             },
             "originalScreenshot": f"screenshots/acc-rpg-011-{generation.lower()}.png",
             "csp": "base-uri 'self'; worker-src 'self' blob:; connect-src 'self'",

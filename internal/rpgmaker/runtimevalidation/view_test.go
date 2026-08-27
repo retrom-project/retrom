@@ -28,7 +28,7 @@ INSERT INTO rpgmaker_runtime_validations(
 ) VALUES(
  'validation','item',1,1,'snapshot','fingerprint','rpgmaker_2000','RPG2000',
  NULL,'FAMILY_ONLY','easyrpg','artifact','aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
- 'rpg-easyrpg-v1','easyrpg-save-v1','bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+ 'easyrpg-web','easyrpg-save','bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
  NULL,NULL,'FAILED',0,?,'RPG_RUNTIME_ROUTE_UNAVAILABLE',1000,1001,2000
 )`, machineGates); err != nil {
 		t.Fatal(err)
@@ -68,7 +68,7 @@ INSERT INTO rpgmaker_runtime_validations(
 ) VALUES(
  'validation','item',1,1,'snapshot','fingerprint','rpgmaker_2000','RPG2000',
  'FAMILY_ONLY','easyrpg','artifact','aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
- 'rpg-easyrpg-v1','easyrpg-save-v1','bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+ 'easyrpg-web','easyrpg-save','bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
  'CREATED',0,?,1000,1001,2000
 )`, machineGates); err != nil {
 		t.Fatal(err)

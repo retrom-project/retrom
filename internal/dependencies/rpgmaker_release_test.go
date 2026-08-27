@@ -37,15 +37,7 @@ func TestHydrateRPGMakerReleaseFilesRejectsObservedIdentityDrift(t *testing.T) {
 	if err := json.Unmarshal(contents, &observed); err != nil {
 		t.Fatal(err)
 	}
-	releases, ok := observed["releases"].(map[string]any)
-	if !ok {
-		t.Fatal("observed releases is not an object")
-	}
-	mkxp, ok := releases["mkxp"].(map[string]any)
-	if !ok {
-		t.Fatal("observed mkxp release is not an object")
-	}
-	mkxp["tag"] = "retrom-web-f2efc98-r999"
+	observed["tag"] = "v9.9.9"
 	writeReleaseTestJSON(t, observedPath, observed)
 
 	if err := hydrateRPGMakerReleaseFiles(version); !errors.Is(err, ErrInvalid) {
@@ -53,79 +45,54 @@ func TestHydrateRPGMakerReleaseFilesRejectsObservedIdentityDrift(t *testing.T) {
 	}
 }
 
-func releaseTestVersion(t *testing.T) *RPGMakerVersion {
-	t.Helper()
-	runtimeRoot := t.TempDir()
-	releases := []RPGMakerRuntimeRelease{
-		releaseTestDeclaration(
-			"easyrpg", "https://github.com/xxxsen/Player", "retrom-web-0.8.1.1-r2",
-			"1111111111111111111111111111111111111111", "easyrpg-save-v1",
-			"easyrpg-player.js", "easyrpg-player.wasm", "0.8.1.1-v4",
-		),
-		releaseTestDeclaration(
-			"mkxp", "https://github.com/xxxsen/mkxp-z-libretro-emscripten", "retrom-web-f2efc98-r2",
-			"2222222222222222222222222222222222222222", "mkxp-state-v1",
-			"mkxp-z_libretro.js", "mkxp-z_libretro.wasm", "f2efc98-v3",
-		),
-		releaseTestDeclaration(
-			"easyrpg-r3", "https://github.com/xxxsen/Player", "retrom-web-0.8.1.1-r3",
-			"3333333333333333333333333333333333333333", "easyrpg-save-v1",
-			"easyrpg-player.js", "easyrpg-player.wasm", "0.8.1.1-v5",
-		),
+func TestRPGMakerReleaseIdentityRejectsMigrationTags(t *testing.T) {
+	t.Parallel()
+
+	release := releaseTestDeclaration()
+	if !validRPGMakerReleaseIdentity(release) {
+		t.Fatal("clean release identity rejected")
 	}
-	files := make([]RPGMakerRuntimeFile, 0, 4)
-	observed := rpgMakerObservedReleases{SchemaVersion: 1, Releases: map[string]rpgMakerObservedRelease{}}
-	index := 0
-	for _, release := range releases {
-		record := rpgMakerObservedRelease{
-			Repository: release.Repository, Tag: release.Tag, TagCommit: release.TagCommit,
-			AdapterABI: release.AdapterABI, Assets: map[string]rpgMakerObservedAsset{},
-		}
-		for _, asset := range release.Assets {
-			files = append(files, RPGMakerRuntimeFile{
-				Path: asset.Path, ReleaseID: release.ID, AssetFilename: asset.Filename, Role: asset.Role,
-			})
-			record.Assets[asset.Filename] = rpgMakerObservedAsset{
-				SizeBytes: int64(100 + index), SHA256: releaseTestDigest(byte(index + 1)),
-			}
-			index++
-		}
-		observed.Releases[release.ID] = record
-	}
-	writeReleaseTestJSON(t, filepath.Join(runtimeRoot, rpgMakerObservedReleaseFilename), observed)
-	return &RPGMakerVersion{
-		Manifest:    RPGMakerManifest{RuntimeFiles: files, RuntimeReleases: releases},
-		RuntimeRoot: runtimeRoot,
+	release.Tag = "retrom-web-f2efc98-r3"
+	if validRPGMakerReleaseIdentity(release) {
+		t.Fatal("migration-era release tag accepted")
 	}
 }
 
-func releaseTestDeclaration(
-	id string,
-	repository string,
-	tag string,
-	commit string,
-	abi string,
-	jsFilename string,
-	wasmFilename string,
-	runtimeVersion string,
-) RPGMakerRuntimeRelease {
+func releaseTestVersion(t *testing.T) *RPGMakerVersion {
+	t.Helper()
+	runtimeRoot := t.TempDir()
+	release := releaseTestDeclaration()
+	files := []RPGMakerRuntimeFile{
+		{BundlePath: "runtime/easyrpg/easyrpg-player.js", Path: "v0.2.0/easyrpg-player.js", Role: "runtime_js", MaxSizeBytes: 1 << 20},
+		{BundlePath: "runtime/easyrpg/easyrpg-player.wasm", Path: "v0.2.0/easyrpg-player.wasm", Role: "runtime_wasm", MaxSizeBytes: 16 << 20},
+	}
+	observed := rpgMakerObservedRelease{
+		SchemaVersion: 1, Repository: release.Repository, Tag: release.Tag, TagCommit: release.TagCommit,
+		BundleFilename: release.BundleAsset.Filename, Files: map[string]rpgMakerObservedAsset{},
+	}
+	for index, file := range files {
+		observed.Files[file.Path] = rpgMakerObservedAsset{
+			SizeBytes: int64(100 + index), SHA256: releaseTestDigest(byte(index + 1)),
+		}
+	}
+	writeReleaseTestJSON(t, filepath.Join(runtimeRoot, rpgMakerObservedReleaseFilename), observed)
+	return &RPGMakerVersion{
+		Manifest: RPGMakerManifest{Release: release, RuntimeFiles: files}, RuntimeRoot: runtimeRoot,
+	}
+}
+
+func releaseTestDeclaration() RPGMakerRuntimeRelease {
 	release := RPGMakerRuntimeRelease{
-		ID: id, Repository: repository, Tag: tag, TagCommit: commit, AdapterABI: abi,
-		BinaryAssociation: "TAGGED_RELEASE_COMPATIBLE",
+		Repository: "https://github.com/xxxsen/retrom-runtime",
+		Tag:        "v0.2.0", TagCommit: "1111111111111111111111111111111111111111",
+	}
+	release.BundleAsset = RPGMakerReleaseMetadata{
+		Filename: "retrom-runtime-0.2.0.tar.gz", MaxSizeBytes: 256 << 20,
+		URL: rpgMakerReleaseURL(release, "retrom-runtime-0.2.0.tar.gz"),
 	}
 	release.MetadataAsset = RPGMakerReleaseMetadata{
-		Filename: "retrom-runtime-release.json", MaxSizeBytes: 65536,
+		Filename: "retrom-runtime-release.json", MaxSizeBytes: 1 << 20,
 		URL: rpgMakerReleaseURL(release, "retrom-runtime-release.json"),
-	}
-	release.Assets = []RPGMakerReleaseAsset{
-		{
-			Filename: jsFilename, URL: rpgMakerReleaseURL(release, jsFilename),
-			Path: runtimeVersion + "/" + jsFilename, Role: "runtime_js", MaxSizeBytes: 1 << 20,
-		},
-		{
-			Filename: wasmFilename, URL: rpgMakerReleaseURL(release, wasmFilename),
-			Path: runtimeVersion + "/" + wasmFilename, Role: "runtime_wasm", MaxSizeBytes: 64 << 20,
-		},
 	}
 	return release
 }

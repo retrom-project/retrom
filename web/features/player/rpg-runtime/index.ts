@@ -1,9 +1,13 @@
-import { mountEasyRpg } from "./easyrpg/adapter";
-import { mountMkxp } from "./mkxp/adapter";
-import { mountNativeRpg } from "./native-web/adapter";
-import { RetromRpgRuntimeController } from "./controller";
-import type { RetromRpgRuntime, RpgRuntimeConfig } from "./contract";
-import { adaptMountedRpgAdapter, type RpgPlayerInstance } from "./internal-adapter";
+import {
+  createRpgRuntime,
+  describeRpgRuntime,
+  mountRpgRuntime,
+  type RpgPosition as RuntimePosition,
+  type RpgRuntimeConfig as LibraryRuntimeConfig,
+  type RpgRuntimeOptions,
+} from "@xxxsen/retrom-runtime";
+
+import type { RpgPosition, RpgRuntimeConfig } from "./contract";
 import { isRpgRuntimeConfig, validateRpgRuntimeConfig } from "./registry";
 
 export type {
@@ -20,92 +24,68 @@ export type {
 } from "./contract";
 export { isRpgRuntimeConfig, rpgRuntimeRoutes, validateRpgRuntimeConfig } from "./registry";
 
-export type RetromRpgRuntimeOptions = {
-  frame: HTMLIFrameElement;
-  frameWindow: Window;
-  restorePayload: Uint8Array | null;
-  signal?: AbortSignal;
-};
+export const isRetromRpgRuntimeConfig = isRpgRuntimeConfig;
 
-export type RetromRpgRuntimeDescription = {
-  crossOriginFrame: boolean;
-  requiresThreads: boolean;
-  runtimeBaseUrl: string;
-};
+export type RetromRpgRuntimeOptions = Omit<RpgRuntimeOptions, "onDiagnostic">;
 
-export function describeRetromRpgRuntime(config: RpgRuntimeConfig): RetromRpgRuntimeDescription {
+export function describeRetromRpgRuntime(config: RpgRuntimeConfig) {
   validateRpgRuntimeConfig(config);
-  if (config.adapter.adapterKind === "NATIVE_WEB") {
-    return { crossOriginFrame: true, requiresThreads: false, runtimeBaseUrl: config.adapter.uniqueOrigin };
-  }
-  return {
-    crossOriginFrame: false,
-    requiresThreads: config.adapter.adapterKind === "MKXP_LIBRETRO_WEB",
-    runtimeBaseUrl: config.adapter.runtimeBaseUrl,
-  };
+  return describeRpgRuntime(toLibraryConfig(config));
 }
 
-export function createRetromRpgRuntime(
-  config: RpgRuntimeConfig,
-  options: RetromRpgRuntimeOptions,
-): RetromRpgRuntime {
+export function createRetromRpgRuntime(config: RpgRuntimeConfig, options: RetromRpgRuntimeOptions) {
   validateRpgRuntimeConfig(config);
-  return createController(config, options);
+  return createRpgRuntime(toLibraryConfig(config), withDiagnostics(options));
 }
 
 export async function mountRetromRpgRuntime(
   config: RpgRuntimeConfig,
   target: HTMLElement,
   options: RetromRpgRuntimeOptions,
-): Promise<{ runtime: RetromRpgRuntime; playerInstance: RpgPlayerInstance }> {
+) {
   validateRpgRuntimeConfig(config);
-  const controller = createController(config, options);
-  await controller.mount(target);
-  return { runtime: controller, playerInstance: controller.getPlayerInstance() };
+  return mountRpgRuntime(toLibraryConfig(config), target, withDiagnostics(options));
 }
 
-function createController(config: RpgRuntimeConfig, options: RetromRpgRuntimeOptions) {
-  const mountAdapter = adapterMount(config, options);
-  return new RetromRpgRuntimeController(
-    async (target) => {
-      const mounted = await mountAdapter(target);
-      try {return adaptMountedRpgAdapter(mounted);}
-      catch (error) {await mounted.cleanup(); throw error;}
+function toLibraryConfig(config: RpgRuntimeConfig): LibraryRuntimeConfig {
+  return {
+    sessionId: config.launchId,
+    generation: config.generation,
+    validationPurpose: config.purpose === "RPG_RUNTIME_VALIDATION",
+    expectedRestorePosition: restorePosition(config),
+    adapter: toLibraryAdapter(config.adapter),
+  };
+}
+
+function toLibraryAdapter(adapter: RpgRuntimeConfig["adapter"]): LibraryRuntimeConfig["adapter"] {
+  if (adapter.adapterKind !== "NATIVE_WEB") {return adapter;}
+  return {
+    ...adapter,
+    cleanupUrl: new URL("/__retrom/cleanup", adapter.uniqueOrigin).href,
+  };
+}
+
+function restorePosition(config: RpgRuntimeConfig): RuntimePosition | null {
+  if (!config.checkpoint || !config.runtimeValidation) {return null;}
+  const gate = config.runtimeValidation.machineGates.find((entry) => entry.gate === "SAVE_POINT_RECORDED");
+  const evidence = gate?.evidence;
+  if (gate?.status !== "PASSED" || !isPosition(evidence)) {return null;}
+  return evidence;
+}
+
+function isPosition(value: unknown): value is RpgPosition {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {return false;}
+  return "mapId" in value && Number.isSafeInteger(value.mapId) &&
+    "playerX" in value && Number.isSafeInteger(value.playerX) &&
+    "playerY" in value && Number.isSafeInteger(value.playerY) &&
+    "fixtureState" in value && Number.isSafeInteger(value.fixtureState);
+}
+
+function withDiagnostics(options: RetromRpgRuntimeOptions): RpgRuntimeOptions {
+  return {
+    ...options,
+    onDiagnostic: (diagnostic) => {
+      window.dispatchEvent(new CustomEvent("retrom:runtime-diagnostic", { detail: diagnostic }));
     },
-    options.signal ?? null,
-    config.purpose === "RPG_RUNTIME_VALIDATION",
-  );
-}
-
-function adapterMount(config: RpgRuntimeConfig, options: RetromRpgRuntimeOptions) {
-  switch (config.adapter.adapterKind) {
-  case "EASYRPG_WEB":
-    return (target: HTMLElement) => mountEasyRpg(narrowEasy(config), target, options.frameWindow, options.restorePayload);
-  case "MKXP_LIBRETRO_WEB":
-    return (target: HTMLElement) => mountMkxp(narrowMkxp(config), target, options.restorePayload);
-  case "NATIVE_WEB":
-    return () => mountNativeRpg(narrowNative(config), options.frame, options.restorePayload);
-  }
-}
-
-function narrowEasy(config: RpgRuntimeConfig) {
-  return config as RpgRuntimeConfig & {
-    adapter: Extract<RpgRuntimeConfig["adapter"], { adapterKind: "EASYRPG_WEB" }>;
   };
-}
-
-function narrowMkxp(config: RpgRuntimeConfig) {
-  return config as RpgRuntimeConfig & {
-    adapter: Extract<RpgRuntimeConfig["adapter"], { adapterKind: "MKXP_LIBRETRO_WEB" }>;
-  };
-}
-
-function narrowNative(config: RpgRuntimeConfig) {
-  return config as RpgRuntimeConfig & {
-    adapter: Extract<RpgRuntimeConfig["adapter"], { adapterKind: "NATIVE_WEB" }>;
-  };
-}
-
-export function isRetromRpgRuntimeConfig(value: unknown): value is RpgRuntimeConfig {
-  return isRpgRuntimeConfig(value);
 }

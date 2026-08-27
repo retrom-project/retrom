@@ -13,15 +13,7 @@ web/features/player/netplay/*
 !web/features/player/rpg-runtime/
 web/features/player/rpg-runtime/*
 !web/features/player/rpg-runtime/registry.json
-!web/features/player/rpg-runtime/easyrpg/
-web/features/player/rpg-runtime/easyrpg/*
-!web/features/player/rpg-runtime/easyrpg/adapter.ts
-!web/features/player/rpg-runtime/mkxp/
-web/features/player/rpg-runtime/mkxp/*
-!web/features/player/rpg-runtime/mkxp/adapter.ts
-!web/features/player/rpg-runtime/native-web/
-web/features/player/rpg-runtime/native-web/*
-!web/features/player/rpg-runtime/native-web/adapter.ts
+!web/features/player/rpg-runtime/index.ts
 testdata/public-roms
 data/runtime
 data/auth/password-blocklists/*/payload

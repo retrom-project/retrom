@@ -480,7 +480,7 @@ func (service *Service) buildNativeWebAdapterConfig(
 	launchID string,
 	source rpgConfigSource,
 ) (NativeWebAdapterConfig, error) {
-	profile := map[string]string{"RPGMV": "mv-v1", "RPGMZ": "mz-v1"}[source.generation]
+	profile := map[string]string{"RPGMV": "RPGMV", "RPGMZ": "RPGMZ"}[source.generation]
 	origin, ticket, err := service.nativeRuntimeAccess(ctx, launchID)
 	if err != nil || profile == "" {
 		return NativeWebAdapterConfig{}, ErrBlocked

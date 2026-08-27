@@ -12,13 +12,13 @@ import { isLocalAcceptanceHostname } from "./rpgmaker_url.mjs";
 
 const cases = {
   "ACC-RPG-004": {
-    coreId: "rpgmaker_xp", generation: "RPGXP", routeKey: "RPGXP_MKXPZ_F2EFC98_V5",
+    coreId: "rpgmaker_xp", generation: "RPGXP", routeKey: "RPGXP_MKXP",
     source: () => resolve("testdata/public-roms/rpgmaker-smoke/rpgxp"),
     prefix: "rpgxp/", saveKeys: ["ArrowRight", "KeyX"],
     divergeKeys: ["ArrowRight", "KeyX"], restoreKeys: ["ArrowRight", "KeyX"],
   },
   "ACC-RPG-008": {
-    coreId: "rpgmaker_mz", generation: "RPGMZ", routeKey: "RPGMZ_NATIVE_V7",
+    coreId: "rpgmaker_mz", generation: "RPGMZ", routeKey: "RPGMZ_NATIVE",
     source: () => resolve(required("RPG_MZ_SMOKE_ROOT")),
     prefix: "rpgmz/", saveKeys: ["Enter"], divergeKeys: ["Enter"], restoreKeys: ["Enter"],
   },

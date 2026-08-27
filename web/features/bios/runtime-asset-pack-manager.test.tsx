@@ -27,9 +27,9 @@ const emptyBIOS: BIOSListResponse = {
 
 const coreArtifacts: CoreArtifactList = { items: [{
   id: "01980000-0000-7000-8000-000000000020", coreId: "rpgmaker_2000",
-  coreName: "RPG Maker 2000", routeKey: "RPG2000_EASYRPG_0811_V4",
+  coreName: "RPG Maker 2000", routeKey: "RPG2000_EASYRPG",
   runtimeFamily: "RPGMAKER", runtimeAdapterKind: "EASYRPG_WEB",
-  runtimeVersion: "0.8.1.1-v4", adapterId: "easyrpg-web-v1",
+  runtimeVersion: "v0.2.0", adapterId: "easyrpg-web",
   selectedForNewBindings: true, availableForLaunch: true, version: 1, sizeBytes: 1024,
 }], nextCursor: null };
 
@@ -40,7 +40,7 @@ describe("RuntimeAssetPackManager", () => {
   it("keeps referenced immutable installations visible and blocks deletion", () => {
     render(<RuntimeAssetPackManager initialList={{ definitions: [definition], installations: [referenced] }} initialCoreArtifacts={coreArtifacts} />);
     expect(screen.getByText("RPG Maker 2000 RTP")).toBeVisible();
-    expect(screen.getByText("RPG2000_EASYRPG_0811_V4")).toBeVisible();
+    expect(screen.getByText("RPG2000_EASYRPG")).toBeVisible();
     expect(screen.getByText("1 个游戏版本 · 1 个存档")).toBeVisible();
     expect(screen.getByRole("button", { name: "删除" })).toBeDisabled();
   });
