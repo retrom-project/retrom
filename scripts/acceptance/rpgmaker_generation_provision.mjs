@@ -323,13 +323,13 @@ function xpTrace(value) {
 
 async function platformInstance(client) {
   let response = await client.json("GET", "/api/v1/admin/platform-instances?platformId=rpgmaker&limit=100");
-  let found = (response.items ?? []).find((item) => item.enabled && item.defaultCoreId === config.coreId);
+  let found = (response.items ?? []).find((item) => item.enabled && item.defaultCoreId === "rpgmaker");
   if (found) { return found.id; }
   await client.json("POST", "/api/v1/admin/platform-instances/recommendations/apply", {
     headers: client.writeHeaders(), data: {}, expected: 200,
   });
   response = await client.json("GET", "/api/v1/admin/platform-instances?platformId=rpgmaker&limit=100");
-  found = (response.items ?? []).find((item) => item.enabled && item.defaultCoreId === config.coreId);
+  found = (response.items ?? []).find((item) => item.enabled && item.defaultCoreId === "rpgmaker");
   if (!found) { throw new Error("RPG_PROVISION_PLATFORM_INSTANCE_MISSING"); }
   return found.id;
 }

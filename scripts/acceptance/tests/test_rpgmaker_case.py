@@ -457,6 +457,11 @@ class EvidenceContractTests(unittest.TestCase):
             self.assertIn(input_sequence, source)
         self.assertIn("ACC-RPG-002..ACC-RPG-008", source)
 
+    def test_generation_provision_uses_the_single_virtual_platform_instance(self) -> None:
+        source = GENERATION_PROVISION_PATH.read_text()
+        self.assertIn('item.defaultCoreId === "rpgmaker"', source)
+        self.assertNotIn("item.defaultCoreId === config.coreId", source)
+
     def test_mv_generation_evidence_requires_two_origin_inventory(self) -> None:
         spec = rpgmaker.GENERATION_CASES["ACC-RPG-007"]
         payload = product_payload(spec, "a" * 64)
