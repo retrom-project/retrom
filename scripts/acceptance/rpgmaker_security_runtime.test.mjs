@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  requireLocalRuntimeSite,
   runtimeFrameEligible,
   runtimeFrameRoute,
 } from "./rpgmaker_security_runtime.mjs";
@@ -26,5 +27,14 @@ test("an application login rendered on the runtime origin blocks the acceptance 
     () => runtimeFrameRoute(`${runtimeOrigin}/login?returnTo=%2F__retrom%2Fbootstrap`, runtimeOrigin),
     (error) => error instanceof SecurityInputBlocked &&
       error.message === "RPG_ACCEPTANCE_SECURITY_RUNTIME_ORIGIN_MISROUTED",
+  );
+});
+
+test("local native runtime cookies require the localhost application site", () => {
+  assert.doesNotThrow(() => requireLocalRuntimeSite("http://localhost:13004", runtimeOrigin));
+  assert.throws(
+    () => requireLocalRuntimeSite("http://127.0.0.1:13004", runtimeOrigin),
+    (error) => error instanceof SecurityInputBlocked &&
+      error.message === "RPG_ACCEPTANCE_SECURITY_RUNTIME_SITE_MISMATCH",
   );
 });
