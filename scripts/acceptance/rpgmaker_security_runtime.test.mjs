@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  runtimeProjectStatus,
+  runtimeRequestStatus,
   requireLocalRuntimeSite,
   runtimeFrameEligible,
   runtimeFrameRoute,
@@ -39,4 +41,44 @@ test("local native runtime cookies require the shared rpg.localhost site", () =>
         error.message === "RPG_ACCEPTANCE_SECURITY_RUNTIME_SITE_MISMATCH",
     );
   }
+});
+
+test("runtime content probes execute inside the authenticated browser frame", async () => {
+  const calls = [];
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (path, init) => {
+    calls.push({ path, init });
+    return { status: path.endsWith("Game.exe") ? 404 : 204 };
+  };
+  const frame = {
+    evaluate: async (callback, input) => callback(input),
+  };
+  try {
+    assert.equal(await runtimeProjectStatus(frame, "Retrom Nested/Game.exe"), 404);
+    assert.equal(await runtimeRequestStatus(frame, "/__retrom/cleanup", "POST"), 204);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+  assert.deepEqual(calls, [
+    {
+      path: "/__retrom/project/Retrom%20Nested/Game.exe",
+      init: { method: "GET", credentials: "same-origin", redirect: "manual" },
+    },
+    {
+      path: "/__retrom/cleanup",
+      init: { method: "POST", credentials: "same-origin", redirect: "manual" },
+    },
+  ]);
+});
+
+test("runtime frame requests reject paths outside the isolated protocol", async () => {
+  const frame = { evaluate: async () => 200 };
+  await assert.rejects(
+    runtimeRequestStatus(frame, "https://example.invalid/api", "GET"),
+    /RPG_ACCEPTANCE_SECURITY_RUNTIME_PATH_INVALID/,
+  );
+  await assert.rejects(
+    runtimeRequestStatus(frame, "/__retrom/project/Game.exe", "DELETE"),
+    /RPG_ACCEPTANCE_SECURITY_RUNTIME_METHOD_INVALID/,
+  );
 });

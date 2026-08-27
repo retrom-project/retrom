@@ -31,3 +31,26 @@ export function runtimeFrameRoute(frameUrl, expectedOrigin) {
   if (runtimePaths.has(parsed.pathname)) { return "RUNTIME"; }
   throw new SecurityInputBlocked("RPG_ACCEPTANCE_SECURITY_RUNTIME_ORIGIN_MISROUTED");
 }
+
+export async function runtimeProjectStatus(frame, logicalName) {
+  if (typeof logicalName !== "string" || !logicalName) {
+    throw new Error("RPG_ACCEPTANCE_SECURITY_RUNTIME_PROJECT_PATH_INVALID");
+  }
+  const encoded = logicalName.split("/").map((segment) => encodeURIComponent(segment)).join("/");
+  return runtimeRequestStatus(frame, `/__retrom/project/${encoded}`, "GET");
+}
+
+export async function runtimeRequestStatus(frame, path, method) {
+  if (typeof path !== "string" || !path.startsWith("/__retrom/")) {
+    throw new Error("RPG_ACCEPTANCE_SECURITY_RUNTIME_PATH_INVALID");
+  }
+  if (!new Set(["GET", "POST"]).has(method)) {
+    throw new Error("RPG_ACCEPTANCE_SECURITY_RUNTIME_METHOD_INVALID");
+  }
+  return frame.evaluate(async ({ requestPath, requestMethod }) => {
+    const response = await fetch(requestPath, {
+      method: requestMethod, credentials: "same-origin", redirect: "manual",
+    });
+    return response.status;
+  }, { requestPath: path, requestMethod: method });
+}
