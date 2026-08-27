@@ -59,7 +59,7 @@ export async function expectHomeCoverRatios(page: Page) {
 }
 
 export async function currentEmulatorBrightRatio(page: Page) {
-  const canvas = page.frameLocator('iframe[title="Retrom EmulatorJS Player"]').locator("canvas.ejs_canvas");
+  const canvas = page.frameLocator("iframe.player-frame").locator("canvas.ejs_canvas");
   const screenshot = await canvas.screenshot({ timeout: 1_000 }).catch(() => null);
   if (!screenshot?.length) {return 0;}
   return page.evaluate(async (encoded) => {

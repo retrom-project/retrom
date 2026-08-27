@@ -9,6 +9,8 @@ server_start_timeout_seconds=300
 backend_origin="http://127.0.0.1:${backend_port}"
 web_origin="http://retrom-app.rpg.localhost:${web_port}"
 runtime_origin_template="http://{launchId}.rpg.localhost:${backend_port}"
+e2e_grep="${RETROM_E2E_GREP:-}"
+unset RETROM_E2E_GREP
 process_id=""
 dev_state="$temporary_root/dev-state"
 cp -p "$repository_root/web/next-env.d.ts" "$temporary_root/next-env.d.ts"
@@ -170,6 +172,11 @@ netplay_expansion_results="$(jq -sc '[
   "$temporary_root/netplay-fbalpha2012_cps1.json" \
   "$temporary_root/netplay-fbalpha2012_cps2.json")"
 
+playwright_command=(npm run test:e2e)
+if [[ -n "$e2e_grep" ]]; then
+  playwright_command+=(-- --grep "$e2e_grep")
+fi
+
 (cd web && \
   RETROM_WEB_ORIGIN="$web_origin" \
   RETROM_E2E_DATABASE="$temporary_root/data/retrom.db" \
@@ -181,7 +188,7 @@ netplay_expansion_results="$(jq -sc '[
   RETROM_MAME2003_PLATFORM_INSTANCE_ID="$(jq -r .platformInstanceId "$temporary_root/mame2003.json")" \
   RETROM_CORE_EXPANSION_RESULTS="$(jq -sc '.' "$temporary_root/netplay-snes9x.json" "$temporary_root/netplay-nestopia.json" "$temporary_root/netplay-mame2003_plus.json" "$temporary_root/netplay-fbalpha2012_cps1.json" "$temporary_root/netplay-fbalpha2012_cps2.json")" \
   RETROM_NETPLAY_EXPANSION_RESULTS="$netplay_expansion_results" \
-  npm run test:e2e)
+  "${playwright_command[@]}")
 
 RETROM_DEV_STATE_DIR="$dev_state" RETROM_DATA_DIR="$temporary_root/data" "$repository_root/scripts/dev.sh" --stop
 set +e
