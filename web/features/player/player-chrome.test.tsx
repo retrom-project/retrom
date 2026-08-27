@@ -218,7 +218,7 @@ describe("PlayerChrome", () => {
 
   it("keeps RPG runtime implementation details out of ordinary diagnostics", () => {
     const internalValues = [
-      "RPGXP_MKXPZ_F2EFC98_V5", "mkxp-z-libretro-v4", "artifact-rpg-xp",
+      "RPGXP_MKXP", "mkxp-libretro-web", "artifact-rpg-xp",
     ];
     render(<PlayerChrome {...props({
       coreName: "RPG Maker XP",

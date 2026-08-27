@@ -144,8 +144,8 @@ export function rpgEngineProfile(generation: components["schemas"]["RpgGeneratio
     RPGXP: "rgss1",
     RPGVX: "rgss2",
     RPGVXACE: "rgss3",
-    RPGMV: "mv-v1",
-    RPGMZ: "mz-v1",
+    RPGMV: "RPGMV",
+    RPGMZ: "RPGMZ",
   } as const;
   return profiles[generation];
 }

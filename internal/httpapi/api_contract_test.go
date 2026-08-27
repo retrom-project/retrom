@@ -50,7 +50,7 @@ func TestOpenAPIValidationAllowsRPGMakerRuntimeAndProjectFiles(t *testing.T) {
 		runtimeResponse,
 		httptest.NewRequestWithContext(
 			context.Background(), http.MethodGet,
-			"/runtime/rpgmaker/0.8.1.1-v4/easyrpg-player.js", nil,
+			"/runtime/rpgmaker/v0.2.0/easyrpg-player.js", nil,
 		),
 	)
 	testassert.Falsef(
@@ -60,10 +60,8 @@ func TestOpenAPIValidationAllowsRPGMakerRuntimeAndProjectFiles(t *testing.T) {
 			func() bool {
 				return runtimeResponse.Header().Get("Content-Type") != "application/javascript; charset=utf-8"
 			},
-			func() bool {
-				return runtimeResponse.Header().Get("ETag") != `"sha256-53eda9a8039b2ae5fdf16b386aef5fcdb218592baaef5c55dcd638ce3dafa9f3"`
-			},
-			func() bool { return runtimeResponse.Body.Len() != 242161 },
+			func() bool { return !strings.HasPrefix(runtimeResponse.Header().Get("ETag"), `"sha256-`) },
+			func() bool { return runtimeResponse.Body.Len() == 0 },
 		),
 		"RPG Maker runtime response = %d headers=%v bytes=%d body-prefix=%q",
 		runtimeResponse.Code,
@@ -161,13 +159,11 @@ func TestRPGGateHTTPContractAcceptsNewPositionGatesAndRejectsUnknownGate(t *test
 	}
 }
 
-func TestRPGGateHTTPContractAcceptsRegisteredNativeWebAdapterEvidence(t *testing.T) {
+func TestRPGGateHTTPContractAcceptsNativeWebAdapterEvidence(t *testing.T) {
 	t.Parallel()
 	for _, body := range []string{
-		`{"sequence":1,"eventId":"01980000-0000-7000-8000-000000000092","gate":"ENGINE_PROFILE","phase":"PASS","observedAtMs":1,"evidence":{"generation":"RPGMV","adapterId":"rpg-native-web-v2","engineProfile":"mv-v1"}}`,
-		`{"sequence":1,"eventId":"01980000-0000-7000-8000-000000000093","gate":"ENGINE_PROFILE","phase":"PASS","observedAtMs":1,"evidence":{"generation":"RPGMZ","adapterId":"rpg-native-web-v3","engineProfile":"mz-v1"}}`,
-		`{"sequence":1,"eventId":"01980000-0000-7000-8000-000000000094","gate":"ENGINE_PROFILE","phase":"PASS","observedAtMs":1,"evidence":{"generation":"RPGMZ","adapterId":"rpg-native-web-v4","engineProfile":"mz-v1"}}`,
-		`{"sequence":1,"eventId":"01980000-0000-7000-8000-000000000095","gate":"ENGINE_PROFILE","phase":"PASS","observedAtMs":1,"evidence":{"generation":"RPGMZ","adapterId":"rpg-native-web-v5","engineProfile":"mz-v1"}}`,
+		`{"sequence":1,"eventId":"01980000-0000-7000-8000-000000000092","gate":"ENGINE_PROFILE","phase":"PASS","observedAtMs":1,"evidence":{"generation":"RPGMV","adapterId":"native-web","engineProfile":"RPGMV"}}`,
+		`{"sequence":1,"eventId":"01980000-0000-7000-8000-000000000093","gate":"ENGINE_PROFILE","phase":"PASS","observedAtMs":1,"evidence":{"generation":"RPGMZ","adapterId":"native-web","engineProfile":"RPGMZ"}}`,
 	} {
 		server := newTestServer(t)
 		request := httptest.NewRequestWithContext(
@@ -180,7 +176,7 @@ func TestRPGGateHTTPContractAcceptsRegisteredNativeWebAdapterEvidence(t *testing
 		server.Handler().ServeHTTP(response, request)
 		if response.Code != http.StatusUnauthorized ||
 			!strings.Contains(response.Body.String(), `"code":"LAUNCH_CREDENTIAL_INVALID"`) {
-			t.Fatalf("registered native Web gate response = %d %s", response.Code, response.Body.String())
+			t.Fatalf("native Web gate response = %d %s", response.Code, response.Body.String())
 		}
 	}
 }

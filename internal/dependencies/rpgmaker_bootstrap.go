@@ -123,12 +123,10 @@ func persistRPGMakerArtifact(
 		return "", err
 	}
 	provenance, _ := json.Marshal(map[string]any{
-		"schemaVersion":            1,
+		"schemaVersion":            2,
 		"dependencyManifestSha256": version.ManifestSHA256,
 		"manifestEntryPointer":     fmt.Sprintf("/artifacts/%d", index),
-		"sourceArchiveSHA256":      sourceDigests(version.Manifest.SourceArchives),
-		"taggedRuntimeReleases":    releaseProvenance(version.Manifest.RuntimeReleases),
-		"runtimeReleaseId":         releaseForRuntimeVersion(version.Manifest.RuntimeReleases, artifact.RuntimeVersion),
+		"runtimeRelease":           releaseProvenance(version.Manifest.Release),
 	})
 	var id string
 	err = transaction.QueryRowContext(ctx, `
@@ -208,12 +206,4 @@ func canonicalJSONObject(contents json.RawMessage) ([]byte, error) {
 		return nil, fmt.Errorf("%w: RPG Maker compatibility", ErrInvalid)
 	}
 	return canonical, nil
-}
-
-func sourceDigests(sources []RPGMakerSourceArchive) map[string]string {
-	result := make(map[string]string, len(sources))
-	for _, source := range sources {
-		result[source.ComponentID] = source.SHA256
-	}
-	return result
 }

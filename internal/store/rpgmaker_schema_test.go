@@ -160,7 +160,7 @@ INSERT INTO core_artifacts(
  size_bytes,sha256,manifest_sha256,artifact_set_sha256,requires_threads,save_payload_kind,
  save_max_bytes,provenance_json,compatibility_json,selected_for_new_bindings,available_for_launch,
  version,created_at_ms,updated_at_ms
-) VALUES(?, ?, ?, 'RPGMAKER','EASYRPG_WEB','0.8.1.1','easyrpg-web-v1','runtime/easyrpg.js',
+) VALUES(?, ?, ?, 'RPGMAKER','EASYRPG_WEB','v0.2.0','easyrpg-web','runtime/easyrpg.js',
  1,?,?,?,0,'NATIVE_SAVE_BUNDLE_V1',67108864,'{}','{}',?,1,1,1,1)
 `, id, coreID, route, strings.Repeat("d", 64), strings.Repeat("e", 64), strings.Repeat("f", 64), selectedValue)
 	return err
@@ -211,7 +211,7 @@ INSERT INTO rpgmaker_review_profiles(
  route_key,artifact_id,artifact_set_sha256,adapter_id,adapter_abi,dependency_snapshot_sha256,
  created_at_ms,updated_at_ms
 ) VALUES('review','rpgmaker_2000','RPG2000','RPG2K',NULL,'FAMILY_ONLY',1,10,?1,?2,'{}',1,
- 'RPG2000_EASYRPG_TEST',?3,?4,'easyrpg-web-v1','easy-abi',?5,1,1)`,
+ 'RPG2000_EASYRPG_TEST',?3,?4,'easyrpg-web','easy-abi',?5,1,1)`,
 		strings.Repeat("5", 64), strings.Repeat("7", 64), rpgSchemaArtifactID,
 		strings.Repeat("f", 64), strings.Repeat("8", 64))
 	mustExecRPGSchema(t, database, `
@@ -221,7 +221,7 @@ INSERT INTO rpgmaker_runtime_validations(
  artifact_set_sha256,adapter_id,adapter_abi,dependency_snapshot_sha256,state,machine_gates_json,
  created_at_ms,updated_at_ms,expires_at_ms
 ) VALUES(?1,'item',1,1,'snapshot',?2,'rpgmaker_2000','RPG2000',NULL,'FAMILY_ONLY',
- 'RPG2000_EASYRPG_TEST',?3,?4,'easyrpg-web-v1','easy-abi',?5,'CREATED','{}',1,1,900001)`,
+ 'RPG2000_EASYRPG_TEST',?3,?4,'easyrpg-web','easy-abi',?5,'CREATED','{}',1,1,900001)`,
 		rpgSchemaValidation, strings.Repeat("5", 64), rpgSchemaArtifactID,
 		strings.Repeat("f", 64), strings.Repeat("8", 64))
 	insertValidationLaunch(t, database, rpgSchemaOriginal, 1)

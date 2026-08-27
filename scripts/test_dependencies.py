@@ -221,160 +221,32 @@ class DependencyVersionValidationTests(unittest.TestCase):
 class RPGMakerDependencyTests(unittest.TestCase):
     def setUp(self) -> None:
         self.manifest = rpg_runtime_build.load_manifest()
-        rpg_runtime_build.validate_small_inputs(self.manifest)
+        rpg_runtime_build.validate_manifest(self.manifest)
 
-    def test_fresh_runtime_does_not_copy_ignored_generated_outputs(self) -> None:
-        with tempfile.TemporaryDirectory() as directory:
-            runtime_root = Path(directory) / "runtime"
-            rpg_runtime_build.materialize_bridges(self.manifest, runtime_root)
-            with self.assertRaisesRegex(
-                rpg_runtime_build.BuildError,
-                "RPG_RUNTIME_RELEASE_OBSERVED_INVALID",
-            ):
-                rpg_runtime_build.verify_runtime(self.manifest, runtime_root)
-            self.assertFalse((runtime_root / "0.8.1.1-v4/easyrpg-player.js").exists())
-            self.assertTrue((runtime_root / "f2efc98-v5/retrom_position.rb").is_file())
-            self.assertTrue((runtime_root / "v3/native-bridge.js").is_file())
-            self.assertTrue((runtime_root / "v4/native-bridge.js").is_file())
-            self.assertTrue((runtime_root / "v5/native-bridge.js").is_file())
-            self.assertTrue((runtime_root / "v6/native-bridge.js").is_file())
-            self.assertTrue((runtime_root / "v7/native-bridge.js").is_file())
-            self.assertEqual(
-                dependencies.file_digest(runtime_root / "v3/native-bridge.js"),
-                (17278, "69016c7d295705836032c84ba86cdd6dd0bf5839f5e34f8c1800ae0f5fd34adc"),
-            )
-            self.assertEqual(
-                dependencies.file_digest(runtime_root / "v4/native-bridge.js"),
-                (18251, "2ed0f359eefbb6dd15a5f0a5c6157ba7432814612ff1708f7fc1f00137956169"),
-            )
-            self.assertEqual(
-                dependencies.file_digest(runtime_root / "v5/native-bridge.js"),
-                (18761, "26c7ed699d4fab71ab9960e651a5eb5745e4450fb2ffbb9e6a7e96daca0a6a0d"),
-            )
-            self.assertEqual(
-                dependencies.file_digest(runtime_root / "v6/native-bridge.js"),
-                (18762, "30ebc2179a5c1cc394fd1240ca159ed2dfc8013b64bd159b8406f70bc1fc036f"),
-            )
-            self.assertEqual(
-                dependencies.file_digest(runtime_root / "v7/native-bridge.js"),
-                (18871, "ee07770e32525617b46fbc077e1de2187eb814240e3ae59d4a296f0e4ecb32a6"),
-            )
-
-    def test_prepare_materializes_locked_source_offer_inputs(self) -> None:
-        locked = {"fixture": object()}
-        source_cache = Path("source-cache")
-        calls: list[str] = []
-        with (
-            mock.patch.object(
-                rpg_runtime_build,
-                "download_sources",
-                side_effect=lambda manifest, cache: calls.append(
-                    f"primary:{cache}:{manifest['runtime_id']}"
-                ),
-            ),
-            mock.patch.object(
-                rpg_runtime_build.reproduce,
-                "load_lock",
-                return_value=locked,
-            ),
-            mock.patch.object(
-                rpg_runtime_build.reproduce,
-                "prepare_inputs",
-                side_effect=lambda items, cache, offline: calls.append(
-                    f"locked:{cache}:{items is locked}:{offline}"
-                ),
-            ),
-        ):
-            rpg_runtime_build.prepare_source_offer_inputs(self.manifest, source_cache)
+    def test_manifest_has_one_release_and_no_local_build_inputs(self) -> None:
         self.assertEqual(
-            calls,
-            [
-                "primary:source-cache:rpgmaker-v1",
-                "locked:source-cache:True:False",
-            ],
+            {"schema_version", "runtime_id", "release", "runtime_files", "artifacts"},
+            set(self.manifest),
         )
+        self.assertEqual(7, len(self.manifest["artifacts"]))
+        serialized = json.dumps(self.manifest)
+        for stale in ("source_archives", "runtime_releases", "recipe_path", "retrom-web-"):
+            self.assertNotIn(stale, serialized)
 
-    def test_easyrpg_patch_populates_idbfs_before_restore_injection(self) -> None:
-        patch_path = (
-            rpg_runtime_build.DAT_ROOT
-            / self.manifest["build"]["easyrpg_patch_path"]
-        )
-        patch = patch_path.read_text(encoding="utf-8")
-        add_dependency = patch.index("+  addRunDependency(retromDependency);")
-        populate = patch.index("+  FS.syncfs(true, function(err) {")
-        restore_write = patch.index("+    try {\n+      for (const entry of Module.retromRestoreFiles || [])")
-        ready = patch.index("+    Module.retromFileSystemReady = true;")
-        remove_dependency = patch.index("+    removeRunDependency(retromDependency);")
-        self.assertLess(add_dependency, populate)
-        self.assertLess(populate, restore_write)
-        self.assertLess(restore_write, ready)
-        self.assertLess(ready, remove_dependency)
-        self.assertIn("abort('retrom filesystem initialization failed')", patch)
-        self.assertIn("abort('retrom filesystem payload initialization failed')", patch)
-
-        compiled = b"/".join((
-            b"addRunDependency(retromDependency)",
-            b"FS.syncfs(true,function(err)",
-            b"for(const entry of Module.retromRestoreFiles||[])",
-            b"Module.retromFileSystemReady=true",
-            b"removeRunDependency(retromDependency)",
-            b"retrom filesystem initialization failed",
-            b"retrom filesystem payload initialization failed",
-        ))
-        rpg_runtime_build.verify_easyrpg_restore_order(compiled)
+    def test_rejects_old_route_and_parallel_version_directory(self) -> None:
+        old_route = copy.deepcopy(self.manifest)
+        old_route["artifacts"][0]["route_key"] = "RPG2000_UNDECLARED"
         with self.assertRaisesRegex(
-            rpg_runtime_build.BuildError, "RPG_RUNTIME_RESTORE_ORDER_INVALID"
+            rpg_runtime_build.BuildError, "RPG_RUNTIME_ARTIFACT_ROUTE_INVALID"
         ):
-            rpg_runtime_build.verify_easyrpg_restore_order(compiled[::-1])
+            rpg_runtime_build.validate_manifest(old_route)
 
-    def test_rejects_route_digest_and_source_closure_drift(self) -> None:
-        invalid_digest = copy.deepcopy(self.manifest)
-        invalid_digest["artifacts"][0]["artifact_set_sha256"] = "0" * 64
+        old_directory = copy.deepcopy(self.manifest)
+        old_directory["runtime_files"][0]["path_in_release"] = "v7/easyrpg-player.js"
         with self.assertRaisesRegex(
-            rpg_runtime_build.BuildError,
-            "RPG_RUNTIME_ARTIFACT_DECLARATION_INVALID",
+            rpg_runtime_build.BuildError, "RPG_RUNTIME_FILE_DECLARATION_INVALID"
         ):
-            rpg_runtime_build.validate_small_inputs(invalid_digest)
-
-        incomplete_sources = copy.deepcopy(self.manifest)
-        incomplete_sources["source_archives"] = incomplete_sources["source_archives"][:-1]
-        with self.assertRaisesRegex(
-            rpg_runtime_build.BuildError,
-            "RPG_RUNTIME_SOURCE_CLOSURE_INCOMPLETE",
-        ):
-            rpg_runtime_build.validate_small_inputs(incomplete_sources)
-
-    def test_notice_records_honest_binary_association(self) -> None:
-        source = next(
-            item
-            for item in self.manifest["source_archives"]
-            if item["component_id"] == "mkxp-z"
-        )
-        source_input = rpg_runtime_build.source_offer.OfferInput(
-            "mkxp-z.tar.gz", source["size_bytes"], source["sha256"],
-            source["archive_url"], source["license_path"], "RUNTIME_SOURCE", Path("cache"),
-        )
-        self.assertEqual(
-            rpg_runtime_build.source_offer.binary_association(source_input, self.manifest),
-            "TAGGED_RELEASE_COMPATIBLE",
-        )
-        self.assertEqual(
-            rpg_runtime_build.source_offer.binary_targets(source_input, self.manifest),
-            "f2efc98-v5",
-        )
-
-    def test_generated_runtime_symlink_is_rejected(self) -> None:
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            real = root / "real.js"
-            real.write_bytes(b"runtime")
-            link = root / "runtime.js"
-            link.symlink_to(real)
-            with self.assertRaisesRegex(
-                rpg_runtime_build.BuildError,
-                "RPG_RUNTIME_FILE_TYPE_INVALID",
-            ):
-                rpg_runtime_build.verify_file(link, 7, rpg_runtime_build.digest(b"runtime"))
+            rpg_runtime_build.validate_manifest(old_directory)
 
     def test_player_registry_matches_every_runtime_route(self) -> None:
         registry = dependencies.load_json(
@@ -401,7 +273,7 @@ class RPGMakerDependencyTests(unittest.TestCase):
             dependencies.validate_rpg_maker_registry(self.manifest, unknown)
 
         split = copy.deepcopy(registry)
-        split["routes"][1]["implementation"] = "native-web/adapter.ts"
+        split["routes"][1]["implementation"] = "contract.ts"
         with self.assertRaisesRegex(
             dependencies.CheckError, "RPG_PLAYER_IMPLEMENTATION_DRIFT"
         ):
@@ -506,13 +378,11 @@ class ReleaseInputDigestTests(unittest.TestCase):
                 "data/auth/password-blocklists/v1/manifest.json": {},
                 "data/netplay/v2/manifest.json": {},
                 "data/dat/rpgmaker/v1/manifest.json": {
-                    "schema_version": 1,
-                    "runtime_id": "rpgmaker-v1",
-                    "runtime_files": [{} for _ in range(12)],
-                    "runtime_releases": [{}],
-                    "artifacts": [{} for _ in range(14)],
-                    "source_archives": [{}],
-                    "build": {"recipe_path": "build.py"},
+                    "schema_version": 2,
+                    "runtime_id": "rpgmaker",
+                    "release": {"tag": "v0.2.0"},
+                    "runtime_files": [{} for _ in range(8)],
+                    "artifacts": [{} for _ in range(7)],
                 },
             }
             for relative, value in files.items():
@@ -528,13 +398,11 @@ class ReleaseInputDigestTests(unittest.TestCase):
 
     def test_rpg_runtime_manifest_shape_is_fail_closed_without_fixed_counts(self) -> None:
         manifest = {
-            "schema_version": 1,
-            "runtime_id": "rpgmaker-v1",
+            "schema_version": 2,
+            "runtime_id": "rpgmaker",
+            "release": {"tag": "v0.2.0"},
             "runtime_files": [{}],
-            "runtime_releases": [{}],
             "artifacts": [{}],
-            "source_archives": [{}],
-            "build": {"recipe_path": "build.py"},
         }
         release_input_digest.validate_rpg_runtime_manifest(manifest)
         for invalid in (
@@ -581,7 +449,6 @@ class DependencyMaterializationTests(unittest.TestCase):
             netplay_schema_path = data_root / "netplay/v2/schema.json"
             rpg_dat_root = data_root / "dat/rpgmaker/v1"
             rpg_manifest_path = rpg_dat_root / "manifest.json"
-            rpg_reproduction_path = rpg_dat_root / "REPRODUCING.md"
             rpg_runtime_root = data_root / "runtime/rpgmaker/v1"
             manifest = {
                 "cores": [{"dat": {"local_path": "arcade/catalog.dat"}}],
@@ -610,20 +477,10 @@ class DependencyMaterializationTests(unittest.TestCase):
                 "passwords": {"output_relative_path": "payload/passwords.txt"},
                 "license": {"output_relative_path": "payload/LICENSE"},
             }
-            rpg_manifest = {
-                "build": {
-                    "recipe_path": "build.py",
-                    "easyrpg_patch_path": "patches/easyrpg.patch",
-                    "mkxp_bridge_path": "mkxp.rb",
-                    "native_bridge_v3_path": "native.js",
-                    "native_bridge_v4_path": "native-v4.js",
-                    "native_bridge_v5_path": "native-v5.js",
-                    "native_bridge_v6_path": "native-v6.js",
-                    "native_bridge_v7_path": "native-v7.js",
-                },
-                "runtime_files": [],
-                "source_archives": [],
-            }
+            rpg_manifest = {"runtime_files": [
+                {"path_in_release": "v0.2.0/runtime.js"},
+                {"path_in_release": "v0.2.0/LICENSE"},
+            ]}
             expected = {
                 "dat/emulatorjs/1.0.0/manifest.json",
                 "dat/emulatorjs/1.0.0/SHA256SUMS",
@@ -640,19 +497,9 @@ class DependencyMaterializationTests(unittest.TestCase):
                 "netplay/v2/manifest.json",
                 "netplay/v2/schema.json",
                 "dat/rpgmaker/v1/manifest.json",
-                "dat/rpgmaker/v1/REPRODUCING.md",
-                "dat/rpgmaker/v1/build.py",
-                "dat/rpgmaker/v1/patches/easyrpg.patch",
-                "dat/rpgmaker/v1/mkxp.rb",
-                "dat/rpgmaker/v1/native.js",
-                "dat/rpgmaker/v1/native-v4.js",
-                "dat/rpgmaker/v1/native-v5.js",
-                "dat/rpgmaker/v1/native-v6.js",
-                "dat/rpgmaker/v1/native-v7.js",
-                "runtime/rpgmaker/v1/.release-assets-observed.json",
-                "runtime/rpgmaker/v1/corresponding-source/example.tar.gz",
-                "runtime/rpgmaker/v1/licenses/example-LICENSE",
-                "runtime/rpgmaker/v1/THIRD_PARTY_NOTICES",
+                "runtime/rpgmaker/v1/.release-observed.json",
+                "runtime/rpgmaker/v1/v0.2.0/runtime.js",
+                "runtime/rpgmaker/v1/v0.2.0/LICENSE",
             }
             source_paths = set(expected)
             source_paths.remove("dat/emulatorjs/1.0.0/manifest.json")
@@ -683,7 +530,6 @@ class DependencyMaterializationTests(unittest.TestCase):
                 NETPLAY_SCHEMA_PATH=netplay_schema_path,
                 RPG_MAKER_DAT_ROOT=rpg_dat_root,
                 RPG_MAKER_MANIFEST_PATH=rpg_manifest_path,
-                RPG_MAKER_REPRODUCTION_PATH=rpg_reproduction_path,
                 RPG_MAKER_RUNTIME_ROOT=rpg_runtime_root,
             ):
                 dependencies.export_image_dependencies(
@@ -727,22 +573,8 @@ class DependencyMaterializationTests(unittest.TestCase):
             }
             rpg_dat_root = data_root / "dat/rpgmaker/v1"
             rpg_manifest_path = rpg_dat_root / "manifest.json"
-            rpg_reproduction_path = rpg_dat_root / "REPRODUCING.md"
             rpg_runtime_root = data_root / "runtime/rpgmaker/v1"
-            rpg_manifest = {
-                "build": {
-                    "recipe_path": "build.py",
-                    "easyrpg_patch_path": "patches/easyrpg.patch",
-                    "mkxp_bridge_path": "mkxp.rb",
-                    "native_bridge_v3_path": "native.js",
-                    "native_bridge_v4_path": "native-v4.js",
-                    "native_bridge_v5_path": "native-v5.js",
-                    "native_bridge_v6_path": "native-v6.js",
-                    "native_bridge_v7_path": "native-v7.js",
-                },
-                "runtime_files": [],
-                "source_archives": [],
-            }
+            rpg_manifest = {"runtime_files": []}
             required = (
                 data_root / "dat/emulatorjs/1.0.0/manifest.json",
                 data_root / "dat/emulatorjs/1.0.0/SHA256SUMS",
@@ -753,24 +585,11 @@ class DependencyMaterializationTests(unittest.TestCase):
                 data_root / "netplay/v2/manifest.json",
                 data_root / "netplay/v2/schema.json",
                 rpg_manifest_path,
-                rpg_reproduction_path,
-                rpg_dat_root / "build.py",
-                rpg_dat_root / "patches/easyrpg.patch",
-                rpg_dat_root / "mkxp.rb",
-                rpg_dat_root / "native.js",
-                rpg_dat_root / "native-v4.js",
-                rpg_dat_root / "native-v5.js",
-                rpg_dat_root / "native-v6.js",
-                rpg_dat_root / "native-v7.js",
-                rpg_runtime_root / ".release-assets-observed.json",
-                rpg_runtime_root / "THIRD_PARTY_NOTICES",
+                rpg_runtime_root / ".release-observed.json",
             )
             for target in required:
                 target.parent.mkdir(parents=True, exist_ok=True)
                 target.write_bytes(b"fixture")
-            (rpg_runtime_root / "corresponding-source").mkdir()
-            (rpg_runtime_root / "licenses").mkdir()
-
             with mock.patch.multiple(
                 dependencies,
                 DATA_ROOT=data_root,
@@ -779,7 +598,6 @@ class DependencyMaterializationTests(unittest.TestCase):
                 NETPLAY_SCHEMA_PATH=required[7],
                 RPG_MAKER_DAT_ROOT=rpg_dat_root,
                 RPG_MAKER_MANIFEST_PATH=rpg_manifest_path,
-                RPG_MAKER_REPRODUCTION_PATH=rpg_reproduction_path,
                 RPG_MAKER_RUNTIME_ROOT=rpg_runtime_root,
             ), self.assertRaisesRegex(
                 dependencies.CheckError, "DEPENDENCY_IMAGE_EXPORT_SOURCE_INVALID"
@@ -802,10 +620,9 @@ class ImagePackagingTests(unittest.TestCase):
         )
         dockerignore = (repository_root / ".dockerignore").read_text(encoding="utf-8")
         self.assertIn("!web/features/player/rpg-runtime/registry.json", dockerignore)
-        for implementation in ("easyrpg", "mkxp", "native-web"):
-            relative = f"web/features/player/rpg-runtime/{implementation}/adapter.ts"
-            self.assertIn(f"COPY {relative} {relative}", dockerfile)
-            self.assertIn(f"!{relative}", dockerignore)
+        implementation = "web/features/player/rpg-runtime/index.ts"
+        self.assertIn(f"COPY {implementation} {implementation}", dockerfile)
+        self.assertIn(f"!{implementation}", dockerignore)
         self.assertIn(
             "RUN --mount=type=cache,target=/work/.cache/dependencies,sharing=locked",
             dockerfile,

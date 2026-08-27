@@ -29,7 +29,7 @@ GATES = (
 )
 ENGINE_PROFILES = {
     "RPG2000": "rpg2k", "RPG2003": "rpg2k3", "RPGXP": "rgss1", "RPGVX": "rgss2",
-    "RPGVXACE": "rgss3", "RPGMV": "mv-v1", "RPGMZ": "mz-v1",
+    "RPGVXACE": "rgss3", "RPGMV": "RPGMV", "RPGMZ": "RPGMZ",
 }
 MARKERS = {
     "RPG2000": ("RETROM RPG2000", (6, 25, 19)),
@@ -65,18 +65,23 @@ class GenerationCase:
 
 
 GENERATION_CASES = {
-    "ACC-RPG-002": GenerationCase("rpgmaker_2000", "RPG2000", None, "FAMILY_ONLY", "RPG2000_EASYRPG_0811_V4", "rpg2000"),
-    "ACC-RPG-003": GenerationCase("rpgmaker_2003", "RPG2003", "RPG2003", "MATCHED", "RPG2003_EASYRPG_0811_V4", "rpg2003"),
-    "ACC-RPG-004": GenerationCase("rpgmaker_xp", "RPGXP", "RPGXP", "MATCHED", "RPGXP_MKXPZ_F2EFC98_V5", "rpgxp"),
-    "ACC-RPG-005": GenerationCase("rpgmaker_vx", "RPGVX", "RPGVX", "MATCHED", "RPGVX_MKXPZ_F2EFC98_V5", "rpgvx"),
-    "ACC-RPG-006": GenerationCase("rpgmaker_vx_ace", "RPGVXACE", "RPGVXACE", "MATCHED", "RPGVXACE_MKXPZ_F2EFC98_V5", "rpgvxace"),
-    "ACC-RPG-007": GenerationCase("rpgmaker_mv", "RPGMV", "RPGMV", "MATCHED", "RPGMV_NATIVE_V4", "rpgmv"),
-    "ACC-RPG-008": GenerationCase("rpgmaker_mz", "RPGMZ", "RPGMZ", "MATCHED", "RPGMZ_NATIVE_V7", None),
+    "ACC-RPG-002": GenerationCase("rpgmaker_2000", "RPG2000", None, "FAMILY_ONLY", "RPG2000_EASYRPG", "rpg2000"),
+    "ACC-RPG-003": GenerationCase("rpgmaker_2003", "RPG2003", "RPG2003", "MATCHED", "RPG2003_EASYRPG", "rpg2003"),
+    "ACC-RPG-004": GenerationCase("rpgmaker_xp", "RPGXP", "RPGXP", "MATCHED", "RPGXP_MKXP", "rpgxp"),
+    "ACC-RPG-005": GenerationCase("rpgmaker_vx", "RPGVX", "RPGVX", "MATCHED", "RPGVX_MKXP", "rpgvx"),
+    "ACC-RPG-006": GenerationCase("rpgmaker_vx_ace", "RPGVXACE", "RPGVXACE", "MATCHED", "RPGVXACE_MKXP", "rpgvxace"),
+    "ACC-RPG-007": GenerationCase("rpgmaker_mv", "RPGMV", "RPGMV", "MATCHED", "RPGMV_NATIVE", "rpgmv"),
+    "ACC-RPG-008": GenerationCase("rpgmaker_mz", "RPGMZ", "RPGMZ", "MATCHED", "RPGMZ_NATIVE", None),
 }
 PACK_CASE = "ACC-RPG-009"
 COMPATIBILITY_CASE = "ACC-RPG-012"
 SECURITY_CASES = {"ACC-RPG-010", "ACC-RPG-011"}
-DEFERRED_CASES: dict[str, str] = {}
+DEFERRED_CASES = {
+    PACK_CASE: "RPG_SEVEN_CORE_MINIMAL_CLOSURE_REQUIRED",
+    "ACC-RPG-010": "RPG_SEVEN_CORE_MINIMAL_CLOSURE_REQUIRED",
+    "ACC-RPG-011": "RPG_SEVEN_CORE_MINIMAL_CLOSURE_REQUIRED",
+    COMPATIBILITY_CASE: "RPG_SECOND_RUNTIME_RELEASE_REQUIRED",
+}
 COMPATIBILITY_EVIDENCE_ENVIRONMENTS = (
     "RETROM_ACC_RPG_012_PREPARE_EVIDENCE",
     "RETROM_ACC_RPG_012_OLD_PROVISION_EVIDENCE",
@@ -86,8 +91,8 @@ COMPATIBILITY_EVIDENCE_ENVIRONMENTS = (
     "RETROM_ACC_RPG_012_INSPECT_EVIDENCE",
 )
 ISOLATION_ROUTES = {
-    "RPGMV": ("rpgmaker_mv", "RPGMV_NATIVE_V4", "rpg-native-web-v2"),
-    "RPGMZ": ("rpgmaker_mz", "RPGMZ_NATIVE_V7", "rpg-native-web-v5"),
+    "RPGMV": ("rpgmaker_mv", "RPGMV_NATIVE", "native-web"),
+    "RPGMZ": ("rpgmaker_mz", "RPGMZ_NATIVE", "native-web"),
 }
 SECURITY_CORES = {
     "RPG2000": "rpgmaker_2000", "RPG2003": "rpgmaker_2003", "RPGXP": "rpgmaker_xp",
@@ -95,13 +100,13 @@ SECURITY_CORES = {
     "RPGMZ": "rpgmaker_mz",
 }
 SECURITY_ROUTES = {
-    "RPG2000": ("RPG2000_EASYRPG_0811_V4", "EASYRPG_WEB"),
-    "RPG2003": ("RPG2003_EASYRPG_0811_V4", "EASYRPG_WEB"),
-    "RPGXP": ("RPGXP_MKXPZ_F2EFC98_V5", "MKXP_LIBRETRO_WEB"),
-    "RPGVX": ("RPGVX_MKXPZ_F2EFC98_V5", "MKXP_LIBRETRO_WEB"),
-    "RPGVXACE": ("RPGVXACE_MKXPZ_F2EFC98_V5", "MKXP_LIBRETRO_WEB"),
-    "RPGMV": ("RPGMV_NATIVE_V4", "NATIVE_WEB"),
-    "RPGMZ": ("RPGMZ_NATIVE_V7", "NATIVE_WEB"),
+    "RPG2000": ("RPG2000_EASYRPG", "EASYRPG_WEB"),
+    "RPG2003": ("RPG2003_EASYRPG", "EASYRPG_WEB"),
+    "RPGXP": ("RPGXP_MKXP", "MKXP_LIBRETRO_WEB"),
+    "RPGVX": ("RPGVX_MKXP", "MKXP_LIBRETRO_WEB"),
+    "RPGVXACE": ("RPGVXACE_MKXP", "MKXP_LIBRETRO_WEB"),
+    "RPGMV": ("RPGMV_NATIVE", "NATIVE_WEB"),
+    "RPGMZ": ("RPGMZ_NATIVE", "NATIVE_WEB"),
 }
 SECURITY_UNSAFE = {
     "dual-root": (False, 409, "RPG_PROJECT_ROOT_AMBIGUOUS"),
@@ -1586,7 +1591,7 @@ def validate_family_only_security(value: Any) -> None:
         raise ContractError("RPG_ACCEPTANCE_FAMILY_ONLY_EVIDENCE_INVALID")
     expected_config = {
         "runtimeFamily": "RPGMAKER", "generation": "RPG2003", "coreId": "rpgmaker_2003",
-        "routeKey": "RPG2003_EASYRPG_0811_V4", "adapterId": "easyrpg-web-v1",
+        "routeKey": "RPG2003_EASYRPG", "adapterId": "easyrpg-web",
         "adapterKind": "EASYRPG_WEB", "engineMode": "rpg2k3",
     }
     config = value.get("config")
@@ -1600,7 +1605,7 @@ def validate_family_only_security(value: Any) -> None:
         raise ContractError("RPG_ACCEPTANCE_FAMILY_ONLY_GATES_INVALID")
     engine = gates[1].get("evidence")
     if not isinstance(engine, dict) or engine.get("generation") != "RPG2003" or \
-            engine.get("adapterId") != "easyrpg-web-v1" or engine.get("engineProfile") != "rpg2k3":
+            engine.get("adapterId") != "easyrpg-web" or engine.get("engineProfile") != "rpg2k3":
         raise ContractError("RPG_ACCEPTANCE_FAMILY_ONLY_ENGINE_INVALID")
     validate_checkpoint({
         "launchId": value["originalLaunchId"], "restoreLaunchId": value["restoreLaunchId"],

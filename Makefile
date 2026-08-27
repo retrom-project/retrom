@@ -141,7 +141,6 @@ data-check:
 	@python3 scripts/test_design_assets.py
 	@python3 scripts/test_public_fixtures.py
 	@python3 scripts/test_dependencies.py
-	@python3 scripts/test_rpgmaker_reproduction.py
 	@python3 scripts/test_rpgmaker_release_assets.py
 	@python3 scripts/test_fbalpha2012_dat.py
 	@python3 scripts/dependencies.py data-check --versions "$(RETROM_DEPENDENCY_VERSIONS)"

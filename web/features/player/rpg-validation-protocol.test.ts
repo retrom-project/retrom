@@ -65,6 +65,6 @@ describe("RPG validation evidence", () => {
       rpgEngineProfile("RPG2000"), rpgEngineProfile("RPG2003"), rpgEngineProfile("RPGXP"),
       rpgEngineProfile("RPGVX"), rpgEngineProfile("RPGVXACE"), rpgEngineProfile("RPGMV"),
       rpgEngineProfile("RPGMZ"),
-    ]).toEqual(["rpg2k", "rpg2k3", "rgss1", "rgss2", "rgss3", "mv-v1", "mz-v1"]);
+    ]).toEqual(["rpg2k", "rpg2k3", "rgss1", "rgss2", "rgss3", "RPGMV", "RPGMZ"]);
   });
 });

@@ -78,9 +78,9 @@ func SupportsContentKind(compatibilityJSON, contentKind string) bool {
 			return false
 		}
 		return slices.Contains([]string{
-			"easyrpg-save-v1",
-			"mkxp-state-v1",
-			"rpg-native-save-v1",
+			"easyrpg-save",
+			"mkxp-state",
+			"native-save",
 		}, rpgCompatibility.AdapterABI)
 	}
 	var compatibility compatibility

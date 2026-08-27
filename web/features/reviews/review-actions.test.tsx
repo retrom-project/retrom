@@ -29,7 +29,7 @@ function launchedRPGValidation(): NonNullable<NonNullable<ReviewWorkspace["rpgMa
     validationId: "rpg-validation", importItemId: "item-1", reviewVersionAtCreate: 1,
     runtimeBindingRevision: 1, launchId: "rpg-launch", restoreLaunchId: null, state: "STARTING",
     lastGateSequence: 0, machineGates: [], failureCode: null, expiresAtMs: Date.now() + 60_000,
-    routeEvidence: { coreId: "rpgmaker_mv", generation: "RPGMV", evidenceGeneration: "RPGMV", evidenceConfidence: "MATCHED", routeKey: "RPGMV_NATIVE_V4", adapterId: "rpg-native-web-v2", adapterAbi: "rpg-native-save-v1" },
+    routeEvidence: { coreId: "rpgmaker_mv", generation: "RPGMV", evidenceGeneration: "RPGMV", evidenceConfidence: "MATCHED", routeKey: "RPGMV_NATIVE", adapterId: "native-web", adapterAbi: "native-save" },
     checkpointRoundTrip: { created: false, payloadKind: null, resumeSlot: null, sizeBytes: null, sha256: null, originalLaunchId: "rpg-launch", initialPosition: null, savedPosition: null, divergedPosition: null, originalLaunchEnded: false, restoreLaunchId: null, restoreStarted: false, restoredPosition: null, positionVerified: false, screenshotUrl: null, restoreInputPosition: null, restoreInputVerified: false },
     decision: null,
   };

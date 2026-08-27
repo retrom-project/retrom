@@ -646,7 +646,7 @@ INSERT INTO core_artifacts(
  save_max_bytes,provenance_json,compatibility_json,selected_for_new_bindings,available_for_launch,
  version,created_at_ms,updated_at_ms)
 VALUES(?,'rpgmaker_2000','RPG2000_EASYRPG_SAVE_TEST','RPGMAKER','EASYRPG_WEB','test',
- 'easyrpg-web-v1','runtime/easyrpg.js',1,?,?,?,0,'NATIVE_SAVE_BUNDLE_V1',67108864,
+ 'easyrpg-web','runtime/easyrpg.js',1,?,?,?,0,'NATIVE_SAVE_BUNDLE_V1',67108864,
  '{}','{"adapterAbi":"easy-save-abi"}',1,1,1,?,?)`, artifactID, strings.Repeat("a", 64), strings.Repeat("b", 64),
 		strings.Repeat("c", 64), now, now)
 	mustSaveSQL(t, fixture.database.SQL, `
@@ -690,7 +690,7 @@ INSERT INTO rpgmaker_review_profiles(
  route_key,artifact_id,artifact_set_sha256,adapter_id,adapter_abi,dependency_snapshot_sha256,
  created_at_ms,updated_at_ms)
 VALUES(?,'rpgmaker_2000','RPG2000','RPG2K',NULL,'FAMILY_ONLY',1,10,?,?,'{}',1,
- 'RPG2000_EASYRPG_SAVE_TEST',?,?,'easyrpg-web-v1','easy-save-abi',?,?,?)`, ids["review"],
+ 'RPG2000_EASYRPG_SAVE_TEST',?,?,'easyrpg-web','easy-save-abi',?,?,?)`, ids["review"],
 		strings.Repeat("5", 64), strings.Repeat("6", 64), artifactID, strings.Repeat("c", 64),
 		strings.Repeat("7", 64), now, now)
 	mustSaveSQL(t, fixture.database.SQL, `
@@ -700,7 +700,7 @@ INSERT INTO rpgmaker_runtime_validations(
  artifact_set_sha256,adapter_id,adapter_abi,dependency_snapshot_sha256,state,machine_gates_json,
  created_at_ms,updated_at_ms,expires_at_ms)
 VALUES(?,?,1,1,?,?,'rpgmaker_2000','RPG2000',NULL,'FAMILY_ONLY','RPG2000_EASYRPG_SAVE_TEST',
- ?,?,'easyrpg-web-v1','easy-save-abi',?,'CREATED','{}',?,?,?)`, validationID, ids["item"],
+ ?,?,'easyrpg-web','easy-save-abi',?,'CREATED','{}',?,?,?)`, validationID, ids["item"],
 		ids["snapshot"], strings.Repeat("5", 64), artifactID, strings.Repeat("c", 64),
 		strings.Repeat("7", 64), now, now, now+900_000)
 	mustSaveSQL(t, fixture.database.SQL, `

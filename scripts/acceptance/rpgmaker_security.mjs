@@ -93,7 +93,7 @@ async function contentSafetyCase(context, client, instances) {
   const familyLaunch = await createValidationLaunch(
     context, client, familyReview, "acc-rpg-010-family-only.png",
   );
-  exact(familyLaunch.config.routeKey, "RPG2003_EASYRPG_0811_V4", "RPG_ACCEPTANCE_FAMILY_ONLY_ROUTE");
+  exact(familyLaunch.config.routeKey, "RPG2003_EASYRPG", "RPG_ACCEPTANCE_FAMILY_ONLY_ROUTE");
   exact(familyLaunch.config.generation, "RPG2003", "RPG_ACCEPTANCE_FAMILY_ONLY_GENERATION");
   exact(familyLaunch.config.adapter?.engineMode, "rpg2k3", "RPG_ACCEPTANCE_FAMILY_ONLY_ENGINE");
   await completeOriginalValidation(familyLaunch.page, familyLaunch.frame, "RPG2000");

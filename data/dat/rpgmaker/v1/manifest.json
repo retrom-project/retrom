@@ -1,439 +1,150 @@
 {
-  "schema_version": 1,
-  "runtime_id": "rpgmaker-v1",
+  "schema_version": 2,
+  "runtime_id": "rpgmaker",
+  "release": {
+    "repository": "https://github.com/xxxsen/retrom-runtime",
+    "tag": "v0.2.0",
+    "tag_commit": "f6c53b9ef44e6afb16ddd893c61c7afc3249ea45",
+    "bundle_asset": {
+      "filename": "retrom-runtime-0.2.0.tar.gz",
+      "url": "https://github.com/xxxsen/retrom-runtime/releases/download/v0.2.0/retrom-runtime-0.2.0.tar.gz",
+      "max_size_bytes": 268435456
+    },
+    "metadata_asset": {
+      "filename": "retrom-runtime-release.json",
+      "url": "https://github.com/xxxsen/retrom-runtime/releases/download/v0.2.0/retrom-runtime-release.json",
+      "max_size_bytes": 1048576
+    }
+  },
   "runtime_files": [
-    {
-      "path_in_release": "0.8.1.1-v4/easyrpg-player.js",
-      "release_id": "easyrpg",
-      "asset_filename": "easyrpg-player.js",
-      "role": "runtime_js"
-    },
-    {
-      "path_in_release": "0.8.1.1-v4/easyrpg-player.wasm",
-      "release_id": "easyrpg",
-      "asset_filename": "easyrpg-player.wasm",
-      "role": "runtime_wasm"
-    },
-    {
-      "path_in_release": "0.8.1.1-v5/easyrpg-player.js",
-      "release_id": "easyrpg-r3",
-      "asset_filename": "easyrpg-player.js",
-      "role": "runtime_js"
-    },
-    {
-      "path_in_release": "0.8.1.1-v5/easyrpg-player.wasm",
-      "release_id": "easyrpg-r3",
-      "asset_filename": "easyrpg-player.wasm",
-      "role": "runtime_wasm"
-    },
-    {
-      "path_in_release": "f2efc98-v5/mkxp-z_libretro.js",
-      "release_id": "mkxp",
-      "asset_filename": "mkxp-z_libretro.js",
-      "role": "runtime_js"
-    },
-    {
-      "path_in_release": "f2efc98-v5/mkxp-z_libretro.wasm",
-      "release_id": "mkxp",
-      "asset_filename": "mkxp-z_libretro.wasm",
-      "role": "runtime_wasm"
-    },
-    {
-      "path_in_release": "f2efc98-v5/retrom_position.rb",
-      "size_bytes": 1487,
-      "sha256": "524a0b3210f33f5a01220134548eb2947678ca5ef7a75b5caf3cfea2804fd5fa",
-      "role": "adapter_bridge"
-    },
-    {
-      "path_in_release": "v3/native-bridge.js",
-      "size_bytes": 17278,
-      "sha256": "69016c7d295705836032c84ba86cdd6dd0bf5839f5e34f8c1800ae0f5fd34adc",
-      "role": "adapter_bridge"
-    },
-    {
-      "path_in_release": "v4/native-bridge.js",
-      "size_bytes": 18251,
-      "sha256": "2ed0f359eefbb6dd15a5f0a5c6157ba7432814612ff1708f7fc1f00137956169",
-      "role": "adapter_bridge"
-    },
-    {
-      "path_in_release": "v5/native-bridge.js",
-      "size_bytes": 18761,
-      "sha256": "26c7ed699d4fab71ab9960e651a5eb5745e4450fb2ffbb9e6a7e96daca0a6a0d",
-      "role": "adapter_bridge"
-    },
-    {
-      "path_in_release": "v6/native-bridge.js",
-      "size_bytes": 18762,
-      "sha256": "30ebc2179a5c1cc394fd1240ca159ed2dfc8013b64bd159b8406f70bc1fc036f",
-      "role": "adapter_bridge"
-    },
-    {
-      "path_in_release": "v7/native-bridge.js",
-      "size_bytes": 18871,
-      "sha256": "ee07770e32525617b46fbc077e1de2187eb814240e3ae59d4a296f0e4ecb32a6",
-      "role": "adapter_bridge"
-    }
-  ],
-  "runtime_releases": [
-    {
-      "id": "easyrpg",
-      "repository": "https://github.com/xxxsen/Player",
-      "tag": "retrom-web-0.8.1.1-r2",
-      "tag_commit": "41a98c367685e0bd7ccb5f8f180b2799a1fae909",
-      "adapter_abi": "easyrpg-save-v1",
-      "binary_association": "TAGGED_RELEASE_COMPATIBLE",
-      "metadata_asset": {
-        "filename": "retrom-runtime-release.json",
-        "url": "https://github.com/xxxsen/Player/releases/download/retrom-web-0.8.1.1-r2/retrom-runtime-release.json",
-        "max_size_bytes": 65536
-      },
-      "assets": [
-        {
-          "filename": "easyrpg-player.js",
-          "url": "https://github.com/xxxsen/Player/releases/download/retrom-web-0.8.1.1-r2/easyrpg-player.js",
-          "path_in_release": "0.8.1.1-v4/easyrpg-player.js",
-          "role": "runtime_js",
-          "max_size_bytes": 1048576
-        },
-        {
-          "filename": "easyrpg-player.wasm",
-          "url": "https://github.com/xxxsen/Player/releases/download/retrom-web-0.8.1.1-r2/easyrpg-player.wasm",
-          "path_in_release": "0.8.1.1-v4/easyrpg-player.wasm",
-          "role": "runtime_wasm",
-          "max_size_bytes": 16777216
-        }
-      ]
-    },
-    {
-      "id": "mkxp",
-      "repository": "https://github.com/xxxsen/mkxp-z-libretro-emscripten",
-      "tag": "retrom-web-f2efc98-r3",
-      "tag_commit": "6e75022c2d015a7af29a433014599cb56d6d2262",
-      "adapter_abi": "mkxp-state-v1",
-      "binary_association": "TAGGED_RELEASE_COMPATIBLE",
-      "metadata_asset": {
-        "filename": "retrom-runtime-release.json",
-        "url": "https://github.com/xxxsen/mkxp-z-libretro-emscripten/releases/download/retrom-web-f2efc98-r3/retrom-runtime-release.json",
-        "max_size_bytes": 65536
-      },
-      "assets": [
-        {
-          "filename": "mkxp-z_libretro.js",
-          "url": "https://github.com/xxxsen/mkxp-z-libretro-emscripten/releases/download/retrom-web-f2efc98-r3/mkxp-z_libretro.js",
-          "path_in_release": "f2efc98-v5/mkxp-z_libretro.js",
-          "role": "runtime_js",
-          "max_size_bytes": 1048576
-        },
-        {
-          "filename": "mkxp-z_libretro.wasm",
-          "url": "https://github.com/xxxsen/mkxp-z-libretro-emscripten/releases/download/retrom-web-f2efc98-r3/mkxp-z_libretro.wasm",
-          "path_in_release": "f2efc98-v5/mkxp-z_libretro.wasm",
-          "role": "runtime_wasm",
-          "max_size_bytes": 67108864
-        }
-      ]
-    },
-    {
-      "id": "easyrpg-r3",
-      "repository": "https://github.com/xxxsen/Player",
-      "tag": "retrom-web-0.8.1.1-r3",
-      "tag_commit": "2fdfa9a6af6036c3dc0a5fadc695886c2c59e5a7",
-      "adapter_abi": "easyrpg-save-v1",
-      "binary_association": "TAGGED_RELEASE_COMPATIBLE",
-      "metadata_asset": {
-        "filename": "retrom-runtime-release.json",
-        "url": "https://github.com/xxxsen/Player/releases/download/retrom-web-0.8.1.1-r3/retrom-runtime-release.json",
-        "max_size_bytes": 65536
-      },
-      "assets": [
-        {
-          "filename": "easyrpg-player.js",
-          "url": "https://github.com/xxxsen/Player/releases/download/retrom-web-0.8.1.1-r3/easyrpg-player.js",
-          "path_in_release": "0.8.1.1-v5/easyrpg-player.js",
-          "role": "runtime_js",
-          "max_size_bytes": 1048576
-        },
-        {
-          "filename": "easyrpg-player.wasm",
-          "url": "https://github.com/xxxsen/Player/releases/download/retrom-web-0.8.1.1-r3/easyrpg-player.wasm",
-          "path_in_release": "0.8.1.1-v5/easyrpg-player.wasm",
-          "role": "runtime_wasm",
-          "max_size_bytes": 16777216
-        }
-      ]
-    }
+    {"bundle_path":"LICENSE","path_in_release":"v0.2.0/LICENSE","role":"license","max_size_bytes":1048576},
+    {"bundle_path":"THIRD_PARTY_NOTICES.md","path_in_release":"v0.2.0/THIRD_PARTY_NOTICES.md","role":"license","max_size_bytes":1048576},
+    {"bundle_path":"runtime/easyrpg/easyrpg-player.js","path_in_release":"v0.2.0/easyrpg-player.js","role":"runtime_js","max_size_bytes":1048576},
+    {"bundle_path":"runtime/easyrpg/easyrpg-player.wasm","path_in_release":"v0.2.0/easyrpg-player.wasm","role":"runtime_wasm","max_size_bytes":16777216},
+    {"bundle_path":"runtime/mkxp/mkxp-z_libretro.js","path_in_release":"v0.2.0/mkxp-z_libretro.js","role":"runtime_js","max_size_bytes":1048576},
+    {"bundle_path":"runtime/mkxp/mkxp-z_libretro.wasm","path_in_release":"v0.2.0/mkxp-z_libretro.wasm","role":"runtime_wasm","max_size_bytes":67108864},
+    {"bundle_path":"runtime/mkxp/position_bridge.rb","path_in_release":"v0.2.0/position_bridge.rb","role":"adapter_bridge","max_size_bytes":16384},
+    {"bundle_path":"runtime/native/bridge.js","path_in_release":"v0.2.0/native-bridge.js","role":"adapter_bridge","max_size_bytes":131072}
   ],
   "artifacts": [
     {
       "core_id": "rpgmaker_2000",
       "generation": "RPG2000",
-      "route_key": "RPG2000_EASYRPG_0811_V4",
+      "route_key": "RPG2000_EASYRPG",
       "runtime_adapter_kind": "EASYRPG_WEB",
-      "runtime_version": "0.8.1.1-v4",
-      "adapter_id": "easyrpg-web-v1",
-      "adapter_abi": "easyrpg-save-v1",
+      "runtime_version": "v0.2.0",
+      "adapter_id": "easyrpg-web",
+      "adapter_abi": "easyrpg-save",
       "entry_path": "easyrpg-player.js",
-      "file_paths": ["0.8.1.1-v4/easyrpg-player.js", "0.8.1.1-v4/easyrpg-player.wasm"],
+      "file_paths": ["v0.2.0/easyrpg-player.js", "v0.2.0/easyrpg-player.wasm"],
       "requires_threads": false,
       "save_payload_kind": "NATIVE_SAVE_BUNDLE_V1",
       "save_max_bytes": 67108864,
       "selected_for_new_bindings": true,
       "available_for_launch": true,
-      "compatibility": {"adapterAbi":"easyrpg-save-v1","engineMode":"rpg2k","jsPath":"easyrpg-player.js","wasmPath":"easyrpg-player.wasm"}
+      "compatibility": {"adapterAbi":"easyrpg-save","engineMode":"rpg2k","jsPath":"easyrpg-player.js","wasmPath":"easyrpg-player.wasm"}
     },
     {
       "core_id": "rpgmaker_2003",
       "generation": "RPG2003",
-      "route_key": "RPG2003_EASYRPG_0811_V4",
+      "route_key": "RPG2003_EASYRPG",
       "runtime_adapter_kind": "EASYRPG_WEB",
-      "runtime_version": "0.8.1.1-v4",
-      "adapter_id": "easyrpg-web-v1",
-      "adapter_abi": "easyrpg-save-v1",
+      "runtime_version": "v0.2.0",
+      "adapter_id": "easyrpg-web",
+      "adapter_abi": "easyrpg-save",
       "entry_path": "easyrpg-player.js",
-      "file_paths": ["0.8.1.1-v4/easyrpg-player.js", "0.8.1.1-v4/easyrpg-player.wasm"],
+      "file_paths": ["v0.2.0/easyrpg-player.js", "v0.2.0/easyrpg-player.wasm"],
       "requires_threads": false,
       "save_payload_kind": "NATIVE_SAVE_BUNDLE_V1",
       "save_max_bytes": 67108864,
       "selected_for_new_bindings": true,
       "available_for_launch": true,
-      "compatibility": {"adapterAbi":"easyrpg-save-v1","engineMode":"rpg2k3","jsPath":"easyrpg-player.js","wasmPath":"easyrpg-player.wasm"}
+      "compatibility": {"adapterAbi":"easyrpg-save","engineMode":"rpg2k3","jsPath":"easyrpg-player.js","wasmPath":"easyrpg-player.wasm"}
     },
     {
       "core_id": "rpgmaker_xp",
       "generation": "RPGXP",
-      "route_key": "RPGXP_MKXPZ_F2EFC98_V5",
+      "route_key": "RPGXP_MKXP",
       "runtime_adapter_kind": "MKXP_LIBRETRO_WEB",
-      "runtime_version": "f2efc98-v5",
-      "adapter_id": "mkxp-z-libretro-v4",
-      "adapter_abi": "mkxp-state-v1",
+      "runtime_version": "v0.2.0",
+      "adapter_id": "mkxp-libretro-web",
+      "adapter_abi": "mkxp-state",
       "entry_path": "mkxp-z_libretro.js",
-      "file_paths": ["f2efc98-v5/mkxp-z_libretro.js", "f2efc98-v5/mkxp-z_libretro.wasm", "f2efc98-v5/retrom_position.rb"],
+      "file_paths": ["v0.2.0/mkxp-z_libretro.js", "v0.2.0/mkxp-z_libretro.wasm", "v0.2.0/position_bridge.rb"],
       "requires_threads": true,
       "save_payload_kind": "RUNTIME_STATE",
       "save_max_bytes": 268435456,
       "selected_for_new_bindings": true,
       "available_for_launch": true,
-      "compatibility": {"adapterAbi":"mkxp-state-v1","bridgePath":"retrom_position.rb","jsPath":"mkxp-z_libretro.js","rgssVersion":1,"wasmPath":"mkxp-z_libretro.wasm"}
-    },
-    {
-      "core_id": "rpgmaker_2000",
-      "generation": "RPG2000",
-      "route_key": "RPG2000_EASYRPG_0811_V5",
-      "runtime_adapter_kind": "EASYRPG_WEB",
-      "runtime_version": "0.8.1.1-v5",
-      "adapter_id": "easyrpg-web-v1",
-      "adapter_abi": "easyrpg-save-v1",
-      "entry_path": "easyrpg-player.js",
-      "file_paths": ["0.8.1.1-v5/easyrpg-player.js", "0.8.1.1-v5/easyrpg-player.wasm"],
-      "requires_threads": false,
-      "save_payload_kind": "NATIVE_SAVE_BUNDLE_V1",
-      "save_max_bytes": 67108864,
-      "selected_for_new_bindings": false,
-      "available_for_launch": true,
-      "compatibility": {"adapterAbi":"easyrpg-save-v1","engineMode":"rpg2k","jsPath":"easyrpg-player.js","wasmPath":"easyrpg-player.wasm"}
-    },
-    {
-      "core_id": "rpgmaker_2003",
-      "generation": "RPG2003",
-      "route_key": "RPG2003_EASYRPG_0811_V5",
-      "runtime_adapter_kind": "EASYRPG_WEB",
-      "runtime_version": "0.8.1.1-v5",
-      "adapter_id": "easyrpg-web-v1",
-      "adapter_abi": "easyrpg-save-v1",
-      "entry_path": "easyrpg-player.js",
-      "file_paths": ["0.8.1.1-v5/easyrpg-player.js", "0.8.1.1-v5/easyrpg-player.wasm"],
-      "requires_threads": false,
-      "save_payload_kind": "NATIVE_SAVE_BUNDLE_V1",
-      "save_max_bytes": 67108864,
-      "selected_for_new_bindings": false,
-      "available_for_launch": true,
-      "compatibility": {"adapterAbi":"easyrpg-save-v1","engineMode":"rpg2k3","jsPath":"easyrpg-player.js","wasmPath":"easyrpg-player.wasm"}
+      "compatibility": {"adapterAbi":"mkxp-state","bridgePath":"position_bridge.rb","jsPath":"mkxp-z_libretro.js","rgssVersion":1,"wasmPath":"mkxp-z_libretro.wasm"}
     },
     {
       "core_id": "rpgmaker_vx",
       "generation": "RPGVX",
-      "route_key": "RPGVX_MKXPZ_F2EFC98_V5",
+      "route_key": "RPGVX_MKXP",
       "runtime_adapter_kind": "MKXP_LIBRETRO_WEB",
-      "runtime_version": "f2efc98-v5",
-      "adapter_id": "mkxp-z-libretro-v4",
-      "adapter_abi": "mkxp-state-v1",
+      "runtime_version": "v0.2.0",
+      "adapter_id": "mkxp-libretro-web",
+      "adapter_abi": "mkxp-state",
       "entry_path": "mkxp-z_libretro.js",
-      "file_paths": ["f2efc98-v5/mkxp-z_libretro.js", "f2efc98-v5/mkxp-z_libretro.wasm", "f2efc98-v5/retrom_position.rb"],
+      "file_paths": ["v0.2.0/mkxp-z_libretro.js", "v0.2.0/mkxp-z_libretro.wasm", "v0.2.0/position_bridge.rb"],
       "requires_threads": true,
       "save_payload_kind": "RUNTIME_STATE",
       "save_max_bytes": 268435456,
       "selected_for_new_bindings": true,
       "available_for_launch": true,
-      "compatibility": {"adapterAbi":"mkxp-state-v1","bridgePath":"retrom_position.rb","jsPath":"mkxp-z_libretro.js","rgssVersion":2,"wasmPath":"mkxp-z_libretro.wasm"}
+      "compatibility": {"adapterAbi":"mkxp-state","bridgePath":"position_bridge.rb","jsPath":"mkxp-z_libretro.js","rgssVersion":2,"wasmPath":"mkxp-z_libretro.wasm"}
     },
     {
       "core_id": "rpgmaker_vx_ace",
       "generation": "RPGVXACE",
-      "route_key": "RPGVXACE_MKXPZ_F2EFC98_V5",
+      "route_key": "RPGVXACE_MKXP",
       "runtime_adapter_kind": "MKXP_LIBRETRO_WEB",
-      "runtime_version": "f2efc98-v5",
-      "adapter_id": "mkxp-z-libretro-v4",
-      "adapter_abi": "mkxp-state-v1",
+      "runtime_version": "v0.2.0",
+      "adapter_id": "mkxp-libretro-web",
+      "adapter_abi": "mkxp-state",
       "entry_path": "mkxp-z_libretro.js",
-      "file_paths": ["f2efc98-v5/mkxp-z_libretro.js", "f2efc98-v5/mkxp-z_libretro.wasm", "f2efc98-v5/retrom_position.rb"],
+      "file_paths": ["v0.2.0/mkxp-z_libretro.js", "v0.2.0/mkxp-z_libretro.wasm", "v0.2.0/position_bridge.rb"],
       "requires_threads": true,
       "save_payload_kind": "RUNTIME_STATE",
       "save_max_bytes": 268435456,
       "selected_for_new_bindings": true,
       "available_for_launch": true,
-      "compatibility": {"adapterAbi":"mkxp-state-v1","bridgePath":"retrom_position.rb","jsPath":"mkxp-z_libretro.js","rgssVersion":3,"wasmPath":"mkxp-z_libretro.wasm"}
+      "compatibility": {"adapterAbi":"mkxp-state","bridgePath":"position_bridge.rb","jsPath":"mkxp-z_libretro.js","rgssVersion":3,"wasmPath":"mkxp-z_libretro.wasm"}
     },
     {
       "core_id": "rpgmaker_mv",
       "generation": "RPGMV",
-      "route_key": "RPGMV_NATIVE_V3",
+      "route_key": "RPGMV_NATIVE",
       "runtime_adapter_kind": "NATIVE_WEB",
-      "runtime_version": "v3",
-      "adapter_id": "rpg-native-web-v1",
-      "adapter_abi": "rpg-native-save-v1",
+      "runtime_version": "v0.2.0",
+      "adapter_id": "native-web",
+      "adapter_abi": "native-save",
       "entry_path": "native-bridge.js",
-      "file_paths": ["v3/native-bridge.js"],
-      "requires_threads": false,
-      "save_payload_kind": "NATIVE_SAVE_BUNDLE_V1",
-      "save_max_bytes": 67108864,
-      "selected_for_new_bindings": false,
-      "available_for_launch": true,
-      "compatibility": {"adapterAbi":"rpg-native-save-v1","bridgePath":"native-bridge.js","bridgeProfile":"mv-v1"}
-    },
-    {
-      "core_id": "rpgmaker_mz",
-      "generation": "RPGMZ",
-      "route_key": "RPGMZ_NATIVE_V3",
-      "runtime_adapter_kind": "NATIVE_WEB",
-      "runtime_version": "v3",
-      "adapter_id": "rpg-native-web-v1",
-      "adapter_abi": "rpg-native-save-v1",
-      "entry_path": "native-bridge.js",
-      "file_paths": ["v3/native-bridge.js"],
-      "requires_threads": false,
-      "save_payload_kind": "NATIVE_SAVE_BUNDLE_V1",
-      "save_max_bytes": 67108864,
-      "selected_for_new_bindings": false,
-      "available_for_launch": true,
-      "compatibility": {"adapterAbi":"rpg-native-save-v1","bridgePath":"native-bridge.js","bridgeProfile":"mz-v1"}
-    },
-    {
-      "core_id": "rpgmaker_mv",
-      "generation": "RPGMV",
-      "route_key": "RPGMV_NATIVE_V4",
-      "runtime_adapter_kind": "NATIVE_WEB",
-      "runtime_version": "v4",
-      "adapter_id": "rpg-native-web-v2",
-      "adapter_abi": "rpg-native-save-v1",
-      "entry_path": "native-bridge.js",
-      "file_paths": ["v4/native-bridge.js"],
+      "file_paths": ["v0.2.0/native-bridge.js"],
       "requires_threads": false,
       "save_payload_kind": "NATIVE_SAVE_BUNDLE_V1",
       "save_max_bytes": 67108864,
       "selected_for_new_bindings": true,
       "available_for_launch": true,
-      "compatibility": {"adapterAbi":"rpg-native-save-v1","bridgePath":"native-bridge.js","bridgeProfile":"mv-v1"}
+      "compatibility": {"adapterAbi":"native-save","bridgePath":"native-bridge.js","bridgeProfile":"RPGMV"}
     },
     {
       "core_id": "rpgmaker_mz",
       "generation": "RPGMZ",
-      "route_key": "RPGMZ_NATIVE_V4",
+      "route_key": "RPGMZ_NATIVE",
       "runtime_adapter_kind": "NATIVE_WEB",
-      "runtime_version": "v4",
-      "adapter_id": "rpg-native-web-v2",
-      "adapter_abi": "rpg-native-save-v1",
+      "runtime_version": "v0.2.0",
+      "adapter_id": "native-web",
+      "adapter_abi": "native-save",
       "entry_path": "native-bridge.js",
-      "file_paths": ["v4/native-bridge.js"],
-      "requires_threads": false,
-      "save_payload_kind": "NATIVE_SAVE_BUNDLE_V1",
-      "save_max_bytes": 67108864,
-      "selected_for_new_bindings": false,
-      "available_for_launch": true,
-      "compatibility": {"adapterAbi":"rpg-native-save-v1","bridgePath":"native-bridge.js","bridgeProfile":"mz-v1"}
-    },
-    {
-      "core_id": "rpgmaker_mz",
-      "generation": "RPGMZ",
-      "route_key": "RPGMZ_NATIVE_V5",
-      "runtime_adapter_kind": "NATIVE_WEB",
-      "runtime_version": "v5",
-      "adapter_id": "rpg-native-web-v3",
-      "adapter_abi": "rpg-native-save-v1",
-      "entry_path": "native-bridge.js",
-      "file_paths": ["v5/native-bridge.js"],
-      "requires_threads": false,
-      "save_payload_kind": "NATIVE_SAVE_BUNDLE_V1",
-      "save_max_bytes": 67108864,
-      "selected_for_new_bindings": false,
-      "available_for_launch": true,
-      "compatibility": {"adapterAbi":"rpg-native-save-v1","bridgePath":"native-bridge.js","bridgeProfile":"mz-v1"}
-    },
-    {
-      "core_id": "rpgmaker_mz",
-      "generation": "RPGMZ",
-      "route_key": "RPGMZ_NATIVE_V6",
-      "runtime_adapter_kind": "NATIVE_WEB",
-      "runtime_version": "v6",
-      "adapter_id": "rpg-native-web-v4",
-      "adapter_abi": "rpg-native-save-v1",
-      "entry_path": "native-bridge.js",
-      "file_paths": ["v6/native-bridge.js"],
-      "requires_threads": false,
-      "save_payload_kind": "NATIVE_SAVE_BUNDLE_V1",
-      "save_max_bytes": 67108864,
-      "selected_for_new_bindings": false,
-      "available_for_launch": true,
-      "compatibility": {"adapterAbi":"rpg-native-save-v1","bridgePath":"native-bridge.js","bridgeProfile":"mz-v1"}
-    },
-    {
-      "core_id": "rpgmaker_mz",
-      "generation": "RPGMZ",
-      "route_key": "RPGMZ_NATIVE_V7",
-      "runtime_adapter_kind": "NATIVE_WEB",
-      "runtime_version": "v7",
-      "adapter_id": "rpg-native-web-v5",
-      "adapter_abi": "rpg-native-save-v1",
-      "entry_path": "native-bridge.js",
-      "file_paths": ["v7/native-bridge.js"],
+      "file_paths": ["v0.2.0/native-bridge.js"],
       "requires_threads": false,
       "save_payload_kind": "NATIVE_SAVE_BUNDLE_V1",
       "save_max_bytes": 67108864,
       "selected_for_new_bindings": true,
       "available_for_launch": true,
-      "compatibility": {"adapterAbi":"rpg-native-save-v1","bridgePath":"native-bridge.js","bridgeProfile":"mz-v1"}
+      "compatibility": {"adapterAbi":"native-save","bridgePath":"native-bridge.js","bridgeProfile":"RPGMZ"}
     }
-  ],
-  "source_archives": [
-    {"component_id":"easyrpg-player","repository":"https://github.com/EasyRPG/Player","commit":"78328fa29f465315291e161130e6682f69410370","archive_url":"https://codeload.github.com/EasyRPG/Player/tar.gz/78328fa29f465315291e161130e6682f69410370","size_bytes":6816650,"sha256":"022805cd54631e7ee3c741db781668bb64978b6ed2ab4caee3ca1d3e06c60540","license_path":"COPYING"},
-    {"component_id":"liblcf","repository":"https://github.com/EasyRPG/liblcf","commit":"92c4450a1bc1acb58bd02bbb99b57e5036919cdf","archive_url":"https://codeload.github.com/EasyRPG/liblcf/tar.gz/92c4450a1bc1acb58bd02bbb99b57e5036919cdf","size_bytes":310933,"sha256":"f16dd65f798bbd6e4e2eeb6411e69cdb1fb04c7bbf21e7a15e01bb373d41837b","license_path":"COPYING"},
-    {"component_id":"easyrpg-buildscripts","repository":"https://github.com/EasyRPG/buildscripts","commit":"57e4736179f65e910a399267f4ce4ea68d382667","archive_url":"https://codeload.github.com/EasyRPG/buildscripts/tar.gz/57e4736179f65e910a399267f4ce4ea68d382667","size_bytes":61034,"sha256":"804cd45a2915f87f9ea2baf99f8672ace27d25645b191c25b99677abc13e16d9","license_path":"LICENSE"},
-    {"component_id":"mkxp-z","repository":"https://github.com/white-axe/mkxp-z","commit":"f2efc98a344c505a66820e06d6508092719b8dd2","archive_url":"https://codeload.github.com/white-axe/mkxp-z/tar.gz/f2efc98a344c505a66820e06d6508092719b8dd2","size_bytes":26004560,"sha256":"8b970be1927781dab30594e727880a7a4db340876e18fd74b3abb77dd55aa924","license_path":"COPYING"},
-    {"component_id":"retroarch","repository":"https://github.com/white-axe/RetroArch","commit":"69a4f0ea1e8aaf442ae4858f2e7f2b31a1776576","archive_url":"https://codeload.github.com/white-axe/RetroArch/tar.gz/69a4f0ea1e8aaf442ae4858f2e7f2b31a1776576","size_bytes":71647765,"sha256":"b4bfa46ea5ce09008494099b967816de8da7a146ede2f7d1a52d5842a6aae215","license_path":"COPYING"},
-    {"component_id":"mkxp-z-libretro-emscripten","repository":"https://github.com/white-axe/mkxp-z-libretro-emscripten","commit":"f585dc65499122a7abf503ca5d5dc8ef29452d91","archive_url":"https://codeload.github.com/white-axe/mkxp-z-libretro-emscripten/tar.gz/f585dc65499122a7abf503ca5d5dc8ef29452d91","size_bytes":36010,"sha256":"ea8692a2ff2737da92d21b59fe20ff673b20f7740e9e642f520ede0951d0d9aa","license_path":"COPYING"},
-    {"component_id":"player-retrom-release-r2","repository":"https://github.com/xxxsen/Player","commit":"41a98c367685e0bd7ccb5f8f180b2799a1fae909","archive_url":"https://codeload.github.com/xxxsen/Player/tar.gz/41a98c367685e0bd7ccb5f8f180b2799a1fae909","size_bytes":6820301,"sha256":"5d2286860f05ae1db0cd22219ebea37fbd3957e36b33d158f692aa0b08e00271","license_path":"COPYING"},
-    {"component_id":"player-retrom-release-r3","repository":"https://github.com/xxxsen/Player","commit":"2fdfa9a6af6036c3dc0a5fadc695886c2c59e5a7","archive_url":"https://codeload.github.com/xxxsen/Player/tar.gz/2fdfa9a6af6036c3dc0a5fadc695886c2c59e5a7","size_bytes":6820573,"sha256":"cbca245a29eb934b3533b3fc16784de5a5a8bac483a75725a64e67b031fb51f4","license_path":"COPYING"},
-    {"component_id":"mkxp-retrom-release","repository":"https://github.com/xxxsen/mkxp-z-libretro-emscripten","commit":"6e75022c2d015a7af29a433014599cb56d6d2262","archive_url":"https://codeload.github.com/xxxsen/mkxp-z-libretro-emscripten/tar.gz/6e75022c2d015a7af29a433014599cb56d6d2262","size_bytes":39698,"sha256":"5e41f8cf460ed9bd119a7bfa6a92252659a15646a814d7412d8ecc11821768f0","license_path":"COPYING"}
-  ],
-  "build": {
-    "recipe_path": "build.py",
-    "easyrpg_emscripten_version": "3.1.74",
-    "mkxp_emscripten_version": "4.0.8",
-    "wasi_sdk_version": "30",
-    "binaryen_version": "126",
-    "easyrpg_patch_path": "patches/easyrpg-retrom-bridge.patch",
-    "easyrpg_patch_sha256": "57a3c451acaf6e9f175db58f2ba1031739ac8508063c30c625356b0e2004ee79",
-    "mkxp_bridge_path": "mkxp-retrom-position.rb",
-    "mkxp_bridge_sha256": "524a0b3210f33f5a01220134548eb2947678ca5ef7a75b5caf3cfea2804fd5fa",
-    "native_bridge_v3_path": "native-bridge-v3.js",
-    "native_bridge_v3_sha256": "69016c7d295705836032c84ba86cdd6dd0bf5839f5e34f8c1800ae0f5fd34adc",
-    "native_bridge_v4_path": "native-bridge-v4.js",
-    "native_bridge_v4_sha256": "2ed0f359eefbb6dd15a5f0a5c6157ba7432814612ff1708f7fc1f00137956169",
-    "native_bridge_v5_path": "native-bridge-v5.js",
-    "native_bridge_v5_sha256": "26c7ed699d4fab71ab9960e651a5eb5745e4450fb2ffbb9e6a7e96daca0a6a0d",
-    "native_bridge_v6_path": "native-bridge-v6.js",
-    "native_bridge_v6_sha256": "30ebc2179a5c1cc394fd1240ca159ed2dfc8013b64bd159b8406f70bc1fc036f",
-    "native_bridge_v7_path": "native-bridge.js",
-    "native_bridge_v7_sha256": "ee07770e32525617b46fbc077e1de2187eb814240e3ae59d4a296f0e4ecb32a6"
-  }
+  ]
 }

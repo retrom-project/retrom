@@ -12,9 +12,7 @@ COPY data/netplay data/netplay
 COPY web/features/player/adapters web/features/player/adapters
 COPY web/features/player/netplay web/features/player/netplay
 COPY web/features/player/rpg-runtime/registry.json web/features/player/rpg-runtime/registry.json
-COPY web/features/player/rpg-runtime/easyrpg/adapter.ts web/features/player/rpg-runtime/easyrpg/adapter.ts
-COPY web/features/player/rpg-runtime/mkxp/adapter.ts web/features/player/rpg-runtime/mkxp/adapter.ts
-COPY web/features/player/rpg-runtime/native-web/adapter.ts web/features/player/rpg-runtime/native-web/adapter.ts
+COPY web/features/player/rpg-runtime/index.ts web/features/player/rpg-runtime/index.ts
 RUN --mount=type=cache,target=/work/.cache/dependencies,sharing=locked \
   python3 scripts/dependencies.py prepare --versions "$RETROM_DEPENDENCY_VERSIONS" \
   && python3 scripts/dependencies.py image-export \

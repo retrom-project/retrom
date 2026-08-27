@@ -15,7 +15,7 @@ if (!["old", "new"].includes(phase)) {
 const baseUrl = normalizedBase(required("RETROM_ACCEPTANCE_BASE_URL"));
 const chromeExecutablePath = required("RETROM_CHROME_EXECUTABLE");
 const fixtureRoot = resolve("testdata/public-roms/rpgmaker-smoke");
-const expectedRoute = phase === "old" ? "RPG2000_EASYRPG_0811_V4" : "RPG2000_EASYRPG_0811_V5";
+const expectedRoute = phase === "old" ? "RPG2000_PREVIOUS_RELEASE" : "RPG2000_NEXT_RELEASE";
 const fixture = phase === "old" ? "rpg2000" : "rpg2000-compat";
 const browser = await chromium.launch({ executablePath: chromeExecutablePath, headless: true });
 

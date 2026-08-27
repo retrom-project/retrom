@@ -3,67 +3,39 @@ import { rpgValidationGates, validateRpgPosition, type RpgGate } from "../rpg-va
 
 export const rpgRuntimeRoutes = [
   {
-    coreId: "rpgmaker_2000", generation: "RPG2000", routeKey: "RPG2000_EASYRPG_0811_V4",
-    adapterKind: "EASYRPG_WEB", adapterId: "easyrpg-web-v1", engineMode: "rpg2k",
-    runtimeVersion: "0.8.1.1-v4",
+    coreId: "rpgmaker_2000", generation: "RPG2000", routeKey: "RPG2000_EASYRPG",
+    adapterKind: "EASYRPG_WEB", adapterId: "easyrpg-web", engineMode: "rpg2k",
+    runtimeVersion: "v0.2.0",
   },
   {
-    coreId: "rpgmaker_2003", generation: "RPG2003", routeKey: "RPG2003_EASYRPG_0811_V4",
-    adapterKind: "EASYRPG_WEB", adapterId: "easyrpg-web-v1", engineMode: "rpg2k3",
-    runtimeVersion: "0.8.1.1-v4",
+    coreId: "rpgmaker_2003", generation: "RPG2003", routeKey: "RPG2003_EASYRPG",
+    adapterKind: "EASYRPG_WEB", adapterId: "easyrpg-web", engineMode: "rpg2k3",
+    runtimeVersion: "v0.2.0",
   },
   {
-    coreId: "rpgmaker_2000", generation: "RPG2000", routeKey: "RPG2000_EASYRPG_0811_V5",
-    adapterKind: "EASYRPG_WEB", adapterId: "easyrpg-web-v1", engineMode: "rpg2k",
-    runtimeVersion: "0.8.1.1-v5",
+    coreId: "rpgmaker_xp", generation: "RPGXP", routeKey: "RPGXP_MKXP",
+    adapterKind: "MKXP_LIBRETRO_WEB", adapterId: "mkxp-libretro-web", rgssVersion: 1,
+    runtimeVersion: "v0.2.0",
   },
   {
-    coreId: "rpgmaker_2003", generation: "RPG2003", routeKey: "RPG2003_EASYRPG_0811_V5",
-    adapterKind: "EASYRPG_WEB", adapterId: "easyrpg-web-v1", engineMode: "rpg2k3",
-    runtimeVersion: "0.8.1.1-v5",
+    coreId: "rpgmaker_vx", generation: "RPGVX", routeKey: "RPGVX_MKXP",
+    adapterKind: "MKXP_LIBRETRO_WEB", adapterId: "mkxp-libretro-web", rgssVersion: 2,
+    runtimeVersion: "v0.2.0",
   },
   {
-    coreId: "rpgmaker_xp", generation: "RPGXP", routeKey: "RPGXP_MKXPZ_F2EFC98_V5",
-    adapterKind: "MKXP_LIBRETRO_WEB", adapterId: "mkxp-z-libretro-v4", rgssVersion: 1,
-    runtimeVersion: "f2efc98-v5",
+    coreId: "rpgmaker_vx_ace", generation: "RPGVXACE", routeKey: "RPGVXACE_MKXP",
+    adapterKind: "MKXP_LIBRETRO_WEB", adapterId: "mkxp-libretro-web", rgssVersion: 3,
+    runtimeVersion: "v0.2.0",
   },
   {
-    coreId: "rpgmaker_vx", generation: "RPGVX", routeKey: "RPGVX_MKXPZ_F2EFC98_V5",
-    adapterKind: "MKXP_LIBRETRO_WEB", adapterId: "mkxp-z-libretro-v4", rgssVersion: 2,
-    runtimeVersion: "f2efc98-v5",
+    coreId: "rpgmaker_mv", generation: "RPGMV", routeKey: "RPGMV_NATIVE",
+    adapterKind: "NATIVE_WEB", adapterId: "native-web", bridgeProfile: "RPGMV",
+    runtimeVersion: "v0.2.0",
   },
   {
-    coreId: "rpgmaker_vx_ace", generation: "RPGVXACE", routeKey: "RPGVXACE_MKXPZ_F2EFC98_V5",
-    adapterKind: "MKXP_LIBRETRO_WEB", adapterId: "mkxp-z-libretro-v4", rgssVersion: 3,
-    runtimeVersion: "f2efc98-v5",
-  },
-  {
-    coreId: "rpgmaker_mv", generation: "RPGMV", routeKey: "RPGMV_NATIVE_V3",
-    adapterKind: "NATIVE_WEB", adapterId: "rpg-native-web-v1", bridgeProfile: "mv-v1",
-  },
-  {
-    coreId: "rpgmaker_mz", generation: "RPGMZ", routeKey: "RPGMZ_NATIVE_V3",
-    adapterKind: "NATIVE_WEB", adapterId: "rpg-native-web-v1", bridgeProfile: "mz-v1",
-  },
-  {
-    coreId: "rpgmaker_mv", generation: "RPGMV", routeKey: "RPGMV_NATIVE_V4",
-    adapterKind: "NATIVE_WEB", adapterId: "rpg-native-web-v2", bridgeProfile: "mv-v1",
-  },
-  {
-    coreId: "rpgmaker_mz", generation: "RPGMZ", routeKey: "RPGMZ_NATIVE_V4",
-    adapterKind: "NATIVE_WEB", adapterId: "rpg-native-web-v2", bridgeProfile: "mz-v1",
-  },
-  {
-    coreId: "rpgmaker_mz", generation: "RPGMZ", routeKey: "RPGMZ_NATIVE_V5",
-    adapterKind: "NATIVE_WEB", adapterId: "rpg-native-web-v3", bridgeProfile: "mz-v1",
-  },
-  {
-    coreId: "rpgmaker_mz", generation: "RPGMZ", routeKey: "RPGMZ_NATIVE_V6",
-    adapterKind: "NATIVE_WEB", adapterId: "rpg-native-web-v4", bridgeProfile: "mz-v1",
-  },
-  {
-    coreId: "rpgmaker_mz", generation: "RPGMZ", routeKey: "RPGMZ_NATIVE_V7",
-    adapterKind: "NATIVE_WEB", adapterId: "rpg-native-web-v5", bridgeProfile: "mz-v1",
+    coreId: "rpgmaker_mz", generation: "RPGMZ", routeKey: "RPGMZ_NATIVE",
+    adapterKind: "NATIVE_WEB", adapterId: "native-web", bridgeProfile: "RPGMZ",
+    runtimeVersion: "v0.2.0",
   },
 ] as const;
 

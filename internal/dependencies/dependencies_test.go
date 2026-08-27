@@ -256,7 +256,7 @@ WHERE core_id='rpgmaker_2000' AND selected_for_new_bindings=1
 	}
 }
 
-func TestRPGMakerBootstrapDeselectsStaleArtifactFromPriorRoute(t *testing.T) {
+func TestRPGMakerBootstrapDeselectsUndeclaredArtifact(t *testing.T) {
 	t.Parallel()
 
 	_, filename, _, ok := runtime.Caller(0)
@@ -280,12 +280,12 @@ INSERT INTO core_artifacts(
  entry_path,size_bytes,sha256,manifest_sha256,artifact_set_sha256,requires_threads,
  save_payload_kind,save_max_bytes,provenance_json,compatibility_json,
  selected_for_new_bindings,available_for_launch,version,created_at_ms,updated_at_ms)
-SELECT '01980000-0000-7000-8000-000000000099',core_id,'RPG2000_EASYRPG_0811_V2',runtime_family,
+SELECT '01980000-0000-7000-8000-000000000099',core_id,'RPG2000_UNDECLARED',runtime_family,
  runtime_adapter_kind,runtime_version,adapter_id,entry_path,size_bytes,sha256,manifest_sha256,
  ?,requires_threads,save_payload_kind,save_max_bytes,provenance_json,compatibility_json,
  1,1,1,created_at_ms,updated_at_ms
 FROM core_artifacts
-WHERE core_id='rpgmaker_2000' AND route_key='RPG2000_EASYRPG_0811_V4'
+WHERE core_id='rpgmaker_2000' AND route_key='RPG2000_EASYRPG'
 `, strings.Repeat("f", 64)); err != nil {
 		t.Fatalf("seed stale artifact: %v", err)
 	}
@@ -300,8 +300,8 @@ WHERE core_id='rpgmaker_2000' AND selected_for_new_bindings=1
 `).Scan(&selectedRoute); err != nil {
 		t.Fatal(err)
 	}
-	if selectedRoute != "RPG2000_EASYRPG_0811_V4" {
-		t.Fatalf("selected route = %s, want RPG2000_EASYRPG_0811_V4", selectedRoute)
+	if selectedRoute != "RPG2000_EASYRPG" {
+		t.Fatalf("selected route = %s, want RPG2000_EASYRPG", selectedRoute)
 	}
 	var staleSelected, staleAvailable int
 	if err := database.SQL.QueryRowContext(context.Background(), `

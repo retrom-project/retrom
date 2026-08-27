@@ -876,9 +876,9 @@ gate 闭集和顺序为 `RUNTIME_READY/ENGINE_PROFILE/FRAMES_300/INPUT/AUDIO/INI
 
 Launch config 顶层是 `runtimeFamily` discriminated union。`EMULATORJS` 保留既有字段；`RPGMAKER` 必须返回 `protocolVersion:1/purpose/coreId/coreName/generation/routeKey/artifactId/checkpoint/checkpointAvailability/runtimeValidation/adapter`。PRODUCT 的 `runtimeValidation` 为 null；验证 Launch 必须返回 `{validationId,state,originalLaunchId,restoreLaunchId,lastGateSequence,machineGates,checkpointEvidence,restoreScreenshotUploaded}`，其中 `machineGates` 恰为上述 14 项有序服务端状态/evidence，足以让同一受授权 Launch 的页面刷新从首个未完成动作继续。adapter 只允许：
 
-- `EASYRPG_WEB`：`adapterId=easyrpg-web-v1`、强制 `engineMode=rpg2k|rpg2k3`、runtime/project/index URL、可空唯一 RTP archive、slot 100；
-- `MKXP_LIBRETRO_WEB`：clean-lineage 当前只允许 `adapterId=mkxp-z-libretro-v4`；config 分别返回 core JS 与 Wasm 的 `url/sizeBytes/sha256`、`artifactSetSha256`、固定 bridge、项目/pack archive URL 与 size/hash、强制 `rgssVersion=1|2|3`、`stateBufferBytes=268435456`。core 的 size/hash 是下载固定 tag Release asset 后记录的 observed cache coordinates，用于内容响应、Blob 重建与本机损坏检测；它们不是远端 Release 准入身份，同 tag 同名资产由固定 tag commit 与 adapter ABI 定义兼容性；
-- `NATIVE_WEB`：历史 V3/V4/V5/V6 Launch 分别使用 `adapterId=rpg-native-web-v1|v2|v3|v4`；当前 MV 仍选择 V4，当前 MZ V7 使用 `adapterId=rpg-native-web-v5`。五代均冻结 `bridgeProfile=mv-v1|mz-v1`、`uniqueOrigin/bootstrapUrl/bootstrapTicket`。ENGINE_PROFILE evidence 与 route projection 必须接受已登记的 adapter identity，并仍按 validation/Launch 冻结值精确匹配，不能只接受当前或历史其中一代。
+- `EASYRPG_WEB`：`adapterId=easyrpg-web`、强制 `engineMode=rpg2k|rpg2k3`、runtime/project/index URL、可空唯一 RTP archive、slot 100；
+- `MKXP_LIBRETRO_WEB`：只允许 `adapterId=mkxp-libretro-web`；config 分别返回 core JS 与 Wasm 的 `url/sizeBytes/sha256`、`artifactSetSha256`、固定 bridge、项目/pack archive URL 与 size/hash、强制 `rgssVersion=1|2|3`、`stateBufferBytes=268435456`。core 的 size/hash 是下载固定 tag Release asset 后记录的 observed cache coordinates，用于内容响应、Blob 重建与本机损坏检测；它们不是远端 Release 准入身份，同 tag 同名资产由固定 tag commit 与 adapter ABI 定义兼容性；
+- `NATIVE_WEB`：只允许 `adapterId=native-web`，并按 generation 精确冻结 `bridgeProfile=RPGMV|RPGMZ`、`uniqueOrigin/bootstrapUrl/bootstrapTicket`。ENGINE_PROFILE evidence 与 route projection 必须与 Launch 的 generation、adapter 和 profile 逐字段一致，不接受版本别名或 fallback。
 
 EasyRPG 与 mkxp 的同源内容端点属于严格 OpenAPI 契约，不能只在 Go router 中注册：
 
@@ -909,7 +909,7 @@ entry CSP 固定为：`default-src 'self' data: blob:`；`script-src 'self' 'non
 
 `GET /__retrom/project/{safeLogicalPath}` 只查询从完整 source snapshot 冻结到本 Launch 的 Native Web 运行投影，并先按逻辑路径逐 byte 精确查找；该投影只包含 `index.html` 与固定 Web 资源 MIME allowlist，根 `package.json` 及 `.exe/.dll/.so/.dylib/.node/.bat/.cmd/.ps1` 等 desktop/native payload 即使保留在 source snapshot/filesDigest 中也绝不进入投影。仅当精确查找不存在时，允许在同一 Launch 的投影内做一次 SQLite ASCII `NOCASE` 查找，以兼容 Windows 上生成、却在脚本中使用不同 ASCII 大小写的 MV/MZ 资源引用。候选必须恰好一个，否则返回 404；导入期的 NFC/NFKC case-fold 碰撞门禁仍是前置不变量。该回退不做 Unicode 归一化或模糊路径猜测，不适用于 `entry`、restore、普通 Launch content、external file 或任何 `/api/v1` 内容端点。
 
-`GET /__retrom/bridge.js` 先从该 Launch 锁定的 `coreArtifactId` 读取 `runtimeVersion/entryPath`，再命中 RPG runtime manifest allowlist 并逐字节校验；V1/V2/V3 Launch 必须分别得到其冻结版本的 bridge。不得硬编码当前 runtime version、读取 selected artifact，或在旧文件缺失时 fallback 到新文件。
+`GET /__retrom/bridge.js` 先从该 Launch 锁定的 `coreArtifactId` 读取 `runtimeVersion/entryPath`，再命中 RPG runtime manifest allowlist 并执行本机 observed 完整性校验。首版 manifest 只有当前 `retrom-runtime` tag 的一份 `native/bridge.js`；不得硬编码版本、绕过 artifact binding 或在文件缺失时 fallback 到其他内容。未来真实第二个 tag 的保留行为必须另行设计和验证，不能预置 V1/V2/V3 兼容分支。
 
 bootstrap POST 成功必须设置 `Clear-Site-Data: "storage"` 后用 `location.replace('/__retrom/entry')`，cleanup 再清空 storage、撤销 capability 并过期 cookie。只有 entry 可返回 `text/html`；项目内其他 HTML 不服务。`.js/.mjs/.css/.json/.wasm` 和登记媒体/font 使用固定 MIME，profile 登记的加密/未知非执行资源才可用 `application/octet-stream`，用户 MIME/archive metadata 不参与决定。入口 HTML 直接引用 native executable 后缀属于确凿运行依赖并以 `RPG_NATIVE_DEPENDENCY_UNSUPPORTED` 拒绝；仅携带但未引用的同名文件仍保留在 source snapshot，却不会进入 Launch 投影或由该端点返回。
 

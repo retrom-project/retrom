@@ -14,8 +14,8 @@ import (
 )
 
 const (
-	testOldRoute = "RPG2000_EASYRPG_0811_V4"
-	testNewRoute = "RPG2000_EASYRPG_0811_V5"
+	testOldRoute = "RPG2000_PREVIOUS_RELEASE"
+	testNewRoute = "RPG2000_NEXT_RELEASE"
 )
 
 func TestPrepareBootstrapsRealArtifactsAndSelectsHistoricalRoute(t *testing.T) {
