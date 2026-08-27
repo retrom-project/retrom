@@ -130,6 +130,9 @@ class MakefileDependencyTests(unittest.TestCase):
         self.assertNotIn(stale_selector, runtime_cases)
         self.assertNotIn(stale_selector, expansion_cases)
         self.assertNotIn(stale_selector, support)
+        for relative_path in ("immersive.spec.ts", "immersive-library.spec.ts"):
+            immersive_cases = (REPOSITORY_ROOT / "web" / "e2e" / relative_path).read_text(encoding="utf-8")
+            self.assertNotIn(stale_selector, immersive_cases)
         self.assertGreaterEqual(runtime_cases.count('test.setTimeout(180_000)'), 3)
         self.assertIn('test.setTimeout(180_000);\n  const routes = [', ui_cases)
 
@@ -148,6 +151,14 @@ class MakefileDependencyTests(unittest.TestCase):
         self.assertIn("revision.route_key", script)
         self.assertIn("core_artifact_id,route_key,dat_version_id", script)
         self.assertIn('connection.execute("PRAGMA busy_timeout=30000")', script)
+
+    def test_immersive_seeder_preserves_launch_content_and_route_identity(self) -> None:
+        script = (
+            REPOSITORY_ROOT / "scripts" / "acceptance" / "seed-immersive-library.py"
+        ).read_text(encoding="utf-8")
+        self.assertIn("revision.route_key", script)
+        self.assertIn("game_content_revision_id", script)
+        self.assertIn("core_artifact_id,route_key,save_state_id", script)
 
     def test_public_fixture_targets_cover_rpgmaker_outputs(self) -> None:
         self.assertIn("rpgmaker-smoke/build.py", self.dry_run("public-fixtures-generate"))

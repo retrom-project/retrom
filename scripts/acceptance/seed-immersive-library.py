@@ -45,6 +45,7 @@ SELECT game.id AS game_id,
        variant.core_id,
        revision.id AS variant_revision_id,
        revision.core_artifact_id,
+       revision.route_key,
        revision.dat_version_id,
        revision.validation_input_digest,
        revision.compatibility_code,
@@ -74,7 +75,7 @@ def seed_game(
     title_initial: str,
     now_ms: int,
     emulator_game_id: int,
-) -> tuple[str, str]:
+) -> tuple[str, str, str]:
     game_id = identifier(1, index)
     metadata_id = identifier(2, index)
     content_id = identifier(3, index)
@@ -139,16 +140,17 @@ VALUES(?,?,?,NULL,1,?,?)
     database.execute(
         """
 INSERT INTO game_variant_revisions(
- id,game_variant_id,game_content_revision_id,core_artifact_id,dat_version_id,
+ id,game_variant_id,game_content_revision_id,core_artifact_id,route_key,dat_version_id,
  validation_input_digest,emulator_game_id,status,compatibility_code,dependency_snapshot_json,
  default_dos_entry,created_at_ms
-) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)
+) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)
 """,
         (
             variant_revision_id,
             variant_id,
             content_id,
             base["core_artifact_id"],
+            base["route_key"],
             base["dat_version_id"],
             base["validation_input_digest"],
             emulator_game_id,
@@ -163,15 +165,17 @@ INSERT INTO game_variant_revisions(
         "UPDATE game_variants SET current_revision_id=? WHERE id=?",
         (variant_revision_id, variant_id),
     )
-    return game_id, variant_revision_id
+    return game_id, content_id, variant_revision_id
 
 
 def seed_play(
     database: sqlite3.Connection,
     profile_id: str,
     game_id: str,
+    content_revision_id: str,
     variant_revision_id: str,
     artifact_id: str,
+    route_key: str,
     index: int,
     started_at_ms: int,
 ) -> None:
@@ -180,18 +184,21 @@ def seed_play(
     database.execute(
         """
 INSERT INTO launch_sessions(
- id,profile_id,game_id,game_variant_revision_id,core_artifact_id,save_state_id,dos_entry_path,
+ id,profile_id,purpose,game_id,game_content_revision_id,game_variant_revision_id,
+ core_artifact_id,route_key,save_state_id,dos_entry_path,
  return_to,credential_sha256,state,bootstrap_expires_at_ms,idle_expires_at_ms,activated_at_ms,
  finished_at_ms,hard_expires_at_ms,created_at_ms,updated_at_ms,version,initial_disc_index,
  netplay_session_id,netplay_player_no,save_access
-) VALUES(?,?,?,?,?,NULL,NULL,'/immersive',?,'FINISHED',?,NULL,?,?,?, ?,?,1,0,NULL,NULL,'NORMAL')
+) VALUES(?,?,'PRODUCT',?,?,?,?,?,NULL,NULL,'/immersive',?,'FINISHED',?,NULL,?,?,?, ?,?,1,0,NULL,NULL,'NORMAL')
 """,
         (
             launch_id,
             profile_id,
             game_id,
+            content_revision_id,
             variant_revision_id,
             artifact_id,
+            route_key,
             hashlib.sha256(launch_id.encode()).digest(),
             started_at_ms + 60_000,
             started_at_ms,
@@ -274,7 +281,7 @@ def seed(database_path: Path) -> dict[str, object]:
         game_ids: list[str] = []
         for index, (title, title_initial) in enumerate(title_cases(), start=1):
             timestamp = latest_play + index
-            game_id, variant_revision_id = seed_game(
+            game_id, content_revision_id, variant_revision_id = seed_game(
                 database,
                 base,
                 index,
@@ -288,8 +295,10 @@ def seed(database_path: Path) -> dict[str, object]:
                 database,
                 profile_id,
                 game_id,
+                content_revision_id,
                 variant_revision_id,
                 base["core_artifact_id"],
+                base["route_key"],
                 index,
                 timestamp,
             )
@@ -305,8 +314,10 @@ def seed(database_path: Path) -> dict[str, object]:
             database,
             profile_id,
             base["game_id"],
+            base["current_content_revision_id"],
             base["variant_revision_id"],
             base["core_artifact_id"],
+            base["route_key"],
             GAME_COUNT + 1,
             latest_play + GAME_COUNT + 1,
         )
