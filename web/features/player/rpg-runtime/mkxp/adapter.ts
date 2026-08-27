@@ -42,6 +42,17 @@ const browserDependencies: MkxpMountDependencies = {
   prepare: (options) => Nostalgist.prepare(options),
 };
 
+function printMkxpDiagnostic(...args: unknown[]) {
+  // RetroArch writes its complete native log stream to stderr, including
+  // routine INFO startup lines. Nostalgist maps stderr to console.error by
+  // default, which makes Next's development overlay report every healthy log
+  // line as an application issue. Fatal worker/runtime failures still surface
+  // independently as rejected promises and page errors.
+  window.dispatchEvent(new CustomEvent("retrom:runtime-diagnostic", {
+    detail: { runtime: "mkxp-z", message: args.map(String).join(" ") },
+  }));
+}
+
 export async function mountMkxp(
   config: MkxpConfig,
   target: HTMLElement,
@@ -95,6 +106,7 @@ async function mountMkxpUnchecked(
       fileContent: new Blob([rtpBytes[index].slice().buffer]),
     })),
     element: canvas,
+    emscriptenModule: { printErr: printMkxpDiagnostic },
     retroarchConfig: {
       savefile_directory: "/home/web_user/retroarch/userdata/saves",
       savestate_directory: "/home/web_user/retroarch/userdata/states",
