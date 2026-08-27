@@ -140,32 +140,44 @@ func Validate(catalog Catalog) error {
 	orders := make(map[int]struct{}, len(catalog.Templates))
 	lastOrder := 0
 	for _, template := range catalog.Templates {
+		if err := validateTemplate(template, lastOrder, keys, pairs, orders); err != nil {
+			return err
+		}
 		pair := template.PlatformID + "/" + template.DefaultCoreID
-		if template.Key != pair || template.Key != strings.ToLower(template.Key) ||
-			template.CatalogOrder <= 0 || template.CatalogOrder <= lastOrder ||
-			!validText(template.Name, 1, 200) || !validText(template.Description, 0, 10_000) {
-			return fmt.Errorf("%w: invalid template %q", ErrInvalid, template.Key)
-		}
-		if _, exists := keys[template.Key]; exists {
-			return fmt.Errorf("%w: duplicate key %q", ErrInvalid, template.Key)
-		}
-		if _, exists := pairs[pair]; exists {
-			return fmt.Errorf("%w: duplicate pair %q", ErrInvalid, pair)
-		}
-		if _, exists := orders[template.CatalogOrder]; exists {
-			return fmt.Errorf("%w: duplicate order %d", ErrInvalid, template.CatalogOrder)
-		}
-		extensions := contentprofile.SupportedExtensions(template.PlatformID)
-		// RPG Maker templates accept a browser directory in addition to a single
-		// ZIP/7z project. Their shape is validated by the RPG project importer,
-		// rather than the legacy single-file extension registry.
-		if template.PlatformID != "rpgmaker" && template.PlatformID != "ons" && !validExtensions(extensions) {
-			return fmt.Errorf("%w: extensions for %q", ErrInvalid, template.PlatformID)
-		}
 		keys[template.Key] = struct{}{}
 		pairs[pair] = struct{}{}
 		orders[template.CatalogOrder] = struct{}{}
 		lastOrder = template.CatalogOrder
+	}
+	return nil
+}
+
+func validateTemplate(
+	template DirectoryTemplate,
+	lastOrder int,
+	keys, pairs map[string]struct{},
+	orders map[int]struct{},
+) error {
+	pair := template.PlatformID + "/" + template.DefaultCoreID
+	if template.Key != pair || template.Key != strings.ToLower(template.Key) ||
+		template.CatalogOrder <= 0 || template.CatalogOrder <= lastOrder ||
+		!validText(template.Name, 1, 200) || !validText(template.Description, 0, 10_000) {
+		return fmt.Errorf("%w: invalid template %q", ErrInvalid, template.Key)
+	}
+	if _, exists := keys[template.Key]; exists {
+		return fmt.Errorf("%w: duplicate key %q", ErrInvalid, template.Key)
+	}
+	if _, exists := pairs[pair]; exists {
+		return fmt.Errorf("%w: duplicate pair %q", ErrInvalid, pair)
+	}
+	if _, exists := orders[template.CatalogOrder]; exists {
+		return fmt.Errorf("%w: duplicate order %d", ErrInvalid, template.CatalogOrder)
+	}
+	// Directory-style runtimes accept project folders in addition to archives;
+	// their importer validates the full project shape.
+	if template.PlatformID != "rpgmaker" && template.PlatformID != "ons" &&
+		!validExtensions(contentprofile.SupportedExtensions(template.PlatformID)) {
+		return fmt.Errorf("%w: extensions for %q", ErrInvalid, template.PlatformID)
 	}
 	return nil
 }

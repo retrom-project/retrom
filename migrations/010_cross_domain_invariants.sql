@@ -3231,6 +3231,7 @@ WHEN NOT EXISTS(
   WHERE upload.id=NEW.upload_session_id AND (
     upload.purpose='GENERAL' AND NEW.consumer_type<>'RUNTIME_ASSET_PACK_INSTALLATION'
     OR upload.purpose='RPG_MAKER_PROJECT' AND NEW.consumer_type='IMPORT_JOB'
+    OR upload.purpose='ONS_PROJECT' AND NEW.consumer_type='IMPORT_JOB'
     OR upload.purpose='RUNTIME_ASSET_PACK'
       AND NEW.consumer_type='RUNTIME_ASSET_PACK_INSTALLATION'
       AND NEW.upload_file_id IS NULL

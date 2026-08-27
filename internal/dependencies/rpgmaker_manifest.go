@@ -187,11 +187,7 @@ func artifactMatchesRoute(artifact RPGMakerArtifact, route routing.Entry) bool {
 }
 
 func validateONSArtifact(artifact RPGMakerArtifact, files map[string]RPGMakerRuntimeFile) error {
-	if artifact.CoreID != "onscripter_yuri" || artifact.Generation != "ONS" || artifact.RouteKey != "ONS_YURI" ||
-		artifact.RuntimeAdapterKind != "ONS_YURI_WEB" || artifact.AdapterID != "ons-yuri-web" ||
-		artifact.AdapterABI != "ons-save" || artifact.EntryPath != "onsyuri.js" || artifact.RequiresThreads ||
-		artifact.SavePayloadKind != "ONS_SAVE_BUNDLE_V1" || artifact.SaveMaxBytes != 64<<20 ||
-		!artifact.SelectedForNewBindings || !artifact.AvailableForLaunch {
+	if !validONSIdentity(artifact) {
 		return fmt.Errorf("%w: ONS artifact identity", ErrInvalid)
 	}
 	entries, err := rpgArtifactSetEntries(artifact, files)
@@ -204,6 +200,15 @@ func validateONSArtifact(artifact RPGMakerArtifact, files map[string]RPGMakerRun
 		return fmt.Errorf("%w: ONS artifact bytes", ErrInvalid)
 	}
 	return nil
+}
+
+func validONSIdentity(artifact RPGMakerArtifact) bool {
+	return artifact.CoreID == "onscripter_yuri" && artifact.Generation == "ONS" &&
+		artifact.RouteKey == "ONS_YURI" && artifact.RuntimeAdapterKind == "ONS_YURI_WEB" &&
+		artifact.AdapterID == "ons-yuri-web" && artifact.AdapterABI == "ons-save" &&
+		artifact.EntryPath == "onsyuri.js" && !artifact.RequiresThreads &&
+		artifact.SavePayloadKind == "ONS_SAVE_BUNDLE_V1" && artifact.SaveMaxBytes == 64<<20 &&
+		artifact.SelectedForNewBindings && artifact.AvailableForLaunch
 }
 
 func validONSCompatibility(artifact RPGMakerArtifact) bool {

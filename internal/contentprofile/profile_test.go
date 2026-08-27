@@ -100,14 +100,30 @@ func TestMultiDiscContentKindIsExplicitlyLimitedToSaturn(t *testing.T) {
 	for platformID := range registry {
 		got := AllowsContentKind(platformID, ContentKindMultiDiscM3UV1)
 		testassert.CheckFalsef(t, got != (platformID == "saturn"), "AllowsContentKind(%q, MULTI_DISC_M3U_V1) = %t", platformID, got)
-		if platformID == "rpgmaker" {
+		switch platformID {
+		case "rpgmaker":
 			testassert.CheckTruef(t, AllowsContentKind(platformID, ContentKindRPGMakerProject), "RPG Maker project support missing")
 			testassert.CheckFalsef(t, AllowsContentKind(platformID, ContentKindSingleFile), "RPG Maker accepted SINGLE_FILE")
-		} else {
+		case "ons":
+			testassert.CheckTruef(t, AllowsContentKind(platformID, ContentKindONSProject), "ONS project support missing")
+			testassert.CheckFalsef(t, AllowsContentKind(platformID, ContentKindSingleFile), "ONS accepted SINGLE_FILE")
+		default:
 			testassert.CheckTruef(t, AllowsContentKind(platformID, ContentKindSingleFile), "platform %q lost SINGLE_FILE support", platformID)
 		}
 	}
 	testassert.False(t, AllowsContentKind("unknown", ContentKindMultiDiscM3UV1), "unknown platform accepted multi-disc content")
+}
+
+func TestONSProfileAcceptsOnlyProjectArchiveTransport(t *testing.T) {
+	t.Parallel()
+	profile, ok := ByPlatform("ons")
+	testassert.Falsef(t, testassert.Any(
+		func() bool { return !ok },
+		func() bool { return profile.ArchivePolicy != ArchiveProject },
+		func() bool { return !AcceptsArchive("ons", ArchiveZIP) },
+		func() bool { return !AcceptsArchive("ons", ArchiveSevenZip) },
+		func() bool { return AcceptsRaw("ons", "game.zip") },
+	), "ONS profile=%#v", profile)
 }
 
 func TestRPGMakerProfileAcceptsOnlyProjectArchiveTransport(t *testing.T) {

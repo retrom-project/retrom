@@ -115,7 +115,7 @@ describe("UploadPicker", () => {
     await user.click(screen.getByRole("button", { name: "下一步" }));
     await user.selectOptions(screen.getByRole("combobox", { name: "目标游戏目录" }), "rpg-mv");
     expect(screen.getByText("RPG Maker 项目")).toBeVisible();
-    expect(screen.getByText(/不会自动猜测或切换版本/)).toBeVisible();
+    expect(screen.getByText(/服务端会识别项目版本并选择底层核心/)).toBeVisible();
     expect(screen.getByLabelText("元信息来源")).toHaveValue("不刮削（RPG Maker 项目）");
     expect(screen.getByLabelText("元信息来源")).toBeDisabled();
 
@@ -129,6 +129,31 @@ describe("UploadPicker", () => {
     expect(upload.uploadFiles).toHaveBeenCalledWith(expect.any(Array), expect.any(Function), "RPG_MAKER_PROJECT");
     expect(fetchMock).toHaveBeenCalledWith("/api/v1/admin/imports", expect.objectContaining({
       body: JSON.stringify({ uploadId: "rpg-upload", targetPlatformInstanceId: "rpg-mv", metadataProvider: "NONE", contentMode: "RPG_MAKER_PROJECT_V1", tagIds: [] }),
+    }));
+  });
+
+  it("uses the ONS project upload purpose and disables metadata scraping", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ importJobId: "ons-import" }), { status: 202, headers: { "Content-Type": "application/json" } }));
+    vi.stubGlobal("fetch", fetchMock);
+    const user = userEvent.setup();
+    render(<UploadPicker directories={[{
+      id: "ons", name: "ONS 游戏", platformName: "ONS", coreName: "ONScripterYuri",
+      importCapabilities: { contentModes: ["ONS_PROJECT_V1"], multiDisc: null },
+    }]} />);
+
+    const project = new File(["project"], "game.7z", { type: "application/x-7z-compressed" });
+    await user.upload(screen.getByLabelText("选择导入文件"), project);
+    await user.click(screen.getByRole("button", { name: "下一步" }));
+    await user.selectOptions(screen.getByRole("combobox", { name: "目标游戏目录" }), "ons");
+    expect(screen.getByText("ONS 项目")).toBeVisible();
+    expect(screen.getByText(/审核时需要先成功试运行一次/)).toBeVisible();
+    expect(screen.getByLabelText("元信息来源")).toHaveValue("不刮削（ONS 项目）");
+    expect(screen.getByLabelText("元信息来源")).toBeDisabled();
+
+    await user.click(screen.getByRole("button", { name: "上传并试运行 ONS 项目" }));
+    expect(upload.uploadFiles).toHaveBeenCalledWith(expect.any(Array), expect.any(Function), "ONS_PROJECT");
+    expect(fetchMock).toHaveBeenCalledWith("/api/v1/admin/imports", expect.objectContaining({
+      body: JSON.stringify({ uploadId: "rpg-upload", targetPlatformInstanceId: "ons", metadataProvider: "NONE", contentMode: "ONS_PROJECT_V1", tagIds: [] }),
     }));
   });
 

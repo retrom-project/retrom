@@ -97,7 +97,7 @@ func TestCreateRejectsUnsafeAndDuplicatePaths(t *testing.T) {
 	}
 }
 
-func TestCreateEnforcesRPGUploadPurposeShape(t *testing.T) {
+func TestCreateEnforcesProjectUploadPurposeShape(t *testing.T) {
 	t.Parallel()
 	dataDir := t.TempDir()
 	database, err := store.Open(context.Background(), filepath.Join(dataDir, "retrom.db"), time.Now)
@@ -120,12 +120,24 @@ func TestCreateEnforcesRPGUploadPurposeShape(t *testing.T) {
 	if loaded.Purpose != "RPG_MAKER_PROJECT" {
 		t.Fatalf("loaded purpose = %q", loaded.Purpose)
 	}
+	ons, err := service.Create(context.Background(), CreateRequest{
+		Purpose: "ONS_PROJECT", SourceType: "DIRECTORY",
+		Files: []FileDeclaration{
+			{ClientFileID: "script", RelativePath: "game/0.txt", SizeBytes: 1},
+			{ClientFileID: "font", RelativePath: "game/default.ttf", SizeBytes: 1},
+		},
+	})
+	testassert.Falsef(t, err != nil, "create ONS directory: %v", err)
+	if ons.Purpose != "ONS_PROJECT" {
+		t.Fatalf("ONS purpose = %q", ons.Purpose)
+	}
 
 	invalidRequests := []CreateRequest{
 		{Purpose: "UNKNOWN", SourceType: "DIRECTORY", Files: []FileDeclaration{
 			{ClientFileID: "project", RelativePath: "game/Game.ini", SizeBytes: 1},
 		}},
 		{Purpose: "RPG_MAKER_PROJECT", SourceType: "FILES", Files: []FileDeclaration{{ClientFileID: "project", RelativePath: "game.exe", SizeBytes: 1}}},
+		{Purpose: "ONS_PROJECT", SourceType: "FILES", Files: []FileDeclaration{{ClientFileID: "project", RelativePath: "game.dat", SizeBytes: 1}}},
 		{Purpose: "RUNTIME_ASSET_PACK", SourceType: "FILES", Files: []FileDeclaration{
 			{ClientFileID: "a", RelativePath: "a.zip", SizeBytes: 1},
 			{ClientFileID: "b", RelativePath: "b.zip", SizeBytes: 1},

@@ -4014,11 +4014,11 @@ export interface components {
         };
         CreateUploadRequest: {
             /**
-             * @description GENERAL preserves ordinary uploads; RPG purposes are consumed only by their matching project-import or runtime-pack operation.
+             * @description GENERAL preserves ordinary uploads; project and runtime-pack purposes are consumed only by their matching operation.
              * @default GENERAL
              * @enum {string}
              */
-            purpose: "GENERAL" | "RPG_MAKER_PROJECT" | "RUNTIME_ASSET_PACK";
+            purpose: "GENERAL" | "RPG_MAKER_PROJECT" | "ONS_PROJECT" | "RUNTIME_ASSET_PACK";
             /** @enum {string} */
             sourceType: "FILES" | "DIRECTORY";
             files: {
@@ -4034,7 +4034,7 @@ export interface components {
             /** Format: uuid */
             targetPlatformInstanceId: string;
             /**
-             * @description RPG_MAKER_PROJECT_V1 requests are normalized to NONE because projects have no single-ROM hash identity.
+             * @description RPG_MAKER_PROJECT_V1 and ONS_PROJECT_V1 requests are normalized to NONE because projects have no single-ROM hash identity.
              * @enum {string}
              */
             metadataProvider: "HASHEOUS" | "NONE";
@@ -4043,7 +4043,7 @@ export interface components {
              * @description Omitted requests use STANDARD.
              * @enum {string}
              */
-            contentMode?: "STANDARD" | "MULTI_DISC_M3U_V1" | "RPG_MAKER_PROJECT_V1";
+            contentMode?: "STANDARD" | "MULTI_DISC_M3U_V1" | "RPG_MAKER_PROJECT_V1" | "ONS_PROJECT_V1";
         };
         ReconfigureImportRequest: {
             /** Format: uuid */
@@ -4213,7 +4213,7 @@ export interface components {
              * @default STANDARD
              * @enum {string}
              */
-            contentMode: "STANDARD" | "MULTI_DISC_M3U_V1" | "RPG_MAKER_PROJECT_V1";
+            contentMode: "STANDARD" | "MULTI_DISC_M3U_V1" | "RPG_MAKER_PROJECT_V1" | "ONS_PROJECT_V1";
         };
         ApplyCandidateRequest: {
             fields: ("title" | "description" | "developer" | "publisher" | "genre" | "players" | "releaseYear")[];

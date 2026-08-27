@@ -55,13 +55,13 @@ func normalizeCreateRequest(request CreateRequest) (CreateRequest, string, error
 		contentMode = contentcapability.ModeStandard
 	}
 	if contentMode != contentcapability.ModeStandard && contentMode != contentcapability.ModeMultiDiscM3UV1 &&
-		contentMode != contentcapability.ModeRPGMakerProjectV1 {
+		contentMode != contentcapability.ModeRPGMakerProjectV1 && contentMode != contentcapability.ModeONSProjectV1 {
 		return CreateRequest{}, "", ErrInvalid
 	}
 	if request.MetadataProvider != "NONE" && request.MetadataProvider != "HASHEOUS" {
 		return CreateRequest{}, "", ErrInvalid
 	}
-	if contentMode == contentcapability.ModeRPGMakerProjectV1 {
+	if contentMode == contentcapability.ModeRPGMakerProjectV1 || contentMode == contentcapability.ModeONSProjectV1 {
 		request.MetadataProvider = "NONE"
 	}
 	return request, contentMode, nil
@@ -101,27 +101,43 @@ func (service *Service) prepareCreation(ctx context.Context, rawRequest CreateRe
 		request: request, contentMode: contentMode, sourceType: sourceType,
 		target: target, datID: datID, files: files,
 	}
-	switch contentMode {
-	case contentcapability.ModeMultiDiscM3UV1:
-		plan.dispositions, plan.groups, err = service.prepareMultiDiscFiles(files, *capabilities.MultiDisc)
-	case contentcapability.ModeRPGMakerProjectV1:
-		if target.platformID != "rpgmaker" {
-			return creationPlan{}, ErrInvalid
-		}
-		plan.dispositions, plan.groups, plan.archives, err = service.prepareRPGMakerProject(
-			ctx, sourceType, files, target.coreID,
-		)
-	case contentcapability.ModeStandard:
-		plan.dispositions, plan.groups, plan.archives = service.prepareImportFiles(
-			ctx, target.platformID, sourceType, files, datID,
-		)
-	default:
-		return creationPlan{}, ErrInvalid
-	}
-	if err != nil {
+	if err := service.prepareContent(ctx, &plan, capabilities); err != nil {
 		return creationPlan{}, err
 	}
 	return plan, nil
+}
+
+func (service *Service) prepareContent(
+	ctx context.Context,
+	plan *creationPlan,
+	capabilities contentcapability.ImportCapabilities,
+) error {
+	var err error
+	switch plan.contentMode {
+	case contentcapability.ModeMultiDiscM3UV1:
+		plan.dispositions, plan.groups, err = service.prepareMultiDiscFiles(plan.files, *capabilities.MultiDisc)
+	case contentcapability.ModeRPGMakerProjectV1:
+		if plan.target.platformID != "rpgmaker" {
+			return ErrInvalid
+		}
+		plan.dispositions, plan.groups, plan.archives, err = service.prepareRPGMakerProject(
+			ctx, plan.sourceType, plan.files, plan.target.coreID,
+		)
+	case contentcapability.ModeONSProjectV1:
+		if plan.target.platformID != "ons" {
+			return ErrInvalid
+		}
+		plan.dispositions, plan.groups, plan.archives, err = service.prepareONSProject(
+			ctx, plan.sourceType, plan.files,
+		)
+	case contentcapability.ModeStandard:
+		plan.dispositions, plan.groups, plan.archives = service.prepareImportFiles(
+			ctx, plan.target.platformID, plan.sourceType, plan.files, plan.datID,
+		)
+	default:
+		return ErrInvalid
+	}
+	return err
 }
 
 func validateCreationUpload(contentMode, sourceType, purpose string) error {
@@ -130,6 +146,12 @@ func validateCreationUpload(contentMode, sourceType, purpose string) error {
 	}
 	if contentMode == contentcapability.ModeRPGMakerProjectV1 {
 		if purpose != "RPG_MAKER_PROJECT" {
+			return ErrInvalid
+		}
+		return nil
+	}
+	if contentMode == contentcapability.ModeONSProjectV1 {
+		if purpose != "ONS_PROJECT" {
 			return ErrInvalid
 		}
 		return nil
