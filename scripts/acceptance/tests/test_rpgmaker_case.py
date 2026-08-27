@@ -121,6 +121,20 @@ class EvidenceContractTests(unittest.TestCase):
         )
         self.assertNotIn('"acc-rpg-011-restore.png"', source)
 
+    def test_isolation_probes_wait_for_automatic_frame_gates(self) -> None:
+        source = SECURITY_BROWSER_PATH.read_text()
+        wait = "await waitForAutomaticValidationGates(launched.page);"
+        probe = "launched.bootstrap = await bootstrapChecks("
+        resume = "await launched.page.bringToFront();"
+        validation = "await completeOriginalValidation(launched.page, launched.frame, input.generation);"
+        self.assertIn(wait, source)
+        self.assertIn(probe, source)
+        self.assertIn(resume, source)
+        self.assertLess(source.index(wait), source.index(probe))
+        self.assertLess(source.index(probe), source.index(resume))
+        self.assertLess(source.index(resume), source.index(validation))
+        self.assertNotIn("const bootstrap = inspectIsolation ? await bootstrapChecks", source)
+
     def test_content_security_driver_uses_product_content_and_safely_finishes_nested_launches(self) -> None:
         source = SECURITY_BROWSER_PATH.read_text()
         for required in (
