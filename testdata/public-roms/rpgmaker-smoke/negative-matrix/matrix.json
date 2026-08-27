@@ -8,8 +8,8 @@
       "targets": [
         {
           "coreId": "rpgmaker_2003",
-          "accepted": true,
-          "evidenceConfidence": "FAMILY_ONLY"
+          "expectedCode": "RPG_SELECTED_CORE_MISMATCH",
+          "accepted": false
         },
         {
           "coreId": "rpgmaker_xp",

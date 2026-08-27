@@ -293,12 +293,12 @@ INSERT INTO core_artifacts(
  save_max_bytes,provenance_json,compatibility_json,selected_for_new_bindings,available_for_launch,
  version,created_at_ms,updated_at_ms)
 VALUES('rpg-artifact','rpgmaker_2000','RPG2000_EASYRPG','RPGMAKER','EASYRPG_WEB',
- 'v0.2.0','easyrpg-web','runtime/easyrpg.js',1,?,?,?,0,'NATIVE_SAVE_BUNDLE_V1',
+ 'v0.3.2','easyrpg-web','runtime/easyrpg.js',1,?,?,?,0,'NATIVE_SAVE_BUNDLE_V1',
  67108864,'{}','{}',1,1,1,?,?)`, strings.Repeat("6", 64), strings.Repeat("7", 64), artifactSet, now, now)
 	mustRPGLaunchSQL(t, database, `
 INSERT INTO platform_instances(
  id,platform_id,default_core_id,name,slug,sort_order,enabled,version,created_at_ms,updated_at_ms)
-VALUES('rpg-platform','rpgmaker','rpgmaker_2000','RPG Maker validation','rpg-validation',999,1,1,?,?)`, now, now)
+VALUES('rpg-platform','rpgmaker','rpgmaker','RPG Maker validation','rpg-validation',999,1,1,?,?)`, now, now)
 	mustRPGLaunchSQL(t, database, `
 INSERT INTO upload_sessions(id,purpose,state,source_type,total_files,total_bytes,manifest_digest,
  expires_at_ms,created_at_ms,updated_at_ms)
@@ -366,7 +366,7 @@ INSERT INTO rpgmaker_review_profiles(
  file_count,total_bytes,project_fingerprint,requirements_sha256,analysis_json,self_contained_override,
  route_key,artifact_id,artifact_set_sha256,adapter_id,adapter_abi,dependency_snapshot_sha256,
  created_at_ms,updated_at_ms)
-VALUES('01980000-0000-7000-8000-000000000901','rpgmaker_2000','RPG2000','RPG2K',NULL,'FAMILY_ONLY',2,20,?,?,'{}',1,
+VALUES('01980000-0000-7000-8000-000000000901','rpgmaker_2000','RPG2000','RPG2K','RPG2000','MATCHED',2,20,?,?,'{}',1,
  'RPG2000_EASYRPG','rpg-artifact',?,'easyrpg-web','easyrpg-save',?,?,?)`,
 		projectFingerprint, strings.Repeat("0", 64), artifactSet, dependency, now, now)
 	mustRPGLaunchSQL(t, database, `
@@ -375,7 +375,7 @@ INSERT INTO rpgmaker_runtime_validations(
  project_fingerprint,core_id,generation,evidence_generation,evidence_confidence,route_key,artifact_id,
  artifact_set_sha256,adapter_id,adapter_abi,dependency_snapshot_sha256,state,machine_gates_json,
  created_at_ms,updated_at_ms,expires_at_ms)
-VALUES(?,?,2,1,'rpg-snapshot',?,'rpgmaker_2000','RPG2000',NULL,'FAMILY_ONLY',
+VALUES(?,?,2,1,'rpg-snapshot',?,'rpgmaker_2000','RPG2000','RPG2000','MATCHED',
  'RPG2000_EASYRPG','rpg-artifact',?,'easyrpg-web','easyrpg-save',?,
  'CREATED',?,?,?,?)`, fixture.validationID, fixture.itemID, projectFingerprint, artifactSet,
 		dependency, rpgValidationMachineGatesJSON(t, -1), now, now, now+900_000)

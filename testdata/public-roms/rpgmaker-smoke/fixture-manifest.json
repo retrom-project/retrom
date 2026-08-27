@@ -305,8 +305,8 @@
     {
       "path": "negative-matrix/matrix.json",
       "generation": "SECURITY_MATRIX",
-      "sizeBytes": 25148,
-      "sha256": "ab790d751e5fab911845160205c8d2681d54d6f2cd6f3389a498cae053112727"
+      "sizeBytes": 25158,
+      "sha256": "1a0dde633c801ed88194d1244f1c04bcf6e55a9feef3f165745f6b36f1a9a6b5"
     },
     {
       "path": "negative-matrix/nfkc-collision/Game.ini",

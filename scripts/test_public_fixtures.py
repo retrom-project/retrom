@@ -334,7 +334,7 @@ class PublicFixtureTests(unittest.TestCase):
             if target["accepted"]
         ]
         self.assertEqual(
-            [("RPG2000", {"coreId": "rpgmaker_2003", "accepted": True, "evidenceConfidence": "FAMILY_ONLY"})],
+            [],
             accepted_wrong_core,
         )
         unsafe_names = {case["name"] for case in matrix["unsafe"]}

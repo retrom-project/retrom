@@ -489,7 +489,7 @@ make acceptance-case CASE=<case-id>
 - 上限：180 秒。
 - 执行：`make acceptance-case CASE=ACC-PLAT-006`。
 - 流程：使用全新数据根建到 schema 040，确认零目录；ADMIN 读取推荐状态并第一次补齐。随后修改一个模板目录名称/核心、停用一个、软删除一个，再手动创建一个缺失 pair 的等价目录；以新 key 再次补齐，并并发提交两次相同缺失集合。另故障注入一次 AuditEvent 写入失败。
-- 通过标准：catalog 固定返回 34 项且扩展名来自平台 profile；新增项恰为 `rpgmaker` 平台下七个版本 core 的一一推荐目录，不存在 FDS/MAME 2003 独立模板，NES 包含 `.fds`，Arcade `.zip` 不重复。第一次补齐在一个事务创建 34 项并逐项审计；模板、自定义、等价、停用/删除分别投影为 `ACTIVE/CUSTOMIZED/COVERED_BY_EQUIVALENT/SUPPRESSED`。后续补齐不覆盖、不恢复、不重排、不重复创建，新的缺失项只追加到末尾；同 key 精确重放，并发只有一组创建结果；故障使目录、审计和幂等记录全部回滚。手动目录 key 为 NULL，推荐目录 key 唯一。
+- 通过标准：catalog 固定返回 29 项且扩展名来自平台 profile；RPG Maker 恰有一个 `rpgmaker/rpgmaker` 虚拟核心推荐目录，不存在 FDS/MAME 2003 独立模板，NES 包含 `.fds`，Arcade `.zip` 不重复。第一次补齐在一个事务创建 29 项并逐项审计；模板、自定义、等价、停用/删除分别投影为 `ACTIVE/CUSTOMIZED/COVERED_BY_EQUIVALENT/SUPPRESSED`。后续补齐不覆盖、不恢复、不重排、不重复创建，新的缺失项只追加到末尾；同 key 精确重放，并发只有一组创建结果；故障使目录、审计和幂等记录全部回滚。手动目录 key 为 NULL，推荐目录 key 唯一。
 - 证据：GET/POST 响应、Idempotency replay header、并发结果、目录/审计/幂等行和 catalog/contentprofile 对照。
 
 ## 9. 游戏管理
@@ -1467,24 +1467,24 @@ Review 与所需 validation Launch。`negative-matrix/matrix.json` 必须精确�
 
 世代 Case 的 `result.json` 必须包含 selected core ID、expected generation、nullable evidence generation、evidence confidence、content files digest、route key、runtime family、artifact ID/digest、adapter ABI、pack dependency digest、两个不同 Launch ID（不含凭据）、ready/frame/checkpoint/restore gate 及 A/B/C/restore 字段级断言。用户截图只显示 RPG Maker 版本核心名，不显示 EasyRPG、mkxp-z、native host、adapter 或 bridge。
 
-### ACC-RPG-001：七个用户版本核心与推荐目录
+### ACC-RPG-001：单一虚拟核心与七条内部路线
 
 - 上限：180 秒。执行：`make acceptance-case CASE=ACC-RPG-001`。
-- 流程：读取 catalog，在空库一键补齐推荐目录，分别查看用户核心选择器与管理运行诊断。
-- 通过标准：只有一个 `rpgmaker` 平台，且恰有 `rpgmaker_2000`/`rpgmaker_2003`/`rpgmaker_xp`/`rpgmaker_vx`/`rpgmaker_vx_ace`/`rpgmaker_mv`/`rpgmaker_mz` 七个 enabled 核心和七个一一绑定的推荐目录；用户 UI 没有“自动检测”或底层实现选项，管理诊断可审计 route/artifact。
-- 证据：catalog/API 响应、七条关系和两种 UI 截图。
+- 流程：读取 catalog，在空库一键补齐推荐目录，查看用户目录/core 选择器与管理运行诊断。
+- 通过标准：只有一个 `rpgmaker` 平台、一个用户可见 `rpgmaker` 虚拟核心和一个推荐目录；分别导入七个精确 fixture 时服务端选择七个不同内部 core/route，用户 UI 不出现内部 core 或底层实现，管理诊断仍可审计七条 route/artifact。
+- 证据：catalog/API 响应、单一目录截图、七条检测映射与管理诊断截图。
 
 ### ACC-RPG-002：RPG Maker 2000
 
 - 上限：300 秒。执行：`make acceptance-case CASE=ACC-RPG-002`。
-- 流程：通过 `rpgmaker_2000` 目录导入 2000 公开 fixture，完成产品链和 A→B 保存→C→不同 Launch 恢复。
-- 通过标准：expected generation=`RPG2000`、confidence=`FAMILY_ONLY`、route=`RPG2000_EASYRPG`，engine gate 回读 RPG2k，Player 显示 `RETROM RPG2000`；位置/变量/截图精确回到 B 且不是 A/C。
+- 流程：通过唯一 `rpgmaker` 目录导入 2000 公开 fixture，由服务端选择 2000 内部路线并完成产品链和 A→B 保存→C→不同 Launch 恢复。
+- 通过标准：expected/evidence generation=`RPG2000`、confidence=`MATCHED`、route=`RPG2000_EASYRPG`，engine gate 回读 RPG2k，Player 显示 `RETROM RPG2000`；位置/变量/截图精确回到 B 且不是 A/C。
 - 证据：通用世代证据、engine profile 和 A/B/C/restore 断言。
 
 ### ACC-RPG-003：RPG Maker 2003
 
 - 上限：300 秒。执行：`make acceptance-case CASE=ACC-RPG-003`。
-- 流程：通过 `rpgmaker_2003` 目录导入 2003 fixture，完成产品链和 A→B 保存→C→不同 Launch 恢复。
+- 流程：通过唯一 `rpgmaker` 目录导入 2003 fixture，由服务端选择 2003 内部路线并完成产品链和 A→B 保存→C→不同 Launch 恢复。
 - 通过标准：expected/evidence generation=`RPG2003`、confidence=`MATCHED`、route=`RPG2003_EASYRPG`，engine gate 回读 RPG2k3，Player 显示 `RETROM RPG2003`；精确回到 B，不得依靠共同文件名、自动 fallback 或 load success 判定。
 - 证据：通用世代证据、engine profile 和 A/B/C/restore 断言。
 
@@ -1496,28 +1496,28 @@ Review 与所需 validation Launch。`negative-matrix/matrix.json` 必须精确�
   fixture 走正式 Upload/Import/Review/Player 产品链，stdout 返回本次 `importItemId/validationId/gameId`；trace
   文件以 `0600 + create-exclusive` 写入，记录实际 256 MiB multipart 请求、270 MiB+1 的 413 和 validation/
   restore 两次禁线程拒绝，不记录 cookie、凭据或输入路径。随后把三个 ID 和同一 trace 传给正式 Case。
-- 流程：通过 `rpgmaker_xp` 导入 fixture，使用 RGSS1 线程 artifact 执行 A→B 保存→C→不同 Launch 恢复；另提交超过旧 75 MiB 但不超过 256 MiB route 上限的确定性合法 checkpoint，并在禁用线程的 Chrome 启动。
+- 流程：通过唯一 `rpgmaker` 目录导入 fixture，由服务端选择 RGSS1 线程 artifact，执行 A→B 保存→C→不同 Launch 恢复；另提交超过旧 75 MiB 但不超过 256 MiB route 上限的确定性合法 checkpoint，并在禁用线程的 Chrome 启动。
 - 通过标准：route=`RPGXP_MKXP`、RGSS1/profile/marker 正确；创建 validation 与 restore Launch 均提交当次严格 clientCapabilities，大 payload 穿过 Web/proxy/Go 且 bytes/digest 完整；地图/色坐标/变量逐项回到 B；两次请求中任一次报告非 secure context、非 `crossOriginIsolated` 或 SharedArrayBuffer 不可用时都在签发 Launch credential/下载项目 payload 前稳定失败，不能复用第一次摘要。
 - 证据：通用世代证据、payload 大小/哈希/trace 和禁线程负向结果。
 
 ### ACC-RPG-005：RPG Maker VX
 
 - 上限：300 秒。执行：`make acceptance-case CASE=ACC-RPG-005`。
-- 流程：通过 `rpgmaker_vx` 导入 fixture，使用 `RPGVX_MKXP`/RGSS2 执行 A→B 保存→C→不同 Launch 恢复。
+- 流程：通过唯一 `rpgmaker` 目录导入 fixture，由服务端选择 `RPGVX_MKXP`/RGSS2 并执行 A→B 保存→C→不同 Launch 恢复。
 - 通过标准：route/profile/marker 精确对应 VX；B 与 C 不同，恢复后地图/坐标/变量逐字段等于 B 且可继续输入。
 - 证据：通用世代证据与 A/B/C/restore 断言。
 
 ### ACC-RPG-006：RPG Maker VX Ace
 
 - 上限：300 秒。执行：`make acceptance-case CASE=ACC-RPG-006`。
-- 流程：通过 `rpgmaker_vx_ace` 导入 fixture，使用 `RPGVXACE_MKXP`/RGSS3 执行 A→B 保存→C→不同 Launch 恢复。
+- 流程：通过唯一 `rpgmaker` 目录导入 fixture，由服务端选择 `RPGVXACE_MKXP`/RGSS3 并执行 A→B 保存→C→不同 Launch 恢复。
 - 通过标准：route/profile/marker 精确对应 VX Ace；B 与 C 不同，恢复后地图/坐标/变量逐字段等于 B 且可继续输入。
 - 证据：通用世代证据与 A/B/C/restore 断言。
 
 ### ACC-RPG-007：RPG Maker MV
 
 - 上限：300 秒。执行：`make acceptance-case CASE=ACC-RPG-007`。
-- 流程：通过 `rpgmaker_mv` 导入固定 MIT fixture，在当前 `RPGMV_NATIVE` unique runtime origin 运行 300 连续帧，将 fixture 变量从 0 改为 B=1、创建 checkpoint、再改为 C=2，结束并从不同 Launch 恢复。
+- 流程：通过唯一 `rpgmaker` 目录导入固定 MIT fixture，由服务端选择 `RPGMV_NATIVE`，在 unique runtime origin 运行 300 连续帧，将 fixture 变量从 0 改为 B=1、创建 checkpoint、再改为 C=2，结束并从不同 Launch 恢复。
 - 通过标准：MV route/profile/marker、帧、输入和音频 gate 通过；map/xy/变量/截图回到 B=1；普通 app origin 的 document/script/resource/cache 不存在游戏 JS 或项目资源。
 - 证据：通用世代证据、两个 origin 的 network/DOM/cache 清单和 A/B/C/restore 断言。
 
@@ -1644,11 +1644,10 @@ Review 与所需 validation Launch。`negative-matrix/matrix.json` 必须精确�
   快速结束。若任一本次应接受的固定 fixture
   已被该实例导入，产品会返回 `alreadyImportedItemCount>0` 且不会创建新 Review；driver 必须在尝试
   Review/validation 前以 `BLOCKED` 和 `RPG_ACCEPTANCE_SECURITY_FRESH_DATABASE_REQUIRED` 结束，不能把零
-  Review 降级为产品失败或复用旧 Review。先对七个 fixture 逐一选择其余六核心，但先独立执行 41 个应拒绝组合；批次前后分别通过正常管理列表 API 分页读取全部 ImportJob、待审核 Item 与 Game ID 集合，只把各集合的 count 与排序 ID 列表摘要写入证据。只有三组摘要前后逐字相同才继续；ImportJob 未创建即不存在可承载 validation/Launch 的 Review Item，因此该批次同时证明没有 validation/Launch，Game 集合不变证明没有发布数据。随后单独导入唯一允许的 2000 fixture→`rpgmaker_2003`，再提交 `.`/`www` 双根、多世代、RGSS 冲突、LCF 截断、case/NFKC/gencache 冲突、穿越、symlink、archive bomb、外链、确凿 Node/native 运行依赖，以及只携带但不被 Web 路径引用的 `.exe/.dll/.node/.bat`。
-- family-only 验证：唯一 2000→2003 `FAMILY_ONLY` 必须真实创建 validation，通过 Player 完成有序 14 gate、创建 checkpoint、结束原 Launch、创建不同 restore Launch 并验证恢复位置与恢复后输入；config 必须冻结 `RPG2003_EASYRPG`、`EASYRPG_WEB`、`easyrpg-web` 与 `engineMode=rpg2k3`。这里的 `engineMode=rpg2k3` 是 EasyRPG Web adapter 对原生命令行 `--engine rpg2k3` 的固定等价输入；验收不伪造宿主命令行字符串，也不允许自动改回 2000 路由。
+  Review 降级为产品失败或复用旧 Review。七个合法 fixture 都只提交到 `rpgmaker` 虚拟核心，并逐项断言服务端检测出的 generation、内部 core 与 route；42 个跨世代内部 core mismatch 由 detector 的确定性矩阵覆盖，不再暴露成用户可选择的产品流程。随后提交 `.`/`www` 双根、多世代、RGSS 冲突、LCF 截断、case/NFKC/gencache 冲突、穿越、symlink、archive bomb、外链、确凿 Node/native 运行依赖，以及只携带但不被 Web 路径引用的 `.exe/.dll/.node/.bat`。
 - 内层归档验证：矩阵在 2000/2003、XP/VX/VX Ace、MV/MZ 项目根分别加入有扩展与仅 magic 可识别的 ZIP/7z/RAR/TAR/gzip，共 70 项。每项必须经 Upload、Import、Review 和真实 runtime validation Launch；为避免 70 次重型 Player 启动，driver 使用 validation 创建响应设置的正式 capability cookie读取 Launch config，随后只读实际内容端点，并以 `clientSequence=0/previousInterval=null` 的正式 `finish` 事件安全结束 ACTIVE validation Launch。EasyRPG 必须同时从派生 `index.json` 找到逻辑成员并从 project endpoint 取回与 source SHA/size 精确相同的 bytes；RGSS 必须从 config 冻结的 `projectArchive` 内容端点下载派生 MKXPZ，先核验 archive SHA/size，再证明其中唯一 stored member 的名称与 bytes 精确匹配；Native Web 必须一次消费 bootstrap、从 unique-origin project endpoint 得到 404、调用 cleanup 撤销 capability，再结束 Launch。每项结束后重新 GET Review，要求 source `filesDigest` 不变；不得从本机 fixture 路径直接读取运行投影、绕过 content endpoint 或把创建 validation 当成运行证据。
-- 通过标准：41 个确凿冲突组合逐项固定返回 `422 RPG_SELECTED_CORE_MISMATCH`，且上述批次产品集合无变化；family-only 完成完整跨 Launch checkpoint round-trip。每个项目根内层归档只物化自身精确 bytes，`nestedEntryCount=0`，从未递归打开其中的 marker、路径或压缩内容，也不让这些内容参与世代/项目根判断。EasyRPG 原始项目端点或 RGSS 派生 bundle 携带该精确成员；Native Web 遵守最小 Web MIME 投影，非 Web archive 后缀和无扩展 magic sidecar 在 `/__retrom/project/*` 返回 404。未被 Web 路径引用的 native executable 文件仍逐 byte 保留为 PROJECT_FILE 并进入 filesDigest，但 runtime endpoint 固定 404；其验证不等待 ACC-RPG-011 的恶意探针，只等待真实画布、取得截图和四个 404，随后显式 cleanup capability 并 finish Launch。只有确凿运行依赖以 `RPG_NATIVE_DEPENDENCY_UNSUPPORTED` 阻止导入。13 项外层恶意/歧义矩阵的 accepted/status/code 必须与登记闭集逐项一致，不能只验证数量。
-- 证据：42 组合的 selected/evidence/binding 矩阵与 41 拒绝批次的前后 count/identity 摘要，family-only 的 config、14 gate、checkpoint round-trip 与两张不同 Launch 截图；70 项记录 generation/format/detection、source SHA/size/filesDigest、Import/Review/Validation/Launch/artifact/route ID、adapter kind、真实 content projection、派生容器 SHA、Launch FINISHED 及复查后的 filesDigest；另记录 opaque native 文件 SHA/filesDigest/404 矩阵和 13 项外层安全结果。机器证据不得包含 ID 明细集合、本机 fixture 路径、bootstrap ticket、cookie/capability 或资源 bytes，只记录清单相对名、内容摘要和产品 ID。
+- 通过标准：七个合法项目均由虚拟核心选择唯一正确的内部 generation/core/route；多世代或未知项目在创建 ImportJob 前拒绝。每个项目根内层归档只物化自身精确 bytes，`nestedEntryCount=0`，从未递归打开其中的 marker、路径或压缩内容，也不让这些内容参与世代/项目根判断。EasyRPG 原始项目端点或 RGSS 派生 bundle 携带该精确成员；Native Web 遵守最小 Web MIME 投影，非 Web archive 后缀和无扩展 magic sidecar 在 `/__retrom/project/*` 返回 404。未被 Web 路径引用的 native executable 文件仍逐 byte保留为 PROJECT_FILE 并进入 filesDigest，但 runtime endpoint 固定 404；只有确凿运行依赖以 `RPG_NATIVE_DEPENDENCY_UNSUPPORTED` 阻止导入。
+- 证据：七条 virtual-core detection/binding 结果、42 个内部 mismatch 单元矩阵；70 项记录 generation/format/detection、source SHA/size/filesDigest、Import/Review/Validation/Launch/artifact/route ID、adapter kind、真实 content projection、派生容器 SHA、Launch FINISHED 及复查后的 filesDigest；另记录 opaque native 文件 SHA/filesDigest/404 矩阵和 13 项外层安全结果。机器证据不得包含本机 fixture 路径、bootstrap ticket、cookie/capability 或资源 bytes，只记录清单相对名、内容摘要和产品 ID。
 
 ### ACC-RPG-011：原生 Web 独立运行源隔离
 

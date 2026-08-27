@@ -525,7 +525,7 @@ RPG Maker fixture 必须遵守同一再分发规则：生成源、许可、固�
 
 ## 13.2 RPG Maker 测试矩阵
 
-- 纯逻辑：七个用户 core、七条 `coreId→generation→route/adapter` 双向 registry、42 个非原版本组合（41 exact mismatch + 2000 证据选择 2003 的唯一 family-only）、LCF varint/chunk、INI UTF-8/CP932、RGSS marker、MV/MZ HTML/JSON、SAFE_LOGICAL_PATH、V2 fileset、gencache、deterministic mkxpz、pack matcher、native bundle、runtime reducer；parser/codec 必须有固定 seed fuzz 且无 I/O/panic/无界分配。
+- 纯逻辑：一个用户虚拟 core、七条 `generation→内部 core→route/adapter` 双向 registry、七世代自动检测与 42 个跨世代 core mismatch、LCF varint/chunk、INI UTF-8/CP932、RGSS marker、MV/MZ HTML/JSON、SAFE_LOGICAL_PATH、V2 fileset、gencache、deterministic mkxpz、pack matcher、native bundle、runtime reducer；parser/codec 必须有固定 seed fuzz 且无 I/O/panic/无界分配。
 - SQLite/HTTP：fresh clean migration、profile/artifact/pack/save/Launch 跨表 trigger、历史 artifact protection、ticket one-time consume/expiry/replay、review ETag/runtime binding revision、validation/restore Launch/gate sequence、270 MiB multipart、Range/ETag/MIME/Host/Origin 和错误码；非 RPG preview 与 RPG validation 相互隔离。
 - Web：导入 selected version/evidence、pack 与验证 gate、七 core 选择器、loading/disabled/error、checkpoint availability、factory config decoder、adapter cleanup、移动/桌面/4K/focus/axe；普通 EJS、沉浸与联机分支必须回归无变化。
 - Chrome 产品链：七个世代都必须经过真实浏览器上传、审核、Launch、受授权内容、Player、marker、输入/音频/帧、创建 checkpoint、结束和不同 restore Launch。每个 Case 记录 A、B、C 与恢复值，逐字段证明 restore=B 且与 A/C 可区分，并保留恢复后截图；随后继续真实输入并持久化与 B 不同的 `RESTORE_INPUT`。HTTP 201、load success、Blob/hash 相等、同进程 load 或单张截图均不合格。

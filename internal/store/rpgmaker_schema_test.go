@@ -174,8 +174,8 @@ func preparePositionValidation(t *testing.T, database *sql.DB) {
 	mustExecRPGSchema(t, database, `
 INSERT INTO platform_instances(
  id,platform_id,default_core_id,name,slug,sort_order,enabled,version,created_at_ms,updated_at_ms,catalog_template_key
-) VALUES('directory','rpgmaker','rpgmaker_2000','RPG Maker 2000','rpg-maker-2000',1,1,1,1,1,
- 'rpgmaker/rpgmaker_2000')`)
+) VALUES('directory','rpgmaker','rpgmaker','RPG Maker','rpg-maker',1,1,1,1,1,
+ 'rpgmaker/rpgmaker')`)
 	mustExecRPGSchema(t, database, `
 INSERT INTO upload_sessions(
  id,purpose,state,source_type,total_files,total_bytes,manifest_digest,expires_at_ms,created_at_ms,updated_at_ms
@@ -185,7 +185,7 @@ INSERT INTO import_jobs(
  id,upload_session_id,target_platform_instance_id,platform_instance_version,platform_id,default_core_id,
  core_artifact_id,metadata_provider,config_snapshot_json,config_snapshot_digest,state,total_item_count,
  review_pending_item_count,created_at_ms,updated_at_ms
-) VALUES('import','upload','directory',1,'rpgmaker','rpgmaker_2000',?1,'NONE','{}',?2,
+) VALUES('import','upload','directory',1,'rpgmaker','rpgmaker',?1,'NONE','{}',?2,
  'REVIEW_PENDING',1,1,1,1)`, rpgSchemaArtifactID, strings.Repeat("2", 64))
 	mustExecRPGSchema(t, database, `
 INSERT INTO import_items(
@@ -210,7 +210,7 @@ INSERT INTO rpgmaker_review_profiles(
  file_count,total_bytes,project_fingerprint,requirements_sha256,analysis_json,self_contained_override,
  route_key,artifact_id,artifact_set_sha256,adapter_id,adapter_abi,dependency_snapshot_sha256,
  created_at_ms,updated_at_ms
-) VALUES('review','rpgmaker_2000','RPG2000','RPG2K',NULL,'FAMILY_ONLY',1,10,?1,?2,'{}',1,
+) VALUES('review','rpgmaker_2000','RPG2000','RPG2K','RPG2000','MATCHED',1,10,?1,?2,'{}',1,
  'RPG2000_EASYRPG_TEST',?3,?4,'easyrpg-web','easy-abi',?5,1,1)`,
 		strings.Repeat("5", 64), strings.Repeat("7", 64), rpgSchemaArtifactID,
 		strings.Repeat("f", 64), strings.Repeat("8", 64))
@@ -220,7 +220,7 @@ INSERT INTO rpgmaker_runtime_validations(
  project_fingerprint,core_id,generation,evidence_generation,evidence_confidence,route_key,artifact_id,
  artifact_set_sha256,adapter_id,adapter_abi,dependency_snapshot_sha256,state,machine_gates_json,
  created_at_ms,updated_at_ms,expires_at_ms
-) VALUES(?1,'item',1,1,'snapshot',?2,'rpgmaker_2000','RPG2000',NULL,'FAMILY_ONLY',
+) VALUES(?1,'item',1,1,'snapshot',?2,'rpgmaker_2000','RPG2000','RPG2000','MATCHED',
  'RPG2000_EASYRPG_TEST',?3,?4,'easyrpg-web','easy-abi',?5,'CREATED','{}',1,1,900001)`,
 		rpgSchemaValidation, strings.Repeat("5", 64), rpgSchemaArtifactID,
 		strings.Repeat("f", 64), strings.Repeat("8", 64))

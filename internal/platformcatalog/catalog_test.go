@@ -14,7 +14,7 @@ func TestCurrentCatalogIsValidAndReturnsDeepCopy(t *testing.T) {
 	if err := Validate(catalog); err != nil {
 		t.Fatalf("Validate() error = %v", err)
 	}
-	testassert.Falsef(t, testassert.Any(func() bool { return catalog.Version != 3 }, func() bool { return len(catalog.Templates) != 35 }), "catalog = version:%d templates:%d", catalog.Version, len(catalog.Templates))
+	testassert.Falsef(t, testassert.Any(func() bool { return catalog.Version != 4 }, func() bool { return len(catalog.Templates) != 29 }), "catalog = version:%d templates:%d", catalog.Version, len(catalog.Templates))
 	catalog.Templates[0].Name = "changed"
 	testassert.False(t, Current().Templates[0].Name != "NES 游戏", "Current returned mutable catalog storage")
 }
@@ -29,12 +29,10 @@ func TestCatalogContainsONSDirectory(t *testing.T) {
 	t.Fatal("ONS directory template missing")
 }
 
-func TestCatalogContainsSevenVersionedRPGMakerDirectories(t *testing.T) {
+func TestCatalogContainsOneVirtualRPGMakerDirectory(t *testing.T) {
 	t.Parallel()
 	want := []string{
-		"rpgmaker/rpgmaker_2000", "rpgmaker/rpgmaker_2003", "rpgmaker/rpgmaker_xp",
-		"rpgmaker/rpgmaker_vx", "rpgmaker/rpgmaker_vx_ace", "rpgmaker/rpgmaker_mv",
-		"rpgmaker/rpgmaker_mz",
+		"rpgmaker/rpgmaker",
 	}
 	got := make([]string, 0, len(want))
 	for _, template := range Current().Templates {

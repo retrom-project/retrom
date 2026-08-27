@@ -122,6 +122,7 @@ INSERT INTO cores(id,name,enabled,created_at_ms,updated_at_ms) VALUES('smsplus',
 INSERT INTO cores(id,name,enabled,created_at_ms,updated_at_ms) VALUES('snes9x','Snes9x',1,0,0);
 INSERT INTO cores(id,name,enabled,created_at_ms,updated_at_ms) VALUES('stella2014','Stella 2014',1,0,0);
 INSERT INTO cores(id,name,enabled,created_at_ms,updated_at_ms) VALUES('yabause','Yabause',1,0,0);
+INSERT INTO cores(id,name,enabled,created_at_ms,updated_at_ms) VALUES('rpgmaker','RPG Maker',1,0,0);
 INSERT INTO cores(id,name,enabled,created_at_ms,updated_at_ms) VALUES('rpgmaker_2000','RPG Maker 2000',1,0,0);
 INSERT INTO cores(id,name,enabled,created_at_ms,updated_at_ms) VALUES('rpgmaker_2003','RPG Maker 2003',1,0,0);
 INSERT INTO cores(id,name,enabled,created_at_ms,updated_at_ms) VALUES('rpgmaker_xp','RPG Maker XP',1,0,0);
@@ -171,13 +172,7 @@ INSERT INTO platform_cores(platform_id,core_id,enabled) VALUES('pcfx','mednafen_
 INSERT INTO platform_cores(platform_id,core_id,enabled) VALUES('psp','ppsspp',1);
 INSERT INTO platform_cores(platform_id,core_id,enabled) VALUES('psx','mednafen_psx_hw',1);
 INSERT INTO platform_cores(platform_id,core_id,enabled) VALUES('psx','pcsx_rearmed',1);
-INSERT INTO platform_cores(platform_id,core_id,enabled) VALUES('rpgmaker','rpgmaker_2000',1);
-INSERT INTO platform_cores(platform_id,core_id,enabled) VALUES('rpgmaker','rpgmaker_2003',1);
-INSERT INTO platform_cores(platform_id,core_id,enabled) VALUES('rpgmaker','rpgmaker_xp',1);
-INSERT INTO platform_cores(platform_id,core_id,enabled) VALUES('rpgmaker','rpgmaker_vx',1);
-INSERT INTO platform_cores(platform_id,core_id,enabled) VALUES('rpgmaker','rpgmaker_vx_ace',1);
-INSERT INTO platform_cores(platform_id,core_id,enabled) VALUES('rpgmaker','rpgmaker_mv',1);
-INSERT INTO platform_cores(platform_id,core_id,enabled) VALUES('rpgmaker','rpgmaker_mz',1);
+INSERT INTO platform_cores(platform_id,core_id,enabled) VALUES('rpgmaker','rpgmaker',1);
 INSERT INTO platform_cores(platform_id,core_id,enabled) VALUES('saturn','yabause',1);
 INSERT INTO platform_cores(platform_id,core_id,enabled) VALUES('snes','snes9x',1);
 INSERT INTO platform_cores(platform_id,core_id,enabled) VALUES('virtualboy','beetle_vb',1);

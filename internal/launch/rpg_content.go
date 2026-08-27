@@ -26,6 +26,9 @@ JOIN platform_instances instance ON instance.id=game.platform_instance_id
 WHERE game.id=?
 `, gameID).Scan(&coreID)
 	}
+	if coreID == "rpgmaker" {
+		return true
+	}
 	var exists int
 	_ = service.database.QueryRowContext(ctx, `
 SELECT EXISTS(SELECT 1 FROM rpgmaker_core_generations WHERE core_id=?)
