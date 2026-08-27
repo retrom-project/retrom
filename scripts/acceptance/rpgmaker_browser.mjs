@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { chromium } from "../../web/node_modules/playwright/index.mjs";
+import { normalizedBase } from "./rpgmaker_url.mjs";
 
 const caseId = required("RETROM_RPG_CASE_ID");
 const caseDir = required("RETROM_RPG_CASE_DIR");
@@ -442,17 +443,6 @@ function required(name) {
   const value = process.env[name];
   if (!value) { throw new Error(`RPG_ACCEPTANCE_ENV_MISSING_${name}`); }
   return value;
-}
-
-function normalizedBase(value) {
-  const parsed = new URL(value);
-  if (parsed.username || parsed.password || parsed.search || parsed.hash || parsed.pathname !== "/") {
-    throw new Error("RPG_ACCEPTANCE_BASE_URL_INVALID");
-  }
-  if (parsed.protocol !== "https:" && !["127.0.0.1", "localhost"].includes(parsed.hostname)) {
-    throw new Error("RPG_ACCEPTANCE_BASE_URL_REQUIRES_HTTPS");
-  }
-  return parsed.origin;
 }
 
 function array(value) { return Array.isArray(value) ? value : []; }

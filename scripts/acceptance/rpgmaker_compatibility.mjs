@@ -4,6 +4,7 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { chromium } from "../../web/node_modules/playwright/index.mjs";
 import { loadCompatibilityProvisioning } from "./rpgmaker_compatibility_provenance.mjs";
+import { normalizedBase } from "./rpgmaker_url.mjs";
 
 const caseId = required("RETROM_RPG_CASE_ID");
 if (caseId !== "ACC-RPG-012") { throw new Error("RPG_ACCEPTANCE_COMPATIBILITY_CASE_INVALID"); }
@@ -244,14 +245,4 @@ function required(name) {
   const value = process.env[name];
   if (!value) { throw new Error(`RPG_ACCEPTANCE_ENV_MISSING_${name}`); }
   return value;
-}
-function normalizedBase(value) {
-  const parsed = new URL(value);
-  if (parsed.username || parsed.password || parsed.search || parsed.hash || parsed.pathname !== "/") {
-    throw new Error("RPG_ACCEPTANCE_BASE_URL_INVALID");
-  }
-  if (parsed.protocol !== "https:" && !["127.0.0.1", "localhost"].includes(parsed.hostname)) {
-    throw new Error("RPG_ACCEPTANCE_BASE_URL_REQUIRES_HTTPS");
-  }
-  return parsed.origin;
 }

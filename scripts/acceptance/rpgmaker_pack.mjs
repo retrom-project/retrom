@@ -5,6 +5,7 @@ import {
 } from "node:fs";
 import { basename, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { chromium } from "../../web/node_modules/playwright/index.mjs";
+import { normalizedBase } from "./rpgmaker_url.mjs";
 
 const caseDir = required("RETROM_RPG_CASE_DIR");
 const baseUrl = normalizedBase(required("RETROM_ACCEPTANCE_BASE_URL"));
@@ -461,17 +462,6 @@ function required(name) {
 }
 
 function digest(value) { return typeof value === "string" && /^[0-9a-f]{64}$/.test(value); }
-function normalizedBase(value) {
-  const parsed = new URL(value);
-  if (parsed.username || parsed.password || parsed.search || parsed.hash || parsed.pathname !== "/") {
-    throw new Error("RPG_ACCEPTANCE_BASE_URL_INVALID");
-  }
-  if (parsed.protocol !== "https:" && !["127.0.0.1", "localhost"].includes(parsed.hostname)) {
-    throw new Error("RPG_ACCEPTANCE_BASE_URL_REQUIRES_HTTPS");
-  }
-  return parsed.origin;
-}
-
 function exactProvisionEvidence(value) {
   if (!isAbsolute(value)) { throw new Error("RPG_ACCEPTANCE_PACK_PROVISION_EVIDENCE_INVALID"); }
   const path = resolve(value);

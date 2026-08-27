@@ -73,6 +73,13 @@ class ProjectDigestTests(unittest.TestCase):
 
 
 class EvidenceContractTests(unittest.TestCase):
+    def test_local_rpg_hostnames_are_loopback_acceptance_origins(self) -> None:
+        self.assertTrue(rpgmaker.is_local_acceptance_hostname("localhost"))
+        self.assertTrue(rpgmaker.is_local_acceptance_hostname("127.0.0.1"))
+        self.assertTrue(rpgmaker.is_local_acceptance_hostname("app.rpg.localhost"))
+        self.assertFalse(rpgmaker.is_local_acceptance_hostname("localhost.example"))
+        self.assertFalse(rpgmaker.is_local_acceptance_hostname("example.com"))
+
     def test_lcf_marker_contract_uses_the_rendered_indexed_palette_color(self) -> None:
         fixture_root = Path(__file__).resolve().parents[3] / "testdata/public-roms/rpgmaker-smoke"
         cases = (("ACC-RPG-002", "RPG2000", "rpg2000.json"),
