@@ -40,6 +40,25 @@ afterEach(() => {
 });
 
 describe("mkxp runtime mount", () => {
+  it("keeps native stderr diagnostics out of the Next development error channel", async () => {
+    const harness = createHarness();
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const diagnostics: unknown[] = [];
+    const receiveDiagnostic = (event: Event) => diagnostics.push((event as CustomEvent).detail);
+    window.addEventListener("retrom:runtime-diagnostic", receiveDiagnostic);
+
+    const mounted = await mountMkxp(mkxpConfig(false), harness.target, null, harness.dependencies);
+    const printErr = harness.prepareOptions?.emscriptenModule?.printErr;
+    expect(printErr).toBeTypeOf("function");
+    printErr?.("[INFO] RetroArch startup");
+
+    expect(consoleError).not.toHaveBeenCalled();
+    expect(diagnostics).toEqual([{ runtime: "mkxp-z", message: "[INFO] RetroArch startup" }]);
+    window.removeEventListener("retrom:runtime-diagnostic", receiveDiagnostic);
+    await mounted.cleanup();
+    harness.frame.remove();
+  });
+
   it("does not send the restore hotkey until the position bridge has produced evidence", async () => {
     const harness = createHarness();
     harness.runtime.start.mockImplementation(async () => {
