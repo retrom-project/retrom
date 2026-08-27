@@ -7,7 +7,9 @@ import {
   createProductClient, directoryFiles, mergeFiles, overlayFile, reviewForImport,
   SecurityInputBlocked, singleFile,
 } from "./rpgmaker_security_upload.mjs";
-import { requireLocalRuntimeSite, runtimeFrameEligible } from "./rpgmaker_security_runtime.mjs";
+import {
+  requireLocalRuntimeSite, runtimeFrameEligible, runtimeProjectStatus, runtimeRequestStatus,
+} from "./rpgmaker_security_runtime.mjs";
 import { normalizedBase } from "./rpgmaker_url.mjs";
 
 const caseId = required("RETROM_RPG_CASE_ID");
@@ -131,13 +133,11 @@ async function contentSafetyCase(context, client, instances) {
   });
   const opaqueRuntime = [];
   for (const name of opaqueNames) {
-    const response = await context.request.get(
-      `${opaqueLaunch.runtimeOrigin}/__retrom/project/${encodeURIComponent(name)}`, { failOnStatusCode: false },
-    );
-    exact(response.status(), 404, `RPG_ACCEPTANCE_OPAQUE_NATIVE_RUNTIME_${name}`);
-    opaqueRuntime.push({ name, status: response.status() });
+    const status = await runtimeProjectStatus(opaqueLaunch.frame, name);
+    exact(status, 404, `RPG_ACCEPTANCE_OPAQUE_NATIVE_RUNTIME_${name}`);
+    opaqueRuntime.push({ name, status });
   }
-  await cleanupNativeProjection(context, opaqueLaunch.config.adapter);
+  await cleanupNativeProjection(opaqueLaunch.frame);
   await finishOpenedValidationLaunch(opaqueLaunch.page, opaqueLaunch.launchId);
   await opaqueLaunch.page.close();
 
@@ -286,7 +286,9 @@ async function openValidationPlayer(context, client, created, screenshotName, in
   requireLocalRuntimeSite(baseUrl, config.adapter?.uniqueOrigin);
   await page.waitForFunction(() => document.querySelector("iframe") !== null, null, { timeout: 120_000 });
   const frame = await waitForHarnessFrame(page, inspectIsolation, config.adapter?.uniqueOrigin);
-  await page.screenshot({ path: join(caseDir, "screenshots", screenshotName), fullPage: true });
+  if (screenshotName) {
+    await page.screenshot({ path: join(caseDir, "screenshots", screenshotName), fullPage: true });
+  }
   const runtimeOrigin = new URL(frame.url()).origin;
   const nativeOrigin = config.adapter?.adapterKind === "NATIVE_WEB" ? config.adapter.uniqueOrigin : null;
   if (inspectIsolation && (runtimeOrigin === baseUrl || nativeOrigin !== runtimeOrigin)) {
@@ -415,9 +417,11 @@ async function resourceIdentity(client, path, idField) {
 
 async function inspectNestedProject(context, client, review, sidecar) {
   const created = await createInspectionLaunch(client, review);
+  if (["RPGMV", "RPGMZ"].includes(review.rpgMaker?.generation)) {
+    return inspectNativeNestedProject(context, client, created, sidecar);
+  }
   let config = null;
   let launchActive = false;
-  let nativeActive = false;
   let projection;
   try {
     const response = await client.raw("GET", `/runtime/launches/${created.launchId}/config`);
@@ -428,26 +432,42 @@ async function inspectNestedProject(context, client, review, sidecar) {
       projection = await inspectEasyRPGProjection(client, config.adapter, sidecar);
     } else if (config.adapter?.adapterKind === "MKXP_LIBRETRO_WEB") {
       projection = await inspectMKXPProjection(client, config.adapter, sidecar);
-    } else if (config.adapter?.adapterKind === "NATIVE_WEB") {
-      await activateNativeProjection(context, config.adapter);
-      nativeActive = true;
-      projection = await inspectNativeProjection(context, config.adapter, sidecar);
-      await cleanupNativeProjection(context, config.adapter);
-      nativeActive = false;
     } else {
       throw new Error("RPG_ACCEPTANCE_NESTED_ADAPTER_INVALID");
     }
   } finally {
-    try {
-      if (nativeActive) { await cleanupNativeProjection(context, config?.adapter); }
-    } finally {
-      if (launchActive) { await finishInspectionLaunch(client, created.launchId); }
-    }
+    if (launchActive) { await finishInspectionLaunch(client, created.launchId); }
   }
   return {
     validationId: created.validationId, launchId: created.launchId,
     config, projection, launchFinished: true,
   };
+}
+
+async function inspectNativeNestedProject(context, client, created, sidecar) {
+  let launched = null;
+  let launchActive = true;
+  let runtimeActive = false;
+  try {
+    launched = await openValidationPlayer(context, client, created, null, false);
+    runtimeActive = true;
+    const projection = await inspectNativeProjection(launched.frame, sidecar);
+    await cleanupNativeProjection(launched.frame);
+    runtimeActive = false;
+    await finishOpenedValidationLaunch(launched.page, launched.launchId);
+    launchActive = false;
+    return {
+      validationId: created.validationId, launchId: created.launchId,
+      config: launched.config, projection, launchFinished: true,
+    };
+  } finally {
+    try {
+      if (runtimeActive) { await cleanupNativeProjection(launched.frame); }
+    } finally {
+      if (launchActive) { await finishInspectionLaunch(client, created.launchId); }
+      await launched?.page.close();
+    }
+  }
 }
 
 async function createInspectionLaunch(client, review) {
@@ -605,31 +625,18 @@ function requireZIPRange(archive, offset, length) {
   }
 }
 
-async function activateNativeProjection(context, adapter) {
-  const response = await context.request.post(adapter.bootstrapUrl, {
-    headers: { Origin: adapter.uniqueOrigin, "Content-Type": "application/json" },
-    data: { ticket: adapter.bootstrapTicket }, failOnStatusCode: false,
-  });
-  exact(response.status(), 204, "RPG_ACCEPTANCE_NESTED_NATIVE_BOOTSTRAP_STATUS");
-}
-
-async function inspectNativeProjection(context, adapter, sidecar) {
-  const response = await context.request.get(
-    `${adapter.uniqueOrigin}/__retrom/project/${encodedLogicalPath(sidecar.name)}`,
-    { failOnStatusCode: false },
-  );
-  exact(response.status(), 404, "RPG_ACCEPTANCE_NESTED_NATIVE_CONTENT_STATUS");
+async function inspectNativeProjection(frame, sidecar) {
+  const status = await runtimeProjectStatus(frame, sidecar.name);
+  exact(status, 404, "RPG_ACCEPTANCE_NESTED_NATIVE_CONTENT_STATUS");
   return {
-    kind: "NATIVE_WEB_DENIED", status: response.status(), logicalName: sidecar.name,
+    kind: "NATIVE_WEB_DENIED", status, logicalName: sidecar.name,
     sha256: null, sizeBytes: null, containerSha256: null, exactMember: false,
   };
 }
 
-async function cleanupNativeProjection(context, adapter) {
-  const response = await context.request.post(`${adapter.uniqueOrigin}/__retrom/cleanup`, {
-    headers: { Origin: adapter.uniqueOrigin }, failOnStatusCode: false,
-  });
-  exact(response.status(), 204, "RPG_ACCEPTANCE_NESTED_NATIVE_CLEANUP_STATUS");
+async function cleanupNativeProjection(frame) {
+  const status = await runtimeRequestStatus(frame, "/__retrom/cleanup", "POST");
+  exact(status, 204, "RPG_ACCEPTANCE_NESTED_NATIVE_CLEANUP_STATUS");
 }
 
 function encodedLogicalPath(value) {

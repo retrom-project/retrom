@@ -134,7 +134,9 @@ class EvidenceContractTests(unittest.TestCase):
             'createValidationLaunch(context, client, opaqueReview, "acc-rpg-010-opaque-native.png", false)',
             source,
         )
-        self.assertIn("await cleanupNativeProjection(context, opaqueLaunch.config.adapter)", source)
+        self.assertIn("await cleanupNativeProjection(opaqueLaunch.frame)", source)
+        self.assertIn("await runtimeProjectStatus(opaqueLaunch.frame, name)", source)
+        self.assertNotIn("`${opaqueLaunch.runtimeOrigin}/__retrom/project/", source)
         self.assertIn("await finishOpenedValidationLaunch(opaqueLaunch.page, opaqueLaunch.launchId)", source)
         self.assertNotIn("await finishInspectionLaunch(client, opaqueLaunch.launchId)", source)
         self.assertIn('headers: { Origin: baseUrl, "Content-Type": "application/json" }', source)
