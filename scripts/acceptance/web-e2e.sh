@@ -8,7 +8,7 @@ web_port=13004
 server_start_timeout_seconds=300
 backend_origin="http://127.0.0.1:${backend_port}"
 web_origin="http://localhost:${web_port}"
-runtime_origin_template="http://{launchId}.rpg.localhost:${web_port}"
+runtime_origin_template="http://{launchId}.rpg.localhost:${backend_port}"
 process_id=""
 dev_state="$temporary_root/dev-state"
 cp -p "$repository_root/web/next-env.d.ts" "$temporary_root/next-env.d.ts"

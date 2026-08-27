@@ -7,6 +7,7 @@ import {
   createProductClient, directoryFiles, mergeFiles, overlayFile, reviewForImport,
   SecurityInputBlocked, singleFile,
 } from "./rpgmaker_security_upload.mjs";
+import { runtimeFrameRoute } from "./rpgmaker_security_runtime.mjs";
 
 const caseId = required("RETROM_RPG_CASE_ID");
 const caseDir = required("RETROM_RPG_CASE_DIR");
@@ -282,7 +283,7 @@ async function openValidationPlayer(context, client, created, screenshotName, in
   await page.goto(`${baseUrl}${created.playerUrl}`, { waitUntil: "domcontentloaded" });
   config = await (await configResponse).json();
   await page.waitForFunction(() => document.querySelector("iframe") !== null, null, { timeout: 120_000 });
-  const frame = await waitForHarnessFrame(page, inspectIsolation);
+  const frame = await waitForHarnessFrame(page, inspectIsolation, config.adapter?.uniqueOrigin);
   await page.screenshot({ path: join(caseDir, "screenshots", screenshotName), fullPage: true });
   const runtimeOrigin = new URL(frame.url()).origin;
   const nativeOrigin = config.adapter?.adapterKind === "NATIVE_WEB" ? config.adapter.uniqueOrigin : null;
@@ -309,11 +310,15 @@ async function createRestoreLaunch(context, client, review, validation, screensh
   return openValidationPlayer(context, client, created, screenshotName, false);
 }
 
-async function waitForHarnessFrame(page, requireProbes) {
+async function waitForHarnessFrame(page, requireProbes, runtimeOrigin) {
+  if (typeof runtimeOrigin !== "string" || !runtimeOrigin) {
+    throw new Error("RPG_ACCEPTANCE_RUNTIME_ORIGIN_MISSING");
+  }
   const deadline = Date.now() + 120_000;
   while (Date.now() < deadline) {
     for (const frame of page.frames()) {
-      if (frame === page.mainFrame() || (requireProbes && !frame.url().includes("/__retrom/entry"))) { continue; }
+      if (frame === page.mainFrame() || runtimeFrameRoute(frame.url(), runtimeOrigin) !== "RUNTIME" ||
+        (requireProbes && !frame.url().includes("/__retrom/entry"))) { continue; }
       const ready = await frame.evaluate((probes) => {
         const canvas = document.querySelector("canvas");
         return Boolean(canvas && (!probes || window.__RETROM_MALICIOUS_RESULTS__?.complete === "true"));
