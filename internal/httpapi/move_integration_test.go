@@ -995,14 +995,16 @@ func waitForHTTPJob(t *testing.T, database interface {
 	deadline := time.Now().Add(5 * time.Second)
 	for {
 		var state string
-		if err := database.QueryRowContext(context.Background(), "SELECT state FROM jobs WHERE id=?", jobID).
-			Scan(&state); err != nil {
+		var errorCode sql.NullString
+		if err := database.QueryRowContext(
+			context.Background(), "SELECT state,error_code FROM jobs WHERE id=?", jobID,
+		).Scan(&state, &errorCode); err != nil {
 			t.Fatal(err)
 		}
 		if state == expected {
 			return
 		}
-		testassert.Falsef(t, testassert.Any(func() bool { return state == "FAILED" }, func() bool { return state == "CANCELLED" }, func() bool { return time.Now().After(deadline) }), "job %s state = %s, wanted %s", jobID, state, expected)
+		testassert.Falsef(t, testassert.Any(func() bool { return state == "FAILED" }, func() bool { return state == "CANCELLED" }, func() bool { return time.Now().After(deadline) }), "job %s state = %s error_code=%q, wanted %s", jobID, state, errorCode.String, expected)
 		time.Sleep(10 * time.Millisecond)
 	}
 }

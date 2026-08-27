@@ -329,6 +329,13 @@ WHERE id=?
 `, now-1, now, invalidJobID); err != nil {
 		t.Fatal(err)
 	}
+	service.ResumeValidationJob(ctx, invalidJobID)
+	var duplicateState string
+	var duplicateAttempts int
+	if err := database.SQL.QueryRowContext(ctx, `SELECT state,attempt_count FROM jobs WHERE id=?`, invalidJobID).
+		Scan(&duplicateState, &duplicateAttempts); err != nil || duplicateState != "RUNNING" || duplicateAttempts != 1 {
+		t.Fatalf("duplicate validation resume = %s/%d, error=%v", duplicateState, duplicateAttempts, err)
+	}
 	service.recoverStaleValidationJobs(ctx)
 	if err := database.SQL.QueryRowContext(ctx, `SELECT state FROM jobs WHERE id=?`, invalidJobID).
 		Scan(&failedState); err != nil || failedState != "QUEUED" {
