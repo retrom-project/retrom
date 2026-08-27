@@ -73,6 +73,14 @@ class ProjectDigestTests(unittest.TestCase):
 
 
 class EvidenceContractTests(unittest.TestCase):
+    def test_generation_cases_use_one_virtual_user_core(self) -> None:
+        self.assertEqual("rpgmaker", rpgmaker.USER_CORE_ID)
+        self.assertEqual("MATCHED", rpgmaker.GENERATION_CASES["ACC-RPG-002"].confidence)
+        self.assertEqual(
+            "RPG2000",
+            rpgmaker.GENERATION_CASES["ACC-RPG-002"].evidence_generation,
+        )
+
     def test_local_rpg_hostnames_are_loopback_acceptance_origins(self) -> None:
         self.assertTrue(rpgmaker.is_local_acceptance_hostname("localhost"))
         self.assertTrue(rpgmaker.is_local_acceptance_hostname("127.0.0.1"))
@@ -1085,7 +1093,7 @@ def product_payload(spec, digest: str) -> dict:
             "import": {
                 "importJobId": import_id, "uploadId": upload_id, "state": "COMPLETED",
                 "payloadState": "RELEASED", "platformId": "rpgmaker",
-                "defaultCoreId": spec.core_id, "coreArtifactId": artifact,
+                "defaultCoreId": rpgmaker.USER_CORE_ID, "coreArtifactId": artifact,
                 "counts": {
                     "total": 1, "queued": 0, "running": 0, "reviewPending": 0,
                     "published": 1, "discarded": 0, "failed": 0, "cancelled": 0,

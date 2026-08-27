@@ -36,11 +36,12 @@ try {
 }
 
 async function catalogCase(context, writeHeaders) {
-  const coreIds = [
+  const coreIds = ["rpgmaker"];
+  const internalCoreIds = [
     "rpgmaker_2000", "rpgmaker_2003", "rpgmaker_xp", "rpgmaker_vx",
     "rpgmaker_vx_ace", "rpgmaker_mv", "rpgmaker_mz",
   ];
-  const templateKeys = coreIds.map((coreId) => `rpgmaker/${coreId}`);
+  const templateKeys = ["rpgmaker/rpgmaker"];
   const platforms = await jsonRequest(context.request, "GET", "/api/v1/admin/platforms");
   const rpgPlatforms = array(platforms.items).filter((platform) => platform.id === "rpgmaker");
   exact(rpgPlatforms.length, 1, "RPG_ACCEPTANCE_PLATFORM_COUNT");
@@ -67,11 +68,11 @@ async function catalogCase(context, writeHeaders) {
   const instances = await jsonRequest(context.request, "GET", "/api/v1/admin/platform-instances?platformId=rpgmaker&limit=100");
   const enabledInstances = array(instances.items).filter((item) => item.enabled);
   if (apply) {
-    exact(enabledInstances.map((item) => item.defaultCoreId).sort(), [...coreIds].sort(), "RPG_ACCEPTANCE_DIRECTORY_CORE_BINDINGS");
+    exact(enabledInstances.map((item) => item.defaultCoreId).sort(), [...coreIds], "RPG_ACCEPTANCE_DIRECTORY_CORE_BINDINGS");
   }
   const artifacts = await allArtifacts(context.request);
-  const selected = artifacts.filter((item) => coreIds.includes(item.coreId) && item.selectedForNewBindings && item.availableForLaunch);
-  exact(selected.map((item) => item.coreId).sort(), [...coreIds].sort(), "RPG_ACCEPTANCE_SELECTED_ARTIFACTS");
+  const selected = artifacts.filter((item) => internalCoreIds.includes(item.coreId) && item.selectedForNewBindings && item.availableForLaunch);
+  exact(selected.map((item) => item.coreId).sort(), [...internalCoreIds].sort(), "RPG_ACCEPTANCE_SELECTED_ARTIFACTS");
   if (selected.some((item) => !item.id || !item.routeKey || item.runtimeFamily !== "RPGMAKER")) {
     throw new Error("RPG_ACCEPTANCE_ARTIFACT_DIAGNOSTIC_INCOMPLETE");
   }
@@ -99,7 +100,7 @@ async function catalogCase(context, writeHeaders) {
   return {
     schemaVersion: 1, caseId, status: apply ? "PASS" : "BLOCKED",
     reason: apply ? null : "只读 preflight 完成；fresh DB 必须显式设置 RETROM_ACC_RPG_001_MODE=APPLY 才执行推荐目录事务",
-    catalog: { platformId: "rpgmaker", coreIds, templateKeys },
+    catalog: { platformId: "rpgmaker", coreIds, internalCoreIds, templateKeys },
     recommendationStates: covered.map((item) => ({ templateKey: item.templateKey, state: item.state })),
     artifacts: selected.map(safeArtifact),
     screenshots: ["screenshots/rpgmaker-directories.png", "screenshots/rpgmaker-runtime-diagnostics.png"],
