@@ -251,13 +251,13 @@ describe("PlayerChrome", () => {
       debugOpen: true,
       debugRuntime: {
         runtimeFamily: "ONS", coreId: "onscripter_yuri", coreArtifactId: "artifact-ons",
-        emulatorJSVersion: "v0.3.2", playerAdapterId: "ons-yuri-web", inputMode: "STANDARD",
+        emulatorJSVersion: "v0.3.3", playerAdapterId: "ons-yuri-web", inputMode: "STANDARD",
         crossOriginIsolated: true, sharedArrayBuffer: true,
       },
     })} />);
     const panel = screen.getByRole("complementary", { name: "运行调试信息" });
     expect(within(panel).getByText("ONScripter")).toBeVisible();
-    expect(within(panel).getByText("v0.3.2")).toBeVisible();
+    expect(within(panel).getByText("v0.3.3")).toBeVisible();
     expect(within(panel).getByText("ons-yuri-web")).toBeVisible();
     expect(within(panel).queryByText("EmulatorJS")).not.toBeInTheDocument();
   });

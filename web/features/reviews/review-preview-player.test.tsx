@@ -159,7 +159,7 @@ describe("ReviewPreviewPlayer", () => {
           runtimeFamily: "ONS", sessionId: "preview-ons", gameTitle: "ONS fixture",
           adapter: {
             adapterKind: "ONS_YURI_WEB", adapterId: "ons-yuri-web",
-            runtimeBaseUrl: "/runtime/retrom-runtime/v0.3.2/",
+            runtimeBaseUrl: "/runtime/retrom-runtime/v0.3.3/",
             projectIndexUrl: "/runtime/projects/preview-ons/index.json",
             scriptEncoding: "utf8", checkpointSlot: 999,
           },
