@@ -2,6 +2,8 @@ import { createHash, randomUUID } from "node:crypto";
 import { closeSync, lstatSync, openSync, readSync, readdirSync, statSync } from "node:fs";
 import { basename, join, relative, resolve, sep } from "node:path";
 
+export class SecurityInputBlocked extends Error {}
+
 export function createProductClient(context, baseUrl, csrfToken) {
   const writeHeaders = () => ({
     Origin: baseUrl, "X-Retrom-Csrf": csrfToken, "Idempotency-Key": randomUUID(),
@@ -92,10 +94,19 @@ export function overlayFile(files, path, relativePath) {
 
 export async function reviewForImport(client, importJobId) {
   const queue = await client.json("GET", `/api/v1/admin/reviews?importJobId=${encodeURIComponent(importJobId)}&limit=20`);
-  if (!Array.isArray(queue.items) || queue.items.length !== 1) {
-    throw new Error("RPG_ACCEPTANCE_SECURITY_REVIEW_CARDINALITY");
+  if (Array.isArray(queue.items) && queue.items.length === 1) {
+    return client.json("GET", `/api/v1/admin/reviews/${queue.items[0].itemId}`);
   }
-  return client.json("GET", `/api/v1/admin/reviews/${queue.items[0].itemId}`);
+  const job = await client.json("GET", `/api/v1/admin/imports/${importJobId}`);
+  requireFreshImportReview(queue, job);
+  throw new Error("RPG_ACCEPTANCE_SECURITY_REVIEW_CARDINALITY");
+}
+
+export function requireFreshImportReview(queue, job) {
+  if (Array.isArray(queue?.items) && queue.items.length === 0 &&
+      Number.isInteger(job?.alreadyImportedItemCount) && job.alreadyImportedItemCount > 0) {
+    throw new SecurityInputBlocked("RPG_ACCEPTANCE_SECURITY_FRESH_DATABASE_REQUIRED");
+  }
 }
 
 async function uploadFile(raw, writeHeaders, upload, fileId, file) {

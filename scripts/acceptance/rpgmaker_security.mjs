@@ -4,7 +4,8 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { basename, join, resolve } from "node:path";
 import { chromium } from "../../web/node_modules/playwright/index.mjs";
 import {
-  createProductClient, directoryFiles, mergeFiles, overlayFile, reviewForImport, singleFile,
+  createProductClient, directoryFiles, mergeFiles, overlayFile, reviewForImport,
+  SecurityInputBlocked, singleFile,
 } from "./rpgmaker_security_upload.mjs";
 
 const caseId = required("RETROM_RPG_CASE_ID");
@@ -31,6 +32,12 @@ try {
     ? await contentSafetyCase(context, client, instances)
     : await isolationCase(context, client, instances);
   writeFileSync(join(caseDir, "rpgmaker-product.json"), `${JSON.stringify(payload, null, 2)}\n`);
+} catch (error) {
+  if (!(error instanceof SecurityInputBlocked)) { throw error; }
+  writeFileSync(join(caseDir, "rpgmaker-product.json"), `${JSON.stringify({
+    schemaVersion: 1, caseId, status: "BLOCKED", reason: error.message, missingInputs: [],
+  }, null, 2)}\n`);
+  process.exitCode = 3;
 } finally {
   await browser.close();
 }

@@ -153,6 +153,15 @@ class EvidenceContractTests(unittest.TestCase):
             'restore: ["ArrowRight", "ArrowRight", "ArrowRight", "ArrowRight", "ArrowRight"]', source,
         )
 
+    def test_security_duplicate_import_is_blocked_before_review_cardinality(self) -> None:
+        driver = SECURITY_BROWSER_PATH.read_text()
+        upload = (Path(__file__).resolve().parents[1] / "rpgmaker_security_upload.mjs").read_text()
+        self.assertIn("error instanceof SecurityInputBlocked", driver)
+        self.assertIn('status: "BLOCKED"', driver)
+        self.assertIn("process.exitCode = 3", driver)
+        self.assertIn('`/api/v1/admin/imports/${importJobId}`', upload)
+        self.assertIn("RPG_ACCEPTANCE_SECURITY_FRESH_DATABASE_REQUIRED", upload)
+
     def test_security_driver_awaits_only_the_successful_config_response(self) -> None:
         source = SECURITY_BROWSER_PATH.read_text()
         self.assertIn("const configResponse = page.waitForResponse", source)
