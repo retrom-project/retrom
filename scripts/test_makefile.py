@@ -117,6 +117,9 @@ class MakefileDependencyTests(unittest.TestCase):
         runtime_cases = (
             REPOSITORY_ROOT / "web" / "e2e" / "acceptance-runtime-cases.ts"
         ).read_text(encoding="utf-8")
+        expansion_cases = (
+            REPOSITORY_ROOT / "web" / "e2e" / "acceptance-core-expansion-cases.ts"
+        ).read_text(encoding="utf-8")
         support = (
             REPOSITORY_ROOT / "web" / "e2e" / "acceptance-support.ts"
         ).read_text(encoding="utf-8")
@@ -125,6 +128,7 @@ class MakefileDependencyTests(unittest.TestCase):
         ).read_text(encoding="utf-8")
         stale_selector = 'iframe[title="Retrom EmulatorJS Player"]'
         self.assertNotIn(stale_selector, runtime_cases)
+        self.assertNotIn(stale_selector, expansion_cases)
         self.assertNotIn(stale_selector, support)
         self.assertGreaterEqual(runtime_cases.count('test.setTimeout(180_000)'), 3)
         self.assertIn('test.setTimeout(180_000);\n  const routes = [', ui_cases)
