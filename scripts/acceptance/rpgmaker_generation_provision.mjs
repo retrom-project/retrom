@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-import { randomUUID } from "node:crypto";
-import { existsSync, lstatSync, writeFileSync } from "node:fs";
+import { createHash, randomUUID } from "node:crypto";
+import { closeSync, existsSync, lstatSync, openSync, readSync, writeFileSync } from "node:fs";
 import { request as httpRequest } from "node:http";
 import { request as httpsRequest } from "node:https";
 import { dirname, isAbsolute, resolve } from "node:path";
@@ -87,11 +87,8 @@ try {
   const client = createProductClient(context, baseUrl, login.csrfToken);
   const platformInstanceId = await platformInstance(client);
   await assertSelectedRoute(client);
-  const imported = await client.importProject(
-    directoryFiles(config.source(), config.prefix), "DIRECTORY", platformInstanceId,
-  );
-  exact(imported.status, 202, "RPG_PROVISION_IMPORT_FAILED");
-  const review = await reviewForImport(client, imported.body.importJobId);
+  const sourceFiles = directoryFiles(config.source(), config.prefix);
+  const review = await provisionReview(client, sourceFiles, platformInstanceId);
   exact(review.rpgMaker?.selectedCoreId, config.coreId, "RPG_PROVISION_CORE_MISMATCH");
   exact(review.rpgMaker?.generation, config.generation, "RPG_PROVISION_GENERATION_MISMATCH");
   const published = await validateAndPublish(context, client, review);
@@ -106,6 +103,76 @@ try {
   }, null, 2)}\n`);
 } finally {
   await browser.close();
+}
+
+async function provisionReview(client, sourceFiles, platformInstanceId) {
+  const resumeItemId = process.env.RETROM_RPG_PROVISION_RESUME_ITEM_ID;
+  if (!resumeItemId) {
+    const imported = await client.importProject(sourceFiles, "DIRECTORY", platformInstanceId);
+    exact(imported.status, 202, "RPG_PROVISION_IMPORT_FAILED");
+    return reviewForImport(client, imported.body.importJobId);
+  }
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(resumeItemId)) {
+    throw new Error("RPG_PROVISION_RESUME_REVIEW_INVALID");
+  }
+  const review = await client.json("GET", `/api/v1/admin/reviews/${resumeItemId}`);
+  const expected = projectManifest(sourceFiles, config.prefix);
+  if (review.itemId !== resumeItemId || review.rpgMaker?.runtimeValidation !== null
+      || review.rpgMaker?.selectedCoreId !== config.coreId
+      || review.rpgMaker?.generation !== config.generation
+      || review.sourceManifest?.contentKind !== "RPG_MAKER_PROJECT_V1"
+      || review.sourceManifest?.fileCount !== expected.fileCount
+      || review.sourceManifest?.totalBytes !== expected.totalBytes
+      || review.sourceManifest?.filesDigest !== expected.filesDigest) {
+    throw new Error("RPG_PROVISION_RESUME_REVIEW_INVALID");
+  }
+  return review;
+}
+
+function projectManifest(files, prefix) {
+  const hasher = createHash("sha256");
+  hasher.update(Buffer.from("RETROM_FILESET_V1\0", "ascii"));
+  let totalBytes = 0;
+  for (const file of files) {
+    if (!file.relativePath.startsWith(prefix) || file.relativePath.length === prefix.length) {
+      throw new Error("RPG_PROVISION_RESUME_REVIEW_INVALID");
+    }
+    const logicalName = file.relativePath.slice(prefix.length);
+    updateLengthPrefixed(hasher, "PROJECT_FILE");
+    updateLengthPrefixed(hasher, logicalName);
+    hasher.update(fileSHA256(file));
+    const size = Buffer.alloc(8);
+    size.writeBigUInt64BE(BigInt(file.sizeBytes));
+    hasher.update(size);
+    hasher.update(Buffer.from([0]));
+    totalBytes += file.sizeBytes;
+  }
+  return { fileCount: files.length, totalBytes, filesDigest: hasher.digest("hex") };
+}
+
+function updateLengthPrefixed(hasher, value) {
+  const bytes = Buffer.from(value, "utf8");
+  const length = Buffer.alloc(4);
+  length.writeUInt32BE(bytes.length);
+  hasher.update(length);
+  hasher.update(bytes);
+}
+
+function fileSHA256(file) {
+  const hasher = createHash("sha256");
+  const descriptor = openSync(file.path, "r");
+  const buffer = Buffer.alloc(Math.min(1 << 20, Math.max(file.sizeBytes, 1)));
+  try {
+    for (let offset = 0; offset < file.sizeBytes;) {
+      const length = readSync(descriptor, buffer, 0, Math.min(buffer.length, file.sizeBytes - offset), offset);
+      if (length <= 0) { throw new Error("RPG_PROVISION_RESUME_REVIEW_INVALID"); }
+      hasher.update(buffer.subarray(0, length));
+      offset += length;
+    }
+  } finally {
+    closeSync(descriptor);
+  }
+  return hasher.digest();
 }
 
 async function validateAndPublish(context, client, review) {
