@@ -84,3 +84,14 @@ export async function browserNavigationStatus(context, url) {
     await page.close();
   }
 }
+
+export function confusedRuntimeEntryURL(runtimeOrigin) {
+  const parsed = new URL(runtimeOrigin);
+  const suffixStart = parsed.hostname.indexOf(".");
+  if (suffixStart < 0) { throw new Error("RPG_ACCEPTANCE_SECURITY_RUNTIME_HOST_INVALID"); }
+  parsed.hostname = `not-a-launch${parsed.hostname.slice(suffixStart)}`;
+  parsed.pathname = "/__retrom/entry";
+  parsed.search = "";
+  parsed.hash = "";
+  return parsed.toString();
+}
