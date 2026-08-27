@@ -6,6 +6,7 @@ import {
   writePlan, writeProvisionEvidence,
 } from "./rpgmaker_pack_provision_plan.mjs";
 import { gitProvenance } from "./rpgmaker_evidence_provenance.mjs";
+import { isLocalAcceptanceHostname } from "./rpgmaker_url.mjs";
 import {
   approveReview, assertFreshInstance, assertProvisionedState, createProductSave, importReview,
   installRuntimePack, rpgPlatformInstances, selectRuntimePack, validateReview,
@@ -172,7 +173,7 @@ function normalizedBase(value) {
   if (parsed.username || parsed.password || parsed.search || parsed.hash || parsed.pathname !== "/") {
     throw new Error("RPG_009_PROVISION_BASE_URL_INVALID");
   }
-  if (parsed.protocol !== "https:" && !["127.0.0.1", "localhost"].includes(parsed.hostname)) {
+  if (parsed.protocol !== "https:" && !isLocalAcceptanceHostname(parsed.hostname)) {
     throw new Error("RPG_009_PROVISION_BASE_URL_REQUIRES_HTTPS");
   }
   return parsed.origin;

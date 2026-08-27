@@ -726,11 +726,10 @@ def validate_origin_inventory(value: Any, product_launch_id: str) -> None:
         app_url, runtime_url = urlparse(app["origin"]), urlparse(runtime["origin"])
     except (TypeError, ValueError):
         raise ContractError("RPG_ACCEPTANCE_ORIGIN_INVENTORY_INVALID") from None
-    localhost = {"localhost", "127.0.0.1"}
     if app_url.scheme not in {"http", "https"} or runtime_url.scheme not in {"http", "https"} or \
             not app_url.netloc or not runtime_url.netloc or app_url.netloc == runtime_url.netloc or \
-            (app_url.scheme != "https" and app_url.hostname not in localhost) or \
-            (runtime_url.scheme != "https" and runtime_url.hostname not in localhost) or \
+            (app_url.scheme != "https" and not is_local_acceptance_hostname(app_url.hostname)) or \
+            (runtime_url.scheme != "https" and not is_local_acceptance_hostname(runtime_url.hostname)) or \
             product_launch_id not in str(runtime_url.hostname) or \
             app.get("documentResponses", 0) < 1 or app.get("scriptResponses", 0) < 1 or \
             any(app.get(key) != 0 for key in (
@@ -738,6 +737,10 @@ def validate_origin_inventory(value: Any, product_launch_id: str) -> None:
             )) or runtime.get("documentResponses", 0) < 1 or runtime.get("scriptResponses", 0) < 1 or \
             runtime.get("projectResourceResponses", 0) < 1:
         raise ContractError("RPG_ACCEPTANCE_ORIGIN_INVENTORY_INVALID")
+
+
+def is_local_acceptance_hostname(hostname: str | None) -> bool:
+    return hostname in {"localhost", "127.0.0.1"} or bool(hostname and hostname.endswith(".localhost"))
 
 
 def validate_generation_evidence(

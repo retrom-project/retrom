@@ -8,6 +8,7 @@ import { chromium } from "../../web/node_modules/playwright/index.mjs";
 import {
   createProductClient, directoryFiles, reviewForImport,
 } from "./rpgmaker_security_upload.mjs";
+import { isLocalAcceptanceHostname } from "./rpgmaker_url.mjs";
 
 const cases = {
   "ACC-RPG-004": {
@@ -403,7 +404,7 @@ function normalizedBase(value) {
   if (parsed.username || parsed.password || parsed.search || parsed.hash || parsed.pathname !== "/") {
     throw new Error("RPG_PROVISION_BASE_URL_INVALID");
   }
-  if (parsed.protocol !== "https:" && !["127.0.0.1", "localhost"].includes(parsed.hostname)) {
+  if (parsed.protocol !== "https:" && !isLocalAcceptanceHostname(parsed.hostname)) {
     throw new Error("RPG_PROVISION_BASE_URL_REQUIRES_HTTPS");
   }
   return parsed.origin;
