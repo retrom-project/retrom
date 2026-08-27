@@ -1,6 +1,6 @@
 import { mkdirSync } from "node:fs";
 import path from "node:path";
-import { expect, type Page, type TestInfo } from "@playwright/test";
+import { expect, type Locator, type Page, type TestInfo } from "@playwright/test";
 
 export function evidencePath(testInfo: TestInfo, name: string) {
   const caseDirectory = process.env.RETROM_ACCEPTANCE_CASE_DIR;
@@ -58,9 +58,7 @@ export async function expectHomeCoverRatios(page: Page) {
   expect(measuredCoverCount, "首页验收夹具应包含至少一张可测量封面").toBeGreaterThan(0);
 }
 
-export async function currentEmulatorBrightRatio(page: Page) {
-  const canvas = page.frameLocator("iframe.player-frame").locator("canvas.ejs_canvas");
-  const screenshot = await canvas.screenshot({ timeout: 1_000 }).catch(() => null);
+async function screenshotBrightRatio(page: Page, screenshot: Buffer | null) {
   if (!screenshot?.length) {return 0;}
   return page.evaluate(async (encoded) => {
     const binary = atob(encoded);
@@ -79,6 +77,15 @@ export async function currentEmulatorBrightRatio(page: Page) {
     }
     return brightPixels / (pixels.length / 4);
   }, screenshot.toString("base64"));
+}
+
+export async function locatorBrightRatio(page: Page, locator: Locator) {
+  return screenshotBrightRatio(page, await locator.screenshot({ timeout: 1_000 }).catch(() => null));
+}
+
+export async function currentEmulatorBrightRatio(page: Page) {
+  const canvas = page.frameLocator("iframe.player-frame").locator("canvas.ejs_canvas");
+  return locatorBrightRatio(page, canvas);
 }
 
 export type HorizontalGaps = { left: number; right: number };

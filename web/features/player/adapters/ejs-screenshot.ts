@@ -13,6 +13,41 @@ async function captureCanvasScreenshot(instance: EmulatorInstance): Promise<Manu
 }
 
 const reviewCoreScreenshotTimeoutMs = 2_000;
+const screenshotSampleSide = 64;
+const minimumVisiblePixelRatio = 0.01;
+const minimumVisibleLuma = 8;
+
+export function screenshotPixelsHaveVisibleContent(pixels: Uint8ClampedArray) {
+  const pixelCount = pixels.length / 4;
+  const visiblePixelTarget = Math.ceil(pixelCount * minimumVisiblePixelRatio);
+  let visiblePixels = 0;
+  for (let index = 0; index < pixels.length; index += 4) {
+    const luma = (pixels[index]! + pixels[index + 1]! + pixels[index + 2]!) / 3;
+    if (luma > minimumVisibleLuma && ++visiblePixels >= visiblePixelTarget) {return true;}
+  }
+  return false;
+}
+
+async function screenshotHasVisibleContent(screenshot: Blob) {
+  if (typeof createImageBitmap !== "function") {return true;}
+  let bitmap: ImageBitmap | null = null;
+  try {
+    bitmap = await createImageBitmap(screenshot);
+    const sample = document.createElement("canvas");
+    sample.width = screenshotSampleSide;
+    sample.height = screenshotSampleSide;
+    const context = sample.getContext("2d", { alpha: false });
+    if (!context) {return false;}
+    context.drawImage(bitmap, 0, 0, sample.width, sample.height);
+    return screenshotPixelsHaveVisibleContent(
+      context.getImageData(0, 0, sample.width, sample.height).data,
+    );
+  } catch {
+    return false;
+  } finally {
+    bitmap?.close();
+  }
+}
 
 export function coreFramebufferNeedsCanvasOrientation(bytes: Uint8Array, expectedAspect: number | undefined) {
   if (!Number.isFinite(expectedAspect) || !expectedAspect || expectedAspect <= 0 || bytes.byteLength < 24 ||
@@ -66,10 +101,12 @@ async function captureCoreFramebuffer(instance: EmulatorInstance): Promise<Manua
 // and avoids encoding a viewport-sized shader canvas on high-DPI displays.
 export async function captureManualScreenshot(instance: EmulatorInstance): Promise<ManualScreenshot> {
   try {
-    return await captureCoreFramebuffer(instance);
+    const coreFramebuffer = await captureCoreFramebuffer(instance);
+    if (await screenshotHasVisibleContent(coreFramebuffer.screenshot)) {return coreFramebuffer;}
   } catch {
-    return captureCanvasScreenshot(instance);
+    // Canvas capture below is the bounded fallback for unavailable core output.
   }
+  return captureCanvasScreenshot(instance);
 }
 
 export const captureReviewScreenshot = captureManualScreenshot;

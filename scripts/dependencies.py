@@ -411,7 +411,9 @@ def validate_registry(manifests: list[dict[str, Any]]) -> None:
         raise CheckError("PLAYER_ADAPTER_REGISTRY_DRIFT")
 
 
-def validate_cps_fixture_layouts(manifests: list[dict[str, Any]]) -> None:
+def validate_cps_fixture_layouts(
+    manifests: list[dict[str, Any]], *, require_production_dat: bool
+) -> None:
     layout = load_json(CPS_FIXTURE_LAYOUT_PATH)
     drivers = layout.get("drivers")
     if layout.get("schemaVersion") != 1 or not isinstance(drivers, dict):
@@ -449,6 +451,11 @@ def validate_cps_fixture_layouts(manifests: list[dict[str, Any]]) -> None:
             or not isinstance(local_path, str)
         ):
             raise CheckError("CPS_FIXTURE_LAYOUT_INVALID")
+        entries = driver.get("entries")
+        if not isinstance(entries, list) or not all(isinstance(entry, dict) for entry in entries):
+            raise CheckError("CPS_FIXTURE_LAYOUT_INVALID")
+        if not require_production_dat:
+            continue
         production_path = DATA_ROOT / "dat/emulatorjs/4.2.3" / local_path
         _, digest = file_digest(production_path)
         if digest != driver["productionDatSha256"]:
@@ -458,8 +465,7 @@ def validate_cps_fixture_layouts(manifests: list[dict[str, Any]]) -> None:
             (item for item in root.findall("machine") if item.attrib.get("name") == driver_name),
             None,
         )
-        entries = driver.get("entries")
-        if machine is None or not isinstance(entries, list):
+        if machine is None:
             raise CheckError("CPS_FIXTURE_LAYOUT_INVALID")
         declared = [
             (entry.get("name"), str(entry.get("size")), entry.get("crc32"))
@@ -470,7 +476,7 @@ def validate_cps_fixture_layouts(manifests: list[dict[str, Any]]) -> None:
             (entry.attrib.get("name"), entry.attrib.get("size"), entry.attrib.get("crc"))
             for entry in machine.findall("rom")
         ]
-        if len(declared) != len(entries) or declared != actual:
+        if declared != actual:
             raise CheckError("CPS_FIXTURE_LAYOUT_INVALID")
 
 
@@ -1273,7 +1279,7 @@ def main() -> int:
         )
         run_rpg_maker_dependency_action("data-check")
         if args.action == "data-check":
-            validate_cps_fixture_layouts(manifests)
+            validate_cps_fixture_layouts(manifests, require_production_dat=False)
         if args.action == "prepare":
             for version, manifest in zip(versions, manifests, strict=True):
                 prepare(version, manifest)
@@ -1284,6 +1290,8 @@ def main() -> int:
                 check_payload(version, manifest)
             check_auth_payload(auth_manifest)
             run_rpg_maker_dependency_action("deps-check")
+        if args.action in ("prepare", "deps-check"):
+            validate_cps_fixture_layouts(manifests, require_production_dat=True)
         if args.action == "image-export":
             export_image_dependencies(
                 Path(args.output), versions, manifests, auth_manifest, rpg_maker_manifest

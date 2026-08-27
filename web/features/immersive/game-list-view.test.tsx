@@ -153,4 +153,11 @@ describe("immersive game list view", () => {
       mocks.replace,
     ));
   });
+
+  it("marks long descriptions for automatic scrolling", async () => {
+    const selected = { ...game(0), description: "很长的简介".repeat(80) };
+    mocks.fetchGames.mockResolvedValue(page([selected], null));
+    render(<GameListView platformId="gba" />);
+    expect(await screen.findByLabelText(selected.description)).toHaveAttribute("data-auto-scroll", "true");
+  });
 });

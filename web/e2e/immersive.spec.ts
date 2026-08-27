@@ -259,6 +259,18 @@ test("ACC-IMM-002 platform carousel uses real counts and controller-only navigat
   expect(keyBox?.width).toBe(keyBox?.height);
   expect(iconBox?.width).toBeLessThan(keyBox?.width ?? 0);
   expect(iconBox?.height).toBeLessThan(keyBox?.height ?? 0);
+  const selectKey = page.getByLabel("Select");
+  await expect(selectKey.locator("circle")).toHaveCount(3);
+  const selectCentering = await selectKey.evaluate((element) => {
+    const key = element.getBoundingClientRect();
+    const icon = element.querySelector("svg")?.getBoundingClientRect();
+    return icon ? {
+      horizontal: Math.abs((key.left + key.width / 2) - (icon.left + icon.width / 2)),
+      vertical: Math.abs((key.top + key.height / 2) - (icon.top + icon.height / 2)),
+    } : null;
+  });
+  expect(selectCentering?.horizontal).toBeLessThanOrEqual(1);
+  expect(selectCentering?.vertical).toBeLessThanOrEqual(1);
   await expect(current).toContainText(items[0]!.name);
   await expect(current).toContainText(`${items[0]!.gameCount} 款游戏`);
   let coverStack = page.getByLabel(`${items[0]!.name} 最近游戏封面`);
@@ -319,12 +331,29 @@ test("ACC-IMM-002 platform carousel uses real counts and controller-only navigat
 
 test("ACC-IMM-003 game browser renders authorized cover video and description fallback", async ({ page }, testInfo) => {
   test.setTimeout(60_000);
+  await page.emulateMedia({ reducedMotion: "no-preference" });
   await enterImmersive(page);
   await choosePlatform(page, "Game Boy Advance");
   await pressGamepad(page, standardButton.a);
   await expect(page).toHaveURL(/\/immersive\/platforms\/gba/);
   const listbox = page.getByRole("listbox", { name: /Game Boy Advance 游戏/ });
   await expect(listbox).toBeVisible();
+  await expect.poll(() => listbox.evaluate((element) => getComputedStyle(element).maskImage))
+    .toMatch(/^linear-gradient\(rgb\(0, 0, 0\) 0%/u);
+  const initialSelected = listbox.getByRole("option", { selected: true });
+  const initialGeometry = await initialSelected.evaluate((element) => {
+    const list = element.parentElement?.getBoundingClientRect();
+    const option = element.getBoundingClientRect();
+    const title = element.querySelector("strong")?.getBoundingClientRect();
+    return list && title ? {
+      topInset: option.top - list.top,
+      titleCenterDelta: Math.abs((option.top + option.height / 2) - (title.top + title.height / 2)),
+      outlineOffset: getComputedStyle(element).outlineOffset,
+    } : null;
+  });
+  expect(initialGeometry?.topInset).toBeGreaterThanOrEqual(0);
+  expect(initialGeometry?.titleCenterDelta).toBeLessThanOrEqual(1);
+  expect(initialGeometry?.outlineOffset).toBe("-3px");
   await expect(page.getByLabel("上下方向键").locator("svg")).toBeVisible();
   await expect(page.getByLabel("左右方向键").locator("svg")).toBeVisible();
   await selectGameByTitle(page, "Sudoku");
@@ -346,10 +375,11 @@ test("ACC-IMM-003 game browser renders authorized cover video and description fa
     overflowY: getComputedStyle(element).overflowY,
     scrollHeight: element.scrollHeight,
   }));
-  expect(descriptionMetrics.overflowY).toBe("auto");
+  expect(descriptionMetrics.overflowY).toBe("hidden");
   expect(descriptionMetrics.scrollHeight).toBeGreaterThan(descriptionMetrics.clientHeight);
-  await description.evaluate((element) => {element.scrollTop = element.scrollHeight;});
-  expect(await description.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
+  await expect(description).toHaveAttribute("data-auto-scroll", "true");
+  await expect.poll(() => description.evaluate((element) => element.scrollTop), { timeout: 4_000 })
+    .toBeGreaterThan(0);
   await pressGamepad(page, standardButton.b);
   await expect(page).toHaveURL(/\/immersive\?platformId=gba$/);
   await page.screenshot({ path: evidencePath(testInfo, "immersive-game-list.png"), fullPage: true });

@@ -211,7 +211,7 @@ NDS 三核心与 Azahar 的 `inputMode=POINTER`：Player 不向 iframe 合成额
 
 不得使用不存在的 `EJS_onExit` 或 `EJS_onSaveUpdate`。产品只把 `EJS_onSaveState` 接到保存写路径，不接 `EJS_onSaveSave`，也不监听 `saveSaveFiles`。`exit` 只提交 PlaySession finish 和销毁资源；浏览器 `pagehide` 只 best-effort 提交 heartbeat/finish。定时器、运行时文件变化、退出和页面隐藏都不得生成或上传游戏进度。
 
-`EJS_onSaveState` 的真实 payload 是 `{ screenshot: Blob, format: string, state: Uint8Array }`。只有用户点击 Retrom 的“创建存档”才调用核心状态捕获；非空 state 是创建 SaveState 的必要输入，截图是同一 multipart 的可选最佳努力输入。state 捕获/校验或上传失败不得创建 SaveState；截图捕获失败不得丢弃有效 state，客户端应提交无 screenshot 的存档并显示“未生成预览图”的非阻断提示。上传用浏览器实际写出的字节持续显示 0–100% 进度，直到服务器成功响应、失败响应或网络错误才结束；浏览器 XHR 必须显式使用 300 秒 timeout，与同一路由的 NG、Next.js 和 Go 300 秒边界一致，超时按上传失败处理且不得留下不完整记录。工具栏交互最迟在 750ms 暂停 main loop，但截图可以在独立的 5 秒有界窗口继续完成。截图优先读取 core framebuffer；如果 PNG 宽高与核心显示 aspect 的互换方向更匹配，说明竖屏 rotation 尚未应用，必须回退到显示 canvas，保证存档封面方向与玩家看到的方向一致。核心截图能力不可用时也回退显示 canvas；所有路径都失败或得到全黑无效图时省略 screenshot part。
+`EJS_onSaveState` 的真实 payload 是 `{ screenshot: Blob, format: string, state: Uint8Array }`。只有用户点击 Retrom 的“创建存档”才调用核心状态捕获；Retrom 必须同时上传非空 state 与截图，任一失败都不创建 SaveState。上传用浏览器实际写出的字节持续显示 0–100% 进度，直到服务器成功响应、失败响应或网络错误才结束；浏览器 XHR 必须显式使用 300 秒 timeout，与同一路由的 NG、Next.js 和 Go 300 秒边界一致，超时或其他失败必须明确提醒且不得留下不完整记录。工具栏交互最迟在 750ms 暂停 main loop，但截图可以在独立的 5 秒有界窗口继续完成；沉浸 Player 打开菜单时也必须先同步发起该截图请求再暂停 Core，菜单中的创建动作复用这一份运行帧，不能在暂停后重新读取黑帧。截图优先读取 core framebuffer；如果 PNG 宽高与核心显示 aspect 的互换方向更匹配，说明竖屏 rotation 尚未应用，或者解码后的 64×64 采样中可见像素不足 1%，则必须回退到显示 canvas，保证存档封面方向与玩家看到的方向一致且不保存近黑帧。核心截图能力不可用时也回退显示 canvas。
 
 EmulatorJS 即使设置 `EJS_disableDatabases=true`，仍会挂载并从 IDBFS 回灌 `/data/saves`。因此每个 Launch 都在 `saveDatabaseLoaded`、ROM/start 之前同步清空整个 mount；清理失败必须阻断启动。Player 不调用 `getSaveFilePath/loadSaveFiles` 注入服务器或浏览器遗留数据。这样没有 `saveStateId/stateUrl` 的“开始游戏/重新开始游戏”必然从游戏初始状态开始。
 

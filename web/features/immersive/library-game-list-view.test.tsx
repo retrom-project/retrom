@@ -106,12 +106,22 @@ describe("immersive library game list", () => {
   });
 
   it("switches saves with left and right and launches the selected save", async () => {
-    const savedGame = game(2, 2);
+    const savedGame = {
+      ...game(2, 2),
+      coverUrl: "/content/assets/cover",
+      videoUrl: "/content/assets/video",
+    };
     mocks.fetchGames.mockResolvedValue(page("saves", [savedGame]));
     render(<LibraryGameListView kind="saves" />);
-    expect(await screen.findByText("存档 1")).toBeInTheDocument();
+    const saveList = await screen.findByRole("list", { name: `${savedGame.title} 的存档` });
+    expect(screen.getByRole("img", { name: `${savedGame.title} 封面` })).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: `${savedGame.title} 视频预览` })).toBeInTheDocument();
+    expect(saveList.querySelectorAll("button")).toHaveLength(2);
+    expect(screen.getAllByRole("img", { name: /存档截图/ })).toHaveLength(2);
+    expect(screen.getByRole("button", { pressed: true })).toHaveAccessibleName(/第 1 份存档/);
+    expect(screen.queryByText("存档 1")).not.toBeInTheDocument();
     fireEvent.keyDown(window, { key: "ArrowRight" });
-    expect(screen.getByText("存档 2")).toBeInTheDocument();
+    expect(screen.getByRole("button", { pressed: true })).toHaveAccessibleName(/第 2 份存档/);
     fireEvent.keyDown(window, { key: "Enter" });
     await waitFor(() => expect(mocks.launch).toHaveBeenCalledWith(
       savedGame.gameId,
