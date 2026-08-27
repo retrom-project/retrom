@@ -77,7 +77,12 @@ export async function browserNavigationStatus(context, url) {
     if (response.url() === url && status === null) { status = response.status(); }
   });
   try {
-    await page.goto(url, { waitUntil: "domcontentloaded", timeout: 120_000 });
+    if (new URL(url).pathname === "/__retrom/bootstrap") {
+      await page.route("**/__retrom/entry", (route) => route.abort("blockedbyclient"));
+    }
+    await page.goto(url, { waitUntil: "domcontentloaded", timeout: 120_000 }).catch((error) => {
+      if (status === null) { throw error; }
+    });
     if (status === null) { throw new Error("RPG_ACCEPTANCE_SECURITY_NAVIGATION_STATUS_MISSING"); }
     return status;
   } finally {
