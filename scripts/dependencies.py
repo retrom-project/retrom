@@ -981,6 +981,7 @@ def image_export_entries(
     build = rpg_maker_manifest["build"]
     for key in (
         "recipe_path", "easyrpg_patch_path", "mkxp_bridge_path", "native_bridge_v3_path",
+        "native_bridge_v4_path", "native_bridge_v5_path", "native_bridge_v6_path", "native_bridge_v7_path",
     ):
         relative = safe_relative_path(build[key], "RPG_RUNTIME_IMAGE_EXPORT_PATH_INVALID")
         add(RPG_MAKER_DAT_ROOT / relative, f"dat/rpgmaker/v1/{relative}")

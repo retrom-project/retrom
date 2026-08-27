@@ -117,7 +117,7 @@ PRAGMA busy_timeout = 5000;
 
 ### 3.1 clean migration lineage
 
-当前未发布基线只包含 `001_identity.sql` 至 `010_cross_domain_invariants.sql`。`store.Open` 在任何 schema 写入前只读检查 `schema_migrations`，只接受不存在/真正空的数据库、与当前文件逐项同名同 checksum 的有序前缀，以及完整当前 lineage。前缀用于同一 clean bootstrap 在进程中断后继续；名称或 checksum 漂移、空洞、未知/future 记录、没有 migration 记录却已有业务表统一只读拒绝，不按旧版本号特判，也不执行运行时修补、数据回填或关闭外键的表重建。
+当前基线包含 `001_identity.sql` 至 `011_emulatorjs_failed_revision_runtime.sql`。`store.Open` 在任何 schema 写入前只读检查 `schema_migrations`，只接受不存在/真正空的数据库、与当前文件逐项同名同 checksum 的有序前缀，以及完整当前 lineage。前缀用于同一 clean bootstrap 在进程中断后继续，并允许已应用 `010` 的数据库通过新增 `011` 更新 runtime trigger；已应用 migration 不得改写。名称或 checksum 漂移、空洞、未知/future 记录、没有 migration 记录却已有业务表统一只读拒绝，不按旧版本号特判，也不执行运行时修补、数据回填或关闭外键的表重建。
 
 项目首次发布前如发现非当前 lineage 的开发数据库，操作者必须为当前版本配置全新空数据根；程序不提供转换器、双写或隐式导入页面。仓库 `make dev` 的默认根为 `.dev-data/data`；测试与每个验收 Case 使用独立临时 data root 并在结束时删除。首次公开发布后，已发布 migration 才进入只追加纪律。
 

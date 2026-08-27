@@ -16,6 +16,15 @@ from dependencies import CheckError, parse_versions
 
 
 ROOT = Path(__file__).resolve().parent.parent
+RPG_RUNTIME_MANIFEST_KEYS = {
+    "schema_version",
+    "runtime_id",
+    "runtime_files",
+    "runtime_releases",
+    "artifacts",
+    "source_archives",
+    "build",
+}
 
 
 def canonical(value: object) -> bytes:
@@ -24,6 +33,22 @@ def canonical(value: object) -> bytes:
 
 def sha256(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
+
+
+def validate_rpg_runtime_manifest(manifest: object) -> None:
+    if (
+        not isinstance(manifest, dict)
+        or set(manifest) != RPG_RUNTIME_MANIFEST_KEYS
+        or manifest.get("schema_version") != 1
+        or manifest.get("runtime_id") != "rpgmaker-v1"
+        or not isinstance(manifest.get("build"), dict)
+        or not manifest["build"]
+    ):
+        raise ValueError("RELEASE_INPUT_RPG_RUNTIME_MANIFEST_INVALID")
+    for key in ("runtime_files", "runtime_releases", "artifacts", "source_archives"):
+        rows = manifest.get(key)
+        if not isinstance(rows, list) or not rows or any(not isinstance(row, dict) for row in rows):
+            raise ValueError("RELEASE_INPUT_RPG_RUNTIME_MANIFEST_INVALID")
 
 
 def source_entries() -> list[dict[str, object]]:
@@ -84,13 +109,7 @@ def release_input_value(versions: list[str], active: str) -> dict[str, object]:
         )
     rpg_manifest_bytes = (ROOT / "data/dat/rpgmaker/v1/manifest.json").read_bytes()
     rpg_manifest = json.loads(rpg_manifest_bytes)
-    if (
-        rpg_manifest.get("schema_version") != 1
-        or rpg_manifest.get("runtime_id") != "rpgmaker-v1"
-        or len(rpg_manifest.get("runtime_files", [])) != 8
-        or len(rpg_manifest.get("artifacts", [])) != 9
-    ):
-        raise ValueError("RELEASE_INPUT_RPG_RUNTIME_MANIFEST_INVALID")
+    validate_rpg_runtime_manifest(rpg_manifest)
     return {
         "schemaVersion": 1,
         "sourceTreeSha256": sha256(canonical(source_entries())),

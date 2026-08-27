@@ -23,6 +23,7 @@ type TestFileSystem = {
 const statePath = "/home/web_user/retroarch/userdata/states/mkxp-z/game.state";
 const coreStateRoot = "/home/web_user/retroarch/userdata/states/mkxp-z";
 const evidencePath = "/home/web_user/retroarch/userdata/saves/mkxp-z/mkxp-z/Saves/RETROM RPGXP-/retrom-position-v1";
+const movedEvidencePath = "/home/web_user/retroarch/userdata/saves/mkxp-z/mkxp-z/Saves/RETROM RPGVX-/retrom-position-v1";
 const stateSize = 268435456;
 const stateFixture = new Uint8Array(stateSize);
 stateFixture.set([0x6d, 0x6b, 0x78, 0x70, 1, 0, 0, 0]);
@@ -87,6 +88,7 @@ describe("mkxp runtime mount", () => {
       input_save_state: "f2",
       input_load_state: "f4",
       input_pause_toggle: "f6",
+      input_player1_a: "x",
       savestate_file_compression: false,
     });
     expect(harness.canvasIdAtPrepare).toBe("canvas");
@@ -116,6 +118,29 @@ describe("mkxp runtime mount", () => {
     expect(harness.runtime).not.toHaveProperty("sendCommand");
     expect(harness.runtime).not.toHaveProperty("saveState");
     expect(harness.runtime).not.toHaveProperty("loadState");
+    await mounted.cleanup();
+    harness.frame.remove();
+  });
+
+  it("follows the current PhysFS evidence directory after restore changes it", async () => {
+    const harness = createHarness();
+    harness.onKeyDown = (code) => {
+      harness.actions.push(code);
+      if (code === "F4") {
+        harness.files.delete(evidencePath);
+        harness.setSaveDirectoryName("RETROM RPGVX-");
+        harness.files.set(movedEvidencePath, positionBytes(7, 4, 6, 9, 600));
+      }
+    };
+
+    const mountPromise = mountMkxp(mkxpConfig(true), harness.target, stateFixture, harness.dependencies);
+    await vi.advanceTimersByTimeAsync(1_000);
+
+    const mounted = await mountPromise;
+    expect(mounted.position()).toEqual({ mapId: 7, playerX: 4, playerY: 6, fixtureState: 9 });
+    const getFrameNum = mounted.instance.gameManager?.getFrameNum;
+    if (!getFrameNum) {throw new Error("getFrameNum unavailable");}
+    expect(getFrameNum()).toBe(600);
     await mounted.cleanup();
     harness.frame.remove();
   });
@@ -202,6 +227,7 @@ function createHarness() {
   const files = new Map<string, Uint8Array>();
   const actions: string[] = [];
   const directories: string[] = [];
+  let saveDirectoryName = "RETROM RPGXP-";
   const fileSystem = {
     analyzePath: (path: string) => ({ exists: files.has(path) }),
     mkdirTree: (path: string) => {
@@ -210,7 +236,7 @@ function createHarness() {
     },
     readdir: (path: string) => {
       if (path === "/home/web_user/retroarch/userdata/saves/mkxp-z/mkxp-z/Saves") {
-        return [".", "..", "RETROM RPGXP-"];
+        return [".", "..", saveDirectoryName];
       }
       throw new Error("ENOENT");
     },
@@ -241,6 +267,7 @@ function createHarness() {
     actions,
     directories,
     files,
+    setSaveDirectoryName: (name: string) => {saveDirectoryName = name;},
     writeRuntimeState: (contents: Uint8Array) => fileSystem.writeFile(statePath, contents),
     onKeyDown: (code: string) => {void code;},
     canvasIdAtPrepare: null as string | null,

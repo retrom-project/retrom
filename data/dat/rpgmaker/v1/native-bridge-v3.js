@@ -233,10 +233,8 @@
       function poll() {
         const manager = global.SceneManager;
         const colors = global.ColorManager;
-        const graphics = global.Graphics;
         const windowskin = colors && colors._windowskin;
-        if (manager && manager._scene && graphics && graphics.width > 0 && graphics.height > 0 &&
-          windowskin && typeof windowskin.getPixel === "function") {
+        if (manager && manager._scene && windowskin && typeof windowskin.getPixel === "function") {
           resolve();
           return;
         }
@@ -261,63 +259,14 @@
     });
   }
 
-  async function screenshot() {
-    for (let attempt = 0; attempt < 60; attempt += 1) {
-      await new Promise((resolve) => global.requestAnimationFrame(resolve));
-      try {
-        const capture = screenshotCanvas();
-        if (capture) return await encodeScreenshot(capture);
-      } catch {
-        // A newly restored WebGL scene may not have presented an extractable frame yet.
-      }
-    }
-    throw new Error("PLAYER_SCREENSHOT_UNAVAILABLE");
-  }
-
-  function encodeScreenshot(capture) {
-    return new Promise((resolve, reject) => {
-      try {
-        capture.canvas.toBlob((blob) => {
-          if (!blob || !blob.size || blob.size > MAX_SCREENSHOT_BYTES) {
-            capture.release();
-            reject(new Error("PLAYER_SCREENSHOT_UNAVAILABLE"));
-            return;
-          }
-          blob.arrayBuffer().then((data) => {
-            capture.release();
-            resolve({ data, mediaType: blob.type || "image/png" });
-          }, (error) => {
-            capture.release();
-            reject(error);
-          });
-        }, "image/png");
-      } catch (error) {
-        capture.release();
-        reject(error);
-      }
-    });
-  }
-
-  function screenshotCanvas() {
-    const bitmapType = global.Bitmap;
-    const scene = global.SceneManager && global.SceneManager._scene;
-    if (bitmapType && typeof bitmapType.snap === "function" && scene) {
-      const bitmap = bitmapType.snap(scene);
-      const canvas = bitmap && bitmap.canvas;
-      if (!canvas || typeof canvas.toBlob !== "function") {
-        if (bitmap && typeof bitmap.destroy === "function") bitmap.destroy();
-        throw new Error("PLAYER_SCREENSHOT_UNAVAILABLE");
-      }
-      return {
-        canvas,
-        release: function releaseBitmap() {
-          if (typeof bitmap.destroy === "function") bitmap.destroy();
-        },
-      };
-    }
+  function screenshot() {
     const canvas = global.document.querySelector("canvas");
-    if (!canvas || typeof canvas.toBlob !== "function") return null;
-    return { canvas, release: function releaseCanvas() {} };
+    if (!canvas || typeof canvas.toBlob !== "function") return Promise.reject(new Error("PLAYER_SCREENSHOT_UNAVAILABLE"));
+    return new Promise((resolve, reject) => canvas.toBlob(async (blob) => {
+      if (!blob || !blob.size || blob.size > MAX_SCREENSHOT_BYTES) { reject(new Error("PLAYER_SCREENSHOT_UNAVAILABLE")); return; }
+      const data = await blob.arrayBuffer();
+      resolve({ data, mediaType: blob.type || "image/png" });
+    }, "image/png"));
   }
 
   function setPaused(paused) {

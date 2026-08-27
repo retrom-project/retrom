@@ -11,6 +11,7 @@ const username = required("RETROM_ACCEPTANCE_USERNAME");
 const password = required("RETROM_ACCEPTANCE_PASSWORD");
 const chromeExecutablePath = required("RETROM_CHROME_EXECUTABLE");
 const screenshotDir = join(caseDir, "screenshots");
+const productReadyTimeoutMs = 180_000;
 mkdirSync(screenshotDir, { recursive: true });
 
 const browser = await chromium.launch({ executablePath: chromeExecutablePath, headless: true });
@@ -98,7 +99,7 @@ async function catalogCase(context, writeHeaders) {
     schemaVersion: 1, caseId, status: apply ? "PASS" : "BLOCKED",
     reason: apply ? null : "只读 preflight 完成；fresh DB 必须显式设置 RETROM_ACC_RPG_001_MODE=APPLY 才执行推荐目录事务",
     catalog: { platformId: "rpgmaker", coreIds, templateKeys },
-    recommendationStates: recommendations.map((item) => ({ templateKey: item.templateKey, state: item.state })),
+    recommendationStates: covered.map((item) => ({ templateKey: item.templateKey, state: item.state })),
     artifacts: selected.map(safeArtifact),
     screenshots: ["screenshots/rpgmaker-directories.png", "screenshots/rpgmaker-runtime-diagnostics.png"],
   };
@@ -151,6 +152,7 @@ async function generationCase(context, writeHeaders) {
   const page = await context.newPage();
   const pageErrors = [];
   const runtimeExceptions = [];
+  const dialogs = [];
   const observedResponses = [];
   let responseInventoryOverflow = false;
   const cdp = await context.newCDPSession(page);
@@ -159,6 +161,10 @@ async function generationCase(context, writeHeaders) {
     runtimeExceptions.push(safeRuntimeException(exceptionDetails));
   });
   page.on("pageerror", (error) => pageErrors.push(error.stack || error.message));
+  page.on("dialog", async (dialog) => {
+    dialogs.push(dialog.message().slice(0, 400));
+    await dialog.dismiss();
+  });
   page.on("response", (response) => {
     if (observedResponses.length >= 20_000) {
       responseInventoryOverflow = true;
@@ -170,7 +176,7 @@ async function generationCase(context, writeHeaders) {
   await page.goto(`${baseUrl}${launch.playUrl}`, { waitUntil: "domcontentloaded" });
   const moreActions = page.getByRole("button", { name: "更多操作" });
   await moreActions.waitFor({ state: "visible", timeout: 120_000 });
-  await page.getByRole("status").filter({ hasText: "可创建存档" }).waitFor({ state: "attached", timeout: 120_000 });
+  await waitForProductSaveAvailability(page, pageErrors, runtimeExceptions, dialogs, caseId);
   await revealProductToolbar(page);
   await moreActions.click();
   const debugControl = page.locator(".player-debug-control");
@@ -223,6 +229,28 @@ async function generationCase(context, writeHeaders) {
       `screenshots/${caseId.toLowerCase()}-product-player.png`,
     ],
   };
+}
+
+async function waitForProductSaveAvailability(page, pageErrors, runtimeExceptions, dialogs, caseId) {
+  try {
+    await page.getByRole("status").filter({ hasText: "可创建存档" })
+      .waitFor({ state: "attached", timeout: productReadyTimeoutMs });
+  } catch {
+    await page.screenshot({
+      path: join(screenshotDir, `${caseId.toLowerCase()}-product-unavailable.png`),
+      fullPage: true,
+    });
+    const statuses = (await page.getByRole("status").allTextContents())
+      .map((value) => value.trim().slice(0, 400)).filter(Boolean).slice(0, 10);
+    const loading = (await page.locator(".player-loading").allTextContents())
+      .map((value) => value.trim().slice(0, 400)).filter(Boolean).slice(0, 3);
+    const diagnostics = {
+      url: page.url(), statuses, loading, dialogs: dialogs.slice(0, 5),
+      pageErrors: pageErrors.slice(0, 5).map((value) => value.slice(0, 1_200)),
+      runtimeExceptions: runtimeExceptions.slice(0, 5),
+    };
+    throw new Error(`RPG_ACCEPTANCE_PRODUCT_SAVE_UNAVAILABLE:${JSON.stringify(diagnostics)}`);
+  }
 }
 
 async function revealProductToolbar(page) {

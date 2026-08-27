@@ -384,6 +384,12 @@ class PublicFixtureTests(unittest.TestCase):
                 self.assertIn("saveGame", runtime)
                 self.assertIn("loadGame", runtime)
                 self.assertIn("requestAnimationFrame", runtime)
+                if engine == "MZ":
+                    self.assertIn("global.JsonEx", runtime)
+                    self.assertIn("global.Graphics", runtime)
+                    self.assertIn("global.ColorManager", runtime)
+                    self.assertIn("stringify: function", runtime)
+                    self.assertIn("parse: function", runtime)
 
     def test_gba_smoke_rom_matches_its_generator(self) -> None:
         subprocess.run(

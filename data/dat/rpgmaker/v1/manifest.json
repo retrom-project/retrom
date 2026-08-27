@@ -49,6 +49,30 @@
       "size_bytes": 17278,
       "sha256": "69016c7d295705836032c84ba86cdd6dd0bf5839f5e34f8c1800ae0f5fd34adc",
       "role": "adapter_bridge"
+    },
+    {
+      "path_in_release": "v4/native-bridge.js",
+      "size_bytes": 18251,
+      "sha256": "2ed0f359eefbb6dd15a5f0a5c6157ba7432814612ff1708f7fc1f00137956169",
+      "role": "adapter_bridge"
+    },
+    {
+      "path_in_release": "v5/native-bridge.js",
+      "size_bytes": 18761,
+      "sha256": "26c7ed699d4fab71ab9960e651a5eb5745e4450fb2ffbb9e6a7e96daca0a6a0d",
+      "role": "adapter_bridge"
+    },
+    {
+      "path_in_release": "v6/native-bridge.js",
+      "size_bytes": 18762,
+      "sha256": "30ebc2179a5c1cc394fd1240ca159ed2dfc8013b64bd159b8406f70bc1fc036f",
+      "role": "adapter_bridge"
+    },
+    {
+      "path_in_release": "v7/native-bridge.js",
+      "size_bytes": 18871,
+      "sha256": "ee07770e32525617b46fbc077e1de2187eb814240e3ae59d4a296f0e4ecb32a6",
+      "role": "adapter_bridge"
     }
   ],
   "runtime_releases": [
@@ -273,7 +297,7 @@
       "requires_threads": false,
       "save_payload_kind": "NATIVE_SAVE_BUNDLE_V1",
       "save_max_bytes": 67108864,
-      "selected_for_new_bindings": true,
+      "selected_for_new_bindings": false,
       "available_for_launch": true,
       "compatibility": {"adapterAbi":"rpg-native-save-v1","bridgePath":"native-bridge.js","bridgeProfile":"mv-v1"}
     },
@@ -287,6 +311,91 @@
       "adapter_abi": "rpg-native-save-v1",
       "entry_path": "native-bridge.js",
       "file_paths": ["v3/native-bridge.js"],
+      "requires_threads": false,
+      "save_payload_kind": "NATIVE_SAVE_BUNDLE_V1",
+      "save_max_bytes": 67108864,
+      "selected_for_new_bindings": false,
+      "available_for_launch": true,
+      "compatibility": {"adapterAbi":"rpg-native-save-v1","bridgePath":"native-bridge.js","bridgeProfile":"mz-v1"}
+    },
+    {
+      "core_id": "rpgmaker_mv",
+      "generation": "RPGMV",
+      "route_key": "RPGMV_NATIVE_V4",
+      "runtime_adapter_kind": "NATIVE_WEB",
+      "runtime_version": "v4",
+      "adapter_id": "rpg-native-web-v2",
+      "adapter_abi": "rpg-native-save-v1",
+      "entry_path": "native-bridge.js",
+      "file_paths": ["v4/native-bridge.js"],
+      "requires_threads": false,
+      "save_payload_kind": "NATIVE_SAVE_BUNDLE_V1",
+      "save_max_bytes": 67108864,
+      "selected_for_new_bindings": true,
+      "available_for_launch": true,
+      "compatibility": {"adapterAbi":"rpg-native-save-v1","bridgePath":"native-bridge.js","bridgeProfile":"mv-v1"}
+    },
+    {
+      "core_id": "rpgmaker_mz",
+      "generation": "RPGMZ",
+      "route_key": "RPGMZ_NATIVE_V4",
+      "runtime_adapter_kind": "NATIVE_WEB",
+      "runtime_version": "v4",
+      "adapter_id": "rpg-native-web-v2",
+      "adapter_abi": "rpg-native-save-v1",
+      "entry_path": "native-bridge.js",
+      "file_paths": ["v4/native-bridge.js"],
+      "requires_threads": false,
+      "save_payload_kind": "NATIVE_SAVE_BUNDLE_V1",
+      "save_max_bytes": 67108864,
+      "selected_for_new_bindings": false,
+      "available_for_launch": true,
+      "compatibility": {"adapterAbi":"rpg-native-save-v1","bridgePath":"native-bridge.js","bridgeProfile":"mz-v1"}
+    },
+    {
+      "core_id": "rpgmaker_mz",
+      "generation": "RPGMZ",
+      "route_key": "RPGMZ_NATIVE_V5",
+      "runtime_adapter_kind": "NATIVE_WEB",
+      "runtime_version": "v5",
+      "adapter_id": "rpg-native-web-v3",
+      "adapter_abi": "rpg-native-save-v1",
+      "entry_path": "native-bridge.js",
+      "file_paths": ["v5/native-bridge.js"],
+      "requires_threads": false,
+      "save_payload_kind": "NATIVE_SAVE_BUNDLE_V1",
+      "save_max_bytes": 67108864,
+      "selected_for_new_bindings": false,
+      "available_for_launch": true,
+      "compatibility": {"adapterAbi":"rpg-native-save-v1","bridgePath":"native-bridge.js","bridgeProfile":"mz-v1"}
+    },
+    {
+      "core_id": "rpgmaker_mz",
+      "generation": "RPGMZ",
+      "route_key": "RPGMZ_NATIVE_V6",
+      "runtime_adapter_kind": "NATIVE_WEB",
+      "runtime_version": "v6",
+      "adapter_id": "rpg-native-web-v4",
+      "adapter_abi": "rpg-native-save-v1",
+      "entry_path": "native-bridge.js",
+      "file_paths": ["v6/native-bridge.js"],
+      "requires_threads": false,
+      "save_payload_kind": "NATIVE_SAVE_BUNDLE_V1",
+      "save_max_bytes": 67108864,
+      "selected_for_new_bindings": false,
+      "available_for_launch": true,
+      "compatibility": {"adapterAbi":"rpg-native-save-v1","bridgePath":"native-bridge.js","bridgeProfile":"mz-v1"}
+    },
+    {
+      "core_id": "rpgmaker_mz",
+      "generation": "RPGMZ",
+      "route_key": "RPGMZ_NATIVE_V7",
+      "runtime_adapter_kind": "NATIVE_WEB",
+      "runtime_version": "v7",
+      "adapter_id": "rpg-native-web-v5",
+      "adapter_abi": "rpg-native-save-v1",
+      "entry_path": "native-bridge.js",
+      "file_paths": ["v7/native-bridge.js"],
       "requires_threads": false,
       "save_payload_kind": "NATIVE_SAVE_BUNDLE_V1",
       "save_max_bytes": 67108864,
@@ -316,7 +425,15 @@
     "easyrpg_patch_sha256": "57a3c451acaf6e9f175db58f2ba1031739ac8508063c30c625356b0e2004ee79",
     "mkxp_bridge_path": "mkxp-retrom-position.rb",
     "mkxp_bridge_sha256": "524a0b3210f33f5a01220134548eb2947678ca5ef7a75b5caf3cfea2804fd5fa",
-    "native_bridge_v3_path": "native-bridge.js",
-    "native_bridge_v3_sha256": "69016c7d295705836032c84ba86cdd6dd0bf5839f5e34f8c1800ae0f5fd34adc"
+    "native_bridge_v3_path": "native-bridge-v3.js",
+    "native_bridge_v3_sha256": "69016c7d295705836032c84ba86cdd6dd0bf5839f5e34f8c1800ae0f5fd34adc",
+    "native_bridge_v4_path": "native-bridge-v4.js",
+    "native_bridge_v4_sha256": "2ed0f359eefbb6dd15a5f0a5c6157ba7432814612ff1708f7fc1f00137956169",
+    "native_bridge_v5_path": "native-bridge-v5.js",
+    "native_bridge_v5_sha256": "26c7ed699d4fab71ab9960e651a5eb5745e4450fb2ffbb9e6a7e96daca0a6a0d",
+    "native_bridge_v6_path": "native-bridge-v6.js",
+    "native_bridge_v6_sha256": "30ebc2179a5c1cc394fd1240ca159ed2dfc8013b64bd159b8406f70bc1fc036f",
+    "native_bridge_v7_path": "native-bridge.js",
+    "native_bridge_v7_sha256": "ee07770e32525617b46fbc077e1de2187eb814240e3ae59d4a296f0e4ecb32a6"
   }
 }

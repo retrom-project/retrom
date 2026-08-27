@@ -44,6 +44,8 @@ MZ_LICENSE_BASES = {
     "OPEN_SOURCE_LICENSE", "AUTHOR_PERMISSION", "OPERATOR_OWNED_PROJECT",
     "RPG_MAKER_MZ_OFFICIAL_SAMPLE_MODIFICATION_TERMS",
 }
+MZ_SOURCE_SIZE_BYTES = 98_413_632
+MZ_SCENE_EXCLUSION = {"x": 24, "y": 24, "width": 360, "height": 72}
 XP_STATE_BYTES = 268_435_456
 RPG_SAVE_REQUEST_LIMIT_BYTES = 283_115_520
 
@@ -64,8 +66,8 @@ GENERATION_CASES = {
     "ACC-RPG-004": GenerationCase("rpgmaker_xp", "RPGXP", "RPGXP", "MATCHED", "RPGXP_MKXPZ_F2EFC98_V5", "rpgxp"),
     "ACC-RPG-005": GenerationCase("rpgmaker_vx", "RPGVX", "RPGVX", "MATCHED", "RPGVX_MKXPZ_F2EFC98_V5", "rpgvx"),
     "ACC-RPG-006": GenerationCase("rpgmaker_vx_ace", "RPGVXACE", "RPGVXACE", "MATCHED", "RPGVXACE_MKXPZ_F2EFC98_V5", "rpgvxace"),
-    "ACC-RPG-007": GenerationCase("rpgmaker_mv", "RPGMV", "RPGMV", "MATCHED", "RPGMV_NATIVE_V3", "rpgmv"),
-    "ACC-RPG-008": GenerationCase("rpgmaker_mz", "RPGMZ", "RPGMZ", "MATCHED", "RPGMZ_NATIVE_V3", None),
+    "ACC-RPG-007": GenerationCase("rpgmaker_mv", "RPGMV", "RPGMV", "MATCHED", "RPGMV_NATIVE_V4", "rpgmv"),
+    "ACC-RPG-008": GenerationCase("rpgmaker_mz", "RPGMZ", "RPGMZ", "MATCHED", "RPGMZ_NATIVE_V7", None),
 }
 PACK_CASE = "ACC-RPG-009"
 COMPATIBILITY_CASE = "ACC-RPG-012"
@@ -225,12 +227,13 @@ def generation_input_provenance(
     supplied = read_json_file(os.environ["RPG_MZ_SMOKE_PROVENANCE"], "MZ_PROVENANCE")
     expected_keys = {
         "schemaVersion", "kind", "licenseBasis", "licenseUrl", "sourceUrl", "sourceVersion",
-        "sourceSha256", "marker", "markerRgb",
+        "sourceSha256", "marker", "markerRgb", "transformation",
     }
     if set(supplied) != expected_keys or supplied.get("schemaVersion") != 1 or \
             supplied.get("kind") != "LICENSED_EXTERNAL_WEB_DEPLOYMENT":
         raise ContractError("RPG_ACCEPTANCE_MZ_PROVENANCE_INVALID")
     require_web_marker(root, "RETROM RPGMZ")
+    validate_mz_transformation(supplied.get("transformation"), digest, file_count, total_bytes)
     return {
         **supplied, "projectFingerprint": digest, "fileCount": file_count,
         "totalBytes": total_bytes, "engineVersion": engine_version,
@@ -317,29 +320,51 @@ def decode_png_pixels(contents: bytes) -> tuple[int, int, int, bytes]:
     return width, height, channels, bytes(pixels)
 
 
-def png_visual_evidence(path: Path, logical_path: str, marker: str, rgb: list[int]) -> dict[str, Any]:
+def png_visual_evidence(
+    path: Path,
+    logical_path: str,
+    marker: str,
+    rgb: list[int],
+    scene_exclusion: dict[str, int] | None = None,
+) -> dict[str, Any]:
     if not path.is_file() or path.is_symlink() or path.stat().st_size > 16 * 1024 * 1024:
         raise ContractError("RPG_ACCEPTANCE_RESTORE_SCREENSHOT_PNG_INVALID")
     contents = path.read_bytes()
     width, height, channels, pixels = decode_png_pixels(contents)
-    opaque, non_black, marker_pixels = 0, 0, 0
+    opaque, non_black, marker_pixels, scene_non_black = 0, 0, 0, 0
     buckets: set[tuple[int, int, int]] = set()
-    for offset in range(0, len(pixels), channels):
+    scene_buckets: set[tuple[int, int, int]] = set()
+    for pixel_index, offset in enumerate(range(0, len(pixels), channels)):
         red, green, blue = pixels[offset:offset + 3]
         alpha = pixels[offset + 3] if channels == 4 else 255
         if alpha >= 240:
             opaque += 1
-            buckets.add((red >> 4, green >> 4, blue >> 4))
+            bucket = (red >> 4, green >> 4, blue >> 4)
+            buckets.add(bucket)
             if max(red, green, blue) >= 16:
                 non_black += 1
+                x, y = pixel_index % width, pixel_index // width
+                excluded = scene_exclusion is not None and \
+                    scene_exclusion["x"] <= x < scene_exclusion["x"] + scene_exclusion["width"] and \
+                    scene_exclusion["y"] <= y < scene_exclusion["y"] + scene_exclusion["height"]
+                if not excluded:
+                    scene_non_black += 1
+                    scene_buckets.add(bucket)
             if max(abs(red - rgb[0]), abs(green - rgb[1]), abs(blue - rgb[2])) <= 20:
                 marker_pixels += 1
-    return {
+    evidence = {
         "screenshot": logical_path, "sha256": hashlib.sha256(contents).hexdigest(),
         "width": width, "height": height, "opaquePixels": opaque,
         "nonBlackPixels": non_black, "distinctColorBuckets": len(buckets),
         "marker": marker, "markerRgb": rgb, "markerPixelCount": marker_pixels,
     }
+    if scene_exclusion is not None:
+        evidence.update({
+            "sceneExclusion": dict(scene_exclusion),
+            "sceneNonBlackPixels": scene_non_black,
+            "sceneDistinctColorBuckets": len(scene_buckets),
+        })
+    return evidence
 
 
 def require_position(value: Any, label: str) -> dict[str, int]:
@@ -436,6 +461,8 @@ def validate_input_provenance(value: Any, spec: GenerationCase, digest: str) -> 
         "markerRgb", "engineVersion", "licenseBasis", "licenseUrl", "sourceUrl", "sourceVersion",
         "sourceSha256",
     }
+    if spec.generation == "RPGMZ":
+        keys.add("transformation")
     if not isinstance(value, dict) or set(value) != keys or value.get("schemaVersion") != 1 or \
             value.get("projectFingerprint") != digest or not SHA256.fullmatch(str(value.get("sourceSha256"))) or \
             not isinstance(value.get("fileCount"), int) or value["fileCount"] < 1 or \
@@ -455,6 +482,7 @@ def validate_input_provenance(value: Any, spec: GenerationCase, digest: str) -> 
                 not isinstance(value.get("engineVersion"), str) or \
                 not re.fullmatch(r"[0-9]+(?:\.[0-9A-Za-z-]+){1,3}", value["engineVersion"]):
             raise ContractError(error_code)
+        validate_mz_transformation(value.get("transformation"), digest, value["fileCount"], value["totalBytes"])
     elif value.get("kind") != "RETROM_OWNED_PUBLIC_FIXTURE" or \
             value.get("licenseBasis") != "RETROM_MIT" or value.get("licenseUrl") is not None or \
             value.get("sourceUrl") is not None or value.get("sourceVersion") != "fixture-manifest-v1":
@@ -462,11 +490,55 @@ def validate_input_provenance(value: Any, spec: GenerationCase, digest: str) -> 
     return marker, rgb
 
 
-def validate_restore_visual(value: Any, marker: str, rgb: list[int]) -> None:
+def validate_mz_transformation(value: Any, digest: str, file_count: int, total_bytes: int) -> None:
+    keys = {
+        "schemaVersion", "recipe", "tool", "sourceSizeBytes", "removedEntries", "injectedFiles",
+        "outputProjectFingerprint", "outputFileCount", "outputTotalBytes",
+    }
+    if not isinstance(value, dict) or set(value) != keys or value.get("schemaVersion") != 1 or \
+            value.get("recipe") != "RETROM_MZ_MINIMAL_V3" or \
+            value.get("tool") != "scripts/acceptance/rpgmaker_mz_prepare.py" or \
+            value.get("sourceSizeBytes") != MZ_SOURCE_SIZE_BYTES or \
+            value.get("outputProjectFingerprint") != digest or value.get("outputFileCount") != file_count or \
+            value.get("outputTotalBytes") != total_bytes:
+        raise ContractError("RPG_ACCEPTANCE_MZ_TRANSFORMATION_INVALID")
+    removed = value.get("removedEntries")
+    injected = value.get("injectedFiles")
+    if not isinstance(removed, list) or len(removed) != 10 or not isinstance(injected, list) or len(injected) != 2:
+        raise ContractError("RPG_ACCEPTANCE_MZ_TRANSFORMATION_INVALID")
+    removed_names = {item.get("logicalName") for item in removed if isinstance(item, dict)}
+    expected_saves = {"save/config.rmmzsave", "save/global.rmmzsave"} | {
+        f"save/file{index}.rmmzsave" for index in range(7)
+    }
+    root_documents = {
+        name for name in removed_names if isinstance(name, str) and "/" not in name and name.lower().endswith(".pdf")
+    }
+    if expected_saves | root_documents != removed_names or len(root_documents) != 1 or any(
+        not isinstance(item, dict) or set(item) != {"logicalName", "reason", "sizeBytes", "sha256"} or
+        not isinstance(item.get("sizeBytes"), int) or item["sizeBytes"] < 1 or
+        not SHA256.fullmatch(str(item.get("sha256"))) or
+        item.get("reason") != (
+            "ROOT_DOCUMENTATION_EXCLUDED" if item.get("logicalName") in root_documents else "PACKAGED_SAVE_EXCLUDED"
+        ) for item in removed
+    ):
+        raise ContractError("RPG_ACCEPTANCE_MZ_TRANSFORMATION_INVALID")
+    if {item.get("logicalName") for item in injected if isinstance(item, dict)} != {
+        "js/plugins.js", "js/plugins/RetromMinimalAcceptance.js",
+    } or any(
+        not isinstance(item, dict) or set(item) != {"logicalName", "sizeBytes", "sha256"} or
+        not isinstance(item.get("sizeBytes"), int) or item["sizeBytes"] < 1 or
+        not SHA256.fullmatch(str(item.get("sha256"))) for item in injected
+    ):
+        raise ContractError("RPG_ACCEPTANCE_MZ_TRANSFORMATION_INVALID")
+
+
+def validate_restore_visual(value: Any, marker: str, rgb: list[int], require_scene: bool = False) -> None:
     keys = {
         "screenshot", "sha256", "width", "height", "opaquePixels", "nonBlackPixels",
         "distinctColorBuckets", "marker", "markerRgb", "markerPixelCount",
     }
+    if require_scene:
+        keys.update({"sceneExclusion", "sceneNonBlackPixels", "sceneDistinctColorBuckets"})
     if not isinstance(value, dict) or set(value) != keys or value.get("marker") != marker or \
             value.get("markerRgb") != rgb or not SHA256.fullmatch(str(value.get("sha256"))):
         raise ContractError("RPG_ACCEPTANCE_RESTORE_VISUAL_INVALID")
@@ -480,6 +552,14 @@ def validate_restore_visual(value: Any, marker: str, rgb: list[int]) -> None:
             not isinstance(non_black, int) or non_black < width * height // 200 or \
             not isinstance(value.get("distinctColorBuckets"), int) or value["distinctColorBuckets"] < 3 or \
             not isinstance(value.get("markerPixelCount"), int) or value["markerPixelCount"] < 16:
+        raise ContractError("RPG_ACCEPTANCE_RESTORE_VISUAL_INVALID")
+    if require_scene and (
+        value.get("sceneExclusion") != MZ_SCENE_EXCLUSION or
+        not isinstance(value.get("sceneNonBlackPixels"), int) or
+        value["sceneNonBlackPixels"] < max(2_048, width * height // 200) or
+        not isinstance(value.get("sceneDistinctColorBuckets"), int) or
+        value["sceneDistinctColorBuckets"] < 16
+    ):
         raise ContractError("RPG_ACCEPTANCE_RESTORE_VISUAL_INVALID")
 
 
@@ -506,7 +586,8 @@ def gate_durations(gates: list[dict[str, Any]]) -> list[dict[str, int | str]]:
 def validate_runtime_environment(value: Any, spec: GenerationCase, gates: list[dict[str, Any]]) -> None:
     keys = {"chromeVersion", "engineVersion", "engineProfile", "gateDurationsMs"}
     if not isinstance(value, dict) or set(value) != keys or \
-            not re.fullmatch(r"(?:Headless)?Chrome/[0-9]+(?:\.[0-9]+){3}", str(value.get("chromeVersion"))) or \
+            not re.fullmatch(r"(?:(?:Headless)?Chrome/)?[0-9]+(?:\.[0-9]+){3}",
+                             str(value.get("chromeVersion"))) or \
             value.get("engineProfile") != ENGINE_PROFILES[spec.generation] or \
             value.get("gateDurationsMs") != gate_durations(gates):
         raise ContractError("RPG_ACCEPTANCE_RUNTIME_ENVIRONMENT_INVALID")
@@ -687,7 +768,9 @@ def validate_generation_evidence(
         payload["inputProvenance"]["totalBytes"],
         "INPUT_TOTAL_BYTES",
     )
-    validate_restore_visual(payload.get("restoreVisualEvidence"), marker, marker_rgb)
+    validate_restore_visual(
+        payload.get("restoreVisualEvidence"), marker, marker_rgb, spec.generation == "RPGMZ",
+    )
     screenshots = payload.get("screenshots")
     if not isinstance(screenshots, list) or len(screenshots) != 2 or \
             payload["restoreVisualEvidence"]["screenshot"] not in screenshots or any(
@@ -1305,6 +1388,7 @@ def run(case_id: str, case_dir: Path) -> int:
         payload["inputProvenance"] = input_provenance
         payload["restoreVisualEvidence"] = png_visual_evidence(
             case_dir / restored_logical, restored_logical, marker, marker_rgb,
+            MZ_SCENE_EXCLUSION if case_id == "ACC-RPG-008" else None,
         )
         runtime_environment = payload.get("runtimeEnvironment")
         if not isinstance(runtime_environment, dict):

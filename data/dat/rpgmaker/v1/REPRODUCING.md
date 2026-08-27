@@ -64,7 +64,7 @@ RGSS1/2/3 执行独立产品验收。
 
 `python3 data/dat/rpgmaker/v1/build.py data-check` 必须验证：
 
-- Git 小文件、七条当前 route（EasyRPG 为 V4，mkxp 为 V5，Native Web 为 V3）与 Go/TS/frontend registry 双向一致；
+- Git 小文件、当前七条 selected route（EasyRPG 为 V4，mkxp 为 V5，MV Native Web 为 V4、MZ Native Web 为 V7）以及仍可启动的历史 route 与 Go/TS/frontend registry 双向一致；
 - release repository 恰为上述两个允许值；
 - tag 非浮动且 tag commit 为完整小写 SHA-1；
 - asset URL 精确指向该 repository/tag/filename；

@@ -3604,7 +3604,7 @@ export interface components {
              */
             adapterKind: "NATIVE_WEB";
             /** @enum {string} */
-            adapterId: "rpg-native-web-v1";
+            adapterId: "rpg-native-web-v1" | "rpg-native-web-v2" | "rpg-native-web-v3" | "rpg-native-web-v4" | "rpg-native-web-v5";
             /** @enum {string} */
             bridgeProfile: "mv-v1" | "mz-v1";
             /** Format: uri */
@@ -3763,7 +3763,7 @@ export interface components {
         RpgEngineProfileEvidence: {
             generation: components["schemas"]["RpgGeneration"];
             /** @enum {string} */
-            adapterId: "easyrpg-web-v1" | "mkxp-z-libretro-v4" | "rpg-native-web-v1";
+            adapterId: "easyrpg-web-v1" | "mkxp-z-libretro-v4" | "rpg-native-web-v1" | "rpg-native-web-v2" | "rpg-native-web-v3" | "rpg-native-web-v4" | "rpg-native-web-v5";
             /** @enum {string} */
             engineProfile: "rpg2k" | "rpg2k3" | "rgss1" | "rgss2" | "rgss3" | "mv-v1" | "mz-v1";
         };
@@ -3840,7 +3840,7 @@ export interface components {
             artifactId: string;
             artifactSetSha256: string;
             /** @enum {string} */
-            adapterId: "easyrpg-web-v1" | "mkxp-z-libretro-v4" | "rpg-native-web-v1";
+            adapterId: "easyrpg-web-v1" | "mkxp-z-libretro-v4" | "rpg-native-web-v1" | "rpg-native-web-v2" | "rpg-native-web-v3" | "rpg-native-web-v4" | "rpg-native-web-v5";
             adapterAbi: string;
             dependencySnapshotSha256: string;
             projectFingerprint: string;

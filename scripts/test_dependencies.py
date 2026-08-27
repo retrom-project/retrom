@@ -235,9 +235,29 @@ class RPGMakerDependencyTests(unittest.TestCase):
             self.assertFalse((runtime_root / "0.8.1.1-v4/easyrpg-player.js").exists())
             self.assertTrue((runtime_root / "f2efc98-v5/retrom_position.rb").is_file())
             self.assertTrue((runtime_root / "v3/native-bridge.js").is_file())
+            self.assertTrue((runtime_root / "v4/native-bridge.js").is_file())
+            self.assertTrue((runtime_root / "v5/native-bridge.js").is_file())
+            self.assertTrue((runtime_root / "v6/native-bridge.js").is_file())
+            self.assertTrue((runtime_root / "v7/native-bridge.js").is_file())
             self.assertEqual(
                 dependencies.file_digest(runtime_root / "v3/native-bridge.js"),
                 (17278, "69016c7d295705836032c84ba86cdd6dd0bf5839f5e34f8c1800ae0f5fd34adc"),
+            )
+            self.assertEqual(
+                dependencies.file_digest(runtime_root / "v4/native-bridge.js"),
+                (18251, "2ed0f359eefbb6dd15a5f0a5c6157ba7432814612ff1708f7fc1f00137956169"),
+            )
+            self.assertEqual(
+                dependencies.file_digest(runtime_root / "v5/native-bridge.js"),
+                (18761, "26c7ed699d4fab71ab9960e651a5eb5745e4450fb2ffbb9e6a7e96daca0a6a0d"),
+            )
+            self.assertEqual(
+                dependencies.file_digest(runtime_root / "v6/native-bridge.js"),
+                (18762, "30ebc2179a5c1cc394fd1240ca159ed2dfc8013b64bd159b8406f70bc1fc036f"),
+            )
+            self.assertEqual(
+                dependencies.file_digest(runtime_root / "v7/native-bridge.js"),
+                (18871, "ee07770e32525617b46fbc077e1de2187eb814240e3ae59d4a296f0e4ecb32a6"),
             )
 
     def test_prepare_materializes_locked_source_offer_inputs(self) -> None:
@@ -488,8 +508,11 @@ class ReleaseInputDigestTests(unittest.TestCase):
                 "data/dat/rpgmaker/v1/manifest.json": {
                     "schema_version": 1,
                     "runtime_id": "rpgmaker-v1",
-                    "runtime_files": [{} for _ in range(8)],
-                    "artifacts": [{} for _ in range(9)],
+                    "runtime_files": [{} for _ in range(12)],
+                    "runtime_releases": [{}],
+                    "artifacts": [{} for _ in range(14)],
+                    "source_archives": [{}],
+                    "build": {"recipe_path": "build.py"},
                 },
             }
             for relative, value in files.items():
@@ -502,6 +525,25 @@ class ReleaseInputDigestTests(unittest.TestCase):
                 (root / "data/dat/rpgmaker/v1/manifest.json").read_bytes()
             )
             self.assertEqual(value["rpgMakerRuntimeManifestSha256"], expected)
+
+    def test_rpg_runtime_manifest_shape_is_fail_closed_without_fixed_counts(self) -> None:
+        manifest = {
+            "schema_version": 1,
+            "runtime_id": "rpgmaker-v1",
+            "runtime_files": [{}],
+            "runtime_releases": [{}],
+            "artifacts": [{}],
+            "source_archives": [{}],
+            "build": {"recipe_path": "build.py"},
+        }
+        release_input_digest.validate_rpg_runtime_manifest(manifest)
+        for invalid in (
+            {key: value for key, value in manifest.items() if key != "artifacts"},
+            {**manifest, "artifacts": "not-a-list"},
+            {**manifest, "runtime_files": []},
+        ):
+            with self.assertRaisesRegex(ValueError, "RELEASE_INPUT_RPG_RUNTIME_MANIFEST_INVALID"):
+                release_input_digest.validate_rpg_runtime_manifest(invalid)
 
     def test_release_digest_rejects_unordered_dependency_versions(self) -> None:
         with self.assertRaisesRegex(
@@ -574,6 +616,10 @@ class DependencyMaterializationTests(unittest.TestCase):
                     "easyrpg_patch_path": "patches/easyrpg.patch",
                     "mkxp_bridge_path": "mkxp.rb",
                     "native_bridge_v3_path": "native.js",
+                    "native_bridge_v4_path": "native-v4.js",
+                    "native_bridge_v5_path": "native-v5.js",
+                    "native_bridge_v6_path": "native-v6.js",
+                    "native_bridge_v7_path": "native-v7.js",
                 },
                 "runtime_files": [],
                 "source_archives": [],
@@ -599,6 +645,10 @@ class DependencyMaterializationTests(unittest.TestCase):
                 "dat/rpgmaker/v1/patches/easyrpg.patch",
                 "dat/rpgmaker/v1/mkxp.rb",
                 "dat/rpgmaker/v1/native.js",
+                "dat/rpgmaker/v1/native-v4.js",
+                "dat/rpgmaker/v1/native-v5.js",
+                "dat/rpgmaker/v1/native-v6.js",
+                "dat/rpgmaker/v1/native-v7.js",
                 "runtime/rpgmaker/v1/.release-assets-observed.json",
                 "runtime/rpgmaker/v1/corresponding-source/example.tar.gz",
                 "runtime/rpgmaker/v1/licenses/example-LICENSE",
@@ -685,6 +735,10 @@ class DependencyMaterializationTests(unittest.TestCase):
                     "easyrpg_patch_path": "patches/easyrpg.patch",
                     "mkxp_bridge_path": "mkxp.rb",
                     "native_bridge_v3_path": "native.js",
+                    "native_bridge_v4_path": "native-v4.js",
+                    "native_bridge_v5_path": "native-v5.js",
+                    "native_bridge_v6_path": "native-v6.js",
+                    "native_bridge_v7_path": "native-v7.js",
                 },
                 "runtime_files": [],
                 "source_archives": [],
@@ -704,6 +758,10 @@ class DependencyMaterializationTests(unittest.TestCase):
                 rpg_dat_root / "patches/easyrpg.patch",
                 rpg_dat_root / "mkxp.rb",
                 rpg_dat_root / "native.js",
+                rpg_dat_root / "native-v4.js",
+                rpg_dat_root / "native-v5.js",
+                rpg_dat_root / "native-v6.js",
+                rpg_dat_root / "native-v7.js",
                 rpg_runtime_root / ".release-assets-observed.json",
                 rpg_runtime_root / "THIRD_PARTY_NOTICES",
             )

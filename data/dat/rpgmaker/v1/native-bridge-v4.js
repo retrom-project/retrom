@@ -233,10 +233,8 @@
       function poll() {
         const manager = global.SceneManager;
         const colors = global.ColorManager;
-        const graphics = global.Graphics;
         const windowskin = colors && colors._windowskin;
-        if (manager && manager._scene && graphics && graphics.width > 0 && graphics.height > 0 &&
-          windowskin && typeof windowskin.getPixel === "function") {
+        if (manager && manager._scene && windowskin && typeof windowskin.getPixel === "function") {
           resolve();
           return;
         }
@@ -261,41 +259,23 @@
     });
   }
 
-  async function screenshot() {
-    for (let attempt = 0; attempt < 60; attempt += 1) {
-      await new Promise((resolve) => global.requestAnimationFrame(resolve));
-      try {
-        const capture = screenshotCanvas();
-        if (capture) return await encodeScreenshot(capture);
-      } catch {
-        // A newly restored WebGL scene may not have presented an extractable frame yet.
+  function screenshot() {
+    const capture = screenshotCanvas();
+    if (!capture) return Promise.reject(new Error("PLAYER_SCREENSHOT_UNAVAILABLE"));
+    return new Promise((resolve, reject) => capture.canvas.toBlob((blob) => {
+      if (!blob || !blob.size || blob.size > MAX_SCREENSHOT_BYTES) {
+        capture.release();
+        reject(new Error("PLAYER_SCREENSHOT_UNAVAILABLE"));
+        return;
       }
-    }
-    throw new Error("PLAYER_SCREENSHOT_UNAVAILABLE");
-  }
-
-  function encodeScreenshot(capture) {
-    return new Promise((resolve, reject) => {
-      try {
-        capture.canvas.toBlob((blob) => {
-          if (!blob || !blob.size || blob.size > MAX_SCREENSHOT_BYTES) {
-            capture.release();
-            reject(new Error("PLAYER_SCREENSHOT_UNAVAILABLE"));
-            return;
-          }
-          blob.arrayBuffer().then((data) => {
-            capture.release();
-            resolve({ data, mediaType: blob.type || "image/png" });
-          }, (error) => {
-            capture.release();
-            reject(error);
-          });
-        }, "image/png");
-      } catch (error) {
+      blob.arrayBuffer().then((data) => {
+        capture.release();
+        resolve({ data, mediaType: blob.type || "image/png" });
+      }, (error) => {
         capture.release();
         reject(error);
-      }
-    });
+      });
+    }, "image/png"));
   }
 
   function screenshotCanvas() {

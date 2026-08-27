@@ -74,6 +74,7 @@ async function mountEasyRpgUnchecked(
   const canvas = document.createElement("canvas");
   canvas.id = "canvas";
   canvas.tabIndex = 0;
+  retainDisplayedWebGLFrame(canvas);
   const status = document.createElement("div");
   status.id = "status";
   target.append(canvas, status);
@@ -289,8 +290,56 @@ function loadScript(document: Document, url: string) {
   });
 }
 
-function canvasBlob(canvas: HTMLCanvasElement) {
+async function canvasBlob(canvas: HTMLCanvasElement) {
+  const deadline = performance.now() + 10_000;
+  while (performance.now() < deadline) {
+    const blob = await encodeCanvas(canvas);
+    if (await visibleEncodedFrame(canvas, blob)) {return blob;}
+    await new Promise<void>((resolve) => setTimeout(resolve, 100));
+  }
+  throw new Error("PLAYER_SCREENSHOT_UNAVAILABLE");
+}
+
+function encodeCanvas(canvas: HTMLCanvasElement) {
   return new Promise<Blob>((resolve, reject) => canvas.toBlob((blob) => {
     if (blob?.size) {resolve(blob);} else {reject(new Error("PLAYER_SCREENSHOT_UNAVAILABLE"));}
   }, "image/png"));
+}
+
+async function visibleEncodedFrame(canvas: HTMLCanvasElement, blob: Blob) {
+  const frameWindow = canvas.ownerDocument.defaultView;
+  if (!frameWindow?.createImageBitmap) {throw new Error("PLAYER_SCREENSHOT_UNAVAILABLE");}
+  const bitmap = await frameWindow.createImageBitmap(blob);
+  const width = Math.min(bitmap.width, 160);
+  const height = Math.min(bitmap.height, Math.max(1, Math.round(bitmap.height * width / bitmap.width)));
+  const probe = canvas.ownerDocument.createElement("canvas");
+  probe.width = width;
+  probe.height = height;
+  const context = probe.getContext("2d", { willReadFrequently: true });
+  if (!context) {bitmap.close(); throw new Error("PLAYER_SCREENSHOT_UNAVAILABLE");}
+  context.drawImage(bitmap, 0, 0, width, height);
+  bitmap.close();
+  const pixels = context.getImageData(0, 0, width, height).data;
+  let visible = 0;
+  const minimum = Math.max(16, Math.floor(width * height / 200));
+  for (let offset = 0; offset < pixels.length; offset += 4) {
+    if (Math.max(pixels[offset], pixels[offset + 1], pixels[offset + 2]) >= 16) {
+      visible += 1;
+      if (visible >= minimum) {return true;}
+    }
+  }
+  return false;
+}
+
+function retainDisplayedWebGLFrame(canvas: HTMLCanvasElement) {
+  const getContext = canvas.getContext;
+  Object.defineProperty(canvas, "getContext", {
+    configurable: true,
+    value(contextId: string, options?: unknown) {
+      const webGL = contextId === "webgl" || contextId === "webgl2" || contextId === "experimental-webgl";
+      const attributes = options && typeof options === "object" ? options : {};
+      const effectiveOptions = webGL ? { ...attributes, preserveDrawingBuffer: true } : options;
+      return Reflect.apply(getContext, canvas, [contextId, effectiveOptions]);
+    },
+  });
 }
