@@ -104,12 +104,14 @@ test("runtime frame requests reject paths outside the isolated protocol", async 
 
 test("runtime bootstrap diagnostics stay in Chromium", async () => {
   const navigation = [];
+  const routes = [];
   let closed = false;
   const page = {
     on: (event, callback) => {
       assert.equal(event, "response");
       page.responseCallback = callback;
     },
+    route: async (pattern) => { routes.push(pattern); },
     goto: async (url) => {
       navigation.push(url);
       page.responseCallback({ url: () => url, status: () => 303 });
@@ -119,6 +121,7 @@ test("runtime bootstrap diagnostics stay in Chromium", async () => {
   const context = { newPage: async () => page };
   assert.equal(await browserNavigationStatus(context, `${runtimeOrigin}/__retrom/bootstrap`), 303);
   assert.deepEqual(navigation, [`${runtimeOrigin}/__retrom/bootstrap`]);
+  assert.deepEqual(routes, ["**/__retrom/entry"]);
   assert.equal(closed, true);
 });
 
