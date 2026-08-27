@@ -194,11 +194,11 @@ export function GameListView({ initialGameId, platformId }: { initialGameId?: st
     const returnTo = `/immersive/platforms/${platformId}?gameId=${selected.gameId}`;
     setLaunchState("pending");
     setLaunchMessage("");
-    void launchImmersiveGame(selected.gameId, returnTo).then(replaceWithPlayerDocument).catch((error: unknown) => {
+    void launchImmersiveGame(selected.gameId, returnTo).then((url) => replaceWithPlayerDocument(url, router.replace)).catch((error: unknown) => {
       setLaunchMessage(error instanceof Error ? error.message : "当前游戏无法启动");
       setLaunchState("error");
     });
-  }, [launchState, platformId, selected]);
+  }, [launchState, platformId, router, selected]);
 
   const retryLaunch = useCallback(() => {
     setLaunchState("idle");

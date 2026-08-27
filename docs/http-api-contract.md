@@ -106,18 +106,18 @@ PATCH 至少修改 role/status之一，升为 ADMIN需 `confirmAdminRole=true`�
 
 HTML 响应使用逐响应随机 nonce，Next.js framework/bootstrap script 与 Retrom 自有 inline script（如有）必须携带该 nonce；不得退化为全局 `script-src 'unsafe-inline'`。实现必须使用 Next.js 16 根级 `web/proxy.ts`：为每个 HTML navigation 生成至少 128-bit CSPRNG nonce，把含相同 nonce 的 CSP 同时写入转发给 App Router 的 request header 和最终 response header，使 Next.js 能给 framework script 自动附 nonce。使用 nonce 的页面强制动态渲染，不使用 static export、ISR、PPR 或共享 HTML cache；静态 asset/API/runtime 不进入该 proxy matcher。NG 只能原样保留，不能生成第二个不一致 CSP。
 
-Player/应用文档的生产 CSP 固定为下列能力；EJS 配置放在已打包的同源 adapter 中。进入 `/play/:launchId` 必须执行完整 document navigation，不能使用 Next.js soft navigation；浏览器不会用客户端路由响应替换现有 document CSP，soft navigation 会继续沿用来源页的 `frame-src 'self'` 并阻断 RPG runtime iframe。`style-src 'unsafe-inline'` 是 EmulatorJS v4.2.3 当前 inline style 的受控例外，不能顺带放宽 script：
+Player/应用文档的生产 CSP 固定为下列能力；EJS 配置放在已打包的同源 adapter 中。启动点击先使当前 document 成为全屏 owner，再用 Next.js App Router `replace` 在同一根 layout 内软导航到 `/play/:launchId` 并直接渲染 Player。不得使用顶层完整 navigation 或再嵌套一份 Next.js Player document：前者会让浏览器退出所有 core 的全屏，后者会建立第二条 HMR/路由生命周期并可能重载顶层页面。为使来源页与 Player 页在软导航前后具有同一 CSP，所有应用 HTML 的 `frame-src` 都从服务端配置的 `RETROM_RPG_RUNTIME_ORIGIN_TEMPLATE` 推导唯一受控 hostname family，例如 `https://*.rpg-runtime.dev.sendev.cc`；模板必须是 `{launchId}` 独占首个 host label、无 path/query/fragment/userinfo，否则 fail closed 为 `'self'`。这个 wildcard 只允许浏览器建立 frame，runtime 服务仍逐请求校验 exact Launch host、app/runtime capability、cookie、父 origin 与 route，未知、过期、错误 host 均返回 404/410。`style-src 'unsafe-inline'` 是 EmulatorJS v4.2.3 当前 inline style 的受控例外，不能顺带放宽 script：
 
 ```text
 default-src 'self';
 base-uri 'none'; object-src 'none'; form-action 'self'; frame-ancestors 'self';
 script-src 'self' 'nonce-<per-response>' blob: 'wasm-unsafe-eval';
 style-src 'self' 'unsafe-inline';
-connect-src 'self' blob:; worker-src 'self' blob:; frame-src 'self';
+connect-src 'self' blob:; worker-src 'self' blob:; frame-src 'self' https://*.rpg-runtime.<app-domain>;
 img-src 'self' data: blob:; media-src 'self' blob:; font-src 'self' data:
 ```
 
-`blob:` script/worker 与 `'wasm-unsafe-eval'` 分别用于 v4.2.3 动态 core glue/worker 和 WebAssembly 编译；生产不允许 `https:` 通配、任意 CDN、`unsafe-eval` 或外部 frame。官方 v4.2.3 `extract7z.js` 与 `extractzip.js` 的旧 Emscripten `eval` 不能成为放宽 CSP 的理由；固定 Player adapter 在创建 7z/ZIP Worker Blob 前执行运行时专题规定的精确、fail-closed 兼容转换，官方物化 bytes 保持不变。Next.js 开发模式因 React 调试代码确实需要 eval，`web/proxy.ts` 只在 `NODE_ENV=development` 向 `script-src` 追加 `'unsafe-eval'`；production build/E2E 必须断言它不存在。非 HTML 静态/runtime/content 响应无需重复 nonce CSP，但必须带相应 CORP/COEP/`nosniff` 头，且不能覆盖顶层文档的隔离策略。实现依据固定为 [Next.js 官方 nonce CSP 指南](https://nextjs.org/docs/app/guides/content-security-policy)；不得套用旧版 `middleware.ts` 示例。
+`blob:` script/worker 与 `'wasm-unsafe-eval'` 分别用于 v4.2.3 动态 core glue/worker 和 WebAssembly 编译；生产不允许任意 scheme/CDN、`unsafe-eval` 或受控 runtime family 以外的外部 frame。官方 v4.2.3 `extract7z.js` 与 `extractzip.js` 的旧 Emscripten `eval` 不能成为放宽 CSP 的理由；固定 Player adapter 在创建 7z/ZIP Worker Blob 前执行运行时专题规定的精确、fail-closed 兼容转换，官方物化 bytes 保持不变。Next.js 开发模式因 React 调试代码确实需要 eval，`web/proxy.ts` 只在 `NODE_ENV=development` 向 `script-src` 追加 `'unsafe-eval'`；production build/E2E 必须断言它不存在。非 HTML 静态/runtime/content 响应无需重复 nonce CSP，但必须带相应 CORP/COEP/`nosniff` 头，且不能覆盖顶层文档的隔离策略。实现依据固定为 [Next.js 官方 nonce CSP 指南](https://nextjs.org/docs/app/guides/content-security-policy)；不得套用旧版 `middleware.ts` 示例。
 
 ## 3. 乐观并发与幂等
 
@@ -176,7 +176,7 @@ POST /api/v1/admin/imports
 }
 ```
 
-`metadataProvider` 仅允许 `HASHEOUS | NONE`；Arcade DAT 不是 provider。服务端在事务中锁定平台/Core/artifact/DAT/provider 配置快照。
+`metadataProvider` 仅允许 `HASHEOUS | NONE`；Arcade DAT 不是 provider。`contentMode=RPG_MAKER_PROJECT_V1` 没有单 ROM 哈希语义，所有七个 RPG Maker 核心都禁用在线刮削：客户端固定显示并提交 `NONE`，服务端也把旧客户端提交的 `HASHEOUS` 规范化为 `NONE`。服务端在事务中锁定平台/Core/artifact/DAT/provider 配置快照。
 
 重新配置导入：
 
@@ -855,7 +855,7 @@ Game 一旦 DELETED，公共 `GET /api/v1/games/{gameId}`、Launch 创建、Game
 
 上传 transport 仍只用 `sourceType=FILES|DIRECTORY`；`upload_sessions.purpose` 新增 `RPG_MAKER_PROJECT|RUNTIME_ASSET_PACK`，Import create 的 `contentMode` 新增 `RPG_MAKER_PROJECT_V1`。项目 mode 只接受一个 DIRECTORY，或 FILES 中恰好一个 `.zip/.7z`；不得新增含混的传输枚举。Pegasus、EmulationStation 和通用 server import 向 `rpgmaker` 目标创建项目时固定返回 `422 RPG_SERVER_IMPORT_UNSUPPORTED`。
 
-RPG 条目的 Review detail 额外返回可空 `rpgMaker`：固定包含 `selectedCoreId/generation/evidenceGeneration/evidenceConfidence/selfContained/selfContainedOverride/runtimeBindingRevision/runtimePackRequirements/runtimePackSelections/runtimeValidation/runtimeValidationCurrent`。`runtimePackRequirements` 按 slot 返回 `{slot,declaredName,normalizedDeclaredName}`，其中规范名是服务端 Unicode NFKC full case-fold 结果；管理端必须用它与 pack definition 的同名字段精确匹配，不得用 JavaScript locale lowercase 猜测。`runtimePackSelections` 是按 slot 排序的 `{slot,declaredName,installationId}`；`runtimeValidation` 为当前条目最新一次验证的完整只读投影或 null，`runtimeValidationCurrent` 精确表示其 binding revision 是否仍等于当前草稿。RPG 的 `canApprove` 只在该验证仍 current 且为 `PASSED` 时为 true，且 `runtimeScreenshot` 固定为 null；恢复证据只从 `rpgMaker.runtimeValidation.checkpointRoundTrip.screenshotUrl` 读取，绝不触发普通截图 override。
+RPG 条目的 Review detail 额外返回可空 `rpgMaker`：固定包含 `selectedCoreId/generation/evidenceGeneration/evidenceConfidence/selfContained/selfContainedOverride/runtimeBindingRevision/runtimePackRequirements/runtimePackSelections/runtimeValidation/runtimeValidationCurrent`。`runtimePackRequirements` 按 slot 返回 `{slot,declaredName,normalizedDeclaredName}`，其中规范名是服务端 Unicode NFKC full case-fold 结果；管理端必须用它与 pack definition 的同名字段精确匹配，不得用 JavaScript locale lowercase 猜测。`runtimePackSelections` 是按 slot 排序的 `{slot,declaredName,installationId}`；`runtimeValidation` 为当前条目最新一次验证的完整只读投影或 null，`runtimeValidationCurrent` 精确表示其 binding revision 是否仍等于当前草稿。RPG 的 `canApprove` 在该验证仍 current 且已经分配原始 `launchId` 时为 true；管理员主动点击“运行游戏”并取得 Launch 即可确认发布，后续机器 gate、checkpoint 和跨 Launch 恢复是可选的高级验证。`runtimeScreenshot` 固定为 null；存在恢复证据时只从 `rpgMaker.runtimeValidation.checkpointRoundTrip.screenshotUrl` 读取，绝不触发普通截图 override。审核页只在创建 Launch、用户主动执行高级验证动作或重新载入页面时读取验证投影，不做后台定时轮询；关闭游戏子窗体后不得继续请求验证状态。
 
 | 方法与路径 | 固定契约 |
 | --- | --- |

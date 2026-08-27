@@ -185,9 +185,9 @@ SaveState 链路，取消与退出都不会自动存档。其余输入仍交给 
 
 ### 3.14 RPG Maker 版本核心是唯一运行权威
 
-RPG Maker 不是一个由内容自动识别后暗中分流的用户核心。游戏目录默认核心和详情页同平台核心选择器共同提供七个明确版本；导入草稿冻结所选 core，并由固定 `coreId → generation` 映射得到 expected generation。内容层只保存 bytes 能证明的 `evidence_family/evidence_generation/evidence_confidence`；它可以拒绝确凿冲突，RPG2K 只能证明家族时则保留 `FAMILY_ONLY` 警告和强制运行验证，但不得改 core、改 route 或 fallback。
+RPG Maker 不是一个由内容自动识别后暗中分流的用户核心。游戏目录默认核心和详情页同平台核心选择器共同提供七个明确版本；导入草稿冻结所选 core，并由固定 `coreId → generation` 映射得到 expected generation。内容层只保存 bytes 能证明的 `evidence_family/evidence_generation/evidence_confidence`；它可以拒绝确凿冲突，RPG2K 只能证明家族时则保留 `FAMILY_ONLY` 警告并要求管理员主动创建一次运行 Launch，但不得改 core、改 route 或 fallback。
 
-Player 顶层只区分 `EMULATORJS|RPGMAKER`。`RPGMAKER` 统一进入 `RetromRpgRuntime`，其内部再按已冻结 route 创建 `EASYRPG_WEB|MKXP_LIBRETRO_WEB|NATIVE_WEB` adapter；Player Shell 不包含 EasyRPG/mkxp/MV/MZ 分支。发布把内容、版本 core、generation、不可变 artifact、adapter ABI、运行包快照和通过的运行验证绑定为不可变 VariantRevision。Launch 只读该绑定，不重探测项目、不查询 latest，也不跨核心回退。
+Player 顶层只区分 `EMULATORJS|RPGMAKER`。`RPGMAKER` 统一进入 `RetromRpgRuntime`，其内部再按已冻结 route 创建 `EASYRPG_WEB|MKXP_LIBRETRO_WEB|NATIVE_WEB` adapter；Player Shell 不包含 EasyRPG/mkxp/MV/MZ 分支。发布把内容、版本 core、generation、不可变 artifact、adapter ABI、运行包快照和管理员主动创建的运行验证 Launch 绑定为不可变 VariantRevision。Launch 只读该绑定，不重探测项目、不查询 latest，也不跨核心回退。
 
 RPG Maker 的存档与既有模拟器状态统一建模为运行时检查点。恢复完成的定义不是 payload 成功下载或引擎 load API 返回成功，而是：记录初始状态 A，在明确移动/改变变量后的 B 创建检查点，继续到可区分的 C，结束原 Launch，再由不同 Launch 恢复，并逐字段证明地图、坐标和 fixture 变量等于 B 且不等于 A/C，同时保留恢复后截图；随后还必须继续真实输入，并持久化与恢复位置 B 不同的四字段状态，证明恢复后的游戏仍可操作。七个版本核心都必须满足该闭环。
 
@@ -392,7 +392,7 @@ flowchart LR
 
 手动状态存档必须包含非空可恢复 payload；截图是同次创建中的可选最佳努力输入，缺失时仍保存并在 API/UI 明确表示无预览。有效游玩时长通过 PlaySession 心跳累计；页面后台、模拟器暂停和长时间失联不计入有效时长。
 
-RPG Maker 项目从浏览器目录或单个 ZIP/7z 导入，发布前必须完成与正式 Player 相同的 runtime validation Launch：进入可运行场景、帧/输入/音频 gate、A→B 保存→C、结束原 Launch、创建不同 restore Launch 并恢复到 B、保留恢复截图并通过恢复后 `RESTORE_INPUT`，最后由管理员决定 PASS。非 RPG 审核继续使用既有五秒截图 preview/override；RPG Maker 不得使用它代替运行验证，旧 preview endpoint 对 RPG core 必须失败关闭。
+RPG Maker 项目从浏览器目录或单个 ZIP/7z 导入。发布前管理员必须主动创建一次与正式 Player 相同的 runtime-validation Launch；成功取得当前绑定的原始 `launchId` 后即可确认发布。帧/输入/音频 gate、A→B 保存→C、不同 restore Launch 精确恢复到 B、恢复截图与 `RESTORE_INPUT` 保留为可选高级验证以及七核心自动化验收的严格证据，不再作为人工审核发布门槛。非 RPG 审核继续使用既有五秒截图 preview/override；RPG Maker 不得使用它代替真实 Launch，旧 preview endpoint 对 RPG core 必须失败关闭。
 
 ### 8.4 联机房间与 rollback
 

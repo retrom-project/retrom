@@ -76,7 +76,7 @@ func TestCreateRPGMakerMVArchiveReachesReviewPending(t *testing.T) {
 		UploadID: upload.ID, TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(
 			t, database.SQL, "rpgmaker/rpgmaker_mv",
 		),
-		MetadataProvider: "NONE", ContentMode: "RPG_MAKER_PROJECT_V1", TagIDs: []string{},
+		MetadataProvider: "HASHEOUS", ContentMode: "RPG_MAKER_PROJECT_V1", TagIDs: []string{},
 	})
 	if err != nil {
 		t.Fatalf("Create(RPG Maker MV) error = %v", err)
@@ -84,18 +84,20 @@ func TestCreateRPGMakerMVArchiveReachesReviewPending(t *testing.T) {
 	if created.ItemCount != 1 || created.State != "REVIEW_PENDING" {
 		t.Fatalf("Create(RPG Maker MV) = %#v", created)
 	}
-	var state, code, title string
+	var state, code, title, metadataProvider string
 	if err := database.SQL.QueryRowContext(ctx, `
-SELECT item.state,validation.compatibility_code,json_extract(draft.metadata_json,'$.title')
+SELECT item.state,validation.compatibility_code,json_extract(draft.metadata_json,'$.title'),job.metadata_provider
 FROM import_items item
+JOIN import_jobs job ON job.id=item.import_job_id
 JOIN import_item_core_validations validation ON validation.import_item_id=item.id
 JOIN review_drafts draft ON draft.import_item_id=item.id
 WHERE item.import_job_id=?
-`, created.ImportJobID).Scan(&state, &code, &title); err != nil {
+`, created.ImportJobID).Scan(&state, &code, &title, &metadataProvider); err != nil {
 		t.Fatal(err)
 	}
-	if state != "REVIEW_PENDING" || code != "RPG_RUNTIME_VALIDATION_REQUIRED" || title != "fixture" {
-		t.Fatalf("RPG review state/code/title = %s/%s/%q", state, code, title)
+	if state != "REVIEW_PENDING" || code != "RPG_RUNTIME_VALIDATION_REQUIRED" || title != "fixture" ||
+		metadataProvider != "NONE" {
+		t.Fatalf("RPG review state/code/title/provider = %s/%s/%q/%s", state, code, title, metadataProvider)
 	}
 	var role, nestedSHA, nestedBlobID string
 	var nestedOrdinal int

@@ -38,11 +38,20 @@ function registerRun002(): void {
     });
     const requests: string[] = [];
     page.on("request", (request) => requests.push(request.url()));
-    await page.goto("/library");
+    const libraryResponse = await page.goto("/library");
+    expect(libraryResponse?.headers()["content-security-policy"])
+      .toMatch(/frame-src 'self' http:\/\/\*\.rpg\.localhost:\d+/);
     await page.locator(".library-game-card").filter({ hasText: "Sudoku" }).getByRole("link").first().click();
+    const sourceDocumentIdentity = await page.evaluate(() => {
+      const scope = window as Window & { __retromDocumentIdentity?: string };
+      scope.__retromDocumentIdentity ??= crypto.randomUUID();
+      return scope.__retromDocumentIdentity;
+    });
     const configResponse = page.waitForResponse((response) => /\/runtime\/launches\/[^/]+\/config$/.test(response.url()) && response.status() === 200);
     await page.getByRole("button", { name: "开始游戏" }).click();
     await expect(page).toHaveURL(/\/play\/[0-9a-f-]+$/);
+    expect(await page.evaluate(() => (window as Window & { __retromDocumentIdentity?: string }).__retromDocumentIdentity))
+      .toBe(sourceDocumentIdentity);
     const configuration = await (await configResponse).json() as { emulatorGameId: number; gameName: string; gameTitle: string; coreName: string; platformName: string; gameUrl: string; loaderUrl: string; runtimePathOverrides: Record<string, string>; playerAdapterId: string; emulatorjsVersion: string };
     expect(Number.isSafeInteger(configuration.emulatorGameId) && configuration.emulatorGameId > 0).toBe(true);
     expect(configuration.gameName).toBe(`retrom-${configuration.emulatorGameId}`);

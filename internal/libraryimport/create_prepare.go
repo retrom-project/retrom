@@ -61,6 +61,9 @@ func normalizeCreateRequest(request CreateRequest) (CreateRequest, string, error
 	if request.MetadataProvider != "NONE" && request.MetadataProvider != "HASHEOUS" {
 		return CreateRequest{}, "", ErrInvalid
 	}
+	if contentMode == contentcapability.ModeRPGMakerProjectV1 {
+		request.MetadataProvider = "NONE"
+	}
 	return request, contentMode, nil
 }
 

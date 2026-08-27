@@ -339,12 +339,12 @@ export function LibraryGameListView({ folderId, initialGameId, initialSaveStateI
     setLaunchState("pending");
     setMessage("");
     void launchImmersiveGame(selectedGame.gameId, returnTo, saveState?.saveStateId ?? null)
-      .then(replaceWithPlayerDocument)
+      .then((url) => replaceWithPlayerDocument(url, router.replace))
       .catch((error: unknown) => {
         setMessage(error instanceof Error ? error.message : "当前游戏无法启动");
         setLaunchState("error");
       });
-  }, [folderId, kind, launchState, saveIndex, selectedGame]);
+  }, [folderId, kind, launchState, router, saveIndex, selectedGame]);
 
   const toggleFavorite = useCallback(() => {
     if (!selectedGame || favoritePending) {return;}

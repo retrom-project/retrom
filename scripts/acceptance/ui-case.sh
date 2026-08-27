@@ -11,8 +11,18 @@ repository_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 PATH="$repository_root/.cache/tools/node-v24.18.0-linux-x64/bin:$PATH"
 export PATH
 temporary_root="$(mktemp -d "${TMPDIR:-/tmp}/retrom-ui-acceptance.XXXXXX")"
-backend_port=18082
-web_port=13002
+backend_port="${RETROM_ACCEPTANCE_BACKEND_PORT:-18082}"
+web_port="${RETROM_ACCEPTANCE_WEB_PORT:-13002}"
+server_ready_timeout="${RETROM_ACCEPTANCE_SERVER_READY_TIMEOUT_SECONDS:-150}"
+if [[ ! "$backend_port" =~ ^[0-9]+$ || ! "$web_port" =~ ^[0-9]+$ ]] ||
+  (( backend_port < 1024 || backend_port > 65535 || web_port < 1024 || web_port > 65535 || backend_port == web_port )); then
+  echo "acceptance ports must be distinct integers between 1024 and 65535" >&2
+  exit 2
+fi
+if [[ ! "$server_ready_timeout" =~ ^[0-9]+$ ]] || (( server_ready_timeout < 30 || server_ready_timeout > 600 )); then
+  echo "acceptance server ready timeout must be an integer between 30 and 600 seconds" >&2
+  exit 2
+fi
 backend_origin="http://127.0.0.1:${backend_port}"
 web_origin="http://localhost:${web_port}"
 process_id=""
@@ -65,6 +75,7 @@ setsid make dev \
   RETROM_DATA_DIR="$temporary_root/data" \
   RETROM_HTTP_ADDR="127.0.0.1:${backend_port}" \
   RETROM_PUBLIC_ORIGIN="$web_origin" \
+  RETROM_RPG_RUNTIME_ORIGIN_TEMPLATE="http://{launchId}.rpg.localhost:${backend_port}" \
   NEXT_DEV_HOST="127.0.0.1" \
   NEXT_DEV_PORT="$web_port" \
   NEXT_DIST_DIR="$acceptance_dist_dir" \
@@ -72,7 +83,7 @@ setsid make dev \
   >"$temporary_root/server.log" 2>&1 &
 process_id=$!
 
-deadline=$((SECONDS + 90))
+deadline=$((SECONDS + server_ready_timeout))
 until curl --fail --silent "$backend_origin/health/ready" >/dev/null 2>&1 &&
   curl --fail --silent "$web_origin" >/dev/null 2>&1; do
   if ! kill -0 "$process_id" 2>/dev/null; then

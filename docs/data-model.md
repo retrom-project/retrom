@@ -129,7 +129,7 @@ DAT parse 状态投影固定为：Job 首次领取时 `PENDING→PARSING`；Job 
 | `review_draft_screenshot_assets` | `(review_draft_id, ordinal) PK`、`candidate_asset_id`、`created_at_ms`；`UNIQUE(review_draft_id, candidate_asset_id)`，ordinal `0..31` 连续。cover/background/screenshot 可来自同一 Item 任意 COMPLETED HASHEOUS run 的 READY asset，允许人工混合媒体来源；selected candidate 只说明文本元信息来源。 |
 | `review_events` | `id PK`、`import_item_id`、封闭 `event_type`、`actor_kind USER/SYSTEM`、可空 `actor_user_id/actor_label`、`before_json/after_json/diff_json/config_snapshot_json/dat_evidence_json/provider_evidence_json`、可空 `reason`、`created_at_ms`；append-only。全部 JSON 固定 `schemaVersion=2`，只保存文字和结构化决策（标题/字段/标签、candidate/validation/run/Attachment 等审计 ID、结论和稳定错误码），数据库 trigger 拒绝 asset/blob/upload ID、URL/路径/hash/MIME/尺寸以及配置/依赖原文等 CAS payload 定位信息。审核历史不保存封面或视频，不提供历史媒体回退。 |
 
-本节通用表中的“阻断 Validation + 第 5 秒截图”替代审批和 `REVIEW_SCREENSHOT_OVERRIDE` 仅适用于非 RPG Maker 条目。RPG Approve 必须按第 25 节在当前 `runtime_binding_revision` 找到唯一 PASSED runtime validation 并逐字段重算绑定；通用截图句子不得用于 RPG trigger 或发布事务。
+本节通用表中的“阻断 Validation + 第 5 秒截图”替代审批和 `REVIEW_SCREENSHOT_OVERRIDE` 仅适用于非 RPG Maker 条目。RPG Approve 必须按第 25 节在当前 `runtime_binding_revision` 找到已分配原始 `launch_id` 的 runtime validation 并逐字段重算绑定；通用截图句子不得用于 RPG trigger 或发布事务。详细机器 gate 与 PASSED 状态是可选高级验证和自动化验收证据，不是人工发布门槛。
 
 状态枚举固定为：
 
@@ -476,7 +476,7 @@ EasyRPG pack 最多 10,000 文件/512 MiB，必须至少有一个锁定 `easy-rt
 
 `NATIVE_SAVE_BUNDLE_V1` 固定为 8-byte ASCII `RTRPGSV1` magic、4-byte unsigned big-endian canonical manifest 长度、RFC 8785 manifest 和连续 entry payload。manifest 只含 `schemaVersion=1`、`engine RPG2000|RPG2003|RPGMV|RPGMZ`、正 `resumeSlot` 和 `entries[]`；每项严格为 `{store,key,mediaType,offset,sizeBytes,sha256}`，store 只允许 `FILESYSTEM|LOCAL_STORAGE|LOCALFORAGE|RETROM_NATIVE`。entries 按 `(store UTF-8 bytes,key UTF-8 bytes)` 严格升序且唯一；offset 必须从 0 连续覆盖全部 payload，无空洞/重叠/尾随 bytes，逐 entry SHA-256 必须复算。`FILESYSTEM` key 使用 SAFE_LOGICAL_PATH；其他 key 必须是无 NUL 的 NFC UTF-8 且至多 1 KiB；mediaType 必须命中对应 native profile registry。EasyRPG resume slot 恰为 100；MV/MZ 恰为保存时冻结且不与已有 slot 冲突的 `DataManager.maxSavefiles()+1`。最多 512 entries、manifest 256 KiB、native payload 64 MiB；mkxp `RUNTIME_STATE` 上限 256 MiB，既有 EJS 为 64 MiB。服务端在写入和每次下载前都重验 bundle 结构、entry 摘要与外层 Blob 摘要。
 
-runtime validation 的位置 gate 固定比较 `{mapId,playerX,playerY,fixtureState}`：原 Launch 持久化初始 A，移动/改变变量后冻结与 A 不同的保存点 B，创建 checkpoint 后继续到与 B 不同的 C，再结束；不同 `restore_launch_id` 恢复后全部字段必须等于 B 且不同于 A/C。恢复截图关联并 PASS 后还必须继续真实输入，持久化与恢复位置不同的 RESTORE_INPUT；只有该 gate PASS 才可进入 `AWAITING_DECISION`。完整只读投影同时返回 initial/restore-input 位置、restoreInputVerified 以及原/恢复 Launch ID。Blob 摘要相等、load 返回成功、同一进程恢复或只看一张近似截图均不能满足 gate。发布事务还必须逐字段比较当前 binding revision/source fingerprint/core/route/artifact/ABI/pack 与 PASSED 记录，任何漂移都返回验证必需。
+runtime validation 的位置 gate 固定比较 `{mapId,playerX,playerY,fixtureState}`：原 Launch 持久化初始 A，移动/改变变量后冻结与 A 不同的保存点 B，创建 checkpoint 后继续到与 B 不同的 C，再结束；不同 `restore_launch_id` 恢复后全部字段必须等于 B 且不同于 A/C。恢复截图关联并 PASS 后还必须继续真实输入，持久化与恢复位置不同的 RESTORE_INPUT；只有该 gate PASS 才可进入 `AWAITING_DECISION`。完整只读投影同时返回 initial/restore-input 位置、restoreInputVerified 以及原/恢复 Launch ID。Blob 摘要相等、load 返回成功、同一进程恢复或只看一张近似截图均不能满足高级 gate。发布事务逐字段比较当前 binding revision/source fingerprint/core/route/artifact/ABI/pack 与已分配原始 `launch_id` 的记录，任何漂移都返回验证必需；是否继续完成 PASSED 由管理员选择，七核心自动化验收仍必须完成全部 gate。
 
 ## 26. 统一验收入口
 

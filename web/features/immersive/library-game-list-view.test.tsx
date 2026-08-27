@@ -118,6 +118,6 @@ describe("immersive library game list", () => {
       expect.stringContaining(`saveStateId=${encodeURIComponent(savedGame.saveStates[1].saveStateId)}`),
       savedGame.saveStates[1].saveStateId,
     ));
-    expect(mocks.replacePlayerDocument).toHaveBeenCalledWith("/play/launch?experience=immersive");
+    expect(mocks.replacePlayerDocument).toHaveBeenCalledWith("/play/launch?experience=immersive", mocks.replace);
   });
 });

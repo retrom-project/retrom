@@ -99,7 +99,7 @@ WHERE draft.import_item_id=?
 	}
 	projection.RuntimeValidation = &view
 	projection.RuntimeValidationCurrent = view.RuntimeBindingVersion == projection.RuntimeBindingVersion
-	projection.canApprove = view.State == "PASSED" && projection.RuntimeValidationCurrent
+	projection.canApprove = view.LaunchID != nil && projection.RuntimeValidationCurrent
 	return &projection, true, nil
 }
 
