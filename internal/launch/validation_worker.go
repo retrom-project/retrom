@@ -36,15 +36,15 @@ func (service *Service) validateVariant(
 ) {
 	ctx, cancel := context.WithTimeout(parent, 30*time.Minute)
 	defer cancel()
+	if !service.startValidationJob(ctx, jobID, variantID) {
+		return
+	}
 	completed := false
 	defer func() {
 		if !completed {
 			service.failValidationJob(parent, jobID, variantID)
 		}
 	}()
-	if !service.startValidationJob(ctx, jobID, variantID) {
-		return
-	}
 	outcome, err := service.loadValidationOutcome(
 		ctx, variantID, contentID, artifactID, datID, digest, biosDependencyDigest,
 	)
