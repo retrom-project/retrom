@@ -224,6 +224,11 @@ async function isolationCase(context, client, instances) {
     const launched = await createValidationLaunch(
       context, client, review, basename(originalScreenshot), true,
     );
+    await waitForAutomaticValidationGates(launched.page);
+    launched.bootstrap = await bootstrapChecks(
+      context, launched.frame, launched.config, launched.runtimeOrigin,
+    );
+    await launched.page.bringToFront();
     await completeOriginalValidation(launched.page, launched.frame, input.generation);
     const checkpointed = await waitForValidation(client, review.itemId, launched.validationId, "CHECKPOINTED");
     launched.bootstrap.inactiveBootstrapStatus = await browserNavigationStatus(
@@ -295,10 +300,9 @@ async function openValidationPlayer(context, client, created, screenshotName, in
     throw new Error("RPG_ACCEPTANCE_ISOLATION_ORIGIN_INVALID");
   }
   const probes = inspectIsolation ? await frame.evaluate(() => window.__RETROM_MALICIOUS_RESULTS__) : null;
-  const bootstrap = inspectIsolation ? await bootstrapChecks(context, frame, config, runtimeOrigin) : null;
   if (inspectIsolation) { validateIsolation(csp, probes, securityRequests); }
   return {
-    page, frame, config, csp, probes, securityRequests, bootstrap,
+    page, frame, config, csp, probes, securityRequests, bootstrap: null,
     validationId: created.validationId, launchId: created.launchId, runtimeOrigin,
   };
 }
@@ -332,6 +336,12 @@ async function waitForHarnessFrame(page, requireProbes, runtimeOrigin) {
     await page.waitForTimeout(100);
   }
   throw new Error("RPG_ACCEPTANCE_ISOLATION_FRAME_TIMEOUT");
+}
+
+async function waitForAutomaticValidationGates(page) {
+  await page.getByRole("button", { name: "输入已经生效", exact: true }).waitFor({
+    state: "visible", timeout: 120_000,
+  });
 }
 
 async function completeOriginalValidation(page, frame, generation) {
