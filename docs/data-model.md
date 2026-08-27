@@ -392,7 +392,7 @@ Worker 顺序处理冻结 Item；每项在普通 Approve 短事务内再次验�
 
 ## 21. 推荐目录代码 catalog
 
-`platform_instances.catalog_template_key` 可空；非空值有 partial unique index。fresh DB 拥有完整 Platform/Core reference seed 但零 PlatformInstance。推荐模板由 `internal/platformcatalog` 管理，扩展名由 `internal/contentprofile` 管理；“应用推荐目录”以 UUIDv7 创建当前 34 个模板并保持幂等，其中七个是 `rpgmaker` 平台与七个版本 core 的一一 pair，clean schema 不插入实例目录。NES profile 稳定返回 `.nes/.unf/.unif/.fds`，Arcade 共同 `.zip` 只投影一次；扩展名稳定有序且无重复。
+`platform_instances.catalog_template_key` 可空；非空值有 partial unique index。fresh DB 拥有完整 Platform/Core reference seed 但零 PlatformInstance。推荐模板由 `internal/platformcatalog` 管理，扩展名由 `internal/contentprofile` 管理；“应用推荐目录”以 UUIDv7 创建当前 35 个模板并保持幂等，其中七个是当前 `rpgmaker` 世代目录，一个是 `ons/onscripter_yuri`，clean schema 不插入实例目录。RPG Maker 虚拟核心收口会直接改写这条未发布的 clean catalog，不保留七目录兼容分支。NES profile 稳定返回 `.nes/.unf/.unif/.fds`，Arcade 共同 `.zip` 只投影一次；扩展名稳定有序且无重复。
 
 ## 22. Payload 生命周期、Game 墓碑与回收 Job
 

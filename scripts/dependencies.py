@@ -294,6 +294,8 @@ def validate_rpg_maker_registry(
     for artifact in artifacts:
         if not isinstance(artifact, dict):
             raise CheckError("RPG_PLAYER_MANIFEST_INVALID")
+        if artifact.get("runtime_family") != "RPGMAKER":
+            continue
         values = tuple(
             artifact.get(key)
             for key in (

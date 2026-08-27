@@ -9,7 +9,7 @@ import (
 	"retrom/internal/contentprofile"
 )
 
-const Version = 2
+const Version = 3
 
 var ErrInvalid = errors.New("PLATFORM_CATALOG_INVALID")
 
@@ -119,6 +119,10 @@ var current = Catalog{Version: Version, Templates: []DirectoryTemplate{
 		Key: "rpgmaker/rpgmaker_mz", PlatformID: "rpgmaker", DefaultCoreID: "rpgmaker_mz",
 		Name: "RPG Maker MZ 游戏", CatalogOrder: 340,
 	},
+	{
+		Key: "ons/onscripter_yuri", PlatformID: "ons", DefaultCoreID: "onscripter_yuri",
+		Name: "ONS 游戏", CatalogOrder: 350,
+	},
 }}
 
 func Current() Catalog {
@@ -155,7 +159,7 @@ func Validate(catalog Catalog) error {
 		// RPG Maker templates accept a browser directory in addition to a single
 		// ZIP/7z project. Their shape is validated by the RPG project importer,
 		// rather than the legacy single-file extension registry.
-		if template.PlatformID != "rpgmaker" && !validExtensions(extensions) {
+		if template.PlatformID != "rpgmaker" && template.PlatformID != "ons" && !validExtensions(extensions) {
 			return fmt.Errorf("%w: extensions for %q", ErrInvalid, template.PlatformID)
 		}
 		keys[template.Key] = struct{}{}

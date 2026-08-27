@@ -157,9 +157,9 @@ EmulatorJS 与各 libretro core 的许可证不同。manifest schema V7 的 `lic
 
 默认镜像构建只面向本项目的私有自托管使用，不等于授予镜像再分发权。manifest 已把 Snes9x、FBNeo、MAME 2003 与 MAME 2003 Plus 标记为受限制组件；构建 target 可以完成本地镜像，但任何 registry push、公开发布、商业分发或第三方镜像交付都必须经过独立人工许可审查，并补足适用的源码提供/通知义务。Retrom 的 Make targets 本来就不执行 push；tag 发布 workflow 不设置二次人工审批，也不重复 PR quality，维护者创建并推送 tag 即确认质量门禁与上述义务已在发布前满足；随后流程只在双镜像构建及 release-input label 校验完成后使用 secret 自动登录并 push。ROM、BIOS 永不随镜像分发；Arcade DAT 只有在其 manifest 许可允许且通过发布审查时才进入镜像 allowlist。
 
-## 7. RPG Maker runtime manifest、artifact 与许可
+## 7. retrom-runtime manifest、artifact 与许可
 
-RPG Maker 浏览器运行时由独立仓库 <https://github.com/xxxsen/retrom-runtime> 维护。它拥有 EasyRPG、mkxp、Native Web 三类 adapter、checkpoint codec、bridge、单元测试和 tag Release；不得导入 Retrom 的上传、审核、数据库、HTTP 或权限逻辑。Retrom 只消费一个固定的 `retrom-runtime` tag，并在 `data/dat/rpgmaker/v1/manifest.json` 记录 repository、tag、精确 tag commit、aggregate bundle/metadata asset URL 和七条宿主 route。源码树、Release 和本机物化目录在同一 tag 内每类 runtime 只有一份，不保留 V3/V4/V5/V6/V7 目录、adapter alias 或平行兼容包。
+浏览器运行时由独立仓库 <https://github.com/xxxsen/retrom-runtime> 维护。它拥有 EasyRPG、mkxp、Native Web、ONScripter Yuri 四类 adapter、checkpoint codec、bridge、单元测试和 tag Release；不得导入 Retrom 的上传、审核、数据库、HTTP 或权限逻辑。Retrom 只消费一个固定的 `retrom-runtime` tag，并在 `data/dat/rpgmaker/v1/manifest.json` 记录 repository、tag、精确 tag commit、aggregate bundle/metadata asset URL 和八条宿主 route。源码树、Release 和本机物化目录在同一 tag 内每类 runtime 只有一份，不保留 V3/V4/V5/V6/V7 目录、adapter alias 或平行兼容包。当前唯一 pin 是 `v0.3.0`/`6b7df14d691010c0360a2eb9669ec65959665c57`。
 
 `make prepare-deps` 中的 `build.py prepare` 不是本地编译器：它先验证已有缓存是否与当前 tag/commit/metadata 和逐文件观测摘要一致；缓存不存在或损坏时，只下载该 tag 的 aggregate Release bundle 和 metadata，验证身份与文件 allowlist，再原子替换 `data/runtime/rpgmaker/v1/`。它不调用 Docker，不下载构建源码，也不比较远端 expected SHA。observed size/SHA 只用于本机缓存损坏检测、内容响应 ETag 和 artifact-set 冻结；同 tag 的准入身份是 repository/tag/tag commit/asset filename/adapter ABI。应用进程启动时只执行 `deps-check`，不联网下载。
 
@@ -174,12 +174,13 @@ route registry 与 manifest 必须双向一一对应：
 | `rpgmaker_vx_ace` | `RPGVXACE_MKXP` | `mkxp-libretro-web` | 相同 release assets、独立 artifact row，RGSS3 |
 | `rpgmaker_mv` | `RPGMV_NATIVE` | `native-web` | 当前 tag 的 `native/bridge.js`，游戏自带 runtime，profile=`RPGMV` |
 | `rpgmaker_mz` | `RPGMZ_NATIVE` | `native-web` | 同一 bridge，profile=`RPGMZ` |
+| `onscripter_yuri` | `ONS_YURI` | `ons-yuri-web` | 当前 tag 的 `onsyuri.js/.wasm`；checkpoint slot 999，ABI=`ons-save` |
 
 `retrom-runtime` 自身固定两个上游 fork：<https://github.com/xxxsen/Player> 与 <https://github.com/xxxsen/mkxp-z-libretro-emscripten>。上游 patch、构建和 Release workflow 留在各自仓库；Retrom 不再保存其 patch、Docker builder、source offer 或本地复现脚本。新增核心时先在 `retrom-runtime` 的下一 prerelease tag 完成 adapter/测试/Release，再让 Retrom 的开发 manifest 临时指向该 tag，跑对应真实导入、Launch、存档与恢复 Case；通过后发布稳定 tag，并一次性替换 Retrom 的唯一 pin。首个稳定版本不预建“旧/新 route”或 inactive 候选。
 
-每个 artifact 项必须包含 `coreId/routeKey/runtimeFamily/runtimeAdapterKind/runtimeVersion/adapterId/entryPath/requiresThreads/savePayloadKind/saveMaxBytes/compatibility/selectedForNewBindings/availableForLaunch`。七个 artifact 的 `runtimeVersion` 都等于当前 `retrom-runtime` tag，且全部为唯一 selected/available 行。未知 route、adapter、额外 artifact 或 manifest 漂移必须阻断 readiness；不存在默认 RPG route、`latest` 查找或跨 core fallback。未来真实 tag 升级的数据保留策略必须在出现第二个已验证 release 时再按实际引用需求设计，不能在首版中携带虚构的历史包。
+每个 artifact 项必须包含 `coreId/routeKey/runtimeFamily/runtimeAdapterKind/runtimeVersion/adapterId/entryPath/requiresThreads/savePayloadKind/saveMaxBytes/compatibility/selectedForNewBindings/availableForLaunch`。八个 artifact 的 `runtimeVersion` 都等于当前 `retrom-runtime` tag，且全部为唯一 selected/available 行。未知 route、adapter、额外 artifact 或 manifest 漂移必须阻断 readiness；不存在默认 route、`latest` 查找或跨 core fallback。未来真实 tag 升级的数据保留策略必须在出现第二个已验证 release 时再按实际引用需求设计，不能在首版中携带虚构的历史包。
 
-EasyRPG Player 为 GPLv3、liblcf 为 MIT、mkxp-z 为 GPLv2+、RetroArch 为 GPLv3、Nostalgist 为 MIT。`retrom-runtime` 的 tag manifest 必须固定两个上游 fork 的 repository、tag、commit、Release metadata 与 adapter ABI；这些 tag 内的源码、patch 和 GitHub Actions workflow 是对应构建来源，aggregate Release 同时携带 `runtime-manifest.json`、许可与 notice。Retrom 不再镜像上游源码或构建脚本。MV/MZ runtime 和插件是用户内容，Retrom 不宣称或取得其再分发权。manifest/registry/adapter/许可任一改变必须运行 `make data-check`、`make prepare-deps`、`make deps-check`，并让两个镜像的 `io.retrom.release-input-sha256` 完全相同。
+EasyRPG Player 为 GPLv3、liblcf 为 MIT、mkxp-z 为 GPLv2+、RetroArch 为 GPLv3、Nostalgist 为 MIT，OnscripterYuri 为 GPL-2.0-or-later。`retrom-runtime` 的 tag manifest 必须固定上游 repository、tag、commit、Release metadata 或固定源码构建声明与 adapter ABI；aggregate Release 同时携带 runtime、许可与 notice。Retrom 不再镜像上游源码、patch 或构建脚本。MV/MZ runtime 和插件是用户内容，Retrom 不宣称或取得其再分发权。manifest/registry/adapter/许可任一改变必须运行 `make data-check`、`make prepare-deps`、`make deps-check`，并让两个镜像的 `io.retrom.release-input-sha256` 完全相同。
 
 许可证、notice 与上游源码定位信息属于 tag Release 和部署/分发物，不通过应用 HTTP API 或浏览器页面公开原文。管理员“运行依赖”页显示的 `coreId + routeKey + artifactId` 是追溯键：它必须唯一命中 RPG manifest 的 artifact 项，再定位 `retrom-runtime` tag metadata、`runtime-manifest.json`、`THIRD_PARTY_NOTICES.md` 和两个上游 fork/tag。镜像保留 aggregate notice 与许可文件；禁止新增返回许可 payload、宿主路径或源码 archive 的应用端点。
 

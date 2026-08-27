@@ -37,6 +37,7 @@ type RPGMakerRuntimeFile struct {
 
 type RPGMakerArtifact struct {
 	CoreID                 string          `json:"core_id"`
+	RuntimeFamily          string          `json:"runtime_family"`
 	Generation             string          `json:"generation"`
 	RouteKey               string          `json:"route_key"`
 	RuntimeAdapterKind     string          `json:"runtime_adapter_kind"`
@@ -103,8 +104,8 @@ func requireJSONEOF(decoder *json.Decoder) error {
 
 func validateRPGMakerVersion(version *RPGMakerVersion) error {
 	manifest := version.Manifest
-	if manifest.SchemaVersion != 2 || manifest.RuntimeID != "rpgmaker" ||
-		len(manifest.RuntimeFiles) != 8 || len(manifest.Artifacts) != len(routing.Entries()) {
+	if manifest.SchemaVersion != 3 || manifest.RuntimeID != "retrom-runtime" ||
+		len(manifest.RuntimeFiles) != 11 || len(manifest.Artifacts) != len(routing.Entries())+1 {
 		return fmt.Errorf("%w: RPG Maker manifest identity", ErrInvalid)
 	}
 	if err := validateRPGMakerRuntimeFiles(version); err != nil {
@@ -155,6 +156,9 @@ func validateRPGMakerArtifacts(artifacts []RPGMakerArtifact, files map[string]RP
 }
 
 func validateRPGMakerArtifact(artifact RPGMakerArtifact, files map[string]RPGMakerRuntimeFile) error {
+	if artifact.RuntimeFamily == "ONS" {
+		return validateONSArtifact(artifact, files)
+	}
 	route, err := routing.ByRoute(artifact.CoreID, artifact.RouteKey)
 	if err != nil || !artifactMatchesRoute(artifact, route) {
 		return fmt.Errorf("%w: RPG Maker artifact %s", ErrInvalid, artifact.RouteKey)
@@ -172,13 +176,41 @@ func validateRPGMakerArtifact(artifact RPGMakerArtifact, files map[string]RPGMak
 }
 
 func artifactMatchesRoute(artifact RPGMakerArtifact, route routing.Entry) bool {
-	return artifact.Generation == string(route.Generation) && artifact.RuntimeAdapterKind == string(route.AdapterKind) &&
+	return artifact.RuntimeFamily == routing.FamilyRPGMaker && artifact.Generation == string(route.Generation) &&
+		artifact.RuntimeAdapterKind == string(route.AdapterKind) &&
 		artifact.RuntimeVersion == route.RuntimeVersion && artifact.AdapterID == route.AdapterID &&
 		artifact.AdapterABI == route.AdapterABI && artifact.RequiresThreads == route.RequiresThreads &&
 		artifact.SavePayloadKind == route.SavePayloadKind && artifact.SaveMaxBytes == route.SaveMaxBytes &&
 		artifact.SelectedForNewBindings == route.SelectedForNewBindings && artifact.AvailableForLaunch &&
 		safeRelative(artifact.EntryPath) && validSHA256(artifact.EntrySHA256) &&
 		validSHA256(artifact.ArtifactSetSHA256) && len(artifact.FilePaths) > 0
+}
+
+func validateONSArtifact(artifact RPGMakerArtifact, files map[string]RPGMakerRuntimeFile) error {
+	if artifact.CoreID != "onscripter_yuri" || artifact.Generation != "ONS" || artifact.RouteKey != "ONS_YURI" ||
+		artifact.RuntimeAdapterKind != "ONS_YURI_WEB" || artifact.AdapterID != "ons-yuri-web" ||
+		artifact.AdapterABI != "ons-save" || artifact.EntryPath != "onsyuri.js" || artifact.RequiresThreads ||
+		artifact.SavePayloadKind != "ONS_SAVE_BUNDLE_V1" || artifact.SaveMaxBytes != 64<<20 ||
+		!artifact.SelectedForNewBindings || !artifact.AvailableForLaunch {
+		return fmt.Errorf("%w: ONS artifact identity", ErrInvalid)
+	}
+	entries, err := rpgArtifactSetEntries(artifact, files)
+	if err != nil {
+		return err
+	}
+	entry, exists := files[path.Join(artifact.RuntimeVersion, artifact.EntryPath)]
+	if !exists || entry.SizeBytes != artifact.EntrySizeBytes || entry.SHA256 != artifact.EntrySHA256 ||
+		rpgArtifactSetDigest(entries) != artifact.ArtifactSetSHA256 || !validONSCompatibility(artifact) {
+		return fmt.Errorf("%w: ONS artifact bytes", ErrInvalid)
+	}
+	return nil
+}
+
+func validONSCompatibility(artifact RPGMakerArtifact) bool {
+	var value map[string]any
+	return json.Unmarshal(artifact.Compatibility, &value) == nil && len(value) == 4 &&
+		value["adapterAbi"] == "ons-save" && value["checkpointSlot"] == float64(999) &&
+		value["jsPath"] == "onsyuri.js" && value["wasmPath"] == "onsyuri.wasm"
 }
 
 func rpgArtifactSetEntries(

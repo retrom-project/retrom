@@ -62,9 +62,9 @@ class RPGMakerReleaseAssetTests(unittest.TestCase):
     def setUp(self) -> None:
         self.manifest = BUILD.load_manifest()
 
-    def test_manifest_contains_only_one_release_and_seven_current_routes(self) -> None:
+    def test_manifest_contains_only_one_release_and_eight_current_routes(self) -> None:
         BUILD.validate_manifest(self.manifest)
-        self.assertEqual(7, len(self.manifest["artifacts"]))
+        self.assertEqual(8, len(self.manifest["artifacts"]))
         self.assertEqual(
             set(BUILD.EXPECTED_ROUTES),
             {item["route_key"] for item in self.manifest["artifacts"]},
@@ -89,7 +89,7 @@ class RPGMakerReleaseAssetTests(unittest.TestCase):
             )
             observed = json.loads((root / BUILD.OBSERVED_FILENAME).read_text())
             self.assertEqual(self.manifest["release"]["tag"], observed["tag"])
-            self.assertEqual(8, len(observed["files"]))
+            self.assertEqual(11, len(observed["files"]))
 
     def test_release_metadata_sha_is_not_a_remote_admission_coordinate(self) -> None:
         records = BUILD.validate_release_metadata(self.manifest, metadata(self.manifest))

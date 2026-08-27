@@ -76,6 +76,7 @@ INSERT INTO platforms(id,name,sort_order,enabled,created_at_ms,updated_at_ms) VA
 INSERT INTO platforms(id,name,sort_order,enabled,created_at_ms,updated_at_ms) VALUES('nes','NES / Famicom',10,1,0,0);
 INSERT INTO platforms(id,name,sort_order,enabled,created_at_ms,updated_at_ms) VALUES('ngpc','Neo Geo Pocket / Color',150,1,0,0);
 INSERT INTO platforms(id,name,sort_order,enabled,created_at_ms,updated_at_ms) VALUES('nintendo3ds','Nintendo 3DS',250,1,0,0);
+INSERT INTO platforms(id,name,sort_order,enabled,created_at_ms,updated_at_ms) VALUES('ons','ONScripter',76,1,0,0);
 INSERT INTO platforms(id,name,sort_order,enabled,created_at_ms,updated_at_ms) VALUES('pce','PC Engine',140,1,0,0);
 INSERT INTO platforms(id,name,sort_order,enabled,created_at_ms,updated_at_ms) VALUES('pcfx','PC-FX',190,1,0,0);
 INSERT INTO platforms(id,name,sort_order,enabled,created_at_ms,updated_at_ms) VALUES('psp','PlayStation Portable',210,1,0,0);
@@ -110,6 +111,7 @@ INSERT INTO cores(id,name,enabled,created_at_ms,updated_at_ms) VALUES('melonds',
 INSERT INTO cores(id,name,enabled,created_at_ms,updated_at_ms) VALUES('mgba','mGBA',1,0,0);
 INSERT INTO cores(id,name,enabled,created_at_ms,updated_at_ms) VALUES('mupen64plus_next','Mupen64Plus-Next',1,0,0);
 INSERT INTO cores(id,name,enabled,created_at_ms,updated_at_ms) VALUES('nestopia','Nestopia UE',1,0,0);
+INSERT INTO cores(id,name,enabled,created_at_ms,updated_at_ms) VALUES('onscripter_yuri','ONScripter Yuri',1,0,0);
 INSERT INTO cores(id,name,enabled,created_at_ms,updated_at_ms) VALUES('opera','Opera',1,0,0);
 INSERT INTO cores(id,name,enabled,created_at_ms,updated_at_ms) VALUES('parallel_n64','ParaLLEl N64',1,0,0);
 INSERT INTO cores(id,name,enabled,created_at_ms,updated_at_ms) VALUES('pcsx_rearmed','PCSX-ReARMed',1,0,0);
@@ -161,6 +163,7 @@ INSERT INTO platform_cores(platform_id,core_id,enabled) VALUES('nds','desmume201
 INSERT INTO platform_cores(platform_id,core_id,enabled) VALUES('nds','melonds',1);
 INSERT INTO platform_cores(platform_id,core_id,enabled) VALUES('nes','fceumm',1);
 INSERT INTO platform_cores(platform_id,core_id,enabled) VALUES('nes','nestopia',1);
+INSERT INTO platform_cores(platform_id,core_id,enabled) VALUES('ons','onscripter_yuri',1);
 INSERT INTO platform_cores(platform_id,core_id,enabled) VALUES('ngpc','mednafen_ngp',1);
 INSERT INTO platform_cores(platform_id,core_id,enabled) VALUES('nintendo3ds','azahar',1);
 INSERT INTO platform_cores(platform_id,core_id,enabled) VALUES('pce','mednafen_pce',1);
