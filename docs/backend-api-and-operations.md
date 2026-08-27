@@ -46,8 +46,9 @@ internal/metadata/        Hasheous 适配器与缓存
 internal/arcadedat/       DAT 安装、解析、依赖图与诊断
 internal/bios/            BIOS 要求、安装和状态聚合
 internal/runtime/         启动预检、LaunchSession/capability、EJS 配置
-internal/rpgmaker/        RPG 项目识别、路由/构件绑定、派生 fileset 与 pack 匹配的纯领域逻辑
-internal/rpgruntime/      RPG 运行验证、unique-origin host 分派、bootstrap/capability、gate 与 checkpoint 编排
+internal/rpgmaker/        RPG 项目识别、路由/构件绑定、派生 fileset、pack 匹配、运行验证、隔离与 checkpoint 领域逻辑
+internal/rpgmaker/runtimevalidation/ RPG 运行验证 gate、状态投影与恢复协议
+internal/rpgmaker/isolation/ unique-origin capability 与 Host 隔离服务
 internal/netplay/         Room/Session 控制面、严格实时协议与有界内存 Hub
 internal/saves/           状态存档、截图与兼容性
 internal/playtime/        PlaySession 和有效时长
