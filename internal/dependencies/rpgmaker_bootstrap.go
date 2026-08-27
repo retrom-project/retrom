@@ -104,7 +104,8 @@ UPDATE core_artifacts
 SET selected_for_new_bindings=0,available_for_launch=0,version=version+1,updated_at_ms=?
 WHERE runtime_family=? AND core_id=? AND route_key=? AND artifact_set_sha256<>?
 AND (selected_for_new_bindings=1 OR available_for_launch=1)
-`, now.UnixMilli(), artifact.RuntimeFamily, artifact.CoreID, artifact.RouteKey, artifact.ArtifactSetSHA256); err != nil {
+`, now.UnixMilli(), artifact.RuntimeFamily, artifact.CoreID, artifact.RouteKey,
+		artifact.ArtifactSetSHA256); err != nil {
 		return fmt.Errorf("retire conflicting RPG Maker artifact: %w", err)
 	}
 	return nil

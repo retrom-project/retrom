@@ -56,6 +56,19 @@ func TestResolveRPGMakerUsesOnlyProjectMode(t *testing.T) {
 	testassert.Falsef(t, !reflect.DeepEqual(disabled.ContentModes, []string{ModeStandard}), "disabled RPG Maker capabilities = %#v", disabled)
 }
 
+func TestResolveONSUsesOnlyProjectMode(t *testing.T) {
+	t.Parallel()
+	got := Resolve("ons", true, false, `{}`)
+	testassert.Falsef(t, testassert.Any(
+		func() bool { return !reflect.DeepEqual(got.ContentModes, []string{ModeONSProjectV1}) },
+		func() bool { return got.MultiDisc != nil },
+	), "ONS capabilities = %#v", got)
+	if !SupportsContentKind(`{"adapterAbi":"ons-save"}`, ModeONSProjectV1) ||
+		SupportsContentKind(`{"adapterAbi":"native-save"}`, ModeONSProjectV1) {
+		t.Fatal("ONS publication capability did not enforce ons-save ABI")
+	}
+}
+
 func TestSupportsContentKindRequiresExplicitCompatibilityV3(t *testing.T) {
 	t.Parallel()
 	standard := `{"schemaVersion":5,"supportedContentKinds":["SINGLE_FILE"]}`

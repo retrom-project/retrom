@@ -126,7 +126,9 @@ CREATE TABLE "import_item_source_snapshots" (
   import_item_id TEXT NOT NULL REFERENCES import_items(id),
   revision_no INTEGER NOT NULL CHECK(revision_no>=1),
   content_kind TEXT NOT NULL DEFAULT 'SINGLE_FILE'
-    CHECK(content_kind IN ('SINGLE_FILE','DOS_BUNDLE','MULTI_DISC_M3U_V1','RPG_MAKER_PROJECT_V1')),
+    CHECK(content_kind IN (
+      'SINGLE_FILE','DOS_BUNDLE','MULTI_DISC_M3U_V1','RPG_MAKER_PROJECT_V1','ONS_PROJECT_V1'
+    )),
   source_manifest_json TEXT NOT NULL,
   source_manifest_digest TEXT NOT NULL
     CHECK(length(source_manifest_digest)=64 AND source_manifest_digest=lower(source_manifest_digest)),

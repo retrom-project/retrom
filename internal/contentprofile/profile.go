@@ -29,6 +29,7 @@ const (
 	ContentKindDOSBundle       ContentKind = "DOS_BUNDLE"
 	ContentKindMultiDiscM3UV1  ContentKind = "MULTI_DISC_M3U_V1"
 	ContentKindRPGMakerProject ContentKind = "RPG_MAKER_PROJECT_V1"
+	ContentKindONSProject      ContentKind = "ONS_PROJECT_V1"
 )
 
 var (
@@ -74,12 +75,18 @@ var registry = map[string]Profile{
 		ArchiveFormats: []ArchiveFormat{ArchiveZIP, ArchiveSevenZip}, FormatCode: "RPG_MAKER_PROJECT_V1",
 		ContentKinds: []ContentKind{ContentKindRPGMakerProject},
 	},
+	"ons": {
+		PlatformID: "ons", ArchivePolicy: ArchiveProject,
+		ArchiveFormats: []ArchiveFormat{ArchiveZIP, ArchiveSevenZip}, FormatCode: "ONS_PROJECT_V1",
+		ContentKinds: []ContentKind{ContentKindONSProject},
+	},
 }
 
 var specialPlatformExtensions = map[string][]string{
 	"arcade":   {".zip"},
 	"dos":      {".exe", ".com", ".bat"},
 	"rpgmaker": {".zip", ".7z"},
+	"ons":      {".zip", ".7z"},
 }
 
 func single(platformID string, extensions ...string) Profile {

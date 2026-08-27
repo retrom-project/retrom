@@ -3060,9 +3060,9 @@ components:
       properties:
         purpose:
           type: string
-          enum: [GENERAL, RPG_MAKER_PROJECT, RUNTIME_ASSET_PACK]
+          enum: [GENERAL, RPG_MAKER_PROJECT, ONS_PROJECT, RUNTIME_ASSET_PACK]
           default: GENERAL
-          description: GENERAL preserves ordinary uploads; RPG purposes are consumed only by their matching project-import or runtime-pack operation.
+          description: GENERAL preserves ordinary uploads; project and runtime-pack purposes are consumed only by their matching operation.
         sourceType: { type: string, enum: [FILES, DIRECTORY] }
         files:
           type: array
@@ -3086,7 +3086,7 @@ components:
         metadataProvider:
           type: string
           enum: [HASHEOUS, NONE]
-          description: RPG_MAKER_PROJECT_V1 requests are normalized to NONE because projects have no single-ROM hash identity.
+          description: RPG_MAKER_PROJECT_V1 and ONS_PROJECT_V1 requests are normalized to NONE because projects have no single-ROM hash identity.
         tagIds:
           type: array
           maxItems: 20
@@ -3094,7 +3094,7 @@ components:
           items: { type: string, format: uuid }
         contentMode:
           type: string
-          enum: [STANDARD, MULTI_DISC_M3U_V1, RPG_MAKER_PROJECT_V1]
+          enum: [STANDARD, MULTI_DISC_M3U_V1, RPG_MAKER_PROJECT_V1, ONS_PROJECT_V1]
           description: Omitted requests use STANDARD.
     ReconfigureImportRequest:
       type: object
@@ -3304,7 +3304,7 @@ components:
       required: [uploadId]
       properties:
         uploadId: { type: string, format: uuid }
-        contentMode: { type: string, enum: [STANDARD, MULTI_DISC_M3U_V1, RPG_MAKER_PROJECT_V1], default: STANDARD }
+        contentMode: { type: string, enum: [STANDARD, MULTI_DISC_M3U_V1, RPG_MAKER_PROJECT_V1, ONS_PROJECT_V1], default: STANDARD }
     ApplyCandidateRequest:
       type: object
       additionalProperties: false

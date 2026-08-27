@@ -44,12 +44,39 @@ type Project struct {
 }
 
 func NormalizeProject(input []SourceFile) (Project, error) {
+	return normalizeProject(input, candidateHasMarker)
+}
+
+// NormalizeProjectWithMarkers applies the same path, wrapper and collision
+// rules to another directory-style runtime without coupling it to RPG Maker
+// marker semantics.
+func NormalizeProjectWithMarkers(input []SourceFile, markers []string) (Project, error) {
+	if len(markers) == 0 {
+		return Project{}, &ProjectError{Code: CodeProjectNotFound}
+	}
+	return normalizeProject(input, func(files []SourceFile, prefix string) bool {
+		available := make(map[string]struct{}, len(files))
+		for _, file := range files {
+			if strings.HasPrefix(file.Path, prefix) {
+				available[lookup(strings.TrimPrefix(file.Path, prefix))] = struct{}{}
+			}
+		}
+		for _, marker := range markers {
+			if _, exists := available[lookup(marker)]; exists {
+				return true
+			}
+		}
+		return false
+	})
+}
+
+func normalizeProject(input []SourceFile, hasMarker func([]SourceFile, string) bool) (Project, error) {
 	files, noise, err := normalizeInputPaths(input)
 	if err != nil {
 		return Project{}, err
 	}
 	files = stripPackagingWrapper(files)
-	root, err := chooseProjectRoot(files)
+	root, err := chooseProjectRoot(files, hasMarker)
 	if err != nil {
 		return Project{}, err
 	}
@@ -131,9 +158,9 @@ func stripPackagingWrapper(files []SourceFile) []SourceFile {
 	return result
 }
 
-func chooseProjectRoot(files []SourceFile) (string, error) {
-	rootMatch := candidateHasMarker(files, "")
-	wwwMatch := candidateHasMarker(files, "www/")
+func chooseProjectRoot(files []SourceFile, hasMarker func([]SourceFile, string) bool) (string, error) {
+	rootMatch := hasMarker(files, "")
+	wwwMatch := hasMarker(files, "www/")
 	if rootMatch && wwwMatch {
 		return "", &ProjectError{Code: CodeRootAmbiguous}
 	}

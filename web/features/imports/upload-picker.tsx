@@ -16,7 +16,7 @@ import { DirectoryPickerDialog } from "./directory-picker-dialog";
 import { directoryPickerAvailable, droppedDirectory, pickDirectory, type PickedDirectory, type PickedDirectoryFile } from "@/lib/directory-access";
 
 type ChosenFile = { id: string; file: File; name: string; size: number; path: string };
-type ContentMode = "STANDARD" | "MULTI_DISC_M3U_V1" | "RPG_MAKER_PROJECT_V1";
+type ContentMode = "STANDARD" | "MULTI_DISC_M3U_V1" | "RPG_MAKER_PROJECT_V1" | "ONS_PROJECT_V1";
 type Directory = {
   id: string; name: string; platformName: string; coreName: string;
   importCapabilities?: { contentModes: string[]; multiDisc: { maxDiscs: number; maxTotalBytes: number } | null };
@@ -68,7 +68,10 @@ type SourceStepProps = {
 
 function SourceDropZone({ contentMode, onDrop, onPickDirectory, onPickFiles }: Pick<SourceStepProps, "contentMode" | "onDrop" | "onPickDirectory" | "onPickFiles">) {
   const rpgMaker = contentMode === "RPG_MAKER_PROJECT_V1";
-  return <div className="dropzone import-dropzone" onDragOver={(event) => event.preventDefault()} onDrop={(event) => { event.preventDefault(); onDrop(event.dataTransfer.files); }}><div><span aria-hidden="true">⇧</span><h2>{rpgMaker ? "将 RPG Maker 项目归档或目录拖到这里" : "将游戏文件或目录拖到这里"}</h2><p>{rpgMaker ? "只选择一个 ZIP/7z 项目归档，或选择完整项目目录；项目内相对路径会完整保留。" : "支持普通 ROM、Arcade ZIP、DOS 内容目录、多盘 M3U + CHD 与 RPG Maker 项目；相对路径会完整保留。"}</p><div className="dropzone-actions"><button className="button" type="button" onClick={onPickFiles}>{rpgMaker ? "选择项目归档" : "选择文件"}</button><button className="button secondary" type="button" onClick={onPickDirectory}>{rpgMaker ? "选择项目目录" : "选择目录"}</button></div></div></div>;
+  const ons = contentMode === "ONS_PROJECT_V1";
+  const project = rpgMaker || ons;
+  const projectName = rpgMaker ? "RPG Maker" : "ONS";
+  return <div className="dropzone import-dropzone" onDragOver={(event) => event.preventDefault()} onDrop={(event) => { event.preventDefault(); onDrop(event.dataTransfer.files); }}><div><span aria-hidden="true">⇧</span><h2>{project ? `将 ${projectName} 项目归档或目录拖到这里` : "将游戏文件或目录拖到这里"}</h2><p>{project ? "只选择一个 ZIP/7z 项目归档，或选择完整项目目录；项目内相对路径会完整保留。" : "支持普通 ROM、Arcade ZIP、DOS 内容目录、多盘 M3U + CHD、RPG Maker 与 ONS 项目；相对路径会完整保留。"}</p><div className="dropzone-actions"><button className="button" type="button" onClick={onPickFiles}>{project ? "选择项目归档" : "选择文件"}</button><button className="button secondary" type="button" onClick={onPickDirectory}>{project ? "选择项目目录" : "选择目录"}</button></div></div></div>;
 }
 
 function ReconfigureDropZone({ count, onNext }: { count: number; onNext: () => void }) {
@@ -91,7 +94,7 @@ type ConfigStepProps = {
   directories: Directory[];
   fileCount: number;
   multiDiscInvalid: boolean;
-  rpgMakerInvalid: boolean;
+  projectInvalid: boolean;
   multiDiscLimits: { maxDiscs: number; maxTotalBytes: number };
   multiDiscSubmitLabel: string;
   multiDiscSupported: boolean;
@@ -122,16 +125,21 @@ function MultiDiscConfiguration(props: Pick<ConfigStepProps, "contentMode" | "mu
   </>;
 }
 
-function RPGMakerConfiguration({ contentMode }: Pick<ConfigStepProps, "contentMode">) {
-  if (contentMode !== "RPG_MAKER_PROJECT_V1") {return null;}
-  return <div className="feedback info" role="status">该目录明确选择了 RPG Maker 版本核心；整个目录或单个 ZIP/7z 会作为一个项目导入，不会自动猜测或切换版本。</div>;
+function ProjectConfiguration({ contentMode }: Pick<ConfigStepProps, "contentMode">) {
+  if (contentMode === "RPG_MAKER_PROJECT_V1") {
+    return <div className="feedback info" role="status">整个 RPG Maker 目录或单个 ZIP/7z 会作为一个项目导入；服务端会识别项目版本并选择底层核心。</div>;
+  }
+  if (contentMode === "ONS_PROJECT_V1") {
+    return <div className="feedback info" role="status">整个 ONS 目录或单个 ZIP/7z 会作为一个项目导入；审核时需要先成功试运行一次。</div>;
+  }
+  return null;
 }
 
 function ImportConfigurationFields(props: Pick<ConfigStepProps, "contentMode" | "directories" | "onProvider" | "onTarget" | "provider" | "reconfiguring" | "selectedDirectory" | "target">) {
   return <div className="form-grid import-config-grid">
     <div className="field"><label htmlFor="directory">目标游戏目录</label><select id="directory" value={props.target} onChange={(event) => props.onTarget(event.target.value)}><option value="" disabled>{props.directories.length ? "请选择目标游戏目录" : "暂无可用游戏目录"}</option>{props.directories.map((directory) => <option value={directory.id} key={directory.id}>{directory.name}</option>)}</select><small>{props.reconfiguring ? "可以保留原目录，也可以选择正确的平台目录后重新识别。" : "必须主动选择，避免将游戏导入到错误目录。"}</small></div>
-    <div className="field"><label htmlFor="provider">元信息来源</label>{props.contentMode === "RPG_MAKER_PROJECT_V1"
-      ? <input id="provider" value="不刮削（RPG Maker 项目）" disabled />
+    <div className="field"><label htmlFor="provider">元信息来源</label>{isProjectContentMode(props.contentMode)
+      ? <input id="provider" value={`不刮削（${contentModeLabel(props.contentMode)}）`} disabled />
       : <select id="provider" value={props.provider} onChange={(event) => props.onProvider(event.target.value)}><option value="HASHEOUS">Hasheous 哈希查询</option><option value="NONE">不刮削</option></select>}</div>
     <div className="field"><label>游戏平台</label><input value={props.selectedDirectory?.platformName ?? "选择目录后显示"} disabled /></div>
     <div className="field"><label>推荐运行方式</label><input value={props.selectedDirectory?.coreName ?? "选择目录后显示"} disabled /></div>
@@ -141,18 +149,20 @@ function ImportConfigurationFields(props: Pick<ConfigStepProps, "contentMode" | 
 function ConfigStep(props: ConfigStepProps & { sourceIsDirectory: boolean }) {
   const submitLabel = props.reconfiguring
     ? "按新配置重新识别"
-    : props.contentMode === "MULTI_DISC_M3U_V1" ? props.multiDiscSubmitLabel : props.contentMode === "RPG_MAKER_PROJECT_V1" ? "上传并验证 RPG Maker 项目" : "开始上传并验证";
+    : props.contentMode === "MULTI_DISC_M3U_V1" ? props.multiDiscSubmitLabel
+      : props.contentMode === "RPG_MAKER_PROJECT_V1" ? "上传并验证 RPG Maker 项目"
+        : props.contentMode === "ONS_PROJECT_V1" ? "上传并试运行 ONS 项目" : "开始上传并验证";
   return <section className="panel import-config-panel">
     <div className="panel-head"><div><h2>确认导入配置</h2><p>目标目录决定基础平台和推荐运行方式；配置会冻结到本次任务快照。</p></div><span className="status info"><i />步骤 2 / 3</span></div>
     <div className="panel-body">
       <ImportConfigurationFields contentMode={props.contentMode} directories={props.directories} onProvider={props.onProvider} onTarget={props.onTarget} provider={props.provider} reconfiguring={props.reconfiguring} selectedDirectory={props.selectedDirectory} target={props.target} />
       <div className="import-tag-config"><TagPicker label="批次默认标签" options={props.activeTags} selected={props.tags} onChange={props.onTags} disabled={props.busy} description="这些标签会冻结到任务配置，并作为每个待审核游戏的初始选择；审核时仍可逐项调整。" /></div>
       <MultiDiscConfiguration contentMode={props.contentMode} multiDiscLimits={props.multiDiscLimits} multiDiscSupported={props.multiDiscSupported} onContentMode={props.onContentMode} preflight={props.preflight} reconfiguring={props.reconfiguring} sourceIsDirectory={props.sourceIsDirectory} visibleCapabilityNotice={props.visibleCapabilityNotice} />
-      <RPGMakerConfiguration contentMode={props.contentMode} />
-      {props.rpgMakerInvalid ? <div className="feedback bad" role="alert">RPG Maker 项目必须选择一个完整目录，或只选择一个 ZIP/7z 归档。</div> : null}
+      <ProjectConfiguration contentMode={props.contentMode} />
+      {props.projectInvalid ? <div className="feedback bad" role="alert">项目必须选择一个完整目录，或只选择一个 ZIP/7z 归档。</div> : null}
       <div className="import-config-summary"><div><small>内容</small><strong>{props.fileCount} 个文件</strong></div><div><small>数据量</small><strong>{formatBytes(props.totalBytes)}</strong></div><div><small>目标</small><strong>{props.selectedDirectory?.name ?? "尚未选择"}</strong></div><div><small>布局</small><strong>{contentModeLabel(props.contentMode)}</strong></div></div>
       {props.tags.length ? <div className="import-tag-summary"><small>将应用到待审核游戏</small><TagChips tags={props.tags} /></div> : null}
-      <div className="import-stage-actions"><button className="button secondary" type="button" onClick={props.onBack}>上一步</button><button className="button" type="button" disabled={props.busy || props.preflighting || !props.target || props.multiDiscInvalid || props.rpgMakerInvalid} onClick={props.onSubmit}>{submitLabel}</button></div>
+      <div className="import-stage-actions"><button className="button secondary" type="button" onClick={props.onBack}>上一步</button><button className="button" type="button" disabled={props.busy || props.preflighting || !props.target || props.multiDiscInvalid || props.projectInvalid} onClick={props.onSubmit}>{submitLabel}</button></div>
     </div>
   </section>;
 }
@@ -218,8 +228,12 @@ function invalidMultiDiscSelection(contentMode: string, sourceType: string, pref
   return sourceType !== "DIRECTORY" || !preflight?.detected || !supported || preflight.processableGroupCount === 0;
 }
 
-function invalidRPGMakerSelection(contentMode: ContentMode, sourceType: string, files: ChosenFile[]) {
-  if (contentMode !== "RPG_MAKER_PROJECT_V1" || sourceType === "DIRECTORY") {return false;}
+function isProjectContentMode(contentMode: ContentMode) {
+  return contentMode === "RPG_MAKER_PROJECT_V1" || contentMode === "ONS_PROJECT_V1";
+}
+
+function invalidProjectSelection(contentMode: ContentMode, sourceType: string, files: ChosenFile[]) {
+  if (!isProjectContentMode(contentMode) || sourceType === "DIRECTORY") {return false;}
   if (files.length !== 1) {return true;}
   const name = files[0].name.toLocaleLowerCase();
   return !name.endsWith(".zip") && !name.endsWith(".7z");
@@ -228,11 +242,12 @@ function invalidRPGMakerSelection(contentMode: ContentMode, sourceType: string, 
 function contentModeLabel(contentMode: ContentMode) {
   if (contentMode === "MULTI_DISC_M3U_V1") {return "多盘 M3U";}
   if (contentMode === "RPG_MAKER_PROJECT_V1") {return "RPG Maker 项目";}
+  if (contentMode === "ONS_PROJECT_V1") {return "ONS 项目";}
   return "普通内容";
 }
 
 function effectiveMetadataProvider(contentMode: ContentMode, provider: string) {
-  return contentMode === "RPG_MAKER_PROJECT_V1" ? "NONE" : provider;
+  return isProjectContentMode(contentMode) ? "NONE" : provider;
 }
 
 function capabilityNotice(sourceType: string, preflight: MultiDiscPreflight | null, target: string, supported: boolean) {
@@ -263,11 +278,15 @@ function reconfigurationDefaults(source: ImportDetail | null) {
 
 function directoryCapabilities(directories: Directory[], target: string) {
   const selected = directories.find((directory) => directory.id === target);
+  const contentModes = selected?.importCapabilities?.contentModes ?? [];
+  const projectMode: ContentMode = contentModes.includes("RPG_MAKER_PROJECT_V1")
+    ? "RPG_MAKER_PROJECT_V1"
+    : contentModes.includes("ONS_PROJECT_V1") ? "ONS_PROJECT_V1" : "STANDARD";
   return {
     limits: selected?.importCapabilities?.multiDisc ?? MULTI_DISC_DEFAULT_LIMITS,
+    projectMode,
     selected,
-    supported: selected?.importCapabilities?.contentModes.includes("MULTI_DISC_M3U_V1") ?? false,
-    rpgMaker: selected?.importCapabilities?.contentModes.includes("RPG_MAKER_PROJECT_V1") ?? false,
+    supported: contentModes.includes("MULTI_DISC_M3U_V1"),
   };
 }
 
@@ -311,12 +330,15 @@ export function UploadPicker({ directories, activeTags = [], reconfigureSource =
   function choose(selected: PickedDirectoryFile[], selectedSourceType: "FILES" | "DIRECTORY") {
     const chosen = selected.map(({ file, relativePath }, index) => ({ id: `f${index + 1}`, file, name: file.name, size: file.size, path: relativePath }));
     const selectedDirectory = directories.find((directory) => directory.id === target);
-    const selectedRPGMaker = selectedDirectory?.importCapabilities?.contentModes.includes("RPG_MAKER_PROJECT_V1") ?? false;
+    const selectedContentModes = selectedDirectory?.importCapabilities?.contentModes ?? [];
+    const selectedProjectMode: ContentMode = selectedContentModes.includes("RPG_MAKER_PROJECT_V1")
+      ? "RPG_MAKER_PROJECT_V1"
+      : selectedContentModes.includes("ONS_PROJECT_V1") ? "ONS_PROJECT_V1" : "STANDARD";
     setFiles(chosen);
     setSourceType(selectedSourceType);
     setPreflight(null);
-    setPreflighting(selectedSourceType === "DIRECTORY" && !selectedRPGMaker);
-    setContentMode(selectedRPGMaker ? "RPG_MAKER_PROJECT_V1" : "STANDARD");
+    setPreflighting(selectedSourceType === "DIRECTORY" && !isProjectContentMode(selectedProjectMode));
+    setContentMode(selectedProjectMode);
     multiDiscOptedOutRef.current = false;
     setShowFiles(false);
     setCompletedJobId("");
@@ -327,11 +349,11 @@ export function UploadPicker({ directories, activeTags = [], reconfigureSource =
   const capabilities = directoryCapabilities(directories, target);
   const selectedDirectory = capabilities.selected;
   const multiDiscSupported = capabilities.supported;
-  const rpgMakerSupported = capabilities.rpgMaker;
+  const projectMode = capabilities.projectMode;
   const multiDiscLimits = capabilities.limits;
 
   useEffect(() => {
-    if (reconfigureSource || !files.length || sourceType !== "DIRECTORY" || rpgMakerSupported) {return;}
+    if (reconfigureSource || !files.length || sourceType !== "DIRECTORY" || isProjectContentMode(projectMode)) {return;}
     const run = ++preflightRunRef.current;
     void preflightMultiDisc(files, multiDiscSupported ? multiDiscLimits : MULTI_DISC_DEFAULT_LIMITS).then((result) => {
       if (run !== preflightRunRef.current) {return;}
@@ -343,15 +365,18 @@ export function UploadPicker({ directories, activeTags = [], reconfigureSource =
     }).finally(() => {
       if (run === preflightRunRef.current) {setPreflighting(false);}
     });
-  }, [files, multiDiscLimits, multiDiscSupported, reconfigureSource, rpgMakerSupported, sourceType, target]);
+  }, [files, multiDiscLimits, multiDiscSupported, projectMode, reconfigureSource, sourceType, target]);
 
   function changeTarget(nextTarget: string) {
     const nextDirectory = directories.find((directory) => directory.id === nextTarget);
-    const nextSupportsMultiDisc = nextDirectory?.importCapabilities?.contentModes.includes("MULTI_DISC_M3U_V1") ?? false;
-    const nextSupportsRPGMaker = nextDirectory?.importCapabilities?.contentModes.includes("RPG_MAKER_PROJECT_V1") ?? false;
+    const nextContentModes = nextDirectory?.importCapabilities?.contentModes ?? [];
+    const nextSupportsMultiDisc = nextContentModes.includes("MULTI_DISC_M3U_V1");
+    const nextProjectMode: ContentMode = nextContentModes.includes("RPG_MAKER_PROJECT_V1")
+      ? "RPG_MAKER_PROJECT_V1"
+      : nextContentModes.includes("ONS_PROJECT_V1") ? "ONS_PROJECT_V1" : "STANDARD";
     setTarget(nextTarget);
     if (files.length && sourceType === "DIRECTORY") {setPreflighting(true);}
-    if (nextSupportsRPGMaker) {preflightRunRef.current++; setPreflight(null); setContentMode("RPG_MAKER_PROJECT_V1"); setPreflighting(false);}
+    if (isProjectContentMode(nextProjectMode)) {preflightRunRef.current++; setPreflight(null); setContentMode(nextProjectMode); setPreflighting(false);}
     else if (!nextSupportsMultiDisc) {setContentMode("STANDARD");}
     else if (preflight?.detected && !multiDiscOptedOutRef.current) {setContentMode("MULTI_DISC_M3U_V1");}
   }
@@ -371,7 +396,7 @@ export function UploadPicker({ directories, activeTags = [], reconfigureSource =
           body: JSON.stringify({ targetPlatformInstanceId: target, metadataProvider: selectedProvider, tagIds: tags.map((tag) => tag.tagId) }),
         });
       } else {
-        const purpose = contentMode === "RPG_MAKER_PROJECT_V1" ? "RPG_MAKER_PROJECT" : "GENERAL";
+        const purpose = contentMode === "RPG_MAKER_PROJECT_V1" ? "RPG_MAKER_PROJECT" : contentMode === "ONS_PROJECT_V1" ? "ONS_PROJECT" : "GENERAL";
         const uploaded = await uploadFiles(files.map((chosen) => ({ file: chosen.file, relativePath: chosen.path })), setProgress, purpose);
         setProgress("正在创建导入任务…");
         imported = await fetch("/api/v1/admin/imports", { method: "POST", credentials: "same-origin", headers: await writeHeaders({ "Content-Type": "application/json", "Idempotency-Key": newUuid() }), body: JSON.stringify({ uploadId: uploaded.uploadId, targetPlatformInstanceId: target, metadataProvider: selectedProvider, contentMode, tagIds: tags.map((tag) => tag.tagId) }) });
@@ -387,7 +412,7 @@ export function UploadPicker({ directories, activeTags = [], reconfigureSource =
   }
 
   const multiDiscInvalid = invalidMultiDiscSelection(contentMode, sourceType, preflight, multiDiscSupported);
-  const rpgMakerInvalid = invalidRPGMakerSelection(contentMode, sourceType, files);
+  const projectInvalid = invalidProjectSelection(contentMode, sourceType, files);
   const metrics = sourceMetrics(Boolean(reconfigureSource), reusableFiles, files);
   const fileCount = metrics.count;
   const totalBytes = metrics.totalBytes;
@@ -447,7 +472,7 @@ export function UploadPicker({ directories, activeTags = [], reconfigureSource =
     <input ref={directoryInput} id="import-directory" aria-label="选择导入目录" hidden type="file" multiple onChange={(event) => receiveLegacyDirectory(event.target.files)} {...{ webkitdirectory: "" }} />
     {step === 1 ? <SourceStep contentMode={contentMode} files={files} onDrop={chooseDroppedFiles} onNext={() => setStep(2)} onPickDirectory={() => {setPendingDirectory(null); setDirectoryBrowseError(""); setDirectoryDialogOpen(true);}} onPickFiles={() => fileInput.current?.click()} onReset={resetFiles} onToggleFiles={() => setShowFiles((current) => !current)} preflight={preflight} preflighting={preflighting} reconfigureSource={reconfigureSource} reusableFiles={reusableFiles} showFiles={showFiles} totalBytes={totalBytes} /> : null}
     <DirectoryPickerDialog browsing={directoryBrowsing} directory={pendingDirectory} error={directoryBrowseError} open={directoryDialogOpen} onBrowse={() => void browseDirectory()} onCancel={closeDirectoryDialog} onConfirm={confirmDirectory} onDrop={(dropped) => {setDirectoryBrowseError(""); setPendingDirectory(droppedDirectory(Array.from(dropped)));}} />
-    {step === 2 ? <ConfigStep activeTags={activeTags} busy={busy} contentMode={contentMode} directories={directories} fileCount={fileCount} multiDiscInvalid={multiDiscInvalid} rpgMakerInvalid={rpgMakerInvalid} multiDiscLimits={multiDiscLimits} multiDiscSubmitLabel={submitLabel} multiDiscSupported={multiDiscSupported} onBack={() => setStep(1)} onContentMode={(selected) => { setContentMode(selected ? "MULTI_DISC_M3U_V1" : "STANDARD"); multiDiscOptedOutRef.current = !selected; }} onProvider={setProvider} onSubmit={() => void submitImport()} onTags={setTags} onTarget={changeTarget} preflight={preflight} preflighting={preflighting} provider={provider} reconfiguring={Boolean(reconfigureSource)} selectedDirectory={selectedDirectory} sourceIsDirectory={sourceType === "DIRECTORY"} tags={tags} target={target} totalBytes={totalBytes} visibleCapabilityNotice={visibleCapabilityNotice} /> : null}
+    {step === 2 ? <ConfigStep activeTags={activeTags} busy={busy} contentMode={contentMode} directories={directories} fileCount={fileCount} multiDiscInvalid={multiDiscInvalid} projectInvalid={projectInvalid} multiDiscLimits={multiDiscLimits} multiDiscSubmitLabel={submitLabel} multiDiscSupported={multiDiscSupported} onBack={() => setStep(1)} onContentMode={(selected) => { setContentMode(selected ? "MULTI_DISC_M3U_V1" : "STANDARD"); multiDiscOptedOutRef.current = !selected; }} onProvider={setProvider} onSubmit={() => void submitImport()} onTags={setTags} onTarget={changeTarget} preflight={preflight} preflighting={preflighting} provider={provider} reconfiguring={Boolean(reconfigureSource)} selectedDirectory={selectedDirectory} sourceIsDirectory={sourceType === "DIRECTORY"} tags={tags} target={target} totalBytes={totalBytes} visibleCapabilityNotice={visibleCapabilityNotice} /> : null}
     {step === 3 ? <ProgressStep busy={busy} completedJobId={completedJobId} error={error} onBack={() => setStep(2)} onComplete={() => { router.push("/admin/imports/tasks"); router.refresh(); }} progress={progress} reconfiguring={Boolean(reconfigureSource)} uploadPercent={uploadPercent} /> : null}
   </div>;
 }
