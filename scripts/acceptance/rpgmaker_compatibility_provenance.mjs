@@ -91,13 +91,23 @@ function validateRepository(value) {
   if (!exactKeys(value, ["gitCommit", "gitDirty", "gitDirtySummary"])
       || !/^(?:[0-9a-f]{40}|UNBORN)$/.test(value.gitCommit)
       || !exactKeys(summary, ["fileCount", "sha256", "entries"])
-      || !/^[0-9a-f]{64}$/.test(summary.sha256) || summary.fileCount !== summary.entries.length
+      || !Array.isArray(summary.entries) || !/^[0-9a-f]{64}$/.test(summary.sha256)
+      || summary.fileCount !== summary.entries.length
       || value.gitDirty !== (summary.entries.length > 0)
-      || summary.entries.some((item) => !exactKeys(item, ["status", "path"]) || isAbsolute(item.path))) {
+      || summary.entries.some((item) => !validDirtyEntry(item))) {
     throw new Error("RPG_012_PROVENANCE_REPOSITORY_INVALID");
   }
-  const digest = createHash("sha256").update(JSON.stringify(summary.entries)).digest("hex");
+  const canonical = summary.entries.map(({ status, path }) => ({ status, path }));
+  const digest = createHash("sha256").update(JSON.stringify(canonical)).digest("hex");
   if (digest !== summary.sha256) { throw new Error("RPG_012_PROVENANCE_REPOSITORY_INVALID"); }
+}
+
+
+function validDirtyEntry(item) {
+  return exactKeys(item, ["status", "path"]) && typeof item.status === "string"
+    && item.status.length === 2 && typeof item.path === "string" && item.path !== ""
+    && item.path !== "." && !isAbsolute(item.path)
+    && !item.path.split(/[\\/]/u).includes("..");
 }
 
 

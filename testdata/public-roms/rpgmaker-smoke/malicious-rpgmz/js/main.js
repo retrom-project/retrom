@@ -24,6 +24,14 @@
   };
   function snapshot() { return { mapId: state.mapId, x: state.x, y: state.y, fixtureState: state.fixtureState }; }
   function restore(value) { state.mapId = value.mapId; state.x = value.x; state.y = value.y; state.fixtureState = value.fixtureState; }
+  if (generation === "MZ") {
+    global.Graphics = { width: 640, height: 480 };
+    global.ColorManager = { _windowskin: { getPixel: function () { return "#ffffff"; } } };
+    global.JsonEx = {
+      stringify: function (value) { return JSON.stringify(value); },
+      parse: function (value) { return JSON.parse(value); }
+    };
+  }
   global.StorageManager = generation === "MZ" ? {
     saveObject: async function (name, value) { saved[name] = JSON.stringify(value); },
     loadObject: async function (name) { return JSON.parse(saved[name]); },
