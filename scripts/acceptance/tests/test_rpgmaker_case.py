@@ -113,6 +113,15 @@ class EvidenceContractTests(unittest.TestCase):
         self.assertNotIn("await page.keyboard.press(key)", source)
         self.assertIn("RPG_ACCEPTANCE_RUNTIME_ACTION_", source)
 
+    def test_security_driver_blocks_unresolvable_app_origin_before_login(self) -> None:
+        source = SECURITY_BROWSER_PATH.read_text()
+        resolution = "await requireResolvableAppOrigin(baseUrl);"
+        login = "const loginResponse = await context.request.post"
+        self.assertIn('import { lookup } from "node:dns/promises";', source)
+        self.assertIn('error.code === "ENOTFOUND"', source)
+        self.assertIn("RPG_ACCEPTANCE_SECURITY_APP_ORIGIN_UNRESOLVABLE", source)
+        self.assertLess(source.index(resolution), source.index(login))
+
     def test_isolation_driver_keeps_each_restore_screenshot(self) -> None:
         source = SECURITY_BROWSER_PATH.read_text()
         self.assertIn(
