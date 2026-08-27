@@ -175,6 +175,29 @@ function positionText(position: { mapId: number; playerX: number; playerY: numbe
   return position ? `地图 ${position.mapId} · (${position.playerX}, ${position.playerY}) · 状态 ${position.fixtureState}` : "尚未记录";
 }
 
+function evidenceRecord(evidence: unknown): Record<string, unknown> | null {
+  return typeof evidence === "object" && evidence !== null && !Array.isArray(evidence)
+    ? evidence as Record<string, unknown>
+    : null;
+}
+
+function gateEvidenceText(evidence: unknown) {
+  const value = evidenceRecord(evidence);
+  if (!value || Object.keys(value).length === 0) {return "无额外证据";}
+  if ([value.mapId, value.playerX, value.playerY, value.fixtureState].every(Number.isInteger)) {
+    return positionText({ mapId: Number(value.mapId), playerX: Number(value.playerX), playerY: Number(value.playerY), fixtureState: Number(value.fixtureState) });
+  }
+  if (Number.isInteger(value.continuousFrames)) {return `连续帧 ${value.continuousFrames}`;}
+  if (typeof value.observed === "boolean") {return `observed=${String(value.observed)}`;}
+  if (typeof value.generation === "string" && typeof value.adapterId === "string" && typeof value.engineProfile === "string") {
+    return `${value.generation} · ${value.engineProfile} · ${value.adapterId}`;
+  }
+  if (typeof value.payloadKind === "string" && Number.isInteger(value.sizeBytes) && typeof value.sha256 === "string") {
+    return `${value.payloadKind} · ${formatBytes(Number(value.sizeBytes))} · SHA-256 ${value.sha256.slice(0, 12)}…`;
+  }
+  return "服务端证据已记录";
+}
+
 export function RPGValidationCard({ value, disabled, onChange }: {
   value: RPGMakerReview;
   disabled: boolean;
@@ -186,10 +209,16 @@ export function RPGValidationCard({ value, disabled, onChange }: {
     <div className="panel-body">
       <RPGValidationFacts value={value} />
       <RPGPackControls value={value} disabled={disabled} onChange={onChange} />
+      <RPGValidationIdentity validation={validation} />
       <RPGGateList validation={validation} />
       <RPGCheckpointRoundTrip validation={validation} />
     </div>
   </section>;
+}
+
+function RPGValidationIdentity({ validation }: { validation: RPGRuntimeValidation | null }) {
+  if (!validation) {return null;}
+  return <div className="review-rpg-roundtrip"><strong>服务端验证身份</strong><span>original Launch：<code>{validation.launchId ?? "尚未创建"}</code></span><span>restore Launch：<code>{validation.restoreLaunchId ?? "尚未创建"}</code></span><span>服务端 gate 序号：{validation.lastGateSequence}</span></div>;
 }
 
 function RPGValidationFacts({ value }: { value: RPGMakerReview }) {
@@ -204,7 +233,7 @@ function RPGValidationFacts({ value }: { value: RPGMakerReview }) {
 
 function RPGGateList({ validation }: { validation: RPGRuntimeValidation | null }) {
   if (!validation) {return <p className="muted">点击“运行游戏”后，系统会按固定顺序采集机器证据。</p>;}
-  return <ol className="review-rpg-gates">{validation.machineGates.map((gate) => <li key={gate.gate} data-status={gate.status}><span>{gateLabels[gate.gate] ?? gate.gate}</span><strong>{gateStatus(gate)}</strong></li>)}</ol>;
+  return <ol className="review-rpg-gates">{validation.machineGates.map((gate) => <li key={gate.gate} data-status={gate.status}><span>{gateLabels[gate.gate] ?? gate.gate}<small>{gateEvidenceText(gate.evidence)}</small></span><strong>{gateStatus(gate)}</strong></li>)}</ol>;
 }
 
 function RPGCheckpointRoundTrip({ validation }: { validation: RPGRuntimeValidation | null }) {

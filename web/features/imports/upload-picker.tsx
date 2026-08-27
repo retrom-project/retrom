@@ -50,6 +50,7 @@ function SelectedSourceSummary({ count, onNext, onReset, onToggleFiles, reconfig
 }
 
 type SourceStepProps = {
+  contentMode: ContentMode;
   files: ChosenFile[];
   onDrop: (files: FileList) => void;
   onNext: () => void;
@@ -65,8 +66,9 @@ type SourceStepProps = {
   totalBytes: number;
 };
 
-function SourceDropZone({ onDrop, onPickDirectory, onPickFiles }: Pick<SourceStepProps, "onDrop" | "onPickDirectory" | "onPickFiles">) {
-  return <div className="dropzone import-dropzone" onDragOver={(event) => event.preventDefault()} onDrop={(event) => { event.preventDefault(); onDrop(event.dataTransfer.files); }}><div><span aria-hidden="true">⇧</span><h2>将游戏文件或目录拖到这里</h2><p>支持普通 ROM、Arcade ZIP、DOS 内容目录、多盘 M3U + CHD 与 RPG Maker 项目；相对路径会完整保留。</p><div className="dropzone-actions"><button className="button" type="button" onClick={onPickFiles}>选择文件</button><button className="button secondary" type="button" onClick={onPickDirectory}>选择目录</button></div></div></div>;
+function SourceDropZone({ contentMode, onDrop, onPickDirectory, onPickFiles }: Pick<SourceStepProps, "contentMode" | "onDrop" | "onPickDirectory" | "onPickFiles">) {
+  const rpgMaker = contentMode === "RPG_MAKER_PROJECT_V1";
+  return <div className="dropzone import-dropzone" onDragOver={(event) => event.preventDefault()} onDrop={(event) => { event.preventDefault(); onDrop(event.dataTransfer.files); }}><div><span aria-hidden="true">⇧</span><h2>{rpgMaker ? "将 RPG Maker 项目归档或目录拖到这里" : "将游戏文件或目录拖到这里"}</h2><p>{rpgMaker ? "只选择一个 ZIP/7z 项目归档，或选择完整项目目录；项目内相对路径会完整保留。" : "支持普通 ROM、Arcade ZIP、DOS 内容目录、多盘 M3U + CHD 与 RPG Maker 项目；相对路径会完整保留。"}</p><div className="dropzone-actions"><button className="button" type="button" onClick={onPickFiles}>{rpgMaker ? "选择项目归档" : "选择文件"}</button><button className="button secondary" type="button" onClick={onPickDirectory}>{rpgMaker ? "选择项目目录" : "选择目录"}</button></div></div></div>;
 }
 
 function ReconfigureDropZone({ count, onNext }: { count: number; onNext: () => void }) {
@@ -75,7 +77,7 @@ function ReconfigureDropZone({ count, onNext }: { count: number; onNext: () => v
 
 function SourceStep(props: SourceStepProps) {
   return <section className="import-wizard-stage">
-    {props.reconfigureSource ? <ReconfigureDropZone count={props.reusableFiles.length} onNext={props.onNext} /> : <SourceDropZone onDrop={props.onDrop} onPickDirectory={props.onPickDirectory} onPickFiles={props.onPickFiles} />}
+    {props.reconfigureSource ? <ReconfigureDropZone count={props.reusableFiles.length} onNext={props.onNext} /> : <SourceDropZone contentMode={props.contentMode} onDrop={props.onDrop} onPickDirectory={props.onPickDirectory} onPickFiles={props.onPickFiles} />}
     {props.preflighting ? <div className="feedback info" role="status">正在读取 M3U…</div> : props.preflight?.detected ? <MultiDiscPreflightView result={props.preflight} /> : null}
     {props.reconfigureSource && props.reusableFiles.length ? <><SelectedSourceSummary count={props.reusableFiles.length} onNext={props.onNext} onToggleFiles={props.onToggleFiles} reconfiguring showFiles={props.showFiles} totalBytes={props.totalBytes} />{props.showFiles ? <ReusableFilePreview files={props.reusableFiles} /> : null}</> : null}
     {props.files.length ? <><SelectedSourceSummary count={props.files.length} onNext={props.onNext} onReset={props.onReset} onToggleFiles={props.onToggleFiles} reconfiguring={false} showFiles={props.showFiles} totalBytes={props.totalBytes} />{props.showFiles ? <FilePreview files={props.files} /> : null}</> : null}
@@ -436,7 +438,7 @@ export function UploadPicker({ directories, activeTags = [], reconfigureSource =
     <ImportStepper reconfiguring={Boolean(reconfigureSource)} step={step} />
     <input ref={fileInput} id="import-files" aria-label="选择导入文件" hidden type="file" multiple onChange={(event) => choose(droppedDirectory(Array.from(event.target.files ?? [])).files, "FILES")} />
     <input ref={directoryInput} id="import-directory" aria-label="选择导入目录" hidden type="file" multiple onChange={(event) => receiveLegacyDirectory(event.target.files)} {...{ webkitdirectory: "" }} />
-    {step === 1 ? <SourceStep files={files} onDrop={chooseDroppedFiles} onNext={() => setStep(2)} onPickDirectory={() => {setPendingDirectory(null); setDirectoryBrowseError(""); setDirectoryDialogOpen(true);}} onPickFiles={() => fileInput.current?.click()} onReset={resetFiles} onToggleFiles={() => setShowFiles((current) => !current)} preflight={preflight} preflighting={preflighting} reconfigureSource={reconfigureSource} reusableFiles={reusableFiles} showFiles={showFiles} totalBytes={totalBytes} /> : null}
+    {step === 1 ? <SourceStep contentMode={contentMode} files={files} onDrop={chooseDroppedFiles} onNext={() => setStep(2)} onPickDirectory={() => {setPendingDirectory(null); setDirectoryBrowseError(""); setDirectoryDialogOpen(true);}} onPickFiles={() => fileInput.current?.click()} onReset={resetFiles} onToggleFiles={() => setShowFiles((current) => !current)} preflight={preflight} preflighting={preflighting} reconfigureSource={reconfigureSource} reusableFiles={reusableFiles} showFiles={showFiles} totalBytes={totalBytes} /> : null}
     <DirectoryPickerDialog browsing={directoryBrowsing} directory={pendingDirectory} error={directoryBrowseError} open={directoryDialogOpen} onBrowse={() => void browseDirectory()} onCancel={closeDirectoryDialog} onConfirm={confirmDirectory} onDrop={(dropped) => {setDirectoryBrowseError(""); setPendingDirectory(droppedDirectory(Array.from(dropped)));}} />
     {step === 2 ? <ConfigStep activeTags={activeTags} busy={busy} contentMode={contentMode} directories={directories} fileCount={fileCount} multiDiscInvalid={multiDiscInvalid} rpgMakerInvalid={rpgMakerInvalid} multiDiscLimits={multiDiscLimits} multiDiscSubmitLabel={submitLabel} multiDiscSupported={multiDiscSupported} onBack={() => setStep(1)} onContentMode={(selected) => { setContentMode(selected ? "MULTI_DISC_M3U_V1" : "STANDARD"); multiDiscOptedOutRef.current = !selected; }} onProvider={setProvider} onSubmit={() => void submitImport()} onTags={setTags} onTarget={changeTarget} preflight={preflight} preflighting={preflighting} provider={provider} reconfiguring={Boolean(reconfigureSource)} selectedDirectory={selectedDirectory} sourceIsDirectory={sourceType === "DIRECTORY"} tags={tags} target={target} totalBytes={totalBytes} visibleCapabilityNotice={visibleCapabilityNotice} /> : null}
     {step === 3 ? <ProgressStep busy={busy} completedJobId={completedJobId} error={error} onBack={() => setStep(2)} onComplete={() => { router.push("/admin/imports/tasks"); router.refresh(); }} progress={progress} reconfiguring={Boolean(reconfigureSource)} uploadPercent={uploadPercent} /> : null}
