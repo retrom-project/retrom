@@ -725,10 +725,19 @@ function unsafeFiles(test) {
 }
 
 async function platformInstances(client) {
-  const result = await client.json("GET", "/api/v1/admin/platform-instances?platformId=rpgmaker&limit=100");
+  let result = await client.json("GET", "/api/v1/admin/platform-instances?platformId=rpgmaker&limit=100");
+  if ((result.items ?? []).filter((item) => item.enabled && item.defaultCoreId).length !== 7) {
+    await client.json("POST", "/api/v1/admin/platform-instances/recommendations/apply", {
+      headers: client.writeHeaders(), data: {}, expected: 200,
+    });
+    result = await client.json("GET", "/api/v1/admin/platform-instances?platformId=rpgmaker&limit=100");
+  }
   const values = new Map();
   for (const item of result.items ?? []) {
     if (item.enabled && item.defaultCoreId) { values.set(item.defaultCoreId, item.id); }
+  }
+  if (values.size !== 7) {
+    throw new SecurityInputBlocked("RPG_ACCEPTANCE_SECURITY_PLATFORM_INSTANCES_MISSING");
   }
   return values;
 }
