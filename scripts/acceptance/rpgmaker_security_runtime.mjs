@@ -41,7 +41,9 @@ export async function runtimeProjectStatus(frame, logicalName) {
 }
 
 export async function runtimeRequestStatus(frame, path, method) {
-  if (typeof path !== "string" || !path.startsWith("/__retrom/")) {
+  const allowedPath = typeof path === "string" &&
+    (path.startsWith("/__retrom/") || path === "/api/v1/admin/reviews");
+  if (!allowedPath) {
     throw new Error("RPG_ACCEPTANCE_SECURITY_RUNTIME_PATH_INVALID");
   }
   if (!new Set(["GET", "POST"]).has(method)) {
