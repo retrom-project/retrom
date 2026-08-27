@@ -117,6 +117,12 @@ describe("UploadPicker", () => {
     expect(screen.getByText("RPG Maker 项目")).toBeVisible();
     expect(screen.getByText(/不会自动猜测或切换版本/)).toBeVisible();
 
+    await user.click(screen.getByRole("button", { name: "上一步" }));
+    expect(screen.getByRole("heading", { name: "将 RPG Maker 项目归档或目录拖到这里" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "选择项目归档" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "选择项目目录" })).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "下一步" }));
+
     await user.click(screen.getByRole("button", { name: "上传并验证 RPG Maker 项目" }));
     expect(upload.uploadFiles).toHaveBeenCalledWith(expect.any(Array), expect.any(Function), "RPG_MAKER_PROJECT");
     expect(fetchMock).toHaveBeenCalledWith("/api/v1/admin/imports", expect.objectContaining({
