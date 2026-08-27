@@ -8,7 +8,7 @@ import {
   SecurityInputBlocked, singleFile,
 } from "./rpgmaker_security_upload.mjs";
 import {
-  browserNavigationStatus, requireLocalRuntimeSite, runtimeBootstrapReplayStatus,
+  browserNavigationStatus, confusedRuntimeEntryURL, requireLocalRuntimeSite, runtimeBootstrapReplayStatus,
   runtimeFrameEligible, runtimeProjectStatus, runtimeRequestStatus,
 } from "./rpgmaker_security_runtime.mjs";
 import { normalizedBase } from "./rpgmaker_url.mjs";
@@ -658,10 +658,8 @@ async function bootstrapChecks(context, frame, config, runtimeOrigin) {
   const replayStatus = await runtimeBootstrapReplayStatus(frame, isolated.bootstrapTicket);
   const appHostEntry = await context.request.get(`${baseUrl}/__retrom/entry`, { failOnStatusCode: false });
   const runtimeApiStatus = await runtimeRequestStatus(frame, "/api/v1/admin/reviews", "GET");
-  const parsedRuntime = new URL(runtimeOrigin);
-  const suffix = parsedRuntime.hostname.slice(parsedRuntime.hostname.indexOf("."));
   const confusedHostStatus = await browserNavigationStatus(
-    context, `${parsedRuntime.protocol}//not-a-launch${suffix}/__retrom/entry`,
+    context, confusedRuntimeEntryURL(runtimeOrigin),
   );
   return {
     authenticatedReloadStatus, replayStatus,

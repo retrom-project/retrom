@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   browserNavigationStatus,
+  confusedRuntimeEntryURL,
   runtimeBootstrapReplayStatus,
   runtimeProjectStatus,
   runtimeRequestStatus,
@@ -19,6 +20,17 @@ test("runtime bootstrap and entry stay on the isolated Go origin", () => {
   assert.equal(runtimeFrameRoute(`${runtimeOrigin}/__retrom/entry`, runtimeOrigin), "RUNTIME");
   assert.equal(runtimeFrameRoute("about:blank", runtimeOrigin), "WAIT");
   assert.equal(runtimeFrameRoute("http://localhost:13004/login", runtimeOrigin), "WAIT");
+});
+
+test("confused runtime host probes retain the isolated backend port", () => {
+  assert.equal(
+    confusedRuntimeEntryURL(runtimeOrigin),
+    "http://not-a-launch.rpg.localhost:18084/__retrom/entry",
+  );
+  assert.equal(
+    confusedRuntimeEntryURL("https://01980000-0000-7000-8000-000000000001.rpg-runtime.example.com"),
+    "https://not-a-launch.rpg-runtime.example.com/__retrom/entry",
+  );
 });
 
 test("embedded EasyRPG and mkxp frames do not require a native unique origin", () => {
