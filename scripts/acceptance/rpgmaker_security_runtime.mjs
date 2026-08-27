@@ -2,6 +2,11 @@ import { SecurityInputBlocked } from "./rpgmaker_security_upload.mjs";
 
 const runtimePaths = new Set(["/__retrom/bootstrap", "/__retrom/entry"]);
 
+export function runtimeFrameEligible(frameUrl, expectedOrigin) {
+  return typeof expectedOrigin !== "string" || !expectedOrigin ||
+    runtimeFrameRoute(frameUrl, expectedOrigin) === "RUNTIME";
+}
+
 export function runtimeFrameRoute(frameUrl, expectedOrigin) {
   if (frameUrl === "about:blank") { return "WAIT"; }
   let parsed;

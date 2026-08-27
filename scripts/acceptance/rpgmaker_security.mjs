@@ -7,7 +7,7 @@ import {
   createProductClient, directoryFiles, mergeFiles, overlayFile, reviewForImport,
   SecurityInputBlocked, singleFile,
 } from "./rpgmaker_security_upload.mjs";
-import { runtimeFrameRoute } from "./rpgmaker_security_runtime.mjs";
+import { runtimeFrameEligible } from "./rpgmaker_security_runtime.mjs";
 
 const caseId = required("RETROM_RPG_CASE_ID");
 const caseDir = required("RETROM_RPG_CASE_DIR");
@@ -311,13 +311,13 @@ async function createRestoreLaunch(context, client, review, validation, screensh
 }
 
 async function waitForHarnessFrame(page, requireProbes, runtimeOrigin) {
-  if (typeof runtimeOrigin !== "string" || !runtimeOrigin) {
+  if (requireProbes && (typeof runtimeOrigin !== "string" || !runtimeOrigin)) {
     throw new Error("RPG_ACCEPTANCE_RUNTIME_ORIGIN_MISSING");
   }
   const deadline = Date.now() + 120_000;
   while (Date.now() < deadline) {
     for (const frame of page.frames()) {
-      if (frame === page.mainFrame() || runtimeFrameRoute(frame.url(), runtimeOrigin) !== "RUNTIME" ||
+      if (frame === page.mainFrame() || !runtimeFrameEligible(frame.url(), runtimeOrigin) ||
         (requireProbes && !frame.url().includes("/__retrom/entry"))) { continue; }
       const ready = await frame.evaluate((probes) => {
         const canvas = document.querySelector("canvas");
