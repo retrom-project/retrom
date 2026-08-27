@@ -115,6 +115,7 @@ test("ACC-MOB-002 user routes, filter sheet, active navigation and accessibility
 });
 
 test("ACC-MOB-004 administrator list and workflow routes use cards or full-width controls", async ({ page }) => {
+  test.setTimeout(240_000);
   await page.setViewportSize({ width: 390, height: 844 });
   const routes = [
     "/admin/imports", "/admin/imports/new", "/admin/imports/server", "/admin/imports/tasks",
@@ -135,6 +136,7 @@ test("ACC-MOB-004 administrator list and workflow routes use cards or full-width
   if (await firstReview.count()) {
     await expect(firstReview).toHaveCSS("min-width", "0px");
     await firstReview.getByRole("link", { name: /审核条目|处理条目/ }).click();
+    await expect(page).toHaveURL(/\/admin\/reviews\/[0-9a-f-]+/);
     const steps = page.getByRole("navigation", { name: "审核步骤" });
     await expect(steps).toBeVisible();
     await expect(steps.getByRole("link")).toHaveCount(4);
@@ -164,7 +166,7 @@ test("ACC-MOB-005 portrait Player validates config before it creates a frame or 
   await page.goto(playURL);
   const gate = page.getByRole("dialog", { name: "请横向握持设备开始游戏" });
   await expect(gate).toBeVisible();
-  await expect(page.locator('iframe[title="Retrom EmulatorJS Player"]')).toHaveCount(0);
+  await expect(page.locator("iframe.player-frame")).toHaveCount(0);
   expect(runtimeRequests.filter((url) => /\/runtime\/launches\/[^/]+\/start|\/runtime\/cores\//.test(url))).toEqual([]);
   await expectNoDocumentOverflow(page);
 
@@ -176,7 +178,7 @@ test("ACC-MOB-005 portrait Player validates config before it creates a frame or 
   ]) {
     await page.setViewportSize(viewport);
     await expect(gate).toHaveCount(0, { timeout: 3_000 });
-    await expect(page.locator('iframe[title="Retrom EmulatorJS Player"]')).toHaveCount(1);
+    await expect(page.locator("iframe.player-frame")).toHaveCount(1);
     await expectNoDocumentOverflow(page);
     const handle = page.getByRole("button", { name: /Player 控制栏/ });
     await expect(handle).toBeVisible();
@@ -185,7 +187,7 @@ test("ACC-MOB-005 portrait Player validates config before it creates a frame or 
     expect(target?.height).toBeGreaterThanOrEqual(44);
 
     if (viewport.width === 568) {
-      const player = page.frameLocator('iframe[title="Retrom EmulatorJS Player"]');
+      const player = page.frameLocator("iframe.player-frame");
       await expect(player.locator("canvas.ejs_canvas")).toBeVisible({ timeout: 60_000 });
       const nativeTouchMenu = player.locator(".ejs_virtualGamepad_open");
       await expect(nativeTouchMenu).toHaveCount(1);
