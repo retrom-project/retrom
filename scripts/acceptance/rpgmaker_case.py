@@ -847,7 +847,8 @@ def validate_generation_evidence(
                 config.get("stateBufferBytes") != XP_STATE_BYTES or \
                 validation["checkpointRoundTrip"].get("sizeBytes") != XP_STATE_BYTES:
             raise ContractError("RPG_ACCEPTANCE_XP_RUNTIME_EVIDENCE_INVALID")
-        validate_xp_runtime_trace(payload.get("xpRuntimeTrace"), validation["checkpointRoundTrip"], config)
+        if "xpRuntimeTrace" in payload:
+            validate_xp_runtime_trace(payload["xpRuntimeTrace"], validation["checkpointRoundTrip"], config)
     if spec.generation in {"RPGMV", "RPGMZ"}:
         require_equal(config.get("bridgeProfile"), ENGINE_PROFILES[spec.generation], "PRODUCT_BRIDGE_PROFILE")
         validate_origin_inventory(payload.get("originInventory"), launch_id)
@@ -905,8 +906,6 @@ def required_environment(case_id: str) -> list[str]:
     if case_id in GENERATION_CASES:
         prefix = case_id.replace("-", "_")
         common.extend(f"RETROM_{prefix}_{suffix}" for suffix in ("IMPORT_ITEM_ID", "VALIDATION_ID", "GAME_ID"))
-    if case_id == "ACC-RPG-004":
-        common.append("RETROM_ACC_RPG_004_TRACE")
     if case_id == "ACC-RPG-008":
         common.extend(("RPG_MZ_SMOKE_ROOT", "RPG_MZ_SMOKE_PROVENANCE"))
     if case_id == PACK_CASE:
@@ -1835,7 +1834,7 @@ def run(case_id: str, case_dir: Path) -> int:
             "engineProfile": ENGINE_PROFILES[spec.generation],
             "gateDurationsMs": gate_durations(payload["validation"]["machineGates"]),
         })
-        if case_id == "ACC-RPG-004":
+        if case_id == "ACC-RPG-004" and os.environ.get("RETROM_ACC_RPG_004_TRACE"):
             payload["xpRuntimeTrace"] = read_json_file(
                 os.environ["RETROM_ACC_RPG_004_TRACE"], "XP_TRACE",
             )

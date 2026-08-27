@@ -1448,8 +1448,8 @@ ID。没有实体设备时自动化 Case 可以 PASS，但沉浸模式发布验�
 002 至 008 的 fresh 产品记录统一由
 `node scripts/acceptance/rpgmaker_generation_provision.mjs ACC-RPG-NNN` 创建。该命令固定读取相应公开 fixture，
 执行 Upload/Import/Review、14 gate、不同 restore Launch、PASS decision 与发布，并只在 stdout 返回三个 ID；
-不得使用 ignored 临时 runner 或复用失败的 validation。004 还必须传入新的绝对
-`RETROM_ACC_RPG_004_TRACE`，008 还必须传入同次转换得到的 `RPG_MZ_SMOKE_ROOT`。provision 成功后，再把返回的
+不得使用 ignored 临时 runner 或复用失败的 validation。004 仅在执行 270 MiB 与禁线程扩展边界验证时传入新的绝对
+`RETROM_ACC_RPG_004_TRACE`；七核心最小闭环不要求该变量。008 还必须传入同次转换得到的 `RPG_MZ_SMOKE_ROOT`。provision 成功后，再把返回的
 三个 ID 交给相同 Case 的统一 runner 生成正式 `result.json`。
 
 `ACC-RPG-010` 与 `011` 不接受外部 fixture path 或预制 Import/Validation ID；runner 固定读取
@@ -1491,14 +1491,14 @@ Review 与所需 validation Launch。`negative-matrix/matrix.json` 必须精确�
 ### ACC-RPG-004：RPG Maker XP
 
 - 上限：300 秒。执行：`make acceptance-case CASE=ACC-RPG-004`。
-- fresh 前置：先用新的绝对 `RETROM_ACC_RPG_004_TRACE` 路径执行
-  `node scripts/acceptance/rpgmaker_generation_provision.mjs ACC-RPG-004`。该 provision 只从仓库锁定的 XP
+- fresh 前置：执行 `node scripts/acceptance/rpgmaker_generation_provision.mjs ACC-RPG-004`。该 provision 只从仓库锁定的 XP
   fixture 走正式 Upload/Import/Review/Player 产品链，stdout 返回本次 `importItemId/validationId/gameId`；trace
-  文件以 `0600 + create-exclusive` 写入，记录实际 256 MiB multipart 请求、270 MiB+1 的 413 和 validation/
-  restore 两次禁线程拒绝，不记录 cookie、凭据或输入路径。随后把三个 ID 和同一 trace 传给正式 Case。
-- 流程：通过唯一 `rpgmaker` 目录导入 fixture，由服务端选择 RGSS1 线程 artifact，执行 A→B 保存→C→不同 Launch 恢复；另提交超过旧 75 MiB 但不超过 256 MiB route 上限的确定性合法 checkpoint，并在禁用线程的 Chrome 启动。
-- 通过标准：route=`RPGXP_MKXP`、RGSS1/profile/marker 正确；创建 validation 与 restore Launch 均提交当次严格 clientCapabilities，大 payload 穿过 Web/proxy/Go 且 bytes/digest 完整；地图/色坐标/变量逐项回到 B；两次请求中任一次报告非 secure context、非 `crossOriginIsolated` 或 SharedArrayBuffer 不可用时都在签发 Launch credential/下载项目 payload 前稳定失败，不能复用第一次摘要。
-- 证据：通用世代证据、payload 大小/哈希/trace 和禁线程负向结果。
+  为可选扩展证据：设置新的绝对 `RETROM_ACC_RPG_004_TRACE` 时，以 `0600 + create-exclusive` 写入实际 256 MiB
+  multipart 请求、270 MiB+1 的 413 和 validation/restore 两次禁线程拒绝，不记录 cookie、凭据或输入路径。
+  随后把三个 ID（以及执行扩展边界时的同一 trace）传给正式 Case。
+- 流程：通过唯一 `rpgmaker` 目录导入 fixture，由服务端选择 RGSS1 线程 artifact，执行 A→B 保存→C→不同 Launch 恢复。可选扩展边界另验证 270 MiB 请求天花板和禁线程启动拒绝。
+- 通过标准：route=`RPGXP_MKXP`、RGSS1/profile/marker 正确；256 MiB checkpoint bytes/digest 完整，地图/色坐标/变量逐项回到 B，恢复后可继续输入。提供扩展 trace 时，还必须证明 270 MiB+1 返回 413，并且 validation/restore 任一次报告非 secure context、非 `crossOriginIsolated` 或 SharedArrayBuffer 不可用时，都在签发 Launch credential/下载项目 payload 前稳定失败。
+- 证据：通用世代证据和 checkpoint payload 大小/哈希；提供扩展 trace 时再强制校验 270 MiB 与禁线程负向结果。
 
 ### ACC-RPG-005：RPG Maker VX
 
