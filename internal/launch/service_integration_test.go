@@ -177,6 +177,7 @@ AND selected_for_new_bindings=1
 	if status, code := service.validateStaticBIOSForContent(ctx, fceummArtifactID, "Missing.fds"); status != "BLOCKED" || code != "LAUNCH_BIOS_MISSING" {
 		t.Fatalf("missing required FDS BIOS validation = %s/%s", status, code)
 	}
+	assertMissingFDSValidationFinishes(t, ctx, database.SQL, service, approved.GameID)
 	createdLaunch, err := service.Create(
 		ctx,
 		"local",
@@ -514,5 +515,76 @@ sort_order) VALUES(?,
 		ErrBlocked,
 	) {
 		t.Fatalf("case-insensitive launch logical-name collision error = %v", err)
+	}
+}
+
+func assertMissingFDSValidationFinishes(
+	t *testing.T,
+	ctx context.Context,
+	database *sql.DB,
+	service *Service,
+	sourceGameID string,
+) {
+	t.Helper()
+	const gameID = "60000000-0000-7000-8000-000000000001"
+	transaction, err := database.BeginTx(ctx, nil)
+	testassert.False(t, err != nil, err)
+	defer cleanup.Rollback(transaction)
+	if _, err := transaction.ExecContext(ctx, `PRAGMA defer_foreign_keys=ON`); err != nil {
+		t.Fatal(err)
+	}
+	statements := []struct {
+		query string
+		args  []any
+	}{
+		{`INSERT INTO game_metadata_revisions(id,game_id,title,title_initial,description,developer,publisher,genre,players,release_year,source_kind,source_ref_id,created_at_ms)
+SELECT '60000000-0000-7000-8000-000000000002',?,
+'Acceptance Missing FDS BIOS','A',description,developer,publisher,genre,players,release_year,source_kind,source_ref_id,?
+FROM game_metadata_revisions WHERE game_id=?`, []any{gameID, time.Now().UnixMilli(), sourceGameID}},
+		{`INSERT INTO game_content_revisions(id,game_id,source_kind,source_ref_id,source_manifest_json,source_manifest_digest,created_at_ms)
+SELECT '60000000-0000-7000-8000-000000000003',?,source_kind,source_ref_id,source_manifest_json,source_manifest_digest,?
+FROM game_content_revisions WHERE game_id=?`, []any{gameID, time.Now().UnixMilli(), sourceGameID}},
+		{`INSERT INTO games(id,platform_instance_id,status,current_metadata_revision_id,current_content_revision_id,search_text,version,created_at_ms,updated_at_ms)
+SELECT ?,id,'PUBLISHED','60000000-0000-7000-8000-000000000002','60000000-0000-7000-8000-000000000003',
+'acceptance missing fds bios',1,?,? FROM platform_instances WHERE catalog_template_key='nes/fceumm'`, []any{gameID, time.Now().UnixMilli(), time.Now().UnixMilli()}},
+		{`INSERT INTO game_content_files(game_content_revision_id,role,logical_name,blob_id,source_archive_blob_id,source_archive_entry_ordinal,sort_order)
+SELECT '60000000-0000-7000-8000-000000000003',role,
+CASE WHEN role='CONTENT' THEN 'Acceptance-Missing-BIOS.fds' ELSE logical_name END,
+blob_id,source_archive_blob_id,source_archive_entry_ordinal,sort_order
+FROM game_content_files WHERE game_content_revision_id=(SELECT current_content_revision_id FROM games WHERE id=?)`, []any{sourceGameID}},
+	}
+	for _, statement := range statements {
+		if _, err := transaction.ExecContext(ctx, statement.query, statement.args...); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := transaction.Commit(); err != nil {
+		t.Fatal(err)
+	}
+	pending, err := service.Create(ctx, "local", CreateRequest{
+		GameID: gameID, ReturnTo: "/games/" + gameID,
+		ClientCapabilities: Capabilities{SecureContext: true, CrossOriginIsolated: true, SharedArrayBuffer: true},
+	})
+	testassert.Falsef(t, testassert.Any(
+		func() bool { return err != nil },
+		func() bool { return pending.Status != "VALIDATION_PENDING" },
+		func() bool { return pending.JobID == "" },
+	), "missing FDS validation = %#v, error=%v", pending, err)
+	for deadline := time.Now().Add(3 * time.Second); ; {
+		var state string
+		var errorCode sql.NullString
+		if err := database.QueryRowContext(ctx, `SELECT state,error_code FROM jobs WHERE id=?`, pending.JobID).
+			Scan(&state, &errorCode); err != nil {
+			t.Fatal(err)
+		}
+		if state == "FAILED" {
+			testassert.Falsef(t, errorCode.String != "LAUNCH_BIOS_MISSING", "missing FDS error = %s", errorCode.String)
+			return
+		}
+		testassert.Falsef(t, testassert.Any(
+			func() bool { return state == "SUCCEEDED" },
+			func() bool { return time.Now().After(deadline) },
+		), "missing FDS validation state = %s/%s", state, errorCode.String)
+		time.Sleep(10 * time.Millisecond)
 	}
 }
