@@ -401,11 +401,6 @@ func writeMatrixPlan(output string) error {
 		for _, target := range cores {
 			if target.core != source.core {
 				matrixTarget := wrongCoreTarget{CoreID: target.core, ExpectedCode: "RPG_SELECTED_CORE_MISMATCH"}
-				if source.generation == "RPG2000" && target.core == "rpgmaker_2003" {
-					matrixTarget = wrongCoreTarget{
-						CoreID: target.core, Accepted: true, EvidenceConfidence: "FAMILY_ONLY",
-					}
-				}
 				targets = append(targets, matrixTarget)
 			}
 		}

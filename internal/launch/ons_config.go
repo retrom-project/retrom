@@ -137,9 +137,12 @@ func (service *Service) onsProductConfig(
 	); !exists {
 		return ONSConfig{}, ErrBlocked
 	}
-	checkpoint, err := service.onsCheckpointConfig(ctx, launchID, source.saveStateID)
-	if err != nil {
-		return ONSConfig{}, err
+	var checkpoint *ONSCheckpointRestore
+	if source.saveStateID.Valid {
+		checkpoint, err = service.onsCheckpointConfig(ctx, launchID, source.saveStateID.String)
+		if err != nil {
+			return ONSConfig{}, err
+		}
 	}
 	if err := service.activateRuntimeLaunch(ctx, launchID, source.state); err != nil {
 		return ONSConfig{}, err
@@ -196,11 +199,8 @@ WHERE launch.id=? AND launch.purpose='PRODUCT' AND artifact.runtime_family='ONS'
 func (service *Service) onsCheckpointConfig(
 	ctx context.Context,
 	launchID string,
-	saveStateID sql.NullString,
+	saveStateID string,
 ) (*ONSCheckpointRestore, error) {
-	if !saveStateID.Valid {
-		return nil, nil
-	}
 	var payloadKind string
 	err := service.database.QueryRowContext(ctx, `
 SELECT save.payload_kind FROM launch_sessions launch
@@ -209,7 +209,7 @@ WHERE launch.id=? AND save.id=? AND save.deleted_at_ms IS NULL
  AND save.game_content_revision_id=launch.game_content_revision_id
  AND save.game_variant_revision_id=launch.game_variant_revision_id
  AND save.core_artifact_id=launch.core_artifact_id
-`, launchID, saveStateID.String).Scan(&payloadKind)
+`, launchID, saveStateID).Scan(&payloadKind)
 	if errors.Is(err, sql.ErrNoRows) || payloadKind != "ONS_SAVE_BUNDLE_V1" {
 		return nil, ErrCredential
 	}

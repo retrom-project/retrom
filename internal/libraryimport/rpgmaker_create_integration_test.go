@@ -74,7 +74,7 @@ func TestCreateRPGMakerMVArchiveReachesReviewPending(t *testing.T) {
 
 	created, err := New(database.SQL, time.Now).WithBlobStore(blobs).Create(ctx, CreateRequest{
 		UploadID: upload.ID, TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(
-			t, database.SQL, "rpgmaker/rpgmaker_mv",
+			t, database.SQL, "rpgmaker/rpgmaker",
 		),
 		MetadataProvider: "HASHEOUS", ContentMode: "RPG_MAKER_PROJECT_V1", TagIDs: []string{},
 	})
@@ -98,6 +98,21 @@ WHERE item.import_job_id=?
 	if state != "REVIEW_PENDING" || code != "RPG_RUNTIME_VALIDATION_REQUIRED" || title != "fixture" ||
 		metadataProvider != "NONE" {
 		t.Fatalf("RPG review state/code/title/provider = %s/%s/%q/%s", state, code, title, metadataProvider)
+	}
+	var defaultCoreID, selectedCoreID, generation, routeKey string
+	if err := database.SQL.QueryRowContext(ctx, `
+SELECT instance.default_core_id,profile.selected_core_id,profile.generation,profile.route_key
+FROM import_items item
+JOIN review_drafts draft ON draft.import_item_id=item.id
+JOIN platform_instances instance ON instance.id=draft.target_platform_instance_id
+JOIN rpgmaker_review_profiles profile ON profile.review_draft_id=draft.id
+WHERE item.import_job_id=?
+`, created.ImportJobID).Scan(&defaultCoreID, &selectedCoreID, &generation, &routeKey); err != nil {
+		t.Fatal(err)
+	}
+	if defaultCoreID != "rpgmaker" || selectedCoreID != "rpgmaker_mv" || generation != "RPGMV" ||
+		routeKey != "RPGMV_NATIVE" {
+		t.Fatalf("virtual binding = %s/%s/%s/%s", defaultCoreID, selectedCoreID, generation, routeKey)
 	}
 	var role, nestedSHA, nestedBlobID string
 	var nestedOrdinal int

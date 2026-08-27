@@ -285,7 +285,11 @@ JOIN review_drafts d ON d.import_item_id=i.id
 JOIN import_item_source_snapshots source_snapshot ON source_snapshot.id=d.effective_source_snapshot_id
 JOIN platform_instances p ON p.id=d.target_platform_instance_id
   AND p.enabled=1 AND p.deleted_at_ms IS NULL
-JOIN core_artifacts a ON a.core_id=p.default_core_id AND a.selected_for_new_bindings=1
+LEFT JOIN rpgmaker_review_profiles rpg_binding ON rpg_binding.review_draft_id=d.id
+JOIN core_artifacts a ON a.id=CASE WHEN p.platform_id='rpgmaker' THEN rpg_binding.artifact_id ELSE (
+  SELECT selected.id FROM core_artifacts selected
+  WHERE selected.core_id=p.default_core_id AND selected.selected_for_new_bindings=1
+) END
 JOIN import_item_core_validations v ON v.id=(
   SELECT candidate.id FROM import_item_core_validations candidate
   WHERE candidate.import_item_id=i.id

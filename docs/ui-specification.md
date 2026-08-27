@@ -208,7 +208,7 @@ Next.js 入口代理必须在受保护页面开始服务端渲染前读取 `GET 
 
 ### 6.3 游戏详情
 
-RPG Maker 游戏的核心下拉框恰好展示同一 `rpgmaker` 平台下七个产品版本名：RPG Maker 2000、2003、XP、VX、VX Ace、MV、MZ；不显示 EasyRPG、mkxp、RetroArch、Nostalgist、RGSS 或 bridge。用户选择是本次普通启动的唯一版本权威，不提供“自动识别”“推荐切换”或失败 fallback。只有对应版本 Variant 为 READY 才可启动；静态 evidence 警告与运行兼容失败分别显示，不因 family-only 自动改选。
+RPG Maker 游戏不显示世代核心下拉框，只显示用户核心“RPG Maker”和服务端已检测的项目世代。普通启动使用发布时冻结的内部 route，不重新检测、不允许用户改成另一世代，也不显示 EasyRPG、mkxp、RetroArch、Nostalgist、RGSS 或 bridge。只有冻结 Variant 为 READY 才可启动；检测歧义或运行兼容失败分别显示稳定阻断原因。
 
 详情页使用一屏优先布局：面包屑下方依次是 Hero、七项信息条和“游戏存档”。在至少 `1600×1000` 的桌面 viewport 中，普通长度的 Hero 与最近 3 份存档应完整落在首屏；`2560×1440` CSS viewport（物理 4K 150%）下 Hero 贴合 3:4 封面和启动卡的实际内容高度，启动卡上下留白保持接近平衡且不得被固定高行拉出大块空白，存档以三列大截图卡片填充首屏余量。更大 viewport 使用共享页面画布，Hero 仍以固定封面列、可伸缩元信息列和有界启动列控制阅读与操作距离，不能把单行正文或启动控件无限拉长。Hero 左侧使用 3:4 封面并在下方显示基础平台/年份，中间展示基础平台/游戏目录、标题、全部活动 Tag、年份/发行商/类型、完整简介和累计游玩时长，右侧是启动卡。标签位于标题下和收藏操作上方，可换行；每个 chip 链接 `/library?tagId=<id>`，accessible name 为“查看标签‘名称’下的游戏”，长名称省略但保留 title。genre 与 Tag 分开展示，Tag 不进入七项信息条。简介不做行数截断，必须使用整个中栏宽度并允许 Hero 随内容增高；不能在 4K 下只占左侧固定宽度或依赖 hover 才看全。信息条固定展示游戏平台、游戏目录、发行年份、开发商、发行商、类型和玩家数，缺失值明确显示 `—`。
 
@@ -327,7 +327,7 @@ RPG Maker 的“创建存档”按钮使用 adapter availability 的精确禁用
 - 加载层只展示 Variant 验证/依赖物化、预检、Core/WASM、ROM、BIOS、存档恢复等进度。验证 Job 失败时退出全屏并返回来源上下文，不自动无限重建 Job。
 - 顶部 58px 深色半透明工具栏使用紧凑左右结构：左侧返回按钮先打开退出确认，随后显示完整游戏标题与“运行核心 · 基础平台”；右侧依次是存档状态、调试信息、创建存档、暂停/继续、全屏和更多操作。存档状态以绿/紫/黄状态点配合“可创建存档 / 正在上传存档 N% / 已同步 / 保存失败”等文字表达；BIOS Warning 使用独立黄色提示点，点击后显示可读原因，不能占用一整段工具栏宽度。
 - 主操作只保留“调试信息”、创建存档、暂停状态、全屏和更多菜单；“模拟器设置、查看快捷键、查看运行提醒、退出游戏”收进更多菜单，更多菜单不得重复提供顶部栏已有的“创建存档”。除调试信息与光盘菜单外，点击顶部工具栏任意位置或其中任一操作都自动暂停 EmulatorJS main loop，令 PlaySession heartbeat 标记 `paused=true`；工具栏内不能恢复，只有重新点击游戏画面区域，或在设置/弹层未占用 Player 时按 `P`，才继续运行，并在暂停画面中央明确提示“点击游戏画面继续”。EmulatorJS 原生底栏及触屏右上角的原生虚拟手柄菜单入口始终隐藏且不能被靠近边缘或画面点击自行唤出；点击“模拟器设置”显示 Retrom 自绘的居中底部工具栏，固定提供控制、显示、Core 设置、画面模式、音量、静音和收起，并把前三项桥接到当前 EmulatorJS 实例的真实设置面板。“控制”使用与文字同一 flex 基线的项目矢量图标，不能依赖会产生字体基线偏移的 emoji。画面模式固定为“清晰增强/锐利像素/增强锐化/平滑增强/原始画面”，首次使用、偏好不可读或偏好值未知时默认“锐利像素”（无 shader、像素缩放），选择即时生效并按认证用户保存在本浏览器。Core 设置切到显示设置必须真正展示 Graphics Settings 及 shader 入口。点击自绘栏或设置面板不能误恢复游戏。自绘栏和可见的原生设置面板都不提供 EmulatorJS 退出入口，退出与左侧返回统一使用 Retrom 深色影响确认窗。默认键盘完整表和联机席位差异以运行时专题为唯一事实源；UI 不把键盘映射写入 gamepad control。
-- 点击“调试信息”不暂停游戏，在屏幕右侧滑入只读诊断面板并保持顶部工具栏可见。面板以清晰分组展示 runtime 帧计数计算的 FPS、累计帧数、运行状态、画面分辨率、输入模式、隔离能力、Player 模式、viewport 与 DPR；EmulatorJS 分支另外显示 EmulatorJS/adapter 版本和锁定 artifact ID，普通 RPG Maker 分支只显示用户选择的版本核心与“RPG Maker”运行类型。RPG route、adapter、ABI 和 artifact 只出现在管理员内部诊断，不能泄露到普通 Player。关闭按钮与“调试信息”再次点击都可收起。窄视口下侧栏宽度不得超出 stage，减少动态效果时取消滑入动画；诊断数据只在当前 Player 内采样，不持久化或展示凭据、内容 hash、宿主路径。
+- 点击“调试信息”不暂停游戏，在屏幕右侧滑入只读诊断面板并保持顶部工具栏可见。面板以清晰分组展示 runtime 帧计数计算的 FPS、累计帧数、运行状态、画面分辨率、输入模式、隔离能力、Player 模式、viewport 与 DPR；EmulatorJS 分支另外显示 EmulatorJS/adapter 版本和锁定 artifact ID，普通 RPG Maker 分支只显示“RPG Maker”、检测世代与运行类型。RPG route、adapter、ABI 和 artifact 只出现在管理员内部诊断，不能泄露到普通 Player。关闭按钮与“调试信息”再次点击都可收起。窄视口下侧栏宽度不得超出 stage，减少动态效果时取消滑入动画；诊断数据只在当前 Player 内采样，不持久化或展示凭据、内容 hash、宿主路径。
 - 创建手动存档时必须先得到可恢复的非空 payload，并最佳努力生成可解码、包含实际画面的 PNG：工具栏触发暂停时先从仍在运行的下一帧采集画面，最迟 750ms 暂停并读取状态；截图即使晚于暂停完成，也必须在独立 5 秒有界窗口内继续生成并供当前保存使用，不能因暂停先完成就丢弃迟到截图。截图优先读取 core framebuffer，避免物理 4K/高 DPR 的 viewport-sized shader canvas 编码超时或暂停后 WebGL 黑帧，核心能力不可用时才回退 EmulatorJS canvas；若游戏已经暂停则复用进入暂停瞬间缓存的最后一帧。全黑或近全黑的无效采集不得作为“截图成功”的依据；所有截图路径失败时省略可选 screenshot part、显示非阻断“未生成预览图”，仍提交有效 payload。payload 与可用截图作为同一次创建提交。
 - 游戏进入运行态后，工具栏立即向上隐藏；只有鼠标进入 viewport 顶部 32 CSS px、`Tab` 导航或焦点进入工具栏时才展示，鼠标离开工具栏后立即再次隐藏。方向键、WASD、动作键、投币和开始等普通游戏键盘输入不得唤出工具栏或刷新其隐藏计时；显式按 `P` 暂停后仍按暂停态契约保持工具栏可见。暂停期间，或指针/焦点停留在工具栏、更多菜单、调试面板、设置面板和退出窗内时不得自动消失。左下角用低对比度短提示说明“移到屏幕顶部显示 Retrom 控制”；加载、上传进度、toast 和退出窗都覆盖在 stage 上方，不能改变 canvas 的可用高度。
 - `Escape` 仅退出浏览器全屏，不结束游戏。
@@ -430,7 +430,7 @@ DOM、工具栏和输入规则不受影响。
 
 ### 7.1 游戏入库
 
-当目标目录属于 RPG Maker 时，内容选择仅接受一个目录或一个 ZIP/7z，并在确认区固定显示“所选核心 RPG Maker <版本>”。预检依次显示项目根、所选版本、内容证据 `一致|仅确认 RPG2K 家族|冲突`、文件/字节数和阻断项；family-only 文案明确“将按你选择的版本运行，发布前请先运行一次游戏”，不能显示自动识别结果或替用户切目录。RPG 目标不展示 EmulatorJS/DAT 字段，改为展示当前 route artifact 的可用性和运行包需求；服务器扫描入口对 RPG 项目禁用并说明首版只支持浏览器目录/单归档。项目归档中的原始 native 文件可作为不执行的导入证据保留，但预检明确说明 Player 只发布最小 Web payload，永不执行 EXE、DLL、BAT 或 Node。选择后状态至少覆盖“等待确认、校验中、冲突阻断、准备完成”，失败原位保留稳定原因与重试入口，不要求重复上传已经成功接收的内容。
+当目标目录属于 RPG Maker 时，内容选择仅接受一个目录或一个 ZIP/7z，并在确认区固定显示“核心 RPG Maker”。预检依次显示项目根、服务端检测的世代、内容证据、文件/字节数和阻断项；无法唯一确定世代时直接拒绝，不能要求用户先猜一个版本。RPG 目标不展示 EmulatorJS/DAT 字段，改为展示检测后内部 route artifact 的可用性和运行包需求；服务器扫描入口对 RPG 项目禁用并说明首版只支持浏览器目录/单归档。项目归档中的原始 native 文件可作为不执行的导入证据保留，但预检明确说明 Player 只发布最小 Web payload，永不执行 EXE、DLL、BAT 或 Node。选择后状态至少覆盖“等待确认、校验中、冲突阻断、准备完成”，失败原位保留稳定原因与重试入口，不要求重复上传已经成功接收的内容。
 
 父级“游戏入库”进入总览页，不直接显示上传表单。总览只回答“当前入库是否健康、哪里需要处理、最近发生了什么”：
 
@@ -470,7 +470,7 @@ DOM、工具栏和输入规则不受影响。
 
 本小节中的 RPG Maker 专用段落优先于其他通用审核描述；其他出现的“第 5 秒运行截图、旧 preview、`EJS_onGameStart`、截图放行/override”都只适用于非 RPG Maker 条目。RPG 页面不得渲染这些控件或因截图解锁发布。
 
-RPG Maker 审核详情在普通“能不能发布”区增加“所选版本 / 内容校验 / 运行包 / 运行验证”四块。管理员可通过更换同一 RPG Maker 平台的另一游戏目录显式改版本；保存后生成新 runtime binding revision，旧验证清晰标为历史。pack slot 必须显示声明名、唯一 installation、missing/ambiguous 状态和“前往运行依赖”，不得把 RTP 混入 BIOS。
+RPG Maker 审核详情在普通“能不能发布”区增加“检测世代 / 内容校验 / 运行包 / 运行验证”四块。检测世代只读；无法唯一裁决时审核阻断，不提供内部 core 选择器。重新上传内容后必须重新检测并生成 runtime binding revision。pack slot 必须显示声明名、唯一 installation、missing/ambiguous 状态和“前往运行依赖”，不得把 RTP 混入 BIOS。
 
 RPG 条目的“运行游戏”不打开五秒截图 preview，而是在当前操作产生的新 Player 窗体中创建 runtime validation。创建 validation 前读取当前浏览器的 secure context/cross-origin isolation/SharedArrayBuffer 能力；当前 binding 成功取得原始 Launch ID 后，“通过并发布”立即解除置灰，管理员可根据主动运行结果决定。审核页不按 interval 轮询 validation；关闭游戏子窗体后不得继续请求，最新高级证据只在创建/恢复等主动操作或重新载入页面时读取。checkpoint 完成后的“验证恢复”动作必须再次读取浏览器能力，再创建 restore Launch，不能复用第一次摘要。可选高级区域仍严格按顺序展示 14 个 machine gate：`RUNTIME_READY`、`ENGINE_PROFILE`、`FRAMES_300`、`INPUT`、`AUDIO`、`INITIAL_POSITION_RECORDED`（A）、`SAVE_POINT_RECORDED`（B）、`CHECKPOINT_CREATED`、`POST_SAVE_STATE_DIVERGED`（C）、`ORIGINAL_LAUNCH_ENDED`、`RESTORE_STARTED`、`RESTORE_POSITION_VERIFIED`（恢复到 B）、`RESTORE_SCREENSHOT`、`RESTORE_INPUT`（恢复后真实输入位置）。位置证据同时显示 A、B、C、恢复位置和恢复后输入位置；原始与恢复 Launch ID 可作为非秘密关联信息显示，capability/cookie 不得出现。高级验证进入 `AWAITING_DECISION` 后才显示其 PASS/FAIL 决策，机器失败不得伪造成高级 PASS，但不撤销已经创建真实 Launch 的发布资格。非 RPG 条目的旧 preview/override 保持原样。
 

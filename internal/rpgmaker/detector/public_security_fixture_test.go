@@ -48,7 +48,7 @@ func TestPublicMaliciousShapeFixturesRemainDetectableWithoutExecutingNativePaylo
 	}
 }
 
-func TestPublicWrongCoreMatrixHasFortyOneMismatchesAndOneFamilyOnlyOutcome(t *testing.T) {
+func TestPublicWrongCoreMatrixHasFortyTwoMismatches(t *testing.T) {
 	t.Parallel()
 	_, filename, _, _ := runtime.Caller(0)
 	root := filepath.Clean(filepath.Join(
@@ -69,19 +69,14 @@ func TestPublicWrongCoreMatrixHasFortyOneMismatchesAndOneFamilyOnlyOutcome(t *te
 	if err != nil || json.Unmarshal(contents, &plan) != nil {
 		t.Fatalf("read public security matrix: %v", err)
 	}
-	combinations, familyOnly := 0, 0
+	combinations := 0
 	for _, source := range plan.WrongCore {
 		index := readPublicFixtureIndex(t, filepath.Join(root, source.Fixture))
 		for _, target := range source.Targets {
 			combinations++
 			profile, detectErr := Detect(target.CoreID, index)
 			if target.Accepted {
-				familyOnly++
-				if detectErr != nil || profile.Status != FamilyOnly || profile.EvidenceConfidence != ConfidenceFamilyOnly ||
-					target.EvidenceConfidence != string(ConfidenceFamilyOnly) {
-					t.Fatalf("family-only %s -> %s = %#v, error=%v", source.Fixture, target.CoreID, profile, detectErr)
-				}
-				continue
+				t.Fatalf("wrong-core target unexpectedly marked accepted: %s -> %s (%#v)", source.Fixture, target.CoreID, profile)
 			}
 			var detectionError *Error
 			if !errors.As(detectErr, &detectionError) || detectionError.Code != CodeSelectedCoreMismatch ||
@@ -90,8 +85,8 @@ func TestPublicWrongCoreMatrixHasFortyOneMismatchesAndOneFamilyOnlyOutcome(t *te
 			}
 		}
 	}
-	if combinations != 42 || familyOnly != 1 {
-		t.Fatalf("wrong-core combinations=%d family-only=%d", combinations, familyOnly)
+	if combinations != 42 {
+		t.Fatalf("wrong-core combinations=%d", combinations)
 	}
 }
 

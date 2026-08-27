@@ -56,7 +56,7 @@ func (run *creationRun) insertImport(configJSON []byte, configDigest string) err
 		run.ctx,
 		insertImportJobSQL,
 		run.importID, run.plan.request.UploadID, run.plan.request.TargetPlatformInstanceID,
-		target.instanceVersion, target.platformID, target.coreID, target.artifactID, nullable(run.plan.datID),
+		target.instanceVersion, target.platformID, target.defaultCoreID, target.artifactID, nullable(run.plan.datID),
 		run.plan.request.MetadataProvider, string(configJSON), configDigest, run.progress.state,
 		len(run.plan.groups), run.progress.runningItems, run.progress.reviewPendingItems,
 		ignored, rejected, run.now, run.now, run.completedAt,

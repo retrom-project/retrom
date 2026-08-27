@@ -275,7 +275,12 @@ SELECT import_item.state,draft.version,draft.effective_source_snapshot_id,valida
 FROM import_items import_item
 JOIN review_drafts draft ON draft.import_item_id=import_item.id
 JOIN platform_instances instance ON instance.id=draft.target_platform_instance_id
-LEFT JOIN core_artifacts artifact ON artifact.core_id=instance.default_core_id AND artifact.selected_for_new_bindings=1
+LEFT JOIN rpgmaker_review_profiles rpg_profile ON rpg_profile.review_draft_id=draft.id
+LEFT JOIN core_artifacts artifact ON artifact.id=CASE
+ WHEN instance.platform_id='rpgmaker' THEN rpg_profile.artifact_id ELSE (
+ SELECT selected.id FROM core_artifacts selected
+ WHERE selected.core_id=instance.default_core_id AND selected.selected_for_new_bindings=1
+) END
 LEFT JOIN import_item_core_validations validation ON validation.id=(
  SELECT candidate.id FROM import_item_core_validations candidate
  WHERE candidate.import_item_id=import_item.id

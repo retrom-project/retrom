@@ -57,8 +57,9 @@ while the runtime projection must never publish them. No native payload is
 executed.
 
 `negative-matrix/matrix.json` is the machine-readable source plan for 42
-selected-core combinations (41 exact mismatches and the single 2000→2003
-`FAMILY_ONLY` outcome), 13 ambiguity/safety inputs, and 70 nested-archive
+internal cross-generation combinations, all of which are exact mismatches;
+the user-facing virtual core performs the only automatic generation choice.
+The plan also contains 13 ambiguity/safety inputs and 70 nested-archive
 overlays. The latter cross seven generations with ZIP/7z/RAR/TAR/gzip detected
 both by extension and by magic. These are project files: the acceptance driver
 uploads their locked bytes through Retrom and proves they are never recursively

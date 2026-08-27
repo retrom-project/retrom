@@ -26,7 +26,7 @@ func (index memoryIndex) Open(name string) (io.ReadCloser, error) {
 	return io.NopCloser(bytes.NewReader(contents)), nil
 }
 
-func TestCoreGenerationIsFixedForEveryVisibleCore(t *testing.T) {
+func TestCoreGenerationIsFixedForEveryInternalRuntimeCore(t *testing.T) {
 	wants := map[string]Generation{
 		"rpgmaker_2000":   RPG2000,
 		"rpgmaker_2003":   RPG2003,
@@ -44,6 +44,35 @@ func TestCoreGenerationIsFixedForEveryVisibleCore(t *testing.T) {
 	}
 	_, err := GenerationForCore("rpgmaker")
 	assertErrorCode(t, err, CodeCoreUnsupported)
+}
+
+func TestVirtualCoreDetectsEveryExactGeneration(t *testing.T) {
+	tests := []struct {
+		name string
+		want Generation
+		core string
+		data memoryIndex
+	}{
+		{name: "2000", want: RPG2000, core: "rpgmaker_2000", data: rpg2KProject(0)},
+		{name: "2003", want: RPG2003, core: "rpgmaker_2003", data: rpg2KProject(2003)},
+		{name: "XP", want: RPGXP, core: "rpgmaker_xp", data: rgssProject("Data/Scripts.rxdata")},
+		{name: "VX", want: RPGVX, core: "rpgmaker_vx", data: rgssProject("Data/Scripts.rvdata")},
+		{name: "VX Ace", want: RPGVXAce, core: "rpgmaker_vx_ace", data: rgssProject("Data/Scripts.rvdata2")},
+		{name: "MV", want: RPGMV, core: "rpgmaker_mv", data: mvProject()},
+		{name: "MZ", want: RPGMZ, core: "rpgmaker_mz", data: mzProject()},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			profile, err := Detect("rpgmaker", test.data)
+			if err != nil {
+				t.Fatalf("Detect() error = %v", err)
+			}
+			if profile.SelectedCoreID != test.core || profile.ExpectedGeneration != test.want ||
+				profile.EvidenceGeneration == nil || *profile.EvidenceGeneration != test.want {
+				t.Fatalf("profile = %#v; want internal core %q generation %q", profile, test.core, test.want)
+			}
+		})
+	}
 }
 
 func TestDetectRPG2003ExactEvidence(t *testing.T) {
@@ -67,27 +96,23 @@ func TestDetectRPG2003ExactEvidenceConflictsWithSelected2000(t *testing.T) {
 	}
 }
 
-func TestDetectRPG2KFamilyOnlyEvidenceKeepsSelected2000(t *testing.T) {
+func TestDetectRPG2KWithout2003IdentifierSelects2000(t *testing.T) {
 	profile, err := Detect("rpgmaker_2000", rpg2KProject(0))
 	if err != nil {
 		t.Fatalf("Detect() error = %v", err)
 	}
-	if profile.Status != FamilyOnly || profile.EvidenceGeneration != nil || profile.EvidenceFamily != FamilyRPG2K {
+	if profile.Status != Matched || profile.EvidenceGeneration == nil ||
+		*profile.EvidenceGeneration != RPG2000 || profile.EvidenceFamily != FamilyRPG2K {
 		t.Fatalf("profile = %#v", profile)
 	}
 }
 
-func TestDetectRPG2KFamilyOnlyEvidenceKeepsSelected2003(t *testing.T) {
-	profile, err := Detect("rpgmaker_2003", rpg2KProject(0))
-	if err != nil {
-		t.Fatalf("Detect() error = %v", err)
-	}
-	if profile.Status != FamilyOnly || profile.ExpectedGeneration != RPG2003 {
-		t.Fatalf("profile = %#v", profile)
-	}
+func TestDetectRPG2KWithout2003IdentifierConflictsWithSelected2003(t *testing.T) {
+	_, err := Detect("rpgmaker_2003", rpg2KProject(0))
+	assertErrorCode(t, err, CodeSelectedCoreMismatch)
 }
 
-func TestDetectRPG2KFamilyOnlyEvidenceConflictsWithRGSSCore(t *testing.T) {
+func TestDetectRPG2KEvidenceConflictsWithRGSSCore(t *testing.T) {
 	_, err := Detect("rpgmaker_xp", rpg2KProject(0))
 	assertErrorCode(t, err, CodeSelectedCoreMismatch)
 	var detectionError *Error
@@ -124,7 +149,7 @@ func TestFileIndexUsesNFKCCaseFoldAndRejectsCollisions(t *testing.T) {
 		"map0001.lmu": []byte("map"),
 	}
 	profile, err := Detect("rpgmaker_2000", lowercase)
-	if err != nil || profile.Status != FamilyOnly {
+	if err != nil || profile.Status != Matched {
 		t.Fatalf("case-folded detection = %#v, %v", profile, err)
 	}
 	if len(profile.MarkerPaths) == 0 || profile.MarkerPaths[0] != "map0001.lmu" {

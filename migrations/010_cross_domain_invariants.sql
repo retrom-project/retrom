@@ -2608,7 +2608,7 @@ WHEN NOT EXISTS(
     ON mapping.core_id=NEW.selected_core_id AND mapping.generation=NEW.generation
   JOIN core_artifacts artifact ON artifact.id=NEW.artifact_id
   WHERE draft.id=NEW.review_draft_id AND item.state='REVIEW_PENDING' AND instance.platform_id='rpgmaker'
-    AND instance.default_core_id=NEW.selected_core_id
+    AND instance.default_core_id='rpgmaker'
     AND artifact.core_id=NEW.selected_core_id AND artifact.route_key=NEW.route_key
     AND artifact.runtime_family='RPGMAKER' AND artifact.artifact_set_sha256=NEW.artifact_set_sha256
     AND artifact.adapter_id=NEW.adapter_id
@@ -2627,7 +2627,7 @@ WHEN NOT EXISTS(
     ON mapping.core_id=NEW.selected_core_id AND mapping.generation=NEW.generation
   JOIN core_artifacts artifact ON artifact.id=NEW.artifact_id
   WHERE draft.id=NEW.review_draft_id AND item.state='REVIEW_PENDING' AND instance.platform_id='rpgmaker'
-    AND instance.default_core_id=NEW.selected_core_id
+    AND instance.default_core_id='rpgmaker'
     AND artifact.core_id=NEW.selected_core_id AND artifact.route_key=NEW.route_key
     AND artifact.runtime_family='RPGMAKER' AND artifact.artifact_set_sha256=NEW.artifact_set_sha256
     AND artifact.adapter_id=NEW.adapter_id

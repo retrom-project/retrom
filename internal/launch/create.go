@@ -65,22 +65,46 @@ func (service *Service) prepareLaunch(
 	if !validThreadCapabilities(selection.requiresThreads, request.ClientCapabilities) {
 		return launchPreparation{}, ErrBlocked
 	}
-	if selection.runtimeFamily == "RPGMAKER" {
-		contentPlan, err := service.buildRPGProductContentPlan(ctx, selection)
-		if err != nil {
-			return launchPreparation{}, err
-		}
-		return launchPreparation{contentPlan: contentPlan}, nil
+	switch selection.runtimeFamily {
+	case "RPGMAKER":
+		return service.prepareRPGLaunch(ctx, selection)
+	case "ONS":
+		return service.prepareONSLaunch(ctx, selection)
+	case "EMULATORJS":
+		return service.prepareEmulatorJSLaunch(ctx, request, selection)
+	default:
+		return launchPreparation{}, ErrBlocked
 	}
-	if selection.runtimeFamily == "ONS" {
-		contentPlan, err := service.buildONSProductContentPlan(ctx, selection)
-		if err != nil {
-			return launchPreparation{}, err
-		}
-		return launchPreparation{contentPlan: contentPlan}, nil
+}
+
+func (service *Service) prepareRPGLaunch(
+	ctx context.Context,
+	selection launchSelection,
+) (launchPreparation, error) {
+	contentPlan, err := service.buildRPGProductContentPlan(ctx, selection)
+	if err != nil {
+		return launchPreparation{}, err
 	}
-	if selection.runtimeFamily != "EMULATORJS" ||
-		service.dependencies.Versions[selection.runtimeVersion] == nil {
+	return launchPreparation{contentPlan: contentPlan}, nil
+}
+
+func (service *Service) prepareONSLaunch(
+	ctx context.Context,
+	selection launchSelection,
+) (launchPreparation, error) {
+	contentPlan, err := service.buildONSProductContentPlan(ctx, selection)
+	if err != nil {
+		return launchPreparation{}, err
+	}
+	return launchPreparation{contentPlan: contentPlan}, nil
+}
+
+func (service *Service) prepareEmulatorJSLaunch(
+	ctx context.Context,
+	request CreateRequest,
+	selection launchSelection,
+) (launchPreparation, error) {
+	if service.dependencies.Versions[selection.runtimeVersion] == nil {
 		return launchPreparation{}, ErrBlocked
 	}
 	compatibility, err := service.loadArtifactCompatibility(ctx, selection.artifactID)
@@ -211,7 +235,7 @@ AND (a.runtime_family='EMULATORJS' OR
 			&selection.savedDiscIndex, &selection.contentRevisionID, &selection.contentKind,
 			&selection.routeKey, &selection.revisionCompatibilityCode, &selection.contentLogicalName,
 		)
-	if err != nil || request.CoreID != nil && coreID != selection.selectedCore {
+	if err != nil || request.CoreID != nil && !requestedCoreMatchesSelection(coreID, selection) {
 		return launchSelection{}, ErrBlocked
 	}
 	return selection, nil
@@ -260,11 +284,14 @@ AND (a.runtime_family IN ('EMULATORJS','ONS') OR EXISTS(
   WHERE profile.game_variant_revision_id=r.id AND profile.route_key=r.route_key
     AND profile.artifact_set_sha256=a.artifact_set_sha256
     AND profile.adapter_id=a.adapter_id))
-AND v.core_id=CASE WHEN ?='' THEN pi.default_core_id ELSE ? END
+AND v.core_id=CASE
+ WHEN ?='' OR (?='rpgmaker' AND pi.platform_id='rpgmaker')
+ THEN CASE WHEN pi.platform_id='rpgmaker' THEN v.core_id ELSE pi.default_core_id END
+ ELSE ? END
 ORDER BY CASE content.role WHEN 'CONTENT' THEN 0 ELSE 1 END,content.sort_order,content.logical_name
 LIMIT 1
 `
-	if err := service.database.QueryRowContext(ctx, query, request.GameID, coreID, coreID).Scan(
+	if err := service.database.QueryRowContext(ctx, query, request.GameID, coreID, coreID, coreID).Scan(
 		&selection.variantID,
 		&selection.variantRevisionID,
 		&selection.artifactID,
@@ -304,6 +331,10 @@ LIMIT 1
 		return launchSelectionResult{retry: &created}, ensureErr
 	}
 	return launchSelectionResult{selection: selection}, nil
+}
+
+func requestedCoreMatchesSelection(coreID string, selection launchSelection) bool {
+	return coreID == selection.selectedCore || coreID == "rpgmaker" && selection.runtimeFamily == "RPGMAKER"
 }
 
 func (service *Service) currentVariantDigest(ctx context.Context, selection launchSelection) (string, error) {

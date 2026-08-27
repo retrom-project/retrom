@@ -36,7 +36,7 @@ User 状态变更、Credential/Session/Link 撤销、待用 Launch 终止与安�
 | `profiles` | 账号 Profile，字段与生命周期见 1.1；本节不再定义 seed。 |
 | `platforms` | `id PK`、`name`、`sort_order`、`enabled`、`created_at_ms/updated_at_ms`；代码 seed，运行期不创建/删除。 |
 | `cores` | `id PK`、`name`、`enabled`、`created_at_ms/updated_at_ms`；既有 35 个 EmulatorJS core 加七个 RPG Maker 版本 core。线程能力属于构件而非产品 core，不再保存 `requires_threads`。 |
-| `rpgmaker_core_generations` | `core_id PK/FK`、唯一 `generation RPG2000/RPG2003/RPGXP/RPGVX/RPGVXACE/RPGMV/RPGMZ`；只登记七个用户版本 core，数据库和编译时 registry 必须双向一一对应，不能用内容证据改写。 |
+| `rpgmaker_core_generations` | `core_id PK/FK`、唯一 `generation RPG2000/RPG2003/RPGXP/RPGVX/RPGVXACE/RPGMV/RPGMZ`；只登记七个内部运行 core，数据库和编译时 registry 必须双向一一对应。用户目录默认 core 是独立的虚拟 `rpgmaker`。 |
 | `core_artifacts` | 通用不可变运行时构件：`id PK`、`core_id FK`、非空 `route_key/runtime_family/runtime_adapter_kind/runtime_version/adapter_id/entry_path/size_bytes/manifest_sha256/artifact_set_sha256/sha256/provenance_json/compatibility_json`、`requires_threads`、`save_payload_kind`、`save_max_bytes`、`selected_for_new_bindings/available_for_launch`、`version`、`created_at_ms/updated_at_ms`、可空 `retired_at_ms`；既有 EJS 专用字段只作为 `runtime_family=EMULATORJS` 的 compatibility 投影，不再决定通用语义。family 只允许 `EMULATORJS|RPGMAKER`；kind 只允许 `EMULATORJS|EASYRPG_WEB|MKXP_LIBRETRO_WEB|NATIVE_WEB` 且必须与 family 相容。partial unique 保证 `(core_id,route_key)` 至多一个当前选择项、每个 RPG 版本 core 至多一个当前新绑定项；`selected_for_new_bindings=1` 强制 available 且未 retired。历史 artifact 可停止新绑定但只要仍受 Variant/Save 引用就必须 available，Launch 不得按“当前选择”替换它。 |
 | `platform_cores` | `(platform_id, core_id) PK`、`enabled`；默认核心和 Variant 的 core 必须引用 enabled 关系。 |
 | `platform_instances` | `id PK`、`platform_id`、`default_core_id`、`name`、规范化 `slug`、`description`、`sort_order`、`enabled`、`version`、`created_at_ms/updated_at_ms`、可空 `deleted_at_ms`、可空 `catalog_template_key`；`UNIQUE(platform_id, slug)`，另以 partial unique index 保证非空 template key 全局唯一。复合 FK 保证默认 core 存在于 PlatformCore，trigger/service 额外保证其 enabled。手动创建永远写 NULL；推荐补齐才写 `<platform_id>/<default_core_id>`，停用或软删除也保留该 key 作为不自动恢复的 tombstone。 |
@@ -392,7 +392,7 @@ Worker 顺序处理冻结 Item；每项在普通 Approve 短事务内再次验�
 
 ## 21. 推荐目录代码 catalog
 
-`platform_instances.catalog_template_key` 可空；非空值有 partial unique index。fresh DB 拥有完整 Platform/Core reference seed 但零 PlatformInstance。推荐模板由 `internal/platformcatalog` 管理，扩展名由 `internal/contentprofile` 管理；“应用推荐目录”以 UUIDv7 创建当前 35 个模板并保持幂等，其中七个是当前 `rpgmaker` 世代目录，一个是 `ons/onscripter_yuri`，clean schema 不插入实例目录。RPG Maker 虚拟核心收口会直接改写这条未发布的 clean catalog，不保留七目录兼容分支。NES profile 稳定返回 `.nes/.unf/.unif/.fds`，Arcade 共同 `.zip` 只投影一次；扩展名稳定有序且无重复。
+`platform_instances.catalog_template_key` 可空；非空值有 partial unique index。fresh DB 拥有完整 Platform/Core reference seed 但零 PlatformInstance。推荐模板由 `internal/platformcatalog` 管理，扩展名由 `internal/contentprofile` 管理；“应用推荐目录”以 UUIDv7 创建当前 29 个模板并保持幂等，其中 RPG Maker 只有 `rpgmaker/rpgmaker` 一个虚拟核心目录，另有一个 `ons/onscripter_yuri`，clean schema 不插入实例目录。七个 RPG Maker 世代 core 仅供内部 route/artifact 绑定，不进入 `platform_cores`，也不保留七目录兼容分支。NES profile 稳定返回 `.nes/.unf/.unif/.fds`，Arcade 共同 `.zip` 只投影一次；扩展名稳定有序且无重复。
 
 ## 22. Payload 生命周期、Game 墓碑与回收 Job
 
@@ -449,7 +449,7 @@ current pointer 和搜索投影；旧 revision 不回填或原地修改。沉浸
 
 ## 25. RPG Maker 内容、运行包、验证与隔离凭据
 
-RPG Maker 数据严格分成“内容能证明什么”和“用户选择如何运行”两层。`rpgmaker_content_profiles` 只描述 bytes 证据，绝不保存用户选择；`rpgmaker_variant_profiles` 才冻结由版本 core 派生的 generation 和 route。这样同一 `FAMILY_ONLY(RPG2K)` 内容可以分别经过独立验证绑定 2000 或 2003，而不会污染内容事实。
+RPG Maker 数据严格分成“用户选择虚拟核心”和“服务端检测出的内部运行绑定”两层。`platform_instances.default_core_id` 固定为用户可见的 `rpgmaker`；`rpgmaker_content_profiles` 保存 bytes 能证明的 generation，`rpgmaker_variant_profiles` 冻结由该 generation 唯一选择的内部 core、route 与 artifact。无法唯一裁决的内容在导入边界拒绝，不能通过用户选择或 fallback 改写内容事实。
 
 RPG 项目使用第 3 节的通用 V2 清单与 `RETROM_FILESET_V1` 算法，`contentKind` 固定为 `RPG_MAKER_PROJECT_V1`、所有用户项目文件的 role 固定为 `PROJECT_FILE`，最多 10,000 个文件；`rpgmaker_content_profiles.project_fingerprint` 必须逐字节等于该清单的 `filesDigest`。`source_manifest_digest` 与 `filesDigest` 不得互相代替。
 

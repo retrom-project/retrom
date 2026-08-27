@@ -21,11 +21,11 @@
 | `fbalpha2012_cps2` | `make web-e2e`、`ACC-RUN-012`、`ACC-NP-022` | `arcade-smoke/fbalpha2012_cps2/spf2xjd.zip` 与项目自有 marker-only `spf2t.zip`；Phoenix 明文程序，不含第三方 bytes | 锁定 core loader 实际要求的 child/parent 装配、审核 schema v2 `PARENT SATISFIED_EXTERNAL`、`parentUrl` 非空而 `biosUrl` 为空、程序 state marker/palette、单机两次恢复和严格 lockstep 双浏览器 checkpoint/冻结/重连；marker 父归档不被 driver 执行；重连后执行 180 帧视觉稳定窗口，双端 PNG 必须一致且非纯黑 |
 | Saturn 多盘 | `ACC-MDISC-001`–`008` | 普通测试使用确定性临时夹具 | 产品 parser、导入、发布、Launch 内容协议、Player adapter 换盘与存档恢复；当前不包含真实 ROM 的浏览器运行 |
 
-RPG Maker 每个用户可见版本核心使用一个独立完整游戏项目，不以 marker-only 文件、格式 parser 或独立引擎页面冒充产品验证：
+RPG Maker 的单一用户虚拟核心必须分别使用七个独立完整游戏项目验证七条内部世代路线，不以 marker-only 文件、格式 parser 或独立引擎页面冒充产品验证：
 
 | 版本核心 | 产品验收入口 | 合法游戏输入 | 必须证明的边界 |
 | --- | --- | --- | --- |
-| `rpgmaker_2000` | `ACC-RPG-002`、`ACC-RPG-012` | `testdata/public-roms/rpgmaker-smoke/rpg2000/`；012 的第二次导入使用同一生成源的 `rpg2000-compat/`；均为 Retrom 自有 MIT 游戏，由固定 JSON 和有界 LCF writer 确定性生成，不含 RTP | 选择 2000 核心后经上传、审核、EasyRPG Launch 和 Player 进入地图；bridge 回读 RPG2k profile，并执行 A→B 保存→C→不同 Launch 恢复 B→恢复后输入；012 用两个不同 files digest 证明新旧 artifact 绑定，不得重复上传同一内容冒充第二项目 |
+| `rpgmaker_2000` | `ACC-RPG-002`、`ACC-RPG-012` | `testdata/public-roms/rpgmaker-smoke/rpg2000/`；012 的第二次导入使用同一生成源的 `rpg2000-compat/`；均为 Retrom 自有 MIT 游戏，由固定 JSON 和有界 LCF writer 确定性生成，不含 RTP | 经用户侧虚拟核心上传后由服务端选择 2000 内部路线，审核、EasyRPG Launch 和 Player 进入地图；bridge 回读 RPG2k profile，并执行 A→B 保存→C→不同 Launch 恢复 B→恢复后输入；012 用两个不同 files digest 证明新旧 artifact 绑定，不得重复上传同一内容冒充第二项目 |
 | `rpgmaker_2003` | `ACC-RPG-003` | `testdata/public-roms/rpgmaker-smoke/rpg2003/`；同一 MIT 生成体系的独立 LCF 游戏，`ldb_id=2003`，bytes 与 marker 独立 | 证明 2003 route/engine profile，不因与 2000 共用文件形态或 runtime bytes 而 fallback；其余精确恢复门禁与 2000 相同 |
 | `rpgmaker_xp` | `ACC-RPG-004` | `testdata/public-roms/rpgmaker-smoke/rpgxp/`；Retrom 自有 MIT Ruby 程序经确定性 Marshal 4.8/zlib 生成，不含厂商默认 RGSS script/RTP | RGSS1 threaded mkxp artifact、可见可移动色块、变量、最多 256 MiB runtime state、不同 Launch 精确恢复，以及禁线程环境在下载前 fail closed |
 | `rpgmaker_vx` | `ACC-RPG-005` | `testdata/public-roms/rpgmaker-smoke/rpgvx/`；同一 MIT 源生成的独立 RGSS2 游戏 | RGSS2 route、可见画面、输入/音频和 A/B/C/restore 全字段门禁；不得以 XP/Ace profile 启动 |

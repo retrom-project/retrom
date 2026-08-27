@@ -652,7 +652,7 @@ VALUES(?,'rpgmaker_2000','RPG2000_EASYRPG_SAVE_TEST','RPGMAKER','EASYRPG_WEB','t
 	mustSaveSQL(t, fixture.database.SQL, `
 INSERT INTO platform_instances(
  id,platform_id,default_core_id,name,slug,sort_order,enabled,version,created_at_ms,updated_at_ms,catalog_template_key)
-VALUES(?,'rpgmaker','rpgmaker_2000','RPG Maker 2000 Save','rpg-maker-save-test',999,1,1,?,?,NULL)`,
+VALUES(?,'rpgmaker','rpgmaker','RPG Maker 2000 Save','rpg-maker-save-test',999,1,1,?,?,NULL)`,
 		ids["directory"], now, now)
 	mustSaveSQL(t, fixture.database.SQL, `
 INSERT INTO upload_sessions(
@@ -689,7 +689,7 @@ INSERT INTO rpgmaker_review_profiles(
  file_count,total_bytes,project_fingerprint,requirements_sha256,analysis_json,self_contained_override,
  route_key,artifact_id,artifact_set_sha256,adapter_id,adapter_abi,dependency_snapshot_sha256,
  created_at_ms,updated_at_ms)
-VALUES(?,'rpgmaker_2000','RPG2000','RPG2K',NULL,'FAMILY_ONLY',1,10,?,?,'{}',1,
+VALUES(?,'rpgmaker_2000','RPG2000','RPG2K','RPG2000','MATCHED',1,10,?,?,'{}',1,
  'RPG2000_EASYRPG_SAVE_TEST',?,?,'easyrpg-web','easy-save-abi',?,?,?)`, ids["review"],
 		strings.Repeat("5", 64), strings.Repeat("6", 64), artifactID, strings.Repeat("c", 64),
 		strings.Repeat("7", 64), now, now)
@@ -699,7 +699,7 @@ INSERT INTO rpgmaker_runtime_validations(
  project_fingerprint,core_id,generation,evidence_generation,evidence_confidence,route_key,artifact_id,
  artifact_set_sha256,adapter_id,adapter_abi,dependency_snapshot_sha256,state,machine_gates_json,
  created_at_ms,updated_at_ms,expires_at_ms)
-VALUES(?,?,1,1,?,?,'rpgmaker_2000','RPG2000',NULL,'FAMILY_ONLY','RPG2000_EASYRPG_SAVE_TEST',
+VALUES(?,?,1,1,?,?,'rpgmaker_2000','RPG2000','RPG2000','MATCHED','RPG2000_EASYRPG_SAVE_TEST',
  ?,?,'easyrpg-web','easy-save-abi',?,'CREATED','{}',?,?,?)`, validationID, ids["item"],
 		ids["snapshot"], strings.Repeat("5", 64), artifactID, strings.Repeat("c", 64),
 		strings.Repeat("7", 64), now, now, now+900_000)

@@ -134,15 +134,15 @@ SELECT state FROM upload_sessions WHERE id=?
 	}
 	var version, artifactVersion int64
 	var artifactID, compatibilityConfig string
+	target := run.plan.target
 	err := run.transaction.QueryRowContext(run.ctx, `
 SELECT pi.version,a.id,a.version,a.compatibility_json
 FROM platform_instances pi
-JOIN core_artifacts a ON a.core_id=pi.default_core_id AND a.selected_for_new_bindings=1
-WHERE pi.id=? AND pi.enabled=1 AND pi.deleted_at_ms IS NULL
-`, run.plan.request.TargetPlatformInstanceID).Scan(
+JOIN core_artifacts a ON a.id=? AND a.core_id=? AND a.selected_for_new_bindings=1
+WHERE pi.id=? AND pi.default_core_id=? AND pi.enabled=1 AND pi.deleted_at_ms IS NULL
+`, target.artifactID, target.coreID, run.plan.request.TargetPlatformInstanceID, target.defaultCoreID).Scan(
 		&version, &artifactID, &artifactVersion, &compatibilityConfig,
 	)
-	target := run.plan.target
 	if err != nil || version != target.instanceVersion || artifactID != target.artifactID ||
 		artifactVersion != target.artifactVersion ||
 		compatibilityConfigDigest(compatibilityConfig) != compatibilityConfigDigest(target.compatibilityConfig) {
@@ -157,7 +157,8 @@ func (run *creationRun) configSnapshot(biosCatalog []corevalidation.BIOSCatalogE
 		"schemaVersion": 2, "contentMode": run.plan.contentMode,
 		"platformInstanceId":      run.plan.request.TargetPlatformInstanceID,
 		"platformInstanceVersion": target.instanceVersion, "platformId": target.platformID,
-		"defaultCoreId": target.coreID, "coreArtifactId": target.artifactID,
+		"defaultCoreId": target.defaultCoreID, "resolvedCoreId": target.coreID,
+		"coreArtifactId":    target.artifactID,
 		"emulatorjsVersion": target.emulatorVersion, "coreArtifactPath": target.artifactPath,
 		"coreArtifactSha256": target.artifactSHA, "coreArtifactVersion": target.artifactVersion,
 		"compatibilityConfigDigest": compatibilityConfigDigest(target.compatibilityConfig),

@@ -53,7 +53,7 @@ Retrom 是供用户与可信朋友共享的自托管复古游戏 Web 平台。�
 - 所有私有游玩、存档和启动数据按账号 Profile 隔离；管理员没有读取他人私有数据的旁路。
 - 可选启用两人异地联机房间；manifest 精确锁定 EmulatorJS 4.2.3 的 FCEUmm、FBNeo、SNES9x、Nestopia、MAME2003、MAME2003 Plus 与 FBA2012 CPS1/CPS2 core profile，覆盖其全部合格 READY 游戏；FCEUmm 使用 prediction/rollback，其余使用严格 lockstep，均只由服务端中继输入和状态，不传输画面或音频。
 - 正式支持 35 个逐一验证的 EmulatorJS core；完整平台映射、默认目录与核心清单见第 6 节，画面证据见核心运行时验证基线。
-- 正式提供一个 `rpgmaker` 平台和七个用户可见版本核心：`rpgmaker_2000`、`rpgmaker_2003`、`rpgmaker_xp`、`rpgmaker_vx`、`rpgmaker_vx_ace`、`rpgmaker_mv`、`rpgmaker_mz`。它们经与 EmulatorJS 平级的第一方 `RetromRpgRuntime` 分别路由到 EasyRPG Web、mkxp-z libretro Web 或隔离原生 Web；用户只选择 RPG Maker 版本，不接触底层实现。
+- 正式提供一个 `rpgmaker` 平台和一个用户可见虚拟核心 `rpgmaker`。服务端根据项目的确定性 marker/格式证据选择 2000、2003、XP、VX、VX Ace、MV 或 MZ 内部 route，再经第一方 `RetromRpgRuntime` 路由到 EasyRPG Web、mkxp-z libretro Web 或隔离原生 Web；用户不需要理解世代或底层实现。
 
 一期不包含：
 
@@ -183,9 +183,9 @@ Game/MetadataRevision、内容授权、LaunchSession 与 Player Core stage。首
 SaveState 链路，取消与退出都不会自动存档。其余输入仍交给 Core。普通 Player 与联机 Player 不识别该组合，
 也不继承沉浸输入过滤。完整页面、输入和验收契约分别见 UI、运行时、HTTP、依赖与统一验收文档。
 
-### 3.14 RPG Maker 版本核心是唯一运行权威
+### 3.14 RPG Maker 虚拟核心与内部世代绑定
 
-RPG Maker 不是一个由内容自动识别后暗中分流的用户核心。游戏目录默认核心和详情页同平台核心选择器共同提供七个明确版本；导入草稿冻结所选 core，并由固定 `coreId → generation` 映射得到 expected generation。内容层只保存 bytes 能证明的 `evidence_family/evidence_generation/evidence_confidence`；它可以拒绝确凿冲突，RPG2K 只能证明家族时则保留 `FAMILY_ONLY` 警告并要求管理员主动创建一次运行 Launch，但不得改 core、改 route 或 fallback。
+RPG Maker 对用户是一个虚拟核心。导入时服务端只依据项目 bytes 的完整 marker 和格式证据判定 generation，再一次性冻结内部 core、route、artifact 与 adapter ABI；多世代完整 marker、未知格式或无法裁决的证据直接拒绝，不提供猜测性 fallback。内部 `rpgmaker_2000` 等七个 ID 只用于运行绑定与管理员诊断，不进入目录选择器或普通 Player。
 
 Player 顶层只区分 `EMULATORJS|RPGMAKER`。`RPGMAKER` 统一进入 `RetromRpgRuntime`，其内部再按已冻结 route 创建 `EASYRPG_WEB|MKXP_LIBRETRO_WEB|NATIVE_WEB` adapter；Player Shell 不包含 EasyRPG/mkxp/MV/MZ 分支。发布把内容、版本 core、generation、不可变 artifact、adapter ABI、运行包快照和管理员主动创建的运行验证 Launch 绑定为不可变 VariantRevision。Launch 只读该绑定，不重探测项目、不查询 latest，也不跨核心回退。
 
@@ -274,7 +274,7 @@ erDiagram
 
 ## 6. 平台、核心与推荐游戏目录
 
-空库 migration 只写入下表的基础平台与启用关系，最终保持零 PlatformInstance。管理员在管理页显式点击“一键创建推荐目录”后，服务按 `internal/platformcatalog` 中的 34 个 Platform/Core 模板创建当前缺失项，其中七个恰为同一 `rpgmaker` 平台下的七个版本核心；管理员之后仍可创建、重命名、换核心、停用或软删除空目录。推荐模板不定义 slug 或扩展名：slug 由服务端生成，扩展名只由基础平台的 `contentprofile` 决定。
+空库 migration 只写入下表的基础平台与启用关系，最终保持零 PlatformInstance。管理员在管理页显式点击“一键创建推荐目录”后，服务按 `internal/platformcatalog` 中的 29 个 Platform/Core 模板创建当前缺失项，其中 RPG Maker 只有 `rpgmaker/rpgmaker` 一个虚拟核心目录；管理员之后仍可创建、重命名、换核心、停用或软删除空目录。推荐模板不定义 slug 或扩展名：slug 由服务端生成，扩展名只由基础平台的 `contentprofile` 决定。
 
 | 基础平台（稳定 code） | 启用核心 | 推荐目录 → 默认核心 | 备注 |
 | --- | --- | --- | --- |
@@ -303,7 +303,7 @@ erDiagram
 | WonderSwan / Color (`wonderswan`) | `mednafen_wswan` | WonderSwan 游戏 → `mednafen_wswan` | `.ws` / `.wsc` 单文件 |
 | Master System (`mastersystem`) | `smsplus` | Master System 游戏 → `smsplus` | `.sms`；本期只建立 Master System 映射 |
 | Nintendo 3DS (`nintendo3ds`) | `azahar` | Nintendo 3DS 游戏 → `azahar` | `.3ds` / `.cci`；4.3.0-pre thread、pointer、WebGL2 |
-| RPG Maker (`rpgmaker`) | `rpgmaker_2000`、`rpgmaker_2003`、`rpgmaker_xp`、`rpgmaker_vx`、`rpgmaker_vx_ace`、`rpgmaker_mv`、`rpgmaker_mz` | RPG Maker 2000/2003/XP/VX/VX Ace/MV/MZ 游戏 → 对应版本核心 | 七个推荐目录；项目上传；用户版本选择是 route 权威，不暴露底层 adapter |
+| RPG Maker (`rpgmaker`) | 用户核心 `rpgmaker`；七个内部世代 core | RPG Maker 项目 → 服务端检测世代 → 对应内部 route | 一个推荐目录；歧义或未知世代拒绝，不暴露底层 adapter |
 
 平台和核心是代码种子/版本化配置；推荐目录是 release 代码 catalog，真正的游戏目录仍是管理员创建、重命名和调整默认核心的业务实体。catalog key 只记录模板接管/抑制状态，不把目录变成不可编辑 seed。游戏目录不是标签或多对多收藏集。
 
@@ -479,7 +479,7 @@ Agent 不得根据本总览自行省略或合并 Case，也不得用 soak、压�
 
 ## 12. 已锁定边界与后续议题
 
-以下决定均已进入一期基线，不再作为实施中的自由选择：使用 Hasheous 且不使用 ScreenScraper；DAT 只用于 Arcade 识别/依赖；Game 唯一属于游戏目录；详情页不是一级导航；正常启动一步完成并默认全屏；数据库时刻统一 Unix 毫秒 `INTEGER`；必须登录且账号 Profile 私有；一期只支持 Arcade Split / Full Non-Merged ROMset，不支持必需 CHD 和 Merged ROMset；联机是可关闭、按精确 EmulatorJS/core artifact allowlist、单进程服务端中继的非串流 rollback 且不支持存档；RPG Maker 由用户明确选择七个版本核心之一且不自动路由，MV/MZ 项目只在每 Launch 独立 runtime origin 执行，该安全例外不改变普通 app/API 的同源契约；当前设计稿的现代复古、深色侧栏和紫色主操作色是视觉基线；前后端分别构建 `retrom`/`retrom-web` 镜像但构建不启动服务；`make dev` 只运行本地进程；TLS 只由前置 NG 终结。
+以下决定均已进入一期基线，不再作为实施中的自由选择：使用 Hasheous 且不使用 ScreenScraper；DAT 只用于 Arcade 识别/依赖；Game 唯一属于游戏目录；详情页不是一级导航；正常启动一步完成并默认全屏；数据库时刻统一 Unix 毫秒 `INTEGER`；必须登录且账号 Profile 私有；一期只支持 Arcade Split / Full Non-Merged ROMset，不支持必需 CHD 和 Merged ROMset；联机是可关闭、按精确 EmulatorJS/core artifact allowlist、单进程服务端中继的非串流 rollback 且不支持存档；RPG Maker 对用户只显示一个虚拟核心并由服务端按内容证据路由到七个内部世代，MV/MZ 项目只在每 Launch 独立 runtime origin 执行，该安全例外不改变普通 app/API 的同源契约；当前设计稿的现代复古、深色侧栏和紫色主操作色是视觉基线；前后端分别构建 `retrom`/`retrom-web` 镜像但构建不启动服务；`make dev` 只运行本地进程；TLS 只由前置 NG 终结。
 
 当前八个 manifest profile 之外的核心联机、自动匹配/聊天/观战/WebRTC、MFA/外部身份、必需 CHD 和 Merged ROMset 只能作为未来版本提案，必须新增设计、威胁模型和验收 Case；一期 agent 不得把已验证 profile 扩大为任意核心都自动支持联机。
 

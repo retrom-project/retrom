@@ -106,7 +106,7 @@ func parseLDB(contents []byte) (Generation, string, error) {
 	}
 	switch ldbID {
 	case 0:
-		return "", FamilyRPG2K, nil
+		return RPG2000, FamilyRPG2K, nil
 	case 2003:
 		return RPG2003, FamilyRPG2K, nil
 	default:

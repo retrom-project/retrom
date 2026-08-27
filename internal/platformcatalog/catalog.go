@@ -9,7 +9,7 @@ import (
 	"retrom/internal/contentprofile"
 )
 
-const Version = 3
+const Version = 4
 
 var ErrInvalid = errors.New("PLATFORM_CATALOG_INVALID")
 
@@ -91,37 +91,10 @@ var current = Catalog{Version: Version, Templates: []DirectoryTemplate{
 		Key: "nintendo3ds/azahar", PlatformID: "nintendo3ds", DefaultCoreID: "azahar",
 		Name: "Nintendo 3DS 游戏", CatalogOrder: 270,
 	},
-	{
-		Key: "rpgmaker/rpgmaker_2000", PlatformID: "rpgmaker", DefaultCoreID: "rpgmaker_2000",
-		Name: "RPG Maker 2000 游戏", CatalogOrder: 280,
-	},
-	{
-		Key: "rpgmaker/rpgmaker_2003", PlatformID: "rpgmaker", DefaultCoreID: "rpgmaker_2003",
-		Name: "RPG Maker 2003 游戏", CatalogOrder: 290,
-	},
-	{
-		Key: "rpgmaker/rpgmaker_xp", PlatformID: "rpgmaker", DefaultCoreID: "rpgmaker_xp",
-		Name: "RPG Maker XP 游戏", CatalogOrder: 300,
-	},
-	{
-		Key: "rpgmaker/rpgmaker_vx", PlatformID: "rpgmaker", DefaultCoreID: "rpgmaker_vx",
-		Name: "RPG Maker VX 游戏", CatalogOrder: 310,
-	},
-	{
-		Key: "rpgmaker/rpgmaker_vx_ace", PlatformID: "rpgmaker", DefaultCoreID: "rpgmaker_vx_ace",
-		Name: "RPG Maker VX Ace 游戏", CatalogOrder: 320,
-	},
-	{
-		Key: "rpgmaker/rpgmaker_mv", PlatformID: "rpgmaker", DefaultCoreID: "rpgmaker_mv",
-		Name: "RPG Maker MV 游戏", CatalogOrder: 330,
-	},
-	{
-		Key: "rpgmaker/rpgmaker_mz", PlatformID: "rpgmaker", DefaultCoreID: "rpgmaker_mz",
-		Name: "RPG Maker MZ 游戏", CatalogOrder: 340,
-	},
+	{Key: "rpgmaker/rpgmaker", PlatformID: "rpgmaker", DefaultCoreID: "rpgmaker", Name: "RPG Maker 游戏", CatalogOrder: 280},
 	{
 		Key: "ons/onscripter_yuri", PlatformID: "ons", DefaultCoreID: "onscripter_yuri",
-		Name: "ONS 游戏", CatalogOrder: 350,
+		Name: "ONS 游戏", CatalogOrder: 290,
 	},
 }}
 

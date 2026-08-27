@@ -15,6 +15,8 @@ var coreGenerations = map[string]Generation{
 	"rpgmaker_mz":     RPGMZ,
 }
 
+const VirtualCoreID = "rpgmaker"
+
 type evidence struct {
 	generation      Generation
 	family          string
@@ -33,7 +35,19 @@ func GenerationForCore(coreID string) (Generation, error) {
 	return generation, nil
 }
 
+func CoreForGeneration(generation Generation) (string, error) {
+	for coreID, candidate := range coreGenerations {
+		if candidate == generation {
+			return coreID, nil
+		}
+	}
+	return "", newError(CodeGenerationUnsupported, "generation has no internal runtime core", nil)
+}
+
 func Detect(coreID string, source FileIndex) (Profile, error) {
+	if coreID == VirtualCoreID {
+		return detectVirtualCore(source)
+	}
 	expected, err := GenerationForCore(coreID)
 	if err != nil {
 		return Profile{}, err
@@ -57,6 +71,37 @@ func Detect(coreID string, source FileIndex) (Profile, error) {
 		return Profile{}, withExpected(detectionError, expected)
 	}
 	return resolveEvidence(coreID, expected, evidenceSet[0])
+}
+
+func detectVirtualCore(source FileIndex) (Profile, error) {
+	files, err := newCatalog(source)
+	if err != nil {
+		return Profile{}, err
+	}
+	evidenceSet, err := collectEvidence(files)
+	if err != nil {
+		return Profile{}, err
+	}
+	if len(evidenceSet) == 0 {
+		return Profile{}, newError(CodeGenerationUnsupported, "no supported generation signature", nil)
+	}
+	if len(evidenceSet) > 1 {
+		detectionError := newError(CodeGenerationAmbiguous, "multiple generation signatures are complete", nil)
+		detectionError.MarkerPaths = mergeMarkers(evidenceSet)
+		return Profile{}, detectionError
+	}
+	found := evidenceSet[0]
+	if found.generation == "" {
+		detectionError := newError(CodeGenerationAmbiguous, "RPG Maker 2000/2003 generation is not distinguishable", nil)
+		detectionError.EvidenceFamily = found.family
+		detectionError.MarkerPaths = append([]string(nil), found.markers...)
+		return Profile{}, detectionError
+	}
+	coreID, err := CoreForGeneration(found.generation)
+	if err != nil {
+		return Profile{}, err
+	}
+	return profileFromEvidence(coreID, found.generation, found, Matched, ConfidenceExact), nil
 }
 
 func collectEvidence(files *catalog) ([]evidence, error) {

@@ -72,8 +72,8 @@ SELECT (SELECT count(*) FROM platforms),
 	}
 	testassert.Falsef(t, testassert.Any(
 		func() bool { return platformCount != 27 },
-		func() bool { return coreCount != 43 },
-		func() bool { return relationCount != 46 },
+		func() bool { return coreCount != 44 },
+		func() bool { return relationCount != 40 },
 		func() bool { return directoryCount != 0 },
 	), "seed counts = %d/%d/%d/%d", platformCount, coreCount, relationCount, directoryCount)
 	assertColumns(t, database.SQL, "platform_instances", "catalog_template_key")
@@ -102,7 +102,7 @@ SELECT (SELECT count(*) FROM profiles),(SELECT count(*) FROM users),state FROM i
 		"fbneo", "fceumm", "gambatte", "genesis_plus_gx", "genesis_plus_gx_wide", "handy", "mame2003", "mame2003_plus",
 		"mednafen_ngp", "mednafen_pce", "mednafen_pcfx", "mednafen_psx_hw", "mednafen_wswan", "melonds", "mgba",
 		"mupen64plus_next", "nestopia", "onscripter_yuri", "opera", "parallel_n64", "pcsx_rearmed", "picodrive", "ppsspp", "prosystem",
-		"rpgmaker_2000", "rpgmaker_2003", "rpgmaker_mv", "rpgmaker_mz", "rpgmaker_vx", "rpgmaker_vx_ace", "rpgmaker_xp", "smsplus",
+		"rpgmaker", "rpgmaker_2000", "rpgmaker_2003", "rpgmaker_mv", "rpgmaker_mz", "rpgmaker_vx", "rpgmaker_vx_ace", "rpgmaker_xp", "smsplus",
 		"snes9x", "stella2014", "yabause",
 	}
 	testassert.Truef(t, slices.Equal(queryStrings(t, database.SQL, "SELECT id FROM cores ORDER BY id"), wantCores), "core catalog drifted")

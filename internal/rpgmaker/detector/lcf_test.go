@@ -46,7 +46,7 @@ func TestLCFMapTreeAcceptsLibLCFAdministrativeMapRecords(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Detect() error = %v", err)
 	}
-	if profile.ExpectedGeneration != RPG2000 || profile.EvidenceConfidence != ConfidenceFamilyOnly {
+	if profile.ExpectedGeneration != RPG2000 || profile.EvidenceConfidence != ConfidenceExact {
 		t.Fatalf("profile = %#v", profile)
 	}
 }
