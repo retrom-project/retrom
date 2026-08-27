@@ -271,6 +271,59 @@ describe("AdminGameManager", () => {
     expect(upload.uploadFiles).not.toHaveBeenCalled();
   });
 
+  it("uploads an RPG Maker replacement as one project and explains a generation mismatch", async () => {
+    const rpgDirectory: PlatformInstanceOption = {
+      id: "rpgmaker-games", platformId: "rpgmaker", platformName: "RPG Maker",
+      name: "RPG Maker 游戏", defaultCoreId: "rpgmaker", defaultCoreName: "RPG Maker",
+      enabled: true, importCapabilities: { contentModes: ["RPG_MAKER_PROJECT_V1"], multiDisc: null },
+    };
+    const rpgGame: AdminGame = {
+      ...game,
+      platformId: "rpgmaker",
+      platformInstance: { id: rpgDirectory.id, name: rpgDirectory.name },
+      currentContentRevisionId: "rpg-content",
+      contentRevisions: [{
+        id: "rpg-content", sourceKind: "IMPORT", sourceRefId: "rpg-import",
+        contentKind: "RPG_MAKER_PROJECT_V1", current: true, createdAtMs: 150,
+        files: [{ role: "PROJECT_FILE", logicalName: "RPG_RT.ldb", sortOrder: 0, sizeBytes: 4, sha256: "b".repeat(64) }],
+      }],
+      variants: [{
+        id: "rpg-variant", coreId: "rpgmaker_2000", coreName: "RPG Maker 2000",
+        currentRevisionId: "rpg-revision", version: 1,
+        revisions: [{
+          id: "rpg-revision", contentRevisionId: "rpg-content", coreArtifactId: "rpg-artifact",
+          datVersionId: null, status: "READY", compatibilityCode: "READY", current: true, createdAtMs: 180,
+        }],
+      }],
+    };
+    const files = [
+      directoryFile("replacement/RPG_RT.ldb", "database"),
+      directoryFile("replacement/RPG_RT.lmt", "map tree"),
+    ];
+    upload.uploadFiles.mockResolvedValue({ uploadId: "rpg-upload", uploadFileIds: ["ldb", "lmt"] });
+    upload.waitForJob.mockRejectedValue(new Error("RPG_REPLACEMENT_GENERATION_MISMATCH"));
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ jobId: "rpg-job" }), {
+      status: 202, headers: { "Content-Type": "application/json" },
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+    const user = userEvent.setup();
+    render(<AdminGameManager game={rpgGame} platformInstances={[rpgDirectory]} candidates={[]} />);
+
+    await user.click(screen.getByRole("button", { name: "替换游戏文件" }));
+    const dialog = screen.getByRole("alertdialog", { name: "替换游戏内容" });
+    expect(screen.getByText("RPG Maker 项目")).toBeVisible();
+    expect(within(dialog).getByText(/服务端会重新识别世代/)).toBeVisible();
+    await user.upload(within(dialog).getByLabelText("选择同世代 RPG Maker 项目目录"), files);
+    await user.click(within(dialog).getByRole("button", { name: "上传并替换内容" }));
+
+    await waitFor(() => expect(upload.uploadFiles).toHaveBeenCalledWith(files, expect.any(Function)));
+    const request = fetchMock.mock.calls.find(([url]) => String(url).endsWith("/content-revisions"));
+    expect(JSON.parse(String(request?.[1]?.body))).toEqual({
+      uploadId: "rpg-upload", contentMode: "RPG_MAKER_PROJECT_V1",
+    });
+    expect(await screen.findByText("替换项目属于另一个 RPG Maker 世代，当前游戏内容与存档未变更。")).toBeVisible();
+  });
+
 	it("explains that an identical ROM was rejected without reporting a replacement", async () => {
 	  upload.uploadFiles.mockResolvedValue({ uploadId: "upload-same", uploadFileIds: ["same-file"] });
 	  upload.waitForJob.mockRejectedValue(new Error("GAME_CONTENT_UNCHANGED"));

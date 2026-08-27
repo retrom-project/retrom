@@ -87,10 +87,14 @@ func (service *Service) runPreparedReplacement(
 	if err != nil {
 		var validationErr *replacementValidationError
 		if errors.As(err, &validationErr) {
-			service.fail(ctx, jobID, validationErr.code)
+			service.failTerminal(ctx, jobID, validationErr.code)
 		} else {
 			service.fail(ctx, jobID, "GAME_CONTENT_INPUT_UNAVAILABLE")
 		}
+		return
+	}
+	if prepared.rpgMaker != nil {
+		service.persistRPGMakerReplacement(ctx, jobID, snapshot, prepared, now)
 		return
 	}
 	biosSnapshot, biosStatus, biosCode, err := corevalidation.ResolveBIOS(
