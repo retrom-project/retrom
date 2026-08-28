@@ -1765,8 +1765,8 @@ Review 与所需 validation Launch。`negative-matrix/matrix.json` 必须精确�
 
 - 上限：300 秒。执行：`RETROM_ONS_SMOKE_ARCHIVE=<absolute-licensed-archive> make acceptance-case CASE=ACC-ONS-001`；同时需要公共的 `RETROM_ACCEPTANCE_BASE_URL/USERNAME/PASSWORD` 与 `RETROM_CHROME_EXECUTABLE`，基础地址必须为 HTTPS origin。
 - 流程：经正式 Upload 创建 `ONS_PROJECT_V1` Import，等待唯一 Review；打开 ONS Review Preview，聚焦真实 canvas 并发送基本键盘输入，等待第 5 秒自动截图；审核通过并发布后创建 PRODUCT Launch，再次发送输入并从 Player 创建 `ONS_SAVE_BUNDLE_V1` 存档；关闭原页面，以该存档创建 ID 不同的第二个 PRODUCT Launch，等服务端 state 响应和 runtime restore ready，再发送恢复后输入。
-- 通过标准：预览、Product 输入前后、恢复和恢复后输入共五张实际 canvas PNG 均为非黑有效画面；Product 输入前后及恢复前后输入的 RGBA digest 必须变化；自动截图后审核按钮才可通过；checkpoint payload kind、大小和服务器回执有效；原/恢复 Launch 不同；浏览器没有 page error、console error 或意外 dialog。ScriptProcessor/WebGL 性能 warning 不作为失败。
-- 证据：当次 `result.json`、`ons-product.json` 与五张 PNG。结构化证据只含非秘密产品 ID、payload kind/size、尺寸/非黑像素/RGBA digest 和错误计数，不含归档路径、文件名、游戏 bytes、账号、CSRF、cookie 或 Launch capability。该 Case 只证明锁定 `retrom-runtime` tag 与本次样本的最小兼容性，不扩大为全部 ONS 游戏兼容声明。
+- 通过标准：五次截图前都必须证明核心已把 canvas backing buffer 从浏览器默认 `300×150` 设置为实际游戏分辨率、backing/display 宽高比误差不超过 `0.01`、canvas 相对 `data-ons-runtime-surface` 的横纵中心偏差各不超过 1 px，且 canvas 已持有键盘焦点。预览、Product 输入前后、恢复和恢复后输入共五张实际 canvas PNG 均为非黑有效画面；Product 输入前后及恢复前后输入的 RGBA digest 必须变化；自动截图后审核按钮才可通过；checkpoint payload kind、大小和服务器回执有效；原/恢复 Launch 不同；浏览器没有 page error、console error 或意外 dialog。ScriptProcessor/WebGL 性能 warning 不作为失败。
+- 证据：当次 `result.json`、`ons-product.json` 与五张 PNG。结构化证据只含非秘密产品 ID、payload kind/size、canvas backing/display 尺寸、居中偏差、焦点、非黑像素、RGBA digest 和错误计数，不含归档路径、文件名、游戏 bytes、账号、CSRF、cookie 或 Launch capability。该 Case 只证明锁定 `retrom-runtime` tag 或显式本地候选与本次样本的最小兼容性；本地候选 PASS 只允许进入 runtime Release 流程，不能冒充固定 tag 的发布验收，也不扩大为全部 ONS 游戏兼容声明。
 
 ## 23. 缺陷处理与重验
 

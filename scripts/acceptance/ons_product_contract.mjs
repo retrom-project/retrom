@@ -50,8 +50,20 @@ function assertScreenshots(value) {
 }
 
 function assertScreenshot(value) {
-  if (!exactRecord(value, ["height", "nonBlackPixels", "rgbaSha256", "width"]) ||
+  if (!exactRecord(value, [
+    "backingHeight", "backingWidth", "centerOffsetXPx", "centerOffsetYPx", "displayHeight", "displayWidth",
+    "focused", "height", "nonBlackPixels", "rgbaSha256", "width",
+  ]) ||
       !Number.isSafeInteger(value.width) || value.width < 64 || !Number.isSafeInteger(value.height) || value.height < 64 ||
+      !Number.isSafeInteger(value.backingWidth) || value.backingWidth < 1 ||
+      !Number.isSafeInteger(value.backingHeight) || value.backingHeight < 1 ||
+      value.backingWidth === 300 && value.backingHeight === 150 ||
+      typeof value.displayWidth !== "number" || value.displayWidth < 64 ||
+      typeof value.displayHeight !== "number" || value.displayHeight < 64 ||
+      Math.abs(value.backingWidth / value.backingHeight - value.displayWidth / value.displayHeight) > 0.01 ||
+      typeof value.centerOffsetXPx !== "number" || value.centerOffsetXPx < 0 || value.centerOffsetXPx > 1 ||
+      typeof value.centerOffsetYPx !== "number" || value.centerOffsetYPx < 0 || value.centerOffsetYPx > 1 ||
+      value.focused !== true ||
       !Number.isSafeInteger(value.nonBlackPixels) || value.nonBlackPixels < value.width * value.height / 1000 ||
       !/^[0-9a-f]{64}$/.test(value.rgbaSha256)) {
     throw new Error("ONS_ACCEPTANCE_EVIDENCE_INVALID");

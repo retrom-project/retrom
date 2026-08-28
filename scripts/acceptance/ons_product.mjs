@@ -206,11 +206,13 @@ async function runtimeCanvas(page) {
   while (Date.now() < deadline) {
     for (const frame of page.frames()) {
       const canvas = frame.locator("canvas").first();
-      if (await canvas.isVisible().catch(() => false)) {return canvas;}
+      if (!await canvas.isVisible().catch(() => false)) {continue;}
+      const layout = await canvasLayoutEvidence(canvas).catch(() => null);
+      if (validCanvasLayout(layout)) {return canvas;}
     }
     await page.waitForTimeout(100);
   }
-  throw new Error("ONS_ACCEPTANCE_CANVAS_TIMEOUT");
+  throw new Error("ONS_ACCEPTANCE_CANVAS_LAYOUT_INVALID");
 }
 
 async function sendKeys(page, canvas, keys) {
@@ -233,8 +235,10 @@ async function createCheckpoint(page, launchId) {
 }
 
 async function screenshotEvidence(canvas, filename) {
+  const layout = await canvasLayoutEvidence(canvas);
+  if (!validCanvasLayout(layout)) {throw new Error("ONS_ACCEPTANCE_CANVAS_LAYOUT_INVALID");}
   const screenshot = await canvas.screenshot({ type: "png", path: join(screenshotsDirectory, filename) });
-  return canvas.page().evaluate(async (encoded) => {
+  const pixels = await canvas.page().evaluate(async (encoded) => {
     const binary = atob(encoded);
     const png = Uint8Array.from(binary, (character) => character.charCodeAt(0));
     const bitmap = await createImageBitmap(new Blob([png], { type: "image/png" }));
@@ -256,6 +260,39 @@ async function screenshotEvidence(canvas, filename) {
       rgbaSha256: [...digest].map((byte) => byte.toString(16).padStart(2, "0")).join(""),
     };
   }, screenshot.toString("base64"));
+  return { ...pixels, ...layout };
+}
+
+async function canvasLayoutEvidence(canvas) {
+  return canvas.evaluate((element) => {
+    if (!(element instanceof HTMLCanvasElement) || element.id !== "canvas") {return null;}
+    const surface = element.closest("[data-ons-runtime-surface]");
+    if (!(surface instanceof HTMLElement)) {return null;}
+    const canvasRect = element.getBoundingClientRect();
+    const surfaceRect = surface.getBoundingClientRect();
+    return {
+      backingWidth: element.width,
+      backingHeight: element.height,
+      centerOffsetXPx: Math.abs(
+        canvasRect.left + canvasRect.width / 2 - surfaceRect.left - surfaceRect.width / 2,
+      ),
+      centerOffsetYPx: Math.abs(
+        canvasRect.top + canvasRect.height / 2 - surfaceRect.top - surfaceRect.height / 2,
+      ),
+      focused: element.ownerDocument.activeElement === element,
+      displayWidth: canvasRect.width,
+      displayHeight: canvasRect.height,
+    };
+  });
+}
+
+function validCanvasLayout(layout) {
+  return layout !== null && Number.isSafeInteger(layout.backingWidth) && layout.backingWidth > 0 &&
+    Number.isSafeInteger(layout.backingHeight) && layout.backingHeight > 0 &&
+    (layout.backingWidth !== 300 || layout.backingHeight !== 150) &&
+    layout.displayWidth >= 64 && layout.displayHeight >= 64 &&
+    Math.abs(layout.backingWidth / layout.backingHeight - layout.displayWidth / layout.displayHeight) <= 0.01 &&
+    layout.centerOffsetXPx <= 1 && layout.centerOffsetYPx <= 1 && layout.focused === true;
 }
 
 function requireChanged(before, after, code) {

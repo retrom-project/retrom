@@ -13,6 +13,9 @@ test("rejects black frames, ineffective input, reused launches, and wrong payloa
     (value) => {value.screenshots.productAfterInput.rgbaSha256 = value.screenshots.productBeforeInput.rgbaSha256;},
     (value) => {value.ids.restoreLaunchId = value.ids.originalLaunchId;},
     (value) => {value.checkpoint.payloadKind = "RUNTIME_STATE";},
+    (value) => {value.screenshots.preview.backingWidth = 300; value.screenshots.preview.backingHeight = 150;},
+    (value) => {value.screenshots.preview.centerOffsetXPx = 2;},
+    (value) => {value.screenshots.preview.focused = false;},
   ];
   for (const mutate of mutations) {
     const value = evidence();
@@ -22,7 +25,11 @@ test("rejects black frames, ineffective input, reused launches, and wrong payloa
 });
 
 function evidence() {
-  const screenshot = (digest) => ({ width: 640, height: 480, nonBlackPixels: 20_000, rgbaSha256: digest.repeat(64) });
+  const screenshot = (digest) => ({
+    width: 1280, height: 960, nonBlackPixels: 20_000, rgbaSha256: digest.repeat(64),
+    backingWidth: 640, backingHeight: 480, displayWidth: 1280, displayHeight: 960,
+    centerOffsetXPx: 0.5, centerOffsetYPx: 0, focused: true,
+  });
   return {
     schemaVersion: 1,
     caseId: "ACC-ONS-001",
