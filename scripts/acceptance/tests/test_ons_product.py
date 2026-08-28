@@ -56,6 +56,14 @@ class ONSProductAcceptanceTests(unittest.TestCase):
         self.assertIn('import { isLocalAcceptanceHostname } from "./rpgmaker_url.mjs";', contents)
         self.assertIn('url.protocol !== "http:" || !isLocalAcceptanceHostname(url.hostname)', contents)
 
+    def test_driver_requires_the_sdl_backing_buffer_and_centered_focused_surface(self) -> None:
+        contents = DRIVER_PATH.read_text(encoding="utf-8")
+        for contract in (
+            "backingWidth", "backingHeight", "centerOffsetXPx", "centerOffsetYPx", "focused",
+            "ONS_ACCEPTANCE_CANVAS_LAYOUT_INVALID", "data-ons-runtime-surface",
+        ):
+            self.assertIn(contract, contents)
+
 
 if __name__ == "__main__":
     unittest.main()
