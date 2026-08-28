@@ -213,6 +213,26 @@ class MakefileDependencyTests(unittest.TestCase):
         makefile = (REPOSITORY_ROOT / "Makefile").read_text(encoding="utf-8")
         self.assertNotIn("reproduce-rpg-runtime", makefile)
 
+    def test_dev_can_link_an_explicit_local_runtime_after_locked_dependencies(self) -> None:
+        local_runtime = REPOSITORY_ROOT.parent / "retrom-runtime"
+        output = subprocess.run(
+            [
+                "make", "--no-print-directory", "--dry-run", "dev",
+                f"RETROM_RUNTIME_DEV_ROOT={local_runtime}",
+            ],
+            cwd=REPOSITORY_ROOT,
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout
+        self.assertLess(output.find("npm ci"), output.find("retrom_runtime_dev.py activate"), output)
+        self.assertLess(output.find("retrom_runtime_dev.py activate"), output.find("scripts/dev.sh"), output)
+        self.assertIn("npm run build", output)
+        self.assertIn("npm run package:check", output)
+        self.assertNotIn("npm run release:build", output)
+        self.assertNotIn("core:ons:build", output)
+        self.assertIn("env -u RETROM_RUNTIME_DEV_ROOT scripts/dev.sh", output)
+
     def test_ci_runs_the_structure_gate_without_warning_only_bypass(self) -> None:
         output = self.dry_run("ci")
         structure_position = output.find("scripts/quality_structure.py")

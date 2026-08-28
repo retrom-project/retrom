@@ -86,6 +86,8 @@
 - `make build-backend-image`、`make build-web-image` 和 `make build-images` 只构建/检查镜像；不得隐式执行 `docker run`、Compose、push、部署或修改运行数据。两个镜像必须使用依赖专题的同一 `io.retrom.release-input-sha256`，不得用 tag 相同冒充可组合证据。
 - 默认镜像名固定为后端 `retrom`、前端 `retrom-web`。改变默认名称属于构建契约变更，必须同步正式文档。
 - 两个应用进程只监听明文 HTTP。TLS 证书、TLS 握手、HTTP 到 HTTPS 跳转和 HSTS 由前置 NG/反向代理负责；不得在 Go 或 Next.js 应用内加入 TLS 终结能力。
+- `retrom-runtime` 的开发联调不得以“先发正式 Release”作为前置。先在相邻的独立 checkout 中按其 `AGENTS.md` 完成回归和基础门禁，再用 `RETROM_RUNTIME_DEV_ROOT=/absolute/path/to/retrom-runtime make dev` 显式链接本地 `dist`；不得为此修改 Retrom 的正式 manifest、package lock、route identity 或发布镜像输入。默认不得覆盖 core/bridge bytes；确实修改 ONS core/patch 时，先在 runtime checkout 显式运行其 core build target，再只对可删除的 fresh dev DB 设置 `RETROM_RUNTIME_DEV_INCLUDE_ASSETS=true`，不能让同一正式 artifact identity 在有引用的数据库中对应不同 bytes。
+- 本地 runtime 必须经过受影响的真实 Retrom 导入、审核预览、Launch、输入、checkpoint/恢复产品链后，才允许合并 runtime PR、打不可移动的 `v*` tag 和发布 Release；随后 Retrom 再以独立提交固定该 tag/commit/assets。正式 `deps-check`、镜像或发布门禁前必须运行 `make retrom-runtime-dev-unlink` 恢复锁定 Release，不能把本地 override 的 observed digest 当成发布证据。
 
 ## 5. 质量底线
 

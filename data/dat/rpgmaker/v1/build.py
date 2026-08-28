@@ -23,6 +23,7 @@ from typing import Any
 DAT_ROOT = Path(__file__).resolve().parent
 DEFAULT_RUNTIME_ROOT = DAT_ROOT.parents[2] / "runtime/rpgmaker/v1"
 OBSERVED_FILENAME = ".release-observed.json"
+DEV_MARKER_FILENAME = ".retrom-runtime-dev.json"
 HEX_40 = re.compile(r"^[0-9a-f]{40}$")
 SEMVER_TAG = re.compile(r"^v(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)(?:-[0-9A-Za-z.-]+)?$")
 EXPECTED_FILES = {
@@ -276,6 +277,7 @@ def publish_runtime(manifest: dict[str, Any], files: dict[str, bytes], runtime_r
 
 
 def verify_runtime(manifest: dict[str, Any], runtime_root: Path) -> None:
+    verify_dev_override(runtime_root)
     try:
         observed = json.loads((runtime_root / OBSERVED_FILENAME).read_bytes())
     except (OSError, json.JSONDecodeError) as exc:
@@ -298,6 +300,30 @@ def verify_runtime(manifest: dict[str, Any], runtime_root: Path) -> None:
             raise BuildError(f"RPG_RUNTIME_FILE_MISSING:{target.name}") from exc
         if not stat.S_ISREG(info.st_mode) or len(contents) != record["observed_size_bytes"] or digest(contents) != record["observed_sha256"]:
             raise BuildError(f"RPG_RUNTIME_FILE_MISMATCH:{target.name}")
+
+
+def verify_dev_override(runtime_root: Path) -> None:
+    marker_path = runtime_root / DEV_MARKER_FILENAME
+    if not marker_path.exists():
+        return
+    try:
+        marker = json.loads(marker_path.read_bytes())
+        configured = Path(os.environ["RETROM_RUNTIME_DEV_ROOT"]).resolve(strict=True)
+    except (KeyError, OSError, json.JSONDecodeError) as exc:
+        raise BuildError("RPG_RUNTIME_DEV_OVERRIDE_ACTIVE") from exc
+    if (
+        not isinstance(marker, dict)
+        or set(marker) != {
+            "schema_version", "source_root", "source_commit", "package_version", "overlaid_assets",
+        }
+        or marker.get("schema_version") != 1
+        or marker.get("source_root") != str(configured)
+        or not isinstance(marker.get("source_commit"), str)
+        or HEX_40.fullmatch(marker["source_commit"]) is None
+        or not isinstance(marker.get("package_version"), str)
+        or not isinstance(marker.get("overlaid_assets"), list)
+    ):
+        raise BuildError("RPG_RUNTIME_DEV_OVERRIDE_INVALID")
 
 
 def prepare(manifest: dict[str, Any], runtime_root: Path, offline: bool) -> None:

@@ -159,9 +159,13 @@ EmulatorJS 与各 libretro core 的许可证不同。manifest schema V7 的 `lic
 
 ## 7. retrom-runtime manifest、artifact 与许可
 
-浏览器运行时由独立仓库 <https://github.com/xxxsen/retrom-runtime> 维护。它拥有 EasyRPG、mkxp、Native Web、ONScripter Yuri 四类 adapter、checkpoint codec、bridge、单元测试和 tag Release；不得导入 Retrom 的上传、审核、数据库、HTTP 或权限逻辑。Retrom 只消费一个固定的 `retrom-runtime` tag，并在 `data/dat/rpgmaker/v1/manifest.json` 记录 repository、tag、精确 tag commit、aggregate bundle/metadata asset URL 和八条宿主 route。源码树、Release 和本机物化目录在同一 tag 内每类 runtime 只有一份，不保留 V3/V4/V5/V6/V7 目录、adapter alias 或平行兼容包。当前唯一 pin 是 `v0.3.5`/`014dcb0c7762900506a495c897b3af25d21ec00e`。
+浏览器运行时由独立仓库 <https://github.com/xxxsen/retrom-runtime> 维护。它拥有 EasyRPG、mkxp、Native Web、ONScripter Yuri 四类 adapter、checkpoint codec、bridge、单元测试和 tag Release；不得导入 Retrom 的上传、审核、数据库、HTTP 或权限逻辑。Retrom 只消费一个固定的 `retrom-runtime` tag，并在 `data/dat/rpgmaker/v1/manifest.json` 记录 repository、tag、精确 tag commit、aggregate bundle/metadata asset URL 和八条宿主 route。源码树、Release 和本机物化目录在同一 tag 内每类 runtime 只有一份，不保留 V3/V4/V5/V6/V7 目录、adapter alias 或平行兼容包。当前唯一 pin 是 `v0.3.5`/`f4b10dcc3c1ad7b75bc5d1031a940ead11bc91d7`。
 
 `make prepare-deps` 中的 `build.py prepare` 不是本地编译器：它先验证已有缓存是否与当前 tag/commit/metadata 和逐文件观测摘要一致；缓存不存在或损坏时，只下载该 tag 的 aggregate Release bundle 和 metadata，验证身份与文件 allowlist，再原子替换 `data/runtime/rpgmaker/v1/`。它不调用 Docker，不下载构建源码，也不比较远端 expected SHA。observed size/SHA 只用于本机缓存损坏检测、内容响应 ETag 和 artifact-set 冻结；同 tag 的准入身份是 repository/tag/tag commit/asset filename/adapter ABI。应用进程启动时只执行 `deps-check`，不联网下载。
+
+开发联调不经过临时 tag 或 Release。维护者先在独立 `retrom-runtime` 功能分支完成单元回归，然后从 Retrom 执行 `RETROM_RUNTIME_DEV_ROOT=/absolute/path/to/retrom-runtime make dev`。该显式 override 在 `web-install` 后构建并链接 checkout 的 library，默认完整保留固定 Release 的 core/bridge bytes。它不修改 Git 中的 manifest、package lock、route/runtime version、artifact identity 或镜像输入；marker 绑定 checkout 的绝对路径和 commit，路径不匹配时依赖检查拒绝复用。adapter-only 修改不得隐式调用耗时 core build。只有确实修改 ONS core、host patch 或本地 bridge 时，维护者才先在独立仓库显式执行相应 build，并在可删除的 fresh dev DB 上额外设置 `RETROM_RUNTIME_DEV_INCLUDE_ASSETS=true`；这会原子覆盖被忽略的开发 runtime 缓存，禁止在已有 artifact 引用的数据库中让同一正式 identity 对应不同 bytes。
+
+候选 runtime 必须先通过 Retrom 的真实审核预览以及 Product Launch、输入、checkpoint、不同 Launch 恢复链。通过后才合并 runtime PR、打不可移动 `v*` tag 并让 GitHub Actions 发布资产；Retrom 随后执行 `make retrom-runtime-dev-unlink` 恢复正式缓存，再用独立提交更新唯一 pin 并重跑正式依赖门禁和同一产品 Case。CI、镜像、release-input digest 与正式验收都不得把本地 override 的 observed size/SHA 当 Release 证据。
 
 route registry 与 manifest 必须双向一一对应：
 
@@ -176,7 +180,7 @@ route registry 与 manifest 必须双向一一对应：
 | `rpgmaker_mz` | `RPGMZ_NATIVE` | `native-web` | 同一 bridge，profile=`RPGMZ` |
 | `onscripter_yuri` | `ONS_YURI` | `ons-yuri-web` | 当前 tag 的 `onsyuri.js/.wasm`；checkpoint slot 999，ABI=`ons-save` |
 
-`retrom-runtime` 自身固定两个上游 fork：<https://github.com/xxxsen/Player> 与 <https://github.com/xxxsen/mkxp-z-libretro-emscripten>。上游 patch、构建和 Release workflow 留在各自仓库；Retrom 不再保存其 patch、Docker builder、source offer 或本地复现脚本。Player 的 `master` 与 mkxp wrapper 的 `main` 只做原始上游的 fast-forward 镜像，不包含 Retrom 补丁；各 fork 只保留一个当前 `retrom/<baseline>` 维护分支，并把它设为默认分支。上游有 tag 时 baseline 同时固定 tag 与解引用后的完整 commit；没有 tag 时固定完整 commit。短期 `fix/*`、`feat/*`、`build/*`、`sync/upstream-*` 从该维护分支创建并合回，Release 只从维护分支使用不可移动的 `rpg-runtime-<baseline>-rN` tag 产生；不得把补丁合入移动镜像、恢复 `retrom-web-*` tag 或保留 `runtime-clean` 等平行长期分支。新增核心时先在 `retrom-runtime` 的下一 prerelease tag 完成 adapter/测试/Release，再让 Retrom 的开发 manifest 临时指向该 tag，跑对应真实导入、Launch、存档与恢复 Case；通过后发布稳定 tag，并一次性替换 Retrom 的唯一 pin。首个稳定版本不预建“旧/新 route”或 inactive 候选。
+`retrom-runtime` 自身固定两个上游 fork：<https://github.com/xxxsen/Player> 与 <https://github.com/xxxsen/mkxp-z-libretro-emscripten>。上游 patch、构建和 Release workflow 留在各自仓库；Retrom 不再保存其 patch、Docker builder、source offer 或本地复现脚本。Player 的 `master` 与 mkxp wrapper 的 `main` 只做原始上游的 fast-forward 镜像，不包含 Retrom 补丁；各 fork 只保留一个当前 `retrom/<baseline>` 维护分支，并把它设为默认分支。上游有 tag 时 baseline 同时固定 tag 与解引用后的完整 commit；没有 tag 时固定完整 commit。短期 `fix/*`、`feat/*`、`build/*`、`sync/upstream-*` 从该维护分支创建并合回，Release 只从维护分支使用不可移动的 `rpg-runtime-<baseline>-rN` tag 产生；不得把补丁合入移动镜像、恢复 `retrom-web-*` tag 或保留 `runtime-clean` 等平行长期分支。新增或修改核心时先用上述本地 override 完成产品联调，通过后才发布新的稳定 `retrom-runtime` tag 并一次性替换 Retrom 的唯一 pin；不得为联调创建临时 prerelease、临时修改开发 manifest 或预建 inactive 候选。首个稳定版本不预建“旧/新 route”或 inactive 候选。
 
 每个 artifact 项必须包含 `coreId/routeKey/runtimeFamily/runtimeAdapterKind/runtimeVersion/adapterId/entryPath/requiresThreads/savePayloadKind/saveMaxBytes/compatibility/selectedForNewBindings/availableForLaunch`。八个 artifact 的 `runtimeVersion` 都等于当前 `retrom-runtime` tag，且全部为唯一 selected/available 行。未知 route、adapter、额外 artifact 或 manifest 漂移必须阻断 readiness；不存在默认 route、`latest` 查找或跨 core fallback。未来真实 tag 升级的数据保留策略必须在出现第二个已验证 release 时再按实际引用需求设计，不能在首版中携带虚构的历史包。
 
