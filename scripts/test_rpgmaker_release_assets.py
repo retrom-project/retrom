@@ -7,6 +7,7 @@ import copy
 import importlib.util
 import io
 import json
+import os
 import sys
 import tarfile
 import tempfile
@@ -108,6 +109,27 @@ class RPGMakerReleaseAssetTests(unittest.TestCase):
             target = root / self.manifest["runtime_files"][0]["path_in_release"]
             target.write_bytes(b"tampered")
             with self.assertRaisesRegex(BUILD.BuildError, "RPG_RUNTIME_FILE_MISMATCH"):
+                BUILD.verify_runtime(self.manifest, root)
+
+    def test_local_dev_override_requires_the_matching_explicit_checkout(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            source = Path(temporary) / "retrom-runtime"
+            source.mkdir()
+            root = Path(temporary) / "runtime"
+            with patch.object(BUILD, "download_bytes", side_effect=[metadata(self.manifest), bundle(self.manifest)]):
+                BUILD.prepare(self.manifest, root, offline=False)
+            marker = {
+                "schema_version": 1,
+                "source_root": str(source.resolve()),
+                "source_commit": "a" * 40,
+                "package_version": "0.4.0",
+                "overlaid_assets": ["runtime/ons/onsyuri.js"],
+            }
+            (root / BUILD.DEV_MARKER_FILENAME).write_text(json.dumps(marker), encoding="utf-8")
+            with patch.dict(os.environ, {}, clear=True):
+                with self.assertRaisesRegex(BUILD.BuildError, "RPG_RUNTIME_DEV_OVERRIDE_ACTIVE"):
+                    BUILD.verify_runtime(self.manifest, root)
+            with patch.dict(os.environ, {"RETROM_RUNTIME_DEV_ROOT": str(source)}):
                 BUILD.verify_runtime(self.manifest, root)
 
     def test_rejects_migration_route_and_archive_link(self) -> None:

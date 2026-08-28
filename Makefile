@@ -12,6 +12,8 @@ IMAGE_TAG ?= latest
 RETROM_DEV_CONFIG ?= $(abspath .dev-data/dev.mk)
 -include $(RETROM_DEV_CONFIG)
 
+RETROM_RUNTIME_DEV_ROOT ?=
+RETROM_RUNTIME_DEV_INCLUDE_ASSETS ?= false
 RETROM_DEPENDENCY_VERSIONS ?= 4.2.3,4.3.0-pre
 RETROM_ACTIVE_EMULATORJS_VERSION ?= 4.2.3
 RETROM_DEPENDENCY_ROOT ?= $(abspath data)
@@ -41,7 +43,7 @@ API_GO_GENERATED := internal/httpapi/generated/api.gen.go
 .PHONY: fmt fmt-check quality-structure-check install-deps install-go-formatters install-golangci-lint prepare-node prepare-e2e-browser \
 	build test lint-go backend-check web-install web-lint web-typecheck web-test web-build web-check integration-test api-generate-go api-generate api-check \
 	public-fixtures-generate public-fixtures-check web-e2e data-check prepare-deps deps-check release-input-digest ci dev build-backend-image \
-	build-web-image build-images acceptance-prepare acceptance-case acceptance-report
+	build-web-image build-images acceptance-prepare acceptance-case acceptance-report retrom-runtime-dev-link retrom-runtime-dev-unlink
 
 install-deps: install-go-formatters install-golangci-lint prepare-deps web-install prepare-e2e-browser public-fixtures-check
 	@go mod download
@@ -146,10 +148,28 @@ data-check:
 	@python3 scripts/dependencies.py data-check --versions "$(RETROM_DEPENDENCY_VERSIONS)"
 
 prepare-deps:
-	@python3 scripts/dependencies.py prepare --versions "$(RETROM_DEPENDENCY_VERSIONS)"
+	@RETROM_RUNTIME_DEV_ROOT="$(RETROM_RUNTIME_DEV_ROOT)" python3 scripts/dependencies.py prepare --versions "$(RETROM_DEPENDENCY_VERSIONS)"
 
 deps-check:
-	@python3 scripts/dependencies.py deps-check --versions "$(RETROM_DEPENDENCY_VERSIONS)"
+	@RETROM_RUNTIME_DEV_ROOT="$(RETROM_RUNTIME_DEV_ROOT)" python3 scripts/dependencies.py deps-check --versions "$(RETROM_DEPENDENCY_VERSIONS)"
+
+retrom-runtime-dev-link: prepare-node
+	@test -n "$(RETROM_RUNTIME_DEV_ROOT)" || { echo 'RETROM_RUNTIME_DEV_ROOT is required' >&2; exit 2; }
+	@test "$(RETROM_RUNTIME_DEV_INCLUDE_ASSETS)" = "false" || test "$(RETROM_RUNTIME_DEV_INCLUDE_ASSETS)" = "true" || { echo 'RETROM_RUNTIME_DEV_INCLUDE_ASSETS must be true or false' >&2; exit 2; }
+	@cd "$(RETROM_RUNTIME_DEV_ROOT)" && PATH="$(NODE_HOME)/bin:$$PATH" npm run build && PATH="$(NODE_HOME)/bin:$$PATH" npm run package:check
+	@args=(); if [[ "$(RETROM_RUNTIME_DEV_INCLUDE_ASSETS)" = "true" ]]; then args+=(--include-runtime-assets); fi; python3 scripts/retrom_runtime_dev.py activate \
+		--source "$(RETROM_RUNTIME_DEV_ROOT)" \
+		--runtime-root "$(abspath data/runtime/rpgmaker/v1)" \
+		--web-package "$(abspath web/node_modules/@xxxsen/retrom-runtime)" \
+		--manifest "$(abspath data/dat/rpgmaker/v1/manifest.json)" "$${args[@]}"
+
+retrom-runtime-dev-unlink:
+	@python3 scripts/retrom_runtime_dev.py deactivate \
+		--runtime-root "$(abspath data/runtime/rpgmaker/v1)" \
+		--web-package "$(abspath web/node_modules/@xxxsen/retrom-runtime)" \
+		--manifest "$(abspath data/dat/rpgmaker/v1/manifest.json)"
+	@RETROM_RUNTIME_DEV_ROOT= python3 data/dat/rpgmaker/v1/build.py prepare
+	@$(MAKE) web-install RETROM_RUNTIME_DEV_ROOT=
 
 release-input-digest:
 	@python3 scripts/release-input-digest.py --versions "$(RETROM_DEPENDENCY_VERSIONS)" --active "$(RETROM_ACTIVE_EMULATORJS_VERSION)"
@@ -157,6 +177,7 @@ release-input-digest:
 ci: quality-structure-check api-check backend-check web-check integration-test data-check
 
 dev: api-generate-go prepare-deps web-install
+	@if [[ -n "$(RETROM_RUNTIME_DEV_ROOT)" ]]; then $(MAKE) retrom-runtime-dev-link RETROM_RUNTIME_DEV_ROOT="$(RETROM_RUNTIME_DEV_ROOT)" RETROM_RUNTIME_DEV_INCLUDE_ASSETS="$(RETROM_RUNTIME_DEV_INCLUDE_ASSETS)"; fi
 	@RETROM_DEV_STATE_DIR="$(RETROM_DEV_STATE_DIR)" \
 	 RETROM_HTTP_ADDR="$(RETROM_HTTP_ADDR)" \
 	 RETROM_PUBLIC_ORIGIN="$(RETROM_PUBLIC_ORIGIN)" \
@@ -173,7 +194,7 @@ dev: api-generate-go prepare-deps web-install
 	 NEXT_DEV_HOST="$(NEXT_DEV_HOST)" \
 	 NEXT_DEV_PORT="$(NEXT_DEV_PORT)" \
 	 NEXT_BACKEND_ORIGIN="$(NEXT_BACKEND_ORIGIN)" \
-	 PATH="$(NODE_HOME)/bin:$$PATH" scripts/dev.sh
+	 PATH="$(NODE_HOME)/bin:$$PATH" env -u RETROM_RUNTIME_DEV_ROOT scripts/dev.sh
 
 build-backend-image: data-check
 	@scripts/build-image.sh backend "$(BACKEND_IMAGE):$(IMAGE_TAG)" "$(RETROM_DEPENDENCY_VERSIONS)" "$(RETROM_ACTIVE_EMULATORJS_VERSION)" "$(DOCKER)"
