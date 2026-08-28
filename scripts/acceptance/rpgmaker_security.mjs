@@ -19,6 +19,7 @@ const caseDir = required("RETROM_RPG_CASE_DIR");
 const baseUrl = normalizedBase(required("RETROM_ACCEPTANCE_BASE_URL"));
 const fixtureRoot = resolve("testdata/public-roms/rpgmaker-smoke");
 const matrix = JSON.parse(readFileSync(join(fixtureRoot, "negative-matrix/matrix.json"), "utf8"));
+const coreIds = matrix.wrongCore.map(({ coreId }) => coreId);
 const chromeExecutablePath = required("RETROM_CHROME_EXECUTABLE");
 const browser = await chromium.launch({ executablePath: chromeExecutablePath, headless: true });
 
@@ -726,20 +727,22 @@ function unsafeFiles(test) {
 
 async function platformInstances(client) {
   let result = await client.json("GET", "/api/v1/admin/platform-instances?platformId=rpgmaker&limit=100");
-  if ((result.items ?? []).filter((item) => item.enabled && item.defaultCoreId).length !== 7) {
+  let platforms = (result.items ?? []).filter(
+    (item) => item.enabled && item.defaultCoreId === "rpgmaker",
+  );
+  if (platforms.length !== 1) {
     await client.json("POST", "/api/v1/admin/platform-instances/recommendations/apply", {
       headers: client.writeHeaders(), data: {}, expected: 200,
     });
     result = await client.json("GET", "/api/v1/admin/platform-instances?platformId=rpgmaker&limit=100");
+    platforms = (result.items ?? []).filter(
+      (item) => item.enabled && item.defaultCoreId === "rpgmaker",
+    );
   }
-  const values = new Map();
-  for (const item of result.items ?? []) {
-    if (item.enabled && item.defaultCoreId) { values.set(item.defaultCoreId, item.id); }
-  }
-  if (values.size !== 7) {
+  if (platforms.length !== 1) {
     throw new SecurityInputBlocked("RPG_ACCEPTANCE_SECURITY_PLATFORM_INSTANCES_MISSING");
   }
-  return values;
+  return new Map(coreIds.map((coreId) => [coreId, platforms[0].id]));
 }
 
 function instance(instances, coreId) {

@@ -130,13 +130,15 @@ class EvidenceContractTests(unittest.TestCase):
         self.assertIn("RPG_ACCEPTANCE_SECURITY_APP_ORIGIN_UNRESOLVABLE", source)
         self.assertLess(source.index(resolution), source.index(login))
 
-    def test_security_driver_provisions_and_rechecks_the_seven_standard_directories(self) -> None:
+    def test_security_driver_provisions_and_rechecks_the_virtual_rpgmaker_directory(self) -> None:
         source = SECURITY_BROWSER_PATH.read_text()
         apply_call = '"POST", "/api/v1/admin/platform-instances/recommendations/apply"'
         self.assertIn(apply_call, source)
-        self.assertIn("if (values.size !== 7)", source)
+        self.assertIn('item.defaultCoreId === "rpgmaker"', source)
+        self.assertIn("if (platforms.length !== 1)", source)
+        self.assertIn("new Map(coreIds.map((coreId) => [coreId, platforms[0].id]))", source)
         self.assertIn("RPG_ACCEPTANCE_SECURITY_PLATFORM_INSTANCES_MISSING", source)
-        self.assertLess(source.index(apply_call), source.index("const values = new Map();"))
+        self.assertLess(source.index(apply_call), source.index("return new Map(coreIds.map"))
 
     def test_isolation_driver_keeps_each_restore_screenshot(self) -> None:
         source = SECURITY_BROWSER_PATH.read_text()
