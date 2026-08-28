@@ -12,7 +12,7 @@ import {
   browserNavigationStatus, confusedRuntimeEntryURL, requireLocalRuntimeSite, runtimeBootstrapReplayStatus,
   runtimeFrameEligible, runtimeProjectStatus, runtimeRequestStatus,
 } from "./rpgmaker_security_runtime.mjs";
-import { isLocalAcceptanceHostname, normalizedBase } from "./rpgmaker_url.mjs";
+import { normalizedBase } from "./rpgmaker_url.mjs";
 
 const caseId = required("RETROM_RPG_CASE_ID");
 const caseDir = required("RETROM_RPG_CASE_DIR");
@@ -51,7 +51,6 @@ try {
 }
 
 async function requireResolvableAppOrigin(origin) {
-  if (isLocalAcceptanceHostname(new URL(origin).hostname)) {return;}
   try {
     await lookup(new URL(origin).hostname);
   } catch (error) {
