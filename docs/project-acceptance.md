@@ -1640,7 +1640,8 @@ Review 与所需 validation Launch。`negative-matrix/matrix.json` 必须精确�
   `BLOCKED/RPG_ACCEPTANCE_SECURITY_RUNTIME_ORIGIN_MISROUTED` 快速结束。应用 origin 必须使用
   `http://retrom-app.rpg.localhost:<web-port>`（或同属 `rpg.localhost` site 且解析到 loopback 的等价固定 Host），不能使用 `localhost` 或
   `127.0.0.1`；否则 `*.rpg.localhost` 与应用跨 site，浏览器不会在 entry 请求
-  携带 `SameSite=Strict` capability；driver 以 `BLOCKED/RPG_ACCEPTANCE_SECURITY_RUNTIME_SITE_MISMATCH`
+  携带 `SameSite=Strict` capability。本地 driver 通过仅接受 `*.rpg.localhost`、只连接 loopback 的进程内代理提供
+  确定性解析，不依赖操作者修改 `/etc/hosts`；driver 以 `BLOCKED/RPG_ACCEPTANCE_SECURITY_RUNTIME_SITE_MISMATCH`
   快速结束。若任一本次应接受的固定 fixture
   已被该实例导入，产品会返回 `alreadyImportedItemCount>0` 且不会创建新 Review；driver 必须在尝试
   Review/validation 前以 `BLOCKED` 和 `RPG_ACCEPTANCE_SECURITY_FRESH_DATABASE_REQUIRED` 结束，不能把零
