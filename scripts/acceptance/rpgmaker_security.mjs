@@ -1,6 +1,5 @@
 #!/usr/bin/env node
 import { createHash } from "node:crypto";
-import { lookup } from "node:dns/promises";
 import { readFileSync, writeFileSync } from "node:fs";
 import { basename, join, resolve } from "node:path";
 import { chromium } from "../../web/node_modules/playwright/index.mjs";
@@ -13,6 +12,7 @@ import {
   runtimeFrameEligible, runtimeProjectStatus, runtimeRequestStatus,
 } from "./rpgmaker_security_runtime.mjs";
 import { normalizedBase } from "./rpgmaker_url.mjs";
+import { localRpgAcceptanceProxy } from "./rpgmaker_local_proxy.mjs";
 
 const caseId = required("RETROM_RPG_CASE_ID");
 const caseDir = required("RETROM_RPG_CASE_DIR");
@@ -21,11 +21,13 @@ const fixtureRoot = resolve("testdata/public-roms/rpgmaker-smoke");
 const matrix = JSON.parse(readFileSync(join(fixtureRoot, "negative-matrix/matrix.json"), "utf8"));
 const coreIds = matrix.wrongCore.map(({ coreId }) => coreId);
 const chromeExecutablePath = required("RETROM_CHROME_EXECUTABLE");
+const localProxy = await localRpgAcceptanceProxy(baseUrl);
 const browser = await chromium.launch({ executablePath: chromeExecutablePath, headless: true });
 
 try {
-  const context = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
-  await requireResolvableAppOrigin(baseUrl);
+  const context = await browser.newContext({
+    viewport: { width: 1440, height: 1000 }, ...localProxy.contextOptions,
+  });
   const loginResponse = await context.request.post(`${baseUrl}/api/v1/auth/login`, {
     headers: { Origin: baseUrl }, data: {
       username: required("RETROM_ACCEPTANCE_USERNAME"), password: required("RETROM_ACCEPTANCE_PASSWORD"),
@@ -48,17 +50,7 @@ try {
   process.exitCode = 3;
 } finally {
   await browser.close();
-}
-
-async function requireResolvableAppOrigin(origin) {
-  try {
-    await lookup(new URL(origin).hostname);
-  } catch (error) {
-    if (error && typeof error === "object" && error.code === "ENOTFOUND") {
-      throw new SecurityInputBlocked("RPG_ACCEPTANCE_SECURITY_APP_ORIGIN_UNRESOLVABLE");
-    }
-    throw error;
-  }
+  await localProxy.close();
 }
 
 async function contentSafetyCase(context, client, instances) {

@@ -121,14 +121,12 @@ class EvidenceContractTests(unittest.TestCase):
         self.assertNotIn("await page.keyboard.press(key)", source)
         self.assertIn("RPG_ACCEPTANCE_RUNTIME_ACTION_", source)
 
-    def test_security_driver_blocks_unresolvable_app_origin_before_login(self) -> None:
+    def test_security_driver_resolves_reserved_local_hosts_without_system_dns(self) -> None:
         source = SECURITY_BROWSER_PATH.read_text()
-        resolution = "await requireResolvableAppOrigin(baseUrl);"
-        login = "const loginResponse = await context.request.post"
-        self.assertIn('import { lookup } from "node:dns/promises";', source)
-        self.assertIn('error.code === "ENOTFOUND"', source)
-        self.assertIn("RPG_ACCEPTANCE_SECURITY_APP_ORIGIN_UNRESOLVABLE", source)
-        self.assertLess(source.index(resolution), source.index(login))
+        self.assertIn('import { localRpgAcceptanceProxy } from "./rpgmaker_local_proxy.mjs";', source)
+        self.assertIn("const localProxy = await localRpgAcceptanceProxy(baseUrl);", source)
+        self.assertIn("...localProxy.contextOptions", source)
+        self.assertIn("await localProxy.close();", source)
 
     def test_security_driver_provisions_and_rechecks_the_virtual_rpgmaker_directory(self) -> None:
         source = SECURITY_BROWSER_PATH.read_text()
