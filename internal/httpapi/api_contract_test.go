@@ -50,7 +50,7 @@ func TestOpenAPIValidationAllowsRetromRuntimeAndProjectFiles(t *testing.T) {
 		runtimeResponse,
 		httptest.NewRequestWithContext(
 			context.Background(), http.MethodGet,
-			"/runtime/retrom-runtime/v0.3.6/easyrpg-player.js", nil,
+			"/runtime/retrom-runtime/v0.3.7/easyrpg-player.js", nil,
 		),
 	)
 	testassert.Falsef(
