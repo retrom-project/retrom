@@ -16,6 +16,8 @@ import (
 
 	"retrom/internal/cleanup"
 	"retrom/internal/libraryimport"
+	"retrom/internal/rpgmaker/detector"
+	"retrom/internal/rpgmaker/routing"
 	retromruntime "retrom/internal/runtime"
 	"retrom/internal/testsupport"
 )
@@ -286,6 +288,10 @@ VALUES(?,?,10,?,?,?,'application/octet-stream',?)`, blob.id, blob.sha, strings.R
 			strings.Repeat("b", 40), strings.Repeat("c", 8), now)
 	}
 	artifactSet := strings.Repeat("5", 64)
+	currentRoute, err := routing.Current("rpgmaker_2000", detector.RPG2000)
+	if err != nil {
+		t.Fatal(err)
+	}
 	mustRPGLaunchSQL(t, database, `
 INSERT INTO core_artifacts(
  id,core_id,route_key,runtime_family,runtime_adapter_kind,runtime_version,adapter_id,entry_path,
@@ -293,8 +299,9 @@ INSERT INTO core_artifacts(
  save_max_bytes,provenance_json,compatibility_json,selected_for_new_bindings,available_for_launch,
  version,created_at_ms,updated_at_ms)
 VALUES('rpg-artifact','rpgmaker_2000','RPG2000_EASYRPG','RPGMAKER','EASYRPG_WEB',
- 'v0.3.7','easyrpg-web','runtime/easyrpg.js',1,?,?,?,0,'NATIVE_SAVE_BUNDLE_V1',
- 67108864,'{}','{}',1,1,1,?,?)`, strings.Repeat("6", 64), strings.Repeat("7", 64), artifactSet, now, now)
+ ?,'easyrpg-web','runtime/easyrpg.js',1,?,?,?,0,'NATIVE_SAVE_BUNDLE_V1',
+ 67108864,'{}','{}',1,1,1,?,?)`, currentRoute.RuntimeVersion,
+		strings.Repeat("6", 64), strings.Repeat("7", 64), artifactSet, now, now)
 	mustRPGLaunchSQL(t, database, `
 INSERT INTO platform_instances(
  id,platform_id,default_core_id,name,slug,sort_order,enabled,version,created_at_ms,updated_at_ms)

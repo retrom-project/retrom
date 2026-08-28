@@ -79,7 +79,7 @@ func TestSupportsContentKindRequiresExplicitCompatibilityV3(t *testing.T) {
 		func() bool { return SupportsContentKind(`{"schemaVersion":2}`, "SINGLE_FILE") },
 		func() bool { return SupportsContentKind(saturnCompatibility, "UNKNOWN") },
 		func() bool { return !SupportsContentKind(`{"adapterAbi":"easyrpg-save"}`, ModeRPGMakerProjectV1) },
-		func() bool { return !SupportsContentKind(`{"adapterAbi":"mkxp-state"}`, ModeRPGMakerProjectV1) },
+		func() bool { return !SupportsContentKind(`{"adapterAbi":"mkxp-state-compact"}`, ModeRPGMakerProjectV1) },
 		func() bool { return !SupportsContentKind(`{"adapterAbi":"native-save"}`, ModeRPGMakerProjectV1) },
 		func() bool { return SupportsContentKind(`{"adapterAbi":"emulatorjs-state-v1"}`, ModeRPGMakerProjectV1) },
 		func() bool { return SupportsContentKind(`not-json`, ModeRPGMakerProjectV1) },

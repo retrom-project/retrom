@@ -159,7 +159,7 @@ EmulatorJS 与各 libretro core 的许可证不同。manifest schema V7 的 `lic
 
 ## 7. retrom-runtime manifest、artifact 与许可
 
-浏览器运行时由独立仓库 <https://github.com/xxxsen/retrom-runtime> 维护。它拥有 EasyRPG、mkxp、Native Web、ONScripter Yuri 四类 adapter、checkpoint codec、bridge、单元测试和 tag Release；不得导入 Retrom 的上传、审核、数据库、HTTP 或权限逻辑。Retrom 只消费一个固定的 `retrom-runtime` tag，并在 `data/dat/rpgmaker/v1/manifest.json` 记录 repository、tag、精确 tag commit、aggregate bundle/metadata asset URL 和八条宿主 route。源码树、Release 和本机物化目录在同一 tag 内每类 runtime 只有一份，不保留 V3/V4/V5/V6/V7 目录、adapter alias 或平行兼容包。当前唯一 pin 是 `v0.3.7`/`41789decb9e8aeaf89be266831df672abb7276a0`。
+浏览器运行时由独立仓库 <https://github.com/xxxsen/retrom-runtime> 维护。它拥有 EasyRPG、mkxp、Native Web、ONScripter Yuri 四类 adapter、checkpoint codec、bridge、单元测试和 tag Release；不得导入 Retrom 的上传、审核、数据库、HTTP 或权限逻辑。Retrom 只消费一个固定的 `retrom-runtime` tag，并在 `data/dat/rpgmaker/v1/manifest.json` 记录 repository、tag、精确 tag commit、aggregate bundle/metadata asset URL 和八条宿主 route。源码树、Release 和本机物化目录在同一 tag 内每类 runtime 只有一份，不保留 V3/V4/V5/V6/V7 目录、adapter alias 或平行兼容包。当前唯一 pin 是 `v0.4.0`/`3d324deff82e40ad5daefe898ad292a6c3bd4a8f`。
 
 `make prepare-deps` 中的 `build.py prepare` 不是本地编译器：它先验证已有缓存是否与当前 tag/commit/metadata 和逐文件观测摘要一致；缓存不存在或损坏时，只下载该 tag 的 aggregate Release bundle 和 metadata，验证身份与文件 allowlist，再原子替换 `data/runtime/rpgmaker/v1/`。它不调用 Docker，不下载构建源码，也不比较远端 expected SHA。observed size/SHA 只用于本机缓存损坏检测、内容响应 ETag 和 artifact-set 冻结；同 tag 的准入身份是 repository/tag/tag commit/asset filename/adapter ABI。应用进程启动时只执行 `deps-check`，不联网下载。
 

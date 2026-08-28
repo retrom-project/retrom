@@ -311,7 +311,8 @@ function observeCheckpointUpload(page) {
 
 function bindCheckpointUpload(observed, checkpoint) {
   if (caseId !== "ACC-RPG-004") { return null; }
-  if (!observed || observed.responseStatus !== 201 || checkpoint?.sizeBytes !== 268_435_456
+  if (!observed || observed.responseStatus !== 201 || !Number.isSafeInteger(checkpoint?.sizeBytes)
+      || checkpoint.sizeBytes <= 24 || checkpoint.sizeBytes >= 268_435_456
       || !/^[0-9a-f]{64}$/.test(checkpoint.sha256 ?? "")) {
     throw new Error("RPG_PROVISION_CHECKPOINT_UPLOAD_INVALID");
   }
@@ -438,7 +439,17 @@ async function openPlayer(context, playerUrl) {
 
 async function runtimeAction(page, label, keys, timeout = 120_000) {
   const button = page.getByRole("button", { name: label, exact: true });
-  await button.waitFor({ state: "visible", timeout });
+  try {
+    await button.waitFor({ state: "visible", timeout });
+  } catch {
+    const diagnostics = {
+      alerts: (await page.getByRole("alert").allInnerTexts()).map(trimDiagnostic).slice(0, 5),
+      loading: (await page.locator(".player-loading").allInnerTexts()).map(trimDiagnostic).slice(0, 3),
+      pageErrors: (page.__retromPageErrors ?? []).map(trimDiagnostic).slice(0, 5),
+      statuses: (await page.getByRole("status").allInnerTexts()).map(trimDiagnostic).slice(0, 10),
+    };
+    throw new Error(`RPG_PROVISION_RUNTIME_ACTION_UNAVAILABLE_${label}:${JSON.stringify(diagnostics)}`);
+  }
   const canvas = await focusRuntimeCanvas(page);
   for (const key of keys) {
     await canvas.press(key, { delay: 250 });
@@ -448,6 +459,10 @@ async function runtimeAction(page, label, keys, timeout = 120_000) {
   await page.waitForTimeout(500);
   const alerts = (await page.getByRole("alert").allInnerTexts()).map((value) => value.trim()).filter(Boolean);
   if (alerts.length) { throw new Error(`RPG_PROVISION_RUNTIME_ACTION_${label}:${alerts[0]}`); }
+}
+
+function trimDiagnostic(value) {
+  return String(value).trim().slice(0, 600);
 }
 
 async function focusRuntimeCanvas(page) {
