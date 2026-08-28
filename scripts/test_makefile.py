@@ -231,6 +231,7 @@ class MakefileDependencyTests(unittest.TestCase):
         self.assertIn("npm run package:check", output)
         self.assertNotIn("npm run release:build", output)
         self.assertNotIn("core:ons:build", output)
+        self.assertIn('NEXT_DIST_DIR=".next-runtime-dev"', output)
         self.assertIn("env -u RETROM_RUNTIME_DEV_ROOT scripts/dev.sh", output)
 
     def test_ci_runs_the_structure_gate_without_warning_only_bypass(self) -> None:

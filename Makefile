@@ -30,6 +30,7 @@ RETROM_NETPLAY_MAX_ACTIVE_ROOMS ?= 16
 NEXT_DEV_HOST ?= 0.0.0.0
 NEXT_DEV_PORT ?= 3000
 NEXT_BACKEND_ORIGIN ?= http://$(RETROM_HTTP_ADDR)
+NEXT_DEV_DIST_DIR ?= $(if $(strip $(RETROM_RUNTIME_DEV_ROOT)),.next-runtime-dev,.next)
 NODE_HOME := $(abspath .cache/tools/node-v24.18.0-linux-x64)
 NPM := PATH="$(NODE_HOME)/bin:$$PATH" npm
 PLAYWRIGHT_BROWSERS_PATH ?= $(abspath .cache/tools/ms-playwright)
@@ -194,6 +195,7 @@ dev: api-generate-go prepare-deps web-install
 	 NEXT_DEV_HOST="$(NEXT_DEV_HOST)" \
 	 NEXT_DEV_PORT="$(NEXT_DEV_PORT)" \
 	 NEXT_BACKEND_ORIGIN="$(NEXT_BACKEND_ORIGIN)" \
+	 NEXT_DIST_DIR="$(NEXT_DEV_DIST_DIR)" \
 	 PATH="$(NODE_HOME)/bin:$$PATH" env -u RETROM_RUNTIME_DEV_ROOT scripts/dev.sh
 
 build-backend-image: data-check
