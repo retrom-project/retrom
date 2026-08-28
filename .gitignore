@@ -21,6 +21,7 @@
 /web/.next-e2e/
 /web/.next-build/
 /web/.next-netplay-*/
+/web/.next-acc-rpg-*/
 /web/out/
 /web/coverage/
 /web/*.tsbuildinfo
