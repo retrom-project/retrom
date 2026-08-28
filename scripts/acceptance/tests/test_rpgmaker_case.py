@@ -130,6 +130,11 @@ class EvidenceContractTests(unittest.TestCase):
         self.assertIn("RPG_ACCEPTANCE_SECURITY_APP_ORIGIN_UNRESOLVABLE", source)
         self.assertLess(source.index(resolution), source.index(login))
 
+    def test_security_driver_trusts_the_reserved_local_acceptance_hostname(self) -> None:
+        source = SECURITY_BROWSER_PATH.read_text()
+        self.assertIn('import { isLocalAcceptanceHostname, normalizedBase } from "./rpgmaker_url.mjs";', source)
+        self.assertIn("if (isLocalAcceptanceHostname(new URL(origin).hostname)) {return;}", source)
+
     def test_security_driver_provisions_and_rechecks_the_virtual_rpgmaker_directory(self) -> None:
         source = SECURITY_BROWSER_PATH.read_text()
         apply_call = '"POST", "/api/v1/admin/platform-instances/recommendations/apply"'
