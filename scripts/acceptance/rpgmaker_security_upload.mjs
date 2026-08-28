@@ -20,6 +20,7 @@ export function createProductClient(context, baseUrl, csrfToken) {
   async function raw(method, path, options = {}) {
     return context.request.fetch(`${baseUrl}${path}`, {
       method, headers: options.headers, data: options.data, failOnStatusCode: false,
+      timeout: options.timeout,
     });
   }
 
