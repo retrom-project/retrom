@@ -60,6 +60,7 @@ async function runProductCase(activeBrowser) {
     const uploadId = await client.upload(singleFile(process.env.RETROM_ONS_SMOKE_ARCHIVE), "FILES", "ONS_PROJECT");
     const importedResponse = await client.raw("POST", "/api/v1/admin/imports", {
       headers: client.writeHeaders(),
+      timeout: 120_000,
       data: {
         uploadId, targetPlatformInstanceId: platformInstanceId, metadataProvider: "NONE",
         contentMode: "ONS_PROJECT_V1", tagIds: [],
