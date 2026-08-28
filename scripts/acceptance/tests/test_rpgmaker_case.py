@@ -439,6 +439,13 @@ class EvidenceContractTests(unittest.TestCase):
             self.assertIn(required, source)
         self.assertNotIn("sourcePath", source)
 
+    def test_generation_provision_does_not_bind_an_unrequested_xp_trace(self) -> None:
+        source = GENERATION_PROVISION_PATH.read_text()
+        self.assertIn(
+            "checkpointUpload: tracePath ? bindCheckpointUpload(observedUpload, checkpointed.checkpointRoundTrip) : null",
+            source,
+        )
+
     def test_generation_provision_covers_all_seven_current_routes_and_state_inputs(self) -> None:
         source = GENERATION_PROVISION_PATH.read_text()
         expected = {

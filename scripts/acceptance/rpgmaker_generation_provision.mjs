@@ -242,7 +242,7 @@ async function validateAndPublish(context, client, review) {
   if (!approval.gameId) { throw new Error("RPG_PROVISION_GAME_ID_MISSING"); }
   return {
     gameId: approval.gameId, validation,
-    checkpointUpload: bindCheckpointUpload(observedUpload, checkpointed.checkpointRoundTrip),
+    checkpointUpload: tracePath ? bindCheckpointUpload(observedUpload, checkpointed.checkpointRoundTrip) : null,
     oversizeRejection, threadRejections,
   };
 }
