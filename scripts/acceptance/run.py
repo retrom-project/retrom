@@ -945,6 +945,9 @@ def execute_case(case_id: str) -> int:
     finished = now_ms()
     provenance = git_provenance()
     evidence = [relative(log_path, run_dir)]
+    detector_log = case_dir / "detector-matrix.log"
+    if detector_log.is_file():
+        evidence.append(relative(detector_log, run_dir))
     for path in sorted((case_dir / "screenshots").glob("*.png")):
         evidence.append(relative(path, run_dir))
     if product_evidence is not None:

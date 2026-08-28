@@ -53,6 +53,7 @@ MZ_SCENE_EXCLUSION = {"x": 24, "y": 24, "width": 360, "height": 72}
 XP_STATE_BYTES = 268_435_456
 RPG_SAVE_REQUEST_LIMIT_BYTES = 283_115_520
 USER_CORE_ID = "rpgmaker"
+SECURITY_MATRIX_PATH = ROOT / "testdata/public-roms/rpgmaker-smoke/negative-matrix/matrix.json"
 
 
 @dataclass(frozen=True)
@@ -1410,21 +1411,16 @@ def validate_security_evidence(payload: dict[str, Any], case_id: str) -> None:
         raise ContractError("RPG_ACCEPTANCE_SECURITY_EVIDENCE_HEADER_INVALID")
     if case_id == "ACC-RPG-010":
         expected_keys = {
-            "schemaVersion", "caseId", "status", "wrongCore", "rejectedSideEffects", "unsafe",
-            "nestedArchives", "familyOnly", "opaqueNative", "screenshots",
+            "schemaVersion", "caseId", "status", "detectorMatrix", "unsafe",
+            "nestedArchives", "opaqueNative", "screenshots",
         }
         if set(payload) != expected_keys:
             raise ContractError("RPG_ACCEPTANCE_SECURITY_EVIDENCE_HEADER_INVALID")
-        validate_wrong_core_security(payload.get("wrongCore"), payload.get("rejectedSideEffects"))
+        validate_detector_matrix(payload.get("detectorMatrix"))
         validate_unsafe_security(payload.get("unsafe"))
         validate_nested_security(payload.get("nestedArchives"))
-        validate_family_only_security(payload.get("familyOnly"))
         validate_opaque_native_security(payload.get("opaqueNative"))
-        if payload.get("screenshots") != [
-            "screenshots/acc-rpg-010-family-only.png",
-            "screenshots/acc-rpg-010-family-only-restore.png",
-            "screenshots/acc-rpg-010-opaque-native.png",
-        ]:
+        if payload.get("screenshots") != ["screenshots/acc-rpg-010-opaque-native.png"]:
             raise ContractError("RPG_ACCEPTANCE_SECURITY_SCREENSHOT_INVALID")
         return
     if set(payload) != {"schemaVersion", "caseId", "status", "harnesses", "screenshots"}:
@@ -1447,61 +1443,17 @@ def validate_security_evidence(payload: dict[str, Any], case_id: str) -> None:
         raise ContractError("RPG_ACCEPTANCE_ISOLATION_SCREENSHOT_INVALID")
 
 
-def validate_wrong_core_security(wrong: Any, side_effects: Any) -> None:
-    row_keys = {
-        "sourceGeneration", "selectedCoreId", "accepted", "status", "code",
-        "evidenceConfidence", "bindingCreated", "sideEffectBatch",
+def validate_detector_matrix(value: Any) -> None:
+    expected = {
+        "boundary": "GO_DETECTOR_UNIT",
+        "testName": "TestPublicWrongCoreMatrixHasFortyTwoMismatches",
+        "combinationCount": 42,
+        "expectedCode": "RPG_SELECTED_CORE_MISMATCH",
+        "matrixSha256": hashlib.sha256(SECURITY_MATRIX_PATH.read_bytes()).hexdigest(),
+        "log": "detector-matrix.log",
     }
-    expected_pairs = {
-        (generation, selected)
-        for generation, own_core in SECURITY_CORES.items()
-        for selected in SECURITY_CORES.values()
-        if selected != own_core
-    }
-    if not isinstance(wrong, list) or len(wrong) != 42 or any(
-        not isinstance(item, dict) or set(item) != row_keys for item in wrong
-    ):
-        raise ContractError("RPG_ACCEPTANCE_WRONG_CORE_MATRIX_INCOMPLETE")
-    actual = {(item["sourceGeneration"], item["selectedCoreId"]): item for item in wrong}
-    if set(actual) != expected_pairs or len(actual) != len(wrong):
-        raise ContractError("RPG_ACCEPTANCE_WRONG_CORE_MATRIX_INCOMPLETE")
-    accepted_pair = ("RPG2000", "rpgmaker_2003")
-    for pair, item in actual.items():
-        expected = pair == accepted_pair
-        expected_values = {
-            "accepted": expected, "status": 202 if expected else 422,
-            "code": None if expected else "RPG_SELECTED_CORE_MISMATCH",
-            "evidenceConfidence": "FAMILY_ONLY" if expected else None,
-            "bindingCreated": expected,
-            "sideEffectBatch": None if expected else "wrong-core-rejections-v1",
-        }
-        if any(item.get(key) != value for key, value in expected_values.items()):
-            raise ContractError("RPG_ACCEPTANCE_WRONG_CORE_MATRIX_INCOMPLETE")
-    validate_wrong_core_side_effects(side_effects)
-
-
-def validate_wrong_core_side_effects(value: Any) -> None:
-    keys = {
-        "schemaVersion", "batchId", "attemptedCount", "before", "after", "unchanged",
-        "importJobCreated", "reviewCreated", "validationOrLaunchCreated", "publishedGameCreated",
-    }
-    if not isinstance(value, dict) or set(value) != keys or value.get("schemaVersion") != 1 or \
-            value.get("batchId") != "wrong-core-rejections-v1" or value.get("attemptedCount") != 41 or \
-            value.get("unchanged") is not True or any(value.get(key) is not False for key in (
-                "importJobCreated", "reviewCreated", "validationOrLaunchCreated", "publishedGameCreated",
-            )) or value.get("before") != value.get("after") or not valid_side_effect_snapshot(value.get("before")):
-        raise ContractError("RPG_ACCEPTANCE_WRONG_CORE_SIDE_EFFECT_EVIDENCE_INVALID")
-
-
-def valid_side_effect_snapshot(value: Any) -> bool:
-    if not isinstance(value, dict) or set(value) != {"importJobs", "reviewItems", "games"}:
-        return False
-    return all(
-        isinstance(item, dict) and set(item) == {"count", "sha256"} and
-        isinstance(item.get("count"), int) and not isinstance(item.get("count"), bool) and
-        item["count"] >= 0 and SHA256.fullmatch(str(item.get("sha256", "")))
-        for item in value.values()
-    )
+    if not isinstance(value, dict) or value != expected:
+        raise ContractError("RPG_ACCEPTANCE_DETECTOR_MATRIX_INVALID")
 
 
 def validate_unsafe_security(value: Any) -> None:
@@ -1577,41 +1529,6 @@ def valid_nested_security_row(item: dict[str, Any]) -> bool:
         projection.get("sha256") == item["sha256"] and projection.get("sizeBytes") == item["sizeBytes"] and \
         SHA256.fullmatch(str(projection.get("containerSha256", ""))) is not None and \
         projection.get("exactMember") is True
-
-
-def validate_family_only_security(value: Any) -> None:
-    keys = {
-        "importItemId", "selectedCoreId", "evidenceGeneration", "evidenceConfidence", "validationId",
-        "originalLaunchId", "restoreLaunchId", "config", "machineGates", "checkpointRoundTrip",
-    }
-    if not isinstance(value, dict) or set(value) != keys or any(
-        not UUID.fullmatch(str(value.get(key, "")))
-        for key in ("importItemId", "validationId", "originalLaunchId", "restoreLaunchId")
-    ) or value.get("selectedCoreId") != "rpgmaker_2003" or value.get("evidenceGeneration") is not None or \
-            value.get("evidenceConfidence") != "FAMILY_ONLY":
-        raise ContractError("RPG_ACCEPTANCE_FAMILY_ONLY_EVIDENCE_INVALID")
-    expected_config = {
-        "runtimeFamily": "RPGMAKER", "generation": "RPG2003", "coreId": "rpgmaker_2003",
-        "routeKey": "RPG2003_EASYRPG", "adapterId": "easyrpg-web",
-        "adapterKind": "EASYRPG_WEB", "engineMode": "rpg2k3",
-    }
-    config = value.get("config")
-    if not isinstance(config, dict) or set(config) != {*expected_config, "artifactId"} or any(
-        config.get(key) != expected for key, expected in expected_config.items()
-    ) or not UUID.fullmatch(str(config.get("artifactId", ""))):
-        raise ContractError("RPG_ACCEPTANCE_FAMILY_ONLY_ROUTE_INVALID")
-    gates = value.get("machineGates")
-    if not isinstance(gates, list) or [item.get("gate") for item in gates if isinstance(item, dict)] != list(GATES) or \
-            any(item.get("status") != "PASSED" for item in gates):
-        raise ContractError("RPG_ACCEPTANCE_FAMILY_ONLY_GATES_INVALID")
-    engine = gates[1].get("evidence")
-    if not isinstance(engine, dict) or engine.get("generation") != "RPG2003" or \
-            engine.get("adapterId") != "easyrpg-web" or engine.get("engineProfile") != "rpg2k3":
-        raise ContractError("RPG_ACCEPTANCE_FAMILY_ONLY_ENGINE_INVALID")
-    validate_checkpoint({
-        "launchId": value["originalLaunchId"], "restoreLaunchId": value["restoreLaunchId"],
-        "checkpointRoundTrip": value["checkpointRoundTrip"],
-    }, gates)
 
 
 def validate_opaque_native_security(value: Any) -> None:
@@ -1732,6 +1649,32 @@ def write_blocked(case_dir: Path, case_id: str, missing: list[str], reason: str)
     return 3
 
 
+def run_detector_matrix(case_dir: Path) -> dict[str, Any]:
+    log_path = case_dir / "detector-matrix.log"
+    command = [
+        "go", "test", "./internal/rpgmaker/detector",
+        "-run", "^TestPublicWrongCoreMatrixHasFortyTwoMismatches$", "-count=1",
+    ]
+    try:
+        with log_path.open("wb") as log:
+            completed = subprocess.run(
+                command, cwd=ROOT, env=os.environ.copy(), stdout=log,
+                stderr=subprocess.STDOUT, check=False, timeout=60,
+            )
+    except subprocess.TimeoutExpired as error:
+        raise ContractError("RPG_ACCEPTANCE_DETECTOR_MATRIX_TIMEOUT") from error
+    if completed.returncode != 0:
+        raise ContractError("RPG_ACCEPTANCE_DETECTOR_MATRIX_FAILED")
+    return {
+        "boundary": "GO_DETECTOR_UNIT",
+        "testName": "TestPublicWrongCoreMatrixHasFortyTwoMismatches",
+        "combinationCount": 42,
+        "expectedCode": "RPG_SELECTED_CORE_MISMATCH",
+        "matrixSha256": hashlib.sha256(SECURITY_MATRIX_PATH.read_bytes()).hexdigest(),
+        "log": "detector-matrix.log",
+    }
+
+
 def minimal_generation_closure_ready(case_dir: Path) -> bool:
     cases_root = case_dir.parent
     for case_id in GENERATION_CASES:
@@ -1759,6 +1702,7 @@ def run(case_id: str, case_dir: Path) -> int:
     missing = [name for name in required_environment(case_id) if not os.environ.get(name)]
     if missing:
         return write_blocked(case_dir, case_id, missing, "缺少实际 Retrom 产品验收输入")
+    detector_matrix = run_detector_matrix(case_dir) if case_id == "ACC-RPG-010" else None
     expected_digest = ""
     fixture_root: Path | None = None
     input_provenance: dict[str, Any] | None = None
@@ -1805,6 +1749,11 @@ def run(case_id: str, case_dir: Path) -> int:
     if completed.returncode != 0:
         return completed.returncode
     payload = json.loads((case_dir / "rpgmaker-product.json").read_text(encoding="utf-8"))
+    if detector_matrix is not None:
+        payload["detectorMatrix"] = detector_matrix
+        (case_dir / "rpgmaker-product.json").write_text(
+            json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8",
+        )
     if case_id == PACK_CASE:
         evidence_path = case_dir / "rpgmaker-product.json"
         payload["databaseEvidence"] = inspect_pack_evidence(

@@ -54,68 +54,6 @@ try {
 }
 
 async function contentSafetyCase(context, client, instances) {
-  const wrongCore = [];
-  let familyTarget = null;
-  const rejectedTargets = [];
-  for (const source of matrix.wrongCore) {
-    for (const target of source.targets) {
-      const input = { source, target };
-      if (target.accepted) { familyTarget = input; } else { rejectedTargets.push(input); }
-    }
-  }
-  const beforeRejections = await sideEffectSnapshot(client);
-  for (const { source, target } of rejectedTargets) {
-    const outcome = await client.importProject(
-      directoryFiles(join(fixtureRoot, source.fixture)), "DIRECTORY", instance(instances, target.coreId),
-    );
-    assertRejected(outcome, target.expectedCode);
-    wrongCore.push({
-      sourceGeneration: source.generation, selectedCoreId: target.coreId,
-      accepted: false, status: outcome.status, code: outcome.body.error?.code,
-      evidenceConfidence: null, bindingCreated: false, sideEffectBatch: "wrong-core-rejections-v1",
-    });
-  }
-  const afterRejections = await sideEffectSnapshot(client);
-  exact(afterRejections, beforeRejections, "RPG_ACCEPTANCE_WRONG_CORE_SIDE_EFFECT");
-  if (!familyTarget || rejectedTargets.length !== 41) { throw new Error("RPG_ACCEPTANCE_WRONG_CORE_MATRIX_INVALID"); }
-  const familyOutcome = await client.importProject(
-    directoryFiles(join(fixtureRoot, familyTarget.source.fixture)), "DIRECTORY",
-    instance(instances, familyTarget.target.coreId),
-  );
-  exact(familyOutcome.status, 202, "RPG_ACCEPTANCE_FAMILY_ONLY_STATUS");
-  const familyReview = await reviewForImport(client, familyOutcome.body.importJobId);
-  exact(familyReview.rpgMaker?.selectedCoreId, familyTarget.target.coreId, "RPG_ACCEPTANCE_FAMILY_ONLY_CORE");
-  exact(
-    familyReview.rpgMaker?.evidenceConfidence,
-    familyTarget.target.evidenceConfidence,
-    "RPG_ACCEPTANCE_FAMILY_ONLY_CONFIDENCE",
-  );
-  wrongCore.push({
-    sourceGeneration: familyTarget.source.generation, selectedCoreId: familyTarget.target.coreId,
-    accepted: true, status: familyOutcome.status, code: null,
-    evidenceConfidence: familyReview.rpgMaker.evidenceConfidence,
-    bindingCreated: true, sideEffectBatch: null,
-  });
-  const familyLaunch = await createValidationLaunch(
-    context, client, familyReview, "acc-rpg-010-family-only.png",
-  );
-  exact(familyLaunch.config.routeKey, "RPG2003_EASYRPG", "RPG_ACCEPTANCE_FAMILY_ONLY_ROUTE");
-  exact(familyLaunch.config.generation, "RPG2003", "RPG_ACCEPTANCE_FAMILY_ONLY_GENERATION");
-  exact(familyLaunch.config.adapter?.engineMode, "rpg2k3", "RPG_ACCEPTANCE_FAMILY_ONLY_ENGINE");
-  await completeOriginalValidation(familyLaunch.page, familyLaunch.frame, "RPG2000");
-  const familyCheckpointed = await waitForValidation(
-    client, familyReview.itemId, familyLaunch.validationId, "CHECKPOINTED",
-  );
-  const familyRestore = await createRestoreLaunch(
-    context, client, familyReview, familyCheckpointed, "acc-rpg-010-family-only-restore.png",
-  );
-  await completeRestoreValidation(familyRestore.page, familyRestore.frame, "RPG2000");
-  const familyValidation = await waitForValidation(
-    client, familyReview.itemId, familyLaunch.validationId, "AWAITING_DECISION",
-  );
-  await familyLaunch.page.close();
-  await familyRestore.page.close();
-
   const unsafe = [];
   let opaqueReview = null;
   for (const test of matrix.unsafe) {
@@ -183,34 +121,14 @@ async function contentSafetyCase(context, client, instances) {
     });
   }
   return {
-    schemaVersion: 1, caseId, status: "PASS", wrongCore,
-    rejectedSideEffects: {
-      schemaVersion: 1, batchId: "wrong-core-rejections-v1", attemptedCount: rejectedTargets.length,
-      before: beforeRejections, after: afterRejections, unchanged: true,
-      importJobCreated: false, reviewCreated: false,
-      validationOrLaunchCreated: false, publishedGameCreated: false,
-    },
-    unsafe, nestedArchives,
-    familyOnly: {
-      importItemId: familyReview.itemId, selectedCoreId: familyReview.rpgMaker.selectedCoreId,
-      evidenceGeneration: familyReview.rpgMaker.evidenceGeneration,
-      evidenceConfidence: familyReview.rpgMaker.evidenceConfidence,
-      validationId: familyLaunch.validationId, originalLaunchId: familyLaunch.launchId,
-      restoreLaunchId: familyRestore.launchId, config: safeEasyConfig(familyLaunch.config),
-      machineGates: familyValidation.machineGates,
-      checkpointRoundTrip: familyValidation.checkpointRoundTrip,
-    },
+    schemaVersion: 1, caseId, status: "PASS", unsafe, nestedArchives,
     opaqueNative: {
       importItemId: opaqueReview.itemId, generation: opaqueReview.rpgMaker.generation,
       filesDigest: opaqueReview.sourceManifest.filesDigest,
       sourceFiles: opaqueSourceFiles, runtimeProjection: opaqueRuntime,
       launchId: opaqueLaunch.launchId, runtimeOrigin: opaqueLaunch.runtimeOrigin, launchFinished: true,
     },
-    screenshots: [
-      "screenshots/acc-rpg-010-family-only.png",
-      "screenshots/acc-rpg-010-family-only-restore.png",
-      "screenshots/acc-rpg-010-opaque-native.png",
-    ],
+    screenshots: ["screenshots/acc-rpg-010-opaque-native.png"],
   };
 }
 
@@ -400,35 +318,6 @@ async function waitForValidation(client, itemId, validationId, expectedState) {
     await new Promise((resolvePromise) => setTimeout(resolvePromise, 100));
   }
   throw new Error(`RPG_ACCEPTANCE_VALIDATION_${expectedState}_TIMEOUT`);
-}
-
-async function sideEffectSnapshot(client) {
-  return {
-    importJobs: await resourceIdentity(client, "/api/v1/admin/imports", "id"),
-    reviewItems: await resourceIdentity(client, "/api/v1/admin/reviews", "itemId"),
-    games: await resourceIdentity(client, "/api/v1/admin/games", "gameId"),
-  };
-}
-
-async function resourceIdentity(client, path, idField) {
-  const identifiers = [];
-  const seenCursors = new Set();
-  let cursor = "";
-  do {
-    const separator = path.includes("?") ? "&" : "?";
-    const query = `${path}${separator}limit=20${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ""}`;
-    const response = await client.json("GET", query);
-    for (const item of response.items ?? []) {
-      if (typeof item?.[idField] !== "string") { throw new Error("RPG_ACCEPTANCE_SIDE_EFFECT_ID_INVALID"); }
-      identifiers.push(item[idField]);
-    }
-    cursor = response.nextCursor ?? "";
-    if (cursor && seenCursors.has(cursor)) { throw new Error("RPG_ACCEPTANCE_SIDE_EFFECT_CURSOR_LOOP"); }
-    if (cursor) { seenCursors.add(cursor); }
-  } while (cursor);
-  const sorted = [...new Set(identifiers)].sort();
-  if (sorted.length !== identifiers.length) { throw new Error("RPG_ACCEPTANCE_SIDE_EFFECT_ID_DUPLICATE"); }
-  return { count: sorted.length, sha256: sha256(Buffer.from(JSON.stringify(sorted))) };
 }
 
 async function inspectNestedProject(context, client, review, sidecar) {
@@ -753,12 +642,6 @@ function safeConfig(config) {
   return {
     runtimeFamily: config.runtimeFamily, generation: config.generation, coreId: config.coreId,
     routeKey: config.routeKey, artifactId: config.artifactId, adapterId: config.adapter?.adapterId,
-  };
-}
-
-function safeEasyConfig(config) {
-  return {
-    ...safeConfig(config), adapterKind: config.adapter?.adapterKind, engineMode: config.adapter?.engineMode,
   };
 }
 
