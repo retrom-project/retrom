@@ -426,7 +426,7 @@ class EvidenceContractTests(unittest.TestCase):
     def test_xp_generation_evidence_rejects_a_malformed_optional_270_mib_trace(self) -> None:
         spec = rpgmaker.GENERATION_CASES["ACC-RPG-004"]
         payload = product_payload(spec, "a" * 64)
-        payload["xpRuntimeTrace"]["checkpointUpload"]["requestContentLengthBytes"] = 75 << 20
+        payload["xpRuntimeTrace"]["checkpointUpload"]["requestContentLengthBytes"] = 1_048_575
         with self.assertRaisesRegex(rpgmaker.ContractError, "XP_RUNTIME_TRACE_INVALID"):
             rpgmaker.validate_generation_evidence(payload, spec, "a" * 64)
 
@@ -435,6 +435,16 @@ class EvidenceContractTests(unittest.TestCase):
         payload = product_payload(spec, "a" * 64)
         payload.pop("xpRuntimeTrace")
         rpgmaker.validate_generation_evidence(payload, spec, "a" * 64)
+
+    def test_mkxp_generation_evidence_rejects_an_uncompressed_raw_checkpoint(self) -> None:
+        for case_id in ("ACC-RPG-004", "ACC-RPG-005", "ACC-RPG-006"):
+            spec = rpgmaker.GENERATION_CASES[case_id]
+            payload = product_payload(spec, "a" * 64)
+            payload["validation"]["checkpointRoundTrip"]["sizeBytes"] = 268_435_456
+            with self.subTest(generation=spec.generation), self.assertRaisesRegex(
+                rpgmaker.ContractError, "MKXP_RUNTIME_EVIDENCE_INVALID",
+            ):
+                rpgmaker.validate_generation_evidence(payload, spec, "a" * 64)
 
     def test_generation_provision_collects_xp_trace_from_product_boundaries(self) -> None:
         source = GENERATION_PROVISION_PATH.read_text()
@@ -449,6 +459,13 @@ class EvidenceContractTests(unittest.TestCase):
         ):
             self.assertIn(required, source)
         self.assertNotIn("sourcePath", source)
+
+    def test_generation_provision_preserves_runtime_failure_diagnostics(self) -> None:
+        source = GENERATION_PROVISION_PATH.read_text()
+        self.assertIn("RPG_PROVISION_RUNTIME_ACTION_UNAVAILABLE_", source)
+        self.assertIn("page.__retromPageErrors", source)
+        self.assertIn('page.locator(".player-loading")', source)
+        self.assertIn('page.getByRole("status")', source)
 
     def test_generation_provision_does_not_bind_an_unrequested_xp_trace(self) -> None:
         source = GENERATION_PROVISION_PATH.read_text()
@@ -1105,7 +1122,7 @@ def product_payload(spec, digest: str) -> dict:
                 "screenshotUrl": "/api/v1/admin/review-assets/screenshot",
                 "payloadKind": "RUNTIME_STATE" if spec.generation not in {"RPGMV", "RPGMZ"}
                 else "NATIVE_SAVE_BUNDLE_V1",
-                "sizeBytes": 268_435_456 if spec.generation == "RPGXP" else 4_096,
+                "sizeBytes": 1_048_576 if spec.generation in {"RPGXP", "RPGVX", "RPGVXACE"} else 4_096,
             },
         },
         "productLaunch": {
@@ -1192,10 +1209,11 @@ def product_payload(spec, digest: str) -> dict:
             "sceneNonBlackPixels": 640 * 480,
             "sceneDistinctColorBuckets": 32,
         })
-    if spec.generation == "RPGXP":
+    if spec.generation in {"RPGXP", "RPGVX", "RPGVXACE"}:
         payload["productLaunch"]["config"].update({
             "adapterKind": "MKXP_LIBRETRO_WEB", "stateBufferBytes": 268_435_456,
         })
+    if spec.generation == "RPGXP":
         payload["xpRuntimeTrace"] = xp_runtime_trace("e" * 64)
     return payload
 
@@ -1519,8 +1537,8 @@ def xp_runtime_trace(checkpoint_sha256: str) -> dict:
     return {
         "schemaVersion": 1,
         "checkpointUpload": {
-            "requestPayloadBytes": 268_435_456,
-            "requestContentLengthBytes": 268_436_128,
+            "requestPayloadBytes": 1_048_576,
+            "requestContentLengthBytes": 1_049_248,
             "responseStatus": 201, "sha256": checkpoint_sha256,
             "startedAtMs": 10_000, "finishedAtMs": 20_000,
         },

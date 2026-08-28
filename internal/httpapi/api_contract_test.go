@@ -11,6 +11,8 @@ import (
 	"testing"
 
 	"retrom/internal/httpapi/generated"
+	"retrom/internal/rpgmaker/detector"
+	"retrom/internal/rpgmaker/routing"
 	"retrom/internal/testassert"
 )
 
@@ -44,13 +46,17 @@ func TestOpenAPIValidationAllowsRetromRuntimeAndProjectFiles(t *testing.T) {
 	t.Parallel()
 	server := newTestServer(t)
 	handler := server.Handler()
+	current, err := routing.Current("rpgmaker_2000", detector.RPG2000)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	runtimeResponse := httptest.NewRecorder()
 	handler.ServeHTTP(
 		runtimeResponse,
 		httptest.NewRequestWithContext(
 			context.Background(), http.MethodGet,
-			"/runtime/retrom-runtime/v0.3.7/easyrpg-player.js", nil,
+			"/runtime/retrom-runtime/"+current.RuntimeVersion+"/easyrpg-player.js", nil,
 		),
 	)
 	testassert.Falsef(

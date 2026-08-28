@@ -656,6 +656,10 @@ def validate_runtime_environment(value: Any, spec: GenerationCase, gates: list[d
         raise ContractError("RPG_ACCEPTANCE_RUNTIME_ENVIRONMENT_INVALID")
 
 
+def valid_compact_mkxp_checkpoint_size(value: Any) -> bool:
+    return isinstance(value, int) and not isinstance(value, bool) and 24 < value < XP_STATE_BYTES
+
+
 def validate_xp_runtime_trace(value: Any, checkpoint: dict[str, Any], config: dict[str, Any]) -> None:
     if not isinstance(value, dict) or set(value) != {
         "schemaVersion", "checkpointUpload", "oversizeRejection", "threadCapabilityRejections",
@@ -666,13 +670,15 @@ def validate_xp_runtime_trace(value: Any, checkpoint: dict[str, Any], config: di
         value.get("checkpointUpload"), value.get("oversizeRejection"), value.get("threadCapabilityRejections"),
     )
     upload_length = upload.get("requestContentLengthBytes") if isinstance(upload, dict) else None
+    checkpoint_size = checkpoint.get("sizeBytes")
     if not isinstance(upload, dict) or set(upload) != {
         "requestPayloadBytes", "requestContentLengthBytes", "responseStatus", "sha256",
         "startedAtMs", "finishedAtMs",
-    } or upload.get("requestPayloadBytes") != XP_STATE_BYTES or not isinstance(upload_length, int) or \
-            isinstance(upload_length, bool) or not XP_STATE_BYTES < upload_length <= RPG_SAVE_REQUEST_LIMIT_BYTES or \
+    } or not valid_compact_mkxp_checkpoint_size(checkpoint_size) or \
+            upload.get("requestPayloadBytes") != checkpoint_size or not isinstance(upload_length, int) or \
+            isinstance(upload_length, bool) or not checkpoint_size < upload_length <= RPG_SAVE_REQUEST_LIMIT_BYTES or \
             upload.get("responseStatus") != 201 or upload.get("sha256") != checkpoint.get("sha256") or \
-            checkpoint.get("sizeBytes") != XP_STATE_BYTES or not valid_trace_times(upload):
+            not valid_trace_times(upload):
         raise ContractError("RPG_ACCEPTANCE_XP_RUNTIME_TRACE_INVALID")
     if not isinstance(oversize, dict) or set(oversize) != {
         "declaredContentLengthBytes", "responseStatus", "errorCode", "startedAtMs", "finishedAtMs",
@@ -843,11 +849,14 @@ def validate_generation_evidence(
             ):
         raise ContractError("RPG_ACCEPTANCE_PRODUCT_SCREENSHOTS_INVALID")
     validate_runtime_environment(payload.get("runtimeEnvironment"), spec, gates)
-    if spec.generation == "RPGXP":
+    if spec.generation in {"RPGXP", "RPGVX", "RPGVXACE"}:
         if config.get("adapterKind") != "MKXP_LIBRETRO_WEB" or \
                 config.get("stateBufferBytes") != XP_STATE_BYTES or \
-                validation["checkpointRoundTrip"].get("sizeBytes") != XP_STATE_BYTES:
-            raise ContractError("RPG_ACCEPTANCE_XP_RUNTIME_EVIDENCE_INVALID")
+                not valid_compact_mkxp_checkpoint_size(
+                    validation["checkpointRoundTrip"].get("sizeBytes"),
+                ):
+            raise ContractError("RPG_ACCEPTANCE_MKXP_RUNTIME_EVIDENCE_INVALID")
+    if spec.generation == "RPGXP":
         if "xpRuntimeTrace" in payload:
             validate_xp_runtime_trace(payload["xpRuntimeTrace"], validation["checkpointRoundTrip"], config)
     if spec.generation in {"RPGMV", "RPGMZ"}:

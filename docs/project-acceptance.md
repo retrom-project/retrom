@@ -1495,25 +1495,25 @@ Review 与所需 validation Launch。`negative-matrix/matrix.json` 必须精确�
 - 上限：300 秒。执行：`make acceptance-case CASE=ACC-RPG-004`。
 - fresh 前置：执行 `node scripts/acceptance/rpgmaker_generation_provision.mjs ACC-RPG-004`。该 provision 只从仓库锁定的 XP
   fixture 走正式 Upload/Import/Review/Player 产品链，stdout 返回本次 `importItemId/validationId/gameId`；trace
-  为可选扩展证据：设置新的绝对 `RETROM_ACC_RPG_004_TRACE` 时，以 `0600 + create-exclusive` 写入实际 256 MiB
-  multipart 请求、270 MiB+1 的 413 和 validation/restore 两次禁线程拒绝，不记录 cookie、凭据或输入路径。
+  为可选扩展证据：设置新的绝对 `RETROM_ACC_RPG_004_TRACE` 时，以 `0600 + create-exclusive` 写入实际压缩
+  checkpoint 的 payload/multipart 字节数、270 MiB+1 的 413 和 validation/restore 两次禁线程拒绝，不记录 cookie、凭据或输入路径。
   随后把三个 ID（以及执行扩展边界时的同一 trace）传给正式 Case。
 - 流程：通过唯一 `rpgmaker` 目录导入 fixture，由服务端选择 RGSS1 线程 artifact，执行 A→B 保存→C→不同 Launch 恢复。可选扩展边界另验证 270 MiB 请求天花板和禁线程启动拒绝。
-- 通过标准：route=`RPGXP_MKXP`、RGSS1/profile/marker 正确；256 MiB checkpoint bytes/digest 完整，地图/色坐标/变量逐项回到 B，恢复后可继续输入。提供扩展 trace 时，还必须证明 270 MiB+1 返回 413，并且 validation/restore 任一次报告非 secure context、非 `crossOriginIsolated` 或 SharedArrayBuffer 不可用时，都在签发 Launch credential/下载项目 payload 前稳定失败。
-- 证据：通用世代证据和 checkpoint payload 大小/哈希；提供扩展 trace 时再强制校验 270 MiB 与禁线程负向结果。
+- 通过标准：route=`RPGXP_MKXP`、RGSS1/profile/marker 正确；Launch config 仍固定 256 MiB core serialize buffer，但实际 checkpoint 必须为大于紧凑信封且小于 256 MiB 的 `mkxp-state-compact` payload，服务端返回的 bytes/digest 与上传一致；地图/色坐标/变量逐项回到 B，恢复后可继续输入。提供扩展 trace 时，还必须证明 270 MiB+1 返回 413，并且 validation/restore 任一次报告非 secure context、非 `crossOriginIsolated` 或 SharedArrayBuffer 不可用时，都在签发 Launch credential/下载项目 payload 前稳定失败。
+- 证据：通用世代证据和压缩 checkpoint payload 大小/哈希；提供扩展 trace 时再强制校验实际 payload/multipart 字节数、270 MiB 与禁线程负向结果。
 
 ### ACC-RPG-005：RPG Maker VX
 
 - 上限：300 秒。执行：`make acceptance-case CASE=ACC-RPG-005`。
 - 流程：通过唯一 `rpgmaker` 目录导入 fixture，由服务端选择 `RPGVX_MKXP`/RGSS2 并执行 A→B 保存→C→不同 Launch 恢复。
-- 通过标准：route/profile/marker 精确对应 VX；B 与 C 不同，恢复后地图/坐标/变量逐字段等于 B 且可继续输入。
+- 通过标准：route/profile/marker 精确对应 VX；checkpoint 为小于 256 MiB 的 `mkxp-state-compact` payload；B 与 C 不同，恢复后地图/坐标/变量逐字段等于 B 且可继续输入。
 - 证据：通用世代证据与 A/B/C/restore 断言。
 
 ### ACC-RPG-006：RPG Maker VX Ace
 
 - 上限：300 秒。执行：`make acceptance-case CASE=ACC-RPG-006`。
 - 流程：通过唯一 `rpgmaker` 目录导入 fixture，由服务端选择 `RPGVXACE_MKXP`/RGSS3 并执行 A→B 保存→C→不同 Launch 恢复。
-- 通过标准：route/profile/marker 精确对应 VX Ace；B 与 C 不同，恢复后地图/坐标/变量逐字段等于 B 且可继续输入。
+- 通过标准：route/profile/marker 精确对应 VX Ace；checkpoint 为小于 256 MiB 的 `mkxp-state-compact` payload；B 与 C 不同，恢复后地图/坐标/变量逐字段等于 B 且可继续输入。
 - 证据：通用世代证据与 A/B/C/restore 断言。
 
 ### ACC-RPG-007：RPG Maker MV

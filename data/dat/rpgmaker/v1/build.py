@@ -42,9 +42,9 @@ EXPECTED_FILES = {
 EXPECTED_ROUTES = {
     "RPG2000_EASYRPG": ("rpgmaker_2000", "RPGMAKER", "RPG2000", "EASYRPG_WEB", "easyrpg-web", "easyrpg-save"),
     "RPG2003_EASYRPG": ("rpgmaker_2003", "RPGMAKER", "RPG2003", "EASYRPG_WEB", "easyrpg-web", "easyrpg-save"),
-    "RPGXP_MKXP": ("rpgmaker_xp", "RPGMAKER", "RPGXP", "MKXP_LIBRETRO_WEB", "mkxp-libretro-web", "mkxp-state"),
-    "RPGVX_MKXP": ("rpgmaker_vx", "RPGMAKER", "RPGVX", "MKXP_LIBRETRO_WEB", "mkxp-libretro-web", "mkxp-state"),
-    "RPGVXACE_MKXP": ("rpgmaker_vx_ace", "RPGMAKER", "RPGVXACE", "MKXP_LIBRETRO_WEB", "mkxp-libretro-web", "mkxp-state"),
+    "RPGXP_MKXP": ("rpgmaker_xp", "RPGMAKER", "RPGXP", "MKXP_LIBRETRO_WEB", "mkxp-libretro-web", "mkxp-state-compact"),
+    "RPGVX_MKXP": ("rpgmaker_vx", "RPGMAKER", "RPGVX", "MKXP_LIBRETRO_WEB", "mkxp-libretro-web", "mkxp-state-compact"),
+    "RPGVXACE_MKXP": ("rpgmaker_vx_ace", "RPGMAKER", "RPGVXACE", "MKXP_LIBRETRO_WEB", "mkxp-libretro-web", "mkxp-state-compact"),
     "RPGMV_NATIVE": ("rpgmaker_mv", "RPGMAKER", "RPGMV", "NATIVE_WEB", "native-web", "native-save"),
     "RPGMZ_NATIVE": ("rpgmaker_mz", "RPGMAKER", "RPGMZ", "NATIVE_WEB", "native-web", "native-save"),
     "ONS_YURI": ("onscripter_yuri", "ONS", "ONS", "ONS_YURI_WEB", "ons-yuri-web", "ons-save"),

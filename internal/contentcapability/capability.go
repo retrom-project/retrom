@@ -97,7 +97,7 @@ func SupportsContentKind(compatibilityJSON, contentKind string) bool {
 		}
 		allowed := []string{
 			"easyrpg-save",
-			"mkxp-state",
+			"mkxp-state-compact",
 			"native-save",
 		}
 		if contentKind == ModeONSProjectV1 {
