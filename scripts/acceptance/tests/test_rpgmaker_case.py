@@ -138,6 +138,14 @@ class EvidenceContractTests(unittest.TestCase):
         self.assertIn("RPG_ACCEPTANCE_SECURITY_PLATFORM_INSTANCES_MISSING", source)
         self.assertLess(source.index(apply_call), source.index("return new Map(coreIds.map"))
 
+    def test_content_security_keeps_internal_core_mismatches_at_the_detector_boundary(self) -> None:
+        browser_source = SECURITY_BROWSER_PATH.read_text()
+        runner_source = MODULE_PATH.read_text()
+        self.assertNotIn("for (const { source, target } of rejectedTargets)", browser_source)
+        self.assertNotIn('familyOnly:', browser_source)
+        self.assertIn("TestPublicWrongCoreMatrixHasFortyTwoMismatches", runner_source)
+        self.assertIn('payload["detectorMatrix"] = detector_matrix', runner_source)
+
     def test_isolation_driver_keeps_each_restore_screenshot(self) -> None:
         source = SECURITY_BROWSER_PATH.read_text()
         self.assertIn(
@@ -163,10 +171,8 @@ class EvidenceContractTests(unittest.TestCase):
     def test_content_security_driver_uses_product_content_and_safely_finishes_nested_launches(self) -> None:
         source = SECURITY_BROWSER_PATH.read_text()
         for required in (
-            "await sideEffectSnapshot(client)", "await inspectNestedProject(context, client, review, sidecar)",
+            "await inspectNestedProject(context, client, review, sidecar)",
             "storedZIPMember(archive, sidecar.name)", '`/runtime/launches/${launchId}/finish`',
-            'familyLaunch.config.adapter?.engineMode, "rpg2k3"', "await completeOriginalValidation",
-            "await completeRestoreValidation",
         ):
             self.assertIn(required, source)
         self.assertIn(
@@ -185,21 +191,6 @@ class EvidenceContractTests(unittest.TestCase):
         payload["opaqueNative"].pop("launchFinished", None)
         with self.assertRaisesRegex(rpgmaker.ContractError, "OPAQUE_NATIVE_EVIDENCE_INVALID"):
             rpgmaker.validate_security_evidence(payload, "ACC-RPG-010")
-
-    def test_content_security_family_only_uses_the_lcf_validation_input_sequence(self) -> None:
-        source = SECURITY_BROWSER_PATH.read_text()
-        self.assertIn(
-            'await completeOriginalValidation(familyLaunch.page, familyLaunch.frame, "RPG2000")', source,
-        )
-        self.assertIn(
-            'await completeRestoreValidation(familyRestore.page, familyRestore.frame, "RPG2000")', source,
-        )
-        self.assertIn(
-            'input: ["ArrowLeft"], save: ["ArrowRight", "ArrowRight"],', source,
-        )
-        self.assertIn(
-            'restore: ["ArrowRight", "ArrowRight", "ArrowRight", "ArrowRight", "ArrowRight"]', source,
-        )
 
     def test_security_duplicate_import_is_blocked_before_review_cardinality(self) -> None:
         driver = SECURITY_BROWSER_PATH.read_text()
@@ -863,21 +854,17 @@ class EvidenceContractTests(unittest.TestCase):
         payload = content_security_evidence_payload()
         rpgmaker.validate_security_evidence(payload, "ACC-RPG-010")
 
-    def test_content_security_evidence_rejects_missing_wrong_core_side_effect_proof(self) -> None:
+    def test_content_security_evidence_requires_the_detector_matrix_boundary(self) -> None:
         payload = content_security_evidence_payload()
-        payload["rejectedSideEffects"] = None
-        with self.assertRaisesRegex(rpgmaker.ContractError, "WRONG_CORE_SIDE_EFFECT_EVIDENCE_INVALID"):
+        payload["detectorMatrix"]["combinationCount"] = 41
+        with self.assertRaisesRegex(rpgmaker.ContractError, "DETECTOR_MATRIX_INVALID"):
             rpgmaker.validate_security_evidence(payload, "ACC-RPG-010")
 
-    def test_content_security_evidence_requires_family_full_gates_and_rpg2k3_engine(self) -> None:
-        for mutate in (
-            lambda payload: payload["familyOnly"]["config"].update({"engineMode": "rpg2k"}),
-            lambda payload: payload["familyOnly"]["machineGates"].pop(),
-        ):
-            payload = content_security_evidence_payload()
-            mutate(payload)
-            with self.assertRaisesRegex(rpgmaker.ContractError, "FAMILY_ONLY_.*_INVALID"):
-                rpgmaker.validate_security_evidence(payload, "ACC-RPG-010")
+    def test_content_security_evidence_rejects_a_different_detector_matrix(self) -> None:
+        payload = content_security_evidence_payload()
+        payload["detectorMatrix"]["matrixSha256"] = "f" * 64
+        with self.assertRaisesRegex(rpgmaker.ContractError, "DETECTOR_MATRIX_INVALID"):
+            rpgmaker.validate_security_evidence(payload, "ACC-RPG-010")
 
     def test_content_security_evidence_requires_exact_nested_content_projection(self) -> None:
         for field, value in (
@@ -1361,25 +1348,6 @@ def content_security_evidence_payload() -> dict:
         "RPGVX": "rpgmaker_vx", "RPGVXACE": "rpgmaker_vx_ace", "RPGMV": "rpgmaker_mv",
         "RPGMZ": "rpgmaker_mz",
     }
-    wrong = []
-    for generation, own_core in cores.items():
-        for selected_core in cores.values():
-            if selected_core == own_core:
-                continue
-            accepted = generation == "RPG2000" and selected_core == "rpgmaker_2003"
-            wrong.append({
-                "sourceGeneration": generation, "selectedCoreId": selected_core,
-                "accepted": accepted, "status": 202 if accepted else 422,
-                "code": None if accepted else "RPG_SELECTED_CORE_MISMATCH",
-                "evidenceConfidence": "FAMILY_ONLY" if accepted else None,
-                "bindingCreated": accepted,
-                "sideEffectBatch": None if accepted else "wrong-core-rejections-v1",
-            })
-    snapshot = {
-        "importJobs": {"count": 3, "sha256": "1" * 64},
-        "reviewItems": {"count": 4, "sha256": "2" * 64},
-        "games": {"count": 5, "sha256": "3" * 64},
-    }
     unsafe_specs = (
         ("dual-root", False, 409, "RPG_PROJECT_ROOT_AMBIGUOUS"),
         ("multi-generation", False, 409, "RPG_GENERATION_AMBIGUOUS"),
@@ -1434,61 +1402,32 @@ def content_security_evidence_payload() -> dict:
                     },
                     "launchFinished": True,
                 })
-    original = pack_uuid(800)
-    restore = pack_uuid(801)
-    checkpoint = checkpoint_payload(original, restore)
-    gates = [gate_evidence(gate, "RPG2003", index) for index, gate in enumerate(rpgmaker.GATES)]
-    positions = {
-        "INITIAL_POSITION_RECORDED": checkpoint["initialPosition"],
-        "SAVE_POINT_RECORDED": checkpoint["savedPosition"],
-        "POST_SAVE_STATE_DIVERGED": checkpoint["divergedPosition"],
-        "RESTORE_POSITION_VERIFIED": checkpoint["restoredPosition"],
-        "RESTORE_INPUT": checkpoint["restoreInputPosition"],
-    }
-    for gate in gates:
-        if gate["gate"] in positions:
-            gate["evidence"] = positions[gate["gate"]]
-        if gate["gate"] == "ENGINE_PROFILE":
-            gate["evidence"]["adapterId"] = "easyrpg-web"
     opaque_names = ("Game.exe", "nw.dll", "plugin.node", "launcher.bat")
     return {
-        "schemaVersion": 1, "caseId": "ACC-RPG-010", "status": "PASS", "wrongCore": wrong,
-        "rejectedSideEffects": {
-            "schemaVersion": 1, "batchId": "wrong-core-rejections-v1", "attemptedCount": 41,
-            "before": snapshot, "after": json.loads(json.dumps(snapshot)), "unchanged": True,
-            "importJobCreated": False, "reviewCreated": False,
-            "validationOrLaunchCreated": False, "publishedGameCreated": False,
+        "schemaVersion": 1, "caseId": "ACC-RPG-010", "status": "PASS",
+        "detectorMatrix": {
+            "boundary": "GO_DETECTOR_UNIT",
+            "testName": "TestPublicWrongCoreMatrixHasFortyTwoMismatches",
+            "combinationCount": 42,
+            "expectedCode": "RPG_SELECTED_CORE_MISMATCH",
+            "matrixSha256": hashlib.sha256(rpgmaker.SECURITY_MATRIX_PATH.read_bytes()).hexdigest(),
+            "log": "detector-matrix.log",
         },
         "unsafe": [
             {"name": name, "accepted": accepted, "status": status, "code": code}
             for name, accepted, status, code in unsafe_specs
         ],
         "nestedArchives": nested,
-        "familyOnly": {
-            "importItemId": pack_uuid(802), "selectedCoreId": "rpgmaker_2003",
-            "evidenceGeneration": None, "evidenceConfidence": "FAMILY_ONLY",
-            "validationId": pack_uuid(803), "originalLaunchId": original, "restoreLaunchId": restore,
-            "config": {
-                "runtimeFamily": "RPGMAKER", "generation": "RPG2003", "coreId": "rpgmaker_2003",
-                "routeKey": "RPG2003_EASYRPG", "artifactId": pack_uuid(804),
-                "adapterId": "easyrpg-web", "adapterKind": "EASYRPG_WEB", "engineMode": "rpg2k3",
-            },
-            "machineGates": gates, "checkpointRoundTrip": checkpoint,
-        },
         "opaqueNative": {
-            "importItemId": pack_uuid(805), "generation": "RPGMZ", "filesDigest": "a" * 64,
+            "importItemId": pack_uuid(802), "generation": "RPGMZ", "filesDigest": "a" * 64,
             "sourceFiles": [
                 {"name": name, "sha256": "b" * 64, "sizeBytes": 1} for name in opaque_names
             ],
             "runtimeProjection": [{"name": name, "status": 404} for name in opaque_names],
-            "launchId": pack_uuid(806), "runtimeOrigin": f"https://{pack_uuid(806)}.example.test",
+            "launchId": pack_uuid(803), "runtimeOrigin": f"https://{pack_uuid(803)}.example.test",
             "launchFinished": True,
         },
-        "screenshots": [
-            "screenshots/acc-rpg-010-family-only.png",
-            "screenshots/acc-rpg-010-family-only-restore.png",
-            "screenshots/acc-rpg-010-opaque-native.png",
-        ],
+        "screenshots": ["screenshots/acc-rpg-010-opaque-native.png"],
     }
 
 

@@ -1457,7 +1457,9 @@ ID。没有实体设备时自动化 Case 可以 PASS，但沉浸模式发布验�
 `malicious-rpgmv/` 和 `malicious-rpgmz/`，在当次隔离实例中重新创建 `RPG_MAKER_PROJECT` Upload、Import、
 Review 与所需 validation Launch。`negative-matrix/matrix.json` 必须精确声明 42 个非原版本组合、13 个
 安全/歧义输入及 `7 generations × 5 archive formats × extension|magic = 70` 个内层 archive overlay；runner
-按声明逐项提交，任一缺项、额外项、稳定错误码漂移或未进入真实产品链均失败，不得回退成静态 parser 结果。
+先执行固定 Go detector 用例逐项证明 42 个内部 core mismatch；它们不是用户可选的产品操作，不得向虚拟
+`rpgmaker` 目录伪造底层 core 选择。13 个安全/歧义输入与 70 个 overlay 再按声明逐项提交，任一缺项、额外项、
+稳定错误码漂移或未进入真实产品链均失败，不得回退成静态 parser 结果。
 
 `ACC-RPG-001` 默认只做只读 preflight 并返回 `BLOCKED`；只有对全新隔离数据根执行时才设置
 `RETROM_ACC_RPG_001_MODE=APPLY`，允许 runner 实际调用“一键补齐推荐目录”并判定 PASS。不得在共享、非空或
