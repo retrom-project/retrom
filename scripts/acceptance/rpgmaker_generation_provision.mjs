@@ -140,11 +140,20 @@ function projectManifest(files, prefix) {
   const hasher = createHash("sha256");
   hasher.update(Buffer.from("RETROM_FILESET_V1\0", "ascii"));
   let totalBytes = 0;
-  for (const file of files) {
+  const entries = files.map((file) => {
     if (!file.relativePath.startsWith(prefix) || file.relativePath.length === prefix.length) {
       throw new Error("RPG_PROVISION_RESUME_REVIEW_INVALID");
     }
-    const logicalName = file.relativePath.slice(prefix.length);
+    return { file, logicalName: file.relativePath.slice(prefix.length).normalize("NFC") };
+  });
+  entries.sort((left, right) =>
+    Buffer.compare(Buffer.from(left.logicalName), Buffer.from(right.logicalName)));
+  let previousLogicalName = null;
+  for (const { file, logicalName } of entries) {
+    if (logicalName === previousLogicalName) {
+      throw new Error("RPG_PROVISION_RESUME_REVIEW_INVALID");
+    }
+    previousLogicalName = logicalName;
     updateLengthPrefixed(hasher, "PROJECT_FILE");
     updateLengthPrefixed(hasher, logicalName);
     hasher.update(fileSHA256(file));

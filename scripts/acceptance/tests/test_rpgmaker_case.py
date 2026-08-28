@@ -479,6 +479,8 @@ class EvidenceContractTests(unittest.TestCase):
         self.assertIn('process.env.RETROM_RPG_PROVISION_RESUME_ITEM_ID', source)
         self.assertIn('review.rpgMaker?.runtimeValidation !== null', source)
         self.assertIn('review.sourceManifest?.filesDigest !== expected.filesDigest', source)
+        self.assertIn('.normalize("NFC")', source)
+        self.assertIn('Buffer.compare(Buffer.from(left.logicalName), Buffer.from(right.logicalName))', source)
         self.assertIn('"RPG_PROVISION_RESUME_REVIEW_INVALID"', source)
 
     def test_mv_generation_evidence_requires_two_origin_inventory(self) -> None:
