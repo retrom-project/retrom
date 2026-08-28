@@ -293,7 +293,7 @@ INSERT INTO core_artifacts(
  save_max_bytes,provenance_json,compatibility_json,selected_for_new_bindings,available_for_launch,
  version,created_at_ms,updated_at_ms)
 VALUES('rpg-artifact','rpgmaker_2000','RPG2000_EASYRPG','RPGMAKER','EASYRPG_WEB',
- 'v0.3.4','easyrpg-web','runtime/easyrpg.js',1,?,?,?,0,'NATIVE_SAVE_BUNDLE_V1',
+ 'v0.3.5','easyrpg-web','runtime/easyrpg.js',1,?,?,?,0,'NATIVE_SAVE_BUNDLE_V1',
  67108864,'{}','{}',1,1,1,?,?)`, strings.Repeat("6", 64), strings.Repeat("7", 64), artifactSet, now, now)
 	mustRPGLaunchSQL(t, database, `
 INSERT INTO platform_instances(
