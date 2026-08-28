@@ -13,7 +13,7 @@ const SAVE_UPLOAD_TIMEOUT_MS = 300_000;
 type Mutable<T> = { current: T };
 type SyncTone = "synced" | "busy" | "warning";
 
-type PlayerSessionParams = {
+export type PlayerSessionParams = {
   launchId: string; emulator: Mutable<EmulatorInstance | undefined>; playerMode: Mutable<PlayerConfig["mode"]>;
   sequence: Mutable<number>; started: Mutable<boolean>; finishing: Mutable<boolean>; saveUploadQueue: Mutable<Promise<void>>;
   discSetRef: Mutable<DiscSet | null>; orientationStateRef: Mutable<PlayerOrientationState>; returnTo: Mutable<string>;
@@ -45,6 +45,7 @@ export function usePlayerSession(params: PlayerSessionParams) {
   const exitStrict = useCallback(() => exitImmersivePlayer(params, sendEvent), [params, sendEvent]);
 
   usePageHideFinish(params);
+  usePageExitProtection(params);
   return { sendEvent, uploadManualState, uploadValidationCheckpoint, exit, exitStrict };
 }
 
@@ -164,6 +165,18 @@ function usePageHideFinish(params: PlayerSessionParams) {
     const finish = () => finishOnPageHide(params);
     window.addEventListener("pagehide", finish);
     return () => window.removeEventListener("pagehide", finish);
+  }, [params]);
+}
+
+function usePageExitProtection(params: PlayerSessionParams) {
+  useEffect(() => {
+    const protect = (event: BeforeUnloadEvent) => {
+      if (!params.started.current || params.finishing.current) {return;}
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", protect);
+    return () => window.removeEventListener("beforeunload", protect);
   }, [params]);
 }
 
