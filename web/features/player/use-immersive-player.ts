@@ -247,6 +247,7 @@ function pollImmersiveState(params: PollParams, gamepads: (Gamepad | null)[], no
     enterReconnect(params, overlay.kind === "menu" ? "menu" : "game");
     return;
   }
+  if (overlay.kind === "closed") {params.filter.observe(gamepads, nowMs);}
   if (overlay.kind === "menu") {pollMenu(params, gamepads, nowMs);}
   if (overlay.kind === "closing") {pollClosing(params, gamepads, nowMs);}
   if (overlay.kind === "reconnect") {pollReconnect(params, gamepads, nowMs);}

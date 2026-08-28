@@ -179,7 +179,9 @@ Game/MetadataRevision、内容授权、LaunchSession 与 Player Core stage。首
 排序，最近范围按本 Profile 最近游玩倒序。浏览 Shell 循环播放站内 BGM，Select 打开背景音乐/游戏音量、
 静音、全屏和退出系统菜单；这些声音偏好只保存在浏览器 localStorage。
 
-游戏中由活动导航手柄双击 Select+Start 打开“取消、创建存档、退出游戏”菜单；创建存档显式复用普通手动
+游戏中由活动导航手柄双击 Select+Start 打开“取消、创建存档、退出游戏”菜单；Player Shell 必须逐帧读取
+活动手柄来识别该组合，不能依赖 Core 是否主动轮询手柄；输入过滤器同时安装到 EmulatorJS、ONS 与 RPG Maker
+的实际 runtime Window，负责在识别期间屏蔽保留按键。创建存档显式复用普通手动
 SaveState 链路，取消与退出都不会自动存档。其余输入仍交给 Core。普通 Player 与联机 Player 不识别该组合，
 也不继承沉浸输入过滤。完整页面、输入和验收契约分别见 UI、运行时、HTTP、依赖与统一验收文档。
 
