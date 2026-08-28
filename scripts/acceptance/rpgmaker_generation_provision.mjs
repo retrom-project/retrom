@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 import { createHash, randomUUID } from "node:crypto";
-import { closeSync, existsSync, lstatSync, openSync, readSync, writeFileSync } from "node:fs";
+import {
+  closeSync, existsSync, lstatSync, openSync, readFileSync, readSync, writeFileSync,
+} from "node:fs";
 import { request as httpRequest } from "node:http";
 import { request as httpsRequest } from "node:https";
 import { dirname, isAbsolute, resolve } from "node:path";
@@ -69,6 +71,10 @@ const baseUrl = normalizedBase(required("RETROM_ACCEPTANCE_BASE_URL"));
 const tracePath = caseId === "ACC-RPG-004"
   ? optionalTracePath(process.env.RETROM_ACC_RPG_004_TRACE)
   : null;
+const sourceFiles = directoryFiles(config.source(), config.prefix);
+if (caseId === "ACC-RPG-008") {
+  validateMZProvenance(sourceFiles, required("RPG_MZ_SMOKE_PROVENANCE"));
+}
 const browser = await chromium.launch({
   executablePath: required("RETROM_CHROME_EXECUTABLE"), headless: true,
 });
@@ -89,7 +95,6 @@ try {
   const client = createProductClient(context, baseUrl, login.csrfToken);
   const platformInstanceId = await platformInstance(client);
   await assertSelectedRoute(client);
-  const sourceFiles = directoryFiles(config.source(), config.prefix);
   const review = await provisionReview(client, sourceFiles, platformInstanceId);
   exact(review.rpgMaker?.selectedCoreId, config.coreId, "RPG_PROVISION_CORE_MISMATCH");
   exact(review.rpgMaker?.generation, config.generation, "RPG_PROVISION_GENERATION_MISMATCH");
@@ -503,6 +508,36 @@ function checkedTracePath(value) {
 
 function optionalTracePath(value) {
   return value ? checkedTracePath(value) : null;
+}
+
+function validateMZProvenance(files, pathValue) {
+  if (!isAbsolute(pathValue) || !existsSync(pathValue)) {
+    throw new Error("RPG_PROVISION_MZ_PROVENANCE_INVALID");
+  }
+  const metadata = lstatSync(pathValue);
+  if (!metadata.isFile() || metadata.isSymbolicLink() || metadata.size > 64 * 1024) {
+    throw new Error("RPG_PROVISION_MZ_PROVENANCE_INVALID");
+  }
+  const value = JSON.parse(readFileSync(pathValue, "utf8"));
+  const transformation = value?.transformation;
+  const expected = projectManifest(files, config.prefix);
+  if (!hasExactKeys(value, [
+    "schemaVersion", "kind", "licenseBasis", "licenseUrl", "sourceUrl", "sourceVersion",
+    "sourceSha256", "marker", "markerRgb", "transformation",
+  ]) || value.schemaVersion !== 1 || value.kind !== "LICENSED_EXTERNAL_WEB_DEPLOYMENT"
+      || !hasExactKeys(transformation, [
+        "schemaVersion", "recipe", "tool", "sourceSizeBytes", "removedEntries", "injectedFiles",
+        "outputProjectFingerprint", "outputFileCount", "outputTotalBytes",
+      ]) || transformation.outputProjectFingerprint !== expected.filesDigest
+      || transformation.outputFileCount !== expected.fileCount
+      || transformation.outputTotalBytes !== expected.totalBytes) {
+    throw new Error("RPG_PROVISION_MZ_PROVENANCE_INVALID");
+  }
+}
+
+function hasExactKeys(value, keys) {
+  return value && typeof value === "object" && !Array.isArray(value)
+    && JSON.stringify(Object.keys(value).sort()) === JSON.stringify([...keys].sort());
 }
 
 function normalizedBase(value) {
