@@ -2,6 +2,7 @@
 .player-toolbar { position: absolute; z-index: 30; inset: 0 0 auto; height: 58px; padding: 0 16px; display: flex; align-items: center; gap: 13px; color: var(--player-text); border-bottom: 1px solid var(--player-line); background: linear-gradient(180deg, rgb(17 23 34 / 98%), rgb(17 23 34 / 92%)); box-shadow: 0 10px 30px rgb(0 0 0 / 28%); opacity: 0; pointer-events: none; transform: translateY(-100%); transition: opacity 160ms ease, transform 160ms ease; backdrop-filter: blur(12px); }
 .player-toolbar.is-visible { opacity: 1; pointer-events: auto; transform: translateY(0); }
 .player-hud-handle { position: absolute; z-index: 34; top: max(2px, env(safe-area-inset-top)); left: 50%; width: 48px; height: 44px; padding: 0; display: grid; place-items: start center; border: 0; background: transparent; transform: translateX(-50%); cursor: pointer; }
+.player-hud-handle[aria-pressed="false"] { top: 0; right: 0; left: 0; width: auto; height: 32px; transform: none; }
 .player-hud-handle > span { width: 24px; height: 6px; margin-top: 5px; border: 1px solid rgb(255 255 255 / 34%); border-radius: 999px; background: rgb(238 241 247 / 72%); box-shadow: 0 3px 10px rgb(0 0 0 / 35%); }
 .player-hud-handle:focus-visible { outline: 3px solid rgb(139 123 241 / 64%); outline-offset: -3px; }
 .player-back, .player-control { min-height: 34px; border: 1px solid var(--player-line); border-radius: 8px; color: #edf0f5; background: #171d29; cursor: pointer; }
@@ -171,6 +172,7 @@
   .rpg-validation-panel { padding: 11px; }
 }
 @media (max-width: 1279px), (hover: none) and (pointer: coarse) {
+  .player-hud-handle[aria-pressed="false"] { height: 44px; }
   .player-toolbar { height: calc(48px + env(safe-area-inset-top)); padding: env(safe-area-inset-top) max(8px, env(safe-area-inset-right)) 0 max(8px, env(safe-area-inset-left)); gap: 7px; pointer-events: none; }
   .player-toolbar.is-visible { pointer-events: none; }
   .player-toolbar button,

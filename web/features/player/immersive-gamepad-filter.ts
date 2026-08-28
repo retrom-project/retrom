@@ -15,6 +15,7 @@ export class ImmersiveGamepadFilter {
   private activeGamepadIndex: number | null;
   private blocked = false;
   private readonly detector = new ImmersiveChordDetector();
+  private readonly observerDetector = new ImmersiveChordDetector();
   private onMenuGesture: () => void;
 
   constructor(options: ImmersiveGamepadFilterOptions) {
@@ -25,21 +26,36 @@ export class ImmersiveGamepadFilter {
   setActiveGamepadIndex(index: number | null) {
     if (this.activeGamepadIndex === index) {return;}
     this.activeGamepadIndex = index;
-    this.detector.reset();
+    this.reset();
   }
 
   setOnMenuGesture(callback: () => void) {this.onMenuGesture = callback;}
 
   setBlocked(blocked: boolean) {
     this.blocked = blocked;
-    if (blocked) {this.detector.reset();}
+    if (blocked) {this.reset();}
   }
 
-  reset() {this.detector.reset();}
+  reset() {
+    this.detector.reset();
+    this.observerDetector.reset();
+  }
+
+  observe(gamepads: readonly (GamepadLike | null)[], nowMs: number) {
+    if (this.blocked) {return;}
+    const active = this.activeGamepad(gamepads);
+    if (!active) {this.observerDetector.reset(); return;}
+    const output = this.observerDetector.update(
+      gamepadButtonPressed(active, 8),
+      gamepadButtonPressed(active, 9),
+      nowMs,
+    );
+    if (output.openMenu) {this.openMenu();}
+  }
 
   filter(gamepads: readonly (GamepadLike | null)[], nowMs: number): (GamepadLike | null)[] {
     if (this.blocked) {return gamepads.map((gamepad) => gamepad ? zeroGamepad(gamepad) : null);}
-    const active = this.activeGamepadIndex === null ? null : gamepads[this.activeGamepadIndex];
+    const active = this.activeGamepad(gamepads);
     if (!active) {this.detector.reset(); return [...gamepads];}
     const output = this.detector.update(
       gamepadButtonPressed(active, 8),
@@ -47,8 +63,7 @@ export class ImmersiveGamepadFilter {
       nowMs,
     );
     if (output.openMenu) {
-      this.blocked = true;
-      this.onMenuGesture();
+      this.openMenu();
       return gamepads.map((gamepad) => gamepad ? zeroGamepad(gamepad) : null);
     }
     return gamepads.map((gamepad) => {
@@ -58,6 +73,17 @@ export class ImmersiveGamepadFilter {
       buttons[9] = filteredButton(buttons[9], output.start);
       return cloneFilteredGamepad(gamepad, buttons, gamepad.axes);
     });
+  }
+
+  private activeGamepad(gamepads: readonly (GamepadLike | null)[]) {
+    if (this.activeGamepadIndex === null) {return null;}
+    return gamepads.find((gamepad) => gamepad?.index === this.activeGamepadIndex) ?? null;
+  }
+
+  private openMenu() {
+    this.blocked = true;
+    this.reset();
+    this.onMenuGesture();
   }
 }
 

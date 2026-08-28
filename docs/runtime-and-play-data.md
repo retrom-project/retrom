@@ -14,7 +14,7 @@
 
 RPG runtime 的 pause/resume 与 checkpoint 必须由统一 controller 串行执行。工具栏点击会先截取画面并异步暂停；紧随其后的手动存档必须等待该暂停转换结束后才进入 checkpoint，不能让 `RUNNING→PAUSED` 与 `RUNNING→CHECKPOINTING` 并发，否则 runtime 会被错误标记为失败且不会发出存档请求。
 
-Player 顶部中央的 HUD 手柄在桌面与移动 viewport 都必须保持于游戏 frame 之上：hover/focus 展开控制栏，click 切换展开状态。不能只依赖父 document 的顶边 `pointermove`，因为 MV/MZ 的跨源 iframe 内部指针事件按安全边界不会冒泡到父页面，否则用户将无法访问存档与退出控制。
+Player 顶部完整 32 CSS px 的透明 HUD 命中区在桌面与移动 viewport 都必须保持于游戏 frame 之上，中央只绘制短手柄作为视觉提示：hover/focus 展开控制栏，click 切换展开状态。不能只依赖父 document 的顶边 `pointermove`，因为 MV/MZ 的跨源 iframe 内部指针事件按安全边界不会冒泡到父页面，否则用户将无法访问存档与退出控制。
 
 游戏库卡片仍进入详情；只有语义明确的开始/继续按钮直接启动。存档入口使用存档锁定的 Core、CoreArtifact、GameVariantRevision、DOS entry 和文件，不受游戏目录当前默认核心覆盖。
 

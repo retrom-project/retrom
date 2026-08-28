@@ -19,6 +19,7 @@ import { shouldRevealPlayerControlsForKey } from "./player-controls-visibility";
 import type { PlayerDebugRuntime } from "./player-chrome";
 import { handlePlayerPauseShortcut } from "./keyboard-controls";
 import type { ImmersiveGamepadFilter } from "./immersive-gamepad-filter";
+import { installRuntimeImmersiveGamepadFilter } from "./runtime-immersive-gamepad";
 import { validateImmersivePlayerConfig } from "./immersive-player-config";
 import { getImmersiveAudioPreferences } from "@/features/immersive/immersive-audio-preferences";
 import { applyInitialPlayerVolume } from "./immersive-player-volume";
@@ -61,7 +62,7 @@ export type PlayerBootstrapParams = {
 };
 
 type BootstrapResources = {
-  cleanup?: () => void; canvasContain?: ReturnType<typeof installCanvasContain>; cleanupFrameControls?: () => void;
+  cleanup?: () => void; cleanupRuntimeGamepadFilter?: () => void; canvasContain?: ReturnType<typeof installCanvasContain>; cleanupFrameControls?: () => void;
   nativeMenuObserver?: MutationObserver; ownedNetplayController?: NetplayController;
   rpgRuntimeSubscription?: () => void; onsRuntimeSubscription?: () => void; rpgValidationDriver?: RpgRuntimeValidationDriver;
 };
@@ -130,6 +131,7 @@ async function bootstrapOnsPlayer(
   const frame = await prepareFrame(params, controller);
   const stateBytes = await fetchOnsCheckpoint(onsConfig, controller.signal);
   const mounted = mountFrame(params, resources, controller, config, frame, stateBytes);
+  resources.cleanupRuntimeGamepadFilter = installRuntimeImmersiveGamepadFilter(params.experience, mounted.context.frameWindow, params.immersiveGamepadFilter);
   params.setMessage("正在启动 ONScripter 运行时…");
   const mountedRuntime = await mountOnsProductRuntime(
     onsConfig, mounted.target, mounted.context.frameWindow, stateBytes, controller.signal,
@@ -187,6 +189,7 @@ async function bootstrapRpgMakerPlayer(
     params, resources, controller, config, frame, stateBytes,
     runtimeDescription.crossOriginFrame,
   );
+  resources.cleanupRuntimeGamepadFilter = installRuntimeImmersiveGamepadFilter(params.experience, mounted.context.frameWindow, params.immersiveGamepadFilter);
   params.setMessage("正在启动 RPG Maker 运行时…");
   let mountedRuntime: Awaited<ReturnType<typeof mountRetromRpgRuntime>>;
   try {
@@ -576,7 +579,7 @@ function handleBootstrapError(error: unknown, controller: AbortController, param
 }
 
 function cleanupBootstrap(params: PlayerBootstrapParams, resources: BootstrapResources, controller: AbortController) {
-  controller.abort(); resources.cleanup?.(); resources.canvasContain?.cleanup(); resources.cleanupFrameControls?.();
+  controller.abort(); resources.cleanupRuntimeGamepadFilter?.(); resources.cleanup?.(); resources.canvasContain?.cleanup(); resources.cleanupFrameControls?.();
 	resources.rpgRuntimeSubscription?.();
 	resources.onsRuntimeSubscription?.();
   resources.ownedNetplayController?.dispose();
