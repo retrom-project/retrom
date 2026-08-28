@@ -59,13 +59,13 @@ try {
 
 async function rpg2000Instance(client) {
   let instances = await client.json("GET", "/api/v1/admin/platform-instances?platformId=rpgmaker&limit=100");
-  let found = (instances.items ?? []).find((item) => item.enabled && item.defaultCoreId === "rpgmaker_2000");
+  let found = (instances.items ?? []).find((item) => item.enabled && item.defaultCoreId === "rpgmaker");
   if (found) { return found.id; }
   await client.json("POST", "/api/v1/admin/platform-instances/recommendations/apply", {
     headers: client.writeHeaders(), data: {}, expected: 200,
   });
   instances = await client.json("GET", "/api/v1/admin/platform-instances?platformId=rpgmaker&limit=100");
-  found = (instances.items ?? []).find((item) => item.enabled && item.defaultCoreId === "rpgmaker_2000");
+  found = (instances.items ?? []).find((item) => item.enabled && item.defaultCoreId === "rpgmaker");
   if (!found) { throw new Error("RPG_012_PROVISION_PLATFORM_INSTANCE_MISSING"); }
   return found.id;
 }
@@ -144,7 +144,7 @@ async function createOldProductSave(context, client, gameId) {
   const canvas = await focusRuntimeCanvas(page);
   await canvas.press("ArrowRight", { delay: 250 });
   await page.waitForTimeout(800);
-  await revealProductToolbar(page);
+  await page.mouse.move(720, 1);
   const saveResponse = page.waitForResponse((response) =>
     response.request().method() === "POST" &&
     response.url().includes(`/runtime/launches/${launch.launchId}/save-states`),
@@ -218,14 +218,6 @@ async function waitForValidation(client, itemId, validationId, expectedState) {
     await new Promise((resolvePromise) => setTimeout(resolvePromise, 100));
   }
   throw new Error(`RPG_012_PROVISION_VALIDATION_${expectedState}_TIMEOUT`);
-}
-
-async function revealProductToolbar(page) {
-  const toolbar = page.locator(".player-toolbar");
-  if (!await toolbar.evaluate((element) => element.classList.contains("is-visible"))) {
-    await page.locator(".player-hud-handle").click();
-  }
-  await page.locator(".player-toolbar.is-visible").waitFor({ state: "visible" });
 }
 
 function validationHeaders(client, version) {

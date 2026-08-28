@@ -317,7 +317,15 @@ class EvidenceContractTests(unittest.TestCase):
         self.assertIn('restorePage, "恢复后输入已经生效"', source)
         self.assertIn("createOldProductSave(context, client, published.gameId)", source)
         self.assertIn('expected: 201', source)
+        self.assertIn("await page.mouse.move(720, 1);", source)
+        self.assertIn('getByRole("button", { name: "创建存档", exact: true })', source)
+        self.assertNotIn('page.locator(".player-toolbar")', source)
         self.assertNotIn("sqlite", source.lower())
+
+    def test_compatibility_provision_uses_the_virtual_rpgmaker_directory(self) -> None:
+        source = COMPATIBILITY_PROVISION_PATH.read_text()
+        self.assertIn('item.defaultCoreId === "rpgmaker"', source)
+        self.assertNotIn('item.defaultCoreId === "rpgmaker_2000"', source)
 
     def test_all_formal_rpg_cases_have_a_driver_registration(self) -> None:
         self.assertEqual(
