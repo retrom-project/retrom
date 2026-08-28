@@ -20,6 +20,7 @@
 /web/.next/
 /web/.next-e2e/
 /web/.next-build/
+/web/.next-runtime-dev/
 /web/.next-netplay-*/
 /web/.next-acc-rpg-*/
 /web/out/

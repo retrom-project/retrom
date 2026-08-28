@@ -59,5 +59,14 @@ export default defineConfig([
       "@typescript-eslint/no-misused-promises": "error",
     },
   },
-  globalIgnores([".next/**", ".next-build/**", ".next-e2e/**", ".next-netplay-*/**", "lib/api/generated/**", "playwright-report/**", "test-results/**"]),
+  globalIgnores([
+    ".next/**",
+    ".next-build/**",
+    ".next-e2e/**",
+    ".next-runtime-dev/**",
+    ".next-netplay-*/**",
+    "lib/api/generated/**",
+    "playwright-report/**",
+    "test-results/**",
+  ]),
 ]);

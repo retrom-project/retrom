@@ -5,6 +5,10 @@ import { describe, expect, test } from "vitest";
 import nextConfig, { backendProxyLimits } from "./next.config";
 
 describe("backend rewrite proxy limits", () => {
+  test("transpiles the linked runtime package so local adapter changes invalidate the dev bundle", () => {
+    expect(nextConfig.transpilePackages).toContain("@xxxsen/retrom-runtime");
+  });
+
   test("forwards the largest supported save-state body without the Next.js defaults truncating or timing it out", () => {
     expect(backendProxyLimits).toEqual({
       bodyBytes: 283_115_520,

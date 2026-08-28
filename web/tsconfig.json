@@ -39,7 +39,9 @@
     ".next-netplay-*/types/**/*.ts",
     ".next-netplay-*/dev/types/**/*.ts",
     ".next-build/types/**/*.ts",
-    ".next-build/dev/types/**/*.ts"
+    ".next-build/dev/types/**/*.ts",
+    ".next-runtime-dev/types/**/*.ts",
+    ".next-runtime-dev/dev/types/**/*.ts"
   ],
   "exclude": [
     "node_modules"
