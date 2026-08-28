@@ -446,6 +446,12 @@ class EvidenceContractTests(unittest.TestCase):
             source,
         )
 
+    def test_generation_provision_rejects_stale_mz_provenance_before_browser_side_effects(self) -> None:
+        source = GENERATION_PROVISION_PATH.read_text()
+        validation = 'validateMZProvenance(sourceFiles, required("RPG_MZ_SMOKE_PROVENANCE"));'
+        self.assertIn(validation, source)
+        self.assertLess(source.index(validation), source.index("await chromium.launch"))
+
     def test_generation_provision_covers_all_seven_current_routes_and_state_inputs(self) -> None:
         source = GENERATION_PROVISION_PATH.read_text()
         expected = {
