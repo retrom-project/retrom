@@ -31,21 +31,18 @@ export async function rpgPlatformInstances(client, expectedCoreIds) {
     headers: client.writeHeaders(), data: {}, expected: 200,
   });
   const response = await client.json("GET", "/api/v1/admin/platform-instances?platformId=rpgmaker&limit=100");
-  const instances = new Map();
-  for (const item of response.items ?? []) {
-    if (item.enabled && expectedCoreIds.includes(item.defaultCoreId)) {
-      if (instances.has(item.defaultCoreId)) { throw new Error("RPG_009_PROVISION_PLATFORM_DUPLICATE"); }
-      instances.set(item.defaultCoreId, item.id);
-    }
-  }
-  if (instances.size !== expectedCoreIds.length) { throw new Error("RPG_009_PROVISION_PLATFORM_MISSING"); }
+  const platforms = (response.items ?? []).filter(
+    (item) => item.enabled && item.defaultCoreId === "rpgmaker",
+  );
+  if (platforms.length !== 1) { throw new Error("RPG_009_PROVISION_PLATFORM_MISSING"); }
+  const platform = platforms[0];
   const artifacts = await allCoreArtifacts(client);
   for (const coreId of expectedCoreIds) {
     const current = artifacts.filter((item) =>
       item.coreId === coreId && item.selectedForNewBindings && item.availableForLaunch);
     if (current.length !== 1) { throw new Error(`RPG_009_PROVISION_RUNTIME_UNAVAILABLE_${coreId}`); }
   }
-  return instances;
+  return new Map(expectedCoreIds.map((coreId) => [coreId, platform.id]));
 }
 
 async function allCoreArtifacts(client) {
@@ -188,12 +185,12 @@ export async function createProductSave(context, client, baseUrl, gameId, coreId
   const canvas = await focusRuntimeCanvas(page);
   await canvas.press("ArrowRight", { delay: 250 });
   await page.waitForTimeout(800);
-  await revealProductToolbar(page);
+  const saveButton = await revealProductSaveAction(page);
   const saveResponse = page.waitForResponse((response) =>
     response.request().method() === "POST"
       && response.url().includes(`/runtime/launches/${launch.launchId}/save-states`),
   { timeout: 120_000 });
-  await page.getByRole("button", { name: "创建存档", exact: true }).click();
+  await saveButton.click();
   const response = await saveResponse;
   exact(response.status(), 201, "RPG_009_PROVISION_PRODUCT_SAVE_FAILED");
   // Chromium can evict a response body from the inspector cache after this
@@ -350,12 +347,12 @@ async function waitForJob(client, jobId, expectedKind) {
   throw new Error("RPG_009_PROVISION_JOB_TIMEOUT");
 }
 
-async function revealProductToolbar(page) {
-  const toolbar = page.locator(".player-toolbar");
-  if (!await toolbar.evaluate((element) => element.classList.contains("is-visible"))) {
-    await page.locator(".player-hud-handle").click();
-  }
-  await page.locator(".player-toolbar.is-visible").waitFor({ state: "visible" });
+async function revealProductSaveAction(page) {
+  await page.mouse.move(720, 1);
+  const saveButton = page.getByRole("button", { name: "创建存档", exact: true });
+  await saveButton.waitFor({ state: "visible", timeout: 30_000 });
+  if (!await saveButton.isEnabled()) { throw new Error("RPG_009_PROVISION_SAVE_UNAVAILABLE"); }
+  return saveButton;
 }
 
 function validationHeaders(client, version) {

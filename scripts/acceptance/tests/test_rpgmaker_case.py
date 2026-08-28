@@ -291,6 +291,18 @@ class EvidenceContractTests(unittest.TestCase):
         self.assertIn("review.metadata?.title !== sourceName", source)
         self.assertNotIn("ensureReviewTitle", source)
 
+    def test_pack_provision_uses_one_virtual_rpgmaker_platform_instance(self) -> None:
+        source = PACK_PROVISION_PRODUCT_PATH.read_text()
+        self.assertIn('item.defaultCoreId === "rpgmaker"', source)
+        self.assertIn("new Map(expectedCoreIds.map((coreId) => [coreId, platform.id]))", source)
+        self.assertNotIn("expectedCoreIds.includes(item.defaultCoreId)", source)
+
+    def test_pack_provision_reveals_save_by_current_player_pointer_contract(self) -> None:
+        source = PACK_PROVISION_PRODUCT_PATH.read_text()
+        self.assertIn("await page.mouse.move(720, 1);", source)
+        self.assertIn('getByRole("button", { name: "创建存档", exact: true })', source)
+        self.assertNotIn('page.locator(".player-toolbar")', source)
+
     def test_pack_driver_initializes_role_contract_before_product_execution(self) -> None:
         source = PACK_BROWSER_PATH.read_text()
         self.assertLess(source.index("const reviewRoles ="), source.index("const browser ="))
