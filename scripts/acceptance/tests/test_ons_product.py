@@ -51,6 +51,11 @@ class ONSProductAcceptanceTests(unittest.TestCase):
         self.assertNotIn("/data/game", contents)
         self.assertIn("RETROM_ONS_SMOKE_ARCHIVE", contents)
 
+    def test_driver_accepts_http_only_for_local_acceptance_hosts(self) -> None:
+        contents = DRIVER_PATH.read_text(encoding="utf-8")
+        self.assertIn('import { isLocalAcceptanceHostname } from "./rpgmaker_url.mjs";', contents)
+        self.assertIn('url.protocol !== "http:" || !isLocalAcceptanceHostname(url.hostname)', contents)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -7,6 +7,7 @@ import { chromium } from "../../web/node_modules/playwright/index.mjs";
 
 import { assertOnsProductEvidence, onsProductStages } from "./ons_product_contract.mjs";
 import { createProductClient, singleFile } from "./rpgmaker_security_upload.mjs";
+import { isLocalAcceptanceHostname } from "./rpgmaker_url.mjs";
 
 const caseId = "ACC-ONS-001";
 const requiredEnvironment = [
@@ -267,7 +268,9 @@ function requireStatus(actual, expected, code) {
 function normalizedBaseUrl(value) {
   try {
     const url = new URL(value);
-    if (url.protocol !== "https:" || url.username || url.password || url.pathname !== "/" || url.search || url.hash) {
+    if ((url.protocol !== "https:" &&
+        (url.protocol !== "http:" || !isLocalAcceptanceHostname(url.hostname))) ||
+      url.username || url.password || url.pathname !== "/" || url.search || url.hash) {
       throw new Error("invalid");
     }
     return url.origin;
