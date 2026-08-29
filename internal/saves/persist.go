@@ -64,7 +64,7 @@ func validatePayloadBinding(launch launchSnapshot, path string) (nativeBinding, 
 		}
 		return nativeBinding{}, nil
 	}
-	if launch.payloadKind == "ONS_SAVE_BUNDLE_V1" {
+	if launch.payloadKind == "ONS_SAVE_BUNDLE_V1" || launch.payloadKind == "KIRIKIRI_SAVE_BUNDLE_V1" {
 		if launch.generation != "" {
 			return nativeBinding{}, ErrCheckpointInvalid
 		}

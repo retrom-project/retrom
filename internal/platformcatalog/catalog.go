@@ -9,7 +9,7 @@ import (
 	"retrom/internal/contentprofile"
 )
 
-const Version = 4
+const Version = 5
 
 var ErrInvalid = errors.New("PLATFORM_CATALOG_INVALID")
 
@@ -96,6 +96,10 @@ var current = Catalog{Version: Version, Templates: []DirectoryTemplate{
 		Key: "ons/onscripter_yuri", PlatformID: "ons", DefaultCoreID: "onscripter_yuri",
 		Name: "ONS 游戏", CatalogOrder: 290,
 	},
+	{
+		Key: "kirikiri/kirikiri2", PlatformID: "kirikiri", DefaultCoreID: "kirikiri2",
+		Name: "KiriKiri 游戏", CatalogOrder: 300,
+	},
 }}
 
 func Current() Catalog {
@@ -148,7 +152,7 @@ func validateTemplate(
 	}
 	// Directory-style runtimes accept project folders in addition to archives;
 	// their importer validates the full project shape.
-	if template.PlatformID != "rpgmaker" && template.PlatformID != "ons" &&
+	if template.PlatformID != "rpgmaker" && template.PlatformID != "ons" && template.PlatformID != "kirikiri" &&
 		!validExtensions(contentprofile.SupportedExtensions(template.PlatformID)) {
 		return fmt.Errorf("%w: extensions for %q", ErrInvalid, template.PlatformID)
 	}

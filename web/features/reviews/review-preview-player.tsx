@@ -1,7 +1,14 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { createOnsRuntime, type OnsRuntime, type OnsRuntimeConfig } from "@xxxsen/retrom-runtime";
+import {
+  createKirikiriRuntime,
+  createOnsRuntime,
+  type KirikiriRuntime,
+  type KirikiriRuntimeConfig,
+  type OnsRuntime,
+  type OnsRuntimeConfig,
+} from "@xxxsen/retrom-runtime";
 import { captureReviewScreenshot, mountEmulatorJS, type EmulatorInstance, type PlayerConfig } from "@/features/player/adapters/ejs-4.2.3-v2";
 import { installCanvasContain } from "@/features/player/canvas-fit";
 
@@ -15,7 +22,12 @@ type ONSReviewConfig = OnsRuntimeConfig & {
   gameTitle: string;
   reviewPreview: ReviewPreview;
 };
-type ReviewPlayerConfig = EmulatorReviewConfig | ONSReviewConfig;
+type KiriKiriReviewConfig = KirikiriRuntimeConfig & {
+  runtimeFamily: "KIRIKIRI";
+  gameTitle: string;
+  reviewPreview: ReviewPreview;
+};
+type ReviewPlayerConfig = EmulatorReviewConfig | ONSReviewConfig | KiriKiriReviewConfig;
 
 type ReviewRuntime = {
   screenshot: () => Promise<Blob>;
@@ -58,6 +70,23 @@ async function mountReviewRuntime(
       runtime,
       cleanup: () => { unsubscribe(); void runtime.exit(); },
     });
+    return;
+  }
+  if (config.runtimeFamily === "KIRIKIRI") {
+    const runtime: KirikiriRuntime = createKirikiriRuntime(config, {
+      frameWindow, restorePayload: null, signal: options.signal,
+    });
+    const unsubscribe = runtime.subscribe((event) => {
+      if (event.type === "FATAL_ERROR") {options.onError(event.code);}
+    });
+    try {
+      await runtime.mount(target);
+    } catch (error) {
+      unsubscribe();
+      await runtime.exit();
+      throw error;
+    }
+    options.onStart({runtime, cleanup: () => {unsubscribe(); void runtime.exit();}});
     return;
   }
   let emulator: EmulatorInstance | undefined;

@@ -114,7 +114,7 @@ export type EmulatorInstance = {
   capture?: { photo?: { source?: string; format?: string; upscale?: number } };
   takeScreenshot?: (source: string, format: string, upscale: number) => Promise<{ blob: Blob; format: string }>;
   gameManager?: {
-    savePayloadKind?: "RUNTIME_STATE" | "NATIVE_SAVE_BUNDLE_V1" | "ONS_SAVE_BUNDLE_V1";
+    savePayloadKind?: "RUNTIME_STATE" | "NATIVE_SAVE_BUNDLE_V1" | "ONS_SAVE_BUNDLE_V1" | "KIRIKIRI_SAVE_BUNDLE_V1";
     validationPurpose?: boolean;
     getRpgPosition?: () => { mapId: number; playerX: number; playerY: number; fixtureState: number };
     getCheckpointAvailability?: () => { available: boolean; reason: string | null };
@@ -160,7 +160,7 @@ export type ManualStatePayload = {
   screenshot: Blob;
   format: string;
   state: Uint8Array;
-  payloadKind?: "RUNTIME_STATE" | "NATIVE_SAVE_BUNDLE_V1" | "ONS_SAVE_BUNDLE_V1";
+  payloadKind?: "RUNTIME_STATE" | "NATIVE_SAVE_BUNDLE_V1" | "ONS_SAVE_BUNDLE_V1" | "KIRIKIRI_SAVE_BUNDLE_V1";
   validationPurpose?: boolean;
 };
 

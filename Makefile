@@ -168,7 +168,11 @@ deps-check:
 retrom-runtime-dev-link: prepare-node
 	@test -n "$(RETROM_RUNTIME_DEV_ROOT)" || { echo 'RETROM_RUNTIME_DEV_ROOT is required' >&2; exit 2; }
 	@test "$(RETROM_RUNTIME_DEV_INCLUDE_ASSETS)" = "false" || test "$(RETROM_RUNTIME_DEV_INCLUDE_ASSETS)" = "true" || { echo 'RETROM_RUNTIME_DEV_INCLUDE_ASSETS must be true or false' >&2; exit 2; }
-	@cd "$(RETROM_RUNTIME_DEV_ROOT)" && PATH="$(NODE_HOME)/bin:$$PATH" npm run build && PATH="$(NODE_HOME)/bin:$$PATH" npm run package:check
+	@if [[ "$(RETROM_RUNTIME_DEV_INCLUDE_ASSETS)" = "true" ]]; then \
+		cd "$(RETROM_RUNTIME_DEV_ROOT)" && PATH="$(NODE_HOME)/bin:$$PATH" npm run release:build && PATH="$(NODE_HOME)/bin:$$PATH" npm run package:check; \
+	else \
+		cd "$(RETROM_RUNTIME_DEV_ROOT)" && PATH="$(NODE_HOME)/bin:$$PATH" npm run build && PATH="$(NODE_HOME)/bin:$$PATH" npm run package:check; \
+	fi
 	@args=(); if [[ "$(RETROM_RUNTIME_DEV_INCLUDE_ASSETS)" = "true" ]]; then args+=(--include-runtime-assets); fi; python3 scripts/retrom_runtime_dev.py activate \
 		--source "$(RETROM_RUNTIME_DEV_ROOT)" \
 		--runtime-root "$(abspath data/runtime/rpgmaker/v1)" \
@@ -188,8 +192,9 @@ release-input-digest:
 
 ci: quality-structure-check api-check backend-check web-check integration-test data-check
 
-dev: api-generate-go prepare-deps web-install
+dev: api-generate-go web-install
 	@if [[ -n "$(RETROM_RUNTIME_DEV_ROOT)" ]]; then $(MAKE) retrom-runtime-dev-link RETROM_RUNTIME_DEV_ROOT="$(RETROM_RUNTIME_DEV_ROOT)" RETROM_RUNTIME_DEV_INCLUDE_ASSETS="$(RETROM_RUNTIME_DEV_INCLUDE_ASSETS)"; fi
+	@$(MAKE) prepare-deps RETROM_RUNTIME_DEV_ROOT="$(RETROM_RUNTIME_DEV_ROOT)"
 	@RETROM_DEV_STATE_DIR="$(RETROM_DEV_STATE_DIR)" \
 	 RETROM_HTTP_ADDR="$(RETROM_HTTP_ADDR)" \
 	 RETROM_PUBLIC_ORIGIN="$(RETROM_PUBLIC_ORIGIN)" \
@@ -207,7 +212,7 @@ dev: api-generate-go prepare-deps web-install
 	 NEXT_DEV_PORT="$(NEXT_DEV_PORT)" \
 	 NEXT_BACKEND_ORIGIN="$(NEXT_BACKEND_ORIGIN)" \
 	 NEXT_DIST_DIR="$(NEXT_DEV_DIST_DIR)" \
-	 PATH="$(NODE_HOME)/bin:$$PATH" env -u RETROM_RUNTIME_DEV_ROOT scripts/dev.sh
+	 PATH="$(NODE_HOME)/bin:$$PATH" env -u RETROM_RUNTIME_DEV_ROOT -u RETROM_RUNTIME_DEV_INCLUDE_ASSETS scripts/dev.sh
 
 build-backend-image: data-check
 	@scripts/build-image.sh backend "$(BACKEND_IMAGE):$(IMAGE_TAG)" "$(RETROM_DEPENDENCY_VERSIONS)" "$(RETROM_ACTIVE_EMULATORJS_VERSION)" "$(DOCKER)"

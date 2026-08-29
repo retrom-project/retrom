@@ -56,7 +56,7 @@ EmulatorJS 4.2.3 发布包中的官方 `mame2003` bundle `2.0.2` 曾在 Chrome �
 - Core 保存实际 artifact 路径、SHA-256 和兼容配置，不能只保存 EmulatorJS 版本；
 - resolver 对 `mame2003` 读取版本化覆盖，不能用 `mame2003_plus` 静默替代；
 - 后续升级先通过实际 Retrom 产品 E2E，再删除覆盖；
-- EmulatorJS 覆盖变化视为 CoreArtifact 变化，旧存档不得默认跨版本加载；独立 `retrom-runtime` 的 RPG Maker/ONS 升级则使用 manifest 声明的 `gameCompatibilityLine/saveAbi/readableSaveAbis` 决定游戏与存档兼容性。
+- EmulatorJS 覆盖变化视为 CoreArtifact 变化，旧存档不得默认跨版本加载；独立 `retrom-runtime` 的 RPG Maker/ONS/KiriKiri 升级则使用 manifest 声明的 `gameCompatibilityLine/saveAbi/readableSaveAbis` 决定游戏与存档兼容性。
 
 ## 5. 内容与运行时约束
 

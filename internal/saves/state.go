@@ -76,7 +76,8 @@ func validateRestoreContents(
 			nativeProfile.String != *binding.profile || resumeSlot.Int64 != *binding.slot {
 			return ErrCheckpointIncompatible
 		}
-	} else if launch.payloadKind != "RUNTIME_STATE" && launch.payloadKind != "ONS_SAVE_BUNDLE_V1" ||
+	} else if launch.payloadKind != "RUNTIME_STATE" && launch.payloadKind != "ONS_SAVE_BUNDLE_V1" &&
+		launch.payloadKind != "KIRIKIRI_SAVE_BUNDLE_V1" ||
 		nativeProfile.Valid || resumeSlot.Valid {
 		return ErrCheckpointIncompatible
 	}

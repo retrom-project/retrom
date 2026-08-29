@@ -39,6 +39,11 @@ EXPECTED_FILES = {
     "runtime/ons/onsyuri.js": ("onsyuri.js", "runtime_js", 1 << 20),
     "runtime/ons/onsyuri.wasm": ("onsyuri.wasm", "runtime_wasm", 16 << 20),
     "licenses/onsyuri/COPYING": ("onsyuri-COPYING", "license", 64 << 10),
+    "runtime/kirikiri/index.js": ("index.js", "runtime_js", 1 << 20),
+    "runtime/kirikiri/index.wasm": ("index.wasm", "runtime_wasm", 64 << 20),
+    "runtime/kirikiri/vlfs.js": ("vlfs.js", "runtime_js", 256 << 10),
+    "runtime/kirikiri/assets.zip": ("assets.zip", "runtime_asset", 16 << 20),
+    "licenses/kirikiri2/LICENSE": ("kirikiri2-LICENSE", "license", 64 << 10),
 }
 EXPECTED_ROUTES = {
     "RPG2000_EASYRPG": ("rpgmaker_2000", "RPGMAKER", "RPG2000", "EASYRPG_WEB", "easyrpg-web", "easyrpg-save"),
@@ -49,6 +54,9 @@ EXPECTED_ROUTES = {
     "RPGMV_NATIVE": ("rpgmaker_mv", "RPGMAKER", "RPGMV", "NATIVE_WEB", "native-web", "native-save"),
     "RPGMZ_NATIVE": ("rpgmaker_mz", "RPGMAKER", "RPGMZ", "NATIVE_WEB", "native-web", "native-save"),
     "ONS_YURI": ("onscripter_yuri", "ONS", "ONS", "ONS_YURI_WEB", "ons-yuri-web", "ons-save"),
+    "KIRIKIRI2_KAG": (
+        "kirikiri2", "KIRIKIRI", "KIRIKIRI2", "KIRIKIRI2_WEB", "kirikiri2-web", "kirikiri-kag-bookmark",
+    ),
 }
 
 
@@ -157,7 +165,7 @@ def validate_artifacts(value: object, tag: str) -> None:
             raise BuildError("RPG_RUNTIME_ARTIFACT_FILES_INVALID")
         seen.add(artifact["route_key"])
         selected.add(artifact["core_id"])
-    if seen != set(EXPECTED_ROUTES) or len(selected) != 8:
+    if seen != set(EXPECTED_ROUTES) or len(selected) != 9:
         raise BuildError("RPG_RUNTIME_ARTIFACT_ROUTE_INVALID")
 
 
