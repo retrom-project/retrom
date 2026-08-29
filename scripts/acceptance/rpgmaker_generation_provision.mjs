@@ -129,7 +129,11 @@ async function provisionReview(client, sourceFiles, platformInstanceId) {
   }
   const review = await client.json("GET", `/api/v1/admin/reviews/${resumeItemId}`);
   const expected = projectManifest(sourceFiles, config.prefix);
-  if (review.itemId !== resumeItemId || review.rpgMaker?.runtimeValidation !== null
+  const validation = review.rpgMaker?.runtimeValidation;
+  const validationCanBeReplaced = validation === null
+    || review.rpgMaker?.runtimeValidationCurrent !== true
+    || ["FAILED", "EXPIRED"].includes(validation?.state);
+  if (review.itemId !== resumeItemId || !validationCanBeReplaced
       || review.rpgMaker?.selectedCoreId !== config.coreId
       || review.rpgMaker?.generation !== config.generation
       || review.sourceManifest?.contentKind !== "RPG_MAKER_PROJECT_V1"
@@ -437,9 +441,53 @@ async function assertSelectedRoute(client) {
 
 async function openPlayer(context, playerUrl) {
   const page = await context.newPage();
+  const consoleDiagnostics = [];
   const errors = [];
+  const projectRequests = [];
+  page.on("console", (message) => {
+    const text = message.text();
+    if (!text.trim()) { return; }
+    consoleDiagnostics.push({ type: message.type(), message: trimDiagnostic(text) });
+    if (consoleDiagnostics.length > 100) { consoleDiagnostics.splice(0, consoleDiagnostics.length - 100); }
+  });
   page.on("pageerror", (error) => errors.push(error.stack || error.message));
+  page.on("request", (request) => {
+    if (!request.url().includes("/runtime/content/project/")) { return; }
+    projectRequests.push({
+      method: request.method(), range: request.headers().range ?? null,
+      responseStatus: null, contentRange: null, failure: null,
+    });
+  });
+  page.on("response", (response) => {
+    if (!response.url().includes("/runtime/content/project/")) { return; }
+    const match = [...projectRequests].reverse().find((item) =>
+      item.method === response.request().method() && item.responseStatus === null && item.failure === null);
+    if (!match) { return; }
+    match.responseStatus = response.status();
+    match.contentRange = response.headers()["content-range"] ?? null;
+  });
+  page.on("requestfailed", (request) => {
+    if (!request.url().includes("/runtime/content/project/")) { return; }
+    const match = [...projectRequests].reverse().find((item) =>
+      item.method === request.method() && item.responseStatus === null && item.failure === null);
+    if (match) { match.failure = trimDiagnostic(request.failure()?.errorText ?? "unknown"); }
+  });
   page.__retromPageErrors = errors;
+  page.__retromConsoleDiagnostics = consoleDiagnostics;
+  page.__retromProjectRequests = projectRequests;
+  await page.addInitScript(() => {
+    window.__retromRuntimeDiagnostics = [];
+    window.addEventListener("retrom:runtime-diagnostic", (event) => {
+      const detail = event instanceof CustomEvent ? event.detail : null;
+      if (!detail || typeof detail.runtime !== "string" || typeof detail.message !== "string") { return; }
+      window.__retromRuntimeDiagnostics.push({
+        runtime: detail.runtime.slice(0, 80), message: detail.message.slice(0, 1_000),
+      });
+      if (window.__retromRuntimeDiagnostics.length > 100) {
+        window.__retromRuntimeDiagnostics.splice(0, window.__retromRuntimeDiagnostics.length - 100);
+      }
+    });
+  });
   const configResponse = page.waitForResponse((response) =>
     response.request().method() === "GET" && /\/runtime\/launches\/[^/]+\/config$/.test(response.url()),
   );
@@ -466,10 +514,17 @@ async function runtimeAction(page, label, keys, timeout = 120_000) {
   try {
     await button.waitFor({ state: "visible", timeout });
   } catch {
+    const runtimeDiagnostics = await page.evaluate(() =>
+      (window.__retromRuntimeDiagnostics ?? []).slice(-20)).catch(() => []);
     const diagnostics = {
       alerts: (await page.getByRole("alert").allInnerTexts()).map(trimDiagnostic).slice(0, 5),
+      consoleDiagnostics: (page.__retromConsoleDiagnostics ?? []).slice(-30),
       loading: (await page.locator(".player-loading").allInnerTexts()).map(trimDiagnostic).slice(0, 3),
       pageErrors: (page.__retromPageErrors ?? []).map(trimDiagnostic).slice(0, 5),
+      projectRequests: (page.__retromProjectRequests ?? []).slice(-30),
+      runtimeDiagnostics: runtimeDiagnostics.map((value) => ({
+        runtime: trimDiagnostic(value.runtime).slice(0, 80), message: trimDiagnostic(value.message),
+      })),
       statuses: (await page.getByRole("status").allInnerTexts()).map(trimDiagnostic).slice(0, 10),
     };
     throw new Error(`RPG_PROVISION_RUNTIME_ACTION_UNAVAILABLE_${label}:${JSON.stringify(diagnostics)}`);

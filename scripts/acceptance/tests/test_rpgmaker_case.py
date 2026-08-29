@@ -393,6 +393,16 @@ class EvidenceContractTests(unittest.TestCase):
         source = GENERATION_PROVISION_PATH.read_text()
         self.assertIn("RPG_PROVISION_RUNTIME_ACTION_UNAVAILABLE_", source)
         self.assertIn("page.__retromPageErrors", source)
+        self.assertIn('page.addInitScript(() => {', source)
+        self.assertIn('window.addEventListener("retrom:runtime-diagnostic"', source)
+        self.assertIn("window.__retromRuntimeDiagnostics.length > 100", source)
+        self.assertIn("runtimeDiagnostics: runtimeDiagnostics.map", source)
+        self.assertIn('page.on("console", (message)', source)
+        self.assertIn("page.__retromConsoleDiagnostics = consoleDiagnostics", source)
+        self.assertIn("consoleDiagnostics: (page.__retromConsoleDiagnostics ?? []).slice(-30)", source)
+        self.assertIn('request.url().includes("/runtime/content/project/")', source)
+        self.assertIn("page.__retromProjectRequests = projectRequests", source)
+        self.assertIn("projectRequests: (page.__retromProjectRequests ?? []).slice(-30)", source)
         self.assertIn('page.locator(".player-loading")', source)
         self.assertIn('page.getByRole("status")', source)
 
@@ -456,10 +466,12 @@ class EvidenceContractTests(unittest.TestCase):
         self.assertIn('item.defaultCoreId === "rpgmaker"', source)
         self.assertNotIn("item.defaultCoreId === config.coreId", source)
 
-    def test_generation_provision_can_resume_only_an_exact_unvalidated_review(self) -> None:
+    def test_generation_provision_can_resume_an_exact_review_after_a_terminal_validation(self) -> None:
         source = GENERATION_PROVISION_PATH.read_text()
         self.assertIn('process.env.RETROM_RPG_PROVISION_RESUME_ITEM_ID', source)
-        self.assertIn('review.rpgMaker?.runtimeValidation !== null', source)
+        self.assertIn('["FAILED", "EXPIRED"].includes(validation?.state)', source)
+        self.assertIn('review.rpgMaker?.runtimeValidationCurrent !== true', source)
+        self.assertIn('!validationCanBeReplaced', source)
         self.assertIn('review.sourceManifest?.filesDigest !== expected.filesDigest', source)
         self.assertIn('.normalize("NFC")', source)
         self.assertIn('Buffer.compare(Buffer.from(left.logicalName), Buffer.from(right.logicalName))', source)
