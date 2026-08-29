@@ -30,7 +30,7 @@ if (missing.length) {
 
 const baseUrl = normalizedBaseUrl(process.env.RETROM_ACCEPTANCE_BASE_URL);
 const screenshotsDirectory = join(caseDirectory, "screenshots");
-const kagInputTargets = [[0.5, 0.34], [0.11, 0.38], [0.5, 0.5], [0.25, 0.5], [0.75, 0.5]];
+const kagInputTargets = [[0.08, 0.355], [0.5, 0.34], [0.11, 0.38], [0.5, 0.5], [0.25, 0.5], [0.75, 0.5]];
 mkdirSync(screenshotsDirectory, { recursive: true });
 const localProxy = await localRpgAcceptanceProxy(baseUrl);
 

@@ -114,6 +114,7 @@ class KiriKiriProductAcceptanceTests(unittest.TestCase):
     def test_smoke_input_scans_bounded_kag_menu_targets_with_the_gamepad(self) -> None:
         contents = DRIVER_PATH.read_text(encoding="utf-8")
         self.assertIn("const kagInputTargets = [", contents)
+        self.assertIn("[0.08, 0.355]", contents)
         self.assertIn("for (const [targetX, targetY] of kagInputTargets)", contents)
         self.assertNotIn("await canvas.click({ position:", contents)
 
