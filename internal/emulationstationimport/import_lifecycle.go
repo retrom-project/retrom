@@ -185,7 +185,7 @@ WHERE collection.import_id=? AND collection.mapping_action='IMPORT' AND (
  instance.version<>collection.target_platform_instance_version OR
  instance.platform_id<>collection.target_platform_id OR
  instance.default_core_id<>collection.target_default_core_id OR
- artifact.id IS NULL OR artifact.enabled<>1 OR
+ artifact.id IS NULL OR artifact.available_for_launch<>1 OR
  artifact.version<>collection.target_core_artifact_version OR
  artifact.core_id<>collection.target_default_core_id OR
  collection.target_dat_version_id IS NOT NULL AND (dat.id IS NULL OR dat.is_active<>1)

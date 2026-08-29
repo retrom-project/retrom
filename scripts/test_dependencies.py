@@ -24,6 +24,20 @@ if RELEASE_DIGEST_SPEC is None or RELEASE_DIGEST_SPEC.loader is None:
 release_input_digest = importlib.util.module_from_spec(RELEASE_DIGEST_SPEC)
 RELEASE_DIGEST_SPEC.loader.exec_module(release_input_digest)
 
+RPG_BUILD_SPEC = importlib.util.spec_from_file_location(
+    "rpg_runtime_build",
+    Path(__file__).resolve().parents[1] / "data/dat/rpgmaker/v1/build.py",
+)
+if RPG_BUILD_SPEC is None or RPG_BUILD_SPEC.loader is None:
+    raise RuntimeError("RPG_RUNTIME_BUILD_TEST_MODULE_INVALID")
+rpg_runtime_build = importlib.util.module_from_spec(RPG_BUILD_SPEC)
+RPG_BUILD_DIRECTORY = str(Path(RPG_BUILD_SPEC.origin).resolve().parent)
+sys.path.insert(0, RPG_BUILD_DIRECTORY)
+try:
+    RPG_BUILD_SPEC.loader.exec_module(rpg_runtime_build)
+finally:
+    sys.path.remove(RPG_BUILD_DIRECTORY)
+
 
 MANIFEST_PATH = (
     Path(__file__).resolve().parents[1]
@@ -75,6 +89,20 @@ class DependencyManifestValidationTests(unittest.TestCase):
                 not manifest["emulatorjs"]["selected_core_artifacts"][0]["requires_threads"],
             ),
             "DEPENDENCY_ARTIFACT_THREAD_MISMATCH",
+        )
+
+    def test_rejects_artifact_set_digest_and_adapter_abi_drift(self) -> None:
+        self.assert_invalid(
+            lambda manifest: manifest["emulatorjs"]["selected_core_artifacts"][0].__setitem__(
+                "artifact_set_sha256", "0" * 64
+            ),
+            "DEPENDENCY_ARTIFACT_SET_SHA256_INVALID",
+        )
+        self.assert_invalid(
+            lambda manifest: manifest["emulatorjs"]["selected_core_artifacts"][0].__setitem__(
+                "adapter_abi", "latest"
+            ),
+            "DEPENDENCY_ARTIFACT_ADAPTER_ABI_INVALID",
         )
 
     def test_rejects_auxiliary_file_outside_allowlist_and_unknown_component(self) -> None:
@@ -188,6 +216,68 @@ class DependencyVersionValidationTests(unittest.TestCase):
             dependencies.parse_versions("4.3.0,4.3.0-pre")
         with self.assertRaisesRegex(dependencies.CheckError, "DEPENDENCY_VERSION_INVALID"):
             dependencies.parse_versions("4.3.0-pre.01")
+
+
+class RPGMakerDependencyTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.manifest = rpg_runtime_build.load_manifest()
+        rpg_runtime_build.validate_manifest(self.manifest)
+
+    def test_manifest_has_one_release_and_no_local_build_inputs(self) -> None:
+        self.assertEqual(
+            {"schema_version", "runtime_id", "release", "runtime_files", "artifacts"},
+            set(self.manifest),
+        )
+        self.assertEqual(8, len(self.manifest["artifacts"]))
+        serialized = json.dumps(self.manifest)
+        for stale in ("source_archives", "runtime_releases", "recipe_path", "retrom-web-"):
+            self.assertNotIn(stale, serialized)
+
+    def test_rejects_old_route_and_parallel_version_directory(self) -> None:
+        old_route = copy.deepcopy(self.manifest)
+        old_route["artifacts"][0]["route_key"] = "RPG2000_UNDECLARED"
+        with self.assertRaisesRegex(
+            rpg_runtime_build.BuildError, "RPG_RUNTIME_ARTIFACT_ROUTE_INVALID"
+        ):
+            rpg_runtime_build.validate_manifest(old_route)
+
+        old_directory = copy.deepcopy(self.manifest)
+        old_directory["runtime_files"][0]["path_in_release"] = "v7/easyrpg-player.js"
+        with self.assertRaisesRegex(
+            rpg_runtime_build.BuildError, "RPG_RUNTIME_FILE_DECLARATION_INVALID"
+        ):
+            rpg_runtime_build.validate_manifest(old_directory)
+
+    def test_player_registry_matches_every_runtime_route(self) -> None:
+        registry = dependencies.load_json(
+            dependencies.RPG_MAKER_PLAYER_REGISTRY_PATH
+        )
+        dependencies.validate_rpg_maker_registry(self.manifest, registry)
+
+        drifted = copy.deepcopy(registry)
+        drifted["routes"][0]["routeKey"] = "RPG2000_LATEST"
+        with self.assertRaisesRegex(
+            dependencies.CheckError, "RPG_PLAYER_REGISTRY_DRIFT"
+        ):
+            dependencies.validate_rpg_maker_registry(self.manifest, drifted)
+
+    def test_player_registry_rejects_unknown_fields_and_split_implementation(self) -> None:
+        registry = dependencies.load_json(
+            dependencies.RPG_MAKER_PLAYER_REGISTRY_PATH
+        )
+        unknown = copy.deepcopy(registry)
+        unknown["routes"][0]["fallback"] = True
+        with self.assertRaisesRegex(
+            dependencies.CheckError, "RPG_PLAYER_REGISTRY_INVALID"
+        ):
+            dependencies.validate_rpg_maker_registry(self.manifest, unknown)
+
+        split = copy.deepcopy(registry)
+        split["routes"][1]["implementation"] = "contract.ts"
+        with self.assertRaisesRegex(
+            dependencies.CheckError, "RPG_PLAYER_IMPLEMENTATION_DRIFT"
+        ):
+            dependencies.validate_rpg_maker_registry(self.manifest, split)
 
 
 class NetplayManifestValidationTests(unittest.TestCase):
@@ -321,6 +411,62 @@ class ReleaseInputDigestTests(unittest.TestCase):
 
             self.assertEqual([entry["path"] for entry in entries], [new_path.name])
 
+    def test_rpg_runtime_manifest_is_a_named_release_input(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            subprocess.run(["git", "init", "--quiet"], cwd=root, check=True)
+            files = {
+                "data/dat/emulatorjs/1.0.0/manifest.json": {
+                    "emulatorjs": {"player_adapter": {"id": "fixture-adapter"}}
+                },
+                "data/auth/password-blocklists/v1/manifest.json": {},
+                "data/netplay/v2/manifest.json": {},
+                "data/dat/rpgmaker/v1/manifest.json": {
+                    "schema_version": 2,
+                    "runtime_id": "rpgmaker",
+                    "release": {"tag": "v0.2.0"},
+                    "runtime_files": [{} for _ in range(8)],
+                    "artifacts": [{} for _ in range(7)],
+                },
+            }
+            for relative, value in files.items():
+                target = root / relative
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_text(json.dumps(value), encoding="utf-8")
+            with mock.patch.object(release_input_digest, "ROOT", root):
+                value = release_input_digest.release_input_value(["1.0.0"], "1.0.0")
+            expected = release_input_digest.sha256(
+                (root / "data/dat/rpgmaker/v1/manifest.json").read_bytes()
+            )
+            self.assertEqual(value["rpgMakerRuntimeManifestSha256"], expected)
+
+    def test_rpg_runtime_manifest_shape_is_fail_closed_without_fixed_counts(self) -> None:
+        manifest = {
+            "schema_version": 2,
+            "runtime_id": "rpgmaker",
+            "release": {"tag": "v0.2.0"},
+            "runtime_files": [{}],
+            "artifacts": [{}],
+        }
+        release_input_digest.validate_rpg_runtime_manifest(manifest)
+        for invalid in (
+            {key: value for key, value in manifest.items() if key != "artifacts"},
+            {**manifest, "artifacts": "not-a-list"},
+            {**manifest, "runtime_files": []},
+        ):
+            with self.assertRaisesRegex(ValueError, "RELEASE_INPUT_RPG_RUNTIME_MANIFEST_INVALID"):
+                release_input_digest.validate_rpg_runtime_manifest(invalid)
+
+    def test_release_digest_rejects_unordered_dependency_versions(self) -> None:
+        with self.assertRaisesRegex(
+            dependencies.CheckError,
+            "DEPENDENCY_VERSION_LIST_NOT_SORTED",
+        ):
+            release_input_digest.release_input_value(
+                ["4.3.0-pre", "4.2.3"],
+                "4.2.3",
+            )
+
 
 class DependencyMaterializationTests(unittest.TestCase):
     def test_identical_notice_preserves_file_identity_and_timestamp(self) -> None:
@@ -345,6 +491,9 @@ class DependencyMaterializationTests(unittest.TestCase):
             auth_manifest_path = data_root / "auth/password-blocklists/v1/manifest.json"
             netplay_manifest_path = data_root / "netplay/v2/manifest.json"
             netplay_schema_path = data_root / "netplay/v2/schema.json"
+            rpg_dat_root = data_root / "dat/rpgmaker/v1"
+            rpg_manifest_path = rpg_dat_root / "manifest.json"
+            rpg_runtime_root = data_root / "runtime/rpgmaker/v1"
             manifest = {
                 "cores": [{"dat": {"local_path": "arcade/catalog.dat"}}],
                 "emulatorjs": {
@@ -372,6 +521,10 @@ class DependencyMaterializationTests(unittest.TestCase):
                 "passwords": {"output_relative_path": "payload/passwords.txt"},
                 "license": {"output_relative_path": "payload/LICENSE"},
             }
+            rpg_manifest = {"runtime_files": [
+                {"path_in_release": "v0.2.0/runtime.js"},
+                {"path_in_release": "v0.2.0/LICENSE"},
+            ]}
             expected = {
                 "dat/emulatorjs/1.0.0/manifest.json",
                 "dat/emulatorjs/1.0.0/SHA256SUMS",
@@ -387,16 +540,21 @@ class DependencyMaterializationTests(unittest.TestCase):
                 "auth/password-blocklists/v1/payload/LICENSE",
                 "netplay/v2/manifest.json",
                 "netplay/v2/schema.json",
+                "dat/rpgmaker/v1/manifest.json",
+                "runtime/rpgmaker/v1/.release-observed.json",
+                "runtime/rpgmaker/v1/v0.2.0/runtime.js",
+                "runtime/rpgmaker/v1/v0.2.0/LICENSE",
             }
             source_paths = set(expected)
             source_paths.remove("dat/emulatorjs/1.0.0/manifest.json")
             source_paths.remove("auth/password-blocklists/v1/manifest.json")
+            source_paths.remove("dat/rpgmaker/v1/manifest.json")
             for relative in source_paths:
                 target = data_root / relative
                 target.parent.mkdir(parents=True, exist_ok=True)
                 target.write_bytes(relative.encode("utf-8"))
                 target.chmod(0o600)
-            for target in (auth_manifest_path, netplay_manifest_path, netplay_schema_path):
+            for target in (auth_manifest_path, netplay_manifest_path, netplay_schema_path, rpg_manifest_path):
                 target.parent.mkdir(parents=True, exist_ok=True)
                 target.write_text("{}\n", encoding="utf-8")
                 target.chmod(0o600)
@@ -414,9 +572,12 @@ class DependencyMaterializationTests(unittest.TestCase):
                 AUTH_MANIFEST_PATH=auth_manifest_path,
                 NETPLAY_MANIFEST_PATH=netplay_manifest_path,
                 NETPLAY_SCHEMA_PATH=netplay_schema_path,
+                RPG_MAKER_DAT_ROOT=rpg_dat_root,
+                RPG_MAKER_MANIFEST_PATH=rpg_manifest_path,
+                RPG_MAKER_RUNTIME_ROOT=rpg_runtime_root,
             ):
                 dependencies.export_image_dependencies(
-                    output, ["1.0.0"], [manifest], auth_manifest
+                    output, ["1.0.0"], [manifest], auth_manifest, rpg_manifest
                 )
 
             actual = {
@@ -454,6 +615,10 @@ class DependencyMaterializationTests(unittest.TestCase):
                 "passwords": {"output_relative_path": "payload/passwords.txt"},
                 "license": {"output_relative_path": "payload/LICENSE"},
             }
+            rpg_dat_root = data_root / "dat/rpgmaker/v1"
+            rpg_manifest_path = rpg_dat_root / "manifest.json"
+            rpg_runtime_root = data_root / "runtime/rpgmaker/v1"
+            rpg_manifest = {"runtime_files": []}
             required = (
                 data_root / "dat/emulatorjs/1.0.0/manifest.json",
                 data_root / "dat/emulatorjs/1.0.0/SHA256SUMS",
@@ -463,22 +628,26 @@ class DependencyMaterializationTests(unittest.TestCase):
                 data_root / "auth/password-blocklists/v1/payload/LICENSE",
                 data_root / "netplay/v2/manifest.json",
                 data_root / "netplay/v2/schema.json",
+                rpg_manifest_path,
+                rpg_runtime_root / ".release-observed.json",
             )
             for target in required:
                 target.parent.mkdir(parents=True, exist_ok=True)
                 target.write_bytes(b"fixture")
-
             with mock.patch.multiple(
                 dependencies,
                 DATA_ROOT=data_root,
                 AUTH_MANIFEST_PATH=required[3],
                 NETPLAY_MANIFEST_PATH=required[6],
                 NETPLAY_SCHEMA_PATH=required[7],
+                RPG_MAKER_DAT_ROOT=rpg_dat_root,
+                RPG_MAKER_MANIFEST_PATH=rpg_manifest_path,
+                RPG_MAKER_RUNTIME_ROOT=rpg_runtime_root,
             ), self.assertRaisesRegex(
                 dependencies.CheckError, "DEPENDENCY_IMAGE_EXPORT_SOURCE_INVALID"
             ):
                 dependencies.export_image_dependencies(
-                    root / "image-dependencies", ["1.0.0"], [manifest], auth_manifest
+                    root / "image-dependencies", ["1.0.0"], [manifest], auth_manifest, rpg_manifest
                 )
 
 
@@ -488,6 +657,20 @@ class ImagePackagingTests(unittest.TestCase):
         dockerfile = (repository_root / "Dockerfile").read_text(encoding="utf-8")
         self.assertIn("dependencies.py image-export", dockerfile)
         self.assertIn("/work/image-dependencies", dockerfile)
+        self.assertIn(
+            "COPY web/features/player/rpg-runtime/registry.json "
+            "web/features/player/rpg-runtime/registry.json",
+            dockerfile,
+        )
+        dockerignore = (repository_root / ".dockerignore").read_text(encoding="utf-8")
+        self.assertIn("!web/features/player/rpg-runtime/registry.json", dockerignore)
+        implementation = "web/features/player/rpg-runtime/index.ts"
+        self.assertIn(f"COPY {implementation} {implementation}", dockerfile)
+        self.assertIn(f"!{implementation}", dockerignore)
+        self.assertIn(
+            "RUN --mount=type=cache,target=/work/.cache/dependencies,sharing=locked",
+            dockerfile,
+        )
         self.assertNotIn("/work/data/runtime/emulatorjs /opt/retrom/dependencies", dockerfile)
         self.assertNotIn("chmod -R", dockerfile)
         self.assertNotRegex(dockerfile, r"(?m)^USER\s+")

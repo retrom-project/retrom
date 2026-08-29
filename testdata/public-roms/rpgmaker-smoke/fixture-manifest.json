@@ -1,0 +1,930 @@
+{
+  "schemaVersion": 1,
+  "generator": "generator/*.go",
+  "files": [
+    {
+      "path": "malicious-rpgmv/data/System.json",
+      "generation": "RPGMV",
+      "sizeBytes": 82,
+      "sha256": "382d0afac9c9d8a3c8ffd6489a240edf24ca18087c27c86703d3d8e4e0c595b3"
+    },
+    {
+      "path": "malicious-rpgmv/index.html",
+      "generation": "RPGMV",
+      "sizeBytes": 515,
+      "sha256": "7f0dbc341dc6656f01e0cab4e03534fcfacc581310adb126588d6742d507d813"
+    },
+    {
+      "path": "malicious-rpgmv/js/main.js",
+      "generation": "RPGMV",
+      "sizeBytes": 6396,
+      "sha256": "4d5e732f715a4cec6acd5531d9d4f03e89d9d37f84e4c24ae95758f6aec44f53"
+    },
+    {
+      "path": "malicious-rpgmv/js/plugins.js",
+      "generation": "RPGMV",
+      "sizeBytes": 33,
+      "sha256": "3071407bf74698b69df34093f74c26327c76ce4e45e302f9c7e0dbe7066acecf"
+    },
+    {
+      "path": "malicious-rpgmv/js/rpg_core.js",
+      "generation": "RPGMV",
+      "sizeBytes": 101,
+      "sha256": "d6931594c3df1348137e98d1efa3804835cbb468ef2fd4c4dce40f51919577c1"
+    },
+    {
+      "path": "malicious-rpgmv/js/rpg_managers.js",
+      "generation": "RPGMV",
+      "sizeBytes": 33,
+      "sha256": "3071407bf74698b69df34093f74c26327c76ce4e45e302f9c7e0dbe7066acecf"
+    },
+    {
+      "path": "malicious-rpgmv/js/rpg_objects.js",
+      "generation": "RPGMV",
+      "sizeBytes": 33,
+      "sha256": "3071407bf74698b69df34093f74c26327c76ce4e45e302f9c7e0dbe7066acecf"
+    },
+    {
+      "path": "malicious-rpgmv/js/rpg_scenes.js",
+      "generation": "RPGMV",
+      "sizeBytes": 33,
+      "sha256": "3071407bf74698b69df34093f74c26327c76ce4e45e302f9c7e0dbe7066acecf"
+    },
+    {
+      "path": "malicious-rpgmv/js/rpg_sprites.js",
+      "generation": "RPGMV",
+      "sizeBytes": 33,
+      "sha256": "3071407bf74698b69df34093f74c26327c76ce4e45e302f9c7e0dbe7066acecf"
+    },
+    {
+      "path": "malicious-rpgmv/js/rpg_windows.js",
+      "generation": "RPGMV",
+      "sizeBytes": 33,
+      "sha256": "3071407bf74698b69df34093f74c26327c76ce4e45e302f9c7e0dbe7066acecf"
+    },
+    {
+      "path": "malicious-rpgmz/Game.exe",
+      "generation": "RPGMZ",
+      "sizeBytes": 45,
+      "sha256": "a47761d9ca20e969deb7affe49d60e9fbcbb926f875f9256b447bc71c45e7a60"
+    },
+    {
+      "path": "malicious-rpgmz/data/System.json",
+      "generation": "RPGMZ",
+      "sizeBytes": 82,
+      "sha256": "c155420db83c06e0b5221702dace5dd616ba2bf94423e0b9edbaaaa990c030bc"
+    },
+    {
+      "path": "malicious-rpgmz/index.html",
+      "generation": "RPGMZ",
+      "sizeBytes": 576,
+      "sha256": "9b30715d8523e13ad93c69f8b81fbe807f0a0e1770178f3443a929245612af0d"
+    },
+    {
+      "path": "malicious-rpgmz/js/libs/localforage.min.js",
+      "generation": "RPGMZ",
+      "sizeBytes": 33,
+      "sha256": "3071407bf74698b69df34093f74c26327c76ce4e45e302f9c7e0dbe7066acecf"
+    },
+    {
+      "path": "malicious-rpgmz/js/main.js",
+      "generation": "RPGMZ",
+      "sizeBytes": 6396,
+      "sha256": "4d5e732f715a4cec6acd5531d9d4f03e89d9d37f84e4c24ae95758f6aec44f53"
+    },
+    {
+      "path": "malicious-rpgmz/js/plugins.js",
+      "generation": "RPGMZ",
+      "sizeBytes": 33,
+      "sha256": "3071407bf74698b69df34093f74c26327c76ce4e45e302f9c7e0dbe7066acecf"
+    },
+    {
+      "path": "malicious-rpgmz/js/rmmz_core.js",
+      "generation": "RPGMZ",
+      "sizeBytes": 101,
+      "sha256": "09d31e209f648d0eb0e9cb241765829d9b04f036d8056d947ecfbbee6454a1fd"
+    },
+    {
+      "path": "malicious-rpgmz/js/rmmz_managers.js",
+      "generation": "RPGMZ",
+      "sizeBytes": 33,
+      "sha256": "3071407bf74698b69df34093f74c26327c76ce4e45e302f9c7e0dbe7066acecf"
+    },
+    {
+      "path": "malicious-rpgmz/js/rmmz_objects.js",
+      "generation": "RPGMZ",
+      "sizeBytes": 33,
+      "sha256": "3071407bf74698b69df34093f74c26327c76ce4e45e302f9c7e0dbe7066acecf"
+    },
+    {
+      "path": "malicious-rpgmz/js/rmmz_scenes.js",
+      "generation": "RPGMZ",
+      "sizeBytes": 33,
+      "sha256": "3071407bf74698b69df34093f74c26327c76ce4e45e302f9c7e0dbe7066acecf"
+    },
+    {
+      "path": "malicious-rpgmz/js/rmmz_sprites.js",
+      "generation": "RPGMZ",
+      "sizeBytes": 33,
+      "sha256": "3071407bf74698b69df34093f74c26327c76ce4e45e302f9c7e0dbe7066acecf"
+    },
+    {
+      "path": "malicious-rpgmz/js/rmmz_windows.js",
+      "generation": "RPGMZ",
+      "sizeBytes": 33,
+      "sha256": "3071407bf74698b69df34093f74c26327c76ce4e45e302f9c7e0dbe7066acecf"
+    },
+    {
+      "path": "malicious-rpgmz/launcher.bat",
+      "generation": "RPGMZ",
+      "sizeBytes": 49,
+      "sha256": "f318252995cd26018df44fc53cfa3c664e048b0ed47b85e2981194a809109675"
+    },
+    {
+      "path": "malicious-rpgmz/nw.dll",
+      "generation": "RPGMZ",
+      "sizeBytes": 43,
+      "sha256": "c3645a639ad724542a77d08214f4ec10719be9dcdd2a35e47814674239f00c62"
+    },
+    {
+      "path": "malicious-rpgmz/plugin.node",
+      "generation": "RPGMZ",
+      "sizeBytes": 48,
+      "sha256": "b90c9f6bdb61aaf0b8b042290d706fa57312caeca201c86a283a2f3ddffc588e"
+    },
+    {
+      "path": "negative-matrix/archives/bomb.zip",
+      "generation": "SECURITY_MATRIX",
+      "sizeBytes": 17498,
+      "sha256": "8e40ab71b1f153235a051eab10212a0e0fb2bff32191579a51bd02e57c2f2130"
+    },
+    {
+      "path": "negative-matrix/archives/symlink.zip",
+      "generation": "SECURITY_MATRIX",
+      "sizeBytes": 164,
+      "sha256": "dcce1ca2fbf07854572214c1482103b00c7587a515148b788d27e4a271ffde3b"
+    },
+    {
+      "path": "negative-matrix/archives/traversal.zip",
+      "generation": "SECURITY_MATRIX",
+      "sizeBytes": 170,
+      "sha256": "19e9a6b0514d165a7f0e18caa514408c2a219dbfb4a92b5626f188c5cc5623d0"
+    },
+    {
+      "path": "negative-matrix/case-collision/Game.ini",
+      "generation": "SECURITY_MATRIX",
+      "sizeBytes": 56,
+      "sha256": "40b80523b1eaba0ec47d282f123ee93687e481762b6d462200f8eb71c50458b2"
+    },
+    {
+      "path": "negative-matrix/case-collision/game.ini",
+      "generation": "SECURITY_MATRIX",
+      "sizeBytes": 56,
+      "sha256": "5deb9c20c9483ef60cc671546fe07f59653f25b11ce7471de3c8fa68cd30633d"
+    },
+    {
+      "path": "negative-matrix/dual-root/data/System.json",
+      "generation": "SECURITY_MATRIX",
+      "sizeBytes": 3,
+      "sha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356"
+    },
+    {
+      "path": "negative-matrix/dual-root/index.html",
+      "generation": "SECURITY_MATRIX",
+      "sizeBytes": 39,
+      "sha256": "609f712f65ec6e80ffba3146ac1bee40719f54feb1b3bc2b6e72af7d3af6bbd5"
+    },
+    {
+      "path": "negative-matrix/dual-root/js/rpg_core.js",
+      "generation": "SECURITY_MATRIX",
+      "sizeBytes": 34,
+      "sha256": "aaea94015f44a39d86d41a4b504ec698ea0c6626e4e5133b8a69585bc58b52c3"
+    },
+    {
+      "path": "negative-matrix/dual-root/www/data/System.json",
+      "generation": "SECURITY_MATRIX",
+      "sizeBytes": 3,
+      "sha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356"
+    },
+    {
+      "path": "negative-matrix/dual-root/www/index.html",
+      "generation": "SECURITY_MATRIX",
+      "sizeBytes": 39,
+      "sha256": "609f712f65ec6e80ffba3146ac1bee40719f54feb1b3bc2b6e72af7d3af6bbd5"
+    },
+    {
+      "path": "negative-matrix/dual-root/www/js/rpg_core.js",
+      "generation": "SECURITY_MATRIX",
+      "sizeBytes": 34,
+      "sha256": "aaea94015f44a39d86d41a4b504ec698ea0c6626e4e5133b8a69585bc58b52c3"
+    },
+    {
+      "path": "negative-matrix/external/data/System.json",
+      "generation": "SECURITY_MATRIX",
+      "sizeBytes": 3,
+      "sha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356"
+    },
+    {
+      "path": "negative-matrix/external/index.html",
+      "generation": "SECURITY_MATRIX",
+      "sizeBytes": 59,
+      "sha256": "adae1c6bc378570434558c4afb0482e135cf0bf7130726946cabe0e822e35945"
+    },
+    {
+      "path": "negative-matrix/external/js/main.js",
+      "generation": "SECURITY_MATRIX",
+      "sizeBytes": 26,
+      "sha256": "f5c0a462471356e44e19c05e815d67144d76c02cf42911a893dc83e38c7cdc7b"
+    },
+    {
+      "path": "negative-matrix/external/js/plugins.js",
+      "generation": "SECURITY_MATRIX",
+      "sizeBytes": 26,
+      "sha256": "f5c0a462471356e44e19c05e815d67144d76c02cf42911a893dc83e38c7cdc7b"
+    },
+    {
+      "path": "negative-matrix/external/js/rpg_core.js",
+      "generation": "SECURITY_MATRIX",
+      "sizeBytes": 34,
+      "sha256": "aaea94015f44a39d86d41a4b504ec698ea0c6626e4e5133b8a69585bc58b52c3"
+    },
+    {
+      "path": "negative-matrix/external/js/rpg_managers.js",
+      "generation": "SECURITY_MATRIX",
+      "sizeBytes": 26,
+      "sha256": "f5c0a462471356e44e19c05e815d67144d76c02cf42911a893dc83e38c7cdc7b"
+    },
+    {
+      "path": "negative-matrix/external/js/rpg_objects.js",
+      "generation": "SECURITY_MATRIX",
+      "sizeBytes": 26,
+      "sha256": "f5c0a462471356e44e19c05e815d67144d76c02cf42911a893dc83e38c7cdc7b"
+    },
+    {
+      "path": "negative-matrix/external/js/rpg_scenes.js",
+      "generation": "SECURITY_MATRIX",
+      "sizeBytes": 26,
+      "sha256": "f5c0a462471356e44e19c05e815d67144d76c02cf42911a893dc83e38c7cdc7b"
+    },
+    {
+      "path": "negative-matrix/external/js/rpg_sprites.js",
+      "generation": "SECURITY_MATRIX",
+      "sizeBytes": 26,
+      "sha256": "f5c0a462471356e44e19c05e815d67144d76c02cf42911a893dc83e38c7cdc7b"
+    },
+    {
+      "path": "negative-matrix/external/js/rpg_windows.js",
+      "generation": "SECURITY_MATRIX",
+      "sizeBytes": 26,
+      "sha256": "f5c0a462471356e44e19c05e815d67144d76c02cf42911a893dc83e38c7cdc7b"
+    },
+    {
+      "path": "negative-matrix/gencache-collision/Picture/retrom.jpg",
+      "generation": "SECURITY_MATRIX",
+      "sizeBytes": 30,
+      "sha256": "9bf9dcb70ad0ef28e6fd0451b7d1f20489d6933d2c2fb569f03902ce36a8fd13"
+    },
+    {
+      "path": "negative-matrix/gencache-collision/Picture/retrom.png",
+      "generation": "SECURITY_MATRIX",
+      "sizeBytes": 30,
+      "sha256": "14a44c94e320896d08783d8c3b67be1a47ffe0c96a2569b0534d38fc020dda4e"
+    },
+    {
+      "path": "negative-matrix/lcf-truncated/RPG_RT.ldb",
+      "generation": "SECURITY_MATRIX",
+      "sizeBytes": 13,
+      "sha256": "89bce076a8edee6122e16de2fec85451574bd2458c4ccddac8d5db274ec944fd"
+    },
+    {
+      "path": "negative-matrix/lcf-truncated/RPG_RT.lmt",
+      "generation": "SECURITY_MATRIX",
+      "sizeBytes": 12,
+      "sha256": "b39e3ef7eb21112d8f5561c82f6831c9f388ad7effd9f9cd4dbc4b3db837dc93"
+    },
+    {
+      "path": "negative-matrix/matrix.json",
+      "generation": "SECURITY_MATRIX",
+      "sizeBytes": 25158,
+      "sha256": "1a0dde633c801ed88194d1244f1c04bcf6e55a9feef3f165745f6b36f1a9a6b5"
+    },
+    {
+      "path": "negative-matrix/nfkc-collision/Game.ini",
+      "generation": "SECURITY_MATRIX",
+      "sizeBytes": 56,
+      "sha256": "40b80523b1eaba0ec47d282f123ee93687e481762b6d462200f8eb71c50458b2"
+    },
+    {
+      "path": "negative-matrix/nfkc-collision/Ｇame.ini",
+      "generation": "SECURITY_MATRIX",
+      "sizeBytes": 56,
+      "sha256": "40b80523b1eaba0ec47d282f123ee93687e481762b6d462200f8eb71c50458b2"
+    },
+    {
+      "path": "negative-matrix/referenced-native/data/System.json",
+      "generation": "SECURITY_MATRIX",
+      "sizeBytes": 3,
+      "sha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356"
+    },
+    {
+      "path": "negative-matrix/referenced-native/index.html",
+      "generation": "SECURITY_MATRIX",
+      "sizeBytes": 74,
+      "sha256": "64aced227fef9a4c50eec1f9ff14f0cbd2eb9a60089aa63f1926b18dfd4c4123"
+    },
+    {
+      "path": "negative-matrix/referenced-native/js/main.js",
+      "generation": "SECURITY_MATRIX",
+      "sizeBytes": 26,
+      "sha256": "f5c0a462471356e44e19c05e815d67144d76c02cf42911a893dc83e38c7cdc7b"
+    },
+    {
+      "path": "negative-matrix/referenced-native/js/plugins.js",
+      "generation": "SECURITY_MATRIX",
+      "sizeBytes": 26,
+      "sha256": "f5c0a462471356e44e19c05e815d67144d76c02cf42911a893dc83e38c7cdc7b"
+    },
+    {
+      "path": "negative-matrix/referenced-native/js/rpg_core.js",
+      "generation": "SECURITY_MATRIX",
+      "sizeBytes": 34,
+      "sha256": "aaea94015f44a39d86d41a4b504ec698ea0c6626e4e5133b8a69585bc58b52c3"
+    },
+    {
+      "path": "negative-matrix/referenced-native/js/rpg_managers.js",
+      "generation": "SECURITY_MATRIX",
+      "sizeBytes": 26,
+      "sha256": "f5c0a462471356e44e19c05e815d67144d76c02cf42911a893dc83e38c7cdc7b"
+    },
+    {
+      "path": "negative-matrix/referenced-native/js/rpg_objects.js",
+      "generation": "SECURITY_MATRIX",
+      "sizeBytes": 26,
+      "sha256": "f5c0a462471356e44e19c05e815d67144d76c02cf42911a893dc83e38c7cdc7b"
+    },
+    {
+      "path": "negative-matrix/referenced-native/js/rpg_scenes.js",
+      "generation": "SECURITY_MATRIX",
+      "sizeBytes": 26,
+      "sha256": "f5c0a462471356e44e19c05e815d67144d76c02cf42911a893dc83e38c7cdc7b"
+    },
+    {
+      "path": "negative-matrix/referenced-native/js/rpg_sprites.js",
+      "generation": "SECURITY_MATRIX",
+      "sizeBytes": 26,
+      "sha256": "f5c0a462471356e44e19c05e815d67144d76c02cf42911a893dc83e38c7cdc7b"
+    },
+    {
+      "path": "negative-matrix/referenced-native/js/rpg_windows.js",
+      "generation": "SECURITY_MATRIX",
+      "sizeBytes": 26,
+      "sha256": "f5c0a462471356e44e19c05e815d67144d76c02cf42911a893dc83e38c7cdc7b"
+    },
+    {
+      "path": "negative-matrix/referenced-native/plugin.node",
+      "generation": "SECURITY_MATRIX",
+      "sizeBytes": 39,
+      "sha256": "c85dc5ce4455ffbfbb9d59c6f9be019de636f845ea118aa5a7cd0bbf640f53e5"
+    },
+    {
+      "path": "negative-matrix/rgss-conflict/Game.ini",
+      "generation": "SECURITY_MATRIX",
+      "sizeBytes": 56,
+      "sha256": "40b80523b1eaba0ec47d282f123ee93687e481762b6d462200f8eb71c50458b2"
+    },
+    {
+      "path": "negative-matrix/rgss-conflict/Game.rvproj",
+      "generation": "SECURITY_MATRIX",
+      "sizeBytes": 11,
+      "sha256": "f5a6dda3a58e9e294820364df8f36151bff2dcea340732456d7da4c116a8b664"
+    },
+    {
+      "path": "negative-matrix/rgss-conflict/Game.rxproj",
+      "generation": "SECURITY_MATRIX",
+      "sizeBytes": 11,
+      "sha256": "45df58191ad28f0f9706d7ab32d212da11dd18e8dfeaa546157f76a657803bd2"
+    },
+    {
+      "path": "negative-matrix/sidecars/nested-7z-magic",
+      "generation": "SECURITY_MATRIX",
+      "sizeBytes": 57,
+      "sha256": "2afc6612db9ec37694802bc6ddf75311e1e36921520fed8a90acd83097ac949a"
+    },
+    {
+      "path": "negative-matrix/sidecars/nested-7z.7z",
+      "generation": "SECURITY_MATRIX",
+      "sizeBytes": 57,
+      "sha256": "2afc6612db9ec37694802bc6ddf75311e1e36921520fed8a90acd83097ac949a"
+    },
+    {
+      "path": "negative-matrix/sidecars/nested-gzip-magic",
+      "generation": "SECURITY_MATRIX",
+      "sizeBytes": 300,
+      "sha256": "626e78f76915d92a73e8c6add8959a6c1bbb2747477e1f01b17291e1d342e8ad"
+    },
+    {
+      "path": "negative-matrix/sidecars/nested-gzip.gz",
+      "generation": "SECURITY_MATRIX",
+      "sizeBytes": 300,
+      "sha256": "626e78f76915d92a73e8c6add8959a6c1bbb2747477e1f01b17291e1d342e8ad"
+    },
+    {
+      "path": "negative-matrix/sidecars/nested-rar-magic",
+      "generation": "SECURITY_MATRIX",
+      "sizeBytes": 55,
+      "sha256": "38736961600e423645a722434d384fb813b928c084befc9bfaaa6ed54d25e428"
+    },
+    {
+      "path": "negative-matrix/sidecars/nested-rar.rar",
+      "generation": "SECURITY_MATRIX",
+      "sizeBytes": 55,
+      "sha256": "38736961600e423645a722434d384fb813b928c084befc9bfaaa6ed54d25e428"
+    },
+    {
+      "path": "negative-matrix/sidecars/nested-tar-magic",
+      "generation": "SECURITY_MATRIX",
+      "sizeBytes": 69120,
+      "sha256": "2cd88972f4378adad0a1a7a84bf372d63782f00ca08709b1e46aa50a05b71d06"
+    },
+    {
+      "path": "negative-matrix/sidecars/nested-tar.tar",
+      "generation": "SECURITY_MATRIX",
+      "sizeBytes": 69120,
+      "sha256": "2cd88972f4378adad0a1a7a84bf372d63782f00ca08709b1e46aa50a05b71d06"
+    },
+    {
+      "path": "negative-matrix/sidecars/nested-zip-magic",
+      "generation": "SECURITY_MATRIX",
+      "sizeBytes": 583,
+      "sha256": "3bd31797588d1266970ef9c621992aa15349d4d25c446238a1ada432c8c634c5"
+    },
+    {
+      "path": "negative-matrix/sidecars/nested-zip.zip",
+      "generation": "SECURITY_MATRIX",
+      "sizeBytes": 583,
+      "sha256": "3bd31797588d1266970ef9c621992aa15349d4d25c446238a1ada432c8c634c5"
+    },
+    {
+      "path": "rpg2000-compat/CharSet/retrom-hero.png",
+      "generation": "RPG2000",
+      "sizeBytes": 74093,
+      "sha256": "708133c4465694988aba508200f49625c74f9f2e268ebe71deaadd848fa8e517"
+    },
+    {
+      "path": "rpg2000-compat/ChipSet/retrom-chipset.png",
+      "generation": "RPG2000",
+      "sizeBytes": 123249,
+      "sha256": "9c6674a40f0887fec07b0d4bf19996002a02b82667dc272b52ea2accf00ff597"
+    },
+    {
+      "path": "rpg2000-compat/EasyRPG.ini",
+      "generation": "RPG2000",
+      "sizeBytes": 17,
+      "sha256": "5b7898971829fb5576e996d313085754102685af995fbe365544c4c29622090e"
+    },
+    {
+      "path": "rpg2000-compat/Map0001.lmu",
+      "generation": "RPG2000",
+      "sizeBytes": 1523,
+      "sha256": "9e53ae6b5e51e22e93277218dcd31261875b6e5fe0cd6458a7acbc1dad02ed59"
+    },
+    {
+      "path": "rpg2000-compat/Picture/retrom-marker.png",
+      "generation": "RPG2000",
+      "sizeBytes": 13976,
+      "sha256": "9a109a55edb950196e0caf53a7ecf9992c566360a47ae3d9dbf6190682a3f732"
+    },
+    {
+      "path": "rpg2000-compat/RPG_RT.ini",
+      "generation": "RPG2000",
+      "sizeBytes": 58,
+      "sha256": "19a3d8400035860358de7b39822f1604db73ef480fab49894c242ccfa7cd190a"
+    },
+    {
+      "path": "rpg2000-compat/RPG_RT.ldb",
+      "generation": "RPG2000",
+      "sizeBytes": 1400,
+      "sha256": "5ec9536941467f88002a732913c059fe45a21822f414456756ab20199005970a"
+    },
+    {
+      "path": "rpg2000-compat/RPG_RT.lmt",
+      "generation": "RPG2000",
+      "sizeBytes": 67,
+      "sha256": "37fd6992fbd7c1918a79d19b1f738c53c907fd4f25e6507fc860f13729e59b08"
+    },
+    {
+      "path": "rpg2000-compat/Sound/retrom-tone.wav",
+      "generation": "RPG2000",
+      "sizeBytes": 11068,
+      "sha256": "5b0ef85ec2348a57460b32a93ecd804f996026aa4735c849c6c25ec013ffaaca"
+    },
+    {
+      "path": "rpg2000-compat/System/retrom-system.png",
+      "generation": "RPG2000",
+      "sizeBytes": 12980,
+      "sha256": "643c0b6270ec99e1867535d5dc05b34ec63f089f32ade0a7018998494b5d7da9"
+    },
+    {
+      "path": "rpg2000/CharSet/retrom-hero.png",
+      "generation": "RPG2000",
+      "sizeBytes": 74093,
+      "sha256": "f147a2871b072bbcd6f6d079364b8439bbfd5ea62119fdcc14556ac0ef0bb85b"
+    },
+    {
+      "path": "rpg2000/ChipSet/retrom-chipset.png",
+      "generation": "RPG2000",
+      "sizeBytes": 123249,
+      "sha256": "0c2ad27aeebfbd67cedf23468f73728199d3d354f17471758ce038849b53c5eb"
+    },
+    {
+      "path": "rpg2000/EasyRPG.ini",
+      "generation": "RPG2000",
+      "sizeBytes": 17,
+      "sha256": "5b7898971829fb5576e996d313085754102685af995fbe365544c4c29622090e"
+    },
+    {
+      "path": "rpg2000/Map0001.lmu",
+      "generation": "RPG2000",
+      "sizeBytes": 1520,
+      "sha256": "a293ef055dfcdcc00de9170be9f34cf0c3197fd4ccb2334efe166d1c748146c2"
+    },
+    {
+      "path": "rpg2000/Picture/retrom-marker.png",
+      "generation": "RPG2000",
+      "sizeBytes": 13976,
+      "sha256": "0c31bd0821efe6ed41692ff86ed30c707a15c3733b4fd8f00acae6a10b68ad28"
+    },
+    {
+      "path": "rpg2000/RPG_RT.ini",
+      "generation": "RPG2000",
+      "sizeBytes": 55,
+      "sha256": "b0cd801cf4e783f3c8991eea712effc291d73f92a9f274be0f896afe5541699a"
+    },
+    {
+      "path": "rpg2000/RPG_RT.ldb",
+      "generation": "RPG2000",
+      "sizeBytes": 1400,
+      "sha256": "5ec9536941467f88002a732913c059fe45a21822f414456756ab20199005970a"
+    },
+    {
+      "path": "rpg2000/RPG_RT.lmt",
+      "generation": "RPG2000",
+      "sizeBytes": 64,
+      "sha256": "7adcca3d3e6d8ea925a92e67d14791a6002c36f65f876ef5b7bd32fb38f23f40"
+    },
+    {
+      "path": "rpg2000/Sound/retrom-tone.wav",
+      "generation": "RPG2000",
+      "sizeBytes": 11068,
+      "sha256": "5b0ef85ec2348a57460b32a93ecd804f996026aa4735c849c6c25ec013ffaaca"
+    },
+    {
+      "path": "rpg2000/System/retrom-system.png",
+      "generation": "RPG2000",
+      "sizeBytes": 12980,
+      "sha256": "d59a7b05a2d5fbc97f91813a0c70dfae490aab8e01b305e4e20c73a51114fe0a"
+    },
+    {
+      "path": "rpg2003/CharSet/retrom-hero.png",
+      "generation": "RPG2003",
+      "sizeBytes": 74093,
+      "sha256": "7d747723a79151e014a295d3d50f72dd731410ccb49d440a6f837a3e9f0967e7"
+    },
+    {
+      "path": "rpg2003/ChipSet/retrom-chipset.png",
+      "generation": "RPG2003",
+      "sizeBytes": 123249,
+      "sha256": "480ab9331641d9a1605cc3cb272462077224919b3358526ca8363d21e999051e"
+    },
+    {
+      "path": "rpg2003/EasyRPG.ini",
+      "generation": "RPG2003",
+      "sizeBytes": 17,
+      "sha256": "5b7898971829fb5576e996d313085754102685af995fbe365544c4c29622090e"
+    },
+    {
+      "path": "rpg2003/Map0001.lmu",
+      "generation": "RPG2003",
+      "sizeBytes": 1520,
+      "sha256": "a19190b8976aa2560f7cda31a976e2f6f656fc1dffa48cf55a33e33dd82d3cb8"
+    },
+    {
+      "path": "rpg2003/Picture/retrom-marker.png",
+      "generation": "RPG2003",
+      "sizeBytes": 13976,
+      "sha256": "c2c3f69eff7e545b7256d332a03d950118bb78c6941c1d1058f2efcd6b3e3763"
+    },
+    {
+      "path": "rpg2003/RPG_RT.ini",
+      "generation": "RPG2003",
+      "sizeBytes": 55,
+      "sha256": "c952008093165e9f05bab9a4af72856f16c674c10c393451689b9ba4c0e9fe6d"
+    },
+    {
+      "path": "rpg2003/RPG_RT.ldb",
+      "generation": "RPG2003",
+      "sizeBytes": 1401,
+      "sha256": "f282f7d33e8cc829b8f55baeedff9f57fb4ab8d3247cefb97c20de353c53db0b"
+    },
+    {
+      "path": "rpg2003/RPG_RT.lmt",
+      "generation": "RPG2003",
+      "sizeBytes": 64,
+      "sha256": "e3f827af6b9e8cfb1df0a620411856edb3e34b223cb61be70ce045580342c6a3"
+    },
+    {
+      "path": "rpg2003/Sound/retrom-tone.wav",
+      "generation": "RPG2003",
+      "sizeBytes": 11068,
+      "sha256": "5b0ef85ec2348a57460b32a93ecd804f996026aa4735c849c6c25ec013ffaaca"
+    },
+    {
+      "path": "rpg2003/System/retrom-system.png",
+      "generation": "RPG2003",
+      "sizeBytes": 12980,
+      "sha256": "05aa3415c310f9b8e4d69b13d927ba2c1d250e9ba22702d85d93daab71428d74"
+    },
+    {
+      "path": "rpgmv/audio/se/retrom-tone.wav",
+      "generation": "RPGMV",
+      "sizeBytes": 11068,
+      "sha256": "5b0ef85ec2348a57460b32a93ecd804f996026aa4735c849c6c25ec013ffaaca"
+    },
+    {
+      "path": "rpgmv/css/retrom.css",
+      "generation": "RPGMV",
+      "sizeBytes": 141,
+      "sha256": "6f424af5a81838107735718ab419e529747cb777d3537932a078f2f1d5303775"
+    },
+    {
+      "path": "rpgmv/data/Actors.json",
+      "generation": "RPGMV",
+      "sizeBytes": 11,
+      "sha256": "18bd149d9224d50af331c7fdea3f59db808cc46380e01398b96b14f52ac68e6b"
+    },
+    {
+      "path": "rpgmv/data/Animations.json",
+      "generation": "RPGMV",
+      "sizeBytes": 11,
+      "sha256": "18bd149d9224d50af331c7fdea3f59db808cc46380e01398b96b14f52ac68e6b"
+    },
+    {
+      "path": "rpgmv/data/Armors.json",
+      "generation": "RPGMV",
+      "sizeBytes": 11,
+      "sha256": "18bd149d9224d50af331c7fdea3f59db808cc46380e01398b96b14f52ac68e6b"
+    },
+    {
+      "path": "rpgmv/data/Classes.json",
+      "generation": "RPGMV",
+      "sizeBytes": 11,
+      "sha256": "18bd149d9224d50af331c7fdea3f59db808cc46380e01398b96b14f52ac68e6b"
+    },
+    {
+      "path": "rpgmv/data/CommonEvents.json",
+      "generation": "RPGMV",
+      "sizeBytes": 11,
+      "sha256": "18bd149d9224d50af331c7fdea3f59db808cc46380e01398b96b14f52ac68e6b"
+    },
+    {
+      "path": "rpgmv/data/Enemies.json",
+      "generation": "RPGMV",
+      "sizeBytes": 11,
+      "sha256": "18bd149d9224d50af331c7fdea3f59db808cc46380e01398b96b14f52ac68e6b"
+    },
+    {
+      "path": "rpgmv/data/Items.json",
+      "generation": "RPGMV",
+      "sizeBytes": 11,
+      "sha256": "18bd149d9224d50af331c7fdea3f59db808cc46380e01398b96b14f52ac68e6b"
+    },
+    {
+      "path": "rpgmv/data/Map001.json",
+      "generation": "RPGMV",
+      "sizeBytes": 13262,
+      "sha256": "48783962869f59e4dd6e650cbd054bc685bb3ed5f1d968b20285e62ce0ae5bb4"
+    },
+    {
+      "path": "rpgmv/data/MapInfos.json",
+      "generation": "RPGMV",
+      "sizeBytes": 153,
+      "sha256": "997302a6571eb1936906d3758d315053690bd6ac5c439d368605dc03f8a4e373"
+    },
+    {
+      "path": "rpgmv/data/Skills.json",
+      "generation": "RPGMV",
+      "sizeBytes": 11,
+      "sha256": "18bd149d9224d50af331c7fdea3f59db808cc46380e01398b96b14f52ac68e6b"
+    },
+    {
+      "path": "rpgmv/data/States.json",
+      "generation": "RPGMV",
+      "sizeBytes": 11,
+      "sha256": "18bd149d9224d50af331c7fdea3f59db808cc46380e01398b96b14f52ac68e6b"
+    },
+    {
+      "path": "rpgmv/data/System.json",
+      "generation": "RPGMV",
+      "sizeBytes": 1941,
+      "sha256": "d641c22107413ba9a5beab4edc02702208008c65aef847c63f40c7d398f80fa3"
+    },
+    {
+      "path": "rpgmv/data/Tilesets.json",
+      "generation": "RPGMV",
+      "sizeBytes": 11,
+      "sha256": "18bd149d9224d50af331c7fdea3f59db808cc46380e01398b96b14f52ac68e6b"
+    },
+    {
+      "path": "rpgmv/data/Troops.json",
+      "generation": "RPGMV",
+      "sizeBytes": 11,
+      "sha256": "18bd149d9224d50af331c7fdea3f59db808cc46380e01398b96b14f52ac68e6b"
+    },
+    {
+      "path": "rpgmv/data/Weapons.json",
+      "generation": "RPGMV",
+      "sizeBytes": 11,
+      "sha256": "18bd149d9224d50af331c7fdea3f59db808cc46380e01398b96b14f52ac68e6b"
+    },
+    {
+      "path": "rpgmv/img/pictures/retrom-marker.png",
+      "generation": "RPGMV",
+      "sizeBytes": 104067,
+      "sha256": "dc19adad51c670b9bd98f583f408d2194555c357d8eec52f6b2d7f4f28c0996a"
+    },
+    {
+      "path": "rpgmv/img/system/Loading.png",
+      "generation": "RPGMV",
+      "sizeBytes": 73,
+      "sha256": "eacb1a012fc0820bb358ea06380857fd97d62a420932142014ac89bcc4afbbc3"
+    },
+    {
+      "path": "rpgmv/index.html",
+      "generation": "RPGMV",
+      "sizeBytes": 899,
+      "sha256": "a97721903b0ebdac615f5aa4ead9cdcf5aa6b481fed6526688df6477226aa129"
+    },
+    {
+      "path": "rpgmv/js/libs/fpsmeter.js",
+      "generation": "RPGMV",
+      "sizeBytes": 7571,
+      "sha256": "fec43a13a522dafe9c28c3d30635a275af350edf3423de0349fb6fb9c01e9450"
+    },
+    {
+      "path": "rpgmv/js/libs/iphone-inline-video.browser.js",
+      "generation": "RPGMV",
+      "sizeBytes": 3664,
+      "sha256": "688ce9e9460d08399b898519b6d6811f8bd6722369e266b1f2761002be608f72"
+    },
+    {
+      "path": "rpgmv/js/libs/lz-string.js",
+      "generation": "RPGMV",
+      "sizeBytes": 6702,
+      "sha256": "7acc5ae524455fb67dee09375b4246386241f7dc4708dcdf8af0e78ca8267de7"
+    },
+    {
+      "path": "rpgmv/js/libs/pixi-picture.js",
+      "generation": "RPGMV",
+      "sizeBytes": 22927,
+      "sha256": "f0e2af6190f2c53361047379ff0ae041568097f1b5beadcad28012f0aa5a99bb"
+    },
+    {
+      "path": "rpgmv/js/libs/pixi-tilemap.js",
+      "generation": "RPGMV",
+      "sizeBytes": 42752,
+      "sha256": "7401aeac40f9af7f7e777ce7a03a99c39571fa744fdb97add34732d7f8984e06"
+    },
+    {
+      "path": "rpgmv/js/libs/pixi.js",
+      "generation": "RPGMV",
+      "sizeBytes": 1295220,
+      "sha256": "47097d24b261679366419f9e36196a3303c35fa3d06d0518edb7f1ab5417def0"
+    },
+    {
+      "path": "rpgmv/js/main.js",
+      "generation": "RPGMV",
+      "sizeBytes": 158,
+      "sha256": "16ac53ce011a1b6d29fd1eb8820f4c3368cea40f408b4b46b2fa514c051fd4a9"
+    },
+    {
+      "path": "rpgmv/js/plugins.js",
+      "generation": "RPGMV",
+      "sizeBytes": 165,
+      "sha256": "50e18471ef4f8080136e42c369bbd15ddcb8ac82a8981ad0ed6d2ea637f5c659"
+    },
+    {
+      "path": "rpgmv/js/plugins/RetromSmoke.js",
+      "generation": "RPGMV",
+      "sizeBytes": 4578,
+      "sha256": "d2c6fb8be9528dee07d2dcdb012e4d13bf4aa8999d8c76e93089e0c79f997f16"
+    },
+    {
+      "path": "rpgmv/js/rpg_core.js",
+      "generation": "RPGMV",
+      "sizeBytes": 246637,
+      "sha256": "cce476804212b28049fef8b5c117577d0e356eac4abe33804628931e1826dd41"
+    },
+    {
+      "path": "rpgmv/js/rpg_managers.js",
+      "generation": "RPGMV",
+      "sizeBytes": 83846,
+      "sha256": "aef81821786b12a3c27f8db510089663f6c2aabb1b1708dd065f765f3d1f9c18"
+    },
+    {
+      "path": "rpgmv/js/rpg_objects.js",
+      "generation": "RPGMV",
+      "sizeBytes": 297572,
+      "sha256": "d4278c2161193d9105787ee6b1ff5167c07ed23af4deef190b7705a326f1926e"
+    },
+    {
+      "path": "rpgmv/js/rpg_scenes.js",
+      "generation": "RPGMV",
+      "sizeBytes": 78975,
+      "sha256": "b10b50dcb62793e42fd807fa3034fb82a89c6cb7ab32afafbb366d6d0a7f248a"
+    },
+    {
+      "path": "rpgmv/js/rpg_sprites.js",
+      "generation": "RPGMV",
+      "sizeBytes": 78084,
+      "sha256": "3b434c9b81c4081d00dd9eca3900fe7564545c6b5a70e3b00cd263de4170a4c8"
+    },
+    {
+      "path": "rpgmv/js/rpg_windows.js",
+      "generation": "RPGMV",
+      "sizeBytes": 177274,
+      "sha256": "81343a9b3fb1c957f1c6098776f8ca263aac8431f3996b647caab36d6a03c5f3"
+    },
+    {
+      "path": "rpgvx/Audio/SE/retrom-tone.wav",
+      "generation": "RPGVX",
+      "sizeBytes": 11068,
+      "sha256": "5b0ef85ec2348a57460b32a93ecd804f996026aa4735c849c6c25ec013ffaaca"
+    },
+    {
+      "path": "rpgvx/Data/Scripts.rvdata",
+      "generation": "RPGVX",
+      "sizeBytes": 1545,
+      "sha256": "fb32db8cc114aeaa57aed317e3f8da18e11936d4e051267fb93dd0bacf2b51ca"
+    },
+    {
+      "path": "rpgvx/Game.ini",
+      "generation": "RPGVX",
+      "sizeBytes": 79,
+      "sha256": "14ec25d62c13158fbdee9407de1352408cb211ed52f11e9ce16e5adbb917d1cf"
+    },
+    {
+      "path": "rpgvx/Game.rvproj",
+      "generation": "RPGVX",
+      "sizeBytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "rpgvxace/Audio/SE/retrom-tone.wav",
+      "generation": "RPGVXACE",
+      "sizeBytes": 11068,
+      "sha256": "5b0ef85ec2348a57460b32a93ecd804f996026aa4735c849c6c25ec013ffaaca"
+    },
+    {
+      "path": "rpgvxace/Data/Scripts.rvdata2",
+      "generation": "RPGVXACE",
+      "sizeBytes": 1547,
+      "sha256": "5580a79859dad8cc8c88205ff9ef2e836b66de4672885076b254f85692365f51"
+    },
+    {
+      "path": "rpgvxace/Game.ini",
+      "generation": "RPGVXACE",
+      "sizeBytes": 83,
+      "sha256": "66a2ce09db29f798d1038a6186e0185ee46b08d4d335263ecf8cc046cdd2f434"
+    },
+    {
+      "path": "rpgvxace/Game.rvproj2",
+      "generation": "RPGVXACE",
+      "sizeBytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "rpgxp/Audio/SE/retrom-tone.wav",
+      "generation": "RPGXP",
+      "sizeBytes": 11068,
+      "sha256": "5b0ef85ec2348a57460b32a93ecd804f996026aa4735c849c6c25ec013ffaaca"
+    },
+    {
+      "path": "rpgxp/Data/Scripts.rxdata",
+      "generation": "RPGXP",
+      "sizeBytes": 1545,
+      "sha256": "14f219e901a27b7cc77804ecf547a3dc394718ec7ef2508a694b74220229b5c6"
+    },
+    {
+      "path": "rpgxp/Game.ini",
+      "generation": "RPGXP",
+      "sizeBytes": 79,
+      "sha256": "7713ef7592e1e595a99941f8630b1e5f1a9cab1c714a3f95fbae301fa5dc8728"
+    },
+    {
+      "path": "rpgxp/Game.rxproj",
+      "generation": "RPGXP",
+      "sizeBytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ]
+}

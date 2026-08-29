@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "routes": [
+    {"coreId":"rpgmaker_2000","generation":"RPG2000","routeKey":"RPG2000_EASYRPG","adapterKind":"EASYRPG_WEB","adapterId":"easyrpg-web","implementation":"index.ts"},
+    {"coreId":"rpgmaker_2003","generation":"RPG2003","routeKey":"RPG2003_EASYRPG","adapterKind":"EASYRPG_WEB","adapterId":"easyrpg-web","implementation":"index.ts"},
+    {"coreId":"rpgmaker_xp","generation":"RPGXP","routeKey":"RPGXP_MKXP","adapterKind":"MKXP_LIBRETRO_WEB","adapterId":"mkxp-libretro-web","implementation":"index.ts"},
+    {"coreId":"rpgmaker_vx","generation":"RPGVX","routeKey":"RPGVX_MKXP","adapterKind":"MKXP_LIBRETRO_WEB","adapterId":"mkxp-libretro-web","implementation":"index.ts"},
+    {"coreId":"rpgmaker_vx_ace","generation":"RPGVXACE","routeKey":"RPGVXACE_MKXP","adapterKind":"MKXP_LIBRETRO_WEB","adapterId":"mkxp-libretro-web","implementation":"index.ts"},
+    {"coreId":"rpgmaker_mv","generation":"RPGMV","routeKey":"RPGMV_NATIVE","adapterKind":"NATIVE_WEB","adapterId":"native-web","implementation":"index.ts"},
+    {"coreId":"rpgmaker_mz","generation":"RPGMZ","routeKey":"RPGMZ_NATIVE","adapterKind":"NATIVE_WEB","adapterId":"native-web","implementation":"index.ts"}
+  ]
+}

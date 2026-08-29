@@ -11,10 +11,13 @@ import (
 
 func (run *creationRun) persistReviewDraft(record *groupRecord) error {
 	titleSource := record.group.titleSource
-	if titleSource == "" {
+	if titleSource == "" && !record.group.titleSourceExplicit {
 		titleSource = record.group.sources[0].logicalName
 	}
-	title := strings.TrimSuffix(filepath.Base(titleSource), filepath.Ext(titleSource))
+	title := ""
+	if titleSource != "" {
+		title = strings.TrimSuffix(filepath.Base(titleSource), filepath.Ext(titleSource))
+	}
 	metadataJSON, _ := json.Marshal(map[string]any{
 		"title": title, "description": "", "developer": "", "publisher": "", "genre": "",
 		"players": nil, "releaseYear": nil,

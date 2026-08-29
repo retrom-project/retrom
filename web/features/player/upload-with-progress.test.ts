@@ -14,6 +14,8 @@ class EventTargetStub {
 class RequestStub extends EventTargetStub {
   readonly upload = new EventTargetStub();
   status = 0;
+  responseText = "";
+  timeout = 0;
   withCredentials = false;
   readonly open = vi.fn();
   readonly setRequestHeader = vi.fn();
@@ -34,9 +36,10 @@ describe("uploadWithProgress", () => {
     expect(onProgress).toHaveBeenLastCalledWith({ loaded: 2, total: 4, percent: 50 });
     xhr.status = 204;
     xhr.emit("load");
-    await expect(result).resolves.toEqual({ ok: true, status: 204 });
+    await expect(result).resolves.toEqual({ ok: true, status: 204, body: "" });
     expect(onProgress).toHaveBeenLastCalledWith({ loaded: 4, total: 4, percent: 100 });
     expect(xhr.withCredentials).toBe(true);
+    expect(xhr.timeout).toBe(120_000);
     expect(xhr.setRequestHeader).toHaveBeenCalledWith("X-Test", "yes");
   });
 
@@ -48,7 +51,7 @@ describe("uploadWithProgress", () => {
     });
     failedResponse.status = 409;
     failedResponse.emit("load");
-    await expect(response).resolves.toEqual({ ok: false, status: 409 });
+    await expect(response).resolves.toEqual({ ok: false, status: 409, body: "" });
 
     const networkFailure = new RequestStub();
     const rejected = uploadWithProgress({
@@ -57,5 +60,14 @@ describe("uploadWithProgress", () => {
     });
     networkFailure.emit("error");
     await expect(rejected).rejects.toThrow("SAVE_UPLOAD_NETWORK_FAILED");
+
+    const timedOut = new RequestStub();
+    const timeout = uploadWithProgress({
+      method: "POST", url: "/save", body: new FormData(), timeoutMs: 300_000, onProgress: vi.fn(),
+      createRequest: () => timedOut as unknown as XMLHttpRequest,
+    });
+    expect(timedOut.timeout).toBe(300_000);
+    timedOut.emit("timeout");
+    await expect(timeout).rejects.toThrow("SAVE_UPLOAD_TIMEOUT");
   });
 });

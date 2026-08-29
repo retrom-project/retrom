@@ -103,6 +103,74 @@
 .runtime-upload-flow li span { color: var(--purple-dark); }
 .runtime-drawer-progress { margin: 14px 0 0; padding: 11px; display: flex; align-items: center; gap: 8px; color: var(--purple-dark); border-radius: 9px; background: var(--purple-soft); font-size: 11px; }
 .runtime-drawer > footer { margin-top: auto; padding: 15px 22px; display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid var(--line); }
+.runtime-dependency-tabs { width: fit-content; max-width: 100%; margin-bottom: 18px; padding: 5px; display: flex; gap: 5px; overflow-x: auto; border: 1px solid var(--line); border-radius: 12px; background: white; scrollbar-gutter: stable; }
+.runtime-dependency-tabs button { min-height: 38px; padding: 0 16px; flex: 0 0 auto; color: var(--muted); border: 0; border-radius: 8px; background: transparent; cursor: pointer; font-size: 12px; font-weight: 780; }
+.runtime-dependency-tabs button.is-active { color: var(--purple-dark); background: var(--purple-soft); }
+.runtime-pack-manager { display: grid; gap: 18px; }
+.runtime-pack-intro { padding: 17px 18px; display: flex; justify-content: space-between; align-items: center; gap: 18px; border: 1px solid var(--line); border-radius: 14px; background: white; }
+.runtime-pack-intro h2, .runtime-pack-intro p { margin: 0; }
+.runtime-pack-intro h2 { font-size: 18px; }
+.runtime-pack-intro p { margin-top: 5px; color: var(--muted); font-size: 11px; }
+.runtime-core-diagnostics { padding: 15px 17px; border: 1px solid var(--line); border-radius: 13px; background: white; }
+.runtime-core-diagnostics > header { display: flex; justify-content: space-between; align-items: end; gap: 12px; }
+.runtime-core-diagnostics > header span { color: var(--purple-dark); font-size: 9px; font-weight: 820; letter-spacing: .08em; text-transform: uppercase; }
+.runtime-core-diagnostics h2, .runtime-core-diagnostics p { margin: 0; }
+.runtime-core-diagnostics h2 { margin-top: 3px; font-size: 17px; }
+.runtime-core-diagnostics > header p { color: var(--muted); font-size: 9px; }
+.runtime-core-diagnostic-grid { margin-top: 12px; display: grid; gap: 7px; }
+.runtime-core-diagnostic-grid article { min-width: 0; padding: 9px 10px; display: grid; grid-template-columns: minmax(150px, .8fr) minmax(210px, 1fr) minmax(260px, 1.3fr) auto; gap: 10px; align-items: center; border: 1px solid #e8ebef; border-radius: 9px; background: var(--surface-subtle); }
+.runtime-core-diagnostic-grid article > div { min-width: 0; display: grid; gap: 2px; }
+.runtime-core-diagnostic-grid strong { font-size: 10px; }
+.runtime-core-diagnostic-grid small { min-width: 0; overflow: hidden; color: var(--muted); text-overflow: ellipsis; white-space: nowrap; font-size: 8px; }
+.runtime-core-diagnostic-grid code { overflow: hidden; color: #4f3b91; text-overflow: ellipsis; white-space: nowrap; font-size: 9px; }
+.runtime-pack-generation { display: grid; gap: 10px; }
+.runtime-pack-generation > header { display: flex; justify-content: space-between; align-items: end; gap: 12px; }
+.runtime-pack-generation > header span, .runtime-pack-native span { color: var(--purple-dark); font-size: 9px; font-weight: 820; letter-spacing: .08em; text-transform: uppercase; }
+.runtime-pack-generation > header h2, .runtime-pack-generation > header p { margin: 0; }
+.runtime-pack-generation > header h2 { font-size: 18px; }
+.runtime-pack-generation > header p { color: var(--muted); font-size: 10px; }
+.runtime-pack-definition-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 11px; }
+.runtime-pack-definition { min-width: 0; padding: 15px; border: 1px solid var(--line); border-radius: 13px; background: white; }
+.runtime-pack-definition > header { display: flex; justify-content: space-between; align-items: start; gap: 12px; }
+.runtime-pack-definition h3, .runtime-pack-definition p { margin: 0; }
+.runtime-pack-definition h3 { margin-top: 3px; font-size: 14px; }
+.runtime-pack-definition header span, .runtime-pack-definition header p { color: var(--muted); font-size: 9px; }
+.runtime-pack-definition header p { margin-top: 3px; }
+.runtime-pack-installations { margin-top: 12px; display: grid; gap: 7px; }
+.runtime-pack-installation { padding: 10px; display: grid; grid-template-columns: minmax(0, 1fr) 130px auto; gap: 10px; align-items: center; border: 1px solid #e8ebef; border-radius: 10px; background: var(--surface-subtle); }
+.runtime-pack-installation > div:first-child { min-width: 0; display: grid; justify-items: start; gap: 4px; }
+.runtime-pack-installation strong { font-size: 10px; }
+.runtime-pack-installation small { max-width: 100%; overflow: hidden; color: var(--muted); text-overflow: ellipsis; white-space: nowrap; font-size: 9px; }
+.runtime-pack-reference { display: grid; grid-template-columns: auto 1fr; align-items: baseline; gap: 0 4px; }
+.runtime-pack-reference strong { font-size: 18px; }
+.runtime-pack-reference small { font-size: 9px; }
+.runtime-pack-reference span { grid-column: 1 / -1; color: var(--muted); font-size: 8px; }
+.runtime-delete-button:disabled { color: #9aa2af; cursor: not-allowed; }
+.runtime-pack-diagnostic { grid-column: 1 / -1; padding-top: 7px; color: var(--danger); border-top: 1px solid #f0d9dd; font-size: 9px; }
+.runtime-pack-empty { margin-top: 12px !important; padding: 10px; color: var(--muted); border-radius: 9px; background: var(--surface-subtle); font-size: 9px; }
+.runtime-pack-native { padding: 15px 17px; display: flex; justify-content: space-between; align-items: center; border: 1px solid #cce8dd; border-radius: 13px; background: #f4fbf8; }
+.runtime-pack-native h2, .runtime-pack-native p { margin: 0; }
+.runtime-pack-native h2 { font-size: 17px; }
+.runtime-pack-native p { margin-top: 3px; color: var(--muted); font-size: 10px; }
+.runtime-pack-drawer > form { min-height: 0; height: 100%; display: flex; flex-direction: column; }
+.runtime-pack-drawer form > header { padding: 21px 22px 16px; display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; border-bottom: 1px solid var(--line); }
+.runtime-pack-drawer form > header h2 { margin: 8px 0 0; font-size: 21px; }
+.runtime-pack-drawer form > header p { margin: 5px 0 0; color: var(--muted); font-size: 11px; }
+.runtime-pack-drawer form > footer { margin-top: auto; padding: 15px 22px; display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid var(--line); }
+.runtime-pack-custom-fields { display: grid; grid-template-columns: 145px minmax(0, 1fr); gap: 10px; }
+.runtime-pack-custom-fields label { display: grid; gap: 6px; color: #596477; font-size: 11px; font-weight: 760; }
+.runtime-pack-custom-fields input, .runtime-pack-drawer textarea { width: 100%; padding: 10px 11px; color: var(--ink); border: 1px solid var(--line); border-radius: 10px; background: white; font: inherit; }
+.runtime-pack-drawer textarea { min-height: 76px; resize: vertical; }
+.runtime-pack-source { margin: 0 0 14px; padding: 12px; border: 1px solid var(--line); border-radius: 10px; }
+.runtime-pack-source legend { padding: 0 5px; color: #596477; font-size: 11px; font-weight: 760; }
+.runtime-pack-source > div { margin-bottom: 10px; display: flex; gap: 16px; }
+.runtime-pack-source label { display: flex; align-items: center; gap: 6px; color: #596477; font-size: 10px; }
+.runtime-pack-source > input { max-width: 100%; }
+.runtime-pack-source > small { margin-top: 7px; display: block; color: var(--muted); font-size: 9px; }
+.runtime-pack-file-preview { max-height: 92px; margin: 8px 0 0; padding-left: 20px; overflow: auto; color: var(--muted); font-size: 9px; }
+.runtime-pack-file-preview li { margin-top: 3px; overflow-wrap: anywhere; }
+.runtime-pack-legal { margin: 0; padding: 11px; color: #765617; border: 1px solid #ead69f; border-radius: 10px; background: #fff9eb; font-size: 10px; line-height: 1.6; }
+@media (max-width: 900px) { .runtime-pack-definition-grid { grid-template-columns: 1fr; } .runtime-pack-installation { grid-template-columns: minmax(0, 1fr) auto; } .runtime-pack-reference { grid-column: 1 / -1; } .runtime-core-diagnostic-grid article { grid-template-columns: minmax(0, 1fr) auto; } .runtime-core-diagnostic-grid code, .runtime-core-diagnostic-grid article > small { grid-column: 1 / -1; } }
 .runtime-diff { display: grid; gap: 12px; }
 .runtime-diff-compare { display: grid; grid-template-columns: minmax(0, 1fr) 30px minmax(0, 1fr); align-items: center; gap: 8px; }
 .runtime-diff-compare > span { color: #929aaa; text-align: center; font-size: 21px; }

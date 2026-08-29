@@ -45,9 +45,17 @@ func TestServerBIOSImportDiscoversAndInstallsExactStaticCandidate(t *testing.T) 
 INSERT INTO profiles(id,display_name,created_at_ms) VALUES('01980000-0000-7000-8000-00000000a001','Admin',1);
 INSERT INTO users(id,profile_id,username,display_name,role,status,created_at_ms,updated_at_ms)
 VALUES('01980000-0000-7000-8000-00000000b001','01980000-0000-7000-8000-00000000a001','server.admin','Admin','ADMIN','ENABLED',1,1);
-INSERT INTO core_artifacts(id,core_id,emulatorjs_version,bundle_version,flavor,relative_path,size_bytes,sha256,
-source_commit,provenance_json,compatibility_config_json,enabled,version,created_at_ms,updated_at_ms)
-VALUES('fixture-artifact','mgba','4.2.3','fixture','WASM','data/loader.js',1,lower(hex(zeroblob(32))),NULL,'{}','{}',1,1,1,1);
+INSERT INTO core_artifacts(
+id,core_id,route_key,runtime_family,runtime_adapter_kind,runtime_version,adapter_id,entry_path,
+size_bytes,sha256,manifest_sha256,artifact_set_sha256,requires_threads,save_payload_kind,save_max_bytes,
+provenance_json,compatibility_json,selected_for_new_bindings,available_for_launch,version,created_at_ms,updated_at_ms)
+VALUES('fixture-artifact','mgba','DEFAULT','EMULATORJS','EMULATORJS','4.2.3','ejs-4.2.3-v2',
+'data/loader.js',1,lower(hex(zeroblob(32))),lower(hex(zeroblob(32))),?,0,'RUNTIME_STATE',67108864,
+'{}','{"adapterAbi":"emulatorjs-state-v1"}',1,1,1,1,1)
+`, fmt.Sprintf("%064x", 1)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := database.SQL.ExecContext(context.Background(), `
 INSERT INTO bios_requirements(id,core_id,core_artifact_id,source_kind,dat_machine_name,logical_name,
 requirement_mode,condition_code,activation_options_json,catalog_digest,size_bytes,md5,sha1,sha256,
 source_url,source_version,enabled,version,created_at_ms,updated_at_ms,delivery_kind,emulator_path)
@@ -64,12 +72,15 @@ VALUES('fixture-requirement','mgba','fixture-artifact','STATIC',NULL,'bios.bin',
 	unit, ok, err := service.claim(ctx)
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return !ok }), "claim = %#v/%t/%v", unit, ok, err)
 	service.execute(ctx, unit)
-	var itemState string
+	var itemState, selectionDetails string
 	var outcome sql.NullString
-	if queryErr := database.SQL.QueryRowContext(context.Background(), `SELECT state,outcome_code FROM server_bios_import_items WHERE server_import_id=?`, created.ID).Scan(&itemState, &outcome); queryErr != nil {
+	if queryErr := database.SQL.QueryRowContext(context.Background(), `
+SELECT state,outcome_code,coalesce(selection_details_json,'')
+FROM server_bios_import_items WHERE server_import_id=?
+`, created.ID).Scan(&itemState, &outcome, &selectionDetails); queryErr != nil {
 		t.Fatal(queryErr)
 	}
-	testassert.Falsef(t, testassert.Any(func() bool { return itemState != "IMPORTED_MATCHED" }, func() bool { return !outcome.Valid }, func() bool { return outcome.String != "IMPORTED_MATCHED" }), "item after execute = %s/%v", itemState, outcome)
+	testassert.Falsef(t, testassert.Any(func() bool { return itemState != "IMPORTED_MATCHED" }, func() bool { return !outcome.Valid }, func() bool { return outcome.String != "IMPORTED_MATCHED" }), "item after execute = %s/%v details=%s", itemState, outcome, selectionDetails)
 	deadline := time.Now().Add(5 * time.Second)
 	for time.Now().Before(deadline) {
 		created, err = service.Get(ctx, created.ID)

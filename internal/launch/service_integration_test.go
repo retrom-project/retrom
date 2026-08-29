@@ -8,6 +8,7 @@ import (
 	"crypto/sha256"
 	"database/sql"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"path/filepath"
@@ -169,13 +170,14 @@ updated_at_ms) VALUES(?,
 SELECT id
 FROM core_artifacts
 WHERE core_id='fceumm'
-AND enabled=1
+AND selected_for_new_bindings=1
 `).Scan(&fceummArtifactID); err != nil {
 		t.Fatal(err)
 	}
 	if status, code := service.validateStaticBIOSForContent(ctx, fceummArtifactID, "Missing.fds"); status != "BLOCKED" || code != "LAUNCH_BIOS_MISSING" {
 		t.Fatalf("missing required FDS BIOS validation = %s/%s", status, code)
 	}
+	assertMissingFDSValidationFinishes(t, ctx, database.SQL, service, approved.GameID)
 	createdLaunch, err := service.Create(
 		ctx,
 		"local",
@@ -222,23 +224,36 @@ SELECT state,error_code FROM jobs WHERE id=?
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return len(bundle) != 1 }, func() bool { return bundle[0].LogicalName != "gba_bios.bin" }, func() bool { return bundle[0].SHA256 != firmwareMetadata.SHA256 }), "BIOS bundle = %#v, error=%v", bundle, err)
 	contentDigest, err := service.ContentBlob(ctx, createdLaunch.LaunchID, createdLaunch.Capability, "Launch.gba")
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return contentDigest != base64DigestHex(digest) }), "content digest = %s, error = %v", contentDigest, err)
-	var lockedVariantRevisionID, lockedArtifactID string
+	var lockedContentRevisionID, lockedVariantRevisionID, lockedArtifactID string
+	var lockedAdapterABI, lockedDependencyJSON string
 	if err := database.SQL.QueryRowContext(ctx, `
-SELECT game_variant_revision_id,
-core_artifact_id
-FROM launch_sessions
-WHERE id=?
-`, createdLaunch.LaunchID).Scan(&lockedVariantRevisionID, &lockedArtifactID); err != nil {
+SELECT launch.game_content_revision_id,launch.game_variant_revision_id,launch.core_artifact_id,
+ artifact.adapter_id,revision.dependency_snapshot_json
+FROM launch_sessions launch
+JOIN core_artifacts artifact ON artifact.id=launch.core_artifact_id
+JOIN game_variant_revisions revision ON revision.id=launch.game_variant_revision_id
+WHERE launch.id=?
+`, createdLaunch.LaunchID).Scan(
+		&lockedContentRevisionID, &lockedVariantRevisionID, &lockedArtifactID,
+		&lockedAdapterABI, &lockedDependencyJSON,
+	); err != nil {
 		t.Fatal(err)
 	}
+	lockedDependencyDigest := sha256.Sum256([]byte(lockedDependencyJSON))
 	saveID, _ := uuid.NewV7()
 	if _, err := database.SQL.ExecContext(ctx, `
 INSERT INTO save_states(id,
 profile_id,
 game_id,
+game_content_revision_id,
 game_variant_revision_id,
 core_artifact_id,
-state_blob_id,
+adapter_abi,
+dependency_snapshot_sha256,
+payload_blob_id,
+payload_kind,
+payload_sha256,
+payload_size_bytes,
 screenshot_blob_id,
 source_launch_session_id,
 name,
@@ -253,6 +268,12 @@ updated_at_ms) VALUES(?,
 ?,
 ?,
 ?,
+?,
+'RUNTIME_STATE',
+?,
+?,
+?,
+?,
 'Locked mGBA save',
 0,
 1,
@@ -261,9 +282,14 @@ updated_at_ms) VALUES(?,
 `,
 		saveID.String(),
 		approved.GameID,
+		lockedContentRevisionID,
 		lockedVariantRevisionID,
 		lockedArtifactID,
+		lockedAdapterABI,
+		hex.EncodeToString(lockedDependencyDigest[:]),
 		firmwareBlobID,
+		firmwareMetadata.SHA256,
+		firmwareMetadata.Size,
 		firmwareBlobID,
 		createdLaunch.LaunchID,
 		time.Now().UnixMilli(),
@@ -489,5 +515,76 @@ sort_order) VALUES(?,
 		ErrBlocked,
 	) {
 		t.Fatalf("case-insensitive launch logical-name collision error = %v", err)
+	}
+}
+
+func assertMissingFDSValidationFinishes(
+	t *testing.T,
+	ctx context.Context,
+	database *sql.DB,
+	service *Service,
+	sourceGameID string,
+) {
+	t.Helper()
+	const gameID = "60000000-0000-7000-8000-000000000001"
+	transaction, err := database.BeginTx(ctx, nil)
+	testassert.False(t, err != nil, err)
+	defer cleanup.Rollback(transaction)
+	if _, err := transaction.ExecContext(ctx, `PRAGMA defer_foreign_keys=ON`); err != nil {
+		t.Fatal(err)
+	}
+	statements := []struct {
+		query string
+		args  []any
+	}{
+		{`INSERT INTO game_metadata_revisions(id,game_id,title,title_initial,description,developer,publisher,genre,players,release_year,source_kind,source_ref_id,created_at_ms)
+SELECT '60000000-0000-7000-8000-000000000002',?,
+'Acceptance Missing FDS BIOS','A',description,developer,publisher,genre,players,release_year,source_kind,source_ref_id,?
+FROM game_metadata_revisions WHERE game_id=?`, []any{gameID, time.Now().UnixMilli(), sourceGameID}},
+		{`INSERT INTO game_content_revisions(id,game_id,source_kind,source_ref_id,source_manifest_json,source_manifest_digest,created_at_ms)
+SELECT '60000000-0000-7000-8000-000000000003',?,source_kind,source_ref_id,source_manifest_json,source_manifest_digest,?
+FROM game_content_revisions WHERE game_id=?`, []any{gameID, time.Now().UnixMilli(), sourceGameID}},
+		{`INSERT INTO games(id,platform_instance_id,status,current_metadata_revision_id,current_content_revision_id,search_text,version,created_at_ms,updated_at_ms)
+SELECT ?,id,'PUBLISHED','60000000-0000-7000-8000-000000000002','60000000-0000-7000-8000-000000000003',
+'acceptance missing fds bios',1,?,? FROM platform_instances WHERE catalog_template_key='nes/fceumm'`, []any{gameID, time.Now().UnixMilli(), time.Now().UnixMilli()}},
+		{`INSERT INTO game_content_files(game_content_revision_id,role,logical_name,blob_id,source_archive_blob_id,source_archive_entry_ordinal,sort_order)
+SELECT '60000000-0000-7000-8000-000000000003',role,
+CASE WHEN role='CONTENT' THEN 'Acceptance-Missing-BIOS.fds' ELSE logical_name END,
+blob_id,source_archive_blob_id,source_archive_entry_ordinal,sort_order
+FROM game_content_files WHERE game_content_revision_id=(SELECT current_content_revision_id FROM games WHERE id=?)`, []any{sourceGameID}},
+	}
+	for _, statement := range statements {
+		if _, err := transaction.ExecContext(ctx, statement.query, statement.args...); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := transaction.Commit(); err != nil {
+		t.Fatal(err)
+	}
+	pending, err := service.Create(ctx, "local", CreateRequest{
+		GameID: gameID, ReturnTo: "/games/" + gameID,
+		ClientCapabilities: Capabilities{SecureContext: true, CrossOriginIsolated: true, SharedArrayBuffer: true},
+	})
+	testassert.Falsef(t, testassert.Any(
+		func() bool { return err != nil },
+		func() bool { return pending.Status != "VALIDATION_PENDING" },
+		func() bool { return pending.JobID == "" },
+	), "missing FDS validation = %#v, error=%v", pending, err)
+	for deadline := time.Now().Add(3 * time.Second); ; {
+		var state string
+		var errorCode sql.NullString
+		if err := database.QueryRowContext(ctx, `SELECT state,error_code FROM jobs WHERE id=?`, pending.JobID).
+			Scan(&state, &errorCode); err != nil {
+			t.Fatal(err)
+		}
+		if state == "FAILED" {
+			testassert.Falsef(t, errorCode.String != "LAUNCH_BIOS_MISSING", "missing FDS error = %s", errorCode.String)
+			return
+		}
+		testassert.Falsef(t, testassert.Any(
+			func() bool { return state == "SUCCEEDED" },
+			func() bool { return time.Now().After(deadline) },
+		), "missing FDS validation state = %s/%s", state, errorCode.String)
+		time.Sleep(10 * time.Millisecond)
 	}
 }

@@ -8,6 +8,9 @@ import (
 )
 
 func (run *creationRun) persistGroupValidation(record *groupRecord) error {
+	if err := run.prepareRPGMakerValidationFiles(record); err != nil {
+		return err
+	}
 	status := record.group.validationStatus
 	code := record.group.compatibilityCode
 	snapshot := record.group.dependencySnapshot

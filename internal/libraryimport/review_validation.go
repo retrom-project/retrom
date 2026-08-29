@@ -80,15 +80,46 @@ WHERE draft.import_item_id=?
 	if err != nil {
 		return ErrInvalid
 	}
+	var platformID, defaultCoreID string
 	err = state.transaction.QueryRowContext(state.ctx, `
-SELECT p.version,p.default_core_id,a.id,a.version,a.compatibility_config_json,
+SELECT version,platform_id,default_core_id
+FROM platform_instances
+WHERE id=? AND enabled=1 AND deleted_at_ms IS NULL
+`, state.targetID).Scan(&state.platformVersion, &platformID, &defaultCoreID)
+	if err != nil {
+		return ErrInvalid
+	}
+	if platformID == "rpgmaker" {
+		return state.loadRPGMakerInputs()
+	}
+	state.coreID = defaultCoreID
+	err = state.transaction.QueryRowContext(state.ctx, `
+SELECT a.id,a.version,a.compatibility_json,
   (SELECT id FROM dat_versions WHERE core_artifact_id=a.id AND is_active=1)
-FROM platform_instances p
-JOIN core_artifacts a ON a.core_id=p.default_core_id AND a.enabled=1
-WHERE p.id=? AND p.enabled=1 AND p.deleted_at_ms IS NULL
-`, state.targetID).Scan(
-		&state.platformVersion, &state.coreID, &state.artifactID,
-		&state.artifactVersion, &state.compatibilityConfig, &state.datID,
+FROM core_artifacts a
+WHERE a.core_id=? AND a.selected_for_new_bindings=1
+`, defaultCoreID).Scan(
+		&state.artifactID, &state.artifactVersion, &state.compatibilityConfig, &state.datID,
+	)
+	if err != nil {
+		return ErrInvalid
+	}
+	return nil
+}
+
+func (state *draftValidationRefresh) loadRPGMakerInputs() error {
+	err := state.transaction.QueryRowContext(state.ctx, `
+SELECT profile.selected_core_id,artifact.id,artifact.version,artifact.compatibility_json,
+ (SELECT id FROM dat_versions WHERE core_artifact_id=artifact.id AND is_active=1)
+FROM review_drafts draft
+JOIN rpgmaker_review_profiles profile ON profile.review_draft_id=draft.id
+JOIN core_artifacts artifact ON artifact.id=profile.artifact_id
+ AND artifact.core_id=profile.selected_core_id
+ AND artifact.selected_for_new_bindings=1 AND artifact.available_for_launch=1
+WHERE draft.import_item_id=? AND draft.target_platform_instance_id=?
+`, state.itemID, state.targetID).Scan(
+		&state.coreID, &state.artifactID, &state.artifactVersion,
+		&state.compatibilityConfig, &state.datID,
 	)
 	if err != nil {
 		return ErrInvalid

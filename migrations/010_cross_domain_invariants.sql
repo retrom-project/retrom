@@ -19,7 +19,11 @@ CREATE UNIQUE INDEX bios_installations_active ON bios_installations(requirement_
 CREATE UNIQUE INDEX bios_installations_server_candidate ON bios_installations(server_import_candidate_id)
 WHERE server_import_candidate_id IS NOT NULL;
 
-CREATE UNIQUE INDEX core_artifacts_one_enabled_per_core ON core_artifacts(core_id) WHERE enabled = 1;
+CREATE UNIQUE INDEX core_artifacts_selected_route
+ON core_artifacts(core_id,route_key) WHERE selected_for_new_bindings=1;
+
+CREATE UNIQUE INDEX core_artifacts_selected_rpgmaker_core
+ON core_artifacts(core_id) WHERE selected_for_new_bindings=1 AND runtime_family='RPGMAKER';
 
 CREATE UNIQUE INDEX dat_bios_sets_one_default ON dat_bios_sets(dat_version_id, machine_name) WHERE is_default = 1;
 
@@ -52,6 +56,16 @@ CREATE INDEX fk_bios_installations_blob ON bios_installations(blob_id);
 
 CREATE INDEX fk_core_artifacts_core ON core_artifacts(core_id);
 
+CREATE INDEX fk_runtime_asset_pack_files_blob ON runtime_asset_pack_files(blob_id);
+
+CREATE INDEX fk_runtime_asset_pack_installations_bundle ON runtime_asset_pack_installations(bundle_blob_id);
+
+CREATE INDEX fk_runtime_asset_pack_installations_definition
+ON runtime_asset_pack_installations(definition_id,status,created_at_ms,id);
+
+CREATE INDEX fk_game_variant_runtime_packs_installation
+ON game_variant_revision_runtime_packs(installation_id,game_variant_revision_id);
+
 CREATE INDEX fk_game_content_game ON game_content_revisions(game_id);
 
 CREATE INDEX fk_game_metadata_game ON game_metadata_revisions(game_id);
@@ -79,6 +93,9 @@ ON import_jobs(reconfigured_from_import_job_id);
 CREATE INDEX fk_launch_external_files_blob ON launch_external_files(blob_id);
 
 CREATE INDEX fk_launch_game ON launch_sessions(game_id);
+
+CREATE INDEX fk_launch_validation
+ON launch_sessions(rpgmaker_runtime_validation_id,purpose,state);
 
 CREATE INDEX fk_platform_instances_default_core ON platform_instances(default_core_id);
 
@@ -253,6 +270,17 @@ CREATE INDEX review_preview_sessions_validation ON review_preview_sessions(valid
 
 CREATE INDEX review_queue ON review_drafts(updated_at_ms, import_item_id);
 
+CREATE UNIQUE INDEX rpgmaker_runtime_validations_passed_binding
+ON rpgmaker_runtime_validations(import_item_id,runtime_binding_revision)
+WHERE state='PASSED';
+
+CREATE UNIQUE INDEX rpgmaker_validation_gate_terminal
+ON rpgmaker_runtime_validation_gate_events(validation_id,gate)
+WHERE phase IN ('PASS','FAIL');
+
+CREATE INDEX rpgmaker_validation_gate_launch
+ON rpgmaker_runtime_validation_gate_events(launch_id,sequence);
+
 CREATE INDEX review_runtime_screenshots_artifact ON review_runtime_screenshots(core_artifact_id);
 
 CREATE INDEX review_runtime_screenshots_blob ON review_runtime_screenshots(blob_id);
@@ -266,6 +294,8 @@ CREATE INDEX review_runtime_screenshots_validation ON review_runtime_screenshots
 CREATE INDEX review_uploaded_assets_item ON review_uploaded_assets(import_item_id, created_at_ms, id);
 
 CREATE INDEX save_states_library ON save_states(profile_id, game_id, created_at_ms DESC, id DESC);
+
+CREATE INDEX save_states_payload ON save_states(payload_blob_id);
 
 CREATE INDEX save_states_source_launch
 ON save_states(source_launch_session_id, created_at_ms DESC, id DESC)
@@ -603,7 +633,17 @@ CREATE TRIGGER game_variants_current_ready_insert
 BEFORE INSERT ON game_variants WHEN NEW.current_revision_id IS NOT NULL
 BEGIN
   SELECT CASE WHEN NOT EXISTS (
-    SELECT 1 FROM game_variant_revisions WHERE id = NEW.current_revision_id AND game_variant_id = NEW.id AND status = 'READY'
+    SELECT 1 FROM game_variant_revisions revision
+    JOIN core_artifacts artifact ON artifact.id=revision.core_artifact_id
+    WHERE revision.id=NEW.current_revision_id AND revision.game_variant_id=NEW.id AND revision.status='READY'
+      AND artifact.core_id=NEW.core_id AND (
+        artifact.runtime_family='EMULATORJS' AND revision.emulator_game_id IS NOT NULL
+          AND NOT EXISTS(SELECT 1 FROM rpgmaker_variant_profiles profile WHERE profile.game_variant_revision_id=revision.id)
+        OR artifact.runtime_family='RPGMAKER' AND revision.emulator_game_id IS NULL
+          AND EXISTS(SELECT 1 FROM rpgmaker_variant_profiles profile WHERE profile.game_variant_revision_id=revision.id)
+        OR artifact.runtime_family='ONS' AND revision.emulator_game_id IS NULL
+          AND NOT EXISTS(SELECT 1 FROM rpgmaker_variant_profiles profile WHERE profile.game_variant_revision_id=revision.id)
+      )
   ) THEN RAISE(ABORT, 'variant current must be ready and owned') END;
 END;
 
@@ -611,7 +651,17 @@ CREATE TRIGGER game_variants_current_ready_update
 BEFORE UPDATE OF current_revision_id ON game_variants WHEN NEW.current_revision_id IS NOT NULL
 BEGIN
   SELECT CASE WHEN NOT EXISTS (
-    SELECT 1 FROM game_variant_revisions WHERE id = NEW.current_revision_id AND game_variant_id = NEW.id AND status = 'READY'
+    SELECT 1 FROM game_variant_revisions revision
+    JOIN core_artifacts artifact ON artifact.id=revision.core_artifact_id
+    WHERE revision.id=NEW.current_revision_id AND revision.game_variant_id=NEW.id AND revision.status='READY'
+      AND artifact.core_id=NEW.core_id AND (
+        artifact.runtime_family='EMULATORJS' AND revision.emulator_game_id IS NOT NULL
+          AND NOT EXISTS(SELECT 1 FROM rpgmaker_variant_profiles profile WHERE profile.game_variant_revision_id=revision.id)
+        OR artifact.runtime_family='RPGMAKER' AND revision.emulator_game_id IS NULL
+          AND EXISTS(SELECT 1 FROM rpgmaker_variant_profiles profile WHERE profile.game_variant_revision_id=revision.id)
+        OR artifact.runtime_family='ONS' AND revision.emulator_game_id IS NULL
+          AND NOT EXISTS(SELECT 1 FROM rpgmaker_variant_profiles profile WHERE profile.game_variant_revision_id=revision.id)
+      )
   ) THEN RAISE(ABORT, 'variant current must be ready and owned') END;
 END;
 
@@ -783,10 +833,10 @@ CREATE TRIGGER launch_content_files_immutable_delete
 BEFORE DELETE ON launch_content_files
 WHEN NOT EXISTS(
   SELECT 1 FROM launch_sessions launch
-  JOIN game_variant_revisions revision ON revision.id=launch.game_variant_revision_id
-  JOIN games game ON game.id=launch.game_id
+  LEFT JOIN game_variant_revisions revision ON revision.id=launch.game_variant_revision_id
+  LEFT JOIN games game ON game.id=launch.game_id
   WHERE launch.id=OLD.launch_session_id AND (
-    game.status='PUBLISHED' AND launch.state IN ('FINISHED','EXPIRED','REVOKED') AND (
+    launch.purpose='PRODUCT' AND game.status='PUBLISHED' AND launch.state IN ('FINISHED','EXPIRED','REVOKED') AND (
       game.current_content_revision_id<>revision.game_content_revision_id OR EXISTS(
         SELECT 1 FROM json_each(revision.dependency_snapshot_json,'$.bios') dependency
         JOIN bios_installations installation
@@ -794,7 +844,11 @@ WHEN NOT EXISTS(
         WHERE installation.payload_released_at_ms IS NOT NULL
       )
     ) OR
-    game.status='DELETED' AND game.payload_state IN ('RELEASING','FAILED')
+    launch.purpose='PRODUCT' AND game.status='DELETED' AND game.payload_state IN ('RELEASING','FAILED')
+    OR launch.purpose='RPG_RUNTIME_VALIDATION' AND launch.state IN ('FINISHED','EXPIRED','REVOKED')
+      AND EXISTS(SELECT 1 FROM rpgmaker_runtime_validations validation
+        WHERE validation.id=launch.rpgmaker_runtime_validation_id
+          AND validation.state IN ('PASSED','FAILED','EXPIRED'))
   )
 )
 BEGIN SELECT RAISE(ABORT,'immutable'); END;
@@ -804,19 +858,23 @@ BEFORE UPDATE ON launch_content_files BEGIN SELECT RAISE(ABORT,'immutable'); END
 
 CREATE TRIGGER launch_content_files_published_insert BEFORE INSERT ON launch_content_files
 WHEN NOT EXISTS(
-  SELECT 1 FROM launch_sessions launch JOIN games game ON game.id=launch.game_id
-  WHERE launch.id=NEW.launch_session_id AND game.status='PUBLISHED'
+  SELECT 1 FROM launch_sessions launch LEFT JOIN games game ON game.id=launch.game_id
+  WHERE launch.id=NEW.launch_session_id AND (
+    launch.purpose='PRODUCT' AND game.status='PUBLISHED'
+    OR launch.purpose='RPG_RUNTIME_VALIDATION'
+      AND launch.effective_source_snapshot_id IS NOT NULL
+  )
 )
-BEGIN SELECT RAISE(ABORT,'game payload owner is not published'); END;
+BEGIN SELECT RAISE(ABORT,'launch content owner is invalid'); END;
 
 CREATE TRIGGER launch_external_files_immutable_delete
 BEFORE DELETE ON launch_external_files
 WHEN NOT EXISTS(
   SELECT 1 FROM launch_sessions launch
-  JOIN game_variant_revisions revision ON revision.id=launch.game_variant_revision_id
-  JOIN games game ON game.id=launch.game_id
+  LEFT JOIN game_variant_revisions revision ON revision.id=launch.game_variant_revision_id
+  LEFT JOIN games game ON game.id=launch.game_id
   WHERE launch.id=OLD.launch_session_id AND (
-    game.status='PUBLISHED' AND launch.state IN ('FINISHED','EXPIRED','REVOKED') AND (
+    launch.purpose='PRODUCT' AND game.status='PUBLISHED' AND launch.state IN ('FINISHED','EXPIRED','REVOKED') AND (
       game.current_content_revision_id<>revision.game_content_revision_id OR EXISTS(
         SELECT 1 FROM json_each(revision.dependency_snapshot_json,'$.bios') dependency
         JOIN bios_installations installation
@@ -824,7 +882,11 @@ WHEN NOT EXISTS(
         WHERE installation.payload_released_at_ms IS NOT NULL
       )
     ) OR
-    game.status='DELETED' AND game.payload_state IN ('RELEASING','FAILED')
+    launch.purpose='PRODUCT' AND game.status='DELETED' AND game.payload_state IN ('RELEASING','FAILED')
+    OR launch.purpose='RPG_RUNTIME_VALIDATION' AND launch.state IN ('FINISHED','EXPIRED','REVOKED')
+      AND EXISTS(SELECT 1 FROM rpgmaker_runtime_validations validation
+        WHERE validation.id=launch.rpgmaker_runtime_validation_id
+          AND validation.state IN ('PASSED','FAILED','EXPIRED'))
   )
 )
 BEGIN SELECT RAISE(ABORT, 'immutable'); END;
@@ -834,10 +896,14 @@ BEFORE UPDATE ON launch_external_files BEGIN SELECT RAISE(ABORT, 'immutable'); E
 
 CREATE TRIGGER launch_external_files_published_insert BEFORE INSERT ON launch_external_files
 WHEN NOT EXISTS(
-  SELECT 1 FROM launch_sessions launch JOIN games game ON game.id=launch.game_id
-  WHERE launch.id=NEW.launch_session_id AND game.status='PUBLISHED'
+  SELECT 1 FROM launch_sessions launch LEFT JOIN games game ON game.id=launch.game_id
+  WHERE launch.id=NEW.launch_session_id AND (
+    launch.purpose='PRODUCT' AND game.status='PUBLISHED'
+    OR launch.purpose='RPG_RUNTIME_VALIDATION'
+      AND launch.effective_source_snapshot_id IS NOT NULL
+  )
 )
-BEGIN SELECT RAISE(ABORT,'game payload owner is not published'); END;
+BEGIN SELECT RAISE(ABORT,'launch external owner is invalid'); END;
 
 CREATE TRIGGER launch_external_files_kind_insert
 BEFORE INSERT ON launch_external_files
@@ -1296,7 +1362,8 @@ WHEN NEW.mapping_action='IMPORT' AND (
     JOIN platform_cores relation ON relation.platform_id=instance.platform_id
       AND relation.core_id=instance.default_core_id AND relation.enabled=1
     JOIN core_artifacts artifact ON artifact.id=NEW.target_core_artifact_id
-      AND artifact.core_id=instance.default_core_id AND artifact.enabled=1
+      AND artifact.core_id=instance.default_core_id
+      AND artifact.selected_for_new_bindings=1 AND artifact.available_for_launch=1
     WHERE instance.id=NEW.target_platform_instance_id AND instance.enabled=1 AND instance.deleted_at_ms IS NULL
       AND instance.version=NEW.target_platform_instance_version AND instance.platform_id=NEW.target_platform_id
       AND instance.default_core_id=NEW.target_default_core_id AND artifact.version=NEW.target_core_artifact_version
@@ -1844,6 +1911,15 @@ WHEN NEW.effective_source_snapshot_id<>OLD.effective_source_snapshot_id
 AND EXISTS(SELECT 1 FROM import_items item WHERE item.id=OLD.import_item_id AND item.state<>'REVIEW_PENDING')
 BEGIN SELECT RAISE(ABORT, 'finalized review source snapshot'); END;
 
+CREATE TRIGGER review_drafts_runtime_binding_revision_update
+BEFORE UPDATE OF runtime_binding_revision ON review_drafts
+WHEN NEW.runtime_binding_revision<>OLD.runtime_binding_revision AND (
+  NEW.runtime_binding_revision<>OLD.runtime_binding_revision+1
+  OR NOT EXISTS(SELECT 1 FROM import_items item
+    WHERE item.id=OLD.import_item_id AND item.state='REVIEW_PENDING')
+)
+BEGIN SELECT RAISE(ABORT,'runtime binding revision must increment by one'); END;
+
 CREATE TRIGGER review_drafts_source_snapshot_insert
 BEFORE INSERT ON review_drafts
 WHEN NEW.effective_source_snapshot_id IS NULL OR NOT EXISTS(
@@ -2015,9 +2091,26 @@ WHEN NOT EXISTS (
     SELECT 1 FROM import_item_validation_files file
     WHERE file.import_item_core_validation_id=NEW.validation_id AND file.role='MULTI_DISC_PLAYLIST'
       AND file.blob_id=NEW.content_blob_id AND file.logical_name=NEW.content_logical_name
+  ) OR NEW.content_kind='ONS_PROJECT_V1' AND NEW.content_format='ONS_PROJECT_V1' AND EXISTS (
+    SELECT 1 FROM import_item_source_snapshot_files file
+    WHERE file.source_snapshot_id=NEW.source_snapshot_id AND file.role='PROJECT_FILE'
+      AND file.blob_id=NEW.content_blob_id AND file.logical_name=NEW.content_logical_name
   )
 )
 BEGIN SELECT RAISE(ABORT,'invalid review preview snapshot'); END;
+
+CREATE TRIGGER review_preview_files_validate_insert
+BEFORE INSERT ON review_preview_files
+WHEN NEW.role='PROJECT_FILE' AND NOT EXISTS (
+  SELECT 1 FROM review_preview_sessions preview
+  JOIN import_item_source_snapshot_files source
+    ON source.source_snapshot_id=preview.source_snapshot_id
+    AND source.role='PROJECT_FILE'
+    AND source.logical_name=NEW.logical_name
+    AND source.blob_id=NEW.blob_id
+  WHERE preview.id=NEW.preview_session_id AND preview.content_kind='ONS_PROJECT_V1'
+)
+BEGIN SELECT RAISE(ABORT,'invalid review preview project file'); END;
 
 CREATE TRIGGER review_runtime_screenshots_validate_insert
 BEFORE INSERT ON review_runtime_screenshots
@@ -2139,11 +2232,15 @@ BEGIN
     FROM launch_sessions launch
     JOIN game_variant_revisions revision ON revision.id=launch.game_variant_revision_id
     WHERE launch.id=NEW.source_launch_session_id
+    AND launch.purpose='PRODUCT'
     AND launch.profile_id=NEW.profile_id
     AND launch.game_id=NEW.game_id
+    AND launch.game_content_revision_id=NEW.game_content_revision_id
     AND launch.game_variant_revision_id=NEW.game_variant_revision_id
     AND launch.core_artifact_id=NEW.core_artifact_id
+    AND launch.route_key=revision.route_key
     AND launch.dos_entry_path IS NEW.dos_entry_path
+    AND revision.game_content_revision_id=NEW.game_content_revision_id
     AND revision.dat_version_id IS NEW.dat_version_id
   ) THEN RAISE(ABORT, 'save state source launch mismatch') END;
 END;
@@ -2153,7 +2250,8 @@ WHEN NOT EXISTS(SELECT 1 FROM games WHERE id=NEW.game_id AND status='PUBLISHED')
 BEGIN SELECT RAISE(ABORT,'game payload owner is not published'); END;
 
 CREATE TRIGGER save_states_source_launch_update
-BEFORE UPDATE OF source_launch_session_id,profile_id,game_id,game_variant_revision_id,core_artifact_id,dat_version_id,dos_entry_path
+BEFORE UPDATE OF source_launch_session_id,profile_id,game_id,game_content_revision_id,game_variant_revision_id,
+  core_artifact_id,dat_version_id,dos_entry_path
 ON save_states
 BEGIN
   SELECT CASE WHEN NOT EXISTS (
@@ -2161,11 +2259,15 @@ BEGIN
     FROM launch_sessions launch
     JOIN game_variant_revisions revision ON revision.id=launch.game_variant_revision_id
     WHERE launch.id=NEW.source_launch_session_id
+    AND launch.purpose='PRODUCT'
     AND launch.profile_id=NEW.profile_id
     AND launch.game_id=NEW.game_id
+    AND launch.game_content_revision_id=NEW.game_content_revision_id
     AND launch.game_variant_revision_id=NEW.game_variant_revision_id
     AND launch.core_artifact_id=NEW.core_artifact_id
+    AND launch.route_key=revision.route_key
     AND launch.dos_entry_path IS NEW.dos_entry_path
+    AND revision.game_content_revision_id=NEW.game_content_revision_id
     AND revision.dat_version_id IS NEW.dat_version_id
   ) THEN RAISE(ABORT, 'save state source launch mismatch') END;
 END;
@@ -2319,3 +2421,845 @@ WHEN NOT EXISTS(
   WHERE revision.id=NEW.game_variant_revision_id AND game.status='PUBLISHED'
 )
 BEGIN SELECT RAISE(ABORT,'game payload owner is not published'); END;
+
+-- RPG Maker catalog, route, pack, validation and checkpoint invariants.
+
+CREATE UNIQUE INDEX isolated_runtime_ticket_origin
+ON isolated_runtime_bootstrap_tickets(expected_origin);
+
+CREATE UNIQUE INDEX isolated_runtime_capability_origin
+ON isolated_runtime_capabilities(expected_origin);
+
+CREATE TRIGGER rpgmaker_core_generations_fixed_insert
+BEFORE INSERT ON rpgmaker_core_generations
+BEGIN SELECT RAISE(ABORT,'RPG Maker core generation catalog is fixed'); END;
+
+CREATE TRIGGER rpgmaker_core_generations_fixed_update
+BEFORE UPDATE ON rpgmaker_core_generations
+BEGIN SELECT RAISE(ABORT,'RPG Maker core generation catalog is fixed'); END;
+
+CREATE TRIGGER rpgmaker_core_generations_fixed_delete
+BEFORE DELETE ON rpgmaker_core_generations
+BEGIN SELECT RAISE(ABORT,'RPG Maker core generation catalog is fixed'); END;
+
+CREATE TRIGGER core_artifacts_runtime_insert
+BEFORE INSERT ON core_artifacts
+WHEN (
+  NEW.runtime_family='RPGMAKER'
+) <> EXISTS(SELECT 1 FROM rpgmaker_core_generations mapping WHERE mapping.core_id=NEW.core_id)
+OR NEW.core_id='onscripter_yuri' AND NEW.runtime_family<>'ONS'
+OR NEW.runtime_family='ONS' AND NOT (
+  NEW.core_id='onscripter_yuri' AND NEW.runtime_adapter_kind='ONS_YURI_WEB' AND NEW.route_key='ONS_YURI'
+)
+OR NEW.runtime_family='RPGMAKER' AND NOT (
+  NEW.core_id IN ('rpgmaker_2000','rpgmaker_2003')
+    AND NEW.runtime_adapter_kind='EASYRPG_WEB'
+    AND (
+      NEW.core_id='rpgmaker_2000' AND NEW.route_key LIKE 'RPG2000\_%' ESCAPE '\'
+      OR NEW.core_id='rpgmaker_2003' AND NEW.route_key LIKE 'RPG2003\_%' ESCAPE '\'
+    )
+  OR NEW.core_id IN ('rpgmaker_xp','rpgmaker_vx','rpgmaker_vx_ace')
+    AND NEW.runtime_adapter_kind='MKXP_LIBRETRO_WEB'
+    AND (
+      NEW.core_id='rpgmaker_xp' AND NEW.route_key LIKE 'RPGXP\_%' ESCAPE '\'
+      OR NEW.core_id='rpgmaker_vx' AND NEW.route_key LIKE 'RPGVX\_%' ESCAPE '\'
+      OR NEW.core_id='rpgmaker_vx_ace' AND NEW.route_key LIKE 'RPGVXACE\_%' ESCAPE '\'
+    )
+  OR NEW.core_id IN ('rpgmaker_mv','rpgmaker_mz')
+    AND NEW.runtime_adapter_kind='NATIVE_WEB'
+    AND (
+      NEW.core_id='rpgmaker_mv' AND NEW.route_key LIKE 'RPGMV\_%' ESCAPE '\'
+      OR NEW.core_id='rpgmaker_mz' AND NEW.route_key LIKE 'RPGMZ\_%' ESCAPE '\'
+    )
+)
+BEGIN SELECT RAISE(ABORT,'artifact runtime/core route mismatch'); END;
+
+CREATE TRIGGER core_artifacts_runtime_update
+BEFORE UPDATE OF core_id,route_key,runtime_family,runtime_adapter_kind ON core_artifacts
+BEGIN SELECT RAISE(ABORT,'artifact runtime identity is immutable'); END;
+
+CREATE TRIGGER core_artifacts_payload_immutable
+BEFORE UPDATE OF runtime_version,adapter_id,entry_path,size_bytes,sha256,manifest_sha256,
+  artifact_set_sha256,requires_threads,save_payload_kind,save_max_bytes,provenance_json,compatibility_json,created_at_ms
+ON core_artifacts
+BEGIN SELECT RAISE(ABORT,'artifact payload identity is immutable'); END;
+
+CREATE TRIGGER core_artifacts_availability_update
+BEFORE UPDATE OF available_for_launch ON core_artifacts
+WHEN OLD.available_for_launch=1 AND NEW.available_for_launch=0 AND (
+  EXISTS(SELECT 1 FROM game_variant_revisions revision WHERE revision.core_artifact_id=OLD.id)
+  OR EXISTS(SELECT 1 FROM save_states save WHERE save.core_artifact_id=OLD.id AND save.deleted_at_ms IS NULL)
+  OR EXISTS(SELECT 1 FROM launch_sessions launch
+    WHERE launch.core_artifact_id=OLD.id AND launch.state NOT IN ('FINISHED','EXPIRED','REVOKED'))
+  OR EXISTS(SELECT 1 FROM rpgmaker_runtime_validations validation
+    WHERE validation.artifact_id=OLD.id AND validation.state NOT IN ('PASSED','FAILED','EXPIRED'))
+)
+BEGIN SELECT RAISE(ABORT,'referenced artifact must remain available'); END;
+
+CREATE TRIGGER core_artifacts_selected_transition
+BEFORE UPDATE OF selected_for_new_bindings,available_for_launch,retired_at_ms ON core_artifacts
+WHEN NEW.selected_for_new_bindings=1 AND (
+  NEW.available_for_launch<>1 OR NEW.retired_at_ms IS NOT NULL
+)
+BEGIN SELECT RAISE(ABORT,'selected artifact must be available and current'); END;
+
+CREATE TRIGGER core_artifacts_retirement_immutable
+BEFORE UPDATE OF retired_at_ms ON core_artifacts
+WHEN OLD.retired_at_ms IS NOT NULL AND NEW.retired_at_ms IS NOT OLD.retired_at_ms
+BEGIN SELECT RAISE(ABORT,'artifact retirement is immutable'); END;
+
+CREATE TRIGGER runtime_asset_pack_definitions_immutable_update
+BEFORE UPDATE ON runtime_asset_pack_definitions
+BEGIN SELECT RAISE(ABORT,'runtime pack definition is immutable'); END;
+
+CREATE TRIGGER runtime_asset_pack_definitions_immutable_delete
+BEFORE DELETE ON runtime_asset_pack_definitions
+BEGIN SELECT RAISE(ABORT,'runtime pack definition is immutable'); END;
+
+CREATE TRIGGER runtime_asset_pack_installations_blob_insert
+BEFORE INSERT ON runtime_asset_pack_installations
+WHEN NEW.bundle_blob_id IS NOT NULL AND NOT EXISTS(
+  SELECT 1 FROM blobs blob WHERE blob.id=NEW.bundle_blob_id AND blob.sha256=NEW.bundle_sha256
+)
+BEGIN SELECT RAISE(ABORT,'runtime pack bundle blob mismatch'); END;
+
+CREATE TRIGGER runtime_asset_pack_installations_identity_update
+BEFORE UPDATE OF definition_id,files_digest,file_count,total_bytes,source_note,created_by_user_id,created_at_ms
+ON runtime_asset_pack_installations
+BEGIN SELECT RAISE(ABORT,'runtime pack installation identity is immutable'); END;
+
+CREATE TRIGGER runtime_asset_pack_installations_diagnostic_update
+BEFORE UPDATE OF diagnostic_json ON runtime_asset_pack_installations
+WHEN OLD.status<>'VALIDATING'
+BEGIN SELECT RAISE(ABORT,'terminal runtime pack diagnostic is immutable'); END;
+
+CREATE TRIGGER runtime_asset_pack_installations_version_update
+BEFORE UPDATE ON runtime_asset_pack_installations
+WHEN NEW.version<>OLD.version+1
+BEGIN SELECT RAISE(ABORT,'runtime pack installation version must increment by one'); END;
+
+CREATE TRIGGER runtime_asset_pack_installations_state_update
+BEFORE UPDATE OF status,bundle_blob_id,bundle_sha256,validated_at_ms,deleted_at_ms
+ON runtime_asset_pack_installations
+WHEN NOT (
+  OLD.status='VALIDATING' AND NEW.status IN ('READY','FAILED')
+    AND NEW.bundle_blob_id IS OLD.bundle_blob_id AND NEW.bundle_sha256 IS OLD.bundle_sha256
+    AND (NEW.status<>'READY' OR (
+      NEW.bundle_blob_id IS NOT NULL
+      AND NEW.file_count=(SELECT count(*) FROM runtime_asset_pack_files file WHERE file.installation_id=OLD.id)
+      AND NEW.total_bytes=(SELECT COALESCE(sum(file.size_bytes),0)
+        FROM runtime_asset_pack_files file WHERE file.installation_id=OLD.id)
+    ))
+  OR OLD.status IN ('READY','FAILED') AND NEW.status='DELETE_PENDING'
+    AND NEW.bundle_blob_id IS OLD.bundle_blob_id AND NEW.bundle_sha256 IS OLD.bundle_sha256
+  OR OLD.status='DELETE_PENDING' AND NEW.status='DELETED'
+    AND NEW.bundle_blob_id IS NULL AND NEW.bundle_sha256 IS NULL
+    AND NOT EXISTS(SELECT 1 FROM runtime_asset_pack_files file WHERE file.installation_id=OLD.id)
+)
+OR NEW.status='DELETE_PENDING' AND EXISTS(
+  SELECT 1 FROM game_variant_revision_runtime_packs reference
+  WHERE reference.installation_id=OLD.id
+)
+OR NEW.bundle_blob_id IS NOT NULL AND NOT EXISTS(
+  SELECT 1 FROM blobs blob WHERE blob.id=NEW.bundle_blob_id AND blob.sha256=NEW.bundle_sha256
+)
+BEGIN SELECT RAISE(ABORT,'invalid runtime pack installation transition'); END;
+
+CREATE TRIGGER runtime_asset_pack_installations_immutable_delete
+BEFORE DELETE ON runtime_asset_pack_installations
+BEGIN SELECT RAISE(ABORT,'runtime pack installation is retained for audit'); END;
+
+CREATE TRIGGER runtime_asset_pack_files_insert
+BEFORE INSERT ON runtime_asset_pack_files
+WHEN NOT EXISTS(
+  SELECT 1 FROM runtime_asset_pack_installations installation
+  WHERE installation.id=NEW.installation_id AND installation.status='VALIDATING'
+)
+OR NOT EXISTS(
+  SELECT 1 FROM blobs blob
+  WHERE blob.id=NEW.blob_id AND blob.size_bytes=NEW.size_bytes AND blob.sha256=NEW.sha256
+)
+OR NEW.ordinal<>(SELECT count(*) FROM runtime_asset_pack_files file WHERE file.installation_id=NEW.installation_id)
+OR NEW.ordinal>0 AND NEW.path<=CAST((
+  SELECT file.path FROM runtime_asset_pack_files file
+  WHERE file.installation_id=NEW.installation_id AND file.ordinal=NEW.ordinal-1
+) AS TEXT)
+BEGIN SELECT RAISE(ABORT,'invalid runtime pack file'); END;
+
+CREATE TRIGGER runtime_asset_pack_files_immutable_update
+BEFORE UPDATE ON runtime_asset_pack_files
+BEGIN SELECT RAISE(ABORT,'runtime pack file is immutable'); END;
+
+CREATE TRIGGER runtime_asset_pack_files_guarded_delete
+BEFORE DELETE ON runtime_asset_pack_files
+WHEN NOT EXISTS(
+  SELECT 1 FROM runtime_asset_pack_installations installation
+  WHERE installation.id=OLD.installation_id AND installation.status='DELETE_PENDING'
+)
+BEGIN SELECT RAISE(ABORT,'runtime pack file is immutable'); END;
+
+CREATE TRIGGER rpgmaker_review_profiles_validate_insert
+BEFORE INSERT ON rpgmaker_review_profiles
+WHEN NOT EXISTS(
+  SELECT 1 FROM review_drafts draft
+  JOIN import_items item ON item.id=draft.import_item_id
+  JOIN platform_instances instance ON instance.id=draft.target_platform_instance_id
+  JOIN rpgmaker_core_generations mapping
+    ON mapping.core_id=NEW.selected_core_id AND mapping.generation=NEW.generation
+  JOIN core_artifacts artifact ON artifact.id=NEW.artifact_id
+  WHERE draft.id=NEW.review_draft_id AND item.state='REVIEW_PENDING' AND instance.platform_id='rpgmaker'
+    AND instance.default_core_id='rpgmaker'
+    AND artifact.core_id=NEW.selected_core_id AND artifact.route_key=NEW.route_key
+    AND artifact.runtime_family='RPGMAKER' AND artifact.artifact_set_sha256=NEW.artifact_set_sha256
+    AND artifact.adapter_id=NEW.adapter_id
+    AND artifact.selected_for_new_bindings=1 AND artifact.available_for_launch=1
+    AND (NEW.evidence_generation IS NULL OR NEW.evidence_generation=NEW.generation)
+)
+BEGIN SELECT RAISE(ABORT,'invalid RPG Maker review binding'); END;
+
+CREATE TRIGGER rpgmaker_review_profiles_validate_update
+BEFORE UPDATE ON rpgmaker_review_profiles
+WHEN NOT EXISTS(
+  SELECT 1 FROM review_drafts draft
+  JOIN import_items item ON item.id=draft.import_item_id
+  JOIN platform_instances instance ON instance.id=draft.target_platform_instance_id
+  JOIN rpgmaker_core_generations mapping
+    ON mapping.core_id=NEW.selected_core_id AND mapping.generation=NEW.generation
+  JOIN core_artifacts artifact ON artifact.id=NEW.artifact_id
+  WHERE draft.id=NEW.review_draft_id AND item.state='REVIEW_PENDING' AND instance.platform_id='rpgmaker'
+    AND instance.default_core_id='rpgmaker'
+    AND artifact.core_id=NEW.selected_core_id AND artifact.route_key=NEW.route_key
+    AND artifact.runtime_family='RPGMAKER' AND artifact.artifact_set_sha256=NEW.artifact_set_sha256
+    AND artifact.adapter_id=NEW.adapter_id
+    AND artifact.selected_for_new_bindings=1 AND artifact.available_for_launch=1
+    AND (NEW.evidence_generation IS NULL OR NEW.evidence_generation=NEW.generation)
+)
+BEGIN SELECT RAISE(ABORT,'invalid RPG Maker review binding'); END;
+
+CREATE TRIGGER review_draft_runtime_pack_selections_validate_insert
+BEFORE INSERT ON review_draft_runtime_pack_selections
+WHEN NOT EXISTS(
+  SELECT 1 FROM rpgmaker_review_profiles profile
+  JOIN review_drafts draft ON draft.id=profile.review_draft_id
+  JOIN import_items item ON item.id=draft.import_item_id
+  JOIN runtime_asset_pack_definitions definition ON definition.id=NEW.definition_id
+  JOIN runtime_asset_pack_installations installation
+    ON installation.id=NEW.installation_id AND installation.definition_id=definition.id
+  WHERE profile.review_draft_id=NEW.review_draft_id AND item.state='REVIEW_PENDING'
+    AND definition.enabled=1 AND definition.generation=profile.generation
+    AND definition.declared_name=NEW.declared_name
+    AND definition.normalized_declared_name=NEW.normalized_declared_name
+    AND installation.status='READY'
+    AND installation.file_count=(SELECT count(*) FROM runtime_asset_pack_files file
+      WHERE file.installation_id=installation.id)
+    AND installation.total_bytes=(SELECT COALESCE(sum(file.size_bytes),0) FROM runtime_asset_pack_files file
+      WHERE file.installation_id=installation.id)
+    AND (
+      profile.generation IN ('RPG2000','RPG2003') AND NEW.slot=0
+      OR profile.generation IN ('RPGXP','RPGVX','RPGVXACE') AND NEW.slot BETWEEN 1 AND 3
+    )
+)
+BEGIN SELECT RAISE(ABORT,'invalid review runtime pack selection'); END;
+
+CREATE TRIGGER review_draft_runtime_pack_selections_validate_update
+BEFORE UPDATE ON review_draft_runtime_pack_selections
+BEGIN SELECT RAISE(ABORT,'replace runtime pack selection atomically'); END;
+
+CREATE TRIGGER review_draft_runtime_pack_selections_validate_delete
+BEFORE DELETE ON review_draft_runtime_pack_selections
+WHEN NOT EXISTS(
+  SELECT 1 FROM review_drafts draft JOIN import_items item ON item.id=draft.import_item_id
+  WHERE draft.id=OLD.review_draft_id AND item.state='REVIEW_PENDING'
+)
+BEGIN SELECT RAISE(ABORT,'finalized review runtime pack selection'); END;
+
+CREATE TRIGGER rpgmaker_content_profiles_validate_insert
+BEFORE INSERT ON rpgmaker_content_profiles
+WHEN NOT EXISTS(
+  SELECT 1 FROM game_content_revisions revision
+  WHERE revision.id=NEW.content_revision_id AND revision.content_kind='RPG_MAKER_PROJECT_V1'
+    AND json_extract(revision.source_manifest_json,'$.fileCount')=NEW.file_count
+    AND json_extract(revision.source_manifest_json,'$.totalBytes')=NEW.total_bytes
+    AND json_extract(revision.source_manifest_json,'$.filesDigest')=NEW.project_fingerprint
+)
+BEGIN SELECT RAISE(ABORT,'RPG Maker content profile manifest mismatch'); END;
+
+CREATE TRIGGER rpgmaker_content_profiles_immutable_update
+BEFORE UPDATE ON rpgmaker_content_profiles
+BEGIN SELECT RAISE(ABORT,'RPG Maker content profile is immutable'); END;
+
+CREATE TRIGGER rpgmaker_content_profiles_immutable_delete
+BEFORE DELETE ON rpgmaker_content_profiles
+BEGIN SELECT RAISE(ABORT,'RPG Maker content profile is immutable'); END;
+
+CREATE TRIGGER game_variant_revisions_runtime_insert
+BEFORE INSERT ON game_variant_revisions
+WHEN NOT EXISTS(
+  SELECT 1 FROM game_variants variant
+  JOIN core_artifacts artifact ON artifact.id=NEW.core_artifact_id
+  WHERE variant.id=NEW.game_variant_id AND artifact.core_id=variant.core_id
+    AND artifact.route_key=NEW.route_key AND artifact.available_for_launch=1
+    AND (
+      artifact.runtime_family='EMULATORJS' AND NEW.emulator_game_id IS NOT NULL
+      OR artifact.runtime_family='RPGMAKER' AND NEW.emulator_game_id IS NULL
+      OR artifact.runtime_family='ONS' AND NEW.emulator_game_id IS NULL
+    )
+)
+BEGIN SELECT RAISE(ABORT,'variant revision runtime mismatch'); END;
+
+CREATE TRIGGER rpgmaker_variant_profiles_validate_insert
+BEFORE INSERT ON rpgmaker_variant_profiles
+WHEN NOT EXISTS(
+  SELECT 1 FROM game_variant_revisions revision
+  JOIN game_variants variant ON variant.id=revision.game_variant_id
+  JOIN core_artifacts artifact ON artifact.id=revision.core_artifact_id
+  JOIN rpgmaker_core_generations mapping
+    ON mapping.core_id=variant.core_id AND mapping.generation=NEW.generation
+  JOIN rpgmaker_content_profiles content ON content.content_revision_id=revision.game_content_revision_id
+  JOIN rpgmaker_runtime_validations validation ON validation.id=NEW.runtime_validation_id
+  WHERE revision.id=NEW.game_variant_revision_id AND revision.status='READY'
+    AND artifact.runtime_family='RPGMAKER' AND artifact.route_key=revision.route_key
+    AND artifact.available_for_launch=1
+    AND NEW.route_key=revision.route_key AND NEW.adapter_id=artifact.adapter_id
+    AND NEW.artifact_set_sha256=artifact.artifact_set_sha256
+    AND (content.evidence_generation=NEW.generation OR
+      content.evidence_family='RPG2K' AND content.evidence_confidence='FAMILY_ONLY'
+        AND content.evidence_generation IS NULL AND NEW.generation IN ('RPG2000','RPG2003'))
+    AND validation.state='PASSED' AND validation.core_id=variant.core_id
+    AND validation.generation=NEW.generation AND validation.route_key=NEW.route_key
+    AND validation.artifact_id=artifact.id
+    AND validation.artifact_set_sha256=NEW.artifact_set_sha256
+    AND validation.adapter_id=NEW.adapter_id AND validation.adapter_abi=NEW.adapter_abi
+    AND validation.dependency_snapshot_sha256=NEW.dependency_snapshot_sha256
+    AND validation.project_fingerprint=content.project_fingerprint
+)
+BEGIN SELECT RAISE(ABORT,'invalid RPG Maker variant profile'); END;
+
+CREATE TRIGGER rpgmaker_variant_profiles_immutable_update
+BEFORE UPDATE ON rpgmaker_variant_profiles
+BEGIN SELECT RAISE(ABORT,'RPG Maker variant profile is immutable'); END;
+
+CREATE TRIGGER rpgmaker_variant_profiles_immutable_delete
+BEFORE DELETE ON rpgmaker_variant_profiles
+BEGIN SELECT RAISE(ABORT,'RPG Maker variant profile is immutable'); END;
+
+CREATE TRIGGER game_variant_revision_runtime_packs_validate_insert
+BEFORE INSERT ON game_variant_revision_runtime_packs
+WHEN NOT EXISTS(
+  SELECT 1 FROM rpgmaker_variant_profiles profile
+  JOIN runtime_asset_pack_definitions definition ON definition.id=NEW.definition_id
+  JOIN runtime_asset_pack_installations installation
+    ON installation.id=NEW.installation_id AND installation.definition_id=definition.id
+  WHERE profile.game_variant_revision_id=NEW.game_variant_revision_id
+    AND definition.enabled=1 AND definition.generation=profile.generation
+    AND definition.declared_name=NEW.declared_name
+    AND definition.normalized_declared_name=NEW.normalized_declared_name
+    AND installation.status='READY'
+    AND installation.file_count=(SELECT count(*) FROM runtime_asset_pack_files file
+      WHERE file.installation_id=installation.id)
+    AND installation.total_bytes=(SELECT COALESCE(sum(file.size_bytes),0) FROM runtime_asset_pack_files file
+      WHERE file.installation_id=installation.id)
+    AND (
+      profile.generation IN ('RPG2000','RPG2003') AND NEW.slot=0
+      OR profile.generation IN ('RPGXP','RPGVX','RPGVXACE') AND NEW.slot BETWEEN 1 AND 3
+    )
+)
+BEGIN SELECT RAISE(ABORT,'invalid variant runtime pack'); END;
+
+CREATE TRIGGER game_variant_revision_runtime_packs_immutable_update
+BEFORE UPDATE ON game_variant_revision_runtime_packs
+BEGIN SELECT RAISE(ABORT,'variant runtime pack is immutable'); END;
+
+CREATE TRIGGER game_variant_revision_runtime_packs_immutable_delete
+BEFORE DELETE ON game_variant_revision_runtime_packs
+BEGIN SELECT RAISE(ABORT,'variant runtime pack is immutable'); END;
+
+CREATE TRIGGER rpgmaker_runtime_validations_validate_insert
+BEFORE INSERT ON rpgmaker_runtime_validations
+WHEN NOT EXISTS(
+  SELECT 1 FROM review_drafts draft
+  JOIN rpgmaker_review_profiles profile ON profile.review_draft_id=draft.id
+  JOIN import_item_source_snapshots snapshot ON snapshot.id=draft.effective_source_snapshot_id
+  JOIN core_artifacts artifact ON artifact.id=NEW.artifact_id
+  JOIN rpgmaker_core_generations mapping
+    ON mapping.core_id=NEW.core_id AND mapping.generation=NEW.generation
+  WHERE draft.import_item_id=NEW.import_item_id
+    AND draft.version=NEW.review_version_at_create
+    AND draft.runtime_binding_revision=NEW.runtime_binding_revision
+    AND snapshot.id=NEW.effective_source_snapshot_id
+    AND snapshot.import_item_id=NEW.import_item_id
+    AND profile.selected_core_id=NEW.core_id AND profile.generation=NEW.generation
+    AND profile.project_fingerprint=NEW.project_fingerprint
+    AND profile.evidence_generation IS NEW.evidence_generation
+    AND profile.evidence_confidence=NEW.evidence_confidence
+    AND profile.route_key=NEW.route_key AND profile.artifact_id=NEW.artifact_id
+    AND profile.artifact_set_sha256=NEW.artifact_set_sha256
+    AND profile.adapter_id=NEW.adapter_id AND profile.adapter_abi=NEW.adapter_abi
+    AND profile.dependency_snapshot_sha256=NEW.dependency_snapshot_sha256
+    AND artifact.core_id=NEW.core_id AND artifact.route_key=NEW.route_key
+    AND artifact.artifact_set_sha256=NEW.artifact_set_sha256
+    AND artifact.adapter_id=NEW.adapter_id AND artifact.runtime_family='RPGMAKER'
+    AND artifact.selected_for_new_bindings=1 AND artifact.available_for_launch=1
+)
+BEGIN SELECT RAISE(ABORT,'invalid RPG Maker runtime validation binding'); END;
+
+CREATE TRIGGER rpgmaker_runtime_validations_binding_immutable
+BEFORE UPDATE OF import_item_id,review_version_at_create,runtime_binding_revision,effective_source_snapshot_id,
+  project_fingerprint,core_id,generation,evidence_generation,evidence_confidence,route_key,artifact_id,
+  artifact_set_sha256,adapter_id,adapter_abi,dependency_snapshot_sha256,created_at_ms,expires_at_ms
+ON rpgmaker_runtime_validations
+BEGIN SELECT RAISE(ABORT,'runtime validation binding is immutable'); END;
+
+CREATE TRIGGER rpgmaker_runtime_validations_transition
+BEFORE UPDATE OF state ON rpgmaker_runtime_validations
+WHEN NEW.state<>OLD.state AND NOT (
+  OLD.state='CREATED' AND NEW.state IN ('STARTING','FAILED','EXPIRED')
+  OR OLD.state='STARTING' AND NEW.state IN ('RUNNING','FAILED','EXPIRED')
+  OR OLD.state='RUNNING' AND NEW.state IN ('CHECKPOINTED','FAILED','EXPIRED')
+  OR OLD.state='CHECKPOINTED' AND NEW.state IN ('RESTORED','FAILED','EXPIRED')
+  OR OLD.state='RESTORED' AND NEW.state IN ('AWAITING_DECISION','FAILED','EXPIRED')
+  OR OLD.state='AWAITING_DECISION' AND NEW.state IN ('PASSED','FAILED','EXPIRED')
+)
+BEGIN SELECT RAISE(ABORT,'invalid runtime validation transition'); END;
+
+CREATE TRIGGER rpgmaker_runtime_validations_transition_evidence
+BEFORE UPDATE OF state ON rpgmaker_runtime_validations
+WHEN NEW.state='CHECKPOINTED' AND (
+  NOT EXISTS(SELECT 1 FROM rpgmaker_runtime_validation_checkpoints checkpoint
+    WHERE checkpoint.validation_id=NEW.id)
+  OR NOT EXISTS(SELECT 1 FROM rpgmaker_runtime_validation_gate_events event
+    WHERE event.validation_id=NEW.id AND event.gate='CHECKPOINT_CREATED' AND event.phase='PASS')
+)
+OR NEW.state='RESTORED' AND (
+  NEW.restore_launch_id IS NULL
+  OR NOT EXISTS(SELECT 1 FROM rpgmaker_runtime_validation_gate_events event
+    WHERE event.validation_id=NEW.id AND event.gate='RESTORE_POSITION_VERIFIED' AND event.phase='PASS')
+)
+OR NEW.state='AWAITING_DECISION' AND (
+  NEW.evidence_screenshot_blob_id IS NULL
+  OR NOT EXISTS(SELECT 1 FROM rpgmaker_runtime_validation_gate_events event
+    WHERE event.validation_id=NEW.id AND event.gate='RESTORE_SCREENSHOT' AND event.phase='PASS')
+  OR NOT EXISTS(SELECT 1 FROM rpgmaker_runtime_validation_gate_events event
+    WHERE event.validation_id=NEW.id AND event.gate='RESTORE_INPUT' AND event.phase='PASS')
+)
+BEGIN SELECT RAISE(ABORT,'runtime validation transition evidence is incomplete'); END;
+
+CREATE TRIGGER rpgmaker_runtime_validations_terminal_immutable
+BEFORE UPDATE ON rpgmaker_runtime_validations
+WHEN OLD.state IN ('PASSED','FAILED','EXPIRED')
+BEGIN SELECT RAISE(ABORT,'terminal runtime validation is immutable'); END;
+
+CREATE TRIGGER rpgmaker_runtime_validations_launch_update
+BEFORE UPDATE OF launch_id,restore_launch_id ON rpgmaker_runtime_validations
+WHEN NEW.launch_id IS NOT OLD.launch_id OR NEW.restore_launch_id IS NOT OLD.restore_launch_id
+BEGIN
+  SELECT CASE WHEN OLD.launch_id IS NOT NULL AND NEW.launch_id IS NOT OLD.launch_id
+    THEN RAISE(ABORT,'validation launch is immutable') END;
+  SELECT CASE WHEN OLD.restore_launch_id IS NOT NULL AND NEW.restore_launch_id IS NOT OLD.restore_launch_id
+    THEN RAISE(ABORT,'validation restore launch is immutable') END;
+  SELECT CASE WHEN NEW.launch_id IS NOT NULL AND NOT EXISTS(
+    SELECT 1 FROM launch_sessions launch
+    WHERE launch.id=NEW.launch_id AND launch.purpose='RPG_RUNTIME_VALIDATION'
+      AND launch.rpgmaker_runtime_validation_id=NEW.id
+      AND launch.effective_source_snapshot_id=NEW.effective_source_snapshot_id
+      AND launch.core_artifact_id=NEW.artifact_id AND launch.route_key=NEW.route_key
+  ) THEN RAISE(ABORT,'invalid validation launch') END;
+  SELECT CASE WHEN NEW.restore_launch_id IS NOT NULL AND (
+    NEW.launch_id IS NULL OR NEW.restore_launch_id=NEW.launch_id OR OLD.state<>'CHECKPOINTED'
+    OR NOT EXISTS(SELECT 1 FROM rpgmaker_runtime_validation_checkpoints checkpoint
+      WHERE checkpoint.validation_id=NEW.id)
+    OR NOT EXISTS(SELECT 1 FROM launch_sessions original
+      WHERE original.id=NEW.launch_id AND original.state IN ('FINISHED','EXPIRED','REVOKED'))
+    OR NOT EXISTS(SELECT 1 FROM launch_sessions restore
+      WHERE restore.id=NEW.restore_launch_id AND restore.purpose='RPG_RUNTIME_VALIDATION'
+        AND restore.rpgmaker_runtime_validation_id=NEW.id
+        AND restore.effective_source_snapshot_id=NEW.effective_source_snapshot_id
+        AND restore.core_artifact_id=NEW.artifact_id AND restore.route_key=NEW.route_key)
+  ) THEN RAISE(ABORT,'invalid validation restore launch') END;
+END;
+
+CREATE TRIGGER rpgmaker_runtime_validations_pass
+BEFORE UPDATE OF state ON rpgmaker_runtime_validations
+WHEN NEW.state='PASSED'
+BEGIN
+  SELECT CASE WHEN NEW.restore_launch_id IS NULL OR NEW.restore_launch_id=NEW.launch_id
+    OR NEW.evidence_screenshot_blob_id IS NULL
+    OR EXISTS(
+      SELECT required.gate FROM (
+        SELECT 'RUNTIME_READY' AS gate UNION ALL SELECT 'ENGINE_PROFILE'
+        UNION ALL SELECT 'FRAMES_300' UNION ALL SELECT 'INPUT' UNION ALL SELECT 'AUDIO'
+        UNION ALL SELECT 'INITIAL_POSITION_RECORDED'
+        UNION ALL SELECT 'SAVE_POINT_RECORDED' UNION ALL SELECT 'CHECKPOINT_CREATED'
+        UNION ALL SELECT 'POST_SAVE_STATE_DIVERGED' UNION ALL SELECT 'ORIGINAL_LAUNCH_ENDED'
+        UNION ALL SELECT 'RESTORE_STARTED' UNION ALL SELECT 'RESTORE_POSITION_VERIFIED'
+        UNION ALL SELECT 'RESTORE_SCREENSHOT' UNION ALL SELECT 'RESTORE_INPUT'
+      ) required
+      WHERE NOT EXISTS(SELECT 1 FROM rpgmaker_runtime_validation_gate_events event
+        WHERE event.validation_id=NEW.id AND event.gate=required.gate AND event.phase='PASS')
+    )
+  THEN RAISE(ABORT,'runtime validation gates are incomplete') END;
+END;
+
+CREATE TRIGGER rpgmaker_runtime_validation_gate_events_insert
+BEFORE INSERT ON rpgmaker_runtime_validation_gate_events
+WHEN NOT EXISTS(
+  SELECT 1 FROM rpgmaker_runtime_validations validation
+  WHERE validation.id=NEW.validation_id
+    AND validation.state NOT IN ('PASSED','FAILED','EXPIRED')
+    AND NEW.sequence=validation.last_gate_sequence+1
+    AND (
+      NEW.gate IN (
+        'RUNTIME_READY','ENGINE_PROFILE','FRAMES_300','INPUT','AUDIO','INITIAL_POSITION_RECORDED',
+        'SAVE_POINT_RECORDED',
+        'CHECKPOINT_CREATED','POST_SAVE_STATE_DIVERGED','ORIGINAL_LAUNCH_ENDED'
+      ) AND NEW.launch_id=validation.launch_id
+      OR NEW.gate IN ('RESTORE_STARTED','RESTORE_POSITION_VERIFIED','RESTORE_SCREENSHOT','RESTORE_INPUT')
+        AND NEW.launch_id=validation.restore_launch_id
+    )
+)
+OR NEW.phase='BEGIN' AND (
+  EXISTS(SELECT 1 FROM rpgmaker_runtime_validation_gate_events current
+    WHERE current.validation_id=NEW.validation_id AND current.gate=NEW.gate)
+  OR NOT CASE NEW.gate
+    WHEN 'RUNTIME_READY' THEN NOT EXISTS(
+      SELECT 1 FROM rpgmaker_runtime_validation_gate_events prior
+      WHERE prior.validation_id=NEW.validation_id)
+    WHEN 'ENGINE_PROFILE' THEN EXISTS(SELECT 1 FROM rpgmaker_runtime_validation_gate_events prior
+      WHERE prior.validation_id=NEW.validation_id AND prior.gate='RUNTIME_READY' AND prior.phase='PASS')
+    WHEN 'FRAMES_300' THEN EXISTS(SELECT 1 FROM rpgmaker_runtime_validation_gate_events prior
+      WHERE prior.validation_id=NEW.validation_id AND prior.gate='ENGINE_PROFILE' AND prior.phase='PASS')
+    WHEN 'INPUT' THEN EXISTS(SELECT 1 FROM rpgmaker_runtime_validation_gate_events prior
+      WHERE prior.validation_id=NEW.validation_id AND prior.gate='FRAMES_300' AND prior.phase='PASS')
+    WHEN 'AUDIO' THEN EXISTS(SELECT 1 FROM rpgmaker_runtime_validation_gate_events prior
+      WHERE prior.validation_id=NEW.validation_id AND prior.gate='INPUT' AND prior.phase='PASS')
+    WHEN 'INITIAL_POSITION_RECORDED' THEN EXISTS(SELECT 1 FROM rpgmaker_runtime_validation_gate_events prior
+      WHERE prior.validation_id=NEW.validation_id AND prior.gate='AUDIO' AND prior.phase='PASS')
+    WHEN 'SAVE_POINT_RECORDED' THEN EXISTS(SELECT 1 FROM rpgmaker_runtime_validation_gate_events prior
+      WHERE prior.validation_id=NEW.validation_id AND prior.gate='INITIAL_POSITION_RECORDED' AND prior.phase='PASS')
+    WHEN 'CHECKPOINT_CREATED' THEN EXISTS(SELECT 1 FROM rpgmaker_runtime_validation_gate_events prior
+      WHERE prior.validation_id=NEW.validation_id AND prior.gate='SAVE_POINT_RECORDED' AND prior.phase='PASS')
+    WHEN 'POST_SAVE_STATE_DIVERGED' THEN EXISTS(SELECT 1 FROM rpgmaker_runtime_validation_gate_events prior
+      WHERE prior.validation_id=NEW.validation_id AND prior.gate='CHECKPOINT_CREATED' AND prior.phase='PASS')
+    WHEN 'ORIGINAL_LAUNCH_ENDED' THEN EXISTS(SELECT 1 FROM rpgmaker_runtime_validation_gate_events prior
+      WHERE prior.validation_id=NEW.validation_id AND prior.gate='POST_SAVE_STATE_DIVERGED' AND prior.phase='PASS')
+    WHEN 'RESTORE_STARTED' THEN EXISTS(SELECT 1 FROM rpgmaker_runtime_validation_gate_events prior
+      WHERE prior.validation_id=NEW.validation_id AND prior.gate='ORIGINAL_LAUNCH_ENDED' AND prior.phase='PASS')
+    WHEN 'RESTORE_POSITION_VERIFIED' THEN EXISTS(SELECT 1 FROM rpgmaker_runtime_validation_gate_events prior
+      WHERE prior.validation_id=NEW.validation_id AND prior.gate='RESTORE_STARTED' AND prior.phase='PASS')
+    WHEN 'RESTORE_SCREENSHOT' THEN EXISTS(SELECT 1 FROM rpgmaker_runtime_validation_gate_events prior
+      WHERE prior.validation_id=NEW.validation_id AND prior.gate='RESTORE_POSITION_VERIFIED' AND prior.phase='PASS')
+    WHEN 'RESTORE_INPUT' THEN EXISTS(SELECT 1 FROM rpgmaker_runtime_validation_gate_events prior
+      WHERE prior.validation_id=NEW.validation_id AND prior.gate='RESTORE_SCREENSHOT' AND prior.phase='PASS')
+    ELSE 0
+  END
+)
+OR NEW.phase IN ('PASS','FAIL') AND NOT EXISTS(
+  SELECT 1 FROM rpgmaker_runtime_validation_gate_events begun
+  WHERE begun.validation_id=NEW.validation_id AND begun.gate=NEW.gate AND begun.phase='BEGIN'
+    AND NOT EXISTS(SELECT 1 FROM rpgmaker_runtime_validation_gate_events terminal
+      WHERE terminal.validation_id=NEW.validation_id AND terminal.gate=NEW.gate
+        AND terminal.phase IN ('PASS','FAIL'))
+)
+OR NEW.gate IN (
+    'INITIAL_POSITION_RECORDED','SAVE_POINT_RECORDED','POST_SAVE_STATE_DIVERGED',
+    'RESTORE_POSITION_VERIFIED','RESTORE_INPUT'
+  )
+  AND NEW.phase='PASS' AND NOT (
+    json_type(NEW.evidence_json)='object'
+    AND (SELECT count(*) FROM json_each(NEW.evidence_json))=4
+    AND json_type(NEW.evidence_json,'$.mapId')='integer'
+    AND json_type(NEW.evidence_json,'$.playerX')='integer'
+    AND json_type(NEW.evidence_json,'$.playerY')='integer'
+    AND json_type(NEW.evidence_json,'$.fixtureState')='integer'
+    AND json_extract(NEW.evidence_json,'$.mapId') BETWEEN 1 AND 2147483647
+    AND json_extract(NEW.evidence_json,'$.playerX') BETWEEN 0 AND 2147483647
+    AND json_extract(NEW.evidence_json,'$.playerY') BETWEEN 0 AND 2147483647
+    AND json_extract(NEW.evidence_json,'$.fixtureState') BETWEEN -2147483648 AND 2147483647
+  )
+OR NEW.gate='SAVE_POINT_RECORDED' AND NEW.phase='PASS' AND NOT EXISTS(
+  SELECT 1 FROM rpgmaker_runtime_validation_gate_events initial
+  WHERE initial.validation_id=NEW.validation_id
+    AND initial.gate='INITIAL_POSITION_RECORDED' AND initial.phase='PASS'
+    AND NOT (
+      json_extract(initial.evidence_json,'$.mapId')=json_extract(NEW.evidence_json,'$.mapId')
+      AND json_extract(initial.evidence_json,'$.playerX')=json_extract(NEW.evidence_json,'$.playerX')
+      AND json_extract(initial.evidence_json,'$.playerY')=json_extract(NEW.evidence_json,'$.playerY')
+      AND json_extract(initial.evidence_json,'$.fixtureState')=json_extract(NEW.evidence_json,'$.fixtureState')
+    )
+)
+OR NEW.gate='POST_SAVE_STATE_DIVERGED' AND NEW.phase='PASS' AND NOT EXISTS(
+  SELECT 1 FROM rpgmaker_runtime_validation_gate_events saved
+  WHERE saved.validation_id=NEW.validation_id AND saved.gate='SAVE_POINT_RECORDED' AND saved.phase='PASS'
+    AND NOT (
+      json_extract(saved.evidence_json,'$.mapId')=json_extract(NEW.evidence_json,'$.mapId')
+      AND json_extract(saved.evidence_json,'$.playerX')=json_extract(NEW.evidence_json,'$.playerX')
+      AND json_extract(saved.evidence_json,'$.playerY')=json_extract(NEW.evidence_json,'$.playerY')
+      AND json_extract(saved.evidence_json,'$.fixtureState')=json_extract(NEW.evidence_json,'$.fixtureState')
+    )
+)
+OR NEW.gate='RESTORE_POSITION_VERIFIED' AND NEW.phase='PASS' AND NOT EXISTS(
+  SELECT 1 FROM rpgmaker_runtime_validation_gate_events initial
+  JOIN rpgmaker_runtime_validation_gate_events saved
+    ON saved.validation_id=initial.validation_id
+    AND saved.gate='SAVE_POINT_RECORDED' AND saved.phase='PASS'
+  JOIN rpgmaker_runtime_validation_gate_events diverged
+    ON diverged.validation_id=saved.validation_id
+    AND diverged.gate='POST_SAVE_STATE_DIVERGED' AND diverged.phase='PASS'
+  WHERE initial.validation_id=NEW.validation_id
+    AND initial.gate='INITIAL_POSITION_RECORDED' AND initial.phase='PASS'
+    AND json_extract(saved.evidence_json,'$.mapId')=json_extract(NEW.evidence_json,'$.mapId')
+    AND json_extract(saved.evidence_json,'$.playerX')=json_extract(NEW.evidence_json,'$.playerX')
+    AND json_extract(saved.evidence_json,'$.playerY')=json_extract(NEW.evidence_json,'$.playerY')
+    AND json_extract(saved.evidence_json,'$.fixtureState')=json_extract(NEW.evidence_json,'$.fixtureState')
+    AND NOT (
+      json_extract(diverged.evidence_json,'$.mapId')=json_extract(NEW.evidence_json,'$.mapId')
+      AND json_extract(diverged.evidence_json,'$.playerX')=json_extract(NEW.evidence_json,'$.playerX')
+      AND json_extract(diverged.evidence_json,'$.playerY')=json_extract(NEW.evidence_json,'$.playerY')
+      AND json_extract(diverged.evidence_json,'$.fixtureState')=json_extract(NEW.evidence_json,'$.fixtureState')
+    )
+    AND NOT (
+      json_extract(initial.evidence_json,'$.mapId')=json_extract(NEW.evidence_json,'$.mapId')
+      AND json_extract(initial.evidence_json,'$.playerX')=json_extract(NEW.evidence_json,'$.playerX')
+      AND json_extract(initial.evidence_json,'$.playerY')=json_extract(NEW.evidence_json,'$.playerY')
+      AND json_extract(initial.evidence_json,'$.fixtureState')=json_extract(NEW.evidence_json,'$.fixtureState')
+    )
+)
+OR NEW.gate='RESTORE_INPUT' AND NEW.phase='PASS' AND NOT EXISTS(
+  SELECT 1 FROM rpgmaker_runtime_validation_gate_events restored
+  WHERE restored.validation_id=NEW.validation_id
+    AND restored.gate='RESTORE_POSITION_VERIFIED' AND restored.phase='PASS'
+    AND NOT (
+      json_extract(restored.evidence_json,'$.mapId')=json_extract(NEW.evidence_json,'$.mapId')
+      AND json_extract(restored.evidence_json,'$.playerX')=json_extract(NEW.evidence_json,'$.playerX')
+      AND json_extract(restored.evidence_json,'$.playerY')=json_extract(NEW.evidence_json,'$.playerY')
+      AND json_extract(restored.evidence_json,'$.fixtureState')=json_extract(NEW.evidence_json,'$.fixtureState')
+    )
+)
+BEGIN SELECT RAISE(ABORT,'invalid runtime validation gate event'); END;
+
+CREATE TRIGGER rpgmaker_runtime_validation_gate_events_immutable_update
+BEFORE UPDATE ON rpgmaker_runtime_validation_gate_events
+BEGIN SELECT RAISE(ABORT,'runtime validation gate evidence is immutable'); END;
+
+CREATE TRIGGER rpgmaker_runtime_validation_gate_events_immutable_delete
+BEFORE DELETE ON rpgmaker_runtime_validation_gate_events
+BEGIN SELECT RAISE(ABORT,'runtime validation gate evidence is immutable'); END;
+
+CREATE TRIGGER rpgmaker_runtime_validations_gate_sequence_update
+BEFORE UPDATE OF last_gate_sequence ON rpgmaker_runtime_validations
+WHEN NEW.last_gate_sequence<>OLD.last_gate_sequence AND (
+  NEW.last_gate_sequence<>OLD.last_gate_sequence+1
+  OR NOT EXISTS(SELECT 1 FROM rpgmaker_runtime_validation_gate_events event
+    WHERE event.validation_id=NEW.id AND event.sequence=NEW.last_gate_sequence)
+)
+BEGIN SELECT RAISE(ABORT,'runtime validation gate sequence mismatch'); END;
+
+CREATE TRIGGER launch_sessions_runtime_binding_insert
+BEFORE INSERT ON launch_sessions
+WHEN NOT EXISTS(
+  SELECT 1 FROM core_artifacts artifact
+  WHERE artifact.id=NEW.core_artifact_id AND artifact.route_key=NEW.route_key
+    AND artifact.available_for_launch=1
+)
+OR NEW.purpose='PRODUCT' AND NOT EXISTS(
+  SELECT 1 FROM games game
+  JOIN game_variant_revisions revision ON revision.id=NEW.game_variant_revision_id
+  JOIN game_variants variant ON variant.id=revision.game_variant_id
+  WHERE game.id=NEW.game_id AND game.status='PUBLISHED'
+    AND variant.game_id=game.id AND revision.game_content_revision_id=NEW.game_content_revision_id
+    AND revision.core_artifact_id=NEW.core_artifact_id AND revision.route_key=NEW.route_key
+    AND revision.status='READY'
+)
+OR NEW.purpose='PRODUCT' AND NEW.save_state_id IS NOT NULL AND NOT EXISTS(
+  SELECT 1 FROM save_states save
+  WHERE save.id=NEW.save_state_id AND save.deleted_at_ms IS NULL
+    AND save.profile_id=NEW.profile_id AND save.game_id=NEW.game_id
+    AND save.game_content_revision_id=NEW.game_content_revision_id
+    AND save.game_variant_revision_id=NEW.game_variant_revision_id
+    AND save.core_artifact_id=NEW.core_artifact_id
+)
+OR NEW.purpose='RPG_RUNTIME_VALIDATION' AND NOT EXISTS(
+  SELECT 1 FROM rpgmaker_runtime_validations validation
+  WHERE validation.id=NEW.rpgmaker_runtime_validation_id
+    AND validation.effective_source_snapshot_id=NEW.effective_source_snapshot_id
+    AND validation.artifact_id=NEW.core_artifact_id AND validation.route_key=NEW.route_key
+    AND (
+      validation.launch_id IS NULL AND validation.state IN ('CREATED','STARTING')
+      OR validation.launch_id IS NOT NULL AND validation.restore_launch_id IS NULL
+        AND validation.state='CHECKPOINTED'
+        AND EXISTS(SELECT 1 FROM rpgmaker_runtime_validation_checkpoints checkpoint
+          WHERE checkpoint.validation_id=validation.id)
+        AND EXISTS(SELECT 1 FROM launch_sessions original
+          WHERE original.id=validation.launch_id AND original.state IN ('FINISHED','EXPIRED','REVOKED'))
+    )
+)
+BEGIN SELECT RAISE(ABORT,'invalid launch runtime binding'); END;
+
+CREATE TRIGGER launch_sessions_runtime_binding_immutable
+BEFORE UPDATE OF purpose,profile_id,game_id,game_content_revision_id,game_variant_revision_id,
+  core_artifact_id,route_key,effective_source_snapshot_id,rpgmaker_runtime_validation_id,save_state_id,
+  dos_entry_path,credential_sha256,created_at_ms
+ON launch_sessions
+BEGIN SELECT RAISE(ABORT,'launch runtime binding is immutable'); END;
+
+CREATE TRIGGER launch_sessions_revoke_isolated_runtime
+AFTER UPDATE OF state ON launch_sessions
+WHEN NEW.state IN ('FINISHED','EXPIRED','REVOKED') AND OLD.state<>NEW.state
+BEGIN
+  UPDATE isolated_runtime_capabilities SET revoked_at_ms=NEW.finished_at_ms
+  WHERE launch_id=NEW.id AND revoked_at_ms IS NULL;
+END;
+
+CREATE TRIGGER rpgmaker_runtime_validation_checkpoints_insert
+BEFORE INSERT ON rpgmaker_runtime_validation_checkpoints
+WHEN NOT EXISTS(
+  SELECT 1 FROM rpgmaker_runtime_validations validation
+  JOIN launch_sessions launch ON launch.id=validation.launch_id
+  JOIN core_artifacts artifact ON artifact.id=validation.artifact_id
+  JOIN blobs blob ON blob.id=NEW.payload_blob_id
+  WHERE validation.id=NEW.validation_id AND validation.state='RUNNING'
+    AND launch.purpose='RPG_RUNTIME_VALIDATION'
+    AND launch.rpgmaker_runtime_validation_id=validation.id
+    AND artifact.save_payload_kind=NEW.payload_kind
+    AND NEW.size_bytes<=artifact.save_max_bytes
+    AND blob.sha256=NEW.payload_sha256 AND blob.size_bytes=NEW.size_bytes
+    AND (
+      NEW.payload_kind='RUNTIME_STATE'
+        AND validation.generation IN ('RPGXP','RPGVX','RPGVXACE')
+      OR NEW.payload_kind='NATIVE_SAVE_BUNDLE_V1' AND (
+        validation.generation IN ('RPG2000','RPG2003')
+          AND NEW.native_profile='EASYRPG_V1' AND NEW.resume_slot=100
+        OR validation.generation='RPGMV' AND NEW.native_profile='RPGMV_V1'
+        OR validation.generation='RPGMZ' AND NEW.native_profile='RPGMZ_V1'
+      )
+    )
+)
+BEGIN SELECT RAISE(ABORT,'invalid runtime validation checkpoint'); END;
+
+CREATE TRIGGER rpgmaker_runtime_validation_checkpoints_immutable_update
+BEFORE UPDATE ON rpgmaker_runtime_validation_checkpoints
+BEGIN SELECT RAISE(ABORT,'runtime validation checkpoint is immutable'); END;
+
+CREATE TRIGGER rpgmaker_runtime_validation_checkpoints_guarded_delete
+BEFORE DELETE ON rpgmaker_runtime_validation_checkpoints
+WHEN NOT EXISTS(SELECT 1 FROM rpgmaker_runtime_validations validation
+  WHERE validation.id=OLD.validation_id AND validation.state IN ('PASSED','FAILED','EXPIRED'))
+BEGIN SELECT RAISE(ABORT,'active runtime validation checkpoint is immutable'); END;
+
+CREATE TRIGGER save_states_payload_insert
+BEFORE INSERT ON save_states
+WHEN NOT EXISTS(
+  SELECT 1 FROM core_artifacts artifact
+  JOIN blobs blob ON blob.id=NEW.payload_blob_id
+  WHERE artifact.id=NEW.core_artifact_id AND artifact.available_for_launch=1
+    AND artifact.save_payload_kind=NEW.payload_kind
+    AND NEW.payload_size_bytes<=artifact.save_max_bytes
+    AND blob.sha256=NEW.payload_sha256 AND blob.size_bytes=NEW.payload_size_bytes
+)
+OR NOT EXISTS(
+  SELECT 1 FROM game_variant_revisions revision
+  WHERE revision.id=NEW.game_variant_revision_id
+    AND revision.game_content_revision_id=NEW.game_content_revision_id
+    AND revision.core_artifact_id=NEW.core_artifact_id
+    AND (
+      NOT EXISTS(SELECT 1 FROM rpgmaker_variant_profiles profile
+        WHERE profile.game_variant_revision_id=revision.id)
+      OR EXISTS(SELECT 1 FROM rpgmaker_variant_profiles profile
+        WHERE profile.game_variant_revision_id=revision.id
+          AND profile.adapter_abi=NEW.adapter_abi
+          AND profile.dependency_snapshot_sha256=NEW.dependency_snapshot_sha256
+          AND (
+            NEW.payload_kind='RUNTIME_STATE' AND profile.generation IN ('RPGXP','RPGVX','RPGVXACE')
+            OR NEW.payload_kind='NATIVE_SAVE_BUNDLE_V1' AND (
+              profile.generation IN ('RPG2000','RPG2003')
+                AND NEW.native_profile='EASYRPG_V1' AND NEW.resume_slot=100
+              OR profile.generation='RPGMV' AND NEW.native_profile='RPGMV_V1'
+              OR profile.generation='RPGMZ' AND NEW.native_profile='RPGMZ_V1'
+            )
+          )
+      )
+    )
+)
+BEGIN SELECT RAISE(ABORT,'save checkpoint payload mismatch'); END;
+
+CREATE TRIGGER save_states_payload_immutable
+BEFORE UPDATE OF profile_id,game_id,game_content_revision_id,game_variant_revision_id,core_artifact_id,
+  adapter_abi,dependency_snapshot_sha256,dat_version_id,dos_entry_path,payload_blob_id,payload_kind,
+  native_profile,resume_slot,payload_sha256,payload_size_bytes,source_launch_session_id,created_at_ms
+ON save_states
+BEGIN SELECT RAISE(ABORT,'save checkpoint binding is immutable'); END;
+
+CREATE TRIGGER isolated_runtime_bootstrap_tickets_insert
+BEFORE INSERT ON isolated_runtime_bootstrap_tickets
+WHEN NOT EXISTS(
+  SELECT 1 FROM launch_sessions launch
+  JOIN core_artifacts artifact ON artifact.id=launch.core_artifact_id
+  WHERE launch.id=NEW.launch_id AND launch.profile_id=NEW.profile_id
+    AND launch.state='CREATED' AND artifact.runtime_adapter_kind='NATIVE_WEB'
+    AND NEW.expires_at_ms=launch.created_at_ms+60000
+    AND NEW.expires_at_ms<=launch.bootstrap_expires_at_ms
+)
+BEGIN SELECT RAISE(ABORT,'invalid isolated runtime bootstrap ticket'); END;
+
+CREATE TRIGGER isolated_runtime_bootstrap_tickets_consume
+BEFORE UPDATE ON isolated_runtime_bootstrap_tickets
+WHEN OLD.consumed_at_ms IS NOT NULL
+  OR NEW.ticket_sha256<>OLD.ticket_sha256 OR NEW.launch_id<>OLD.launch_id
+  OR NEW.profile_id<>OLD.profile_id OR NEW.expected_origin<>OLD.expected_origin
+  OR NEW.expires_at_ms<>OLD.expires_at_ms OR NEW.consumed_at_ms IS NULL
+  OR NOT EXISTS(SELECT 1 FROM launch_sessions launch
+    WHERE launch.id=OLD.launch_id AND launch.state IN ('CREATED','ACTIVE')
+      AND NEW.consumed_at_ms<=OLD.expires_at_ms)
+BEGIN SELECT RAISE(ABORT,'invalid bootstrap ticket consumption'); END;
+
+CREATE TRIGGER isolated_runtime_bootstrap_tickets_immutable_delete
+BEFORE DELETE ON isolated_runtime_bootstrap_tickets
+BEGIN SELECT RAISE(ABORT,'bootstrap ticket is retained for audit'); END;
+
+CREATE TRIGGER isolated_runtime_capabilities_insert
+BEFORE INSERT ON isolated_runtime_capabilities
+WHEN NOT EXISTS(
+  SELECT 1 FROM launch_sessions launch
+  JOIN isolated_runtime_bootstrap_tickets ticket ON ticket.launch_id=launch.id
+  WHERE launch.id=NEW.launch_id AND launch.profile_id=NEW.profile_id
+    AND launch.state IN ('CREATED','ACTIVE')
+    AND ticket.profile_id=NEW.profile_id AND ticket.expected_origin=NEW.expected_origin
+    AND ticket.consumed_at_ms IS NOT NULL AND NEW.issued_at_ms=ticket.consumed_at_ms
+    AND NEW.issued_at_ms<=ticket.expires_at_ms AND NEW.expires_at_ms<=launch.hard_expires_at_ms
+    AND NEW.revoked_at_ms IS NULL
+)
+BEGIN SELECT RAISE(ABORT,'invalid isolated runtime capability'); END;
+
+CREATE TRIGGER isolated_runtime_capabilities_revoke
+BEFORE UPDATE ON isolated_runtime_capabilities
+WHEN OLD.revoked_at_ms IS NOT NULL OR NEW.credential_sha256<>OLD.credential_sha256
+  OR NEW.launch_id<>OLD.launch_id OR NEW.profile_id<>OLD.profile_id
+  OR NEW.expected_origin<>OLD.expected_origin OR NEW.issued_at_ms<>OLD.issued_at_ms
+  OR NEW.expires_at_ms<>OLD.expires_at_ms OR NEW.revoked_at_ms IS NULL
+BEGIN SELECT RAISE(ABORT,'invalid isolated runtime capability revocation'); END;
+
+CREATE TRIGGER isolated_runtime_capabilities_immutable_delete
+BEFORE DELETE ON isolated_runtime_capabilities
+BEGIN SELECT RAISE(ABORT,'isolated runtime capability is retained for audit'); END;
+
+CREATE TRIGGER upload_sessions_purpose_immutable
+BEFORE UPDATE OF purpose ON upload_sessions
+BEGIN SELECT RAISE(ABORT,'upload purpose is immutable'); END;
+
+CREATE TRIGGER upload_consumptions_rpgmaker_purpose_insert
+BEFORE INSERT ON upload_consumptions
+WHEN NOT EXISTS(
+  SELECT 1 FROM upload_sessions upload
+  WHERE upload.id=NEW.upload_session_id AND (
+    upload.purpose='GENERAL' AND NEW.consumer_type<>'RUNTIME_ASSET_PACK_INSTALLATION'
+    OR upload.purpose='RPG_MAKER_PROJECT'
+      AND NEW.consumer_type IN ('IMPORT_JOB','GAME_FILE_REVISION_JOB')
+    OR upload.purpose='ONS_PROJECT' AND NEW.consumer_type='IMPORT_JOB'
+    OR upload.purpose='RUNTIME_ASSET_PACK'
+      AND NEW.consumer_type='RUNTIME_ASSET_PACK_INSTALLATION'
+      AND NEW.upload_file_id IS NULL
+      AND EXISTS(SELECT 1 FROM runtime_asset_pack_installations installation
+        WHERE installation.id=NEW.consumer_id)
+  )
+)
+BEGIN SELECT RAISE(ABORT,'upload purpose/consumer mismatch'); END;

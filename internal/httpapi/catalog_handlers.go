@@ -22,12 +22,14 @@ p.enabled,
 pc.core_id,
 c.name,
 pc.enabled,
-a.emulatorjs_version,
+a.runtime_family,
+a.runtime_version,
 a.sha256
 FROM platforms p
 LEFT JOIN platform_cores pc ON pc.platform_id=p.id
 LEFT JOIN cores c ON c.id=pc.core_id
-LEFT JOIN core_artifacts a ON a.core_id=pc.core_id AND a.enabled=1
+LEFT JOIN core_artifacts a ON a.core_id=pc.core_id
+ AND a.selected_for_new_bindings=1 AND a.available_for_launch=1
 ORDER BY p.sort_order,
 pc.core_id
 `,
@@ -42,10 +44,11 @@ pc.core_id
 	for rows.Next() {
 		var id, name string
 		var sortOrder, enabled int
-		var coreID, coreName, emulatorVersion, artifactSHA sql.NullString
+		var coreID, coreName, runtimeFamily, runtimeVersion, artifactSHA sql.NullString
 		var coreEnabled sql.NullInt64
 		if err := rows.Scan(
-			&id, &name, &sortOrder, &enabled, &coreID, &coreName, &coreEnabled, &emulatorVersion, &artifactSHA,
+			&id, &name, &sortOrder, &enabled, &coreID, &coreName, &coreEnabled,
+			&runtimeFamily, &runtimeVersion, &artifactSHA,
 		); err != nil {
 			server.databaseError(writer, request, err)
 			return
@@ -75,9 +78,9 @@ pc.core_id
 				)
 				return
 			}
-			netplaySupported := emulatorVersion.Valid && artifactSHA.Valid &&
+			netplaySupported := runtimeFamily.String == "EMULATORJS" && runtimeVersion.Valid && artifactSHA.Valid &&
 				server.netplay.SupportsPlatformCoreArtifact(
-					id, coreID.String, emulatorVersion.String, artifactSHA.String,
+					id, coreID.String, runtimeVersion.String, artifactSHA.String,
 				)
 			item["cores"] = append(
 				cores,
@@ -102,16 +105,19 @@ func (server *Server) coreArtifacts(writer http.ResponseWriter, request *http.Re
 SELECT a.id,
 a.core_id,
 c.name,
-a.emulatorjs_version,
-a.bundle_version,
-a.flavor,
-a.enabled,
+a.route_key,
+a.runtime_family,
+a.runtime_adapter_kind,
+a.runtime_version,
+a.adapter_id,
+a.selected_for_new_bindings,
+a.available_for_launch,
 a.version,
 a.size_bytes
 FROM core_artifacts a
 JOIN cores c ON c.id=a.core_id
 ORDER BY c.name,
-a.emulatorjs_version,
+a.runtime_version,
 a.id
 `,
 	)
@@ -122,17 +128,20 @@ a.id
 	defer func() { cleanup.Error("close", rows.Close()) }()
 	items := make([]map[string]any, 0)
 	for rows.Next() {
-		var id, coreID, coreName, ejsVersion, bundleVersion, flavor string
-		var enabled int
+		var id, coreID, coreName, routeKey, runtimeFamily, adapterKind, runtimeVersion, adapterID string
+		var selected, available int
 		var version, size int64
 		if err := rows.Scan(
 			&id,
 			&coreID,
 			&coreName,
-			&ejsVersion,
-			&bundleVersion,
-			&flavor,
-			&enabled,
+			&routeKey,
+			&runtimeFamily,
+			&adapterKind,
+			&runtimeVersion,
+			&adapterID,
+			&selected,
+			&available,
 			&version,
 			&size,
 		); err != nil {
@@ -142,15 +151,18 @@ a.id
 		items = append(
 			items,
 			map[string]any{
-				"id":                id,
-				"coreId":            coreID,
-				"coreName":          coreName,
-				"emulatorjsVersion": ejsVersion,
-				"bundleVersion":     bundleVersion,
-				"flavor":            flavor,
-				"enabled":           enabled == 1,
-				"version":           version,
-				"sizeBytes":         size,
+				"id":                     id,
+				"coreId":                 coreID,
+				"coreName":               coreName,
+				"routeKey":               routeKey,
+				"runtimeFamily":          runtimeFamily,
+				"runtimeAdapterKind":     adapterKind,
+				"runtimeVersion":         runtimeVersion,
+				"adapterId":              adapterID,
+				"selectedForNewBindings": selected == 1,
+				"availableForLaunch":     available == 1,
+				"version":                version,
+				"sizeBytes":              size,
 			},
 		)
 	}
@@ -201,10 +213,10 @@ pi.version,
 pi.updated_at_ms,
 (SELECT count(*) FROM games g WHERE g.platform_instance_id=pi.id)
 ,
-COALESCE((SELECT a.compatibility_config_json
+COALESCE((SELECT a.compatibility_json
  FROM core_artifacts a
  WHERE a.core_id=pi.default_core_id
- AND a.enabled=1
+ AND a.selected_for_new_bindings=1 AND a.available_for_launch=1
  LIMIT 1),'{}')
 FROM platform_instances pi
 JOIN platforms p ON p.id=pi.platform_id

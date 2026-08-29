@@ -56,18 +56,18 @@ func newCreationRun(
 func (run *creationRun) execute() error {
 	defer cleanup.Rollback(run.transaction)
 	if err := run.initialize(); err != nil {
-		return err
+		return fmt.Errorf("libraryimport/service: initialize import: %w", err)
 	}
 	if err := run.persistArchives(); err != nil {
-		return err
+		return fmt.Errorf("libraryimport/service: persist import archives: %w", err)
 	}
 	for index := range run.plan.groups {
 		if err := run.persistGroup(&run.plan.groups[index]); err != nil {
-			return err
+			return fmt.Errorf("libraryimport/service: persist import group %d: %w", index, err)
 		}
 	}
 	if err := run.finalize(); err != nil {
-		return err
+		return fmt.Errorf("libraryimport/service: finalize import: %w", err)
 	}
 	if err := run.transaction.Commit(); err != nil {
 		return fmt.Errorf("libraryimport/service: %w", err)
@@ -87,7 +87,7 @@ func (run *creationRun) result() Created {
 
 func (run *creationRun) initialize() error {
 	if err := run.lockInputs(); err != nil {
-		return err
+		return fmt.Errorf("lock import inputs: %w", err)
 	}
 	actor := reviewActor(run.ctx)
 	actorUserID, actorIsUser := actor.UserID.(string)
@@ -109,7 +109,7 @@ func (run *creationRun) initialize() error {
 	if err := prepareStaticBIOSDependencies(
 		run.ctx, run.transaction, run.plan.target.artifactID, run.plan.target.platformID, run.plan.groups,
 	); err != nil {
-		return err
+		return fmt.Errorf("prepare import BIOS dependencies: %w", err)
 	}
 	importID, _ := uuid.NewV7()
 	jobID, _ := uuid.NewV7()
@@ -117,9 +117,12 @@ func (run *creationRun) initialize() error {
 	run.now = run.service.now().UnixMilli()
 	configJSON, configDigest := run.configSnapshot(biosCatalog)
 	if err := run.insertJob(configJSON, configDigest); err != nil {
-		return err
+		return fmt.Errorf("insert import job: %w", err)
 	}
-	return run.insertImport(configJSON, configDigest)
+	if err := run.insertImport(configJSON, configDigest); err != nil {
+		return fmt.Errorf("insert import: %w", err)
+	}
+	return nil
 }
 
 func (run *creationRun) lockInputs() error {
@@ -131,15 +134,15 @@ SELECT state FROM upload_sessions WHERE id=?
 	}
 	var version, artifactVersion int64
 	var artifactID, compatibilityConfig string
+	target := run.plan.target
 	err := run.transaction.QueryRowContext(run.ctx, `
-SELECT pi.version,a.id,a.version,a.compatibility_config_json
+SELECT pi.version,a.id,a.version,a.compatibility_json
 FROM platform_instances pi
-JOIN core_artifacts a ON a.core_id=pi.default_core_id AND a.enabled=1
-WHERE pi.id=? AND pi.enabled=1 AND pi.deleted_at_ms IS NULL
-`, run.plan.request.TargetPlatformInstanceID).Scan(
+JOIN core_artifacts a ON a.id=? AND a.core_id=? AND a.selected_for_new_bindings=1
+WHERE pi.id=? AND pi.default_core_id=? AND pi.enabled=1 AND pi.deleted_at_ms IS NULL
+`, target.artifactID, target.coreID, run.plan.request.TargetPlatformInstanceID, target.defaultCoreID).Scan(
 		&version, &artifactID, &artifactVersion, &compatibilityConfig,
 	)
-	target := run.plan.target
 	if err != nil || version != target.instanceVersion || artifactID != target.artifactID ||
 		artifactVersion != target.artifactVersion ||
 		compatibilityConfigDigest(compatibilityConfig) != compatibilityConfigDigest(target.compatibilityConfig) {
@@ -154,7 +157,8 @@ func (run *creationRun) configSnapshot(biosCatalog []corevalidation.BIOSCatalogE
 		"schemaVersion": 2, "contentMode": run.plan.contentMode,
 		"platformInstanceId":      run.plan.request.TargetPlatformInstanceID,
 		"platformInstanceVersion": target.instanceVersion, "platformId": target.platformID,
-		"defaultCoreId": target.coreID, "coreArtifactId": target.artifactID,
+		"defaultCoreId": target.defaultCoreID, "resolvedCoreId": target.coreID,
+		"coreArtifactId":    target.artifactID,
 		"emulatorjsVersion": target.emulatorVersion, "coreArtifactPath": target.artifactPath,
 		"coreArtifactSha256": target.artifactSHA, "coreArtifactVersion": target.artifactVersion,
 		"compatibilityConfigDigest": compatibilityConfigDigest(target.compatibilityConfig),

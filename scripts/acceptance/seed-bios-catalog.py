@@ -20,14 +20,14 @@ def main() -> int:
         current = connection.execute(
             """SELECT count(*) FROM bios_requirements requirement
                JOIN core_artifacts artifact ON artifact.id=requirement.core_artifact_id
-               WHERE requirement.enabled=1 AND artifact.enabled=1"""
+               WHERE requirement.enabled=1 AND artifact.selected_for_new_bindings=1"""
         ).fetchone()[0]
         if current > target_count:
             raise RuntimeError(f"enabled BIOS catalog already exceeds target: {current} > {target_count}")
         template = connection.execute(
             """SELECT requirement.* FROM bios_requirements requirement
                JOIN core_artifacts artifact ON artifact.id=requirement.core_artifact_id
-               WHERE requirement.enabled=1 AND artifact.enabled=1
+               WHERE requirement.enabled=1 AND artifact.selected_for_new_bindings=1
                  AND requirement.source_kind='STATIC' AND requirement.core_id='yabause'
                ORDER BY requirement.id LIMIT 1"""
         ).fetchone()
@@ -65,7 +65,7 @@ def main() -> int:
         final = connection.execute(
             """SELECT count(*) FROM bios_requirements requirement
                JOIN core_artifacts artifact ON artifact.id=requirement.core_artifact_id
-               WHERE requirement.enabled=1 AND artifact.enabled=1"""
+               WHERE requirement.enabled=1 AND artifact.selected_for_new_bindings=1"""
         ).fetchone()[0]
         if final != target_count:
             raise RuntimeError(f"seeded BIOS catalog has {final} entries, expected {target_count}")

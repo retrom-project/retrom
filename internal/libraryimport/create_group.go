@@ -30,6 +30,9 @@ func (run *creationRun) persistGroup(group *preparedGroup) error {
 	if err := run.persistReviewDraft(record); err != nil {
 		return err
 	}
+	if err := run.persistRPGMakerReviewProfile(record); err != nil {
+		return err
+	}
 	if err := run.persistMultiDiscEvents(record); err != nil {
 		return err
 	}

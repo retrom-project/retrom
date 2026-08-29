@@ -197,17 +197,17 @@ func installSmokeDAT(
 	coreID, datPath, digestHex string,
 	catalog arcadedat.Catalog,
 ) (string, string, error) {
+	var artifactID string
+	if err := database.QueryRowContext(ctx, `
+SELECT id FROM core_artifacts WHERE core_id=? AND selected_for_new_bindings=1
+`, coreID).Scan(&artifactID); err != nil {
+		return "", "", fmt.Errorf("find selected core artifact: %w", err)
+	}
 	transaction, err := database.BeginTx(ctx, nil)
 	if err != nil {
 		return "", "", fmt.Errorf("begin transaction: %w", err)
 	}
 	defer cleanup.Rollback(transaction)
-	var artifactID string
-	if err := transaction.QueryRowContext(ctx, `
-SELECT id FROM core_artifacts WHERE core_id=? AND enabled=1
-`, coreID).Scan(&artifactID); err != nil {
-		return "", "", fmt.Errorf("find enabled core artifact: %w", err)
-	}
 	datID := uuid.NewSHA1(uuid.NameSpaceURL, []byte("retrom:acceptance:arcade-dat:"+artifactID+":"+digestHex)).String()
 	nowMS := time.Now().UTC().UnixMilli()
 	stats := catalog.Stats

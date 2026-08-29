@@ -189,7 +189,7 @@ FROM save_states`).Scan(&result.SaveStates.ActiveCount, &result.SaveStates.Delet
 	}
 	var err error
 	result.SaveStates.StateReferenceBytes, err = distinctReferenceBytes(
-		ctx, transaction, `SELECT DISTINCT state_blob_id FROM save_states`, blobs,
+		ctx, transaction, `SELECT DISTINCT payload_blob_id FROM save_states`, blobs,
 	)
 	if err != nil {
 		return Details{}, err

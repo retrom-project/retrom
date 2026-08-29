@@ -4,8 +4,8 @@ import { unrestrictedDevOrigins } from "./lib/dev-origin";
 const backend = process.env.NEXT_BACKEND_ORIGIN ?? "http://127.0.0.1:8080";
 
 export const backendProxyLimits = {
-  bodyBytes: 75 * 1024 * 1024,
-  timeoutMs: 150_000
+  bodyBytes: 283_115_520,
+  timeoutMs: 300_000
 } as const;
 
 const nextConfig: NextConfig = {
@@ -17,6 +17,7 @@ const nextConfig: NextConfig = {
   },
   output: "standalone",
   poweredByHeader: false,
+  transpilePackages: ["@xxxsen/retrom-runtime"],
   async rewrites() {
     return [
       { source: "/api/:path*", destination: `${backend}/api/:path*` },

@@ -2,13 +2,20 @@ import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type * as DirectoryAccess from "@/lib/directory-access";
+import type * as UploadModule from "@/lib/upload";
 import { UploadPicker } from "./upload-picker";
 
 const directoryAccess = vi.hoisted(() => ({ directoryPickerAvailable: vi.fn(), pickDirectory: vi.fn() }));
+const upload = vi.hoisted(() => ({ uploadFiles: vi.fn() }));
 
 vi.mock("@/lib/directory-access", async (loadOriginal) => {
   const original = await loadOriginal<typeof DirectoryAccess>();
   return { ...original, directoryPickerAvailable: directoryAccess.directoryPickerAvailable, pickDirectory: directoryAccess.pickDirectory };
+});
+
+vi.mock("@/lib/upload", async (loadOriginal) => {
+  const original = await loadOriginal<typeof UploadModule>();
+  return { ...original, uploadFiles: upload.uploadFiles };
 });
 
 vi.mock("next/navigation", () => ({
@@ -18,6 +25,7 @@ vi.mock("next/navigation", () => ({
 beforeEach(() => {
   directoryAccess.directoryPickerAvailable.mockReset().mockReturnValue(true);
   directoryAccess.pickDirectory.mockReset();
+  upload.uploadFiles.mockReset().mockResolvedValue({ uploadId: "rpg-upload", uploadFileIds: ["rpg-file"] });
 });
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
@@ -91,6 +99,62 @@ describe("UploadPicker", () => {
 
     await user.selectOptions(screen.getByRole("combobox", { name: "目标游戏目录" }), "arcade");
     expect(submit).toBeEnabled();
+  });
+
+  it("uses the explicit RPG Maker core directory and RPG project upload purpose", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ importJobId: "rpg-import" }), { status: 202, headers: { "Content-Type": "application/json" } }));
+    vi.stubGlobal("fetch", fetchMock);
+    const user = userEvent.setup();
+    render(<UploadPicker directories={[{
+      id: "rpg-mv", name: "RPG Maker MV", platformName: "RPG Maker", coreName: "RPG Maker MV",
+      importCapabilities: { contentModes: ["RPG_MAKER_PROJECT_V1"], multiDisc: null },
+    }]} />);
+
+    const project = new File(["project"], "game.zip", { type: "application/zip" });
+    await user.upload(screen.getByLabelText("选择导入文件"), project);
+    await user.click(screen.getByRole("button", { name: "下一步" }));
+    await user.selectOptions(screen.getByRole("combobox", { name: "目标游戏目录" }), "rpg-mv");
+    expect(screen.getByText("RPG Maker 项目")).toBeVisible();
+    expect(screen.getByText(/服务端会识别项目版本并选择底层核心/)).toBeVisible();
+    expect(screen.getByLabelText("元信息来源")).toHaveValue("不刮削（RPG Maker 项目）");
+    expect(screen.getByLabelText("元信息来源")).toBeDisabled();
+
+    await user.click(screen.getByRole("button", { name: "上一步" }));
+    expect(screen.getByRole("heading", { name: "将 RPG Maker 项目归档或目录拖到这里" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "选择项目归档" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "选择项目目录" })).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "下一步" }));
+
+    await user.click(screen.getByRole("button", { name: "上传并验证 RPG Maker 项目" }));
+    expect(upload.uploadFiles).toHaveBeenCalledWith(expect.any(Array), expect.any(Function), "RPG_MAKER_PROJECT");
+    expect(fetchMock).toHaveBeenCalledWith("/api/v1/admin/imports", expect.objectContaining({
+      body: JSON.stringify({ uploadId: "rpg-upload", targetPlatformInstanceId: "rpg-mv", metadataProvider: "NONE", contentMode: "RPG_MAKER_PROJECT_V1", tagIds: [] }),
+    }));
+  });
+
+  it("uses the ONS project upload purpose and disables metadata scraping", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ importJobId: "ons-import" }), { status: 202, headers: { "Content-Type": "application/json" } }));
+    vi.stubGlobal("fetch", fetchMock);
+    const user = userEvent.setup();
+    render(<UploadPicker directories={[{
+      id: "ons", name: "ONS 游戏", platformName: "ONS", coreName: "ONScripterYuri",
+      importCapabilities: { contentModes: ["ONS_PROJECT_V1"], multiDisc: null },
+    }]} />);
+
+    const project = new File(["project"], "game.7z", { type: "application/x-7z-compressed" });
+    await user.upload(screen.getByLabelText("选择导入文件"), project);
+    await user.click(screen.getByRole("button", { name: "下一步" }));
+    await user.selectOptions(screen.getByRole("combobox", { name: "目标游戏目录" }), "ons");
+    expect(screen.getByText("ONS 项目")).toBeVisible();
+    expect(screen.getByText(/审核时需要先成功试运行一次/)).toBeVisible();
+    expect(screen.getByLabelText("元信息来源")).toHaveValue("不刮削（ONS 项目）");
+    expect(screen.getByLabelText("元信息来源")).toBeDisabled();
+
+    await user.click(screen.getByRole("button", { name: "上传并试运行 ONS 项目" }));
+    expect(upload.uploadFiles).toHaveBeenCalledWith(expect.any(Array), expect.any(Function), "ONS_PROJECT");
+    expect(fetchMock).toHaveBeenCalledWith("/api/v1/admin/imports", expect.objectContaining({
+      body: JSON.stringify({ uploadId: "rpg-upload", targetPlatformInstanceId: "ons", metadataProvider: "NONE", contentMode: "ONS_PROJECT_V1", tagIds: [] }),
+    }));
   });
 
   it("preflights a directory and blocks multi-disc mode on an unsupported target", async () => {

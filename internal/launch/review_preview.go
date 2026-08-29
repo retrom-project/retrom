@@ -18,6 +18,7 @@ import (
 	"retrom/internal/cleanup"
 	"retrom/internal/corevalidation"
 	"retrom/internal/dependencies"
+	"retrom/internal/importing"
 	"retrom/internal/mediaasset"
 	retromruntime "retrom/internal/runtime"
 )
@@ -47,7 +48,8 @@ type ReviewPreviewCreated struct {
 
 type reviewPreviewSource struct {
 	SourceSnapshotID, TargetID, PlatformName, PlatformKey                  string
-	ArtifactID, EmulatorVersion, CoreID, CoreName, CompatibilityJSON       string
+	ArtifactID, RuntimeFamily, AdapterKind, RuntimeVersion, AdapterID      string
+	CoreID, CoreName, CompatibilityJSON                                    string
 	Title, ContentKind, ValidationID, ValidationStatus, DependencySnapshot string
 	DefaultDOSEntry                                                        sql.NullString
 	SelectedValidationID                                                   sql.NullString
@@ -125,7 +127,10 @@ func (service *Service) validateReviewPreviewSource(
 		!capabilities.CrossOriginIsolated || !capabilities.SharedArrayBuffer) {
 		return ErrBlocked
 	}
-	if service.dependencies.Versions[source.EmulatorVersion] == nil {
+	if source.RuntimeFamily == "ONS" {
+		return service.validateONSReviewPreviewSource(source)
+	}
+	if source.RuntimeFamily != "EMULATORJS" || service.dependencies.Versions[source.RuntimeVersion] == nil {
 		return ErrReviewPreviewUnavailable
 	}
 	compatibility, err := service.loadArtifactCompatibility(ctx, source.ArtifactID)
@@ -159,6 +164,10 @@ func (service *Service) persistReviewPreview(
 	if err != nil {
 		return fmt.Errorf("launch/review preview: %w", err)
 	}
+	var emulatorGameID any
+	if source.RuntimeFamily == "EMULATORJS" {
+		emulatorGameID = max(now, 1)
+	}
 	defer cleanup.Rollback(transaction)
 	_, err = transaction.ExecContext(ctx, `
 INSERT INTO review_preview_sessions(id,import_item_id,source_snapshot_id,validation_id,
@@ -170,7 +179,7 @@ VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'CREATED',?,?,?,?)
 `, previewID, request.ImportItemID, source.SourceSnapshotID, nullableText(source.ValidationID),
 		source.TargetID, source.ArtifactID, request.ActorUserID, request.IdempotencyKey, title, source.ContentKind,
 		content.BlobID, content.LogicalName, content.Format, source.DependencySnapshot,
-		nullableSQLString(source.DefaultDOSEntry), max(now, 1), captureAllowed, capabilityHash,
+		nullableSQLString(source.DefaultDOSEntry), emulatorGameID, captureAllowed, capabilityHash,
 		bootstrapExpires, hardExpires, now, now)
 	if err != nil {
 		return fmt.Errorf("create review preview: %w", err)
@@ -226,7 +235,8 @@ func (service *Service) reviewPreviewSource(ctx context.Context, itemID string) 
 	var validationID, validationStatus, dependencySnapshot sql.NullString
 	err := service.database.QueryRowContext(ctx, `
 SELECT draft.effective_source_snapshot_id,draft.target_platform_instance_id,instance.name,platform.id,
-artifact.id,artifact.emulatorjs_version,core.id,core.name,artifact.compatibility_config_json,core.requires_threads,
+artifact.id,artifact.runtime_family,artifact.runtime_adapter_kind,artifact.runtime_version,artifact.adapter_id,
+core.id,core.name,artifact.compatibility_json,artifact.requires_threads,
 COALESCE(json_extract(draft.metadata_json,'$.title'),''),snapshot.content_kind,
 validation.id,validation.status,validation.dependency_snapshot_json,draft.default_dos_entry,
 draft.selected_validation_id,validation.dat_version_id
@@ -236,7 +246,8 @@ JOIN import_item_source_snapshots snapshot ON snapshot.id=draft.effective_source
 JOIN platform_instances instance ON instance.id=draft.target_platform_instance_id
  AND instance.enabled=1 AND instance.deleted_at_ms IS NULL
 JOIN platforms platform ON platform.id=instance.platform_id
-JOIN core_artifacts artifact ON artifact.core_id=instance.default_core_id AND artifact.enabled=1
+JOIN core_artifacts artifact ON artifact.core_id=instance.default_core_id
+ AND artifact.runtime_family IN ('EMULATORJS','ONS') AND artifact.selected_for_new_bindings=1
 JOIN cores core ON core.id=artifact.core_id
 LEFT JOIN import_item_core_validations validation ON validation.id=(
  SELECT candidate.id FROM import_item_core_validations candidate
@@ -249,7 +260,8 @@ LEFT JOIN import_item_core_validations validation ON validation.id=(
 WHERE item.id=? AND item.state='REVIEW_PENDING'
 `, itemID).Scan(
 		&value.SourceSnapshotID, &value.TargetID, &value.PlatformName, &value.PlatformKey,
-		&value.ArtifactID, &value.EmulatorVersion, &value.CoreID, &value.CoreName,
+		&value.ArtifactID, &value.RuntimeFamily, &value.AdapterKind, &value.RuntimeVersion, &value.AdapterID,
+		&value.CoreID, &value.CoreName,
 		&value.CompatibilityJSON, &value.RequiresThreads, &value.Title, &value.ContentKind,
 		&validationID, &validationStatus, &dependencySnapshot, &value.DefaultDOSEntry,
 		&value.SelectedValidationID, &value.DATVersionID,
@@ -270,6 +282,12 @@ func (service *Service) reviewPreviewContent(
 	content, err := service.reviewPreviewPrimaryContent(ctx, source)
 	if err != nil {
 		return reviewPreviewContentSet{}, fmt.Errorf("load primary review content: %w", err)
+	}
+	if source.ContentKind == onsProjectFormat {
+		if !validPreviewFileSet(content.LogicalName, content.Files) {
+			return reviewPreviewContentSet{}, fmt.Errorf("validate review project names: %w", ErrReviewPreviewUnavailable)
+		}
+		return content, nil
 	}
 	content.Files, err = service.reviewPreviewValidationFiles(ctx, source.ValidationID, content.Files)
 	if err != nil {
@@ -325,6 +343,8 @@ WHERE import_item_core_validation_id=? AND role='MULTI_DISC_PLAYLIST' AND logica
 			return reviewPreviewContentSet{}, err
 		}
 		content.Files = files
+	case onsProjectFormat:
+		return service.reviewPreviewONSContent(ctx, source)
 	default:
 		return reviewPreviewContentSet{}, ErrReviewPreviewUnavailable
 	}
@@ -430,10 +450,17 @@ func validPreviewLogicalName(value string) bool {
 }
 
 func validPreviewFileSet(contentName string, files []reviewPreviewFile) bool {
-	seenNames := map[string]struct{}{strings.ToLower(contentName): {}}
+	seenNames := map[string]struct{}{importing.ASCIICaseFold(contentName): {}}
 	seenPaths := make(map[string]struct{})
 	for _, file := range files {
-		name := strings.ToLower(file.LogicalName)
+		if file.Role == "PROJECT_FILE" {
+			if _, err := importing.ValidateLogicalPath(file.LogicalName); err != nil || file.VirtualPath != nil {
+				return false
+			}
+		} else if !validPreviewLogicalName(file.LogicalName) {
+			return false
+		}
+		name := importing.ASCIICaseFold(file.LogicalName)
 		if _, duplicate := seenNames[name]; duplicate {
 			return false
 		}
@@ -456,10 +483,12 @@ type ReviewPreviewConfig struct {
 
 type reviewPreviewConfigSource struct {
 	CredentialHash                                            []byte
-	State, ItemID, ArtifactID, EmulatorVersion, RelativePath  string
+	State, ItemID, ArtifactID, RuntimeFamily, AdapterKind     string
+	RuntimeVersion, AdapterID, RelativePath                   string
 	CompatibilityJSON, CoreID, CoreName, Title, PlatformName  string
 	LogicalName, ContentFormat, ContentDigest, DependencyJSON string
-	BootstrapExpires, HardExpires, EmulatorGameID             int64
+	BootstrapExpires, HardExpires                             int64
+	EmulatorGameID                                            sql.NullInt64
 	RequiresThreads, CaptureAllowed                           int
 	DOSEntry                                                  sql.NullString
 }
@@ -482,7 +511,10 @@ func (service *Service) ReviewPreviewConfig(ctx context.Context, previewID, capa
 	if err := service.activateReviewPreview(ctx, previewID, capability, source); err != nil {
 		return Config{}, err
 	}
-	version := service.dependencies.Versions[source.EmulatorVersion]
+	if source.RuntimeFamily == "ONS" {
+		return service.buildONSReviewConfig(previewID, source)
+	}
+	version := service.dependencies.Versions[source.RuntimeVersion]
 	if version == nil {
 		return Config{}, ErrCredential
 	}
@@ -504,7 +536,7 @@ func (service *Service) ReviewPreviewConfig(ctx context.Context, previewID, capa
 	}
 	startupActions := make([]dependencies.StartupAction, len(compatibility.StartupActions))
 	copy(startupActions, compatibility.StartupActions)
-	base := "/runtime/emulatorjs/" + source.EmulatorVersion + "/"
+	base := "/runtime/emulatorjs/" + source.RuntimeVersion + "/"
 	gameIdentity, err := ContentIdentity(ContentView{
 		Digest: source.ContentDigest, Format: source.ContentFormat, CoreID: source.CoreID,
 		DOSEntry: nullableStringPointer(source.DOSEntry),
@@ -525,10 +557,11 @@ func (service *Service) ReviewPreviewConfig(ctx context.Context, previewID, capa
 		return Config{}, err
 	}
 	return Config{
-		Mode: "single", LaunchID: previewID, EmulatorJSVersion: source.EmulatorVersion,
-		PlayerAdapterID: version.Manifest.EmulatorJS.PlayerAdapter.ID,
-		Core:            source.CoreID, RuntimeCore: compatibility.RuntimeCoreID, CoreName: source.CoreName,
-		CoreArtifactID: source.ArtifactID, EmulatorGameID: source.EmulatorGameID,
+		RuntimeFamily: "EMULATORJS", Mode: "single", LaunchID: previewID,
+		EmulatorJSVersion: source.RuntimeVersion,
+		PlayerAdapterID:   version.Manifest.EmulatorJS.PlayerAdapter.ID,
+		Core:              source.CoreID, RuntimeCore: compatibility.RuntimeCoreID, CoreName: source.CoreName,
+		CoreArtifactID: source.ArtifactID, EmulatorGameID: source.EmulatorGameID.Int64,
 		GameName: "retrom-review-" + previewID, GameTitle: source.Title, PlatformName: source.PlatformName,
 		RuntimeBaseURL:       base + strings.TrimSuffix(version.Manifest.EmulatorJS.PlayerAdapter.RuntimeBasePath, "/") + "/",
 		LoaderURL:            base + version.Manifest.EmulatorJS.PlayerAdapter.LoaderPath,
@@ -557,19 +590,22 @@ func (service *Service) reviewPreviewConfigSource(
 	var source reviewPreviewConfigSource
 	err := service.database.QueryRowContext(ctx, `
 SELECT preview.credential_sha256,preview.state,preview.bootstrap_expires_at_ms,preview.hard_expires_at_ms,
-preview.import_item_id,artifact.id,artifact.emulatorjs_version,artifact.relative_path,
-artifact.compatibility_config_json,core.id,core.name,preview.title,instance.name,
+preview.import_item_id,artifact.id,artifact.runtime_family,artifact.runtime_adapter_kind,
+artifact.runtime_version,artifact.adapter_id,artifact.entry_path,
+artifact.compatibility_json,core.id,core.name,preview.title,instance.name,
 preview.content_logical_name,preview.content_format,preview.dependency_snapshot_json,
-content_blob.sha256,preview.emulator_game_id,core.requires_threads,preview.capture_allowed,preview.default_dos_entry
+content_blob.sha256,preview.emulator_game_id,artifact.requires_threads,preview.capture_allowed,preview.default_dos_entry
 FROM review_preview_sessions preview
 JOIN blobs content_blob ON content_blob.id=preview.content_blob_id
-JOIN core_artifacts artifact ON artifact.id=preview.core_artifact_id AND artifact.enabled=1
+JOIN core_artifacts artifact ON artifact.id=preview.core_artifact_id
+ AND artifact.runtime_family IN ('EMULATORJS','ONS') AND artifact.available_for_launch=1
 JOIN cores core ON core.id=artifact.core_id
 JOIN platform_instances instance ON instance.id=preview.target_platform_instance_id
 WHERE preview.id=?
 	`, previewID).Scan(
 		&source.CredentialHash, &source.State, &source.BootstrapExpires, &source.HardExpires,
-		&source.ItemID, &source.ArtifactID, &source.EmulatorVersion, &source.RelativePath,
+		&source.ItemID, &source.ArtifactID, &source.RuntimeFamily, &source.AdapterKind,
+		&source.RuntimeVersion, &source.AdapterID, &source.RelativePath,
 		&source.CompatibilityJSON, &source.CoreID, &source.CoreName, &source.Title,
 		&source.PlatformName, &source.LogicalName, &source.ContentFormat, &source.DependencyJSON,
 		&source.ContentDigest,

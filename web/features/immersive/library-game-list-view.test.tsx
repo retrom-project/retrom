@@ -9,9 +9,11 @@ const mocks = vi.hoisted(() => ({
   launch: vi.fn(),
   push: vi.fn(),
   replace: vi.fn(),
+  replacePlayerDocument: vi.fn(),
 }));
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: mocks.push, replace: mocks.replace }) }));
+vi.mock("@/lib/player-document-navigation", () => ({ replaceWithPlayerDocument: mocks.replacePlayerDocument }));
 vi.mock("./gamepad-source", () => ({ browserGamepadSource: { subscribe: () => () => undefined } }));
 vi.mock("./api", () => ({
   ImmersiveAPIError: class extends Error {constructor(public status: number, message: string) {super(message);}},
@@ -126,5 +128,6 @@ describe("immersive library game list", () => {
       expect.stringContaining(`saveStateId=${encodeURIComponent(savedGame.saveStates[1].saveStateId)}`),
       savedGame.saveStates[1].saveStateId,
     ));
+    expect(mocks.replacePlayerDocument).toHaveBeenCalledWith("/play/launch?experience=immersive", mocks.replace);
   });
 });

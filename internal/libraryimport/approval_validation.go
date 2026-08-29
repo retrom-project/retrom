@@ -111,7 +111,7 @@ func prepareStaticBIOSDependencies(
 	artifactID, platformID string,
 	groups []preparedGroup,
 ) error {
-	if platformID == "arcade" {
+	if skipsStaticBIOS(platformID) {
 		return nil
 	}
 	for index := range groups {
@@ -149,6 +149,15 @@ func prepareStaticBIOSDependencies(
 		}
 	}
 	return nil
+}
+
+func skipsStaticBIOS(platformID string) bool {
+	switch platformID {
+	case "arcade", "rpgmaker", "ons":
+		return true
+	default:
+		return false
+	}
 }
 
 func nullableText(value string) any {

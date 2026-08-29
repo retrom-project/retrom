@@ -62,6 +62,9 @@ func (service *Service) prepareReplacement(
 	snapshot jobSnapshot,
 	files []uploadedFile,
 ) (preparedReplacement, error) {
+	if snapshot.ContentMode == contentcapability.ModeRPGMakerProjectV1 {
+		return service.prepareRPGMakerReplacement(ctx, snapshot, files)
+	}
 	if snapshot.ContentMode != contentcapability.ModeMultiDiscM3UV1 {
 		if len(files) == 0 || snapshot.PlatformID != "dos" && len(files) != 1 ||
 			snapshot.PlatformID == "arcade" && !strings.EqualFold(filepath.Ext(files[0].logicalName), ".zip") {
@@ -84,7 +87,7 @@ func (service *Service) prepareReplacement(
 			})
 		}
 		replacement.firstContentLogicalName = files[0].logicalName
-		manifest, digest, err := contentmanifest.Build(manifestFiles)
+		manifest, digest, err := contentmanifest.Build(replacement.contentKind, manifestFiles)
 		if err != nil {
 			return preparedReplacement{}, &replacementValidationError{code: "GAME_CONTENT_MANIFEST_INVALID"}
 		}
@@ -236,7 +239,7 @@ func buildPreparedMultiDiscReplacement(
 			Role: file.role, LogicalName: file.logicalName, BlobSHA256: file.sha256, SizeBytes: file.sizeBytes,
 		})
 	}
-	manifest, manifestDigest, err := contentmanifest.Build(manifestFiles)
+	manifest, manifestDigest, err := contentmanifest.Build(replacement.contentKind, manifestFiles)
 	if err != nil {
 		return preparedReplacement{}, &replacementValidationError{code: "GAME_CONTENT_MANIFEST_INVALID"}
 	}
@@ -288,6 +291,10 @@ WHERE id=?
 }
 
 func (service *Service) failUnchanged(ctx context.Context, jobID string) {
+	service.failTerminal(ctx, jobID, "GAME_CONTENT_UNCHANGED")
+}
+
+func (service *Service) failTerminal(ctx context.Context, jobID, code string) {
 	transaction, err := service.database.BeginTx(ctx, nil)
 	if err != nil {
 		service.fail(ctx, jobID, "GAME_CONTENT_DATABASE_FAILED")
@@ -296,17 +303,17 @@ func (service *Service) failUnchanged(ctx context.Context, jobID string) {
 	defer cleanup.Rollback(transaction)
 	now := service.now().UnixMilli()
 	if _, err := transaction.ExecContext(ctx, `
-UPDATE jobs SET state='FAILED',error_code='GAME_CONTENT_UNCHANGED',error_retryable=0,
+UPDATE jobs SET state='FAILED',error_code=?,error_retryable=0,
 finished_at_ms=?,leased_until_ms=NULL,version=version+1,updated_at_ms=?
 WHERE id=? AND state='RUNNING'
-`, now, now, jobID); err != nil {
+`, code, now, now, jobID); err != nil {
 		return
 	}
 	if _, err := transaction.ExecContext(ctx, `
 INSERT INTO job_events(job_id,scope_type,scope_id,event_type,data_json,created_at_ms)
-SELECT id,scope_type,scope_id,'FAILED','{"code":"GAME_CONTENT_UNCHANGED"}',?
+SELECT id,scope_type,scope_id,'FAILED',?,?
 FROM jobs WHERE id=? AND state='FAILED'
-`, now, jobID); err != nil {
+`, fmt.Sprintf(`{"code":%q}`, code), now, jobID); err != nil {
 		return
 	}
 	var consumptionID string

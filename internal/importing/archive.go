@@ -39,6 +39,17 @@ type ArchiveLimits struct {
 	AllowNestedArchives bool
 }
 
+type NestedArchiveFormat string
+
+const (
+	NestedArchiveNone     NestedArchiveFormat = ""
+	NestedArchiveZIP      NestedArchiveFormat = "ZIP"
+	NestedArchiveSevenZip NestedArchiveFormat = "SEVEN_Z"
+	NestedArchiveRAR      NestedArchiveFormat = "RAR"
+	NestedArchiveTAR      NestedArchiveFormat = "TAR"
+	NestedArchiveGZIP     NestedArchiveFormat = "GZIP"
+)
+
 func DefaultArchiveLimits() ArchiveLimits {
 	return ArchiveLimits{
 		MaxEntries:          20000,
@@ -49,6 +60,15 @@ func DefaultArchiveLimits() ArchiveLimits {
 }
 
 func DOSArchiveLimits() ArchiveLimits {
+	limits := DefaultArchiveLimits()
+	limits.AllowNestedArchives = true
+	return limits
+}
+
+// RPGMakerArchiveLimits keeps embedded archive bytes opaque so the RPG Maker
+// project normalizer can exclude its one narrowly recognized deployment
+// sidecar. Every other embedded archive is rejected by that normalizer.
+func RPGMakerArchiveLimits() ArchiveLimits {
 	limits := DefaultArchiveLimits()
 	limits.AllowNestedArchives = true
 	return limits
@@ -66,6 +86,7 @@ type ArchiveEntry struct {
 	MD5                string
 	SHA1               string
 	SHA256             string
+	NestedArchive      NestedArchiveFormat
 }
 
 func ScanZIP(ctx context.Context, path string, limits ArchiveLimits) ([]ArchiveEntry, error) {
@@ -113,7 +134,7 @@ func ScanZIP(ctx context.Context, path string, limits ArchiveLimits) ([]ArchiveE
 			ctx, item, ordinal, pathValue, folded, limits.MaxEntryBytes, limits.AllowNestedArchives,
 		)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("scan archive entry %q: %w", pathValue, err)
 		}
 		result = append(result, entry)
 	}
@@ -282,7 +303,8 @@ func readArchiveEntry(
 		) {
 		return ArchiveEntry{}, ErrArchiveUnsafe
 	}
-	if !allowNestedArchives && nestedArchive(pathValue, prefix[:min(int64(len(prefix)), written)]) {
+	nestedFormat := DetectNestedArchive(pathValue, prefix[:min(int64(len(prefix)), written)])
+	if !allowNestedArchives && nestedFormat != NestedArchiveNone {
 		return ArchiveEntry{}, ErrNestedArchiveUnsupported
 	}
 	return ArchiveEntry{
@@ -290,7 +312,7 @@ func readArchiveEntry(
 		ArchiveFormat: "ZIP", CompressionProfile: zipCompressionProfile(item.Method),
 		Size: written, CRC32: hex.EncodeToString(crc32Hash.Sum(nil)),
 		MD5: hex.EncodeToString(legacyHashes.MD5.Sum(nil)), SHA1: hex.EncodeToString(legacyHashes.SHA1.Sum(nil)),
-		SHA256: hex.EncodeToString(sha256Hash.Sum(nil)),
+		SHA256: hex.EncodeToString(sha256Hash.Sum(nil)), NestedArchive: nestedFormat,
 	}, nil
 }
 
@@ -301,16 +323,38 @@ func zipCompressionProfile(method uint16) string {
 	return "DEFLATE"
 }
 
-func nestedArchive(name string, prefix []byte) bool {
+func DetectNestedArchive(name string, prefix []byte) NestedArchiveFormat {
+	if hasArchiveMagic(prefix, []byte{'P', 'K', 3, 4}) {
+		return NestedArchiveZIP
+	}
+	if hasArchiveMagic(prefix, []byte{'7', 'z', 0xbc, 0xaf, 0x27, 0x1c}) {
+		return NestedArchiveSevenZip
+	}
+	if hasArchiveMagic(prefix, []byte{'R', 'a', 'r', '!'}) {
+		return NestedArchiveRAR
+	}
+	if hasArchiveMagic(prefix, []byte{0x1f, 0x8b}) {
+		return NestedArchiveGZIP
+	}
+	if len(prefix) >= 262 && string(prefix[257:262]) == "ustar" {
+		return NestedArchiveTAR
+	}
 	extension := strings.ToLower(filepath.Ext(name))
-	if extension == ".zip" || extension == ".7z" || extension == ".rar" || extension == ".tar" || extension == ".gz" {
-		return true
+	switch extension {
+	case ".zip":
+		return NestedArchiveZIP
+	case ".7z":
+		return NestedArchiveSevenZip
+	case ".rar":
+		return NestedArchiveRAR
+	case ".tar":
+		return NestedArchiveTAR
+	case ".gz":
+		return NestedArchiveGZIP
 	}
-	magics := [][]byte{{'P', 'K', 3, 4}, {'7', 'z', 0xbc, 0xaf, 0x27, 0x1c}, {'R', 'a', 'r', '!'}, {0x1f, 0x8b}}
-	for _, magic := range magics {
-		if len(prefix) >= len(magic) && string(prefix[:len(magic)]) == string(magic) {
-			return true
-		}
-	}
-	return len(prefix) >= 262 && string(prefix[257:262]) == "ustar"
+	return NestedArchiveNone
+}
+
+func hasArchiveMagic(prefix, magic []byte) bool {
+	return len(prefix) >= len(magic) && string(prefix[:len(magic)]) == string(magic)
 }

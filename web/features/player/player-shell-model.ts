@@ -29,3 +29,8 @@ export async function readBoundedResponse(response: Response, maximumBytes: numb
 export function reportsNativeExit(mode: "single" | "netplay", finishing = false) {
   return mode === "single" && !finishing;
 }
+
+export function formatPlayerBytes(bytes: number) {
+  if (bytes < 1024 * 1024) {return `${(bytes / 1024).toFixed(1)} KiB`;}
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MiB`;
+}

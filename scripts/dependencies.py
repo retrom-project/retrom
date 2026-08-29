@@ -27,6 +27,13 @@ DATA_ROOT = REPOSITORY_ROOT / "data"
 AUTH_MANIFEST_PATH = DATA_ROOT / "auth/password-blocklists/v1/manifest.json"
 NETPLAY_MANIFEST_PATH = DATA_ROOT / "netplay/v2/manifest.json"
 NETPLAY_SCHEMA_PATH = DATA_ROOT / "netplay/v2/schema.json"
+RPG_MAKER_DAT_ROOT = DATA_ROOT / "dat/rpgmaker/v1"
+RPG_MAKER_MANIFEST_PATH = RPG_MAKER_DAT_ROOT / "manifest.json"
+RPG_MAKER_RUNTIME_ROOT = DATA_ROOT / "runtime/rpgmaker/v1"
+RPG_MAKER_BUILD_PATH = RPG_MAKER_DAT_ROOT / "build.py"
+RPG_MAKER_PLAYER_REGISTRY_PATH = (
+    REPOSITORY_ROOT / "web/features/player/rpg-runtime/registry.json"
+)
 CPS_FIXTURE_LAYOUT_PATH = (
     REPOSITORY_ROOT / "testdata/public-roms/arcade-smoke/driver-layouts.json"
 )
@@ -214,6 +221,98 @@ def load_auth_manifest() -> dict[str, Any]:
     if passwords.get("line_count") != 10_000 or license_entry.get("spdx") != "MIT":
         raise CheckError("AUTH_BLOCKLIST_MANIFEST_INVALID")
     return manifest
+
+
+def run_rpg_maker_dependency_action(action: str) -> None:
+    result = subprocess.run(
+        [sys.executable, str(RPG_MAKER_BUILD_PATH), action],
+        cwd=REPOSITORY_ROOT,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        check=False,
+    )
+    if result.returncode != 0:
+        detail = result.stderr.strip().splitlines()
+        raise CheckError(detail[-1] if detail else "RPG_RUNTIME_DEPENDENCY_ACTION_FAILED")
+
+
+def load_rpg_maker_manifest() -> dict[str, Any]:
+    return load_json(RPG_MAKER_MANIFEST_PATH)
+
+
+def validate_rpg_maker_registry(
+    manifest: dict[str, Any], registry: dict[str, Any]
+) -> None:
+    routes = registry.get("routes")
+    if (
+        registry.get("schemaVersion") != 1
+        or set(registry) != {"schemaVersion", "routes"}
+        or not isinstance(routes, list)
+    ):
+        raise CheckError("RPG_PLAYER_REGISTRY_INVALID")
+
+    registered: set[tuple[str, str, str, str, str]] = set()
+    implementations: dict[tuple[str, str], str] = {}
+    for raw in routes:
+        if not isinstance(raw, dict) or set(raw) != {
+            "coreId",
+            "generation",
+            "routeKey",
+            "adapterKind",
+            "adapterId",
+            "implementation",
+        }:
+            raise CheckError("RPG_PLAYER_REGISTRY_INVALID")
+        values = tuple(
+            raw.get(key)
+            for key in ("coreId", "generation", "routeKey", "adapterKind", "adapterId")
+        )
+        if any(not isinstance(value, str) or not value for value in values):
+            raise CheckError("RPG_PLAYER_REGISTRY_INVALID")
+        if values in registered:
+            raise CheckError("RPG_PLAYER_REGISTRY_DUPLICATE")
+        registered.add(values)
+
+        implementation = safe_relative_path(
+            raw.get("implementation"), "RPG_PLAYER_IMPLEMENTATION_INVALID"
+        )
+        implementation_path = (
+            RPG_MAKER_PLAYER_REGISTRY_PATH.parent / implementation
+        )
+        if not implementation_path.is_file():
+            raise CheckError(f"RPG_PLAYER_IMPLEMENTATION_MISSING:{values[0]}")
+        adapter = (values[3], values[4])
+        previous = implementations.setdefault(adapter, implementation)
+        if previous != implementation:
+            raise CheckError("RPG_PLAYER_IMPLEMENTATION_DRIFT")
+
+    artifacts = manifest.get("artifacts")
+    if not isinstance(artifacts, list):
+        raise CheckError("RPG_PLAYER_MANIFEST_INVALID")
+    expected: set[tuple[str, str, str, str, str]] = set()
+    for artifact in artifacts:
+        if not isinstance(artifact, dict):
+            raise CheckError("RPG_PLAYER_MANIFEST_INVALID")
+        if artifact.get("runtime_family") != "RPGMAKER":
+            continue
+        values = tuple(
+            artifact.get(key)
+            for key in (
+                "core_id",
+                "generation",
+                "route_key",
+                "runtime_adapter_kind",
+                "adapter_id",
+            )
+        )
+        if any(not isinstance(value, str) or not value for value in values):
+            raise CheckError("RPG_PLAYER_MANIFEST_INVALID")
+        if values in expected:
+            raise CheckError("RPG_PLAYER_MANIFEST_DUPLICATE")
+        expected.add(values)
+    if registered != expected:
+        raise CheckError("RPG_PLAYER_REGISTRY_DRIFT")
 
 
 def auth_payload_path(relative: str) -> Path:
@@ -478,6 +577,30 @@ def validate_netplay_manifest(
             raise CheckError("NETPLAY_PROFILE_MANIFEST_INVALID")
 
 
+def artifact_set_sha256(runtime_allowlist: list[dict[str, Any]], artifact: dict[str, Any]) -> str:
+    entries = {
+        entry["path_in_release"]: {
+            "path": entry["path_in_release"],
+            "sha256": entry["sha256"],
+            "sizeBytes": entry["size_bytes"],
+        }
+        for entry in runtime_allowlist
+    }
+    entry_path = artifact.get("path_in_release") or artifact.get("local_path")
+    entries[entry_path] = {
+        "path": entry_path,
+        "sha256": artifact["sha256"],
+        "sizeBytes": artifact["size_bytes"],
+    }
+    canonical = json.dumps(
+        [entries[path] for path in sorted(entries, key=lambda value: value.encode("utf-8"))],
+        ensure_ascii=False,
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode("utf-8")
+    return hashlib.sha256(canonical).hexdigest()
+
+
 def validate_small_manifest(version: str, manifest: dict[str, Any]) -> None:
     emulatorjs = manifest["emulatorjs"]
     allowlist = emulatorjs.get("runtime_allowlist")
@@ -519,6 +642,8 @@ def validate_small_manifest(version: str, manifest: dict[str, Any]) -> None:
         if not isinstance(item.get("size_bytes"), int):
             raise CheckError("DEPENDENCY_CORE_SIZE_INVALID")
         expect_digest(item.get("sha256"), "DEPENDENCY_CORE_SHA256_INVALID")
+        if item.get("artifact_set_sha256") != artifact_set_sha256(allowlist, item):
+            raise CheckError("DEPENDENCY_ARTIFACT_SET_SHA256_INVALID")
         validate_artifact_capability(item, paths)
 
     auxiliary = emulatorjs.get("auxiliary_files")
@@ -676,13 +801,16 @@ def validate_dat_definition(core_id: str, core: dict[str, Any], dat: dict[str, A
 def validate_artifact_capability(item: dict[str, Any], allowlist_paths: set[str]) -> None:
     required_fields = {
         "core_id", "source_component_id", "runtime_core_id", "path_in_release", "size_bytes", "sha256",
-        "requires_threads", "bundle_version", "artifact_flavor", "requested_artifact_basename",
+        "artifact_set_sha256", "adapter_abi", "requires_threads", "bundle_version", "artifact_flavor",
+        "requested_artifact_basename",
         "canvas_resize_policy", "default_options", "input_mode", "startup_actions", "report_path",
         "supported_content_kinds",
     }
     optional_fields = {"local_path", "override_ref", "multi_disc"}
     if not required_fields.issubset(item) or not set(item).issubset(required_fields | optional_fields):
         raise CheckError("DEPENDENCY_ARTIFACT_CAPABILITY_INVALID")
+    if item.get("adapter_abi") != "emulatorjs-state-v1":
+        raise CheckError("DEPENDENCY_ARTIFACT_ADAPTER_ABI_INVALID")
     basename = item.get("requested_artifact_basename")
     if not isinstance(basename, str) or ARTIFACT_BASENAME.fullmatch(basename) is None or ".." in basename:
         raise CheckError("DEPENDENCY_ARTIFACT_BASENAME_INVALID")
@@ -787,7 +915,8 @@ def check_payload(version: str, manifest: dict[str, Any]) -> None:
 
 
 def image_export_entries(
-    versions: list[str], manifests: list[dict[str, Any]], auth_manifest: dict[str, Any]
+    versions: list[str], manifests: list[dict[str, Any]], auth_manifest: dict[str, Any],
+    rpg_maker_manifest: dict[str, Any],
 ) -> dict[str, Path]:
     entries: dict[str, Path] = {}
 
@@ -854,6 +983,14 @@ def image_export_entries(
         add(auth_payload_path(relative), f"auth/password-blocklists/v1/{relative}")
     add(NETPLAY_MANIFEST_PATH, "netplay/v2/manifest.json")
     add(NETPLAY_SCHEMA_PATH, "netplay/v2/schema.json")
+    add(RPG_MAKER_MANIFEST_PATH, "dat/rpgmaker/v1/manifest.json")
+    for item in rpg_maker_manifest["runtime_files"]:
+        relative = safe_relative_path(item["path_in_release"], "RPG_RUNTIME_IMAGE_EXPORT_PATH_INVALID")
+        add(RPG_MAKER_RUNTIME_ROOT / relative, f"runtime/rpgmaker/v1/{relative}")
+    add(
+        RPG_MAKER_RUNTIME_ROOT / ".release-observed.json",
+        "runtime/rpgmaker/v1/.release-observed.json",
+    )
     return entries
 
 
@@ -862,6 +999,7 @@ def export_image_dependencies(
     versions: list[str],
     manifests: list[dict[str, Any]],
     auth_manifest: dict[str, Any],
+    rpg_maker_manifest: dict[str, Any],
 ) -> None:
     if not output_root.is_absolute():
         raise CheckError("DEPENDENCY_IMAGE_EXPORT_TARGET_INVALID")
@@ -872,7 +1010,7 @@ def export_image_dependencies(
         tempfile.mkdtemp(prefix=".retrom-image-dependencies-", dir=output_root.parent)
     )
     try:
-        entries = image_export_entries(versions, manifests, auth_manifest)
+        entries = image_export_entries(versions, manifests, auth_manifest, rpg_maker_manifest)
         for relative, source in sorted(entries.items()):
             try:
                 source_stat = source.lstat()
@@ -1134,24 +1272,31 @@ def main() -> int:
         versions = parse_versions(args.versions)
         manifests = [load_manifest(version) for version in versions]
         auth_manifest = load_auth_manifest()
+        rpg_maker_manifest = load_rpg_maker_manifest()
         for version, manifest in zip(versions, manifests, strict=True):
             validate_small_manifest(version, manifest)
         validate_registry(manifests)
+        validate_rpg_maker_registry(
+            rpg_maker_manifest, load_json(RPG_MAKER_PLAYER_REGISTRY_PATH)
+        )
+        run_rpg_maker_dependency_action("data-check")
         if args.action == "data-check":
             validate_cps_fixture_layouts(manifests, require_production_dat=False)
         if args.action == "prepare":
             for version, manifest in zip(versions, manifests, strict=True):
                 prepare(version, manifest)
             prepare_auth(auth_manifest)
+            run_rpg_maker_dependency_action("prepare")
         if args.action in ("prepare", "deps-check", "image-export"):
             for version, manifest in zip(versions, manifests, strict=True):
                 check_payload(version, manifest)
             check_auth_payload(auth_manifest)
-        if args.action == "deps-check":
+            run_rpg_maker_dependency_action("deps-check")
+        if args.action in ("prepare", "deps-check"):
             validate_cps_fixture_layouts(manifests, require_production_dat=True)
         if args.action == "image-export":
             export_image_dependencies(
-                Path(args.output), versions, manifests, auth_manifest
+                Path(args.output), versions, manifests, auth_manifest, rpg_maker_manifest
             )
         print(f"{args.action}: ok ({','.join(versions)})")
         return 0

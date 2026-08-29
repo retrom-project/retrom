@@ -2,6 +2,9 @@
 
 CREATE TABLE upload_sessions (
   id TEXT PRIMARY KEY,
+  purpose TEXT NOT NULL DEFAULT 'GENERAL' CHECK(purpose IN (
+    'GENERAL','RPG_MAKER_PROJECT','ONS_PROJECT','RUNTIME_ASSET_PACK'
+  )),
   state TEXT NOT NULL CHECK(state IN ('CREATED','UPLOADING','FINALIZING','COMPLETE','FAILED','CANCELLED','EXPIRED')),
   source_type TEXT NOT NULL CHECK(source_type IN ('FILES','DIRECTORY')),
   total_files INTEGER NOT NULL CHECK(total_files BETWEEN 1 AND 10000),
@@ -15,6 +18,7 @@ CREATE TABLE upload_sessions (
   updated_at_ms INTEGER NOT NULL CHECK(updated_at_ms >= created_at_ms),
   unconsumed_pruned_at_ms INTEGER,
   last_error_code TEXT
+  , CHECK(purpose='GENERAL' OR source_type='DIRECTORY' OR total_files=1)
 );
 
 CREATE TABLE upload_files (
@@ -76,7 +80,7 @@ CREATE TABLE "upload_consumptions" (
   upload_file_id TEXT REFERENCES upload_files(id),
   consumer_type TEXT NOT NULL CHECK(consumer_type IN (
     'IMPORT_JOB','GAME_FILE_REVISION_JOB','GAME_ASSET','REVIEW_ASSET','REVIEW_ARCADE_PARENT',
-    'REVIEW_MULTI_DISC','BIOS_INSTALLATION'
+    'REVIEW_MULTI_DISC','BIOS_INSTALLATION','RUNTIME_ASSET_PACK_INSTALLATION'
   )),
   consumer_id TEXT NOT NULL,
   version INTEGER NOT NULL DEFAULT 1 CHECK(version>=1),

@@ -525,9 +525,9 @@ func (service *Service) profileEligibility(ctx context.Context, gameID string) (
 
 func (service *Service) queryEligibilityRows(ctx context.Context, gameID string) ([]eligibilityRow, error) {
 	rows, err := service.database.QueryContext(ctx, `
-SELECT revision.id,artifact.id,platform.id,artifact.core_id,core.name,artifact.emulatorjs_version,artifact.sha256,
-  revision.dependency_snapshot_json,artifact.compatibility_config_json,content.content_kind,
-  file.logical_name,revision.dat_version_id,artifact.enabled
+SELECT revision.id,artifact.id,platform.id,artifact.core_id,core.name,artifact.runtime_version,artifact.sha256,
+  revision.dependency_snapshot_json,artifact.compatibility_json,content.content_kind,
+  file.logical_name,revision.dat_version_id,artifact.available_for_launch
 FROM games game
 JOIN platform_instances instance ON instance.id=game.platform_instance_id
 JOIN platforms platform ON platform.id=instance.platform_id

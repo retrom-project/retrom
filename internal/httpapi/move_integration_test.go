@@ -5,7 +5,9 @@ package httpapi
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"database/sql"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -396,41 +398,7 @@ WHERE id=(SELECT current_metadata_revision_id FROM games WHERE id=?)
 	testassert.Falsef(t, testassert.Any(func() bool { return changed.Code != http.StatusOK }, func() bool { return changed.Header().Get("ETag") != `"v2"` }), "default core change = %d %s", changed.Code, changed.Body.String())
 
 	saveID := "01980000-0000-7000-8000-000000000191"
-	if _, err := server.database.ExecContext(ctx, `
-INSERT INTO save_states(id,
-profile_id,
-game_id,
-game_variant_revision_id,
-core_artifact_id,
-state_blob_id,
-screenshot_blob_id,
-source_launch_session_id,
-name,
-active_duration_ms,
-version,
-created_at_ms,
-updated_at_ms)
-SELECT ?,
-'local',
-g.id,
-r.id,
-r.core_artifact_id,
-f.blob_id,
-f.blob_id,
-?,
-'Old core save',
-0,
-1,
-?,
-?
-FROM games g
-JOIN game_variants v ON v.game_id=g.id AND v.core_id='gambatte'
-JOIN game_variant_revisions r ON r.id=v.current_revision_id
-JOIN game_content_files f ON f.game_content_revision_id=g.current_content_revision_id AND f.role='CONTENT'
-WHERE g.id=?
-`, saveID, sourceLaunch.LaunchID, time.Now().UnixMilli(), time.Now().UnixMilli(), gameID); err != nil {
-		t.Fatal(err)
-	}
+	seedProductSave(t, server.database, saveID, sourceLaunch.LaunchID, "Old core save")
 	pending, err := server.launcher.Create(
 		ctx,
 		"local",
@@ -579,36 +547,7 @@ WHERE g.id=?
 		t.Fatal(err)
 	}
 	saveID := "01980000-0000-7000-8000-000000000193"
-	if _, err := server.database.ExecContext(ctx, `
-INSERT INTO save_states(id,
-profile_id,
-game_id,
-game_variant_revision_id,
-core_artifact_id,
-state_blob_id,
-screenshot_blob_id,
-source_launch_session_id,
-name,
-active_duration_ms,
-version,
-created_at_ms,
-updated_at_ms) VALUES(?,
-?,
-?,
-?,
-?,
-?,
-?,
-?,
-'Delete fixture save',
-0,
-1,
-?,
-?)
-`, saveID, historyProfileID, gameID, revisionID, artifactID, blobID, blobID, created.LaunchID,
-		time.Now().UnixMilli(), time.Now().UnixMilli()); err != nil {
-		t.Fatal(err)
-	}
+	seedProductSave(t, server.database, saveID, created.LaunchID, "Delete fixture save")
 	if _, err := server.database.ExecContext(ctx, `
 INSERT INTO play_sessions(id,launch_session_id,profile_id,game_id,game_variant_revision_id,
 started_at_ms,last_heartbeat_at_ms,active_duration_ms,last_client_sequence,state,version,created_at_ms,updated_at_ms)
@@ -638,14 +577,7 @@ SELECT profile_id,?,? FROM launch_sessions WHERE id=?
 		t.Fatal(err)
 	}
 	secondSaveID := "01980000-0000-7000-8000-000000000199"
-	if _, err := server.database.ExecContext(ctx, `
-INSERT INTO save_states(id,profile_id,game_id,game_variant_revision_id,core_artifact_id,state_blob_id,
-screenshot_blob_id,source_launch_session_id,name,active_duration_ms,version,created_at_ms,updated_at_ms)
-VALUES(?,?,?,?,?,?,?,?,'Concurrent save',0,1,?,?)
-`, secondSaveID, historyProfileID, gameID, revisionID, artifactID, blobID, blobID, created.LaunchID,
-		time.Now().UnixMilli(), time.Now().UnixMilli()); err != nil {
-		t.Fatal(err)
-	}
+	seedProductSave(t, server.database, secondSaveID, created.LaunchID, "Concurrent save")
 	sendDelete := func(targetID, etag, title, digest, key string) *httptest.ResponseRecorder {
 		request := httptest.NewRequestWithContext(context.Background(),
 			http.MethodDelete,
@@ -832,7 +764,7 @@ func seedMovableGame(t *testing.T, server *Server) (string, string) {
 SELECT id
 FROM core_artifacts
 WHERE core_id='gambatte'
-AND enabled=1
+AND selected_for_new_bindings=1
 `).Scan(&artifactID); err != nil {
 		t.Fatal(err)
 	}
@@ -881,9 +813,9 @@ VALUES(?, ?, 'gambatte', NULL, 1, ?, ?)
 `, []any{variantID, gameID, now, now}},
 		{`
 INSERT INTO game_variant_revisions(id, game_variant_id, game_content_revision_id, core_artifact_id,
-dat_version_id, validation_input_digest, emulator_game_id, status, compatibility_code,
+route_key, dat_version_id, validation_input_digest, emulator_game_id, status, compatibility_code,
 dependency_snapshot_json, created_at_ms)
-VALUES(?, ?, ?, ?, NULL, ?, 7001, 'READY', 'READY', ?, ?)
+VALUES(?, ?, ?, ?, 'DEFAULT', NULL, ?, 7001, 'READY', 'READY', ?, ?)
 `, []any{revisionID, variantID, contentID, artifactID, validationDigest, dependencySnapshot, now}},
 		{`
 UPDATE game_variants
@@ -963,9 +895,9 @@ WHERE game_id=? AND core_id='gambatte'
 `, []any{id(variantSuffix), id(gameSuffix), sourceGameID}},
 		{`
 INSERT INTO game_variant_revisions(id, game_variant_id, game_content_revision_id, core_artifact_id,
-dat_version_id, validation_input_digest, emulator_game_id, status, compatibility_code,
+route_key, dat_version_id, validation_input_digest, emulator_game_id, status, compatibility_code,
 dependency_snapshot_json, created_at_ms)
-SELECT ?, ?, ?, core_artifact_id, dat_version_id, ?, emulator_game_id + ?, status, compatibility_code,
+SELECT ?, ?, ?, core_artifact_id, route_key, dat_version_id, ?, emulator_game_id + ?, status, compatibility_code,
 dependency_snapshot_json, created_at_ms
 FROM game_variant_revisions
 WHERE id=(SELECT current_revision_id FROM game_variants WHERE game_id=? AND core_id='gambatte')
@@ -982,6 +914,51 @@ WHERE id=(SELECT current_revision_id FROM game_variants WHERE game_id=? AND core
 		}
 	}
 	if err := transaction.Commit(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func seedProductSave(t *testing.T, database *sql.DB, saveID, launchID, name string) {
+	t.Helper()
+	var profileID, gameID, contentID, variantID, artifactID string
+	var adapterABI, dependencyJSON, payloadKind, payloadBlobID, payloadSHA256 string
+	var datVersionID, dosEntryPath sql.NullString
+	var payloadSize int64
+	if err := database.QueryRowContext(context.Background(), `
+SELECT launch.profile_id,launch.game_id,launch.game_content_revision_id,
+ launch.game_variant_revision_id,launch.core_artifact_id,
+ json_extract(artifact.compatibility_json,'$.adapterAbi'),revision.dependency_snapshot_json,
+ artifact.save_payload_kind,content.blob_id,blob.sha256,blob.size_bytes,
+ revision.dat_version_id,launch.dos_entry_path
+FROM launch_sessions launch
+JOIN core_artifacts artifact ON artifact.id=launch.core_artifact_id
+JOIN game_variant_revisions revision ON revision.id=launch.game_variant_revision_id
+JOIN game_content_files content
+  ON content.game_content_revision_id=launch.game_content_revision_id AND content.role='CONTENT'
+JOIN blobs blob ON blob.id=content.blob_id
+WHERE launch.id=?
+ORDER BY content.sort_order,content.logical_name
+LIMIT 1
+`, launchID).Scan(
+		&profileID, &gameID, &contentID, &variantID, &artifactID,
+		&adapterABI, &dependencyJSON, &payloadKind, &payloadBlobID, &payloadSHA256, &payloadSize,
+		&datVersionID, &dosEntryPath,
+	); err != nil {
+		t.Fatal(err)
+	}
+	dependencyDigest := sha256.Sum256([]byte(dependencyJSON))
+	now := time.Now().UnixMilli()
+	if _, err := database.ExecContext(context.Background(), `
+INSERT INTO save_states(
+ id,profile_id,game_id,game_content_revision_id,game_variant_revision_id,core_artifact_id,
+ adapter_abi,dependency_snapshot_sha256,dat_version_id,dos_entry_path,
+ payload_blob_id,payload_kind,native_profile,resume_slot,payload_sha256,payload_size_bytes,
+ screenshot_blob_id,name,active_duration_ms,version,created_at_ms,updated_at_ms,
+ source_launch_session_id,disc_index)
+VALUES(?,?,?,?,?,?,?,?,?,?,?,?,NULL,NULL,?,?,NULL,?,0,1,?,?,?,NULL)
+`, saveID, profileID, gameID, contentID, variantID, artifactID, adapterABI,
+		hex.EncodeToString(dependencyDigest[:]), datVersionID, dosEntryPath,
+		payloadBlobID, payloadKind, payloadSHA256, payloadSize, name, now, now, launchID); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -1018,14 +995,16 @@ func waitForHTTPJob(t *testing.T, database interface {
 	deadline := time.Now().Add(5 * time.Second)
 	for {
 		var state string
-		if err := database.QueryRowContext(context.Background(), "SELECT state FROM jobs WHERE id=?", jobID).
-			Scan(&state); err != nil {
+		var errorCode sql.NullString
+		if err := database.QueryRowContext(
+			context.Background(), "SELECT state,error_code FROM jobs WHERE id=?", jobID,
+		).Scan(&state, &errorCode); err != nil {
 			t.Fatal(err)
 		}
 		if state == expected {
 			return
 		}
-		testassert.Falsef(t, testassert.Any(func() bool { return state == "FAILED" }, func() bool { return state == "CANCELLED" }, func() bool { return time.Now().After(deadline) }), "job %s state = %s, wanted %s", jobID, state, expected)
+		testassert.Falsef(t, testassert.Any(func() bool { return state == "FAILED" }, func() bool { return state == "CANCELLED" }, func() bool { return time.Now().After(deadline) }), "job %s state = %s error_code=%q, wanted %s", jobID, state, errorCode.String, expected)
 		time.Sleep(10 * time.Millisecond)
 	}
 }

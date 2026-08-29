@@ -369,11 +369,19 @@ func insertArcadeParentCatalog(t *testing.T, database *sql.DB) {
 	t.Helper()
 	now := time.Now().UnixMilli()
 	if _, err := database.ExecContext(context.Background(), `
-INSERT INTO core_artifacts(id,core_id,emulatorjs_version,bundle_version,flavor,relative_path,size_bytes,
-sha256,provenance_json,compatibility_config_json,enabled,version,created_at_ms,updated_at_ms)
-VALUES('attachment-artifact','fbneo','4.2.3','fixture','WASM','data/cores/attachment.data',1,
-'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa','{}',
-'{"schemaVersion":5,"runtimeCoreId":"fbneo","requestedArtifactBasename":"fbneo-wasm.data","canvasResizePolicy":"NONE","defaultOptions":{},"inputMode":"STANDARD","startupActions":[],"supportedContentKinds":["SINGLE_FILE"],"multiDisc":null}',1,1,?,?);
+INSERT INTO core_artifacts(
+ id,core_id,route_key,runtime_family,runtime_adapter_kind,runtime_version,adapter_id,entry_path,
+ size_bytes,sha256,manifest_sha256,artifact_set_sha256,requires_threads,save_payload_kind,
+ save_max_bytes,provenance_json,compatibility_json,selected_for_new_bindings,available_for_launch,
+ version,created_at_ms,updated_at_ms)
+VALUES('attachment-artifact','fbneo','DEFAULT','EMULATORJS','EMULATORJS','4.2.3',
+'ejs-4.2.3-v3','data/cores/attachment.data',1,
+'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+'cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc',
+0,'RUNTIME_STATE',67108864,'{}',
+'{"schemaVersion":5,"adapterAbi":"emulatorjs-state-v1","runtimeCoreId":"fbneo","requestedArtifactBasename":"fbneo-wasm.data","canvasResizePolicy":"NONE","defaultOptions":{},"inputMode":"STANDARD","startupActions":[],"supportedContentKinds":["SINGLE_FILE"],"multiDisc":null}',
+1,1,1,?,?);
 INSERT INTO dat_versions(id,core_id,core_artifact_id,builtin_relative_path,sha256,parser_version,
 parse_status,is_active,version,created_at_ms,updated_at_ms,parsed_at_ms,activated_at_ms)
 VALUES('attachment-dat','fbneo','attachment-artifact','data/dat/attachment.xml',

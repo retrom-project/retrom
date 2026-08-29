@@ -2,14 +2,11 @@ import {
   captureManualScreenshot,
   captureManualState,
   type EmulatorInstance,
+  type ManualStatePayload,
   type ManualScreenshot,
 } from "./adapters/ejs-4.2.3-v2";
 
-type UploadManualState = (payload: {
-  screenshot: Blob;
-  format: string;
-  state: Uint8Array;
-}) => Promise<boolean>;
+type UploadManualState = (payload: ManualStatePayload) => Promise<boolean>;
 
 export async function saveImmersivePlayerState(
   instance: EmulatorInstance | undefined,
@@ -23,7 +20,7 @@ export async function saveImmersivePlayerState(
       ? await captureManualScreenshot(instance)
       : await preparedScreenshot;
     if (!screenshot) {return false;}
-    return await uploadManualState(captureManualState(instance, screenshot));
+    return await uploadManualState(await captureManualState(instance, screenshot));
   } catch {
     return false;
   }

@@ -40,6 +40,7 @@ type FileDeclaration struct {
 }
 
 type CreateRequest struct {
+	Purpose    string            `json:"purpose,omitempty"`
 	SourceType string            `json:"sourceType"`
 	Files      []FileDeclaration `json:"files"`
 }
@@ -57,6 +58,7 @@ type File struct {
 type Session struct {
 	ID             string `json:"uploadId"`
 	State          string `json:"state"`
+	Purpose        string `json:"purpose"`
 	SourceType     string `json:"sourceType"`
 	TotalBytes     int64  `json:"totalBytes"`
 	FinalizationNo int64  `json:"finalizationNo"`
@@ -80,6 +82,9 @@ func New(database *sql.DB, blobs *blobstore.Store, dataDir string, now func() ti
 
 // Contract branches stay contiguous for a single auditable decision.
 func (service *Service) Create(ctx context.Context, request CreateRequest) (Session, error) {
+	if request.Purpose == "" {
+		request.Purpose = "GENERAL"
+	}
 	total, err := validateCreateRequest(request)
 	if err != nil {
 		return Session{}, err
@@ -98,6 +103,7 @@ func (service *Service) Create(ctx context.Context, request CreateRequest) (Sess
 	defer cleanup.Rollback(transaction)
 	if _, err := transaction.ExecContext(ctx, `
 INSERT INTO upload_sessions(id,
+purpose,
 state,
 source_type,
 total_files,
@@ -106,6 +112,7 @@ manifest_digest,
 expires_at_ms,
 created_at_ms,
 updated_at_ms) VALUES(?,
+?,
 'CREATED',
 ?,
 ?,
@@ -116,6 +123,7 @@ updated_at_ms) VALUES(?,
 ?)
 `,
 		uploadID.String(),
+		request.Purpose,
 		request.SourceType,
 		len(request.Files),
 		total,
@@ -167,6 +175,7 @@ updated_at_ms) VALUES(?,
 	return Session{
 		ID:             uploadID.String(),
 		State:          "CREATED",
+		Purpose:        request.Purpose,
 		SourceType:     request.SourceType,
 		TotalBytes:     total,
 		Version:        1,
@@ -177,21 +186,20 @@ updated_at_ms) VALUES(?,
 }
 
 func validateCreateRequest(request CreateRequest) (int64, error) {
-	if request.SourceType != "FILES" && request.SourceType != "DIRECTORY" || len(request.Files) < 1 ||
-		len(request.Files) > 10_000 {
+	if !validUploadShape(request) {
+		return 0, ErrInvalid
+	}
+	if request.Purpose != "GENERAL" && request.SourceType == "FILES" &&
+		(len(request.Files) != 1 || !isProjectArchive(request.Files[0].RelativePath)) {
 		return 0, ErrInvalid
 	}
 	seen := make(map[string]struct{}, len(request.Files))
 	var total int64
 	for _, file := range request.Files {
-		if file.ClientFileID == "" || file.SizeBytes < 0 || file.SizeBytes > 8<<30 ||
-			len([]byte(file.RelativePath)) > 1024 {
+		if !validUploadFile(file) {
 			return 0, ErrInvalid
 		}
-		if _, err := importing.ValidateLogicalPath(file.RelativePath); err != nil {
-			return 0, ErrInvalid
-		}
-		if _, exists := seen[file.RelativePath]; exists {
+		if _, duplicate := seen[file.RelativePath]; duplicate {
 			return 0, ErrInvalid
 		}
 		seen[file.RelativePath] = struct{}{}
@@ -203,12 +211,35 @@ func validateCreateRequest(request CreateRequest) (int64, error) {
 	return total, nil
 }
 
+func validUploadShape(request CreateRequest) bool {
+	validPurpose := request.Purpose == "GENERAL" || request.Purpose == "RPG_MAKER_PROJECT" ||
+		request.Purpose == "ONS_PROJECT" ||
+		request.Purpose == "RUNTIME_ASSET_PACK"
+	validSource := request.SourceType == "FILES" || request.SourceType == "DIRECTORY"
+	return validPurpose && validSource && len(request.Files) >= 1 && len(request.Files) <= 10_000
+}
+
+func validUploadFile(file FileDeclaration) bool {
+	if file.ClientFileID == "" || file.SizeBytes < 0 || file.SizeBytes > 8<<30 ||
+		len([]byte(file.RelativePath)) > 1024 {
+		return false
+	}
+	_, err := importing.ValidateLogicalPath(file.RelativePath)
+	return err == nil
+}
+
+func isProjectArchive(relativePath string) bool {
+	extension := strings.ToLower(filepath.Ext(relativePath))
+	return extension == ".zip" || extension == ".7z"
+}
+
 func (service *Service) Get(ctx context.Context, uploadID string) (Session, error) {
 	var result Session
 	var finalizeJob sql.NullString
 	err := service.database.QueryRowContext(ctx, `
 SELECT id,
 state,
+purpose,
 source_type,
 total_bytes,
 finalization_no,
@@ -221,6 +252,7 @@ WHERE id=?
 		Scan(
 			&result.ID,
 			&result.State,
+			&result.Purpose,
 			&result.SourceType,
 			&result.TotalBytes,
 			&result.FinalizationNo,

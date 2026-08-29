@@ -10,6 +10,10 @@ web/features/player/*
 !web/features/player/netplay/
 web/features/player/netplay/*
 !web/features/player/netplay/ejs-netplay-4.2.3-v1.ts
+!web/features/player/rpg-runtime/
+web/features/player/rpg-runtime/*
+!web/features/player/rpg-runtime/registry.json
+!web/features/player/rpg-runtime/index.ts
 testdata/public-roms
 data/runtime
 data/auth/password-blocklists/*/payload

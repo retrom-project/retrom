@@ -3,13 +3,13 @@
 | 属性 | 内容 |
 | --- | --- |
 | 文档状态 | 已审定 / 一期实施基线 |
-| 版本 | 1.6 |
-| 日期 | 2026-08-24 |
-| 适用范围 | `/api/v1`、`/content`、`/runtime`、SSE 与同源安全 |
+| 版本 | 1.7 |
+| 日期 | 2026-08-25 |
+| 适用范围 | `/api/v1`、`/content`、`/runtime`、`/__retrom`、SSE、应用同源与每 Launch 独立 runtime origin 安全 |
 
 ## 1. 协议基线
 
-- 浏览器只访问 NG 暴露的单一 origin；前端使用相对 URL，API 不启用跨域 CORS。
+- 普通页面、媒体和 `/api/v1` 只访问 NG 暴露的应用 origin；前端使用相对 URL，API 不启用跨域 CORS。唯一例外是 MV/MZ 每 Launch 独立 origin 上的 `/__retrom/*` 封闭 allowlist，它不暴露普通 API，也不开启通用 CORS。
 - JSON API 前缀固定为 `/api/v1`，`Content-Type` 为 `application/json; charset=utf-8`；二进制上传、SSE 与内容端点除外。
 - 业务实体 ID 使用规范小写 UUIDv7 字符串。`coreId`、`platformId` 等代码种子使用稳定小写 code（如 `fbneo`、`arcade`），不得混成自增数字。
 - 时刻为 camelCase `*AtMs` 的 JSON int64，数据库对应 Unix 毫秒 `INTEGER`；时长为 `*DurationMs`。
@@ -106,18 +106,18 @@ PATCH 至少修改 role/status之一，升为 ADMIN需 `confirmAdminRole=true`�
 
 HTML 响应使用逐响应随机 nonce，Next.js framework/bootstrap script 与 Retrom 自有 inline script（如有）必须携带该 nonce；不得退化为全局 `script-src 'unsafe-inline'`。实现必须使用 Next.js 16 根级 `web/proxy.ts`：为每个 HTML navigation 生成至少 128-bit CSPRNG nonce，把含相同 nonce 的 CSP 同时写入转发给 App Router 的 request header 和最终 response header，使 Next.js 能给 framework script 自动附 nonce。使用 nonce 的页面强制动态渲染，不使用 static export、ISR、PPR 或共享 HTML cache；静态 asset/API/runtime 不进入该 proxy matcher。NG 只能原样保留，不能生成第二个不一致 CSP。
 
-Player/应用文档的生产 CSP 固定为下列能力；EJS 配置放在已打包的同源 adapter 中。`style-src 'unsafe-inline'` 是 EmulatorJS v4.2.3 当前 inline style 的受控例外，不能顺带放宽 script：
+Player/应用文档的生产 CSP 固定为下列能力；EJS 配置放在已打包的同源 adapter 中。启动点击先使当前 document 成为全屏 owner，再用 Next.js App Router `replace` 在同一根 layout 内软导航到 `/play/:launchId` 并直接渲染 Player。不得使用顶层完整 navigation 或再嵌套一份 Next.js Player document：前者会让浏览器退出所有 core 的全屏，后者会建立第二条 HMR/路由生命周期并可能重载顶层页面。为使来源页与 Player 页在软导航前后具有同一 CSP，所有应用 HTML 的 `frame-src` 都从服务端配置的 `RETROM_RPG_RUNTIME_ORIGIN_TEMPLATE` 推导唯一受控 hostname family，例如 `https://*.rpg-runtime.dev.sendev.cc`；模板必须是 `{launchId}` 独占首个 host label、无 path/query/fragment/userinfo，否则 fail closed 为 `'self'`。这个 wildcard 只允许浏览器建立 frame，runtime 服务仍逐请求校验 exact Launch host、app/runtime capability、cookie、父 origin 与 route，未知、过期、错误 host 均返回 404/410。`style-src 'unsafe-inline'` 是 EmulatorJS v4.2.3 当前 inline style 的受控例外，不能顺带放宽 script：
 
 ```text
 default-src 'self';
 base-uri 'none'; object-src 'none'; form-action 'self'; frame-ancestors 'self';
 script-src 'self' 'nonce-<per-response>' blob: 'wasm-unsafe-eval';
 style-src 'self' 'unsafe-inline';
-connect-src 'self' blob:; worker-src 'self' blob:; frame-src 'self';
+connect-src 'self' blob:; worker-src 'self' blob:; frame-src 'self' https://*.rpg-runtime.<app-domain>;
 img-src 'self' data: blob:; media-src 'self' blob:; font-src 'self' data:
 ```
 
-`blob:` script/worker 与 `'wasm-unsafe-eval'` 分别用于 v4.2.3 动态 core glue/worker 和 WebAssembly 编译；生产不允许 `https:` 通配、任意 CDN、`unsafe-eval` 或外部 frame。官方 v4.2.3 `extract7z.js` 与 `extractzip.js` 的旧 Emscripten `eval` 不能成为放宽 CSP 的理由；固定 Player adapter 在创建 7z/ZIP Worker Blob 前执行运行时专题规定的精确、fail-closed 兼容转换，官方物化 bytes 保持不变。Next.js 开发模式因 React 调试代码确实需要 eval，`web/proxy.ts` 只在 `NODE_ENV=development` 向 `script-src` 追加 `'unsafe-eval'`；production build/E2E 必须断言它不存在。非 HTML 静态/runtime/content 响应无需重复 nonce CSP，但必须带相应 CORP/COEP/`nosniff` 头，且不能覆盖顶层文档的隔离策略。实现依据固定为 [Next.js 官方 nonce CSP 指南](https://nextjs.org/docs/app/guides/content-security-policy)；不得套用旧版 `middleware.ts` 示例。
+`blob:` script/worker 与 `'wasm-unsafe-eval'` 分别用于 v4.2.3 动态 core glue/worker 和 WebAssembly 编译；生产不允许任意 scheme/CDN、`unsafe-eval` 或受控 runtime family 以外的外部 frame。官方 v4.2.3 `extract7z.js` 与 `extractzip.js` 的旧 Emscripten `eval` 不能成为放宽 CSP 的理由；固定 Player adapter 在创建 7z/ZIP Worker Blob 前执行运行时专题规定的精确、fail-closed 兼容转换，官方物化 bytes 保持不变。Next.js 开发模式因 React 调试代码确实需要 eval，`web/proxy.ts` 只在 `NODE_ENV=development` 向 `script-src` 追加 `'unsafe-eval'`；production build/E2E 必须断言它不存在。非 HTML 静态/runtime/content 响应无需重复 nonce CSP，但必须带相应 CORP/COEP/`nosniff` 头，且不能覆盖顶层文档的隔离策略。实现依据固定为 [Next.js 官方 nonce CSP 指南](https://nextjs.org/docs/app/guides/content-security-policy)；不得套用旧版 `middleware.ts` 示例。
 
 ## 3. 乐观并发与幂等
 
@@ -176,7 +176,7 @@ POST /api/v1/admin/imports
 }
 ```
 
-`metadataProvider` 仅允许 `HASHEOUS | NONE`；Arcade DAT 不是 provider。服务端在事务中锁定平台/Core/artifact/DAT/provider 配置快照。
+`metadataProvider` 仅允许 `HASHEOUS | NONE`；Arcade DAT 不是 provider。`contentMode=RPG_MAKER_PROJECT_V1` 没有单 ROM 哈希语义，用户只选择 `rpgmaker` 虚拟核心且禁用在线刮削：客户端固定显示并提交 `NONE`，服务端也把旧客户端提交的 `HASHEOUS` 规范化为 `NONE`。服务端先从项目 bytes 唯一检测世代，再在事务中锁定平台/虚拟 core、内部 core/artifact、provider 配置快照；未知或歧义世代不创建 ImportJob。
 
 重新配置导入：
 
@@ -251,7 +251,7 @@ Content-Type: application/json
 
 ### 5.3 多盘 Import 与 Review Attachment
 
-`POST /api/v1/admin/imports` 与 `POST /api/v1/admin/games/{gameId}/content-revisions` 的可选 `contentMode` 只允许 `STANDARD|MULTI_DISC_M3U_V1`，缺省严格为 STANDARD；MULTI 必须引用完整 DIRECTORY Upload，且 capability 由 feature flag、平台 profile 与当前 enabled artifact 共同决定。Review detail 的可空 `multiDisc` 只返回 playlist 摘要、ordered entries、PRESENT/MISSING、大小/hash、缺失引用、冻结的 `maxDiscs/maxTotalBytes` 与 attachment 状态，不返回 Blob ID、宿主路径或 capability。Attachment 状态包含 Job/Attachment version、可空 diagnostics 与仅在通用 Job 可人工重试时为 true 的 `canRetry`。
+`POST /api/v1/admin/imports` 与 `POST /api/v1/admin/games/{gameId}/content-revisions` 的可选 `contentMode` 只允许 `STANDARD|MULTI_DISC_M3U_V1|RPG_MAKER_PROJECT_V1|ONS_PROJECT_V1`，缺省严格为 STANDARD。MULTI 必须引用完整 DIRECTORY Upload，且 capability 由 feature flag、平台 profile 与当前 `selected_for_new_bindings` artifact 共同决定。首次 RPG/ONS 导入接受一个完整 DIRECTORY，或 FILES 中恰好一个 ZIP/7z；已发布 RPG 游戏的内容替换只接受完整 DIRECTORY，并由虚拟核心重新检测 generation，不接受客户端指定内部世代。新旧 generation 不同的 Job 以不可重试 `RPG_REPLACEMENT_GENERATION_MISMATCH` 失败；运行依赖声明变化以不可重试 `RPG_REPLACEMENT_DEPENDENCIES_CHANGED` 失败；两种失败均保留当前内容和存档。Review detail 的可空 `multiDisc` 只返回 playlist 摘要、ordered entries、PRESENT/MISSING、大小/hash、缺失引用、冻结的 `maxDiscs/maxTotalBytes` 与 attachment 状态，不返回 Blob ID、宿主路径或 capability。Attachment 状态包含 Job/Attachment version、可空 diagnostics 与仅在通用 Job 可人工重试时为 true 的 `canRetry`。
 
 `POST /api/v1/admin/reviews/{importItemId}/multi-disc-attachments` 要求 ADMIN、同源/CSRF、`If-Match`、User-scoped `Idempotency-Key` 与 `{uploadId}`，只接受包含当前全部缺盘的 COMPLETE FILES upload。成功为 202，返回 Job/Attachment、`Location`、新 Review ETag；版本、active/retry、能力漂移、集合不符与内容无效使用 OpenAPI 中稳定错误码。关闭新 Import flag 不取消已冻结的 Attachment/Job，也不影响已发布读取。
 
@@ -305,6 +305,8 @@ Idempotency-Key: <uuid>
 
 ```json
 {
+  "runtimeFamily": "EMULATORJS",
+  "mode": "single",
   "launchId": "0198...",
   "playUrl": "/play/0198...",
   "warnings": [],
@@ -337,15 +339,15 @@ PlaySession 事件 API 位于 launch cookie 的限定 Path 内，同时要求正
 | --- | --- |
 | `/runtime/emulatorjs/{configuredVersion}/...` | 固定公开运行时；当前配置 `4.2.3,4.3.0-pre`，后者包含 DOSBox Pure、Genesis Plus GX Wide 与 Azahar 定向覆盖。版本参数接受规范 SemVer prerelease，且必须在后端启动时已验证的依赖列表内；路径必须命中该版本 manifest allowlist。允许 EmulatorJS 自身附加且仅附加一次的 `v` cache-buster 查询参数，该参数不参与文件选择；其他查询键仍拒绝。`public, max-age=31536000, immutable`，强 ETag。CSP 禁止 CDN fallback。 |
 | `/content/assets/{assetId}` | 只用于已发布封面/截图等站内可见媒体；服务端解析逻辑 asset ID。每个 Asset ID 在存续期内 bytes 不变，替换 COVER/VIDEO 等媒体必须创建新 Asset ID 与新 URL，current 切换后旧 URL 立即失效；`public, max-age=31536000, immutable`。浏览器必须携带当前 session 直接请求该逻辑 URL；前端不得把受保护媒体交给不会转发 session cookie 的 Next.js 图片优化器。 |
-| `/content/save-states/{saveStateId}/screenshot` | 只用于未删除、且所属游戏仍已发布的手动存档截图；服务端解析逻辑 SaveState ID，不向浏览器暴露 Blob ID。响应固定为 `private, no-store`，存档删除或游戏下架后立即不可读取。 |
+| `/content/save-states/{saveStateId}/screenshot` | 只用于确有截图、未删除且所属游戏仍已发布的手动存档；服务端解析逻辑 SaveState ID，不向浏览器暴露 Blob ID。没有截图、存档删除或游戏下架均返回 404；成功响应固定为 `private, no-store`。 |
 | `/api/v1/admin/review-assets/{assetId}` | 用于仍待审核 Item、候选媒体、人工上传审核媒体、Pegasus/EmulationStation 来源媒体或审核运行截图；服务器来源 `assetId` 为格式专属 Item ID 并带 `kind=COVER|VIDEO`（默认 COVER），封闭 UNION 必须恰好命中一个来源。响应为 `private, no-store`，不得把上游 URL 或 Blob ID 暴露给浏览器；ReviewEvent 本身不长期保留媒体。 |
-| `/runtime/launches/{launchId}/config` | 需要 launch/review-preview cookie，返回逻辑 URL 和非秘密配置；`private, no-store`、`Vary: Cookie`。审核预览另带 `reviewPreview={importItemId,captureAllowed,captureAfterMs:5000}`。 |
+| `/runtime/launches/{launchId}/config` | 需要 launch cookie；返回以 `runtimeFamily=EMULATORJS|RPGMAKER` 判别的非秘密配置 union，`private, no-store`、`Vary: Cookie`。非 RPG 审核 preview 继续由其专用配置分支投影；RPG validation 使用正式 LaunchConfig。 |
 | `/runtime/content/game/{contentIdentity}/{logicalName}` | 只允许任一当前有效正式 Launch 或审核预览 grant 已锁定、且服务器重新计算身份等于 path 的运行内容；content identity 由领域版本、格式、Core、实际 ROM digest 与影响输出的选项派生，不直接暴露 Blob hash。需要仅作用于 `/runtime/content/` 的 HttpOnly grant cookie；`private, max-age=31536000, immutable`。替换 ROM 或影响输出的配置必须产生新 identity/URL，旧授权不能读取新内容。 |
 | `/runtime/content/bios/{contentIdentity}/bundle.zip` | 支持 GET/HEAD；identity 由带领域版本、规范按逻辑名排序的 BIOS bundle 成员名与每个文件 digest 派生，不直接暴露成员 hash。任一成员替换都会产生新 URL；需要有效 content grant，`private, max-age=31536000, immutable`。HEAD 执行与 GET 相同的授权、Launch 状态和 bundle 清单校验。 |
 | `/runtime/content/parent/{contentIdentity}/bundle.zip` | 与 BIOS bundle 相同，但只服务确定性 parent bundle；任一成员变化产生新 identity/URL，`private, max-age=31536000, immutable`。 |
 | `/runtime/content/external/{contentIdentity}/{logicalName}` | 只允许有效 content grant 锁定的多盘或外部文件；identity 由带领域分隔的实际文件 digest 派生，不直接暴露 Blob hash，文件替换产生新 URL。未锁定名、错误 identity、跨 Launch、错误/过期 grant 与 Blob 缺失不得泄露存在性；`private, max-age=31536000, immutable`。 |
 | `/runtime/launches/{launchId}/state` | 只允许选中状态存档；需要 cookie；`private, no-store`、`Vary: Cookie`。 |
-| `/runtime/launches/{launchId}/review-screenshot` | 只接受审核预览 capability 和 `image/png`，先鉴权再有界流式读取 ≤10 MiB；仍匹配当前来源、目标平台和 CoreArtifact 的 READY 或阻断 preview 均可写，固定记录 `capturedAfterMs=5000`。普通 Launch、过期 cookie 或来源/配置漂移均拒绝。 |
+| `/runtime/launches/{launchId}/review-screenshot` | 接受 `image/png`，先鉴权再有界流式读取 ≤10 MiB。非 RPG 审核 preview 分支保留原行为：只接受 preview capability，仍匹配当前来源、目标平台和 CoreArtifact 的 READY 或阻断 preview 均可写，固定记录 `capturedAfterMs=5000`。RPG 分支只接受当前 validation 的 `restore_launch_id` capability，要求原 Launch 已结束、位置恢复 gate 已 PASS 且 binding 未漂移，直接把新 Blob 关联到该 validation 的 `evidence_screenshot_blob_id`，随后才允许 `RESTORE_SCREENSHOT` gate PASS。PRODUCT Launch、原 validation Launch、过期 cookie、重复截图或来源/配置漂移均拒绝。 |
 
 `GET /runtime/launches/{launchId}/config` 是首次 bootstrap 请求；credential、5 分钟 bootstrap TTL 和全部预检快照有效后，服务端原子把 LaunchSession 从 `CREATED` 转为 `ACTIVE` 并返回：
 
@@ -397,8 +399,8 @@ PlaySession 事件 API 位于 launch cookie 的限定 Path 内，同时要求正
 
 运行中写入要求正确 launch cookie：
 
-- `POST /runtime/launches/{launchId}/save-states` 使用 `multipart/form-data`，携带 UUID `Idempotency-Key`，且只允许三个 part：`metadata`（`application/json`，严格 `{ "name": string, "discIndex"?: integer|null }`，name trim 后 1–120 Unicode code points）、`state`（1 byte–64 MiB）和 `screenshot`（1 byte–10 MiB PNG/JPEG/WebP、解码 ≤40 MP）。多盘 Launch 必须提交当前范围内盘号，SINGLE/DOS 必须省略或为 null。服务端从 LaunchSession 推导 Profile/Game/VariantRevision/CoreArtifact/时长，并把该 LaunchSession 记录为 SaveState 的来源；三个 Blob/引用与 SaveState 必须全成或全不成，返回 `201`；网络重放不得重复创建存档。
-- Web 同源 `/runtime` rewrite 必须完整流式转发应用允许的最大 75 MiB multipart body；Next.js 的请求体克隆上限必须至少为 75 MiB，backend proxy timeout 固定为 150 秒。不得沿用框架默认的 10 MiB 克隆上限和 30 秒代理超时，否则大体积 PSP 状态会被截断并在后端等待剩余 body 时返回代理层 `500`。
+- `POST /runtime/launches/{launchId}/save-states` 使用 `multipart/form-data`，携带 UUID `Idempotency-Key`，且只允许 `metadata`、`payload` 与可选 `screenshot`。metadata 是严格 `{payloadKind,name?,discIndex?}`：PRODUCT 的 name trim 后必须为 1–120 Unicode code point，validation 必须省略 name；discIndex 只对多盘 PRODUCT 必填，其他场景省略或为 null。metadata 明确声明由 Launch artifact 决定的 `payloadKind=RUNTIME_STATE|NATIVE_SAVE_BUNDLE_V1|ONS_SAVE_BUNDLE_V1`；native profile/resume slot 从冻结构件与 payload 校验得出，不由客户端提交，客户端也不能覆盖 artifact/owner/content/ABI/dependency。既有 EmulatorJS/EasyRPG/MV/MZ/ONS payload 上限 64 MiB，mkxp-z 的最坏情况上限为 256 MiB，但 `mkxp-state-compact` 正常返回可变且显著更小的 payload，截图上限 10 MiB。PRODUCT 写正式 SaveState；RPG_RUNTIME_VALIDATION 只写同 validation 临时 checkpoint，response union 明确 resource kind，且 validation 分支必须返回服务端已持久化 payload 的小写 64 位 `sha256` 和 `sizeBytes`，供随后 `CHECKPOINT_CREATED` gate 提交相同证据；该临时资源不得出现在 `/saves`。同一幂等键重放必须返回与首次创建完全相同的 digest 与字节数。
+- `dev.sendev.cc` 的 NG 根 location 与 Next.js 全局 rewrite 代理层使用 `283115520` bytes（270 MiB）传输天花板和 300 秒 read/send/backend timeout，不对 `/api/v1/admin/imports` 或 save-state 增加独立 NG location。Go 层仅 `POST /runtime/launches/{launchId}/save-states` 的 multipart 总上限同样为 `283115520` bytes 且 route deadline 为 300 秒；其他 endpoint 仍执行自己更小的应用层 body 上限和 deadline。超过存档 route 上限必须在读取完整 body 前返回通用 413，不能由代理层截断为 500。
 
 运行时写端点在验证 launch cookie 后才读取 body；有 `Content-Length` 时先校验上限，没有时允许 HTTP/2/chunked 并在流式读取超过上限的第一个 byte 立即终止为 `413`。NG 必须关闭请求 buffering 或使用足够的临时空间，且自身限制不得低于应用上限；应用仍独立流式计数、校验 digest 并清理临时文件。`pagehide` 不发送 save body；显式退出只等待用户已经发起的 `/save-states` 上传完成，不生成退出存档。
 
@@ -459,12 +461,12 @@ Upload manifest/part/complete、Import 创建、Launch、PlaySession 与 runtime
 | `GET /api/v1/home` | 首页聚合：启用目录中的统计、按 PlaySession `started_at_ms` 选择的最近 10 款游戏、按 Game `created_at_ms DESC, id DESC` 选择的最新添加 10 款已发布游戏、最后启动的一次游玩及仅由该次 Launch 产生的最新手动存档、全部支持平台，以及按 PlaySession 次数降序的前 4 个快捷平台。相同启动时刻按 PlaySession ID 确定唯一会话，平台热度相同时按名称和 ID 确定性排序；旧会话较晚结束或补写 heartbeat 不得反向夺取“最后游玩”，历史存档只影响“查看存档”，不得冒充最后一次游玩的恢复点。`latestGames[]` 固定提供 `gameId/title/platform/platformInstance/createdAtMs/coverUrl`，目录停用后对应游戏不进入该投影。 |
 | `GET /api/v1/recent-games` | 返回启用目录中全部有游玩记录的已发布游戏，不截断为固定 50 款；按最新 PlaySession 的 `started_at_ms` 降序聚合 `lastPlayedAtMs/activeDurationMs/sessionCount` 与可空封面 URL。每款游戏只占一行，接口不接受 `limit`；响应级 `generatedAtMs` 是页面分组与 7/30 天滚动窗口的统一时钟。 |
 | `GET /api/v1/games`、`GET /api/v1/games/{gameId}` | 已发布游戏列表/详情；两者的可空 `coverUrl` 只投影当前 MetadataRevision 中按 ordinal/ID 排序的首个 `COVER`，值为 `/content/assets/{assetId}` 逻辑 URL，不暴露 Blob ID。列表项同时包含基础平台、游戏目录、推荐 Core、`createdAtMs` 与可空 `lastPlayedAtMs`；列表按 `RECENT_DESC/ADDED_DESC/TITLE_ASC` 的服务端稳定 cursor 分页，每页默认 50。无 cursor 的首分页额外返回 `filteredCount` 与 `facets={totalCount,platforms,platformInstances,tags}`；facet 覆盖完整可见游戏库并带真实 count，续页不重复返回。响应级 `generatedAtMs` 作为相对时间的统一时钟。 |
-| `GET /api/v1/saves`、`PATCH /api/v1/saves/{saveStateId}`、`DELETE /api/v1/saves/{saveStateId}` | 手动存档列表、重命名和软删除。`gameId` 为精确游戏筛选并进入 cursor filter digest；列表项包含基础平台、游戏目录、锁定 Core、`screenshotUrl=/content/save-states/{saveStateId}/screenshot` 与累计有效游玩 `activeDurationMs`，不暴露截图 Blob ID。响应级 `generatedAtMs` 为分组页面的“今天/昨天”和分页聚合提供统一时钟。 |
+| `GET /api/v1/saves`、`PATCH /api/v1/saves/{saveStateId}`、`DELETE /api/v1/saves/{saveStateId}` | 手动存档列表、重命名和软删除。`gameId` 为精确游戏筛选并进入 cursor filter digest；列表项包含基础平台、游戏目录、锁定 Core、可空 `screenshotUrl`（存在时为 `/content/save-states/{saveStateId}/screenshot`）与累计有效游玩 `activeDurationMs`，不暴露截图 Blob ID。响应级 `generatedAtMs` 为分组页面的“今天/昨天”和分页聚合提供统一时钟。 |
 | `POST /api/v1/launches` | READY 时预检并创建 LaunchSession/cookie；缺少当前 Variant 结果时返回 202 的可观察验证 Job，不先签发 credential。 |
 | `POST /runtime/launches/{launchId}/start`、`POST /runtime/launches/{launchId}/heartbeat`、`POST /runtime/launches/{launchId}/finish` | 第 7 节 PlaySession 连续事件、时长和撤销；使用限定 Path 的 launch cookie。 |
 | `GET /runtime/launches/{launchId}/config` 及第 8 节内容路径 | 受 capability 保护的配置、内容与显式状态。 |
-| `POST /runtime/launches/{launchId}/save-states` | 用户显式触发的运行中状态与截图保存。 |
-| `POST /runtime/launches/{launchId}/review-screenshot` | 审核预览对当前 READY 或阻断 Validation 保存核心启动后第 5 秒 PNG；普通 Launch 禁止。 |
+| `POST /runtime/launches/{launchId}/save-states` | 用户显式触发的运行中状态保存；payload 必需，截图可选。 |
+| `POST /runtime/launches/{launchId}/review-screenshot` | 非 RPG 审核 preview 保存核心启动后第 5 秒 PNG；RPG validation 的不同 restore Launch 保存位置恢复证据 PNG；PRODUCT Launch 禁止。 |
 | `POST /api/v1/admin/uploads` | 创建文件/目录 upload manifest。 |
 | `GET /api/v1/admin/uploads/{uploadId}`、`PUT /api/v1/admin/uploads/{uploadId}/files/{fileId}/parts/{partNo}` | 恢复状态与上传 part。 |
 | `POST /api/v1/admin/uploads/{uploadId}/complete`、`DELETE /api/v1/admin/uploads/{uploadId}` | 投递异步 UPLOAD_FINALIZE 或取消 upload；两者都使用当前 ETag，complete 另需 Idempotency-Key。 |
@@ -478,7 +480,7 @@ Upload manifest/part/complete、Import 创建、Launch、PlaySession 与 runtime
 | `GET /api/v1/admin/jobs/{jobId}`、`GET /api/v1/admin/jobs/{jobId}/events`、`POST /api/v1/admin/jobs/{jobId}/cancel`、`POST /api/v1/admin/jobs/{jobId}/retry` | Upload 终结、DAT/重校验/游戏内容 revision 等非 Import 长任务的快照、SSE、有界取消与显式 retryable 重试；Import 仍使用领域 route，`METADATA_SCRAPE` 人工重试使用 review/game 领域 route 新建批次。 |
 | `GET /api/v1/admin/reviews`、`GET /api/v1/admin/reviews/{importItemId}`、`PATCH /api/v1/admin/reviews/{importItemId}` | 待审核队列、详情（含 Validation、scrape run/candidate/asset）和草稿。 |
 | `GET /api/v1/admin/review-bulk-approval-preview`、`POST /api/v1/admin/review-bulk-approvals`、`GET /api/v1/admin/review-bulk-approvals/{bulkApprovalId}`、`GET .../{bulkApprovalId}/items`、`POST .../{bulkApprovalId}/cancel|retry` | 当前筛选的严格 READY 快速审批预览、冻结批次、进度/结果分页、有界取消及领域 retry。 |
-| `POST /api/v1/admin/reviews/{importItemId}/previews` | 创建审核专用 best-effort 子窗体运行快照；不发布、不累计游玩、不提供存档。 |
+| `POST /api/v1/admin/reviews/{importItemId}/previews` | 仅为非 RPG 内容创建审核专用 best-effort 子窗体快照；RPG core 固定返回 `RPG_RUNTIME_VALIDATION_REQUIRED`。 |
 | `POST /api/v1/admin/reviews/{importItemId}/scrape-candidates` | 审核中切换/重新执行 HASHEOUS 或 NONE 元信息源；显式请求不使用旧 cache。 |
 | `POST /api/v1/admin/reviews/{importItemId}/approve`、`POST /api/v1/admin/reviews/{importItemId}/discard` | 最终审核决策。 |
 | `GET /api/v1/admin/review-history`、`GET /api/v1/admin/review-history/{reviewEventId}` | 只读最终决策列表与 ReviewEvent v2 的纯文字/结构化回放。actor 三元组不变；详情不返回 `coverUrl`、selected asset 字段或任何历史媒体端点。 |
@@ -487,7 +489,7 @@ Upload manifest/part/complete、Import 创建、Launch、PlaySession 与 runtime
 | `POST /api/v1/admin/games/{gameId}/content-revisions` | 从已完成 UploadSession 创建游戏内容验证 Job；成功才创建 ContentRevision/VariantRevision 并切换两个 current。 |
 | `GET /api/v1/admin/games/{gameId}/scrape-candidates`、`POST /api/v1/admin/games/{gameId}/scrape-candidates`、`POST /api/v1/admin/games/{gameId}/scrape-candidates/{candidateId}/apply` | 重刮削候选列表、创建批次与选择字段/媒体应用。 |
 | `POST /api/v1/admin/games/{gameId}/move-preview`、`POST /api/v1/admin/games/{gameId}/move` | 同基础游戏目录移动影响预览与提交。 |
-| `GET /api/v1/admin/platforms`、`GET /api/v1/admin/core-artifacts` | 平台/启用核心关系与 artifact/version 只读字典，供目录和 BIOS 管理使用。平台字典的每个 `cores[]` 固定返回 `netplaySupported`；它只有在该平台、Core、当前 enabled CoreArtifact 的 EmulatorJS 版本与 SHA-256 精确命中联机 manifest 时才为 `true`，表示运行核心能力而非某款游戏已通过联机资格检查。 |
+| `GET /api/v1/admin/platforms`、`GET /api/v1/admin/core-artifacts` | 平台/启用核心关系与 artifact/version 只读字典，供目录和运行依赖管理使用。artifact 项固定返回 `id/coreId/coreName/routeKey/runtimeFamily/runtimeAdapterKind/runtimeVersion/adapterId/selectedForNewBindings/availableForLaunch/version/sizeBytes`，不返回宿主路径；RPG 管理诊断据此审计七个版本核心的 route/artifact。平台字典的每个 `cores[]` 固定返回 `netplaySupported`；它只有在该平台、Core、当前 `selectedForNewBindings` CoreArtifact 的 EmulatorJS 版本与 SHA-256 精确命中联机 manifest 时才为 `true`，表示运行核心能力而非某款游戏已通过联机资格检查。 |
 | `GET /api/v1/admin/platform-instances`、`POST /api/v1/admin/platform-instances`、`GET /api/v1/admin/platform-instances/{platformInstanceId}`、`PATCH /api/v1/admin/platform-instances/{platformInstanceId}` | 游戏目录 CRUD；创建、列表和详情投影 `gameCount` 与基础平台的 `supportedExtensions[]`，PATCH 不允许改 platform/slug/default core。扩展名是带前导点、ASCII 小写、稳定有序且无重复的已验证游戏 payload 格式；不从目录默认核心反推。NES 为 `.nes/.unf/.unif/.fds`，Arcade 合并目录后仍只返回一次 `.zip`。普通 ROM 的 ZIP/7z 只作上传 wrapper，不进入该字段；DOS `.exe/.com/.bat` 是 payload，必须进入。 |
 | `GET /api/v1/admin/platform-instances/recommendations` | 返回代码 catalog 的 `catalogVersion/items/summary`。每项包含 template key、顺序、名称/说明、Platform/Core 展示引用、从基础平台 profile 读取的扩展名、`ACTIVE/CUSTOMIZED/COVERED_BY_EQUIVALENT/SUPPRESSED/MISSING` 状态和可空目录 ID；无 query，不修改数据库。 |
 | `POST /api/v1/admin/platform-instances/recommendations/apply` | ADMIN-only 一键补齐；body 必须是严格空对象 `{}` 并携带 UUID `Idempotency-Key`。一个 `BEGIN IMMEDIATE` 事务只为当前 `MISSING` 项创建目录，把它们按 catalog 顺序追加到现有最大顺序之后，同时提交逐项 AuditEvent 与幂等响应。成功为 200，返回 `created[]/createdTemplateKeys[]/items/summary`；重复、并发、已有等价目录、自定义/停用/软删除模板均不覆盖、不恢复、不重排。相同 key 重放原 status/body 并带 `X-Retrom-Idempotent-Replay: true`；任何创建或审计失败整体回滚。 |
@@ -847,6 +849,83 @@ Game 一旦 DELETED，公共 `GET /api/v1/games/{gameId}`、Launch 创建、Game
 
 查询分为两类：availability projection（游戏库、搜索、首页继续/最新添加、平台浏览、联机游戏选择）只返回启用目录的 PUBLISHED Game；relationship/history projection（最近游玩、收藏、Play/Launch/Netplay 历史、审核和审计）保留删除项，并固定携带 `{gameId,title,status:"DELETED",coverUrl:null,availability:"DELETED"}`。删除项没有详情/启动/编辑/存档入口；收藏只允许移出。Netplay 房间墓碑同时保留 `endReason=GAME_DELETED`，Room game 投影包含 `status/availability`。
 
-## 16. 统一验收入口
+## 16. RPG Maker 项目、运行验证与 unique-origin API
 
-通用协议由 `ACC-API-001` 覆盖；认证/账户隔离由 `ACC-AUTH-*` 与 `ACC-ISO-*` 覆盖；同源 CSRF、launch cookie、受限缓存和媒体 SSRF 由 `ACC-SEC-002`–`ACC-SEC-004` 覆盖；上传协议由 `ACC-IMP-001`、`ACC-IMP-002` 和 `ACC-IMP-008` 覆盖；Pegasus/VIDEO 由 `ACC-PEG-001`–`006` 与 `ACC-MEDIA-001` 覆盖；EmulationStation 协议、扫描/映射、审核扩展与释放由 `ACC-ES-001`–`006` 覆盖；标签由 `ACC-TAG-002`–`005` 覆盖；多盘协议由 `ACC-MDISC-001`–`004`、`007`–`008` 覆盖；一次点击启动由 `ACC-RUN-*` 覆盖；联机协议、transport/auth/SSE 错误边界和双浏览器生命周期由 `ACC-NP-010`–`016` 覆盖。
+### 16.1 管理与审核 API
+
+上传 transport 仍只用 `sourceType=FILES|DIRECTORY`；`upload_sessions.purpose` 新增 `RPG_MAKER_PROJECT|RUNTIME_ASSET_PACK`，Import create 的 `contentMode` 新增 `RPG_MAKER_PROJECT_V1`。项目 mode 只接受一个 DIRECTORY，或 FILES 中恰好一个 `.zip/.7z`；不得新增含混的传输枚举。Pegasus、EmulationStation 和通用 server import 向 `rpgmaker` 目标创建项目时固定返回 `422 RPG_SERVER_IMPORT_UNSUPPORTED`。
+
+RPG 条目的 Review detail 额外返回可空 `rpgMaker`：固定包含 `selectedCoreId/generation/evidenceGeneration/evidenceConfidence/selfContained/selfContainedOverride/runtimeBindingRevision/runtimePackRequirements/runtimePackSelections/runtimeValidation/runtimeValidationCurrent`。`runtimePackRequirements` 按 slot 返回 `{slot,declaredName,normalizedDeclaredName}`，其中规范名是服务端 Unicode NFKC full case-fold 结果；管理端必须用它与 pack definition 的同名字段精确匹配，不得用 JavaScript locale lowercase 猜测。`runtimePackSelections` 是按 slot 排序的 `{slot,declaredName,installationId}`；`runtimeValidation` 为当前条目最新一次验证的完整只读投影或 null，`runtimeValidationCurrent` 精确表示其 binding revision 是否仍等于当前草稿。RPG 的 `canApprove` 在该验证仍 current 且已经分配原始 `launchId` 时为 true；管理员主动点击“运行游戏”并取得 Launch 即可确认发布，后续机器 gate、checkpoint 和跨 Launch 恢复是可选的高级验证。`runtimeScreenshot` 固定为 null；存在恢复证据时只从 `rpgMaker.runtimeValidation.checkpointRoundTrip.screenshotUrl` 读取，绝不触发普通截图 override。审核页只在创建 Launch、用户主动执行高级验证动作或重新载入页面时读取验证投影，不做后台定时轮询；关闭游戏子窗体后不得继续请求验证状态。
+
+| 方法与路径 | 固定契约 |
+| --- | --- |
+| `GET /api/v1/admin/runtime-asset-packs` | 返回 definition、installation、引用计数与验证状态；definition 同时返回服务端生成的 `normalizedDeclaredName` 作为 exact matching key，不返回宿主路径。 |
+| `POST /api/v1/admin/runtime-asset-packs/installations` | 携带 `Idempotency-Key`；严格 body `{uploadId,kind,generation?,declaredName?,sourceNote?}`；只消费 COMPLETE 且未使用的单目录/单归档 `RUNTIME_ASSET_PACK` upload，返回 202 Job 与 installation `ETag`；重复 upload/相同 definition + files digest 返回 409，超 10,000 文件或 512 MiB 返回 413；隔离 archive worker 因进程/资源边界暂不可用时返回 `503 RPG_RUNTIME_PACK_UNAVAILABLE`，不得误报成内容无效，客户端只可对该稳定码使用新幂等键做有界重试。 |
+| `DELETE /api/v1/admin/runtime-asset-packs/installations/{installationId}` | 携带 installation `If-Match` 与 `Idempotency-Key`；只删除 READY/FAILED 且未引用 installation；有 Variant/Save 引用时 `409 RPG_RUNTIME_PACK_IN_USE`，版本漂移返回 412；成功 204 并进入既有 payload release 保留期。 |
+| `PATCH /api/v1/admin/reviews/{importItemId}` | RPG 字段完整替换：`runtimePackSelections` 必须是最多三项的 `{slot,installationId}` 唯一数组，`rpgSelfContainedOverride` 必须显式布尔；同样要求 `If-Match`。运行输入变化递增 `runtimeBindingRevision`，metadata-only 编辑不使既有验证失效。 |
+| `POST /api/v1/admin/reviews/{importItemId}/runtime-validations` | `If-Match` 与 `Idempotency-Key`；严格 body `{"clientCapabilities":{"secureContext":boolean,"crossOriginIsolated":boolean,"sharedArrayBuffer":boolean}}`；从当前 source/core/route/artifact/packs 冻结一个 `RPG_RUNTIME_VALIDATION` Launch，201 返回 validationId、launchId、playerUrl 和 expiry。服务端用摘要在签发 credential 前校验 artifact 的线程要求；客户端不得提交冻结字段。 |
+| `GET /api/v1/admin/reviews/{importItemId}/runtime-validations/{validationId}` | 返回状态、机器 gates、route evidence、checkpoint round-trip 与审核决定；不返回凭据。 |
+| `POST /api/v1/admin/reviews/{importItemId}/runtime-validations/{validationId}/restore-launch` | `If-Match`、`Idempotency-Key` 与同样严格的 `clientCapabilities` body；只在 CHECKPOINTED、临时 payload 完整、原 Launch 已结束且当前浏览器满足冻结 artifact 能力时创建不同 restore Launch；同事务写 `restoreLaunchId`，幂等重放返回同一 Launch。 |
+| `POST /api/v1/admin/reviews/{importItemId}/runtime-validations/{validationId}/decision` | `If-Match` 与 `Idempotency-Key`；严格 `{decision:"PASS"|"FAIL",note:string}`；只有全部机器 gate 通过、restore Launch 不同且绑定未漂移才接受 PASS。 |
+| `GET /runtime/launches/{launchId}/checkpoint-status` | 返回当前 payload kind 和最近受序 availability `{available,reason}`；即时 UI 仍以 adapter event 为准。 |
+| `POST /runtime/launches/{launchId}/rpgmaker-gates/events` | 只接受 validation Launch + launch capability；严格 `{sequence,eventId,gate,phase,observedAtMs,evidence}`，sequence 从 1 递增、eventId UUID 幂等，同 gate 至多一个终态。 |
+
+validation GET 的 `launchId` 字段始终存在；正常创建后是 UUID，只有在 Launch 行写入前即失败并原子收口为 `FAILED` 时为 `null`。该失败记录仍须完整返回 route/failure/machine-gate 证据并允许同 binding 新建验证，不能让审核详情因没有 Launch 而返回 500。其他非 `FAILED` 状态的空 launchId 是数据不变量错误。
+
+gate 闭集和顺序为 `RUNTIME_READY/ENGINE_PROFILE/FRAMES_300/INPUT/AUDIO/INITIAL_POSITION_RECORDED/SAVE_POINT_RECORDED/CHECKPOINT_CREATED/POST_SAVE_STATE_DIVERGED/ORIGINAL_LAUNCH_ENDED/RESTORE_STARTED/RESTORE_POSITION_VERIFIED/RESTORE_SCREENSHOT/RESTORE_INPUT`，phase 只允许 `BEGIN|PASS|FAIL`，同一 gate 必须先 BEGIN 再唯一终态且下一个 gate 只能在前一个 PASS 后开始。原 Launch 只能上报到 ORIGINAL_LAUNCH_ENDED，restore Launch 只能上报后四项；服务端以当前 launchId 区分，不信任 body 声明。五个位置 gate 的 evidence 必须是 int32 范围的 `mapId/playerX/playerY/fixtureState`，其中 mapId 为正、坐标非负；服务端证明 B≠A、C≠B、restore=B 且 restore≠A/C、RESTORE_INPUT≠restore。截图只由服务端关联当前受授权上传，客户端不得提交 Blob ID；截图和 RESTORE_INPUT 均 PASS 后才进入 `AWAITING_DECISION`。任何 FAIL 立即收口 validation。
+
+Launch config 顶层是 `runtimeFamily` discriminated union。`EMULATORJS` 保留既有字段；`RPGMAKER` 必须返回 `protocolVersion:1/purpose/coreId/coreName/generation/routeKey/artifactId/checkpoint/checkpointAvailability/runtimeValidation/adapter`。PRODUCT 的 `runtimeValidation` 为 null；验证 Launch 必须返回 `{validationId,state,originalLaunchId,restoreLaunchId,lastGateSequence,machineGates,checkpointEvidence,restoreScreenshotUploaded}`，其中 `machineGates` 恰为上述 14 项有序服务端状态/evidence，足以让同一受授权 Launch 的页面刷新从首个未完成动作继续。adapter 只允许：
+
+- `EASYRPG_WEB`：`adapterId=easyrpg-web`、强制 `engineMode=rpg2k|rpg2k3`、runtime/project/index URL、可空唯一 RTP archive、slot 100；
+- `MKXP_LIBRETRO_WEB`：只允许 `adapterId=mkxp-libretro-web`；config 分别返回 core JS 与 Wasm 的 `url/sizeBytes/sha256`、`artifactSetSha256`、固定 bridge、项目/pack archive URL 与 size/hash、强制 `rgssVersion=1|2|3`、`stateBufferBytes=268435456`。core 的 size/hash 是下载固定 tag Release asset 后记录的 observed cache coordinates，用于内容响应、Blob 重建与本机损坏检测；它们不是远端 Release 准入身份，同 tag 同名资产由固定 tag commit 与 adapter ABI 定义兼容性；
+- `NATIVE_WEB`：只允许 `adapterId=native-web`，并按 generation 精确冻结 `bridgeProfile=RPGMV|RPGMZ`、`uniqueOrigin/bootstrapUrl/bootstrapTicket`。ENGINE_PROFILE evidence 与 route projection 必须与 Launch 的 generation、adapter 和 profile 逐字段一致，不接受版本别名或 fallback。
+
+EasyRPG 与 mkxp 的同源内容端点属于严格 OpenAPI 契约，不能只在 Go router 中注册：
+
+- `GET|HEAD /runtime/retrom-runtime/{runtimeVersion}/{runtimePath}` 只允许命中固定 retrom-runtime Release manifest 的逐文件 allowlist，本地逐字节复核 observed size/hash 后返回不可变公共响应；未知版本、路径或 MIME 返回 404；
+- `GET|HEAD /runtime/projects/{launchId}/{projectPath}` 只允许携带 config 响应设置的动态 cookie `retrom_launch_project_<launchId>`；其值是同一 Launch capability，属性固定为 `Path=/runtime/projects/<launchId>/; HttpOnly; SameSite=Strict; Max-Age=86400`，不设置 `Domain`，HTTPS 增加 `Secure`。cookie 名、path 与请求中的 Launch ID 必须逐字匹配且恰有一份；结束 Launch 时删除。服务端从 Product/Validation Launch 冻结的目录 fileset，或 ONS 审核预览创建时冻结的不可变 source snapshot 返回一项；`index.json` 是 EasyRPG/ONS adapter 使用的保留虚拟索引。响应为 private immutable、强 ETag、准确 MIME/长度并支持单 Range；未知、未授权或跨 Launch 文件不能回退到上传源、最新内容 revision 或可变 ReviewDraft。
+
+两条路径都必须以 `x-retrom-router-template` 保留含 `/` 的尾部路径。OpenAPI 中间件必须先识别它们再进入内容 handler；否则即使文件已物化也会被错误地提前映射为 404。
+
+成功的 `GET /runtime/launches/{launchId}/state` 继续只返回二进制 payload；MIME、Content-Length、ETag 和最大尺寸由冻结 payload kind 决定，不在 body 混入 JSON。恢复不匹配 content revision/artifact/adapter ABI/dependency snapshot 时在读取 payload 前返回 `RPG_CHECKPOINT_INCOMPATIBLE`。
+
+### 16.2 MV/MZ runtime origin
+
+`/__retrom/*` 不属于 cookie-authenticated `/api/v1` client。请求 Host 必须精确匹配配置模板中以 launchId 为完整最左 label 的 unique origin；应用 cookie 必须 host-only。allowlist 恰为：
+
+```text
+GET  /__retrom/bootstrap
+POST /__retrom/bootstrap
+POST /__retrom/cleanup
+GET  /__retrom/entry
+GET  /__retrom/bridge.js
+GET  /__retrom/project/{safeLogicalPath}
+GET  /__retrom/restore-payload
+```
+
+`GET /__retrom/bootstrap` 是唯一允许无凭据到达的 GET：首次启动仍校验 Host/Launch/expiry，只返回固定 nonce bootstrap，不读取项目内容。父页面以 exact-origin `postMessage` 发送 LaunchConfig 中的 60 秒一次性 ticket；bootstrap 同源 POST 后，服务端在一个事务消费 ticket 并设置 runtime host-only cookie，生产属性固定为 `HttpOnly; Secure; SameSite=Strict; Path=/__retrom/`，永不设置 Domain。同一 Launch 的父页面刷新时，config 只有在未消费 ticket 或同 Launch/exact origin 的未撤销、未过期 isolated capability 存在时才返回；runtime host 的 bootstrap GET 必须实际验证对应 HttpOnly cookie，成功后以 `303 Location: /__retrom/entry` 恢复，不能重新消费或更新 ticket/capability。无 cookie、伪造 cookie、错误 Host/origin、撤销或过期一律 `410 RPG_RUNTIME_BOOTSTRAP_EXPIRED`。其余 route 都要求该 capability；cleanup 撤销 credential、过期 cookie 并清空存储。ticket/capability 不得进入 URL、日志、错误或数据库明文。
+
+entry CSP 固定为：`default-src 'self' data: blob:`；`script-src 'self' 'nonce-<per-response>' 'unsafe-eval' blob:`；`style-src 'self' 'unsafe-inline'`；`img-src/media-src/font-src 'self' data: blob:`；`connect-src 'self'`；`worker-src 'self' blob:`；`frame-src/object-src 'none'`；`base-uri 'self'`；`form-action 'none'`；`frame-ancestors <exact app origin>`。worker 只允许项目同源脚本或项目脚本生成的 blob worker，以支持 MV/MZ 官方音频解码器；外网 worker 与外网 connect 仍被禁止，`Sec-Fetch-Dest: serviceworker` 的 project 请求固定 404，不能借此注册持久 service worker。不得直接允许项目 inline script；合法项目的 inline script 必须按文档顺序提取为同源、不可变派生 Blob，并把转换摘要计入 profile，不能放宽 CSP。bootstrap 使用 `default-src 'none'; script-src 'nonce-<per-response>'; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors <exact app origin>`。bootstrap/entry 是应用 COEP 页面必须跨源嵌入的两个文档，固定 `Cross-Origin-Resource-Policy: cross-origin`，但仍由上述 exact `frame-ancestors` 限制嵌入者；bridge、project、restore、cleanup 与其他 runtime 响应继续固定 `Cross-Origin-Resource-Policy: same-origin`。两类文档响应同时固定 `Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=(), serial=(), bluetooth=(), midi=(), clipboard-read=(), clipboard-write=()`、`X-Content-Type-Options: nosniff`、`Referrer-Policy: no-referrer`。iframe sandbox 恰为 `allow-scripts allow-same-origin allow-pointer-lock`。project/restore 响应 `private,no-store`、强 ETag、准确长度、固定 MIME、nosniff，并只支持单 Range；错误/多 Range/redirect fail closed。唯一 origin 的普通 `/api`、页面、认证和媒体管理 route 一律 404。
+
+`GET /__retrom/project/{safeLogicalPath}` 只查询从完整 source snapshot 冻结到本 Launch 的 Native Web 运行投影，并先按逻辑路径逐 byte 精确查找；该投影只包含 `index.html` 与固定 Web 资源 MIME allowlist，根 `package.json` 及 `.exe/.dll/.so/.dylib/.node/.bat/.cmd/.ps1` 等 desktop/native payload 即使保留在 source snapshot/filesDigest 中也绝不进入投影。仅当精确查找不存在时，允许在同一 Launch 的投影内做一次 SQLite ASCII `NOCASE` 查找，以兼容 Windows 上生成、却在脚本中使用不同 ASCII 大小写的 MV/MZ 资源引用。候选必须恰好一个，否则返回 404；导入期的 NFC/NFKC case-fold 碰撞门禁仍是前置不变量。该回退不做 Unicode 归一化或模糊路径猜测，不适用于 `entry`、restore、普通 Launch content、external file 或任何 `/api/v1` 内容端点。
+
+`GET /__retrom/bridge.js` 先从该 Launch 锁定的 `coreArtifactId` 读取 `runtimeVersion/entryPath`，再命中 RPG runtime manifest allowlist 并执行本机 observed 完整性校验。首版 manifest 只有当前 `retrom-runtime` tag 的一份 `native/bridge.js`；不得硬编码版本、绕过 artifact binding 或在文件缺失时 fallback 到其他内容。未来真实第二个 tag 的保留行为必须另行设计和验证，不能预置 V1/V2/V3 兼容分支。
+
+bootstrap POST 成功必须设置 `Clear-Site-Data: "storage"` 后用 `location.replace('/__retrom/entry')`，cleanup 再清空 storage、撤销 capability 并过期 cookie。只有 entry 可返回 `text/html`；项目内其他 HTML 不服务。`.js/.mjs/.css/.json/.wasm` 和登记媒体/font 使用固定 MIME，profile 登记的加密/未知非执行资源才可用 `application/octet-stream`，用户 MIME/archive metadata 不参与决定。入口 HTML 直接引用 native executable 后缀属于确凿运行依赖并以 `RPG_NATIVE_DEPENDENCY_UNSUPPORTED` 拒绝；仅携带但未引用的同名文件仍保留在 source snapshot，却不会进入 Launch 投影或由该端点返回。
+
+RPG 错误沿用全局 error envelope，`code` 与 HTTP 状态固定分组如下；handler、后台 Job 与 Launch 预检必须使用同一码，客户端不得解析 message：
+
+- `400`：`RPG_PROJECT_NOT_FOUND`；
+- `408`：`RPG_RUNTIME_TIMEOUT`；
+- `410`：`RPG_RUNTIME_BOOTSTRAP_EXPIRED`；
+- `413`：`RPG_RGSS_CONTENT_TOO_LARGE`（multipart 超过 route 总上限继续使用通用 body-too-large code）；
+- `404`：`RPG_RUNTIME_VALIDATION_NOT_FOUND`；
+- `503`：`RPG_RUNTIME_PACK_UNAVAILABLE`（仅表示隔离 archive worker 的瞬时进程/资源不足，客户端只可对该稳定码使用新幂等键做有界重试）；
+- `409`：`RPG_PROJECT_ROOT_AMBIGUOUS/RPG_GENERATION_AMBIGUOUS/RPG_RUNTIME_PACK_MISSING/RPG_RUNTIME_PACK_AMBIGUOUS/RPG_RUNTIME_PACK_IN_USE/RPG_RUNTIME_ROUTE_UNAVAILABLE/RPG_RUNTIME_THREADS_UNAVAILABLE/RPG_RUNTIME_OPFS_UNAVAILABLE/RPG_RUNTIME_VALIDATION_REQUIRED/RPG_RUNTIME_VALIDATION_VERSION_CONFLICT/RPG_RUNTIME_INVALID_STATE/RPG_RUNTIME_PROTOCOL_VIOLATION/RPG_RUNTIME_CONTENT_MISMATCH/RPG_CHECKPOINT_UNAVAILABLE/RPG_CHECKPOINT_INCOMPATIBLE`；
+- `422`：`RPG_CORE_UNSUPPORTED/RPG_GENERATION_UNSUPPORTED/RPG_SELECTED_CORE_MISMATCH/RPG_SERVER_IMPORT_UNSUPPORTED/RPG_LCF_INVALID/RPG_LCF_GENERATION_UNKNOWN/RPG_LMT_INVALID/RPG_INI_INVALID/RPG_INI_ENCODING_UNSUPPORTED/RPG_RGSS_GENERATION_CONFLICT/RPG_WEB_FORMAT_INVALID/RPG_PATH_COLLISION/RPG_NATIVE_DEPENDENCY_UNSUPPORTED/RPG_NATIVE_BRIDGE_UNSUPPORTED/RPG_RUNTIME_VALIDATION_DECISION_INVALID/RPG_RUNTIME_SCREENSHOT_INVALID/RPG_CHECKPOINT_INVALID/RPG_CHECKPOINT_RESTORE_FAILED`。
+
+`RPG_CORE_UNSUPPORTED` 表示请求的用户 core 不是 `rpgmaker`，或内部 route core 不在七世代闭集；`RPG_WEB_FORMAT_INVALID` 表示 MV/MZ 的 `System.json`、入口 HTML 或固定 core JavaScript shape 无法安全解析。两者是 detector 对外稳定映射，不得折叠成通用 500 或按错误字符串分支。`RPG_GENERATION_AMBIGUOUS` 表示同一项目存在多个完整世代证据或无法唯一裁决，必须拒绝而不是要求用户猜测内部 core。
+
+## 17. 统一验收入口
+
+通用协议由 `ACC-API-001` 覆盖；认证/账户隔离由 `ACC-AUTH-*` 与 `ACC-ISO-*` 覆盖；同源 CSRF、launch cookie、受限缓存和媒体 SSRF 由 `ACC-SEC-002`–`ACC-SEC-004` 覆盖；上传协议由 `ACC-IMP-001`、`ACC-IMP-002` 和 `ACC-IMP-008` 覆盖；Pegasus/VIDEO 由 `ACC-PEG-001`–`006` 与 `ACC-MEDIA-001` 覆盖；EmulationStation 协议、扫描/映射、审核扩展与释放由 `ACC-ES-001`–`006` 覆盖；标签由 `ACC-TAG-002`–`005` 覆盖；多盘协议由 `ACC-MDISC-001`–`004`、`007`–`008` 覆盖；一次点击启动由 `ACC-RUN-*` 覆盖；联机协议、transport/auth/SSE 错误边界和双浏览器生命周期由 `ACC-NP-010`–`016` 覆盖；RPG 项目、pack、runtime validation、unique-origin bootstrap、gate 与 checkpoint API 由 `ACC-RPG-001`–`012` 覆盖。

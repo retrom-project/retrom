@@ -44,14 +44,14 @@ export function ImmersiveSaveCarousel({ gameTitle, onSelect, saves, selectedInde
           onClick={() => onSelect(save.saveStateId)}
         >
           <span className={styles.saveScreenshot}>
-            <Image
+            {save.screenshotUrl ? <Image
               src={save.screenshotUrl}
               alt={`第 ${index + 1} 份存档截图`}
               fill
               sizes={selected ? "42vw" : "20vw"}
               loading={selected ? "eager" : "lazy"}
               unoptimized
-            />
+            /> : <span>未提供截图</span>}
           </span>
           <time dateTime={new Date(save.createdAtMs).toISOString()}>{time}</time>
         </button>;

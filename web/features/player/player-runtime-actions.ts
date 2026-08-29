@@ -3,7 +3,7 @@
 import type { Dispatch, RefObject, SetStateAction } from "react";
 import { newUuid } from "@/lib/crypto";
 import { writeHeaders } from "@/lib/api/client";
-import { captureManualState, switchDiscPreservingPause, type DiscSet, type DiscState, type EmulatorInstance, type ManualScreenshot, type PlayerConfig } from "./adapters/ejs-4.2.3-v2";
+import { captureManualState, switchDiscPreservingPause, type DiscSet, type DiscState, type EmulatorInstance, type ManualScreenshot, type ManualStatePayload, type PlayerConfig } from "./adapters/ejs-4.2.3-v2";
 import { closeEmulatorSettingsPanels, openEmulatorSettingsPanel, type EmulatorSettingsPanel } from "./emulator-settings";
 import { multiDiscPlayerResultCode, type MultiDiscPlayerEvent } from "./multi-disc-telemetry";
 import { applyVideoRenderingMode, writeVideoRenderingMode, type VideoRenderingMode } from "./video-rendering";
@@ -15,7 +15,7 @@ type SyncTone = "synced" | "busy" | "warning";
 type RuntimeActionParams = {
   userId: string | undefined; state: ShellState; emulator: Mutable<EmulatorInstance | undefined>; frameRef: RefObject<HTMLIFrameElement | null>;
   manualSaveAvailableRef: Mutable<boolean>; pauseCapture: Mutable<Promise<ManualScreenshot | null>>; lastManualScreenshot: Mutable<ManualScreenshot | null>;
-  uploadManualState: (payload: { screenshot: Blob; format: string; state: Uint8Array }) => Promise<boolean>;
+  uploadManualState: (payload: ManualStatePayload) => Promise<boolean>;
   discSetRef: Mutable<DiscSet | null>; discState: DiscState | null; setDiscState: Dispatch<SetStateAction<DiscState | null>>;
   reportPlayerEvent: (event: MultiDiscPlayerEvent) => void; showToast: (message: string, timeout?: number) => void;
   setSyncText: Dispatch<SetStateAction<string>>; setSyncTone: Dispatch<SetStateAction<SyncTone>>;
@@ -38,7 +38,7 @@ export function usePlayerRuntimeActions(params: RuntimeActionParams) {
     try {
       const capture = await params.pauseCapture.current ?? params.lastManualScreenshot.current;
       if (!capture) {throw new Error("PLAYER_SCREENSHOT_UNAVAILABLE");}
-      return await params.uploadManualState(captureManualState(current, capture));
+      return await params.uploadManualState(await captureManualState(current, capture));
     } catch {
       params.setSyncText("保存失败"); params.setSyncTone("warning"); params.showToast("无法从模拟器读取完整状态和截图", 4_000);
       return false;

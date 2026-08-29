@@ -14,9 +14,33 @@ func TestCurrentCatalogIsValidAndReturnsDeepCopy(t *testing.T) {
 	if err := Validate(catalog); err != nil {
 		t.Fatalf("Validate() error = %v", err)
 	}
-	testassert.Falsef(t, testassert.Any(func() bool { return catalog.Version != 1 }, func() bool { return len(catalog.Templates) != 27 }), "catalog = version:%d templates:%d", catalog.Version, len(catalog.Templates))
+	testassert.Falsef(t, testassert.Any(func() bool { return catalog.Version != 4 }, func() bool { return len(catalog.Templates) != 29 }), "catalog = version:%d templates:%d", catalog.Version, len(catalog.Templates))
 	catalog.Templates[0].Name = "changed"
 	testassert.False(t, Current().Templates[0].Name != "NES 游戏", "Current returned mutable catalog storage")
+}
+
+func TestCatalogContainsONSDirectory(t *testing.T) {
+	t.Parallel()
+	for _, template := range Current().Templates {
+		if template.Key == "ons/onscripter_yuri" && template.Name == "ONS 游戏" {
+			return
+		}
+	}
+	t.Fatal("ONS directory template missing")
+}
+
+func TestCatalogContainsOneVirtualRPGMakerDirectory(t *testing.T) {
+	t.Parallel()
+	want := []string{
+		"rpgmaker/rpgmaker",
+	}
+	got := make([]string, 0, len(want))
+	for _, template := range Current().Templates {
+		if template.PlatformID == "rpgmaker" {
+			got = append(got, template.Key)
+		}
+	}
+	testassert.Truef(t, slices.Equal(got, want), "RPG Maker templates = %#v", got)
 }
 
 func TestCatalogConsolidatesFDSAndMAME2003(t *testing.T) {

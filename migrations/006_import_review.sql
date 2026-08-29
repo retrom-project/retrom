@@ -108,7 +108,7 @@ CREATE TABLE import_items (
 
 CREATE TABLE "import_item_source_files" (
   import_item_id TEXT NOT NULL REFERENCES import_items(id),
-  role TEXT NOT NULL CHECK(role IN ('CONTENT','DOS_SOURCE','COMPANION','PLAYLIST_SOURCE','DISC')),
+  role TEXT NOT NULL CHECK(role IN ('CONTENT','DOS_SOURCE','COMPANION','PLAYLIST_SOURCE','DISC','PROJECT_FILE')),
   logical_name TEXT NOT NULL,
   upload_file_id TEXT NOT NULL REFERENCES upload_files(id),
   blob_id TEXT NOT NULL REFERENCES blobs(id),
@@ -126,7 +126,9 @@ CREATE TABLE "import_item_source_snapshots" (
   import_item_id TEXT NOT NULL REFERENCES import_items(id),
   revision_no INTEGER NOT NULL CHECK(revision_no>=1),
   content_kind TEXT NOT NULL DEFAULT 'SINGLE_FILE'
-    CHECK(content_kind IN ('SINGLE_FILE','DOS_BUNDLE','MULTI_DISC_M3U_V1')),
+    CHECK(content_kind IN (
+      'SINGLE_FILE','DOS_BUNDLE','MULTI_DISC_M3U_V1','RPG_MAKER_PROJECT_V1','ONS_PROJECT_V1'
+    )),
   source_manifest_json TEXT NOT NULL,
   source_manifest_digest TEXT NOT NULL
     CHECK(length(source_manifest_digest)=64 AND source_manifest_digest=lower(source_manifest_digest)),
@@ -138,7 +140,7 @@ CREATE TABLE "import_item_source_snapshots" (
 
 CREATE TABLE "import_item_source_snapshot_files" (
   source_snapshot_id TEXT NOT NULL REFERENCES import_item_source_snapshots(id),
-  role TEXT NOT NULL CHECK(role IN ('CONTENT','DOS_SOURCE','COMPANION','PLAYLIST_SOURCE','DISC')),
+  role TEXT NOT NULL CHECK(role IN ('CONTENT','DOS_SOURCE','COMPANION','PLAYLIST_SOURCE','DISC','PROJECT_FILE')),
   logical_name TEXT NOT NULL,
   upload_file_id TEXT NOT NULL REFERENCES upload_files(id),
   blob_id TEXT NOT NULL REFERENCES blobs(id),
@@ -174,7 +176,10 @@ CREATE TABLE "import_item_core_validations" (
 
 CREATE TABLE "import_item_validation_files" (
   import_item_core_validation_id TEXT NOT NULL REFERENCES import_item_core_validations(id),
-  role TEXT NOT NULL CHECK(role IN ('PARENT','BIOS_BUNDLE','DOS_LAUNCH_BUNDLE','MULTI_DISC_PLAYLIST')),
+  role TEXT NOT NULL CHECK(role IN (
+    'PARENT','BIOS_BUNDLE','DOS_LAUNCH_BUNDLE','MULTI_DISC_PLAYLIST',
+    'RPG_EASYRPG_INDEX','RPG_MAKER_LAUNCH_BUNDLE'
+  )),
   logical_name TEXT NOT NULL,
   blob_id TEXT NOT NULL REFERENCES blobs(id),
   sort_order INTEGER NOT NULL CHECK(sort_order>=0),
@@ -240,10 +245,145 @@ CREATE TABLE review_drafts (
   background_candidate_asset_id TEXT REFERENCES scrape_candidate_assets(id),
   default_dos_entry TEXT,
   metadata_json TEXT NOT NULL,
+  runtime_binding_revision INTEGER NOT NULL DEFAULT 1 CHECK(runtime_binding_revision>=1),
   version INTEGER NOT NULL DEFAULT 1,
   created_at_ms INTEGER NOT NULL,
   updated_at_ms INTEGER NOT NULL
 , cover_uploaded_asset_id TEXT REFERENCES review_uploaded_assets(id), effective_source_snapshot_id TEXT REFERENCES import_item_source_snapshots(id));
+
+CREATE TABLE rpgmaker_review_profiles (
+  review_draft_id TEXT PRIMARY KEY REFERENCES review_drafts(id),
+  selected_core_id TEXT NOT NULL REFERENCES rpgmaker_core_generations(core_id),
+  generation TEXT NOT NULL CHECK(generation IN (
+    'RPG2000','RPG2003','RPGXP','RPGVX','RPGVXACE','RPGMV','RPGMZ'
+  )),
+  evidence_family TEXT NOT NULL CHECK(evidence_family IN ('RPG2K','RGSS','MV','MZ')),
+  evidence_generation TEXT CHECK(evidence_generation IS NULL OR evidence_generation IN (
+    'RPG2000','RPG2003','RPGXP','RPGVX','RPGVXACE','RPGMV','RPGMZ'
+  )),
+  evidence_confidence TEXT NOT NULL CHECK(evidence_confidence IN ('MATCHED','FAMILY_ONLY')),
+  engine_version TEXT,
+  entry_html_path TEXT,
+  file_count INTEGER NOT NULL CHECK(file_count BETWEEN 1 AND 10000),
+  total_bytes INTEGER NOT NULL CHECK(total_bytes BETWEEN 0 AND 34359738368),
+  project_fingerprint TEXT NOT NULL CHECK(length(project_fingerprint)=64 AND project_fingerprint=lower(project_fingerprint)),
+  requirements_sha256 TEXT NOT NULL CHECK(length(requirements_sha256)=64 AND requirements_sha256=lower(requirements_sha256)),
+  analysis_json TEXT NOT NULL CHECK(json_valid(analysis_json) AND length(CAST(analysis_json AS BLOB))<=262144),
+  self_contained_override INTEGER NOT NULL DEFAULT 0 CHECK(self_contained_override IN (0,1)),
+  route_key TEXT NOT NULL,
+  artifact_id TEXT NOT NULL REFERENCES core_artifacts(id),
+  artifact_set_sha256 TEXT NOT NULL CHECK(length(artifact_set_sha256)=64 AND artifact_set_sha256=lower(artifact_set_sha256)),
+  adapter_id TEXT NOT NULL,
+  adapter_abi TEXT NOT NULL,
+  dependency_snapshot_sha256 TEXT NOT NULL CHECK(
+    length(dependency_snapshot_sha256)=64 AND dependency_snapshot_sha256=lower(dependency_snapshot_sha256)
+  ),
+  created_at_ms INTEGER NOT NULL CHECK(created_at_ms>=0),
+  updated_at_ms INTEGER NOT NULL CHECK(updated_at_ms>=created_at_ms),
+  CHECK(
+    evidence_confidence='FAMILY_ONLY' AND evidence_family='RPG2K' AND evidence_generation IS NULL
+    OR evidence_confidence='MATCHED' AND evidence_generation IS NOT NULL
+  ),
+  CHECK(
+    evidence_family='RPG2K' AND generation IN ('RPG2000','RPG2003')
+    OR evidence_family='RGSS' AND generation IN ('RPGXP','RPGVX','RPGVXACE')
+    OR evidence_family='MV' AND generation='RPGMV'
+    OR evidence_family='MZ' AND generation='RPGMZ'
+  ),
+  CHECK(
+    generation IN ('RPGMV','RPGMZ') AND entry_html_path='index.html'
+    OR generation NOT IN ('RPGMV','RPGMZ') AND entry_html_path IS NULL
+  )
+);
+
+CREATE TABLE review_draft_runtime_pack_selections (
+  review_draft_id TEXT NOT NULL REFERENCES review_drafts(id),
+  slot INTEGER NOT NULL CHECK(slot BETWEEN 0 AND 3),
+  declared_name TEXT NOT NULL CHECK(length(CAST(declared_name AS BLOB)) BETWEEN 1 AND 512),
+  normalized_declared_name TEXT NOT NULL CHECK(length(CAST(normalized_declared_name AS BLOB)) BETWEEN 1 AND 512),
+  definition_id TEXT NOT NULL REFERENCES runtime_asset_pack_definitions(id),
+  installation_id TEXT NOT NULL,
+  created_at_ms INTEGER NOT NULL CHECK(created_at_ms>=0),
+  PRIMARY KEY(review_draft_id,slot),
+  FOREIGN KEY(installation_id,definition_id)
+    REFERENCES runtime_asset_pack_installations(id,definition_id)
+);
+
+CREATE TABLE rpgmaker_runtime_validations (
+  id TEXT PRIMARY KEY,
+  import_item_id TEXT NOT NULL REFERENCES import_items(id),
+  review_version_at_create INTEGER NOT NULL CHECK(review_version_at_create>=1),
+  runtime_binding_revision INTEGER NOT NULL CHECK(runtime_binding_revision>=1),
+  effective_source_snapshot_id TEXT NOT NULL REFERENCES import_item_source_snapshots(id),
+  project_fingerprint TEXT NOT NULL CHECK(length(project_fingerprint)=64 AND project_fingerprint=lower(project_fingerprint)),
+  core_id TEXT NOT NULL REFERENCES rpgmaker_core_generations(core_id),
+  generation TEXT NOT NULL CHECK(generation IN (
+    'RPG2000','RPG2003','RPGXP','RPGVX','RPGVXACE','RPGMV','RPGMZ'
+  )),
+  evidence_generation TEXT CHECK(evidence_generation IS NULL OR evidence_generation IN (
+    'RPG2000','RPG2003','RPGXP','RPGVX','RPGVXACE','RPGMV','RPGMZ'
+  )),
+  evidence_confidence TEXT NOT NULL CHECK(evidence_confidence IN ('MATCHED','FAMILY_ONLY')),
+  route_key TEXT NOT NULL,
+  artifact_id TEXT NOT NULL REFERENCES core_artifacts(id),
+  artifact_set_sha256 TEXT NOT NULL CHECK(length(artifact_set_sha256)=64 AND artifact_set_sha256=lower(artifact_set_sha256)),
+  adapter_id TEXT NOT NULL,
+  adapter_abi TEXT NOT NULL,
+  dependency_snapshot_sha256 TEXT NOT NULL CHECK(
+    length(dependency_snapshot_sha256)=64 AND dependency_snapshot_sha256=lower(dependency_snapshot_sha256)
+  ),
+  launch_id TEXT UNIQUE REFERENCES launch_sessions(id),
+  restore_launch_id TEXT UNIQUE REFERENCES launch_sessions(id),
+  state TEXT NOT NULL CHECK(state IN (
+    'CREATED','STARTING','RUNNING','CHECKPOINTED','RESTORED','AWAITING_DECISION','PASSED','FAILED','EXPIRED'
+  )),
+  last_gate_sequence INTEGER NOT NULL DEFAULT 0 CHECK(last_gate_sequence>=0),
+  machine_gates_json TEXT NOT NULL CHECK(json_valid(machine_gates_json) AND length(CAST(machine_gates_json AS BLOB))<=262144),
+  evidence_screenshot_blob_id TEXT REFERENCES blobs(id),
+  failure_code TEXT,
+  decision_note TEXT CHECK(
+    decision_note IS NULL OR length(decision_note)<=500 AND length(CAST(decision_note AS BLOB))<=2000
+    AND instr(decision_note,char(0))=0
+  ),
+  decided_by_user_id TEXT REFERENCES users(id),
+  created_at_ms INTEGER NOT NULL CHECK(created_at_ms>=0),
+  updated_at_ms INTEGER NOT NULL CHECK(updated_at_ms>=created_at_ms),
+  expires_at_ms INTEGER NOT NULL,
+  decided_at_ms INTEGER,
+  CHECK(expires_at_ms=created_at_ms+900000),
+  CHECK((evidence_confidence='FAMILY_ONLY')=(evidence_generation IS NULL)),
+  CHECK(evidence_generation IS NULL OR evidence_generation=generation),
+  CHECK(launch_id IS NULL OR restore_launch_id IS NULL OR launch_id<>restore_launch_id),
+  CHECK((decision_note IS NULL)=(decided_by_user_id IS NULL) AND (decided_by_user_id IS NULL)=(decided_at_ms IS NULL)),
+  CHECK(decided_by_user_id IS NULL OR state IN ('PASSED','FAILED')),
+  CHECK((state IN ('FAILED','EXPIRED'))=(failure_code IS NOT NULL)),
+  CHECK(state<>'CREATED' OR launch_id IS NULL AND restore_launch_id IS NULL
+    AND last_gate_sequence=0 AND evidence_screenshot_blob_id IS NULL),
+  CHECK(state NOT IN ('STARTING','RUNNING','CHECKPOINTED','RESTORED','AWAITING_DECISION','PASSED')
+    OR launch_id IS NOT NULL),
+  CHECK(state NOT IN ('RESTORED','AWAITING_DECISION','PASSED') OR restore_launch_id IS NOT NULL),
+  CHECK(state<>'PASSED' OR restore_launch_id IS NOT NULL AND evidence_screenshot_blob_id IS NOT NULL
+    AND decided_by_user_id IS NOT NULL AND failure_code IS NULL),
+  CHECK(state<>'FAILED' OR decided_by_user_id IS NULL OR decision_note IS NOT NULL AND length(decision_note)>0)
+);
+
+CREATE TABLE rpgmaker_runtime_validation_gate_events (
+  validation_id TEXT NOT NULL REFERENCES rpgmaker_runtime_validations(id),
+  sequence INTEGER NOT NULL CHECK(sequence>=1),
+  event_id TEXT NOT NULL UNIQUE,
+  launch_id TEXT NOT NULL REFERENCES launch_sessions(id),
+  gate TEXT NOT NULL CHECK(gate IN (
+    'RUNTIME_READY','ENGINE_PROFILE','FRAMES_300','INPUT','AUDIO','INITIAL_POSITION_RECORDED',
+    'SAVE_POINT_RECORDED',
+    'CHECKPOINT_CREATED','POST_SAVE_STATE_DIVERGED','ORIGINAL_LAUNCH_ENDED','RESTORE_STARTED',
+    'RESTORE_POSITION_VERIFIED','RESTORE_SCREENSHOT','RESTORE_INPUT'
+  )),
+  phase TEXT NOT NULL CHECK(phase IN ('BEGIN','PASS','FAIL')),
+  observed_at_ms INTEGER NOT NULL CHECK(observed_at_ms>=0),
+  evidence_json TEXT NOT NULL CHECK(json_valid(evidence_json) AND length(CAST(evidence_json AS BLOB))<=65536),
+  created_at_ms INTEGER NOT NULL CHECK(created_at_ms>=0),
+  PRIMARY KEY(validation_id,sequence)
+);
 
 CREATE TABLE "review_events" (
   id TEXT PRIMARY KEY,
@@ -357,13 +497,20 @@ CREATE TABLE review_preview_sessions (
   actor_user_id TEXT NOT NULL REFERENCES users(id),
   idempotency_key TEXT NOT NULL,
   title TEXT NOT NULL CHECK(length(CAST(title AS BLOB)) BETWEEN 1 AND 800),
-  content_kind TEXT NOT NULL CHECK(content_kind IN ('SINGLE_FILE','DOS_BUNDLE','MULTI_DISC_M3U_V1')),
+  content_kind TEXT NOT NULL CHECK(content_kind IN (
+    'SINGLE_FILE','DOS_BUNDLE','MULTI_DISC_M3U_V1','ONS_PROJECT_V1'
+  )),
   content_blob_id TEXT NOT NULL REFERENCES blobs(id),
   content_logical_name TEXT NOT NULL CHECK(length(CAST(content_logical_name AS BLOB)) BETWEEN 1 AND 512),
-  content_format TEXT NOT NULL CHECK(content_format IN ('SOURCE_V1','RETROM_DOS_DIRECT_ZIP_V1','RETROM_MULTIDISC_M3U_V1')),
+  content_format TEXT NOT NULL CHECK(content_format IN (
+    'SOURCE_V1','RETROM_DOS_DIRECT_ZIP_V1','RETROM_MULTIDISC_M3U_V1','ONS_PROJECT_V1'
+  )),
   dependency_snapshot_json TEXT NOT NULL,
   default_dos_entry TEXT,
-  emulator_game_id INTEGER NOT NULL CHECK(emulator_game_id>0),
+  emulator_game_id INTEGER CHECK(
+    content_kind='ONS_PROJECT_V1' AND emulator_game_id IS NULL OR
+    content_kind<>'ONS_PROJECT_V1' AND emulator_game_id>0
+  ),
   capture_allowed INTEGER NOT NULL CHECK(capture_allowed IN (0,1)),
   credential_sha256 BLOB NOT NULL CHECK(length(credential_sha256)=32),
   state TEXT NOT NULL CHECK(state IN ('CREATED','ACTIVE','EXPIRED','REVOKED')),
@@ -381,11 +528,12 @@ CREATE TABLE review_preview_sessions (
 
 CREATE TABLE review_preview_files (
   preview_session_id TEXT NOT NULL REFERENCES review_preview_sessions(id),
-  role TEXT NOT NULL CHECK(role IN ('PARENT','BIOS_BUNDLE','EXTERNAL_FILE','DISC')),
+  role TEXT NOT NULL CHECK(role IN ('PARENT','BIOS_BUNDLE','EXTERNAL_FILE','DISC','PROJECT_FILE')),
   logical_name TEXT NOT NULL CHECK(
-    length(CAST(logical_name AS BLOB)) BETWEEN 1 AND 255 AND
-    logical_name NOT LIKE '%/%' AND logical_name NOT LIKE '%\%' AND
-    logical_name NOT IN ('.','..') AND instr(logical_name,char(0))=0
+    length(CAST(logical_name AS BLOB)) BETWEEN 1 AND 1024 AND
+    logical_name NOT LIKE '%\%' AND logical_name NOT IN ('.','..') AND
+    instr(logical_name,char(0))=0 AND
+    (role='PROJECT_FILE' OR logical_name NOT LIKE '%/%')
   ),
   virtual_path TEXT,
   blob_id TEXT NOT NULL REFERENCES blobs(id),
@@ -394,13 +542,14 @@ CREATE TABLE review_preview_files (
   PRIMARY KEY(preview_session_id,role,logical_name),
   UNIQUE(preview_session_id,virtual_path),
   CHECK(
-    role IN ('PARENT','BIOS_BUNDLE') AND virtual_path IS NULL OR
-    role IN ('EXTERNAL_FILE','DISC') AND virtual_path IS NOT NULL AND
+    (role IN ('PARENT','BIOS_BUNDLE') AND virtual_path IS NULL) OR
+    (role='PROJECT_FILE' AND virtual_path IS NULL) OR
+    (role IN ('EXTERNAL_FILE','DISC') AND virtual_path IS NOT NULL AND
       substr(virtual_path,1,1)='/' AND virtual_path NOT LIKE '%\%' AND
       virtual_path NOT LIKE '%?%' AND virtual_path NOT LIKE '%#%' AND
       instr(virtual_path,char(0))=0 AND virtual_path NOT LIKE '%//%' AND
       virtual_path NOT LIKE '%/./%' AND virtual_path NOT LIKE '%/../%' AND
-      virtual_path NOT LIKE '%/.' AND virtual_path NOT LIKE '%/..'
+      virtual_path NOT LIKE '%/.' AND virtual_path NOT LIKE '%/..')
   )
 );
 

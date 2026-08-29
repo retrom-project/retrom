@@ -339,10 +339,10 @@ pi.created_at_ms,
 pi.updated_at_ms,
 (SELECT count(*) FROM games g WHERE g.platform_instance_id=pi.id)
 ,
-COALESCE((SELECT a.compatibility_config_json
+COALESCE((SELECT a.compatibility_json
  FROM core_artifacts a
  WHERE a.core_id=pi.default_core_id
- AND a.enabled=1
+ AND a.selected_for_new_bindings=1 AND a.available_for_launch=1
  LIMIT 1),'{}')
 FROM platform_instances pi
 JOIN platforms p ON p.id=pi.platform_id

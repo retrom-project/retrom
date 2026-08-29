@@ -40,7 +40,7 @@ func TestRetryAndCancelKeepImportItemAggregatesInSync(t *testing.T) {
 	}
 	var artifactID string
 	if err := database.SQL.QueryRowContext(context.Background(), `
-SELECT id FROM core_artifacts WHERE core_id='mgba' AND enabled=1
+SELECT id FROM core_artifacts WHERE core_id='mgba' AND selected_for_new_bindings=1
 `).Scan(&artifactID); err != nil {
 		t.Fatal(err)
 	}

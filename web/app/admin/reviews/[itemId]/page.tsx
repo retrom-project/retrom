@@ -8,6 +8,7 @@ import { formatBytes, type ListResponse } from "@/lib/backend";
 import { BackendResponseError, backendJSON } from "@/lib/server-backend";
 import { statusTone } from "@/lib/status";
 import { loadActiveTags } from "@/features/tags/tag-library";
+import { boundedReviewSourcePreview, reviewWorkspaceWithoutSourceEvidence } from "@/features/reviews/review-source-preview";
 import { redirect } from "next/navigation";
 
 type DependencySnapshot = ReviewDependencySnapshot & {
@@ -31,8 +32,21 @@ type Review = ReviewWorkspace & {
 const roleLabels: Record<string, string> = { CONTENT: "游戏文件", DOS_SOURCE: "DOS 游戏文件", COMPANION: "配套文件" };
 
 function GameFiles({ review }: { review: Review }) {
-  if (review.sourceFiles?.length) {return <div className="review-source-packages">{review.sourceFiles.map((file) => <details className="review-source-package" open={file.archive} key={file.uploadFileId}><summary><span>{file.archive ? `${file.archiveFormat === "SEVEN_Z" ? "7z" : "ZIP"} 来源包` : "游戏文件"}</span><strong title={file.name}>{file.name}</strong><small title={`${formatBytes(file.sizeBytes)} / SHA-256 ${file.sha256}`}>{formatBytes(file.sizeBytes)} / {file.sha256.slice(0, 12)}…</small></summary>{file.archive ? <div className="review-archive-entries" aria-label={`${file.name} 文件列表`}><p>运行时使用下列唯一匹配成员物化后的原始内容，来源包仅保留为证据。</p>{file.archiveEntries.length ? file.archiveEntries.map((entry, index) => <div key={`${entry.name}-${index}`}><strong title={entry.name}>{entry.name}</strong><span>{formatBytes(entry.sizeBytes)}</span><code title={`CRC32 ${entry.crc32}`}>{entry.crc32}</code></div>) : <p>压缩包内没有可展示的文件记录。</p>}</div> : null}</details>)}</div>;}
-  return <div className="review-file-list">{review.sourceManifest.files.map((file, index) => <div key={`${file.role}-${file.logicalName}-${index}`}><span>{roleLabels[file.role] ?? "文件"}</span><strong title={file.logicalName}>{file.logicalName}</strong><small>{file.sizeBytes === undefined ? "大小未知" : formatBytes(file.sizeBytes)}</small></div>)}</div>;
+  if (review.sourceFiles?.length) {
+    const files = boundedReviewSourcePreview(review.sourceFiles);
+    return <div className="review-source-packages">{files.visible.map((file) => <SourcePackage file={file} key={file.uploadFileId} />)}<PreviewNotice hidden={files.hidden} total={files.total} /></div>;
+  }
+  const files = boundedReviewSourcePreview(review.sourceManifest.files);
+  return <div className="review-file-list">{files.visible.map((file, index) => <div key={`${file.role}-${file.logicalName}-${index}`}><span>{roleLabels[file.role] ?? "文件"}</span><strong title={file.logicalName}>{file.logicalName}</strong><small>{file.sizeBytes === undefined ? "大小未知" : formatBytes(file.sizeBytes)}</small></div>)}<PreviewNotice hidden={files.hidden} total={files.total} /></div>;
+}
+
+function SourcePackage({ file }: { file: Review["sourceFiles"][number] }) {
+  const entries = boundedReviewSourcePreview(file.archiveEntries);
+  return <details className="review-source-package" open={file.archive}><summary><span>{file.archive ? `${file.archiveFormat === "SEVEN_Z" ? "7z" : "ZIP"} 来源包` : "游戏文件"}</span><strong title={file.name}>{file.name}</strong><small title={`${formatBytes(file.sizeBytes)} / SHA-256 ${file.sha256}`}>{formatBytes(file.sizeBytes)} / {file.sha256.slice(0, 12)}…</small></summary>{file.archive ? <div className="review-archive-entries" aria-label={`${file.name} 文件列表`}><p>运行时使用全部成员物化后的原始内容；这里仅展示有界审计预览，来源包保留为证据。</p>{entries.visible.length ? entries.visible.map((entry, index) => <div key={`${entry.name}-${index}`}><strong title={entry.name}>{entry.name}</strong><span>{formatBytes(entry.sizeBytes)}</span><code title={`CRC32 ${entry.crc32}`}>{entry.crc32}</code></div>) : <p>压缩包内没有可展示的文件记录。</p>}<PreviewNotice hidden={entries.hidden} total={entries.total} /></div> : null}</details>;
+}
+
+function PreviewNotice({ hidden, total }: { hidden: number; total: number }) {
+  return hidden > 0 ? <p className="muted">仅展示前 {total - hidden} 项，共 {total} 项；完整清单仍参与内容摘要和发布。</p> : null;
 }
 
 function safeReturnTo(raw: string | undefined) {
@@ -134,9 +148,10 @@ function ReviewDetail({ activeTags, nextItemId, returnTo, review }: {
   review: Review;
 }) {
   const summary = summarizeReview(review);
+  const clientReview = reviewWorkspaceWithoutSourceEvidence(review);
   return <div className="import-workflow-page review-detail-prototype"><FlashToast />
     <PageHeader eyebrow="待审核 / 条目" title="审核条目" description="先判断能不能发布，再确认发布成什么。技术证据按需展开，不挤占主决策。" actions={<ButtonLink href={returnTo} secondary>← 返回待审核列表</ButtonLink>} />
-    <ReviewActions review={review} activeTags={activeTags} returnTo={returnTo} nextItemId={nextItemId} sourceDisplayName={summary.sourceDisplayName} platformInstanceName={review.platformInstance.name}>
+    <ReviewActions review={clientReview} activeTags={activeTags} returnTo={returnTo} nextItemId={nextItemId} sourceDisplayName={summary.sourceDisplayName} platformInstanceName={review.platformInstance.name}>
       <ReviewCapability review={review} summary={summary} />
       <section className="panel review-workflow-files"><div className="panel-head"><div><h2>来源文件</h2><p>用于核对这条游戏来自哪份内容。</p></div></div><div className="panel-body"><GameFiles review={review} /></div></section>
     </ReviewActions>

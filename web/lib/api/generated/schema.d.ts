@@ -1121,6 +1121,59 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/runtime-asset-packs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Lists immutable RPG Maker runtime-pack definitions and their installations without exposing host paths or Blob identifiers. */
+        get: operations["getAdminRuntimeAssetPacks"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/runtime-asset-packs/installations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Consumes one completed RUNTIME_ASSET_PACK upload and schedules bounded validation of one immutable installation. */
+        post: operations["postAdminRuntimeAssetPackInstallation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/runtime-asset-packs/installations/{installationId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                installationId: components["parameters"]["RuntimeAssetPackInstallationID"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** @description Deletes only an installation with zero variant and checkpoint references; referenced immutable installations cannot be removed. */
+        delete: operations["deleteAdminRuntimeAssetPackInstallation"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/reviews": {
         parameters: {
             query?: never;
@@ -1260,6 +1313,85 @@ export interface paths {
         options?: never;
         head?: never;
         patch: operations["patchAdminReview"];
+        trace?: never;
+    };
+    "/api/v1/admin/reviews/{importItemId}/runtime-validations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                importItemId: components["parameters"]["ImportItemID"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Freezes the current RPG Maker source, selected version core, route, artifact and runtime-pack binding into a fifteen-minute validation Launch. */
+        post: operations["postAdminReviewRuntimeValidation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/reviews/{importItemId}/runtime-validations/{validationId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                importItemId: components["parameters"]["ImportItemID"];
+                validationId: components["parameters"]["RpgRuntimeValidationID"];
+            };
+            cookie?: never;
+        };
+        /** @description Returns frozen route evidence, ordered machine gates, the cross-Launch checkpoint round trip and the immutable reviewer decision without returning credentials. */
+        get: operations["getAdminReviewRuntimeValidation"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/reviews/{importItemId}/runtime-validations/{validationId}/restore-launch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                importItemId: components["parameters"]["ImportItemID"];
+                validationId: components["parameters"]["RpgRuntimeValidationID"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Creates exactly one restore Launch after the original validation Launch ended and its temporary checkpoint was fully persisted; idempotent replay returns that same distinct Launch. */
+        post: operations["postAdminReviewRuntimeValidationRestoreLaunch"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/reviews/{importItemId}/runtime-validations/{validationId}/decision": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                importItemId: components["parameters"]["ImportItemID"];
+                validationId: components["parameters"]["RpgRuntimeValidationID"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Records PASS only after every required machine gate proves a new-Launch restore at the saved in-game position; any binding drift or failed gate is non-overridable. */
+        post: operations["postAdminReviewRuntimeValidationDecision"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/v1/admin/reviews/{importItemId}/scrape-candidates": {
@@ -2430,6 +2562,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/runtime/retrom-runtime/{runtimeVersion}/{runtimePath}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                runtimeVersion: string;
+                runtimePath: string;
+            };
+            cookie?: never;
+        };
+        /** @description Serves only a declared retrom-runtime Release asset from the dependency manifest allowlist. */
+        get: operations["getRetromRuntimeArtifact"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head: operations["headRetromRuntimeArtifact"];
+        patch?: never;
+        trace?: never;
+    };
+    "/runtime/projects/{launchId}/{projectPath}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                launchId: components["parameters"]["LaunchID"];
+                projectPath: string;
+            };
+            cookie?: never;
+        };
+        /** @description Serves one exact file from the immutable directory-runtime project fileset locked by the authorized Launch; index.json is a reserved virtual index. */
+        get: operations["getRuntimeProjectFile"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head: operations["headRuntimeProjectFile"];
+        patch?: never;
+        trace?: never;
+    };
     "/runtime/launches/{launchId}/config": {
         parameters: {
             query?: never;
@@ -2532,8 +2704,46 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description The metadata part is strict JSON `{name,discIndex}`. discIndex is required and in range for a multi-disc launch, and must be null or omitted for single-file/DOS launches. */
+        /** @description Creates either a product SaveState or the single temporary checkpoint of an RPG_RUNTIME_VALIDATION Launch. The metadata part is strict RuntimeCheckpointMetadata JSON; authoritative artifact, user, content revision, adapter ABI and dependency bindings always come from the Launch. Total multipart input is capped at 270 MiB only on this route. */
         post: operations["postRuntimeSaveState"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/runtime/launches/{launchId}/checkpoint-status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                launchId: components["parameters"]["LaunchID"];
+            };
+            cookie?: never;
+        };
+        /** @description Returns the frozen payload kind and the most recent ordered adapter availability projection; immediate Player state remains driven by adapter events. */
+        get: operations["getRuntimeCheckpointStatus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/runtime/launches/{launchId}/rpgmaker-gates/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                launchId: components["parameters"]["LaunchID"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Accepts strictly ordered, event-idempotent gates only from an RPG_RUNTIME_VALIDATION Launch. Positional gates are compared server-side so restore must equal the saved map/coordinates/fixture state and differ from the post-save state. */
+        post: operations["postRuntimeRpgMakerGateEvent"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2625,6 +2835,7 @@ export interface paths {
             };
             cookie?: never;
         };
+        /** @description Streams only the frozen binary checkpoint payload after compatibility validation; success never wraps bytes in JSON. */
         get: operations["getRuntimeState"];
         put?: never;
         post?: never;
@@ -2645,7 +2856,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Stores one bounded PNG captured by a current review preview five seconds after game start, including best-effort previews with missing dependencies. The path-scoped preview capability is required and ordinary published Launch sessions cannot use this route. */
+        /** @description Stores one bounded PNG using the path-scoped capability. The legacy branch accepts a current non-RPG review preview after five seconds, creates a review-runtime screenshot asset, and returns that asset ID and URL. The RPG branch accepts only the current validation's distinct restore Launch after the original Launch ended and RESTORE_POSITION_VERIFIED passed, binds the PNG directly to the validation's immutable restore evidence, and returns the validation ID as screenshotId and review-asset URL. The original validation Launch, ordinary published Launch sessions, expired capabilities, duplicate evidence, and binding drift cannot use this route. */
         post: operations["postRuntimeReviewScreenshot"];
         delete?: never;
         options?: never;
@@ -3037,7 +3248,7 @@ export interface components {
             /** Format: int64 */
             createdAtMs: number;
             discIndex: number | null;
-            screenshotUrl: string;
+            screenshotUrl: string | null;
         };
         ImmersiveDestinationSummary: {
             destinationId: string;
@@ -3253,7 +3464,13 @@ export interface components {
             captureAllowed: boolean;
             captureAfterMs: number;
         };
-        LaunchConfig: {
+        LaunchConfig: components["schemas"]["EmulatorJSLaunchConfig"] | components["schemas"]["RpgMakerLaunchConfig"] | components["schemas"]["OnsLaunchConfig"];
+        EmulatorJSLaunchConfig: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            runtimeFamily: "EMULATORJS";
             /** @enum {string} */
             mode: "single" | "netplay";
             /** Format: uuid */
@@ -3296,6 +3513,508 @@ export interface components {
             returnTo: string;
             reviewPreview?: components["schemas"]["ReviewPreviewConfig"];
             netplay: components["schemas"]["NetplayLaunchConfig"] | null;
+        };
+        /** @enum {string} */
+        RpgGeneration: "RPG2000" | "RPG2003" | "RPGXP" | "RPGVX" | "RPGVXACE" | "RPGMV" | "RPGMZ";
+        /** @enum {string} */
+        RpgCoreID: "rpgmaker_2000" | "rpgmaker_2003" | "rpgmaker_xp" | "rpgmaker_vx" | "rpgmaker_vx_ace" | "rpgmaker_mv" | "rpgmaker_mz";
+        /** @enum {string} */
+        CheckpointPayloadKind: "RUNTIME_STATE" | "NATIVE_SAVE_BUNDLE_V1" | "ONS_SAVE_BUNDLE_V1";
+        /** @enum {string} */
+        NativeCheckpointProfile: "EASYRPG_V1" | "RPGMV_V1" | "RPGMZ_V1";
+        /** @enum {string} */
+        CheckpointUnavailableReason: "NOT_ON_MAP" | "SAVE_DISABLED" | "MESSAGE_ACTIVE" | "EVENT_ACTIVE" | "BUSY" | "RUNTIME_NOT_READY" | "RUNTIME_FAILED" | "CHECKPOINT_ALREADY_CREATED" | "NETPLAY_UNSUPPORTED";
+        /** @description reason is null exactly when available is true and is required to be a stable enum when available is false. */
+        CheckpointAvailability: {
+            available: boolean;
+            reason: components["schemas"]["CheckpointUnavailableReason"] | null;
+        };
+        RpgCheckpointRestore: {
+            payloadKind: components["schemas"]["CheckpointPayloadKind"];
+            payloadUrl: string;
+        };
+        EasyRpgRtpArchive: {
+            url: string;
+            sha256: string;
+            /** @enum {string} */
+            mountPath: "/data/rtp/2000" | "/data/rtp/2003";
+        };
+        EasyRpgAdapterConfig: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            adapterKind: "EASYRPG_WEB";
+            /** @enum {string} */
+            adapterId: "easyrpg-web";
+            /** @enum {string} */
+            engineMode: "rpg2k" | "rpg2k3";
+            runtimeBaseUrl: string;
+            projectRootUrl: string;
+            projectIndexUrl: string;
+            rtpArchive: components["schemas"]["EasyRpgRtpArchive"] | null;
+            /** @enum {integer} */
+            checkpointSlot: 100;
+        };
+        MkxpCoreArtifact: {
+            jsUrl: string;
+            /** Format: int64 */
+            jsSizeBytes: number;
+            jsSha256: string;
+            wasmUrl: string;
+            /** Format: int64 */
+            wasmSizeBytes: number;
+            wasmSha256: string;
+            artifactSetSha256: string;
+        };
+        RpgRuntimeArchive: {
+            url: string;
+            sha256: string;
+            /** Format: int64 */
+            sizeBytes: number;
+        };
+        MkxpRtpArchive: {
+            declaredName: string;
+            url: string;
+            sha256: string;
+            /** Format: int64 */
+            sizeBytes: number;
+        };
+        MkxpAdapterConfig: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            adapterKind: "MKXP_LIBRETRO_WEB";
+            /** @enum {string} */
+            adapterId: "mkxp-libretro-web";
+            core: components["schemas"]["MkxpCoreArtifact"];
+            runtimeBaseUrl: string;
+            projectArchive: components["schemas"]["RpgRuntimeArchive"];
+            rtpArchives: components["schemas"]["MkxpRtpArchive"][];
+            /** @enum {integer} */
+            rgssVersion: 1 | 2 | 3;
+            /** @enum {integer} */
+            stateBufferBytes: 268435456;
+        };
+        NativeWebAdapterConfig: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            adapterKind: "NATIVE_WEB";
+            /** @enum {string} */
+            adapterId: "native-web";
+            /** @enum {string} */
+            bridgeProfile: "RPGMV" | "RPGMZ";
+            /** Format: uri */
+            uniqueOrigin: string;
+            /** Format: uri */
+            bootstrapUrl: string;
+            bootstrapTicket: string;
+        };
+        RpgAdapterConfig: components["schemas"]["EasyRpgAdapterConfig"] | components["schemas"]["MkxpAdapterConfig"] | components["schemas"]["NativeWebAdapterConfig"];
+        RpgMakerLaunchConfig: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            runtimeFamily: "RPGMAKER";
+            /** @enum {integer} */
+            protocolVersion: 1;
+            /** @enum {string} */
+            mode: "single";
+            /** @enum {string} */
+            purpose: "PRODUCT" | "RPG_RUNTIME_VALIDATION";
+            /** Format: uuid */
+            launchId: string;
+            coreId: components["schemas"]["RpgCoreID"];
+            coreName: string;
+            gameTitle: string;
+            /** @enum {string} */
+            platformName: "RPG Maker";
+            returnTo: string;
+            warnings: string[];
+            generation: components["schemas"]["RpgGeneration"];
+            routeKey: string;
+            /** Format: uuid */
+            artifactId: string;
+            checkpoint: components["schemas"]["RpgCheckpointRestore"] | null;
+            checkpointAvailability: components["schemas"]["CheckpointAvailability"];
+            runtimeValidation: components["schemas"]["RpgRuntimeValidationResume"] | null;
+            adapter: components["schemas"]["RpgAdapterConfig"];
+        };
+        OnsAdapterConfig: {
+            /** @enum {string} */
+            adapterKind: "ONS_YURI_WEB";
+            /** @enum {string} */
+            adapterId: "ons-yuri-web";
+            runtimeBaseUrl: string;
+            projectIndexUrl: string;
+            /** @enum {string} */
+            scriptEncoding: "gbk" | "sjis" | "utf8";
+            /** @enum {integer} */
+            checkpointSlot: 999;
+        };
+        OnsCheckpointRestore: {
+            /** @enum {string} */
+            payloadKind: "ONS_SAVE_BUNDLE_V1";
+            payloadUrl: string;
+        };
+        OnsLaunchConfig: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            runtimeFamily: "ONS";
+            /** @enum {integer} */
+            protocolVersion: 1;
+            /** @enum {string} */
+            mode: "single";
+            /** @enum {string} */
+            purpose: "PRODUCT" | "REVIEW_PREVIEW";
+            /** Format: uuid */
+            launchId: string;
+            /** Format: uuid */
+            sessionId: string;
+            /** @enum {string} */
+            coreId: "onscripter_yuri";
+            coreName: string;
+            gameTitle: string;
+            /** @enum {string} */
+            platformName: "ONScripter";
+            runtimeVersion: string;
+            /** Format: uuid */
+            artifactId: string;
+            returnTo: string;
+            warnings: string[];
+            adapter: components["schemas"]["OnsAdapterConfig"];
+            checkpoint: components["schemas"]["OnsCheckpointRestore"] | null;
+            reviewPreview?: components["schemas"]["ReviewPreviewConfig"];
+        };
+        /** @enum {string} */
+        RuntimeAssetPackKind: "RPG2000_RTP" | "RPG2003_RTP" | "RGSS1_RTP_STANDARD" | "RGSS2_RTP_RPGVX" | "RGSS3_RTP_RPGVXAce" | "RGSS_CUSTOM_RTP";
+        CoreArtifactAdminItem: {
+            /** Format: uuid */
+            id: string;
+            coreId: string;
+            coreName: string;
+            routeKey: string;
+            runtimeFamily: string;
+            runtimeAdapterKind: string;
+            runtimeVersion: string;
+            adapterId: string;
+            selectedForNewBindings: boolean;
+            availableForLaunch: boolean;
+            /** Format: int64 */
+            version: number;
+            /** Format: int64 */
+            sizeBytes: number;
+        };
+        CoreArtifactList: {
+            items: components["schemas"]["CoreArtifactAdminItem"][];
+            nextCursor: string | null;
+        };
+        RuntimeAssetPackDefinition: {
+            definitionId: string;
+            kind: components["schemas"]["RuntimeAssetPackKind"];
+            generation: components["schemas"]["RpgGeneration"];
+            declaredName: string;
+            /** @description Server-computed Unicode NFKC full case-fold key used for exact runtime-pack matching. */
+            normalizedDeclaredName: string;
+            displayName: string;
+            requiredLayoutVersion: string;
+            /** @enum {string} */
+            origin: "BUILTIN" | "CUSTOM";
+            enabled: boolean;
+        };
+        RuntimeAssetPackReferenceCounts: {
+            /** Format: int64 */
+            variantRevisionCount: number;
+            /** Format: int64 */
+            checkpointCount: number;
+        };
+        RuntimeAssetPackDiagnostic: {
+            code: string;
+            /** @enum {string} */
+            level: "INFO" | "WARNING" | "ERROR";
+            message: string;
+        };
+        RuntimeAssetPackInstallation: {
+            /** Format: uuid */
+            installationId: string;
+            definitionId: string;
+            filesDigest: string;
+            fileCount: number;
+            /** Format: int64 */
+            totalBytes: number;
+            bundleSha256: string | null;
+            /** @enum {string} */
+            status: "VALIDATING" | "READY" | "FAILED" | "DELETE_PENDING" | "DELETED";
+            diagnostics: components["schemas"]["RuntimeAssetPackDiagnostic"][];
+            sourceNote: string | null;
+            references: components["schemas"]["RuntimeAssetPackReferenceCounts"];
+            /** Format: int64 */
+            version: number;
+            /** Format: int64 */
+            createdAtMs: number;
+            /** Format: int64 */
+            validatedAtMs: number | null;
+            /** Format: int64 */
+            deletedAtMs: number | null;
+        };
+        RuntimeAssetPackList: {
+            definitions: components["schemas"]["RuntimeAssetPackDefinition"][];
+            installations: components["schemas"]["RuntimeAssetPackInstallation"][];
+        };
+        /** @description generation and declaredName are both required exactly for RGSS_CUSTOM_RTP and must both be omitted for built-in kinds; sourceNote is optional and may be empty. */
+        InstallRuntimeAssetPackRequest: {
+            /** Format: uuid */
+            uploadId: string;
+            kind: components["schemas"]["RuntimeAssetPackKind"];
+            generation?: components["schemas"]["RpgGeneration"];
+            declaredName?: string;
+            /** @description The server also enforces NFC, at most 2,000 UTF-8 bytes, Unicode-whitespace trim and the validation-note control-character denylist; an empty value is allowed. */
+            sourceNote?: string;
+        };
+        RuntimeAssetPackInstallAccepted: {
+            /** Format: uuid */
+            installationId: string;
+            /** Format: uuid */
+            jobId: string;
+            /** @enum {string} */
+            status: "VALIDATING";
+        };
+        RpgRuntimePackSelectionRequest: {
+            /** @enum {integer} */
+            slot: 0 | 1 | 2 | 3;
+            /** Format: uuid */
+            installationId: string;
+        };
+        /** @enum {string} */
+        RpgRuntimeValidationState: "CREATED" | "STARTING" | "RUNNING" | "CHECKPOINTED" | "RESTORED" | "AWAITING_DECISION" | "PASSED" | "FAILED" | "EXPIRED";
+        /** @enum {string} */
+        RpgRuntimeGate: "RUNTIME_READY" | "ENGINE_PROFILE" | "FRAMES_300" | "INPUT" | "AUDIO" | "INITIAL_POSITION_RECORDED" | "SAVE_POINT_RECORDED" | "CHECKPOINT_CREATED" | "POST_SAVE_STATE_DIVERGED" | "ORIGINAL_LAUNCH_ENDED" | "RESTORE_STARTED" | "RESTORE_POSITION_VERIFIED" | "RESTORE_SCREENSHOT" | "RESTORE_INPUT";
+        /** @enum {string} */
+        RpgRuntimeGatePhase: "BEGIN" | "PASS" | "FAIL";
+        EmptyGateEvidence: Record<string, never>;
+        RpgPositionEvidence: {
+            /** Format: int64 */
+            mapId: number;
+            /** Format: int64 */
+            playerX: number;
+            /** Format: int64 */
+            playerY: number;
+            /** Format: int64 */
+            fixtureState: number;
+        };
+        RpgEngineProfileEvidence: {
+            generation: components["schemas"]["RpgGeneration"];
+            /** @enum {string} */
+            adapterId: "easyrpg-web" | "mkxp-libretro-web" | "native-web";
+            /** @enum {string} */
+            engineProfile: "rpg2k" | "rpg2k3" | "rgss1" | "rgss2" | "rgss3" | "RPGMV" | "RPGMZ";
+        };
+        RpgFrameEvidence: {
+            continuousFrames: number;
+        };
+        RpgBooleanGateEvidence: {
+            /** @enum {boolean} */
+            observed: true;
+        };
+        RpgCheckpointGateEvidence: {
+            payloadKind: components["schemas"]["CheckpointPayloadKind"];
+            /** Format: int64 */
+            sizeBytes: number;
+            sha256: string;
+        };
+        /** @description BEGIN and screenshot association use the empty object. The registry requires position evidence for INITIAL_POSITION_RECORDED, SAVE_POINT_RECORDED, POST_SAVE_STATE_DIVERGED, RESTORE_POSITION_VERIFIED and RESTORE_INPUT and compares those values server-side; other PASS/FAIL evidence is gate-specific. Blob IDs are never accepted. */
+        RpgRuntimeGateEvidence: components["schemas"]["EmptyGateEvidence"] | components["schemas"]["RpgPositionEvidence"] | components["schemas"]["RpgEngineProfileEvidence"] | components["schemas"]["RpgFrameEvidence"] | components["schemas"]["RpgBooleanGateEvidence"] | components["schemas"]["RpgCheckpointGateEvidence"];
+        RpgMakerGateEventRequest: {
+            /** Format: int64 */
+            sequence: number;
+            /** Format: uuid */
+            eventId: string;
+            gate: components["schemas"]["RpgRuntimeGate"];
+            phase: components["schemas"]["RpgRuntimeGatePhase"];
+            /** Format: int64 */
+            observedAtMs: number;
+            evidence: components["schemas"]["RpgRuntimeGateEvidence"];
+        };
+        RpgMakerGateEventAccepted: {
+            /** Format: int64 */
+            sequence: number;
+            /** Format: uuid */
+            eventId: string;
+            validationState: components["schemas"]["RpgRuntimeValidationState"];
+            idempotentReplay: boolean;
+        };
+        RpgRuntimeMachineGate: {
+            gate: components["schemas"]["RpgRuntimeGate"];
+            /** @enum {string} */
+            status: "NOT_STARTED" | "IN_PROGRESS" | "PASSED" | "FAILED";
+            /** Format: int64 */
+            begunAtMs: number | null;
+            /** Format: int64 */
+            completedAtMs: number | null;
+            evidence: components["schemas"]["RpgRuntimeGateEvidence"] | null;
+            failureCode: components["schemas"]["RpgErrorCode"] | null;
+        };
+        RpgRuntimeValidationResume: {
+            /** Format: uuid */
+            validationId: string;
+            state: components["schemas"]["RpgRuntimeValidationState"];
+            /** Format: uuid */
+            originalLaunchId: string;
+            /** Format: uuid */
+            restoreLaunchId: string | null;
+            /** Format: int64 */
+            lastGateSequence: number;
+            /** @description Ordered server-authoritative gate state used to resume a runtime-authorized page reload. */
+            machineGates: components["schemas"]["RpgRuntimeMachineGate"][];
+            checkpointEvidence: components["schemas"]["RpgCheckpointGateEvidence"] | null;
+            restoreScreenshotUploaded: boolean;
+        };
+        RpgRuntimeRouteEvidence: {
+            /** Format: uuid */
+            effectiveSourceSnapshotId: string;
+            coreId: components["schemas"]["RpgCoreID"];
+            generation: components["schemas"]["RpgGeneration"];
+            evidenceGeneration: components["schemas"]["RpgGeneration"] | null;
+            /** @enum {string} */
+            evidenceConfidence: "MATCHED" | "FAMILY_ONLY";
+            routeKey: string;
+            /** Format: uuid */
+            artifactId: string;
+            artifactSetSha256: string;
+            /** @enum {string} */
+            adapterId: "easyrpg-web" | "mkxp-libretro-web" | "native-web";
+            adapterAbi: string;
+            dependencySnapshotSha256: string;
+            projectFingerprint: string;
+        };
+        /** @description positionVerified is true only when restoreLaunchId differs from originalLaunchId, restoredPosition equals savedPosition field-for-field, and savedPosition differs from initialPosition and divergedPosition. restoreInputVerified additionally requires post-screenshot input to produce a position different from restoredPosition; screenshotUrl must represent the restored saved marker. */
+        RpgCheckpointRoundTrip: {
+            created: boolean;
+            payloadKind: components["schemas"]["CheckpointPayloadKind"] | null;
+            /** Format: int64 */
+            resumeSlot: number | null;
+            /** Format: int64 */
+            sizeBytes: number | null;
+            sha256: string | null;
+            /** Format: uuid */
+            originalLaunchId: string | null;
+            initialPosition: components["schemas"]["RpgPositionEvidence"] | null;
+            savedPosition: components["schemas"]["RpgPositionEvidence"] | null;
+            divergedPosition: components["schemas"]["RpgPositionEvidence"] | null;
+            originalLaunchEnded: boolean;
+            /** Format: uuid */
+            restoreLaunchId: string | null;
+            restoreStarted: boolean;
+            restoredPosition: components["schemas"]["RpgPositionEvidence"] | null;
+            positionVerified: boolean;
+            screenshotUrl: string | null;
+            restoreInputPosition: components["schemas"]["RpgPositionEvidence"] | null;
+            restoreInputVerified: boolean;
+        };
+        RpgRuntimeReviewerDecision: {
+            /** @enum {string} */
+            decision: "PASS" | "FAIL";
+            note: string;
+            /** Format: int64 */
+            decidedAtMs: number;
+        } | null;
+        RpgRuntimeValidation: {
+            /** Format: uuid */
+            validationId: string;
+            /** Format: uuid */
+            importItemId: string;
+            /** Format: int64 */
+            reviewVersionAtCreate: number;
+            /** Format: int64 */
+            runtimeBindingRevision: number;
+            /**
+             * Format: uuid
+             * @description Null only when validation reached FAILED before its initial Launch was issued.
+             */
+            launchId: string | null;
+            /** Format: uuid */
+            restoreLaunchId: string | null;
+            state: components["schemas"]["RpgRuntimeValidationState"];
+            /** Format: int64 */
+            lastGateSequence: number;
+            routeEvidence: components["schemas"]["RpgRuntimeRouteEvidence"];
+            /** @description Exactly one entry for every RpgRuntimeGate in enum order. */
+            machineGates: components["schemas"]["RpgRuntimeMachineGate"][];
+            checkpointRoundTrip: components["schemas"]["RpgCheckpointRoundTrip"];
+            failureCode: components["schemas"]["RpgErrorCode"] | null;
+            decision: components["schemas"]["RpgRuntimeReviewerDecision"];
+            /** Format: int64 */
+            createdAtMs: number;
+            /** Format: int64 */
+            updatedAtMs: number;
+            /** Format: int64 */
+            expiresAtMs: number;
+        };
+        RpgRuntimeValidationLaunch: {
+            /** Format: uuid */
+            validationId: string;
+            /** Format: uuid */
+            launchId: string;
+            playerUrl: string;
+            /** Format: int64 */
+            expiresAtMs: number;
+        };
+        RpgRuntimeValidationDecisionRequest: {
+            /** @enum {string} */
+            decision: "PASS" | "FAIL";
+            /** @description FAIL requires a non-empty normalized value. Both decisions enforce LF normalization, NFC, Unicode-whitespace trim, at most 500 Unicode scalars and 2,000 UTF-8 bytes, and reject the documented control-character set. */
+            note: string;
+        };
+        /** @description PRODUCT requires name after trim to contain 1..120 Unicode code points; RPG_RUNTIME_VALIDATION omits name. discIndex is required and in range only for a multi-disc PRODUCT Launch and otherwise omitted or null. nativeProfile and resumeSlot are never client authority; the server derives and validates them from the frozen artifact and payload. */
+        RuntimeCheckpointMetadata: {
+            name?: string;
+            discIndex?: number | null;
+            payloadKind: components["schemas"]["CheckpointPayloadKind"];
+        };
+        ProductSaveStateCreated: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            resourceKind: "SAVE_STATE";
+            /** Format: uuid */
+            saveStateId: string;
+            payloadKind: components["schemas"]["CheckpointPayloadKind"];
+            nativeProfile: components["schemas"]["NativeCheckpointProfile"] | null;
+            /** Format: int64 */
+            resumeSlot: number | null;
+            screenshotUrl: string | null;
+            /** Format: int64 */
+            createdAtMs: number;
+        };
+        ValidationCheckpointCreated: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            resourceKind: "RPG_RUNTIME_VALIDATION_CHECKPOINT";
+            /** Format: uuid */
+            validationId: string;
+            payloadKind: components["schemas"]["CheckpointPayloadKind"];
+            nativeProfile: components["schemas"]["NativeCheckpointProfile"] | null;
+            /** Format: int64 */
+            resumeSlot: number | null;
+            /** Format: int64 */
+            sizeBytes: number;
+            sha256: string;
+            /** Format: int64 */
+            createdAtMs: number;
+        };
+        RuntimeCheckpointCreated: components["schemas"]["ProductSaveStateCreated"] | components["schemas"]["ValidationCheckpointCreated"];
+        CheckpointStatus: {
+            payloadKind: components["schemas"]["CheckpointPayloadKind"];
+            availability: components["schemas"]["CheckpointAvailability"];
         };
         NetplayLaunchConfig: {
             /** Format: uuid */
@@ -3342,6 +4061,12 @@ export interface components {
             maxStateBytes: 1048576;
         };
         CreateUploadRequest: {
+            /**
+             * @description GENERAL preserves ordinary uploads; project and runtime-pack purposes are consumed only by their matching operation.
+             * @default GENERAL
+             * @enum {string}
+             */
+            purpose: "GENERAL" | "RPG_MAKER_PROJECT" | "ONS_PROJECT" | "RUNTIME_ASSET_PACK";
             /** @enum {string} */
             sourceType: "FILES" | "DIRECTORY";
             files: {
@@ -3356,14 +4081,17 @@ export interface components {
             uploadId: string;
             /** Format: uuid */
             targetPlatformInstanceId: string;
-            /** @enum {string} */
+            /**
+             * @description RPG_MAKER_PROJECT_V1 and ONS_PROJECT_V1 requests are normalized to NONE because projects have no single-ROM hash identity.
+             * @enum {string}
+             */
             metadataProvider: "HASHEOUS" | "NONE";
             tagIds: string[];
             /**
              * @description Omitted requests use STANDARD.
              * @enum {string}
              */
-            contentMode?: "STANDARD" | "MULTI_DISC_M3U_V1";
+            contentMode?: "STANDARD" | "MULTI_DISC_M3U_V1" | "RPG_MAKER_PROJECT_V1" | "ONS_PROJECT_V1";
         };
         ReconfigureImportRequest: {
             /** Format: uuid */
@@ -3480,6 +4208,10 @@ export interface components {
             selectedCandidateId?: string | null;
             selectedAssets?: components["schemas"]["ReviewSelectedAssetsRequest"];
             defaultDosEntry?: string | null;
+            /** @description Required as a complete replacement for RPG Maker reviews and forbidden for other reviews; slot and installationId must each be unique. */
+            runtimePackSelections?: components["schemas"]["RpgRuntimePackSelectionRequest"][];
+            /** @description Required for RPG Maker reviews; legal only for RPG2000/RPG2003 and false explicitly clears the override. */
+            rpgSelfContainedOverride?: boolean;
             tagIds: string[];
         };
         MetadataProviderRequest: {
@@ -3519,6 +4251,9 @@ export interface components {
         ReviewPreviewRequest: {
             clientCapabilities: components["schemas"]["ClientCapabilities"];
         };
+        RpgRuntimeValidationLaunchRequest: {
+            clientCapabilities: components["schemas"]["ClientCapabilities"];
+        };
         UploadReferenceRequest: {
             /** Format: uuid */
             uploadId: string;
@@ -3526,7 +4261,7 @@ export interface components {
              * @default STANDARD
              * @enum {string}
              */
-            contentMode: "STANDARD" | "MULTI_DISC_M3U_V1";
+            contentMode: "STANDARD" | "MULTI_DISC_M3U_V1" | "RPG_MAKER_PROJECT_V1" | "ONS_PROJECT_V1";
         };
         ApplyCandidateRequest: {
             fields: ("title" | "description" | "developer" | "publisher" | "genre" | "players" | "releaseYear")[];
@@ -4550,6 +5285,7 @@ export interface components {
             change?: unknown;
             chunkSizeBytes?: unknown;
             class?: unknown;
+            /** @description For RPG Maker */
             canApprove?: unknown;
             canAttachMissingDiscs?: unknown;
             canRetry?: unknown;
@@ -4895,6 +5631,20 @@ export interface components {
             widthPx?: unknown;
             year?: unknown;
         };
+        /** @enum {string} */
+        RpgErrorCode: "RPG_CORE_UNSUPPORTED" | "RPG_PROJECT_NOT_FOUND" | "RPG_PROJECT_ROOT_AMBIGUOUS" | "RPG_GENERATION_AMBIGUOUS" | "RPG_GENERATION_UNSUPPORTED" | "RPG_SELECTED_CORE_MISMATCH" | "RPG_SERVER_IMPORT_UNSUPPORTED" | "RPG_LCF_INVALID" | "RPG_LCF_GENERATION_UNKNOWN" | "RPG_LMT_INVALID" | "RPG_INI_INVALID" | "RPG_INI_ENCODING_UNSUPPORTED" | "RPG_RGSS_GENERATION_CONFLICT" | "RPG_WEB_FORMAT_INVALID" | "RPG_RGSS_CONTENT_TOO_LARGE" | "RPG_PATH_COLLISION" | "RPG_NATIVE_DEPENDENCY_UNSUPPORTED" | "RPG_RUNTIME_PACK_MISSING" | "RPG_RUNTIME_PACK_AMBIGUOUS" | "RPG_RUNTIME_PACK_IN_USE" | "RPG_RUNTIME_PACK_INVALID" | "RPG_RUNTIME_PACK_CONFLICT" | "RPG_RUNTIME_PACK_NOT_FOUND" | "RPG_RUNTIME_PACK_TOO_LARGE" | "RPG_RUNTIME_PACK_UNAVAILABLE" | "RPG_RUNTIME_PACK_VERSION_CONFLICT" | "RPG_RUNTIME_ROUTE_UNAVAILABLE" | "RPG_RUNTIME_THREADS_UNAVAILABLE" | "RPG_RUNTIME_OPFS_UNAVAILABLE" | "RPG_NATIVE_BRIDGE_UNSUPPORTED" | "RPG_RUNTIME_VALIDATION_REQUIRED" | "RPG_RUNTIME_VALIDATION_NOT_FOUND" | "RPG_RUNTIME_VALIDATION_VERSION_CONFLICT" | "RPG_RUNTIME_VALIDATION_DECISION_INVALID" | "RPG_RUNTIME_INVALID_STATE" | "RPG_RUNTIME_PROTOCOL_VIOLATION" | "RPG_RUNTIME_TIMEOUT" | "RPG_RUNTIME_CONTENT_MISMATCH" | "RPG_CHECKPOINT_UNAVAILABLE" | "RPG_CHECKPOINT_INVALID" | "RPG_CHECKPOINT_INCOMPATIBLE" | "RPG_CHECKPOINT_RESTORE_FAILED" | "RPG_RUNTIME_BOOTSTRAP_EXPIRED" | "RPG_RUNTIME_SCREENSHOT_INVALID";
+        RpgError: {
+            code: components["schemas"]["RpgErrorCode"];
+            message: string;
+            details: {
+                [key: string]: unknown;
+            };
+            /** Format: uuid */
+            requestId: string;
+        };
+        RpgErrorEnvelope: {
+            error: components["schemas"]["RpgError"];
+        };
         ErrorEnvelope: {
             error: {
                 code: string;
@@ -4908,6 +5658,191 @@ export interface components {
         };
     };
     responses: {
+        /** @description Malformed request or invalid idempotency key (400) */
+        BadRequestResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ErrorEnvelope"];
+            };
+        };
+        /** @description A current If-Match resource version is required (428) */
+        PreconditionRequiredResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ErrorEnvelope"];
+            };
+        };
+        /** @description RPG Maker runtime-pack definitions and installations */
+        RuntimeAssetPackListResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["RuntimeAssetPackList"];
+            };
+        };
+        /** @description Administrative immutable runtime artifact catalog */
+        CoreArtifactListResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["CoreArtifactList"];
+            };
+        };
+        /** @description Runtime-pack installation validation accepted */
+        RuntimeAssetPackInstallResponse: {
+            headers: {
+                Location?: string;
+                ETag?: string;
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["RuntimeAssetPackInstallAccepted"];
+            };
+        };
+        /** @description Frozen RPG Maker validation or restore Launch */
+        RpgRuntimeValidationLaunchResponse: {
+            headers: {
+                Location?: string;
+                ETag?: string;
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["RpgRuntimeValidationLaunch"];
+            };
+        };
+        /** @description RPG Maker runtime validation evidence and decision */
+        RpgRuntimeValidationResponse: {
+            headers: {
+                ETag?: string;
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["RpgRuntimeValidation"];
+            };
+        };
+        /** @description Product save-state or temporary RPG runtime-validation checkpoint */
+        RuntimeCheckpointCreateResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["RuntimeCheckpointCreated"];
+            };
+        };
+        /** @description Current route payload kind and ordered checkpoint availability */
+        CheckpointStatusResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["CheckpointStatus"];
+            };
+        };
+        /** @description Ordered validation gate accepted or replayed idempotently */
+        RpgMakerGateEventResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["RpgMakerGateEventAccepted"];
+            };
+        };
+        /** @description RPG_PROJECT_NOT_FOUND, INVALID_REQUEST, or INVALID_IDEMPOTENCY_KEY (400) */
+        RpgBadRequestResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["RpgErrorEnvelope"];
+            };
+        };
+        /** @description RPG_RUNTIME_TIMEOUT (408) */
+        RpgTimeoutResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["RpgErrorEnvelope"];
+            };
+        };
+        /** @description RPG_RUNTIME_BOOTSTRAP_EXPIRED (410) */
+        RpgGoneResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["RpgErrorEnvelope"];
+            };
+        };
+        /** @description RPG runtime validation or runtime-pack installation was not found (404) */
+        RpgNotFoundResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["RpgErrorEnvelope"];
+            };
+        };
+        /** @description RPG_PROJECT_ROOT_AMBIGUOUS, RPG_GENERATION_AMBIGUOUS, runtime-pack/route/capability/state/protocol/content conflicts, or checkpoint unavailable/incompatible (409) */
+        RpgConflictResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["RpgErrorEnvelope"];
+            };
+        };
+        /** @description RPG_RGSS_CONTENT_TOO_LARGE or RPG_RUNTIME_PACK_TOO_LARGE (413) */
+        RpgPayloadTooLargeResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["RpgErrorEnvelope"];
+            };
+        };
+        /** @description RPG runtime-pack installation version changed (412) */
+        RpgPreconditionFailedResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["RpgErrorEnvelope"];
+            };
+        };
+        /** @description REQUEST_TOO_LARGE (413); this generic transport limit is not an RPG detector result */
+        RequestTooLargeResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ErrorEnvelope"];
+            };
+        };
+        /** @description Unsupported core/generation, selected-core mismatch, invalid LCF/LMT/INI/Web project, unsafe dependency/path, unsupported native bridge, invalid checkpoint, or failed engine restore (422) */
+        RpgUnprocessableResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["RpgErrorEnvelope"];
+            };
+        };
+        /** @description RPG_RUNTIME_PACK_UNAVAILABLE; the isolated archive worker temporarily lacks process or resource capacity (503) */
+        RpgServiceUnavailableResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["RpgErrorEnvelope"];
+            };
+        };
         /** @description Registered CAS payload capacity snapshot */
         StorageAnalysisResponse: {
             headers: {
@@ -5477,6 +6412,8 @@ export interface components {
         PartNo: number;
         ImportJobID: string;
         ImportItemID: string;
+        RpgRuntimeValidationID: string;
+        RuntimeAssetPackInstallationID: string;
         BulkApprovalID: string;
         JobID: string;
         ReviewEventID: string;
@@ -5673,6 +6610,26 @@ export interface components {
         ReviewDraft: {
             content: {
                 "application/json": components["schemas"]["ReviewDraftRequest"];
+            };
+        };
+        InstallRuntimeAssetPack: {
+            content: {
+                "application/json": components["schemas"]["InstallRuntimeAssetPackRequest"];
+            };
+        };
+        RpgRuntimeValidationDecision: {
+            content: {
+                "application/json": components["schemas"]["RpgRuntimeValidationDecisionRequest"];
+            };
+        };
+        RpgRuntimeValidationLaunchBody: {
+            content: {
+                "application/json": components["schemas"]["RpgRuntimeValidationLaunchRequest"];
+            };
+        };
+        RpgMakerGateEvent: {
+            content: {
+                "application/json": components["schemas"]["RpgMakerGateEventRequest"];
             };
         };
         MetadataProvider: {
@@ -7083,6 +8040,65 @@ export interface operations {
             202: components["responses"]["JSONResponse"];
         };
     };
+    getAdminRuntimeAssetPacks: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["RuntimeAssetPackListResponse"];
+        };
+    };
+    postAdminRuntimeAssetPackInstallation: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: components["requestBodies"]["InstallRuntimeAssetPack"];
+        responses: {
+            202: components["responses"]["RuntimeAssetPackInstallResponse"];
+            400: components["responses"]["BadRequestResponse"];
+            409: components["responses"]["RpgConflictResponse"];
+            413: components["responses"]["RpgPayloadTooLargeResponse"];
+            422: components["responses"]["RpgUnprocessableResponse"];
+            503: components["responses"]["RpgServiceUnavailableResponse"];
+        };
+    };
+    deleteAdminRuntimeAssetPackInstallation: {
+        parameters: {
+            query?: never;
+            header: {
+                "If-Match": components["parameters"]["IfMatch"];
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                installationId: components["parameters"]["RuntimeAssetPackInstallationID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Runtime asset pack installation scheduled for payload release */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequestResponse"];
+            404: components["responses"]["RpgNotFoundResponse"];
+            409: components["responses"]["RpgConflictResponse"];
+            412: components["responses"]["RpgPreconditionFailedResponse"];
+            428: components["responses"]["PreconditionRequiredResponse"];
+        };
+    };
     getAdminReviews: {
         parameters: {
             query?: {
@@ -7234,6 +8250,84 @@ export interface operations {
         requestBody: components["requestBodies"]["ReviewDraft"];
         responses: {
             200: components["responses"]["JSONResponse"];
+        };
+    };
+    postAdminReviewRuntimeValidation: {
+        parameters: {
+            query?: never;
+            header: {
+                "If-Match": components["parameters"]["IfMatch"];
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                importItemId: components["parameters"]["ImportItemID"];
+            };
+            cookie?: never;
+        };
+        requestBody: components["requestBodies"]["RpgRuntimeValidationLaunchBody"];
+        responses: {
+            201: components["responses"]["RpgRuntimeValidationLaunchResponse"];
+            404: components["responses"]["RpgNotFoundResponse"];
+            409: components["responses"]["RpgConflictResponse"];
+            422: components["responses"]["RpgUnprocessableResponse"];
+        };
+    };
+    getAdminReviewRuntimeValidation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                importItemId: components["parameters"]["ImportItemID"];
+                validationId: components["parameters"]["RpgRuntimeValidationID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["RpgRuntimeValidationResponse"];
+            404: components["responses"]["RpgNotFoundResponse"];
+        };
+    };
+    postAdminReviewRuntimeValidationRestoreLaunch: {
+        parameters: {
+            query?: never;
+            header: {
+                "If-Match": components["parameters"]["IfMatch"];
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                importItemId: components["parameters"]["ImportItemID"];
+                validationId: components["parameters"]["RpgRuntimeValidationID"];
+            };
+            cookie?: never;
+        };
+        requestBody: components["requestBodies"]["RpgRuntimeValidationLaunchBody"];
+        responses: {
+            201: components["responses"]["RpgRuntimeValidationLaunchResponse"];
+            404: components["responses"]["RpgNotFoundResponse"];
+            409: components["responses"]["RpgConflictResponse"];
+            422: components["responses"]["RpgUnprocessableResponse"];
+        };
+    };
+    postAdminReviewRuntimeValidationDecision: {
+        parameters: {
+            query?: never;
+            header: {
+                "If-Match": components["parameters"]["IfMatch"];
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                importItemId: components["parameters"]["ImportItemID"];
+                validationId: components["parameters"]["RpgRuntimeValidationID"];
+            };
+            cookie?: never;
+        };
+        requestBody: components["requestBodies"]["RpgRuntimeValidationDecision"];
+        responses: {
+            200: components["responses"]["RpgRuntimeValidationResponse"];
+            404: components["responses"]["RpgNotFoundResponse"];
+            409: components["responses"]["RpgConflictResponse"];
+            422: components["responses"]["RpgUnprocessableResponse"];
         };
     };
     postAdminReviewScrapeCandidates: {
@@ -7739,7 +8833,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            200: components["responses"]["JSONResponse"];
+            200: components["responses"]["CoreArtifactListResponse"];
         };
     };
     getAdminPlatformInstances: {
@@ -8629,6 +9723,66 @@ export interface operations {
             200: components["responses"]["BinaryResponse"];
         };
     };
+    getRetromRuntimeArtifact: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                runtimeVersion: string;
+                runtimePath: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["BinaryResponse"];
+        };
+    };
+    headRetromRuntimeArtifact: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                runtimeVersion: string;
+                runtimePath: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["BinaryResponse"];
+        };
+    };
+    getRuntimeProjectFile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                launchId: components["parameters"]["LaunchID"];
+                projectPath: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["BinaryResponse"];
+        };
+    };
+    headRuntimeProjectFile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                launchId: components["parameters"]["LaunchID"];
+                projectPath: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["BinaryResponse"];
+        };
+    };
     getRuntimeLaunchConfig: {
         parameters: {
             query?: never;
@@ -8719,16 +9873,52 @@ export interface operations {
         requestBody: {
             content: {
                 "multipart/form-data": {
+                    /** @description UTF-8 JSON serialized from RuntimeCheckpointMetadata; duplicate or unknown JSON fields are rejected. */
                     metadata: string;
                     /** Format: binary */
-                    state: string;
+                    payload: string;
                     /** Format: binary */
-                    screenshot: string;
+                    screenshot?: string;
                 };
             };
         };
         responses: {
-            201: components["responses"]["JSONResponse"];
+            201: components["responses"]["RuntimeCheckpointCreateResponse"];
+            409: components["responses"]["RpgConflictResponse"];
+            413: components["responses"]["RequestTooLargeResponse"];
+            422: components["responses"]["RpgUnprocessableResponse"];
+        };
+    };
+    getRuntimeCheckpointStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                launchId: components["parameters"]["LaunchID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["CheckpointStatusResponse"];
+            409: components["responses"]["RpgConflictResponse"];
+        };
+    };
+    postRuntimeRpgMakerGateEvent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                launchId: components["parameters"]["LaunchID"];
+            };
+            cookie?: never;
+        };
+        requestBody: components["requestBodies"]["RpgMakerGateEvent"];
+        responses: {
+            200: components["responses"]["RpgMakerGateEventResponse"];
+            408: components["responses"]["RpgTimeoutResponse"];
+            409: components["responses"]["RpgConflictResponse"];
+            422: components["responses"]["RpgUnprocessableResponse"];
         };
     };
     getRuntimeGame: {
@@ -8859,6 +10049,7 @@ export interface operations {
         requestBody?: never;
         responses: {
             200: components["responses"]["BinaryResponse"];
+            409: components["responses"]["RpgConflictResponse"];
         };
     };
     headRuntimeState: {

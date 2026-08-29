@@ -12,8 +12,17 @@ import subprocess
 import sys
 from pathlib import Path, PurePosixPath
 
+from dependencies import CheckError, parse_versions
+
 
 ROOT = Path(__file__).resolve().parent.parent
+RPG_RUNTIME_MANIFEST_KEYS = {
+    "schema_version",
+    "runtime_id",
+    "release",
+    "runtime_files",
+    "artifacts",
+}
 
 
 def canonical(value: object) -> bytes:
@@ -22,6 +31,22 @@ def canonical(value: object) -> bytes:
 
 def sha256(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
+
+
+def validate_rpg_runtime_manifest(manifest: object) -> None:
+    if (
+        not isinstance(manifest, dict)
+        or set(manifest) != RPG_RUNTIME_MANIFEST_KEYS
+        or manifest.get("schema_version") != 2
+        or manifest.get("runtime_id") != "rpgmaker"
+        or not isinstance(manifest.get("release"), dict)
+        or not manifest["release"]
+    ):
+        raise ValueError("RELEASE_INPUT_RPG_RUNTIME_MANIFEST_INVALID")
+    for key in ("runtime_files", "artifacts"):
+        rows = manifest.get(key)
+        if not isinstance(rows, list) or not rows or any(not isinstance(row, dict) for row in rows):
+            raise ValueError("RELEASE_INPUT_RPG_RUNTIME_MANIFEST_INVALID")
 
 
 def source_entries() -> list[dict[str, object]]:
@@ -62,13 +87,11 @@ def source_entries() -> list[dict[str, object]]:
     return entries
 
 
-def main() -> int:
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--versions", required=True)
-    parser.add_argument("--active", required=True)
-    args = parser.parse_args()
-    versions = args.versions.split(",")
-    if args.active not in versions:
+def release_input_value(versions: list[str], active: str) -> dict[str, object]:
+    normalized = parse_versions(",".join(versions))
+    if normalized != versions:
+        raise ValueError("RELEASE_INPUT_DEPENDENCY_VERSIONS_INVALID")
+    if active not in versions:
         raise ValueError("RELEASE_INPUT_ACTIVE_VERSION_INVALID")
     dependency_versions: list[dict[str, str]] = []
     for version in versions:
@@ -82,18 +105,30 @@ def main() -> int:
                 "playerAdapterId": manifest["emulatorjs"]["player_adapter"]["id"],
             }
         )
-    release_input = {
+    rpg_manifest_bytes = (ROOT / "data/dat/rpgmaker/v1/manifest.json").read_bytes()
+    rpg_manifest = json.loads(rpg_manifest_bytes)
+    validate_rpg_runtime_manifest(rpg_manifest)
+    return {
         "schemaVersion": 1,
         "sourceTreeSha256": sha256(canonical(source_entries())),
         "dependencyVersions": dependency_versions,
-        "activeEmulatorjsVersion": args.active,
+        "activeEmulatorjsVersion": active,
         "passwordBlocklistManifestSha256": sha256(
             (ROOT / "data/auth/password-blocklists/v1/manifest.json").read_bytes()
         ),
         "netplayManifestSha256": sha256(
             (ROOT / "data/netplay/v2/manifest.json").read_bytes()
         ),
+        "rpgMakerRuntimeManifestSha256": sha256(rpg_manifest_bytes),
     }
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--versions", required=True)
+    parser.add_argument("--active", required=True)
+    args = parser.parse_args()
+    release_input = release_input_value(parse_versions(args.versions), args.active)
     print(sha256(canonical(release_input)))
     return 0
 
@@ -101,6 +136,6 @@ def main() -> int:
 if __name__ == "__main__":
     try:
         raise SystemExit(main())
-    except (OSError, ValueError, KeyError, json.JSONDecodeError, subprocess.CalledProcessError) as exc:
+    except (OSError, ValueError, CheckError, KeyError, json.JSONDecodeError, subprocess.CalledProcessError) as exc:
         print(str(exc), file=sys.stderr)
         raise SystemExit(1) from exc

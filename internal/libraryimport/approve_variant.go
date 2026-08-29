@@ -14,11 +14,15 @@ type publishedVariantDependency struct {
 }
 
 func (run *approvalRun) persistVariant() error {
-	var emulatorGameID int64
-	if err := run.transaction.QueryRowContext(run.ctx, `
+	var emulatorGameID any
+	if run.runtimeFamily == "EMULATORJS" {
+		var nextID int64
+		if err := run.transaction.QueryRowContext(run.ctx, `
 SELECT COALESCE(MAX(emulator_game_id),1000)+1 FROM game_variant_revisions
-`).Scan(&emulatorGameID); err != nil {
-		return fmt.Errorf("libraryimport/service: %w", err)
+		`).Scan(&nextID); err != nil {
+			return fmt.Errorf("libraryimport/service: %w", err)
+		}
+		emulatorGameID = nextID
 	}
 	inputDigest, err := approvalValidationInputDigest(approvalValidationDigestInput{
 		VariantID: run.variantID, ContentID: run.contentID, ContentKind: run.contentKind,
@@ -45,11 +49,17 @@ SELECT COALESCE(MAX(emulator_game_id),1000)+1 FROM game_variant_revisions
 	if err := run.insertVariantDependencies(); err != nil {
 		return err
 	}
+	if err := run.insertRPGMakerVariantProfile(); err != nil {
+		return err
+	}
+	if err := run.copyRPGMakerRuntimePacks(); err != nil {
+		return err
+	}
 	return run.copyDOSEntriesAndSelectVariant()
 }
 
 func (run *approvalRun) insertVariantRows(
-	emulatorGameID int64,
+	emulatorGameID any,
 	inputDigest string,
 	compatibilityCode string,
 	defaultDOSEntry sql.NullString,
@@ -63,11 +73,11 @@ VALUES(?,?,?,NULL,1,?,?)
 	}
 	_, err = run.transaction.ExecContext(run.ctx, `
 INSERT INTO game_variant_revisions(
-  id,game_variant_id,game_content_revision_id,core_artifact_id,dat_version_id,
+  id,game_variant_id,game_content_revision_id,core_artifact_id,route_key,dat_version_id,
   validation_input_digest,emulator_game_id,status,compatibility_code,
   dependency_snapshot_json,default_dos_entry,created_at_ms
-) VALUES(?,?,?,?,?,?,?,'READY',?,?,?,?)
-`, run.variantRevisionID, run.variantID, run.contentID, run.artifactID, nullable(run.datID),
+) VALUES(?,?,?,?,?,?,?,?,'READY',?,?,?,?)
+`, run.variantRevisionID, run.variantID, run.contentID, run.artifactID, run.routeKey, nullable(run.datID),
 		inputDigest, emulatorGameID, compatibilityCode, run.runtimeDependencySnapshotJSON,
 		nullable(defaultDOSEntry), run.now)
 	if err != nil {
@@ -80,6 +90,42 @@ FROM import_item_validation_files WHERE import_item_core_validation_id=?
 `, run.variantRevisionID, run.validationID)
 	if err != nil {
 		return fmt.Errorf("libraryimport/service: %w", err)
+	}
+	return nil
+}
+
+func (run *approvalRun) insertRPGMakerVariantProfile() error {
+	if run.platformID != "rpgmaker" {
+		return nil
+	}
+	_, err := run.transaction.ExecContext(run.ctx, `
+INSERT INTO rpgmaker_variant_profiles(
+  game_variant_revision_id,generation,route_key,adapter_id,adapter_abi,
+  artifact_set_sha256,dependency_snapshot_sha256,runtime_validation_id
+) VALUES(?,?,?,?,?,?,?,?)
+`, run.variantRevisionID, run.rpgGeneration, run.routeKey, run.rpgAdapterID, run.rpgAdapterABI,
+		run.rpgArtifactSetSHA, run.rpgDependencySnapshotSHA, run.rpgValidationID)
+	if err != nil {
+		return fmt.Errorf("libraryimport/rpgmaker variant profile: %w", err)
+	}
+	return nil
+}
+
+func (run *approvalRun) copyRPGMakerRuntimePacks() error {
+	if run.platformID != "rpgmaker" {
+		return nil
+	}
+	_, err := run.transaction.ExecContext(run.ctx, `
+INSERT INTO game_variant_revision_runtime_packs(
+  game_variant_revision_id,slot,declared_name,normalized_declared_name,definition_id,installation_id
+)
+SELECT ?,slot,declared_name,normalized_declared_name,definition_id,installation_id
+FROM review_draft_runtime_pack_selections
+WHERE review_draft_id=?
+ORDER BY slot
+`, run.variantRevisionID, run.draftID)
+	if err != nil {
+		return fmt.Errorf("libraryimport/rpgmaker variant packs: %w", err)
 	}
 	return nil
 }

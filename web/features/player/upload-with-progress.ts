@@ -10,6 +10,7 @@ type UploadRequest = {
   headers?: Record<string, string>;
   body: XMLHttpRequestBodyInit;
   totalBytes?: number;
+  timeoutMs?: number;
   onProgress: (progress: SaveUploadProgress) => void;
   createRequest?: () => XMLHttpRequest;
 };
@@ -17,7 +18,10 @@ type UploadRequest = {
 export type UploadResponse = {
   ok: boolean;
   status: number;
+  body: string;
 };
+
+const defaultUploadTimeoutMs = 120_000;
 
 function boundedProgress(loaded: number, total: number): SaveUploadProgress {
   const safeTotal = Math.max(1, total);
@@ -34,12 +38,13 @@ export function uploadWithProgress(request: UploadRequest): Promise<UploadRespon
     const xhr = request.createRequest?.() ?? new XMLHttpRequest();
     const fallbackTotal = Math.max(1, request.totalBytes ?? 1);
     let settled = false;
-    const fail = () => {
+    const fail = (code = "SAVE_UPLOAD_NETWORK_FAILED") => {
       if (settled) {return;}
       settled = true;
-      reject(new Error("SAVE_UPLOAD_NETWORK_FAILED"));
+      reject(new Error(code));
     };
     xhr.open(request.method, request.url);
+    xhr.timeout = request.timeoutMs ?? defaultUploadTimeoutMs;
     xhr.withCredentials = true;
     for (const [name, value] of Object.entries(request.headers ?? {})) {xhr.setRequestHeader(name, value);}
     xhr.upload.addEventListener("loadstart", () => request.onProgress(boundedProgress(0, fallbackTotal)));
@@ -51,11 +56,11 @@ export function uploadWithProgress(request: UploadRequest): Promise<UploadRespon
       if (settled) {return;}
       settled = true;
       request.onProgress(boundedProgress(fallbackTotal, fallbackTotal));
-      resolve({ ok: xhr.status >= 200 && xhr.status < 300, status: xhr.status });
+      resolve({ ok: xhr.status >= 200 && xhr.status < 300, status: xhr.status, body: xhr.responseText });
     });
-    xhr.addEventListener("error", fail);
-    xhr.addEventListener("abort", fail);
-    xhr.addEventListener("timeout", fail);
+    xhr.addEventListener("error", () => fail());
+    xhr.addEventListener("abort", () => fail());
+    xhr.addEventListener("timeout", () => fail("SAVE_UPLOAD_TIMEOUT"));
     xhr.send(request.body);
   });
 }
