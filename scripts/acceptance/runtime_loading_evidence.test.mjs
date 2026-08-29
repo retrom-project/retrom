@@ -54,3 +54,18 @@ test("counts strict partial reads without treating them as full responses", () =
   assert.equal(summary.rangeProjectFileResponseCount, 1);
   assert.equal(summary.requestedProjectBytes, 262144);
 });
+
+test("does not count HEAD metadata as transferred project bytes", () => {
+  const identity = "c".repeat(64);
+  const url = `https://retrom.example/runtime/content/project/${identity}/game.mkxpz`;
+  const summary = summarizeRuntimeLoading({
+    indexes: [{ files: [{ url, sizeBytes: 8 * 1024 * 1024 }] }],
+    responses: [
+      { contentLength: 8 * 1024 * 1024, method: "HEAD", status: 206, url },
+      { contentLength: 262144, method: "GET", status: 206, url },
+    ],
+    timings: [],
+  });
+  assert.equal(summary.rangeProjectFileResponseCount, 1);
+  assert.equal(summary.requestedProjectBytes, 262144);
+});
