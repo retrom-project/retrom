@@ -405,6 +405,8 @@ class EvidenceContractTests(unittest.TestCase):
         self.assertIn("projectRequests: (page.__retromProjectRequests ?? []).slice(-30)", source)
         self.assertIn('page.locator(".player-loading")', source)
         self.assertIn('page.getByRole("status")', source)
+        self.assertIn("await Promise.race([", source)
+        self.assertIn("runtimeFailure.waitFor", source)
 
     def test_generation_provision_fails_at_the_launch_credential_boundary(self) -> None:
         source = GENERATION_PROVISION_PATH.read_text()

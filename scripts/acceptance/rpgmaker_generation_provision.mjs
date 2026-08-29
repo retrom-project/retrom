@@ -511,8 +511,15 @@ async function assertLaunchCookie(context, launchId) {
 
 async function runtimeAction(page, label, keys, timeout = 120_000) {
   const button = page.getByRole("button", { name: label, exact: true });
+  const runtimeFailure = page.getByRole("alert")
+    .filter({ hasText: /\b(?:RPG|RUNTIME)_[A-Z0-9_]+\b/u }).first();
   try {
-    await button.waitFor({ state: "visible", timeout });
+    await Promise.race([
+      button.waitFor({ state: "visible", timeout }),
+      runtimeFailure.waitFor({ state: "visible", timeout }).then(() => {
+        throw new Error("RPG_PROVISION_RUNTIME_FAILED");
+      }),
+    ]);
   } catch {
     const runtimeDiagnostics = await page.evaluate(() =>
       (window.__retromRuntimeDiagnostics ?? []).slice(-20)).catch(() => []);
