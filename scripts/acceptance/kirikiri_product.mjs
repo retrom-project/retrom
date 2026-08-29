@@ -30,6 +30,7 @@ if (missing.length) {
 
 const baseUrl = normalizedBaseUrl(process.env.RETROM_ACCEPTANCE_BASE_URL);
 const screenshotsDirectory = join(caseDirectory, "screenshots");
+const kagInputTargets = [[0.5, 0.34], [0.11, 0.38], [0.5, 0.5], [0.25, 0.5], [0.75, 0.5]];
 mkdirSync(screenshotsDirectory, { recursive: true });
 const localProxy = await localRpgAcceptanceProxy(baseUrl);
 
@@ -301,14 +302,23 @@ async function runtimeCanvas(page) {
 async function advanceKag(canvas) {
   await focusRuntimeCanvas(canvas);
   await waitForKagStable(canvas);
-  const beforeFrame = await canvasFrameFingerprint(canvas);
-  const transition = waitForKagTransition(canvas, beforeFrame);
-  await moveVirtualGamepadCursor(canvas, 0.5, 0.34);
-  await setVirtualGamepadButton(canvas, 0, true);
-  await canvas.page().waitForTimeout(100);
-  await setVirtualGamepadButton(canvas, 0, false);
-  await transition;
-  await canvas.page().waitForTimeout(2_000);
+  for (const [targetX, targetY] of kagInputTargets) {
+    await moveVirtualGamepadCursor(canvas, targetX, targetY);
+    await canvas.page().waitForTimeout(100);
+    const beforeFrame = await canvasFrameFingerprint(canvas);
+    const transition = waitForKagTransition(canvas, beforeFrame, 5_000);
+    await setVirtualGamepadButton(canvas, 0, true);
+    await canvas.page().waitForTimeout(100);
+    await setVirtualGamepadButton(canvas, 0, false);
+    try {
+      await transition;
+      await canvas.page().waitForTimeout(2_000);
+      return;
+    } catch (error) {
+      if (!(error instanceof Error) || error.message !== "KIRIKIRI_ACCEPTANCE_INPUT_TRANSITION_TIMEOUT") {throw error;}
+    }
+  }
+  throw new Error("KIRIKIRI_ACCEPTANCE_INPUT_TRANSITION_TIMEOUT");
 }
 
 async function verifyGamepadCancel(canvas) {
@@ -411,8 +421,8 @@ async function waitForKagStable(canvas) {
   throw new Error("KIRIKIRI_ACCEPTANCE_RUNTIME_NOT_STABLE");
 }
 
-async function waitForKagTransition(canvas, beforeFrame) {
-  const deadline = Date.now() + 60_000;
+async function waitForKagTransition(canvas, beforeFrame, timeoutMs) {
+  const deadline = Date.now() + timeoutMs;
   let observedUnstable = false;
   let observedVisualChange = false;
   while (Date.now() < deadline) {
