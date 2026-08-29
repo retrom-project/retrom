@@ -54,11 +54,13 @@ describe("KiriKiri product runtime", () => {
     document.body.innerHTML = `<div id="target"><canvas width="1280" height="720"></canvas></div>`;
     const runtime = {
       checkpoint: vi.fn(async () => ({
-        bytes: new Uint8Array([1, 2, 3]), payloadKind: "KIRIKIRI_SAVE_BUNDLE_V1" as const,
+        bytes: new Uint8Array([1, 2, 3]), format: "kirikiri-save-bundle-v1",
       })),
       screenshot: vi.fn(async () => new Blob(["png"], { type: "image/png" })),
       pause: vi.fn(async () => undefined), resume: vi.fn(async () => undefined),
-      getCheckpointAvailability: vi.fn(() => ({ available: true, reason: null })),
+      getCheckpointAvailability: vi.fn(() => ({ available: true, blocker: null })),
+      getCapabilities: vi.fn(() => ({ frameCounter: false, volume: false })),
+      getCanvas: vi.fn(() => target.querySelector("canvas")),
     };
     const target = document.querySelector<HTMLElement>("#target")!;
     const instance = kirikiriPlayerInstance(runtime as never, target);

@@ -40,10 +40,12 @@ describe("ONS product runtime", () => {
   it("bridges checkpoint, screenshot, pause, and resume into the shared Player shell", async () => {
     document.body.innerHTML = `<div id="target"><canvas width="640" height="480"></canvas></div>`;
     const runtime = {
-      checkpoint: vi.fn(async () => ({ bytes: new Uint8Array([1, 2, 3]), payloadKind: "ONS_SAVE_BUNDLE_V1" as const })),
+      checkpoint: vi.fn(async () => ({ bytes: new Uint8Array([1, 2, 3]), format: "ons-save-bundle-v1" })),
       screenshot: vi.fn(async () => new Blob(["png"], { type: "image/png" })),
       pause: vi.fn(async () => undefined), resume: vi.fn(async () => undefined),
-      getCheckpointAvailability: vi.fn(() => ({ available: true, reason: null })),
+      getCheckpointAvailability: vi.fn(() => ({ available: true, blocker: null })),
+      getCapabilities: vi.fn(() => ({ frameCounter: false, volume: false })),
+      getCanvas: vi.fn(() => target.querySelector("canvas")),
     };
     const target = document.querySelector<HTMLElement>("#target")!;
     const instance = onsPlayerInstance(runtime as never, target);

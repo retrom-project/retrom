@@ -2,11 +2,9 @@
 
 import { useEffect, useRef, useState } from "react";
 import {
-  createKirikiriRuntime,
-  createOnsRuntime,
-  type KirikiriRuntime,
+  createRuntime,
+  type GameRuntime,
   type KirikiriRuntimeConfig,
-  type OnsRuntime,
   type OnsRuntimeConfig,
 } from "@xxxsen/retrom-runtime";
 import { captureReviewScreenshot, mountEmulatorJS, type EmulatorInstance, type PlayerConfig } from "@/features/player/adapters/ejs-4.2.3-v2";
@@ -53,7 +51,8 @@ async function mountReviewRuntime(
   options: ReviewMountOptions,
 ): Promise<void> {
   if (config.runtimeFamily === "ONS") {
-    const runtime: OnsRuntime = createOnsRuntime(config, {
+    const runtimeConfig: OnsRuntimeConfig = { sessionId: config.sessionId, adapter: config.adapter };
+    const runtime: GameRuntime = createRuntime(runtimeConfig, {
       frameWindow, restorePayload: null, signal: options.signal,
     });
     const unsubscribe = runtime.subscribe((event) => {
@@ -73,7 +72,8 @@ async function mountReviewRuntime(
     return;
   }
   if (config.runtimeFamily === "KIRIKIRI") {
-    const runtime: KirikiriRuntime = createKirikiriRuntime(config, {
+    const runtimeConfig: KirikiriRuntimeConfig = { sessionId: config.sessionId, adapter: config.adapter };
+    const runtime: GameRuntime = createRuntime(runtimeConfig, {
       frameWindow, restorePayload: null, signal: options.signal,
     });
     const unsubscribe = runtime.subscribe((event) => {
