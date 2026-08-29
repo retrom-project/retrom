@@ -6,7 +6,7 @@ export const onsProductStages = [
 ];
 
 export function assertOnsProductEvidence(value) {
-  if (!exactRecord(value, ["browser", "caseId", "checkpoint", "ids", "schemaVersion", "screenshots", "stages", "status"]) ||
+  if (!exactRecord(value, ["browser", "caseId", "checkpoint", "ids", "loading", "schemaVersion", "screenshots", "stages", "status"]) ||
       value.schemaVersion !== 1 || value.caseId !== "ACC-ONS-001" || value.status !== "PASS" ||
       JSON.stringify(value.stages) !== JSON.stringify(onsProductStages)) {
     throw new Error("ONS_ACCEPTANCE_EVIDENCE_INVALID");
@@ -14,7 +14,37 @@ export function assertOnsProductEvidence(value) {
   assertIds(value.ids);
   assertCheckpoint(value.checkpoint);
   assertBrowser(value.browser);
+  assertLoading(value.loading);
   assertScreenshots(value.screenshots);
+}
+
+function assertLoading(value) {
+  if (!exactRecord(value, ["firstVisible", "restoreVisible", "sameProjectContentIdentity", "schemaVersion"]) ||
+      value.schemaVersion !== 1 || value.sameProjectContentIdentity !== true) {
+    throw new Error("ONS_ACCEPTANCE_EVIDENCE_INVALID");
+  }
+  assertLoadingSnapshot(value.firstVisible, false);
+  assertLoadingSnapshot(value.restoreVisible, true);
+}
+
+function assertLoadingSnapshot(value, requireCacheHit) {
+  const keys = [
+    "declaredLargeFileCount", "declaredProjectBytes", "declaredProjectFileCount",
+    "fullProjectFileResponseCount", "nativeProjectResponseCount", "projectContentIdentityCount",
+    "rangeProjectFileResponseCount", "requestedLargeFileCount", "requestedProjectBytes",
+    "requestedProjectFileCount", "runtimeAssetCacheHitCount", "runtimeAssetRequestCount",
+    "runtimeAssetTransferredBytes",
+  ];
+  if (!exactRecord(value, keys) || keys.some((key) => !Number.isSafeInteger(value[key]) || value[key] < 0) ||
+      value.projectContentIdentityCount !== 1 || value.nativeProjectResponseCount !== 0 ||
+      value.declaredProjectFileCount < 2 || value.declaredProjectBytes < 1 ||
+      value.declaredLargeFileCount < 1 || value.requestedProjectFileCount < 1 ||
+      value.requestedProjectFileCount >= value.declaredProjectFileCount ||
+      value.requestedProjectBytes < 1 || value.requestedProjectBytes >= value.declaredProjectBytes ||
+      value.requestedLargeFileCount >= value.declaredLargeFileCount ||
+      value.runtimeAssetRequestCount < 2 || requireCacheHit && value.runtimeAssetCacheHitCount < 1) {
+    throw new Error("ONS_ACCEPTANCE_EVIDENCE_INVALID");
+  }
 }
 
 function assertIds(value) {

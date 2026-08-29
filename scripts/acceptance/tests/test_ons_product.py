@@ -64,6 +64,10 @@ class ONSProductAcceptanceTests(unittest.TestCase):
         ):
             self.assertIn(contract, contents)
 
+    def test_terminal_duplicate_import_does_not_wait_until_timeout(self) -> None:
+        contents = DRIVER_PATH.read_text(encoding="utf-8")
+        self.assertIn('["REVIEW_PENDING", "COMPLETE", "COMPLETED"].includes(job.state)', contents)
+
 
 if __name__ == "__main__":
     unittest.main()
