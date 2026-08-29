@@ -78,8 +78,8 @@ export type MountedContext = {
 };
 
 export function usePlayerBootstrap(params: PlayerBootstrapParams) {
-  useSerializedPlayerBootstrap(
-    params, createBootstrapResources, bootstrapPlayer, cleanupBootstrap, handleBootstrapError,
+  useSerializedPlayerBootstrap(`${params.launchId}:${params.experience}`, params,
+    createBootstrapResources, bootstrapPlayer, cleanupBootstrap, handleBootstrapError,
   );
 }
 

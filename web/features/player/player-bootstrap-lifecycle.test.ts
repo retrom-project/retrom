@@ -1,8 +1,10 @@
-import { describe, expect, it } from "vitest";
+import { renderHook, waitFor } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
 import {
   createPlayerBootstrapLifecycle,
   joinPlayerBootstrapCleanup,
   schedulePlayerBootstrap,
+  useSerializedPlayerBootstrap,
 } from "./player-bootstrap-lifecycle";
 
 describe("player bootstrap lifecycle", () => {
@@ -69,5 +71,30 @@ describe("player bootstrap lifecycle", () => {
       actions.push("mounted");
     });
     expect(actions).toEqual(["mounted"]);
+  });
+
+  it("does not restart an active launch when render callbacks change", async () => {
+    const bootstrap = vi.fn(async () => undefined);
+    const cleanup = vi.fn(async () => undefined);
+    const createResources = vi.fn(() => ({}));
+    const handleError = vi.fn();
+    const { rerender, unmount } = renderHook(
+      ({ key, params }: { key: string; params: { revision: number } }) =>
+        useSerializedPlayerBootstrap(
+          key, params, createResources, bootstrap, cleanup, handleError,
+        ),
+      { initialProps: { key: "launch-a:standard", params: { revision: 1 } } },
+    );
+    await waitFor(() => expect(bootstrap).toHaveBeenCalledTimes(1));
+
+    rerender({ key: "launch-a:standard", params: { revision: 2 } });
+    await new Promise((resolve) => window.setTimeout(resolve, 10));
+    expect(bootstrap).toHaveBeenCalledTimes(1);
+    expect(cleanup).not.toHaveBeenCalled();
+
+    rerender({ key: "launch-b:standard", params: { revision: 3 } });
+    await waitFor(() => expect(bootstrap).toHaveBeenCalledTimes(2));
+    expect(cleanup).toHaveBeenCalledTimes(1);
+    unmount();
   });
 });
