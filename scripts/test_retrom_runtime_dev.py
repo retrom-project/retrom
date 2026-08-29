@@ -119,7 +119,7 @@ class RetromRuntimeDevTests(unittest.TestCase):
 
             marker = json.loads((runtime / DEV.MARKER_FILENAME).read_text(encoding="utf-8"))
             self.assertEqual("0.7.0", marker["package_version"])
-            self.assertTrue((runtime / "v0.7.0/onsyuri.js").is_file())
+            self.assertTrue((runtime / "v0.6.1/onsyuri.js").is_file())
 
     @staticmethod
     def write_local_runtime(source: Path) -> None:
