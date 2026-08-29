@@ -531,6 +531,12 @@ class EvidenceContractTests(unittest.TestCase):
             generation_source.index("await page.goto"),
         )
         self.assertIn("await loadingProbe.snapshot()", generation_source)
+        self.assertEqual(
+            generation_source.count(
+                "= applyEasyProjectDeclaration("
+            ),
+            2,
+        )
         self.assertIn("trackRuntimeLoading(cachePage, projectDeclarations)", source)
         self.assertIn("cacheLaunchId: cacheLaunch.launchId", source)
         self.assertIn("sameProjectContentIdentity,", source)
