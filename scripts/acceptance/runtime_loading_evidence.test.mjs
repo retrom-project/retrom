@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { summarizeRuntimeLoading } from "./runtime_loading_evidence.mjs";
+import { summarizeRuntimeLoading, trackRuntimeLoading } from "./runtime_loading_evidence.mjs";
 
 test("summarizes lazy project reads without serializing logical paths", () => {
   const identity = "a".repeat(64);
@@ -68,4 +68,14 @@ test("does not count HEAD metadata as transferred project bytes", () => {
   });
   assert.equal(summary.rangeProjectFileResponseCount, 1);
   assert.equal(summary.requestedProjectBytes, 262144);
+});
+
+test("does not evaluate frame resource timings when the caller disables them", async () => {
+  const page = {
+    frames: () => [{ evaluate: () => { throw new Error("frame timing must not run"); } }],
+    off: () => {},
+    on: () => {},
+  };
+  const probe = trackRuntimeLoading(page, [], { collectRuntimeTimings: false });
+  await assert.doesNotReject(probe.snapshot());
 });

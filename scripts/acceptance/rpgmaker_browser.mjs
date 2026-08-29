@@ -158,8 +158,11 @@ async function generationCase(context, writeHeaders) {
     throw new Error("RPG_ACCEPTANCE_PRODUCT_PLAY_URL_INVALID");
   }
   const projectDeclarations = projectLoadingDeclarations(config.adapter);
+  const loadingProbeOptions = {
+    collectRuntimeTimings: config.adapter?.adapterKind !== "NATIVE_WEB",
+  };
   const page = await context.newPage();
-  const loadingProbe = trackRuntimeLoading(page, projectDeclarations);
+  const loadingProbe = trackRuntimeLoading(page, projectDeclarations, loadingProbeOptions);
   const pageErrors = [];
   const runtimeExceptions = [];
   const dialogs = [];
@@ -229,7 +232,7 @@ async function generationCase(context, writeHeaders) {
     dialogs.push(dialog.message().slice(0, 400));
     await dialog.dismiss();
   });
-  const cacheLoadingProbe = trackRuntimeLoading(cachePage, projectDeclarations);
+  const cacheLoadingProbe = trackRuntimeLoading(cachePage, projectDeclarations, loadingProbeOptions);
   await cachePage.goto(`${baseUrl}${cacheLaunch.playUrl}`, { waitUntil: "domcontentloaded" });
   await waitForProductSaveAvailability(cachePage, pageErrors, runtimeExceptions, dialogs, caseId);
   const cacheVisibleLoading = applyEasyProjectDeclaration(
