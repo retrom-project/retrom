@@ -53,7 +53,7 @@ def validate_local_runtime(source: Path) -> tuple[dict[str, Any], str]:
         package.get("name") != "@xxxsen/retrom-runtime"
         or package.get("version") != manifest.get("packageVersion")
         or manifest.get("packageName") != package.get("name")
-        or manifest.get("schemaVersion") != 2
+        or manifest.get("schemaVersion") != 3
         or manifest.get("publicApiVersion") != 1
         or not (source / "dist/index.js").is_file()
         or not (source / "dist/index.d.ts").is_file()
