@@ -43,7 +43,7 @@ def metadata(manifest: dict[str, object]) -> bytes:
         "tag": release["tag"],
         "commit": release["tag_commit"],
         "version": release["tag"][1:],
-        "publicApiVersion": 1,
+        "publicApiVersion": BUILD.PUBLIC_API_VERSION,
         "files": files,
     }).encode()
 
@@ -98,6 +98,12 @@ class RPGMakerReleaseAssetTests(unittest.TestCase):
             "metadata-digest-is-not-an-admission-coordinate",
             records[self.manifest["runtime_files"][0]["bundle_path"]]["sha256"],
         )
+
+    def test_release_metadata_requires_contract_v2(self) -> None:
+        previous = json.loads(metadata(self.manifest))
+        previous["publicApiVersion"] = 1
+        with self.assertRaisesRegex(BUILD.BuildError, "RPG_RUNTIME_RELEASE_METADATA_INVALID"):
+            BUILD.validate_release_metadata(self.manifest, json.dumps(previous).encode())
 
     def test_local_tamper_and_offline_missing_release_fail_closed(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

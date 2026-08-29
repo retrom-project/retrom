@@ -24,6 +24,7 @@ DAT_ROOT = Path(__file__).resolve().parent
 DEFAULT_RUNTIME_ROOT = DAT_ROOT.parents[2] / "runtime/rpgmaker/v1"
 OBSERVED_FILENAME = ".release-observed.json"
 DEV_MARKER_FILENAME = ".retrom-runtime-dev.json"
+PUBLIC_API_VERSION = 2
 HEX_40 = re.compile(r"^[0-9a-f]{40}$")
 SEMVER_TAG = re.compile(r"^v(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)(?:-[0-9A-Za-z.-]+)?$")
 RUNTIME_COMPATIBILITY_IDENTITY = re.compile(r"^[a-z0-9][a-z0-9-]{0,118}-v[1-9][0-9]*$")
@@ -210,7 +211,7 @@ def validate_release_metadata(manifest: dict[str, Any], contents: bytes) -> dict
         raise BuildError("RPG_RUNTIME_RELEASE_METADATA_INVALID") from exc
     release = manifest["release"]
     required = {"schemaVersion", "repository", "tag", "commit", "version", "publicApiVersion", "files"}
-    if not isinstance(metadata, dict) or set(metadata) != required or metadata.get("schemaVersion") != 1 or metadata.get("repository") != release["repository"] or metadata.get("tag") != release["tag"] or metadata.get("commit") != release["tag_commit"] or metadata.get("version") != release["tag"][1:] or metadata.get("publicApiVersion") != 1 or not isinstance(metadata.get("files"), list):
+    if not isinstance(metadata, dict) or set(metadata) != required or metadata.get("schemaVersion") != 1 or metadata.get("repository") != release["repository"] or metadata.get("tag") != release["tag"] or metadata.get("commit") != release["tag_commit"] or metadata.get("version") != release["tag"][1:] or metadata.get("publicApiVersion") != PUBLIC_API_VERSION or not isinstance(metadata.get("files"), list):
         raise BuildError("RPG_RUNTIME_RELEASE_METADATA_INVALID")
     records: dict[str, dict[str, Any]] = {}
     for record in metadata["files"]:
