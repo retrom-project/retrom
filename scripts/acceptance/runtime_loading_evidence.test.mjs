@@ -92,3 +92,21 @@ test("fails a loading snapshot at its own bounded deadline", async () => {
   });
   await assert.rejects(Promise.race([probe.snapshot(), harnessDeadline]), /RUNTIME_LOADING_EVIDENCE_TIMEOUT/);
 });
+
+test("records native project responses without awaiting streaming headers", async () => {
+  let responseListener;
+  const page = {
+    frames: () => [],
+    off: () => {},
+    on: (event, listener) => { if (event === "response") { responseListener = listener; } },
+  };
+  const probe = trackRuntimeLoading(page, [], { collectRuntimeTimings: false, timeoutMs: 10 });
+  responseListener({
+    allHeaders: () => new Promise(() => {}),
+    request: () => ({ allHeaders: () => new Promise(() => {}), method: () => "GET" }),
+    status: () => 200,
+    url: () => "https://runtime.example/__retrom/project/data/System.json",
+  });
+  const snapshot = await probe.snapshot();
+  assert.equal(snapshot.evidence.nativeProjectResponseCount, 1);
+});

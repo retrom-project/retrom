@@ -73,6 +73,14 @@ export function summarizeRuntimeLoading({ indexes, responses, timings }) {
 }
 
 async function recordResponse(response, responses, indexes) {
+  const url = response.url();
+  if (nativeProjectAsset(url)) {
+    responses.push({
+      contentLength: 0, contentRange: null, method: response.request().method(),
+      requestRange: null, status: response.status(), url,
+    });
+    return;
+  }
   const headers = await response.allHeaders();
   const requestHeaders = await response.request().allHeaders();
   const record = {
@@ -81,7 +89,7 @@ async function recordResponse(response, responses, indexes) {
     method: response.request().method(),
     requestRange: requestHeaders.range ?? null,
     status: response.status(),
-    url: response.url(),
+    url,
   };
   responses.push(record);
   if (!projectIndex(record.url) || record.status !== 200) {return;}
