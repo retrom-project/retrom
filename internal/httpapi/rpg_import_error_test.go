@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"testing"
 
+	"retrom/internal/importing"
 	"retrom/internal/rpgmaker/detector"
 	"retrom/internal/rpgmaker/fileset"
 )
@@ -19,6 +20,7 @@ func TestImportCreationErrorPreservesRPGMakerTypedFailures(t *testing.T) {
 		{name: "ambiguous root", err: &fileset.ProjectError{Code: fileset.CodeRootAmbiguous}, wantStatus: http.StatusConflict, wantCode: "RPG_PROJECT_ROOT_AMBIGUOUS"},
 		{name: "missing project", err: &fileset.ProjectError{Code: fileset.CodeProjectNotFound}, wantStatus: http.StatusBadRequest, wantCode: "RPG_PROJECT_NOT_FOUND"},
 		{name: "selected core mismatch", err: &detector.Error{Code: detector.CodeSelectedCoreMismatch}, wantStatus: http.StatusUnprocessableEntity, wantCode: "RPG_SELECTED_CORE_MISMATCH"},
+		{name: "encrypted archive", err: importing.ErrArchiveEncrypted, wantStatus: http.StatusUnprocessableEntity, wantCode: "ARCHIVE_ENCRYPTED_UNSUPPORTED"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

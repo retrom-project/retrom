@@ -534,6 +534,12 @@ components:
       $ref: ./domains/runtime.yaml#/components/schemas/OnsCheckpointRestore
     OnsLaunchConfig:
       $ref: ./domains/runtime.yaml#/components/schemas/OnsLaunchConfig
+    KiriKiriAdapterConfig:
+      $ref: ./domains/runtime.yaml#/components/schemas/KiriKiriAdapterConfig
+    KiriKiriCheckpointRestore:
+      $ref: ./domains/runtime.yaml#/components/schemas/KiriKiriCheckpointRestore
+    KiriKiriLaunchConfig:
+      $ref: ./domains/runtime.yaml#/components/schemas/KiriKiriLaunchConfig
     RuntimeAssetPackKind:
       $ref: ./domains/imports.yaml#/components/schemas/RuntimeAssetPackKind
     CoreArtifactAdminItem:

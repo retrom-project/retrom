@@ -108,7 +108,7 @@ func requireJSONEOF(decoder *json.Decoder) error {
 func validateRPGMakerVersion(version *RPGMakerVersion) error {
 	manifest := version.Manifest
 	if manifest.SchemaVersion != 3 || manifest.RuntimeID != "retrom-runtime" ||
-		len(manifest.RuntimeFiles) != 11 || len(manifest.Artifacts) != len(routing.Entries())+1 {
+		len(manifest.RuntimeFiles) != 16 || len(manifest.Artifacts) != len(routing.Entries())+2 {
 		return fmt.Errorf("%w: RPG Maker manifest identity", ErrInvalid)
 	}
 	if err := validateRPGMakerRuntimeFiles(version); err != nil {
@@ -139,7 +139,7 @@ func validateRPGMakerRuntimeFiles(version *RPGMakerVersion) error {
 
 func validRPGMakerRuntimeFile(file RPGMakerRuntimeFile) bool {
 	validRole := file.Role == "runtime_js" || file.Role == "runtime_wasm" ||
-		file.Role == "adapter_bridge" || file.Role == "license"
+		file.Role == "adapter_bridge" || file.Role == "runtime_asset" || file.Role == "license"
 	return safeRelative(file.BundlePath) && safeRelative(file.Path) && file.MaxSizeBytes > 0 &&
 		file.SizeBytes > 0 && file.SizeBytes <= file.MaxSizeBytes && validSHA256(file.SHA256) && validRole
 }
@@ -162,6 +162,9 @@ func validateRPGMakerArtifact(artifact RPGMakerArtifact, files map[string]RPGMak
 	if artifact.RuntimeFamily == "ONS" {
 		return validateONSArtifact(artifact, files)
 	}
+	if artifact.RuntimeFamily == "KIRIKIRI" {
+		return validateKiriKiriArtifact(artifact, files)
+	}
 	route, err := routing.ByRoute(artifact.CoreID, artifact.RouteKey)
 	if err != nil || !artifactMatchesRoute(artifact, route) {
 		return fmt.Errorf("%w: RPG Maker artifact %s", ErrInvalid, artifact.RouteKey)
@@ -176,6 +179,40 @@ func validateRPGMakerArtifact(artifact RPGMakerArtifact, files map[string]RPGMak
 		return fmt.Errorf("%w: RPG Maker artifact bytes", ErrInvalid)
 	}
 	return nil
+}
+
+func validateKiriKiriArtifact(artifact RPGMakerArtifact, files map[string]RPGMakerRuntimeFile) error {
+	if !validKiriKiriIdentity(artifact) {
+		return fmt.Errorf("%w: KiriKiri artifact identity", ErrInvalid)
+	}
+	entries, err := rpgArtifactSetEntries(artifact, files)
+	if err != nil {
+		return err
+	}
+	entry, exists := files[path.Join(artifact.RuntimeVersion, artifact.EntryPath)]
+	if !exists || entry.SizeBytes != artifact.EntrySizeBytes || entry.SHA256 != artifact.EntrySHA256 ||
+		rpgArtifactSetDigest(entries) != artifact.ArtifactSetSHA256 || !validKiriKiriCompatibility(artifact) {
+		return fmt.Errorf("%w: KiriKiri artifact bytes", ErrInvalid)
+	}
+	return nil
+}
+
+func validKiriKiriIdentity(artifact RPGMakerArtifact) bool {
+	return artifact.CoreID == "kirikiri2" && artifact.Generation == "KIRIKIRI2" &&
+		artifact.RouteKey == "KIRIKIRI2_KAG" && artifact.RuntimeAdapterKind == "KIRIKIRI2_WEB" &&
+		artifact.AdapterID == "kirikiri2-web" && artifact.AdapterABI == "kirikiri-kag-bookmark" &&
+		artifact.EntryPath == "index.js" && artifact.RequiresThreads &&
+		artifact.SavePayloadKind == "KIRIKIRI_SAVE_BUNDLE_V1" && artifact.SaveMaxBytes == 64<<20 &&
+		artifact.SelectedForNewBindings && artifact.AvailableForLaunch
+}
+
+func validKiriKiriCompatibility(artifact RPGMakerArtifact) bool {
+	var value map[string]any
+	return json.Unmarshal(artifact.Compatibility, &value) == nil && len(value) == 9 &&
+		value["adapterAbi"] == "kirikiri-kag-bookmark" && value["checkpointSlot"] == float64(1999) &&
+		value["jsPath"] == "index.js" && value["wasmPath"] == "index.wasm" &&
+		value["vlfsPath"] == "vlfs.js" && value["assetsPath"] == "assets.zip" &&
+		validRuntimeCompatibilityContract(value)
 }
 
 func artifactMatchesRoute(artifact RPGMakerArtifact, route routing.Entry) bool {

@@ -456,12 +456,14 @@ components:
         - $ref: '#/components/schemas/EmulatorJSLaunchConfig'
         - $ref: '#/components/schemas/RpgMakerLaunchConfig'
         - $ref: '#/components/schemas/OnsLaunchConfig'
+        - $ref: '#/components/schemas/KiriKiriLaunchConfig'
       discriminator:
         propertyName: runtimeFamily
         mapping:
           EMULATORJS: '#/components/schemas/EmulatorJSLaunchConfig'
           RPGMAKER: '#/components/schemas/RpgMakerLaunchConfig'
           ONS: '#/components/schemas/OnsLaunchConfig'
+          KIRIKIRI: '#/components/schemas/KiriKiriLaunchConfig'
     EmulatorJSLaunchConfig:
       type: object
       additionalProperties: false
@@ -1108,6 +1110,139 @@ components:
           nullable: true
           allOf:
             - $ref: '#/components/schemas/OnsCheckpointRestore'
+        reviewPreview:
+          $ref: '#/components/schemas/ReviewPreviewConfig'
+    KiriKiriAdapterConfig:
+      type: object
+      additionalProperties: false
+      required:
+        - adapterKind
+        - adapterId
+        - runtimeBaseUrl
+        - projectIndexUrl
+        - startupXp3Path
+        - checkpointSlot
+      properties:
+        adapterKind:
+          type: string
+          enum:
+            - KIRIKIRI2_WEB
+        adapterId:
+          type: string
+          enum:
+            - kirikiri2-web
+        runtimeBaseUrl:
+          type: string
+          pattern: ^/runtime/retrom-runtime/[^/?#]+/$
+        projectIndexUrl:
+          type: string
+          pattern: ^/runtime/projects/[0-9a-f-]{36}/index\.json$
+        startupXp3Path:
+          type: string
+          nullable: true
+          minLength: 1
+          maxLength: 1024
+        checkpointSlot:
+          type: integer
+          enum:
+            - 1999
+    KiriKiriCheckpointRestore:
+      type: object
+      additionalProperties: false
+      required:
+        - payloadKind
+        - payloadUrl
+      properties:
+        payloadKind:
+          type: string
+          enum:
+            - KIRIKIRI_SAVE_BUNDLE_V1
+        payloadUrl:
+          type: string
+          pattern: ^/runtime/launches/[0-9a-f-]{36}/state$
+    KiriKiriLaunchConfig:
+      type: object
+      additionalProperties: false
+      required:
+        - runtimeFamily
+        - protocolVersion
+        - mode
+        - purpose
+        - launchId
+        - sessionId
+        - coreId
+        - coreName
+        - gameTitle
+        - platformName
+        - runtimeVersion
+        - artifactId
+        - returnTo
+        - warnings
+        - adapter
+        - checkpoint
+      properties:
+        runtimeFamily:
+          type: string
+          enum:
+            - KIRIKIRI
+        protocolVersion:
+          type: integer
+          enum:
+            - 1
+        mode:
+          type: string
+          enum:
+            - single
+        purpose:
+          type: string
+          enum:
+            - PRODUCT
+            - REVIEW_PREVIEW
+        launchId:
+          type: string
+          format: uuid
+        sessionId:
+          type: string
+          format: uuid
+        coreId:
+          type: string
+          enum:
+            - kirikiri2
+        coreName:
+          type: string
+          minLength: 1
+          maxLength: 200
+        gameTitle:
+          type: string
+          minLength: 1
+          maxLength: 500
+        platformName:
+          type: string
+          enum:
+            - KiriKiri
+        runtimeVersion:
+          type: string
+          minLength: 1
+          maxLength: 160
+        artifactId:
+          type: string
+          format: uuid
+        returnTo:
+          type: string
+          minLength: 1
+          maxLength: 2048
+        warnings:
+          type: array
+          maxItems: 16
+          items:
+            type: string
+            maxLength: 200
+        adapter:
+          $ref: '#/components/schemas/KiriKiriAdapterConfig'
+        checkpoint:
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/KiriKiriCheckpointRestore'
         reviewPreview:
           $ref: '#/components/schemas/ReviewPreviewConfig'
     RpgRuntimeGatePhase:

@@ -57,17 +57,37 @@ func normalizeCreateRequest(request CreateRequest) (CreateRequest, string, error
 	if contentMode == "" {
 		contentMode = contentcapability.ModeStandard
 	}
-	if contentMode != contentcapability.ModeStandard && contentMode != contentcapability.ModeMultiDiscM3UV1 &&
-		contentMode != contentcapability.ModeRPGMakerProjectV1 && contentMode != contentcapability.ModeONSProjectV1 {
+	if !validCreateContentMode(contentMode) {
 		return CreateRequest{}, "", ErrInvalid
 	}
 	if request.MetadataProvider != "NONE" && request.MetadataProvider != "HASHEOUS" {
 		return CreateRequest{}, "", ErrInvalid
 	}
-	if contentMode == contentcapability.ModeRPGMakerProjectV1 || contentMode == contentcapability.ModeONSProjectV1 {
+	if projectCreateContentMode(contentMode) {
 		request.MetadataProvider = "NONE"
 	}
 	return request, contentMode, nil
+}
+
+func validCreateContentMode(contentMode string) bool {
+	switch contentMode {
+	case contentcapability.ModeStandard, contentcapability.ModeMultiDiscM3UV1,
+		contentcapability.ModeRPGMakerProjectV1, contentcapability.ModeONSProjectV1,
+		contentcapability.ModeKiriKiriProjectV1:
+		return true
+	default:
+		return false
+	}
+}
+
+func projectCreateContentMode(contentMode string) bool {
+	switch contentMode {
+	case contentcapability.ModeRPGMakerProjectV1, contentcapability.ModeONSProjectV1,
+		contentcapability.ModeKiriKiriProjectV1:
+		return true
+	default:
+		return false
+	}
 }
 
 func (service *Service) prepareCreation(ctx context.Context, rawRequest CreateRequest) (creationPlan, error) {
@@ -157,6 +177,13 @@ func (service *Service) prepareContent(
 		plan.dispositions, plan.groups, plan.archives, err = service.prepareONSProject(
 			ctx, plan.sourceType, plan.files,
 		)
+	case contentcapability.ModeKiriKiriProjectV1:
+		if plan.target.platformID != "kirikiri" {
+			return ErrInvalid
+		}
+		plan.dispositions, plan.groups, plan.archives, err = service.prepareKiriKiriProject(
+			ctx, plan.sourceType, plan.files,
+		)
 	case contentcapability.ModeStandard:
 		plan.dispositions, plan.groups, plan.archives = service.prepareImportFiles(
 			ctx, plan.target.platformID, plan.sourceType, plan.files, plan.datID,
@@ -179,6 +206,12 @@ func validateCreationUpload(contentMode, sourceType, purpose string) error {
 	}
 	if contentMode == contentcapability.ModeONSProjectV1 {
 		if purpose != "ONS_PROJECT" {
+			return ErrInvalid
+		}
+		return nil
+	}
+	if contentMode == contentcapability.ModeKiriKiriProjectV1 {
+		if purpose != "KIRIKIRI_PROJECT" {
 			return ErrInvalid
 		}
 		return nil

@@ -157,6 +157,31 @@ describe("UploadPicker", () => {
     }));
   });
 
+  it("uses the KiriKiri project upload purpose and only requires a successful trial run", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ importJobId: "kirikiri-import" }), { status: 202, headers: { "Content-Type": "application/json" } }));
+    vi.stubGlobal("fetch", fetchMock);
+    const user = userEvent.setup();
+    render(<UploadPicker directories={[{
+      id: "kirikiri", name: "KiriKiri 游戏", platformName: "KiriKiri", coreName: "KiriKiri2",
+      importCapabilities: { contentModes: ["KIRIKIRI_PROJECT_V1"], multiDisc: null },
+    }]} />);
+
+    const project = new File(["project"], "game.zip", { type: "application/zip" });
+    await user.upload(screen.getByLabelText("选择导入文件"), project);
+    await user.click(screen.getByRole("button", { name: "下一步" }));
+    await user.selectOptions(screen.getByRole("combobox", { name: "目标游戏目录" }), "kirikiri");
+    expect(screen.getByText("KiriKiri 项目")).toBeVisible();
+    expect(screen.getByText(/审核时需要先成功试运行一次/)).toBeVisible();
+    expect(screen.getByLabelText("元信息来源")).toHaveValue("不刮削（KiriKiri 项目）");
+    expect(screen.getByLabelText("元信息来源")).toBeDisabled();
+
+    await user.click(screen.getByRole("button", { name: "上传并试运行 KiriKiri 项目" }));
+    expect(upload.uploadFiles).toHaveBeenCalledWith(expect.any(Array), expect.any(Function), "KIRIKIRI_PROJECT");
+    expect(fetchMock).toHaveBeenCalledWith("/api/v1/admin/imports", expect.objectContaining({
+      body: JSON.stringify({ uploadId: "rpg-upload", targetPlatformInstanceId: "kirikiri", metadataProvider: "NONE", contentMode: "KIRIKIRI_PROJECT_V1", tagIds: [] }),
+    }));
+  });
+
   it("preflights a directory and blocks multi-disc mode on an unsupported target", async () => {
     const user = userEvent.setup();
     render(<UploadPicker directories={[

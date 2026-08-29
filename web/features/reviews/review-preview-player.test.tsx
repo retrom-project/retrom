@@ -13,6 +13,13 @@ const ons = vi.hoisted(() => ({
   exit: vi.fn(),
   subscribe: vi.fn(() => vi.fn()),
 }));
+const kirikiri = vi.hoisted(() => ({
+  create: vi.fn(),
+  mount: vi.fn(),
+  screenshot: vi.fn(),
+  exit: vi.fn(),
+  subscribe: vi.fn(() => vi.fn()),
+}));
 
 vi.mock("@/features/player/adapters/ejs-4.2.3-v2", () => ({
   mountEmulatorJS: adapter.mount,
@@ -22,6 +29,7 @@ vi.mock("@/features/player/canvas-fit", () => ({
   installCanvasContain: () => ({ refresh: vi.fn(), cleanup: vi.fn() }),
 }));
 vi.mock("@xxxsen/retrom-runtime", () => ({
+  createKirikiriRuntime: kirikiri.create,
   createOnsRuntime: ons.create,
 }));
 
@@ -38,6 +46,11 @@ describe("ReviewPreviewPlayer", () => {
     ons.screenshot.mockReset();
     ons.exit.mockReset();
     ons.subscribe.mockClear();
+    kirikiri.create.mockReset();
+    kirikiri.mount.mockReset();
+    kirikiri.screenshot.mockReset();
+    kirikiri.exit.mockReset();
+    kirikiri.subscribe.mockClear();
   });
 
   it("captures and uploads a READY preview exactly five seconds after game start", async () => {
@@ -189,5 +202,52 @@ describe("ReviewPreviewPlayer", () => {
 
     view.unmount();
     expect(ons.exit).toHaveBeenCalledOnce();
+  });
+
+  it("mounts KiriKiri, captures its canvas, and exits the runtime", async () => {
+    vi.useFakeTimers();
+    kirikiri.mount.mockResolvedValue(undefined);
+    kirikiri.screenshot.mockResolvedValue(new Blob(["kirikiri-png"], { type: "image/png" }));
+    kirikiri.exit.mockResolvedValue(undefined);
+    kirikiri.create.mockReturnValue({
+      mount: kirikiri.mount, screenshot: kirikiri.screenshot,
+      exit: kirikiri.exit, subscribe: kirikiri.subscribe,
+    });
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      if (String(input).endsWith("/config")) {
+        return Promise.resolve(new Response(JSON.stringify({
+          runtimeFamily: "KIRIKIRI", sessionId: "preview-kirikiri", gameTitle: "KAG fixture",
+          adapter: {
+            adapterKind: "KIRIKIRI2_WEB", adapterId: "kirikiri2-web",
+            runtimeBaseUrl: "/runtime/retrom-runtime/v0.6.1/",
+            projectIndexUrl: "/runtime/projects/preview-kirikiri/index.json",
+            startupXp3Path: null, checkpointSlot: 1999,
+          },
+          reviewPreview: { importItemId: "item-kirikiri", captureAllowed: true, captureAfterMs: 5000 },
+        }), { status: 200, headers: { "Content-Type": "application/json" } }));
+      }
+      if (String(input).endsWith("/review-screenshot") && init?.method === "POST") {
+        return Promise.resolve(new Response(JSON.stringify({ screenshotId: "shot-kirikiri" }), {
+          status: 201, headers: { "Content-Type": "application/json" },
+        }));
+      }
+      throw new Error(`unexpected fetch ${String(input)}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const view = render(<ReviewPreviewPlayer previewId="preview-kirikiri" />);
+    await act(async () => {await Promise.resolve(); await Promise.resolve(); await Promise.resolve();});
+
+    expect(kirikiri.create).toHaveBeenCalledOnce();
+    expect(kirikiri.mount).toHaveBeenCalledOnce();
+    await act(async () => {await vi.advanceTimersByTimeAsync(5_000);});
+    expect(kirikiri.screenshot).toHaveBeenCalledOnce();
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/runtime/launches/preview-kirikiri/review-screenshot",
+      expect.objectContaining({ method: "POST", body: expect.any(Blob) }),
+    );
+
+    view.unmount();
+    expect(kirikiri.exit).toHaveBeenCalledOnce();
   });
 });

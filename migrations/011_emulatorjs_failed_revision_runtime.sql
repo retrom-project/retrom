@@ -12,6 +12,7 @@ WHEN NOT EXISTS(
         AND (NEW.status!='READY' OR NEW.emulator_game_id IS NOT NULL)
       OR artifact.runtime_family='RPGMAKER' AND NEW.emulator_game_id IS NULL
       OR artifact.runtime_family='ONS' AND NEW.emulator_game_id IS NULL
+      OR artifact.runtime_family='KIRIKIRI' AND NEW.emulator_game_id IS NULL
     )
 )
 BEGIN SELECT RAISE(ABORT,'variant revision runtime mismatch'); END;

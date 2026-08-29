@@ -12,8 +12,7 @@ import { canCreateRecoverableManualState } from "./dosbox-pure-state";
 import { installPlayerFrameStyle } from "./player-frame-style";
 import { applyVideoRenderingMode, type VideoRenderingMode } from "./video-rendering";
 import { mobilePlayerQuery, portraitPlayerQuery, reducePlayerOrientation, waitForStableLandscape, type PlayerOrientationState, type PlayerRuntimeKind } from "./orientation";
-import { NetplayController } from "./netplay/controller";
-import { digestHex, EJSNetplayFrameBridge } from "./netplay/ejs-netplay-4.2.3-v1";
+import type { NetplayController } from "./netplay/controller";
 import { formatPlayerBytes, readBoundedResponse, reportsNativeExit } from "./player-shell-model";
 import { shouldRevealPlayerControlsForKey } from "./player-controls-visibility";
 import type { PlayerDebugRuntime } from "./player-chrome";
@@ -27,8 +26,10 @@ import { describeRetromRpgRuntime, isRetromRpgRuntimeConfig, mountRetromRpgRunti
 import type { RpgRuntimeValidationDriver } from "./rpg-runtime-validation";
 import type { ValidationCheckpointReceipt } from "./rpg-validation-checkpoint-response";
 import { isOnsLaunchConfig, mountOnsProductRuntime, type OnsLaunchConfig } from "./ons-runtime";
-import { fetchOnsCheckpoint, fetchRpgCheckpoint, onsShellConfig, rpgDebugRuntime, rpgShellConfig } from "./player-bootstrap-config";
+import { isKiriKiriLaunchConfig, mountKiriKiriProductRuntime, type KiriKiriLaunchConfig } from "./kirikiri-runtime";
+import { fetchKiriKiriCheckpoint, fetchOnsCheckpoint, fetchRpgCheckpoint, kirikiriShellConfig, observedRuntimeDiscCount, onsShellConfig, rpgDebugRuntime, rpgShellConfig } from "./player-bootstrap-config";
 import { createRpgRuntimeValidationDriver } from "./rpg-validation-driver-factory";
+import { startNetplay } from "./player-bootstrap-netplay";
 
 type ShellState = "loading" | "running" | "error";
 type SyncTone = "synced" | "busy" | "warning";
@@ -61,13 +62,13 @@ export type PlayerBootstrapParams = {
   uploadValidationCheckpoint: (payload: ManualStatePayload) => Promise<ValidationCheckpointReceipt>;
 };
 
-type BootstrapResources = {
+export type BootstrapResources = {
   cleanup?: () => void; cleanupRuntimeGamepadFilter?: () => void; canvasContain?: ReturnType<typeof installCanvasContain>; cleanupFrameControls?: () => void;
   nativeMenuObserver?: MutationObserver; ownedNetplayController?: NetplayController;
-  rpgRuntimeSubscription?: () => void; onsRuntimeSubscription?: () => void; rpgValidationDriver?: RpgRuntimeValidationDriver;
+  rpgRuntimeSubscription?: () => void; nativeRuntimeSubscription?: () => void; rpgValidationDriver?: RpgRuntimeValidationDriver;
 };
 
-type MountedContext = {
+export type MountedContext = {
   params: PlayerBootstrapParams; resources: BootstrapResources; controller: AbortController; config: PlayerConfig;
   frame: HTMLIFrameElement; frameWindow: Window; frameDocument: Document; stateBytes: Uint8Array | null;
   crossOriginFrame: boolean;
@@ -89,6 +90,10 @@ async function bootstrapPlayer(params: PlayerBootstrapParams, resources: Bootstr
   const rawConfig: unknown = await response.json();
   if (isOnsLaunchConfig(rawConfig)) {
     await bootstrapOnsPlayer(params, resources, controller, rawConfig);
+    return;
+  }
+  if (isKiriKiriLaunchConfig(rawConfig)) {
+    await bootstrapKiriKiriPlayer(params, resources, controller, rawConfig);
     return;
   }
   if (isRetromRpgRuntimeConfig(rawConfig)) {
@@ -139,7 +144,52 @@ async function bootstrapOnsPlayer(
   try {
     if (controller.signal.aborted) {await mountedRuntime.runtime.exit(); return;}
     resources.cleanup = () => {void mountedRuntime.runtime.exit();};
-    resources.onsRuntimeSubscription = mountedRuntime.runtime.subscribe((event) => {
+    resources.nativeRuntimeSubscription = mountedRuntime.runtime.subscribe((event) => {
+      if (event.type === "FATAL_ERROR") {
+        params.setState("error");
+        params.setMessage(event.code);
+      }
+    });
+    handleReady(mounted.context, mountedRuntime.instance);
+    const availability = mountedRuntime.runtime.getCheckpointAvailability();
+    params.manualSaveAvailableRef.current = availability.available;
+    params.setManualSaveAvailable(availability.available);
+    completeSinglePlayerStart(mounted.context, false);
+  } catch (error) {
+    await mountedRuntime.runtime.exit();
+    throw error;
+  }
+}
+
+async function bootstrapKiriKiriPlayer(
+  params: PlayerBootstrapParams,
+  resources: BootstrapResources,
+  controller: AbortController,
+  kirikiriConfig: KiriKiriLaunchConfig,
+) {
+  const config = kirikiriShellConfig(kirikiriConfig);
+  applyConfig(params, config);
+  params.setDebugRuntime({
+    runtimeFamily: "KIRIKIRI", coreId: kirikiriConfig.coreId, coreArtifactId: kirikiriConfig.artifactId,
+    emulatorJSVersion: kirikiriConfig.runtimeVersion, playerAdapterId: kirikiriConfig.adapter.adapterId,
+    inputMode: "STANDARD", crossOriginIsolated: window.crossOriginIsolated,
+    sharedArrayBuffer: typeof SharedArrayBuffer !== "undefined",
+  });
+  await prepareOrientation(params, config, controller);
+  const frame = await prepareFrame(params, controller);
+  const stateBytes = await fetchKiriKiriCheckpoint(kirikiriConfig, controller.signal);
+  const mounted = mountFrame(params, resources, controller, config, frame, stateBytes);
+  resources.cleanupRuntimeGamepadFilter = installRuntimeImmersiveGamepadFilter(
+    params.experience, mounted.context.frameWindow, params.immersiveGamepadFilter,
+  );
+  params.setMessage("正在启动 KiriKiri 运行时…");
+  const mountedRuntime = await mountKiriKiriProductRuntime(
+    kirikiriConfig, mounted.target, mounted.context.frameWindow, stateBytes, controller.signal,
+  );
+  try {
+    if (controller.signal.aborted) {await mountedRuntime.runtime.exit(); return;}
+    resources.cleanup = () => {void mountedRuntime.runtime.exit();};
+    resources.nativeRuntimeSubscription = mountedRuntime.runtime.subscribe((event) => {
       if (event.type === "FATAL_ERROR") {
         params.setState("error");
         params.setMessage(event.code);
@@ -523,54 +573,6 @@ export function schedulePlayerCanvasRefresh(
   frameWindow.requestAnimationFrame(refresh);
 }
 
-function startNetplay(context: MountedContext) {
-  const { params, config, controller, resources } = context;
-  if (!params.emulator.current || !config.netplay) {throw new Error("PLAYER_NETPLAY_CONFIG_INVALID");}
-  try {
-    params.netplayController.current?.dispose();
-    const holder: { current?: NetplayController } = {};
-    const current = () => !controller.signal.aborted && params.netplayController.current === holder.current;
-    const created = new NetplayController(config.netplay, "", new EJSNetplayFrameBridge(params.emulator.current), netplayCallbacks(context, current));
-    holder.current = created;
-    resources.ownedNetplayController = created;
-    params.netplayController.current = created;
-    params.setMessage("正在建立联机同步屏障…");
-    void digestHex(new TextEncoder().encode(JSON.stringify(config.netplay.netplayProfile))).then((digest) => created.setProfileDigest(digest)).then(() => created.start()).catch((caught: unknown) => failNetplayStart(context, created, current, caught));
-    return true;
-  } catch (caught) {
-    params.setState("error"); params.setMessage(caught instanceof Error ? caught.message : "NETPLAY_START_FAILED");
-    return false;
-  }
-}
-
-function netplayCallbacks(context: MountedContext, current: () => boolean) {
-  const { params } = context;
-  return {
-    onStatus: (text: string, tone: SyncTone) => {if (current()) {params.setSyncText(text); params.setSyncTone(tone);}},
-    onRunning: () => {
-      if (!current()) {return;}
-      params.setNetplayPaused(false); params.netplayPausedRef.current = false;
-      const orientation = reducePlayerOrientation(params.orientationStateRef.current, { type: "runtime-started", paused: false });
-      params.orientationStateRef.current = orientation.state; params.setOrientationState(orientation.state);
-      if (params.started.current) {return;}
-      void params.sendEvent("start").then(() => {params.setState("running"); params.heartbeat.current = window.setInterval(() => {void params.sendEvent("heartbeat");}, 30_000);}).catch(() => {params.setState("error"); params.setMessage("PLAY_SESSION_EVENT_FAILED");});
-    },
-    onPaused: () => {if (current()) {params.netplayPausedRef.current = true; params.setNetplayPaused(true);}},
-    onEnded: (reason: string) => {
-      if (!current()) {return;}
-      params.setSyncText("联机已结束"); params.setSyncTone("warning"); params.setMessage(reason);
-      void params.sendEvent("finish").catch(() => undefined).finally(() => window.setTimeout(() => window.location.replace(params.returnTo.current), 600));
-    },
-  };
-}
-
-function failNetplayStart(context: MountedContext, created: NetplayController, current: () => boolean, caught: unknown) {
-  if (!current()) {created.dispose(); return;}
-  created.end();
-  context.params.setState("error");
-  context.params.setMessage(caught instanceof Error ? caught.message : "NETPLAY_START_FAILED");
-}
-
 function handleBootstrapError(error: unknown, controller: AbortController, params: PlayerBootstrapParams) {
   if (controller.signal.aborted) {return;}
   const code = error instanceof Error ? error.message : "启动失败";
@@ -581,7 +583,7 @@ function handleBootstrapError(error: unknown, controller: AbortController, param
 function cleanupBootstrap(params: PlayerBootstrapParams, resources: BootstrapResources, controller: AbortController) {
   controller.abort(); resources.cleanupRuntimeGamepadFilter?.(); resources.cleanup?.(); resources.canvasContain?.cleanup(); resources.cleanupFrameControls?.();
 	resources.rpgRuntimeSubscription?.();
-	resources.onsRuntimeSubscription?.();
+	resources.nativeRuntimeSubscription?.();
   resources.ownedNetplayController?.dispose();
   if (params.netplayController.current === resources.ownedNetplayController) {params.netplayController.current = null;}
   closeEmulatorSettingsPanels(params.emulator.current);
@@ -592,9 +594,4 @@ function cleanupBootstrap(params: PlayerBootstrapParams, resources: BootstrapRes
   if (validationDriver) {
     params.setRpgValidationDriver((current) => current === validationDriver ? null : current);
   }
-}
-
-function observedRuntimeDiscCount(instance: EmulatorInstance | undefined) {
-  const value = instance?.gameManager?.getDiskCount?.();
-  return typeof value === "number" && Number.isInteger(value) && value >= -1 && value <= 64 ? value : null;
 }

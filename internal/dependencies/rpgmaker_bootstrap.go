@@ -61,7 +61,7 @@ func retireUndeclaredRPGMakerArtifacts(
 	rows, err := transaction.QueryContext(ctx, `
 SELECT id,core_id,route_key,artifact_set_sha256
 FROM core_artifacts
-WHERE runtime_family IN ('RPGMAKER','ONS') AND (selected_for_new_bindings=1 OR available_for_launch=1)
+WHERE runtime_family IN ('RPGMAKER','ONS','KIRIKIRI') AND (selected_for_new_bindings=1 OR available_for_launch=1)
 `)
 	if err != nil {
 		return fmt.Errorf("list RPG Maker artifacts for retirement: %w", err)

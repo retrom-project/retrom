@@ -234,12 +234,37 @@ class MakefileDependencyTests(unittest.TestCase):
         ).stdout
         self.assertLess(output.find("npm ci"), output.find("retrom_runtime_dev.py activate"), output)
         self.assertLess(output.find("retrom_runtime_dev.py activate"), output.find("scripts/dev.sh"), output)
+        self.assertLess(output.find("retrom_runtime_dev.py activate"), output.find("scripts/dependencies.py prepare"), output)
         self.assertIn("npm run build", output)
         self.assertIn("npm run package:check", output)
-        self.assertNotIn("npm run release:build", output)
         self.assertNotIn("core:ons:build", output)
         self.assertIn('NEXT_DIST_DIR=".next-runtime-dev"', output)
-        self.assertIn("env -u RETROM_RUNTIME_DEV_ROOT scripts/dev.sh", output)
+        self.assertIn(
+            "env -u RETROM_RUNTIME_DEV_ROOT -u RETROM_RUNTIME_DEV_INCLUDE_ASSETS scripts/dev.sh",
+            output,
+        )
+
+    def test_dev_with_local_runtime_assets_stages_candidate_before_dependency_check(self) -> None:
+        local_runtime = REPOSITORY_ROOT.parent / "retrom-runtime"
+        output = subprocess.run(
+            [
+                "make", "--no-print-directory", "--dry-run", "dev",
+                f"RETROM_RUNTIME_DEV_ROOT={local_runtime}",
+                "RETROM_RUNTIME_DEV_INCLUDE_ASSETS=true",
+            ],
+            cwd=REPOSITORY_ROOT,
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout
+        release_position = output.find("npm run release:build")
+        activation_position = output.find("retrom_runtime_dev.py activate")
+        prepare_position = output.find("scripts/dependencies.py prepare")
+        dev_position = output.find("scripts/dev.sh")
+        self.assertTrue(
+            0 <= release_position < activation_position < prepare_position < dev_position,
+            output,
+        )
 
     def test_ci_runs_the_structure_gate_without_warning_only_bypass(self) -> None:
         output = self.dry_run("ci")
