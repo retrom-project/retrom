@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"hash/crc32"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -47,6 +48,56 @@ func TestSevenZipWorkerScansAndExtractsDeterministicArchive(t *testing.T) {
 		t.Fatal(err)
 	}
 	testassert.Truef(t, bytes.Equal(extracted.Bytes(), payload), "extracted payload = %q", extracted.Bytes())
+}
+
+func TestSevenZipWorkerExtractsSolidEntriesInOneBatch(t *testing.T) {
+	t.Parallel()
+	archivePath := filepath.Join("testdata", "sevenzip", "ambiguous.7z")
+	entries, err := ScanSevenZip(context.Background(), archivePath, DefaultArchiveLimits())
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := make(map[string][]byte, len(entries))
+	err = ExtractSevenZipEntries(
+		context.Background(), archivePath, entries,
+		func(entry ArchiveEntry, reader io.Reader) error {
+			payload, readErr := io.ReadAll(reader)
+			got[entry.NormalizedPath] = payload
+			return readErr
+		},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"game.a26", "second.a26"} {
+		want, readErr := os.ReadFile(filepath.Join("testdata", "sevenzip", "payload", name))
+		if readErr != nil {
+			t.Fatal(readErr)
+		}
+		if !bytes.Equal(got[name], want) {
+			t.Fatalf("batch entry %q = %q, want %q", name, got[name], want)
+		}
+	}
+}
+
+func TestSevenZipBatchRejectsNonCanonicalEntrySets(t *testing.T) {
+	t.Parallel()
+	valid := ArchiveEntry{ArchiveFormat: "SEVEN_Z", Ordinal: 1, Size: 3}
+	for _, entries := range [][]ArchiveEntry{
+		{{ArchiveFormat: "ZIP", Ordinal: 1, Size: 3}},
+		{valid, valid},
+		{{ArchiveFormat: "SEVEN_Z", Ordinal: -1, Size: 3}},
+		{{ArchiveFormat: "SEVEN_Z", Ordinal: 1, Size: -1}},
+	} {
+		if _, _, err := orderedSevenZipEntries(entries); !errors.Is(err, ErrArchiveUnsafe) {
+			t.Fatalf("orderedSevenZipEntries(%#v) error = %v", entries, err)
+		}
+	}
+	for _, encoded := range []string{"", "01", "1,1", "2,1", "-1", "1,"} {
+		if _, err := parseBatchOrdinals([]string{encoded}); !errors.Is(err, ErrArchiveUnsafe) {
+			t.Fatalf("parseBatchOrdinals(%q) error = %v", encoded, err)
+		}
+	}
 }
 
 func TestSevenZipWorkerRejectsUnsupportedContainers(t *testing.T) {

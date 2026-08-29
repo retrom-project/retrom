@@ -6,7 +6,6 @@ import (
 	"io"
 	"os"
 
-	"retrom/internal/blobstore"
 	"retrom/internal/contentprofile"
 	"retrom/internal/importing"
 	"retrom/internal/ons/detector"
@@ -124,17 +123,21 @@ func (service *Service) prepareONSArchive(
 	if err != nil {
 		return preparedDisposition{}, preparedGroup{}, preparedArchive{}, fmt.Errorf("normalize ONS archive: %w", err)
 	}
-	materialized := make(map[int]blobstore.Metadata, len(project.Files))
+	projectEntries := make([]importing.ArchiveEntry, 0, len(project.Files))
+	for _, projectFile := range project.Files {
+		projectEntries = append(projectEntries, entryByOrdinal[projectFile.SourceIndex])
+	}
+	materialized, err := service.materializeArchiveEntries(
+		ctx, service.blobs.Path(file.sha256), projectEntries,
+	)
+	if err != nil {
+		return preparedDisposition{}, preparedGroup{}, preparedArchive{}, err
+	}
 	index := onsProjectIndex{paths: make(map[string]string, len(project.Files))}
 	for _, projectFile := range project.Files {
 		entry := entryByOrdinal[projectFile.SourceIndex]
-		metadata, materializeErr := service.materializeArchiveEntry(ctx, service.blobs.Path(file.sha256), entry)
-		if materializeErr != nil {
-			return preparedDisposition{}, preparedGroup{}, preparedArchive{}, materializeErr
-		}
-		materialized[entry.Ordinal] = metadata
 		index.files = append(index.files, detector.File{Path: projectFile.Path, Size: projectFile.SizeBytes})
-		index.paths[projectFile.Path] = metadata.Path
+		index.paths[projectFile.Path] = materialized[entry.Ordinal].Path
 	}
 	profile, err := detector.Detect(index)
 	if err != nil {
