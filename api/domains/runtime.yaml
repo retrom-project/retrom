@@ -98,10 +98,10 @@ paths:
       responses:
         '200':
           $ref: '#/components/responses/BinaryResponse'
-  /runtime/projects/{launchId}/{projectPath}:
-    x-retrom-router-template: /runtime/projects/{launchId}/{projectPath:.+}
+  /runtime/content/project/{contentIdentity}/{projectPath}:
+    x-retrom-router-template: /runtime/content/project/{contentIdentity}/{projectPath:.+}
     parameters:
-      - $ref: '#/components/parameters/LaunchID'
+      - $ref: '#/components/parameters/ContentIdentity'
       - name: projectPath
         in: path
         required: true
@@ -110,7 +110,7 @@ paths:
     get:
       security: []
       operationId: getRuntimeProjectFile
-      description: Serves one exact file from the immutable directory-runtime project fileset locked by the authorized Launch; index.json is a reserved virtual index.
+      description: Serves one exact file from the immutable project identity locked by an authorized Launch; index.json is a reserved virtual index.
       responses:
         '200':
           $ref: '#/components/responses/BinaryResponse'
@@ -696,12 +696,10 @@ components:
           maxLength: 2048
         projectRootUrl:
           type: string
-          minLength: 1
-          maxLength: 2048
+          pattern: ^/runtime/content/project/[0-9a-f]{64}/$
         projectIndexUrl:
           type: string
-          minLength: 1
-          maxLength: 2048
+          pattern: ^/runtime/content/project/[0-9a-f]{64}/index\.json$
         rtpSource:
           nullable: true
           allOf:
@@ -1017,7 +1015,7 @@ components:
           pattern: ^/runtime/retrom-runtime/[^/?#]+/$
         projectIndexUrl:
           type: string
-          pattern: ^/runtime/projects/[0-9a-f-]{36}/index\.json$
+          pattern: ^/runtime/content/project/[0-9a-f]{64}/index\.json$
         scriptEncoding:
           type: string
           enum:
@@ -1151,7 +1149,7 @@ components:
           pattern: ^/runtime/retrom-runtime/[^/?#]+/$
         projectIndexUrl:
           type: string
-          pattern: ^/runtime/projects/[0-9a-f-]{36}/index\.json$
+          pattern: ^/runtime/content/project/[0-9a-f]{64}/index\.json$
         startupXp3Path:
           type: string
           nullable: true

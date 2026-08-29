@@ -61,15 +61,23 @@ WHERE installation_id=? ORDER BY ordinal
 	if err := rows.Err(); err != nil {
 		return ProjectIndexView{}, fmt.Errorf("read runtime pack index: %w", err)
 	}
-	return buildRuntimePackIndex(launchID, slot, entries)
+	identity, err := service.ProjectContentIdentity(ctx, launchID, capability)
+	if err != nil {
+		return ProjectIndexView{}, ErrCredential
+	}
+	projectRoot, err := RuntimeProjectContentRoot(identity)
+	if err != nil {
+		return ProjectIndexView{}, ErrCredential
+	}
+	return buildRuntimePackIndex(projectRoot, slot, entries)
 }
 
 func buildRuntimePackIndex(
-	launchID string,
+	projectRoot string,
 	slot int,
 	entries []runtimePackFileIndexEntry,
 ) (ProjectIndexView, error) {
-	if launchID == "" || slot < 0 || slot > 2 || len(entries) < 1 || len(entries) > maximumRuntimePackFiles {
+	if projectRoot == "" || slot < 0 || slot > 2 || len(entries) < 1 || len(entries) > maximumRuntimePackFiles {
 		return ProjectIndexView{}, ErrCredential
 	}
 	seen := make(map[string]struct{}, len(entries))
@@ -82,8 +90,7 @@ func buildRuntimePackIndex(
 		}
 		seen[folded] = struct{}{}
 		entries[index].URL = fmt.Sprintf(
-			"/runtime/projects/%s/__retrom__/packs/%d/files/%s",
-			launchID, slot, escapeProjectPath(entries[index].Path),
+			"%s__retrom__/packs/%d/files/%s", projectRoot, slot, escapeProjectPath(entries[index].Path),
 		)
 	}
 	contents, err := json.Marshal(runtimePackFileIndex{Files: entries, SchemaVersion: 1})

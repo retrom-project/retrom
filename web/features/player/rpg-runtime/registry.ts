@@ -180,7 +180,7 @@ function validateEasy(config: RpgRuntimeConfig, route: Route) {
     "adapterId", "adapterKind", "checkpointSlot", "engineMode", "projectIndexUrl", "projectRootUrl",
     "rtpSource", "runtimeBaseUrl",
   ])].every(Boolean) || adapter.adapterKind !== "EASYRPG_WEB" || !("engineMode" in route)) {return false;}
-  const root = `/runtime/projects/${config.launchId}/`;
+  const root = validProjectRoot(adapter.projectRootUrl) ? adapter.projectRootUrl : "";
   const runtime = `/runtime/retrom-runtime/${route.runtimeVersion}/`;
   return [
     adapter.engineMode === route.engineMode, adapter.runtimeBaseUrl === runtime,
@@ -203,7 +203,7 @@ function validateMkxp(config: RpgRuntimeConfig, route: Route) {
     return false;
   }
   const runtime = `/runtime/retrom-runtime/${route.runtimeVersion}/`;
-  const root = `/runtime/projects/${config.launchId}/`;
+  const root = projectRootFromURL(adapter.projectArchive.url);
   return [
     adapter.rgssVersion === route.rgssVersion, adapter.stateBufferBytes === 268435456,
     adapter.runtimeBaseUrl === runtime, validAppUrl(adapter.runtimeBaseUrl),
@@ -216,6 +216,15 @@ function validateMkxp(config: RpgRuntimeConfig, route: Route) {
     digest.test(adapter.core.artifactSetSha256), adapter.projectArchive.url === `${root}__retrom__/game.mkxpz`,
     validArchive(adapter.projectArchive, root), validMkxpRtps(adapter.rtpArchives, root),
   ].every(Boolean);
+}
+
+function validProjectRoot(value: string) {
+  return /^\/runtime\/content\/project\/[0-9a-f]{64}\/$/u.test(value);
+}
+
+function projectRootFromURL(value: string) {
+  const match = /^(\/runtime\/content\/project\/[0-9a-f]{64}\/)/u.exec(value);
+  return match?.[1] ?? "";
 }
 
 function validateNative(config: RpgRuntimeConfig, route: Route) {

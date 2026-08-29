@@ -143,11 +143,11 @@ describe("RPG runtime registry", () => {
     if (config.adapter.adapterKind !== "EASYRPG_WEB") {throw new Error("wrong RPG2000 adapter");}
     config.adapter.rtpSource = {
       kind: "FILE_TREE_V1",
-      indexUrl: `/runtime/projects/${launchId}/__retrom__/packs/0/index.json`,
+      indexUrl: `/runtime/content/project/${"d".repeat(64)}/__retrom__/packs/0/index.json`,
     };
     expect(() => validateRpgRuntimeConfig(config)).not.toThrow();
 
-    config.adapter.rtpSource.indexUrl = `/runtime/projects/${launchId}/index.json`;
+    config.adapter.rtpSource.indexUrl = `/runtime/content/project/${"d".repeat(64)}/index.json`;
     expect(() => validateRpgRuntimeConfig(config)).toThrow("PLAYER_RPG_CONFIG_INVALID");
   });
 });
@@ -181,7 +181,7 @@ function configFor(route: Route): RpgRuntimeConfig {
     checkpointAvailability: { available: false, reason: "RUNTIME_NOT_READY" },
     runtimeValidation: null,
   };
-  const root = `/runtime/projects/${launchId}/`;
+  const root = `/runtime/content/project/${"d".repeat(64)}/`;
   if (route.adapterKind === "EASYRPG_WEB") {
     const runtime = `/runtime/retrom-runtime/${route.runtimeVersion}/`;
     return { ...common, adapter: {

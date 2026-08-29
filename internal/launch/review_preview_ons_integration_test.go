@@ -77,10 +77,14 @@ VALUES(?,'ons-preview-profile','ons-preview-admin','ONS Admin','ADMIN','ENABLED'
 		t.Fatalf("ReviewPreviewConfig(ONS) = %#v, %v", configuration, err)
 	}
 	onsConfig := configuration.ONS
+	projectIdentity, identityErr := service.ProjectContentIdentity(
+		ctx, preview.PreviewID, preview.Capability,
+	)
+	projectRoot, rootErr := RuntimeProjectContentRoot(projectIdentity)
 	if onsConfig.RuntimeFamily != "ONS" || onsConfig.Purpose != "REVIEW_PREVIEW" ||
 		onsConfig.Adapter.AdapterKind != "ONS_YURI_WEB" || onsConfig.Adapter.AdapterID != "ons-yuri-web" ||
 		onsConfig.Adapter.ScriptEncoding != "utf8" || onsConfig.Adapter.CheckpointSlot != 999 ||
-		onsConfig.Adapter.ProjectIndexURL != "/runtime/projects/"+preview.PreviewID+"/index.json" {
+		identityErr != nil || rootErr != nil || onsConfig.Adapter.ProjectIndexURL != projectRoot+"index.json" {
 		t.Fatalf("ONS review config = %#v", onsConfig)
 	}
 	encoded, err := json.Marshal(configuration)
@@ -110,7 +114,7 @@ VALUES(?,'ons-preview-profile','ons-preview-admin','ONS Admin','ADMIN','ENABLED'
 		)
 		if contentErr != nil || content.Format != onsProjectFormat || content.Digest == "" ||
 			file.SizeBytes < 1 ||
-			file.URL != "/runtime/projects/"+preview.PreviewID+"/"+file.Path {
+			file.URL != projectRoot+file.Path {
 			t.Fatalf("ONS project file %q = %#v, %v", file.Path, content, contentErr)
 		}
 	}
@@ -256,7 +260,8 @@ WHERE launch.id=? AND save.id=?
 	restoreConfig, err := service.Config(ctx, restored.LaunchID, restored.Capability)
 	if err != nil || restoreConfig.ONS == nil || restoreConfig.ONS.Checkpoint == nil ||
 		restoreConfig.ONS.Checkpoint.PayloadKind != "ONS_SAVE_BUNDLE_V1" ||
-		restoreConfig.ONS.Checkpoint.PayloadURL != "/runtime/launches/"+restored.LaunchID+"/state" {
+		restoreConfig.ONS.Checkpoint.PayloadURL != "/runtime/launches/"+restored.LaunchID+"/state" ||
+		restoreConfig.ONS.Adapter.ProjectIndexURL != config.ONS.Adapter.ProjectIndexURL {
 		t.Fatalf("Config(ONS restore) = %#v, %v", restoreConfig, err)
 	}
 	digest, err := saveService.StateDigest(ctx, restored.LaunchID, restored.Capability)

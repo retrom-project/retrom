@@ -174,7 +174,7 @@ describe("ReviewPreviewPlayer", () => {
           adapter: {
             adapterKind: "ONS_YURI_WEB", adapterId: "ons-yuri-web",
             runtimeBaseUrl: "/runtime/retrom-runtime/v0.3.7/",
-            projectIndexUrl: "/runtime/projects/preview-ons/index.json",
+            projectIndexUrl: `/runtime/content/project/${"a".repeat(64)}/index.json`,
             scriptEncoding: "utf8", checkpointSlot: 999,
           },
           reviewPreview: { importItemId: "item-ons", captureAllowed: true, captureAfterMs: 5000 },
@@ -221,7 +221,7 @@ describe("ReviewPreviewPlayer", () => {
           adapter: {
             adapterKind: "KIRIKIRI2_WEB", adapterId: "kirikiri2-web",
             runtimeBaseUrl: "/runtime/retrom-runtime/v0.6.1/",
-            projectIndexUrl: "/runtime/projects/preview-kirikiri/index.json",
+            projectIndexUrl: `/runtime/content/project/${"b".repeat(64)}/index.json`,
             startupXp3Path: null, checkpointSlot: 1999,
           },
           reviewPreview: { importItemId: "item-kirikiri", captureAllowed: true, captureAfterMs: 5000 },

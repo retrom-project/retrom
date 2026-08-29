@@ -289,7 +289,7 @@ data/
 - `ETag: "<sha256>"`
 - 固定版本 EmulatorJS 与发布媒体：`Cache-Control: public, max-age=31536000, immutable`；媒体替换创建新
   GameAsset ID 与 URL，current 切换后旧 URL 失效。
-- ROM、parent、BIOS 和多盘外部文件：仅经 `/runtime/content/` 的 Launch content grant 访问，URL 携带由
+- ROM、parent、BIOS、多盘外部文件和目录型 runtime 项目：仅经 `/runtime/content/` 的 Launch content grant 访问，URL 携带由
   实际 bytes 与必要输出选项带领域分隔派生的内容身份而不暴露 Blob ID/hash；`Cache-Control: private,
   max-age=31536000, immutable`。ROM 或 bundle 任一文件替换必须改变 URL，授权校验仍逐请求重算并匹配身份。
 - 状态存档与截图继续是 Profile 私有数据，使用 Launch/SaveState 逻辑 ID、`Cache-Control: private,

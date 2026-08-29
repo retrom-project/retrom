@@ -2582,17 +2582,17 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/runtime/projects/{launchId}/{projectPath}": {
+    "/runtime/content/project/{contentIdentity}/{projectPath}": {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                launchId: components["parameters"]["LaunchID"];
+                contentIdentity: components["parameters"]["ContentIdentity"];
                 projectPath: string;
             };
             cookie?: never;
         };
-        /** @description Serves one exact file from the immutable directory-runtime project fileset locked by the authorized Launch; index.json is a reserved virtual index. */
+        /** @description Serves one exact file from the immutable project identity locked by an authorized Launch; index.json is a reserved virtual index. */
         get: operations["getRuntimeProjectFile"];
         put?: never;
         post?: never;
@@ -9812,7 +9812,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                launchId: components["parameters"]["LaunchID"];
+                contentIdentity: components["parameters"]["ContentIdentity"];
                 projectPath: string;
             };
             cookie?: never;
@@ -9827,7 +9827,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                launchId: components["parameters"]["LaunchID"];
+                contentIdentity: components["parameters"]["ContentIdentity"];
                 projectPath: string;
             };
             cookie?: never;

@@ -99,6 +99,14 @@ WHERE launch.id=? AND launch.purpose='PRODUCT' AND artifact.runtime_family='ONS'
 	if err != nil || len(title) > 500 {
 		return ProjectIndexView{}, ErrCredential
 	}
+	identity, err := service.ProjectContentIdentity(ctx, launchID, capability)
+	if err != nil {
+		return ProjectIndexView{}, ErrCredential
+	}
+	projectRoot, err := RuntimeProjectContentRoot(identity)
+	if err != nil {
+		return ProjectIndexView{}, ErrCredential
+	}
 	rows, err := service.database.QueryContext(ctx, `
 SELECT content.logical_name,blob.size_bytes
 FROM launch_content_files content
@@ -121,7 +129,7 @@ ORDER BY content.logical_name
 	if err := rows.Err(); err != nil {
 		return ProjectIndexView{}, fmt.Errorf("read product ONS project index: %w", err)
 	}
-	return buildONSProjectIndex(launchID, title, profile, files)
+	return buildONSProjectIndex(projectRoot, title, profile, files)
 }
 
 func (service *Service) reviewPreviewONSContent(
@@ -184,15 +192,23 @@ WHERE id=? AND content_kind='ONS_PROJECT_V1' AND content_format='ONS_PROJECT_V1'
 	if err != nil || len(title) > 500 {
 		return ProjectIndexView{}, ErrCredential
 	}
+	identity, err := service.ProjectContentIdentity(ctx, previewID, capability)
+	if err != nil {
+		return ProjectIndexView{}, ErrCredential
+	}
+	projectRoot, err := RuntimeProjectContentRoot(identity)
+	if err != nil {
+		return ProjectIndexView{}, ErrCredential
+	}
 	files, err := service.reviewPreviewProjectIndexFiles(ctx, previewID, primaryName)
 	if err != nil {
 		return ProjectIndexView{}, err
 	}
-	return buildONSProjectIndex(previewID, title, profile, files)
+	return buildONSProjectIndex(projectRoot, title, profile, files)
 }
 
 func buildONSProjectIndex(
-	launchID, title string,
+	projectRoot, title string,
 	profile detector.Profile,
 	files []onsProjectIndexFile,
 ) (ProjectIndexView, error) {
@@ -213,7 +229,7 @@ func buildONSProjectIndex(
 		seen[folded] = struct{}{}
 		markerFound = markerFound || normalized == profile.MarkerPath
 		fontFound = fontFound || normalized == profile.FontPath
-		files[index].URL = "/runtime/projects/" + launchID + "/" + escapeProjectPath(normalized)
+		files[index].URL = projectRoot + escapeProjectPath(normalized)
 	}
 	if !markerFound || !fontFound {
 		return ProjectIndexView{}, ErrCredential

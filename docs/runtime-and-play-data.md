@@ -369,6 +369,8 @@ teardown 都不会自动创建 SaveState，并清空 pending chord，不能留�
 
 ## 15. RPG Maker runtime factory 与 adapter
 
+EasyRPG、mkxp、ONS 与 KiriKiri 的项目内容统一使用 `/runtime/content/project/{contentIdentity}/`。身份绑定冻结 logical path、format、文件 digest 与影响运行的派生 bundle/runtime pack；因此相同项目在不同 Launch 中复用同一 immutable URL，而 HttpOnly `/runtime/content/` grant 仍逐次证明当前 Launch 确实锁定该身份。adapter config 不再包含 Launch-specific project URL，也不存在旧 `/runtime/projects/` 兼容端点。
+
 ONS 项目索引逐项固定 `path/sizeBytes/url`。普通脚本、图片和音频仍在核心首次访问时进入虚拟文件系统；视频把同源 URL 直接交给浏览器媒体元素并由浏览器按 Range 缓冲，禁止为了播放前置探测而先把整个视频写入 Wasm 文件系统。
 
 Player 顶层只按服务端 config 的 `runtimeFamily` 选择 `EMULATORJS`、`RPGMAKER`、`ONS` 或 `KIRIKIRI`。RPG Maker 的唯一入口为 `web/features/player/rpg-runtime/index.ts`，第一方模块名固定 `RetromRpgRuntime`；它与 EmulatorJS、ONS、KiriKiri adapter 平级且互不导入。Player Shell 不得出现 EasyRPG/mkxp/MV/MZ 分支，也不得根据项目文件或错误重算 route。

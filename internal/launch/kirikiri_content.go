@@ -167,6 +167,14 @@ WHERE launch.id=? AND launch.purpose='PRODUCT' AND artifact.runtime_family='KIRI
 	if err != nil {
 		return ProjectIndexView{}, ErrCredential
 	}
+	identity, err := service.ProjectContentIdentity(ctx, launchID, capability)
+	if err != nil {
+		return ProjectIndexView{}, ErrCredential
+	}
+	projectRoot, err := RuntimeProjectContentRoot(identity)
+	if err != nil {
+		return ProjectIndexView{}, ErrCredential
+	}
 	rows, err := service.database.QueryContext(ctx, `
 SELECT file.logical_name,blob.size_bytes FROM launch_content_files file
 JOIN blobs blob ON blob.id=file.blob_id
@@ -189,7 +197,7 @@ ORDER BY file.logical_name
 	if err := rows.Err(); err != nil {
 		return ProjectIndexView{}, fmt.Errorf("read product KiriKiri project index: %w", err)
 	}
-	return buildKiriKiriProjectIndex(launchID, profile, files)
+	return buildKiriKiriProjectIndex(projectRoot, profile, files)
 }
 
 func (service *Service) reviewPreviewKiriKiriProjectIndex(
@@ -210,6 +218,14 @@ WHERE id=? AND content_kind='KIRIKIRI_PROJECT_V1' AND content_format='KIRIKIRI_P
 		return ProjectIndexView{}, ErrCredential
 	}
 	profile, err := detector.ParseSnapshot(dependencyJSON)
+	if err != nil {
+		return ProjectIndexView{}, ErrCredential
+	}
+	identity, err := service.ProjectContentIdentity(ctx, previewID, capability)
+	if err != nil {
+		return ProjectIndexView{}, ErrCredential
+	}
+	projectRoot, err := RuntimeProjectContentRoot(identity)
 	if err != nil {
 		return ProjectIndexView{}, ErrCredential
 	}
@@ -239,11 +255,11 @@ SELECT logical_name,size_bytes FROM (
 	if err := rows.Err(); err != nil {
 		return ProjectIndexView{}, fmt.Errorf("read review KiriKiri project index: %w", err)
 	}
-	return buildKiriKiriProjectIndex(previewID, profile, files)
+	return buildKiriKiriProjectIndex(projectRoot, profile, files)
 }
 
 func buildKiriKiriProjectIndex(
-	launchID string,
+	projectRoot string,
 	profile detector.Profile,
 	files []kirikiriProjectIndexFile,
 ) (ProjectIndexView, error) {
@@ -263,7 +279,7 @@ func buildKiriKiriProjectIndex(
 		}
 		seen[folded] = struct{}{}
 		markerFound = markerFound || normalized == profile.MarkerPath
-		files[index].URL = "/runtime/projects/" + launchID + "/" + escapeProjectPath(normalized)
+		files[index].URL = projectRoot + escapeProjectPath(normalized)
 	}
 	if !markerFound {
 		return ProjectIndexView{}, ErrCredential

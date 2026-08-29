@@ -236,7 +236,15 @@ func (service *Service) rpgMakerConfig(
 			return RPGMakerConfig{}, ErrCredential
 		}
 	}
-	adapter, err := service.buildRPGAdapterConfig(ctx, launchID, source)
+	projectRoot := ""
+	if source.runtimeKind != "NATIVE_WEB" {
+		var identityErr error
+		projectRoot, identityErr = service.ProjectContentRoot(ctx, launchID, capability)
+		if identityErr != nil {
+			return RPGMakerConfig{}, ErrCredential
+		}
+	}
+	adapter, err := service.buildRPGAdapterConfig(ctx, launchID, source, projectRoot)
 	if err != nil {
 		return RPGMakerConfig{}, err
 	}
@@ -444,13 +452,19 @@ func (service *Service) buildRPGAdapterConfig(
 	ctx context.Context,
 	launchID string,
 	source rpgConfigSource,
+	projectRoot string,
 ) (any, error) {
 	runtimeBase := "/runtime/retrom-runtime/" + source.runtimeVersion + "/"
-	projectRoot := "/runtime/projects/" + launchID + "/"
 	switch source.runtimeKind {
 	case "EASYRPG_WEB":
+		if projectRoot == "" {
+			return nil, ErrBlocked
+		}
 		return service.buildEasyRPGAdapterConfig(ctx, launchID, source, runtimeBase, projectRoot)
 	case "MKXP_LIBRETRO_WEB":
+		if projectRoot == "" {
+			return nil, ErrBlocked
+		}
 		return service.buildMKXPAdapterConfig(ctx, launchID, source, runtimeBase, projectRoot)
 	case "NATIVE_WEB":
 		return service.buildNativeWebAdapterConfig(ctx, launchID, source)
