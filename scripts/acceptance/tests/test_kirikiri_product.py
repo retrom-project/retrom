@@ -156,16 +156,21 @@ class KiriKiriProductAcceptanceTests(unittest.TestCase):
         self.assertIn('"KIRIKIRI_ACCEPTANCE_GAMEPAD_CANCEL_FAILED"', contents)
         self.assertIn('"KIRIKIRI_ACCEPTANCE_GAMEPAD_CONFIRM_FAILED"', contents)
 
-    def test_input_waits_for_kag_to_leave_and_reenter_a_stable_save_point(self) -> None:
+    def test_input_accepts_a_visible_kag_transition_that_never_reports_unstable(self) -> None:
         contents = DRIVER_PATH.read_text(encoding="utf-8")
         self.assertIn("await waitForKagStable(canvas);", contents)
-        self.assertIn("const transition = waitForKagTransition(canvas);", contents)
+        self.assertIn("const transition = waitForKagTransition(canvas, beforeFrame);", contents)
         self.assertIn("await transition;", contents)
+        self.assertIn("const beforeFrame = await canvasFrameFingerprint(canvas);", contents)
         self.assertIn("await moveVirtualGamepadCursor(canvas, 0.5, 0.34);", contents)
         self.assertIn("await setVirtualGamepadButton(canvas, 0, false);", contents)
         self.assertNotIn("page.keyboard.press", contents)
         self.assertIn("observedUnstable = true;", contents)
-        self.assertIn("if (observedUnstable && ready)", contents)
+        self.assertIn(
+            "observedVisualChange = await canvasFrameFingerprint(canvas) !== beforeFrame;",
+            contents,
+        )
+        self.assertIn("if (ready && (observedUnstable || observedVisualChange))", contents)
         self.assertIn("_krkr2_host_bookmark_is_ready", contents)
 
 

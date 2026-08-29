@@ -301,7 +301,8 @@ async function runtimeCanvas(page) {
 async function advanceKag(canvas) {
   await focusRuntimeCanvas(canvas);
   await waitForKagStable(canvas);
-  const transition = waitForKagTransition(canvas);
+  const beforeFrame = await canvasFrameFingerprint(canvas);
+  const transition = waitForKagTransition(canvas, beforeFrame);
   await moveVirtualGamepadCursor(canvas, 0.5, 0.34);
   await setVirtualGamepadButton(canvas, 0, true);
   await canvas.page().waitForTimeout(100);
@@ -410,16 +411,24 @@ async function waitForKagStable(canvas) {
   throw new Error("KIRIKIRI_ACCEPTANCE_RUNTIME_NOT_STABLE");
 }
 
-async function waitForKagTransition(canvas) {
+async function waitForKagTransition(canvas, beforeFrame) {
   const deadline = Date.now() + 60_000;
   let observedUnstable = false;
+  let observedVisualChange = false;
   while (Date.now() < deadline) {
     const ready = await kagBookmarkReady(canvas);
     if (!ready) {observedUnstable = true;}
-    if (observedUnstable && ready) {return;}
+    if (!observedVisualChange) {
+      observedVisualChange = await canvasFrameFingerprint(canvas) !== beforeFrame;
+    }
+    if (ready && (observedUnstable || observedVisualChange)) {return;}
     await canvas.page().waitForTimeout(50);
   }
   throw new Error("KIRIKIRI_ACCEPTANCE_INPUT_TRANSITION_TIMEOUT");
+}
+
+function canvasFrameFingerprint(canvas) {
+  return canvas.evaluate((element) => element.toDataURL("image/png"));
 }
 
 async function kagBookmarkReady(canvas) {
