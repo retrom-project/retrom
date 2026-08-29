@@ -1,0 +1,769 @@
+paths:
+  /api/v1/admin/uploads:
+    post:
+      operationId: postAdminUpload
+      parameters:
+        - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey
+      requestBody:
+        $ref: '#/components/requestBodies/CreateUpload'
+      responses:
+        '201':
+          $ref: ../components/common.yaml#/components/responses/JSONResponse
+  /api/v1/admin/uploads/{uploadId}:
+    parameters:
+      - $ref: '#/components/parameters/UploadID'
+    get:
+      operationId: getAdminUpload
+      responses:
+        '200':
+          $ref: ../components/common.yaml#/components/responses/JSONResponse
+    delete:
+      operationId: deleteAdminUpload
+      parameters:
+        - $ref: ../components/common.yaml#/components/parameters/IfMatch
+      responses:
+        '202':
+          $ref: ../components/common.yaml#/components/responses/JSONResponse
+        '204':
+          description: Cancelled
+  /api/v1/admin/uploads/{uploadId}/files/{fileId}/parts/{partNo}:
+    parameters:
+      - $ref: '#/components/parameters/UploadID'
+      - $ref: '#/components/parameters/FileID'
+      - $ref: '#/components/parameters/PartNo'
+    put:
+      operationId: putAdminUploadPart
+      x-retrom-streaming-body: true
+      parameters:
+        - $ref: '#/components/parameters/ContentRange'
+        - $ref: '#/components/parameters/ContentDigest'
+      requestBody:
+        required: true
+        content:
+          application/octet-stream:
+            schema:
+              type: string
+              format: binary
+      responses:
+        '204':
+          description: Stored
+  /api/v1/admin/uploads/{uploadId}/complete:
+    parameters:
+      - $ref: '#/components/parameters/UploadID'
+    post:
+      operationId: postAdminUploadComplete
+      parameters:
+        - $ref: ../components/common.yaml#/components/parameters/IfMatch
+        - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey
+      responses:
+        '202':
+          $ref: ../components/common.yaml#/components/responses/JSONResponse
+  /api/v1/admin/imports/summary:
+    get:
+      operationId: getAdminImportsSummary
+      description: User-visible import overview. Browser/reconfigure ImportJobs, Pegasus imports, and EmulationStation imports each count once; per-game ImportJobs created only for server-import review handoff are excluded. `reviewPending` is the exact count of `REVIEW_PENDING` import items.
+      responses:
+        '200':
+          $ref: '#/components/responses/ImportOverviewSummaryResponse'
+  /api/v1/admin/imports:
+    get:
+      operationId: getAdminImports
+      description: Cursor-paged browser/reconfigure ImportJobs. Per-game ImportJobs created internally by Pegasus or EmulationStation review handoff are excluded; aggregate server-import history is available from `/api/v1/admin/pegasus-imports` and `/api/v1/admin/emulationstation-imports`.
+      parameters:
+        - $ref: ../components/common.yaml#/components/parameters/Q
+        - $ref: ../components/common.yaml#/components/parameters/State
+        - $ref: ../components/common.yaml#/components/parameters/PlatformInstanceIDQuery
+        - $ref: ../components/common.yaml#/components/parameters/Sort
+        - $ref: ../components/common.yaml#/components/parameters/Cursor
+        - $ref: ../components/common.yaml#/components/parameters/Limit20
+      responses:
+        '200':
+          $ref: ../components/common.yaml#/components/responses/JSONResponse
+    post:
+      operationId: postAdminImport
+      parameters:
+        - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey
+      requestBody:
+        $ref: '#/components/requestBodies/CreateImport'
+      responses:
+        '202':
+          $ref: ../components/common.yaml#/components/responses/JSONResponse
+  /api/v1/admin/imports/{importJobId}:
+    parameters:
+      - $ref: '#/components/parameters/ImportJobID'
+    get:
+      operationId: getAdminImport
+      responses:
+        '200':
+          $ref: ../components/common.yaml#/components/responses/JSONResponse
+  /api/v1/admin/imports/{importJobId}/events:
+    parameters:
+      - $ref: '#/components/parameters/ImportJobID'
+    get:
+      operationId: getAdminImportEvents
+      parameters:
+        - $ref: ../components/common.yaml#/components/parameters/LastEventID
+      responses:
+        '200':
+          $ref: ../components/common.yaml#/components/responses/SSEResponse
+  /api/v1/admin/imports/{importJobId}/cancel:
+    parameters:
+      - $ref: '#/components/parameters/ImportJobID'
+    post:
+      operationId: postAdminImportCancel
+      parameters:
+        - $ref: ../components/common.yaml#/components/parameters/IfMatch
+        - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey
+      requestBody:
+        $ref: ../components/common.yaml#/components/requestBodies/Reason
+      responses:
+        '202':
+          $ref: ../components/common.yaml#/components/responses/JSONResponse
+  /api/v1/admin/imports/{importJobId}/reconfigure:
+    parameters:
+      - $ref: '#/components/parameters/ImportJobID'
+    post:
+      operationId: postAdminImportReconfigure
+      parameters:
+        - $ref: ../components/common.yaml#/components/parameters/IfMatch
+        - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey
+      requestBody:
+        $ref: '#/components/requestBodies/ReconfigureImport'
+      responses:
+        '202':
+          $ref: ../components/common.yaml#/components/responses/JSONResponse
+  /api/v1/admin/import-items/{importItemId}/retry:
+    parameters:
+      - $ref: ../components/common.yaml#/components/parameters/ImportItemID
+    post:
+      operationId: postAdminImportItemRetry
+      parameters:
+        - $ref: ../components/common.yaml#/components/parameters/IfMatch
+        - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey
+      requestBody:
+        $ref: ../components/common.yaml#/components/requestBodies/Empty
+      responses:
+        '202':
+          $ref: ../components/common.yaml#/components/responses/JSONResponse
+  /api/v1/admin/jobs/{jobId}:
+    parameters:
+      - $ref: '#/components/parameters/JobID'
+    get:
+      operationId: getAdminJob
+      responses:
+        '200':
+          $ref: ../components/common.yaml#/components/responses/JSONResponse
+  /api/v1/admin/jobs/{jobId}/events:
+    parameters:
+      - $ref: '#/components/parameters/JobID'
+    get:
+      operationId: getAdminJobEvents
+      parameters:
+        - $ref: ../components/common.yaml#/components/parameters/LastEventID
+      responses:
+        '200':
+          $ref: ../components/common.yaml#/components/responses/SSEResponse
+  /api/v1/admin/jobs/{jobId}/cancel:
+    parameters:
+      - $ref: '#/components/parameters/JobID'
+    post:
+      operationId: postAdminJobCancel
+      parameters:
+        - $ref: ../components/common.yaml#/components/parameters/IfMatch
+        - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey
+      requestBody:
+        $ref: ../components/common.yaml#/components/requestBodies/Reason
+      responses:
+        '202':
+          $ref: ../components/common.yaml#/components/responses/JSONResponse
+  /api/v1/admin/jobs/{jobId}/retry:
+    parameters:
+      - $ref: '#/components/parameters/JobID'
+    post:
+      operationId: postAdminJobRetry
+      parameters:
+        - $ref: ../components/common.yaml#/components/parameters/IfMatch
+        - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey
+      requestBody:
+        $ref: ../components/common.yaml#/components/requestBodies/Empty
+      responses:
+        '202':
+          $ref: ../components/common.yaml#/components/responses/JSONResponse
+  /api/v1/admin/runtime-asset-packs:
+    get:
+      operationId: getAdminRuntimeAssetPacks
+      description: Lists immutable RPG Maker runtime-pack definitions and their installations without exposing host paths or Blob identifiers.
+      responses:
+        '200':
+          $ref: '#/components/responses/RuntimeAssetPackListResponse'
+  /api/v1/admin/runtime-asset-packs/installations:
+    post:
+      operationId: postAdminRuntimeAssetPackInstallation
+      description: Consumes one completed RUNTIME_ASSET_PACK upload and schedules bounded validation of one immutable installation.
+      parameters:
+        - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey
+      requestBody:
+        $ref: '#/components/requestBodies/InstallRuntimeAssetPack'
+      responses:
+        '202':
+          $ref: '#/components/responses/RuntimeAssetPackInstallResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestResponse'
+        '409':
+          $ref: ../components/common.yaml#/components/responses/RpgConflictResponse
+        '413':
+          $ref: '#/components/responses/RpgPayloadTooLargeResponse'
+        '422':
+          $ref: ../components/common.yaml#/components/responses/RpgUnprocessableResponse
+        '503':
+          $ref: '#/components/responses/RpgServiceUnavailableResponse'
+  /api/v1/admin/runtime-asset-packs/installations/{installationId}:
+    parameters:
+      - $ref: '#/components/parameters/RuntimeAssetPackInstallationID'
+    delete:
+      operationId: deleteAdminRuntimeAssetPackInstallation
+      description: Deletes only an installation with zero variant and checkpoint references; referenced immutable installations cannot be removed.
+      parameters:
+        - $ref: ../components/common.yaml#/components/parameters/IfMatch
+        - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey
+      responses:
+        '204':
+          description: Runtime asset pack installation scheduled for payload release
+        '400':
+          $ref: '#/components/responses/BadRequestResponse'
+        '404':
+          $ref: ../components/common.yaml#/components/responses/RpgNotFoundResponse
+        '409':
+          $ref: ../components/common.yaml#/components/responses/RpgConflictResponse
+        '412':
+          $ref: '#/components/responses/RpgPreconditionFailedResponse'
+        '428':
+          $ref: '#/components/responses/PreconditionRequiredResponse'
+components:
+  schemas:
+    ImportOverviewSummary:
+      type: object
+      additionalProperties: false
+      required:
+        - running
+        - reviewPending
+        - publishedItems
+        - completed
+        - failed
+        - ordinaryFailed
+        - pegasusFailed
+        - emulationStationFailed
+        - processingItems
+        - issueItems
+      properties:
+        running:
+          type: integer
+          format: int64
+          minimum: 0
+          description: User-visible non-terminal batches, counting each browser/reconfigure ImportJob or Pegasus import once.
+        reviewPending:
+          type: integer
+          format: int64
+          minimum: 0
+          description: ImportItems whose current state is exactly REVIEW_PENDING.
+        publishedItems:
+          type: integer
+          format: int64
+          minimum: 0
+          description: ImportItems whose current state is exactly PUBLISHED.
+        completed:
+          type: integer
+          format: int64
+          minimum: 0
+          description: User-visible completed batches, counting each browser/reconfigure ImportJob or Pegasus import once.
+        failed:
+          type: integer
+          format: int64
+          minimum: 0
+          description: User-visible batches in PARTIAL_FAILURE or FAILED; cancelled batches are excluded.
+        ordinaryFailed:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Browser/reconfigure ImportJobs included in failed.
+        pegasusFailed:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Pegasus imports included in failed.
+        emulationStationFailed:
+          type: integer
+          format: int64
+          minimum: 0
+          description: EmulationStation imports included in failed.
+        processingItems:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Known game/item count in currently non-terminal user-visible batches.
+        issueItems:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Failed or blocked items plus unresolved rejected files in user-visible attention batches.
+    RuntimeAssetPackKind:
+      type: string
+      enum:
+        - RPG2000_RTP
+        - RPG2003_RTP
+        - RGSS1_RTP_STANDARD
+        - RGSS2_RTP_RPGVX
+        - RGSS3_RTP_RPGVXAce
+        - RGSS_CUSTOM_RTP
+    RuntimeAssetPackDefinition:
+      type: object
+      additionalProperties: false
+      required:
+        - definitionId
+        - kind
+        - generation
+        - declaredName
+        - normalizedDeclaredName
+        - displayName
+        - requiredLayoutVersion
+        - origin
+        - enabled
+      properties:
+        definitionId:
+          type: string
+          pattern: ^[a-z0-9_]{1,64}$
+        kind:
+          $ref: '#/components/schemas/RuntimeAssetPackKind'
+        generation:
+          $ref: ../components/common.yaml#/components/schemas/RpgGeneration
+        declaredName:
+          type: string
+          minLength: 1
+          maxLength: 512
+        normalizedDeclaredName:
+          type: string
+          minLength: 1
+          maxLength: 2048
+          description: Server-computed Unicode NFKC full case-fold key used for exact runtime-pack matching.
+        displayName:
+          type: string
+          minLength: 1
+          maxLength: 200
+        requiredLayoutVersion:
+          type: string
+          minLength: 1
+          maxLength: 160
+        origin:
+          type: string
+          enum:
+            - BUILTIN
+            - CUSTOM
+        enabled:
+          type: boolean
+    RuntimeAssetPackReferenceCounts:
+      type: object
+      additionalProperties: false
+      required:
+        - variantRevisionCount
+        - checkpointCount
+      properties:
+        variantRevisionCount:
+          type: integer
+          format: int64
+          minimum: 0
+        checkpointCount:
+          type: integer
+          format: int64
+          minimum: 0
+    RuntimeAssetPackDiagnostic:
+      type: object
+      additionalProperties: false
+      required:
+        - code
+        - level
+        - message
+      properties:
+        code:
+          type: string
+          pattern: ^[A-Z][A-Z0-9_]{0,119}$
+        level:
+          type: string
+          enum:
+            - INFO
+            - WARNING
+            - ERROR
+        message:
+          type: string
+          maxLength: 1000
+    RuntimeAssetPackInstallation:
+      type: object
+      additionalProperties: false
+      required:
+        - installationId
+        - definitionId
+        - filesDigest
+        - fileCount
+        - totalBytes
+        - bundleSha256
+        - status
+        - diagnostics
+        - sourceNote
+        - references
+        - version
+        - createdAtMs
+        - validatedAtMs
+        - deletedAtMs
+      properties:
+        installationId:
+          type: string
+          format: uuid
+        definitionId:
+          type: string
+          pattern: ^[a-z0-9_]{1,64}$
+        filesDigest:
+          type: string
+          pattern: ^[0-9a-f]{64}$
+        fileCount:
+          type: integer
+          minimum: 1
+          maximum: 10000
+        totalBytes:
+          type: integer
+          format: int64
+          minimum: 0
+          maximum: 536870912
+        bundleSha256:
+          type: string
+          nullable: true
+          pattern: ^[0-9a-f]{64}$
+        status:
+          type: string
+          enum:
+            - VALIDATING
+            - READY
+            - FAILED
+            - DELETE_PENDING
+            - DELETED
+        diagnostics:
+          type: array
+          maxItems: 100
+          items:
+            $ref: '#/components/schemas/RuntimeAssetPackDiagnostic'
+        sourceNote:
+          type: string
+          nullable: true
+          maxLength: 500
+        references:
+          $ref: '#/components/schemas/RuntimeAssetPackReferenceCounts'
+        version:
+          type: integer
+          format: int64
+          minimum: 1
+        createdAtMs:
+          type: integer
+          format: int64
+          minimum: 0
+        validatedAtMs:
+          type: integer
+          format: int64
+          minimum: 0
+          nullable: true
+        deletedAtMs:
+          type: integer
+          format: int64
+          minimum: 0
+          nullable: true
+    RuntimeAssetPackList:
+      type: object
+      additionalProperties: false
+      required:
+        - definitions
+        - installations
+      properties:
+        definitions:
+          type: array
+          items:
+            $ref: '#/components/schemas/RuntimeAssetPackDefinition'
+        installations:
+          type: array
+          items:
+            $ref: '#/components/schemas/RuntimeAssetPackInstallation'
+    InstallRuntimeAssetPackRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - uploadId
+        - kind
+      description: generation and declaredName are both required exactly for RGSS_CUSTOM_RTP and must both be omitted for built-in kinds; sourceNote is optional and may be empty.
+      properties:
+        uploadId:
+          type: string
+          format: uuid
+        kind:
+          $ref: '#/components/schemas/RuntimeAssetPackKind'
+        generation:
+          $ref: ../components/common.yaml#/components/schemas/RpgGeneration
+        declaredName:
+          type: string
+          minLength: 1
+          maxLength: 512
+        sourceNote:
+          type: string
+          maxLength: 500
+          description: The server also enforces NFC, at most 2,000 UTF-8 bytes, Unicode-whitespace trim and the validation-note control-character denylist; an empty value is allowed.
+    RuntimeAssetPackInstallAccepted:
+      type: object
+      additionalProperties: false
+      required:
+        - installationId
+        - jobId
+        - status
+      properties:
+        installationId:
+          type: string
+          format: uuid
+        jobId:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum:
+            - VALIDATING
+    CreateUploadRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - sourceType
+        - files
+      properties:
+        purpose:
+          type: string
+          enum:
+            - GENERAL
+            - RPG_MAKER_PROJECT
+            - ONS_PROJECT
+            - RUNTIME_ASSET_PACK
+          default: GENERAL
+          description: GENERAL preserves ordinary uploads; project and runtime-pack purposes are consumed only by their matching operation.
+        sourceType:
+          type: string
+          enum:
+            - FILES
+            - DIRECTORY
+        files:
+          type: array
+          minItems: 1
+          maxItems: 10000
+          items:
+            type: object
+            additionalProperties: false
+            required:
+              - clientFileId
+              - relativePath
+              - sizeBytes
+            properties:
+              clientFileId:
+                type: string
+                maxLength: 200
+              relativePath:
+                type: string
+                maxLength: 4096
+              sizeBytes:
+                type: integer
+                format: int64
+                minimum: 0
+    CreateImportRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - uploadId
+        - targetPlatformInstanceId
+        - metadataProvider
+        - tagIds
+      properties:
+        uploadId:
+          type: string
+          format: uuid
+        targetPlatformInstanceId:
+          type: string
+          format: uuid
+        metadataProvider:
+          type: string
+          enum:
+            - HASHEOUS
+            - NONE
+          description: RPG_MAKER_PROJECT_V1 and ONS_PROJECT_V1 requests are normalized to NONE because projects have no single-ROM hash identity.
+        tagIds:
+          type: array
+          maxItems: 20
+          uniqueItems: true
+          items:
+            type: string
+            format: uuid
+        contentMode:
+          type: string
+          enum:
+            - STANDARD
+            - MULTI_DISC_M3U_V1
+            - RPG_MAKER_PROJECT_V1
+            - ONS_PROJECT_V1
+          description: Omitted requests use STANDARD.
+    ReconfigureImportRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - targetPlatformInstanceId
+        - metadataProvider
+        - tagIds
+      properties:
+        targetPlatformInstanceId:
+          type: string
+          format: uuid
+        metadataProvider:
+          type: string
+          enum:
+            - HASHEOUS
+            - NONE
+        tagIds:
+          type: array
+          maxItems: 20
+          uniqueItems: true
+          items:
+            type: string
+            format: uuid
+  requestBodies:
+    CreateUpload:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/CreateUploadRequest'
+    CreateImport:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/CreateImportRequest'
+    ReconfigureImport:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ReconfigureImportRequest'
+    InstallRuntimeAssetPack:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/InstallRuntimeAssetPackRequest'
+  responses:
+    BadRequestResponse:
+      description: Malformed request or invalid idempotency key (400)
+      content:
+        application/json:
+          schema:
+            $ref: ../components/common.yaml#/components/schemas/ErrorEnvelope
+    PreconditionRequiredResponse:
+      description: A current If-Match resource version is required (428)
+      content:
+        application/json:
+          schema:
+            $ref: ../components/common.yaml#/components/schemas/ErrorEnvelope
+    RuntimeAssetPackListResponse:
+      description: RPG Maker runtime-pack definitions and installations
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/RuntimeAssetPackList'
+    RuntimeAssetPackInstallResponse:
+      description: Runtime-pack installation validation accepted
+      headers:
+        Location:
+          schema:
+            type: string
+        ETag:
+          schema:
+            type: string
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/RuntimeAssetPackInstallAccepted'
+    RpgPayloadTooLargeResponse:
+      description: RPG_RGSS_CONTENT_TOO_LARGE or RPG_RUNTIME_PACK_TOO_LARGE (413)
+      content:
+        application/json:
+          schema:
+            $ref: ../components/common.yaml#/components/schemas/RpgErrorEnvelope
+    RpgPreconditionFailedResponse:
+      description: RPG runtime-pack installation version changed (412)
+      content:
+        application/json:
+          schema:
+            $ref: ../components/common.yaml#/components/schemas/RpgErrorEnvelope
+    RpgServiceUnavailableResponse:
+      description: RPG_RUNTIME_PACK_UNAVAILABLE; the isolated archive worker temporarily lacks process or resource capacity (503)
+      content:
+        application/json:
+          schema:
+            $ref: ../components/common.yaml#/components/schemas/RpgErrorEnvelope
+    ImportOverviewSummaryResponse:
+      description: User-visible import batch and item totals
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ImportOverviewSummary'
+  parameters:
+    ContentRange:
+      name: Content-Range
+      in: header
+      required: true
+      schema:
+        type: string
+    ContentDigest:
+      name: Content-Digest
+      in: header
+      required: true
+      schema:
+        type: string
+    UploadID:
+      name: uploadId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    FileID:
+      name: fileId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    PartNo:
+      name: partNo
+      in: path
+      required: true
+      schema:
+        type: integer
+        minimum: 0
+    ImportJobID:
+      name: importJobId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    RuntimeAssetPackInstallationID:
+      name: installationId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    JobID:
+      name: jobId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid

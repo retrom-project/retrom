@@ -58,8 +58,10 @@ internal/store/           SQLite 连接、迁移和事务辅助
 internal/observability/   结构化日志、健康检查和诊断导出
 internal/httpapi/generated/ OpenAPI 编译期生成的 strict server types；禁止手改且不提交 Git
 migrations/               Go package：embed.go 与有序 SQL migration，编译进后端
-api/openapi.yaml          OpenAPI 3.0.3 协议事实源
-api/oapi-codegen.yaml     固定 Go 生成器配置
+api/openapi.yaml          OpenAPI 3.0.3 协议事实源入口
+api/domains/              领域 route、request/response 与所属 schema
+api/components/           跨领域公共 component
+api/codegen/              固定 Go models/server/spec 生成配置
 web/                      Next.js + React + Tailwind CSS
 data/dat/                 小型依赖 manifest/SHA；大 payload 由 prepare-deps 物化
 data/netplay/v2/          联机 core profile schema 与精确 artifact allowlist manifest
@@ -103,7 +105,7 @@ web/components/           无业务状态的通用组件
 }
 ```
 
-状态码、认证/CSRF、幂等、分页、上传及全部 route 的唯一协议见 [HTTP API、上传与启动凭据契约](./http-api-contract.md)。后端以固定 `oapi-codegen` 的 strict `net/http` 接口实现 `api/openapi.yaml`，Go 文件由标准后端 build/test/lint/integration/dev 和镜像构建在编译前按需生成、被 Git 忽略且不得提交；前端由同一文件生成须提交的 TypeScript schema 并用类型化 fetch client。`make api-check` 在临时目录验证两端生成结果并拒绝 TypeScript 漂移或 Go 生成物被跟踪。不能维护另一组手写路径、DTO 或状态码。
+状态码、认证/CSRF、幂等、分页、上传及全部 route 的唯一协议见 [HTTP API、上传与启动凭据契约](./http-api-contract.md)。后端以固定 `oapi-codegen` 的 strict `net/http` 接口实现以 `api/openapi.yaml` 为入口的领域文件集；构建先生成只含内部引用的统一 bundle，再按 models/server/spec 三个职责生成同一个 Go package。Go 文件由标准后端 build/test/lint/integration/dev 和镜像构建在编译前按需生成、被 Git 忽略且不得提交；前端由同一 bundle 生成须提交的单一 TypeScript schema 并用类型化 fetch client。`make api-check` 在临时目录验证 bundle 与两端生成结果，并拒绝 TypeScript 漂移或任一 Go 生成物被跟踪。不能维护另一组手写路径、DTO 或状态码。
 
 `strict-server` 主要约束 handler/response type，并不自动完成全部请求验证。正式 handler 外层固定使用 `github.com/oapi-codegen/nethttp-middleware v1.2.0` 与其锁定的 `github.com/getkin/kin-openapi v0.142.0` 加载同一 OpenAPI 3.0.3，验证 path/query/header/body schema；所有固定 object schema 必须 `additionalProperties:false`。在它之前的 JSON lexical middleware 对 `application/json` body 施加 route 上限（全局最高 16 MiB），先 `utf8.Valid`，再用 token stack 拒绝重复 object key、depth >64、多个顶层值和尾随非空白，最后恢复 body 给 validator/generated binder。query middleware 根据匹配 operation 的参数集合拒绝未知名、标量重复值与非法 percent encoding。
 
@@ -111,7 +113,7 @@ web/components/           无业务状态的通用组件
 
 ## 4. API 能力地图
 
-本节只描述能力归属。实际方法、路径、body、状态码和缓存策略全部以 [HTTP API 契约第 9 节](./http-api-contract.md#9-核心-api-路由表) 与实现后的 `api/openapi.yaml` 为准；两者不一致时实现任务必须先修正文档/OpenAPI，不能兼容两套路径。
+本节只描述能力归属。实际方法、路径、body、状态码和缓存策略全部以 [HTTP API 契约第 9 节](./http-api-contract.md#9-核心-api-路由表) 与以 `api/openapi.yaml` 为入口的 OpenAPI 文件集为准；两者不一致时实现任务必须先修正文档/OpenAPI，不能兼容两套路径。
 
 - 用户读取：home、game library/detail、save list。
 - 用户写入：创建 LaunchSession、heartbeat/finish、手动通用 checkpoint，以及从 checkpoint 创建新 restore Launch。

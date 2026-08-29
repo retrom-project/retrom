@@ -39,10 +39,13 @@ export PLAYWRIGHT_BROWSERS_PATH
 export RETROM_CHROME_EXECUTABLE
 
 GO_PACKAGES := ./cmd/... ./internal/... ./migrations/...
-API_GO_GENERATED := internal/httpapi/generated/api.gen.go
+API_OPENAPI_SOURCES := api/openapi.yaml $(sort $(wildcard api/domains/*.yaml api/components/*.yaml))
+API_CODEGEN_CONFIGS := $(sort $(wildcard api/codegen/*.yaml))
+API_BUNDLE := .cache/generated/openapi.bundle.yaml
+API_GO_GENERATED := internal/httpapi/generated/models.gen.go internal/httpapi/generated/server.gen.go internal/httpapi/generated/spec.gen.go
 
 .PHONY: fmt fmt-check quality-structure-check install-deps install-go-formatters install-golangci-lint prepare-node prepare-e2e-browser \
-	build test lint-go backend-check web-install web-lint web-typecheck web-test web-build web-check integration-test api-generate-go api-generate api-check \
+	build test lint-go backend-check web-install web-lint web-typecheck web-test web-build web-check integration-test api-bundle api-generate-go api-generate api-check \
 	public-fixtures-generate public-fixtures-check web-e2e data-check prepare-deps deps-check release-input-digest ci dev build-backend-image \
 	build-web-image build-images acceptance-prepare acceptance-case acceptance-report retrom-runtime-dev-link retrom-runtime-dev-unlink
 
@@ -69,11 +72,19 @@ quality-structure-check:
 	@python3 scripts/test_quality_structure.py
 	@python3 scripts/quality_structure.py
 
+api-bundle: $(API_BUNDLE)
+
+$(API_BUNDLE): $(API_OPENAPI_SOURCES) scripts/openapi-bundle/main.go go.mod go.sum
+	@mkdir -p $(@D)
+	@go run ./scripts/openapi-bundle -input api/openapi.yaml -output $@
+
 api-generate-go: $(API_GO_GENERATED)
 
-$(API_GO_GENERATED): api/openapi.yaml api/oapi-codegen.yaml go.mod go.sum
+$(API_GO_GENERATED) &: $(API_BUNDLE) $(API_CODEGEN_CONFIGS) go.mod go.sum
 	@mkdir -p $(@D)
-	@go run github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@$(OAPI_CODEGEN_VERSION) --config api/oapi-codegen.yaml api/openapi.yaml
+	@for config in $(API_CODEGEN_CONFIGS); do \
+		go run github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@$(OAPI_CODEGEN_VERSION) --config "$$config" $(API_BUNDLE); \
+	done
 
 build: api-generate-go
 	@go build ./cmd/retrom

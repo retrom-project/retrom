@@ -14,7 +14,7 @@
 - 业务实体 ID 使用规范小写 UUIDv7 字符串。`coreId`、`platformId` 等代码种子使用稳定小写 code（如 `fbneo`、`arcade`），不得混成自增数字。
 - 时刻为 camelCase `*AtMs` 的 JSON int64，数据库对应 Unix 毫秒 `INTEGER`；时长为 `*DurationMs`。
 - 未知 JSON 字段、重复字段、错误类型、尾随多个 JSON 值一律 `400 INVALID_REQUEST`；UTF-8 无效文本拒绝。所有固定 JSON request/response object schema 显式 `additionalProperties: false`；真正的 map/错误 `details` 才逐项显式允许 additional properties。
-- OpenAPI 3.0.3 文件 `api/openapi.yaml` 是实现后的协议事实源。固定 `oapi-codegen` strict stdlib server types、`openapi-typescript` schema、`openapi-fetch` client 与 contract test 必须由它保持一致。Go `internal/httpapi/generated/api.gen.go` 在标准后端编译链路中按需生成、被 Git 忽略且不得提交；TypeScript `web/lib/api/generated/schema.d.ts` 必须提交。`make api-check` 在临时目录重建两端结果、逐字节检查 TypeScript 漂移并拒绝 Go 生成物被跟踪。锁定的 `oapi-codegen v2.8.0` 已支持 OpenAPI 3.1，但一期仍将 3.0.3 作为经审定的项目协议基线，以避免 nullable/schema 方言和两端生成结果在实施中漂移；升级规范版本必须作为独立契约迁移，同时验证全部生成器、validator 与 contract test，不能只修改 `openapi` 版本号。可空字段使用 OAS 3.0 `nullable: true`，不得写 3.1 的 union type；本文锁定一期语义，不能由生成器反向改变。
+- OpenAPI 3.0.3 协议事实源是以 `api/openapi.yaml` 为唯一入口、由 `api/domains/*.yaml` 与 `api/components/*.yaml` 组成的本地文件集。领域文件共同维护 route 与所属 DTO，跨领域组件只进入 common 文件；入口以标准本地 `$ref` 固定完整 path/component 闭集。生成前必须拒绝远程、绝对路径和越出 `api/` 的引用，并确定性生成被忽略的 `.cache/generated/openapi.bundle.yaml`。固定 `oapi-codegen` strict stdlib server types、`openapi-typescript` schema、`openapi-fetch` client 与 contract test 只能消费该统一 bundle。Go 的 `models.gen.go`、`server.gen.go`、`spec.gen.go` 在标准后端编译链路中按需生成、被 Git 忽略且不得提交；TypeScript `web/lib/api/generated/schema.d.ts` 继续保持单一全局 `paths` schema、必须提交。`make api-check` 在临时目录重建 bundle 和两端结果、逐字节检查 TypeScript 漂移并拒绝任一 Go 生成物被跟踪。锁定的 `oapi-codegen v2.8.0` 已支持 OpenAPI 3.1，但一期仍将 3.0.3 作为经审定的项目协议基线，以避免 nullable/schema 方言和两端生成结果在实施中漂移；升级规范版本必须作为独立契约迁移，同时验证全部生成器、validator 与 contract test，不能只修改 `openapi` 版本号。可空字段使用 OAS 3.0 `nullable: true`，不得写 3.1 的 union type；本文锁定一期语义，不能由生成器反向改变。
 
 成功列表统一为：
 
@@ -639,7 +639,7 @@ Cursor 只保证稳定 tuple 与筛选绑定，不提供跨请求快照隔离。
 | 422 | `FAVORITE_FOLDER_LIMIT_REACHED` | 当前 Profile 已有 100 个 Folder。 |
 | 428 | `PRECONDITION_REQUIRED` | Folder PATCH/DELETE 缺少或携带非法 `If-Match`。 |
 
-精确机器 schema 以 [`../api/openapi.yaml`](../api/openapi.yaml) 为准；人类可读契约与 schema 发生漂移时必须在同一变更修正，验收见 `ACC-FAV-002`。
+精确机器 schema 以 [`../api/openapi.yaml`](../api/openapi.yaml) 为入口的领域文件集为准；人类可读契约与 schema 发生漂移时必须在同一变更修正，验收见 `ACC-FAV-002`。
 
 ## 11. 服务器 BIOS 导入 API
 
@@ -655,7 +655,7 @@ Cursor 只保证稳定 tuple 与筛选绑定，不提供跨请求快照隔离。
 | `GET .../{id}/bios-items/{requirementId}/candidates` | 按 rank/id cursor 分页，`limit<=50`，返回证据与未选原因。 |
 | `POST .../{id}/cancel` / `retry` | 使用 ETag；cancel 保留已提交 Item，retry 只允许明确 retryable 的领域失败且重验 root/catalog digest。 |
 
-稳定错误至少包括配置/root/path/cursor/active-conflict/source-or-catalog-change/scan-limit/retry-not-allowed 等 OpenAPI 枚举；详细字段和 response 是 [`../api/openapi.yaml`](../api/openapi.yaml) 的唯一机器契约。
+稳定错误至少包括配置/root/path/cursor/active-conflict/source-or-catalog-change/scan-limit/retry-not-allowed 等 OpenAPI 枚举；详细字段和 response 是以 [`../api/openapi.yaml`](../api/openapi.yaml) 为入口的 OpenAPI 文件集所定义的唯一机器契约。
 
 `GET /api/v1/admin/bios` 的 FULL_CATALOG 以及所有服务端筛选固定 `limit<=100`、cursor 绑定 scope 与完整 query。每页 items 不影响 `scopeCounts/summary/filteredCount`，这些值始终基于服务端全集；客户端不得把首批 100 条当成完整目录。
 

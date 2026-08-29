@@ -1,0 +1,913 @@
+paths:
+  /api/v1/admin/emulationstation-imports:
+    get:
+      operationId: getAdminEmulationStationImports
+      parameters:
+        - $ref: ../components/common.yaml#/components/parameters/State
+        - $ref: ../components/common.yaml#/components/parameters/Cursor
+        - $ref: ../components/common.yaml#/components/parameters/Limit20
+      responses:
+        '200':
+          $ref: '#/components/responses/EmulationStationImportListResponse'
+    post:
+      operationId: postAdminEmulationStationImport
+      parameters:
+        - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey
+        - $ref: ../components/common.yaml#/components/parameters/CSRFToken
+      requestBody:
+        $ref: '#/components/requestBodies/CreateEmulationStationImport'
+      responses:
+        '202':
+          $ref: '#/components/responses/EmulationStationImportResponse'
+  /api/v1/admin/emulationstation-imports/{emulationStationImportId}:
+    parameters:
+      - $ref: '#/components/parameters/EmulationStationImportID'
+    get:
+      operationId: getAdminEmulationStationImport
+      responses:
+        '200':
+          $ref: '#/components/responses/EmulationStationImportResponse'
+    delete:
+      operationId: deleteAdminEmulationStationImport
+      parameters:
+        - $ref: ../components/common.yaml#/components/parameters/IfMatch
+        - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey
+        - $ref: ../components/common.yaml#/components/parameters/CSRFToken
+      responses:
+        '204':
+          description: Unstarted EmulationStation import plan deleted
+  /api/v1/admin/emulationstation-imports/{emulationStationImportId}/gamelists:
+    parameters:
+      - $ref: '#/components/parameters/EmulationStationImportID'
+    get:
+      operationId: getAdminEmulationStationImportGamelists
+      parameters:
+        - $ref: '#/components/parameters/EmulationStationGamelistParseStateFilter'
+        - $ref: ../components/common.yaml#/components/parameters/Cursor
+        - $ref: ../components/common.yaml#/components/parameters/Limit100
+      responses:
+        '200':
+          $ref: '#/components/responses/EmulationStationGamelistListResponse'
+  /api/v1/admin/emulationstation-imports/{emulationStationImportId}/collections:
+    parameters:
+      - $ref: '#/components/parameters/EmulationStationImportID'
+    get:
+      operationId: getAdminEmulationStationImportCollections
+      parameters:
+        - $ref: ../components/common.yaml#/components/parameters/Cursor
+        - $ref: ../components/common.yaml#/components/parameters/Limit100
+      responses:
+        '200':
+          $ref: '#/components/responses/EmulationStationCollectionListResponse'
+  /api/v1/admin/emulationstation-imports/{emulationStationImportId}/collection-mappings:
+    parameters:
+      - $ref: '#/components/parameters/EmulationStationImportID'
+    put:
+      operationId: putAdminEmulationStationImportCollectionMappings
+      parameters:
+        - $ref: ../components/common.yaml#/components/parameters/IfMatch
+        - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey
+        - $ref: ../components/common.yaml#/components/parameters/CSRFToken
+      requestBody:
+        $ref: '#/components/requestBodies/EmulationStationCollectionMappings'
+      responses:
+        '200':
+          $ref: '#/components/responses/EmulationStationImportResponse'
+  /api/v1/admin/emulationstation-imports/{emulationStationImportId}/start:
+    parameters:
+      - $ref: '#/components/parameters/EmulationStationImportID'
+    post:
+      operationId: postAdminEmulationStationImportStart
+      parameters:
+        - $ref: ../components/common.yaml#/components/parameters/IfMatch
+        - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey
+        - $ref: ../components/common.yaml#/components/parameters/CSRFToken
+      requestBody:
+        $ref: '#/components/requestBodies/EmulationStationImportStart'
+      responses:
+        '202':
+          $ref: '#/components/responses/EmulationStationImportResponse'
+  /api/v1/admin/emulationstation-imports/{emulationStationImportId}/items:
+    parameters:
+      - $ref: '#/components/parameters/EmulationStationImportID'
+    get:
+      operationId: getAdminEmulationStationImportItems
+      parameters:
+        - $ref: ../components/common.yaml#/components/parameters/Q
+        - $ref: ../components/common.yaml#/components/parameters/Outcome
+        - $ref: '#/components/parameters/EmulationStationWarning'
+        - $ref: '#/components/parameters/EmulationStationCollectionIDQuery'
+        - $ref: ../components/common.yaml#/components/parameters/Cursor
+        - $ref: ../components/common.yaml#/components/parameters/Limit50
+      responses:
+        '200':
+          $ref: '#/components/responses/EmulationStationItemListResponse'
+  /api/v1/admin/emulationstation-imports/{emulationStationImportId}/cancel:
+    parameters:
+      - $ref: '#/components/parameters/EmulationStationImportID'
+    post:
+      operationId: postAdminEmulationStationImportCancel
+      parameters:
+        - $ref: ../components/common.yaml#/components/parameters/IfMatch
+        - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey
+        - $ref: ../components/common.yaml#/components/parameters/CSRFToken
+      requestBody:
+        $ref: ../components/common.yaml#/components/requestBodies/Reason
+      responses:
+        '200':
+          $ref: '#/components/responses/EmulationStationImportResponse'
+        '202':
+          $ref: '#/components/responses/EmulationStationImportResponse'
+  /api/v1/admin/emulationstation-imports/{emulationStationImportId}/retry:
+    parameters:
+      - $ref: '#/components/parameters/EmulationStationImportID'
+    post:
+      operationId: postAdminEmulationStationImportRetry
+      parameters:
+        - $ref: ../components/common.yaml#/components/parameters/IfMatch
+        - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey
+        - $ref: ../components/common.yaml#/components/parameters/CSRFToken
+      requestBody:
+        $ref: ../components/common.yaml#/components/requestBodies/Empty
+      responses:
+        '202':
+          $ref: '#/components/responses/EmulationStationImportResponse'
+components:
+  schemas:
+    CreateEmulationStationImportRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - rootId
+        - sourceRelativePath
+      properties:
+        rootId:
+          type: string
+          pattern: ^[a-z][a-z0-9-]{0,31}$
+        sourceRelativePath:
+          type: string
+          maxLength: 4096
+    EmulationStationCollectionMapping:
+      type: object
+      additionalProperties: false
+      required:
+        - collectionId
+        - action
+        - tagIds
+      properties:
+        collectionId:
+          type: string
+          format: uuid
+        action:
+          type: string
+          enum:
+            - IMPORT
+            - SKIP
+        platformInstanceId:
+          type: string
+          format: uuid
+        tagIds:
+          type: array
+          maxItems: 20
+          uniqueItems: true
+          items:
+            type: string
+            format: uuid
+    EmulationStationCollectionMappingsRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - mappings
+      properties:
+        mappings:
+          type: array
+          minItems: 1
+          maxItems: 100
+          uniqueItems: true
+          items:
+            $ref: '#/components/schemas/EmulationStationCollectionMapping'
+    EmulationStationImportStartRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - version
+      properties:
+        version:
+          type: integer
+          format: int64
+          minimum: 1
+    EmulationStationImportCounts:
+      type: object
+      additionalProperties: false
+      required:
+        - gamelists
+        - invalidGamelists
+        - collections
+        - foldersIgnored
+        - games
+        - estimatedSourceBytes
+        - mappedCollections
+        - skippedCollections
+        - skippedMapping
+        - processable
+        - blocked
+        - reviewPending
+        - published
+        - reviewDiscarded
+        - existing
+        - failed
+        - cancelled
+        - mediaWarnings
+        - covers
+        - videos
+      properties:
+        gamelists:
+          type: integer
+          format: int64
+          minimum: 0
+        invalidGamelists:
+          type: integer
+          format: int64
+          minimum: 0
+        collections:
+          type: integer
+          format: int64
+          minimum: 0
+        foldersIgnored:
+          type: integer
+          format: int64
+          minimum: 0
+        games:
+          type: integer
+          format: int64
+          minimum: 0
+        estimatedSourceBytes:
+          type: integer
+          format: int64
+          minimum: 0
+        mappedCollections:
+          type: integer
+          format: int64
+          minimum: 0
+        skippedCollections:
+          type: integer
+          format: int64
+          minimum: 0
+        skippedMapping:
+          type: integer
+          format: int64
+          minimum: 0
+        processable:
+          type: integer
+          format: int64
+          minimum: 0
+        blocked:
+          type: integer
+          format: int64
+          minimum: 0
+        reviewPending:
+          type: integer
+          format: int64
+          minimum: 0
+        published:
+          type: integer
+          format: int64
+          minimum: 0
+        reviewDiscarded:
+          type: integer
+          format: int64
+          minimum: 0
+        existing:
+          type: integer
+          format: int64
+          minimum: 0
+        failed:
+          type: integer
+          format: int64
+          minimum: 0
+        cancelled:
+          type: integer
+          format: int64
+          minimum: 0
+        mediaWarnings:
+          type: integer
+          format: int64
+          minimum: 0
+        covers:
+          type: integer
+          format: int64
+          minimum: 0
+        videos:
+          type: integer
+          format: int64
+          minimum: 0
+    EmulationStationImportSummary:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - root
+        - sourceRelativePath
+        - state
+        - phase
+        - scanJobId
+        - importJobId
+        - counts
+        - mappingVersion
+        - version
+        - createdBy
+        - lastErrorCode
+        - retryable
+        - createdAtMs
+        - updatedAtMs
+        - expiresAtMs
+        - completedAtMs
+      properties:
+        id:
+          type: string
+          format: uuid
+        root:
+          type: object
+          additionalProperties: false
+          required:
+            - id
+            - label
+          properties:
+            id:
+              type: string
+            label:
+              type: string
+        sourceRelativePath:
+          type: string
+          maxLength: 4096
+        state:
+          type: string
+          enum:
+            - SCANNING
+            - AWAITING_MAPPING
+            - QUEUED
+            - RUNNING
+            - PARTIAL_FAILURE
+            - COMPLETED
+            - CANCEL_REQUESTED
+            - CANCELLED
+            - FAILED
+            - EXPIRED
+        phase:
+          type: string
+          nullable: true
+          enum:
+            - DISCOVERING_GAMELISTS
+            - PARSING_GAMELISTS
+            - RESOLVING_SOURCES
+            - COPYING_CONTENT
+            - VALIDATING
+            - PREPARING_REVIEWS
+        scanJobId:
+          type: string
+          format: uuid
+        importJobId:
+          type: string
+          format: uuid
+          nullable: true
+        counts:
+          $ref: '#/components/schemas/EmulationStationImportCounts'
+        mappingVersion:
+          type: integer
+          format: int64
+          minimum: 1
+        version:
+          type: integer
+          format: int64
+          minimum: 1
+        createdBy:
+          type: object
+          additionalProperties: false
+          required:
+            - id
+            - displayName
+          properties:
+            id:
+              type: string
+              format: uuid
+            displayName:
+              type: string
+        lastErrorCode:
+          type: string
+          nullable: true
+        retryable:
+          type: boolean
+        createdAtMs:
+          type: integer
+          format: int64
+          minimum: 0
+        updatedAtMs:
+          type: integer
+          format: int64
+          minimum: 0
+        expiresAtMs:
+          type: integer
+          format: int64
+          minimum: 0
+        completedAtMs:
+          type: integer
+          format: int64
+          minimum: 0
+          nullable: true
+    EmulationStationImportList:
+      type: object
+      additionalProperties: false
+      required:
+        - items
+        - nextCursor
+      properties:
+        items:
+          type: array
+          maxItems: 20
+          items:
+            $ref: '#/components/schemas/EmulationStationImportSummary'
+        nextCursor:
+          type: string
+          nullable: true
+    EmulationStationGamelist:
+      type: object
+      additionalProperties: false
+      required:
+        - relativePath
+        - parseState
+        - errorCode
+        - gameCount
+        - folderCount
+        - providerPresent
+        - ignoredFieldNames
+        - ignoredFieldOtherCount
+        - createdAtMs
+      properties:
+        relativePath:
+          type: string
+          minLength: 1
+          maxLength: 4096
+        parseState:
+          type: string
+          enum:
+            - VALID
+            - INVALID
+        errorCode:
+          type: string
+          nullable: true
+        gameCount:
+          type: integer
+          format: int64
+          minimum: 0
+        folderCount:
+          type: integer
+          format: int64
+          minimum: 0
+        providerPresent:
+          type: boolean
+        ignoredFieldNames:
+          type: array
+          maxItems: 64
+          uniqueItems: true
+          items:
+            type: string
+        ignoredFieldOtherCount:
+          type: integer
+          format: int64
+          minimum: 0
+        createdAtMs:
+          type: integer
+          format: int64
+          minimum: 0
+    EmulationStationGamelistList:
+      type: object
+      additionalProperties: false
+      required:
+        - items
+        - nextCursor
+      properties:
+        items:
+          type: array
+          maxItems: 100
+          items:
+            $ref: '#/components/schemas/EmulationStationGamelist'
+        nextCursor:
+          type: string
+          nullable: true
+    EmulationStationExtensionSummary:
+      type: object
+      additionalProperties: false
+      required:
+        - extension
+        - count
+      properties:
+        extension:
+          type: string
+        count:
+          type: integer
+          format: int64
+          minimum: 1
+    EmulationStationSourceCollection:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - gamelistRelativePath
+        - relativeDirectory
+        - displayName
+        - gameCount
+        - issueCount
+        - folderEntryCount
+        - hiddenGameCount
+        - adultGameCount
+        - extensionSummary
+        - extensionOtherCount
+        - mappingAction
+        - targetPlatformInstanceId
+        - targetPlatformInstanceName
+        - targetDefaultCoreId
+        - targetDefaultCoreName
+        - tagSnapshot
+      properties:
+        id:
+          type: string
+          format: uuid
+        gamelistRelativePath:
+          type: string
+          minLength: 1
+          maxLength: 4096
+        relativeDirectory:
+          type: string
+          maxLength: 4096
+        displayName:
+          type: string
+          minLength: 1
+          maxLength: 200
+        gameCount:
+          type: integer
+          format: int64
+          minimum: 0
+        issueCount:
+          type: integer
+          format: int64
+          minimum: 0
+        folderEntryCount:
+          type: integer
+          format: int64
+          minimum: 0
+        hiddenGameCount:
+          type: integer
+          format: int64
+          minimum: 0
+        adultGameCount:
+          type: integer
+          format: int64
+          minimum: 0
+        extensionSummary:
+          type: array
+          maxItems: 32
+          items:
+            $ref: '#/components/schemas/EmulationStationExtensionSummary'
+        extensionOtherCount:
+          type: integer
+          format: int64
+          minimum: 0
+        mappingAction:
+          type: string
+          nullable: true
+          enum:
+            - IMPORT
+            - SKIP
+        targetPlatformInstanceId:
+          type: string
+          format: uuid
+          nullable: true
+        targetPlatformInstanceName:
+          type: string
+          nullable: true
+        targetDefaultCoreId:
+          type: string
+          nullable: true
+        targetDefaultCoreName:
+          type: string
+          nullable: true
+        tagSnapshot:
+          type: array
+          maxItems: 20
+          items:
+            $ref: ../components/common.yaml#/components/schemas/TagReference
+    EmulationStationCollectionList:
+      type: object
+      additionalProperties: false
+      required:
+        - items
+        - nextCursor
+      properties:
+        items:
+          type: array
+          maxItems: 100
+          items:
+            $ref: '#/components/schemas/EmulationStationSourceCollection'
+        nextCursor:
+          type: string
+          nullable: true
+    EmulationStationSourceFlags:
+      type: object
+      additionalProperties: false
+      required:
+        - hidden
+        - adult
+        - kidGame
+      properties:
+        hidden:
+          type: boolean
+        adult:
+          type: boolean
+        kidGame:
+          type: boolean
+    EmulationStationWarningValue:
+      type: object
+      additionalProperties: false
+      required:
+        - code
+      properties:
+        code:
+          type: string
+        field:
+          type: string
+        pathKind:
+          type: string
+        omittedCount:
+          type: integer
+          format: int64
+          minimum: 1
+        originalLength:
+          type: integer
+          format: int64
+          minimum: 0
+        retainedLength:
+          type: integer
+          format: int64
+          minimum: 0
+    EmulationStationItem:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - title
+        - collectionId
+        - collectionName
+        - targetPlatformInstanceId
+        - targetPlatformInstanceName
+        - gamelistRelativePath
+        - sourceFlags
+        - executionState
+        - payloadState
+        - payloadReleaseJobId
+        - contentKind
+        - tags
+        - media
+        - warnings
+        - discoveryCode
+        - errorCode
+        - failureDetails
+        - runtimeCheck
+        - retryable
+        - reviewItemId
+        - publishedGameId
+        - existingGameId
+        - existingMatches
+        - updatedAtMs
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        collectionId:
+          type: string
+          format: uuid
+          nullable: true
+        collectionName:
+          type: string
+          nullable: true
+        targetPlatformInstanceId:
+          type: string
+          format: uuid
+          nullable: true
+        targetPlatformInstanceName:
+          type: string
+          nullable: true
+        gamelistRelativePath:
+          type: string
+          minLength: 1
+          maxLength: 4096
+        sourceFlags:
+          $ref: '#/components/schemas/EmulationStationSourceFlags'
+        executionState:
+          type: string
+          enum:
+            - PENDING
+            - COPYING
+            - VALIDATING
+            - REVIEW_PENDING
+            - PUBLISHED
+            - REVIEW_DISCARDED
+            - SKIPPED_EXISTING
+            - SKIPPED_MAPPING
+            - BLOCKED_SOURCE
+            - BLOCKED_CONTENT
+            - SOURCE_CHANGED
+            - READ_FAILED
+            - COMMIT_FAILED
+            - CANCELLED
+        payloadState:
+          type: string
+          enum:
+            - RETAINED
+            - RELEASING
+            - RELEASED
+            - FAILED
+        payloadReleaseJobId:
+          type: string
+          format: uuid
+          nullable: true
+        contentKind:
+          type: string
+          nullable: true
+          enum:
+            - SINGLE_FILE
+            - DOS_BUNDLE
+            - MULTI_DISC_M3U_V1
+        tags:
+          type: array
+          maxItems: 20
+          items:
+            $ref: ../components/common.yaml#/components/schemas/TagReference
+        media:
+          type: object
+          additionalProperties: false
+          required:
+            - cover
+            - video
+          properties:
+            cover:
+              type: string
+              enum:
+                - READY
+                - MISSING
+                - WARNING
+            video:
+              type: string
+              enum:
+                - READY
+                - MISSING
+                - WARNING
+        warnings:
+          type: array
+          maxItems: 64
+          items:
+            $ref: '#/components/schemas/EmulationStationWarningValue'
+        discoveryCode:
+          type: string
+          nullable: true
+        errorCode:
+          type: string
+          nullable: true
+        failureDetails:
+          nullable: true
+          allOf:
+            - $ref: ../components/common.yaml#/components/schemas/PegasusItemFailureDetails
+        runtimeCheck:
+          nullable: true
+          allOf:
+            - $ref: ../components/common.yaml#/components/schemas/PegasusRuntimeCheck
+        retryable:
+          type: boolean
+        reviewItemId:
+          type: string
+          format: uuid
+          nullable: true
+        publishedGameId:
+          type: string
+          format: uuid
+          nullable: true
+        existingGameId:
+          type: string
+          format: uuid
+          nullable: true
+        existingMatches:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required:
+              - gameId
+              - contentRevisionId
+            properties:
+              gameId:
+                type: string
+                format: uuid
+              contentRevisionId:
+                type: string
+                format: uuid
+        updatedAtMs:
+          type: integer
+          format: int64
+          minimum: 0
+    EmulationStationItemList:
+      type: object
+      additionalProperties: false
+      required:
+        - items
+        - nextCursor
+      properties:
+        items:
+          type: array
+          maxItems: 50
+          items:
+            $ref: '#/components/schemas/EmulationStationItem'
+        nextCursor:
+          type: string
+          nullable: true
+  requestBodies:
+    CreateEmulationStationImport:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/CreateEmulationStationImportRequest'
+    EmulationStationCollectionMappings:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/EmulationStationCollectionMappingsRequest'
+    EmulationStationImportStart:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/EmulationStationImportStartRequest'
+  responses:
+    EmulationStationImportResponse:
+      description: EmulationStation gamelist scan/import aggregate
+      headers:
+        ETag:
+          schema:
+            type: string
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/EmulationStationImportSummary'
+    EmulationStationImportListResponse:
+      description: EmulationStation gamelist scan/import history
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/EmulationStationImportList'
+    EmulationStationGamelistListResponse:
+      description: Discovered EmulationStation gamelist page
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/EmulationStationGamelistList'
+    EmulationStationCollectionListResponse:
+      description: EmulationStation source collection mapping page
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/EmulationStationCollectionList'
+    EmulationStationItemListResponse:
+      description: EmulationStation item result page
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/EmulationStationItemList'
+  parameters:
+    EmulationStationGamelistParseStateFilter:
+      name: parseState
+      in: query
+      schema:
+        type: string
+        enum:
+          - VALID
+          - INVALID
+    EmulationStationWarning:
+      name: warning
+      in: query
+      schema:
+        type: string
+    EmulationStationCollectionIDQuery:
+      name: collectionId
+      in: query
+      schema:
+        type: string
+        format: uuid
+    EmulationStationImportID:
+      name: emulationStationImportId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid

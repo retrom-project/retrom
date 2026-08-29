@@ -1,0 +1,1173 @@
+paths:
+  /api/v1/home:
+    get:
+      operationId: getHome
+      description: Homepage aggregate from enabled platform directories. It includes library counters, the ten games with the most recently started play sessions, the ten most recently added published games ordered by game creation time, the latest started session's game with a save created by that exact launch when available, all supported platforms in deterministic order, and four quick platforms ranked by play-session count.
+      responses:
+        '200':
+          $ref: ../components/common.yaml#/components/responses/JSONResponse
+  /api/v1/recent-games:
+    get:
+      operationId: getRecentGames
+      description: All visible games with play history, ordered by the newest play-session start, with aggregate active duration and session count. The response includes generatedAtMs so client-side day and rolling-window filters use the same clock as the server-rendered page.
+      responses:
+        '200':
+          $ref: ../components/common.yaml#/components/responses/JSONResponse
+  /api/v1/games:
+    get:
+      operationId: getGames
+      description: Cursor-paginated published game summaries from enabled platform directories. Each item includes its platform, directory, recommended core, created time, nullable latest play time and nullable primary cover URL. The first page also includes filteredCount and complete visible-library platform, directory and active-tag facets so clients can render accurate filters without downloading every game; generatedAtMs gives relative-time labels a stable response clock.
+      parameters:
+        - $ref: ../components/common.yaml#/components/parameters/Q
+        - $ref: ../components/common.yaml#/components/parameters/TagIDQuery
+        - $ref: ../components/common.yaml#/components/parameters/PlatformIDQuery
+        - $ref: ../components/common.yaml#/components/parameters/PlatformInstanceIDQuery
+        - $ref: '#/components/parameters/GameListSort'
+        - $ref: ../components/common.yaml#/components/parameters/Cursor
+        - $ref: ../components/common.yaml#/components/parameters/Limit
+      responses:
+        '200':
+          $ref: ../components/common.yaml#/components/responses/JSONResponse
+  /api/v1/games/{gameId}:
+    parameters:
+      - $ref: ../components/common.yaml#/components/parameters/GameID
+    get:
+      operationId: getGame
+      description: Published game detail from an enabled platform directory; coverUrl and videoUrl are nullable logical URLs of the current metadata revision's ordinal-zero COVER and VIDEO assets. No ordinary game list DTO exposes videoUrl; the dedicated immersive platform projection is the only additional user read model. saveStateCount is the total non-deleted save count, and saveStates contains at most the eight newest owner-filtered entries with nullable discIndex/discLabel.
+      responses:
+        '200':
+          $ref: ../components/common.yaml#/components/responses/JSONResponse
+  /api/v1/immersive/platforms:
+    get:
+      operationId: getImmersivePlatforms
+      description: Returns visible base platforms with shared-library counts and up to three cover previews ordered by the authenticated Profile's recent play history, then recent additions.
+      responses:
+        '200':
+          $ref: '#/components/responses/ImmersivePlatformListResponse'
+  /api/v1/immersive/platforms/{platformId}/games:
+    parameters:
+      - $ref: '#/components/parameters/PlatformID'
+    get:
+      operationId: getImmersivePlatformGames
+      description: Returns one visible platform and its title-ordered immersive game page. Text, COVER and VIDEO are projected only from each game's current metadata revision, and play history is isolated to the authenticated Profile.
+      parameters:
+        - $ref: ../components/common.yaml#/components/parameters/Cursor
+        - $ref: ../components/common.yaml#/components/parameters/Limit50
+      responses:
+        '200':
+          $ref: '#/components/responses/ImmersiveGameListResponse'
+  /api/v1/immersive/destinations:
+    get:
+      operationId: getImmersiveDestinations
+      description: Returns the four Profile-scoped library destinations first, followed by visible base platforms. Counts, recent-play clocks and cover previews are read from one snapshot.
+      responses:
+        '200':
+          $ref: '#/components/responses/ImmersiveDestinationListResponse'
+  /api/v1/immersive/libraries/{libraryKind}/games:
+    parameters:
+      - $ref: '#/components/parameters/ImmersiveLibraryKind'
+    get:
+      operationId: getImmersiveLibraryGames
+      description: Returns the authenticated Profile's all, recent, favorite or saved games. Only recent is ordered by play time; the other scopes use the persisted title initial, title and game id. Favorite folders are available only for the favorites scope.
+      parameters:
+        - $ref: '#/components/parameters/FavoriteFolderIDQuery'
+        - $ref: ../components/common.yaml#/components/parameters/Cursor
+        - $ref: ../components/common.yaml#/components/parameters/Limit50
+      responses:
+        '200':
+          $ref: '#/components/responses/ImmersiveLibraryGameListResponse'
+  /api/v1/favorites:
+    get:
+      operationId: getFavorites
+      description: Returns the authenticated Profile's visible favorites, derived counts, folders and platform summary from one read transaction.
+      parameters:
+        - $ref: '#/components/parameters/FavoriteScope'
+        - $ref: '#/components/parameters/FavoriteFolderIDQuery'
+        - $ref: ../components/common.yaml#/components/parameters/Q
+        - $ref: ../components/common.yaml#/components/parameters/PlatformIDQuery
+        - $ref: '#/components/parameters/FavoriteSort'
+        - $ref: ../components/common.yaml#/components/parameters/Cursor
+        - $ref: ../components/common.yaml#/components/parameters/Limit
+      responses:
+        '200':
+          $ref: '#/components/responses/FavoriteListJSONResponse'
+  /api/v1/favorites/{gameId}:
+    parameters:
+      - $ref: ../components/common.yaml#/components/parameters/GameID
+    put:
+      operationId: putFavorite
+      description: Idempotently favorites one currently visible game without changing an existing favoritedAtMs.
+      parameters:
+        - $ref: ../components/common.yaml#/components/parameters/CSRFToken
+      requestBody:
+        $ref: ../components/common.yaml#/components/requestBodies/Empty
+      responses:
+        '200':
+          $ref: '#/components/responses/FavoriteStateJSONResponse'
+  /api/v1/favorites/{gameId}/folders:
+    parameters:
+      - $ref: ../components/common.yaml#/components/parameters/GameID
+    put:
+      operationId: putFavoriteFolders
+      description: Atomically replaces the complete favorite-folder set for one visible game and favorites it when necessary.
+      parameters:
+        - $ref: ../components/common.yaml#/components/parameters/CSRFToken
+      requestBody:
+        $ref: '#/components/requestBodies/ReplaceFavoriteFolders'
+      responses:
+        '200':
+          $ref: '#/components/responses/FavoriteStateJSONResponse'
+  /api/v1/favorites/organize:
+    post:
+      operationId: postFavoriteOrganize
+      parameters:
+        - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey
+        - $ref: ../components/common.yaml#/components/parameters/CSRFToken
+      requestBody:
+        $ref: '#/components/requestBodies/OrganizeFavorites'
+      responses:
+        '200':
+          $ref: '#/components/responses/FavoriteBatchJSONResponse'
+  /api/v1/favorites/unfavorite:
+    post:
+      operationId: postFavoriteUnfavorite
+      parameters:
+        - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey
+        - $ref: ../components/common.yaml#/components/parameters/CSRFToken
+      requestBody:
+        $ref: '#/components/requestBodies/Unfavorite'
+      responses:
+        '200':
+          $ref: '#/components/responses/UnfavoriteJSONResponse'
+  /api/v1/favorites/restore:
+    post:
+      operationId: postFavoriteRestore
+      parameters:
+        - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey
+        - $ref: ../components/common.yaml#/components/parameters/CSRFToken
+      requestBody:
+        $ref: '#/components/requestBodies/RestoreFavorites'
+      responses:
+        '200':
+          $ref: '#/components/responses/FavoriteRestoreJSONResponse'
+  /api/v1/favorite-folders:
+    post:
+      operationId: postFavoriteFolder
+      parameters:
+        - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey
+        - $ref: ../components/common.yaml#/components/parameters/CSRFToken
+      requestBody:
+        $ref: '#/components/requestBodies/CreateFavoriteFolder'
+      responses:
+        '201':
+          $ref: '#/components/responses/FavoriteFolderJSONResponse'
+  /api/v1/favorite-folders/{folderId}:
+    parameters:
+      - $ref: '#/components/parameters/FavoriteFolderID'
+    patch:
+      operationId: patchFavoriteFolder
+      parameters:
+        - $ref: ../components/common.yaml#/components/parameters/IfMatch
+        - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey
+        - $ref: ../components/common.yaml#/components/parameters/CSRFToken
+      requestBody:
+        $ref: '#/components/requestBodies/PatchFavoriteFolder'
+      responses:
+        '200':
+          $ref: '#/components/responses/FavoriteFolderJSONResponse'
+    delete:
+      operationId: deleteFavoriteFolder
+      parameters:
+        - $ref: ../components/common.yaml#/components/parameters/IfMatch
+        - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey
+        - $ref: ../components/common.yaml#/components/parameters/CSRFToken
+      requestBody:
+        $ref: ../components/common.yaml#/components/requestBodies/Empty
+      responses:
+        '204':
+          description: Favorite folder deleted; favorites are retained
+  /api/v1/saves:
+    get:
+      operationId: getSaves
+      description: Save states whose games belong to enabled platform directories. Each owner-filtered item includes its base platform, platform directory, locked core, availability, screenshot URL and nullable discIndex/discLabel; generatedAtMs gives grouped save views a stable response clock.
+      parameters:
+        - $ref: ../components/common.yaml#/components/parameters/Q
+        - $ref: '#/components/parameters/GameIDQuery'
+        - $ref: ../components/common.yaml#/components/parameters/PlatformIDQuery
+        - $ref: ../components/common.yaml#/components/parameters/PlatformInstanceIDQuery
+        - $ref: ../components/common.yaml#/components/parameters/CoreIDQuery
+        - $ref: '#/components/parameters/Availability'
+        - $ref: ../components/common.yaml#/components/parameters/Sort
+        - $ref: ../components/common.yaml#/components/parameters/Cursor
+        - $ref: ../components/common.yaml#/components/parameters/Limit
+      responses:
+        '200':
+          $ref: ../components/common.yaml#/components/responses/JSONResponse
+  /api/v1/saves/{saveStateId}:
+    parameters:
+      - $ref: ../components/common.yaml#/components/parameters/SaveStateID
+    patch:
+      operationId: patchSave
+      parameters:
+        - $ref: ../components/common.yaml#/components/parameters/IfMatch
+      requestBody:
+        $ref: '#/components/requestBodies/RenameSave'
+      responses:
+        '200':
+          $ref: ../components/common.yaml#/components/responses/JSONResponse
+    delete:
+      operationId: deleteSave
+      parameters:
+        - $ref: ../components/common.yaml#/components/parameters/IfMatch
+      responses:
+        '204':
+          description: Deleted
+  /api/v1/launches:
+    post:
+      operationId: postLaunch
+      description: Creates a launch only for a published game in an enabled platform directory.
+      parameters:
+        - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey
+      requestBody:
+        $ref: '#/components/requestBodies/Launch'
+      responses:
+        '201':
+          $ref: ../components/common.yaml#/components/responses/JSONResponse
+        '202':
+          $ref: ../components/common.yaml#/components/responses/JSONResponse
+components:
+  schemas:
+    ReplaceFavoriteFoldersRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - folderIds
+      properties:
+        folderIds:
+          type: array
+          maxItems: 100
+          uniqueItems: true
+          items:
+            type: string
+            format: uuid
+    OrganizeFavoritesRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - gameIds
+        - addFolderIds
+        - removeFolderIds
+      properties:
+        gameIds:
+          type: array
+          minItems: 1
+          maxItems: 50
+          uniqueItems: true
+          items:
+            type: string
+            format: uuid
+        addFolderIds:
+          type: array
+          maxItems: 20
+          uniqueItems: true
+          items:
+            type: string
+            format: uuid
+        removeFolderIds:
+          type: array
+          maxItems: 20
+          uniqueItems: true
+          items:
+            type: string
+            format: uuid
+    UnfavoriteRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - gameIds
+      properties:
+        gameIds:
+          type: array
+          minItems: 1
+          maxItems: 100
+          uniqueItems: true
+          items:
+            type: string
+            format: uuid
+    FavoriteRestoreItemRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - gameId
+        - folderIds
+      properties:
+        gameId:
+          type: string
+          format: uuid
+        folderIds:
+          type: array
+          maxItems: 100
+          uniqueItems: true
+          items:
+            type: string
+            format: uuid
+    RestoreFavoritesRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - items
+      properties:
+        items:
+          type: array
+          minItems: 1
+          maxItems: 100
+          items:
+            $ref: '#/components/schemas/FavoriteRestoreItemRequest'
+    CreateFavoriteFolderRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - name
+        - initialGameIds
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 160
+        initialGameIds:
+          type: array
+          maxItems: 100
+          uniqueItems: true
+          items:
+            type: string
+            format: uuid
+    PatchFavoriteFolderRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 160
+    FavoriteReference:
+      type: object
+      additionalProperties: false
+      required:
+        - favoritedAtMs
+        - folderIds
+      properties:
+        favoritedAtMs:
+          type: integer
+          format: int64
+          minimum: 0
+        folderIds:
+          type: array
+          maxItems: 100
+          uniqueItems: true
+          items:
+            type: string
+            format: uuid
+    FavoriteState:
+      type: object
+      additionalProperties: false
+      required:
+        - gameId
+        - favoritedAtMs
+        - folderIds
+      properties:
+        gameId:
+          type: string
+          format: uuid
+        favoritedAtMs:
+          type: integer
+          format: int64
+          minimum: 0
+        folderIds:
+          type: array
+          maxItems: 100
+          uniqueItems: true
+          items:
+            type: string
+            format: uuid
+    FavoriteFolder:
+      type: object
+      additionalProperties: false
+      required:
+        - folderId
+        - name
+        - version
+        - visibleGameCount
+        - createdAtMs
+        - updatedAtMs
+      properties:
+        folderId:
+          type: string
+          format: uuid
+        name:
+          type: string
+          minLength: 1
+          maxLength: 160
+        version:
+          type: integer
+          format: int64
+          minimum: 1
+        visibleGameCount:
+          type: integer
+          format: int64
+          minimum: 0
+        createdAtMs:
+          type: integer
+          format: int64
+          minimum: 0
+        updatedAtMs:
+          type: integer
+          format: int64
+          minimum: 0
+    FavoriteSummary:
+      type: object
+      additionalProperties: false
+      required:
+        - favoriteCount
+        - uncategorizedCount
+        - folderCount
+      properties:
+        favoriteCount:
+          type: integer
+          format: int64
+          minimum: 0
+        uncategorizedCount:
+          type: integer
+          format: int64
+          minimum: 0
+        folderCount:
+          type: integer
+          format: int64
+          minimum: 0
+    FavoritePlatformSummary:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - name
+        - count
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        count:
+          type: integer
+          format: int64
+          minimum: 0
+    FavoriteNamedResource:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - name
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+    FavoriteGameItem:
+      type: object
+      additionalProperties: false
+      required:
+        - gameId
+        - title
+        - status
+        - availability
+        - platform
+        - platformInstance
+        - defaultCore
+        - coverUrl
+        - releaseYear
+        - createdAtMs
+        - lastPlayedAtMs
+        - tags
+        - favorite
+      properties:
+        gameId:
+          type: string
+          format: uuid
+        title:
+          type: string
+        status:
+          type: string
+          enum:
+            - PUBLISHED
+            - DELETED
+        availability:
+          type: string
+          enum:
+            - PUBLISHED
+            - DELETED
+        platform:
+          $ref: '#/components/schemas/FavoriteNamedResource'
+        platformInstance:
+          $ref: '#/components/schemas/FavoriteNamedResource'
+        defaultCore:
+          $ref: '#/components/schemas/FavoriteNamedResource'
+        coverUrl:
+          type: string
+          nullable: true
+        releaseYear:
+          type: integer
+          nullable: true
+        createdAtMs:
+          type: integer
+          format: int64
+          minimum: 0
+        lastPlayedAtMs:
+          type: integer
+          format: int64
+          minimum: 0
+          nullable: true
+        tags:
+          type: array
+          maxItems: 20
+          items:
+            $ref: ../components/common.yaml#/components/schemas/TagReference
+        favorite:
+          $ref: '#/components/schemas/FavoriteReference'
+    FavoriteListResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - generatedAtMs
+        - summary
+        - folders
+        - platforms
+        - totalCount
+        - items
+        - nextCursor
+      properties:
+        generatedAtMs:
+          type: integer
+          format: int64
+          minimum: 0
+        summary:
+          $ref: '#/components/schemas/FavoriteSummary'
+        folders:
+          type: array
+          maxItems: 100
+          items:
+            $ref: '#/components/schemas/FavoriteFolder'
+        platforms:
+          type: array
+          items:
+            $ref: '#/components/schemas/FavoritePlatformSummary'
+        totalCount:
+          type: integer
+          format: int64
+          minimum: 0
+        items:
+          type: array
+          maxItems: 100
+          items:
+            $ref: '#/components/schemas/FavoriteGameItem'
+        nextCursor:
+          type: string
+          nullable: true
+    FavoriteBatchResult:
+      type: object
+      additionalProperties: false
+      required:
+        - items
+      properties:
+        items:
+          type: array
+          maxItems: 50
+          items:
+            $ref: '#/components/schemas/FavoriteState'
+    UnfavoriteItem:
+      type: object
+      additionalProperties: false
+      required:
+        - gameId
+        - folderIds
+      properties:
+        gameId:
+          type: string
+          format: uuid
+        folderIds:
+          type: array
+          maxItems: 100
+          uniqueItems: true
+          items:
+            type: string
+            format: uuid
+    UnfavoriteResult:
+      type: object
+      additionalProperties: false
+      required:
+        - items
+      properties:
+        items:
+          type: array
+          maxItems: 100
+          items:
+            $ref: '#/components/schemas/UnfavoriteItem'
+    FavoriteRestoreResult:
+      type: object
+      additionalProperties: false
+      required:
+        - restoredGameIds
+        - skippedGameIds
+        - skippedFolderIds
+      properties:
+        restoredGameIds:
+          type: array
+          maxItems: 100
+          uniqueItems: true
+          items:
+            type: string
+            format: uuid
+        skippedGameIds:
+          type: array
+          maxItems: 100
+          uniqueItems: true
+          items:
+            type: string
+            format: uuid
+        skippedFolderIds:
+          type: array
+          maxItems: 1000
+          uniqueItems: true
+          items:
+            type: string
+            format: uuid
+    ImmersivePlatformSummary:
+      type: object
+      additionalProperties: false
+      required:
+        - platformId
+        - platformName
+        - gameCount
+        - lastPlayedAtMs
+        - featuredGames
+      properties:
+        platformId:
+          type: string
+          pattern: ^[a-z0-9-]{1,64}$
+        platformName:
+          type: string
+          minLength: 1
+        gameCount:
+          type: integer
+          format: int64
+          minimum: 1
+        lastPlayedAtMs:
+          type: integer
+          format: int64
+          minimum: 0
+          nullable: true
+        featuredGames:
+          type: array
+          maxItems: 3
+          items:
+            $ref: '#/components/schemas/ImmersivePlatformFeaturedGame'
+    ImmersivePlatformFeaturedGame:
+      type: object
+      additionalProperties: false
+      required:
+        - gameId
+        - title
+        - coverUrl
+        - lastPlayedAtMs
+      properties:
+        gameId:
+          type: string
+          format: uuid
+        title:
+          type: string
+          minLength: 1
+        coverUrl:
+          type: string
+          nullable: true
+          pattern: ^/content/assets/
+        lastPlayedAtMs:
+          type: integer
+          format: int64
+          minimum: 0
+          nullable: true
+    ImmersiveNamedResource:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - name
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+          minLength: 1
+    ImmersiveGameItem:
+      type: object
+      additionalProperties: false
+      required:
+        - gameId
+        - title
+        - titleInitial
+        - description
+        - releaseYear
+        - developer
+        - genre
+        - platformInstance
+        - defaultCore
+        - coverUrl
+        - videoUrl
+        - lastPlayedAtMs
+        - favorited
+        - saveStates
+      properties:
+        gameId:
+          type: string
+          format: uuid
+        title:
+          type: string
+          minLength: 1
+        titleInitial:
+          type: string
+          pattern: ^(#|[0-9A-Z])$
+        description:
+          type: string
+        releaseYear:
+          type: integer
+          nullable: true
+        developer:
+          type: string
+        genre:
+          type: string
+        platformInstance:
+          $ref: '#/components/schemas/ImmersiveNamedResource'
+        defaultCore:
+          $ref: '#/components/schemas/ImmersiveNamedResource'
+        coverUrl:
+          type: string
+          nullable: true
+          pattern: ^/content/assets/
+        videoUrl:
+          type: string
+          nullable: true
+          pattern: ^/content/assets/
+        lastPlayedAtMs:
+          type: integer
+          format: int64
+          minimum: 0
+          nullable: true
+        favorited:
+          type: boolean
+        saveStates:
+          type: array
+          items:
+            $ref: '#/components/schemas/ImmersiveSaveState'
+    ImmersiveSaveState:
+      type: object
+      additionalProperties: false
+      required:
+        - saveStateId
+        - name
+        - createdAtMs
+        - discIndex
+        - screenshotUrl
+      properties:
+        saveStateId:
+          type: string
+          format: uuid
+        name:
+          type: string
+          minLength: 1
+        createdAtMs:
+          type: integer
+          format: int64
+          minimum: 0
+        discIndex:
+          type: integer
+          minimum: 0
+          maximum: 7
+          nullable: true
+        screenshotUrl:
+          type: string
+          nullable: true
+          pattern: ^/content/save-states/
+    ImmersiveDestinationSummary:
+      type: object
+      additionalProperties: false
+      required:
+        - destinationId
+        - kind
+        - name
+        - gameCount
+        - lastPlayedAtMs
+        - featuredGames
+      properties:
+        destinationId:
+          type: string
+          minLength: 1
+          maxLength: 64
+        kind:
+          type: string
+          enum:
+            - all
+            - recent
+            - favorites
+            - saves
+            - platform
+        name:
+          type: string
+          minLength: 1
+        gameCount:
+          type: integer
+          format: int64
+          minimum: 0
+        lastPlayedAtMs:
+          type: integer
+          format: int64
+          minimum: 0
+          nullable: true
+        featuredGames:
+          type: array
+          maxItems: 3
+          items:
+            $ref: '#/components/schemas/ImmersivePlatformFeaturedGame'
+    ImmersiveDestinationList:
+      type: object
+      additionalProperties: false
+      required:
+        - generatedAtMs
+        - items
+      properties:
+        generatedAtMs:
+          type: integer
+          format: int64
+          minimum: 0
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ImmersiveDestinationSummary'
+    ImmersiveFavoriteFolder:
+      type: object
+      additionalProperties: false
+      required:
+        - folderId
+        - name
+        - gameCount
+      properties:
+        folderId:
+          type: string
+          format: uuid
+        name:
+          type: string
+          minLength: 1
+          maxLength: 40
+        gameCount:
+          type: integer
+          format: int64
+          minimum: 0
+    ImmersiveLibraryGameList:
+      type: object
+      additionalProperties: false
+      required:
+        - generatedAtMs
+        - library
+        - folder
+        - folders
+        - items
+        - nextCursor
+      properties:
+        generatedAtMs:
+          type: integer
+          format: int64
+          minimum: 0
+        library:
+          $ref: '#/components/schemas/ImmersiveDestinationSummary'
+        folder:
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/ImmersiveFavoriteFolder'
+        folders:
+          type: array
+          items:
+            $ref: '#/components/schemas/ImmersiveFavoriteFolder'
+        items:
+          type: array
+          maxItems: 50
+          items:
+            $ref: '#/components/schemas/ImmersiveGameItem'
+        nextCursor:
+          type: string
+          nullable: true
+    ImmersivePlatformList:
+      type: object
+      additionalProperties: false
+      required:
+        - generatedAtMs
+        - items
+      properties:
+        generatedAtMs:
+          type: integer
+          format: int64
+          minimum: 0
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ImmersivePlatformSummary'
+    ImmersiveGameList:
+      type: object
+      additionalProperties: false
+      required:
+        - generatedAtMs
+        - platform
+        - items
+        - nextCursor
+      properties:
+        generatedAtMs:
+          type: integer
+          format: int64
+          minimum: 0
+        platform:
+          $ref: '#/components/schemas/ImmersivePlatformSummary'
+        items:
+          type: array
+          maxItems: 50
+          items:
+            $ref: '#/components/schemas/ImmersiveGameItem'
+        nextCursor:
+          type: string
+          nullable: true
+    RenameSaveRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+    LaunchRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - gameId
+        - coreId
+        - saveStateId
+        - dosEntry
+        - returnTo
+        - clientCapabilities
+      properties:
+        gameId:
+          type: string
+          format: uuid
+        coreId:
+          type: string
+          nullable: true
+        saveStateId:
+          type: string
+          format: uuid
+          nullable: true
+        dosEntry:
+          type: string
+          nullable: true
+        returnTo:
+          type: string
+        clientCapabilities:
+          $ref: ../components/common.yaml#/components/schemas/ClientCapabilities
+  requestBodies:
+    RenameSave:
+      $ref: '#/components/requestBodies/FromRenameSave'
+    FromRenameSave:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/RenameSaveRequest'
+    Launch:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/LaunchRequest'
+    ReplaceFavoriteFolders:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ReplaceFavoriteFoldersRequest'
+    OrganizeFavorites:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/OrganizeFavoritesRequest'
+    Unfavorite:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/UnfavoriteRequest'
+    RestoreFavorites:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/RestoreFavoritesRequest'
+    CreateFavoriteFolder:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/CreateFavoriteFolderRequest'
+    PatchFavoriteFolder:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/PatchFavoriteFolderRequest'
+  responses:
+    FavoriteListJSONResponse:
+      description: Current Profile's favorite list and derived summaries
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/FavoriteListResponse'
+    FavoriteStateJSONResponse:
+      description: Current state of one favorite
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/FavoriteState'
+    FavoriteBatchJSONResponse:
+      description: Current state of each organized favorite
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/FavoriteBatchResult'
+    UnfavoriteJSONResponse:
+      description: Deleted favorite membership snapshot for bounded undo
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/UnfavoriteResult'
+    FavoriteRestoreJSONResponse:
+      description: Restore result including skipped games and folders
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/FavoriteRestoreResult'
+    FavoriteFolderJSONResponse:
+      description: Current favorite folder
+      headers:
+        ETag:
+          schema:
+            type: string
+        Location:
+          schema:
+            type: string
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/FavoriteFolder'
+    ImmersivePlatformListResponse:
+      description: Visible immersive platform summaries for the current Profile
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ImmersivePlatformList'
+    ImmersiveGameListResponse:
+      description: One immersive platform and a cursor-paginated game projection for the current Profile
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ImmersiveGameList'
+    ImmersiveDestinationListResponse:
+      description: Current Profile immersive destinations
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ImmersiveDestinationList'
+    ImmersiveLibraryGameListResponse:
+      description: Current Profile immersive library games
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ImmersiveLibraryGameList'
+  parameters:
+    GameIDQuery:
+      name: gameId
+      in: query
+      schema:
+        type: string
+        format: uuid
+    Availability:
+      name: availability
+      in: query
+      schema:
+        type: string
+    FavoriteScope:
+      name: scope
+      in: query
+      schema:
+        type: string
+        enum:
+          - ALL
+          - UNCATEGORIZED
+          - FOLDER
+        default: ALL
+    FavoriteFolderIDQuery:
+      name: folderId
+      in: query
+      schema:
+        type: string
+        format: uuid
+    FavoriteSort:
+      name: sort
+      in: query
+      schema:
+        type: string
+        enum:
+          - FAVORITED_DESC
+          - RECENTLY_PLAYED_DESC
+          - TITLE_ASC
+          - RELEASE_YEAR_DESC
+        default: FAVORITED_DESC
+    GameListSort:
+      name: sort
+      in: query
+      schema:
+        type: string
+        enum:
+          - RECENT_DESC
+          - ADDED_DESC
+          - TITLE_ASC
+        default: RECENT_DESC
+    PlatformID:
+      name: platformId
+      in: path
+      required: true
+      schema:
+        type: string
+        pattern: ^[a-z0-9-]{1,64}$
+    ImmersiveLibraryKind:
+      name: libraryKind
+      in: path
+      required: true
+      schema:
+        type: string
+        enum:
+          - all
+          - recent
+          - favorites
+          - saves
+    FavoriteFolderID:
+      name: folderId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid

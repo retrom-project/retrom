@@ -31,9 +31,9 @@ STRUCTURAL_GO_LINTERS = {
     "nestif",
 }
 GENERATED_FILES = {
-    "internal/httpapi/generated/api.gen.go": re.compile(
-        rb"Code generated .* DO NOT EDIT\."
-    ),
+    "internal/httpapi/generated/models.gen.go": re.compile(rb"Code generated .* DO NOT EDIT\."),
+    "internal/httpapi/generated/server.gen.go": re.compile(rb"Code generated .* DO NOT EDIT\."),
+    "internal/httpapi/generated/spec.gen.go": re.compile(rb"Code generated .* DO NOT EDIT\."),
     "web/lib/api/generated/schema.d.ts": re.compile(rb"auto-generated", re.I),
     "web/next-env.d.ts": re.compile(rb"This file should not be edited", re.I),
 }

@@ -1,6 +1,6 @@
 # 游戏标签
 
-本文是 Retrom 实例级游戏标签的领域事实源。表字段与数据库保护以 [`data-model.md`](./data-model.md) 为准，HTTP 字段与错误以 [`http-api-contract.md`](./http-api-contract.md) 和 `api/openapi.yaml` 为准，页面布局以 [`ui-specification.md`](./ui-specification.md) 与统一设计源为准。
+本文是 Retrom 实例级游戏标签的领域事实源。表字段与数据库保护以 [`data-model.md`](./data-model.md) 为准，HTTP 字段与错误以 [`http-api-contract.md`](./http-api-contract.md) 和以 `api/openapi.yaml` 为入口的 OpenAPI 文件集为准，页面布局以 [`ui-specification.md`](./ui-specification.md) 与统一设计源为准。
 
 ## 1. 边界与权限
 

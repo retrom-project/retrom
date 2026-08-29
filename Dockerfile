@@ -29,8 +29,12 @@ COPY api api
 COPY cmd cmd
 COPY internal internal
 COPY migrations migrations
-RUN mkdir -p internal/httpapi/generated \
-  && go run github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@v2.8.0 --config api/oapi-codegen.yaml api/openapi.yaml \
+COPY scripts/openapi-bundle scripts/openapi-bundle
+RUN mkdir -p internal/httpapi/generated .cache/generated \
+  && go run ./scripts/openapi-bundle -input api/openapi.yaml -output .cache/generated/openapi.bundle.yaml \
+  && for config in api/codegen/*.yaml; do \
+    go run github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@v2.8.0 --config "$config" .cache/generated/openapi.bundle.yaml; \
+  done \
   && CGO_ENABLED=0 go build -trimpath -ldflags='-s -w' -o /out/retrom ./cmd/retrom
 
 FROM alpine:3.22

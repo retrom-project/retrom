@@ -67,7 +67,7 @@
 | `make web-build` | 干净执行 Next.js production build；运行中的本地开发服务需要保留 `.next/` 时可显式设置 `NEXT_DIST_DIR=.next-build` | 只允许重建 `.next/` 或被忽略的 `.next-build/` |
 | `make web-check` | `web-install + web-lint + web-typecheck + web-test + web-build` | 仅依赖/构建产物 |
 | `make integration-test` | 按需生成被 Git 忽略的 Go API 文件，再运行 Go `integration` build tag：migration、SQLite、HTTP 与跨模块流程 | 会写被忽略的 Go 生成物 |
-| `make api-generate` | 先以锁文件安装前端依赖，再从 `api/openapi.yaml` 生成被忽略的 Go strict stdlib server types 与须提交的前端 TypeScript schema | 会重建依赖目录并修改两端 generated 文件 |
+| `make api-generate` | 先把 OpenAPI 领域文件确定性合并为统一 bundle、以锁文件安装前端依赖，再生成被忽略的 Go models/server/spec 与须提交的前端 TypeScript schema | 会重建依赖目录并修改两端 generated 文件 |
 | `make api-check` | 在临时目录用固定生成器验证 OpenAPI 和两端生成结果，逐字节比较已提交的 TypeScript schema，并拒绝 Go 生成物被跟踪或未被 ignore | 仅依赖产物 |
 | `make web-e2e` | 先执行 `prepare-e2e-browser`，再用缓存中固定 Chrome for Testing 运行关键 Playwright 场景，包括项目自有 GBA/NES/SNES/Arcade 单机与双浏览器联机产品链路 | 会写浏览器缓存并产生本地报告 |
 | `make public-fixtures-check` | 从仓库内唯一生成源重建公开 ROM/metadata fixture 到临时目录，逐字节核对 bytes、SHA-256、许可、三个 GBA 来源身份及真实产品消费者；不得读取私有 source | 否 |
@@ -93,7 +93,7 @@
 - 自动化测试不得读取操作者私有 ROM/BIOS。可提交 ROM/项目必须由项目所有或有明确再分发许可、保留可审查的唯一生成源，并由 `data-check`、`public-fixtures-check` 和实际产品消费者共同逐字节校验；当前实例是 `testdata/public-roms/gba-smoke/`、`testdata/public-roms/nes-smoke/`、`testdata/public-roms/snes-smoke/`、`testdata/public-roms/arcade-smoke/` 与 `testdata/public-roms/rpgmaker-smoke/`。RPG Maker 目录只含 Retrom 自有生成内容和清单锁定的 MIT MV CoreScript；ignored MZ 官方样例不属于可提交 fixture。
 - `make ci` 默认不构建容器镜像；Dockerfile、镜像内容或发布资产变化时，在 PR 验证中额外执行 `make build-images`。tag 发布流水线不重复运行 PR 的 quality job，只执行自身的双镜像构建、输入校验和推送。
 - Go package 列表应显式覆盖 `./cmd/...`、`./internal/...` 和 `./migrations/...`，避免未来 `web/node_modules` 或本地数据目录中的意外 Go 文件污染 `./...`。根 `migrations` 是可导入的 Go embed package，SQL 与 `embed.go` 同目录，不能依赖运行容器中另有源码目录。
-- OpenAPI 固定为 `api/openapi.yaml`（项目协议基线为 OpenAPI 3.0.3；锁定的 `oapi-codegen v2.8.0` 虽支持 3.1，但不得在普通实现任务中变更规范方言）。Go 侧由该版本以 `models + std-http-server + strict-server` 生成 `internal/httpapi/generated/api.gen.go`；该文件被 Git 忽略且不得提交，由标准后端 build/test/lint/integration/dev target 和后端镜像构建在编译前按需生成。生成器作为 `go.mod` 的 tool 依赖锁定，配置放 `api/oapi-codegen.yaml`。请求验证固定 `nethttp-middleware v1.2.0`，另加 HTTP 专题的重复 JSON key/未知 query lexical guard。前端 `web/package.json#scripts.api:generate` 固定执行 `openapi-typescript ../api/openapi.yaml -o lib/api/generated/schema.d.ts`，并用 `openapi-fetch 0.17.0` 封装同源 client；该 TypeScript schema 必须提交并由漂移检查逐字节比较。两个生成文件都不得手改；改用 OpenAPI 3.1 必须单独完成两端生成、validator 与 contract test 的契约迁移。
+- OpenAPI 固定为以 `api/openapi.yaml` 为入口的领域文件集（项目协议基线为 OpenAPI 3.0.3；锁定的 `oapi-codegen v2.8.0` 虽支持 3.1，但不得在普通实现任务中变更规范方言）。`scripts/openapi-bundle` 只允许解析 `api/` 内的本地相对引用，保留入口声明顺序和内部 component identity，并生成被忽略的 `.cache/generated/openapi.bundle.yaml`；两端生成器和内嵌运行时规范必须消费该同一文件。Go 侧由该版本分别生成同一个 `generated` package 下的 `models.gen.go`、`server.gen.go` 与 `spec.gen.go`，分别承载 DTO、strict stdlib server/router 和内嵌规范；三者均被 Git 忽略且不得提交，由标准后端 build/test/lint/integration/dev target 和后端镜像构建在编译前按需生成。生成配置放在 `api/codegen/`。请求验证固定 `nethttp-middleware v1.2.0`，另加 HTTP 专题的重复 JSON key/未知 query lexical guard。前端 `web/package.json#scripts.api:generate` 固定从上述 bundle 生成单一 `lib/api/generated/schema.d.ts`，并用 `openapi-fetch 0.17.0` 封装同源 client；该 TypeScript schema 必须提交并由漂移检查逐字节比较。生成文件都不得手改；改用 OpenAPI 3.1 必须单独完成两端生成、validator 与 contract test 的契约迁移。
 - `api-generate` 与 `api-check` 必须直接依赖 `web-install`，保证全新 checkout 在调用 `npx --no-install` 前已通过 `package-lock.json` 物化精确版本；不得依赖开发机残留的 `web/node_modules`，也不得允许 npx 临时下载缺失包。`api-check` 必须在临时目录生成 Go 文件，不能依赖或改写工作树中的被忽略副本；同时检查该路径仍被 ignore 且不在 Git index。`data-check` 的 Makefile 回归用例必须锁定这些依赖与跟踪边界。
 - Makefile 固定 `GOFUMPT_VERSION=v0.11.0`、`GOIMPORTS_VERSION=v0.48.0` 与 `GOLANGCI_LINT_VERSION=v2.11.4`，都安装到仓库内忽略的 `bin/`；`fmt/fmt-check` 只调用本地 formatter，`lint-go` 只调用本地 golangci-lint，不得调用浮动的 `@latest` 或依赖开发机全局版本。安装命令精确为 `go install mvdan.cc/gofumpt@$(GOFUMPT_VERSION)`、`go install golang.org/x/tools/cmd/goimports@$(GOIMPORTS_VERSION)` 和 `go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION)`；版本 sentinel 必须核对二进制报告值，已有错误版本不能因文件存在而复用。
 - Go 版本以 `go.mod` 为事实源，`.golangci.yml` 与 CI 必须一致。Node 版本以 `web/package.json#engines` 和仓库版本文件为事实源，CI 不得另选一个未记录版本。
@@ -185,7 +185,7 @@
 ```json
 {
   "scripts": {
-    "api:generate": "openapi-typescript ../api/openapi.yaml -o lib/api/generated/schema.d.ts",
+    "api:generate": "openapi-typescript ../.cache/generated/openapi.bundle.yaml -o lib/api/generated/schema.d.ts",
     "lint": "eslint . --max-warnings=0",
     "typecheck": "tsc --noEmit",
     "test": "vitest",
@@ -390,9 +390,9 @@ RPG Maker fixture 必须遵守同一再分发规则：生成源、许可、固�
 2. 在 `web/` 创建 Next.js TypeScript 项目，锁定 Node/npm 约束并提交 `package-lock.json`。
 3. 新增 `.golangci.yml`，按第 4 节启用规则、阈值、formatters 与 depguard；新增结构检查器、中央 suppression allowlist 及其边界测试，不建立存量 baseline。
 4. 新增 `web/eslint.config.mjs`、严格 `tsconfig.json`、Vitest config/setup、package scripts、`web/next.config.ts` 和 `web/proxy.ts`。`next.config.ts` 负责 standalone、开发 rewrite 与固定隔离头；`proxy.ts` 按 HTTP 契约为动态 HTML 生成逐响应 nonce CSP 并把同一 header 传入 App Router，不得改用静态 nonce 或旧 `middleware.ts`。
-5. 新增 `api/openapi.yaml` 与两端生成配置，先覆盖通用 envelope、session/health 与一条代表性 CRUD；Go 生成物在后端编译前按需生成且不提交，TypeScript schema 提交并检查漂移；实现 `api-generate/api-check`，后续每个 route 必须先扩 schema 再写 handler/UI。
+5. 新增以 `api/openapi.yaml` 为入口的 OpenAPI 领域文件、bundle 与两端生成配置，先覆盖通用 envelope、session/health 与一条代表性 CRUD；Go 生成物在后端编译前按需生成且不提交，TypeScript schema 提交并检查漂移；实现 `api-generate/api-check`，后续每个 route 必须先扩对应领域 schema 和入口闭集再写 handler/UI。
 6. 新增根 Makefile，实现第 3 节所有命令；golangci-lint 安装到仓库本地并固定版本。
-7. 更新 `.gitignore`：忽略 `bin/`、`.cache/`、`internal/httpapi/generated/api.gen.go`、`web/node_modules/`、`web/.next/`、coverage/E2E 报告和五份 DAT payload；继续跟踪 TypeScript schema、真实来源 manifest、SHA256SUMS、物化配方与可提交验证清单。
+7. 更新 `.gitignore`：忽略 `bin/`、`.cache/`、`internal/httpapi/generated/*.gen.go`、`web/node_modules/`、`web/.next/`、coverage/E2E 报告和五份 DAT payload；继续跟踪 TypeScript schema、真实来源 manifest、SHA256SUMS、物化配方与可提交验证清单。
 
 ### Phase Q1：基础测试
 
@@ -422,8 +422,9 @@ RPG Maker fixture 必须遵守同一再分发规则：生成源、许可、固�
 | 文件 | 责任 |
 | --- | --- |
 | `/AGENTS.md` | Agent 实施铁律 |
-| `/api/openapi.yaml`、`/api/oapi-codegen.yaml` | HTTP 事实源与 Go strict stdlib 生成配置 |
-| `/internal/httpapi/generated/api.gen.go` | 后端编译前由 OpenAPI 按需生成的 Go 类型/strict server 接口；禁止手改、被 Git 忽略且不得提交 |
+| `/api/openapi.yaml`、`/api/domains/`、`/api/components/` | HTTP 事实源入口、领域 route/DTO 与跨领域组件 |
+| `/api/codegen/`、`/scripts/openapi-bundle/` | Go 分层生成配置与只接受本地引用的确定性 bundle 工具 |
+| `/internal/httpapi/generated/{models,server,spec}.gen.go` | 后端编译前由统一 bundle 按需生成的 Go 类型、strict server/router 与内嵌规范；禁止手改、被 Git 忽略且不得提交 |
 | `/migrations/embed.go`、`/migrations/*.sql` | 编译进后端的顺序 migration 与 checksum 输入 |
 | `/.golangci.yml` | Go lint、formatter、排除与 depguard |
 | `/quality/go-suppressions.json`、`/scripts/quality_structure.py` | 非结构性 Go suppression 中央清单与全仓源码结构门禁 |

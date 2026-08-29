@@ -29,7 +29,7 @@ HTTP、运行时、依赖及统一验收专题维护。
 | 联机 allowlist、房间、SSE/WebSocket、rollback/lockstep 与 Player 差异 | 已锁定；八个精确 core profile | [`dependency-management.md`](./dependency-management.md)、[`data-model.md`](./data-model.md)、[`http-api-contract.md`](./http-api-contract.md)、[`runtime-and-play-data.md`](./runtime-and-play-data.md) |
 | 测试、CI、镜像与最终通过规则 | 已锁定 | [`engineering-quality-and-testing.md`](./engineering-quality-and-testing.md)、[`project-acceptance.md`](./project-acceptance.md) |
 
-`api/openapi.yaml`、编译期 Go 生成结果、须提交的 TypeScript schema、migration、Makefile 和应用代码是按垂直切片产出的实施资产，不是允许临场改变上述契约的待定设计。剩余外部条件包括依赖首次物化需要公网、生产需要前置 NG，以及外部分发需要许可复核；公开 `make web-e2e` 使用仓库自有的确定性 GBA、NES、SNES 与 Arcade ROM，不属于外部前置条件。八个联机 profile 均有双浏览器产品链路基线，SNES9x、Nestopia、MAME2003 Plus 与 FBA2012 CPS1/CPS2 另有单浏览器真实核心基线；这些结果只覆盖 manifest 锁定 artifact 和项目自有测试程序，不能外推到未登记核心、其他 artifact 或任意游戏内容。阻塞/适用语义统一见实施计划第 6 节和验收规范，不构成产品决策缺口。
+以 `api/openapi.yaml` 为入口的 OpenAPI 领域文件集、编译期 Go 生成结果、须提交的 TypeScript schema、migration、Makefile 和应用代码是按垂直切片产出的实施资产，不是允许临场改变上述契约的待定设计。OpenAPI 的 route 与领域 DTO 位于 `api/domains/`，跨领域组件位于 `api/components/`；所有生成器只消费经过本地引用校验的统一 bundle。剩余外部条件包括依赖首次物化需要公网、生产需要前置 NG，以及外部分发需要许可复核；公开 `make web-e2e` 使用仓库自有的确定性 GBA、NES、SNES 与 Arcade ROM，不属于外部前置条件。八个联机 profile 均有双浏览器产品链路基线，SNES9x、Nestopia、MAME2003 Plus 与 FBA2012 CPS1/CPS2 另有单浏览器真实核心基线；这些结果只覆盖 manifest 锁定 artifact 和项目自有测试程序，不能外推到未登记核心、其他 artifact 或任意游戏内容。阻塞/适用语义统一见实施计划第 6 节和验收规范，不构成产品决策缺口。
 
 ## 从这里开始
 

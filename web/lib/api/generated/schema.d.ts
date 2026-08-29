@@ -5285,7 +5285,7 @@ export interface components {
             change?: unknown;
             chunkSizeBytes?: unknown;
             class?: unknown;
-            /** @description For RPG Maker */
+            /** @description For RPG Maker, true after a current runtime-validation Launch has been created; advanced machine gates remain optional for the review decision. */
             canApprove?: unknown;
             canAttachMissingDiscs?: unknown;
             canRetry?: unknown;
