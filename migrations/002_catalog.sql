@@ -68,6 +68,7 @@ INSERT INTO platforms(id,name,sort_order,enabled,created_at_ms,updated_at_ms) VA
 INSERT INTO platforms(id,name,sort_order,enabled,created_at_ms,updated_at_ms) VALUES('fds','Famicom Disk System',20,1,0,0);
 INSERT INTO platforms(id,name,sort_order,enabled,created_at_ms,updated_at_ms) VALUES('gba','Game Boy Advance',50,1,0,0);
 INSERT INTO platforms(id,name,sort_order,enabled,created_at_ms,updated_at_ms) VALUES('gbc','Game Boy / Color',40,1,0,0);
+INSERT INTO platforms(id,name,sort_order,enabled,created_at_ms,updated_at_ms) VALUES('kirikiri','KiriKiri',77,1,0,0);
 INSERT INTO platforms(id,name,sort_order,enabled,created_at_ms,updated_at_ms) VALUES('lynx','Atari Lynx',120,1,0,0);
 INSERT INTO platforms(id,name,sort_order,enabled,created_at_ms,updated_at_ms) VALUES('mastersystem','Master System',240,1,0,0);
 INSERT INTO platforms(id,name,sort_order,enabled,created_at_ms,updated_at_ms) VALUES('megadrive','Mega Drive / Genesis',130,1,0,0);
@@ -100,6 +101,7 @@ INSERT INTO cores(id,name,enabled,created_at_ms,updated_at_ms) VALUES('gambatte'
 INSERT INTO cores(id,name,enabled,created_at_ms,updated_at_ms) VALUES('genesis_plus_gx','Genesis Plus GX',1,0,0);
 INSERT INTO cores(id,name,enabled,created_at_ms,updated_at_ms) VALUES('genesis_plus_gx_wide','Genesis Plus GX Wide',1,0,0);
 INSERT INTO cores(id,name,enabled,created_at_ms,updated_at_ms) VALUES('handy','Handy',1,0,0);
+INSERT INTO cores(id,name,enabled,created_at_ms,updated_at_ms) VALUES('kirikiri2','KiriKiri2',1,0,0);
 INSERT INTO cores(id,name,enabled,created_at_ms,updated_at_ms) VALUES('mame2003','MAME 2003',1,0,0);
 INSERT INTO cores(id,name,enabled,created_at_ms,updated_at_ms) VALUES('mame2003_plus','MAME 2003 Plus',1,0,0);
 INSERT INTO cores(id,name,enabled,created_at_ms,updated_at_ms) VALUES('mednafen_ngp','Beetle NeoPop',1,0,0);
@@ -152,6 +154,7 @@ INSERT INTO platform_cores(platform_id,core_id,enabled) VALUES('fds','nestopia',
 INSERT INTO platform_cores(platform_id,core_id,enabled) VALUES('gba','mgba',1);
 INSERT INTO platform_cores(platform_id,core_id,enabled) VALUES('gbc','gambatte',1);
 INSERT INTO platform_cores(platform_id,core_id,enabled) VALUES('gbc','mgba',1);
+INSERT INTO platform_cores(platform_id,core_id,enabled) VALUES('kirikiri','kirikiri2',1);
 INSERT INTO platform_cores(platform_id,core_id,enabled) VALUES('lynx','handy',1);
 INSERT INTO platform_cores(platform_id,core_id,enabled) VALUES('mastersystem','smsplus',1);
 INSERT INTO platform_cores(platform_id,core_id,enabled) VALUES('megadrive','genesis_plus_gx',1);

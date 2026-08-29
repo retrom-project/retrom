@@ -53,7 +53,7 @@ def validate_local_runtime(source: Path) -> tuple[dict[str, Any], str]:
         package.get("name") != "@xxxsen/retrom-runtime"
         or package.get("version") != manifest.get("packageVersion")
         or manifest.get("packageName") != package.get("name")
-        or manifest.get("schemaVersion") != 1
+        or manifest.get("schemaVersion") != 2
         or manifest.get("publicApiVersion") != 1
         or not (source / "dist/index.js").is_file()
         or not (source / "dist/index.d.ts").is_file()
@@ -68,44 +68,6 @@ def validate_local_runtime(source: Path) -> tuple[dict[str, Any], str]:
     return manifest, commit
 
 
-def local_assets(source: Path, manifest: dict[str, Any], include_runtime_assets: bool) -> dict[str, Path]:
-    assets: dict[str, Path] = {}
-    local = manifest.get("localAssets")
-    builds = manifest.get("sourceBuilds")
-    if not isinstance(local, list) or not isinstance(builds, list):
-        raise LinkError("RETROM_RUNTIME_DEV_MANIFEST_INVALID")
-    if not include_runtime_assets:
-        return assets
-    for item in local:
-        add_asset(source, item, assets, required=True)
-    for build in builds:
-        if not isinstance(build, dict) or not isinstance(build.get("assets"), list) or not build["assets"]:
-            raise LinkError("RETROM_RUNTIME_DEV_MANIFEST_INVALID")
-        declared = build["assets"]
-        present = [isinstance(item, dict) and (source / str(item.get("source", ""))).is_file() for item in declared]
-        if any(present) and not all(present):
-            raise LinkError(f"RETROM_RUNTIME_DEV_BUILD_PARTIAL:{build.get('id', 'unknown')}")
-        if all(present):
-            for item in declared:
-                add_asset(source, item, assets, required=True)
-    return assets
-
-
-def add_asset(source: Path, item: object, assets: dict[str, Path], required: bool) -> None:
-    if not isinstance(item, dict) or not isinstance(item.get("source"), str) or not isinstance(item.get("output"), str):
-        raise LinkError("RETROM_RUNTIME_DEV_MANIFEST_INVALID")
-    relative_source = Path(item["source"])
-    output = item["output"]
-    if relative_source.is_absolute() or ".." in relative_source.parts or not output or output.startswith("/"):
-        raise LinkError("RETROM_RUNTIME_DEV_MANIFEST_INVALID")
-    target = source / relative_source
-    if required and not target.is_file():
-        raise LinkError(f"RETROM_RUNTIME_DEV_ASSET_MISSING:{relative_source.name}")
-    if output in assets:
-        raise LinkError("RETROM_RUNTIME_DEV_MANIFEST_INVALID")
-    assets[output] = target
-
-
 def activate(
     source_arg: Path,
     runtime_arg: Path,
@@ -114,22 +76,18 @@ def activate(
     include_runtime_assets: bool,
 ) -> None:
     source = checked_root(source_arg, "runtime-manifest.json")
-    runtime_root = checked_root(runtime_arg, OBSERVED_FILENAME)
     formal = load_json(manifest_path)
     local, commit = validate_local_runtime(source)
-    assets = local_assets(source, local, include_runtime_assets)
-    declarations = {
-        item["bundle_path"]: item
-        for item in formal.get("runtime_files", [])
-        if isinstance(item, dict) and isinstance(item.get("bundle_path"), str)
-    }
-    if any(output not in declarations for output in assets):
-        raise LinkError("RETROM_RUNTIME_DEV_ASSET_UNDECLARED")
-    for output, local_path in assets.items():
-        destination = runtime_root / declarations[output]["path_in_release"]
-        replace_file(local_path, destination)
-    observed = observed_document(formal, runtime_root)
-    replace_json(runtime_root / OBSERVED_FILENAME, observed)
+    if include_runtime_assets:
+        if formal.get("release", {}).get("tag") != f"v{local['packageVersion']}":
+            raise LinkError("RETROM_RUNTIME_DEV_VERSION_MISMATCH")
+        assets = staged_release_assets(source, formal)
+        runtime_root = runtime_arg.absolute()
+        publish_candidate_runtime(formal, assets, runtime_root)
+    else:
+        assets = {}
+        runtime_root = checked_root(runtime_arg, OBSERVED_FILENAME)
+        replace_json(runtime_root / OBSERVED_FILENAME, observed_document(formal, runtime_root))
     replace_json(runtime_root / MARKER_FILENAME, {
         "schema_version": 1,
         "source_root": str(source),
@@ -139,6 +97,65 @@ def activate(
     })
     replace_package_link(source, web_package_arg)
     print(f"retrom-runtime-dev: linked {source} at {commit[:12]} ({len(assets)} runtime assets)")
+
+
+def staged_release_assets(source: Path, formal: dict[str, Any]) -> dict[str, Path]:
+    stage = source / "release/stage"
+    declarations = formal.get("runtime_files")
+    if not stage.is_dir() or not isinstance(declarations, list) or not declarations:
+        raise LinkError("RETROM_RUNTIME_DEV_STAGE_INVALID")
+    assets: dict[str, Path] = {}
+    for item in declarations:
+        if not isinstance(item, dict):
+            raise LinkError("RETROM_RUNTIME_DEV_STAGE_INVALID")
+        bundle_path = item.get("bundle_path")
+        release_path = item.get("path_in_release")
+        if not isinstance(bundle_path, str) or not isinstance(release_path, str):
+            raise LinkError("RETROM_RUNTIME_DEV_STAGE_INVALID")
+        relative = Path(bundle_path)
+        destination = Path(release_path)
+        if (
+            relative.is_absolute()
+            or destination.is_absolute()
+            or ".." in relative.parts
+            or ".." in destination.parts
+            or bundle_path in assets
+        ):
+            raise LinkError("RETROM_RUNTIME_DEV_STAGE_INVALID")
+        candidate = stage / relative
+        if not candidate.is_file():
+            raise LinkError(f"RETROM_RUNTIME_DEV_ASSET_MISSING:{relative.name}")
+        assets[bundle_path] = candidate
+    return assets
+
+
+def publish_candidate_runtime(
+    formal: dict[str, Any], assets: dict[str, Path], runtime_root: Path,
+) -> None:
+    runtime_root.parent.mkdir(parents=True, exist_ok=True)
+    staging = Path(tempfile.mkdtemp(prefix=f".{runtime_root.name}.staging-", dir=runtime_root.parent))
+    backup = Path(tempfile.mkdtemp(prefix=f".{runtime_root.name}.backup-", dir=runtime_root.parent))
+    backup.rmdir()
+    declarations = {item["bundle_path"]: item for item in formal["runtime_files"]}
+    try:
+        for bundle_path, source in assets.items():
+            replace_file(source, staging / declarations[bundle_path]["path_in_release"])
+        replace_json(staging / OBSERVED_FILENAME, observed_document(formal, staging))
+        if runtime_root.exists():
+            os.replace(runtime_root, backup)
+        try:
+            os.replace(staging, runtime_root)
+        except BaseException:
+            if backup.exists() and not runtime_root.exists():
+                os.replace(backup, runtime_root)
+            raise
+        if backup.exists():
+            shutil.rmtree(backup)
+    finally:
+        if staging.exists():
+            shutil.rmtree(staging)
+        if backup.exists():
+            shutil.rmtree(backup)
 
 
 def observed_document(formal: dict[str, Any], runtime_root: Path) -> dict[str, Any]:

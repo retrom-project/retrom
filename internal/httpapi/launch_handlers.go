@@ -304,13 +304,17 @@ func (server *Server) launchConfig(writer http.ResponseWriter, request *http.Req
 	server.setLaunchContentGrant(
 		writer, request.PathValue("launchId"), capability, 86400,
 	)
-	if configuration.RPGMaker != nil || configuration.ONS != nil {
+	if launchUsesProjectFiles(configuration) {
 		server.setLaunchProjectGrant(
 			writer, request.PathValue("launchId"), capability, 86400,
 		)
 	}
 	writer.Header().Set("Vary", "Cookie")
 	writeJSON(writer, http.StatusOK, configuration)
+}
+
+func launchUsesProjectFiles(configuration launch.Config) bool {
+	return configuration.RPGMaker != nil || configuration.ONS != nil || configuration.KiriKiri != nil
 }
 
 func (server *Server) launchStart(writer http.ResponseWriter, request *http.Request) {

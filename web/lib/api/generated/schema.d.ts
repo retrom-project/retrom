@@ -3464,7 +3464,7 @@ export interface components {
             captureAllowed: boolean;
             captureAfterMs: number;
         };
-        LaunchConfig: components["schemas"]["EmulatorJSLaunchConfig"] | components["schemas"]["RpgMakerLaunchConfig"] | components["schemas"]["OnsLaunchConfig"];
+        LaunchConfig: components["schemas"]["EmulatorJSLaunchConfig"] | components["schemas"]["RpgMakerLaunchConfig"] | components["schemas"]["OnsLaunchConfig"] | components["schemas"]["KiriKiriLaunchConfig"];
         EmulatorJSLaunchConfig: {
             /**
              * @description discriminator enum property added by openapi-typescript
@@ -3519,7 +3519,7 @@ export interface components {
         /** @enum {string} */
         RpgCoreID: "rpgmaker_2000" | "rpgmaker_2003" | "rpgmaker_xp" | "rpgmaker_vx" | "rpgmaker_vx_ace" | "rpgmaker_mv" | "rpgmaker_mz";
         /** @enum {string} */
-        CheckpointPayloadKind: "RUNTIME_STATE" | "NATIVE_SAVE_BUNDLE_V1" | "ONS_SAVE_BUNDLE_V1";
+        CheckpointPayloadKind: "RUNTIME_STATE" | "NATIVE_SAVE_BUNDLE_V1" | "ONS_SAVE_BUNDLE_V1" | "KIRIKIRI_SAVE_BUNDLE_V1";
         /** @enum {string} */
         NativeCheckpointProfile: "EASYRPG_V1" | "RPGMV_V1" | "RPGMZ_V1";
         /** @enum {string} */
@@ -3690,6 +3690,53 @@ export interface components {
             warnings: string[];
             adapter: components["schemas"]["OnsAdapterConfig"];
             checkpoint: components["schemas"]["OnsCheckpointRestore"] | null;
+            reviewPreview?: components["schemas"]["ReviewPreviewConfig"];
+        };
+        KiriKiriAdapterConfig: {
+            /** @enum {string} */
+            adapterKind: "KIRIKIRI2_WEB";
+            /** @enum {string} */
+            adapterId: "kirikiri2-web";
+            runtimeBaseUrl: string;
+            projectIndexUrl: string;
+            startupXp3Path: string | null;
+            /** @enum {integer} */
+            checkpointSlot: 1999;
+        };
+        KiriKiriCheckpointRestore: {
+            /** @enum {string} */
+            payloadKind: "KIRIKIRI_SAVE_BUNDLE_V1";
+            payloadUrl: string;
+        };
+        KiriKiriLaunchConfig: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            runtimeFamily: "KIRIKIRI";
+            /** @enum {integer} */
+            protocolVersion: 1;
+            /** @enum {string} */
+            mode: "single";
+            /** @enum {string} */
+            purpose: "PRODUCT" | "REVIEW_PREVIEW";
+            /** Format: uuid */
+            launchId: string;
+            /** Format: uuid */
+            sessionId: string;
+            /** @enum {string} */
+            coreId: "kirikiri2";
+            coreName: string;
+            gameTitle: string;
+            /** @enum {string} */
+            platformName: "KiriKiri";
+            runtimeVersion: string;
+            /** Format: uuid */
+            artifactId: string;
+            returnTo: string;
+            warnings: string[];
+            adapter: components["schemas"]["KiriKiriAdapterConfig"];
+            checkpoint: components["schemas"]["KiriKiriCheckpointRestore"] | null;
             reviewPreview?: components["schemas"]["ReviewPreviewConfig"];
         };
         /** @enum {string} */
@@ -4066,7 +4113,7 @@ export interface components {
              * @default GENERAL
              * @enum {string}
              */
-            purpose: "GENERAL" | "RPG_MAKER_PROJECT" | "ONS_PROJECT" | "RUNTIME_ASSET_PACK";
+            purpose: "GENERAL" | "RPG_MAKER_PROJECT" | "ONS_PROJECT" | "KIRIKIRI_PROJECT" | "RUNTIME_ASSET_PACK";
             /** @enum {string} */
             sourceType: "FILES" | "DIRECTORY";
             files: {
@@ -4082,7 +4129,7 @@ export interface components {
             /** Format: uuid */
             targetPlatformInstanceId: string;
             /**
-             * @description RPG_MAKER_PROJECT_V1 and ONS_PROJECT_V1 requests are normalized to NONE because projects have no single-ROM hash identity.
+             * @description RPG_MAKER_PROJECT_V1, ONS_PROJECT_V1 and KIRIKIRI_PROJECT_V1 requests are normalized to NONE because projects have no single-ROM hash identity.
              * @enum {string}
              */
             metadataProvider: "HASHEOUS" | "NONE";
@@ -4091,7 +4138,7 @@ export interface components {
              * @description Omitted requests use STANDARD.
              * @enum {string}
              */
-            contentMode?: "STANDARD" | "MULTI_DISC_M3U_V1" | "RPG_MAKER_PROJECT_V1" | "ONS_PROJECT_V1";
+            contentMode?: "STANDARD" | "MULTI_DISC_M3U_V1" | "RPG_MAKER_PROJECT_V1" | "ONS_PROJECT_V1" | "KIRIKIRI_PROJECT_V1";
         };
         ReconfigureImportRequest: {
             /** Format: uuid */
@@ -4261,7 +4308,7 @@ export interface components {
              * @default STANDARD
              * @enum {string}
              */
-            contentMode: "STANDARD" | "MULTI_DISC_M3U_V1" | "RPG_MAKER_PROJECT_V1" | "ONS_PROJECT_V1";
+            contentMode: "STANDARD" | "MULTI_DISC_M3U_V1" | "RPG_MAKER_PROJECT_V1" | "ONS_PROJECT_V1" | "KIRIKIRI_PROJECT_V1";
         };
         ApplyCandidateRequest: {
             fields: ("title" | "description" | "developer" | "publisher" | "genre" | "players" | "releaseYear")[];

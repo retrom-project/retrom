@@ -147,6 +147,13 @@ func (configuration Config) MarshalJSON() ([]byte, error) {
 		}
 		return contents, nil
 	}
+	if configuration.KiriKiri != nil {
+		contents, err := json.Marshal(configuration.KiriKiri)
+		if err != nil {
+			return nil, fmt.Errorf("marshal KiriKiri launch config: %w", err)
+		}
+		return contents, nil
+	}
 	type plainConfig Config
 	contents, err := json.Marshal(plainConfig(configuration))
 	if err != nil {
@@ -180,6 +187,13 @@ WHERE launch.id=? AND artifact.available_for_launch=1
 			return Config{}, err
 		}
 		return Config{RuntimeFamily: "ONS", ONS: &ons}, nil
+	}
+	if family == "KIRIKIRI" {
+		kirikiri, err := service.kiriKiriProductConfig(ctx, launchID, capability)
+		if err != nil {
+			return Config{}, err
+		}
+		return Config{RuntimeFamily: "KIRIKIRI", KiriKiri: &kirikiri}, nil
 	}
 	return Config{}, ErrCredential
 }

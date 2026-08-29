@@ -76,6 +76,27 @@ func TestOpenAPIValidationAllowsRetromRuntimeAndProjectFiles(t *testing.T) {
 		runtimeResponse.Body.String()[:min(runtimeResponse.Body.Len(), 80)],
 	)
 
+	assetResponse := httptest.NewRecorder()
+	handler.ServeHTTP(
+		assetResponse,
+		httptest.NewRequestWithContext(
+			context.Background(), http.MethodGet,
+			"/runtime/retrom-runtime/"+current.RuntimeVersion+"/assets.zip", nil,
+		),
+	)
+	testassert.Falsef(
+		t,
+		testassert.Any(
+			func() bool { return assetResponse.Code != http.StatusOK },
+			func() bool { return assetResponse.Header().Get("Content-Type") != "application/zip" },
+			func() bool { return assetResponse.Body.Len() == 0 },
+		),
+		"retrom-runtime ZIP response = %d headers=%v bytes=%d",
+		assetResponse.Code,
+		assetResponse.Header(),
+		assetResponse.Body.Len(),
+	)
+
 	projectResponse := httptest.NewRecorder()
 	handler.ServeHTTP(
 		projectResponse,

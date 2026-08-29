@@ -2,9 +2,7 @@ package launch
 
 import (
 	"context"
-	"fmt"
 
-	"retrom/internal/cleanup"
 	"retrom/internal/importing"
 	"retrom/internal/ons/detector"
 )
@@ -51,40 +49,13 @@ WHERE revision.id=? AND revision.game_content_revision_id=?
 	); !exists {
 		return launchContentPlan{}, ErrBlocked
 	}
-	files, err := service.onsProductFiles(ctx, selection.contentRevisionID)
+	files, err := service.projectProductFiles(
+		ctx, selection.contentRevisionID, onsProjectFormat, maximumONSProjectFiles,
+	)
 	if err != nil || !validONSLockedFiles(files, profile) {
 		return launchContentPlan{}, ErrBlocked
 	}
 	return launchContentPlan{ContentKind: onsProjectFormat, Files: files}, nil
-}
-
-func (service *Service) onsProductFiles(
-	ctx context.Context,
-	contentRevisionID string,
-) ([]lockedContentFile, error) {
-	rows, err := service.database.QueryContext(ctx, `
-SELECT blob_id,logical_name FROM game_content_files
-WHERE game_content_revision_id=? AND role='PROJECT_FILE'
-ORDER BY sort_order,logical_name
-`, contentRevisionID)
-	if err != nil {
-		return nil, fmt.Errorf("load ONS product files: %w", err)
-	}
-	defer func() { cleanup.Error("close", rows.Close()) }()
-	files := make([]lockedContentFile, 0)
-	for rows.Next() {
-		var file lockedContentFile
-		file.Format = onsProjectFormat
-		if err := rows.Scan(&file.BlobID, &file.LogicalName); err != nil ||
-			len(files) >= maximumONSProjectFiles {
-			return nil, ErrBlocked
-		}
-		files = append(files, file)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("read ONS product files: %w", err)
-	}
-	return files, nil
 }
 
 func validONSLockedFiles(files []lockedContentFile, profile detector.Profile) bool {

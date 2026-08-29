@@ -6,7 +6,31 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"retrom/internal/launch"
 )
+
+func TestLaunchUsesProjectFilesIncludesEveryProjectRuntime(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name   string
+		config launch.Config
+		want   bool
+	}{
+		{name: "emulatorjs", config: launch.Config{}, want: false},
+		{name: "rpg maker", config: launch.Config{RPGMaker: &launch.RPGMakerConfig{}}, want: true},
+		{name: "ons", config: launch.Config{ONS: &launch.ONSConfig{}}, want: true},
+		{name: "kirikiri", config: launch.Config{KiriKiri: &launch.KiriKiriConfig{}}, want: true},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			if got := launchUsesProjectFiles(test.config); got != test.want {
+				t.Fatalf("launchUsesProjectFiles() = %t, want %t", got, test.want)
+			}
+		})
+	}
+}
 
 func TestLaunchContentGrantCookieHasRestrictedBrowserScope(t *testing.T) {
 	t.Parallel()

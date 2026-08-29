@@ -12,6 +12,7 @@ const (
 	ModeMultiDiscM3UV1    = "MULTI_DISC_M3U_V1"
 	ModeRPGMakerProjectV1 = "RPG_MAKER_PROJECT_V1"
 	ModeONSProjectV1      = "ONS_PROJECT_V1"
+	ModeKiriKiriProjectV1 = "KIRIKIRI_PROJECT_V1"
 	DeliveryEagerExternal = "EAGER_EXTERNAL_FILES"
 	MaximumMultiDiscCount = 8
 	MaximumMultiDiscBytes = int64(1_073_741_824)
@@ -71,6 +72,8 @@ func projectImportCapabilities(platformID string, enabled bool) (ImportCapabilit
 		return ImportCapabilities{ContentModes: []string{ModeRPGMakerProjectV1}}, true
 	case "ons":
 		return ImportCapabilities{ContentModes: []string{ModeONSProjectV1}}, true
+	case "kirikiri":
+		return ImportCapabilities{ContentModes: []string{ModeKiriKiriProjectV1}}, true
 	default:
 		return ImportCapabilities{}, false
 	}
@@ -88,22 +91,14 @@ func validMultiDiscCompatibility(value compatibility) bool {
 // admission it intentionally does not consult the feature flag, so a frozen
 // in-flight review can be completed after admission is closed.
 func SupportsContentKind(compatibilityJSON, contentKind string) bool {
-	if contentKind == ModeRPGMakerProjectV1 || contentKind == ModeONSProjectV1 {
-		var rpgCompatibility struct {
+	if allowedAdapterABIs := projectAdapterABIs(contentKind); allowedAdapterABIs != nil {
+		var projectCompatibility struct {
 			AdapterABI string `json:"adapterAbi"`
 		}
-		if json.Unmarshal([]byte(compatibilityJSON), &rpgCompatibility) != nil {
+		if json.Unmarshal([]byte(compatibilityJSON), &projectCompatibility) != nil {
 			return false
 		}
-		allowed := []string{
-			"easyrpg-save",
-			"mkxp-state-compact",
-			"native-save",
-		}
-		if contentKind == ModeONSProjectV1 {
-			allowed = []string{"ons-save"}
-		}
-		return slices.Contains(allowed, rpgCompatibility.AdapterABI)
+		return slices.Contains(allowedAdapterABIs, projectCompatibility.AdapterABI)
 	}
 	var compatibility compatibility
 	if json.Unmarshal([]byte(compatibilityJSON), &compatibility) != nil ||
@@ -111,12 +106,30 @@ func SupportsContentKind(compatibilityJSON, contentKind string) bool {
 		!slices.Contains(compatibility.SupportedContentKinds, contentKind) {
 		return false
 	}
-	if contentKind != string(contentprofile.ContentKindMultiDiscM3UV1) {
-		return contentKind == string(contentprofile.ContentKindSingleFile) ||
-			contentKind == string(contentprofile.ContentKindDOSBundle)
+	switch contentKind {
+	case string(contentprofile.ContentKindSingleFile), string(contentprofile.ContentKindDOSBundle):
+		return true
+	case string(contentprofile.ContentKindMultiDiscM3UV1):
+		return compatibility.MultiDisc != nil &&
+			compatibility.MultiDisc.MaxDiscs >= 2 &&
+			compatibility.MultiDisc.MaxDiscs <= MaximumMultiDiscCount &&
+			compatibility.MultiDisc.MaxTotalBytes >= 1 &&
+			compatibility.MultiDisc.MaxTotalBytes <= MaximumMultiDiscBytes &&
+			compatibility.MultiDisc.Delivery == DeliveryEagerExternal
+	default:
+		return false
 	}
-	return compatibility.MultiDisc != nil &&
-		compatibility.MultiDisc.MaxDiscs >= 2 && compatibility.MultiDisc.MaxDiscs <= MaximumMultiDiscCount &&
-		compatibility.MultiDisc.MaxTotalBytes >= 1 && compatibility.MultiDisc.MaxTotalBytes <= MaximumMultiDiscBytes &&
-		compatibility.MultiDisc.Delivery == DeliveryEagerExternal
+}
+
+func projectAdapterABIs(contentKind string) []string {
+	switch contentKind {
+	case ModeRPGMakerProjectV1:
+		return []string{"easyrpg-save", "mkxp-state-compact", "native-save"}
+	case ModeONSProjectV1:
+		return []string{"ons-save"}
+	case ModeKiriKiriProjectV1:
+		return []string{"kirikiri-kag-bookmark"}
+	default:
+		return nil
+	}
 }
