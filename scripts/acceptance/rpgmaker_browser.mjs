@@ -4,6 +4,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { chromium } from "../../web/node_modules/playwright/index.mjs";
 import { normalizedBase } from "./rpgmaker_url.mjs";
+import { trackRuntimeLoading } from "./runtime_loading_evidence.mjs";
 
 const caseId = required("RETROM_RPG_CASE_ID");
 const caseDir = required("RETROM_RPG_CASE_DIR");
@@ -77,6 +78,7 @@ async function catalogCase(context, writeHeaders) {
     throw new Error("RPG_ACCEPTANCE_ARTIFACT_DIAGNOSTIC_INCOMPLETE");
   }
   const page = await context.newPage();
+  const loadingProbe = trackRuntimeLoading(page);
   await page.goto(`${baseUrl}/admin/platform-instances`, { waitUntil: "domcontentloaded", timeout: 120_000 });
   await page.getByRole("table", { name: "游戏目录" }).waitFor({ state: "visible", timeout: 120_000 });
   await page.screenshot({ path: join(screenshotDir, "rpgmaker-directories.png"), fullPage: true });
@@ -179,6 +181,8 @@ async function generationCase(context, writeHeaders) {
   const moreActions = page.getByRole("button", { name: "更多操作" });
   await moreActions.waitFor({ state: "visible", timeout: 120_000 });
   await waitForProductSaveAvailability(page, pageErrors, runtimeExceptions, dialogs, caseId);
+  const firstVisibleLoading = await loadingProbe.snapshot();
+  loadingProbe.stop();
   await revealProductToolbar(page);
   await moreActions.click();
   const debugControl = page.locator(".player-debug-control");
@@ -202,6 +206,27 @@ async function generationCase(context, writeHeaders) {
   const originInventory = config.adapter?.adapterKind === "NATIVE_WEB"
     ? await collectOriginInventory(page, config.adapter.uniqueOrigin, observedResponses)
     : null;
+  await page.close();
+  const cacheLaunch = await jsonRequest(context.request, "POST", "/api/v1/launches", {
+    headers: writeHeaders(), expected: 201,
+    data: {
+      gameId, coreId: validation.routeEvidence.coreId, saveStateId: null, dosEntry: null,
+      returnTo: `/games/${gameId}`,
+      clientCapabilities: { secureContext: true, crossOriginIsolated: true, sharedArrayBuffer: true },
+    },
+  });
+  const cachePage = await context.newPage();
+  cachePage.on("pageerror", (error) => pageErrors.push(error.stack || error.message));
+  cachePage.on("dialog", async (dialog) => {
+    dialogs.push(dialog.message().slice(0, 400));
+    await dialog.dismiss();
+  });
+  const cacheLoadingProbe = trackRuntimeLoading(cachePage);
+  await cachePage.goto(`${baseUrl}${cacheLaunch.playUrl}`, { waitUntil: "domcontentloaded" });
+  await waitForProductSaveAvailability(cachePage, pageErrors, runtimeExceptions, dialogs, caseId);
+  const cacheVisibleLoading = await cacheLoadingProbe.snapshot();
+  cacheLoadingProbe.stop();
+  await cachePage.close();
   if (pageErrors.length) {
     const details = [
       ...pageErrors.slice(0, 5),
@@ -209,7 +234,11 @@ async function generationCase(context, writeHeaders) {
     ].map((value) => value.slice(0, 1_200)).join(" | ");
     throw new Error(`RPG_ACCEPTANCE_PLAYER_PAGE_ERROR:${details}`);
   }
-  await page.close();
+  const sameProjectContentIdentity = firstVisibleLoading.projectContentIdentity === null &&
+      cacheVisibleLoading.projectContentIdentity === null
+    ? null
+    : firstVisibleLoading.projectContentIdentity !== null &&
+      firstVisibleLoading.projectContentIdentity === cacheVisibleLoading.projectContentIdentity;
   return {
     schemaVersion: 1, caseId, status: "PASS",
     review: safeReview(review, validation), validation: safeValidation(validation),
@@ -226,6 +255,13 @@ async function generationCase(context, writeHeaders) {
       },
     },
     ...(originInventory ? { originInventory } : {}),
+    loading: {
+      schemaVersion: 1,
+      cacheLaunchId: cacheLaunch.launchId,
+      sameProjectContentIdentity,
+      firstVisible: firstVisibleLoading.evidence,
+      cacheLaunchVisible: cacheVisibleLoading.evidence,
+    },
     screenshots: [
       `screenshots/${caseId.toLowerCase()}-restored-marker.png`,
       `screenshots/${caseId.toLowerCase()}-product-player.png`,

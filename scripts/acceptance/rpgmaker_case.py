@@ -746,6 +746,59 @@ def is_local_acceptance_hostname(hostname: str | None) -> bool:
     return hostname in {"localhost", "127.0.0.1"} or bool(hostname and hostname.endswith(".localhost"))
 
 
+def validate_runtime_loading(
+    value: Any, spec: GenerationCase, product_launch_id: str, input_file_count: int,
+) -> None:
+    keys = {"schemaVersion", "cacheLaunchId", "sameProjectContentIdentity", "firstVisible", "cacheLaunchVisible"}
+    if not isinstance(value, dict) or set(value) != keys or value.get("schemaVersion") != 1:
+        raise ContractError("RPG_ACCEPTANCE_RUNTIME_LOADING_INVALID")
+    cache_launch_id = value.get("cacheLaunchId")
+    if not UUID.fullmatch(str(cache_launch_id)) or cache_launch_id == product_launch_id:
+        raise ContractError("RPG_ACCEPTANCE_RUNTIME_LOADING_INVALID")
+    first = require_loading_snapshot(value.get("firstVisible"))
+    cached = require_loading_snapshot(value.get("cacheLaunchVisible"))
+    if spec.generation in {"RPGMV", "RPGMZ"}:
+        if value.get("sameProjectContentIdentity") is not None or any(
+            snapshot["projectContentIdentityCount"] != 0 or
+            snapshot["nativeProjectResponseCount"] < 1 or
+            snapshot["nativeProjectResponseCount"] >= input_file_count
+            for snapshot in (first, cached)
+        ):
+            raise ContractError("RPG_ACCEPTANCE_RUNTIME_LOADING_INVALID")
+        return
+    if value.get("sameProjectContentIdentity") is not True or any(
+        snapshot["projectContentIdentityCount"] != 1 or snapshot["nativeProjectResponseCount"] != 0 or
+        snapshot["declaredProjectBytes"] < 1 or snapshot["declaredProjectFileCount"] < 1 or
+        snapshot["requestedProjectBytes"] < 1 or
+        snapshot["requestedProjectBytes"] >= snapshot["declaredProjectBytes"] or
+        snapshot["requestedProjectFileCount"] < 1 or
+        snapshot["requestedProjectFileCount"] > snapshot["declaredProjectFileCount"] or
+        snapshot["runtimeAssetRequestCount"] < 2
+        for snapshot in (first, cached)
+    ) or cached["runtimeAssetCacheHitCount"] < 1:
+        raise ContractError("RPG_ACCEPTANCE_RUNTIME_LOADING_INVALID")
+    if spec.generation in {"RPGXP", "RPGVX", "RPGVXACE"} and any(
+        snapshot["declaredLargeFileCount"] < 1 or snapshot["fullProjectFileResponseCount"] != 0 or
+        snapshot["rangeProjectFileResponseCount"] < 1 or snapshot["requestedLargeFileCount"] < 1
+        for snapshot in (first, cached)
+    ):
+        raise ContractError("RPG_ACCEPTANCE_RUNTIME_LOADING_INVALID")
+
+
+def require_loading_snapshot(value: Any) -> dict[str, int]:
+    keys = {
+        "declaredLargeFileCount", "declaredProjectBytes", "declaredProjectFileCount", "fullProjectFileResponseCount",
+        "nativeProjectResponseCount", "projectContentIdentityCount", "rangeProjectFileResponseCount",
+        "requestedLargeFileCount", "requestedProjectBytes", "requestedProjectFileCount", "runtimeAssetCacheHitCount",
+        "runtimeAssetRequestCount", "runtimeAssetTransferredBytes",
+    }
+    if not isinstance(value, dict) or set(value) != keys or any(
+        not isinstance(value.get(key), int) or isinstance(value.get(key), bool) or value[key] < 0 for key in keys
+    ):
+        raise ContractError("RPG_ACCEPTANCE_RUNTIME_LOADING_INVALID")
+    return value
+
+
 def validate_generation_evidence(
     payload: dict[str, Any], spec: GenerationCase, expected_project_digest: str,
 ) -> None:
@@ -829,6 +882,9 @@ def validate_generation_evidence(
         payload["inputTranscript"]["upload"]["totalBytes"],
         payload["inputProvenance"]["totalBytes"],
         "INPUT_TOTAL_BYTES",
+    )
+    validate_runtime_loading(
+        payload.get("loading"), spec, launch_id, payload["inputProvenance"]["fileCount"],
     )
     validate_restore_visual(
         payload.get("restoreVisualEvidence"), marker, marker_rgb, spec.generation == "RPGMZ",
