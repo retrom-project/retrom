@@ -1,4 +1,4 @@
-import { createRpgRuntime, describeRpgRuntime } from "@xxxsen/retrom-runtime";
+import { createRuntime, describeRuntime, type RpgMakerRuntimeConfig } from "@xxxsen/retrom-runtime";
 import { describe, expect, it, vi } from "vitest";
 
 import { rpgValidationGates } from "../rpg-validation-protocol";
@@ -9,13 +9,13 @@ import {
 } from ".";
 
 vi.mock("@xxxsen/retrom-runtime", () => ({
-  createRpgRuntime: vi.fn(() => ({ runtime: true })),
-  describeRpgRuntime: vi.fn(() => ({
+  createRuntime: vi.fn(() => ({ runtime: true })),
+  describeRuntime: vi.fn(() => ({
     crossOriginFrame: true,
     requiresThreads: false,
     runtimeBaseUrl: "https://runtime.example.test",
   })),
-  mountRpgRuntime: vi.fn(),
+  mountRuntime: vi.fn(),
 }));
 
 describe("Retrom runtime host boundary", () => {
@@ -26,7 +26,7 @@ describe("Retrom runtime host boundary", () => {
       requiresThreads: false,
       runtimeBaseUrl: "https://runtime.example.test",
     });
-    expect(vi.mocked(describeRpgRuntime)).toHaveBeenCalledWith({
+    expect(vi.mocked(describeRuntime)).toHaveBeenCalledWith({
       sessionId: launchId,
       generation: "RPGMV",
       validationPurpose: false,
@@ -43,8 +43,9 @@ describe("Retrom runtime host boundary", () => {
     const received = vi.fn();
     window.addEventListener("retrom:runtime-diagnostic", received);
     createRetromRpgRuntime(config, runtimeOptions());
-    const options = vi.mocked(createRpgRuntime).mock.calls.at(-1)?.[1];
-    expect(vi.mocked(createRpgRuntime).mock.calls.at(-1)?.[0].expectedRestorePosition).toEqual(position);
+    const options = vi.mocked(createRuntime).mock.calls.at(-1)?.[1];
+    const runtimeConfig = vi.mocked(createRuntime).mock.calls.at(-1)?.[0] as RpgMakerRuntimeConfig;
+    expect(runtimeConfig.expectedRestorePosition).toEqual(position);
     options?.onDiagnostic?.({ runtime: "mkxp-z", message: "[INFO] healthy" });
     expect(received).toHaveBeenCalledOnce();
     expect((received.mock.calls[0]?.[0] as CustomEvent).detail).toEqual({

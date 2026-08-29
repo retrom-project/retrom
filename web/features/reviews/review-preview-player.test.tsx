@@ -29,8 +29,9 @@ vi.mock("@/features/player/canvas-fit", () => ({
   installCanvasContain: () => ({ refresh: vi.fn(), cleanup: vi.fn() }),
 }));
 vi.mock("@xxxsen/retrom-runtime", () => ({
-  createKirikiriRuntime: kirikiri.create,
-  createOnsRuntime: ons.create,
+  createRuntime: vi.fn((config) => config.adapter.adapterKind === "ONS_YURI_WEB"
+    ? ons.create(config)
+    : kirikiri.create(config)),
 }));
 
 describe("ReviewPreviewPlayer", () => {

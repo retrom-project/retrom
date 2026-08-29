@@ -103,13 +103,13 @@ class RetromRuntimeDevTests(unittest.TestCase):
         (source / "dist/index.d.ts").write_text("export {};\n", encoding="utf-8")
         (source / "assets/runtime/native/bridge.js").write_bytes(b"local bridge")
         (source / "package.json").write_text(json.dumps({
-            "name": "@xxxsen/retrom-runtime", "version": "0.6.0",
+            "name": "@xxxsen/retrom-runtime", "version": "0.7.0",
         }), encoding="utf-8")
         (source / "runtime-manifest.json").write_text(json.dumps({
-            "schemaVersion": 3,
+            "schemaVersion": 4,
             "packageName": "@xxxsen/retrom-runtime",
-            "packageVersion": "0.6.0",
-            "publicApiVersion": 1,
+            "packageVersion": "0.7.0",
+            "publicApiVersion": 2,
             "localAssets": [{
                 "source": "assets/runtime/native/bridge.js", "output": "runtime/native/bridge.js",
             }],
@@ -134,19 +134,19 @@ class RetromRuntimeDevTests(unittest.TestCase):
     def write_formal_manifest(manifest_path: Path) -> dict[str, object]:
         release = {
             "repository": "https://github.com/xxxsen/retrom-runtime",
-            "tag": "v0.6.0",
+            "tag": "v0.7.0",
             "tag_commit": "b" * 40,
-            "bundle_asset": {"filename": "retrom-runtime-0.6.0.tar.gz"},
+            "bundle_asset": {"filename": "retrom-runtime-0.7.0.tar.gz"},
         }
         files = [
             {
                 "bundle_path": "runtime/native/bridge.js",
-                "path_in_release": "v0.6.0/native-bridge.js",
+                "path_in_release": "v0.7.0/native-bridge.js",
                 "max_size_bytes": 1024,
             },
             {
                 "bundle_path": "runtime/ons/onsyuri.js",
-                "path_in_release": "v0.6.0/onsyuri.js",
+                "path_in_release": "v0.7.0/onsyuri.js",
                 "max_size_bytes": 1024,
             },
         ]

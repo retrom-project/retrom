@@ -1,9 +1,10 @@
 import {
-  createOnsRuntime,
-  type OnsRuntime,
+  createRuntime,
+  type GameRuntime,
   type OnsRuntimeConfig,
 } from "@xxxsen/retrom-runtime";
 
+import { retromRuntimePlayerInstance } from "./retrom-runtime-player";
 import type { EmulatorInstance } from "./adapters/ejs-4.2.3-v2";
 import type { components } from "@/lib/api/generated/schema";
 
@@ -93,7 +94,7 @@ export function createOnsProductRuntime(
   signal: AbortSignal,
 ) {
   validateOnsLaunchConfig(config);
-  return createOnsRuntime(toRuntimeConfig(config), { frameWindow, restorePayload, signal });
+  return createRuntime(toRuntimeConfig(config), { frameWindow, restorePayload, signal });
 }
 
 export async function mountOnsProductRuntime(
@@ -117,33 +118,9 @@ function toRuntimeConfig(config: OnsLaunchConfig): OnsRuntimeConfig {
   return { sessionId: config.sessionId, adapter: config.adapter };
 }
 
-export function onsPlayerInstance(runtime: OnsRuntime, target: HTMLElement): EmulatorInstance {
-  const instance: EmulatorInstance = {
-    paused: false,
-    on: () => undefined,
-    takeScreenshot: async () => ({ blob: await runtime.screenshot(), format: "png" }),
-    gameManager: {
-      savePayloadKind: "ONS_SAVE_BUNDLE_V1",
-      getCheckpointAvailability: () => runtime.getCheckpointAvailability(),
-      getStateAsync: async () => {
-        const checkpoint = await runtime.checkpoint();
-        if (checkpoint.payloadKind !== "ONS_SAVE_BUNDLE_V1" || !checkpoint.bytes.byteLength) {
-          throw new Error("PLAYER_STATE_UNAVAILABLE");
-        }
-        return checkpoint.bytes;
-      },
-      getVideoDimensions: (dimension) => onsVideoDimension(target, dimension),
-      toggleMainLoop: (running) => {void (running ? runtime.resume() : runtime.pause());},
-    },
-  };
-  instance.canvas = target.querySelector("canvas") ?? undefined;
-  return instance;
-}
-
-function onsVideoDimension(target: HTMLElement, dimension: "aspect" | "width" | "height") {
-  const canvas = target.querySelector("canvas");
-  if (!canvas || !canvas.width || !canvas.height) {return undefined;}
-  if (dimension === "width") {return canvas.width;}
-  if (dimension === "height") {return canvas.height;}
-  return canvas.width / canvas.height;
+export function onsPlayerInstance(runtime: GameRuntime, target: HTMLElement): EmulatorInstance {
+  return retromRuntimePlayerInstance(runtime, target, {
+    checkpointFormat: "ons-save-bundle-v1",
+    payloadKind: "ONS_SAVE_BUNDLE_V1",
+  });
 }
