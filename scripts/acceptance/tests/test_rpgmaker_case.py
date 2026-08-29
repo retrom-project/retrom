@@ -515,7 +515,15 @@ class EvidenceContractTests(unittest.TestCase):
 
     def test_generation_browser_records_first_visible_and_second_launch_loading(self) -> None:
         source = BROWSER_PATH.read_text()
-        self.assertIn("trackRuntimeLoading(page)", source)
+        generation_source = source[
+            source.index("async function generationCase"):source.index("async function approvedReview")
+        ]
+        self.assertIn("const loadingProbe = trackRuntimeLoading(page)", generation_source)
+        self.assertLess(
+            generation_source.index("const loadingProbe = trackRuntimeLoading(page)"),
+            generation_source.index("await page.goto"),
+        )
+        self.assertIn("await loadingProbe.snapshot()", generation_source)
         self.assertIn("trackRuntimeLoading(cachePage)", source)
         self.assertIn("cacheLaunchId: cacheLaunch.launchId", source)
         self.assertIn("sameProjectContentIdentity,", source)

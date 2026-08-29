@@ -78,7 +78,6 @@ async function catalogCase(context, writeHeaders) {
     throw new Error("RPG_ACCEPTANCE_ARTIFACT_DIAGNOSTIC_INCOMPLETE");
   }
   const page = await context.newPage();
-  const loadingProbe = trackRuntimeLoading(page);
   await page.goto(`${baseUrl}/admin/platform-instances`, { waitUntil: "domcontentloaded", timeout: 120_000 });
   await page.getByRole("table", { name: "游戏目录" }).waitFor({ state: "visible", timeout: 120_000 });
   await page.screenshot({ path: join(screenshotDir, "rpgmaker-directories.png"), fullPage: true });
@@ -154,6 +153,7 @@ async function generationCase(context, writeHeaders) {
     throw new Error("RPG_ACCEPTANCE_PRODUCT_PLAY_URL_INVALID");
   }
   const page = await context.newPage();
+  const loadingProbe = trackRuntimeLoading(page);
   const pageErrors = [];
   const runtimeExceptions = [];
   const dialogs = [];
