@@ -251,7 +251,7 @@ Content-Type: application/json
 
 ### 5.3 多盘 Import 与 Review Attachment
 
-`POST /api/v1/admin/imports` 与 `POST /api/v1/admin/games/{gameId}/content-revisions` 的可选 `contentMode` 只允许 `STANDARD|MULTI_DISC_M3U_V1|RPG_MAKER_PROJECT_V1|ONS_PROJECT_V1`，缺省严格为 STANDARD。MULTI 必须引用完整 DIRECTORY Upload，且 capability 由 feature flag、平台 profile 与当前 `selected_for_new_bindings` artifact 共同决定。首次 RPG/ONS 导入接受一个完整 DIRECTORY，或 FILES 中恰好一个 ZIP/7z；已发布 RPG 游戏的内容替换只接受完整 DIRECTORY，并由虚拟核心重新检测 generation，不接受客户端指定内部世代。新旧 generation 不同的 Job 以不可重试 `RPG_REPLACEMENT_GENERATION_MISMATCH` 失败；运行依赖声明变化以不可重试 `RPG_REPLACEMENT_DEPENDENCIES_CHANGED` 失败；两种失败均保留当前内容和存档。Review detail 的可空 `multiDisc` 只返回 playlist 摘要、ordered entries、PRESENT/MISSING、大小/hash、缺失引用、冻结的 `maxDiscs/maxTotalBytes` 与 attachment 状态，不返回 Blob ID、宿主路径或 capability。Attachment 状态包含 Job/Attachment version、可空 diagnostics 与仅在通用 Job 可人工重试时为 true 的 `canRetry`。
+`POST /api/v1/admin/imports` 与 `POST /api/v1/admin/games/{gameId}/content-revisions` 的可选 `contentMode` 只允许 `STANDARD|MULTI_DISC_M3U_V1|RPG_MAKER_PROJECT_V1|ONS_PROJECT_V1|KIRIKIRI_PROJECT_V1`，缺省严格为 STANDARD。MULTI 必须引用完整 DIRECTORY Upload，且 capability 由 feature flag、平台 profile 与当前 `selected_for_new_bindings` artifact 共同决定。首次 RPG/ONS/KiriKiri 导入接受一个完整 DIRECTORY，或 FILES 中恰好一个 ZIP/7z；已发布 RPG 游戏的内容替换只接受完整 DIRECTORY，并由虚拟核心重新检测 generation，不接受客户端指定内部世代。新旧 generation 不同的 Job 以不可重试 `RPG_REPLACEMENT_GENERATION_MISMATCH` 失败；运行依赖声明变化以不可重试 `RPG_REPLACEMENT_DEPENDENCIES_CHANGED` 失败；两种失败均保留当前内容和存档。Review detail 的可空 `multiDisc` 只返回 playlist 摘要、ordered entries、PRESENT/MISSING、大小/hash、缺失引用、冻结的 `maxDiscs/maxTotalBytes` 与 attachment 状态，不返回 Blob ID、宿主路径或 capability。Attachment 状态包含 Job/Attachment version、可空 diagnostics 与仅在通用 Job 可人工重试时为 true 的 `canRetry`。
 
 `POST /api/v1/admin/reviews/{importItemId}/multi-disc-attachments` 要求 ADMIN、同源/CSRF、`If-Match`、User-scoped `Idempotency-Key` 与 `{uploadId}`，只接受包含当前全部缺盘的 COMPLETE FILES upload。成功为 202，返回 Job/Attachment、`Location`、新 Review ETag；版本、active/retry、能力漂移、集合不符与内容无效使用 OpenAPI 中稳定错误码。关闭新 Import flag 不取消已冻结的 Attachment/Job，也不影响已发布读取。
 
@@ -880,14 +880,16 @@ Launch config 顶层是 `runtimeFamily` discriminated union。`EMULATORJS` 保�
 - `MKXP_LIBRETRO_WEB`：只允许 `adapterId=mkxp-libretro-web`；config 分别返回 core JS 与 Wasm 的 `url/sizeBytes/sha256`、`artifactSetSha256`、固定 bridge、项目/pack archive URL 与 size/hash、强制 `rgssVersion=1|2|3`、`stateBufferBytes=268435456`。core 的 size/hash 是下载固定 tag Release asset 后记录的 observed cache coordinates，用于内容响应、Blob 重建与本机损坏检测；它们不是远端 Release 准入身份，同 tag 同名资产由固定 tag commit 与 adapter ABI 定义兼容性；
 - `NATIVE_WEB`：只允许 `adapterId=native-web`，并按 generation 精确冻结 `bridgeProfile=RPGMV|RPGMZ`、`uniqueOrigin/bootstrapUrl/bootstrapTicket`。ENGINE_PROFILE evidence 与 route projection 必须与 Launch 的 generation、adapter 和 profile 逐字段一致，不接受版本别名或 fallback。
 
+`runtimeFamily=ONS` 与 `runtimeFamily=KIRIKIRI` 同样是严格 discriminated config。KiriKiri只允许 `KIRIKIRI2_WEB/kirikiri2-web`，返回 `runtimeBaseUrl/projectIndexUrl`、可空唯一 `startupXp3Path`、slot 1999 与 `gameCompatibilityLine/saveAbi/readableSaveAbis`；项目索引只列 Launch或 Review Preview冻结的 `PROJECT_FILE`。该 config只承诺 KAG书签恢复，不能把形状匹配解释为任意 TJS项目的 checkpoint能力。
+
 EasyRPG 与 mkxp 的同源内容端点属于严格 OpenAPI 契约，不能只在 Go router 中注册：
 
 - `GET|HEAD /runtime/retrom-runtime/{runtimeVersion}/{runtimePath}` 只允许命中固定 retrom-runtime Release manifest 的逐文件 allowlist，本地逐字节复核 observed size/hash 后返回不可变公共响应；未知版本、路径或 MIME 返回 404；
-- `GET|HEAD /runtime/projects/{launchId}/{projectPath}` 只允许携带 config 响应设置的动态 cookie `retrom_launch_project_<launchId>`；其值是同一 Launch capability，属性固定为 `Path=/runtime/projects/<launchId>/; HttpOnly; SameSite=Strict; Max-Age=86400`，不设置 `Domain`，HTTPS 增加 `Secure`。cookie 名、path 与请求中的 Launch ID 必须逐字匹配且恰有一份；结束 Launch 时删除。服务端从 Product/Validation Launch 冻结的目录 fileset，或 ONS 审核预览创建时冻结的不可变 source snapshot 返回一项；`index.json` 是 EasyRPG/ONS adapter 使用的保留虚拟索引。响应为 private immutable、强 ETag、准确 MIME/长度并支持单 Range；未知、未授权或跨 Launch 文件不能回退到上传源、最新内容 revision 或可变 ReviewDraft。
+- `GET|HEAD /runtime/projects/{launchId}/{projectPath}` 只允许携带 config 响应设置的动态 cookie `retrom_launch_project_<launchId>`；其值是同一 Launch capability，属性固定为 `Path=/runtime/projects/<launchId>/; HttpOnly; SameSite=Strict; Max-Age=86400`，不设置 `Domain`，HTTPS 增加 `Secure`。cookie 名、path 与请求中的 Launch ID 必须逐字匹配且恰有一份；结束 Launch 时删除。服务端从 Product/Validation Launch 冻结的目录 fileset，或 ONS/KiriKiri审核预览创建时冻结的不可变 source snapshot返回一项；`index.json` 是 EasyRPG/ONS/KiriKiri adapter使用的保留虚拟索引。响应为 private immutable、强 ETag、准确 MIME/长度并支持单 Range；未知、未授权或跨 Launch 文件不能回退到上传源、最新内容 revision或可变 ReviewDraft。
 
 两条路径都必须以 `x-retrom-router-template` 保留含 `/` 的尾部路径。OpenAPI 中间件必须先识别它们再进入内容 handler；否则即使文件已物化也会被错误地提前映射为 404。
 
-成功的 `GET /runtime/launches/{launchId}/state` 继续只返回二进制 payload；MIME、Content-Length、ETag 和最大尺寸由 Launch 的当前构件与存档 payload kind 决定，不在 body 混入 JSON。EmulatorJS 恢复不匹配 content revision/精确 artifact/adapter ABI/dependency snapshot 时在读取 payload 前返回 `RPG_CHECKPOINT_INCOMPATIBLE`；RPG Maker/ONS 要求逻辑游戏兼容线和 dependency snapshot 不变、当前构件显式声明可读存档 save ABI，否则在创建 Launch 时返回 `LAUNCH_SAVE_INCOMPATIBLE`，不会读取 payload 或回退旧 runtime。
+成功的 `GET /runtime/launches/{launchId}/state` 继续只返回二进制 payload；MIME、Content-Length、ETag 和最大尺寸由 Launch 的当前构件与存档 payload kind 决定，不在 body 混入 JSON。EmulatorJS 恢复不匹配 content revision/精确 artifact/adapter ABI/dependency snapshot 时在读取 payload 前返回 `RPG_CHECKPOINT_INCOMPATIBLE`；RPG Maker/ONS/KiriKiri要求逻辑游戏兼容线和 dependency snapshot不变、当前构件显式声明可读存档 save ABI，否则在创建 Launch时返回 `LAUNCH_SAVE_INCOMPATIBLE`，不会读取 payload或回退旧 runtime。
 
 ### 16.2 MV/MZ runtime origin
 

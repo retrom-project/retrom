@@ -107,6 +107,9 @@ func TestMultiDiscContentKindIsExplicitlyLimitedToSaturn(t *testing.T) {
 		case "ons":
 			testassert.CheckTruef(t, AllowsContentKind(platformID, ContentKindONSProject), "ONS project support missing")
 			testassert.CheckFalsef(t, AllowsContentKind(platformID, ContentKindSingleFile), "ONS accepted SINGLE_FILE")
+		case "kirikiri":
+			testassert.CheckTruef(t, AllowsContentKind(platformID, ContentKindKiriKiriProject), "KiriKiri project support missing")
+			testassert.CheckFalsef(t, AllowsContentKind(platformID, ContentKindSingleFile), "KiriKiri accepted SINGLE_FILE")
 		default:
 			testassert.CheckTruef(t, AllowsContentKind(platformID, ContentKindSingleFile), "platform %q lost SINGLE_FILE support", platformID)
 		}
@@ -124,6 +127,18 @@ func TestONSProfileAcceptsOnlyProjectArchiveTransport(t *testing.T) {
 		func() bool { return !AcceptsArchive("ons", ArchiveSevenZip) },
 		func() bool { return AcceptsRaw("ons", "game.zip") },
 	), "ONS profile=%#v", profile)
+}
+
+func TestKiriKiriProfileAcceptsOnlyProjectArchiveTransport(t *testing.T) {
+	t.Parallel()
+	profile, ok := ByPlatform("kirikiri")
+	testassert.Falsef(t, testassert.Any(
+		func() bool { return !ok },
+		func() bool { return profile.ArchivePolicy != ArchiveProject },
+		func() bool { return !AcceptsArchive("kirikiri", ArchiveZIP) },
+		func() bool { return !AcceptsArchive("kirikiri", ArchiveSevenZip) },
+		func() bool { return AcceptsRaw("kirikiri", "game.zip") },
+	), "KiriKiri profile=%#v", profile)
 }
 
 func TestRPGMakerProfileAcceptsOnlyProjectArchiveTransport(t *testing.T) {

@@ -56,6 +56,27 @@ func writeLegacyNamedZIP(t *testing.T, name string) string {
 	return path
 }
 
+func writeEncryptedFlagZIP(t *testing.T) string {
+	t.Helper()
+	path := t.TempDir() + "/encrypted.zip"
+	file, err := os.Create(path)
+	testassert.False(t, err != nil, err)
+	archive := zip.NewWriter(file)
+	header := &zip.FileHeader{Name: "data.xp3", Method: zip.Store, Flags: 0x1}
+	entry, err := archive.CreateRaw(header)
+	if err == nil {
+		_, err = entry.Write([]byte("encrypted fixture marker"))
+	}
+	if closeErr := archive.Close(); err == nil {
+		err = closeErr
+	}
+	if closeErr := file.Close(); err == nil {
+		err = closeErr
+	}
+	testassert.False(t, err != nil, err)
+	return path
+}
+
 func TestScanZIPDecodesLegacyGB18030EntryName(t *testing.T) {
 	t.Parallel()
 	entries, err := ScanZIP(
@@ -74,6 +95,12 @@ func TestScanZIPValidatesDecodedLegacyPath(t *testing.T) {
 		DefaultArchiveLimits(),
 	)
 	testassert.Truef(t, errors.Is(err, ErrUnsafeLogicalPath), "ScanZIP() error = %v, want %v", err, ErrUnsafeLogicalPath)
+}
+
+func TestScanZIPReportsEncryptedEntriesPrecisely(t *testing.T) {
+	t.Parallel()
+	_, err := ScanZIP(context.Background(), writeEncryptedFlagZIP(t), RPGMakerArchiveLimits())
+	testassert.Truef(t, errors.Is(err, ErrArchiveEncrypted), "ScanZIP() error = %v, want %v", err, ErrArchiveEncrypted)
 }
 
 func TestDOSArchiveLimitsAllowBoundedSparseSavesAndOpaqueNestedData(t *testing.T) {

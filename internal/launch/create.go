@@ -70,6 +70,8 @@ func (service *Service) prepareLaunch(
 		return service.prepareRPGLaunch(ctx, selection)
 	case "ONS":
 		return service.prepareONSLaunch(ctx, selection)
+	case "KIRIKIRI":
+		return service.prepareKiriKiriLaunch(ctx, selection)
 	case "EMULATORJS":
 		return service.prepareEmulatorJSLaunch(ctx, request, selection)
 	default:
@@ -93,6 +95,17 @@ func (service *Service) prepareONSLaunch(
 	selection launchSelection,
 ) (launchPreparation, error) {
 	contentPlan, err := service.buildONSProductContentPlan(ctx, selection)
+	if err != nil {
+		return launchPreparation{}, err
+	}
+	return launchPreparation{contentPlan: contentPlan}, nil
+}
+
+func (service *Service) prepareKiriKiriLaunch(
+	ctx context.Context,
+	selection launchSelection,
+) (launchPreparation, error) {
+	contentPlan, err := service.buildKiriKiriProductContentPlan(ctx, selection)
 	if err != nil {
 		return launchPreparation{}, err
 	}
@@ -218,7 +231,7 @@ JOIN core_artifacts writer ON writer.id=s.core_artifact_id
 JOIN core_artifacts bound_artifact ON bound_artifact.id=r.core_artifact_id
 JOIN core_artifacts a ON (
   writer.runtime_family='EMULATORJS' AND a.id=writer.id
-  OR writer.runtime_family IN ('RPGMAKER','ONS')
+  OR writer.runtime_family IN ('RPGMAKER','ONS','KIRIKIRI')
     AND a.core_id=writer.core_id AND a.route_key=writer.route_key
     AND a.runtime_family=writer.runtime_family
 )
@@ -237,6 +250,10 @@ AND (a.runtime_family='EMULATORJS' OR a.selected_for_new_bindings=1)
 AND (
   a.runtime_family='EMULATORJS' AND r.core_artifact_id=s.core_artifact_id
   OR a.runtime_family='ONS'
+    AND bound_artifact.core_id=a.core_id AND bound_artifact.route_key=a.route_key
+    AND json_extract(bound_artifact.compatibility_json,'$.gameCompatibilityLine')=
+        json_extract(a.compatibility_json,'$.gameCompatibilityLine')
+  OR a.runtime_family='KIRIKIRI'
     AND bound_artifact.core_id=a.core_id AND bound_artifact.route_key=a.route_key
     AND json_extract(bound_artifact.compatibility_json,'$.gameCompatibilityLine')=
         json_extract(a.compatibility_json,'$.gameCompatibilityLine')
@@ -314,7 +331,7 @@ AND r.game_content_revision_id=g.current_content_revision_id
 JOIN core_artifacts bound_artifact ON bound_artifact.id=r.core_artifact_id
 JOIN core_artifacts a ON (
   bound_artifact.runtime_family='EMULATORJS' AND a.id=bound_artifact.id
-  OR bound_artifact.runtime_family IN ('RPGMAKER','ONS')
+  OR bound_artifact.runtime_family IN ('RPGMAKER','ONS','KIRIKIRI')
     AND a.core_id=bound_artifact.core_id AND a.route_key=r.route_key
     AND a.runtime_family=bound_artifact.runtime_family
     AND json_extract(a.compatibility_json,'$.gameCompatibilityLine')=
@@ -328,7 +345,7 @@ WHERE g.id=?
 AND g.status='PUBLISHED'
 AND pi.enabled=1
 AND r.status='READY'
-AND (a.runtime_family IN ('EMULATORJS','ONS') OR EXISTS(
+AND (a.runtime_family IN ('EMULATORJS','ONS','KIRIKIRI') OR EXISTS(
   SELECT 1 FROM rpgmaker_variant_profiles profile
   WHERE profile.game_variant_revision_id=r.id AND profile.route_key=r.route_key
 ))
@@ -367,7 +384,7 @@ LIMIT 1
 	if selection.revisionCompatibilityCode == reviewScreenshotOverrideCode {
 		return launchSelectionResult{selection: selection}, nil
 	}
-	if selection.runtimeFamily == "RPGMAKER" || selection.runtimeFamily == "ONS" {
+	if selection.runtimeFamily == "RPGMAKER" || selection.runtimeFamily == "ONS" || selection.runtimeFamily == "KIRIKIRI" {
 		return launchSelectionResult{selection: selection}, nil
 	}
 	expectedDigest, err := service.currentVariantDigest(ctx, selection)

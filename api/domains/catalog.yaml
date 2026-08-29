@@ -697,6 +697,7 @@ components:
             - MULTI_DISC_M3U_V1
             - RPG_MAKER_PROJECT_V1
             - ONS_PROJECT_V1
+            - KIRIKIRI_PROJECT_V1
           default: STANDARD
     ApplyCandidateRequest:
       type: object

@@ -130,6 +130,9 @@ func (service *Service) validateReviewPreviewSource(
 	if source.RuntimeFamily == "ONS" {
 		return service.validateONSReviewPreviewSource(source)
 	}
+	if source.RuntimeFamily == "KIRIKIRI" {
+		return service.validateKiriKiriReviewPreviewSource(source)
+	}
 	if source.RuntimeFamily != "EMULATORJS" || service.dependencies.Versions[source.RuntimeVersion] == nil {
 		return ErrReviewPreviewUnavailable
 	}
@@ -247,7 +250,7 @@ JOIN platform_instances instance ON instance.id=draft.target_platform_instance_i
  AND instance.enabled=1 AND instance.deleted_at_ms IS NULL
 JOIN platforms platform ON platform.id=instance.platform_id
 JOIN core_artifacts artifact ON artifact.core_id=instance.default_core_id
- AND artifact.runtime_family IN ('EMULATORJS','ONS') AND artifact.selected_for_new_bindings=1
+ AND artifact.runtime_family IN ('EMULATORJS','ONS','KIRIKIRI') AND artifact.selected_for_new_bindings=1
 JOIN cores core ON core.id=artifact.core_id
 LEFT JOIN import_item_core_validations validation ON validation.id=(
  SELECT candidate.id FROM import_item_core_validations candidate
@@ -283,7 +286,7 @@ func (service *Service) reviewPreviewContent(
 	if err != nil {
 		return reviewPreviewContentSet{}, fmt.Errorf("load primary review content: %w", err)
 	}
-	if source.ContentKind == onsProjectFormat {
+	if source.ContentKind == onsProjectFormat || source.ContentKind == kirikiriProjectFormat {
 		if !validPreviewFileSet(content.LogicalName, content.Files) {
 			return reviewPreviewContentSet{}, fmt.Errorf("validate review project names: %w", ErrReviewPreviewUnavailable)
 		}
@@ -345,6 +348,8 @@ WHERE import_item_core_validation_id=? AND role='MULTI_DISC_PLAYLIST' AND logica
 		content.Files = files
 	case onsProjectFormat:
 		return service.reviewPreviewONSContent(ctx, source)
+	case kirikiriProjectFormat:
+		return service.reviewPreviewKiriKiriContent(ctx, source)
 	default:
 		return reviewPreviewContentSet{}, ErrReviewPreviewUnavailable
 	}
@@ -514,6 +519,9 @@ func (service *Service) ReviewPreviewConfig(ctx context.Context, previewID, capa
 	if source.RuntimeFamily == "ONS" {
 		return service.buildONSReviewConfig(previewID, source)
 	}
+	if source.RuntimeFamily == "KIRIKIRI" {
+		return service.buildKiriKiriReviewConfig(previewID, source)
+	}
 	version := service.dependencies.Versions[source.RuntimeVersion]
 	if version == nil {
 		return Config{}, ErrCredential
@@ -598,7 +606,7 @@ content_blob.sha256,preview.emulator_game_id,artifact.requires_threads,preview.c
 FROM review_preview_sessions preview
 JOIN blobs content_blob ON content_blob.id=preview.content_blob_id
 JOIN core_artifacts artifact ON artifact.id=preview.core_artifact_id
- AND artifact.runtime_family IN ('EMULATORJS','ONS') AND artifact.available_for_launch=1
+ AND artifact.runtime_family IN ('EMULATORJS','ONS','KIRIKIRI') AND artifact.available_for_launch=1
 JOIN cores core ON core.id=artifact.core_id
 JOIN platform_instances instance ON instance.id=preview.target_platform_instance_id
 WHERE preview.id=?

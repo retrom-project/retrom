@@ -168,7 +168,7 @@ func validateZIPItem(item *zip.File, limits ArchiveLimits, expanded int64) (stri
 		return pathValue, true, nil
 	}
 	if item.Flags&0x1 != 0 {
-		return "", false, ErrArchiveUnsafe
+		return "", false, ErrArchiveEncrypted
 	}
 	if item.Method != zip.Store && item.Method != zip.Deflate {
 		return "", false, ErrArchiveMethodUnsupported

@@ -304,7 +304,7 @@ WHERE deleted_at_ms IS NULL;
 CREATE VIEW save_state_runtime_compatibility AS
 SELECT save.id AS save_state_id,
 CASE
-  WHEN writer.runtime_family IN ('RPGMAKER','ONS') THEN CASE WHEN EXISTS(
+  WHEN writer.runtime_family IN ('RPGMAKER','ONS','KIRIKIRI') THEN CASE WHEN EXISTS(
     SELECT 1 FROM core_artifacts current
     WHERE current.core_id=writer.core_id AND current.route_key=writer.route_key
       AND current.runtime_family=writer.runtime_family
@@ -664,6 +664,8 @@ BEGIN
           AND EXISTS(SELECT 1 FROM rpgmaker_variant_profiles profile WHERE profile.game_variant_revision_id=revision.id)
         OR artifact.runtime_family='ONS' AND revision.emulator_game_id IS NULL
           AND NOT EXISTS(SELECT 1 FROM rpgmaker_variant_profiles profile WHERE profile.game_variant_revision_id=revision.id)
+        OR artifact.runtime_family='KIRIKIRI' AND revision.emulator_game_id IS NULL
+          AND NOT EXISTS(SELECT 1 FROM rpgmaker_variant_profiles profile WHERE profile.game_variant_revision_id=revision.id)
       )
   ) THEN RAISE(ABORT, 'variant current must be ready and owned') END;
 END;
@@ -681,6 +683,8 @@ BEGIN
         OR artifact.runtime_family='RPGMAKER' AND revision.emulator_game_id IS NULL
           AND EXISTS(SELECT 1 FROM rpgmaker_variant_profiles profile WHERE profile.game_variant_revision_id=revision.id)
         OR artifact.runtime_family='ONS' AND revision.emulator_game_id IS NULL
+          AND NOT EXISTS(SELECT 1 FROM rpgmaker_variant_profiles profile WHERE profile.game_variant_revision_id=revision.id)
+        OR artifact.runtime_family='KIRIKIRI' AND revision.emulator_game_id IS NULL
           AND NOT EXISTS(SELECT 1 FROM rpgmaker_variant_profiles profile WHERE profile.game_variant_revision_id=revision.id)
       )
   ) THEN RAISE(ABORT, 'variant current must be ready and owned') END;
@@ -2116,6 +2120,10 @@ WHEN NOT EXISTS (
     SELECT 1 FROM import_item_source_snapshot_files file
     WHERE file.source_snapshot_id=NEW.source_snapshot_id AND file.role='PROJECT_FILE'
       AND file.blob_id=NEW.content_blob_id AND file.logical_name=NEW.content_logical_name
+  ) OR NEW.content_kind='KIRIKIRI_PROJECT_V1' AND NEW.content_format='KIRIKIRI_PROJECT_V1' AND EXISTS (
+    SELECT 1 FROM import_item_source_snapshot_files file
+    WHERE file.source_snapshot_id=NEW.source_snapshot_id AND file.role='PROJECT_FILE'
+      AND file.blob_id=NEW.content_blob_id AND file.logical_name=NEW.content_logical_name
   )
 )
 BEGIN SELECT RAISE(ABORT,'invalid review preview snapshot'); END;
@@ -2129,7 +2137,7 @@ WHEN NEW.role='PROJECT_FILE' AND NOT EXISTS (
     AND source.role='PROJECT_FILE'
     AND source.logical_name=NEW.logical_name
     AND source.blob_id=NEW.blob_id
-  WHERE preview.id=NEW.preview_session_id AND preview.content_kind='ONS_PROJECT_V1'
+  WHERE preview.id=NEW.preview_session_id AND preview.content_kind IN ('ONS_PROJECT_V1','KIRIKIRI_PROJECT_V1')
 )
 BEGIN SELECT RAISE(ABORT,'invalid review preview project file'); END;
 
@@ -2472,6 +2480,10 @@ OR NEW.core_id='onscripter_yuri' AND NEW.runtime_family<>'ONS'
 OR NEW.runtime_family='ONS' AND NOT (
   NEW.core_id='onscripter_yuri' AND NEW.runtime_adapter_kind='ONS_YURI_WEB' AND NEW.route_key='ONS_YURI'
 )
+OR NEW.core_id='kirikiri2' AND NEW.runtime_family<>'KIRIKIRI'
+OR NEW.runtime_family='KIRIKIRI' AND NOT (
+  NEW.core_id='kirikiri2' AND NEW.runtime_adapter_kind='KIRIKIRI2_WEB' AND NEW.route_key='KIRIKIRI2_KAG'
+)
 OR NEW.runtime_family='RPGMAKER' AND NOT (
   NEW.core_id IN ('rpgmaker_2000','rpgmaker_2003')
     AND NEW.runtime_adapter_kind='EASYRPG_WEB'
@@ -2725,6 +2737,7 @@ WHEN NOT EXISTS(
       artifact.runtime_family='EMULATORJS' AND NEW.emulator_game_id IS NOT NULL
       OR artifact.runtime_family='RPGMAKER' AND NEW.emulator_game_id IS NULL
       OR artifact.runtime_family='ONS' AND NEW.emulator_game_id IS NULL
+      OR artifact.runtime_family='KIRIKIRI' AND NEW.emulator_game_id IS NULL
     )
 )
 BEGIN SELECT RAISE(ABORT,'variant revision runtime mismatch'); END;
@@ -3095,7 +3108,7 @@ OR NEW.purpose='PRODUCT' AND NOT EXISTS(
     AND (
       launch_artifact.runtime_family='EMULATORJS'
         AND revision.core_artifact_id=NEW.core_artifact_id AND revision.route_key=NEW.route_key
-      OR launch_artifact.runtime_family IN ('RPGMAKER','ONS')
+      OR launch_artifact.runtime_family IN ('RPGMAKER','ONS','KIRIKIRI')
         AND launch_artifact.selected_for_new_bindings=1
         AND launch_artifact.core_id=bound_artifact.core_id
         AND launch_artifact.runtime_family=bound_artifact.runtime_family
@@ -3115,7 +3128,7 @@ OR NEW.purpose='PRODUCT' AND NEW.save_state_id IS NOT NULL AND NOT EXISTS(
     AND save.game_variant_revision_id=NEW.game_variant_revision_id
     AND (
       launch_artifact.runtime_family='EMULATORJS' AND save.core_artifact_id=NEW.core_artifact_id
-      OR launch_artifact.runtime_family IN ('RPGMAKER','ONS')
+      OR launch_artifact.runtime_family IN ('RPGMAKER','ONS','KIRIKIRI')
         AND compatibility.status='AVAILABLE'
         AND launch_artifact.selected_for_new_bindings=1
         AND launch_artifact.core_id=writer.core_id
@@ -3216,6 +3229,10 @@ OR NOT EXISTS(
         AND writer.core_id=bound_artifact.core_id AND writer.route_key=revision.route_key
         AND json_extract(writer.compatibility_json,'$.gameCompatibilityLine')=
             json_extract(bound_artifact.compatibility_json,'$.gameCompatibilityLine')
+      OR writer.runtime_family='KIRIKIRI'
+        AND writer.core_id=bound_artifact.core_id AND writer.route_key=revision.route_key
+        AND json_extract(writer.compatibility_json,'$.gameCompatibilityLine')=
+            json_extract(bound_artifact.compatibility_json,'$.gameCompatibilityLine')
       OR writer.runtime_family='RPGMAKER'
         AND writer.core_id=bound_artifact.core_id AND writer.route_key=revision.route_key
         AND json_extract(writer.compatibility_json,'$.gameCompatibilityLine')=
@@ -3310,6 +3327,7 @@ WHEN NOT EXISTS(
     OR upload.purpose='RPG_MAKER_PROJECT'
       AND NEW.consumer_type IN ('IMPORT_JOB','GAME_FILE_REVISION_JOB')
     OR upload.purpose='ONS_PROJECT' AND NEW.consumer_type='IMPORT_JOB'
+    OR upload.purpose='KIRIKIRI_PROJECT' AND NEW.consumer_type='IMPORT_JOB'
     OR upload.purpose='RUNTIME_ASSET_PACK'
       AND NEW.consumer_type='RUNTIME_ASSET_PACK_INSTALLATION'
       AND NEW.upload_file_id IS NULL

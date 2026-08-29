@@ -38,24 +38,7 @@ func (service *Service) prepareONSProject(
 	sourceType string,
 	files []importSourceFile,
 ) ([]preparedDisposition, []preparedGroup, []preparedArchive, error) {
-	if service.blobs == nil {
-		return nil, nil, nil, ErrInvalid
-	}
-	if sourceType == "DIRECTORY" {
-		dispositions, group, err := service.prepareONSDirectory(files)
-		if err != nil {
-			return nil, nil, nil, err
-		}
-		return dispositions, []preparedGroup{group}, nil, nil
-	}
-	if sourceType != "FILES" || len(files) != 1 {
-		return nil, nil, nil, ErrInvalid
-	}
-	disposition, group, archive, err := service.prepareONSArchive(ctx, files[0])
-	if err != nil {
-		return nil, nil, nil, err
-	}
-	return []preparedDisposition{disposition}, []preparedGroup{group}, []preparedArchive{archive}, nil
+	return service.prepareProject(ctx, sourceType, files, service.prepareONSDirectory, service.prepareONSArchive)
 }
 
 func (service *Service) prepareONSDirectory(

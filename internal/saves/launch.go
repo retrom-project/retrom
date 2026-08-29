@@ -149,7 +149,8 @@ type restoreBinding struct {
 
 func restoreSnapshotCompatible(result launchSnapshot, binding restoreBinding) bool {
 	adapterCompatible := result.adapterABI == binding.savedAdapterABI
-	if result.purpose == "PRODUCT" && (result.runtimeFamily == "RPGMAKER" || result.runtimeFamily == "ONS") {
+	if result.purpose == "PRODUCT" && (result.runtimeFamily == "RPGMAKER" || result.runtimeFamily == "ONS" ||
+		result.runtimeFamily == "KIRIKIRI") {
 		adapterCompatible = binding.savedSaveABI != "" && result.saveABI != ""
 	}
 	return result.adapterABI != "" && result.saveABI != "" && result.dependencySHA256 != "" &&

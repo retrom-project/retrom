@@ -28,7 +28,8 @@ CASE_PATTERN = re.compile(r"^### (ACC-[A-Z]+-\d{3})[：:]", re.MULTILINE)
 CONDITIONAL_CASES = {"ACC-NET-002", "ACC-DAT-006"}
 RPG_CASES = {f"ACC-RPG-{number:03d}" for number in range(1, 13)}
 ONS_CASES = {"ACC-ONS-001"}
-PRODUCT_CASES = RPG_CASES | ONS_CASES
+KIRIKIRI_CASES = {"ACC-KIRIKIRI-001"}
+PRODUCT_CASES = RPG_CASES | ONS_CASES | KIRIKIRI_CASES
 
 
 # These commands are intentionally focused. Cases omitted here are emitted as
@@ -450,6 +451,10 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
     "ACC-ONS-001": (
         300,
         ".cache/tools/node-v24.18.0-linux-x64/bin/node scripts/acceptance/ons_product.mjs",
+    ),
+    "ACC-KIRIKIRI-001": (
+        300,
+        ".cache/tools/node-v24.18.0-linux-x64/bin/node scripts/acceptance/kirikiri_product.mjs",
     ),
 }
 
@@ -925,9 +930,12 @@ def execute_case(case_id: str) -> int:
             status = "PASS" if return_code == 0 and not timed_out else "FAIL"
             reason = "聚焦自动化断言通过" if status == "PASS" else ("命令超时" if timed_out else "聚焦自动化断言失败")
         if case_id in PRODUCT_CASES:
-            product_path = case_dir / (
-                "ons-product.json" if case_id in ONS_CASES else "rpgmaker-product.json"
-            )
+            product_filename = "rpgmaker-product.json"
+            if case_id in ONS_CASES:
+                product_filename = "ons-product.json"
+            elif case_id in KIRIKIRI_CASES:
+                product_filename = "kirikiri-product.json"
+            product_path = case_dir / product_filename
             if product_path.is_file():
                 product_evidence = json.loads(product_path.read_text(encoding="utf-8"))
                 expected_product_status = "BLOCKED" if status == "BLOCKED" else "PASS"
