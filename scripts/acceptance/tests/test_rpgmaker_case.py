@@ -396,6 +396,16 @@ class EvidenceContractTests(unittest.TestCase):
         self.assertIn('page.locator(".player-loading")', source)
         self.assertIn('page.getByRole("status")', source)
 
+    def test_generation_provision_fails_at_the_launch_credential_boundary(self) -> None:
+        source = GENERATION_PROVISION_PATH.read_text()
+        self.assertEqual(2, source.count("await assertLaunchCookie(context,"))
+        self.assertIn('cookie.name === `retrom_launch_${launchId}`', source)
+        self.assertIn('cookie.path === expectedPath', source)
+        self.assertIn('cookie.httpOnly && cookie.sameSite === "Strict"', source)
+        self.assertIn("const configResponse = page.waitForResponse", source)
+        self.assertIn("if (config.status() !== 200)", source)
+        self.assertIn("RPG_PROVISION_LAUNCH_CONFIG_", source)
+
     def test_generation_provision_does_not_bind_an_unrequested_xp_trace(self) -> None:
         source = GENERATION_PROVISION_PATH.read_text()
         self.assertIn(
