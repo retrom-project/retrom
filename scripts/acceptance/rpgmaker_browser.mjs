@@ -182,7 +182,9 @@ async function generationCase(context, writeHeaders) {
   const moreActions = page.getByRole("button", { name: "更多操作" });
   await moreActions.waitFor({ state: "visible", timeout: 120_000 });
   await waitForProductSaveAvailability(page, pageErrors, runtimeExceptions, dialogs, caseId);
-  const firstVisibleLoading = await loadingProbe.snapshot();
+  const firstVisibleLoading = applyEasyProjectDeclaration(
+    await loadingProbe.snapshot(), config.adapter, inputTranscript.upload,
+  );
   loadingProbe.stop();
   await revealProductToolbar(page);
   await moreActions.click();
@@ -225,7 +227,9 @@ async function generationCase(context, writeHeaders) {
   const cacheLoadingProbe = trackRuntimeLoading(cachePage, projectDeclarations);
   await cachePage.goto(`${baseUrl}${cacheLaunch.playUrl}`, { waitUntil: "domcontentloaded" });
   await waitForProductSaveAvailability(cachePage, pageErrors, runtimeExceptions, dialogs, caseId);
-  const cacheVisibleLoading = await cacheLoadingProbe.snapshot();
+  const cacheVisibleLoading = applyEasyProjectDeclaration(
+    await cacheLoadingProbe.snapshot(), config.adapter, inputTranscript.upload,
+  );
   cacheLoadingProbe.stop();
   await cachePage.close();
   if (pageErrors.length) {
@@ -280,6 +284,28 @@ function projectLoadingDeclarations(adapter) {
     }
     return { sizeBytes: source.sizeBytes, url: new URL(source.url, baseUrl).href };
   });
+}
+
+function applyEasyProjectDeclaration(snapshot, adapter, upload) {
+  if (adapter?.adapterKind !== "EASYRPG_WEB") {return snapshot;}
+  const fileCount = Number(upload?.fileCount);
+  const totalBytes = Number(upload?.totalBytes);
+  const evidence = snapshot?.evidence;
+  if (!evidence || !Number.isSafeInteger(fileCount) || fileCount < 1 ||
+    !Number.isSafeInteger(totalBytes) || totalBytes < 1 ||
+    (evidence.declaredProjectFileCount > 0 && evidence.declaredProjectFileCount !== fileCount) ||
+    (evidence.declaredProjectBytes > 0 && evidence.declaredProjectBytes !== totalBytes)) {
+    throw new Error("RPG_ACCEPTANCE_RUNTIME_LOADING_CONFIG_INVALID");
+  }
+  return {
+    ...snapshot,
+    evidence: {
+      ...evidence,
+      declaredLargeFileCount: 0,
+      declaredProjectBytes: totalBytes,
+      declaredProjectFileCount: fileCount,
+    },
+  };
 }
 
 async function waitForProductSaveAvailability(page, pageErrors, runtimeExceptions, dialogs, caseId) {
