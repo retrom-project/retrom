@@ -121,6 +121,20 @@ describe("RPG runtime registry", () => {
       }
     }
   });
+
+  it("requires mkxp project and RTP archives to be strict seekable blobs", () => {
+    const route = rpgRuntimeRoutes.find((entry) => entry.generation === "RPGXP");
+    if (!route) {throw new Error("missing RPGXP route");}
+    const config = configFor(route);
+    if (config.adapter.adapterKind !== "MKXP_LIBRETRO_WEB") {throw new Error("wrong RPGXP adapter");}
+
+    config.adapter.projectArchive.rangeRequired = false as true;
+    expect(() => validateRpgRuntimeConfig(config)).toThrow("PLAYER_RPG_CONFIG_INVALID");
+
+    config.adapter.projectArchive.rangeRequired = true;
+    config.adapter.projectArchive.kind = "FILE_TREE_V1" as "SEEKABLE_BLOB_V1";
+    expect(() => validateRpgRuntimeConfig(config)).toThrow("PLAYER_RPG_CONFIG_INVALID");
+  });
 });
 
 type ManifestRoute = {
@@ -173,7 +187,10 @@ function configFor(route: Route): RpgRuntimeConfig {
         artifactSetSha256: "a".repeat(64),
       },
       runtimeBaseUrl: runtime,
-      projectArchive: { url: `${root}__retrom__/game.mkxpz`, sha256: "b".repeat(64), sizeBytes: 1 },
+      projectArchive: {
+        kind: "SEEKABLE_BLOB_V1", rangeRequired: true,
+        url: `${root}__retrom__/game.mkxpz`, sha256: "b".repeat(64), sizeBytes: 1,
+      },
       rtpArchives: [], rgssVersion: route.rgssVersion, stateBufferBytes: 268435456,
     }};
   }

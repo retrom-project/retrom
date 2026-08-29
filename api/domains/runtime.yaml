@@ -373,11 +373,11 @@ components:
             - PRESS_CONTROL
         delayMs:
           type: integer
-          minimum: 0
+          minimum: 1
           maximum: 30000
         player:
           type: integer
-          minimum: 0
+          minimum: 1
           maximum: 3
         control:
           type: integer
@@ -754,14 +754,24 @@ components:
         artifactSetSha256:
           type: string
           pattern: ^[0-9a-f]{64}$
-    RpgRuntimeArchive:
+    SeekableBlobSource:
       type: object
       additionalProperties: false
       required:
+        - kind
+        - rangeRequired
         - url
         - sha256
         - sizeBytes
       properties:
+        kind:
+          type: string
+          enum:
+            - SEEKABLE_BLOB_V1
+        rangeRequired:
+          type: boolean
+          enum:
+            - true
         url:
           type: string
           minLength: 1
@@ -779,6 +789,8 @@ components:
       additionalProperties: false
       required:
         - declaredName
+        - kind
+        - rangeRequired
         - url
         - sha256
         - sizeBytes
@@ -787,6 +799,14 @@ components:
           type: string
           minLength: 1
           maxLength: 255
+        kind:
+          type: string
+          enum:
+            - SEEKABLE_BLOB_V1
+        rangeRequired:
+          type: boolean
+          enum:
+            - true
         url:
           type: string
           minLength: 1
@@ -827,7 +847,7 @@ components:
           minLength: 1
           maxLength: 2048
         projectArchive:
-          $ref: '#/components/schemas/RpgRuntimeArchive'
+          $ref: '#/components/schemas/SeekableBlobSource'
         rtpArchives:
           type: array
           maxItems: 3

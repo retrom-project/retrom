@@ -200,7 +200,9 @@ function validateMkxp(config: RpgRuntimeConfig, route: Route) {
   ]), exactKeys(adapter.core, [
     "artifactSetSha256", "jsSha256", "jsSizeBytes", "jsUrl", "wasmSha256", "wasmSizeBytes", "wasmUrl",
   ]),
-  exactKeys(adapter.projectArchive, ["sha256", "sizeBytes", "url"])].every(Boolean)) {return false;}
+  exactKeys(adapter.projectArchive, ["kind", "rangeRequired", "sha256", "sizeBytes", "url"])].every(Boolean)) {
+    return false;
+  }
   const runtime = `/runtime/retrom-runtime/${route.runtimeVersion}/`;
   const root = `/runtime/projects/${config.launchId}/`;
   return [
@@ -256,17 +258,21 @@ function validMkxpRtps(
   root: string,
 ) {
   return Array.isArray(archives) && archives.length <= 3 && archives.every((archive) => [
-    exactKeys(archive, ["declaredName", "sha256", "sizeBytes", "url"]),
+    exactKeys(archive, ["declaredName", "kind", "rangeRequired", "sha256", "sizeBytes", "url"]),
     boundedText(archive.declaredName, 512), validArchive(archive, root),
   ].every(Boolean));
 }
 
-function validArchive(archive: { url: string; sha256: string; sizeBytes: number }, root: string) {
+function validArchive(
+  archive: { kind: string; rangeRequired: boolean; url: string; sha256: string; sizeBytes: number },
+  root: string,
+) {
   const url = typeof archive.url === "string" ? archive.url : "";
   return [
+    archive.kind === "SEEKABLE_BLOB_V1", archive.rangeRequired === true,
     typeof archive.url === "string", validAppPrefix(url, root), validAppUrl(url),
     typeof archive.sha256 === "string", digest.test(archive.sha256),
-    Number.isSafeInteger(archive.sizeBytes), archive.sizeBytes >= 0,
+    Number.isSafeInteger(archive.sizeBytes), archive.sizeBytes >= 1,
   ].every(Boolean);
 }
 

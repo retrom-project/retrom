@@ -516,8 +516,8 @@ components:
       $ref: ./domains/runtime.yaml#/components/schemas/EasyRpgAdapterConfig
     MkxpCoreArtifact:
       $ref: ./domains/runtime.yaml#/components/schemas/MkxpCoreArtifact
-    RpgRuntimeArchive:
-      $ref: ./domains/runtime.yaml#/components/schemas/RpgRuntimeArchive
+    SeekableBlobSource:
+      $ref: ./domains/runtime.yaml#/components/schemas/SeekableBlobSource
     MkxpRtpArchive:
       $ref: ./domains/runtime.yaml#/components/schemas/MkxpRtpArchive
     MkxpAdapterConfig:

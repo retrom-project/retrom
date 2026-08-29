@@ -94,12 +94,13 @@ type EasyRPGArchiveURL struct {
 	MountPath string `json:"mountPath"`
 }
 
-type RPGPackArchiveURL struct {
-	DeclaredName string `json:"declaredName,omitempty"`
-	URL          string `json:"url"`
-	SHA256       string `json:"sha256"`
-	SizeBytes    int64  `json:"sizeBytes,omitempty"`
-	MountPath    string `json:"mountPath,omitempty"`
+type RPGSeekableBlobSource struct {
+	Kind          string `json:"kind"`
+	RangeRequired bool   `json:"rangeRequired"`
+	DeclaredName  string `json:"declaredName,omitempty"`
+	URL           string `json:"url"`
+	SHA256        string `json:"sha256"`
+	SizeBytes     int64  `json:"sizeBytes"`
 }
 
 type MKXPCoreConfig struct {
@@ -113,14 +114,14 @@ type MKXPCoreConfig struct {
 }
 
 type MKXPAdapterConfig struct {
-	AdapterKind      string              `json:"adapterKind"`
-	AdapterID        string              `json:"adapterId"`
-	Core             MKXPCoreConfig      `json:"core"`
-	RuntimeBaseURL   string              `json:"runtimeBaseUrl"`
-	ProjectArchive   RPGPackArchiveURL   `json:"projectArchive"`
-	RTPArchives      []RPGPackArchiveURL `json:"rtpArchives"`
-	RGSSVersion      int                 `json:"rgssVersion"`
-	StateBufferBytes int                 `json:"stateBufferBytes"`
+	AdapterKind      string                  `json:"adapterKind"`
+	AdapterID        string                  `json:"adapterId"`
+	Core             MKXPCoreConfig          `json:"core"`
+	RuntimeBaseURL   string                  `json:"runtimeBaseUrl"`
+	ProjectArchive   RPGSeekableBlobSource   `json:"projectArchive"`
+	RTPArchives      []RPGSeekableBlobSource `json:"rtpArchives"`
+	RGSSVersion      int                     `json:"rgssVersion"`
+	StateBufferBytes int                     `json:"stateBufferBytes"`
 }
 
 type NativeWebAdapterConfig struct {
@@ -658,7 +659,7 @@ func (service *Service) rpgRuntimePacks(
 	ctx context.Context,
 	launchID string,
 	projectRoot string,
-) ([]RPGPackArchiveURL, error) {
+) ([]RPGSeekableBlobSource, error) {
 	query := `
 SELECT selection.slot,selection.declared_name,installation.bundle_sha256,blob.size_bytes,
 locked.logical_name
@@ -692,16 +693,21 @@ ORDER BY 1
 		return nil, fmt.Errorf("load RPG runtime packs: %w", err)
 	}
 	defer func() { _ = rows.Close() }()
-	packs := make([]RPGPackArchiveURL, 0, 3)
+	packs := make([]RPGSeekableBlobSource, 0, 3)
 	for rows.Next() {
 		var slot int
-		var logicalName string
-		var pack RPGPackArchiveURL
-		if err := rows.Scan(&slot, &pack.DeclaredName, &pack.SHA256, &pack.SizeBytes, &logicalName); err != nil ||
+		var declaredName, digest, logicalName string
+		var sizeBytes int64
+		if err := rows.Scan(&slot, &declaredName, &digest, &sizeBytes, &logicalName); err != nil ||
 			logicalName != fmt.Sprintf("__retrom__/pack-%d.zip", slot) {
 			return nil, ErrBlocked
 		}
-		pack.URL = projectRoot + logicalName
+		pack, valid := newRPGSeekableBlobSource(
+			projectRoot+logicalName, digest, sizeBytes, declaredName,
+		)
+		if !valid {
+			return nil, ErrBlocked
+		}
 		packs = append(packs, pack)
 	}
 	if err := rows.Err(); err != nil {
@@ -713,15 +719,33 @@ ORDER BY 1
 func (service *Service) rpgLockedArchive(
 	ctx context.Context,
 	launchID, logicalName, projectRoot string,
-) (RPGPackArchiveURL, error) {
-	var archive RPGPackArchiveURL
+) (RPGSeekableBlobSource, error) {
+	var digest string
+	var sizeBytes int64
 	if err := service.database.QueryRowContext(ctx, `
 SELECT blob.sha256,blob.size_bytes FROM launch_content_files file
 JOIN blobs blob ON blob.id=file.blob_id
 WHERE file.launch_session_id=? AND file.logical_name=? AND file.format_version='RPG_MAKER_PROJECT_V1'
-`, launchID, logicalName).Scan(&archive.SHA256, &archive.SizeBytes); err != nil {
-		return RPGPackArchiveURL{}, ErrBlocked
+`, launchID, logicalName).Scan(&digest, &sizeBytes); err != nil {
+		return RPGSeekableBlobSource{}, ErrBlocked
 	}
-	archive.URL = projectRoot + logicalName
+	archive, valid := newRPGSeekableBlobSource(projectRoot+logicalName, digest, sizeBytes, "")
+	if !valid {
+		return RPGSeekableBlobSource{}, ErrBlocked
+	}
 	return archive, nil
+}
+
+func newRPGSeekableBlobSource(
+	url, digest string,
+	sizeBytes int64,
+	declaredName string,
+) (RPGSeekableBlobSource, bool) {
+	if url == "" || len(digest) != sha256.Size*2 || sizeBytes < 1 {
+		return RPGSeekableBlobSource{}, false
+	}
+	return RPGSeekableBlobSource{
+		Kind: "SEEKABLE_BLOB_V1", RangeRequired: true, DeclaredName: declaredName,
+		URL: url, SHA256: digest, SizeBytes: sizeBytes,
+	}, true
 }

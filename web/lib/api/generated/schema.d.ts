@@ -3567,7 +3567,11 @@ export interface components {
             wasmSha256: string;
             artifactSetSha256: string;
         };
-        RpgRuntimeArchive: {
+        SeekableBlobSource: {
+            /** @enum {string} */
+            kind: "SEEKABLE_BLOB_V1";
+            /** @enum {boolean} */
+            rangeRequired: true;
             url: string;
             sha256: string;
             /** Format: int64 */
@@ -3575,6 +3579,10 @@ export interface components {
         };
         MkxpRtpArchive: {
             declaredName: string;
+            /** @enum {string} */
+            kind: "SEEKABLE_BLOB_V1";
+            /** @enum {boolean} */
+            rangeRequired: true;
             url: string;
             sha256: string;
             /** Format: int64 */
@@ -3590,7 +3598,7 @@ export interface components {
             adapterId: "mkxp-libretro-web";
             core: components["schemas"]["MkxpCoreArtifact"];
             runtimeBaseUrl: string;
-            projectArchive: components["schemas"]["RpgRuntimeArchive"];
+            projectArchive: components["schemas"]["SeekableBlobSource"];
             rtpArchives: components["schemas"]["MkxpRtpArchive"][];
             /** @enum {integer} */
             rgssVersion: 1 | 2 | 3;
