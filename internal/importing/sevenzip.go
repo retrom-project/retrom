@@ -35,6 +35,7 @@ var sevenZipMagic = []byte{'7', 'z', 0xbc, 0xaf, 0x27, 0x1c}
 type archiveWorkerResponse struct {
 	ErrorCode string         `json:"errorCode,omitempty"`
 	Entries   []ArchiveEntry `json:"entries,omitempty"`
+	Ordinal   *int           `json:"ordinal,omitempty"`
 	Size      int64          `json:"size,omitempty"`
 }
 
@@ -69,6 +70,8 @@ func RunArchiveWorker(arguments []string) (bool, error) {
 		return true, runArchiveScanWorker(archive, info.Size(), arguments[2:])
 	case "extract":
 		return true, runArchiveExtractWorker(archive, info.Size(), arguments)
+	case "extract-batch":
+		return true, runArchiveBatchExtractWorker(archive, info.Size(), arguments[2:])
 	default:
 		return true, writeWorkerResponse(os.Stdout, archiveWorkerResponse{ErrorCode: errorCode(ErrArchiveUnsafe)})
 	}
