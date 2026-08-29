@@ -58,6 +58,7 @@ describe("retrom-runtime Player bridge", () => {
 
 const capabilities: RuntimeCapabilities = {
   checkpoint: true,
+  contentSources: ["FILE_TREE_V1"],
   frameCounter: false,
   pause: true,
   screenshot: true,

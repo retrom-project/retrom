@@ -1,10 +1,38 @@
 package launch
 
 import (
+	"encoding/json"
 	"testing"
 
 	"retrom/internal/dependencies"
 )
+
+func TestRPGSeekableBlobSourceIsStrictAndComplete(t *testing.T) {
+	t.Parallel()
+
+	source, ok := newRPGSeekableBlobSource(
+		"/runtime/projects/0198abcd-1234-7123-8abc-1234567890ab/__retrom__/game.mkxpz",
+		"a000000000000000000000000000000000000000000000000000000000000000",
+		42,
+		"",
+	)
+	encoded, err := json.Marshal(source)
+	if !ok || err != nil || string(encoded) !=
+		`{"kind":"SEEKABLE_BLOB_V1","rangeRequired":true,"url":"/runtime/projects/0198abcd-1234-7123-8abc-1234567890ab/__retrom__/game.mkxpz","sha256":"a000000000000000000000000000000000000000000000000000000000000000","sizeBytes":42}` {
+		t.Fatalf("seekable source = %s, available=%v, error=%v", encoded, ok, err)
+	}
+	if _, valid := newRPGSeekableBlobSource("/runtime/project", "bad", 42, ""); valid {
+		t.Fatal("seekable source accepted an invalid digest")
+	}
+	if _, valid := newRPGSeekableBlobSource(
+		"/runtime/project",
+		"a000000000000000000000000000000000000000000000000000000000000000",
+		0,
+		"",
+	); valid {
+		t.Fatal("seekable source accepted an empty payload")
+	}
+}
 
 func TestMKXPCoreConfigUsesObservedReleaseCoordinates(t *testing.T) {
 	t.Parallel()
