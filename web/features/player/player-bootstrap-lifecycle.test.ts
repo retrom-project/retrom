@@ -17,7 +17,7 @@ describe("player bootstrap lifecycle", () => {
       await new Promise<void>((resolve) => {finishMount = resolve;});
       actions.push("mount:first:finished");
     });
-    await Promise.resolve();
+    await new Promise((resolve) => window.setTimeout(resolve, 10));
     first.abort();
     joinPlayerBootstrapCleanup(lifecycle, new Promise<void>((resolve) => {
       actions.push("cleanup:first");
@@ -39,6 +39,23 @@ describe("player bootstrap lifecycle", () => {
     expect(actions).toEqual([
       "mount:first", "cleanup:first", "mount:first:finished", "mount:second",
     ]);
+  });
+
+  it("does not mount the Strict Mode probe that aborts in the same turn", async () => {
+    const lifecycle = createPlayerBootstrapLifecycle();
+    const probe = new AbortController();
+    const actions: string[] = [];
+    const probed = schedulePlayerBootstrap(lifecycle, probe.signal, async () => {
+      actions.push("probe");
+    });
+    probe.abort();
+    joinPlayerBootstrapCleanup(lifecycle, Promise.resolve());
+    const actual = schedulePlayerBootstrap(lifecycle, new AbortController().signal, async () => {
+      actions.push("actual");
+    });
+
+    await Promise.all([probed, actual]);
+    expect(actions).toEqual(["actual"]);
   });
 
   it("does not let a failed bootstrap block the next mount", async () => {
