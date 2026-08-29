@@ -18,6 +18,8 @@ const missing = requiredEnvironment.filter((name) => !process.env[name]);
 const caseDirectory = resolve(process.env.RETROM_ACCEPTANCE_CASE_DIR ?? ".");
 const evidencePath = join(caseDirectory, "kirikiri-product.json");
 
+class AcceptanceBlocked extends Error {}
+
 if (missing.length) {
   writeEvidence({ schemaVersion: 1, caseId, status: "BLOCKED", errorCode: "KIRIKIRI_ACCEPTANCE_INPUT_REQUIRED" });
   process.stderr.write(`KIRIKIRI_ACCEPTANCE_INPUT_REQUIRED:${missing.join(",")}\n`);
@@ -37,9 +39,10 @@ try {
   process.stdout.write(`${JSON.stringify(evidence)}\n`);
 } catch (error) {
   const errorCode = stableErrorCode(error);
-  writeEvidence({ schemaVersion: 1, caseId, status: "FAIL", errorCode });
+  const blocked = error instanceof AcceptanceBlocked;
+  writeEvidence({ schemaVersion: 1, caseId, status: blocked ? "BLOCKED" : "FAIL", errorCode });
   process.stderr.write(`${errorCode}\n`);
-  process.exitCode = 1;
+  process.exitCode = blocked ? 3 : 1;
 } finally {
   await browser?.close();
 }
@@ -67,9 +70,12 @@ async function runProductCase(activeBrowser) {
       },
     });
     if (importedResponse.status() !== 202) {
-      process.stderr.write(
-        `KIRIKIRI_ACCEPTANCE_IMPORT_CREATE_FAILED:status=${importedResponse.status()},body=${await importedResponse.text()}\n`,
-      );
+      const body = await importedResponse.text();
+      const code = responseErrorCode(body);
+      process.stderr.write(`KIRIKIRI_ACCEPTANCE_IMPORT_CREATE_FAILED:status=${importedResponse.status()},body=${body}\n`);
+      if (importedResponse.status() === 422 && code === "ARCHIVE_ENCRYPTED_UNSUPPORTED") {
+        throw new AcceptanceBlocked("KIRIKIRI_ACCEPTANCE_ARCHIVE_ENCRYPTED");
+      }
       throw new Error("KIRIKIRI_ACCEPTANCE_IMPORT_CREATE_FAILED");
     }
     const imported = await importedResponse.json();
@@ -396,6 +402,13 @@ function requireChanged(before, after, code) {
 
 function requireStatus(actual, expected, code) {
   if (actual !== expected) {throw new Error(code);}
+}
+
+function responseErrorCode(body) {
+  try {
+    const value = JSON.parse(body);
+    return typeof value?.error?.code === "string" ? value.error.code : "";
+  } catch {return "";}
 }
 
 function normalizedBaseUrl(value) {

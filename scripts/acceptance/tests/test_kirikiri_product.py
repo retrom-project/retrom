@@ -44,6 +44,13 @@ class KiriKiriProductAcceptanceTests(unittest.TestCase):
         self.assertIn('["REVIEW_PENDING", "COMPLETED"].includes(job.state)', contents)
         self.assertNotIn('["REVIEW_PENDING", "COMPLETE"].includes(job.state)', contents)
 
+    def test_encrypted_operator_archive_is_blocked_instead_of_core_failure(self) -> None:
+        contents = DRIVER_PATH.read_text(encoding="utf-8")
+        self.assertIn('class AcceptanceBlocked extends Error', contents)
+        self.assertIn('code === "ARCHIVE_ENCRYPTED_UNSUPPORTED"', contents)
+        self.assertIn('status: "BLOCKED"', contents)
+        self.assertIn('process.exitCode = blocked ? 3 : 1;', contents)
+
     def test_product_screenshots_wait_for_runtime_ready_state(self) -> None:
         contents = DRIVER_PATH.read_text(encoding="utf-8")
         original_ready = "await waitForProductReady(originalPage);"
