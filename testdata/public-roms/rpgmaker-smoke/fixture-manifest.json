@@ -819,6 +819,12 @@
       "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
     },
     {
+      "path": "rpgvx/Graphics/Unused/retrom-lazy-padding.bin",
+      "generation": "RPGVX",
+      "sizeBytes": 5242880,
+      "sha256": "c036cbb7553a909f8b8877d4461924307f27ecb66cff928eeeafd569c3887e29"
+    },
+    {
       "path": "rpgvxace/Audio/SE/retrom-tone.wav",
       "generation": "RPGVXACE",
       "sizeBytes": 11068,
@@ -843,6 +849,12 @@
       "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
     },
     {
+      "path": "rpgvxace/Graphics/Unused/retrom-lazy-padding.bin",
+      "generation": "RPGVXACE",
+      "sizeBytes": 5242880,
+      "sha256": "c036cbb7553a909f8b8877d4461924307f27ecb66cff928eeeafd569c3887e29"
+    },
+    {
       "path": "rpgxp/Audio/SE/retrom-tone.wav",
       "generation": "RPGXP",
       "sizeBytes": 11068,
@@ -865,6 +877,12 @@
       "generation": "RPGXP",
       "sizeBytes": 0,
       "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "rpgxp/Graphics/Unused/retrom-lazy-padding.bin",
+      "generation": "RPGXP",
+      "sizeBytes": 5242880,
+      "sha256": "c036cbb7553a909f8b8877d4461924307f27ecb66cff928eeeafd569c3887e29"
     }
   ]
 }
