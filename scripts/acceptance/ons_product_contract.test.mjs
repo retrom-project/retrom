@@ -24,6 +24,16 @@ test("rejects black frames, ineffective input, reused launches, and wrong payloa
   }
 });
 
+test("rejects missing or eager project loading evidence", () => {
+  const missing = evidence();
+  delete missing.loading;
+  assert.throws(() => assertOnsProductEvidence(missing), /ONS_ACCEPTANCE_EVIDENCE_INVALID/);
+
+  const eager = evidence();
+  eager.loading.firstVisible.requestedProjectBytes = eager.loading.firstVisible.declaredProjectBytes;
+  assert.throws(() => assertOnsProductEvidence(eager), /ONS_ACCEPTANCE_EVIDENCE_INVALID/);
+});
+
 function evidence() {
   const screenshot = (digest) => ({
     width: 1280, height: 960, nonBlackPixels: 20_000, rgbaSha256: digest.repeat(64),
@@ -43,10 +53,34 @@ function evidence() {
       restoreLaunchId: "01a0452f-bc94-7cc2-8403-4819f3c381e2",
     },
     checkpoint: { payloadKind: "ONS_SAVE_BUNDLE_V1", sizeBytes: 36_194 },
+    loading: {
+      schemaVersion: 1,
+      sameProjectContentIdentity: true,
+      firstVisible: loadingSnapshot({ cacheHits: 1, requestedBytes: 2048 }),
+      restoreVisible: loadingSnapshot({ cacheHits: 2, requestedBytes: 2048 }),
+    },
     screenshots: {
       preview: screenshot("1"), productBeforeInput: screenshot("2"), productAfterInput: screenshot("3"),
       restored: screenshot("4"), postRestoreInput: screenshot("5"),
     },
     browser: { pageErrorCount: 0, consoleErrorCount: 0, dialogCount: 0 },
+  };
+}
+
+function loadingSnapshot({ cacheHits, requestedBytes }) {
+  return {
+    declaredLargeFileCount: 2,
+    declaredProjectBytes: 20_000_000,
+    declaredProjectFileCount: 12,
+    fullProjectFileResponseCount: 3,
+    nativeProjectResponseCount: 0,
+    projectContentIdentityCount: 1,
+    rangeProjectFileResponseCount: 0,
+    requestedLargeFileCount: 0,
+    requestedProjectBytes: requestedBytes,
+    requestedProjectFileCount: 3,
+    runtimeAssetCacheHitCount: cacheHits,
+    runtimeAssetRequestCount: 2,
+    runtimeAssetTransferredBytes: 0,
   };
 }

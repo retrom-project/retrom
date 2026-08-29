@@ -44,6 +44,16 @@ class KiriKiriProductAcceptanceTests(unittest.TestCase):
         self.assertIn('["REVIEW_PENDING", "COMPLETED"].includes(job.state)', contents)
         self.assertNotIn('["REVIEW_PENDING", "COMPLETE"].includes(job.state)', contents)
 
+    def test_product_case_records_range_loading_and_cross_launch_cache_evidence(self) -> None:
+        contents = DRIVER_PATH.read_text(encoding="utf-8")
+        contract = (ROOT / "scripts/acceptance/kirikiri_product_contract.mjs").read_text(encoding="utf-8")
+        self.assertIn('trackRuntimeLoading(originalPage)', contents)
+        self.assertIn('trackRuntimeLoading(restoredPage)', contents)
+        self.assertIn('sameProjectContentIdentity:', contents)
+        self.assertIn('value.fullProjectFileResponseCount !== 0', contract)
+        self.assertIn('value.rangeProjectFileResponseCount < 1', contract)
+        self.assertIn('requireCacheHit && value.runtimeAssetCacheHitCount < 1', contract)
+
     def test_encrypted_operator_archive_is_blocked_instead_of_core_failure(self) -> None:
         contents = DRIVER_PATH.read_text(encoding="utf-8")
         self.assertIn('class AcceptanceBlocked extends Error', contents)

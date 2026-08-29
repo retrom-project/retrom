@@ -8,6 +8,7 @@ import { chromium } from "../../web/node_modules/playwright/index.mjs";
 import { assertKiriKiriProductEvidence, kirikiriProductStages } from "./kirikiri_product_contract.mjs";
 import { createProductClient, singleFile } from "./rpgmaker_security_upload.mjs";
 import { isLocalAcceptanceHostname } from "./rpgmaker_url.mjs";
+import { trackRuntimeLoading } from "./runtime_loading_evidence.mjs";
 
 const caseId = "ACC-KIRIKIRI-001";
 const requiredEnvironment = [
@@ -113,10 +114,13 @@ async function runProductCase(activeBrowser) {
 
     const original = await createLaunch(client, approved.gameId, null);
     const originalPage = await trackedPage(context, browserErrors);
+    const originalLoadingProbe = trackRuntimeLoading(originalPage);
     await originalPage.goto(`${baseUrl}${original.playUrl}`, { waitUntil: "domcontentloaded", timeout: 120_000 });
     const originalCanvas = await runtimeCanvas(originalPage);
     await waitForProductReady(originalPage);
     const beforeInput = await screenshotEvidence(originalCanvas, "product-before-input.png");
+    const originalLoading = await originalLoadingProbe.snapshot();
+    originalLoadingProbe.stop();
     await advanceKag(originalCanvas);
     const afterInput = await screenshotEvidence(originalCanvas, "product-after-input.png");
     requireChanged(beforeInput, afterInput, "KIRIKIRI_ACCEPTANCE_PRODUCT_INPUT_UNOBSERVED");
@@ -130,12 +134,15 @@ async function runProductCase(activeBrowser) {
     const restored = await createLaunch(client, approved.gameId, saved.saveStateId);
     if (restored.launchId === original.launchId) {throw new Error("KIRIKIRI_ACCEPTANCE_RESTORE_LAUNCH_REUSED");}
     const restoredPage = await trackedPage(context, browserErrors);
+    const restoreLoadingProbe = trackRuntimeLoading(restoredPage);
     const stateResponsePromise = restoredPage.waitForResponse((response) =>
       response.request().method() === "GET" && response.url().endsWith(`/runtime/launches/${restored.launchId}/state`),
     { timeout: 120_000 });
     await restoredPage.goto(`${baseUrl}${restored.playUrl}`, { waitUntil: "domcontentloaded", timeout: 120_000 });
     const restoredCanvas = await runtimeCanvas(restoredPage);
     await waitForProductReady(restoredPage);
+    const restoreLoading = await restoreLoadingProbe.snapshot();
+    restoreLoadingProbe.stop();
     const stateResponse = await stateResponsePromise;
     requireStatus(stateResponse.status(), 200, "KIRIKIRI_ACCEPTANCE_RESTORE_PAYLOAD_FAILED");
     const payloadSize = Number(stateResponse.headers()["content-length"]);
@@ -159,6 +166,13 @@ async function runProductCase(activeBrowser) {
       },
       immersiveMenu,
       checkpoint: { payloadKind: saved.payloadKind, sizeBytes: payloadSize },
+      loading: {
+        schemaVersion: 1,
+        sameProjectContentIdentity: originalLoading.projectContentIdentity !== null &&
+          originalLoading.projectContentIdentity === restoreLoading.projectContentIdentity,
+        firstVisible: originalLoading.evidence,
+        restoreVisible: restoreLoading.evidence,
+      },
       screenshots: {
         preview: previewFrame, productBeforeInput: beforeInput, productAfterInput: afterInput,
         productAfterCheckpoint: afterCheckpoint,
