@@ -79,8 +79,6 @@ def activate(
     formal = load_json(manifest_path)
     local, commit = validate_local_runtime(source)
     if include_runtime_assets:
-        if formal.get("release", {}).get("tag") != f"v{local['packageVersion']}":
-            raise LinkError("RETROM_RUNTIME_DEV_VERSION_MISMATCH")
         assets = staged_release_assets(source, formal)
         runtime_root = runtime_arg.absolute()
         publish_candidate_runtime(formal, assets, runtime_root)
