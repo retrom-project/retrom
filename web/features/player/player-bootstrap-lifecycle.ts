@@ -1,3 +1,5 @@
+import { useEffect, useRef, useState } from "react";
+
 export type PlayerBootstrapLifecycle = {
   tail: Promise<void>;
 };
@@ -43,6 +45,7 @@ export function joinPlayerBootstrapCleanup(
 }
 
 export function useSerializedPlayerBootstrap<Params, Resources>(
+  bootstrapKey: string,
   params: Params,
   createResources: () => Resources,
   bootstrap: (params: Params, resources: Resources, controller: AbortController) => Promise<void>,
@@ -50,16 +53,18 @@ export function useSerializedPlayerBootstrap<Params, Resources>(
   handleError: (error: unknown, controller: AbortController, params: Params) => void,
 ): void {
   const [lifecycle] = useState(createPlayerBootstrapLifecycle);
+  const latestParams = useRef(params);
+  useEffect(() => {latestParams.current = params;}, [params]);
   useEffect(() => {
+    const activeParams = latestParams.current;
     const controller = new AbortController();
     const resources = createResources();
     const scheduled = schedulePlayerBootstrap(
-      lifecycle, controller.signal, () => bootstrap(params, resources, controller),
+      lifecycle, controller.signal, () => bootstrap(activeParams, resources, controller),
     );
-    void scheduled.catch((error: unknown) => handleError(error, controller, params));
+    void scheduled.catch((error: unknown) => handleError(error, controller, activeParams));
     return () => {
-      joinPlayerBootstrapCleanup(lifecycle, cleanup(params, resources, controller));
+      joinPlayerBootstrapCleanup(lifecycle, cleanup(activeParams, resources, controller));
     };
-  }, [bootstrap, cleanup, createResources, handleError, lifecycle, params]);
+  }, [bootstrap, bootstrapKey, cleanup, createResources, handleError, lifecycle]);
 }
-import { useEffect, useState } from "react";
