@@ -14,7 +14,7 @@ function config() {
     adapter: {
       adapterKind: "ONS_YURI_WEB", adapterId: "ons-yuri-web",
       runtimeBaseUrl: "/runtime/retrom-runtime/v0.3.0/",
-      projectIndexUrl: `/runtime/projects/${launchId}/index.json`, scriptEncoding: "utf8", checkpointSlot: 999,
+      projectIndexUrl: `/runtime/content/project/${"a".repeat(64)}/index.json`, scriptEncoding: "utf8", checkpointSlot: 999,
     },
   };
 }

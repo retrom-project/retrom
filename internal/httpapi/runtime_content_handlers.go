@@ -76,9 +76,9 @@ func (server *Server) launchProjectFile(writer http.ResponseWriter, request *htt
 	if rejectMultipleRanges(writer, request) {
 		return
 	}
-	launchID := request.PathValue("launchId")
+	requestedIdentity := request.PathValue("contentIdentity")
 	logicalName := request.PathValue("projectPath")
-	grant, valid := runtimeProjectGrant(request, launchID)
+	grant, valid := server.runtimeProjectContentGrant(request, requestedIdentity)
 	if !valid {
 		writeError(
 			writer, request, http.StatusUnauthorized, "LAUNCH_CREDENTIAL_INVALID",
@@ -86,6 +86,7 @@ func (server *Server) launchProjectFile(writer http.ResponseWriter, request *htt
 		)
 		return
 	}
+	launchID := grant.LaunchID
 	if strings.HasPrefix(logicalName, "__retrom__/packs/") {
 		server.launchRuntimePackFile(writer, request, launchID, grant.Capability, logicalName)
 		return
@@ -131,6 +132,25 @@ func (server *Server) launchProjectFile(writer http.ResponseWriter, request *htt
 	writer.Header().Set("Accept-Ranges", "bytes")
 	writer.Header().Set("X-Content-Type-Options", "nosniff")
 	http.ServeContent(writer, request, filepath.Base(logicalName), time.Unix(0, 0), file)
+}
+
+func (server *Server) runtimeProjectContentGrant(
+	request *http.Request,
+	requestedIdentity string,
+) (runtimeContentGrant, bool) {
+	grants, valid := runtimeContentGrants(request)
+	if !valid {
+		return runtimeContentGrant{}, false
+	}
+	for _, grant := range grants {
+		identity, err := server.launcher.ProjectContentIdentity(
+			request.Context(), grant.LaunchID, grant.Capability,
+		)
+		if err == nil && identity == requestedIdentity {
+			return grant, true
+		}
+	}
+	return runtimeContentGrant{}, false
 }
 
 func (server *Server) launchRuntimePackFile(

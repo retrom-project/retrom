@@ -2,6 +2,7 @@ package launch
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 
 	"retrom/internal/dependencies"
@@ -10,15 +11,16 @@ import (
 func TestRPGSeekableBlobSourceIsStrictAndComplete(t *testing.T) {
 	t.Parallel()
 
+	root := "/runtime/content/project/" + strings.Repeat("d", 64) + "/"
 	source, ok := newRPGSeekableBlobSource(
-		"/runtime/projects/0198abcd-1234-7123-8abc-1234567890ab/__retrom__/game.mkxpz",
+		root+"__retrom__/game.mkxpz",
 		"a000000000000000000000000000000000000000000000000000000000000000",
 		42,
 		"",
 	)
 	encoded, err := json.Marshal(source)
 	if !ok || err != nil || string(encoded) !=
-		`{"kind":"SEEKABLE_BLOB_V1","rangeRequired":true,"url":"/runtime/projects/0198abcd-1234-7123-8abc-1234567890ab/__retrom__/game.mkxpz","sha256":"a000000000000000000000000000000000000000000000000000000000000000","sizeBytes":42}` {
+		`{"kind":"SEEKABLE_BLOB_V1","rangeRequired":true,"url":"`+root+`__retrom__/game.mkxpz","sha256":"a000000000000000000000000000000000000000000000000000000000000000","sizeBytes":42}` {
 		t.Fatalf("seekable source = %s, available=%v, error=%v", encoded, ok, err)
 	}
 	if _, valid := newRPGSeekableBlobSource("/runtime/project", "bad", 42, ""); valid {
@@ -38,10 +40,10 @@ func TestRPGFileTreeSourceJSONIsStrictAndComplete(t *testing.T) {
 	t.Parallel()
 	encoded, err := json.Marshal(RPGFileTreeSource{
 		Kind:     "FILE_TREE_V1",
-		IndexURL: "/runtime/projects/0198abcd-1234-7123-8abc-1234567890ab/__retrom__/packs/0/index.json",
+		IndexURL: "/runtime/content/project/" + strings.Repeat("d", 64) + "/__retrom__/packs/0/index.json",
 	})
 	if err != nil || string(encoded) !=
-		`{"kind":"FILE_TREE_V1","indexUrl":"/runtime/projects/0198abcd-1234-7123-8abc-1234567890ab/__retrom__/packs/0/index.json"}` {
+		`{"kind":"FILE_TREE_V1","indexUrl":"/runtime/content/project/`+strings.Repeat("d", 64)+`/__retrom__/packs/0/index.json"}` {
 		t.Fatalf("file tree source = %s, error=%v", encoded, err)
 	}
 }

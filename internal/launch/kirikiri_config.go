@@ -63,7 +63,9 @@ type kirikiriCompatibility struct {
 }
 
 func (service *Service) buildKiriKiriReviewConfig(
+	ctx context.Context,
 	previewID string,
+	capability string,
 	source reviewPreviewConfigSource,
 ) (Config, error) {
 	profile, err := detector.ParseSnapshot(source.DependencyJSON)
@@ -77,6 +79,10 @@ func (service *Service) buildKiriKiriReviewConfig(
 		!service.kiriKiriRuntimeFilesAvailable(source.RuntimeVersion, compatibility) {
 		return Config{}, ErrCredential
 	}
+	projectRoot, err := service.ProjectContentRoot(ctx, previewID, capability)
+	if err != nil {
+		return Config{}, ErrCredential
+	}
 	configuration := KiriKiriConfig{
 		RuntimeFamily: "KIRIKIRI", ProtocolVersion: 1, Mode: "single", Purpose: "REVIEW_PREVIEW",
 		LaunchID: previewID, SessionID: previewID, CoreID: source.CoreID, CoreName: source.CoreName,
@@ -86,7 +92,7 @@ func (service *Service) buildKiriKiriReviewConfig(
 		Adapter: KiriKiriAdapterConfig{
 			AdapterKind: source.AdapterKind, AdapterID: source.AdapterID,
 			RuntimeBaseURL:  "/runtime/retrom-runtime/" + source.RuntimeVersion + "/",
-			ProjectIndexURL: "/runtime/projects/" + previewID + "/index.json",
+			ProjectIndexURL: projectRoot + "index.json",
 			StartupXP3Path:  profile.StartupXP3Path, CheckpointSlot: compatibility.CheckpointSlot,
 		},
 		ReviewPreview: &ReviewPreviewConfig{
@@ -125,6 +131,10 @@ func (service *Service) kiriKiriProductConfig(
 			return KiriKiriConfig{}, err
 		}
 	}
+	projectRoot, err := service.ProjectContentRoot(ctx, launchID, capability)
+	if err != nil {
+		return KiriKiriConfig{}, ErrCredential
+	}
 	if err := service.activateRuntimeLaunch(ctx, launchID, source.state); err != nil {
 		return KiriKiriConfig{}, err
 	}
@@ -136,7 +146,7 @@ func (service *Service) kiriKiriProductConfig(
 		Adapter: KiriKiriAdapterConfig{
 			AdapterKind: source.adapterKind, AdapterID: source.adapterID,
 			RuntimeBaseURL:  "/runtime/retrom-runtime/" + source.runtimeVersion + "/",
-			ProjectIndexURL: "/runtime/projects/" + launchID + "/index.json",
+			ProjectIndexURL: projectRoot + "index.json",
 			StartupXP3Path:  profile.StartupXP3Path, CheckpointSlot: compatibility.CheckpointSlot,
 		},
 		Checkpoint: checkpoint,

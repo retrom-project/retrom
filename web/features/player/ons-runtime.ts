@@ -55,10 +55,14 @@ function validateAdapter(value: unknown, launchId: unknown, runtimeVersion: unkn
     value.adapterKind !== "ONS_YURI_WEB" ||
     value.adapterId !== "ons-yuri-web" || value.checkpointSlot !== 999 ||
     value.runtimeBaseUrl !== `/runtime/retrom-runtime/${runtimeVersion}/` ||
-    value.projectIndexUrl !== `/runtime/projects/${launchId}/index.json` ||
+    !projectIndexURL(value.projectIndexUrl) ||
     value.scriptEncoding !== "gbk" && value.scriptEncoding !== "sjis" && value.scriptEncoding !== "utf8") {
     throw new Error("PLAYER_ONS_CONFIG_INVALID");
   }
+}
+
+function projectIndexURL(value: unknown) {
+  return typeof value === "string" && /^\/runtime\/content\/project\/[0-9a-f]{64}\/index\.json$/u.test(value);
 }
 
 function validateCheckpoint(value: unknown, launchId: unknown) {

@@ -54,10 +54,14 @@ function validateAdapter(value: unknown, launchId: unknown, runtimeVersion: unkn
   if (!uuid(launchId) || !boundedString(runtimeVersion, 1, 160) || !recordWithKeys(value, adapterKeys) ||
     value.adapterKind !== "KIRIKIRI2_WEB" || value.adapterId !== "kirikiri2-web" ||
     value.checkpointSlot !== 1999 || value.runtimeBaseUrl !== `/runtime/retrom-runtime/${runtimeVersion}/` ||
-    value.projectIndexUrl !== `/runtime/projects/${launchId}/index.json` ||
+    !projectIndexURL(value.projectIndexUrl) ||
     value.startupXp3Path !== null && !validXp3Path(value.startupXp3Path)) {
     throw new Error("PLAYER_KIRIKIRI_CONFIG_INVALID");
   }
+}
+
+function projectIndexURL(value: unknown) {
+  return typeof value === "string" && /^\/runtime\/content\/project\/[0-9a-f]{64}\/index\.json$/u.test(value);
 }
 
 function validateCheckpoint(value: unknown, launchId: unknown) {

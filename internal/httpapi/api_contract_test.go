@@ -102,7 +102,7 @@ func TestOpenAPIValidationAllowsRetromRuntimeAndProjectFiles(t *testing.T) {
 		projectResponse,
 		httptest.NewRequestWithContext(
 			context.Background(), http.MethodGet,
-			"/runtime/projects/01980000-0000-7000-8000-000000000001/Data/Actors.json", nil,
+			"/runtime/content/project/"+strings.Repeat("a", 64)+"/Data/Actors.json", nil,
 		),
 	)
 	testassert.Falsef(

@@ -495,8 +495,8 @@ func (server *Server) registerContentRoutes(mux *http.ServeMux) {
 
 func (server *Server) registerRuntimeRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /runtime/launches/{launchId}/config", server.launchConfig)
-	mux.HandleFunc("GET /runtime/projects/{launchId}/{projectPath...}", server.launchProjectFile)
-	mux.HandleFunc("HEAD /runtime/projects/{launchId}/{projectPath...}", server.launchProjectFile)
+	mux.HandleFunc("GET /runtime/content/project/{contentIdentity}/{projectPath...}", server.launchProjectFile)
+	mux.HandleFunc("HEAD /runtime/content/project/{contentIdentity}/{projectPath...}", server.launchProjectFile)
 	mux.HandleFunc("GET /runtime/content/game/{contentIdentity}/{logicalName}", server.launchGame)
 	mux.HandleFunc("HEAD /runtime/content/game/{contentIdentity}/{logicalName}", server.launchGame)
 	mux.HandleFunc("GET /runtime/content/external/{contentIdentity}/{logicalName}", server.launchExternalFile)

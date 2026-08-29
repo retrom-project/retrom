@@ -517,10 +517,10 @@ func (service *Service) ReviewPreviewConfig(ctx context.Context, previewID, capa
 		return Config{}, err
 	}
 	if source.RuntimeFamily == "ONS" {
-		return service.buildONSReviewConfig(previewID, source)
+		return service.buildONSReviewConfig(ctx, previewID, capability, source)
 	}
 	if source.RuntimeFamily == "KIRIKIRI" {
-		return service.buildKiriKiriReviewConfig(previewID, source)
+		return service.buildKiriKiriReviewConfig(ctx, previewID, capability, source)
 	}
 	version := service.dependencies.Versions[source.RuntimeVersion]
 	if version == nil {

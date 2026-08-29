@@ -18,7 +18,7 @@ function config() {
     adapter: {
       adapterKind: "KIRIKIRI2_WEB", adapterId: "kirikiri2-web",
       runtimeBaseUrl: "/runtime/retrom-runtime/v0.6.1/",
-      projectIndexUrl: `/runtime/projects/${launchId}/index.json`, startupXp3Path: "data.xp3",
+      projectIndexUrl: `/runtime/content/project/${"a".repeat(64)}/index.json`, startupXp3Path: "data.xp3",
       checkpointSlot: 1999,
     },
   };
