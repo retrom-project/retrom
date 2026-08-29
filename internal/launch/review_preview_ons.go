@@ -52,8 +52,9 @@ type onsProjectIndex struct {
 }
 
 type onsProjectIndexFile struct {
-	Path string `json:"path"`
-	URL  string `json:"url"`
+	Path      string `json:"path"`
+	SizeBytes int64  `json:"sizeBytes"`
+	URL       string `json:"url"`
 }
 
 func (service *Service) ProjectIndex(
@@ -99,26 +100,28 @@ WHERE launch.id=? AND launch.purpose='PRODUCT' AND artifact.runtime_family='ONS'
 		return ProjectIndexView{}, ErrCredential
 	}
 	rows, err := service.database.QueryContext(ctx, `
-SELECT logical_name FROM launch_content_files
-WHERE launch_session_id=? AND format_version='ONS_PROJECT_V1'
-ORDER BY logical_name
+SELECT content.logical_name,blob.size_bytes
+FROM launch_content_files content
+JOIN blobs blob ON blob.id=content.blob_id
+WHERE content.launch_session_id=? AND content.format_version='ONS_PROJECT_V1'
+ORDER BY content.logical_name
 `, launchID)
 	if err != nil {
 		return ProjectIndexView{}, fmt.Errorf("load product ONS project index: %w", err)
 	}
 	defer func() { cleanup.Error("close", rows.Close()) }()
-	paths := make([]string, 0)
+	files := make([]onsProjectIndexFile, 0)
 	for rows.Next() {
-		var path string
-		if err := rows.Scan(&path); err != nil || len(paths) >= maximumONSProjectFiles {
+		var file onsProjectIndexFile
+		if err := rows.Scan(&file.Path, &file.SizeBytes); err != nil || len(files) >= maximumONSProjectFiles {
 			return ProjectIndexView{}, ErrCredential
 		}
-		paths = append(paths, path)
+		files = append(files, file)
 	}
 	if err := rows.Err(); err != nil {
 		return ProjectIndexView{}, fmt.Errorf("read product ONS project index: %w", err)
 	}
-	return buildONSProjectIndex(launchID, title, profile, paths)
+	return buildONSProjectIndex(launchID, title, profile, files)
 }
 
 func (service *Service) reviewPreviewONSContent(
@@ -185,28 +188,23 @@ WHERE id=? AND content_kind='ONS_PROJECT_V1' AND content_format='ONS_PROJECT_V1'
 	if err != nil {
 		return ProjectIndexView{}, err
 	}
-	paths := make([]string, len(files))
-	for index, file := range files {
-		paths[index] = file.Path
-	}
-	return buildONSProjectIndex(previewID, title, profile, paths)
+	return buildONSProjectIndex(previewID, title, profile, files)
 }
 
 func buildONSProjectIndex(
 	launchID, title string,
 	profile detector.Profile,
-	paths []string,
+	files []onsProjectIndexFile,
 ) (ProjectIndexView, error) {
-	if len(paths) < 2 || len(paths) > maximumONSProjectFiles {
+	if len(files) < 2 || len(files) > maximumONSProjectFiles {
 		return ProjectIndexView{}, ErrCredential
 	}
-	files := make([]onsProjectIndexFile, 0, len(paths))
-	seen := make(map[string]struct{}, len(paths))
+	seen := make(map[string]struct{}, len(files))
 	markerFound, fontFound := false, false
-	for _, logicalName := range paths {
-		normalized, err := importing.ValidateLogicalPath(logicalName)
+	for index := range files {
+		normalized, err := importing.ValidateLogicalPath(files[index].Path)
 		folded := importing.ASCIICaseFold(normalized)
-		if err != nil || normalized != logicalName {
+		if err != nil || normalized != files[index].Path || files[index].SizeBytes < 1 {
 			return ProjectIndexView{}, ErrCredential
 		}
 		if _, duplicate := seen[folded]; duplicate {
@@ -215,9 +213,7 @@ func buildONSProjectIndex(
 		seen[folded] = struct{}{}
 		markerFound = markerFound || normalized == profile.MarkerPath
 		fontFound = fontFound || normalized == profile.FontPath
-		files = append(files, onsProjectIndexFile{
-			Path: normalized, URL: "/runtime/projects/" + launchID + "/" + escapeProjectPath(normalized),
-		})
+		files[index].URL = "/runtime/projects/" + launchID + "/" + escapeProjectPath(normalized)
 	}
 	if !markerFound || !fontFound {
 		return ProjectIndexView{}, ErrCredential
@@ -237,11 +233,16 @@ func (service *Service) reviewPreviewProjectIndexFiles(
 	previewID, primaryName string,
 ) ([]onsProjectIndexFile, error) {
 	rows, err := service.database.QueryContext(ctx, `
-SELECT logical_name FROM (
- SELECT content_logical_name AS logical_name,0 AS sort_order FROM review_preview_sessions WHERE id=?
+SELECT logical_name,size_bytes FROM (
+ SELECT session.content_logical_name AS logical_name,blob.size_bytes,0 AS sort_order
+ FROM review_preview_sessions session
+ JOIN blobs blob ON blob.id=session.content_blob_id
+ WHERE session.id=?
  UNION ALL
- SELECT logical_name,sort_order+1 FROM review_preview_files
- WHERE preview_session_id=? AND role='PROJECT_FILE'
+ SELECT file.logical_name,blob.size_bytes,file.sort_order+1
+ FROM review_preview_files file
+ JOIN blobs blob ON blob.id=file.blob_id
+ WHERE file.preview_session_id=? AND file.role='PROJECT_FILE'
 ) ORDER BY sort_order,logical_name
 `, previewID, previewID)
 	if err != nil {
@@ -251,22 +252,20 @@ SELECT logical_name FROM (
 	files := make([]onsProjectIndexFile, 0)
 	seen := make(map[string]struct{})
 	for rows.Next() {
-		var logicalName string
-		if err := rows.Scan(&logicalName); err != nil || len(files) >= maximumONSProjectFiles {
+		var file onsProjectIndexFile
+		if err := rows.Scan(&file.Path, &file.SizeBytes); err != nil || len(files) >= maximumONSProjectFiles {
 			return nil, ErrCredential
 		}
-		normalized, pathErr := importing.ValidateLogicalPath(logicalName)
+		normalized, pathErr := importing.ValidateLogicalPath(file.Path)
 		folded := importing.ASCIICaseFold(normalized)
-		if pathErr != nil {
+		if pathErr != nil || normalized != file.Path || file.SizeBytes < 1 {
 			return nil, ErrCredential
 		}
 		if _, duplicate := seen[folded]; duplicate {
 			return nil, ErrCredential
 		}
 		seen[folded] = struct{}{}
-		files = append(files, onsProjectIndexFile{
-			Path: normalized, URL: "/runtime/projects/" + previewID + "/" + escapeProjectPath(normalized),
-		})
+		files = append(files, file)
 	}
 	if err := rows.Err(); err != nil || len(files) < 2 || files[0].Path != primaryName {
 		return nil, ErrCredential

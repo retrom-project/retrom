@@ -135,6 +135,21 @@ describe("RPG runtime registry", () => {
     config.adapter.projectArchive.kind = "FILE_TREE_V1" as "SEEKABLE_BLOB_V1";
     expect(() => validateRpgRuntimeConfig(config)).toThrow("PLAYER_RPG_CONFIG_INVALID");
   });
+
+  it("accepts only the current Launch RTP file-tree index for EasyRPG", () => {
+    const route = rpgRuntimeRoutes.find((entry) => entry.generation === "RPG2000");
+    if (!route) {throw new Error("missing RPG2000 route");}
+    const config = configFor(route);
+    if (config.adapter.adapterKind !== "EASYRPG_WEB") {throw new Error("wrong RPG2000 adapter");}
+    config.adapter.rtpSource = {
+      kind: "FILE_TREE_V1",
+      indexUrl: `/runtime/projects/${launchId}/__retrom__/packs/0/index.json`,
+    };
+    expect(() => validateRpgRuntimeConfig(config)).not.toThrow();
+
+    config.adapter.rtpSource.indexUrl = `/runtime/projects/${launchId}/index.json`;
+    expect(() => validateRpgRuntimeConfig(config)).toThrow("PLAYER_RPG_CONFIG_INVALID");
+  });
 });
 
 type ManifestRoute = {
@@ -172,7 +187,7 @@ function configFor(route: Route): RpgRuntimeConfig {
     return { ...common, adapter: {
       adapterKind: "EASYRPG_WEB", adapterId: "easyrpg-web", engineMode: route.engineMode,
       runtimeBaseUrl: runtime, projectRootUrl: root,
-      projectIndexUrl: `${root}index.json`, rtpArchive: null, checkpointSlot: 100,
+      projectIndexUrl: `${root}index.json`, rtpSource: null, checkpointSlot: 100,
     }};
   }
   if (route.adapterKind === "MKXP_LIBRETRO_WEB") {

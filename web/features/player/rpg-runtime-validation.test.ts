@@ -430,7 +430,7 @@ function validationConfig(checkpoint: RpgMakerConfig["checkpoint"]): RpgMakerCon
       runtimeBaseUrl: "/runtime/retrom-runtime/v0.2.0/",
       projectRootUrl: `/runtime/projects/${launchId}/`,
       projectIndexUrl: `/runtime/projects/${launchId}/index.json`,
-      rtpArchive: null,
+      rtpSource: null,
       checkpointSlot: 100,
     },
   };

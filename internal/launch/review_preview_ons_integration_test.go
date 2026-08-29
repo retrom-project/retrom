@@ -94,8 +94,9 @@ VALUES(?,'ons-preview-profile','ons-preview-admin','ONS Admin','ADMIN','ENABLED'
 	}
 	var projectIndex struct {
 		Files []struct {
-			Path string `json:"path"`
-			URL  string `json:"url"`
+			Path      string `json:"path"`
+			SizeBytes int64  `json:"sizeBytes"`
+			URL       string `json:"url"`
 		} `json:"files"`
 		FontPath string `json:"fontPath"`
 	}
@@ -108,6 +109,7 @@ VALUES(?,'ons-preview-profile','ons-preview-admin','ONS Admin','ADMIN','ENABLED'
 			ctx, preview.PreviewID, preview.Capability, file.Path,
 		)
 		if contentErr != nil || content.Format != onsProjectFormat || content.Digest == "" ||
+			file.SizeBytes < 1 ||
 			file.URL != "/runtime/projects/"+preview.PreviewID+"/"+file.Path {
 			t.Fatalf("ONS project file %q = %#v, %v", file.Path, content, contentErr)
 		}
@@ -197,7 +199,8 @@ func assertONSProductRoundTrip(
 	}
 	index, err := service.ProjectIndex(ctx, created.LaunchID, created.Capability)
 	if err != nil || !bytes.Contains(index.Contents, []byte(`"path":"0.txt"`)) ||
-		!bytes.Contains(index.Contents, []byte(`"path":"default.ttf"`)) {
+		!bytes.Contains(index.Contents, []byte(`"path":"default.ttf"`)) ||
+		!bytes.Contains(index.Contents, []byte(`"sizeBytes":`)) {
 		t.Fatalf("ProjectIndex(ONS product) = %s, %v", index.Contents, err)
 	}
 	content, err := service.Content(ctx, created.LaunchID, created.Capability, "0.txt")

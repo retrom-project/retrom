@@ -876,7 +876,7 @@ gate 闭集和顺序为 `RUNTIME_READY/ENGINE_PROFILE/FRAMES_300/INPUT/AUDIO/INI
 
 Launch config 顶层是 `runtimeFamily` discriminated union。`EMULATORJS` 保留既有字段；`RPGMAKER` 必须返回 `protocolVersion:1/purpose/coreId/coreName/generation/routeKey/artifactId/checkpoint/checkpointAvailability/runtimeValidation/adapter`。PRODUCT 的 `runtimeValidation` 为 null；验证 Launch 必须返回 `{validationId,state,originalLaunchId,restoreLaunchId,lastGateSequence,machineGates,checkpointEvidence,restoreScreenshotUploaded}`，其中 `machineGates` 恰为上述 14 项有序服务端状态/evidence，足以让同一受授权 Launch 的页面刷新从首个未完成动作继续。adapter 只允许：
 
-- `EASYRPG_WEB`：`adapterId=easyrpg-web`、强制 `engineMode=rpg2k|rpg2k3`、runtime/project/index URL、可空唯一 RTP archive、slot 100；
+- `EASYRPG_WEB`：`adapterId=easyrpg-web`、强制 `engineMode=rpg2k|rpg2k3`、runtime/project/index URL、可空唯一 RTP `FILE_TREE_V1 {kind,indexUrl}`、slot 100。RTP index 恰为 `{schemaVersion:1,files:[{path,url,sizeBytes}]}`；adapter 只下载该小型 index，并把逐文件 URL 交给 Player，项目缺少且游戏实际请求到匹配 lookup key 时才下载该 RTP 文件，禁止在 mount 前完整下载或解压 RTP bundle；
 - `MKXP_LIBRETRO_WEB`：只允许 `adapterId=mkxp-libretro-web`；config 分别返回 core JS 与 Wasm 的 `url/sizeBytes/sha256`、`artifactSetSha256`、固定 bridge，以及项目/pack 的 `SEEKABLE_BLOB_V1 { kind,rangeRequired=true,url,sizeBytes,sha256 }` 内容源，强制 `rgssVersion=1|2|3`、`stateBufferBytes=268435456`。adapter 只完整读取并校验固定 core/bridge；项目与 RTP 不得在 mount 前转成 Blob 或执行完整 GET，而应把 URL 登记给核心的 Range 文件系统。core 的 size/hash 是下载固定 tag Release asset 后记录的 observed cache coordinates，用于内容响应、浏览器缓存完整性与本机损坏检测；它们不是远端 Release 准入身份，同 tag 同名资产由固定 tag commit 与 adapter ABI 定义兼容性；
 - `NATIVE_WEB`：只允许 `adapterId=native-web`，并按 generation 精确冻结 `bridgeProfile=RPGMV|RPGMZ`、`uniqueOrigin/bootstrapUrl/bootstrapTicket`。ENGINE_PROFILE evidence 与 route projection 必须与 Launch 的 generation、adapter 和 profile 逐字段一致，不接受版本别名或 fallback。
 
@@ -884,8 +884,10 @@ Launch config 顶层是 `runtimeFamily` discriminated union。`EMULATORJS` 保�
 
 EasyRPG 与 mkxp 的同源内容端点属于严格 OpenAPI 契约，不能只在 Go router 中注册：
 
+ONS/KiriKiri 的 `index.json` 逐项必须包含准确 `path/sizeBytes/url`。ONS 视频直接把该 URL 交给浏览器媒体元素并消费同一内容端点的 Range，不得先完整下载到 Wasm 文件系统。
+
 - `GET|HEAD /runtime/retrom-runtime/{runtimeVersion}/{runtimePath}` 只允许命中固定 retrom-runtime Release manifest 的逐文件 allowlist，本地逐字节复核 observed size/hash 后返回不可变公共响应；未知版本、路径或 MIME 返回 404；
-- `GET|HEAD /runtime/projects/{launchId}/{projectPath}` 只允许携带 config 响应设置的动态 cookie `retrom_launch_project_<launchId>`；其值是同一 Launch capability，属性固定为 `Path=/runtime/projects/<launchId>/; HttpOnly; SameSite=Strict; Max-Age=86400`，不设置 `Domain`，HTTPS 增加 `Secure`。cookie 名、path 与请求中的 Launch ID 必须逐字匹配且恰有一份；结束 Launch 时删除。服务端从 Product/Validation Launch 冻结的目录 fileset，或 ONS/KiriKiri审核预览创建时冻结的不可变 source snapshot返回一项；`index.json` 是 EasyRPG/ONS/KiriKiri adapter使用的保留虚拟索引。响应为 private immutable、强 ETag、准确 MIME/长度并支持单 Range；未知、未授权或跨 Launch 文件不能回退到上传源、最新内容 revision或可变 ReviewDraft。
+- `GET|HEAD /runtime/projects/{launchId}/{projectPath}` 只允许携带 config 响应设置的动态 cookie `retrom_launch_project_<launchId>`；其值是同一 Launch capability，属性固定为 `Path=/runtime/projects/<launchId>/; HttpOnly; SameSite=Strict; Max-Age=86400`，不设置 `Domain`，HTTPS 增加 `Secure`。cookie 名、path 与请求中的 Launch ID 必须逐字匹配且恰有一份；结束 Launch 时删除。服务端从 Product/Validation Launch 冻结的目录 fileset，或 ONS/KiriKiri审核预览创建时冻结的不可变 source snapshot返回一项；`index.json` 是 EasyRPG/ONS/KiriKiri adapter使用的保留虚拟索引。EasyRPG 选中的 RTP pack 另投影为 `__retrom__/packs/{slot}/index.json` 和 `__retrom__/packs/{slot}/files/{path}`；只有当前 Launch 已冻结并引用的 READY installation 可读取，索引逐项绑定 path/size/URL，文件从 installation 的不可变 blob 返回。所有响应为 private immutable、强 ETag、准确 MIME/长度并支持单 Range；未知、未授权或跨 Launch 文件不能回退到上传源、最新内容 revision或可变 ReviewDraft。
 
 两条路径都必须以 `x-retrom-router-template` 保留含 `/` 的尾部路径。OpenAPI 中间件必须先识别它们再进入内容 handler；否则即使文件已物化也会被错误地提前映射为 404。
 
