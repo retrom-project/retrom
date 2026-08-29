@@ -13,11 +13,11 @@ function config() {
   return {
     runtimeFamily: "KIRIKIRI", protocolVersion: 1, mode: "single", purpose: "PRODUCT",
     launchId, sessionId: launchId, coreId: "kirikiri2", coreName: "KiriKiri2",
-    gameTitle: "KAG fixture", platformName: "KiriKiri", runtimeVersion: "v0.5.0", artifactId,
+    gameTitle: "KAG fixture", platformName: "KiriKiri", runtimeVersion: "v0.6.0", artifactId,
     returnTo: "/games/fixture", warnings: [], checkpoint: null,
     adapter: {
       adapterKind: "KIRIKIRI2_WEB", adapterId: "kirikiri2-web",
-      runtimeBaseUrl: "/runtime/retrom-runtime/v0.5.0/",
+      runtimeBaseUrl: "/runtime/retrom-runtime/v0.6.0/",
       projectIndexUrl: `/runtime/projects/${launchId}/index.json`, startupXp3Path: "data.xp3",
       checkpointSlot: 1999,
     },
