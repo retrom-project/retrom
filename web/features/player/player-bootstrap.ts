@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, type Dispatch, type RefObject, type SetStateAction } from "react";
+import type { Dispatch, RefObject, SetStateAction } from "react";
 import { mountEmulatorJS, validateConfig, type DiscSet, type DiscState, type EmulatorInstance, type ManualStatePayload, type PlayerConfig } from "./adapters/ejs-4.2.3-v2";
 import { installCanvasContain } from "./canvas-fit";
 import { closeEmulatorSettingsPanels } from "./emulator-settings";
@@ -30,6 +30,9 @@ import { isKiriKiriLaunchConfig, mountKiriKiriProductRuntime, type KiriKiriLaunc
 import { fetchKiriKiriCheckpoint, fetchOnsCheckpoint, fetchRpgCheckpoint, kirikiriShellConfig, observedRuntimeDiscCount, onsShellConfig, rpgDebugRuntime, rpgShellConfig } from "./player-bootstrap-config";
 import { createRpgRuntimeValidationDriver } from "./rpg-validation-driver-factory";
 import { startNetplay } from "./player-bootstrap-netplay";
+import {
+  useSerializedPlayerBootstrap,
+} from "./player-bootstrap-lifecycle";
 
 type ShellState = "loading" | "running" | "error";
 type SyncTone = "synced" | "busy" | "warning";
@@ -63,7 +66,7 @@ export type PlayerBootstrapParams = {
 };
 
 export type BootstrapResources = {
-  cleanup?: () => void; cleanupRuntimeGamepadFilter?: () => void; canvasContain?: ReturnType<typeof installCanvasContain>; cleanupFrameControls?: () => void;
+  cleanup?: () => void | Promise<void>; cleanupRuntimeGamepadFilter?: () => void; canvasContain?: ReturnType<typeof installCanvasContain>; cleanupFrameControls?: () => void;
   nativeMenuObserver?: MutationObserver; ownedNetplayController?: NetplayController;
   rpgRuntimeSubscription?: () => void; nativeRuntimeSubscription?: () => void; rpgValidationDriver?: RpgRuntimeValidationDriver;
 };
@@ -75,13 +78,12 @@ export type MountedContext = {
 };
 
 export function usePlayerBootstrap(params: PlayerBootstrapParams) {
-  useEffect(() => {
-    const controller = new AbortController();
-    const resources: BootstrapResources = {};
-    void bootstrapPlayer(params, resources, controller).catch((error: unknown) => handleBootstrapError(error, controller, params));
-    return () => cleanupBootstrap(params, resources, controller);
-  }, [params]);
+  useSerializedPlayerBootstrap(
+    params, createBootstrapResources, bootstrapPlayer, cleanupBootstrap, handleBootstrapError,
+  );
 }
+
+function createBootstrapResources(): BootstrapResources {return {};}
 
 async function bootstrapPlayer(params: PlayerBootstrapParams, resources: BootstrapResources, controller: AbortController) {
   params.setMessage("正在加载 Core、ROM 与依赖配置…");
@@ -143,7 +145,7 @@ async function bootstrapOnsPlayer(
   );
   try {
     if (controller.signal.aborted) {await mountedRuntime.runtime.exit(); return;}
-    resources.cleanup = () => {void mountedRuntime.runtime.exit();};
+    resources.cleanup = () => mountedRuntime.runtime.exit();
     resources.nativeRuntimeSubscription = mountedRuntime.runtime.subscribe((event) => {
       if (event.type === "FATAL_ERROR") {
         params.setState("error");
@@ -188,7 +190,7 @@ async function bootstrapKiriKiriPlayer(
   );
   try {
     if (controller.signal.aborted) {await mountedRuntime.runtime.exit(); return;}
-    resources.cleanup = () => {void mountedRuntime.runtime.exit();};
+    resources.cleanup = () => mountedRuntime.runtime.exit();
     resources.nativeRuntimeSubscription = mountedRuntime.runtime.subscribe((event) => {
       if (event.type === "FATAL_ERROR") {
         params.setState("error");
@@ -258,7 +260,7 @@ async function bootstrapRpgMakerPlayer(
     return;
   }
   try {
-    resources.cleanup = () => {void mountedRuntime.runtime.exit();};
+    resources.cleanup = () => mountedRuntime.runtime.exit();
     resources.rpgRuntimeSubscription = mountedRuntime.runtime.subscribe((event) => {
       if (event.type !== "CHECKPOINT_AVAILABILITY_CHANGED" || validationDriver) {return;}
       params.manualSaveAvailableRef.current = event.availability.available;
@@ -580,8 +582,8 @@ function handleBootstrapError(error: unknown, controller: AbortController, param
   params.setState("error");
 }
 
-function cleanupBootstrap(params: PlayerBootstrapParams, resources: BootstrapResources, controller: AbortController) {
-  controller.abort(); resources.cleanupRuntimeGamepadFilter?.(); resources.cleanup?.(); resources.canvasContain?.cleanup(); resources.cleanupFrameControls?.();
+async function cleanupBootstrap(params: PlayerBootstrapParams, resources: BootstrapResources, controller: AbortController) {
+  controller.abort(); resources.cleanupRuntimeGamepadFilter?.(); resources.canvasContain?.cleanup(); resources.cleanupFrameControls?.();
 	resources.rpgRuntimeSubscription?.();
 	resources.nativeRuntimeSubscription?.();
   resources.ownedNetplayController?.dispose();
@@ -594,4 +596,5 @@ function cleanupBootstrap(params: PlayerBootstrapParams, resources: BootstrapRes
   if (validationDriver) {
     params.setRpgValidationDriver((current) => current === validationDriver ? null : current);
   }
+  await resources.cleanup?.();
 }
