@@ -111,9 +111,10 @@ class KiriKiriProductAcceptanceTests(unittest.TestCase):
         self.assertIn('getByRole("button", { name: "已暂停，点击游戏画面继续"', contents)
         self.assertIn('locator(".player-stage").dispatchEvent("click")', contents)
 
-    def test_smoke_input_targets_the_first_kag_menu_choice(self) -> None:
+    def test_smoke_input_scans_bounded_kag_menu_targets_with_the_gamepad(self) -> None:
         contents = DRIVER_PATH.read_text(encoding="utf-8")
-        self.assertIn("await moveVirtualGamepadCursor(canvas, 0.5, 0.34);", contents)
+        self.assertIn("const kagInputTargets = [", contents)
+        self.assertIn("for (const [targetX, targetY] of kagInputTargets)", contents)
         self.assertNotIn("await canvas.click({ position:", contents)
 
     def test_standard_gamepad_drives_visible_pointer_confirm_and_cancel(self) -> None:
@@ -159,10 +160,14 @@ class KiriKiriProductAcceptanceTests(unittest.TestCase):
     def test_input_accepts_a_visible_kag_transition_that_never_reports_unstable(self) -> None:
         contents = DRIVER_PATH.read_text(encoding="utf-8")
         self.assertIn("await waitForKagStable(canvas);", contents)
-        self.assertIn("const transition = waitForKagTransition(canvas, beforeFrame);", contents)
+        self.assertIn("const transition = waitForKagTransition(canvas, beforeFrame, 5_000);", contents)
         self.assertIn("await transition;", contents)
         self.assertIn("const beforeFrame = await canvasFrameFingerprint(canvas);", contents)
-        self.assertIn("await moveVirtualGamepadCursor(canvas, 0.5, 0.34);", contents)
+        self.assertIn("const kagInputTargets = [", contents)
+        self.assertIn("[0.11, 0.38]", contents)
+        self.assertIn("for (const [targetX, targetY] of kagInputTargets)", contents)
+        self.assertIn("await moveVirtualGamepadCursor(canvas, targetX, targetY);", contents)
+        self.assertIn("waitForKagTransition(canvas, beforeFrame, 5_000)", contents)
         self.assertIn("await setVirtualGamepadButton(canvas, 0, false);", contents)
         self.assertNotIn("page.keyboard.press", contents)
         self.assertIn("observedUnstable = true;", contents)
