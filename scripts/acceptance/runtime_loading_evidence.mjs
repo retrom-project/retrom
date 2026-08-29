@@ -1,7 +1,11 @@
 const largeFileThresholdBytes = 4 * 1024 * 1024;
 const projectPathPattern = /^\/runtime\/content\/project\/([0-9a-f]{64})\/(.+)$/u;
 
-export function trackRuntimeLoading(page, declaredProjectFiles = []) {
+export function trackRuntimeLoading(
+  page,
+  declaredProjectFiles = [],
+  { collectRuntimeTimings = true } = {},
+) {
   const responses = [];
   const indexes = declaredProjectFiles.length ? [{ files: declaredProjectFiles }] : [];
   const pending = new Set();
@@ -15,7 +19,9 @@ export function trackRuntimeLoading(page, declaredProjectFiles = []) {
     snapshot: async () => {
       while (pending.size) {await Promise.allSettled([...pending]);}
       return {
-        evidence: summarizeRuntimeLoading({ indexes, responses, timings: await runtimeTimings(page) }),
+        evidence: summarizeRuntimeLoading({
+          indexes, responses, timings: collectRuntimeTimings ? await runtimeTimings(page) : [],
+        }),
         projectContentIdentity: singleProjectIdentity(responses),
       };
     },

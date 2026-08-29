@@ -418,6 +418,12 @@ class EvidenceContractTests(unittest.TestCase):
                 self.assertIn("...localProxy.contextOptions", source)
                 self.assertIn("await localProxy.close()", source)
 
+    def test_native_generation_loading_evidence_does_not_sample_game_frame_timings(self) -> None:
+        source = BROWSER_PATH.read_text()
+        self.assertIn('collectRuntimeTimings: config.adapter?.adapterKind !== "NATIVE_WEB"', source)
+        self.assertEqual(2, source.count("trackRuntimeLoading("))
+        self.assertEqual(3, source.count("loadingProbeOptions"))
+
     def test_generation_provision_covers_all_seven_current_routes_and_state_inputs(self) -> None:
         source = GENERATION_PROVISION_PATH.read_text()
         expected = {
