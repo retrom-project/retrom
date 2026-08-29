@@ -122,7 +122,7 @@ class RPGMakerReleaseAssetTests(unittest.TestCase):
                 "schema_version": 1,
                 "source_root": str(source.resolve()),
                 "source_commit": "a" * 40,
-                "package_version": "0.4.0",
+                "package_version": "0.4.1",
                 "overlaid_assets": ["runtime/ons/onsyuri.js"],
             }
             (root / BUILD.DEV_MARKER_FILENAME).write_text(json.dumps(marker), encoding="utf-8")
