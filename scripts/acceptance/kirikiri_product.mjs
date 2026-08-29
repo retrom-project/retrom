@@ -96,6 +96,9 @@ async function runProductCase(activeBrowser) {
     await previewPage.goto(`${baseUrl}${preview.playUrl}`, { waitUntil: "domcontentloaded", timeout: 120_000 });
     const previewCanvas = await runtimeCanvas(previewPage);
     await withStableStage(
+      () => waitForKagStable(previewCanvas), "KIRIKIRI_ACCEPTANCE_PREVIEW_RUNTIME_NOT_READY",
+    );
+    await withStableStage(
       () => verifyGamepadCancel(previewCanvas), "KIRIKIRI_ACCEPTANCE_GAMEPAD_CANCEL_FAILED",
     );
     await withStableStage(() => advanceKag(previewCanvas), "KIRIKIRI_ACCEPTANCE_GAMEPAD_CONFIRM_FAILED");

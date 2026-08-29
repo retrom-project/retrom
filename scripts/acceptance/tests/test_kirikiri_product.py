@@ -157,6 +157,16 @@ class KiriKiriProductAcceptanceTests(unittest.TestCase):
         self.assertIn('"KIRIKIRI_ACCEPTANCE_GAMEPAD_CANCEL_FAILED"', contents)
         self.assertIn('"KIRIKIRI_ACCEPTANCE_GAMEPAD_CONFIRM_FAILED"', contents)
 
+    def test_preview_waits_for_stable_runtime_before_cancel_probe(self) -> None:
+        contents = DRIVER_PATH.read_text(encoding="utf-8")
+        preview_start = contents.index("const previewCanvas = await runtimeCanvas(previewPage);")
+        preview_end = contents.index("await previewPage.close();", preview_start)
+        preview_flow = contents[preview_start:preview_end]
+        self.assertLess(
+            preview_flow.index("() => waitForKagStable(previewCanvas)"),
+            preview_flow.index("() => verifyGamepadCancel(previewCanvas)"),
+        )
+
     def test_input_accepts_a_visible_kag_transition_that_never_reports_unstable(self) -> None:
         contents = DRIVER_PATH.read_text(encoding="utf-8")
         self.assertIn("await waitForKagStable(canvas);", contents)
