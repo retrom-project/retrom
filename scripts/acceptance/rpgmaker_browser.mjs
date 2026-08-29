@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { chromium } from "../../web/node_modules/playwright/index.mjs";
+import { localRpgAcceptanceProxy } from "./rpgmaker_local_proxy.mjs";
 import { normalizedBase } from "./rpgmaker_url.mjs";
 import { trackRuntimeLoading } from "./runtime_loading_evidence.mjs";
 
@@ -16,10 +17,13 @@ const screenshotDir = join(caseDir, "screenshots");
 const productReadyTimeoutMs = 180_000;
 mkdirSync(screenshotDir, { recursive: true });
 
+const localProxy = await localRpgAcceptanceProxy(baseUrl);
 const browser = await chromium.launch({ executablePath: chromeExecutablePath, headless: true });
 const chromeVersion = browser.version();
 try {
-  const context = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
+  const context = await browser.newContext({
+    viewport: { width: 1440, height: 1000 }, ...localProxy.contextOptions,
+  });
   const login = await jsonRequest(context.request, "POST", "/api/v1/auth/login", {
     headers: { Origin: baseUrl }, data: { username, password }, expected: 200,
   });
@@ -34,6 +38,7 @@ try {
   if (payload.status === "BLOCKED") { process.exitCode = 3; }
 } finally {
   await browser.close();
+  await localProxy.close();
 }
 
 async function catalogCase(context, writeHeaders) {

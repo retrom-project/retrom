@@ -10,6 +10,7 @@ import { chromium } from "../../web/node_modules/playwright/index.mjs";
 import {
   createProductClient, directoryFiles, reviewForImport,
 } from "./rpgmaker_security_upload.mjs";
+import { localRpgAcceptanceProxy } from "./rpgmaker_local_proxy.mjs";
 import { isLocalAcceptanceHostname } from "./rpgmaker_url.mjs";
 
 const cases = {
@@ -75,12 +76,15 @@ const sourceFiles = directoryFiles(config.source(), config.prefix);
 if (caseId === "ACC-RPG-008") {
   validateMZProvenance(sourceFiles, required("RPG_MZ_SMOKE_PROVENANCE"));
 }
+const localProxy = await localRpgAcceptanceProxy(baseUrl);
 const browser = await chromium.launch({
   executablePath: required("RETROM_CHROME_EXECUTABLE"), headless: true,
 });
 
 try {
-  const context = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
+  const context = await browser.newContext({
+    viewport: { width: 1440, height: 1000 }, ...localProxy.contextOptions,
+  });
   const loginResponse = await context.request.post(`${baseUrl}/api/v1/auth/login`, {
     headers: { Origin: baseUrl },
     data: {
@@ -110,6 +114,7 @@ try {
   }, null, 2)}\n`);
 } finally {
   await browser.close();
+  await localProxy.close();
 }
 
 async function provisionReview(client, sourceFiles, platformInstanceId) {
