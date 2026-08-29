@@ -178,16 +178,15 @@ function validateEasy(config: RpgRuntimeConfig, route: Route) {
   const adapter = config.adapter;
   if (![adapter.adapterKind === "EASYRPG_WEB", "engineMode" in route, exactKeys(adapter, [
     "adapterId", "adapterKind", "checkpointSlot", "engineMode", "projectIndexUrl", "projectRootUrl",
-    "rtpArchive", "runtimeBaseUrl",
+    "rtpSource", "runtimeBaseUrl",
   ])].every(Boolean) || adapter.adapterKind !== "EASYRPG_WEB" || !("engineMode" in route)) {return false;}
   const root = `/runtime/projects/${config.launchId}/`;
-  const mountPath = route.engineMode === "rpg2k" ? "/data/rtp/2000" : "/data/rtp/2003";
   const runtime = `/runtime/retrom-runtime/${route.runtimeVersion}/`;
   return [
     adapter.engineMode === route.engineMode, adapter.runtimeBaseUrl === runtime,
     validAppUrl(adapter.runtimeBaseUrl), adapter.projectRootUrl === root, validAppUrl(adapter.projectRootUrl),
     adapter.projectIndexUrl === `${root}index.json`, validAppUrl(adapter.projectIndexUrl),
-    adapter.checkpointSlot === 100, validEasyRtp(adapter.rtpArchive, root, mountPath),
+    adapter.checkpointSlot === 100, validEasyRtp(adapter.rtpSource, root),
   ].every(Boolean);
 }
 
@@ -241,15 +240,14 @@ function validateNative(config: RpgRuntimeConfig, route: Route) {
 }
 
 function validEasyRtp(
-  archive: Extract<RpgRuntimeConfig["adapter"], { adapterKind: "EASYRPG_WEB" }>["rtpArchive"],
+  source: Extract<RpgRuntimeConfig["adapter"], { adapterKind: "EASYRPG_WEB" }>["rtpSource"],
   root: string,
-  mountPath: string,
 ) {
-  if (archive === null) {return true;}
-  const url = typeof archive.url === "string" ? archive.url : "";
+  if (source === null) {return true;}
+  const url = typeof source.indexUrl === "string" ? source.indexUrl : "";
   return [
-    exactKeys(archive, ["mountPath", "sha256", "url"]), digest.test(archive.sha256), validAppUrl(url),
-    validAppPrefix(url, root), archive.mountPath === mountPath,
+    exactKeys(source, ["indexUrl", "kind"]), source.kind === "FILE_TREE_V1", validAppUrl(url),
+    validAppPrefix(url, `${root}__retrom__/packs/`), url.endsWith("/index.json"),
   ].every(Boolean);
 }
 

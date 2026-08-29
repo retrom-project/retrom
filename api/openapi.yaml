@@ -510,8 +510,8 @@ components:
       $ref: ./domains/runtime.yaml#/components/schemas/CheckpointAvailability
     RpgCheckpointRestore:
       $ref: ./domains/runtime.yaml#/components/schemas/RpgCheckpointRestore
-    EasyRpgRtpArchive:
-      $ref: ./domains/runtime.yaml#/components/schemas/EasyRpgRtpArchive
+    FileTreeSource:
+      $ref: ./domains/runtime.yaml#/components/schemas/FileTreeSource
     EasyRpgAdapterConfig:
       $ref: ./domains/runtime.yaml#/components/schemas/EasyRpgAdapterConfig
     MkxpCoreArtifact:

@@ -3533,11 +3533,10 @@ export interface components {
             payloadKind: components["schemas"]["CheckpointPayloadKind"];
             payloadUrl: string;
         };
-        EasyRpgRtpArchive: {
-            url: string;
-            sha256: string;
+        FileTreeSource: {
             /** @enum {string} */
-            mountPath: "/data/rtp/2000" | "/data/rtp/2003";
+            kind: "FILE_TREE_V1";
+            indexUrl: string;
         };
         EasyRpgAdapterConfig: {
             /**
@@ -3552,7 +3551,7 @@ export interface components {
             runtimeBaseUrl: string;
             projectRootUrl: string;
             projectIndexUrl: string;
-            rtpArchive: components["schemas"]["EasyRpgRtpArchive"] | null;
+            rtpSource: components["schemas"]["FileTreeSource"] | null;
             /** @enum {integer} */
             checkpointSlot: 100;
         };

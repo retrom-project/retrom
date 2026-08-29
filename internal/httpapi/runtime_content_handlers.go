@@ -13,6 +13,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -85,6 +86,10 @@ func (server *Server) launchProjectFile(writer http.ResponseWriter, request *htt
 		)
 		return
 	}
+	if strings.HasPrefix(logicalName, "__retrom__/packs/") {
+		server.launchRuntimePackFile(writer, request, launchID, grant.Capability, logicalName)
+		return
+	}
 	if logicalName == "index.json" {
 		if index, err := server.launcher.ProjectIndex(
 			request.Context(), launchID, grant.Capability,
@@ -123,6 +128,66 @@ func (server *Server) launchProjectFile(writer http.ResponseWriter, request *htt
 	writer.Header().Set("Content-Type", mediaType)
 	writer.Header().Set("Cache-Control", immutablePrivateContent)
 	writer.Header().Set("ETag", `"sha256-`+content.Digest+`"`)
+	writer.Header().Set("Accept-Ranges", "bytes")
+	writer.Header().Set("X-Content-Type-Options", "nosniff")
+	http.ServeContent(writer, request, filepath.Base(logicalName), time.Unix(0, 0), file)
+}
+
+func (server *Server) launchRuntimePackFile(
+	writer http.ResponseWriter,
+	request *http.Request,
+	launchID string,
+	capability string,
+	logicalName string,
+) {
+	parts := strings.Split(logicalName, "/")
+	if len(parts) < 4 || parts[0] != "__retrom__" || parts[1] != "packs" {
+		writeError(writer, request, http.StatusUnauthorized, "LAUNCH_CREDENTIAL_INVALID", "项目内容不可用", map[string]any{})
+		return
+	}
+	slot, err := strconv.Atoi(parts[2])
+	if err != nil {
+		writeError(writer, request, http.StatusUnauthorized, "LAUNCH_CREDENTIAL_INVALID", "项目内容不可用", map[string]any{})
+		return
+	}
+	if len(parts) == 4 && parts[3] == "index.json" {
+		index, indexErr := server.launcher.RuntimePackIndex(request.Context(), launchID, capability, slot)
+		if indexErr != nil {
+			writeError(writer, request, http.StatusUnauthorized, "LAUNCH_CREDENTIAL_INVALID", "项目内容不可用", map[string]any{})
+			return
+		}
+		serveProjectIndex(writer, request, index)
+		return
+	}
+	if len(parts) < 5 || parts[3] != "files" {
+		writeError(writer, request, http.StatusUnauthorized, "LAUNCH_CREDENTIAL_INVALID", "项目内容不可用", map[string]any{})
+		return
+	}
+	packFile, fileErr := server.launcher.RuntimePackFile(
+		request.Context(), launchID, capability, slot, strings.Join(parts[4:], "/"),
+	)
+	if fileErr != nil {
+		writeError(writer, request, http.StatusUnauthorized, "LAUNCH_CREDENTIAL_INVALID", "项目内容不可用", map[string]any{})
+		return
+	}
+	file, openErr := server.blobs.OpenDigest(packFile.Digest)
+	if openErr != nil {
+		writeError(writer, request, http.StatusServiceUnavailable, "CAS_UNAVAILABLE", "项目内容不可用", map[string]any{})
+		return
+	}
+	defer func() { cleanup.Error("close runtime pack file", file.Close()) }()
+	stat, statErr := file.Stat()
+	if statErr != nil || stat.Size() != packFile.SizeBytes {
+		writeError(writer, request, http.StatusServiceUnavailable, "CAS_UNAVAILABLE", "项目内容不可用", map[string]any{})
+		return
+	}
+	mediaType := mime.TypeByExtension(filepath.Ext(logicalName))
+	if mediaType == "" {
+		mediaType = "application/octet-stream"
+	}
+	writer.Header().Set("Content-Type", mediaType)
+	writer.Header().Set("Cache-Control", immutablePrivateContent)
+	writer.Header().Set("ETag", `"sha256-`+packFile.Digest+`"`)
 	writer.Header().Set("Accept-Ranges", "bytes")
 	writer.Header().Set("X-Content-Type-Options", "nosniff")
 	http.ServeContent(writer, request, filepath.Base(logicalName), time.Unix(0, 0), file)

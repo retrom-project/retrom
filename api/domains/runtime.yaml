@@ -649,26 +649,21 @@ components:
         payloadUrl:
           type: string
           pattern: ^/runtime/launches/[0-9a-f-]{36}/state$
-    EasyRpgRtpArchive:
+    FileTreeSource:
       type: object
       additionalProperties: false
       required:
-        - url
-        - sha256
-        - mountPath
+        - kind
+        - indexUrl
       properties:
-        url:
+        kind:
+          type: string
+          enum:
+            - FILE_TREE_V1
+        indexUrl:
           type: string
           minLength: 1
           maxLength: 2048
-        sha256:
-          type: string
-          pattern: ^[0-9a-f]{64}$
-        mountPath:
-          type: string
-          enum:
-            - /data/rtp/2000
-            - /data/rtp/2003
     EasyRpgAdapterConfig:
       type: object
       additionalProperties: false
@@ -679,7 +674,7 @@ components:
         - runtimeBaseUrl
         - projectRootUrl
         - projectIndexUrl
-        - rtpArchive
+        - rtpSource
         - checkpointSlot
       properties:
         adapterKind:
@@ -707,10 +702,10 @@ components:
           type: string
           minLength: 1
           maxLength: 2048
-        rtpArchive:
+        rtpSource:
           nullable: true
           allOf:
-            - $ref: '#/components/schemas/EasyRpgRtpArchive'
+            - $ref: '#/components/schemas/FileTreeSource'
         checkpointSlot:
           type: integer
           enum:

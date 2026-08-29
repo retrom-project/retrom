@@ -84,17 +84,17 @@ type EasyRPGAdapterConfig struct {
 	RuntimeBaseURL  string             `json:"runtimeBaseUrl"`
 	ProjectRootURL  string             `json:"projectRootUrl"`
 	ProjectIndexURL string             `json:"projectIndexUrl"`
-	RTPArchive      *EasyRPGArchiveURL `json:"rtpArchive"`
+	RTPSource       *RPGFileTreeSource `json:"rtpSource"`
 	CheckpointSlot  int                `json:"checkpointSlot"`
 }
 
-type EasyRPGArchiveURL struct {
-	URL       string `json:"url"`
-	SHA256    string `json:"sha256"`
-	MountPath string `json:"mountPath"`
+type RPGFileTreeSource struct {
+	Kind     string `json:"kind"`
+	IndexURL string `json:"indexUrl"`
 }
 
 type RPGSeekableBlobSource struct {
+	Slot          int    `json:"-"`
 	Kind          string `json:"kind"`
 	RangeRequired bool   `json:"rangeRequired"`
 	DeclaredName  string `json:"declaredName,omitempty"`
@@ -214,12 +214,8 @@ func (service *Service) rpgMakerConfig(
 	ctx context.Context,
 	launchID, capability string,
 ) (RPGMakerConfig, error) {
-	source, err := service.loadRPGConfigSource(ctx, launchID)
-	if err != nil || !retromruntime.MatchesCapability(capability, source.credentialHash) ||
-		!validConfigLifetime(
-			source.state, source.bootstrapExpires, source.hardExpires, source.idleExpires,
-			service.now().UnixMilli(),
-		) {
+	source, err := service.authorizedRPGConfigSource(ctx, launchID, capability)
+	if err != nil {
 		return RPGMakerConfig{}, ErrCredential
 	}
 	checkpointValue, checkpointAvailable, err := service.loadRPGCheckpointConfig(ctx, launchID, source)
@@ -261,6 +257,21 @@ func (service *Service) rpgMakerConfig(
 		RuntimeValidation:      validation,
 		Adapter:                adapter,
 	}, nil
+}
+
+func (service *Service) authorizedRPGConfigSource(
+	ctx context.Context,
+	launchID, capability string,
+) (rpgConfigSource, error) {
+	source, err := service.loadRPGConfigSource(ctx, launchID)
+	if err != nil || !retromruntime.MatchesCapability(capability, source.credentialHash) ||
+		!validConfigLifetime(
+			source.state, source.bootstrapExpires, source.hardExpires, source.idleExpires,
+			service.now().UnixMilli(),
+		) {
+		return rpgConfigSource{}, ErrCredential
+	}
+	return source, nil
 }
 
 func (service *Service) loadRPGValidationResume(
@@ -455,9 +466,9 @@ func (service *Service) buildEasyRPGAdapterConfig(
 	runtimeBase string,
 	projectRoot string,
 ) (EasyRPGAdapterConfig, error) {
-	engine, mount := "rpg2k", "/data/rtp/2000"
+	engine := "rpg2k"
 	if source.generation == "RPG2003" {
-		engine, mount = "rpg2k3", "/data/rtp/2003"
+		engine = "rpg2k3"
 	} else if source.generation != "RPG2000" {
 		return EasyRPGAdapterConfig{}, ErrBlocked
 	}
@@ -465,14 +476,17 @@ func (service *Service) buildEasyRPGAdapterConfig(
 	if err != nil || len(packs) > 1 {
 		return EasyRPGAdapterConfig{}, ErrBlocked
 	}
-	var pack *EasyRPGArchiveURL
+	var pack *RPGFileTreeSource
 	if len(packs) == 1 {
-		pack = &EasyRPGArchiveURL{URL: packs[0].URL, SHA256: packs[0].SHA256, MountPath: mount}
+		pack = &RPGFileTreeSource{
+			Kind:     "FILE_TREE_V1",
+			IndexURL: fmt.Sprintf("%s__retrom__/packs/%d/index.json", projectRoot, packs[0].Slot),
+		}
 	}
 	return EasyRPGAdapterConfig{
 		AdapterKind: source.runtimeKind, AdapterID: source.adapterID, EngineMode: engine,
 		RuntimeBaseURL: runtimeBase, ProjectRootURL: projectRoot,
-		ProjectIndexURL: projectRoot + "index.json", RTPArchive: pack, CheckpointSlot: 100,
+		ProjectIndexURL: projectRoot + "index.json", RTPSource: pack, CheckpointSlot: 100,
 	}, nil
 }
 
@@ -708,6 +722,7 @@ ORDER BY 1
 		if !valid {
 			return nil, ErrBlocked
 		}
+		pack.Slot = slot
 		packs = append(packs, pack)
 	}
 	if err := rows.Err(); err != nil {

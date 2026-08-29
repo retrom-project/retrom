@@ -34,6 +34,18 @@ func TestRPGSeekableBlobSourceIsStrictAndComplete(t *testing.T) {
 	}
 }
 
+func TestRPGFileTreeSourceJSONIsStrictAndComplete(t *testing.T) {
+	t.Parallel()
+	encoded, err := json.Marshal(RPGFileTreeSource{
+		Kind:     "FILE_TREE_V1",
+		IndexURL: "/runtime/projects/0198abcd-1234-7123-8abc-1234567890ab/__retrom__/packs/0/index.json",
+	})
+	if err != nil || string(encoded) !=
+		`{"kind":"FILE_TREE_V1","indexUrl":"/runtime/projects/0198abcd-1234-7123-8abc-1234567890ab/__retrom__/packs/0/index.json"}` {
+		t.Fatalf("file tree source = %s, error=%v", encoded, err)
+	}
+}
+
 func TestMKXPCoreConfigUsesObservedReleaseCoordinates(t *testing.T) {
 	t.Parallel()
 
