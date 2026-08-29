@@ -7,7 +7,7 @@
 /.dev-data/
 /bin/
 /retrom
-/internal/httpapi/generated/api.gen.go
+/internal/httpapi/generated/*.gen.go
 /coverage/
 /coverage.out
 /playwright-report/

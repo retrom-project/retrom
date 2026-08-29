@@ -9,7 +9,7 @@
 
 ## 1. 使用方式
 
-本文回答“按什么顺序实现才不会返工”。产品边界以[总体架构](./retrom-product-architecture.md)为准，数据库字段以[数据模型](./data-model.md)为准，HTTP 以[API 契约](./http-api-contract.md)和实现后的 `api/openapi.yaml` 为准，最终通过与否只以[统一验收](./project-acceptance.md)为准。本文不得成为第二套字段、路由或验收步骤。
+本文回答“按什么顺序实现才不会返工”。产品边界以[总体架构](./retrom-product-architecture.md)为准，数据库字段以[数据模型](./data-model.md)为准，HTTP 以[API 契约](./http-api-contract.md)和以 `api/openapi.yaml` 为入口的 OpenAPI 领域文件集为准，最终通过与否只以[统一验收](./project-acceptance.md)为准。本文不得成为第二套字段、路由或验收步骤。
 
 实现 Agent 开始一个里程碑前必须：
 
@@ -42,7 +42,7 @@ flowchart LR
 以下顺序是强约束：
 
 - 数据库迁移先于 repository/store；store 先于领域 service；领域 service 先于 HTTP handler。
-- 新增或改变 HTTP 行为时先改 `api/openapi.yaml`，再运行生成器，最后实现 strict handler 和前端调用；禁止先手写 DTO/URL 再补 schema。
+- 新增或改变 HTTP 行为时先改对应 `api/domains/*.yaml`，同步入口的 path/component 闭集，再运行统一 bundle 与生成器，最后实现 strict handler 和前端调用；禁止先手写 DTO/URL 再补 schema。
 - 后端状态机和错误码完成并有测试后，前端才能实现对应成功、空、警告和阻断状态；不得以页面本地假状态代替服务端不变量。
 - 上传 bytes 必须先安全落入临时区/CAS，随后任务只引用 Blob/ArchiveEntry；worker 不接收浏览器路径或内存中的大文件对象。
 - Arcade 识别必须在目标 CoreArtifact 的 DAT 可用后进行；Hasheous 只生成展示候选，不能替代 DAT 或阻断无候选的审核。
@@ -238,7 +238,7 @@ OpenAPI、后端、集成、前端、结构、公开 fixture、data/dependency�
 
 尚未接通 UI 的后台能力可以先合并，但必须有可执行 API/集成测试且不暴露虚假菜单；尚未实现的路由不得返回伪成功。实验只能在测试或开发专用包内，不得写入生产 schema、seed、API 或设计稿。
 
-多个 Agent 并行时以事实源拆分所有权：同一时刻只能有一个 Agent 修改 migration 序列、`api/openapi.yaml`、依赖 manifest 或 UI 源稿中的同一区域。合并前重新生成、运行漂移检查并处理语义冲突，不能只解决文本 merge conflict。
+多个 Agent 并行时以事实源拆分所有权：同一时刻只能有一个 Agent 修改 migration 序列、同一 OpenAPI 领域文件或 common components 的同一区域、依赖 manifest 或 UI 源稿中的同一区域。合并前重新生成统一 bundle、运行漂移检查并处理语义冲突，不能只解决文本 merge conflict。
 
 ## 6. 可实施状态与剩余外部条件
 

@@ -1,0 +1,1081 @@
+paths:
+  /api/v1/admin/reviews:
+    get:
+      operationId: getAdminReviews
+      description: Pending review summaries including sourceTotalSizeBytes, sourceMd5, a nullable coverUrl, and STANDARD/PEGASUS/EMULATIONSTATION source identity for compact queue previews.
+      parameters:
+        - $ref: ../components/common.yaml#/components/parameters/Q
+        - $ref: ../components/common.yaml#/components/parameters/TagIDQuery
+        - $ref: '#/components/parameters/ImportJobIDQuery'
+        - $ref: '#/components/parameters/PegasusImportIDQuery'
+        - $ref: '#/components/parameters/EmulationStationImportIDQuery'
+        - $ref: ../components/common.yaml#/components/parameters/PlatformInstanceIDQuery
+        - $ref: '#/components/parameters/BlockerCode'
+        - $ref: ../components/common.yaml#/components/parameters/Sort
+        - $ref: ../components/common.yaml#/components/parameters/Cursor
+        - $ref: ../components/common.yaml#/components/parameters/Limit20
+      responses:
+        '200':
+          $ref: '#/components/responses/ReviewQueueListResponse'
+  /api/v1/admin/review-bulk-approval-preview:
+    get:
+      operationId: getAdminReviewBulkApprovalPreview
+      description: Recomputes the current filtered review scope and returns only strict READY candidates; screenshot-only overrides and duplicates are excluded.
+      parameters:
+        - $ref: ../components/common.yaml#/components/parameters/Q
+        - $ref: ../components/common.yaml#/components/parameters/TagIDQuery
+        - $ref: '#/components/parameters/ImportJobIDQuery'
+        - $ref: '#/components/parameters/PegasusImportIDQuery'
+        - $ref: '#/components/parameters/EmulationStationImportIDQuery'
+        - $ref: ../components/common.yaml#/components/parameters/PlatformInstanceIDQuery
+        - $ref: '#/components/parameters/BlockerCode'
+      responses:
+        '200':
+          $ref: ../components/common.yaml#/components/responses/JSONResponse
+  /api/v1/admin/review-bulk-approvals:
+    post:
+      operationId: postAdminReviewBulkApproval
+      description: Freezes the previewed strict READY candidates and starts a resumable sequential publication job.
+      parameters:
+        - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey
+      requestBody:
+        $ref: '#/components/requestBodies/ReviewBulkApproval'
+      responses:
+        '202':
+          $ref: ../components/common.yaml#/components/responses/JSONResponse
+  /api/v1/admin/review-bulk-approvals/{bulkApprovalId}:
+    parameters:
+      - $ref: '#/components/parameters/BulkApprovalID'
+    get:
+      operationId: getAdminReviewBulkApproval
+      responses:
+        '200':
+          $ref: ../components/common.yaml#/components/responses/JSONResponse
+  /api/v1/admin/review-bulk-approvals/{bulkApprovalId}/items:
+    parameters:
+      - $ref: '#/components/parameters/BulkApprovalID'
+    get:
+      operationId: getAdminReviewBulkApprovalItems
+      parameters:
+        - name: outcome
+          in: query
+          schema:
+            type: string
+            enum:
+              - PUBLISHED
+              - SKIPPED_DUPLICATE
+              - SKIPPED_CHANGED
+              - SKIPPED_NOT_READY
+              - FAILED_FINAL
+              - CANCELLED
+        - $ref: ../components/common.yaml#/components/parameters/Cursor
+        - $ref: ../components/common.yaml#/components/parameters/Limit50
+      responses:
+        '200':
+          $ref: ../components/common.yaml#/components/responses/JSONResponse
+  /api/v1/admin/review-bulk-approvals/{bulkApprovalId}/cancel:
+    parameters:
+      - $ref: '#/components/parameters/BulkApprovalID'
+    post:
+      operationId: postAdminReviewBulkApprovalCancel
+      parameters:
+        - $ref: ../components/common.yaml#/components/parameters/IfMatch
+        - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey
+      requestBody:
+        $ref: ../components/common.yaml#/components/requestBodies/Reason
+      responses:
+        '200':
+          $ref: ../components/common.yaml#/components/responses/JSONResponse
+  /api/v1/admin/review-bulk-approvals/{bulkApprovalId}/retry:
+    parameters:
+      - $ref: '#/components/parameters/BulkApprovalID'
+    post:
+      operationId: postAdminReviewBulkApprovalRetry
+      parameters:
+        - $ref: ../components/common.yaml#/components/parameters/IfMatch
+        - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey
+      requestBody:
+        $ref: ../components/common.yaml#/components/requestBodies/Empty
+      responses:
+        '202':
+          $ref: ../components/common.yaml#/components/responses/JSONResponse
+  /api/v1/admin/reviews/{importItemId}:
+    parameters:
+      - $ref: ../components/common.yaml#/components/parameters/ImportItemID
+    get:
+      operationId: getAdminReview
+      responses:
+        '200':
+          $ref: ../components/common.yaml#/components/responses/JSONResponse
+    patch:
+      operationId: patchAdminReview
+      parameters:
+        - $ref: ../components/common.yaml#/components/parameters/IfMatch
+      requestBody:
+        $ref: '#/components/requestBodies/ReviewDraft'
+      responses:
+        '200':
+          $ref: ../components/common.yaml#/components/responses/JSONResponse
+  /api/v1/admin/reviews/{importItemId}/runtime-validations:
+    parameters:
+      - $ref: ../components/common.yaml#/components/parameters/ImportItemID
+    post:
+      operationId: postAdminReviewRuntimeValidation
+      description: Freezes the current RPG Maker source, selected version core, route, artifact and runtime-pack binding into a fifteen-minute validation Launch.
+      parameters:
+        - $ref: ../components/common.yaml#/components/parameters/IfMatch
+        - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey
+      requestBody:
+        $ref: '#/components/requestBodies/RpgRuntimeValidationLaunchBody'
+      responses:
+        '201':
+          $ref: '#/components/responses/RpgRuntimeValidationLaunchResponse'
+        '404':
+          $ref: ../components/common.yaml#/components/responses/RpgNotFoundResponse
+        '409':
+          $ref: ../components/common.yaml#/components/responses/RpgConflictResponse
+        '422':
+          $ref: ../components/common.yaml#/components/responses/RpgUnprocessableResponse
+  /api/v1/admin/reviews/{importItemId}/runtime-validations/{validationId}:
+    parameters:
+      - $ref: ../components/common.yaml#/components/parameters/ImportItemID
+      - $ref: '#/components/parameters/RpgRuntimeValidationID'
+    get:
+      operationId: getAdminReviewRuntimeValidation
+      description: Returns frozen route evidence, ordered machine gates, the cross-Launch checkpoint round trip and the immutable reviewer decision without returning credentials.
+      responses:
+        '200':
+          $ref: '#/components/responses/RpgRuntimeValidationResponse'
+        '404':
+          $ref: ../components/common.yaml#/components/responses/RpgNotFoundResponse
+  /api/v1/admin/reviews/{importItemId}/runtime-validations/{validationId}/restore-launch:
+    parameters:
+      - $ref: ../components/common.yaml#/components/parameters/ImportItemID
+      - $ref: '#/components/parameters/RpgRuntimeValidationID'
+    post:
+      operationId: postAdminReviewRuntimeValidationRestoreLaunch
+      description: Creates exactly one restore Launch after the original validation Launch ended and its temporary checkpoint was fully persisted; idempotent replay returns that same distinct Launch.
+      parameters:
+        - $ref: ../components/common.yaml#/components/parameters/IfMatch
+        - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey
+      requestBody:
+        $ref: '#/components/requestBodies/RpgRuntimeValidationLaunchBody'
+      responses:
+        '201':
+          $ref: '#/components/responses/RpgRuntimeValidationLaunchResponse'
+        '404':
+          $ref: ../components/common.yaml#/components/responses/RpgNotFoundResponse
+        '409':
+          $ref: ../components/common.yaml#/components/responses/RpgConflictResponse
+        '422':
+          $ref: ../components/common.yaml#/components/responses/RpgUnprocessableResponse
+  /api/v1/admin/reviews/{importItemId}/runtime-validations/{validationId}/decision:
+    parameters:
+      - $ref: ../components/common.yaml#/components/parameters/ImportItemID
+      - $ref: '#/components/parameters/RpgRuntimeValidationID'
+    post:
+      operationId: postAdminReviewRuntimeValidationDecision
+      description: Records PASS only after every required machine gate proves a new-Launch restore at the saved in-game position; any binding drift or failed gate is non-overridable.
+      parameters:
+        - $ref: ../components/common.yaml#/components/parameters/IfMatch
+        - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey
+      requestBody:
+        $ref: '#/components/requestBodies/RpgRuntimeValidationDecision'
+      responses:
+        '200':
+          $ref: '#/components/responses/RpgRuntimeValidationResponse'
+        '404':
+          $ref: ../components/common.yaml#/components/responses/RpgNotFoundResponse
+        '409':
+          $ref: ../components/common.yaml#/components/responses/RpgConflictResponse
+        '422':
+          $ref: ../components/common.yaml#/components/responses/RpgUnprocessableResponse
+  /api/v1/admin/reviews/{importItemId}/scrape-candidates:
+    parameters:
+      - $ref: ../components/common.yaml#/components/parameters/ImportItemID
+    post:
+      operationId: postAdminReviewScrapeCandidates
+      parameters:
+        - $ref: ../components/common.yaml#/components/parameters/IfMatch
+        - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey
+      requestBody:
+        $ref: ../components/common.yaml#/components/requestBodies/MetadataProvider
+      responses:
+        '202':
+          $ref: ../components/common.yaml#/components/responses/JSONResponse
+  /api/v1/admin/reviews/{importItemId}/assets:
+    parameters:
+      - $ref: ../components/common.yaml#/components/parameters/ImportItemID
+    post:
+      operationId: postAdminReviewAsset
+      description: Validates a completed local image upload and records an immutable manual review asset. Selection is persisted separately through the review draft PATCH.
+      parameters:
+        - $ref: ../components/common.yaml#/components/parameters/IfMatch
+        - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey
+      requestBody:
+        $ref: '#/components/requestBodies/ReviewAsset'
+      responses:
+        '201':
+          $ref: ../components/common.yaml#/components/responses/JSONResponse
+  /api/v1/admin/reviews/{importItemId}/previews:
+    parameters:
+      - $ref: ../components/common.yaml#/components/parameters/ImportItemID
+    post:
+      operationId: postAdminReviewPreview
+      description: Creates a short-lived, capability-scoped browser preview from the immutable review source. Missing Parent or BIOS dependencies are omitted instead of blocking preview creation. Every preview captures one runtime screenshot five seconds after the core reports game start; a current screenshot may be used by an administrator to publish despite dependency blockers.
+      parameters:
+        - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey
+      requestBody:
+        $ref: '#/components/requestBodies/ReviewPreview'
+      responses:
+        '201':
+          $ref: ../components/common.yaml#/components/responses/JSONResponse
+  /api/v1/admin/reviews/{importItemId}/arcade-parent-attachments:
+    parameters:
+      - $ref: ../components/common.yaml#/components/parameters/ImportItemID
+    post:
+      operationId: postAdminReviewArcadeParentAttachment
+      description: Queues strict validation of one completed ZIP upload against a missing or mismatched Parent machine in the review draft's locked Arcade DAT closure.
+      parameters:
+        - $ref: ../components/common.yaml#/components/parameters/IfMatch
+        - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey
+      requestBody:
+        $ref: '#/components/requestBodies/ReviewArcadeParentAttachment'
+      responses:
+        '202':
+          $ref: ../components/common.yaml#/components/responses/JSONResponse
+  /api/v1/admin/reviews/{importItemId}/multi-disc-attachments:
+    parameters:
+      - $ref: ../components/common.yaml#/components/parameters/ImportItemID
+    post:
+      operationId: postAdminReviewMultiDiscAttachment
+      description: Queues validation of one completed FILES upload containing exactly every currently missing CHD.
+      parameters:
+        - $ref: ../components/common.yaml#/components/parameters/IfMatch
+        - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey
+      requestBody:
+        $ref: '#/components/requestBodies/ReviewMultiDiscAttachment'
+      responses:
+        '202':
+          $ref: ../components/common.yaml#/components/responses/JSONResponse
+  /api/v1/admin/reviews/{importItemId}/approve:
+    parameters:
+      - $ref: ../components/common.yaml#/components/parameters/ImportItemID
+    post:
+      operationId: postAdminReviewApprove
+      description: Publishes a current READY validation, or a current blocked validation that has a five-second runtime screenshot captured by its matching review preview. Screenshot overrides remain explicit in immutable review evidence and the published Variant compatibility code.
+      parameters:
+        - $ref: ../components/common.yaml#/components/parameters/IfMatch
+        - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey
+      requestBody:
+        $ref: '#/components/requestBodies/Approval'
+      responses:
+        '201':
+          $ref: ../components/common.yaml#/components/responses/JSONResponse
+  /api/v1/admin/reviews/{importItemId}/discard:
+    parameters:
+      - $ref: ../components/common.yaml#/components/parameters/ImportItemID
+    post:
+      operationId: postAdminReviewDiscard
+      parameters:
+        - $ref: ../components/common.yaml#/components/parameters/IfMatch
+        - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey
+      requestBody:
+        $ref: '#/components/requestBodies/ApprovalReason'
+      responses:
+        '200':
+          $ref: ../components/common.yaml#/components/responses/JSONResponse
+  /api/v1/admin/review-history:
+    get:
+      operationId: getAdminReviewHistory
+      description: Review decision summaries; selecting a row can load the immutable metadata snapshot captured at decision time.
+      parameters:
+        - $ref: ../components/common.yaml#/components/parameters/Q
+        - $ref: '#/components/parameters/Decision'
+        - $ref: ../components/common.yaml#/components/parameters/PlatformInstanceIDQuery
+        - $ref: '#/components/parameters/FromAtMs'
+        - $ref: '#/components/parameters/ToAtMs'
+        - $ref: ../components/common.yaml#/components/parameters/Sort
+        - $ref: ../components/common.yaml#/components/parameters/Cursor
+        - $ref: ../components/common.yaml#/components/parameters/Limit
+      responses:
+        '200':
+          $ref: ../components/common.yaml#/components/responses/JSONResponse
+  /api/v1/admin/review-history/{reviewEventId}:
+    parameters:
+      - $ref: '#/components/parameters/ReviewEventID'
+    get:
+      operationId: getAdminReviewHistoryEvent
+      description: Immutable textual and structured metadata/evidence captured for an approved or discarded review decision. Terminal review history intentionally contains no replayable cover, video, Blob, URL, path, hash, dimensions, MIME type, or other CAS payload reference.
+      responses:
+        '200':
+          $ref: ../components/common.yaml#/components/responses/JSONResponse
+components:
+  schemas:
+    RpgRuntimePackSelectionRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - slot
+        - installationId
+      properties:
+        slot:
+          type: integer
+          enum:
+            - 0
+            - 1
+            - 2
+            - 3
+        installationId:
+          type: string
+          format: uuid
+    RpgRuntimeRouteEvidence:
+      type: object
+      additionalProperties: false
+      required:
+        - effectiveSourceSnapshotId
+        - coreId
+        - generation
+        - evidenceGeneration
+        - evidenceConfidence
+        - routeKey
+        - artifactId
+        - artifactSetSha256
+        - adapterId
+        - adapterAbi
+        - dependencySnapshotSha256
+        - projectFingerprint
+      properties:
+        effectiveSourceSnapshotId:
+          type: string
+          format: uuid
+        coreId:
+          $ref: ../components/common.yaml#/components/schemas/RpgCoreID
+        generation:
+          $ref: ../components/common.yaml#/components/schemas/RpgGeneration
+        evidenceGeneration:
+          nullable: true
+          allOf:
+            - $ref: ../components/common.yaml#/components/schemas/RpgGeneration
+        evidenceConfidence:
+          type: string
+          enum:
+            - MATCHED
+            - FAMILY_ONLY
+        routeKey:
+          type: string
+          pattern: ^RPG[A-Z0-9_]{1,95}$
+        artifactId:
+          type: string
+          format: uuid
+        artifactSetSha256:
+          type: string
+          pattern: ^[0-9a-f]{64}$
+        adapterId:
+          type: string
+          enum:
+            - easyrpg-web
+            - mkxp-libretro-web
+            - native-web
+        adapterAbi:
+          type: string
+          minLength: 1
+          maxLength: 160
+        dependencySnapshotSha256:
+          type: string
+          pattern: ^[0-9a-f]{64}$
+        projectFingerprint:
+          type: string
+          pattern: ^[0-9a-f]{64}$
+    RpgCheckpointRoundTrip:
+      type: object
+      additionalProperties: false
+      required:
+        - created
+        - payloadKind
+        - resumeSlot
+        - sizeBytes
+        - sha256
+        - originalLaunchId
+        - initialPosition
+        - savedPosition
+        - divergedPosition
+        - originalLaunchEnded
+        - restoreLaunchId
+        - restoreStarted
+        - restoredPosition
+        - positionVerified
+        - screenshotUrl
+        - restoreInputPosition
+        - restoreInputVerified
+      properties:
+        created:
+          type: boolean
+        payloadKind:
+          nullable: true
+          allOf:
+            - $ref: ../components/common.yaml#/components/schemas/CheckpointPayloadKind
+        resumeSlot:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 2147483647
+          nullable: true
+        sizeBytes:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 268435456
+          nullable: true
+        sha256:
+          type: string
+          nullable: true
+          pattern: ^[0-9a-f]{64}$
+        originalLaunchId:
+          type: string
+          format: uuid
+          nullable: true
+        initialPosition:
+          nullable: true
+          allOf:
+            - $ref: ../components/common.yaml#/components/schemas/RpgPositionEvidence
+        savedPosition:
+          nullable: true
+          allOf:
+            - $ref: ../components/common.yaml#/components/schemas/RpgPositionEvidence
+        divergedPosition:
+          nullable: true
+          allOf:
+            - $ref: ../components/common.yaml#/components/schemas/RpgPositionEvidence
+        originalLaunchEnded:
+          type: boolean
+        restoreLaunchId:
+          type: string
+          format: uuid
+          nullable: true
+        restoreStarted:
+          type: boolean
+        restoredPosition:
+          nullable: true
+          allOf:
+            - $ref: ../components/common.yaml#/components/schemas/RpgPositionEvidence
+        positionVerified:
+          type: boolean
+        screenshotUrl:
+          type: string
+          nullable: true
+          pattern: ^/api/v1/admin/review-assets/
+        restoreInputPosition:
+          nullable: true
+          allOf:
+            - $ref: ../components/common.yaml#/components/schemas/RpgPositionEvidence
+        restoreInputVerified:
+          type: boolean
+      description: positionVerified is true only when restoreLaunchId differs from originalLaunchId, restoredPosition equals savedPosition field-for-field, and savedPosition differs from initialPosition and divergedPosition. restoreInputVerified additionally requires post-screenshot input to produce a position different from restoredPosition; screenshotUrl must represent the restored saved marker.
+    RpgRuntimeReviewerDecision:
+      type: object
+      nullable: true
+      additionalProperties: false
+      required:
+        - decision
+        - note
+        - decidedAtMs
+      properties:
+        decision:
+          type: string
+          enum:
+            - PASS
+            - FAIL
+        note:
+          type: string
+          maxLength: 500
+        decidedAtMs:
+          type: integer
+          format: int64
+          minimum: 0
+    RpgRuntimeValidation:
+      type: object
+      additionalProperties: false
+      required:
+        - validationId
+        - importItemId
+        - reviewVersionAtCreate
+        - runtimeBindingRevision
+        - launchId
+        - restoreLaunchId
+        - state
+        - lastGateSequence
+        - routeEvidence
+        - machineGates
+        - checkpointRoundTrip
+        - failureCode
+        - decision
+        - createdAtMs
+        - updatedAtMs
+        - expiresAtMs
+      properties:
+        validationId:
+          type: string
+          format: uuid
+        importItemId:
+          type: string
+          format: uuid
+        reviewVersionAtCreate:
+          type: integer
+          format: int64
+          minimum: 1
+        runtimeBindingRevision:
+          type: integer
+          format: int64
+          minimum: 1
+        launchId:
+          type: string
+          format: uuid
+          nullable: true
+          description: Null only when validation reached FAILED before its initial Launch was issued.
+        restoreLaunchId:
+          type: string
+          format: uuid
+          nullable: true
+        state:
+          $ref: ../components/common.yaml#/components/schemas/RpgRuntimeValidationState
+        lastGateSequence:
+          type: integer
+          format: int64
+          minimum: 0
+        routeEvidence:
+          $ref: '#/components/schemas/RpgRuntimeRouteEvidence'
+        machineGates:
+          type: array
+          minItems: 14
+          maxItems: 14
+          description: Exactly one entry for every RpgRuntimeGate in enum order.
+          items:
+            $ref: ../components/common.yaml#/components/schemas/RpgRuntimeMachineGate
+        checkpointRoundTrip:
+          $ref: '#/components/schemas/RpgCheckpointRoundTrip'
+        failureCode:
+          nullable: true
+          allOf:
+            - $ref: ../components/common.yaml#/components/schemas/RpgErrorCode
+        decision:
+          $ref: '#/components/schemas/RpgRuntimeReviewerDecision'
+        createdAtMs:
+          type: integer
+          format: int64
+          minimum: 0
+        updatedAtMs:
+          type: integer
+          format: int64
+          minimum: 0
+        expiresAtMs:
+          type: integer
+          format: int64
+          minimum: 0
+    RpgRuntimeValidationLaunch:
+      type: object
+      additionalProperties: false
+      required:
+        - validationId
+        - launchId
+        - playerUrl
+        - expiresAtMs
+      properties:
+        validationId:
+          type: string
+          format: uuid
+        launchId:
+          type: string
+          format: uuid
+        playerUrl:
+          type: string
+          pattern: ^/play/[0-9a-f-]{36}$
+        expiresAtMs:
+          type: integer
+          format: int64
+          minimum: 0
+    RpgRuntimeValidationDecisionRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - decision
+        - note
+      properties:
+        decision:
+          type: string
+          enum:
+            - PASS
+            - FAIL
+        note:
+          type: string
+          maxLength: 500
+          description: FAIL requires a non-empty normalized value. Both decisions enforce LF normalization, NFC, Unicode-whitespace trim, at most 500 Unicode scalars and 2,000 UTF-8 bytes, and reject the documented control-character set.
+    ApprovalReasonRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        reason:
+          type: string
+          nullable: true
+          maxLength: 500
+    ApprovalRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        reason:
+          type: string
+          nullable: true
+          maxLength: 500
+        duplicatePolicy:
+          type: string
+          enum:
+            - ALLOW_NEW
+        acknowledgedGameIds:
+          type: array
+          maxItems: 100
+          uniqueItems: true
+          items:
+            type: string
+            format: uuid
+    ReviewSourceKind:
+      type: string
+      enum:
+        - STANDARD
+        - PEGASUS
+        - EMULATIONSTATION
+    ReviewQueueItem:
+      type: object
+      additionalProperties: false
+      required:
+        - itemId
+        - reviewVersion
+        - importJobId
+        - sourceDisplayName
+        - draftTitle
+        - platformInstance
+        - validationStatus
+        - validationJobId
+        - blockerCodes
+        - candidateCount
+        - sourceTotalSizeBytes
+        - sourceMd5
+        - coverUrl
+        - sourceKind
+        - sourceLabel
+        - pegasusImportId
+        - emulationStationImportId
+        - updatedAtMs
+      properties:
+        itemId:
+          type: string
+          format: uuid
+        reviewVersion:
+          type: integer
+          format: int64
+          minimum: 1
+        importJobId:
+          type: string
+          format: uuid
+        sourceDisplayName:
+          type: string
+        draftTitle:
+          type: string
+        platformInstance:
+          type: object
+          additionalProperties: false
+          required:
+            - id
+            - name
+          properties:
+            id:
+              type: string
+              format: uuid
+            name:
+              type: string
+        validationStatus:
+          type: string
+          enum:
+            - READY
+            - BLOCKED
+            - INCOMPATIBLE
+            - NEEDS_VALIDATION
+        validationJobId:
+          type: string
+          format: uuid
+          nullable: true
+        blockerCodes:
+          type: array
+          items:
+            type: string
+        candidateCount:
+          type: integer
+          format: int64
+          minimum: 0
+        sourceTotalSizeBytes:
+          type: integer
+          format: int64
+          minimum: 0
+        sourceMd5:
+          type: string
+          nullable: true
+          pattern: ^[0-9a-f]{32}$
+        coverUrl:
+          type: string
+          nullable: true
+        sourceKind:
+          $ref: '#/components/schemas/ReviewSourceKind'
+        sourceLabel:
+          type: string
+          nullable: true
+        pegasusImportId:
+          type: string
+          format: uuid
+          nullable: true
+        emulationStationImportId:
+          type: string
+          format: uuid
+          nullable: true
+        updatedAtMs:
+          type: integer
+          format: int64
+          minimum: 0
+    ReviewQueueList:
+      type: object
+      additionalProperties: false
+      required:
+        - items
+        - nextCursor
+      properties:
+        items:
+          type: array
+          maxItems: 20
+          items:
+            $ref: '#/components/schemas/ReviewQueueItem'
+        nextCursor:
+          type: string
+          nullable: true
+    ReviewBulkApprovalScope:
+      type: object
+      additionalProperties: false
+      properties:
+        q:
+          type: string
+          maxLength: 200
+        tagId:
+          type: string
+          format: uuid
+        importJobId:
+          type: string
+          format: uuid
+        pegasusImportId:
+          type: string
+          format: uuid
+        emulationStationImportId:
+          type: string
+          format: uuid
+        platformInstanceId:
+          type: string
+          format: uuid
+        blockerCode:
+          type: string
+          maxLength: 120
+    ReviewBulkApprovalRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - scope
+        - scopeDigest
+        - candidateManifestDigest
+      properties:
+        scope:
+          $ref: '#/components/schemas/ReviewBulkApprovalScope'
+        scopeDigest:
+          type: string
+          pattern: ^[0-9a-f]{64}$
+        candidateManifestDigest:
+          type: string
+          pattern: ^[0-9a-f]{64}$
+    ReviewSelectedAssetsRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - coverCandidateAssetId
+        - coverUploadedAssetId
+        - backgroundCandidateAssetId
+        - screenshotCandidateAssetIds
+      properties:
+        coverCandidateAssetId:
+          type: string
+          format: uuid
+          nullable: true
+        coverUploadedAssetId:
+          type: string
+          format: uuid
+          nullable: true
+        backgroundCandidateAssetId:
+          type: string
+          format: uuid
+          nullable: true
+        screenshotCandidateAssetIds:
+          type: array
+          maxItems: 32
+          uniqueItems: true
+          items:
+            type: string
+            format: uuid
+    ReviewDraftRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - tagIds
+      properties:
+        targetPlatformInstanceId:
+          type: string
+          format: uuid
+        metadata:
+          $ref: ../components/common.yaml#/components/schemas/MetadataFields
+        selectedValidationId:
+          type: string
+          format: uuid
+        selectedCandidateId:
+          type: string
+          format: uuid
+          nullable: true
+        selectedAssets:
+          $ref: '#/components/schemas/ReviewSelectedAssetsRequest'
+        defaultDosEntry:
+          type: string
+          nullable: true
+        runtimePackSelections:
+          type: array
+          maxItems: 3
+          description: Required as a complete replacement for RPG Maker reviews and forbidden for other reviews; slot and installationId must each be unique.
+          items:
+            $ref: '#/components/schemas/RpgRuntimePackSelectionRequest'
+        rpgSelfContainedOverride:
+          type: boolean
+          description: Required for RPG Maker reviews; legal only for RPG2000/RPG2003 and false explicitly clears the override.
+        tagIds:
+          type: array
+          maxItems: 20
+          uniqueItems: true
+          items:
+            type: string
+            format: uuid
+      minProperties: 1
+    ReviewAssetRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - uploadFileId
+        - kind
+      properties:
+        uploadFileId:
+          type: string
+          format: uuid
+        kind:
+          type: string
+          enum:
+            - COVER
+    ReviewArcadeParentAttachmentRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - validationId
+        - baseSourceSnapshotId
+        - dependencyMachine
+        - uploadFileId
+      properties:
+        validationId:
+          type: string
+          format: uuid
+        baseSourceSnapshotId:
+          type: string
+          format: uuid
+        dependencyMachine:
+          type: string
+          minLength: 1
+          maxLength: 255
+        uploadFileId:
+          type: string
+          format: uuid
+    ReviewMultiDiscAttachmentRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - uploadId
+      properties:
+        uploadId:
+          type: string
+          format: uuid
+    ReviewPreviewRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - clientCapabilities
+      properties:
+        clientCapabilities:
+          $ref: ../components/common.yaml#/components/schemas/ClientCapabilities
+    RpgRuntimeValidationLaunchRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - clientCapabilities
+      properties:
+        clientCapabilities:
+          $ref: ../components/common.yaml#/components/schemas/ClientCapabilities
+  requestBodies:
+    ApprovalReason:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApprovalReasonRequest'
+    Approval:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApprovalRequest'
+    ReviewBulkApproval:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ReviewBulkApprovalRequest'
+    ReviewDraft:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ReviewDraftRequest'
+    RpgRuntimeValidationDecision:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/RpgRuntimeValidationDecisionRequest'
+    RpgRuntimeValidationLaunchBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/RpgRuntimeValidationLaunchRequest'
+    ReviewAsset:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ReviewAssetRequest'
+    ReviewArcadeParentAttachment:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ReviewArcadeParentAttachmentRequest'
+    ReviewMultiDiscAttachment:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ReviewMultiDiscAttachmentRequest'
+    ReviewPreview:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ReviewPreviewRequest'
+  responses:
+    RpgRuntimeValidationLaunchResponse:
+      description: Frozen RPG Maker validation or restore Launch
+      headers:
+        Location:
+          schema:
+            type: string
+        ETag:
+          schema:
+            type: string
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/RpgRuntimeValidationLaunch'
+    RpgRuntimeValidationResponse:
+      description: RPG Maker runtime validation evidence and decision
+      headers:
+        ETag:
+          schema:
+            type: string
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/RpgRuntimeValidation'
+    ReviewQueueListResponse:
+      description: Cursor-paged pending review summaries
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ReviewQueueList'
+  parameters:
+    ImportJobIDQuery:
+      name: importJobId
+      in: query
+      schema:
+        type: string
+        format: uuid
+    PegasusImportIDQuery:
+      name: pegasusImportId
+      in: query
+      schema:
+        type: string
+        format: uuid
+    EmulationStationImportIDQuery:
+      name: emulationStationImportId
+      in: query
+      schema:
+        type: string
+        format: uuid
+    BlockerCode:
+      name: blockerCode
+      in: query
+      schema:
+        type: string
+    Decision:
+      name: decision
+      in: query
+      schema:
+        type: string
+    FromAtMs:
+      name: fromAtMs
+      in: query
+      schema:
+        type: integer
+        format: int64
+        minimum: 0
+    ToAtMs:
+      name: toAtMs
+      in: query
+      schema:
+        type: integer
+        format: int64
+        minimum: 0
+    RpgRuntimeValidationID:
+      name: validationId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    BulkApprovalID:
+      name: bulkApprovalId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    ReviewEventID:
+      name: reviewEventId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid

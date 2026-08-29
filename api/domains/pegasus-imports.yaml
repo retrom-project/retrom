@@ -1,0 +1,759 @@
+paths:
+  /api/v1/admin/pegasus-imports:
+    get:
+      operationId: getAdminPegasusImports
+      parameters:
+        - $ref: ../components/common.yaml#/components/parameters/State
+        - $ref: ../components/common.yaml#/components/parameters/Cursor
+        - $ref: ../components/common.yaml#/components/parameters/Limit20
+      responses:
+        '200':
+          $ref: '#/components/responses/PegasusImportListResponse'
+    post:
+      operationId: postAdminPegasusImport
+      parameters:
+        - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey
+        - $ref: ../components/common.yaml#/components/parameters/CSRFToken
+      requestBody:
+        $ref: '#/components/requestBodies/CreatePegasusImport'
+      responses:
+        '202':
+          $ref: '#/components/responses/PegasusImportResponse'
+  /api/v1/admin/pegasus-imports/{pegasusImportId}:
+    parameters:
+      - $ref: '#/components/parameters/PegasusImportID'
+    get:
+      operationId: getAdminPegasusImport
+      responses:
+        '200':
+          $ref: '#/components/responses/PegasusImportResponse'
+    delete:
+      operationId: deleteAdminPegasusImport
+      parameters:
+        - $ref: ../components/common.yaml#/components/parameters/IfMatch
+        - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey
+        - $ref: ../components/common.yaml#/components/parameters/CSRFToken
+      responses:
+        '204':
+          description: Unstarted Pegasus import plan deleted
+  /api/v1/admin/pegasus-imports/{pegasusImportId}/collections:
+    parameters:
+      - $ref: '#/components/parameters/PegasusImportID'
+    get:
+      operationId: getAdminPegasusImportCollections
+      parameters:
+        - $ref: ../components/common.yaml#/components/parameters/Cursor
+        - $ref: ../components/common.yaml#/components/parameters/Limit100
+      responses:
+        '200':
+          $ref: '#/components/responses/PegasusCollectionListResponse'
+  /api/v1/admin/pegasus-imports/{pegasusImportId}/collection-mappings:
+    parameters:
+      - $ref: '#/components/parameters/PegasusImportID'
+    put:
+      operationId: putAdminPegasusImportCollectionMappings
+      parameters:
+        - $ref: ../components/common.yaml#/components/parameters/IfMatch
+        - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey
+        - $ref: ../components/common.yaml#/components/parameters/CSRFToken
+      requestBody:
+        $ref: '#/components/requestBodies/PegasusCollectionMappings'
+      responses:
+        '200':
+          $ref: '#/components/responses/PegasusImportResponse'
+  /api/v1/admin/pegasus-imports/{pegasusImportId}/start:
+    parameters:
+      - $ref: '#/components/parameters/PegasusImportID'
+    post:
+      operationId: postAdminPegasusImportStart
+      parameters:
+        - $ref: ../components/common.yaml#/components/parameters/IfMatch
+        - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey
+        - $ref: ../components/common.yaml#/components/parameters/CSRFToken
+      requestBody:
+        $ref: '#/components/requestBodies/PegasusImportStart'
+      responses:
+        '202':
+          $ref: '#/components/responses/PegasusImportResponse'
+  /api/v1/admin/pegasus-imports/{pegasusImportId}/items:
+    parameters:
+      - $ref: '#/components/parameters/PegasusImportID'
+    get:
+      operationId: getAdminPegasusImportItems
+      parameters:
+        - $ref: ../components/common.yaml#/components/parameters/Q
+        - $ref: ../components/common.yaml#/components/parameters/Outcome
+        - $ref: '#/components/parameters/PegasusWarning'
+        - $ref: '#/components/parameters/PegasusCollectionIDQuery'
+        - $ref: ../components/common.yaml#/components/parameters/Cursor
+        - $ref: ../components/common.yaml#/components/parameters/Limit50
+      responses:
+        '200':
+          $ref: '#/components/responses/PegasusItemListResponse'
+  /api/v1/admin/pegasus-imports/{pegasusImportId}/cancel:
+    parameters:
+      - $ref: '#/components/parameters/PegasusImportID'
+    post:
+      operationId: postAdminPegasusImportCancel
+      parameters:
+        - $ref: ../components/common.yaml#/components/parameters/IfMatch
+        - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey
+        - $ref: ../components/common.yaml#/components/parameters/CSRFToken
+      requestBody:
+        $ref: ../components/common.yaml#/components/requestBodies/Reason
+      responses:
+        '200':
+          $ref: '#/components/responses/PegasusImportResponse'
+        '202':
+          $ref: '#/components/responses/PegasusImportResponse'
+  /api/v1/admin/pegasus-imports/{pegasusImportId}/retry:
+    parameters:
+      - $ref: '#/components/parameters/PegasusImportID'
+    post:
+      operationId: postAdminPegasusImportRetry
+      parameters:
+        - $ref: ../components/common.yaml#/components/parameters/IfMatch
+        - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey
+        - $ref: ../components/common.yaml#/components/parameters/CSRFToken
+      requestBody:
+        $ref: ../components/common.yaml#/components/requestBodies/Empty
+      responses:
+        '202':
+          $ref: '#/components/responses/PegasusImportResponse'
+components:
+  schemas:
+    CreatePegasusImportRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - rootId
+        - sourceRelativePath
+      properties:
+        rootId:
+          type: string
+          pattern: ^[a-z][a-z0-9-]{0,31}$
+        sourceRelativePath:
+          type: string
+          maxLength: 4096
+    PegasusCollectionMapping:
+      type: object
+      additionalProperties: false
+      required:
+        - collectionId
+        - action
+        - tagIds
+      properties:
+        collectionId:
+          type: string
+          format: uuid
+        action:
+          type: string
+          enum:
+            - IMPORT
+            - SKIP
+        platformInstanceId:
+          type: string
+          format: uuid
+        tagIds:
+          type: array
+          maxItems: 20
+          uniqueItems: true
+          items:
+            type: string
+            format: uuid
+    PegasusCollectionMappingsRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - mappings
+      properties:
+        mappings:
+          type: array
+          minItems: 1
+          maxItems: 100
+          uniqueItems: true
+          items:
+            $ref: '#/components/schemas/PegasusCollectionMapping'
+    PegasusImportStartRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - version
+      properties:
+        version:
+          type: integer
+          format: int64
+          minimum: 1
+    PegasusImportCounts:
+      type: object
+      additionalProperties: false
+      required:
+        - metadata
+        - invalidMetadata
+        - collections
+        - games
+        - estimatedSourceBytes
+        - mappedCollections
+        - skippedCollections
+        - processable
+        - blocked
+        - reviewPending
+        - published
+        - reviewDiscarded
+        - existing
+        - failed
+        - cancelled
+        - mediaWarnings
+        - covers
+        - videos
+      properties:
+        metadata:
+          type: integer
+          format: int64
+          minimum: 0
+        invalidMetadata:
+          type: integer
+          format: int64
+          minimum: 0
+        collections:
+          type: integer
+          format: int64
+          minimum: 0
+        games:
+          type: integer
+          format: int64
+          minimum: 0
+        estimatedSourceBytes:
+          type: integer
+          format: int64
+          minimum: 0
+        mappedCollections:
+          type: integer
+          format: int64
+          minimum: 0
+        skippedCollections:
+          type: integer
+          format: int64
+          minimum: 0
+        processable:
+          type: integer
+          format: int64
+          minimum: 0
+        blocked:
+          type: integer
+          format: int64
+          minimum: 0
+        reviewPending:
+          type: integer
+          format: int64
+          minimum: 0
+        published:
+          type: integer
+          format: int64
+          minimum: 0
+        reviewDiscarded:
+          type: integer
+          format: int64
+          minimum: 0
+        existing:
+          type: integer
+          format: int64
+          minimum: 0
+        failed:
+          type: integer
+          format: int64
+          minimum: 0
+        cancelled:
+          type: integer
+          format: int64
+          minimum: 0
+        mediaWarnings:
+          type: integer
+          format: int64
+          minimum: 0
+        covers:
+          type: integer
+          format: int64
+          minimum: 0
+        videos:
+          type: integer
+          format: int64
+          minimum: 0
+    PegasusImportSummary:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - root
+        - sourceRelativePath
+        - state
+        - phase
+        - scanJobId
+        - importJobId
+        - counts
+        - mappingVersion
+        - version
+        - createdBy
+        - lastErrorCode
+        - retryable
+        - createdAtMs
+        - updatedAtMs
+        - expiresAtMs
+        - completedAtMs
+      properties:
+        id:
+          type: string
+          format: uuid
+        root:
+          type: object
+          additionalProperties: false
+          required:
+            - id
+            - label
+          properties:
+            id:
+              type: string
+            label:
+              type: string
+        sourceRelativePath:
+          type: string
+          maxLength: 4096
+        state:
+          type: string
+          enum:
+            - SCANNING
+            - AWAITING_MAPPING
+            - QUEUED
+            - RUNNING
+            - PARTIAL_FAILURE
+            - COMPLETED
+            - CANCEL_REQUESTED
+            - CANCELLED
+            - FAILED
+            - EXPIRED
+        phase:
+          type: string
+          nullable: true
+          enum:
+            - DISCOVERING_METADATA
+            - PARSING_METADATA
+            - RESOLVING_SOURCES
+            - COPYING_CONTENT
+            - VALIDATING
+            - PREPARING_REVIEWS
+        scanJobId:
+          type: string
+          format: uuid
+        importJobId:
+          type: string
+          format: uuid
+          nullable: true
+        counts:
+          $ref: '#/components/schemas/PegasusImportCounts'
+        mappingVersion:
+          type: integer
+          format: int64
+          minimum: 1
+        version:
+          type: integer
+          format: int64
+          minimum: 1
+        createdBy:
+          type: object
+          additionalProperties: false
+          required:
+            - id
+            - displayName
+          properties:
+            id:
+              type: string
+              format: uuid
+            displayName:
+              type: string
+        lastErrorCode:
+          type: string
+          nullable: true
+        retryable:
+          type: boolean
+        createdAtMs:
+          type: integer
+          format: int64
+          minimum: 0
+        updatedAtMs:
+          type: integer
+          format: int64
+          minimum: 0
+        expiresAtMs:
+          type: integer
+          format: int64
+          minimum: 0
+        completedAtMs:
+          type: integer
+          format: int64
+          minimum: 0
+          nullable: true
+    PegasusImportList:
+      type: object
+      additionalProperties: false
+      required:
+        - items
+        - nextCursor
+      properties:
+        items:
+          type: array
+          maxItems: 20
+          items:
+            $ref: '#/components/schemas/PegasusImportSummary'
+        nextCursor:
+          type: string
+          nullable: true
+    PegasusSourceCollection:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - metadataRelativePath
+        - segmentOrdinal
+        - name
+        - shortName
+        - description
+        - gameCount
+        - issueCount
+        - mappingAction
+        - targetPlatformInstanceId
+        - targetPlatformInstanceName
+        - targetDefaultCoreId
+        - targetDefaultCoreName
+        - tagSnapshot
+        - ignoredRules
+        - warningFields
+      properties:
+        id:
+          type: string
+          format: uuid
+        metadataRelativePath:
+          type: string
+          maxLength: 4096
+        segmentOrdinal:
+          type: integer
+          format: int64
+          minimum: 0
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        shortName:
+          type: string
+          nullable: true
+        description:
+          type: string
+        gameCount:
+          type: integer
+          format: int64
+          minimum: 0
+        issueCount:
+          type: integer
+          format: int64
+          minimum: 0
+        mappingAction:
+          type: string
+          nullable: true
+          enum:
+            - IMPORT
+            - SKIP
+        targetPlatformInstanceId:
+          type: string
+          format: uuid
+          nullable: true
+        targetPlatformInstanceName:
+          type: string
+          nullable: true
+        targetDefaultCoreId:
+          type: string
+          nullable: true
+        targetDefaultCoreName:
+          type: string
+          nullable: true
+        tagSnapshot:
+          type: array
+          maxItems: 20
+          items:
+            $ref: ../components/common.yaml#/components/schemas/TagReference
+        ignoredRules:
+          type: array
+          uniqueItems: true
+          items:
+            type: string
+        warningFields:
+          type: array
+          uniqueItems: true
+          items:
+            type: string
+    PegasusCollectionList:
+      type: object
+      additionalProperties: false
+      required:
+        - items
+        - nextCursor
+      properties:
+        items:
+          type: array
+          maxItems: 100
+          items:
+            $ref: '#/components/schemas/PegasusSourceCollection'
+        nextCursor:
+          type: string
+          nullable: true
+    PegasusItem:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - title
+        - collectionId
+        - collectionName
+        - targetPlatformInstanceId
+        - targetPlatformInstanceName
+        - metadataRelativePath
+        - executionState
+        - payloadState
+        - payloadReleaseJobId
+        - contentKind
+        - tags
+        - media
+        - warnings
+        - discoveryCode
+        - errorCode
+        - failureDetails
+        - runtimeCheck
+        - retryable
+        - reviewItemId
+        - publishedGameId
+        - existingGameId
+        - existingMatches
+        - updatedAtMs
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        collectionId:
+          type: string
+          format: uuid
+          nullable: true
+        collectionName:
+          type: string
+          nullable: true
+        targetPlatformInstanceId:
+          type: string
+          format: uuid
+          nullable: true
+        targetPlatformInstanceName:
+          type: string
+          nullable: true
+        metadataRelativePath:
+          type: string
+          maxLength: 4096
+        executionState:
+          type: string
+          enum:
+            - PENDING
+            - COPYING
+            - VALIDATING
+            - REVIEW_PENDING
+            - PUBLISHED
+            - REVIEW_DISCARDED
+            - SKIPPED_EXISTING
+            - SKIPPED_MAPPING
+            - BLOCKED_SOURCE
+            - BLOCKED_CONTENT
+            - SOURCE_CHANGED
+            - READ_FAILED
+            - COMMIT_FAILED
+            - CANCELLED
+        payloadState:
+          type: string
+          enum:
+            - RETAINED
+            - RELEASING
+            - RELEASED
+            - FAILED
+        payloadReleaseJobId:
+          type: string
+          format: uuid
+          nullable: true
+        contentKind:
+          type: string
+          nullable: true
+          enum:
+            - SINGLE_FILE
+            - DOS_BUNDLE
+            - MULTI_DISC_M3U_V1
+        tags:
+          type: array
+          maxItems: 20
+          items:
+            $ref: ../components/common.yaml#/components/schemas/TagReference
+        media:
+          type: object
+          additionalProperties: false
+          required:
+            - cover
+            - video
+          properties:
+            cover:
+              type: string
+              enum:
+                - READY
+                - MISSING
+                - WARNING
+            video:
+              type: string
+              enum:
+                - READY
+                - MISSING
+                - WARNING
+        warnings:
+          type: array
+          items:
+            $ref: '#/components/schemas/PegasusWarningValue'
+        discoveryCode:
+          type: string
+          nullable: true
+        errorCode:
+          type: string
+          nullable: true
+        failureDetails:
+          nullable: true
+          allOf:
+            - $ref: ../components/common.yaml#/components/schemas/PegasusItemFailureDetails
+        runtimeCheck:
+          nullable: true
+          allOf:
+            - $ref: ../components/common.yaml#/components/schemas/PegasusRuntimeCheck
+        retryable:
+          type: boolean
+        reviewItemId:
+          type: string
+          format: uuid
+          nullable: true
+        publishedGameId:
+          type: string
+          format: uuid
+          nullable: true
+        existingGameId:
+          type: string
+          format: uuid
+          nullable: true
+        existingMatches:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required:
+              - gameId
+              - contentRevisionId
+            properties:
+              gameId:
+                type: string
+                format: uuid
+              contentRevisionId:
+                type: string
+                format: uuid
+        updatedAtMs:
+          type: integer
+          format: int64
+          minimum: 0
+    PegasusWarningValue:
+      type: object
+      additionalProperties: false
+      required:
+        - code
+      properties:
+        code:
+          type: string
+        field:
+          type: string
+    PegasusItemList:
+      type: object
+      additionalProperties: false
+      required:
+        - items
+        - nextCursor
+      properties:
+        items:
+          type: array
+          maxItems: 50
+          items:
+            $ref: '#/components/schemas/PegasusItem'
+        nextCursor:
+          type: string
+          nullable: true
+  requestBodies:
+    CreatePegasusImport:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/CreatePegasusImportRequest'
+    PegasusCollectionMappings:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/PegasusCollectionMappingsRequest'
+    PegasusImportStart:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/PegasusImportStartRequest'
+  responses:
+    PegasusImportResponse:
+      description: Pegasus scan/import aggregate
+      headers:
+        ETag:
+          schema:
+            type: string
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/PegasusImportSummary'
+    PegasusImportListResponse:
+      description: Pegasus scan/import history
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/PegasusImportList'
+    PegasusCollectionListResponse:
+      description: Source collection mapping page
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/PegasusCollectionList'
+    PegasusItemListResponse:
+      description: Pegasus item result page
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/PegasusItemList'
+  parameters:
+    PegasusWarning:
+      name: warning
+      in: query
+      schema:
+        type: string
+    PegasusCollectionIDQuery:
+      name: collectionId
+      in: query
+      schema:
+        type: string
+        format: uuid
+    PegasusImportID:
+      name: pegasusImportId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid

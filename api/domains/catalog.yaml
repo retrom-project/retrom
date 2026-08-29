@@ -1,0 +1,1474 @@
+paths:
+  /api/v1/admin/tags:
+    get:
+      operationId: getAdminTags
+      description: Lists instance-wide administrator-managed tags and current or historical usage counts.
+      parameters:
+        - $ref: ../components/common.yaml#/components/parameters/Q80
+        - $ref: '#/components/parameters/TagStatus'
+        - $ref: '#/components/parameters/TagSort'
+        - $ref: ../components/common.yaml#/components/parameters/Cursor
+        - $ref: ../components/common.yaml#/components/parameters/Limit
+      responses:
+        '200':
+          $ref: '#/components/responses/TagListResponse'
+    post:
+      operationId: postAdminTag
+      parameters:
+        - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey
+      requestBody:
+        $ref: '#/components/requestBodies/CreateTag'
+      responses:
+        '201':
+          $ref: '#/components/responses/TagAdminItemResponse'
+  /api/v1/admin/tags/defaults:
+    post:
+      operationId: postAdminTagDefaults
+      description: Atomically creates every missing tag from the editable common-tag template and leaves existing active tags unchanged.
+      parameters:
+        - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey
+      requestBody:
+        $ref: ../components/common.yaml#/components/requestBodies/Empty
+      responses:
+        '200':
+          $ref: '#/components/responses/CommonTagsApplyResponse'
+  /api/v1/admin/tags/{tagId}:
+    parameters:
+      - $ref: '#/components/parameters/TagID'
+    get:
+      operationId: getAdminTag
+      responses:
+        '200':
+          $ref: '#/components/responses/TagAdminItemResponse'
+    patch:
+      operationId: patchAdminTag
+      parameters:
+        - $ref: ../components/common.yaml#/components/parameters/IfMatch
+        - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey
+      requestBody:
+        $ref: '#/components/requestBodies/RenameTag'
+      responses:
+        '200':
+          $ref: '#/components/responses/TagAdminItemResponse'
+    delete:
+      operationId: deleteAdminTag
+      parameters:
+        - $ref: ../components/common.yaml#/components/parameters/IfMatch
+        - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey
+      requestBody:
+        $ref: '#/components/requestBodies/DeleteTag'
+      responses:
+        '204':
+          description: Tag soft-deleted; retained relationships are historical only.
+          headers:
+            ETag:
+              schema:
+                type: string
+  /api/v1/admin/games:
+    get:
+      operationId: getAdminGames
+      description: Lists every managed game with platform/directory/default-core identity, cover, release year, metadata completeness, current default-core runtime status, visibility, creation/update/play timestamps, and cursor pagination.
+      parameters:
+        - $ref: ../components/common.yaml#/components/parameters/Q
+        - $ref: ../components/common.yaml#/components/parameters/TagIDQuery
+        - $ref: ../components/common.yaml#/components/parameters/PlatformIDQuery
+        - $ref: ../components/common.yaml#/components/parameters/PlatformInstanceIDQuery
+        - $ref: ../components/common.yaml#/components/parameters/Status
+        - $ref: ../components/common.yaml#/components/parameters/Sort
+        - $ref: ../components/common.yaml#/components/parameters/Cursor
+        - $ref: ../components/common.yaml#/components/parameters/Limit
+      responses:
+        '200':
+          $ref: ../components/common.yaml#/components/responses/JSONResponse
+  /api/v1/admin/games/{gameId}:
+    parameters:
+      - $ref: ../components/common.yaml#/components/parameters/GameID
+    get:
+      operationId: getAdminGame
+      description: Returns the complete management workbench projection and a generatedAtMs timestamp for deterministic relative-time presentation.
+      responses:
+        '200':
+          $ref: ../components/common.yaml#/components/responses/JSONResponse
+    patch:
+      operationId: patchAdminGame
+      parameters:
+        - $ref: ../components/common.yaml#/components/parameters/IfMatch
+      requestBody:
+        $ref: '#/components/requestBodies/MetadataFields'
+      responses:
+        '200':
+          $ref: ../components/common.yaml#/components/responses/JSONResponse
+    delete:
+      operationId: deleteAdminGame
+      description: Permanently releases every game-owned and game-runtime payload while retaining a textual tombstone and relationship/history records. The impact digest must match the current management projection.
+      parameters:
+        - $ref: ../components/common.yaml#/components/parameters/IfMatch
+        - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey
+      requestBody:
+        $ref: '#/components/requestBodies/DeleteGame'
+      responses:
+        '200':
+          $ref: ../components/common.yaml#/components/responses/JSONResponse
+        '202':
+          $ref: ../components/common.yaml#/components/responses/JSONResponse
+  /api/v1/admin/games/{gameId}/tags:
+    parameters:
+      - $ref: ../components/common.yaml#/components/parameters/GameID
+    put:
+      operationId: putAdminGameTags
+      parameters:
+        - $ref: ../components/common.yaml#/components/parameters/IfMatch
+        - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey
+      requestBody:
+        $ref: '#/components/requestBodies/ReplaceGameTags'
+      responses:
+        '200':
+          $ref: '#/components/responses/GameTagsResponse'
+  /api/v1/admin/games/{gameId}/assets:
+    parameters:
+      - $ref: ../components/common.yaml#/components/parameters/GameID
+    post:
+      operationId: postAdminGameAsset
+      description: Creates a complete current media revision, retires all prior GameAsset leaves, and stages newly unreferenced payload for retention-aware GC.
+      parameters:
+        - $ref: ../components/common.yaml#/components/parameters/IfMatch
+        - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey
+      requestBody:
+        $ref: '#/components/requestBodies/GameAsset'
+      responses:
+        '201':
+          $ref: ../components/common.yaml#/components/responses/JSONResponse
+  /api/v1/admin/games/{gameId}/assets/{assetKind}:
+    parameters:
+      - $ref: ../components/common.yaml#/components/parameters/GameID
+      - $ref: '#/components/parameters/GameAssetKind'
+    delete:
+      operationId: deleteAdminGameAsset
+      description: Removes the selected media kind by creating a new immutable metadata revision with the remaining complete media set, then retires prior GameAsset leaves.
+      parameters:
+        - $ref: ../components/common.yaml#/components/parameters/IfMatch
+        - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey
+      responses:
+        '204':
+          description: Asset kind removed
+  /api/v1/admin/games/{gameId}/content-revisions:
+    parameters:
+      - $ref: ../components/common.yaml#/components/parameters/GameID
+    post:
+      operationId: postAdminGameContentRevision
+      description: Schedules a destructive complete content replacement. Byte-identical single-ROM content or the same ordered multi-disc hashes fail terminally with GAME_CONTENT_UNCHANGED. A successful switch retires old content/runtime payload and deletes saves bound to superseded revisions; a failed replacement changes none of them. contentMode defaults strictly to STANDARD; MULTI_DISC_M3U_V1 requires a complete DIRECTORY upload and never uses review attachment repair.
+      parameters:
+        - $ref: ../components/common.yaml#/components/parameters/IfMatch
+        - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey
+      requestBody:
+        $ref: '#/components/requestBodies/UploadReference'
+      responses:
+        '202':
+          $ref: ../components/common.yaml#/components/responses/JSONResponse
+  /api/v1/admin/games/{gameId}/scrape-candidates:
+    parameters:
+      - $ref: ../components/common.yaml#/components/parameters/GameID
+    get:
+      operationId: getAdminGameScrapeCandidates
+      description: Returns the latest candidate metadata, evidence, hit counts, and candidate media assets for the current content revision.
+      responses:
+        '200':
+          $ref: ../components/common.yaml#/components/responses/JSONResponse
+    post:
+      operationId: postAdminGameScrapeCandidates
+      parameters:
+        - $ref: ../components/common.yaml#/components/parameters/IfMatch
+        - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey
+      requestBody:
+        $ref: ../components/common.yaml#/components/requestBodies/MetadataProvider
+      responses:
+        '202':
+          $ref: ../components/common.yaml#/components/responses/JSONResponse
+  /api/v1/admin/games/{gameId}/scrape-candidates/{candidateId}/apply:
+    parameters:
+      - $ref: ../components/common.yaml#/components/parameters/GameID
+      - $ref: '#/components/parameters/CandidateID'
+    post:
+      operationId: postAdminGameScrapeCandidateApply
+      parameters:
+        - $ref: ../components/common.yaml#/components/parameters/IfMatch
+        - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey
+      requestBody:
+        $ref: '#/components/requestBodies/ApplyCandidate'
+      responses:
+        '200':
+          $ref: ../components/common.yaml#/components/responses/JSONResponse
+  /api/v1/admin/games/{gameId}/move-preview:
+    parameters:
+      - $ref: ../components/common.yaml#/components/parameters/GameID
+    post:
+      operationId: postAdminGameMovePreview
+      parameters:
+        - $ref: ../components/common.yaml#/components/parameters/IfMatch
+        - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey
+      requestBody:
+        $ref: '#/components/requestBodies/MovePreview'
+      responses:
+        '200':
+          $ref: ../components/common.yaml#/components/responses/JSONResponse
+        '202':
+          $ref: ../components/common.yaml#/components/responses/JSONResponse
+  /api/v1/admin/games/{gameId}/move:
+    parameters:
+      - $ref: ../components/common.yaml#/components/parameters/GameID
+    post:
+      operationId: postAdminGameMove
+      parameters:
+        - $ref: ../components/common.yaml#/components/parameters/IfMatch
+        - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey
+      requestBody:
+        $ref: '#/components/requestBodies/MoveGame'
+      responses:
+        '200':
+          $ref: ../components/common.yaml#/components/responses/JSONResponse
+  /api/v1/admin/platforms:
+    get:
+      operationId: getAdminPlatforms
+      description: The platform/core catalog. Each core projects netplaySupported from the exact platform, enabled CoreArtifact version and SHA-256 recorded in the current netplay manifest; it is a core capability marker, not per-game eligibility.
+      responses:
+        '200':
+          $ref: ../components/common.yaml#/components/responses/JSONResponse
+  /api/v1/admin/core-artifacts:
+    get:
+      operationId: getAdminCoreArtifacts
+      responses:
+        '200':
+          $ref: '#/components/responses/CoreArtifactListResponse'
+  /api/v1/admin/platform-instances:
+    get:
+      operationId: getAdminPlatformInstances
+      description: Platform directory summaries ordered by sortOrder; each item includes gameCount and the platform-scoped supportedExtensions so destructive actions and import format guidance can be rendered without inferring from the default core.
+      parameters:
+        - $ref: ../components/common.yaml#/components/parameters/PlatformIDQuery
+        - $ref: '#/components/parameters/Enabled'
+        - $ref: ../components/common.yaml#/components/parameters/Sort
+        - $ref: ../components/common.yaml#/components/parameters/Cursor
+        - $ref: ../components/common.yaml#/components/parameters/Limit
+      responses:
+        '200':
+          $ref: ../components/common.yaml#/components/responses/JSONResponse
+    post:
+      operationId: postAdminPlatformInstance
+      parameters:
+        - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey
+      requestBody:
+        $ref: '#/components/requestBodies/CreatePlatformInstance'
+      responses:
+        '201':
+          $ref: ../components/common.yaml#/components/responses/JSONResponse
+  /api/v1/admin/platform-instances/recommendations:
+    get:
+      operationId: getAdminPlatformInstanceRecommendations
+      description: Returns the versioned code catalog and its current coverage without creating or changing directories.
+      responses:
+        '200':
+          $ref: '#/components/responses/PlatformInstanceRecommendationsResponse'
+  /api/v1/admin/platform-instances/recommendations/apply:
+    post:
+      operationId: postAdminPlatformInstanceRecommendationsApply
+      description: Atomically creates every currently missing recommendation without updating equivalent, customized, disabled, or explicitly deleted directories.
+      parameters:
+        - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey
+      requestBody:
+        $ref: ../components/common.yaml#/components/requestBodies/Empty
+      responses:
+        '200':
+          $ref: '#/components/responses/PlatformInstanceRecommendationsApplyResponse'
+  /api/v1/admin/platform-instances/order:
+    put:
+      operationId: putAdminPlatformInstanceOrder
+      description: Atomically replaces the visual order of all non-deleted platform directories using optimistic item versions.
+      requestBody:
+        $ref: '#/components/requestBodies/ReorderPlatformInstances'
+      responses:
+        '200':
+          $ref: ../components/common.yaml#/components/responses/JSONResponse
+  /api/v1/admin/platform-instances/{platformInstanceId}:
+    parameters:
+      - $ref: '#/components/parameters/PlatformInstanceID'
+    get:
+      operationId: getAdminPlatformInstance
+      responses:
+        '200':
+          $ref: ../components/common.yaml#/components/responses/JSONResponse
+    patch:
+      operationId: patchAdminPlatformInstance
+      description: Updates directory fields; enabled controls user-side visibility and may be changed while the directory contains games.
+      parameters:
+        - $ref: ../components/common.yaml#/components/parameters/IfMatch
+      requestBody:
+        $ref: '#/components/requestBodies/PatchPlatformInstance'
+      responses:
+        '200':
+          $ref: ../components/common.yaml#/components/responses/JSONResponse
+    delete:
+      operationId: deleteAdminPlatformInstance
+      parameters:
+        - $ref: ../components/common.yaml#/components/parameters/IfMatch
+      responses:
+        '204':
+          description: Deleted
+  /api/v1/admin/platform-instances/{platformInstanceId}/default-core-preview:
+    parameters:
+      - $ref: '#/components/parameters/PlatformInstanceID'
+    post:
+      operationId: postAdminPlatformDefaultCorePreview
+      parameters:
+        - $ref: ../components/common.yaml#/components/parameters/IfMatch
+      requestBody:
+        $ref: '#/components/requestBodies/DefaultCorePreview'
+      responses:
+        '200':
+          $ref: ../components/common.yaml#/components/responses/JSONResponse
+  /api/v1/admin/platform-instances/{platformInstanceId}/default-core:
+    parameters:
+      - $ref: '#/components/parameters/PlatformInstanceID'
+    post:
+      operationId: postAdminPlatformDefaultCore
+      parameters:
+        - $ref: ../components/common.yaml#/components/parameters/IfMatch
+        - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey
+      requestBody:
+        $ref: '#/components/requestBodies/DefaultCore'
+      responses:
+        '200':
+          $ref: ../components/common.yaml#/components/responses/JSONResponse
+  /api/v1/admin/bios:
+    get:
+      operationId: getAdminBIOS
+      parameters:
+        - $ref: ../components/common.yaml#/components/parameters/Q
+        - $ref: ../components/common.yaml#/components/parameters/PlatformIDQuery
+        - $ref: ../components/common.yaml#/components/parameters/CoreIDQuery
+        - $ref: '#/components/parameters/CoreArtifactIDQuery'
+        - $ref: '#/components/parameters/Scope'
+        - $ref: ../components/common.yaml#/components/parameters/Status
+        - $ref: '#/components/parameters/BIOSQuick'
+        - $ref: ../components/common.yaml#/components/parameters/Cursor
+        - $ref: ../components/common.yaml#/components/parameters/Limit100
+      responses:
+        '200':
+          $ref: '#/components/responses/BIOSListResponse'
+components:
+  schemas:
+    TagUsage:
+      type: object
+      additionalProperties: false
+      required:
+        - publishedGameCount
+        - deletedGameCount
+        - reviewDraftCount
+        - pegasusCollectionCount
+      properties:
+        publishedGameCount:
+          type: integer
+          format: int64
+          minimum: 0
+        deletedGameCount:
+          type: integer
+          format: int64
+          minimum: 0
+        reviewDraftCount:
+          type: integer
+          format: int64
+          minimum: 0
+        pegasusCollectionCount:
+          type: integer
+          format: int64
+          minimum: 0
+    TagAdminItem:
+      type: object
+      additionalProperties: false
+      required:
+        - tagId
+        - name
+        - status
+        - version
+        - usage
+        - createdAtMs
+        - updatedAtMs
+        - deletedAtMs
+      properties:
+        tagId:
+          type: string
+          format: uuid
+        name:
+          type: string
+          minLength: 1
+          maxLength: 160
+        status:
+          type: string
+          enum:
+            - ACTIVE
+            - DELETED
+        version:
+          type: integer
+          format: int64
+          minimum: 1
+        usage:
+          $ref: '#/components/schemas/TagUsage'
+        createdAtMs:
+          type: integer
+          format: int64
+          minimum: 0
+        updatedAtMs:
+          type: integer
+          format: int64
+          minimum: 0
+        deletedAtMs:
+          type: integer
+          format: int64
+          minimum: 0
+          nullable: true
+    TagSummary:
+      type: object
+      additionalProperties: false
+      required:
+        - activeTagCount
+        - taggedGameCount
+        - pendingReviewCount
+      properties:
+        activeTagCount:
+          type: integer
+          format: int64
+          minimum: 0
+          maximum: 1000
+        taggedGameCount:
+          type: integer
+          format: int64
+          minimum: 0
+        pendingReviewCount:
+          type: integer
+          format: int64
+          minimum: 0
+    TagList:
+      type: object
+      additionalProperties: false
+      required:
+        - generatedAtMs
+        - summary
+        - items
+        - nextCursor
+      properties:
+        generatedAtMs:
+          type: integer
+          format: int64
+          minimum: 0
+        summary:
+          $ref: '#/components/schemas/TagSummary'
+        items:
+          type: array
+          maxItems: 100
+          items:
+            $ref: '#/components/schemas/TagAdminItem'
+        nextCursor:
+          type: string
+          maxLength: 8192
+          nullable: true
+    CommonTagsApplyResult:
+      type: object
+      additionalProperties: false
+      required:
+        - createdItems
+        - existingItems
+      properties:
+        createdItems:
+          type: array
+          maxItems: 10
+          items:
+            $ref: '#/components/schemas/TagAdminItem'
+        existingItems:
+          type: array
+          maxItems: 10
+          items:
+            $ref: '#/components/schemas/TagAdminItem'
+    CreateTagRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 160
+    RenameTagRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 160
+    DeleteTagRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - confirmName
+      properties:
+        confirmName:
+          type: string
+          minLength: 1
+          maxLength: 160
+    ReplaceGameTagsRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - tagIds
+      properties:
+        tagIds:
+          type: array
+          maxItems: 20
+          uniqueItems: true
+          items:
+            type: string
+            format: uuid
+    GameTagsResult:
+      type: object
+      additionalProperties: false
+      required:
+        - gameId
+        - version
+        - tags
+      properties:
+        gameId:
+          type: string
+          format: uuid
+        version:
+          type: integer
+          format: int64
+          minimum: 1
+        tags:
+          type: array
+          maxItems: 20
+          items:
+            $ref: ../components/common.yaml#/components/schemas/TagReference
+    CoreArtifactAdminItem:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - coreId
+        - coreName
+        - routeKey
+        - runtimeFamily
+        - runtimeAdapterKind
+        - runtimeVersion
+        - adapterId
+        - selectedForNewBindings
+        - availableForLaunch
+        - version
+        - sizeBytes
+      properties:
+        id:
+          type: string
+          format: uuid
+        coreId:
+          type: string
+          pattern: ^[a-z0-9_]{1,64}$
+        coreName:
+          type: string
+          minLength: 1
+          maxLength: 200
+        routeKey:
+          type: string
+          pattern: ^[A-Z][A-Z0-9_]{0,159}$
+        runtimeFamily:
+          type: string
+          minLength: 1
+          maxLength: 64
+        runtimeAdapterKind:
+          type: string
+          minLength: 1
+          maxLength: 64
+        runtimeVersion:
+          type: string
+          minLength: 1
+          maxLength: 160
+        adapterId:
+          type: string
+          minLength: 1
+          maxLength: 160
+        selectedForNewBindings:
+          type: boolean
+        availableForLaunch:
+          type: boolean
+        version:
+          type: integer
+          format: int64
+          minimum: 1
+        sizeBytes:
+          type: integer
+          format: int64
+          minimum: 0
+    CoreArtifactList:
+      type: object
+      additionalProperties: false
+      required:
+        - items
+        - nextCursor
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/CoreArtifactAdminItem'
+        nextCursor:
+          type: string
+          nullable: true
+    SelectedAssetsRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - coverCandidateAssetId
+        - backgroundCandidateAssetId
+        - screenshotCandidateAssetIds
+      properties:
+        coverCandidateAssetId:
+          type: string
+          format: uuid
+          nullable: true
+        backgroundCandidateAssetId:
+          type: string
+          format: uuid
+          nullable: true
+        screenshotCandidateAssetIds:
+          type: array
+          maxItems: 32
+          uniqueItems: true
+          items:
+            type: string
+            format: uuid
+    DeleteGameRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - confirmTitle
+        - impactDigest
+      properties:
+        confirmTitle:
+          type: string
+          minLength: 1
+          maxLength: 200
+        impactDigest:
+          type: string
+          pattern: ^[0-9a-f]{64}$
+    GameAssetRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - uploadFileId
+        - kind
+        - ordinal
+      properties:
+        uploadFileId:
+          type: string
+          format: uuid
+        kind:
+          type: string
+          enum:
+            - COVER
+            - BACKGROUND
+            - SCREENSHOT
+            - VIDEO
+        ordinal:
+          type: integer
+          minimum: 0
+          maximum: 31
+    UploadReferenceRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - uploadId
+      properties:
+        uploadId:
+          type: string
+          format: uuid
+        contentMode:
+          type: string
+          enum:
+            - STANDARD
+            - MULTI_DISC_M3U_V1
+            - RPG_MAKER_PROJECT_V1
+            - ONS_PROJECT_V1
+          default: STANDARD
+    ApplyCandidateRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - fields
+        - selectedAssets
+      properties:
+        fields:
+          type: array
+          uniqueItems: true
+          items:
+            type: string
+            enum:
+              - title
+              - description
+              - developer
+              - publisher
+              - genre
+              - players
+              - releaseYear
+        selectedAssets:
+          $ref: '#/components/schemas/SelectedAssetsRequest'
+    MovePreviewRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - targetPlatformInstanceId
+      properties:
+        targetPlatformInstanceId:
+          type: string
+          format: uuid
+    MoveGameRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - targetPlatformInstanceId
+        - impactDigest
+        - confirmBlocked
+      properties:
+        targetPlatformInstanceId:
+          type: string
+          format: uuid
+        impactDigest:
+          type: string
+        confirmBlocked:
+          type: boolean
+    CreatePlatformInstanceRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - platformId
+        - defaultCoreId
+        - name
+        - description
+        - sortOrder
+      properties:
+        platformId:
+          type: string
+        defaultCoreId:
+          type: string
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 10000
+        sortOrder:
+          type: integer
+          format: int64
+    PlatformDirectoryReference:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - name
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+    PlatformInstanceRecommendation:
+      type: object
+      additionalProperties: false
+      required:
+        - templateKey
+        - catalogOrder
+        - name
+        - description
+        - platform
+        - defaultCore
+        - supportedExtensions
+        - state
+        - platformInstanceId
+      properties:
+        templateKey:
+          type: string
+          pattern: ^[a-z0-9_-]+/[a-z0-9_-]+$
+        catalogOrder:
+          type: integer
+          minimum: 1
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 10000
+        platform:
+          $ref: '#/components/schemas/PlatformDirectoryReference'
+        defaultCore:
+          $ref: '#/components/schemas/PlatformDirectoryReference'
+        supportedExtensions:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          items:
+            type: string
+            pattern: ^\.[a-z0-9]+$
+        state:
+          type: string
+          enum:
+            - ACTIVE
+            - CUSTOMIZED
+            - COVERED_BY_EQUIVALENT
+            - SUPPRESSED
+            - MISSING
+        platformInstanceId:
+          type: string
+          format: uuid
+          nullable: true
+    PlatformInstanceRecommendationSummary:
+      type: object
+      additionalProperties: false
+      required:
+        - totalCount
+        - activeCount
+        - customizedCount
+        - coveredByEquivalentCount
+        - suppressedCount
+        - missingCount
+      properties:
+        totalCount:
+          type: integer
+          minimum: 0
+        activeCount:
+          type: integer
+          minimum: 0
+        customizedCount:
+          type: integer
+          minimum: 0
+        coveredByEquivalentCount:
+          type: integer
+          minimum: 0
+        suppressedCount:
+          type: integer
+          minimum: 0
+        missingCount:
+          type: integer
+          minimum: 0
+    PlatformInstanceRecommendations:
+      type: object
+      additionalProperties: false
+      required:
+        - catalogVersion
+        - summary
+        - items
+      properties:
+        catalogVersion:
+          type: integer
+          minimum: 1
+        summary:
+          $ref: '#/components/schemas/PlatformInstanceRecommendationSummary'
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/PlatformInstanceRecommendation'
+    RecommendedPlatformInstance:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - platformId
+        - platformName
+        - defaultCoreId
+        - defaultCoreName
+        - name
+        - slug
+        - description
+        - sortOrder
+        - enabled
+        - gameCount
+        - supportedExtensions
+        - version
+        - createdAtMs
+        - updatedAtMs
+      properties:
+        id:
+          type: string
+          format: uuid
+        platformId:
+          type: string
+        platformName:
+          type: string
+        defaultCoreId:
+          type: string
+        defaultCoreName:
+          type: string
+        name:
+          type: string
+        slug:
+          type: string
+        description:
+          type: string
+        sortOrder:
+          type: integer
+          format: int64
+        enabled:
+          type: boolean
+        gameCount:
+          type: integer
+          format: int64
+          minimum: 0
+        supportedExtensions:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          items:
+            type: string
+            pattern: ^\.[a-z0-9]+$
+        version:
+          type: integer
+          format: int64
+          minimum: 1
+        createdAtMs:
+          type: integer
+          format: int64
+          minimum: 0
+        updatedAtMs:
+          type: integer
+          format: int64
+          minimum: 0
+    PlatformInstanceRecommendationsApplySummary:
+      type: object
+      additionalProperties: false
+      required:
+        - createdCount
+        - coveredCount
+        - suppressedCount
+        - remainingMissingCount
+      properties:
+        createdCount:
+          type: integer
+          minimum: 0
+        coveredCount:
+          type: integer
+          minimum: 0
+        suppressedCount:
+          type: integer
+          minimum: 0
+        remainingMissingCount:
+          type: integer
+          minimum: 0
+    PlatformInstanceRecommendationsApplyResult:
+      type: object
+      additionalProperties: false
+      required:
+        - catalogVersion
+        - createdTemplateKeys
+        - created
+        - summary
+        - items
+      properties:
+        catalogVersion:
+          type: integer
+          minimum: 1
+        createdTemplateKeys:
+          type: array
+          uniqueItems: true
+          items:
+            type: string
+            pattern: ^[a-z0-9_-]+/[a-z0-9_-]+$
+        created:
+          type: array
+          items:
+            $ref: '#/components/schemas/RecommendedPlatformInstance'
+        summary:
+          $ref: '#/components/schemas/PlatformInstanceRecommendationsApplySummary'
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/PlatformInstanceRecommendation'
+    PatchPlatformInstanceRequest:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 10000
+        sortOrder:
+          type: integer
+          format: int64
+        enabled:
+          type: boolean
+    ReorderPlatformInstanceItem:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - version
+      properties:
+        id:
+          type: string
+          format: uuid
+        version:
+          type: integer
+          format: int64
+          minimum: 1
+    ReorderPlatformInstancesRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - items
+      properties:
+        items:
+          type: array
+          minItems: 1
+          maxItems: 100
+          items:
+            $ref: '#/components/schemas/ReorderPlatformInstanceItem'
+    DefaultCorePreviewRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - coreId
+      properties:
+        coreId:
+          type: string
+        cursor:
+          type: string
+          nullable: true
+          maxLength: 8192
+        limit:
+          type: integer
+          minimum: 1
+          maximum: 100
+    DefaultCoreRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - coreId
+        - impactDigest
+        - confirmBlocked
+      properties:
+        coreId:
+          type: string
+        impactDigest:
+          type: string
+        confirmBlocked:
+          type: boolean
+    BIOSInstallationSummary:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - md5
+        - sha1
+        - sha256
+        - validatedRequirementVersion
+        - createdAtMs
+      properties:
+        id:
+          type: string
+        md5:
+          type: string
+        sha1:
+          type: string
+        sha256:
+          type: string
+        validatedRequirementVersion:
+          type: integer
+          format: int64
+          minimum: 1
+        createdAtMs:
+          type: integer
+          format: int64
+          minimum: 0
+    BIOSRequirementSummary:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - coreId
+        - coreName
+        - coreArtifactId
+        - logicalName
+        - sourceKind
+        - requirementMode
+        - conditionCode
+        - expectedMd5
+        - enabled
+        - version
+        - status
+        - activeInstallation
+      properties:
+        id:
+          type: string
+        coreId:
+          type: string
+        coreName:
+          type: string
+        coreArtifactId:
+          type: string
+        logicalName:
+          type: string
+        sourceKind:
+          type: string
+          enum:
+            - STATIC
+            - DAT_MACHINE
+        requirementMode:
+          type: string
+          enum:
+            - REQUIRED
+            - OPTIONAL
+            - CONDITIONAL
+        conditionCode:
+          type: string
+          nullable: true
+        expectedMd5:
+          type: string
+          nullable: true
+        enabled:
+          type: boolean
+        version:
+          type: integer
+          format: int64
+          minimum: 1
+        status:
+          type: string
+          enum:
+            - MATCHED
+            - MISSING
+            - HASH_WARNING
+            - MISSING_ENTRY
+            - OPTIONAL_MISSING
+            - INVALID
+        activeInstallation:
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/BIOSInstallationSummary'
+    BIOSListResponseBody:
+      type: object
+      additionalProperties: false
+      required:
+        - generatedAtMs
+        - scope
+        - scopeCounts
+        - summary
+        - filteredCount
+        - items
+        - nextCursor
+      properties:
+        generatedAtMs:
+          type: integer
+          format: int64
+          minimum: 0
+        scope:
+          type: string
+          enum:
+            - REQUIRED_BY_LIBRARY
+            - FULL_CATALOG
+        scopeCounts:
+          type: object
+          additionalProperties: false
+          required:
+            - requiredByLibrary
+            - fullCatalog
+          properties:
+            requiredByLibrary:
+              type: integer
+              format: int64
+              minimum: 0
+            fullCatalog:
+              type: integer
+              format: int64
+              minimum: 0
+        summary:
+          type: object
+          additionalProperties: false
+          required:
+            - totalCount
+            - blockingCount
+            - warningCount
+            - readyCount
+            - attentionCount
+            - requiredCount
+            - optionalCount
+          properties:
+            totalCount:
+              type: integer
+              format: int64
+              minimum: 0
+            blockingCount:
+              type: integer
+              format: int64
+              minimum: 0
+            warningCount:
+              type: integer
+              format: int64
+              minimum: 0
+            readyCount:
+              type: integer
+              format: int64
+              minimum: 0
+            attentionCount:
+              type: integer
+              format: int64
+              minimum: 0
+            requiredCount:
+              type: integer
+              format: int64
+              minimum: 0
+            optionalCount:
+              type: integer
+              format: int64
+              minimum: 0
+        filteredCount:
+          type: integer
+          format: int64
+          minimum: 0
+        items:
+          type: array
+          maxItems: 100
+          items:
+            $ref: '#/components/schemas/BIOSRequirementSummary'
+        nextCursor:
+          type: string
+          nullable: true
+  requestBodies:
+    CreateTag:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/CreateTagRequest'
+    RenameTag:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/RenameTagRequest'
+    DeleteTag:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/DeleteTagRequest'
+    ReplaceGameTags:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ReplaceGameTagsRequest'
+    MetadataFields:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: ../components/common.yaml#/components/schemas/MetadataFields
+    DeleteGame:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/DeleteGameRequest'
+    GameAsset:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/GameAssetRequest'
+    UploadReference:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/UploadReferenceRequest'
+    ApplyCandidate:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApplyCandidateRequest'
+    MovePreview:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/MovePreviewRequest'
+    MoveGame:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/MoveGameRequest'
+    CreatePlatformInstance:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/CreatePlatformInstanceRequest'
+    PatchPlatformInstance:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/PatchPlatformInstanceRequest'
+    ReorderPlatformInstances:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ReorderPlatformInstancesRequest'
+    DefaultCorePreview:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/DefaultCorePreviewRequest'
+    DefaultCore:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/DefaultCoreRequest'
+  responses:
+    CoreArtifactListResponse:
+      description: Administrative immutable runtime artifact catalog
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/CoreArtifactList'
+    PlatformInstanceRecommendationsResponse:
+      description: Recommended platform/core directory catalog and current coverage
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/PlatformInstanceRecommendations'
+    PlatformInstanceRecommendationsApplyResponse:
+      description: Atomic recommended-directory ensure result
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/PlatformInstanceRecommendationsApplyResult'
+    TagAdminItemResponse:
+      description: Administrator tag projection
+      headers:
+        ETag:
+          schema:
+            type: string
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/TagAdminItem'
+    TagListResponse:
+      description: Cursor-paged tag management list and instance-wide summary
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/TagList'
+    CommonTagsApplyResponse:
+      description: Atomic common-tag ensure result, separated into newly created and already-active items
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/CommonTagsApplyResult'
+    GameTagsResponse:
+      description: Current active tag set for one managed game
+      headers:
+        ETag:
+          schema:
+            type: string
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/GameTagsResult'
+    BIOSListResponse:
+      description: Cursor-paged BIOS catalog with scope-wide aggregates
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/BIOSListResponseBody'
+  parameters:
+    TagStatus:
+      name: status
+      in: query
+      schema:
+        type: string
+        enum:
+          - ACTIVE
+          - DELETED
+          - ALL
+        default: ACTIVE
+    TagSort:
+      name: sort
+      in: query
+      schema:
+        type: string
+        enum:
+          - NAME_ASC
+          - UPDATED_DESC
+        default: NAME_ASC
+    CoreArtifactIDQuery:
+      name: coreArtifactId
+      in: query
+      schema:
+        type: string
+        format: uuid
+    Enabled:
+      name: enabled
+      in: query
+      schema:
+        type: boolean
+    Scope:
+      name: scope
+      in: query
+      schema:
+        type: string
+    BIOSQuick:
+      name: quick
+      in: query
+      schema:
+        type: string
+        enum:
+          - ALL
+          - ATTENTION
+          - REQUIRED
+          - OPTIONAL
+        default: ALL
+    TagID:
+      name: tagId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    CandidateID:
+      name: candidateId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    PlatformInstanceID:
+      name: platformInstanceId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    GameAssetKind:
+      name: assetKind
+      in: path
+      required: true
+      schema:
+        type: string
+        enum:
+          - VIDEO

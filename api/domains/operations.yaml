@@ -1,0 +1,198 @@
+paths:
+  /api/v1/admin/diagnostics:
+    get:
+      operationId: getAdminDiagnostics
+      responses:
+        '200':
+          $ref: ../components/common.yaml#/components/responses/JSONResponse
+  /api/v1/admin/storage-analysis:
+    get:
+      operationId: getAdminStorageAnalysis
+      description: Returns one read-only snapshot of registered CAS payload usage. Byte quantities are decimal strings.
+      responses:
+        '200':
+          $ref: '#/components/responses/StorageAnalysisResponse'
+  /api/v1/admin/storage-cleanups:
+    post:
+      operationId: postAdminStorageCleanup
+      description: Skips the retention delay for all registered CAS payload that is still unreferenced when scheduled. Every Blob is rechecked against the protection registry before deletion.
+      parameters:
+        - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey
+        - $ref: ../components/common.yaml#/components/parameters/CSRFToken
+      responses:
+        '202':
+          $ref: '#/components/responses/StorageCleanupResponse'
+components:
+  schemas:
+    StorageAnalysis:
+      type: object
+      additionalProperties: false
+      required:
+        - scope
+        - generatedAtMs
+        - totals
+        - categories
+        - details
+        - excluded
+      properties:
+        scope:
+          type: string
+          enum:
+            - REGISTERED_CAS_PAYLOAD_V1
+        generatedAtMs:
+          type: integer
+          format: int64
+          minimum: 0
+        totals:
+          $ref: '#/components/schemas/StorageAnalysisTotals'
+        categories:
+          type: array
+          minItems: 9
+          maxItems: 9
+          items:
+            $ref: '#/components/schemas/StorageAnalysisCategory'
+        details:
+          $ref: '#/components/schemas/StorageAnalysisDetails'
+        excluded:
+          type: array
+          minItems: 7
+          maxItems: 7
+          items:
+            type: string
+            enum:
+              - DATABASE_FILES
+              - UPLOAD_PARTS
+              - JOB_SCRATCH
+              - DEPENDENCY_ROOT
+              - FILESYSTEM_OVERHEAD
+              - UNREGISTERED_ORPHANS
+              - VOLUME_FREE_SPACE
+    StorageAnalysisTotals:
+      type: object
+      additionalProperties: false
+      required:
+        - registeredBytes
+        - protectedBytes
+        - unreferencedBytes
+        - blobCount
+      properties:
+        registeredBytes:
+          type: string
+          pattern: ^[0-9]+$
+        protectedBytes:
+          type: string
+          pattern: ^[0-9]+$
+        unreferencedBytes:
+          type: string
+          pattern: ^[0-9]+$
+        blobCount:
+          type: integer
+          format: int64
+          minimum: 0
+    StorageAnalysisCategory:
+      type: object
+      additionalProperties: false
+      required:
+        - code
+        - bytes
+        - blobCount
+      properties:
+        code:
+          type: string
+          enum:
+            - GAME_CONTENT
+            - BIOS
+            - SAVES
+            - MEDIA
+            - WORKFLOW
+            - RUNTIME_SNAPSHOT
+            - SHARED_DURABLE
+            - OTHER_REFERENCED
+            - UNREFERENCED
+        bytes:
+          type: string
+          pattern: ^[0-9]+$
+        blobCount:
+          type: integer
+          format: int64
+          minimum: 0
+    StorageAnalysisDetails:
+      type: object
+      additionalProperties: false
+      required:
+        - saveStates
+        - cleanupCandidates
+      properties:
+        saveStates:
+          $ref: '#/components/schemas/StorageAnalysisSaveStates'
+        cleanupCandidates:
+          $ref: '#/components/schemas/StorageAnalysisCleanupCandidates'
+    StorageAnalysisSaveStates:
+      type: object
+      additionalProperties: false
+      required:
+        - activeCount
+        - deletedCount
+        - stateReferenceBytes
+        - screenshotReferenceBytes
+      properties:
+        activeCount:
+          type: integer
+          format: int64
+          minimum: 0
+        deletedCount:
+          type: integer
+          format: int64
+          minimum: 0
+        stateReferenceBytes:
+          type: string
+          pattern: ^[0-9]+$
+        screenshotReferenceBytes:
+          type: string
+          pattern: ^[0-9]+$
+    StorageAnalysisCleanupCandidates:
+      type: object
+      additionalProperties: false
+      required:
+        - blobCount
+        - bytes
+      properties:
+        blobCount:
+          type: integer
+          format: int64
+          minimum: 0
+        bytes:
+          type: string
+          pattern: ^[0-9]+$
+    StorageCleanupResult:
+      type: object
+      additionalProperties: false
+      required:
+        - scheduledBlobCount
+        - scheduledBytes
+        - acceptedAtMs
+      properties:
+        scheduledBlobCount:
+          type: integer
+          format: int64
+          minimum: 0
+        scheduledBytes:
+          type: string
+          pattern: ^[0-9]+$
+        acceptedAtMs:
+          type: integer
+          format: int64
+          minimum: 0
+  responses:
+    StorageAnalysisResponse:
+      description: Registered CAS payload capacity snapshot
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/StorageAnalysis'
+    StorageCleanupResponse:
+      description: Registered CAS payload accepted for immediate retention-aware garbage collection
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/StorageCleanupResult'

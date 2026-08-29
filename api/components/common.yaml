@@ -1,0 +1,1275 @@
+components:
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: retrom_session
+  schemas:
+    EmptyRequest:
+      type: object
+      additionalProperties: false
+    TagReference:
+      type: object
+      additionalProperties: false
+      required:
+        - tagId
+        - name
+      properties:
+        tagId:
+          type: string
+          format: uuid
+        name:
+          type: string
+          minLength: 1
+          maxLength: 160
+    ClientCapabilities:
+      type: object
+      additionalProperties: false
+      required:
+        - secureContext
+        - crossOriginIsolated
+        - sharedArrayBuffer
+      properties:
+        secureContext:
+          type: boolean
+        crossOriginIsolated:
+          type: boolean
+        sharedArrayBuffer:
+          type: boolean
+    RpgGeneration:
+      type: string
+      enum:
+        - RPG2000
+        - RPG2003
+        - RPGXP
+        - RPGVX
+        - RPGVXACE
+        - RPGMV
+        - RPGMZ
+    RpgCoreID:
+      type: string
+      enum:
+        - rpgmaker_2000
+        - rpgmaker_2003
+        - rpgmaker_xp
+        - rpgmaker_vx
+        - rpgmaker_vx_ace
+        - rpgmaker_mv
+        - rpgmaker_mz
+    CheckpointPayloadKind:
+      type: string
+      enum:
+        - RUNTIME_STATE
+        - NATIVE_SAVE_BUNDLE_V1
+        - ONS_SAVE_BUNDLE_V1
+    RpgRuntimeValidationState:
+      type: string
+      enum:
+        - CREATED
+        - STARTING
+        - RUNNING
+        - CHECKPOINTED
+        - RESTORED
+        - AWAITING_DECISION
+        - PASSED
+        - FAILED
+        - EXPIRED
+    RpgRuntimeGate:
+      type: string
+      enum:
+        - RUNTIME_READY
+        - ENGINE_PROFILE
+        - FRAMES_300
+        - INPUT
+        - AUDIO
+        - INITIAL_POSITION_RECORDED
+        - SAVE_POINT_RECORDED
+        - CHECKPOINT_CREATED
+        - POST_SAVE_STATE_DIVERGED
+        - ORIGINAL_LAUNCH_ENDED
+        - RESTORE_STARTED
+        - RESTORE_POSITION_VERIFIED
+        - RESTORE_SCREENSHOT
+        - RESTORE_INPUT
+    EmptyGateEvidence:
+      type: object
+      additionalProperties: false
+    RpgPositionEvidence:
+      type: object
+      additionalProperties: false
+      required:
+        - mapId
+        - playerX
+        - playerY
+        - fixtureState
+      properties:
+        mapId:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 2147483647
+        playerX:
+          type: integer
+          format: int64
+          minimum: 0
+          maximum: 2147483647
+        playerY:
+          type: integer
+          format: int64
+          minimum: 0
+          maximum: 2147483647
+        fixtureState:
+          type: integer
+          format: int64
+          minimum: -2147483648
+          maximum: 2147483647
+    RpgEngineProfileEvidence:
+      type: object
+      additionalProperties: false
+      required:
+        - generation
+        - adapterId
+        - engineProfile
+      properties:
+        generation:
+          $ref: '#/components/schemas/RpgGeneration'
+        adapterId:
+          type: string
+          enum:
+            - easyrpg-web
+            - mkxp-libretro-web
+            - native-web
+        engineProfile:
+          type: string
+          enum:
+            - rpg2k
+            - rpg2k3
+            - rgss1
+            - rgss2
+            - rgss3
+            - RPGMV
+            - RPGMZ
+    RpgFrameEvidence:
+      type: object
+      additionalProperties: false
+      required:
+        - continuousFrames
+      properties:
+        continuousFrames:
+          type: integer
+          minimum: 300
+          maximum: 36000
+    RpgBooleanGateEvidence:
+      type: object
+      additionalProperties: false
+      required:
+        - observed
+      properties:
+        observed:
+          type: boolean
+          enum:
+            - true
+    RpgCheckpointGateEvidence:
+      type: object
+      additionalProperties: false
+      required:
+        - payloadKind
+        - sizeBytes
+        - sha256
+      properties:
+        payloadKind:
+          $ref: '#/components/schemas/CheckpointPayloadKind'
+        sizeBytes:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 268435456
+        sha256:
+          type: string
+          pattern: ^[0-9a-f]{64}$
+    RpgRuntimeGateEvidence:
+      oneOf:
+        - $ref: '#/components/schemas/EmptyGateEvidence'
+        - $ref: '#/components/schemas/RpgPositionEvidence'
+        - $ref: '#/components/schemas/RpgEngineProfileEvidence'
+        - $ref: '#/components/schemas/RpgFrameEvidence'
+        - $ref: '#/components/schemas/RpgBooleanGateEvidence'
+        - $ref: '#/components/schemas/RpgCheckpointGateEvidence'
+      description: BEGIN and screenshot association use the empty object. The registry requires position evidence for INITIAL_POSITION_RECORDED, SAVE_POINT_RECORDED, POST_SAVE_STATE_DIVERGED, RESTORE_POSITION_VERIFIED and RESTORE_INPUT and compares those values server-side; other PASS/FAIL evidence is gate-specific. Blob IDs are never accepted.
+    RpgRuntimeMachineGate:
+      type: object
+      additionalProperties: false
+      required:
+        - gate
+        - status
+        - begunAtMs
+        - completedAtMs
+        - evidence
+        - failureCode
+      properties:
+        gate:
+          $ref: '#/components/schemas/RpgRuntimeGate'
+        status:
+          type: string
+          enum:
+            - NOT_STARTED
+            - IN_PROGRESS
+            - PASSED
+            - FAILED
+        begunAtMs:
+          type: integer
+          format: int64
+          minimum: 0
+          nullable: true
+        completedAtMs:
+          type: integer
+          format: int64
+          minimum: 0
+          nullable: true
+        evidence:
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/RpgRuntimeGateEvidence'
+        failureCode:
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/RpgErrorCode'
+    RuntimeCheckpointMetadata:
+      type: object
+      additionalProperties: false
+      required:
+        - payloadKind
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        discIndex:
+          type: integer
+          minimum: 0
+          maximum: 7
+          nullable: true
+        payloadKind:
+          $ref: '#/components/schemas/CheckpointPayloadKind'
+      description: PRODUCT requires name after trim to contain 1..120 Unicode code points; RPG_RUNTIME_VALIDATION omits name. discIndex is required and in range only for a multi-disc PRODUCT Launch and otherwise omitted or null. nativeProfile and resumeSlot are never client authority; the server derives and validates them from the frozen artifact and payload.
+    ReasonRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - reason
+      properties:
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 500
+    MetadataFields:
+      type: object
+      additionalProperties: false
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 10000
+        developer:
+          type: string
+          maxLength: 200
+        publisher:
+          type: string
+          maxLength: 200
+        genre:
+          type: string
+          maxLength: 200
+        players:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 64
+          nullable: true
+        releaseYear:
+          type: integer
+          format: int64
+          minimum: 1950
+          nullable: true
+    MetadataProviderRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - metadataProvider
+      properties:
+        metadataProvider:
+          type: string
+          enum:
+            - HASHEOUS
+            - NONE
+    PegasusItemFailureDetails:
+      type: object
+      additionalProperties: false
+      required:
+        - schemaVersion
+        - stage
+        - operation
+        - causeCode
+        - technicalDetail
+        - relativePath
+        - observedFileCount
+        - allowedFileCount
+        - libraryImportJobId
+        - libraryImportItemId
+      properties:
+        schemaVersion:
+          type: integer
+          format: int64
+          enum:
+            - 1
+        stage:
+          type: string
+          enum:
+            - SOURCE_COPY
+            - SOURCE_ASSEMBLY
+            - LIBRARY_IMPORT
+            - RESULT_ATTACHMENT
+            - METADATA
+            - PUBLICATION
+            - STORAGE
+        operation:
+          type: string
+          maxLength: 80
+        causeCode:
+          type: string
+          maxLength: 120
+        technicalDetail:
+          type: string
+          maxLength: 2048
+        relativePath:
+          type: string
+          maxLength: 4096
+          nullable: true
+        observedFileCount:
+          type: integer
+          format: int64
+          minimum: 0
+          nullable: true
+        allowedFileCount:
+          type: integer
+          format: int64
+          minimum: 1
+          nullable: true
+        libraryImportJobId:
+          type: string
+          format: uuid
+          nullable: true
+        libraryImportItemId:
+          type: string
+          format: uuid
+          nullable: true
+    PegasusRuntimeDependency:
+      type: object
+      additionalProperties: false
+      required:
+        - kind
+        - machine
+        - requiredBy
+        - expectedLogicalName
+        - state
+        - requiredEntries
+      properties:
+        kind:
+          type: string
+          enum:
+            - PARENT
+            - BIOS_OR_BASE
+        machine:
+          type: string
+        requiredBy:
+          type: string
+          nullable: true
+        expectedLogicalName:
+          type: string
+        state:
+          type: string
+          enum:
+            - SATISFIED_BY_CONTENT
+            - SATISFIED_EXTERNAL
+            - HASH_WARNING
+            - MISSING
+            - MISMATCH
+            - UNSUPPORTED
+        requiredEntries:
+          type: array
+          items:
+            type: string
+    PegasusRuntimeBIOS:
+      type: object
+      additionalProperties: false
+      required:
+        - logicalName
+        - requirementMode
+        - conditionCode
+        - installationStatus
+      properties:
+        logicalName:
+          type: string
+        requirementMode:
+          type: string
+          enum:
+            - REQUIRED
+            - OPTIONAL
+            - CONDITIONAL
+        conditionCode:
+          type: string
+          nullable: true
+        installationStatus:
+          type: string
+          nullable: true
+          enum:
+            - MATCHED
+            - HASH_WARNING
+            - MISSING_ENTRY
+            - INVALID
+    PegasusRuntimeMissingDisc:
+      type: object
+      additionalProperties: false
+      required:
+        - ordinal
+        - sourceReference
+      properties:
+        ordinal:
+          type: integer
+          format: int64
+          minimum: 0
+        sourceReference:
+          type: string
+    PegasusRuntimeCheck:
+      type: object
+      additionalProperties: false
+      required:
+        - status
+        - code
+        - coreId
+        - coreName
+        - machine
+        - missingEntries
+        - mismatchedEntries
+        - dependencies
+        - bios
+        - missingDiscs
+      properties:
+        status:
+          type: string
+          enum:
+            - READY
+            - BLOCKED
+            - INCOMPATIBLE
+        code:
+          type: string
+        coreId:
+          type: string
+        coreName:
+          type: string
+        machine:
+          type: string
+          nullable: true
+        missingEntries:
+          type: array
+          items:
+            type: string
+        mismatchedEntries:
+          type: array
+          items:
+            type: string
+        dependencies:
+          type: array
+          items:
+            $ref: '#/components/schemas/PegasusRuntimeDependency'
+        bios:
+          type: array
+          items:
+            $ref: '#/components/schemas/PegasusRuntimeBIOS'
+        missingDiscs:
+          type: array
+          items:
+            $ref: '#/components/schemas/PegasusRuntimeMissingDisc'
+    Session:
+      type: object
+      additionalProperties: false
+      required:
+        - csrfToken
+        - expiresAtMs
+      properties:
+        csrfToken:
+          type: string
+          minLength: 43
+          maxLength: 43
+        expiresAtMs:
+          type: integer
+          format: int64
+          minimum: 0
+    JSONObject:
+      type: object
+      additionalProperties: false
+      properties:
+        acceptedDurationMs: {}
+        action: {}
+        activatedAtMs: {}
+        active: {}
+        activeAttachment: {}
+        activeDurationMs: {}
+        activeEmulatorjsVersion: {}
+        activeInstallation: {}
+        activeLaunchCount: {}
+        actor:
+          type: object
+          additionalProperties: false
+          required:
+            - kind
+            - userId
+            - label
+          properties:
+            kind:
+              type: string
+              enum:
+                - USER
+                - SYSTEM
+            userId:
+              type: string
+              format: uuid
+              nullable: true
+            label:
+              type: string
+              nullable: true
+        acknowledgedGameIds: {}
+        after: {}
+        alreadyImportedFileCount: {}
+        alreadyImportedFiles: {}
+        alreadyImportedItemCount: {}
+        alreadyImportedItems: {}
+        alreadyImportedMatches: {}
+        archive:
+          type: boolean
+        archiveEntries: {}
+        archiveFormat:
+          type: string
+          enum:
+            - ZIP
+            - SEVEN_Z
+          nullable: true
+        arcadeDependencies: {}
+        attachment: {}
+        attachmentId: {}
+        assetId: {}
+        assetIds: {}
+        assets: {}
+        attemptCount: {}
+        association: {}
+        attributeRelationType: {}
+        attributeType: {}
+        attributes: {}
+        availability: {}
+        backgroundCandidateAssetId: {}
+        base: {}
+        baseContentRevisionId: {}
+        binary: {}
+        bios: {}
+        biosSetCount: {}
+        biosUrl: {}
+        blobCount: {}
+        blocked: {}
+        blockedCount: {}
+        blockerCode: {}
+        blockerCodes: {}
+        blockers: {}
+        bootstrapExpiresAtMs: {}
+        bundleVersion: {}
+        cancelReason: {}
+        cancelled: {}
+        candidateCount: {}
+        candidateId: {}
+        candidates: {}
+        change: {}
+        chunkSizeBytes: {}
+        class: {}
+        canApprove:
+          description: For RPG Maker, true after a current runtime-validation Launch has been created; advanced machine gates remain optional for the review decision.
+        canAttachMissingDiscs: {}
+        canRetry: {}
+        clientCapabilities: {}
+        clientFileId: {}
+        clientObservedAtMs: {}
+        clientSequence: {}
+        cloneof: {}
+        code: {}
+        column: {}
+        commit: {}
+        canonicalName: {}
+        compatibilityCode: {}
+        compatibilityStatus: {}
+        completed: {}
+        conditionCode: {}
+        configEvidence: {}
+        configSnapshot: {}
+        configSnapshotDigest: {}
+        configuredDependencyVersionCount: {}
+        configuredEmulatorjsVersions: {}
+        configuredVersion: {}
+        contentKind: {}
+        contentRevisionId: {}
+        contentIdentityDigest: {}
+        core: {}
+        coreArtifactId: {}
+        coreId: {}
+        coreName:
+          type: string
+        coreOptions: {}
+        cores: {}
+        counts: {}
+        coverCandidateAssetId: {}
+        coverUrl: {}
+        createdAtMs: {}
+        crossOriginIsolated: {}
+        csrfToken:
+          type: string
+        currentContentRevisionId: {}
+        current: {}
+        currentMetadataRevisionId: {}
+        currentVariantRevisionId: {}
+        dat: {}
+        datEvidence: {}
+        datVersionId: {}
+        databaseSchemaVersion: {}
+        databaseSha256: {}
+        decision: {}
+        default: {}
+        defaultCoreId: {}
+        defaultCoreName: {}
+        defaultCoreOptions: {}
+        externalFiles: {}
+        effectiveSourceSnapshotId: {}
+        expectedLogicalName: {}
+        defaultDosEntry: {}
+        deleteImpact: {}
+        deleted: {}
+        deletedAtMs: {}
+        dependencies: {}
+        dependencyManifests: {}
+        dependencyVersionCount: {}
+        dependencyVersions: {}
+        description: {}
+        details: {}
+        developer: {}
+        diff: {}
+        directLaunchSafe: {}
+        discCount: {}
+        discIndex: {}
+        discarded: {}
+        disk: {}
+        diskEntryCount: {}
+        diffErrorCode: {}
+        diffJobId: {}
+        diffStatus: {}
+        diffVersion: {}
+        dosEntry: {}
+        dosEntries: {}
+        duplicateGames: {}
+        duplicatePolicy: {}
+        edges: {}
+        emulatorGameId: {}
+        emulatorjs: {}
+        emulatorjsVersion: {}
+        enabled: {}
+        entries: {}
+        error: {}
+        errorCode: {}
+        eventType: {}
+        evidence: {}
+        executionId: {}
+        executionNo: {}
+        existingGame: {}
+        expectedMd5: {}
+        expiresAtMs:
+          type: integer
+          format: int64
+        explicit: {}
+        failed: {}
+        failedItemCount: {}
+        fileCount: {}
+        fileOutcomes: {}
+        fileId: {}
+        files: {}
+        filterDigest: {}
+        finalizationNo: {}
+        finalizeJobId: {}
+        flavor: {}
+        game: {}
+        gameCount: {}
+        gameId: {}
+        gameIds: {}
+        gameName: {}
+        gameTitle:
+          type: string
+        gameUrl: {}
+        gameVersion: {}
+        games: {}
+        generatedAtMs:
+          type: integer
+          format: int64
+        genre: {}
+        hardExpiresAtMs: {}
+        heightPx: {}
+        hitCount: {}
+        id: {}
+        ignoredFiles: {}
+        impact: {}
+        impactDigest: {}
+        importItemId: {}
+        importJobId: {}
+        importCapabilities: {}
+        imports: {}
+        index: {}
+        inputs: {}
+        installationId: {}
+        isDefault: {}
+        itemCount: {}
+        itemId: {}
+        itemSummaries: {}
+        items: {}
+        jobId: {}
+        jobState: {}
+        jobVersion: {}
+        jobs: {}
+        kind: {}
+        label: {}
+        level: {}
+        library: {}
+        latestGames: {}
+        latestAttachment: {}
+        license: {}
+        loader: {}
+        loaderUrl: {}
+        logicalName: {}
+        machine: {}
+        machineCount: {}
+        manifestPath: {}
+        manifestSha256: {}
+        maxAttempts: {}
+        maxDiscs:
+          type: integer
+        maxTotalBytes:
+          type: integer
+          format: int64
+        md5: {}
+        mediaType: {}
+        message: {}
+        metadata: {}
+        metadataProvider: {}
+        metadataRevisionId: {}
+        missingDiscCount: {}
+        missingReferences: {}
+        mode: {}
+        contentModes: {}
+        multiDisc: {}
+        name: {}
+        needsValidation: {}
+        nextCursor: {}
+        non: {}
+        operationId: {}
+        originalPath: {}
+        ordinal: {}
+        output: {}
+        parentUrl: {}
+        parse: {}
+        parseStatus: {}
+        partNo: {}
+        path: {}
+        paused: {}
+        playlist: {}
+        platform: {}
+        platformId: {}
+        platformInstance: {}
+        platformInstanceId: {}
+        platformInstanceName: {}
+        platformInstanceVersion: {}
+        platformName:
+          type: string
+        playSessionId: {}
+        playUrl: {}
+        player: {}
+        playerAdapterId: {}
+        players: {}
+        previousInterval: {}
+        presentDiscCount: {}
+        protected: {}
+        provider: {}
+        providerAssetId: {}
+        providerEvidence: {}
+        providerGameId: {}
+        published: {}
+        publisher: {}
+        q: {}
+        queued: {}
+        rank: {}
+        ready: {}
+        reason: {}
+        reasonCode: {}
+        reasons: {}
+        receivedParts: {}
+        receivedSizeBytes: {}
+        recentGames: {}
+        recentSaves: {}
+        rejectedFiles: {}
+        rejectedFileCount:
+          type: integer
+          format: int64
+        reconfiguredFromImportJobId: {}
+        replacementImportJobId: {}
+        releaseYear: {}
+        resolution: {}
+        resolvedAtMs:
+          type: integer
+          format: int64
+        repository: {}
+        requestId: {}
+        requestedArtifactBasename: {}
+        requirementId: {}
+        requirementMode: {}
+        requires: {}
+        requiresThreads: {}
+        retained: {}
+        retryAfterMs: {}
+        retryable: {}
+        returnTo: {}
+        reviewEventCount: {}
+        reviewEventId: {}
+        reviewPending: {}
+        reviewPendingCount: {}
+        reviewPendingItemCount: {}
+        reviewVersion: {}
+        revisionId: {}
+        role: {}
+        rom: {}
+        romEntryCount: {}
+        romof: {}
+        running: {}
+        runtime: {}
+        runtimeBaseUrl: {}
+        runtimePath: {}
+        runtimePathOverrides: {}
+        sample: {}
+        saveStateCount: {}
+        saveStateId: {}
+        saveStates: {}
+        scheduled: {}
+        schema: {}
+        schemaVersion:
+          type: integer
+        scope: {}
+        scopeId: {}
+        scopeType: {}
+        score: {}
+        scrapeRunId: {}
+        scrapeRuns: {}
+        outcomes: {}
+        evidenceCount: {}
+        completedAtMs: {}
+        screenshot: {}
+        screenshotCandidateAssetIds: {}
+        section: {}
+        secureContext: {}
+        selected: {}
+        selectedAssets: {}
+        selectedCandidateId: {}
+        selectedValidationId: {}
+        selectedValidationGeneration: {}
+        sequence: {}
+        sha1: {}
+        sha256: {}
+        sha256sumsPath: {}
+        sha256sumsSha256: {}
+        sharedArrayBuffer: {}
+        signature: {}
+        size: {}
+        sizeBytes: {}
+        slug: {}
+        sort: {}
+        sortCode: {}
+        sortOrder: {}
+        sortValues: {}
+        source: {}
+        supportedExtensions:
+          type: array
+          items:
+            type: string
+            pattern: ^\.[a-z0-9]+$
+        sourceDisplayName: {}
+        sourceFiles: {}
+        sourceManifest: {}
+        sourceReference: {}
+        sourceTotalSizeBytes: {}
+        sourcePlatformInstanceId: {}
+        sourceType: {}
+        state: {}
+        stateUrl: {}
+        status: {}
+        summary: {}
+        table: {}
+        target: {}
+        targetCoreId: {}
+        targetDatVersionId: {}
+        targetPlatformInstance: {}
+        targetPlatformInstanceId: {}
+        tested: {}
+        third: {}
+        title: {}
+        toAtMs: {}
+        total: {}
+        totalBytes: {}
+        totalPresentBytes: {}
+        totalItemCount: {}
+        trailing: {}
+        unresolved: {}
+        updatedAtMs: {}
+        unresolvedRejectedFileCount:
+          type: integer
+          format: int64
+        unresolvedRejectedFiles:
+          type: integer
+          format: int64
+        uploadFileId: {}
+        uploadId: {}
+        uploadPartCount: {}
+        uploadSessionId: {}
+        validatedRequirementVersion: {}
+        validation: {}
+        validationStale: {}
+        validationDetails: {}
+        validationJobId: {}
+        validationStatus: {}
+        value: {}
+        variantStatus: {}
+        version: {}
+        visible: {}
+        warnings: {}
+        widthPx: {}
+        year: {}
+    RpgErrorCode:
+      type: string
+      enum:
+        - RPG_CORE_UNSUPPORTED
+        - RPG_PROJECT_NOT_FOUND
+        - RPG_PROJECT_ROOT_AMBIGUOUS
+        - RPG_GENERATION_AMBIGUOUS
+        - RPG_GENERATION_UNSUPPORTED
+        - RPG_SELECTED_CORE_MISMATCH
+        - RPG_SERVER_IMPORT_UNSUPPORTED
+        - RPG_LCF_INVALID
+        - RPG_LCF_GENERATION_UNKNOWN
+        - RPG_LMT_INVALID
+        - RPG_INI_INVALID
+        - RPG_INI_ENCODING_UNSUPPORTED
+        - RPG_RGSS_GENERATION_CONFLICT
+        - RPG_WEB_FORMAT_INVALID
+        - RPG_RGSS_CONTENT_TOO_LARGE
+        - RPG_PATH_COLLISION
+        - RPG_NATIVE_DEPENDENCY_UNSUPPORTED
+        - RPG_RUNTIME_PACK_MISSING
+        - RPG_RUNTIME_PACK_AMBIGUOUS
+        - RPG_RUNTIME_PACK_IN_USE
+        - RPG_RUNTIME_PACK_INVALID
+        - RPG_RUNTIME_PACK_CONFLICT
+        - RPG_RUNTIME_PACK_NOT_FOUND
+        - RPG_RUNTIME_PACK_TOO_LARGE
+        - RPG_RUNTIME_PACK_UNAVAILABLE
+        - RPG_RUNTIME_PACK_VERSION_CONFLICT
+        - RPG_RUNTIME_ROUTE_UNAVAILABLE
+        - RPG_RUNTIME_THREADS_UNAVAILABLE
+        - RPG_RUNTIME_OPFS_UNAVAILABLE
+        - RPG_NATIVE_BRIDGE_UNSUPPORTED
+        - RPG_RUNTIME_VALIDATION_REQUIRED
+        - RPG_RUNTIME_VALIDATION_NOT_FOUND
+        - RPG_RUNTIME_VALIDATION_VERSION_CONFLICT
+        - RPG_RUNTIME_VALIDATION_DECISION_INVALID
+        - RPG_RUNTIME_INVALID_STATE
+        - RPG_RUNTIME_PROTOCOL_VIOLATION
+        - RPG_RUNTIME_TIMEOUT
+        - RPG_RUNTIME_CONTENT_MISMATCH
+        - RPG_CHECKPOINT_UNAVAILABLE
+        - RPG_CHECKPOINT_INVALID
+        - RPG_CHECKPOINT_INCOMPATIBLE
+        - RPG_CHECKPOINT_RESTORE_FAILED
+        - RPG_RUNTIME_BOOTSTRAP_EXPIRED
+        - RPG_RUNTIME_SCREENSHOT_INVALID
+    RpgError:
+      type: object
+      additionalProperties: false
+      required:
+        - code
+        - message
+        - details
+        - requestId
+      properties:
+        code:
+          $ref: '#/components/schemas/RpgErrorCode'
+        message:
+          type: string
+        details:
+          type: object
+          additionalProperties: true
+        requestId:
+          type: string
+          format: uuid
+    RpgErrorEnvelope:
+      type: object
+      additionalProperties: false
+      required:
+        - error
+      properties:
+        error:
+          $ref: '#/components/schemas/RpgError'
+    ErrorEnvelope:
+      type: object
+      additionalProperties: false
+      required:
+        - error
+      properties:
+        error:
+          type: object
+          additionalProperties: false
+          required:
+            - code
+            - message
+            - details
+            - requestId
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+            details:
+              type: object
+              additionalProperties: true
+            requestId:
+              type: string
+              format: uuid
+  requestBodies:
+    Reason:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ReasonRequest'
+    Empty:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/EmptyRequest'
+    MetadataProvider:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/MetadataProviderRequest'
+  responses:
+    RpgBadRequestResponse:
+      description: RPG_PROJECT_NOT_FOUND, INVALID_REQUEST, or INVALID_IDEMPOTENCY_KEY (400)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/RpgErrorEnvelope'
+    RpgGoneResponse:
+      description: RPG_RUNTIME_BOOTSTRAP_EXPIRED (410)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/RpgErrorEnvelope'
+    RpgNotFoundResponse:
+      description: RPG runtime validation or runtime-pack installation was not found (404)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/RpgErrorEnvelope'
+    RpgConflictResponse:
+      description: RPG_PROJECT_ROOT_AMBIGUOUS, RPG_GENERATION_AMBIGUOUS, runtime-pack/route/capability/state/protocol/content conflicts, or checkpoint unavailable/incompatible (409)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/RpgErrorEnvelope'
+    RpgUnprocessableResponse:
+      description: Unsupported core/generation, selected-core mismatch, invalid LCF/LMT/INI/Web project, unsafe dependency/path, unsupported native bridge, invalid checkpoint, or failed engine restore (422)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/RpgErrorEnvelope'
+    JSONResponse:
+      description: JSON response
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/JSONObject'
+    SSEResponse:
+      description: Server-sent events
+      content:
+        text/event-stream:
+          schema:
+            type: string
+  parameters:
+    Q:
+      name: q
+      in: query
+      schema:
+        type: string
+        maxLength: 200
+    Q80:
+      name: q
+      in: query
+      schema:
+        type: string
+        maxLength: 80
+    PlatformIDQuery:
+      name: platformId
+      in: query
+      schema:
+        type: string
+    TagIDQuery:
+      name: tagId
+      in: query
+      schema:
+        type: string
+        format: uuid
+    PlatformInstanceIDQuery:
+      name: platformInstanceId
+      in: query
+      schema:
+        type: string
+        format: uuid
+    CoreIDQuery:
+      name: coreId
+      in: query
+      schema:
+        type: string
+    State:
+      name: state
+      in: query
+      schema:
+        type: string
+    Status:
+      name: status
+      in: query
+      schema:
+        type: string
+    Outcome:
+      name: outcome
+      in: query
+      schema:
+        type: string
+    Source:
+      name: source
+      in: query
+      schema:
+        type: string
+    ParseStatus:
+      name: parseStatus
+      in: query
+      schema:
+        type: string
+    Section:
+      name: section
+      in: query
+      schema:
+        type: string
+    Change:
+      name: change
+      in: query
+      schema:
+        type: string
+    Sort:
+      name: sort
+      in: query
+      schema:
+        type: string
+    Cursor:
+      name: cursor
+      in: query
+      schema:
+        type: string
+        maxLength: 8192
+    Limit:
+      name: limit
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 50
+    Limit50:
+      name: limit
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 50
+        default: 50
+    Limit20:
+      name: limit
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 20
+        default: 20
+    Limit100:
+      name: limit
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 100
+    IfMatch:
+      name: If-Match
+      in: header
+      required: true
+      schema:
+        type: string
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema:
+        type: string
+        format: uuid
+    CSRFToken:
+      name: X-Retrom-Csrf
+      in: header
+      required: true
+      schema:
+        type: string
+    LastEventID:
+      name: Last-Event-ID
+      in: header
+      schema:
+        type: string
+        pattern: ^[0-9]+$
+    GameID:
+      name: gameId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    SaveStateID:
+      name: saveStateId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    ImportItemID:
+      name: importItemId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid

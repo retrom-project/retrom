@@ -13,7 +13,7 @@
     "test": "vitest",
     "test:ci": "vitest run",
     "test:e2e": "playwright test",
-    "api:generate": "openapi-typescript ../api/openapi.yaml -o lib/api/generated/schema.d.ts"
+    "api:generate": "openapi-typescript ../.cache/generated/openapi.bundle.yaml -o lib/api/generated/schema.d.ts"
   },
   "dependencies": {
     "@xxxsen/retrom-runtime": "https://github.com/xxxsen/retrom-runtime/releases/download/v0.4.2/xxxsen-retrom-runtime-0.4.2.tgz",

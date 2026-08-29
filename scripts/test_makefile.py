@@ -44,26 +44,33 @@ class MakefileDependencyTests(unittest.TestCase):
             capture_output=True,
             text=True,
         ).stdout
+        bundle_position = output.find("go run ./scripts/openapi-bundle")
         generator_position = output.find("oapi-codegen")
         build_position = output.find("go build ./cmd/retrom")
-        self.assertTrue(0 <= generator_position < build_position, output)
+        self.assertTrue(
+            0 <= bundle_position < generator_position < build_position,
+            output,
+        )
+        for config in ("models.yaml", "server.yaml", "spec.yaml"):
+            self.assertIn(f"api/codegen/{config}", output)
 
     def test_generated_go_api_is_ignored_and_untracked(self) -> None:
-        generated = "internal/httpapi/generated/api.gen.go"
-        ignored = subprocess.run(
-            ["git", "check-ignore", "--quiet", generated],
-            cwd=REPOSITORY_ROOT,
-            check=False,
-        )
-        tracked = subprocess.run(
-            ["git", "ls-files", "--error-unmatch", generated],
-            cwd=REPOSITORY_ROOT,
-            check=False,
-            capture_output=True,
-            text=True,
-        )
-        self.assertEqual(ignored.returncode, 0, "api.gen.go must be ignored")
-        self.assertNotEqual(tracked.returncode, 0, "api.gen.go must not be tracked")
+        for filename in ("models.gen.go", "server.gen.go", "spec.gen.go"):
+            generated = f"internal/httpapi/generated/{filename}"
+            ignored = subprocess.run(
+                ["git", "check-ignore", "--quiet", generated],
+                cwd=REPOSITORY_ROOT,
+                check=False,
+            )
+            tracked = subprocess.run(
+                ["git", "ls-files", "--error-unmatch", generated],
+                cwd=REPOSITORY_ROOT,
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(ignored.returncode, 0, f"{filename} must be ignored")
+            self.assertNotEqual(tracked.returncode, 0, f"{filename} must not be tracked")
 
     def test_web_e2e_prepares_locked_browser_after_web_dependencies(self) -> None:
         output = self.dry_run("web-e2e")

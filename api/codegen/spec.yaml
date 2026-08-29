@@ -1,0 +1,6 @@
+package: generated
+output: internal/httpapi/generated/spec.gen.go
+generate:
+  embedded-spec: true
+output-options:
+  skip-prune: true
