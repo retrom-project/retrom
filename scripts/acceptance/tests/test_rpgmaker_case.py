@@ -409,6 +409,15 @@ class EvidenceContractTests(unittest.TestCase):
         self.assertIn(validation, source)
         self.assertLess(source.index(validation), source.index("await chromium.launch"))
 
+    def test_generation_drivers_route_rpg_localhost_through_the_loopback_proxy(self) -> None:
+        for path in (GENERATION_PROVISION_PATH, BROWSER_PATH):
+            with self.subTest(path=path.name):
+                source = path.read_text()
+                self.assertIn('from "./rpgmaker_local_proxy.mjs"', source)
+                self.assertIn("await localRpgAcceptanceProxy(baseUrl)", source)
+                self.assertIn("...localProxy.contextOptions", source)
+                self.assertIn("await localProxy.close()", source)
+
     def test_generation_provision_covers_all_seven_current_routes_and_state_inputs(self) -> None:
         source = GENERATION_PROVISION_PATH.read_text()
         expected = {
