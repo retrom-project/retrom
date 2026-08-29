@@ -1446,6 +1446,14 @@ ID。没有实体设备时自动化 Case 可以 PASS，但沉浸模式发布验�
 `rpgmaker-product.json`，并内嵌到统一 `result.json.productEvidence`；Cookie、CSRF、Launch capability 和宿主
 绝对路径不得进入这两个文件。
 
+002 至 008 的统一 runner 还必须在同一浏览器 context 中创建第二个不带存档的 PRODUCT Launch，并在两次首个
+可创建存档状态出现时冻结项目内容响应和固定 runtime asset Resource Timing 摘要。EasyRPG 两个 Launch 必须使用
+同一稳定 project content identity，只取索引声明中实际使用的部分文件且首屏 project bytes 小于项目总字节；mkxp
+必须只以 `206 Range` 读取不小于 4 MiB 的远程 `game.mkxpz`，不得出现项目 archive 的整包 `200`，读取 byte 小于
+archive 总大小；两类恢复 Launch 均至少命中一个固定 runtime asset 浏览器缓存。MV/MZ 保持 unique runtime origin，
+两次首屏的 native project 响应数都必须大于零且严格小于导入文件总数，不得枚举或下载整个项目。结构化证据只记录
+Launch ID、计数和 byte，不记录 content identity、项目路径或资源名。
+
 002 至 008 的 fresh 产品记录统一由
 `node scripts/acceptance/rpgmaker_generation_provision.mjs ACC-RPG-NNN` 创建。该命令固定读取相应公开 fixture，
 执行 Upload/Import/Review、14 gate、不同 restore Launch、PASS decision 与发布，并只在 stdout 返回三个 ID；

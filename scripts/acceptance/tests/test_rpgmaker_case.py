@@ -447,6 +447,20 @@ class EvidenceContractTests(unittest.TestCase):
         with self.assertRaisesRegex(rpgmaker.ContractError, "ORIGIN_INVENTORY_INVALID"):
             rpgmaker.validate_generation_evidence(payload, spec, "a" * 64)
 
+    def test_generation_evidence_rejects_eager_or_missing_runtime_loading(self) -> None:
+        spec = rpgmaker.GENERATION_CASES["ACC-RPG-004"]
+        payload = product_payload(spec, "a" * 64)
+        payload["loading"]["firstVisible"]["fullProjectFileResponseCount"] = 1
+        with self.assertRaisesRegex(rpgmaker.ContractError, "RUNTIME_LOADING_INVALID"):
+            rpgmaker.validate_generation_evidence(payload, spec, "a" * 64)
+
+        native_spec = rpgmaker.GENERATION_CASES["ACC-RPG-007"]
+        native_payload = product_payload(native_spec, "a" * 64)
+        native_payload["loading"]["firstVisible"]["nativeProjectResponseCount"] = \
+            native_payload["inputProvenance"]["fileCount"]
+        with self.assertRaisesRegex(rpgmaker.ContractError, "RUNTIME_LOADING_INVALID"):
+            rpgmaker.validate_generation_evidence(native_payload, native_spec, "a" * 64)
+
     def test_mz_generation_evidence_requires_legal_lineage_engine_chrome_and_durations(self) -> None:
         spec = rpgmaker.GENERATION_CASES["ACC-RPG-008"]
         payload = product_payload(spec, "a" * 64)
@@ -498,6 +512,15 @@ class EvidenceContractTests(unittest.TestCase):
         transcript_source = source[source.index("async function readInputTranscript"):]
         self.assertNotIn("relativePath:", transcript_source)
         self.assertNotIn("bootstrapTicket:", transcript_source)
+
+    def test_generation_browser_records_first_visible_and_second_launch_loading(self) -> None:
+        source = BROWSER_PATH.read_text()
+        self.assertIn("trackRuntimeLoading(page)", source)
+        self.assertIn("trackRuntimeLoading(cachePage)", source)
+        self.assertIn("cacheLaunchId: cacheLaunch.launchId", source)
+        self.assertIn("sameProjectContentIdentity,", source)
+        loading_source = (MODULE_PATH.parent / "runtime_loading_evidence.mjs").read_text()
+        self.assertNotIn("projectPath:", loading_source)
 
     def test_catalog_evidence_reports_applied_recommendation_states(self) -> None:
         source = BROWSER_PATH.read_text()
@@ -1006,6 +1029,7 @@ def product_payload(spec, digest: str) -> dict:
                 {"gate": gate, "durationMs": 10} for gate in rpgmaker.GATES
             ],
         },
+        "loading": runtime_loading_evidence(spec.generation),
         "screenshots": [restore_screenshot, f"screenshots/{spec.core_id}-product-player.png"],
     }
     if spec.generation in {"RPGMV", "RPGMZ"}:
@@ -1047,6 +1071,37 @@ def product_payload(spec, digest: str) -> dict:
     if spec.generation == "RPGXP":
         payload["xpRuntimeTrace"] = xp_runtime_trace("e" * 64)
     return payload
+
+
+def runtime_loading_evidence(generation: str) -> dict:
+    native = generation in {"RPGMV", "RPGMZ"}
+    mkxp = generation in {"RPGXP", "RPGVX", "RPGVXACE"}
+    cache_launch_id = "88888888-8888-4888-8888-888888888888"
+
+    def snapshot(cache_hits: int) -> dict:
+        return {
+            "declaredLargeFileCount": 1 if mkxp else 0,
+            "declaredProjectBytes": 32 * 1024 * 1024 if mkxp else (0 if native else 1024),
+            "declaredProjectFileCount": 1 if mkxp else (0 if native else 10),
+            "fullProjectFileResponseCount": 0 if mkxp or native else 3,
+            "nativeProjectResponseCount": 4 if native else 0,
+            "projectContentIdentityCount": 0 if native else 1,
+            "rangeProjectFileResponseCount": 4 if mkxp else 0,
+            "requestedLargeFileCount": 1 if mkxp else 0,
+            "requestedProjectBytes": 512 * 1024 if mkxp else (0 if native else 256),
+            "requestedProjectFileCount": 1 if mkxp else (0 if native else 3),
+            "runtimeAssetCacheHitCount": cache_hits,
+            "runtimeAssetRequestCount": 0 if native else 2,
+            "runtimeAssetTransferredBytes": 0 if cache_hits else 1_000_000,
+        }
+
+    return {
+        "schemaVersion": 1,
+        "cacheLaunchId": cache_launch_id,
+        "sameProjectContentIdentity": None if native else True,
+        "firstVisible": snapshot(0),
+        "cacheLaunchVisible": snapshot(0 if native else 2),
+    }
 
 
 def mz_transformation(digest: str, file_count: int, total_bytes: int) -> dict:
