@@ -210,6 +210,7 @@ async function validateAndPublish(context, client, review) {
   );
   exact(createdResponse.status(), 201, "RPG_PROVISION_VALIDATION_CREATE_FAILED");
   const created = await createdResponse.json();
+  await assertLaunchCookie(context, created.launchId);
   const original = await openPlayer(context, created.playerUrl);
   const checkpointUpload = tracePath ? observeCheckpointUpload(original) : null;
   await runtimeAction(original, "输入已经生效", ["ArrowLeft"]);
@@ -237,6 +238,7 @@ async function validateAndPublish(context, client, review) {
   exact(restoreResponse.status(), 201, "RPG_PROVISION_RESTORE_CREATE_FAILED");
   const restored = await restoreResponse.json();
   if (restored.launchId === created.launchId) { throw new Error("RPG_PROVISION_RESTORE_LAUNCH_REUSED"); }
+  await assertLaunchCookie(context, restored.launchId);
   const restorePage = await openPlayer(context, restored.playerUrl);
   await runtimeAction(restorePage, "恢复后输入已经生效", config.restoreKeys, 300_000);
   const awaiting = await waitForValidation(client, review.itemId, created.validationId, "AWAITING_DECISION");
@@ -438,8 +440,25 @@ async function openPlayer(context, playerUrl) {
   const errors = [];
   page.on("pageerror", (error) => errors.push(error.stack || error.message));
   page.__retromPageErrors = errors;
+  const configResponse = page.waitForResponse((response) =>
+    response.request().method() === "GET" && /\/runtime\/launches\/[^/]+\/config$/.test(response.url()),
+  );
   await page.goto(`${baseUrl}${playerUrl}`, { waitUntil: "domcontentloaded", timeout: 120_000 });
+  const config = await configResponse;
+  if (config.status() !== 200) {
+    throw new Error(`RPG_PROVISION_LAUNCH_CONFIG_${config.status()}`);
+  }
   return page;
+}
+
+async function assertLaunchCookie(context, launchId) {
+  const expectedPath = `/runtime/launches/${launchId}/`;
+  const cookies = await context.cookies(`${baseUrl}${expectedPath}config`);
+  const matches = cookies.filter((cookie) =>
+    cookie.name === `retrom_launch_${launchId}` && cookie.path === expectedPath
+      && cookie.httpOnly && cookie.sameSite === "Strict",
+  );
+  if (matches.length !== 1) { throw new Error("RPG_PROVISION_LAUNCH_COOKIE_MISSING"); }
 }
 
 async function runtimeAction(page, label, keys, timeout = 120_000) {
