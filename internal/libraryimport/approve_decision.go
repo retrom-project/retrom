@@ -92,9 +92,14 @@ func (run *approvalRun) marshalApprovalEvidence() approvalEvidence {
 		"tags": run.publishedTags,
 	})
 	diff, _ := json.Marshal(run.approvalDiff())
-	config, _ := json.Marshal(map[string]any{
+	configEvidence := map[string]any{
 		"schemaVersion": 2, "validation": "READY", "runtimeScreenshotOverride": run.screenshotOverride,
-	})
+	}
+	if run.platformID == "rpgmaker" {
+		configEvidence["validation"] = "RPG_LAUNCH_CONFIRMED"
+		configEvidence["runtimeValidationId"] = run.rpgValidationID
+	}
+	config, _ := json.Marshal(configEvidence)
 	datEvidence, _ := json.Marshal(map[string]any{
 		"schemaVersion": 2, "datMatched": run.datID.Valid,
 	})

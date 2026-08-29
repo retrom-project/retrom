@@ -8,6 +8,7 @@ for its complete contract.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import re
@@ -25,6 +26,9 @@ ARTIFACTS = ROOT / ".artifacts" / "acceptance"
 CURRENT = ARTIFACTS / "current-run"
 CASE_PATTERN = re.compile(r"^### (ACC-[A-Z]+-\d{3})[：:]", re.MULTILINE)
 CONDITIONAL_CASES = {"ACC-NET-002", "ACC-DAT-006"}
+RPG_CASES = {f"ACC-RPG-{number:03d}" for number in range(1, 13)}
+ONS_CASES = {"ACC-ONS-001"}
+PRODUCT_CASES = RPG_CASES | ONS_CASES
 
 
 # These commands are intentionally focused. Cases omitted here are emitted as
@@ -436,6 +440,17 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
         "-run 'TestAnalyze|TestReferenceCoverage|TestAdminStorageAnalysis|TestImmediateGC' -count=1 && "
         "scripts/acceptance/ui-case.sh ACC-STOR-001",
     ),
+    **{
+        case_id: (
+            600 if case_id == "ACC-RPG-010" else 180 if case_id == "ACC-RPG-001" else 300,
+            f"python3 scripts/acceptance/rpgmaker_case.py {case_id}",
+        )
+        for case_id in RPG_CASES
+    },
+    "ACC-ONS-001": (
+        300,
+        ".cache/tools/node-v24.18.0-linux-x64/bin/node scripts/acceptance/ons_product.mjs",
+    ),
 }
 
 
@@ -447,16 +462,31 @@ def relative(path: Path, run_dir: Path) -> str:
     return path.relative_to(run_dir).as_posix()
 
 
-def git_state() -> tuple[str, bool]:
+def git_provenance() -> dict[str, object]:
     commit = subprocess.run(
         ["git", "rev-parse", "HEAD"], cwd=ROOT, text=True, capture_output=True, check=False
     ).stdout.strip()
-    dirty = bool(
-        subprocess.run(
-            ["git", "status", "--porcelain"], cwd=ROOT, text=True, capture_output=True, check=False
-        ).stdout
-    )
-    return commit or "UNBORN", dirty
+    status_output = subprocess.run(
+        ["git", "status", "--porcelain=v1", "--untracked-files=all"],
+        cwd=ROOT, text=True, capture_output=True, check=False,
+    ).stdout
+    entries = []
+    for line in status_output.splitlines():
+        if len(line) < 4 or line[2] != " ":
+            raise RuntimeError("ACCEPTANCE_GIT_STATUS_INVALID")
+        path = line[3:]
+        if Path(path).is_absolute():
+            raise RuntimeError("ACCEPTANCE_GIT_STATUS_ABSOLUTE_PATH")
+        entries.append({"status": line[:2], "path": path})
+    entries.sort(key=lambda item: (str(item["path"]), str(item["status"])))
+    encoded = json.dumps(entries, ensure_ascii=False, separators=(",", ":"), sort_keys=True).encode()
+    return {
+        "gitCommit": commit or "UNBORN",
+        "gitDirty": bool(entries),
+        "gitDirtySummary": {
+            "fileCount": len(entries), "sha256": hashlib.sha256(encoded).hexdigest(), "entries": entries,
+        },
+    }
 
 
 def all_cases() -> list[str]:
@@ -539,15 +569,14 @@ def prepare() -> int:
     )
     log_path.write_text(result.stdout, encoding="utf-8")
     finished = now_ms()
-    commit, dirty = git_state()
+    provenance = git_provenance()
     run = {
         "schemaVersion": 1,
         "runId": run_id,
         "status": "PREPARED" if result.returncode == 0 else "PREPARE_FAILED",
         "startedAtMs": started,
         "finishedAtMs": finished,
-        "gitCommit": commit,
-        "gitDirty": dirty,
+        **provenance,
         "fakeClockNowMs": 1786000000000,
         "dataRoot": "work/data",
         "seedManifest": "work/seed/manifest.json",
@@ -565,9 +594,63 @@ def prepare() -> int:
     return 0
 
 
+def defect_file(run_dir: Path) -> Path:
+    return run_dir / "defects.json"
+
+
+def read_defects(run_dir: Path) -> list[dict]:
+    value = json.loads(defect_file(run_dir).read_text(encoding="utf-8"))
+    if not isinstance(value, list) or any(not isinstance(item, dict) for item in value):
+        raise RuntimeError("ACCEPTANCE_DEFECT_LEDGER_INVALID")
+    return value
+
+
+def write_defects(run_dir: Path, defects: list[dict]) -> None:
+    defect_file(run_dir).write_text(
+        json.dumps(defects, ensure_ascii=False, indent=2) + "\n", encoding="utf-8",
+    )
+
+
+def synchronize_failure_defects(case_dir: Path) -> None:
+    run_dir = case_dir.parents[1]
+    if not defect_file(run_dir).is_file():
+        return
+    defects = read_defects(run_dir)
+    known = {item.get("failedResult") for item in defects}
+    changed = False
+    for result_path in sorted((case_dir / "attempts").glob("[0-9][0-9][0-9]/result.json")):
+        result = json.loads(result_path.read_text(encoding="utf-8"))
+        if not isinstance(result, dict) or result.get("caseId") != case_dir.name.upper():
+            raise RuntimeError("ACCEPTANCE_DEFECT_RESULT_CASE_INVALID")
+        if result.get("status") != "FAIL" or str(result.get("failureKind", "")).startswith("DEFECT_"):
+            continue
+        relative_result = relative(result_path, run_dir)
+        if relative_result in known:
+            continue
+        attempt = result_path.parent.name
+        assertions = result.get("assertions")
+        details = "acceptance attempt failed"
+        if isinstance(assertions, list) and assertions and isinstance(assertions[0], dict):
+            details = str(assertions[0].get("details") or details)
+        defects.append({
+            "schemaVersion": 1,
+            "defectId": f"{case_dir.name}-attempt-{attempt}",
+            "caseId": result.get("caseId", case_dir.name.upper()),
+            "status": "OPEN",
+            "failedResult": relative_result,
+            "failureReason": details[:2000],
+        })
+        known.add(relative_result)
+        changed = True
+    if changed:
+        defects.sort(key=lambda item: (str(item.get("caseId")), str(item.get("failedResult"))))
+        write_defects(run_dir, defects)
+
+
 def archive_previous(case_dir: Path) -> None:
     result = case_dir / "result.json"
     if not result.exists():
+        synchronize_failure_defects(case_dir)
         return
     attempts = case_dir / "attempts"
     attempts.mkdir(exist_ok=True)
@@ -576,13 +659,141 @@ def archive_previous(case_dir: Path) -> None:
         number += 1
     target = attempts / f"{number:03d}"
     target.mkdir()
-    for name in ("result.json", "stdout.log", "network.json"):
+    run_dir = case_dir.parents[1]
+    moved: dict[str, str] = {}
+    for name in (
+        "result.json", "stdout.log", "network.json", "rpgmaker-product.json", "rerun-resolution.json",
+    ):
         source = case_dir / name
         if source.exists():
-            shutil.move(source, target / name)
+            destination = target / name
+            moved[relative(source, run_dir)] = relative(destination, run_dir)
+            shutil.move(source, destination)
+    for source in sorted(case_dir.glob("defect-regression-[0-9][0-9][0-9].log")):
+        destination = target / source.name
+        moved[relative(source, run_dir)] = relative(destination, run_dir)
+        shutil.move(source, destination)
     screenshots = case_dir / "screenshots"
     if screenshots.exists():
+        for source in screenshots.rglob("*"):
+            if source.is_file():
+                destination = target / "screenshots" / source.relative_to(screenshots)
+                moved[relative(source, run_dir)] = relative(destination, run_dir)
         shutil.move(screenshots, target / "screenshots")
+    rewrite_archived_references(run_dir, moved)
+    synchronize_failure_defects(case_dir)
+
+
+def rewrite_archived_references(run_dir: Path, moved: dict[str, str]) -> None:
+    if not defect_file(run_dir).is_file():
+        return
+    defects = read_defects(run_dir)
+    for item in defects:
+        for key in ("successfulResult", "greenEvidence"):
+            if item.get(key) in moved:
+                item[key] = moved[item[key]]
+    write_defects(run_dir, defects)
+
+
+def unresolved_defect_ids(run_dir: Path, case_id: str | None = None) -> list[str]:
+    return sorted(
+        str(item["defectId"]) for item in read_defects(run_dir)
+        if item.get("status") != "FIXED" and (case_id is None or item.get("caseId") == case_id)
+    )
+
+
+def safe_resolution_text(value: object, label: str) -> str:
+    if not isinstance(value, str) or not value.strip() or len(value) > 2000 or any(
+        ord(character) < 32 and character not in "\t\n" for character in value
+    ):
+        raise RuntimeError(f"ACCEPTANCE_DEFECT_{label}_INVALID")
+    return value.strip()
+
+
+def load_defect_resolution(run_dir: Path, case_id: str, path: Path) -> dict:
+    if not path.is_absolute() or not path.is_file() or path.is_symlink():
+        raise RuntimeError("ACCEPTANCE_DEFECT_RESOLUTION_PATH_INVALID")
+    value = json.loads(path.read_text(encoding="utf-8"))
+    expected_keys = {"schemaVersion", "caseId", "rerunExplanation", "defects"}
+    if not isinstance(value, dict) or set(value) != expected_keys or \
+            value.get("schemaVersion") != 1 or value.get("caseId") != case_id:
+        raise RuntimeError("ACCEPTANCE_DEFECT_RESOLUTION_SCHEMA_INVALID")
+    open_defects = {
+        str(item["defectId"]): item for item in read_defects(run_dir)
+        if item.get("caseId") == case_id and item.get("status") != "FIXED"
+    }
+    rows = value.get("defects")
+    if not isinstance(rows, list) or {item.get("defectId") for item in rows if isinstance(item, dict)} != set(open_defects) \
+            or len(rows) != len(open_defects):
+        raise RuntimeError("ACCEPTANCE_DEFECT_RESOLUTION_COVERAGE_INVALID")
+    normalized_rows = []
+    row_keys = {"defectId", "rootCause", "regressionTest", "redEvidence", "greenCommand", "fixCommit"}
+    for row in rows:
+        if not isinstance(row, dict) or set(row) != row_keys:
+            raise RuntimeError("ACCEPTANCE_DEFECT_RESOLUTION_ROW_INVALID")
+        defect = open_defects[str(row["defectId"])]
+        if row.get("redEvidence") != defect.get("failedResult"):
+            raise RuntimeError("ACCEPTANCE_DEFECT_RED_EVIDENCE_INVALID")
+        red_path = run_dir / str(row["redEvidence"])
+        if not red_path.is_file() or run_dir.resolve() not in red_path.resolve().parents:
+            raise RuntimeError("ACCEPTANCE_DEFECT_RED_EVIDENCE_INVALID")
+        regression = safe_resolution_text(row.get("regressionTest"), "REGRESSION_TEST")
+        source_name = regression.split("::", 1)[0]
+        source_path = Path(source_name)
+        if source_path.is_absolute() or not (ROOT / source_path).is_file():
+            raise RuntimeError("ACCEPTANCE_DEFECT_REGRESSION_TEST_INVALID")
+        fix_commit = row.get("fixCommit")
+        if not isinstance(fix_commit, str) or not re.fullmatch(r"[0-9a-f]{40}", fix_commit):
+            raise RuntimeError("ACCEPTANCE_DEFECT_FIX_COMMIT_INVALID")
+        commit_exists = subprocess.run(
+            ["git", "cat-file", "-e", f"{fix_commit}^{{commit}}"], cwd=ROOT,
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False,
+        ).returncode == 0
+        if not commit_exists:
+            raise RuntimeError("ACCEPTANCE_DEFECT_FIX_COMMIT_INVALID")
+        normalized_rows.append({
+            "defectId": row["defectId"],
+            "rootCause": safe_resolution_text(row.get("rootCause"), "ROOT_CAUSE"),
+            "regressionTest": regression,
+            "redEvidence": row["redEvidence"],
+            "greenCommand": safe_resolution_text(row.get("greenCommand"), "GREEN_COMMAND"),
+            "fixCommit": fix_commit,
+        })
+    return {
+        "schemaVersion": 1, "caseId": case_id,
+        "rerunExplanation": safe_resolution_text(value.get("rerunExplanation"), "RERUN_EXPLANATION"),
+        "defects": sorted(normalized_rows, key=lambda item: str(item["defectId"])),
+    }
+
+
+def run_defect_regressions(resolution: dict, case_dir: Path, run_dir: Path) -> tuple[dict, bool]:
+    normalized = json.loads(json.dumps(resolution))
+    results: dict[str, tuple[str, int, bool]] = {}
+    for index, command in enumerate(sorted({item["greenCommand"] for item in normalized["defects"]}), start=1):
+        log_path = case_dir / f"defect-regression-{index:03d}.log"
+        exit_code, timed_out = run_command(command, 300, log_path)
+        results[command] = (relative(log_path, run_dir), exit_code, timed_out)
+    for item in normalized["defects"]:
+        path, exit_code, timed_out = results[item["greenCommand"]]
+        item.update({"greenEvidence": path, "greenExitCode": exit_code, "greenTimedOut": timed_out})
+    succeeded = all(exit_code == 0 and not timed_out for _, exit_code, timed_out in results.values())
+    return normalized, succeeded
+
+
+def close_resolved_defects(run_dir: Path, resolution: dict, successful_result: str) -> None:
+    defects = read_defects(run_dir)
+    rows = {item["defectId"]: item for item in resolution["defects"]}
+    for defect in defects:
+        row = rows.get(defect.get("defectId"))
+        if row is None:
+            continue
+        defect.update(row)
+        defect.update({
+            "status": "FIXED",
+            "rerunExplanation": resolution["rerunExplanation"],
+            "successfulResult": successful_result,
+        })
+    write_defects(run_dir, defects)
 
 
 def run_command(
@@ -648,16 +859,50 @@ def execute_case(case_id: str) -> int:
     timed_out = False
     status = "FAIL"
     reason = ""
+    failure_kind = ""
+    product_evidence: dict | None = None
+    defect_resolution: dict | None = None
+    defect_regressions_passed = True
+    unresolved = unresolved_defect_ids(run_dir, case_id)
+    resolution_value = os.environ.get("RETROM_ACCEPTANCE_DEFECT_RESOLUTION", "")
+    if unresolved and resolution_value:
+        defect_resolution = load_defect_resolution(run_dir, case_id, Path(resolution_value))
+        defect_resolution, defect_regressions_passed = run_defect_regressions(
+            defect_resolution, case_dir, run_dir,
+        )
+        resolution_path = case_dir / "rerun-resolution.json"
+        resolution_path.write_text(
+            json.dumps(defect_resolution, ensure_ascii=False, indent=2) + "\n", encoding="utf-8",
+        )
 
     conditional = conditional_status(case_id)
-    if conditional:
+    if unresolved and defect_resolution is not None and not defect_regressions_passed:
+        command = "validate defect regression commands before rerun"
+        return_code = 1
+        failure_kind = "DEFECT_REGRESSION_GATE"
+        reason = "缺陷回归命令失败或超时；未执行产品重跑"
+        log_path.write_text(reason + "\n", encoding="utf-8")
+    elif unresolved and defect_resolution is None:
+        command = "validate unresolved defects before rerun"
+        return_code = 1
+        failure_kind = "DEFECT_LEDGER_GATE"
+        reason = "存在未解释的历史失败；必须提供 RETROM_ACCEPTANCE_DEFECT_RESOLUTION"
+        log_path.write_text(reason + "\n" + "unresolved=" + ",".join(unresolved) + "\n", encoding="utf-8")
+    elif conditional:
         status, reason = conditional
         log_path.write_text(reason + "\n", encoding="utf-8")
         return_code = 0
     elif case_id == "ACC-QA-003":
         command = "validate defects.json regression mappings"
-        defects = json.loads((run_dir / "defects.json").read_text(encoding="utf-8"))
-        missing = [item for item in defects if item.get("status") == "FIXED" and not all(item.get(key) for key in ("regressionTest", "redEvidence", "greenCommand"))]
+        defects = read_defects(run_dir)
+        missing = [
+            item for item in defects if item.get("status") != "FIXED" or
+            not all(item.get(key) for key in (
+                "rootCause", "regressionTest", "redEvidence", "greenCommand", "fixCommit",
+                "greenEvidence", "failedResult", "successfulResult", "rerunExplanation",
+            ))
+            or item.get("greenExitCode") != 0 or item.get("greenTimedOut") is not False
+        ]
         return_code = 0 if not missing else 1
         status = "PASS" if return_code == 0 else "FAIL"
         reason = "无缺陷，回归映射为空数组" if not defects else ("回归映射完整" if not missing else "存在缺少 red/green 映射的已修复缺陷")
@@ -673,18 +918,45 @@ def execute_case(case_id: str) -> int:
                 "RETROM_ACCEPTANCE_RUN_DIR": str(run_dir),
             },
         )
-        status = "PASS" if return_code == 0 and not timed_out else "FAIL"
-        reason = "聚焦自动化断言通过" if status == "PASS" else ("命令超时" if timed_out else "聚焦自动化断言失败")
+        if case_id in PRODUCT_CASES and return_code == 3 and not timed_out:
+            status = "BLOCKED"
+            reason = "缺少实际产品输入或必须由主线执行的隔离场景"
+        else:
+            status = "PASS" if return_code == 0 and not timed_out else "FAIL"
+            reason = "聚焦自动化断言通过" if status == "PASS" else ("命令超时" if timed_out else "聚焦自动化断言失败")
+        if case_id in PRODUCT_CASES:
+            product_path = case_dir / (
+                "ons-product.json" if case_id in ONS_CASES else "rpgmaker-product.json"
+            )
+            if product_path.is_file():
+                product_evidence = json.loads(product_path.read_text(encoding="utf-8"))
+                expected_product_status = "BLOCKED" if status == "BLOCKED" else "PASS"
+                if status in {"PASS", "BLOCKED"} and product_evidence.get("status") != expected_product_status:
+                    status = "FAIL"
+                    reason = "产品 driver 退出状态与结构化产品证据不一致"
+            elif status in {"PASS", "BLOCKED"}:
+                status = "FAIL"
+                reason = "产品 driver 未生成结构化产品证据"
     else:
         return_code = 1
         reason = "UNIMPLEMENTED_ACCEPTANCE_CASE：尚无覆盖该 Case 全部通过标准的可执行检查"
         log_path.write_text(reason + "\n", encoding="utf-8")
 
     finished = now_ms()
-    commit, dirty = git_state()
+    provenance = git_provenance()
     evidence = [relative(log_path, run_dir)]
+    detector_log = case_dir / "detector-matrix.log"
+    if detector_log.is_file():
+        evidence.append(relative(detector_log, run_dir))
     for path in sorted((case_dir / "screenshots").glob("*.png")):
         evidence.append(relative(path, run_dir))
+    if product_evidence is not None:
+        evidence.append(relative(product_path, run_dir))
+    if defect_resolution is not None:
+        evidence.append(relative(case_dir / "rerun-resolution.json", run_dir))
+        evidence.extend(
+            relative(path, run_dir) for path in sorted(case_dir.glob("defect-regression-[0-9][0-9][0-9].log"))
+        )
     result = {
         "caseId": case_id,
         "status": status,
@@ -694,12 +966,18 @@ def execute_case(case_id: str) -> int:
         "command": command,
         "exitCode": return_code,
         "timedOut": timed_out,
-        "gitCommit": commit,
-        "gitDirty": dirty,
+        **provenance,
         "assertions": [{"name": "registered-case-contract", "passed": status in {"PASS", "NOT_APPLICABLE"}, "details": reason}],
         "evidence": evidence,
     }
-    (case_dir / "result.json").write_text(json.dumps(result, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    if product_evidence is not None:
+        result["productEvidence"] = product_evidence
+    if failure_kind:
+        result["failureKind"] = failure_kind
+    result_path = case_dir / "result.json"
+    result_path.write_text(json.dumps(result, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    if status == "PASS" and defect_resolution is not None:
+        close_resolved_defects(run_dir, defect_resolution, relative(result_path, run_dir))
     print(f"{case_id}: {status} ({finished - started} ms)")
     print(f"evidence=.artifacts/acceptance/{run_dir.name}/cases/{case_id.lower()}")
     return 0 if status in {"PASS", "NOT_APPLICABLE"} else 1
@@ -719,8 +997,9 @@ def report() -> int:
     invalid_na = [case_id for case_id, item in results.items() if item["status"] == "NOT_APPLICABLE" and case_id not in CONDITIONAL_CASES]
     passed = [case_id for case_id, item in results.items() if item["status"] == "PASS"]
     not_applicable = [case_id for case_id, item in results.items() if item["status"] == "NOT_APPLICABLE"]
-    overall = "PASS" if not missing and not failed and not blocked and not invalid_na else "FAIL"
-    defects = json.loads((run_dir / "defects.json").read_text(encoding="utf-8"))
+    defects = read_defects(run_dir)
+    unresolved = [item.get("defectId") for item in defects if item.get("status") != "FIXED"]
+    overall = "PASS" if not missing and not failed and not blocked and not invalid_na and not unresolved else "FAIL"
     payload = {
         "schemaVersion": 1,
         "runId": run_dir.name,
@@ -731,6 +1010,7 @@ def report() -> int:
         "blockedCaseIds": blocked,
         "missingCaseIds": missing,
         "notApplicableCaseIds": not_applicable,
+        "unresolvedDefectIds": unresolved,
         "defects": defects,
     }
     (run_dir / "report.json").write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
@@ -739,6 +1019,7 @@ def report() -> int:
         f"PASS {len(passed)} / FAIL {len(failed)} / BLOCKED {len(blocked)} / NOT_APPLICABLE {len(not_applicable)} / MISSING {len(missing)}",
         "", f"Failed: {', '.join(failed) or 'none'}", f"Blocked: {', '.join(blocked) or 'none'}",
         f"Missing: {', '.join(missing) or 'none'}", f"Not applicable: {', '.join(not_applicable) or 'none'}", "",
+        f"Unresolved defects: {', '.join(str(item) for item in unresolved) or 'none'}", "",
     ]
     (run_dir / "report.md").write_text("\n".join(lines), encoding="utf-8")
     print("\n".join(lines), end="")

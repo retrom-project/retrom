@@ -90,7 +90,7 @@ func affectedBIOSBlobIDs(
 	installationID string,
 ) ([]string, error) {
 	return collectIDs(ctx, transaction, `
-SELECT save.state_blob_id FROM save_states save
+SELECT save.payload_blob_id FROM save_states save
 JOIN game_variant_revisions revision ON revision.id=save.game_variant_revision_id
 WHERE EXISTS(
  SELECT 1 FROM json_each(revision.dependency_snapshot_json,'$.bios') dependency

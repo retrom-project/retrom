@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { replaceWithPlayerDocument } from "@/lib/player-document-navigation";
 import { fetchImmersiveGames, ImmersiveAPIError, launchImmersiveGame, setImmersiveFavorite, type ImmersiveGame, type ImmersivePlatform } from "./api";
 import { AutoScrollingDescription } from "./auto-scrolling-description";
 import { ImmersiveChoiceDialog } from "./choice-dialog";
@@ -192,7 +193,7 @@ export function GameListView({ initialGameId, platformId }: { initialGameId?: st
     const returnTo = `/immersive/platforms/${platformId}?gameId=${selected.gameId}`;
     setLaunchState("pending");
     setLaunchMessage("");
-    void launchImmersiveGame(selected.gameId, returnTo).then((playUrl) => router.replace(playUrl)).catch((error: unknown) => {
+    void launchImmersiveGame(selected.gameId, returnTo).then((url) => replaceWithPlayerDocument(url, router.replace)).catch((error: unknown) => {
       setLaunchMessage(error instanceof Error ? error.message : "当前游戏无法启动");
       setLaunchState("error");
     });

@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -39,6 +41,13 @@ describe("SaveManager", () => {
   afterEach(() => {
     cleanup();
     vi.unstubAllGlobals();
+  });
+
+  it("keeps card action menus outside the game-group clipping boundary", () => {
+    const source = readFileSync(resolve(process.cwd(), "features/imports/import-review-workflow.css"), "utf8");
+    const rule = source.match(/\.save-library-group\s*\{([^}]*)\}/)?.[1] ?? "";
+
+    expect(rule).toContain("overflow: visible");
   });
 
   it("renders the latest save, summary and game-grouped library", () => {

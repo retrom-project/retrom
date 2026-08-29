@@ -141,7 +141,7 @@ test("one click creates a capability launch and advances real emulator frames", 
   await page.goto(`/games/${game!.gameId}`);
   await page.getByRole("button", { name: /^(开始游戏|重新开始游戏)$/ }).click();
   await expect(page).toHaveURL(/\/play\/[0-9a-f-]+$/, { timeout: 10_000 });
-  const player = page.frameLocator('iframe[title="Retrom EmulatorJS Player"]');
+  const player = page.frameLocator("iframe.player-frame");
   const canvas = player.locator("canvas.ejs_canvas");
   await expect(canvas).toBeVisible({ timeout: 60_000 });
   const playerFrame = page.frames().find((frame) => frame !== page.mainFrame());
@@ -421,8 +421,11 @@ test("game detail keeps its one-screen hierarchy and opens saves without navigat
 
 test("BIOS and save controls are labeled and keyboard reachable", async ({ page }, testInfo) => {
   await page.goto("/admin/bios?scope=FULL_CATALOG");
-  await expect(page.getByRole("heading", { name: "BIOS 文件" })).toBeVisible();
-  await expect(page.getByRole("searchbox", { name: "搜索 BIOS 文件" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "运行依赖" })).toBeVisible();
+  const biosTab = page.getByRole("tab", { name: "BIOS 文件" });
+  await expect(biosTab).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByRole("tabpanel", { name: "BIOS 文件" })
+    .getByRole("searchbox", { name: "搜索 BIOS 文件" })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
   await page.goto("/saves?availability=ALL");
   await expect(page.getByRole("heading", { name: "我的存档" })).toBeVisible();

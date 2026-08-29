@@ -579,7 +579,7 @@ describe("EmulatorJS adapter runtime controls", () => {
       takeScreenshot
     };
     const capture = await captureManualScreenshot(instance);
-    const payload = captureManualState(instance, capture);
+    const payload = await captureManualState(instance, capture);
     expect(takeScreenshot).toHaveBeenCalledWith("canvas", "png", 2);
     expect(payload.format).toBe("png");
     expect(payload.screenshot.type).toBe("image/png");
@@ -668,6 +668,6 @@ describe("EmulatorJS adapter runtime controls", () => {
     const state = Uint8Array.from([1, 2, 3]);
     await expect(captureManualScreenshot({ on: () => undefined, gameManager: { getState: () => state } })).rejects.toThrow("PLAYER_SCREENSHOT_UNAVAILABLE");
     await expect(captureManualScreenshot({ on: () => undefined, gameManager: { getState: () => state }, takeScreenshot: async () => ({ blob: new Blob(), format: "png" }) })).rejects.toThrow("PLAYER_SCREENSHOT_EMPTY");
-    expect(() => captureManualState({ on: () => undefined, gameManager: { getState: () => state } }, { screenshot: new Blob(), format: "png" })).toThrow("PLAYER_SCREENSHOT_EMPTY");
+    await expect(captureManualState({ on: () => undefined, gameManager: { getState: () => state } }, { screenshot: new Blob(), format: "png" })).rejects.toThrow("PLAYER_SCREENSHOT_EMPTY");
   });
 });

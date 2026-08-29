@@ -6,6 +6,13 @@ const adapter = vi.hoisted(() => ({
   mount: vi.fn(),
   capture: vi.fn(),
 }));
+const ons = vi.hoisted(() => ({
+  create: vi.fn(),
+  mount: vi.fn(),
+  screenshot: vi.fn(),
+  exit: vi.fn(),
+  subscribe: vi.fn(() => vi.fn()),
+}));
 
 vi.mock("@/features/player/adapters/ejs-4.2.3-v2", () => ({
   mountEmulatorJS: adapter.mount,
@@ -13,6 +20,9 @@ vi.mock("@/features/player/adapters/ejs-4.2.3-v2", () => ({
 }));
 vi.mock("@/features/player/canvas-fit", () => ({
   installCanvasContain: () => ({ refresh: vi.fn(), cleanup: vi.fn() }),
+}));
+vi.mock("@xxxsen/retrom-runtime", () => ({
+  createOnsRuntime: ons.create,
 }));
 
 describe("ReviewPreviewPlayer", () => {
@@ -23,6 +33,11 @@ describe("ReviewPreviewPlayer", () => {
     vi.unstubAllGlobals();
     adapter.mount.mockReset();
     adapter.capture.mockReset();
+    ons.create.mockReset();
+    ons.mount.mockReset();
+    ons.screenshot.mockReset();
+    ons.exit.mockReset();
+    ons.subscribe.mockClear();
   });
 
   it("captures and uploads a READY preview exactly five seconds after game start", async () => {
@@ -37,6 +52,7 @@ describe("ReviewPreviewPlayer", () => {
     const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
       if (url.endsWith("/config")) {return Promise.resolve(new Response(JSON.stringify({
+        runtimeFamily: "EMULATORJS",
         gameTitle: "1944",
         reviewPreview: { importItemId: "item-1", captureAllowed: true, captureAfterMs: 5000 },
       }), { status: 200, headers: { "Content-Type": "application/json" } }));}
@@ -75,6 +91,7 @@ describe("ReviewPreviewPlayer", () => {
     });
     const fetchMock = vi.fn((input: RequestInfo | URL) => {
       if (String(input).endsWith("/config")) {return Promise.resolve(new Response(JSON.stringify({
+        runtimeFamily: "EMULATORJS",
         gameTitle: "Blocked game",
         reviewPreview: { importItemId: "item-2", captureAllowed: true, captureAfterMs: 5000 },
       }), { status: 200, headers: { "Content-Type": "application/json" } }));}
@@ -95,6 +112,7 @@ describe("ReviewPreviewPlayer", () => {
   it("surfaces an asynchronous EmulatorJS iframe startup error", async () => {
     adapter.mount.mockImplementation(() => vi.fn());
     vi.stubGlobal("fetch", vi.fn(() => Promise.resolve(new Response(JSON.stringify({
+      runtimeFamily: "EMULATORJS",
       gameTitle: "Broken game",
       reviewPreview: { importItemId: "item-3", captureAllowed: true, captureAfterMs: 5000 },
     }), { status: 200, headers: { "Content-Type": "application/json" } }))));
@@ -114,6 +132,7 @@ describe("ReviewPreviewPlayer", () => {
     vi.useFakeTimers();
     adapter.mount.mockImplementation(() => vi.fn());
     vi.stubGlobal("fetch", vi.fn(() => Promise.resolve(new Response(JSON.stringify({
+      runtimeFamily: "EMULATORJS",
       gameTitle: "Silent game",
       reviewPreview: { importItemId: "item-4", captureAllowed: true, captureAfterMs: 5000 },
     }), { status: 200, headers: { "Content-Type": "application/json" } }))));
@@ -124,5 +143,51 @@ describe("ReviewPreviewPlayer", () => {
 
     expect(screen.getByText("审核预览启动失败。")).toBeVisible();
     expect(screen.getByRole("alert")).toHaveTextContent("启动超时");
+  });
+
+  it("mounts ONS, captures its canvas, and exits the runtime", async () => {
+    vi.useFakeTimers();
+    ons.mount.mockResolvedValue(undefined);
+    ons.screenshot.mockResolvedValue(new Blob(["ons-png"], { type: "image/png" }));
+    ons.exit.mockResolvedValue(undefined);
+    ons.create.mockReturnValue({
+      mount: ons.mount, screenshot: ons.screenshot, exit: ons.exit, subscribe: ons.subscribe,
+    });
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      if (String(input).endsWith("/config")) {
+        return Promise.resolve(new Response(JSON.stringify({
+          runtimeFamily: "ONS", sessionId: "preview-ons", gameTitle: "ONS fixture",
+          adapter: {
+            adapterKind: "ONS_YURI_WEB", adapterId: "ons-yuri-web",
+            runtimeBaseUrl: "/runtime/retrom-runtime/v0.3.7/",
+            projectIndexUrl: "/runtime/projects/preview-ons/index.json",
+            scriptEncoding: "utf8", checkpointSlot: 999,
+          },
+          reviewPreview: { importItemId: "item-ons", captureAllowed: true, captureAfterMs: 5000 },
+        }), { status: 200, headers: { "Content-Type": "application/json" } }));
+      }
+      if (String(input).endsWith("/review-screenshot") && init?.method === "POST") {
+        return Promise.resolve(new Response(JSON.stringify({ screenshotId: "shot-ons" }), {
+          status: 201, headers: { "Content-Type": "application/json" },
+        }));
+      }
+      throw new Error(`unexpected fetch ${String(input)}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const view = render(<ReviewPreviewPlayer previewId="preview-ons" />);
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); await Promise.resolve(); });
+
+    expect(ons.create).toHaveBeenCalledOnce();
+    expect(ons.mount).toHaveBeenCalledOnce();
+    expect(screen.getByText("游戏已启动，将在第 5 秒自动保存截图。")).toBeVisible();
+    await act(async () => { await vi.advanceTimersByTimeAsync(5_000); });
+    expect(ons.screenshot).toHaveBeenCalledOnce();
+    expect(fetchMock).toHaveBeenCalledWith("/runtime/launches/preview-ons/review-screenshot", expect.objectContaining({
+      method: "POST", body: expect.any(Blob),
+    }));
+
+    view.unmount();
+    expect(ons.exit).toHaveBeenCalledOnce();
   });
 });

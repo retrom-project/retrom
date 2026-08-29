@@ -191,14 +191,14 @@ func (setup *parentAttachmentSetup) loadDraft() error {
 	err := setup.transaction.QueryRowContext(setup.ctx, `
 SELECT draft.id,item.state,draft.version,draft.target_platform_instance_id,
   draft.effective_source_snapshot_id,platform.platform_id,platform.version,
-  platform.default_core_id,artifact.id,artifact.version,artifact.compatibility_config_json,
+  platform.default_core_id,artifact.id,artifact.version,artifact.compatibility_json,
   (SELECT dat.id FROM dat_versions dat
    WHERE dat.core_artifact_id=artifact.id AND dat.is_active=1)
 FROM import_items item
 JOIN review_drafts draft ON draft.import_item_id=item.id
 JOIN platform_instances platform ON platform.id=draft.target_platform_instance_id
   AND platform.enabled=1 AND platform.deleted_at_ms IS NULL
-JOIN core_artifacts artifact ON artifact.core_id=platform.default_core_id AND artifact.enabled=1
+JOIN core_artifacts artifact ON artifact.core_id=platform.default_core_id AND artifact.selected_for_new_bindings=1
 WHERE item.id=?
 `, setup.itemID).Scan(
 		&setup.draftID, &itemState, &draftVersion, &setup.targetID, &setup.effectiveSnapshotID,

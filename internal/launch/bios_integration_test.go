@@ -44,7 +44,7 @@ func TestMelonDSExternalBIOSIsLockedPerLaunch(t *testing.T) {
 	credentials, err := retromruntime.LoadOrCreateCredentials(dataDir)
 	testassert.False(t, err != nil, err)
 	var artifactID, platformInstanceID string
-	if err := database.SQL.QueryRowContext(ctx, `SELECT id FROM core_artifacts WHERE core_id='melonds' AND enabled=1`).Scan(&artifactID); err != nil {
+	if err := database.SQL.QueryRowContext(ctx, `SELECT id FROM core_artifacts WHERE core_id='melonds' AND selected_for_new_bindings=1`).Scan(&artifactID); err != nil {
 		t.Fatal(err)
 	}
 	if err := database.SQL.QueryRowContext(ctx, `SELECT id FROM platform_instances WHERE platform_id='nds' AND enabled=1`).Scan(&platformInstanceID); err != nil {
@@ -123,8 +123,8 @@ VALUES(?,?,'IMPORT_REVIEW','fixture','{}',?,?)`, []any{contentID, gameID, string
 VALUES(?,?,'PUBLISHED',?,?,'melonds fixture',1,?,?)`, []any{gameID, platformInstanceID, metadataID, contentID, now, now}},
 		{`INSERT INTO game_content_files(game_content_revision_id,role,logical_name,blob_id,sort_order) VALUES(?,'CONTENT','game.nds',?,0)`, []any{contentID, gameBlobID}},
 		{`INSERT INTO game_variants(id,game_id,core_id,current_revision_id,version,created_at_ms,updated_at_ms) VALUES(?,?,'melonds',NULL,1,?,?)`, []any{variantID, gameID, now, now}},
-		{`INSERT INTO game_variant_revisions(id,game_variant_id,game_content_revision_id,core_artifact_id,dat_version_id,validation_input_digest,emulator_game_id,status,compatibility_code,dependency_snapshot_json,created_at_ms)
-VALUES(?,?,?,?,NULL,?,8100,'READY','READY',?,?)`, []any{revisionID, variantID, contentID, artifactID, digest, string(snapshotJSON), now}},
+		{`INSERT INTO game_variant_revisions(id,game_variant_id,game_content_revision_id,core_artifact_id,route_key,dat_version_id,validation_input_digest,emulator_game_id,status,compatibility_code,dependency_snapshot_json,created_at_ms)
+VALUES(?,?,?,?,'DEFAULT',NULL,?,8100,'READY','READY',?,?)`, []any{revisionID, variantID, contentID, artifactID, digest, string(snapshotJSON), now}},
 		{`UPDATE game_variants SET current_revision_id=? WHERE id=?`, []any{revisionID, variantID}},
 	}
 	for _, statement := range statements {

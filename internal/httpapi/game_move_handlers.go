@@ -62,7 +62,7 @@ JOIN platform_instances target ON target.id=?
 AND target.enabled=1
 AND target.deleted_at_ms IS NULL
 JOIN core_artifacts a ON a.core_id=target.default_core_id
-AND a.enabled=1
+AND a.selected_for_new_bindings=1 AND a.available_for_launch=1
 WHERE g.id=?
 AND g.status='PUBLISHED'
 `, targetID, request.PathValue("gameId")).Scan(

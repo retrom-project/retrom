@@ -97,7 +97,7 @@ func TestArcadeDraftBIOSStateRefreshesInstalledDATMachineDependency(t *testing.T
 	}
 	var artifactID string
 	if err := database.SQL.QueryRowContext(ctx, `
-SELECT id FROM core_artifacts WHERE core_id='fbneo' AND enabled=1
+SELECT id FROM core_artifacts WHERE core_id='fbneo' AND selected_for_new_bindings=1
 `).Scan(&artifactID); err != nil {
 		t.Fatal(err)
 	}
@@ -160,7 +160,7 @@ func TestArcadeImportUsesInstalledBIOSBeforeCreatingReview(t *testing.T) {
 	testassert.False(t, err != nil, err)
 	var artifactID string
 	if err := database.SQL.QueryRowContext(ctx, `
-SELECT id FROM core_artifacts WHERE core_id='fbneo' AND enabled=1
+SELECT id FROM core_artifacts WHERE core_id='fbneo' AND selected_for_new_bindings=1
 `).Scan(&artifactID); err != nil {
 		t.Fatal(err)
 	}

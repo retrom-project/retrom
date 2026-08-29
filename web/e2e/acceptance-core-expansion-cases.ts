@@ -132,7 +132,7 @@ async function captureRuntimeState(page: Page) {
 
 async function waitForRuntime(page: Page) {
   await expect(page.locator(".player-loading")).toBeHidden({ timeout: 60_000 });
-  const canvas = page.frameLocator('iframe[title="Retrom EmulatorJS Player"]').locator("canvas.ejs_canvas");
+  const canvas = page.frameLocator("iframe.player-frame").locator("canvas.ejs_canvas");
   await expect(canvas).toBeVisible({ timeout: 15_000 });
   const frame = page.frames().find((candidate) => candidate !== page.mainFrame());
   expect(frame, "EmulatorJS iframe").toBeTruthy();

@@ -180,7 +180,8 @@ artifact.version,
 FROM platform_instances instance
 JOIN platforms platform ON platform.id=instance.platform_id AND platform.enabled=1
 JOIN cores core ON core.id=instance.default_core_id AND core.enabled=1
-JOIN core_artifacts artifact ON artifact.core_id=instance.default_core_id AND artifact.enabled=1
+JOIN core_artifacts artifact ON artifact.core_id=instance.default_core_id
+ AND artifact.selected_for_new_bindings=1 AND artifact.available_for_launch=1
 WHERE instance.id=?
 AND instance.enabled=1
 AND instance.deleted_at_ms IS NULL`, mapping.PlatformInstanceID).

@@ -10,6 +10,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 	"runtime"
 	"slices"
@@ -22,12 +23,201 @@ import (
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
 	"retrom/internal/dependencies"
+	"retrom/internal/launch"
 	"retrom/internal/libraryimport"
 	"retrom/internal/payloadrelease"
+	"retrom/internal/rpgmaker/runtimevalidation"
+	retromruntime "retrom/internal/runtime"
 	"retrom/internal/testassert"
 	"retrom/internal/testsupport"
 	"retrom/internal/uploads"
 )
+
+func TestRPGMakerReplacementKeepsPublishedGeneration(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	dataDir := t.TempDir()
+	database, err := testsupport.OpenDatabase(ctx, filepath.Join(dataDir, "retrom.db"), time.Now)
+	testassert.False(t, err != nil, err)
+	t.Cleanup(func() { cleanup.Error("close", database.Close()) })
+	_, filename, _, _ := runtime.Caller(0)
+	repositoryRoot := filepath.Clean(filepath.Join(filepath.Dir(filename), "..", ".."))
+	dependencySet, err := dependencies.Load(filepath.Join(repositoryRoot, "data"), []string{"4.2.3"}, "4.2.3")
+	testassert.False(t, err != nil, err)
+	if err := dependencySet.Bootstrap(ctx, database.SQL, time.Now()); err != nil {
+		t.Fatal(err)
+	}
+	blobs, err := blobstore.Open(dataDir)
+	testassert.False(t, err != nil, err)
+	uploadService := uploads.New(database.SQL, blobs, dataDir, time.Now)
+	rpg2000 := rpgMakerFixtureFiles(t, filepath.Join(repositoryRoot, "testdata/public-roms/rpgmaker-smoke/rpg2000"))
+	initialUpload := completeRPGMakerDirectoryUpload(t, ctx, database.SQL, uploadService, rpg2000)
+	importer := libraryimport.New(database.SQL, time.Now).WithBlobStore(blobs)
+	created, err := importer.Create(ctx, libraryimport.CreateRequest{
+		UploadID: initialUpload, TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(
+			t, database.SQL, "rpgmaker/rpgmaker",
+		),
+		MetadataProvider: "NONE", ContentMode: "RPG_MAKER_PROJECT_V1",
+	})
+	testassert.False(t, err != nil, err)
+	itemID := importItemID(t, ctx, database.SQL, created.ImportJobID)
+	validation, err := runtimevalidation.New(database.SQL, blobs, time.Now).Create(ctx, itemID, 1)
+	testassert.False(t, err != nil, err)
+	if _, err := database.SQL.ExecContext(ctx, `
+INSERT INTO profiles(id,display_name,created_at_ms) VALUES('rpg-replacement-profile','RPG replacement',0)
+`); err != nil {
+		t.Fatal(err)
+	}
+	credentials, err := retromruntime.LoadOrCreateCredentials(dataDir)
+	testassert.False(t, err != nil, err)
+	if _, err := launch.New(database.SQL, dependencySet, credentials, time.Now).CreateRPGValidation(
+		ctx, "rpg-replacement-profile", validation.ValidationID, "/admin/reviews/"+itemID,
+		launch.Capabilities{},
+	); err != nil {
+		t.Fatal(err)
+	}
+	published, err := importer.Approve(ctx, itemID, 1)
+	testassert.False(t, err != nil, err)
+	var originalContent string
+	var gameVersion int64
+	if err := database.SQL.QueryRowContext(ctx, `
+SELECT current_content_revision_id,version FROM games WHERE id=?
+`, published.GameID).Scan(&originalContent, &gameVersion); err != nil {
+		t.Fatal(err)
+	}
+	releases, err := payloadrelease.New(database.SQL, blobs, time.Now, 7*24*time.Hour)
+	testassert.False(t, err != nil, err)
+	t.Cleanup(releases.Close)
+	service := New(database.SQL, time.Now).WithBlobStore(blobs).WithPayloadRelease(releases)
+	if binding, bindingErr := loadReplacementBinding(ctx, database.SQL, published.GameID); bindingErr != nil {
+		t.Fatalf("load RPG replacement binding: %v", bindingErr)
+	} else if binding.rpgGeneration != "RPG2000" {
+		t.Fatalf("RPG replacement binding = %#v", binding)
+	}
+
+	rpg2000["project/replacement-note.txt"] = []byte("same generation replacement")
+	sameGenerationUpload := completeRPGMakerDirectoryUpload(t, ctx, database.SQL, uploadService, rpg2000)
+	uploadValidationTx, err := database.SQL.BeginTx(ctx, nil)
+	testassert.False(t, err != nil, err)
+	if validationErr := validateReplacementUpload(
+		ctx, uploadValidationTx, sameGenerationUpload, "RPG_MAKER_PROJECT_V1", "rpgmaker",
+	); validationErr != nil {
+		t.Fatalf("validate RPG replacement upload: %v", validationErr)
+	}
+	cleanup.Rollback(uploadValidationTx)
+	sameGeneration, err := service.ScheduleMode(
+		ctx, published.GameID, sameGenerationUpload, "RPG_MAKER_PROJECT_V1", gameVersion,
+	)
+	testassert.False(t, err != nil, err)
+	waitForJob(t, ctx, database.SQL, sameGeneration.JobID, "SUCCEEDED")
+	var replacementContent, generation, runtimeValidationID string
+	var replacementVersion int64
+	if err := database.SQL.QueryRowContext(ctx, `
+SELECT game.current_content_revision_id,game.version,content.evidence_generation,
+       COALESCE(profile.runtime_validation_id,'')
+FROM games game
+JOIN rpgmaker_content_profiles content ON content.content_revision_id=game.current_content_revision_id
+JOIN game_variants variant ON variant.game_id=game.id
+JOIN rpgmaker_variant_profiles profile ON profile.game_variant_revision_id=variant.current_revision_id
+WHERE game.id=? AND variant.core_id='rpgmaker_2000'
+`, published.GameID).Scan(&replacementContent, &replacementVersion, &generation, &runtimeValidationID); err != nil {
+		t.Fatal(err)
+	}
+	if replacementContent == originalContent || replacementVersion != gameVersion+1 ||
+		generation != "RPG2000" || runtimeValidationID != "" {
+		t.Fatalf("same-generation replacement = %s/%d/%s/%q", replacementContent, replacementVersion, generation, runtimeValidationID)
+	}
+
+	rpg2003 := rpgMakerFixtureFiles(t, filepath.Join(repositoryRoot, "testdata/public-roms/rpgmaker-smoke/rpg2003"))
+	differentGenerationUpload := completeRPGMakerDirectoryUpload(t, ctx, database.SQL, uploadService, rpg2003)
+	differentGeneration, err := service.ScheduleMode(
+		ctx, published.GameID, differentGenerationUpload, "RPG_MAKER_PROJECT_V1", replacementVersion,
+	)
+	testassert.False(t, err != nil, err)
+	waitForJob(t, ctx, database.SQL, differentGeneration.JobID, "FAILED")
+	assertReplacementFailure(
+		t, ctx, database.SQL, differentGeneration.JobID, "RPG_REPLACEMENT_GENERATION_MISMATCH",
+		published.GameID, replacementContent, "",
+	)
+}
+
+func rpgMakerFixtureFiles(t *testing.T, root string) map[string][]byte {
+	t.Helper()
+	result := make(map[string][]byte)
+	if err := filepath.WalkDir(root, func(current string, entry os.DirEntry, err error) error {
+		if err != nil || entry.IsDir() {
+			return err
+		}
+		contents, readErr := os.ReadFile(current)
+		if readErr != nil {
+			return readErr
+		}
+		relative, relativeErr := filepath.Rel(root, current)
+		if relativeErr != nil {
+			return relativeErr
+		}
+		result[filepath.ToSlash(filepath.Join("project", relative))] = contents
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	return result
+}
+
+func completeRPGMakerDirectoryUpload(
+	t *testing.T,
+	ctx context.Context,
+	database interface {
+		QueryRowContext(context.Context, string, ...any) *sql.Row
+	},
+	service *uploads.Service,
+	contents map[string][]byte,
+) string {
+	t.Helper()
+	paths := make([]string, 0, len(contents))
+	for name := range contents {
+		paths = append(paths, name)
+	}
+	slices.Sort(paths)
+	declarations := make([]uploads.FileDeclaration, 0, len(paths))
+	for index, name := range paths {
+		declarations = append(declarations, uploads.FileDeclaration{
+			ClientFileID: fmt.Sprintf("rpg-file-%d", index), RelativePath: name,
+			SizeBytes: int64(len(contents[name])),
+		})
+	}
+	session, err := service.Create(ctx, uploads.CreateRequest{
+		Purpose: "RPG_MAKER_PROJECT", SourceType: "DIRECTORY", Files: declarations,
+	})
+	testassert.False(t, err != nil, err)
+	for index, name := range paths {
+		value := contents[name]
+		digest := sha256.Sum256(value)
+		if err := service.PutPart(
+			ctx, session.ID, session.Files[index].ID, 0,
+			fmt.Sprintf("bytes 0-%d/%d", len(value)-1, len(value)),
+			"sha-256=:"+base64.StdEncoding.EncodeToString(digest[:])+":", bytes.NewReader(value),
+		); err != nil {
+			t.Fatal(err)
+		}
+	}
+	current, err := service.Get(ctx, session.ID)
+	testassert.False(t, err != nil, err)
+	jobID, _, err := service.Complete(ctx, session.ID, current.Version)
+	testassert.False(t, err != nil, err)
+	waitForJob(t, ctx, database, jobID, "SUCCEEDED")
+	return session.ID
+}
+
+func importItemID(t *testing.T, ctx context.Context, database *sql.DB, jobID string) string {
+	t.Helper()
+	var itemID string
+	if err := database.QueryRowContext(ctx, `SELECT id FROM import_items WHERE import_job_id=?`, jobID).
+		Scan(&itemID); err != nil {
+		t.Fatal(err)
+	}
+	return itemID
+}
 
 func installSaturnBIOS(
 	t *testing.T,
@@ -445,18 +635,18 @@ func waitForJob(t *testing.T, ctx context.Context, database interface {
 ) {
 	t.Helper()
 	for deadline := time.Now().Add(3 * time.Second); ; {
-		var state string
+		var state, errorCode string
 		if err := database.QueryRowContext(ctx, `
-SELECT state
+SELECT state,COALESCE(error_code,'')
 FROM jobs
 WHERE id=?
-`, jobID).Scan(&state); err != nil {
+`, jobID).Scan(&state, &errorCode); err != nil {
 			t.Fatal(err)
 		}
 		if state == expected {
 			return
 		}
-		testassert.Falsef(t, testassert.Any(func() bool { return state == "FAILED" }, func() bool { return state == "CANCELLED" }, func() bool { return time.Now().After(deadline) }), "job %s state = %s, wanted %s", jobID, state, expected)
+		testassert.Falsef(t, testassert.Any(func() bool { return state == "FAILED" }, func() bool { return state == "CANCELLED" }, func() bool { return time.Now().After(deadline) }), "job %s state = %s/%s, wanted %s", jobID, state, errorCode, expected)
 		time.Sleep(10 * time.Millisecond)
 	}
 }

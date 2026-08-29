@@ -113,15 +113,21 @@ validation.default_dos_entry,draft.default_dos_entry,
 (SELECT active.id FROM dat_versions active
  WHERE active.core_artifact_id=artifact.id AND active.is_active=1),
 draft.effective_source_snapshot_id,draft.target_platform_instance_id,
-snapshot.source_manifest_digest,snapshot.content_kind,platform.default_core_id,
-artifact.id,artifact.compatibility_config_json,platform.version,artifact.version
+snapshot.source_manifest_digest,snapshot.content_kind,
+CASE WHEN platform.platform_id='rpgmaker' THEN rpg_profile.selected_core_id ELSE platform.default_core_id END,
+artifact.id,artifact.compatibility_json,platform.version,artifact.version
 FROM import_item_core_validations validation
 JOIN import_items item ON item.id=validation.import_item_id AND item.state='REVIEW_PENDING'
 JOIN review_drafts draft ON draft.import_item_id=item.id
 JOIN import_item_source_snapshots snapshot ON snapshot.id=draft.effective_source_snapshot_id
 JOIN platform_instances platform ON platform.id=draft.target_platform_instance_id
 AND platform.enabled=1 AND platform.deleted_at_ms IS NULL
-JOIN core_artifacts artifact ON artifact.core_id=platform.default_core_id AND artifact.enabled=1
+LEFT JOIN rpgmaker_review_profiles rpg_profile ON rpg_profile.review_draft_id=draft.id
+JOIN core_artifacts artifact ON artifact.id=CASE
+ WHEN platform.platform_id='rpgmaker' THEN rpg_profile.artifact_id ELSE (
+ SELECT selected.id FROM core_artifacts selected
+ WHERE selected.core_id=platform.default_core_id AND selected.selected_for_new_bindings=1
+) END
 WHERE validation.id=?
 `, validationID).Scan(
 		&value.generation, &value.platformVersion, &value.artifactVersion,

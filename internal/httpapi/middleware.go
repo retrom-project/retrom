@@ -163,7 +163,7 @@ func publicHTTPRoute(request *http.Request) bool {
 		return true
 	}
 	return (request.Method == http.MethodGet || request.Method == http.MethodHead) &&
-		strings.HasPrefix(path, "/runtime/emulatorjs/")
+		(strings.HasPrefix(path, "/runtime/emulatorjs/") || strings.HasPrefix(path, "/runtime/retrom-runtime/"))
 }
 
 func launchHTTPRoute(path string) bool {
@@ -397,7 +397,7 @@ func (server *Server) readinessReason(ctx context.Context) string {
 	err := database.QueryRowContext(ctx, `
 SELECT count(*)
 FROM core_artifacts a
-WHERE a.enabled=1
+WHERE a.selected_for_new_bindings=1 AND a.available_for_launch=1
 AND a.core_id IN ('fbneo',
 'mame2003',
 'mame2003_plus')
@@ -418,7 +418,7 @@ AND d.parse_status='READY')
 	err = database.QueryRowContext(ctx, `
 SELECT count(*)
 FROM core_artifacts a
-WHERE a.enabled=1
+WHERE a.selected_for_new_bindings=1 AND a.available_for_launch=1
 AND a.core_id IN ('fbneo',
 'mame2003',
 'mame2003_plus')

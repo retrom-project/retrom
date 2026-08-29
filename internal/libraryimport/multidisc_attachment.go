@@ -193,7 +193,7 @@ func (service *Service) readMultiDiscAttachmentAdmission(
 	err := transaction.QueryRowContext(ctx, `
 SELECT draft.id,item.state,draft.version,draft.effective_source_snapshot_id,
 platform.platform_id,platform.id,platform.version,platform.default_core_id,
-artifact.id,artifact.version,artifact.compatibility_config_json,
+artifact.id,artifact.version,artifact.compatibility_json,
 validation.id,validation.prepublish_generation,validation.status,validation.compatibility_code,
 validation.platform_instance_version,validation.core_id,validation.core_artifact_id,
 validation.core_artifact_version
@@ -203,7 +203,7 @@ JOIN import_item_source_snapshots snapshot ON snapshot.id=draft.effective_source
 AND snapshot.content_kind='MULTI_DISC_M3U_V1'
 JOIN platform_instances platform ON platform.id=draft.target_platform_instance_id
 AND platform.enabled=1 AND platform.deleted_at_ms IS NULL
-JOIN core_artifacts artifact ON artifact.core_id=platform.default_core_id AND artifact.enabled=1
+JOIN core_artifacts artifact ON artifact.core_id=platform.default_core_id AND artifact.selected_for_new_bindings=1
 JOIN import_item_core_validations validation ON validation.import_item_id=item.id
 AND validation.source_snapshot_id=snapshot.id
 AND validation.target_platform_instance_id=platform.id

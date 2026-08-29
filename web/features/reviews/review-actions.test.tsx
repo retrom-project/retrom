@@ -1,4 +1,4 @@
-import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type * as UploadModule from "@/lib/upload";
@@ -23,6 +23,17 @@ const review: ReviewWorkspace = {
   selectedAssets: { coverCandidateAssetId: null, coverUploadedAssetId: null, backgroundCandidateAssetId: null, screenshotCandidateAssetIds: [] },
   defaultDosEntry: null, dosEntries: [],
 };
+
+function launchedRPGValidation(): NonNullable<NonNullable<ReviewWorkspace["rpgMaker"]>["runtimeValidation"]> {
+  return {
+    validationId: "rpg-validation", importItemId: "item-1", reviewVersionAtCreate: 1,
+    runtimeBindingRevision: 1, launchId: "rpg-launch", restoreLaunchId: null, state: "STARTING",
+    lastGateSequence: 0, machineGates: [], failureCode: null, expiresAtMs: Date.now() + 60_000,
+    routeEvidence: { coreId: "rpgmaker_mv", generation: "RPGMV", evidenceGeneration: "RPGMV", evidenceConfidence: "MATCHED", routeKey: "RPGMV_NATIVE", adapterId: "native-web", adapterAbi: "native-save" },
+    checkpointRoundTrip: { created: false, payloadKind: null, resumeSlot: null, sizeBytes: null, sha256: null, originalLaunchId: "rpg-launch", initialPosition: null, savedPosition: null, divergedPosition: null, originalLaunchEnded: false, restoreLaunchId: null, restoreStarted: false, restoredPosition: null, positionVerified: false, screenshotUrl: null, restoreInputPosition: null, restoreInputVerified: false },
+    decision: null,
+  };
+}
 
 function jsonResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
@@ -49,6 +60,109 @@ describe("ReviewActions metadata", () => {
     expect(screen.getByRole("button", { name: "通过并发布" })).toBeEnabled();
   });
 
+  it("uses the RPG validation workflow and preserves runtime binding fields in autosave", async () => {
+    const rpgReview: ReviewWorkspace = {
+      ...review,
+      canApprove: false,
+      platformInstance: { id: "rpg-directory", name: "RPG Maker MV" },
+      validation: { id: "static-validation", status: "BLOCKED", current: true, compatibilityCode: "RPG_RUNTIME_VALIDATION_REQUIRED" },
+      rpgMaker: {
+        selectedCoreId: "rpgmaker_mv", generation: "RPGMV", evidenceGeneration: "RPGMV",
+        evidenceConfidence: "MATCHED", selfContained: true, selfContainedOverride: false,
+        runtimeBindingRevision: 1, runtimePackRequirements: [], runtimePackSelections: [], runtimeValidation: null, runtimeValidationCurrent: false,
+      },
+    };
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ version: 2 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const user = userEvent.setup();
+    render(<ReviewActions review={rpgReview} />);
+
+    expect(screen.getByRole("heading", { name: "RPG Maker 运行验证" })).toBeInTheDocument();
+    expect(screen.getByText("RPG Maker MV")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "运行游戏" })).toBeEnabled();
+    expect(screen.queryByText("第 5 秒运行截图")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "通过并发布" })).toBeDisabled();
+
+    await user.clear(screen.getByLabelText("标题"));
+    await user.type(screen.getByLabelText("标题"), "MV Project");
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled(), { timeout: 2_000 });
+    const request = fetchMock.mock.calls.find(([, init]) => init?.method === "PATCH")?.[1] as RequestInit;
+    expect(JSON.parse(String(request.body))).toMatchObject({
+      metadata: { title: "MV Project" }, runtimePackSelections: [], rpgSelfContainedOverride: false,
+    });
+  });
+
+});
+
+describe("ReviewActions RPG runtime validation", () => {
+  it("allows publish after one RPG validation Launch without polling optional machine gates", async () => {
+    vi.useFakeTimers();
+    try {
+      const fetchMock = vi.fn();
+      vi.stubGlobal("fetch", fetchMock);
+      render(<ReviewActions review={{
+        ...review, canApprove: true,
+        platformInstance: { id: "rpg-directory", name: "RPG Maker MV" },
+        validation: { id: "static-validation", status: "BLOCKED", current: true, compatibilityCode: "RPG_RUNTIME_VALIDATION_REQUIRED" },
+        rpgMaker: {
+          selectedCoreId: "rpgmaker_mv", generation: "RPGMV", evidenceGeneration: "RPGMV",
+          evidenceConfidence: "MATCHED", selfContained: true, selfContainedOverride: false,
+          runtimeBindingRevision: 1, runtimePackRequirements: [], runtimePackSelections: [],
+          runtimeValidation: launchedRPGValidation(), runtimeValidationCurrent: true,
+        },
+      }} />);
+
+      expect(screen.getByRole("button", { name: "通过并发布" })).toBeEnabled();
+      await act(() => vi.advanceTimersByTimeAsync(3_000));
+      expect(fetchMock).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("does not poll after the administrator closes the RPG game window", async () => {
+    const popup = {
+      closed: false, close: vi.fn(), location: { replace: vi.fn() },
+      document: { title: "", body: { style: { cssText: "" }, textContent: "" } },
+    } as unknown as Window;
+    vi.spyOn(window, "open").mockReturnValue(popup);
+    const interval = vi.spyOn(window, "setInterval");
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.endsWith("/runtime-validations") && init?.method === "POST") {
+        return Promise.resolve(jsonResponse({ validationId: "rpg-validation", playerUrl: "/play/rpg-launch" }, 201));
+      }
+      if (url.endsWith("/runtime-validations/rpg-validation") && !init?.method) {
+        return Promise.resolve(jsonResponse(launchedRPGValidation()));
+      }
+      throw new Error(`unexpected fetch ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const user = userEvent.setup();
+    render(<ReviewActions review={{
+      ...review, canApprove: false,
+      platformInstance: { id: "rpg-directory", name: "RPG Maker MV" },
+      validation: { id: "static-validation", status: "BLOCKED", current: true, compatibilityCode: "RPG_RUNTIME_VALIDATION_REQUIRED" },
+      rpgMaker: {
+        selectedCoreId: "rpgmaker_mv", generation: "RPGMV", evidenceGeneration: "RPGMV",
+        evidenceConfidence: "MATCHED", selfContained: true, selfContainedOverride: false,
+        runtimeBindingRevision: 1, runtimePackRequirements: [], runtimePackSelections: [],
+        runtimeValidation: null, runtimeValidationCurrent: false,
+      },
+    }} />);
+
+    await user.click(screen.getByRole("button", { name: "运行游戏" }));
+    await waitFor(() => expect(popup.location.replace).toHaveBeenCalledWith("/play/rpg-launch"));
+    interval.mockClear();
+    Object.defineProperty(popup, "closed", { configurable: true, value: true });
+    await act(() => new Promise((resolve) => window.setTimeout(resolve, 1_100)));
+    expect(screen.getByRole("button", { name: "通过并发布" })).toBeEnabled();
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(interval).not.toHaveBeenCalled();
+  });
+});
+
+describe("ReviewActions metadata continuation", () => {
   it("opens one comparison dialog and autosaves the applied result", async () => {
     const candidate = { candidateId: "candidate-1", scrapeRunId: "run-1", providerGameId: "50192", metadata: { title: "1941: Counter Attack", description: "Long provider description", publisher: "Capcom" }, evidence: {}, assets: [{ candidateAssetId: "cover-1", kind: "COVER" as const, ordinal: 0, status: "READY", widthPx: 320, heightPx: 480, mediaType: "image/png", errorCode: null }] };
     const updated: ReviewWorkspace = { ...review, version: 2, candidates: [candidate], scrapeRuns: [{ scrapeRunId: "run-1", jobId: "job-1", provider: "HASHEOUS", state: "COMPLETED", jobState: "SUCCEEDED", createdAtMs: 1, completedAtMs: 2, errorCode: null, evidenceCount: 1, attemptCount: 1, candidateCount: 1, outcomes: { hit: 1, miss: 0, rateLimited: 0, timeout: 0, invalidResponse: 0, networkError: 0 } }] };

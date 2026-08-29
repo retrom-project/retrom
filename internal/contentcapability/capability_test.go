@@ -44,8 +44,44 @@ func TestResolveRequiresFeaturePlatformInstanceAndArtifactIntersection(t *testin
 	}
 }
 
+func TestResolveRPGMakerUsesOnlyProjectMode(t *testing.T) {
+	t.Parallel()
+	got := Resolve("rpgmaker", true, false, `{}`)
+	testassert.Falsef(t, testassert.Any(
+		func() bool { return !reflect.DeepEqual(got.ContentModes, []string{ModeRPGMakerProjectV1}) },
+		func() bool { return got.MultiDisc != nil },
+	), "RPG Maker capabilities = %#v", got)
+
+	disabled := Resolve("rpgmaker", false, true, `{}`)
+	testassert.Falsef(t, !reflect.DeepEqual(disabled.ContentModes, []string{ModeStandard}), "disabled RPG Maker capabilities = %#v", disabled)
+}
+
+func TestResolveONSUsesOnlyProjectMode(t *testing.T) {
+	t.Parallel()
+	got := Resolve("ons", true, false, `{}`)
+	testassert.Falsef(t, testassert.Any(
+		func() bool { return !reflect.DeepEqual(got.ContentModes, []string{ModeONSProjectV1}) },
+		func() bool { return got.MultiDisc != nil },
+	), "ONS capabilities = %#v", got)
+	if !SupportsContentKind(`{"adapterAbi":"ons-save"}`, ModeONSProjectV1) ||
+		SupportsContentKind(`{"adapterAbi":"native-save"}`, ModeONSProjectV1) {
+		t.Fatal("ONS publication capability did not enforce ons-save ABI")
+	}
+}
+
 func TestSupportsContentKindRequiresExplicitCompatibilityV3(t *testing.T) {
 	t.Parallel()
 	standard := `{"schemaVersion":5,"supportedContentKinds":["SINGLE_FILE"]}`
-	testassert.False(t, testassert.Any(func() bool { return !SupportsContentKind(standard, "SINGLE_FILE") }, func() bool { return SupportsContentKind(standard, "MULTI_DISC_M3U_V1") }, func() bool { return !SupportsContentKind(saturnCompatibility, "MULTI_DISC_M3U_V1") }, func() bool { return SupportsContentKind(`{"schemaVersion":2}`, "SINGLE_FILE") }, func() bool { return SupportsContentKind(saturnCompatibility, "UNKNOWN") }), "publication capability did not fail closed")
+	testassert.False(t, testassert.Any(
+		func() bool { return !SupportsContentKind(standard, "SINGLE_FILE") },
+		func() bool { return SupportsContentKind(standard, "MULTI_DISC_M3U_V1") },
+		func() bool { return !SupportsContentKind(saturnCompatibility, "MULTI_DISC_M3U_V1") },
+		func() bool { return SupportsContentKind(`{"schemaVersion":2}`, "SINGLE_FILE") },
+		func() bool { return SupportsContentKind(saturnCompatibility, "UNKNOWN") },
+		func() bool { return !SupportsContentKind(`{"adapterAbi":"easyrpg-save"}`, ModeRPGMakerProjectV1) },
+		func() bool { return !SupportsContentKind(`{"adapterAbi":"mkxp-state-compact"}`, ModeRPGMakerProjectV1) },
+		func() bool { return !SupportsContentKind(`{"adapterAbi":"native-save"}`, ModeRPGMakerProjectV1) },
+		func() bool { return SupportsContentKind(`{"adapterAbi":"emulatorjs-state-v1"}`, ModeRPGMakerProjectV1) },
+		func() bool { return SupportsContentKind(`not-json`, ModeRPGMakerProjectV1) },
+	), "publication capability did not fail closed")
 }

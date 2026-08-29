@@ -9,7 +9,7 @@ import (
 	"retrom/internal/contentprofile"
 )
 
-const Version = 1
+const Version = 4
 
 var ErrInvalid = errors.New("PLATFORM_CATALOG_INVALID")
 
@@ -91,6 +91,11 @@ var current = Catalog{Version: Version, Templates: []DirectoryTemplate{
 		Key: "nintendo3ds/azahar", PlatformID: "nintendo3ds", DefaultCoreID: "azahar",
 		Name: "Nintendo 3DS 游戏", CatalogOrder: 270,
 	},
+	{Key: "rpgmaker/rpgmaker", PlatformID: "rpgmaker", DefaultCoreID: "rpgmaker", Name: "RPG Maker 游戏", CatalogOrder: 280},
+	{
+		Key: "ons/onscripter_yuri", PlatformID: "ons", DefaultCoreID: "onscripter_yuri",
+		Name: "ONS 游戏", CatalogOrder: 290,
+	},
 }}
 
 func Current() Catalog {
@@ -108,29 +113,44 @@ func Validate(catalog Catalog) error {
 	orders := make(map[int]struct{}, len(catalog.Templates))
 	lastOrder := 0
 	for _, template := range catalog.Templates {
+		if err := validateTemplate(template, lastOrder, keys, pairs, orders); err != nil {
+			return err
+		}
 		pair := template.PlatformID + "/" + template.DefaultCoreID
-		if template.Key != pair || template.Key != strings.ToLower(template.Key) ||
-			template.CatalogOrder <= 0 || template.CatalogOrder <= lastOrder ||
-			!validText(template.Name, 1, 200) || !validText(template.Description, 0, 10_000) {
-			return fmt.Errorf("%w: invalid template %q", ErrInvalid, template.Key)
-		}
-		if _, exists := keys[template.Key]; exists {
-			return fmt.Errorf("%w: duplicate key %q", ErrInvalid, template.Key)
-		}
-		if _, exists := pairs[pair]; exists {
-			return fmt.Errorf("%w: duplicate pair %q", ErrInvalid, pair)
-		}
-		if _, exists := orders[template.CatalogOrder]; exists {
-			return fmt.Errorf("%w: duplicate order %d", ErrInvalid, template.CatalogOrder)
-		}
-		extensions := contentprofile.SupportedExtensions(template.PlatformID)
-		if !validExtensions(extensions) {
-			return fmt.Errorf("%w: extensions for %q", ErrInvalid, template.PlatformID)
-		}
 		keys[template.Key] = struct{}{}
 		pairs[pair] = struct{}{}
 		orders[template.CatalogOrder] = struct{}{}
 		lastOrder = template.CatalogOrder
+	}
+	return nil
+}
+
+func validateTemplate(
+	template DirectoryTemplate,
+	lastOrder int,
+	keys, pairs map[string]struct{},
+	orders map[int]struct{},
+) error {
+	pair := template.PlatformID + "/" + template.DefaultCoreID
+	if template.Key != pair || template.Key != strings.ToLower(template.Key) ||
+		template.CatalogOrder <= 0 || template.CatalogOrder <= lastOrder ||
+		!validText(template.Name, 1, 200) || !validText(template.Description, 0, 10_000) {
+		return fmt.Errorf("%w: invalid template %q", ErrInvalid, template.Key)
+	}
+	if _, exists := keys[template.Key]; exists {
+		return fmt.Errorf("%w: duplicate key %q", ErrInvalid, template.Key)
+	}
+	if _, exists := pairs[pair]; exists {
+		return fmt.Errorf("%w: duplicate pair %q", ErrInvalid, pair)
+	}
+	if _, exists := orders[template.CatalogOrder]; exists {
+		return fmt.Errorf("%w: duplicate order %d", ErrInvalid, template.CatalogOrder)
+	}
+	// Directory-style runtimes accept project folders in addition to archives;
+	// their importer validates the full project shape.
+	if template.PlatformID != "rpgmaker" && template.PlatformID != "ons" &&
+		!validExtensions(contentprofile.SupportedExtensions(template.PlatformID)) {
+		return fmt.Errorf("%w: extensions for %q", ErrInvalid, template.PlatformID)
 	}
 	return nil
 }

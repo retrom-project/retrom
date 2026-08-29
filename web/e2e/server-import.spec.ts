@@ -344,7 +344,7 @@ test("ACC-PEG-006 project-owned Pegasus GBA source publishes and advances real e
     /\/runtime\/content\/game\/[0-9a-f]{64}\/pegasus-smoke\.gba$/,
   );
 
-  const player = page.frameLocator('iframe[title="Retrom EmulatorJS Player"]');
+  const player = page.frameLocator("iframe.player-frame");
   await expect(player.locator("canvas.ejs_canvas")).toBeVisible({ timeout: 60_000 });
   const playerFrame = page.frames().find((frame) => frame !== page.mainFrame());
   expect(playerFrame).toBeTruthy();

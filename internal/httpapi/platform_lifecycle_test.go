@@ -12,45 +12,14 @@ import (
 	"github.com/google/uuid"
 
 	"retrom/internal/cleanup"
+	"retrom/internal/platformcatalog"
 	"retrom/internal/testassert"
 )
 
 func TestPlatformLifecycleUsesImpactDigestVersioningAndAudit(t *testing.T) {
 	t.Parallel()
 	server := newTestServer(t)
-	if _, err := server.database.ExecContext(context.Background(), `
-INSERT INTO core_artifacts(id,
-core_id,
-emulatorjs_version,
-bundle_version,
-flavor,
-relative_path,
-size_bytes,
-sha256,
-source_commit,
-provenance_json,
-compatibility_config_json,
-enabled,
-version,
-created_at_ms,
-updated_at_ms) VALUES('01980000-0000-7000-8000-000000000099',
-'mgba',
-'4.2.3',
-'test',
-'WASM',
-'data/cores/mgba-test.data',
-1,
-?,
-NULL,
-'{}',
-'{}',
-1,
-1,
-0,
-0)
-`, strings.Repeat("a", 64)); err != nil {
-		t.Fatal(err)
-	}
+	seedHTTPTestCoreArtifact(t, server.database, "01980000-0000-7000-8000-000000000099", "mgba", "data/cores/mgba-test.data", strings.Repeat("a", 64), "{}")
 	handler := server.Handler()
 	cookie, csrfToken := testSessionCredentials()
 	send := func(method, target, body string, headers map[string]string) *httptest.ResponseRecorder {
@@ -183,7 +152,11 @@ func TestPlatformInstanceOrderIsAtomicVersionedAndExact(t *testing.T) {
 
 	list := httptest.NewRecorder()
 	handler.ServeHTTP(list, httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/admin/platform-instances", nil))
-	testassert.Falsef(t, testassert.Any(func() bool { return list.Code != http.StatusOK }, func() bool { return strings.Count(list.Body.String(), `"gameCount":0`) != 29 }), "platform game counts = %d %s", list.Code, list.Body.String())
+	expectedCount := len(platformcatalog.Current().Templates) + 2
+	testassert.Falsef(t, testassert.Any(
+		func() bool { return list.Code != http.StatusOK },
+		func() bool { return strings.Count(list.Body.String(), `"gameCount":0`) != expectedCount },
+	), "platform game counts = %d %s", list.Code, list.Body.String())
 	sendOrder := func(body string) *httptest.ResponseRecorder {
 		request := httptest.NewRequestWithContext(context.Background(), http.MethodPut, "/api/v1/admin/platform-instances/order", strings.NewReader(body))
 		request.Header.Set("Content-Type", "application/json")

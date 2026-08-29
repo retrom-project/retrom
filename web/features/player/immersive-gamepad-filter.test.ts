@@ -19,6 +19,19 @@ function filterSequence(filter: ImmersiveGamepadFilter, times: number[]) {
 }
 
 describe("immersive EmulatorJS gamepad filter", () => {
+  it("recognizes the menu chord from shell sampling even when the runtime never polls gamepads", () => {
+    const onMenuGesture = vi.fn();
+    const filter = new ImmersiveGamepadFilter({ activeGamepadIndex: 0, onMenuGesture });
+
+    filter.observe([gamepad(0, true)], 0);
+    filter.observe([gamepad(0, true, true)], 40);
+    filter.observe([gamepad(0)], 50);
+    filter.observe([gamepad(0, true)], 110);
+    filter.observe([gamepad(0, true, true)], 150);
+
+    expect(onMenuGesture).toHaveBeenCalledOnce();
+  });
+
   it("delays only the active pad reserved buttons and leaves other pads untouched", () => {
     const other = gamepad(1, true, true);
     const filter = new ImmersiveGamepadFilter({ activeGamepadIndex: 0, onMenuGesture: vi.fn() });

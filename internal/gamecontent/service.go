@@ -49,6 +49,7 @@ type jobSnapshot struct {
 	PlatformInstanceVersion   int64   `json:"platformInstanceVersion"`
 	CoreID                    string  `json:"coreId"`
 	CoreArtifactID            string  `json:"coreArtifactId"`
+	CoreArtifactRouteKey      string  `json:"coreArtifactRouteKey"`
 	CoreArtifactVersion       int64   `json:"coreArtifactVersion"`
 	CompatibilityConfigDigest string  `json:"compatibilityConfigDigest"`
 	ContentMode               string  `json:"contentMode"`
@@ -56,6 +57,13 @@ type jobSnapshot struct {
 	MaxTotalBytes             int64   `json:"maxTotalBytes,omitempty"`
 	DATVersionID              *string `json:"datVersionId"`
 	ConfigSnapshotDigest      string  `json:"configSnapshotDigest"`
+	BaseVariantRevisionID     string  `json:"baseVariantRevisionId,omitempty"`
+	RPGGeneration             string  `json:"rpgGeneration,omitempty"`
+	RPGAdapterID              string  `json:"rpgAdapterId,omitempty"`
+	RPGAdapterABI             string  `json:"rpgAdapterAbi,omitempty"`
+	RPGArtifactSetSHA256      string  `json:"rpgArtifactSetSha256,omitempty"`
+	RPGDependencySHA256       string  `json:"rpgDependencySha256,omitempty"`
+	RPGRequirementsSHA256     string  `json:"rpgRequirementsSha256,omitempty"`
 }
 
 type uploadedFile struct {
@@ -77,6 +85,7 @@ type preparedReplacement struct {
 	canonicalPlaylist       blobstore.Metadata
 	orderedDiscSHA256       []string
 	firstContentLogicalName string
+	rpgMaker                *preparedRPGMakerReplacement
 }
 
 type replacementValidationError struct{ code string }
@@ -167,7 +176,8 @@ func (service *Service) schedule(
 	if contentMode == "" {
 		contentMode = contentcapability.ModeStandard
 	}
-	if contentMode != contentcapability.ModeStandard && contentMode != contentcapability.ModeMultiDiscM3UV1 {
+	if contentMode != contentcapability.ModeStandard && contentMode != contentcapability.ModeMultiDiscM3UV1 &&
+		contentMode != contentcapability.ModeRPGMakerProjectV1 {
 		return Scheduled{}, false, ErrInvalid
 	}
 	transaction, err := service.database.BeginTx(ctx, nil)
@@ -205,35 +215,16 @@ func (service *Service) scheduleFresh(
 	gameID, uploadID, contentMode, key, requestDigest, principalID string,
 	expectedVersion, now int64,
 ) (Scheduled, error) {
-	var contentID, instanceID, platformID, coreID, artifactID, compatibilityJSON string
-	var version, platformVersion, artifactVersion int64
-	var datID sql.NullString
-	err := transaction.QueryRowContext(ctx, `
-SELECT g.current_content_revision_id,
-g.platform_instance_id,
-pi.platform_id,
-pi.default_core_id,
-a.id,
-a.version,
-a.compatibility_config_json,
-(SELECT id
-FROM dat_versions
-WHERE core_artifact_id=a.id
-AND is_active=1),
-g.version,
-pi.version
-FROM games g
-JOIN platform_instances pi ON pi.id=g.platform_instance_id
-JOIN core_artifacts a ON a.core_id=pi.default_core_id
-AND a.enabled=1
-WHERE g.id=?
-AND g.status='PUBLISHED'
-`, gameID).
-		Scan(
-			&contentID, &instanceID, &platformID, &coreID, &artifactID, &artifactVersion,
-			&compatibilityJSON, &datID, &version, &platformVersion,
-		)
-	if err != nil || version != expectedVersion {
+	binding, err := loadReplacementBinding(ctx, transaction, gameID)
+	if err != nil || binding.version != expectedVersion {
+		return Scheduled{}, ErrInvalid
+	}
+	contentID, instanceID, platformID := binding.contentID, binding.instanceID, binding.platformID
+	coreID, artifactID, routeKey := binding.coreID, binding.artifactID, binding.routeKey
+	artifactVersion, compatibilityJSON := binding.artifactVersion, binding.compatibilityJSON
+	platformVersion, datID := binding.platformVersion, binding.datID
+	if platformID == "rpgmaker" && contentMode != contentcapability.ModeRPGMakerProjectV1 ||
+		platformID != "rpgmaker" && contentMode == contentcapability.ModeRPGMakerProjectV1 {
 		return Scheduled{}, ErrInvalid
 	}
 	capabilities := contentcapability.Resolve(
@@ -248,8 +239,8 @@ AND g.status='PUBLISHED'
 	jobID, consumptionID, executionID := newID(), newID(), newID()
 	compatibilityDigest := corevalidation.CompatibilityConfigDigest(compatibilityJSON)
 	configInput := fmt.Sprintf(
-		"%s\x00%d\x00%s\x00%d\x00%s\x00%s\x00%s",
-		instanceID, platformVersion, artifactID, artifactVersion, compatibilityDigest,
+		"%s\x00%d\x00%s\x00%s\x00%d\x00%s\x00%s\x00%s",
+		instanceID, platformVersion, artifactID, routeKey, artifactVersion, compatibilityDigest,
 		contentMode, nullableText(datID),
 	)
 	configDigest := sha256.Sum256([]byte(configInput))
@@ -264,11 +255,19 @@ AND g.status='PUBLISHED'
 		PlatformInstanceVersion:   platformVersion,
 		CoreID:                    coreID,
 		CoreArtifactID:            artifactID,
+		CoreArtifactRouteKey:      routeKey,
 		CoreArtifactVersion:       artifactVersion,
 		CompatibilityConfigDigest: compatibilityDigest,
 		ContentMode:               contentMode,
 		DATVersionID:              nullablePointer(datID),
 		ConfigSnapshotDigest:      hex.EncodeToString(configDigest[:]),
+		BaseVariantRevisionID:     binding.variantRevisionID,
+		RPGGeneration:             binding.rpgGeneration,
+		RPGAdapterID:              binding.rpgAdapterID,
+		RPGAdapterABI:             binding.rpgAdapterABI,
+		RPGArtifactSetSHA256:      binding.rpgArtifactSetSHA256,
+		RPGDependencySHA256:       binding.rpgDependencySHA256,
+		RPGRequirementsSHA256:     binding.rpgRequirementsSHA256,
 	}
 	if capabilities.MultiDisc != nil && contentMode == contentcapability.ModeMultiDiscM3UV1 {
 		snapshot.MaxDiscs = capabilities.MultiDisc.MaxDiscs
@@ -329,7 +328,7 @@ updated_at_ms) VALUES(?,
 ?,
 ?)
 	`, jobID, gameID, hex.EncodeToString(dedupe[:]), now, now, now); err != nil {
-		return Scheduled{}, ErrInvalid
+		return Scheduled{}, fmt.Errorf("%w: insert replacement job: %w", ErrInvalid, err)
 	}
 	if _, err := transaction.ExecContext(ctx, `
 INSERT INTO upload_consumptions(id,
@@ -344,7 +343,7 @@ NULL,
 ?,
 ?)
 	`, consumptionID, uploadID, jobID, now); err != nil {
-		return Scheduled{}, ErrInvalid
+		return Scheduled{}, fmt.Errorf("%w: consume replacement upload: %w", ErrInvalid, err)
 	}
 	inputDigest := sha256.Sum256(inputJSON)
 	if _, err := transaction.ExecContext(ctx, `
@@ -483,7 +482,8 @@ WHERE id=?
 		uploadState != "COMPLETE" ||
 		fileCount == 0 ||
 		contentMode == contentcapability.ModeStandard && platformID != "dos" && fileCount != 1 ||
-		contentMode == contentcapability.ModeMultiDiscM3UV1 && sourceType != "DIRECTORY" {
+		contentMode == contentcapability.ModeMultiDiscM3UV1 && sourceType != "DIRECTORY" ||
+		contentMode == contentcapability.ModeRPGMakerProjectV1 && sourceType != "DIRECTORY" {
 		return ErrInvalid
 	}
 	var consumed int

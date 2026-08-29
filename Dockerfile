@@ -11,7 +11,10 @@ COPY data/auth data/auth
 COPY data/netplay data/netplay
 COPY web/features/player/adapters web/features/player/adapters
 COPY web/features/player/netplay web/features/player/netplay
-RUN python3 scripts/dependencies.py prepare --versions "$RETROM_DEPENDENCY_VERSIONS" \
+COPY web/features/player/rpg-runtime/registry.json web/features/player/rpg-runtime/registry.json
+COPY web/features/player/rpg-runtime/index.ts web/features/player/rpg-runtime/index.ts
+RUN --mount=type=cache,target=/work/.cache/dependencies,sharing=locked \
+  python3 scripts/dependencies.py prepare --versions "$RETROM_DEPENDENCY_VERSIONS" \
   && python3 scripts/dependencies.py image-export \
     --versions "$RETROM_DEPENDENCY_VERSIONS" \
     --output /work/image-dependencies \

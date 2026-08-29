@@ -18,6 +18,7 @@ import (
 	"retrom/internal/cleanup"
 	"retrom/internal/launch"
 	"retrom/internal/mediaasset"
+	"retrom/internal/rpgmaker/runtimevalidation"
 	retromruntime "retrom/internal/runtime"
 	"retrom/internal/saves"
 )
@@ -222,6 +223,19 @@ func (server *Server) storeReviewScreenshot(writer http.ResponseWriter, request 
 		writeError(writer, request, http.StatusBadRequest, "REVIEW_SCREENSHOT_INVALID", "运行截图必须是 PNG", map[string]any{})
 		return
 	}
+	if handled, rpgErr := server.storeRPGRuntimeScreenshot(writer, request); handled {
+		if rpgErr != nil {
+			if errors.Is(rpgErr, runtimevalidation.ErrImageInvalid) {
+				writeError(
+					writer, request, http.StatusUnprocessableEntity, "RPG_RUNTIME_SCREENSHOT_INVALID",
+					"恢复截图无效或超过大小限制", map[string]any{},
+				)
+				return
+			}
+			server.writeRPGValidationError(writer, request, rpgErr)
+		}
+		return
+	}
 	body := http.MaxBytesReader(writer, request.Body, mediaasset.MaxImageBytes+1)
 	result, err := server.launcher.StoreReviewScreenshot(
 		request.Context(), request.PathValue("launchId"), server.launchCapability(request), body,
@@ -287,6 +301,11 @@ func (server *Server) launchConfig(writer http.ResponseWriter, request *http.Req
 	server.setLaunchContentGrant(
 		writer, request.PathValue("launchId"), capability, 86400,
 	)
+	if configuration.RPGMaker != nil || configuration.ONS != nil {
+		server.setLaunchProjectGrant(
+			writer, request.PathValue("launchId"), capability, 86400,
+		)
+	}
 	writer.Header().Set("Vary", "Cookie")
 	writeJSON(writer, http.StatusOK, configuration)
 }
@@ -334,6 +353,7 @@ func (server *Server) recordPlay(writer http.ResponseWriter, request *http.Reque
 			},
 		)
 		server.setLaunchContentGrant(writer, request.PathValue("launchId"), "", -1)
+		server.setLaunchProjectGrant(writer, request.PathValue("launchId"), "", -1)
 	}
 	writeJSON(writer, http.StatusOK, result)
 }
@@ -352,17 +372,18 @@ func (server *Server) createSaveState(writer http.ResponseWriter, request *http.
 		writeError(writer, request, http.StatusBadRequest, "INVALID_IDEMPOTENCY_KEY", "幂等键无效", map[string]any{})
 		return
 	}
-	if request.ContentLength > (75 << 20) {
+	if request.ContentLength > saves.MaxRequestBytes {
 		writeError(
 			writer,
 			request,
 			http.StatusRequestEntityTooLarge,
-			"SAVE_STATE_TOO_LARGE",
+			"REQUEST_TOO_LARGE",
 			"存档内容超过限制",
 			map[string]any{},
 		)
 		return
 	}
+	request.Body = http.MaxBytesReader(writer, request.Body, saves.MaxRequestBytes)
 	result, replayed, err := server.saveService.CreateManual(
 		request.Context(),
 		request.PathValue("launchId"),
@@ -378,12 +399,16 @@ func (server *Server) createSaveState(writer http.ResponseWriter, request *http.
 			writer,
 			request,
 			http.StatusRequestEntityTooLarge,
-			"SAVE_STATE_TOO_LARGE",
+			"REQUEST_TOO_LARGE",
 			"存档内容超过限制",
 			map[string]any{},
 		)
 	case errors.Is(err, saves.ErrSequenceReused):
 		writeError(writer, request, http.StatusConflict, "IDEMPOTENCY_KEY_REUSED", "幂等键已用于另一请求", map[string]any{})
+	case errors.Is(err, saves.ErrCheckpointUnavailable):
+		writeError(writer, request, http.StatusConflict, "RPG_CHECKPOINT_UNAVAILABLE", "当前状态不能创建检查点", map[string]any{})
+	case errors.Is(err, saves.ErrCheckpointInvalid):
+		writeError(writer, request, http.StatusUnprocessableEntity, "RPG_CHECKPOINT_INVALID", "检查点内容无效", map[string]any{})
 	case err != nil:
 		writeError(writer, request, http.StatusBadRequest, "INVALID_REQUEST", "存档请求无效", map[string]any{})
 	default:
@@ -392,6 +417,24 @@ func (server *Server) createSaveState(writer http.ResponseWriter, request *http.
 		}
 		writeJSON(writer, http.StatusCreated, result)
 	}
+}
+
+func (server *Server) checkpointStatus(writer http.ResponseWriter, request *http.Request) {
+	if server.rejectNetplaySave(writer, request) {
+		return
+	}
+	result, err := server.saveService.CheckpointStatus(
+		request.Context(), request.PathValue("launchId"), server.launchCapability(request),
+	)
+	if errors.Is(err, saves.ErrCredential) {
+		writeError(writer, request, http.StatusUnauthorized, "LAUNCH_CREDENTIAL_INVALID", "启动会话不可用", map[string]any{})
+		return
+	}
+	if err != nil {
+		server.databaseError(writer, request, err)
+		return
+	}
+	writeJSON(writer, http.StatusOK, result)
 }
 
 func (server *Server) rejectNetplaySave(writer http.ResponseWriter, request *http.Request) bool {
@@ -423,6 +466,14 @@ func (server *Server) launchState(writer http.ResponseWriter, request *http.Requ
 	)
 	if errors.Is(err, saves.ErrCredential) {
 		writeError(writer, request, http.StatusUnauthorized, "LAUNCH_CREDENTIAL_INVALID", "启动会话不可用", map[string]any{})
+		return
+	}
+	if errors.Is(err, saves.ErrCheckpointIncompatible) {
+		writeError(writer, request, http.StatusConflict, "RPG_CHECKPOINT_INCOMPATIBLE", "存档与当前启动绑定不兼容", map[string]any{})
+		return
+	}
+	if errors.Is(err, saves.ErrCheckpointInvalid) {
+		writeError(writer, request, http.StatusUnprocessableEntity, "RPG_CHECKPOINT_INVALID", "检查点内容无效", map[string]any{})
 		return
 	}
 	if err != nil {

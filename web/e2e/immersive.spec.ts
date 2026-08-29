@@ -151,7 +151,16 @@ async function selectGameByTitle(page: Page, title: string) {
 async function launchSelectedGame(page: Page) {
   const configResponse = page.waitForResponse((response) =>
     /\/runtime\/launches\/[^/]+\/config$/.test(response.url()) && response.status() === 200);
-  await pressGamepad(page, standardButton.a);
+  const launchResponse = page.waitForResponse((response) =>
+    response.request().method() === "POST" && /\/api\/v1\/launches$/.test(response.url()));
+  // Launch replaces the top-level document. Do not release through the old
+  // execution context; the new document's init script starts fully released.
+  await setGamepadButtons(page, 0, [standardButton.a]);
+  await page.waitForTimeout(140);
+  const response = await launchResponse;
+  if (response.status() !== 201) {
+    throw new Error(`IMMERSIVE_LAUNCH_FAILED:${response.status()}:${await response.text()}`);
+  }
   await expect(page).toHaveURL(/\/play\/[0-9a-f-]+\?experience=immersive$/);
   const configuration = await (await configResponse).json() as {
     mode: string;
@@ -161,14 +170,14 @@ async function launchSelectedGame(page: Page) {
   };
   expect(configuration).toMatchObject({ mode: "single", playerAdapterId: "ejs-4.2.3-v3", stateUrl: null });
   await expect(page.locator(".player-toolbar")).toHaveCount(0);
-  const canvas = page.frameLocator('iframe[title="Retrom EmulatorJS Player"]').locator("canvas.ejs_canvas");
+  const canvas = page.frameLocator("iframe.player-frame").locator("canvas.ejs_canvas");
   await expect(canvas).toBeVisible({ timeout: 60_000 });
   const frame = await emulatorFrame(page);
   return { canvas, configuration, frame };
 }
 
 async function emulatorFrame(page: Page) {
-  const handle = await page.locator('iframe[title="Retrom EmulatorJS Player"]').elementHandle();
+  const handle = await page.locator("iframe.player-frame").elementHandle();
   const frame = await handle?.contentFrame();
   if (!frame) {throw new Error("IMMERSIVE_EMULATOR_FRAME_UNAVAILABLE");}
   return frame;
@@ -453,10 +462,9 @@ test("ACC-IMM-006 Arcade keeps P2 input and gives menu ownership only to the act
   await exitFromPlayerMenu(page);
   expect(selectedGame.games.length).toBeGreaterThan(1);
   const shell = page.locator('[data-immersive-shell="true"]');
-  expect(await page.evaluate(() => ({
-    focused: document.hasFocus(),
-    gamepads: Array.from(navigator.getGamepads()).filter(Boolean).length,
-  }))).toEqual({ focused: true, gamepads: 2 });
+  await page.bringToFront();
+  await expect.poll(() => page.evaluate(() => document.hasFocus()), { timeout: 2_000 }).toBe(true);
+  expect(await page.evaluate(() => Array.from(navigator.getGamepads()).filter(Boolean).length)).toBe(2);
   await expect(shell).toHaveAttribute("data-controller-state", "ready", { timeout: 2_000 });
   const move = selectedGame.index === selectedGame.games.length - 1 ? "up" : "down";
   const targetIndex = selectedGame.index + (move === "up" ? -1 : 1);

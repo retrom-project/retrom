@@ -3,19 +3,28 @@ package libraryimport
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 
 	"retrom/internal/cleanup"
 	"retrom/internal/contentcapability"
+	"retrom/internal/rpgmaker/detector"
+	"retrom/internal/rpgmaker/routing"
 )
 
 type creationTarget struct {
 	platformID          string
+	defaultCoreID       string
 	coreID              string
 	artifactID          string
 	emulatorVersion     string
 	artifactPath        string
 	artifactSHA         string
+	artifactSetSHA      string
+	routeKey            string
+	runtimeFamily       string
+	adapterID           string
+	adapterABI          string
 	compatibilityConfig string
 	instanceVersion     int64
 	artifactVersion     int64
@@ -48,11 +57,15 @@ func normalizeCreateRequest(request CreateRequest) (CreateRequest, string, error
 	if contentMode == "" {
 		contentMode = contentcapability.ModeStandard
 	}
-	if contentMode != contentcapability.ModeStandard && contentMode != contentcapability.ModeMultiDiscM3UV1 {
+	if contentMode != contentcapability.ModeStandard && contentMode != contentcapability.ModeMultiDiscM3UV1 &&
+		contentMode != contentcapability.ModeRPGMakerProjectV1 && contentMode != contentcapability.ModeONSProjectV1 {
 		return CreateRequest{}, "", ErrInvalid
 	}
 	if request.MetadataProvider != "NONE" && request.MetadataProvider != "HASHEOUS" {
 		return CreateRequest{}, "", ErrInvalid
+	}
+	if contentMode == contentcapability.ModeRPGMakerProjectV1 || contentMode == contentcapability.ModeONSProjectV1 {
+		request.MetadataProvider = "NONE"
 	}
 	return request, contentMode, nil
 }
@@ -65,12 +78,12 @@ func (service *Service) prepareCreation(ctx context.Context, rawRequest CreateRe
 	if request.MetadataProvider == "HASHEOUS" && service.scraper == nil {
 		return creationPlan{}, fmt.Errorf("libraryimport/service: %w", errMetadataScraperNotConfigured)
 	}
-	sourceType, err := service.loadCompletedUpload(ctx, request.UploadID)
+	purpose, sourceType, err := service.loadCompletedUpload(ctx, request.UploadID)
 	if err != nil {
 		return creationPlan{}, err
 	}
-	if contentMode == contentcapability.ModeMultiDiscM3UV1 && sourceType != "DIRECTORY" {
-		return creationPlan{}, ErrMultiDiscModeUnavailable
+	if err := validateCreationUpload(contentMode, sourceType, purpose); err != nil {
+		return creationPlan{}, err
 	}
 	target, err := service.loadCreationTarget(ctx, request.TargetPlatformInstanceID)
 	if err != nil {
@@ -82,58 +95,185 @@ func (service *Service) prepareCreation(ctx context.Context, rawRequest CreateRe
 	if contentMode == contentcapability.ModeMultiDiscM3UV1 && capabilities.MultiDisc == nil {
 		return creationPlan{}, ErrMultiDiscModeUnavailable
 	}
-	datID := service.loadActiveDATID(ctx, target.artifactID)
 	files, err := service.loadImportSourceFiles(ctx, request.UploadID)
 	if err != nil {
 		return creationPlan{}, err
+	}
+	datID := sql.NullString{}
+	if target.artifactID != "" {
+		datID = service.loadActiveDATID(ctx, target.artifactID)
 	}
 	plan := creationPlan{
 		request: request, contentMode: contentMode, sourceType: sourceType,
 		target: target, datID: datID, files: files,
 	}
-	if contentMode == contentcapability.ModeMultiDiscM3UV1 {
-		plan.dispositions, plan.groups, err = service.prepareMultiDiscFiles(files, *capabilities.MultiDisc)
-	} else {
-		plan.dispositions, plan.groups, plan.archives = service.prepareImportFiles(
-			ctx, target.platformID, sourceType, files, datID,
-		)
-	}
-	if err != nil {
+	if err := service.prepareContent(ctx, &plan, capabilities); err != nil {
 		return creationPlan{}, err
+	}
+	if err := service.resolveRPGMakerTarget(ctx, &plan); err != nil {
+		return creationPlan{}, err
+	}
+	if contentMode == contentcapability.ModeRPGMakerProjectV1 {
+		plan.datID = service.loadActiveDATID(ctx, plan.target.artifactID)
 	}
 	return plan, nil
 }
 
-func (service *Service) loadCompletedUpload(ctx context.Context, uploadID string) (string, error) {
-	var state, sourceType string
+func (service *Service) resolveRPGMakerTarget(ctx context.Context, plan *creationPlan) error {
+	if plan.contentMode != contentcapability.ModeRPGMakerProjectV1 {
+		return nil
+	}
+	if len(plan.groups) != 1 || plan.groups[0].rpgProfile == nil {
+		return ErrInvalid
+	}
+	profile := plan.groups[0].rpgProfile
+	route, err := routing.Current(profile.SelectedCoreID, profile.ExpectedGeneration)
+	if err != nil {
+		return ErrInvalid
+	}
+	return service.loadArtifactTarget(ctx, &plan.target, route)
+}
+
+func (service *Service) prepareContent(
+	ctx context.Context,
+	plan *creationPlan,
+	capabilities contentcapability.ImportCapabilities,
+) error {
+	var err error
+	switch plan.contentMode {
+	case contentcapability.ModeMultiDiscM3UV1:
+		plan.dispositions, plan.groups, err = service.prepareMultiDiscFiles(plan.files, *capabilities.MultiDisc)
+	case contentcapability.ModeRPGMakerProjectV1:
+		if plan.target.platformID != "rpgmaker" {
+			return ErrInvalid
+		}
+		plan.dispositions, plan.groups, plan.archives, err = service.prepareRPGMakerProject(
+			ctx, plan.sourceType, plan.files, plan.target.defaultCoreID,
+		)
+	case contentcapability.ModeONSProjectV1:
+		if plan.target.platformID != "ons" {
+			return ErrInvalid
+		}
+		plan.dispositions, plan.groups, plan.archives, err = service.prepareONSProject(
+			ctx, plan.sourceType, plan.files,
+		)
+	case contentcapability.ModeStandard:
+		plan.dispositions, plan.groups, plan.archives = service.prepareImportFiles(
+			ctx, plan.target.platformID, plan.sourceType, plan.files, plan.datID,
+		)
+	default:
+		return ErrInvalid
+	}
+	return err
+}
+
+func validateCreationUpload(contentMode, sourceType, purpose string) error {
+	if contentMode == contentcapability.ModeMultiDiscM3UV1 && sourceType != "DIRECTORY" {
+		return ErrMultiDiscModeUnavailable
+	}
+	if contentMode == contentcapability.ModeRPGMakerProjectV1 {
+		if purpose != "RPG_MAKER_PROJECT" {
+			return ErrInvalid
+		}
+		return nil
+	}
+	if contentMode == contentcapability.ModeONSProjectV1 {
+		if purpose != "ONS_PROJECT" {
+			return ErrInvalid
+		}
+		return nil
+	}
+	if purpose != "GENERAL" {
+		return ErrInvalid
+	}
+	return nil
+}
+
+func (service *Service) loadCompletedUpload(ctx context.Context, uploadID string) (string, string, error) {
+	var state, purpose, sourceType string
 	err := service.database.QueryRowContext(ctx, `
-SELECT state,source_type
+SELECT state,purpose,source_type
 FROM upload_sessions
 WHERE id=?
-`, uploadID).Scan(&state, &sourceType)
+`, uploadID).Scan(&state, &purpose, &sourceType)
 	if err != nil || state != "COMPLETE" {
-		return "", ErrInvalid
+		return "", "", ErrInvalid
 	}
-	return sourceType, nil
+	return purpose, sourceType, nil
 }
 
 func (service *Service) loadCreationTarget(ctx context.Context, instanceID string) (creationTarget, error) {
 	var target creationTarget
 	err := service.database.QueryRowContext(ctx, `
-SELECT pi.platform_id,pi.default_core_id,pi.version,a.id,a.emulatorjs_version,a.relative_path,
-a.sha256,a.version,a.compatibility_config_json
+SELECT pi.platform_id,pi.default_core_id,pi.version
 FROM platform_instances pi
-JOIN core_artifacts a ON a.core_id=pi.default_core_id AND a.enabled=1
 WHERE pi.id=? AND pi.enabled=1 AND pi.deleted_at_ms IS NULL
 `, instanceID).Scan(
-		&target.platformID, &target.coreID, &target.instanceVersion, &target.artifactID,
-		&target.emulatorVersion, &target.artifactPath, &target.artifactSHA,
-		&target.artifactVersion, &target.compatibilityConfig,
+		&target.platformID, &target.defaultCoreID, &target.instanceVersion,
 	)
 	if err != nil {
 		return creationTarget{}, ErrInvalid
 	}
-	return target, nil
+	target.coreID = target.defaultCoreID
+	if target.platformID == "rpgmaker" && target.defaultCoreID == detector.VirtualCoreID {
+		return target, nil
+	}
+	return target, service.loadDefaultArtifactTarget(ctx, &target)
+}
+
+func (service *Service) loadDefaultArtifactTarget(ctx context.Context, target *creationTarget) error {
+	var route routing.Entry
+	err := service.database.QueryRowContext(ctx, `
+SELECT id,runtime_version,entry_path,sha256,version,compatibility_json,
+artifact_set_sha256,route_key,runtime_family,adapter_id
+FROM core_artifacts
+WHERE core_id=? AND selected_for_new_bindings=1
+`, target.coreID).Scan(
+		&target.artifactID, &target.emulatorVersion, &target.artifactPath, &target.artifactSHA,
+		&target.artifactVersion, &target.compatibilityConfig, &target.artifactSetSHA,
+		&target.routeKey, &target.runtimeFamily, &target.adapterID,
+	)
+	if err != nil {
+		return ErrInvalid
+	}
+	return decodeTargetAdapterABI(target, route)
+}
+
+func (service *Service) loadArtifactTarget(
+	ctx context.Context,
+	target *creationTarget,
+	route routing.Entry,
+) error {
+	target.coreID = route.CoreID
+	err := service.database.QueryRowContext(ctx, `
+SELECT id,runtime_version,entry_path,sha256,version,compatibility_json,
+artifact_set_sha256,route_key,runtime_family,adapter_id
+FROM core_artifacts
+WHERE core_id=? AND route_key=? AND selected_for_new_bindings=1 AND available_for_launch=1
+`, route.CoreID, route.RouteKey).Scan(
+		&target.artifactID, &target.emulatorVersion, &target.artifactPath, &target.artifactSHA,
+		&target.artifactVersion, &target.compatibilityConfig, &target.artifactSetSHA,
+		&target.routeKey, &target.runtimeFamily, &target.adapterID,
+	)
+	if err != nil {
+		return ErrInvalid
+	}
+	return decodeTargetAdapterABI(target, route)
+}
+
+func decodeTargetAdapterABI(target *creationTarget, route routing.Entry) error {
+	var compatibility struct {
+		AdapterABI string `json:"adapterAbi"`
+	}
+	if json.Unmarshal([]byte(target.compatibilityConfig), &compatibility) != nil || compatibility.AdapterABI == "" {
+		return ErrInvalid
+	}
+	target.adapterABI = compatibility.AdapterABI
+	if route.RouteKey != "" && (target.routeKey != route.RouteKey || target.adapterID != route.AdapterID ||
+		target.adapterABI != route.AdapterABI) {
+		return ErrInvalid
+	}
+	return nil
 }
 
 func (service *Service) loadActiveDATID(ctx context.Context, artifactID string) sql.NullString {

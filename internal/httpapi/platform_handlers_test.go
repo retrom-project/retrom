@@ -3,6 +3,7 @@ package httpapi
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
@@ -15,6 +16,7 @@ import (
 	"retrom/internal/blobstore"
 	"retrom/internal/contentcapability"
 	"retrom/internal/netplay"
+	"retrom/internal/platformcatalog"
 	"retrom/internal/testassert"
 	"retrom/internal/testsupport"
 )
@@ -85,7 +87,13 @@ func TestRecommendedPlatformDirectoryHTTPApplyIsAtomicAndIdempotent(t *testing.T
 	if err := json.Unmarshal(get.Body.Bytes(), &initial); err != nil || get.Code != http.StatusOK {
 		t.Fatalf("initial recommendations = %d %s error=%v", get.Code, get.Body.String(), err)
 	}
-	testassert.Falsef(t, testassert.Any(func() bool { return initial.CatalogVersion != 1 }, func() bool { return initial.Summary.TotalCount != 27 }, func() bool { return initial.Summary.MissingCount != 27 }, func() bool { return len(initial.Items) != 27 }), "initial recommendations = %#v", initial)
+	expectedTemplates := len(platformcatalog.Current().Templates)
+	testassert.Falsef(t, testassert.Any(
+		func() bool { return initial.CatalogVersion != platformcatalog.Version },
+		func() bool { return initial.Summary.TotalCount != expectedTemplates },
+		func() bool { return initial.Summary.MissingCount != expectedTemplates },
+		func() bool { return len(initial.Items) != expectedTemplates },
+	), "initial recommendations = %#v", initial)
 	for _, item := range initial.Items {
 		testassert.Falsef(t, testassert.Any(func() bool { return item.TemplateKey == "fds/fceumm" }, func() bool { return item.TemplateKey == "arcade/mame2003" }), "retired template was recommended: %#v", item)
 		testassert.Falsef(t, testassert.All(func() bool { return item.TemplateKey == "nes/fceumm" }, func() bool { return !strings.Contains(strings.Join(item.SupportedExtensions, ","), ".fds") }), "NES extensions do not include FDS: %#v", item.SupportedExtensions)
@@ -104,7 +112,13 @@ func TestRecommendedPlatformDirectoryHTTPApplyIsAtomicAndIdempotent(t *testing.T
 		return response
 	}
 	created := apply(`{}`, key)
-	testassert.Falsef(t, testassert.Any(func() bool { return created.Code != http.StatusOK }, func() bool { return !strings.Contains(created.Body.String(), `"createdCount":27`) }, func() bool { return !strings.Contains(created.Body.String(), `"remainingMissingCount":0`) }), "apply = %d %s", created.Code, created.Body.String())
+	testassert.Falsef(t, testassert.Any(
+		func() bool { return created.Code != http.StatusOK },
+		func() bool {
+			return !strings.Contains(created.Body.String(), fmt.Sprintf(`"createdCount":%d`, expectedTemplates))
+		},
+		func() bool { return !strings.Contains(created.Body.String(), `"remainingMissingCount":0`) },
+	), "apply = %d %s", created.Code, created.Body.String())
 	replayed := apply(`{}`, key)
 	testassert.Falsef(t, testassert.Any(func() bool { return replayed.Code != created.Code }, func() bool { return replayed.Body.String() != created.Body.String() }, func() bool { return replayed.Header().Get("X-Retrom-Idempotent-Replay") != "true" }), "replay = %d header=%q %s", replayed.Code, replayed.Header().Get("X-Retrom-Idempotent-Replay"), replayed.Body.String())
 	second := apply(`{}`, uuid.NewString())
@@ -120,7 +134,10 @@ SELECT
 `).Scan(&directoryCount, &auditCount); err != nil {
 		t.Fatal(err)
 	}
-	testassert.Falsef(t, testassert.Any(func() bool { return directoryCount != 27 }, func() bool { return auditCount != 27 }), "applied rows = directories:%d audits:%d", directoryCount, auditCount)
+	testassert.Falsef(t, testassert.Any(
+		func() bool { return directoryCount != expectedTemplates },
+		func() bool { return auditCount != expectedTemplates },
+	), "applied rows = directories:%d audits:%d", directoryCount, auditCount)
 }
 
 func TestPlatformSlugBaseUsesReadableASCIIOrPlatformFallback(t *testing.T) {
@@ -295,5 +312,9 @@ func TestPlatformImportCapabilitiesUseFeaturePlatformAndArtifactIntersection(t *
 	}
 	if psx := items["psx"].ImportCapabilities; len(psx.ContentModes) != 1 || psx.MultiDisc != nil {
 		t.Fatalf("PSX capabilities = %#v", psx)
+	}
+	if rpgMaker := items["rpgmaker"].ImportCapabilities; len(rpgMaker.ContentModes) != 1 ||
+		rpgMaker.ContentModes[0] != contentcapability.ModeRPGMakerProjectV1 || rpgMaker.MultiDisc != nil {
+		t.Fatalf("RPG Maker capabilities = %#v", rpgMaker)
 	}
 }

@@ -1,12 +1,82 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { createOnsRuntime, type OnsRuntime, type OnsRuntimeConfig } from "@xxxsen/retrom-runtime";
 import { captureReviewScreenshot, mountEmulatorJS, type EmulatorInstance, type PlayerConfig } from "@/features/player/adapters/ejs-4.2.3-v2";
 import { installCanvasContain } from "@/features/player/canvas-fit";
 
-type ReviewPlayerConfig = PlayerConfig & {
-  reviewPreview: { importItemId: string; captureAllowed: boolean; captureAfterMs: 5000 };
+type ReviewPreview = { importItemId: string; captureAllowed: boolean; captureAfterMs: 5000 };
+type EmulatorReviewConfig = PlayerConfig & {
+  runtimeFamily: "EMULATORJS";
+  reviewPreview: ReviewPreview;
 };
+type ONSReviewConfig = OnsRuntimeConfig & {
+  runtimeFamily: "ONS";
+  gameTitle: string;
+  reviewPreview: ReviewPreview;
+};
+type ReviewPlayerConfig = EmulatorReviewConfig | ONSReviewConfig;
+
+type ReviewRuntime = {
+  screenshot: () => Promise<Blob>;
+  exit: () => Promise<void>;
+};
+
+type ReviewMount = {
+  runtime: ReviewRuntime;
+  cleanup: () => void;
+  emulator?: EmulatorInstance;
+};
+
+type ReviewMountOptions = {
+  signal: AbortSignal;
+  onError: (reason: unknown) => void;
+  onStart: (mount: ReviewMount) => void;
+};
+
+async function mountReviewRuntime(
+  config: ReviewPlayerConfig,
+  target: HTMLElement,
+  frameWindow: Window,
+  options: ReviewMountOptions,
+): Promise<void> {
+  if (config.runtimeFamily === "ONS") {
+    const runtime: OnsRuntime = createOnsRuntime(config, {
+      frameWindow, restorePayload: null, signal: options.signal,
+    });
+    const unsubscribe = runtime.subscribe((event) => {
+      if (event.type === "FATAL_ERROR") {options.onError(event.code);}
+    });
+    try {
+      await runtime.mount(target);
+    } catch (error) {
+      unsubscribe();
+      await runtime.exit();
+      throw error;
+    }
+    options.onStart({
+      runtime,
+      cleanup: () => { unsubscribe(); void runtime.exit(); },
+    });
+    return;
+  }
+  let emulator: EmulatorInstance | undefined;
+  let cleanup: () => void = () => undefined;
+  cleanup = mountEmulatorJS(config, target, {
+    onReady: (value) => { emulator = value; },
+    onGameStart: () => {
+      if (!emulator) {options.onError("模拟器核心尚未就绪"); return false;}
+      options.onStart({
+        emulator,
+        runtime: {
+          screenshot: async () => (await captureReviewScreenshot(emulator as EmulatorInstance)).screenshot,
+          exit: async () => { cleanup(); },
+        },
+        cleanup,
+      });
+    },
+  }, frameWindow);
+}
 
 type PreviewState = "loading" | "running" | "capturing" | "captured" | "error";
 const previewStartupTimeoutMs = 30_000;
@@ -22,6 +92,7 @@ function stateCopy(state: PreviewState) {
 export function ReviewPreviewPlayer({ previewId }: { previewId: string }) {
   const frameRef = useRef<HTMLIFrameElement>(null);
   const emulatorRef = useRef<EmulatorInstance | undefined>(undefined);
+  const runtimeRef = useRef<ReviewRuntime | undefined>(undefined);
   const captureTimerRef = useRef<number | null>(null);
   const [state, setState] = useState<PreviewState>("loading");
   const [title, setTitle] = useState("审核游戏预览");
@@ -53,15 +124,15 @@ export function ReviewPreviewPlayer({ previewId }: { previewId: string }) {
     };
 
     async function uploadCapture(config: ReviewPlayerConfig) {
-      const emulator = emulatorRef.current;
-      if (!emulator) {throw new Error("预览核心尚未就绪，无法截图");}
+      const runtime = runtimeRef.current;
+      if (!runtime) {throw new Error("预览核心尚未就绪，无法截图");}
       setState("capturing");
-      const capture = await captureReviewScreenshot(emulator);
+      const screenshot = await runtime.screenshot();
       const response = await fetch(`/runtime/launches/${previewId}/review-screenshot`, {
         method: "POST",
         credentials: "same-origin",
         headers: { "Content-Type": "image/png" },
-        body: capture.screenshot,
+        body: screenshot,
       });
       if (!response.ok) {
         const payload = await response.json().catch(() => null) as { error?: { message?: string } } | null;
@@ -100,11 +171,15 @@ export function ReviewPreviewPlayer({ previewId }: { previewId: string }) {
         frameDocument.body.append(target);
         canvasContain = installCanvasContain(frameDocument, () => emulatorRef.current?.gameManager?.getVideoDimensions?.("aspect"));
         startupTimer = window.setTimeout(() => failStartup("模拟器核心启动超时，请关闭子窗体后重试"), previewStartupTimeoutMs);
-        cleanup = mountEmulatorJS(config, target, {
-          onReady: (emulator) => { emulatorRef.current = emulator; },
-          onGameStart: () => {
-            if (startupFailed) {return false;}
+        await mountReviewRuntime(config, target, mountedFrameWindow, {
+          signal: controller.signal,
+          onError: failStartup,
+          onStart: (mount) => {
+            if (startupFailed) {mount.cleanup(); return;}
             gameStarted = true;
+            runtimeRef.current = mount.runtime;
+            emulatorRef.current = mount.emulator;
+            cleanup = mount.cleanup;
             if (startupTimer !== undefined) {window.clearTimeout(startupTimer);}
             setState("running");
             mountedFrameWindow.requestAnimationFrame(() => canvasContain?.refresh());
@@ -115,7 +190,7 @@ export function ReviewPreviewPlayer({ previewId }: { previewId: string }) {
               });
             }, config.reviewPreview.captureAfterMs);
           },
-        }, mountedFrameWindow);
+        });
       } catch (error) {
         if (controller.signal.aborted) {return;}
         failStartup(error);
@@ -129,6 +204,7 @@ export function ReviewPreviewPlayer({ previewId }: { previewId: string }) {
       frameWindow?.removeEventListener("error", onRuntimeError);
       frameWindow?.removeEventListener("unhandledrejection", onRuntimeRejection);
       cleanup?.();
+      runtimeRef.current = undefined;
       canvasContain?.cleanup();
     };
   }, [previewId]);

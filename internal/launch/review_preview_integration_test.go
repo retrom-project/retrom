@@ -190,9 +190,9 @@ WHERE game.id=?
 	)
 	if _, err := database.SQL.ExecContext(ctx, `
 INSERT INTO game_variant_revisions(id,game_variant_id,game_content_revision_id,core_artifact_id,
-dat_version_id,validation_input_digest,emulator_game_id,status,compatibility_code,
+route_key,dat_version_id,validation_input_digest,emulator_game_id,status,compatibility_code,
 dependency_snapshot_json,default_dos_entry,created_at_ms)
-SELECT ?,variant.id,current.game_content_revision_id,current.core_artifact_id,?, ?,current.emulator_game_id+100000,
+SELECT ?,variant.id,current.game_content_revision_id,current.core_artifact_id,current.route_key,?, ?,current.emulator_game_id+100000,
 'READY','REVIEW_SCREENSHOT_OVERRIDE',?,current.default_dos_entry,current.created_at_ms+1
 FROM game_variants variant
 JOIN game_variant_revisions current ON current.id=variant.current_revision_id

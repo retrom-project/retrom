@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"hash/crc32"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -49,6 +50,56 @@ func TestSevenZipWorkerScansAndExtractsDeterministicArchive(t *testing.T) {
 	testassert.Truef(t, bytes.Equal(extracted.Bytes(), payload), "extracted payload = %q", extracted.Bytes())
 }
 
+func TestSevenZipWorkerExtractsSolidEntriesInOneBatch(t *testing.T) {
+	t.Parallel()
+	archivePath := filepath.Join("testdata", "sevenzip", "ambiguous.7z")
+	entries, err := ScanSevenZip(context.Background(), archivePath, DefaultArchiveLimits())
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := make(map[string][]byte, len(entries))
+	err = ExtractSevenZipEntries(
+		context.Background(), archivePath, entries,
+		func(entry ArchiveEntry, reader io.Reader) error {
+			payload, readErr := io.ReadAll(reader)
+			got[entry.NormalizedPath] = payload
+			return readErr
+		},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"game.a26", "second.a26"} {
+		want, readErr := os.ReadFile(filepath.Join("testdata", "sevenzip", "payload", name))
+		if readErr != nil {
+			t.Fatal(readErr)
+		}
+		if !bytes.Equal(got[name], want) {
+			t.Fatalf("batch entry %q = %q, want %q", name, got[name], want)
+		}
+	}
+}
+
+func TestSevenZipBatchRejectsNonCanonicalEntrySets(t *testing.T) {
+	t.Parallel()
+	valid := ArchiveEntry{ArchiveFormat: "SEVEN_Z", Ordinal: 1, Size: 3}
+	for _, entries := range [][]ArchiveEntry{
+		{{ArchiveFormat: "ZIP", Ordinal: 1, Size: 3}},
+		{valid, valid},
+		{{ArchiveFormat: "SEVEN_Z", Ordinal: -1, Size: 3}},
+		{{ArchiveFormat: "SEVEN_Z", Ordinal: 1, Size: -1}},
+	} {
+		if _, _, err := orderedSevenZipEntries(entries); !errors.Is(err, ErrArchiveUnsafe) {
+			t.Fatalf("orderedSevenZipEntries(%#v) error = %v", entries, err)
+		}
+	}
+	for _, encoded := range []string{"", "01", "1,1", "2,1", "-1", "1,"} {
+		if _, err := parseBatchOrdinals([]string{encoded}); !errors.Is(err, ErrArchiveUnsafe) {
+			t.Fatalf("parseBatchOrdinals(%q) error = %v", encoded, err)
+		}
+	}
+}
+
 func TestSevenZipWorkerRejectsUnsupportedContainers(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
@@ -72,6 +123,18 @@ func TestSevenZipWorkerRejectsUnsupportedContainers(t *testing.T) {
 			)
 			testassert.Truef(t, errors.Is(err, test.want), "ScanSevenZip() error = %v, want %v", err, test.want)
 		})
+	}
+}
+
+func TestSevenZipWorkerCanClassifyOpaqueNestedDataForRPGMakerNormalizer(t *testing.T) {
+	t.Parallel()
+	entries, err := ScanSevenZip(
+		context.Background(),
+		filepath.Join("testdata", "sevenzip", "nested.7z"),
+		RPGMakerArchiveLimits(),
+	)
+	if err != nil || len(entries) != 1 || entries[0].NestedArchive != NestedArchiveZIP {
+		t.Fatalf("RPG Maker nested classification = %#v, error=%v", entries, err)
 	}
 }
 
@@ -141,6 +204,7 @@ func TestSevenZipEntryChecksumMismatchIsUnsafeNotNested(t *testing.T) {
 		"game.a26",
 		int64(len(payload)),
 		crc32.ChecksumIEEE(payload)+1,
+		false,
 	)
 	testassert.Falsef(t, testassert.Any(func() bool { return !errors.Is(err, ErrArchiveUnsafe) }, func() bool { return errors.Is(err, ErrNestedArchiveUnsupported) }), "hashSevenZipEntry() error = %v", err)
 }

@@ -84,7 +84,7 @@ export async function locatorBrightRatio(page: Page, locator: Locator) {
 }
 
 export async function currentEmulatorBrightRatio(page: Page) {
-  const canvas = page.frameLocator('iframe[title="Retrom EmulatorJS Player"]').locator("canvas.ejs_canvas");
+  const canvas = page.frameLocator("iframe.player-frame").locator("canvas.ejs_canvas");
   return locatorBrightRatio(page, canvas);
 }
 

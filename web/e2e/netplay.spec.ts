@@ -169,7 +169,7 @@ async function waitForFrame(page: Page, frame: number) {
 }
 
 async function canvasDigest(page: Page, testInfo: TestInfo, name: string) {
-  const canvas = page.frameLocator('iframe[title="Retrom EmulatorJS Player"]').locator("canvas.ejs_canvas");
+  const canvas = page.frameLocator("iframe.player-frame").locator("canvas.ejs_canvas");
   await expect(canvas).toBeVisible({ timeout: 30_000 });
   const chrome = page.locator(".player-toolbar,.player-pause-overlay,.player-debug-panel,.player-toast,.player-controls-hint,.player-emulator-toolbar,nextjs-portal");
   const visibility = await chrome.evaluateAll((elements) => elements.map((element) => (element as HTMLElement).style.visibility));
@@ -221,7 +221,7 @@ async function waitForCPSVisualStability(
 
 async function setDirectionalInput(page: Page, pressed: boolean) {
   if (pressed) {
-    const canvas = page.frameLocator('iframe[title="Retrom EmulatorJS Player"]').locator("canvas.ejs_canvas");
+    const canvas = page.frameLocator("iframe.player-frame").locator("canvas.ejs_canvas");
     await canvas.click({ position: { x: 64, y: 64 } });
     // Each netplay browser contributes its local P1 controls; the bridge maps
     // that input to the participant seat before sending it to the server.
@@ -350,8 +350,12 @@ async function waitForTransportRecovery(
       guestEpoch: guestEvents.find((event) => (event.eventSeq ?? 0) > guestEventSeq &&
         event.kind === "epoch" && event.resync && event.epoch === sourceEpoch + 1 && event.nextFrame === nextFrame),
     };
-    return Object.values(recovery).every(Boolean);
-  }, { timeout: 30_000, intervals: [100, 250, 500] }).toBe(true);
+    return Object.entries(recovery).filter(([, event]) => event === undefined).map(([stage]) => stage).join(",");
+  }, {
+    timeout: 30_000,
+    intervals: [100, 250, 500],
+    message: "transport recovery must complete every ordered diagnostic stage",
+  }).toBe("");
   const result = recovery as Required<typeof recovery>;
   expect(result.guestPause.atFrame).toBe(result.hostPause.atFrame);
   expect(result.capture.stateDigest).toMatch(/^[0-9a-f]{64}$/);
@@ -360,6 +364,21 @@ async function waitForTransportRecovery(
   expect(result.capture.coreDigest).toBe(result.load.coreDigest);
   expect(result.load).toMatchObject({ nativeCompletion: true, coreExact: true });
   return result.guestEpoch;
+}
+
+async function settleSNESBoundaryMismatch(
+  session: Awaited<ReturnType<typeof createSession>>,
+  profileId: NetplayProfileId,
+  alreadyRecovered: boolean,
+  hostEvents: DiagnosticEvent[],
+  guestEvents: DiagnosticEvent[],
+) {
+  const mismatches = checkpointMismatches(hostEvents, guestEvents);
+  if (mismatches.length === 0) {return alreadyRecovered;}
+  expect(profileId, "only SNES may consume the documented boundary mismatch").toBe("snes9x-423-v1");
+  expect(mismatches, "SNES permits at most one checkpoint mismatch per session").toHaveLength(1);
+  if (!alreadyRecovered) {await verifySNESNoOpHashRecovery(session, mismatches[0]!);}
+  return true;
 }
 
 async function verifyStrictCheckpointPhase(
@@ -421,8 +440,10 @@ async function verifyLockstepBufferAdaptation(session: Awaited<ReturnType<typeof
   await setDirectionalInput(session.guestPage, false);
   let recoverySamples = 0;
   await expect.poll(async () => {
+    // The boundary sample was already observed when delay was reset and is
+    // the first sample in the controller's consecutive lower-target window.
     const samples = (await diagnosticEvents(session.guestPage)).filter((event) =>
-      event.kind === "lockstep" && (event.frame ?? -1) > recoveryStartFrame);
+      event.kind === "lockstep" && (event.frame ?? -1) >= recoveryStartFrame);
     const recoveredIndex = samples.findIndex((event) => (event.inputBufferFrames ?? 1) < elevatedBuffer);
     recoverySamples = recoveredIndex + 1;
     return recoveredIndex >= 0;
@@ -475,20 +496,20 @@ async function verifyRoomPickerGame(browser: Browser, result: ExpansionResult) {
   try {
     await page.goto(`/netplay/rooms/${room.roomId}`);
     const platformButton = page.getByRole("button", { name: game!.platformName, exact: true });
-    for (let pageIndex = 0; pageIndex < 5 && await platformButton.count() === 0; pageIndex += 1) {
+    const card = page.locator(".netplay-game-card")
+      .filter({ has: page.getByRole("heading", { name: game!.title, exact: true }) })
+      .filter({ has: page.getByText(game!.platformInstanceName, { exact: true }) });
+    for (let pageIndex = 0; pageIndex < 5 && await card.count() === 0; pageIndex += 1) {
       const loadMore = page.getByRole("button", { name: /加载更多|重试加载/ });
       const loadedSummary = page.locator(".netplay-picker-title strong");
       const previousSummary = await loadedSummary.textContent();
       await expect(loadMore).toBeVisible();
       await loadMore.click();
       await expect.poll(async () =>
-        await platformButton.count() > 0 || await loadedSummary.textContent() !== previousSummary,
+        await card.count() > 0 || await loadedSummary.textContent() !== previousSummary,
       ).toBe(true);
     }
     await expect(platformButton).toBeVisible();
-    const card = page.locator(".netplay-game-card")
-      .filter({ has: page.getByRole("heading", { name: game!.title, exact: true }) })
-      .filter({ has: page.getByText(game!.platformInstanceName, { exact: true }) });
     await expect(card).toBeVisible();
     if (game!.netplayProfiles.length > 1) {
       await card.getByRole("button", { name: "选择", exact: true }).click();
@@ -552,7 +573,13 @@ async function verifyStrictExpansionProfile(
     await new Promise((resolve) => setTimeout(resolve, 3_000));
     await cdp.send("Page.setWebLifecycleState", { state: "active" });
     await waitForFrame(session.guestPage, beforeFreeze + 60);
-    const [beforeDropHostEvents, beforeDropGuestEvents] = await Promise.all([
+    let [beforeDropHostEvents, beforeDropGuestEvents] = await Promise.all([
+      diagnosticEvents(session.hostPage), diagnosticEvents(session.guestPage),
+    ]);
+    recoveredHashMismatch = await settleSNESBoundaryMismatch(
+      session, result.profileId, recoveredHashMismatch, beforeDropHostEvents, beforeDropGuestEvents,
+    );
+    [beforeDropHostEvents, beforeDropGuestEvents] = await Promise.all([
       diagnosticEvents(session.hostPage), diagnosticEvents(session.guestPage),
     ]);
     const epochBefore = Math.max(...beforeDropGuestEvents

@@ -8,7 +8,7 @@ import { preflightMultiDisc, type MultiDiscPreflight as MultiDiscPreflightResult
 import { MultiDiscPreflight } from "@/features/imports/multidisc-preflight-view";
 import { formatBytes } from "@/lib/backend";
 
-type ContentMode = "STANDARD" | "MULTI_DISC_M3U_V1";
+type ContentMode = "STANDARD" | "MULTI_DISC_M3U_V1" | "RPG_MAKER_PROJECT_V1";
 
 export function GameContentReplacementDialog({
   initialMode,
@@ -24,7 +24,11 @@ export function GameContentReplacementDialog({
   onSubmit: (files: File[], mode: ContentMode) => Promise<boolean>;
 }) {
   const [open, setOpen] = useState(false);
-  const [mode, setMode] = useState<ContentMode>(initialMode === "MULTI_DISC_M3U_V1" && multiDiscLimits ? initialMode : "STANDARD");
+  const [mode, setMode] = useState<ContentMode>(
+    initialMode === "RPG_MAKER_PROJECT_V1" || initialMode === "MULTI_DISC_M3U_V1" && multiDiscLimits
+      ? initialMode
+      : "STANDARD",
+  );
   const [files, setFiles] = useState<File[]>([]);
   const [preflight, setPreflight] = useState<MultiDiscPreflightResult | null>(null);
   const totalBytes = useMemo(() => files.reduce((total, file) => total + file.size, 0), [files]);
@@ -78,6 +82,7 @@ function ReplacementDialogContents({
   totalBytes: number;
 }) {
   const multiDisc = mode === "MULTI_DISC_M3U_V1";
+  const rpgMaker = mode === "RPG_MAKER_PROJECT_V1";
   const changeMode = (selected: boolean) => {
     setMode(selected ? "MULTI_DISC_M3U_V1" : "STANDARD");
     setFiles([]);
@@ -88,8 +93,8 @@ function ReplacementDialogContents({
     setPreflight(null);
   };
   return <div className="game-content-replacement">
-    {multiDiscLimits ? <MultiDiscModeField selected={multiDisc} detectedGroupCount={preflight?.processableGroupCount ?? 0} maxDiscs={multiDiscLimits.maxDiscs} maxTotalBytes={multiDiscLimits.maxTotalBytes} onChange={changeMode} /> : <FeedbackBanner tone="info">当前游戏目录只允许替换普通内容；既有多盘内容仍可继续读取和启动。</FeedbackBanner>}
-    <label className="game-content-replacement-picker">{multiDisc ? "选择一份完整多盘目录" : "选择新的游戏文件"}<input aria-label={multiDisc ? "选择一份完整多盘目录" : "选择新的游戏文件"} type="file" multiple disabled={disabled} {...(multiDisc ? { webkitdirectory: "" } : {})} onChange={(event) => selectFiles(Array.from(event.currentTarget.files ?? []))} /></label>
+    {rpgMaker ? <FeedbackBanner tone="info">请选择完整的 RPG Maker 项目目录。服务端会重新识别世代；与当前游戏世代不同的项目会被拒绝，当前内容与存档保持不变。</FeedbackBanner> : multiDiscLimits ? <MultiDiscModeField selected={multiDisc} detectedGroupCount={preflight?.processableGroupCount ?? 0} maxDiscs={multiDiscLimits.maxDiscs} maxTotalBytes={multiDiscLimits.maxTotalBytes} onChange={changeMode} /> : <FeedbackBanner tone="info">当前游戏目录只允许替换普通内容；既有多盘内容仍可继续读取和启动。</FeedbackBanner>}
+    <label className="game-content-replacement-picker">{rpgMaker ? "选择同世代 RPG Maker 项目目录" : multiDisc ? "选择一份完整多盘目录" : "选择新的游戏文件"}<input aria-label={rpgMaker ? "选择同世代 RPG Maker 项目目录" : multiDisc ? "选择一份完整多盘目录" : "选择新的游戏文件"} type="file" multiple disabled={disabled} {...(multiDisc || rpgMaker ? { webkitdirectory: "" } : {})} onChange={(event) => selectFiles(Array.from(event.currentTarget.files ?? []))} /></label>
     {files.length ? <div className="game-content-replacement-summary"><span>已选择 {files.length} 个文件</span><strong>{formatBytes(totalBytes)}</strong></div> : null}
     {preflighting ? <p className="game-content-replacement-progress" role="status"><i className="button-spinner" aria-hidden="true" />正在预检多盘目录…</p> : null}
     <ReplacementPreflightFeedback {...{ files, multiDisc, preflight, preflighting }} />

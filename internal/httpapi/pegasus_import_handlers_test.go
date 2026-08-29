@@ -37,13 +37,7 @@ func TestPegasusImportHTTPScanMappingAndSourceDrift(t *testing.T) {
 		[]config.ServerImportRoot{{ID: "games", Label: "Game Library", Path: root, CanonicalPath: root}}, time.Now,
 	)
 	server.pegasusImports.Start()
-	if _, err := server.database.ExecContext(context.Background(), `
-INSERT INTO core_artifacts(id,core_id,emulatorjs_version,bundle_version,flavor,relative_path,size_bytes,sha256,
-source_commit,provenance_json,compatibility_config_json,enabled,version,created_at_ms,updated_at_ms)
-VALUES('pegasus-http-artifact','fceumm','4.2.3','pegasus-http','WASM','data/pegasus-http.js',1,
-lower(hex(zeroblob(32))),NULL,'{}','{}',1,1,1,1)`); err != nil {
-		t.Fatal(err)
-	}
+	seedHTTPTestCoreArtifact(t, server.database, "pegasus-http-artifact", "fceumm", "data/pegasus-http.js", strings.Repeat("0", 64), "{}")
 	handler := server.Handler()
 	cookie, csrf := testSessionCredentials()
 

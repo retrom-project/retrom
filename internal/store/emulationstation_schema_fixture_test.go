@@ -143,10 +143,13 @@ func (fixture emulationStationSchemaFixture) seedLibraryReview(t *testing.T) (st
 	itemID := "00000000-0000-7000-8000-000000000022"
 	_, err := fixture.database.SQL.ExecContext(t.Context(), `
 INSERT INTO core_artifacts(
- id,core_id,emulatorjs_version,bundle_version,flavor,relative_path,size_bytes,sha256,
- provenance_json,compatibility_config_json,enabled,version,created_at_ms,updated_at_ms
-) VALUES('artifact-schema','fceumm','test','test','WASM','cores/schema.js',1,?,'{}','{}',1,1,1,1)
-`, testDigestA)
+ id,core_id,route_key,runtime_family,runtime_adapter_kind,runtime_version,adapter_id,entry_path,
+ size_bytes,sha256,manifest_sha256,artifact_set_sha256,requires_threads,save_payload_kind,
+ save_max_bytes,provenance_json,compatibility_json,selected_for_new_bindings,available_for_launch,
+ version,created_at_ms,updated_at_ms
+) VALUES('artifact-schema','fceumm','DEFAULT','EMULATORJS','EMULATORJS','test','emulatorjs-v1',
+ 'cores/schema.js',1,?,?,?,0,'RUNTIME_STATE',67108864,'{}','{}',1,1,1,1,1)
+`, testDigestA, testDigestB, testDigestC)
 	testassert.False(t, err != nil, err)
 	_, err = fixture.database.SQL.ExecContext(t.Context(), `
 INSERT INTO platform_instances(

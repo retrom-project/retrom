@@ -9,14 +9,22 @@ import (
 	"golang.org/x/sys/unix"
 )
 
+const (
+	archiveWorkerHeapLimitBytes    = 512 << 20
+	archiveWorkerAddressSpaceBytes = 4 << 30
+)
+
 func applyArchiveWorkerLimits() error {
-	debug.SetMemoryLimit(512 << 20)
+	debug.SetMemoryLimit(archiveWorkerHeapLimitBytes)
 	limits := []struct {
 		resource int
 		current  uint64
 		maximum  uint64
 	}{
-		{unix.RLIMIT_AS, 2 << 30, 2 << 30},
+		// A full Retrom binary plus Go's reserved arenas and a 7z LZMA2 dictionary
+		// can exceed 2 GiB of virtual address space while the live heap remains small.
+		// The independent heap limit is the actual memory-consumption boundary.
+		{unix.RLIMIT_AS, archiveWorkerAddressSpaceBytes, archiveWorkerAddressSpaceBytes},
 		{unix.RLIMIT_CPU, 120, 120},
 		{unix.RLIMIT_FSIZE, 8 << 30, 8 << 30},
 		{unix.RLIMIT_NOFILE, 64, 64},

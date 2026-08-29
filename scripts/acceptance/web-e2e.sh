@@ -5,8 +5,12 @@ repository_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 temporary_root="$(mktemp -d "${TMPDIR:-/tmp}/retrom-web-e2e.XXXXXX")"
 backend_port=18084
 web_port=13004
+server_start_timeout_seconds=300
 backend_origin="http://127.0.0.1:${backend_port}"
-web_origin="http://localhost:${web_port}"
+web_origin="http://retrom-app.rpg.localhost:${web_port}"
+runtime_origin_template="http://{launchId}.rpg.localhost:${backend_port}"
+e2e_grep="${RETROM_E2E_GREP:-}"
+unset RETROM_E2E_GREP
 process_id=""
 dev_state="$temporary_root/dev-state"
 cp -p "$repository_root/web/next-env.d.ts" "$temporary_root/next-env.d.ts"
@@ -86,6 +90,8 @@ setsid make dev \
   RETROM_DATA_DIR="$temporary_root/data" \
   RETROM_HTTP_ADDR="127.0.0.1:${backend_port}" \
   RETROM_PUBLIC_ORIGIN="$web_origin" \
+  RETROM_ALLOW_INSECURE_PUBLIC_ORIGIN="true" \
+  RETROM_RPG_RUNTIME_ORIGIN_TEMPLATE="$runtime_origin_template" \
   NEXT_DEV_HOST="127.0.0.1" \
   NEXT_DEV_PORT="$web_port" \
   NEXT_DIST_DIR=".next-e2e" \
@@ -93,7 +99,7 @@ setsid make dev \
   >"$temporary_root/server.log" 2>&1 &
 process_id=$!
 
-deadline=$((SECONDS + 90))
+deadline=$((SECONDS + server_start_timeout_seconds))
 until curl --fail --silent "$backend_origin/health/ready" >/dev/null 2>&1 &&
   curl --fail --silent "$web_origin" >/dev/null 2>&1; do
   if ! kill -0 "$process_id" 2>/dev/null; then
@@ -166,6 +172,11 @@ netplay_expansion_results="$(jq -sc '[
   "$temporary_root/netplay-fbalpha2012_cps1.json" \
   "$temporary_root/netplay-fbalpha2012_cps2.json")"
 
+playwright_command=(npm run test:e2e)
+if [[ -n "$e2e_grep" ]]; then
+  playwright_command+=(-- --grep "$e2e_grep")
+fi
+
 (cd web && \
   RETROM_WEB_ORIGIN="$web_origin" \
   RETROM_E2E_DATABASE="$temporary_root/data/retrom.db" \
@@ -177,7 +188,7 @@ netplay_expansion_results="$(jq -sc '[
   RETROM_MAME2003_PLATFORM_INSTANCE_ID="$(jq -r .platformInstanceId "$temporary_root/mame2003.json")" \
   RETROM_CORE_EXPANSION_RESULTS="$(jq -sc '.' "$temporary_root/netplay-snes9x.json" "$temporary_root/netplay-nestopia.json" "$temporary_root/netplay-mame2003_plus.json" "$temporary_root/netplay-fbalpha2012_cps1.json" "$temporary_root/netplay-fbalpha2012_cps2.json")" \
   RETROM_NETPLAY_EXPANSION_RESULTS="$netplay_expansion_results" \
-  npm run test:e2e)
+  "${playwright_command[@]}")
 
 RETROM_DEV_STATE_DIR="$dev_state" RETROM_DATA_DIR="$temporary_root/data" "$repository_root/scripts/dev.sh" --stop
 set +e

@@ -145,7 +145,35 @@ WHERE d.import_item_id=?
 			ClientCapabilities: capabilities,
 		},
 	)
-	testassert.False(t, err != nil, err)
+	if err != nil {
+		var selectedArtifact, runtimeVersion, contentKind, contentID, variantID, logicalName string
+		var selectedCount int
+		diagnosticErr := database.SQL.QueryRowContext(ctx, `
+SELECT artifact.id,artifact.runtime_version,content.content_kind,content.id,variant.id,
+COALESCE((SELECT logical_name FROM game_content_files file
+ WHERE file.game_content_revision_id=content.id AND file.role IN ('CONTENT','DISC') LIMIT 1),''),
+(SELECT count(*) FROM core_artifacts current
+ WHERE current.core_id=artifact.core_id AND current.selected_for_new_bindings=1)
+FROM games game
+JOIN platform_instances instance ON instance.id=game.platform_instance_id
+JOIN game_content_revisions content ON content.id=game.current_content_revision_id
+JOIN core_artifacts artifact ON artifact.core_id=instance.default_core_id
+JOIN game_variants variant ON variant.game_id=game.id AND variant.core_id=artifact.core_id
+WHERE game.id=? AND artifact.selected_for_new_bindings=1
+`, approved.GameID).Scan(&selectedArtifact, &runtimeVersion, &contentKind, &contentID, &variantID,
+			&logicalName, &selectedCount)
+		diagnosticTx, beginErr := database.SQL.BeginTx(ctx, nil)
+		if beginErr != nil {
+			t.Fatal(beginErr)
+		}
+		defer cleanup.Rollback(diagnosticTx)
+		digest, biosDigest, digestErr := service.validationDigests(
+			ctx, diagnosticTx, variantID, contentID, logicalName, contentKind,
+			selectedArtifact, sql.NullString{},
+		)
+		t.Fatalf("create DOS validation launch: %v; artifact=%s runtime=%s kind=%s selected=%d diagnostic=%v digest=%s bios=%s digestErr=%v",
+			err, selectedArtifact, runtimeVersion, contentKind, selectedCount, diagnosticErr, digest, biosDigest, digestErr)
+	}
 	testassert.Falsef(t, testassert.Any(func() bool { return direct.Status != "VALIDATION_PENDING" }, func() bool { return direct.JobID == "" }), "DOS runtime upgrade validation = %#v", direct)
 	for deadline := time.Now().Add(3 * time.Second); ; {
 		var state string
@@ -174,7 +202,7 @@ WHERE d.import_item_id=?
 		var revisionID, artifactID, emulatorVersion, digest, contentID, logicalName string
 		var artifactEnabled int
 		diagnosticErr := database.SQL.QueryRowContext(ctx, `
-SELECT v.current_revision_id,a.id,a.emulatorjs_version,a.enabled,r.validation_input_digest,r.game_content_revision_id,
+		SELECT v.current_revision_id,a.id,a.runtime_version,a.available_for_launch,r.validation_input_digest,r.game_content_revision_id,
 COALESCE((SELECT logical_name FROM game_content_files WHERE game_content_revision_id=r.game_content_revision_id AND role='CONTENT' LIMIT 1),'')
 FROM game_variants v
 JOIN game_variant_revisions r ON r.id=v.current_revision_id
@@ -300,6 +328,13 @@ leased_until_ms=?,updated_at_ms=?
 WHERE id=?
 `, now-1, now, invalidJobID); err != nil {
 		t.Fatal(err)
+	}
+	service.ResumeValidationJob(ctx, invalidJobID)
+	var duplicateState string
+	var duplicateAttempts int
+	if err := database.SQL.QueryRowContext(ctx, `SELECT state,attempt_count FROM jobs WHERE id=?`, invalidJobID).
+		Scan(&duplicateState, &duplicateAttempts); err != nil || duplicateState != "RUNNING" || duplicateAttempts != 1 {
+		t.Fatalf("duplicate validation resume = %s/%d, error=%v", duplicateState, duplicateAttempts, err)
 	}
 	service.recoverStaleValidationJobs(ctx)
 	if err := database.SQL.QueryRowContext(ctx, `SELECT state FROM jobs WHERE id=?`, invalidJobID).

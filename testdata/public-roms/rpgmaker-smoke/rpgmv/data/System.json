@@ -1,0 +1,129 @@
+{
+  "airship": {
+    "bgm": {
+      "name": "",
+      "pan": 0,
+      "pitch": 100,
+      "volume": 90
+    },
+    "characterIndex": 0,
+    "characterName": "",
+    "startMapId": 0,
+    "startX": 0,
+    "startY": 0
+  },
+  "armorTypes": [
+    ""
+  ],
+  "battleBgm": {
+    "name": "",
+    "pan": 0,
+    "pitch": 100,
+    "volume": 90
+  },
+  "boat": {
+    "bgm": {
+      "name": "",
+      "pan": 0,
+      "pitch": 100,
+      "volume": 90
+    },
+    "characterIndex": 0,
+    "characterName": "",
+    "startMapId": 0,
+    "startX": 0,
+    "startY": 0
+  },
+  "currencyUnit": "",
+  "defeatMe": {
+    "name": "",
+    "pan": 0,
+    "pitch": 100,
+    "volume": 90
+  },
+  "elements": [
+    ""
+  ],
+  "equipTypes": [
+    ""
+  ],
+  "gameTitle": "RETROM RPGMV",
+  "gameoverMe": {
+    "name": "",
+    "pan": 0,
+    "pitch": 100,
+    "volume": 90
+  },
+  "locale": "en_US",
+  "magicSkills": [],
+  "menuCommands": [
+    false,
+    false,
+    false,
+    false,
+    false,
+    false
+  ],
+  "optDisplayTp": false,
+  "optDrawTitle": false,
+  "optExtraExp": false,
+  "optFloorDeath": false,
+  "optFollowers": false,
+  "optSideView": false,
+  "optSlipDeath": false,
+  "optTransparent": false,
+  "partyMembers": [],
+  "ship": {
+    "bgm": {
+      "name": "",
+      "pan": 0,
+      "pitch": 100,
+      "volume": 90
+    },
+    "characterIndex": 0,
+    "characterName": "",
+    "startMapId": 0,
+    "startX": 0,
+    "startY": 0
+  },
+  "skillTypes": [
+    ""
+  ],
+  "sounds": [],
+  "startMapId": 1,
+  "startX": 10,
+  "startY": 8,
+  "switches": [
+    "",
+    "Retrom initialized"
+  ],
+  "terms": {},
+  "testBattlers": [],
+  "testTroopId": 1,
+  "titleBgm": {
+    "name": "",
+    "pan": 0,
+    "pitch": 100,
+    "volume": 90
+  },
+  "variables": [
+    "",
+    "Retrom fixture state"
+  ],
+  "versionId": 1,
+  "victoryMe": {
+    "name": "",
+    "pan": 0,
+    "pitch": 100,
+    "volume": 90
+  },
+  "weaponTypes": [
+    ""
+  ],
+  "windowTone": [
+    0,
+    0,
+    0,
+    0
+  ]
+}

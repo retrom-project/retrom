@@ -193,7 +193,7 @@ export function AdminGameManager({ game, platformInstances, candidates, activeTa
     });
   }
 
-  async function replaceContent(files: File[], mode: "STANDARD" | "MULTI_DISC_M3U_V1") {
+  async function replaceContent(files: File[], mode: "STANDARD" | "MULTI_DISC_M3U_V1" | "RPG_MAKER_PROJECT_V1") {
     return action("content", async () => {
       const uploaded = await uploadFiles(files, setNotice);
       const response = await fetch(`/api/v1/admin/games/${game.gameId}/content-revisions`, { method: "POST", credentials: "same-origin", headers: { ...await versionedHeaders(), "Idempotency-Key": newUuid() }, body: JSON.stringify({ uploadId: uploaded.uploadId, contentMode: mode }) });
@@ -205,6 +205,12 @@ export function AdminGameManager({ game, platformInstances, candidates, activeTa
       } catch (error) {
         if (error instanceof Error && error.message === "GAME_CONTENT_UNCHANGED") {
           throw new Error("所选游戏文件与当前内容相同，未执行替换。");
+        }
+        if (error instanceof Error && error.message === "RPG_REPLACEMENT_GENERATION_MISMATCH") {
+          throw new Error("替换项目属于另一个 RPG Maker 世代，当前游戏内容与存档未变更。");
+        }
+        if (error instanceof Error && error.message === "RPG_REPLACEMENT_DEPENDENCIES_CHANGED") {
+          throw new Error("替换项目所需的 RPG Maker 运行依赖已变化，当前游戏内容与存档未变更。");
         }
         throw error;
       }

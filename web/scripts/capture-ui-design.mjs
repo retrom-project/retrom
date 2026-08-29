@@ -11,6 +11,13 @@ const chromeExecutablePath = process.env.RETROM_CHROME_EXECUTABLE
   ?? path.resolve(webRoot, "..", ".cache", "tools", "retrom-chrome-for-testing");
 
 const physical4K = { width: 3840, height: 2160, scale: 1.5 };
+const rpgViewPages = {
+  "rpg-import": "admin-import-new",
+  "rpg-review": "admin-review",
+  "rpg-packs": "admin-bios",
+  "rpg-player": "play",
+  "rpg-saves": "saves",
+};
 
 const designCaptures = [
   ["retrom-ui-setup.png", "setup", 1280, 800],
@@ -74,6 +81,14 @@ const designCaptures = [
   ["retrom-ui-admin-invitation-result.png", "admin-users", 2560, 1440, "invitation-result"],
   ["retrom-ui-bios-files.png", "admin-bios", 2560, 1440],
   ["retrom-ui-bios-entry-compare.png", "admin-bios", 2560, 1440, "bios-entries"],
+  ["retrom-ui-rpg-import-4k.png", "rpg-import", 3840, 2160],
+  ["retrom-ui-rpg-review-4k.png", "rpg-review", 3840, 2160],
+  ["retrom-ui-rpg-packs-4k.png", "rpg-packs", 3840, 2160],
+  ["retrom-ui-rpg-pack-drawer.png", "rpg-packs", 1280, 800, "rpg-pack-drawer"],
+  ["retrom-ui-rpg-player.png", "rpg-player", 2560, 1440],
+  ["retrom-ui-rpg-review-mobile.png", "rpg-review", 390, 844],
+  ["retrom-ui-rpg-packs-mobile.png", "rpg-packs", 390, 844],
+  ["retrom-ui-rpg-saves-mobile.png", "rpg-saves", 390, 844],
   ["retrom-ui-home-mobile.png", "home", 390, 844],
   ["retrom-ui-library-mobile.png", "library", 390, 844],
   ["retrom-ui-game-detail-mobile.png", "detail", 390, 844],
@@ -139,7 +154,9 @@ try {
       if (await target.isVisible()) {await target.click();}
       else {await target.evaluate((element) => element.click());}
     };
-    if (["setup", "login", "register", "reset"].includes(view)) {
+    if (view in rpgViewPages) {
+      await frame.locator(`[data-review-scene="${view}"]`).click();
+    } else if (["setup", "login", "register", "reset"].includes(view)) {
       await frame.locator(`[data-review-scene="${view}"]`).click();
     } else if (view.startsWith("immersive-")) {
       await frame.locator(`[data-review-scene="${view}"]`).click();
@@ -167,7 +184,7 @@ try {
       await frame.locator('[data-review-scene="netplay-room"]').click();
     } else if (view === "netplay-player") {
       await frame.locator('[data-review-scene="netplay-player"]').click();
-    } else if (!["home", "setup", "login", "register", "reset"].includes(view)) {
+    } else if (!(view in rpgViewPages) && !["home", "setup", "login", "register", "reset"].includes(view)) {
       if (view.startsWith("admin-")) {await activate(`[data-page-target="${view}"], [data-page-link="${view}"]`);}
       else {await clickVisible(`[data-page-target="${view}"], [data-page-link="${view}"]`);}
     }
@@ -175,10 +192,11 @@ try {
       ? `[data-immersive-page="${view}"]`
       : ["setup", "login", "register", "reset"].includes(view)
         ? `[data-auth-page="${view}"]`
-        : `[data-page="${view}"]`;
+        : `[data-page="${rpgViewPages[view] ?? view}"]`;
     await frame.locator(viewSelector).waitFor({ state: "visible" });
     await frame.locator(".rt-review-scenes").evaluate((element) => { element.hidden = true; });
     if (variant === "bios-entries") {await frame.locator("[data-open-bios-entries]").click();}
+    if (variant === "rpg-pack-drawer") {await frame.locator("[data-open-rpg-pack-drawer]").first().click();}
     if (variant === "server-import-drawer") {await frame.locator("[data-open-server-import-drawer]").click();}
     if (variant === "pegasus-import-drawer") {await frame.locator("[data-open-pegasus-drawer]").click();}
     if (variant === "drawer") {await frame.locator("[data-open-platform-drawer]").click();}

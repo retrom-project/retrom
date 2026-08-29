@@ -34,14 +34,13 @@ func TestSelectServerImportItemUsesTheDeclaredPrimarySource(t *testing.T) {
 
 func TestArcadeCompanionsReleaseQueryBeforeRecordingCASBlob(t *testing.T) {
 	t.Parallel()
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-	defer cancel()
+	setupContext := context.Background()
 	dataDir := t.TempDir()
 	database, err := sql.Open("sqlite", filepath.Join(dataDir, "companion.db"))
 	testassert.False(t, err != nil, err)
 	database.SetMaxOpenConns(1)
 	t.Cleanup(func() { cleanup.Error("close", database.Close()) })
-	if _, err := database.ExecContext(ctx, `
+	if _, err := database.ExecContext(setupContext, `
 CREATE TABLE pegasus_import_items(id TEXT,import_id TEXT,collection_id TEXT,discovery_state TEXT);
 CREATE TABLE pegasus_import_collections(id TEXT,mapping_action TEXT,target_platform_instance_id TEXT,target_dat_version_id TEXT);
 CREATE TABLE pegasus_import_item_files(item_id TEXT,relative_path TEXT,size_bytes INTEGER,source_facts_digest TEXT);
@@ -63,7 +62,7 @@ INSERT INTO dat_machines VALUES('dat','child','parent',NULL),('dat','parent',NUL
 	info, err := os.Stat(sourcePath)
 	testassert.False(t, err != nil, err)
 	if _, err := database.ExecContext(
-		ctx,
+		setupContext,
 		`INSERT INTO pegasus_import_item_files VALUES('parent',?,?,?)`,
 		name,
 		len(contents),
@@ -74,12 +73,12 @@ INSERT INTO dat_machines VALUES('dat','child','parent',NULL),('dat','parent',NUL
 	for index := 0; index < 70; index++ {
 		id, candidate := fmt.Sprintf("unrelated-%02d", index), fmt.Sprintf("unrelated-%02d.zip", index)
 		if _, err := database.ExecContext(
-			ctx, `INSERT INTO pegasus_import_items VALUES(?,'import','collection','READY')`, id,
+			setupContext, `INSERT INTO pegasus_import_items VALUES(?,'import','collection','READY')`, id,
 		); err != nil {
 			t.Fatal(err)
 		}
 		if _, err := database.ExecContext(
-			ctx, `INSERT INTO pegasus_import_item_files VALUES(?,?,1,'unused')`, id, candidate,
+			setupContext, `INSERT INTO pegasus_import_item_files VALUES(?,?,1,'unused')`, id, candidate,
 		); err != nil {
 			t.Fatal(err)
 		}
@@ -87,6 +86,8 @@ INSERT INTO dat_machines VALUES('dat','child','parent',NULL),('dat','parent',NUL
 	blobs, err := blobstore.Open(dataDir)
 	testassert.False(t, err != nil, err)
 	service := &Service{database: database, blobs: blobs, now: time.Now}
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
 	item := executionItem{
 		ID: "primary", TargetPlatformID: "target", TargetDATVersionID: "dat",
 		Files: []executionFile{{Path: "child.zip"}},

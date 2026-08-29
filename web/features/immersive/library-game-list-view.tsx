@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { replaceWithPlayerDocument } from "@/lib/player-document-navigation";
 import {
   fetchImmersiveLibraryGames,
   ImmersiveAPIError,
@@ -329,7 +330,7 @@ export function LibraryGameListView({ folderId, initialGameId, initialSaveStateI
     setLaunchState("pending");
     setMessage("");
     void launchImmersiveGame(selectedGame.gameId, returnTo, saveState?.saveStateId ?? null)
-      .then((playURL) => router.replace(playURL))
+      .then((url) => replaceWithPlayerDocument(url, router.replace))
       .catch((error: unknown) => {
         setMessage(error instanceof Error ? error.message : "当前游戏无法启动");
         setLaunchState("error");

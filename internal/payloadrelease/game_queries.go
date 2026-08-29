@@ -18,7 +18,7 @@ UNION ALL SELECT file.source_archive_blob_id FROM game_content_files file
 UNION ALL SELECT file.blob_id FROM variant_files file
  JOIN game_variant_revisions revision ON revision.id=file.game_variant_revision_id
  JOIN game_variants variant ON variant.id=revision.game_variant_id WHERE variant.game_id=?
-UNION ALL SELECT state_blob_id FROM save_states WHERE game_id=?
+UNION ALL SELECT payload_blob_id FROM save_states WHERE game_id=?
 UNION ALL SELECT screenshot_blob_id FROM save_states WHERE game_id=?
 UNION ALL SELECT file.blob_id FROM launch_content_files file
  JOIN launch_sessions launch ON launch.id=file.launch_session_id WHERE launch.game_id=?

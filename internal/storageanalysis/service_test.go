@@ -180,6 +180,7 @@ func seedReferences(t *testing.T, database *sql.DB) {
 	statements := []string{
 		`DROP TRIGGER save_states_source_launch_insert`,
 		`DROP TRIGGER save_states_published_insert`,
+		`DROP TRIGGER save_states_payload_insert`,
 		`DROP TRIGGER game_content_files_published_insert`,
 		`DROP TRIGGER game_assets_published_insert`,
 		`DROP TRIGGER launch_content_files_published_insert`,
@@ -197,9 +198,14 @@ VALUES('upload-workflow','session','workflow.bin',500,500,'workflow','COMPLETE',
 		`INSERT INTO launch_content_files(launch_session_id,logical_name,blob_id,format_version,created_at_ms)
 VALUES('launch-runtime','runtime.rom','runtime','SOURCE_V1',0),
 ('launch-game','game.rom','game','SOURCE_V1',0)`,
-		`INSERT INTO save_states(id,profile_id,game_id,game_variant_revision_id,core_artifact_id,dat_version_id,dos_entry_path,state_blob_id,screenshot_blob_id,name,active_duration_ms,version,created_at_ms,updated_at_ms,deleted_at_ms,source_launch_session_id,disc_index)
-VALUES('save-active','profile','game','variant','core',NULL,NULL,'shared','save-shot','Active',0,1,0,0,NULL,'launch-a',NULL),
-('save-deleted','profile','game','variant','core',NULL,NULL,'save-state','save-shot','Deleted',0,1,0,0,10,'launch-b',NULL)`,
+		`INSERT INTO save_states(id,profile_id,game_id,game_content_revision_id,game_variant_revision_id,
+core_artifact_id,adapter_abi,dependency_snapshot_sha256,dat_version_id,dos_entry_path,payload_blob_id,
+payload_kind,payload_sha256,payload_size_bytes,screenshot_blob_id,name,active_duration_ms,version,
+created_at_ms,updated_at_ms,deleted_at_ms,source_launch_session_id,disc_index)
+VALUES('save-active','profile','game','content-rev','variant','core','abi',printf('%064d',0),NULL,NULL,
+'shared','RUNTIME_STATE',printf('%064d',0),1,'save-shot','Active',0,1,0,0,NULL,'launch-a',NULL),
+('save-deleted','profile','game','content-rev','variant','core','abi',printf('%064d',0),NULL,NULL,
+'save-state','RUNTIME_STATE',printf('%064d',0),1,'save-shot','Deleted',0,1,0,0,10,'launch-b',NULL)`,
 		`INSERT INTO archive_entries(archive_blob_id,ordinal,original_relative_path,normalized_path,ascii_casefold_path,archive_format,compression_profile,uncompressed_size_bytes,crc32,md5,sha1,sha256,materialized_blob_id,created_at_ms)
 VALUES('game-archive',0,'member.bin','member.bin','member.bin','ZIP','STORE',800,'00000001','00000000000000000000000000000001','0000000000000000000000000000000000000001','0000000000000000000000000000000000000000000000000000000000000001','game-member',0),
 ('orphan-archive',0,'orphan.bin','orphan.bin','orphan.bin','ZIP','STORE',900,'00000002','00000000000000000000000000000002','0000000000000000000000000000000000000002','0000000000000000000000000000000000000000000000000000000000000002','orphan-member',0)`,

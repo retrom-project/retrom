@@ -70,18 +70,45 @@ CREATE TABLE "game_assets" (
 CREATE TABLE "game_content_revisions" (
   id TEXT PRIMARY KEY,
   game_id TEXT NOT NULL REFERENCES games(id),
-  content_kind TEXT NOT NULL DEFAULT 'SINGLE_FILE' CHECK(content_kind IN ('SINGLE_FILE','DOS_BUNDLE','MULTI_DISC_M3U_V1')),
+  content_kind TEXT NOT NULL DEFAULT 'SINGLE_FILE' CHECK(content_kind IN (
+    'SINGLE_FILE','DOS_BUNDLE','MULTI_DISC_M3U_V1','RPG_MAKER_PROJECT_V1','ONS_PROJECT_V1'
+  )),
   source_kind TEXT NOT NULL CHECK(source_kind IN ('IMPORT_REVIEW','ADMIN_REPLACE','SERVER_PEGASUS_IMPORT','SERVER_EMULATIONSTATION_IMPORT')),
   source_ref_id TEXT NOT NULL,
   source_manifest_json TEXT NOT NULL,
   source_manifest_digest TEXT NOT NULL CHECK(length(source_manifest_digest)=64),
   created_at_ms INTEGER NOT NULL CHECK(created_at_ms>=0),
-  UNIQUE(id,game_id)
+  UNIQUE(id,game_id),
+  CHECK(content_kind<>'RPG_MAKER_PROJECT_V1' OR
+    json_valid(source_manifest_json)
+    AND json_extract(source_manifest_json,'$.schemaVersion')=2
+    AND json_extract(source_manifest_json,'$.contentKind')='RPG_MAKER_PROJECT_V1'
+    AND json_type(source_manifest_json,'$.fileCount')='integer'
+    AND json_extract(source_manifest_json,'$.fileCount') BETWEEN 1 AND 10000
+    AND json_type(source_manifest_json,'$.totalBytes')='integer'
+    AND json_extract(source_manifest_json,'$.totalBytes') BETWEEN 0 AND 34359738368
+    AND length(json_extract(source_manifest_json,'$.filesDigest'))=64
+    AND json_extract(source_manifest_json,'$.filesDigest')=lower(json_extract(source_manifest_json,'$.filesDigest'))
+  ),
+  CHECK(content_kind<>'ONS_PROJECT_V1' OR
+    json_valid(source_manifest_json)
+    AND json_extract(source_manifest_json,'$.schemaVersion')=2
+    AND json_extract(source_manifest_json,'$.contentKind')='ONS_PROJECT_V1'
+    AND json_type(source_manifest_json,'$.fileCount')='integer'
+    AND json_extract(source_manifest_json,'$.fileCount') BETWEEN 1 AND 10000
+    AND json_type(source_manifest_json,'$.totalBytes')='integer'
+    AND json_extract(source_manifest_json,'$.totalBytes') BETWEEN 0 AND 34359738368
+    AND length(json_extract(source_manifest_json,'$.filesDigest'))=64
+    AND json_extract(source_manifest_json,'$.filesDigest')=lower(json_extract(source_manifest_json,'$.filesDigest'))
+  )
 );
 
 CREATE TABLE "game_content_files" (
   game_content_revision_id TEXT NOT NULL REFERENCES game_content_revisions(id),
-  role TEXT NOT NULL CHECK(role IN ('CONTENT','DOS_SOURCE','COMPANION','PLAYLIST_SOURCE','DISC')),
+  role TEXT NOT NULL CHECK(role IN (
+    'CONTENT','DOS_SOURCE','COMPANION','PLAYLIST_SOURCE','DISC','PROJECT_FILE',
+    'RPG_EASYRPG_INDEX','RPG_MAKER_LAUNCH_BUNDLE'
+  )),
   logical_name TEXT NOT NULL,
   blob_id TEXT NOT NULL REFERENCES blobs(id),
   source_archive_blob_id TEXT,
@@ -109,6 +136,7 @@ CREATE TABLE game_variant_revisions (
   game_variant_id TEXT NOT NULL REFERENCES game_variants(id),
   game_content_revision_id TEXT NOT NULL REFERENCES game_content_revisions(id),
   core_artifact_id TEXT NOT NULL REFERENCES core_artifacts(id),
+  route_key TEXT NOT NULL CHECK(length(route_key) BETWEEN 1 AND 160),
   dat_version_id TEXT REFERENCES dat_versions(id),
   validation_input_digest TEXT NOT NULL CHECK(length(validation_input_digest) = 64),
   emulator_game_id INTEGER UNIQUE CHECK(emulator_game_id IS NULL OR emulator_game_id BETWEEN 1 AND 9007199254740991),
@@ -119,7 +147,53 @@ CREATE TABLE game_variant_revisions (
   created_at_ms INTEGER NOT NULL,
   UNIQUE(game_variant_id, validation_input_digest),
   UNIQUE(id, game_variant_id),
-  CHECK((status = 'READY') = (emulator_game_id IS NOT NULL))
+  CHECK(status='READY' OR emulator_game_id IS NULL)
+);
+
+CREATE TABLE rpgmaker_content_profiles (
+  content_revision_id TEXT PRIMARY KEY REFERENCES game_content_revisions(id),
+  evidence_family TEXT NOT NULL CHECK(evidence_family IN ('RPG2K','RGSS','MV','MZ')),
+  evidence_generation TEXT CHECK(evidence_generation IS NULL OR evidence_generation IN (
+    'RPG2000','RPG2003','RPGXP','RPGVX','RPGVXACE','RPGMV','RPGMZ'
+  )),
+  evidence_confidence TEXT NOT NULL CHECK(evidence_confidence IN ('MATCHED','FAMILY_ONLY')),
+  engine_version TEXT,
+  entry_html_path TEXT,
+  file_count INTEGER NOT NULL CHECK(file_count BETWEEN 1 AND 10000),
+  total_bytes INTEGER NOT NULL CHECK(total_bytes BETWEEN 0 AND 34359738368),
+  project_fingerprint TEXT NOT NULL CHECK(length(project_fingerprint)=64 AND project_fingerprint=lower(project_fingerprint)),
+  requirements_sha256 TEXT NOT NULL CHECK(length(requirements_sha256)=64 AND requirements_sha256=lower(requirements_sha256)),
+  analysis_json TEXT NOT NULL CHECK(json_valid(analysis_json) AND length(CAST(analysis_json AS BLOB))<=262144),
+  created_at_ms INTEGER NOT NULL CHECK(created_at_ms>=0),
+  CHECK(
+    evidence_confidence='FAMILY_ONLY' AND evidence_family='RPG2K' AND evidence_generation IS NULL
+    OR evidence_confidence='MATCHED' AND evidence_generation IS NOT NULL
+  ),
+  CHECK(
+    evidence_family='RPG2K' AND (evidence_generation IS NULL OR evidence_generation IN ('RPG2000','RPG2003'))
+    OR evidence_family='RGSS' AND evidence_generation IN ('RPGXP','RPGVX','RPGVXACE')
+    OR evidence_family='MV' AND evidence_generation='RPGMV'
+    OR evidence_family='MZ' AND evidence_generation='RPGMZ'
+  ),
+  CHECK(
+    evidence_family IN ('MV','MZ') AND entry_html_path='index.html'
+    OR evidence_family NOT IN ('MV','MZ') AND entry_html_path IS NULL
+  )
+);
+
+CREATE TABLE rpgmaker_variant_profiles (
+  game_variant_revision_id TEXT PRIMARY KEY REFERENCES game_variant_revisions(id),
+  generation TEXT NOT NULL CHECK(generation IN (
+    'RPG2000','RPG2003','RPGXP','RPGVX','RPGVXACE','RPGMV','RPGMZ'
+  )),
+  route_key TEXT NOT NULL,
+  adapter_id TEXT NOT NULL,
+  adapter_abi TEXT NOT NULL,
+  artifact_set_sha256 TEXT NOT NULL CHECK(length(artifact_set_sha256)=64 AND artifact_set_sha256=lower(artifact_set_sha256)),
+  dependency_snapshot_sha256 TEXT NOT NULL CHECK(
+    length(dependency_snapshot_sha256)=64 AND dependency_snapshot_sha256=lower(dependency_snapshot_sha256)
+  ),
+  runtime_validation_id TEXT UNIQUE REFERENCES rpgmaker_runtime_validations(id)
 );
 
 CREATE TABLE variant_dependencies (
@@ -137,7 +211,10 @@ CREATE TABLE variant_dependencies (
 
 CREATE TABLE "variant_files" (
   game_variant_revision_id TEXT NOT NULL REFERENCES game_variant_revisions(id),
-  role TEXT NOT NULL CHECK(role IN ('PARENT','BIOS_BUNDLE','DOS_LAUNCH_BUNDLE','MULTI_DISC_PLAYLIST')),
+  role TEXT NOT NULL CHECK(role IN (
+    'PARENT','BIOS_BUNDLE','DOS_LAUNCH_BUNDLE','MULTI_DISC_PLAYLIST',
+    'RPG_EASYRPG_INDEX','RPG_MAKER_LAUNCH_BUNDLE'
+  )),
   logical_name TEXT NOT NULL,
   blob_id TEXT NOT NULL REFERENCES blobs(id),
   sort_order INTEGER NOT NULL CHECK(sort_order>=0),

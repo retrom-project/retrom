@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { newUuid } from "@/lib/crypto";
 import { writeHeaders } from "@/lib/api/client";
+import { replaceWithPlayerDocument } from "@/lib/player-document-navigation";
 import { requestFullscreenAndLandscape, unlockLandscape } from "./orientation";
 
 type LaunchResponse = { launchId: string; playUrl: string };
@@ -89,7 +90,7 @@ export function LaunchButton({ gameId, coreId = null, saveStateId = null, dosEnt
         }
         const result = await response.json() as LaunchResponse;
         onLaunchCreated?.();
-        router.replace(result.playUrl);
+        replaceWithPlayerDocument(result.playUrl, router.replace);
         return;
       }
       throw new Error("核心验证完成后仍无法启动");

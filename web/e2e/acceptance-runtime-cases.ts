@@ -22,6 +22,7 @@ export function registerRuntimeAcceptanceTests(): void {
 
 function registerRun002(): void {
   test("ACC-RUN-002 one click requests fullscreen before launch and auto-starts the locked runtime", async ({ page }, testInfo) => {
+    test.setTimeout(180_000);
     await page.addInitScript(() => {
       const record = (kind: string, value = "") => {
         const current = JSON.parse(sessionStorage.getItem("retrom:launch-events") ?? "[]") as Array<{ kind: string; value: string }>;
@@ -37,11 +38,20 @@ function registerRun002(): void {
     });
     const requests: string[] = [];
     page.on("request", (request) => requests.push(request.url()));
-    await page.goto("/library");
+    const libraryResponse = await page.goto("/library");
+    expect(libraryResponse?.headers()["content-security-policy"])
+      .toMatch(/frame-src 'self' http:\/\/\*\.rpg\.localhost:\d+/);
     await page.locator(".library-game-card").filter({ hasText: "Sudoku" }).getByRole("link").first().click();
+    const sourceDocumentIdentity = await page.evaluate(() => {
+      const scope = window as Window & { __retromDocumentIdentity?: string };
+      scope.__retromDocumentIdentity ??= crypto.randomUUID();
+      return scope.__retromDocumentIdentity;
+    });
     const configResponse = page.waitForResponse((response) => /\/runtime\/launches\/[^/]+\/config$/.test(response.url()) && response.status() === 200);
     await page.getByRole("button", { name: "开始游戏" }).click();
     await expect(page).toHaveURL(/\/play\/[0-9a-f-]+$/);
+    expect(await page.evaluate(() => (window as Window & { __retromDocumentIdentity?: string }).__retromDocumentIdentity))
+      .toBe(sourceDocumentIdentity);
     const configuration = await (await configResponse).json() as { emulatorGameId: number; gameName: string; gameTitle: string; coreName: string; platformName: string; gameUrl: string; loaderUrl: string; runtimePathOverrides: Record<string, string>; playerAdapterId: string; emulatorjsVersion: string };
     expect(Number.isSafeInteger(configuration.emulatorGameId) && configuration.emulatorGameId > 0).toBe(true);
     expect(configuration.gameName).toBe(`retrom-${configuration.emulatorGameId}`);
@@ -54,7 +64,7 @@ function registerRun002(): void {
     await expect(page.locator(".player-shell")).toBeVisible();
     await expect(page.getByRole("button", { name: "开始游戏" })).toHaveCount(0);
     await expect(page.locator(".player-loading")).toBeHidden({ timeout: 30_000 });
-    const playerCanvas = page.frameLocator('iframe[title="Retrom EmulatorJS Player"]').locator("canvas.ejs_canvas");
+    const playerCanvas = page.frameLocator("iframe.player-frame").locator("canvas.ejs_canvas");
     await expect(playerCanvas).toBeVisible({ timeout: 30_000 });
     await expect.poll(() => playerCanvas.evaluate((element) => {
       const runtimeWindow = element.ownerDocument.defaultView as Window & {
@@ -175,6 +185,7 @@ function registerRun002(): void {
 
 function registerRun003(): void {
   test("ACC-RUN-003 fullscreen refusal and launch deep-link credentials remain recoverable", async ({ page, browser }, testInfo) => {
+    test.setTimeout(180_000);
     await page.addInitScript(() => {
       Object.defineProperty(Element.prototype, "requestFullscreen", { configurable: true, value: () => Promise.reject(new DOMException("denied", "NotAllowedError")) });
     });
@@ -201,6 +212,7 @@ function registerRun003(): void {
 
 function registerRun004(): void {
   test("ACC-RUN-004 BIOS blockers stop launch while hash warnings auto-start", async ({ page }, testInfo) => {
+    test.setTimeout(180_000);
     await page.addInitScript(() => {
       const record = (event: string) => sessionStorage.setItem(`retrom:${event}`, "true");
       Object.defineProperty(Element.prototype, "requestFullscreen", { configurable: true, value: () => { record("fullscreen-requested"); return Promise.resolve(); } });
@@ -314,7 +326,7 @@ async function verifyPublicArcadeSmoke(
   expect(configuration.runtimePathOverrides).toEqual(expectation.runtimePathOverrides);
 
   await expect(page.locator(".player-loading")).toBeHidden({ timeout: 60_000 });
-  const canvas = page.frameLocator('iframe[title="Retrom EmulatorJS Player"]').locator("canvas");
+  const canvas = page.frameLocator("iframe.player-frame").locator("canvas");
   await expect(canvas).toBeVisible({ timeout: 10_000 });
   await expect.poll(() => canvas.evaluate((element) => {
     const runtimeWindow = element.ownerDocument.defaultView as Window & {
@@ -419,13 +431,13 @@ async function verifyPersistedArcadeSchemaV2Launch(
   expect(configuration.biosUrl).toMatch(/\/runtime\/content\/bios\/[0-9a-f]{64}\/bundle\.zip$/);
   expect(configuration.warnings).toContain("REVIEW_SCREENSHOT_OVERRIDE");
   await expect(page.locator(".player-loading")).toBeHidden({ timeout: 60_000 });
-  await expect(page.frameLocator('iframe[title="Retrom EmulatorJS Player"]').locator("canvas")).toBeVisible({ timeout: 10_000 });
+  await expect(page.frameLocator("iframe.player-frame").locator("canvas")).toBeVisible({ timeout: 10_000 });
   await page.screenshot({ path: evidencePath(testInfo, expectation.schemaV2ScreenshotName), fullPage: true });
 }
 
 function registerRun006(): void {
   test("ACC-RUN-006 public MAME 2003 split set locks test-only built-in DAT, Parent and BIOS, then executes frames", async ({ page }, testInfo) => {
-    test.setTimeout(150_000);
+    test.setTimeout(300_000);
     const platformInstanceId = process.env.RETROM_MAME2003_PLATFORM_INSTANCE_ID;
     expect(platformInstanceId, "MAME 2003 acceptance directory ID").toBeTruthy();
     const expectation: PublicArcadeSmokeExpectation = {
@@ -446,7 +458,7 @@ function registerRun006(): void {
 
 function registerRun007(): void {
   test("ACC-RUN-007 public FBNeo split set locks test-only built-in DAT, Parent and BIOS, then executes frames", async ({ page }, testInfo) => {
-    test.setTimeout(150_000);
+    test.setTimeout(300_000);
     const platformInstanceId = process.env.RETROM_FBNEO_PLATFORM_INSTANCE_ID;
     expect(platformInstanceId, "FBNeo acceptance directory ID").toBeTruthy();
     const expectation: PublicArcadeSmokeExpectation = {

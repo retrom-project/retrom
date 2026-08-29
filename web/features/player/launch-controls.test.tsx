@@ -3,8 +3,11 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { LaunchControls, type CoreOption, type DOSEntry } from "./launch-controls";
 
-const navigation = vi.hoisted(() => ({ replace: vi.fn() }));
-vi.mock("next/navigation", () => ({ useRouter: () => navigation }));
+const navigation = vi.hoisted(() => ({ replace: vi.fn(), replacePlayerDocument: vi.fn() }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ replace: navigation.replace }) }));
+vi.mock("@/lib/player-document-navigation", () => ({
+  replaceWithPlayerDocument: navigation.replacePlayerDocument,
+}));
 vi.mock("@/features/auth/auth-provider", () => ({ useAuth: () => ({ context: { user: { userId: "user-1" } } }) }));
 
 const storagePrefix = "retrom:v2:user:user-1:player:";
@@ -26,6 +29,7 @@ describe("LaunchControls", () => {
   beforeEach(() => {
     requests.length = 0;
     navigation.replace.mockReset();
+    navigation.replacePlayerDocument.mockReset();
     window.localStorage.clear();
     Object.defineProperty(document.documentElement, "requestFullscreen", { configurable: true, value: vi.fn().mockResolvedValue(undefined) });
     vi.stubGlobal("fetch", vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
@@ -92,14 +96,14 @@ describe("LaunchControls", () => {
     expect(window.localStorage.getItem(`${storagePrefix}preferred-core:game-1`)).toBeNull();
   });
 
-  it("keeps the fullscreen document alive by using App Router navigation", async () => {
+  it("keeps fullscreen while soft-routing to the Player", async () => {
     const user = userEvent.setup();
     vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ launchId: "launch-1", playUrl: "/play/launch-1" }), { status: 201, headers: { "Content-Type": "application/json" } })));
     render(<LaunchControls gameId="game-1" coreOptions={cores.slice(0, 1)} dosEntries={[]} defaultDosEntry={null} />);
 
     await user.click(desktopLaunchButton());
 
-    await waitFor(() => expect(navigation.replace).toHaveBeenCalledWith("/play/launch-1"));
+    await waitFor(() => expect(navigation.replacePlayerDocument).toHaveBeenCalledWith("/play/launch-1", navigation.replace));
   });
 
   it("exits fullscreen and exposes a repair entry when BIOS blocks launch", async () => {
@@ -140,7 +144,7 @@ describe("LaunchControls", () => {
 
     await user.selectOptions(screen.getByLabelText("启动程序"), "");
     await user.click(desktopLaunchButton());
-    await waitFor(() => expect(navigation.replace).toHaveBeenCalledWith("/play/launch-1"));
+    await waitFor(() => expect(navigation.replacePlayerDocument).toHaveBeenCalledWith("/play/launch-1", navigation.replace));
     expect(window.localStorage.getItem(`${storagePrefix}preferred-dos-entry:dos-game`)).toBe('{"version":1,"entry":null}');
 
     first.unmount();

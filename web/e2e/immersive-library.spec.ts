@@ -3,7 +3,7 @@ import path from "node:path";
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import axe from "axe-core";
 import { currentEmulatorBrightRatio, evidencePath, locatorBrightRatio } from "./acceptance-support";
-import { installGamepads, pressGamepad, standardButton } from "./immersive-gamepad";
+import { installGamepads, pressGamepad, setGamepadButtons, standardButton } from "./immersive-gamepad";
 
 const origin = process.env.RETROM_WEB_ORIGIN ?? "http://localhost:3000";
 const audioPreferenceKey = "retrom:immersive:audio-preferences:v1";
@@ -125,7 +125,7 @@ async function assignFolder(page: Page, csrf: string, gameId: string, folderId: 
 }
 
 async function emulatorFrame(page: Page) {
-  const handle = await page.locator('iframe[title="Retrom EmulatorJS Player"]').elementHandle();
+  const handle = await page.locator("iframe.player-frame").elementHandle();
   const frame = await handle?.contentFrame();
   if (!frame) {throw new Error("IMMERSIVE_EMULATOR_FRAME_UNAVAILABLE");}
   return frame;
@@ -137,14 +137,20 @@ async function launchSelectedGame(page: Page, saveStateId: string | null = null)
   const launchResponse = page.waitForResponse((response) =>
     response.request().method() === "POST" && /\/api\/v1\/launches$/.test(response.url()));
   await page.waitForTimeout(180);
-  await pressGamepad(page, standardButton.a);
+  // This input replaces the top-level document. Releasing it through the old
+  // execution context races with navigation; the new document's init script
+  // starts from a fully released gamepad state.
+  await setGamepadButtons(page, 0, [standardButton.a]);
+  await page.waitForTimeout(140);
   const response = await launchResponse;
-  expect(response.status(), await response.text()).toBe(201);
+  if (response.status() !== 201) {
+    throw new Error(`IMMERSIVE_LAUNCH_FAILED:${response.status()}:${await response.text()}`);
+  }
   await expect(page).toHaveURL(/\/play\/[0-9a-f-]+\?experience=immersive$/);
   const configuration = await (await configResponse).json() as { stateUrl: string | null };
   expect(response.request().postDataJSON()).toMatchObject({ saveStateId });
   expect(configuration.stateUrl === null).toBe(saveStateId === null);
-  await expect(page.frameLocator('iframe[title="Retrom EmulatorJS Player"]').locator("canvas.ejs_canvas"))
+  await expect(page.frameLocator("iframe.player-frame").locator("canvas.ejs_canvas"))
     .toBeVisible({ timeout: 60_000 });
   return { configuration, frame: await emulatorFrame(page) };
 }

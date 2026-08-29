@@ -83,7 +83,7 @@ export async function waitForJobEvents(jobId: string, onProgress?: (eventType: s
   });
 }
 
-export async function uploadFiles(inputs: UploadFileInput[], onProgress?: (message: string) => void): Promise<{ uploadId: string; uploadFileIds: string[] }> {
+export async function uploadFiles(inputs: UploadFileInput[], onProgress?: (message: string) => void, purpose: "GENERAL" | "RPG_MAKER_PROJECT" | "ONS_PROJECT" | "RUNTIME_ASSET_PACK" = "GENERAL"): Promise<{ uploadId: string; uploadFileIds: string[] }> {
   if (inputs.length === 0) {throw new Error("至少选择一个文件");}
   const files = inputs.map(normalizeUploadFile);
   onProgress?.("正在创建安全上传会话…");
@@ -91,7 +91,7 @@ export async function uploadFiles(inputs: UploadFileInput[], onProgress?: (messa
     method: "POST",
     credentials: "same-origin",
     headers: await writeHeaders({ "Content-Type": "application/json", "Idempotency-Key": newUuid() }),
-    body: JSON.stringify({ sourceType: files.some((entry) => entry.relativePath !== entry.file.name) ? "DIRECTORY" : "FILES", files: files.map((entry, index) => ({ clientFileId: `file-${index}`, relativePath: entry.relativePath, sizeBytes: entry.file.size })) })
+    body: JSON.stringify({ purpose, sourceType: files.some((entry) => entry.relativePath !== entry.file.name) ? "DIRECTORY" : "FILES", files: files.map((entry, index) => ({ clientFileId: `file-${index}`, relativePath: entry.relativePath, sizeBytes: entry.file.size })) })
   });
   if (!create.ok) {throw new Error(await responseError(create, "无法创建上传会话"));}
   const session = await create.json() as UploadSession;

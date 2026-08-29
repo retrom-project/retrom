@@ -257,14 +257,14 @@ func loadParentCommitTarget(
 	err := transaction.QueryRowContext(ctx, `
 SELECT item.state,draft.effective_source_snapshot_id,draft.target_platform_instance_id,
 source_snapshot.content_kind,platform.version,platform.default_core_id,artifact.id,
-artifact.version,artifact.compatibility_config_json,
+artifact.version,artifact.compatibility_json,
 (SELECT dat.id FROM dat_versions dat WHERE dat.core_artifact_id=artifact.id AND dat.is_active=1)
 FROM import_items item
 JOIN review_drafts draft ON draft.id=? AND draft.import_item_id=item.id
 JOIN import_item_source_snapshots source_snapshot ON source_snapshot.id=draft.effective_source_snapshot_id
 JOIN platform_instances platform ON platform.id=draft.target_platform_instance_id
 AND platform.enabled=1 AND platform.deleted_at_ms IS NULL
-JOIN core_artifacts artifact ON artifact.core_id=platform.default_core_id AND artifact.enabled=1
+JOIN core_artifacts artifact ON artifact.core_id=platform.default_core_id AND artifact.selected_for_new_bindings=1
 WHERE item.id=?
 `, candidate.draftID, candidate.itemID).Scan(
 		&itemState, &currentSnapshotID, &target.targetID, &target.contentKind,
