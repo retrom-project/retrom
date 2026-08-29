@@ -41,7 +41,7 @@ Arcade 依赖细节见 [BIOS 与 Arcade DAT](./bios-and-arcade.md)，文件存�
 - `platform_id_snapshot`。
 - `default_core_id_snapshot`。
 - EmulatorJS 版本、Core artifact 文件名与 SHA-256。
-- RPG Maker 项目另冻结用户选择的虚拟 `rpgmaker` core、服务端从项目内容唯一检测出的 generation、对应内部 core/route/artifact/adapter ABI、内容 evidence、pack selection 与 `runtime_binding_revision`；用户不能选择或改写内部世代。
+- RPG Maker 项目另冻结用户选择的虚拟 `rpgmaker` core、服务端从项目内容唯一检测出的 generation、对应内部 core/route/逻辑游戏兼容线、当次 artifact/adapter ABI、内容 evidence、pack selection 与 `runtime_binding_revision`；用户不能选择或改写内部世代。该 artifact 是导入与审核证据，不要求发布后的普通 Launch 永久加载旧 bundle；后续 Launch 在同一兼容线内使用当前构件。
 - Arcade `dat_version_id_snapshot`。
 - MetadataProvider 配置版本。
 - `created_at_ms`。

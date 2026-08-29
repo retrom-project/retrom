@@ -29,8 +29,12 @@ import {
 export type { SaveItem } from "./save-library";
 
 function availabilityMessage(save: SaveItem) {
-  return save.availability.reasons.map((reason) =>
-    reason.logicalName ? `${reason.logicalName} 当前不可用` : "运行依赖当前不可用").join("；") || "游戏或运行依赖当前不可用。";
+  return save.availability.reasons.map((reason) => {
+    if (reason.code === "SAVE_RUNTIME_INCOMPATIBLE") {
+      return "旧版运行时存档已保留，但当前版本无法恢复；你仍可直接启动游戏并创建新存档";
+    }
+    return reason.logicalName ? `${reason.logicalName} 当前不可用` : "运行依赖当前不可用";
+  }).join("；") || "游戏或运行依赖当前不可用。";
 }
 
 function SaveCard({

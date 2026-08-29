@@ -47,7 +47,7 @@ flowchart LR
 - 上传 bytes 必须先安全落入临时区/CAS，随后任务只引用 Blob/ArchiveEntry；worker 不接收浏览器路径或内存中的大文件对象。
 - Arcade 识别必须在目标 CoreArtifact 的 DAT 可用后进行；Hasheous 只生成展示候选，不能替代 DAT 或阻断无候选的审核。
 - Launch 只能引用已提交的 READY VariantRevision 和依赖快照；Player 不自行选择 core、DAT、BIOS、ROM 或 URL。
-- RPG Maker 发布前必须先冻结用户选择的虚拟 core、服务端检测世代、内部 route/artifact、adapter ABI、运行包和 `runtime_binding_revision`，并由管理员主动创建一次真实 runtime-validation Launch；详细 gate 与跨 Launch 恢复是可选审核能力，但仍是七世代自动化验收门禁。Launch 只读冻结绑定，不重新探测、不取 latest、不 fallback。
+- RPG Maker 发布前必须先冻结用户选择的虚拟 core、服务端检测世代、内部 core/route、逻辑游戏兼容线、当次 artifact/adapter ABI、运行包和 `runtime_binding_revision`，并由管理员主动创建一次真实 runtime-validation Launch；详细 gate 与跨 Launch 恢复是可选审核能力，但仍是七世代自动化验收门禁。发布后 Launch 不重新探测、不跨 core/route fallback；它在冻结兼容线内使用当前唯一构件，存档恢复再由显式 save ABI 可读声明裁决。
 - 依赖准备发生在 `make dev`/镜像 builder 前置阶段；同步启动只校验依赖字节并登记缺失的 DAT_PARSE Job，Worker 可从已校验的只读本地 payload 建索引，但任何进程都不能为方便实现而加入运行期下载。
 
 ## 3. Clean migration 落地顺序

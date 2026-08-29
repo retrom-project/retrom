@@ -96,6 +96,9 @@ AND principal_id=?
 		if errors.Is(err, launch.ErrDOSEntryUnsafe) {
 			code = "LAUNCH_DOS_ENTRY_UNSAFE"
 		}
+		if errors.Is(err, launch.ErrSaveIncompatible) {
+			code = "LAUNCH_SAVE_INCOMPATIBLE"
+		}
 		writeError(
 			writer,
 			request,

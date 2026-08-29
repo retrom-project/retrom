@@ -222,11 +222,11 @@ func assertGameHomeAndActivity(
 	payloadDigest := sha256.Sum256(screenshot)
 	mustExecHTTPTest(t, server.database, `
 INSERT INTO save_states(id,profile_id,game_id,game_content_revision_id,game_variant_revision_id,core_artifact_id,
-adapter_abi,dependency_snapshot_sha256,dat_version_id,dos_entry_path,payload_blob_id,payload_kind,
+adapter_abi,save_abi,dependency_snapshot_sha256,dat_version_id,dos_entry_path,payload_blob_id,payload_kind,
 payload_sha256,payload_size_bytes,screenshot_blob_id,source_launch_session_id,name,active_duration_ms,version,
 created_at_ms,updated_at_ms,deleted_at_ms)
 SELECT ?,'local',?,revision.game_content_revision_id,?,?,
-       'emulatorjs-state-v1',?,NULL,NULL,?,'RUNTIME_STATE',?,?,?,?,'本次游玩存档',240000,1,?,?,NULL
+       'emulatorjs-state-v1','emulatorjs-state-v1',?,NULL,NULL,?,'RUNTIME_STATE',?,?,?,?,'本次游玩存档',240000,1,?,?,NULL
 FROM game_variant_revisions revision WHERE revision.id=?
 `, sessionSaveID, gameID, variantRevisionID, coreArtifactID, strings.Repeat("d", 64), screenshotBlobID,
 		hex.EncodeToString(payloadDigest[:]), len(screenshot), screenshotBlobID, latestLaunchID, now+20, now+20,
@@ -821,20 +821,20 @@ VALUES(?,'local','PRODUCT',?,?,?,?, 'DEFAULT','/',zeroblob(32),'FINISHED',?,?,?,
 	payloadDigest := sha256.Sum256(fixture.screenshot)
 	mustExecHTTPTest(t, transaction, `
 INSERT INTO save_states(id,profile_id,game_id,game_content_revision_id,game_variant_revision_id,core_artifact_id,
-adapter_abi,dependency_snapshot_sha256,dat_version_id,dos_entry_path,payload_blob_id,payload_kind,
+adapter_abi,save_abi,dependency_snapshot_sha256,dat_version_id,dos_entry_path,payload_blob_id,payload_kind,
 payload_sha256,payload_size_bytes,screenshot_blob_id,source_launch_session_id,name,active_duration_ms,version,
 created_at_ms,updated_at_ms,deleted_at_ms)
-VALUES(?,'local',?,?,?,?,'emulatorjs-state-v1',?,NULL,NULL,?,'RUNTIME_STATE',?,?,?,?,'入口存档',180000,1,?,?,NULL)
+VALUES(?,'local',?,?,?,?,'emulatorjs-state-v1','emulatorjs-state-v1',?,NULL,NULL,?,'RUNTIME_STATE',?,?,?,?,'入口存档',180000,1,?,?,NULL)
 `, saveStateID, gameID, contentID, variantRevisionID, coreArtifactID, strings.Repeat("d", 64),
 		fixture.screenshotBlobID, hex.EncodeToString(payloadDigest[:]), len(fixture.screenshot),
 		fixture.screenshotBlobID, sourceLaunchID, now, now)
 	for index := 0; index < 8; index++ {
 		mustExecHTTPTest(t, transaction, `
 INSERT INTO save_states(id,profile_id,game_id,game_content_revision_id,game_variant_revision_id,core_artifact_id,
-adapter_abi,dependency_snapshot_sha256,dat_version_id,dos_entry_path,payload_blob_id,payload_kind,
+adapter_abi,save_abi,dependency_snapshot_sha256,dat_version_id,dos_entry_path,payload_blob_id,payload_kind,
 payload_sha256,payload_size_bytes,screenshot_blob_id,source_launch_session_id,name,active_duration_ms,version,
 created_at_ms,updated_at_ms,deleted_at_ms)
-VALUES(?,'local',?,?,?,?,'emulatorjs-state-v1',?,NULL,NULL,?,'RUNTIME_STATE',?,?,?, ?,?,60000,1,?,?,NULL)
+VALUES(?,'local',?,?,?,?,'emulatorjs-state-v1','emulatorjs-state-v1',?,NULL,NULL,?,'RUNTIME_STATE',?,?,?, ?,?,60000,1,?,?,NULL)
 `, uuid.NewString(), gameID, contentID, variantRevisionID, coreArtifactID, strings.Repeat("d", 64),
 			fixture.screenshotBlobID, hex.EncodeToString(payloadDigest[:]), len(fixture.screenshot),
 			fixture.screenshotBlobID, sourceLaunchID, fmt.Sprintf("额外存档 %d", index+1),

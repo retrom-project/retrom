@@ -40,6 +40,8 @@ func libraryCondition(kind, profileID, folderID string) (string, []any, error) {
 		}
 		return `EXISTS(
   SELECT 1 FROM save_states save
+  JOIN save_state_runtime_compatibility compatibility
+    ON compatibility.save_state_id=save.id AND compatibility.status='AVAILABLE'
   WHERE save.profile_id=? AND save.game_id=game.id AND save.deleted_at_ms IS NULL
 )`, []any{profileID}, nil
 	default:
@@ -415,6 +417,8 @@ func attachSaveStates(
 	rows, err := database.QueryContext(ctx, `
 SELECT save.game_id,save.id,save.name,save.created_at_ms,save.disc_index
 FROM save_states save
+JOIN save_state_runtime_compatibility compatibility
+  ON compatibility.save_state_id=save.id AND compatibility.status='AVAILABLE'
 WHERE save.profile_id=? AND save.deleted_at_ms IS NULL
 AND save.game_id IN (`+placeholders+`)
 ORDER BY save.game_id,save.created_at_ms DESC,save.id DESC

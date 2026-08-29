@@ -82,14 +82,6 @@ DEFERRED_CASES = {
     COMPATIBILITY_CASE: "RPG_SECOND_RUNTIME_RELEASE_REQUIRED",
 }
 MINIMAL_CLOSURE_CASES = {PACK_CASE, "ACC-RPG-010", "ACC-RPG-011"}
-COMPATIBILITY_EVIDENCE_ENVIRONMENTS = (
-    "RETROM_ACC_RPG_012_PREPARE_EVIDENCE",
-    "RETROM_ACC_RPG_012_OLD_PROVISION_EVIDENCE",
-    "RETROM_ACC_RPG_012_PROMOTE_EVIDENCE",
-    "RETROM_ACC_RPG_012_NEW_PROVISION_EVIDENCE",
-    "RETROM_ACC_RPG_012_DRIFT_EVIDENCE",
-    "RETROM_ACC_RPG_012_INSPECT_EVIDENCE",
-)
 ISOLATION_ROUTES = {
     "RPGMV": ("rpgmaker_mv", "RPGMV_NATIVE", "native-web"),
     "RPGMZ": ("rpgmaker_mz", "RPGMZ_NATIVE", "native-web"),
@@ -910,7 +902,7 @@ def validate_checkpoint(validation: dict[str, Any], gates: list[dict[str, Any]] 
 
 def required_environment(case_id: str) -> list[str]:
     common = ["RETROM_ACCEPTANCE_BASE_URL", "RETROM_ACCEPTANCE_USERNAME", "RETROM_ACCEPTANCE_PASSWORD"]
-    browser_cases = {"ACC-RPG-001", PACK_CASE, COMPATIBILITY_CASE, *SECURITY_CASES, *GENERATION_CASES}
+    browser_cases = {"ACC-RPG-001", PACK_CASE, *SECURITY_CASES, *GENERATION_CASES}
     if case_id in browser_cases:
         common.append("RETROM_CHROME_EXECUTABLE")
     if case_id in GENERATION_CASES:
@@ -923,65 +915,8 @@ def required_environment(case_id: str) -> list[str]:
             "RETROM_ACC_RPG_009_PLAN", "RETROM_ACC_RPG_009_DATABASE",
             "RETROM_ACC_RPG_009_PROVISION_EVIDENCE",
         ))
-    if case_id == COMPATIBILITY_CASE:
-        common.extend(("RETROM_ACC_RPG_012_DATABASE", "RETROM_ACC_RPG_012_STATE"))
-        common.extend(COMPATIBILITY_EVIDENCE_ENVIRONMENTS)
     return common
 
-
-def compatibility_state(path: Path, database: Path) -> dict[str, Any]:
-    if not path.is_absolute() or not path.is_file() or path.is_symlink() or \
-            not database.is_absolute() or not database.is_file() or database.is_symlink():
-        raise ContractError("RPG_ACCEPTANCE_COMPATIBILITY_INPUT_INVALID")
-    state = json.loads(path.read_text(encoding="utf-8"))
-    expected_keys = {
-        "schemaVersion", "caseId", "phase", "databasePathSha256", "oldArtifact", "newArtifact",
-        "oldCheckpoint", "newVariant", "driftSaveStateIds", "updatedAtMs",
-    }
-    if not isinstance(state, dict) or set(state) != expected_keys or state.get("schemaVersion") != 1 or \
-            state.get("caseId") != COMPATIBILITY_CASE or state.get("phase") != "DRIFT_SEEDED":
-        raise ContractError("RPG_ACCEPTANCE_COMPATIBILITY_STATE_INVALID")
-    old, new = state.get("oldArtifact"), state.get("newArtifact")
-    checkpoint, variant, drifts = state.get("oldCheckpoint"), state.get("newVariant"), state.get("driftSaveStateIds")
-    if not all(isinstance(value, dict) for value in (old, new, checkpoint, variant, drifts)):
-        raise ContractError("RPG_ACCEPTANCE_COMPATIBILITY_BINDINGS_MISSING")
-    assert isinstance(old, dict) and isinstance(new, dict) and isinstance(checkpoint, dict)
-    assert isinstance(variant, dict) and isinstance(drifts, dict)
-    if old.get("selectedForNewBindings") is not False or old.get("availableForLaunch") is not True or \
-            new.get("selectedForNewBindings") is not True or new.get("availableForLaunch") is not True:
-        raise ContractError("RPG_ACCEPTANCE_COMPATIBILITY_ARTIFACT_STATE_INVALID")
-    for value in (old.get("id"), new.get("id"), checkpoint.get("gameId"), checkpoint.get("saveStateId"),
-                  variant.get("gameId"), *drifts.values()):
-        if not UUID.fullmatch(str(value)):
-            raise ContractError("RPG_ACCEPTANCE_COMPATIBILITY_UUID_INVALID")
-    if old.get("id") == new.get("id") or old.get("coreId") != new.get("coreId") or \
-            old.get("routeKey") == new.get("routeKey") or checkpoint.get("artifactId") != old.get("id") or \
-            variant.get("artifactId") != new.get("id") or checkpoint.get("gameId") == variant.get("gameId"):
-        raise ContractError("RPG_ACCEPTANCE_COMPATIBILITY_RELATION_INVALID")
-    for value in (
-        old.get("artifactSetSha256"), new.get("artifactSetSha256"),
-        checkpoint.get("projectFingerprint"), variant.get("projectFingerprint"),
-        checkpoint.get("dependencySnapshotSha256"), variant.get("dependencySnapshotSha256"),
-    ):
-        if not SHA256.fullmatch(str(value)):
-            raise ContractError("RPG_ACCEPTANCE_COMPATIBILITY_DIGEST_INVALID")
-    fixture_root = ROOT / "testdata/public-roms/rpgmaker-smoke"
-    old_fingerprint, _, _ = project_digest(fixture_root / "rpg2000")
-    new_fingerprint, _, _ = project_digest(fixture_root / "rpg2000-compat")
-    if checkpoint.get("projectFingerprint") != old_fingerprint or \
-            variant.get("projectFingerprint") != new_fingerprint:
-        raise ContractError("RPG_ACCEPTANCE_COMPATIBILITY_FIXTURE_IDENTITY_INVALID")
-    inspect_environment = os.environ.copy()
-    inspect_environment.setdefault("GOCACHE", str(ROOT / ".cache" / "tmp" / "go-build"))
-    completed = subprocess.run(
-        ["go", "run", "./scripts/acceptance/rpgartifactseed", "inspect",
-         "--database", str(database), "--state", str(path)],
-        cwd=ROOT, env=inspect_environment, text=True, check=False,
-        stdout=subprocess.DEVNULL,
-    )
-    if completed.returncode != 0:
-        raise ContractError("RPG_ACCEPTANCE_COMPATIBILITY_INSPECT_FAILED")
-    return state
 
 
 def pack_plan(path: Path) -> dict[str, Any]:
@@ -1266,153 +1201,6 @@ def validate_pack_evidence(payload: dict[str, Any]) -> None:
         elif isinstance(value, list):
             stack.extend(value)
 
-
-def validate_compatibility_evidence(payload: dict[str, Any], state: dict[str, Any]) -> None:
-    expected_keys = {
-        "schemaVersion", "caseId", "status", "artifacts", "bindings", "oldRestore", "newLaunch",
-        "driftRejections", "screenshots",
-    }
-    if set(payload) != expected_keys or payload.get("schemaVersion") != 1 or \
-            payload.get("caseId") != COMPATIBILITY_CASE or \
-            payload.get("status") != "PASS":
-        raise ContractError("RPG_ACCEPTANCE_COMPATIBILITY_EVIDENCE_HEADER_INVALID")
-    artifacts = payload.get("artifacts")
-    old_restore = payload.get("oldRestore")
-    new_launch = payload.get("newLaunch")
-    rejections = payload.get("driftRejections")
-    if not isinstance(artifacts, dict) or not isinstance(old_restore, dict) or \
-            not isinstance(new_launch, dict) or not isinstance(rejections, list):
-        raise ContractError("RPG_ACCEPTANCE_COMPATIBILITY_EVIDENCE_INVALID")
-    for key in ("old", "new"):
-        artifact = artifacts.get(key)
-        expected = state[f"{key}Artifact"]
-        if not isinstance(artifact, dict) or artifact.get("id") != expected["id"] or \
-                artifact.get("routeKey") != expected["routeKey"] or \
-                artifact.get("selectedForNewBindings") is not expected["selectedForNewBindings"] or \
-                artifact.get("availableForLaunch") is not True:
-            raise ContractError("RPG_ACCEPTANCE_COMPATIBILITY_ARTIFACT_EVIDENCE_INVALID")
-    if old_restore.get("artifactId") != state["oldArtifact"]["id"] or \
-            old_restore.get("routeKey") != state["oldArtifact"]["routeKey"] or \
-            old_restore.get("playerRunning") is not True or old_restore.get("screenshotRoundTripExact") is not True or \
-            not UUID.fullmatch(str(old_restore.get("launchId"))) or \
-            not UUID.fullmatch(str(old_restore.get("replaySaveStateId"))) or \
-            not SHA256.fullmatch(str(old_restore.get("originalScreenshotSha256"))) or \
-            old_restore.get("originalScreenshotSha256") != old_restore.get("replayScreenshotSha256"):
-        raise ContractError("RPG_ACCEPTANCE_COMPATIBILITY_OLD_RESTORE_INVALID")
-    if new_launch.get("artifactId") != state["newArtifact"]["id"] or \
-            new_launch.get("routeKey") != state["newArtifact"]["routeKey"] or \
-            new_launch.get("playerRunning") is not True or not UUID.fullmatch(str(new_launch.get("launchId"))):
-        raise ContractError("RPG_ACCEPTANCE_COMPATIBILITY_NEW_LAUNCH_INVALID")
-    expected_drifts = state["driftSaveStateIds"]
-    if [item.get("kind") for item in rejections if isinstance(item, dict)] != \
-            ["content", "artifact", "pack", "adapterAbi"] or any(
-                item.get("saveStateId") != expected_drifts[item["kind"]] or item.get("status") != 422 or
-                item.get("code") != "LAUNCH_BLOCKED" or item.get("launchCreated") is not False
-                for item in rejections if isinstance(item, dict)
-            ) or len(rejections) != 4:
-        raise ContractError("RPG_ACCEPTANCE_COMPATIBILITY_DRIFT_REJECTION_INVALID")
-    bindings = payload.get("bindings")
-    if not isinstance(bindings, dict):
-        raise ContractError("RPG_ACCEPTANCE_COMPATIBILITY_BINDING_EVIDENCE_INVALID")
-    if "provisioningEvidence" not in bindings:
-        raise ContractError("RPG_ACCEPTANCE_COMPATIBILITY_PROVISIONING_EVIDENCE_INVALID")
-    if set(bindings) != {"oldCheckpoint", "newVariant", "provisioningEvidence"} or \
-            bindings.get("oldCheckpoint") != state["oldCheckpoint"] or \
-            bindings.get("newVariant") != state["newVariant"]:
-        raise ContractError("RPG_ACCEPTANCE_COMPATIBILITY_BINDING_EVIDENCE_INVALID")
-    validate_compatibility_provisioning(bindings.get("provisioningEvidence"), state)
-    screenshots = payload.get("screenshots")
-    if not isinstance(screenshots, list) or len(screenshots) != 4 or any(
-        not isinstance(path, str) or not path.startswith("screenshots/") or path.startswith(("/", "screenshots/../"))
-        for path in screenshots
-    ):
-        raise ContractError("RPG_ACCEPTANCE_COMPATIBILITY_SCREENSHOTS_INVALID")
-    forbidden = {"sourcePath", "databasePath", "statePath", "password", "csrfToken", "capability", "cookie"}
-    stack: list[Any] = [payload]
-    while stack:
-        value = stack.pop()
-        if isinstance(value, dict):
-            if forbidden.intersection(value):
-                raise ContractError("RPG_ACCEPTANCE_COMPATIBILITY_EVIDENCE_CONTAINS_SECRET_OR_PATH")
-            stack.extend(value.values())
-        elif isinstance(value, list):
-            stack.extend(value)
-
-
-def validate_compatibility_provisioning(value: Any, state: dict[str, Any]) -> None:
-    if not isinstance(value, dict) or set(value) != {"schemaVersion", "phases"} or \
-            value.get("schemaVersion") != 1:
-        raise ContractError("RPG_ACCEPTANCE_COMPATIBILITY_PROVISIONING_EVIDENCE_INVALID")
-    phases = value.get("phases")
-    expected_names = {"prepare", "oldProvision", "promote", "newProvision", "drift", "inspect"}
-    if not isinstance(phases, dict) or set(phases) != expected_names:
-        raise ContractError("RPG_ACCEPTANCE_COMPATIBILITY_PROVISIONING_EVIDENCE_INVALID")
-    for phase in phases.values():
-        if not isinstance(phase, dict) or set(phase) != {"documentSha256", "payload"} or \
-                not SHA256.fullmatch(str(phase.get("documentSha256"))) or not isinstance(phase.get("payload"), dict):
-            raise ContractError("RPG_ACCEPTANCE_COMPATIBILITY_PROVISIONING_EVIDENCE_INVALID")
-    prepare = phases["prepare"]["payload"]
-    promote = phases["promote"]["payload"]
-    drift = phases["drift"]["payload"]
-    inspect = phases["inspect"]["payload"]
-    if not valid_compatibility_state_phase(prepare, "OLD_SELECTED") or \
-            not valid_compatibility_state_phase(promote, "NEW_SELECTED") or \
-            drift != state or inspect != state or \
-            phases["drift"]["documentSha256"] != phases["inspect"]["documentSha256"] or \
-            prepare.get("oldArtifact", {}).get("id") != state["oldArtifact"]["id"] or \
-            prepare.get("newArtifact", {}).get("id") != state["newArtifact"]["id"] or \
-            any(prepare.get(key) is not None for key in ("oldCheckpoint", "newVariant", "driftSaveStateIds")) or \
-            promote.get("oldCheckpoint") != state["oldCheckpoint"] or \
-            any(promote.get(key) is not None for key in ("newVariant", "driftSaveStateIds")):
-        raise ContractError("RPG_ACCEPTANCE_COMPATIBILITY_PROVISIONING_EVIDENCE_INVALID")
-    validate_compatibility_product_phase(phases["oldProvision"]["payload"], "OLD", state)
-    validate_compatibility_product_phase(phases["newProvision"]["payload"], "NEW", state)
-
-
-def valid_compatibility_state_phase(value: dict[str, Any], expected_phase: str) -> bool:
-    keys = {
-        "schemaVersion", "caseId", "phase", "databasePathSha256", "oldArtifact", "newArtifact",
-        "oldCheckpoint", "newVariant", "driftSaveStateIds", "updatedAtMs",
-    }
-    return set(value) == keys and value.get("schemaVersion") == 1 and \
-        value.get("caseId") == COMPATIBILITY_CASE and value.get("phase") == expected_phase and \
-        bool(SHA256.fullmatch(str(value.get("databasePathSha256"))))
-
-
-def validate_compatibility_product_phase(value: dict[str, Any], phase: str, state: dict[str, Any]) -> None:
-    keys = {"schemaVersion", "caseId", "phase", "importItemId", "validationId", "routeKey", "gameId", "repository"}
-    if phase == "OLD":
-        keys.add("saveStateId")
-    repository = value.get("repository")
-    summary = repository.get("gitDirtySummary") if isinstance(repository, dict) else None
-    if set(value) != keys or value.get("schemaVersion") != 1 or value.get("caseId") != COMPATIBILITY_CASE or \
-            value.get("phase") != phase or not UUID.fullmatch(str(value.get("importItemId"))) or \
-            not UUID.fullmatch(str(value.get("validationId"))) or not valid_compatibility_repository(repository, summary):
-        raise ContractError("RPG_ACCEPTANCE_COMPATIBILITY_PROVISIONING_EVIDENCE_INVALID")
-    binding = state["oldCheckpoint"] if phase == "OLD" else state["newVariant"]
-    if value.get("routeKey") != binding["routeKey"] or value.get("gameId") != binding["gameId"] or \
-            (phase == "OLD" and value.get("saveStateId") != binding["saveStateId"]):
-        raise ContractError("RPG_ACCEPTANCE_COMPATIBILITY_PROVISIONING_EVIDENCE_INVALID")
-
-
-def valid_compatibility_repository(repository: Any, summary: Any) -> bool:
-    if not isinstance(repository, dict) or set(repository) != {"gitCommit", "gitDirty", "gitDirtySummary"} or \
-            not re.fullmatch(r"(?:[0-9a-f]{40}|UNBORN)", str(repository.get("gitCommit"))) or \
-            not isinstance(summary, dict) or set(summary) != {"fileCount", "sha256", "entries"} or \
-            not SHA256.fullmatch(str(summary.get("sha256"))) or not isinstance(summary.get("entries"), list) or \
-            summary.get("fileCount") != len(summary["entries"]) or \
-            repository.get("gitDirty") is not bool(summary["entries"]):
-        return False
-    entries = summary["entries"]
-    if not all(isinstance(item, dict) and set(item) == {"status", "path"} and
-               isinstance(item.get("status"), str) and len(item["status"]) == 2 and
-               isinstance(item.get("path"), str) and item["path"] not in {"", "."} and
-               not Path(item["path"]).is_absolute() and ".." not in Path(item["path"]).parts
-               for item in entries):
-        return False
-    canonical = [{"status": item["status"], "path": item["path"]} for item in entries]
-    encoded = json.dumps(canonical, ensure_ascii=False, separators=(",", ":")).encode()
-    return hashlib.sha256(encoded).hexdigest() == summary["sha256"]
 
 
 def validate_security_evidence(payload: dict[str, Any], case_id: str) -> None:
@@ -1734,12 +1522,6 @@ def run(case_id: str, case_dir: Path) -> int:
     if case_id == PACK_CASE:
         pack_plan(Path(os.environ["RETROM_ACC_RPG_009_PLAN"]))
         pack_database(Path(os.environ["RETROM_ACC_RPG_009_DATABASE"]))
-    compatibility: dict[str, Any] | None = None
-    if case_id == COMPATIBILITY_CASE:
-        compatibility = compatibility_state(
-            Path(os.environ["RETROM_ACC_RPG_012_STATE"]),
-            Path(os.environ["RETROM_ACC_RPG_012_DATABASE"]),
-        )
     environment = os.environ.copy()
     environment.update({
         "RETROM_RPG_CASE_ID": case_id,
@@ -1747,7 +1529,7 @@ def run(case_id: str, case_dir: Path) -> int:
         "RETROM_RPG_EXPECTED_PROJECT_DIGEST": expected_digest,
     })
     browser_driver = {
-        PACK_CASE: "rpgmaker_pack.mjs", COMPATIBILITY_CASE: "rpgmaker_compatibility.mjs",
+        PACK_CASE: "rpgmaker_pack.mjs",
         **{case: "rpgmaker_security.mjs" for case in SECURITY_CASES},
     }.get(case_id, "rpgmaker_browser.mjs")
     completed = subprocess.run(
@@ -1802,9 +1584,6 @@ def run(case_id: str, case_dir: Path) -> int:
         validate_generation_evidence(payload, spec, expected_digest)
     elif case_id == PACK_CASE:
         validate_pack_evidence(payload)
-    elif case_id == COMPATIBILITY_CASE:
-        assert compatibility is not None
-        validate_compatibility_evidence(payload, compatibility)
     elif case_id in SECURITY_CASES:
         validate_security_evidence(payload, case_id)
     elif payload.get("status") != "PASS":

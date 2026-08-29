@@ -223,13 +223,13 @@ func (service *Service) insertProductSave(
 	_, err = transaction.ExecContext(ctx, `
 INSERT INTO save_states(
  id,profile_id,game_id,game_content_revision_id,game_variant_revision_id,core_artifact_id,
- adapter_abi,dependency_snapshot_sha256,dat_version_id,dos_entry_path,
+ adapter_abi,save_abi,dependency_snapshot_sha256,dat_version_id,dos_entry_path,
  payload_blob_id,payload_kind,native_profile,resume_slot,payload_sha256,payload_size_bytes,
  screenshot_blob_id,name,active_duration_ms,version,created_at_ms,updated_at_ms,
  source_launch_session_id,disc_index)
-VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,1,?,?,?,?)
+VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,1,?,?,?,?)
 `, result.SaveStateID, launch.profileID, launch.gameID, launch.contentRevisionID,
-		launch.variantRevisionID, launch.artifactID, launch.adapterABI, launch.dependencySHA256,
+		launch.variantRevisionID, launch.artifactID, launch.adapterABI, launch.saveABI, launch.dependencySHA256,
 		nullableString(launch.datVersionID), nullableString(launch.dosEntry), payloadID, launch.payloadKind,
 		nullablePointer(binding.profile), nullableInt64Pointer(binding.slot), parsed.payload.SHA256,
 		parsed.payload.Size, screenshotID, result.Name, activeDuration, now, now, launchID, result.DiscIndex)

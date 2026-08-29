@@ -84,6 +84,7 @@ CREATE TABLE save_states (
   game_variant_revision_id TEXT NOT NULL REFERENCES game_variant_revisions(id),
   core_artifact_id TEXT NOT NULL REFERENCES core_artifacts(id),
   adapter_abi TEXT NOT NULL,
+  save_abi TEXT NOT NULL,
   dependency_snapshot_sha256 TEXT NOT NULL CHECK(
     length(dependency_snapshot_sha256)=64 AND dependency_snapshot_sha256=lower(dependency_snapshot_sha256)
   ),

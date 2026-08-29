@@ -465,66 +465,6 @@
       "sha256": "3bd31797588d1266970ef9c621992aa15349d4d25c446238a1ada432c8c634c5"
     },
     {
-      "path": "rpg2000-compat/CharSet/retrom-hero.png",
-      "generation": "RPG2000",
-      "sizeBytes": 74093,
-      "sha256": "708133c4465694988aba508200f49625c74f9f2e268ebe71deaadd848fa8e517"
-    },
-    {
-      "path": "rpg2000-compat/ChipSet/retrom-chipset.png",
-      "generation": "RPG2000",
-      "sizeBytes": 123249,
-      "sha256": "9c6674a40f0887fec07b0d4bf19996002a02b82667dc272b52ea2accf00ff597"
-    },
-    {
-      "path": "rpg2000-compat/EasyRPG.ini",
-      "generation": "RPG2000",
-      "sizeBytes": 17,
-      "sha256": "5b7898971829fb5576e996d313085754102685af995fbe365544c4c29622090e"
-    },
-    {
-      "path": "rpg2000-compat/Map0001.lmu",
-      "generation": "RPG2000",
-      "sizeBytes": 1523,
-      "sha256": "9e53ae6b5e51e22e93277218dcd31261875b6e5fe0cd6458a7acbc1dad02ed59"
-    },
-    {
-      "path": "rpg2000-compat/Picture/retrom-marker.png",
-      "generation": "RPG2000",
-      "sizeBytes": 13976,
-      "sha256": "9a109a55edb950196e0caf53a7ecf9992c566360a47ae3d9dbf6190682a3f732"
-    },
-    {
-      "path": "rpg2000-compat/RPG_RT.ini",
-      "generation": "RPG2000",
-      "sizeBytes": 58,
-      "sha256": "19a3d8400035860358de7b39822f1604db73ef480fab49894c242ccfa7cd190a"
-    },
-    {
-      "path": "rpg2000-compat/RPG_RT.ldb",
-      "generation": "RPG2000",
-      "sizeBytes": 1400,
-      "sha256": "5ec9536941467f88002a732913c059fe45a21822f414456756ab20199005970a"
-    },
-    {
-      "path": "rpg2000-compat/RPG_RT.lmt",
-      "generation": "RPG2000",
-      "sizeBytes": 67,
-      "sha256": "37fd6992fbd7c1918a79d19b1f738c53c907fd4f25e6507fc860f13729e59b08"
-    },
-    {
-      "path": "rpg2000-compat/Sound/retrom-tone.wav",
-      "generation": "RPG2000",
-      "sizeBytes": 11068,
-      "sha256": "5b0ef85ec2348a57460b32a93ecd804f996026aa4735c849c6c25ec013ffaaca"
-    },
-    {
-      "path": "rpg2000-compat/System/retrom-system.png",
-      "generation": "RPG2000",
-      "sizeBytes": 12980,
-      "sha256": "643c0b6270ec99e1867535d5dc05b34ec63f089f32ade0a7018998494b5d7da9"
-    },
-    {
       "path": "rpg2000/CharSet/retrom-hero.png",
       "generation": "RPG2000",
       "sizeBytes": 74093,

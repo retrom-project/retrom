@@ -8,17 +8,10 @@ script, or executable third-party payload. `fixture-spec/` and `generator/`
 are the unique sources; every engine, malicious, and negative-matrix file is a
 generated output locked by `fixture-manifest.json`.
 
-`rpg2000/` is the normal generation fixture. `rpg2000-compat/` is a second
-fully playable RPG2000 project produced by the same bounded LCF writer with a
-different title, visible marker, palette, and therefore content identity. It
-exists only so `ACC-RPG-012` can create an old binding and a distinct new
-binding through two real Retrom imports; uploading `rpg2000/` twice is not an
-acceptable substitute.
-
 Run `python3 build.py` to regenerate the outputs, or `python3 build.py --check`
 to rebuild in an ignored temporary directory and compare every path and byte.
-The LCF writer implements only the bounded structures required by these two
-fixtures. Its output was parsed in full with liblcf commit
+The LCF writer implements only the bounded structures required by the 2000 and
+2003 fixtures. Its output was parsed in full with liblcf commit
 `92c4450a1bc1acb58bd02bbb99b57e5036919cdf`; the attribution license is in
 `LICENSES/liblcf-MIT.txt`.
 

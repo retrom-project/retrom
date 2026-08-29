@@ -157,6 +157,8 @@ AND pi.enabled=1`,
 		request.Context(),
 		`SELECT count(*)
 FROM save_states s
+JOIN save_state_runtime_compatibility runtime_compatibility
+  ON runtime_compatibility.save_state_id=s.id AND runtime_compatibility.status='AVAILABLE'
 JOIN games g ON g.id=s.game_id
 JOIN platform_instances pi ON pi.id=g.platform_instance_id
 WHERE s.deleted_at_ms IS NULL
@@ -254,6 +256,8 @@ s.created_at_ms,
 s.active_duration_ms,
 s.disc_index
 FROM save_states s
+JOIN save_state_runtime_compatibility runtime_compatibility
+  ON runtime_compatibility.save_state_id=s.id AND runtime_compatibility.status='AVAILABLE'
 JOIN games g ON g.id=s.game_id
 JOIN game_metadata_revisions m ON m.id=g.current_metadata_revision_id
 JOIN platform_instances pi ON pi.id=g.platform_instance_id
@@ -418,10 +422,12 @@ func (server *Server) featuredSessionSave(
 	var createdAtMS, activeDurationMS int64
 	var discIndex sql.NullInt64
 	err := server.database.QueryRowContext(ctx, `
-SELECT id,created_at_ms,active_duration_ms,disc_index
-FROM save_states
-WHERE source_launch_session_id=? AND profile_id=? AND deleted_at_ms IS NULL
-ORDER BY created_at_ms DESC,id DESC
+SELECT save.id,save.created_at_ms,save.active_duration_ms,save.disc_index
+FROM save_states save
+JOIN save_state_runtime_compatibility compatibility
+  ON compatibility.save_state_id=save.id AND compatibility.status='AVAILABLE'
+WHERE save.source_launch_session_id=? AND save.profile_id=? AND save.deleted_at_ms IS NULL
+ORDER BY save.created_at_ms DESC,save.id DESC
 LIMIT 1
 	`, launchID, profileID).Scan(&saveID, &createdAtMS, &activeDurationMS, &discIndex)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -510,7 +516,10 @@ LIMIT 1
 	}
 	var saveCount int64
 	if err := server.database.QueryRowContext(ctx, `
-SELECT count(*) FROM save_states WHERE game_id=? AND profile_id=? AND deleted_at_ms IS NULL
+SELECT count(*) FROM save_states save
+JOIN save_state_runtime_compatibility compatibility
+  ON compatibility.save_state_id=save.id AND compatibility.status='AVAILABLE'
+WHERE save.game_id=? AND save.profile_id=? AND save.deleted_at_ms IS NULL
 `, gameID, profileID).Scan(&saveCount); err != nil {
 		return homeFeaturedResult{}, fmt.Errorf("home featured save count: %w", err)
 	}

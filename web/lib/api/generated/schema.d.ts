@@ -2704,7 +2704,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Creates either a product SaveState or the single temporary checkpoint of an RPG_RUNTIME_VALIDATION Launch. The metadata part is strict RuntimeCheckpointMetadata JSON; authoritative artifact, user, content revision, adapter ABI and dependency bindings always come from the Launch. Total multipart input is capped at 270 MiB only on this route. */
+        /** @description Creates either a product SaveState or the single temporary checkpoint of an RPG_RUNTIME_VALIDATION Launch. The metadata part is strict RuntimeCheckpointMetadata JSON; authoritative artifact, user, content revision, adapter ABI, save ABI and dependency bindings always come from the Launch. Total multipart input is capped at 270 MiB only on this route. */
         post: operations["postRuntimeSaveState"];
         delete?: never;
         options?: never;

@@ -76,7 +76,7 @@ func generationForPath(relative string) (string, error) {
 		return "", fmt.Errorf("generated file is outside a generation directory: %s", relative)
 	}
 	generation := map[string]string{
-		"rpg2000": "RPG2000", "rpg2000-compat": "RPG2000", "rpg2003": "RPG2003", "rpgxp": "RPGXP",
+		"rpg2000": "RPG2000", "rpg2003": "RPG2003", "rpgxp": "RPGXP",
 		"rpgvx": "RPGVX", "rpgvxace": "RPGVXACE", "rpgmv": "RPGMV",
 		"malicious-rpgmv": "RPGMV", "malicious-rpgmz": "RPGMZ",
 		"negative-matrix": "SECURITY_MATRIX",

@@ -58,7 +58,6 @@ SNES_SHA256 = "408574e6a6b7db1273e21142789bc50e5a1acb529bcf61c059cced5cfe1082db"
 RPGMAKER_FIXTURE_ROOT = REPOSITORY_ROOT / "testdata" / "public-roms" / "rpgmaker-smoke"
 RPGMAKER_GENERATIONS = {
     "rpg2000": "RPG2000",
-    "rpg2000-compat": "RPG2000",
     "rpg2003": "RPG2003",
     "rpgxp": "RPGXP",
     "rpgvx": "RPGVX",
@@ -222,7 +221,6 @@ class PublicFixtureTests(unittest.TestCase):
     def test_lcf_smoke_projects_have_generation_markers_and_owned_assets(self) -> None:
         for directory, marker, ldb_id_encoding in (
             ("rpg2000", b"RETROM RPG2000", b"\x0a\x01\x00"),
-            ("rpg2000-compat", b"RETROM RPG2000 V2", b"\x0a\x01\x00"),
             ("rpg2003", b"RETROM RPG2003", b"\x0a\x02\x8f\x53"),
         ):
             root = RPGMAKER_FIXTURE_ROOT / directory

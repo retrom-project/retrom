@@ -222,10 +222,10 @@ VALUES('firmware-launch','firmware-profile','PRODUCT','firmware-game','firmware-
 VALUES('firmware-launch','firmware.gba',?,'SOURCE_V1',?)`, []any{contentBlobID, now}},
 		{
 			`INSERT INTO save_states(id,profile_id,game_id,game_content_revision_id,game_variant_revision_id,
-core_artifact_id,adapter_abi,dependency_snapshot_sha256,payload_blob_id,payload_kind,payload_sha256,
+core_artifact_id,adapter_abi,save_abi,dependency_snapshot_sha256,payload_blob_id,payload_kind,payload_sha256,
 payload_size_bytes,screenshot_blob_id,name,active_duration_ms,created_at_ms,updated_at_ms,source_launch_session_id)
 VALUES('firmware-save','firmware-profile','firmware-game','firmware-content','firmware-variant-revision',?,
-'emulatorjs-state-v1',?,?,'RUNTIME_STATE',?,?,?,'Firmware save',1,?,?,'firmware-launch')`,
+'emulatorjs-state-v1','emulatorjs-state-v1',?,?,'RUNTIME_STATE',?,?,?,'Firmware save',1,?,?,'firmware-launch')`,
 			[]any{artifactID, snapshotDigest, stateBlobID, stateDigest, len(statePayload), screenshotBlobID, now, now},
 		},
 	}

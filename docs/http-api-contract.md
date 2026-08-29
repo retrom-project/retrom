@@ -461,7 +461,7 @@ Upload manifest/part/complete、Import 创建、Launch、PlaySession 与 runtime
 | `GET /api/v1/home` | 首页聚合：启用目录中的统计、按 PlaySession `started_at_ms` 选择的最近 10 款游戏、按 Game `created_at_ms DESC, id DESC` 选择的最新添加 10 款已发布游戏、最后启动的一次游玩及仅由该次 Launch 产生的最新手动存档、全部支持平台，以及按 PlaySession 次数降序的前 4 个快捷平台。相同启动时刻按 PlaySession ID 确定唯一会话，平台热度相同时按名称和 ID 确定性排序；旧会话较晚结束或补写 heartbeat 不得反向夺取“最后游玩”，历史存档只影响“查看存档”，不得冒充最后一次游玩的恢复点。`latestGames[]` 固定提供 `gameId/title/platform/platformInstance/createdAtMs/coverUrl`，目录停用后对应游戏不进入该投影。 |
 | `GET /api/v1/recent-games` | 返回启用目录中全部有游玩记录的已发布游戏，不截断为固定 50 款；按最新 PlaySession 的 `started_at_ms` 降序聚合 `lastPlayedAtMs/activeDurationMs/sessionCount` 与可空封面 URL。每款游戏只占一行，接口不接受 `limit`；响应级 `generatedAtMs` 是页面分组与 7/30 天滚动窗口的统一时钟。 |
 | `GET /api/v1/games`、`GET /api/v1/games/{gameId}` | 已发布游戏列表/详情；两者的可空 `coverUrl` 只投影当前 MetadataRevision 中按 ordinal/ID 排序的首个 `COVER`，值为 `/content/assets/{assetId}` 逻辑 URL，不暴露 Blob ID。列表项同时包含基础平台、游戏目录、推荐 Core、`createdAtMs` 与可空 `lastPlayedAtMs`；列表按 `RECENT_DESC/ADDED_DESC/TITLE_ASC` 的服务端稳定 cursor 分页，每页默认 50。无 cursor 的首分页额外返回 `filteredCount` 与 `facets={totalCount,platforms,platformInstances,tags}`；facet 覆盖完整可见游戏库并带真实 count，续页不重复返回。响应级 `generatedAtMs` 作为相对时间的统一时钟。 |
-| `GET /api/v1/saves`、`PATCH /api/v1/saves/{saveStateId}`、`DELETE /api/v1/saves/{saveStateId}` | 手动存档列表、重命名和软删除。`gameId` 为精确游戏筛选并进入 cursor filter digest；列表项包含基础平台、游戏目录、锁定 Core、可空 `screenshotUrl`（存在时为 `/content/save-states/{saveStateId}/screenshot`）与累计有效游玩 `activeDurationMs`，不暴露截图 Blob ID。响应级 `generatedAtMs` 为分组页面的“今天/昨天”和分页聚合提供统一时钟。 |
+| `GET /api/v1/saves`、`PATCH /api/v1/saves/{saveStateId}`、`DELETE /api/v1/saves/{saveStateId}` | 手动存档列表、重命名和软删除。`gameId` 为精确游戏筛选并进入 cursor filter digest；`availability=AVAILABLE` 只返回当前可恢复存档，`ALL` 还保留 RPG Maker/ONS 的 `SAVE_RUNTIME_INCOMPATIBLE` 与 EmulatorJS 的 `SAVE_CORE_UNAVAILABLE` 阻断项。列表项包含基础平台、游戏目录、锁定 Core、可空 `screenshotUrl`（存在时为 `/content/save-states/{saveStateId}/screenshot`）与累计有效游玩 `activeDurationMs`，不暴露截图 Blob ID。响应级 `generatedAtMs` 为分组页面的“今天/昨天”和分页聚合提供统一时钟。 |
 | `POST /api/v1/launches` | READY 时预检并创建 LaunchSession/cookie；缺少当前 Variant 结果时返回 202 的可观察验证 Job，不先签发 credential。 |
 | `POST /runtime/launches/{launchId}/start`、`POST /runtime/launches/{launchId}/heartbeat`、`POST /runtime/launches/{launchId}/finish` | 第 7 节 PlaySession 连续事件、时长和撤销；使用限定 Path 的 launch cookie。 |
 | `GET /runtime/launches/{launchId}/config` 及第 8 节内容路径 | 受 capability 保护的配置、内容与显式状态。 |
@@ -887,7 +887,7 @@ EasyRPG 与 mkxp 的同源内容端点属于严格 OpenAPI 契约，不能只在
 
 两条路径都必须以 `x-retrom-router-template` 保留含 `/` 的尾部路径。OpenAPI 中间件必须先识别它们再进入内容 handler；否则即使文件已物化也会被错误地提前映射为 404。
 
-成功的 `GET /runtime/launches/{launchId}/state` 继续只返回二进制 payload；MIME、Content-Length、ETag 和最大尺寸由冻结 payload kind 决定，不在 body 混入 JSON。恢复不匹配 content revision/artifact/adapter ABI/dependency snapshot 时在读取 payload 前返回 `RPG_CHECKPOINT_INCOMPATIBLE`。
+成功的 `GET /runtime/launches/{launchId}/state` 继续只返回二进制 payload；MIME、Content-Length、ETag 和最大尺寸由 Launch 的当前构件与存档 payload kind 决定，不在 body 混入 JSON。EmulatorJS 恢复不匹配 content revision/精确 artifact/adapter ABI/dependency snapshot 时在读取 payload 前返回 `RPG_CHECKPOINT_INCOMPATIBLE`；RPG Maker/ONS 要求逻辑游戏兼容线和 dependency snapshot 不变、当前构件显式声明可读存档 save ABI，否则在创建 Launch 时返回 `LAUNCH_SAVE_INCOMPATIBLE`，不会读取 payload 或回退旧 runtime。
 
 ### 16.2 MV/MZ runtime origin
 
@@ -909,7 +909,7 @@ entry CSP 固定为：`default-src 'self' data: blob:`；`script-src 'self' 'non
 
 `GET /__retrom/project/{safeLogicalPath}` 只查询从完整 source snapshot 冻结到本 Launch 的 Native Web 运行投影，并先按逻辑路径逐 byte 精确查找；该投影只包含 `index.html` 与固定 Web 资源 MIME allowlist，根 `package.json` 及 `.exe/.dll/.so/.dylib/.node/.bat/.cmd/.ps1` 等 desktop/native payload 即使保留在 source snapshot/filesDigest 中也绝不进入投影。仅当精确查找不存在时，允许在同一 Launch 的投影内做一次 SQLite ASCII `NOCASE` 查找，以兼容 Windows 上生成、却在脚本中使用不同 ASCII 大小写的 MV/MZ 资源引用。候选必须恰好一个，否则返回 404；导入期的 NFC/NFKC case-fold 碰撞门禁仍是前置不变量。该回退不做 Unicode 归一化或模糊路径猜测，不适用于 `entry`、restore、普通 Launch content、external file 或任何 `/api/v1` 内容端点。
 
-`GET /__retrom/bridge.js` 先从该 Launch 锁定的 `coreArtifactId` 读取 `runtimeVersion/entryPath`，再命中 RPG runtime manifest allowlist 并执行本机 observed 完整性校验。首版 manifest 只有当前 `retrom-runtime` tag 的一份 `native/bridge.js`；不得硬编码版本、绕过 artifact binding 或在文件缺失时 fallback 到其他内容。未来真实第二个 tag 的保留行为必须另行设计和验证，不能预置 V1/V2/V3 兼容分支。
+`GET /__retrom/bridge.js` 从 Launch 当前 `coreArtifactId` 读取 `runtimeVersion/entryPath`，再命中 RPG runtime manifest allowlist 并执行本机 observed 完整性校验。manifest 只保留当前 `retrom-runtime` tag 的一份 `native/bridge.js`；不得硬编码版本、绕过 artifact binding、保留旧 bundle 或在文件缺失时 fallback 到其他内容。升级是否可恢复旧存档只由当前构件声明的 `readableSaveAbis` 决定。
 
 bootstrap POST 成功必须设置 `Clear-Site-Data: "storage"` 后用 `location.replace('/__retrom/entry')`，cleanup 再清空 storage、撤销 capability 并过期 cookie。只有 entry 可返回 `text/html`；项目内其他 HTML 不服务。`.js/.mjs/.css/.json/.wasm` 和登记媒体/font 使用固定 MIME，profile 登记的加密/未知非执行资源才可用 `application/octet-stream`，用户 MIME/archive metadata 不参与决定。入口 HTML 直接引用 native executable 后缀属于确凿运行依赖并以 `RPG_NATIVE_DEPENDENCY_UNSUPPORTED` 拒绝；仅携带但未引用的同名文件仍保留在 source snapshot，却不会进入 Launch 投影或由该端点返回。
 

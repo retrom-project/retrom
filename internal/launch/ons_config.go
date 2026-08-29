@@ -7,6 +7,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"regexp"
+	"slices"
 	"strings"
 
 	"retrom/internal/ons/detector"
@@ -14,6 +16,8 @@ import (
 )
 
 const onsProjectFormat = "ONS_PROJECT_V1"
+
+var onsSaveABIIdentity = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{0,118}-v[1-9][0-9]*$`)
 
 type ONSAdapterConfig struct {
 	AdapterKind     string `json:"adapterKind"`
@@ -50,10 +54,13 @@ type ONSCheckpointRestore struct {
 }
 
 type onsCompatibility struct {
-	AdapterABI     string `json:"adapterAbi"`
-	CheckpointSlot int    `json:"checkpointSlot"`
-	JSPath         string `json:"jsPath"`
-	WasmPath       string `json:"wasmPath"`
+	AdapterABI            string   `json:"adapterAbi"`
+	CheckpointSlot        int      `json:"checkpointSlot"`
+	GameCompatibilityLine string   `json:"gameCompatibilityLine"`
+	JSPath                string   `json:"jsPath"`
+	ReadableSaveABIs      []string `json:"readableSaveAbis"`
+	SaveABI               string   `json:"saveAbi"`
+	WasmPath              string   `json:"wasmPath"`
 }
 
 func (service *Service) buildONSReviewConfig(
@@ -177,13 +184,16 @@ FROM launch_sessions launch
 JOIN core_artifacts artifact ON artifact.id=launch.core_artifact_id
 JOIN cores core ON core.id=artifact.core_id
 JOIN game_variant_revisions revision ON revision.id=launch.game_variant_revision_id
- AND revision.core_artifact_id=artifact.id
+JOIN core_artifacts bound_artifact ON bound_artifact.id=revision.core_artifact_id
 JOIN games game ON game.id=launch.game_id
 JOIN game_metadata_revisions metadata ON metadata.id=game.current_metadata_revision_id
 JOIN platform_instances instance ON instance.id=game.platform_instance_id
 JOIN platforms platform ON platform.id=instance.platform_id
 WHERE launch.id=? AND launch.purpose='PRODUCT' AND artifact.runtime_family='ONS'
  AND artifact.available_for_launch=1 AND revision.status='READY'
+ AND bound_artifact.core_id=artifact.core_id AND bound_artifact.route_key=artifact.route_key
+ AND json_extract(bound_artifact.compatibility_json,'$.gameCompatibilityLine')=
+     json_extract(artifact.compatibility_json,'$.gameCompatibilityLine')
 `, launchID).Scan(
 		&source.credentialHash, &source.state, &source.bootstrapExpires, &source.hardExpires,
 		&source.idleExpires, &source.coreID, &source.coreName, &source.artifactID,
@@ -205,10 +215,11 @@ func (service *Service) onsCheckpointConfig(
 	err := service.database.QueryRowContext(ctx, `
 SELECT save.payload_kind FROM launch_sessions launch
 JOIN save_states save ON save.id=launch.save_state_id
+JOIN save_state_runtime_compatibility compatibility ON compatibility.save_state_id=save.id
 WHERE launch.id=? AND save.id=? AND save.deleted_at_ms IS NULL
  AND save.game_content_revision_id=launch.game_content_revision_id
  AND save.game_variant_revision_id=launch.game_variant_revision_id
- AND save.core_artifact_id=launch.core_artifact_id
+ AND compatibility.status='AVAILABLE'
 `, launchID, saveStateID).Scan(&payloadKind)
 	if errors.Is(err, sql.ErrNoRows) || payloadKind != "ONS_SAVE_BUNDLE_V1" {
 		return nil, ErrCredential
@@ -229,7 +240,11 @@ func parseONSCompatibility(raw string) (onsCompatibility, error) {
 		return onsCompatibility{}, ErrCredential
 	}
 	if err := decoder.Decode(&struct{}{}); err != io.EOF || value.AdapterABI != "ons-save" ||
-		value.CheckpointSlot != 999 || value.JSPath != "onsyuri.js" || value.WasmPath != "onsyuri.wasm" {
+		value.CheckpointSlot != 999 || value.GameCompatibilityLine != "onscripter-yuri-v1" ||
+		!onsSaveABIIdentity.MatchString(value.SaveABI) || len(value.ReadableSaveABIs) < 1 ||
+		len(value.ReadableSaveABIs) > 16 || !slices.Contains(value.ReadableSaveABIs, value.SaveABI) ||
+		value.JSPath != "onsyuri.js" ||
+		value.WasmPath != "onsyuri.wasm" {
 		return onsCompatibility{}, ErrCredential
 	}
 	return value, nil
