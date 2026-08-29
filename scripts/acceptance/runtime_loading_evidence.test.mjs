@@ -79,3 +79,16 @@ test("does not evaluate frame resource timings when the caller disables them", a
   const probe = trackRuntimeLoading(page, [], { collectRuntimeTimings: false });
   await assert.doesNotReject(probe.snapshot());
 });
+
+test("fails a loading snapshot at its own bounded deadline", async () => {
+  const page = {
+    frames: () => [{ evaluate: () => new Promise(() => {}) }],
+    off: () => {},
+    on: () => {},
+  };
+  const probe = trackRuntimeLoading(page, [], { timeoutMs: 10 });
+  const harnessDeadline = new Promise((_, reject) => {
+    setTimeout(() => reject(new Error("TEST_BOUNDARY_EXPIRED")), 100);
+  });
+  await assert.rejects(Promise.race([probe.snapshot(), harnessDeadline]), /RUNTIME_LOADING_EVIDENCE_TIMEOUT/);
+});

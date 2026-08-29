@@ -4,8 +4,11 @@ const projectPathPattern = /^\/runtime\/content\/project\/([0-9a-f]{64})\/(.+)$/
 export function trackRuntimeLoading(
   page,
   declaredProjectFiles = [],
-  { collectRuntimeTimings = true } = {},
+  { collectRuntimeTimings = true, timeoutMs = 10_000 } = {},
 ) {
+  if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 60_000) {
+    throw new Error("RUNTIME_LOADING_EVIDENCE_TIMEOUT_INVALID");
+  }
   const responses = [];
   const indexes = declaredProjectFiles.length ? [{ files: declaredProjectFiles }] : [];
   const pending = new Set();
@@ -16,7 +19,7 @@ export function trackRuntimeLoading(
   };
   page.on("response", listener);
   return {
-    snapshot: async () => {
+    snapshot: () => withDeadline((async () => {
       while (pending.size) {await Promise.allSettled([...pending]);}
       return {
         evidence: summarizeRuntimeLoading({
@@ -24,9 +27,17 @@ export function trackRuntimeLoading(
         }),
         projectContentIdentity: singleProjectIdentity(responses),
       };
-    },
+    })(), timeoutMs),
     stop: () => page.off("response", listener),
   };
+}
+
+function withDeadline(task, timeoutMs) {
+  let timer;
+  const deadline = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new Error("RUNTIME_LOADING_EVIDENCE_TIMEOUT")), timeoutMs);
+  });
+  return Promise.race([task, deadline]).finally(() => clearTimeout(timer));
 }
 
 export function summarizeRuntimeLoading({ indexes, responses, timings }) {

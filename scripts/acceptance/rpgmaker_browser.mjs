@@ -186,13 +186,16 @@ async function generationCase(context, writeHeaders) {
     const request = response.request();
     observedResponses.push({ url: response.url(), resourceType: request.resourceType() });
   });
+  progress("first-launch-navigation");
   await page.goto(`${baseUrl}${launch.playUrl}`, { waitUntil: "domcontentloaded" });
   const moreActions = page.getByRole("button", { name: "更多操作" });
   await moreActions.waitFor({ state: "visible", timeout: 120_000 });
   await waitForProductSaveAvailability(page, pageErrors, runtimeExceptions, dialogs, caseId);
+  progress("first-launch-ready");
   const firstVisibleLoading = applyEasyProjectDeclaration(
     await loadingProbe.snapshot(), config.adapter, inputTranscript.upload,
   );
+  progress("first-launch-loading-snapshot");
   loadingProbe.stop();
   await revealProductToolbar(page);
   await moreActions.click();
@@ -213,10 +216,12 @@ async function generationCase(context, writeHeaders) {
   await diagnostics.waitFor({ state: "hidden" });
   await page.waitForTimeout(500);
   await page.screenshot({ path: join(screenshotDir, `${caseId.toLowerCase()}-product-player.png`), fullPage: true });
+  progress("first-launch-screenshot");
   if (responseInventoryOverflow) { throw new Error("RPG_ACCEPTANCE_ORIGIN_INVENTORY_OVERFLOW"); }
   const originInventory = config.adapter?.adapterKind === "NATIVE_WEB"
     ? await collectOriginInventory(page, config.adapter.uniqueOrigin, observedResponses)
     : null;
+  progress("first-launch-origin-inventory");
   await page.close();
   const cacheLaunch = await jsonRequest(context.request, "POST", "/api/v1/launches", {
     headers: writeHeaders(), expected: 201,
@@ -233,11 +238,14 @@ async function generationCase(context, writeHeaders) {
     await dialog.dismiss();
   });
   const cacheLoadingProbe = trackRuntimeLoading(cachePage, projectDeclarations, loadingProbeOptions);
+  progress("cache-launch-navigation");
   await cachePage.goto(`${baseUrl}${cacheLaunch.playUrl}`, { waitUntil: "domcontentloaded" });
   await waitForProductSaveAvailability(cachePage, pageErrors, runtimeExceptions, dialogs, caseId);
+  progress("cache-launch-ready");
   const cacheVisibleLoading = applyEasyProjectDeclaration(
     await cacheLoadingProbe.snapshot(), config.adapter, inputTranscript.upload,
   );
+  progress("cache-launch-loading-snapshot");
   cacheLoadingProbe.stop();
   await cachePage.close();
   if (pageErrors.length) {
@@ -530,6 +538,7 @@ function required(name) {
 }
 
 function array(value) { return Array.isArray(value) ? value : []; }
+function progress(stage) { process.stdout.write(`rpg_product_stage=${stage}\n`); }
 function exact(actual, expected, code) {
   if (JSON.stringify(actual) !== JSON.stringify(expected)) { throw new Error(code); }
 }
