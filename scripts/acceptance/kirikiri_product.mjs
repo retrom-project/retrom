@@ -242,7 +242,7 @@ async function advanceKag(canvas) {
   const transition = waitForKagTransition(canvas);
   const bounds = await canvas.boundingBox();
   if (!bounds) {throw new Error("KIRIKIRI_ACCEPTANCE_CANVAS_LAYOUT_INVALID");}
-  await canvas.click({ position: { x: bounds.width / 2, y: bounds.height / 2 } });
+  await canvas.click({ position: { x: bounds.width / 2, y: bounds.height * 0.34 } });
   await transition;
   await canvas.page().waitForTimeout(2_000);
 }

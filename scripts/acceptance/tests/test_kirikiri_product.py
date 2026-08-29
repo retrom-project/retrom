@@ -91,6 +91,11 @@ class KiriKiriProductAcceptanceTests(unittest.TestCase):
         self.assertIn('getByRole("button", { name: "已暂停，点击游戏画面继续"', contents)
         self.assertIn('locator(".player-stage").dispatchEvent("click")', contents)
 
+    def test_smoke_input_targets_the_first_kag_menu_choice(self) -> None:
+        contents = DRIVER_PATH.read_text(encoding="utf-8")
+        self.assertIn("y: bounds.height * 0.34", contents)
+        self.assertNotIn("y: bounds.height / 2", contents)
+
     def test_input_waits_for_kag_to_leave_and_reenter_a_stable_save_point(self) -> None:
         contents = DRIVER_PATH.read_text(encoding="utf-8")
         self.assertIn("await waitForKagStable(canvas);", contents)
