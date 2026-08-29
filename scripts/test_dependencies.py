@@ -422,9 +422,9 @@ class ReleaseInputDigestTests(unittest.TestCase):
                 "data/auth/password-blocklists/v1/manifest.json": {},
                 "data/netplay/v2/manifest.json": {},
                 "data/dat/rpgmaker/v1/manifest.json": {
-                    "schema_version": 2,
-                    "runtime_id": "rpgmaker",
-                    "release": {"tag": "v0.2.0"},
+                    "schema_version": 3,
+                    "runtime_id": "retrom-runtime",
+                    "release": {"tag": "v0.4.2"},
                     "runtime_files": [{} for _ in range(8)],
                     "artifacts": [{} for _ in range(7)],
                 },
@@ -442,9 +442,9 @@ class ReleaseInputDigestTests(unittest.TestCase):
 
     def test_rpg_runtime_manifest_shape_is_fail_closed_without_fixed_counts(self) -> None:
         manifest = {
-            "schema_version": 2,
-            "runtime_id": "rpgmaker",
-            "release": {"tag": "v0.2.0"},
+            "schema_version": 3,
+            "runtime_id": "retrom-runtime",
+            "release": {"tag": "v0.4.2"},
             "runtime_files": [{}],
             "artifacts": [{}],
         }
@@ -662,8 +662,11 @@ class ImagePackagingTests(unittest.TestCase):
             "web/features/player/rpg-runtime/registry.json",
             dockerfile,
         )
+        fixture = "testdata/public-roms/arcade-smoke/driver-layouts.json"
+        self.assertIn(f"COPY {fixture} {fixture}", dockerfile)
         dockerignore = (repository_root / ".dockerignore").read_text(encoding="utf-8")
         self.assertIn("!web/features/player/rpg-runtime/registry.json", dockerignore)
+        self.assertIn(f"!{fixture}", dockerignore)
         implementation = "web/features/player/rpg-runtime/index.ts"
         self.assertIn(f"COPY {implementation} {implementation}", dockerfile)
         self.assertIn(f"!{implementation}", dockerignore)

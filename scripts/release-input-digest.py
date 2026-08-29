@@ -37,8 +37,8 @@ def validate_rpg_runtime_manifest(manifest: object) -> None:
     if (
         not isinstance(manifest, dict)
         or set(manifest) != RPG_RUNTIME_MANIFEST_KEYS
-        or manifest.get("schema_version") != 2
-        or manifest.get("runtime_id") != "rpgmaker"
+        or manifest.get("schema_version") != 3
+        or manifest.get("runtime_id") != "retrom-runtime"
         or not isinstance(manifest.get("release"), dict)
         or not manifest["release"]
     ):

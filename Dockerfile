@@ -9,6 +9,7 @@ COPY scripts/fbalpha2012-dat-enumerator.cpp scripts/fbalpha2012-dat-enumerator.c
 COPY data/dat data/dat
 COPY data/auth data/auth
 COPY data/netplay data/netplay
+COPY testdata/public-roms/arcade-smoke/driver-layouts.json testdata/public-roms/arcade-smoke/driver-layouts.json
 COPY web/features/player/adapters web/features/player/adapters
 COPY web/features/player/netplay web/features/player/netplay
 COPY web/features/player/rpg-runtime/registry.json web/features/player/rpg-runtime/registry.json

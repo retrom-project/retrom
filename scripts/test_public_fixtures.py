@@ -725,11 +725,18 @@ class PublicFixtureTests(unittest.TestCase):
             )
         )
 
-    def test_public_roms_are_excluded_from_backend_image_context(self) -> None:
+    def test_public_rom_payloads_are_excluded_from_backend_image_context(self) -> None:
         dockerignore = (REPOSITORY_ROOT / ".dockerignore").read_text(
             encoding="utf-8"
         ).splitlines()
-        self.assertIn("testdata/public-roms", dockerignore)
+        self.assertIn("testdata/public-roms/*", dockerignore)
+        self.assertEqual(
+            [line for line in dockerignore if line.startswith("!testdata/public-roms")],
+            [
+                "!testdata/public-roms/arcade-smoke",
+                "!testdata/public-roms/arcade-smoke/driver-layouts.json",
+            ],
+        )
 
 
 if __name__ == "__main__":
