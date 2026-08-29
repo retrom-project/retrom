@@ -1,9 +1,9 @@
 const largeFileThresholdBytes = 4 * 1024 * 1024;
 const projectPathPattern = /^\/runtime\/content\/project\/([0-9a-f]{64})\/(.+)$/u;
 
-export function trackRuntimeLoading(page) {
+export function trackRuntimeLoading(page, declaredProjectFiles = []) {
   const responses = [];
-  const indexes = [];
+  const indexes = declaredProjectFiles.length ? [{ files: declaredProjectFiles }] : [];
   const pending = new Set();
   const listener = (response) => {
     if (!trackedUrl(response.url())) {return;}
