@@ -438,7 +438,10 @@ async function waitForKagTransition(canvas, beforeFrame, timeoutMs) {
     if (!observedVisualChange) {
       observedVisualChange = await canvasFrameFingerprint(canvas) !== beforeFrame;
     }
-    if (ready && (observedUnstable || observedVisualChange)) {return;}
+    if (observedUnstable || observedVisualChange) {
+      await waitForKagStable(canvas);
+      return;
+    }
     await canvas.page().waitForTimeout(50);
   }
   throw new Error("KIRIKIRI_ACCEPTANCE_INPUT_TRANSITION_TIMEOUT");

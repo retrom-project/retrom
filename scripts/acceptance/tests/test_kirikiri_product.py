@@ -175,7 +175,7 @@ class KiriKiriProductAcceptanceTests(unittest.TestCase):
             "observedVisualChange = await canvasFrameFingerprint(canvas) !== beforeFrame;",
             contents,
         )
-        self.assertIn("if (ready && (observedUnstable || observedVisualChange))", contents)
+        self.assertIn("if (observedUnstable || observedVisualChange)", contents)
         self.assertIn("_krkr2_host_bookmark_is_ready", contents)
 
     def test_kag_ready_must_remain_continuous_before_the_driver_sends_input(self) -> None:
@@ -184,6 +184,16 @@ class KiriKiriProductAcceptanceTests(unittest.TestCase):
         self.assertIn("let readySince = null;", contents)
         self.assertIn("Date.now() - readySince >= readyStableForMs", contents)
         self.assertIn("readySince = null;", contents)
+
+    def test_started_kag_transition_gets_the_full_runtime_completion_window(self) -> None:
+        contents = DRIVER_PATH.read_text(encoding="utf-8")
+        self.assertIn(
+            "if (observedUnstable || observedVisualChange) {\n"
+            "      await waitForKagStable(canvas);\n"
+            "      return;\n"
+            "    }",
+            contents,
+        )
 
 
 if __name__ == "__main__":
