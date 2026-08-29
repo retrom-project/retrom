@@ -14,7 +14,10 @@ web/features/player/netplay/*
 web/features/player/rpg-runtime/*
 !web/features/player/rpg-runtime/registry.json
 !web/features/player/rpg-runtime/index.ts
-testdata/public-roms
+testdata/public-roms/*
+!testdata/public-roms/arcade-smoke
+testdata/public-roms/arcade-smoke/*
+!testdata/public-roms/arcade-smoke/driver-layouts.json
 data/runtime
 data/auth/password-blocklists/*/payload
 data/dat/emulatorjs/*/licenses
