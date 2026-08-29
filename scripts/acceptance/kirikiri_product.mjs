@@ -49,6 +49,7 @@ try {
 
 async function runProductCase(activeBrowser) {
   const context = await activeBrowser.newContext({ viewport: { width: 1440, height: 1000 } });
+  await installVirtualStandardGamepad(context);
   const browserErrors = { pageErrorCount: 0, consoleErrorCount: 0, dialogCount: 0 };
   try {
     const loginResponse = await context.request.post(`${baseUrl}/api/v1/auth/login`, {
@@ -86,12 +87,30 @@ async function runProductCase(activeBrowser) {
     const previewPage = await trackedPage(context, browserErrors);
     await previewPage.goto(`${baseUrl}${preview.playUrl}`, { waitUntil: "domcontentloaded", timeout: 120_000 });
     const previewCanvas = await runtimeCanvas(previewPage);
-    await advanceKag(previewCanvas);
+    await withStableStage(
+      () => verifyGamepadCancel(previewCanvas), "KIRIKIRI_ACCEPTANCE_GAMEPAD_CANCEL_FAILED",
+    );
+    await withStableStage(() => advanceKag(previewCanvas), "KIRIKIRI_ACCEPTANCE_GAMEPAD_CONFIRM_FAILED");
     await previewPage.getByText("第 5 秒运行截图已保存；可以继续试玩。").waitFor({ timeout: 120_000 });
     const previewFrame = await screenshotEvidence(previewCanvas, "preview.png");
     await previewPage.close();
 
     const approved = await approveReview(client, review.itemId);
+    const immersive = await createLaunch(client, approved.gameId, null);
+    const immersivePage = await trackedPage(context, browserErrors);
+    const immersiveUrl = new URL(`${baseUrl}${immersive.playUrl}`);
+    immersiveUrl.searchParams.set("experience", "immersive");
+    await immersivePage.goto(immersiveUrl.href, { waitUntil: "domcontentloaded", timeout: 120_000 });
+    const immersiveCanvas = await runtimeCanvas(immersivePage);
+    await withStableStage(
+      () => waitForKagStable(immersiveCanvas), "KIRIKIRI_ACCEPTANCE_IMMERSIVE_RUNTIME_NOT_READY",
+    );
+    const immersiveMenu = await withStableStage(
+      () => openImmersiveExitMenu(immersivePage, immersiveCanvas),
+      "KIRIKIRI_ACCEPTANCE_IMMERSIVE_EXIT_MENU_FAILED",
+    );
+    await immersivePage.close();
+
     const original = await createLaunch(client, approved.gameId, null);
     const originalPage = await trackedPage(context, browserErrors);
     await originalPage.goto(`${baseUrl}${original.playUrl}`, { waitUntil: "domcontentloaded", timeout: 120_000 });
@@ -136,8 +155,9 @@ async function runProductCase(activeBrowser) {
       stages: [...kirikiriProductStages],
       ids: {
         importItemId: review.itemId, gameId: approved.gameId, saveStateId: saved.saveStateId,
-        originalLaunchId: original.launchId, restoreLaunchId: restored.launchId,
+        immersiveLaunchId: immersive.launchId, originalLaunchId: original.launchId, restoreLaunchId: restored.launchId,
       },
+      immersiveMenu,
       checkpoint: { payloadKind: saved.payloadKind, sizeBytes: payloadSize },
       screenshots: {
         preview: previewFrame, productBeforeInput: beforeInput, productAfterInput: afterInput,
@@ -149,6 +169,28 @@ async function runProductCase(activeBrowser) {
   } finally {
     await context.close();
   }
+}
+
+async function openImmersiveExitMenu(page, canvas) {
+  await setVirtualGamepadButton(canvas, 8, true);
+  await page.waitForTimeout(50);
+  await setVirtualGamepadButton(canvas, 9, true);
+  await page.waitForTimeout(50);
+  await setVirtualGamepadButton(canvas, 8, false);
+  await setVirtualGamepadButton(canvas, 9, false);
+  await page.waitForTimeout(80);
+  await setVirtualGamepadButton(canvas, 8, true);
+  await page.waitForTimeout(50);
+  await setVirtualGamepadButton(canvas, 9, true);
+  const dialog = page.getByRole("dialog", { name: "游戏菜单", exact: true });
+  await dialog.waitFor({ state: "visible", timeout: 5_000 });
+  await setVirtualGamepadButton(canvas, 8, false);
+  await setVirtualGamepadButton(canvas, 9, false);
+  const actions = ["取消", "创建存档", "退出游戏"];
+  for (const action of actions) {await dialog.getByRole("button", { name: action, exact: true }).waitFor();}
+  const screenshot = "screenshots/immersive-exit-menu.png";
+  await page.screenshot({ path: join(caseDirectory, screenshot), fullPage: true });
+  return { actions, screenshot };
 }
 
 async function kirikiriPlatformInstance(client) {
@@ -240,11 +282,103 @@ async function advanceKag(canvas) {
   await focusRuntimeCanvas(canvas);
   await waitForKagStable(canvas);
   const transition = waitForKagTransition(canvas);
-  const bounds = await canvas.boundingBox();
-  if (!bounds) {throw new Error("KIRIKIRI_ACCEPTANCE_CANVAS_LAYOUT_INVALID");}
-  await canvas.click({ position: { x: bounds.width / 2, y: bounds.height * 0.34 } });
+  await moveVirtualGamepadCursor(canvas, 0.5, 0.34);
+  await setVirtualGamepadButton(canvas, 0, true);
+  await canvas.page().waitForTimeout(100);
+  await setVirtualGamepadButton(canvas, 0, false);
   await transition;
   await canvas.page().waitForTimeout(2_000);
+}
+
+async function verifyGamepadCancel(canvas) {
+  await canvas.evaluate((element) => {
+    element.dataset.retromAcceptanceContextMenu = "";
+    element.ownerDocument.defaultView?.addEventListener("contextmenu", (event) => {
+      event.preventDefault();
+      element.dataset.retromAcceptanceContextMenu = `${event.button}:${event.buttons}`;
+    }, { capture: true, once: true });
+  });
+  await setVirtualGamepadButton(canvas, 1, true);
+  await canvas.page().waitForTimeout(150);
+  await setVirtualGamepadButton(canvas, 1, false);
+  const deadline = Date.now() + 2_000;
+  while (Date.now() < deadline) {
+    const observed = await canvas.evaluate((element) => element.dataset.retromAcceptanceContextMenu);
+    if (observed === "2:0") {return;}
+    await canvas.page().waitForTimeout(25);
+  }
+  throw new Error("KIRIKIRI_ACCEPTANCE_GAMEPAD_CANCEL_FAILED");
+}
+
+async function moveVirtualGamepadCursor(canvas, targetX, targetY) {
+  for (let attempt = 0; attempt < 40; attempt += 1) {
+    const position = await virtualGamepadCursorPosition(canvas);
+    if (position && Math.abs(position.x - targetX) <= 0.015 && Math.abs(position.y - targetY) <= 0.015) {
+      await setVirtualGamepadAxis(canvas, 0, 0);
+      return;
+    }
+    const x = position ? Math.sign(targetX - position.x) : 1;
+    const y = position ? Math.sign(targetY - position.y) : -1;
+    await setVirtualGamepadAxis(canvas, x, y);
+    await canvas.page().waitForTimeout(25);
+  }
+  await setVirtualGamepadAxis(canvas, 0, 0);
+  throw new Error("KIRIKIRI_ACCEPTANCE_GAMEPAD_CURSOR_FAILED");
+}
+
+async function virtualGamepadCursorPosition(canvas) {
+  return canvas.evaluate((element) => {
+    const cursor = element.ownerDocument.querySelector("[data-kirikiri-gamepad-cursor]");
+    const surface = element.closest("[data-kirikiri-runtime-surface]");
+    if (!(cursor instanceof HTMLElement) || !(surface instanceof HTMLElement) || cursor.hidden) {return null;}
+    const cursorRect = cursor.getBoundingClientRect();
+    const canvasRect = element.getBoundingClientRect();
+    return {
+      x: (cursorRect.left + cursorRect.width / 2 - canvasRect.left) / canvasRect.width,
+      y: (cursorRect.top + cursorRect.height / 2 - canvasRect.top) / canvasRect.height,
+    };
+  });
+}
+
+async function setVirtualGamepadAxis(canvas, x, y) {
+  await canvas.evaluate((element, input) => {
+    const controller = element.ownerDocument.defaultView?.__retromTestGamepad;
+    controller?.axis(0, input.x);
+    controller?.axis(1, input.y);
+  }, { x, y });
+}
+
+async function setVirtualGamepadButton(canvas, index, pressed) {
+  await canvas.evaluate((element, input) => {
+    element.ownerDocument.defaultView?.__retromTestGamepad?.button(input.index, input.pressed);
+  }, { index, pressed });
+}
+
+async function installVirtualStandardGamepad(context) {
+  await context.addInitScript(() => {
+    const state = {
+      axes: [0, 0, 0, 0],
+      buttons: Array.from({ length: 17 }, () => ({ pressed: false, touched: false, value: 0 })),
+    };
+    Object.defineProperty(navigator, "getGamepads", {
+      configurable: true,
+      value: () => [{
+        axes: state.axes,
+        buttons: state.buttons,
+        connected: true,
+        id: "Retrom acceptance standard gamepad",
+        index: 0,
+        mapping: "standard",
+        timestamp: performance.now(),
+      }],
+    });
+    globalThis.__retromTestGamepad = {
+      axis(index, value) {state.axes[index] = value;},
+      button(index, pressed) {
+        state.buttons[index] = { pressed, touched: pressed, value: pressed ? 1 : 0 };
+      },
+    };
+  });
 }
 
 async function waitForKagStable(canvas) {
@@ -402,6 +536,15 @@ function requireChanged(before, after, code) {
 
 function requireStatus(actual, expected, code) {
   if (actual !== expected) {throw new Error(code);}
+}
+
+async function withStableStage(action, fallbackCode) {
+  try {
+    return await action();
+  } catch (error) {
+    if (error instanceof Error && /^KIRIKIRI_[A-Z0-9_]+$/.test(error.message)) {throw error;}
+    throw new Error(fallbackCode);
+  }
 }
 
 function responseErrorCode(body) {

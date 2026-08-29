@@ -93,16 +93,56 @@ class KiriKiriProductAcceptanceTests(unittest.TestCase):
 
     def test_smoke_input_targets_the_first_kag_menu_choice(self) -> None:
         contents = DRIVER_PATH.read_text(encoding="utf-8")
-        self.assertIn("y: bounds.height * 0.34", contents)
-        self.assertNotIn("y: bounds.height / 2", contents)
+        self.assertIn("await moveVirtualGamepadCursor(canvas, 0.5, 0.34);", contents)
+        self.assertNotIn("await canvas.click({ position:", contents)
+
+    def test_standard_gamepad_drives_visible_pointer_confirm_and_cancel(self) -> None:
+        contents = DRIVER_PATH.read_text(encoding="utf-8")
+        contract = (ROOT / "scripts/acceptance/kirikiri_product_contract.mjs").read_text(encoding="utf-8")
+        self.assertIn('Object.defineProperty(navigator, "getGamepads"', contents)
+        self.assertIn("globalThis.__retromTestGamepad", contents)
+        self.assertIn("element.ownerDocument.defaultView?.__retromTestGamepad", contents)
+        self.assertIn('[data-kirikiri-gamepad-cursor]', contents)
+        self.assertIn("await setVirtualGamepadButton(canvas, 0, true);", contents)
+        self.assertIn("await setVirtualGamepadButton(canvas, 1, true);", contents)
+        self.assertIn('"standard-gamepad-control"', contract)
+
+    def test_immersive_player_opens_exit_menu_with_double_select_start_chord(self) -> None:
+        contents = DRIVER_PATH.read_text(encoding="utf-8")
+        contract = (ROOT / "scripts/acceptance/kirikiri_product_contract.mjs").read_text(encoding="utf-8")
+        self.assertIn('immersiveUrl.searchParams.set("experience", "immersive");', contents)
+        immersive_start = contents.index('immersiveUrl.searchParams.set("experience", "immersive");')
+        immersive_end = contents.index("await immersivePage.close();", immersive_start)
+        immersive_flow = contents[immersive_start:immersive_end]
+        self.assertIn("() => waitForKagStable(immersiveCanvas)", immersive_flow)
+        self.assertNotIn("waitForProductReady(immersivePage)", immersive_flow)
+        self.assertIn("KIRIKIRI_ACCEPTANCE_IMMERSIVE_RUNTIME_NOT_READY", immersive_flow)
+        self.assertIn("KIRIKIRI_ACCEPTANCE_IMMERSIVE_EXIT_MENU_FAILED", immersive_flow)
+        self.assertEqual(contents.count("await setVirtualGamepadButton(canvas, 8, true);"), 2)
+        self.assertEqual(contents.count("await setVirtualGamepadButton(canvas, 9, true);"), 2)
+        self.assertIn('page.getByRole("dialog", { name: "游戏菜单", exact: true })', contents)
+        self.assertNotIn('name: /kirikiri|KAG fixture/iu', contents)
+        self.assertIn('["取消", "创建存档", "退出游戏"]', contents)
+        self.assertIn('"immersive-exit-menu"', contract)
+        self.assertIn('"immersiveLaunchId"', contract)
+
+    def test_gamepad_cancel_probe_is_bounded_and_does_not_leave_a_page_promise(self) -> None:
+        contents = DRIVER_PATH.read_text(encoding="utf-8")
+        self.assertIn('element.dataset.retromAcceptanceContextMenu = `${event.button}:${event.buttons}`;', contents)
+        self.assertIn('element.ownerDocument.defaultView?.addEventListener("contextmenu"', contents)
+        self.assertIn("{ capture: true, once: true }", contents)
+        self.assertIn("const deadline = Date.now() + 2_000;", contents)
+        self.assertNotIn('new Promise((resolvePromise) => {\n    element.addEventListener("contextmenu"', contents)
+        self.assertIn('"KIRIKIRI_ACCEPTANCE_GAMEPAD_CANCEL_FAILED"', contents)
+        self.assertIn('"KIRIKIRI_ACCEPTANCE_GAMEPAD_CONFIRM_FAILED"', contents)
 
     def test_input_waits_for_kag_to_leave_and_reenter_a_stable_save_point(self) -> None:
         contents = DRIVER_PATH.read_text(encoding="utf-8")
         self.assertIn("await waitForKagStable(canvas);", contents)
         self.assertIn("const transition = waitForKagTransition(canvas);", contents)
         self.assertIn("await transition;", contents)
-        self.assertIn("const bounds = await canvas.boundingBox();", contents)
-        self.assertIn("await canvas.click({ position:", contents)
+        self.assertIn("await moveVirtualGamepadCursor(canvas, 0.5, 0.34);", contents)
+        self.assertIn("await setVirtualGamepadButton(canvas, 0, false);", contents)
         self.assertNotIn("page.keyboard.press", contents)
         self.assertIn("observedUnstable = true;", contents)
         self.assertIn("if (observedUnstable && ready)", contents)

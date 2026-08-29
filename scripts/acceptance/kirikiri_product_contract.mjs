@@ -1,12 +1,12 @@
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 
 export const kirikiriProductStages = [
-  "imported", "preview-visible", "preview-captured", "published", "product-a-to-b",
-  "checkpoint-at-b", "product-c", "different-launch-restored-to-b", "post-restore-input",
+  "imported", "preview-visible", "standard-gamepad-control", "preview-captured", "published", "product-a-to-b",
+  "immersive-exit-menu", "checkpoint-at-b", "product-c", "different-launch-restored-to-b", "post-restore-input",
 ];
 
 export function assertKiriKiriProductEvidence(value) {
-  if (!exactRecord(value, ["browser", "caseId", "checkpoint", "ids", "schemaVersion", "screenshots", "stages", "status"]) ||
+  if (!exactRecord(value, ["browser", "caseId", "checkpoint", "ids", "immersiveMenu", "schemaVersion", "screenshots", "stages", "status"]) ||
       value.schemaVersion !== 1 || value.caseId !== "ACC-KIRIKIRI-001" || value.status !== "PASS" ||
       JSON.stringify(value.stages) !== JSON.stringify(kirikiriProductStages)) {
     throw new Error("KIRIKIRI_ACCEPTANCE_EVIDENCE_INVALID");
@@ -14,13 +14,22 @@ export function assertKiriKiriProductEvidence(value) {
   assertIds(value.ids);
   assertCheckpoint(value.checkpoint);
   assertBrowser(value.browser);
+  assertImmersiveMenu(value.immersiveMenu);
   assertScreenshots(value.screenshots);
 }
 
 function assertIds(value) {
-  const keys = ["gameId", "importItemId", "originalLaunchId", "restoreLaunchId", "saveStateId"];
+  const keys = ["gameId", "immersiveLaunchId", "importItemId", "originalLaunchId", "restoreLaunchId", "saveStateId"];
   if (!exactRecord(value, keys) || !keys.every((key) => uuidPattern.test(value[key])) ||
-      value.originalLaunchId === value.restoreLaunchId) {
+      new Set([value.immersiveLaunchId, value.originalLaunchId, value.restoreLaunchId]).size !== 3) {
+    throw new Error("KIRIKIRI_ACCEPTANCE_EVIDENCE_INVALID");
+  }
+}
+
+function assertImmersiveMenu(value) {
+  if (!exactRecord(value, ["actions", "screenshot"]) ||
+      JSON.stringify(value.actions) !== JSON.stringify(["取消", "创建存档", "退出游戏"]) ||
+      value.screenshot !== "screenshots/immersive-exit-menu.png") {
     throw new Error("KIRIKIRI_ACCEPTANCE_EVIDENCE_INVALID");
   }
 }
