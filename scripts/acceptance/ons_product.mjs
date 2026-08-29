@@ -6,6 +6,7 @@ import { join, resolve } from "node:path";
 import { chromium } from "../../web/node_modules/playwright/index.mjs";
 
 import { assertOnsProductEvidence, onsProductStages } from "./ons_product_contract.mjs";
+import { localRpgAcceptanceProxy } from "./rpgmaker_local_proxy.mjs";
 import { createProductClient, singleFile } from "./rpgmaker_security_upload.mjs";
 import { isLocalAcceptanceHostname } from "./rpgmaker_url.mjs";
 import { trackRuntimeLoading } from "./runtime_loading_evidence.mjs";
@@ -28,6 +29,7 @@ if (missing.length) {
 const baseUrl = normalizedBaseUrl(process.env.RETROM_ACCEPTANCE_BASE_URL);
 const screenshotsDirectory = join(caseDirectory, "screenshots");
 mkdirSync(screenshotsDirectory, { recursive: true });
+const localProxy = await localRpgAcceptanceProxy(baseUrl);
 
 let browser;
 try {
@@ -43,10 +45,14 @@ try {
   process.exitCode = 1;
 } finally {
   await browser?.close();
+  await localProxy.close();
 }
 
 async function runProductCase(activeBrowser) {
-  const context = await activeBrowser.newContext({ viewport: { width: 1440, height: 1000 } });
+  const context = await activeBrowser.newContext({
+    viewport: { width: 1440, height: 1000 },
+    ...localProxy.contextOptions,
+  });
   const browserErrors = { pageErrorCount: 0, consoleErrorCount: 0, dialogCount: 0 };
   try {
     const loginResponse = await context.request.post(`${baseUrl}/api/v1/auth/login`, {

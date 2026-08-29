@@ -54,6 +54,16 @@ class KiriKiriProductAcceptanceTests(unittest.TestCase):
         self.assertIn('value.rangeProjectFileResponseCount < 1', contract)
         self.assertIn('requireCacheHit && value.runtimeAssetCacheHitCount < 1', contract)
 
+    def test_local_acceptance_routes_rpg_subdomains_through_the_loopback_proxy(self) -> None:
+        contents = DRIVER_PATH.read_text(encoding="utf-8")
+        self.assertIn(
+            'import { localRpgAcceptanceProxy } from "./rpgmaker_local_proxy.mjs";',
+            contents,
+        )
+        self.assertIn("const localProxy = await localRpgAcceptanceProxy(baseUrl);", contents)
+        self.assertIn("...localProxy.contextOptions", contents)
+        self.assertIn("await localProxy.close();", contents)
+
     def test_encrypted_operator_archive_is_blocked_instead_of_core_failure(self) -> None:
         contents = DRIVER_PATH.read_text(encoding="utf-8")
         self.assertIn('class AcceptanceBlocked extends Error', contents)
