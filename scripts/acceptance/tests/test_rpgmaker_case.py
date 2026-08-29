@@ -518,13 +518,20 @@ class EvidenceContractTests(unittest.TestCase):
         generation_source = source[
             source.index("async function generationCase"):source.index("async function approvedReview")
         ]
-        self.assertIn("const loadingProbe = trackRuntimeLoading(page)", generation_source)
+        self.assertIn(
+            "const projectDeclarations = projectLoadingDeclarations(config.adapter)",
+            generation_source,
+        )
+        self.assertIn(
+            "const loadingProbe = trackRuntimeLoading(page, projectDeclarations)",
+            generation_source,
+        )
         self.assertLess(
-            generation_source.index("const loadingProbe = trackRuntimeLoading(page)"),
+            generation_source.index("const loadingProbe = trackRuntimeLoading(page, projectDeclarations)"),
             generation_source.index("await page.goto"),
         )
         self.assertIn("await loadingProbe.snapshot()", generation_source)
-        self.assertIn("trackRuntimeLoading(cachePage)", source)
+        self.assertIn("trackRuntimeLoading(cachePage, projectDeclarations)", source)
         self.assertIn("cacheLaunchId: cacheLaunch.launchId", source)
         self.assertIn("sameProjectContentIdentity,", source)
         loading_source = (MODULE_PATH.parent / "runtime_loading_evidence.mjs").read_text()

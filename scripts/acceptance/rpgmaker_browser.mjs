@@ -152,8 +152,9 @@ async function generationCase(context, writeHeaders) {
   if (!/^\/play\/[0-9a-f-]{36}$/.test(launch.playUrl ?? "")) {
     throw new Error("RPG_ACCEPTANCE_PRODUCT_PLAY_URL_INVALID");
   }
+  const projectDeclarations = projectLoadingDeclarations(config.adapter);
   const page = await context.newPage();
-  const loadingProbe = trackRuntimeLoading(page);
+  const loadingProbe = trackRuntimeLoading(page, projectDeclarations);
   const pageErrors = [];
   const runtimeExceptions = [];
   const dialogs = [];
@@ -221,7 +222,7 @@ async function generationCase(context, writeHeaders) {
     dialogs.push(dialog.message().slice(0, 400));
     await dialog.dismiss();
   });
-  const cacheLoadingProbe = trackRuntimeLoading(cachePage);
+  const cacheLoadingProbe = trackRuntimeLoading(cachePage, projectDeclarations);
   await cachePage.goto(`${baseUrl}${cacheLaunch.playUrl}`, { waitUntil: "domcontentloaded" });
   await waitForProductSaveAvailability(cachePage, pageErrors, runtimeExceptions, dialogs, caseId);
   const cacheVisibleLoading = await cacheLoadingProbe.snapshot();
@@ -267,6 +268,18 @@ async function generationCase(context, writeHeaders) {
       `screenshots/${caseId.toLowerCase()}-product-player.png`,
     ],
   };
+}
+
+function projectLoadingDeclarations(adapter) {
+  if (adapter?.adapterKind !== "MKXP_LIBRETRO_WEB") {return [];}
+  const sources = [adapter.projectArchive, ...array(adapter.rtpArchives)];
+  return sources.map((source) => {
+    if (source?.kind !== "SEEKABLE_BLOB_V1" || source.rangeRequired !== true ||
+      !Number.isSafeInteger(source.sizeBytes) || source.sizeBytes < 1 || typeof source.url !== "string") {
+      throw new Error("RPG_ACCEPTANCE_RUNTIME_LOADING_CONFIG_INVALID");
+    }
+    return { sizeBytes: source.sizeBytes, url: new URL(source.url, baseUrl).href };
+  });
 }
 
 async function waitForProductSaveAvailability(page, pageErrors, runtimeExceptions, dialogs, caseId) {
