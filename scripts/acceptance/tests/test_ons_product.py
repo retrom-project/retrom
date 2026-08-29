@@ -56,6 +56,16 @@ class ONSProductAcceptanceTests(unittest.TestCase):
         self.assertIn('import { isLocalAcceptanceHostname } from "./rpgmaker_url.mjs";', contents)
         self.assertIn('url.protocol !== "http:" || !isLocalAcceptanceHostname(url.hostname)', contents)
 
+    def test_local_acceptance_routes_rpg_subdomains_through_the_loopback_proxy(self) -> None:
+        contents = DRIVER_PATH.read_text(encoding="utf-8")
+        self.assertIn(
+            'import { localRpgAcceptanceProxy } from "./rpgmaker_local_proxy.mjs";',
+            contents,
+        )
+        self.assertIn("const localProxy = await localRpgAcceptanceProxy(baseUrl);", contents)
+        self.assertIn("...localProxy.contextOptions", contents)
+        self.assertIn("await localProxy.close();", contents)
+
     def test_driver_requires_the_sdl_backing_buffer_and_centered_focused_surface(self) -> None:
         contents = DRIVER_PATH.read_text(encoding="utf-8")
         for contract in (
