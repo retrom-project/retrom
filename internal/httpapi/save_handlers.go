@@ -49,9 +49,12 @@ func parseSaveListFilters(values url.Values, principal authn.Principal) (saveLis
 	}
 	switch filters.Availability {
 	case "AVAILABLE":
-		filters.Conditions = append(filters.Conditions, "g.status='PUBLISHED'")
+		filters.Conditions = append(filters.Conditions, "g.status='PUBLISHED'", "runtime_compatibility.status='AVAILABLE'")
 	case "BLOCKED":
-		filters.Conditions = append(filters.Conditions, "g.status!='PUBLISHED'")
+		filters.Conditions = append(
+			filters.Conditions,
+			"(g.status!='PUBLISHED' OR runtime_compatibility.status!='AVAILABLE')",
+		)
 	case "ALL":
 	default:
 		return saveListFilters{}, fmt.Errorf("%w: availability", errUnknownQuery)
@@ -84,6 +87,63 @@ func (server *Server) applySaveCursor(values url.Values, filters *saveListFilter
 	filters.Conditions = append(filters.Conditions, "(s.created_at_ms<? OR (s.created_at_ms=? AND s.id<?))")
 	filters.Arguments = append(filters.Arguments, createdAt, createdAt, payload.ID)
 	return nil
+}
+
+type saveListRow struct {
+	id, gameID, gameTitle, name, coreID, coreName, gameStatus string
+	platformID, platformName, instanceID, instanceName        string
+	compatibilityStatus                                       string
+	version, createdAtMS, activeDurationMS                    int64
+	hasScreenshot                                             bool
+	discIndex                                                 sql.NullInt64
+}
+
+func scanSaveListRows(rows *sql.Rows, capacity int) ([]map[string]any, error) {
+	items := make([]map[string]any, 0, capacity)
+	for rows.Next() {
+		var row saveListRow
+		if err := rows.Scan(
+			&row.id, &row.gameID, &row.gameTitle, &row.name, &row.version,
+			&row.createdAtMS, &row.activeDurationMS, &row.coreID, &row.coreName,
+			&row.gameStatus, &row.platformID, &row.platformName, &row.instanceID,
+			&row.instanceName, &row.discIndex, &row.hasScreenshot, &row.compatibilityStatus,
+		); err != nil {
+			return nil, fmt.Errorf("scan save list row: %w", err)
+		}
+		items = append(items, row.projection())
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate save list rows: %w", err)
+	}
+	return items, nil
+}
+
+func (row saveListRow) projection() map[string]any {
+	reasons := []any{}
+	switch row.compatibilityStatus {
+	case "INCOMPATIBLE_RUNTIME":
+		reasons = append(reasons, map[string]any{"code": "SAVE_RUNTIME_INCOMPATIBLE"})
+	case "CORE_UNAVAILABLE":
+		reasons = append(reasons, map[string]any{"code": "SAVE_CORE_UNAVAILABLE"})
+	}
+	available := row.gameStatus == "PUBLISHED" && row.compatibilityStatus == "AVAILABLE"
+	return map[string]any{
+		"saveStateId": row.id, "gameId": row.gameID, "gameTitle": row.gameTitle,
+		"name": row.name, "version": row.version, "createdAtMs": row.createdAtMS,
+		"discIndex": nullableInteger(row.discIndex), "discLabel": discLabel(row.discIndex),
+		"activeDurationMs": row.activeDurationMS,
+		"screenshotUrl":    optionalSaveScreenshotURL(row.id, row.hasScreenshot),
+		"core":             map[string]any{"id": row.coreID, "name": row.coreName},
+		"platformId":       row.platformID,
+		"platform":         map[string]any{"id": row.platformID, "name": row.platformName},
+		"platformInstance": map[string]any{
+			"id": row.instanceID, "name": row.instanceName,
+		},
+		"availability": map[string]any{
+			"status":  map[bool]string{true: "AVAILABLE", false: "BLOCKED"}[available],
+			"reasons": reasons,
+		},
+	}
 }
 
 // Query projection stays contiguous with pagination assembly.
@@ -120,8 +180,11 @@ p.name,
 pi.id,
 pi.name,
 s.disc_index,
-s.screenshot_blob_id IS NOT NULL
+s.screenshot_blob_id IS NOT NULL,
+runtime_compatibility.status
 FROM save_states s
+JOIN save_state_runtime_compatibility runtime_compatibility
+  ON runtime_compatibility.save_state_id=s.id
 JOIN games g ON g.id=s.game_id
 JOIN game_metadata_revisions m ON m.id=g.current_metadata_revision_id
 JOIN core_artifacts a ON a.id=s.core_artifact_id
@@ -139,51 +202,8 @@ JOIN platforms p ON p.id=pi.platform_id
 		return
 	}
 	defer func() { cleanup.Error("close", rows.Close()) }()
-	items := make([]map[string]any, 0, limit+1)
-	for rows.Next() {
-		var id, gameID, gameTitle, name, coreID, coreName, gameStatus string
-		var platformID, platformName, instanceID, instanceName string
-		var version, createdAtMS, activeDurationMS int64
-		var hasScreenshot bool
-		var discIndex sql.NullInt64
-		if err := rows.Scan(
-			&id,
-			&gameID,
-			&gameTitle,
-			&name,
-			&version,
-			&createdAtMS,
-			&activeDurationMS,
-			&coreID,
-			&coreName,
-			&gameStatus,
-			&platformID,
-			&platformName,
-			&instanceID,
-			&instanceName,
-			&discIndex,
-			&hasScreenshot,
-		); err != nil {
-			server.databaseError(writer, request, err)
-			return
-		}
-		items = append(items, map[string]any{
-			"saveStateId": id, "gameId": gameID, "gameTitle": gameTitle,
-			"name": name, "version": version, "createdAtMs": createdAtMS,
-			"discIndex": nullableInteger(discIndex), "discLabel": discLabel(discIndex),
-			"activeDurationMs": activeDurationMS, "screenshotUrl": optionalSaveScreenshotURL(id, hasScreenshot),
-			"core": map[string]any{
-				"id":   coreID,
-				"name": coreName,
-			}, "platformId": platformID, "platform": map[string]any{"id": platformID, "name": platformName},
-			"platformInstance": map[string]any{"id": instanceID, "name": instanceName},
-			"availability": map[string]any{
-				"status":  map[bool]string{true: "AVAILABLE", false: "BLOCKED"}[gameStatus == "PUBLISHED"],
-				"reasons": []any{},
-			},
-		})
-	}
-	if err := rows.Err(); err != nil {
+	items, err := scanSaveListRows(rows, limit+1)
+	if err != nil {
 		server.databaseError(writer, request, err)
 		return
 	}

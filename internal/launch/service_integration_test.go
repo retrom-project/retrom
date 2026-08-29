@@ -228,7 +228,7 @@ SELECT state,error_code FROM jobs WHERE id=?
 	var lockedAdapterABI, lockedDependencyJSON string
 	if err := database.SQL.QueryRowContext(ctx, `
 SELECT launch.game_content_revision_id,launch.game_variant_revision_id,launch.core_artifact_id,
- artifact.adapter_id,revision.dependency_snapshot_json
+ json_extract(artifact.compatibility_json,'$.adapterAbi'),revision.dependency_snapshot_json
 FROM launch_sessions launch
 JOIN core_artifacts artifact ON artifact.id=launch.core_artifact_id
 JOIN game_variant_revisions revision ON revision.id=launch.game_variant_revision_id
@@ -249,6 +249,7 @@ game_content_revision_id,
 game_variant_revision_id,
 core_artifact_id,
 adapter_abi,
+save_abi,
 dependency_snapshot_sha256,
 payload_blob_id,
 payload_kind,
@@ -262,6 +263,7 @@ version,
 created_at_ms,
 updated_at_ms) VALUES(?,
 'local',
+?,
 ?,
 ?,
 ?,
@@ -285,6 +287,7 @@ updated_at_ms) VALUES(?,
 		lockedContentRevisionID,
 		lockedVariantRevisionID,
 		lockedArtifactID,
+		lockedAdapterABI,
 		lockedAdapterABI,
 		hex.EncodeToString(lockedDependencyDigest[:]),
 		firmwareBlobID,

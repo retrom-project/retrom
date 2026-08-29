@@ -137,10 +137,12 @@ normalized_path
 	var saveStateCount int64
 	if err := server.database.QueryRowContext(request.Context(), `
 SELECT count(*)
-FROM save_states
-WHERE game_id=?
-AND profile_id=?
-AND deleted_at_ms IS NULL
+FROM save_states save
+JOIN save_state_runtime_compatibility compatibility
+  ON compatibility.save_state_id=save.id AND compatibility.status='AVAILABLE'
+WHERE save.game_id=?
+AND save.profile_id=?
+AND save.deleted_at_ms IS NULL
 `, gameID, principal.ProfileID).Scan(&saveStateCount); err != nil {
 		server.databaseError(writer, request, err)
 		return
@@ -184,6 +186,8 @@ s.disc_index
 FROM save_states s
 JOIN core_artifacts a ON a.id=s.core_artifact_id
 JOIN cores c ON c.id=a.core_id
+JOIN save_state_runtime_compatibility compatibility
+  ON compatibility.save_state_id=s.id AND compatibility.status='AVAILABLE'
 WHERE s.game_id=?
 AND s.profile_id=?
 AND s.deleted_at_ms IS NULL

@@ -10,6 +10,7 @@ import (
 	"database/sql"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"mime/multipart"
 	"net/http"
@@ -138,9 +139,38 @@ WHERE game.id=?
 		contentKind != onsProjectFormat || compatibilityCode != reviewScreenshotOverrideCode {
 		t.Fatalf("published ONS = %s/%s, %v", contentKind, compatibilityCode, err)
 	}
+	assertONSGameCompatibilityUpgradeGuard(t, ctx, database.SQL, dependencySet)
 	assertONSProductRoundTrip(
 		t, ctx, service, database.SQL, blobs, credentials, approved.GameID, pngBody,
 	)
+}
+
+func assertONSGameCompatibilityUpgradeGuard(
+	t *testing.T,
+	ctx context.Context,
+	database *sql.DB,
+	set *dependencies.Set,
+) {
+	t.Helper()
+	changed := *set
+	rpgMaker := *set.RPGMaker
+	rpgMaker.Manifest.Artifacts = append([]dependencies.RPGMakerArtifact(nil), set.RPGMaker.Manifest.Artifacts...)
+	for index := range rpgMaker.Manifest.Artifacts {
+		artifact := &rpgMaker.Manifest.Artifacts[index]
+		if artifact.CoreID != "onscripter_yuri" {
+			continue
+		}
+		var compatibility map[string]any
+		if err := json.Unmarshal(artifact.Compatibility, &compatibility); err != nil {
+			t.Fatal(err)
+		}
+		compatibility["gameCompatibilityLine"] = "onscripter-yuri-v2"
+		artifact.Compatibility, _ = json.Marshal(compatibility)
+	}
+	changed.RPGMaker = &rpgMaker
+	if err := changed.Bootstrap(ctx, database, time.Now()); !errors.Is(err, dependencies.ErrInvalid) {
+		t.Fatalf("breaking ONS game compatibility bootstrap error = %v, want %v", err, dependencies.ErrInvalid)
+	}
 }
 
 func assertONSProductRoundTrip(
@@ -184,6 +214,35 @@ func assertONSProductRoundTrip(
 		result.NativeProfile != nil || result.ResumeSlot != nil {
 		t.Fatalf("CreateManual(ONS) = %#v, replayed=%v, err=%v", result, replayed, err)
 	}
+	var originalArtifactID, adapterABI, saveABI string
+	if err := database.QueryRowContext(ctx, `
+SELECT launch.core_artifact_id,save.adapter_abi,save.save_abi
+FROM launch_sessions launch
+JOIN save_states save ON save.source_launch_session_id=launch.id
+WHERE launch.id=? AND save.id=?
+`, created.LaunchID, result.SaveStateID).Scan(&originalArtifactID, &adapterABI, &saveABI); err != nil ||
+		adapterABI != "ons-save" || saveABI != "ons-save-v1" {
+		t.Fatalf("original ONS save binding = %s/%s/%s, error=%v", originalArtifactID, adapterABI, saveABI, err)
+	}
+	const compatibleArtifactID = "01980000-0000-7000-8000-000000009995"
+	replaceONSRuntimeArtifact(
+		t, ctx, database, originalArtifactID, compatibleArtifactID,
+		"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+		"ons-save-v2", []string{"ons-save-v1", "ons-save-v2"},
+	)
+	current, err := service.Create(ctx, "ons-preview-profile", CreateRequest{
+		GameID: gameID, ReturnTo: "/games/" + gameID,
+		ClientCapabilities: Capabilities{SecureContext: true},
+	})
+	if err != nil {
+		selection, selectionErr := service.selectCurrentLaunchVariant(
+			ctx, "ons-preview-profile", CreateRequest{GameID: gameID}, "",
+		)
+		preparation, preparationErr := service.prepareONSLaunch(ctx, selection.selection)
+		t.Fatalf("Create(ONS after compatible upgrade) error = %v, selection=%#v/%v preparation=%#v/%v",
+			err, selection, selectionErr, preparation, preparationErr)
+	}
+	assertLaunchArtifact(t, ctx, database, current.LaunchID, compatibleArtifactID)
 	restored, err := service.Create(ctx, "ons-preview-profile", CreateRequest{
 		GameID: gameID, SaveStateID: &result.SaveStateID, ReturnTo: "/games/" + gameID,
 		ClientCapabilities: Capabilities{SecureContext: true},
@@ -201,6 +260,105 @@ func assertONSProductRoundTrip(
 	expected := sha256.Sum256(checkpoint)
 	if err != nil || digest != fmt.Sprintf("%x", expected) {
 		t.Fatalf("StateDigest(ONS restore) = %s, %v", digest, err)
+	}
+	assertLaunchArtifact(t, ctx, database, restored.LaunchID, compatibleArtifactID)
+
+	const incompatibleArtifactID = "01980000-0000-7000-8000-000000009996"
+	replaceONSRuntimeArtifact(
+		t, ctx, database, compatibleArtifactID, incompatibleArtifactID,
+		"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+		"ons-save-v3", []string{"ons-save-v3"},
+	)
+	current, err = service.Create(ctx, "ons-preview-profile", CreateRequest{
+		GameID: gameID, ReturnTo: "/games/" + gameID,
+		ClientCapabilities: Capabilities{SecureContext: true},
+	})
+	if err != nil {
+		t.Fatalf("Create(ONS after incompatible save upgrade) error = %v", err)
+	}
+	assertLaunchArtifact(t, ctx, database, current.LaunchID, incompatibleArtifactID)
+	var launchCount int
+	if err := database.QueryRowContext(ctx, `SELECT count(*) FROM launch_sessions`).Scan(&launchCount); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.Create(ctx, "ons-preview-profile", CreateRequest{
+		GameID: gameID, SaveStateID: &result.SaveStateID, ReturnTo: "/games/" + gameID,
+		ClientCapabilities: Capabilities{SecureContext: true},
+	}); !errors.Is(err, ErrSaveIncompatible) {
+		t.Fatalf("Create(ONS incompatible restore) error = %v, want %v", err, ErrSaveIncompatible)
+	}
+	var launchCountAfter int
+	var compatibilityStatus string
+	if err := database.QueryRowContext(ctx, `SELECT count(*) FROM launch_sessions`).Scan(&launchCountAfter); err != nil {
+		t.Fatal(err)
+	}
+	if err := database.QueryRowContext(ctx, `
+SELECT status FROM save_state_runtime_compatibility WHERE save_state_id=?
+`, result.SaveStateID).Scan(&compatibilityStatus); err != nil || launchCountAfter != launchCount ||
+		compatibilityStatus != "INCOMPATIBLE_RUNTIME" {
+		t.Fatalf("incompatible ONS save = launches:%d/%d status:%s error=%v",
+			launchCount, launchCountAfter, compatibilityStatus, err)
+	}
+}
+
+func replaceONSRuntimeArtifact(
+	t *testing.T,
+	ctx context.Context,
+	database *sql.DB,
+	sourceID, artifactID, artifactSetSHA256, saveABI string,
+	readableSaveABIs []string,
+) {
+	t.Helper()
+	compatibility, err := json.Marshal(map[string]any{
+		"adapterAbi": "ons-save", "checkpointSlot": 999,
+		"gameCompatibilityLine": "onscripter-yuri-v1",
+		"jsPath":                "onsyuri.js", "readableSaveAbis": readableSaveABIs,
+		"saveAbi": saveABI, "wasmPath": "onsyuri.wasm",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	transaction, err := database.BeginTx(ctx, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer cleanup.Rollback(transaction)
+	if _, err := transaction.ExecContext(ctx, `
+UPDATE core_artifacts
+SET selected_for_new_bindings=0,available_for_launch=0,version=version+1,updated_at_ms=updated_at_ms+1
+WHERE core_id='onscripter_yuri' AND selected_for_new_bindings=1
+`); err != nil {
+		t.Fatalf("retire prior ONS runtime: %v", err)
+	}
+	if _, err := transaction.ExecContext(ctx, `
+INSERT INTO core_artifacts(
+ id,core_id,route_key,runtime_family,runtime_adapter_kind,runtime_version,adapter_id,
+ entry_path,size_bytes,sha256,manifest_sha256,artifact_set_sha256,requires_threads,
+ save_payload_kind,save_max_bytes,provenance_json,compatibility_json,
+ selected_for_new_bindings,available_for_launch,version,created_at_ms,updated_at_ms)
+SELECT ?,core_id,route_key,runtime_family,runtime_adapter_kind,runtime_version,adapter_id,
+ entry_path,size_bytes,sha256,manifest_sha256,?,requires_threads,
+ save_payload_kind,save_max_bytes,provenance_json,?,1,1,1,created_at_ms,updated_at_ms+1
+FROM core_artifacts WHERE id=?
+`, artifactID, artifactSetSHA256, string(compatibility), sourceID); err != nil {
+		t.Fatalf("insert replacement ONS runtime: %v", err)
+	}
+	if err := transaction.Commit(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func assertLaunchArtifact(
+	t *testing.T,
+	ctx context.Context,
+	database *sql.DB,
+	launchID, expectedArtifactID string,
+) {
+	t.Helper()
+	var artifactID string
+	if err := database.QueryRowContext(ctx, `SELECT core_artifact_id FROM launch_sessions WHERE id=?`, launchID).
+		Scan(&artifactID); err != nil || artifactID != expectedArtifactID {
+		t.Fatalf("launch artifact = %s, want %s, error=%v", artifactID, expectedArtifactID, err)
 	}
 }
 

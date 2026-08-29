@@ -507,7 +507,7 @@ make acceptance-case CASE=<case-id>
 - 上限：180 秒。
 - 执行：`make acceptance-case CASE=ACC-GAME-002`。
 - 流程：为当前 `fceumm` revision 创建一份带截图存档和活动 Launch；创建 COMPLETE UploadSession 后调用内容 revision endpoint。先分别提交 byte-identical ROM 和损坏输入，再用不同内容执行成功替换，并在另一次运行中于验证与提交之间改变目录默认 core/version，确认 retryable conflict。比较 Upload consumption、GameContentRevision/ContentFiles、各 Core VariantRevision、两个 current pointer、存档、Launch/Netplay 与 GC 候选。多盘分支先提交相同盘序/Disc hash，再用一盘不变一盘变化、最后多盘同时变化的完整目录重复验证。RPG Maker 分支先发布固定 RPG2000 项目，再依次提交同世代但不同 filesDigest 的完整目录、固定 RPG2003 目录和依赖声明变化的 RPG2000 目录。
-- 通过标准：创建 Job 与 whole-session consumption 原子且同一 Upload 不能再被 Import/Asset 使用；相同单 ROM 或完全相同多盘以不可重试 `GAME_CONTENT_UNCHANGED` 结束并释放 consumption，不改变 current、不创建 revision、不删除存档。损坏输入和快照竞态同样不改变 current 或存档；仍可重试的失败保留输入引用。只有不同的新内容 READY 且最新快照一致时才原子创建新的 GameContentRevision 和默认 core VariantRevision、切换 Game content 与该 Variant current；旧 Content/Variant revision 行继续可审计，但旧 ContentFile/VariantFile、Launch payload 和绑定存档已删除，活动 Launch/Play 被撤销且 Netplay 以 `GAME_CONTENT_REPLACED` 结束，独占旧 Blob 进入 GC 候选，共享未变光盘仍由新 current 保护。RPG Maker 同世代替换保留当前内部 core/artifact/route/adapter ABI、重新生成派生运行文件，且新 `runtime_validation_id` 为空；RPG2000→RPG2003 以不可重试 `RPG_REPLACEMENT_GENERATION_MISMATCH` 拒绝，依赖声明变化以不可重试 `RPG_REPLACEMENT_DEPENDENCIES_CHANGED` 拒绝，两者均不得创建 revision、切 current 或删除存档。其他 core 对新内容显示 `NEEDS_VALIDATION`，新普通启动只使用新 revision。
+- 通过标准：创建 Job 与 whole-session consumption 原子且同一 Upload 不能再被 Import/Asset 使用；相同单 ROM 或完全相同多盘以不可重试 `GAME_CONTENT_UNCHANGED` 结束并释放 consumption，不改变 current、不创建 revision、不删除存档。损坏输入和快照竞态同样不改变 current 或存档；仍可重试的失败保留输入引用。只有不同的新内容 READY 且最新快照一致时才原子创建新的 GameContentRevision 和默认 core VariantRevision、切换 Game content 与该 Variant current；旧 Content/Variant revision 行继续可审计，但旧 ContentFile/VariantFile、Launch payload 和绑定存档已删除，活动 Launch/Play 被撤销且 Netplay 以 `GAME_CONTENT_REPLACED` 结束，独占旧 Blob 进入 GC 候选，共享未变光盘仍由新 current 保护。RPG Maker 同世代替换保留内部 core/route/逻辑游戏兼容线和运行依赖，使用该线当前 selected artifact/adapter ABI 重新生成派生运行文件，且新 `runtime_validation_id` 为空；旧 artifact 已退役也不能阻断替换。RPG2000→RPG2003 以不可重试 `RPG_REPLACEMENT_GENERATION_MISMATCH` 拒绝，依赖声明变化以不可重试 `RPG_REPLACEMENT_DEPENDENCIES_CHANGED` 拒绝，两者均不得创建 revision、切 current 或删除存档。其他 core 对新内容显示 `NEEDS_VALIDATION`，新普通启动只使用新 revision。
 - 证据：单 ROM与多盘上传/Job 结果、原始/派生 hash、Content/Variant revision 链、Upload/Blob/GC 引用、存档与运行终止状态、快照冲突事件和兼容诊断。
 
 ### ACC-GAME-003：永久删除、版本保护与墓碑关系
@@ -1659,107 +1659,15 @@ Review 与所需 validation Launch。`negative-matrix/matrix.json` 必须精确�
 - 通过标准：越权操作均被 browser/NG/Go 组合边界阻止，runtime Host 不接受 app session/API/HTML fallback，bootstrap GET 是唯一无凭据 GET 且 ticket 一次消费，CSP 含 `base-uri 'self'`；合法 bridge/render/save 仍成功。
 - 证据：必须恰有一份 MV 与一份 MZ harness；两个 origin 的 CSP/cookie/Host/network/navigation/service-worker 记录、同 ticket 重放 410、已认证 capability reload 303→entry、MV/MZ 各自冻结的 route/artifact/adapter、14 gate、不同 Launch checkpoint 与独立 original/restore 截图；四个 original/restore Launch ID 必须全局不同，两个世代的截图文件名不得复用或互相覆盖。不得记录 bootstrap ticket 或 runtime capability。缺少 Chrome 输入时 runner 必须在启动浏览器前以 `BLOCKED` 结束。
 
-### ACC-RPG-012：构件与恢复兼容
+### ACC-RPG-012：前向运行时升级与存档兼容
 
-- 当前状态：`BLOCKED`。首个干净 `retrom-runtime` 稳定 tag 只登记七条当前 route，不预建历史构件；只有未来出现第二个已完成七核心产品验证的稳定 tag 后，才允许按本节重新核对并启用 previous/next Release 流程。当前执行 `make acceptance-case CASE=ACC-RPG-012` 必须在读取数据库或启动浏览器前返回 `RPG_SECOND_RUNTIME_RELEASE_REQUIRED`，不得用旧 V4/V5/V7 资产或合成历史包满足本 Case。
-- 上限：300 秒。启用后的执行入口仍为 `make acceptance-case CASE=ACC-RPG-012`。
-- 前置环境：只允许专用 fresh DB/CAS，且该实例不得与其他 Case 或开发数据共用。仓库内
-  `scripts/acceptance/rpgartifactseed` 是唯一 acceptance-only 构件生命周期工具；它通过正式 `store.Open`、migration
-  与 byte-verified dependency bootstrap 登记 manifest 中的真实 old/new artifact，不建立生产写 API，也不生成或
-  伪造 runtime digest。四个子命令的 `--database`/`--state`/`--dependency-root` 都使用绝对路径；state 为 0600 JSON，
-  不含凭据、payload bytes 或宿主路径明文，只以 `databasePathSha256` 绑定目标 DB。成功时 stdout 输出完整
-  `schemaVersion=1/caseId/phase` state JSON；失败时 stderr 输出 `status=ERROR/errorCode=ACC_RPG_012_*` JSON 且非零退出，
-  调用方不得从错误文本推断继续执行。
-- 建库与 old 阶段：先以目标 fresh 数据根启动 Retrom 并等待 ready；确认尚无 upload/import/game/save/runtime-pack 后，
-  在服务保持运行且没有其他请求时执行：
-
-  ```bash
-  umask 077
-  go run ./scripts/acceptance/rpgartifactseed prepare \
-    --database <absolute-fresh-db> --state <absolute-state-json> \
-    --dependency-root <absolute-repository-data> --versions 4.2.3,4.3.0-pre --active 4.2.3 \
-    --core-id rpgmaker_2000 \
-    --old-route RPG2000_PREVIOUS_RELEASE --new-route RPG2000_NEXT_RELEASE \
-    --acknowledge-fresh-database ACC-RPG-012 \
-    > <absolute-prepare-evidence-json>
-  ```
-
-  `prepare` 对六类业务表逐一要求零行，调用生产 bootstrap 校验并登记真实 artifact，再以单事务令 old 为唯一
-  selected、old/new 均 available；任一条件不满足即失败。此后直到 `promote` 完成不得重启 Retrom，因为正常启动会按
-  当前 manifest 重新协调 selected 状态。随后必须经 Retrom Upload/Import/Review/runtime validation/发布导入第一个
-  RPG2000 项目，经真实 PRODUCT Launch/Player 移动到可见 B 点并点击“创建存档”，从 `/api/v1/saves` 取得
-  `old-game-id` 与带截图的 `old-save-state-id`；不得直接向 DB 写入正向 checkpoint。
-
-  仓库提供的正向前置 driver 只调用上述 HTTP/Player 产品链，不写 DB；`old` 阶段固定上传 `rpg2000/`，完成 14 gate、
-  reviewer PASS、发布、PRODUCT Launch 和带截图存档后输出不含凭据的 ID JSON。它必须在 `prepare` 后、`promote` 前运行：
-
-  ```bash
-  .cache/tools/node-v24.18.0-linux-x64/bin/node \
-    scripts/acceptance/rpgmaker_compatibility_provision.mjs old \
-    > <absolute-old-provision-evidence-json>
-  ```
-- new 阶段：执行下列命令。`promote` 只有在旧 save 仍与 old content/variant/artifact/route/ABI/dependency snapshot
-  逐字段一致且可由产品恢复时才切换；切换只清除 old selected，保持 old available，并令 new 为同核心唯一 selected。
-  之后经相同 Retrom 产品链导入 `testdata/public-roms/rpgmaker-smoke/rpg2000-compat/`；该项目与 old 阶段的
-  `rpg2000/` 由同一 Retrom-owned LCF writer 确定性生成，但具有不同的标题、可见 marker、palette 与 files digest，
-  因而形成内容身份不同的第二个真实 RPG2000 项目。重复上传 `rpg2000/` 不满足前置。第二个项目的发布 Variant
-  必须绑定 new，取得 `new-game-id`。
-
-  ```bash
-  go run ./scripts/acceptance/rpgartifactseed promote \
-    --database <absolute-fresh-db> --state <absolute-state-json> \
-    --old-game-id <uuid> --old-save-state-id <uuid> \
-    > <absolute-promote-evidence-json>
-  .cache/tools/node-v24.18.0-linux-x64/bin/node \
-    scripts/acceptance/rpgmaker_compatibility_provision.mjs new \
-    > <absolute-new-provision-evidence-json>
-  go run ./scripts/acceptance/rpgartifactseed seed-drift \
-    --database <absolute-fresh-db> --state <absolute-state-json> --new-game-id <uuid> \
-    > <absolute-drift-evidence-json>
-  go run ./scripts/acceptance/rpgartifactseed inspect \
-    --database <absolute-fresh-db> --state <absolute-state-json> \
-    > <absolute-inspect-evidence-json>
-  ```
-
-  `new` 阶段固定上传 `rpg2000-compat/` 并完成同一 14 gate 与发布链，输出包含新 game ID 的产品 ID JSON。两个 phase 都要求
-  `RETROM_ACCEPTANCE_BASE_URL/USERNAME/PASSWORD` 与 `RETROM_CHROME_EXECUTABLE`；runner 不读取数据库、state 或
-  development storage，也不输出 Cookie、CSRF、Launch capability 或 fixture 绝对路径。两次 product provision
-  stdout 与四次 seeder stdout 必须使用 `umask 077` 分别保存到专用数据根之外的六个 JSON，再把其中三个 UUID
-  显式传给 seeder。old/new provision 输出额外保存执行时 Git commit/dirty 文件相对路径摘要。该 driver 不属于构件生命周期
-  工具，不能选择 artifact、生成 drift、伪造 save 或替代最终 Case。
-
-  `seed-drift` 不复制 payload bytes，只复用真实旧 save 的既有 CAS 引用并生成四个确定性 UUID；四行分别只改变
-  content revision、artifact ID、pack dependency snapshot、adapter ABI。为模拟持久化数据被篡改，它只在一个
-  SQLite 事务中临时移除 `save_states_source_launch_insert` 与 `save_states_payload_insert` 两个 insert trigger，插入
-  负向行后逐字恢复从 `sqlite_schema` 读取的原 trigger SQL；commit 后必须通过 trigger 存在性、foreign key 与
-  integrity check。它不删除 immutable update trigger，不改正向 save，不改变 Blob 引用计数，也不能用于非 fresh
-  验收库。
-- 执行：保持该 Retrom 实例指向同一 DB，设置
-  `RETROM_ACC_RPG_012_DATABASE=<absolute-fresh-db>` 与
-  `RETROM_ACC_RPG_012_STATE=<absolute-state-json>`，并分别把上述六个 JSON 设为
-  `RETROM_ACC_RPG_012_PREPARE_EVIDENCE`、`RETROM_ACC_RPG_012_OLD_PROVISION_EVIDENCE`、
-  `RETROM_ACC_RPG_012_PROMOTE_EVIDENCE`、`RETROM_ACC_RPG_012_NEW_PROVISION_EVIDENCE`、
-  `RETROM_ACC_RPG_012_DRIFT_EVIDENCE`、`RETROM_ACC_RPG_012_INSPECT_EVIDENCE`，再运行本 Case。runner 首先执行
-  前置检查；数据库、state、Chrome 或任一阶段 evidence 未提供时必须以 `BLOCKED`（exit 3）结束，不得启动浏览器，
-  也不得把操作输入缺失记录为产品 `FAIL`。输入完整后 runner 执行
-  `inspect`，核对 DB/path/phase、
-  selected/available、正向绑定、四个负向行与已恢复 trigger；之后登录真实 HTTP 产品，读取管理 artifact history，
-  用 old save 创建 Launch 并打开 Player。Player ready 后必须先在未展开工具栏、未暂停运行时的状态下观察画布至少
-  3 秒，并要求连续采样稳定；随后再打开调试面板核对绑定并创建存档，避免把 EasyRPG 恢复淡入中的中间帧误作
-  恢复结果。旧 save 截图与恢复后截图 PNG bytes 必须完全相同，以证明回到同一 B 点；再以无 save 的新游戏 Launch
-  证明 new route/artifact 实际运行。最后用 old game
-  分别提交四个 tampered save ID；每次必须由 `POST /api/v1/launches` 返回 422 `LAUNCH_BLOCKED` 且响应不存在
-  `launchId`。
-- 通过标准：new import 只绑定 new artifact；old save 仍使用冻结的 old route/artifact/pack/ABI 在不同 Launch 的
-  Player 恢复到 B，old artifact 始终 available；content/artifact/pack/ABI 四种单字段跨绑定恢复全部在 Launch 创建前
-  稳定拒绝，没有 `latest`、跨版本 fallback 或就地改写历史行为。缺少 state/DB/真实两项目/旧 Player save、截图不
-  完全一致、trigger 未恢复、任一检查或 HTTP/Player 断言失败都不得 PASS。
-- 证据：`rpgmaker-product.json` 只保存 artifact current/history、新旧 variant/checkpoint 冻结绑定、old/new Player
-  launch ID、两张恢复位置截图的 SHA-256/逐 byte 等同性、四类 422 响应和四张用户截图；DB/state/依赖根绝对路径、
-  Cookie、CSRF 与 Launch capability 不进入证据。`bindings.provisioningEvidence` 还必须保存六阶段 JSON 的 SHA-256
-  与去敏 payload，并逐阶段证明 prepare→old product→promote→new product→drift→inspect 与最终 state 是同一条链；
-  old/new product 的 repository dirty summary 只保存仓库相对路径，并以 UTF-8、无空白、固定 `status/path` 键序的 JSON
-  `entries` 数组重算 SHA-256；任一阶段缺失、乱序、摘要不一致或 ID/route/state 不一致均失败。
+- 当前状态：`BLOCKED`。只有在出现第二个已完成七核心产品验证的稳定 `retrom-runtime` tag 后才启用；当前执行必须在读取数据库或启动浏览器前返回 `RPG_SECOND_RUNTIME_RELEASE_REQUIRED`。不得预建 previous/next route、向数据库注入历史构件、篡改存档绑定或保留旧 runtime bundle。
+- 上限：300 秒。启用后使用专用 DB/CAS，按真实部署顺序完成两阶段产品链：先固定旧 tag 启动 Retrom，经 Upload/Import/Review/Player 创建至少一个 RPG Maker 或 ONS 游戏和真实 SaveState；停止服务后把同一 Retrom checkout 的唯一 manifest pin 升级为新 tag，运行正常 migration/bootstrap，再重启同一 DB。两阶段只能使用各自 tag 的真实 Release 资产和普通产品 API，不使用 acceptance-only artifact seeder。
+- 兼容升级：新 tag 保持相同 `coreId/routeKey/gameCompatibilityLine`，并在 `readableSaveAbis` 包含旧 save ABI。升级后旧 Game 的普通 Launch 必须使用新 artifact；旧 SaveState 必须仍可由新 artifact 创建不同 Launch、恢复到保存位置并继续输入；新 SaveState 必须记录新 tag 的 adapter ABI 和 save ABI。旧 artifact 必须已退役且运行内容端点不可再访问。
+- 破坏性存档升级：新 tag 仍保持相同 `gameCompatibilityLine`，但 `readableSaveAbis` 不包含旧 save ABI。升级后同一个 Game 的普通 Launch 仍必须使用新 artifact 并正常运行；旧 SaveState 保留在 `availability=ALL`，状态为 `BLOCKED`、reason=`SAVE_RUNTIME_INCOMPATIBLE`，不得出现在默认可恢复列表、首页恢复点、游戏详情可用计数或沉浸模式存档入口。用该 save ID 创建 Launch 必须返回 `422 LAUNCH_SAVE_INCOMPATIBLE` 且不创建 Launch；从新 runtime 创建的新 SaveState 必须可恢复。
+- 游戏兼容线变化：若同一 core/route 的新 manifest 改变 `gameCompatibilityLine`，而数据库已有 READY 游戏 revision，bootstrap/readiness 必须 fail closed；发布流程必须把这种变化作为新逻辑 route/core 设计，而不能静默让既有游戏进入未知兼容性。
+- EmulatorJS 不参与本规则，继续精确绑定历史 artifact；本 Case 不改变其回滚或历史构件保留策略。Retrom 不提供 runtime 回滚 UI/API，也不在升级后加载旧 RPG Maker/ONS bundle。
+- 证据：两次真实 tag/commit/metadata 身份、升级前后 artifact 与逻辑兼容字段、旧 Game 普通 Launch 的当前 artifact、兼容旧存档跨 Launch 恢复及恢复后输入、破坏性旧存档的保留/过滤/422 无副作用、新存档恢复，以及旧 runtime 内容端点不可用。证据不得包含本机路径、Cookie、CSRF、Launch capability 或游戏 bytes。
 
 ### ACC-ONS-001：ONS 最小产品闭环
 

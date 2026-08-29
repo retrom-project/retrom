@@ -21,10 +21,6 @@ BROWSER_PATH = Path(__file__).resolve().parents[1] / "rpgmaker_browser.mjs"
 GENERATION_PROVISION_PATH = (
     Path(__file__).resolve().parents[1] / "rpgmaker_generation_provision.mjs"
 )
-COMPATIBILITY_BROWSER_PATH = Path(__file__).resolve().parents[1] / "rpgmaker_compatibility.mjs"
-COMPATIBILITY_PROVISION_PATH = (
-    Path(__file__).resolve().parents[1] / "rpgmaker_compatibility_provision.mjs"
-)
 PACK_PROVISION_PRODUCT_PATH = (
     Path(__file__).resolve().parents[1] / "rpgmaker_pack_provision_product.mjs"
 )
@@ -61,16 +57,6 @@ class ProjectDigestTests(unittest.TestCase):
             (root / "linked.ini").symlink_to(root / "Game.ini")
             with self.assertRaisesRegex(rpgmaker.ContractError, "SYMLINK_FORBIDDEN"):
                 rpgmaker.project_digest(root)
-
-    def test_compatibility_projects_have_distinct_locked_content_identity(self) -> None:
-        fixture_root = Path(__file__).resolve().parents[3] / "testdata/public-roms/rpgmaker-smoke"
-        old_digest, old_count, old_bytes = rpgmaker.project_digest(fixture_root / "rpg2000")
-        new_digest, new_count, new_bytes = rpgmaker.project_digest(fixture_root / "rpg2000-compat")
-        self.assertEqual(old_count, new_count)
-        self.assertGreater(old_bytes, 0)
-        self.assertGreater(new_bytes, 0)
-        self.assertNotEqual(old_digest, new_digest)
-
 
 class EvidenceContractTests(unittest.TestCase):
     def test_generation_cases_use_one_virtual_user_core(self) -> None:
@@ -209,11 +195,10 @@ class EvidenceContractTests(unittest.TestCase):
         self.assertNotIn("page.on(\"response\", async (response)", source)
 
     def test_product_drivers_reveal_toolbar_through_the_visible_hud_handle(self) -> None:
-        for path in (BROWSER_PATH, COMPATIBILITY_BROWSER_PATH):
-            source = path.read_text()
-            self.assertIn('page.locator(".player-hud-handle").click()', source)
-            self.assertIn('page.locator(".player-toolbar.is-visible").waitFor', source)
-            self.assertNotIn("page.mouse.move(400, 1)", source)
+        source = BROWSER_PATH.read_text()
+        self.assertIn('page.locator(".player-hud-handle").click()', source)
+        self.assertIn('page.locator(".player-toolbar.is-visible").waitFor', source)
+        self.assertNotIn("page.mouse.move(400, 1)", source)
 
     def test_generation_driver_preserves_bounded_product_start_diagnostics(self) -> None:
         source = BROWSER_PATH.read_text()
@@ -228,45 +213,6 @@ class EvidenceContractTests(unittest.TestCase):
         self.assertIn('page.getByRole("status").allTextContents()', helper)
         self.assertIn("dialogs.slice(0, 5)", helper)
         self.assertNotIn("document.body.innerText", helper)
-
-    def test_compatibility_driver_uses_the_product_launch_url_contract(self) -> None:
-        source = COMPATIBILITY_BROWSER_PATH.read_text()
-        self.assertEqual(2, source.count("${launch.playUrl}"))
-        self.assertNotIn("${launch.playerUrl}", source)
-
-    def test_compatibility_driver_opens_the_product_overflow_before_debug(self) -> None:
-        source = COMPATIBILITY_BROWSER_PATH.read_text()
-        overflow = source.index('page.getByRole("button", { name: "更多操作" })')
-        debug = source.index('page.locator(".player-debug-control")')
-        self.assertLess(overflow, debug)
-        self.assertIn("await moreActions.click();", source)
-        self.assertNotIn('.click({ force: true })', source)
-
-    def test_compatibility_driver_keeps_internal_rpg_binding_out_of_player_ui(self) -> None:
-        source = COMPATIBILITY_BROWSER_PATH.read_text()
-        self.assertIn(
-            "[config.routeKey, config.artifactId, config.adapter?.adapterId]", source
-        )
-        self.assertIn("RPG_ACCEPTANCE_PLAYER_DIAGNOSTIC_IMPLEMENTATION_LEAK", source)
-        self.assertNotIn("!text.includes(config.artifactId)", source)
-
-    def test_compatibility_driver_reads_the_standard_error_envelope(self) -> None:
-        source = COMPATIBILITY_BROWSER_PATH.read_text()
-        self.assertIn("const code = response.error?.code;", source)
-        self.assertNotIn('response.code !== "LAUNCH_BLOCKED"', source)
-
-    def test_compatibility_driver_waits_for_the_restored_frame_to_settle(self) -> None:
-        source = COMPATIBILITY_BROWSER_PATH.read_text()
-        restored = source.index("async function restoreOldCheckpoint")
-        diagnostics = source.index("await assertPlayerBinding(page, config);", restored)
-        save = source.index("const saveResponse =", restored)
-        settled = source.index("await waitForStableRuntimeFrame(page);", restored)
-        self.assertLess(settled, diagnostics)
-        self.assertLess(settled, save)
-        self.assertIn("async function waitForStableRuntimeFrame(page)", source)
-        self.assertIn("RPG_ACCEPTANCE_RESTORED_FRAME_NOT_STABLE", source)
-        self.assertIn("const minimumObservationMs = 3_000;", source)
-        self.assertIn("previous === current", source)
 
     def test_pack_provision_uses_review_detail_approval_projection(self) -> None:
         source = (
@@ -298,23 +244,6 @@ class EvidenceContractTests(unittest.TestCase):
         source = PACK_BROWSER_PATH.read_text()
         self.assertLess(source.index("const reviewRoles ="), source.index("const browser ="))
         self.assertLess(source.index("const reviewRoles ="), source.index("validateReviewRole(role"))
-
-    def test_compatibility_provision_uses_two_product_imports_and_real_save(self) -> None:
-        source = COMPATIBILITY_PROVISION_PATH.read_text()
-        self.assertIn('phase === "old" ? "rpg2000" : "rpg2000-compat"', source)
-        self.assertIn("directoryFiles(`${fixtureRoot}/${fixture}`, `${fixture}/`)", source)
-        self.assertIn('restorePage, "恢复后输入已经生效"', source)
-        self.assertIn("createOldProductSave(context, client, published.gameId)", source)
-        self.assertIn('expected: 201', source)
-        self.assertIn("await page.mouse.move(720, 1);", source)
-        self.assertIn('getByRole("button", { name: "创建存档", exact: true })', source)
-        self.assertNotIn('page.locator(".player-toolbar")', source)
-        self.assertNotIn("sqlite", source.lower())
-
-    def test_compatibility_provision_uses_the_virtual_rpgmaker_directory(self) -> None:
-        source = COMPATIBILITY_PROVISION_PATH.read_text()
-        self.assertIn('item.defaultCoreId === "rpgmaker"', source)
-        self.assertNotIn('item.defaultCoreId === "rpgmaker_2000"', source)
 
     def test_all_formal_rpg_cases_have_a_driver_registration(self) -> None:
         self.assertEqual(
@@ -616,8 +545,12 @@ class EvidenceContractTests(unittest.TestCase):
         self.assertIn("RPG_MZ_SMOKE_PROVENANCE", mz)
 
     def test_extended_product_cases_require_chrome(self) -> None:
-        for case_id in ("ACC-RPG-009", "ACC-RPG-010", "ACC-RPG-011", "ACC-RPG-012"):
+        for case_id in ("ACC-RPG-009", "ACC-RPG-010", "ACC-RPG-011"):
             self.assertIn("RETROM_CHROME_EXECUTABLE", rpgmaker.required_environment(case_id))
+        self.assertNotIn(
+            "RETROM_CHROME_EXECUTABLE",
+            rpgmaker.required_environment("ACC-RPG-012"),
+        )
         self.assertIn(
             "RETROM_ACC_RPG_009_PROVISION_EVIDENCE",
             rpgmaker.required_environment("ACC-RPG-009"),
@@ -659,26 +592,6 @@ class EvidenceContractTests(unittest.TestCase):
             self.assertEqual("缺少实际 Retrom 产品验收输入", result["reason"])
             self.assertIn("RETROM_CHROME_EXECUTABLE", result["missingInputs"])
 
-    def test_compatibility_is_deferred_before_state_inspection(self) -> None:
-        environment = {
-            "RETROM_ACCEPTANCE_BASE_URL": "https://retrom.example.test",
-            "RETROM_ACCEPTANCE_USERNAME": "reviewer",
-            "RETROM_ACCEPTANCE_PASSWORD": "secret",
-            "RETROM_CHROME_EXECUTABLE": "/not-used/chrome",
-            "RETROM_ACC_RPG_012_DATABASE": "/not-read/retrom.db",
-            "RETROM_ACC_RPG_012_STATE": "/not-read/state.json",
-        }
-        with tempfile.TemporaryDirectory() as directory, \
-                mock.patch.dict(os.environ, environment, clear=True), \
-                mock.patch.object(rpgmaker.subprocess, "run") as run:
-            case_dir = Path(directory)
-            with redirect_stdout(io.StringIO()):
-                self.assertEqual(3, rpgmaker.run("ACC-RPG-012", case_dir))
-            run.assert_not_called()
-            result = json.loads((case_dir / "rpgmaker-product.json").read_text())
-            self.assertEqual([], result["missingInputs"])
-            self.assertEqual("RPG_SECOND_RUNTIME_RELEASE_REQUIRED", result["reason"])
-
     def test_missing_live_ids_are_blocked_and_machine_readable(self) -> None:
         with tempfile.TemporaryDirectory() as directory, mock.patch.dict(os.environ, {}, clear=True):
             case_dir = Path(directory)
@@ -687,16 +600,6 @@ class EvidenceContractTests(unittest.TestCase):
             result = json.loads((case_dir / "rpgmaker-product.json").read_text())
             self.assertEqual("BLOCKED", result["status"])
             self.assertIn("RETROM_ACC_RPG_002_IMPORT_ITEM_ID", result["missingInputs"])
-
-    def test_compatibility_case_requires_a_second_runtime_release(self) -> None:
-        with tempfile.TemporaryDirectory() as directory, mock.patch.dict(os.environ, {}, clear=True):
-            case_dir = Path(directory)
-            with redirect_stdout(io.StringIO()):
-                self.assertEqual(3, rpgmaker.run("ACC-RPG-012", case_dir))
-            result = json.loads((case_dir / "rpgmaker-product.json").read_text())
-            self.assertEqual("BLOCKED", result["status"])
-            self.assertEqual([], result["missingInputs"])
-            self.assertEqual("RPG_SECOND_RUNTIME_RELEASE_REQUIRED", result["reason"])
 
     def test_pack_plan_v2_requires_named_input_review_and_reference_roles(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -794,78 +697,6 @@ class EvidenceContractTests(unittest.TestCase):
         self.assertIn('code !== "RPG_RUNTIME_PACK_UNAVAILABLE"', retry)
         self.assertIn("attempt === 2", retry)
         self.assertNotIn("RPG_RUNTIME_PACK_INVALID", retry)
-
-    def test_compatibility_state_is_fresh_db_bound_and_inspected(self) -> None:
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            database = root / "retrom.db"
-            state_path = root / "state.json"
-            database.write_bytes(b"sqlite")
-            state = compatibility_state_payload()
-            state_path.write_text(json.dumps(state))
-            with mock.patch.object(rpgmaker.subprocess, "run", return_value=mock.Mock(returncode=0)) as run:
-                self.assertEqual(state, rpgmaker.compatibility_state(state_path, database))
-            command = run.call_args.args[0]
-            self.assertEqual("inspect", command[3])
-            self.assertIn(str(database), command)
-            state["oldArtifact"]["selectedForNewBindings"] = True
-            state_path.write_text(json.dumps(state))
-            with self.assertRaisesRegex(rpgmaker.ContractError, "ARTIFACT_STATE_INVALID"):
-                rpgmaker.compatibility_state(state_path, database)
-
-    def test_compatibility_state_rejects_a_repeated_old_fixture_identity(self) -> None:
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            database = root / "retrom.db"
-            state_path = root / "state.json"
-            database.write_bytes(b"sqlite")
-            state = compatibility_state_payload()
-            state["newVariant"]["projectFingerprint"] = state["oldCheckpoint"]["projectFingerprint"]
-            state_path.write_text(json.dumps(state))
-            with self.assertRaisesRegex(rpgmaker.ContractError, "FIXTURE_IDENTITY_INVALID"):
-                rpgmaker.compatibility_state(state_path, database)
-
-    def test_compatibility_evidence_requires_exact_restore_and_four_rejections(self) -> None:
-        state = compatibility_state_payload()
-        payload = compatibility_evidence_payload(state)
-        rpgmaker.validate_compatibility_evidence(payload, state)
-        payload["oldRestore"]["screenshotRoundTripExact"] = False
-        with self.assertRaisesRegex(rpgmaker.ContractError, "OLD_RESTORE_INVALID"):
-            rpgmaker.validate_compatibility_evidence(payload, state)
-
-    def test_compatibility_evidence_requires_six_phase_provenance(self) -> None:
-        state = compatibility_state_payload()
-        payload = compatibility_evidence_payload(state)
-        del payload["bindings"]["provisioningEvidence"]
-        with self.assertRaisesRegex(rpgmaker.ContractError, "PROVISIONING_EVIDENCE_INVALID"):
-            rpgmaker.validate_compatibility_evidence(payload, state)
-
-    def test_compatibility_evidence_recomputes_repository_dirty_summary_digest(self) -> None:
-        state = compatibility_state_payload()
-        payload = compatibility_evidence_payload(state)
-        repository = payload["bindings"]["provisioningEvidence"]["phases"][
-            "oldProvision"
-        ]["payload"]["repository"]
-        repository["gitDirtySummary"]["sha256"] = "f" * 64
-        with self.assertRaisesRegex(rpgmaker.ContractError, "PROVISIONING_EVIDENCE_INVALID"):
-            rpgmaker.validate_compatibility_evidence(payload, state)
-
-    def test_compatibility_evidence_rejects_dirty_paths_outside_the_repository(self) -> None:
-        state = compatibility_state_payload()
-        payload = compatibility_evidence_payload(state)
-        repository = payload["bindings"]["provisioningEvidence"]["phases"][
-            "oldProvision"
-        ]["payload"]["repository"]
-        entries = [{"status": " M", "path": "../operator-secret"}]
-        repository.update({"gitDirty": True, "gitDirtySummary": {
-            "fileCount": 1,
-            "sha256": hashlib.sha256(json.dumps(
-                entries, ensure_ascii=False, separators=(",", ":"),
-            ).encode()).hexdigest(),
-            "entries": entries,
-        }})
-        with self.assertRaisesRegex(rpgmaker.ContractError, "PROVISIONING_EVIDENCE_INVALID"):
-            rpgmaker.validate_compatibility_evidence(payload, state)
 
     def test_content_security_evidence_requires_exact_product_observations(self) -> None:
         payload = content_security_evidence_payload()
@@ -1243,121 +1074,6 @@ def mz_transformation(digest: str, file_count: int, total_bytes: int) -> dict:
         "outputFileCount": file_count, "outputTotalBytes": total_bytes,
     }
 
-
-def compatibility_state_payload() -> dict:
-    identifiers = [f"{number:08d}-1111-4111-8111-111111111111" for number in range(1, 10)]
-    artifact = lambda identifier, route, digest, selected: {
-        "id": identifier, "coreId": "rpgmaker_2000", "generation": "RPG2000", "routeKey": route,
-        "artifactSetSha256": digest * 64, "adapterId": "easyrpg-web",
-        "adapterAbi": "easyrpg-save", "manifestSha256": "f" * 64,
-        "selectedForNewBindings": selected, "availableForLaunch": True,
-    }
-    fixture_root = Path(__file__).resolve().parents[3] / "testdata/public-roms/rpgmaker-smoke"
-    old_fingerprint = rpgmaker.project_digest(fixture_root / "rpg2000")[0]
-    new_fingerprint = rpgmaker.project_digest(fixture_root / "rpg2000-compat")[0]
-    return {
-        "schemaVersion": 1, "caseId": "ACC-RPG-012", "phase": "DRIFT_SEEDED",
-        "databasePathSha256": "d" * 64,
-        "oldArtifact": artifact(identifiers[0], "RPG2000_PREVIOUS_RELEASE", "a", False),
-        "newArtifact": artifact(identifiers[1], "RPG2000_NEXT_RELEASE", "b", True),
-        "oldCheckpoint": {
-            "gameId": identifiers[2], "saveStateId": identifiers[3], "contentRevisionId": identifiers[4],
-            "variantRevisionId": identifiers[5], "artifactId": identifiers[0],
-            "routeKey": "RPG2000_PREVIOUS_RELEASE", "adapterAbi": "easyrpg-save",
-            "projectFingerprint": old_fingerprint,
-            "dependencySnapshotSha256": "c" * 64, "runtimePacks": [],
-        },
-        "newVariant": {
-            "gameId": identifiers[6], "contentRevisionId": identifiers[7], "variantRevisionId": identifiers[8],
-            "artifactId": identifiers[1], "routeKey": "RPG2000_NEXT_RELEASE",
-            "adapterAbi": "easyrpg-save", "dependencySnapshotSha256": "e" * 64,
-            "projectFingerprint": new_fingerprint,
-            "runtimePacks": [],
-        },
-        "driftSaveStateIds": {
-            "content": "10000000-1111-4111-8111-111111111111",
-            "artifact": "11000000-1111-4111-8111-111111111111",
-            "pack": "12000000-1111-4111-8111-111111111111",
-            "adapterAbi": "13000000-1111-4111-8111-111111111111",
-        },
-        "updatedAtMs": 1,
-    }
-
-
-def compatibility_evidence_payload(state: dict) -> dict:
-    safe_artifact = lambda value: {
-        "id": value["id"], "routeKey": value["routeKey"],
-        "selectedForNewBindings": value["selectedForNewBindings"], "availableForLaunch": True,
-    }
-    return {
-        "schemaVersion": 1, "caseId": "ACC-RPG-012", "status": "PASS",
-        "artifacts": {
-            "old": safe_artifact(state["oldArtifact"]), "new": safe_artifact(state["newArtifact"]),
-        },
-        "oldRestore": {
-            "artifactId": state["oldArtifact"]["id"], "routeKey": state["oldArtifact"]["routeKey"],
-            "launchId": "14000000-1111-4111-8111-111111111111",
-            "replaySaveStateId": "15000000-1111-4111-8111-111111111111",
-            "playerRunning": True, "screenshotRoundTripExact": True,
-            "originalScreenshotSha256": "9" * 64, "replayScreenshotSha256": "9" * 64,
-        },
-        "newLaunch": {
-            "artifactId": state["newArtifact"]["id"], "routeKey": state["newArtifact"]["routeKey"],
-            "launchId": "16000000-1111-4111-8111-111111111111", "playerRunning": True,
-        },
-        "driftRejections": [
-            {"kind": kind, "saveStateId": state["driftSaveStateIds"][kind], "status": 422,
-             "code": "LAUNCH_BLOCKED", "launchCreated": False}
-            for kind in ("content", "artifact", "pack", "adapterAbi")
-        ],
-        "bindings": {
-            "oldCheckpoint": state["oldCheckpoint"], "newVariant": state["newVariant"],
-            "provisioningEvidence": compatibility_provisioning_evidence(state),
-        },
-        "screenshots": [
-            "screenshots/old-save.png", "screenshots/restored-save.png",
-            "screenshots/old-player.png", "screenshots/new-player.png",
-        ],
-    }
-
-
-def compatibility_provisioning_evidence(state: dict) -> dict:
-    prepare = json.loads(json.dumps(state))
-    prepare.update({"phase": "OLD_SELECTED", "oldCheckpoint": None, "newVariant": None,
-                    "driftSaveStateIds": None})
-    promote = json.loads(json.dumps(state))
-    promote.update({"phase": "NEW_SELECTED", "newVariant": None, "driftSaveStateIds": None})
-    repository = {
-        "gitCommit": "a" * 40, "gitDirty": False,
-        "gitDirtySummary": {"fileCount": 0, "sha256": hashlib.sha256(b"[]").hexdigest(), "entries": []},
-    }
-    old_product = {
-        "schemaVersion": 1, "caseId": "ACC-RPG-012", "phase": "OLD",
-        "importItemId": "17000000-1111-4111-8111-111111111111",
-        "validationId": "18000000-1111-4111-8111-111111111111",
-        "routeKey": state["oldArtifact"]["routeKey"], "gameId": state["oldCheckpoint"]["gameId"],
-        "saveStateId": state["oldCheckpoint"]["saveStateId"], "repository": repository,
-    }
-    new_product = {
-        "schemaVersion": 1, "caseId": "ACC-RPG-012", "phase": "NEW",
-        "importItemId": "19000000-1111-4111-8111-111111111111",
-        "validationId": "20000000-1111-4111-8111-111111111111",
-        "routeKey": state["newArtifact"]["routeKey"], "gameId": state["newVariant"]["gameId"],
-        "repository": repository,
-    }
-    phases = {
-        "prepare": prepare, "oldProvision": old_product, "promote": promote,
-        "newProvision": new_product, "drift": state, "inspect": state,
-    }
-    document_sha256 = {name: hashlib.sha256(name.encode()).hexdigest() for name in phases}
-    document_sha256["inspect"] = document_sha256["drift"]
-    return {
-        "schemaVersion": 1,
-        "phases": {
-            name: {"documentSha256": document_sha256[name], "payload": payload}
-            for name, payload in phases.items()
-        },
-    }
 
 
 def content_security_evidence_payload() -> dict:

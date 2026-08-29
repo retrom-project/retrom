@@ -63,7 +63,7 @@ func generate(source, output string) error {
 	if err := os.MkdirAll(output, 0o755); err != nil {
 		return fmt.Errorf("create output: %w", err)
 	}
-	for _, name := range []string{"rpg2000.json", "rpg2000-compat.json", "rpg2003.json"} {
+	for _, name := range []string{"rpg2000.json", "rpg2003.json"} {
 		var spec lcfSpec
 		if err := decodeJSON(filepath.Join(source, "fixture-spec", name), &spec); err != nil {
 			return err

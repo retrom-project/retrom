@@ -126,7 +126,7 @@ flowchart LR
 
 - 上传内容流式计算 SHA-256，写入本地内容寻址存储；相同内容只保存一个 Blob。
 - Blob 发布后不原地修改。替换游戏文件只在规范化内容与 current 不同时创建新的 GameContentRevision，并在默认核心验证 READY 后创建对应 GameVariantRevision、原子切换两个 current pointer；完全相同的单 ROM 或盘序/Disc hash 相同的多盘输入被拒绝。
-- 目录默认核心、CoreArtifact 或 DAT 的变化不改写存档锁定的 revision；但管理员显式成功替换 ROM/多盘内容是破坏性边界，会删除旧内容绑定存档及运行 payload，再把失去最后引用的旧 Blob 交给宽限期 GC。替换失败不触碰 current 或存档。
+- 目录默认核心或 DAT 的变化不改写存档锁定的 revision；EmulatorJS 存档继续精确绑定历史 CoreArtifact。RPG Maker 与 ONS 游戏绑定稳定的逻辑游戏兼容线，`retrom-runtime` 升级后普通 Launch 使用该线的当前构件；存档另记录 save ABI，只有当前构件声明可读该 ABI 时才允许恢复。不兼容旧存档保留为不可恢复记录，用户仍可启动游戏并创建新存档。管理员显式成功替换 ROM/多盘内容仍是破坏性边界，会删除旧内容绑定存档及运行 payload，再把失去最后引用的旧 Blob 交给宽限期 GC。替换失败不触碰 current 或存档。
 - 数据库保存逻辑关系、哈希、大小、MIME 和引用，不保存宿主机任意路径供浏览器使用。
 
 ### 3.6 模块化后端、双镜像与单一数据目录
@@ -187,9 +187,9 @@ SaveState 链路，取消与退出都不会自动存档。其余输入仍交给 
 
 ### 3.14 RPG Maker 虚拟核心与内部世代绑定
 
-RPG Maker 对用户是一个虚拟核心。导入时服务端只依据项目 bytes 的完整 marker 和格式证据判定 generation，再一次性冻结内部 core、route、artifact 与 adapter ABI；多世代完整 marker、未知格式或无法裁决的证据直接拒绝，不提供猜测性 fallback。内部 `rpgmaker_2000` 等七个 ID 只用于运行绑定与管理员诊断，不进入目录选择器或普通 Player。
+RPG Maker 对用户是一个虚拟核心。导入时服务端只依据项目 bytes 的完整 marker 和格式证据判定 generation，再一次性冻结内部 core、route、逻辑游戏兼容线与当次 artifact/adapter ABI 证据；多世代完整 marker、未知格式或无法裁决的证据直接拒绝，不提供猜测性 fallback。内部 `rpgmaker_2000` 等七个 ID 只用于运行绑定与管理员诊断，不进入目录选择器或普通 Player。
 
-Player 顶层只区分 `EMULATORJS|RPGMAKER`。`RPGMAKER` 统一进入 `RetromRpgRuntime`，其内部再按已冻结 route 创建 `EASYRPG_WEB|MKXP_LIBRETRO_WEB|NATIVE_WEB` adapter；Player Shell 不包含 EasyRPG/mkxp/MV/MZ 分支。发布把内容、版本 core、generation、不可变 artifact、adapter ABI、运行包快照和管理员主动创建的运行验证 Launch 绑定为不可变 VariantRevision。Launch 只读该绑定，不重探测项目、不查询 latest，也不跨核心回退。
+Player 顶层按 `EMULATORJS|RPGMAKER|ONS` 分派。`RPGMAKER` 统一进入 `RetromRpgRuntime`，其内部再按已冻结 route 创建 `EASYRPG_WEB|MKXP_LIBRETRO_WEB|NATIVE_WEB` adapter；Player Shell 不包含 EasyRPG/mkxp/MV/MZ 分支。发布把内容、版本 core、generation、route、逻辑游戏兼容线、当时构件、adapter ABI、save ABI、运行包快照和管理员主动创建的运行验证 Launch 绑定为不可变 VariantRevision。普通 Launch 不重探测项目、不跨 core/route 回退；RPG Maker 与 ONS 在同一逻辑游戏兼容线内使用当前 selected 构件，EmulatorJS 仍使用精确历史构件。
 
 RPG Maker 的存档与既有模拟器状态统一建模为运行时检查点。恢复完成的定义不是 payload 成功下载或引擎 load API 返回成功，而是：记录初始状态 A，在明确移动/改变变量后的 B 创建检查点，继续到可区分的 C，结束原 Launch，再由不同 Launch 恢复，并逐字段证明地图、坐标和 fixture 变量等于 B 且不等于 A/C，同时保留恢复后截图；随后还必须继续真实输入，并持久化与恢复位置 B 不同的四字段状态，证明恢复后的游戏仍可操作。七个版本核心都必须满足该闭环。
 

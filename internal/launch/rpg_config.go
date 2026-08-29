@@ -349,13 +349,17 @@ LEFT JOIN games game ON game.id=launch.game_id
 LEFT JOIN game_metadata_revisions metadata ON metadata.id=game.current_metadata_revision_id
 LEFT JOIN rpgmaker_variant_profiles product_profile
   ON product_profile.game_variant_revision_id=launch.game_variant_revision_id
+LEFT JOIN game_variant_revisions product_revision ON product_revision.id=launch.game_variant_revision_id
+LEFT JOIN core_artifacts bound_artifact ON bound_artifact.id=product_revision.core_artifact_id
 LEFT JOIN rpgmaker_runtime_validations validation
   ON validation.id=launch.rpgmaker_runtime_validation_id
 WHERE launch.id=? AND launch.route_key=artifact.route_key
   AND ((launch.purpose='PRODUCT' AND product_profile.game_variant_revision_id IS NOT NULL
       AND product_profile.route_key=launch.route_key
-      AND product_profile.artifact_set_sha256=artifact.artifact_set_sha256
-      AND product_profile.adapter_id=artifact.adapter_id)
+      AND product_revision.game_content_revision_id=launch.game_content_revision_id
+      AND bound_artifact.core_id=artifact.core_id AND bound_artifact.route_key=artifact.route_key
+      AND json_extract(bound_artifact.compatibility_json,'$.gameCompatibilityLine')=
+          json_extract(artifact.compatibility_json,'$.gameCompatibilityLine'))
     OR (launch.purpose='RPG_RUNTIME_VALIDATION' AND validation.id IS NOT NULL
       AND validation.route_key=launch.route_key AND validation.artifact_id=artifact.id
       AND validation.artifact_set_sha256=artifact.artifact_set_sha256
@@ -384,10 +388,11 @@ func (service *Service) loadRPGCheckpointConfig(
 		if err := service.database.QueryRowContext(ctx, `
 SELECT save.payload_kind FROM save_states save
 JOIN launch_sessions launch ON launch.id=?
+JOIN save_state_runtime_compatibility compatibility ON compatibility.save_state_id=save.id
 WHERE save.id=launch.save_state_id AND save.id=? AND save.deleted_at_ms IS NULL
   AND save.game_content_revision_id=launch.game_content_revision_id
   AND save.game_variant_revision_id=launch.game_variant_revision_id
-  AND save.core_artifact_id=launch.core_artifact_id
+  AND compatibility.status='AVAILABLE'
 `, launchID, source.saveStateID.String).Scan(&payloadKind); err != nil {
 			return RPGCheckpointRestore{}, false, fmt.Errorf("load product RPG checkpoint: %w", err)
 		}

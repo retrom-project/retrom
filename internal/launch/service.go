@@ -16,10 +16,11 @@ import (
 )
 
 var (
-	ErrBlocked         = errors.New("LAUNCH_BLOCKED")
-	ErrCredential      = errors.New("LAUNCH_CREDENTIAL_INVALID")
-	ErrDOSEntryMissing = errors.New("LAUNCH_DOS_ENTRY_MISSING")
-	ErrDOSEntryUnsafe  = errors.New("LAUNCH_DOS_ENTRY_UNSAFE")
+	ErrBlocked          = errors.New("LAUNCH_BLOCKED")
+	ErrCredential       = errors.New("LAUNCH_CREDENTIAL_INVALID")
+	ErrDOSEntryMissing  = errors.New("LAUNCH_DOS_ENTRY_MISSING")
+	ErrDOSEntryUnsafe   = errors.New("LAUNCH_DOS_ENTRY_UNSAFE")
+	ErrSaveIncompatible = errors.New("LAUNCH_SAVE_INCOMPATIBLE")
 )
 
 const reviewScreenshotOverrideCode = "REVIEW_SCREENSHOT_OVERRIDE"

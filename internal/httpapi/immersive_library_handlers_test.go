@@ -85,10 +85,10 @@ ORDER BY launch.created_at_ms DESC LIMIT 1
 	mustExecHTTPTest(t, transaction, `
 INSERT INTO save_states(
  id,profile_id,game_id,game_content_revision_id,game_variant_revision_id,core_artifact_id,
- adapter_abi,dependency_snapshot_sha256,dat_version_id,dos_entry_path,payload_blob_id,payload_kind,
+ adapter_abi,save_abi,dependency_snapshot_sha256,dat_version_id,dos_entry_path,payload_blob_id,payload_kind,
  payload_sha256,payload_size_bytes,screenshot_blob_id,name,active_duration_ms,version,created_at_ms,updated_at_ms,
  deleted_at_ms,source_launch_session_id,disc_index
-) VALUES(?,?,?,?,?,?,'emulatorjs-state-v1',?,NULL,NULL,?,'RUNTIME_STATE',?, ?,?,'第一章',100,1,7000,7000,NULL,?,NULL)
+) VALUES(?,?,?,?,?,?,'emulatorjs-state-v1','emulatorjs-state-v1',?,NULL,NULL,?,'RUNTIME_STATE',?, ?,?,'第一章',100,1,7000,7000,NULL,?,NULL)
 `, saveStateID, profileID, savedGameID, contentID, revisionID, artifactID, strings.Repeat("d", 64),
 		stateBlobID, hex.EncodeToString(payloadDigest[:]), len(statePayload), screenshotBlobID, launchID)
 	mustCommitHTTPTest(t, transaction)

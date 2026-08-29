@@ -66,14 +66,20 @@ func loadRPGMakerReplacementBinding(
 	binding replacementBinding,
 ) (replacementBinding, error) {
 	err := database.QueryRowContext(ctx, `
-SELECT variant.core_id,revision.id,artifact.id,artifact.route_key,artifact.version,
-       artifact.compatibility_json,profile.generation,profile.adapter_id,profile.adapter_abi,
-       profile.artifact_set_sha256,profile.dependency_snapshot_sha256,
+SELECT variant.core_id,revision.id,current.id,current.route_key,current.version,
+       current.compatibility_json,profile.generation,current.adapter_id,
+       json_extract(current.compatibility_json,'$.adapterAbi'),
+       current.artifact_set_sha256,profile.dependency_snapshot_sha256,
        content.requirements_sha256,revision.dependency_snapshot_json
 FROM game_variants variant
 JOIN game_variant_revisions revision ON revision.id=variant.current_revision_id
-JOIN core_artifacts artifact ON artifact.id=revision.core_artifact_id
-  AND artifact.runtime_family='RPGMAKER' AND artifact.available_for_launch=1
+JOIN core_artifacts bound ON bound.id=revision.core_artifact_id
+  AND bound.runtime_family='RPGMAKER'
+JOIN core_artifacts current ON current.core_id=bound.core_id
+  AND current.route_key=bound.route_key AND current.runtime_family=bound.runtime_family
+  AND current.selected_for_new_bindings=1 AND current.available_for_launch=1
+  AND json_extract(current.compatibility_json,'$.gameCompatibilityLine')=
+      json_extract(bound.compatibility_json,'$.gameCompatibilityLine')
 JOIN rpgmaker_variant_profiles profile ON profile.game_variant_revision_id=revision.id
 JOIN rpgmaker_content_profiles content ON content.content_revision_id=revision.game_content_revision_id
 WHERE variant.game_id=? AND revision.game_content_revision_id=?

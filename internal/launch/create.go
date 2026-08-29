@@ -193,7 +193,7 @@ func (service *Service) selectSavedLaunchVariant(
 	var selection launchSelection
 	err := service.database.QueryRowContext(ctx, `
 SELECT s.game_variant_revision_id,
-s.core_artifact_id,
+a.id,
 a.core_id,
 a.runtime_version,
 a.runtime_family,
@@ -212,10 +212,18 @@ FROM save_states s
 JOIN games g ON g.id=s.game_id
 JOIN platform_instances pi ON pi.id=g.platform_instance_id
 JOIN game_variant_revisions r ON r.id=s.game_variant_revision_id
-AND r.core_artifact_id=s.core_artifact_id
 AND r.game_content_revision_id=s.game_content_revision_id
 JOIN game_content_revisions content ON content.id=s.game_content_revision_id
-JOIN core_artifacts a ON a.id=s.core_artifact_id
+JOIN core_artifacts writer ON writer.id=s.core_artifact_id
+JOIN core_artifacts bound_artifact ON bound_artifact.id=r.core_artifact_id
+JOIN core_artifacts a ON (
+  writer.runtime_family='EMULATORJS' AND a.id=writer.id
+  OR writer.runtime_family IN ('RPGMAKER','ONS')
+    AND a.core_id=writer.core_id AND a.route_key=writer.route_key
+    AND a.runtime_family=writer.runtime_family
+)
+JOIN save_state_runtime_compatibility save_compatibility
+  ON save_compatibility.save_state_id=s.id AND save_compatibility.status='AVAILABLE'
 LEFT JOIN rpgmaker_variant_profiles rpg ON rpg.game_variant_revision_id=r.id
 WHERE s.id=?
 AND s.game_id=?
@@ -225,9 +233,19 @@ AND g.status='PUBLISHED'
 AND pi.enabled=1
 AND r.status='READY'
 AND a.available_for_launch=1
-AND (a.runtime_family='EMULATORJS' OR
-  a.runtime_family='ONS' AND json_extract(a.compatibility_json,'$.adapterAbi')=s.adapter_abi OR
-  rpg.adapter_abi=s.adapter_abi AND rpg.dependency_snapshot_sha256=s.dependency_snapshot_sha256)
+AND (a.runtime_family='EMULATORJS' OR a.selected_for_new_bindings=1)
+AND (
+  a.runtime_family='EMULATORJS' AND r.core_artifact_id=s.core_artifact_id
+  OR a.runtime_family='ONS'
+    AND bound_artifact.core_id=a.core_id AND bound_artifact.route_key=a.route_key
+    AND json_extract(bound_artifact.compatibility_json,'$.gameCompatibilityLine')=
+        json_extract(a.compatibility_json,'$.gameCompatibilityLine')
+  OR a.runtime_family='RPGMAKER'
+    AND bound_artifact.core_id=a.core_id AND bound_artifact.route_key=a.route_key
+    AND json_extract(bound_artifact.compatibility_json,'$.gameCompatibilityLine')=
+        json_extract(a.compatibility_json,'$.gameCompatibilityLine')
+    AND rpg.dependency_snapshot_sha256=s.dependency_snapshot_sha256
+)
 `, *request.SaveStateID, request.GameID, profileID).
 		Scan(
 			&selection.variantRevisionID, &selection.artifactID, &selection.selectedCore,
@@ -235,10 +253,34 @@ AND (a.runtime_family='EMULATORJS' OR
 			&selection.savedDiscIndex, &selection.contentRevisionID, &selection.contentKind,
 			&selection.routeKey, &selection.revisionCompatibilityCode, &selection.contentLogicalName,
 		)
-	if err != nil || request.CoreID != nil && !requestedCoreMatchesSelection(coreID, selection) {
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) && service.saveStateRuntimeIncompatible(
+			ctx, profileID, request.GameID, *request.SaveStateID,
+		) {
+			return launchSelection{}, ErrSaveIncompatible
+		}
+		return launchSelection{}, ErrBlocked
+	}
+	if request.CoreID != nil && !requestedCoreMatchesSelection(coreID, selection) {
 		return launchSelection{}, ErrBlocked
 	}
 	return selection, nil
+}
+
+func (service *Service) saveStateRuntimeIncompatible(
+	ctx context.Context,
+	profileID, gameID, saveStateID string,
+) bool {
+	var status string
+	err := service.database.QueryRowContext(ctx, `
+SELECT compatibility.status
+FROM save_states save
+JOIN games game ON game.id=save.game_id
+JOIN save_state_runtime_compatibility compatibility ON compatibility.save_state_id=save.id
+WHERE save.id=? AND save.profile_id=? AND save.game_id=? AND save.deleted_at_ms IS NULL
+  AND game.status='PUBLISHED'
+`, saveStateID, profileID, gameID).Scan(&status)
+	return err == nil && status == "INCOMPATIBLE_RUNTIME"
 }
 
 func (service *Service) selectCurrentLaunchVariant(
@@ -252,7 +294,7 @@ func (service *Service) selectCurrentLaunchVariant(
 	query := `
 SELECT v.id,
 v.current_revision_id,
-r.core_artifact_id,
+a.id,
 a.core_id,
 a.runtime_version,
 a.runtime_family,
@@ -269,9 +311,16 @@ JOIN platform_instances pi ON pi.id=g.platform_instance_id
 JOIN game_variants v ON v.game_id=g.id
 JOIN game_variant_revisions r ON r.id=v.current_revision_id
 AND r.game_content_revision_id=g.current_content_revision_id
-JOIN core_artifacts a ON a.id=r.core_artifact_id
-AND a.available_for_launch=1
-AND a.selected_for_new_bindings=1
+JOIN core_artifacts bound_artifact ON bound_artifact.id=r.core_artifact_id
+JOIN core_artifacts a ON (
+  bound_artifact.runtime_family='EMULATORJS' AND a.id=bound_artifact.id
+  OR bound_artifact.runtime_family IN ('RPGMAKER','ONS')
+    AND a.core_id=bound_artifact.core_id AND a.route_key=r.route_key
+    AND a.runtime_family=bound_artifact.runtime_family
+    AND json_extract(a.compatibility_json,'$.gameCompatibilityLine')=
+        json_extract(bound_artifact.compatibility_json,'$.gameCompatibilityLine')
+)
+AND a.available_for_launch=1 AND a.selected_for_new_bindings=1
 JOIN game_content_revisions content_revision ON content_revision.id=r.game_content_revision_id
 LEFT JOIN game_content_files content ON content.game_content_revision_id=r.game_content_revision_id
 AND content.role IN ('CONTENT','DISC')
@@ -282,8 +331,7 @@ AND r.status='READY'
 AND (a.runtime_family IN ('EMULATORJS','ONS') OR EXISTS(
   SELECT 1 FROM rpgmaker_variant_profiles profile
   WHERE profile.game_variant_revision_id=r.id AND profile.route_key=r.route_key
-    AND profile.artifact_set_sha256=a.artifact_set_sha256
-    AND profile.adapter_id=a.adapter_id))
+))
 AND v.core_id=CASE
  WHEN ?='' OR (?='rpgmaker' AND pi.platform_id='rpgmaker')
  THEN CASE WHEN pi.platform_id='rpgmaker' THEN v.core_id ELSE pi.default_core_id END
@@ -319,7 +367,7 @@ LIMIT 1
 	if selection.revisionCompatibilityCode == reviewScreenshotOverrideCode {
 		return launchSelectionResult{selection: selection}, nil
 	}
-	if selection.runtimeFamily == "RPGMAKER" {
+	if selection.runtimeFamily == "RPGMAKER" || selection.runtimeFamily == "ONS" {
 		return launchSelectionResult{selection: selection}, nil
 	}
 	expectedDigest, err := service.currentVariantDigest(ctx, selection)

@@ -15,7 +15,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent
 REPOSITORY_ROOT = ROOT.parents[2]
 OUTPUT_DIRECTORIES = (
-    "rpg2000", "rpg2000-compat", "rpg2003", "rpgxp", "rpgvx", "rpgvxace", "rpgmv",
+    "rpg2000", "rpg2003", "rpgxp", "rpgvx", "rpgvxace", "rpgmv",
     "malicious-rpgmv", "malicious-rpgmz", "negative-matrix",
 )
 OUTPUT_FILES = ("fixture-manifest.json",)

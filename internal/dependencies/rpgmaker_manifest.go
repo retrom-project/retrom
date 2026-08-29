@@ -10,6 +10,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 
@@ -17,6 +18,8 @@ import (
 )
 
 const rpgMakerManifestVersion = "v1"
+
+var runtimeCompatibilityIdentity = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{0,118}-v[1-9][0-9]*$`)
 
 type RPGMakerManifest struct {
 	SchemaVersion int                    `json:"schema_version"`
@@ -213,9 +216,10 @@ func validONSIdentity(artifact RPGMakerArtifact) bool {
 
 func validONSCompatibility(artifact RPGMakerArtifact) bool {
 	var value map[string]any
-	return json.Unmarshal(artifact.Compatibility, &value) == nil && len(value) == 4 &&
+	return json.Unmarshal(artifact.Compatibility, &value) == nil && len(value) == 7 &&
 		value["adapterAbi"] == "ons-save" && value["checkpointSlot"] == float64(999) &&
-		value["jsPath"] == "onsyuri.js" && value["wasmPath"] == "onsyuri.wasm"
+		value["jsPath"] == "onsyuri.js" && value["wasmPath"] == "onsyuri.wasm" &&
+		validRuntimeCompatibilityContract(value)
 }
 
 func rpgArtifactSetEntries(
@@ -246,7 +250,8 @@ func rpgArtifactSetDigest(entries []artifactSetEntry) string {
 
 func validRPGCompatibility(artifact RPGMakerArtifact, route routing.Entry) bool {
 	var value map[string]any
-	if json.Unmarshal(artifact.Compatibility, &value) != nil || value["adapterAbi"] != artifact.AdapterABI {
+	if json.Unmarshal(artifact.Compatibility, &value) != nil || value["adapterAbi"] != artifact.AdapterABI ||
+		!validRuntimeCompatibilityContract(value) {
 		return false
 	}
 	switch artifact.RuntimeAdapterKind {
@@ -262,20 +267,40 @@ func validRPGCompatibility(artifact RPGMakerArtifact, route routing.Entry) bool 
 }
 
 func validEasyRPGCompatibility(value map[string]any, route routing.Entry) bool {
-	return len(value) == 4 && value["engineMode"] == route.EngineMode &&
+	return len(value) == 7 && value["engineMode"] == route.EngineMode &&
 		value["jsPath"] == "easyrpg-player.js" && value["wasmPath"] == "easyrpg-player.wasm"
 }
 
 func validMKXPCompatibility(value map[string]any, route routing.Entry) bool {
-	return len(value) == 5 && value["rgssVersion"] == float64(route.RGSSVersion) &&
+	return len(value) == 8 && value["rgssVersion"] == float64(route.RGSSVersion) &&
 		value["jsPath"] == "mkxp-z_libretro.js" && value["wasmPath"] == "mkxp-z_libretro.wasm" &&
 		value["bridgePath"] == "position_bridge.rb"
 }
 
 func validNativeCompatibility(value map[string]any, generation string) bool {
-	return len(value) == 3 && value["bridgePath"] == "native-bridge.js" &&
+	return len(value) == 6 && value["bridgePath"] == "native-bridge.js" &&
 		(value["bridgeProfile"] == "RPGMV" || value["bridgeProfile"] == "RPGMZ") &&
 		value["bridgeProfile"] == generation
+}
+
+func validRuntimeCompatibilityContract(value map[string]any) bool {
+	gameLine, gameOK := value["gameCompatibilityLine"].(string)
+	saveABI, saveOK := value["saveAbi"].(string)
+	readable, readableOK := value["readableSaveAbis"].([]any)
+	if !gameOK || !saveOK || !readableOK || !runtimeCompatibilityIdentity.MatchString(gameLine) ||
+		!runtimeCompatibilityIdentity.MatchString(saveABI) || len(readable) < 1 || len(readable) > 16 {
+		return false
+	}
+	seen := make(map[string]struct{}, len(readable))
+	for _, candidate := range readable {
+		name, ok := candidate.(string)
+		if !ok || !runtimeCompatibilityIdentity.MatchString(name) {
+			return false
+		}
+		seen[name] = struct{}{}
+	}
+	_, writesReadableABI := seen[saveABI]
+	return writesReadableABI && len(seen) == len(readable)
 }
 
 func validSHA256(value string) bool {

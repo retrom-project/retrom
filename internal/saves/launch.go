@@ -14,7 +14,8 @@ import (
 type launchSnapshot struct {
 	principalID, profileID, purpose, gameID, contentRevisionID string
 	variantRevisionID, artifactID, validationID, generation    string
-	adapterABI, dependencySHA256, payloadKind                  string
+	runtimeFamily, adapterABI, saveABI, dependencySHA256       string
+	payloadKind                                                string
 	datVersionID, dosEntry                                     sql.NullString
 	credentialHash                                             []byte
 	state                                                      string
@@ -33,10 +34,13 @@ func (service *Service) launch(ctx context.Context, launchID, capability string)
 	err := service.database.QueryRowContext(ctx, `
 SELECT COALESCE(user.id,launch.profile_id),launch.profile_id,launch.purpose,
  launch.game_id,launch.game_content_revision_id,launch.game_variant_revision_id,
- launch.core_artifact_id,launch.rpgmaker_runtime_validation_id,
+ launch.core_artifact_id,launch.rpgmaker_runtime_validation_id,artifact.runtime_family,
  revision.dat_version_id,launch.dos_entry_path,launch.credential_sha256,launch.state,
  launch.hard_expires_at_ms,artifact.save_payload_kind,artifact.save_max_bytes,
- json_extract(artifact.compatibility_json,'$.adapterAbi'),revision.dependency_snapshot_json,
+ json_extract(artifact.compatibility_json,'$.adapterAbi'),
+ COALESCE(json_extract(artifact.compatibility_json,'$.saveAbi'),
+          json_extract(artifact.compatibility_json,'$.adapterAbi')),
+ revision.dependency_snapshot_json,
  product_profile.generation,product_profile.adapter_abi,product_profile.dependency_snapshot_sha256,
  validation.generation,validation.adapter_abi,validation.dependency_snapshot_sha256,validation.launch_id,
  CASE WHEN EXISTS(SELECT 1 FROM launch_content_files file
@@ -59,9 +63,10 @@ WHERE launch.id=?
 `, launchID).Scan(
 		&result.principalID, &result.profileID, &result.purpose,
 		&gameID, &contentRevisionID, &variantRevisionID, &result.artifactID, &validationID,
+		&result.runtimeFamily,
 		&result.datVersionID, &result.dosEntry, &result.credentialHash, &result.state,
 		&result.hardExpiresAtMS, &result.payloadKind, &result.payloadMaxBytes,
-		&result.adapterABI, &variantDependencyJSON,
+		&result.adapterABI, &result.saveABI, &variantDependencyJSON,
 		&productGeneration, &productABI, &productDependency,
 		&validationGeneration, &validationABI, &validationDependency, &validationLaunchID,
 		&result.contentFormat, &result.discCount, &result.initialDiscIndex,
@@ -105,8 +110,7 @@ func bindProductLaunch(
 	if !productABI.Valid || !productDependency.Valid {
 		return launchSnapshot{}, ErrCredential
 	}
-	result.generation, result.adapterABI, result.dependencySHA256 = productGeneration.String,
-		productABI.String, productDependency.String
+	result.generation, result.dependencySHA256 = productGeneration.String, productDependency.String
 	return result, nil
 }
 
@@ -131,29 +135,75 @@ func validLaunchDiscShape(result launchSnapshot) bool {
 	return result.discCount >= 2 && result.initialDiscIndex >= 0 && result.initialDiscIndex < result.discCount
 }
 
+type restoreBinding struct {
+	gameID, contentID, variantID, validationID                    sql.NullString
+	productGeneration, productABI, productDependency              sql.NullString
+	validationGeneration, validationABI, validationDependency     sql.NullString
+	variantDependencyJSON                                         sql.NullString
+	payloadDigest, savedAdapterABI, savedSaveABI, savedDependency string
+	storedPayloadKind                                             string
+	savedSize                                                     int64
+	savedNativeProfile                                            sql.NullString
+	savedResumeSlot                                               sql.NullInt64
+}
+
+func restoreSnapshotCompatible(result launchSnapshot, binding restoreBinding) bool {
+	adapterCompatible := result.adapterABI == binding.savedAdapterABI
+	if result.purpose == "PRODUCT" && (result.runtimeFamily == "RPGMAKER" || result.runtimeFamily == "ONS") {
+		adapterCompatible = binding.savedSaveABI != "" && result.saveABI != ""
+	}
+	return result.adapterABI != "" && result.saveABI != "" && result.dependencySHA256 != "" &&
+		adapterCompatible && result.dependencySHA256 == binding.savedDependency &&
+		binding.storedPayloadKind == result.payloadKind && binding.savedSize >= 1 &&
+		binding.savedSize <= result.payloadMaxBytes
+}
+
+func bindRestoreSnapshot(result launchSnapshot, binding restoreBinding) (launchSnapshot, error) {
+	result.gameID = binding.gameID.String
+	result.contentRevisionID = binding.contentID.String
+	result.variantRevisionID = binding.variantID.String
+	result.validationID = binding.validationID.String
+	if result.purpose == "PRODUCT" {
+		if binding.productGeneration.Valid {
+			result.generation = binding.productGeneration.String
+			result.dependencySHA256 = binding.productDependency.String
+		} else if binding.variantDependencyJSON.Valid {
+			digest := sha256.Sum256([]byte(binding.variantDependencyJSON.String))
+			result.dependencySHA256 = hex.EncodeToString(digest[:])
+		}
+	} else {
+		result.generation = binding.validationGeneration.String
+		result.adapterABI = binding.validationABI.String
+		result.dependencySHA256 = binding.validationDependency.String
+	}
+	if !restoreSnapshotCompatible(result, binding) {
+		return launchSnapshot{}, ErrCheckpointIncompatible
+	}
+	return result, nil
+}
+
 func loadLaunchForRestore(
 	ctx context.Context, database queryRower, launchID string,
 ) (launchSnapshot, string, sql.NullString, sql.NullInt64, int64, error) {
 	var result launchSnapshot
-	var payloadDigest, savedAdapterABI, savedDependency, storedPayloadKind string
-	var savedSize int64
-	var savedNativeProfile sql.NullString
-	var savedResumeSlot sql.NullInt64
-	var gameID, contentID, variantID, validationID sql.NullString
-	var productGeneration, productABI, productDependency sql.NullString
-	var validationGeneration, validationABI, validationDependency sql.NullString
-	var variantDependencyJSON sql.NullString
+	var binding restoreBinding
 	err := database.QueryRowContext(ctx, `
 SELECT launch.purpose,launch.profile_id,launch.game_id,launch.game_content_revision_id,
  launch.game_variant_revision_id,launch.core_artifact_id,launch.rpgmaker_runtime_validation_id,
+ artifact.runtime_family,
  artifact.save_payload_kind,artifact.save_max_bytes,
  json_extract(artifact.compatibility_json,'$.adapterAbi'),
+ COALESCE(json_extract(artifact.compatibility_json,'$.saveAbi'),
+          json_extract(artifact.compatibility_json,'$.adapterAbi')),
  revision.dependency_snapshot_json,
  product_profile.generation,product_profile.adapter_abi,product_profile.dependency_snapshot_sha256,
  validation.generation,validation.adapter_abi,validation.dependency_snapshot_sha256,
  COALESCE(save.payload_sha256,checkpoint.payload_sha256),
  COALESCE(save.payload_size_bytes,checkpoint.size_bytes),
  COALESCE(save.adapter_abi,validation.adapter_abi),
+ COALESCE(save.save_abi,
+          COALESCE(json_extract(artifact.compatibility_json,'$.saveAbi'),
+                   json_extract(artifact.compatibility_json,'$.adapterAbi'))),
  COALESCE(save.dependency_snapshot_sha256,validation.dependency_snapshot_sha256),
  COALESCE(save.payload_kind,checkpoint.payload_kind),
  COALESCE(save.native_profile,checkpoint.native_profile),
@@ -166,6 +216,8 @@ LEFT JOIN rpgmaker_variant_profiles product_profile
 LEFT JOIN rpgmaker_runtime_validations validation
   ON validation.id=launch.rpgmaker_runtime_validation_id
 LEFT JOIN save_states save ON save.id=launch.save_state_id AND save.deleted_at_ms IS NULL
+LEFT JOIN save_state_runtime_compatibility save_compatibility
+  ON save_compatibility.save_state_id=save.id
 LEFT JOIN blobs save_blob ON save_blob.id=save.payload_blob_id
 LEFT JOIN rpgmaker_runtime_validation_checkpoints checkpoint
   ON checkpoint.validation_id=validation.id AND validation.restore_launch_id=launch.id
@@ -175,20 +227,23 @@ WHERE launch.id=? AND (
    AND save.profile_id=launch.profile_id AND save.game_id=launch.game_id
    AND save.game_content_revision_id=launch.game_content_revision_id
    AND save.game_variant_revision_id=launch.game_variant_revision_id
-   AND save.core_artifact_id=launch.core_artifact_id
+   AND save_compatibility.status='AVAILABLE'
    AND save_blob.sha256=save.payload_sha256 AND save_blob.size_bytes=save.payload_size_bytes
  OR launch.purpose='RPG_RUNTIME_VALIDATION' AND checkpoint.validation_id IS NOT NULL
    AND validation.state IN ('CHECKPOINTED','RESTORED','AWAITING_DECISION')
    AND validation.artifact_id=launch.core_artifact_id AND validation.route_key=launch.route_key
    AND checkpoint_blob.sha256=checkpoint.payload_sha256 AND checkpoint_blob.size_bytes=checkpoint.size_bytes
 )
-`, launchID).Scan(
-		&result.purpose, &result.profileID, &gameID, &contentID, &variantID, &result.artifactID, &validationID,
-		&result.payloadKind, &result.payloadMaxBytes, &result.adapterABI, &variantDependencyJSON,
-		&productGeneration, &productABI, &productDependency,
-		&validationGeneration, &validationABI, &validationDependency,
-		&payloadDigest, &savedSize, &savedAdapterABI, &savedDependency,
-		&storedPayloadKind, &savedNativeProfile, &savedResumeSlot,
+	`, launchID).Scan(
+		&result.purpose, &result.profileID, &binding.gameID, &binding.contentID, &binding.variantID,
+		&result.artifactID, &binding.validationID,
+		&result.runtimeFamily, &result.payloadKind, &result.payloadMaxBytes, &result.adapterABI, &result.saveABI,
+		&binding.variantDependencyJSON,
+		&binding.productGeneration, &binding.productABI, &binding.productDependency,
+		&binding.validationGeneration, &binding.validationABI, &binding.validationDependency,
+		&binding.payloadDigest, &binding.savedSize, &binding.savedAdapterABI, &binding.savedSaveABI,
+		&binding.savedDependency, &binding.storedPayloadKind, &binding.savedNativeProfile,
+		&binding.savedResumeSlot,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
 		return launchSnapshot{}, "", sql.NullString{}, sql.NullInt64{}, 0, ErrCheckpointIncompatible
@@ -197,26 +252,9 @@ WHERE launch.id=? AND (
 		return launchSnapshot{}, "", sql.NullString{}, sql.NullInt64{}, 0,
 			fmt.Errorf("load restore launch: %w", err)
 	}
-	result.gameID = gameID.String
-	result.contentRevisionID = contentID.String
-	result.variantRevisionID = variantID.String
-	result.validationID = validationID.String
-	if result.purpose == "PRODUCT" {
-		if productGeneration.Valid {
-			result.generation, result.adapterABI, result.dependencySHA256 = productGeneration.String,
-				productABI.String, productDependency.String
-		} else if variantDependencyJSON.Valid {
-			digest := sha256.Sum256([]byte(variantDependencyJSON.String))
-			result.dependencySHA256 = hex.EncodeToString(digest[:])
-		}
-	} else {
-		result.generation, result.adapterABI, result.dependencySHA256 = validationGeneration.String,
-			validationABI.String, validationDependency.String
-	}
-	if result.adapterABI == "" || result.dependencySHA256 == "" ||
-		result.adapterABI != savedAdapterABI || result.dependencySHA256 != savedDependency ||
-		storedPayloadKind != result.payloadKind || savedSize < 1 || savedSize > result.payloadMaxBytes {
+	result, err = bindRestoreSnapshot(result, binding)
+	if err != nil {
 		return launchSnapshot{}, "", sql.NullString{}, sql.NullInt64{}, 0, ErrCheckpointIncompatible
 	}
-	return result, payloadDigest, savedNativeProfile, savedResumeSlot, savedSize, nil
+	return result, binding.payloadDigest, binding.savedNativeProfile, binding.savedResumeSlot, binding.savedSize, nil
 }

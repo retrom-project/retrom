@@ -1,8 +1,11 @@
 package dependencies
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
+
+	"retrom/internal/rpgmaker/routing"
 )
 
 func TestArtifactSetSHA256UsesCanonicalPathOrder(t *testing.T) {
@@ -54,5 +57,33 @@ func TestSelectedCoreStartupActionDelayBoundary(t *testing.T) {
 	core.AdapterABI = "latest"
 	if err := validateSelectedCore(core, allowlist); err == nil {
 		t.Fatal("unlocked adapter ABI accepted")
+	}
+}
+
+func TestRPGMakerRuntimeCompatibilityRequiresSaveContract(t *testing.T) {
+	t.Parallel()
+	route, err := routing.ByRoute("rpgmaker_2000", "RPG2000_EASYRPG")
+	if err != nil {
+		t.Fatal(err)
+	}
+	artifact := RPGMakerArtifact{
+		AdapterABI:         "easyrpg-save",
+		RuntimeAdapterKind: "EASYRPG_WEB",
+		Compatibility: json.RawMessage(
+			`{"adapterAbi":"easyrpg-save","engineMode":"rpg2k","jsPath":"easyrpg-player.js","wasmPath":"easyrpg-player.wasm"}`,
+		),
+	}
+	if validRPGCompatibility(artifact, route) {
+		t.Fatal("RPG Maker compatibility without game/save ABI contract was accepted")
+	}
+}
+
+func TestONSRuntimeCompatibilityRequiresSaveContract(t *testing.T) {
+	t.Parallel()
+	artifact := RPGMakerArtifact{Compatibility: json.RawMessage(
+		`{"adapterAbi":"ons-save","checkpointSlot":999,"jsPath":"onsyuri.js","wasmPath":"onsyuri.wasm"}`,
+	)}
+	if validONSCompatibility(artifact) {
+		t.Fatal("ONS compatibility without game/save ABI contract was accepted")
 	}
 }

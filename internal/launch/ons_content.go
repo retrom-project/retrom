@@ -21,10 +21,14 @@ func (service *Service) buildONSProductContentPlan(
 SELECT revision.dependency_snapshot_json,artifact.compatibility_json,
  artifact.runtime_adapter_kind,artifact.adapter_id
 FROM game_variant_revisions revision
-JOIN core_artifacts artifact ON artifact.id=revision.core_artifact_id
-WHERE revision.id=? AND revision.game_content_revision_id=? AND artifact.id=?
+JOIN core_artifacts bound_artifact ON bound_artifact.id=revision.core_artifact_id
+JOIN core_artifacts artifact ON artifact.id=?
+WHERE revision.id=? AND revision.game_content_revision_id=?
  AND artifact.runtime_family='ONS' AND artifact.available_for_launch=1
-`, selection.variantRevisionID, selection.contentRevisionID, selection.artifactID).Scan(
+ AND artifact.core_id=bound_artifact.core_id AND artifact.route_key=bound_artifact.route_key
+ AND json_extract(artifact.compatibility_json,'$.gameCompatibilityLine')=
+     json_extract(bound_artifact.compatibility_json,'$.gameCompatibilityLine')
+`, selection.artifactID, selection.variantRevisionID, selection.contentRevisionID).Scan(
 		&dependencyJSON, &compatibilityJSON, &adapterKind, &adapterID,
 	); err != nil {
 		return launchContentPlan{}, ErrBlocked

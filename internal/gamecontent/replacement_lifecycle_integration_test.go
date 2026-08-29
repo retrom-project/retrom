@@ -69,9 +69,9 @@ VALUES(?,?,?,'SOURCE_V1',?)
 	dependencyDigest := sha256.Sum256([]byte(dependencySnapshot))
 	if _, err := database.ExecContext(ctx, `
 INSERT INTO save_states(id,profile_id,game_id,game_content_revision_id,game_variant_revision_id,
-core_artifact_id,adapter_abi,dependency_snapshot_sha256,payload_blob_id,payload_kind,payload_sha256,
+core_artifact_id,adapter_abi,save_abi,dependency_snapshot_sha256,payload_blob_id,payload_kind,payload_sha256,
 payload_size_bytes,screenshot_blob_id,name,active_duration_ms,created_at_ms,updated_at_ms,source_launch_session_id)
-VALUES(?,?,?,?,?,?,'emulatorjs-state-v1',?,?,'RUNTIME_STATE',?,?,?,'Before replacement',1000,?,?,?)
+VALUES(?,?,?,?,?,?,'emulatorjs-state-v1','emulatorjs-state-v1',?,?,'RUNTIME_STATE',?,?,?,'Before replacement',1000,?,?,?)
 `, saveID, profileID, gameID, contentID, revisionID, artifactID,
 		fmt.Sprintf("%x", dependencyDigest), stateBlobID, fmt.Sprintf("%x", stateDigest), len(statePayload),
 		screenshotBlobID, now, now, launchID); err != nil {

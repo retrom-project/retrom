@@ -301,6 +301,27 @@ CREATE INDEX save_states_source_launch
 ON save_states(source_launch_session_id, created_at_ms DESC, id DESC)
 WHERE deleted_at_ms IS NULL;
 
+CREATE VIEW save_state_runtime_compatibility AS
+SELECT save.id AS save_state_id,
+CASE
+  WHEN writer.runtime_family IN ('RPGMAKER','ONS') THEN CASE WHEN EXISTS(
+    SELECT 1 FROM core_artifacts current
+    WHERE current.core_id=writer.core_id AND current.route_key=writer.route_key
+      AND current.runtime_family=writer.runtime_family
+      AND current.selected_for_new_bindings=1 AND current.available_for_launch=1
+      AND json_extract(current.compatibility_json,'$.gameCompatibilityLine')=
+          json_extract(writer.compatibility_json,'$.gameCompatibilityLine')
+      AND EXISTS(
+        SELECT 1 FROM json_each(current.compatibility_json,'$.readableSaveAbis') readable
+        WHERE readable.type='text' AND readable.value=save.save_abi
+      )
+  ) THEN 'AVAILABLE' ELSE 'INCOMPATIBLE_RUNTIME' END
+  WHEN writer.available_for_launch=1 THEN 'AVAILABLE'
+  ELSE 'CORE_UNAVAILABLE'
+END AS status
+FROM save_states save
+JOIN core_artifacts writer ON writer.id=save.core_artifact_id;
+
 CREATE INDEX server_bios_candidates_page
 ON server_bios_import_candidates(server_import_id,requirement_id,rank_ordinal,id);
 
@@ -2486,7 +2507,8 @@ BEGIN SELECT RAISE(ABORT,'artifact payload identity is immutable'); END;
 
 CREATE TRIGGER core_artifacts_availability_update
 BEFORE UPDATE OF available_for_launch ON core_artifacts
-WHEN OLD.available_for_launch=1 AND NEW.available_for_launch=0 AND (
+WHEN OLD.runtime_family='EMULATORJS'
+AND OLD.available_for_launch=1 AND NEW.available_for_launch=0 AND (
   EXISTS(SELECT 1 FROM game_variant_revisions revision WHERE revision.core_artifact_id=OLD.id)
   OR EXISTS(SELECT 1 FROM save_states save WHERE save.core_artifact_id=OLD.id AND save.deleted_at_ms IS NULL)
   OR EXISTS(SELECT 1 FROM launch_sessions launch
@@ -3065,18 +3087,41 @@ OR NEW.purpose='PRODUCT' AND NOT EXISTS(
   SELECT 1 FROM games game
   JOIN game_variant_revisions revision ON revision.id=NEW.game_variant_revision_id
   JOIN game_variants variant ON variant.id=revision.game_variant_id
+  JOIN core_artifacts bound_artifact ON bound_artifact.id=revision.core_artifact_id
+  JOIN core_artifacts launch_artifact ON launch_artifact.id=NEW.core_artifact_id
   WHERE game.id=NEW.game_id AND game.status='PUBLISHED'
     AND variant.game_id=game.id AND revision.game_content_revision_id=NEW.game_content_revision_id
-    AND revision.core_artifact_id=NEW.core_artifact_id AND revision.route_key=NEW.route_key
     AND revision.status='READY'
+    AND (
+      launch_artifact.runtime_family='EMULATORJS'
+        AND revision.core_artifact_id=NEW.core_artifact_id AND revision.route_key=NEW.route_key
+      OR launch_artifact.runtime_family IN ('RPGMAKER','ONS')
+        AND launch_artifact.selected_for_new_bindings=1
+        AND launch_artifact.core_id=bound_artifact.core_id
+        AND launch_artifact.runtime_family=bound_artifact.runtime_family
+        AND launch_artifact.route_key=revision.route_key AND revision.route_key=NEW.route_key
+        AND json_extract(launch_artifact.compatibility_json,'$.gameCompatibilityLine')=
+            json_extract(bound_artifact.compatibility_json,'$.gameCompatibilityLine')
+    )
 )
 OR NEW.purpose='PRODUCT' AND NEW.save_state_id IS NOT NULL AND NOT EXISTS(
   SELECT 1 FROM save_states save
+  JOIN core_artifacts writer ON writer.id=save.core_artifact_id
+  JOIN core_artifacts launch_artifact ON launch_artifact.id=NEW.core_artifact_id
+  JOIN save_state_runtime_compatibility compatibility ON compatibility.save_state_id=save.id
   WHERE save.id=NEW.save_state_id AND save.deleted_at_ms IS NULL
     AND save.profile_id=NEW.profile_id AND save.game_id=NEW.game_id
     AND save.game_content_revision_id=NEW.game_content_revision_id
     AND save.game_variant_revision_id=NEW.game_variant_revision_id
-    AND save.core_artifact_id=NEW.core_artifact_id
+    AND (
+      launch_artifact.runtime_family='EMULATORJS' AND save.core_artifact_id=NEW.core_artifact_id
+      OR launch_artifact.runtime_family IN ('RPGMAKER','ONS')
+        AND compatibility.status='AVAILABLE'
+        AND launch_artifact.selected_for_new_bindings=1
+        AND launch_artifact.core_id=writer.core_id
+        AND launch_artifact.runtime_family=writer.runtime_family
+        AND launch_artifact.route_key=writer.route_key
+    )
 )
 OR NEW.purpose='RPG_RUNTIME_VALIDATION' AND NOT EXISTS(
   SELECT 1 FROM rpgmaker_runtime_validations validation
@@ -3155,18 +3200,28 @@ WHEN NOT EXISTS(
     AND artifact.save_payload_kind=NEW.payload_kind
     AND NEW.payload_size_bytes<=artifact.save_max_bytes
     AND blob.sha256=NEW.payload_sha256 AND blob.size_bytes=NEW.payload_size_bytes
+    AND json_extract(artifact.compatibility_json,'$.adapterAbi')=NEW.adapter_abi
+    AND COALESCE(json_extract(artifact.compatibility_json,'$.saveAbi'),
+                 json_extract(artifact.compatibility_json,'$.adapterAbi'))=NEW.save_abi
 )
 OR NOT EXISTS(
   SELECT 1 FROM game_variant_revisions revision
+  JOIN core_artifacts bound_artifact ON bound_artifact.id=revision.core_artifact_id
+  JOIN core_artifacts writer ON writer.id=NEW.core_artifact_id
   WHERE revision.id=NEW.game_variant_revision_id
     AND revision.game_content_revision_id=NEW.game_content_revision_id
-    AND revision.core_artifact_id=NEW.core_artifact_id
     AND (
-      NOT EXISTS(SELECT 1 FROM rpgmaker_variant_profiles profile
-        WHERE profile.game_variant_revision_id=revision.id)
-      OR EXISTS(SELECT 1 FROM rpgmaker_variant_profiles profile
+      writer.runtime_family='EMULATORJS' AND revision.core_artifact_id=NEW.core_artifact_id
+      OR writer.runtime_family='ONS'
+        AND writer.core_id=bound_artifact.core_id AND writer.route_key=revision.route_key
+        AND json_extract(writer.compatibility_json,'$.gameCompatibilityLine')=
+            json_extract(bound_artifact.compatibility_json,'$.gameCompatibilityLine')
+      OR writer.runtime_family='RPGMAKER'
+        AND writer.core_id=bound_artifact.core_id AND writer.route_key=revision.route_key
+        AND json_extract(writer.compatibility_json,'$.gameCompatibilityLine')=
+            json_extract(bound_artifact.compatibility_json,'$.gameCompatibilityLine')
+        AND EXISTS(SELECT 1 FROM rpgmaker_variant_profiles profile
         WHERE profile.game_variant_revision_id=revision.id
-          AND profile.adapter_abi=NEW.adapter_abi
           AND profile.dependency_snapshot_sha256=NEW.dependency_snapshot_sha256
           AND (
             NEW.payload_kind='RUNTIME_STATE' AND profile.generation IN ('RPGXP','RPGVX','RPGVXACE')
@@ -3184,7 +3239,7 @@ BEGIN SELECT RAISE(ABORT,'save checkpoint payload mismatch'); END;
 
 CREATE TRIGGER save_states_payload_immutable
 BEFORE UPDATE OF profile_id,game_id,game_content_revision_id,game_variant_revision_id,core_artifact_id,
-  adapter_abi,dependency_snapshot_sha256,dat_version_id,dos_entry_path,payload_blob_id,payload_kind,
+  adapter_abi,save_abi,dependency_snapshot_sha256,dat_version_id,dos_entry_path,payload_blob_id,payload_kind,
   native_profile,resume_slot,payload_sha256,payload_size_bytes,source_launch_session_id,created_at_ms
 ON save_states
 BEGIN SELECT RAISE(ABORT,'save checkpoint binding is immutable'); END;

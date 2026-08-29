@@ -26,6 +26,7 @@ OBSERVED_FILENAME = ".release-observed.json"
 DEV_MARKER_FILENAME = ".retrom-runtime-dev.json"
 HEX_40 = re.compile(r"^[0-9a-f]{40}$")
 SEMVER_TAG = re.compile(r"^v(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)(?:-[0-9A-Za-z.-]+)?$")
+RUNTIME_COMPATIBILITY_IDENTITY = re.compile(r"^[a-z0-9][a-z0-9-]{0,118}-v[1-9][0-9]*$")
 EXPECTED_FILES = {
     "LICENSE": ("LICENSE", "license", 1 << 20),
     "THIRD_PARTY_NOTICES.md": ("THIRD_PARTY_NOTICES.md", "license", 1 << 20),
@@ -148,6 +149,7 @@ def validate_artifacts(value: object, tag: str) -> None:
             raise BuildError("RPG_RUNTIME_ARTIFACT_ROUTE_INVALID")
         if artifact.get("selected_for_new_bindings") is not True or artifact.get("available_for_launch") is not True:
             raise BuildError("RPG_RUNTIME_ARTIFACT_ROUTE_INVALID")
+        validate_runtime_compatibility(artifact.get("compatibility"), artifact.get("adapter_abi"))
         paths = artifact.get("file_paths")
         if not isinstance(paths, list) or not paths or len(paths) != len(set(paths)) or any(
             not isinstance(path, str) or not path.startswith(f"{tag}/") for path in paths
@@ -157,6 +159,26 @@ def validate_artifacts(value: object, tag: str) -> None:
         selected.add(artifact["core_id"])
     if seen != set(EXPECTED_ROUTES) or len(selected) != 8:
         raise BuildError("RPG_RUNTIME_ARTIFACT_ROUTE_INVALID")
+
+
+def validate_runtime_compatibility(value: object, adapter_abi: object) -> None:
+    if not isinstance(value, dict) or value.get("adapterAbi") != adapter_abi:
+        raise BuildError("RPG_RUNTIME_COMPATIBILITY_INVALID")
+    game_line = value.get("gameCompatibilityLine")
+    save_abi = value.get("saveAbi")
+    readable = value.get("readableSaveAbis")
+    if (
+        not isinstance(game_line, str)
+        or RUNTIME_COMPATIBILITY_IDENTITY.fullmatch(game_line) is None
+        or not isinstance(save_abi, str)
+        or RUNTIME_COMPATIBILITY_IDENTITY.fullmatch(save_abi) is None
+        or not isinstance(readable, list)
+        or not 1 <= len(readable) <= 16
+        or any(not isinstance(item, str) or RUNTIME_COMPATIBILITY_IDENTITY.fullmatch(item) is None for item in readable)
+        or len(set(readable)) != len(readable)
+        or save_abi not in readable
+    ):
+        raise BuildError("RPG_RUNTIME_COMPATIBILITY_INVALID")
 
 
 def download_bytes(url: str, maximum: int) -> bytes:

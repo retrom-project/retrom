@@ -25,6 +25,9 @@ func bootstrapRPGMaker(
 	declared := make(map[rpgMakerArtifactIdentity]struct{}, len(version.Manifest.Artifacts))
 	for index, artifact := range version.Manifest.Artifacts {
 		declared[rpgMakerArtifactKey(artifact)] = struct{}{}
+		if err := validateRPGMakerGameCompatibility(ctx, transaction, artifact); err != nil {
+			return err
+		}
 		if err := retireConflictingRPGMakerArtifacts(ctx, transaction, artifact, now); err != nil {
 			return err
 		}
@@ -82,6 +85,9 @@ WHERE runtime_family IN ('RPGMAKER','ONS') AND (selected_for_new_bindings=1 OR a
 		return fmt.Errorf("iterate RPG Maker artifacts for retirement: %w", err)
 	}
 	for _, id := range retiredIDs {
+		if err := validateRPGMakerArtifactRetirement(ctx, transaction, id); err != nil {
+			return err
+		}
 		if _, err := transaction.ExecContext(ctx, `
 UPDATE core_artifacts
 SET selected_for_new_bindings=0,available_for_launch=0,version=version+1,updated_at_ms=?
@@ -89,6 +95,58 @@ WHERE id=? AND (selected_for_new_bindings=1 OR available_for_launch=1)
 `, now.UnixMilli(), id); err != nil {
 			return fmt.Errorf("retire undeclared RPG Maker artifact: %w", err)
 		}
+	}
+	return nil
+}
+
+func validateRPGMakerGameCompatibility(
+	ctx context.Context,
+	transaction *sql.Tx,
+	artifact RPGMakerArtifact,
+) error {
+	var compatibility struct {
+		GameCompatibilityLine string `json:"gameCompatibilityLine"`
+	}
+	if err := json.Unmarshal(artifact.Compatibility, &compatibility); err != nil ||
+		compatibility.GameCompatibilityLine == "" {
+		return fmt.Errorf("%w: RPG Maker game compatibility line", ErrInvalid)
+	}
+	var conflicts int
+	if err := transaction.QueryRowContext(ctx, `
+SELECT count(*)
+FROM game_variant_revisions revision
+JOIN core_artifacts bound ON bound.id=revision.core_artifact_id
+WHERE revision.status='READY' AND bound.runtime_family=? AND bound.core_id=? AND bound.route_key=?
+AND json_extract(bound.compatibility_json,'$.gameCompatibilityLine') IS NOT ?
+`, artifact.RuntimeFamily, artifact.CoreID, artifact.RouteKey, compatibility.GameCompatibilityLine).
+		Scan(&conflicts); err != nil {
+		return fmt.Errorf("check RPG Maker game compatibility: %w", err)
+	}
+	if conflicts != 0 {
+		return fmt.Errorf("%w: RPG Maker game compatibility line changed", ErrInvalid)
+	}
+	return nil
+}
+
+func validateRPGMakerArtifactRetirement(ctx context.Context, transaction *sql.Tx, artifactID string) error {
+	var incompatible int
+	if err := transaction.QueryRowContext(ctx, `
+SELECT count(*)
+FROM game_variant_revisions revision
+JOIN core_artifacts retired ON retired.id=revision.core_artifact_id
+WHERE retired.id=? AND revision.status='READY' AND NOT EXISTS(
+  SELECT 1 FROM core_artifacts current
+  WHERE current.core_id=retired.core_id AND current.route_key=retired.route_key
+    AND current.runtime_family=retired.runtime_family
+    AND current.selected_for_new_bindings=1 AND current.available_for_launch=1
+    AND json_extract(current.compatibility_json,'$.gameCompatibilityLine')=
+        json_extract(retired.compatibility_json,'$.gameCompatibilityLine')
+)
+`, artifactID).Scan(&incompatible); err != nil {
+		return fmt.Errorf("check RPG Maker artifact retirement: %w", err)
+	}
+	if incompatible != 0 {
+		return fmt.Errorf("%w: RPG Maker runtime removal would strand games", ErrInvalid)
 	}
 	return nil
 }

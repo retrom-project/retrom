@@ -25,7 +25,7 @@ RPG Maker 的单一用户虚拟核心必须分别使用七个独立完整游戏�
 
 | 版本核心 | 产品验收入口 | 合法游戏输入 | 必须证明的边界 |
 | --- | --- | --- | --- |
-| `rpgmaker_2000` | `ACC-RPG-002`、`ACC-RPG-012` | `testdata/public-roms/rpgmaker-smoke/rpg2000/`；012 的第二次导入使用同一生成源的 `rpg2000-compat/`；均为 Retrom 自有 MIT 游戏，由固定 JSON 和有界 LCF writer 确定性生成，不含 RTP | 经用户侧虚拟核心上传后由服务端选择 2000 内部路线，审核、EasyRPG Launch 和 Player 进入地图；bridge 回读 RPG2k profile，并执行 A→B 保存→C→不同 Launch 恢复 B→恢复后输入；012 用两个不同 files digest 证明新旧 artifact 绑定，不得重复上传同一内容冒充第二项目 |
+| `rpgmaker_2000` | `ACC-RPG-002`、`ACC-RPG-012` | `testdata/public-roms/rpgmaker-smoke/rpg2000/`；Retrom 自有 MIT 游戏，由固定 JSON 和有界 LCF writer 确定性生成，不含 RTP | 经用户侧虚拟核心上传后由服务端选择 2000 内部路线，审核、EasyRPG Launch 和 Player 进入地图；bridge 回读 RPG2k profile，并执行 A→B 保存→C→不同 Launch 恢复 B→恢复后输入；012 以两个真实 `retrom-runtime` tag 顺序升级同一数据库，验证普通游戏切到当前构件，以及旧 save ABI 的显式可读或不可读结果 |
 | `rpgmaker_2003` | `ACC-RPG-003` | `testdata/public-roms/rpgmaker-smoke/rpg2003/`；同一 MIT 生成体系的独立 LCF 游戏，`ldb_id=2003`，bytes 与 marker 独立 | 证明 2003 route/engine profile，不因与 2000 共用文件形态或 runtime bytes 而 fallback；其余精确恢复门禁与 2000 相同 |
 | `rpgmaker_xp` | `ACC-RPG-004` | `testdata/public-roms/rpgmaker-smoke/rpgxp/`；Retrom 自有 MIT Ruby 程序经确定性 Marshal 4.8/zlib 生成，不含厂商默认 RGSS script/RTP | RGSS1 threaded mkxp artifact、可见可移动色块、变量、最多 256 MiB runtime state、不同 Launch 精确恢复，以及禁线程环境在下载前 fail closed |
 | `rpgmaker_vx` | `ACC-RPG-005` | `testdata/public-roms/rpgmaker-smoke/rpgvx/`；同一 MIT 源生成的独立 RGSS2 游戏 | RGSS2 route、可见画面、输入/音频和 A/B/C/restore 全字段门禁；不得以 XP/Ace profile 启动 |
@@ -56,7 +56,7 @@ EmulatorJS 4.2.3 发布包中的官方 `mame2003` bundle `2.0.2` 曾在 Chrome �
 - Core 保存实际 artifact 路径、SHA-256 和兼容配置，不能只保存 EmulatorJS 版本；
 - resolver 对 `mame2003` 读取版本化覆盖，不能用 `mame2003_plus` 静默替代；
 - 后续升级先通过实际 Retrom 产品 E2E，再删除覆盖；
-- 覆盖变化视为 CoreArtifact 变化，旧存档不得默认跨版本加载。
+- EmulatorJS 覆盖变化视为 CoreArtifact 变化，旧存档不得默认跨版本加载；独立 `retrom-runtime` 的 RPG Maker/ONS 升级则使用 manifest 声明的 `gameCompatibilityLine/saveAbi/readableSaveAbis` 决定游戏与存档兼容性。
 
 ## 5. 内容与运行时约束
 

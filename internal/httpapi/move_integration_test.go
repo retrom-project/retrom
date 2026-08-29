@@ -951,13 +951,13 @@ LIMIT 1
 	if _, err := database.ExecContext(context.Background(), `
 INSERT INTO save_states(
  id,profile_id,game_id,game_content_revision_id,game_variant_revision_id,core_artifact_id,
- adapter_abi,dependency_snapshot_sha256,dat_version_id,dos_entry_path,
+ adapter_abi,save_abi,dependency_snapshot_sha256,dat_version_id,dos_entry_path,
  payload_blob_id,payload_kind,native_profile,resume_slot,payload_sha256,payload_size_bytes,
  screenshot_blob_id,name,active_duration_ms,version,created_at_ms,updated_at_ms,
  source_launch_session_id,disc_index)
-VALUES(?,?,?,?,?,?,?,?,?,?,?,?,NULL,NULL,?,?,NULL,?,0,1,?,?,?,NULL)
+VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,NULL,NULL,?,?,NULL,?,0,1,?,?,?,NULL)
 `, saveID, profileID, gameID, contentID, variantID, artifactID, adapterABI,
-		hex.EncodeToString(dependencyDigest[:]), datVersionID, dosEntryPath,
+		adapterABI, hex.EncodeToString(dependencyDigest[:]), datVersionID, dosEntryPath,
 		payloadBlobID, payloadKind, payloadSHA256, payloadSize, name, now, now, launchID); err != nil {
 		t.Fatal(err)
 	}
