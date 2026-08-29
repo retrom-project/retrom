@@ -12,10 +12,24 @@ export function schedulePlayerBootstrap(
   task: () => Promise<void>,
 ): Promise<void> {
   const scheduled = lifecycle.tail.then(async () => {
+    await waitForBootstrapTurn(signal);
     if (!signal.aborted) {await task();}
   });
   lifecycle.tail = scheduled.catch(() => undefined);
   return scheduled;
+}
+
+function waitForBootstrapTurn(signal: AbortSignal): Promise<void> {
+  if (signal.aborted) {return Promise.resolve();}
+  return new Promise((resolve) => {
+    const timer = window.setTimeout(finish, 0);
+    signal.addEventListener("abort", finish, { once: true });
+    function finish() {
+      window.clearTimeout(timer);
+      signal.removeEventListener("abort", finish);
+      resolve();
+    }
+  });
 }
 
 export function joinPlayerBootstrapCleanup(
