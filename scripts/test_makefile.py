@@ -240,7 +240,7 @@ class MakefileDependencyTests(unittest.TestCase):
         self.assertNotIn("core:ons:build", output)
         self.assertIn('NEXT_DIST_DIR=".next-runtime-dev"', output)
         self.assertIn(
-            "env -u RETROM_RUNTIME_DEV_ROOT -u RETROM_RUNTIME_DEV_INCLUDE_ASSETS scripts/dev.sh",
+            "env -u RETROM_DEV_CONFIG -u RETROM_RUNTIME_DEV_ROOT -u RETROM_RUNTIME_DEV_INCLUDE_ASSETS scripts/dev.sh",
             output,
         )
 
