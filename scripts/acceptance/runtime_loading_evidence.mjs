@@ -25,7 +25,9 @@ export function trackRuntimeLoading(page, declaredProjectFiles = []) {
 
 export function summarizeRuntimeLoading({ indexes, responses, timings }) {
   const files = declaredFiles(indexes);
-  const projectResponses = responses.filter((item) => projectFileIdentity(item.url) !== null);
+  const projectResponses = responses.filter(
+    (item) => projectFileIdentity(item.url) !== null && item.method !== "HEAD",
+  );
   const requestedFiles = new Set(projectResponses.map((item) => item.url));
   const identities = new Set(projectResponses.map((item) => projectFileIdentity(item.url)).filter(Boolean));
   const runtimeResponses = new Set(
@@ -59,6 +61,7 @@ async function recordResponse(response, responses, indexes) {
   const record = {
     contentLength: unsigned(headers["content-length"]),
     contentRange: headers["content-range"] ?? null,
+    method: response.request().method(),
     requestRange: requestHeaders.range ?? null,
     status: response.status(),
     url: response.url(),
