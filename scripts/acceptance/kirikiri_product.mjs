@@ -414,8 +414,15 @@ async function installVirtualStandardGamepad(context) {
 
 async function waitForKagStable(canvas) {
   const deadline = Date.now() + 60_000;
+  const readyStableForMs = 500;
+  let readySince = null;
   while (Date.now() < deadline) {
-    if (await kagBookmarkReady(canvas)) {return;}
+    if (await kagBookmarkReady(canvas)) {
+      readySince ??= Date.now();
+      if (Date.now() - readySince >= readyStableForMs) {return;}
+    } else {
+      readySince = null;
+    }
     await canvas.page().waitForTimeout(50);
   }
   throw new Error("KIRIKIRI_ACCEPTANCE_RUNTIME_NOT_STABLE");

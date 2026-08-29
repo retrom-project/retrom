@@ -178,6 +178,13 @@ class KiriKiriProductAcceptanceTests(unittest.TestCase):
         self.assertIn("if (ready && (observedUnstable || observedVisualChange))", contents)
         self.assertIn("_krkr2_host_bookmark_is_ready", contents)
 
+    def test_kag_ready_must_remain_continuous_before_the_driver_sends_input(self) -> None:
+        contents = DRIVER_PATH.read_text(encoding="utf-8")
+        self.assertIn("const readyStableForMs = 500;", contents)
+        self.assertIn("let readySince = null;", contents)
+        self.assertIn("Date.now() - readySince >= readyStableForMs", contents)
+        self.assertIn("readySince = null;", contents)
+
 
 if __name__ == "__main__":
     unittest.main()
