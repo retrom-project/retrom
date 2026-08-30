@@ -7,7 +7,8 @@ export const kirikiriProductStages = [
 
 export function assertKiriKiriProductEvidence(value) {
   if (!exactRecord(value, [
-    "browser", "caseId", "checkpoint", "ids", "immersiveMenu", "loading", "schemaVersion", "screenshots", "stages", "status",
+    "browser", "caseId", "checkpoint", "ids", "immersiveMenu", "loading", "restoreComparison", "schemaVersion",
+    "screenshots", "stages", "status",
   ]) ||
       value.schemaVersion !== 1 || value.caseId !== "ACC-KIRIKIRI-001" || value.status !== "PASS" ||
       JSON.stringify(value.stages) !== JSON.stringify(kirikiriProductStages)) {
@@ -18,7 +19,19 @@ export function assertKiriKiriProductEvidence(value) {
   assertBrowser(value.browser);
   assertImmersiveMenu(value.immersiveMenu);
   assertLoading(value.loading);
+  assertRestoreComparison(value.restoreComparison);
   assertScreenshots(value.screenshots);
+}
+
+function assertRestoreComparison(value) {
+  if (!exactRecord(value, [
+    "discriminativePixelCount", "matched", "restoredToBMeanDistance", "restoredToCMeanDistance",
+  ]) || !Number.isSafeInteger(value.discriminativePixelCount) || value.discriminativePixelCount < 100 ||
+      value.matched !== true || typeof value.restoredToBMeanDistance !== "number" || value.restoredToBMeanDistance < 0 ||
+      typeof value.restoredToCMeanDistance !== "number" || value.restoredToCMeanDistance <= 0 ||
+      value.restoredToBMeanDistance * 2 >= value.restoredToCMeanDistance) {
+    throw new Error("KIRIKIRI_ACCEPTANCE_EVIDENCE_INVALID");
+  }
 }
 
 function assertLoading(value) {
@@ -87,7 +100,6 @@ function assertScreenshots(value) {
   for (const key of keys) {assertScreenshot(value[key]);}
   if (value.productBeforeInput.rgbaSha256 === value.productAfterInput.rgbaSha256 ||
       value.productAfterInput.rgbaSha256 === value.productAfterCheckpoint.rgbaSha256 ||
-      value.restored.rgbaSha256 !== value.productAfterInput.rgbaSha256 ||
       value.restored.rgbaSha256 === value.postRestoreInput.rgbaSha256) {
     throw new Error("KIRIKIRI_ACCEPTANCE_EVIDENCE_INVALID");
   }

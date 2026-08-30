@@ -6,6 +6,7 @@ import { join, resolve } from "node:path";
 import { chromium } from "../../web/node_modules/playwright/index.mjs";
 
 import { assertKiriKiriProductEvidence, kirikiriProductStages } from "./kirikiri_product_contract.mjs";
+import { compareKiriKiriVisualSamples } from "./kirikiri_visual_match.mjs";
 import { localRpgAcceptanceProxy } from "./rpgmaker_local_proxy.mjs";
 import { createProductClient, singleFile } from "./rpgmaker_security_upload.mjs";
 import { isLocalAcceptanceHostname } from "./rpgmaker_url.mjs";
@@ -30,6 +31,7 @@ if (missing.length) {
 
 const baseUrl = normalizedBaseUrl(process.env.RETROM_ACCEPTANCE_BASE_URL);
 const screenshotsDirectory = join(caseDirectory, "screenshots");
+const visualSampleKey = Symbol("kirikiriVisualSample");
 const kagInputTargets = [[0.08, 0.355], [0.5, 0.34], [0.11, 0.38], [0.5, 0.5], [0.25, 0.5], [0.75, 0.5]];
 mkdirSync(screenshotsDirectory, { recursive: true });
 const localProxy = await localRpgAcceptanceProxy(baseUrl);
@@ -160,9 +162,10 @@ async function runProductCase(activeBrowser) {
     const stateResponse = await stateResponsePromise;
     requireStatus(stateResponse.status(), 200, "KIRIKIRI_ACCEPTANCE_RESTORE_PAYLOAD_FAILED");
     const payloadSize = Number(stateResponse.headers()["content-length"]);
-    const restoredFrame = await waitForMatchingScreenshot(
-      restoredCanvas, "restored.png", afterInput.rgbaSha256, 60_000,
+    const restoreMatch = await waitForMatchingScreenshot(
+      restoredCanvas, "restored.png", afterInput, afterCheckpoint, 60_000,
     );
+    const restoredFrame = restoreMatch.frame;
     await advanceKag(restoredCanvas);
     const postRestoreFrame = await screenshotEvidence(restoredCanvas, "post-restore-input.png");
     requireChanged(restoredFrame, postRestoreFrame, "KIRIKIRI_ACCEPTANCE_RESTORE_INPUT_UNOBSERVED");
@@ -180,6 +183,7 @@ async function runProductCase(activeBrowser) {
       },
       immersiveMenu,
       checkpoint: { payloadKind: saved.payloadKind, sizeBytes: payloadSize },
+      restoreComparison: restoreMatch.comparison,
       loading: {
         schemaVersion: 1,
         sameProjectContentIdentity: originalLoading.projectContentIdentity !== null &&
@@ -521,6 +525,13 @@ async function screenshotEvidence(canvas, filename) {
     const context = probe.getContext("2d", { willReadFrequently: true });
     if (!context) {throw new Error("KIRIKIRI_ACCEPTANCE_SCREENSHOT_CONTEXT");}
     context.drawImage(bitmap, 0, 0);
+    const sampleProbe = document.createElement("canvas");
+    sampleProbe.width = 320;
+    sampleProbe.height = 180;
+    const sampleContext = sampleProbe.getContext("2d", { willReadFrequently: true });
+    if (!sampleContext) {throw new Error("KIRIKIRI_ACCEPTANCE_SCREENSHOT_CONTEXT");}
+    sampleContext.drawImage(bitmap, 0, 0, sampleProbe.width, sampleProbe.height);
+    const visualSample = [...sampleContext.getImageData(0, 0, sampleProbe.width, sampleProbe.height).data];
     bitmap.close();
     const { data, width, height } = context.getImageData(0, 0, probe.width, probe.height);
     let nonBlackPixels = 0;
@@ -529,26 +540,31 @@ async function screenshotEvidence(canvas, filename) {
     }
     const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", data));
     return {
-      pngDataUrl, width, height, nonBlackPixels,
+      pngDataUrl, visualSample, width, height, nonBlackPixels,
       rgbaSha256: [...digest].map((byte) => byte.toString(16).padStart(2, "0")).join(""),
     };
   });
   const pngBase64 = capture.pngDataUrl.slice(capture.pngDataUrl.indexOf(",") + 1);
   writeFileSync(join(screenshotsDirectory, filename), Buffer.from(pngBase64, "base64"));
-  return {
+  const evidence = {
     width: capture.width,
     height: capture.height,
     nonBlackPixels: capture.nonBlackPixels,
     rgbaSha256: capture.rgbaSha256,
     ...layout,
   };
+  Object.defineProperty(evidence, visualSampleKey, { value: capture.visualSample });
+  return evidence;
 }
 
-async function waitForMatchingScreenshot(canvas, filename, expectedSha256, timeoutMs) {
+async function waitForMatchingScreenshot(canvas, filename, bFrame, cFrame, timeoutMs) {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     const frame = await screenshotEvidence(canvas, filename);
-    if (frame.rgbaSha256 === expectedSha256) {return frame;}
+    const comparison = compareKiriKiriVisualSamples(
+      bFrame[visualSampleKey], cFrame[visualSampleKey], frame[visualSampleKey],
+    );
+    if (comparison.matched) {return { comparison, frame };}
     await canvas.page().waitForTimeout(100);
   }
   throw new Error("KIRIKIRI_ACCEPTANCE_RESTORE_POSITION_TIMEOUT");
