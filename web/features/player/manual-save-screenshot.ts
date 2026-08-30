@@ -1,8 +1,8 @@
 import type { ManualScreenshot } from "./adapters/ejs-screenshot";
 
 export const maximumManualSaveScreenshotBytes = 10 * 1024 * 1024;
-export const maximumManualSaveScreenshotWidth = 1280;
-export const maximumManualSaveScreenshotHeight = 720;
+export const maximumManualSaveScreenshotWidth = 640;
+export const maximumManualSaveScreenshotHeight = 360;
 export const manualSaveScreenshotJpegQuality = 0.75;
 
 type ScreenshotPlatform = {
