@@ -85,7 +85,7 @@ class KiriKiriProductAcceptanceTests(unittest.TestCase):
         original_ready = "await waitForProductReady(originalPage);"
         original_frame = 'const beforeInput = await screenshotEvidence(originalCanvas, "product-before-input.png");'
         restored_ready = "await waitForProductReady(restoredPage);"
-        restored_frame = 'const restoredFrame = await waitForMatchingScreenshot('
+        restored_frame = 'const restoreMatch = await waitForMatchingScreenshot('
         self.assertIn(original_ready, contents)
         self.assertIn(restored_ready, contents)
         self.assertLess(contents.index(original_ready), contents.index(original_frame))
@@ -94,7 +94,7 @@ class KiriKiriProductAcceptanceTests(unittest.TestCase):
     def test_restore_capture_waits_for_the_saved_frame_after_runtime_ready(self) -> None:
         contents = DRIVER_PATH.read_text(encoding="utf-8")
         self.assertIn(
-            'const restoredFrame = await waitForMatchingScreenshot(',
+            'const restoreMatch = await waitForMatchingScreenshot(',
             contents,
         )
         self.assertNotIn(
@@ -102,6 +102,7 @@ class KiriKiriProductAcceptanceTests(unittest.TestCase):
             contents,
         )
         self.assertIn("KIRIKIRI_ACCEPTANCE_RESTORE_POSITION_TIMEOUT", contents)
+        self.assertIn("compareKiriKiriVisualSamples(", contents)
 
     def test_screenshot_evidence_reads_the_runtime_canvas_not_host_compositor(self) -> None:
         contents = DRIVER_PATH.read_text(encoding="utf-8")

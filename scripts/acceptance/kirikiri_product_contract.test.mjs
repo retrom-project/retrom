@@ -27,6 +27,15 @@ test("rejects missing stable project identity and non-Range project access", () 
   assert.throws(() => assertKiriKiriProductEvidence(nonRange), /KIRIKIRI_ACCEPTANCE_EVIDENCE_INVALID/u);
 });
 
+test("accepts a discriminative B restore without requiring an exact full-frame hash", () => {
+  const restored = evidence();
+  restored.screenshots.restored.rgbaSha256 = "6".repeat(64);
+  assert.doesNotThrow(() => assertKiriKiriProductEvidence(restored));
+
+  restored.restoreComparison.matched = false;
+  assert.throws(() => assertKiriKiriProductEvidence(restored), /KIRIKIRI_ACCEPTANCE_EVIDENCE_INVALID/u);
+});
+
 function evidence() {
   const screenshot = (digest) => ({
     width: 1280, height: 720, nonBlackPixels: 20_000, rgbaSha256: digest.repeat(64),
@@ -48,6 +57,10 @@ function evidence() {
     },
     immersiveMenu: { actions: ["取消", "创建存档", "退出游戏"], screenshot: "screenshots/immersive-exit-menu.png" },
     checkpoint: { payloadKind: "KIRIKIRI_SAVE_BUNDLE_V1", sizeBytes: 128_000 },
+    restoreComparison: {
+      discriminativePixelCount: 160, matched: true,
+      restoredToBMeanDistance: 12, restoredToCMeanDistance: 120,
+    },
     loading: {
       schemaVersion: 1,
       sameProjectContentIdentity: true,
