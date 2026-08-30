@@ -180,7 +180,7 @@ route registry 与 manifest 必须双向一一对应：
 | `rpgmaker_mz` | `RPGMZ_NATIVE` | `native-web` | 同一 bridge，profile=`RPGMZ` |
 | `onscripter_yuri` | `ONS_YURI` | `ons-yuri-web` | 当前 tag 的 `onsyuri.js/.wasm`；checkpoint slot 999，ABI=`ons-save` |
 | `kirikiri2` | `KIRIKIRI2_KAG` | `kirikiri2-web` | 当前 tag 的 KiriKiri2 Web/VLFS/assets；KAG bookmark slot 1999，ABI=`kirikiri-kag-bookmark` |
-| `butterscotch` | `BUTTERSCOTCH_GAMEMAKER` | `butterscotch-web` | 当前 tag 的 Butterscotch worker/runtime；OPFS 项目缓存与内存 checkpoint，ABI=`butterscotch-checkpoint-v1` |
+| `butterscotch` | `BUTTERSCOTCH_GAMEMAKER` | `butterscotch-web` | 当前 tag 的 Butterscotch worker/runtime；OPFS 项目缓存与内存 checkpoint，ABI=`butterscotch-checkpoint-v2` |
 
 `retrom-runtime` 固定五个上游 fork：<https://github.com/xxxsen/Player>、<https://github.com/xxxsen/mkxp-z-libretro-emscripten>、<https://github.com/xxxsen/OnscripterYuri>、<https://github.com/xxxsen/kirikiroid2-web> 与 <https://github.com/xxxsen/Butterscotch>。第三方核心源码、下游修改、构建和 Release workflow 只留在各自 fork；`retrom-runtime` 只聚合固定 Release 并维护统一 adapter，Retrom 不保存它们的 patch、Docker builder、source offer 或本地复现脚本。Player 的 `master`、mkxp wrapper 的 `main`、ONS 的 `master`、KiriKiri 的 `web` 与 Butterscotch 的 `master` 只做原始上游的 fast-forward 镜像，不包含 Retrom 补丁；各 fork 只保留一个当前 `retrom/<baseline>` 维护分支，并把它设为默认分支。上游有 tag 时 baseline 同时固定 tag 与解引用后的完整 commit；没有 tag 时固定完整 commit。短期 `fix/*`、`feat/*`、`build/*`、`sync/upstream-*` 从该维护分支创建并合回，Release 只从维护分支使用不可移动的 `rpg-runtime-<baseline>-rN` tag 产生；不得把补丁合入移动镜像、恢复 `retrom-web-*` tag 或保留 `runtime-clean` 等平行长期分支。新增或修改核心时先用上述本地 override 完成产品联调，通过后才发布新的稳定 `retrom-runtime` tag 并一次性替换 Retrom 的唯一 pin；不得为联调创建临时 prerelease、临时修改开发 manifest 或预建 inactive 候选。首个稳定版本不预建“旧/新 route”或 inactive 候选。
 

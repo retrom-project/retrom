@@ -237,7 +237,7 @@ func validateButterscotchArtifact(artifact RPGMakerArtifact, files map[string]RP
 func validButterscotchIdentity(artifact RPGMakerArtifact) bool {
 	return artifact.CoreID == "butterscotch" && artifact.Generation == "BUTTERSCOTCH" &&
 		artifact.RouteKey == "BUTTERSCOTCH_GAMEMAKER" && artifact.RuntimeAdapterKind == "BUTTERSCOTCH_WEB" &&
-		artifact.AdapterID == "butterscotch-web" && artifact.AdapterABI == "butterscotch-checkpoint-v1" &&
+		artifact.AdapterID == "butterscotch-web" && artifact.AdapterABI == "butterscotch-checkpoint-v2" &&
 		artifact.EntryPath == "butterscotch.mjs" && artifact.RequiresThreads &&
 		artifact.SavePayloadKind == "RUNTIME_STATE" && artifact.SaveMaxBytes == 16<<20 &&
 		artifact.SelectedForNewBindings && artifact.AvailableForLaunch
@@ -246,7 +246,7 @@ func validButterscotchIdentity(artifact RPGMakerArtifact) bool {
 func validButterscotchCompatibility(artifact RPGMakerArtifact) bool {
 	var value map[string]any
 	return json.Unmarshal(artifact.Compatibility, &value) == nil && len(value) == 7 &&
-		value["adapterAbi"] == "butterscotch-checkpoint-v1" &&
+		value["adapterAbi"] == "butterscotch-checkpoint-v2" &&
 		value["jsPath"] == "butterscotch.mjs" && value["wasmPath"] == "butterscotch.wasm" &&
 		value["workerPath"] == "butterscotch-worker.mjs" && validRuntimeCompatibilityContract(value)
 }

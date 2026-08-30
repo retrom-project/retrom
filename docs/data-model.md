@@ -456,7 +456,7 @@ RPG 项目使用第 3 节的通用 V2 清单与 `RETROM_FILESET_V1` 算法，`co
 
 ONS 项目复用同一通用 V2 清单与 `RETROM_FILESET_V1` 算法，`contentKind` 固定为 `ONS_PROJECT_V1`，全部项目文件 role 固定为 `PROJECT_FILE`。脚本 marker、字体路径和脚本编码只作为 core-validation dependency snapshot 的结构化运行参数，不进入内容身份，也不能替代实际审核试运行。
 
-Butterscotch 项目同样使用通用 V2 清单与 `RETROM_FILESET_V1`，`contentKind` 固定为 `BUTTERSCOTCH_PROJECT_V1`，全部文件 role 固定为 `PROJECT_FILE`，根目录必须只有一个不区分大小写的 `data.win`。不可变 dependency snapshot 只保存 marker 与 `GAMEMAKER_RUNTIME_TRIAL_REQUIRED`；格式层只验证 `FORM` 长度边界，不声称具体 GameMaker 版本或运行兼容。发布后的 Variant 固定 `BUTTERSCOTCH_GAMEMAKER`、`butterscotch-gamemaker-v1` 与 `butterscotch-checkpoint-v1`，实际兼容必须来自审核试玩。
+Butterscotch 项目同样使用通用 V2 清单与 `RETROM_FILESET_V1`，`contentKind` 固定为 `BUTTERSCOTCH_PROJECT_V1`，全部文件 role 固定为 `PROJECT_FILE`，根目录必须只有一个不区分大小写的 `data.win`。不可变 dependency snapshot 只保存 marker 与 `GAMEMAKER_RUNTIME_TRIAL_REQUIRED`；格式层只验证 `FORM` 长度边界，不声称具体 GameMaker 版本或运行兼容。发布后的 Variant 固定 `BUTTERSCOTCH_GAMEMAKER`、`butterscotch-gamemaker-v1` 与 `butterscotch-checkpoint-v2`，实际兼容必须来自审核试玩。
 
 | 表/变更 | 必需字段与约束 |
 | --- | --- |

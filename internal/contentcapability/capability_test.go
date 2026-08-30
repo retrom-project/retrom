@@ -76,7 +76,8 @@ func TestResolveButterscotchUsesOnlyProjectMode(t *testing.T) {
 		func() bool { return !reflect.DeepEqual(got.ContentModes, []string{ModeButterscotchProjectV1}) },
 		func() bool { return got.MultiDisc != nil },
 	), "Butterscotch capabilities=%#v", got)
-	if !SupportsContentKind(`{"adapterAbi":"butterscotch-checkpoint-v1"}`, ModeButterscotchProjectV1) ||
+	if !SupportsContentKind(`{"adapterAbi":"butterscotch-checkpoint-v2"}`, ModeButterscotchProjectV1) ||
+		SupportsContentKind(`{"adapterAbi":"butterscotch-checkpoint-v1"}`, ModeButterscotchProjectV1) ||
 		SupportsContentKind(`{"adapterAbi":"native-save"}`, ModeButterscotchProjectV1) {
 		t.Fatal("Butterscotch publication capability did not enforce its checkpoint ABI")
 	}

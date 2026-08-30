@@ -66,7 +66,7 @@ EXPECTED_ROUTES = {
     ),
     "BUTTERSCOTCH_GAMEMAKER": (
         "butterscotch", "BUTTERSCOTCH", "BUTTERSCOTCH", "BUTTERSCOTCH_WEB",
-        "butterscotch-web", "butterscotch-checkpoint-v1",
+        "butterscotch-web", "butterscotch-checkpoint-v2",
     ),
 }
 

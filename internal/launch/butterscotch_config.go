@@ -186,9 +186,9 @@ func parseButterscotchCompatibility(raw string) (butterscotchCompatibility, erro
 		return butterscotchCompatibility{}, ErrCredential
 	}
 	if err := decoder.Decode(&struct{}{}); err != io.EOF ||
-		value.AdapterABI != "butterscotch-checkpoint-v1" ||
+		value.AdapterABI != "butterscotch-checkpoint-v2" ||
 		value.GameCompatibilityLine != "butterscotch-gamemaker-v1" ||
-		value.SaveABI != "butterscotch-checkpoint-v1" || len(value.ReadableSaveABIs) != 1 ||
+		value.SaveABI != "butterscotch-checkpoint-v2" || len(value.ReadableSaveABIs) != 1 ||
 		!slices.Contains(value.ReadableSaveABIs, value.SaveABI) || value.JSPath != "butterscotch.mjs" ||
 		value.WasmPath != "butterscotch.wasm" || value.WorkerPath != "butterscotch-worker.mjs" {
 		return butterscotchCompatibility{}, ErrCredential

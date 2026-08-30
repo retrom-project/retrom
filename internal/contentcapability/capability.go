@@ -133,7 +133,7 @@ func projectAdapterABIs(contentKind string) []string {
 	case ModeKiriKiriProjectV1:
 		return []string{"kirikiri-kag-bookmark"}
 	case ModeButterscotchProjectV1:
-		return []string{"butterscotch-checkpoint-v1"}
+		return []string{"butterscotch-checkpoint-v2"}
 	default:
 		return nil
 	}

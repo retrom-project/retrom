@@ -12,11 +12,11 @@ function config() {
   return {
     runtimeFamily: "BUTTERSCOTCH", protocolVersion: 1, mode: "single", purpose: "PRODUCT",
     launchId, sessionId: launchId, coreId: "butterscotch", coreName: "Butterscotch",
-    gameTitle: "GameMaker fixture", platformName: "GameMaker", runtimeVersion: "v0.8.1", artifactId,
+    gameTitle: "GameMaker fixture", platformName: "GameMaker", runtimeVersion: "v0.8.2", artifactId,
     contentDigest: "a".repeat(64), returnTo: "/games/game-1", warnings: [],
     adapter: {
       adapterKind: "BUTTERSCOTCH_WEB", adapterId: "butterscotch-web",
-      runtimeBaseUrl: "/runtime/retrom-runtime/v0.8.1/",
+      runtimeBaseUrl: "/runtime/retrom-runtime/v0.8.2/",
       projectIndexUrl: `/runtime/content/project/${"b".repeat(64)}/index.json`,
     }, checkpoint: null,
   };
@@ -34,7 +34,7 @@ describe("Butterscotch product runtime", () => {
   });
 
   it("bridges runtime checkpoints into Retrom manual states", async () => {
-    const checkpoint = vi.fn(async () => ({bytes: new Uint8Array([1, 2, 3]), format: "butterscotch-checkpoint-v1"}));
+    const checkpoint = vi.fn(async () => ({bytes: new Uint8Array([1, 2, 3]), format: "butterscotch-checkpoint-v2"}));
     const runtime = {
       checkpoint, getCanvas: () => null, getCapabilities: () => ({frameCounter: false, volume: false}),
       getCheckpointAvailability: () => ({available: true, blocker: null}), screenshot: vi.fn(),

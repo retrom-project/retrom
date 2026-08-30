@@ -98,7 +98,7 @@ function toRuntimeConfig(config: ButterscotchLaunchConfig): ButterscotchRuntimeC
 
 export function butterscotchPlayerInstance(runtime: GameRuntime, target: HTMLElement): EmulatorInstance {
   return retromRuntimePlayerInstance(runtime, target, {
-    checkpointFormat: "butterscotch-checkpoint-v1",
+    checkpointFormat: "butterscotch-checkpoint-v2",
     payloadKind: "RUNTIME_STATE",
   });
 }

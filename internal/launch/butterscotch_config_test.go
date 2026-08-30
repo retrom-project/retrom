@@ -2,7 +2,7 @@ package launch
 
 import "testing"
 
-const validButterscotchCompatibility = `{"adapterAbi":"butterscotch-checkpoint-v1","gameCompatibilityLine":"butterscotch-gamemaker-v1","jsPath":"butterscotch.mjs","readableSaveAbis":["butterscotch-checkpoint-v1"],"saveAbi":"butterscotch-checkpoint-v1","wasmPath":"butterscotch.wasm","workerPath":"butterscotch-worker.mjs"}`
+const validButterscotchCompatibility = `{"adapterAbi":"butterscotch-checkpoint-v2","gameCompatibilityLine":"butterscotch-gamemaker-v1","jsPath":"butterscotch.mjs","readableSaveAbis":["butterscotch-checkpoint-v2"],"saveAbi":"butterscotch-checkpoint-v2","wasmPath":"butterscotch.wasm","workerPath":"butterscotch-worker.mjs"}`
 
 func TestParseButterscotchCompatibility(t *testing.T) {
 	t.Parallel()
@@ -13,7 +13,8 @@ func TestParseButterscotchCompatibility(t *testing.T) {
 	}
 	for _, invalid := range []string{
 		`{}`,
-		`{"adapterAbi":"butterscotch-checkpoint-v1","gameCompatibilityLine":"butterscotch-gamemaker-v1","jsPath":"butterscotch.mjs","readableSaveAbis":["old-v1"],"saveAbi":"butterscotch-checkpoint-v1","wasmPath":"butterscotch.wasm","workerPath":"butterscotch-worker.mjs"}`,
+		`{"adapterAbi":"butterscotch-checkpoint-v1","gameCompatibilityLine":"butterscotch-gamemaker-v1","jsPath":"butterscotch.mjs","readableSaveAbis":["butterscotch-checkpoint-v1"],"saveAbi":"butterscotch-checkpoint-v1","wasmPath":"butterscotch.wasm","workerPath":"butterscotch-worker.mjs"}`,
+		`{"adapterAbi":"butterscotch-checkpoint-v2","gameCompatibilityLine":"butterscotch-gamemaker-v1","jsPath":"butterscotch.mjs","readableSaveAbis":["old-v1"],"saveAbi":"butterscotch-checkpoint-v2","wasmPath":"butterscotch.wasm","workerPath":"butterscotch-worker.mjs"}`,
 		validButterscotchCompatibility[:len(validButterscotchCompatibility)-1] + `,"extra":true}`,
 	} {
 		if _, err := parseButterscotchCompatibility(invalid); err == nil {
