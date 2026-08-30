@@ -415,7 +415,8 @@ func attachSaveStates(
 	}
 	placeholders := strings.TrimSuffix(strings.Repeat("?,", len(games)), ",")
 	rows, err := database.QueryContext(ctx, `
-SELECT save.game_id,save.id,save.name,save.created_at_ms,save.disc_index
+SELECT save.game_id,save.id,save.name,save.created_at_ms,save.disc_index,
+       save.screenshot_blob_id IS NOT NULL
 FROM save_states save
 JOIN save_state_runtime_compatibility compatibility
   ON compatibility.save_state_id=save.id AND compatibility.status='AVAILABLE'
@@ -431,7 +432,7 @@ ORDER BY save.game_id,save.created_at_ms DESC,save.id DESC
 		var gameID string
 		var save SaveState
 		var discIndex sql.NullInt64
-		if err := rows.Scan(&gameID, &save.ID, &save.Name, &save.CreatedAtMS, &discIndex); err != nil {
+		if err := rows.Scan(&gameID, &save.ID, &save.Name, &save.CreatedAtMS, &discIndex, &save.HasScreenshot); err != nil {
 			return fmt.Errorf("immersive: scan save state: %w", err)
 		}
 		save.DiscIndex = nullableInt64Pointer(discIndex)

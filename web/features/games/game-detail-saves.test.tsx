@@ -66,4 +66,12 @@ describe("GameDetailSaves", () => {
     expect(screen.queryByRole("dialog", { name: "存档截图预览" })).not.toBeInTheDocument();
     expect(previewTrigger).toHaveFocus();
   });
+
+  it("does not offer an image preview when the save has no screenshot", () => {
+    render(<GameDetailSaves gameId="game-1" gameTitle="1943: The Battle of Midway" saves={[makeSave(0), { ...makeSave(1), screenshotUrl: null }]} nowMs={nowMs} />);
+
+    expect(screen.getByRole("button", { name: /的存档没有截图/ })).toBeDisabled();
+    expect(screen.getByRole("img", { name: "存档截图无预览图" })).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: /从这里继续|恢复此存档/ })).toHaveLength(2);
+  });
 });

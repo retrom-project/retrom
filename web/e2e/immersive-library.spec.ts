@@ -28,7 +28,7 @@ type Destination = {
 type SaveItem = {
   gameId: string;
   saveStateId: string;
-  screenshotUrl: string;
+  screenshotUrl: string | null;
 };
 
 type LibraryItem = {

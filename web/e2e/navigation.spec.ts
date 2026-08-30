@@ -171,9 +171,10 @@ test("one click creates a capability launch and advances real emulator frames", 
   await expect(exitDialog).toBeHidden();
   const saves = await page.request.get("/api/v1/saves?limit=100");
   expect(saves.ok()).toBe(true);
-  const savePayload = await saves.json() as { items: Array<{ saveStateId: string; gameId: string; name: string; screenshotUrl: string }> };
+  const savePayload = await saves.json() as { items: Array<{ saveStateId: string; gameId: string; name: string; screenshotUrl: string | null }> };
   const createdSave = savePayload.items.find((save) => save.gameId === game!.gameId && save.name.startsWith("手动存档"));
   expect(createdSave).toBeTruthy();
+  expect(createdSave?.screenshotUrl).toBeTruthy();
   const screenshotStats = await page.evaluate(async (screenshotUrl) => {
     const response = await fetch(screenshotUrl, { credentials: "same-origin", cache: "no-store" });
     if (!response.ok) {throw new Error(`save screenshot request failed: ${response.status}`);}
@@ -196,7 +197,7 @@ test("one click creates a capability launch and advances real emulator frames", 
       maximum = Math.max(maximum, luminance);
     }
     return { brightRatio: brightPixels / (pixels.length / 4), luminanceRange: maximum - minimum };
-  }, createdSave!.screenshotUrl);
+  }, createdSave!.screenshotUrl!);
   expect(screenshotStats.brightRatio).toBeGreaterThan(0.02);
   expect(screenshotStats.luminanceRange).toBeGreaterThan(16);
 
