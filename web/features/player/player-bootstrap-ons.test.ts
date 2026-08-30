@@ -50,6 +50,12 @@ describe("handleRetromRuntimeEvent", () => {
     expect(target.setManualSaveAvailable).toHaveBeenLastCalledWith(true);
     expect(target.setSyncText).toHaveBeenLastCalledWith("可创建存档");
     expect(target.setSyncTone).toHaveBeenLastCalledWith("synced");
+
+    handleRetromRuntimeEvent({
+      type: "CHECKPOINT_AVAILABILITY_CHANGED", availability: { available: false, blocker: "UNSUPPORTED" },
+    }, target);
+    expect(target.setSyncText).toHaveBeenLastCalledWith("当前状态含暂不支持的存档数据");
+    expect(target.setSyncTone).toHaveBeenLastCalledWith("warning");
   });
 });
 

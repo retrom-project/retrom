@@ -25,8 +25,11 @@ export function handleRetromRuntimeEvent(event: GameRuntimeEvent, target: OnsRun
   if (event.type === "CHECKPOINT_AVAILABILITY_CHANGED") {
     target.manualSaveAvailableRef.current = event.availability.available;
     target.setManualSaveAvailable(event.availability.available);
-    target.setSyncText(event.availability.available ? "可创建存档" : "当前场景暂不可存档");
-    target.setSyncTone(event.availability.available ? "synced" : "busy");
+    const unsupported = !event.availability.available && event.availability.blocker === "UNSUPPORTED";
+    target.setSyncText(event.availability.available
+      ? "可创建存档"
+      : unsupported ? "当前状态含暂不支持的存档数据" : "当前场景暂不可存档");
+    target.setSyncTone(event.availability.available ? "synced" : unsupported ? "warning" : "busy");
   }
   if (event.type === "EXIT_REQUESTED") {
     target.manualSaveAvailableRef.current = false;
