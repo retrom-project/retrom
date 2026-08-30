@@ -90,10 +90,11 @@ func (service *Service) prepareONSArchive(
 	if reason != "" {
 		return preparedDisposition{}, preparedGroup{}, preparedArchive{}, ErrInvalid
 	}
-	entries, err := service.scanRPGMakerArchive(ctx, file, archiveFormat)
+	entries, candidates, err := service.scanProjectArchive(ctx, file, archiveFormat)
 	if err != nil {
 		return preparedDisposition{}, preparedGroup{}, preparedArchive{}, err
 	}
+	defer discardProjectArchiveCandidates(candidates)
 	input := make([]fileset.SourceFile, 0, len(entries))
 	entryByOrdinal := make(map[int]importing.ArchiveEntry, len(entries))
 	for _, entry := range entries {
@@ -110,9 +111,7 @@ func (service *Service) prepareONSArchive(
 	for _, projectFile := range project.Files {
 		projectEntries = append(projectEntries, entryByOrdinal[projectFile.SourceIndex])
 	}
-	materialized, err := service.materializeArchiveEntries(
-		ctx, service.blobs.Path(file.sha256), projectEntries,
-	)
+	readMetadata, err := service.projectArchiveReadMetadata(ctx, file, projectEntries, candidates)
 	if err != nil {
 		return preparedDisposition{}, preparedGroup{}, preparedArchive{}, err
 	}
@@ -120,11 +119,15 @@ func (service *Service) prepareONSArchive(
 	for _, projectFile := range project.Files {
 		entry := entryByOrdinal[projectFile.SourceIndex]
 		index.files = append(index.files, detector.File{Path: projectFile.Path, Size: projectFile.SizeBytes})
-		index.paths[projectFile.Path] = materialized[entry.Ordinal].Path
+		index.paths[projectFile.Path] = readMetadata[entry.Ordinal].Path
 	}
 	profile, err := detector.Detect(index)
 	if err != nil {
 		return preparedDisposition{}, preparedGroup{}, preparedArchive{}, fmt.Errorf("detect ONS archive: %w", err)
+	}
+	materialized, err := projectArchiveMaterialization(projectEntries, candidates, readMetadata)
+	if err != nil {
+		return preparedDisposition{}, preparedGroup{}, preparedArchive{}, err
 	}
 	sources := make([]preparedSource, 0, len(project.Files))
 	for _, projectFile := range project.Files {

@@ -89,7 +89,41 @@ type ArchiveEntry struct {
 	NestedArchive      NestedArchiveFormat
 }
 
+type ArchiveContent struct {
+	Size   int64
+	CRC32  string
+	MD5    string
+	SHA1   string
+	SHA256 string
+}
+
+type ArchiveContentConsumer func(ArchiveEntry, io.Reader) (ArchiveContent, error)
+
 func ScanZIP(ctx context.Context, path string, limits ArchiveLimits) ([]ArchiveEntry, error) {
+	return scanZIP(ctx, path, limits, nil)
+}
+
+// ScanZIPWithConsumer validates the complete central directory first, then
+// decompresses each regular entry exactly once. The consumer can stream those
+// bytes directly into CAS and returns the hashes that become archive evidence.
+func ScanZIPWithConsumer(
+	ctx context.Context,
+	path string,
+	limits ArchiveLimits,
+	consumer ArchiveContentConsumer,
+) ([]ArchiveEntry, error) {
+	if consumer == nil {
+		return nil, ErrArchiveUnsafe
+	}
+	return scanZIP(ctx, path, limits, consumer)
+}
+
+func scanZIP(
+	ctx context.Context,
+	path string,
+	limits ArchiveLimits,
+	consumer ArchiveContentConsumer,
+) ([]ArchiveEntry, error) {
 	file, err := os.Open(path)
 	if err != nil {
 		return nil, fmt.Errorf("open zip: %w", err)
@@ -108,7 +142,13 @@ func ScanZIP(ctx context.Context, path string, limits ArchiveLimits) ([]ArchiveE
 	}
 	seenPath := make(map[string]struct{}, len(reader.File))
 	seenFold := make(map[string]struct{}, len(reader.File))
-	result := make([]ArchiveEntry, 0, len(reader.File))
+	type validatedItem struct {
+		item       *zip.File
+		ordinal    int
+		pathValue  string
+		foldedPath string
+	}
+	validated := make([]validatedItem, 0, len(reader.File))
 	var total int64
 	for ordinal, item := range reader.File {
 		if err := ctx.Err(); err != nil {
@@ -130,11 +170,26 @@ func ScanZIP(ctx context.Context, path string, limits ArchiveLimits) ([]ArchiveE
 		if err := recordArchivePath(seenPath, seenFold, pathValue, folded); err != nil {
 			return nil, err
 		}
-		entry, err := readArchiveEntry(
-			ctx, item, ordinal, pathValue, folded, limits.MaxEntryBytes, limits.AllowNestedArchives,
-		)
+		validated = append(validated, validatedItem{
+			item: item, ordinal: ordinal, pathValue: pathValue, foldedPath: folded,
+		})
+	}
+	result := make([]ArchiveEntry, 0, len(validated))
+	for _, candidate := range validated {
+		var entry ArchiveEntry
+		if consumer == nil {
+			entry, err = readArchiveEntry(
+				ctx, candidate.item, candidate.ordinal, candidate.pathValue, candidate.foldedPath,
+				limits.MaxEntryBytes, limits.AllowNestedArchives,
+			)
+		} else {
+			entry, err = consumeArchiveEntry(
+				ctx, candidate.item, candidate.ordinal, candidate.pathValue, candidate.foldedPath,
+				limits.MaxEntryBytes, limits.AllowNestedArchives, consumer,
+			)
+		}
 		if err != nil {
-			return nil, fmt.Errorf("scan archive entry %q: %w", pathValue, err)
+			return nil, fmt.Errorf("scan archive entry %q: %w", candidate.pathValue, err)
 		}
 		result = append(result, entry)
 	}
@@ -274,11 +329,11 @@ func readArchiveEntry(
 	crc32Hash := crc32.NewIEEE()
 	prefix := make([]byte, 512)
 	written := int64(0)
+	buffer := make([]byte, 1024*1024)
 	for {
 		if err := ctx.Err(); err != nil {
 			return ArchiveEntry{}, fmt.Errorf("importing/archive: %w", err)
 		}
-		buffer := make([]byte, 1024*1024)
 		count, readErr := reader.Read(buffer)
 		if count > 0 {
 			if written+int64(count) > limit {
@@ -314,6 +369,78 @@ func readArchiveEntry(
 		MD5: hex.EncodeToString(legacyHashes.MD5.Sum(nil)), SHA1: hex.EncodeToString(legacyHashes.SHA1.Sum(nil)),
 		SHA256: hex.EncodeToString(sha256Hash.Sum(nil)), NestedArchive: nestedFormat,
 	}, nil
+}
+
+type archiveReadMonitor struct {
+	ctx     context.Context
+	reader  io.Reader
+	limit   int64
+	written int64
+	prefix  [512]byte
+}
+
+func (monitor *archiveReadMonitor) Read(buffer []byte) (int, error) {
+	if err := monitor.ctx.Err(); err != nil {
+		return 0, fmt.Errorf("importing/archive: %w", err)
+	}
+	count, err := monitor.reader.Read(buffer)
+	if count > 0 {
+		if monitor.written+int64(count) > monitor.limit {
+			return 0, ErrArchiveLimitExceeded
+		}
+		if monitor.written < int64(len(monitor.prefix)) {
+			copy(monitor.prefix[monitor.written:], buffer[:count])
+		}
+		monitor.written += int64(count)
+	}
+	if errors.Is(err, io.EOF) {
+		return count, io.EOF
+	}
+	if err != nil {
+		return count, fmt.Errorf("importing/archive: read member: %w", err)
+	}
+	return count, nil
+}
+
+func consumeArchiveEntry(
+	ctx context.Context,
+	item *zip.File,
+	ordinal int,
+	pathValue, folded string,
+	limit int64,
+	allowNestedArchives bool,
+	consumer ArchiveContentConsumer,
+) (ArchiveEntry, error) {
+	reader, err := item.Open()
+	if err != nil {
+		return ArchiveEntry{}, fmt.Errorf("%w: open entry", ErrArchiveUnsafe)
+	}
+	defer func() { cleanup.Error("close", reader.Close()) }()
+	monitor := &archiveReadMonitor{ctx: ctx, reader: reader, limit: limit}
+	header := ArchiveEntry{
+		Ordinal: ordinal, OriginalPath: pathValue, NormalizedPath: pathValue,
+		ASCIICasefoldPath: folded, ArchiveFormat: "ZIP",
+		CompressionProfile: zipCompressionProfile(item.Method),
+	}
+	content, err := consumer(header, monitor)
+	if err != nil {
+		return ArchiveEntry{}, err
+	}
+	if monitor.written != int64(item.UncompressedSize64) || content.Size != monitor.written ||
+		content.CRC32 != fmt.Sprintf("%08x", item.CRC32) {
+		return ArchiveEntry{}, ErrArchiveUnsafe
+	}
+	nestedFormat := DetectNestedArchive(
+		pathValue, monitor.prefix[:min(int64(len(monitor.prefix)), monitor.written)],
+	)
+	if !allowNestedArchives && nestedFormat != NestedArchiveNone {
+		return ArchiveEntry{}, ErrNestedArchiveUnsupported
+	}
+	header.Size = content.Size
+	header.CRC32, header.MD5 = content.CRC32, content.MD5
+	header.SHA1, header.SHA256 = content.SHA1, content.SHA256
+	header.NestedArchive = nestedFormat
+	return header, nil
 }
 
 func zipCompressionProfile(method uint16) string {

@@ -176,7 +176,13 @@ POST /api/v1/admin/imports
 }
 ```
 
-`metadataProvider` 仅允许 `HASHEOUS | NONE`；Arcade DAT 不是 provider。`contentMode=RPG_MAKER_PROJECT_V1` 没有单 ROM 哈希语义，用户只选择 `rpgmaker` 虚拟核心且禁用在线刮削：客户端固定显示并提交 `NONE`，服务端也把旧客户端提交的 `HASHEOUS` 规范化为 `NONE`。服务端先从项目 bytes 唯一检测世代，再在事务中锁定平台/虚拟 core、内部 core/artifact、provider 配置快照；未知或歧义世代不创建 ImportJob。
+`metadataProvider` 仅允许 `HASHEOUS | NONE`；Arcade DAT 不是 provider。`contentMode=RPG_MAKER_PROJECT_V1` 没有单 ROM 哈希语义，用户只选择 `rpgmaker` 虚拟核心且禁用在线刮削：客户端固定显示并提交 `NONE`，服务端也把旧客户端提交的 `HASHEOUS` 规范化为 `NONE`。
+
+创建端点只执行有界准入：校验 UploadSession 已 `COMPLETE`、用途/来源类型、目标目录与当前候选 artifact 能力，随后在一个短事务创建 `ImportJob(state=QUEUED)`、`IMPORT_GROUP Job`、每个 UploadFile 的 `PENDING` disposition、whole-session consumption 以及不可变 `import_group_requests` 输入快照，并立即返回 `202 {importJobId,jobId,state:"QUEUED",itemCount:0}`。浏览器收到 202 后直接进入 `/admin/imports/tasks`；不得继续把上传进度停在 92% 等待项目识别。
+
+归档安全扫描、解压、实际 member hash、CAS 物化、RPG Maker/ONS/KiriKiri 项目检测、分组和运行依赖检查全部由并发度 1 的 `IMPORT_GROUP` archive worker 在 HTTP 响应之后执行。ZIP 在完整验证 central directory 后逐 member 单次解压，并把选中的 member 从临时候选原子提交到 CAS；不得为“扫描 hash”和“物化 CAS”再次解压同一 member，也不得把被规范器排除的候选发布进 CAS。7z 继续使用隔离 worker 的完整扫描与受限批量提取。任务以 `QUEUED/STARTED/PROGRESS/SUCCEEDED|FAILED` 事件投影 `WAITING_FOR_WORKER/INSPECTING/PERSISTING` 阶段；重启恢复遗留 RUNNING，取消在安全检查点收口并释放上传消费。
+
+请求 JSON、Upload 状态/用途、目标目录或 capability 在短准入阶段无效时仍在创建前返回 4xx。必须读取项目内容才能确定的错误（归档加密/越限/路径冲突、项目根缺失或歧义、RPG 世代不兼容、多盘播放列表缺失等）在 202 后把 ImportJob/Job 置 `FAILED`，并通过列表/详情的 `lastErrorCode/errorCode` 和事件返回稳定错误码；不得让原 POST 长时间占用连接。RPG Maker worker 从项目 bytes 唯一检测世代后，才把冻结的虚拟 core 绑定解析为内部 core/artifact；`bindingState=PENDING` 时详情的 `coreArtifactId` 必须为 null，不能暴露为了满足数据库外键而暂存的内部候选。
 
 重新配置导入：
 

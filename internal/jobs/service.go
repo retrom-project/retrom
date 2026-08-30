@@ -5,10 +5,13 @@ import (
 	"crypto/sha256"
 	"database/sql"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
 	"time"
+
+	"github.com/google/uuid"
 
 	"retrom/internal/cleanup"
 )
@@ -184,31 +187,20 @@ func (service *Service) Retry(ctx context.Context, jobID string, expectedVersion
 		return Result{}, fmt.Errorf("jobs/service: %w", err)
 	}
 	defer cleanup.Rollback(transaction)
-	var kind, state, payload string
-	var retryable sql.NullInt64
-	var executionNo, version int64
-	if err := transaction.QueryRowContext(ctx, `
-SELECT kind,
-state,
-error_retryable,
-payload_json,
-execution_no,
-version
-FROM jobs
-WHERE id=?
-`, jobID).Scan(&kind, &state, &retryable, &payload, &executionNo, &version); err != nil ||
-		version != expectedVersion ||
-		state != "FAILED" ||
-		!retryable.Valid ||
-		retryable.Int64 != 1 {
-		return Result{}, ErrConflict
+	job, err := loadRetryJob(ctx, transaction, jobID, expectedVersion)
+	if err != nil {
+		return Result{}, err
 	}
-	if kind == "METADATA_SCRAPE" || kind == "SERVER_BIOS_IMPORT" || kind == "REVIEW_BULK_APPROVE" {
-		return Result{}, ErrRetryViaDomain
+	input, err := retryInputSnapshot(
+		ctx, transaction, jobID, job.executionNo, job.kind, job.scopeType, job.scopeID,
+	)
+	if err != nil {
+		return Result{}, err
 	}
-	executionNo++
+	executionNo := job.executionNo + 1
 	now := service.now().UnixMilli()
-	digest := sha256.Sum256([]byte(payload))
+	digest := sha256.Sum256(input)
+	payload := fmt.Sprintf(`{"schemaVersion":1,"inputExecutionNo":%d}`, executionNo)
 	if _, err := transaction.ExecContext(ctx, `
 INSERT INTO job_input_snapshots(job_id,
 execution_no,
@@ -218,10 +210,15 @@ created_at_ms) VALUES(?,
 ?,
 ?,
 ?,
-?);
- UPDATE jobs
+?)
+`, jobID, executionNo, string(input), hex.EncodeToString(digest[:]), now); err != nil {
+		return Result{}, fmt.Errorf("jobs/service: %w", err)
+	}
+	result, err := transaction.ExecContext(ctx, `
+UPDATE jobs
 SET state='QUEUED',
 execution_no=?,
+payload_json=?,
 attempt_count=0,
 available_at_ms=?,
 execution_started_at_ms=NULL,
@@ -237,8 +234,17 @@ cancel_reason=NULL,
 version=version+1,
 updated_at_ms=?
 WHERE id=?
-AND version=?;
- INSERT INTO job_events(job_id,
+AND version=?
+`, executionNo, payload, now, now, jobID, expectedVersion)
+	if err != nil {
+		return Result{}, fmt.Errorf("jobs/service: %w", err)
+	}
+	changed, err := result.RowsAffected()
+	if err != nil || changed != 1 {
+		return Result{}, ErrConflict
+	}
+	if _, err := transaction.ExecContext(ctx, `
+INSERT INTO job_events(job_id,
 scope_type,
 scope_id,
 event_type,
@@ -252,25 +258,101 @@ json_object('executionNo',
 ?
 FROM jobs
 WHERE id=?
-`,
-		jobID,
-		executionNo,
-		payload,
-		hex.EncodeToString(digest[:]),
-		now,
-		executionNo,
-		now,
-		now,
-		jobID,
-		expectedVersion,
-		executionNo,
-		now,
-		jobID,
-	); err != nil {
+`, executionNo, now, jobID); err != nil {
 		return Result{}, fmt.Errorf("jobs/service: %w", err)
 	}
 	if err := transaction.Commit(); err != nil {
 		return Result{}, fmt.Errorf("jobs/service: %w", err)
 	}
-	return Result{JobID: jobID, State: "QUEUED", ExecutionNo: executionNo, Version: version + 1}, nil
+	return Result{
+		JobID: jobID, State: "QUEUED", ExecutionNo: executionNo, Version: job.version + 1,
+	}, nil
+}
+
+type retryJob struct {
+	kind, scopeType, scopeID string
+	executionNo, version     int64
+}
+
+func loadRetryJob(
+	ctx context.Context,
+	transaction *sql.Tx,
+	jobID string,
+	expectedVersion int64,
+) (retryJob, error) {
+	var job retryJob
+	var state string
+	var retryable sql.NullInt64
+	err := transaction.QueryRowContext(ctx, `
+SELECT kind,
+scope_type,
+scope_id,
+state,
+error_retryable,
+execution_no,
+version
+FROM jobs
+WHERE id=?
+`, jobID).Scan(
+		&job.kind, &job.scopeType, &job.scopeID, &state, &retryable, &job.executionNo, &job.version,
+	)
+	if err != nil ||
+		job.version != expectedVersion ||
+		state != "FAILED" ||
+		!retryable.Valid ||
+		retryable.Int64 != 1 {
+		return retryJob{}, ErrConflict
+	}
+	if job.kind == "METADATA_SCRAPE" || job.kind == "SERVER_BIOS_IMPORT" ||
+		job.kind == "REVIEW_BULK_APPROVE" {
+		return retryJob{}, ErrRetryViaDomain
+	}
+	return job, nil
+}
+
+type retryInputEnvelope struct {
+	SchemaVersion int             `json:"schemaVersion"`
+	Kind          string          `json:"kind"`
+	Scope         retryInputScope `json:"scope"`
+	ExecutionID   string          `json:"executionId"`
+	Inputs        json.RawMessage `json:"inputs"`
+}
+
+type retryInputScope struct {
+	Type string `json:"type"`
+	ID   string `json:"id"`
+}
+
+func retryInputSnapshot(
+	ctx context.Context,
+	transaction *sql.Tx,
+	jobID string,
+	executionNo int64,
+	kind, scopeType, scopeID string,
+) ([]byte, error) {
+	var inputJSON string
+	if err := transaction.QueryRowContext(ctx, `
+SELECT input_json FROM job_input_snapshots WHERE job_id=? AND execution_no=?
+`, jobID, executionNo).Scan(&inputJSON); err != nil {
+		return nil, ErrConflict
+	}
+	var input retryInputEnvelope
+	if json.Unmarshal([]byte(inputJSON), &input) != nil || input.SchemaVersion != 1 ||
+		input.Kind != kind || input.Scope.Type != scopeType || input.Scope.ID != scopeID ||
+		len(input.Inputs) == 0 || !json.Valid(input.Inputs) {
+		return nil, ErrConflict
+	}
+	if _, err := uuid.Parse(input.ExecutionID); err != nil {
+		return nil, ErrConflict
+	}
+	executionID, err := uuid.NewV7()
+	if err != nil {
+		return nil, fmt.Errorf("jobs/service: %w", err)
+	}
+	input.ExecutionID = executionID.String()
+	encoded, err := json.Marshal(input)
+	if err != nil {
+		return nil, fmt.Errorf("jobs/service: %w", err)
+	}
+	return encoded, nil
 }

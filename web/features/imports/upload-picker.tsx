@@ -418,6 +418,8 @@ export function UploadPicker({ directories, activeTags = [], reconfigureSource =
       setCompletedJobId(result.importJobId);
       setProgress("导入任务已创建，后台会继续识别游戏、检查运行依赖并准备游戏信息。");
       setBusy(false);
+      router.push("/admin/imports/tasks");
+      router.refresh();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "上传失败"); setBusy(false); setProgress("");
     }

@@ -392,6 +392,12 @@ type CancelResult struct {
 	Version     int64  `json:"version"`
 }
 
+type cancelImportEvidence struct {
+	state                                           string
+	groupJobID, groupState                          sql.NullString
+	version, running, queued, reviewPending, failed int64
+}
+
 func (service *Service) Cancel(
 	ctx context.Context,
 	importID string,
@@ -407,26 +413,13 @@ func (service *Service) Cancel(
 		return CancelResult{}, false, fmt.Errorf("libraryimport/review: %w", err)
 	}
 	defer cleanup.Rollback(transaction)
-	var state string
-	var version, running, queued, reviewPending, retryableFailed int64
-	if err := transaction.QueryRowContext(ctx, `
-SELECT state,
-version,
-running_item_count,
-(SELECT count(*) FROM import_items WHERE import_job_id=import_jobs.id AND state='QUEUED'),
-(SELECT count(*) FROM import_items WHERE import_job_id=import_jobs.id AND state='REVIEW_PENDING'),
-(SELECT count(*) FROM import_items WHERE import_job_id=import_jobs.id AND state='FAILED_RETRYABLE')
-FROM import_jobs
-WHERE id=?
-`, importID).Scan(&state, &version, &running, &queued, &reviewPending, &retryableFailed); err != nil ||
-		version != expectedVersion ||
-		state == "COMPLETED" ||
-		state == "CANCELLED" ||
-		state == "FAILED" {
-		return CancelResult{}, false, ErrInvalid
+	evidence, err := loadCancelImportEvidence(ctx, transaction, importID, expectedVersion)
+	if err != nil {
+		return CancelResult{}, false, err
 	}
 	now := service.now().UnixMilli()
-	pending := running > 0
+	pending := evidence.running > 0 || evidence.groupState.String == "RUNNING" ||
+		evidence.groupState.String == "CANCEL_REQUESTED"
 	newState := "CANCELLED"
 	if pending {
 		newState = "CANCEL_REQUESTED"
@@ -460,10 +453,13 @@ updated_at_ms=?,
 completed_at_ms=CASE WHEN ?='CANCELLED' THEN ? ELSE NULL END
 WHERE id=?
 `, newState, now, reason,
-		queued, reviewPending, retryableFailed,
-		queued, reviewPending, retryableFailed,
+		evidence.queued, evidence.reviewPending, evidence.failed,
+		evidence.queued, evidence.reviewPending, evidence.failed,
 		now, newState, now, importID); err != nil {
 		return CancelResult{}, false, fmt.Errorf("libraryimport/review: cancel job aggregate: %w", err)
+	}
+	if err := transitionImportGroupCancellation(ctx, transaction, evidence, reason, now); err != nil {
+		return CancelResult{}, false, err
 	}
 	if err := scheduleCancelledPayloads(ctx, transaction, importID, now); err != nil {
 		return CancelResult{}, false, err
@@ -471,7 +467,87 @@ WHERE id=?
 	if err := transaction.Commit(); err != nil {
 		return CancelResult{}, false, fmt.Errorf("libraryimport/review: %w", err)
 	}
-	return CancelResult{ImportJobID: importID, State: newState, Version: version + 1}, pending, nil
+	if pending && evidence.groupJobID.Valid {
+		service.CancelImportGroupJob(evidence.groupJobID.String)
+	}
+	return CancelResult{
+		ImportJobID: importID, State: newState, Version: evidence.version + 1,
+	}, pending, nil
+}
+
+func loadCancelImportEvidence(
+	ctx context.Context,
+	transaction *sql.Tx,
+	importID string,
+	expectedVersion int64,
+) (cancelImportEvidence, error) {
+	var evidence cancelImportEvidence
+	err := transaction.QueryRowContext(ctx, `
+SELECT state,
+version,
+running_item_count,
+(SELECT count(*) FROM import_items WHERE import_job_id=import_jobs.id AND state='QUEUED'),
+(SELECT count(*) FROM import_items WHERE import_job_id=import_jobs.id AND state='REVIEW_PENDING'),
+(SELECT count(*) FROM import_items WHERE import_job_id=import_jobs.id AND state='FAILED_RETRYABLE'),
+(SELECT id FROM jobs WHERE scope_type='IMPORT_GROUP' AND scope_id=import_jobs.id AND kind='IMPORT_GROUP'),
+(SELECT state FROM jobs WHERE scope_type='IMPORT_GROUP' AND scope_id=import_jobs.id AND kind='IMPORT_GROUP')
+FROM import_jobs
+WHERE id=?
+`, importID).Scan(
+		&evidence.state, &evidence.version, &evidence.running, &evidence.queued,
+		&evidence.reviewPending, &evidence.failed, &evidence.groupJobID, &evidence.groupState,
+	)
+	if err != nil || evidence.version != expectedVersion {
+		return cancelImportEvidence{}, ErrInvalid
+	}
+	if evidence.state == "COMPLETED" || evidence.state == "CANCELLED" || evidence.state == "FAILED" {
+		return cancelImportEvidence{}, ErrInvalid
+	}
+	return evidence, nil
+}
+
+func transitionImportGroupCancellation(
+	ctx context.Context,
+	transaction *sql.Tx,
+	evidence cancelImportEvidence,
+	reason string,
+	now int64,
+) error {
+	if evidence.groupState.String == "QUEUED" || evidence.groupState.String == "FAILED" {
+		if _, err := transaction.ExecContext(ctx, `
+UPDATE jobs SET state='CANCELLED',cancel_requested_at_ms=?,cancel_reason=?,finished_at_ms=?,
+ version=version+1,updated_at_ms=?
+WHERE id=? AND state IN ('QUEUED','FAILED')
+`, now, reason, now, now, evidence.groupJobID.String); err != nil {
+			return fmt.Errorf("libraryimport/review: cancel group job: %w", err)
+		}
+		if _, err := transaction.ExecContext(ctx, `
+INSERT INTO job_events(job_id,scope_type,scope_id,event_type,data_json,created_at_ms)
+SELECT id,scope_type,scope_id,'CANCELLED',json_object('schemaVersion',1,
+ 'executionNo',execution_no,'attempt',attempt_count,'reason',?),?
+FROM jobs WHERE id=?
+`, reason, now, evidence.groupJobID.String); err != nil {
+			return fmt.Errorf("libraryimport/review: record group cancellation: %w", err)
+		}
+		return nil
+	}
+	if evidence.groupState.String == "RUNNING" {
+		if _, err := transaction.ExecContext(ctx, `
+UPDATE jobs SET state='CANCEL_REQUESTED',cancel_requested_at_ms=?,cancel_reason=?,
+ version=version+1,updated_at_ms=? WHERE id=? AND state='RUNNING'
+`, now, reason, now, evidence.groupJobID.String); err != nil {
+			return fmt.Errorf("libraryimport/review: request group cancellation: %w", err)
+		}
+		if _, err := transaction.ExecContext(ctx, `
+INSERT INTO job_events(job_id,scope_type,scope_id,event_type,data_json,created_at_ms)
+SELECT id,scope_type,scope_id,'CANCEL_REQUESTED',json_object('schemaVersion',1,
+ 'executionNo',execution_no,'attempt',attempt_count,'reason',?),?
+FROM jobs WHERE id=?
+`, reason, now, evidence.groupJobID.String); err != nil {
+			return fmt.Errorf("libraryimport/review: record group cancellation request: %w", err)
+		}
+	}
+	return nil
 }
 
 func scheduleCancelledPayloads(ctx context.Context, transaction *sql.Tx, importID string, now int64) error {
