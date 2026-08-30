@@ -67,6 +67,28 @@ describe("Player page exit protection", () => {
     expect(clearHeartbeat).toHaveBeenCalledWith(42);
     expect(params.heartbeat.current).toBeNull();
   });
+
+  it("returns through the immersive route after a core exit even when finish reporting fails", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response("{}", {status: 409}));
+    const params = sessionParams();
+    params.started.current = true;
+    const { result } = renderHook(() => usePlayerSession(params));
+
+    await act(() => result.current.exitImmersiveAfterRuntimeExit());
+
+    expect(params.replaceImmersiveRoute).toHaveBeenCalledWith("/library");
+  });
+
+  it("keeps a manual immersive exit strict when finish reporting fails", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response("{}", {status: 409}));
+    const params = sessionParams();
+    params.started.current = true;
+    const { result } = renderHook(() => usePlayerSession(params));
+
+    await expect(act(() => result.current.exitStrict())).rejects.toThrow("PLAY_SESSION_EVENT_FAILED");
+
+    expect(params.replaceImmersiveRoute).not.toHaveBeenCalled();
+  });
 });
 
 describe("manual save multipart", () => {

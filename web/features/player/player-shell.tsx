@@ -65,8 +65,16 @@ function useImmersiveSaveActions(
   return { beginImmersivePauseCapture, saveImmersiveGame };
 }
 
-export function PlayerShell({ launchId, experience = "standard" }: { launchId: string; experience?: "standard" | "immersive" }) {
+function useImmersiveRouteReplacement() {
   const router = useRouter();
+  return useCallback((url: string) => {
+    markImmersivePlayerReturn();
+    router.replace(url);
+  }, [router]);
+}
+
+export function PlayerShell({ launchId, experience = "standard" }: { launchId: string; experience?: "standard" | "immersive" }) {
+  const replaceImmersiveRoute = useImmersiveRouteReplacement();
   const { context } = useAuth();
   const userId = context.user?.userId;
   const stage = useRef<HTMLDivElement>(null);
@@ -220,19 +228,16 @@ export function PlayerShell({ launchId, experience = "standard" }: { launchId: s
   }, [showControls, showToast]);
 
   const onKeyboardPause = useCallback(() => keyboardPauseAction.current(), []);
-  const replaceImmersiveRoute = useCallback((url: string) => {
-    markImmersivePlayerReturn();
-    router.replace(url);
-  }, [router]);
 
   const sessionParams = useMemo(() => ({
     launchId, emulator, playerMode, sequence, started, finishing, heartbeat, playEventQueue, saveUploadQueue, discSetRef,
     orientationStateRef, returnTo, netplayController, setOrientationState, setSaveUploadProgress,
     setSyncText, setSyncTone, showToast, replaceImmersiveRoute,
   }), [launchId, replaceImmersiveRoute, showToast]);
-  const { sendEvent, uploadManualState, uploadValidationCheckpoint, exit, exitStrict } = usePlayerSession(sessionParams);
+  const { sendEvent, uploadManualState, uploadValidationCheckpoint, exit, exitStrict, exitImmersiveAfterRuntimeExit } = usePlayerSession(sessionParams);
   const handleRuntimeExitRequested = useRuntimeExitHandler(
-    manualSaveAvailableRef, setManualSaveAvailable, setSyncText, setSyncTone, exit,
+    manualSaveAvailableRef, setManualSaveAvailable, setSyncText, setSyncTone,
+    experience, exit, exitImmersiveAfterRuntimeExit,
   );
   const { beginImmersivePauseCapture, saveImmersiveGame } = useImmersiveSaveActions(emulator, manualSaveAvailableRef, pauseCapture, lastManualScreenshot, uploadManualState);
   const handleImmersiveFatal = useImmersiveFatalHandler(setMessage, setState);
