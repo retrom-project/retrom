@@ -952,6 +952,7 @@ export interface paths {
         /** @description Cursor-paged browser/reconfigure ImportJobs. Per-game ImportJobs created internally by Pegasus or EmulationStation review handoff are excluded; aggregate server-import history is available from `/api/v1/admin/pegasus-imports` and `/api/v1/admin/emulationstation-imports`. */
         get: operations["getAdminImports"];
         put?: never;
+        /** @description Performs bounded admission, persists an immutable IMPORT_GROUP input, and returns 202 while archive inspection, project detection, hashing, CAS materialization, and grouping continue in the background. Content-dependent failures are reported by the ImportJob and JobEvent projections rather than holding this request open. */
         post: operations["postAdminImport"];
         delete?: never;
         options?: never;

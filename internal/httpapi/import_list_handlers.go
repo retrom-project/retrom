@@ -218,6 +218,7 @@ i.rejected_file_count,
 i.resolved_rejected_file_count,
 i.already_imported_item_count,
 i.already_imported_file_count,
+i.last_error_code,
 i.version,
 i.created_at_ms,
 i.updated_at_ms
@@ -236,21 +237,22 @@ LIMIT ?
 `
 
 type importListItem struct {
-	ID                          string `json:"id"`
-	State                       string `json:"state"`
-	PlatformInstanceName        string `json:"platformInstanceName"`
-	MetadataProvider            string `json:"metadataProvider"`
-	ContentMode                 string `json:"contentMode"`
-	TotalItemCount              int64  `json:"totalItemCount"`
-	ReviewPendingItemCount      int64  `json:"reviewPendingItemCount"`
-	FailedItemCount             int64  `json:"failedItemCount"`
-	RejectedFileCount           int64  `json:"rejectedFileCount"`
-	UnresolvedRejectedFileCount int64  `json:"unresolvedRejectedFileCount"`
-	AlreadyImportedItemCount    int64  `json:"alreadyImportedItemCount"`
-	AlreadyImportedFileCount    int64  `json:"alreadyImportedFileCount"`
-	Version                     int64  `json:"version"`
-	CreatedAtMS                 int64  `json:"createdAtMs"`
-	UpdatedAtMS                 int64  `json:"updatedAtMs"`
+	ID                          string  `json:"id"`
+	State                       string  `json:"state"`
+	PlatformInstanceName        string  `json:"platformInstanceName"`
+	MetadataProvider            string  `json:"metadataProvider"`
+	ContentMode                 string  `json:"contentMode"`
+	TotalItemCount              int64   `json:"totalItemCount"`
+	ReviewPendingItemCount      int64   `json:"reviewPendingItemCount"`
+	FailedItemCount             int64   `json:"failedItemCount"`
+	RejectedFileCount           int64   `json:"rejectedFileCount"`
+	UnresolvedRejectedFileCount int64   `json:"unresolvedRejectedFileCount"`
+	AlreadyImportedItemCount    int64   `json:"alreadyImportedItemCount"`
+	AlreadyImportedFileCount    int64   `json:"alreadyImportedFileCount"`
+	LastErrorCode               *string `json:"lastErrorCode"`
+	Version                     int64   `json:"version"`
+	CreatedAtMS                 int64   `json:"createdAtMs"`
+	UpdatedAtMS                 int64   `json:"updatedAtMs"`
 }
 
 func queryImportList(
@@ -268,6 +270,7 @@ func queryImportList(
 	for rows.Next() {
 		var item importListItem
 		var resolvedRejected int64
+		var lastErrorCode sql.NullString
 		if err := rows.Scan(
 			&item.ID,
 			&item.State,
@@ -281,6 +284,7 @@ func queryImportList(
 			&resolvedRejected,
 			&item.AlreadyImportedItemCount,
 			&item.AlreadyImportedFileCount,
+			&lastErrorCode,
 			&item.Version,
 			&item.CreatedAtMS,
 			&item.UpdatedAtMS,
@@ -288,6 +292,9 @@ func queryImportList(
 			return nil, fmt.Errorf("httpapi: scan import: %w", err)
 		}
 		item.UnresolvedRejectedFileCount = item.RejectedFileCount - resolvedRejected
+		if lastErrorCode.Valid {
+			item.LastErrorCode = &lastErrorCode.String
+		}
 		items = append(items, item)
 	}
 	if err := rows.Err(); err != nil {
@@ -359,7 +366,7 @@ func (server *Server) createImport(writer http.ResponseWriter, request *http.Req
 			return
 		}
 	}
-	created, err := server.importer.Create(request.Context(), body)
+	created, err := server.importer.QueueCreate(request.Context(), body)
 	switch {
 	case errors.Is(err, libraryimport.ErrMultiDiscModeUnavailable):
 		writeError(

@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -25,6 +26,9 @@ type Service struct {
 	scraper                *metadatascrape.Service
 	tags                   *tagging.Service
 	multiDiscImportEnabled bool
+	importGroupSlots       chan struct{}
+	importGroupMu          sync.Mutex
+	importGroupCancels     map[string]context.CancelFunc
 }
 
 func (service *Service) WithMultiDiscImportEnabled(enabled bool) *Service {
@@ -42,7 +46,10 @@ func (service *Service) WithBlobStore(blobs *blobstore.Store) *Service {
 }
 
 func New(database *sql.DB, now func() time.Time, scraper ...*metadatascrape.Service) *Service {
-	service := &Service{database: database, now: now, tags: tagging.New(database, now)}
+	service := &Service{
+		database: database, now: now, tags: tagging.New(database, now),
+		importGroupSlots: make(chan struct{}, 1), importGroupCancels: make(map[string]context.CancelFunc),
+	}
 	if len(scraper) > 0 {
 		service.scraper = scraper[0]
 	}

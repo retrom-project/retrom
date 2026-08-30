@@ -15,6 +15,7 @@ import (
 
 	"retrom/internal/blobstore"
 	"retrom/internal/contentcapability"
+	"retrom/internal/libraryimport"
 	"retrom/internal/netplay"
 	"retrom/internal/platformcatalog"
 	"retrom/internal/testassert"
@@ -161,7 +162,41 @@ func TestPlatformSlugBaseUsesReadableASCIIOrPlatformFallback(t *testing.T) {
 	}
 }
 
-func TestCreateImportContentModeDefaultsToStandardAndMapsMultiDiscAdmissionErrors(t *testing.T) {
+func decodeCreatedImport(t *testing.T, response *httptest.ResponseRecorder) libraryimport.Created {
+	t.Helper()
+	var created libraryimport.Created
+	if err := json.Unmarshal(response.Body.Bytes(), &created); err != nil {
+		t.Fatal(err)
+	}
+	return created
+}
+
+func waitForImportState(
+	t *testing.T,
+	server *Server,
+	importID string,
+	done func(string) bool,
+) string {
+	t.Helper()
+	deadline := time.Now().Add(3 * time.Second)
+	for {
+		var state, code string
+		if err := server.database.QueryRowContext(t.Context(), `
+SELECT state,coalesce(last_error_code,'') FROM import_jobs WHERE id=?
+`, importID).Scan(&state, &code); err != nil {
+			t.Fatal(err)
+		}
+		if done(state) {
+			return code
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("import %s state = %s", importID, state)
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+}
+
+func TestCreateImportQueuesContentInspectionAndMapsImmediateAdmissionErrors(t *testing.T) {
 	t.Parallel()
 	server := newTestServer(t)
 	now := time.UnixMilli(1_786_000_000_000)
@@ -192,8 +227,12 @@ VALUES(?,?,'game.chd',?,?,?,'COMPLETE',?,?)
 	}
 	const firstUpload = "01980000-0000-7000-8000-000000007101"
 	const secondUpload = "01980000-0000-7000-8000-000000007102"
+	const thirdUpload = "01980000-0000-7000-8000-000000007103"
+	const fourthUpload = "01980000-0000-7000-8000-000000007104"
 	createUpload(firstUpload, "01980000-0000-7000-8000-000000007111")
 	createUpload(secondUpload, "01980000-0000-7000-8000-000000007112")
+	createUpload(thirdUpload, "01980000-0000-7000-8000-000000007113")
+	createUpload(fourthUpload, "01980000-0000-7000-8000-000000007114")
 	saturnID, err := testsupport.PlatformInstanceID(t.Context(), server.database, "saturn/yabause")
 	testassert.False(t, err != nil, err)
 	playstationID, err := testsupport.PlatformInstanceID(t.Context(), server.database, "psx/pcsx_rearmed")
@@ -207,18 +246,31 @@ VALUES(?,?,'game.chd',?,?,?,'COMPLETE',?,?)
 		return response
 	}
 	missing := send(`{"uploadId":"` + firstUpload + `","targetPlatformInstanceId":"` + saturnID + `","metadataProvider":"NONE","tagIds":[],"contentMode":"MULTI_DISC_M3U_V1"}`)
-	testassert.Falsef(t, testassert.Any(func() bool { return missing.Code != http.StatusUnprocessableEntity }, func() bool { return !strings.Contains(missing.Body.String(), "MULTI_DISC_PLAYLIST_MISSING") }), "missing playlist = %d %s", missing.Code, missing.Body.String())
-	unsupported := send(`{"uploadId":"` + firstUpload + `","targetPlatformInstanceId":"` + playstationID + `","metadataProvider":"NONE","tagIds":[],"contentMode":"MULTI_DISC_M3U_V1"}`)
+	testassert.Falsef(t, missing.Code != http.StatusAccepted, "missing playlist = %d %s", missing.Code, missing.Body.String())
+	missingCreated := decodeCreatedImport(t, missing)
+	missingCode := waitForImportState(t, server, missingCreated.ImportJobID, func(state string) bool {
+		return state == "FAILED"
+	})
+	testassert.Falsef(
+		t, missingCode != "MULTI_DISC_PLAYLIST_MISSING", "missing playlist code = %s", missingCode,
+	)
+	unsupported := send(`{"uploadId":"` + secondUpload + `","targetPlatformInstanceId":"` + playstationID + `","metadataProvider":"NONE","tagIds":[],"contentMode":"MULTI_DISC_M3U_V1"}`)
 	testassert.Falsef(t, testassert.Any(func() bool { return unsupported.Code != http.StatusUnprocessableEntity }, func() bool { return !strings.Contains(unsupported.Body.String(), "MULTI_DISC_MODE_UNAVAILABLE") }), "unsupported target = %d %s", unsupported.Code, unsupported.Body.String())
-	omitted := send(`{"uploadId":"` + firstUpload + `","targetPlatformInstanceId":"` + saturnID + `","metadataProvider":"NONE","tagIds":[]}`)
-	explicit := send(`{"uploadId":"` + secondUpload + `","targetPlatformInstanceId":"` + saturnID + `","metadataProvider":"NONE","tagIds":[],"contentMode":"STANDARD"}`)
+	omitted := send(`{"uploadId":"` + thirdUpload + `","targetPlatformInstanceId":"` + saturnID + `","metadataProvider":"NONE","tagIds":[]}`)
+	explicit := send(`{"uploadId":"` + fourthUpload + `","targetPlatformInstanceId":"` + saturnID + `","metadataProvider":"NONE","tagIds":[],"contentMode":"STANDARD"}`)
 	testassert.Falsef(t, testassert.Any(func() bool { return omitted.Code != http.StatusAccepted }, func() bool { return explicit.Code != http.StatusAccepted }), "standard admission omitted=%d %s explicit=%d %s", omitted.Code, omitted.Body.String(), explicit.Code, explicit.Body.String())
+	for _, response := range []*httptest.ResponseRecorder{omitted, explicit} {
+		created := decodeCreatedImport(t, response)
+		waitForImportState(t, server, created.ImportJobID, func(state string) bool {
+			return state != "QUEUED" && state != "RUNNING"
+		})
+	}
 	var omittedConfig, explicitConfig, omittedDigest, explicitDigest string
-	if err := server.database.QueryRowContext(context.Background(), `SELECT config_snapshot_json,config_snapshot_digest FROM import_jobs WHERE upload_session_id=?`, firstUpload).
+	if err := server.database.QueryRowContext(context.Background(), `SELECT config_snapshot_json,config_snapshot_digest FROM import_jobs WHERE upload_session_id=?`, thirdUpload).
 		Scan(&omittedConfig, &omittedDigest); err != nil {
 		t.Fatal(err)
 	}
-	if err := server.database.QueryRowContext(context.Background(), `SELECT config_snapshot_json,config_snapshot_digest FROM import_jobs WHERE upload_session_id=?`, secondUpload).
+	if err := server.database.QueryRowContext(context.Background(), `SELECT config_snapshot_json,config_snapshot_digest FROM import_jobs WHERE upload_session_id=?`, fourthUpload).
 		Scan(&explicitConfig, &explicitDigest); err != nil {
 		t.Fatal(err)
 	}

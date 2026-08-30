@@ -151,6 +151,7 @@ func New(
 	importer := libraryimport.New(database, now, scraper).
 		WithBlobStore(blobs).
 		WithMultiDiscImportEnabled(config.MultiDiscImportEnabled)
+	importer.RecoverImportGroupJobs(context.Background())
 	importer.ResumeParentAttachmentJobs(context.Background())
 	importer.ResumeMultiDiscAttachmentJobs(context.Background())
 	importer.ResumeReviewBulkJobs(context.Background())

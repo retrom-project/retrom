@@ -157,4 +157,25 @@ describe("ImportTaskBoard", () => {
     await new Promise((resolve) => window.setTimeout(resolve, 1_100));
     expect(fetchMock).toHaveBeenCalledTimes(completedCalls);
   });
+
+  it("shows a background preparation failure without offering rejected-file reuse", async () => {
+    const user = userEvent.setup();
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({
+      importJobId: "failed-import", state: "FAILED", errorCode: "RPG_PROJECT_ROOT_AMBIGUOUS",
+      metadataProvider: "NONE", targetPlatformInstance: { id: "rpg", name: "RPG Maker 游戏" },
+      counts: { total: 0, reviewPending: 0, failed: 0, rejectedFiles: 0, unresolvedRejectedFiles: 0, alreadyImportedItems: 0, alreadyImportedFiles: 0 },
+      fileOutcomes: [], version: 2, createdAtMs: 1, updatedAtMs: 2,
+    }), { status: 200, headers: { "Content-Type": "application/json" } })));
+    render(<ImportTaskBoard initial={{ items: [{
+      id: "failed-import", state: "FAILED", platformInstanceName: "RPG Maker 游戏", metadataProvider: "NONE",
+      totalItemCount: 0, reviewPendingItemCount: 0, failedItemCount: 0, rejectedFileCount: 0,
+      lastErrorCode: "RPG_PROJECT_ROOT_AMBIGUOUS", version: 2, createdAtMs: 1, updatedAtMs: 2,
+    }], nextCursor: null }} />);
+
+    const card = screen.getByRole("heading", { name: /RPG Maker 游戏/ }).closest("article");
+    await user.click(within(card!).getByRole("button", { name: "1 异常" }));
+    expect(screen.getAllByText(/导入准备失败（RPG_PROJECT_ROOT_AMBIGUOUS）/)).toHaveLength(2);
+    expect(screen.getByRole("link", { name: "新建导入" })).toHaveAttribute("href", "/admin/imports/new");
+    expect(screen.queryByRole("link", { name: "重新配置并导入" })).not.toBeInTheDocument();
+  });
 });

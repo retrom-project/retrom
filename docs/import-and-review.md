@@ -46,6 +46,8 @@ Arcade 依赖细节见 [BIOS 与 Arcade DAT](./bios-and-arcade.md)，文件存�
 - MetadataProvider 配置版本。
 - `created_at_ms`。
 
+浏览器创建请求只在短事务中冻结 Upload version/manifest、请求、标签和目标候选集合，创建 `QUEUED` ImportJob 后立即返回；ZIP/7z 扫描、项目根规范化、内容 hash、世代/核心裁决和 CAS member 物化由 `IMPORT_GROUP` worker 完成。任务尚未完成内部绑定时配置快照明确为 `bindingState=PENDING`，不把暂存外键显示成已选择核心；Worker 成功时以同一事务写入最终配置、Item、Validation/Review 和 SUCCEEDED 事件。只有准入本身无效才同步拒绝；依赖读取项目 bytes 才能发现的确定性错误进入任务级 `FAILED` 并显示稳定错误码。
+
 选择器按基础平台分组，并同时展示目录名称、默认核心以及 Arcade 活动 DAT 状态。任务执行期间目录或 DAT 发生变化时，旧任务继续使用快照；审核前提示差异并要求重新验证，不能静默改用新配置。
 
 ## 4. 状态机与恢复
@@ -333,7 +335,7 @@ ImportItem 进入 `PUBLISHED/DISCARDED/FAILED_FINAL/CANCELLED` 后立即进入�
 
 ## 12. Worker
 
-默认并发固定为 Hash/Copy 2、Archive 1、DAT 1、Hasheous 2、图片 2、PayloadRelease 最多 4、GC 1；业务释放和 GC 均不可由用户取消。最多 4 次 attempt，退避 1s/5s/30s/120s；上游 `Retry-After` 可覆盖但最长 15 分钟。任务必须有 lease、heartbeat、可观测阶段、进度、取消、重试和重启恢复；时间由可注入 clock 驱动，测试不 sleep。后台任务不得在哈希、网络或解析期间持有 SQLite 写事务。
+默认并发固定为 Hash/Copy 2、Archive/IMPORT_GROUP 1、DAT 1、Hasheous 2、图片 2、PayloadRelease 最多 4、GC 1；业务释放和 GC 均不可由用户取消。最多 4 次 attempt，退避 1s/5s/30s/120s；上游 `Retry-After` 可覆盖但最长 15 分钟。任务必须有 lease、15 秒 heartbeat、可观测阶段、进度、取消、重试和重启恢复；时间由可注入 clock 驱动，测试不 sleep。后台任务不得在哈希、网络或解析期间持有 SQLite 写事务。项目 ZIP 的 central directory 必须先完整通过限制/路径/类型检查；随后每个 regular member 只解压一次到临时候选并同时得到实际 CRC32/MD5/SHA-1/SHA-256，只有规范化项目实际选中的 member 才提交到 CAS。7z 使用隔离进程扫描和批量提取，不允许为提高速度绕过既有归档限制。
 
 ## 13. 多盘目录、缺盘与补传
 

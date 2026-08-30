@@ -19,31 +19,8 @@ import (
 )
 
 func (service *Service) ResumeMultiDiscAttachmentJobs(ctx context.Context) {
-	rows, err := service.database.QueryContext(ctx, `
-SELECT id,available_at_ms FROM jobs
-WHERE kind='REVIEW_MULTI_DISC_VALIDATE' AND state='QUEUED'
-ORDER BY available_at_ms,id
-`)
-	if err != nil {
-		return
-	}
-	defer func() { cleanup.Error("close", rows.Close()) }()
-	type queuedJob struct {
-		id          string
-		availableAt int64
-	}
-	queued := make([]queuedJob, 0)
-	for rows.Next() {
-		var job queuedJob
-		if rows.Scan(&job.id, &job.availableAt) == nil {
-			queued = append(queued, job)
-		}
-	}
-	if rows.Err() != nil {
-		return
-	}
 	now := service.now().UnixMilli()
-	for _, job := range queued {
+	for _, job := range service.queuedJobRuns(ctx, "REVIEW_MULTI_DISC_VALIDATE") {
 		service.scheduleMultiDiscAttachmentRun(ctx, job.id, time.Duration(job.availableAt-now)*time.Millisecond)
 	}
 }

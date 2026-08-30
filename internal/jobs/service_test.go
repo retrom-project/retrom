@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"path/filepath"
 	"testing"
 	"time"
@@ -71,6 +72,17 @@ updated_at_ms) VALUES(?,
 		now,
 	)
 	testassert.False(t, err != nil, err)
+	input := fmt.Sprintf(
+		`{"schemaVersion":1,"kind":%q,"scope":{"type":"TEST","id":"scope"},`+
+			`"executionId":"00000000-0000-7000-8000-000000000001","inputs":{"resourceId":%q}}`,
+		kind, id,
+	)
+	inputDigest := sha256.Sum256([]byte(input))
+	_, err = database.SQL.ExecContext(context.Background(), `
+INSERT INTO job_input_snapshots(job_id,execution_no,input_json,input_digest,created_at_ms)
+VALUES(?,1,?,?,?)
+`, id, input, hex.EncodeToString(inputDigest[:]), now)
+	testassert.False(t, err != nil, err)
 }
 
 func TestCancelAndRetryEnforceVersionedState(t *testing.T) {
@@ -100,8 +112,25 @@ SELECT count(*)
 FROM job_input_snapshots
 WHERE job_id='retry-job'
 `).Scan(&snapshots); err != nil ||
-		snapshots != 1 {
+		snapshots != 2 {
 		t.Fatalf("input snapshots = %d, error=%v", snapshots, err)
+	}
+	var firstExecutionID, retriedExecutionID, retriedResourceID, payload string
+	if err := database.SQL.QueryRowContext(context.Background(), `
+SELECT json_extract(first.input_json,'$.executionId'),
+ json_extract(second.input_json,'$.executionId'),
+ json_extract(second.input_json,'$.inputs.resourceId'),job.payload_json
+FROM job_input_snapshots first
+JOIN job_input_snapshots second ON second.job_id=first.job_id AND second.execution_no=2
+JOIN jobs job ON job.id=first.job_id
+WHERE first.job_id='retry-job' AND first.execution_no=1
+`).Scan(&firstExecutionID, &retriedExecutionID, &retriedResourceID, &payload); err != nil {
+		t.Fatal(err)
+	}
+	if firstExecutionID == retriedExecutionID || retriedResourceID != "retry-job" ||
+		payload != `{"schemaVersion":1,"inputExecutionNo":2}` {
+		t.Fatalf("retry input = %s -> %s resource=%s payload=%s",
+			firstExecutionID, retriedExecutionID, retriedResourceID, payload)
 	}
 }
 
