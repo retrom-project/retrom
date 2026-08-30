@@ -177,6 +177,8 @@ func TestGameDetailReturnsCoreValidationChoicesAndDOSPrograms(t *testing.T) {
 	server.Handler().ServeHTTP(saves, httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/saves", nil))
 	testassert.Falsef(t, testassert.Any(func() bool { return saves.Code != http.StatusOK }, func() bool {
 		return !strings.Contains(saves.Body.String(), `"screenshotUrl":"`+saveStateScreenshotURL(saveStateID)+`"`)
+	}, func() bool {
+		return !strings.Contains(saves.Body.String(), `"sizeBytes":`+strconv.Itoa(len(screenshot)))
 	}, func() bool { return !strings.Contains(saves.Body.String(), `"activeDurationMs":180000`) }, func() bool { return !strings.Contains(saves.Body.String(), `"platform":{"id":"dos","name":"MS-DOS"}`) }, func() bool { return !strings.Contains(saves.Body.String(), `"generatedAtMs":`) }), "save list projection = %d: %s", saves.Code, saves.Body.String())
 	filteredSaves := httptest.NewRecorder()
 	server.Handler().ServeHTTP(filteredSaves, httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/saves?gameId="+gameID, nil))
