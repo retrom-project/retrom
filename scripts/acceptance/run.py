@@ -30,7 +30,8 @@ RPG_CASES = {f"ACC-RPG-{number:03d}" for number in range(1, 13)}
 ONS_CASES = {"ACC-ONS-001"}
 KIRIKIRI_CASES = {"ACC-KIRIKIRI-001"}
 BUTTERSCOTCH_CASES = {"ACC-BUTTERSCOTCH-001"}
-PRODUCT_CASES = RPG_CASES | ONS_CASES | KIRIKIRI_CASES | BUTTERSCOTCH_CASES
+TYRANOSCRIPT_CASES = {"ACC-TYRANOSCRIPT-001"}
+PRODUCT_CASES = RPG_CASES | ONS_CASES | KIRIKIRI_CASES | BUTTERSCOTCH_CASES | TYRANOSCRIPT_CASES
 
 
 # These commands are intentionally focused. Cases omitted here are emitted as
@@ -461,6 +462,10 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
         300,
         ".cache/tools/node-v24.18.0-linux-x64/bin/node scripts/acceptance/butterscotch_product.mjs",
     ),
+    "ACC-TYRANOSCRIPT-001": (
+        300,
+        ".cache/tools/node-v24.18.0-linux-x64/bin/node scripts/acceptance/tyranoscript_product.mjs",
+    ),
 }
 
 
@@ -672,7 +677,9 @@ def archive_previous(case_dir: Path) -> None:
     run_dir = case_dir.parents[1]
     moved: dict[str, str] = {}
     for name in (
-        "result.json", "stdout.log", "network.json", "rpgmaker-product.json", "rerun-resolution.json",
+        "result.json", "stdout.log", "network.json", "rpgmaker-product.json", "ons-product.json",
+        "kirikiri-product.json", "butterscotch-product.json", "tyranoscript-product.json",
+        "rerun-resolution.json",
     ):
         source = case_dir / name
         if source.exists():
@@ -942,6 +949,8 @@ def execute_case(case_id: str) -> int:
                 product_filename = "kirikiri-product.json"
             elif case_id in BUTTERSCOTCH_CASES:
                 product_filename = "butterscotch-product.json"
+            elif case_id in TYRANOSCRIPT_CASES:
+                product_filename = "tyranoscript-product.json"
             product_path = case_dir / product_filename
             if product_path.is_file():
                 product_evidence = json.loads(product_path.read_text(encoding="utf-8"))
