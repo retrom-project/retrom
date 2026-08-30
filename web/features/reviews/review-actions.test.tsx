@@ -359,14 +359,14 @@ describe("ReviewActions metadata continuation", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
     const user = userEvent.setup();
-    render(<ReviewActions review={{ ...review, validationStale: true, runtimeVersionChange: { previous: "v0.6.0", current: "v0.7.4" }, validation: { ...review.validation!, status: "BLOCKED", current: false, compatibilityCode: "LAUNCH_BIOS_MISSING" } }} />);
+    render(<ReviewActions review={{ ...review, validationStale: true, runtimeVersionChange: { previous: "v0.6.0", current: "v0.7.5" }, validation: { ...review.validation!, status: "BLOCKED", current: false, compatibilityCode: "LAUNCH_BIOS_MISSING" } }} />);
 
     expect(screen.getByRole("button", { name: "通过并发布" })).toBeDisabled();
-    expect(screen.getByText("Runtime v0.6.0 → v0.7.4，请重新检查。")).toBeVisible();
+    expect(screen.getByText("Runtime v0.6.0 → v0.7.5，请重新检查。")).toBeVisible();
     expect(screen.getByText("Runtime 待重检")).toBeVisible();
     expect(screen.getByRole("button", { name: "运行游戏" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "运行游戏" })).toHaveAttribute("aria-describedby", "review-runtime-refresh-required");
-    expect(screen.getByRole("button", { name: "运行游戏" })).toHaveAttribute("title", "Runtime v0.6.0 → v0.7.4，请重新检查。");
+    expect(screen.getByRole("button", { name: "运行游戏" })).toHaveAttribute("title", "Runtime v0.6.0 → v0.7.5，请重新检查。");
     await user.click(screen.getByRole("button", { name: "重新运行检查" }));
     await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(expect.stringMatching(/reviews\/item-1$/), expect.objectContaining({ method: "PATCH" })));
     await waitFor(() => expect(screen.getByRole("button", { name: "通过并发布" })).toBeEnabled());
