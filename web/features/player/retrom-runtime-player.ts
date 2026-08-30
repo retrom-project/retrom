@@ -1,5 +1,4 @@
 import {
-  rpgMakerPositionProbeKind,
   type CheckpointBlocker,
   type GameRuntime,
 } from "@xxxsen/retrom-runtime";
@@ -13,7 +12,6 @@ type UnavailableReason = components["schemas"]["CheckpointUnavailableReason"];
 type PlayerBridgeOptions = {
   checkpointFormat: string;
   payloadKind: PayloadKind;
-  rpgPositionProbe?: boolean;
   validationPurpose?: boolean;
 };
 
@@ -38,9 +36,6 @@ export function retromRuntimePlayerInstance(
   };
   if (capabilities.frameCounter) {
     instance.gameManager!.getFrameNum = () => runtime.getFrameCount() ?? 0;
-  }
-  if (options.rpgPositionProbe) {
-    instance.gameManager!.getRpgPosition = () => rpgPosition(runtime);
   }
   if (capabilities.volume) {
     instance.setVolume = (volume) => runtime.setVolume(volume);
@@ -71,21 +66,6 @@ function blockerReason(blocker: CheckpointBlocker): UnavailableReason {
   if (blocker === "ALREADY_CREATED") {return "CHECKPOINT_ALREADY_CREATED";}
   if (blocker === "MODE_UNSUPPORTED") {return "NETPLAY_UNSUPPORTED";}
   return "SAVE_DISABLED";
-}
-
-function rpgPosition(runtime: GameRuntime) {
-  const probe = runtime.getValidationProbe(rpgMakerPositionProbeKind);
-  if (!probe || probe.schemaVersion !== 1 || !isRpgPosition(probe.value)) {
-    throw new Error("RPG_RUNTIME_POSITION_UNAVAILABLE");
-  }
-  return probe.value;
-}
-
-function isRpgPosition(value: unknown): value is components["schemas"]["RpgPositionEvidence"] {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {return false;}
-  const position = value as Record<string, unknown>;
-  return ["mapId", "playerX", "playerY", "fixtureState"]
-    .every((key) => Number.isSafeInteger(position[key]));
 }
 
 function videoDimension(

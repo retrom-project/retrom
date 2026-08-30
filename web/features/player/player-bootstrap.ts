@@ -278,7 +278,7 @@ async function bootstrapRpgMakerPlayer(
     throw error;
   }
   if (validationDriver) {
-    void validationDriver.attachRuntime(mountedRuntime.playerInstance).catch(() => {
+    void validationDriver.attachRuntime(mountedRuntime.playerInstance, mountedRuntime.runtime).catch(() => {
       params.setSyncText("运行验证失败");
       params.setSyncTone("warning");
     });

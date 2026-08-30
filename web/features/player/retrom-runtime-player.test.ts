@@ -21,7 +21,7 @@ describe("retrom-runtime Player bridge", () => {
     expect(instance.gameManager?.getFrameNum).toBeUndefined();
   });
 
-  it("only projects the versioned RPG position probe for RPG adapters", () => {
+  it("keeps RPG validation probes out of the generic Player bridge", () => {
     const position = {mapId: 3, playerX: 7, playerY: 9, fixtureState: 1};
     const runtime = runtimeFixture({
       getCapabilities: () => ({...capabilities, frameCounter: true}),
@@ -33,14 +33,13 @@ describe("retrom-runtime Player bridge", () => {
     const instance = retromRuntimePlayerInstance(runtime, document.createElement("div"), {
       checkpointFormat: "mkxp-state-compact-v1",
       payloadKind: "RUNTIME_STATE",
-      rpgPositionProbe: true,
     });
 
     expect(instance.gameManager?.getFrameNum?.()).toBe(302);
-    expect(instance.gameManager?.getRpgPosition?.()).toEqual(position);
+    expect(instance.gameManager).not.toHaveProperty("getRpgPosition");
   });
 
-  it("fails closed when checkpoint format or RPG probe shape drifts", async () => {
+  it("fails closed when the checkpoint format drifts", async () => {
     const runtime = runtimeFixture({
       checkpoint: vi.fn(async () => ({bytes: new Uint8Array([1]), format: "wrong-format"})),
       getValidationProbe: (kind) => ({kind, schemaVersion: 1, value: {mapId: "1"}}),
@@ -48,11 +47,9 @@ describe("retrom-runtime Player bridge", () => {
     const instance = retromRuntimePlayerInstance(runtime, document.createElement("div"), {
       checkpointFormat: "native-save-bundle-v1",
       payloadKind: "NATIVE_SAVE_BUNDLE_V1",
-      rpgPositionProbe: true,
     });
 
     await expect(instance.gameManager?.getStateAsync?.()).rejects.toThrow("PLAYER_STATE_UNAVAILABLE");
-    expect(() => instance.gameManager?.getRpgPosition?.()).toThrow("RPG_RUNTIME_POSITION_UNAVAILABLE");
   });
 });
 
