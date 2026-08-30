@@ -1,7 +1,7 @@
 import { renderHook } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { initialPlayerOrientationState } from "./orientation";
-import { usePlayerSession, type PlayerSessionParams } from "./player-session";
+import { createSaveForm, usePlayerSession, type PlayerSessionParams } from "./player-session";
 
 afterEach(() => vi.restoreAllMocks());
 
@@ -19,6 +19,20 @@ describe("Player page exit protection", () => {
     params.finishing.current = false;
     unmount();
     expect(dispatchBeforeUnload()).toBe(true);
+  });
+});
+
+describe("manual save multipart", () => {
+  it("keeps a valid checkpoint when its best-effort screenshot exceeds the server limit", () => {
+    const form = createSaveForm({
+      screenshot: new Blob([new Uint8Array(10 * 1024 * 1024 + 1)], { type: "image/png" }),
+      format: "png",
+      state: Uint8Array.of(1, 2, 3),
+      payloadKind: "KIRIKIRI_SAVE_BUNDLE_V1",
+    }, undefined);
+
+    expect(form.get("payload")).toBeInstanceOf(Blob);
+    expect(form.get("screenshot")).toBeNull();
   });
 });
 

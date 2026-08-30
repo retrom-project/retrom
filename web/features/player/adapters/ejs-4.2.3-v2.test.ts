@@ -664,10 +664,13 @@ describe("EmulatorJS adapter runtime controls", () => {
     expect(capture.screenshot).toBe(screenshot);
   });
 
-  it("rejects unavailable or empty screenshots", async () => {
+  it("rejects unavailable capture output but keeps a valid state when its optional screenshot is absent", async () => {
     const state = Uint8Array.from([1, 2, 3]);
     await expect(captureManualScreenshot({ on: () => undefined, gameManager: { getState: () => state } })).rejects.toThrow("PLAYER_SCREENSHOT_UNAVAILABLE");
     await expect(captureManualScreenshot({ on: () => undefined, gameManager: { getState: () => state }, takeScreenshot: async () => ({ blob: new Blob(), format: "png" }) })).rejects.toThrow("PLAYER_SCREENSHOT_EMPTY");
-    await expect(captureManualState({ on: () => undefined, gameManager: { getState: () => state } }, { screenshot: new Blob(), format: "png" })).rejects.toThrow("PLAYER_SCREENSHOT_EMPTY");
+    await expect(captureManualState(
+      { on: () => undefined, gameManager: { getState: () => state } },
+      null,
+    )).resolves.toMatchObject({ screenshot: expect.objectContaining({ size: 0 }), state });
   });
 });
