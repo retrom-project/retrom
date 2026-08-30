@@ -266,7 +266,7 @@ SaveState 同时引用 Profile、Game、GameContentRevision、GameVariantRevisio
 
 Profile 必须等于当前认证用户唯一绑定的私有 Profile。存档列表、详情、创建、恢复、软删除、最近游玩和累计时长都先按该 Profile 限定；客户端提交另一个 Profile ID、SaveState ID 或 Launch ID 不能扩大授权。用于写操作重放的 Idempotency-Key 同样按认证用户主体分区。
 
-当前产品唯一的进度保存入口是 SaveState。用户主动点击“创建存档”后，Player 捕获非空 state，并最佳努力捕获同一时刻的截图，通过 `/save-states` 原子创建记录；截图只作为进度预览，上传前一律按原宽高比限制到最多 `1280×720`，并以质量 `0.75` 重新编码为 JPEG。转换失败或结果仍超过 10 MiB 时省略该 multipart part，不能丢弃有效 state。退出对话框中的“创建存档”也是同一显式动作。直接退出、定时运行、原生 save-file callback 与 `pagehide` 都不能创建存档。显式上传正在进行时退出会等待该上传完成，但不会额外捕获终态。
+当前产品唯一的进度保存入口是 SaveState。用户主动点击“创建存档”后，Player 捕获非空 state，并最佳努力捕获同一时刻的截图，通过 `/save-states` 原子创建记录；截图只作为进度预览，上传前一律按原宽高比限制到最多 `640×360`，并以质量 `0.75` 重新编码为 JPEG。转换失败或结果仍超过 10 MiB 时省略该 multipart part，不能丢弃有效 state。退出对话框中的“创建存档”也是同一显式动作。直接退出、定时运行、原生 save-file callback 与 `pagehide` 都不能创建存档。显式上传正在进行时退出会等待该上传完成，但不会额外捕获终态。
 
 当前产品没有隐式或自动持久化子系统，Launch config 不包含相应字段，数据库和 HTTP API 也不保存这类记录。普通 Launch 总是从游戏初始状态开始；只有请求中显式指定、且通过 Profile/VariantRevision/CoreArtifact/DOS entry/盘号门禁的 SaveState 可以改变启动位置。
 
