@@ -4,6 +4,7 @@ import { expect, test, type Locator, type Page } from "@playwright/test";
 import axe from "axe-core";
 import { currentEmulatorBrightRatio, evidencePath, locatorBrightRatio } from "./acceptance-support";
 import { installGamepads, pressGamepad, setGamepadButtons, standardButton } from "./immersive-gamepad";
+import { selectImmersiveMenuItem, type ImmersiveMenuLabel } from "./immersive-menu-selection";
 
 const origin = process.env.RETROM_WEB_ORIGIN ?? "http://localhost:3000";
 const audioPreferenceKey = "retrom:immersive:audio-preferences:v1";
@@ -163,19 +164,12 @@ async function openPlayerMenu(page: Page) {
   return menu;
 }
 
-async function selectPlayerMenuItem(page: Page, menu: Locator, target: "取消" | "创建存档" | "退出游戏") {
-  const order = ["取消", "创建存档", "退出游戏"] as const;
-  for (let attempt = 0; attempt < order.length * 2; attempt += 1) {
-    const current = await menu.locator('button[aria-current="true"]').textContent();
-    if (current === target) {return;}
-    const currentIndex = order.indexOf(current as typeof order[number]);
-    const targetIndex = order.indexOf(target);
-    if (currentIndex < 0) {throw new Error(`IMMERSIVE_MENU_SELECTION_INVALID:${current ?? "none"}`);}
-    const rightDistance = (targetIndex - currentIndex + order.length) % order.length;
-    const leftDistance = (currentIndex - targetIndex + order.length) % order.length;
-    await pressGamepad(page, rightDistance <= leftDistance ? standardButton.right : standardButton.left);
-  }
-  throw new Error(`IMMERSIVE_MENU_ITEM_NOT_SELECTABLE:${target}`);
+async function selectPlayerMenuItem(page: Page, menu: Locator, target: ImmersiveMenuLabel) {
+  await selectImmersiveMenuItem(
+    target,
+    () => menu.locator('button[aria-current="true"]').textContent(),
+    (direction) => pressGamepad(page, direction === "right" ? standardButton.right : standardButton.left),
+  );
 }
 
 async function createSaveFromMenu(page: Page, menu: Locator) {
