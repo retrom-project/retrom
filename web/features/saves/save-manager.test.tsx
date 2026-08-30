@@ -59,6 +59,7 @@ describe("SaveManager", () => {
     expect(rule).toContain("right: 8px");
     expect(rule).toContain("bottom: 8px");
     expect(rule).toContain("height: 22px");
+    expect(rule).toContain("padding: 1px 7px 0");
     expect(rule).toContain("display: inline-flex");
     expect(rule).toContain("align-items: center");
     expect(rule).toContain("justify-content: center");
