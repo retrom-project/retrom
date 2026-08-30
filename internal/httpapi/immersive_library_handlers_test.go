@@ -42,6 +42,7 @@ type immersiveLibraryResponse struct {
 		Favorited    bool   `json:"favorited"`
 		SaveStates   []struct {
 			SaveStateID   string  `json:"saveStateId"`
+			SizeBytes     int64   `json:"sizeBytes"`
 			ScreenshotURL *string `json:"screenshotUrl"`
 		} `json:"saveStates"`
 	} `json:"items"`
@@ -157,6 +158,7 @@ func assertImmersiveFavoriteAndSaveLibraries(
 	testassert.Falsef(t, len(saves.Items[0].SaveStates) != 1, "save states = %#v", saves.Items[0])
 	actualSave := saves.Items[0].SaveStates[0]
 	testassert.Falsef(t, actualSave.SaveStateID != saveStateID, "save = %#v", actualSave)
+	testassert.Falsef(t, actualSave.SizeBytes != 5, "save size = %#v", actualSave)
 	testassert.Falsef(t, actualSave.ScreenshotURL == nil || *actualSave.ScreenshotURL != "/content/save-states/"+saveStateID+"/screenshot",
 		"save screenshot = %#v", actualSave)
 	mustExecHTTPTest(t, server.database, "UPDATE save_states SET screenshot_blob_id=NULL WHERE id=?", saveStateID)

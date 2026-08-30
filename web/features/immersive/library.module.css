@@ -118,6 +118,26 @@
   object-fit: cover;
 }
 
+.saveSize {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 22px;
+  padding: 1px 7px 0;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  white-space: nowrap;
+  background: #4435a7;
+  border-radius: 5px;
+}
+
 .saveCard time {
   justify-self: end;
   padding-right: 4px;

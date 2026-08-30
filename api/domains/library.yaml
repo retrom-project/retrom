@@ -773,6 +773,7 @@ components:
         - saveStateId
         - name
         - createdAtMs
+        - sizeBytes
         - discIndex
         - screenshotUrl
       properties:
@@ -786,6 +787,11 @@ components:
           type: integer
           format: int64
           minimum: 0
+        sizeBytes:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 268435456
         discIndex:
           type: integer
           minimum: 0

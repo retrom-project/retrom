@@ -3249,6 +3249,8 @@ export interface components {
             name: string;
             /** Format: int64 */
             createdAtMs: number;
+            /** Format: int64 */
+            sizeBytes: number;
             discIndex: number | null;
             screenshotUrl: string | null;
         };
