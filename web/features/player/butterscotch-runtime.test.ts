@@ -12,11 +12,11 @@ function config() {
   return {
     runtimeFamily: "BUTTERSCOTCH", protocolVersion: 1, mode: "single", purpose: "PRODUCT",
     launchId, sessionId: launchId, coreId: "butterscotch", coreName: "Butterscotch",
-    gameTitle: "GameMaker fixture", platformName: "GameMaker", runtimeVersion: "v0.8.0", artifactId,
+    gameTitle: "GameMaker fixture", platformName: "GameMaker", runtimeVersion: "v0.8.1", artifactId,
     contentDigest: "a".repeat(64), returnTo: "/games/game-1", warnings: [],
     adapter: {
       adapterKind: "BUTTERSCOTCH_WEB", adapterId: "butterscotch-web",
-      runtimeBaseUrl: "/runtime/retrom-runtime/v0.8.0/",
+      runtimeBaseUrl: "/runtime/retrom-runtime/v0.8.1/",
       projectIndexUrl: `/runtime/content/project/${"b".repeat(64)}/index.json`,
     }, checkpoint: null,
   };
