@@ -1306,6 +1306,7 @@ export interface paths {
             };
             cookie?: never;
         };
+        /** @description Returns the review workspace. When a historical validation is stale because the selected runtime changed, runtimeVersionChange identifies the previous and current runtime versions. */
         get: operations["getAdminReview"];
         put?: never;
         post?: never;
@@ -5594,6 +5595,10 @@ export interface components {
             runtimeBaseUrl?: unknown;
             runtimePath?: unknown;
             runtimePathOverrides?: unknown;
+            runtimeVersionChange?: {
+                previous: string;
+                current: string;
+            } | null;
             sample?: unknown;
             saveStateCount?: unknown;
             saveStateId?: unknown;

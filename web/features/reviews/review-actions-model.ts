@@ -37,6 +37,7 @@ export type RPGMakerReview = {
 };
 export type ReviewWorkspace = {
   itemId: string; version: number; platformInstance?: { id: string; name: string }; effectiveSourceSnapshotId?: string; canApprove?: boolean; validationStale?: boolean;
+  runtimeVersionChange?: { previous: string; current: string } | null;
   arcadeDependencies?: ArcadeDependencies | null; multiDisc?: ReviewMultiDisc | null;
   metadata: { title: string; description: string; developer: string; publisher: string; genre: string; players: number | null; releaseYear: number | null };
   validation: { id: string; status: string; current: boolean; compatibilityCode: string } | null;
@@ -145,6 +146,7 @@ export function initialRuntimeState(review: ReviewWorkspace) {
   return {
     validationWasCurrent,
     validationStale: review.validationStale ?? false,
+    runtimeVersionChange: review.runtimeVersionChange ?? null,
     validation: review.validation,
     effectiveSourceSnapshotId: review.effectiveSourceSnapshotId ?? "",
     arcadeDependencies: review.arcadeDependencies ?? null,
