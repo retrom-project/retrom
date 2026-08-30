@@ -34,7 +34,7 @@ import {
   useSerializedPlayerBootstrap,
 } from "./player-bootstrap-lifecycle";
 import type { PlayerLoadProgress } from "./player-loading";
-import { handleOnsRuntimeEvent } from "./player-bootstrap-ons";
+import { handleRetromRuntimeEvent } from "./player-bootstrap-ons";
 
 type ShellState = "loading" | "running" | "error";
 type SyncTone = "synced" | "busy" | "warning";
@@ -63,6 +63,7 @@ export type PlayerBootstrapParams = {
   reportPlayerEvent: (event: MultiDiscPlayerEvent) => void; revealControlsAtTopEdge: (clientY: number) => void; showControls: () => void;
   onKeyboardPause: () => void;
   onImmersiveMenuShortcut: () => void;
+  onExitRequested: () => void;
   sendEvent: (kind: "start" | "heartbeat" | "finish") => Promise<void>;
   uploadManualState: (payload: ManualStatePayload) => Promise<boolean>;
   uploadValidationCheckpoint: (payload: ManualStatePayload) => Promise<ValidationCheckpointReceipt>;
@@ -145,7 +146,7 @@ async function bootstrapOnsPlayer(
   resources.cleanupRuntimeGamepadFilter = installRuntimeImmersiveGamepadFilter(params.experience, mounted.context.frameWindow, params.immersiveGamepadFilter);
   params.setMessage("正在启动 ONScripter 运行时…");
   const runtime = createOnsProductRuntime(onsConfig, mounted.context.frameWindow, stateBytes, controller.signal);
-  resources.nativeRuntimeSubscription = runtime.subscribe((event) => handleOnsRuntimeEvent(event, params));
+  resources.nativeRuntimeSubscription = runtime.subscribe((event) => handleRetromRuntimeEvent(event, params));
   try {
     await runtime.mount(mounted.target);
     if (controller.signal.aborted) {await runtime.exit(); return;}
@@ -190,10 +191,7 @@ async function bootstrapKiriKiriPlayer(
     if (controller.signal.aborted) {await mountedRuntime.runtime.exit(); return;}
     resources.cleanup = () => mountedRuntime.runtime.exit();
     resources.nativeRuntimeSubscription = mountedRuntime.runtime.subscribe((event) => {
-      if (event.type === "FATAL_ERROR") {
-        params.setState("error");
-        params.setMessage(event.code);
-      }
+      handleRetromRuntimeEvent(event, params);
     });
     handleReady(mounted.context, mountedRuntime.instance);
     const availability = mountedRuntime.runtime.getCheckpointAvailability();
@@ -260,6 +258,7 @@ async function bootstrapRpgMakerPlayer(
   try {
     resources.cleanup = () => mountedRuntime.runtime.exit();
     resources.rpgRuntimeSubscription = mountedRuntime.runtime.subscribe((event) => {
+      handleRetromRuntimeEvent(event, params);
       if (event.type !== "CHECKPOINT_AVAILABILITY_CHANGED" || validationDriver) {return;}
       params.manualSaveAvailableRef.current = event.availability.available;
       params.setManualSaveAvailable(event.availability.available);
@@ -457,7 +456,7 @@ function clearTransientStorage(params: PlayerBootstrapParams, instance: Emulator
 
 function reportNativeExit(params: PlayerBootstrapParams) {
   if (!reportsNativeExit(params.playerMode.current, params.finishing.current)) {return;}
-  void params.sendEvent("finish").catch(() => {params.setState("error"); params.setMessage("PLAY_SESSION_EVENT_FAILED");});
+  params.onExitRequested();
 }
 
 function handleGameStart(context: MountedContext) {

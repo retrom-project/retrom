@@ -41,6 +41,7 @@ type ReviewMount = {
 type ReviewMountOptions = {
   signal: AbortSignal;
   onError: (reason: unknown) => void;
+  onExitRequested: () => void;
   onStart: (mount: ReviewMount) => void;
 };
 
@@ -57,6 +58,7 @@ async function mountReviewRuntime(
     });
     const unsubscribe = runtime.subscribe((event) => {
       if (event.type === "FATAL_ERROR") {options.onError(event.code);}
+      if (event.type === "EXIT_REQUESTED") {options.onExitRequested();}
     });
     try {
       await runtime.mount(target);
@@ -78,6 +80,7 @@ async function mountReviewRuntime(
     });
     const unsubscribe = runtime.subscribe((event) => {
       if (event.type === "FATAL_ERROR") {options.onError(event.code);}
+      if (event.type === "EXIT_REQUESTED") {options.onExitRequested();}
     });
     try {
       await runtime.mount(target);
@@ -92,7 +95,7 @@ async function mountReviewRuntime(
   let emulator: EmulatorInstance | undefined;
   let cleanup: () => void = () => undefined;
   cleanup = mountEmulatorJS(config, target, {
-    onReady: (value) => { emulator = value; },
+    onReady: (value) => { emulator = value; value.on("exit", options.onExitRequested); },
     onGameStart: () => {
       if (!emulator) {options.onError("模拟器核心尚未就绪"); return false;}
       options.onStart({
@@ -107,13 +110,14 @@ async function mountReviewRuntime(
   }, frameWindow);
 }
 
-type PreviewState = "loading" | "running" | "capturing" | "captured" | "error";
+type PreviewState = "loading" | "running" | "capturing" | "captured" | "exited" | "error";
 const previewStartupTimeoutMs = 30_000;
 
 function stateCopy(state: PreviewState) {
   if (state === "loading") {return "正在冻结审核来源并加载核心…";}
   if (state === "capturing") {return "游戏已运行 5 秒，正在保存审核截图…";}
   if (state === "captured") {return "第 5 秒运行截图已保存；可以继续试玩。";}
+  if (state === "exited") {return "游戏已从自身菜单退出，正在关闭子窗体。";}
   if (state === "running") {return "游戏已启动，将在第 5 秒自动保存截图。";}
   return "审核预览启动失败。";
 }
@@ -203,6 +207,12 @@ export function ReviewPreviewPlayer({ previewId }: { previewId: string }) {
         await mountReviewRuntime(config, target, mountedFrameWindow, {
           signal: controller.signal,
           onError: failStartup,
+          onExitRequested: () => {
+            if (captureTimerRef.current !== null) {window.clearTimeout(captureTimerRef.current);}
+            setState("exited");
+            cleanup?.();
+            window.close();
+          },
           onStart: (mount) => {
             if (startupFailed) {mount.cleanup(); return;}
             gameStarted = true;

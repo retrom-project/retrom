@@ -22,6 +22,7 @@ import { usePlayerSession } from "./player-session";
 import { usePlayerRuntimeActions } from "./player-runtime-actions";
 import { usePlayerOrientationRuntime } from "./player-orientation-runtime";
 import { usePlayerRuntimeEffects } from "./player-runtime-effects";
+import { useRuntimeExitHandler } from "./player-runtime-exit";
 import { ImmersivePlayerMenu } from "./immersive-player-menu";
 import { useImmersivePlayer } from "./use-immersive-player";
 import { usePlayerKeyboardPause } from "./use-player-keyboard-pause";
@@ -230,6 +231,9 @@ export function PlayerShell({ launchId, experience = "standard" }: { launchId: s
     setSyncText, setSyncTone, showToast, replaceImmersiveRoute,
   }), [launchId, replaceImmersiveRoute, showToast]);
   const { sendEvent, uploadManualState, uploadValidationCheckpoint, exit, exitStrict } = usePlayerSession(sessionParams);
+  const handleRuntimeExitRequested = useRuntimeExitHandler(
+    manualSaveAvailableRef, setManualSaveAvailable, setSyncText, setSyncTone, exit,
+  );
   const { beginImmersivePauseCapture, saveImmersiveGame } = useImmersiveSaveActions(emulator, manualSaveAvailableRef, pauseCapture, lastManualScreenshot, uploadManualState);
   const handleImmersiveFatal = useImmersiveFatalHandler(setMessage, setState);
   const immersive = useImmersivePlayer({
@@ -260,7 +264,8 @@ export function PlayerShell({ launchId, experience = "standard" }: { launchId: s
     setEmulatorMuted, setPaused, setNetplayPaused, setImmersiveReturnTo, reportPlayerEvent, revealControlsAtTopEdge, showControls,
     setRpgValidationDriver, sendEvent, uploadManualState, uploadValidationCheckpoint,
     onKeyboardPause, onImmersiveMenuShortcut: immersive.requestMenu,
-  }), [experience, immersive.filter, immersive.requestMenu, launchId, onKeyboardPause, reportPlayerEvent, revealControlsAtTopEdge, sendEvent, showControls, uploadManualState, uploadValidationCheckpoint]);
+    onExitRequested: handleRuntimeExitRequested,
+  }), [experience, handleRuntimeExitRequested, immersive.filter, immersive.requestMenu, launchId, onKeyboardPause, reportPlayerEvent, revealControlsAtTopEdge, sendEvent, showControls, uploadManualState, uploadValidationCheckpoint]);
 
   usePlayerBootstrap(bootstrapParams);
 
