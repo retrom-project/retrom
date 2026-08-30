@@ -1,10 +1,52 @@
 package launch
 
 import (
+	"encoding/json"
+	"strings"
 	"testing"
 
 	"retrom/internal/dependencies"
 )
+
+func TestRPGSeekableBlobSourceIsStrictAndComplete(t *testing.T) {
+	t.Parallel()
+
+	root := "/runtime/content/project/" + strings.Repeat("d", 64) + "/"
+	source, ok := newRPGSeekableBlobSource(
+		root+"__retrom__/game.mkxpz",
+		"a000000000000000000000000000000000000000000000000000000000000000",
+		42,
+		"",
+	)
+	encoded, err := json.Marshal(source)
+	if !ok || err != nil || string(encoded) !=
+		`{"kind":"SEEKABLE_BLOB_V1","rangeRequired":true,"url":"`+root+`__retrom__/game.mkxpz","sha256":"a000000000000000000000000000000000000000000000000000000000000000","sizeBytes":42}` {
+		t.Fatalf("seekable source = %s, available=%v, error=%v", encoded, ok, err)
+	}
+	if _, valid := newRPGSeekableBlobSource("/runtime/project", "bad", 42, ""); valid {
+		t.Fatal("seekable source accepted an invalid digest")
+	}
+	if _, valid := newRPGSeekableBlobSource(
+		"/runtime/project",
+		"a000000000000000000000000000000000000000000000000000000000000000",
+		0,
+		"",
+	); valid {
+		t.Fatal("seekable source accepted an empty payload")
+	}
+}
+
+func TestRPGFileTreeSourceJSONIsStrictAndComplete(t *testing.T) {
+	t.Parallel()
+	encoded, err := json.Marshal(RPGFileTreeSource{
+		Kind:     "FILE_TREE_V1",
+		IndexURL: "/runtime/content/project/" + strings.Repeat("d", 64) + "/__retrom__/packs/0/index.json",
+	})
+	if err != nil || string(encoded) !=
+		`{"kind":"FILE_TREE_V1","indexUrl":"/runtime/content/project/`+strings.Repeat("d", 64)+`/__retrom__/packs/0/index.json"}` {
+		t.Fatalf("file tree source = %s, error=%v", encoded, err)
+	}
+}
 
 func TestMKXPCoreConfigUsesObservedReleaseCoordinates(t *testing.T) {
 	t.Parallel()

@@ -128,7 +128,7 @@ web/components/           无业务状态的通用组件
 浏览器不得获得宿主机路径、Blob ID/hash 或能力秘密。`POST /api/v1/launches` 返回可记录的 UUIDv7
 `launchId`，同时通过 `retrom_launch_<launchId>` HttpOnly cookie 下发 32-byte capability；数据库只保存其
 SHA-256。Player URL 固定为 `/play/:launchId`；config、状态和事件保留在 `/runtime/launches/:launchId/**`，
-ROM/BIOS/parent/外部盘片使用不含 launch ID 的 `/runtime/content/**`，并由相同 capability 派生的
+ROM/BIOS/parent/外部盘片以及 EasyRPG、mkxp、ONS、KiriKiri 项目文件使用不含 launch ID 的 `/runtime/content/**`，并由相同 capability 派生的
 `/runtime/content/` 路径限定 HttpOnly grant 授权。capability 不进入 URL、Referer、JSON 或访问日志。
 
 MV/MZ 项目文件绝不从应用 origin 或上述 `/runtime/content/**` 公开。Player 只会将 sandbox iframe 导航到本 Launch 的 unique runtime origin；该 Host 只接受 HTTP 契约登记的 `/__retrom/*` allowlist。`GET /__retrom/bootstrap` 是唯一无凭据 GET，且仍要校验精确 Host、Launch 存在且未过期；它只返回固定 bootstrap，不返回游戏代码/状态。ticket 只在 request body 中由同源 `POST /__retrom/bootstrap` 一次消费，并换取 host-only、HttpOnly、`Path=/__retrom/` 的 capability cookie；其余 entry/bridge/project/restore/cleanup 端点全部要求该 cookie。项目 entry 注入的 `<base>` 固定为同源 `/__retrom/project/`，CSP 必须包含 `base-uri 'self'`。runtime Host 不接受普通 app session/API/页面 fallback，不设 Domain cookie，不在不同 Launch 间复用 origin。

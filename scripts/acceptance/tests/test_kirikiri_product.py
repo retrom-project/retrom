@@ -44,6 +44,35 @@ class KiriKiriProductAcceptanceTests(unittest.TestCase):
         self.assertIn('["REVIEW_PENDING", "COMPLETED"].includes(job.state)', contents)
         self.assertNotIn('["REVIEW_PENDING", "COMPLETE"].includes(job.state)', contents)
 
+    def test_product_case_records_range_loading_and_cross_launch_cache_evidence(self) -> None:
+        contents = DRIVER_PATH.read_text(encoding="utf-8")
+        contract = (ROOT / "scripts/acceptance/kirikiri_product_contract.mjs").read_text(encoding="utf-8")
+        self.assertIn('trackRuntimeLoading(originalPage, [], { timeoutMs: 60_000 })', contents)
+        self.assertIn('trackRuntimeLoading(restoredPage, [], { timeoutMs: 60_000 })', contents)
+        self.assertIn('sameProjectContentIdentity:', contents)
+        self.assertIn('value.fullProjectFileResponseCount !== 0', contract)
+        self.assertIn('value.rangeProjectFileResponseCount < 1', contract)
+        self.assertIn('requireCacheHit && value.runtimeAssetCacheHitCount < 1', contract)
+        self.assertIn(
+            "trackRuntimeLoading(originalPage, [], { timeoutMs: 60_000 })",
+            contents,
+        )
+        self.assertIn(
+            "trackRuntimeLoading(restoredPage, [], { timeoutMs: 60_000 })",
+            contents,
+        )
+        self.assertIn("KIRIKIRI_ACCEPTANCE_LOADING_EVIDENCE_FAILED", contents)
+
+    def test_local_acceptance_routes_rpg_subdomains_through_the_loopback_proxy(self) -> None:
+        contents = DRIVER_PATH.read_text(encoding="utf-8")
+        self.assertIn(
+            'import { localRpgAcceptanceProxy } from "./rpgmaker_local_proxy.mjs";',
+            contents,
+        )
+        self.assertIn("const localProxy = await localRpgAcceptanceProxy(baseUrl);", contents)
+        self.assertIn("...localProxy.contextOptions", contents)
+        self.assertIn("await localProxy.close();", contents)
+
     def test_encrypted_operator_archive_is_blocked_instead_of_core_failure(self) -> None:
         contents = DRIVER_PATH.read_text(encoding="utf-8")
         self.assertIn('class AcceptanceBlocked extends Error', contents)
@@ -56,7 +85,7 @@ class KiriKiriProductAcceptanceTests(unittest.TestCase):
         original_ready = "await waitForProductReady(originalPage);"
         original_frame = 'const beforeInput = await screenshotEvidence(originalCanvas, "product-before-input.png");'
         restored_ready = "await waitForProductReady(restoredPage);"
-        restored_frame = 'const restoredFrame = await waitForMatchingScreenshot('
+        restored_frame = 'const restoreMatch = await waitForMatchingScreenshot('
         self.assertIn(original_ready, contents)
         self.assertIn(restored_ready, contents)
         self.assertLess(contents.index(original_ready), contents.index(original_frame))
@@ -65,7 +94,7 @@ class KiriKiriProductAcceptanceTests(unittest.TestCase):
     def test_restore_capture_waits_for_the_saved_frame_after_runtime_ready(self) -> None:
         contents = DRIVER_PATH.read_text(encoding="utf-8")
         self.assertIn(
-            'const restoredFrame = await waitForMatchingScreenshot(',
+            'const restoreMatch = await waitForMatchingScreenshot(',
             contents,
         )
         self.assertNotIn(
@@ -73,6 +102,7 @@ class KiriKiriProductAcceptanceTests(unittest.TestCase):
             contents,
         )
         self.assertIn("KIRIKIRI_ACCEPTANCE_RESTORE_POSITION_TIMEOUT", contents)
+        self.assertIn("compareKiriKiriVisualSamples(", contents)
 
     def test_screenshot_evidence_reads_the_runtime_canvas_not_host_compositor(self) -> None:
         contents = DRIVER_PATH.read_text(encoding="utf-8")
@@ -91,9 +121,11 @@ class KiriKiriProductAcceptanceTests(unittest.TestCase):
         self.assertIn('getByRole("button", { name: "已暂停，点击游戏画面继续"', contents)
         self.assertIn('locator(".player-stage").dispatchEvent("click")', contents)
 
-    def test_smoke_input_targets_the_first_kag_menu_choice(self) -> None:
+    def test_smoke_input_scans_bounded_kag_menu_targets_with_the_gamepad(self) -> None:
         contents = DRIVER_PATH.read_text(encoding="utf-8")
-        self.assertIn("await moveVirtualGamepadCursor(canvas, 0.5, 0.34);", contents)
+        self.assertIn("const kagInputTargets = [", contents)
+        self.assertIn("[0.08, 0.355]", contents)
+        self.assertIn("for (const [targetX, targetY] of kagInputTargets)", contents)
         self.assertNotIn("await canvas.click({ position:", contents)
 
     def test_standard_gamepad_drives_visible_pointer_confirm_and_cancel(self) -> None:
@@ -136,17 +168,53 @@ class KiriKiriProductAcceptanceTests(unittest.TestCase):
         self.assertIn('"KIRIKIRI_ACCEPTANCE_GAMEPAD_CANCEL_FAILED"', contents)
         self.assertIn('"KIRIKIRI_ACCEPTANCE_GAMEPAD_CONFIRM_FAILED"', contents)
 
-    def test_input_waits_for_kag_to_leave_and_reenter_a_stable_save_point(self) -> None:
+    def test_preview_waits_for_stable_runtime_before_cancel_probe(self) -> None:
+        contents = DRIVER_PATH.read_text(encoding="utf-8")
+        preview_start = contents.index("const previewCanvas = await runtimeCanvas(previewPage);")
+        preview_end = contents.index("await previewPage.close();", preview_start)
+        preview_flow = contents[preview_start:preview_end]
+        self.assertLess(
+            preview_flow.index("() => waitForKagStable(previewCanvas)"),
+            preview_flow.index("() => verifyGamepadCancel(previewCanvas)"),
+        )
+
+    def test_input_accepts_a_visible_kag_transition_that_never_reports_unstable(self) -> None:
         contents = DRIVER_PATH.read_text(encoding="utf-8")
         self.assertIn("await waitForKagStable(canvas);", contents)
-        self.assertIn("const transition = waitForKagTransition(canvas);", contents)
+        self.assertIn("const transition = waitForKagTransition(canvas, beforeFrame, 5_000);", contents)
         self.assertIn("await transition;", contents)
-        self.assertIn("await moveVirtualGamepadCursor(canvas, 0.5, 0.34);", contents)
+        self.assertIn("const beforeFrame = await canvasFrameFingerprint(canvas);", contents)
+        self.assertIn("const kagInputTargets = [", contents)
+        self.assertIn("[0.11, 0.38]", contents)
+        self.assertIn("for (const [targetX, targetY] of kagInputTargets)", contents)
+        self.assertIn("await moveVirtualGamepadCursor(canvas, targetX, targetY);", contents)
+        self.assertIn("waitForKagTransition(canvas, beforeFrame, 5_000)", contents)
         self.assertIn("await setVirtualGamepadButton(canvas, 0, false);", contents)
         self.assertNotIn("page.keyboard.press", contents)
         self.assertIn("observedUnstable = true;", contents)
-        self.assertIn("if (observedUnstable && ready)", contents)
+        self.assertIn(
+            "observedVisualChange = await canvasFrameFingerprint(canvas) !== beforeFrame;",
+            contents,
+        )
+        self.assertIn("if (observedUnstable || observedVisualChange)", contents)
         self.assertIn("_krkr2_host_bookmark_is_ready", contents)
+
+    def test_kag_ready_must_remain_continuous_before_the_driver_sends_input(self) -> None:
+        contents = DRIVER_PATH.read_text(encoding="utf-8")
+        self.assertIn("const readyStableForMs = 500;", contents)
+        self.assertIn("let readySince = null;", contents)
+        self.assertIn("Date.now() - readySince >= readyStableForMs", contents)
+        self.assertIn("readySince = null;", contents)
+
+    def test_started_kag_transition_gets_the_full_runtime_completion_window(self) -> None:
+        contents = DRIVER_PATH.read_text(encoding="utf-8")
+        self.assertIn(
+            "if (observedUnstable || observedVisualChange) {\n"
+            "      await waitForKagStable(canvas);\n"
+            "      return;\n"
+            "    }",
+            contents,
+        )
 
 
 if __name__ == "__main__":

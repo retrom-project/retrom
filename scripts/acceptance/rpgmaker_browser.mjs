@@ -3,7 +3,9 @@ import { randomUUID } from "node:crypto";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { chromium } from "../../web/node_modules/playwright/index.mjs";
+import { localRpgAcceptanceProxy } from "./rpgmaker_local_proxy.mjs";
 import { normalizedBase } from "./rpgmaker_url.mjs";
+import { trackRuntimeLoading } from "./runtime_loading_evidence.mjs";
 
 const caseId = required("RETROM_RPG_CASE_ID");
 const caseDir = required("RETROM_RPG_CASE_DIR");
@@ -15,10 +17,13 @@ const screenshotDir = join(caseDir, "screenshots");
 const productReadyTimeoutMs = 180_000;
 mkdirSync(screenshotDir, { recursive: true });
 
+const localProxy = await localRpgAcceptanceProxy(baseUrl);
 const browser = await chromium.launch({ executablePath: chromeExecutablePath, headless: true });
 const chromeVersion = browser.version();
 try {
-  const context = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
+  const context = await browser.newContext({
+    viewport: { width: 1440, height: 1000 }, ...localProxy.contextOptions,
+  });
   const login = await jsonRequest(context.request, "POST", "/api/v1/auth/login", {
     headers: { Origin: baseUrl }, data: { username, password }, expected: 200,
   });
@@ -33,6 +38,7 @@ try {
   if (payload.status === "BLOCKED") { process.exitCode = 3; }
 } finally {
   await browser.close();
+  await localProxy.close();
 }
 
 async function catalogCase(context, writeHeaders) {
@@ -151,7 +157,12 @@ async function generationCase(context, writeHeaders) {
   if (!/^\/play\/[0-9a-f-]{36}$/.test(launch.playUrl ?? "")) {
     throw new Error("RPG_ACCEPTANCE_PRODUCT_PLAY_URL_INVALID");
   }
+  const projectDeclarations = projectLoadingDeclarations(config.adapter);
+  const loadingProbeOptions = {
+    collectRuntimeTimings: config.adapter?.adapterKind !== "NATIVE_WEB",
+  };
   const page = await context.newPage();
+  const loadingProbe = trackRuntimeLoading(page, projectDeclarations, loadingProbeOptions);
   const pageErrors = [];
   const runtimeExceptions = [];
   const dialogs = [];
@@ -175,10 +186,17 @@ async function generationCase(context, writeHeaders) {
     const request = response.request();
     observedResponses.push({ url: response.url(), resourceType: request.resourceType() });
   });
+  progress("first-launch-navigation");
   await page.goto(`${baseUrl}${launch.playUrl}`, { waitUntil: "domcontentloaded" });
   const moreActions = page.getByRole("button", { name: "更多操作" });
   await moreActions.waitFor({ state: "visible", timeout: 120_000 });
   await waitForProductSaveAvailability(page, pageErrors, runtimeExceptions, dialogs, caseId);
+  progress("first-launch-ready");
+  const firstVisibleLoading = applyEasyProjectDeclaration(
+    await loadingProbe.snapshot(), config.adapter, inputTranscript.upload,
+  );
+  progress("first-launch-loading-snapshot");
+  loadingProbe.stop();
   await revealProductToolbar(page);
   await moreActions.click();
   const debugControl = page.locator(".player-debug-control");
@@ -198,10 +216,38 @@ async function generationCase(context, writeHeaders) {
   await diagnostics.waitFor({ state: "hidden" });
   await page.waitForTimeout(500);
   await page.screenshot({ path: join(screenshotDir, `${caseId.toLowerCase()}-product-player.png`), fullPage: true });
+  progress("first-launch-screenshot");
   if (responseInventoryOverflow) { throw new Error("RPG_ACCEPTANCE_ORIGIN_INVENTORY_OVERFLOW"); }
   const originInventory = config.adapter?.adapterKind === "NATIVE_WEB"
     ? await collectOriginInventory(page, config.adapter.uniqueOrigin, observedResponses)
     : null;
+  progress("first-launch-origin-inventory");
+  await page.close();
+  const cacheLaunch = await jsonRequest(context.request, "POST", "/api/v1/launches", {
+    headers: writeHeaders(), expected: 201,
+    data: {
+      gameId, coreId: validation.routeEvidence.coreId, saveStateId: null, dosEntry: null,
+      returnTo: `/games/${gameId}`,
+      clientCapabilities: { secureContext: true, crossOriginIsolated: true, sharedArrayBuffer: true },
+    },
+  });
+  const cachePage = await context.newPage();
+  cachePage.on("pageerror", (error) => pageErrors.push(error.stack || error.message));
+  cachePage.on("dialog", async (dialog) => {
+    dialogs.push(dialog.message().slice(0, 400));
+    await dialog.dismiss();
+  });
+  const cacheLoadingProbe = trackRuntimeLoading(cachePage, projectDeclarations, loadingProbeOptions);
+  progress("cache-launch-navigation");
+  await cachePage.goto(`${baseUrl}${cacheLaunch.playUrl}`, { waitUntil: "domcontentloaded" });
+  await waitForProductSaveAvailability(cachePage, pageErrors, runtimeExceptions, dialogs, caseId);
+  progress("cache-launch-ready");
+  const cacheVisibleLoading = applyEasyProjectDeclaration(
+    await cacheLoadingProbe.snapshot(), config.adapter, inputTranscript.upload,
+  );
+  progress("cache-launch-loading-snapshot");
+  cacheLoadingProbe.stop();
+  await cachePage.close();
   if (pageErrors.length) {
     const details = [
       ...pageErrors.slice(0, 5),
@@ -209,7 +255,11 @@ async function generationCase(context, writeHeaders) {
     ].map((value) => value.slice(0, 1_200)).join(" | ");
     throw new Error(`RPG_ACCEPTANCE_PLAYER_PAGE_ERROR:${details}`);
   }
-  await page.close();
+  const sameProjectContentIdentity = firstVisibleLoading.projectContentIdentity === null &&
+      cacheVisibleLoading.projectContentIdentity === null
+    ? null
+    : firstVisibleLoading.projectContentIdentity !== null &&
+      firstVisibleLoading.projectContentIdentity === cacheVisibleLoading.projectContentIdentity;
   return {
     schemaVersion: 1, caseId, status: "PASS",
     review: safeReview(review, validation), validation: safeValidation(validation),
@@ -226,10 +276,51 @@ async function generationCase(context, writeHeaders) {
       },
     },
     ...(originInventory ? { originInventory } : {}),
+    loading: {
+      schemaVersion: 1,
+      cacheLaunchId: cacheLaunch.launchId,
+      sameProjectContentIdentity,
+      firstVisible: firstVisibleLoading.evidence,
+      cacheLaunchVisible: cacheVisibleLoading.evidence,
+    },
     screenshots: [
       `screenshots/${caseId.toLowerCase()}-restored-marker.png`,
       `screenshots/${caseId.toLowerCase()}-product-player.png`,
     ],
+  };
+}
+
+function projectLoadingDeclarations(adapter) {
+  if (adapter?.adapterKind !== "MKXP_LIBRETRO_WEB") {return [];}
+  const sources = [adapter.projectArchive, ...array(adapter.rtpArchives)];
+  return sources.map((source) => {
+    if (source?.kind !== "SEEKABLE_BLOB_V1" || source.rangeRequired !== true ||
+      !Number.isSafeInteger(source.sizeBytes) || source.sizeBytes < 1 || typeof source.url !== "string") {
+      throw new Error("RPG_ACCEPTANCE_RUNTIME_LOADING_CONFIG_INVALID");
+    }
+    return { sizeBytes: source.sizeBytes, url: new URL(source.url, baseUrl).href };
+  });
+}
+
+function applyEasyProjectDeclaration(snapshot, adapter, upload) {
+  if (adapter?.adapterKind !== "EASYRPG_WEB") {return snapshot;}
+  const fileCount = Number(upload?.fileCount);
+  const totalBytes = Number(upload?.totalBytes);
+  const evidence = snapshot?.evidence;
+  if (!evidence || !Number.isSafeInteger(fileCount) || fileCount < 1 ||
+    !Number.isSafeInteger(totalBytes) || totalBytes < 1 ||
+    (evidence.declaredProjectFileCount > 0 && evidence.declaredProjectFileCount !== fileCount) ||
+    (evidence.declaredProjectBytes > 0 && evidence.declaredProjectBytes !== totalBytes)) {
+    throw new Error("RPG_ACCEPTANCE_RUNTIME_LOADING_CONFIG_INVALID");
+  }
+  return {
+    ...snapshot,
+    evidence: {
+      ...evidence,
+      declaredLargeFileCount: 0,
+      declaredProjectBytes: totalBytes,
+      declaredProjectFileCount: fileCount,
+    },
   };
 }
 
@@ -447,6 +538,7 @@ function required(name) {
 }
 
 function array(value) { return Array.isArray(value) ? value : []; }
+function progress(stage) { process.stdout.write(`rpg_product_stage=${stage}\n`); }
 function exact(actual, expected, code) {
   if (JSON.stringify(actual) !== JSON.stringify(expected)) { throw new Error(code); }
 }

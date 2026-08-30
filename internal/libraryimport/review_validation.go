@@ -192,13 +192,14 @@ func (state *draftValidationRefresh) loadFallbackValidation() error {
 		return nil
 	}
 	err := state.transaction.QueryRowContext(state.ctx, `
-SELECT id,source_manifest_digest,prepublish_input_digest,status,
-  compatibility_code,dependency_snapshot_json
-FROM import_item_core_validations
-WHERE import_item_id=? AND source_snapshot_id=? AND core_id=? AND core_artifact_id=?
-  AND dat_version_id IS ? AND status='READY'
-ORDER BY created_at_ms DESC,id DESC LIMIT 1
-`, state.itemID, state.effectiveSnapshotID, state.coreID, state.artifactID, nullable(state.datID)).Scan(
+SELECT validation.id,validation.source_manifest_digest,validation.prepublish_input_digest,
+  validation.status,validation.compatibility_code,validation.dependency_snapshot_json
+FROM import_item_core_validations validation
+JOIN core_artifacts source_artifact ON source_artifact.id=validation.core_artifact_id
+WHERE validation.import_item_id=? AND validation.source_snapshot_id=? AND validation.core_id=?
+  AND source_artifact.compatibility_json=? AND validation.dat_version_id IS ?
+ORDER BY validation.created_at_ms DESC,validation.id DESC LIMIT 1
+`, state.itemID, state.effectiveSnapshotID, state.coreID, state.compatibilityConfig, nullable(state.datID)).Scan(
 		&state.sourceID, &state.sourceManifestDigest, &state.sourceInputDigest,
 		&state.sourceStatus, &state.compatibilityCode, &state.dependencySnapshot,
 	)

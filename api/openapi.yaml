@@ -297,8 +297,8 @@ paths:
     $ref: ./domains/runtime.yaml#/paths/~1runtime~1emulatorjs~1{configuredVersion}~1{runtimePath}
   /runtime/retrom-runtime/{runtimeVersion}/{runtimePath}:
     $ref: ./domains/runtime.yaml#/paths/~1runtime~1retrom-runtime~1{runtimeVersion}~1{runtimePath}
-  /runtime/projects/{launchId}/{projectPath}:
-    $ref: ./domains/runtime.yaml#/paths/~1runtime~1projects~1{launchId}~1{projectPath}
+  /runtime/content/project/{contentIdentity}/{projectPath}:
+    $ref: ./domains/runtime.yaml#/paths/~1runtime~1content~1project~1{contentIdentity}~1{projectPath}
   /runtime/launches/{launchId}/config:
     $ref: ./domains/runtime.yaml#/paths/~1runtime~1launches~1{launchId}~1config
   /runtime/launches/{launchId}/start:
@@ -510,14 +510,14 @@ components:
       $ref: ./domains/runtime.yaml#/components/schemas/CheckpointAvailability
     RpgCheckpointRestore:
       $ref: ./domains/runtime.yaml#/components/schemas/RpgCheckpointRestore
-    EasyRpgRtpArchive:
-      $ref: ./domains/runtime.yaml#/components/schemas/EasyRpgRtpArchive
+    FileTreeSource:
+      $ref: ./domains/runtime.yaml#/components/schemas/FileTreeSource
     EasyRpgAdapterConfig:
       $ref: ./domains/runtime.yaml#/components/schemas/EasyRpgAdapterConfig
     MkxpCoreArtifact:
       $ref: ./domains/runtime.yaml#/components/schemas/MkxpCoreArtifact
-    RpgRuntimeArchive:
-      $ref: ./domains/runtime.yaml#/components/schemas/RpgRuntimeArchive
+    SeekableBlobSource:
+      $ref: ./domains/runtime.yaml#/components/schemas/SeekableBlobSource
     MkxpRtpArchive:
       $ref: ./domains/runtime.yaml#/components/schemas/MkxpRtpArchive
     MkxpAdapterConfig:

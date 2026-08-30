@@ -1306,6 +1306,7 @@ export interface paths {
             };
             cookie?: never;
         };
+        /** @description Returns the review workspace. When a historical validation is stale because the selected runtime changed, runtimeVersionChange identifies the previous and current runtime versions. */
         get: operations["getAdminReview"];
         put?: never;
         post?: never;
@@ -2582,17 +2583,17 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/runtime/projects/{launchId}/{projectPath}": {
+    "/runtime/content/project/{contentIdentity}/{projectPath}": {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                launchId: components["parameters"]["LaunchID"];
+                contentIdentity: components["parameters"]["ContentIdentity"];
                 projectPath: string;
             };
             cookie?: never;
         };
-        /** @description Serves one exact file from the immutable directory-runtime project fileset locked by the authorized Launch; index.json is a reserved virtual index. */
+        /** @description Serves one exact file from the immutable project identity locked by an authorized Launch; index.json is a reserved virtual index. */
         get: operations["getRuntimeProjectFile"];
         put?: never;
         post?: never;
@@ -3533,11 +3534,10 @@ export interface components {
             payloadKind: components["schemas"]["CheckpointPayloadKind"];
             payloadUrl: string;
         };
-        EasyRpgRtpArchive: {
-            url: string;
-            sha256: string;
+        FileTreeSource: {
             /** @enum {string} */
-            mountPath: "/data/rtp/2000" | "/data/rtp/2003";
+            kind: "FILE_TREE_V1";
+            indexUrl: string;
         };
         EasyRpgAdapterConfig: {
             /**
@@ -3552,7 +3552,7 @@ export interface components {
             runtimeBaseUrl: string;
             projectRootUrl: string;
             projectIndexUrl: string;
-            rtpArchive: components["schemas"]["EasyRpgRtpArchive"] | null;
+            rtpSource: components["schemas"]["FileTreeSource"] | null;
             /** @enum {integer} */
             checkpointSlot: 100;
         };
@@ -3567,7 +3567,11 @@ export interface components {
             wasmSha256: string;
             artifactSetSha256: string;
         };
-        RpgRuntimeArchive: {
+        SeekableBlobSource: {
+            /** @enum {string} */
+            kind: "SEEKABLE_BLOB_V1";
+            /** @enum {boolean} */
+            rangeRequired: true;
             url: string;
             sha256: string;
             /** Format: int64 */
@@ -3575,6 +3579,10 @@ export interface components {
         };
         MkxpRtpArchive: {
             declaredName: string;
+            /** @enum {string} */
+            kind: "SEEKABLE_BLOB_V1";
+            /** @enum {boolean} */
+            rangeRequired: true;
             url: string;
             sha256: string;
             /** Format: int64 */
@@ -3590,7 +3598,7 @@ export interface components {
             adapterId: "mkxp-libretro-web";
             core: components["schemas"]["MkxpCoreArtifact"];
             runtimeBaseUrl: string;
-            projectArchive: components["schemas"]["RpgRuntimeArchive"];
+            projectArchive: components["schemas"]["SeekableBlobSource"];
             rtpArchives: components["schemas"]["MkxpRtpArchive"][];
             /** @enum {integer} */
             rgssVersion: 1 | 2 | 3;
@@ -5587,6 +5595,10 @@ export interface components {
             runtimeBaseUrl?: unknown;
             runtimePath?: unknown;
             runtimePathOverrides?: unknown;
+            runtimeVersionChange?: {
+                previous: string;
+                current: string;
+            } | null;
             sample?: unknown;
             saveStateCount?: unknown;
             saveStateId?: unknown;
@@ -9805,7 +9817,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                launchId: components["parameters"]["LaunchID"];
+                contentIdentity: components["parameters"]["ContentIdentity"];
                 projectPath: string;
             };
             cookie?: never;
@@ -9820,7 +9832,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                launchId: components["parameters"]["LaunchID"];
+                contentIdentity: components["parameters"]["ContentIdentity"];
                 projectPath: string;
             };
             cookie?: never;

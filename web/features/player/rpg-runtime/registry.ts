@@ -5,37 +5,37 @@ export const rpgRuntimeRoutes = [
   {
     coreId: "rpgmaker_2000", generation: "RPG2000", routeKey: "RPG2000_EASYRPG",
     adapterKind: "EASYRPG_WEB", adapterId: "easyrpg-web", engineMode: "rpg2k",
-    runtimeVersion: "v0.6.1",
+    runtimeVersion: "v0.7.4",
   },
   {
     coreId: "rpgmaker_2003", generation: "RPG2003", routeKey: "RPG2003_EASYRPG",
     adapterKind: "EASYRPG_WEB", adapterId: "easyrpg-web", engineMode: "rpg2k3",
-    runtimeVersion: "v0.6.1",
+    runtimeVersion: "v0.7.4",
   },
   {
     coreId: "rpgmaker_xp", generation: "RPGXP", routeKey: "RPGXP_MKXP",
     adapterKind: "MKXP_LIBRETRO_WEB", adapterId: "mkxp-libretro-web", rgssVersion: 1,
-    runtimeVersion: "v0.6.1",
+    runtimeVersion: "v0.7.4",
   },
   {
     coreId: "rpgmaker_vx", generation: "RPGVX", routeKey: "RPGVX_MKXP",
     adapterKind: "MKXP_LIBRETRO_WEB", adapterId: "mkxp-libretro-web", rgssVersion: 2,
-    runtimeVersion: "v0.6.1",
+    runtimeVersion: "v0.7.4",
   },
   {
     coreId: "rpgmaker_vx_ace", generation: "RPGVXACE", routeKey: "RPGVXACE_MKXP",
     adapterKind: "MKXP_LIBRETRO_WEB", adapterId: "mkxp-libretro-web", rgssVersion: 3,
-    runtimeVersion: "v0.6.1",
+    runtimeVersion: "v0.7.4",
   },
   {
     coreId: "rpgmaker_mv", generation: "RPGMV", routeKey: "RPGMV_NATIVE",
     adapterKind: "NATIVE_WEB", adapterId: "native-web", bridgeProfile: "RPGMV",
-    runtimeVersion: "v0.6.1",
+    runtimeVersion: "v0.7.4",
   },
   {
     coreId: "rpgmaker_mz", generation: "RPGMZ", routeKey: "RPGMZ_NATIVE",
     adapterKind: "NATIVE_WEB", adapterId: "native-web", bridgeProfile: "RPGMZ",
-    runtimeVersion: "v0.6.1",
+    runtimeVersion: "v0.7.4",
   },
 ] as const;
 
@@ -178,16 +178,15 @@ function validateEasy(config: RpgRuntimeConfig, route: Route) {
   const adapter = config.adapter;
   if (![adapter.adapterKind === "EASYRPG_WEB", "engineMode" in route, exactKeys(adapter, [
     "adapterId", "adapterKind", "checkpointSlot", "engineMode", "projectIndexUrl", "projectRootUrl",
-    "rtpArchive", "runtimeBaseUrl",
+    "rtpSource", "runtimeBaseUrl",
   ])].every(Boolean) || adapter.adapterKind !== "EASYRPG_WEB" || !("engineMode" in route)) {return false;}
-  const root = `/runtime/projects/${config.launchId}/`;
-  const mountPath = route.engineMode === "rpg2k" ? "/data/rtp/2000" : "/data/rtp/2003";
+  const root = validProjectRoot(adapter.projectRootUrl) ? adapter.projectRootUrl : "";
   const runtime = `/runtime/retrom-runtime/${route.runtimeVersion}/`;
   return [
     adapter.engineMode === route.engineMode, adapter.runtimeBaseUrl === runtime,
     validAppUrl(adapter.runtimeBaseUrl), adapter.projectRootUrl === root, validAppUrl(adapter.projectRootUrl),
     adapter.projectIndexUrl === `${root}index.json`, validAppUrl(adapter.projectIndexUrl),
-    adapter.checkpointSlot === 100, validEasyRtp(adapter.rtpArchive, root, mountPath),
+    adapter.checkpointSlot === 100, validEasyRtp(adapter.rtpSource, root),
   ].every(Boolean);
 }
 
@@ -200,9 +199,11 @@ function validateMkxp(config: RpgRuntimeConfig, route: Route) {
   ]), exactKeys(adapter.core, [
     "artifactSetSha256", "jsSha256", "jsSizeBytes", "jsUrl", "wasmSha256", "wasmSizeBytes", "wasmUrl",
   ]),
-  exactKeys(adapter.projectArchive, ["sha256", "sizeBytes", "url"])].every(Boolean)) {return false;}
+  exactKeys(adapter.projectArchive, ["kind", "rangeRequired", "sha256", "sizeBytes", "url"])].every(Boolean)) {
+    return false;
+  }
   const runtime = `/runtime/retrom-runtime/${route.runtimeVersion}/`;
-  const root = `/runtime/projects/${config.launchId}/`;
+  const root = projectRootFromURL(adapter.projectArchive.url);
   return [
     adapter.rgssVersion === route.rgssVersion, adapter.stateBufferBytes === 268435456,
     adapter.runtimeBaseUrl === runtime, validAppUrl(adapter.runtimeBaseUrl),
@@ -215,6 +216,15 @@ function validateMkxp(config: RpgRuntimeConfig, route: Route) {
     digest.test(adapter.core.artifactSetSha256), adapter.projectArchive.url === `${root}__retrom__/game.mkxpz`,
     validArchive(adapter.projectArchive, root), validMkxpRtps(adapter.rtpArchives, root),
   ].every(Boolean);
+}
+
+function validProjectRoot(value: string) {
+  return /^\/runtime\/content\/project\/[0-9a-f]{64}\/$/u.test(value);
+}
+
+function projectRootFromURL(value: string) {
+  const match = /^(\/runtime\/content\/project\/[0-9a-f]{64}\/)/u.exec(value);
+  return match?.[1] ?? "";
 }
 
 function validateNative(config: RpgRuntimeConfig, route: Route) {
@@ -239,15 +249,14 @@ function validateNative(config: RpgRuntimeConfig, route: Route) {
 }
 
 function validEasyRtp(
-  archive: Extract<RpgRuntimeConfig["adapter"], { adapterKind: "EASYRPG_WEB" }>["rtpArchive"],
+  source: Extract<RpgRuntimeConfig["adapter"], { adapterKind: "EASYRPG_WEB" }>["rtpSource"],
   root: string,
-  mountPath: string,
 ) {
-  if (archive === null) {return true;}
-  const url = typeof archive.url === "string" ? archive.url : "";
+  if (source === null) {return true;}
+  const url = typeof source.indexUrl === "string" ? source.indexUrl : "";
   return [
-    exactKeys(archive, ["mountPath", "sha256", "url"]), digest.test(archive.sha256), validAppUrl(url),
-    validAppPrefix(url, root), archive.mountPath === mountPath,
+    exactKeys(source, ["indexUrl", "kind"]), source.kind === "FILE_TREE_V1", validAppUrl(url),
+    validAppPrefix(url, `${root}__retrom__/packs/`), url.endsWith("/index.json"),
   ].every(Boolean);
 }
 
@@ -256,17 +265,21 @@ function validMkxpRtps(
   root: string,
 ) {
   return Array.isArray(archives) && archives.length <= 3 && archives.every((archive) => [
-    exactKeys(archive, ["declaredName", "sha256", "sizeBytes", "url"]),
+    exactKeys(archive, ["declaredName", "kind", "rangeRequired", "sha256", "sizeBytes", "url"]),
     boundedText(archive.declaredName, 512), validArchive(archive, root),
   ].every(Boolean));
 }
 
-function validArchive(archive: { url: string; sha256: string; sizeBytes: number }, root: string) {
+function validArchive(
+  archive: { kind: string; rangeRequired: boolean; url: string; sha256: string; sizeBytes: number },
+  root: string,
+) {
   const url = typeof archive.url === "string" ? archive.url : "";
   return [
+    archive.kind === "SEEKABLE_BLOB_V1", archive.rangeRequired === true,
     typeof archive.url === "string", validAppPrefix(url, root), validAppUrl(url),
     typeof archive.sha256 === "string", digest.test(archive.sha256),
-    Number.isSafeInteger(archive.sizeBytes), archive.sizeBytes >= 0,
+    Number.isSafeInteger(archive.sizeBytes), archive.sizeBytes >= 1,
   ].every(Boolean);
 }
 

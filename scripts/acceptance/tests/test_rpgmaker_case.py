@@ -393,8 +393,30 @@ class EvidenceContractTests(unittest.TestCase):
         source = GENERATION_PROVISION_PATH.read_text()
         self.assertIn("RPG_PROVISION_RUNTIME_ACTION_UNAVAILABLE_", source)
         self.assertIn("page.__retromPageErrors", source)
+        self.assertIn('page.addInitScript(() => {', source)
+        self.assertIn('window.addEventListener("retrom:runtime-diagnostic"', source)
+        self.assertIn("window.__retromRuntimeDiagnostics.length > 100", source)
+        self.assertIn("runtimeDiagnostics: runtimeDiagnostics.map", source)
+        self.assertIn('page.on("console", (message)', source)
+        self.assertIn("page.__retromConsoleDiagnostics = consoleDiagnostics", source)
+        self.assertIn("consoleDiagnostics: (page.__retromConsoleDiagnostics ?? []).slice(-30)", source)
+        self.assertIn('request.url().includes("/runtime/content/project/")', source)
+        self.assertIn("page.__retromProjectRequests = projectRequests", source)
+        self.assertIn("projectRequests: (page.__retromProjectRequests ?? []).slice(-30)", source)
         self.assertIn('page.locator(".player-loading")', source)
         self.assertIn('page.getByRole("status")', source)
+        self.assertIn("await Promise.race([", source)
+        self.assertIn("runtimeFailure.waitFor", source)
+
+    def test_generation_provision_fails_at_the_launch_credential_boundary(self) -> None:
+        source = GENERATION_PROVISION_PATH.read_text()
+        self.assertEqual(2, source.count("await assertLaunchCookie(context,"))
+        self.assertIn('cookie.name === `retrom_launch_${launchId}`', source)
+        self.assertIn('cookie.path === expectedPath', source)
+        self.assertIn('cookie.httpOnly && cookie.sameSite === "Strict"', source)
+        self.assertIn("const configResponse = page.waitForResponse", source)
+        self.assertIn("if (config.status() !== 200)", source)
+        self.assertIn("RPG_PROVISION_LAUNCH_CONFIG_", source)
 
     def test_generation_provision_does_not_bind_an_unrequested_xp_trace(self) -> None:
         source = GENERATION_PROVISION_PATH.read_text()
@@ -408,6 +430,21 @@ class EvidenceContractTests(unittest.TestCase):
         validation = 'validateMZProvenance(sourceFiles, required("RPG_MZ_SMOKE_PROVENANCE"));'
         self.assertIn(validation, source)
         self.assertLess(source.index(validation), source.index("await chromium.launch"))
+
+    def test_generation_drivers_route_rpg_localhost_through_the_loopback_proxy(self) -> None:
+        for path in (GENERATION_PROVISION_PATH, BROWSER_PATH):
+            with self.subTest(path=path.name):
+                source = path.read_text()
+                self.assertIn('from "./rpgmaker_local_proxy.mjs"', source)
+                self.assertIn("await localRpgAcceptanceProxy(baseUrl)", source)
+                self.assertIn("...localProxy.contextOptions", source)
+                self.assertIn("await localProxy.close()", source)
+
+    def test_native_generation_loading_evidence_does_not_sample_game_frame_timings(self) -> None:
+        source = BROWSER_PATH.read_text()
+        self.assertIn('collectRuntimeTimings: config.adapter?.adapterKind !== "NATIVE_WEB"', source)
+        self.assertEqual(2, source.count("trackRuntimeLoading("))
+        self.assertEqual(3, source.count("loadingProbeOptions"))
 
     def test_generation_provision_covers_all_seven_current_routes_and_state_inputs(self) -> None:
         source = GENERATION_PROVISION_PATH.read_text()
@@ -431,10 +468,12 @@ class EvidenceContractTests(unittest.TestCase):
         self.assertIn('item.defaultCoreId === "rpgmaker"', source)
         self.assertNotIn("item.defaultCoreId === config.coreId", source)
 
-    def test_generation_provision_can_resume_only_an_exact_unvalidated_review(self) -> None:
+    def test_generation_provision_can_resume_an_exact_review_after_a_terminal_validation(self) -> None:
         source = GENERATION_PROVISION_PATH.read_text()
         self.assertIn('process.env.RETROM_RPG_PROVISION_RESUME_ITEM_ID', source)
-        self.assertIn('review.rpgMaker?.runtimeValidation !== null', source)
+        self.assertIn('["FAILED", "EXPIRED"].includes(validation?.state)', source)
+        self.assertIn('review.rpgMaker?.runtimeValidationCurrent !== true', source)
+        self.assertIn('!validationCanBeReplaced', source)
         self.assertIn('review.sourceManifest?.filesDigest !== expected.filesDigest', source)
         self.assertIn('.normalize("NFC")', source)
         self.assertIn('Buffer.compare(Buffer.from(left.logicalName), Buffer.from(right.logicalName))', source)
@@ -446,6 +485,20 @@ class EvidenceContractTests(unittest.TestCase):
         payload["originInventory"]["appOrigin"]["projectResourceResponses"] = 1
         with self.assertRaisesRegex(rpgmaker.ContractError, "ORIGIN_INVENTORY_INVALID"):
             rpgmaker.validate_generation_evidence(payload, spec, "a" * 64)
+
+    def test_generation_evidence_rejects_eager_or_missing_runtime_loading(self) -> None:
+        spec = rpgmaker.GENERATION_CASES["ACC-RPG-004"]
+        payload = product_payload(spec, "a" * 64)
+        payload["loading"]["firstVisible"]["fullProjectFileResponseCount"] = 1
+        with self.assertRaisesRegex(rpgmaker.ContractError, "RUNTIME_LOADING_INVALID"):
+            rpgmaker.validate_generation_evidence(payload, spec, "a" * 64)
+
+        native_spec = rpgmaker.GENERATION_CASES["ACC-RPG-007"]
+        native_payload = product_payload(native_spec, "a" * 64)
+        native_payload["loading"]["firstVisible"]["nativeProjectResponseCount"] = \
+            native_payload["inputProvenance"]["fileCount"]
+        with self.assertRaisesRegex(rpgmaker.ContractError, "RUNTIME_LOADING_INVALID"):
+            rpgmaker.validate_generation_evidence(native_payload, native_spec, "a" * 64)
 
     def test_mz_generation_evidence_requires_legal_lineage_engine_chrome_and_durations(self) -> None:
         spec = rpgmaker.GENERATION_CASES["ACC-RPG-008"]
@@ -498,6 +551,38 @@ class EvidenceContractTests(unittest.TestCase):
         transcript_source = source[source.index("async function readInputTranscript"):]
         self.assertNotIn("relativePath:", transcript_source)
         self.assertNotIn("bootstrapTicket:", transcript_source)
+
+    def test_generation_browser_records_first_visible_and_second_launch_loading(self) -> None:
+        source = BROWSER_PATH.read_text()
+        generation_source = source[
+            source.index("async function generationCase"):source.index("async function approvedReview")
+        ]
+        self.assertIn(
+            "const projectDeclarations = projectLoadingDeclarations(config.adapter)",
+            generation_source,
+        )
+        self.assertIn(
+            "const loadingProbe = trackRuntimeLoading(page, projectDeclarations, loadingProbeOptions)",
+            generation_source,
+        )
+        self.assertLess(
+            generation_source.index(
+                "const loadingProbe = trackRuntimeLoading(page, projectDeclarations, loadingProbeOptions)",
+            ),
+            generation_source.index("await page.goto"),
+        )
+        self.assertIn("await loadingProbe.snapshot()", generation_source)
+        self.assertEqual(
+            generation_source.count(
+                "= applyEasyProjectDeclaration("
+            ),
+            2,
+        )
+        self.assertIn("trackRuntimeLoading(cachePage, projectDeclarations, loadingProbeOptions)", source)
+        self.assertIn("cacheLaunchId: cacheLaunch.launchId", source)
+        self.assertIn("sameProjectContentIdentity,", source)
+        loading_source = (MODULE_PATH.parent / "runtime_loading_evidence.mjs").read_text()
+        self.assertNotIn("projectPath:", loading_source)
 
     def test_catalog_evidence_reports_applied_recommendation_states(self) -> None:
         source = BROWSER_PATH.read_text()
@@ -1006,6 +1091,7 @@ def product_payload(spec, digest: str) -> dict:
                 {"gate": gate, "durationMs": 10} for gate in rpgmaker.GATES
             ],
         },
+        "loading": runtime_loading_evidence(spec.generation),
         "screenshots": [restore_screenshot, f"screenshots/{spec.core_id}-product-player.png"],
     }
     if spec.generation in {"RPGMV", "RPGMZ"}:
@@ -1047,6 +1133,37 @@ def product_payload(spec, digest: str) -> dict:
     if spec.generation == "RPGXP":
         payload["xpRuntimeTrace"] = xp_runtime_trace("e" * 64)
     return payload
+
+
+def runtime_loading_evidence(generation: str) -> dict:
+    native = generation in {"RPGMV", "RPGMZ"}
+    mkxp = generation in {"RPGXP", "RPGVX", "RPGVXACE"}
+    cache_launch_id = "88888888-8888-4888-8888-888888888888"
+
+    def snapshot(cache_hits: int) -> dict:
+        return {
+            "declaredLargeFileCount": 1 if mkxp else 0,
+            "declaredProjectBytes": 32 * 1024 * 1024 if mkxp else (0 if native else 1024),
+            "declaredProjectFileCount": 1 if mkxp else (0 if native else 10),
+            "fullProjectFileResponseCount": 0 if mkxp or native else 3,
+            "nativeProjectResponseCount": 4 if native else 0,
+            "projectContentIdentityCount": 0 if native else 1,
+            "rangeProjectFileResponseCount": 4 if mkxp else 0,
+            "requestedLargeFileCount": 1 if mkxp else 0,
+            "requestedProjectBytes": 512 * 1024 if mkxp else (0 if native else 256),
+            "requestedProjectFileCount": 1 if mkxp else (0 if native else 3),
+            "runtimeAssetCacheHitCount": cache_hits,
+            "runtimeAssetRequestCount": 0 if native else 2,
+            "runtimeAssetTransferredBytes": 0 if cache_hits else 1_000_000,
+        }
+
+    return {
+        "schemaVersion": 1,
+        "cacheLaunchId": cache_launch_id,
+        "sameProjectContentIdentity": None if native else True,
+        "firstVisible": snapshot(0),
+        "cacheLaunchVisible": snapshot(0 if native else 2),
+    }
 
 
 def mz_transformation(digest: str, file_count: int, total_bytes: int) -> dict:

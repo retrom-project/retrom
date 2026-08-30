@@ -267,6 +267,15 @@ class PublicFixtureTests(unittest.TestCase):
                 self.assertIn(b"Input.trigger?(Input::C)", source)
                 self.assertNotIn(b"Scene_Title", source)
 
+    def test_rgss_smoke_projects_have_an_unread_large_archive_member(self) -> None:
+        relative = Path("Graphics/Unused/retrom-lazy-padding.bin")
+        expected_size = 5 * 1024 * 1024
+        for directory in ("rpgxp", "rpgvx", "rpgvxace"):
+            with self.subTest(directory=directory):
+                payload = (RPGMAKER_FIXTURE_ROOT / directory / relative).read_bytes()
+                self.assertEqual(expected_size, len(payload))
+                self.assertEqual({0}, set(payload))
+
     def test_mv_source_and_outputs_have_locked_identities_and_licenses(self) -> None:
         vendor_manifest = json.loads(
             (RPGMAKER_FIXTURE_ROOT / "vendor/manifest.json").read_text(encoding="utf-8")

@@ -41,10 +41,11 @@ func generateRGSS(output string, spec rgssSpec, template string) error {
 	root := filepath.ToSlash(filepath.Join(spec.Directory))
 	ini := fmt.Sprintf("[Game]\r\nLibrary=RGSS%d Player\r\nScripts=%s\r\nTitle=%s\r\n", spec.RGSSVersion, strings.ReplaceAll(spec.ScriptsPath, "/", "\\"), spec.Marker)
 	files := map[string][]byte{
-		"Game.ini":                 []byte(ini),
-		spec.ProjectMarker:         {},
-		spec.ScriptsPath:           marshalScript("Retrom Smoke", []byte(script)),
-		"Audio/SE/retrom-tone.wav": toneWAV(),
+		"Game.ini":                                []byte(ini),
+		spec.ProjectMarker:                        {},
+		spec.ScriptsPath:                          marshalScript("Retrom Smoke", []byte(script)),
+		"Audio/SE/retrom-tone.wav":                toneWAV(),
+		"Graphics/Unused/retrom-lazy-padding.bin": make([]byte, 5*1024*1024),
 	}
 	for name, contents := range files {
 		if err := writeFile(output, root+"/"+name, contents); err != nil {

@@ -16,10 +16,10 @@ export async function saveImmersivePlayerState(
 ) {
   if (!available || !instance) {return false;}
   try {
-    const screenshot = preparedScreenshot === undefined
-      ? await captureManualScreenshot(instance)
-      : await preparedScreenshot;
-    if (!screenshot) {return false;}
+    const screenshotPromise = preparedScreenshot === undefined
+      ? captureManualScreenshot(instance)
+      : preparedScreenshot;
+    const screenshot = await screenshotPromise.catch(() => null);
     return await uploadManualState(await captureManualState(instance, screenshot));
   } catch {
     return false;
