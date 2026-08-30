@@ -124,12 +124,14 @@ async function runProductCase(activeBrowser) {
 
     const original = await createLaunch(client, approved.gameId, null);
     const originalPage = await trackedPage(context, browserErrors);
-    const originalLoadingProbe = trackRuntimeLoading(originalPage);
+    const originalLoadingProbe = trackRuntimeLoading(originalPage, [], { timeoutMs: 60_000 });
     await originalPage.goto(`${baseUrl}${original.playUrl}`, { waitUntil: "domcontentloaded", timeout: 120_000 });
     const originalCanvas = await runtimeCanvas(originalPage);
     await waitForProductReady(originalPage);
     const beforeInput = await screenshotEvidence(originalCanvas, "product-before-input.png");
-    const originalLoading = await originalLoadingProbe.snapshot();
+    const originalLoading = await withStableStage(
+      () => originalLoadingProbe.snapshot(), "KIRIKIRI_ACCEPTANCE_LOADING_EVIDENCE_FAILED",
+    );
     originalLoadingProbe.stop();
     await advanceKag(originalCanvas);
     const afterInput = await screenshotEvidence(originalCanvas, "product-after-input.png");
@@ -144,14 +146,16 @@ async function runProductCase(activeBrowser) {
     const restored = await createLaunch(client, approved.gameId, saved.saveStateId);
     if (restored.launchId === original.launchId) {throw new Error("KIRIKIRI_ACCEPTANCE_RESTORE_LAUNCH_REUSED");}
     const restoredPage = await trackedPage(context, browserErrors);
-    const restoreLoadingProbe = trackRuntimeLoading(restoredPage);
+    const restoreLoadingProbe = trackRuntimeLoading(restoredPage, [], { timeoutMs: 60_000 });
     const stateResponsePromise = restoredPage.waitForResponse((response) =>
       response.request().method() === "GET" && response.url().endsWith(`/runtime/launches/${restored.launchId}/state`),
     { timeout: 120_000 });
     await restoredPage.goto(`${baseUrl}${restored.playUrl}`, { waitUntil: "domcontentloaded", timeout: 120_000 });
     const restoredCanvas = await runtimeCanvas(restoredPage);
     await waitForProductReady(restoredPage);
-    const restoreLoading = await restoreLoadingProbe.snapshot();
+    const restoreLoading = await withStableStage(
+      () => restoreLoadingProbe.snapshot(), "KIRIKIRI_ACCEPTANCE_LOADING_EVIDENCE_FAILED",
+    );
     restoreLoadingProbe.stop();
     const stateResponse = await stateResponsePromise;
     requireStatus(stateResponse.status(), 200, "KIRIKIRI_ACCEPTANCE_RESTORE_PAYLOAD_FAILED");
