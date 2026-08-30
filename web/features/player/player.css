@@ -97,6 +97,10 @@
 .player-loading strong { display: block; color: #edf0f5; font-size: 14px; }
 .player-loading p { margin: 9px 0 0; color: #909aab; font-size: 12px; }
 .player-loading a { color: #b9adff; }
+.player-loading-progress { margin-top: 15px; display: grid; gap: 7px; }
+.player-loading-progress-track { height: 7px; overflow: hidden; border-radius: 999px; background: #343c4b; }
+.player-loading-progress-track > span { height: 100%; display: block; border-radius: inherit; background: linear-gradient(90deg, #7464da, #a99cff); transition: width 140ms ease-out; }
+.player-loading-progress small { color: #b7c0ce; font-size: 11px; font-variant-numeric: tabular-nums; }
 .rpg-validation-overlay { position: absolute; z-index: 27; inset: 70px 14px 14px auto; width: min(390px, calc(100vw - 28px)); pointer-events: none; }
 .rpg-validation-panel { max-height: 100%; padding: 15px; overflow-y: auto; display: grid; gap: 11px; color: #e9edf4; border: 1px solid #484166; border-radius: 14px; background: rgb(14 18 27 / 95%); box-shadow: 0 22px 62px rgb(0 0 0 / 48%); pointer-events: auto; backdrop-filter: blur(14px); }
 .rpg-validation-panel > header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }

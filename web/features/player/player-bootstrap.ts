@@ -25,7 +25,7 @@ import { applyInitialPlayerVolume } from "./immersive-player-volume";
 import { describeRetromRpgRuntime, isRetromRpgRuntimeConfig, mountRetromRpgRuntime, validateRpgRuntimeConfig, type RpgRuntimeConfig } from "./rpg-runtime";
 import type { RpgRuntimeValidationDriver } from "./rpg-runtime-validation";
 import type { ValidationCheckpointReceipt } from "./rpg-validation-checkpoint-response";
-import { isOnsLaunchConfig, mountOnsProductRuntime, type OnsLaunchConfig } from "./ons-runtime";
+import { createOnsProductRuntime, isOnsLaunchConfig, onsPlayerInstance, type OnsLaunchConfig } from "./ons-runtime";
 import { isKiriKiriLaunchConfig, mountKiriKiriProductRuntime, type KiriKiriLaunchConfig } from "./kirikiri-runtime";
 import { fetchKiriKiriCheckpoint, fetchOnsCheckpoint, fetchRpgCheckpoint, kirikiriShellConfig, observedRuntimeDiscCount, onsShellConfig, rpgDebugRuntime, rpgShellConfig } from "./player-bootstrap-config";
 import { createRpgRuntimeValidationDriver } from "./rpg-validation-driver-factory";
@@ -33,6 +33,8 @@ import { startNetplay } from "./player-bootstrap-netplay";
 import {
   useSerializedPlayerBootstrap,
 } from "./player-bootstrap-lifecycle";
+import type { PlayerLoadProgress } from "./player-loading";
+import { handleOnsRuntimeEvent } from "./player-bootstrap-ons";
 
 type ShellState = "loading" | "running" | "error";
 type SyncTone = "synced" | "busy" | "warning";
@@ -48,7 +50,8 @@ export type PlayerBootstrapParams = {
   orientationStateRef: Mutable<PlayerOrientationState>; videoRenderingModeRef: Mutable<VideoRenderingMode>;
   lastAudibleVolume: Mutable<number>; pausedRef: Mutable<boolean>; started: Mutable<boolean>; finishing: Mutable<boolean>;
   heartbeat: Mutable<number | null>; toastTimer: Mutable<number | null>; netplayController: Mutable<NetplayController | null>; netplayPausedRef: Mutable<boolean>;
-  setMessage: Dispatch<SetStateAction<string>>; setState: Dispatch<SetStateAction<ShellState>>; setManualSaveAvailable: Dispatch<SetStateAction<boolean>>;
+  setMessage: Dispatch<SetStateAction<string>>; setLoadProgress: Dispatch<SetStateAction<PlayerLoadProgress | null>>;
+  setState: Dispatch<SetStateAction<ShellState>>; setManualSaveAvailable: Dispatch<SetStateAction<boolean>>;
   setNetplayPlayerNo: Dispatch<SetStateAction<number | null>>; setWarnings: Dispatch<SetStateAction<string[]>>; setGameTitle: Dispatch<SetStateAction<string>>;
   setCoreName: Dispatch<SetStateAction<string>>; setPlatformName: Dispatch<SetStateAction<string>>; setDebugRuntime: Dispatch<SetStateAction<PlayerDebugRuntime>>;
   setDiscSet: Dispatch<SetStateAction<DiscSet | null>>; setDiscState: Dispatch<SetStateAction<DiscState | null>>; setOrientationState: Dispatch<SetStateAction<PlayerOrientationState>>;
@@ -86,6 +89,7 @@ export function usePlayerBootstrap(params: PlayerBootstrapParams) {
 function createBootstrapResources(): BootstrapResources {return {};}
 
 async function bootstrapPlayer(params: PlayerBootstrapParams, resources: BootstrapResources, controller: AbortController) {
+  params.setLoadProgress(null);
   params.setMessage("正在加载 Core、ROM 与依赖配置…");
   const response = await fetch(`/runtime/launches/${params.launchId}/config`, { credentials: "same-origin", cache: "no-store", signal: controller.signal });
   if (!response.ok) {throw new Error(`LAUNCH_CONFIG_${response.status}`);}
@@ -140,25 +144,19 @@ async function bootstrapOnsPlayer(
   const mounted = mountFrame(params, resources, controller, config, frame, stateBytes);
   resources.cleanupRuntimeGamepadFilter = installRuntimeImmersiveGamepadFilter(params.experience, mounted.context.frameWindow, params.immersiveGamepadFilter);
   params.setMessage("正在启动 ONScripter 运行时…");
-  const mountedRuntime = await mountOnsProductRuntime(
-    onsConfig, mounted.target, mounted.context.frameWindow, stateBytes, controller.signal,
-  );
+  const runtime = createOnsProductRuntime(onsConfig, mounted.context.frameWindow, stateBytes, controller.signal);
+  resources.nativeRuntimeSubscription = runtime.subscribe((event) => handleOnsRuntimeEvent(event, params));
   try {
-    if (controller.signal.aborted) {await mountedRuntime.runtime.exit(); return;}
-    resources.cleanup = () => mountedRuntime.runtime.exit();
-    resources.nativeRuntimeSubscription = mountedRuntime.runtime.subscribe((event) => {
-      if (event.type === "FATAL_ERROR") {
-        params.setState("error");
-        params.setMessage(event.code);
-      }
-    });
-    handleReady(mounted.context, mountedRuntime.instance);
-    const availability = mountedRuntime.runtime.getCheckpointAvailability();
+    await runtime.mount(mounted.target);
+    if (controller.signal.aborted) {await runtime.exit(); return;}
+    resources.cleanup = () => runtime.exit();
+    handleReady(mounted.context, onsPlayerInstance(runtime, mounted.target));
+    const availability = runtime.getCheckpointAvailability();
     params.manualSaveAvailableRef.current = availability.available;
     params.setManualSaveAvailable(availability.available);
     completeSinglePlayerStart(mounted.context, false);
   } catch (error) {
-    await mountedRuntime.runtime.exit();
+    await runtime.exit();
     throw error;
   }
 }

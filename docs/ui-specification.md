@@ -317,7 +317,7 @@ URL 状态为：
 
 ### 6.7 游玩页
 
-正常启动后页面已经在运行或加载所选 runtime，不显示二次 Start/Play Now。Player Shell 对 EmulatorJS 和 `RetromRpgRuntime` 共用同一全屏、暂停、音量、截图、存档、退出、loading/error/focus 外壳；底层 adapter 只在管理员诊断中可见。
+正常启动后页面已经在运行或加载所选 runtime，不显示二次 Start/Play Now。Player Shell 对 EmulatorJS 和 `RetromRpgRuntime` 共用同一全屏、暂停、音量、截图、存档、退出、loading/error/focus 外壳；底层 adapter 只在管理员诊断中可见。运行时提供准确总字节时，loading 卡片在现有固定宽度内显示单行进度条、已加载/总 MiB 与整数百分比，并说明首次加载会写入本地缓存；总量未知时只显示旋转状态，不伪造百分比。进度内容不得改变 Player stage、工具栏或游戏画面的布局尺寸。
 
 RPG Maker 的“创建存档”按钮使用 adapter availability 的精确禁用原因（不在地图、保存被禁用、消息/事件活动、忙碌等）；不允许在不可保存场景仍上传空 payload。恢复启动不先展示标题页或新游戏画面冒充成功；只有 adapter 完成自动恢复后进入运行态。调试信息对普通用户只显示选定的版本核心名，route/artifact/ABI 置于 ADMIN-only“内部诊断”分组。
 

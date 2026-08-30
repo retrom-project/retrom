@@ -884,7 +884,7 @@ Launch config 顶层是 `runtimeFamily` discriminated union。`EMULATORJS` 保�
 
 EasyRPG 与 mkxp 的同源内容端点属于严格 OpenAPI 契约，不能只在 Go router 中注册：
 
-ONS/KiriKiri 的 `index.json` 逐项必须包含准确 `path/sizeBytes/url`。ONS 视频直接把该 URL 交给浏览器媒体元素并消费同一内容端点的 Range，不得先完整下载到 Wasm 文件系统。
+ONS/KiriKiri 的 `index.json` 逐项必须包含准确 `path/sizeBytes/url`。ONS 非视频文件以含稳定 content identity 的完整 URL 作为持久缓存身份，流式读取时必须与 `sizeBytes` 精确一致；adapter 优先把文件有界串行写入 origin-private file system，OPFS 不可用时才回退 Cache Storage，因此数百 MiB 归档不依赖 Chromium 普通 HTTP disk-cache 或 Cache Storage 的单项大小限制。ONS 视频直接把该 URL 交给浏览器媒体元素并消费同一内容端点的 Range，不得为了缓存而先完整下载到 Wasm 文件系统。KiriKiri 的大型 XP3 继续由 VLFS 按 256 KiB 有界 Range 注册，不能在 adapter 中预取整包。
 
 - `GET|HEAD /runtime/retrom-runtime/{runtimeVersion}/{runtimePath}` 只允许命中固定 retrom-runtime Release manifest 的逐文件 allowlist，本地逐字节复核 observed size/hash 后返回不可变公共响应；未知版本、路径或 MIME 返回 404；
 - `GET|HEAD /runtime/content/project/{contentIdentity}/{projectPath}` 使用通用 `/runtime/content/` HttpOnly Launch grant。`contentIdentity` 由冻结项目的规范 logical path、format 与逐文件 digest，以及 EasyRPG/mkxp 派生 bundle 和所选 runtime pack 的锁定内容共同确定；相同内容和运行投影在不同 Launch 中得到相同 URL，替换任一文件或 pack 必须产生新 identity。服务端逐个验证当前有效 grant 实际锁定的身份，不能仅凭 path 查询可变 Game/Review。`index.json` 是 EasyRPG/ONS/KiriKiri adapter 使用的保留虚拟索引；EasyRPG RTP 另投影为 `__retrom__/packs/{slot}/index.json` 和 `__retrom__/packs/{slot}/files/{path}`。所有响应为 `private, max-age=31536000, immutable`、强 ETag、准确 MIME/长度并支持单 Range；未知、未授权或跨身份文件不能回退到上传源、最新 content revision 或可变 ReviewDraft。
