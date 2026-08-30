@@ -93,7 +93,7 @@ type saveListRow struct {
 	id, gameID, gameTitle, name, coreID, coreName, gameStatus string
 	platformID, platformName, instanceID, instanceName        string
 	compatibilityStatus                                       string
-	version, createdAtMS, activeDurationMS                    int64
+	version, createdAtMS, activeDurationMS, sizeBytes         int64
 	hasScreenshot                                             bool
 	discIndex                                                 sql.NullInt64
 }
@@ -104,7 +104,7 @@ func scanSaveListRows(rows *sql.Rows, capacity int) ([]map[string]any, error) {
 		var row saveListRow
 		if err := rows.Scan(
 			&row.id, &row.gameID, &row.gameTitle, &row.name, &row.version,
-			&row.createdAtMS, &row.activeDurationMS, &row.coreID, &row.coreName,
+			&row.createdAtMS, &row.activeDurationMS, &row.sizeBytes, &row.coreID, &row.coreName,
 			&row.gameStatus, &row.platformID, &row.platformName, &row.instanceID,
 			&row.instanceName, &row.discIndex, &row.hasScreenshot, &row.compatibilityStatus,
 		); err != nil {
@@ -131,11 +131,11 @@ func (row saveListRow) projection() map[string]any {
 		"saveStateId": row.id, "gameId": row.gameID, "gameTitle": row.gameTitle,
 		"name": row.name, "version": row.version, "createdAtMs": row.createdAtMS,
 		"discIndex": nullableInteger(row.discIndex), "discLabel": discLabel(row.discIndex),
-		"activeDurationMs": row.activeDurationMS,
-		"screenshotUrl":    optionalSaveScreenshotURL(row.id, row.hasScreenshot),
-		"core":             map[string]any{"id": row.coreID, "name": row.coreName},
-		"platformId":       row.platformID,
-		"platform":         map[string]any{"id": row.platformID, "name": row.platformName},
+		"activeDurationMs": row.activeDurationMS, "sizeBytes": row.sizeBytes,
+		"screenshotUrl": optionalSaveScreenshotURL(row.id, row.hasScreenshot),
+		"core":          map[string]any{"id": row.coreID, "name": row.coreName},
+		"platformId":    row.platformID,
+		"platform":      map[string]any{"id": row.platformID, "name": row.platformName},
 		"platformInstance": map[string]any{
 			"id": row.instanceID, "name": row.instanceName,
 		},
@@ -172,6 +172,7 @@ s.name,
 s.version,
 s.created_at_ms,
 s.active_duration_ms,
+s.payload_size_bytes,
 a.core_id,
 c.name,
 g.status,

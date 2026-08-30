@@ -619,6 +619,7 @@
 .save-library-resume .button { min-height: 36px; padding: 0 13px; font-size: 11px; }
 .save-library-resume .status { position: absolute; inset: auto 8px 8px; width: auto; white-space: normal; }
 .save-library-blocked { position: absolute; z-index: 3; left: 8px; top: 8px; padding: 4px 8px; color: #a63745; border-radius: 999px; background: var(--danger-soft); font-size: 10px; font-weight: 750; }
+.save-library-size { position: absolute; z-index: 3; right: 8px; bottom: 8px; padding: 4px 8px; color: white; border-radius: 999px; background: #4435a7; box-shadow: 0 2px 8px rgb(18 15 49 / 24%); pointer-events: none; font-size: 10px; font-variant-numeric: tabular-nums; font-weight: 800; line-height: 1.2; }
 .save-library-card-body { position: relative; min-height: 71px; padding: 10px 12px 11px; }
 .save-library-title-row { position: relative; min-height: 27px; display: flex; align-items: center; justify-content: space-between; gap: 9px; }
 .save-library-title-row time { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; font-weight: 780; }

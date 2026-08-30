@@ -4,6 +4,7 @@ import {
   customSaveName,
   filterSaveItems,
   formatSaveDuration,
+  formatSaveSize,
   formatSaveTime,
   groupSaveItems,
   latestAvailableSave,
@@ -19,6 +20,7 @@ function save(overrides: Partial<SaveItem> & Pick<SaveItem, "saveStateId" | "gam
     version: 1,
     createdAtMs: nowMs,
     activeDurationMs: 60_000,
+    sizeBytes: 800 * 1024,
     screenshotUrl: "/shot",
     core: { id: "fbneo", name: "FinalBurn Neo" },
     platform: { id: "arcade", name: "Arcade" },
@@ -53,6 +55,12 @@ describe("save library projection", () => {
     expect(formatSaveDuration(7_440_000)).toBe("2 小时 4 分");
     expect(customSaveName("手动存档 2026/8/8 01:02")).toBeNull();
     expect(customSaveName("Boss 前")).toBe("Boss 前");
+  });
+
+  it("formats save payload sizes with compact binary units and at most two decimals", () => {
+    expect(formatSaveSize(800 * 1024)).toBe("800KB");
+    expect(formatSaveSize(Math.round(1.23 * 1024 * 1024))).toBe("1.23MB");
+    expect(formatSaveSize(Math.round(30.32 * 1024 * 1024))).toBe("30.32MB");
   });
 
   it("collects every cursor page and preserves the first response clock", async () => {

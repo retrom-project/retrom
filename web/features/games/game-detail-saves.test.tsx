@@ -17,6 +17,7 @@ function makeSave(index: number): SaveItem {
     version: 1,
     createdAtMs: nowMs - index * 60_000,
     activeDurationMs: 60_000,
+    sizeBytes: 1024,
     screenshotUrl: `/api/v1/saves/save-${index}/screenshot`,
     core: { id: index === 5 ? "mame2003_plus" : "fbneo", name: index === 5 ? "MAME 2003 Plus" : "FinalBurn Neo" },
     platform: { id: "arcade", name: "Arcade" },

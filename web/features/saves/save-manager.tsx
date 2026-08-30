@@ -15,6 +15,7 @@ import {
   customSaveName,
   filterSaveItems,
   formatSaveDuration,
+  formatSaveSize,
   formatSaveTime,
   groupSaveItems,
   latestAvailableSave,
@@ -66,6 +67,7 @@ function SaveCard({
     <div className="save-library-shot">
       <SaveScreenshot screenshotUrl={save.screenshotUrl} alt={`${save.gameTitle} 存档画面`} sizes="(min-width: 1600px) 280px, 220px" />
       {!available ? <span className="save-library-blocked">当前不可用</span> : null}
+      <span className="save-library-size" aria-label={`存档大小 ${formatSaveSize(save.sizeBytes)}`} title={`${save.sizeBytes.toLocaleString("zh-CN")} bytes`}>{formatSaveSize(save.sizeBytes)}</span>
       <div className="save-library-resume">{available
         ? <LaunchButton gameId={save.gameId} saveStateId={save.saveStateId} returnTo="/saves" label="从这里继续" />
         : <button className="button" type="button" disabled>当前不可继续</button>}</div>

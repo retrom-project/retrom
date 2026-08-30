@@ -6,6 +6,7 @@ export type SaveItem = {
   version: number;
   createdAtMs: number;
   activeDurationMs: number;
+  sizeBytes: number;
   discIndex?: number | null;
   discLabel?: string | null;
   screenshotUrl: string | null;
@@ -110,6 +111,19 @@ export function formatSaveDuration(value: number) {
   const hours = Math.floor(minutes / 60);
   const remainder = minutes % 60;
   return remainder === 0 ? `${hours} 小时` : `${hours} 小时 ${remainder} 分`;
+}
+
+export function formatSaveSize(value: number) {
+  if (!Number.isSafeInteger(value) || value < 0) {return "—";}
+  if (value < 1024) {return `${value}B`;}
+  const units = ["KB", "MB", "GB"];
+  let amount = value / 1024;
+  let unit = 0;
+  while (amount >= 1024 && unit < units.length - 1) {
+    amount /= 1024;
+    unit += 1;
+  }
+  return `${Number(amount.toFixed(2))}${units[unit]}`;
 }
 
 function sameLocalDay(left: Date, right: Date) {
