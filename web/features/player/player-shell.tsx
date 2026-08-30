@@ -115,6 +115,7 @@ export function PlayerShell({ launchId, experience = "standard" }: { launchId: s
   const started = useRef(false);
   const finishing = useRef(false);
   const heartbeat = useRef<number | null>(null);
+  const playEventQueue = useRef(Promise.resolve());
   const saveUploadQueue = useRef(Promise.resolve());
   const manualSaveAvailableRef = useRef(true);
   const controlsTimer = useRef<number | null>(null);
@@ -224,7 +225,7 @@ export function PlayerShell({ launchId, experience = "standard" }: { launchId: s
   }, [router]);
 
   const sessionParams = useMemo(() => ({
-    launchId, emulator, playerMode, sequence, started, finishing, saveUploadQueue, discSetRef,
+    launchId, emulator, playerMode, sequence, started, finishing, heartbeat, playEventQueue, saveUploadQueue, discSetRef,
     orientationStateRef, returnTo, netplayController, setOrientationState, setSaveUploadProgress,
     setSyncText, setSyncTone, showToast, replaceImmersiveRoute,
   }), [launchId, replaceImmersiveRoute, showToast]);
