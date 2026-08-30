@@ -220,7 +220,7 @@ describe("ReviewPreviewPlayer", () => {
           runtimeFamily: "KIRIKIRI", sessionId: "preview-kirikiri", gameTitle: "KAG fixture",
           adapter: {
             adapterKind: "KIRIKIRI2_WEB", adapterId: "kirikiri2-web",
-            runtimeBaseUrl: "/runtime/retrom-runtime/v0.7.4/",
+            runtimeBaseUrl: "/runtime/retrom-runtime/v0.7.5/",
             projectIndexUrl: `/runtime/content/project/${"b".repeat(64)}/index.json`,
             startupXp3Path: null, checkpointSlot: 1999,
           },
