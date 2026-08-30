@@ -41,8 +41,8 @@ type immersiveLibraryResponse struct {
 		TitleInitial string `json:"titleInitial"`
 		Favorited    bool   `json:"favorited"`
 		SaveStates   []struct {
-			SaveStateID   string `json:"saveStateId"`
-			ScreenshotURL string `json:"screenshotUrl"`
+			SaveStateID   string  `json:"saveStateId"`
+			ScreenshotURL *string `json:"screenshotUrl"`
 		} `json:"saveStates"`
 	} `json:"items"`
 	NextCursor *string `json:"nextCursor"`
@@ -157,8 +157,13 @@ func assertImmersiveFavoriteAndSaveLibraries(
 	testassert.Falsef(t, len(saves.Items[0].SaveStates) != 1, "save states = %#v", saves.Items[0])
 	actualSave := saves.Items[0].SaveStates[0]
 	testassert.Falsef(t, actualSave.SaveStateID != saveStateID, "save = %#v", actualSave)
-	testassert.Falsef(t, actualSave.ScreenshotURL != "/content/save-states/"+saveStateID+"/screenshot",
+	testassert.Falsef(t, actualSave.ScreenshotURL == nil || *actualSave.ScreenshotURL != "/content/save-states/"+saveStateID+"/screenshot",
 		"save screenshot = %#v", actualSave)
+	mustExecHTTPTest(t, server.database, "UPDATE save_states SET screenshot_blob_id=NULL WHERE id=?", saveStateID)
+	withoutScreenshot := decodeImmersiveResponse[immersiveLibraryResponse](t,
+		immersiveGET(t, server, "/api/v1/immersive/libraries/saves/games"))
+	testassert.Falsef(t, withoutScreenshot.Items[0].SaveStates[0].ScreenshotURL != nil,
+		"screenshot-less immersive save = %#v", withoutScreenshot.Items[0].SaveStates[0])
 	invalidFolder := immersiveGET(t, server, "/api/v1/immersive/libraries/all/games?folderId="+folderID)
 	testassert.Falsef(t, invalidFolder.Code != http.StatusNotFound,
 		"invalid library folder = %d %s", invalidFolder.Code, invalidFolder.Body.String())

@@ -429,6 +429,7 @@
 .launch-quick-save { padding: 9px; display: grid; grid-template-columns: 126px minmax(0, 1fr); gap: 10px; align-items: center; border: 1px solid #e4e0ef; border-radius: 10px; background: white; }
 .launch-quick-save > div:first-child { position: relative; width: 126px; aspect-ratio: 16 / 9; overflow: hidden; border-radius: 7px; background: #05060a; }
 .launch-quick-save img { object-fit: contain; }
+.save-screenshot-placeholder { position: absolute; inset: 0; display: grid; place-items: center; color: #b7bfd2; background: radial-gradient(circle at 50% 35%, #30384d, #171d30 72%); font-size: 11px; font-weight: 750; letter-spacing: .04em; }
 .launch-quick-save > div:last-child { min-width: 0; }
 .launch-quick-save strong, .launch-quick-save time, .launch-quick-save small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .launch-quick-save strong { font-size: 12px; font-weight: 800; }

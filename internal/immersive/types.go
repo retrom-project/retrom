@@ -94,10 +94,11 @@ type FavoriteFolder struct {
 }
 
 type SaveState struct {
-	ID          string
-	Name        string
-	CreatedAtMS int64
-	DiscIndex   *int64
+	ID            string
+	Name          string
+	CreatedAtMS   int64
+	DiscIndex     *int64
+	HasScreenshot bool
 }
 
 type LibraryPage struct {

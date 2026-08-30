@@ -62,6 +62,14 @@ describe("SaveManager", () => {
     expect(screen.getAllByRole("button", { name: "从这里继续" })).toHaveLength(2);
   });
 
+  it("keeps screenshot-less saves resumable and renders stable placeholders", () => {
+    render(<SaveManager saves={[makeSave({ screenshotUrl: null })]} nowMs={nowMs} />);
+
+    expect(screen.getAllByRole("img", { name: "Metal Slug 存档画面无预览图" })).toHaveLength(1);
+    expect(screen.getByRole("img", { name: "Metal Slug 最近存档画面无预览图" })).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "从这里继续" })).toHaveLength(2);
+  });
+
   it("filters locally and keeps the selection in the address bar", async () => {
     const user = userEvent.setup();
     render(<SaveManager saves={[makeSave(), makeSave({ saveStateId: "save-2", gameId: "game-2", gameTitle: "1943", name: "手动存档 2026/8/8" })]} nowMs={nowMs} />);
