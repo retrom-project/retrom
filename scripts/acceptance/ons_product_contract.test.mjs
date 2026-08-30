@@ -31,7 +31,7 @@ test("rejects missing or eager project loading evidence", () => {
 
   const eager = evidence();
   eager.loading.firstVisible.requestedProjectBytes = eager.loading.firstVisible.declaredProjectBytes;
-  assert.throws(() => assertOnsProductEvidence(eager), /ONS_ACCEPTANCE_EVIDENCE_INVALID/);
+  assert.throws(() => assertOnsProductEvidence(eager), /ONS_ACCEPTANCE_LOADING_EVIDENCE_INVALID/);
 });
 
 function evidence() {
