@@ -29,7 +29,8 @@ CONDITIONAL_CASES = {"ACC-NET-002", "ACC-DAT-006"}
 RPG_CASES = {f"ACC-RPG-{number:03d}" for number in range(1, 13)}
 ONS_CASES = {"ACC-ONS-001"}
 KIRIKIRI_CASES = {"ACC-KIRIKIRI-001"}
-PRODUCT_CASES = RPG_CASES | ONS_CASES | KIRIKIRI_CASES
+BUTTERSCOTCH_CASES = {"ACC-BUTTERSCOTCH-001"}
+PRODUCT_CASES = RPG_CASES | ONS_CASES | KIRIKIRI_CASES | BUTTERSCOTCH_CASES
 
 
 # These commands are intentionally focused. Cases omitted here are emitted as
@@ -455,6 +456,10 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
     "ACC-KIRIKIRI-001": (
         300,
         ".cache/tools/node-v24.18.0-linux-x64/bin/node scripts/acceptance/kirikiri_product.mjs",
+    ),
+    "ACC-BUTTERSCOTCH-001": (
+        300,
+        ".cache/tools/node-v24.18.0-linux-x64/bin/node scripts/acceptance/butterscotch_product.mjs",
     ),
 }
 
@@ -935,6 +940,8 @@ def execute_case(case_id: str) -> int:
                 product_filename = "ons-product.json"
             elif case_id in KIRIKIRI_CASES:
                 product_filename = "kirikiri-product.json"
+            elif case_id in BUTTERSCOTCH_CASES:
+                product_filename = "butterscotch-product.json"
             product_path = case_dir / product_filename
             if product_path.is_file():
                 product_evidence = json.loads(product_path.read_text(encoding="utf-8"))

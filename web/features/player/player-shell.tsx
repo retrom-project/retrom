@@ -91,6 +91,7 @@ export function PlayerShell({ launchId, experience = "standard" }: { launchId: s
   const [syncTone, setSyncTone] = useState<"synced" | "busy" | "warning">("busy");
   const [saveUploadProgress, setSaveUploadProgress] = useState<number | null>(null);
   const [manualSaveAvailable, setManualSaveAvailable] = useState(true);
+  const [dosProgramMenu, setDosProgramMenu] = useState(false);
   const [gameTitle, setGameTitle] = useState("正在运行的游戏");
   const [coreName, setCoreName] = useState("");
   const [platformName, setPlatformName] = useState("");
@@ -127,6 +128,7 @@ export function PlayerShell({ launchId, experience = "standard" }: { launchId: s
   const playEventQueue = useRef(Promise.resolve());
   const saveUploadQueue = useRef(Promise.resolve());
   const manualSaveAvailableRef = useRef(true);
+  const dosProgramMenuRef = useRef(false);
   const controlsTimer = useRef<number | null>(null);
   const toastTimer = useRef<number | null>(null);
   const running = useRef(false);
@@ -261,9 +263,9 @@ export function PlayerShell({ launchId, experience = "standard" }: { launchId: s
   }, [videoRenderingMode]);
 
   const bootstrapParams = useMemo(() => ({
-    launchId, experience, immersiveGamepadFilter: immersive.filter, stage, frameRef, emulator, returnTo, playerMode, manualSaveAvailableRef, netplayConfig, discSetRef,
+    launchId, experience, immersiveGamepadFilter: immersive.filter, stage, frameRef, emulator, returnTo, playerMode, manualSaveAvailableRef, dosProgramMenuRef, netplayConfig, discSetRef,
     orientationStateRef, videoRenderingModeRef, lastAudibleVolume, pausedRef, started, finishing, heartbeat,
-    toastTimer, netplayController, netplayPausedRef, setMessage, setLoadProgress, setState, setManualSaveAvailable,
+    toastTimer, netplayController, netplayPausedRef, setMessage, setLoadProgress, setState, setManualSaveAvailable, setDosProgramMenu,
     setNetplayPlayerNo, setWarnings, setGameTitle, setCoreName, setPlatformName, setDebugRuntime, setDiscSet,
     setDiscState, setOrientationState, setFrameEnabled, setSyncText, setSyncTone, setEmulatorVolume,
     setEmulatorMuted, setPaused, setNetplayPaused, setImmersiveReturnTo, reportPlayerEvent, revealControlsAtTopEdge, showControls,
@@ -282,7 +284,7 @@ export function PlayerShell({ launchId, experience = "standard" }: { launchId: s
   const { toggleDebug } = usePlayerRuntimeEffects(runtimeEffectParams);
 
   const runtimeActionParams = useMemo(() => ({
-    userId, state, emulator, frameRef, manualSaveAvailableRef, pauseCapture, lastManualScreenshot,
+    userId, state, emulator, frameRef, manualSaveAvailableRef, dosProgramMenuRef, pauseCapture, lastManualScreenshot,
     uploadManualState, discSetRef, discState, setDiscState, reportPlayerEvent, showToast, setSyncText,
     setSyncTone, setEmulatorToolbarOpen, holdControls, releaseControls, lastAudibleVolume, emulatorVolume,
     emulatorMuted, setEmulatorVolume, setEmulatorMuted, videoRenderingModeRef, netplayConfig,
@@ -306,7 +308,7 @@ export function PlayerShell({ launchId, experience = "standard" }: { launchId: s
 
   const chromeProps: PlayerChromeProps = {
     controlsVisible, running: state === "running", paused, fullscreen, gameTitle, coreName, platformName,
-    syncText, syncTone, saveUploadProgress, saveAvailable: manualSaveAvailable, toast, warnings,
+    syncText, syncTone, saveUploadProgress, saveAvailable: manualSaveAvailable, dosProgramMenu, toast, warnings,
     emulatorToolbarOpen, emulatorVolume, emulatorMuted, videoRenderingMode, discSet, discState,
     netplayPlayerNo, netplayPaused, debugOpen, debugMetrics, debugRuntime, runtimeState: state,
     onHoldControls: holdControls, onReleaseControls: releaseControls, onToggleControls: toggleControls,

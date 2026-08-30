@@ -456,7 +456,8 @@ func (server *Server) retromRuntimeFile(writer http.ResponseWriter, request *htt
 		return
 	}
 	mediaType := map[string]string{
-		".js": "application/javascript; charset=utf-8", ".wasm": "application/wasm", ".rb": "text/plain; charset=utf-8",
+		".js": "application/javascript; charset=utf-8", ".mjs": "application/javascript; charset=utf-8",
+		".wasm": "application/wasm", ".rb": "text/plain; charset=utf-8",
 		".zip": "application/zip",
 	}[strings.ToLower(filepath.Ext(request.PathValue("runtimePath")))]
 	if mediaType == "" {

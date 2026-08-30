@@ -59,7 +59,7 @@ func (service *Service) CreateManual(
 func validatePayloadBinding(launch launchSnapshot, path string) (nativeBinding, error) {
 	if launch.payloadKind == "RUNTIME_STATE" {
 		if launch.generation != "" && launch.generation != "RPGXP" && launch.generation != "RPGVX" &&
-			launch.generation != "RPGVXACE" {
+			launch.generation != "RPGVXACE" && launch.generation != "BUTTERSCOTCH" {
 			return nativeBinding{}, ErrCheckpointInvalid
 		}
 		return nativeBinding{}, nil

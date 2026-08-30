@@ -3468,7 +3468,7 @@ export interface components {
             captureAllowed: boolean;
             captureAfterMs: number;
         };
-        LaunchConfig: components["schemas"]["EmulatorJSLaunchConfig"] | components["schemas"]["RpgMakerLaunchConfig"] | components["schemas"]["OnsLaunchConfig"] | components["schemas"]["KiriKiriLaunchConfig"];
+        LaunchConfig: components["schemas"]["EmulatorJSLaunchConfig"] | components["schemas"]["RpgMakerLaunchConfig"] | components["schemas"]["OnsLaunchConfig"] | components["schemas"]["KiriKiriLaunchConfig"] | components["schemas"]["ButterscotchLaunchConfig"];
         EmulatorJSLaunchConfig: {
             /**
              * @description discriminator enum property added by openapi-typescript
@@ -3748,6 +3748,51 @@ export interface components {
             warnings: string[];
             adapter: components["schemas"]["KiriKiriAdapterConfig"];
             checkpoint: components["schemas"]["KiriKiriCheckpointRestore"] | null;
+            reviewPreview?: components["schemas"]["ReviewPreviewConfig"];
+        };
+        ButterscotchAdapterConfig: {
+            /** @enum {string} */
+            adapterKind: "BUTTERSCOTCH_WEB";
+            /** @enum {string} */
+            adapterId: "butterscotch-web";
+            runtimeBaseUrl: string;
+            projectIndexUrl: string;
+        };
+        ButterscotchCheckpointRestore: {
+            /** @enum {string} */
+            payloadKind: "RUNTIME_STATE";
+            payloadUrl: string;
+        };
+        ButterscotchLaunchConfig: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            runtimeFamily: "BUTTERSCOTCH";
+            /** @enum {integer} */
+            protocolVersion: 1;
+            /** @enum {string} */
+            mode: "single";
+            /** @enum {string} */
+            purpose: "PRODUCT" | "REVIEW_PREVIEW";
+            /** Format: uuid */
+            launchId: string;
+            /** Format: uuid */
+            sessionId: string;
+            /** @enum {string} */
+            coreId: "butterscotch";
+            coreName: string;
+            gameTitle: string;
+            /** @enum {string} */
+            platformName: "GameMaker";
+            runtimeVersion: string;
+            /** Format: uuid */
+            artifactId: string;
+            contentDigest: string;
+            returnTo: string;
+            warnings: string[];
+            adapter: components["schemas"]["ButterscotchAdapterConfig"];
+            checkpoint: components["schemas"]["ButterscotchCheckpointRestore"] | null;
             reviewPreview?: components["schemas"]["ReviewPreviewConfig"];
         };
         /** @enum {string} */
@@ -4124,7 +4169,7 @@ export interface components {
              * @default GENERAL
              * @enum {string}
              */
-            purpose: "GENERAL" | "RPG_MAKER_PROJECT" | "ONS_PROJECT" | "KIRIKIRI_PROJECT" | "RUNTIME_ASSET_PACK";
+            purpose: "GENERAL" | "RPG_MAKER_PROJECT" | "ONS_PROJECT" | "KIRIKIRI_PROJECT" | "BUTTERSCOTCH_PROJECT" | "RUNTIME_ASSET_PACK";
             /** @enum {string} */
             sourceType: "FILES" | "DIRECTORY";
             files: {
@@ -4140,7 +4185,7 @@ export interface components {
             /** Format: uuid */
             targetPlatformInstanceId: string;
             /**
-             * @description RPG_MAKER_PROJECT_V1, ONS_PROJECT_V1 and KIRIKIRI_PROJECT_V1 requests are normalized to NONE because projects have no single-ROM hash identity.
+             * @description Project content modes are normalized to NONE because projects have no single-ROM hash identity.
              * @enum {string}
              */
             metadataProvider: "HASHEOUS" | "NONE";
@@ -4149,7 +4194,7 @@ export interface components {
              * @description Omitted requests use STANDARD.
              * @enum {string}
              */
-            contentMode?: "STANDARD" | "MULTI_DISC_M3U_V1" | "RPG_MAKER_PROJECT_V1" | "ONS_PROJECT_V1" | "KIRIKIRI_PROJECT_V1";
+            contentMode?: "STANDARD" | "MULTI_DISC_M3U_V1" | "RPG_MAKER_PROJECT_V1" | "ONS_PROJECT_V1" | "KIRIKIRI_PROJECT_V1" | "BUTTERSCOTCH_PROJECT_V1";
         };
         ReconfigureImportRequest: {
             /** Format: uuid */
@@ -4319,7 +4364,7 @@ export interface components {
              * @default STANDARD
              * @enum {string}
              */
-            contentMode: "STANDARD" | "MULTI_DISC_M3U_V1" | "RPG_MAKER_PROJECT_V1" | "ONS_PROJECT_V1" | "KIRIKIRI_PROJECT_V1";
+            contentMode: "STANDARD" | "MULTI_DISC_M3U_V1" | "RPG_MAKER_PROJECT_V1" | "ONS_PROJECT_V1" | "KIRIKIRI_PROJECT_V1" | "BUTTERSCOTCH_PROJECT_V1";
         };
         ApplyCandidateRequest: {
             fields: ("title" | "description" | "developer" | "publisher" | "genre" | "players" | "releaseYear")[];

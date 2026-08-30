@@ -127,7 +127,8 @@ CREATE TABLE "import_item_source_snapshots" (
   revision_no INTEGER NOT NULL CHECK(revision_no>=1),
   content_kind TEXT NOT NULL DEFAULT 'SINGLE_FILE'
     CHECK(content_kind IN (
-      'SINGLE_FILE','DOS_BUNDLE','MULTI_DISC_M3U_V1','RPG_MAKER_PROJECT_V1','ONS_PROJECT_V1','KIRIKIRI_PROJECT_V1'
+      'SINGLE_FILE','DOS_BUNDLE','MULTI_DISC_M3U_V1','RPG_MAKER_PROJECT_V1','ONS_PROJECT_V1',
+      'KIRIKIRI_PROJECT_V1','BUTTERSCOTCH_PROJECT_V1'
     )),
   source_manifest_json TEXT NOT NULL,
   source_manifest_digest TEXT NOT NULL
@@ -498,18 +499,20 @@ CREATE TABLE review_preview_sessions (
   idempotency_key TEXT NOT NULL,
   title TEXT NOT NULL CHECK(length(CAST(title AS BLOB)) BETWEEN 1 AND 800),
   content_kind TEXT NOT NULL CHECK(content_kind IN (
-    'SINGLE_FILE','DOS_BUNDLE','MULTI_DISC_M3U_V1','ONS_PROJECT_V1','KIRIKIRI_PROJECT_V1'
+    'SINGLE_FILE','DOS_BUNDLE','MULTI_DISC_M3U_V1','ONS_PROJECT_V1','KIRIKIRI_PROJECT_V1',
+    'BUTTERSCOTCH_PROJECT_V1'
   )),
   content_blob_id TEXT NOT NULL REFERENCES blobs(id),
   content_logical_name TEXT NOT NULL CHECK(length(CAST(content_logical_name AS BLOB)) BETWEEN 1 AND 512),
   content_format TEXT NOT NULL CHECK(content_format IN (
-    'SOURCE_V1','RETROM_DOS_DIRECT_ZIP_V1','RETROM_MULTIDISC_M3U_V1','ONS_PROJECT_V1','KIRIKIRI_PROJECT_V1'
+    'SOURCE_V1','RETROM_DOS_DIRECT_ZIP_V1','RETROM_MULTIDISC_M3U_V1','ONS_PROJECT_V1',
+    'KIRIKIRI_PROJECT_V1','BUTTERSCOTCH_PROJECT_V1'
   )),
   dependency_snapshot_json TEXT NOT NULL,
   default_dos_entry TEXT,
   emulator_game_id INTEGER CHECK(
-    content_kind IN ('ONS_PROJECT_V1','KIRIKIRI_PROJECT_V1') AND emulator_game_id IS NULL OR
-    content_kind NOT IN ('ONS_PROJECT_V1','KIRIKIRI_PROJECT_V1') AND emulator_game_id>0
+    content_kind IN ('ONS_PROJECT_V1','KIRIKIRI_PROJECT_V1','BUTTERSCOTCH_PROJECT_V1') AND emulator_game_id IS NULL OR
+    content_kind NOT IN ('ONS_PROJECT_V1','KIRIKIRI_PROJECT_V1','BUTTERSCOTCH_PROJECT_V1') AND emulator_game_id>0
   ),
   capture_allowed INTEGER NOT NULL CHECK(capture_allowed IN (0,1)),
   credential_sha256 BLOB NOT NULL CHECK(length(credential_sha256)=32),

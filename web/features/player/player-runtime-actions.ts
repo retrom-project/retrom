@@ -15,6 +15,7 @@ type SyncTone = "synced" | "busy" | "warning";
 type RuntimeActionParams = {
   userId: string | undefined; state: ShellState; emulator: Mutable<EmulatorInstance | undefined>; frameRef: RefObject<HTMLIFrameElement | null>;
   manualSaveAvailableRef: Mutable<boolean>; pauseCapture: Mutable<Promise<ManualScreenshot | null>>; lastManualScreenshot: Mutable<ManualScreenshot | null>;
+  dosProgramMenuRef: Mutable<boolean>;
   uploadManualState: (payload: ManualStatePayload) => Promise<boolean>;
   discSetRef: Mutable<DiscSet | null>; discState: DiscState | null; setDiscState: Dispatch<SetStateAction<DiscState | null>>;
   reportPlayerEvent: (event: MultiDiscPlayerEvent) => void; showToast: (message: string, timeout?: number) => void;
@@ -28,8 +29,11 @@ type RuntimeActionParams = {
 export function usePlayerRuntimeActions(params: RuntimeActionParams) {
   async function saveManualState() {
     if (!params.manualSaveAvailableRef.current) {
-      params.setSyncText("程序菜单模式不可存档"); params.setSyncTone("warning");
-      params.showToast("请退出后从游戏详情选择一个具体 DOS 程序再开始；程序菜单模式无法创建可恢复存档。", 5_000);
+      params.setSyncText(params.dosProgramMenuRef.current ? "程序菜单模式不可存档" : "当前场景暂不可存档");
+      params.setSyncTone("warning");
+      params.showToast(params.dosProgramMenuRef.current
+        ? "请退出后从游戏详情选择一个具体 DOS 程序再开始；程序菜单模式无法创建可恢复存档。"
+        : "当前游戏状态暂时无法创建可恢复存档，请继续游戏后重试。", 5_000);
       return false;
     }
     const current = params.emulator.current;

@@ -16,7 +16,8 @@ import { DirectoryPickerDialog } from "./directory-picker-dialog";
 import { directoryPickerAvailable, droppedDirectory, pickDirectory, type PickedDirectory, type PickedDirectoryFile } from "@/lib/directory-access";
 
 type ChosenFile = { id: string; file: File; name: string; size: number; path: string };
-type ContentMode = "STANDARD" | "MULTI_DISC_M3U_V1" | "RPG_MAKER_PROJECT_V1" | "ONS_PROJECT_V1" | "KIRIKIRI_PROJECT_V1";
+type ContentMode = "STANDARD" | "MULTI_DISC_M3U_V1" | "RPG_MAKER_PROJECT_V1" | "ONS_PROJECT_V1" |
+  "KIRIKIRI_PROJECT_V1" | "BUTTERSCOTCH_PROJECT_V1";
 type Directory = {
   id: string; name: string; platformName: string; coreName: string;
   importCapabilities?: { contentModes: string[]; multiDisc: { maxDiscs: number; maxTotalBytes: number } | null };
@@ -70,8 +71,9 @@ function SourceDropZone({ contentMode, onDrop, onPickDirectory, onPickFiles }: P
   const rpgMaker = contentMode === "RPG_MAKER_PROJECT_V1";
   const ons = contentMode === "ONS_PROJECT_V1";
   const kirikiri = contentMode === "KIRIKIRI_PROJECT_V1";
-  const project = rpgMaker || ons || kirikiri;
-  const projectName = rpgMaker ? "RPG Maker" : ons ? "ONS" : "KiriKiri";
+  const butterscotch = contentMode === "BUTTERSCOTCH_PROJECT_V1";
+  const project = rpgMaker || ons || kirikiri || butterscotch;
+  const projectName = rpgMaker ? "RPG Maker" : ons ? "ONS" : kirikiri ? "KiriKiri" : "GameMaker";
   return <div className="dropzone import-dropzone" onDragOver={(event) => event.preventDefault()} onDrop={(event) => { event.preventDefault(); onDrop(event.dataTransfer.files); }}><div><span aria-hidden="true">⇧</span><h2>{project ? `将 ${projectName} 项目归档或目录拖到这里` : "将游戏文件或目录拖到这里"}</h2><p>{project ? "只选择一个 ZIP/7z 项目归档，或选择完整项目目录；项目内相对路径会完整保留。" : "支持普通 ROM、Arcade ZIP、DOS 内容目录、多盘 M3U + CHD、RPG Maker 与 ONS 项目；相对路径会完整保留。"}</p><div className="dropzone-actions"><button className="button" type="button" onClick={onPickFiles}>{project ? "选择项目归档" : "选择文件"}</button><button className="button secondary" type="button" onClick={onPickDirectory}>{project ? "选择项目目录" : "选择目录"}</button></div></div></div>;
 }
 
@@ -136,6 +138,9 @@ function ProjectConfiguration({ contentMode }: Pick<ConfigStepProps, "contentMod
   if (contentMode === "KIRIKIRI_PROJECT_V1") {
     return <div className="feedback info" role="status">整个 KiriKiri 目录或单个 ZIP/7z 会作为一个项目导入；审核时需要先成功试运行一次。</div>;
   }
+  if (contentMode === "BUTTERSCOTCH_PROJECT_V1") {
+    return <div className="feedback info" role="status">整个 GameMaker 目录或单个 ZIP/7z 会作为一个项目导入；当前原型支持带 data.win 的项目，审核时需要先成功试运行一次。</div>;
+  }
   return null;
 }
 
@@ -156,7 +161,9 @@ function ConfigStep(props: ConfigStepProps & { sourceIsDirectory: boolean }) {
     : props.contentMode === "MULTI_DISC_M3U_V1" ? props.multiDiscSubmitLabel
       : props.contentMode === "RPG_MAKER_PROJECT_V1" ? "上传并验证 RPG Maker 项目"
         : props.contentMode === "ONS_PROJECT_V1" ? "上传并试运行 ONS 项目"
-          : props.contentMode === "KIRIKIRI_PROJECT_V1" ? "上传并试运行 KiriKiri 项目" : "开始上传并验证";
+          : props.contentMode === "KIRIKIRI_PROJECT_V1" ? "上传并试运行 KiriKiri 项目"
+            : props.contentMode === "BUTTERSCOTCH_PROJECT_V1" ? "上传并试运行 GameMaker 项目"
+              : "开始上传并验证";
   return <section className="panel import-config-panel">
     <div className="panel-head"><div><h2>确认导入配置</h2><p>目标目录决定基础平台和推荐运行方式；配置会冻结到本次任务快照。</p></div><span className="status info"><i />步骤 2 / 3</span></div>
     <div className="panel-body">
@@ -235,7 +242,7 @@ function invalidMultiDiscSelection(contentMode: string, sourceType: string, pref
 
 function isProjectContentMode(contentMode: ContentMode) {
   return contentMode === "RPG_MAKER_PROJECT_V1" || contentMode === "ONS_PROJECT_V1" ||
-    contentMode === "KIRIKIRI_PROJECT_V1";
+    contentMode === "KIRIKIRI_PROJECT_V1" || contentMode === "BUTTERSCOTCH_PROJECT_V1";
 }
 
 function invalidProjectSelection(contentMode: ContentMode, sourceType: string, files: ChosenFile[]) {
@@ -250,6 +257,7 @@ function contentModeLabel(contentMode: ContentMode) {
   if (contentMode === "RPG_MAKER_PROJECT_V1") {return "RPG Maker 项目";}
   if (contentMode === "ONS_PROJECT_V1") {return "ONS 项目";}
   if (contentMode === "KIRIKIRI_PROJECT_V1") {return "KiriKiri 项目";}
+  if (contentMode === "BUTTERSCOTCH_PROJECT_V1") {return "GameMaker 项目";}
   return "普通内容";
 }
 
@@ -286,16 +294,21 @@ function reconfigurationDefaults(source: ImportDetail | null) {
 function directoryCapabilities(directories: Directory[], target: string) {
   const selected = directories.find((directory) => directory.id === target);
   const contentModes = selected?.importCapabilities?.contentModes ?? [];
-  const projectMode: ContentMode = contentModes.includes("RPG_MAKER_PROJECT_V1")
-    ? "RPG_MAKER_PROJECT_V1"
-    : contentModes.includes("ONS_PROJECT_V1") ? "ONS_PROJECT_V1"
-      : contentModes.includes("KIRIKIRI_PROJECT_V1") ? "KIRIKIRI_PROJECT_V1" : "STANDARD";
+  const projectMode = projectContentMode(contentModes);
   return {
     limits: selected?.importCapabilities?.multiDisc ?? MULTI_DISC_DEFAULT_LIMITS,
     projectMode,
     selected,
     supported: contentModes.includes("MULTI_DISC_M3U_V1"),
   };
+}
+
+function projectContentMode(contentModes: string[]): ContentMode {
+  if (contentModes.includes("RPG_MAKER_PROJECT_V1")) {return "RPG_MAKER_PROJECT_V1";}
+  if (contentModes.includes("ONS_PROJECT_V1")) {return "ONS_PROJECT_V1";}
+  if (contentModes.includes("KIRIKIRI_PROJECT_V1")) {return "KIRIKIRI_PROJECT_V1";}
+  if (contentModes.includes("BUTTERSCOTCH_PROJECT_V1")) {return "BUTTERSCOTCH_PROJECT_V1";}
+  return "STANDARD";
 }
 
 function sourceMetrics(reconfiguring: boolean, reusableFiles: ReusableFile[], files: ChosenFile[]) {
@@ -339,10 +352,7 @@ export function UploadPicker({ directories, activeTags = [], reconfigureSource =
     const chosen = selected.map(({ file, relativePath }, index) => ({ id: `f${index + 1}`, file, name: file.name, size: file.size, path: relativePath }));
     const selectedDirectory = directories.find((directory) => directory.id === target);
     const selectedContentModes = selectedDirectory?.importCapabilities?.contentModes ?? [];
-    const selectedProjectMode: ContentMode = selectedContentModes.includes("RPG_MAKER_PROJECT_V1")
-      ? "RPG_MAKER_PROJECT_V1"
-      : selectedContentModes.includes("ONS_PROJECT_V1") ? "ONS_PROJECT_V1"
-        : selectedContentModes.includes("KIRIKIRI_PROJECT_V1") ? "KIRIKIRI_PROJECT_V1" : "STANDARD";
+    const selectedProjectMode = projectContentMode(selectedContentModes);
     setFiles(chosen);
     setSourceType(selectedSourceType);
     setPreflight(null);
@@ -380,10 +390,7 @@ export function UploadPicker({ directories, activeTags = [], reconfigureSource =
     const nextDirectory = directories.find((directory) => directory.id === nextTarget);
     const nextContentModes = nextDirectory?.importCapabilities?.contentModes ?? [];
     const nextSupportsMultiDisc = nextContentModes.includes("MULTI_DISC_M3U_V1");
-    const nextProjectMode: ContentMode = nextContentModes.includes("RPG_MAKER_PROJECT_V1")
-      ? "RPG_MAKER_PROJECT_V1"
-      : nextContentModes.includes("ONS_PROJECT_V1") ? "ONS_PROJECT_V1"
-        : nextContentModes.includes("KIRIKIRI_PROJECT_V1") ? "KIRIKIRI_PROJECT_V1" : "STANDARD";
+    const nextProjectMode = projectContentMode(nextContentModes);
     setTarget(nextTarget);
     if (files.length && sourceType === "DIRECTORY") {setPreflighting(true);}
     if (isProjectContentMode(nextProjectMode)) {preflightRunRef.current++; setPreflight(null); setContentMode(nextProjectMode); setPreflighting(false);}
@@ -408,7 +415,8 @@ export function UploadPicker({ directories, activeTags = [], reconfigureSource =
       } else {
         const purpose = contentMode === "RPG_MAKER_PROJECT_V1" ? "RPG_MAKER_PROJECT"
           : contentMode === "ONS_PROJECT_V1" ? "ONS_PROJECT"
-            : contentMode === "KIRIKIRI_PROJECT_V1" ? "KIRIKIRI_PROJECT" : "GENERAL";
+            : contentMode === "KIRIKIRI_PROJECT_V1" ? "KIRIKIRI_PROJECT"
+              : contentMode === "BUTTERSCOTCH_PROJECT_V1" ? "BUTTERSCOTCH_PROJECT" : "GENERAL";
         const uploaded = await uploadFiles(files.map((chosen) => ({ file: chosen.file, relativePath: chosen.path })), setProgress, purpose);
         setProgress("正在创建导入任务…");
         imported = await fetch("/api/v1/admin/imports", { method: "POST", credentials: "same-origin", headers: await writeHeaders({ "Content-Type": "application/json", "Idempotency-Key": newUuid() }), body: JSON.stringify({ uploadId: uploaded.uploadId, targetPlatformInstanceId: target, metadataProvider: selectedProvider, contentMode, tagIds: tags.map((tag) => tag.tagId) }) });

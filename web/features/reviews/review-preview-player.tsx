@@ -6,6 +6,7 @@ import {
   type GameRuntime,
   type KirikiriRuntimeConfig,
   type OnsRuntimeConfig,
+  type ButterscotchRuntimeConfig,
 } from "@xxxsen/retrom-runtime";
 import { captureReviewScreenshot, mountEmulatorJS, type EmulatorInstance, type PlayerConfig } from "@/features/player/adapters/ejs-4.2.3-v2";
 import { installCanvasContain } from "@/features/player/canvas-fit";
@@ -25,7 +26,12 @@ type KiriKiriReviewConfig = KirikiriRuntimeConfig & {
   gameTitle: string;
   reviewPreview: ReviewPreview;
 };
-type ReviewPlayerConfig = EmulatorReviewConfig | ONSReviewConfig | KiriKiriReviewConfig;
+type ButterscotchReviewConfig = ButterscotchRuntimeConfig & {
+  runtimeFamily: "BUTTERSCOTCH";
+  gameTitle: string;
+  reviewPreview: ReviewPreview;
+};
+type ReviewPlayerConfig = EmulatorReviewConfig | ONSReviewConfig | KiriKiriReviewConfig | ButterscotchReviewConfig;
 
 type ReviewRuntime = {
   screenshot: () => Promise<Blob>;
@@ -88,6 +94,23 @@ async function mountReviewRuntime(
       unsubscribe();
       await runtime.exit();
       throw error;
+    }
+    options.onStart({runtime, cleanup: () => {unsubscribe(); void runtime.exit();}});
+    return;
+  }
+  if (config.runtimeFamily === "BUTTERSCOTCH") {
+    const runtimeConfig: ButterscotchRuntimeConfig = {
+      sessionId: config.sessionId, contentDigest: config.contentDigest, adapter: config.adapter,
+    };
+    const runtime: GameRuntime = createRuntime(runtimeConfig, {
+      frameWindow, restorePayload: null, signal: options.signal,
+    });
+    const unsubscribe = runtime.subscribe((event) => {
+      if (event.type === "FATAL_ERROR") {options.onError(event.code);}
+      if (event.type === "EXIT_REQUESTED") {options.onExitRequested();}
+    });
+    try {await runtime.mount(target);} catch (error) {
+      unsubscribe(); await runtime.exit(); throw error;
     }
     options.onStart({runtime, cleanup: () => {unsubscribe(); void runtime.exit();}});
     return;

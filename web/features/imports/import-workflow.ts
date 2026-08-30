@@ -3,7 +3,8 @@ export type ImportListItem = {
   state: string;
   platformInstanceName: string;
   metadataProvider: string;
-  contentMode?: "STANDARD" | "MULTI_DISC_M3U_V1" | "RPG_MAKER_PROJECT_V1" | "ONS_PROJECT_V1" | "KIRIKIRI_PROJECT_V1";
+  contentMode?: "STANDARD" | "MULTI_DISC_M3U_V1" | "RPG_MAKER_PROJECT_V1" | "ONS_PROJECT_V1" |
+    "KIRIKIRI_PROJECT_V1" | "BUTTERSCOTCH_PROJECT_V1";
   totalItemCount: number;
   reviewPendingItemCount: number;
   failedItemCount: number;
@@ -40,7 +41,9 @@ export type ImportDetail = {
   errorCode?: string | null;
   metadataProvider: string;
   targetPlatformInstance: { id: string; name: string };
-  configSnapshot?: { contentMode?: "STANDARD" | "MULTI_DISC_M3U_V1" | "RPG_MAKER_PROJECT_V1" | "ONS_PROJECT_V1" | "KIRIKIRI_PROJECT_V1"; tags?: Array<{ tagId: string; name: string }> };
+  configSnapshot?: { contentMode?: "STANDARD" | "MULTI_DISC_M3U_V1" | "RPG_MAKER_PROJECT_V1" |
+    "ONS_PROJECT_V1" | "KIRIKIRI_PROJECT_V1" | "BUTTERSCOTCH_PROJECT_V1";
+    tags?: Array<{ tagId: string; name: string }> };
   counts: {
     total: number;
     reviewPending: number;

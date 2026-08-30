@@ -155,6 +155,13 @@ func (configuration Config) MarshalJSON() ([]byte, error) {
 		}
 		return contents, nil
 	}
+	if configuration.Butterscotch != nil {
+		contents, err := json.Marshal(configuration.Butterscotch)
+		if err != nil {
+			return nil, fmt.Errorf("marshal Butterscotch launch config: %w", err)
+		}
+		return contents, nil
+	}
 	type plainConfig Config
 	contents, err := json.Marshal(plainConfig(configuration))
 	if err != nil {
@@ -195,6 +202,13 @@ WHERE launch.id=? AND artifact.available_for_launch=1
 			return Config{}, err
 		}
 		return Config{RuntimeFamily: "KIRIKIRI", KiriKiri: &kirikiri}, nil
+	}
+	if family == "BUTTERSCOTCH" {
+		butterscotch, err := service.butterscotchProductConfig(ctx, launchID, capability)
+		if err != nil {
+			return Config{}, err
+		}
+		return Config{RuntimeFamily: "BUTTERSCOTCH", Butterscotch: &butterscotch}, nil
 	}
 	return Config{}, ErrCredential
 }

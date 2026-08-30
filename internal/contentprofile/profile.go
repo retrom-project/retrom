@@ -25,12 +25,13 @@ const (
 	RawFileFormat             = "RAW_FILE_V1"
 	SingleArchiveMemberFormat = "SINGLE_ARCHIVE_MEMBER_V1"
 
-	ContentKindSingleFile      ContentKind = "SINGLE_FILE"
-	ContentKindDOSBundle       ContentKind = "DOS_BUNDLE"
-	ContentKindMultiDiscM3UV1  ContentKind = "MULTI_DISC_M3U_V1"
-	ContentKindRPGMakerProject ContentKind = "RPG_MAKER_PROJECT_V1"
-	ContentKindONSProject      ContentKind = "ONS_PROJECT_V1"
-	ContentKindKiriKiriProject ContentKind = "KIRIKIRI_PROJECT_V1"
+	ContentKindSingleFile          ContentKind = "SINGLE_FILE"
+	ContentKindDOSBundle           ContentKind = "DOS_BUNDLE"
+	ContentKindMultiDiscM3UV1      ContentKind = "MULTI_DISC_M3U_V1"
+	ContentKindRPGMakerProject     ContentKind = "RPG_MAKER_PROJECT_V1"
+	ContentKindONSProject          ContentKind = "ONS_PROJECT_V1"
+	ContentKindKiriKiriProject     ContentKind = "KIRIKIRI_PROJECT_V1"
+	ContentKindButterscotchProject ContentKind = "BUTTERSCOTCH_PROJECT_V1"
 )
 
 var (
@@ -86,14 +87,20 @@ var registry = map[string]Profile{
 		ArchiveFormats: []ArchiveFormat{ArchiveZIP, ArchiveSevenZip}, FormatCode: "KIRIKIRI_PROJECT_V1",
 		ContentKinds: []ContentKind{ContentKindKiriKiriProject},
 	},
+	"butterscotch": {
+		PlatformID: "butterscotch", ArchivePolicy: ArchiveProject,
+		ArchiveFormats: []ArchiveFormat{ArchiveZIP, ArchiveSevenZip}, FormatCode: "BUTTERSCOTCH_PROJECT_V1",
+		ContentKinds: []ContentKind{ContentKindButterscotchProject},
+	},
 }
 
 var specialPlatformExtensions = map[string][]string{
-	"arcade":   {".zip"},
-	"dos":      {".exe", ".com", ".bat"},
-	"rpgmaker": {".zip", ".7z"},
-	"ons":      {".zip", ".7z"},
-	"kirikiri": {".zip", ".7z"},
+	"arcade":       {".zip"},
+	"dos":          {".exe", ".com", ".bat"},
+	"rpgmaker":     {".zip", ".7z"},
+	"ons":          {".zip", ".7z"},
+	"kirikiri":     {".zip", ".7z"},
+	"butterscotch": {".zip", ".7z"},
 }
 
 func single(platformID string, extensions ...string) Profile {

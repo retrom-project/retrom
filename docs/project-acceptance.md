@@ -6,7 +6,7 @@
 | 版本 | 2.1 |
 | 日期 | 2026-08-25 |
 | 执行者 | AI Agent，必要时由人工复核当前运行生成的画面证据 |
-| 范围 | 工程质量、镜像、本地开发、账户认证与隔离、游戏目录、普通/Pegasus/EmulationStation/RPG Maker 导入审核、BIOS/DAT/RPG 资源包、存储、安全、EmulatorJS/RetromRpgRuntime、联机、35 个 EmulatorJS 核与 7 个 RPG Maker 版本核、PSP ISO/CSO、320px 起的响应式 UI 和 4K UI |
+| 范围 | 工程质量、镜像、本地开发、账户认证与隔离、游戏目录、普通/Pegasus/EmulationStation/RPG Maker/ONS/KiriKiri/GameMaker 导入审核、BIOS/DAT/RPG 资源包、存储、安全、EmulatorJS/retrom-runtime、联机、35 个 EmulatorJS 核与独立 Web runtime 核、PSP ISO/CSO、320px 起的响应式 UI 和 4K UI |
 
 ## 1. 文档职责
 
@@ -62,6 +62,7 @@
 - `ACC-RPG-008` 需要维护者依法持有、自包含且不含付费第三方素材/插件的 RPG Maker MZ Web Browser deployment，通过 `RPG_MZ_SMOKE_ROOT` 指定；它是声明 MZ 完成的 Required 外部前置，缺失时该 Case 为 `BLOCKED` 且整体不得声明全世代支持，不得由 Agent 下载或提交商业内容。
 - `ACC-ONS-001` 需要操作者依法持有的 ONS 项目归档，通过 `RETROM_ONS_SMOKE_ARCHIVE` 指定；归档只进入当次隔离数据根，不提交、镜像或写入结构化证据，缺失时该 Case 为 `BLOCKED`。
 - `ACC-KIRIKIRI-001` 需要操作者依法持有且使用 KAG 书签 API 的 KiriKiri2 项目归档，通过 `RETROM_KIRIKIRI_SMOKE_ARCHIVE` 指定；归档只进入当次隔离数据根，不提交、镜像或写入结构化证据，缺失时该 Case 为 `BLOCKED`。普通自定义 TJS 项目不因能启动而自动获得存档兼容声明。
+- `ACC-BUTTERSCOTCH-001` 需要操作者依法持有、可由锁定 Butterscotch core 运行且能响应标准手柄输入的 GameMaker 项目归档，通过 `RETROM_BUTTERSCOTCH_SMOKE_ARCHIVE` 指定；归档只进入当次隔离数据根，不提交、镜像或写入结构化证据，缺失时该 Case 为 `BLOCKED`。仅有 `data.win` 格式识别不能替代当次实际运行验证。
 - 自动化验收不得读取或下载操作者私有 ROM/BIOS。`testdata/public-roms/gba-smoke/`、`testdata/public-roms/nes-smoke/`、`testdata/public-roms/snes-smoke/`、`testdata/public-roms/arcade-smoke/` 与 `testdata/public-roms/rpgmaker-smoke/` 中的可提交测试程序均由 Retrom 自有源码确定性生成或使用清单锁定的 MIT MV CoreScript、随仓库保留许可且不包含第三方游戏、BIOS、RTP 或商业 runtime bytes。MZ 官方样例始终位于 ignored 操作者目录，只通过转换 provenance 进入 `ACC-RPG-008`。
 
 首次准备依赖可以执行：
@@ -226,7 +227,7 @@ make acceptance-case CASE=<case-id>
 - 上限：900 秒。
 - 执行：`make build-backend-image`，随后 `docker image inspect retrom:latest`；用 `docker image save` 到验收临时目录检查最终 image layer 文件清单，再以 UID/GID `1000:1000`、只读 rootfs、无网络的一次性容器读取并哈希全部内置依赖，容器不挂载数据卷、不启动 Retrom 服务。
 - 流程：先记录 `make release-input-digest`，只构建根 Dockerfile；检查镜像名、镜像没有创建或声明固定运行用户、HTTP 入口、最终镜像配置/发布输入 label、`THIRD_PARTY_NOTICES`、两个 EmulatorJS manifest 的 38 个许可 component、单一 `retrom-runtime` tag 的 runtime allowlist/许可/notice/上游源码定位、五份 DAT 以及密码 blocklist/许可；从适用 manifest 在验收临时目录重建 notice 并逐字节比较。最后确认所有依赖目录对任意非 root UID 可读、可遍历且不可写，所有依赖文件可读且不可写。
-- 通过标准：默认 target 为 `retrom:latest`，image config 的 `User` 为空且 `/etc/passwd` 不含 Retrom 专用账号，运行身份完全由部署编排决定；`io.retrom.release-input-sha256` 等于包含密码与 RPG manifest digest 的本次 helper 值；所有 runtime/DAT/license/blocklist artifact 命中本地 observed 或固定 manifest 校验。最终文件包含 36 个 EmulatorJS 跨版本 selected core/report 条目（合并为 35 个当前新绑定 artifact）、七条 RPG route/artifact 的当前 tag allowlist payload、aggregate notice/许可、PPSSPP assets、五份 DAT、10,000 行密码 blocklist及 MIT 许可，但不包含 RPG 历史版本目录、RTP、用户 MV/MZ runtime/项目、下载 archive、上游源码树、非 allowlist core、用户数据、缓存、TLS 私钥或开发启动命令；被忽略 payload 未被 Git 跟踪且构建不 push。以部署基线 UID/GID `1000:1000` 运行只读依赖校验时不得出现 `payload unavailable`。
+- 通过标准：默认 target 为 `retrom:latest`，image config 的 `User` 为空且 `/etc/passwd` 不含 Retrom 专用账号，运行身份完全由部署编排决定；`io.retrom.release-input-sha256` 等于包含密码与 runtime manifest digest 的本次 helper 值；所有 runtime/DAT/license/blocklist artifact 命中本地 observed 或固定 manifest 校验。最终文件包含 36 个 EmulatorJS 跨版本 selected core/report 条目（合并为 35 个当前新绑定 artifact）、十条独立 runtime route/artifact 的当前 tag allowlist payload、aggregate notice/许可、PPSSPP assets、五份 DAT、10,000 行密码 blocklist及 MIT 许可，但不包含 runtime 历史版本目录、RTP、用户 MV/MZ/GameMaker 项目、下载 archive、上游源码树、非 allowlist core、用户数据、缓存、TLS 私钥或开发启动命令；被忽略 payload 未被 Git 跟踪且构建不 push。以部署基线 UID/GID `1000:1000` 运行只读依赖校验时不得出现 `payload unavailable`。
 - 证据：build log、image ID、RepoTags、User、Entrypoint/Cmd、最终 layer 文件/size/permission 清单、Git tracked-file size 检查、artifact 校验摘要和 UID `1000` 只读校验结果；一次性校验容器销毁后不留下容器、网络或 volume。
 
 ### ACC-PKG-002：前端镜像构建
@@ -490,7 +491,7 @@ make acceptance-case CASE=<case-id>
 - 上限：180 秒。
 - 执行：`make acceptance-case CASE=ACC-PLAT-006`。
 - 流程：使用全新数据根建到 schema 040，确认零目录；ADMIN 读取推荐状态并第一次补齐。随后修改一个模板目录名称/核心、停用一个、软删除一个，再手动创建一个缺失 pair 的等价目录；以新 key 再次补齐，并并发提交两次相同缺失集合。另故障注入一次 AuditEvent 写入失败。
-- 通过标准：catalog 固定返回 29 项且扩展名来自平台 profile；RPG Maker 恰有一个 `rpgmaker/rpgmaker` 虚拟核心推荐目录，不存在 FDS/MAME 2003 独立模板，NES 包含 `.fds`，Arcade `.zip` 不重复。第一次补齐在一个事务创建 29 项并逐项审计；模板、自定义、等价、停用/删除分别投影为 `ACTIVE/CUSTOMIZED/COVERED_BY_EQUIVALENT/SUPPRESSED`。后续补齐不覆盖、不恢复、不重排、不重复创建，新的缺失项只追加到末尾；同 key 精确重放，并发只有一组创建结果；故障使目录、审计和幂等记录全部回滚。手动目录 key 为 NULL，推荐目录 key 唯一。
+- 通过标准：catalog 固定返回 31 项且扩展名来自平台 profile；RPG Maker 恰有一个 `rpgmaker/rpgmaker` 虚拟核心推荐目录，GameMaker 恰有一个 `butterscotch/butterscotch` 推荐目录，不存在 FDS/MAME 2003 独立模板，NES 包含 `.fds`，Arcade `.zip` 不重复。第一次补齐在一个事务创建 31 项并逐项审计；模板、自定义、等价、停用/删除分别投影为 `ACTIVE/CUSTOMIZED/COVERED_BY_EQUIVALENT/SUPPRESSED`。后续补齐不覆盖、不恢复、不重排、不重复创建，新的缺失项只追加到末尾；同 key 精确重放，并发只有一组创建结果；故障使目录、审计和幂等记录全部回滚。手动目录 key 为 NULL，推荐目录 key 唯一。
 - 证据：GET/POST 响应、Idempotency replay header、并发结果、目录/审计/幂等行和 catalog/contentprofile 对照。
 
 ## 9. 游戏管理
@@ -604,8 +605,8 @@ make acceptance-case CASE=<case-id>
 - 上限：300 秒。
 - 前置：计时前已执行一次 `make prepare-deps`，本 Case 期间断网。
 - 执行：`make acceptance-case CASE=ACC-DAT-001`。
-- 流程：runner 先执行 `make data-check` 与 `make deps-check`，验证运行时 manifest/adapter/allowlist、36 个 EmulatorJS 跨版本 selected core/report 条目、单一 `retrom-runtime` tag 的七条 RPG route/artifact、PPSSPP assets、mame2003 override、38 个 EmulatorJS 许可 component、RPG aggregate notice/许可/上游源码定位、五份 DAT，以及密码 blocklist manifest、10,000 行 payload 和 MIT 许可；离线重建适用 notice。再用全新临时 SQLite 和真实五份 DAT 断网启动服务，等待 ready 并重启复用；最后运行 seed/约束负向与 Git payload 边界检查。
-- 通过标准：离线命令成功，所有值与机器基线一致；两份普通 manifest 的 adapter 精确为 `ejs-4.2.3-v3 → 4.2.3`、`ejs-4.3.0-pre-v2 → 4.3.0-pre`，联机 manifest 继续精确引用 legacy `ejs-4.2.3-v2`，base/loader 命中 allowlist，缺失、未知、版本错配或无实现 adapter 均使 `data-check` 失败；35 个 enabled EmulatorJS Core 各恰有一条当前 `selected_for_new_bindings=1,available_for_launch=1` CoreArtifact，七个 RPG Core 各恰有一条同状态 route/artifact，全部逐项等于当前 tag manifest；线程 basename 与实际 artifact 一致，未知版本/route 不回退默认 adapter。冷库先 live/`DEPENDENCY_INDEXING`，五个不可取消 bootstrap Job 在事务外解析，最终五个 Arcade core 各有独立 READY active DAT；重启不重跑 parser。两个 FBA2012 DAT 必须从锁定源码分别完成双生成且 bytes 相同。许可输入逐项命中 size/hash，notice 可重复生成；DAT、EJS/RPG runtime/license/notice payload 均未被 Git 跟踪，RPG 本机物化目录不存在历史版本。整个 Case 断网且启动/解析不尝试 CDN；部署前由 `ACC-PKG-001`–`003` 比较两镜像 release-input digest。
+- 流程：runner 先执行 `make data-check` 与 `make deps-check`，验证运行时 manifest/adapter/allowlist、36 个 EmulatorJS 跨版本 selected core/report 条目、单一 `retrom-runtime` tag 的十条独立 route/artifact、PPSSPP assets、mame2003 override、38 个 EmulatorJS 许可 component、runtime aggregate notice/许可/上游源码定位、五份 DAT，以及密码 blocklist manifest、10,000 行 payload 和 MIT 许可；离线重建适用 notice。再用全新临时 SQLite 和真实五份 DAT 断网启动服务，等待 ready 并重启复用；最后运行 seed/约束负向与 Git payload 边界检查。
+- 通过标准：离线命令成功，所有值与机器基线一致；两份普通 manifest 的 adapter 精确为 `ejs-4.2.3-v3 → 4.2.3`、`ejs-4.3.0-pre-v2 → 4.3.0-pre`，联机 manifest 继续精确引用 legacy `ejs-4.2.3-v2`，base/loader 命中 allowlist，缺失、未知、版本错配或无实现 adapter 均使 `data-check` 失败；35 个 enabled EmulatorJS Core 各恰有一条当前 `selected_for_new_bindings=1,available_for_launch=1` CoreArtifact，七个 RPG Maker 世代 Core 加 ONS、KiriKiri 与 Butterscotch 各恰有一条同状态 route/artifact，全部逐项等于当前 tag manifest；线程 basename 与实际 artifact 一致，未知版本/route 不回退默认 adapter。冷库先 live/`DEPENDENCY_INDEXING`，五个不可取消 bootstrap Job 在事务外解析，最终五个 Arcade core 各有独立 READY active DAT；重启不重跑 parser。两个 FBA2012 DAT 必须从锁定源码分别完成双生成且 bytes 相同。许可输入逐项命中 size/hash，notice 可重复生成；DAT、EJS/runtime/license/notice payload 均未被 Git 跟踪，独立 runtime 本机物化目录不存在历史版本。整个 Case 断网且启动/解析不尝试 CDN；部署前由 `ACC-PKG-001`–`003` 比较两镜像 release-input digest。
 - 证据：逐文件校验/统计、DatVersion/Job 状态序列与 parser 调用计数、事务批次摘要、Git 跟踪边界和断网 network log。
 
 ### ACC-DAT-002：Core 隔离与依赖闭包
@@ -1693,6 +1694,14 @@ Review 与所需 validation Launch。`negative-matrix/matrix.json` 必须精确�
 - 能力边界：即时存档是 KAG `saveBookMark/loadBookMark` 的语义存档，保存 `/save` 与 `/savedata` 的确定性文件集合，不是任意 KiriKiri/TJS 游戏的 Wasm 内存快照。无法找到 KAG API、首个可保存标签或唯一启动 XP3 时必须 fail closed，不能生成看似成功但不可恢复的存档。加密来源归档无法在不接收密码的情况下进入安全扫描，服务端以 `ARCHIVE_ENCRYPTED_UNSUPPORTED` 拒绝，验收将该操作者输入记为 `BLOCKED`，不能误记为 core 运行失败；操作者可在仓库外解密后提供新的合法归档。
 - 证据：当次 `result.json`、`kirikiri-product.json`、六张 canvas PNG 与一张沉浸退出菜单 PNG。结构化证据只含非秘密产品 ID、菜单动作、payload kind/size、canvas 尺寸/居中/焦点、非黑像素、RGBA digest、按需加载计数/byte与错误计数，不含归档路径、文件名、游戏 bytes、账号、CSRF、cookie或 Launch capability。本地 `retrom-runtime` 候选 PASS 只允许进入 runtime Release 流程；Release 完成后 Retrom 必须解除本地链接、固定 tag/commit/assets并重跑本 Case。
 
+### ACC-BUTTERSCOTCH-001：GameMaker 最小产品闭环
+
+- 上限：300 秒。执行：`RETROM_BUTTERSCOTCH_SMOKE_ARCHIVE=<absolute-licensed-project-archive> make acceptance-case CASE=ACC-BUTTERSCOTCH-001`；同时需要公共的 `RETROM_ACCEPTANCE_BASE_URL/USERNAME/PASSWORD` 与 `RETROM_CHROME_EXECUTABLE`，基础地址必须为 HTTPS origin 或 loopback 验收 origin。
+- 流程：经正式 Upload 创建 `BUTTERSCOTCH_PROJECT_V1` Import，等待唯一 Review；打开 Review Preview，等待 `data.win` 下载、OPFS 写入、真实 `640×480` canvas 与第 5 秒截图；审核发布后创建 PRODUCT Launch，注入标准手柄并只用方向与 A 键证明画面变化，再创建 `RUNTIME_STATE` checkpoint；关闭原页面，以该存档创建 ID 不同的 PRODUCT Launch，等待服务端 state 和 core restore ready，再次用标准手柄证明恢复后输入。全过程不直接加载第三方示例页，也不把格式检测当成运行证明。
+- 通过标准：预览和两个 PRODUCT Launch 均运行当前 `BUTTERSCOTCH_GAMEMAKER/butterscotch-web`；canvas 相对 `data-butterscotch-runtime-surface` 横纵居中偏差各不超过 1 px、backing/display 宽高比误差不超过 `0.01` 且持有焦点。五张实际 canvas PNG 均为非黑有效画面，首次与恢复后标准手柄输入分别改变 RGBA digest；checkpoint 为 13 bytes 至 16 MiB 范围内的 `RUNTIME_STATE`，不同 Launch 成功读取。预览只下载一次 `data.win`，恢复 Launch 仍读取一次冻结 `index.json`，但不再请求 `data.win`，从而证明同内容身份的 OPFS 项目缓存复用；浏览器没有 page error、console error 或意外 dialog。
+- 能力边界：Retrom 只根据根目录合法 GameMaker `FORM` 容器识别候选，具体 GameMaker 版本和扩展兼容性必须由这次锁定 Butterscotch runtime trial 证明。Case 只证明固定 `retrom-runtime` tag 与本次依法持有样本的最小兼容性，不扩大为全部 GameMaker 游戏；第三方项目 bytes、路径、账号、CSRF、cookie 和 Launch capability 不进入结构化证据。
+- 证据：当次 `result.json`、`butterscotch-product.json` 与五张 PNG；结构化证据仅保存非秘密产品 ID、payload kind/size、canvas 布局、非黑像素、RGBA digest、项目内容身份和缓存请求计数。
+
 ## 23. 缺陷处理与重验
 
 任一 Case 出现非预期行为即登记 defect，不能在原结果上直接改成 PASS：
@@ -1732,6 +1741,7 @@ red/green/root cause/fix/result/rerun 映射、green command 非零或超时的�
 - `ACC-IMM-001`–`012` 全部通过，且当次实体 standard 手柄 smoke 通过；缺少实体手柄时必须报告 `BLOCKED`，不能删除临时方案或宣称沉浸模式发布完成；
 - `ACC-RPG-001`–`012` 全部为当次 PASS；MZ 必须使用 `RPG_MZ_SMOKE_ROOT` 指定的合法真实 deployment，七个世代必须各至少一次在不同 Launch 精确恢复到 B 点并通过恢复后 `RESTORE_INPUT`；任一只有 API/hash/load success 证据的结果都不得通过；
 - `ACC-ONS-001` 为当次 PASS，且必须包含真实导入、可见画面、基本输入、存档、不同 Launch 恢复与恢复后输入；
+- `ACC-KIRIKIRI-001` 与 `ACC-BUTTERSCOTCH-001` 均为当次 PASS，且必须包含真实导入、可见画面、标准手柄输入、存档、不同 Launch 恢复与恢复后输入；
 - 本次发现的每个 bug 均有回归测试和 red/green 证据；
 - `make ci` 和两个镜像 build target 通过，且镜像构建没有启动服务；
 - 最终报告记录 commit/dirty 状态、环境、Case 结果、缺陷、未执行项和残余风险；
@@ -1765,5 +1775,6 @@ AI Agent 的最终交付摘要必须列出：总结果、失败/阻塞 Case ID�
 | RPG Maker 七世代核心、项目导入、route/artifact、资源包、运行验证、原生 Web 隔离、跨 Launch checkpoint 精确恢复与恢复后输入 | `ACC-RPG-001`–`012` |
 | ONS 项目导入、审核试玩、发布、基本控制、存档与不同 Launch 恢复 | `ACC-ONS-001` |
 | KiriKiri2 KAG 项目导入、审核试玩、发布、基本控制、书签存档与不同 Launch 恢复 | `ACC-KIRIKIRI-001` |
+| GameMaker 项目导入、审核试玩、发布、标准手柄控制、即时存档、不同 Launch 恢复与项目缓存复用 | `ACC-BUTTERSCOTCH-001` |
 
 本文列出的范围不包含 soak、压力或性能基准；未来若需要性能专项，应另建不阻塞一期功能验收的测试计划，不能把长时间运行 Case 混入本文。

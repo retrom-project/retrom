@@ -49,6 +49,7 @@ type Config struct {
 	RPGMaker             *RPGMakerConfig              `json:"-"`
 	ONS                  *ONSConfig                   `json:"-"`
 	KiriKiri             *KiriKiriConfig              `json:"-"`
+	Butterscotch         *ButterscotchConfig          `json:"-"`
 }
 
 type NetplayConfig struct {

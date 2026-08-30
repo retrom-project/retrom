@@ -45,6 +45,12 @@ EXPECTED_FILES = {
     "runtime/kirikiri/vlfs.js": ("vlfs.js", "runtime_js", 256 << 10),
     "runtime/kirikiri/assets.zip": ("assets.zip", "runtime_asset", 16 << 20),
     "licenses/kirikiri2/LICENSE": ("kirikiri2-LICENSE", "license", 64 << 10),
+    "runtime/butterscotch/butterscotch.mjs": ("butterscotch.mjs", "runtime_js", 1 << 20),
+    "runtime/butterscotch/butterscotch.wasm": ("butterscotch.wasm", "runtime_wasm", 16 << 20),
+    "runtime/butterscotch/butterscotch-meta.mjs": ("butterscotch-meta.mjs", "runtime_js", 1 << 20),
+    "runtime/butterscotch/butterscotch-meta.wasm": ("butterscotch-meta.wasm", "runtime_wasm", 1 << 20),
+    "runtime/butterscotch/worker.mjs": ("butterscotch-worker.mjs", "adapter_bridge", 128 << 10),
+    "licenses/butterscotch/LICENSE": ("butterscotch-LICENSE", "license", 64 << 10),
 }
 EXPECTED_ROUTES = {
     "RPG2000_EASYRPG": ("rpgmaker_2000", "RPGMAKER", "RPG2000", "EASYRPG_WEB", "easyrpg-web", "easyrpg-save"),
@@ -57,6 +63,10 @@ EXPECTED_ROUTES = {
     "ONS_YURI": ("onscripter_yuri", "ONS", "ONS", "ONS_YURI_WEB", "ons-yuri-web", "ons-save"),
     "KIRIKIRI2_KAG": (
         "kirikiri2", "KIRIKIRI", "KIRIKIRI2", "KIRIKIRI2_WEB", "kirikiri2-web", "kirikiri-kag-bookmark",
+    ),
+    "BUTTERSCOTCH_GAMEMAKER": (
+        "butterscotch", "BUTTERSCOTCH", "BUTTERSCOTCH", "BUTTERSCOTCH_WEB",
+        "butterscotch-web", "butterscotch-checkpoint-v2",
     ),
 }
 
@@ -166,7 +176,7 @@ def validate_artifacts(value: object, tag: str) -> None:
             raise BuildError("RPG_RUNTIME_ARTIFACT_FILES_INVALID")
         seen.add(artifact["route_key"])
         selected.add(artifact["core_id"])
-    if seen != set(EXPECTED_ROUTES) or len(selected) != 9:
+    if seen != set(EXPECTED_ROUTES) or len(selected) != 10:
         raise BuildError("RPG_RUNTIME_ARTIFACT_ROUTE_INVALID")
 
 

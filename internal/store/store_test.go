@@ -79,9 +79,9 @@ SELECT (SELECT count(*) FROM platforms),
 		t.Fatal(err)
 	}
 	testassert.Falsef(t, testassert.Any(
-		func() bool { return platformCount != 28 },
-		func() bool { return coreCount != 45 },
-		func() bool { return relationCount != 41 },
+		func() bool { return platformCount != 29 },
+		func() bool { return coreCount != 46 },
+		func() bool { return relationCount != 42 },
 		func() bool { return directoryCount != 0 },
 	), "seed counts = %d/%d/%d/%d", platformCount, coreCount, relationCount, directoryCount)
 	assertColumns(t, database.SQL, "platform_instances", "catalog_template_key")
@@ -100,13 +100,13 @@ SELECT (SELECT count(*) FROM profiles),(SELECT count(*) FROM users),state FROM i
 	), "pending auth state = profiles:%d users:%d state:%s", profileCount, userCount, instanceState)
 
 	wantPlatforms := []string{
-		"3do", "arcade", "atari2600", "atari5200", "atari7800", "dos", "fds", "gba", "gbc", "kirikiri", "lynx", "mastersystem",
+		"3do", "arcade", "atari2600", "atari5200", "atari7800", "butterscotch", "dos", "fds", "gba", "gbc", "kirikiri", "lynx", "mastersystem",
 		"megadrive", "n64", "nds", "nes", "ngpc", "nintendo3ds", "ons", "pce", "pcfx", "psp", "psx", "rpgmaker", "saturn", "snes",
 		"virtualboy", "wonderswan",
 	}
 	testassert.Truef(t, slices.Equal(queryStrings(t, database.SQL, "SELECT id FROM platforms ORDER BY id"), wantPlatforms), "platform catalog drifted")
 	wantCores := []string{
-		"a5200", "azahar", "beetle_vb", "desmume", "desmume2015", "dosbox_pure", "fbalpha2012_cps1", "fbalpha2012_cps2",
+		"a5200", "azahar", "beetle_vb", "butterscotch", "desmume", "desmume2015", "dosbox_pure", "fbalpha2012_cps1", "fbalpha2012_cps2",
 		"fbneo", "fceumm", "gambatte", "genesis_plus_gx", "genesis_plus_gx_wide", "handy", "kirikiri2", "mame2003", "mame2003_plus",
 		"mednafen_ngp", "mednafen_pce", "mednafen_pcfx", "mednafen_psx_hw", "mednafen_wswan", "melonds", "mgba",
 		"mupen64plus_next", "nestopia", "onscripter_yuri", "opera", "parallel_n64", "pcsx_rearmed", "picodrive", "ppsspp", "prosystem",

@@ -185,6 +185,29 @@ describe("UploadPicker", () => {
     }));
   });
 
+  it("uses the GameMaker project upload purpose and exposes the trial runtime", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ importJobId: "butterscotch-import" }), { status: 202, headers: { "Content-Type": "application/json" } }));
+    vi.stubGlobal("fetch", fetchMock);
+    const user = userEvent.setup();
+    render(<UploadPicker directories={[{
+      id: "butterscotch", name: "GameMaker 游戏", platformName: "GameMaker", coreName: "Butterscotch",
+      importCapabilities: { contentModes: ["BUTTERSCOTCH_PROJECT_V1"], multiDisc: null },
+    }]} />);
+
+    await user.upload(screen.getByLabelText("选择导入文件"), new File(["FORM"], "game.zip"));
+    await user.click(screen.getByRole("button", { name: "下一步" }));
+    await user.selectOptions(screen.getByRole("combobox", { name: "目标游戏目录" }), "butterscotch");
+    expect(screen.getByText("GameMaker 项目")).toBeVisible();
+    expect(screen.getByText(/当前原型支持带 data.win/)).toBeVisible();
+    expect(screen.getByLabelText("元信息来源")).toHaveValue("不刮削（GameMaker 项目）");
+
+    await user.click(screen.getByRole("button", { name: "上传并试运行 GameMaker 项目" }));
+    expect(upload.uploadFiles).toHaveBeenCalledWith(expect.any(Array), expect.any(Function), "BUTTERSCOTCH_PROJECT");
+    expect(fetchMock).toHaveBeenCalledWith("/api/v1/admin/imports", expect.objectContaining({
+      body: JSON.stringify({ uploadId: "rpg-upload", targetPlatformInstanceId: "butterscotch", metadataProvider: "NONE", contentMode: "BUTTERSCOTCH_PROJECT_V1", tagIds: [] }),
+    }));
+  });
+
   it("opens task progress as soon as the server accepts background preparation", async () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response(
       JSON.stringify({ importJobId: "queued-import", jobId: "group-job", state: "QUEUED", itemCount: 0 }),
