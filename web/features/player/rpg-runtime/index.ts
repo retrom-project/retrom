@@ -100,7 +100,6 @@ function playerBridgeOptions(config: RpgRuntimeConfig) {
     return {
       checkpointFormat: "mkxp-state-compact-v1",
       payloadKind: "RUNTIME_STATE" as const,
-      rpgPositionProbe: true,
       validationPurpose: config.purpose === "RPG_RUNTIME_VALIDATION",
     };
   }
@@ -109,7 +108,6 @@ function playerBridgeOptions(config: RpgRuntimeConfig) {
       ? "easyrpg-save-bundle-v1"
       : "native-save-bundle-v1",
     payloadKind: "NATIVE_SAVE_BUNDLE_V1" as const,
-    rpgPositionProbe: true,
     validationPurpose: config.purpose === "RPG_RUNTIME_VALIDATION",
   };
 }

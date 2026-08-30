@@ -116,7 +116,6 @@ export type EmulatorInstance = {
   gameManager?: {
     savePayloadKind?: "RUNTIME_STATE" | "NATIVE_SAVE_BUNDLE_V1" | "ONS_SAVE_BUNDLE_V1" | "KIRIKIRI_SAVE_BUNDLE_V1";
     validationPurpose?: boolean;
-    getRpgPosition?: () => { mapId: number; playerX: number; playerY: number; fixtureState: number };
     getCheckpointAvailability?: () => { available: boolean; reason: string | null };
     FS?: {
       analyzePath: (path: string) => { exists: boolean };

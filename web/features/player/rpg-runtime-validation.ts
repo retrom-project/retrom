@@ -1,5 +1,9 @@
 import { sha256 } from "@/lib/crypto";
 import {
+  rpgMakerPositionProbeKind,
+  type GameRuntime,
+} from "@xxxsen/retrom-runtime";
+import {
   captureManualScreenshot,
   captureManualState,
   type EmulatorInstance,
@@ -13,6 +17,7 @@ import {
   validateRpgPosition,
   type RpgGate,
   type RpgGateEvidence,
+  type RpgPosition,
 } from "./rpg-validation-protocol";
 import type { ValidationCheckpointReceipt } from "./rpg-validation-checkpoint-response";
 import {
@@ -46,6 +51,7 @@ export class RpgRuntimeValidationDriver {
   private readonly listeners = new Set<() => void>();
   private snapshot: RpgValidationSnapshot;
   private instance: EmulatorInstance | null = null;
+  private runtime: GameRuntime | null = null;
   private activeGate: RpgGate | null = null;
 
   constructor(options: DriverOptions) {
@@ -73,8 +79,9 @@ export class RpgRuntimeValidationDriver {
     catch (error) {this.setFatal(error); throw error;}
   }
 
-  async attachRuntime(instance: EmulatorInstance) {
+  async attachRuntime(instance: EmulatorInstance, runtime: GameRuntime) {
     this.instance = instance;
+    this.runtime = runtime;
     try {
       if (this.isRestore()) {await this.completeRestore();}
       else {await this.completeAutomaticOriginalGates();}
@@ -112,7 +119,7 @@ export class RpgRuntimeValidationDriver {
   }
 
   private async completeAutomaticOriginalGates() {
-    const instance = this.requireInstance();
+    const runtime = this.requireRuntime();
     await this.completeGate("RUNTIME_READY", {});
     await this.completeGate("ENGINE_PROFILE", {
       generation: this.config.generation,
@@ -121,13 +128,13 @@ export class RpgRuntimeValidationDriver {
     });
     if (!this.gatePassed("FRAMES_300")) {
       await this.ensureBegin("FRAMES_300");
-      await this.pass("FRAMES_300", { continuousFrames: await waitForContinuousFrames(instance, this.signal) });
+      await this.pass("FRAMES_300", { continuousFrames: await waitForContinuousFrames(runtime, this.signal) });
     }
     await this.resumeOriginalActions();
   }
 
   private async confirmInput() {
-    const position = readPosition(this.requireInstance());
+    const position = readPosition(this.requireRuntime());
     await this.passPair("INPUT", { observed: true });
     this.patch({ observedPosition: position });
     this.setPhase("audio", "保持游戏音量开启，确认已经听到当前游戏实际播放的声音。", "已听到游戏音频");
@@ -162,23 +169,24 @@ export class RpgRuntimeValidationDriver {
 
   private async recordInitialPosition() {
     if (this.gatePassed("INITIAL_POSITION_RECORDED")) {return;}
-    const initial = await waitForRpgPosition(this.requireInstance(), this.signal);
+    const initial = await waitForRpgPosition(this.requireRuntime(), this.signal);
     await this.passPair("INITIAL_POSITION_RECORDED", initial);
     this.patch({ initialPosition: initial, observedPosition: initial });
   }
 
   private async createCheckpoint() {
     const instance = this.requireInstance();
+    const runtime = this.requireRuntime();
     const availability = instance.gameManager?.getCheckpointAvailability?.();
     if (availability?.available !== true) {
       this.patch({ busy: false, error: checkpointUnavailableMessage(availability?.reason) });
       return;
     }
     if (await this.finishUploadedCheckpoint()) {return;}
-    const before = readPosition(instance);
+    const before = readPosition(runtime);
     const screenshot = await captureManualScreenshot(instance);
     const payload = await captureManualState(instance, screenshot);
-    const after = readPosition(instance);
+    const after = readPosition(runtime);
     if (!sameRpgPosition(before, after)) {
       this.patch({ busy: false, error: "创建检查点期间位置发生变化，请在 B 点停下后重试。", observedPosition: after });
       return;
@@ -211,7 +219,7 @@ export class RpgRuntimeValidationDriver {
   }
 
   private async recordDivergence() {
-    const position = readPosition(this.requireInstance());
+    const position = readPosition(this.requireRuntime());
     if (!this.snapshot.savedPosition || sameRpgPosition(position, this.snapshot.savedPosition)) {
       this.patch({ busy: false, error: "C 必须与 B 至少有一个字段不同，请继续操作游戏。", observedPosition: position });
       return;
@@ -238,9 +246,10 @@ export class RpgRuntimeValidationDriver {
 
   private async completeRestore() {
     const instance = this.requireInstance();
+    const runtime = this.requireRuntime();
     await this.completeGate("RESTORE_STARTED", {});
     if (!this.gatePassed("RESTORE_POSITION_VERIFIED")) {
-      const restored = readPosition(instance);
+      const restored = readPosition(runtime);
       await this.passPair("RESTORE_POSITION_VERIFIED", restored);
       this.patch({ observedPosition: restored });
     }
@@ -259,7 +268,7 @@ export class RpgRuntimeValidationDriver {
   }
 
   private async confirmRestoreInput() {
-    const position = readPosition(this.requireInstance());
+    const position = readPosition(this.requireRuntime());
     const restored = this.snapshot.savedPosition ?? this.snapshot.observedPosition;
     if (!restored || sameRpgPosition(position, restored)) {
       this.patch({ busy: false, error: "尚未检测到恢复后的位置或测试变量变化，请先操作游戏。", observedPosition: position });
@@ -319,6 +328,11 @@ export class RpgRuntimeValidationDriver {
     return this.instance;
   }
 
+  private requireRuntime() {
+    if (!this.runtime) {throw new Error("RPG_RUNTIME_NOT_READY");}
+    return this.runtime;
+  }
+
   private updateGate(gate: RpgGate, status: RpgValidationGateStatus) {
     this.patch({
       gates: { ...this.snapshot.gates, [gate]: status },
@@ -368,37 +382,41 @@ function phaseTitle(phase: RpgValidationPhase) {
   return phase === "error" ? "运行验证失败" : "正在执行自动检查";
 }
 
-function readPosition(instance: EmulatorInstance) {
-  const position = instance.gameManager?.getRpgPosition?.();
-  if (!position || !validateRpgPosition(position)) {throw new Error("RPG_RUNTIME_POSITION_UNAVAILABLE");}
+function readPosition(runtime: GameRuntime) {
+  const probe = runtime.getValidationProbe(rpgMakerPositionProbeKind);
+  const position = probe?.value as RpgPosition | undefined;
+  if (!probe || probe.kind !== rpgMakerPositionProbeKind || probe.schemaVersion !== 1 ||
+      !position || !validateRpgPosition(position)) {
+    throw new Error("RPG_RUNTIME_POSITION_UNAVAILABLE");
+  }
   return { ...position };
 }
 
 export async function waitForRpgPosition(
-  instance: EmulatorInstance,
+  runtime: GameRuntime,
   signal: AbortSignal,
   wait: (signal: AbortSignal) => Promise<void> = waitForPositionSample,
 ) {
   const deadline = performance.now() + 120_000;
   while (performance.now() < deadline) {
-    try {return readPosition(instance);}
+    try {return readPosition(runtime);}
     catch {await wait(signal);}
   }
   throw new Error("RPG_RUNTIME_POSITION_UNAVAILABLE");
 }
 
 export async function waitForContinuousFrames(
-  instance: EmulatorInstance,
+  runtime: GameRuntime,
   signal: AbortSignal,
   wait: (signal: AbortSignal) => Promise<void> = waitForFrameSample,
 ) {
-  await waitForRpgPosition(instance, signal, wait);
+  await waitForRpgPosition(runtime, signal, wait);
   const deadline = performance.now() + 30_000;
-  const first = await readFrameWhenAvailable(instance, signal, deadline, wait);
+  const first = await readFrameWhenAvailable(runtime, signal, deadline, wait);
   let previous = first;
   while (performance.now() < deadline) {
     await wait(signal);
-    const current = await readFrameWhenAvailable(instance, signal, deadline, wait);
+    const current = await readFrameWhenAvailable(runtime, signal, deadline, wait);
     if (current < previous) {throw new Error("RPG_RUNTIME_FRAME_DISCONTINUITY");}
     const continuous = current - first;
     if (continuous >= 300) {
@@ -411,13 +429,13 @@ export async function waitForContinuousFrames(
 }
 
 async function readFrameWhenAvailable(
-  instance: EmulatorInstance,
+  runtime: GameRuntime,
   signal: AbortSignal,
   deadline: number,
   wait: (signal: AbortSignal) => Promise<void>,
 ) {
   while (performance.now() < deadline) {
-    try {return readFrame(instance);}
+    try {return readFrame(runtime);}
     catch (error) {
       if (!transientFrameReadError(error)) {throw error;}
       await wait(signal);
@@ -431,8 +449,8 @@ function transientFrameReadError(error: unknown) {
     (error.message === "RPG_RUNTIME_POSITION_UNAVAILABLE" || error.message === "RPG_RUNTIME_FRAME_UNAVAILABLE");
 }
 
-function readFrame(instance: EmulatorInstance) {
-  const frame = instance.gameManager?.getFrameNum?.();
+function readFrame(runtime: GameRuntime) {
+  const frame = runtime.getFrameCount();
   if (!Number.isSafeInteger(frame) || Number(frame) < 0) {throw new Error("RPG_RUNTIME_FRAME_UNAVAILABLE");}
   return Number(frame);
 }
