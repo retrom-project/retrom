@@ -144,6 +144,7 @@ export function initialRuntimeState(review: ReviewWorkspace) {
   const validationWasCurrent = review.validation?.current ?? false;
   return {
     validationWasCurrent,
+    validationStale: review.validationStale ?? false,
     validation: review.validation,
     effectiveSourceSnapshotId: review.effectiveSourceSnapshotId ?? "",
     arcadeDependencies: review.arcadeDependencies ?? null,

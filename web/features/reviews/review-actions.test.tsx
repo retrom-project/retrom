@@ -330,12 +330,14 @@ describe("ReviewActions metadata continuation", () => {
     render(<ReviewActions review={{ ...review, canApprove: false, validationStale: true, validation: { ...review.validation!, current: false } }} />);
 
     expect(screen.getByRole("button", { name: "通过并发布" })).toBeDisabled();
-    expect(screen.getByText("运行检查更新中")).toBeInTheDocument();
+    expect(screen.getByText("Runtime 待重检")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "运行游戏" })).toBeDisabled();
     await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
       expect.stringMatching(/reviews\/item-1$/),
       expect.objectContaining({ method: "PATCH", body: expect.stringContaining('"title":"Manual"') }),
     ));
     await waitFor(() => expect(screen.getByRole("button", { name: "通过并发布" })).toBeEnabled());
+    expect(screen.getByRole("button", { name: "运行游戏" })).toBeEnabled();
     expect(fetchMock).toHaveBeenCalledWith("/api/v1/admin/reviews/item-1", { cache: "no-store" });
   });
 
@@ -356,9 +358,13 @@ describe("ReviewActions metadata continuation", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
     const user = userEvent.setup();
-    render(<ReviewActions review={{ ...review, validation: { ...review.validation!, status: "BLOCKED", current: false, compatibilityCode: "LAUNCH_BIOS_MISSING" } }} />);
+    render(<ReviewActions review={{ ...review, validationStale: true, validation: { ...review.validation!, status: "BLOCKED", current: false, compatibilityCode: "LAUNCH_BIOS_MISSING" } }} />);
 
     expect(screen.getByRole("button", { name: "通过并发布" })).toBeDisabled();
+    expect(screen.getByText("Runtime 已更新，请先重新运行检查。")).toBeVisible();
+    expect(screen.getByText("Runtime 待重检")).toBeVisible();
+    expect(screen.getByRole("button", { name: "运行游戏" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "运行游戏" })).toHaveAttribute("aria-describedby", "review-runtime-refresh-required");
     await user.click(screen.getByRole("button", { name: "重新运行检查" }));
     await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(expect.stringMatching(/reviews\/item-1$/), expect.objectContaining({ method: "PATCH" })));
     await waitFor(() => expect(screen.getByRole("button", { name: "通过并发布" })).toBeEnabled());
@@ -388,6 +394,7 @@ describe("ReviewActions metadata continuation", () => {
     const user = userEvent.setup();
     render(<ReviewActions review={blocked} />);
 
+    expect(screen.getByRole("button", { name: "运行游戏" })).toBeEnabled();
     await user.click(screen.getByRole("button", { name: "运行游戏" }));
     await waitFor(() => expect(replace).toHaveBeenCalledWith("/admin/review-previews/preview-best-effort"));
     expect(fetchMock).toHaveBeenCalledWith("/api/v1/admin/reviews/item-1/previews", expect.objectContaining({ method: "POST" }));
