@@ -112,8 +112,8 @@ func TestTyranoScriptProjectPathSupportsEngineAbsoluteResources(t *testing.T) {
 	t.Parallel()
 	accepted := map[string]string{
 		"/__retrom/tyranoscript/project/data/scenario/first.ks": "data/scenario/first.ks",
-		"/__retrom/tyranoscript/data/bgimage/title.jpg":          "data/bgimage/title.jpg",
-		"/__retrom/tyranoscript/tyrano/html/menu.html":           "tyrano/html/menu.html",
+		"/__retrom/tyranoscript/data/bgimage/title.jpg":         "data/bgimage/title.jpg",
+		"/__retrom/tyranoscript/tyrano/html/menu.html":          "tyrano/html/menu.html",
 		"/data/bgimage/title.jpg":                               "data/bgimage/title.jpg",
 		"/tyrano/html/menu.html":                                "tyrano/html/menu.html",
 	}
