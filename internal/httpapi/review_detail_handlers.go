@@ -21,10 +21,12 @@ d.updated_at_ms,
 pi.id,
 pi.name,
 current_artifact.compatibility_json,
+current_artifact.runtime_version,
 v.id,
 v.status,
 v.compatibility_code,
 v.dependency_snapshot_json,
+validation_artifact.runtime_version,
 d.selected_validation_id,
 source_snapshot.id,
 source_snapshot.source_manifest_json,
@@ -52,9 +54,9 @@ FROM import_item_core_validations candidate
 WHERE candidate.import_item_id=i.id
 AND candidate.source_snapshot_id=d.effective_source_snapshot_id
 AND candidate.target_platform_instance_id=d.target_platform_instance_id
-AND candidate.core_artifact_id=current_artifact.id
 ORDER BY candidate.created_at_ms DESC,
 candidate.id DESC LIMIT 1))
+LEFT JOIN core_artifacts validation_artifact ON validation_artifact.id=v.core_artifact_id
 WHERE i.id=?
 AND i.state='REVIEW_PENDING'
 AND (i.review_handoff_kind='DIRECT' OR EXISTS(
@@ -76,8 +78,8 @@ AND NOT EXISTS(
 // Contract branches stay contiguous for a single auditable decision.
 func (server *Server) review(writer http.ResponseWriter, request *http.Request) {
 	var itemID, importJobID, metadata, platformID, platformName, sourceSnapshotID, sourceManifest string
-	var sourceContentKind, currentArtifactCompatibility string
-	var validationID, validationStatus, compatibilityCode, dependencySnapshot sql.NullString
+	var sourceContentKind, currentArtifactCompatibility, currentRuntimeVersion string
+	var validationID, validationStatus, compatibilityCode, dependencySnapshot, validationRuntimeVersion sql.NullString
 	var selectedValidationID sql.NullString
 	var validationGeneration sql.NullInt64
 	var selectedCandidateID, coverID, uploadedCoverID, backgroundID, defaultDOSEntry sql.NullString
@@ -94,10 +96,12 @@ func (server *Server) review(writer http.ResponseWriter, request *http.Request) 
 			&platformID,
 			&platformName,
 			&currentArtifactCompatibility,
+			&currentRuntimeVersion,
 			&validationID,
 			&validationStatus,
 			&compatibilityCode,
 			&dependencySnapshot,
+			&validationRuntimeVersion,
 			&selectedValidationID,
 			&sourceSnapshotID,
 			&sourceManifest,
@@ -149,8 +153,13 @@ func (server *Server) review(writer http.ResponseWriter, request *http.Request) 
 			"name": platformName,
 		}, "metadata": metadataValue, "sourceManifest": sourceValue,
 		"validation": evidence.validation.value, "candidates": evidence.candidates,
-		"scrapeRuns":                   evidence.scrapeRuns,
-		"validationStale":              evidence.validation.stale,
+		"scrapeRuns":      evidence.scrapeRuns,
+		"validationStale": evidence.validation.stale,
+		"runtimeVersionChange": runtimeVersionChange(
+			evidence.validation.stale,
+			validationRuntimeVersion,
+			currentRuntimeVersion,
+		),
 		"selectedValidationGeneration": evidence.validation.selectedGeneration,
 		"canApprove":                   canApprove,
 		"uploadedAssets":               evidence.uploadedAssets, "sourceFiles": evidence.sourceFiles,
@@ -169,6 +178,13 @@ func (server *Server) review(writer http.ResponseWriter, request *http.Request) 
 			"screenshotCandidateAssetIds": evidence.screenshotIDs,
 		}, "dosEntries": evidence.dosEntries, "tags": reviewTags,
 	})
+}
+
+func runtimeVersionChange(stale bool, previous sql.NullString, current string) any {
+	if !stale || !previous.Valid || previous.String == current {
+		return nil
+	}
+	return map[string]string{"previous": previous.String, "current": current}
 }
 
 func reviewDocuments(metadata, sourceManifest string) (any, any) {

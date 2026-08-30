@@ -104,6 +104,7 @@ paths:
       - $ref: ../components/common.yaml#/components/parameters/ImportItemID
     get:
       operationId: getAdminReview
+      description: Returns the review workspace. When a historical validation is stale because the selected runtime changed, runtimeVersionChange identifies the previous and current runtime versions.
       responses:
         '200':
           $ref: ../components/common.yaml#/components/responses/JSONResponse
