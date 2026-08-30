@@ -190,6 +190,38 @@ WHERE id=? AND purpose='RPG_RUNTIME_VALIDATION' AND state='ACTIVE'
 	if err != nil || updated != 1 {
 		return ErrBlocked
 	}
+	if err := failUnfinishedRPGValidation(ctx, transaction, launchID, now); err != nil {
+		return err
+	}
+	return nil
+}
+
+func failUnfinishedRPGValidation(
+	ctx context.Context,
+	transaction *sql.Tx,
+	launchID string,
+	now int64,
+) error {
+	_, err := transaction.ExecContext(ctx, `
+UPDATE rpgmaker_runtime_validations
+SET state='FAILED',failure_code='RPG_RUNTIME_VALIDATION_WINDOW_CLOSED',updated_at_ms=?
+WHERE state NOT IN ('PASSED','FAILED','EXPIRED')
+AND (
+  launch_id=? AND NOT EXISTS(
+    SELECT 1 FROM rpgmaker_runtime_validation_gate_events event
+    WHERE event.validation_id=rpgmaker_runtime_validations.id
+      AND event.gate='ORIGINAL_LAUNCH_ENDED' AND event.phase='PASS'
+  )
+  OR restore_launch_id=? AND NOT EXISTS(
+    SELECT 1 FROM rpgmaker_runtime_validation_gate_events event
+    WHERE event.validation_id=rpgmaker_runtime_validations.id
+      AND event.gate='RESTORE_INPUT' AND event.phase='PASS'
+  )
+)
+`, now, launchID, launchID)
+	if err != nil {
+		return fmt.Errorf("launch/service: close RPG validation: %w", err)
+	}
 	return nil
 }
 

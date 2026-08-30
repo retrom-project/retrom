@@ -300,19 +300,24 @@ function reviewDecisionMessage(model: ReviewViewModel) {
 
 function RPGReviewDecision({ model }: { model: ReviewViewModel }) {
   const validation = model.rpgValidation.validation;
-  return <aside id="review-step-decision" className="review-workflow-decision"><h2>审核决定</h2><p>{rpgDecisionMessage(model.rpgMaker, validation)}</p><div className="review-workflow-save"><span>实时保存</span><strong className={`autosave-state ${model.saveState}`}><i aria-hidden="true" /><span>{model.saveLabel}</span></strong></div><RPGValidationActions model={model} /><div className="review-workflow-decision-actions"><button type="button" className="button secondary" disabled={model.busy !== null} onClick={() => void model.commands.discard()}>{model.busy === "丢弃" ? "正在丢弃…" : "丢弃条目"}</button><button type="button" className="button" disabled={model.busy !== null || !model.publishReady || model.saveState === "error"} onClick={() => void model.commands.approve()}>{model.busy === "发布" ? "正在发布…" : "通过并发布"}</button></div></aside>;
+  const message = rpgDecisionMessage(model, validation);
+  const descriptionId = model.validationStale ? "review-runtime-refresh-required" : undefined;
+  return <aside id="review-step-decision" className="review-workflow-decision"><h2>审核决定</h2><p id={descriptionId} className={model.validationStale ? "is-runtime-refresh-required" : undefined} title={model.validationStale ? message : undefined}>{message}</p><div className="review-workflow-save"><span>实时保存</span><strong className={`autosave-state ${model.saveState}`}><i aria-hidden="true" /><span>{model.saveLabel}</span></strong></div><RPGValidationActions model={model} descriptionId={descriptionId} message={message} /><div className="review-workflow-decision-actions"><button type="button" className="button secondary" disabled={model.busy !== null} onClick={() => void model.commands.discard()}>{model.busy === "丢弃" ? "正在丢弃…" : "丢弃条目"}</button><button type="button" className="button" disabled={model.busy !== null || !model.publishReady || model.saveState === "error"} onClick={() => void model.commands.approve()}>{model.busy === "发布" ? "正在发布…" : "通过并发布"}</button></div></aside>;
 }
 
-function rpgDecisionMessage(rpgMaker: ReviewViewModel["rpgMaker"], validation: ReviewViewModel["rpgValidation"]["validation"]) {
-  if (validation && !rpgMaker?.runtimeValidationCurrent) {return "当前绑定已变化；历史验证不能发布，请重新运行游戏。";}
+function rpgDecisionMessage(model: ReviewViewModel, validation: ReviewViewModel["rpgValidation"]["validation"]) {
+  if (model.validationStale && model.runtimeVersionChange) {return `Runtime ${model.runtimeVersionChange.previous} → ${model.runtimeVersionChange.current}，请重新检查。`;}
+  if (model.validationStale) {return "Runtime 已更新，请先重新运行检查。";}
+  if (validation && !model.rpgMaker?.runtimeValidationCurrent) {return "当前绑定已变化；历史验证不能发布，请重新运行游戏。";}
   if (validation?.launchId) {return "游戏 Launch 已创建；确认可运行后即可发布，高级恢复验证为可选。";}
   return "请先运行一次游戏，随后即可通过并发布。";
 }
 
-function RPGValidationActions({ model }: { model: ReviewViewModel }) {
+function RPGValidationActions({ model, descriptionId, message }: { model: ReviewViewModel; descriptionId?: string; message: string }) {
   return <div className="review-workflow-preview-actions">
+    <button type="button" className="button secondary review-revalidate" aria-busy={model.busy === "重新运行检查"} disabled={!model.validationStale || model.busy !== null || model.saveState === "error"} onClick={() => void model.commands.revalidate()}>{model.busy === "重新运行检查" ? "正在检查…" : "重新运行检查"}</button>
     {model.rpgValidation.canRestore ? <button type="button" className="button secondary review-launch-preview" disabled={model.busy !== null} onClick={() => void model.rpgValidation.restore()}>验证恢复</button> : null}
-    {model.rpgValidation.canCreate ? <button type="button" className="button secondary review-launch-preview" disabled={model.busy !== null || model.saveState === "error"} onClick={() => void model.rpgValidation.create()}>运行游戏</button> : null}
+    <button type="button" className="button secondary review-launch-preview" aria-describedby={descriptionId} title={model.validationStale ? message : model.rpgValidation.canCreate ? undefined : "请先关闭当前游戏窗口或完成当前验证"} disabled={model.validationStale || !model.rpgValidation.canCreate || model.busy !== null || model.saveState === "error"} onClick={() => void model.rpgValidation.create()}>运行游戏</button>
     {model.rpgValidation.canDecide ? <><button type="button" className="button secondary" disabled={model.busy !== null} onClick={() => void model.rpgValidation.decide("FAIL")}>判定失败</button><button type="button" className="button" disabled={model.busy !== null} onClick={() => void model.rpgValidation.decide("PASS")}>确认验证通过</button></> : null}
   </div>;
 }
