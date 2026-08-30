@@ -50,6 +50,7 @@ class ONSProductAcceptanceTests(unittest.TestCase):
         contents = DRIVER_PATH.read_text(encoding="utf-8")
         self.assertNotIn("/data/game", contents)
         self.assertIn("RETROM_ONS_SMOKE_ARCHIVE", contents)
+        self.assertIn("observedEvidence", contents)
 
     def test_driver_accepts_http_only_for_local_acceptance_hosts(self) -> None:
         contents = DRIVER_PATH.read_text(encoding="utf-8")

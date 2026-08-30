@@ -32,15 +32,20 @@ mkdirSync(screenshotsDirectory, { recursive: true });
 const localProxy = await localRpgAcceptanceProxy(baseUrl);
 
 let browser;
+let observedEvidence = null;
 try {
   browser = await chromium.launch({ executablePath: process.env.RETROM_CHROME_EXECUTABLE, headless: true });
   const evidence = await runProductCase(browser);
+  observedEvidence = evidence;
   assertOnsProductEvidence(evidence);
   writeEvidence(evidence);
   process.stdout.write(`${JSON.stringify(evidence)}\n`);
 } catch (error) {
   const errorCode = stableErrorCode(error);
-  writeEvidence({ schemaVersion: 1, caseId, status: "FAIL", errorCode });
+  writeEvidence({
+    schemaVersion: 1, caseId, status: "FAIL", errorCode,
+    ...(observedEvidence ? { observedEvidence } : {}),
+  });
   process.stderr.write(`${errorCode}\n`);
   process.exitCode = 1;
 } finally {
