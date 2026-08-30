@@ -58,7 +58,11 @@ describe("SaveManager", () => {
     expect(rule).toContain("position: absolute");
     expect(rule).toContain("right: 8px");
     expect(rule).toContain("bottom: 8px");
-    expect(rule).toContain("border-radius: 999px");
+    expect(rule).toContain("height: 22px");
+    expect(rule).toContain("display: inline-flex");
+    expect(rule).toContain("align-items: center");
+    expect(rule).toContain("justify-content: center");
+    expect(rule).toContain("border-radius: 5px");
     expect(rule).toContain("background: #4435a7");
   });
 
