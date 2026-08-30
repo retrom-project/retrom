@@ -11,6 +11,7 @@ import {
   tyranoScriptProductStages,
 } from "./tyranoscript_product_contract.mjs";
 import { localRpgAcceptanceProxy } from "./rpgmaker_local_proxy.mjs";
+import { requireLocalRuntimeSite } from "./rpgmaker_security_runtime.mjs";
 import { createProductClient, singleFile } from "./rpgmaker_security_upload.mjs";
 import { isLocalAcceptanceHostname } from "./rpgmaker_url.mjs";
 
@@ -76,7 +77,9 @@ async function runProductCase(activeBrowser) {
 
     const preview = await createPreview(client, review.itemId);
     const previewPage = await trackedPage(context, browserEvidence, resources);
+    const previewConfigPromise = waitForConfig(previewPage, preview.previewId);
     await previewPage.goto(`${baseUrl}${preview.playUrl}`, {waitUntil: "domcontentloaded", timeout: 120_000});
+    requireTyranoScriptRuntimeSite(await previewConfigPromise);
     const previewSurface = await tyranoSurface(previewPage);
     await previewPage.getByText("第 5 秒运行截图已保存；可以继续试玩。").waitFor({timeout: 120_000});
     const previewScreenshot = await screenshotEvidence(previewSurface, "preview.png");
@@ -269,6 +272,14 @@ async function waitForConfig(page, launchId) {
   {timeout: 120_000});
   requireStatus(response.status(), 200, "TYRANOSCRIPT_ACCEPTANCE_CONFIG_FAILED");
   return response.json();
+}
+
+function requireTyranoScriptRuntimeSite(config) {
+  try {
+    requireLocalRuntimeSite(baseUrl, config.adapter?.uniqueOrigin);
+  } catch {
+    throw new Error("TYRANOSCRIPT_ACCEPTANCE_RUNTIME_ORIGIN_INVALID");
+  }
 }
 
 async function sendGamepadInput(surface) {
