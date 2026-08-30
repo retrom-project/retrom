@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, type Dispatch, type MutableRefObject, type SetStateAction } from "react";
+import { useCallback, useEffect, useRef, type Dispatch, type MutableRefObject, type SetStateAction } from "react";
 import { newUuid } from "@/lib/crypto";
 import { writeHeaders } from "@/lib/api/client";
 import { responseError } from "@/lib/upload";
@@ -25,6 +25,8 @@ type RPGValidationParams = {
 export function useRPGReviewValidation(params: RPGValidationParams) {
   const { reviewId, versionRef, rpgMaker, setRPGMaker, flushDraft, run, setNotice, setToast } = params;
   const validation = rpgMaker?.runtimeValidation ?? null;
+  const popupWatchRef = useRef<number | null>(null);
+  const popupRefreshRef = useRef<number | null>(null);
   const replaceValidation = useCallback((next: RPGRuntimeValidation) => {
     setRPGMaker((current) => current ? {
       ...current,
@@ -44,6 +46,38 @@ export function useRPGReviewValidation(params: RPGValidationParams) {
     return next;
   }, [reviewId, replaceValidation]);
 
+  const stopPopupWatch = useCallback(() => {
+    if (popupWatchRef.current !== null) {
+      window.clearInterval(popupWatchRef.current);
+      popupWatchRef.current = null;
+    }
+    if (popupRefreshRef.current !== null) {
+      window.clearTimeout(popupRefreshRef.current);
+      popupRefreshRef.current = null;
+    }
+  }, []);
+
+  const watchPopupClose = useCallback((popup: Window, validationId: string) => {
+    stopPopupWatch();
+    popupWatchRef.current = window.setInterval(() => {
+      if (!popup.closed) {return;}
+      if (popupWatchRef.current !== null) {
+        window.clearInterval(popupWatchRef.current);
+        popupWatchRef.current = null;
+      }
+      popupRefreshRef.current = window.setTimeout(() => {
+        popupRefreshRef.current = null;
+        void readValidation(validationId).then((next) => {
+          if (["PASSED", "FAILED", "EXPIRED"].includes(next.state)) {
+            setNotice("游戏窗口已关闭，可以再次运行游戏。");
+          }
+        }).catch(() => setNotice("游戏窗口已关闭；刷新页面可获取最新验证状态。"));
+      }, 350);
+    }, 250);
+  }, [readValidation, setNotice, stopPopupWatch]);
+
+  useEffect(() => stopPopupWatch, [stopPopupWatch]);
+
   async function create() {
     const popup = openRPGPlayerWindow(setToast, "正在准备 RPG Maker 运行验证…");
     if (!popup) {return;}
@@ -58,6 +92,7 @@ export function useRPGReviewValidation(params: RPGValidationParams) {
       const created = await response.json() as { validationId: string; playerUrl: string };
       await readValidation(created.validationId);
       navigatePopup(popup, created.playerUrl);
+      watchPopupClose(popup, created.validationId);
       setNotice("游戏窗口已打开；确认游戏可运行后即可返回审核页发布，高级恢复验证为可选。");
     });
     if (!succeeded && !popup.closed) {popup.close();}
@@ -77,6 +112,7 @@ export function useRPGReviewValidation(params: RPGValidationParams) {
       const created = await response.json() as { playerUrl: string };
       await readValidation(validation.validationId);
       navigatePopup(popup, created.playerUrl);
+      watchPopupClose(popup, validation.validationId);
       setNotice("已创建不同的恢复 Launch；系统将逐字段核对地图、坐标和验证状态。");
     });
     if (!succeeded && !popup.closed) {popup.close();}
@@ -101,7 +137,7 @@ export function useRPGReviewValidation(params: RPGValidationParams) {
     create,
     restore,
     decide,
-    canCreate: !validation || !rpgMaker?.runtimeValidationCurrent || ["FAILED", "EXPIRED"].includes(validation.state),
+    canCreate: !validation || !rpgMaker?.runtimeValidationCurrent || ["PASSED", "FAILED", "EXPIRED"].includes(validation.state),
     canRestore: rpgMaker?.runtimeValidationCurrent === true && validation?.state === "CHECKPOINTED" && validation.checkpointRoundTrip.originalLaunchEnded,
     canDecide: rpgMaker?.runtimeValidationCurrent === true && validation?.state === "AWAITING_DECISION",
   };
@@ -191,15 +227,43 @@ export function RPGValidationCard({ value, disabled, onChange }: {
 }) {
   const validation = value.runtimeValidation;
   return <section className="panel review-rpg-validation">
-    <div className="panel-head"><div><h2>RPG Maker 运行验证</h2><p>先运行一次游戏即可发布；机器门禁与跨 Launch 恢复是可选高级验证。</p></div><strong>{validation && !value.runtimeValidationCurrent ? "历史验证" : validation?.state ?? "尚未开始"}</strong></div>
+    <div className="panel-head"><div><h2>RPG Maker 运行验证</h2><p>先运行一次游戏即可发布；机器门禁与跨 Launch 恢复是可选高级验证。</p></div></div>
     <div className="panel-body">
       <RPGValidationFacts value={value} />
       <RPGPackControls value={value} disabled={disabled} onChange={onChange} />
+      <RPGValidationEvidence validation={validation} />
+    </div>
+  </section>;
+}
+
+function RPGValidationEvidence({ validation }: { validation: RPGRuntimeValidation | null }) {
+  if (!validation) {
+    return <p className="muted">点击“运行游戏”后即可发布；如需深入验证，可继续按固定顺序采集机器证据。</p>;
+  }
+  return <details className="review-rpg-evidence">
+    <summary>
+      <span className="review-rpg-evidence-summary"><strong>高级验证详情</strong><small>{validationSummary(validation)}</small></span>
+      <span className="review-rpg-evidence-chevron" aria-hidden="true">⌄</span>
+    </summary>
+    <div className="review-rpg-evidence-body">
+      <p>实时进度与完整证据也会显示在运行游戏窗口中。</p>
       <RPGValidationIdentity validation={validation} />
       <RPGGateList validation={validation} />
       <RPGCheckpointRoundTrip validation={validation} />
     </div>
-  </section>;
+  </details>;
+}
+
+function validationSummary(validation: RPGRuntimeValidation) {
+  if (validation.state === "FAILED") {
+    const failure = validation.failureCode ?? validation.machineGates.find((gate) => gate.status === "FAILED")?.failureCode;
+    return `验证失败${failure ? ` · ${failure}` : ""}`;
+  }
+  if (validation.state === "EXPIRED") {return "验证已过期";}
+  if (["AWAITING_DECISION", "PASSED"].includes(validation.state)) {
+    return `服务端进度 ${validation.lastGateSequence} / 28 · 已完成`;
+  }
+  return `服务端进度 ${validation.lastGateSequence} / 28 · 进行中`;
 }
 
 function RPGValidationIdentity({ validation }: { validation: RPGRuntimeValidation | null }) {
@@ -218,7 +282,7 @@ function RPGValidationFacts({ value }: { value: RPGMakerReview }) {
 }
 
 function RPGGateList({ validation }: { validation: RPGRuntimeValidation | null }) {
-  if (!validation) {return <p className="muted">点击“运行游戏”后即可发布；如需深入验证，可继续按固定顺序采集机器证据。</p>;}
+  if (!validation) {return null;}
   return <ol className="review-rpg-gates">{validation.machineGates.map((gate) => <li key={gate.gate} data-status={gate.status}><span>{gateLabels[gate.gate] ?? gate.gate}<small>{gateEvidenceText(gate.evidence)}</small></span><strong>{gateStatus(gate)}</strong></li>)}</ol>;
 }
 

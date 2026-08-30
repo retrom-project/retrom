@@ -1,4 +1,5 @@
 import { cleanup, render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { RPGMakerReview } from "./review-actions-model";
 import { RPGValidationCard } from "./review-rpg-validation";
@@ -40,8 +41,16 @@ const review: RPGMakerReview = {
 };
 
 describe("RPGValidationCard", () => {
-  it("renders server launch identity, sequence and gate evidence", () => {
+  it("keeps advanced server evidence collapsed until the reviewer asks for it", async () => {
+    const user = userEvent.setup();
     render(<RPGValidationCard value={review} disabled={false} onChange={vi.fn()} />);
+
+    expect(screen.getByText("高级验证详情")).toBeVisible();
+    expect(screen.getByText("服务端进度 28 / 28 · 已完成")).toBeVisible();
+    expect(screen.getByText("10000000-0000-4000-8000-000000000003")).not.toBeVisible();
+    expect(screen.getByText("连续帧 360")).not.toBeVisible();
+
+    await user.click(screen.getByText("高级验证详情"));
 
     expect(screen.getByText("10000000-0000-4000-8000-000000000003")).toBeVisible();
     expect(screen.getByText("10000000-0000-4000-8000-000000000004")).toBeVisible();
@@ -50,5 +59,32 @@ describe("RPGValidationCard", () => {
     expect(screen.getByText("连续帧 360")).toBeVisible();
     expect(screen.getAllByText("地图 1 · (8, 7) · 状态 1").length).toBeGreaterThan(0);
     expect(screen.getByText(/NATIVE_SAVE_BUNDLE_V1 · 4 KB · SHA-256 a{12}/)).toBeVisible();
+  });
+
+  it("surfaces a failed result in the compact summary without expanding the evidence", () => {
+    render(<RPGValidationCard value={{
+      ...review,
+      runtimeValidation: { ...review.runtimeValidation!, state: "FAILED", failureCode: "RPG_RUNTIME_GATE_INPUT_FAILED" },
+    }} disabled={false} onChange={vi.fn()} />);
+
+    expect(screen.getByText("验证失败 · RPG_RUNTIME_GATE_INPUT_FAILED")).toBeVisible();
+    expect(screen.getByText("连续帧 360")).not.toBeVisible();
+  });
+
+  it("does not expose the internal running state as a redundant header badge", () => {
+    render(<RPGValidationCard value={{
+      ...review,
+      runtimeValidation: { ...review.runtimeValidation!, state: "RUNNING", lastGateSequence: 6 },
+    }} disabled={false} onChange={vi.fn()} />);
+
+    expect(screen.queryByText("RUNNING")).not.toBeInTheDocument();
+    expect(screen.getByText("服务端进度 6 / 28 · 进行中")).toBeVisible();
+  });
+
+  it("keeps the launch guidance compact before validation starts", () => {
+    render(<RPGValidationCard value={{ ...review, runtimeValidation: null }} disabled={false} onChange={vi.fn()} />);
+
+    expect(screen.getByText(/点击“运行游戏”后即可发布/)).toBeVisible();
+    expect(screen.queryByText("高级验证详情")).not.toBeInTheDocument();
   });
 });

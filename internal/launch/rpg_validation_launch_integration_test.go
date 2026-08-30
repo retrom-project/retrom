@@ -88,6 +88,7 @@ func TestRPGValidationLaunchLocksProjectAndRestoresAfterTerminalOriginal(t *test
 	if err != nil || finished.PlaySessionID != nil || finished.State != "FINISHED" {
 		t.Fatalf("finish RPG validation play = %#v, error=%v", finished, err)
 	}
+	assertRPGValidationState(t, database.SQL, fixture.validationID, "CHECKPOINTED")
 	assertRPGPlaySessionCount(t, database.SQL, created.LaunchID, 0)
 	restore, err := service.CreateRPGValidationRestore(
 		ctx, "local", fixture.validationID, "/admin/reviews/"+fixture.itemID, Capabilities{},
@@ -114,6 +115,17 @@ func TestRPGValidationLaunchLocksProjectAndRestoresAfterTerminalOriginal(t *test
 	}
 	assertRPGValidationConfigJSONShape(t, restoreUnion, 20, created.LaunchID, &restore.LaunchID)
 	assertRPGPlaySessionCount(t, database.SQL, restore.LaunchID, 0)
+	restoreStarted, err := service.RecordPlay(ctx, restore.LaunchID, restore.Capability, "start", start)
+	if err != nil || restoreStarted.State != "ACTIVE" {
+		t.Fatalf("start RPG restore play = %#v, error=%v", restoreStarted, err)
+	}
+	if _, err := service.RecordPlay(ctx, restore.LaunchID, restore.Capability, "finish", PlayEvent{
+		ClientSequence: 1, ClientObservedAtMS: now.UnixMilli() + 2,
+		PreviousInterval: &Interval{Running: true, Visible: true},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	assertClosedRPGValidation(t, database.SQL, fixture.validationID)
 }
 
 func TestRPGValidationLaunchAllowsReviewApprovalBeforeOptionalMachineGates(t *testing.T) {
