@@ -362,6 +362,10 @@ test("ACC-IMM-010 save library selects an older save, restores it and creates an
   expect(saveLayout?.mediaRatio).toBeGreaterThan(0.6);
   expect(saveLayout?.mediaRatio).toBeLessThan(0.64);
   await expect(saveRail.getByRole("button")).toHaveCount(saveTotal);
+  await expect(saveRail.locator('[data-immersive-save-size="true"]')).toHaveCount(saveTotal);
+  for (const label of await saveRail.locator('[data-immersive-save-size="true"]').all()) {
+    await expect(label).toHaveText(/^\d+(?:\.\d{1,2})?(?:B|KB|MB|GB)$/u);
+  }
   await expect(saveRail.getByRole("button", { pressed: true })).toHaveAccessibleName(/第 1 份存档/);
   await expect(saveRail.getByText(/^手动存档/u)).toHaveCount(0);
   expect((await screenshotResponse).headers()["cache-control"]).toBe("private, no-store");

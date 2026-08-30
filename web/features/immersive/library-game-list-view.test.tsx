@@ -41,6 +41,7 @@ function game(index: number, saves = 0): ImmersiveGame {
       saveStateId: `10000000-0000-7000-8000-${String(saveIndex).padStart(12, "0")}`,
       name: `存档 ${saveIndex + 1}`,
       createdAtMs: 2_000 + saveIndex,
+      sizeBytes: saveIndex === 0 ? 800 * 1024 : Math.round(1.23 * 1024 * 1024),
       discIndex: null,
       screenshotUrl: `/content/save-states/save-${saveIndex}/screenshot`,
     })),
@@ -118,6 +119,8 @@ describe("immersive library game list", () => {
     expect(screen.getByRole("img", { name: `${savedGame.title} 视频预览` })).toBeInTheDocument();
     expect(saveList.querySelectorAll("button")).toHaveLength(2);
     expect(screen.getAllByRole("img", { name: /存档截图/ })).toHaveLength(2);
+    expect(screen.getByText("800KB")).toBeInTheDocument();
+    expect(screen.getByText("1.23MB")).toBeInTheDocument();
     expect(screen.getByRole("button", { pressed: true })).toHaveAccessibleName(/第 1 份存档/);
     expect(screen.queryByText("存档 1")).not.toBeInTheDocument();
     fireEvent.keyDown(window, { key: "ArrowRight" });

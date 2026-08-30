@@ -790,7 +790,8 @@ Favorite、SaveState 和最近时间不得跨 Profile 聚合。
 favorites 响应同时返回该 Profile 的 `folders` 与当前可空 `folder`，其他范围两者为空。all/favorites/saves
 使用上述 `titleInitial/title/gameId` 顺序；recent 例外地按本 Profile `lastPlayedAtMs DESC,gameId DESC`，没有
 游玩记录的游戏不进入 recent。saves 只列至少有一份当前可用存档的游戏，每项 `saveStates` 按
-`createdAtMs DESC,saveStateId DESC` 返回，截图 URL 继续是私有 no-store 端点。签名 cursor 绑定 Profile、
+`createdAtMs DESC,saveStateId DESC` 返回，并投影真实 payload `sizeBytes`；截图 URL 继续是私有 no-store
+端点。签名 cursor 绑定 Profile、
 libraryKind、folderId、limit 与排序版本；未知 query、非法组合、篡改或跨范围 cursor 均稳定拒绝。
 
 `ImmersiveGameItem` 的 `titleInitial` 只接受 `#|0-9|A-Z`；ASCII 数字原样、ASCII 字母转大写、首个汉字取
