@@ -2858,7 +2858,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Stores one bounded PNG using the path-scoped capability. The legacy branch accepts a current non-RPG review preview after five seconds, creates a review-runtime screenshot asset, and returns that asset ID and URL. The RPG branch accepts only the current validation's distinct restore Launch after the original Launch ended and RESTORE_POSITION_VERIFIED passed, binds the PNG directly to the validation's immutable restore evidence, and returns the validation ID as screenshotId and review-asset URL. The original validation Launch, ordinary published Launch sessions, expired capabilities, duplicate evidence, and binding drift cannot use this route. */
+        /** @description Stores one bounded PNG or JPEG using the path-scoped capability. The legacy branch accepts a current non-RPG review preview after five seconds, creates a review-runtime screenshot asset, and returns that asset ID and URL. The RPG branch accepts only PNG from the current validation's distinct restore Launch after the original Launch ended and RESTORE_POSITION_VERIFIED passed, binds it directly to the validation's immutable restore evidence, and returns the validation ID as screenshotId and review-asset URL. The original validation Launch, ordinary published Launch sessions, expired capabilities, duplicate evidence, and binding drift cannot use this route. */
         post: operations["postRuntimeReviewScreenshot"];
         delete?: never;
         options?: never;
@@ -3468,7 +3468,7 @@ export interface components {
             captureAllowed: boolean;
             captureAfterMs: number;
         };
-        LaunchConfig: components["schemas"]["EmulatorJSLaunchConfig"] | components["schemas"]["RpgMakerLaunchConfig"] | components["schemas"]["OnsLaunchConfig"] | components["schemas"]["KiriKiriLaunchConfig"] | components["schemas"]["ButterscotchLaunchConfig"];
+        LaunchConfig: components["schemas"]["EmulatorJSLaunchConfig"] | components["schemas"]["RpgMakerLaunchConfig"] | components["schemas"]["OnsLaunchConfig"] | components["schemas"]["KiriKiriLaunchConfig"] | components["schemas"]["ButterscotchLaunchConfig"] | components["schemas"]["TyranoScriptLaunchConfig"];
         EmulatorJSLaunchConfig: {
             /**
              * @description discriminator enum property added by openapi-typescript
@@ -3793,6 +3793,56 @@ export interface components {
             warnings: string[];
             adapter: components["schemas"]["ButterscotchAdapterConfig"];
             checkpoint: components["schemas"]["ButterscotchCheckpointRestore"] | null;
+            reviewPreview?: components["schemas"]["ReviewPreviewConfig"];
+        };
+        TyranoScriptAdapterConfig: {
+            /** @enum {string} */
+            adapterKind: "TYRANOSCRIPT_WEB";
+            /** @enum {string} */
+            adapterId: "tyranoscript-web";
+            bootstrapTicket: string;
+            /** Format: uri */
+            cleanupUrl: string | null;
+            /** Format: uri */
+            entryUrl: string;
+            /** Format: uri */
+            uniqueOrigin: string;
+        };
+        TyranoScriptCheckpointRestore: {
+            /** @enum {string} */
+            payloadKind: "RUNTIME_STATE";
+            payloadUrl: string;
+        };
+        TyranoScriptLaunchConfig: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            runtimeFamily: "TYRANOSCRIPT";
+            /** @enum {integer} */
+            protocolVersion: 1;
+            /** @enum {string} */
+            mode: "single";
+            /** @enum {string} */
+            purpose: "PRODUCT" | "REVIEW_PREVIEW";
+            /** Format: uuid */
+            launchId: string;
+            /** Format: uuid */
+            sessionId: string;
+            /** @enum {string} */
+            coreId: "tyranoscript";
+            coreName: string;
+            gameTitle: string;
+            /** @enum {string} */
+            platformName: "TyranoScript";
+            runtimeVersion: string;
+            /** Format: uuid */
+            artifactId: string;
+            contentDigest: string;
+            returnTo: string;
+            warnings: string[];
+            adapter: components["schemas"]["TyranoScriptAdapterConfig"];
+            checkpoint: components["schemas"]["TyranoScriptCheckpointRestore"] | null;
             reviewPreview?: components["schemas"]["ReviewPreviewConfig"];
         };
         /** @enum {string} */
@@ -4169,7 +4219,7 @@ export interface components {
              * @default GENERAL
              * @enum {string}
              */
-            purpose: "GENERAL" | "RPG_MAKER_PROJECT" | "ONS_PROJECT" | "KIRIKIRI_PROJECT" | "BUTTERSCOTCH_PROJECT" | "RUNTIME_ASSET_PACK";
+            purpose: "GENERAL" | "RPG_MAKER_PROJECT" | "ONS_PROJECT" | "KIRIKIRI_PROJECT" | "BUTTERSCOTCH_PROJECT" | "TYRANOSCRIPT_PROJECT" | "RUNTIME_ASSET_PACK";
             /** @enum {string} */
             sourceType: "FILES" | "DIRECTORY";
             files: {
@@ -4194,7 +4244,7 @@ export interface components {
              * @description Omitted requests use STANDARD.
              * @enum {string}
              */
-            contentMode?: "STANDARD" | "MULTI_DISC_M3U_V1" | "RPG_MAKER_PROJECT_V1" | "ONS_PROJECT_V1" | "KIRIKIRI_PROJECT_V1" | "BUTTERSCOTCH_PROJECT_V1";
+            contentMode?: "STANDARD" | "MULTI_DISC_M3U_V1" | "RPG_MAKER_PROJECT_V1" | "ONS_PROJECT_V1" | "KIRIKIRI_PROJECT_V1" | "BUTTERSCOTCH_PROJECT_V1" | "TYRANOSCRIPT_PROJECT_V1";
         };
         ReconfigureImportRequest: {
             /** Format: uuid */
@@ -4364,7 +4414,7 @@ export interface components {
              * @default STANDARD
              * @enum {string}
              */
-            contentMode: "STANDARD" | "MULTI_DISC_M3U_V1" | "RPG_MAKER_PROJECT_V1" | "ONS_PROJECT_V1" | "KIRIKIRI_PROJECT_V1" | "BUTTERSCOTCH_PROJECT_V1";
+            contentMode: "STANDARD" | "MULTI_DISC_M3U_V1" | "RPG_MAKER_PROJECT_V1" | "ONS_PROJECT_V1" | "KIRIKIRI_PROJECT_V1" | "BUTTERSCOTCH_PROJECT_V1" | "TYRANOSCRIPT_PROJECT_V1";
         };
         ApplyCandidateRequest: {
             fields: ("title" | "description" | "developer" | "publisher" | "genre" | "players" | "releaseYear")[];
@@ -10184,7 +10234,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "image/png": string;
+                "image/*": string;
             };
         };
         responses: {

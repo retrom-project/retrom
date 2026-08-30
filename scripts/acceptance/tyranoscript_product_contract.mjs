@@ -32,7 +32,7 @@ function assertIds(value) {
 
 function assertCheckpoint(value) {
   if (!exactRecord(value, ["payloadKind", "sizeBytes"]) || value.payloadKind !== "RUNTIME_STATE" ||
-      !Number.isSafeInteger(value.sizeBytes) || value.sizeBytes < 1 || value.sizeBytes > 16 * 1024 * 1024) {
+      !Number.isSafeInteger(value.sizeBytes) || value.sizeBytes < 1 || value.sizeBytes > 32 * 1024 * 1024) {
     throw new Error("TYRANOSCRIPT_ACCEPTANCE_EVIDENCE_INVALID");
   }
 }

@@ -30,6 +30,9 @@ function evidence() {
 
 test("accepts the complete TyranoScript product chain", () => {
   assert.doesNotThrow(() => assertTyranoScriptProductEvidence(evidence()));
+  assert.doesNotThrow(() => assertTyranoScriptProductEvidence({
+    ...evidence(), checkpoint: {payloadKind: "RUNTIME_STATE", sizeBytes: 32 * 1024 * 1024},
+  }));
 });
 
 test("rejects restore, resource, screenshot and browser regressions", () => {
@@ -38,6 +41,7 @@ test("rejects restore, resource, screenshot and browser regressions", () => {
     {...evidence(), resources: {...evidence().resources, engineAsset200Count: 0}},
     {...evidence(), screenshots: {...evidence().screenshots, restored: {...screenshot, nonBlackPixels: 0}}},
     {...evidence(), browser: {...evidence().browser, consoleErrorCount: 1}},
+    {...evidence(), checkpoint: {payloadKind: "RUNTIME_STATE", sizeBytes: 32 * 1024 * 1024 + 1}},
   ];
   for (const value of invalid) {
     assert.throws(() => assertTyranoScriptProductEvidence(value), /TYRANOSCRIPT_ACCEPTANCE_/u);

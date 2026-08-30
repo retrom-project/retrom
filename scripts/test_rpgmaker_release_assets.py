@@ -63,9 +63,9 @@ class RPGMakerReleaseAssetTests(unittest.TestCase):
     def setUp(self) -> None:
         self.manifest = BUILD.load_manifest()
 
-    def test_manifest_contains_only_one_release_and_ten_current_routes(self) -> None:
+    def test_manifest_contains_only_one_release_and_eleven_current_routes(self) -> None:
         BUILD.validate_manifest(self.manifest)
-        self.assertEqual(10, len(self.manifest["artifacts"]))
+        self.assertEqual(11, len(self.manifest["artifacts"]))
         self.assertEqual(
             set(BUILD.EXPECTED_ROUTES),
             {item["route_key"] for item in self.manifest["artifacts"]},
@@ -90,7 +90,7 @@ class RPGMakerReleaseAssetTests(unittest.TestCase):
             )
             observed = json.loads((root / BUILD.OBSERVED_FILENAME).read_text())
             self.assertEqual(self.manifest["release"]["tag"], observed["tag"])
-            self.assertEqual(22, len(observed["files"]))
+            self.assertEqual(24, len(observed["files"]))
 
     def test_release_metadata_sha_is_not_a_remote_admission_coordinate(self) -> None:
         records = BUILD.validate_release_metadata(self.manifest, metadata(self.manifest))
@@ -104,6 +104,20 @@ class RPGMakerReleaseAssetTests(unittest.TestCase):
         previous["publicApiVersion"] = 1
         with self.assertRaisesRegex(BUILD.BuildError, "RPG_RUNTIME_RELEASE_METADATA_INVALID"):
             BUILD.validate_release_metadata(self.manifest, json.dumps(previous).encode())
+
+    def test_web_package_uses_the_same_aggregate_release(self) -> None:
+        version = self.manifest["release"]["tag"].removeprefix("v")
+        asset_url = (
+            "https://github.com/xxxsen/retrom-runtime/releases/download/"
+            f"v{version}/xxxsen-retrom-runtime-{version}.tgz"
+        )
+        package = json.loads((ROOT / "web/package.json").read_text(encoding="utf-8"))
+        package_lock = json.loads((ROOT / "web/package-lock.json").read_text(encoding="utf-8"))
+        locked = package_lock["packages"]["node_modules/@xxxsen/retrom-runtime"]
+        self.assertEqual(asset_url, package["dependencies"]["@xxxsen/retrom-runtime"])
+        self.assertEqual(asset_url, package_lock["packages"][""]["dependencies"]["@xxxsen/retrom-runtime"])
+        self.assertEqual(version, locked["version"])
+        self.assertEqual(asset_url, locked["resolved"])
 
     def test_local_tamper_and_offline_missing_release_fail_closed(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

@@ -109,7 +109,8 @@ func (server *Server) launchProjectFile(writer http.ResponseWriter, request *htt
 		)
 	}
 	if err != nil || content.Format != "RPG_MAKER_PROJECT_V1" && content.Format != "ONS_PROJECT_V1" &&
-		content.Format != "KIRIKIRI_PROJECT_V1" && content.Format != "BUTTERSCOTCH_PROJECT_V1" {
+		content.Format != "KIRIKIRI_PROJECT_V1" && content.Format != "BUTTERSCOTCH_PROJECT_V1" &&
+		content.Format != "TYRANOSCRIPT_PROJECT_V1" {
 		writeError(
 			writer, request, http.StatusUnauthorized, "LAUNCH_CREDENTIAL_INVALID",
 			"项目内容不可用", map[string]any{},

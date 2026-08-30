@@ -304,7 +304,7 @@ WHERE deleted_at_ms IS NULL;
 CREATE VIEW save_state_runtime_compatibility AS
 SELECT save.id AS save_state_id,
 CASE
-  WHEN writer.runtime_family IN ('RPGMAKER','ONS','KIRIKIRI','BUTTERSCOTCH') THEN CASE WHEN EXISTS(
+  WHEN writer.runtime_family IN ('RPGMAKER','ONS','KIRIKIRI','BUTTERSCOTCH','TYRANOSCRIPT') THEN CASE WHEN EXISTS(
     SELECT 1 FROM core_artifacts current
     WHERE current.core_id=writer.core_id AND current.route_key=writer.route_key
       AND current.runtime_family=writer.runtime_family
@@ -668,6 +668,8 @@ BEGIN
           AND NOT EXISTS(SELECT 1 FROM rpgmaker_variant_profiles profile WHERE profile.game_variant_revision_id=revision.id)
         OR artifact.runtime_family='BUTTERSCOTCH' AND revision.emulator_game_id IS NULL
           AND NOT EXISTS(SELECT 1 FROM rpgmaker_variant_profiles profile WHERE profile.game_variant_revision_id=revision.id)
+        OR artifact.runtime_family='TYRANOSCRIPT' AND revision.emulator_game_id IS NULL
+          AND NOT EXISTS(SELECT 1 FROM rpgmaker_variant_profiles profile WHERE profile.game_variant_revision_id=revision.id)
       )
   ) THEN RAISE(ABORT, 'variant current must be ready and owned') END;
 END;
@@ -689,6 +691,8 @@ BEGIN
         OR artifact.runtime_family='KIRIKIRI' AND revision.emulator_game_id IS NULL
           AND NOT EXISTS(SELECT 1 FROM rpgmaker_variant_profiles profile WHERE profile.game_variant_revision_id=revision.id)
         OR artifact.runtime_family='BUTTERSCOTCH' AND revision.emulator_game_id IS NULL
+          AND NOT EXISTS(SELECT 1 FROM rpgmaker_variant_profiles profile WHERE profile.game_variant_revision_id=revision.id)
+        OR artifact.runtime_family='TYRANOSCRIPT' AND revision.emulator_game_id IS NULL
           AND NOT EXISTS(SELECT 1 FROM rpgmaker_variant_profiles profile WHERE profile.game_variant_revision_id=revision.id)
       )
   ) THEN RAISE(ABORT, 'variant current must be ready and owned') END;
@@ -2132,6 +2136,10 @@ WHEN NOT EXISTS (
     SELECT 1 FROM import_item_source_snapshot_files file
     WHERE file.source_snapshot_id=NEW.source_snapshot_id AND file.role='PROJECT_FILE'
       AND file.blob_id=NEW.content_blob_id AND file.logical_name=NEW.content_logical_name
+  ) OR NEW.content_kind='TYRANOSCRIPT_PROJECT_V1' AND NEW.content_format='TYRANOSCRIPT_PROJECT_V1' AND EXISTS (
+    SELECT 1 FROM import_item_source_snapshot_files file
+    WHERE file.source_snapshot_id=NEW.source_snapshot_id AND file.role='PROJECT_FILE'
+      AND file.blob_id=NEW.content_blob_id AND file.logical_name=NEW.content_logical_name
   )
 )
 BEGIN SELECT RAISE(ABORT,'invalid review preview snapshot'); END;
@@ -2146,7 +2154,9 @@ WHEN NEW.role='PROJECT_FILE' AND NOT EXISTS (
     AND source.logical_name=NEW.logical_name
     AND source.blob_id=NEW.blob_id
   WHERE preview.id=NEW.preview_session_id
-    AND preview.content_kind IN ('ONS_PROJECT_V1','KIRIKIRI_PROJECT_V1','BUTTERSCOTCH_PROJECT_V1')
+    AND preview.content_kind IN (
+      'ONS_PROJECT_V1','KIRIKIRI_PROJECT_V1','BUTTERSCOTCH_PROJECT_V1','TYRANOSCRIPT_PROJECT_V1'
+    )
 )
 BEGIN SELECT RAISE(ABORT,'invalid review preview project file'); END;
 
@@ -2498,6 +2508,11 @@ OR NEW.runtime_family='BUTTERSCOTCH' AND NOT (
   NEW.core_id='butterscotch' AND NEW.runtime_adapter_kind='BUTTERSCOTCH_WEB'
     AND NEW.route_key='BUTTERSCOTCH_GAMEMAKER'
 )
+OR NEW.core_id='tyranoscript' AND NEW.runtime_family<>'TYRANOSCRIPT'
+OR NEW.runtime_family='TYRANOSCRIPT' AND NOT (
+  NEW.core_id='tyranoscript' AND NEW.runtime_adapter_kind='TYRANOSCRIPT_WEB'
+    AND NEW.route_key='TYRANOSCRIPT_WEB'
+)
 OR NEW.runtime_family='RPGMAKER' AND NOT (
   NEW.core_id IN ('rpgmaker_2000','rpgmaker_2003')
     AND NEW.runtime_adapter_kind='EASYRPG_WEB'
@@ -2753,6 +2768,7 @@ WHEN NOT EXISTS(
       OR artifact.runtime_family='ONS' AND NEW.emulator_game_id IS NULL
       OR artifact.runtime_family='KIRIKIRI' AND NEW.emulator_game_id IS NULL
       OR artifact.runtime_family='BUTTERSCOTCH' AND NEW.emulator_game_id IS NULL
+      OR artifact.runtime_family='TYRANOSCRIPT' AND NEW.emulator_game_id IS NULL
     )
 )
 BEGIN SELECT RAISE(ABORT,'variant revision runtime mismatch'); END;
@@ -3123,7 +3139,7 @@ OR NEW.purpose='PRODUCT' AND NOT EXISTS(
     AND (
       launch_artifact.runtime_family='EMULATORJS'
         AND revision.core_artifact_id=NEW.core_artifact_id AND revision.route_key=NEW.route_key
-      OR launch_artifact.runtime_family IN ('RPGMAKER','ONS','KIRIKIRI','BUTTERSCOTCH')
+      OR launch_artifact.runtime_family IN ('RPGMAKER','ONS','KIRIKIRI','BUTTERSCOTCH','TYRANOSCRIPT')
         AND launch_artifact.selected_for_new_bindings=1
         AND launch_artifact.core_id=bound_artifact.core_id
         AND launch_artifact.runtime_family=bound_artifact.runtime_family
@@ -3143,7 +3159,7 @@ OR NEW.purpose='PRODUCT' AND NEW.save_state_id IS NOT NULL AND NOT EXISTS(
     AND save.game_variant_revision_id=NEW.game_variant_revision_id
     AND (
       launch_artifact.runtime_family='EMULATORJS' AND save.core_artifact_id=NEW.core_artifact_id
-      OR launch_artifact.runtime_family IN ('RPGMAKER','ONS','KIRIKIRI','BUTTERSCOTCH')
+      OR launch_artifact.runtime_family IN ('RPGMAKER','ONS','KIRIKIRI','BUTTERSCOTCH','TYRANOSCRIPT')
         AND compatibility.status='AVAILABLE'
         AND launch_artifact.selected_for_new_bindings=1
         AND launch_artifact.core_id=writer.core_id
@@ -3181,6 +3197,14 @@ WHEN NEW.state IN ('FINISHED','EXPIRED','REVOKED') AND OLD.state<>NEW.state
 BEGIN
   UPDATE isolated_runtime_capabilities SET revoked_at_ms=NEW.finished_at_ms
   WHERE launch_id=NEW.id AND revoked_at_ms IS NULL;
+END;
+
+CREATE TRIGGER review_preview_sessions_revoke_isolated_runtime
+AFTER UPDATE OF state ON review_preview_sessions
+WHEN NEW.state IN ('EXPIRED','REVOKED') AND OLD.state<>NEW.state
+BEGIN
+  UPDATE isolated_runtime_capabilities SET revoked_at_ms=NEW.finished_at_ms
+  WHERE preview_id=NEW.id AND revoked_at_ms IS NULL;
 END;
 
 CREATE TRIGGER rpgmaker_runtime_validation_checkpoints_insert
@@ -3252,6 +3276,10 @@ OR NOT EXISTS(
         AND writer.core_id=bound_artifact.core_id AND writer.route_key=revision.route_key
         AND json_extract(writer.compatibility_json,'$.gameCompatibilityLine')=
             json_extract(bound_artifact.compatibility_json,'$.gameCompatibilityLine')
+      OR writer.runtime_family='TYRANOSCRIPT'
+        AND writer.core_id=bound_artifact.core_id AND writer.route_key=revision.route_key
+        AND json_extract(writer.compatibility_json,'$.gameCompatibilityLine')=
+            json_extract(bound_artifact.compatibility_json,'$.gameCompatibilityLine')
       OR writer.runtime_family='RPGMAKER'
         AND writer.core_id=bound_artifact.core_id AND writer.route_key=revision.route_key
         AND json_extract(writer.compatibility_json,'$.gameCompatibilityLine')=
@@ -3282,55 +3310,96 @@ BEGIN SELECT RAISE(ABORT,'save checkpoint binding is immutable'); END;
 
 CREATE TRIGGER isolated_runtime_bootstrap_tickets_insert
 BEFORE INSERT ON isolated_runtime_bootstrap_tickets
-WHEN NOT EXISTS(
-  SELECT 1 FROM launch_sessions launch
-  JOIN core_artifacts artifact ON artifact.id=launch.core_artifact_id
-  WHERE launch.id=NEW.launch_id AND launch.profile_id=NEW.profile_id
-    AND launch.state='CREATED' AND artifact.runtime_adapter_kind='NATIVE_WEB'
-    AND NEW.expires_at_ms=launch.created_at_ms+60000
-    AND NEW.expires_at_ms<=launch.bootstrap_expires_at_ms
+WHEN NOT (
+  NEW.launch_id IS NOT NULL AND EXISTS(
+    SELECT 1 FROM launch_sessions launch
+    JOIN core_artifacts artifact ON artifact.id=launch.core_artifact_id
+    WHERE launch.id=NEW.launch_id AND launch.profile_id=NEW.profile_id
+      AND launch.state='CREATED'
+      AND artifact.runtime_adapter_kind IN ('NATIVE_WEB','TYRANOSCRIPT_WEB')
+      AND NEW.expires_at_ms=launch.created_at_ms+60000
+      AND NEW.expires_at_ms<=launch.bootstrap_expires_at_ms
+  )
+  OR NEW.preview_id IS NOT NULL AND EXISTS(
+    SELECT 1 FROM review_preview_sessions preview
+    JOIN users actor ON actor.id=preview.actor_user_id
+    JOIN core_artifacts artifact ON artifact.id=preview.core_artifact_id
+    WHERE preview.id=NEW.preview_id AND actor.profile_id=NEW.profile_id
+      AND preview.state='CREATED' AND artifact.runtime_family='TYRANOSCRIPT'
+      AND artifact.runtime_adapter_kind='TYRANOSCRIPT_WEB'
+      AND NEW.expires_at_ms=preview.created_at_ms+60000
+      AND NEW.expires_at_ms<=preview.bootstrap_expires_at_ms
+  )
 )
 BEGIN SELECT RAISE(ABORT,'invalid isolated runtime bootstrap ticket'); END;
 
 CREATE TRIGGER isolated_runtime_bootstrap_tickets_consume
 BEFORE UPDATE ON isolated_runtime_bootstrap_tickets
 WHEN OLD.consumed_at_ms IS NOT NULL
-  OR NEW.ticket_sha256<>OLD.ticket_sha256 OR NEW.launch_id<>OLD.launch_id
+  OR NEW.ticket_sha256<>OLD.ticket_sha256 OR NEW.launch_id IS NOT OLD.launch_id
+  OR NEW.preview_id IS NOT OLD.preview_id
   OR NEW.profile_id<>OLD.profile_id OR NEW.expected_origin<>OLD.expected_origin
   OR NEW.expires_at_ms<>OLD.expires_at_ms OR NEW.consumed_at_ms IS NULL
-  OR NOT EXISTS(SELECT 1 FROM launch_sessions launch
-    WHERE launch.id=OLD.launch_id AND launch.state IN ('CREATED','ACTIVE')
-      AND NEW.consumed_at_ms<=OLD.expires_at_ms)
+  OR NOT (
+    OLD.launch_id IS NOT NULL AND EXISTS(SELECT 1 FROM launch_sessions launch
+      WHERE launch.id=OLD.launch_id AND launch.state IN ('CREATED','ACTIVE')
+        AND NEW.consumed_at_ms<=OLD.expires_at_ms)
+    OR OLD.preview_id IS NOT NULL AND EXISTS(SELECT 1 FROM review_preview_sessions preview
+      WHERE preview.id=OLD.preview_id AND preview.state IN ('CREATED','ACTIVE')
+        AND NEW.consumed_at_ms<=OLD.expires_at_ms)
+  )
 BEGIN SELECT RAISE(ABORT,'invalid bootstrap ticket consumption'); END;
 
 CREATE TRIGGER isolated_runtime_bootstrap_tickets_immutable_delete
 BEFORE DELETE ON isolated_runtime_bootstrap_tickets
+WHEN OLD.launch_id IS NOT NULL OR EXISTS(
+  SELECT 1 FROM review_preview_sessions preview
+  WHERE preview.id=OLD.preview_id AND preview.state NOT IN ('EXPIRED','REVOKED')
+)
 BEGIN SELECT RAISE(ABORT,'bootstrap ticket is retained for audit'); END;
 
 CREATE TRIGGER isolated_runtime_capabilities_insert
 BEFORE INSERT ON isolated_runtime_capabilities
-WHEN NOT EXISTS(
-  SELECT 1 FROM launch_sessions launch
-  JOIN isolated_runtime_bootstrap_tickets ticket ON ticket.launch_id=launch.id
-  WHERE launch.id=NEW.launch_id AND launch.profile_id=NEW.profile_id
-    AND launch.state IN ('CREATED','ACTIVE')
-    AND ticket.profile_id=NEW.profile_id AND ticket.expected_origin=NEW.expected_origin
-    AND ticket.consumed_at_ms IS NOT NULL AND NEW.issued_at_ms=ticket.consumed_at_ms
-    AND NEW.issued_at_ms<=ticket.expires_at_ms AND NEW.expires_at_ms<=launch.hard_expires_at_ms
-    AND NEW.revoked_at_ms IS NULL
+WHEN NOT (
+  NEW.launch_id IS NOT NULL AND EXISTS(
+    SELECT 1 FROM launch_sessions launch
+    JOIN isolated_runtime_bootstrap_tickets ticket ON ticket.launch_id=launch.id
+    WHERE launch.id=NEW.launch_id AND launch.profile_id=NEW.profile_id
+      AND launch.state IN ('CREATED','ACTIVE')
+      AND ticket.profile_id=NEW.profile_id AND ticket.expected_origin=NEW.expected_origin
+      AND ticket.consumed_at_ms IS NOT NULL AND NEW.issued_at_ms=ticket.consumed_at_ms
+      AND NEW.issued_at_ms<=ticket.expires_at_ms AND NEW.expires_at_ms<=launch.hard_expires_at_ms
+      AND NEW.revoked_at_ms IS NULL
+  )
+  OR NEW.preview_id IS NOT NULL AND EXISTS(
+    SELECT 1 FROM review_preview_sessions preview
+    JOIN users actor ON actor.id=preview.actor_user_id
+    JOIN isolated_runtime_bootstrap_tickets ticket ON ticket.preview_id=preview.id
+    WHERE preview.id=NEW.preview_id AND actor.profile_id=NEW.profile_id
+      AND preview.state IN ('CREATED','ACTIVE')
+      AND ticket.profile_id=NEW.profile_id AND ticket.expected_origin=NEW.expected_origin
+      AND ticket.consumed_at_ms IS NOT NULL AND NEW.issued_at_ms=ticket.consumed_at_ms
+      AND NEW.issued_at_ms<=ticket.expires_at_ms AND NEW.expires_at_ms<=preview.hard_expires_at_ms
+      AND NEW.revoked_at_ms IS NULL
+  )
 )
 BEGIN SELECT RAISE(ABORT,'invalid isolated runtime capability'); END;
 
 CREATE TRIGGER isolated_runtime_capabilities_revoke
 BEFORE UPDATE ON isolated_runtime_capabilities
 WHEN OLD.revoked_at_ms IS NOT NULL OR NEW.credential_sha256<>OLD.credential_sha256
-  OR NEW.launch_id<>OLD.launch_id OR NEW.profile_id<>OLD.profile_id
+  OR NEW.launch_id IS NOT OLD.launch_id OR NEW.preview_id IS NOT OLD.preview_id
+  OR NEW.profile_id<>OLD.profile_id
   OR NEW.expected_origin<>OLD.expected_origin OR NEW.issued_at_ms<>OLD.issued_at_ms
   OR NEW.expires_at_ms<>OLD.expires_at_ms OR NEW.revoked_at_ms IS NULL
 BEGIN SELECT RAISE(ABORT,'invalid isolated runtime capability revocation'); END;
 
 CREATE TRIGGER isolated_runtime_capabilities_immutable_delete
 BEFORE DELETE ON isolated_runtime_capabilities
+WHEN OLD.launch_id IS NOT NULL OR EXISTS(
+  SELECT 1 FROM review_preview_sessions preview
+  WHERE preview.id=OLD.preview_id AND preview.state NOT IN ('EXPIRED','REVOKED')
+)
 BEGIN SELECT RAISE(ABORT,'isolated runtime capability is retained for audit'); END;
 
 CREATE TRIGGER upload_sessions_purpose_immutable
@@ -3348,6 +3417,7 @@ WHEN NOT EXISTS(
     OR upload.purpose='ONS_PROJECT' AND NEW.consumer_type='IMPORT_JOB'
     OR upload.purpose='KIRIKIRI_PROJECT' AND NEW.consumer_type='IMPORT_JOB'
     OR upload.purpose='BUTTERSCOTCH_PROJECT' AND NEW.consumer_type='IMPORT_JOB'
+    OR upload.purpose='TYRANOSCRIPT_PROJECT' AND NEW.consumer_type='IMPORT_JOB'
     OR upload.purpose='RUNTIME_ASSET_PACK'
       AND NEW.consumer_type='RUNTIME_ASSET_PACK_INSTALLATION'
       AND NEW.upload_file_id IS NULL

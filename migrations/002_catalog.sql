@@ -65,6 +65,7 @@ INSERT INTO platforms(id,name,sort_order,enabled,created_at_ms,updated_at_ms) VA
 INSERT INTO platforms(id,name,sort_order,enabled,created_at_ms,updated_at_ms) VALUES('atari5200','Atari 5200',100,1,0,0);
 INSERT INTO platforms(id,name,sort_order,enabled,created_at_ms,updated_at_ms) VALUES('atari7800','Atari 7800',110,1,0,0);
 INSERT INTO platforms(id,name,sort_order,enabled,created_at_ms,updated_at_ms) VALUES('butterscotch','GameMaker',78,1,0,0);
+INSERT INTO platforms(id,name,sort_order,enabled,created_at_ms,updated_at_ms) VALUES('tyranoscript','TyranoScript',79,1,0,0);
 INSERT INTO platforms(id,name,sort_order,enabled,created_at_ms,updated_at_ms) VALUES('dos','MS-DOS',70,1,0,0);
 INSERT INTO platforms(id,name,sort_order,enabled,created_at_ms,updated_at_ms) VALUES('fds','Famicom Disk System',20,1,0,0);
 INSERT INTO platforms(id,name,sort_order,enabled,created_at_ms,updated_at_ms) VALUES('gba','Game Boy Advance',50,1,0,0);
@@ -92,6 +93,7 @@ INSERT INTO cores(id,name,enabled,created_at_ms,updated_at_ms) VALUES('a5200','A
 INSERT INTO cores(id,name,enabled,created_at_ms,updated_at_ms) VALUES('azahar','Azahar',1,0,0);
 INSERT INTO cores(id,name,enabled,created_at_ms,updated_at_ms) VALUES('beetle_vb','Beetle VB',1,0,0);
 INSERT INTO cores(id,name,enabled,created_at_ms,updated_at_ms) VALUES('butterscotch','Butterscotch',1,0,0);
+INSERT INTO cores(id,name,enabled,created_at_ms,updated_at_ms) VALUES('tyranoscript','TyranoScript',1,0,0);
 INSERT INTO cores(id,name,enabled,created_at_ms,updated_at_ms) VALUES('desmume','DeSmuME',1,0,0);
 INSERT INTO cores(id,name,enabled,created_at_ms,updated_at_ms) VALUES('desmume2015','DeSmuME 2015',1,0,0);
 INSERT INTO cores(id,name,enabled,created_at_ms,updated_at_ms) VALUES('dosbox_pure','DOSBox Pure',1,0,0);
@@ -151,6 +153,7 @@ INSERT INTO platform_cores(platform_id,core_id,enabled) VALUES('atari2600','stel
 INSERT INTO platform_cores(platform_id,core_id,enabled) VALUES('atari5200','a5200',1);
 INSERT INTO platform_cores(platform_id,core_id,enabled) VALUES('atari7800','prosystem',1);
 INSERT INTO platform_cores(platform_id,core_id,enabled) VALUES('butterscotch','butterscotch',1);
+INSERT INTO platform_cores(platform_id,core_id,enabled) VALUES('tyranoscript','tyranoscript',1);
 INSERT INTO platform_cores(platform_id,core_id,enabled) VALUES('dos','dosbox_pure',1);
 INSERT INTO platform_cores(platform_id,core_id,enabled) VALUES('fds','fceumm',1);
 INSERT INTO platform_cores(platform_id,core_id,enabled) VALUES('fds','nestopia',1);

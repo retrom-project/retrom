@@ -46,7 +46,8 @@ CREATE TABLE "launch_content_files" (
   blob_id TEXT NOT NULL REFERENCES blobs(id),
   format_version TEXT NOT NULL CHECK(format_version IN (
     'SOURCE_V1','RETROM_DOS_DIRECT_ZIP_V1','RETROM_MULTIDISC_M3U_V1',
-    'RPG_MAKER_PROJECT_V1','ONS_PROJECT_V1','KIRIKIRI_PROJECT_V1','BUTTERSCOTCH_PROJECT_V1'
+    'RPG_MAKER_PROJECT_V1','ONS_PROJECT_V1','KIRIKIRI_PROJECT_V1','BUTTERSCOTCH_PROJECT_V1',
+    'TYRANOSCRIPT_PROJECT_V1'
   )),
   created_at_ms INTEGER NOT NULL CHECK(created_at_ms>=0),
   PRIMARY KEY(launch_session_id,logical_name)
@@ -132,25 +133,29 @@ CREATE TABLE rpgmaker_runtime_validation_checkpoints (
 
 CREATE TABLE isolated_runtime_bootstrap_tickets (
   ticket_sha256 BLOB PRIMARY KEY CHECK(length(ticket_sha256)=32),
-  launch_id TEXT NOT NULL UNIQUE REFERENCES launch_sessions(id),
+  launch_id TEXT UNIQUE REFERENCES launch_sessions(id),
+  preview_id TEXT UNIQUE REFERENCES review_preview_sessions(id) ON DELETE CASCADE,
   profile_id TEXT NOT NULL REFERENCES profiles(id),
   expected_origin TEXT NOT NULL CHECK(
     expected_origin LIKE 'https://%' OR expected_origin LIKE 'http://%localhost:%'
   ),
   expires_at_ms INTEGER NOT NULL CHECK(expires_at_ms>=0),
-  consumed_at_ms INTEGER CHECK(consumed_at_ms IS NULL OR consumed_at_ms BETWEEN 0 AND expires_at_ms)
+  consumed_at_ms INTEGER CHECK(consumed_at_ms IS NULL OR consumed_at_ms BETWEEN 0 AND expires_at_ms),
+  CHECK((launch_id IS NULL) <> (preview_id IS NULL))
 );
 
 CREATE TABLE isolated_runtime_capabilities (
   credential_sha256 BLOB PRIMARY KEY CHECK(length(credential_sha256)=32),
-  launch_id TEXT NOT NULL UNIQUE REFERENCES launch_sessions(id),
+  launch_id TEXT UNIQUE REFERENCES launch_sessions(id),
+  preview_id TEXT UNIQUE REFERENCES review_preview_sessions(id) ON DELETE CASCADE,
   profile_id TEXT NOT NULL REFERENCES profiles(id),
   expected_origin TEXT NOT NULL CHECK(
     expected_origin LIKE 'https://%' OR expected_origin LIKE 'http://%localhost:%'
   ),
   issued_at_ms INTEGER NOT NULL CHECK(issued_at_ms>=0),
   expires_at_ms INTEGER NOT NULL CHECK(expires_at_ms>=issued_at_ms),
-  revoked_at_ms INTEGER CHECK(revoked_at_ms IS NULL OR revoked_at_ms>=issued_at_ms)
+  revoked_at_ms INTEGER CHECK(revoked_at_ms IS NULL OR revoked_at_ms>=issued_at_ms),
+  CHECK((launch_id IS NULL) <> (preview_id IS NULL))
 );
 
 CREATE TABLE play_sessions (

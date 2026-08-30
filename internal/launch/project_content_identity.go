@@ -61,7 +61,7 @@ SELECT launch.credential_sha256,launch.state,launch.bootstrap_expires_at_ms,
 FROM launch_sessions launch
 JOIN core_artifacts artifact ON artifact.id=launch.core_artifact_id
 WHERE launch.id=? AND artifact.available_for_launch=1
- AND artifact.runtime_family IN ('RPGMAKER','ONS','KIRIKIRI','BUTTERSCOTCH')
+ AND artifact.runtime_family IN ('RPGMAKER','ONS','KIRIKIRI','BUTTERSCOTCH','TYRANOSCRIPT')
  AND (launch.purpose='PRODUCT' OR
       launch.purpose='RPG_RUNTIME_VALIDATION' AND artifact.runtime_family='RPGMAKER')
 `, launchID).Scan(&credentialHash, &state, &bootstrapExpires, &hardExpires, &idleExpires)
@@ -76,7 +76,10 @@ SELECT content.logical_name,content.format_version,blob.sha256
 FROM launch_content_files content
 JOIN blobs blob ON blob.id=content.blob_id
 WHERE content.launch_session_id=?
- AND content.format_version IN ('RPG_MAKER_PROJECT_V1','ONS_PROJECT_V1','KIRIKIRI_PROJECT_V1','BUTTERSCOTCH_PROJECT_V1')
+ AND content.format_version IN (
+  'RPG_MAKER_PROJECT_V1','ONS_PROJECT_V1','KIRIKIRI_PROJECT_V1','BUTTERSCOTCH_PROJECT_V1',
+  'TYRANOSCRIPT_PROJECT_V1'
+ )
 ORDER BY content.logical_name
 `, launchID)
 	if err != nil {
@@ -100,7 +103,9 @@ func (service *Service) authorizedReviewProjectIdentityFiles(
 	err := service.database.QueryRowContext(ctx, `
 SELECT credential_sha256,state,hard_expires_at_ms
 FROM review_preview_sessions
-WHERE id=? AND content_kind IN ('ONS_PROJECT_V1','KIRIKIRI_PROJECT_V1','BUTTERSCOTCH_PROJECT_V1')
+WHERE id=? AND content_kind IN (
+ 'ONS_PROJECT_V1','KIRIKIRI_PROJECT_V1','BUTTERSCOTCH_PROJECT_V1','TYRANOSCRIPT_PROJECT_V1'
+)
 `, previewID).Scan(&credentialHash, &state, &hardExpires)
 	if err != nil || !reviewPreviewCredential(
 		service.now().UnixMilli(), capability, credentialHash, state, hardExpires,
@@ -189,7 +194,7 @@ func deriveProjectContentIdentity(files []projectIdentityFile) (string, error) {
 
 func validProjectContentFormat(value string) bool {
 	return value == rpgProjectFormat || value == onsProjectFormat || value == kirikiriProjectFormat ||
-		value == butterscotchProjectFormat
+		value == butterscotchProjectFormat || value == tyranoScriptProjectFormat
 }
 
 func RuntimeProjectContentRoot(identity string) (string, error) {
