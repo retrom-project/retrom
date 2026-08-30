@@ -18,6 +18,7 @@ function props(overrides: Partial<Parameters<typeof PlayerChrome>[0]> = {}): Par
     syncTone: "synced",
     saveUploadProgress: null,
     saveAvailable: true,
+    dosProgramMenu: false,
     toast: "",
     warnings: [],
     emulatorToolbarOpen: false,
@@ -84,7 +85,7 @@ describe("PlayerChrome", () => {
 
   it("does not create an unrestorable save from the DOS program menu", async () => {
     const user = userEvent.setup();
-    const values = props({ saveAvailable: false });
+    const values = props({ saveAvailable: false, dosProgramMenu: true });
     render(<PlayerChrome {...values} />);
 
     expect(screen.getByRole("button", { name: "创建存档" })).toBeDisabled();
@@ -95,6 +96,18 @@ describe("PlayerChrome", () => {
     expect(within(dialog).getByRole("button", { name: "创建存档" })).toBeDisabled();
     expect(dialog).toHaveTextContent("选择一个具体 DOS 程序再开始");
     expect(values.onSave).not.toHaveBeenCalled();
+  });
+
+  it("does not describe a temporarily unavailable runtime checkpoint as a DOS program menu", async () => {
+    const user = userEvent.setup();
+    const values = props({ saveAvailable: false, dosProgramMenu: false });
+    render(<PlayerChrome {...values} />);
+
+    expect(screen.getByRole("button", { name: "创建存档" })).toHaveAttribute("title", "当前场景暂时无法创建存档，请继续游戏后重试");
+    await user.click(screen.getByRole("button", { name: "返回并退出游戏" }));
+    const dialog = screen.getByRole("alertdialog", { name: "退出游戏？" });
+    expect(dialog).toHaveTextContent("当前场景暂时无法创建可恢复存档");
+    expect(dialog).not.toHaveTextContent("DOS");
   });
 
   it("locks local save, pause, disc and emulator settings controls in netplay mode", async () => {

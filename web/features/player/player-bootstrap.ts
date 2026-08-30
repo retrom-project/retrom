@@ -53,12 +53,14 @@ export type PlayerBootstrapParams = {
   immersiveGamepadFilter?: ImmersiveGamepadFilter;
   stage: RefObject<HTMLDivElement | null>; frameRef: RefObject<HTMLIFrameElement | null>; emulator: Mutable<EmulatorInstance | undefined>;
   returnTo: Mutable<string>; playerMode: Mutable<PlayerConfig["mode"]>; manualSaveAvailableRef: Mutable<boolean>;
+  dosProgramMenuRef: Mutable<boolean>;
   netplayConfig: Mutable<NonNullable<PlayerConfig["netplay"]> | null>; discSetRef: Mutable<DiscSet | null>;
   orientationStateRef: Mutable<PlayerOrientationState>; videoRenderingModeRef: Mutable<VideoRenderingMode>;
   lastAudibleVolume: Mutable<number>; pausedRef: Mutable<boolean>; started: Mutable<boolean>; finishing: Mutable<boolean>;
   heartbeat: Mutable<number | null>; toastTimer: Mutable<number | null>; netplayController: Mutable<NetplayController | null>; netplayPausedRef: Mutable<boolean>;
   setMessage: Dispatch<SetStateAction<string>>; setLoadProgress: Dispatch<SetStateAction<PlayerLoadProgress | null>>;
   setState: Dispatch<SetStateAction<ShellState>>; setManualSaveAvailable: Dispatch<SetStateAction<boolean>>;
+  setDosProgramMenu: Dispatch<SetStateAction<boolean>>;
   setNetplayPlayerNo: Dispatch<SetStateAction<number | null>>; setWarnings: Dispatch<SetStateAction<string[]>>; setGameTitle: Dispatch<SetStateAction<string>>;
   setCoreName: Dispatch<SetStateAction<string>>; setPlatformName: Dispatch<SetStateAction<string>>; setDebugRuntime: Dispatch<SetStateAction<PlayerDebugRuntime>>;
   setDiscSet: Dispatch<SetStateAction<DiscSet | null>>; setDiscState: Dispatch<SetStateAction<DiscState | null>>; setOrientationState: Dispatch<SetStateAction<PlayerOrientationState>>;
@@ -229,6 +231,8 @@ function applyConfig(params: PlayerBootstrapParams, config: PlayerConfig) {
   params.playerMode.current = config.mode;
   params.manualSaveAvailableRef.current = canCreateRecoverableManualState(config);
   params.setManualSaveAvailable(params.manualSaveAvailableRef.current);
+  params.dosProgramMenuRef.current = config.runtimeCore === "dosbox_pure" && !config.dosEntry;
+  params.setDosProgramMenu(params.dosProgramMenuRef.current);
   params.netplayConfig.current = config.netplay;
   params.setNetplayPlayerNo(config.netplay?.playerNo ?? null);
   params.setWarnings(config.warnings ?? []);
@@ -495,7 +499,9 @@ function completeSinglePlayerStart(context: MountedContext, resumeMainLoop: bool
   );
   void params.sendEvent("start").then(() => {
     params.setState("running");
-    params.setSyncText(syncTextOverride ?? (params.manualSaveAvailableRef.current ? "可创建存档" : "程序菜单模式不可存档"));
+    params.setSyncText(syncTextOverride ?? (params.manualSaveAvailableRef.current
+      ? "可创建存档"
+      : params.dosProgramMenuRef.current ? "程序菜单模式不可存档" : "当前场景暂不可存档"));
     params.setSyncTone(syncTextOverride ? "busy" : params.manualSaveAvailableRef.current ? "synced" : "warning");
     params.heartbeat.current = window.setInterval(() => {void params.sendEvent("heartbeat");}, 30_000);
   }).catch(() => {params.setState("error"); params.setMessage("PLAY_SESSION_EVENT_FAILED");});
