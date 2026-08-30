@@ -2,7 +2,7 @@
 
 ## 1. 文档职责
 
-本文定义 EmulatorJS 与 RPG Maker 版本核心的产品链路验证边界。核心版本、artifact、SHA-256、DAT 与 adapter 映射以 [`data/dat/`](../data/dat/) 的版本化 manifest 和前端 adapter registry 为机器事实源。公开产品 E2E 使用 [`testdata/public-roms/`](../testdata/public-roms/) 中由本项目源码确定性生成并许可分发的 GBA、NES、SNES、Arcade 与 RPG Maker 测试程序。自动化测试不读取操作者私有 ROM/BIOS/商业游戏；`make dev` 的 `.dev-data/` 服务器导入语料也不属于测试 fixture。
+本文定义 EmulatorJS、RPG Maker 与独立 `retrom-runtime` 核心的产品链路验证边界。核心版本、artifact、本地 observed SHA-256、DAT 与 adapter 映射以 [`data/dat/`](../data/dat/) 的版本化 manifest 和前端 adapter registry 为机器事实源。公开产品 E2E 使用 [`testdata/public-roms/`](../testdata/public-roms/) 中由本项目源码确定性生成并许可分发的 GBA、NES、SNES、Arcade 与 RPG Maker 测试程序。自动化测试不读取操作者私有 ROM/BIOS/商业游戏；`make dev` 的 `.dev-data/` 服务器导入语料也不属于测试 fixture。
 
 独立 HTML 页面直接装载 EmulatorJS 会绕过 Retrom 的导入、审核、发布、Launch capability、内容端点和 Player，因此不能作为产品集成或验收证据。仓库不再维护这种 example runner，也不再用逐核心独立页面的成功结果宣称 Retrom 已覆盖对应核心。
 
@@ -35,6 +35,8 @@ RPG Maker 的单一用户虚拟核心必须分别使用七个独立完整游戏�
 
 上述六个公开项目的唯一生成源、逐 byte 锁定和许可证由同目录 `README.md`、`LICENSE`、`fixture-manifest.json` 与 `make public-fixtures-check` 共同约束。MZ 输入只允许通过 Retrom 上传链消费；自动化不得在本机直接打开或运行操作者项目。任何外部可下载游戏只能作为不提交的补充兼容 smoke，不能取代这些确定性产品 Case，也不能因下载页面可访问就推断资源、RTP、默认脚本或插件可再分发。
 
+GameMaker/Butterscotch 没有可提交的第三方项目 fixture。`ACC-BUTTERSCOTCH-001` 必须消费操作者依法持有的项目归档，经 Retrom 的 Upload、Import、Review Preview、发布、PRODUCT Launch、标准手柄输入、checkpoint 与不同 Launch 恢复完整验证；缺少合法输入时只能记为 `BLOCKED`。根 `data.win` 的 `FORM` 形状识别只产生 trial-required 候选，不能替代真实核心运行。
+
 其余 enabled core 目前只有 manifest/schema、依赖物化、adapter 配置、协议或相邻纯逻辑测试，尚没有走完整 Retrom 产品链路的真实浏览器 E2E。发布或依赖升级不能把这些结构检查解释为“核心已实际启动”。表中联机基线只覆盖精确 artifact/profile 和项目自有 fixture，不证明其他 ROM 或 core 版本；新增覆盖仍应扩展 `make web-e2e` 或对应产品 E2E，并使用项目自有或有明确再分发许可、可确定性生成且能够提交的测试程序。
 
 ## 3. 验证原则
@@ -56,7 +58,7 @@ EmulatorJS 4.2.3 发布包中的官方 `mame2003` bundle `2.0.2` 曾在 Chrome �
 - Core 保存实际 artifact 路径、SHA-256 和兼容配置，不能只保存 EmulatorJS 版本；
 - resolver 对 `mame2003` 读取版本化覆盖，不能用 `mame2003_plus` 静默替代；
 - 后续升级先通过实际 Retrom 产品 E2E，再删除覆盖；
-- EmulatorJS 覆盖变化视为 CoreArtifact 变化，旧存档不得默认跨版本加载；独立 `retrom-runtime` 的 RPG Maker/ONS/KiriKiri 升级则使用 manifest 声明的 `gameCompatibilityLine/saveAbi/readableSaveAbis` 决定游戏与存档兼容性。
+- EmulatorJS 覆盖变化视为 CoreArtifact 变化，旧存档不得默认跨版本加载；独立 `retrom-runtime` 的 RPG Maker/ONS/KiriKiri/Butterscotch 升级则使用 manifest 声明的 `gameCompatibilityLine/saveAbi/readableSaveAbis` 决定游戏与存档兼容性。
 
 ## 5. 内容与运行时约束
 
@@ -72,4 +74,4 @@ PSP profile 接受 raw `.cso` 和 `.iso`，两者分别以 `RAW_FILE_V1` 进入 
 
 ## 6. 依赖升级
 
-升级 EmulatorJS、任一 core、adapter registry 或 Arcade DAT 时执行 [`ACC-DAT-006`](./project-acceptance.md)，并运行 `make data-check`、`make deps-check`、受影响的产品集成测试和 `make web-e2e`。如果升级影响的核心尚无实际产品 E2E，验收结果必须明确记录该缺口；补足覆盖后才能据此声称浏览器运行兼容。
+升级 EmulatorJS、任一 core、adapter registry 或 Arcade DAT 时执行 [`ACC-DAT-006`](./project-acceptance.md)，并运行 `make data-check`、`make deps-check` 与受影响的精确产品 Case；只有共享 loader/协议等无法可靠界定影响面时才扩大到 `make web-e2e`。如果升级影响的核心尚无实际产品 E2E，验收结果必须明确记录该缺口；补足覆盖后才能据此声称浏览器运行兼容。

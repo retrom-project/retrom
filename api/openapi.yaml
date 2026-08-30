@@ -540,6 +540,12 @@ components:
       $ref: ./domains/runtime.yaml#/components/schemas/KiriKiriCheckpointRestore
     KiriKiriLaunchConfig:
       $ref: ./domains/runtime.yaml#/components/schemas/KiriKiriLaunchConfig
+    ButterscotchAdapterConfig:
+      $ref: ./domains/runtime.yaml#/components/schemas/ButterscotchAdapterConfig
+    ButterscotchCheckpointRestore:
+      $ref: ./domains/runtime.yaml#/components/schemas/ButterscotchCheckpointRestore
+    ButterscotchLaunchConfig:
+      $ref: ./domains/runtime.yaml#/components/schemas/ButterscotchLaunchConfig
     RuntimeAssetPackKind:
       $ref: ./domains/imports.yaml#/components/schemas/RuntimeAssetPackKind
     CoreArtifactAdminItem:

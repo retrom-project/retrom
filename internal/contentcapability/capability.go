@@ -8,14 +8,15 @@ import (
 )
 
 const (
-	ModeStandard          = "STANDARD"
-	ModeMultiDiscM3UV1    = "MULTI_DISC_M3U_V1"
-	ModeRPGMakerProjectV1 = "RPG_MAKER_PROJECT_V1"
-	ModeONSProjectV1      = "ONS_PROJECT_V1"
-	ModeKiriKiriProjectV1 = "KIRIKIRI_PROJECT_V1"
-	DeliveryEagerExternal = "EAGER_EXTERNAL_FILES"
-	MaximumMultiDiscCount = 8
-	MaximumMultiDiscBytes = int64(1_073_741_824)
+	ModeStandard              = "STANDARD"
+	ModeMultiDiscM3UV1        = "MULTI_DISC_M3U_V1"
+	ModeRPGMakerProjectV1     = "RPG_MAKER_PROJECT_V1"
+	ModeONSProjectV1          = "ONS_PROJECT_V1"
+	ModeKiriKiriProjectV1     = "KIRIKIRI_PROJECT_V1"
+	ModeButterscotchProjectV1 = "BUTTERSCOTCH_PROJECT_V1"
+	DeliveryEagerExternal     = "EAGER_EXTERNAL_FILES"
+	MaximumMultiDiscCount     = 8
+	MaximumMultiDiscBytes     = int64(1_073_741_824)
 )
 
 type MultiDiscLimits struct {
@@ -74,6 +75,8 @@ func projectImportCapabilities(platformID string, enabled bool) (ImportCapabilit
 		return ImportCapabilities{ContentModes: []string{ModeONSProjectV1}}, true
 	case "kirikiri":
 		return ImportCapabilities{ContentModes: []string{ModeKiriKiriProjectV1}}, true
+	case "butterscotch":
+		return ImportCapabilities{ContentModes: []string{ModeButterscotchProjectV1}}, true
 	default:
 		return ImportCapabilities{}, false
 	}
@@ -129,6 +132,8 @@ func projectAdapterABIs(contentKind string) []string {
 		return []string{"ons-save"}
 	case ModeKiriKiriProjectV1:
 		return []string{"kirikiri-kag-bookmark"}
+	case ModeButterscotchProjectV1:
+		return []string{"butterscotch-checkpoint-v1"}
 	default:
 		return nil
 	}

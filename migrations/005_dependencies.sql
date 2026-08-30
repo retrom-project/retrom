@@ -7,9 +7,10 @@ CREATE TABLE core_artifacts (
     length(route_key) BETWEEN 1 AND 160 AND route_key=upper(route_key)
     AND route_key NOT GLOB '*[^A-Z0-9_]*'
   ),
-  runtime_family TEXT NOT NULL CHECK(runtime_family IN ('EMULATORJS','RPGMAKER','ONS','KIRIKIRI')),
+  runtime_family TEXT NOT NULL CHECK(runtime_family IN ('EMULATORJS','RPGMAKER','ONS','KIRIKIRI','BUTTERSCOTCH')),
   runtime_adapter_kind TEXT NOT NULL CHECK(runtime_adapter_kind IN (
-    'EMULATORJS','EASYRPG_WEB','MKXP_LIBRETRO_WEB','NATIVE_WEB','ONS_YURI_WEB','KIRIKIRI2_WEB'
+    'EMULATORJS','EASYRPG_WEB','MKXP_LIBRETRO_WEB','NATIVE_WEB','ONS_YURI_WEB','KIRIKIRI2_WEB',
+    'BUTTERSCOTCH_WEB'
   )),
   runtime_version TEXT NOT NULL CHECK(
     length(runtime_version) BETWEEN 1 AND 160 AND lower(runtime_version)<>'latest'
@@ -48,13 +49,16 @@ CREATE TABLE core_artifacts (
     OR runtime_family='RPGMAKER' AND runtime_adapter_kind IN ('EASYRPG_WEB','MKXP_LIBRETRO_WEB','NATIVE_WEB') AND route_key<>'DEFAULT'
     OR runtime_family='ONS' AND runtime_adapter_kind='ONS_YURI_WEB' AND route_key='ONS_YURI'
     OR runtime_family='KIRIKIRI' AND runtime_adapter_kind='KIRIKIRI2_WEB' AND route_key='KIRIKIRI2_KAG'
+    OR runtime_family='BUTTERSCOTCH' AND runtime_adapter_kind='BUTTERSCOTCH_WEB'
+      AND route_key='BUTTERSCOTCH_GAMEMAKER'
   ),
   CHECK(selected_for_new_bindings=0 OR available_for_launch=1 AND retired_at_ms IS NULL),
   CHECK(runtime_adapter_kind<>'EASYRPG_WEB' OR requires_threads=0 AND save_payload_kind='NATIVE_SAVE_BUNDLE_V1'),
   CHECK(runtime_adapter_kind<>'MKXP_LIBRETRO_WEB' OR requires_threads=1 AND save_payload_kind='RUNTIME_STATE'),
   CHECK(runtime_adapter_kind<>'NATIVE_WEB' OR requires_threads=0 AND save_payload_kind='NATIVE_SAVE_BUNDLE_V1'),
   CHECK(runtime_adapter_kind<>'ONS_YURI_WEB' OR requires_threads=0 AND save_payload_kind='ONS_SAVE_BUNDLE_V1'),
-  CHECK(runtime_adapter_kind<>'KIRIKIRI2_WEB' OR requires_threads=1 AND save_payload_kind='KIRIKIRI_SAVE_BUNDLE_V1')
+  CHECK(runtime_adapter_kind<>'KIRIKIRI2_WEB' OR requires_threads=1 AND save_payload_kind='KIRIKIRI_SAVE_BUNDLE_V1'),
+  CHECK(runtime_adapter_kind<>'BUTTERSCOTCH_WEB' OR requires_threads=1 AND save_payload_kind='RUNTIME_STATE')
 );
 
 CREATE TABLE bios_requirements (

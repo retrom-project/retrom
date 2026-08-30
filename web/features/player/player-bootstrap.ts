@@ -25,9 +25,16 @@ import { applyInitialPlayerVolume } from "./immersive-player-volume";
 import { describeRetromRpgRuntime, isRetromRpgRuntimeConfig, mountRetromRpgRuntime, validateRpgRuntimeConfig, type RpgRuntimeConfig } from "./rpg-runtime";
 import type { RpgRuntimeValidationDriver } from "./rpg-runtime-validation";
 import type { ValidationCheckpointReceipt } from "./rpg-validation-checkpoint-response";
-import { createOnsProductRuntime, isOnsLaunchConfig, onsPlayerInstance, type OnsLaunchConfig } from "./ons-runtime";
-import { isKiriKiriLaunchConfig, mountKiriKiriProductRuntime, type KiriKiriLaunchConfig } from "./kirikiri-runtime";
-import { fetchKiriKiriCheckpoint, fetchOnsCheckpoint, fetchRpgCheckpoint, kirikiriShellConfig, observedRuntimeDiscCount, onsShellConfig, rpgDebugRuntime, rpgShellConfig } from "./player-bootstrap-config";
+import { isButterscotchLaunchConfig } from "./butterscotch-runtime";
+import { fetchRpgCheckpoint, observedRuntimeDiscCount, rpgDebugRuntime, rpgShellConfig } from "./player-bootstrap-config";
+import {
+  bootstrapButterscotchPlayer,
+  bootstrapKiriKiriPlayer,
+  bootstrapOnsPlayer,
+  isKiriKiriLaunchConfig,
+  isOnsLaunchConfig,
+  type RetromRuntimeBootstrapHost,
+} from "./player-bootstrap-retrom-runtime";
 import { createRpgRuntimeValidationDriver } from "./rpg-validation-driver-factory";
 import { startNetplay } from "./player-bootstrap-netplay";
 import {
@@ -89,6 +96,15 @@ export function usePlayerBootstrap(params: PlayerBootstrapParams) {
 
 function createBootstrapResources(): BootstrapResources {return {};}
 
+const retromRuntimeBootstrapHost: RetromRuntimeBootstrapHost = {
+  applyConfig,
+  prepareOrientation,
+  prepareFrame,
+  mountFrame,
+  handleReady,
+  completeStart: completeSinglePlayerStart,
+};
+
 async function bootstrapPlayer(params: PlayerBootstrapParams, resources: BootstrapResources, controller: AbortController) {
   params.setLoadProgress(null);
   params.setMessage("正在加载 Core、ROM 与依赖配置…");
@@ -96,11 +112,15 @@ async function bootstrapPlayer(params: PlayerBootstrapParams, resources: Bootstr
   if (!response.ok) {throw new Error(`LAUNCH_CONFIG_${response.status}`);}
   const rawConfig: unknown = await response.json();
   if (isOnsLaunchConfig(rawConfig)) {
-    await bootstrapOnsPlayer(params, resources, controller, rawConfig);
+    await bootstrapOnsPlayer(params, resources, controller, rawConfig, retromRuntimeBootstrapHost);
     return;
   }
   if (isKiriKiriLaunchConfig(rawConfig)) {
-    await bootstrapKiriKiriPlayer(params, resources, controller, rawConfig);
+    await bootstrapKiriKiriPlayer(params, resources, controller, rawConfig, retromRuntimeBootstrapHost);
+    return;
+  }
+  if (isButterscotchLaunchConfig(rawConfig)) {
+    await bootstrapButterscotchPlayer(params, resources, controller, rawConfig, retromRuntimeBootstrapHost);
     return;
   }
   if (isRetromRpgRuntimeConfig(rawConfig)) {
@@ -123,85 +143,6 @@ async function bootstrapPlayer(params: PlayerBootstrapParams, resources: Bootstr
     mounted.context.frameWindow,
     params.experience === "immersive" ? { immersiveGamepadFilter: params.immersiveGamepadFilter } : undefined,
   );
-}
-
-async function bootstrapOnsPlayer(
-  params: PlayerBootstrapParams,
-  resources: BootstrapResources,
-  controller: AbortController,
-  onsConfig: OnsLaunchConfig,
-) {
-  const config = onsShellConfig(onsConfig);
-  applyConfig(params, config);
-  params.setDebugRuntime({
-    runtimeFamily: "ONS", coreId: onsConfig.coreId, coreArtifactId: onsConfig.artifactId,
-    emulatorJSVersion: onsConfig.runtimeVersion, playerAdapterId: onsConfig.adapter.adapterId,
-    inputMode: "STANDARD", crossOriginIsolated: window.crossOriginIsolated,
-    sharedArrayBuffer: typeof SharedArrayBuffer !== "undefined",
-  });
-  await prepareOrientation(params, config, controller);
-  const frame = await prepareFrame(params, controller);
-  const stateBytes = await fetchOnsCheckpoint(onsConfig, controller.signal);
-  const mounted = mountFrame(params, resources, controller, config, frame, stateBytes);
-  resources.cleanupRuntimeGamepadFilter = installRuntimeImmersiveGamepadFilter(params.experience, mounted.context.frameWindow, params.immersiveGamepadFilter);
-  params.setMessage("正在启动 ONScripter 运行时…");
-  const runtime = createOnsProductRuntime(onsConfig, mounted.context.frameWindow, stateBytes, controller.signal);
-  resources.nativeRuntimeSubscription = runtime.subscribe((event) => handleRetromRuntimeEvent(event, params));
-  try {
-    await runtime.mount(mounted.target);
-    if (controller.signal.aborted) {await runtime.exit(); return;}
-    resources.cleanup = () => runtime.exit();
-    handleReady(mounted.context, onsPlayerInstance(runtime, mounted.target));
-    const availability = runtime.getCheckpointAvailability();
-    params.manualSaveAvailableRef.current = availability.available;
-    params.setManualSaveAvailable(availability.available);
-    completeSinglePlayerStart(mounted.context, false);
-  } catch (error) {
-    await runtime.exit();
-    throw error;
-  }
-}
-
-async function bootstrapKiriKiriPlayer(
-  params: PlayerBootstrapParams,
-  resources: BootstrapResources,
-  controller: AbortController,
-  kirikiriConfig: KiriKiriLaunchConfig,
-) {
-  const config = kirikiriShellConfig(kirikiriConfig);
-  applyConfig(params, config);
-  params.setDebugRuntime({
-    runtimeFamily: "KIRIKIRI", coreId: kirikiriConfig.coreId, coreArtifactId: kirikiriConfig.artifactId,
-    emulatorJSVersion: kirikiriConfig.runtimeVersion, playerAdapterId: kirikiriConfig.adapter.adapterId,
-    inputMode: "STANDARD", crossOriginIsolated: window.crossOriginIsolated,
-    sharedArrayBuffer: typeof SharedArrayBuffer !== "undefined",
-  });
-  await prepareOrientation(params, config, controller);
-  const frame = await prepareFrame(params, controller);
-  const stateBytes = await fetchKiriKiriCheckpoint(kirikiriConfig, controller.signal);
-  const mounted = mountFrame(params, resources, controller, config, frame, stateBytes);
-  resources.cleanupRuntimeGamepadFilter = installRuntimeImmersiveGamepadFilter(
-    params.experience, mounted.context.frameWindow, params.immersiveGamepadFilter,
-  );
-  params.setMessage("正在启动 KiriKiri 运行时…");
-  const mountedRuntime = await mountKiriKiriProductRuntime(
-    kirikiriConfig, mounted.target, mounted.context.frameWindow, stateBytes, controller.signal,
-  );
-  try {
-    if (controller.signal.aborted) {await mountedRuntime.runtime.exit(); return;}
-    resources.cleanup = () => mountedRuntime.runtime.exit();
-    resources.nativeRuntimeSubscription = mountedRuntime.runtime.subscribe((event) => {
-      handleRetromRuntimeEvent(event, params);
-    });
-    handleReady(mounted.context, mountedRuntime.instance);
-    const availability = mountedRuntime.runtime.getCheckpointAvailability();
-    params.manualSaveAvailableRef.current = availability.available;
-    params.setManualSaveAvailable(availability.available);
-    completeSinglePlayerStart(mounted.context, false);
-  } catch (error) {
-    await mountedRuntime.runtime.exit();
-    throw error;
-  }
 }
 
 async function bootstrapRpgMakerPlayer(

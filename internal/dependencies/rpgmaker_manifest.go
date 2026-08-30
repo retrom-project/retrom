@@ -108,7 +108,7 @@ func requireJSONEOF(decoder *json.Decoder) error {
 func validateRPGMakerVersion(version *RPGMakerVersion) error {
 	manifest := version.Manifest
 	if manifest.SchemaVersion != 3 || manifest.RuntimeID != "retrom-runtime" ||
-		len(manifest.RuntimeFiles) != 16 || len(manifest.Artifacts) != len(routing.Entries())+2 {
+		len(manifest.RuntimeFiles) != 22 || len(manifest.Artifacts) != len(routing.Entries())+3 {
 		return fmt.Errorf("%w: RPG Maker manifest identity", ErrInvalid)
 	}
 	if err := validateRPGMakerRuntimeFiles(version); err != nil {
@@ -165,6 +165,9 @@ func validateRPGMakerArtifact(artifact RPGMakerArtifact, files map[string]RPGMak
 	if artifact.RuntimeFamily == "KIRIKIRI" {
 		return validateKiriKiriArtifact(artifact, files)
 	}
+	if artifact.RuntimeFamily == "BUTTERSCOTCH" {
+		return validateButterscotchArtifact(artifact, files)
+	}
 	route, err := routing.ByRoute(artifact.CoreID, artifact.RouteKey)
 	if err != nil || !artifactMatchesRoute(artifact, route) {
 		return fmt.Errorf("%w: RPG Maker artifact %s", ErrInvalid, artifact.RouteKey)
@@ -213,6 +216,39 @@ func validKiriKiriCompatibility(artifact RPGMakerArtifact) bool {
 		value["jsPath"] == "index.js" && value["wasmPath"] == "index.wasm" &&
 		value["vlfsPath"] == "vlfs.js" && value["assetsPath"] == "assets.zip" &&
 		validRuntimeCompatibilityContract(value)
+}
+
+func validateButterscotchArtifact(artifact RPGMakerArtifact, files map[string]RPGMakerRuntimeFile) error {
+	if !validButterscotchIdentity(artifact) {
+		return fmt.Errorf("%w: Butterscotch artifact identity", ErrInvalid)
+	}
+	entries, err := rpgArtifactSetEntries(artifact, files)
+	if err != nil {
+		return err
+	}
+	entry, exists := files[path.Join(artifact.RuntimeVersion, artifact.EntryPath)]
+	if !exists || entry.SizeBytes != artifact.EntrySizeBytes || entry.SHA256 != artifact.EntrySHA256 ||
+		rpgArtifactSetDigest(entries) != artifact.ArtifactSetSHA256 || !validButterscotchCompatibility(artifact) {
+		return fmt.Errorf("%w: Butterscotch artifact bytes", ErrInvalid)
+	}
+	return nil
+}
+
+func validButterscotchIdentity(artifact RPGMakerArtifact) bool {
+	return artifact.CoreID == "butterscotch" && artifact.Generation == "BUTTERSCOTCH" &&
+		artifact.RouteKey == "BUTTERSCOTCH_GAMEMAKER" && artifact.RuntimeAdapterKind == "BUTTERSCOTCH_WEB" &&
+		artifact.AdapterID == "butterscotch-web" && artifact.AdapterABI == "butterscotch-checkpoint-v1" &&
+		artifact.EntryPath == "butterscotch.mjs" && artifact.RequiresThreads &&
+		artifact.SavePayloadKind == "RUNTIME_STATE" && artifact.SaveMaxBytes == 16<<20 &&
+		artifact.SelectedForNewBindings && artifact.AvailableForLaunch
+}
+
+func validButterscotchCompatibility(artifact RPGMakerArtifact) bool {
+	var value map[string]any
+	return json.Unmarshal(artifact.Compatibility, &value) == nil && len(value) == 7 &&
+		value["adapterAbi"] == "butterscotch-checkpoint-v1" &&
+		value["jsPath"] == "butterscotch.mjs" && value["wasmPath"] == "butterscotch.wasm" &&
+		value["workerPath"] == "butterscotch-worker.mjs" && validRuntimeCompatibilityContract(value)
 }
 
 func artifactMatchesRoute(artifact RPGMakerArtifact, route routing.Entry) bool {

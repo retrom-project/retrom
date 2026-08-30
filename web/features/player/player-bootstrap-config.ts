@@ -1,6 +1,7 @@
 import type { PlayerConfig } from "./adapters/ejs-4.2.3-v2";
 import type { OnsLaunchConfig } from "./ons-runtime";
 import type { KiriKiriLaunchConfig } from "./kirikiri-runtime";
+import type { ButterscotchLaunchConfig } from "./butterscotch-runtime";
 import type { RpgRuntimeConfig } from "./rpg-runtime";
 import { readBoundedResponse } from "./player-shell-model";
 import type { PlayerDebugRuntime } from "./player-chrome";
@@ -23,6 +24,20 @@ export function onsShellConfig(config: OnsLaunchConfig): PlayerConfig {
 }
 
 export function kirikiriShellConfig(config: KiriKiriLaunchConfig): PlayerConfig {
+  return {
+    mode: "single", launchId: config.launchId, emulatorjsVersion: config.runtimeVersion,
+    playerAdapterId: config.adapter.adapterId, core: config.coreId, runtimeCore: config.coreId,
+    coreName: config.coreName, coreArtifactId: config.artifactId, emulatorGameId: 0,
+    gameName: config.launchId, gameTitle: config.gameTitle, platformName: config.platformName,
+    runtimeBaseUrl: config.adapter.runtimeBaseUrl, loaderUrl: "", gameUrl: "", biosUrl: null,
+    parentUrl: null, stateUrl: config.checkpoint?.payloadUrl ?? null, inputMode: "STANDARD",
+    startupActions: [], requiresThreads: true, runtimePathOverrides: {}, defaultCoreOptions: {},
+    externalFiles: {}, discSet: null, dosEntry: null, warnings: config.warnings,
+    returnTo: config.returnTo, netplay: null,
+  };
+}
+
+export function butterscotchShellConfig(config: ButterscotchLaunchConfig): PlayerConfig {
   return {
     mode: "single", launchId: config.launchId, emulatorjsVersion: config.runtimeVersion,
     playerAdapterId: config.adapter.adapterId, core: config.coreId, runtimeCore: config.coreId,
@@ -65,6 +80,10 @@ export async function fetchOnsCheckpoint(config: OnsLaunchConfig, signal: AbortS
 
 export async function fetchKiriKiriCheckpoint(config: KiriKiriLaunchConfig, signal: AbortSignal) {
   return fetchCheckpoint(config.checkpoint?.payloadUrl, 64 * 1024 * 1024, signal);
+}
+
+export async function fetchButterscotchCheckpoint(config: ButterscotchLaunchConfig, signal: AbortSignal) {
+  return fetchCheckpoint(config.checkpoint?.payloadUrl, 16 * 1024 * 1024, signal);
 }
 
 export async function fetchRpgCheckpoint(config: RpgRuntimeConfig, signal: AbortSignal) {

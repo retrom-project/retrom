@@ -57,7 +57,7 @@ FROM core_artifacts
 WHERE core_id='onscripter_yuri' AND route_key='ONS_YURI'
 AND selected_for_new_bindings=1 AND available_for_launch=1
 `).Scan(&onsFamily, &onsAdapter, &onsVersion, &onsPayload); err != nil ||
-		onsFamily != "ONS" || onsAdapter != "ONS_YURI_WEB" || onsVersion != "v0.7.6" ||
+		onsFamily != "ONS" || onsAdapter != "ONS_YURI_WEB" || onsVersion != "v0.8.0" ||
 		onsPayload != "ONS_SAVE_BUNDLE_V1" {
 		t.Fatalf("ONS artifact = %q/%q/%q/%q, error=%v", onsFamily, onsAdapter, onsVersion, onsPayload, err)
 	}

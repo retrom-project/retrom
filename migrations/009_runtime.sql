@@ -46,7 +46,7 @@ CREATE TABLE "launch_content_files" (
   blob_id TEXT NOT NULL REFERENCES blobs(id),
   format_version TEXT NOT NULL CHECK(format_version IN (
     'SOURCE_V1','RETROM_DOS_DIRECT_ZIP_V1','RETROM_MULTIDISC_M3U_V1',
-    'RPG_MAKER_PROJECT_V1','ONS_PROJECT_V1','KIRIKIRI_PROJECT_V1'
+    'RPG_MAKER_PROJECT_V1','ONS_PROJECT_V1','KIRIKIRI_PROJECT_V1','BUTTERSCOTCH_PROJECT_V1'
   )),
   created_at_ms INTEGER NOT NULL CHECK(created_at_ms>=0),
   PRIMARY KEY(launch_session_id,logical_name)

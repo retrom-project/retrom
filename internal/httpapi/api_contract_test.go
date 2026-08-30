@@ -50,6 +50,9 @@ func TestOpenAPIValidationAllowsRetromRuntimeAndProjectFiles(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if _, exists := server.dependencies.RPGMaker.Allowlist[current.RuntimeVersion+"/butterscotch-worker.mjs"]; !exists {
+		t.Fatal("Butterscotch worker missing from loaded runtime allowlist")
+	}
 
 	runtimeResponse := httptest.NewRecorder()
 	handler.ServeHTTP(
@@ -74,6 +77,28 @@ func TestOpenAPIValidationAllowsRetromRuntimeAndProjectFiles(t *testing.T) {
 		runtimeResponse.Header(),
 		runtimeResponse.Body.Len(),
 		runtimeResponse.Body.String()[:min(runtimeResponse.Body.Len(), 80)],
+	)
+	workerResponse := httptest.NewRecorder()
+	handler.ServeHTTP(
+		workerResponse,
+		httptest.NewRequestWithContext(
+			context.Background(), http.MethodGet,
+			"/runtime/retrom-runtime/"+current.RuntimeVersion+"/butterscotch-worker.mjs", nil,
+		),
+	)
+	testassert.Falsef(
+		t,
+		testassert.Any(
+			func() bool { return workerResponse.Code != http.StatusOK },
+			func() bool {
+				return workerResponse.Header().Get("Content-Type") != "application/javascript; charset=utf-8"
+			},
+			func() bool { return workerResponse.Body.Len() == 0 },
+		),
+		"Butterscotch worker response = %d headers=%v bytes=%d",
+		workerResponse.Code,
+		workerResponse.Header(),
+		workerResponse.Body.Len(),
 	)
 
 	assetResponse := httptest.NewRecorder()
