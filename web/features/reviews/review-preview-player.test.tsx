@@ -1,4 +1,5 @@
 import { act, cleanup, render, screen } from "@testing-library/react";
+import type { GameRuntimeEvent } from "@xxxsen/retrom-runtime";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ReviewPreviewPlayer } from "./review-preview-player";
 
@@ -11,14 +12,14 @@ const ons = vi.hoisted(() => ({
   mount: vi.fn(),
   screenshot: vi.fn(),
   exit: vi.fn(),
-  subscribe: vi.fn(() => vi.fn()),
+  subscribe: vi.fn((listener: (event: GameRuntimeEvent) => void) => {void listener; return vi.fn();}),
 }));
 const kirikiri = vi.hoisted(() => ({
   create: vi.fn(),
   mount: vi.fn(),
   screenshot: vi.fn(),
   exit: vi.fn(),
-  subscribe: vi.fn(() => vi.fn()),
+  subscribe: vi.fn((listener: (event: GameRuntimeEvent) => void) => {void listener; return vi.fn();}),
 }));
 
 vi.mock("@/features/player/adapters/ejs-4.2.3-v2", () => ({
@@ -203,6 +204,43 @@ describe("ReviewPreviewPlayer", () => {
 
     view.unmount();
     expect(ons.exit).toHaveBeenCalledOnce();
+  });
+
+  it("closes an ONS preview without capturing after the game exits itself", async () => {
+    vi.useFakeTimers();
+    let reportEvent: ((event: GameRuntimeEvent) => void) | undefined;
+    const unsubscribe = vi.fn();
+    ons.mount.mockResolvedValue(undefined);
+    ons.exit.mockResolvedValue(undefined);
+    ons.subscribe.mockImplementation((listener) => {
+      reportEvent = listener;
+      return unsubscribe;
+    });
+    ons.create.mockReturnValue({
+      mount: ons.mount, screenshot: ons.screenshot, exit: ons.exit, subscribe: ons.subscribe,
+    });
+    vi.stubGlobal("fetch", vi.fn(() => Promise.resolve(new Response(JSON.stringify({
+      runtimeFamily: "ONS", sessionId: "preview-ons-exit", gameTitle: "ONS exit fixture",
+      adapter: {
+        adapterKind: "ONS_YURI_WEB", adapterId: "ons-yuri-web",
+        runtimeBaseUrl: "/runtime/retrom-runtime/v0.7.5/",
+        projectIndexUrl: `/runtime/content/project/${"c".repeat(64)}/index.json`,
+        scriptEncoding: "utf8", checkpointSlot: 999,
+      },
+      reviewPreview: { importItemId: "item-ons-exit", captureAllowed: true, captureAfterMs: 5000 },
+    }), { status: 200, headers: { "Content-Type": "application/json" } }))));
+    const close = vi.spyOn(window, "close").mockImplementation(() => undefined);
+
+    render(<ReviewPreviewPlayer previewId="preview-ons-exit" />);
+    await act(async () => {await Promise.resolve(); await Promise.resolve(); await Promise.resolve();});
+    act(() => reportEvent?.({ type: "EXIT_REQUESTED" }));
+
+    expect(screen.getByText("游戏已从自身菜单退出，正在关闭子窗体。")).toBeVisible();
+    expect(unsubscribe).toHaveBeenCalledOnce();
+    expect(ons.exit).toHaveBeenCalledOnce();
+    expect(close).toHaveBeenCalledOnce();
+    await act(async () => {await vi.advanceTimersByTimeAsync(5_000);});
+    expect(ons.screenshot).not.toHaveBeenCalled();
   });
 
   it("mounts KiriKiri, captures its canvas, and exits the runtime", async () => {
