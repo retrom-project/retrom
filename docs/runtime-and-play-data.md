@@ -212,7 +212,7 @@ NDS 三核心与 Azahar 的 `inputMode=POINTER`：Player 不向 iframe 合成额
 
 不得使用不存在的 `EJS_onExit` 或 `EJS_onSaveUpdate`。产品只把 `EJS_onSaveState` 接到保存写路径，不接 `EJS_onSaveSave`，也不监听 `saveSaveFiles`。`exit` 只提交 PlaySession finish 和销毁资源；浏览器 `pagehide` 只 best-effort 提交 heartbeat/finish。定时器、运行时文件变化、退出和页面隐藏都不得生成或上传游戏进度。
 
-`EJS_onSaveState` 的真实 payload 是 `{ screenshot: Blob, format: string, state: Uint8Array }`。只有用户点击 Retrom 的“创建存档”才调用核心状态捕获；Retrom 必须同时上传非空 state 与截图，任一失败都不创建 SaveState。上传用浏览器实际写出的字节持续显示 0–100% 进度，直到服务器成功响应、失败响应或网络错误才结束；浏览器 XHR 必须显式使用 300 秒 timeout，与同一路由的 NG、Next.js 和 Go 300 秒边界一致，超时或其他失败必须明确提醒且不得留下不完整记录。工具栏交互最迟在 750ms 暂停 main loop，但截图可以在独立的 5 秒有界窗口继续完成；沉浸 Player 打开菜单时也必须先同步发起该截图请求再暂停 Core，菜单中的创建动作复用这一份运行帧，不能在暂停后重新读取黑帧。截图优先读取 core framebuffer；如果 PNG 宽高与核心显示 aspect 的互换方向更匹配，说明竖屏 rotation 尚未应用，或者解码后的 64×64 采样中可见像素不足 1%，则必须回退到显示 canvas，保证存档封面方向与玩家看到的方向一致且不保存近黑帧。核心截图能力不可用时也回退显示 canvas。
+`EJS_onSaveState` 的真实 payload 是 `{ screenshot: Blob, format: string, state: Uint8Array }`。只有用户点击 Retrom 的“创建存档”才调用核心状态捕获；非空 state 是创建 SaveState 的必需数据，截图只是可空的进度预览，截图捕获或第 10 节的 JPEG 转换失败不得丢弃有效 state。上传用浏览器实际写出的字节持续显示 0–100% 进度，直到服务器成功响应、失败响应或网络错误才结束；浏览器 XHR 必须显式使用 300 秒 timeout，与同一路由的 NG、Next.js 和 Go 300 秒边界一致，超时或其他失败必须明确提醒且不得留下不完整记录。工具栏交互最迟在 750ms 暂停 main loop，但截图可以在独立的 5 秒有界窗口继续完成；沉浸 Player 打开菜单时也必须先同步发起该截图请求再暂停 Core，菜单中的创建动作复用这一份运行帧，不能在暂停后重新读取黑帧。截图优先读取 core framebuffer；如果 PNG 宽高与核心显示 aspect 的互换方向更匹配，说明竖屏 rotation 尚未应用，或者解码后的 64×64 采样中可见像素不足 1%，则必须回退到显示 canvas，保证存档封面方向与玩家看到的方向一致且不保存近黑帧。核心与 canvas 截图都不可用时只省略预览，不影响 state 上传。
 
 EmulatorJS 即使设置 `EJS_disableDatabases=true`，仍会挂载并从 IDBFS 回灌 `/data/saves`。因此每个 Launch 都在 `saveDatabaseLoaded`、ROM/start 之前同步清空整个 mount；清理失败必须阻断启动。Player 不调用 `getSaveFilePath/loadSaveFiles` 注入服务器或浏览器遗留数据。这样没有 `saveStateId/stateUrl` 的“开始游戏/重新开始游戏”必然从游戏初始状态开始。
 
@@ -266,7 +266,7 @@ SaveState 同时引用 Profile、Game、GameContentRevision、GameVariantRevisio
 
 Profile 必须等于当前认证用户唯一绑定的私有 Profile。存档列表、详情、创建、恢复、软删除、最近游玩和累计时长都先按该 Profile 限定；客户端提交另一个 Profile ID、SaveState ID 或 Launch ID 不能扩大授权。用于写操作重放的 Idempotency-Key 同样按认证用户主体分区。
 
-当前产品唯一的进度保存入口是 SaveState。用户主动点击“创建存档”后，Player 捕获非空 state，并最佳努力捕获同一时刻的截图，通过 `/save-states` 原子创建记录；截图失败时省略该 multipart part，不能丢弃有效 state。退出对话框中的“创建存档”也是同一显式动作。直接退出、定时运行、原生 save-file callback 与 `pagehide` 都不能创建存档。显式上传正在进行时退出会等待该上传完成，但不会额外捕获终态。
+当前产品唯一的进度保存入口是 SaveState。用户主动点击“创建存档”后，Player 捕获非空 state，并最佳努力捕获同一时刻的截图，通过 `/save-states` 原子创建记录；截图只作为进度预览，上传前一律按原宽高比限制到最多 `1280×720`，并以质量 `0.75` 重新编码为 JPEG。转换失败或结果仍超过 10 MiB 时省略该 multipart part，不能丢弃有效 state。退出对话框中的“创建存档”也是同一显式动作。直接退出、定时运行、原生 save-file callback 与 `pagehide` 都不能创建存档。显式上传正在进行时退出会等待该上传完成，但不会额外捕获终态。
 
 当前产品没有隐式或自动持久化子系统，Launch config 不包含相应字段，数据库和 HTTP API 也不保存这类记录。普通 Launch 总是从游戏初始状态开始；只有请求中显式指定、且通过 Profile/VariantRevision/CoreArtifact/DOS entry/盘号门禁的 SaveState 可以改变启动位置。
 
@@ -343,7 +343,7 @@ EmulatorJS 会直接轮询浏览器 Gamepad API。卸载必须恢复原函数和
 `120ms` 后才接受左右/A/B。取消顺序为保持全零、关闭菜单、等待中立、只恢复本菜单拥有的暂停、交还游戏
 输入；Core 在打开前已暂停时不能越权恢复。
 
-“创建存档”只有 adapter 支持非空状态捕获时可用；PNG 截图仍按普通 Player 规则最佳努力生成，失败不禁用保存。选择后在暂停所有权未变化的前提下复用普通
+“创建存档”只有 adapter 支持非空状态捕获时可用；截图仍按普通 Player 规则最佳努力采集并转换为 JPEG 预览，失败不禁用保存。选择后在暂停所有权未变化的前提下复用普通
 手动存档上传事务，把当前 state、可用时才提交的截图、Game、Variant/CoreArtifact 与多盘 discIndex 一起提交。上传中菜单
 保持暂停且禁用重复提交；成功显示可读结果后关闭菜单并只恢复本菜单拥有的暂停，失败保留菜单、暂停和重试
 入口。B 在请求前取消；请求已提交后不能伪装为撤销成功。退出先 finish/revoke，成功后 teardown 并
