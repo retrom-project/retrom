@@ -333,6 +333,10 @@ WHERE i.id=?
 	}
 	var configValue any
 	_ = json.Unmarshal([]byte(configJSON), &configValue)
+	artifactValue := any(artifactID)
+	if config, ok := configValue.(map[string]any); ok && config["bindingState"] == "PENDING" {
+		artifactValue = nil
+	}
 	fileOutcomes, err := server.importFileOutcomes(request.Context(), id)
 	if err != nil {
 		server.databaseError(writer, request, err)
@@ -354,7 +358,7 @@ WHERE i.id=?
 		"targetPlatformInstance":      map[string]any{"id": targetID, "name": targetName},
 		"platformId":                  platformID,
 		"defaultCoreId":               coreID,
-		"coreArtifactId":              artifactID,
+		"coreArtifactId":              artifactValue,
 		"datVersionId":                nullableString(datID),
 		"metadataProvider":            provider,
 		"reconfiguredFromImportJobId": nullableString(reconfiguredFrom),

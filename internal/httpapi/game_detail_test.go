@@ -177,6 +177,8 @@ func TestGameDetailReturnsCoreValidationChoicesAndDOSPrograms(t *testing.T) {
 	server.Handler().ServeHTTP(saves, httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/saves", nil))
 	testassert.Falsef(t, testassert.Any(func() bool { return saves.Code != http.StatusOK }, func() bool {
 		return !strings.Contains(saves.Body.String(), `"screenshotUrl":"`+saveStateScreenshotURL(saveStateID)+`"`)
+	}, func() bool {
+		return !strings.Contains(saves.Body.String(), `"sizeBytes":`+strconv.Itoa(len(screenshot)))
 	}, func() bool { return !strings.Contains(saves.Body.String(), `"activeDurationMs":180000`) }, func() bool { return !strings.Contains(saves.Body.String(), `"platform":{"id":"dos","name":"MS-DOS"}`) }, func() bool { return !strings.Contains(saves.Body.String(), `"generatedAtMs":`) }), "save list projection = %d: %s", saves.Code, saves.Body.String())
 	filteredSaves := httptest.NewRecorder()
 	server.Handler().ServeHTTP(filteredSaves, httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/saves?gameId="+gameID, nil))
@@ -185,8 +187,27 @@ func TestGameDetailReturnsCoreValidationChoicesAndDOSPrograms(t *testing.T) {
 	server.Handler().ServeHTTP(missingGameSaves, httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/saves?gameId="+uuid.NewString(), nil))
 	testassert.Falsef(t, testassert.Any(func() bool { return missingGameSaves.Code != http.StatusOK }, func() bool { return !strings.Contains(missingGameSaves.Body.String(), `"items":[]`) }), "save missing game filter = %d: %s", missingGameSaves.Code, missingGameSaves.Body.String())
 	assertGameHomeAndActivity(t, server, gameID, variantRevisionID, coreArtifactID, screenshotBlobID, latestLaunchID, now, expectedCoverURL, saveStateID, screenshot)
+	assertScreenshotlessSaveProjections(t, server, gameID)
 	assertGameProfileIsolation(t, server, gameID, saveStateID, now)
 	assertGameAdminMutations(t, server, gameID, contentID, coverBlobID, now, videoPayload, videoMetadata, videoBlobID)
+}
+
+func assertScreenshotlessSaveProjections(t *testing.T, server *Server, gameID string) {
+	t.Helper()
+	mustExecHTTPTest(t, server.database, "UPDATE save_states SET screenshot_blob_id=NULL WHERE game_id=?", gameID)
+	for _, path := range []string{
+		"/api/v1/saves?gameId=" + gameID,
+		"/api/v1/games/" + gameID,
+		"/api/v1/home",
+	} {
+		response := httptest.NewRecorder()
+		server.Handler().ServeHTTP(response, httptest.NewRequestWithContext(context.Background(), http.MethodGet, path, nil))
+		testassert.Falsef(t, testassert.Any(
+			func() bool { return response.Code != http.StatusOK },
+			func() bool { return !strings.Contains(response.Body.String(), `"screenshotUrl":null`) },
+			func() bool { return strings.Contains(response.Body.String(), "/content/save-states/") },
+		), "screenshot-less projection %s = %d: %s", path, response.Code, response.Body.String())
+	}
 }
 
 func assertGameHomeAndActivity(

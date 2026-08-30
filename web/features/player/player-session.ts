@@ -16,7 +16,8 @@ type SyncTone = "synced" | "busy" | "warning";
 
 export type PlayerSessionParams = {
   launchId: string; emulator: Mutable<EmulatorInstance | undefined>; playerMode: Mutable<PlayerConfig["mode"]>;
-  sequence: Mutable<number>; started: Mutable<boolean>; finishing: Mutable<boolean>; saveUploadQueue: Mutable<Promise<void>>;
+  sequence: Mutable<number>; started: Mutable<boolean>; finishing: Mutable<boolean>;
+  heartbeat: Mutable<number | null>; playEventQueue: Mutable<Promise<void>>; saveUploadQueue: Mutable<Promise<void>>;
   discSetRef: Mutable<DiscSet | null>; orientationStateRef: Mutable<PlayerOrientationState>; returnTo: Mutable<string>;
   netplayController: Mutable<NetplayController | null>;
   replaceImmersiveRoute: (url: string) => void;
@@ -26,7 +27,7 @@ export type PlayerSessionParams = {
 };
 
 export function usePlayerSession(params: PlayerSessionParams) {
-  const sendEvent = useCallback((kind: "start" | "heartbeat" | "finish") => sendPlayerEvent(kind, params), [params]);
+  const sendEvent = useCallback((kind: "start" | "heartbeat" | "finish") => queuePlayerEvent(kind, params), [params]);
 
   const reportProgress = useCallback((progress: SaveUploadProgress) => {
     params.setSaveUploadProgress(progress.percent);
@@ -44,10 +45,25 @@ export function usePlayerSession(params: PlayerSessionParams) {
 
   const exit = useCallback(() => exitPlayer(params, sendEvent), [params, sendEvent]);
   const exitStrict = useCallback(() => exitImmersivePlayer(params, sendEvent), [params, sendEvent]);
+  const exitImmersiveAfterRuntimeExit = useCallback(
+    () => exitImmersivePlayer(params, sendEvent, false),
+    [params, sendEvent],
+  );
 
   usePageHideFinish(params);
   usePageExitProtection(params);
-  return { sendEvent, uploadManualState, uploadValidationCheckpoint, exit, exitStrict };
+  return { sendEvent, uploadManualState, uploadValidationCheckpoint, exit, exitStrict, exitImmersiveAfterRuntimeExit };
+}
+
+function queuePlayerEvent(kind: "start" | "heartbeat" | "finish", params: PlayerSessionParams) {
+  if (kind === "heartbeat" && params.finishing.current) {return Promise.resolve();}
+  if (kind === "finish") {beginPlayerFinish(params);}
+  const result = params.playEventQueue.current.then(() => {
+    if (kind === "heartbeat" && params.finishing.current) {return;}
+    return sendPlayerEvent(kind, params);
+  });
+  params.playEventQueue.current = result.catch(() => undefined);
+  return result;
 }
 
 async function sendPlayerEvent(kind: "start" | "heartbeat" | "finish", params: PlayerSessionParams) {
@@ -59,6 +75,14 @@ async function sendPlayerEvent(kind: "start" | "heartbeat" | "finish", params: P
   params.sequence.current = next;
   if (kind === "start") {params.started.current = true;}
   if (kind === "finish") {params.finishing.current = true;}
+}
+
+function beginPlayerFinish(params: PlayerSessionParams) {
+  params.finishing.current = true;
+  if (params.heartbeat.current !== null) {
+    window.clearInterval(params.heartbeat.current);
+    params.heartbeat.current = null;
+  }
 }
 
 function queueStateUpload(payload: ManualStatePayload, params: PlayerSessionParams, reportProgress: (progress: SaveUploadProgress) => void) {
@@ -73,7 +97,7 @@ function queueStateUpload(payload: ManualStatePayload, params: PlayerSessionPara
 
 async function exitPlayer(params: PlayerSessionParams, sendEvent: (kind: "start" | "heartbeat" | "finish") => Promise<void>) {
   if (params.finishing.current) {return;}
-  params.finishing.current = true;
+  beginPlayerFinish(params);
   const exiting = reducePlayerOrientation(params.orientationStateRef.current, { type: "exit" });
   params.orientationStateRef.current = exiting.state;
   params.setOrientationState(exiting.state);
@@ -90,13 +114,18 @@ async function exitPlayer(params: PlayerSessionParams, sendEvent: (kind: "start"
 async function exitImmersivePlayer(
   params: PlayerSessionParams,
   sendEvent: (kind: "start" | "heartbeat" | "finish") => Promise<void>,
+  strict = true,
 ) {
   if (params.finishing.current) {return;}
   const exiting = reducePlayerOrientation(params.orientationStateRef.current, { type: "exit" });
   params.orientationStateRef.current = exiting.state;
   params.setOrientationState(exiting.state);
   if (exiting.effects.includes("unlock")) {unlockLandscape();}
-  await sendEvent("finish");
+  try {
+    await sendEvent("finish");
+  } catch (error) {
+    if (strict) {throw error;}
+  }
   params.replaceImmersiveRoute(params.returnTo.current);
 }
 
@@ -196,6 +225,6 @@ function usePageExitProtection(params: PlayerSessionParams) {
 function finishOnPageHide(params: PlayerSessionParams) {
   if (params.finishing.current) {return;}
   const wasStarted = params.started.current;
+  beginPlayerFinish(params);
   void fetch(`/runtime/launches/${params.launchId}/finish`, { method: "POST", credentials: "same-origin", keepalive: true, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ clientSequence: wasStarted ? params.sequence.current + 1 : 0, clientObservedAtMs: Date.now(), previousInterval: wasStarted ? { running: true, visible: document.visibilityState === "visible", paused: params.emulator.current?.paused === true } : null }) });
-  params.finishing.current = true;
 }

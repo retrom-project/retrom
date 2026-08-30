@@ -83,6 +83,7 @@ function refreshListItem(item: ImportListItem, detail: ImportDetail): ImportList
     unresolvedRejectedFileCount: detail.counts.unresolvedRejectedFiles,
     alreadyImportedItemCount: detail.counts.alreadyImportedItems,
     alreadyImportedFileCount: detail.counts.alreadyImportedFiles,
+    lastErrorCode: detail.errorCode ?? null,
     version: detail.version,
     createdAtMs: detail.createdAtMs,
     updatedAtMs: detail.updatedAtMs,
@@ -137,6 +138,9 @@ function TaskStages({ attention, issueCount, stageIndex }: { attention: boolean;
 
 function TaskProblem({ isMultiDisc, item }: { isMultiDisc: boolean; item: ImportListItem }) {
   const summary = importTaskIssueSummary(item);
+  if (item.state === "FAILED") {
+    return <div className="import-task-problem"><p>{summary}。请根据错误码检查项目结构或归档后重新上传。</p><Link className="button secondary" href="/admin/imports/new">新建导入</Link></div>;
+  }
   const description = isMultiDisc
     ? `${summary}。多盘目录必须重新选择完整 DIRECTORY，不能只复用原任务中被拒绝的文件。`
     : `${summary}。可以复用服务器已经保存的文件，重新选择平台目录并再次识别，无需重新上传。`;

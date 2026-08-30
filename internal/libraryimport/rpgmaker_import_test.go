@@ -279,10 +279,11 @@ func rpgMakerMVArchiveWithMToolSidecar(t *testing.T) []byte {
 		"js/rpg_core.js", "js/rpg_managers.js", "js/rpg_objects.js", "js/rpg_scenes.js",
 		"js/rpg_sprites.js", "js/rpg_windows.js", "js/plugins.js", "js/main.js",
 	}
-	files := make([]archiveFile, 0, 2+len(scripts)+1)
+	files := make([]archiveFile, 0, 3+len(scripts)+1)
 	files = append(files,
 		archiveFile{name: "Export/www/data/System.json", body: []byte(`{"gameTitle":"Retrom Fixture"}`)},
 		archiveFile{name: "Export/www/audio/bgm/config", body: []byte("7z\xbc\xaf\x27\x1c encrypted MTool sidecar")},
+		archiveFile{name: "Export/www/.DS_Store", body: []byte("packaging noise")},
 	)
 	html := "<!doctype html><html><head>"
 	for _, script := range scripts {

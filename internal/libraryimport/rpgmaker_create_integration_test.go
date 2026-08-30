@@ -9,6 +9,7 @@ import (
 	"database/sql"
 	"encoding/base64"
 	"fmt"
+	"os"
 	"path/filepath"
 	"runtime"
 	"testing"
@@ -83,6 +84,10 @@ func TestCreateRPGMakerMVArchiveReachesReviewPending(t *testing.T) {
 	}
 	if created.ItemCount != 1 || created.State != "REVIEW_PENDING" {
 		t.Fatalf("Create(RPG Maker MV) = %#v", created)
+	}
+	noiseDigest := sha256.Sum256([]byte("packaging noise"))
+	if _, err := os.Stat(blobs.Path(fmt.Sprintf("%x", noiseDigest))); !os.IsNotExist(err) {
+		t.Fatalf("excluded packaging noise reached CAS: %v", err)
 	}
 	var state, code, title, metadataProvider string
 	if err := database.SQL.QueryRowContext(ctx, `

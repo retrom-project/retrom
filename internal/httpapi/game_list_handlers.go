@@ -182,7 +182,8 @@ s.name,
 s.created_at_ms,
 a.core_id,
 c.name,
-s.disc_index
+s.disc_index,
+s.screenshot_blob_id IS NOT NULL
 FROM save_states s
 JOIN core_artifacts a ON a.id=s.core_artifact_id
 JOIN cores c ON c.id=a.core_id
@@ -204,13 +205,16 @@ LIMIT 8
 		var saveID, saveName, coreID, coreName string
 		var createdAtMS int64
 		var discIndex sql.NullInt64
-		if err := saveRows.Scan(&saveID, &saveName, &createdAtMS, &coreID, &coreName, &discIndex); err != nil {
+		var hasScreenshot bool
+		if err := saveRows.Scan(
+			&saveID, &saveName, &createdAtMS, &coreID, &coreName, &discIndex, &hasScreenshot,
+		); err != nil {
 			return nil, fmt.Errorf("scan recent game save: %w", err)
 		}
 		saveStates = append(saveStates, map[string]any{
 			"saveStateId": saveID, "name": saveName, "createdAtMs": createdAtMS,
 			"discIndex": nullableInteger(discIndex), "discLabel": discLabel(discIndex),
-			"screenshotUrl": saveStateScreenshotURL(saveID),
+			"screenshotUrl": optionalSaveScreenshotURL(saveID, hasScreenshot),
 			"core":          map[string]any{"id": coreID, "name": coreName},
 		})
 	}

@@ -189,7 +189,7 @@ paths:
   /api/v1/saves:
     get:
       operationId: getSaves
-      description: Save states whose games belong to enabled platform directories. Each owner-filtered item includes its base platform, platform directory, locked core, availability, screenshot URL and nullable discIndex/discLabel; generatedAtMs gives grouped save views a stable response clock.
+      description: Save states whose games belong to enabled platform directories. Each owner-filtered item includes its base platform, platform directory, locked core, payload sizeBytes, availability, screenshot URL and nullable discIndex/discLabel; generatedAtMs gives grouped save views a stable response clock.
       parameters:
         - $ref: ../components/common.yaml#/components/parameters/Q
         - $ref: '#/components/parameters/GameIDQuery'
@@ -773,6 +773,7 @@ components:
         - saveStateId
         - name
         - createdAtMs
+        - sizeBytes
         - discIndex
         - screenshotUrl
       properties:
@@ -786,6 +787,11 @@ components:
           type: integer
           format: int64
           minimum: 0
+        sizeBytes:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 268435456
         discIndex:
           type: integer
           minimum: 0

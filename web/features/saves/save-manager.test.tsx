@@ -19,6 +19,7 @@ function makeSave(overrides: Partial<SaveItem> = {}): SaveItem {
     version: 3,
     createdAtMs: new Date(2026, 7, 8, 21, 9, 47).getTime(),
     activeDurationMs: 540_000,
+    sizeBytes: Math.round(1.23 * 1024 * 1024),
     screenshotUrl: "/content/save-states/save-1/screenshot",
     core: { id: "fbneo", name: "FinalBurn Neo" },
     platform: { id: "arcade", name: "街机" },
@@ -50,6 +51,22 @@ describe("SaveManager", () => {
     expect(rule).toContain("overflow: visible");
   });
 
+  it("anchors an opaque size label to the screenshot tray without changing card flow", () => {
+    const source = readFileSync(resolve(process.cwd(), "features/imports/import-review-workflow.css"), "utf8");
+    const rule = source.match(/\.save-library-size\s*\{([^}]*)\}/)?.[1] ?? "";
+
+    expect(rule).toContain("position: absolute");
+    expect(rule).toContain("right: 8px");
+    expect(rule).toContain("bottom: 8px");
+    expect(rule).toContain("height: 22px");
+    expect(rule).toContain("padding: 1px 7px 0");
+    expect(rule).toContain("display: inline-flex");
+    expect(rule).toContain("align-items: center");
+    expect(rule).toContain("justify-content: center");
+    expect(rule).toContain("border-radius: 5px");
+    expect(rule).toContain("background: #4435a7");
+  });
+
   it("renders the latest save, summary and game-grouped library", () => {
     render(<SaveManager saves={[makeSave()]} nowMs={nowMs} />);
 
@@ -59,6 +76,17 @@ describe("SaveManager", () => {
     expect(screen.getByRole("heading", { name: "最近保存" })).toBeInTheDocument();
     expect(screen.getAllByRole("heading", { name: "Metal Slug" })).toHaveLength(2);
     expect(screen.getByText("该游戏目前只有这一份存档")).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "从这里继续" })).toHaveLength(2);
+    const sizeLabel = screen.getByText("1.23MB");
+    expect(sizeLabel).toHaveAttribute("aria-label", "存档大小 1.23MB");
+    expect(sizeLabel.closest(".save-library-shot")).not.toBeNull();
+  });
+
+  it("keeps screenshot-less saves resumable and renders stable placeholders", () => {
+    render(<SaveManager saves={[makeSave({ screenshotUrl: null })]} nowMs={nowMs} />);
+
+    expect(screen.getAllByRole("img", { name: "Metal Slug 存档画面无预览图" })).toHaveLength(1);
+    expect(screen.getByRole("img", { name: "Metal Slug 最近存档画面无预览图" })).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: "从这里继续" })).toHaveLength(2);
   });
 

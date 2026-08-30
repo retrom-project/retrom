@@ -17,6 +17,7 @@ function makeSave(index: number): SaveItem {
     version: 1,
     createdAtMs: nowMs - index * 60_000,
     activeDurationMs: 60_000,
+    sizeBytes: 1024,
     screenshotUrl: `/api/v1/saves/save-${index}/screenshot`,
     core: { id: index === 5 ? "mame2003_plus" : "fbneo", name: index === 5 ? "MAME 2003 Plus" : "FinalBurn Neo" },
     platform: { id: "arcade", name: "Arcade" },
@@ -65,5 +66,13 @@ describe("GameDetailSaves", () => {
     await user.click(within(preview).getByRole("button", { name: "关闭" }));
     expect(screen.queryByRole("dialog", { name: "存档截图预览" })).not.toBeInTheDocument();
     expect(previewTrigger).toHaveFocus();
+  });
+
+  it("does not offer an image preview when the save has no screenshot", () => {
+    render(<GameDetailSaves gameId="game-1" gameTitle="1943: The Battle of Midway" saves={[makeSave(0), { ...makeSave(1), screenshotUrl: null }]} nowMs={nowMs} />);
+
+    expect(screen.getByRole("button", { name: /的存档没有截图/ })).toBeDisabled();
+    expect(screen.getByRole("img", { name: "存档截图无预览图" })).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: /从这里继续|恢复此存档/ })).toHaveLength(2);
   });
 });

@@ -536,7 +536,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description Save states whose games belong to enabled platform directories. Each owner-filtered item includes its base platform, platform directory, locked core, availability, screenshot URL and nullable discIndex/discLabel; generatedAtMs gives grouped save views a stable response clock. */
+        /** @description Save states whose games belong to enabled platform directories. Each owner-filtered item includes its base platform, platform directory, locked core, payload sizeBytes, availability, screenshot URL and nullable discIndex/discLabel; generatedAtMs gives grouped save views a stable response clock. */
         get: operations["getSaves"];
         put?: never;
         post?: never;
@@ -952,6 +952,7 @@ export interface paths {
         /** @description Cursor-paged browser/reconfigure ImportJobs. Per-game ImportJobs created internally by Pegasus or EmulationStation review handoff are excluded; aggregate server-import history is available from `/api/v1/admin/pegasus-imports` and `/api/v1/admin/emulationstation-imports`. */
         get: operations["getAdminImports"];
         put?: never;
+        /** @description Performs bounded admission, persists an immutable IMPORT_GROUP input, and returns 202 while archive inspection, project detection, hashing, CAS materialization, and grouping continue in the background. Content-dependent failures are reported by the ImportJob and JobEvent projections rather than holding this request open. */
         post: operations["postAdminImport"];
         delete?: never;
         options?: never;
@@ -3248,6 +3249,8 @@ export interface components {
             name: string;
             /** Format: int64 */
             createdAtMs: number;
+            /** Format: int64 */
+            sizeBytes: number;
             discIndex: number | null;
             screenshotUrl: string | null;
         };
@@ -5691,7 +5694,7 @@ export interface components {
             year?: unknown;
         };
         /** @enum {string} */
-        RpgErrorCode: "RPG_CORE_UNSUPPORTED" | "RPG_PROJECT_NOT_FOUND" | "RPG_PROJECT_ROOT_AMBIGUOUS" | "RPG_GENERATION_AMBIGUOUS" | "RPG_GENERATION_UNSUPPORTED" | "RPG_SELECTED_CORE_MISMATCH" | "RPG_SERVER_IMPORT_UNSUPPORTED" | "RPG_LCF_INVALID" | "RPG_LCF_GENERATION_UNKNOWN" | "RPG_LMT_INVALID" | "RPG_INI_INVALID" | "RPG_INI_ENCODING_UNSUPPORTED" | "RPG_RGSS_GENERATION_CONFLICT" | "RPG_WEB_FORMAT_INVALID" | "RPG_RGSS_CONTENT_TOO_LARGE" | "RPG_PATH_COLLISION" | "RPG_NATIVE_DEPENDENCY_UNSUPPORTED" | "RPG_RUNTIME_PACK_MISSING" | "RPG_RUNTIME_PACK_AMBIGUOUS" | "RPG_RUNTIME_PACK_IN_USE" | "RPG_RUNTIME_PACK_INVALID" | "RPG_RUNTIME_PACK_CONFLICT" | "RPG_RUNTIME_PACK_NOT_FOUND" | "RPG_RUNTIME_PACK_TOO_LARGE" | "RPG_RUNTIME_PACK_UNAVAILABLE" | "RPG_RUNTIME_PACK_VERSION_CONFLICT" | "RPG_RUNTIME_ROUTE_UNAVAILABLE" | "RPG_RUNTIME_THREADS_UNAVAILABLE" | "RPG_RUNTIME_OPFS_UNAVAILABLE" | "RPG_NATIVE_BRIDGE_UNSUPPORTED" | "RPG_RUNTIME_VALIDATION_REQUIRED" | "RPG_RUNTIME_VALIDATION_NOT_FOUND" | "RPG_RUNTIME_VALIDATION_VERSION_CONFLICT" | "RPG_RUNTIME_VALIDATION_DECISION_INVALID" | "RPG_RUNTIME_INVALID_STATE" | "RPG_RUNTIME_PROTOCOL_VIOLATION" | "RPG_RUNTIME_TIMEOUT" | "RPG_RUNTIME_CONTENT_MISMATCH" | "RPG_CHECKPOINT_UNAVAILABLE" | "RPG_CHECKPOINT_INVALID" | "RPG_CHECKPOINT_INCOMPATIBLE" | "RPG_CHECKPOINT_RESTORE_FAILED" | "RPG_RUNTIME_BOOTSTRAP_EXPIRED" | "RPG_RUNTIME_SCREENSHOT_INVALID";
+        RpgErrorCode: "RPG_CORE_UNSUPPORTED" | "RPG_PROJECT_NOT_FOUND" | "RPG_PROJECT_ROOT_AMBIGUOUS" | "RPG_GENERATION_AMBIGUOUS" | "RPG_GENERATION_UNSUPPORTED" | "RPG_SELECTED_CORE_MISMATCH" | "RPG_SERVER_IMPORT_UNSUPPORTED" | "RPG_LCF_INVALID" | "RPG_LCF_GENERATION_UNKNOWN" | "RPG_LMT_INVALID" | "RPG_INI_INVALID" | "RPG_INI_ENCODING_UNSUPPORTED" | "RPG_RGSS_GENERATION_CONFLICT" | "RPG_WEB_FORMAT_INVALID" | "RPG_RGSS_CONTENT_TOO_LARGE" | "RPG_PATH_COLLISION" | "RPG_NATIVE_DEPENDENCY_UNSUPPORTED" | "RPG_RUNTIME_PACK_MISSING" | "RPG_RUNTIME_PACK_AMBIGUOUS" | "RPG_RUNTIME_PACK_IN_USE" | "RPG_RUNTIME_PACK_INVALID" | "RPG_RUNTIME_PACK_CONFLICT" | "RPG_RUNTIME_PACK_NOT_FOUND" | "RPG_RUNTIME_PACK_TOO_LARGE" | "RPG_RUNTIME_PACK_UNAVAILABLE" | "RPG_RUNTIME_PACK_VERSION_CONFLICT" | "RPG_RUNTIME_ROUTE_UNAVAILABLE" | "RPG_RUNTIME_THREADS_UNAVAILABLE" | "RPG_RUNTIME_OPFS_UNAVAILABLE" | "RPG_NATIVE_BRIDGE_UNSUPPORTED" | "RPG_RUNTIME_VALIDATION_REQUIRED" | "RPG_RUNTIME_VALIDATION_NOT_FOUND" | "RPG_RUNTIME_VALIDATION_VERSION_CONFLICT" | "RPG_RUNTIME_VALIDATION_DECISION_INVALID" | "RPG_RUNTIME_VALIDATION_WINDOW_CLOSED" | "RPG_RUNTIME_INVALID_STATE" | "RPG_RUNTIME_PROTOCOL_VIOLATION" | "RPG_RUNTIME_TIMEOUT" | "RPG_RUNTIME_CONTENT_MISMATCH" | "RPG_CHECKPOINT_UNAVAILABLE" | "RPG_CHECKPOINT_INVALID" | "RPG_CHECKPOINT_INCOMPATIBLE" | "RPG_CHECKPOINT_RESTORE_FAILED" | "RPG_RUNTIME_BOOTSTRAP_EXPIRED" | "RPG_RUNTIME_SCREENSHOT_INVALID";
         RpgError: {
             code: components["schemas"]["RpgErrorCode"];
             message: string;

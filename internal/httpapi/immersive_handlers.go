@@ -46,8 +46,9 @@ func immersiveGameProjection(game immersive.Game) map[string]any {
 			"saveStateId":   saveState.ID,
 			"name":          saveState.Name,
 			"createdAtMs":   saveState.CreatedAtMS,
+			"sizeBytes":     saveState.SizeBytes,
 			"discIndex":     saveState.DiscIndex,
-			"screenshotUrl": "/content/save-states/" + saveState.ID + "/screenshot",
+			"screenshotUrl": optionalSaveScreenshotURL(saveState.ID, saveState.HasScreenshot),
 		})
 	}
 	return map[string]any{

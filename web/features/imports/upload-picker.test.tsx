@@ -7,6 +7,7 @@ import { UploadPicker } from "./upload-picker";
 
 const directoryAccess = vi.hoisted(() => ({ directoryPickerAvailable: vi.fn(), pickDirectory: vi.fn() }));
 const upload = vi.hoisted(() => ({ uploadFiles: vi.fn() }));
+const router = vi.hoisted(() => ({ push: vi.fn(), refresh: vi.fn() }));
 
 vi.mock("@/lib/directory-access", async (loadOriginal) => {
   const original = await loadOriginal<typeof DirectoryAccess>();
@@ -19,13 +20,15 @@ vi.mock("@/lib/upload", async (loadOriginal) => {
 });
 
 vi.mock("next/navigation", () => ({
-  useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }),
+  useRouter: () => router,
 }));
 
 beforeEach(() => {
   directoryAccess.directoryPickerAvailable.mockReset().mockReturnValue(true);
   directoryAccess.pickDirectory.mockReset();
   upload.uploadFiles.mockReset().mockResolvedValue({ uploadId: "rpg-upload", uploadFileIds: ["rpg-file"] });
+  router.push.mockReset();
+  router.refresh.mockReset();
 });
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
@@ -180,6 +183,27 @@ describe("UploadPicker", () => {
     expect(fetchMock).toHaveBeenCalledWith("/api/v1/admin/imports", expect.objectContaining({
       body: JSON.stringify({ uploadId: "rpg-upload", targetPlatformInstanceId: "kirikiri", metadataProvider: "NONE", contentMode: "KIRIKIRI_PROJECT_V1", tagIds: [] }),
     }));
+  });
+
+  it("opens task progress as soon as the server accepts background preparation", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(
+      JSON.stringify({ importJobId: "queued-import", jobId: "group-job", state: "QUEUED", itemCount: 0 }),
+      { status: 202, headers: { "Content-Type": "application/json" } },
+    ));
+    vi.stubGlobal("fetch", fetchMock);
+    const user = userEvent.setup();
+    render(<UploadPicker directories={[{
+      id: "ons", name: "ONS 游戏", platformName: "ONS", coreName: "ONScripterYuri",
+      importCapabilities: { contentModes: ["ONS_PROJECT_V1"], multiDisc: null },
+    }]} />);
+
+    await user.upload(screen.getByLabelText("选择导入文件"), new File(["project"], "game.zip"));
+    await user.click(screen.getByRole("button", { name: "下一步" }));
+    await user.selectOptions(screen.getByRole("combobox", { name: "目标游戏目录" }), "ons");
+    await user.click(screen.getByRole("button", { name: "上传并试运行 ONS 项目" }));
+
+    expect(router.push).toHaveBeenCalledWith("/admin/imports/tasks");
+    expect(router.refresh).toHaveBeenCalledOnce();
   });
 
   it("preflights a directory and blocks multi-disc mode on an unsupported target", async () => {

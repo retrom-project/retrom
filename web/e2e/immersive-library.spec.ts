@@ -4,6 +4,7 @@ import { expect, test, type Locator, type Page } from "@playwright/test";
 import axe from "axe-core";
 import { currentEmulatorBrightRatio, evidencePath, locatorBrightRatio } from "./acceptance-support";
 import { installGamepads, pressGamepad, setGamepadButtons, standardButton } from "./immersive-gamepad";
+import { selectImmersiveMenuItem, type ImmersiveMenuLabel } from "./immersive-menu-selection";
 
 const origin = process.env.RETROM_WEB_ORIGIN ?? "http://localhost:3000";
 const audioPreferenceKey = "retrom:immersive:audio-preferences:v1";
@@ -28,7 +29,7 @@ type Destination = {
 type SaveItem = {
   gameId: string;
   saveStateId: string;
-  screenshotUrl: string;
+  screenshotUrl: string | null;
 };
 
 type LibraryItem = {
@@ -163,9 +164,16 @@ async function openPlayerMenu(page: Page) {
   return menu;
 }
 
-async function createSaveFromMenu(page: Page, menu: Locator, selectItem = true) {
-  if (selectItem) {await pressGamepad(page, standardButton.right);}
-  await expect(menu.getByRole("button", { name: "创建存档" })).toHaveAttribute("aria-current", "true");
+async function selectPlayerMenuItem(page: Page, menu: Locator, target: ImmersiveMenuLabel) {
+  await selectImmersiveMenuItem(
+    target,
+    () => menu.locator('button[aria-current="true"]').textContent(),
+    (direction) => pressGamepad(page, direction === "right" ? standardButton.right : standardButton.left),
+  );
+}
+
+async function createSaveFromMenu(page: Page, menu: Locator) {
+  await selectPlayerMenuItem(page, menu, "创建存档");
   const response = page.waitForResponse((candidate) =>
     candidate.request().method() === "POST" && /\/runtime\/launches\/[^/]+\/save-states$/.test(candidate.url()));
   await pressGamepad(page, standardButton.a);
@@ -174,9 +182,7 @@ async function createSaveFromMenu(page: Page, menu: Locator, selectItem = true) 
 }
 
 async function exitPlayer(page: Page, menu: Locator) {
-  await expect(menu.getByRole("button", { name: "取消" })).toHaveAttribute("aria-current", "true");
-  await pressGamepad(page, standardButton.right);
-  await pressGamepad(page, standardButton.right);
+  await selectPlayerMenuItem(page, menu, "退出游戏");
   const finished = page.waitForResponse((response) =>
     response.request().method() === "POST" && /\/runtime\/launches\/[^/]+\/finish$/.test(response.url()));
   await pressGamepad(page, standardButton.a);
@@ -329,7 +335,7 @@ test("ACC-IMM-010 save library selects an older save, restores it and creates an
   await launchSelectedGame(page);
   let menu = await openPlayerMenu(page);
   await createSaveFromMenu(page, menu);
-  await createSaveFromMenu(page, menu, false);
+  await createSaveFromMenu(page, menu);
   await pressGamepad(page, standardButton.b);
   await expect(menu).toBeHidden();
   menu = await openPlayerMenu(page);
@@ -362,6 +368,10 @@ test("ACC-IMM-010 save library selects an older save, restores it and creates an
   expect(saveLayout?.mediaRatio).toBeGreaterThan(0.6);
   expect(saveLayout?.mediaRatio).toBeLessThan(0.64);
   await expect(saveRail.getByRole("button")).toHaveCount(saveTotal);
+  await expect(saveRail.locator('[data-immersive-save-size="true"]')).toHaveCount(saveTotal);
+  for (const label of await saveRail.locator('[data-immersive-save-size="true"]').all()) {
+    await expect(label).toHaveText(/^\d+(?:\.\d{1,2})?(?:B|KB|MB|GB)$/u);
+  }
   await expect(saveRail.getByRole("button", { pressed: true })).toHaveAccessibleName(/第 1 份存档/);
   await expect(saveRail.getByText(/^手动存档/u)).toHaveCount(0);
   expect((await screenshotResponse).headers()["cache-control"]).toBe("private, no-store");
