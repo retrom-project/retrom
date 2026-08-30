@@ -31,3 +31,30 @@ func TestPutDeduplicatesConcurrentContent(t *testing.T) {
 	contents, err := os.ReadFile(results[0].Path)
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return !bytes.Equal(contents, payload) }), "published content mismatch: %v", err)
 }
+
+func TestCandidatePublishesOnlyWhenCommitted(t *testing.T) {
+	t.Parallel()
+	store, err := Open(t.TempDir())
+	testassert.Falsef(t, err != nil, "Open() error = %v", err)
+	payload := []byte("staged archive member")
+	candidate, err := store.Stage(bytes.NewReader(payload))
+	testassert.Falsef(t, err != nil, "Stage() error = %v", err)
+	metadata := candidate.Metadata()
+	_, statErr := os.Stat(store.Path(metadata.SHA256))
+	testassert.Truef(t, os.IsNotExist(statErr), "staged candidate was published before commit: %v", statErr)
+	published, err := candidate.Commit()
+	testassert.Falsef(t, err != nil, "Commit() error = %v", err)
+	contents, err := os.ReadFile(published.Path)
+	testassert.Falsef(t, testassert.Any(
+		func() bool { return err != nil },
+		func() bool { return !bytes.Equal(contents, payload) },
+	), "committed candidate mismatch: %v", err)
+	testassert.Falsef(t, candidate.Discard() != nil, "discarding a committed candidate is not idempotent")
+
+	discarded, err := store.Stage(bytes.NewReader([]byte("unused archive sidecar")))
+	testassert.Falsef(t, err != nil, "Stage() for discard error = %v", err)
+	discardedMetadata := discarded.Metadata()
+	testassert.Falsef(t, discarded.Discard() != nil, "Discard() error")
+	_, statErr = os.Stat(store.Path(discardedMetadata.SHA256))
+	testassert.Truef(t, os.IsNotExist(statErr), "discarded candidate reached CAS: %v", statErr)
+}

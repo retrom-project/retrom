@@ -81,6 +81,7 @@ paths:
           $ref: ../components/common.yaml#/components/responses/JSONResponse
     post:
       operationId: postAdminImport
+      description: Performs bounded admission, persists an immutable IMPORT_GROUP input, and returns 202 while archive inspection, project detection, hashing, CAS materialization, and grouping continue in the background. Content-dependent failures are reported by the ImportJob and JobEvent projections rather than holding this request open.
       parameters:
         - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey
       requestBody:

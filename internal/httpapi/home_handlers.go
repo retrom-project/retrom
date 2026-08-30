@@ -254,7 +254,8 @@ m.title,
 s.name,
 s.created_at_ms,
 s.active_duration_ms,
-s.disc_index
+s.disc_index,
+s.screenshot_blob_id IS NOT NULL
 FROM save_states s
 JOIN save_state_runtime_compatibility runtime_compatibility
   ON runtime_compatibility.save_state_id=s.id AND runtime_compatibility.status='AVAILABLE'
@@ -277,8 +278,10 @@ s.id DESC LIMIT 3
 		var saveID, gameID, title, name string
 		var createdAtMS, activeDurationMS int64
 		var discIndex sql.NullInt64
+		var hasScreenshot bool
 		if err := saveRows.Scan(
 			&saveID, &gameID, &title, &name, &createdAtMS, &activeDurationMS, &discIndex,
+			&hasScreenshot,
 		); err != nil {
 			return nil, fmt.Errorf("scan recent save: %w", err)
 		}
@@ -293,7 +296,7 @@ s.id DESC LIMIT 3
 				"activeDurationMs": activeDurationMS,
 				"discIndex":        nullableInteger(discIndex),
 				"discLabel":        discLabel(discIndex),
-				"screenshotUrl":    saveStateScreenshotURL(saveID),
+				"screenshotUrl":    optionalSaveScreenshotURL(saveID, hasScreenshot),
 			},
 		)
 	}
@@ -421,15 +424,17 @@ func (server *Server) featuredSessionSave(
 	var saveID string
 	var createdAtMS, activeDurationMS int64
 	var discIndex sql.NullInt64
+	var hasScreenshot bool
 	err := server.database.QueryRowContext(ctx, `
-SELECT save.id,save.created_at_ms,save.active_duration_ms,save.disc_index
+SELECT save.id,save.created_at_ms,save.active_duration_ms,save.disc_index,
+       save.screenshot_blob_id IS NOT NULL
 FROM save_states save
 JOIN save_state_runtime_compatibility compatibility
   ON compatibility.save_state_id=save.id AND compatibility.status='AVAILABLE'
 WHERE save.source_launch_session_id=? AND save.profile_id=? AND save.deleted_at_ms IS NULL
 ORDER BY save.created_at_ms DESC,save.id DESC
 LIMIT 1
-	`, launchID, profileID).Scan(&saveID, &createdAtMS, &activeDurationMS, &discIndex)
+	`, launchID, profileID).Scan(&saveID, &createdAtMS, &activeDurationMS, &discIndex, &hasScreenshot)
 	if errors.Is(err, sql.ErrNoRows) {
 		return homeSessionSave{}, nil
 	}
@@ -439,7 +444,7 @@ LIMIT 1
 	return homeSessionSave{value: map[string]any{
 		"saveStateId": saveID, "createdAtMs": createdAtMS, "activeDurationMs": activeDurationMS,
 		"discIndex": nullableInteger(discIndex), "discLabel": discLabel(discIndex),
-		"screenshotUrl": saveStateScreenshotURL(saveID),
+		"screenshotUrl": optionalSaveScreenshotURL(saveID, hasScreenshot),
 	}}, nil
 }
 

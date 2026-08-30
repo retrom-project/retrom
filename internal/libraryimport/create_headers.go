@@ -98,14 +98,66 @@ INSERT INTO upload_consumptions(
 
 func (run *creationRun) insertDispositions() error {
 	for _, disposition := range run.plan.dispositions {
-		_, err := run.transaction.ExecContext(run.ctx, `
+		statement := `
 INSERT INTO import_job_files(
   import_job_id,upload_file_id,disposition,reason_code,created_at_ms,updated_at_ms
 ) VALUES(?,?,?,?,?,?)
-`, run.importID, disposition.file.id, disposition.disposition, nullableText(disposition.reason), run.now, run.now)
+`
+		arguments := []any{
+			run.importID, disposition.file.id, disposition.disposition,
+			nullableText(disposition.reason), run.now, run.now,
+		}
+		if run.queued != nil {
+			statement = `
+UPDATE import_job_files
+SET disposition=?,reason_code=?,updated_at_ms=?
+WHERE import_job_id=? AND upload_file_id=? AND disposition='PENDING'
+`
+			arguments = []any{
+				disposition.disposition, nullableText(disposition.reason), run.now,
+				run.importID, disposition.file.id,
+			}
+		}
+		result, err := run.transaction.ExecContext(run.ctx, statement, arguments...)
 		if err != nil {
 			return fmt.Errorf("libraryimport/service: %w", err)
 		}
+		if run.queued != nil {
+			changed, changedErr := result.RowsAffected()
+			if changedErr != nil || changed != 1 {
+				return ErrInvalid
+			}
+		}
 	}
 	return nil
+}
+
+func (run *creationRun) updateQueuedImport(configJSON []byte, configDigest string) error {
+	ignored, rejected := countDispositions(run.plan.dispositions)
+	run.rejected = rejected
+	run.progress = newInitialImportProgress(run.plan.request.MetadataProvider, len(run.plan.groups), rejected)
+	run.resultState = run.progress.state
+	if run.progress.completed {
+		run.completedAt = run.now
+	}
+	target := run.plan.target
+	result, err := run.transaction.ExecContext(run.ctx, `
+UPDATE import_jobs
+SET core_artifact_id=?,dat_version_id=?,config_snapshot_json=?,config_snapshot_digest=?,
+ state=?,total_item_count=?,queued_item_count=0,running_item_count=?,review_pending_item_count=?,
+ published_item_count=0,discarded_item_count=0,failed_item_count=0,cancelled_item_count=0,
+ ignored_file_count=?,rejected_file_count=?,last_error_code=NULL,version=version+1,
+ updated_at_ms=?,completed_at_ms=?
+WHERE id=? AND state='RUNNING'
+`, target.artifactID, nullable(run.plan.datID), string(configJSON), configDigest,
+		run.progress.state, len(run.plan.groups), run.progress.runningItems, run.progress.reviewPendingItems,
+		ignored, rejected, run.now, run.completedAt, run.importID)
+	if err != nil {
+		return fmt.Errorf("libraryimport/service: %w", err)
+	}
+	changed, err := result.RowsAffected()
+	if err != nil || changed != 1 {
+		return ErrInvalid
+	}
+	return run.insertDispositions()
 }

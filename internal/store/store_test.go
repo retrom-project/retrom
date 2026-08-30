@@ -27,7 +27,15 @@ func TestMigrationsCreateCurrentSchemaAndReferenceCatalog(t *testing.T) {
 	testassert.Falsef(t, database.IntegrityCheck(ctx) != nil, "fresh database integrity failed")
 
 	tables := queryStrings(t, database.SQL, "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name")
-	testassert.Falsef(t, len(tables) != 122, "fresh schema table count = %d", len(tables))
+	testassert.Falsef(t, len(tables) != 123, "fresh schema table count = %d", len(tables))
+	assertColumns(t, database.SQL, "import_group_requests",
+		"import_job_id", "request_digest", "actor_user_id", "upload_version",
+		"upload_manifest_digest", "target_snapshot_digest")
+	testassert.Truef(t, slices.Equal(queryStrings(t, database.SQL, `
+SELECT name FROM sqlite_master
+WHERE type='trigger' AND name LIKE 'import_group_requests_immutable_%' ORDER BY name
+`), []string{"import_group_requests_immutable_delete", "import_group_requests_immutable_update"}),
+		"import group request immutability triggers drifted")
 	for _, table := range tables {
 		assertIntegerTimeColumns(t, database.SQL, table)
 	}
@@ -213,7 +221,7 @@ func TestCurrentMigrationLineageResumeAndReopen(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "retrom.db")
 	sources, err := migrationSources()
 	testassert.False(t, err != nil, err)
-	testassert.Falsef(t, len(sources) != 12, "migration count = %d", len(sources))
+	testassert.Falsef(t, len(sources) != 13, "migration count = %d", len(sources))
 	database := openMigrationTestDatabase(t, path)
 	for _, source := range sources[:len(sources)-1] {
 		if err := runMigration(ctx, database, source, time.Now); err != nil {

@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useEffect, useRef } from "react";
+import { formatSaveSize } from "@/features/saves/save-library";
 import type { ImmersiveGame } from "./api";
 import styles from "./library.module.css";
 
@@ -33,11 +34,12 @@ export function ImmersiveSaveCarousel({ gameTitle, onSelect, saves, selectedInde
       {saves.map((save, index) => {
         const selected = index === selectedIndex;
         const time = formatSaveTime(save.createdAtMs);
+        const size = formatSaveSize(save.sizeBytes);
         return <button
           ref={selected ? selectedRef : undefined}
           className={`${styles.saveCard} ${selected ? styles.selectedSaveCard : ""}`.trim()}
           type="button"
-          aria-label={`第 ${index + 1} 份存档，${time}`}
+          aria-label={`第 ${index + 1} 份存档，${time}，${size}`}
           aria-pressed={selected}
           tabIndex={selected ? 0 : -1}
           key={save.saveStateId}
@@ -52,6 +54,12 @@ export function ImmersiveSaveCarousel({ gameTitle, onSelect, saves, selectedInde
               loading={selected ? "eager" : "lazy"}
               unoptimized
             /> : <span>未提供截图</span>}
+            <span
+              className={styles.saveSize}
+              data-immersive-save-size="true"
+              aria-label={`存档大小 ${size}`}
+              title={`${save.sizeBytes.toLocaleString("zh-CN")} bytes`}
+            >{size}</span>
           </span>
           <time dateTime={new Date(save.createdAtMs).toISOString()}>{time}</time>
         </button>;

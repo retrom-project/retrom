@@ -136,10 +136,11 @@ func (service *Service) prepareRPGMakerArchive(
 	if reason != "" {
 		return preparedDisposition{}, preparedGroup{}, preparedArchive{}, ErrInvalid
 	}
-	entries, err := service.scanRPGMakerArchive(ctx, file, archiveFormat)
+	entries, candidates, err := service.scanProjectArchive(ctx, file, archiveFormat)
 	if err != nil {
 		return preparedDisposition{}, preparedGroup{}, preparedArchive{}, err
 	}
+	defer discardProjectArchiveCandidates(candidates)
 	input := make([]fileset.SourceFile, 0, len(entries))
 	entryByOrdinal := make(map[int]importing.ArchiveEntry, len(entries))
 	for _, entry := range entries {
@@ -159,9 +160,7 @@ func (service *Service) prepareRPGMakerArchive(
 	for _, projectFile := range project.Files {
 		projectEntries = append(projectEntries, entryByOrdinal[projectFile.SourceIndex])
 	}
-	materialized, err := service.materializeArchiveEntries(
-		ctx, service.blobs.Path(file.sha256), projectEntries,
-	)
+	readMetadata, err := service.projectArchiveReadMetadata(ctx, file, projectEntries, candidates)
 	if err != nil {
 		return preparedDisposition{}, preparedGroup{}, preparedArchive{}, err
 	}
@@ -169,7 +168,7 @@ func (service *Service) prepareRPGMakerArchive(
 	for _, projectFile := range project.Files {
 		entry := entryByOrdinal[projectFile.SourceIndex]
 		index.files = append(index.files, detector.File{Path: projectFile.Path, Size: projectFile.SizeBytes})
-		index.paths[projectFile.Path] = materialized[entry.Ordinal].Path
+		index.paths[projectFile.Path] = readMetadata[entry.Ordinal].Path
 	}
 	profile, err := detector.Detect(coreID, index)
 	if err != nil {
@@ -179,19 +178,17 @@ func (service *Service) prepareRPGMakerArchive(
 	}
 	projectFiles, sessionState := fileset.ExcludeSessionState(profile.ExpectedGeneration, project.Files)
 	sources := make([]preparedSource, 0, len(projectFiles))
-	keep := make(map[int]struct{}, len(projectFiles))
 	for _, projectFile := range projectFiles {
 		ordinal := projectFile.SourceIndex
-		keep[ordinal] = struct{}{}
 		sources = append(sources, preparedSource{
 			file: file, role: "PROJECT_FILE", logicalName: projectFile.Path,
 			archiveBlobID: file.blobID, archiveOrdinal: &ordinal,
 		})
 	}
-	for ordinal := range materialized {
-		if _, exists := keep[ordinal]; !exists {
-			delete(materialized, ordinal)
-		}
+	selectedEntries := projectEntriesForFiles(projectFiles, entryByOrdinal)
+	materialized, err := projectArchiveMaterialization(selectedEntries, candidates, readMetadata)
+	if err != nil {
+		return preparedDisposition{}, preparedGroup{}, preparedArchive{}, err
 	}
 	sortPreparedSources(sources)
 	removed := append([]string(nil), project.RemovedNoise...)
@@ -236,6 +233,17 @@ func rpgMakerDirectoryTitle(files []importSourceFile) string {
 		}
 	}
 	return root
+}
+
+func projectEntriesForFiles(
+	files []fileset.SourceFile,
+	entryByOrdinal map[int]importing.ArchiveEntry,
+) []importing.ArchiveEntry {
+	entries := make([]importing.ArchiveEntry, 0, len(files))
+	for _, file := range files {
+		entries = append(entries, entryByOrdinal[file.SourceIndex])
+	}
+	return entries
 }
 
 func sortPreparedSources(sources []preparedSource) {

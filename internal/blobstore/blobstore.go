@@ -14,7 +14,10 @@ import (
 	"retrom/internal/legacychecksum"
 )
 
-var errExistingObjectIntegrity = errors.New("existing CAS object failed integrity check")
+var (
+	errBlobCandidateClosed     = errors.New("blob candidate is closed")
+	errExistingObjectIntegrity = errors.New("existing CAS object failed integrity check")
+)
 
 type Metadata struct {
 	SHA256   string
@@ -31,6 +34,15 @@ type Store struct {
 	tmp  string
 }
 
+// Candidate holds verified bytes in the job staging directory until the
+// caller knows that a domain object will reference them.
+type Candidate struct {
+	store     *Store
+	temporary string
+	metadata  Metadata
+	closed    bool
+}
+
 func Open(dataDir string) (*Store, error) {
 	root := filepath.Join(dataDir, "blobs", "sha256")
 	temporary := filepath.Join(dataDir, "tmp", "jobs")
@@ -43,15 +55,29 @@ func Open(dataDir string) (*Store, error) {
 }
 
 func (store *Store) Put(source io.Reader) (Metadata, error) {
+	candidate, err := store.Stage(source)
+	if err != nil {
+		return Metadata{}, err
+	}
+	defer func() { cleanup.Error("discard blob candidate", candidate.Discard()) }()
+	return candidate.Commit()
+}
+
+func (store *Store) Stage(source io.Reader) (*Candidate, error) {
 	temporary, err := os.CreateTemp(store.tmp, ".blob-")
 	if err != nil {
-		return Metadata{}, fmt.Errorf("create blob candidate: %w", err)
+		return nil, fmt.Errorf("create blob candidate: %w", err)
 	}
 	name := temporary.Name()
-	defer cleanup.Remove(name)
+	success := false
+	defer func() {
+		if !success {
+			cleanup.Remove(name)
+		}
+	}()
 	if err := temporary.Chmod(0o600); err != nil {
 		cleanup.Error("close", temporary.Close())
-		return Metadata{}, fmt.Errorf("secure blob candidate: %w", err)
+		return nil, fmt.Errorf("secure blob candidate: %w", err)
 	}
 	sha256Hash := sha256.New()
 	legacyHashes := legacychecksum.New()
@@ -59,38 +85,68 @@ func (store *Store) Put(source io.Reader) (Metadata, error) {
 	written, err := io.Copy(io.MultiWriter(temporary, sha256Hash, legacyHashes.MD5, legacyHashes.SHA1, crc32Hash), source)
 	if err != nil {
 		cleanup.Error("close", temporary.Close())
-		return Metadata{}, fmt.Errorf("write blob candidate: %w", err)
+		return nil, fmt.Errorf("write blob candidate: %w", err)
 	}
 	if err := temporary.Sync(); err != nil {
 		cleanup.Error("close", temporary.Close())
-		return Metadata{}, fmt.Errorf("sync blob candidate: %w", err)
+		return nil, fmt.Errorf("sync blob candidate: %w", err)
 	}
 	if err := temporary.Close(); err != nil {
-		return Metadata{}, fmt.Errorf("close blob candidate: %w", err)
+		return nil, fmt.Errorf("close blob candidate: %w", err)
 	}
 	sha256Value := hex.EncodeToString(sha256Hash.Sum(nil))
-	target := store.Path(sha256Value)
+	metadata := Metadata{
+		SHA256: sha256Value, MD5: hex.EncodeToString(legacyHashes.MD5.Sum(nil)),
+		SHA1: hex.EncodeToString(legacyHashes.SHA1.Sum(nil)), CRC32: hex.EncodeToString(crc32Hash.Sum(nil)),
+		Size: written, Path: name,
+	}
+	success = true
+	return &Candidate{store: store, temporary: name, metadata: metadata}, nil
+}
+
+func (candidate *Candidate) Metadata() Metadata {
+	return candidate.metadata
+}
+
+func (candidate *Candidate) Commit() (Metadata, error) {
+	if candidate == nil || candidate.closed {
+		return Metadata{}, errBlobCandidateClosed
+	}
+	target := candidate.store.Path(candidate.metadata.SHA256)
 	if err := os.MkdirAll(filepath.Dir(target), 0o700); err != nil {
 		return Metadata{}, fmt.Errorf("create blob shard: %w", err)
 	}
 	existing := false
-	if err := os.Link(name, target); err != nil {
+	if err := os.Link(candidate.temporary, target); err != nil {
 		if !errors.Is(err, os.ErrExist) {
 			return Metadata{}, fmt.Errorf("publish blob: %w", err)
 		}
 		existing = true
-		if err := verifyExisting(target, written, sha256Value); err != nil {
+		if err := verifyExisting(target, candidate.metadata.Size, candidate.metadata.SHA256); err != nil {
 			return Metadata{}, err
 		}
 	}
 	if err := syncDirectory(filepath.Dir(target)); err != nil {
 		return Metadata{}, err
 	}
-	return Metadata{
-		SHA256: sha256Value, MD5: hex.EncodeToString(legacyHashes.MD5.Sum(nil)),
-		SHA1: hex.EncodeToString(legacyHashes.SHA1.Sum(nil)), CRC32: hex.EncodeToString(crc32Hash.Sum(nil)),
-		Size: written, Path: target, Existing: existing,
-	}, nil
+	if err := os.Remove(candidate.temporary); err != nil {
+		return Metadata{}, fmt.Errorf("remove committed blob candidate: %w", err)
+	}
+	candidate.closed = true
+	candidate.metadata.Path, candidate.metadata.Existing = target, existing
+	return candidate.metadata, nil
+}
+
+func (candidate *Candidate) Discard() error {
+	if candidate == nil || candidate.closed {
+		return nil
+	}
+	err := os.Remove(candidate.temporary)
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("discard blob candidate: %w", err)
+	}
+	candidate.closed = true
+	return nil
 }
 
 func (store *Store) Path(digest string) string {

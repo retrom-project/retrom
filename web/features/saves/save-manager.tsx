@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import type { FormEvent} from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -16,6 +15,7 @@ import {
   customSaveName,
   filterSaveItems,
   formatSaveDuration,
+  formatSaveSize,
   formatSaveTime,
   groupSaveItems,
   latestAvailableSave,
@@ -25,6 +25,7 @@ import {
   type SaveGroup,
   type SaveItem,
 } from "./save-library";
+import { SaveScreenshot } from "./save-screenshot";
 
 export type { SaveItem } from "./save-library";
 
@@ -64,8 +65,9 @@ function SaveCard({
   const customName = customSaveName(save.name);
   return <article className="save-library-card" data-save-menu={save.saveStateId}>
     <div className="save-library-shot">
-      <Image src={save.screenshotUrl} alt={`${save.gameTitle} 存档画面`} fill sizes="(min-width: 1600px) 280px, 220px" unoptimized />
+      <SaveScreenshot screenshotUrl={save.screenshotUrl} alt={`${save.gameTitle} 存档画面`} sizes="(min-width: 1600px) 280px, 220px" />
       {!available ? <span className="save-library-blocked">当前不可用</span> : null}
+      <span className="save-library-size" aria-label={`存档大小 ${formatSaveSize(save.sizeBytes)}`} title={`${save.sizeBytes.toLocaleString("zh-CN")} bytes`}>{formatSaveSize(save.sizeBytes)}</span>
       <div className="save-library-resume">{available
         ? <LaunchButton gameId={save.gameId} saveStateId={save.saveStateId} returnTo="/saves" label="从这里继续" />
         : <button className="button" type="button" disabled>当前不可继续</button>}</div>
@@ -267,7 +269,7 @@ function SaveLatestSection({ hasItems, latest, nowMs }: {
   return <section className="save-latest-section" aria-labelledby="save-latest-heading">
     <div className="save-section-label"><div><h2 id="save-latest-heading">最近保存</h2><p>最近创建的一份可用手动存档</p></div></div>
     <div className="save-latest-card">
-      <div className="save-latest-shot"><Image src={latest.screenshotUrl} alt={`${latest.gameTitle} 最近存档画面`} fill sizes="360px" unoptimized /></div>
+      <div className="save-latest-shot"><SaveScreenshot screenshotUrl={latest.screenshotUrl} alt={`${latest.gameTitle} 最近存档画面`} sizes="360px" /></div>
       <div className="save-latest-copy"><div className="save-latest-kicker"><i />最近保存</div><Link href={`/games/${latest.gameId}`}><h3>{latest.gameTitle}</h3></Link><p>{latest.platform.name} · {latest.core.name}{latest.discLabel ? ` · ${latest.discLabel}` : ""}</p><div className="save-latest-facts"><div><span>保存时间</span><strong>{formatSaveTime(latest.createdAtMs, nowMs)}</strong></div><div><span>当时已游玩</span><strong>{formatSaveDuration(latest.activeDurationMs)}</strong></div><div><span>{latest.discLabel ? "保存位置" : "存档状态"}</span><strong>{latest.discLabel ?? "可以继续"}</strong></div></div></div>
       <div className="save-latest-actions"><LaunchButton gameId={latest.gameId} saveStateId={latest.saveStateId} returnTo="/saves" label="从这里继续" /><Link className="button secondary" href={`/games/${latest.gameId}`}>查看游戏详情</Link><small>直接恢复这份手动存档</small></div>
     </div>

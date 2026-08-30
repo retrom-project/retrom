@@ -11,6 +11,7 @@ export type ImportListItem = {
   unresolvedRejectedFileCount?: number;
   alreadyImportedItemCount?: number;
   alreadyImportedFileCount?: number;
+  lastErrorCode?: string | null;
   version: number;
   createdAtMs: number;
   updatedAtMs: number;
@@ -22,7 +23,7 @@ export type ImportFileOutcome = {
   uploadFileId: string;
   name: string;
   sizeBytes: number;
-  disposition: "SOURCE" | "IGNORED" | "REJECTED" | "ALREADY_IMPORTED";
+  disposition: "PENDING" | "SOURCE" | "IGNORED" | "REJECTED" | "ALREADY_IMPORTED";
   reasonCode: string | null;
   resolution: null | {
     action: "RECONFIGURED";
@@ -36,6 +37,7 @@ export type ImportDetail = {
   state: string;
   payloadState: "RETAINED" | "RELEASING" | "RELEASED" | "FAILED";
   payloadReleaseJobId: string | null;
+  errorCode?: string | null;
   metadataProvider: string;
   targetPlatformInstance: { id: string; name: string };
   configSnapshot?: { contentMode?: "STANDARD" | "MULTI_DISC_M3U_V1" | "RPG_MAKER_PROJECT_V1" | "ONS_PROJECT_V1" | "KIRIKIRI_PROJECT_V1"; tags?: Array<{ tagId: string; name: string }> };
@@ -119,11 +121,13 @@ export function importTaskProgress(item: ImportListItem) {
 }
 
 export function importTaskIssueCount(item: ImportListItem) {
-  return item.failedItemCount + (item.unresolvedRejectedFileCount ?? item.rejectedFileCount ?? 0);
+  const count = item.failedItemCount + (item.unresolvedRejectedFileCount ?? item.rejectedFileCount ?? 0);
+  return item.state === "FAILED" && count === 0 ? 1 : count;
 }
 
 export function importTaskIssueSummary(item: ImportListItem) {
   const parts = [];
+  if (item.lastErrorCode) {parts.push(`导入准备失败（${item.lastErrorCode}）`);}
   if (item.failedItemCount) {parts.push(`${item.failedItemCount} 个条目失败`);}
   const rejected = item.unresolvedRejectedFileCount ?? item.rejectedFileCount ?? 0;
   if (rejected) {parts.push(`${rejected} 个文件未被接受`);}
@@ -142,10 +146,10 @@ export function importTaskPhase(item: ImportListItem) {
 }
 
 export function importStageIndex(item: ImportListItem) {
-  if (item.state === "QUEUED") {return 0;}
-  if (item.state === "RUNNING") {return 2;}
+  if (item.state === "QUEUED") {return 1;}
+  if (item.state === "RUNNING") {return item.totalItemCount === 0 ? 1 : 2;}
   if (item.state === "REVIEW_PENDING") {return 4;}
   if (item.state === "COMPLETED") {return 5;}
-  if (item.state === "PARTIAL_FAILURE" || item.state === "FAILED") {return 2;}
+  if (item.state === "PARTIAL_FAILURE" || item.state === "FAILED") {return item.totalItemCount === 0 ? 1 : 2;}
   return 0;
 }

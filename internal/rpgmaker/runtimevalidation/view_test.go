@@ -5,11 +5,56 @@ import (
 	"database/sql"
 	"errors"
 	"testing"
+	"time"
 
 	_ "modernc.org/sqlite"
 
 	rpgvalidation "retrom/internal/rpgmaker/validation"
 )
+
+func TestGetReconcilesValidationWhoseGameWindowAlreadyClosed(t *testing.T) {
+	t.Parallel()
+	database := openViewTestDatabase(t)
+	machineGates, err := initialMachineGates()
+	if err != nil {
+		t.Fatal(err)
+	}
+	const (
+		itemID       = "00000000-0000-4000-8000-000000000001"
+		validationID = "00000000-0000-4000-8000-000000000002"
+		launchID     = "00000000-0000-4000-8000-000000000003"
+	)
+	if _, err := database.ExecContext(
+		context.Background(), `INSERT INTO launch_sessions(id,state) VALUES(?,'FINISHED')`, launchID,
+	); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := database.ExecContext(context.Background(), `
+INSERT INTO rpgmaker_runtime_validations(
+ id,import_item_id,review_version_at_create,runtime_binding_revision,
+ effective_source_snapshot_id,project_fingerprint,core_id,generation,
+ evidence_confidence,route_key,artifact_id,artifact_set_sha256,adapter_id,adapter_abi,
+ dependency_snapshot_sha256,launch_id,state,last_gate_sequence,machine_gates_json,
+ created_at_ms,updated_at_ms,expires_at_ms
+) VALUES(
+ ?,?,1,1,'snapshot','fingerprint','rpgmaker_2000','RPG2000','FAMILY_ONLY','easyrpg',
+ 'artifact','aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+ 'easyrpg-web','easyrpg-save','bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+ ?,'STARTING',0,?,1000,1001,2000
+)`, validationID, itemID, launchID, machineGates); err != nil {
+		t.Fatal(err)
+	}
+
+	view, err := New(database, nil, func() time.Time { return time.UnixMilli(1500) }).
+		Get(context.Background(), itemID, validationID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if view.State != "FAILED" || view.FailureCode == nil ||
+		*view.FailureCode != "RPG_RUNTIME_VALIDATION_WINDOW_CLOSED" {
+		t.Fatalf("reconciled validation = %#v", view)
+	}
+}
 
 func TestLoadViewAcceptsFailedValidationBeforeLaunch(t *testing.T) {
 	t.Parallel()
@@ -140,6 +185,8 @@ CREATE TABLE rpgmaker_runtime_validation_checkpoints(
 CREATE TABLE rpgmaker_runtime_validation_gate_events(
  validation_id TEXT,sequence INTEGER,event_id TEXT,launch_id TEXT,gate TEXT,phase TEXT,
  observed_at_ms INTEGER,evidence_json TEXT
+);
+CREATE TABLE launch_sessions(id TEXT PRIMARY KEY,state TEXT
 );`); err != nil {
 		t.Fatal(err)
 	}

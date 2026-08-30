@@ -37,6 +37,7 @@ type creationRun struct {
 	sourceCounts    map[string]int
 	duplicateCounts map[string]int
 	duplicateItems  int
+	queued          *queuedCreationWork
 }
 
 func newCreationRun(
@@ -51,6 +52,19 @@ func newCreationRun(
 		materialized: make(map[string]string, len(plan.archives)),
 		sourceCounts: make(map[string]int), duplicateCounts: make(map[string]int),
 	}
+}
+
+func newQueuedCreationRun(
+	ctx context.Context,
+	service *Service,
+	transaction *sql.Tx,
+	plan creationPlan,
+	work queuedCreationWork,
+) *creationRun {
+	run := newCreationRun(ctx, service, transaction, plan, nil)
+	run.queued = &work
+	run.importID, run.jobID = work.importID, work.jobID
+	return run
 }
 
 func (run *creationRun) execute() error {
@@ -89,6 +103,9 @@ func (run *creationRun) initialize() error {
 	if err := run.lockInputs(); err != nil {
 		return fmt.Errorf("lock import inputs: %w", err)
 	}
+	if run.queued != nil && !run.queued.accepts(run.plan.target) {
+		return ErrInvalid
+	}
 	actor := reviewActor(run.ctx)
 	actorUserID, actorIsUser := actor.UserID.(string)
 	if len(run.plan.request.TagIDs) > 0 && (!actorIsUser || actorUserID == "") {
@@ -111,11 +128,19 @@ func (run *creationRun) initialize() error {
 	); err != nil {
 		return fmt.Errorf("prepare import BIOS dependencies: %w", err)
 	}
-	importID, _ := uuid.NewV7()
-	jobID, _ := uuid.NewV7()
-	run.importID, run.jobID = importID.String(), jobID.String()
+	if run.queued == nil {
+		importID, _ := uuid.NewV7()
+		jobID, _ := uuid.NewV7()
+		run.importID, run.jobID = importID.String(), jobID.String()
+	}
 	run.now = run.service.now().UnixMilli()
 	configJSON, configDigest := run.configSnapshot(biosCatalog)
+	if run.queued != nil {
+		if err := run.updateQueuedImport(configJSON, configDigest); err != nil {
+			return fmt.Errorf("update queued import: %w", err)
+		}
+		return nil
+	}
 	if err := run.insertJob(configJSON, configDigest); err != nil {
 		return fmt.Errorf("insert import job: %w", err)
 	}

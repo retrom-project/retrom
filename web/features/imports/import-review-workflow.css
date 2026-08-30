@@ -273,12 +273,23 @@
 .review-preview-status button:hover { border-color: #6c5fd0; background: #242a37; }
 .review-preview-frame { width: 100%; height: 100%; border: 0; background: #05060a; }
 .review-workflow-left { min-width: 0; display: grid; gap: 16px; }
-.review-rpg-validation .panel-head > strong { color: var(--purple-dark); font-size: 11px; }
 .review-rpg-validation .panel-body { display: grid; gap: 14px; }
 .review-rpg-facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 .review-rpg-facts > div { min-width: 0; padding: 9px 10px; display: grid; gap: 3px; border-radius: 9px; background: #f5f3fd; }
 .review-rpg-facts span, .review-rpg-roundtrip span { color: var(--muted); font-size: 10px; }
 .review-rpg-facts strong { overflow-wrap: anywhere; font-size: 12px; }
+.review-rpg-evidence { min-width: 0; overflow: hidden; border: 1px solid #d8d1f6; border-radius: 9px; background: #fbfaff; }
+.review-rpg-evidence > summary { min-height: 44px; padding: 7px 10px; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 10px; cursor: pointer; list-style: none; }
+.review-rpg-evidence > summary::-webkit-details-marker { display: none; }
+.review-rpg-evidence > summary:focus-visible { outline: 3px solid color-mix(in srgb, var(--purple) 52%, transparent); outline-offset: -3px; }
+.review-rpg-evidence-summary { min-width: 0; display: grid; gap: 1px; }
+.review-rpg-evidence-summary strong, .review-rpg-evidence-summary small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.review-rpg-evidence-summary strong { color: var(--purple-dark); font-size: 11px; }
+.review-rpg-evidence-summary small { color: var(--muted); font-size: 9px; }
+.review-rpg-evidence-chevron { color: #7064a8; font-size: 18px; line-height: 1; transition: transform .15s ease; }
+.review-rpg-evidence[open] .review-rpg-evidence-chevron { transform: rotate(180deg); }
+.review-rpg-evidence-body { padding: 10px; display: grid; gap: 10px; border-top: 1px solid #e6e1f7; }
+.review-rpg-evidence-body > p { margin: 0; color: var(--muted); font-size: 9px; }
 .review-rpg-gates { margin: 0; padding: 0; display: grid; gap: 6px; list-style: none; }
 .review-rpg-gates li { min-height: 31px; padding: 6px 9px; display: flex; align-items: center; justify-content: space-between; gap: 12px; border: 1px solid var(--line); border-radius: 8px; font-size: 11px; }
 .review-rpg-gates li > span { min-width: 0; display: grid; gap: 2px; }
@@ -418,6 +429,7 @@
 .launch-quick-save { padding: 9px; display: grid; grid-template-columns: 126px minmax(0, 1fr); gap: 10px; align-items: center; border: 1px solid #e4e0ef; border-radius: 10px; background: white; }
 .launch-quick-save > div:first-child { position: relative; width: 126px; aspect-ratio: 16 / 9; overflow: hidden; border-radius: 7px; background: #05060a; }
 .launch-quick-save img { object-fit: contain; }
+.save-screenshot-placeholder { position: absolute; inset: 0; display: grid; place-items: center; color: #b7bfd2; background: radial-gradient(circle at 50% 35%, #30384d, #171d30 72%); font-size: 11px; font-weight: 750; letter-spacing: .04em; }
 .launch-quick-save > div:last-child { min-width: 0; }
 .launch-quick-save strong, .launch-quick-save time, .launch-quick-save small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .launch-quick-save strong { font-size: 12px; font-weight: 800; }
@@ -607,6 +619,7 @@
 .save-library-resume .button { min-height: 36px; padding: 0 13px; font-size: 11px; }
 .save-library-resume .status { position: absolute; inset: auto 8px 8px; width: auto; white-space: normal; }
 .save-library-blocked { position: absolute; z-index: 3; left: 8px; top: 8px; padding: 4px 8px; color: #a63745; border-radius: 999px; background: var(--danger-soft); font-size: 10px; font-weight: 750; }
+.save-library-size { position: absolute; z-index: 3; right: 8px; bottom: 8px; height: 22px; padding: 1px 7px 0; display: inline-flex; align-items: center; justify-content: center; color: white; border-radius: 5px; background: #4435a7; box-shadow: 0 2px 8px rgb(18 15 49 / 24%); pointer-events: none; font-size: 11px; font-variant-numeric: tabular-nums; font-weight: 750; line-height: 1; }
 .save-library-card-body { position: relative; min-height: 71px; padding: 10px 12px 11px; }
 .save-library-title-row { position: relative; min-height: 27px; display: flex; align-items: center; justify-content: space-between; gap: 9px; }
 .save-library-title-row time { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; font-weight: 780; }

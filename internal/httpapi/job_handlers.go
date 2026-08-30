@@ -35,8 +35,11 @@ func (server *Server) cancelJob(writer http.ResponseWriter, request *http.Reques
 		return
 	}
 	if !pending {
+		server.importer.SyncImportGroupCancellation(request.Context(), result.JobID)
 		server.importer.SyncParentAttachmentCancellation(request.Context(), result.JobID)
 		server.importer.SyncMultiDiscAttachmentCancellation(request.Context(), result.JobID)
+	} else {
+		server.importer.CancelImportGroupJob(result.JobID)
 	}
 	writer.Header().Set("ETag", fmt.Sprintf(`"v%d"`, result.Version))
 	status := http.StatusOK
@@ -79,5 +82,6 @@ func (server *Server) retryJob(writer http.ResponseWriter, request *http.Request
 	writer.Header().Set("ETag", fmt.Sprintf(`"v%d"`, result.Version))
 	server.importer.ResumeParentAttachmentJobs(request.Context())
 	server.importer.ResumeMultiDiscAttachmentJobs(request.Context())
+	server.importer.ResumeImportGroupJobs(request.Context())
 	writeJSON(writer, http.StatusAccepted, result)
 }

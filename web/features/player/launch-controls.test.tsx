@@ -158,4 +158,24 @@ describe("LaunchControls", () => {
 
     expect(screen.getByLabelText("启动程序")).toHaveValue("");
   });
+
+  it("keeps a resumable save visible when no screenshot was captured", () => {
+    render(<LaunchControls
+      gameId="game-without-shot"
+      coreOptions={cores.slice(0, 1)}
+      dosEntries={[]}
+      defaultDosEntry={null}
+      latestSave={{
+        saveStateId: "save-without-shot",
+        screenshotUrl: null,
+        createdAtMs: Date.parse("2026-08-30T12:00:00+08:00"),
+        coreId: "mgba",
+        coreName: "mGBA",
+      }}
+    />);
+
+    expect(screen.getByRole("img", { name: "最近存档无预览图" })).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "从存档继续" })).toHaveLength(2);
+    expect(screen.queryByAltText("最近存档")).not.toBeInTheDocument();
+  });
 });

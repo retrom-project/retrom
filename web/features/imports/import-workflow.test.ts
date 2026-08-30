@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { filterImportTasks, importTaskIssueCount, importTaskIssueSummary, importTaskProgress, importTaskSummary, type ImportListItem } from "./import-workflow";
+import { filterImportTasks, importStageIndex, importTaskIssueCount, importTaskIssueSummary, importTaskProgress, importTaskSummary, type ImportListItem } from "./import-workflow";
 
 function task(overrides: Partial<ImportListItem> & Pick<ImportListItem, "id" | "state">): ImportListItem {
   return {
@@ -44,5 +44,17 @@ describe("import workflow presentation", () => {
   it("counts rejected files as actionable exceptions", () => {
     expect(importTaskIssueCount(tasks[2])).toBe(10);
     expect(importTaskIssueSummary(tasks[2])).toBe("3 个条目失败；7 个文件未被接受");
+  });
+
+  it("presents background preparation as recognition and preserves its stable failure code", () => {
+    const queued = task({ id: "queued", state: "QUEUED", totalItemCount: 0 });
+    const failed = task({
+      id: "failed", state: "FAILED", totalItemCount: 0,
+      lastErrorCode: "RPG_PROJECT_ROOT_AMBIGUOUS",
+    });
+    expect(importStageIndex(queued)).toBe(1);
+    expect(importStageIndex(failed)).toBe(1);
+    expect(importTaskIssueCount(failed)).toBe(1);
+    expect(importTaskIssueSummary(failed)).toBe("导入准备失败（RPG_PROJECT_ROOT_AMBIGUOUS）");
   });
 });

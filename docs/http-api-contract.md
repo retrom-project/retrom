@@ -176,7 +176,13 @@ POST /api/v1/admin/imports
 }
 ```
 
-`metadataProvider` 仅允许 `HASHEOUS | NONE`；Arcade DAT 不是 provider。`contentMode=RPG_MAKER_PROJECT_V1` 没有单 ROM 哈希语义，用户只选择 `rpgmaker` 虚拟核心且禁用在线刮削：客户端固定显示并提交 `NONE`，服务端也把旧客户端提交的 `HASHEOUS` 规范化为 `NONE`。服务端先从项目 bytes 唯一检测世代，再在事务中锁定平台/虚拟 core、内部 core/artifact、provider 配置快照；未知或歧义世代不创建 ImportJob。
+`metadataProvider` 仅允许 `HASHEOUS | NONE`；Arcade DAT 不是 provider。`contentMode=RPG_MAKER_PROJECT_V1` 没有单 ROM 哈希语义，用户只选择 `rpgmaker` 虚拟核心且禁用在线刮削：客户端固定显示并提交 `NONE`，服务端也把旧客户端提交的 `HASHEOUS` 规范化为 `NONE`。
+
+创建端点只执行有界准入：校验 UploadSession 已 `COMPLETE`、用途/来源类型、目标目录与当前候选 artifact 能力，随后在一个短事务创建 `ImportJob(state=QUEUED)`、`IMPORT_GROUP Job`、每个 UploadFile 的 `PENDING` disposition、whole-session consumption 以及不可变 `import_group_requests` 输入快照，并立即返回 `202 {importJobId,jobId,state:"QUEUED",itemCount:0}`。浏览器收到 202 后直接进入 `/admin/imports/tasks`；不得继续把上传进度停在 92% 等待项目识别。
+
+归档安全扫描、解压、实际 member hash、CAS 物化、RPG Maker/ONS/KiriKiri 项目检测、分组和运行依赖检查全部由并发度 1 的 `IMPORT_GROUP` archive worker 在 HTTP 响应之后执行。ZIP 在完整验证 central directory 后逐 member 单次解压，并把选中的 member 从临时候选原子提交到 CAS；不得为“扫描 hash”和“物化 CAS”再次解压同一 member，也不得把被规范器排除的候选发布进 CAS。7z 继续使用隔离 worker 的完整扫描与受限批量提取。任务以 `QUEUED/STARTED/PROGRESS/SUCCEEDED|FAILED` 事件投影 `WAITING_FOR_WORKER/INSPECTING/PERSISTING` 阶段；重启恢复遗留 RUNNING，取消在安全检查点收口并释放上传消费。
+
+请求 JSON、Upload 状态/用途、目标目录或 capability 在短准入阶段无效时仍在创建前返回 4xx。必须读取项目内容才能确定的错误（归档加密/越限/路径冲突、项目根缺失或歧义、RPG 世代不兼容、多盘播放列表缺失等）在 202 后把 ImportJob/Job 置 `FAILED`，并通过列表/详情的 `lastErrorCode/errorCode` 和事件返回稳定错误码；不得让原 POST 长时间占用连接。RPG Maker worker 从项目 bytes 唯一检测世代后，才把冻结的虚拟 core 绑定解析为内部 core/artifact；`bindingState=PENDING` 时详情的 `coreArtifactId` 必须为 null，不能暴露为了满足数据库外键而暂存的内部候选。
 
 重新配置导入：
 
@@ -461,7 +467,7 @@ Upload manifest/part/complete、Import 创建、Launch、PlaySession 与 runtime
 | `GET /api/v1/home` | 首页聚合：启用目录中的统计、按 PlaySession `started_at_ms` 选择的最近 10 款游戏、按 Game `created_at_ms DESC, id DESC` 选择的最新添加 10 款已发布游戏、最后启动的一次游玩及仅由该次 Launch 产生的最新手动存档、全部支持平台，以及按 PlaySession 次数降序的前 4 个快捷平台。相同启动时刻按 PlaySession ID 确定唯一会话，平台热度相同时按名称和 ID 确定性排序；旧会话较晚结束或补写 heartbeat 不得反向夺取“最后游玩”，历史存档只影响“查看存档”，不得冒充最后一次游玩的恢复点。`latestGames[]` 固定提供 `gameId/title/platform/platformInstance/createdAtMs/coverUrl`，目录停用后对应游戏不进入该投影。 |
 | `GET /api/v1/recent-games` | 返回启用目录中全部有游玩记录的已发布游戏，不截断为固定 50 款；按最新 PlaySession 的 `started_at_ms` 降序聚合 `lastPlayedAtMs/activeDurationMs/sessionCount` 与可空封面 URL。每款游戏只占一行，接口不接受 `limit`；响应级 `generatedAtMs` 是页面分组与 7/30 天滚动窗口的统一时钟。 |
 | `GET /api/v1/games`、`GET /api/v1/games/{gameId}` | 已发布游戏列表/详情；两者的可空 `coverUrl` 只投影当前 MetadataRevision 中按 ordinal/ID 排序的首个 `COVER`，值为 `/content/assets/{assetId}` 逻辑 URL，不暴露 Blob ID。列表项同时包含基础平台、游戏目录、推荐 Core、`createdAtMs` 与可空 `lastPlayedAtMs`；列表按 `RECENT_DESC/ADDED_DESC/TITLE_ASC` 的服务端稳定 cursor 分页，每页默认 50。无 cursor 的首分页额外返回 `filteredCount` 与 `facets={totalCount,platforms,platformInstances,tags}`；facet 覆盖完整可见游戏库并带真实 count，续页不重复返回。响应级 `generatedAtMs` 作为相对时间的统一时钟。 |
-| `GET /api/v1/saves`、`PATCH /api/v1/saves/{saveStateId}`、`DELETE /api/v1/saves/{saveStateId}` | 手动存档列表、重命名和软删除。`gameId` 为精确游戏筛选并进入 cursor filter digest；`availability=AVAILABLE` 只返回当前可恢复存档，`ALL` 还保留 RPG Maker/ONS 的 `SAVE_RUNTIME_INCOMPATIBLE` 与 EmulatorJS 的 `SAVE_CORE_UNAVAILABLE` 阻断项。列表项包含基础平台、游戏目录、锁定 Core、可空 `screenshotUrl`（存在时为 `/content/save-states/{saveStateId}/screenshot`）与累计有效游玩 `activeDurationMs`，不暴露截图 Blob ID。响应级 `generatedAtMs` 为分组页面的“今天/昨天”和分页聚合提供统一时钟。 |
+| `GET /api/v1/saves`、`PATCH /api/v1/saves/{saveStateId}`、`DELETE /api/v1/saves/{saveStateId}` | 手动存档列表、重命名和软删除。`gameId` 为精确游戏筛选并进入 cursor filter digest；`availability=AVAILABLE` 只返回当前可恢复存档，`ALL` 还保留 RPG Maker/ONS 的 `SAVE_RUNTIME_INCOMPATIBLE` 与 EmulatorJS 的 `SAVE_CORE_UNAVAILABLE` 阻断项。列表项包含基础平台、游戏目录、锁定 Core、payload `sizeBytes`、可空 `screenshotUrl`（存在时为 `/content/save-states/{saveStateId}/screenshot`）与累计有效游玩 `activeDurationMs`，不暴露 payload/screenshot Blob ID。响应级 `generatedAtMs` 为分组页面的“今天/昨天”和分页聚合提供统一时钟。 |
 | `POST /api/v1/launches` | READY 时预检并创建 LaunchSession/cookie；缺少当前 Variant 结果时返回 202 的可观察验证 Job，不先签发 credential。 |
 | `POST /runtime/launches/{launchId}/start`、`POST /runtime/launches/{launchId}/heartbeat`、`POST /runtime/launches/{launchId}/finish` | 第 7 节 PlaySession 连续事件、时长和撤销；使用限定 Path 的 launch cookie。 |
 | `GET /runtime/launches/{launchId}/config` 及第 8 节内容路径 | 受 capability 保护的配置、内容与显式状态。 |
@@ -784,7 +790,8 @@ Favorite、SaveState 和最近时间不得跨 Profile 聚合。
 favorites 响应同时返回该 Profile 的 `folders` 与当前可空 `folder`，其他范围两者为空。all/favorites/saves
 使用上述 `titleInitial/title/gameId` 顺序；recent 例外地按本 Profile `lastPlayedAtMs DESC,gameId DESC`，没有
 游玩记录的游戏不进入 recent。saves 只列至少有一份当前可用存档的游戏，每项 `saveStates` 按
-`createdAtMs DESC,saveStateId DESC` 返回，截图 URL 继续是私有 no-store 端点。签名 cursor 绑定 Profile、
+`createdAtMs DESC,saveStateId DESC` 返回，并投影真实 payload `sizeBytes`；截图 URL 继续是私有 no-store
+端点。签名 cursor 绑定 Profile、
 libraryKind、folderId、limit 与排序版本；未知 query、非法组合、篡改或跨范围 cursor 均稳定拒绝。
 
 `ImmersiveGameItem` 的 `titleInitial` 只接受 `#|0-9|A-Z`；ASCII 数字原样、ASCII 字母转大写、首个汉字取
@@ -855,7 +862,7 @@ Game 一旦 DELETED，公共 `GET /api/v1/games/{gameId}`、Launch 创建、Game
 
 上传 transport 仍只用 `sourceType=FILES|DIRECTORY`；`upload_sessions.purpose` 新增 `RPG_MAKER_PROJECT|RUNTIME_ASSET_PACK`，Import create 的 `contentMode` 新增 `RPG_MAKER_PROJECT_V1`。项目 mode 只接受一个 DIRECTORY，或 FILES 中恰好一个 `.zip/.7z`；不得新增含混的传输枚举。Pegasus、EmulationStation 和通用 server import 向 `rpgmaker` 目标创建项目时固定返回 `422 RPG_SERVER_IMPORT_UNSUPPORTED`。
 
-RPG 条目的 Review detail 额外返回可空 `rpgMaker`：固定包含 `selectedCoreId/generation/evidenceGeneration/evidenceConfidence/selfContained/selfContainedOverride/runtimeBindingRevision/runtimePackRequirements/runtimePackSelections/runtimeValidation/runtimeValidationCurrent`。`runtimePackRequirements` 按 slot 返回 `{slot,declaredName,normalizedDeclaredName}`，其中规范名是服务端 Unicode NFKC full case-fold 结果；管理端必须用它与 pack definition 的同名字段精确匹配，不得用 JavaScript locale lowercase 猜测。`runtimePackSelections` 是按 slot 排序的 `{slot,declaredName,installationId}`；`runtimeValidation` 为当前条目最新一次验证的完整只读投影或 null，`runtimeValidationCurrent` 精确表示其 binding revision 是否仍等于当前草稿。RPG 的 `canApprove` 在该验证仍 current 且已经分配原始 `launchId` 时为 true；管理员主动点击“运行游戏”并取得 Launch 即可确认发布，后续机器 gate、checkpoint 和跨 Launch 恢复是可选的高级验证。`runtimeScreenshot` 固定为 null；存在恢复证据时只从 `rpgMaker.runtimeValidation.checkpointRoundTrip.screenshotUrl` 读取，绝不触发普通截图 override。审核页只在创建 Launch、用户主动执行高级验证动作或重新载入页面时读取验证投影，不做后台定时轮询；关闭游戏子窗体后不得继续请求验证状态。
+RPG 条目的 Review detail 额外返回可空 `rpgMaker`：固定包含 `selectedCoreId/generation/evidenceGeneration/evidenceConfidence/selfContained/selfContainedOverride/runtimeBindingRevision/runtimePackRequirements/runtimePackSelections/runtimeValidation/runtimeValidationCurrent`。`runtimePackRequirements` 按 slot 返回 `{slot,declaredName,normalizedDeclaredName}`，其中规范名是服务端 Unicode NFKC full case-fold 结果；管理端必须用它与 pack definition 的同名字段精确匹配，不得用 JavaScript locale lowercase 猜测。`runtimePackSelections` 是按 slot 排序的 `{slot,declaredName,installationId}`；`runtimeValidation` 为当前条目最新一次验证的完整只读投影或 null，`runtimeValidationCurrent` 精确表示其 binding revision 是否仍等于当前草稿。RPG 的 `canApprove` 在该验证仍 current 且已经分配原始 `launchId` 时为 true；管理员主动点击“运行游戏”并取得 Launch 即可确认发布，后续机器 gate、checkpoint 和跨 Launch 恢复是可选的高级验证。`runtimeScreenshot` 固定为 null；存在恢复证据时只从 `rpgMaker.runtimeValidation.checkpointRoundTrip.screenshotUrl` 读取，绝不触发普通截图 override。审核页不后台轮询验证投影；它只在创建 Launch、用户主动执行高级验证动作、重新载入页面，以及本地观察到本次游戏子窗体关闭后读取一次。validation Launch 在 `ORIGINAL_LAUNCH_ENDED` 通过前关闭，或 restore Launch 在 `RESTORE_INPUT` 通过前关闭时，服务端以 `RPG_RUNTIME_VALIDATION_WINDOW_CLOSED` 收口为 `FAILED`；已完成相应终态 gate 的正常关闭不改变验证状态。读取验证或创建下一次验证时，服务端还必须对账已经终结的 Launch 与仍未终结的 validation，修复旧进程或进程外过期留下的孤儿状态。终态 validation 不阻塞同一 binding 新建验证，因此管理员可多次运行游戏。
 
 | 方法与路径 | 固定契约 |
 | --- | --- |
@@ -884,7 +891,7 @@ Launch config 顶层是 `runtimeFamily` discriminated union。`EMULATORJS` 保�
 
 EasyRPG 与 mkxp 的同源内容端点属于严格 OpenAPI 契约，不能只在 Go router 中注册：
 
-ONS/KiriKiri 的 `index.json` 逐项必须包含准确 `path/sizeBytes/url`。ONS 视频直接把该 URL 交给浏览器媒体元素并消费同一内容端点的 Range，不得先完整下载到 Wasm 文件系统。
+ONS/KiriKiri 的 `index.json` 逐项必须包含准确 `path/sizeBytes/url`。ONS 非视频文件以含稳定 content identity 的完整 URL 作为持久缓存身份，流式读取时必须与 `sizeBytes` 精确一致；adapter 优先把文件有界串行写入 origin-private file system，OPFS 不可用时才回退 Cache Storage，因此数百 MiB 归档不依赖 Chromium 普通 HTTP disk-cache 或 Cache Storage 的单项大小限制。ONS 视频直接把该 URL 交给浏览器媒体元素并消费同一内容端点的 Range，不得为了缓存而先完整下载到 Wasm 文件系统。KiriKiri 的大型 XP3 继续由 VLFS 按 256 KiB 有界 Range 注册，不能在 adapter 中预取整包。
 
 - `GET|HEAD /runtime/retrom-runtime/{runtimeVersion}/{runtimePath}` 只允许命中固定 retrom-runtime Release manifest 的逐文件 allowlist，本地逐字节复核 observed size/hash 后返回不可变公共响应；未知版本、路径或 MIME 返回 404；
 - `GET|HEAD /runtime/content/project/{contentIdentity}/{projectPath}` 使用通用 `/runtime/content/` HttpOnly Launch grant。`contentIdentity` 由冻结项目的规范 logical path、format 与逐文件 digest，以及 EasyRPG/mkxp 派生 bundle 和所选 runtime pack 的锁定内容共同确定；相同内容和运行投影在不同 Launch 中得到相同 URL，替换任一文件或 pack 必须产生新 identity。服务端逐个验证当前有效 grant 实际锁定的身份，不能仅凭 path 查询可变 Game/Review。`index.json` 是 EasyRPG/ONS/KiriKiri adapter 使用的保留虚拟索引；EasyRPG RTP 另投影为 `__retrom__/packs/{slot}/index.json` 和 `__retrom__/packs/{slot}/files/{path}`。所有响应为 `private, max-age=31536000, immutable`、强 ETag、准确 MIME/长度并支持单 Range；未知、未授权或跨身份文件不能回退到上传源、最新 content revision 或可变 ReviewDraft。

@@ -1,4 +1,4 @@
-import { renderHook } from "@testing-library/react";
+import { act, renderHook } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { initialPlayerOrientationState } from "./orientation";
 import { createSaveForm, usePlayerSession, type PlayerSessionParams } from "./player-session";
@@ -19,6 +19,75 @@ describe("Player page exit protection", () => {
     params.finishing.current = false;
     unmount();
     expect(dispatchBeforeUnload()).toBe(true);
+  });
+
+  it("does not send heartbeats after session finishing has begun", async () => {
+    const fetchEvent = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response("{}", {status: 200}));
+    const params = sessionParams();
+    params.started.current = true;
+    params.finishing.current = true;
+    const { result } = renderHook(() => usePlayerSession(params));
+
+    await act(() => result.current.sendEvent("heartbeat"));
+
+    expect(fetchEvent).not.toHaveBeenCalled();
+  });
+
+  it("serializes an in-flight heartbeat before the terminal finish event", async () => {
+    let resolveHeartbeat: ((response: Response) => void) | undefined;
+    const fetchEvent = vi.spyOn(globalThis, "fetch")
+      .mockImplementationOnce(() => new Promise<Response>((resolve) => {resolveHeartbeat = resolve;}))
+      .mockResolvedValueOnce(new Response("{}", {status: 200}));
+    const params = sessionParams();
+    params.started.current = true;
+    const { result } = renderHook(() => usePlayerSession(params));
+
+    const heartbeat = result.current.sendEvent("heartbeat");
+    await Promise.resolve();
+    const finish = result.current.sendEvent("finish");
+
+    expect(fetchEvent).toHaveBeenCalledTimes(1);
+    resolveHeartbeat?.(new Response("{}", {status: 200}));
+    await act(async () => {await Promise.all([heartbeat, finish]);});
+    expect(fetchEvent).toHaveBeenCalledTimes(2);
+    expect(JSON.parse(String(fetchEvent.mock.calls[0]?.[1]?.body))).toMatchObject({clientSequence: 1});
+    expect(JSON.parse(String(fetchEvent.mock.calls[1]?.[1]?.body))).toMatchObject({clientSequence: 2});
+  });
+
+  it("clears the heartbeat timer when finish begins", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response("{}", {status: 200}));
+    const clearHeartbeat = vi.spyOn(window, "clearInterval");
+    const params = sessionParams();
+    params.started.current = true;
+    params.heartbeat.current = 42;
+    const { result } = renderHook(() => usePlayerSession(params));
+
+    await act(() => result.current.sendEvent("finish"));
+
+    expect(clearHeartbeat).toHaveBeenCalledWith(42);
+    expect(params.heartbeat.current).toBeNull();
+  });
+
+  it("returns through the immersive route after a core exit even when finish reporting fails", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response("{}", {status: 409}));
+    const params = sessionParams();
+    params.started.current = true;
+    const { result } = renderHook(() => usePlayerSession(params));
+
+    await act(() => result.current.exitImmersiveAfterRuntimeExit());
+
+    expect(params.replaceImmersiveRoute).toHaveBeenCalledWith("/library");
+  });
+
+  it("keeps a manual immersive exit strict when finish reporting fails", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response("{}", {status: 409}));
+    const params = sessionParams();
+    params.started.current = true;
+    const { result } = renderHook(() => usePlayerSession(params));
+
+    await expect(act(() => result.current.exitStrict())).rejects.toThrow("PLAY_SESSION_EVENT_FAILED");
+
+    expect(params.replaceImmersiveRoute).not.toHaveBeenCalled();
   });
 });
 
@@ -48,6 +117,8 @@ function sessionParams(): PlayerSessionParams {
     sequence: { current: 0 },
     started: { current: false },
     finishing: { current: false },
+    heartbeat: { current: null },
+    playEventQueue: { current: Promise.resolve() },
     saveUploadQueue: { current: Promise.resolve() },
     discSetRef: { current: null },
     orientationStateRef: { current: initialPlayerOrientationState },

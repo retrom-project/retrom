@@ -71,6 +71,9 @@ func (service *Service) Create(
 	if err := expireValidation(ctx, transaction, importItemID, now); err != nil {
 		return Binding{}, err
 	}
+	if err := reconcileClosedValidationWindows(ctx, transaction, importItemID, now); err != nil {
+		return Binding{}, err
+	}
 	binding, err := loadCurrentBinding(ctx, transaction, importItemID)
 	if errors.Is(err, sql.ErrNoRows) {
 		return Binding{}, ErrNotFound
@@ -182,6 +185,43 @@ WHERE import_item_id=? AND expires_at_ms<=?
  AND state NOT IN ('PASSED','FAILED','EXPIRED')
 `, now, importItemID, now); err != nil {
 		return fmt.Errorf("expire RPG validation: %w", err)
+	}
+	return nil
+}
+
+func reconcileClosedValidationWindows(
+	ctx context.Context,
+	transaction *sql.Tx,
+	importItemID string,
+	now int64,
+) error {
+	_, err := transaction.ExecContext(ctx, `
+UPDATE rpgmaker_runtime_validations
+SET state='FAILED',failure_code='RPG_RUNTIME_VALIDATION_WINDOW_CLOSED',updated_at_ms=?
+WHERE import_item_id=? AND state NOT IN ('PASSED','FAILED','EXPIRED')
+AND (
+  launch_id IS NOT NULL AND EXISTS(
+    SELECT 1 FROM launch_sessions launch
+    WHERE launch.id=rpgmaker_runtime_validations.launch_id
+      AND launch.state IN ('FINISHED','EXPIRED','REVOKED')
+  ) AND NOT EXISTS(
+    SELECT 1 FROM rpgmaker_runtime_validation_gate_events event
+    WHERE event.validation_id=rpgmaker_runtime_validations.id
+      AND event.gate='ORIGINAL_LAUNCH_ENDED' AND event.phase='PASS'
+  )
+  OR restore_launch_id IS NOT NULL AND EXISTS(
+    SELECT 1 FROM launch_sessions launch
+    WHERE launch.id=rpgmaker_runtime_validations.restore_launch_id
+      AND launch.state IN ('FINISHED','EXPIRED','REVOKED')
+  ) AND NOT EXISTS(
+    SELECT 1 FROM rpgmaker_runtime_validation_gate_events event
+    WHERE event.validation_id=rpgmaker_runtime_validations.id
+      AND event.gate='RESTORE_INPUT' AND event.phase='PASS'
+  )
+)
+`, now, importItemID)
+	if err != nil {
+		return fmt.Errorf("reconcile closed RPG validation window: %w", err)
 	}
 	return nil
 }

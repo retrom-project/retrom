@@ -24,6 +24,21 @@ func (run *creationRun) finalize() error {
 	if err := run.insertSucceededEvent(); err != nil {
 		return err
 	}
+	if run.queued != nil {
+		result, err := run.transaction.ExecContext(run.ctx, `
+UPDATE jobs
+SET state='SUCCEEDED',finished_at_ms=?,leased_until_ms=NULL,heartbeat_at_ms=NULL,
+ worker_id=NULL,error_code=NULL,error_retryable=NULL,version=version+1,updated_at_ms=?
+WHERE id=? AND state='RUNNING' AND worker_id=?
+`, run.now, run.now, run.jobID, run.queued.workerID)
+		if err != nil {
+			return fmt.Errorf("libraryimport/service: finish queued job: %w", err)
+		}
+		changed, err := result.RowsAffected()
+		if err != nil || changed != 1 {
+			return ErrInvalid
+		}
+	}
 	if _, err := payloadrelease.ScheduleTerminalImportJob(run.ctx, run.transaction, run.importID, run.now); err != nil {
 		return fmt.Errorf("libraryimport/service: schedule aggregate release: %w", err)
 	}
@@ -95,8 +110,13 @@ func (run *creationRun) insertSucceededEvent() error {
 			parserResultCode = "MATCHED"
 		}
 	}
+	executionNo, attempt := int64(1), 1
+	if run.queued != nil {
+		executionNo, attempt = run.queued.executionNo, run.queued.attempt
+	}
 	data, _ := json.Marshal(map[string]any{
 		"schemaVersion": 1, "contentMode": run.plan.contentMode,
+		"executionNo": executionNo, "attempt": attempt,
 		"parserResultCode": parserResultCode, "itemCount": len(run.plan.groups),
 		"rejectedFileCount": run.rejected,
 	})

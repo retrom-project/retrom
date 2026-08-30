@@ -4,7 +4,14 @@ import (
 	"archive/zip"
 	"bytes"
 	"context"
+	"crypto/md5"
+	"crypto/sha1"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
+	"fmt"
+	"hash/crc32"
+	"io"
 	"os"
 	"testing"
 
@@ -101,6 +108,36 @@ func TestScanZIPReportsEncryptedEntriesPrecisely(t *testing.T) {
 	t.Parallel()
 	_, err := ScanZIP(context.Background(), writeEncryptedFlagZIP(t), RPGMakerArchiveLimits())
 	testassert.Truef(t, errors.Is(err, ErrArchiveEncrypted), "ScanZIP() error = %v, want %v", err, ErrArchiveEncrypted)
+}
+
+func TestScanZIPWithConsumerStreamsEachEntryOnce(t *testing.T) {
+	t.Parallel()
+	body := []byte("stream directly into content-addressed storage")
+	calls := 0
+	entries, err := ScanZIPWithConsumer(
+		context.Background(), writeZIP(t, "project/data.bin", body), RPGMakerArchiveLimits(),
+		func(header ArchiveEntry, reader io.Reader) (ArchiveContent, error) {
+			calls++
+			if header.Ordinal != 0 || header.NormalizedPath != "project/data.bin" {
+				t.Fatalf("consumer header = %#v", header)
+			}
+			contents, readErr := io.ReadAll(reader)
+			if readErr != nil {
+				return ArchiveContent{}, readErr
+			}
+			sha256Digest := sha256.Sum256(contents)
+			md5Digest := md5.Sum(contents)
+			sha1Digest := sha1.Sum(contents)
+			return ArchiveContent{
+				Size: int64(len(contents)), CRC32: fmt.Sprintf("%08x", crc32.ChecksumIEEE(contents)),
+				MD5: hex.EncodeToString(md5Digest[:]), SHA1: hex.EncodeToString(sha1Digest[:]),
+				SHA256: hex.EncodeToString(sha256Digest[:]),
+			}, nil
+		},
+	)
+	if err != nil || calls != 1 || len(entries) != 1 || entries[0].SHA256 == "" {
+		t.Fatalf("ScanZIPWithConsumer() entries=%#v calls=%d error=%v", entries, calls, err)
+	}
 }
 
 func TestDOSArchiveLimitsAllowBoundedSparseSavesAndOpaqueNestedData(t *testing.T) {
