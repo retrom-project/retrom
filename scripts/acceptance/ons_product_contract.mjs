@@ -21,7 +21,7 @@ export function assertOnsProductEvidence(value) {
 function assertLoading(value) {
   if (!exactRecord(value, ["firstVisible", "restoreVisible", "sameProjectContentIdentity", "schemaVersion"]) ||
       value.schemaVersion !== 1 || value.sameProjectContentIdentity !== true) {
-    throw new Error("ONS_ACCEPTANCE_EVIDENCE_INVALID");
+    throw new Error("ONS_ACCEPTANCE_LOADING_EVIDENCE_INVALID");
   }
   assertLoadingSnapshot(value.firstVisible, false);
   assertLoadingSnapshot(value.restoreVisible, true);
@@ -43,7 +43,7 @@ function assertLoadingSnapshot(value, requireCacheHit) {
       value.requestedProjectBytes < 1 || value.requestedProjectBytes >= value.declaredProjectBytes ||
       value.requestedLargeFileCount >= value.declaredLargeFileCount ||
       value.runtimeAssetRequestCount < 2 || requireCacheHit && value.runtimeAssetCacheHitCount < 1) {
-    throw new Error("ONS_ACCEPTANCE_EVIDENCE_INVALID");
+    throw new Error("ONS_ACCEPTANCE_LOADING_EVIDENCE_INVALID");
   }
 }
 
