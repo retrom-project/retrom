@@ -180,7 +180,7 @@ POST /api/v1/admin/imports
 
 创建端点只执行有界准入：校验 UploadSession 已 `COMPLETE`、用途/来源类型、目标目录与当前候选 artifact 能力，随后在一个短事务创建 `ImportJob(state=QUEUED)`、`IMPORT_GROUP Job`、每个 UploadFile 的 `PENDING` disposition、whole-session consumption 以及不可变 `import_group_requests` 输入快照，并立即返回 `202 {importJobId,jobId,state:"QUEUED",itemCount:0}`。浏览器收到 202 后直接进入 `/admin/imports/tasks`；不得继续把上传进度停在 92% 等待项目识别。
 
-归档安全扫描、解压、实际 member hash、CAS 物化、RPG Maker/ONS/KiriKiri 项目检测、分组和运行依赖检查全部由并发度 1 的 `IMPORT_GROUP` archive worker 在 HTTP 响应之后执行。ZIP 在完整验证 central directory 后逐 member 单次解压，并把选中的 member 从临时候选原子提交到 CAS；不得为“扫描 hash”和“物化 CAS”再次解压同一 member，也不得把被规范器排除的候选发布进 CAS。7z 继续使用隔离 worker 的完整扫描与受限批量提取。任务以 `QUEUED/STARTED/PROGRESS/SUCCEEDED|FAILED` 事件投影 `WAITING_FOR_WORKER/INSPECTING/PERSISTING` 阶段；重启恢复遗留 RUNNING，取消在安全检查点收口并释放上传消费。
+归档安全扫描、解压、实际 member hash、CAS 物化、RPG Maker/ONS/KiriKiri/Butterscotch 项目检测、分组和运行依赖检查全部由并发度 1 的 `IMPORT_GROUP` archive worker 在 HTTP 响应之后执行。ZIP 在完整验证 central directory 后逐 member 单次解压，并把选中的 member 从临时候选原子提交到 CAS；不得为“扫描 hash”和“物化 CAS”再次解压同一 member，也不得把被规范器排除的候选发布进 CAS。7z 继续使用隔离 worker 的完整扫描与受限批量提取。任务以 `QUEUED/STARTED/PROGRESS/SUCCEEDED|FAILED` 事件投影 `WAITING_FOR_WORKER/INSPECTING/PERSISTING` 阶段；重启恢复遗留 RUNNING，取消在安全检查点收口并释放上传消费。
 
 请求 JSON、Upload 状态/用途、目标目录或 capability 在短准入阶段无效时仍在创建前返回 4xx。必须读取项目内容才能确定的错误（归档加密/越限/路径冲突、项目根缺失或歧义、RPG 世代不兼容、多盘播放列表缺失等）在 202 后把 ImportJob/Job 置 `FAILED`，并通过列表/详情的 `lastErrorCode/errorCode` 和事件返回稳定错误码；不得让原 POST 长时间占用连接。RPG Maker worker 从项目 bytes 唯一检测世代后，才把冻结的虚拟 core 绑定解析为内部 core/artifact；`bindingState=PENDING` 时详情的 `coreArtifactId` 必须为 null，不能暴露为了满足数据库外键而暂存的内部候选。
 
@@ -257,7 +257,7 @@ Content-Type: application/json
 
 ### 5.3 多盘 Import 与 Review Attachment
 
-`POST /api/v1/admin/imports` 与 `POST /api/v1/admin/games/{gameId}/content-revisions` 的可选 `contentMode` 只允许 `STANDARD|MULTI_DISC_M3U_V1|RPG_MAKER_PROJECT_V1|ONS_PROJECT_V1|KIRIKIRI_PROJECT_V1`，缺省严格为 STANDARD。MULTI 必须引用完整 DIRECTORY Upload，且 capability 由 feature flag、平台 profile 与当前 `selected_for_new_bindings` artifact 共同决定。首次 RPG/ONS/KiriKiri 导入接受一个完整 DIRECTORY，或 FILES 中恰好一个 ZIP/7z；已发布 RPG 游戏的内容替换只接受完整 DIRECTORY，并由虚拟核心重新检测 generation，不接受客户端指定内部世代。新旧 generation 不同的 Job 以不可重试 `RPG_REPLACEMENT_GENERATION_MISMATCH` 失败；运行依赖声明变化以不可重试 `RPG_REPLACEMENT_DEPENDENCIES_CHANGED` 失败；两种失败均保留当前内容和存档。Review detail 的可空 `multiDisc` 只返回 playlist 摘要、ordered entries、PRESENT/MISSING、大小/hash、缺失引用、冻结的 `maxDiscs/maxTotalBytes` 与 attachment 状态，不返回 Blob ID、宿主路径或 capability。Attachment 状态包含 Job/Attachment version、可空 diagnostics 与仅在通用 Job 可人工重试时为 true 的 `canRetry`。
+`POST /api/v1/admin/imports` 与 `POST /api/v1/admin/games/{gameId}/content-revisions` 的可选 `contentMode` 只允许 `STANDARD|MULTI_DISC_M3U_V1|RPG_MAKER_PROJECT_V1|ONS_PROJECT_V1|KIRIKIRI_PROJECT_V1|BUTTERSCOTCH_PROJECT_V1`，缺省严格为 STANDARD。MULTI 必须引用完整 DIRECTORY Upload，且 capability 由 feature flag、平台 profile 与当前 `selected_for_new_bindings` artifact 共同决定。首次独立 runtime 项目导入接受一个完整 DIRECTORY，或 FILES 中恰好一个 ZIP/7z；已发布 RPG 游戏的内容替换只接受完整 DIRECTORY，并由虚拟核心重新检测 generation，不接受客户端指定内部世代。新旧 generation 不同的 Job 以不可重试 `RPG_REPLACEMENT_GENERATION_MISMATCH` 失败；运行依赖声明变化以不可重试 `RPG_REPLACEMENT_DEPENDENCIES_CHANGED` 失败；两种失败均保留当前内容和存档。Review detail 的可空 `multiDisc` 只返回 playlist 摘要、ordered entries、PRESENT/MISSING、大小/hash、缺失引用、冻结的 `maxDiscs/maxTotalBytes` 与 attachment 状态，不返回 Blob ID、宿主路径或 capability。Attachment 状态包含 Job/Attachment version、可空 diagnostics 与仅在通用 Job 可人工重试时为 true 的 `canRetry`。
 
 `POST /api/v1/admin/reviews/{importItemId}/multi-disc-attachments` 要求 ADMIN、同源/CSRF、`If-Match`、User-scoped `Idempotency-Key` 与 `{uploadId}`，只接受包含当前全部缺盘的 COMPLETE FILES upload。成功为 202，返回 Job/Attachment、`Location`、新 Review ETag；版本、active/retry、能力漂移、集合不符与内容无效使用 OpenAPI 中稳定错误码。关闭新 Import flag 不取消已冻结的 Attachment/Job，也不影响已发布读取。
 
@@ -347,7 +347,7 @@ PlaySession 事件 API 位于 launch cookie 的限定 Path 内，同时要求正
 | `/content/assets/{assetId}` | 只用于已发布封面/截图等站内可见媒体；服务端解析逻辑 asset ID。每个 Asset ID 在存续期内 bytes 不变，替换 COVER/VIDEO 等媒体必须创建新 Asset ID 与新 URL，current 切换后旧 URL 立即失效；`public, max-age=31536000, immutable`。浏览器必须携带当前 session 直接请求该逻辑 URL；前端不得把受保护媒体交给不会转发 session cookie 的 Next.js 图片优化器。 |
 | `/content/save-states/{saveStateId}/screenshot` | 只用于确有截图、未删除且所属游戏仍已发布的手动存档；服务端解析逻辑 SaveState ID，不向浏览器暴露 Blob ID。没有截图、存档删除或游戏下架均返回 404；成功响应固定为 `private, no-store`。 |
 | `/api/v1/admin/review-assets/{assetId}` | 用于仍待审核 Item、候选媒体、人工上传审核媒体、Pegasus/EmulationStation 来源媒体或审核运行截图；服务器来源 `assetId` 为格式专属 Item ID 并带 `kind=COVER|VIDEO`（默认 COVER），封闭 UNION 必须恰好命中一个来源。响应为 `private, no-store`，不得把上游 URL 或 Blob ID 暴露给浏览器；ReviewEvent 本身不长期保留媒体。 |
-| `/runtime/launches/{launchId}/config` | 需要 launch cookie；返回以 `runtimeFamily=EMULATORJS|RPGMAKER|ONS|KIRIKIRI` 判别的非秘密配置 union，`private, no-store`、`Vary: Cookie`。普通审核 preview 继续由其专用配置分支投影；RPG validation 使用正式 LaunchConfig。 |
+| `/runtime/launches/{launchId}/config` | 需要 launch cookie；返回以 `runtimeFamily=EMULATORJS|RPGMAKER|ONS|KIRIKIRI|BUTTERSCOTCH` 判别的非秘密配置 union，`private, no-store`、`Vary: Cookie`。普通审核 preview 继续由其专用配置分支投影；RPG validation 使用正式 LaunchConfig。 |
 | `/runtime/content/game/{contentIdentity}/{logicalName}` | 只允许任一当前有效正式 Launch 或审核预览 grant 已锁定、且服务器重新计算身份等于 path 的运行内容；content identity 由领域版本、格式、Core、实际 ROM digest 与影响输出的选项派生，不直接暴露 Blob hash。需要仅作用于 `/runtime/content/` 的 HttpOnly grant cookie；`private, max-age=31536000, immutable`。替换 ROM 或影响输出的配置必须产生新 identity/URL，旧授权不能读取新内容。 |
 | `/runtime/content/bios/{contentIdentity}/bundle.zip` | 支持 GET/HEAD；identity 由带领域版本、规范按逻辑名排序的 BIOS bundle 成员名与每个文件 digest 派生，不直接暴露成员 hash。任一成员替换都会产生新 URL；需要有效 content grant，`private, max-age=31536000, immutable`。HEAD 执行与 GET 相同的授权、Launch 状态和 bundle 清单校验。 |
 | `/runtime/content/parent/{contentIdentity}/bundle.zip` | 与 BIOS bundle 相同，但只服务确定性 parent bundle；任一成员变化产生新 identity/URL，`private, max-age=31536000, immutable`。 |
@@ -889,16 +889,20 @@ Launch config 顶层是 `runtimeFamily` discriminated union。`EMULATORJS` 保�
 
 `runtimeFamily=ONS` 与 `runtimeFamily=KIRIKIRI` 同样是严格 discriminated config。KiriKiri只允许 `KIRIKIRI2_WEB/kirikiri2-web`，返回 `runtimeBaseUrl/projectIndexUrl`、可空唯一 `startupXp3Path`、slot 1999 与 `gameCompatibilityLine/saveAbi/readableSaveAbis`；项目索引只列 Launch或 Review Preview冻结的 `PROJECT_FILE`。该 config只承诺 KAG书签恢复，不能把形状匹配解释为任意 TJS项目的 checkpoint能力。
 
+`runtimeFamily=BUTTERSCOTCH` 只允许 `BUTTERSCOTCH_WEB/butterscotch-web` 与 `coreId=butterscotch`。严格 config 固定 `protocolVersion=1`、`mode=single`、`runtimeBaseUrl/projectIndexUrl`、不可变 content digest 和可空 `RUNTIME_STATE` checkpoint URL；产品 checkpoint 上限 16 MiB。Review Preview 使用同一 runtime/config 形状但额外携带专用 preview 元数据，不能被产品 Player 的严格 decoder 接受。
+
 EasyRPG 与 mkxp 的同源内容端点属于严格 OpenAPI 契约，不能只在 Go router 中注册：
 
-ONS/KiriKiri 的 `index.json` 逐项必须包含准确 `path/sizeBytes/url`。ONS 非视频文件以含稳定 content identity 的完整 URL 作为持久缓存身份，流式读取时必须与 `sizeBytes` 精确一致；adapter 优先把文件有界串行写入 origin-private file system，OPFS 不可用时才回退 Cache Storage，因此数百 MiB 归档不依赖 Chromium 普通 HTTP disk-cache 或 Cache Storage 的单项大小限制。ONS 视频直接把该 URL 交给浏览器媒体元素并消费同一内容端点的 Range，不得为了缓存而先完整下载到 Wasm 文件系统。KiriKiri 的大型 XP3 继续由 VLFS 按 256 KiB 有界 Range 注册，不能在 adapter 中预取整包。
+ONS/KiriKiri/Butterscotch 的 `index.json` 逐项必须包含准确 `path/sizeBytes/url`。ONS 非视频文件以含稳定 content identity 的完整 URL 作为持久缓存身份，流式读取时必须与 `sizeBytes` 精确一致；adapter 优先把文件有界串行写入 origin-private file system，OPFS 不可用时才回退 Cache Storage，因此数百 MiB 归档不依赖 Chromium 普通 HTTP disk-cache 或 Cache Storage 的单项大小限制。ONS 视频直接把该 URL 交给浏览器媒体元素并消费同一内容端点的 Range，不得为了缓存而先完整下载到 Wasm 文件系统。KiriKiri 的大型 XP3 继续由 VLFS 按 256 KiB 有界 Range 注册，不能在 adapter 中预取整包。
+
+Butterscotch core 需要本地文件路径，因此 adapter 必须先把冻结索引的每个项目文件流式写入按 content digest 分区的 OPFS，再启动 worker；下载过程按总字节上报进度。缓存文件长度与索引一致时跨 Launch 复用，长度漂移则删除并重新下载；恢复 Launch 仍重新读取 `index.json` 和 grant，但不重复获取已完整缓存的 `data.win`。
 
 - `GET|HEAD /runtime/retrom-runtime/{runtimeVersion}/{runtimePath}` 只允许命中固定 retrom-runtime Release manifest 的逐文件 allowlist，本地逐字节复核 observed size/hash 后返回不可变公共响应；未知版本、路径或 MIME 返回 404；
-- `GET|HEAD /runtime/content/project/{contentIdentity}/{projectPath}` 使用通用 `/runtime/content/` HttpOnly Launch grant。`contentIdentity` 由冻结项目的规范 logical path、format 与逐文件 digest，以及 EasyRPG/mkxp 派生 bundle 和所选 runtime pack 的锁定内容共同确定；相同内容和运行投影在不同 Launch 中得到相同 URL，替换任一文件或 pack 必须产生新 identity。服务端逐个验证当前有效 grant 实际锁定的身份，不能仅凭 path 查询可变 Game/Review。`index.json` 是 EasyRPG/ONS/KiriKiri adapter 使用的保留虚拟索引；EasyRPG RTP 另投影为 `__retrom__/packs/{slot}/index.json` 和 `__retrom__/packs/{slot}/files/{path}`。所有响应为 `private, max-age=31536000, immutable`、强 ETag、准确 MIME/长度并支持单 Range；未知、未授权或跨身份文件不能回退到上传源、最新 content revision 或可变 ReviewDraft。
+- `GET|HEAD /runtime/content/project/{contentIdentity}/{projectPath}` 使用通用 `/runtime/content/` HttpOnly Launch grant。`contentIdentity` 由冻结项目的规范 logical path、format 与逐文件 digest，以及 EasyRPG/mkxp 派生 bundle 和所选 runtime pack 的锁定内容共同确定；相同内容和运行投影在不同 Launch 中得到相同 URL，替换任一文件或 pack 必须产生新 identity。服务端逐个验证当前有效 grant 实际锁定的身份，不能仅凭 path 查询可变 Game/Review。`index.json` 是 EasyRPG/ONS/KiriKiri/Butterscotch adapter 使用的保留虚拟索引；EasyRPG RTP 另投影为 `__retrom__/packs/{slot}/index.json` 和 `__retrom__/packs/{slot}/files/{path}`。所有响应为 `private, max-age=31536000, immutable`、强 ETag、准确 MIME/长度并支持单 Range；未知、未授权或跨身份文件不能回退到上传源、最新 content revision 或可变 ReviewDraft。
 
 两条路径都必须以 `x-retrom-router-template` 保留含 `/` 的尾部路径。OpenAPI 中间件必须先识别它们再进入内容 handler；否则即使文件已物化也会被错误地提前映射为 404。
 
-成功的 `GET /runtime/launches/{launchId}/state` 继续只返回二进制 payload；MIME、Content-Length、ETag 和最大尺寸由 Launch 的当前构件与存档 payload kind 决定，不在 body 混入 JSON。EmulatorJS 恢复不匹配 content revision/精确 artifact/adapter ABI/dependency snapshot 时在读取 payload 前返回 `RPG_CHECKPOINT_INCOMPATIBLE`；RPG Maker/ONS/KiriKiri要求逻辑游戏兼容线和 dependency snapshot不变、当前构件显式声明可读存档 save ABI，否则在创建 Launch时返回 `LAUNCH_SAVE_INCOMPATIBLE`，不会读取 payload或回退旧 runtime。
+成功的 `GET /runtime/launches/{launchId}/state` 继续只返回二进制 payload；MIME、Content-Length、ETag 和最大尺寸由 Launch 的当前构件与存档 payload kind 决定，不在 body 混入 JSON。EmulatorJS 恢复不匹配 content revision/精确 artifact/adapter ABI/dependency snapshot 时在读取 payload 前返回 `RPG_CHECKPOINT_INCOMPATIBLE`；其他独立 runtime 要求逻辑游戏兼容线和 dependency snapshot不变、当前构件显式声明可读存档 save ABI，否则在创建 Launch时返回 `LAUNCH_SAVE_INCOMPATIBLE`，不会读取 payload或回退旧 runtime。
 
 ### 16.2 MV/MZ runtime origin
 

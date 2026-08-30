@@ -28,16 +28,46 @@ describe("handleRetromRuntimeEvent", () => {
     handleRetromRuntimeEvent({ type: "EXIT_REQUESTED" }, target);
 
     expect(target.setManualSaveAvailable).toHaveBeenCalledWith(false);
+    expect(target.manualSaveAvailableRef.current).toBe(false);
     expect(target.onExitRequested).toHaveBeenCalledOnce();
+  });
+
+  it("tracks a runtime becoming checkpointable after its initial busy state", () => {
+    const target = eventTarget();
+
+    handleRetromRuntimeEvent({
+      type: "CHECKPOINT_AVAILABILITY_CHANGED", availability: { available: false, blocker: "BUSY" },
+    }, target);
+    expect(target.manualSaveAvailableRef.current).toBe(false);
+    expect(target.setManualSaveAvailable).toHaveBeenLastCalledWith(false);
+    expect(target.setSyncText).toHaveBeenLastCalledWith("当前场景暂不可存档");
+    expect(target.setSyncTone).toHaveBeenLastCalledWith("busy");
+
+    handleRetromRuntimeEvent({
+      type: "CHECKPOINT_AVAILABILITY_CHANGED", availability: { available: true, blocker: null },
+    }, target);
+    expect(target.manualSaveAvailableRef.current).toBe(true);
+    expect(target.setManualSaveAvailable).toHaveBeenLastCalledWith(true);
+    expect(target.setSyncText).toHaveBeenLastCalledWith("可创建存档");
+    expect(target.setSyncTone).toHaveBeenLastCalledWith("synced");
+
+    handleRetromRuntimeEvent({
+      type: "CHECKPOINT_AVAILABILITY_CHANGED", availability: { available: false, blocker: "UNSUPPORTED" },
+    }, target);
+    expect(target.setSyncText).toHaveBeenLastCalledWith("当前状态含暂不支持的存档数据");
+    expect(target.setSyncTone).toHaveBeenLastCalledWith("warning");
   });
 });
 
 function eventTarget() {
   return {
+    manualSaveAvailableRef: { current: true },
     setLoadProgress: vi.fn(),
     setManualSaveAvailable: vi.fn(),
     setMessage: vi.fn(),
     setState: vi.fn(),
+    setSyncText: vi.fn(),
+    setSyncTone: vi.fn(),
     onExitRequested: vi.fn(),
   };
 }

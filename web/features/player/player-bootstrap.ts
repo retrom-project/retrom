@@ -25,9 +25,16 @@ import { applyInitialPlayerVolume } from "./immersive-player-volume";
 import { describeRetromRpgRuntime, isRetromRpgRuntimeConfig, mountRetromRpgRuntime, validateRpgRuntimeConfig, type RpgRuntimeConfig } from "./rpg-runtime";
 import type { RpgRuntimeValidationDriver } from "./rpg-runtime-validation";
 import type { ValidationCheckpointReceipt } from "./rpg-validation-checkpoint-response";
-import { createOnsProductRuntime, isOnsLaunchConfig, onsPlayerInstance, type OnsLaunchConfig } from "./ons-runtime";
-import { isKiriKiriLaunchConfig, mountKiriKiriProductRuntime, type KiriKiriLaunchConfig } from "./kirikiri-runtime";
-import { fetchKiriKiriCheckpoint, fetchOnsCheckpoint, fetchRpgCheckpoint, kirikiriShellConfig, observedRuntimeDiscCount, onsShellConfig, rpgDebugRuntime, rpgShellConfig } from "./player-bootstrap-config";
+import { isButterscotchLaunchConfig } from "./butterscotch-runtime";
+import { fetchRpgCheckpoint, observedRuntimeDiscCount, rpgDebugRuntime, rpgShellConfig } from "./player-bootstrap-config";
+import {
+  bootstrapButterscotchPlayer,
+  bootstrapKiriKiriPlayer,
+  bootstrapOnsPlayer,
+  isKiriKiriLaunchConfig,
+  isOnsLaunchConfig,
+  type RetromRuntimeBootstrapHost,
+} from "./player-bootstrap-retrom-runtime";
 import { createRpgRuntimeValidationDriver } from "./rpg-validation-driver-factory";
 import { startNetplay } from "./player-bootstrap-netplay";
 import {
@@ -46,12 +53,14 @@ export type PlayerBootstrapParams = {
   immersiveGamepadFilter?: ImmersiveGamepadFilter;
   stage: RefObject<HTMLDivElement | null>; frameRef: RefObject<HTMLIFrameElement | null>; emulator: Mutable<EmulatorInstance | undefined>;
   returnTo: Mutable<string>; playerMode: Mutable<PlayerConfig["mode"]>; manualSaveAvailableRef: Mutable<boolean>;
+  dosProgramMenuRef: Mutable<boolean>;
   netplayConfig: Mutable<NonNullable<PlayerConfig["netplay"]> | null>; discSetRef: Mutable<DiscSet | null>;
   orientationStateRef: Mutable<PlayerOrientationState>; videoRenderingModeRef: Mutable<VideoRenderingMode>;
   lastAudibleVolume: Mutable<number>; pausedRef: Mutable<boolean>; started: Mutable<boolean>; finishing: Mutable<boolean>;
   heartbeat: Mutable<number | null>; toastTimer: Mutable<number | null>; netplayController: Mutable<NetplayController | null>; netplayPausedRef: Mutable<boolean>;
   setMessage: Dispatch<SetStateAction<string>>; setLoadProgress: Dispatch<SetStateAction<PlayerLoadProgress | null>>;
   setState: Dispatch<SetStateAction<ShellState>>; setManualSaveAvailable: Dispatch<SetStateAction<boolean>>;
+  setDosProgramMenu: Dispatch<SetStateAction<boolean>>;
   setNetplayPlayerNo: Dispatch<SetStateAction<number | null>>; setWarnings: Dispatch<SetStateAction<string[]>>; setGameTitle: Dispatch<SetStateAction<string>>;
   setCoreName: Dispatch<SetStateAction<string>>; setPlatformName: Dispatch<SetStateAction<string>>; setDebugRuntime: Dispatch<SetStateAction<PlayerDebugRuntime>>;
   setDiscSet: Dispatch<SetStateAction<DiscSet | null>>; setDiscState: Dispatch<SetStateAction<DiscState | null>>; setOrientationState: Dispatch<SetStateAction<PlayerOrientationState>>;
@@ -89,6 +98,15 @@ export function usePlayerBootstrap(params: PlayerBootstrapParams) {
 
 function createBootstrapResources(): BootstrapResources {return {};}
 
+const retromRuntimeBootstrapHost: RetromRuntimeBootstrapHost = {
+  applyConfig,
+  prepareOrientation,
+  prepareFrame,
+  mountFrame,
+  handleReady,
+  completeStart: completeSinglePlayerStart,
+};
+
 async function bootstrapPlayer(params: PlayerBootstrapParams, resources: BootstrapResources, controller: AbortController) {
   params.setLoadProgress(null);
   params.setMessage("正在加载 Core、ROM 与依赖配置…");
@@ -96,11 +114,15 @@ async function bootstrapPlayer(params: PlayerBootstrapParams, resources: Bootstr
   if (!response.ok) {throw new Error(`LAUNCH_CONFIG_${response.status}`);}
   const rawConfig: unknown = await response.json();
   if (isOnsLaunchConfig(rawConfig)) {
-    await bootstrapOnsPlayer(params, resources, controller, rawConfig);
+    await bootstrapOnsPlayer(params, resources, controller, rawConfig, retromRuntimeBootstrapHost);
     return;
   }
   if (isKiriKiriLaunchConfig(rawConfig)) {
-    await bootstrapKiriKiriPlayer(params, resources, controller, rawConfig);
+    await bootstrapKiriKiriPlayer(params, resources, controller, rawConfig, retromRuntimeBootstrapHost);
+    return;
+  }
+  if (isButterscotchLaunchConfig(rawConfig)) {
+    await bootstrapButterscotchPlayer(params, resources, controller, rawConfig, retromRuntimeBootstrapHost);
     return;
   }
   if (isRetromRpgRuntimeConfig(rawConfig)) {
@@ -123,85 +145,6 @@ async function bootstrapPlayer(params: PlayerBootstrapParams, resources: Bootstr
     mounted.context.frameWindow,
     params.experience === "immersive" ? { immersiveGamepadFilter: params.immersiveGamepadFilter } : undefined,
   );
-}
-
-async function bootstrapOnsPlayer(
-  params: PlayerBootstrapParams,
-  resources: BootstrapResources,
-  controller: AbortController,
-  onsConfig: OnsLaunchConfig,
-) {
-  const config = onsShellConfig(onsConfig);
-  applyConfig(params, config);
-  params.setDebugRuntime({
-    runtimeFamily: "ONS", coreId: onsConfig.coreId, coreArtifactId: onsConfig.artifactId,
-    emulatorJSVersion: onsConfig.runtimeVersion, playerAdapterId: onsConfig.adapter.adapterId,
-    inputMode: "STANDARD", crossOriginIsolated: window.crossOriginIsolated,
-    sharedArrayBuffer: typeof SharedArrayBuffer !== "undefined",
-  });
-  await prepareOrientation(params, config, controller);
-  const frame = await prepareFrame(params, controller);
-  const stateBytes = await fetchOnsCheckpoint(onsConfig, controller.signal);
-  const mounted = mountFrame(params, resources, controller, config, frame, stateBytes);
-  resources.cleanupRuntimeGamepadFilter = installRuntimeImmersiveGamepadFilter(params.experience, mounted.context.frameWindow, params.immersiveGamepadFilter);
-  params.setMessage("正在启动 ONScripter 运行时…");
-  const runtime = createOnsProductRuntime(onsConfig, mounted.context.frameWindow, stateBytes, controller.signal);
-  resources.nativeRuntimeSubscription = runtime.subscribe((event) => handleRetromRuntimeEvent(event, params));
-  try {
-    await runtime.mount(mounted.target);
-    if (controller.signal.aborted) {await runtime.exit(); return;}
-    resources.cleanup = () => runtime.exit();
-    handleReady(mounted.context, onsPlayerInstance(runtime, mounted.target));
-    const availability = runtime.getCheckpointAvailability();
-    params.manualSaveAvailableRef.current = availability.available;
-    params.setManualSaveAvailable(availability.available);
-    completeSinglePlayerStart(mounted.context, false);
-  } catch (error) {
-    await runtime.exit();
-    throw error;
-  }
-}
-
-async function bootstrapKiriKiriPlayer(
-  params: PlayerBootstrapParams,
-  resources: BootstrapResources,
-  controller: AbortController,
-  kirikiriConfig: KiriKiriLaunchConfig,
-) {
-  const config = kirikiriShellConfig(kirikiriConfig);
-  applyConfig(params, config);
-  params.setDebugRuntime({
-    runtimeFamily: "KIRIKIRI", coreId: kirikiriConfig.coreId, coreArtifactId: kirikiriConfig.artifactId,
-    emulatorJSVersion: kirikiriConfig.runtimeVersion, playerAdapterId: kirikiriConfig.adapter.adapterId,
-    inputMode: "STANDARD", crossOriginIsolated: window.crossOriginIsolated,
-    sharedArrayBuffer: typeof SharedArrayBuffer !== "undefined",
-  });
-  await prepareOrientation(params, config, controller);
-  const frame = await prepareFrame(params, controller);
-  const stateBytes = await fetchKiriKiriCheckpoint(kirikiriConfig, controller.signal);
-  const mounted = mountFrame(params, resources, controller, config, frame, stateBytes);
-  resources.cleanupRuntimeGamepadFilter = installRuntimeImmersiveGamepadFilter(
-    params.experience, mounted.context.frameWindow, params.immersiveGamepadFilter,
-  );
-  params.setMessage("正在启动 KiriKiri 运行时…");
-  const mountedRuntime = await mountKiriKiriProductRuntime(
-    kirikiriConfig, mounted.target, mounted.context.frameWindow, stateBytes, controller.signal,
-  );
-  try {
-    if (controller.signal.aborted) {await mountedRuntime.runtime.exit(); return;}
-    resources.cleanup = () => mountedRuntime.runtime.exit();
-    resources.nativeRuntimeSubscription = mountedRuntime.runtime.subscribe((event) => {
-      handleRetromRuntimeEvent(event, params);
-    });
-    handleReady(mounted.context, mountedRuntime.instance);
-    const availability = mountedRuntime.runtime.getCheckpointAvailability();
-    params.manualSaveAvailableRef.current = availability.available;
-    params.setManualSaveAvailable(availability.available);
-    completeSinglePlayerStart(mounted.context, false);
-  } catch (error) {
-    await mountedRuntime.runtime.exit();
-    throw error;
-  }
 }
 
 async function bootstrapRpgMakerPlayer(
@@ -288,6 +231,8 @@ function applyConfig(params: PlayerBootstrapParams, config: PlayerConfig) {
   params.playerMode.current = config.mode;
   params.manualSaveAvailableRef.current = canCreateRecoverableManualState(config);
   params.setManualSaveAvailable(params.manualSaveAvailableRef.current);
+  params.dosProgramMenuRef.current = config.runtimeCore === "dosbox_pure" && !config.dosEntry;
+  params.setDosProgramMenu(params.dosProgramMenuRef.current);
   params.netplayConfig.current = config.netplay;
   params.setNetplayPlayerNo(config.netplay?.playerNo ?? null);
   params.setWarnings(config.warnings ?? []);
@@ -554,7 +499,9 @@ function completeSinglePlayerStart(context: MountedContext, resumeMainLoop: bool
   );
   void params.sendEvent("start").then(() => {
     params.setState("running");
-    params.setSyncText(syncTextOverride ?? (params.manualSaveAvailableRef.current ? "可创建存档" : "程序菜单模式不可存档"));
+    params.setSyncText(syncTextOverride ?? (params.manualSaveAvailableRef.current
+      ? "可创建存档"
+      : params.dosProgramMenuRef.current ? "程序菜单模式不可存档" : "当前场景暂不可存档"));
     params.setSyncTone(syncTextOverride ? "busy" : params.manualSaveAvailableRef.current ? "synced" : "warning");
     params.heartbeat.current = window.setInterval(() => {void params.sendEvent("heartbeat");}, 30_000);
   }).catch(() => {params.setState("error"); params.setMessage("PLAY_SESSION_EVENT_FAILED");});

@@ -69,6 +69,20 @@ func TestResolveONSUsesOnlyProjectMode(t *testing.T) {
 	}
 }
 
+func TestResolveButterscotchUsesOnlyProjectMode(t *testing.T) {
+	t.Parallel()
+	got := Resolve("butterscotch", true, false, `{}`)
+	testassert.Falsef(t, testassert.Any(
+		func() bool { return !reflect.DeepEqual(got.ContentModes, []string{ModeButterscotchProjectV1}) },
+		func() bool { return got.MultiDisc != nil },
+	), "Butterscotch capabilities=%#v", got)
+	if !SupportsContentKind(`{"adapterAbi":"butterscotch-checkpoint-v2"}`, ModeButterscotchProjectV1) ||
+		SupportsContentKind(`{"adapterAbi":"butterscotch-checkpoint-v1"}`, ModeButterscotchProjectV1) ||
+		SupportsContentKind(`{"adapterAbi":"native-save"}`, ModeButterscotchProjectV1) {
+		t.Fatal("Butterscotch publication capability did not enforce its checkpoint ABI")
+	}
+}
+
 func TestSupportsContentKindRequiresExplicitCompatibilityV3(t *testing.T) {
 	t.Parallel()
 	standard := `{"schemaVersion":5,"supportedContentKinds":["SINGLE_FILE"]}`

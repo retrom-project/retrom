@@ -61,6 +61,9 @@ func (service *Service) ProjectIndex(
 	ctx context.Context,
 	launchID, capability string,
 ) (ProjectIndexView, error) {
+	if index, err := service.productButterscotchProjectIndex(ctx, launchID, capability); err == nil {
+		return index, nil
+	}
 	if index, err := service.productKiriKiriProjectIndex(ctx, launchID, capability); err == nil {
 		return index, nil
 	}
@@ -68,6 +71,9 @@ func (service *Service) ProjectIndex(
 		return index, nil
 	}
 	if index, err := service.reviewPreviewKiriKiriProjectIndex(ctx, launchID, capability); err == nil {
+		return index, nil
+	}
+	if index, err := service.reviewPreviewButterscotchProjectIndex(ctx, launchID, capability); err == nil {
 		return index, nil
 	}
 	return service.ReviewPreviewProjectIndex(ctx, launchID, capability)
@@ -305,7 +311,7 @@ SELECT preview.credential_sha256,preview.state,preview.hard_expires_at_ms,blob.s
 preview.content_format,artifact.core_id,artifact.version,platform.id
 FROM review_preview_sessions preview
 JOIN core_artifacts artifact ON artifact.id=preview.core_artifact_id
- AND artifact.runtime_family IN ('ONS','KIRIKIRI')
+ AND artifact.runtime_family IN ('ONS','KIRIKIRI','BUTTERSCOTCH')
 JOIN platform_instances instance ON instance.id=preview.target_platform_instance_id
 JOIN platforms platform ON platform.id=instance.platform_id
 JOIN (
@@ -315,11 +321,13 @@ JOIN (
  SELECT preview_session_id,logical_name,blob_id FROM review_preview_files WHERE role='PROJECT_FILE'
 ) file ON file.preview_session_id=preview.id AND file.logical_name=?
 JOIN blobs blob ON blob.id=file.blob_id
-WHERE preview.id=? AND preview.content_kind IN ('ONS_PROJECT_V1','KIRIKIRI_PROJECT_V1')
+WHERE preview.id=?
+ AND preview.content_kind IN ('ONS_PROJECT_V1','KIRIKIRI_PROJECT_V1','BUTTERSCOTCH_PROJECT_V1')
 `, normalized, previewID).Scan(
 		&credentialHash, &state, &hardExpires, &digest, &format, &coreID, &artifactVersion, &platformKey,
 	)
-	if err != nil || format != onsProjectFormat && format != kirikiriProjectFormat ||
+	if err != nil || format != onsProjectFormat && format != kirikiriProjectFormat &&
+		format != butterscotchProjectFormat ||
 		!reviewPreviewCredential(service.now().UnixMilli(), capability, credentialHash, state, hardExpires) {
 		return ContentView{}, ErrCredential
 	}

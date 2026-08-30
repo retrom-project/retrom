@@ -544,6 +544,7 @@ components:
             - RPG_MAKER_PROJECT
             - ONS_PROJECT
             - KIRIKIRI_PROJECT
+            - BUTTERSCOTCH_PROJECT
             - RUNTIME_ASSET_PACK
           default: GENERAL
           description: GENERAL preserves ordinary uploads; project and runtime-pack purposes are consumed only by their matching operation.
@@ -594,7 +595,7 @@ components:
           enum:
             - HASHEOUS
             - NONE
-          description: RPG_MAKER_PROJECT_V1, ONS_PROJECT_V1 and KIRIKIRI_PROJECT_V1 requests are normalized to NONE because projects have no single-ROM hash identity.
+          description: Project content modes are normalized to NONE because projects have no single-ROM hash identity.
         tagIds:
           type: array
           maxItems: 20
@@ -610,6 +611,7 @@ components:
             - RPG_MAKER_PROJECT_V1
             - ONS_PROJECT_V1
             - KIRIKIRI_PROJECT_V1
+            - BUTTERSCOTCH_PROJECT_V1
           description: Omitted requests use STANDARD.
     ReconfigureImportRequest:
       type: object
