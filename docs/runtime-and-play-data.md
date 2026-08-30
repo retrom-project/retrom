@@ -433,7 +433,7 @@ MV/MZ 只在 Scene_Map、允许保存、无 message/活动 event 且 DataManager
 
 机器协议固定为 14 个有序 gate：`RUNTIME_READY → ENGINE_PROFILE → FRAMES_300 → INPUT → AUDIO → INITIAL_POSITION_RECORDED → SAVE_POINT_RECORDED → CHECKPOINT_CREATED → POST_SAVE_STATE_DIVERGED → ORIGINAL_LAUNCH_ENDED → RESTORE_STARTED → RESTORE_POSITION_VERIFIED → RESTORE_SCREENSHOT → RESTORE_INPUT`。每个 gate 都先 BEGIN 再 PASS/FAIL。validation Launch 的配置同时投影服务端 `lastGateSequence`、按上述顺序的 gate status/evidence、原/恢复 Launch ID、已存在 checkpoint evidence 与恢复截图关联状态；运行时授权页面刷新必须从第一个未完成动作继续，不得重新发送已完成的 BEGIN 或终态。
 
-管理员可以在同一审核条目中多次运行游戏，但同一时刻只允许一个未终结 validation。原始子窗体在 `ORIGINAL_LAUNCH_ENDED` 通过前关闭，或恢复子窗体在 `RESTORE_INPUT` 通过前关闭时，Launch 与 validation 在同一事务内分别收口为 `FINISHED` 与 `FAILED/RPG_RUNTIME_VALIDATION_WINDOW_CLOSED`；已通过相应终态 gate 的正常关闭不改写 validation。关闭失败仍保留“已创建真实 Launch”的发布资格，并解除新 validation 的互斥，使审核页按钮可原位再次运行。
+管理员可以在同一审核条目中多次运行游戏，但同一时刻只允许一个未终结 validation。原始子窗体在 `ORIGINAL_LAUNCH_ENDED` 通过前关闭，或恢复子窗体在 `RESTORE_INPUT` 通过前关闭时，Launch 与 validation 在同一事务内分别收口为 `FINISHED` 与 `FAILED/RPG_RUNTIME_VALIDATION_WINDOW_CLOSED`；已通过相应终态 gate 的正常关闭不改写 validation。读取 validation 或创建下一次 validation 时还会对账已经终结的 Launch，自动修复旧进程遗留的非终态 validation。关闭失败仍保留“已创建真实 Launch”的发布资格，并解除新 validation 的互斥，使审核页按钮可原位再次运行。
 
 runtime validation 和 restore Launch 的创建请求都必须在用户动作发生时重新读取并提交严格 `clientCapabilities={secureContext,crossOriginIsolated,sharedArrayBuffer}`；服务端在签发任一 Launch credential 前按冻结 artifact 的 `requires_threads` 校验，Player 挂载 adapter 前再次读取真实环境，任一能力变差都 fail closed。客户端能力只用于兼容门禁，不是授权证据，也不能替代 frozen binding。
 

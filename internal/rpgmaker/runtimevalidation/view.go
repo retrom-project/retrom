@@ -30,7 +30,11 @@ func (service *Service) Get(ctx context.Context, importItemID, validationID stri
 		return View{}, fmt.Errorf("begin RPG validation view: %w", err)
 	}
 	defer cleanup.Rollback(transaction)
-	if err := expireOneValidation(ctx, transaction, validationID, service.now().UnixMilli()); err != nil {
+	now := service.now().UnixMilli()
+	if err := expireOneValidation(ctx, transaction, validationID, now); err != nil {
+		return View{}, err
+	}
+	if err := reconcileClosedValidationWindows(ctx, transaction, importItemID, now); err != nil {
 		return View{}, err
 	}
 	view, err := loadView(ctx, transaction, importItemID, validationID)
