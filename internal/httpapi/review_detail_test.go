@@ -135,6 +135,7 @@ FROM core_artifacts WHERE id=?
 	server.patchReview(patch, patchRequest)
 	testassert.Falsef(t, anyTrue(patch.Code != http.StatusOK, !strings.Contains(patch.Body.String(), `"version":2`)),
 		"select review cover = %d %s", patch.Code, patch.Body.String())
+	assertRuntimeValidationRefreshed(t, server, request, itemID, replacementArtifactID)
 	staleCover := httptest.NewRecorder()
 	staleCoverRequest := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/v1/admin/reviews/"+itemID+"/assets", strings.NewReader(`{"uploadFileId":"`+coverUploadFileID+`","kind":"COVER"}`))
 	staleCoverRequest.SetPathValue("importItemId", itemID)
@@ -166,6 +167,32 @@ UPDATE review_drafts SET cover_candidate_asset_id=? WHERE import_item_id=?
 		t, server, itemID, importID, artifactID, coverBlobID,
 		manifest, digest, timestamp, coverMetadata,
 	)
+}
+
+func assertRuntimeValidationRefreshed(
+	t *testing.T,
+	server *Server,
+	request *http.Request,
+	itemID, replacementArtifactID string,
+) {
+	t.Helper()
+	var validationID, status string
+	if err := server.database.QueryRowContext(context.Background(), `
+SELECT id,status FROM import_item_core_validations
+WHERE import_item_id=? AND core_artifact_id=?
+ORDER BY created_at_ms DESC,id DESC LIMIT 1
+`, itemID, replacementArtifactID).Scan(&validationID, &status); err != nil {
+		t.Fatalf("read refreshed runtime validation: %v", err)
+	}
+	response := httptest.NewRecorder()
+	server.review(response, request)
+	testassert.Falsef(t, testassert.Any(
+		func() bool { return response.Code != http.StatusOK },
+		func() bool { return strings.Contains(response.Body.String(), `"validationStale":true`) },
+		func() bool { return !strings.Contains(response.Body.String(), `"runtimeVersionChange":null`) },
+		func() bool { return !strings.Contains(response.Body.String(), `"id":"`+validationID+`"`) },
+		func() bool { return status != "BLOCKED" },
+	), "refreshed runtime review detail = %d %s", response.Code, response.Body.String())
 }
 
 func createReviewCoverFixture(t *testing.T, server *Server, itemID, uploadFileID string) string {
