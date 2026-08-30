@@ -45,10 +45,14 @@ export function usePlayerSession(params: PlayerSessionParams) {
 
   const exit = useCallback(() => exitPlayer(params, sendEvent), [params, sendEvent]);
   const exitStrict = useCallback(() => exitImmersivePlayer(params, sendEvent), [params, sendEvent]);
+  const exitImmersiveAfterRuntimeExit = useCallback(
+    () => exitImmersivePlayer(params, sendEvent, false),
+    [params, sendEvent],
+  );
 
   usePageHideFinish(params);
   usePageExitProtection(params);
-  return { sendEvent, uploadManualState, uploadValidationCheckpoint, exit, exitStrict };
+  return { sendEvent, uploadManualState, uploadValidationCheckpoint, exit, exitStrict, exitImmersiveAfterRuntimeExit };
 }
 
 function queuePlayerEvent(kind: "start" | "heartbeat" | "finish", params: PlayerSessionParams) {
@@ -110,13 +114,18 @@ async function exitPlayer(params: PlayerSessionParams, sendEvent: (kind: "start"
 async function exitImmersivePlayer(
   params: PlayerSessionParams,
   sendEvent: (kind: "start" | "heartbeat" | "finish") => Promise<void>,
+  strict = true,
 ) {
   if (params.finishing.current) {return;}
   const exiting = reducePlayerOrientation(params.orientationStateRef.current, { type: "exit" });
   params.orientationStateRef.current = exiting.state;
   params.setOrientationState(exiting.state);
   if (exiting.effects.includes("unlock")) {unlockLandscape();}
-  await sendEvent("finish");
+  try {
+    await sendEvent("finish");
+  } catch (error) {
+    if (strict) {throw error;}
+  }
   params.replaceImmersiveRoute(params.returnTo.current);
 }
 
