@@ -50,11 +50,22 @@ class ONSProductAcceptanceTests(unittest.TestCase):
         contents = DRIVER_PATH.read_text(encoding="utf-8")
         self.assertNotIn("/data/game", contents)
         self.assertIn("RETROM_ONS_SMOKE_ARCHIVE", contents)
+        self.assertIn("observedEvidence", contents)
 
     def test_driver_accepts_http_only_for_local_acceptance_hosts(self) -> None:
         contents = DRIVER_PATH.read_text(encoding="utf-8")
         self.assertIn('import { isLocalAcceptanceHostname } from "./rpgmaker_url.mjs";', contents)
         self.assertIn('url.protocol !== "http:" || !isLocalAcceptanceHostname(url.hostname)', contents)
+
+    def test_local_acceptance_routes_rpg_subdomains_through_the_loopback_proxy(self) -> None:
+        contents = DRIVER_PATH.read_text(encoding="utf-8")
+        self.assertIn(
+            'import { localRpgAcceptanceProxy } from "./rpgmaker_local_proxy.mjs";',
+            contents,
+        )
+        self.assertIn("const localProxy = await localRpgAcceptanceProxy(baseUrl);", contents)
+        self.assertIn("...localProxy.contextOptions", contents)
+        self.assertIn("await localProxy.close();", contents)
 
     def test_driver_requires_the_sdl_backing_buffer_and_centered_focused_surface(self) -> None:
         contents = DRIVER_PATH.read_text(encoding="utf-8")
@@ -63,6 +74,10 @@ class ONSProductAcceptanceTests(unittest.TestCase):
             "ONS_ACCEPTANCE_CANVAS_LAYOUT_INVALID", "data-ons-runtime-surface",
         ):
             self.assertIn(contract, contents)
+
+    def test_terminal_duplicate_import_does_not_wait_until_timeout(self) -> None:
+        contents = DRIVER_PATH.read_text(encoding="utf-8")
+        self.assertIn('["REVIEW_PENDING", "COMPLETE", "COMPLETED"].includes(job.state)', contents)
 
 
 if __name__ == "__main__":

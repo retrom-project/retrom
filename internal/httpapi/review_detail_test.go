@@ -37,13 +37,13 @@ func TestBlockedReviewDetailRemainsVisibleWithoutSelectedValidation(t *testing.T
 	if err := server.dependencies.Bootstrap(context.Background(), server.database, now); err != nil {
 		t.Fatal(err)
 	}
-	var artifactID string
+	var artifactID, artifactRuntimeVersion string
 	if err := server.database.QueryRowContext(context.Background(), `
-SELECT id
+SELECT id,runtime_version
 FROM core_artifacts
 WHERE core_id='mgba'
 AND selected_for_new_bindings=1
-`).Scan(&artifactID); err != nil {
+`).Scan(&artifactID, &artifactRuntimeVersion); err != nil {
 		t.Fatal(err)
 	}
 	itemID := "01980000-0000-7000-8000-000000000121"
@@ -85,7 +85,37 @@ AND selected_for_new_bindings=1
 		return !strings.Contains(recorder.Body.String(), `"archiveEntries":[{"crc32":"`+strings.Repeat("e", 8)+`","name":"blocked.gba","sizeBytes":4096}]`)
 	}, func() bool {
 		return !strings.Contains(recorder.Body.String(), `"scrapeRuns":[{"attemptCount":0,"candidateCount":1,"completedAtMs":`)
-	}, func() bool { return !strings.Contains(recorder.Body.String(), `"provider":"HASHEOUS"`) }), "blocked review detail = %d %s", recorder.Code, recorder.Body.String())
+	}, func() bool { return !strings.Contains(recorder.Body.String(), `"provider":"HASHEOUS"`) }, func() bool {
+		return !strings.Contains(recorder.Body.String(), `"runtimeVersionChange":null`)
+	}), "blocked review detail = %d %s", recorder.Code, recorder.Body.String())
+	replacementArtifactID := "01980000-0000-7000-8000-000000000138"
+	mustExecHTTPTest(t, server.database, `
+UPDATE core_artifacts
+SET selected_for_new_bindings=0,version=version+1,updated_at_ms=?
+WHERE id=?
+`, timestamp+1, artifactID)
+	mustExecHTTPTest(t, server.database, `
+INSERT INTO core_artifacts(
+ id,core_id,route_key,runtime_family,runtime_adapter_kind,runtime_version,adapter_id,
+ entry_path,size_bytes,sha256,manifest_sha256,artifact_set_sha256,requires_threads,
+ save_payload_kind,save_max_bytes,provenance_json,compatibility_json,
+ selected_for_new_bindings,available_for_launch,version,created_at_ms,updated_at_ms,retired_at_ms)
+SELECT ?,core_id,route_key,runtime_family,runtime_adapter_kind,runtime_version||'-next',adapter_id,
+ entry_path,size_bytes,sha256,manifest_sha256,?,requires_threads,
+ save_payload_kind,save_max_bytes,provenance_json,compatibility_json,
+ 1,1,1,?,?,NULL
+FROM core_artifacts WHERE id=?
+`, replacementArtifactID, strings.Repeat("9", 64), timestamp+1, timestamp+1, artifactID)
+	staleRuntime := httptest.NewRecorder()
+	server.review(staleRuntime, request)
+	testassert.Falsef(t, testassert.Any(
+		func() bool { return staleRuntime.Code != http.StatusOK },
+		func() bool { return !strings.Contains(staleRuntime.Body.String(), `"validationStale":true`) },
+		func() bool { return !strings.Contains(staleRuntime.Body.String(), `"id":"`+validationID+`"`) },
+		func() bool {
+			return !strings.Contains(staleRuntime.Body.String(), `"runtimeVersionChange":{"current":"`+artifactRuntimeVersion+`-next","previous":"`+artifactRuntimeVersion+`"}`)
+		},
+	), "runtime-stale review detail = %d %s", staleRuntime.Code, staleRuntime.Body.String())
 	uploadedCover := httptest.NewRecorder()
 	invalidCoverRequest := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/v1/admin/reviews/"+itemID+"/assets", strings.NewReader(`{"uploadFileId":"`+coverUploadFileID+`","kind":"BACKGROUND"}`))
 	invalidCoverRequest.SetPathValue("importItemId", itemID)
@@ -105,6 +135,7 @@ AND selected_for_new_bindings=1
 	server.patchReview(patch, patchRequest)
 	testassert.Falsef(t, anyTrue(patch.Code != http.StatusOK, !strings.Contains(patch.Body.String(), `"version":2`)),
 		"select review cover = %d %s", patch.Code, patch.Body.String())
+	assertRuntimeValidationRefreshed(t, server, request, itemID, replacementArtifactID)
 	staleCover := httptest.NewRecorder()
 	staleCoverRequest := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/v1/admin/reviews/"+itemID+"/assets", strings.NewReader(`{"uploadFileId":"`+coverUploadFileID+`","kind":"COVER"}`))
 	staleCoverRequest.SetPathValue("importItemId", itemID)
@@ -136,6 +167,32 @@ UPDATE review_drafts SET cover_candidate_asset_id=? WHERE import_item_id=?
 		t, server, itemID, importID, artifactID, coverBlobID,
 		manifest, digest, timestamp, coverMetadata,
 	)
+}
+
+func assertRuntimeValidationRefreshed(
+	t *testing.T,
+	server *Server,
+	request *http.Request,
+	itemID, replacementArtifactID string,
+) {
+	t.Helper()
+	var validationID, status string
+	if err := server.database.QueryRowContext(context.Background(), `
+SELECT id,status FROM import_item_core_validations
+WHERE import_item_id=? AND core_artifact_id=?
+ORDER BY created_at_ms DESC,id DESC LIMIT 1
+`, itemID, replacementArtifactID).Scan(&validationID, &status); err != nil {
+		t.Fatalf("read refreshed runtime validation: %v", err)
+	}
+	response := httptest.NewRecorder()
+	server.review(response, request)
+	testassert.Falsef(t, testassert.Any(
+		func() bool { return response.Code != http.StatusOK },
+		func() bool { return strings.Contains(response.Body.String(), `"validationStale":true`) },
+		func() bool { return !strings.Contains(response.Body.String(), `"runtimeVersionChange":null`) },
+		func() bool { return !strings.Contains(response.Body.String(), `"id":"`+validationID+`"`) },
+		func() bool { return status != "BLOCKED" },
+	), "refreshed runtime review detail = %d %s", response.Code, response.Body.String())
 }
 
 func createReviewCoverFixture(t *testing.T, server *Server, itemID, uploadFileID string) string {

@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import type { GameRuntime, RuntimeCapabilities } from "@xxxsen/retrom-runtime";
 import type { EmulatorInstance, ManualStatePayload } from "./adapters/ejs-4.2.3-v2";
 import type { RpgPosition, RpgRuntimeConfig as RpgMakerConfig } from "./rpg-runtime";
 import type { RpgGateEvidence } from "./rpg-validation-protocol";
@@ -39,7 +40,7 @@ describe("RpgRuntimeValidationDriver", () => {
     const events: GateRequest[] = [];
     installValidationFetch(events);
     let position: RpgPosition = { mapId: 1, playerX: 1, playerY: 1, fixtureState: 0 };
-    const instance = validationInstance(() => position);
+    const mounted = validationRuntime(() => position);
     const uploaded: ManualStatePayload[] = [];
     const finish = vi.fn(async () => undefined);
     const driver = new RpgRuntimeValidationDriver({
@@ -57,7 +58,7 @@ describe("RpgRuntimeValidationDriver", () => {
     });
 
     await driver.prepare();
-    await driver.attachRuntime(instance);
+    await driver.attachRuntime(mounted.instance, mounted.runtime);
     expect(driver.getSnapshot().phase).toBe("input");
 
     position = { mapId: 1, playerX: 2, playerY: 1, fixtureState: 0 };
@@ -122,7 +123,8 @@ describe("RpgRuntimeValidationDriver", () => {
     });
 
     await driver.prepare();
-    await driver.attachRuntime(validationInstance(() => restored));
+    const mounted = validationRuntime(() => restored);
+    await driver.attachRuntime(mounted.instance, mounted.runtime);
 
     expect(driver.getSnapshot().phase).toBe("restore-input");
     expect(driver.getSnapshot().observedPosition).toEqual(restored);
@@ -174,7 +176,8 @@ describe("RpgRuntimeValidationDriver", () => {
       finishOriginalLaunch: async () => undefined,
     });
     await driver.prepare();
-    await driver.attachRuntime(validationInstance(() => position));
+    const mounted = validationRuntime(() => position);
+    await driver.attachRuntime(mounted.instance, mounted.runtime);
     position = { mapId: 1, playerX: 2, playerY: 1, fixtureState: 1 };
     await driver.runAction();
     await driver.runAction();
@@ -207,7 +210,8 @@ describe("RpgRuntimeValidationDriver", () => {
 
     await driver.prepare();
     expect(events).toHaveLength(0);
-    await driver.attachRuntime(validationInstance(() => ({ mapId: 1, playerX: 1, playerY: 1, fixtureState: 0 })));
+    const mounted = validationRuntime(() => ({ mapId: 1, playerX: 1, playerY: 1, fixtureState: 0 }));
+    await driver.attachRuntime(mounted.instance, mounted.runtime);
 
     expect(events[0]).toMatchObject({ sequence: 2, gate: "RUNTIME_READY", phase: "PASS" });
     expect(events.filter((event) => event.gate === "RUNTIME_READY" && event.phase === "BEGIN")).toHaveLength(0);
@@ -228,7 +232,8 @@ describe("RpgRuntimeValidationDriver", () => {
     const driver = validationDriver(config);
 
     await driver.prepare();
-    await driver.attachRuntime(validationInstance(() => ({ mapId: 1, playerX: 2, playerY: 1, fixtureState: 0 })));
+    const mounted = validationRuntime(() => ({ mapId: 1, playerX: 2, playerY: 1, fixtureState: 0 }));
+    await driver.attachRuntime(mounted.instance, mounted.runtime);
 
     expect(events).toHaveLength(0);
     expect(driver.getSnapshot().phase).toBe("audio");
@@ -255,7 +260,8 @@ describe("RpgRuntimeValidationDriver", () => {
     const driver = validationDriver(config);
 
     await driver.prepare();
-    await driver.attachRuntime(validationInstance(() => ({ mapId: 7, playerX: 8, playerY: 9, fixtureState: 10 })));
+    const mounted = validationRuntime(() => ({ mapId: 7, playerX: 8, playerY: 9, fixtureState: 10 }));
+    await driver.attachRuntime(mounted.instance, mounted.runtime);
 
     expect(events).toEqual([expect.objectContaining({ sequence: 26, gate: "RESTORE_SCREENSHOT", phase: "PASS" })]);
     expect(driver.getSnapshot().phase).toBe("restore-input");
@@ -269,9 +275,9 @@ describe("RpgRuntimeValidationDriver", () => {
 });
 
 describe("waitForContinuousFrames", () => {
-  it("waits for mkxp position evidence before sampling its bridge-backed frame counter", async () => {
+  it("waits for the RPG probe before sampling the runtime frame counter", async () => {
     let positionAttempts = 0;
-    const instance = validationInstance(() => {
+    const runtime = validationRuntime(() => {
       positionAttempts += 1;
       if (positionAttempts < 3) {throw new Error("RPG_RUNTIME_POSITION_UNAVAILABLE");}
       return { mapId: 1, playerX: 1, playerY: 1, fixtureState: 0 };
@@ -280,21 +286,21 @@ describe("waitForContinuousFrames", () => {
       return () => frames.shift() ?? 310;
     })());
 
-    await expect(waitForContinuousFrames(instance, new AbortController().signal, async () => undefined))
+    await expect(waitForContinuousFrames(runtime.runtime, new AbortController().signal, async () => undefined))
       .resolves.toBe(300);
     expect(positionAttempts).toBe(3);
   });
 
   it("rejects a counter reset instead of treating it as continuous progress", async () => {
     const frames = [50, 100, 20];
-    const instance = validationInstance(() => ({ mapId: 1, playerX: 1, playerY: 1, fixtureState: 0 }), () => frames.shift() ?? 20);
-    await expect(waitForContinuousFrames(instance, new AbortController().signal, async () => undefined))
+    const runtime = validationRuntime(() => ({ mapId: 1, playerX: 1, playerY: 1, fixtureState: 0 }), () => frames.shift() ?? 20);
+    await expect(waitForContinuousFrames(runtime.runtime, new AbortController().signal, async () => undefined))
       .rejects.toThrow("RPG_RUNTIME_FRAME_DISCONTINUITY");
   });
 
-  it("skips a transient unreadable bridge sample while preserving continuous frame evidence", async () => {
+  it("skips a transient unreadable runtime sample while preserving continuous frame evidence", async () => {
     const samples: Array<number | Error> = [10, new Error("RPG_RUNTIME_POSITION_UNAVAILABLE"), 160, 310];
-    const instance = validationInstance(
+    const runtime = validationRuntime(
       () => ({ mapId: 1, playerX: 1, playerY: 1, fixtureState: 0 }),
       () => {
         const sample = samples.shift() ?? 310;
@@ -303,23 +309,23 @@ describe("waitForContinuousFrames", () => {
       },
     );
 
-    await expect(waitForContinuousFrames(instance, new AbortController().signal, async () => undefined))
+    await expect(waitForContinuousFrames(runtime.runtime, new AbortController().signal, async () => undefined))
       .resolves.toBe(300);
   });
 
-  it("still times out when every bridge frame sample remains unavailable", async () => {
+  it("still times out when every runtime frame sample remains unavailable", async () => {
     let now = 0;
     const clock = vi.spyOn(performance, "now").mockImplementation(() => {
       now += 10_000;
       return now;
     });
-    const instance = validationInstance(
+    const runtime = validationRuntime(
       () => ({ mapId: 1, playerX: 1, playerY: 1, fixtureState: 0 }),
       () => {throw new Error("RPG_RUNTIME_POSITION_UNAVAILABLE");},
     );
 
     try {
-      await expect(waitForContinuousFrames(instance, new AbortController().signal, async () => undefined))
+      await expect(waitForContinuousFrames(runtime.runtime, new AbortController().signal, async () => undefined))
         .rejects.toThrow("RPG_RUNTIME_TIMEOUT");
     } finally {clock.mockRestore();}
   });
@@ -329,8 +335,8 @@ describe("waitForContinuousFrames", () => {
       { mapId: 0, playerX: 0, playerY: 0, fixtureState: 0 },
       { mapId: 3, playerX: 4, playerY: 5, fixtureState: 6 },
     ];
-    const instance = validationInstance(() => positions.shift() ?? { mapId: 3, playerX: 4, playerY: 5, fixtureState: 6 });
-    await expect(waitForRpgPosition(instance, new AbortController().signal, async () => undefined))
+    const runtime = validationRuntime(() => positions.shift() ?? { mapId: 3, playerX: 4, playerY: 5, fixtureState: 6 });
+    await expect(waitForRpgPosition(runtime.runtime, new AbortController().signal, async () => undefined))
       .resolves.toEqual({ mapId: 3, playerX: 4, playerY: 5, fixtureState: 6 });
   });
 });
@@ -351,20 +357,46 @@ function installValidationFetch(events: GateRequest[]) {
   return fetchMock;
 }
 
-function validationInstance(position: () => RpgPosition, frames?: () => number): EmulatorInstance {
+function validationRuntime(position: () => RpgPosition, frames?: () => number) {
   let frame = 0;
-  return {
+  const instance: EmulatorInstance = {
     paused: false,
     on: () => undefined,
     gameManager: {
       validationPurpose: true,
       savePayloadKind: "NATIVE_SAVE_BUNDLE_V1",
-      getRpgPosition: position,
       getCheckpointAvailability: () => ({ available: true, reason: null }),
-      getFrameNum: frames ?? (() => {frame += 100; return frame;}),
     },
   };
+  const runtime: GameRuntime = {
+    mount: vi.fn(async () => undefined),
+    pause: vi.fn(async () => undefined),
+    resume: vi.fn(async () => undefined),
+    checkpoint: vi.fn(async () => ({ bytes: Uint8Array.of(1), format: "native-save-bundle-v1" })),
+    screenshot: vi.fn(async () => new Blob()),
+    exit: vi.fn(async () => undefined),
+    getState: () => "RUNNING",
+    getCapabilities: () => validationCapabilities,
+    getCheckpointAvailability: () => ({ available: true, blocker: null }),
+    getCanvas: () => null,
+    getFrameCount: frames ?? (() => {frame += 100; return frame;}),
+    getValidationProbe: (kind) => ({ kind, schemaVersion: 1, value: position() }),
+    setVolume: vi.fn(),
+    subscribe: vi.fn(() => vi.fn()),
+  };
+  return { instance, runtime };
 }
+
+const validationCapabilities: RuntimeCapabilities = {
+  checkpoint: true,
+  contentSources: ["FILE_TREE_V1"],
+  frameCounter: true,
+  pause: true,
+  screenshot: true,
+  standardGamepad: true,
+  validationProbes: ["rpgmaker.position.v1"],
+  volume: true,
+};
 
 function validationDriver(config: RpgMakerConfig) {
   return new RpgRuntimeValidationDriver({
@@ -428,9 +460,9 @@ function validationConfig(checkpoint: RpgMakerConfig["checkpoint"]): RpgMakerCon
       adapterId: "easyrpg-web",
       engineMode: "rpg2k",
       runtimeBaseUrl: "/runtime/retrom-runtime/v0.2.0/",
-      projectRootUrl: `/runtime/projects/${launchId}/`,
-      projectIndexUrl: `/runtime/projects/${launchId}/index.json`,
-      rtpArchive: null,
+      projectRootUrl: `/runtime/content/project/${"a".repeat(64)}/`,
+      projectIndexUrl: `/runtime/content/project/${"a".repeat(64)}/index.json`,
+      rtpSource: null,
       checkpointSlot: 100,
     },
   };

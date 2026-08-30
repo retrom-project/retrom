@@ -64,7 +64,9 @@ type onsCompatibility struct {
 }
 
 func (service *Service) buildONSReviewConfig(
+	ctx context.Context,
 	previewID string,
+	capability string,
 	source reviewPreviewConfigSource,
 ) (Config, error) {
 	profile, err := detector.ParseSnapshot(source.DependencyJSON)
@@ -83,6 +85,10 @@ func (service *Service) buildONSReviewConfig(
 	if _, _, exists := service.dependencies.RetromRuntimeFile(source.RuntimeVersion, compatibility.WasmPath); !exists {
 		return Config{}, ErrCredential
 	}
+	projectRoot, err := service.ProjectContentRoot(ctx, previewID, capability)
+	if err != nil {
+		return Config{}, ErrCredential
+	}
 	runtimeBase := "/runtime/retrom-runtime/" + source.RuntimeVersion + "/"
 	configuration := ONSConfig{
 		RuntimeFamily: "ONS", ProtocolVersion: 1, Mode: "single", Purpose: "REVIEW_PREVIEW",
@@ -92,7 +98,7 @@ func (service *Service) buildONSReviewConfig(
 		Warnings: []string{"REVIEW_PREVIEW_BEST_EFFORT"},
 		Adapter: ONSAdapterConfig{
 			AdapterKind: source.AdapterKind, AdapterID: source.AdapterID, RuntimeBaseURL: runtimeBase,
-			ProjectIndexURL: "/runtime/projects/" + previewID + "/index.json",
+			ProjectIndexURL: projectRoot + "index.json",
 			ScriptEncoding:  profile.ScriptEncoding, CheckpointSlot: compatibility.CheckpointSlot,
 		},
 		ReviewPreview: &ReviewPreviewConfig{
@@ -141,6 +147,10 @@ func (service *Service) onsProductConfig(
 			return ONSConfig{}, err
 		}
 	}
+	projectRoot, err := service.ProjectContentRoot(ctx, launchID, capability)
+	if err != nil {
+		return ONSConfig{}, ErrCredential
+	}
 	if err := service.activateRuntimeLaunch(ctx, launchID, source.state); err != nil {
 		return ONSConfig{}, err
 	}
@@ -152,7 +162,7 @@ func (service *Service) onsProductConfig(
 		Adapter: ONSAdapterConfig{
 			AdapterKind: source.adapterKind, AdapterID: source.adapterID,
 			RuntimeBaseURL:  "/runtime/retrom-runtime/" + source.runtimeVersion + "/",
-			ProjectIndexURL: "/runtime/projects/" + launchID + "/index.json",
+			ProjectIndexURL: projectRoot + "index.json",
 			ScriptEncoding:  profile.ScriptEncoding, CheckpointSlot: compatibility.CheckpointSlot,
 		},
 		Checkpoint: checkpoint,

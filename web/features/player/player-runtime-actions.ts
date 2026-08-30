@@ -36,11 +36,10 @@ export function usePlayerRuntimeActions(params: RuntimeActionParams) {
     if (!current) {return false;}
     params.setSyncText("正在保存…"); params.setSyncTone("busy"); params.showToast("正在创建存档…");
     try {
-      const capture = await params.pauseCapture.current ?? params.lastManualScreenshot.current;
-      if (!capture) {throw new Error("PLAYER_SCREENSHOT_UNAVAILABLE");}
+      const capture = await params.pauseCapture.current.catch(() => null) ?? params.lastManualScreenshot.current;
       return await params.uploadManualState(await captureManualState(current, capture));
     } catch {
-      params.setSyncText("保存失败"); params.setSyncTone("warning"); params.showToast("无法从模拟器读取完整状态和截图", 4_000);
+      params.setSyncText("保存失败"); params.setSyncTone("warning"); params.showToast("无法从模拟器读取完整状态", 4_000);
       return false;
     }
   }

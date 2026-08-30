@@ -1,9 +1,10 @@
 import {
-  createKirikiriRuntime,
-  type KirikiriRuntime,
+  createRuntime,
+  type GameRuntime,
   type KirikiriRuntimeConfig,
 } from "@xxxsen/retrom-runtime";
 
+import { retromRuntimePlayerInstance } from "./retrom-runtime-player";
 import type { EmulatorInstance } from "./adapters/ejs-4.2.3-v2";
 import type { components } from "@/lib/api/generated/schema";
 
@@ -53,10 +54,14 @@ function validateAdapter(value: unknown, launchId: unknown, runtimeVersion: unkn
   if (!uuid(launchId) || !boundedString(runtimeVersion, 1, 160) || !recordWithKeys(value, adapterKeys) ||
     value.adapterKind !== "KIRIKIRI2_WEB" || value.adapterId !== "kirikiri2-web" ||
     value.checkpointSlot !== 1999 || value.runtimeBaseUrl !== `/runtime/retrom-runtime/${runtimeVersion}/` ||
-    value.projectIndexUrl !== `/runtime/projects/${launchId}/index.json` ||
+    !projectIndexURL(value.projectIndexUrl) ||
     value.startupXp3Path !== null && !validXp3Path(value.startupXp3Path)) {
     throw new Error("PLAYER_KIRIKIRI_CONFIG_INVALID");
   }
+}
+
+function projectIndexURL(value: unknown) {
+  return typeof value === "string" && /^\/runtime\/content\/project\/[0-9a-f]{64}\/index\.json$/u.test(value);
 }
 
 function validateCheckpoint(value: unknown, launchId: unknown) {
@@ -100,7 +105,7 @@ export async function mountKiriKiriProductRuntime(
   signal: AbortSignal,
 ) {
   validateKiriKiriLaunchConfig(config);
-  const runtime = createKirikiriRuntime(toRuntimeConfig(config), { frameWindow, restorePayload, signal });
+  const runtime = createRuntime(toRuntimeConfig(config), { frameWindow, restorePayload, signal });
   try {
     await runtime.mount(target);
     return { runtime, instance: kirikiriPlayerInstance(runtime, target) };
@@ -114,33 +119,9 @@ function toRuntimeConfig(config: KiriKiriLaunchConfig): KirikiriRuntimeConfig {
   return { sessionId: config.sessionId, adapter: config.adapter };
 }
 
-export function kirikiriPlayerInstance(runtime: KirikiriRuntime, target: HTMLElement): EmulatorInstance {
-  const instance: EmulatorInstance = {
-    paused: false,
-    on: () => undefined,
-    takeScreenshot: async () => ({ blob: await runtime.screenshot(), format: "png" }),
-    gameManager: {
-      savePayloadKind: "KIRIKIRI_SAVE_BUNDLE_V1",
-      getCheckpointAvailability: () => runtime.getCheckpointAvailability(),
-      getStateAsync: async () => {
-        const checkpoint = await runtime.checkpoint();
-        if (checkpoint.payloadKind !== "KIRIKIRI_SAVE_BUNDLE_V1" || !checkpoint.bytes.byteLength) {
-          throw new Error("PLAYER_STATE_UNAVAILABLE");
-        }
-        return checkpoint.bytes;
-      },
-      getVideoDimensions: (dimension) => videoDimension(target, dimension),
-      toggleMainLoop: (running) => {void (running ? runtime.resume() : runtime.pause());},
-    },
-  };
-  instance.canvas = target.querySelector("canvas") ?? undefined;
-  return instance;
-}
-
-function videoDimension(target: HTMLElement, dimension: "aspect" | "width" | "height") {
-  const canvas = target.querySelector("canvas");
-  if (!canvas || !canvas.width || !canvas.height) {return undefined;}
-  if (dimension === "width") {return canvas.width;}
-  if (dimension === "height") {return canvas.height;}
-  return canvas.width / canvas.height;
+export function kirikiriPlayerInstance(runtime: GameRuntime, target: HTMLElement): EmulatorInstance {
+  return retromRuntimePlayerInstance(runtime, target, {
+    checkpointFormat: "kirikiri-save-bundle-v1",
+    payloadKind: "KIRIKIRI_SAVE_BUNDLE_V1",
+  });
 }

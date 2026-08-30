@@ -1385,7 +1385,7 @@ make acceptance-case CASE=<case-id>
   浏览截图并选择旧存档启动，验证 Core 恢复，再从 Player 菜单创建一份新存档并返回列表。
 - 通过标准：入口计数与列表只包含当前 Profile 未删除存档，游戏和存档均按契约排序；截图走 Profile 私有
   no-store 端点，跨 Profile 读取失败且不泄露存在性。Launch config 的 stateUrl 精确指向所选存档，真实 Core
-  恢复到对应画面；右侧不重复游戏名，上半区展示与其他游戏列表一致的封面/视频媒体舞台，并与平台游戏页保持相同约 62% 高度占比，下半区只展示从左到右排列的全部存档；存档轨道按下半区外层可用高度自适应，当前存档框宽明显大于其他存档框，切换后保持可见且框下时间完整落在容器内。截图加载成功且实际像素不为全黑/近全黑；不显示自动“手动存档 XXXX”名称，创建时间在每个框下方右对齐。Player 创建的新 state/PNG 原子可见且只属于当前 Profile。取消、退出、失败上传和不支持
+  恢复到对应画面；右侧不重复游戏名，上半区展示与其他游戏列表一致的封面/视频媒体舞台，并与平台游戏页保持相同约 62% 高度占比，下半区只展示从左到右排列的全部存档；存档轨道按下半区外层可用高度自适应，当前存档框宽明显大于其他存档框，切换后保持可见且框下时间完整落在容器内。截图加载成功且实际像素不为全黑/近全黑；不显示自动“手动存档 XXXX”名称，创建时间在每个框下方右对齐。Player 创建的新 state 与最大 `640×360`、质量 `0.75` 的 JPEG 预览原子可见且只属于当前 Profile。取消、退出、失败上传和不支持
   adapter 均不产生半份或自动存档。
 - 证据：双 Profile API/network trace、存档截图/选择 UI、Launch config、Core 恢复帧、新 SaveState 数据与
   失败注入断言。
@@ -1445,6 +1445,14 @@ ID。没有实体设备时自动化 Case 可以 PASS，但沉浸模式发布验�
 不能记为 `NOT_APPLICABLE` 或退化成静态 fixture/API 检查。结构化产品证据写入 Case 目录的
 `rpgmaker-product.json`，并内嵌到统一 `result.json.productEvidence`；Cookie、CSRF、Launch capability 和宿主
 绝对路径不得进入这两个文件。
+
+002 至 008 的统一 runner 还必须在同一浏览器 context 中创建第二个不带存档的 PRODUCT Launch，并在两次首个
+可创建存档状态出现时冻结项目内容响应和固定 runtime asset Resource Timing 摘要。EasyRPG 两个 Launch 必须使用
+同一稳定 project content identity，只取索引声明中实际使用的部分文件且首屏 project bytes 小于项目总字节；mkxp
+必须只以 `206 Range` 读取不小于 4 MiB 的远程 `game.mkxpz`，不得出现项目 archive 的整包 `200`，读取 byte 小于
+archive 总大小；两类恢复 Launch 均至少命中一个固定 runtime asset 浏览器缓存。MV/MZ 保持 unique runtime origin，
+两次首屏的 native project 响应数都必须大于零且严格小于导入文件总数，不得枚举或下载整个项目。结构化证据只记录
+Launch ID、计数和 byte，不记录 content identity、项目路径或资源名。
 
 002 至 008 的 fresh 产品记录统一由
 `node scripts/acceptance/rpgmaker_generation_provision.mjs ACC-RPG-NNN` 创建。该命令固定读取相应公开 fixture，
@@ -1673,17 +1681,17 @@ Review 与所需 validation Launch。`negative-matrix/matrix.json` 必须精确�
 ### ACC-ONS-001：ONS 最小产品闭环
 
 - 上限：300 秒。执行：`RETROM_ONS_SMOKE_ARCHIVE=<absolute-licensed-archive> make acceptance-case CASE=ACC-ONS-001`；同时需要公共的 `RETROM_ACCEPTANCE_BASE_URL/USERNAME/PASSWORD` 与 `RETROM_CHROME_EXECUTABLE`，基础地址必须为 HTTPS origin。
-- 流程：经正式 Upload 创建 `ONS_PROJECT_V1` Import，等待唯一 Review；打开 ONS Review Preview，聚焦真实 canvas 并发送基本键盘输入，等待第 5 秒自动截图；审核通过并发布后创建 PRODUCT Launch，再次发送输入并从 Player 创建 `ONS_SAVE_BUNDLE_V1` 存档；关闭原页面，以该存档创建 ID 不同的第二个 PRODUCT Launch，等服务端 state 响应和 runtime restore ready，再发送恢复后输入。
-- 通过标准：五次截图前都必须证明核心已把 canvas backing buffer 从浏览器默认 `300×150` 设置为实际游戏分辨率、backing/display 宽高比误差不超过 `0.01`、canvas 相对 `data-ons-runtime-surface` 的横纵中心偏差各不超过 1 px，且 canvas 已持有键盘焦点。预览、Product 输入前后、恢复和恢复后输入共五张实际 canvas PNG 均为非黑有效画面；Product 输入前后及恢复前后输入的 RGBA digest 必须变化；自动截图后审核按钮才可通过；checkpoint payload kind、大小和服务器回执有效；原/恢复 Launch 不同；浏览器没有 page error、console error 或意外 dialog。ScriptProcessor/WebGL 性能 warning 不作为失败。
-- 证据：当次 `result.json`、`ons-product.json` 与五张 PNG。结构化证据只含非秘密产品 ID、payload kind/size、canvas backing/display 尺寸、居中偏差、焦点、非黑像素、RGBA digest 和错误计数，不含归档路径、文件名、游戏 bytes、账号、CSRF、cookie 或 Launch capability。该 Case 只证明锁定 `retrom-runtime` tag 或显式本地候选与本次样本的最小兼容性；本地候选 PASS 只允许进入 runtime Release 流程，不能冒充固定 tag 的发布验收，也不扩大为全部 ONS 游戏兼容声明。
+- 流程：经正式 Upload 创建 `ONS_PROJECT_V1` Import，等待唯一 Review；打开 ONS Review Preview，聚焦真实 canvas 并发送基本键盘输入，等待第 5 秒自动截图；审核通过并发布后创建 PRODUCT Launch，再次发送输入并从 Player 创建 `ONS_SAVE_BUNDLE_V1` 存档；关闭原页面，以该存档创建 ID 不同的第二个 PRODUCT Launch，等服务端 state 响应和 runtime restore ready，再发送恢复后输入。两次 Product Launch 都在首个有效 canvas 出现时冻结项目索引、内容响应和 runtime asset Resource Timing 摘要。
+- 通过标准：五次截图前都必须证明核心已把 canvas backing buffer 从浏览器默认 `300×150` 设置为实际游戏分辨率、backing/display 宽高比误差不超过 `0.01`、canvas 相对 `data-ons-runtime-surface` 的横纵中心偏差各不超过 1 px，且 canvas 已持有键盘焦点。预览、Product 输入前后、恢复和恢复后输入共五张实际 canvas PNG 均为非黑有效画面；Product 输入前后及恢复前后输入的 RGBA digest 必须变化；自动截图后审核按钮才可通过；checkpoint payload kind、大小和服务器回执有效；原/恢复 Launch 不同；浏览器没有 page error、console error 或意外 dialog。项目必须包含至少一个不小于 4 MiB 的未访问文件，首个有效画面前只请求索引声明的真正在用文件，请求文件数和响应 byte 都严格小于完整项目且未请求全部大文件；两个 Launch 必须解析到同一稳定 project content identity，恢复 Launch 至少命中一个固定 runtime asset 的浏览器缓存。结构化证据只记录计数/byte，不记录文件名或 logical path。ScriptProcessor/WebGL 性能 warning 不作为失败。
+- 证据：当次 `result.json`、`ons-product.json` 与五张 PNG。结构化证据只含非秘密产品 ID、payload kind/size、canvas backing/display 尺寸、居中偏差、焦点、非黑像素、RGBA digest、按需加载计数/byte和错误计数，不含归档路径、文件名、游戏 bytes、账号、CSRF、cookie 或 Launch capability。该 Case 只证明锁定 `retrom-runtime` tag 或显式本地候选与本次样本的最小兼容性；本地候选 PASS 只允许进入 runtime Release 流程，不能冒充固定 tag 的发布验收，也不扩大为全部 ONS 游戏兼容声明。
 
 ### ACC-KIRIKIRI-001：KiriKiri2 KAG 最小产品闭环
 
 - 上限：300 秒。执行：`RETROM_KIRIKIRI_SMOKE_ARCHIVE=<absolute-licensed-kag-archive> make acceptance-case CASE=ACC-KIRIKIRI-001`；同时需要公共的 `RETROM_ACCEPTANCE_BASE_URL/USERNAME/PASSWORD` 与 `RETROM_CHROME_EXECUTABLE`，基础地址必须为 HTTPS origin或 loopback 验收 origin。
-- 流程：经正式 Upload 创建 `KIRIKIRI_PROJECT_V1` Import，等待唯一 Review；打开 Review Preview，注入浏览器标准手柄，先证明 B 键产生取消语义，再用左摇杆驱动运行时可见虚拟指针到归一化坐标 `(0.5,0.34)`，以 A 键触发 smoke 固定的第一个 KAG 选项，等待离开并重新进入可保存标签及第 5 秒截图；审核发布后先创建独立沉浸模式 PRODUCT Launch，以两次 Select+Start 组合键打开 Retrom 退出菜单并核对三个动作，再创建普通 PRODUCT Launch，以同一手柄输入在第一个 KAG 可保存标签上从 A 到 B并创建 `KIRIKIRI_SAVE_BUNDLE_V1` checkpoint，再输入到 C；关闭原页面，以该存档创建 ID 不同的 PRODUCT Launch，等待服务端 state、KAG 标签就绪和书签恢复完成，确认回到 B后继续用手柄输入。
-- 通过标准：预览、沉浸模式 Launch 和两次普通 PRODUCT Launch 都运行锁定 KiriKiri2 core；标准手柄左摇杆/方向、A 确认和 B 取消通过 adapter 的可见虚拟指针生效，不能以 Playwright 直接鼠标点击或键盘输入替代；沉浸模式同一活动手柄的两次 Select+Start 必须打开包含“取消、创建存档、退出游戏”的 Retrom 菜单。canvas backing buffer不是浏览器默认 `300×150`，backing/display 宽高比误差不超过 `0.01`，相对 `data-kirikiri-runtime-surface` 横纵居中偏差各不超过 1 px且持有焦点。预览、A、B、C、恢复 B和恢复后输入截图均为非黑有效画面；A/B/C 与恢复后画面按输入发生变化，三个 PRODUCT Launch ID 互不相同且恢复结果与 B 一致。checkpoint 大小为 `1..64 MiB`，payload kind固定为 `KIRIKIRI_SAVE_BUNDLE_V1`；浏览器无 page error、console error或意外 dialog。
+- 流程：经正式 Upload 创建 `KIRIKIRI_PROJECT_V1` Import，等待唯一 Review；打开 Review Preview，注入浏览器标准手柄，先证明 B 键产生取消语义，再用左摇杆驱动运行时可见虚拟指针到归一化坐标 `(0.5,0.34)`，以 A 键触发 smoke 固定的第一个 KAG 选项，等待离开并重新进入可保存标签及第 5 秒截图；审核发布后先创建独立沉浸模式 PRODUCT Launch，以两次 Select+Start 组合键打开 Retrom 退出菜单并核对三个动作，再创建普通 PRODUCT Launch，以同一手柄输入在第一个 KAG 可保存标签上从 A 到 B并创建 `KIRIKIRI_SAVE_BUNDLE_V1` checkpoint，再输入到 C；关闭原页面，以该存档创建 ID 不同的 PRODUCT Launch，等待服务端 state、KAG 标签就绪和书签恢复完成，确认回到 B后继续用手柄输入。两个普通 Product Launch 都在首个有效 canvas 出现时冻结项目索引、XP3 响应和 runtime asset Resource Timing 摘要。
+- 通过标准：预览、沉浸模式 Launch 和两次普通 PRODUCT Launch 都运行锁定 KiriKiri2 core；标准手柄左摇杆/方向、A 确认和 B 取消通过 adapter 的可见虚拟指针生效，不能以 Playwright 直接鼠标点击或键盘输入替代；沉浸模式同一活动手柄的两次 Select+Start 必须打开包含“取消、创建存档、退出游戏”的 Retrom 菜单。canvas backing buffer不是浏览器默认 `300×150`，backing/display 宽高比误差不超过 `0.01`，相对 `data-kirikiri-runtime-surface` 横纵居中偏差各不超过 1 px且持有焦点。预览、A、B、C、恢复 B和恢复后输入截图均为非黑有效画面；A/B/C 与恢复后画面按输入发生变化，三个 PRODUCT Launch ID 互不相同。恢复判定只使用 B 与 C 之间发生变化的降采样像素，要求恢复帧到 B 的平均 RGB 距离严格小于到 C 距离的一半且至少有 100 个判别像素；不得因不属于存档状态的瞬时 UI 动画或重绘时序要求全画面 SHA 逐字相同。checkpoint 大小为 `1..64 MiB`，payload kind固定为 `KIRIKIRI_SAVE_BUNDLE_V1`。XP3 必须不小于 4 MiB且只产生 `206 Range`，首屏收到的 project bytes 严格小于索引声明的总大小，不能出现整份项目 archive 的 `200`，两个 Launch 必须使用同一稳定 project content identity，恢复 Launch 至少命中一个固定 runtime asset 的浏览器缓存；结构化证据只保留计数/byte，不保留项目路径。浏览器无 page error、console error或意外 dialog。
 - 能力边界：即时存档是 KAG `saveBookMark/loadBookMark` 的语义存档，保存 `/save` 与 `/savedata` 的确定性文件集合，不是任意 KiriKiri/TJS 游戏的 Wasm 内存快照。无法找到 KAG API、首个可保存标签或唯一启动 XP3 时必须 fail closed，不能生成看似成功但不可恢复的存档。加密来源归档无法在不接收密码的情况下进入安全扫描，服务端以 `ARCHIVE_ENCRYPTED_UNSUPPORTED` 拒绝，验收将该操作者输入记为 `BLOCKED`，不能误记为 core 运行失败；操作者可在仓库外解密后提供新的合法归档。
-- 证据：当次 `result.json`、`kirikiri-product.json`、六张 canvas PNG 与一张沉浸退出菜单 PNG。结构化证据只含非秘密产品 ID、菜单动作、payload kind/size、canvas 尺寸/居中/焦点、非黑像素、RGBA digest与错误计数，不含归档路径、文件名、游戏 bytes、账号、CSRF、cookie或 Launch capability。本地 `retrom-runtime` 候选 PASS 只允许进入 runtime Release 流程；Release 完成后 Retrom 必须解除本地链接、固定 tag/commit/assets并重跑本 Case。
+- 证据：当次 `result.json`、`kirikiri-product.json`、六张 canvas PNG 与一张沉浸退出菜单 PNG。结构化证据只含非秘密产品 ID、菜单动作、payload kind/size、canvas 尺寸/居中/焦点、非黑像素、RGBA digest、按需加载计数/byte与错误计数，不含归档路径、文件名、游戏 bytes、账号、CSRF、cookie或 Launch capability。本地 `retrom-runtime` 候选 PASS 只允许进入 runtime Release 流程；Release 完成后 Retrom 必须解除本地链接、固定 tag/commit/assets并重跑本 Case。
 
 ## 23. 缺陷处理与重验
 

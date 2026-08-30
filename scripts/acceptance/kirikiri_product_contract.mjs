@@ -6,7 +6,10 @@ export const kirikiriProductStages = [
 ];
 
 export function assertKiriKiriProductEvidence(value) {
-  if (!exactRecord(value, ["browser", "caseId", "checkpoint", "ids", "immersiveMenu", "schemaVersion", "screenshots", "stages", "status"]) ||
+  if (!exactRecord(value, [
+    "browser", "caseId", "checkpoint", "ids", "immersiveMenu", "loading", "restoreComparison", "schemaVersion",
+    "screenshots", "stages", "status",
+  ]) ||
       value.schemaVersion !== 1 || value.caseId !== "ACC-KIRIKIRI-001" || value.status !== "PASS" ||
       JSON.stringify(value.stages) !== JSON.stringify(kirikiriProductStages)) {
     throw new Error("KIRIKIRI_ACCEPTANCE_EVIDENCE_INVALID");
@@ -15,7 +18,48 @@ export function assertKiriKiriProductEvidence(value) {
   assertCheckpoint(value.checkpoint);
   assertBrowser(value.browser);
   assertImmersiveMenu(value.immersiveMenu);
+  assertLoading(value.loading);
+  assertRestoreComparison(value.restoreComparison);
   assertScreenshots(value.screenshots);
+}
+
+function assertRestoreComparison(value) {
+  if (!exactRecord(value, [
+    "discriminativePixelCount", "matched", "restoredToBMeanDistance", "restoredToCMeanDistance",
+  ]) || !Number.isSafeInteger(value.discriminativePixelCount) || value.discriminativePixelCount < 100 ||
+      value.matched !== true || typeof value.restoredToBMeanDistance !== "number" || value.restoredToBMeanDistance < 0 ||
+      typeof value.restoredToCMeanDistance !== "number" || value.restoredToCMeanDistance <= 0 ||
+      value.restoredToBMeanDistance * 2 >= value.restoredToCMeanDistance) {
+    throw new Error("KIRIKIRI_ACCEPTANCE_EVIDENCE_INVALID");
+  }
+}
+
+function assertLoading(value) {
+  if (!exactRecord(value, ["firstVisible", "restoreVisible", "sameProjectContentIdentity", "schemaVersion"]) ||
+      value.schemaVersion !== 1 || value.sameProjectContentIdentity !== true) {
+    throw new Error("KIRIKIRI_ACCEPTANCE_EVIDENCE_INVALID");
+  }
+  assertLoadingSnapshot(value.firstVisible, false);
+  assertLoadingSnapshot(value.restoreVisible, true);
+}
+
+function assertLoadingSnapshot(value, requireCacheHit) {
+  const keys = [
+    "declaredLargeFileCount", "declaredProjectBytes", "declaredProjectFileCount", "fullProjectFileResponseCount",
+    "nativeProjectResponseCount", "projectContentIdentityCount", "rangeProjectFileResponseCount",
+    "requestedLargeFileCount", "requestedProjectBytes", "requestedProjectFileCount", "runtimeAssetCacheHitCount",
+    "runtimeAssetRequestCount", "runtimeAssetTransferredBytes",
+  ];
+  if (!exactRecord(value, keys) || !keys.every((key) => Number.isSafeInteger(value[key]) && value[key] >= 0) ||
+      value.declaredLargeFileCount < 1 || value.declaredProjectBytes < 4 * 1024 * 1024 ||
+      value.declaredProjectFileCount < 1 || value.fullProjectFileResponseCount !== 0 ||
+      value.nativeProjectResponseCount !== 0 || value.projectContentIdentityCount !== 1 ||
+      value.rangeProjectFileResponseCount < 1 || value.requestedLargeFileCount < 1 ||
+      value.requestedProjectBytes < 1 || value.requestedProjectBytes >= value.declaredProjectBytes ||
+      value.requestedProjectFileCount < 1 || value.requestedProjectFileCount > value.declaredProjectFileCount ||
+      value.runtimeAssetRequestCount < 2 || (requireCacheHit && value.runtimeAssetCacheHitCount < 1)) {
+    throw new Error("KIRIKIRI_ACCEPTANCE_EVIDENCE_INVALID");
+  }
 }
 
 function assertIds(value) {
@@ -56,7 +100,6 @@ function assertScreenshots(value) {
   for (const key of keys) {assertScreenshot(value[key]);}
   if (value.productBeforeInput.rgbaSha256 === value.productAfterInput.rgbaSha256 ||
       value.productAfterInput.rgbaSha256 === value.productAfterCheckpoint.rgbaSha256 ||
-      value.restored.rgbaSha256 !== value.productAfterInput.rgbaSha256 ||
       value.restored.rgbaSha256 === value.postRestoreInput.rgbaSha256) {
     throw new Error("KIRIKIRI_ACCEPTANCE_EVIDENCE_INVALID");
   }

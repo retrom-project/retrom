@@ -1,12 +1,13 @@
 import {
-  createRpgRuntime,
-  describeRpgRuntime,
-  mountRpgRuntime,
-  type RpgPosition as RuntimePosition,
-  type RpgRuntimeConfig as LibraryRuntimeConfig,
-  type RpgRuntimeOptions,
+  createRuntime,
+  describeRuntime,
+  mountRuntime,
+  type RpgMakerPositionV1 as RuntimePosition,
+  type RpgMakerRuntimeConfig as LibraryRuntimeConfig,
+  type RuntimeOptions,
 } from "@xxxsen/retrom-runtime";
 
+import { retromRuntimePlayerInstance } from "../retrom-runtime-player";
 import type { RpgPosition, RpgRuntimeConfig } from "./contract";
 import { isRpgRuntimeConfig, validateRpgRuntimeConfig } from "./registry";
 
@@ -26,16 +27,16 @@ export { isRpgRuntimeConfig, rpgRuntimeRoutes, validateRpgRuntimeConfig } from "
 
 export const isRetromRpgRuntimeConfig = isRpgRuntimeConfig;
 
-export type RetromRpgRuntimeOptions = Omit<RpgRuntimeOptions, "onDiagnostic">;
+export type RetromRpgRuntimeOptions = Omit<RuntimeOptions, "onDiagnostic">;
 
 export function describeRetromRpgRuntime(config: RpgRuntimeConfig) {
   validateRpgRuntimeConfig(config);
-  return describeRpgRuntime(toLibraryConfig(config));
+  return describeRuntime(toLibraryConfig(config));
 }
 
 export function createRetromRpgRuntime(config: RpgRuntimeConfig, options: RetromRpgRuntimeOptions) {
   validateRpgRuntimeConfig(config);
-  return createRpgRuntime(toLibraryConfig(config), withDiagnostics(options));
+  return createRuntime(toLibraryConfig(config), withDiagnostics(options));
 }
 
 export async function mountRetromRpgRuntime(
@@ -44,7 +45,11 @@ export async function mountRetromRpgRuntime(
   options: RetromRpgRuntimeOptions,
 ) {
   validateRpgRuntimeConfig(config);
-  return mountRpgRuntime(toLibraryConfig(config), target, withDiagnostics(options));
+  const runtime = await mountRuntime(toLibraryConfig(config), target, withDiagnostics(options));
+  return {
+    runtime,
+    playerInstance: retromRuntimePlayerInstance(runtime, target, playerBridgeOptions(config)),
+  };
 }
 
 function toLibraryConfig(config: RpgRuntimeConfig): LibraryRuntimeConfig {
@@ -81,11 +86,28 @@ function isPosition(value: unknown): value is RpgPosition {
     "fixtureState" in value && Number.isSafeInteger(value.fixtureState);
 }
 
-function withDiagnostics(options: RetromRpgRuntimeOptions): RpgRuntimeOptions {
+function withDiagnostics(options: RetromRpgRuntimeOptions): RuntimeOptions {
   return {
     ...options,
     onDiagnostic: (diagnostic) => {
       window.dispatchEvent(new CustomEvent("retrom:runtime-diagnostic", { detail: diagnostic }));
     },
+  };
+}
+
+function playerBridgeOptions(config: RpgRuntimeConfig) {
+  if (config.adapter.adapterKind === "MKXP_LIBRETRO_WEB") {
+    return {
+      checkpointFormat: "mkxp-state-compact-v1",
+      payloadKind: "RUNTIME_STATE" as const,
+      validationPurpose: config.purpose === "RPG_RUNTIME_VALIDATION",
+    };
+  }
+  return {
+    checkpointFormat: config.adapter.adapterKind === "EASYRPG_WEB"
+      ? "easyrpg-save-bundle-v1"
+      : "native-save-bundle-v1",
+    payloadKind: "NATIVE_SAVE_BUNDLE_V1" as const,
+    validationPurpose: config.purpose === "RPG_RUNTIME_VALIDATION",
   };
 }

@@ -6,8 +6,10 @@ import { join, resolve } from "node:path";
 import { chromium } from "../../web/node_modules/playwright/index.mjs";
 
 import { assertOnsProductEvidence, onsProductStages } from "./ons_product_contract.mjs";
+import { localRpgAcceptanceProxy } from "./rpgmaker_local_proxy.mjs";
 import { createProductClient, singleFile } from "./rpgmaker_security_upload.mjs";
 import { isLocalAcceptanceHostname } from "./rpgmaker_url.mjs";
+import { trackRuntimeLoading } from "./runtime_loading_evidence.mjs";
 
 const caseId = "ACC-ONS-001";
 const requiredEnvironment = [
@@ -27,25 +29,35 @@ if (missing.length) {
 const baseUrl = normalizedBaseUrl(process.env.RETROM_ACCEPTANCE_BASE_URL);
 const screenshotsDirectory = join(caseDirectory, "screenshots");
 mkdirSync(screenshotsDirectory, { recursive: true });
+const localProxy = await localRpgAcceptanceProxy(baseUrl);
 
 let browser;
+let observedEvidence = null;
 try {
   browser = await chromium.launch({ executablePath: process.env.RETROM_CHROME_EXECUTABLE, headless: true });
   const evidence = await runProductCase(browser);
+  observedEvidence = evidence;
   assertOnsProductEvidence(evidence);
   writeEvidence(evidence);
   process.stdout.write(`${JSON.stringify(evidence)}\n`);
 } catch (error) {
   const errorCode = stableErrorCode(error);
-  writeEvidence({ schemaVersion: 1, caseId, status: "FAIL", errorCode });
+  writeEvidence({
+    schemaVersion: 1, caseId, status: "FAIL", errorCode,
+    ...(observedEvidence ? { observedEvidence } : {}),
+  });
   process.stderr.write(`${errorCode}\n`);
   process.exitCode = 1;
 } finally {
   await browser?.close();
+  await localProxy.close();
 }
 
 async function runProductCase(activeBrowser) {
-  const context = await activeBrowser.newContext({ viewport: { width: 1440, height: 1000 } });
+  const context = await activeBrowser.newContext({
+    viewport: { width: 1440, height: 1000 },
+    ...localProxy.contextOptions,
+  });
   const browserErrors = { pageErrorCount: 0, consoleErrorCount: 0, dialogCount: 0 };
   try {
     const loginResponse = await context.request.post(`${baseUrl}/api/v1/auth/login`, {
@@ -83,23 +95,28 @@ async function runProductCase(activeBrowser) {
     const approved = await approveReview(client, review.itemId);
     const original = await createLaunch(client, approved.gameId, null);
     const originalPage = await trackedPage(context, browserErrors);
+    const originalLoadingProbe = trackRuntimeLoading(originalPage);
     await originalPage.goto(`${baseUrl}${original.playUrl}`, { waitUntil: "domcontentloaded", timeout: 120_000 });
     const originalCanvas = await runtimeCanvas(originalPage);
+    const firstVisibleLoading = await originalLoadingProbe.snapshot();
     const beforeInput = await screenshotEvidence(originalCanvas, "product-before-input.png");
     await sendKeys(originalPage, originalCanvas, ["Enter", "ArrowDown", "Enter", "ArrowRight"]);
     const afterInput = await screenshotEvidence(originalCanvas, "product-after-input.png");
     requireChanged(beforeInput, afterInput, "ONS_ACCEPTANCE_PRODUCT_INPUT_UNOBSERVED");
     const saved = await createCheckpoint(originalPage, original.launchId);
+    originalLoadingProbe.stop();
     await originalPage.close();
 
     const restored = await createLaunch(client, approved.gameId, saved.saveStateId);
     if (restored.launchId === original.launchId) {throw new Error("ONS_ACCEPTANCE_RESTORE_LAUNCH_REUSED");}
     const restoredPage = await trackedPage(context, browserErrors);
+    const restoreLoadingProbe = trackRuntimeLoading(restoredPage);
     const stateResponsePromise = restoredPage.waitForResponse((response) =>
       response.request().method() === "GET" && response.url().endsWith(`/runtime/launches/${restored.launchId}/state`),
     { timeout: 120_000 });
     await restoredPage.goto(`${baseUrl}${restored.playUrl}`, { waitUntil: "domcontentloaded", timeout: 120_000 });
     const restoredCanvas = await runtimeCanvas(restoredPage);
+    const restoreVisibleLoading = await restoreLoadingProbe.snapshot();
     const stateResponse = await stateResponsePromise;
     requireStatus(stateResponse.status(), 200, "ONS_ACCEPTANCE_RESTORE_PAYLOAD_FAILED");
     const payloadSize = Number(stateResponse.headers()["content-length"]);
@@ -107,6 +124,7 @@ async function runProductCase(activeBrowser) {
     await sendKeys(restoredPage, restoredCanvas, ["ArrowLeft", "Enter"]);
     const postRestoreFrame = await screenshotEvidence(restoredCanvas, "post-restore-input.png");
     requireChanged(restoredFrame, postRestoreFrame, "ONS_ACCEPTANCE_RESTORE_INPUT_UNOBSERVED");
+    restoreLoadingProbe.stop();
     await restoredPage.close();
     if (Object.values(browserErrors).some((count) => count !== 0)) {throw new Error("ONS_ACCEPTANCE_BROWSER_ERROR");}
 
@@ -120,6 +138,13 @@ async function runProductCase(activeBrowser) {
         originalLaunchId: original.launchId, restoreLaunchId: restored.launchId,
       },
       checkpoint: { payloadKind: saved.payloadKind, sizeBytes: payloadSize },
+      loading: {
+        schemaVersion: 1,
+        sameProjectContentIdentity: firstVisibleLoading.projectContentIdentity !== null &&
+          firstVisibleLoading.projectContentIdentity === restoreVisibleLoading.projectContentIdentity,
+        firstVisible: firstVisibleLoading.evidence,
+        restoreVisible: restoreVisibleLoading.evidence,
+      },
       screenshots: {
         preview: previewFrame, productBeforeInput: beforeInput, productAfterInput: afterInput,
         restored: restoredFrame, postRestoreInput: postRestoreFrame,
@@ -149,7 +174,7 @@ async function onsPlatformInstance(client) {
 async function waitForImport(client, importJobId) {
   for (let attempt = 0; attempt < 1_200; attempt += 1) {
     const job = await client.json("GET", `/api/v1/admin/imports/${importJobId}`);
-    if (["REVIEW_PENDING", "COMPLETE"].includes(job.state)) {return;}
+    if (["REVIEW_PENDING", "COMPLETE", "COMPLETED"].includes(job.state)) {return;}
     if (["FAILED", "CANCELLED"].includes(job.state)) {throw new Error("ONS_ACCEPTANCE_IMPORT_FAILED");}
     await new Promise((resolvePromise) => setTimeout(resolvePromise, 100));
   }

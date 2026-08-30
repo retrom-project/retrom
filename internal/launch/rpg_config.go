@@ -84,22 +84,23 @@ type EasyRPGAdapterConfig struct {
 	RuntimeBaseURL  string             `json:"runtimeBaseUrl"`
 	ProjectRootURL  string             `json:"projectRootUrl"`
 	ProjectIndexURL string             `json:"projectIndexUrl"`
-	RTPArchive      *EasyRPGArchiveURL `json:"rtpArchive"`
+	RTPSource       *RPGFileTreeSource `json:"rtpSource"`
 	CheckpointSlot  int                `json:"checkpointSlot"`
 }
 
-type EasyRPGArchiveURL struct {
-	URL       string `json:"url"`
-	SHA256    string `json:"sha256"`
-	MountPath string `json:"mountPath"`
+type RPGFileTreeSource struct {
+	Kind     string `json:"kind"`
+	IndexURL string `json:"indexUrl"`
 }
 
-type RPGPackArchiveURL struct {
-	DeclaredName string `json:"declaredName,omitempty"`
-	URL          string `json:"url"`
-	SHA256       string `json:"sha256"`
-	SizeBytes    int64  `json:"sizeBytes,omitempty"`
-	MountPath    string `json:"mountPath,omitempty"`
+type RPGSeekableBlobSource struct {
+	Slot          int    `json:"-"`
+	Kind          string `json:"kind"`
+	RangeRequired bool   `json:"rangeRequired"`
+	DeclaredName  string `json:"declaredName,omitempty"`
+	URL           string `json:"url"`
+	SHA256        string `json:"sha256"`
+	SizeBytes     int64  `json:"sizeBytes"`
 }
 
 type MKXPCoreConfig struct {
@@ -113,14 +114,14 @@ type MKXPCoreConfig struct {
 }
 
 type MKXPAdapterConfig struct {
-	AdapterKind      string              `json:"adapterKind"`
-	AdapterID        string              `json:"adapterId"`
-	Core             MKXPCoreConfig      `json:"core"`
-	RuntimeBaseURL   string              `json:"runtimeBaseUrl"`
-	ProjectArchive   RPGPackArchiveURL   `json:"projectArchive"`
-	RTPArchives      []RPGPackArchiveURL `json:"rtpArchives"`
-	RGSSVersion      int                 `json:"rgssVersion"`
-	StateBufferBytes int                 `json:"stateBufferBytes"`
+	AdapterKind      string                  `json:"adapterKind"`
+	AdapterID        string                  `json:"adapterId"`
+	Core             MKXPCoreConfig          `json:"core"`
+	RuntimeBaseURL   string                  `json:"runtimeBaseUrl"`
+	ProjectArchive   RPGSeekableBlobSource   `json:"projectArchive"`
+	RTPArchives      []RPGSeekableBlobSource `json:"rtpArchives"`
+	RGSSVersion      int                     `json:"rgssVersion"`
+	StateBufferBytes int                     `json:"stateBufferBytes"`
 }
 
 type NativeWebAdapterConfig struct {
@@ -213,12 +214,8 @@ func (service *Service) rpgMakerConfig(
 	ctx context.Context,
 	launchID, capability string,
 ) (RPGMakerConfig, error) {
-	source, err := service.loadRPGConfigSource(ctx, launchID)
-	if err != nil || !retromruntime.MatchesCapability(capability, source.credentialHash) ||
-		!validConfigLifetime(
-			source.state, source.bootstrapExpires, source.hardExpires, source.idleExpires,
-			service.now().UnixMilli(),
-		) {
+	source, err := service.authorizedRPGConfigSource(ctx, launchID, capability)
+	if err != nil {
 		return RPGMakerConfig{}, ErrCredential
 	}
 	checkpointValue, checkpointAvailable, err := service.loadRPGCheckpointConfig(ctx, launchID, source)
@@ -239,7 +236,15 @@ func (service *Service) rpgMakerConfig(
 			return RPGMakerConfig{}, ErrCredential
 		}
 	}
-	adapter, err := service.buildRPGAdapterConfig(ctx, launchID, source)
+	projectRoot := ""
+	if source.runtimeKind != "NATIVE_WEB" {
+		var identityErr error
+		projectRoot, identityErr = service.ProjectContentRoot(ctx, launchID, capability)
+		if identityErr != nil {
+			return RPGMakerConfig{}, ErrCredential
+		}
+	}
+	adapter, err := service.buildRPGAdapterConfig(ctx, launchID, source, projectRoot)
 	if err != nil {
 		return RPGMakerConfig{}, err
 	}
@@ -260,6 +265,21 @@ func (service *Service) rpgMakerConfig(
 		RuntimeValidation:      validation,
 		Adapter:                adapter,
 	}, nil
+}
+
+func (service *Service) authorizedRPGConfigSource(
+	ctx context.Context,
+	launchID, capability string,
+) (rpgConfigSource, error) {
+	source, err := service.loadRPGConfigSource(ctx, launchID)
+	if err != nil || !retromruntime.MatchesCapability(capability, source.credentialHash) ||
+		!validConfigLifetime(
+			source.state, source.bootstrapExpires, source.hardExpires, source.idleExpires,
+			service.now().UnixMilli(),
+		) {
+		return rpgConfigSource{}, ErrCredential
+	}
+	return source, nil
 }
 
 func (service *Service) loadRPGValidationResume(
@@ -432,13 +452,19 @@ func (service *Service) buildRPGAdapterConfig(
 	ctx context.Context,
 	launchID string,
 	source rpgConfigSource,
+	projectRoot string,
 ) (any, error) {
 	runtimeBase := "/runtime/retrom-runtime/" + source.runtimeVersion + "/"
-	projectRoot := "/runtime/projects/" + launchID + "/"
 	switch source.runtimeKind {
 	case "EASYRPG_WEB":
+		if projectRoot == "" {
+			return nil, ErrBlocked
+		}
 		return service.buildEasyRPGAdapterConfig(ctx, launchID, source, runtimeBase, projectRoot)
 	case "MKXP_LIBRETRO_WEB":
+		if projectRoot == "" {
+			return nil, ErrBlocked
+		}
 		return service.buildMKXPAdapterConfig(ctx, launchID, source, runtimeBase, projectRoot)
 	case "NATIVE_WEB":
 		return service.buildNativeWebAdapterConfig(ctx, launchID, source)
@@ -454,9 +480,9 @@ func (service *Service) buildEasyRPGAdapterConfig(
 	runtimeBase string,
 	projectRoot string,
 ) (EasyRPGAdapterConfig, error) {
-	engine, mount := "rpg2k", "/data/rtp/2000"
+	engine := "rpg2k"
 	if source.generation == "RPG2003" {
-		engine, mount = "rpg2k3", "/data/rtp/2003"
+		engine = "rpg2k3"
 	} else if source.generation != "RPG2000" {
 		return EasyRPGAdapterConfig{}, ErrBlocked
 	}
@@ -464,14 +490,17 @@ func (service *Service) buildEasyRPGAdapterConfig(
 	if err != nil || len(packs) > 1 {
 		return EasyRPGAdapterConfig{}, ErrBlocked
 	}
-	var pack *EasyRPGArchiveURL
+	var pack *RPGFileTreeSource
 	if len(packs) == 1 {
-		pack = &EasyRPGArchiveURL{URL: packs[0].URL, SHA256: packs[0].SHA256, MountPath: mount}
+		pack = &RPGFileTreeSource{
+			Kind:     "FILE_TREE_V1",
+			IndexURL: fmt.Sprintf("%s__retrom__/packs/%d/index.json", projectRoot, packs[0].Slot),
+		}
 	}
 	return EasyRPGAdapterConfig{
 		AdapterKind: source.runtimeKind, AdapterID: source.adapterID, EngineMode: engine,
 		RuntimeBaseURL: runtimeBase, ProjectRootURL: projectRoot,
-		ProjectIndexURL: projectRoot + "index.json", RTPArchive: pack, CheckpointSlot: 100,
+		ProjectIndexURL: projectRoot + "index.json", RTPSource: pack, CheckpointSlot: 100,
 	}, nil
 }
 
@@ -658,7 +687,7 @@ func (service *Service) rpgRuntimePacks(
 	ctx context.Context,
 	launchID string,
 	projectRoot string,
-) ([]RPGPackArchiveURL, error) {
+) ([]RPGSeekableBlobSource, error) {
 	query := `
 SELECT selection.slot,selection.declared_name,installation.bundle_sha256,blob.size_bytes,
 locked.logical_name
@@ -692,16 +721,22 @@ ORDER BY 1
 		return nil, fmt.Errorf("load RPG runtime packs: %w", err)
 	}
 	defer func() { _ = rows.Close() }()
-	packs := make([]RPGPackArchiveURL, 0, 3)
+	packs := make([]RPGSeekableBlobSource, 0, 3)
 	for rows.Next() {
 		var slot int
-		var logicalName string
-		var pack RPGPackArchiveURL
-		if err := rows.Scan(&slot, &pack.DeclaredName, &pack.SHA256, &pack.SizeBytes, &logicalName); err != nil ||
+		var declaredName, digest, logicalName string
+		var sizeBytes int64
+		if err := rows.Scan(&slot, &declaredName, &digest, &sizeBytes, &logicalName); err != nil ||
 			logicalName != fmt.Sprintf("__retrom__/pack-%d.zip", slot) {
 			return nil, ErrBlocked
 		}
-		pack.URL = projectRoot + logicalName
+		pack, valid := newRPGSeekableBlobSource(
+			projectRoot+logicalName, digest, sizeBytes, declaredName,
+		)
+		if !valid {
+			return nil, ErrBlocked
+		}
+		pack.Slot = slot
 		packs = append(packs, pack)
 	}
 	if err := rows.Err(); err != nil {
@@ -713,15 +748,33 @@ ORDER BY 1
 func (service *Service) rpgLockedArchive(
 	ctx context.Context,
 	launchID, logicalName, projectRoot string,
-) (RPGPackArchiveURL, error) {
-	var archive RPGPackArchiveURL
+) (RPGSeekableBlobSource, error) {
+	var digest string
+	var sizeBytes int64
 	if err := service.database.QueryRowContext(ctx, `
 SELECT blob.sha256,blob.size_bytes FROM launch_content_files file
 JOIN blobs blob ON blob.id=file.blob_id
 WHERE file.launch_session_id=? AND file.logical_name=? AND file.format_version='RPG_MAKER_PROJECT_V1'
-`, launchID, logicalName).Scan(&archive.SHA256, &archive.SizeBytes); err != nil {
-		return RPGPackArchiveURL{}, ErrBlocked
+`, launchID, logicalName).Scan(&digest, &sizeBytes); err != nil {
+		return RPGSeekableBlobSource{}, ErrBlocked
 	}
-	archive.URL = projectRoot + logicalName
+	archive, valid := newRPGSeekableBlobSource(projectRoot+logicalName, digest, sizeBytes, "")
+	if !valid {
+		return RPGSeekableBlobSource{}, ErrBlocked
+	}
 	return archive, nil
+}
+
+func newRPGSeekableBlobSource(
+	url, digest string,
+	sizeBytes int64,
+	declaredName string,
+) (RPGSeekableBlobSource, bool) {
+	if url == "" || len(digest) != sha256.Size*2 || sizeBytes < 1 {
+		return RPGSeekableBlobSource{}, false
+	}
+	return RPGSeekableBlobSource{
+		Kind: "SEEKABLE_BLOB_V1", RangeRequired: true, DeclaredName: declaredName,
+		URL: url, SHA256: digest, SizeBytes: sizeBytes,
+	}, true
 }

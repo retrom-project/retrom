@@ -34,6 +34,18 @@ describe("saveImmersivePlayerState", () => {
     expect(upload).toHaveBeenCalledWith(expect.objectContaining({ screenshot: prepared }));
   });
 
+  it("uploads the valid state without a screenshot when the optional preview capture fails", async () => {
+    const instance = emulator(Uint8Array.of(1, 2, 3));
+    instance.takeScreenshot.mockRejectedValueOnce(new Error("capture failed"));
+    const upload = vi.fn(async () => true);
+
+    await expect(saveImmersivePlayerState(instance, true, upload)).resolves.toBe(true);
+    expect(upload).toHaveBeenCalledWith(expect.objectContaining({
+      screenshot: expect.objectContaining({ size: 0 }),
+      state: Uint8Array.of(1, 2, 3),
+    }));
+  });
+
   it("does not capture or upload when recoverable saves are unavailable", async () => {
     const instance = emulator(Uint8Array.of(1));
     const upload = vi.fn(async () => true);

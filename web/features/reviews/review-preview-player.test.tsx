@@ -29,8 +29,9 @@ vi.mock("@/features/player/canvas-fit", () => ({
   installCanvasContain: () => ({ refresh: vi.fn(), cleanup: vi.fn() }),
 }));
 vi.mock("@xxxsen/retrom-runtime", () => ({
-  createKirikiriRuntime: kirikiri.create,
-  createOnsRuntime: ons.create,
+  createRuntime: vi.fn((config) => config.adapter.adapterKind === "ONS_YURI_WEB"
+    ? ons.create(config)
+    : kirikiri.create(config)),
 }));
 
 describe("ReviewPreviewPlayer", () => {
@@ -173,7 +174,7 @@ describe("ReviewPreviewPlayer", () => {
           adapter: {
             adapterKind: "ONS_YURI_WEB", adapterId: "ons-yuri-web",
             runtimeBaseUrl: "/runtime/retrom-runtime/v0.3.7/",
-            projectIndexUrl: "/runtime/projects/preview-ons/index.json",
+            projectIndexUrl: `/runtime/content/project/${"a".repeat(64)}/index.json`,
             scriptEncoding: "utf8", checkpointSlot: 999,
           },
           reviewPreview: { importItemId: "item-ons", captureAllowed: true, captureAfterMs: 5000 },
@@ -219,8 +220,8 @@ describe("ReviewPreviewPlayer", () => {
           runtimeFamily: "KIRIKIRI", sessionId: "preview-kirikiri", gameTitle: "KAG fixture",
           adapter: {
             adapterKind: "KIRIKIRI2_WEB", adapterId: "kirikiri2-web",
-            runtimeBaseUrl: "/runtime/retrom-runtime/v0.6.1/",
-            projectIndexUrl: "/runtime/projects/preview-kirikiri/index.json",
+            runtimeBaseUrl: "/runtime/retrom-runtime/v0.7.4/",
+            projectIndexUrl: `/runtime/content/project/${"b".repeat(64)}/index.json`,
             startupXp3Path: null, checkpointSlot: 1999,
           },
           reviewPreview: { importItemId: "item-kirikiri", captureAllowed: true, captureAfterMs: 5000 },

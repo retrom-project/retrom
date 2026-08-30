@@ -240,7 +240,7 @@ class MakefileDependencyTests(unittest.TestCase):
         self.assertNotIn("core:ons:build", output)
         self.assertIn('NEXT_DIST_DIR=".next-runtime-dev"', output)
         self.assertIn(
-            "env -u RETROM_RUNTIME_DEV_ROOT -u RETROM_RUNTIME_DEV_INCLUDE_ASSETS scripts/dev.sh",
+            "env -u RETROM_DEV_CONFIG -u RETROM_RUNTIME_DEV_ROOT -u RETROM_RUNTIME_DEV_INCLUDE_ASSETS -u RETROM_RUNTIME_DEV_RELEASE_OVERRIDES scripts/dev.sh",
             output,
         )
 
@@ -265,6 +265,7 @@ class MakefileDependencyTests(unittest.TestCase):
             0 <= release_position < activation_position < prepare_position < dev_position,
             output,
         )
+        self.assertIn("-u RETROM_RUNTIME_DEV_RELEASE_OVERRIDES scripts/dev.sh", output)
 
     def test_ci_runs_the_structure_gate_without_warning_only_bypass(self) -> None:
         output = self.dry_run("ci")

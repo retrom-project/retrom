@@ -189,7 +189,7 @@ SaveState 链路，取消与退出都不会自动存档。其余输入仍交给 
 
 RPG Maker 对用户是一个虚拟核心。导入时服务端只依据项目 bytes 的完整 marker 和格式证据判定 generation，再一次性冻结内部 core、route、逻辑游戏兼容线与当次 artifact/adapter ABI 证据；多世代完整 marker、未知格式或无法裁决的证据直接拒绝，不提供猜测性 fallback。内部 `rpgmaker_2000` 等七个 ID 只用于运行绑定与管理员诊断，不进入目录选择器或普通 Player。
 
-Player 顶层按 `EMULATORJS|RPGMAKER|ONS` 分派。`RPGMAKER` 统一进入 `RetromRpgRuntime`，其内部再按已冻结 route 创建 `EASYRPG_WEB|MKXP_LIBRETRO_WEB|NATIVE_WEB` adapter；Player Shell 不包含 EasyRPG/mkxp/MV/MZ 分支。发布把内容、版本 core、generation、route、逻辑游戏兼容线、当时构件、adapter ABI、save ABI、运行包快照和管理员主动创建的运行验证 Launch 绑定为不可变 VariantRevision。普通 Launch 不重探测项目、不跨 core/route 回退；RPG Maker 与 ONS 在同一逻辑游戏兼容线内使用当前 selected 构件，EmulatorJS 仍使用精确历史构件。
+Player 顶层按 `EMULATORJS|RPGMAKER|ONS|KIRIKIRI` 分派。`RPGMAKER` 统一进入 `RetromRpgRuntime`，其内部再按已冻结 route 创建 `EASYRPG_WEB|MKXP_LIBRETRO_WEB|NATIVE_WEB` adapter；Player Shell 不包含 EasyRPG/mkxp/MV/MZ 分支；RPG Maker、ONS 与 KiriKiri 都经同一个 `GameRuntime` 生命周期接入，只有 RPG Maker 验收读取版本化位置 probe。发布把内容、版本 core、generation、route、逻辑游戏兼容线、当时构件、adapter ABI、save ABI、运行包快照和管理员主动创建的运行验证 Launch 绑定为不可变 VariantRevision。普通 Launch 不重探测项目、不跨 core/route 回退；RPG Maker 与 ONS 在同一逻辑游戏兼容线内使用当前 selected 构件，EmulatorJS 仍使用精确历史构件。
 
 RPG Maker 的存档与既有模拟器状态统一建模为运行时检查点。恢复完成的定义不是 payload 成功下载或引擎 load API 返回成功，而是：记录初始状态 A，在明确移动/改变变量后的 B 创建检查点，继续到可区分的 C，结束原 Launch，再由不同 Launch 恢复，并逐字段证明地图、坐标和 fixture 变量等于 B 且不等于 A/C，同时保留恢复后截图；随后还必须继续真实输入，并持久化与恢复位置 B 不同的四字段状态，证明恢复后的游戏仍可操作。七个版本核心都必须满足该闭环。
 

@@ -6,8 +6,11 @@ import { join, resolve } from "node:path";
 import { chromium } from "../../web/node_modules/playwright/index.mjs";
 
 import { assertKiriKiriProductEvidence, kirikiriProductStages } from "./kirikiri_product_contract.mjs";
+import { compareKiriKiriVisualSamples } from "./kirikiri_visual_match.mjs";
+import { localRpgAcceptanceProxy } from "./rpgmaker_local_proxy.mjs";
 import { createProductClient, singleFile } from "./rpgmaker_security_upload.mjs";
 import { isLocalAcceptanceHostname } from "./rpgmaker_url.mjs";
+import { trackRuntimeLoading } from "./runtime_loading_evidence.mjs";
 
 const caseId = "ACC-KIRIKIRI-001";
 const requiredEnvironment = [
@@ -28,7 +31,10 @@ if (missing.length) {
 
 const baseUrl = normalizedBaseUrl(process.env.RETROM_ACCEPTANCE_BASE_URL);
 const screenshotsDirectory = join(caseDirectory, "screenshots");
+const visualSampleKey = Symbol("kirikiriVisualSample");
+const kagInputTargets = [[0.08, 0.355], [0.5, 0.34], [0.11, 0.38], [0.5, 0.5], [0.25, 0.5], [0.75, 0.5]];
 mkdirSync(screenshotsDirectory, { recursive: true });
+const localProxy = await localRpgAcceptanceProxy(baseUrl);
 
 let browser;
 try {
@@ -45,10 +51,14 @@ try {
   process.exitCode = blocked ? 3 : 1;
 } finally {
   await browser?.close();
+  await localProxy.close();
 }
 
 async function runProductCase(activeBrowser) {
-  const context = await activeBrowser.newContext({ viewport: { width: 1440, height: 1000 } });
+  const context = await activeBrowser.newContext({
+    viewport: { width: 1440, height: 1000 },
+    ...localProxy.contextOptions,
+  });
   await installVirtualStandardGamepad(context);
   const browserErrors = { pageErrorCount: 0, consoleErrorCount: 0, dialogCount: 0 };
   try {
@@ -88,6 +98,9 @@ async function runProductCase(activeBrowser) {
     await previewPage.goto(`${baseUrl}${preview.playUrl}`, { waitUntil: "domcontentloaded", timeout: 120_000 });
     const previewCanvas = await runtimeCanvas(previewPage);
     await withStableStage(
+      () => waitForKagStable(previewCanvas), "KIRIKIRI_ACCEPTANCE_PREVIEW_RUNTIME_NOT_READY",
+    );
+    await withStableStage(
       () => verifyGamepadCancel(previewCanvas), "KIRIKIRI_ACCEPTANCE_GAMEPAD_CANCEL_FAILED",
     );
     await withStableStage(() => advanceKag(previewCanvas), "KIRIKIRI_ACCEPTANCE_GAMEPAD_CONFIRM_FAILED");
@@ -113,10 +126,15 @@ async function runProductCase(activeBrowser) {
 
     const original = await createLaunch(client, approved.gameId, null);
     const originalPage = await trackedPage(context, browserErrors);
+    const originalLoadingProbe = trackRuntimeLoading(originalPage, [], { timeoutMs: 60_000 });
     await originalPage.goto(`${baseUrl}${original.playUrl}`, { waitUntil: "domcontentloaded", timeout: 120_000 });
     const originalCanvas = await runtimeCanvas(originalPage);
     await waitForProductReady(originalPage);
     const beforeInput = await screenshotEvidence(originalCanvas, "product-before-input.png");
+    const originalLoading = await withStableStage(
+      () => originalLoadingProbe.snapshot(), "KIRIKIRI_ACCEPTANCE_LOADING_EVIDENCE_FAILED",
+    );
+    originalLoadingProbe.stop();
     await advanceKag(originalCanvas);
     const afterInput = await screenshotEvidence(originalCanvas, "product-after-input.png");
     requireChanged(beforeInput, afterInput, "KIRIKIRI_ACCEPTANCE_PRODUCT_INPUT_UNOBSERVED");
@@ -130,18 +148,24 @@ async function runProductCase(activeBrowser) {
     const restored = await createLaunch(client, approved.gameId, saved.saveStateId);
     if (restored.launchId === original.launchId) {throw new Error("KIRIKIRI_ACCEPTANCE_RESTORE_LAUNCH_REUSED");}
     const restoredPage = await trackedPage(context, browserErrors);
+    const restoreLoadingProbe = trackRuntimeLoading(restoredPage, [], { timeoutMs: 60_000 });
     const stateResponsePromise = restoredPage.waitForResponse((response) =>
       response.request().method() === "GET" && response.url().endsWith(`/runtime/launches/${restored.launchId}/state`),
     { timeout: 120_000 });
     await restoredPage.goto(`${baseUrl}${restored.playUrl}`, { waitUntil: "domcontentloaded", timeout: 120_000 });
     const restoredCanvas = await runtimeCanvas(restoredPage);
     await waitForProductReady(restoredPage);
+    const restoreLoading = await withStableStage(
+      () => restoreLoadingProbe.snapshot(), "KIRIKIRI_ACCEPTANCE_LOADING_EVIDENCE_FAILED",
+    );
+    restoreLoadingProbe.stop();
     const stateResponse = await stateResponsePromise;
     requireStatus(stateResponse.status(), 200, "KIRIKIRI_ACCEPTANCE_RESTORE_PAYLOAD_FAILED");
     const payloadSize = Number(stateResponse.headers()["content-length"]);
-    const restoredFrame = await waitForMatchingScreenshot(
-      restoredCanvas, "restored.png", afterInput.rgbaSha256, 60_000,
+    const restoreMatch = await waitForMatchingScreenshot(
+      restoredCanvas, "restored.png", afterInput, afterCheckpoint, 60_000,
     );
+    const restoredFrame = restoreMatch.frame;
     await advanceKag(restoredCanvas);
     const postRestoreFrame = await screenshotEvidence(restoredCanvas, "post-restore-input.png");
     requireChanged(restoredFrame, postRestoreFrame, "KIRIKIRI_ACCEPTANCE_RESTORE_INPUT_UNOBSERVED");
@@ -159,6 +183,14 @@ async function runProductCase(activeBrowser) {
       },
       immersiveMenu,
       checkpoint: { payloadKind: saved.payloadKind, sizeBytes: payloadSize },
+      restoreComparison: restoreMatch.comparison,
+      loading: {
+        schemaVersion: 1,
+        sameProjectContentIdentity: originalLoading.projectContentIdentity !== null &&
+          originalLoading.projectContentIdentity === restoreLoading.projectContentIdentity,
+        firstVisible: originalLoading.evidence,
+        restoreVisible: restoreLoading.evidence,
+      },
       screenshots: {
         preview: previewFrame, productBeforeInput: beforeInput, productAfterInput: afterInput,
         productAfterCheckpoint: afterCheckpoint,
@@ -281,13 +313,23 @@ async function runtimeCanvas(page) {
 async function advanceKag(canvas) {
   await focusRuntimeCanvas(canvas);
   await waitForKagStable(canvas);
-  const transition = waitForKagTransition(canvas);
-  await moveVirtualGamepadCursor(canvas, 0.5, 0.34);
-  await setVirtualGamepadButton(canvas, 0, true);
-  await canvas.page().waitForTimeout(100);
-  await setVirtualGamepadButton(canvas, 0, false);
-  await transition;
-  await canvas.page().waitForTimeout(2_000);
+  for (const [targetX, targetY] of kagInputTargets) {
+    await moveVirtualGamepadCursor(canvas, targetX, targetY);
+    await canvas.page().waitForTimeout(100);
+    const beforeFrame = await canvasFrameFingerprint(canvas);
+    const transition = waitForKagTransition(canvas, beforeFrame, 5_000);
+    await setVirtualGamepadButton(canvas, 0, true);
+    await canvas.page().waitForTimeout(100);
+    await setVirtualGamepadButton(canvas, 0, false);
+    try {
+      await transition;
+      await canvas.page().waitForTimeout(2_000);
+      return;
+    } catch (error) {
+      if (!(error instanceof Error) || error.message !== "KIRIKIRI_ACCEPTANCE_INPUT_TRANSITION_TIMEOUT") {throw error;}
+    }
+  }
+  throw new Error("KIRIKIRI_ACCEPTANCE_INPUT_TRANSITION_TIMEOUT");
 }
 
 async function verifyGamepadCancel(canvas) {
@@ -383,23 +425,41 @@ async function installVirtualStandardGamepad(context) {
 
 async function waitForKagStable(canvas) {
   const deadline = Date.now() + 60_000;
+  const readyStableForMs = 500;
+  let readySince = null;
   while (Date.now() < deadline) {
-    if (await kagBookmarkReady(canvas)) {return;}
+    if (await kagBookmarkReady(canvas)) {
+      readySince ??= Date.now();
+      if (Date.now() - readySince >= readyStableForMs) {return;}
+    } else {
+      readySince = null;
+    }
     await canvas.page().waitForTimeout(50);
   }
   throw new Error("KIRIKIRI_ACCEPTANCE_RUNTIME_NOT_STABLE");
 }
 
-async function waitForKagTransition(canvas) {
-  const deadline = Date.now() + 60_000;
+async function waitForKagTransition(canvas, beforeFrame, timeoutMs) {
+  const deadline = Date.now() + timeoutMs;
   let observedUnstable = false;
+  let observedVisualChange = false;
   while (Date.now() < deadline) {
     const ready = await kagBookmarkReady(canvas);
     if (!ready) {observedUnstable = true;}
-    if (observedUnstable && ready) {return;}
+    if (!observedVisualChange) {
+      observedVisualChange = await canvasFrameFingerprint(canvas) !== beforeFrame;
+    }
+    if (observedUnstable || observedVisualChange) {
+      await waitForKagStable(canvas);
+      return;
+    }
     await canvas.page().waitForTimeout(50);
   }
   throw new Error("KIRIKIRI_ACCEPTANCE_INPUT_TRANSITION_TIMEOUT");
+}
+
+function canvasFrameFingerprint(canvas) {
+  return canvas.evaluate((element) => element.toDataURL("image/png"));
 }
 
 async function kagBookmarkReady(canvas) {
@@ -465,6 +525,13 @@ async function screenshotEvidence(canvas, filename) {
     const context = probe.getContext("2d", { willReadFrequently: true });
     if (!context) {throw new Error("KIRIKIRI_ACCEPTANCE_SCREENSHOT_CONTEXT");}
     context.drawImage(bitmap, 0, 0);
+    const sampleProbe = document.createElement("canvas");
+    sampleProbe.width = 320;
+    sampleProbe.height = 180;
+    const sampleContext = sampleProbe.getContext("2d", { willReadFrequently: true });
+    if (!sampleContext) {throw new Error("KIRIKIRI_ACCEPTANCE_SCREENSHOT_CONTEXT");}
+    sampleContext.drawImage(bitmap, 0, 0, sampleProbe.width, sampleProbe.height);
+    const visualSample = [...sampleContext.getImageData(0, 0, sampleProbe.width, sampleProbe.height).data];
     bitmap.close();
     const { data, width, height } = context.getImageData(0, 0, probe.width, probe.height);
     let nonBlackPixels = 0;
@@ -473,26 +540,31 @@ async function screenshotEvidence(canvas, filename) {
     }
     const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", data));
     return {
-      pngDataUrl, width, height, nonBlackPixels,
+      pngDataUrl, visualSample, width, height, nonBlackPixels,
       rgbaSha256: [...digest].map((byte) => byte.toString(16).padStart(2, "0")).join(""),
     };
   });
   const pngBase64 = capture.pngDataUrl.slice(capture.pngDataUrl.indexOf(",") + 1);
   writeFileSync(join(screenshotsDirectory, filename), Buffer.from(pngBase64, "base64"));
-  return {
+  const evidence = {
     width: capture.width,
     height: capture.height,
     nonBlackPixels: capture.nonBlackPixels,
     rgbaSha256: capture.rgbaSha256,
     ...layout,
   };
+  Object.defineProperty(evidence, visualSampleKey, { value: capture.visualSample });
+  return evidence;
 }
 
-async function waitForMatchingScreenshot(canvas, filename, expectedSha256, timeoutMs) {
+async function waitForMatchingScreenshot(canvas, filename, bFrame, cFrame, timeoutMs) {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     const frame = await screenshotEvidence(canvas, filename);
-    if (frame.rgbaSha256 === expectedSha256) {return frame;}
+    const comparison = compareKiriKiriVisualSamples(
+      bFrame[visualSampleKey], cFrame[visualSampleKey], frame[visualSampleKey],
+    );
+    if (comparison.matched) {return { comparison, frame };}
     await canvas.page().waitForTimeout(100);
   }
   throw new Error("KIRIKIRI_ACCEPTANCE_RESTORE_POSITION_TIMEOUT");

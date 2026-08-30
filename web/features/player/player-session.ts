@@ -4,6 +4,7 @@ import { useCallback, useEffect, type Dispatch, type SetStateAction } from "reac
 import { newUuid } from "@/lib/crypto";
 import { readDiscState, type DiscSet, type EmulatorInstance, type ManualStatePayload, type PlayerConfig } from "./adapters/ejs-4.2.3-v2";
 import { uploadWithProgress, type SaveUploadProgress } from "./upload-with-progress";
+import { maximumManualSaveScreenshotBytes, prepareManualSaveScreenshot } from "./manual-save-screenshot";
 import { reducePlayerOrientation, unlockLandscape, type PlayerOrientationState } from "./orientation";
 import type { NetplayController } from "./netplay/controller";
 import { parseValidationCheckpointReceipt, type ValidationCheckpointReceipt } from "./rpg-validation-checkpoint-response";
@@ -100,10 +101,19 @@ async function exitImmersivePlayer(
 }
 
 async function uploadState(payload: ManualStatePayload, params: PlayerSessionParams, reportProgress: (progress: SaveUploadProgress) => void) {
-  if (!payload.screenshot.size || !payload.state.byteLength) {return rejectSave(params, "状态或截图为空，未创建存档。");}
+  if (!payload.state.byteLength) {return rejectSave(params, "状态为空，未创建存档。");}
   const discIndex = currentDiscIndex(params);
   if (discIndex === "unavailable") {return rejectSave(params, "无法读取当前光盘，未创建存档。");}
-  const form = createSaveForm(payload, discIndex);
+  const preparedScreenshot = await prepareManualSaveScreenshot({
+    screenshot: payload.screenshot,
+    format: payload.format,
+  });
+  const uploadPayload = {
+    ...payload,
+    screenshot: preparedScreenshot?.screenshot ?? new Blob(),
+    format: preparedScreenshot?.format ?? "png",
+  };
+  const form = createSaveForm(uploadPayload, discIndex);
   const startedAt = performance.now();
   params.setSaveUploadProgress(0);
   await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()));
@@ -112,7 +122,7 @@ async function uploadState(payload: ManualStatePayload, params: PlayerSessionPar
     response = await uploadWithProgress({
       url: `/runtime/launches/${params.launchId}/save-states`, method: "POST",
       headers: { "Idempotency-Key": newUuid() }, body: form,
-      totalBytes: payload.state.byteLength + payload.screenshot.size,
+      totalBytes: uploadPayload.state.byteLength + uploadPayload.screenshot.size,
       timeoutMs: SAVE_UPLOAD_TIMEOUT_MS, onProgress: reportProgress,
     });
   } finally {
@@ -120,7 +130,8 @@ async function uploadState(payload: ManualStatePayload, params: PlayerSessionPar
     params.setSaveUploadProgress(null);
   }
   if (!response.ok) {return rejectSave(params, "手动存档失败，服务器未创建不完整记录");}
-  params.setSyncText("已同步"); params.setSyncTone("synced"); params.showToast("手动存档和截图已保存");
+  params.setSyncText("已同步"); params.setSyncTone("synced");
+  params.showToast(uploadPayload.screenshot.size ? "手动存档和截图已保存" : "手动存档已保存，未附带截图");
   return uploadResult(payload, response.body);
 }
 
@@ -136,7 +147,7 @@ function currentDiscIndex(params: PlayerSessionParams): number | undefined | "un
   } catch {return "unavailable";}
 }
 
-function createSaveForm(payload: ManualStatePayload, discIndex: number | undefined) {
+export function createSaveForm(payload: ManualStatePayload, discIndex: number | undefined) {
   const form = new FormData();
   const metadata = {
     payloadKind: payload.payloadKind ?? "RUNTIME_STATE",
@@ -146,7 +157,9 @@ function createSaveForm(payload: ManualStatePayload, discIndex: number | undefin
   form.append("metadata", new Blob([JSON.stringify(metadata)], { type: "application/json" }));
   const stateBytes = new Uint8Array(payload.state).slice().buffer;
   form.append("payload", new Blob([stateBytes], { type: "application/octet-stream" }), "payload.bin");
-  form.append("screenshot", payload.screenshot, `screenshot.${payload.format || "png"}`);
+  if (payload.screenshot.size > 0 && payload.screenshot.size <= maximumManualSaveScreenshotBytes) {
+    form.append("screenshot", payload.screenshot, `screenshot.${payload.format || "png"}`);
+  }
   return form;
 }
 
