@@ -163,9 +163,23 @@ async function openPlayerMenu(page: Page) {
   return menu;
 }
 
-async function createSaveFromMenu(page: Page, menu: Locator, selectItem = true) {
-  if (selectItem) {await pressGamepad(page, standardButton.right);}
-  await expect(menu.getByRole("button", { name: "创建存档" })).toHaveAttribute("aria-current", "true");
+async function selectPlayerMenuItem(page: Page, menu: Locator, target: "取消" | "创建存档" | "退出游戏") {
+  const order = ["取消", "创建存档", "退出游戏"] as const;
+  for (let attempt = 0; attempt < order.length * 2; attempt += 1) {
+    const current = await menu.locator('button[aria-current="true"]').textContent();
+    if (current === target) {return;}
+    const currentIndex = order.indexOf(current as typeof order[number]);
+    const targetIndex = order.indexOf(target);
+    if (currentIndex < 0) {throw new Error(`IMMERSIVE_MENU_SELECTION_INVALID:${current ?? "none"}`);}
+    const rightDistance = (targetIndex - currentIndex + order.length) % order.length;
+    const leftDistance = (currentIndex - targetIndex + order.length) % order.length;
+    await pressGamepad(page, rightDistance <= leftDistance ? standardButton.right : standardButton.left);
+  }
+  throw new Error(`IMMERSIVE_MENU_ITEM_NOT_SELECTABLE:${target}`);
+}
+
+async function createSaveFromMenu(page: Page, menu: Locator) {
+  await selectPlayerMenuItem(page, menu, "创建存档");
   const response = page.waitForResponse((candidate) =>
     candidate.request().method() === "POST" && /\/runtime\/launches\/[^/]+\/save-states$/.test(candidate.url()));
   await pressGamepad(page, standardButton.a);
@@ -174,9 +188,7 @@ async function createSaveFromMenu(page: Page, menu: Locator, selectItem = true) 
 }
 
 async function exitPlayer(page: Page, menu: Locator) {
-  await expect(menu.getByRole("button", { name: "取消" })).toHaveAttribute("aria-current", "true");
-  await pressGamepad(page, standardButton.right);
-  await pressGamepad(page, standardButton.right);
+  await selectPlayerMenuItem(page, menu, "退出游戏");
   const finished = page.waitForResponse((response) =>
     response.request().method() === "POST" && /\/runtime\/launches\/[^/]+\/finish$/.test(response.url()));
   await pressGamepad(page, standardButton.a);
@@ -329,7 +341,7 @@ test("ACC-IMM-010 save library selects an older save, restores it and creates an
   await launchSelectedGame(page);
   let menu = await openPlayerMenu(page);
   await createSaveFromMenu(page, menu);
-  await createSaveFromMenu(page, menu, false);
+  await createSaveFromMenu(page, menu);
   await pressGamepad(page, standardButton.b);
   await expect(menu).toBeHidden();
   menu = await openPlayerMenu(page);
