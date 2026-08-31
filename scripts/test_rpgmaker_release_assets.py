@@ -108,7 +108,7 @@ class RPGMakerReleaseAssetTests(unittest.TestCase):
     def test_web_package_uses_the_same_aggregate_release(self) -> None:
         version = self.manifest["release"]["tag"].removeprefix("v")
         asset_url = (
-            "https://github.com/xxxsen/retrom-runtime/releases/download/"
+            "https://github.com/retrom-project/retrom-runtime/releases/download/"
             f"v{version}/xxxsen-retrom-runtime-{version}.tgz"
         )
         package = json.loads((ROOT / "web/package.json").read_text(encoding="utf-8"))

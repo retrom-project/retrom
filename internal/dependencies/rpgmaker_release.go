@@ -80,7 +80,7 @@ func hydrateRPGMakerReleaseFiles(version *RPGMakerVersion) error {
 }
 
 func validRPGMakerReleaseIdentity(release RPGMakerRuntimeRelease) bool {
-	return release.Repository == "https://github.com/xxxsen/retrom-runtime" &&
+	return release.Repository == "https://github.com/retrom-project/retrom-runtime" &&
 		rpgMakerReleaseTag.MatchString(release.Tag) && rpgMakerReleaseCommit.MatchString(release.TagCommit) &&
 		validRPGMakerReleaseAsset(release, release.BundleAsset, "retrom-runtime-"+release.Tag[1:]+".tar.gz", 256<<20) &&
 		validRPGMakerReleaseAsset(release, release.MetadataAsset, "retrom-runtime-release.json", 1<<20)
