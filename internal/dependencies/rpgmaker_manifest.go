@@ -108,7 +108,7 @@ func requireJSONEOF(decoder *json.Decoder) error {
 func validateRPGMakerVersion(version *RPGMakerVersion) error {
 	manifest := version.Manifest
 	if manifest.SchemaVersion != 3 || manifest.RuntimeID != "retrom-runtime" ||
-		len(manifest.RuntimeFiles) != 22 || len(manifest.Artifacts) != len(routing.Entries())+3 {
+		len(manifest.RuntimeFiles) != 24 || len(manifest.Artifacts) != len(routing.Entries())+4 {
 		return fmt.Errorf("%w: RPG Maker manifest identity", ErrInvalid)
 	}
 	if err := validateRPGMakerRuntimeFiles(version); err != nil {
@@ -167,6 +167,9 @@ func validateRPGMakerArtifact(artifact RPGMakerArtifact, files map[string]RPGMak
 	}
 	if artifact.RuntimeFamily == "BUTTERSCOTCH" {
 		return validateButterscotchArtifact(artifact, files)
+	}
+	if artifact.RuntimeFamily == "TYRANOSCRIPT" {
+		return validateTyranoScriptArtifact(artifact, files)
 	}
 	route, err := routing.ByRoute(artifact.CoreID, artifact.RouteKey)
 	if err != nil || !artifactMatchesRoute(artifact, route) {
@@ -249,6 +252,38 @@ func validButterscotchCompatibility(artifact RPGMakerArtifact) bool {
 		value["adapterAbi"] == "butterscotch-checkpoint-v2" &&
 		value["jsPath"] == "butterscotch.mjs" && value["wasmPath"] == "butterscotch.wasm" &&
 		value["workerPath"] == "butterscotch-worker.mjs" && validRuntimeCompatibilityContract(value)
+}
+
+func validateTyranoScriptArtifact(artifact RPGMakerArtifact, files map[string]RPGMakerRuntimeFile) error {
+	if !validTyranoScriptIdentity(artifact) {
+		return fmt.Errorf("%w: TyranoScript artifact identity", ErrInvalid)
+	}
+	entries, err := rpgArtifactSetEntries(artifact, files)
+	if err != nil {
+		return err
+	}
+	entry, exists := files[path.Join(artifact.RuntimeVersion, artifact.EntryPath)]
+	if !exists || entry.SizeBytes != artifact.EntrySizeBytes || entry.SHA256 != artifact.EntrySHA256 ||
+		rpgArtifactSetDigest(entries) != artifact.ArtifactSetSHA256 || !validTyranoScriptCompatibility(artifact) {
+		return fmt.Errorf("%w: TyranoScript artifact bytes", ErrInvalid)
+	}
+	return nil
+}
+
+func validTyranoScriptIdentity(artifact RPGMakerArtifact) bool {
+	return artifact.CoreID == "tyranoscript" && artifact.Generation == "TYRANOSCRIPT" &&
+		artifact.RouteKey == "TYRANOSCRIPT_WEB" && artifact.RuntimeAdapterKind == "TYRANOSCRIPT_WEB" &&
+		artifact.AdapterID == "tyranoscript-web" && artifact.AdapterABI == "tyranoscript-snapshot-v1" &&
+		artifact.EntryPath == "tyranoscript-bridge.js" && !artifact.RequiresThreads &&
+		artifact.SavePayloadKind == "RUNTIME_STATE" && artifact.SaveMaxBytes == 32<<20 &&
+		artifact.SelectedForNewBindings && artifact.AvailableForLaunch
+}
+
+func validTyranoScriptCompatibility(artifact RPGMakerArtifact) bool {
+	var value map[string]any
+	return json.Unmarshal(artifact.Compatibility, &value) == nil && len(value) == 5 &&
+		value["adapterAbi"] == "tyranoscript-snapshot-v1" &&
+		value["bridgePath"] == "tyranoscript-bridge.js" && validRuntimeCompatibilityContract(value)
 }
 
 func artifactMatchesRoute(artifact RPGMakerArtifact, route routing.Entry) bool {

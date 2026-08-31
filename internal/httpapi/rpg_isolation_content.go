@@ -115,14 +115,18 @@ func (server *Server) rpgBootstrapConsume(
 		writeError(writer, request, http.StatusGone, "RPG_RUNTIME_BOOTSTRAP_EXPIRED", "RPG Maker 启动凭据已过期", map[string]any{})
 		return
 	}
-	http.SetCookie(writer, &http.Cookie{
-		Name: rpgRuntimeCookieName, Value: credential, Path: "/__retrom/", HttpOnly: true,
-		Secure: strings.HasPrefix(consumed.Origin, "https://"), SameSite: http.SameSiteStrictMode,
-		Expires: time.UnixMilli(consumed.Expires), MaxAge: int(time.Until(time.UnixMilli(consumed.Expires)).Seconds()),
-	})
+	setIsolatedRuntimeCookie(writer, consumed, credential)
 	writer.Header().Set("Clear-Site-Data", `"storage"`)
 	writer.Header().Set("Cache-Control", "private, no-store")
 	writer.WriteHeader(http.StatusNoContent)
+}
+
+func setIsolatedRuntimeCookie(writer http.ResponseWriter, access isolation.Access, credential string) {
+	http.SetCookie(writer, &http.Cookie{
+		Name: rpgRuntimeCookieName, Value: credential, Path: "/__retrom/", HttpOnly: true,
+		Secure: strings.HasPrefix(access.Origin, "https://"), SameSite: http.SameSiteStrictMode,
+		Expires: time.UnixMilli(access.Expires), MaxAge: int(time.Until(time.UnixMilli(access.Expires)).Seconds()),
+	})
 }
 
 func (server *Server) rpgRuntimeCleanup(
@@ -346,6 +350,10 @@ func (server *Server) serveRPGDependency(
 }
 
 func transformRPGEntry(contents []byte) ([]byte, error) {
+	return transformIsolatedEntry(contents, "/__retrom/project/", "/__retrom/bridge.js")
+}
+
+func transformIsolatedEntry(contents []byte, baseURL, bridgeURL string) ([]byte, error) {
 	if !utf8.Valid(contents) {
 		return nil, errRPGEntryUTF8
 	}
@@ -368,7 +376,8 @@ func transformRPGEntry(contents []byte) ([]byte, error) {
 	if headStart < 0 || headEnd < 0 {
 		return nil, errRPGEntryHeadMalformed
 	}
-	injection := []byte(`<base href="/__retrom/project/"><script src="/__retrom/bridge.js"></script>`)
+	injection := []byte(`<base href="` + html.EscapeString(baseURL) + `"><script src="` +
+		html.EscapeString(bridgeURL) + `"></script>`)
 	result := make([]byte, 0, len(withoutBase)+len(injection))
 	result = append(result, withoutBase[:headEnd+1]...)
 	result = append(result, injection...)

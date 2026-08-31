@@ -31,6 +31,8 @@ type Access struct {
 	LaunchID string
 	Origin   string
 	Profile  string
+	Family   string
+	Preview  bool
 	Expires  int64
 }
 
@@ -70,15 +72,21 @@ func (service *Service) runtimeTemplate() (*url.URL, string, bool) {
 func (service *Service) InspectBootstrap(ctx context.Context, launchID, origin string) (Access, error) {
 	var access Access
 	err := service.database.QueryRowContext(ctx, `
-SELECT ticket.profile_id,ticket.expires_at_ms
+SELECT ticket.profile_id,ticket.expires_at_ms,artifact.runtime_family,ticket.preview_id IS NOT NULL
 FROM isolated_runtime_bootstrap_tickets ticket
-JOIN launch_sessions launch ON launch.id=ticket.launch_id
-JOIN core_artifacts artifact ON artifact.id=launch.core_artifact_id
-WHERE ticket.launch_id=? AND ticket.expected_origin=? AND ticket.consumed_at_ms IS NULL
-  AND ticket.expires_at_ms>? AND launch.state='ACTIVE' AND launch.hard_expires_at_ms>?
-  AND artifact.runtime_family='RPGMAKER' AND artifact.runtime_adapter_kind='NATIVE_WEB'
+LEFT JOIN launch_sessions launch ON launch.id=ticket.launch_id
+LEFT JOIN review_preview_sessions preview ON preview.id=ticket.preview_id
+JOIN core_artifacts artifact ON artifact.id=COALESCE(launch.core_artifact_id,preview.core_artifact_id)
+WHERE COALESCE(ticket.launch_id,ticket.preview_id)=? AND ticket.expected_origin=?
+  AND ticket.consumed_at_ms IS NULL AND ticket.expires_at_ms>?
+  AND (ticket.launch_id IS NOT NULL AND launch.state='ACTIVE' AND launch.hard_expires_at_ms>?
+    OR ticket.preview_id IS NOT NULL AND preview.state='ACTIVE' AND preview.hard_expires_at_ms>?)
+  AND (artifact.runtime_family='RPGMAKER' AND artifact.runtime_adapter_kind='NATIVE_WEB'
+    OR artifact.runtime_family='TYRANOSCRIPT' AND artifact.runtime_adapter_kind='TYRANOSCRIPT_WEB')
   AND artifact.available_for_launch=1
-`, launchID, origin, service.now().UnixMilli(), service.now().UnixMilli()).Scan(&access.Profile, &access.Expires)
+`, launchID, origin, service.now().UnixMilli(), service.now().UnixMilli(), service.now().UnixMilli()).Scan(
+		&access.Profile, &access.Expires, &access.Family, &access.Preview,
+	)
 	if err != nil {
 		return Access{}, ErrCredential
 	}
@@ -102,21 +110,28 @@ func (service *Service) ConsumeTicket(
 	defer cleanup.Rollback(transaction)
 	var access Access
 	err = transaction.QueryRowContext(ctx, `
-SELECT ticket.profile_id,launch.hard_expires_at_ms
+SELECT ticket.profile_id,COALESCE(launch.hard_expires_at_ms,preview.hard_expires_at_ms),
+ artifact.runtime_family,ticket.preview_id IS NOT NULL
 FROM isolated_runtime_bootstrap_tickets ticket
-JOIN launch_sessions launch ON launch.id=ticket.launch_id
-JOIN core_artifacts artifact ON artifact.id=launch.core_artifact_id
-WHERE ticket.launch_id=? AND ticket.ticket_sha256=? AND ticket.expected_origin=?
-  AND ticket.consumed_at_ms IS NULL AND ticket.expires_at_ms>? AND launch.state='ACTIVE'
-  AND launch.hard_expires_at_ms>? AND artifact.runtime_family='RPGMAKER'
-  AND artifact.runtime_adapter_kind='NATIVE_WEB' AND artifact.available_for_launch=1
-`, launchID, ticketDigest[:], origin, now, now).Scan(&access.Profile, &access.Expires)
+LEFT JOIN launch_sessions launch ON launch.id=ticket.launch_id
+LEFT JOIN review_preview_sessions preview ON preview.id=ticket.preview_id
+JOIN core_artifacts artifact ON artifact.id=COALESCE(launch.core_artifact_id,preview.core_artifact_id)
+WHERE COALESCE(ticket.launch_id,ticket.preview_id)=? AND ticket.ticket_sha256=? AND ticket.expected_origin=?
+  AND ticket.consumed_at_ms IS NULL AND ticket.expires_at_ms>?
+  AND (ticket.launch_id IS NOT NULL AND launch.state='ACTIVE' AND launch.hard_expires_at_ms>?
+    OR ticket.preview_id IS NOT NULL AND preview.state='ACTIVE' AND preview.hard_expires_at_ms>?)
+  AND (artifact.runtime_family='RPGMAKER' AND artifact.runtime_adapter_kind='NATIVE_WEB'
+    OR artifact.runtime_family='TYRANOSCRIPT' AND artifact.runtime_adapter_kind='TYRANOSCRIPT_WEB')
+  AND artifact.available_for_launch=1
+`, launchID, ticketDigest[:], origin, now, now, now).Scan(
+		&access.Profile, &access.Expires, &access.Family, &access.Preview,
+	)
 	if err != nil {
 		return "", Access{}, ErrCredential
 	}
 	result, err := transaction.ExecContext(ctx, `
 UPDATE isolated_runtime_bootstrap_tickets SET consumed_at_ms=?
-WHERE launch_id=? AND ticket_sha256=? AND consumed_at_ms IS NULL AND expires_at_ms>?
+WHERE COALESCE(launch_id,preview_id)=? AND ticket_sha256=? AND consumed_at_ms IS NULL AND expires_at_ms>?
 `, now, launchID, ticketDigest[:], now)
 	if err != nil {
 		return "", Access{}, fmt.Errorf("consume isolated runtime ticket: %w", err)
@@ -130,11 +145,17 @@ WHERE launch_id=? AND ticket_sha256=? AND consumed_at_ms IS NULL AND expires_at_
 	}
 	credential := base64.RawURLEncoding.EncodeToString(credentialBytes)
 	credentialDigest := sha256.Sum256(credentialBytes)
-	if _, err := transaction.ExecContext(ctx, `
+	var capabilityLaunchID, capabilityPreviewID any = launchID, nil
+	if access.Preview {
+		capabilityLaunchID, capabilityPreviewID = nil, launchID
+	}
+	_, err = transaction.ExecContext(ctx, `
 INSERT INTO isolated_runtime_capabilities(
- credential_sha256,launch_id,profile_id,expected_origin,issued_at_ms,expires_at_ms,revoked_at_ms)
-VALUES(?,?,?,?,?,?,NULL)
-`, credentialDigest[:], launchID, access.Profile, origin, now, access.Expires); err != nil {
+ credential_sha256,launch_id,preview_id,profile_id,expected_origin,issued_at_ms,expires_at_ms,revoked_at_ms)
+VALUES(?,?,?,?,?,?,?,NULL)
+`, credentialDigest[:], capabilityLaunchID, capabilityPreviewID,
+		access.Profile, origin, now, access.Expires)
+	if err != nil {
 		return "", Access{}, fmt.Errorf("create isolated runtime credential: %w", err)
 	}
 	if err := transaction.Commit(); err != nil {
@@ -154,17 +175,21 @@ func (service *Service) Authenticate(
 	digest := sha256.Sum256(credentialBytes)
 	var access Access
 	err = service.database.QueryRowContext(ctx, `
-SELECT capability.profile_id,capability.expires_at_ms
+SELECT capability.profile_id,capability.expires_at_ms,artifact.runtime_family,
+ capability.preview_id IS NOT NULL
 FROM isolated_runtime_capabilities capability
-JOIN launch_sessions launch ON launch.id=capability.launch_id
-JOIN core_artifacts artifact ON artifact.id=launch.core_artifact_id
-WHERE capability.credential_sha256=? AND capability.launch_id=? AND capability.expected_origin=?
-  AND capability.revoked_at_ms IS NULL AND capability.expires_at_ms>?
-  AND launch.state='ACTIVE' AND launch.hard_expires_at_ms>?
-  AND artifact.runtime_family='RPGMAKER' AND artifact.runtime_adapter_kind='NATIVE_WEB'
+LEFT JOIN launch_sessions launch ON launch.id=capability.launch_id
+LEFT JOIN review_preview_sessions preview ON preview.id=capability.preview_id
+JOIN core_artifacts artifact ON artifact.id=COALESCE(launch.core_artifact_id,preview.core_artifact_id)
+WHERE capability.credential_sha256=? AND COALESCE(capability.launch_id,capability.preview_id)=?
+  AND capability.expected_origin=? AND capability.revoked_at_ms IS NULL AND capability.expires_at_ms>?
+  AND (capability.launch_id IS NOT NULL AND launch.state='ACTIVE' AND launch.hard_expires_at_ms>?
+    OR capability.preview_id IS NOT NULL AND preview.state='ACTIVE' AND preview.hard_expires_at_ms>?)
+  AND (artifact.runtime_family='RPGMAKER' AND artifact.runtime_adapter_kind='NATIVE_WEB'
+    OR artifact.runtime_family='TYRANOSCRIPT' AND artifact.runtime_adapter_kind='TYRANOSCRIPT_WEB')
   AND artifact.available_for_launch=1
-`, digest[:], launchID, origin, service.now().UnixMilli(), service.now().UnixMilli()).Scan(
-		&access.Profile, &access.Expires,
+`, digest[:], launchID, origin, service.now().UnixMilli(), service.now().UnixMilli(), service.now().UnixMilli()).Scan(
+		&access.Profile, &access.Expires, &access.Family, &access.Preview,
 	)
 	if err != nil {
 		return Access{}, ErrCredential
@@ -176,7 +201,7 @@ WHERE capability.credential_sha256=? AND capability.launch_id=? AND capability.e
 func (service *Service) Revoke(ctx context.Context, access Access) error {
 	result, err := service.database.ExecContext(ctx, `
 UPDATE isolated_runtime_capabilities SET revoked_at_ms=?
-WHERE launch_id=? AND expected_origin=? AND revoked_at_ms IS NULL
+WHERE COALESCE(launch_id,preview_id)=? AND expected_origin=? AND revoked_at_ms IS NULL
 `, service.now().UnixMilli(), access.LaunchID, access.Origin)
 	if err != nil {
 		return fmt.Errorf("revoke isolated runtime credential: %w", err)

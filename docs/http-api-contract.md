@@ -257,7 +257,7 @@ Content-Type: application/json
 
 ### 5.3 多盘 Import 与 Review Attachment
 
-`POST /api/v1/admin/imports` 与 `POST /api/v1/admin/games/{gameId}/content-revisions` 的可选 `contentMode` 只允许 `STANDARD|MULTI_DISC_M3U_V1|RPG_MAKER_PROJECT_V1|ONS_PROJECT_V1|KIRIKIRI_PROJECT_V1|BUTTERSCOTCH_PROJECT_V1`，缺省严格为 STANDARD。MULTI 必须引用完整 DIRECTORY Upload，且 capability 由 feature flag、平台 profile 与当前 `selected_for_new_bindings` artifact 共同决定。首次独立 runtime 项目导入接受一个完整 DIRECTORY，或 FILES 中恰好一个 ZIP/7z；已发布 RPG 游戏的内容替换只接受完整 DIRECTORY，并由虚拟核心重新检测 generation，不接受客户端指定内部世代。新旧 generation 不同的 Job 以不可重试 `RPG_REPLACEMENT_GENERATION_MISMATCH` 失败；运行依赖声明变化以不可重试 `RPG_REPLACEMENT_DEPENDENCIES_CHANGED` 失败；两种失败均保留当前内容和存档。Review detail 的可空 `multiDisc` 只返回 playlist 摘要、ordered entries、PRESENT/MISSING、大小/hash、缺失引用、冻结的 `maxDiscs/maxTotalBytes` 与 attachment 状态，不返回 Blob ID、宿主路径或 capability。Attachment 状态包含 Job/Attachment version、可空 diagnostics 与仅在通用 Job 可人工重试时为 true 的 `canRetry`。
+`POST /api/v1/admin/imports` 与 `POST /api/v1/admin/games/{gameId}/content-revisions` 的可选 `contentMode` 只允许 `STANDARD|MULTI_DISC_M3U_V1|RPG_MAKER_PROJECT_V1|ONS_PROJECT_V1|KIRIKIRI_PROJECT_V1|BUTTERSCOTCH_PROJECT_V1|TYRANOSCRIPT_PROJECT_V1`，缺省严格为 STANDARD。MULTI 必须引用完整 DIRECTORY Upload，且 capability 由 feature flag、平台 profile 与当前 `selected_for_new_bindings` artifact 共同决定。首次独立 runtime 项目导入接受一个完整 DIRECTORY，或 FILES 中恰好一个 ZIP/7z；已发布 RPG 游戏的内容替换只接受完整 DIRECTORY，并由虚拟核心重新检测 generation，不接受客户端指定内部世代。新旧 generation 不同的 Job 以不可重试 `RPG_REPLACEMENT_GENERATION_MISMATCH` 失败；运行依赖声明变化以不可重试 `RPG_REPLACEMENT_DEPENDENCIES_CHANGED` 失败；两种失败均保留当前内容和存档。Review detail 的可空 `multiDisc` 只返回 playlist 摘要、ordered entries、PRESENT/MISSING、大小/hash、缺失引用、冻结的 `maxDiscs/maxTotalBytes` 与 attachment 状态，不返回 Blob ID、宿主路径或 capability。Attachment 状态包含 Job/Attachment version、可空 diagnostics 与仅在通用 Job 可人工重试时为 true 的 `canRetry`。
 
 `POST /api/v1/admin/reviews/{importItemId}/multi-disc-attachments` 要求 ADMIN、同源/CSRF、`If-Match`、User-scoped `Idempotency-Key` 与 `{uploadId}`，只接受包含当前全部缺盘的 COMPLETE FILES upload。成功为 202，返回 Job/Attachment、`Location`、新 Review ETag；版本、active/retry、能力漂移、集合不符与内容无效使用 OpenAPI 中稳定错误码。关闭新 Import flag 不取消已冻结的 Attachment/Job，也不影响已发布读取。
 
@@ -347,13 +347,13 @@ PlaySession 事件 API 位于 launch cookie 的限定 Path 内，同时要求正
 | `/content/assets/{assetId}` | 只用于已发布封面/截图等站内可见媒体；服务端解析逻辑 asset ID。每个 Asset ID 在存续期内 bytes 不变，替换 COVER/VIDEO 等媒体必须创建新 Asset ID 与新 URL，current 切换后旧 URL 立即失效；`public, max-age=31536000, immutable`。浏览器必须携带当前 session 直接请求该逻辑 URL；前端不得把受保护媒体交给不会转发 session cookie 的 Next.js 图片优化器。 |
 | `/content/save-states/{saveStateId}/screenshot` | 只用于确有截图、未删除且所属游戏仍已发布的手动存档；服务端解析逻辑 SaveState ID，不向浏览器暴露 Blob ID。没有截图、存档删除或游戏下架均返回 404；成功响应固定为 `private, no-store`。 |
 | `/api/v1/admin/review-assets/{assetId}` | 用于仍待审核 Item、候选媒体、人工上传审核媒体、Pegasus/EmulationStation 来源媒体或审核运行截图；服务器来源 `assetId` 为格式专属 Item ID 并带 `kind=COVER|VIDEO`（默认 COVER），封闭 UNION 必须恰好命中一个来源。响应为 `private, no-store`，不得把上游 URL 或 Blob ID 暴露给浏览器；ReviewEvent 本身不长期保留媒体。 |
-| `/runtime/launches/{launchId}/config` | 需要 launch cookie；返回以 `runtimeFamily=EMULATORJS|RPGMAKER|ONS|KIRIKIRI|BUTTERSCOTCH` 判别的非秘密配置 union，`private, no-store`、`Vary: Cookie`。普通审核 preview 继续由其专用配置分支投影；RPG validation 使用正式 LaunchConfig。 |
+| `/runtime/launches/{launchId}/config` | 需要 launch cookie；返回以 `runtimeFamily=EMULATORJS|RPGMAKER|ONS|KIRIKIRI|BUTTERSCOTCH|TYRANOSCRIPT` 判别的非秘密配置 union，`private, no-store`、`Vary: Cookie`。普通审核 preview 继续由其专用配置分支投影；RPG validation 使用正式 LaunchConfig。 |
 | `/runtime/content/game/{contentIdentity}/{logicalName}` | 只允许任一当前有效正式 Launch 或审核预览 grant 已锁定、且服务器重新计算身份等于 path 的运行内容；content identity 由领域版本、格式、Core、实际 ROM digest 与影响输出的选项派生，不直接暴露 Blob hash。需要仅作用于 `/runtime/content/` 的 HttpOnly grant cookie；`private, max-age=31536000, immutable`。替换 ROM 或影响输出的配置必须产生新 identity/URL，旧授权不能读取新内容。 |
 | `/runtime/content/bios/{contentIdentity}/bundle.zip` | 支持 GET/HEAD；identity 由带领域版本、规范按逻辑名排序的 BIOS bundle 成员名与每个文件 digest 派生，不直接暴露成员 hash。任一成员替换都会产生新 URL；需要有效 content grant，`private, max-age=31536000, immutable`。HEAD 执行与 GET 相同的授权、Launch 状态和 bundle 清单校验。 |
 | `/runtime/content/parent/{contentIdentity}/bundle.zip` | 与 BIOS bundle 相同，但只服务确定性 parent bundle；任一成员变化产生新 identity/URL，`private, max-age=31536000, immutable`。 |
 | `/runtime/content/external/{contentIdentity}/{logicalName}` | 只允许有效 content grant 锁定的多盘或外部文件；identity 由带领域分隔的实际文件 digest 派生，不直接暴露 Blob hash，文件替换产生新 URL。未锁定名、错误 identity、跨 Launch、错误/过期 grant 与 Blob 缺失不得泄露存在性；`private, max-age=31536000, immutable`。 |
 | `/runtime/launches/{launchId}/state` | 只允许选中状态存档；需要 cookie；`private, no-store`、`Vary: Cookie`。 |
-| `/runtime/launches/{launchId}/review-screenshot` | 接受 `image/png`，先鉴权再有界流式读取 ≤10 MiB。非 RPG 审核 preview 分支保留原行为：只接受 preview capability，仍匹配当前来源、目标平台和 CoreArtifact 的 READY 或阻断 preview 均可写，固定记录 `capturedAfterMs=5000`。RPG 分支只接受当前 validation 的 `restore_launch_id` capability，要求原 Launch 已结束、位置恢复 gate 已 PASS 且 binding 未漂移，直接把新 Blob 关联到该 validation 的 `evidence_screenshot_blob_id`，随后才允许 `RESTORE_SCREENSHOT` gate PASS。PRODUCT Launch、原 validation Launch、过期 cookie、重复截图或来源/配置漂移均拒绝。 |
+| `/runtime/launches/{launchId}/review-screenshot` | 接受 `image/png` 或 `image/jpeg`，先鉴权再有界流式读取 ≤10 MiB。非 RPG 审核 preview 分支只接受 preview capability，按魔数与解码结果校验真实媒体类型，仍匹配当前来源、目标平台和 CoreArtifact 的 READY 或阻断 preview，固定记录 `capturedAfterMs=5000`。RPG 分支仍只接受 PNG 和当前 validation 的 `restore_launch_id` capability，要求原 Launch 已结束、位置恢复 gate 已 PASS 且 binding 未漂移，直接把新 Blob 关联到该 validation 的 `evidence_screenshot_blob_id`，随后才允许 `RESTORE_SCREENSHOT` gate PASS。PRODUCT Launch、原 validation Launch、过期 cookie、重复截图或来源/配置漂移均拒绝。 |
 
 `GET /runtime/launches/{launchId}/config` 是首次 bootstrap 请求；credential、5 分钟 bootstrap TTL 和全部预检快照有效后，服务端原子把 LaunchSession 从 `CREATED` 转为 `ACTIVE` 并返回：
 
@@ -472,7 +472,7 @@ Upload manifest/part/complete、Import 创建、Launch、PlaySession 与 runtime
 | `POST /runtime/launches/{launchId}/start`、`POST /runtime/launches/{launchId}/heartbeat`、`POST /runtime/launches/{launchId}/finish` | 第 7 节 PlaySession 连续事件、时长和撤销；使用限定 Path 的 launch cookie。 |
 | `GET /runtime/launches/{launchId}/config` 及第 8 节内容路径 | 受 capability 保护的配置、内容与显式状态。 |
 | `POST /runtime/launches/{launchId}/save-states` | 用户显式触发的运行中状态保存；payload 必需，截图可选。 |
-| `POST /runtime/launches/{launchId}/review-screenshot` | 非 RPG 审核 preview 保存核心启动后第 5 秒 PNG；RPG validation 的不同 restore Launch 保存位置恢复证据 PNG；PRODUCT Launch 禁止。 |
+| `POST /runtime/launches/{launchId}/review-screenshot` | 非 RPG 审核 preview 保存核心启动后第 5 秒 PNG/JPEG；RPG validation 的不同 restore Launch 仍保存位置恢复证据 PNG；PRODUCT Launch 禁止。 |
 | `POST /api/v1/admin/uploads` | 创建文件/目录 upload manifest。 |
 | `GET /api/v1/admin/uploads/{uploadId}`、`PUT /api/v1/admin/uploads/{uploadId}/files/{fileId}/parts/{partNo}` | 恢复状态与上传 part。 |
 | `POST /api/v1/admin/uploads/{uploadId}/complete`、`DELETE /api/v1/admin/uploads/{uploadId}` | 投递异步 UPLOAD_FINALIZE 或取消 upload；两者都使用当前 ETag，complete 另需 Idempotency-Key。 |
@@ -890,6 +890,8 @@ Launch config 顶层是 `runtimeFamily` discriminated union。`EMULATORJS` 保�
 `runtimeFamily=ONS` 与 `runtimeFamily=KIRIKIRI` 同样是严格 discriminated config。KiriKiri只允许 `KIRIKIRI2_WEB/kirikiri2-web`，返回 `runtimeBaseUrl/projectIndexUrl`、可空唯一 `startupXp3Path`、slot 1999 与 `gameCompatibilityLine/saveAbi/readableSaveAbis`；项目索引只列 Launch或 Review Preview冻结的 `PROJECT_FILE`。该 config只承诺 KAG书签恢复，不能把形状匹配解释为任意 TJS项目的 checkpoint能力。
 
 `runtimeFamily=BUTTERSCOTCH` 只允许 `BUTTERSCOTCH_WEB/butterscotch-web` 与 `coreId=butterscotch`。严格 config 固定 `protocolVersion=1`、`mode=single`、`runtimeBaseUrl/projectIndexUrl`、不可变 content digest 和可空 `RUNTIME_STATE` checkpoint URL；产品 checkpoint 上限 16 MiB。Review Preview 使用同一 runtime/config 形状但额外携带专用 preview 元数据，不能被产品 Player 的严格 decoder 接受。
+
+`runtimeFamily=TYRANOSCRIPT` 只允许 `TYRANOSCRIPT_WEB/tyranoscript-web` 与 `coreId=tyranoscript`。严格 config 固定 `protocolVersion=1`、`mode=single`、不可变 content digest、unique-origin bootstrap/entry/cleanup URL 和可空 `RUNTIME_STATE` checkpoint URL；产品 checkpoint 上限 16 MiB。项目自带引擎只从当次冻结的 `PROJECT_FILE` 投影读取，不能取得宿主 cookie 或退回应用 origin。
 
 EasyRPG 与 mkxp 的同源内容端点属于严格 OpenAPI 契约，不能只在 Go router 中注册：
 

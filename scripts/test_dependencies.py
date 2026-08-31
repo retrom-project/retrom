@@ -228,13 +228,21 @@ class RPGMakerDependencyTests(unittest.TestCase):
             {"schema_version", "runtime_id", "release", "runtime_files", "artifacts"},
             set(self.manifest),
         )
-        self.assertEqual(10, len(self.manifest["artifacts"]))
+        self.assertEqual(11, len(self.manifest["artifacts"]))
         self.assertEqual(
             ["KIRIKIRI2_KAG"],
             [
                 item["route_key"]
                 for item in self.manifest["artifacts"]
                 if item["runtime_family"] == "KIRIKIRI"
+            ],
+        )
+        self.assertEqual(
+            ["TYRANOSCRIPT_WEB"],
+            [
+                item["route_key"]
+                for item in self.manifest["artifacts"]
+                if item["runtime_family"] == "TYRANOSCRIPT"
             ],
         )
         serialized = json.dumps(self.manifest)

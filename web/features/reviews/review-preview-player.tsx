@@ -7,6 +7,7 @@ import {
   type KirikiriRuntimeConfig,
   type OnsRuntimeConfig,
   type ButterscotchRuntimeConfig,
+  type TyranoScriptRuntimeConfig,
 } from "@xxxsen/retrom-runtime";
 import { captureReviewScreenshot, mountEmulatorJS, type EmulatorInstance, type PlayerConfig } from "@/features/player/adapters/ejs-4.2.3-v2";
 import { installCanvasContain } from "@/features/player/canvas-fit";
@@ -31,7 +32,13 @@ type ButterscotchReviewConfig = ButterscotchRuntimeConfig & {
   gameTitle: string;
   reviewPreview: ReviewPreview;
 };
-type ReviewPlayerConfig = EmulatorReviewConfig | ONSReviewConfig | KiriKiriReviewConfig | ButterscotchReviewConfig;
+type TyranoScriptReviewConfig = TyranoScriptRuntimeConfig & {
+  runtimeFamily: "TYRANOSCRIPT";
+  gameTitle: string;
+  reviewPreview: ReviewPreview;
+};
+type ReviewPlayerConfig = EmulatorReviewConfig | ONSReviewConfig | KiriKiriReviewConfig |
+  ButterscotchReviewConfig | TyranoScriptReviewConfig;
 
 type ReviewRuntime = {
   screenshot: () => Promise<Blob>;
@@ -45,6 +52,7 @@ type ReviewMount = {
 };
 
 type ReviewMountOptions = {
+  frame: HTMLIFrameElement;
   signal: AbortSignal;
   onError: (reason: unknown) => void;
   onExitRequested: () => void;
@@ -104,6 +112,23 @@ async function mountReviewRuntime(
     };
     const runtime: GameRuntime = createRuntime(runtimeConfig, {
       frameWindow, restorePayload: null, signal: options.signal,
+    });
+    const unsubscribe = runtime.subscribe((event) => {
+      if (event.type === "FATAL_ERROR") {options.onError(event.code);}
+      if (event.type === "EXIT_REQUESTED") {options.onExitRequested();}
+    });
+    try {await runtime.mount(target);} catch (error) {
+      unsubscribe(); await runtime.exit(); throw error;
+    }
+    options.onStart({runtime, cleanup: () => {unsubscribe(); void runtime.exit();}});
+    return;
+  }
+  if (config.runtimeFamily === "TYRANOSCRIPT") {
+    const runtimeConfig: TyranoScriptRuntimeConfig = {
+      sessionId: config.sessionId, contentDigest: config.contentDigest, adapter: config.adapter,
+    };
+    const runtime: GameRuntime = createRuntime(runtimeConfig, {
+      frame: options.frame, frameWindow, restorePayload: null, signal: options.signal,
     });
     const unsubscribe = runtime.subscribe((event) => {
       if (event.type === "FATAL_ERROR") {options.onError(event.code);}
@@ -187,7 +212,7 @@ export function ReviewPreviewPlayer({ previewId }: { previewId: string }) {
       const response = await fetch(`/runtime/launches/${previewId}/review-screenshot`, {
         method: "POST",
         credentials: "same-origin",
-        headers: { "Content-Type": "image/png" },
+        headers: { "Content-Type": screenshot.type || "application/octet-stream" },
         body: screenshot,
       });
       if (!response.ok) {
@@ -228,6 +253,7 @@ export function ReviewPreviewPlayer({ previewId }: { previewId: string }) {
         canvasContain = installCanvasContain(frameDocument, () => emulatorRef.current?.gameManager?.getVideoDimensions?.("aspect"));
         startupTimer = window.setTimeout(() => failStartup("模拟器核心启动超时，请关闭子窗体后重试"), previewStartupTimeoutMs);
         await mountReviewRuntime(config, target, mountedFrameWindow, {
+          frame,
           signal: controller.signal,
           onError: failStartup,
           onExitRequested: () => {
@@ -237,14 +263,14 @@ export function ReviewPreviewPlayer({ previewId }: { previewId: string }) {
             window.close();
           },
           onStart: (mount) => {
-            if (startupFailed) {mount.cleanup(); return;}
+            if (startupFailed || controller.signal.aborted) {mount.cleanup(); return;}
             gameStarted = true;
             runtimeRef.current = mount.runtime;
             emulatorRef.current = mount.emulator;
             cleanup = mount.cleanup;
             if (startupTimer !== undefined) {window.clearTimeout(startupTimer);}
             setState("running");
-            mountedFrameWindow.requestAnimationFrame(() => canvasContain?.refresh());
+            window.requestAnimationFrame(() => canvasContain?.refresh());
             captureTimerRef.current = window.setTimeout(() => {
               void uploadCapture(config).catch((error: unknown) => {
                 setDetail(error instanceof Error ? error.message : "第 5 秒运行截图保存失败");

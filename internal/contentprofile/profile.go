@@ -32,6 +32,7 @@ const (
 	ContentKindONSProject          ContentKind = "ONS_PROJECT_V1"
 	ContentKindKiriKiriProject     ContentKind = "KIRIKIRI_PROJECT_V1"
 	ContentKindButterscotchProject ContentKind = "BUTTERSCOTCH_PROJECT_V1"
+	ContentKindTyranoScriptProject ContentKind = "TYRANOSCRIPT_PROJECT_V1"
 )
 
 var (
@@ -92,6 +93,11 @@ var registry = map[string]Profile{
 		ArchiveFormats: []ArchiveFormat{ArchiveZIP, ArchiveSevenZip}, FormatCode: "BUTTERSCOTCH_PROJECT_V1",
 		ContentKinds: []ContentKind{ContentKindButterscotchProject},
 	},
+	"tyranoscript": {
+		PlatformID: "tyranoscript", ArchivePolicy: ArchiveProject,
+		ArchiveFormats: []ArchiveFormat{ArchiveZIP, ArchiveSevenZip}, FormatCode: "TYRANOSCRIPT_PROJECT_V1",
+		ContentKinds: []ContentKind{ContentKindTyranoScriptProject},
+	},
 }
 
 var specialPlatformExtensions = map[string][]string{
@@ -101,6 +107,7 @@ var specialPlatformExtensions = map[string][]string{
 	"ons":          {".zip", ".7z"},
 	"kirikiri":     {".zip", ".7z"},
 	"butterscotch": {".zip", ".7z"},
+	"tyranoscript": {".zip", ".7z"},
 }
 
 func single(platformID string, extensions ...string) Profile {

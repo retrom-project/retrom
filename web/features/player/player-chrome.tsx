@@ -13,7 +13,7 @@ type SyncTone = "synced" | "busy" | "warning";
 type ExitSaveState = "idle" | "saving" | "saved" | "error";
 
 export type PlayerDebugRuntime = {
-  runtimeFamily: "" | "EMULATORJS" | "RPGMAKER" | "ONS" | "KIRIKIRI" | "BUTTERSCOTCH";
+  runtimeFamily: "" | "EMULATORJS" | "RPGMAKER" | "ONS" | "KIRIKIRI" | "BUTTERSCOTCH" | "TYRANOSCRIPT";
   coreId: string;
   coreArtifactId: string;
   emulatorJSVersion: string;
@@ -314,7 +314,7 @@ function runtimeImplementation(runtime: PlayerDebugRuntime) {
   if (runtime.runtimeFamily === "RPGMAKER") {
     return <div><dt>运行类型</dt><dd>RPG Maker</dd></div>;
   }
-  if (runtime.runtimeFamily === "ONS" || runtime.runtimeFamily === "KIRIKIRI" || runtime.runtimeFamily === "BUTTERSCOTCH") {
+  if (runtime.runtimeFamily === "ONS" || runtime.runtimeFamily === "KIRIKIRI" || runtime.runtimeFamily === "BUTTERSCOTCH" || runtime.runtimeFamily === "TYRANOSCRIPT") {
     const label = runtime.runtimeFamily === "ONS" ? "ONScripter" :
       runtime.runtimeFamily === "KIRIKIRI" ? "KiriKiri" : "GameMaker";
     return <><div><dt>运行类型</dt><dd>{label}</dd></div><div><dt>Runtime</dt><dd>{runtime.emulatorJSVersion || "—"}</dd></div><div><dt>Player adapter</dt><dd title={runtime.playerAdapterId}>{runtime.playerAdapterId || "—"}</dd></div></>;

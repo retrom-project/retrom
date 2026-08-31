@@ -63,6 +63,8 @@ WHERE type='trigger' AND name LIKE 'import_group_requests_immutable_%' ORDER BY 
 	assertColumns(t, database.SQL, "rpgmaker_runtime_validations", "runtime_binding_revision", "project_fingerprint",
 		"launch_id", "restore_launch_id", "last_gate_sequence", "machine_gates_json")
 	assertColumns(t, database.SQL, "rpgmaker_runtime_validation_checkpoints", "payload_blob_id", "payload_kind")
+	assertColumns(t, database.SQL, "isolated_runtime_bootstrap_tickets", "launch_id", "preview_id")
+	assertColumns(t, database.SQL, "isolated_runtime_capabilities", "launch_id", "preview_id")
 	assertColumns(t, database.SQL, "runtime_asset_pack_installations", "status", "version", "validated_at_ms")
 	assertNotNullColumn(t, database.SQL, "game_metadata_revisions", "title_initial")
 	assertNotNullColumn(t, database.SQL, "save_states", "source_launch_session_id")
@@ -79,9 +81,9 @@ SELECT (SELECT count(*) FROM platforms),
 		t.Fatal(err)
 	}
 	testassert.Falsef(t, testassert.Any(
-		func() bool { return platformCount != 29 },
-		func() bool { return coreCount != 46 },
-		func() bool { return relationCount != 42 },
+		func() bool { return platformCount != 30 },
+		func() bool { return coreCount != 47 },
+		func() bool { return relationCount != 43 },
 		func() bool { return directoryCount != 0 },
 	), "seed counts = %d/%d/%d/%d", platformCount, coreCount, relationCount, directoryCount)
 	assertColumns(t, database.SQL, "platform_instances", "catalog_template_key")
@@ -102,7 +104,7 @@ SELECT (SELECT count(*) FROM profiles),(SELECT count(*) FROM users),state FROM i
 	wantPlatforms := []string{
 		"3do", "arcade", "atari2600", "atari5200", "atari7800", "butterscotch", "dos", "fds", "gba", "gbc", "kirikiri", "lynx", "mastersystem",
 		"megadrive", "n64", "nds", "nes", "ngpc", "nintendo3ds", "ons", "pce", "pcfx", "psp", "psx", "rpgmaker", "saturn", "snes",
-		"virtualboy", "wonderswan",
+		"tyranoscript", "virtualboy", "wonderswan",
 	}
 	testassert.Truef(t, slices.Equal(queryStrings(t, database.SQL, "SELECT id FROM platforms ORDER BY id"), wantPlatforms), "platform catalog drifted")
 	wantCores := []string{
@@ -111,7 +113,7 @@ SELECT (SELECT count(*) FROM profiles),(SELECT count(*) FROM users),state FROM i
 		"mednafen_ngp", "mednafen_pce", "mednafen_pcfx", "mednafen_psx_hw", "mednafen_wswan", "melonds", "mgba",
 		"mupen64plus_next", "nestopia", "onscripter_yuri", "opera", "parallel_n64", "pcsx_rearmed", "picodrive", "ppsspp", "prosystem",
 		"rpgmaker", "rpgmaker_2000", "rpgmaker_2003", "rpgmaker_mv", "rpgmaker_mz", "rpgmaker_vx", "rpgmaker_vx_ace", "rpgmaker_xp", "smsplus",
-		"snes9x", "stella2014", "yabause",
+		"snes9x", "stella2014", "tyranoscript", "yabause",
 	}
 	testassert.Truef(t, slices.Equal(queryStrings(t, database.SQL, "SELECT id FROM cores ORDER BY id"), wantCores), "core catalog drifted")
 	testassert.Falsef(t, tableColumns(t, database.SQL, "cores")["requires_threads"], "thread capability remained on cores")

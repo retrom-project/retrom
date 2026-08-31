@@ -12,6 +12,7 @@ import (
 	"retrom/internal/importing"
 	onsdetector "retrom/internal/ons/detector"
 	"retrom/internal/rpgmaker/fileset"
+	tyranodetector "retrom/internal/tyranoscript/detector"
 )
 
 type markerProjectDefinition struct {
@@ -81,6 +82,24 @@ var onsMarkerProject = markerProjectDefinition{
 	},
 }
 
+var tyranoScriptMarkerProject = markerProjectDefinition{
+	name: "TyranoScript", markers: tyranodetector.Markers(),
+	contentKind:       string(contentprofile.ContentKindTyranoScriptProject),
+	compatibilityCode: "TYRANOSCRIPT_RUNTIME_TRIAL_REQUIRED",
+	detect: func(files []fileset.SourceFile, paths map[int]string) ([]byte, error) {
+		return detectMarkerProject(
+			files, paths, "TyranoScript",
+			func(file fileset.SourceFile) tyranodetector.File {
+				return tyranodetector.File{Path: file.Path, Size: file.SizeBytes}
+			},
+			func(index typedProjectIndex[tyranodetector.File]) (tyranodetector.Profile, error) {
+				return tyranodetector.Detect(index)
+			},
+			tyranodetector.MarshalSnapshot,
+		)
+	},
+}
+
 func (service *Service) prepareButterscotchProject(
 	ctx context.Context,
 	sourceType string,
@@ -95,6 +114,14 @@ func (service *Service) prepareONSProject(
 	files []importSourceFile,
 ) ([]preparedDisposition, []preparedGroup, []preparedArchive, error) {
 	return service.prepareMarkerProject(ctx, sourceType, files, onsMarkerProject)
+}
+
+func (service *Service) prepareTyranoScriptProject(
+	ctx context.Context,
+	sourceType string,
+	files []importSourceFile,
+) ([]preparedDisposition, []preparedGroup, []preparedArchive, error) {
+	return service.prepareMarkerProject(ctx, sourceType, files, tyranoScriptMarkerProject)
 }
 
 func detectMarkerProject[File any, Profile any](

@@ -289,4 +289,62 @@ describe("ReviewPreviewPlayer", () => {
     view.unmount();
     expect(kirikiri.exit).toHaveBeenCalledOnce();
   });
+
+  it("mounts isolated TyranoScript and uploads its JPEG review screenshot", async () => {
+    vi.useFakeTimers();
+    vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => {
+      callback(0);
+      return 1;
+    });
+    kirikiri.mount.mockResolvedValue(undefined);
+    kirikiri.screenshot.mockResolvedValue(new Blob(["tyrano-jpeg"], {type: "image/jpeg"}));
+    kirikiri.exit.mockResolvedValue(undefined);
+    kirikiri.create.mockReturnValue({
+      mount: kirikiri.mount, screenshot: kirikiri.screenshot,
+      exit: kirikiri.exit, subscribe: kirikiri.subscribe,
+    });
+    const origin = "https://preview-tyrano.rpg-runtime.example";
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      if (String(input).endsWith("/config")) {
+        return Promise.resolve(new Response(JSON.stringify({
+          runtimeFamily: "TYRANOSCRIPT", sessionId: "preview-tyrano", gameTitle: "Tyrano fixture",
+          contentDigest: "a".repeat(64),
+          adapter: {
+            adapterKind: "TYRANOSCRIPT_WEB", adapterId: "tyranoscript-web",
+            bootstrapTicket: "A".repeat(43), cleanupUrl: `${origin}/__retrom/tyranoscript/cleanup`,
+            entryUrl: `${origin}/__retrom/tyranoscript/bootstrap`, uniqueOrigin: origin,
+          },
+          reviewPreview: {importItemId: "item-tyrano", captureAllowed: true, captureAfterMs: 5000},
+        }), {status: 200, headers: {"Content-Type": "application/json"}}));
+      }
+      if (String(input).endsWith("/review-screenshot") && init?.method === "POST") {
+        return Promise.resolve(new Response(JSON.stringify({screenshotId: "shot-tyrano"}), {
+          status: 201, headers: {"Content-Type": "application/json"},
+        }));
+      }
+      throw new Error(`unexpected fetch ${String(input)}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const view = render(<ReviewPreviewPlayer previewId="preview-tyrano" />);
+    const frame = screen.getByTitle("审核游戏预览 运行画面") as HTMLIFrameElement;
+    Object.defineProperty(frame.contentWindow, "requestAnimationFrame", {
+      configurable: true,
+      value: () => {throw new DOMException("Blocked a frame with origin", "SecurityError");},
+    });
+    await act(async () => {await Promise.resolve(); await Promise.resolve(); await Promise.resolve();});
+
+    expect(kirikiri.create).toHaveBeenCalledOnce();
+    expect(kirikiri.mount).toHaveBeenCalledOnce();
+    await act(async () => {await vi.advanceTimersByTimeAsync(5_000);});
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/runtime/launches/preview-tyrano/review-screenshot",
+      expect.objectContaining({
+        method: "POST", body: expect.any(Blob), headers: {"Content-Type": "image/jpeg"},
+      }),
+    );
+
+    view.unmount();
+    expect(kirikiri.exit).toHaveBeenCalledOnce();
+  });
 });

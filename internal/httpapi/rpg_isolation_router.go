@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strings"
 
 	"github.com/google/uuid"
@@ -47,7 +48,7 @@ func (server *Server) serveRPGRuntimeHost(
 	requestContext := context.WithValue(request.Context(), requestIDKey, requestID.String())
 	request = request.WithContext(requestContext)
 	setRPGRuntimeResponseHeaders(writer, requestID.String())
-	if request.URL.RawQuery != "" || request.URL.Fragment != "" {
+	if !validRPGRuntimeRequestTarget(request) {
 		http.NotFound(writer, request)
 		return
 	}
@@ -55,6 +56,33 @@ func (server *Server) serveRPGRuntimeHost(
 		return
 	}
 	server.serveRPGRuntimeRoute(writer, request, access)
+}
+
+func validRPGRuntimeRequestTarget(request *http.Request) bool {
+	if request.URL.Fragment != "" {
+		return false
+	}
+	if request.URL.RawQuery == "" {
+		return true
+	}
+	_, tyranoScriptProject := tyranoScriptProjectLogicalName(request.URL.Path)
+	if !tyranoScriptProject || len(request.URL.RawQuery) > 24 {
+		return false
+	}
+	values, err := url.ParseQuery(request.URL.RawQuery)
+	if err != nil || len(values) != 1 || len(values["_"]) != 1 {
+		return false
+	}
+	value := values["_"][0]
+	if value == "" || len(value) > 20 {
+		return false
+	}
+	for _, character := range value {
+		if character < '0' || character > '9' {
+			return false
+		}
+	}
+	return true
 }
 
 func (server *Server) serveRPGRuntimeRoute(
@@ -88,7 +116,17 @@ func (server *Server) serveRPGRuntimeGet(
 		server.rpgRuntimeProject(writer, request, access)
 	case request.URL.Path == "/__retrom/restore-payload":
 		server.rpgRuntimeRestorePayload(writer, request, access)
+	case request.URL.Path == "/__retrom/tyranoscript/bootstrap":
+		server.tyranoScriptBootstrapPage(writer, request, access)
+	case request.URL.Path == "/__retrom/tyranoscript/entry":
+		server.tyranoScriptRuntimeEntry(writer, request, access)
+	case request.URL.Path == "/__retrom/tyranoscript/bridge.js":
+		server.tyranoScriptRuntimeBridge(writer, request, access)
 	default:
+		if _, ok := tyranoScriptProjectLogicalName(request.URL.Path); ok {
+			server.tyranoScriptRuntimeProject(writer, request, access)
+			return
+		}
 		http.NotFound(writer, request)
 	}
 }
@@ -102,6 +140,10 @@ func (server *Server) serveRPGRuntimePost(
 	case "/__retrom/bootstrap":
 		server.rpgBootstrapConsume(writer, request, access)
 	case "/__retrom/cleanup":
+		server.rpgRuntimeCleanup(writer, request, access)
+	case "/__retrom/tyranoscript/bootstrap":
+		server.tyranoScriptBootstrapConsume(writer, request, access)
+	case "/__retrom/tyranoscript/cleanup":
 		server.rpgRuntimeCleanup(writer, request, access)
 	default:
 		http.NotFound(writer, request)

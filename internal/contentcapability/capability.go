@@ -14,6 +14,7 @@ const (
 	ModeONSProjectV1          = "ONS_PROJECT_V1"
 	ModeKiriKiriProjectV1     = "KIRIKIRI_PROJECT_V1"
 	ModeButterscotchProjectV1 = "BUTTERSCOTCH_PROJECT_V1"
+	ModeTyranoScriptProjectV1 = "TYRANOSCRIPT_PROJECT_V1"
 	DeliveryEagerExternal     = "EAGER_EXTERNAL_FILES"
 	MaximumMultiDiscCount     = 8
 	MaximumMultiDiscBytes     = int64(1_073_741_824)
@@ -77,6 +78,8 @@ func projectImportCapabilities(platformID string, enabled bool) (ImportCapabilit
 		return ImportCapabilities{ContentModes: []string{ModeKiriKiriProjectV1}}, true
 	case "butterscotch":
 		return ImportCapabilities{ContentModes: []string{ModeButterscotchProjectV1}}, true
+	case "tyranoscript":
+		return ImportCapabilities{ContentModes: []string{ModeTyranoScriptProjectV1}}, true
 	default:
 		return ImportCapabilities{}, false
 	}
@@ -134,6 +137,8 @@ func projectAdapterABIs(contentKind string) []string {
 		return []string{"kirikiri-kag-bookmark"}
 	case ModeButterscotchProjectV1:
 		return []string{"butterscotch-checkpoint-v2"}
+	case ModeTyranoScriptProjectV1:
+		return []string{"tyranoscript-snapshot-v1"}
 	default:
 		return nil
 	}

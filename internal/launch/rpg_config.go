@@ -162,6 +162,13 @@ func (configuration Config) MarshalJSON() ([]byte, error) {
 		}
 		return contents, nil
 	}
+	if configuration.TyranoScript != nil {
+		contents, err := json.Marshal(configuration.TyranoScript)
+		if err != nil {
+			return nil, fmt.Errorf("marshal TyranoScript launch config: %w", err)
+		}
+		return contents, nil
+	}
 	type plainConfig Config
 	contents, err := json.Marshal(plainConfig(configuration))
 	if err != nil {
@@ -209,6 +216,13 @@ WHERE launch.id=? AND artifact.available_for_launch=1
 			return Config{}, err
 		}
 		return Config{RuntimeFamily: "BUTTERSCOTCH", Butterscotch: &butterscotch}, nil
+	}
+	if family == "TYRANOSCRIPT" {
+		tyranoScript, err := service.tyranoScriptProductConfig(ctx, launchID, capability)
+		if err != nil {
+			return Config{}, err
+		}
+		return Config{RuntimeFamily: "TYRANOSCRIPT", TyranoScript: &tyranoScript}, nil
 	}
 	return Config{}, ErrCredential
 }
@@ -676,7 +690,7 @@ func (service *Service) lockNativeBootstrapTicket(
 ) error {
 	var native int
 	if err := transaction.QueryRowContext(ctx, `
-SELECT runtime_adapter_kind='NATIVE_WEB' FROM core_artifacts WHERE id=?
+SELECT runtime_adapter_kind IN ('NATIVE_WEB','TYRANOSCRIPT_WEB') FROM core_artifacts WHERE id=?
 `, artifactID).Scan(&native); err != nil {
 		return fmt.Errorf("inspect native RPG runtime: %w", err)
 	}
@@ -695,6 +709,61 @@ VALUES(?,?,?,?,?,NULL)
 		return fmt.Errorf("lock native RPG bootstrap ticket: %w", err)
 	}
 	return nil
+}
+
+func (service *Service) lockIsolatedPreviewBootstrapTicket(
+	ctx context.Context,
+	transaction *sql.Tx,
+	previewID, actorUserID, artifactID string,
+	createdAt int64,
+) error {
+	var isolated int
+	var profileID string
+	if err := transaction.QueryRowContext(ctx, `
+SELECT artifact.runtime_adapter_kind='TYRANOSCRIPT_WEB',user.profile_id
+FROM core_artifacts artifact JOIN users user ON user.id=?
+WHERE artifact.id=?
+`, actorUserID, artifactID).Scan(&isolated, &profileID); err != nil {
+		return fmt.Errorf("inspect isolated preview runtime: %w", err)
+	}
+	if isolated != 1 {
+		return nil
+	}
+	origin, _, ticketHash, err := service.nativeRuntimeTicket(previewID)
+	if err != nil {
+		return err
+	}
+	if _, err := transaction.ExecContext(ctx, `
+INSERT INTO isolated_runtime_bootstrap_tickets(
+  ticket_sha256,preview_id,profile_id,expected_origin,expires_at_ms,consumed_at_ms)
+VALUES(?,?,?,?,?,NULL)
+`, ticketHash[:], previewID, profileID, origin, createdAt+60_000); err != nil {
+		return fmt.Errorf("lock isolated preview bootstrap ticket: %w", err)
+	}
+	return nil
+}
+
+func (service *Service) isolatedPreviewRuntimeAccess(
+	ctx context.Context,
+	previewID string,
+) (string, string, error) {
+	origin, ticket, ticketHash, err := service.nativeRuntimeTicket(previewID)
+	if err != nil {
+		return "", "", err
+	}
+	now := service.now().UnixMilli()
+	var valid int
+	if err := service.database.QueryRowContext(ctx, `
+SELECT
+ EXISTS(SELECT 1 FROM isolated_runtime_bootstrap_tickets
+  WHERE preview_id=? AND ticket_sha256=? AND expected_origin=?
+    AND consumed_at_ms IS NULL AND expires_at_ms>?)
+ OR EXISTS(SELECT 1 FROM isolated_runtime_capabilities
+  WHERE preview_id=? AND expected_origin=? AND revoked_at_ms IS NULL AND expires_at_ms>?)
+`, previewID, ticketHash[:], origin, now, previewID, origin, now).Scan(&valid); err != nil || valid != 1 {
+		return "", "", ErrBlocked
+	}
+	return origin, ticket, nil
 }
 
 func (service *Service) rpgRuntimePacks(

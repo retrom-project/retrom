@@ -271,6 +271,20 @@ func TestReviewScreenshotValidatesMediaTypeAndCredentialBeforeReadingBody(t *tes
 	response = httptest.NewRecorder()
 	server.storeReviewScreenshot(response, unauthorized)
 	testassert.Falsef(t, testassert.Any(func() bool { return response.Code != http.StatusUnauthorized }, func() bool { return !strings.Contains(response.Body.String(), `"code":"LAUNCH_CREDENTIAL_INVALID"`) }), "unauthorized review screenshot = %d %s", response.Code, response.Body.String())
+
+	unauthorizedJPEG := httptest.NewRequestWithContext(context.Background(),
+		http.MethodPost,
+		"/runtime/launches/preview/review-screenshot",
+		io.NopCloser(panicReader{}),
+	)
+	unauthorizedJPEG.SetPathValue("launchId", "01980000-0000-7000-8000-000000000099")
+	unauthorizedJPEG.Header.Set("Content-Type", "image/jpeg")
+	response = httptest.NewRecorder()
+	server.storeReviewScreenshot(response, unauthorizedJPEG)
+	testassert.Falsef(t, testassert.Any(
+		func() bool { return response.Code != http.StatusUnauthorized },
+		func() bool { return !strings.Contains(response.Body.String(), `"code":"LAUNCH_CREDENTIAL_INVALID"`) },
+	), "unauthorized JPEG review screenshot = %d %s", response.Code, response.Body.String())
 }
 
 type panicReader struct{}

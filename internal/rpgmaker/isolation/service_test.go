@@ -59,7 +59,8 @@ func TestBootstrapTicketIsSingleUseAndCapabilityRevocationIsTerminal(t *testing.
 	credential, access, err := fixture.service.ConsumeTicket(
 		context.Background(), fixture.launchID, fixture.origin, fixture.ticket,
 	)
-	if err != nil || access.LaunchID != fixture.launchID || access.Origin != fixture.origin {
+	if err != nil || access.LaunchID != fixture.launchID || access.Origin != fixture.origin ||
+		access.Family != "RPGMAKER" || access.Preview {
 		t.Fatalf("consume ticket = (%q,%#v,%v)", credential, access, err)
 	}
 	if _, err := fixture.service.InspectBootstrap(
@@ -78,6 +79,12 @@ func TestBootstrapTicketIsSingleUseAndCapabilityRevocationIsTerminal(t *testing.
 	if err != nil || authorized.Profile != "profile" {
 		t.Fatalf("authenticate capability = (%#v,%v)", authorized, err)
 	}
+	assertInvalidCapabilities(t, fixture, credential)
+	assertRevokedCapability(t, fixture, credential, authorized)
+}
+
+func assertInvalidCapabilities(t *testing.T, fixture isolationFixture, credential string) {
+	t.Helper()
 	for _, invalid := range []struct{ launchID, origin, credential string }{
 		{fixture.launchID, fixture.origin, "invalid"},
 		{"01980000-0000-7000-8000-000000000092", fixture.origin, credential},
@@ -89,6 +96,10 @@ func TestBootstrapTicketIsSingleUseAndCapabilityRevocationIsTerminal(t *testing.
 			t.Fatalf("invalid capability authentication error = %v", err)
 		}
 	}
+}
+
+func assertRevokedCapability(t *testing.T, fixture isolationFixture, credential string, authorized Access) {
+	t.Helper()
 	if err := fixture.service.Revoke(context.Background(), authorized); err != nil {
 		t.Fatal(err)
 	}
@@ -99,6 +110,38 @@ func TestBootstrapTicketIsSingleUseAndCapabilityRevocationIsTerminal(t *testing.
 	}
 	if err := fixture.service.Revoke(context.Background(), authorized); !errors.Is(err, ErrCredential) {
 		t.Fatalf("repeated capability revocation error = %v", err)
+	}
+}
+
+func TestTyranoScriptPreviewTicketCreatesPreviewScopedCapability(t *testing.T) {
+	t.Parallel()
+	fixture := newIsolationPreviewFixture(t)
+	access, err := fixture.service.InspectBootstrap(
+		context.Background(), fixture.launchID, fixture.origin,
+	)
+	if err != nil || access.Family != "TYRANOSCRIPT" || !access.Preview {
+		t.Fatalf("inspect preview bootstrap = (%#v,%v)", access, err)
+	}
+	credential, consumed, err := fixture.service.ConsumeTicket(
+		context.Background(), fixture.launchID, fixture.origin, fixture.ticket,
+	)
+	if err != nil || consumed.Family != "TYRANOSCRIPT" || !consumed.Preview {
+		t.Fatalf("consume preview bootstrap = (%q,%#v,%v)", credential, consumed, err)
+	}
+	authorized, err := fixture.service.Authenticate(
+		context.Background(), fixture.launchID, fixture.origin, credential,
+	)
+	if err != nil || authorized.Profile != "profile" || authorized.Family != "TYRANOSCRIPT" ||
+		!authorized.Preview {
+		t.Fatalf("authenticate preview capability = (%#v,%v)", authorized, err)
+	}
+	if err := fixture.service.Revoke(context.Background(), authorized); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := fixture.service.Authenticate(
+		context.Background(), fixture.launchID, fixture.origin, credential,
+	); !errors.Is(err, ErrCredential) {
+		t.Fatalf("revoked preview capability error = %v", err)
 	}
 }
 
@@ -144,6 +187,14 @@ type isolationFixture struct {
 }
 
 func newIsolationFixture(t *testing.T) isolationFixture {
+	return newIsolationFixtureForSession(t, false)
+}
+
+func newIsolationPreviewFixture(t *testing.T) isolationFixture {
+	return newIsolationFixtureForSession(t, true)
+}
+
+func newIsolationFixtureForSession(t *testing.T, preview bool) isolationFixture {
 	t.Helper()
 	database, err := sql.Open("sqlite", ":memory:")
 	if err != nil {
@@ -159,12 +210,15 @@ CREATE TABLE core_artifacts(
 CREATE TABLE launch_sessions(
  id TEXT PRIMARY KEY,profile_id TEXT,core_artifact_id TEXT,state TEXT,hard_expires_at_ms INTEGER
 );
+CREATE TABLE review_preview_sessions(
+ id TEXT PRIMARY KEY,core_artifact_id TEXT,state TEXT,hard_expires_at_ms INTEGER
+);
 CREATE TABLE isolated_runtime_bootstrap_tickets(
- ticket_sha256 BLOB,launch_id TEXT,profile_id TEXT,expected_origin TEXT,
+ ticket_sha256 BLOB,launch_id TEXT,preview_id TEXT,profile_id TEXT,expected_origin TEXT,
  expires_at_ms INTEGER,consumed_at_ms INTEGER
 );
 CREATE TABLE isolated_runtime_capabilities(
- credential_sha256 BLOB,launch_id TEXT,profile_id TEXT,expected_origin TEXT,
+ credential_sha256 BLOB,launch_id TEXT,preview_id TEXT,profile_id TEXT,expected_origin TEXT,
  issued_at_ms INTEGER,expires_at_ms INTEGER,revoked_at_ms INTEGER
 );`); err != nil {
 		t.Fatal(err)
@@ -175,14 +229,25 @@ CREATE TABLE isolated_runtime_capabilities(
 	ticketBytes := bytes.Repeat([]byte{0x5a}, 32)
 	ticket := base64.RawURLEncoding.EncodeToString(ticketBytes)
 	ticketDigest := sha256.Sum256(ticketBytes)
-	for _, statement := range []struct {
+	statements := []struct {
 		query     string
 		arguments []any
 	}{
 		{`INSERT INTO core_artifacts VALUES('artifact','RPGMAKER','NATIVE_WEB',1)`, nil},
 		{`INSERT INTO launch_sessions VALUES(?,'profile','artifact','ACTIVE',?)`, []any{launchID, nowMS + 120_000}},
-		{`INSERT INTO isolated_runtime_bootstrap_tickets VALUES(?,?,'profile',?,?,NULL)`, []any{ticketDigest[:], launchID, origin, nowMS + 60_000}},
-	} {
+		{`INSERT INTO isolated_runtime_bootstrap_tickets VALUES(?,?,NULL,'profile',?,?,NULL)`, []any{ticketDigest[:], launchID, origin, nowMS + 60_000}},
+	}
+	if preview {
+		statements = []struct {
+			query     string
+			arguments []any
+		}{
+			{`INSERT INTO core_artifacts VALUES('artifact','TYRANOSCRIPT','TYRANOSCRIPT_WEB',1)`, nil},
+			{`INSERT INTO review_preview_sessions VALUES(?,'artifact','ACTIVE',?)`, []any{launchID, nowMS + 120_000}},
+			{`INSERT INTO isolated_runtime_bootstrap_tickets VALUES(?,NULL,?,'profile',?,?,NULL)`, []any{ticketDigest[:], launchID, origin, nowMS + 60_000}},
+		}
+	}
+	for _, statement := range statements {
 		if _, err := database.ExecContext(ctx, statement.query, statement.arguments...); err != nil {
 			t.Fatal(err)
 		}

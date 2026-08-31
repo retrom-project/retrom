@@ -5,7 +5,7 @@
 | 文档状态 | 已审定 / 一期实施基线 |
 | 版本 | 1.2 |
 | 日期 | 2026-08-25 |
-| 适用范围 | EmulatorJS、RPG Maker/ONS/KiriKiri/Butterscotch runtime、core artifact、兼容覆盖、预置 Arcade DAT 与密码 blocklist |
+| 适用范围 | EmulatorJS、RPG Maker/ONS/KiriKiri/Butterscotch/TyranoScript runtime、core artifact、兼容覆盖、预置 Arcade DAT 与密码 blocklist |
 
 ## 1. 结论
 

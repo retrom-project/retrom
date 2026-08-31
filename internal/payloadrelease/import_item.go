@@ -185,6 +185,18 @@ WHERE payload_released_at_ms IS NULL AND scrape_run_id IN (
 
 func importItemDeleteStatements() []string {
 	return []string{
+		`DELETE FROM isolated_runtime_capabilities WHERE rowid IN (
+ SELECT capability.rowid FROM isolated_runtime_capabilities capability
+ JOIN review_preview_sessions preview ON preview.id=capability.preview_id
+ WHERE preview.import_item_id=? AND preview.state IN ('EXPIRED','REVOKED')
+ ORDER BY capability.rowid LIMIT 200
+)`,
+		`DELETE FROM isolated_runtime_bootstrap_tickets WHERE rowid IN (
+ SELECT ticket.rowid FROM isolated_runtime_bootstrap_tickets ticket
+ JOIN review_preview_sessions preview ON preview.id=ticket.preview_id
+ WHERE preview.import_item_id=? AND preview.state IN ('EXPIRED','REVOKED')
+ ORDER BY ticket.rowid LIMIT 200
+)`,
 		`DELETE FROM review_preview_files WHERE rowid IN (
  SELECT file.rowid FROM review_preview_files file
  JOIN review_preview_sessions preview ON preview.id=file.preview_session_id

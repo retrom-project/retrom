@@ -50,6 +50,7 @@ type Config struct {
 	ONS                  *ONSConfig                   `json:"-"`
 	KiriKiri             *KiriKiriConfig              `json:"-"`
 	Butterscotch         *ButterscotchConfig          `json:"-"`
+	TyranoScript         *TyranoScriptConfig          `json:"-"`
 }
 
 type NetplayConfig struct {

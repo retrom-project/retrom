@@ -208,6 +208,34 @@ describe("UploadPicker", () => {
     }));
   });
 
+  it("uses the TyranoScript project upload purpose and trial workflow", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({importJobId: "tyrano-import"}), {
+      status: 202, headers: {"Content-Type": "application/json"},
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+    const user = userEvent.setup();
+    render(<UploadPicker directories={[{
+      id: "tyranoscript", name: "TyranoScript 游戏", platformName: "TyranoScript", coreName: "TyranoScript",
+      importCapabilities: {contentModes: ["TYRANOSCRIPT_PROJECT_V1"], multiDisc: null},
+    }]} />);
+
+    await user.upload(screen.getByLabelText("选择导入文件"), new File(["project"], "game.zip"));
+    await user.click(screen.getByRole("button", {name: "下一步"}));
+    await user.selectOptions(screen.getByRole("combobox", {name: "目标游戏目录"}), "tyranoscript");
+    expect(screen.getByText("TyranoScript 项目")).toBeVisible();
+    expect(screen.getByText(/审核时需要先成功试运行一次/)).toBeVisible();
+    expect(screen.getByLabelText("元信息来源")).toHaveValue("不刮削（TyranoScript 项目）");
+
+    await user.click(screen.getByRole("button", {name: "上传并试运行 TyranoScript 项目"}));
+    expect(upload.uploadFiles).toHaveBeenCalledWith(expect.any(Array), expect.any(Function), "TYRANOSCRIPT_PROJECT");
+    expect(fetchMock).toHaveBeenCalledWith("/api/v1/admin/imports", expect.objectContaining({
+      body: JSON.stringify({
+        uploadId: "rpg-upload", targetPlatformInstanceId: "tyranoscript", metadataProvider: "NONE",
+        contentMode: "TYRANOSCRIPT_PROJECT_V1", tagIds: [],
+      }),
+    }));
+  });
+
   it("opens task progress as soon as the server accepts background preparation", async () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response(
       JSON.stringify({ importJobId: "queued-import", jobId: "group-job", state: "QUEUED", itemCount: 0 }),

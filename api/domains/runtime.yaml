@@ -339,11 +339,11 @@ paths:
       security: []
       operationId: postRuntimeReviewScreenshot
       x-retrom-streaming-body: true
-      description: Stores one bounded PNG using the path-scoped capability. The legacy branch accepts a current non-RPG review preview after five seconds, creates a review-runtime screenshot asset, and returns that asset ID and URL. The RPG branch accepts only the current validation's distinct restore Launch after the original Launch ended and RESTORE_POSITION_VERIFIED passed, binds the PNG directly to the validation's immutable restore evidence, and returns the validation ID as screenshotId and review-asset URL. The original validation Launch, ordinary published Launch sessions, expired capabilities, duplicate evidence, and binding drift cannot use this route.
+      description: Stores one bounded PNG or JPEG using the path-scoped capability. The legacy branch accepts a current non-RPG review preview after five seconds, creates a review-runtime screenshot asset, and returns that asset ID and URL. The RPG branch accepts only PNG from the current validation's distinct restore Launch after the original Launch ended and RESTORE_POSITION_VERIFIED passed, binds it directly to the validation's immutable restore evidence, and returns the validation ID as screenshotId and review-asset URL. The original validation Launch, ordinary published Launch sessions, expired capabilities, duplicate evidence, and binding drift cannot use this route.
       requestBody:
         required: true
         content:
-          image/png:
+          image/*:
             schema:
               type: string
               format: binary
@@ -458,6 +458,7 @@ components:
         - $ref: '#/components/schemas/OnsLaunchConfig'
         - $ref: '#/components/schemas/KiriKiriLaunchConfig'
         - $ref: '#/components/schemas/ButterscotchLaunchConfig'
+        - $ref: '#/components/schemas/TyranoScriptLaunchConfig'
       discriminator:
         propertyName: runtimeFamily
         mapping:
@@ -466,6 +467,7 @@ components:
           ONS: '#/components/schemas/OnsLaunchConfig'
           KIRIKIRI: '#/components/schemas/KiriKiriLaunchConfig'
           BUTTERSCOTCH: '#/components/schemas/ButterscotchLaunchConfig'
+          TYRANOSCRIPT: '#/components/schemas/TyranoScriptLaunchConfig'
     EmulatorJSLaunchConfig:
       type: object
       additionalProperties: false
@@ -1384,6 +1386,141 @@ components:
           nullable: true
           allOf:
             - $ref: '#/components/schemas/ButterscotchCheckpointRestore'
+        reviewPreview:
+          $ref: '#/components/schemas/ReviewPreviewConfig'
+    TyranoScriptAdapterConfig:
+      type: object
+      additionalProperties: false
+      required:
+        - adapterKind
+        - adapterId
+        - bootstrapTicket
+        - cleanupUrl
+        - entryUrl
+        - uniqueOrigin
+      properties:
+        adapterKind:
+          type: string
+          enum:
+            - TYRANOSCRIPT_WEB
+        adapterId:
+          type: string
+          enum:
+            - tyranoscript-web
+        bootstrapTicket:
+          type: string
+          pattern: ^[A-Za-z0-9_-]{43,128}$
+        cleanupUrl:
+          type: string
+          nullable: true
+          format: uri
+        entryUrl:
+          type: string
+          format: uri
+        uniqueOrigin:
+          type: string
+          format: uri
+    TyranoScriptCheckpointRestore:
+      type: object
+      additionalProperties: false
+      required:
+        - payloadKind
+        - payloadUrl
+      properties:
+        payloadKind:
+          type: string
+          enum:
+            - RUNTIME_STATE
+        payloadUrl:
+          type: string
+          pattern: ^/runtime/launches/[0-9a-f-]{36}/state$
+    TyranoScriptLaunchConfig:
+      type: object
+      additionalProperties: false
+      required:
+        - runtimeFamily
+        - protocolVersion
+        - mode
+        - purpose
+        - launchId
+        - sessionId
+        - coreId
+        - coreName
+        - gameTitle
+        - platformName
+        - runtimeVersion
+        - artifactId
+        - contentDigest
+        - returnTo
+        - warnings
+        - adapter
+        - checkpoint
+      properties:
+        runtimeFamily:
+          type: string
+          enum:
+            - TYRANOSCRIPT
+        protocolVersion:
+          type: integer
+          enum:
+            - 1
+        mode:
+          type: string
+          enum:
+            - single
+        purpose:
+          type: string
+          enum:
+            - PRODUCT
+            - REVIEW_PREVIEW
+        launchId:
+          type: string
+          format: uuid
+        sessionId:
+          type: string
+          format: uuid
+        coreId:
+          type: string
+          enum:
+            - tyranoscript
+        coreName:
+          type: string
+          minLength: 1
+          maxLength: 200
+        gameTitle:
+          type: string
+          minLength: 1
+          maxLength: 500
+        platformName:
+          type: string
+          enum:
+            - TyranoScript
+        runtimeVersion:
+          type: string
+          minLength: 1
+          maxLength: 160
+        artifactId:
+          type: string
+          format: uuid
+        contentDigest:
+          type: string
+          pattern: ^[0-9a-f]{64}$
+        returnTo:
+          type: string
+          minLength: 1
+          maxLength: 2048
+        warnings:
+          type: array
+          maxItems: 16
+          items:
+            type: string
+            maxLength: 200
+        adapter:
+          $ref: '#/components/schemas/TyranoScriptAdapterConfig'
+        checkpoint:
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/TyranoScriptCheckpointRestore'
         reviewPreview:
           $ref: '#/components/schemas/ReviewPreviewConfig'
     RpgRuntimeGatePhase:

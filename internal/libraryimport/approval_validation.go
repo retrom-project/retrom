@@ -153,7 +153,7 @@ func prepareStaticBIOSDependencies(
 
 func skipsStaticBIOS(platformID string) bool {
 	switch platformID {
-	case "arcade", "rpgmaker", "ons", "kirikiri", "butterscotch":
+	case "arcade", "rpgmaker", "ons", "kirikiri", "butterscotch", "tyranoscript":
 		return true
 	default:
 		return false
