@@ -115,7 +115,7 @@ def validate_manifest(manifest: object) -> None:
         raise BuildError("RPG_RUNTIME_RELEASE_INVALID")
     repository = release.get("repository")
     tag = release.get("tag")
-    if repository != "https://github.com/xxxsen/retrom-runtime" or not isinstance(tag, str) or SEMVER_TAG.fullmatch(tag) is None or not isinstance(release.get("tag_commit"), str) or HEX_40.fullmatch(release["tag_commit"]) is None:
+    if repository != "https://github.com/retrom-project/retrom-runtime" or not isinstance(tag, str) or SEMVER_TAG.fullmatch(tag) is None or not isinstance(release.get("tag_commit"), str) or HEX_40.fullmatch(release["tag_commit"]) is None:
         raise BuildError("RPG_RUNTIME_RELEASE_INVALID")
     validate_release_asset(release, release.get("bundle_asset"), f"retrom-runtime-{tag[1:]}.tar.gz", 256 << 20)
     validate_release_asset(release, release.get("metadata_asset"), "retrom-runtime-release.json", 1 << 20)

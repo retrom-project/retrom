@@ -159,7 +159,7 @@ class RetromRuntimeDevTests(unittest.TestCase):
     @staticmethod
     def write_formal_manifest(manifest_path: Path, version: str = "0.7.0") -> dict[str, object]:
         release = {
-            "repository": "https://github.com/xxxsen/retrom-runtime",
+            "repository": "https://github.com/retrom-project/retrom-runtime",
             "tag": f"v{version}",
             "tag_commit": "b" * 40,
             "bundle_asset": {"filename": f"retrom-runtime-{version}.tar.gz"},
