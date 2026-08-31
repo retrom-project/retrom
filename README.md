@@ -50,7 +50,7 @@ Node.js、Web 依赖、固定版本的 Chrome for Testing、EmulatorJS、核心�
 ### 启动步骤
 
 ```bash
-git clone https://github.com/xxxsen/retrom.git
+git clone https://github.com/retrom-project/retrom.git
 cd retrom
 
 make install-deps

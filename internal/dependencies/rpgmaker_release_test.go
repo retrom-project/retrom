@@ -83,7 +83,7 @@ func releaseTestVersion(t *testing.T) *RPGMakerVersion {
 
 func releaseTestDeclaration() RPGMakerRuntimeRelease {
 	release := RPGMakerRuntimeRelease{
-		Repository: "https://github.com/xxxsen/retrom-runtime",
+		Repository: "https://github.com/retrom-project/retrom-runtime",
 		Tag:        "v0.2.0", TagCommit: "1111111111111111111111111111111111111111",
 	}
 	release.BundleAsset = RPGMakerReleaseMetadata{
