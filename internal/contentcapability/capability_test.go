@@ -83,6 +83,19 @@ func TestResolveButterscotchUsesOnlyProjectMode(t *testing.T) {
 	}
 }
 
+func TestResolveTyranoScriptUsesOnlyProjectMode(t *testing.T) {
+	t.Parallel()
+	got := Resolve("tyranoscript", true, false, `{}`)
+	testassert.Falsef(t, testassert.Any(
+		func() bool { return !reflect.DeepEqual(got.ContentModes, []string{ModeTyranoScriptProjectV1}) },
+		func() bool { return got.MultiDisc != nil },
+	), "TyranoScript capabilities=%#v", got)
+	if !SupportsContentKind(`{"adapterAbi":"tyranoscript-snapshot-v1"}`, ModeTyranoScriptProjectV1) ||
+		SupportsContentKind(`{"adapterAbi":"native-save"}`, ModeTyranoScriptProjectV1) {
+		t.Fatal("TyranoScript publication capability did not enforce its checkpoint ABI")
+	}
+}
+
 func TestSupportsContentKindRequiresExplicitCompatibilityV3(t *testing.T) {
 	t.Parallel()
 	standard := `{"schemaVersion":5,"supportedContentKinds":["SINGLE_FILE"]}`

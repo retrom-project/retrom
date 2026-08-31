@@ -311,7 +311,7 @@ SELECT preview.credential_sha256,preview.state,preview.hard_expires_at_ms,blob.s
 preview.content_format,artifact.core_id,artifact.version,platform.id
 FROM review_preview_sessions preview
 JOIN core_artifacts artifact ON artifact.id=preview.core_artifact_id
- AND artifact.runtime_family IN ('ONS','KIRIKIRI','BUTTERSCOTCH')
+ AND artifact.runtime_family IN ('ONS','KIRIKIRI','BUTTERSCOTCH','TYRANOSCRIPT')
 JOIN platform_instances instance ON instance.id=preview.target_platform_instance_id
 JOIN platforms platform ON platform.id=instance.platform_id
 JOIN (
@@ -322,12 +322,14 @@ JOIN (
 ) file ON file.preview_session_id=preview.id AND file.logical_name=?
 JOIN blobs blob ON blob.id=file.blob_id
 WHERE preview.id=?
- AND preview.content_kind IN ('ONS_PROJECT_V1','KIRIKIRI_PROJECT_V1','BUTTERSCOTCH_PROJECT_V1')
+ AND preview.content_kind IN (
+  'ONS_PROJECT_V1','KIRIKIRI_PROJECT_V1','BUTTERSCOTCH_PROJECT_V1','TYRANOSCRIPT_PROJECT_V1'
+ )
 `, normalized, previewID).Scan(
 		&credentialHash, &state, &hardExpires, &digest, &format, &coreID, &artifactVersion, &platformKey,
 	)
 	if err != nil || format != onsProjectFormat && format != kirikiriProjectFormat &&
-		format != butterscotchProjectFormat ||
+		format != butterscotchProjectFormat && format != tyranoScriptProjectFormat ||
 		!reviewPreviewCredential(service.now().UnixMilli(), capability, credentialHash, state, hardExpires) {
 		return ContentView{}, ErrCredential
 	}

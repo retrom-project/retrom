@@ -74,6 +74,93 @@ func TestTransformRPGEntryRejectsMalformedOrNonUTF8Documents(t *testing.T) {
 	}
 }
 
+func TestTransformTyranoScriptEntryInstallsProjectBaseAndBridge(t *testing.T) {
+	t.Parallel()
+	original := []byte(`<!doctype html><html><head><base href="./"><script src="tyrano/tyrano.js"></script></head></html>`)
+	transformed, err := transformIsolatedEntry(
+		original, "/__retrom/tyranoscript/project/", "/__retrom/tyranoscript/bridge.js",
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	value := string(transformed)
+	base := strings.Index(value, `<base href="/__retrom/tyranoscript/project/">`)
+	bridge := strings.Index(value, `<script src="/__retrom/tyranoscript/bridge.js"></script>`)
+	project := strings.Index(value, `<script src="tyrano/tyrano.js"></script>`)
+	if base < 0 || bridge < base || project < bridge || strings.Count(value, "<base") != 1 {
+		t.Fatalf("TyranoScript injection order is unsafe: %s", value)
+	}
+}
+
+func TestTyranoScriptProjectMIMEIsExplicit(t *testing.T) {
+	t.Parallel()
+	for _, logicalName := range []string{
+		"data/scenario/first.ks", "data/system/Config.tjs", "tyrano/tyrano.js", "data/image/title.webp",
+	} {
+		if _, ok := tyranoScriptProjectMIME(logicalName); !ok {
+			t.Fatalf("valid TyranoScript project file rejected: %s", logicalName)
+		}
+	}
+	for _, logicalName := range []string{"index.php", "launch.exe", "plugin.node", "archive.zip"} {
+		if _, ok := tyranoScriptProjectMIME(logicalName); ok {
+			t.Fatalf("unsafe TyranoScript project file accepted: %s", logicalName)
+		}
+	}
+}
+
+func TestTyranoScriptProjectPathSupportsEngineAbsoluteResources(t *testing.T) {
+	t.Parallel()
+	accepted := map[string]string{
+		"/__retrom/tyranoscript/project/data/scenario/first.ks": "data/scenario/first.ks",
+		"/__retrom/tyranoscript/data/bgimage/title.jpg":         "data/bgimage/title.jpg",
+		"/__retrom/tyranoscript/tyrano/html/menu.html":          "tyrano/html/menu.html",
+		"/data/bgimage/title.jpg":                               "data/bgimage/title.jpg",
+		"/tyrano/html/menu.html":                                "tyrano/html/menu.html",
+	}
+	for requestPath, expected := range accepted {
+		logicalName, ok := tyranoScriptProjectLogicalName(requestPath)
+		if !ok || logicalName != expected {
+			t.Fatalf("TyranoScript project path %q = %q/%t", requestPath, logicalName, ok)
+		}
+	}
+	for _, requestPath := range []string{
+		"/__retrom/tyranoscript/bridge.js", "/__retrom/tyranoscript/bootstrap",
+		"/__retrom/tyranoscript/entry", "/__retrom/tyranoscript/arbitrary/plugin.js",
+		"/__retrom/secret.js", "/../secret.js", "/launch.exe", "/arbitrary/plugin.js",
+	} {
+		if logicalName, ok := tyranoScriptProjectLogicalName(requestPath); ok {
+			t.Fatalf("unsafe TyranoScript project path %q accepted as %q", requestPath, logicalName)
+		}
+	}
+}
+
+func TestRPGRuntimeRequestTargetAllowsOnlyTyranoScriptNumericCacheBusters(t *testing.T) {
+	t.Parallel()
+	accepted := []string{
+		"https://runtime.example/__retrom/tyranoscript/project/data/system/Config.tjs",
+		"https://runtime.example/__retrom/tyranoscript/project/data/system/Config.tjs?_=1788123731998",
+		"https://runtime.example/data/scenario/title.ks?_=1788123731998",
+	}
+	for _, target := range accepted {
+		request := httptest.NewRequestWithContext(context.Background(), http.MethodGet, target, nil)
+		if !validRPGRuntimeRequestTarget(request) {
+			t.Fatalf("valid runtime target rejected: %s", target)
+		}
+	}
+	for _, target := range []string{
+		"https://runtime.example/__retrom/entry?_=1",
+		"https://runtime.example/__retrom/tyranoscript/project/data/system/Config.tjs?cache=1",
+		"https://runtime.example/__retrom/tyranoscript/project/data/system/Config.tjs?_=1&_=2",
+		"https://runtime.example/__retrom/tyranoscript/project/data/system/Config.tjs?_=not-a-number",
+		"https://runtime.example/__retrom/tyranoscript/project/data/system/Config.tjs?_=123456789012345678901",
+	} {
+		request := httptest.NewRequestWithContext(context.Background(), http.MethodGet, target, nil)
+		if validRPGRuntimeRequestTarget(request) {
+			t.Fatalf("unsafe runtime target accepted: %s", target)
+		}
+	}
+}
+
 func TestNativeProjectAllowlistRejectsHTMLTraversalAndUnknownExecutionTypes(t *testing.T) {
 	t.Parallel()
 	for _, logicalName := range []string{"js/main.js", "data/System.json", "audio/bgm/theme.ogg", "img/encrypted.rpgmvp"} {
@@ -186,12 +273,15 @@ CREATE TABLE core_artifacts(
 CREATE TABLE launch_sessions(
  id TEXT PRIMARY KEY,profile_id TEXT,core_artifact_id TEXT,state TEXT,hard_expires_at_ms INTEGER
 );
+CREATE TABLE review_preview_sessions(
+ id TEXT PRIMARY KEY,core_artifact_id TEXT,state TEXT,hard_expires_at_ms INTEGER
+);
 CREATE TABLE isolated_runtime_bootstrap_tickets(
- ticket_sha256 BLOB,launch_id TEXT,profile_id TEXT,expected_origin TEXT,
+ ticket_sha256 BLOB,launch_id TEXT,preview_id TEXT,profile_id TEXT,expected_origin TEXT,
  expires_at_ms INTEGER,consumed_at_ms INTEGER
 );
 CREATE TABLE isolated_runtime_capabilities(
- credential_sha256 BLOB,launch_id TEXT,profile_id TEXT,expected_origin TEXT,
+ credential_sha256 BLOB,launch_id TEXT,preview_id TEXT,profile_id TEXT,expected_origin TEXT,
  issued_at_ms INTEGER,expires_at_ms INTEGER,revoked_at_ms INTEGER
 );`); err != nil {
 		t.Fatal(err)
@@ -208,7 +298,7 @@ CREATE TABLE isolated_runtime_capabilities(
 	}{
 		{`INSERT INTO core_artifacts VALUES('artifact','RPGMAKER','NATIVE_WEB',1)`, nil},
 		{`INSERT INTO launch_sessions VALUES(?,'profile','artifact','ACTIVE',?)`, []any{launchID, nowMS + 120_000}},
-		{`INSERT INTO isolated_runtime_bootstrap_tickets VALUES(?,?,'profile',?,?,NULL)`, []any{ticketDigest[:], launchID, origin, nowMS + 60_000}},
+		{`INSERT INTO isolated_runtime_bootstrap_tickets VALUES(?,?,NULL,'profile',?,?,NULL)`, []any{ticketDigest[:], launchID, origin, nowMS + 60_000}},
 	} {
 		if _, err := database.ExecContext(ctx, statement.query, statement.arguments...); err != nil {
 			t.Fatal(err)

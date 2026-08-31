@@ -136,6 +136,9 @@ func (service *Service) validateReviewPreviewSource(
 	if source.RuntimeFamily == "BUTTERSCOTCH" {
 		return service.validateButterscotchReviewPreviewSource(source)
 	}
+	if source.RuntimeFamily == "TYRANOSCRIPT" {
+		return service.validateTyranoScriptReviewPreviewSource(source)
+	}
 	if source.RuntimeFamily != "EMULATORJS" || service.dependencies.Versions[source.RuntimeVersion] == nil {
 		return ErrReviewPreviewUnavailable
 	}
@@ -199,6 +202,11 @@ VALUES(?,?,?,?,?,?,?)
 			return fmt.Errorf("lock review preview dependency: %w", err)
 		}
 	}
+	if err := service.lockIsolatedPreviewBootstrapTicket(
+		ctx, transaction, previewID, request.ActorUserID, source.ArtifactID, now,
+	); err != nil {
+		return err
+	}
 	if err := transaction.Commit(); err != nil {
 		return fmt.Errorf("commit review preview: %w", err)
 	}
@@ -253,7 +261,7 @@ JOIN platform_instances instance ON instance.id=draft.target_platform_instance_i
  AND instance.enabled=1 AND instance.deleted_at_ms IS NULL
 JOIN platforms platform ON platform.id=instance.platform_id
 JOIN core_artifacts artifact ON artifact.core_id=instance.default_core_id
- AND artifact.runtime_family IN ('EMULATORJS','ONS','KIRIKIRI','BUTTERSCOTCH')
+ AND artifact.runtime_family IN ('EMULATORJS','ONS','KIRIKIRI','BUTTERSCOTCH','TYRANOSCRIPT')
  AND artifact.selected_for_new_bindings=1
 JOIN cores core ON core.id=artifact.core_id
 LEFT JOIN import_item_core_validations validation ON validation.id=(
@@ -291,7 +299,7 @@ func (service *Service) reviewPreviewContent(
 		return reviewPreviewContentSet{}, fmt.Errorf("load primary review content: %w", err)
 	}
 	if source.ContentKind == onsProjectFormat || source.ContentKind == kirikiriProjectFormat ||
-		source.ContentKind == butterscotchProjectFormat {
+		source.ContentKind == butterscotchProjectFormat || source.ContentKind == tyranoScriptProjectFormat {
 		if !validPreviewFileSet(content.LogicalName, content.Files) {
 			return reviewPreviewContentSet{}, fmt.Errorf("validate review project names: %w", ErrReviewPreviewUnavailable)
 		}
@@ -357,6 +365,8 @@ WHERE import_item_core_validation_id=? AND role='MULTI_DISC_PLAYLIST' AND logica
 		return service.reviewPreviewKiriKiriContent(ctx, source)
 	case butterscotchProjectFormat:
 		return service.reviewPreviewButterscotchContent(ctx, source)
+	case tyranoScriptProjectFormat:
+		return service.reviewPreviewTyranoScriptContent(ctx, source)
 	default:
 		return reviewPreviewContentSet{}, ErrReviewPreviewUnavailable
 	}
@@ -612,6 +622,9 @@ func (service *Service) independentReviewPreviewConfig(
 	case "BUTTERSCOTCH":
 		config, err := service.buildButterscotchReviewConfig(ctx, previewID, capability, source)
 		return config, true, err
+	case "TYRANOSCRIPT":
+		config, err := service.buildTyranoScriptReviewConfig(ctx, previewID, capability, source)
+		return config, true, err
 	default:
 		return Config{}, false, nil
 	}
@@ -632,7 +645,8 @@ content_blob.sha256,preview.emulator_game_id,artifact.requires_threads,preview.c
 FROM review_preview_sessions preview
 JOIN blobs content_blob ON content_blob.id=preview.content_blob_id
 JOIN core_artifacts artifact ON artifact.id=preview.core_artifact_id
- AND artifact.runtime_family IN ('EMULATORJS','ONS','KIRIKIRI','BUTTERSCOTCH') AND artifact.available_for_launch=1
+ AND artifact.runtime_family IN ('EMULATORJS','ONS','KIRIKIRI','BUTTERSCOTCH','TYRANOSCRIPT')
+ AND artifact.available_for_launch=1
 JOIN cores core ON core.id=artifact.core_id
 JOIN platform_instances instance ON instance.id=preview.target_platform_instance_id
 WHERE preview.id=?
@@ -826,7 +840,7 @@ func (service *Service) inspectReviewScreenshot(reader io.Reader) (reviewScreens
 	}
 	image, inspectErr := mediaasset.InspectImage(file, metadata.Size)
 	cleanup.Error("close", file.Close())
-	if inspectErr != nil || image.MediaType != "image/png" {
+	if inspectErr != nil || image.MediaType != "image/png" && image.MediaType != "image/jpeg" {
 		return reviewScreenshotImage{}, ErrReviewScreenshotInvalid
 	}
 	return reviewScreenshotImage{Blob: metadata, Image: image}, nil

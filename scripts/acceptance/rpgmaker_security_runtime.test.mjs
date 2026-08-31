@@ -48,9 +48,13 @@ test("an application login rendered on the runtime origin blocks the acceptance 
 
 test("local native runtime cookies require the shared rpg.localhost site", () => {
   assert.doesNotThrow(() => requireLocalRuntimeSite("http://retrom-app.rpg.localhost:13004", runtimeOrigin));
-  for (const applicationOrigin of ["http://localhost:13004", "http://127.0.0.1:13004"]) {
+  for (const [applicationOrigin, candidateRuntimeOrigin] of [
+    ["http://localhost:13004", runtimeOrigin],
+    ["http://127.0.0.1:13004", runtimeOrigin],
+    ["http://retrom-app.rpg.localhost:13004", "http://launch.rpg-runtime.localhost:18084"],
+  ]) {
     assert.throws(
-      () => requireLocalRuntimeSite(applicationOrigin, runtimeOrigin),
+      () => requireLocalRuntimeSite(applicationOrigin, candidateRuntimeOrigin),
       (error) => error instanceof SecurityInputBlocked &&
         error.message === "RPG_ACCEPTANCE_SECURITY_RUNTIME_SITE_MISMATCH",
     );

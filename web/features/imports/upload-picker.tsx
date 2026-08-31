@@ -17,7 +17,7 @@ import { directoryPickerAvailable, droppedDirectory, pickDirectory, type PickedD
 
 type ChosenFile = { id: string; file: File; name: string; size: number; path: string };
 type ContentMode = "STANDARD" | "MULTI_DISC_M3U_V1" | "RPG_MAKER_PROJECT_V1" | "ONS_PROJECT_V1" |
-  "KIRIKIRI_PROJECT_V1" | "BUTTERSCOTCH_PROJECT_V1";
+  "KIRIKIRI_PROJECT_V1" | "BUTTERSCOTCH_PROJECT_V1" | "TYRANOSCRIPT_PROJECT_V1";
 type Directory = {
   id: string; name: string; platformName: string; coreName: string;
   importCapabilities?: { contentModes: string[]; multiDisc: { maxDiscs: number; maxTotalBytes: number } | null };
@@ -72,8 +72,10 @@ function SourceDropZone({ contentMode, onDrop, onPickDirectory, onPickFiles }: P
   const ons = contentMode === "ONS_PROJECT_V1";
   const kirikiri = contentMode === "KIRIKIRI_PROJECT_V1";
   const butterscotch = contentMode === "BUTTERSCOTCH_PROJECT_V1";
-  const project = rpgMaker || ons || kirikiri || butterscotch;
-  const projectName = rpgMaker ? "RPG Maker" : ons ? "ONS" : kirikiri ? "KiriKiri" : "GameMaker";
+  const tyranoScript = contentMode === "TYRANOSCRIPT_PROJECT_V1";
+  const project = rpgMaker || ons || kirikiri || butterscotch || tyranoScript;
+  const projectName = rpgMaker ? "RPG Maker" : ons ? "ONS" : kirikiri ? "KiriKiri"
+    : butterscotch ? "GameMaker" : "TyranoScript";
   return <div className="dropzone import-dropzone" onDragOver={(event) => event.preventDefault()} onDrop={(event) => { event.preventDefault(); onDrop(event.dataTransfer.files); }}><div><span aria-hidden="true">⇧</span><h2>{project ? `将 ${projectName} 项目归档或目录拖到这里` : "将游戏文件或目录拖到这里"}</h2><p>{project ? "只选择一个 ZIP/7z 项目归档，或选择完整项目目录；项目内相对路径会完整保留。" : "支持普通 ROM、Arcade ZIP、DOS 内容目录、多盘 M3U + CHD、RPG Maker 与 ONS 项目；相对路径会完整保留。"}</p><div className="dropzone-actions"><button className="button" type="button" onClick={onPickFiles}>{project ? "选择项目归档" : "选择文件"}</button><button className="button secondary" type="button" onClick={onPickDirectory}>{project ? "选择项目目录" : "选择目录"}</button></div></div></div>;
 }
 
@@ -141,6 +143,9 @@ function ProjectConfiguration({ contentMode }: Pick<ConfigStepProps, "contentMod
   if (contentMode === "BUTTERSCOTCH_PROJECT_V1") {
     return <div className="feedback info" role="status">整个 GameMaker 目录或单个 ZIP/7z 会作为一个项目导入；当前原型支持带 data.win 的项目，审核时需要先成功试运行一次。</div>;
   }
+  if (contentMode === "TYRANOSCRIPT_PROJECT_V1") {
+    return <div className="feedback info" role="status">整个 TyranoScript 目录或单个 ZIP/7z 会作为一个项目导入；审核时需要先成功试运行一次。</div>;
+  }
   return null;
 }
 
@@ -159,11 +164,7 @@ function ConfigStep(props: ConfigStepProps & { sourceIsDirectory: boolean }) {
   const submitLabel = props.reconfiguring
     ? "按新配置重新识别"
     : props.contentMode === "MULTI_DISC_M3U_V1" ? props.multiDiscSubmitLabel
-      : props.contentMode === "RPG_MAKER_PROJECT_V1" ? "上传并验证 RPG Maker 项目"
-        : props.contentMode === "ONS_PROJECT_V1" ? "上传并试运行 ONS 项目"
-          : props.contentMode === "KIRIKIRI_PROJECT_V1" ? "上传并试运行 KiriKiri 项目"
-            : props.contentMode === "BUTTERSCOTCH_PROJECT_V1" ? "上传并试运行 GameMaker 项目"
-              : "开始上传并验证";
+      : projectSubmitLabel(props.contentMode);
   return <section className="panel import-config-panel">
     <div className="panel-head"><div><h2>确认导入配置</h2><p>目标目录决定基础平台和推荐运行方式；配置会冻结到本次任务快照。</p></div><span className="status info"><i />步骤 2 / 3</span></div>
     <div className="panel-body">
@@ -177,6 +178,17 @@ function ConfigStep(props: ConfigStepProps & { sourceIsDirectory: boolean }) {
       <div className="import-stage-actions"><button className="button secondary" type="button" onClick={props.onBack}>上一步</button><button className="button" type="button" disabled={props.busy || props.preflighting || !props.target || props.multiDiscInvalid || props.projectInvalid} onClick={props.onSubmit}>{submitLabel}</button></div>
     </div>
   </section>;
+}
+
+function projectSubmitLabel(contentMode: ContentMode) {
+  const labels: Partial<Record<ContentMode, string>> = {
+    RPG_MAKER_PROJECT_V1: "上传并验证 RPG Maker 项目",
+    ONS_PROJECT_V1: "上传并试运行 ONS 项目",
+    KIRIKIRI_PROJECT_V1: "上传并试运行 KiriKiri 项目",
+    BUTTERSCOTCH_PROJECT_V1: "上传并试运行 GameMaker 项目",
+    TYRANOSCRIPT_PROJECT_V1: "上传并试运行 TyranoScript 项目",
+  };
+  return labels[contentMode] ?? "开始上传并验证";
 }
 
 function progressHeadline(completed: boolean, error: string, reconfiguring: boolean) {
@@ -242,7 +254,8 @@ function invalidMultiDiscSelection(contentMode: string, sourceType: string, pref
 
 function isProjectContentMode(contentMode: ContentMode) {
   return contentMode === "RPG_MAKER_PROJECT_V1" || contentMode === "ONS_PROJECT_V1" ||
-    contentMode === "KIRIKIRI_PROJECT_V1" || contentMode === "BUTTERSCOTCH_PROJECT_V1";
+    contentMode === "KIRIKIRI_PROJECT_V1" || contentMode === "BUTTERSCOTCH_PROJECT_V1" ||
+    contentMode === "TYRANOSCRIPT_PROJECT_V1";
 }
 
 function invalidProjectSelection(contentMode: ContentMode, sourceType: string, files: ChosenFile[]) {
@@ -258,6 +271,7 @@ function contentModeLabel(contentMode: ContentMode) {
   if (contentMode === "ONS_PROJECT_V1") {return "ONS 项目";}
   if (contentMode === "KIRIKIRI_PROJECT_V1") {return "KiriKiri 项目";}
   if (contentMode === "BUTTERSCOTCH_PROJECT_V1") {return "GameMaker 项目";}
+  if (contentMode === "TYRANOSCRIPT_PROJECT_V1") {return "TyranoScript 项目";}
   return "普通内容";
 }
 
@@ -308,6 +322,7 @@ function projectContentMode(contentModes: string[]): ContentMode {
   if (contentModes.includes("ONS_PROJECT_V1")) {return "ONS_PROJECT_V1";}
   if (contentModes.includes("KIRIKIRI_PROJECT_V1")) {return "KIRIKIRI_PROJECT_V1";}
   if (contentModes.includes("BUTTERSCOTCH_PROJECT_V1")) {return "BUTTERSCOTCH_PROJECT_V1";}
+  if (contentModes.includes("TYRANOSCRIPT_PROJECT_V1")) {return "TYRANOSCRIPT_PROJECT_V1";}
   return "STANDARD";
 }
 
@@ -417,7 +432,8 @@ export function UploadPicker({ directories, activeTags = [], reconfigureSource =
           : contentMode === "ONS_PROJECT_V1" ? "ONS_PROJECT"
             : contentMode === "KIRIKIRI_PROJECT_V1" ? "KIRIKIRI_PROJECT"
               : contentMode === "BUTTERSCOTCH_PROJECT_V1" ? "BUTTERSCOTCH_PROJECT" : "GENERAL";
-        const uploaded = await uploadFiles(files.map((chosen) => ({ file: chosen.file, relativePath: chosen.path })), setProgress, purpose);
+        const uploadPurpose = contentMode === "TYRANOSCRIPT_PROJECT_V1" ? "TYRANOSCRIPT_PROJECT" : purpose;
+        const uploaded = await uploadFiles(files.map((chosen) => ({ file: chosen.file, relativePath: chosen.path })), setProgress, uploadPurpose);
         setProgress("正在创建导入任务…");
         imported = await fetch("/api/v1/admin/imports", { method: "POST", credentials: "same-origin", headers: await writeHeaders({ "Content-Type": "application/json", "Idempotency-Key": newUuid() }), body: JSON.stringify({ uploadId: uploaded.uploadId, targetPlatformInstanceId: target, metadataProvider: selectedProvider, contentMode, tagIds: tags.map((tag) => tag.tagId) }) });
       }

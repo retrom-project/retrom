@@ -63,6 +63,7 @@
 - `ACC-ONS-001` 需要操作者依法持有的 ONS 项目归档，通过 `RETROM_ONS_SMOKE_ARCHIVE` 指定；归档只进入当次隔离数据根，不提交、镜像或写入结构化证据，缺失时该 Case 为 `BLOCKED`。
 - `ACC-KIRIKIRI-001` 需要操作者依法持有且使用 KAG 书签 API 的 KiriKiri2 项目归档，通过 `RETROM_KIRIKIRI_SMOKE_ARCHIVE` 指定；归档只进入当次隔离数据根，不提交、镜像或写入结构化证据，缺失时该 Case 为 `BLOCKED`。普通自定义 TJS 项目不因能启动而自动获得存档兼容声明。
 - `ACC-BUTTERSCOTCH-001` 需要操作者依法持有、可由锁定 Butterscotch core 运行且能响应标准手柄输入的 GameMaker 项目归档，通过 `RETROM_BUTTERSCOTCH_SMOKE_ARCHIVE` 指定；归档只进入当次隔离数据根，不提交、镜像或写入结构化证据，缺失时该 Case 为 `BLOCKED`。仅有 `data.win` 格式识别不能替代当次实际运行验证。
+- `ACC-TYRANOSCRIPT-001` 需要操作者依法持有的 TyranoScript 项目归档，通过 `RETROM_TYRANOSCRIPT_SMOKE_ARCHIVE` 指定；归档只进入当次隔离数据根，不提交、镜像或写入结构化证据，缺失时该 Case 为 `BLOCKED`。固定桥接资产和格式识别都不能替代当次实际产品运行验证。
 - 自动化验收不得读取或下载操作者私有 ROM/BIOS。`testdata/public-roms/gba-smoke/`、`testdata/public-roms/nes-smoke/`、`testdata/public-roms/snes-smoke/`、`testdata/public-roms/arcade-smoke/` 与 `testdata/public-roms/rpgmaker-smoke/` 中的可提交测试程序均由 Retrom 自有源码确定性生成或使用清单锁定的 MIT MV CoreScript、随仓库保留许可且不包含第三方游戏、BIOS、RTP 或商业 runtime bytes。MZ 官方样例始终位于 ignored 操作者目录，只通过转换 provenance 进入 `ACC-RPG-008`。
 
 首次准备依赖可以执行：
@@ -1702,6 +1703,14 @@ Review 与所需 validation Launch。`negative-matrix/matrix.json` 必须精确�
 - 能力边界：Retrom 只根据根目录合法 GameMaker `FORM` 容器识别候选，具体 GameMaker 版本和扩展兼容性必须由这次锁定 Butterscotch runtime trial 证明。Case 只证明固定 `retrom-runtime` tag 与本次依法持有样本的最小兼容性，不扩大为全部 GameMaker 游戏；第三方项目 bytes、路径、账号、CSRF、cookie 和 Launch capability 不进入结构化证据。
 - 证据：当次 `result.json`、`butterscotch-product.json` 与五张 PNG；结构化证据仅保存非秘密产品 ID、payload kind/size、canvas 布局、非黑像素、RGBA digest、项目内容身份和缓存请求计数。
 
+### ACC-TYRANOSCRIPT-001：TyranoScript 最小产品闭环
+
+- 上限：300 秒。执行：`RETROM_TYRANOSCRIPT_SMOKE_ARCHIVE=<absolute-licensed-project-archive> make acceptance-case CASE=ACC-TYRANOSCRIPT-001`；同时需要公共的 `RETROM_ACCEPTANCE_BASE_URL/USERNAME/PASSWORD` 与 `RETROM_CHROME_EXECUTABLE`，基础地址必须为 HTTPS origin 或 loopback 验收 origin。
+- 流程：经正式 Upload 创建 `TYRANOSCRIPT_PROJECT_V1` Import，等待唯一 Review；打开隔离 Review Preview，等待真实 `#tyrano_base` 可见和第 5 秒截图；审核发布后创建 PRODUCT Launch，通过标准手柄 B 键证明 Tyrano gamepad 事件，再在稳定等待标签把项目变量写为 B 并创建 `RUNTIME_STATE` checkpoint，随后改为 C；关闭原页面，以该存档创建 ID 不同的 PRODUCT Launch，确认恢复的场景、指令位置和变量精确回到 B，再次通过标准手柄 B 键证明恢复后输入。
+- 通过标准：预览、原 Product 和恢复 Product 均使用当前 `TYRANOSCRIPT/tyranoscript-web`；三张真实运行面截图均为非黑有效画面；checkpoint 为 `1..32 MiB` 的 `RUNTIME_STATE`；B、C 和恢复 B 的 marker 明确且恢复场景/指令位置与 B 完全一致；两个 Product Launch ID 不同。至少一次由 Tyrano 引擎发起的 `/__retrom/tyranoscript/data/bgimage/title.jpg` 请求返回 200，全部 Tyrano project/runtime 内容请求没有 4xx/5xx。浏览器无 page error、非预期 console error 或 dialog；沙箱拒绝上游 `visibilitychange` 中 `alert()` 的固定 Chromium 提示单独计数，不作为放宽 iframe 权限或失败依据。
+- 能力边界：checkpoint 只在上游定义的稳定等待标签 `text/l/p/s` 可创建，启动过程的瞬时 `bg` 等活动标签不能提前启用存档。Case 只证明锁定 `retrom-runtime` tag 或显式本地候选与当次合法样本的最小兼容性，不扩大为任意 TyranoScript 插件或项目的兼容声明。
+- 证据：当次 `result.json`、`tyranoscript-product.json` 与三张 PNG。结构化证据只含非秘密产品 ID、payload kind/size、B/C/恢复 B 的场景与指令序号、内容身份、资源状态计数、截图尺寸/非黑像素/digest 和浏览器错误计数，不含归档路径、逻辑文件路径、游戏 bytes、账号、CSRF、cookie 或 Launch capability。本地候选 PASS 只允许进入 runtime Release 流程；Release 完成后 Retrom 必须解除本地链接、固定 tag/commit/assets并重跑本 Case。
+
 ## 23. 缺陷处理与重验
 
 任一 Case 出现非预期行为即登记 defect，不能在原结果上直接改成 PASS：
@@ -1741,7 +1750,7 @@ red/green/root cause/fix/result/rerun 映射、green command 非零或超时的�
 - `ACC-IMM-001`–`012` 全部通过，且当次实体 standard 手柄 smoke 通过；缺少实体手柄时必须报告 `BLOCKED`，不能删除临时方案或宣称沉浸模式发布完成；
 - `ACC-RPG-001`–`012` 全部为当次 PASS；MZ 必须使用 `RPG_MZ_SMOKE_ROOT` 指定的合法真实 deployment，七个世代必须各至少一次在不同 Launch 精确恢复到 B 点并通过恢复后 `RESTORE_INPUT`；任一只有 API/hash/load success 证据的结果都不得通过；
 - `ACC-ONS-001` 为当次 PASS，且必须包含真实导入、可见画面、基本输入、存档、不同 Launch 恢复与恢复后输入；
-- `ACC-KIRIKIRI-001` 与 `ACC-BUTTERSCOTCH-001` 均为当次 PASS，且必须包含真实导入、可见画面、标准手柄输入、存档、不同 Launch 恢复与恢复后输入；
+- `ACC-KIRIKIRI-001`、`ACC-BUTTERSCOTCH-001` 与 `ACC-TYRANOSCRIPT-001` 均为当次 PASS，且必须包含真实导入、可见画面、标准手柄输入、存档、不同 Launch 恢复与恢复后输入；
 - 本次发现的每个 bug 均有回归测试和 red/green 证据；
 - `make ci` 和两个镜像 build target 通过，且镜像构建没有启动服务；
 - 最终报告记录 commit/dirty 状态、环境、Case 结果、缺陷、未执行项和残余风险；
@@ -1776,5 +1785,6 @@ AI Agent 的最终交付摘要必须列出：总结果、失败/阻塞 Case ID�
 | ONS 项目导入、审核试玩、发布、基本控制、存档与不同 Launch 恢复 | `ACC-ONS-001` |
 | KiriKiri2 KAG 项目导入、审核试玩、发布、基本控制、书签存档与不同 Launch 恢复 | `ACC-KIRIKIRI-001` |
 | GameMaker 项目导入、审核试玩、发布、标准手柄控制、即时存档、不同 Launch 恢复与项目缓存复用 | `ACC-BUTTERSCOTCH-001` |
+| TyranoScript 项目导入、隔离试玩、发布、稳定标签即时存档、不同 Launch 精确恢复与标准手柄输入 | `ACC-TYRANOSCRIPT-001` |
 
 本文列出的范围不包含 soak、压力或性能基准；未来若需要性能专项，应另建不阻塞一期功能验收的测试计划，不能把长时间运行 Case 混入本文。

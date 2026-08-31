@@ -12,6 +12,8 @@ import {
   fetchOnsCheckpoint,
   kirikiriShellConfig,
   onsShellConfig,
+  fetchTyranoScriptCheckpoint,
+  tyranoScriptShellConfig,
 } from "./player-bootstrap-config";
 import type {
   BootstrapResources,
@@ -31,6 +33,12 @@ import {
   type OnsLaunchConfig,
 } from "./ons-runtime";
 import { installRuntimeImmersiveGamepadFilter } from "./runtime-immersive-gamepad";
+import {
+  createTyranoScriptProductRuntime,
+  isTyranoScriptLaunchConfig,
+  tyranoScriptPlayerInstance,
+  type TyranoScriptLaunchConfig,
+} from "./tyranoscript-runtime";
 
 type MountedFrame = { target: HTMLElement; context: MountedContext };
 
@@ -52,12 +60,14 @@ export type RetromRuntimeBootstrapHost = {
     config: PlayerConfig,
     frame: HTMLIFrameElement,
     stateBytes: Uint8Array | null,
+    crossOriginFrame?: boolean,
   ) => MountedFrame;
   handleReady: (context: MountedContext, instance: EmulatorInstance) => void;
   completeStart: (context: MountedContext, resumeMainLoop: boolean) => void;
 };
 
 export { isKiriKiriLaunchConfig, isOnsLaunchConfig };
+export { isTyranoScriptLaunchConfig };
 
 export async function bootstrapOnsPlayer(
   params: PlayerBootstrapParams,
@@ -123,6 +133,28 @@ export async function bootstrapButterscotchPlayer(
     () => butterscotchPlayerInstance(runtime, mounted.target), host);
 }
 
+export async function bootstrapTyranoScriptPlayer(
+  params: PlayerBootstrapParams,
+  resources: BootstrapResources,
+  controller: AbortController,
+  runtimeConfig: TyranoScriptLaunchConfig,
+  host: RetromRuntimeBootstrapHost,
+) {
+  const config = tyranoScriptShellConfig(runtimeConfig);
+  host.applyConfig(params, config);
+  setDebugRuntime(params, runtimeConfig, "TYRANOSCRIPT");
+  const mounted = await prepareRuntimeFrame(params, resources, controller, config, host,
+    fetchTyranoScriptCheckpoint(runtimeConfig, controller.signal), true);
+  params.setMessage("正在启动 TyranoScript 运行时…");
+  const runtime = createTyranoScriptProductRuntime(
+    runtimeConfig, mounted.context.frame, mounted.context.frameWindow,
+    mounted.context.stateBytes, controller.signal,
+  );
+  resources.nativeRuntimeSubscription = runtime.subscribe((event) => handleRetromRuntimeEvent(event, params));
+  await mountRuntime(params, resources, controller, mounted, runtime,
+    () => tyranoScriptPlayerInstance(runtime, mounted.target), host);
+}
+
 type RuntimeIdentity = {
   coreId: string;
   artifactId: string;
@@ -133,7 +165,7 @@ type RuntimeIdentity = {
 function setDebugRuntime(
   params: PlayerBootstrapParams,
   config: RuntimeIdentity,
-  runtimeFamily: "ONS" | "KIRIKIRI" | "BUTTERSCOTCH",
+  runtimeFamily: "ONS" | "KIRIKIRI" | "BUTTERSCOTCH" | "TYRANOSCRIPT",
 ) {
   params.setDebugRuntime({
     runtimeFamily, coreId: config.coreId, coreArtifactId: config.artifactId,
@@ -150,11 +182,14 @@ async function prepareRuntimeFrame(
   config: PlayerConfig,
   host: RetromRuntimeBootstrapHost,
   statePromise: Promise<Uint8Array | null>,
+  crossOriginFrame = false,
 ) {
   await host.prepareOrientation(params, config, controller);
   const frame = await host.prepareFrame(params, controller);
   const stateBytes = await statePromise;
-  const mounted = host.mountFrame(params, resources, controller, config, frame, stateBytes);
+  const mounted = host.mountFrame(
+    params, resources, controller, config, frame, stateBytes, crossOriginFrame,
+  );
   resources.cleanupRuntimeGamepadFilter = installRuntimeImmersiveGamepadFilter(
     params.experience, mounted.context.frameWindow, params.immersiveGamepadFilter,
   );

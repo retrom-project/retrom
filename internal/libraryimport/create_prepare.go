@@ -73,7 +73,8 @@ func validCreateContentMode(contentMode string) bool {
 	switch contentMode {
 	case contentcapability.ModeStandard, contentcapability.ModeMultiDiscM3UV1,
 		contentcapability.ModeRPGMakerProjectV1, contentcapability.ModeONSProjectV1,
-		contentcapability.ModeKiriKiriProjectV1, contentcapability.ModeButterscotchProjectV1:
+		contentcapability.ModeKiriKiriProjectV1, contentcapability.ModeButterscotchProjectV1,
+		contentcapability.ModeTyranoScriptProjectV1:
 		return true
 	default:
 		return false
@@ -83,7 +84,8 @@ func validCreateContentMode(contentMode string) bool {
 func projectCreateContentMode(contentMode string) bool {
 	switch contentMode {
 	case contentcapability.ModeRPGMakerProjectV1, contentcapability.ModeONSProjectV1,
-		contentcapability.ModeKiriKiriProjectV1, contentcapability.ModeButterscotchProjectV1:
+		contentcapability.ModeKiriKiriProjectV1, contentcapability.ModeButterscotchProjectV1,
+		contentcapability.ModeTyranoScriptProjectV1:
 		return true
 	default:
 		return false
@@ -191,6 +193,13 @@ func (service *Service) prepareContent(
 		plan.dispositions, plan.groups, plan.archives, err = service.prepareButterscotchProject(
 			ctx, plan.sourceType, plan.files,
 		)
+	case contentcapability.ModeTyranoScriptProjectV1:
+		if plan.target.platformID != "tyranoscript" {
+			return ErrInvalid
+		}
+		plan.dispositions, plan.groups, plan.archives, err = service.prepareTyranoScriptProject(
+			ctx, plan.sourceType, plan.files,
+		)
 	case contentcapability.ModeStandard:
 		plan.dispositions, plan.groups, plan.archives = service.prepareImportFiles(
 			ctx, plan.target.platformID, plan.sourceType, plan.files, plan.datID,
@@ -225,6 +234,12 @@ func validateCreationUpload(contentMode, sourceType, purpose string) error {
 	}
 	if contentMode == contentcapability.ModeButterscotchProjectV1 {
 		if purpose != "BUTTERSCOTCH_PROJECT" {
+			return ErrInvalid
+		}
+		return nil
+	}
+	if contentMode == contentcapability.ModeTyranoScriptProjectV1 {
+		if purpose != "TYRANOSCRIPT_PROJECT" {
 			return ErrInvalid
 		}
 		return nil

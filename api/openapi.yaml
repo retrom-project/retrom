@@ -546,6 +546,12 @@ components:
       $ref: ./domains/runtime.yaml#/components/schemas/ButterscotchCheckpointRestore
     ButterscotchLaunchConfig:
       $ref: ./domains/runtime.yaml#/components/schemas/ButterscotchLaunchConfig
+    TyranoScriptAdapterConfig:
+      $ref: ./domains/runtime.yaml#/components/schemas/TyranoScriptAdapterConfig
+    TyranoScriptCheckpointRestore:
+      $ref: ./domains/runtime.yaml#/components/schemas/TyranoScriptCheckpointRestore
+    TyranoScriptLaunchConfig:
+      $ref: ./domains/runtime.yaml#/components/schemas/TyranoScriptLaunchConfig
     RuntimeAssetPackKind:
       $ref: ./domains/imports.yaml#/components/schemas/RuntimeAssetPackKind
     CoreArtifactAdminItem:

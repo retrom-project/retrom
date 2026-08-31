@@ -14,7 +14,7 @@ func TestCurrentCatalogIsValidAndReturnsDeepCopy(t *testing.T) {
 	if err := Validate(catalog); err != nil {
 		t.Fatalf("Validate() error = %v", err)
 	}
-	testassert.Falsef(t, testassert.Any(func() bool { return catalog.Version != 6 }, func() bool { return len(catalog.Templates) != 31 }), "catalog = version:%d templates:%d", catalog.Version, len(catalog.Templates))
+	testassert.Falsef(t, testassert.Any(func() bool { return catalog.Version != 7 }, func() bool { return len(catalog.Templates) != 32 }), "catalog = version:%d templates:%d", catalog.Version, len(catalog.Templates))
 	catalog.Templates[0].Name = "changed"
 	testassert.False(t, Current().Templates[0].Name != "NES 游戏", "Current returned mutable catalog storage")
 }
@@ -47,6 +47,16 @@ func TestCatalogContainsButterscotchDirectory(t *testing.T) {
 		}
 	}
 	t.Fatal("Butterscotch directory template missing")
+}
+
+func TestCatalogContainsTyranoScriptDirectory(t *testing.T) {
+	t.Parallel()
+	for _, template := range Current().Templates {
+		if template.Key == "tyranoscript/tyranoscript" && template.Name == "TyranoScript 游戏" {
+			return
+		}
+	}
+	t.Fatal("TyranoScript directory template missing")
 }
 
 func TestCatalogContainsOneVirtualRPGMakerDirectory(t *testing.T) {

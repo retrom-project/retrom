@@ -699,6 +699,7 @@ components:
             - ONS_PROJECT_V1
             - KIRIKIRI_PROJECT_V1
             - BUTTERSCOTCH_PROJECT_V1
+            - TYRANOSCRIPT_PROJECT_V1
           default: STANDARD
     ApplyCandidateRequest:
       type: object

@@ -9,7 +9,7 @@ import (
 	"retrom/internal/contentprofile"
 )
 
-const Version = 6
+const Version = 7
 
 var ErrInvalid = errors.New("PLATFORM_CATALOG_INVALID")
 
@@ -104,6 +104,10 @@ var current = Catalog{Version: Version, Templates: []DirectoryTemplate{
 		Key: "butterscotch/butterscotch", PlatformID: "butterscotch", DefaultCoreID: "butterscotch",
 		Name: "GameMaker 游戏", CatalogOrder: 310,
 	},
+	{
+		Key: "tyranoscript/tyranoscript", PlatformID: "tyranoscript", DefaultCoreID: "tyranoscript",
+		Name: "TyranoScript 游戏", CatalogOrder: 320,
+	},
 }}
 
 func Current() Catalog {
@@ -156,12 +160,20 @@ func validateTemplate(
 	}
 	// Directory-style runtimes accept project folders in addition to archives;
 	// their importer validates the full project shape.
-	if template.PlatformID != "rpgmaker" && template.PlatformID != "ons" &&
-		template.PlatformID != "kirikiri" && template.PlatformID != "butterscotch" &&
+	if !isDirectoryProjectPlatform(template.PlatformID) &&
 		!validExtensions(contentprofile.SupportedExtensions(template.PlatformID)) {
 		return fmt.Errorf("%w: extensions for %q", ErrInvalid, template.PlatformID)
 	}
 	return nil
+}
+
+func isDirectoryProjectPlatform(platformID string) bool {
+	switch platformID {
+	case "rpgmaker", "ons", "kirikiri", "butterscotch", "tyranoscript":
+		return true
+	default:
+		return false
+	}
 }
 
 func validText(value string, minimum, maximum int) bool {

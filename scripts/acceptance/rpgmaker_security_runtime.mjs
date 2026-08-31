@@ -9,7 +9,8 @@ export function requireLocalRuntimeSite(applicationOrigin, runtimeOrigin) {
   const localSite = ".rpg.localhost";
   const applicationSharesSite = application.hostname === "rpg.localhost" ||
     application.hostname.endsWith(localSite);
-  if (runtime.hostname.endsWith(localSite) && !applicationSharesSite) {
+  const runtimeIsLocal = runtime.hostname === "localhost" || runtime.hostname.endsWith(".localhost");
+  if (runtimeIsLocal && (!runtime.hostname.endsWith(localSite) || !applicationSharesSite)) {
     throw new SecurityInputBlocked("RPG_ACCEPTANCE_SECURITY_RUNTIME_SITE_MISMATCH");
   }
 }

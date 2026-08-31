@@ -222,8 +222,11 @@ func (server *Server) launchCapability(request *http.Request) string {
 
 func (server *Server) storeReviewScreenshot(writer http.ResponseWriter, request *http.Request) {
 	mediaType, _, err := mime.ParseMediaType(request.Header.Get("Content-Type"))
-	if err != nil || mediaType != "image/png" {
-		writeError(writer, request, http.StatusBadRequest, "REVIEW_SCREENSHOT_INVALID", "运行截图必须是 PNG", map[string]any{})
+	if err != nil || mediaType != "image/png" && mediaType != "image/jpeg" {
+		writeError(
+			writer, request, http.StatusBadRequest, "REVIEW_SCREENSHOT_INVALID",
+			"运行截图必须是 PNG 或 JPEG", map[string]any{},
+		)
 		return
 	}
 	if handled, rpgErr := server.storeRPGRuntimeScreenshot(writer, request); handled {

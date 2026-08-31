@@ -31,8 +31,10 @@ import {
   bootstrapButterscotchPlayer,
   bootstrapKiriKiriPlayer,
   bootstrapOnsPlayer,
+  bootstrapTyranoScriptPlayer,
   isKiriKiriLaunchConfig,
   isOnsLaunchConfig,
+  isTyranoScriptLaunchConfig,
   type RetromRuntimeBootstrapHost,
 } from "./player-bootstrap-retrom-runtime";
 import { createRpgRuntimeValidationDriver } from "./rpg-validation-driver-factory";
@@ -123,6 +125,10 @@ async function bootstrapPlayer(params: PlayerBootstrapParams, resources: Bootstr
   }
   if (isButterscotchLaunchConfig(rawConfig)) {
     await bootstrapButterscotchPlayer(params, resources, controller, rawConfig, retromRuntimeBootstrapHost);
+    return;
+  }
+  if (isTyranoScriptLaunchConfig(rawConfig)) {
+    await bootstrapTyranoScriptPlayer(params, resources, controller, rawConfig, retromRuntimeBootstrapHost);
     return;
   }
   if (isRetromRpgRuntimeConfig(rawConfig)) {

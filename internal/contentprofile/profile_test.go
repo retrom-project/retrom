@@ -113,6 +113,9 @@ func TestMultiDiscContentKindIsExplicitlyLimitedToSaturn(t *testing.T) {
 		case "butterscotch":
 			testassert.CheckTruef(t, AllowsContentKind(platformID, ContentKindButterscotchProject), "Butterscotch project support missing")
 			testassert.CheckFalsef(t, AllowsContentKind(platformID, ContentKindSingleFile), "Butterscotch accepted SINGLE_FILE")
+		case "tyranoscript":
+			testassert.CheckTruef(t, AllowsContentKind(platformID, ContentKindTyranoScriptProject), "TyranoScript project support missing")
+			testassert.CheckFalsef(t, AllowsContentKind(platformID, ContentKindSingleFile), "TyranoScript accepted SINGLE_FILE")
 		default:
 			testassert.CheckTruef(t, AllowsContentKind(platformID, ContentKindSingleFile), "platform %q lost SINGLE_FILE support", platformID)
 		}
@@ -154,6 +157,18 @@ func TestButterscotchProfileAcceptsOnlyProjectArchiveTransport(t *testing.T) {
 		func() bool { return !AcceptsArchive("butterscotch", ArchiveSevenZip) },
 		func() bool { return AcceptsRaw("butterscotch", "game.zip") },
 	), "Butterscotch profile=%#v", profile)
+}
+
+func TestTyranoScriptProfileAcceptsOnlyProjectArchiveTransport(t *testing.T) {
+	t.Parallel()
+	profile, ok := ByPlatform("tyranoscript")
+	testassert.Falsef(t, testassert.Any(
+		func() bool { return !ok },
+		func() bool { return profile.ArchivePolicy != ArchiveProject },
+		func() bool { return !AcceptsArchive("tyranoscript", ArchiveZIP) },
+		func() bool { return !AcceptsArchive("tyranoscript", ArchiveSevenZip) },
+		func() bool { return AcceptsRaw("tyranoscript", "game.zip") },
+	), "TyranoScript profile=%#v", profile)
 }
 
 func TestRPGMakerProfileAcceptsOnlyProjectArchiveTransport(t *testing.T) {
