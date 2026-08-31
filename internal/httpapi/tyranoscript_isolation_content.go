@@ -200,14 +200,15 @@ func tyranoScriptProjectLogicalName(requestPath string) (string, bool) {
 	const projectPrefix = "/__retrom/tyranoscript/project/"
 	const enginePrefix = "/__retrom/tyranoscript/"
 	logicalName := ""
-	if strings.HasPrefix(requestPath, projectPrefix) {
+	switch {
+	case strings.HasPrefix(requestPath, projectPrefix):
 		logicalName = strings.TrimPrefix(requestPath, projectPrefix)
-	} else if strings.HasPrefix(requestPath, enginePrefix) {
+	case strings.HasPrefix(requestPath, enginePrefix):
 		logicalName = strings.TrimPrefix(requestPath, enginePrefix)
 		if !tyranoScriptEngineOwnedPath(logicalName) {
 			return "", false
 		}
-	} else if strings.HasPrefix(requestPath, "/") && !strings.HasPrefix(requestPath, "/__retrom/") {
+	case strings.HasPrefix(requestPath, "/") && !strings.HasPrefix(requestPath, "/__retrom/"):
 		logicalName = strings.TrimPrefix(requestPath, "/")
 		if !tyranoScriptEngineOwnedPath(logicalName) {
 			return "", false
