@@ -21,10 +21,12 @@ func TestParsePublicOriginRequiresExplicitDevelopmentOptInForHTTPHosts(t *testin
 	}{
 		{name: "https domain", value: "https://retrom.example"},
 		{name: "localhost http", value: "http://localhost:3000"},
-		{name: "development domain rejected by default", value: "http://local.sendev.cc:3000", wantErr: true},
-		{name: "development domain with opt in", value: "http://local.sendev.cc:3000", allowInsecure: true},
-		{name: "credentials remain invalid", value: "http://user@local.sendev.cc:3000", allowInsecure: true, wantErr: true},
-		{name: "path remains invalid", value: "http://local.sendev.cc:3000/path", allowInsecure: true, wantErr: true},
+		{name: "PFB host rejected by default", value: "http://feature-a1b2c3d4e5f6.localhost:3000", wantErr: true},
+		{name: "PFB host with opt in", value: "http://feature-a1b2c3d4e5f6.localhost:3000", allowInsecure: true},
+		{name: "local acceptance site with opt in", value: "http://retrom-app.rpg.localhost:13004", allowInsecure: true},
+		{name: "arbitrary HTTP host remains invalid", value: "http://dev.example:3000", allowInsecure: true, wantErr: true},
+		{name: "credentials remain invalid", value: "http://user@localhost:3000", allowInsecure: true, wantErr: true},
+		{name: "path remains invalid", value: "http://localhost:3000/path", allowInsecure: true, wantErr: true},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -37,11 +39,15 @@ func TestParsePublicOriginRequiresExplicitDevelopmentOptInForHTTPHosts(t *testin
 
 func TestParseRPGRuntimeOriginTemplateRequiresUniqueLaunchLabelAndMatchingScheme(t *testing.T) {
 	t.Parallel()
-	httpsOrigin, err := parsePublicOrigin("https://dev.sendev.cc", false)
+	httpsOrigin, err := parsePublicOrigin("https://retrom.example", false)
 	if err != nil {
 		t.Fatal(err)
 	}
-	httpOrigin, err := parsePublicOrigin("http://app.localhost:3000", true)
+	httpOrigin, err := parsePublicOrigin("http://feature-a1b2c3d4e5f6.localhost:3000", true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	localhostOrigin, err := parsePublicOrigin("http://localhost:13004", true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -52,12 +58,14 @@ func TestParseRPGRuntimeOriginTemplateRequiresUniqueLaunchLabelAndMatchingScheme
 		allowInsecure bool
 		wantErr       bool
 	}{
-		{name: "release", value: "https://{launchId}.rpg-runtime.dev.sendev.cc", origin: httpsOrigin},
-		{name: "local test", value: "http://{launchId}.rpg.localhost:8080", origin: httpOrigin, allowInsecure: true},
+		{name: "release", value: "https://{launchId}.runtime.retrom.example", origin: httpsOrigin},
+		{name: "PFB", value: "http://{launchId}.feature-a1b2c3d4e5f6.rpg.localhost:3000", origin: httpOrigin, allowInsecure: true},
+		{name: "localhost test", value: "http://{launchId}.rpg.localhost:18084", origin: localhostOrigin, allowInsecure: true},
+		{name: "wrong PFB", value: "http://{launchId}.feature-fedcba987654.rpg.localhost:3000", origin: httpOrigin, allowInsecure: true, wantErr: true},
 		{name: "mixed content", value: "http://{launchId}.rpg.localhost:8080", origin: httpsOrigin, allowInsecure: true, wantErr: true},
-		{name: "placeholder not leftmost", value: "https://rpg.{launchId}.dev.sendev.cc", origin: httpsOrigin, wantErr: true},
-		{name: "placeholder path", value: "https://runtime.dev.sendev.cc/{launchId}", origin: httpsOrigin, wantErr: true},
-		{name: "duplicate placeholder", value: "https://{launchId}.{launchId}.dev.sendev.cc", origin: httpsOrigin, wantErr: true},
+		{name: "placeholder not leftmost", value: "https://rpg.{launchId}.retrom.example", origin: httpsOrigin, wantErr: true},
+		{name: "placeholder path", value: "https://runtime.retrom.example/{launchId}", origin: httpsOrigin, wantErr: true},
+		{name: "duplicate placeholder", value: "https://{launchId}.{launchId}.retrom.example", origin: httpsOrigin, wantErr: true},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -65,6 +73,34 @@ func TestParseRPGRuntimeOriginTemplateRequiresUniqueLaunchLabelAndMatchingScheme
 			_, parseErr := parseRPGRuntimeOriginTemplate(test.value, test.origin, test.allowInsecure)
 			testassert.Falsef(t, (parseErr != nil) != test.wantErr, "parseRPGRuntimeOriginTemplate(%q) error = %v", test.value, parseErr)
 		})
+	}
+}
+
+func TestPFBCandidateBoundaryRequiresTestModeAndMatchingLocalOrigin(t *testing.T) {
+	dependencyRoot := t.TempDir()
+	runtimeRoot := filepath.Join(dependencyRoot, "runtime", "rpgmaker", "v1")
+	if err := os.MkdirAll(runtimeRoot, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	identifier := "feature-a1b2c3d4e5f6"
+	marker := `{"schemaVersion":1,"kind":"RETROM_PFB_CANDIDATE_V1","pfbId":"` + identifier + `","formalManifestSha256":"` + strings.Repeat("a", 64) + `","runtime":{},"cores":[],"runtimeFiles":[],"artifacts":[],"filesSha256":"` + strings.Repeat("b", 64) + `","overlaySha256":"` + strings.Repeat("c", 64) + `"}`
+	if err := os.WriteFile(filepath.Join(runtimeRoot, ".retrom-pfb-candidate.json"), []byte(marker), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	origin, err := parsePublicOrigin("http://"+identifier+".localhost:3000", true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("RETROM_PFB_ID", identifier)
+	if err := validatePFBBoundary(ModeTest, dependencyRoot, origin); err != nil {
+		t.Fatalf("valid PFB boundary rejected: %v", err)
+	}
+	if err := validatePFBBoundary(ModeRelease, dependencyRoot, origin); err == nil {
+		t.Fatal("release mode accepted PFB candidate")
+	}
+	t.Setenv("RETROM_PFB_ID", "different-aaaaaaaaaaaa")
+	if err := validatePFBBoundary(ModeTest, dependencyRoot, origin); err == nil {
+		t.Fatal("mismatched PFB ID accepted")
 	}
 }
 

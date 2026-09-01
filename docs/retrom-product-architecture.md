@@ -193,6 +193,14 @@ Player 顶层按 `EMULATORJS|RPGMAKER|ONS|KIRIKIRI|BUTTERSCOTCH` 分派。`RPGMA
 
 RPG Maker 的存档与既有模拟器状态统一建模为运行时检查点。恢复完成的定义不是 payload 成功下载或引擎 load API 返回成功，而是：记录初始状态 A，在明确移动/改变变量后的 B 创建检查点，继续到可区分的 C，结束原 Launch，再由不同 Launch 恢复，并逐字段证明地图、坐标和 fixture 变量等于 B 且不等于 A/C，同时保留恢复后截图；随后还必须继续真实输入，并持久化与恢复位置 B 不同的四字段状态，证明恢复后的游戏仍可操作。七个版本核心都必须满足该闭环。
 
+### 3.15 本机开发与 PFB 联调边界
+
+普通开发入口 `make dev` 继续只启动宿主 Go 与 Next 进程，默认从 `http://localhost:3000` 访问，两个进程分别只监听 `127.0.0.1:8080` 与 `127.0.0.1:3000`。本机开发不依赖外部 DNS、TLS 证书或远程反向代理；生产同源 HTTPS 与 TLS 终结边界不变。
+
+需要并行验证多个功能分支时使用独立 PFB 命令族。每个 PFB 对应独立 Git worktree、应用容器、数据代际、CAS、secret、候选依赖和构建 cache，所有 PFB 共享唯一绑定 `127.0.0.1:3000` 的本机开发网关。规范应用 origin 是 `http://<pfb-id>.localhost:3000`，每 Launch runtime origin 是 `http://<launch-id>.<pfb-id>.rpg.localhost:3000`；裸 localhost只重定向到显式选中的 PFB。网关根据严格 Host映射 Docker 网络别名，不接收分支原文，不提供未知 Host fallback，也不向局域网发布端口。
+
+PFB candidate 只用于 test 模式的发布前产品联调。分支 core 仍由各 fork 构建，`retrom-runtime` 聚合，Retrom 只消费聚合候选；候选锁记录 source/output 摘要并参与数据代际，不能进入正式 manifest、release-input digest、生产镜像或 tag workflow。正式晋升仍按 core Release、runtime Release、Retrom 正式 pin 的顺序进行，并以解除 candidate 后重跑同一产品 Case 为准。
+
 ## 4. 系统上下文
 
 ~~~mermaid

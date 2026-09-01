@@ -75,3 +75,9 @@ PSP profile 接受 raw `.cso` 和 `.iso`，两者分别以 `RAW_FILE_V1` 进入 
 ## 6. 依赖升级
 
 升级 EmulatorJS、任一 core、adapter registry 或 Arcade DAT 时执行 [`ACC-DAT-006`](./project-acceptance.md)，并运行 `make data-check`、`make deps-check` 与受影响的精确产品 Case；只有共享 loader/协议等无法可靠界定影响面时才扩大到 `make web-e2e`。如果升级影响的核心尚无实际产品 E2E，验收结果必须明确记录该缺口；补足覆盖后才能据此声称浏览器运行兼容。
+
+## 7. 分支候选与正式证据
+
+PFB 可以在 core/runtime 发布前验证分支候选，但候选证据必须带不可变 candidate lock，并经过真实 Retrom Upload/服务器导入、识别、Review Preview、发布、PRODUCT Launch、输入、checkpoint、不同 Launch 恢复和恢复后输入。build 成功、HTTP 200、独立 runner 或静止 canvas 不能提升运行覆盖等级。
+
+候选结果只证明锁定的 branch/commit/dirty/source/output 组合，不证明正式 Release。完成 core→runtime→Retrom 晋升后，必须解除所有候选 marker，使用正式不可移动 tag重新物化依赖，并重跑同一产品 Case；只有这次结果可作为正式兼容证据。没有合法输入时继续报告 `BLOCKED`，不能把 parser/shape harness 当作产品运行。

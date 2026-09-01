@@ -121,6 +121,54 @@ class RetromRuntimeDevTests(unittest.TestCase):
             self.assertEqual("0.7.0", marker["package_version"])
             self.assertTrue((runtime / "v0.6.1/onsyuri.js").is_file())
 
+    def test_pfb_activation_consumes_the_locked_candidate_stage_and_marker(self) -> None:
+        with tempfile.TemporaryDirectory(dir=ROOT / ".cache/tmp") as temporary:
+            root = Path(temporary)
+            source = root / "retrom-runtime"
+            runtime = root / "runtime"
+            web_package = root / "web/node_modules/@xxxsen/retrom-runtime"
+            formal_path = root / "manifest.json"
+            candidate = root / "candidate"
+            self.write_local_runtime(source)
+            formal = self.write_formal_manifest(formal_path)
+            candidate.mkdir()
+            (candidate / "retrom-runtime-candidate.json").write_text("{}\n", encoding="utf-8")
+            new_file = {
+                "bundle_path": "runtime/new/new-core.wasm",
+                "path_in_release": "v0.7.0/new-core.wasm",
+                "role": "runtime_wasm",
+                "max_size_bytes": 1024,
+            }
+            overlay = json.dumps({
+                "kind": "RETROM_PFB_CANDIDATE_V1", "runtimeFiles": [new_file],
+            }).encode("utf-8") + b"\n"
+            (candidate / DEV.PFB_MARKER_FILENAME).write_bytes(overlay)
+            for item, contents in zip(
+                formal["runtime_files"], (b"locked bridge", b"locked ons"), strict=True,
+            ):
+                target = candidate / "stage" / item["bundle_path"]
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_bytes(contents)
+            new_target = candidate / "stage" / new_file["bundle_path"]
+            new_target.parent.mkdir(parents=True, exist_ok=True)
+            new_target.write_bytes(b"new core")
+
+            git = Mock(returncode=0, stdout="a" * 40 + "\n")
+            with patch.object(DEV.subprocess, "run", return_value=git):
+                DEV.activate(
+                    source.resolve(), runtime.resolve(), web_package.resolve(), formal_path,
+                    True, candidate.resolve(),
+                )
+
+            self.assertEqual(
+                b"locked bridge",
+                (runtime / formal["runtime_files"][0]["path_in_release"]).read_bytes(),
+            )
+            self.assertEqual(b"new core", (runtime / new_file["path_in_release"]).read_bytes())
+            observed = json.loads((runtime / DEV.OBSERVED_FILENAME).read_text(encoding="utf-8"))
+            self.assertIn(new_file["path_in_release"], observed["files"])
+            self.assertEqual(overlay, (runtime / DEV.PFB_MARKER_FILENAME).read_bytes())
+
     @staticmethod
     def write_local_runtime(source: Path) -> None:
         (source / "dist").mkdir(parents=True)

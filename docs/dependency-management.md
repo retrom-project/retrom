@@ -193,3 +193,15 @@ EasyRPG Player 为 GPLv3、liblcf 为 MIT、mkxp-z 为 GPLv2+、RetroArch 为 GP
 ## 8. 统一验收入口
 
 小型 manifest 结构（包括联机 exact manifest 与独立 runtime route/artifact manifest）由 `ACC-QA-001` 的 `make data-check` 覆盖；RPG 固定 release repo/tag/tag commit/asset 形状/adapter ABI、registry 对齐、七核心产品闭环与 tag 源码定位由 `ACC-RPG-002`–`008` 覆盖，GameMaker/Butterscotch 的导入、运行、标准手柄、存档恢复与 OPFS 缓存由 `ACC-BUTTERSCOTCH-001` 覆盖；联机协议、安全、feature flag 与单机回归由 `ACC-NP-010`–`013` 覆盖，真实双端核心运行与生命周期由 `ACC-NP-014`–`022` 覆盖；完整 payload 准备与本地 observed digest 校验由 `ACC-DAT-001` 覆盖；密码 blocklist 的启动期校验与拒绝行为由 `ACC-AUTH-003` 覆盖；镜像内依赖、无启动期下载和许可文件由 `ACC-PKG-001` 覆盖；版本变化执行 `ACC-DAT-006`。
+
+## 9. PFB 候选供应链
+
+PFB 只在独立 worktree、test 模式和 fresh 数据代际中消费未发布候选。每个受影响 core fork 必须通过统一 `.github/rpg-runtime/build-candidate.sh <absolute-empty-output-directory>` 入口复用本仓库既有构建与 release verifier，并输出严格的 `retrom-core-candidate.json`。描述符记录 core ID、仓库、分支、commit、dirty、source tree SHA-256、adapter ABI 及逐文件 size/SHA；不记录绝对路径、主机、用户或构建时间。
+
+`retrom-runtime` 的 `candidate:build` 对未变化 core 使用正式固定 Release，对 branch core 逐项验证候选描述符，再生成完整 aggregate stage 与 `retrom-runtime-candidate.json`。新 core 可在 runtime 功能分支的 `candidate/runtime-candidate.json` 中声明仅 PFB 可见的封闭 overlay：顶层只允许 `schemaVersion/kind/branchCoreId/adapterSourceModule/runtimeFiles/artifact`，每个 runtime file 必须逐字节命中对应 core descriptor，并显式给出安全 bundle/release path、role 与最大 size；artifact 使用正式 artifact 的 route、adapter、entry、checkpoint 和 compatibility 字段，但不得携带 tag、Release URL、宿主路径或 fallback。聚合器只把新增文件与 artifact 写入 PFB overlay 和候选 stage，正式 package tar、`runtime-manifest.json` 与 release identity 不变；正式 package/release 命令发现该声明必须以 `PFB_CANDIDATE_FORBIDDEN` 失败。
+
+Retrom PFB controller 从 aggregate 描述符在被忽略的候选依赖根生成 `.retrom-pfb-candidate.json`，并把 Retrom/runtime/core source tree、正式依赖 manifest、candidate outputs 与 migration tree 规范化到候选锁和数据锁。任一 source、output、spec、候选或 migration 漂移都使旧锁进入 `STALE`；candidate 或 migration digest变化只能创建新的数据卷，不能强制复用旧数据库。
+
+formal loader、`data-check`、`deps-check`、release-input digest、双镜像和 tag workflow 必须拒绝候选 marker。PFB loader 只有在 `--mode=test`、insecure localhost opt-in、公开 origin PFB ID、候选锁和 fresh 数据代际全部一致时启用；它先完成全部正式校验，再只替换已声明 artifact或增加显式登记的新 route，不允许删除正式项、放宽 ABI/size/compatibility/allowlist 或 fallback。
+
+候选通过不构成 Release 证据。晋升顺序固定为：core 合入维护分支并发布不可移动 tag；runtime 改为正式 core pin、重验、合入并发布 tag；Retrom 清除候选链接、固定正式 runtime tag、从全新依赖根重跑 `data-check/prepare-deps/deps-check`、受影响产品 Case 和双镜像门禁。

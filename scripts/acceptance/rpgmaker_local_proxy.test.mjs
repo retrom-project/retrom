@@ -20,7 +20,7 @@ test("local acceptance proxy resolves the reserved RPG site for HTTP and CONNECT
 });
 
 test("non-local acceptance origins do not install a proxy", async () => {
-  const proxy = await localRpgAcceptanceProxy("https://dev.sendev.cc");
+  const proxy = await localRpgAcceptanceProxy("https://retrom.example");
   assert.deepEqual(proxy.contextOptions, {});
   await proxy.close();
 });

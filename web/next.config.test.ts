@@ -22,7 +22,7 @@ describe("backend rewrite proxy limits", () => {
     const contract = readFileSync(resolve(process.cwd(), "../docs/http-api-contract.md"), "utf8");
 
     expect(contract).toContain("`283115520` bytes（270 MiB）");
-    expect(contract).toContain("`dev.sendev.cc` 的 NG 根 location 与 Next.js 全局 rewrite 代理层");
+    expect(contract).toContain("本机 PFB 网关、部署 NG 与 Next.js 全局 rewrite 代理层");
     expect(contract).toContain("300 秒 read/send/backend timeout");
     expect(contract).toContain("不对 `/api/v1/admin/imports` 或 save-state 增加独立 NG location");
   });

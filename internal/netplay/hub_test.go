@@ -239,11 +239,8 @@ func TestPingAndWriteFailuresDropOnlyTheirTransportAndReleaseFlushes(t *testing.
 	})
 
 	t.Run("write", func(t *testing.T) {
-		serverConnection, remote := websocketPair(t)
-		_ = remote.CloseNow()
-		readContext, cancelRead := context.WithTimeout(context.Background(), time.Second)
-		_, _, _ = serverConnection.Read(readContext)
-		cancelRead()
+		serverConnection, _ := websocketPair(t)
+		_ = serverConnection.CloseNow()
 		flushed := make(chan struct{})
 		client := &peer{connection: serverConnection, writes: make(chan outbound, 2), queuedBytes: 2}
 		client.writes <- outbound{kind: websocket.MessageText, data: []byte("a"), flushed: flushed}

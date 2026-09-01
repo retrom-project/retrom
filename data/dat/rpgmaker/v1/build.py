@@ -24,6 +24,7 @@ DAT_ROOT = Path(__file__).resolve().parent
 DEFAULT_RUNTIME_ROOT = DAT_ROOT.parents[2] / "runtime/rpgmaker/v1"
 OBSERVED_FILENAME = ".release-observed.json"
 DEV_MARKER_FILENAME = ".retrom-runtime-dev.json"
+PFB_MARKER_FILENAME = ".retrom-pfb-candidate.json"
 PUBLIC_API_VERSION = 2
 HEX_40 = re.compile(r"^[0-9a-f]{40}$")
 SEMVER_TAG = re.compile(r"^v(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)(?:-[0-9A-Za-z.-]+)?$")
@@ -373,12 +374,91 @@ def verify_dev_override(runtime_root: Path) -> None:
         raise BuildError("RPG_RUNTIME_DEV_OVERRIDE_INVALID")
 
 
+def reject_pfb_candidate(runtime_root: Path) -> None:
+    marker_path = runtime_root / PFB_MARKER_FILENAME
+    if not marker_path.exists():
+        return
+    try:
+        marker = json.loads(marker_path.read_bytes())
+        identifier = os.environ["RETROM_PFB_ID"]
+        manifest_digest = digest((DAT_ROOT / "manifest.json").read_bytes())
+        expected_fields = {
+            "schemaVersion", "kind", "pfbId", "formalManifestSha256", "runtime",
+            "cores", "runtimeFiles", "artifacts", "filesSha256", "overlaySha256",
+        }
+        unsigned = {key: value for key, value in marker.items() if key != "overlaySha256"}
+        canonical = json.dumps(unsigned, ensure_ascii=False, separators=(",", ":"), sort_keys=True).encode("utf-8")
+    except (KeyError, OSError, json.JSONDecodeError, TypeError, ValueError) as exc:
+        raise BuildError("PFB_CANDIDATE_FORBIDDEN") from exc
+    if (
+        os.environ.get("RETROM_MODE") != "test"
+        or os.environ.get("RETROM_ALLOW_INSECURE_PUBLIC_ORIGIN") != "true"
+        or not isinstance(marker, dict)
+        or set(marker) != expected_fields
+        or marker.get("schemaVersion") != 1
+        or marker.get("kind") != "RETROM_PFB_CANDIDATE_V1"
+        or marker.get("pfbId") != identifier
+        or marker.get("formalManifestSha256") != manifest_digest
+        or not isinstance(marker.get("runtimeFiles"), list)
+        or not isinstance(marker.get("artifacts"), list)
+        or marker.get("overlaySha256") != digest(canonical)
+    ):
+        raise BuildError("PFB_CANDIDATE_FORBIDDEN")
+
+
+def apply_pfb_candidate(manifest: dict[str, Any], runtime_root: Path) -> dict[str, Any]:
+    marker_path = runtime_root / PFB_MARKER_FILENAME
+    if not marker_path.exists():
+        return manifest
+    reject_pfb_candidate(runtime_root)
+    marker = json.loads(marker_path.read_bytes())
+    runtime_files = marker["runtimeFiles"]
+    artifacts = marker["artifacts"]
+    combined_files = [*manifest["runtime_files"]]
+    bundle_paths = {item["bundle_path"] for item in combined_files}
+    release_paths = {item["path_in_release"] for item in combined_files}
+    valid_roles = {"runtime_js", "runtime_wasm", "adapter_bridge", "runtime_asset", "license"}
+    for item in runtime_files:
+        if (
+            not isinstance(item, dict)
+            or set(item) != {"bundle_path", "path_in_release", "role", "max_size_bytes"}
+            or not pfb_safe_path(item.get("bundle_path"))
+            or not pfb_safe_path(item.get("path_in_release"))
+            or item["bundle_path"] in bundle_paths
+            or item["path_in_release"] in release_paths
+            or item.get("role") not in valid_roles
+            or not isinstance(item.get("max_size_bytes"), int)
+            or isinstance(item.get("max_size_bytes"), bool)
+            or item["max_size_bytes"] < 1
+        ):
+            raise BuildError("PFB_CANDIDATE_FORBIDDEN")
+        bundle_paths.add(item["bundle_path"])
+        release_paths.add(item["path_in_release"])
+        combined_files.append(item)
+    if any(not isinstance(item, dict) for item in artifacts):
+        raise BuildError("PFB_CANDIDATE_FORBIDDEN")
+    return {
+        **manifest,
+        "runtime_files": combined_files,
+        "artifacts": [*manifest["artifacts"], *artifacts],
+    }
+
+
+def pfb_safe_path(value: object) -> bool:
+    try:
+        safe_path(value)
+    except BuildError:
+        return False
+    return True
+
+
 def prepare(manifest: dict[str, Any], runtime_root: Path, offline: bool) -> None:
+    reject_pfb_candidate(runtime_root)
     try:
         verify_runtime(manifest, runtime_root)
         return
     except BuildError:
-        if offline:
+        if offline or (runtime_root / PFB_MARKER_FILENAME).exists():
             raise BuildError("RPG_RUNTIME_RELEASE_REQUIRED")
     release = manifest["release"]
     metadata = download_bytes(release["metadata_asset"]["url"], release["metadata_asset"]["max_size_bytes"])
@@ -396,6 +476,8 @@ def main() -> int:
     parser.add_argument("--offline", action="store_true")
     args = parser.parse_args()
     manifest = load_manifest()
+    reject_pfb_candidate(args.runtime_root)
+    manifest = apply_pfb_candidate(manifest, args.runtime_root)
     if args.action == "prepare":
         prepare(manifest, args.runtime_root, args.offline)
     elif args.action == "deps-check":

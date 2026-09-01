@@ -152,6 +152,47 @@ class RPGMakerReleaseAssetTests(unittest.TestCase):
             with patch.dict(os.environ, {"RETROM_RUNTIME_DEV_ROOT": str(source)}):
                 BUILD.verify_runtime(self.manifest, root)
 
+    def test_formal_commands_reject_pfb_candidate_marker(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary) / "runtime"
+            root.mkdir()
+            (root / BUILD.PFB_MARKER_FILENAME).write_text("{}\n", encoding="utf-8")
+            with self.assertRaisesRegex(BUILD.BuildError, "PFB_CANDIDATE_FORBIDDEN"):
+                BUILD.reject_pfb_candidate(root)
+
+    def test_matching_test_pfb_marker_is_accepted_only_with_explicit_context(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary) / "runtime"
+            root.mkdir()
+            identifier = "feature-a1b2c3d4e5f6"
+            unsigned = {
+                "schemaVersion": 1,
+                "kind": "RETROM_PFB_CANDIDATE_V1",
+                "pfbId": identifier,
+                "formalManifestSha256": BUILD.digest((BUILD.DAT_ROOT / "manifest.json").read_bytes()),
+                "runtime": {},
+                "cores": [],
+                "runtimeFiles": [{
+                    "bundle_path": "runtime/new/new-core.wasm",
+                    "path_in_release": "v0.10.1/new-core.wasm",
+                    "role": "runtime_wasm",
+                    "max_size_bytes": 1024,
+                }],
+                "artifacts": [],
+                "filesSha256": "a" * 64,
+            }
+            canonical = json.dumps(unsigned, ensure_ascii=False, separators=(",", ":"), sort_keys=True).encode("utf-8")
+            marker = {**unsigned, "overlaySha256": BUILD.digest(canonical)}
+            (root / BUILD.PFB_MARKER_FILENAME).write_text(json.dumps(marker), encoding="utf-8")
+            with patch.dict(os.environ, {
+                "RETROM_PFB_ID": identifier,
+                "RETROM_MODE": "test",
+                "RETROM_ALLOW_INSECURE_PUBLIC_ORIGIN": "true",
+            }, clear=True):
+                BUILD.reject_pfb_candidate(root)
+                applied = BUILD.apply_pfb_candidate(self.manifest, root)
+            self.assertEqual(len(self.manifest["runtime_files"]) + 1, len(applied["runtime_files"]))
+
     def test_rejects_migration_route_and_archive_link(self) -> None:
         drifted = copy.deepcopy(self.manifest)
         drifted["artifacts"][0]["route_key"] = "RPG2000_UNDECLARED"

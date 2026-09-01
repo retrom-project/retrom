@@ -1,0 +1,17 @@
+proxy_http_version 1.1;
+proxy_set_header Host $http_host;
+proxy_set_header X-Forwarded-Host $http_host;
+proxy_set_header X-Forwarded-Proto http;
+proxy_set_header X-Forwarded-For $remote_addr;
+proxy_set_header Upgrade $http_upgrade;
+proxy_set_header Connection $pfb_connection_upgrade;
+proxy_set_header Sec-WebSocket-Protocol $http_sec_websocket_protocol;
+proxy_intercept_errors on;
+proxy_hide_header Cross-Origin-Opener-Policy;
+proxy_hide_header Cross-Origin-Embedder-Policy;
+proxy_hide_header Cross-Origin-Resource-Policy;
+proxy_hide_header X-Content-Type-Options;
+add_header Cross-Origin-Opener-Policy same-origin always;
+add_header Cross-Origin-Embedder-Policy require-corp always;
+add_header Cross-Origin-Resource-Policy same-origin always;
+add_header X-Content-Type-Options nosniff always;

@@ -29,6 +29,7 @@ var knownVariables = map[string]struct{}{
 	"RETROM_ACTIVE_EMULATORJS_VERSION": {}, "RETROM_TRUSTED_PROXIES": {},
 	"RETROM_STARTUP_CHECK_TIMEOUT": {}, "RETROM_LOG_LEVEL": {},
 	"RETROM_MULTI_DISC_IMPORT_ENABLED":    {},
+	"RETROM_PFB_ID":                       {},
 	"RETROM_SERVER_IMPORT_ROOTS":          {},
 	"RETROM_NETPLAY_ENABLED":              {},
 	"RETROM_NETPLAY_MAX_ACTIVE_ROOMS":     {},
@@ -151,6 +152,9 @@ func Load(mode Mode) (Config, error) {
 	if err != nil {
 		return Config{}, err
 	}
+	if err := validatePFBBoundary(mode, base.dependencyRoot, network.publicOrigin); err != nil {
+		return Config{}, err
+	}
 	runtimeOptions, err := loadRuntimeOptions(base.dataDir, base.dependencyRoot)
 	if err != nil {
 		return Config{}, err
@@ -172,6 +176,51 @@ func Load(mode Mode) (Config, error) {
 		NetplayRoomIdleWaiting: netplay.roomIdleWaiting,
 		NetplayReconnectLease:  netplay.reconnectLease,
 	}, nil
+}
+
+func validatePFBBoundary(mode Mode, dependencyRoot string, publicOrigin *url.URL) error {
+	identifier := os.Getenv("RETROM_PFB_ID")
+	markerPath := filepath.Join(dependencyRoot, "runtime", "rpgmaker", "v1", ".retrom-pfb-candidate.json")
+	contents, readErr := os.ReadFile(markerPath)
+	markerPresent := readErr == nil
+	if readErr != nil && !errors.Is(readErr, os.ErrNotExist) {
+		return fmt.Errorf("%w: PFB_CANDIDATE_FORBIDDEN", errInvalidConfig)
+	}
+	if identifier == "" {
+		if markerPresent {
+			return fmt.Errorf("%w: PFB_CANDIDATE_FORBIDDEN", errInvalidConfig)
+		}
+		return nil
+	}
+	publicPFBID, validOrigin := pfbIDFromLocalOrigin(publicOrigin)
+	if mode != ModeTest || !validOrigin || publicPFBID != identifier {
+		return fmt.Errorf("%w: RETROM_PFB_ID", errInvalidConfig)
+	}
+	if !markerPresent {
+		return nil
+	}
+	if !validPFBCandidateMarker(contents, identifier) {
+		return fmt.Errorf("%w: PFB_CANDIDATE_FORBIDDEN", errInvalidConfig)
+	}
+	return nil
+}
+
+func validPFBCandidateMarker(contents []byte, identifier string) bool {
+	var marker map[string]any
+	if json.Unmarshal(contents, &marker) != nil || len(marker) != 10 ||
+		marker["schemaVersion"] != float64(1) || marker["kind"] != "RETROM_PFB_CANDIDATE_V1" ||
+		marker["pfbId"] != identifier {
+		return false
+	}
+	for _, field := range []string{
+		"formalManifestSha256", "runtime", "cores", "runtimeFiles", "artifacts",
+		"filesSha256", "overlaySha256",
+	} {
+		if _, exists := marker[field]; !exists {
+			return false
+		}
+	}
+	return true
 }
 
 type baseConfig struct {
@@ -283,16 +332,37 @@ func validRPGRuntimeTemplateURL(
 	publicOrigin *url.URL,
 	allowInsecure bool,
 ) bool {
-	if parsed.User != nil || parsed.Host == "" || parsed.Path != "" || parsed.RawQuery != "" ||
-		parsed.Fragment != "" || parsed.String() != concrete || publicOrigin == nil {
+	if !validRPGRuntimeTemplateShape(parsed, concrete, marker, publicOrigin) {
+		return false
+	}
+	if parsed.Scheme != publicOrigin.Scheme {
+		return false
+	}
+	if parsed.Scheme == "https" {
+		return true
+	}
+	if parsed.Scheme != "http" || !allowInsecure {
+		return false
+	}
+	if pfbID, ok := pfbIDFromLocalOrigin(publicOrigin); ok {
+		return parsed.Host == marker+"."+pfbID+".rpg.localhost:3000"
+	}
+	return parsed.Hostname() == marker+".rpg.localhost" && parsed.Port() != ""
+}
+
+func validRPGRuntimeTemplateShape(
+	parsed *url.URL,
+	concrete, marker string,
+	publicOrigin *url.URL,
+) bool {
+	if parsed.User != nil || parsed.Host == "" || parsed.Path != "" || parsed.RawQuery != "" {
+		return false
+	}
+	if parsed.Fragment != "" || parsed.String() != concrete || publicOrigin == nil {
 		return false
 	}
 	hostParts := strings.Split(parsed.Hostname(), ".")
-	if len(hostParts) == 0 || hostParts[0] != marker || concrete == publicOrigin.String() {
-		return false
-	}
-	validScheme := parsed.Scheme == "https" || allowInsecure && parsed.Scheme == "http"
-	return validScheme && parsed.Scheme == publicOrigin.Scheme
+	return len(hostParts) > 0 && hostParts[0] == marker && concrete != publicOrigin.String()
 }
 
 type runtimeOptions struct {
@@ -702,10 +772,52 @@ func parsePublicOrigin(raw string, allowInsecure bool) (*url.URL, error) {
 		parsed.Path != "" || parsed.RawQuery != "" || parsed.Fragment != "" {
 		return nil, fmt.Errorf("%w: RETROM_PUBLIC_ORIGIN", errInvalidConfig)
 	}
-	if parsed.Scheme != "https" && (parsed.Scheme != "http" || (!allowInsecure && parsed.Hostname() != "localhost")) {
+	if parsed.Scheme != "https" && (parsed.Scheme != "http" || !validLocalHTTPOrigin(parsed, allowInsecure)) {
 		return nil, fmt.Errorf("%w: RETROM_PUBLIC_ORIGIN", errInvalidConfig)
 	}
 	return parsed, nil
+}
+
+func validLocalHTTPOrigin(parsed *url.URL, allowInsecure bool) bool {
+	if parsed.Hostname() == "localhost" && parsed.Port() != "" {
+		return true
+	}
+	if !allowInsecure || parsed.Port() == "" || !strings.HasSuffix(parsed.Hostname(), ".localhost") {
+		return false
+	}
+	for _, label := range strings.Split(strings.TrimSuffix(parsed.Hostname(), ".localhost"), ".") {
+		if !validLocalhostLabel(label, 63) {
+			return false
+		}
+	}
+	return true
+}
+
+func pfbIDFromLocalOrigin(parsed *url.URL) (string, bool) {
+	if parsed == nil || parsed.Port() != "3000" {
+		return "", false
+	}
+	hostname := parsed.Hostname()
+	if strings.Count(hostname, ".") != 1 || !strings.HasSuffix(hostname, ".localhost") {
+		return "", false
+	}
+	identifier := strings.TrimSuffix(hostname, ".localhost")
+	if !validLocalhostLabel(identifier, 24) {
+		return "", false
+	}
+	return identifier, true
+}
+
+func validLocalhostLabel(label string, maximumLength int) bool {
+	if label == "" || len(label) > maximumLength || label[0] == '-' || label[len(label)-1] == '-' {
+		return false
+	}
+	for _, character := range label {
+		if (character < 'a' || character > 'z') && (character < '0' || character > '9') && character != '-' {
+			return false
+		}
+	}
+	return true
 }
 
 func parseTrustedProxies(raw string) ([]netip.Prefix, error) {

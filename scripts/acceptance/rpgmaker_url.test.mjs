@@ -5,7 +5,7 @@ import { normalizedBase } from "./rpgmaker_url.mjs";
 
 test("acceptance base URLs allow HTTPS and loopback localhost names", () => {
   for (const value of [
-    "https://dev.sendev.cc",
+    "https://retrom.example",
     "http://localhost:13004",
     "http://127.0.0.1:13004",
     "http://app.rpg.localhost:13004",

@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -19,7 +20,11 @@ import (
 
 const rpgMakerManifestVersion = "v1"
 
-var runtimeCompatibilityIdentity = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{0,118}-v[1-9][0-9]*$`)
+var (
+	runtimeCompatibilityIdentity = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{0,118}-v[1-9][0-9]*$`)
+	errInvalidPFBOverlay         = errors.New("invalid PFB overlay")
+	errInvalidPFBOverlayDigest   = errors.New("invalid PFB overlay digest")
+)
 
 type RPGMakerManifest struct {
 	SchemaVersion int                    `json:"schema_version"`
@@ -65,6 +70,20 @@ type RPGMakerVersion struct {
 	ManifestSHA256 string
 	RuntimeRoot    string
 	Allowlist      map[string]RPGMakerRuntimeFile
+	PFBCandidate   bool
+}
+
+type rpgMakerPFBCandidate struct {
+	SchemaVersion        int                   `json:"schemaVersion"`
+	Kind                 string                `json:"kind"`
+	PFBID                string                `json:"pfbId"`
+	FormalManifestSHA256 string                `json:"formalManifestSha256"`
+	Runtime              json.RawMessage       `json:"runtime"`
+	Cores                json.RawMessage       `json:"cores"`
+	RuntimeFiles         []RPGMakerRuntimeFile `json:"runtimeFiles"`
+	Artifacts            []RPGMakerArtifact    `json:"artifacts"`
+	FilesSHA256          string                `json:"filesSha256"`
+	OverlaySHA256        string                `json:"overlaySha256"`
 }
 
 func loadRPGMaker(root string) (*RPGMakerVersion, error) {
@@ -84,9 +103,19 @@ func loadRPGMaker(root string) (*RPGMakerVersion, error) {
 		return nil, fmt.Errorf("%w: RPG Maker manifest trailing data", ErrInvalid)
 	}
 	digest := sha256.Sum256(contents)
+	manifestSHA256 := hex.EncodeToString(digest[:])
+	candidate, pfbEnabled, err := loadRPGMakerPFBCandidate(runtimeRoot, manifestSHA256)
+	if err != nil {
+		return nil, err
+	}
+	if pfbEnabled {
+		manifest.RuntimeFiles = append(manifest.RuntimeFiles, candidate.RuntimeFiles...)
+		manifest.Artifacts = append(manifest.Artifacts, candidate.Artifacts...)
+	}
 	version := &RPGMakerVersion{
-		Manifest: manifest, ManifestSHA256: hex.EncodeToString(digest[:]), RuntimeRoot: runtimeRoot,
-		Allowlist: make(map[string]RPGMakerRuntimeFile, len(manifest.RuntimeFiles)),
+		Manifest: manifest, ManifestSHA256: manifestSHA256, RuntimeRoot: runtimeRoot,
+		Allowlist:    make(map[string]RPGMakerRuntimeFile, len(manifest.RuntimeFiles)),
+		PFBCandidate: pfbEnabled,
 	}
 	if err := hydrateRPGMakerReleaseFiles(version); err != nil {
 		return nil, err
@@ -95,6 +124,91 @@ func loadRPGMaker(root string) (*RPGMakerVersion, error) {
 		return nil, err
 	}
 	return version, nil
+}
+
+func loadRPGMakerPFBCandidate(
+	runtimeRoot string, formalManifestSHA256 string,
+) (rpgMakerPFBCandidate, bool, error) {
+	contents, err := os.ReadFile(filepath.Join(runtimeRoot, ".retrom-pfb-candidate.json"))
+	if errors.Is(err, os.ErrNotExist) {
+		return rpgMakerPFBCandidate{}, false, nil
+	}
+	if err != nil {
+		return rpgMakerPFBCandidate{}, false, fmt.Errorf("%w: PFB_CANDIDATE_FORBIDDEN", ErrInvalid)
+	}
+	identifier := os.Getenv("RETROM_PFB_ID")
+	overlaySHA256, overlayErr := calculateRPGMakerPFBOverlaySHA256(contents)
+	marker, decodeErr := decodeRPGMakerPFBCandidate(contents)
+	if decodeErr != nil || !validRPGMakerPFBCandidate(
+		marker, identifier, formalManifestSHA256, overlaySHA256, overlayErr,
+	) {
+		return rpgMakerPFBCandidate{}, false, fmt.Errorf("%w: PFB_CANDIDATE_FORBIDDEN", ErrInvalid)
+	}
+	return marker, true, nil
+}
+
+func decodeRPGMakerPFBCandidate(contents []byte) (rpgMakerPFBCandidate, error) {
+	var marker rpgMakerPFBCandidate
+	decoder := json.NewDecoder(bytes.NewReader(contents))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&marker); err != nil {
+		return rpgMakerPFBCandidate{}, fmt.Errorf("decode PFB overlay: %w", err)
+	}
+	if err := requireJSONEOF(decoder); err != nil {
+		return rpgMakerPFBCandidate{}, fmt.Errorf("decode PFB overlay trailing data: %w", err)
+	}
+	return marker, nil
+}
+
+func validRPGMakerPFBCandidate(
+	marker rpgMakerPFBCandidate,
+	identifier, formalManifestSHA256, overlaySHA256 string,
+	overlayErr error,
+) bool {
+	if identifier == "" || marker.SchemaVersion != 1 || marker.Kind != "RETROM_PFB_CANDIDATE_V1" {
+		return false
+	}
+	if marker.PFBID != identifier || marker.FormalManifestSHA256 != formalManifestSHA256 {
+		return false
+	}
+	if !validSHA256(marker.FilesSHA256) || !validSHA256(marker.OverlaySHA256) {
+		return false
+	}
+	if overlayErr != nil || marker.OverlaySHA256 != overlaySHA256 {
+		return false
+	}
+	return validRPGMakerPFBCandidatePayload(marker)
+}
+
+func validRPGMakerPFBCandidatePayload(marker rpgMakerPFBCandidate) bool {
+	if len(marker.Runtime) == 0 || len(marker.Cores) == 0 {
+		return false
+	}
+	if marker.RuntimeFiles == nil || marker.Artifacts == nil {
+		return false
+	}
+	return len(marker.RuntimeFiles) <= 64 && len(marker.Artifacts) <= 32
+}
+
+func calculateRPGMakerPFBOverlaySHA256(contents []byte) (string, error) {
+	var value map[string]any
+	decoder := json.NewDecoder(bytes.NewReader(contents))
+	decoder.UseNumber()
+	if decoder.Decode(&value) != nil || requireJSONEOF(decoder) != nil || len(value) != 10 {
+		return "", errInvalidPFBOverlay
+	}
+	if _, ok := value["overlaySha256"].(string); !ok {
+		return "", errInvalidPFBOverlayDigest
+	}
+	delete(value, "overlaySha256")
+	var canonical bytes.Buffer
+	encoder := json.NewEncoder(&canonical)
+	encoder.SetEscapeHTML(false)
+	if err := encoder.Encode(value); err != nil {
+		return "", fmt.Errorf("encode PFB overlay: %w", err)
+	}
+	digest := sha256.Sum256(bytes.TrimSuffix(canonical.Bytes(), []byte("\n")))
+	return hex.EncodeToString(digest[:]), nil
 }
 
 func requireJSONEOF(decoder *json.Decoder) error {
@@ -107,8 +221,13 @@ func requireJSONEOF(decoder *json.Decoder) error {
 
 func validateRPGMakerVersion(version *RPGMakerVersion) error {
 	manifest := version.Manifest
-	if manifest.SchemaVersion != 3 || manifest.RuntimeID != "retrom-runtime" ||
-		len(manifest.RuntimeFiles) != 24 || len(manifest.Artifacts) != len(routing.Entries())+4 {
+	minimumFiles := 24
+	minimumArtifacts := len(routing.Entries()) + 4
+	validCounts := len(manifest.RuntimeFiles) == minimumFiles && len(manifest.Artifacts) == minimumArtifacts
+	if version.PFBCandidate {
+		validCounts = len(manifest.RuntimeFiles) >= minimumFiles && len(manifest.Artifacts) >= minimumArtifacts
+	}
+	if manifest.SchemaVersion != 3 || manifest.RuntimeID != "retrom-runtime" || !validCounts {
 		return fmt.Errorf("%w: RPG Maker manifest identity", ErrInvalid)
 	}
 	if err := validateRPGMakerRuntimeFiles(version); err != nil {

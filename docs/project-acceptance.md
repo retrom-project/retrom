@@ -252,8 +252,8 @@ make acceptance-case CASE=<case-id>
 - 上限：180 秒。
 - 执行：`make acceptance-case CASE=ACC-DEV-001`。
 - 前置：验收准备已完成，`make deps-check` 离线通过。
-- 流程：把会记录调用并退出 99 的 `docker` 哨兵放在临时 `PATH` 首位，以显式 `RETROM_MODE=test` 启动未覆盖 `NEXT_DEV_HOST` 和 `RETROM_SERVER_IMPORT_ROOTS` 的 `make dev`，并把 public origin 设为确定性的开发域名；确认依赖离线命中、后端收到 `--mode=test` 且环境中不残留未知的 `RETROM_MODE`。等待两端 ready 后用 `test/test` 登录，通过前端 origin 请求 `/api/v1/home`，并读取本地扫描 roots 投影。再经前端端口发送字段完整但未认证的联机 WebSocket upgrade，并保持 HMR upgrade。随后执行 supervisor 正常接管、`SIGKILL` 后孤儿 process group 接管和伪造登记身份矩阵，最后安全停止。
-- 通过标准：test 空库只创建一个 `test` ADMIN/Profile，登录页有测试警告，认证后的 rewrite 同源成功；联机 upgrade 到达 Go 并返回 `401 AUTHENTICATION_REQUIRED`，HMR 仍为 101；标准开发配置文件、数据根与启动状态分别固定到被忽略的 `.dev-data/dev.mk`、`.dev-data/data` 和 `.dev-data/dev-state`，隔离 Case 通过命令行覆盖为临时目录；仓库 `.dev-data/bios` 与 `.dev-data/roms` 已幂等创建，API 分别只投影 `local-bios`/“本地 BIOS”和 `local-roms`/“本地 ROM”两个状态为 `AVAILABLE` 的 root，且不暴露绝对路径；其余进程接管、监听、Docker 哨兵、身份保护和退出约束全部满足。默认 release 不创建测试账号，由 `ACC-AUTH-002` 独立证明。
+- 流程：把会记录调用并退出 99 的 `docker` 哨兵放在临时 `PATH` 首位，以显式 `RETROM_MODE=test` 启动未覆盖 `RETROM_PUBLIC_ORIGIN`、`RETROM_RPG_RUNTIME_ORIGIN_TEMPLATE`、`NEXT_DEV_HOST` 和 `RETROM_SERVER_IMPORT_ROOTS` 的 `make dev`；确认实际默认值为裸 localhost、依赖离线命中、后端收到 `--mode=test` 且环境中不残留未知的 `RETROM_MODE`。等待两端 ready 后用 `test/test` 登录，通过前端 origin 请求 `/api/v1/home`，并读取本地扫描 roots 投影。再经前端端口发送字段完整但未认证的联机 WebSocket upgrade，并保持 HMR upgrade。随后执行 supervisor 正常接管、`SIGKILL` 后孤儿 process group 接管和伪造登记身份矩阵，最后安全停止。
+- 通过标准：Next 与 Go 只监听 `127.0.0.1:3000/8080`，浏览器地址栏保持 `http://localhost:3000`，runtime 模板为 `http://{launchId}.rpg.localhost:8080`；test 空库只创建一个 `test` ADMIN/Profile，登录页有测试警告，认证后的 rewrite 同源成功；联机 upgrade 到达 Go 并返回 `401 AUTHENTICATION_REQUIRED`，HMR 仍为 101；标准开发配置文件、数据根与启动状态分别固定到被忽略的 `.dev-data/dev.mk`、`.dev-data/data` 和 `.dev-data/dev-state`，隔离 Case 通过命令行覆盖为临时目录；仓库 `.dev-data/bios` 与 `.dev-data/roms` 已幂等创建，API 分别只投影 `local-bios`/“本地 BIOS”和 `local-roms`/“本地 ROM”两个状态为 `AVAILABLE` 的 root，且不暴露绝对路径；其余进程接管、Docker 哨兵、身份保护和退出约束全部满足。默认 release 不创建测试账号，由 `ACC-AUTH-002` 独立证明。
 - 证据：进程树、健康/登录/首页/root HTTP 结果、HMR 与联机 upgrade status 和退出后的 PID 检查。
 
 ### ACC-NET-001：应用侧代理契约与同源隔离
@@ -272,6 +272,78 @@ make acceptance-case CASE=<case-id>
 - 流程：Chrome 打开该 HTTPS 地址并采集与 `ACC-NET-001` 相同的页面/API/runtime/asset；检查浏览器连接证书、HTTP→HTTPS/HSTS 的响应方，以及 NG 到两个应用上游的明文边界。
 - 通过标准：浏览器只看到一个 HTTPS origin且 secure/cross-origin-isolated/SAB 断言通过；证书、重定向和 HSTS 由 NG 提供，Retrom 两个应用仍只监听内部 HTTP；NG 不删除或放宽 nonce CSP、COOP/COEP/CORP/`nosniff`，不把内部地址写入前端。
 - 证据：外部 network trace、证书/响应头摘要和上游监听配置；不得复制私钥。
+
+### ACC-PFB-001：PFB ID、spec 与 registry
+
+- 上限：120 秒。
+- 执行：`make acceptance-case CASE=ACC-PFB-001`。
+- 通过标准：名称到短 slug+12hex 的向量稳定；unknown field、非法/碰撞ID、symlink/home/root、非worktree、detached HEAD与branch漂移全部以稳定码拒绝；registry采用owner-only锁和原子替换且不保存secret或候选bytes。
+
+### ACC-PFB-002：普通 localhost 开发回归与模式互斥
+
+- 上限：240 秒。
+- 执行：`make acceptance-case CASE=ACC-PFB-002`。
+- 通过标准：未覆盖网络变量的 `make dev` 只监听 `127.0.0.1:3000/8080`，地址栏为裸 `http://localhost:3000`，不调用Docker；共享网关占用3000时 `make dev` 失败且不终止网关，反向场景以 `PFB_GATEWAY_PORT_IN_USE` 失败且不终止宿主进程。
+
+### ACC-PFB-003：双 PFB 并行与选择入口
+
+- 上限：600 秒。
+- 执行：`make acceptance-case CASE=ACC-PFB-003`。
+- 通过标准：两个不同commit的PFB同时live/ready，只有共享网关监听宿主 `127.0.0.1:3000`；规范Host始终命中各自alias，`pfb-use`原子切换裸localhost的307目标，停止/重启一个PFB不影响另一个。
+
+### ACC-PFB-004：数据、凭据与 cache 隔离
+
+- 上限：600 秒。
+- 执行：`make acceptance-case CASE=ACC-PFB-004`。
+- 通过标准：两个PFB的DB、CAS、secret、node_modules、Next dist、runtime stage、Go/npm cache与日志无共享可写路径；同名账号、Game、Save、Cookie、Launch和浏览器storage不能跨PFB读取或写入。
+
+### ACC-PFB-005：网关 Host 与 localhost 负向
+
+- 上限：180 秒。
+- 执行：`make acceptance-case CASE=ACC-PFB-005`。
+- 通过标准：非法UUID/PFB、大小写、尾点、额外label、端口混淆、forwarded spoof和未知alias均不连接上游；裸localhost只对GET/HEAD保留path/query并307，其他method为409，无选择为503。
+
+### ACC-PFB-006：本机可信 HTTP、流式与 WebSocket
+
+- 上限：600 秒。
+- 执行：`make acceptance-case CASE=ACC-PFB-006`。
+- 通过标准：锁定Chrome证明app/runtime Host均到loopback且 secureContext/crossOriginIsolated/SAB有效；HMR、netplay WebSocket、SSE、Range、270MiB传输边界和隔离头穿过网关且不被错误缓冲或截断。
+
+### ACC-PFB-007：PFB unique runtime origin
+
+- 上限：300 秒。
+- 执行：`make acceptance-case CASE=ACC-PFB-007`。
+- 通过标准：`<launch>.<pfb>.rpg.localhost:3000` exact origin成功且只服务 `/__retrom/*`；跨PFB Host/cookie/ticket/capability、错误UUID/port/path均拒绝，应用origin不执行用户项目脚本。
+
+### ACC-PFB-008：既有 core 分支候选
+
+- 上限：900 秒。
+- 执行：`make acceptance-case CASE=ACC-PFB-008`。
+- 通过标准：core descriptor、runtime aggregate、Retrom overlay和实际artifact identity逐字节一致；候选经过fresh数据的真实导入、审核预览、发布、Launch、输入、checkpoint、不同Launch恢复与恢复后输入。
+
+### ACC-PFB-009：新增 core 候选闭集
+
+- 上限：900 秒。
+- 执行：`make acceptance-case CASE=ACC-PFB-009`。
+- 通过标准：不改正式manifest即可由reviewable candidate declaration完成真实产品链；unknown route、fallback、缺ABI/checkpoint/descriptor或正式命令发现candidate声明均失败关闭。
+
+### ACC-PFB-010：候选锁与数据代际
+
+- 上限：240 秒。
+- 执行：`make acceptance-case CASE=ACC-PFB-010`。
+- 通过标准：source dirty bytes、candidate output、spec或migration任一变化使旧锁STALE并派生新data volume；旧代际不自动删除，错误代际不能强制复用。
+
+### ACC-PFB-011：正式路径防污染
+
+- 上限：900 秒。
+- 执行：`make acceptance-case CASE=ACC-PFB-011`。
+- 通过标准：`data-check`、`deps-check`、release-input digest、双镜像和tag/release流程对任一candidate marker均以稳定码失败；正式镜像、metadata和notice不包含PFB字段、路径或候选bytes。
+
+### ACC-PFB-012：core→runtime→Retrom 晋升闭环
+
+- 上限：1800 秒。
+- 执行：`make acceptance-case CASE=ACC-PFB-012`。
+- 通过标准：core与runtime不可移动正式tag发布后，Retrom解除candidate、固定正式pin、从全新依赖根重验同一产品Case与双镜像；PFB候选不进入正式Git、依赖、digest或镜像。
 
 ## 6. 数据库、CAS、安全、API 与运维
 
@@ -1763,7 +1835,7 @@ AI Agent 的最终交付摘要必须列出：总结果、失败/阻塞 Case ID�
 | 专题 | 统一 Case |
 | --- | --- |
 | 工程质量与回归 | `ACC-QA-001`–`003` |
-| 镜像、本地开发、NG/TLS | `ACC-PKG-001`–`003`、`ACC-DEV-001`、`ACC-NET-001`–`002`（`002` 为部署条件 Case） |
+| 镜像、本地开发、PFB、NG/TLS | `ACC-PKG-001`–`003`、`ACC-DEV-001`、`ACC-NET-001`–`002`（`002` 为部署条件 Case）、`ACC-PFB-001`–`012` |
 | SQLite、CAS、容量、备份、安全、API、运维 | `ACC-DB-001`–`002`、`ACC-CAS-001`–`002`、`ACC-STOR-001`、`ACC-BKP-001`、`ACC-SEC-001`–`004`、`ACC-API-001`、`ACC-OPS-001` |
 | 游戏目录 | `ACC-PLAT-001`–`005` |
 | 游戏管理 | `ACC-GAME-001`–`003` |

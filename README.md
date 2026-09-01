@@ -40,12 +40,11 @@ Retrom 不提供匿名公开访问。你的存档、最近游玩和收藏对其�
 
 - Linux x86-64
 - Git、Make、Python 3、`curl`、`tar` 和 `xz`
-- Go 1.26.5
 - 支持 C++20 的 `g++`
 - `7z` 或 `7zz`
 - 首次初始化时可访问互联网
 
-Node.js、Web 依赖、固定版本的 Chrome for Testing、EmulatorJS、核心、DAT 与许可文件会由项目命令下载并校验，无需预先安装 Node.js 或 Chrome。
+Go、Node.js、Web 依赖、固定版本的 Chrome for Testing、EmulatorJS、核心、DAT 与许可文件会由项目命令下载并校验，无需预先安装 Go、Node.js 或 Chrome；已安装且版本完全一致的 Go 会被直接复用。
 
 ### 启动步骤
 
@@ -54,7 +53,7 @@ git clone https://github.com/retrom-project/retrom.git
 cd retrom
 
 make install-deps
-RETROM_PUBLIC_ORIGIN=http://localhost:3000 make dev
+make dev
 ```
 
 首次执行 `make install-deps` 需要下载依赖，耗时取决于网络和磁盘性能；后续会复用 `.cache/` 与其他被忽略目录中的已校验缓存。
@@ -64,7 +63,36 @@ RETROM_PUBLIC_ORIGIN=http://localhost:3000 make dev
 - 用户名：`test`
 - 密码：`test`
 
-使用 `Ctrl+C` 会同时停止前后端进程。本地测试数据默认保存在 `.cache/retrom/user-management-v1-data/`，删除或替换该目录会丢失本地账号、游戏和存档。
+使用 `Ctrl+C` 会同时停止前后端进程。本地测试数据默认保存在 `.dev-data/data/`，删除或替换该目录会丢失本地账号、游戏和存档。Next 与 Go 默认只监听宿主 `127.0.0.1:3000/8080`，不需要本地域名、hosts 文件或 TLS 证书。
+
+### PFB 并行联调
+
+需要同时运行多个功能分支时，使用独立的 PFB 命令族。每个 PFB 应位于独立 Git worktree；应用容器不发布宿主端口，只有共享网关监听 `127.0.0.1:3000`。普通 `make dev` 与 PFB 网关不能同时占用该端口，工具会失败关闭而不会终止另一模式。
+
+仅修改 Retrom 时：
+
+```bash
+make pfb-init PFB=feat-library-filter
+make pfb-validate PFB=feat-library-filter
+make pfb-build PFB=feat-library-filter
+make pfb-up PFB=feat-library-filter
+```
+
+`pfb-up` 默认把当前 PFB 选为裸 [http://localhost:3000](http://localhost:3000) 的 307 跳转目标；该实例自身的稳定地址为命令输出的 `http://<pfb-id>.localhost:3000`。`make pfb-use PFB=<name>` 可切换选择，不会影响其他已经运行的 PFB。
+
+联调 runtime 或 core 分支时，初始化命令显式给出各自的绝对 worktree：
+
+```bash
+make pfb-init \
+  PFB=feat-ons-save \
+  RUNTIME_ROOT=/absolute/path/to/retrom-runtime \
+  CORE_ROOTS='{"onsyuri":"/absolute/path/to/OnscripterYuri"}'
+make pfb-validate PFB=feat-ons-save
+make pfb-build PFB=feat-ons-save
+make pfb-up PFB=feat-ons-save
+```
+
+使用 `make pfb-status PFB=<name>` 查看 Git、锁、容器、健康与 URL；`make pfb-verify PFB=<name>` 保存网关、控制器和后端隔离检查的本地证据；`pfb-down` 保留数据代际，`pfb-destroy PFB=<name> CONFIRM=<pfb-id>` 才删除该 PFB 的容器、专属卷和本地生成状态。PFB v1 的严格前置为 Linux x86-64（含 WSL2）、默认本机 Docker context、Compose v2 和仓库锁定的 Chrome；不支持的平台由 `pfb-validate` 明确拒绝。
 
 ## 添加自己的游戏
 
@@ -128,6 +156,8 @@ retrom restore \
 | --- | --- |
 | `make install-deps` | 初始化并校验开发、测试所需的固定依赖 |
 | `make dev` | 在宿主机启动 Go 后端和 Next.js 开发服务 |
+| `make pfb-init/build/up` | 初始化、构建并启动一个隔离的并行功能分支环境 |
+| `make pfb-status/use/down` | 查看、选择或停止一个 PFB 环境 |
 | `make ci` | 运行仓库内可重复的质量、单元、集成和数据检查 |
 | `make web-e2e` | 使用项目自有的 GBA 与 Arcade 测试程序运行 Chrome 产品 E2E |
 | `make build-images` | 构建并校验后端与 Web 镜像 |
