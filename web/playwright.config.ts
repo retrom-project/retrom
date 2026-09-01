@@ -19,7 +19,7 @@ export default defineConfig({
   timeout: 30_000,
   expect: { timeout: 5_000 },
   use: {
-    baseURL: process.env.RETROM_WEB_ORIGIN ?? "http://localhost:3000",
+    baseURL: process.env.RETROM_WEB_ORIGIN ?? "http://localhost:4000",
     channel: "chrome",
     launchOptions: { executablePath: chromeExecutablePath },
     trace: "retain-on-failure",

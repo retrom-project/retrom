@@ -35,7 +35,7 @@ test.beforeEach(async ({ page }, testInfo) => {
   await installGamepads(page, testInfo.title.includes("ACC-IMM-006") ? 2 : 1);
   const response = await page.request.post("/api/v1/auth/login", {
     data: { username: "test", password: "test" },
-    headers: { Origin: process.env.RETROM_WEB_ORIGIN ?? "http://localhost:3000" },
+    headers: { Origin: process.env.RETROM_WEB_ORIGIN ?? "http://localhost:4000" },
   });
   expect(response.ok()).toBe(true);
 });

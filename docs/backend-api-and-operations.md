@@ -217,14 +217,14 @@ Action 负责 registry 登录和 push，不改变 Make target 的本地构建边
 `make dev` 是宿主机开发入口，不是容器入口，也不得依赖 Docker daemon。它先幂等准备或复用 `go.mod` 锁定的 Go 工具链，再执行 `make prepare-deps` 与锁文件驱动的 `make web-install`，成功后以前台 supervisor 方式同时启动：
 
 1. `go run ./cmd/retrom --mode=test`，默认监听 `127.0.0.1:8080`；启动器只用 `RETROM_MODE` 选择并转换 CLI 参数，显式以 `RETROM_NETPLAY_ENABLED=true` 打开测试联机入口，随后在执行 Go 前移除工具变量；
-2. `cd web && npm run dev`，固定使用 Next 的 `--webpack` 开发 bundler，默认只监听 `127.0.0.1:3000`；
+2. `cd web && npm run dev`，固定使用 Next 的 `--webpack` 开发 bundler，默认只监听 `127.0.0.1:4000`；
 3. Next.js dev rewrite 将应用 origin 的 `/api/`、`/content/`、`/runtime/` 和 `/health/` 转发到 `127.0.0.1:8080`。Native Web runtime 使用 `http://{launchId}.rpg.localhost:8080` 直连同一个 Go listener；模板由 Go 与 Next 同时校验，规范 UUID 必须独占最左 Host label。
 
-仓库内置开发 origin 固定为 `http://localhost:3000`，仅 test 模式同时设置 `RETROM_ALLOW_INSECURE_PUBLIC_ORIGIN=true`。`localhost` 与 `*.localhost` 在锁定 Chrome 中必须实测为 potentially trustworthy，页面和 runtime 响应仍须带完整 COOP/COEP/CORP/`nosniff`，从而保持 secure context、cross-origin isolation 与 `SharedArrayBuffer`。开发默认不依赖外部 DNS、证书、远程反向代理或局域网监听；需要真实 HTTPS 的部署边界继续由 `ACC-NET-002` 独立验证。
+仓库内置开发 origin 固定为 `http://localhost:4000`，仅 test 模式同时设置 `RETROM_ALLOW_INSECURE_PUBLIC_ORIGIN=true`。`localhost` 与 `*.localhost` 在锁定 Chrome 中必须实测为 potentially trustworthy，页面和 runtime 响应仍须带完整 COOP/COEP/CORP/`nosniff`，从而保持 secure context、cross-origin isolation 与 `SharedArrayBuffer`。开发默认不依赖外部 DNS、证书、远程反向代理或局域网监听；需要真实 HTTPS 的部署边界继续由 `ACC-NET-002` 独立验证。
 
 脚本必须转发 `SIGINT/SIGTERM`、在任一子进程异常退出时停止另一进程并返回非零状态，退出后不得残留后台进程。每次启动还必须在仓库 `.dev-data/dev-state/dev.pid` 中原子登记 supervisor、Go 与 Next.js 三者的 PID 和 Linux process start ticks；子进程另以独立 process group/session 启动。隔离验收脚本通过 `RETROM_DEV_STATE_DIR` 把同样的登记与接管锁放入本次临时目录，防止测试实例接管日常开发实例。正常接管先用 supervisor 的 PID/start ticks、工作目录和命令行确认身份，再发送 `SIGTERM` 并等待最多 15 秒；若 supervisor 已被 `SIGKILL` 等方式终止，新实例必须分别以登记的子进程 PID/start ticks、process group/session、工作目录和完整启动命令确认遗留 Go/Next.js 身份，只有两者各自通过确认后才向对应精确 process group 发送 `SIGTERM` 并等待数据锁释放。旧版仅登记 supervisor 的两字段文件继续支持正常接管，但不能据此猜测或扫描孤儿子进程。陈旧 PID、PID 复用、伪造登记或其他工作目录的同名进程不得被终止；登记无法证明身份但数据根仍被锁定时，新实例必须在启动子进程前明确失败，不得把错误推迟成后端 `DATA_ROOT_LOCKED`，也不得按端口或进程名批量杀进程。无法在期限内退出时同样失败。启动接管以状态目录中的 `dev-takeover.lock` 串行化，登记文件由 owner 在退出时清理。
 
-`make dev` 不构建镜像、不启动容器、不创建容器网络；本地开发数据库、Blob 和密钥统一写入被 Git 忽略的 `.dev-data/data`，进程登记与接管锁统一写入 `.dev-data/dev-state`。可编辑启动配置集中在同样被忽略的 `.dev-data/dev.mk`，Makefile 在内置默认值前可选加载该文件；其中可覆盖监听、公开 origin、数据/状态目录、依赖版本和功能开关，命令行 Make 变量仍具有最高优先级，隔离验收无需读取日常配置。它使用显式 test 模式，空库创建 `test/test`；不会自动读取或迁移旧 `.cache/retrom` 数据。未提供本地配置文件时，浏览器地址栏保持 `http://localhost:3000`，Next 与 Go 分别只监听 `127.0.0.1:3000` 和 `127.0.0.1:8080`。仅 test 模式且 insecure flag=true 时允许明文 origin；release 无条件要求 HTTPS。线程核心仍受 Chrome 安全上下文限制。前端的幂等 UUID 与上传/存档 SHA-256 在缺少 `crypto.randomUUID`/`crypto.subtle` 时仍使用受测的 Web Crypto 兼容 fallback；安全随机数始终来自 `crypto.getRandomValues`。
+`make dev` 不构建镜像、不启动容器、不创建容器网络；入口在准备工具链或依赖前检查 real/effective UID 与 sudo 调用标记，只允许当前普通用户直接运行，root 或 `sudo` 以稳定错误拒绝。本地开发数据库、Blob 和密钥统一写入被 Git 忽略的 `.dev-data/data`，进程登记与接管锁统一写入 `.dev-data/dev-state`。可编辑启动配置集中在同样被忽略的 `.dev-data/dev.mk`，Makefile 在内置默认值前可选加载该文件；其中可覆盖监听、公开 origin、数据/状态目录、依赖版本和功能开关，命令行 Make 变量仍具有最高优先级，隔离验收无需读取日常配置。它使用显式 test 模式，空库创建 `test/test`；不会自动读取或迁移旧 `.cache/retrom` 数据。未提供本地配置文件时，浏览器地址栏保持 `http://localhost:4000`，Next 与 Go 分别只监听 `127.0.0.1:4000` 和 `127.0.0.1:8080`。仅 test 模式且 insecure flag=true 时允许明文 origin；release 无条件要求 HTTPS。线程核心仍受 Chrome 安全上下文限制。前端的幂等 UUID 与上传/存档 SHA-256 在缺少 `crypto.randomUUID`/`crypto.subtle` 时仍使用受测的 Web Crypto 兼容 fallback；安全随机数始终来自 `crypto.getRandomValues`。
 
 ### 7.3.1 PFB 并行联调
 
@@ -233,7 +233,7 @@ PFB 是与 `make dev` 并列的本机容器化联调入口。只有 `make pfb-*`
 - 每个 PFB 使用一个 Retrom Git worktree、一个应用容器和独立的数据、CAS、secret、依赖候选、Node、Next 与 Go cache。应用容器不发布宿主端口。
 - 共享网关是宿主唯一的 `127.0.0.1:3000` 监听者。规范应用 origin 为 `http://<pfb-id>.localhost:3000`，规范 runtime origin 为 `http://<launch-id>.<pfb-id>.rpg.localhost:3000`。
 - 裸 `http://localhost:3000` 只对 GET/HEAD 307 到显式选中的 PFB；写方法返回 409。合法 app/runtime Host 经严格解析后映射到 `retrom-pfb-<pfb-id>` Docker 网络别名，未知或畸形 Host 不连接任何上游。
-- `make dev` 与共享网关都需要宿主 `127.0.0.1:3000`，两者互斥。发现端口被另一模式或未知进程占用时必须失败且不得终止、替换或接管该进程。
+- 普通 `make dev` 使用宿主 `127.0.0.1:4000`，共享网关使用 `127.0.0.1:3000`，两者必须能够并行运行。全部 PFB 命令与直接 CLI 都拒绝 root/sudo；PFB 应用与共享网关容器显式使用发起命令的普通用户 UID/GID。
 - 网关只信任自己重建的转发头，Go 只信任网关精确 `/32`；网关仅向 app Host 转发页面/API/content/runtime/health，仅向 runtime Host 转发 `/__retrom/*`。
 
 PFB ID 从调用者给出的逻辑名称确定性派生为短 slug 加 SHA-256 前 12 位，必须匹配 `^[a-z0-9](?:[a-z0-9-]{0,22}[a-z0-9])?$`。分支原文不得直接进入 Host、Compose project、网络别名或卷名。全局 registry 只保存非秘密身份、worktree canonical path、状态和唯一 `selectedPfbId`，以 owner-only 文件锁和原子替换更新。
@@ -294,7 +294,7 @@ RETROM_DATA_DIR/
 | 变量 | 开发默认 / 生产规则 |
 | --- | --- |
 | `RETROM_HTTP_ADDR` | 仓库 `make dev` 默认为 `127.0.0.1:8080`；不发布宿主端口的 PFB 应用容器和生产容器可显式设为 `0.0.0.0:8080`。所有情形都只监听明文 HTTP，不接受 HTTPS 值。 |
-| `RETROM_PUBLIC_ORIGIN` | `make dev` 默认为 `http://localhost:3000`；PFB 固定为 `http://<pfb-id>.localhost:3000`。它是 Origin 精确比较和 Invitation/PasswordReset URL 的唯一公开基址，不从 Host/X-Forwarded-Host 推导。生产必填且必须是无 userinfo/path/query/fragment/trailing slash 的单个 `https` origin。 |
+| `RETROM_PUBLIC_ORIGIN` | `make dev` 默认为 `http://localhost:4000`；PFB 固定为 `http://<pfb-id>.localhost:3000`。它是 Origin 精确比较和 Invitation/PasswordReset URL 的唯一公开基址，不从 Host/X-Forwarded-Host 推导。生产必填且必须是无 userinfo/path/query/fragment/trailing slash 的单个 `https` origin。 |
 | `RETROM_ALLOW_INSECURE_PUBLIC_ORIGIN` | 服务默认 `false`；只有 CLI `--mode=test` 且值为 true 时允许明文 origin。release 即使误设 true 也拒绝 HTTP。 |
 | `RETROM_DEV_CONFIG` | Makefile 可选加载的本地配置文件，默认为被忽略的 `.dev-data/dev.mk`；文件不存在时使用仓库内置默认值，命令行变量可覆盖文件值。生产入口不读取它。 |
 | `RETROM_DEV_STATE_DIR` | 仅供开发启动器使用；`make dev` 默认为仓库 `.dev-data/dev-state`，保存 PID 登记与接管锁。隔离验收必须覆盖为本 Case 的临时目录。 |

@@ -47,7 +47,7 @@ evidence_root="$repository_root/.cache/retrom/acceptance"
 mkdir -p "$evidence_root"
 evidence="$(mktemp -d "$evidence_root/arcade-${fixture_id}-flow-XXXXXX")"
 backend="${RETROM_ACCEPTANCE_BACKEND:-http://127.0.0.1:8080}"
-origin="${RETROM_ACCEPTANCE_ORIGIN:-http://localhost:3000}"
+origin="${RETROM_ACCEPTANCE_ORIGIN:-http://localhost:4000}"
 
 new_id() { python3 -c 'import uuid; print(uuid.uuid4())'; }
 

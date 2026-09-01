@@ -66,14 +66,19 @@ def main() -> None:
             )
             run(
                 "docker", "run", "--detach", "--name", upstream, "--network", network,
-                "--network-alias", f"retrom-pfb-{PFB_ID}", NODE_IMAGE, "node", "-e", script,
+                "--network-alias", f"retrom-pfb-{PFB_ID}",
+                "--user", f"{os.getuid()}:{os.getgid()}", NODE_IMAGE, "node", "-e", script,
             )
             run(
                 "docker", "run", "--detach", "--name", gateway, "--network", network,
                 "--publish", "127.0.0.1::3000", "--volume", f"{config}:/etc/nginx/pfb:ro",
+                "--user", f"{os.getuid()}:{os.getgid()}",
+                "--tmpfs", f"/var/cache/nginx:uid={os.getuid()},gid={os.getgid()},mode=0700",
+                "--tmpfs", f"/var/run:uid={os.getuid()},gid={os.getgid()},mode=0700",
                 IMAGE, "nginx", "-c", "/etc/nginx/pfb/nginx.conf", "-g", "daemon off;",
             )
             inspected = json.loads(run("docker", "inspect", gateway))[0]
+            assert inspected["Config"]["User"] == f"{os.getuid()}:{os.getgid()}"
             port = int(inspected["NetworkSettings"]["Ports"]["3000/tcp"][0]["HostPort"])
             deadline = time.monotonic() + 10
             while True:

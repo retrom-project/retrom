@@ -10,7 +10,7 @@ test.beforeEach(async ({ page }, testInfo) => {
   if (testInfo.title.startsWith("ACC-PEG-006") && testInfo.project.name !== "chrome-1280") {
     test.skip(true, "真实 Pegasus 核心链路只执行一次；多尺寸布局由 ACC-PEG-005 覆盖");
   }
-  const origin = process.env.RETROM_WEB_ORIGIN ?? "http://localhost:3000";
+  const origin = process.env.RETROM_WEB_ORIGIN ?? "http://localhost:4000";
   const response = await page.request.post("/api/v1/auth/login", {
     data: { username: "test", password: "test" }, headers: { Origin: origin },
   });

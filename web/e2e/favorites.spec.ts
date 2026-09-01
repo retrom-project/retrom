@@ -4,7 +4,7 @@ import path from "node:path";
 import { expect, test, type APIRequestContext, type BrowserContext, type Locator, type Page, type TestInfo } from "@playwright/test";
 import axe from "axe-core";
 
-const origin = process.env.RETROM_WEB_ORIGIN ?? "http://localhost:3000";
+const origin = process.env.RETROM_WEB_ORIGIN ?? "http://localhost:4000";
 const userPassword = "a sufficiently long favorite password";
 
 type AuthContext = { csrfToken: string };
