@@ -1,0 +1,85 @@
+services:
+  app:
+    build:
+      context: ../..
+      dockerfile: scripts/pfb/Dockerfile
+      args:
+        PFB_TOOLCHAIN_DIGEST: ${PFB_TOOLCHAIN_DIGEST:?}
+    image: retrom-pfb-dev:${PFB_TOOLCHAIN_DIGEST:?}
+    user: "${PFB_UID:?}:${PFB_GID:?}"
+    init: true
+    stop_grace_period: 45s
+    working_dir: /workspace/retrom
+    environment:
+      PFB_ID: ${PFB_ID:?}
+      PFB_RUNTIME_MODE: ${PFB_RUNTIME_MODE:?}
+      PFB_GATEWAY_IP: ${PFB_GATEWAY_IP:?}
+      HOME: /pfb-data/home
+      GOCACHE: /go-cache/build
+      GOMODCACHE: /go-cache/mod
+      npm_config_cache: /workspace/retrom/web/node_modules/.npm-cache
+    volumes:
+      - type: bind
+        source: ${PFB_RETROM_ROOT:?}
+        target: /workspace/retrom
+      - type: bind
+        source: ${PFB_RUNTIME_ROOT:?}
+        target: /workspace/runtime
+      - type: bind
+        source: ${PFB_NEXT_ENV_FILE:?}
+        target: /workspace/retrom/web/next-env.d.ts
+      - type: bind
+        source: ${PFB_TSCONFIG_FILE:?}
+        target: /workspace/retrom/web/tsconfig.json
+      - type: volume
+        source: pfb-data
+        target: /pfb-data
+        volume:
+          nocopy: true
+      - type: volume
+        source: pfb-node
+        target: /workspace/retrom/web/node_modules
+        volume:
+          nocopy: true
+      - type: volume
+        source: pfb-runtime-node
+        target: /workspace/runtime/node_modules
+        volume:
+          nocopy: true
+      - type: volume
+        source: pfb-next
+        target: /workspace/retrom/web/.next-pfb-${PFB_ID:?}
+        volume:
+          nocopy: true
+      - type: volume
+        source: pfb-go
+        target: /go-cache
+        volume:
+          nocopy: true
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://127.0.0.1:8080/health/live"]
+      interval: 5s
+      timeout: 3s
+      retries: 24
+      start_period: 20s
+    networks:
+      pfb-gateway:
+        aliases:
+          - retrom-pfb-${PFB_ID:?}
+
+volumes:
+  pfb-data:
+    name: ${PFB_DATA_VOLUME:?}
+  pfb-node:
+    name: ${PFB_NODE_VOLUME:?}
+  pfb-runtime-node:
+    name: ${PFB_RUNTIME_NODE_VOLUME:?}
+  pfb-next:
+    name: ${PFB_NEXT_VOLUME:?}
+  pfb-go:
+    name: ${PFB_GO_VOLUME:?}
+
+networks:
+  pfb-gateway:
+    name: retrom-pfb-gateway-v1
+    external: true

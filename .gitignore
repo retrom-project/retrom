@@ -12,6 +12,7 @@
 /coverage.out
 /playwright-report/
 /test-results/
+/node_modules/
 /.env
 /.env.*
 !/.env.example
@@ -23,6 +24,7 @@
 /web/.next-runtime-dev/
 /web/.next-netplay-*/
 /web/.next-acc-rpg-*/
+/web/.next-pfb-*/
 /web/out/
 /web/coverage/
 /web/*.tsbuildinfo
@@ -52,3 +54,5 @@
 /data/auth/password-blocklists/*/payload/
 
 /sample
+/.pfb/
+/td

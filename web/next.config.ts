@@ -1,5 +1,5 @@
 import type { NextConfig } from "next";
-import { unrestrictedDevOrigins } from "./lib/dev-origin";
+import { localDevOrigins } from "./lib/dev-origin";
 
 const backend = process.env.NEXT_BACKEND_ORIGIN ?? "http://127.0.0.1:8080";
 
@@ -9,7 +9,7 @@ export const backendProxyLimits = {
 } as const;
 
 const nextConfig: NextConfig = {
-  allowedDevOrigins: unrestrictedDevOrigins(),
+  allowedDevOrigins: localDevOrigins(),
   distDir: process.env.NEXT_DIST_DIR ?? ".next",
   experimental: {
     proxyClientMaxBodySize: backendProxyLimits.bodyBytes,

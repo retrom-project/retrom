@@ -411,6 +411,16 @@ class CPSFixtureLayoutValidationTests(unittest.TestCase):
 
 
 class ReleaseInputDigestTests(unittest.TestCase):
+    def test_release_digest_rejects_materialized_pfb_candidate(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            marker = root / "data/runtime/rpgmaker/v1/.retrom-pfb-candidate.json"
+            marker.parent.mkdir(parents=True)
+            marker.write_text("{}\n", encoding="utf-8")
+            with mock.patch.object(release_input_digest, "ROOT", root):
+                with self.assertRaisesRegex(ValueError, "PFB_CANDIDATE_FORBIDDEN"):
+                    release_input_digest.release_input_value(["1.0.0"], "1.0.0")
+
     def test_unstaged_delete_is_absent_and_untracked_rename_is_present(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

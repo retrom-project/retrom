@@ -23,7 +23,7 @@ import fbalpha2012_dat
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parent.parent
-DATA_ROOT = REPOSITORY_ROOT / "data"
+DATA_ROOT = Path(os.environ.get("RETROM_DEPENDENCY_ROOT", REPOSITORY_ROOT / "data")).resolve()
 AUTH_MANIFEST_PATH = DATA_ROOT / "auth/password-blocklists/v1/manifest.json"
 NETPLAY_MANIFEST_PATH = DATA_ROOT / "netplay/v2/manifest.json"
 NETPLAY_SCHEMA_PATH = DATA_ROOT / "netplay/v2/schema.json"

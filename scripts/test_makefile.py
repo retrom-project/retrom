@@ -181,6 +181,7 @@ class MakefileDependencyTests(unittest.TestCase):
     def test_install_deps_covers_all_project_dependency_classes(self) -> None:
         output = self.dry_run("install-deps")
         for command in (
+            "scripts/prepare-go.sh",
             "go install mvdan.cc/gofumpt",
             "go install github.com/golangci/golangci-lint",
             "scripts/dependencies.py prepare",
@@ -193,9 +194,13 @@ class MakefileDependencyTests(unittest.TestCase):
 
     def test_dev_installs_locked_web_dependencies_before_starting(self) -> None:
         output = self.dry_run("dev")
+        go_prepare_position = output.find("scripts/prepare-go.sh")
         install_position = output.find("npm ci")
         dev_position = output.find("scripts/dev.sh")
-        self.assertTrue(0 <= install_position < dev_position, output)
+        self.assertTrue(
+            0 <= go_prepare_position < install_position < dev_position,
+            output,
+        )
         self.assertIn(
             f'RETROM_DEV_STATE_DIR="{REPOSITORY_ROOT / ".dev-data/dev-state"}"',
             output,
@@ -211,6 +216,15 @@ class MakefileDependencyTests(unittest.TestCase):
         self.assertIn('next dev --hostname "$2" --port "$3" --webpack', dev_script)
         package = json.loads((REPOSITORY_ROOT / "web" / "package.json").read_text(encoding="utf-8"))
         self.assertTrue(package["scripts"]["dev"].endswith("--webpack"))
+
+    def test_pfb_dev_reuses_the_image_toolchains(self) -> None:
+        entrypoint = (REPOSITORY_ROOT / "scripts/pfb/entrypoint.sh").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn(
+            "make dev GO_PREPARE_MODE=system NODE_PREPARE_MODE=system",
+            entrypoint,
+        )
 
     def test_rpg_runtime_uses_release_assets_without_a_local_build_target(self) -> None:
         for target in ("prepare-deps", "dev"):
@@ -240,7 +254,7 @@ class MakefileDependencyTests(unittest.TestCase):
         self.assertNotIn("core:ons:build", output)
         self.assertIn('NEXT_DIST_DIR=".next-runtime-dev"', output)
         self.assertIn(
-            "env -u RETROM_DEV_CONFIG -u RETROM_RUNTIME_DEV_ROOT -u RETROM_RUNTIME_DEV_INCLUDE_ASSETS -u RETROM_RUNTIME_DEV_RELEASE_OVERRIDES scripts/dev.sh",
+            "env -u RETROM_DEV_CONFIG -u RETROM_RUNTIME_DEV_ROOT -u RETROM_RUNTIME_DEV_INCLUDE_ASSETS -u RETROM_RUNTIME_DEV_RELEASE_OVERRIDES -u RETROM_RUNTIME_MATERIALIZATION_ROOT -u RETROM_RUNTIME_PFB_CANDIDATE_ROOT scripts/dev.sh",
             output,
         )
 
@@ -265,7 +279,8 @@ class MakefileDependencyTests(unittest.TestCase):
             0 <= release_position < activation_position < prepare_position < dev_position,
             output,
         )
-        self.assertIn("-u RETROM_RUNTIME_DEV_RELEASE_OVERRIDES scripts/dev.sh", output)
+        self.assertIn("-u RETROM_RUNTIME_DEV_RELEASE_OVERRIDES", output)
+        self.assertIn("-u RETROM_RUNTIME_PFB_CANDIDATE_ROOT scripts/dev.sh", output)
 
     def test_ci_runs_the_structure_gate_without_warning_only_bypass(self) -> None:
         output = self.dry_run("ci")
