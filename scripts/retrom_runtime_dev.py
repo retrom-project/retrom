@@ -16,6 +16,7 @@ from typing import Any
 
 MARKER_FILENAME = ".retrom-runtime-dev.json"
 OBSERVED_FILENAME = ".release-observed.json"
+PFB_MARKER_FILENAME = ".retrom-pfb-candidate.json"
 
 
 class LinkError(RuntimeError):
@@ -74,14 +75,26 @@ def activate(
     web_package_arg: Path,
     manifest_path: Path,
     include_runtime_assets: bool,
+    candidate_root_arg: Path | None = None,
 ) -> None:
     source = checked_root(source_arg, "runtime-manifest.json")
     formal = load_json(manifest_path)
     local, commit = validate_local_runtime(source)
     if include_runtime_assets:
-        assets = staged_release_assets(source, formal)
+        candidate_root = None
+        materialization = formal
+        if candidate_root_arg is not None:
+            candidate_root = checked_root(candidate_root_arg, "retrom-runtime-candidate.json")
+            overlay = load_json(candidate_root / PFB_MARKER_FILENAME)
+            runtime_files = overlay.get("runtimeFiles")
+            if not isinstance(runtime_files, list):
+                raise LinkError("RETROM_RUNTIME_PFB_CANDIDATE_INVALID")
+            materialization = candidate_materialization_manifest(formal, runtime_files)
+        assets = staged_release_assets(candidate_root or source, materialization, candidate_root is not None)
         runtime_root = runtime_arg.absolute()
-        publish_candidate_runtime(formal, assets, runtime_root)
+        publish_candidate_runtime(materialization, assets, runtime_root)
+        if candidate_root is not None:
+            replace_file(candidate_root / PFB_MARKER_FILENAME, runtime_root / PFB_MARKER_FILENAME)
     else:
         assets = {}
         runtime_root = checked_root(runtime_arg, OBSERVED_FILENAME)
@@ -97,8 +110,41 @@ def activate(
     print(f"retrom-runtime-dev: linked {source} at {commit[:12]} ({len(assets)} runtime assets)")
 
 
-def staged_release_assets(source: Path, formal: dict[str, Any]) -> dict[str, Path]:
-    stage = source / "release/stage"
+def candidate_materialization_manifest(
+    formal: dict[str, Any], runtime_files: list[Any],
+) -> dict[str, Any]:
+    combined = [*formal["runtime_files"]]
+    bundle_paths = {item["bundle_path"] for item in combined}
+    release_paths = {item["path_in_release"] for item in combined}
+    roles = {"runtime_js", "runtime_wasm", "adapter_bridge", "runtime_asset", "license"}
+    for item in runtime_files:
+        if (
+            not isinstance(item, dict)
+            or set(item) != {"bundle_path", "path_in_release", "role", "max_size_bytes"}
+            or not isinstance(item["bundle_path"], str)
+            or not isinstance(item["path_in_release"], str)
+            or not item["bundle_path"]
+            or not item["path_in_release"]
+            or Path(item["bundle_path"]).is_absolute()
+            or Path(item["path_in_release"]).is_absolute()
+            or ".." in Path(item["bundle_path"]).parts
+            or ".." in Path(item["path_in_release"]).parts
+            or item["bundle_path"] in bundle_paths
+            or item["path_in_release"] in release_paths
+            or item["role"] not in roles
+            or not isinstance(item["max_size_bytes"], int)
+            or isinstance(item["max_size_bytes"], bool)
+            or item["max_size_bytes"] < 1
+        ):
+            raise LinkError("RETROM_RUNTIME_PFB_CANDIDATE_INVALID")
+        bundle_paths.add(item["bundle_path"])
+        release_paths.add(item["path_in_release"])
+        combined.append(item)
+    return {**formal, "runtime_files": combined}
+
+
+def staged_release_assets(source: Path, formal: dict[str, Any], candidate: bool = False) -> dict[str, Path]:
+    stage = source / ("stage" if candidate else "release/stage")
     declarations = formal.get("runtime_files")
     if not stage.is_dir() or not isinstance(declarations, list) or not declarations:
         raise LinkError("RETROM_RUNTIME_DEV_STAGE_INVALID")
@@ -235,6 +281,7 @@ def main() -> int:
     parser.add_argument("--web-package", type=Path, required=True)
     parser.add_argument("--manifest", type=Path, required=True)
     parser.add_argument("--include-runtime-assets", action="store_true")
+    parser.add_argument("--candidate-root", type=Path)
     args = parser.parse_args()
     if args.action == "activate":
         if args.source is None:
@@ -245,6 +292,7 @@ def main() -> int:
             args.web_package,
             args.manifest,
             args.include_runtime_assets,
+            args.candidate_root,
         )
     else:
         deactivate(args.runtime_root, args.web_package)

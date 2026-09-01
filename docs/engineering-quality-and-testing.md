@@ -50,6 +50,8 @@
 | 命令 | 必须执行的内容 | 是否修改文件 |
 | --- | --- | --- |
 | `make install-deps` | 项目初始化：物化固定 Go 工具与模块、Node/npm 包、EmulatorJS/core/DAT/许可和 Playwright 锁定的 Chrome for Testing | 会写 `bin/`、`web/node_modules/`、`data/` 的忽略 payload 与 `.cache/` |
+| `make prepare-go` | 精确版本的宿主 Go 已存在时直接复用，否则按 `go.mod` 版本和仓库固定 SHA-256 原子物化 Linux x86-64 工具链；损坏缓存自动隔离并重建 | 可能写被忽略的 `.cache/tools/` |
+| `make prepare-node` | 按 `.node-version` 与固定 npm 版本校验仓库 Node 工具链；缺失或损坏时按官方 SHA-256 原子重建 | 可能写被忽略的 `.cache/tools/` |
 | `make fmt` | 对 Go 源码执行 `gofumpt` 与 `goimports` | 是 |
 | `make fmt-check` | 检查 Go 格式并输出 diff；存在差异即失败 | 否 |
 | `make install-go-formatters` | 将固定 `gofumpt v0.11.0` 与 `goimports@v0.48.0` 安装到仓库忽略的 `bin/` | 会写工具缓存与 `bin/` |
@@ -79,6 +81,11 @@
 | `make release-input-digest` | 离线计算依赖专题规定的源码/依赖发布输入指纹，stdout 只输出 64 位小写 SHA-256 | 否 |
 | `make ci` | `quality-structure-check + api-check + backend-check + web-check + integration-test + data-check` | 仅依赖/构建产物与被忽略的 Go 生成物 |
 | `make dev` | 先生成被忽略的 Go API 文件并执行 `prepare-deps + web-install`；设置绝对路径 `RETROM_RUNTIME_DEV_ROOT` 时再应用显式本地 runtime link，随后在宿主机启动 Go/Next.js 并统一处理退出信号；不使用 Docker | 会写本地依赖/开发数据缓存与被忽略的 Go 生成物 |
+| `make pfb-init/validate/status` | 确定性建立或只读检查 PFB ID、严格 spec、registry、worktree、工具链、Chrome 与 source/锁状态；不操作 Git、不启动容器 | `init` 写被忽略的 `.pfb/` 与 owner-only全局 registry，其余只读 |
+| `make pfb-build` | 构建 branch core候选、聚合 runtime候选、生成 Retrom overlay、candidate lock与数据代际锁；staging全部通过后原子发布 | 只写 PFB 候选、日志和被忽略的依赖 stage |
+| `make pfb-up/use/restart/down/status/logs` | 仅管理 PFB 应用容器、共享 loopback开发网关、显式 localhost选择与状态；不改变生产镜像、正式依赖或 Git | 写 PFB状态/日志并按命令管理开发容器，不自动删除卷 |
+| `make pfb-verify` | 执行 `ACC-PFB-*` 基础设施及受影响产品 Case，把锁、网络、拓扑和结果写入当前 PFB证据目录 | 只写 `.pfb/evidence/` 与验收临时状态 |
+| `make pfb-prune/destroy` | 只有 exact `CONFIRM=<pfb-id>` 时删除 registry明确列出的旧代际或该 PFB资源；不删除 Git worktree/branch/其他PFB/共享网关 | 是，范围由 registry与确认值双重限制 |
 | `make build-backend-image` | 只构建 `retrom:${IMAGE_TAG}`，前后复核并标记 release-input digest | 只写本地镜像缓存 |
 | `make build-web-image` | 只构建 `retrom-web:${IMAGE_TAG}`，前后复核并标记同一 digest | 只写本地镜像缓存 |
 | `make build-images` | 以同一 digest 依次构建上述两个镜像，最后 inspect label 一致性 | 只写本地镜像缓存 |
@@ -89,19 +96,20 @@
 补充规则：
 
 - `make ci` 包含全部可复现的仓库内单元、集成与数据检查；没有合法公开 fixture 的核心启动兼容性不在自动化测试中冒充已覆盖。
-- 全新 checkout 的统一初始化入口是 `make install-deps`。它允许在测试或服务启动前联网下载锁定依赖；正确缓存后 `prepare-deps` 与 `prepare-e2e-browser` 均幂等复用。浏览器缓存、Node 工具链和运行时 payload 不进入 Git 或镜像。
+- 全新 checkout 的统一初始化入口是 `make install-deps`。它允许在测试或服务启动前联网下载锁定依赖；正确缓存后 `prepare-go`、`prepare-node`、`prepare-deps` 与 `prepare-e2e-browser` 均幂等复用。Go/Node 工具链、浏览器缓存和运行时 payload 不进入 Git 或镜像；固定版本的宿主 Go 可由 `auto` 模式直接复用，PFB 镜像中的固定工具链使用 `system` 模式。
 - 自动化测试不得读取操作者私有 ROM/BIOS。可提交 ROM/项目必须由项目所有或有明确再分发许可、保留可审查的唯一生成源，并由 `data-check`、`public-fixtures-check` 和实际产品消费者共同逐字节校验；当前实例是 `testdata/public-roms/gba-smoke/`、`testdata/public-roms/nes-smoke/`、`testdata/public-roms/snes-smoke/`、`testdata/public-roms/arcade-smoke/` 与 `testdata/public-roms/rpgmaker-smoke/`。RPG Maker 目录只含 Retrom 自有生成内容和清单锁定的 MIT MV CoreScript；ignored MZ 官方样例不属于可提交 fixture。
 - `make ci` 默认不构建容器镜像；Dockerfile、镜像内容或发布资产变化时，在 PR 验证中额外执行 `make build-images`。tag 发布流水线不重复运行 PR 的 quality job，只执行自身的双镜像构建、输入校验和推送。
 - Go package 列表应显式覆盖 `./cmd/...`、`./internal/...` 和 `./migrations/...`，避免未来 `web/node_modules` 或本地数据目录中的意外 Go 文件污染 `./...`。根 `migrations` 是可导入的 Go embed package，SQL 与 `embed.go` 同目录，不能依赖运行容器中另有源码目录。
 - OpenAPI 固定为以 `api/openapi.yaml` 为入口的领域文件集（项目协议基线为 OpenAPI 3.0.3；锁定的 `oapi-codegen v2.8.0` 虽支持 3.1，但不得在普通实现任务中变更规范方言）。`scripts/openapi-bundle` 只允许解析 `api/` 内的本地相对引用，保留入口声明顺序和内部 component identity，并生成被忽略的 `.cache/generated/openapi.bundle.yaml`；两端生成器和内嵌运行时规范必须消费该同一文件。Go 侧由该版本分别生成同一个 `generated` package 下的 `models.gen.go`、`server.gen.go` 与 `spec.gen.go`，分别承载 DTO、strict stdlib server/router 和内嵌规范；三者均被 Git 忽略且不得提交，由标准后端 build/test/lint/integration/dev target 和后端镜像构建在编译前按需生成。生成配置放在 `api/codegen/`。请求验证固定 `nethttp-middleware v1.2.0`，另加 HTTP 专题的重复 JSON key/未知 query lexical guard。前端 `web/package.json#scripts.api:generate` 固定从上述 bundle 生成单一 `lib/api/generated/schema.d.ts`，并用 `openapi-fetch 0.17.0` 封装同源 client；该 TypeScript schema 必须提交并由漂移检查逐字节比较。生成文件都不得手改；改用 OpenAPI 3.1 必须单独完成两端生成、validator 与 contract test 的契约迁移。
 - `api-generate` 与 `api-check` 必须直接依赖 `web-install`，保证全新 checkout 在调用 `npx --no-install` 前已通过 `package-lock.json` 物化精确版本；不得依赖开发机残留的 `web/node_modules`，也不得允许 npx 临时下载缺失包。`api-check` 必须在临时目录生成 Go 文件，不能依赖或改写工作树中的被忽略副本；同时检查该路径仍被 ignore 且不在 Git index。`data-check` 的 Makefile 回归用例必须锁定这些依赖与跟踪边界。
 - Makefile 固定 `GOFUMPT_VERSION=v0.11.0`、`GOIMPORTS_VERSION=v0.48.0` 与 `GOLANGCI_LINT_VERSION=v2.11.4`，都安装到仓库内忽略的 `bin/`；`fmt/fmt-check` 只调用本地 formatter，`lint-go` 只调用本地 golangci-lint，不得调用浮动的 `@latest` 或依赖开发机全局版本。安装命令精确为 `go install mvdan.cc/gofumpt@$(GOFUMPT_VERSION)`、`go install golang.org/x/tools/cmd/goimports@$(GOIMPORTS_VERSION)` 和 `go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION)`；版本 sentinel 必须核对二进制报告值，已有错误版本不能因文件存在而复用。
-- Go 版本以 `go.mod` 为事实源，`.golangci.yml` 与 CI 必须一致。Node 版本以 `web/package.json#engines` 和仓库版本文件为事实源，CI 不得另选一个未记录版本。
+- Go 版本以 `go.mod` 为事实源，`.golangci.yml`、仓库 Go 归档 SHA-256 与 CI 必须一致。Node 版本以 `web/package.json#engines` 和仓库版本文件为事实源，CI 不得另选一个未记录版本。仓库工具链只能先下载到临时目录、完成版本与完整性校验后再原子发布；已存在但校验失败的缓存必须自动重建，不能要求操作者手工删除。
 - Web 统一使用 npm，必须提交 `web/package-lock.json`；CI 使用 `npm ci`，不得用会改锁文件的 `npm install`。
 - Makefile 固定 golangci-lint `v2.11.4`；升级必须显式修改变量和本节并运行完整门禁，不能在安装命令使用 `@latest`。
 - Makefile 固定 `DOCKER ?= docker`、`BACKEND_IMAGE ?= retrom`、`WEB_IMAGE ?= retrom-web`、`IMAGE_TAG ?= latest`。默认输出必须是 `retrom:latest` 与 `retrom-web:latest`，同时允许调用者显式覆盖 tag 或完整镜像仓库前缀。
 - 三个 image targets 只能调用镜像构建，不得依赖 `dev`，也不得执行 `docker run`、`docker compose`、push、登录 registry 或部署操作。
-- `make dev` 前置执行 `make prepare-deps` 与 `make web-install`，之后只能运行宿主机的 `go run ./cmd/retrom` 与固定 `--webpack` 的 `npm run dev`（可以由 `scripts/dev.sh` 编排）。固定 bundler 是开发入口的可重复性要求：当前锁定的 Next/Tailwind 组合在 Turbopack PostCSS transform 中会生成无法解析的内部 `@vercel/turbopack/postcss` 引用，不能让标准开发入口因机器缓存不同而有时可用、有时 500。脚本必须正确转发 `SIGINT/SIGTERM` 并在任一子进程异常退出时结束另一进程；登记必须同时覆盖 supervisor 与两个独立 process group 的 PID/start ticks。启动前以仓库专用 PID/start ticks/工作目录/命令行身份安全停止并等待旧 dev supervisor；若 supervisor 被强制终止，则还要以登记的 process group/session 和子进程身份安全接管遗留 Go/Next.js。身份无法确认时只能失败，不能按端口或名称误杀其他进程；不得要求 Docker daemon。
+- `make dev` 前置执行 `make prepare-go`、Go API 生成、`make prepare-deps` 与 `make web-install`，之后只能运行宿主机的 `go run ./cmd/retrom` 与固定 `--webpack` 的 `npm run dev`（可以由 `scripts/dev.sh` 编排）。固定 bundler 是开发入口的可重复性要求：当前锁定的 Next/Tailwind 组合在 Turbopack PostCSS transform 中会生成无法解析的内部 `@vercel/turbopack/postcss` 引用，不能让标准开发入口因机器缓存不同而有时可用、有时 500。脚本必须正确转发 `SIGINT/SIGTERM` 并在任一子进程异常退出时结束另一进程；登记必须同时覆盖 supervisor 与两个独立 process group 的 PID/start ticks。启动前以仓库专用 PID/start ticks/工作目录/命令行身份安全停止并等待旧 dev supervisor；若 supervisor 被强制终止，则还要以登记的 process group/session 和子进程身份安全接管遗留 Go/Next.js。身份无法确认时只能失败，不能按端口或名称误杀其他进程；不得要求 Docker daemon。
+- `make dev` 的默认网络基线是 `http://localhost:3000`、Next `127.0.0.1:3000`、Go `127.0.0.1:8080` 与 runtime `http://{launchId}.rpg.localhost:8080`。PFB 命令与 `make dev` 并列且不成为其依赖；共享 PFB 网关和 `make dev` 对宿主 3000 互斥，任一模式都不得自动终止或接管另一模式。
 - 本地自动化明确使用 `RETROM_MODE=test`，dev supervisor 将它转换为后端 CLI 的 `--mode=test` 后从 Go 子进程环境中移除，避免严格环境变量校验把前端编排变量误当作后端配置。测试模式只允许临时数据目录、固定 `test/test` 账号和显著 UI 警告；release 模式测试必须走 setup code，不得用测试账号旁路。
 
 ### 3.1 全仓源码结构门禁
@@ -246,6 +254,7 @@ flat config 必须设置 `linterOptions.noInlineConfig=true` 且 unused disable 
 | 产品运行时 E2E | 真实 Retrom 导入/Launch/内容端点/Player 是否能驱动 EmulatorJS 核心 | `web/e2e/` + `testdata/public-roms/` 项目自有 ROM | 按影响范围/发布门禁 |
 | RPG Maker 产品 E2E | 七版本项目导入、route/artifact、三 adapter、unique-origin、A→B→C→不同 Launch 恢复到 B 与恢复后 `RESTORE_INPUT` | `web/e2e/` + 合法确定性 fixture/操作者 MZ deployment | 发布门禁 |
 | 联机协议与回归 | 房间/协议边界、安全拒绝、feature flag、容量、单机路径，以及八个精确 profile 的双浏览器核心与生命周期 | 聚焦 Go/Web 测试 + `ACC-NP-010`–`022` | 按影响范围/发布门禁 |
+| PFB 基础设施 | ID/spec/registry、worktree/source指纹、严格 Host、共享网关、双PFB隔离、candidate/output漂移、数据代际、正式路径拒绝与销毁确认 | Python/Node/Go单测 + Docker/Chrome `ACC-PFB-001`–`012` | PFB实现和候选供应链变更 |
 
 命名要求：
 
@@ -307,6 +316,7 @@ flat config 必须设置 `linterOptions.noInlineConfig=true` 且 unused disable 
 | 导入与审核 | 必须选择游戏目录；上传进度、失败重试、候选切换、人工编辑、approve/discard 与历史回放 |
 | BIOS/DAT 管理 | 按平台/core 展示状态；哈希 warning 与缺失 blocking 视觉语义不同；DAT 上传、差异预览和启用确认 |
 | NG 同源部署 | 通过测试 NG 访问时页面、API、content、runtime 均为同一公开 origin；内部地址不进入 bundle；`isSecureContext` 与 `crossOriginIsolated` 为真 |
+| PFB 本机网关 | 裸 localhost只安全重定向；两个规范 `.localhost` app Host、两个 unique runtime Host、Cookie/storage/DB/CAS/cache互不串用；非法Host、未知alias、跨PFB capability、外部监听与转发头欺骗全部失败关闭 |
 | RPG Maker 浏览器运行 | 七版本 core 选择无底层实现名；EasyRPG engine 与 mkxp RGSS profile 强制生效；MV/MZ exact unique origin、bootstrap/CSP/MessageChannel/恶意隔离；每版真实 marker、输入/音频/帧、A→B→C→新 Launch 恢复 B 和恢复后 `RESTORE_INPUT` |
 | 联机房间与 Player | feature flag 导航、SUPPORTED/ALL 与全部筛选/URL、分享/选座/ready/start gate、loading/空/error/blocker、确认弹层和焦点；Player 只暴露联机允许控件，启动前安装 v4.2.3 frame/state hook，rollback 输出抑制必须 finally 恢复，页面隐藏/断线全局暂停并在 lease 内原座恢复 |
 | 响应式应用壳与页面 | `320×568`、`360×800`、`390×844`、`412×915` 手机与 `768×1024`、`1024×768` 平板；路由上下文、底栏/Drawer/Sheet、草稿应用/取消、焦点归还、44px target、safe area、卡片列数和 document 零横向溢出 |

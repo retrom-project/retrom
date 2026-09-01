@@ -7,18 +7,33 @@ node_directory="node-v${node_version}-linux-x64"
 tools_directory="$repository_root/.cache/tools"
 target="$tools_directory/$node_directory"
 
-if [[ -x "$target/bin/node" ]] && [[ "$($target/bin/node --version)" == "v${node_version}" ]] && [[ "$($target/bin/npm --version)" == "11.16.0" ]]; then
-  exit 0
-fi
-if [[ -e "$target" ]]; then
-  echo "existing Node toolchain is invalid: $target" >&2
-  exit 1
-fi
+toolchain_is_valid() {
+  local root="$1"
+  [[ -x "$root/bin/node" && -x "$root/bin/npm" ]] || return 1
+  [[ "$("$root/bin/node" --version 2>/dev/null)" == "v${node_version}" ]] || return 1
+  [[ "$(PATH="$root/bin:$PATH" "$root/bin/npm" --version 2>/dev/null)" == "11.16.0" ]]
+}
 
 mkdir -p "$tools_directory"
+exec 9>"$tools_directory/.prepare-node.lock"
+flock -x 9
+toolchain_is_valid "$target" && exit 0
+
 temporary="$(mktemp -d "$tools_directory/.node-download-XXXXXX")"
-cleanup() { rm -rf -- "$temporary"; }
+restore_invalid=false
+cleanup() {
+  if [[ "$restore_invalid" == true && ! -e "$target" && -e "$temporary/invalid-toolchain" ]]; then
+    mv -- "$temporary/invalid-toolchain" "$target"
+  fi
+  rm -rf -- "$temporary"
+}
 trap cleanup EXIT
+
+if [[ -e "$target" || -L "$target" ]]; then
+  echo "rebuilding invalid Node toolchain: $target" >&2
+  mv -- "$target" "$temporary/invalid-toolchain"
+  restore_invalid=true
+fi
 
 archive="${node_directory}.tar.xz"
 curl --fail --location --silent --show-error "https://nodejs.org/dist/v${node_version}/SHASUMS256.txt" --output "$temporary/SHASUMS256.txt"
@@ -33,7 +48,14 @@ if [[ "$actual" != "$expected" ]]; then
   echo "Node archive checksum mismatch" >&2
   exit 1
 fi
-tar -xJf "$temporary/$archive" -C "$tools_directory"
+mkdir "$temporary/extracted"
+tar -xJf "$temporary/$archive" -C "$temporary/extracted"
+candidate="$temporary/extracted/$node_directory"
+if ! toolchain_is_valid "$candidate"; then
+  echo "downloaded Node toolchain is invalid" >&2
+  exit 1
+fi
+mv -- "$candidate" "$target"
+restore_invalid=false
 
-[[ "$($target/bin/node --version)" == "v${node_version}" ]]
-[[ "$($target/bin/npm --version)" == "11.16.0" ]]
+toolchain_is_valid "$target"

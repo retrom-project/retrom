@@ -88,6 +88,8 @@ def source_entries() -> list[dict[str, object]]:
 
 
 def release_input_value(versions: list[str], active: str) -> dict[str, object]:
+    if (ROOT / "data/runtime/rpgmaker/v1/.retrom-pfb-candidate.json").exists():
+        raise ValueError("PFB_CANDIDATE_FORBIDDEN")
     normalized = parse_versions(",".join(versions))
     if normalized != versions:
         raise ValueError("RELEASE_INPUT_DEPENDENCY_VERSIONS_INVALID")
