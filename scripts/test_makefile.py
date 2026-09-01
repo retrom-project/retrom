@@ -194,13 +194,16 @@ class MakefileDependencyTests(unittest.TestCase):
 
     def test_dev_installs_locked_web_dependencies_before_starting(self) -> None:
         output = self.dry_run("dev")
+        user_check_position = output.find("python3 scripts/local_user.py")
         go_prepare_position = output.find("scripts/prepare-go.sh")
         install_position = output.find("npm ci")
         dev_position = output.find("scripts/dev.sh")
         self.assertTrue(
-            0 <= go_prepare_position < install_position < dev_position,
+            0 <= user_check_position < go_prepare_position < install_position < dev_position,
             output,
         )
+        self.assertIn('RETROM_PUBLIC_ORIGIN="http://localhost:4000"', output)
+        self.assertIn('NEXT_DEV_PORT="4000"', output)
         self.assertIn(
             f'RETROM_DEV_STATE_DIR="{REPOSITORY_ROOT / ".dev-data/dev-state"}"',
             output,
@@ -225,6 +228,17 @@ class MakefileDependencyTests(unittest.TestCase):
             "make dev GO_PREPARE_MODE=system NODE_PREPARE_MODE=system",
             entrypoint,
         )
+        for target in (
+            "pfb-init", "pfb-validate", "pfb-build", "pfb-up", "pfb-use",
+            "pfb-restart", "pfb-down", "pfb-status", "pfb-logs", "pfb-verify",
+            "pfb-prune", "pfb-destroy", "pfb-gateway-up", "pfb-gateway-down",
+        ):
+            output = self.dry_run(target)
+            self.assertLess(
+                output.find("python3 scripts/local_user.py"),
+                output.find("python3 -m scripts.pfb.cli"),
+                output,
+            )
 
     def test_rpg_runtime_uses_release_assets_without_a_local_build_target(self) -> None:
         for target in ("prepare-deps", "dev"):

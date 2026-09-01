@@ -2,6 +2,7 @@
 set -euo pipefail
 
 repository_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+python3 "$repository_root/scripts/local_user.py"
 state_directory="${RETROM_DEV_STATE_DIR:-$repository_root/.dev-data/dev-state}"
 pid_file="$state_directory/dev.pid"
 takeover_lock="$state_directory/dev-takeover.lock"
@@ -153,7 +154,7 @@ is_registered_web() {
     "$registered_web_pid" \
     "$registered_web_start_ticks" \
     "$repository_root/web" \
-    "next dev --hostname ${NEXT_DEV_HOST:-0.0.0.0} --port ${NEXT_DEV_PORT:-3000} --webpack"
+    "next dev --hostname ${NEXT_DEV_HOST:-0.0.0.0} --port ${NEXT_DEV_PORT:-4000} --webpack"
 }
 
 data_root_lock_available() {
@@ -284,7 +285,7 @@ setsid env -u RETROM_MODE -u RETROM_DEV_STATE_DIR go run ./cmd/retrom --mode="$a
 backend_pid=$!
 upgrade_proxy="--import=$repository_root/web/scripts/netplay-upgrade-proxy.mjs${NODE_OPTIONS:+ $NODE_OPTIONS}"
 setsid env -u RETROM_DEV_STATE_DIR NODE_OPTIONS="$upgrade_proxy" bash -c 'cd "$1" && exec npm exec -- next dev --hostname "$2" --port "$3" --webpack' \
-  retrom-dev-web "$repository_root/web" "${NEXT_DEV_HOST:-0.0.0.0}" "${NEXT_DEV_PORT:-3000}" &
+  retrom-dev-web "$repository_root/web" "${NEXT_DEV_HOST:-0.0.0.0}" "${NEXT_DEV_PORT:-4000}" &
 web_pid=$!
 backend_start_ticks="$(read_start_ticks "$backend_pid")"
 web_start_ticks="$(read_start_ticks "$web_pid")"

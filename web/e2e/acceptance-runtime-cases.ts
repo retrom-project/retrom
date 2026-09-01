@@ -6,7 +6,7 @@ export function registerRuntimeAcceptanceTests(): void {
   test.describe("post-publication runtime acceptance", () => {
     test.beforeEach(async ({ page }, testInfo) => {
       test.skip(testInfo.project.name !== "chrome-1280", "此状态型 Case 只消费一次共享验收夹具");
-      const origin = process.env.RETROM_WEB_ORIGIN ?? "http://localhost:3000";
+      const origin = process.env.RETROM_WEB_ORIGIN ?? "http://localhost:4000";
       const response = await page.request.post("/api/v1/auth/login", { data: { username: "test", password: "test" }, headers: { Origin: origin } });
       expect(response.ok()).toBe(true);
     });
@@ -564,7 +564,7 @@ function registerSave002(): void {
     const authContext = await page.request.get("/api/v1/auth/context");
     const csrfToken = (await authContext.json() as { csrfToken: string }).csrfToken;
     const mismatch = await page.request.post("/api/v1/launches", {
-      headers: { Origin: process.env.RETROM_WEB_ORIGIN ?? "http://localhost:3000", "X-Retrom-Csrf": csrfToken, "Content-Type": "application/json", "Idempotency-Key": crypto.randomUUID() },
+      headers: { Origin: process.env.RETROM_WEB_ORIGIN ?? "http://localhost:4000", "X-Retrom-Csrf": csrfToken, "Content-Type": "application/json", "Idempotency-Key": crypto.randomUUID() },
       data: { gameId, coreId: "gambatte", saveStateId: saved.saveStateId, dosEntry: null, returnTo: "/saves", clientCapabilities: { secureContext: true, crossOriginIsolated: true, sharedArrayBuffer: true } },
     });
     expect(mismatch.status()).toBe(422);

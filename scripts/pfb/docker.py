@@ -61,6 +61,8 @@ def gateway_up(root: Path) -> dict[str, Any]:
             "PFB_GATEWAY_CONFIG_DIR": str(_gateway_state_dir()),
             "PFB_GATEWAY_IP": contract["gatewayIp"],
             "PFB_GATEWAY_CONFIG_SHA256": contract["configSha256"],
+            "PFB_UID": str(os.getuid()),
+            "PFB_GID": str(os.getgid()),
         }
         _compose(root / "scripts/pfb/gateway/compose.yaml", ["up", "-d", "--remove-orphans"], environment)
         _verify_gateway_container(contract)
@@ -103,6 +105,8 @@ def gateway_down(root: Path) -> None:
             "PFB_GATEWAY_CONFIG_DIR": str(_gateway_state_dir()),
             "PFB_GATEWAY_IP": contract["gatewayIp"],
             "PFB_GATEWAY_CONFIG_SHA256": contract["configSha256"],
+            "PFB_UID": str(os.getuid()),
+            "PFB_GID": str(os.getgid()),
         }
         _compose(root / "scripts/pfb/gateway/compose.yaml", ["down", "--remove-orphans"], environment, allow_failure=True)
         registry["gateway"] = None
@@ -437,6 +441,8 @@ def _verify_gateway_container(contract: dict[str, str]) -> None:
     labels = item["Config"]["Labels"]
     if labels.get("io.retrom.pfb-contract-version") != "1" or labels.get("io.retrom.pfb-config-sha256") != contract["configSha256"]:
         raise PFBError("PFB_GATEWAY_VERSION_CONFLICT")
+    if item["Config"].get("User") != f"{os.getuid()}:{os.getgid()}":
+        raise PFBError("PFB_GATEWAY_USER_INVALID")
 
 
 def _compose(

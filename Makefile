@@ -24,14 +24,14 @@ RETROM_DEV_STATE_DIR ?= $(abspath .dev-data/dev-state)
 RETROM_DATA_DIR ?= $(abspath .dev-data/data)
 RETROM_MODE ?= test
 RETROM_HTTP_ADDR ?= 127.0.0.1:8080
-RETROM_PUBLIC_ORIGIN ?= http://localhost:3000
+RETROM_PUBLIC_ORIGIN ?= http://localhost:4000
 RETROM_ALLOW_INSECURE_PUBLIC_ORIGIN ?= true
 RETROM_RPG_RUNTIME_ORIGIN_TEMPLATE ?= http://{launchId}.rpg.localhost:8080
 RETROM_MULTI_DISC_IMPORT_ENABLED ?= true
 RETROM_NETPLAY_ENABLED ?= true
 RETROM_NETPLAY_MAX_ACTIVE_ROOMS ?= 16
 NEXT_DEV_HOST ?= 127.0.0.1
-NEXT_DEV_PORT ?= 3000
+NEXT_DEV_PORT ?= 4000
 NEXT_BACKEND_ORIGIN ?= http://$(RETROM_HTTP_ADDR)
 NEXT_DEV_DIST_DIR ?= $(if $(strip $(RETROM_RUNTIME_DEV_ROOT)),.next-runtime-dev,.next)
 NODE_HOME ?= $(abspath .cache/tools/node-v24.18.0-linux-x64)
@@ -58,7 +58,9 @@ API_GO_GENERATED := internal/httpapi/generated/models.gen.go internal/httpapi/ge
 	build test lint-go backend-check web-install web-lint web-typecheck web-test web-build web-check integration-test api-bundle api-generate-go api-generate api-check \
 	public-fixtures-generate public-fixtures-check web-e2e data-check prepare-deps deps-check release-input-digest ci dev build-backend-image \
 	build-web-image build-images acceptance-prepare acceptance-case acceptance-report retrom-runtime-dev-link retrom-runtime-dev-unlink \
-	pfb-init pfb-validate pfb-build pfb-up pfb-use pfb-restart pfb-down pfb-status pfb-logs pfb-verify pfb-prune pfb-destroy pfb-gateway-up pfb-gateway-down
+	require-local-user pfb-init pfb-validate pfb-build pfb-up pfb-use pfb-restart pfb-down pfb-status pfb-logs pfb-verify pfb-prune pfb-destroy pfb-gateway-up pfb-gateway-down
+
+.NOTPARALLEL: dev
 
 install-deps: prepare-go install-go-formatters install-golangci-lint prepare-deps web-install prepare-e2e-browser public-fixtures-check
 	@go mod download
@@ -177,6 +179,7 @@ web-e2e: prepare-go prepare-e2e-browser public-fixtures-check
 	@PATH="$(NODE_HOME)/bin:$$PATH" scripts/acceptance/web-e2e.sh
 
 data-check:
+	@python3 scripts/test_local_user.py
 	@python3 scripts/test_pfb.py
 	@python3 scripts/test_prepare_toolchains.py
 	@python3 scripts/test_makefile.py
@@ -223,7 +226,10 @@ release-input-digest:
 
 ci: quality-structure-check api-check backend-check web-check integration-test data-check
 
-dev: prepare-go api-generate-go web-install
+require-local-user:
+	@python3 scripts/local_user.py
+
+dev: require-local-user prepare-go api-generate-go web-install
 	@if [[ -n "$(RETROM_RUNTIME_DEV_ROOT)" ]]; then $(MAKE) retrom-runtime-dev-link RETROM_RUNTIME_DEV_ROOT="$(RETROM_RUNTIME_DEV_ROOT)" RETROM_RUNTIME_DEV_INCLUDE_ASSETS="$(RETROM_RUNTIME_DEV_INCLUDE_ASSETS)" RETROM_RUNTIME_PFB_CANDIDATE_ROOT="$(RETROM_RUNTIME_PFB_CANDIDATE_ROOT)"; fi
 	@$(MAKE) prepare-deps RETROM_RUNTIME_DEV_ROOT="$(RETROM_RUNTIME_DEV_ROOT)"
 	@RETROM_DEV_STATE_DIR="$(RETROM_DEV_STATE_DIR)" \
@@ -245,39 +251,39 @@ dev: prepare-go api-generate-go web-install
 	 NEXT_DIST_DIR="$(NEXT_DEV_DIST_DIR)" \
 	 PATH="$(NODE_HOME)/bin:$$PATH" env -u RETROM_DEV_CONFIG -u RETROM_RUNTIME_DEV_ROOT -u RETROM_RUNTIME_DEV_INCLUDE_ASSETS -u RETROM_RUNTIME_DEV_RELEASE_OVERRIDES -u RETROM_RUNTIME_MATERIALIZATION_ROOT -u RETROM_RUNTIME_PFB_CANDIDATE_ROOT scripts/dev.sh
 
-pfb-init:
+pfb-init: require-local-user
 	@test -n "$(PFB)" || { echo 'PFB is required' >&2; exit 2; }
 	@args=(init --root "$(CURDIR)" --pfb "$(PFB)"); \
 	 if [[ -n "$(RUNTIME_ROOT)" ]]; then args+=(--runtime-root "$(RUNTIME_ROOT)"); fi; \
 	 if [[ -n "$(CORE_ROOTS)" ]]; then args+=(--core-roots '$(CORE_ROOTS)'); fi; \
 	 python3 -m scripts.pfb.cli "$${args[@]}"
 
-pfb-validate pfb-build pfb-use pfb-restart pfb-down pfb-verify:
+pfb-validate pfb-build pfb-use pfb-restart pfb-down pfb-verify: require-local-user
 	@test -n "$(PFB)" || { echo 'PFB is required' >&2; exit 2; }
 	@python3 -m scripts.pfb.cli "$(@:pfb-%=%)" --root "$(CURDIR)" --pfb "$(PFB)"
 
-pfb-up:
+pfb-up: require-local-user
 	@test -n "$(PFB)" || { echo 'PFB is required' >&2; exit 2; }
 	@test "$(or $(PFB_SELECT),true)" = true || test "$(PFB_SELECT)" = false || { echo 'PFB_SELECT must be true or false' >&2; exit 2; }
 	@python3 -m scripts.pfb.cli up --root "$(CURDIR)" --pfb "$(PFB)" --select "$(or $(PFB_SELECT),true)"
 
-pfb-status:
+pfb-status: require-local-user
 	@test -n "$(PFB)" || { echo 'PFB is required' >&2; exit 2; }
 	@python3 -m scripts.pfb.cli status --root "$(CURDIR)" --pfb "$(PFB)" --format "$(or $(FORMAT),text)"
 
-pfb-logs:
+pfb-logs: require-local-user
 	@test -n "$(PFB)" || { echo 'PFB is required' >&2; exit 2; }
 	@python3 -m scripts.pfb.cli logs --root "$(CURDIR)" --pfb "$(PFB)" --service "$(or $(SERVICE),all)"
 
-pfb-prune:
+pfb-prune: require-local-user
 	@test -n "$(PFB)" && test -n "$(KEEP)" && test -n "$(CONFIRM)" || { echo 'PFB, KEEP and CONFIRM are required' >&2; exit 2; }
 	@python3 -m scripts.pfb.cli prune --root "$(CURDIR)" --pfb "$(PFB)" --keep "$(KEEP)" --confirm "$(CONFIRM)"
 
-pfb-destroy:
+pfb-destroy: require-local-user
 	@test -n "$(PFB)" && test -n "$(CONFIRM)" || { echo 'PFB and CONFIRM are required' >&2; exit 2; }
 	@python3 -m scripts.pfb.cli destroy --root "$(CURDIR)" --pfb "$(PFB)" --confirm "$(CONFIRM)"
 
-pfb-gateway-up pfb-gateway-down:
+pfb-gateway-up pfb-gateway-down: require-local-user
 	@python3 -m scripts.pfb.cli "$(@:pfb-%=%)" --root "$(CURDIR)"
 
 build-backend-image: data-check

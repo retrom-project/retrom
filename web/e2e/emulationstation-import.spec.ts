@@ -47,7 +47,7 @@ type StorageSnapshot = {
 };
 
 test.beforeEach(async ({ page }) => {
-  const origin = process.env.RETROM_WEB_ORIGIN ?? "http://localhost:3000";
+  const origin = process.env.RETROM_WEB_ORIGIN ?? "http://localhost:4000";
   const response = await page.request.post("/api/v1/auth/login", {
     data: { username: "test", password: "test" },
     headers: { Origin: origin },
@@ -534,7 +534,7 @@ async function verifyFullProductLifecycle(page: Page, testInfo: TestInfo) {
       },
     },
     headers: {
-      Origin: process.env.RETROM_WEB_ORIGIN ?? "http://localhost:3000",
+      Origin: process.env.RETROM_WEB_ORIGIN ?? "http://localhost:4000",
       "X-Retrom-Csrf": csrfToken,
       "Idempotency-Key": randomUUID(),
     },
