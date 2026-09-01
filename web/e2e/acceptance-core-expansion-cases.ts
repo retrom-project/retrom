@@ -77,7 +77,7 @@ async function createLaunch(page: Page, csrfToken: string, gameId: string, coreI
       clientCapabilities: { secureContext: true, crossOriginIsolated: true, sharedArrayBuffer: true },
     },
     headers: {
-      Origin: process.env.RETROM_WEB_ORIGIN ?? "http://localhost:3000",
+      Origin: process.env.RETROM_WEB_ORIGIN ?? "http://localhost:4000",
       "X-Retrom-Csrf": csrfToken,
       "Idempotency-Key": crypto.randomUUID(),
     },
@@ -203,7 +203,7 @@ async function verifyCore(page: Page, testInfo: TestInfo, expectation: Expansion
   });
   const loginResponse = await page.request.post("/api/v1/auth/login", {
     data: { username: "test", password: "test" },
-    headers: { Origin: process.env.RETROM_WEB_ORIGIN ?? "http://localhost:3000" },
+    headers: { Origin: process.env.RETROM_WEB_ORIGIN ?? "http://localhost:4000" },
   });
   expect(loginResponse.ok()).toBe(true);
   const csrfToken = (await loginResponse.json() as { csrfToken: string }).csrfToken;

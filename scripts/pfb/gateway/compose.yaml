@@ -2,11 +2,12 @@ services:
   gateway:
     image: ${PFB_GATEWAY_IMAGE:?}
     container_name: retrom-pfb-gateway-v1
+    user: "${PFB_UID:?}:${PFB_GID:?}"
     restart: unless-stopped
     read_only: true
     tmpfs:
-      - /var/cache/nginx
-      - /var/run
+      - /var/cache/nginx:uid=${PFB_UID:?},gid=${PFB_GID:?},mode=0700
+      - /var/run:uid=${PFB_UID:?},gid=${PFB_GID:?},mode=0700
     ports:
       - "127.0.0.1:3000:3000"
     command: ["nginx", "-c", "/etc/nginx/pfb/nginx.conf", "-g", "daemon off;"]

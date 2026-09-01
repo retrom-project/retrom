@@ -15,6 +15,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from scripts.local_user import LocalUserError, require_local_user
+
 from .common import canonical_bytes, load_json, lowercase_hex, sha256_bytes, sha256_file
 from .docker import (
     app_down,
@@ -79,9 +81,13 @@ def parser() -> argparse.ArgumentParser:
 
 
 def main(arguments: list[str] | None = None) -> int:
-    args = parser().parse_args(arguments)
     try:
+        require_local_user()
+        args = parser().parse_args(arguments)
         return dispatch(args)
+    except LocalUserError as exc:
+        print(str(exc), file=sys.stderr)
+        return 2
     except PFBError as exc:
         print(str(exc), file=sys.stderr)
         return 2

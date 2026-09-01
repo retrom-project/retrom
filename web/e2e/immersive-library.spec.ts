@@ -6,7 +6,7 @@ import { currentEmulatorBrightRatio, evidencePath, locatorBrightRatio } from "./
 import { installGamepads, pressGamepad, setGamepadButtons, standardButton } from "./immersive-gamepad";
 import { selectImmersiveMenuItem, type ImmersiveMenuLabel } from "./immersive-menu-selection";
 
-const origin = process.env.RETROM_WEB_ORIGIN ?? "http://localhost:3000";
+const origin = process.env.RETROM_WEB_ORIGIN ?? "http://localhost:4000";
 const audioPreferenceKey = "retrom:immersive:audio-preferences:v1";
 const seededFolderId = "0198ff00-1000-7000-8000-000000000001";
 

@@ -195,7 +195,7 @@ RPG Maker 的存档与既有模拟器状态统一建模为运行时检查点。�
 
 ### 3.15 本机开发与 PFB 联调边界
 
-普通开发入口 `make dev` 继续只启动宿主 Go 与 Next 进程，默认从 `http://localhost:3000` 访问，两个进程分别只监听 `127.0.0.1:8080` 与 `127.0.0.1:3000`。本机开发不依赖外部 DNS、TLS 证书或远程反向代理；生产同源 HTTPS 与 TLS 终结边界不变。
+普通开发入口 `make dev` 继续只启动宿主 Go 与 Next 进程，默认从 `http://localhost:4000` 访问，两个进程分别只监听 `127.0.0.1:8080` 与 `127.0.0.1:4000`。本机开发不依赖外部 DNS、TLS 证书或远程反向代理；生产同源 HTTPS 与 TLS 终结边界不变。普通开发与 PFB 命令都拒绝 root/sudo，全部长期运行进程或容器显式沿用发起命令的普通用户 UID/GID。
 
 需要并行验证多个功能分支时使用独立 PFB 命令族。每个 PFB 对应独立 Git worktree、应用容器、数据代际、CAS、secret、候选依赖和构建 cache，所有 PFB 共享唯一绑定 `127.0.0.1:3000` 的本机开发网关。规范应用 origin 是 `http://<pfb-id>.localhost:3000`，每 Launch runtime origin 是 `http://<launch-id>.<pfb-id>.rpg.localhost:3000`；裸 localhost只重定向到显式选中的 PFB。网关根据严格 Host映射 Docker 网络别名，不接收分支原文，不提供未知 Host fallback，也不向局域网发布端口。
 

@@ -143,6 +143,8 @@ class GatewayContractTests(unittest.TestCase):
         self.assertIn("proxy_read_timeout 28800s", nginx)
         self.assertNotIn("proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for", nginx)
         self.assertNotIn("container_name:", app_compose)
+        self.assertIn('user: "${PFB_UID:?}:${PFB_GID:?}"', app_compose)
+        self.assertIn('user: "${PFB_UID:?}:${PFB_GID:?}"', compose)
         self.assertIn("stop_grace_period: 45s", app_compose)
 
 

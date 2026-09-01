@@ -6,7 +6,7 @@ evidence_root="$repository_root/.cache/retrom/acceptance"
 mkdir -p "$evidence_root"
 evidence="$(mktemp -d "$evidence_root/http-flow-XXXXXX")"
 backend="${RETROM_ACCEPTANCE_BACKEND:-http://127.0.0.1:8080}"
-origin="${RETROM_ACCEPTANCE_ORIGIN:-http://localhost:3000}"
+origin="${RETROM_ACCEPTANCE_ORIGIN:-http://localhost:4000}"
 fixture="$repository_root/testdata/public-roms/gba-smoke/gba-smoke.gba"
 expected_size=1024
 expected_sha256="f86c63b35aea59190f5e1cf99f8f3d576c3646b26da02f3f826fde192a47239b"

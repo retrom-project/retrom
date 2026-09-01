@@ -3,7 +3,7 @@ set -euo pipefail
 
 repository_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 backend="${RETROM_ACCEPTANCE_BACKEND:-http://127.0.0.1:8080}"
-origin="${RETROM_ACCEPTANCE_ORIGIN:-http://localhost:3000}"
+origin="${RETROM_ACCEPTANCE_ORIGIN:-http://localhost:4000}"
 fixture_id="${1:-fceumm}"
 case "$fixture_id" in
   fceumm)

@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 import axe from "axe-core";
 import { evidencePath, noPageOverflow } from "./acceptance-support";
 
-const origin = process.env.RETROM_WEB_ORIGIN ?? "http://localhost:3000";
+const origin = process.env.RETROM_WEB_ORIGIN ?? "http://localhost:4000";
 const categoryOrder = [
   "GAME_CONTENT", "BIOS", "SAVES", "MEDIA", "WORKFLOW", "RUNTIME_SNAPSHOT",
   "SHARED_DURABLE", "OTHER_REFERENCED", "UNREFERENCED",
