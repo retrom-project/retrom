@@ -12,7 +12,7 @@ declare global {
   }
 }
 
-const origin = process.env.RETROM_WEB_ORIGIN ?? "http://localhost:3000";
+const origin = process.env.RETROM_WEB_ORIGIN ?? "http://localhost:4000";
 
 async function login(page: Page) {
   const response = await page.request.post("/api/v1/auth/login", {

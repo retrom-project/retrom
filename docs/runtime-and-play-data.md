@@ -299,7 +299,7 @@ Cross-Origin-Resource-Policy: same-origin
 X-Content-Type-Options: nosniff
 ```
 
-启动前检查 `window.isSecureContext`、`window.crossOriginIsolated` 和 `SharedArrayBuffer`。普通 `make dev` 的公开 origin 固定为 `http://localhost:3000`，Native Web runtime 使用 `http://{launchId}.rpg.localhost:8080`；目标 Chrome 必须实测两者均解析到 loopback并满足 potentially trustworthy 与跨源隔离。PFB 使用 `http://<pfb-id>.localhost:3000` 和 `http://{launchId}.<pfb-id>.rpg.localhost:3000`，共享网关只绑定宿主 loopback，并在转发前严格验证完整 Host。若线程核心页面不满足安全上下文，前端不发送一个注定被拒绝的 Launch，只明确报告浏览器线程能力不足。真实部署仍使用受信 HTTPS；Go/Next.js 只监听明文 HTTP，不终结 TLS。
+启动前检查 `window.isSecureContext`、`window.crossOriginIsolated` 和 `SharedArrayBuffer`。普通 `make dev` 的公开 origin 固定为 `http://localhost:4000`，Native Web runtime 使用 `http://{launchId}.rpg.localhost:8080`；目标 Chrome 必须实测两者均解析到 loopback并满足 potentially trustworthy 与跨源隔离。PFB 使用 `http://<pfb-id>.localhost:3000` 和 `http://{launchId}.<pfb-id>.rpg.localhost:3000`，共享网关只绑定宿主 loopback，并在转发前严格验证完整 Host。若线程核心页面不满足安全上下文，前端不发送一个注定被拒绝的 Launch，只明确报告浏览器线程能力不足。真实部署仍使用受信 HTTPS；Go/Next.js 只监听明文 HTTP，不终结 TLS。
 
 PFB runtime Host 的 UUID 仍独占最左 label，后续 `<pfb-id>.rpg.localhost:3000` 是从当前 PFB spec 与候选锁取得的静态 suffix。Go、Next CSP 和共享网关不得从请求猜测或改写 PFB ID；runtime Host 只服务 `/__retrom/*`，其他 path、跨 PFB ticket/cookie、额外 label、大小写或端口漂移都失败关闭。每个 Launch 仍使用唯一 origin，不允许退化为应用同源、共享 runtime origin 或 path 隔离。
 

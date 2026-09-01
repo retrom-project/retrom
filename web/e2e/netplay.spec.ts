@@ -7,7 +7,7 @@ import {
   type DiagnosticEvent,
 } from "./netplay-checkpoints";
 
-const origin = process.env.RETROM_WEB_ORIGIN ?? "http://localhost:3000";
+const origin = process.env.RETROM_WEB_ORIGIN ?? "http://localhost:4000";
 const alicePassword = "A1!retrom-netplay-acceptance";
 
 type Auth = { csrfToken: string };

@@ -253,14 +253,14 @@ make acceptance-case CASE=<case-id>
 - 执行：`make acceptance-case CASE=ACC-DEV-001`。
 - 前置：验收准备已完成，`make deps-check` 离线通过。
 - 流程：把会记录调用并退出 99 的 `docker` 哨兵放在临时 `PATH` 首位，以显式 `RETROM_MODE=test` 启动未覆盖 `RETROM_PUBLIC_ORIGIN`、`RETROM_RPG_RUNTIME_ORIGIN_TEMPLATE`、`NEXT_DEV_HOST` 和 `RETROM_SERVER_IMPORT_ROOTS` 的 `make dev`；确认实际默认值为裸 localhost、依赖离线命中、后端收到 `--mode=test` 且环境中不残留未知的 `RETROM_MODE`。等待两端 ready 后用 `test/test` 登录，通过前端 origin 请求 `/api/v1/home`，并读取本地扫描 roots 投影。再经前端端口发送字段完整但未认证的联机 WebSocket upgrade，并保持 HMR upgrade。随后执行 supervisor 正常接管、`SIGKILL` 后孤儿 process group 接管和伪造登记身份矩阵，最后安全停止。
-- 通过标准：Next 与 Go 只监听 `127.0.0.1:3000/8080`，浏览器地址栏保持 `http://localhost:3000`，runtime 模板为 `http://{launchId}.rpg.localhost:8080`；test 空库只创建一个 `test` ADMIN/Profile，登录页有测试警告，认证后的 rewrite 同源成功；联机 upgrade 到达 Go 并返回 `401 AUTHENTICATION_REQUIRED`，HMR 仍为 101；标准开发配置文件、数据根与启动状态分别固定到被忽略的 `.dev-data/dev.mk`、`.dev-data/data` 和 `.dev-data/dev-state`，隔离 Case 通过命令行覆盖为临时目录；仓库 `.dev-data/bios` 与 `.dev-data/roms` 已幂等创建，API 分别只投影 `local-bios`/“本地 BIOS”和 `local-roms`/“本地 ROM”两个状态为 `AVAILABLE` 的 root，且不暴露绝对路径；其余进程接管、Docker 哨兵、身份保护和退出约束全部满足。默认 release 不创建测试账号，由 `ACC-AUTH-002` 独立证明。
+- 通过标准：Next 与 Go 只监听 `127.0.0.1:4000/8080`，浏览器地址栏保持 `http://localhost:4000`，runtime 模板为 `http://{launchId}.rpg.localhost:8080`；root real/effective UID 与任一 sudo 标记都在依赖准备前以 `LOCAL_DEVELOPMENT_ROOT_FORBIDDEN` 拒绝；test 空库只创建一个 `test` ADMIN/Profile，登录页有测试警告，认证后的 rewrite 同源成功；联机 upgrade 到达 Go 并返回 `401 AUTHENTICATION_REQUIRED`，HMR 仍为 101；标准开发配置文件、数据根与启动状态分别固定到被忽略的 `.dev-data/dev.mk`、`.dev-data/data` 和 `.dev-data/dev-state`，隔离 Case 通过命令行覆盖为临时目录；仓库 `.dev-data/bios` 与 `.dev-data/roms` 已幂等创建，API 分别只投影 `local-bios`/“本地 BIOS”和 `local-roms`/“本地 ROM”两个状态为 `AVAILABLE` 的 root，且不暴露绝对路径；其余进程接管、Docker 哨兵、身份保护和退出约束全部满足。默认 release 不创建测试账号，由 `ACC-AUTH-002` 独立证明。
 - 证据：进程树、健康/登录/首页/root HTTP 结果、HMR 与联机 upgrade status 和退出后的 PID 检查。
 
 ### ACC-NET-001：应用侧代理契约与同源隔离
 
 - 上限：180 秒。
 - 执行：`make acceptance-case CASE=ACC-NET-001`。
-- 流程：以正常 `make dev` 的 `http://localhost:3000` 同源入口运行 Chrome，先登录，再连续两次完整 navigation 并采集页面、`/_next`、`/api/v1/home`、`/runtime/emulatorjs/4.2.3/data/loader.js` 和一个 seed Asset；同时执行既有 nonce、监听、可信/不可信转发头、production CSP 与 TLS 能力扫描。
+- 流程：以正常 `make dev` 的 `http://localhost:4000` 同源入口运行 Chrome，先登录，再连续两次完整 navigation 并采集页面、`/_next`、`/api/v1/home`、`/runtime/emulatorjs/4.2.3/data/loader.js` 和一个 seed Asset；同时执行既有 nonce、监听、可信/不可信转发头、production CSP 与 TLS 能力扫描。
 - 通过标准：localhost 单一 origin 下 `window.isSecureContext === true`、`window.crossOriginIsolated === true`、`SharedArrayBuffer` 可用；每次 HTML response 的 nonce 均非空且彼此不同，CSP、转发 request nonce 和 Next framework script nonce 一致；开发 CSP 只额外允许 `unsafe-eval`，production CSP 不含它并只开放文档锁定的 self/blob/wasm 能力；页面没有共享静态 HTML/ISR/PPR，控制台没有 CSP 回退/CDN 请求；COOP/COEP/CORP/`nosniff` 覆盖页面、iframe 和 runtime。应用只提供内部明文 HTTP 且没有 TLS 管理能力；非受信转发头无效，受信代理值只在精确 allowlist/公开 origin 校验后生效；内部地址未进入 browser bundle。
 - 证据：network trace、CSP/隔离头、浏览器断言、监听 socket、代理请求矩阵和应用配置摘要。
 
@@ -279,11 +279,11 @@ make acceptance-case CASE=<case-id>
 - 执行：`make acceptance-case CASE=ACC-PFB-001`。
 - 通过标准：名称到短 slug+12hex 的向量稳定；unknown field、非法/碰撞ID、symlink/home/root、非worktree、detached HEAD与branch漂移全部以稳定码拒绝；registry采用owner-only锁和原子替换且不保存secret或候选bytes。
 
-### ACC-PFB-002：普通 localhost 开发回归与模式互斥
+### ACC-PFB-002：普通 localhost 开发回归与 PFB 端口隔离
 
 - 上限：240 秒。
 - 执行：`make acceptance-case CASE=ACC-PFB-002`。
-- 通过标准：未覆盖网络变量的 `make dev` 只监听 `127.0.0.1:3000/8080`，地址栏为裸 `http://localhost:3000`，不调用Docker；共享网关占用3000时 `make dev` 失败且不终止网关，反向场景以 `PFB_GATEWAY_PORT_IN_USE` 失败且不终止宿主进程。
+- 通过标准：未覆盖网络变量的 `make dev` 只监听 `127.0.0.1:4000/8080`，地址栏为裸 `http://localhost:4000`，不调用 Docker；共享网关同时监听 `127.0.0.1:3000` 时两者都保持可用。`make dev`、全部 `make pfb-*` 与直接脚本/CLI 均拒绝 root/sudo，PFB 应用和网关容器的运行用户精确等于发起命令的 UID/GID。
 
 ### ACC-PFB-003：双 PFB 并行与选择入口
 

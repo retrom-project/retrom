@@ -7,7 +7,7 @@ import { verifyUserDesktopLayouts } from "./acceptance-user-layout";
 test.beforeEach(async ({ page }, testInfo) => {
   const multiViewport = /^ACC-UI-00[56]\\b/.test(testInfo.title);
   test.skip(!multiViewport && testInfo.project.name !== "chrome-1280", "此状态型 Case 只消费一次共享验收夹具");
-  const origin = process.env.RETROM_WEB_ORIGIN ?? "http://localhost:3000";
+  const origin = process.env.RETROM_WEB_ORIGIN ?? "http://localhost:4000";
   const response = await page.request.post("/api/v1/auth/login", { data: { username: "test", password: "test" }, headers: { Origin: origin } });
   expect(response.ok()).toBe(true);
 });
