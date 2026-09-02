@@ -1,0 +1,138 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://retrom.dev/schema/runtime-provider/v1/launch-envelope.schema.json",
+  "title": "Retrom Launch Envelope V1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "session", "runtime", "resources", "targetOptions", "restore", "validation", "netplay"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "session": { "$ref": "#/$defs/session" },
+    "runtime": { "$ref": "#/$defs/runtime" },
+    "resources": {
+      "type": "array",
+      "maxItems": 128,
+      "items": { "$ref": "runtime-resource.schema.json#/$defs/resource" }
+    },
+    "targetOptions": { "$ref": "runtime-resource.schema.json#/$defs/targetOptions" },
+    "restore": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/restore" }] },
+    "validation": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/validation" }] },
+    "netplay": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/netplay" }] }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "runtime": {
+            "properties": {
+              "capabilities": { "properties": { "checkpoint": { "const": true } } }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "runtime": {
+            "properties": {
+              "checkpoint": { "$ref": "provider-manifest.schema.json#/$defs/checkpoint" }
+            }
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "runtime": { "properties": { "checkpoint": { "type": "null" } } }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "session": { "properties": { "mode": { "const": "NETPLAY" } } }
+        }
+      },
+      "then": {
+        "properties": {
+          "netplay": { "$ref": "#/$defs/netplay" },
+          "runtime": {
+            "properties": {
+              "capabilities": { "properties": { "netplayPort": { "const": true } } }
+            }
+          }
+        }
+      },
+      "else": { "properties": { "netplay": { "type": "null" } } }
+    }
+  ],
+  "$defs": {
+    "session": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "purpose", "mode", "title", "platformName", "returnTo", "warnings"],
+      "properties": {
+        "id": { "$ref": "common.schema.json#/$defs/uuid" },
+        "purpose": { "enum": ["PRODUCT", "REVIEW_PREVIEW", "RUNTIME_VALIDATION"] },
+        "mode": { "enum": ["SINGLE", "NETPLAY"] },
+        "title": { "type": "string", "minLength": 1, "maxLength": 500 },
+        "platformName": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "returnTo": { "$ref": "common.schema.json#/$defs/relativeUrl" },
+        "warnings": { "type": "array", "maxItems": 16, "items": { "type": "string", "minLength": 1, "maxLength": 200 } }
+      }
+    },
+    "runtime": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "providerId", "providerVersion", "providerApiVersion", "bundleSha256", "targetId",
+        "gameCompatibilityLine", "targetContractSha256", "capabilities", "checkpoint",
+        "moduleUrl", "moduleSha256", "runtimeBaseUrl"
+      ],
+      "properties": {
+        "providerId": { "$ref": "common.schema.json#/$defs/identity" },
+        "providerVersion": { "$ref": "common.schema.json#/$defs/semver" },
+        "providerApiVersion": { "const": 1 },
+        "bundleSha256": { "$ref": "common.schema.json#/$defs/digest" },
+        "targetId": { "$ref": "common.schema.json#/$defs/identity" },
+        "gameCompatibilityLine": { "$ref": "common.schema.json#/$defs/token" },
+        "targetContractSha256": { "$ref": "common.schema.json#/$defs/digest" },
+        "capabilities": { "$ref": "provider-manifest.schema.json#/$defs/capabilities" },
+        "checkpoint": { "oneOf": [{ "type": "null" }, { "$ref": "provider-manifest.schema.json#/$defs/checkpoint" }] },
+        "moduleUrl": { "$ref": "common.schema.json#/$defs/relativeUrl" },
+        "moduleSha256": { "$ref": "common.schema.json#/$defs/digest" },
+        "runtimeBaseUrl": { "$ref": "common.schema.json#/$defs/relativeUrl" }
+      }
+    },
+    "restore": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["url", "format", "sha256", "sizeBytes"],
+      "properties": {
+        "url": { "$ref": "common.schema.json#/$defs/relativeUrl" },
+        "format": { "$ref": "common.schema.json#/$defs/token" },
+        "sha256": { "$ref": "common.schema.json#/$defs/digest" },
+        "sizeBytes": { "$ref": "common.schema.json#/$defs/positiveSafeInteger" }
+      }
+    },
+    "validation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["probeId", "input"],
+      "properties": {
+        "probeId": { "$ref": "common.schema.json#/$defs/token" },
+        "input": { "$ref": "common.schema.json#/$defs/jsonObject" }
+      }
+    },
+    "netplay": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["roomId", "sessionId", "playerNo", "socketUrl", "profile"],
+      "properties": {
+        "roomId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "sessionId": { "$ref": "common.schema.json#/$defs/uuid" },
+        "playerNo": { "type": "integer", "minimum": 1, "maximum": 16 },
+        "socketUrl": { "$ref": "common.schema.json#/$defs/webSocketUrl" },
+        "profile": { "$ref": "common.schema.json#/$defs/jsonObject" }
+      }
+    }
+  }
+}

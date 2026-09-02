@@ -189,6 +189,9 @@ data-check:
 	@python3 scripts/test_dependencies.py
 	@python3 scripts/test_rpgmaker_release_assets.py
 	@python3 scripts/test_fbalpha2012_dat.py
+	@python3 scripts/test_runtime_provider_contract.py
+	@python3 scripts/test_runtime_providers.py
+	@python3 scripts/test_runtime_target_bindings.py
 	@python3 scripts/dependencies.py data-check --versions "$(RETROM_DEPENDENCY_VERSIONS)"
 
 prepare-deps:
