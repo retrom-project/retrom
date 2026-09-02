@@ -54,6 +54,8 @@ EXPECTED_FILES = {
     "licenses/butterscotch/LICENSE": ("butterscotch-LICENSE", "license", 64 << 10),
     "runtime/tyranoscript/bridge.js": ("tyranoscript-bridge.js", "adapter_bridge", 64 << 10),
     "licenses/tyranoscript/RETROM-BRIDGE-LICENSE": ("tyranoscript-bridge-LICENSE", "license", 64 << 10),
+    "runtime/wasm4/wasm4-retrom.mjs": ("wasm4-retrom.mjs", "runtime_js", 2 << 20),
+    "licenses/wasm4/LICENSE.txt": ("wasm4-LICENSE.txt", "license", 64 << 10),
 }
 EXPECTED_ROUTES = {
     "RPG2000_EASYRPG": ("rpgmaker_2000", "RPGMAKER", "RPG2000", "EASYRPG_WEB", "easyrpg-web", "easyrpg-save"),
@@ -75,6 +77,7 @@ EXPECTED_ROUTES = {
         "tyranoscript", "TYRANOSCRIPT", "TYRANOSCRIPT", "TYRANOSCRIPT_WEB",
         "tyranoscript-web", "tyranoscript-snapshot-v1",
     ),
+    "WASM4_WEB": ("wasm4", "WASM4", "WASM4", "WASM4_WEB", "wasm4-web", "wasm4-state-v1"),
 }
 
 
@@ -183,7 +186,7 @@ def validate_artifacts(value: object, tag: str) -> None:
             raise BuildError("RPG_RUNTIME_ARTIFACT_FILES_INVALID")
         seen.add(artifact["route_key"])
         selected.add(artifact["core_id"])
-    if seen != set(EXPECTED_ROUTES) or len(selected) != 11:
+    if seen != set(EXPECTED_ROUTES) or len(selected) != 12:
         raise BuildError("RPG_RUNTIME_ARTIFACT_ROUTE_INVALID")
 
 

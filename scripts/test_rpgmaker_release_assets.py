@@ -65,7 +65,7 @@ class RPGMakerReleaseAssetTests(unittest.TestCase):
 
     def test_manifest_contains_only_one_release_and_eleven_current_routes(self) -> None:
         BUILD.validate_manifest(self.manifest)
-        self.assertEqual(11, len(self.manifest["artifacts"]))
+        self.assertEqual(12, len(self.manifest["artifacts"]))
         self.assertEqual(
             set(BUILD.EXPECTED_ROUTES),
             {item["route_key"] for item in self.manifest["artifacts"]},
@@ -90,7 +90,7 @@ class RPGMakerReleaseAssetTests(unittest.TestCase):
             )
             observed = json.loads((root / BUILD.OBSERVED_FILENAME).read_text())
             self.assertEqual(self.manifest["release"]["tag"], observed["tag"])
-            self.assertEqual(24, len(observed["files"]))
+            self.assertEqual(26, len(observed["files"]))
 
     def test_release_metadata_sha_is_not_a_remote_admission_coordinate(self) -> None:
         records = BUILD.validate_release_metadata(self.manifest, metadata(self.manifest))
@@ -174,7 +174,7 @@ class RPGMakerReleaseAssetTests(unittest.TestCase):
                 "cores": [],
                 "runtimeFiles": [{
                     "bundle_path": "runtime/new/new-core.wasm",
-                    "path_in_release": "v0.10.1/new-core.wasm",
+                    "path_in_release": "v0.11.0/new-core.wasm",
                     "role": "runtime_wasm",
                     "max_size_bytes": 1024,
                 }],

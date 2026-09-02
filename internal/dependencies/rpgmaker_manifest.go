@@ -221,8 +221,8 @@ func requireJSONEOF(decoder *json.Decoder) error {
 
 func validateRPGMakerVersion(version *RPGMakerVersion) error {
 	manifest := version.Manifest
-	minimumFiles := 24
-	minimumArtifacts := len(routing.Entries()) + 4
+	minimumFiles := 26
+	minimumArtifacts := len(routing.Entries()) + 5
 	validCounts := len(manifest.RuntimeFiles) == minimumFiles && len(manifest.Artifacts) == minimumArtifacts
 	if version.PFBCandidate {
 		validCounts = len(manifest.RuntimeFiles) >= minimumFiles && len(manifest.Artifacts) >= minimumArtifacts

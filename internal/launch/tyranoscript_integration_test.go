@@ -130,7 +130,7 @@ SELECT preview_id FROM isolated_runtime_bootstrap_tickets WHERE preview_id=?
 		}
 	}
 	version, bridgePath, err := service.TyranoScriptBridgeAuthorized(ctx, preview.PreviewID, true)
-	if err != nil || version != "v0.10.1" || bridgePath != "tyranoscript-bridge.js" {
+	if err != nil || version != "v0.11.0" || bridgePath != "tyranoscript-bridge.js" {
 		t.Fatalf("preview bridge=%q/%q, %v", version, bridgePath, err)
 	}
 	canvas := image.NewRGBA(image.Rect(0, 0, 2, 2))
