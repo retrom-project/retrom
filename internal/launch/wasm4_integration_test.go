@@ -52,7 +52,7 @@ VALUES(?,'wasm4-profile','wasm4-admin','WASM-4 Admin','ADMIN','ENABLED',0,0);
 	if err := dependencySet.Bootstrap(ctx, database.SQL, time.Now()); err != nil {
 		t.Fatal(err)
 	}
-	if _, _, exists := dependencySet.RetromRuntimeFile("v0.11.1", "wasm4-retrom.mjs"); !exists {
+	if _, _, exists := dependencySet.RetromRuntimeFile("v0.11.2", "wasm4-retrom.mjs"); !exists {
 		t.Fatal("WASM-4 runtime module is absent from the PFB allowlist")
 	}
 
