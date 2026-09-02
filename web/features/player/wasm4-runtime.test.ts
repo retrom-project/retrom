@@ -13,12 +13,12 @@ function config() {
   return {
     runtimeFamily: "WASM4", protocolVersion: 1, mode: "single", purpose: "PRODUCT",
     launchId, sessionId: launchId, coreId: "wasm4", coreName: "WASM-4",
-    gameTitle: "Pong", platformName: "WASM-4", runtimeVersion: "v0.11.0", artifactId,
+    gameTitle: "Pong", platformName: "WASM-4", runtimeVersion: "v0.11.1", artifactId,
     contentDigest: "a".repeat(64), cartSizeBytes: 6818, returnTo: "/games/game-1", warnings: [],
     adapter: {
       adapterKind: "WASM4_WEB", adapterId: "wasm4-web",
       cartUrl: `/runtime/content/game/${"b".repeat(64)}/pong.wasm`,
-      runtimeBaseUrl: "/runtime/retrom-runtime/v0.11.0/",
+      runtimeBaseUrl: "/runtime/retrom-runtime/v0.11.1/",
     }, checkpoint: null,
   };
 }
