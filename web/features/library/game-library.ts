@@ -122,8 +122,28 @@ function sameLocalDay(left: Date, right: Date) {
   return left.getFullYear() === right.getFullYear() && left.getMonth() === right.getMonth() && left.getDate() === right.getDate();
 }
 
-export function formatLibraryPlayedAt(value: number | null, nowMs: number) {
+function zonedParts(value: number, timeZone: string) {
+  const values = Object.fromEntries(new Intl.DateTimeFormat("en-CA", {
+    timeZone, year: "numeric", month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit", hourCycle: "h23",
+  }).formatToParts(value).map((part) => [part.type, part.value]));
+  return {
+    year: Number(values.year), month: Number(values.month), day: Number(values.day),
+    hours: values.hour, minutes: values.minute,
+  };
+}
+
+export function formatLibraryPlayedAt(value: number | null, nowMs: number, timeZone?: string) {
   if (value === null) {return "尚未游玩";}
+  if (timeZone) {
+    const date = zonedParts(value, timeZone);
+    const now = zonedParts(nowMs, timeZone);
+    const previous = new Date(Date.UTC(now.year, now.month - 1, now.day - 1));
+    const yesterday = { year: previous.getUTCFullYear(), month: previous.getUTCMonth() + 1, day: previous.getUTCDate() };
+    const sameDay = date.year === now.year && date.month === now.month && date.day === now.day;
+    const previousDay = date.year === yesterday.year && date.month === yesterday.month && date.day === yesterday.day;
+    const prefix = sameDay ? "今天" : previousDay ? "昨天" : `${date.year}/${date.month}/${date.day}`;
+    return `${prefix} ${date.hours}:${date.minutes}`;
+  }
   const date = new Date(value);
   const now = new Date(nowMs);
   const yesterday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);

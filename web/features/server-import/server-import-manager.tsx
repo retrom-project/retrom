@@ -10,6 +10,8 @@ import { StatusBadge } from "@/components/ui";
 import { api, writeHeaders } from "@/lib/api/client";
 import type { components } from "@/lib/api/generated/schema";
 import { newUuid } from "@/lib/crypto";
+import { formatTime } from "@/lib/backend";
+import { useBrowserTimeZone } from "@/lib/use-browser-time-zone";
 import { responseError } from "@/lib/upload";
 import { PegasusImportDrawer, type PegasusImportList, type PegasusImportSummary, type PegasusPlatformInstance, pegasusStateLabels, pegasusStateTone } from "./pegasus-import-manager";
 import { EmulationStationImportDrawer, type EmulationStationImportList, type EmulationStationImportSummary } from "./emulationstation-import-manager";
@@ -85,18 +87,21 @@ function ImportRoots({ roots }: { roots: ServerImportRoot[] }) {
 }
 
 function BIOSHistoryEntry({ item }: { item: ServerImportSummary }) {
+  const timeZone = useBrowserTimeZone();
   const source = item.sourceRelativePath ? ` / ${item.sourceRelativePath}` : " / 根目录";
-  return <Link href={`/admin/imports/server/${item.id}`} className="server-import-task panel"><div><span className="server-import-kind">BIOS</span><StatusBadge tone={stateTone(item.state)}>{stateLabels[item.state]}</StatusBadge><h3>{item.root.label}{source}</h3><p>{item.phase ? phaseLabels[item.phase] : "等待任务进度"} · {new Date(item.createdAtMs).toLocaleString("zh-CN")}</p></div><dl tabIndex={0} aria-label="BIOS 导入统计"><div><dt>候选</dt><dd>{item.counts.candidates}</dd></div><div><dt>已评估</dt><dd>{item.counts.evaluatedItems}/{item.counts.catalogItems}</dd></div><div><dt>已导入</dt><dd>{item.counts.imported}</dd></div><div><dt>失败</dt><dd>{item.counts.failed}</dd></div></dl></Link>;
+  return <Link href={`/admin/imports/server/${item.id}`} className="server-import-task panel"><div><span className="server-import-kind">BIOS</span><StatusBadge tone={stateTone(item.state)}>{stateLabels[item.state]}</StatusBadge><h3>{item.root.label}{source}</h3><p>{item.phase ? phaseLabels[item.phase] : "等待任务进度"} · {formatTime(item.createdAtMs, timeZone)}</p></div><dl tabIndex={0} aria-label="BIOS 导入统计"><div><dt>候选</dt><dd>{item.counts.candidates}</dd></div><div><dt>已评估</dt><dd>{item.counts.evaluatedItems}/{item.counts.catalogItems}</dd></div><div><dt>已导入</dt><dd>{item.counts.imported}</dd></div><div><dt>失败</dt><dd>{item.counts.failed}</dd></div></dl></Link>;
 }
 
 function PegasusHistoryEntry({ item }: { item: PegasusImportSummary }) {
+  const timeZone = useBrowserTimeZone();
   const source = item.sourceRelativePath ? ` / ${item.sourceRelativePath}` : " / 根目录";
-  return <Link href={`/admin/imports/server/pegasus/${item.id}`} className="server-import-task panel"><div><span className="server-import-kind">Pegasus ROM</span><StatusBadge tone={pegasusStateTone(item.state)}>{pegasusStateLabels[item.state]}</StatusBadge><h3>{item.root.label}{source}</h3><p>{item.phase ?? "等待任务进度"} · {new Date(item.createdAtMs).toLocaleString("zh-CN")}</p></div><dl tabIndex={0} aria-label="Pegasus 导入统计"><div><dt>游戏</dt><dd>{item.counts.games}</dd></div><div><dt>待审核</dt><dd>{item.counts.reviewPending}</dd></div><div><dt>已发布/丢弃</dt><dd>{item.counts.published}/{item.counts.reviewDiscarded}</dd></div><div><dt>阻断/失败</dt><dd>{item.counts.blocked + item.counts.failed}</dd></div></dl></Link>;
+  return <Link href={`/admin/imports/server/pegasus/${item.id}`} className="server-import-task panel"><div><span className="server-import-kind">Pegasus ROM</span><StatusBadge tone={pegasusStateTone(item.state)}>{pegasusStateLabels[item.state]}</StatusBadge><h3>{item.root.label}{source}</h3><p>{item.phase ?? "等待任务进度"} · {formatTime(item.createdAtMs, timeZone)}</p></div><dl tabIndex={0} aria-label="Pegasus 导入统计"><div><dt>游戏</dt><dd>{item.counts.games}</dd></div><div><dt>待审核</dt><dd>{item.counts.reviewPending}</dd></div><div><dt>已发布/丢弃</dt><dd>{item.counts.published}/{item.counts.reviewDiscarded}</dd></div><div><dt>阻断/失败</dt><dd>{item.counts.blocked + item.counts.failed}</dd></div></dl></Link>;
 }
 
 function EmulationStationHistoryEntry({ item }: { item: EmulationStationImportSummary }) {
+  const timeZone = useBrowserTimeZone();
   const source = item.sourceRelativePath ? ` / ${item.sourceRelativePath}` : " / 根目录";
-  return <Link href={`/admin/imports/server/emulationstation/${item.id}`} className="server-import-task panel"><div><span className="server-import-kind">EmulationStation</span><StatusBadge tone={emulationStationStateTone(item.state)}>{emulationStationStateLabels[item.state]}</StatusBadge><h3>{item.root.label}{source}</h3><p>{item.phase ?? "等待任务进度"} · {new Date(item.createdAtMs).toLocaleString("zh-CN")}</p></div><dl tabIndex={0} aria-label="EmulationStation 导入统计"><div><dt>清单 / 游戏</dt><dd>{item.counts.gamelists} / {item.counts.games}</dd></div><div><dt>待审核</dt><dd>{item.counts.reviewPending}</dd></div><div><dt>已发布/丢弃</dt><dd>{item.counts.published}/{item.counts.reviewDiscarded}</dd></div><div><dt>阻断/失败</dt><dd>{item.counts.blocked + item.counts.failed}</dd></div></dl></Link>;
+  return <Link href={`/admin/imports/server/emulationstation/${item.id}`} className="server-import-task panel"><div><span className="server-import-kind">EmulationStation</span><StatusBadge tone={emulationStationStateTone(item.state)}>{emulationStationStateLabels[item.state]}</StatusBadge><h3>{item.root.label}{source}</h3><p>{item.phase ?? "等待任务进度"} · {formatTime(item.createdAtMs, timeZone)}</p></div><dl tabIndex={0} aria-label="EmulationStation 导入统计"><div><dt>清单 / 游戏</dt><dd>{item.counts.gamelists} / {item.counts.games}</dd></div><div><dt>待审核</dt><dd>{item.counts.reviewPending}</dd></div><div><dt>已发布/丢弃</dt><dd>{item.counts.published}/{item.counts.reviewDiscarded}</dd></div><div><dt>阻断/失败</dt><dd>{item.counts.blocked + item.counts.failed}</dd></div></dl></Link>;
 }
 
 function ImportHistory({ canLoadMore, entries, historyLoading, onLoadMore }: { canLoadMore: boolean; entries: MergedHistoryEntry[]; historyLoading: boolean; onLoadMore: () => void }) {

@@ -7,6 +7,8 @@ import { EmptyState, FeedbackBanner, StatusBadge } from "@/components/ui";
 import { useAuth } from "@/features/auth/auth-provider";
 import { readAPIError, type AccountRole, type AccountStatus } from "@/features/auth/types";
 import { newUuid } from "@/lib/crypto";
+import { formatTime } from "@/lib/backend";
+import { useBrowserTimeZone } from "@/lib/use-browser-time-zone";
 import type { components } from "@/lib/api/generated/schema";
 
 export type AdminUser = components["schemas"]["AdminUser"];
@@ -23,9 +25,9 @@ type ManageState = {
 const roleLabels: Record<AccountRole, string> = { ADMIN: "管理员", USER: "普通用户" };
 const statusLabels: Record<AccountStatus, string> = { ENABLED: "启用", DISABLED: "停用", DELETED: "已删除" };
 
-function absoluteTime(value: number | null) {
+function absoluteTime(value: number | null, timeZone: string) {
   if (!value) {return "从未登录";}
-  return new Intl.DateTimeFormat("zh-CN", { dateStyle: "medium", timeStyle: "short" }).format(value);
+  return formatTime(value, timeZone);
 }
 
 function responseETag(response: Response, version: number) {
@@ -213,7 +215,8 @@ function userStatusTone(status: AccountStatus): "good" | "warn" | "bad" {
 }
 
 function UserRow({ user, onOpen }: { user: AdminUser; onOpen: (userId: string) => Promise<void> }) {
-  return <tr><td><strong>{user.status === "DELETED" ? "已删除用户" : user.displayName}</strong><small>@{user.username}</small></td><td>{roleLabels[user.role]}</td><td><StatusBadge tone={userStatusTone(user.status)}>{statusLabels[user.status]}</StatusBadge></td><td>{absoluteTime(user.lastLoginAtMs)}</td><td>{absoluteTime(user.createdAtMs)}</td><td>{user.activeSessionCount}</td><td><button className="button secondary table-action" type="button" onClick={() => void onOpen(user.userId)}>管理</button></td></tr>;
+  const timeZone = useBrowserTimeZone();
+  return <tr><td><strong>{user.status === "DELETED" ? "已删除用户" : user.displayName}</strong><small>@{user.username}</small></td><td>{roleLabels[user.role]}</td><td><StatusBadge tone={userStatusTone(user.status)}>{statusLabels[user.status]}</StatusBadge></td><td>{absoluteTime(user.lastLoginAtMs, timeZone)}</td><td>{absoluteTime(user.createdAtMs, timeZone)}</td><td>{user.activeSessionCount}</td><td><button className="button secondary table-action" type="button" onClick={() => void onOpen(user.userId)}>管理</button></td></tr>;
 }
 
 function UserListView({ users, filterValues, online, onInvite, onFilters, onReset, onOpen, onLoadMore }: { users: UserPage; filterValues: Record<string, string>; online: boolean; onInvite: () => void; onFilters: (event: FormEvent<HTMLFormElement>) => void; onReset: () => void; onOpen: (userId: string) => Promise<void>; onLoadMore: () => Promise<void> }) {
@@ -236,10 +239,12 @@ function UserAdminDialogs({ manage, confirmation, deleteOpen, deleteConfirmation
 }
 
 function InvitationList({ page, state, onState, onRevoke }: { page: LinkPage; state: string; onState: (state: string) => void; onRevoke: (link: AccountLink) => void }) {
-  return <details className="panel invitation-list" open><summary><span>待用邀请</span><small>列表永不显示完整链接或 token</small></summary><div className="invitation-toolbar"><label>状态<select value={state} onChange={(event) => onState(event.target.value)}><option value="ACTIVE">待使用</option><option value="CONSUMED">已使用</option><option value="REVOKED">已撤销</option><option value="EXPIRED">已过期</option><option value="ALL">全部</option></select></label></div>{page.items.length ? <div className="table-wrap"><table><thead><tr><th>角色</th><th>创建者</th><th>创建时间</th><th>到期时间</th><th>状态</th><th>操作</th></tr></thead><tbody>{page.items.map((link) => <tr key={link.accountLinkId}><td>{link.role ? roleLabels[link.role] : "—"}</td><td>{link.createdBy ? `@${link.createdBy.username}` : "系统"}</td><td>{absoluteTime(link.createdAtMs)}</td><td>{absoluteTime(link.expiresAtMs)}</td><td><StatusBadge tone={link.state === "ACTIVE" ? "good" : "neutral"}>{link.state === "ACTIVE" ? "待使用" : link.state === "CONSUMED" ? "已使用" : link.state === "REVOKED" ? "已撤销" : "已过期"}</StatusBadge></td><td>{link.state === "ACTIVE" ? <button className="button secondary table-action" type="button" onClick={() => onRevoke(link)}>撤销</button> : "—"}</td></tr>)}</tbody></table></div> : <div className="compact-empty">当前筛选下没有邀请。</div>}</details>;
+  const timeZone = useBrowserTimeZone();
+  return <details className="panel invitation-list" open><summary><span>待用邀请</span><small>列表永不显示完整链接或 token</small></summary><div className="invitation-toolbar"><label>状态<select value={state} onChange={(event) => onState(event.target.value)}><option value="ACTIVE">待使用</option><option value="CONSUMED">已使用</option><option value="REVOKED">已撤销</option><option value="EXPIRED">已过期</option><option value="ALL">全部</option></select></label></div>{page.items.length ? <div className="table-wrap"><table><thead><tr><th>角色</th><th>创建者</th><th>创建时间</th><th>到期时间</th><th>状态</th><th>操作</th></tr></thead><tbody>{page.items.map((link) => <tr key={link.accountLinkId}><td>{link.role ? roleLabels[link.role] : "—"}</td><td>{link.createdBy ? `@${link.createdBy.username}` : "系统"}</td><td>{absoluteTime(link.createdAtMs, timeZone)}</td><td>{absoluteTime(link.expiresAtMs, timeZone)}</td><td><StatusBadge tone={link.state === "ACTIVE" ? "good" : "neutral"}>{link.state === "ACTIVE" ? "待使用" : link.state === "CONSUMED" ? "已使用" : link.state === "REVOKED" ? "已撤销" : "已过期"}</StatusBadge></td><td>{link.state === "ACTIVE" ? <button className="button secondary table-action" type="button" onClick={() => onRevoke(link)}>撤销</button> : "—"}</td></tr>)}</tbody></table></div> : <div className="compact-empty">当前筛选下没有邀请。</div>}</details>;
 }
 
 function OneTimeLinkDialog({ result, onClose }: { result: OneTimeResult | null; onClose: () => void }) {
+  const timeZone = useBrowserTimeZone();
   const input = useRef<HTMLInputElement>(null); const [copied, setCopied] = useState(false); const [fallback, setFallback] = useState(false);
   async function copy() {
     if (!result) {return;}
@@ -248,5 +253,5 @@ function OneTimeLinkDialog({ result, onClose }: { result: OneTimeResult | null; 
   }
   if (!result) {return null;}
   const invitation = result.kind === "INVITATION";
-  return <ConfirmDialog open title={invitation ? "邀请已创建" : "密码重置链接已创建"} description={invitation ? "一小时后或注册完成后失效" : "一小时后或密码更新后失效"} confirmLabel="完成" hideCancel onCancel={onClose} onConfirm={onClose}><div className="one-time-dialog"><div className="one-time-body"><label>一次性链接<input ref={input} readOnly value={result.url} onFocus={(event) => event.currentTarget.select()} /></label><button className="button secondary" type="button" onClick={() => void copy()}>{copied ? "已复制" : "复制链接"}</button></div><dl><div><dt>{invitation ? "角色" : "用途"}</dt><dd>{invitation && result.role ? roleLabels[result.role] : "密码重置"}</dd></div><div><dt>到期时间</dt><dd>{absoluteTime(result.expiresAtMs)}</dd></div></dl>{fallback ? <p className="copy-fallback" role="status">无法自动复制，请按 Ctrl+C</p> : null}<p className="one-time-warning">关闭后无法再次查看完整链接</p></div></ConfirmDialog>;
+  return <ConfirmDialog open title={invitation ? "邀请已创建" : "密码重置链接已创建"} description={invitation ? "一小时后或注册完成后失效" : "一小时后或密码更新后失效"} confirmLabel="完成" hideCancel onCancel={onClose} onConfirm={onClose}><div className="one-time-dialog"><div className="one-time-body"><label>一次性链接<input ref={input} readOnly value={result.url} onFocus={(event) => event.currentTarget.select()} /></label><button className="button secondary" type="button" onClick={() => void copy()}>{copied ? "已复制" : "复制链接"}</button></div><dl><div><dt>{invitation ? "角色" : "用途"}</dt><dd>{invitation && result.role ? roleLabels[result.role] : "密码重置"}</dd></div><div><dt>到期时间</dt><dd>{absoluteTime(result.expiresAtMs, timeZone)}</dd></div></dl>{fallback ? <p className="copy-fallback" role="status">无法自动复制，请按 Ctrl+C</p> : null}<p className="one-time-warning">关闭后无法再次查看完整链接</p></div></ConfirmDialog>;
 }

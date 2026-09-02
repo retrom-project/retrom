@@ -4,6 +4,7 @@ import { useState } from "react";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { StatusBadge } from "@/components/ui";
 import { formatTime } from "@/lib/backend";
+import { useBrowserTimeZone } from "@/lib/use-browser-time-zone";
 import { responseError } from "@/lib/upload";
 
 export type HistoryItem = {
@@ -31,6 +32,7 @@ const fields: Array<[string, keyof NonNullable<HistoryDetail["before"]["metadata
 ];
 
 export function ReviewHistory({ items }: { items: HistoryItem[] }) {
+  const timeZone = useBrowserTimeZone();
   const [selected, setSelected] = useState<HistoryItem | null>(null);
   const [detail, setDetail] = useState<HistoryDetail | null>(null);
   const [loading, setLoading] = useState(false);
@@ -49,29 +51,30 @@ export function ReviewHistory({ items }: { items: HistoryItem[] }) {
 
   const metadata = detail?.before.metadata;
   return <>
-    <HistoryList items={items} onOpen={(item) => void open(item)} />
-    <HistoryDialog {...{ detail, error, loading, metadata, selected }} onClose={() => setSelected(null)} />
+    <HistoryList items={items} onOpen={(item) => void open(item)} timeZone={timeZone} />
+    <HistoryDialog {...{ detail, error, loading, metadata, selected, timeZone }} onClose={() => setSelected(null)} />
   </>;
 }
 
-function HistoryList({ items, onOpen }: { items: HistoryItem[]; onOpen: (item: HistoryItem) => void }) {
+function HistoryList({ items, onOpen, timeZone }: { items: HistoryItem[]; onOpen: (item: HistoryItem) => void; timeZone: string }) {
   return <section className="review-history-list" aria-label="审核历史">{items.map((item) => {
     const approved = item.decision === "APPROVED";
     const activate = () => onOpen(item);
-    return <article key={item.reviewEventId} role="button" tabIndex={0} aria-label={`查看“${item.title}”的审核快照`} onClick={activate} onKeyDown={(event) => {if (event.key === "Enter" || event.key === " ") {event.preventDefault(); activate();}}}><div><h3>{item.title}</h3><small>审核完成时的信息快照</small></div><StatusBadge tone={approved ? "good" : "bad"}>{approved ? "已发布" : "已丢弃"}</StatusBadge><span>{item.reason ?? (approved ? "审核通过并发布" : "管理员丢弃条目")}</span><time>{formatTime(item.createdAtMs)}</time><span className="button secondary">查看快照</span></article>;
+    return <article key={item.reviewEventId} role="button" tabIndex={0} aria-label={`查看“${item.title}”的审核快照`} onClick={activate} onKeyDown={(event) => {if (event.key === "Enter" || event.key === " ") {event.preventDefault(); activate();}}}><div><h3>{item.title}</h3><small>审核完成时的信息快照</small></div><StatusBadge tone={approved ? "good" : "bad"}>{approved ? "已发布" : "已丢弃"}</StatusBadge><span>{item.reason ?? (approved ? "审核通过并发布" : "管理员丢弃条目")}</span><time>{formatTime(item.createdAtMs, timeZone)}</time><span className="button secondary">查看快照</span></article>;
   })}</section>;
 }
 
-function HistoryDialog({ detail, error, loading, metadata, onClose, selected }: {
+function HistoryDialog({ detail, error, loading, metadata, onClose, selected, timeZone }: {
   detail: HistoryDetail | null;
   error: string;
   loading: boolean;
   metadata: HistoryDetail["before"]["metadata"];
   onClose: () => void;
   selected: HistoryItem | null;
+  timeZone: string;
 }) {
   const decision = selected?.decision === "APPROVED" ? "发布" : "丢弃";
-  const description = selected ? `审核完成时的决策快照 · ${decision}于 ${formatTime(selected.createdAtMs)}` : undefined;
+  const description = selected ? `审核完成时的决策快照 · ${decision}于 ${formatTime(selected.createdAtMs, timeZone)}` : undefined;
   return <ConfirmDialog open={selected !== null} wide hideCancel title={selected?.title ?? "审核完成时的游戏信息"} description={description} confirmLabel="关闭" busy={loading} onCancel={onClose} onConfirm={onClose}>
     <HistoryDialogContents {...{ detail, error, loading, metadata, selected }} />
   </ConfirmDialog>;

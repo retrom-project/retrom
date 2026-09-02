@@ -3,14 +3,15 @@
 import Image from "next/image";
 import { useEffect, useRef } from "react";
 import { formatSaveSize } from "@/features/saves/save-library";
+import { useBrowserTimeZone } from "@/lib/use-browser-time-zone";
 import type { ImmersiveGame } from "./api";
 import styles from "./library.module.css";
 
 type ImmersiveSave = ImmersiveGame["saveStates"][number];
 
-function formatSaveTime(value: number) {
+function formatSaveTime(value: number, timeZone: string) {
   return new Intl.DateTimeFormat("zh-CN", {
-    year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false,
+    year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false, timeZone,
   }).format(value);
 }
 
@@ -20,6 +21,7 @@ export function ImmersiveSaveCarousel({ gameTitle, onSelect, saves, selectedInde
   saves: readonly ImmersiveSave[];
   selectedIndex: number;
 }) {
+  const timeZone = useBrowserTimeZone();
   const selectedRef = useRef<HTMLButtonElement>(null);
   useEffect(() => {
     selectedRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
@@ -33,7 +35,7 @@ export function ImmersiveSaveCarousel({ gameTitle, onSelect, saves, selectedInde
     <div className={styles.saveRail} role="list" aria-label={`${gameTitle} 的存档`}>
       {saves.map((save, index) => {
         const selected = index === selectedIndex;
-        const time = formatSaveTime(save.createdAtMs);
+        const time = formatSaveTime(save.createdAtMs, timeZone);
         const size = formatSaveSize(save.sizeBytes);
         return <button
           ref={selected ? selectedRef : undefined}

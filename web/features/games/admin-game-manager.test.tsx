@@ -79,6 +79,23 @@ describe("AdminGameManager", () => {
     expect(screen.getByRole("button", { name: "保存新版本" })).toBeDisabled();
   });
 
+  it("bounds project file details instead of hydrating a multi-megabyte path list", () => {
+    const files = Array.from({ length: 7 }, (_, index) => ({
+      role: "PROJECT_FILE",
+      logicalName: `data/scenario/file-${index}.ks`,
+      sortOrder: index,
+      sizeBytes: 4,
+      sha256: String(index).repeat(64),
+    }));
+    render(<AdminGameManager game={{
+      ...game,
+      contentRevisions: [{ ...game.contentRevisions[0]!, files }],
+    }} platformInstances={directories} candidates={[]} />);
+
+    expect(screen.getByText(/file-0\.ks、.*file-4\.ks 等 7 个文件/)).toBeInTheDocument();
+    expect(screen.queryByText(/file-5\.ks/)).not.toBeInTheDocument();
+  });
+
   it("shows a deleted game as deleted instead of runnable", () => {
     render(<AdminGameManager game={{ ...game, status: "DELETED" }} platformInstances={directories} candidates={[]} />);
 

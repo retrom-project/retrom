@@ -121,11 +121,10 @@ async function runProductCase(activeBrowser) {
       response.request().method() === "GET" && response.url().endsWith(`/runtime/launches/${restored.launchId}/state`),
     {timeout: 120_000});
     await restoredPage.goto(`${baseUrl}${restored.playUrl}`, {waitUntil: "domcontentloaded", timeout: 120_000});
-    await waitForCheckpoint(restoredPage);
-    const restoredSurface = await tyranoSurface(restoredPage);
     const stateResponse = await stateResponsePromise;
     requireStatus(stateResponse.status(), 200, "TYRANOSCRIPT_ACCEPTANCE_RESTORE_PAYLOAD_FAILED");
-    const restoredState = await engineState(restoredSurface);
+    const restoredSurface = await tyranoSurface(restoredPage);
+    const restoredState = await waitForRestoredState(restoredSurface);
     const restoredScreenshot = await screenshotEvidence(restoredSurface, "restored");
     requireGamepadB(await sendGamepadInput(restoredSurface));
     await restoredPage.close();
@@ -216,8 +215,14 @@ async function approveReview(client, itemId) {
   requireStatus(snapshot.status(), 200, "TYRANOSCRIPT_ACCEPTANCE_REVIEW_READ_FAILED");
   const etag = snapshot.headers().etag;
   if (!etag) {throw new Error("TYRANOSCRIPT_ACCEPTANCE_REVIEW_ETAG_MISSING");}
+  const review = await snapshot.json();
+  const duplicateGames = Array.isArray(review.duplicateGames) ? review.duplicateGames : [];
+  const data = duplicateGames.length ? {
+    duplicatePolicy: "ALLOW_NEW",
+    acknowledgedGameIds: duplicateGames.map((game) => game.gameId),
+  } : {};
   return client.json("POST", `/api/v1/admin/reviews/${itemId}/approve`, {
-    headers: {...client.writeHeaders(), "If-Match": etag}, expected: 201, data: {},
+    headers: {...client.writeHeaders(), "If-Match": etag}, expected: 201, data,
   });
 }
 
@@ -268,7 +273,7 @@ async function trackedPage(context, browserEvidence, resources) {
 }
 
 async function tyranoSurface(page) {
-  const deadline = Date.now() + (process.env.RETROM_ACCEPTANCE_DEBUG === "1" ? 10_000 : 120_000);
+  const deadline = Date.now() + 120_000;
   while (Date.now() < deadline) {
     const frame = page.frames().find((candidate) => {
       try {return new URL(candidate.url()).pathname === "/__retrom/tyranoscript/entry";} catch {return false;}
@@ -285,14 +290,53 @@ async function tyranoSurface(page) {
   throw new Error("TYRANOSCRIPT_ACCEPTANCE_SURFACE_MISSING");
 }
 
+async function waitForRestoredState(surface) {
+  const deadline = Date.now() + 120_000;
+  while (Date.now() < deadline) {
+    const state = await engineState(surface).catch(() => null);
+    if (state?.marker === "B") {return state;}
+    await new Promise((resolvePromise) => setTimeout(resolvePromise, 100));
+  }
+  throw new Error("TYRANOSCRIPT_ACCEPTANCE_RESTORED_STATE_UNAVAILABLE");
+}
+
 async function waitForCheckpoint(page) {
+  const button = page.getByRole("button", {name: "创建存档", exact: true});
+  const surface = await tyranoSurface(page);
   await page.waitForTimeout(10_000);
   await page.mouse.move(720, 1);
   await page.waitForTimeout(250);
-  const button = page.getByRole("button", {name: "创建存档", exact: true});
-  if (!await button.isVisible().catch(() => false) || !await button.isEnabled().catch(() => false)) {
-    throw new Error("TYRANOSCRIPT_ACCEPTANCE_SAVE_UNAVAILABLE");
+  if (await button.isVisible().catch(() => false) && await button.isEnabled().catch(() => false)) {return;}
+  const deadline = Date.now() + 120_000;
+  while (Date.now() < deadline) {
+    await page.mouse.move(720, 1);
+    await page.waitForTimeout(250);
+    if (await button.isVisible().catch(() => false) && await button.isEnabled().catch(() => false)) {return;}
+    await advanceTyranoToStableWait(surface);
+    await page.waitForTimeout(125);
   }
+  throw new Error("TYRANOSCRIPT_ACCEPTANCE_SAVE_UNAVAILABLE");
+}
+
+async function advanceTyranoToStableWait(surface) {
+  await surface.evaluate((base) => {
+    const visible = (element) => {
+      const style = getComputedStyle(element);
+      const rectangle = element.getBoundingClientRect();
+      return style.display !== "none" && style.visibility !== "hidden" && rectangle.width > 0 && rectangle.height > 0;
+    };
+    const click = (element) => element.dispatchEvent(new MouseEvent("click", {
+      bubbles: true, cancelable: true, view: window,
+    }));
+    const choice = [...document.querySelectorAll(".glink_button")].find(visible);
+    if (choice) {click(choice); return;}
+    const start = [...document.querySelectorAll("img")].find((image) =>
+      visible(image) && /(?:button.*start|start.*button)/iu.test(image.getAttribute("src") ?? ""));
+    if (start) {click(start); return;}
+    for (const video of document.querySelectorAll("video")) {if (visible(video)) {click(video);}}
+    const eventLayer = [...document.querySelectorAll(".layer_event_click")].find(visible);
+    click(eventLayer ?? base);
+  });
 }
 
 async function createCheckpoint(page, launchId) {
