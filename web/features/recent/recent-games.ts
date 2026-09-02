@@ -56,6 +56,14 @@ export function recentGameStats(games: RecentGame[]) {
   }), { gameCount: 0, activeDurationMs: 0, sessionCount: 0 });
 }
 
+export function zonedDateKey(value: number, timeZone?: string) {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    year: "numeric", month: "2-digit", day: "2-digit", timeZone,
+  }).formatToParts(new Date(value));
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return `${values.year}-${values.month}-${values.day}`;
+}
+
 export function startOfLocalDay(nowMs: number) {
   const date = new Date(nowMs);
   return new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
@@ -70,7 +78,7 @@ export function formatRecentDuration(value: number) {
   return remainder === 0 ? `${hours} 小时` : `${hours} 小时 ${remainder} 分`;
 }
 
-export function formatRecentTime(value: number) {
+export function formatRecentTime(value: number, timeZone?: string) {
   return new Intl.DateTimeFormat("zh-CN", {
     year: "numeric",
     month: "numeric",
@@ -78,5 +86,6 @@ export function formatRecentTime(value: number) {
     hour: "2-digit",
     minute: "2-digit",
     hour12: false,
+    timeZone,
   }).format(new Date(value));
 }

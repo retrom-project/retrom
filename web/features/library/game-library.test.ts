@@ -50,6 +50,13 @@ describe("game library projection", () => {
     expect(formatLibraryPlayedAt(new Date(2026, 7, 7, 21, 10).getTime(), nowMs)).toBe("昨天 21:10");
   });
 
+  it("uses the requested browser timezone for local-day labels", () => {
+    const generatedAtMs = Date.parse("2026-09-02T16:30:00.000Z");
+    const playedAtMs = Date.parse("2026-09-02T15:30:00.000Z");
+    expect(formatLibraryPlayedAt(playedAtMs, generatedAtMs, "Asia/Shanghai")).toBe("昨天 23:30");
+    expect(formatLibraryPlayedAt(playedAtMs, generatedAtMs, "America/New_York")).toBe("今天 11:30");
+  });
+
   it("builds a fixed 50-item cursor query with all server-side filters", () => {
     expect(gamePageQuery({ query: "  doom ", platformId: "dos", platformInstanceId: "dos-classics", tagId: "solo", sort: "ADDED_DESC" }, "next page"))
       .toBe("limit=50&sort=ADDED_DESC&q=doom&platformId=dos&platformInstanceId=dos-classics&tagId=solo&cursor=next+page");
