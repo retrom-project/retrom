@@ -2,9 +2,12 @@ package libraryimport
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
+	"strings"
 
 	"retrom/internal/blobstore"
 	butterscotchdetector "retrom/internal/butterscotch/detector"
@@ -20,6 +23,8 @@ type markerProjectDefinition struct {
 	contentKind       string
 	compatibilityCode string
 	markers           []string
+	electronASAR      bool
+	archiveFormat     func(string) (contentprofile.ArchiveFormat, string)
 	detect            func([]fileset.SourceFile, map[int]string) ([]byte, error)
 }
 
@@ -86,6 +91,8 @@ var tyranoScriptMarkerProject = markerProjectDefinition{
 	name: "TyranoScript", markers: tyranodetector.Markers(),
 	contentKind:       string(contentprofile.ContentKindTyranoScriptProject),
 	compatibilityCode: "TYRANOSCRIPT_RUNTIME_TRIAL_REQUIRED",
+	electronASAR:      true,
+	archiveFormat:     tyranoScriptArchiveFormat,
 	detect: func(files []fileset.SourceFile, paths map[int]string) ([]byte, error) {
 		return detectMarkerProject(
 			files, paths, "TyranoScript",
@@ -197,19 +204,17 @@ func (service *Service) prepareMarkerProjectArchive(
 	file importSourceFile,
 	definition markerProjectDefinition,
 ) (preparedDisposition, preparedGroup, preparedArchive, error) {
-	archiveFormat, reason := profileArchiveFormat(file.path)
-	if reason != "" {
-		return preparedDisposition{}, preparedGroup{}, preparedArchive{}, ErrInvalid
-	}
-	entries, candidates, err := service.scanProjectArchive(ctx, file, archiveFormat)
+	format, err := service.resolveMarkerProjectArchiveFormat(file, definition)
 	if err != nil {
 		return preparedDisposition{}, preparedGroup{}, preparedArchive{}, err
 	}
-	defer discardProjectArchiveCandidates(candidates)
-	project, entryByOrdinal, err := normalizeArchiveProject(entries, definition)
+	entries, candidates, project, entryByOrdinal, err := service.scanMarkerProjectArchive(
+		ctx, file, definition, format,
+	)
 	if err != nil {
 		return preparedDisposition{}, preparedGroup{}, preparedArchive{}, err
 	}
+	defer func() { discardProjectArchiveCandidates(candidates) }()
 	projectEntries := archiveProjectEntries(project.Files, entryByOrdinal)
 	readMetadata, err := service.projectArchiveReadMetadata(ctx, file, projectEntries, candidates)
 	if err != nil {
@@ -233,6 +238,118 @@ func (service *Service) prepareMarkerProjectArchive(
 	return sourceDisposition(file), markerProjectGroup(sources, snapshot, definition, file.path), preparedArchive{
 		blobID: file.blobID, entries: entries, materialized: materialized,
 	}, nil
+}
+
+func (service *Service) resolveMarkerProjectArchiveFormat(
+	file importSourceFile,
+	definition markerProjectDefinition,
+) (contentprofile.ArchiveFormat, error) {
+	archiveFormat := profileArchiveFormat
+	if definition.archiveFormat != nil {
+		archiveFormat = definition.archiveFormat
+	}
+	format, reason := archiveFormat(file.path)
+	if reason != "" {
+		return "", ErrInvalid
+	}
+	if !definition.electronASAR || format != contentprofile.ArchiveZIP {
+		return format, nil
+	}
+	detected, err := importing.DetectElectronASARZIP(
+		service.blobs.Path(file.sha256), importing.RPGMakerArchiveLimits(),
+	)
+	if err != nil {
+		return "", fmt.Errorf("detect TyranoScript Electron archive: %w", err)
+	}
+	if detected {
+		return contentprofile.ArchiveElectronASAR, nil
+	}
+	return format, nil
+}
+
+func (service *Service) scanMarkerProjectArchive(
+	ctx context.Context,
+	file importSourceFile,
+	definition markerProjectDefinition,
+	format contentprofile.ArchiveFormat,
+) ([]importing.ArchiveEntry, map[int]*blobstore.Candidate, fileset.Project, map[int]importing.ArchiveEntry, error) {
+	entries, candidates, err := service.scanProjectArchive(ctx, file, format)
+	if err != nil {
+		return nil, nil, fileset.Project{}, nil, err
+	}
+	project, entryByOrdinal, err := normalizeArchiveProject(entries, definition)
+	if err != nil && definition.name == tyranoScriptMarkerProject.name &&
+		format == contentprofile.ArchiveZIP && markerProjectNotFound(err) {
+		wrappedEntries, wrappedCandidates, detected, wrappedErr := service.scanWrappedTyranoScriptNWJS(
+			ctx, entries, candidates,
+		)
+		if wrappedErr != nil {
+			discardProjectArchiveCandidates(candidates)
+			return nil, nil, fileset.Project{}, nil, wrappedErr
+		}
+		if detected {
+			discardProjectArchiveCandidates(candidates)
+			entries, candidates = wrappedEntries, wrappedCandidates
+			project, entryByOrdinal, err = normalizeArchiveProject(entries, definition)
+		}
+	}
+	if err != nil {
+		discardProjectArchiveCandidates(candidates)
+		return nil, nil, fileset.Project{}, nil, err
+	}
+	return entries, candidates, project, entryByOrdinal, nil
+}
+
+func markerProjectNotFound(err error) bool {
+	var projectError *fileset.ProjectError
+	return errors.As(err, &projectError) && projectError.Code == fileset.CodeProjectNotFound
+}
+
+func (service *Service) scanWrappedTyranoScriptNWJS(
+	ctx context.Context,
+	entries []importing.ArchiveEntry,
+	candidates map[int]*blobstore.Candidate,
+) ([]importing.ArchiveEntry, map[int]*blobstore.Candidate, bool, error) {
+	selectedPath := ""
+	for _, entry := range entries {
+		if !strings.EqualFold(filepath.Ext(entry.NormalizedPath), ".exe") {
+			continue
+		}
+		candidate, exists := candidates[entry.Ordinal]
+		if !exists {
+			return nil, nil, false, importing.ErrArchiveUnsafe
+		}
+		candidatePath := candidate.Metadata().Path
+		if err := importing.ValidateNWJSExecutable(candidatePath); err != nil {
+			if errors.Is(err, importing.ErrNWJSExecutableInvalid) {
+				continue
+			}
+			return nil, nil, false, fmt.Errorf("validate wrapped TyranoScript NW.js executable: %w", err)
+		}
+		if selectedPath != "" {
+			return nil, nil, false, fmt.Errorf(
+				"select wrapped TyranoScript NW.js executable: %w", importing.ErrArchiveUnsafe,
+			)
+		}
+		selectedPath = candidatePath
+	}
+	if selectedPath == "" {
+		return nil, nil, false, nil
+	}
+	innerEntries, innerCandidates, err := service.scanProjectArchivePath(
+		ctx, selectedPath, contentprofile.ArchiveNWJSExecutable,
+	)
+	if err != nil {
+		return nil, nil, false, fmt.Errorf("scan wrapped TyranoScript NW.js executable: %w", err)
+	}
+	return innerEntries, innerCandidates, true, nil
+}
+
+func tyranoScriptArchiveFormat(filePath string) (contentprofile.ArchiveFormat, string) {
+	if strings.EqualFold(filepath.Ext(filePath), ".exe") {
+		return contentprofile.ArchiveNWJSExecutable, ""
+	}
+	return profileArchiveFormat(filePath)
 }
 
 func directoryProjectInput(files []importSourceFile) []fileset.SourceFile {

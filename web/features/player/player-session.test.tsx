@@ -1,9 +1,17 @@
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { initialPlayerOrientationState } from "./orientation";
-import { createSaveForm, usePlayerSession, type PlayerSessionParams } from "./player-session";
+import {
+  createSaveForm,
+  usePlayerSession,
+  waitForSaveUploadPresentationTurn,
+  type PlayerSessionParams,
+} from "./player-session";
 
-afterEach(() => vi.restoreAllMocks());
+afterEach(() => {
+  vi.restoreAllMocks();
+  vi.useRealTimers();
+});
 
 describe("Player page exit protection", () => {
   it("blocks accidental unload only while a started session remains active", () => {
@@ -92,6 +100,17 @@ describe("Player page exit protection", () => {
 });
 
 describe("manual save multipart", () => {
+  it("does not wait for a throttled animation frame before starting an upload", async () => {
+    vi.useFakeTimers();
+    const animationFrame = vi.spyOn(window, "requestAnimationFrame").mockImplementation(() => 0);
+    const waiting = waitForSaveUploadPresentationTurn();
+
+    await vi.runAllTimersAsync();
+
+    await expect(waiting).resolves.toBeUndefined();
+    expect(animationFrame).not.toHaveBeenCalled();
+  });
+
   it("keeps a valid checkpoint when its best-effort screenshot exceeds the server limit", () => {
     const form = createSaveForm({
       screenshot: new Blob([new Uint8Array(10 * 1024 * 1024 + 1)], { type: "image/png" }),

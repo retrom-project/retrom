@@ -7,6 +7,8 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"path"
+	"strings"
 
 	"retrom/internal/cleanup"
 	"retrom/internal/contentcapability"
@@ -245,7 +247,9 @@ func (server *Server) loadReviewEvidence(
 	if err != nil {
 		return reviewEvidence{}, err
 	}
-	evidence.sourceFiles, err = server.reviewSourceFiles(request, sourceSnapshotID)
+	evidence.sourceFiles, err = server.reviewSourceFiles(
+		request, sourceSnapshotID, validationInput.sourceContentKind,
+	)
 	if err != nil {
 		return reviewEvidence{}, err
 	}
@@ -600,7 +604,10 @@ ORDER BY created_at_ms,id
 	return assets, nil
 }
 
-func (server *Server) reviewSourceFiles(request *http.Request, sourceSnapshotID string) ([]map[string]any, error) {
+func (server *Server) reviewSourceFiles(
+	request *http.Request,
+	sourceSnapshotID, sourceContentKind string,
+) ([]map[string]any, error) {
 	rows, err := server.database.QueryContext(request.Context(), `
 SELECT f.id,f.relative_path,b.size_bytes,b.sha256,b.md5,b.crc32,
 MAX(CASE WHEN s.source_archive_blob_id IS NOT NULL OR EXISTS(
@@ -653,6 +660,7 @@ ORDER BY min(s.sort_order),f.relative_path,f.id
 			if err != nil {
 				return nil, err
 			}
+			archiveFormat = projectReviewArchiveFormat(sourceContentKind, record.name, archiveFormat)
 		} else {
 			entries = make([]map[string]any, 0)
 		}
@@ -663,6 +671,14 @@ ORDER BY min(s.sort_order),f.relative_path,f.id
 		})
 	}
 	return result, nil
+}
+
+func projectReviewArchiveFormat(sourceContentKind, sourceName string, storedFormat any) any {
+	if sourceContentKind == "TYRANOSCRIPT_PROJECT_V1" && storedFormat == "ZIP" &&
+		strings.EqualFold(path.Ext(sourceName), ".exe") {
+		return "NWJS_EXECUTABLE"
+	}
+	return storedFormat
 }
 
 func (server *Server) reviewArchiveEntries(ctx context.Context, archiveBlobID string) ([]map[string]any, any, error) {

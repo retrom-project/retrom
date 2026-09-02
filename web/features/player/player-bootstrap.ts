@@ -46,6 +46,7 @@ import {
 } from "./player-bootstrap-lifecycle";
 import type { PlayerLoadProgress } from "./player-loading";
 import { handleRetromRuntimeEvent } from "./player-bootstrap-ons";
+import { waitForPlayerFrame } from "./player-frame-ready";
 
 type ShellState = "loading" | "running" | "error";
 type SyncTone = "synced" | "busy" | "warning";
@@ -275,12 +276,7 @@ async function prepareOrientation(params: PlayerBootstrapParams, config: PlayerC
 
 async function prepareFrame(params: PlayerBootstrapParams, controller: AbortController) {
   params.setFrameEnabled(true);
-  for (let attempt = 0; attempt < 12 && !params.frameRef.current; attempt += 1) {
-    await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()));
-    if (controller.signal.aborted) {throw new DOMException("Aborted", "AbortError");}
-  }
-  if (!params.frameRef.current) {throw new Error("PLAYER_FRAME_UNAVAILABLE");}
-  return params.frameRef.current;
+  return waitForPlayerFrame(params.frameRef, controller.signal);
 }
 
 async function describeDiscSet(params: PlayerBootstrapParams, config: PlayerConfig, controller: AbortController) {

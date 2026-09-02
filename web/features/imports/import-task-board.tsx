@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { AppIcon } from "@/components/app-icon";
 import { StatusBadge } from "@/components/ui";
 import { formatTime, type ListResponse } from "@/lib/backend";
@@ -68,6 +68,16 @@ const rejectionDetails: Record<string, string> = {
 };
 
 const activeImportStates = new Set(["QUEUED", "RUNNING", "CANCEL_REQUESTED"]);
+const hydrationTimeZone = "UTC";
+const subscribeToTimeZone = () => () => undefined;
+
+function useBrowserTimeZone() {
+  return useSyncExternalStore(
+    subscribeToTimeZone,
+    () => Intl.DateTimeFormat().resolvedOptions().timeZone || hydrationTimeZone,
+    () => hydrationTimeZone,
+  );
+}
 
 function refreshListItem(item: ImportListItem, detail: ImportDetail): ImportListItem {
   return {
@@ -186,7 +196,7 @@ function TaskActions({ expanded, isMultiDisc, issueCount, item, onToggle }: { ex
   return <div className="import-task-actions" />;
 }
 
-function ImportTaskEntry({ detail, expanded, item, onToggle }: { detail: DetailState | undefined; expanded: boolean; item: ImportListItem; onToggle: () => void }) {
+function ImportTaskEntry({ detail, expanded, item, onToggle, timeZone }: { detail: DetailState | undefined; expanded: boolean; item: ImportListItem; onToggle: () => void; timeZone: string }) {
   const progress = importTaskProgress(item);
   const stageIndex = importStageIndex(item);
   const attention = item.state === "PARTIAL_FAILURE" || item.state === "FAILED";
@@ -195,7 +205,7 @@ function ImportTaskEntry({ detail, expanded, item, onToggle }: { detail: DetailS
   const importedNote = item.alreadyImportedItemCount ? ` · 已跳过 ${item.alreadyImportedItemCount} 个已导入条目` : "";
   return <div className="import-task-entry">
     <article className={`import-task-card${attention ? " has-error" : ""}`}>
-      <div className="import-task-main"><h3>{formatTime(item.createdAtMs)} · {item.platformInstanceName}</h3><p>{item.totalItemCount} 个条目{isMultiDisc ? <> · <button className="import-task-inline-detail" type="button" aria-label="查看多盘目录" aria-expanded={expanded} onClick={onToggle}>多盘</button></> : null} · {importProviderLabels[item.metadataProvider] ?? item.metadataProvider} · 更新于 {formatTime(item.updatedAtMs)}{importedNote}</p></div>
+      <div className="import-task-main"><h3>{formatTime(item.createdAtMs, timeZone)} · {item.platformInstanceName}</h3><p>{item.totalItemCount} 个条目{isMultiDisc ? <> · <button className="import-task-inline-detail" type="button" aria-label="查看多盘目录" aria-expanded={expanded} onClick={onToggle}>多盘</button></> : null} · {importProviderLabels[item.metadataProvider] ?? item.metadataProvider} · 更新于 {formatTime(item.updatedAtMs, timeZone)}{importedNote}</p></div>
       <StatusBadge tone={statusTone(item.state)}>{importStateLabels[item.state] ?? item.state}</StatusBadge>
       <div className="import-task-progress"><div><strong>{importTaskPhase(item)}</strong><span>{progress}%</span></div><div className="import-task-track"><i style={{ width: `${progress}%` }} /></div><div className="import-task-distribution"><span className="good">{item.reviewPendingItemCount} 待审核</span>{issueCount ? <button className="bad" type="button" aria-expanded={expanded} onClick={onToggle}>{issueCount} 异常</button> : <span className="neutral">0 异常</span>}</div></div>
       <TaskNextStep attention={attention} item={item} />
@@ -206,6 +216,7 @@ function ImportTaskEntry({ detail, expanded, item, onToggle }: { detail: DetailS
 }
 
 export function ImportTaskBoard({ initial, initialQuery = "", initialState = "" }: { initial: ListResponse<ImportListItem>; initialQuery?: string; initialState?: string }) {
+  const timeZone = useBrowserTimeZone();
   const [items, setItems] = useState(initial.items);
   const [nextCursor, setNextCursor] = useState(initial.nextCursor);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -313,7 +324,7 @@ export function ImportTaskBoard({ initial, initialQuery = "", initialState = "" 
       <button className={filters.state === "COMPLETED" ? "is-active" : ""} type="button" onClick={() => selectState("COMPLETED")}>已完成 {summary.completed}</button>
     </div>
     {visible.length
-      ? <div className="import-task-list">{visible.map((item) => <ImportTaskEntry detail={details[item.id]} expanded={expandedId === item.id} item={item} onToggle={() => void toggleDetails(item)} key={item.id} />)}</div>
+      ? <div className="import-task-list">{visible.map((item) => <ImportTaskEntry detail={details[item.id]} expanded={expandedId === item.id} item={item} onToggle={() => void toggleDetails(item)} timeZone={timeZone} key={item.id} />)}</div>
       : <div className="import-workflow-empty"><h2>没有匹配的导入任务</h2><p>请调整搜索内容、目标目录或任务状态。</p></div>}
     <div ref={loadMoreRef} className="infinite-scroll-sentinel" aria-hidden="true" />
     <footer className="import-workflow-footer"><span>当前显示 {visible.length} / 已加载 {items.length} 个任务</span>{loadingMore ? <span role="status">正在加载下一页…</span> : nextCursor ? <button type="button" onClick={() => void loadMore()}>继续加载</button> : <span>已加载全部任务</span>}{loadError ? <button type="button" onClick={() => void loadMore()}>{loadError}，点击重试</button> : null}</footer>

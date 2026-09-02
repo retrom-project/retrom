@@ -23,12 +23,12 @@ services:
         source: ${PFB_RETROM_ROOT:?}
         target: /workspace/retrom
       - type: bind
-        source: ${PFB_RUNTIME_ROOT:?}
-        target: /workspace/runtime
-      - type: bind
         source: ${PFB_RETROM_GIT_COMMON_DIR:?}
         target: ${PFB_RETROM_GIT_COMMON_DIR:?}
         read_only: true
+      - type: bind
+        source: ${PFB_RUNTIME_ROOT:?}
+        target: /workspace/runtime
       - type: bind
         source: ${PFB_RUNTIME_GIT_COMMON_DIR:?}
         target: ${PFB_RUNTIME_GIT_COMMON_DIR:?}

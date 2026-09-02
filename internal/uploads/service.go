@@ -190,7 +190,7 @@ func validateCreateRequest(request CreateRequest) (int64, error) {
 		return 0, ErrInvalid
 	}
 	if request.Purpose != "GENERAL" && request.SourceType == "FILES" &&
-		(len(request.Files) != 1 || !isProjectArchive(request.Files[0].RelativePath)) {
+		(len(request.Files) != 1 || !isProjectUpload(request.Purpose, request.Files[0].RelativePath)) {
 		return 0, ErrInvalid
 	}
 	seen := make(map[string]struct{}, len(request.Files))
@@ -229,9 +229,10 @@ func validUploadFile(file FileDeclaration) bool {
 	return err == nil
 }
 
-func isProjectArchive(relativePath string) bool {
+func isProjectUpload(purpose, relativePath string) bool {
 	extension := strings.ToLower(filepath.Ext(relativePath))
-	return extension == ".zip" || extension == ".7z"
+	return extension == ".zip" || extension == ".7z" ||
+		purpose == "TYRANOSCRIPT_PROJECT" && extension == ".exe"
 }
 
 func (service *Service) Get(ctx context.Context, uploadID string) (Session, error) {

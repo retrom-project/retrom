@@ -9,6 +9,12 @@ describe("formatTime", () => {
   it("formats a fixed Unix millisecond timestamp", () => {
     expect(formatTime(1_700_000_000_000)).toContain("2023");
   });
+
+  it("formats deterministically in an explicit time zone", () => {
+    const timestamp = Date.UTC(2026, 8, 2, 12, 43);
+    expect(formatTime(timestamp, "UTC")).toBe("2026年9月2日 12:43");
+    expect(formatTime(timestamp, "Asia/Shanghai")).toBe("2026年9月2日 20:43");
+  });
 });
 
 describe("formatBytes", () => {

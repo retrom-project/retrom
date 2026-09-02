@@ -31,7 +31,15 @@ function ImportStepper({ reconfiguring, step }: { reconfiguring: boolean; step: 
 }
 
 function FilePreview({ files }: { files: ChosenFile[] }) {
-  return <section className="panel import-file-preview"><div className="panel-head"><div><h2>已选择文件</h2><p>当前展示前 20 项，共 {files.length} 个文件。</p></div></div><div className="table-wrap"><table><thead><tr><th>相对路径</th><th>类型</th><th>大小</th></tr></thead><tbody>{files.slice(0, 20).map((file) => <tr key={`${file.path}-${file.size}`}><td><strong>{file.path}</strong></td><td>{file.name.toLocaleLowerCase().endsWith(".zip") ? "ZIP 压缩包" : "游戏文件"}</td><td title={`${file.size} bytes`}>{formatBytes(file.size)}</td></tr>)}</tbody></table></div></section>;
+  return <section className="panel import-file-preview"><div className="panel-head"><div><h2>已选择文件</h2><p>当前展示前 20 项，共 {files.length} 个文件。</p></div></div><div className="table-wrap"><table><thead><tr><th>相对路径</th><th>类型</th><th>大小</th></tr></thead><tbody>{files.slice(0, 20).map((file) => <tr key={`${file.path}-${file.size}`}><td><strong>{file.path}</strong></td><td>{chosenFileType(file.name)}</td><td title={`${file.size} bytes`}>{formatBytes(file.size)}</td></tr>)}</tbody></table></div></section>;
+}
+
+function chosenFileType(name: string) {
+  const normalized = name.toLocaleLowerCase();
+  if (normalized.endsWith(".zip")) {return "ZIP 压缩包";}
+  if (normalized.endsWith(".7z")) {return "7z 压缩包";}
+  if (normalized.endsWith(".exe")) {return "NW.js 可执行包";}
+  return "游戏文件";
 }
 
 function ReusableFilePreview({ files }: { files: ReusableFile[] }) {
@@ -76,7 +84,9 @@ function SourceDropZone({ contentMode, onDrop, onPickDirectory, onPickFiles }: P
   const project = rpgMaker || ons || kirikiri || butterscotch || tyranoScript;
   const projectName = rpgMaker ? "RPG Maker" : ons ? "ONS" : kirikiri ? "KiriKiri"
     : butterscotch ? "GameMaker" : "TyranoScript";
-  return <div className="dropzone import-dropzone" onDragOver={(event) => event.preventDefault()} onDrop={(event) => { event.preventDefault(); onDrop(event.dataTransfer.files); }}><div><span aria-hidden="true">⇧</span><h2>{project ? `将 ${projectName} 项目归档或目录拖到这里` : "将游戏文件或目录拖到这里"}</h2><p>{project ? "只选择一个 ZIP/7z 项目归档，或选择完整项目目录；项目内相对路径会完整保留。" : "支持普通 ROM、Arcade ZIP、DOS 内容目录、多盘 M3U + CHD、RPG Maker 与 ONS 项目；相对路径会完整保留。"}</p><div className="dropzone-actions"><button className="button" type="button" onClick={onPickFiles}>{project ? "选择项目归档" : "选择文件"}</button><button className="button secondary" type="button" onClick={onPickDirectory}>{project ? "选择项目目录" : "选择目录"}</button></div></div></div>;
+  const projectHint = tyranoScript ? "只选择一个 ZIP/7z 项目归档、Electron ASAR 分发 ZIP、NW.js EXE，或选择完整项目目录；项目内相对路径会完整保留。" : "只选择一个 ZIP/7z 项目归档，或选择完整项目目录；项目内相对路径会完整保留。";
+  const projectPackage = tyranoScript ? "项目包" : "项目归档";
+  return <div className="dropzone import-dropzone" onDragOver={(event) => event.preventDefault()} onDrop={(event) => { event.preventDefault(); onDrop(event.dataTransfer.files); }}><div><span aria-hidden="true">⇧</span><h2>{project ? `将 ${projectName} ${projectPackage}或目录拖到这里` : "将游戏文件或目录拖到这里"}</h2><p>{project ? projectHint : "支持普通 ROM、Arcade ZIP、DOS 内容目录、多盘 M3U + CHD、RPG Maker 与 ONS 项目；相对路径会完整保留。"}</p><div className="dropzone-actions"><button className="button" type="button" onClick={onPickFiles}>{project ? `选择${projectPackage}` : "选择文件"}</button><button className="button secondary" type="button" onClick={onPickDirectory}>{project ? "选择项目目录" : "选择目录"}</button></div></div></div>;
 }
 
 function ReconfigureDropZone({ count, onNext }: { count: number; onNext: () => void }) {
@@ -144,7 +154,7 @@ function ProjectConfiguration({ contentMode }: Pick<ConfigStepProps, "contentMod
     return <div className="feedback info" role="status">整个 GameMaker 目录或单个 ZIP/7z 会作为一个项目导入；当前原型支持带 data.win 的项目，审核时需要先成功试运行一次。</div>;
   }
   if (contentMode === "TYRANOSCRIPT_PROJECT_V1") {
-    return <div className="feedback info" role="status">整个 TyranoScript 目录或单个 ZIP/7z 会作为一个项目导入；审核时需要先成功试运行一次。</div>;
+    return <div className="feedback info" role="status">整个 TyranoScript 目录、单个 ZIP/7z、包含 resources/app.asar 的 Electron ASAR 分发 ZIP，或带追加 package.nw 的 NW.js EXE 会作为一个项目导入；桌面程序只用于识别包装，服务端不会执行，审核时需要先成功试运行一次。</div>;
   }
   return null;
 }
@@ -172,7 +182,7 @@ function ConfigStep(props: ConfigStepProps & { sourceIsDirectory: boolean }) {
       <div className="import-tag-config"><TagPicker label="批次默认标签" options={props.activeTags} selected={props.tags} onChange={props.onTags} disabled={props.busy} description="这些标签会冻结到任务配置，并作为每个待审核游戏的初始选择；审核时仍可逐项调整。" /></div>
       <MultiDiscConfiguration contentMode={props.contentMode} multiDiscLimits={props.multiDiscLimits} multiDiscSupported={props.multiDiscSupported} onContentMode={props.onContentMode} preflight={props.preflight} reconfiguring={props.reconfiguring} sourceIsDirectory={props.sourceIsDirectory} visibleCapabilityNotice={props.visibleCapabilityNotice} />
       <ProjectConfiguration contentMode={props.contentMode} />
-      {props.projectInvalid ? <div className="feedback bad" role="alert">项目必须选择一个完整目录，或只选择一个 ZIP/7z 归档。</div> : null}
+      {props.projectInvalid ? <div className="feedback bad" role="alert">{props.contentMode === "TYRANOSCRIPT_PROJECT_V1" ? "项目必须选择一个完整目录，或只选择一个 ZIP/7z/Electron ASAR/NW.js EXE 项目包。" : "项目必须选择一个完整目录，或只选择一个 ZIP/7z 归档。"}</div> : null}
       <div className="import-config-summary"><div><small>内容</small><strong>{props.fileCount} 个文件</strong></div><div><small>数据量</small><strong>{formatBytes(props.totalBytes)}</strong></div><div><small>目标</small><strong>{props.selectedDirectory?.name ?? "尚未选择"}</strong></div><div><small>布局</small><strong>{contentModeLabel(props.contentMode)}</strong></div></div>
       {props.tags.length ? <div className="import-tag-summary"><small>将应用到待审核游戏</small><TagChips tags={props.tags} /></div> : null}
       <div className="import-stage-actions"><button className="button secondary" type="button" onClick={props.onBack}>上一步</button><button className="button" type="button" disabled={props.busy || props.preflighting || !props.target || props.multiDiscInvalid || props.projectInvalid} onClick={props.onSubmit}>{submitLabel}</button></div>
@@ -262,7 +272,8 @@ function invalidProjectSelection(contentMode: ContentMode, sourceType: string, f
   if (!isProjectContentMode(contentMode) || sourceType === "DIRECTORY") {return false;}
   if (files.length !== 1) {return true;}
   const name = files[0].name.toLocaleLowerCase();
-  return !name.endsWith(".zip") && !name.endsWith(".7z");
+  const tyranoScriptExecutable = contentMode === "TYRANOSCRIPT_PROJECT_V1" && name.endsWith(".exe");
+  return !name.endsWith(".zip") && !name.endsWith(".7z") && !tyranoScriptExecutable;
 }
 
 function contentModeLabel(contentMode: ContentMode) {

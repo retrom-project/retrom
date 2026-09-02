@@ -131,6 +131,14 @@ func TestCreateEnforcesProjectUploadPurposeShape(t *testing.T) {
 	if ons.Purpose != "ONS_PROJECT" {
 		t.Fatalf("ONS purpose = %q", ons.Purpose)
 	}
+	tyranoScript, err := service.Create(context.Background(), CreateRequest{
+		Purpose: "TYRANOSCRIPT_PROJECT", SourceType: "FILES",
+		Files: []FileDeclaration{{ClientFileID: "project", RelativePath: "game.EXE", SizeBytes: 1}},
+	})
+	testassert.Falsef(t, err != nil, "create TyranoScript NW.js executable: %v", err)
+	if tyranoScript.Purpose != "TYRANOSCRIPT_PROJECT" {
+		t.Fatalf("TyranoScript purpose = %q", tyranoScript.Purpose)
+	}
 
 	invalidRequests := []CreateRequest{
 		{Purpose: "UNKNOWN", SourceType: "DIRECTORY", Files: []FileDeclaration{

@@ -61,6 +61,24 @@ test("local native runtime cookies require the shared rpg.localhost site", () =>
   }
 });
 
+test("PFB application and runtime origins require the same bounded PFB id", () => {
+  const applicationOrigin = "http://tyranoscrip-fa49b7a1f666.localhost:3000";
+  const matchingRuntime =
+    "http://01980000-0000-7000-8000-000000000001.rpg.tyranoscrip-fa49b7a1f666.localhost:3000";
+  assert.doesNotThrow(() => requireLocalRuntimeSite(applicationOrigin, matchingRuntime));
+
+  for (const candidateRuntimeOrigin of [
+    "http://01980000-0000-7000-8000-000000000001.rpg.different-0123456789ab.localhost:3000",
+    "http://not-a-launch.rpg.tyranoscrip-fa49b7a1f666.localhost:3000",
+  ]) {
+    assert.throws(
+      () => requireLocalRuntimeSite(applicationOrigin, candidateRuntimeOrigin),
+      (error) => error instanceof SecurityInputBlocked &&
+        error.message === "RPG_ACCEPTANCE_SECURITY_RUNTIME_SITE_MISMATCH",
+    );
+  }
+});
+
 test("runtime content probes execute inside the authenticated browser frame", async () => {
   const calls = [];
   const originalFetch = globalThis.fetch;

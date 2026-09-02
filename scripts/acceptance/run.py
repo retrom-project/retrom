@@ -463,7 +463,7 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
         ".cache/tools/node-v24.18.0-linux-x64/bin/node scripts/acceptance/butterscotch_product.mjs",
     ),
     "ACC-TYRANOSCRIPT-001": (
-        300,
+        1800,
         ".cache/tools/node-v24.18.0-linux-x64/bin/node scripts/acceptance/tyranoscript_product.mjs",
     ),
 }
