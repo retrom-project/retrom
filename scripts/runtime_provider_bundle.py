@@ -18,6 +18,10 @@ LOCK_KEYS = {
     "bundleUrl", "bundleSha256", "bundleSizeBytes", "unpackedSizeBytes", "fileCount",
     "manifestSha256",
 }
+BUILD_RECORD_KEYS = {
+    "archive", "bundleDirectory", "bundleSha256", "bundleSizeBytes", "fileCount",
+    "manifestSha256", "providerId", "providerVersion", "unpackedSizeBytes",
+}
 INTEGRITY_KEYS = {"schemaVersion", "files"}
 INTEGRITY_FILE_KEYS = {"path", "sizeBytes", "sha256", "mediaType"}
 MEDIA_TYPES = {
@@ -60,8 +64,26 @@ def validate_provider_lock(value: Any) -> dict[str, Any]:
     return value
 
 
+def validate_provider_build_record(value: Any) -> dict[str, Any]:
+    if not isinstance(value, dict) or set(value) != BUILD_RECORD_KEYS:
+        _lock_invalid()
+    if not _match(PROVIDER_ID, value["providerId"]) or not _match(SEMVER, value["providerVersion"]):
+        _lock_invalid()
+    expected_name = f'{value["providerId"]}-provider-{value["providerVersion"]}.tar.gz'
+    if value["archive"] != f'{value["providerId"]}/{expected_name}' or \
+            value["bundleDirectory"] != f'{value["providerId"]}/{value["providerId"]}-{value["providerVersion"]}':
+        _lock_invalid()
+    if not _match(LOWER_DIGEST, value["bundleSha256"]) or not _match(LOWER_DIGEST, value["manifestSha256"]):
+        _lock_invalid()
+    if not _bounded_integer(value["bundleSizeBytes"], minimum=1, maximum=MAX_SAFE_INTEGER) or \
+            not _bounded_integer(value["unpackedSizeBytes"], minimum=1, maximum=MAX_SAFE_INTEGER) or \
+            not _bounded_integer(value["fileCount"], minimum=3, maximum=100_000):
+        _lock_invalid()
+    return value
+
+
 def install_provider_bundle(archive: Path, lock_value: Any, installed_root: Path) -> Path:
-    lock = validate_provider_lock(lock_value)
+    lock = _validate_install_record(lock_value)
     archive = archive.resolve(strict=True)
     installed_root = installed_root.resolve()
     archive_bytes = archive.read_bytes()
@@ -70,6 +92,7 @@ def install_provider_bundle(archive: Path, lock_value: Any, installed_root: Path
     destination = installed_root / lock["providerId"] / lock["bundleSha256"]
     if destination.exists():
         _verify_existing(destination, lock)
+        _verify_extracted(destination, lock, allow_proof=True)
         return destination
     destination.parent.mkdir(parents=True, exist_ok=True)
     staging = Path(tempfile.mkdtemp(prefix=f".{lock['providerId']}-", dir=destination.parent))
@@ -95,11 +118,51 @@ def load_provider_lock(path: Path) -> dict[str, Any]:
 
 
 def check_installed_provider(lock_value: Any, installed_root: Path) -> Path:
-    lock = validate_provider_lock(lock_value)
+    lock = _validate_install_record(lock_value)
     destination = installed_root.resolve() / lock["providerId"] / lock["bundleSha256"]
     _verify_existing(destination, lock)
     _verify_extracted(destination, lock, allow_proof=True)
     return destination
+
+
+def describe_installed_provider(lock_value: Any, installed_root: Path) -> dict[str, Any]:
+    lock = _validate_install_record(lock_value)
+    destination = check_installed_provider(lock, installed_root)
+    manifest_bytes = (destination / "provider.json").read_bytes()
+    integrity = json.loads((destination / "integrity.json").read_text(encoding="utf-8"))
+    manifest = json.loads(manifest_bytes)
+    integrity_by_path = {entry["path"]: entry for entry in integrity["files"]}
+    targets = []
+    for target in manifest["targets"]:
+        assets = [{
+            "path": path,
+            "sha256": integrity_by_path[path]["sha256"],
+            "sizeBytes": integrity_by_path[path]["sizeBytes"],
+        } for path in target["assetPaths"]]
+        targets.append({
+            "checkpoint": target["checkpoint"],
+            "gameCompatibilityLine": target["gameCompatibilityLine"],
+            "id": target["id"],
+            "netplayCompatibilityLine": target["netplayCompatibilityLine"],
+            "targetContractSha256": _digest(_canonical_json({
+                "assets": assets, "schemaVersion": 1, "target": target,
+            })),
+        })
+    module_path = manifest["clientModulePath"]
+    return {
+        "bundleSha256": lock["bundleSha256"],
+        "bundleSizeBytes": lock["bundleSizeBytes"],
+        "clientModulePath": module_path,
+        "fileCount": lock["fileCount"],
+        "installationPath": f'{lock["providerId"]}/{lock["bundleSha256"]}',
+        "manifestSha256": lock["manifestSha256"],
+        "moduleSha256": integrity_by_path[module_path]["sha256"],
+        "providerApiVersion": manifest["providerApiVersion"],
+        "providerId": lock["providerId"],
+        "providerVersion": lock["providerVersion"],
+        "targets": targets,
+        "unpackedSizeBytes": lock["unpackedSizeBytes"],
+    }
 
 
 def _extract_closed_archive(archive: Path, staging: Path, lock: dict[str, Any]) -> None:
@@ -179,6 +242,15 @@ def _verify_extracted(root: Path, lock: dict[str, Any], allow_proof: bool = Fals
     if declared_assets != bundled_assets or manifest_value["clientModulePath"] not in files or \
             "provenance.json" not in files or not any(path.startswith("licenses/") for path in files):
         raise ValueError("PROVIDER_MANIFEST_ASSET_CLOSURE_INVALID")
+    try:
+        provenance = json.loads(files["provenance.json"])
+    except (UnicodeError, json.JSONDecodeError) as error:
+        raise ValueError("PROVIDER_PROVENANCE_INVALID") from error
+    if not isinstance(provenance, dict) or provenance.get("schemaVersion") != 1:
+        raise ValueError("PROVIDER_PROVENANCE_INVALID")
+    module_entry = next((entry for entry in entries if entry["path"] == manifest_value["clientModulePath"]), None)
+    if module_entry is None or module_entry["mediaType"] != "text/javascript; charset=utf-8":
+        raise ValueError("PROVIDER_MODULE_INVALID")
     if manifest_value["providerId"] != lock["providerId"] or manifest_value["providerVersion"] != lock["providerVersion"]:
         raise ValueError("PROVIDER_MANIFEST_IDENTITY_INVALID")
     if _digest(manifest_bytes) != lock["manifestSha256"]:
@@ -208,6 +280,12 @@ def _verify_existing(destination: Path, lock: dict[str, Any]) -> None:
         raise ValueError("PROVIDER_INSTALLATION_INVALID") from error
     if proof != _installation_proof(lock):
         raise ValueError("PROVIDER_INSTALLATION_INVALID")
+
+
+def _validate_install_record(value: Any) -> dict[str, Any]:
+    if isinstance(value, dict) and set(value) == LOCK_KEYS:
+        return validate_provider_lock(value)
+    return validate_provider_build_record(value)
 
 
 def _installation_proof(lock: dict[str, Any]) -> dict[str, Any]:
@@ -295,6 +373,25 @@ def _write_json(path: Path, value: Any) -> None:
 
 def _digest(value: bytes) -> str:
     return hashlib.sha256(value).hexdigest()
+
+
+def _canonical_json(value: Any) -> bytes:
+    def encode(item: Any) -> str:
+        if item is None:
+            return "null"
+        if isinstance(item, bool):
+            return "true" if item else "false"
+        if isinstance(item, str):
+            return json.dumps(item, ensure_ascii=False, separators=(",", ":"))
+        if isinstance(item, int) and not isinstance(item, bool) and abs(item) <= MAX_SAFE_INTEGER:
+            return str(item)
+        if isinstance(item, list):
+            return "[" + ",".join(encode(entry) for entry in item) + "]"
+        if isinstance(item, dict):
+            keys = sorted(item, key=lambda key: key.encode("utf-16-be", "surrogatepass"))
+            return "{" + ",".join(f"{encode(key)}:{encode(item[key])}" for key in keys) + "}"
+        raise ValueError("PROVIDER_CANONICAL_JSON_INVALID")
+    return encode(value).encode("utf-8")
 
 
 def _lock_invalid() -> None:

@@ -17,6 +17,11 @@ RETROM_RUNTIME_DEV_ROOT ?=
 RETROM_RUNTIME_DEV_INCLUDE_ASSETS ?= false
 RETROM_RUNTIME_MATERIALIZATION_ROOT ?= $(RETROM_DEPENDENCY_ROOT)/runtime/rpgmaker/v1
 RETROM_RUNTIME_PFB_CANDIDATE_ROOT ?=
+RETROM_PROVIDER_LOCK_ROOT ?= $(abspath data/runtime-providers)
+RETROM_PROVIDER_CACHE_ROOT ?= $(abspath .cache/runtime-providers)
+RETROM_PROVIDER_INSTALLED_ROOT ?= $(abspath data/runtime-providers/installed)
+RETROM_PROVIDER_ACTIVE_PATH ?= $(abspath data/runtime-providers/active.json)
+RETROM_PROVIDER_SOURCE ?= production
 RETROM_DEPENDENCY_VERSIONS ?= 4.2.3,4.3.0-pre
 RETROM_ACTIVE_EMULATORJS_VERSION ?= 4.2.3
 RETROM_DEPENDENCY_ROOT ?= $(abspath data)
@@ -58,6 +63,7 @@ API_GO_GENERATED := internal/httpapi/generated/models.gen.go internal/httpapi/ge
 	build test lint-go backend-check web-install web-lint web-typecheck web-test web-build web-check integration-test api-bundle api-generate-go api-generate api-check \
 	public-fixtures-generate public-fixtures-check web-e2e data-check prepare-deps deps-check release-input-digest ci dev build-backend-image \
 	build-web-image build-images acceptance-prepare acceptance-case acceptance-report retrom-runtime-dev-link retrom-runtime-dev-unlink \
+	runtime-provider-prepare runtime-provider-prepare-candidate runtime-provider-check runtime-provider-pin-release runtime-provider-verify-upgrade \
 	require-local-user pfb-init pfb-validate pfb-build pfb-up pfb-use pfb-restart pfb-down pfb-status pfb-logs pfb-verify pfb-prune pfb-destroy pfb-gateway-up pfb-gateway-down
 
 .NOTPARALLEL: dev
@@ -193,6 +199,24 @@ data-check:
 	@python3 scripts/test_runtime_providers.py
 	@python3 scripts/test_runtime_target_bindings.py
 	@python3 scripts/dependencies.py data-check --versions "$(RETROM_DEPENDENCY_VERSIONS)"
+
+runtime-provider-prepare:
+	@python3 scripts/runtime_providers.py prepare --lock-root "$(RETROM_PROVIDER_LOCK_ROOT)" --cache-root "$(RETROM_PROVIDER_CACHE_ROOT)" --installed-root "$(RETROM_PROVIDER_INSTALLED_ROOT)" --active-path "$(RETROM_PROVIDER_ACTIVE_PATH)"
+
+runtime-provider-prepare-candidate:
+	@test -n "$(RETROM_RUNTIME_PFB_CANDIDATE_ROOT)" || { echo 'RETROM_RUNTIME_PFB_CANDIDATE_ROOT is required' >&2; exit 2; }
+	@python3 scripts/runtime_providers.py prepare-candidate --candidate-root "$(RETROM_RUNTIME_PFB_CANDIDATE_ROOT)" --installed-root "$(RETROM_PROVIDER_INSTALLED_ROOT)" --active-path "$(RETROM_PROVIDER_ACTIVE_PATH)"
+
+runtime-provider-check:
+	@python3 scripts/runtime_providers.py check --active-path "$(RETROM_PROVIDER_ACTIVE_PATH)" --installed-root "$(RETROM_PROVIDER_INSTALLED_ROOT)" --source "$(RETROM_PROVIDER_SOURCE)"
+
+runtime-provider-pin-release:
+	@test -n "$(RETROM_PROVIDER_RELEASE_ROOT)" || { echo 'RETROM_PROVIDER_RELEASE_ROOT is required' >&2; exit 2; }
+	@python3 scripts/runtime_providers.py pin-release --release-root "$(RETROM_PROVIDER_RELEASE_ROOT)" --lock-root "$(RETROM_PROVIDER_LOCK_ROOT)"
+
+runtime-provider-verify-upgrade:
+	@test -n "$(RETROM_PROVIDER_CURRENT)" -a -n "$(RETROM_PROVIDER_CANDIDATE)" -a -n "$(RETROM_PROVIDER_CHECKPOINT_REFERENCES)" || { echo 'RETROM_PROVIDER_CURRENT, RETROM_PROVIDER_CANDIDATE and RETROM_PROVIDER_CHECKPOINT_REFERENCES are required' >&2; exit 2; }
+	@python3 scripts/runtime_providers.py verify-upgrade --current "$(RETROM_PROVIDER_CURRENT)" --candidate "$(RETROM_PROVIDER_CANDIDATE)" --checkpoint-references "$(RETROM_PROVIDER_CHECKPOINT_REFERENCES)"
 
 prepare-deps:
 	@RETROM_MODE="$(RETROM_MODE)" RETROM_RUNTIME_DEV_ROOT="$(RETROM_RUNTIME_DEV_ROOT)" python3 scripts/dependencies.py prepare --versions "$(RETROM_DEPENDENCY_VERSIONS)"
