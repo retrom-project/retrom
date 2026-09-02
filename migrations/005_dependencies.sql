@@ -8,11 +8,11 @@ CREATE TABLE core_artifacts (
     AND route_key NOT GLOB '*[^A-Z0-9_]*'
   ),
   runtime_family TEXT NOT NULL CHECK(runtime_family IN (
-    'EMULATORJS','RPGMAKER','ONS','KIRIKIRI','BUTTERSCOTCH','TYRANOSCRIPT'
+    'EMULATORJS','RPGMAKER','ONS','KIRIKIRI','BUTTERSCOTCH','TYRANOSCRIPT','WASM4'
   )),
   runtime_adapter_kind TEXT NOT NULL CHECK(runtime_adapter_kind IN (
     'EMULATORJS','EASYRPG_WEB','MKXP_LIBRETRO_WEB','NATIVE_WEB','ONS_YURI_WEB','KIRIKIRI2_WEB',
-    'BUTTERSCOTCH_WEB','TYRANOSCRIPT_WEB'
+    'BUTTERSCOTCH_WEB','TYRANOSCRIPT_WEB','WASM4_WEB'
   )),
   runtime_version TEXT NOT NULL CHECK(
     length(runtime_version) BETWEEN 1 AND 160 AND lower(runtime_version)<>'latest'
@@ -55,6 +55,8 @@ CREATE TABLE core_artifacts (
       AND route_key='BUTTERSCOTCH_GAMEMAKER'
     OR runtime_family='TYRANOSCRIPT' AND runtime_adapter_kind='TYRANOSCRIPT_WEB'
       AND route_key='TYRANOSCRIPT_WEB'
+    OR runtime_family='WASM4' AND runtime_adapter_kind='WASM4_WEB'
+      AND route_key='WASM4_WEB'
   ),
   CHECK(selected_for_new_bindings=0 OR available_for_launch=1 AND retired_at_ms IS NULL),
   CHECK(runtime_adapter_kind<>'EASYRPG_WEB' OR requires_threads=0 AND save_payload_kind='NATIVE_SAVE_BUNDLE_V1'),
@@ -63,7 +65,8 @@ CREATE TABLE core_artifacts (
   CHECK(runtime_adapter_kind<>'ONS_YURI_WEB' OR requires_threads=0 AND save_payload_kind='ONS_SAVE_BUNDLE_V1'),
   CHECK(runtime_adapter_kind<>'KIRIKIRI2_WEB' OR requires_threads=1 AND save_payload_kind='KIRIKIRI_SAVE_BUNDLE_V1'),
   CHECK(runtime_adapter_kind<>'BUTTERSCOTCH_WEB' OR requires_threads=1 AND save_payload_kind='RUNTIME_STATE'),
-  CHECK(runtime_adapter_kind<>'TYRANOSCRIPT_WEB' OR requires_threads=0 AND save_payload_kind='RUNTIME_STATE')
+  CHECK(runtime_adapter_kind<>'TYRANOSCRIPT_WEB' OR requires_threads=0 AND save_payload_kind='RUNTIME_STATE'),
+  CHECK(runtime_adapter_kind<>'WASM4_WEB' OR requires_threads=0 AND save_payload_kind='RUNTIME_STATE')
 );
 
 CREATE TABLE bios_requirements (

@@ -304,7 +304,7 @@ WHERE deleted_at_ms IS NULL;
 CREATE VIEW save_state_runtime_compatibility AS
 SELECT save.id AS save_state_id,
 CASE
-  WHEN writer.runtime_family IN ('RPGMAKER','ONS','KIRIKIRI','BUTTERSCOTCH','TYRANOSCRIPT') THEN CASE WHEN EXISTS(
+  WHEN writer.runtime_family IN ('RPGMAKER','ONS','KIRIKIRI','BUTTERSCOTCH','TYRANOSCRIPT','WASM4') THEN CASE WHEN EXISTS(
     SELECT 1 FROM core_artifacts current
     WHERE current.core_id=writer.core_id AND current.route_key=writer.route_key
       AND current.runtime_family=writer.runtime_family
@@ -670,6 +670,8 @@ BEGIN
           AND NOT EXISTS(SELECT 1 FROM rpgmaker_variant_profiles profile WHERE profile.game_variant_revision_id=revision.id)
         OR artifact.runtime_family='TYRANOSCRIPT' AND revision.emulator_game_id IS NULL
           AND NOT EXISTS(SELECT 1 FROM rpgmaker_variant_profiles profile WHERE profile.game_variant_revision_id=revision.id)
+        OR artifact.runtime_family='WASM4' AND revision.emulator_game_id IS NULL
+          AND NOT EXISTS(SELECT 1 FROM rpgmaker_variant_profiles profile WHERE profile.game_variant_revision_id=revision.id)
       )
   ) THEN RAISE(ABORT, 'variant current must be ready and owned') END;
 END;
@@ -693,6 +695,8 @@ BEGIN
         OR artifact.runtime_family='BUTTERSCOTCH' AND revision.emulator_game_id IS NULL
           AND NOT EXISTS(SELECT 1 FROM rpgmaker_variant_profiles profile WHERE profile.game_variant_revision_id=revision.id)
         OR artifact.runtime_family='TYRANOSCRIPT' AND revision.emulator_game_id IS NULL
+          AND NOT EXISTS(SELECT 1 FROM rpgmaker_variant_profiles profile WHERE profile.game_variant_revision_id=revision.id)
+        OR artifact.runtime_family='WASM4' AND revision.emulator_game_id IS NULL
           AND NOT EXISTS(SELECT 1 FROM rpgmaker_variant_profiles profile WHERE profile.game_variant_revision_id=revision.id)
       )
   ) THEN RAISE(ABORT, 'variant current must be ready and owned') END;
@@ -2513,6 +2517,11 @@ OR NEW.runtime_family='TYRANOSCRIPT' AND NOT (
   NEW.core_id='tyranoscript' AND NEW.runtime_adapter_kind='TYRANOSCRIPT_WEB'
     AND NEW.route_key='TYRANOSCRIPT_WEB'
 )
+OR NEW.core_id='wasm4' AND NEW.runtime_family<>'WASM4'
+OR NEW.runtime_family='WASM4' AND NOT (
+  NEW.core_id='wasm4' AND NEW.runtime_adapter_kind='WASM4_WEB'
+    AND NEW.route_key='WASM4_WEB'
+)
 OR NEW.runtime_family='RPGMAKER' AND NOT (
   NEW.core_id IN ('rpgmaker_2000','rpgmaker_2003')
     AND NEW.runtime_adapter_kind='EASYRPG_WEB'
@@ -2769,6 +2778,7 @@ WHEN NOT EXISTS(
       OR artifact.runtime_family='KIRIKIRI' AND NEW.emulator_game_id IS NULL
       OR artifact.runtime_family='BUTTERSCOTCH' AND NEW.emulator_game_id IS NULL
       OR artifact.runtime_family='TYRANOSCRIPT' AND NEW.emulator_game_id IS NULL
+      OR artifact.runtime_family='WASM4' AND NEW.emulator_game_id IS NULL
     )
 )
 BEGIN SELECT RAISE(ABORT,'variant revision runtime mismatch'); END;
@@ -3139,7 +3149,7 @@ OR NEW.purpose='PRODUCT' AND NOT EXISTS(
     AND (
       launch_artifact.runtime_family='EMULATORJS'
         AND revision.core_artifact_id=NEW.core_artifact_id AND revision.route_key=NEW.route_key
-      OR launch_artifact.runtime_family IN ('RPGMAKER','ONS','KIRIKIRI','BUTTERSCOTCH','TYRANOSCRIPT')
+      OR launch_artifact.runtime_family IN ('RPGMAKER','ONS','KIRIKIRI','BUTTERSCOTCH','TYRANOSCRIPT','WASM4')
         AND launch_artifact.selected_for_new_bindings=1
         AND launch_artifact.core_id=bound_artifact.core_id
         AND launch_artifact.runtime_family=bound_artifact.runtime_family
@@ -3159,7 +3169,7 @@ OR NEW.purpose='PRODUCT' AND NEW.save_state_id IS NOT NULL AND NOT EXISTS(
     AND save.game_variant_revision_id=NEW.game_variant_revision_id
     AND (
       launch_artifact.runtime_family='EMULATORJS' AND save.core_artifact_id=NEW.core_artifact_id
-      OR launch_artifact.runtime_family IN ('RPGMAKER','ONS','KIRIKIRI','BUTTERSCOTCH','TYRANOSCRIPT')
+      OR launch_artifact.runtime_family IN ('RPGMAKER','ONS','KIRIKIRI','BUTTERSCOTCH','TYRANOSCRIPT','WASM4')
         AND compatibility.status='AVAILABLE'
         AND launch_artifact.selected_for_new_bindings=1
         AND launch_artifact.core_id=writer.core_id
@@ -3277,6 +3287,10 @@ OR NOT EXISTS(
         AND json_extract(writer.compatibility_json,'$.gameCompatibilityLine')=
             json_extract(bound_artifact.compatibility_json,'$.gameCompatibilityLine')
       OR writer.runtime_family='TYRANOSCRIPT'
+        AND writer.core_id=bound_artifact.core_id AND writer.route_key=revision.route_key
+        AND json_extract(writer.compatibility_json,'$.gameCompatibilityLine')=
+            json_extract(bound_artifact.compatibility_json,'$.gameCompatibilityLine')
+      OR writer.runtime_family='WASM4'
         AND writer.core_id=bound_artifact.core_id AND writer.route_key=revision.route_key
         AND json_extract(writer.compatibility_json,'$.gameCompatibilityLine')=
             json_extract(bound_artifact.compatibility_json,'$.gameCompatibilityLine')

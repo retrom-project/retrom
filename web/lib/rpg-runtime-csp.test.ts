@@ -5,8 +5,8 @@ describe("playerFrameSource", () => {
   it("allows only the configured runtime hostname family on every app document", () => {
     expect(playerFrameSource("https://{launchId}.runtime.retrom.example"))
       .toBe("'self' https://*.runtime.retrom.example");
-    expect(playerFrameSource("http://{launchId}.feature-a1b2c3d4e5f6.rpg.localhost:3000"))
-      .toBe("'self' http://*.feature-a1b2c3d4e5f6.rpg.localhost:3000");
+    expect(playerFrameSource("http://{launchId}.rpg.feature-a1b2c3d4e5f6.localhost:3000"))
+      .toBe("'self' http://*.rpg.feature-a1b2c3d4e5f6.localhost:3000");
     expect(playerFrameSource("http://{launchId}.rpg.localhost:18092"))
       .toBe("'self' http://*.rpg.localhost:18092");
   });

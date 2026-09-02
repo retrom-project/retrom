@@ -552,6 +552,12 @@ components:
       $ref: ./domains/runtime.yaml#/components/schemas/TyranoScriptCheckpointRestore
     TyranoScriptLaunchConfig:
       $ref: ./domains/runtime.yaml#/components/schemas/TyranoScriptLaunchConfig
+    WASM4AdapterConfig:
+      $ref: ./domains/runtime.yaml#/components/schemas/WASM4AdapterConfig
+    WASM4CheckpointRestore:
+      $ref: ./domains/runtime.yaml#/components/schemas/WASM4CheckpointRestore
+    WASM4LaunchConfig:
+      $ref: ./domains/runtime.yaml#/components/schemas/WASM4LaunchConfig
     RuntimeAssetPackKind:
       $ref: ./domains/imports.yaml#/components/schemas/RuntimeAssetPackKind
     CoreArtifactAdminItem:

@@ -17,7 +17,7 @@ done
 export RETROM_PUBLIC_ORIGIN="http://${PFB_ID}.localhost:3000"
 export RETROM_ALLOW_INSECURE_PUBLIC_ORIGIN=true
 export RETROM_PFB_ID="$PFB_ID"
-export RETROM_RPG_RUNTIME_ORIGIN_TEMPLATE="http://{launchId}.${PFB_ID}.rpg.localhost:3000"
+export RETROM_RPG_RUNTIME_ORIGIN_TEMPLATE="http://{launchId}.rpg.${PFB_ID}.localhost:3000"
 export RETROM_HTTP_ADDR=0.0.0.0:8080
 export RETROM_TRUSTED_PROXIES="${PFB_GATEWAY_IP}/32"
 export RETROM_DEV_STATE_DIR=/pfb-data/dev-state

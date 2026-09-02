@@ -15,6 +15,7 @@ WHEN NOT EXISTS(
       OR artifact.runtime_family='KIRIKIRI' AND NEW.emulator_game_id IS NULL
       OR artifact.runtime_family='BUTTERSCOTCH' AND NEW.emulator_game_id IS NULL
       OR artifact.runtime_family='TYRANOSCRIPT' AND NEW.emulator_game_id IS NULL
+      OR artifact.runtime_family='WASM4' AND NEW.emulator_game_id IS NULL
     )
 )
 BEGIN SELECT RAISE(ABORT,'variant revision runtime mismatch'); END;

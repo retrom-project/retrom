@@ -51,6 +51,7 @@ type Config struct {
 	KiriKiri             *KiriKiriConfig              `json:"-"`
 	Butterscotch         *ButterscotchConfig          `json:"-"`
 	TyranoScript         *TyranoScriptConfig          `json:"-"`
+	WASM4                *WASM4Config                 `json:"-"`
 }
 
 type NetplayConfig struct {

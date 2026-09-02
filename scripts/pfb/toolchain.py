@@ -78,7 +78,7 @@ def _validate_localhost_browser(chrome: Path) -> None:
         port = server.server_address[1]
         hosts = (
             "pfb-validation.localhost",
-            "0198abcd-1234-7123-8abc-1234567890ab.pfb-validation.rpg.localhost",
+            "0198abcd-1234-7123-8abc-1234567890ab.rpg.pfb-validation.localhost",
         )
         node = chrome.parent / "node-v24.18.0-linux-x64/bin/node"
         probe_script = Path(__file__).with_name("browser-probe.mjs")

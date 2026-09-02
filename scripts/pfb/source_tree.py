@@ -63,6 +63,43 @@ def checked_worktree(root: Path) -> Path:
     return canonical
 
 
+def git_common_dir(root: Path) -> Path:
+    """Resolve the narrow non-bare common Git directory for a worktree."""
+    canonical = checked_worktree(root)
+    common = _resolved_common_dir(
+        canonical,
+        git_text(canonical, ["rev-parse", "--git-common-dir"], "PFB_WORKTREE_INVALID"),
+    )
+    repository_root = common.parent
+    home = Path.home().resolve()
+    if repository_root in {Path("/"), home}:
+        raise PFBError("PFB_WORKTREE_INVALID", "git-common-dir")
+    reported = Path(git_text(
+        repository_root, ["rev-parse", "--show-toplevel"], "PFB_WORKTREE_INVALID",
+    )).resolve(strict=True)
+    baseline_common = _resolved_common_dir(
+        repository_root,
+        git_text(repository_root, ["rev-parse", "--git-common-dir"], "PFB_WORKTREE_INVALID"),
+    )
+    if reported != repository_root or baseline_common != common:
+        raise PFBError("PFB_WORKTREE_INVALID", "git-common-dir")
+    return common
+
+
+def _resolved_common_dir(root: Path, raw: str) -> Path:
+    candidate = Path(raw)
+    if not candidate.is_absolute():
+        candidate = root / candidate
+    try:
+        info = candidate.lstat()
+        resolved = candidate.resolve(strict=True)
+    except OSError as exc:
+        raise PFBError("PFB_WORKTREE_INVALID", "git-common-dir") from exc
+    if stat.S_ISLNK(info.st_mode) or not resolved.is_dir() or resolved.name != ".git":
+        raise PFBError("PFB_WORKTREE_INVALID", "git-common-dir")
+    return resolved
+
+
 def source_tree_sha256(root: Path) -> str:
     paths = _git_paths(root)
     tracked = _tracked_entries(root)
