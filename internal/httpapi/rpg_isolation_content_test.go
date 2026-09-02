@@ -153,7 +153,7 @@ func TestTyranoScriptVirtualBlackBackdrop(t *testing.T) {
 func TestRPGRuntimeRouteServesTyranoScriptProjectHEAD(t *testing.T) {
 	t.Parallel()
 	database, isolationService, nowMS, launchID, origin, ticket := newBootstrapReloadFixture(t)
-	if _, err := database.Exec(`
+	if _, err := database.ExecContext(t.Context(), `
 UPDATE core_artifacts
 SET runtime_family='TYRANOSCRIPT',runtime_adapter_kind='TYRANOSCRIPT_WEB'
 `); err != nil {
