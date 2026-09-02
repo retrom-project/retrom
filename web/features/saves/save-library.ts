@@ -126,20 +126,42 @@ export function formatSaveSize(value: number) {
   return `${Number(amount.toFixed(2))}${units[unit]}`;
 }
 
-function sameLocalDay(left: Date, right: Date) {
-  return left.getFullYear() === right.getFullYear() && left.getMonth() === right.getMonth() && left.getDate() === right.getDate();
+export type SaveTimeBasis = "local" | "utc";
+
+type SaveDateParts = {
+  year: number;
+  month: number;
+  day: number;
+  hours: number;
+  minutes: number;
+  seconds: number;
+};
+
+function saveDateParts(date: Date, basis: SaveTimeBasis): SaveDateParts {
+  return basis === "utc"
+    ? { year: date.getUTCFullYear(), month: date.getUTCMonth(), day: date.getUTCDate(), hours: date.getUTCHours(), minutes: date.getUTCMinutes(), seconds: date.getUTCSeconds() }
+    : { year: date.getFullYear(), month: date.getMonth(), day: date.getDate(), hours: date.getHours(), minutes: date.getMinutes(), seconds: date.getSeconds() };
 }
 
-export function formatSaveTime(value: number, nowMs: number, includeSeconds = true) {
+function sameSaveDay(left: SaveDateParts, right: SaveDateParts) {
+  return left.year === right.year && left.month === right.month && left.day === right.day;
+}
+
+export function formatSaveTime(value: number, nowMs: number, includeSeconds = true, basis: SaveTimeBasis = "local") {
   const date = new Date(value);
   const now = new Date(nowMs);
-  const yesterday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
-  const prefix = sameLocalDay(date, now)
+  const dateParts = saveDateParts(date, basis);
+  const nowParts = saveDateParts(now, basis);
+  const yesterday = basis === "utc"
+    ? new Date(Date.UTC(nowParts.year, nowParts.month, nowParts.day - 1))
+    : new Date(nowParts.year, nowParts.month, nowParts.day - 1);
+  const yesterdayParts = saveDateParts(yesterday, basis);
+  const prefix = sameSaveDay(dateParts, nowParts)
     ? "今天"
-    : sameLocalDay(date, yesterday)
+    : sameSaveDay(dateParts, yesterdayParts)
       ? "昨天"
-      : `${date.getFullYear()}/${date.getMonth() + 1}/${date.getDate()}`;
-  const time = [date.getHours(), date.getMinutes(), ...(includeSeconds ? [date.getSeconds()] : [])]
+      : `${dateParts.year}/${dateParts.month + 1}/${dateParts.day}`;
+  const time = [dateParts.hours, dateParts.minutes, ...(includeSeconds ? [dateParts.seconds] : [])]
     .map((part) => String(part).padStart(2, "0")).join(":");
   return `${prefix} ${time}`;
 }

@@ -3,8 +3,8 @@
 import { useState, useSyncExternalStore } from "react";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { StatusBadge } from "@/components/ui";
-import { formatSaveTime } from "@/features/saves/save-library";
 import { SaveScreenshot } from "@/features/saves/save-screenshot";
+import { useSaveTimeFormatter } from "@/features/saves/use-save-time";
 import { useAuth } from "@/features/auth/auth-provider";
 import { readPreferredCore, subscribePreferredCores, writePreferredCore } from "./core-preference";
 import { decodePreferredDOSEntry, readPreferredDOSEntry, subscribePreferredDOSEntries, writePreferredDOSEntry } from "./dos-entry-preference";
@@ -81,9 +81,10 @@ function DOSProgramPicker({ defaultDosEntry, dosEntries, onChange, value }: {
 }
 
 function LatestSaveCard({ gameId, latestSave, nowMs, requiresThreads }: { gameId: string; latestSave: LatestSave; nowMs: number | undefined; requiresThreads: boolean }) {
+  const formatTime = useSaveTimeFormatter();
   return <div className="launch-quick-save">
     <div><SaveScreenshot screenshotUrl={latestSave.screenshotUrl} alt="最近存档" sizes="126px" /></div>
-    <div><strong>最近存档</strong><time dateTime={new Date(latestSave.createdAtMs).toISOString()}>{formatSaveTime(latestSave.createdAtMs, nowMs ?? latestSave.createdAtMs)}</time><small>{latestSave.coreName}{latestSave.discLabel ? ` · ${latestSave.discLabel}` : ""}</small><LaunchButton gameId={gameId} saveStateId={latestSave.saveStateId} requiresThreads={requiresThreads} label="从存档继续" /></div>
+    <div><strong>最近存档</strong><time dateTime={new Date(latestSave.createdAtMs).toISOString()}>{formatTime(latestSave.createdAtMs, nowMs ?? latestSave.createdAtMs)}</time><small>{latestSave.coreName}{latestSave.discLabel ? ` · ${latestSave.discLabel}` : ""}</small><LaunchButton gameId={gameId} saveStateId={latestSave.saveStateId} requiresThreads={requiresThreads} label="从存档继续" /></div>
   </div>;
 }
 
@@ -127,8 +128,9 @@ function DesktopLaunchPanel(props: LaunchViewProps) {
 }
 
 function MobileLaunchDock(props: LaunchViewProps) {
+  const formatTime = useSaveTimeFormatter();
   const label = props.latestSave ? "最近存档" : props.blocked ? "当前不可启动" : "推荐运行方式";
-  const detail = props.latestSave ? formatSaveTime(props.latestSave.createdAtMs, props.nowMs ?? props.latestSave.createdAtMs) : props.selectedCore?.name ?? "尚未配置";
+  const detail = props.latestSave ? formatTime(props.latestSave.createdAtMs, props.nowMs ?? props.latestSave.createdAtMs) : props.selectedCore?.name ?? "尚未配置";
   return <div className="mobile-launch-dock" aria-label="快速启动">
     <div><small>{label}</small><strong>{detail}</strong></div>
     {props.latestSave
