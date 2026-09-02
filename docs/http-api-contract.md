@@ -72,7 +72,7 @@ cursor 是服务端签名/校验的不透明字符串，绑定路由、排序和
 
 全局 readiness 为 false 时，前置 middleware 必须在 validator、body 读取、静态 runtime 和领域 handler 之前阻断除 `/health/live`、`/health/ready` 外的所有后端路由，返回 `503` 标准错误 envelope：`code=SERVICE_NOT_READY`，`details={"reasonCode":"<与 ready 相同的稳定枚举>"}`。健康端点仍使用第 9 节的专用非 envelope 外形；前端只能根据 code/reasonCode 展示稍后重试，不得绕过门禁调用部分管理能力。
 
-`sourceFiles[]` 对归档来源额外返回 `archiveFormat: ZIP|SEVEN_Z`；非归档为 null。审核 UI 必须明确区分“来源 ZIP/7z”与“物化后的运行 CONTENT”，不能根据文件扩展名猜测，也不能在详情 GET 时重新解析 archive。
+`sourceFiles[]` 对归档来源额外返回 `archiveFormat: ZIP|SEVEN_Z|NWJS_EXECUTABLE|ELECTRON_ASAR`；非归档为 null。审核 UI 必须明确区分“来源 ZIP/7z/NW.js EXE/Electron ASAR 分发包”与“物化后的运行 CONTENT”，不能自行根据文件扩展名猜测，也不能在详情 GET 时重新解析 archive。服务端只在冻结的 `TYRANOSCRIPT_PROJECT_V1` 来源、原 Upload 名为 `.exe` 且已存在安全扫描后的 ZIP entry 证据三项同时成立时投影 `NWJS_EXECUTABLE`；安全 ZIP 包装的 NW.js EXE 仍投影为来源 `ZIP`，但其项目 entry 必须全部来自导入事务内已验证并物化的唯一 EXE 追加包，不能把桌面边车混入项目。`ELECTRON_ASAR` 则只来自同内容种类下已验证的 Windows Electron 分发 ZIP和安全物化后的 ASAR 虚拟成员。这些格式均表示导入时已经验证桌面包装，服务端绝不执行其中的原生程序。
 
 ## 2. 认证、授权与同源写入
 
@@ -257,7 +257,7 @@ Content-Type: application/json
 
 ### 5.3 多盘 Import 与 Review Attachment
 
-`POST /api/v1/admin/imports` 与 `POST /api/v1/admin/games/{gameId}/content-revisions` 的可选 `contentMode` 只允许 `STANDARD|MULTI_DISC_M3U_V1|RPG_MAKER_PROJECT_V1|ONS_PROJECT_V1|KIRIKIRI_PROJECT_V1|BUTTERSCOTCH_PROJECT_V1|TYRANOSCRIPT_PROJECT_V1`，缺省严格为 STANDARD。MULTI 必须引用完整 DIRECTORY Upload，且 capability 由 feature flag、平台 profile 与当前 `selected_for_new_bindings` artifact 共同决定。首次独立 runtime 项目导入接受一个完整 DIRECTORY，或 FILES 中恰好一个 ZIP/7z；已发布 RPG 游戏的内容替换只接受完整 DIRECTORY，并由虚拟核心重新检测 generation，不接受客户端指定内部世代。新旧 generation 不同的 Job 以不可重试 `RPG_REPLACEMENT_GENERATION_MISMATCH` 失败；运行依赖声明变化以不可重试 `RPG_REPLACEMENT_DEPENDENCIES_CHANGED` 失败；两种失败均保留当前内容和存档。Review detail 的可空 `multiDisc` 只返回 playlist 摘要、ordered entries、PRESENT/MISSING、大小/hash、缺失引用、冻结的 `maxDiscs/maxTotalBytes` 与 attachment 状态，不返回 Blob ID、宿主路径或 capability。Attachment 状态包含 Job/Attachment version、可空 diagnostics 与仅在通用 Job 可人工重试时为 true 的 `canRetry`。
+`POST /api/v1/admin/imports` 与 `POST /api/v1/admin/games/{gameId}/content-revisions` 的可选 `contentMode` 只允许 `STANDARD|MULTI_DISC_M3U_V1|RPG_MAKER_PROJECT_V1|ONS_PROJECT_V1|KIRIKIRI_PROJECT_V1|BUTTERSCOTCH_PROJECT_V1|TYRANOSCRIPT_PROJECT_V1`，缺省严格为 STANDARD。MULTI 必须引用完整 DIRECTORY Upload，且 capability 由 feature flag、平台 profile 与当前 `selected_for_new_bindings` artifact 共同决定。首次独立 runtime 项目导入接受一个完整 DIRECTORY，或 FILES 中恰好一个 ZIP/7z；`TYRANOSCRIPT_PROJECT_V1` 还接受恰一个经 PE 与追加 ZIP 双重验证的 NW.js EXE、恰一个只包装唯一合法 NW.js EXE 与桌面边车的安全 ZIP，以及恰一个含 Windows EXE 与 `resources/app.asar` 的 Electron 分发 ZIP。已发布 RPG 游戏的内容替换只接受完整 DIRECTORY，并由虚拟核心重新检测 generation，不接受客户端指定内部世代。新旧 generation 不同的 Job 以不可重试 `RPG_REPLACEMENT_GENERATION_MISMATCH` 失败；运行依赖声明变化以不可重试 `RPG_REPLACEMENT_DEPENDENCIES_CHANGED` 失败；两种失败均保留当前内容和存档。Review detail 的可空 `multiDisc` 只返回 playlist 摘要、ordered entries、PRESENT/MISSING、大小/hash、缺失引用、冻结的 `maxDiscs/maxTotalBytes` 与 attachment 状态，不返回 Blob ID、宿主路径或 capability。Attachment 状态包含 Job/Attachment version、可空 diagnostics 与仅在通用 Job 可人工重试时为 true 的 `canRetry`。
 
 `POST /api/v1/admin/reviews/{importItemId}/multi-disc-attachments` 要求 ADMIN、同源/CSRF、`If-Match`、User-scoped `Idempotency-Key` 与 `{uploadId}`，只接受包含当前全部缺盘的 COMPLETE FILES upload。成功为 202，返回 Job/Attachment、`Location`、新 Review ETag；版本、active/retry、能力漂移、集合不符与内容无效使用 OpenAPI 中稳定错误码。关闭新 Import flag 不取消已冻结的 Attachment/Job，也不影响已发布读取。
 
@@ -918,7 +918,7 @@ POST /__retrom/bootstrap
 POST /__retrom/cleanup
 GET  /__retrom/entry
 GET  /__retrom/bridge.js
-GET  /__retrom/project/{safeLogicalPath}
+GET|HEAD /__retrom/project/{safeLogicalPath}
 GET  /__retrom/restore-payload
 ```
 
@@ -926,7 +926,7 @@ GET  /__retrom/restore-payload
 
 entry CSP 固定为：`default-src 'self' data: blob:`；`script-src 'self' 'nonce-<per-response>' 'unsafe-eval' blob:`；`style-src 'self' 'unsafe-inline'`；`img-src/media-src/font-src 'self' data: blob:`；`connect-src 'self'`；`worker-src 'self' blob:`；`frame-src/object-src 'none'`；`base-uri 'self'`；`form-action 'none'`；`frame-ancestors <exact app origin>`。worker 只允许项目同源脚本或项目脚本生成的 blob worker，以支持 MV/MZ 官方音频解码器；外网 worker 与外网 connect 仍被禁止，`Sec-Fetch-Dest: serviceworker` 的 project 请求固定 404，不能借此注册持久 service worker。不得直接允许项目 inline script；合法项目的 inline script 必须按文档顺序提取为同源、不可变派生 Blob，并把转换摘要计入 profile，不能放宽 CSP。bootstrap 使用 `default-src 'none'; script-src 'nonce-<per-response>'; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors <exact app origin>`。bootstrap/entry 是应用 COEP 页面必须跨源嵌入的两个文档，固定 `Cross-Origin-Resource-Policy: cross-origin`，但仍由上述 exact `frame-ancestors` 限制嵌入者；bridge、project、restore、cleanup 与其他 runtime 响应继续固定 `Cross-Origin-Resource-Policy: same-origin`。两类文档响应同时固定 `Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=(), serial=(), bluetooth=(), midi=(), clipboard-read=(), clipboard-write=()`、`X-Content-Type-Options: nosniff`、`Referrer-Policy: no-referrer`。iframe sandbox 恰为 `allow-scripts allow-same-origin allow-pointer-lock`。project/restore 响应 `private,no-store`、强 ETag、准确长度、固定 MIME、nosniff，并只支持单 Range；错误/多 Range/redirect fail closed。唯一 origin 的普通 `/api`、页面、认证和媒体管理 route 一律 404。
 
-`GET /__retrom/project/{safeLogicalPath}` 只查询从完整 source snapshot 冻结到本 Launch 的 Native Web 运行投影，并先按逻辑路径逐 byte 精确查找；该投影只包含 `index.html` 与固定 Web 资源 MIME allowlist，根 `package.json` 及 `.exe/.dll/.so/.dylib/.node/.bat/.cmd/.ps1` 等 desktop/native payload 即使保留在 source snapshot/filesDigest 中也绝不进入投影。仅当精确查找不存在时，允许在同一 Launch 的投影内做一次 SQLite ASCII `NOCASE` 查找，以兼容 Windows 上生成、却在脚本中使用不同 ASCII 大小写的 MV/MZ 资源引用。候选必须恰好一个，否则返回 404；导入期的 NFC/NFKC case-fold 碰撞门禁仍是前置不变量。该回退不做 Unicode 归一化或模糊路径猜测，不适用于 `entry`、restore、普通 Launch content、external file 或任何 `/api/v1` 内容端点。
+`GET|HEAD /__retrom/project/{safeLogicalPath}` 只查询从完整 source snapshot 冻结到本 Launch 的 Native Web 运行投影，并先按逻辑路径逐 byte 精确查找；TyranoScript 对应的 `/__retrom/tyranoscript/project/{safeLogicalPath}` 以及受控 `/data`、`/tyrano` 绝对资源投影遵守相同的 HEAD 授权、状态、MIME、长度与空响应体语义。该投影只包含 `index.html` 与固定 Web 资源 MIME allowlist，根 `package.json` 及 `.exe/.dll/.so/.dylib/.node/.bat/.cmd/.ps1` 等 desktop/native payload 即使保留在 source snapshot/filesDigest 中也绝不进入投影。仅当精确查找不存在时，允许在同一 Launch 的投影内做一次 SQLite ASCII `NOCASE` 查找，以兼容 Windows 上生成、却在脚本中使用不同 ASCII 大小写的 MV/MZ 资源引用。候选必须恰好一个，否则返回 404；导入期的 NFC/NFKC case-fold 碰撞门禁仍是前置不变量。该回退不做 Unicode 归一化或模糊路径猜测，不适用于 `entry`、restore、普通 Launch content、external file 或任何 `/api/v1` 内容端点。
 
 `GET /__retrom/bridge.js` 从 Launch 当前 `coreArtifactId` 读取 `runtimeVersion/entryPath`，再命中 RPG runtime manifest allowlist 并执行本机 observed 完整性校验。manifest 只保留当前 `retrom-runtime` tag 的一份 `native/bridge.js`；不得硬编码版本、绕过 artifact binding、保留旧 bundle 或在文件缺失时 fallback 到其他内容。升级是否可恢复旧存档只由当前构件声明的 `readableSaveAbis` 决定。
 

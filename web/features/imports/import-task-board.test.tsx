@@ -1,3 +1,6 @@
+import { act } from "react";
+import { hydrateRoot, type Root } from "react-dom/client";
+import { renderToString } from "react-dom/server";
 import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -5,6 +8,42 @@ import { ImportTaskBoard } from "./import-task-board";
 
 describe("ImportTaskBoard", () => {
   afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
+
+  it("hydrates across server and browser time zones before showing browser-local time", async () => {
+    const previousTimeZone = process.env.TZ;
+    const timestamp = Date.UTC(2026, 8, 2, 12, 43);
+    const initial = { items: [{
+      id: "timezone-import", state: "COMPLETED", platformInstanceName: "TyranoScript 游戏", metadataProvider: "NONE",
+      totalItemCount: 1, reviewPendingItemCount: 0, failedItemCount: 0, rejectedFileCount: 0,
+      version: 1, createdAtMs: timestamp, updatedAtMs: timestamp,
+    }], nextCursor: null };
+    let root: Root | undefined;
+    const recoverableErrors: unknown[] = [];
+
+    try {
+      process.env.TZ = "UTC";
+      const container = document.createElement("div");
+      container.innerHTML = renderToString(<ImportTaskBoard initial={initial} />);
+      document.body.append(container);
+
+      process.env.TZ = "Asia/Shanghai";
+      await act(async () => {
+        root = hydrateRoot(container, <ImportTaskBoard initial={initial} />, {
+          onRecoverableError: (error) => recoverableErrors.push(error),
+        });
+      });
+
+      await waitFor(() => expect(within(container).getByRole("heading", { name: /TyranoScript 游戏/ })).toHaveTextContent("2026年9月2日 20:43"));
+      expect(recoverableErrors).toEqual([]);
+      await act(async () => root?.unmount());
+      container.remove();
+    } finally {
+      process.env.TZ = previousTimeZone;
+      if (root) {
+        try {root.unmount();} catch { /* already unmounted */ }
+      }
+    }
+  });
 
   it("shows rejected files as actionable exceptions", async () => {
     const user = userEvent.setup();

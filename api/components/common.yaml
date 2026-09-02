@@ -556,6 +556,8 @@ components:
           enum:
             - ZIP
             - SEVEN_Z
+            - NWJS_EXECUTABLE
+            - ELECTRON_ASAR
           nullable: true
         arcadeDependencies: {}
         attachment: {}

@@ -13,6 +13,7 @@ from pathlib import Path
 from unittest import mock
 
 from pfb.common import canonical_bytes
+from pfb.docker import _runtime_git_mount_arguments
 from pfb.errors import PFBError
 from pfb.identity import app_origin, pfb_id, runtime_origin_template, validate_pfb_id, volume_name
 from pfb.locks import _dependency_candidate_digest
@@ -103,6 +104,18 @@ class WorktreeTests(unittest.TestCase):
         self.assertEqual(git_common_dir(self.root), expected)
         self.assertEqual(git_common_dir(linked), expected)
 
+    def test_runtime_candidate_mounts_external_worktree_git_metadata_read_only(self) -> None:
+        linked = Path(self.temporary.name) / "runtime-worktree"
+        self._git("worktree", "add", "-b", "feat/runtime", str(linked))
+        pfb_root = Path(self.temporary.name) / "pfb-retrom"
+        pfb_root.mkdir()
+        common = (self.root / ".git").resolve()
+        self.assertEqual(
+            _runtime_git_mount_arguments(pfb_root, linked),
+            ["--volume", f"{common}:{common}:ro"],
+        )
+        self.assertEqual(_runtime_git_mount_arguments(pfb_root, self.root), [])
+
 
 class SpecRegistryTests(unittest.TestCase):
     def test_unknown_spec_fields_are_rejected(self) -> None:
@@ -139,6 +152,7 @@ class GatewayContractTests(unittest.TestCase):
         compose = (root / "compose.yaml").read_text(encoding="utf-8")
         app_compose = (root.parent / "compose.yaml").read_text(encoding="utf-8")
         entrypoint = (root.parent / "entrypoint.sh").read_text(encoding="utf-8")
+        docker_controller = (root.parent / "docker.py").read_text(encoding="utf-8")
         nginx = (root / "nginx.conf").read_text(encoding="utf-8")
         proxy = (root / "proxy.inc").read_text(encoding="utf-8")
         self.assertIn('"127.0.0.1:3000:3000"', compose)
@@ -158,11 +172,12 @@ class GatewayContractTests(unittest.TestCase):
         self.assertNotIn("container_name:", app_compose)
         self.assertIn('user: "${PFB_UID:?}:${PFB_GID:?}"', app_compose)
         self.assertIn('user: "${PFB_UID:?}:${PFB_GID:?}"', compose)
-        self.assertIn("PFB_RETROM_GIT_COMMON_DIR", app_compose)
-        self.assertIn("PFB_RUNTIME_GIT_COMMON_DIR", app_compose)
+        self.assertIn("source: ${PFB_RETROM_GIT_COMMON_DIR:?}", app_compose)
+        self.assertIn("source: ${PFB_RUNTIME_GIT_COMMON_DIR:?}", app_compose)
         self.assertGreaterEqual(app_compose.count("read_only: true"), 2)
         self.assertIn('http://{launchId}.rpg.${PFB_ID}.localhost:3000', entrypoint)
         self.assertNotIn('http://{launchId}.${PFB_ID}.rpg.localhost:3000', entrypoint)
+        self.assertIn('label=com.docker.compose.oneoff=False', docker_controller)
         self.assertIn("stop_grace_period: 45s", app_compose)
 
 

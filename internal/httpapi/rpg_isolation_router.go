@@ -6,7 +6,6 @@ import (
 	"encoding/base64"
 	"fmt"
 	"net/http"
-	"net/url"
 	"strings"
 
 	"github.com/google/uuid"
@@ -66,20 +65,32 @@ func validRPGRuntimeRequestTarget(request *http.Request) bool {
 		return true
 	}
 	_, tyranoScriptProject := tyranoScriptProjectLogicalName(request.URL.Path)
-	if !tyranoScriptProject || len(request.URL.RawQuery) > 24 {
+	if !tyranoScriptProject || !validTyranoScriptCacheBuster(request.URL.RawQuery) {
 		return false
 	}
-	values, err := url.ParseQuery(request.URL.RawQuery)
-	if err != nil || len(values) != 1 || len(values["_"]) != 1 {
+	return true
+}
+
+func validTyranoScriptCacheBuster(raw string) bool {
+	if raw == "" || len(raw) > 43 {
 		return false
 	}
-	value := values["_"][0]
-	if value == "" || len(value) > 20 {
+	values := []string{raw}
+	if strings.HasPrefix(raw, "_=") {
+		values[0] = strings.TrimPrefix(raw, "_=")
+	} else if parts := strings.Split(raw, "&"); len(parts) == 2 && strings.HasPrefix(parts[1], "_=") {
+		values = []string{parts[0], strings.TrimPrefix(parts[1], "_=")}
+	} else if strings.Contains(raw, "&") {
 		return false
 	}
-	for _, character := range value {
-		if character < '0' || character > '9' {
+	for _, value := range values {
+		if value == "" || len(value) > 20 {
 			return false
+		}
+		for _, character := range value {
+			if character < '0' || character > '9' {
+				return false
+			}
 		}
 	}
 	return true
@@ -93,6 +104,16 @@ func (server *Server) serveRPGRuntimeRoute(
 	switch request.Method {
 	case http.MethodGet:
 		server.serveRPGRuntimeGet(writer, request, access)
+	case http.MethodHead:
+		if strings.HasPrefix(request.URL.Path, "/__retrom/project/") {
+			server.serveRPGRuntimeGet(writer, request, access)
+			return
+		}
+		if _, ok := tyranoScriptProjectLogicalName(request.URL.Path); ok {
+			server.serveRPGRuntimeGet(writer, request, access)
+			return
+		}
+		http.NotFound(writer, request)
 	case http.MethodPost:
 		server.serveRPGRuntimePost(writer, request, access)
 	default:

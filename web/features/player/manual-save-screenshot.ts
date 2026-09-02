@@ -20,6 +20,13 @@ export async function prepareManualSaveScreenshot(
   platform: ScreenshotPlatform = browserScreenshotPlatform,
 ): Promise<ManualScreenshot | null> {
   if (!capture.screenshot.size) {return null;}
+  // Native web runtimes can already provide a compact JPEG. Decoding that
+  // image again is unnecessary and can indefinitely stall Chromium for some
+  // JPEGs embedded in older TyranoScript NW.js games.
+  if (capture.screenshot.type === "image/jpeg" &&
+    capture.screenshot.size <= maximumManualSaveScreenshotBytes) {
+    return { screenshot: capture.screenshot, format: "jpg" };
+  }
   let bitmap: ImageBitmap | undefined;
   try {
     bitmap = await platform.createBitmap(capture.screenshot);

@@ -160,7 +160,6 @@ def app_logs(root: Path, spec: dict[str, Any], service: str) -> int:
 
 def run_runtime_candidate_builder(root: Path, spec: dict[str, Any], output: Path) -> None:
     runtime_root = Path(spec["runtime"]["root"])
-    runtime_git_common = git_common_dir(runtime_root)
     toolchain_digest = _toolchain_digest(root)
     node_volume = volume_name(spec["id"], "runtime-node", toolchain_digest)
     _ensure_volume_owners([node_volume], os.getuid(), os.getgid())
@@ -178,7 +177,7 @@ def run_runtime_candidate_builder(root: Path, spec: dict[str, Any], output: Path
         "--env", f"npm_config_cache={runtime_root}/node_modules/.npm-cache",
         "--volume", f"{root}:{root}",
         "--volume", f"{runtime_root}:{runtime_root}",
-        "--volume", f"{runtime_git_common}:{runtime_git_common}:ro",
+        *_runtime_git_mount_arguments(root, runtime_root),
         "--volume", f"{node_volume}:{runtime_root}/node_modules",
         image,
     ]
@@ -187,6 +186,13 @@ def run_runtime_candidate_builder(root: Path, spec: dict[str, Any], output: Path
         *base, "npm", "run", "candidate:build", "--",
         "--spec", str(root / ".pfb/spec.json"), "--output", str(output),
     ], "PFB_CANDIDATE_OUTPUT_INVALID")
+
+
+def _runtime_git_mount_arguments(root: Path, runtime_root: Path) -> list[str]:
+    common = git_common_dir(runtime_root)
+    if common.is_relative_to(root) or common.is_relative_to(runtime_root):
+        return []
+    return ["--volume", f"{common}:{common}:ro"]
 
 
 def container_running(name: str) -> bool:
@@ -221,6 +227,7 @@ def _compose_service_container(project: str) -> str | None:
             "docker", "container", "ls", "--all", "--quiet",
             "--filter", f"label=com.docker.compose.project={project}",
             "--filter", "label=com.docker.compose.service=app",
+            "--filter", "label=com.docker.compose.oneoff=False",
         ],
         capture_output=True, text=True, check=False,
     )
@@ -289,6 +296,7 @@ def _minimal_app_environment(root: Path, spec: dict[str, Any]) -> dict[str, str]
         "PFB_NEXT_ENV_FILE": str(generated / "next-env.d.ts"),
         "PFB_TSCONFIG_FILE": str(generated / "tsconfig.json"),
         "PFB_RUNTIME_ROOT": str(root / ".pfb/formal-runtime"),
+        "PFB_RUNTIME_GIT_COMMON_DIR": str(runtime_git_common),
         "PFB_RUNTIME_MODE": spec["runtime"]["mode"],
         "PFB_ID": spec["id"],
         "PFB_DATA_VOLUME": volume_name(spec["id"], "data", empty),
