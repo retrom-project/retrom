@@ -12,11 +12,21 @@ import (
 )
 
 var (
-	ErrCatalogInvalid = errors.New("RUNTIME_TARGET_CATALOG_INVALID")
-	kebabPattern      = regexp.MustCompile(`^[a-z0-9]+(?:-[a-z0-9]+)*$`)
-	identifierPattern = regexp.MustCompile(`^[a-z0-9]+(?:[-_][a-z0-9]+)*$`)
-	profilePattern    = regexp.MustCompile(`^[A-Z][A-Z0-9_]{1,63}$`)
+	ErrCatalogInvalid   = errors.New("RUNTIME_TARGET_CATALOG_INVALID")
+	ErrBindingNotFound  = errors.New("RUNTIME_TARGET_BINDING_NOT_FOUND")
+	ErrBindingAmbiguous = errors.New("RUNTIME_TARGET_BINDING_AMBIGUOUS")
+	ErrBindingDisabled  = errors.New("RUNTIME_TARGET_BINDING_DISABLED")
+	kebabPattern        = regexp.MustCompile(`^[a-z0-9]+(?:-[a-z0-9]+)*$`)
+	identifierPattern   = regexp.MustCompile(`^[a-z0-9]+(?:[-_][a-z0-9]+)*$`)
+	profilePattern      = regexp.MustCompile(`^[A-Z][A-Z0-9_]{1,63}$`)
 )
+
+type ResolveRequest struct {
+	PlatformID       string
+	CoreID           string
+	ContentKind      string
+	DetectorEvidence map[string]bool
+}
 
 type Catalog struct {
 	SchemaVersion  int       `json:"schemaVersion"`
@@ -74,6 +84,66 @@ func ValidateManifestBindings(catalog Catalog, targetExists func(providerID, tar
 	return nil
 }
 
+// Resolve maps Host-owned product identity and detector evidence to exactly one
+// Provider target. Detector evidence is mandatory only for the intentionally
+// ambiguous RPG Maker product core.
+func Resolve(catalog Catalog, request ResolveRequest) (Binding, error) {
+	if !identifierPattern.MatchString(request.PlatformID) || !identifierPattern.MatchString(request.CoreID) ||
+		!profilePattern.MatchString(request.ContentKind) {
+		return Binding{}, ErrBindingNotFound
+	}
+	candidates := make([]Binding, 0, 1)
+	for _, binding := range catalog.Bindings {
+		if binding.CoreID == request.CoreID && contains(binding.PlatformIDs, request.PlatformID) &&
+			contains(binding.AcceptedContentKinds, request.ContentKind) {
+			candidates = append(candidates, binding)
+		}
+	}
+	if len(candidates) == 0 {
+		return Binding{}, ErrBindingNotFound
+	}
+
+	var selected Binding
+	if request.CoreID == "rpgmaker" {
+		positiveEvidence := 0
+		for _, matched := range request.DetectorEvidence {
+			if matched {
+				positiveEvidence++
+			}
+		}
+		if positiveEvidence != 1 {
+			return Binding{}, ErrBindingAmbiguous
+		}
+		matches := 0
+		for _, candidate := range candidates {
+			if request.DetectorEvidence[candidate.DetectorProfile] {
+				selected = candidate
+				matches++
+			}
+		}
+		if matches == 0 {
+			return Binding{}, ErrBindingNotFound
+		}
+		if matches != 1 {
+			return Binding{}, ErrBindingAmbiguous
+		}
+	} else {
+		for _, matched := range request.DetectorEvidence {
+			if matched {
+				return Binding{}, ErrBindingAmbiguous
+			}
+		}
+		if len(candidates) != 1 {
+			return Binding{}, ErrBindingAmbiguous
+		}
+		selected = candidates[0]
+	}
+	if selected.LaunchPolicy == "DISABLED" {
+		return Binding{}, fmt.Errorf("%w: %s", ErrBindingDisabled, selected.ID)
+	}
+	return selected, nil
+}
+
 func validBinding(value Binding) bool {
 	if !kebabPattern.MatchString(value.ID) || !identifierPattern.MatchString(value.CoreID) ||
 		!kebabPattern.MatchString(value.ProviderID) || !identifierPattern.MatchString(value.TargetID) ||
@@ -101,6 +171,15 @@ func sortedMatches(values []string, pattern *regexp.Regexp) bool {
 		}
 	}
 	return true
+}
+
+func contains(values []string, expected string) bool {
+	for _, value := range values {
+		if value == expected {
+			return true
+		}
+	}
+	return false
 }
 
 func invalidCatalog(err error) error {

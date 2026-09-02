@@ -84,6 +84,27 @@ func TestTargetContractDigestIncludesEveryDeclaredAssetDigest(t *testing.T) {
 	}
 }
 
+func TestParseIntegrityClosesMediaAndOrdering(t *testing.T) {
+	valid := `{"schemaVersion":1,"files":[` +
+		`{"path":"assets/core.wasm","sizeBytes":4,"sha256":"` + strings.Repeat("a", 64) + `","mediaType":"application/wasm"},` +
+		`{"path":"client.mjs","sizeBytes":8,"sha256":"` + strings.Repeat("b", 64) + `","mediaType":"text/javascript; charset=utf-8"},` +
+		`{"path":"provider.json","sizeBytes":2,"sha256":"` + strings.Repeat("c", 64) + `","mediaType":"application/json; charset=utf-8"}]}`
+	integrity, err := ParseIntegrity([]byte(valid))
+	if err != nil || len(integrity.Files) != 3 || integrity.Files[0].MediaType != "application/wasm" {
+		t.Fatalf("integrity = %#v, %v", integrity, err)
+	}
+	for _, invalid := range []string{
+		strings.Replace(valid, "application/wasm", "video/mp4", 1),
+		strings.Replace(valid, `"path":"client.mjs"`, `"path":"../client.mjs"`, 1),
+		strings.Replace(valid, `"mediaType":"application/wasm"`, `"mediaType":"application/wasm","extra":true`, 1),
+		strings.Replace(valid, `{"path":"assets/core.wasm"`, `{"path":"z/core.wasm"`, 1),
+	} {
+		if _, err := ParseIntegrity([]byte(invalid)); !errors.Is(err, ErrIntegrityInvalid) {
+			t.Fatalf("invalid integrity accepted: %v", err)
+		}
+	}
+}
+
 const fixtureManifest = `{
   "schemaVersion":1,
   "providerId":"fixture",

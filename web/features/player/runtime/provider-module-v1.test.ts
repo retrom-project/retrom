@@ -17,8 +17,13 @@ describe("Provider Module V1 dispatcher", () => {
       validateLaunchRequest,
     }));
     const host = fixtureHost();
-    await expect(loadProviderRuntime(envelope, host, importer)).resolves.toBe(runtime);
-    expect(importer).toHaveBeenCalledWith(envelope.runtime.moduleUrl);
+    const environment = verifiedEnvironment(envelope);
+    await expect(loadProviderRuntime(envelope, host, importer, environment)).resolves.toBe(runtime);
+    expect(environment.fetcher).toHaveBeenCalledWith(envelope.runtime.moduleUrl, {
+      cache: "no-store", credentials: "same-origin", redirect: "error", signal: host.signal,
+    });
+    expect(importer).toHaveBeenCalledWith("blob:retrom-provider");
+    expect(environment.revokeModuleUrl).toHaveBeenCalledWith("blob:retrom-provider");
     expect(validateLaunchRequest).toHaveBeenCalledWith(envelope);
     expect(createRuntime).toHaveBeenCalledWith(envelope, host);
   });
@@ -32,18 +37,20 @@ describe("Provider Module V1 dispatcher", () => {
       providerVersion: "1.0.0",
       validateLaunchRequest: vi.fn((value) => value),
     };
-    await expect(loadProviderRuntime(envelope, fixtureHost(), async () => base))
+    await expect(loadProviderRuntime(envelope, fixtureHost(), async () => base, verifiedEnvironment(envelope)))
       .rejects.toThrow("PLAYER_PROVIDER_MODULE_INVALID");
     await expect(loadProviderRuntime(envelope, fixtureHost(), async () => ({
       ...base, providerId: "fixture", debugAdapter: "leaked",
-    }))).rejects.toThrow("PLAYER_PROVIDER_MODULE_INVALID");
+    }), verifiedEnvironment(envelope))).rejects.toThrow("PLAYER_PROVIDER_MODULE_INVALID");
   });
 
   it("fails before import when a threaded target is not cross-origin isolated", async () => {
     const envelope = fixtureEnvelope();
     envelope.runtime.capabilities.requiresThreads = true;
     const importer = vi.fn(async () => {throw new Error("must not import");});
-    await expect(loadProviderRuntime(envelope, fixtureHost(), importer, {crossOriginIsolated: false}))
+    await expect(loadProviderRuntime(envelope, fixtureHost(), importer, {
+      ...verifiedEnvironment(envelope), crossOriginIsolated: false,
+    }))
       .rejects.toThrow("PLAYER_RUNTIME_THREADS_UNAVAILABLE");
     expect(importer).not.toHaveBeenCalled();
   });
@@ -56,11 +63,13 @@ describe("Provider Module V1 dispatcher", () => {
     });
     const wrongState = fixtureRuntime();
     wrongState.getState = () => "RUNNING";
-    await expect(loadProviderRuntime(envelope, fixtureHost(), async () => providerModule(wrongState)))
+    await expect(loadProviderRuntime(envelope, fixtureHost(), async () => providerModule(wrongState),
+      verifiedEnvironment(envelope)))
       .rejects.toThrow("PLAYER_PROVIDER_MODULE_INVALID");
     const wrongCapabilities = fixtureRuntime();
     wrongCapabilities.getCapabilities = () => ({...envelope.runtime.capabilities, pause: true});
-    await expect(loadProviderRuntime(envelope, fixtureHost(), async () => providerModule(wrongCapabilities)))
+    await expect(loadProviderRuntime(envelope, fixtureHost(), async () => providerModule(wrongCapabilities),
+      verifiedEnvironment(envelope)))
       .rejects.toThrow("PLAYER_PROVIDER_MODULE_INVALID");
   });
 
@@ -82,12 +91,45 @@ describe("Provider Module V1 dispatcher", () => {
     }
     const importer = vi.fn(async () => {throw new Error("must not import");});
     for (const candidate of cases) {
-      await expect(loadProviderRuntime(candidate, fixtureHost(), importer))
+      await expect(loadProviderRuntime(candidate, fixtureHost(), importer, verifiedEnvironment(candidate)))
         .rejects.toThrow("PLAYER_LAUNCH_ENVELOPE_INVALID");
     }
     expect(importer).not.toHaveBeenCalled();
   });
+
+  it("rejects oversized, mislabeled and digest-mismatched module bytes before import", async () => {
+    const envelope = fixtureEnvelope();
+    const importer = vi.fn();
+    const cases: Array<[Response, string]> = [
+      [new Response("module", {headers: {"content-type": "text/plain"}}), "PLAYER_PROVIDER_MODULE_INVALID"],
+      [new Response("module", {headers: {"content-length": String(8 * 1024 * 1024 + 1),
+        "content-type": "text/javascript; charset=utf-8"}}), "PLAYER_PROVIDER_MODULE_INVALID"],
+      [new Response("module", {headers: {"content-type": "text/javascript; charset=utf-8"}}),
+        "PLAYER_PROVIDER_MODULE_DIGEST_INVALID"],
+    ];
+    for (const [response, expectedCode] of cases) {
+      const environment = verifiedEnvironment(envelope);
+      environment.fetcher.mockResolvedValueOnce(response as Response);
+      if (response.headers.get("content-type")?.startsWith("text/javascript") &&
+        response.headers.get("content-length") === null) {environment.sha256.mockResolvedValueOnce("f".repeat(64));}
+      await expect(loadProviderRuntime(envelope, fixtureHost(), importer, environment))
+        .rejects.toMatchObject({code: expectedCode});
+    }
+    expect(importer).not.toHaveBeenCalled();
+  });
 });
+
+function verifiedEnvironment(envelope: LaunchEnvelopeV1) {
+  return {
+    createModuleUrl: vi.fn(() => "blob:retrom-provider"),
+    crossOriginIsolated: true,
+    fetcher: vi.fn(async () => new Response("export{}", {
+      headers: {"content-length": "8", "content-type": "text/javascript; charset=utf-8"},
+    })),
+    revokeModuleUrl: vi.fn(),
+    sha256: vi.fn(async () => envelope.runtime.moduleSha256),
+  };
+}
 
 function fixtureEnvelope(): LaunchEnvelopeV1 {
   const digest = "a".repeat(64);

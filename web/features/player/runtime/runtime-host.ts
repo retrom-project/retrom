@@ -5,6 +5,7 @@ import type {
   RuntimeHostV1,
   RuntimeResourceV1,
 } from "./contract";
+import {playerRuntimeError} from "./errors";
 
 export type RuntimeHostOptions = {
   fetcher?: typeof fetch;
@@ -74,7 +75,7 @@ export function createRuntimeHost(
       return bytes;
     },
     reportDiagnostic(input) {
-      if (!diagnostic(input)) {throw new Error("PLAYER_RUNTIME_DIAGNOSTIC_INVALID");}
+      if (!diagnostic(input)) {throw playerRuntimeError("PLAYER_RUNTIME_DIAGNOSTIC_INVALID");}
       if (options.report) {options.report(input); return;}
       window.dispatchEvent(new CustomEvent("retrom:runtime-diagnostic", {detail: input}));
     },
@@ -111,7 +112,8 @@ function validWebResource(resource: RuntimeResourceV1): resource is Extract<Runt
 function validateRestore(envelope: LaunchEnvelopeV1, descriptor: RestoreDescriptorV1) {
   const checkpoint = envelope.runtime.checkpoint;
   if (!checkpoint || descriptor.format.length < 1 || descriptor.sizeBytes < 1 ||
-    descriptor.sizeBytes > checkpoint.maxBytes || !/^[0-9a-f]{64}$/u.test(descriptor.sha256) ||
+    !checkpoint.readFormats.includes(descriptor.format) || descriptor.sizeBytes > checkpoint.maxBytes ||
+    !/^[0-9a-f]{64}$/u.test(descriptor.sha256) ||
     !sameOriginRelativeUrl(descriptor.url)) {restoreError();}
 }
 
@@ -131,5 +133,5 @@ function diagnostic(value: {code: string; message: string}) {
   return /^[A-Z][A-Z0-9_]{1,127}$/u.test(value.code) && value.message.length >= 1 && value.message.length <= 4096;
 }
 
-function frameError(): never {throw new Error("PLAYER_RUNTIME_FRAME_INVALID");}
-function restoreError(): never {throw new Error("PLAYER_RUNTIME_RESTORE_INVALID");}
+function frameError(): never {throw playerRuntimeError("PLAYER_RUNTIME_FRAME_INVALID");}
+function restoreError(): never {throw playerRuntimeError("PLAYER_RUNTIME_RESTORE_INVALID");}

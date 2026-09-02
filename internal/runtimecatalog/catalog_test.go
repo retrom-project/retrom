@@ -80,6 +80,65 @@ func TestPlatformDefaultsSelectBindingsOnlyByProductCore(t *testing.T) {
 	}
 }
 
+func TestResolveBindingClosesOrdinaryAndRPGSelection(t *testing.T) {
+	contents, err := os.ReadFile(filepath.Join("..", "..", "data", "runtime-target-bindings", "v1", "catalog.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	catalog, err := ParseCatalog(contents)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	gambatte, err := Resolve(catalog, ResolveRequest{
+		PlatformID: "gbc", CoreID: "gambatte", ContentKind: "SINGLE_FILE",
+	})
+	if err != nil || gambatte.ProviderID != "emulatorjs" || gambatte.TargetID != "gambatte" {
+		t.Fatalf("ordinary binding = %#v, %v", gambatte, err)
+	}
+	rpg, err := Resolve(catalog, ResolveRequest{
+		PlatformID: "rpgmaker", CoreID: "rpgmaker", ContentKind: "RPG_MAKER_PROJECT_V1",
+		DetectorEvidence: map[string]bool{"RPGMV": true},
+	})
+	if err != nil || rpg.ProviderID != "retrom-runtime" || rpg.TargetID != "rpgmaker-mv" {
+		t.Fatalf("RPG binding = %#v, %v", rpg, err)
+	}
+
+	for name, request := range map[string]ResolveRequest{
+		"missing platform": {PlatformID: "nes", CoreID: "gambatte", ContentKind: "SINGLE_FILE"},
+		"wrong content":    {PlatformID: "gbc", CoreID: "gambatte", ContentKind: "DOS_BUNDLE"},
+		"RPG no evidence":  {PlatformID: "rpgmaker", CoreID: "rpgmaker", ContentKind: "RPG_MAKER_PROJECT_V1"},
+		"RPG multiple evidence": {
+			PlatformID: "rpgmaker", CoreID: "rpgmaker", ContentKind: "RPG_MAKER_PROJECT_V1",
+			DetectorEvidence: map[string]bool{"RPGMV": true, "RPGMZ": true},
+		},
+		"RPG unknown evidence": {
+			PlatformID: "rpgmaker", CoreID: "rpgmaker", ContentKind: "RPG_MAKER_PROJECT_V1",
+			DetectorEvidence: map[string]bool{"UNDECLARED": true},
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			if _, err := Resolve(catalog, request); !errors.Is(err, ErrBindingNotFound) &&
+				!errors.Is(err, ErrBindingAmbiguous) {
+				t.Fatalf("resolver error = %v", err)
+			}
+		})
+	}
+
+	disabled := catalog
+	disabled.Bindings = append([]Binding(nil), catalog.Bindings...)
+	for index := range disabled.Bindings {
+		if disabled.Bindings[index].ID == "emulatorjs-gambatte" {
+			disabled.Bindings[index].LaunchPolicy = "DISABLED"
+		}
+	}
+	if _, err := Resolve(disabled, ResolveRequest{
+		PlatformID: "gbc", CoreID: "gambatte", ContentKind: "SINGLE_FILE",
+	}); !errors.Is(err, ErrBindingDisabled) {
+		t.Fatalf("disabled binding error = %v", err)
+	}
+}
+
 func containsString(values []string, expected string) bool {
 	for _, value := range values {
 		if value == expected {
