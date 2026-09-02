@@ -118,8 +118,7 @@ func (service *Service) validateWASM4ReviewPreviewSource(source reviewPreviewSou
 }
 
 func (service *Service) buildWASM4ReviewConfig(
-	ctx context.Context,
-	previewID, capability string,
+	previewID string,
 	source reviewPreviewConfigSource,
 ) (Config, error) {
 	compatibility, err := parseWASM4Compatibility(source.CompatibilityJSON)
@@ -166,6 +165,17 @@ type wasm4ProductConfigSource struct {
 	saveStateID                                                   sql.NullString
 }
 
+func (service *Service) validWASM4ProductSource(
+	source wasm4ProductConfigSource,
+	compatibility wasm4Compatibility,
+) bool {
+	return source.adapterKind == "WASM4_WEB" && source.adapterID == "wasm4-web" &&
+		source.coreID == "wasm4" && source.entryPath == compatibility.JSPath &&
+		source.contentFormat == "SOURCE_V1" && strings.EqualFold(path.Ext(source.logicalName), ".wasm") &&
+		source.contentSizeBytes >= 1 && source.contentSizeBytes <= compatibility.CartMaxBytes &&
+		service.wasm4RuntimeAvailable(source.runtimeVersion, compatibility)
+}
+
 func (service *Service) wasm4ProductConfig(
 	ctx context.Context,
 	launchID, capability string,
@@ -177,11 +187,7 @@ func (service *Service) wasm4ProductConfig(
 		return WASM4Config{}, ErrCredential
 	}
 	compatibility, err := parseWASM4Compatibility(source.compatibilityJSON)
-	if err != nil || source.adapterKind != "WASM4_WEB" || source.adapterID != "wasm4-web" ||
-		source.coreID != "wasm4" || source.entryPath != compatibility.JSPath ||
-		source.contentFormat != "SOURCE_V1" || !strings.EqualFold(path.Ext(source.logicalName), ".wasm") ||
-		source.contentSizeBytes < 1 || source.contentSizeBytes > compatibility.CartMaxBytes ||
-		!service.wasm4RuntimeAvailable(source.runtimeVersion, compatibility) {
+	if err != nil || !service.validWASM4ProductSource(source, compatibility) {
 		return WASM4Config{}, ErrCredential
 	}
 	cartURL, err := wasm4ContentURL(ContentView{

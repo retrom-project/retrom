@@ -149,15 +149,22 @@ type restoreBinding struct {
 
 func restoreSnapshotCompatible(result launchSnapshot, binding restoreBinding) bool {
 	adapterCompatible := result.adapterABI == binding.savedAdapterABI
-	if result.purpose == "PRODUCT" && (result.runtimeFamily == "RPGMAKER" || result.runtimeFamily == "ONS" ||
-		result.runtimeFamily == "KIRIKIRI" || result.runtimeFamily == "BUTTERSCOTCH" ||
-		result.runtimeFamily == "TYRANOSCRIPT" || result.runtimeFamily == "WASM4") {
+	if result.purpose == "PRODUCT" && productRuntimeUsesSaveABI(result.runtimeFamily) {
 		adapterCompatible = binding.savedSaveABI != "" && result.saveABI != ""
 	}
 	return result.adapterABI != "" && result.saveABI != "" && result.dependencySHA256 != "" &&
 		adapterCompatible && result.dependencySHA256 == binding.savedDependency &&
 		binding.storedPayloadKind == result.payloadKind && binding.savedSize >= 1 &&
 		binding.savedSize <= result.payloadMaxBytes
+}
+
+func productRuntimeUsesSaveABI(runtimeFamily string) bool {
+	switch runtimeFamily {
+	case "RPGMAKER", "ONS", "KIRIKIRI", "BUTTERSCOTCH", "TYRANOSCRIPT", "WASM4":
+		return true
+	default:
+		return false
+	}
 }
 
 func bindRestoreSnapshot(result launchSnapshot, binding restoreBinding) (launchSnapshot, error) {
