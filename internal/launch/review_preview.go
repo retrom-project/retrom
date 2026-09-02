@@ -630,7 +630,7 @@ func (service *Service) independentReviewPreviewConfig(
 		config, err := service.buildTyranoScriptReviewConfig(ctx, previewID, capability, source)
 		return config, true, err
 	case "WASM4":
-		config, err := service.buildWASM4ReviewConfig(ctx, previewID, capability, source)
+		config, err := service.buildWASM4ReviewConfig(previewID, source)
 		return config, true, err
 	default:
 		return Config{}, false, nil
@@ -648,7 +648,8 @@ preview.import_item_id,artifact.id,artifact.runtime_family,artifact.runtime_adap
 artifact.runtime_version,artifact.adapter_id,artifact.entry_path,
 artifact.compatibility_json,core.id,core.name,preview.title,instance.name,
 preview.content_logical_name,preview.content_format,preview.dependency_snapshot_json,
-content_blob.sha256,content_blob.size_bytes,preview.emulator_game_id,artifact.requires_threads,preview.capture_allowed,preview.default_dos_entry
+content_blob.sha256,content_blob.size_bytes,preview.emulator_game_id,artifact.requires_threads,
+preview.capture_allowed,preview.default_dos_entry
 FROM review_preview_sessions preview
 JOIN blobs content_blob ON content_blob.id=preview.content_blob_id
 JOIN core_artifacts artifact ON artifact.id=preview.core_artifact_id
