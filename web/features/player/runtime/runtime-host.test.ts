@@ -79,6 +79,8 @@ describe("RuntimeHostV1", () => {
       .rejects.toThrow("PLAYER_RUNTIME_RESTORE_INVALID");
     await expect(host.loadRestore({...descriptor, sha256: "e".repeat(64)}))
       .rejects.toThrow("PLAYER_RUNTIME_RESTORE_INVALID");
+    await expect(host.loadRestore({...descriptor, format: "future-v2"}))
+      .rejects.toThrow("PLAYER_RUNTIME_RESTORE_INVALID");
   });
 
   it("reports diagnostics through a closed host callback", () => {

@@ -13,13 +13,15 @@ describe("provider runtime controller", () => {
     document.body.append(target);
 
     const controller = await mountProviderRuntime(envelope(), target, {
-      importer, onExitRequested, onFatalError,
+      dispatcher: verifiedDispatcher(), importer, onExitRequested, onFatalError,
     });
     expect(runtime.mount).toHaveBeenCalledWith(target);
-    runtime.emit({type: "EXIT_REQUESTED"});
     runtime.emit({type: "FATAL_ERROR", code: "FIXTURE_FATAL"});
-    expect(onExitRequested).toHaveBeenCalledOnce();
+    runtime.emit({type: "FATAL_ERROR", code: "SECOND_FATAL"});
+    runtime.emit({type: "EXIT_REQUESTED"});
+    expect(onExitRequested).not.toHaveBeenCalled();
     expect(onFatalError).toHaveBeenCalledWith("FIXTURE_FATAL");
+    expect(onFatalError).toHaveBeenCalledOnce();
 
     await controller.exit();
     await controller.exit();
@@ -32,7 +34,7 @@ describe("provider runtime controller", () => {
     const runtime = fixtureRuntime();
     runtime.mount.mockRejectedValueOnce(new Error("mount failed"));
     await expect(mountProviderRuntime(envelope(), document.createElement("div"), {
-      importer: async () => fixtureModule(runtime),
+      dispatcher: verifiedDispatcher(), importer: async () => fixtureModule(runtime),
     })).rejects.toThrow("mount failed");
     expect(runtime.exit).toHaveBeenCalledOnce();
     expect(runtime.unsubscribe).toHaveBeenCalledOnce();
@@ -42,7 +44,7 @@ describe("provider runtime controller", () => {
     const abort = new AbortController();
     const runtime = fixtureRuntime();
     await mountProviderRuntime(envelope(), document.createElement("div"), {
-      importer: async () => fixtureModule(runtime), signal: abort.signal,
+      dispatcher: verifiedDispatcher(), importer: async () => fixtureModule(runtime), signal: abort.signal,
     });
     abort.abort();
     await vi.waitFor(() => expect(runtime.exit).toHaveBeenCalledOnce());
@@ -53,6 +55,16 @@ function fixtureModule(runtime: PlayerRuntimeV1) {
   return {
     createRuntime: vi.fn(async () => runtime), providerApiVersion: 1, providerId: "fixture",
     providerVersion: "1.0.0", validateLaunchRequest: vi.fn((value) => value),
+  };
+}
+
+function verifiedDispatcher() {
+  return {
+    createModuleUrl: vi.fn(() => "blob:retrom-provider"), crossOriginIsolated: true,
+    fetcher: vi.fn(async () => new Response("module", {
+      headers: {"content-length": "6", "content-type": "text/javascript; charset=utf-8"},
+    })),
+    revokeModuleUrl: vi.fn(), sha256: vi.fn(async () => "a".repeat(64)),
   };
 }
 

@@ -108,8 +108,10 @@ func validLaunchCapabilities(value map[string]any) bool {
 		"pause", "requiresThreads", "screenshot", "standardGamepad", "validationProbes", "videoModes", "volume") {
 		return false
 	}
-	for _, key := range []string{"checkpoint", "discSwitch", "frameCounter", "inputFilter", "nativeSettings", "netplayPort",
-		"pause", "requiresThreads", "screenshot", "standardGamepad", "volume"} {
+	for _, key := range []string{
+		"checkpoint", "discSwitch", "frameCounter", "inputFilter", "nativeSettings", "netplayPort",
+		"pause", "requiresThreads", "screenshot", "standardGamepad", "volume",
+	} {
 		if _, ok := value[key].(bool); !ok {
 			return false
 		}
@@ -381,14 +383,17 @@ func positiveLaunchInteger(value any) bool {
 	integer, ok := value.(int64)
 	return ok && integer > 0 && integer <= 9007199254740991
 }
+
 func nonNegativeLaunchInteger(value any) (int64, bool) {
 	integer, ok := value.(int64)
 	return integer, ok && integer >= 0 && integer <= 9007199254740991
 }
+
 func boundedString(value any, minimum, maximum int) bool {
 	text, ok := value.(string)
 	return ok && utf8.RuneCountInString(text) >= minimum && utf8.RuneCountInString(text) <= maximum
 }
+
 func relativeURLValue(value any) bool {
 	text, ok := value.(string)
 	if !ok || len(text) < 2 || len(text) > 2048 || !strings.HasPrefix(text, "/") || strings.HasPrefix(text, "//") ||
@@ -402,23 +407,27 @@ func relativeURLValue(value any) bool {
 	}
 	return true
 }
+
 func validOrigin(value string) bool {
 	parsed, err := url.Parse(value)
 	return err == nil && (parsed.Scheme == "http" || parsed.Scheme == "https") && parsed.Host != "" &&
 		parsed.Path == "" && parsed.RawQuery == "" && parsed.Fragment == "" && parsed.String() == value
 }
+
 func sameOriginURL(value any, origin string) bool {
 	text, ok := value.(string)
 	parsed, err := url.Parse(text)
 	base, baseErr := url.Parse(origin)
 	return ok && err == nil && baseErr == nil && parsed.Fragment == "" && parsed.Scheme == base.Scheme && parsed.Host == base.Host
 }
+
 func validWebSocketURL(value any) bool {
 	text, ok := value.(string)
 	parsed, err := url.Parse(text)
 	return ok && len(text) <= 2048 && err == nil && (parsed.Scheme == "ws" || parsed.Scheme == "wss") &&
 		parsed.Host != "" && parsed.Fragment == ""
 }
+
 func launchStringSet(value any, allowEmpty bool) ([]string, bool) {
 	items, ok := launchArray(value)
 	if !ok || !allowEmpty && len(items) == 0 {
@@ -433,6 +442,7 @@ func launchStringSet(value any, allowEmpty bool) ([]string, bool) {
 	}
 	return result, sortedStrings(result, allowEmpty)
 }
+
 func sortedStrings(values []string, allowEmpty bool) bool {
 	if !allowEmpty && len(values) == 0 {
 		return false
@@ -444,6 +454,7 @@ func sortedStrings(values []string, allowEmpty bool) bool {
 	}
 	return true
 }
+
 func contains(values []string, expected string) bool {
 	for _, value := range values {
 		if value == expected {
@@ -669,6 +680,7 @@ func (parser *strictJSONParser) space() {
 		parser.offset++
 	}
 }
+
 func (parser *strictJSONParser) take(expected byte) bool {
 	if parser.offset < len(parser.contents) && parser.contents[parser.offset] == expected {
 		parser.offset++

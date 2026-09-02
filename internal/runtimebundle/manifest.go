@@ -17,10 +17,11 @@ import (
 )
 
 var (
-	ErrManifestInvalid = errors.New("RUNTIME_PROVIDER_MANIFEST_INVALID")
-	identityPattern    = regexp.MustCompile(`^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$`)
-	semverPattern      = regexp.MustCompile(`^(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)(?:-(?:0|[1-9][0-9]*|[0-9A-Za-z-]*[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9][0-9]*|[0-9A-Za-z-]*[A-Za-z-][0-9A-Za-z-]*))*)?$`)
-	tokenPattern       = regexp.MustCompile(`^[a-z0-9](?:[a-z0-9.-]{0,62}[a-z0-9])?$`)
+	ErrManifestInvalid  = errors.New("RUNTIME_PROVIDER_MANIFEST_INVALID")
+	ErrIntegrityInvalid = errors.New("RUNTIME_PROVIDER_INTEGRITY_INVALID")
+	identityPattern     = regexp.MustCompile(`^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$`)
+	semverPattern       = regexp.MustCompile(`^(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)(?:-(?:0|[1-9][0-9]*|[0-9A-Za-z-]*[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9][0-9]*|[0-9A-Za-z-]*[A-Za-z-][0-9A-Za-z-]*))*)?$`)
+	tokenPattern        = regexp.MustCompile(`^[a-z0-9](?:[a-z0-9.-]{0,62}[a-z0-9])?$`)
 )
 
 var resourceKinds = map[string]bool{
@@ -96,6 +97,69 @@ type IntegrityFile struct {
 	Path      string `json:"path"`
 	SizeBytes int64  `json:"sizeBytes"`
 	SHA256    string `json:"sha256"`
+	MediaType string `json:"-"`
+}
+
+type Integrity struct {
+	SchemaVersion int
+	Files         []IntegrityFile
+}
+
+type integrityWire struct {
+	SchemaVersion int                 `json:"schemaVersion"`
+	Files         []integrityFileWire `json:"files"`
+}
+
+type integrityFileWire struct {
+	Path      string `json:"path"`
+	SizeBytes int64  `json:"sizeBytes"`
+	SHA256    string `json:"sha256"`
+	MediaType string `json:"mediaType"`
+}
+
+var integrityMediaTypes = map[string]bool{
+	"text/javascript; charset=utf-8": true, "text/css; charset=utf-8": true,
+	"text/plain; charset=utf-8": true, "application/json; charset=utf-8": true,
+	"application/wasm": true, "application/octet-stream": true, "application/zip": true,
+	"application/x-7z-compressed": true, "image/png": true, "image/jpeg": true,
+	"image/gif": true, "image/webp": true, "image/svg+xml": true, "image/x-icon": true,
+	"audio/ogg": true, "audio/mpeg": true, "audio/wav": true, "font/woff": true, "font/woff2": true,
+}
+
+func ParseIntegrity(contents []byte) (Integrity, error) {
+	value, err := parseStrictJSON(contents)
+	root, ok := value.(map[string]any)
+	if err != nil || !ok || !exactMap(root, "files", "schemaVersion") {
+		return Integrity{}, ErrIntegrityInvalid
+	}
+	items, ok := root["files"].([]any)
+	if !ok {
+		return Integrity{}, ErrIntegrityInvalid
+	}
+	for _, item := range items {
+		file, ok := item.(map[string]any)
+		if !ok || !exactMap(file, "mediaType", "path", "sha256", "sizeBytes") {
+			return Integrity{}, ErrIntegrityInvalid
+		}
+	}
+	var wire integrityWire
+	if err := decodeClosed(contents, &wire); err != nil || wire.SchemaVersion != 1 || len(wire.Files) < 3 {
+		return Integrity{}, ErrIntegrityInvalid
+	}
+	result := Integrity{SchemaVersion: 1, Files: make([]IntegrityFile, 0, len(wire.Files))}
+	previous := ""
+	for _, file := range wire.Files {
+		if !safePath(file.Path) || len(file.Path) > 240 || file.SizeBytes < 0 || file.SizeBytes > 9007199254740991 ||
+			!digestPattern(file.SHA256) || !integrityMediaTypes[file.MediaType] || previous != "" && previous >= file.Path {
+			return Integrity{}, ErrIntegrityInvalid
+		}
+		result.Files = append(result.Files, IntegrityFile{
+			Path: file.Path, SizeBytes: file.SizeBytes,
+			SHA256: file.SHA256, MediaType: file.MediaType,
+		})
+		previous = file.Path
+	}
+	return result, nil
 }
 
 type manifestWire struct {

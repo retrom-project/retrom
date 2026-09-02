@@ -1,5 +1,6 @@
 import type {LaunchEnvelopeV1, RuntimeCapabilitiesV1, RuntimeResourceV1, TargetOptionsV1} from "./contract";
 import {parseCanonicalJSON} from "./canonical-json";
+import {playerRuntimeError} from "./errors";
 
 const digest = /^[0-9a-f]{64}$/u;
 const identity = /^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$/u;
@@ -272,4 +273,4 @@ function wellFormed(value: string) {
   }
   return true;
 }
-function invalid(): never {throw new Error("PLAYER_LAUNCH_ENVELOPE_INVALID");}
+function invalid(): never {throw playerRuntimeError("PLAYER_LAUNCH_ENVELOPE_INVALID");}

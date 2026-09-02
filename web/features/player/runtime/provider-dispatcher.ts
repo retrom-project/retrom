@@ -1,26 +1,116 @@
 import type {LaunchEnvelopeV1, PlayerRuntimeV1, ProviderModuleV1, RuntimeHostV1} from "./contract";
 import {validateLaunchEnvelopeBoundary} from "./envelope";
+import {PlayerRuntimeError, playerRuntimeError} from "./errors";
 
 export type ProviderImporter = (url: string) => Promise<unknown>;
-type DispatcherEnvironment = {crossOriginIsolated: boolean};
+export type DispatcherEnvironment = {
+  createModuleUrl(blob: Blob): string;
+  crossOriginIsolated: boolean;
+  fetcher: typeof fetch;
+  revokeModuleUrl(url: string): void;
+  sha256(bytes: Uint8Array): Promise<string>;
+};
+
+const maximumModuleBytes = 8 * 1024 * 1024;
 
 export async function loadProviderRuntime(
   envelopeValue: unknown,
   host: RuntimeHostV1,
   importer: ProviderImporter = importProviderModule,
-  environment: DispatcherEnvironment = {crossOriginIsolated: globalThis.crossOriginIsolated === true},
+  environment: Partial<DispatcherEnvironment> = {},
 ): Promise<PlayerRuntimeV1> {
   const envelope = validateLaunchEnvelopeBoundary(envelopeValue);
-  if (envelope.runtime.capabilities.requiresThreads && !environment.crossOriginIsolated) {
-    throw new Error("PLAYER_RUNTIME_THREADS_UNAVAILABLE");
+  const dispatcher = dispatcherEnvironment(environment);
+  if (envelope.runtime.capabilities.requiresThreads && !dispatcher.crossOriginIsolated) {
+    throw playerRuntimeError("PLAYER_RUNTIME_THREADS_UNAVAILABLE");
   }
-  const imported = await importer(envelope.runtime.moduleUrl);
+  const moduleBytes = await fetchProviderModule(envelope, host, dispatcher);
+  const moduleUrl = dispatcher.createModuleUrl(new Blob([moduleBytes], {
+    type: "text/javascript; charset=utf-8",
+  }));
+  let imported: unknown;
+  try {
+    imported = await importer(moduleUrl);
+  } catch {
+    throw invalidModule();
+  } finally {
+    dispatcher.revokeModuleUrl(moduleUrl);
+  }
   const provider = validateProviderModule(imported, envelope);
   const validated = provider.validateLaunchRequest(envelope);
   if (validated !== envelope) {throw invalidModule();}
   const runtime = await provider.createRuntime(envelope, host);
   validatePlayerRuntime(runtime, envelope);
   return runtime;
+}
+
+function dispatcherEnvironment(overrides: Partial<DispatcherEnvironment>): DispatcherEnvironment {
+  return {
+    createModuleUrl: overrides.createModuleUrl ?? ((blob) => URL.createObjectURL(blob)),
+    crossOriginIsolated: overrides.crossOriginIsolated ?? globalThis.crossOriginIsolated === true,
+    fetcher: overrides.fetcher ?? fetch,
+    revokeModuleUrl: overrides.revokeModuleUrl ?? ((url) => URL.revokeObjectURL(url)),
+    sha256: overrides.sha256 ?? digestSha256,
+  };
+}
+
+async function fetchProviderModule(
+  envelope: LaunchEnvelopeV1,
+  host: RuntimeHostV1,
+  environment: DispatcherEnvironment,
+) {
+  try {
+    const response = await environment.fetcher(envelope.runtime.moduleUrl, {
+      cache: "no-store", credentials: "same-origin", redirect: "error", signal: host.signal,
+    });
+    if (!response.ok || response.headers.get("content-type") !== "text/javascript; charset=utf-8") {
+      throw invalidModule();
+    }
+    const declaredLength = response.headers.get("content-length");
+    if (declaredLength !== null && (!/^(0|[1-9][0-9]*)$/u.test(declaredLength) ||
+      Number(declaredLength) < 1 || Number(declaredLength) > maximumModuleBytes)) {
+      throw invalidModule();
+    }
+    const bytes = await readBoundedBody(response, maximumModuleBytes);
+    if (bytes.byteLength < 1 || declaredLength !== null && bytes.byteLength !== Number(declaredLength)) {
+      throw invalidModule();
+    }
+    if (await environment.sha256(bytes) !== envelope.runtime.moduleSha256) {
+      throw playerRuntimeError("PLAYER_PROVIDER_MODULE_DIGEST_INVALID");
+    }
+    return bytes;
+  } catch (error) {
+    if (error instanceof PlayerRuntimeError) {throw error;}
+    throw invalidModule();
+  }
+}
+
+async function readBoundedBody(response: Response, maximumBytes: number) {
+  if (!response.body) {throw invalidModule();}
+  const reader = response.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  try {
+    while (true) {
+      const {done, value} = await reader.read();
+      if (done) {break;}
+      size += value.byteLength;
+      if (size > maximumBytes) {throw invalidModule();}
+      chunks.push(value);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+  const bytes = new Uint8Array(size);
+  let offset = 0;
+  for (const chunk of chunks) {bytes.set(chunk, offset); offset += chunk.byteLength;}
+  return bytes;
+}
+
+async function digestSha256(bytes: Uint8Array) {
+  const copy = Uint8Array.from(bytes);
+  const digest = await crypto.subtle.digest("SHA-256", copy.buffer);
+  return [...new Uint8Array(digest)].map((value) => value.toString(16).padStart(2, "0")).join("");
 }
 
 function validateProviderModule(value: unknown, envelope: LaunchEnvelopeV1): ProviderModuleV1 {
@@ -85,4 +175,4 @@ function exactKeys(value: Record<string, unknown>, expected: string[]) {
   return keys.length === expected.length && keys.every((key, index) => key === expected[index]);
 }
 
-function invalidModule() {return new Error("PLAYER_PROVIDER_MODULE_INVALID");}
+function invalidModule() {return playerRuntimeError("PLAYER_PROVIDER_MODULE_INVALID");}
