@@ -44,7 +44,7 @@ func TestCleanRegistryDoesNotExposeMigrationRoutes(t *testing.T) {
 
 func TestRepositoryTagIsTheOnlyRuntimeVersion(t *testing.T) {
 	current, err := Current("rpgmaker_2000", detector.RPG2000)
-	if err != nil || current.RouteKey != "RPG2000_EASYRPG" || current.RuntimeVersion != "v0.11.0" {
+	if err != nil || current.RouteKey != "RPG2000_EASYRPG" || current.RuntimeVersion != "v0.11.1" {
 		t.Fatalf("current route=%#v error=%v", current, err)
 	}
 	for _, entry := range Entries() {
