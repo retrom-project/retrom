@@ -190,7 +190,14 @@ func (server *Server) tyranoScriptRuntimeProject(
 		request.Context(), access.LaunchID, logicalName, authorized.Preview,
 	)
 	if err != nil {
+		if serveTyranoScriptVirtualAsset(writer, request, logicalName) {
+			return
+		}
 		http.NotFound(writer, request)
+		return
+	}
+	if strings.EqualFold(logicalName, "data/system/Config.tjs") {
+		server.serveTyranoScriptConfig(writer, request, content)
 		return
 	}
 	server.serveRPGBlob(writer, request, content.Digest, mediaType)

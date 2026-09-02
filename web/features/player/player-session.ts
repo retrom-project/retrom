@@ -145,7 +145,7 @@ async function uploadState(payload: ManualStatePayload, params: PlayerSessionPar
   const form = createSaveForm(uploadPayload, discIndex);
   const startedAt = performance.now();
   params.setSaveUploadProgress(0);
-  await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()));
+  await waitForSaveUploadPresentationTurn();
   let response: Awaited<ReturnType<typeof uploadWithProgress>>;
   try {
     response = await uploadWithProgress({
@@ -200,6 +200,10 @@ function rejectSave(params: PlayerSessionParams, message: string) {
 async function waitForSaveUploadPresentation(startedAt: number) {
   const remaining = SAVE_UPLOAD_PRESENTATION_MS - (performance.now() - startedAt);
   if (remaining > 0) {await new Promise<void>((resolve) => window.setTimeout(resolve, remaining));}
+}
+
+export function waitForSaveUploadPresentationTurn() {
+  return new Promise<void>((resolve) => window.setTimeout(resolve, 0));
 }
 
 function usePageHideFinish(params: PlayerSessionParams) {

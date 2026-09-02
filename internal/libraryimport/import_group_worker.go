@@ -574,6 +574,7 @@ func importGroupFailure(cause error) (string, bool) {
 		{importing.ErrArchiveEncrypted, "ARCHIVE_ENCRYPTED_UNSUPPORTED"},
 		{importing.ErrArchiveVolumeUnsupported, "ARCHIVE_VOLUME_UNSUPPORTED"},
 		{importing.ErrArchiveCasefoldCollision, "RPG_PATH_COLLISION"},
+		{importing.ErrNWJSExecutableInvalid, "ARCHIVE_UNSAFE"},
 		{ErrMultiDiscPlaylistMissing, "MULTI_DISC_PLAYLIST_MISSING"},
 		{ErrMultiDiscModeUnavailable, "MULTI_DISC_MODE_UNAVAILABLE"},
 		{ErrInvalid, "IMPORT_INPUT_INVALID"},

@@ -15,8 +15,10 @@ type ArchivePolicy string
 type ContentKind string
 
 const (
-	ArchiveZIP      ArchiveFormat = "ZIP"
-	ArchiveSevenZip ArchiveFormat = "SEVEN_Z"
+	ArchiveZIP            ArchiveFormat = "ZIP"
+	ArchiveSevenZip       ArchiveFormat = "SEVEN_Z"
+	ArchiveNWJSExecutable ArchiveFormat = "NWJS_EXECUTABLE"
+	ArchiveElectronASAR   ArchiveFormat = "ELECTRON_ASAR"
 
 	ArchiveNone          ArchivePolicy = "NONE"
 	ArchiveSinglePrimary ArchivePolicy = "SINGLE_PRIMARY"
@@ -96,7 +98,10 @@ var registry = map[string]Profile{
 	},
 	"tyranoscript": {
 		PlatformID: "tyranoscript", ArchivePolicy: ArchiveProject,
-		ArchiveFormats: []ArchiveFormat{ArchiveZIP, ArchiveSevenZip}, FormatCode: "TYRANOSCRIPT_PROJECT_V1",
+		ArchiveFormats: []ArchiveFormat{
+			ArchiveZIP, ArchiveSevenZip, ArchiveNWJSExecutable, ArchiveElectronASAR,
+		},
+		FormatCode:   "TYRANOSCRIPT_PROJECT_V1",
 		ContentKinds: []ContentKind{ContentKindTyranoScriptProject},
 	},
 }
@@ -108,7 +113,7 @@ var specialPlatformExtensions = map[string][]string{
 	"ons":          {".zip", ".7z"},
 	"kirikiri":     {".zip", ".7z"},
 	"butterscotch": {".zip", ".7z"},
-	"tyranoscript": {".zip", ".7z"},
+	"tyranoscript": {".zip", ".7z", ".exe"},
 }
 
 func single(platformID string, extensions ...string) Profile {

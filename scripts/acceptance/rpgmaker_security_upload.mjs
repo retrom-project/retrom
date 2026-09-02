@@ -25,6 +25,7 @@ export function createProductClient(context, baseUrl, csrfToken) {
   }
 
   async function upload(files, sourceType, purpose = "RPG_MAKER_PROJECT") {
+    const totalSizeBytes = files.reduce((total, file) => total + file.sizeBytes, 0);
     const created = await json("POST", "/api/v1/admin/uploads", {
       headers: writeHeaders(), expected: 201,
       data: {
@@ -45,7 +46,7 @@ export function createProductClient(context, baseUrl, csrfToken) {
     const completed = await json("POST", `/api/v1/admin/uploads/${created.uploadId}/complete`, {
       headers: { ...writeHeaders(), "If-Match": etag }, expected: 202,
     });
-    await waitForJob(json, completed.jobId);
+    await waitForJob(json, completed.jobId, totalSizeBytes);
     return created.uploadId;
   }
 
@@ -146,8 +147,12 @@ function walk(root, directory, result, prefix) {
   }
 }
 
-async function waitForJob(json, jobId) {
-  for (let attempt = 0; attempt < 600; attempt += 1) {
+export function jobWaitAttemptsForBytes(sizeBytes) {
+  return Number.isFinite(sizeBytes) && sizeBytes > 1_073_741_824 ? 6_000 : 600;
+}
+
+async function waitForJob(json, jobId, sizeBytes) {
+  for (let attempt = 0; attempt < jobWaitAttemptsForBytes(sizeBytes); attempt += 1) {
     const job = await json("GET", `/api/v1/admin/jobs/${jobId}`);
     if (job.state === "SUCCEEDED") { return; }
     if (["FAILED", "CANCELLED"].includes(job.state)) {

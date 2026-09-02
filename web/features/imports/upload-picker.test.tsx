@@ -219,11 +219,12 @@ describe("UploadPicker", () => {
       importCapabilities: {contentModes: ["TYRANOSCRIPT_PROJECT_V1"], multiDisc: null},
     }]} />);
 
-    await user.upload(screen.getByLabelText("选择导入文件"), new File(["project"], "game.zip"));
+    await user.upload(screen.getByLabelText("选择导入文件"), new File(["MZ"], "game.exe"));
     await user.click(screen.getByRole("button", {name: "下一步"}));
     await user.selectOptions(screen.getByRole("combobox", {name: "目标游戏目录"}), "tyranoscript");
     expect(screen.getByText("TyranoScript 项目")).toBeVisible();
-    expect(screen.getByText(/审核时需要先成功试运行一次/)).toBeVisible();
+    expect(screen.getByText(/NW\.js EXE/)).toBeVisible();
+    expect(screen.getByText(/Electron ASAR/)).toBeVisible();
     expect(screen.getByLabelText("元信息来源")).toHaveValue("不刮削（TyranoScript 项目）");
 
     await user.click(screen.getByRole("button", {name: "上传并试运行 TyranoScript 项目"}));

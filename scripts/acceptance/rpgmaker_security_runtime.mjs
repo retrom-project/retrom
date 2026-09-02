@@ -10,7 +10,14 @@ export function requireLocalRuntimeSite(applicationOrigin, runtimeOrigin) {
   const applicationSharesSite = application.hostname === "rpg.localhost" ||
     application.hostname.endsWith(localSite);
   const runtimeIsLocal = runtime.hostname === "localhost" || runtime.hostname.endsWith(".localhost");
-  if (runtimeIsLocal && (!runtime.hostname.endsWith(localSite) || !applicationSharesSite)) {
+  const applicationPfb = /^([a-z0-9](?:[a-z0-9-]{0,22}[a-z0-9])?)\.localhost$/.exec(
+    application.hostname,
+  );
+  const runtimePfb = /^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[89ab][0-9a-f]{3}-[0-9a-f]{12})\.rpg\.([a-z0-9](?:[a-z0-9-]{0,22}[a-z0-9])?)\.localhost$/.exec(
+    runtime.hostname,
+  );
+  const pfbPair = applicationPfb !== null && runtimePfb !== null && applicationPfb[1] === runtimePfb[2];
+  if (runtimeIsLocal && !((runtime.hostname.endsWith(localSite) && applicationSharesSite) || pfbPair)) {
     throw new SecurityInputBlocked("RPG_ACCEPTANCE_SECURITY_RUNTIME_SITE_MISMATCH");
   }
 }

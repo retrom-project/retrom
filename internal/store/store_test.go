@@ -223,12 +223,26 @@ func TestCurrentMigrationLineageResumeAndReopen(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "retrom.db")
 	sources, err := migrationSources()
 	testassert.False(t, err != nil, err)
-	testassert.Falsef(t, len(sources) != 13, "migration count = %d", len(sources))
+	testassert.Falsef(t, len(sources) != 14, "migration count = %d", len(sources))
 	database := openMigrationTestDatabase(t, path)
 	for _, source := range sources[:len(sources)-1] {
 		if err := runMigration(ctx, database, source, time.Now); err != nil {
 			t.Fatal(err)
 		}
+	}
+	if _, err := database.ExecContext(ctx, `
+INSERT INTO blobs(id,sha256,size_bytes,md5,sha1,crc32,media_type,created_at_ms)
+VALUES('archive',?,1,?,?,?,'application/zip',1)
+`, strings.Repeat("a", 64), strings.Repeat("b", 32), strings.Repeat("c", 40), strings.Repeat("d", 8)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := database.ExecContext(ctx, `
+INSERT INTO archive_entries(
+ archive_blob_id,ordinal,original_relative_path,normalized_path,ascii_casefold_path,
+ archive_format,compression_profile,uncompressed_size_bytes,crc32,md5,sha1,sha256,created_at_ms
+) VALUES('archive',0,'index.html','index.html','index.html','ZIP','DEFLATE',1,?,?,?,?,1)
+`, strings.Repeat("d", 8), strings.Repeat("b", 32), strings.Repeat("c", 40), strings.Repeat("e", 64)); err != nil {
+		t.Fatal(err)
 	}
 	testassert.False(t, database.Close() != nil, "close prefix database")
 
@@ -239,6 +253,22 @@ func TestCurrentMigrationLineageResumeAndReopen(t *testing.T) {
 		t.Fatal(err)
 	}
 	testassert.Falsef(t, maximum != len(sources), "resumed version = %d", maximum)
+	if _, err := resumed.SQL.ExecContext(ctx, `
+INSERT INTO archive_entries(
+ archive_blob_id,ordinal,original_relative_path,normalized_path,ascii_casefold_path,
+ archive_format,compression_profile,uncompressed_size_bytes,crc32,md5,sha1,sha256,created_at_ms
+) VALUES('archive',1,'data/start.ks','data/start.ks','data/start.ks',
+         'ELECTRON_ASAR','ELECTRON_ASAR_DEFLATE',1,?,?,?,?,2)
+`, strings.Repeat("d", 8), strings.Repeat("b", 32), strings.Repeat("c", 40), strings.Repeat("f", 64)); err != nil {
+		t.Fatal(err)
+	}
+	var archiveEntries int
+	if err := resumed.SQL.QueryRowContext(ctx, `
+SELECT count(*) FROM archive_entries WHERE archive_blob_id='archive'
+`).Scan(&archiveEntries); err != nil {
+		t.Fatal(err)
+	}
+	testassert.Falsef(t, archiveEntries != 2, "migrated archive entry count = %d", archiveEntries)
 	testassert.False(t, resumed.Close() != nil, "close resumed database")
 
 	reopened, err := Open(ctx, path, time.Now)
