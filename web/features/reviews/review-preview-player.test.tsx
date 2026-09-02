@@ -51,7 +51,7 @@ async function verifyWASM4Preview() {
         contentDigest: "a".repeat(64), cartSizeBytes: 6818,
         adapter: {
           adapterKind: "WASM4_WEB", adapterId: "wasm4-web",
-          runtimeBaseUrl: "/runtime/retrom-runtime/v0.11.1/",
+          runtimeBaseUrl: "/runtime/retrom-runtime/v0.11.2/",
           cartUrl: `/runtime/content/game/${"b".repeat(64)}/pong.wasm`,
         },
         reviewPreview: {importItemId: "item-wasm4", captureAllowed: true, captureAfterMs: 5000},

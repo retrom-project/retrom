@@ -174,7 +174,7 @@ class RPGMakerReleaseAssetTests(unittest.TestCase):
                 "cores": [],
                 "runtimeFiles": [{
                     "bundle_path": "runtime/new/new-core.wasm",
-                    "path_in_release": "v0.11.1/new-core.wasm",
+                    "path_in_release": "v0.11.2/new-core.wasm",
                     "role": "runtime_wasm",
                     "max_size_bytes": 1024,
                 }],
