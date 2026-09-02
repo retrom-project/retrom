@@ -16,7 +16,7 @@
     "api:generate": "openapi-typescript ../.cache/generated/openapi.bundle.yaml -o lib/api/generated/schema.d.ts"
   },
   "dependencies": {
-    "@xxxsen/retrom-runtime": "https://github.com/retrom-project/retrom-runtime/releases/download/v0.10.1/xxxsen-retrom-runtime-0.10.1.tgz",
+    "@xxxsen/retrom-runtime": "https://github.com/retrom-project/retrom-runtime/releases/download/v0.11.0/xxxsen-retrom-runtime-0.11.0.tgz",
     "fflate": "0.8.2",
     "next": "16.3.0",
     "nostalgist": "0.20.2",

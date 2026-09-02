@@ -228,7 +228,7 @@ class RPGMakerDependencyTests(unittest.TestCase):
             {"schema_version", "runtime_id", "release", "runtime_files", "artifacts"},
             set(self.manifest),
         )
-        self.assertEqual(11, len(self.manifest["artifacts"]))
+        self.assertEqual(12, len(self.manifest["artifacts"]))
         self.assertEqual(
             ["KIRIKIRI2_KAG"],
             [
