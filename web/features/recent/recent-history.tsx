@@ -7,12 +7,13 @@ import { AppIcon } from "@/components/app-icon";
 import { EmptyState, StatusBadge } from "@/components/ui";
 import { LaunchButton } from "@/features/player/launch-button";
 import { TagChips } from "@/components/tag-picker";
+import { useBrowserTimeZone } from "@/lib/use-browser-time-zone";
 import {
   filterRecentGames,
   formatRecentDuration,
   formatRecentTime,
   recentGameStats,
-  startOfLocalDay,
+  zonedDateKey,
   type RecentGame,
   type RecentGameFilters,
 } from "./recent-games";
@@ -23,7 +24,7 @@ const periodOptions = [
   { value: "30d", label: "30 天" },
 ] as const;
 
-function RecentGameRow({ game }: { game: RecentGame }) {
+function RecentGameRow({ game, timeZone }: { game: RecentGame; timeZone: string }) {
   const deleted = game.status === "DELETED";
   return <article className="recent-history-row">
     {deleted ? <div className="recent-history-cover" aria-label={`${game.title} 已删除`}><span aria-hidden="true">RETROM</span></div> : <Link className="recent-history-cover" href={`/games/${game.gameId}`} aria-label={`查看 ${game.title} 详情`}>
@@ -36,7 +37,7 @@ function RecentGameRow({ game }: { game: RecentGame }) {
         <p><AppIcon name="library" />{game.platform.name} · {game.platformInstance.name}</p>
       </div>
       <div className="recent-history-facts">
-        <div className="recent-history-fact"><span><AppIcon name="clock" />最近游玩</span><strong>{formatRecentTime(game.lastPlayedAtMs)}</strong></div>
+        <div className="recent-history-fact"><span><AppIcon name="clock" />最近游玩</span><strong>{formatRecentTime(game.lastPlayedAtMs, timeZone)}</strong></div>
         <div className="recent-history-fact"><span><AppIcon name="history" />累计时长</span><strong>{formatRecentDuration(game.activeDurationMs)}</strong></div>
         <div className="recent-history-fact"><span><AppIcon name="play" />游玩次数</span><strong>{game.sessionCount} 次</strong></div>
       </div>
@@ -48,6 +49,7 @@ function RecentGameRow({ game }: { game: RecentGame }) {
 }
 
 export function RecentHistory({ games, nowMs }: { games: RecentGame[]; nowMs: number }) {
+  const timeZone = useBrowserTimeZone();
   const [query, setQuery] = useState("");
   const [platformId, setPlatformId] = useState("");
   const [sort, setSort] = useState<RecentGameFilters["sort"]>("recent");
@@ -56,9 +58,9 @@ export function RecentHistory({ games, nowMs }: { games: RecentGame[]; nowMs: nu
     .sort((left, right) => left.name.localeCompare(right.name, "zh-CN") || left.id.localeCompare(right.id)), [games]);
   const stats = useMemo(() => recentGameStats(games), [games]);
   const filtered = useMemo(() => filterRecentGames(games, { query, platformId, sort, period, nowMs }), [games, nowMs, period, platformId, query, sort]);
-  const todayStart = startOfLocalDay(nowMs);
-  const today = filtered.filter((game) => game.lastPlayedAtMs >= todayStart);
-  const earlier = filtered.filter((game) => game.lastPlayedAtMs < todayStart);
+  const todayKey = zonedDateKey(nowMs, timeZone);
+  const today = filtered.filter((game) => zonedDateKey(game.lastPlayedAtMs, timeZone) === todayKey);
+  const earlier = filtered.filter((game) => zonedDateKey(game.lastPlayedAtMs, timeZone) !== todayKey);
 
   return <>
     <section className="recent-summary-grid" aria-label="游玩统计">
@@ -76,8 +78,8 @@ export function RecentHistory({ games, nowMs }: { games: RecentGame[]; nowMs: nu
     </section>
 
     {filtered.length === 0 ? <EmptyState title="没有符合条件的游戏" description="尝试更换平台、时间范围或搜索关键词。" /> : <div className="recent-history-groups">
-      {today.length > 0 ? <section className="recent-history-group" aria-labelledby="recent-today"><h2 id="recent-today">今天</h2><div className="recent-history-list">{today.map((game) => <RecentGameRow game={game} key={game.gameId} />)}</div></section> : null}
-      {earlier.length > 0 ? <section className="recent-history-group" aria-labelledby="recent-earlier"><h2 id="recent-earlier">更早</h2><div className="recent-history-list">{earlier.map((game) => <RecentGameRow game={game} key={game.gameId} />)}</div></section> : null}
+      {today.length > 0 ? <section className="recent-history-group" aria-labelledby="recent-today"><h2 id="recent-today">今天</h2><div className="recent-history-list">{today.map((game) => <RecentGameRow game={game} timeZone={timeZone} key={game.gameId} />)}</div></section> : null}
+      {earlier.length > 0 ? <section className="recent-history-group" aria-labelledby="recent-earlier"><h2 id="recent-earlier">更早</h2><div className="recent-history-list">{earlier.map((game) => <RecentGameRow game={game} timeZone={timeZone} key={game.gameId} />)}</div></section> : null}
     </div>}
   </>;
 }
