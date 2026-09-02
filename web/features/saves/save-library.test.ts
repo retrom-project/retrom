@@ -57,6 +57,12 @@ describe("save library projection", () => {
     expect(customSaveName("Boss 前")).toBe("Boss 前");
   });
 
+  it("formats an explicit UTC snapshot independently of the server timezone", () => {
+    const utcNow = Date.parse("2026-09-02T13:00:00.000Z");
+    expect(formatSaveTime(Date.parse("2026-09-02T12:41:27.000Z"), utcNow, true, "utc")).toBe("今天 12:41:27");
+    expect(formatSaveTime(Date.parse("2026-09-01T23:59:00.000Z"), utcNow, false, "utc")).toBe("昨天 23:59");
+  });
+
   it("formats save payload sizes with compact binary units and at most two decimals", () => {
     expect(formatSaveSize(800 * 1024)).toBe("800KB");
     expect(formatSaveSize(Math.round(1.23 * 1024 * 1024))).toBe("1.23MB");
