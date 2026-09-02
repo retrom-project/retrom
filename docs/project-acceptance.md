@@ -313,7 +313,7 @@ make acceptance-case CASE=<case-id>
 
 - 上限：300 秒。
 - 执行：`make acceptance-case CASE=ACC-PFB-007`。
-- 通过标准：`<launch>.<pfb>.rpg.localhost:3000` exact origin成功且只服务 `/__retrom/*`；跨PFB Host/cookie/ticket/capability、错误UUID/port/path均拒绝，应用origin不执行用户项目脚本。
+- 通过标准：`<launch>.rpg.<pfb>.localhost:3000` exact origin成功且只服务 `/__retrom/*`，与 `<pfb>.localhost:3000` 同 site 但不同 origin；跨PFB Host/cookie/ticket/capability、错误UUID/port/path均拒绝，应用origin不执行用户项目脚本。
 
 ### ACC-PFB-008：既有 core 分支候选
 

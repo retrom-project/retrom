@@ -3468,7 +3468,7 @@ export interface components {
             captureAllowed: boolean;
             captureAfterMs: number;
         };
-        LaunchConfig: components["schemas"]["EmulatorJSLaunchConfig"] | components["schemas"]["RpgMakerLaunchConfig"] | components["schemas"]["OnsLaunchConfig"] | components["schemas"]["KiriKiriLaunchConfig"] | components["schemas"]["ButterscotchLaunchConfig"] | components["schemas"]["TyranoScriptLaunchConfig"];
+        LaunchConfig: components["schemas"]["EmulatorJSLaunchConfig"] | components["schemas"]["RpgMakerLaunchConfig"] | components["schemas"]["OnsLaunchConfig"] | components["schemas"]["KiriKiriLaunchConfig"] | components["schemas"]["ButterscotchLaunchConfig"] | components["schemas"]["TyranoScriptLaunchConfig"] | components["schemas"]["WASM4LaunchConfig"];
         EmulatorJSLaunchConfig: {
             /**
              * @description discriminator enum property added by openapi-typescript
@@ -3843,6 +3843,53 @@ export interface components {
             warnings: string[];
             adapter: components["schemas"]["TyranoScriptAdapterConfig"];
             checkpoint: components["schemas"]["TyranoScriptCheckpointRestore"] | null;
+            reviewPreview?: components["schemas"]["ReviewPreviewConfig"];
+        };
+        WASM4AdapterConfig: {
+            /** @enum {string} */
+            adapterKind: "WASM4_WEB";
+            /** @enum {string} */
+            adapterId: "wasm4-web";
+            cartUrl: string;
+            runtimeBaseUrl: string;
+        };
+        WASM4CheckpointRestore: {
+            /** @enum {string} */
+            payloadKind: "RUNTIME_STATE";
+            payloadUrl: string;
+        };
+        WASM4LaunchConfig: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            runtimeFamily: "WASM4";
+            /** @enum {integer} */
+            protocolVersion: 1;
+            /** @enum {string} */
+            mode: "single";
+            /** @enum {string} */
+            purpose: "PRODUCT" | "REVIEW_PREVIEW";
+            /** Format: uuid */
+            launchId: string;
+            /** Format: uuid */
+            sessionId: string;
+            /** @enum {string} */
+            coreId: "wasm4";
+            coreName: string;
+            gameTitle: string;
+            /** @enum {string} */
+            platformName: "WASM-4";
+            runtimeVersion: string;
+            /** Format: uuid */
+            artifactId: string;
+            contentDigest: string;
+            /** Format: int64 */
+            cartSizeBytes: number;
+            returnTo: string;
+            warnings: string[];
+            adapter: components["schemas"]["WASM4AdapterConfig"];
+            checkpoint: components["schemas"]["WASM4CheckpointRestore"] | null;
             reviewPreview?: components["schemas"]["ReviewPreviewConfig"];
         };
         /** @enum {string} */

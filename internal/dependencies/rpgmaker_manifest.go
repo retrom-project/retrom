@@ -290,6 +290,9 @@ func validateRPGMakerArtifact(artifact RPGMakerArtifact, files map[string]RPGMak
 	if artifact.RuntimeFamily == "TYRANOSCRIPT" {
 		return validateTyranoScriptArtifact(artifact, files)
 	}
+	if artifact.RuntimeFamily == "WASM4" {
+		return validateWASM4Artifact(artifact, files)
+	}
 	route, err := routing.ByRoute(artifact.CoreID, artifact.RouteKey)
 	if err != nil || !artifactMatchesRoute(artifact, route) {
 		return fmt.Errorf("%w: RPG Maker artifact %s", ErrInvalid, artifact.RouteKey)
@@ -304,6 +307,43 @@ func validateRPGMakerArtifact(artifact RPGMakerArtifact, files map[string]RPGMak
 		return fmt.Errorf("%w: RPG Maker artifact bytes", ErrInvalid)
 	}
 	return nil
+}
+
+func validateWASM4Artifact(artifact RPGMakerArtifact, files map[string]RPGMakerRuntimeFile) error {
+	if !validWASM4Identity(artifact) {
+		return fmt.Errorf("%w: WASM-4 artifact identity", ErrInvalid)
+	}
+	entries, err := rpgArtifactSetEntries(artifact, files)
+	if err != nil {
+		return err
+	}
+	entry, exists := files[path.Join(artifact.RuntimeVersion, artifact.EntryPath)]
+	if !exists || entry.SizeBytes != artifact.EntrySizeBytes || entry.SHA256 != artifact.EntrySHA256 ||
+		rpgArtifactSetDigest(entries) != artifact.ArtifactSetSHA256 || !validWASM4Compatibility(artifact) {
+		return fmt.Errorf("%w: WASM-4 artifact bytes", ErrInvalid)
+	}
+	return nil
+}
+
+func validWASM4Identity(artifact RPGMakerArtifact) bool {
+	return artifact.CoreID == "wasm4" && artifact.Generation == "WASM4" &&
+		artifact.RouteKey == "WASM4_WEB" && artifact.RuntimeAdapterKind == "WASM4_WEB" &&
+		artifact.AdapterID == "wasm4-web" && artifact.AdapterABI == "wasm4-state-v1" &&
+		artifact.EntryPath == "wasm4-retrom.mjs" && !artifact.RequiresThreads &&
+		artifact.SavePayloadKind == "RUNTIME_STATE" && artifact.SaveMaxBytes == 132144 &&
+		artifact.SelectedForNewBindings && artifact.AvailableForLaunch
+}
+
+func validWASM4Compatibility(artifact RPGMakerArtifact) bool {
+	var value map[string]any
+	if json.Unmarshal(artifact.Compatibility, &value) != nil || len(value) != 8 ||
+		value["adapterAbi"] != "wasm4-state-v1" || value["cartMaxBytes"] != float64(1<<16) ||
+		value["jsPath"] != "wasm4-retrom.mjs" || value["schemaVersion"] != float64(5) ||
+		!validRuntimeCompatibilityContract(value) {
+		return false
+	}
+	kinds, ok := value["supportedContentKinds"].([]any)
+	return ok && len(kinds) == 1 && kinds[0] == "SINGLE_FILE"
 }
 
 func validateKiriKiriArtifact(artifact RPGMakerArtifact, files map[string]RPGMakerRuntimeFile) error {

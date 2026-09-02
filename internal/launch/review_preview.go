@@ -139,6 +139,9 @@ func (service *Service) validateReviewPreviewSource(
 	if source.RuntimeFamily == "TYRANOSCRIPT" {
 		return service.validateTyranoScriptReviewPreviewSource(source)
 	}
+	if source.RuntimeFamily == "WASM4" {
+		return service.validateWASM4ReviewPreviewSource(source)
+	}
 	if source.RuntimeFamily != "EMULATORJS" || service.dependencies.Versions[source.RuntimeVersion] == nil {
 		return ErrReviewPreviewUnavailable
 	}
@@ -261,7 +264,7 @@ JOIN platform_instances instance ON instance.id=draft.target_platform_instance_i
  AND instance.enabled=1 AND instance.deleted_at_ms IS NULL
 JOIN platforms platform ON platform.id=instance.platform_id
 JOIN core_artifacts artifact ON artifact.core_id=instance.default_core_id
- AND artifact.runtime_family IN ('EMULATORJS','ONS','KIRIKIRI','BUTTERSCOTCH','TYRANOSCRIPT')
+ AND artifact.runtime_family IN ('EMULATORJS','ONS','KIRIKIRI','BUTTERSCOTCH','TYRANOSCRIPT','WASM4')
  AND artifact.selected_for_new_bindings=1
 JOIN cores core ON core.id=artifact.core_id
 LEFT JOIN import_item_core_validations validation ON validation.id=(
@@ -509,6 +512,7 @@ type reviewPreviewConfigSource struct {
 	RuntimeVersion, AdapterID, RelativePath                   string
 	CompatibilityJSON, CoreID, CoreName, Title, PlatformName  string
 	LogicalName, ContentFormat, ContentDigest, DependencyJSON string
+	ContentSizeBytes                                          int64
 	BootstrapExpires, HardExpires                             int64
 	EmulatorGameID                                            sql.NullInt64
 	RequiresThreads, CaptureAllowed                           int
@@ -625,6 +629,9 @@ func (service *Service) independentReviewPreviewConfig(
 	case "TYRANOSCRIPT":
 		config, err := service.buildTyranoScriptReviewConfig(ctx, previewID, capability, source)
 		return config, true, err
+	case "WASM4":
+		config, err := service.buildWASM4ReviewConfig(ctx, previewID, capability, source)
+		return config, true, err
 	default:
 		return Config{}, false, nil
 	}
@@ -641,11 +648,11 @@ preview.import_item_id,artifact.id,artifact.runtime_family,artifact.runtime_adap
 artifact.runtime_version,artifact.adapter_id,artifact.entry_path,
 artifact.compatibility_json,core.id,core.name,preview.title,instance.name,
 preview.content_logical_name,preview.content_format,preview.dependency_snapshot_json,
-content_blob.sha256,preview.emulator_game_id,artifact.requires_threads,preview.capture_allowed,preview.default_dos_entry
+content_blob.sha256,content_blob.size_bytes,preview.emulator_game_id,artifact.requires_threads,preview.capture_allowed,preview.default_dos_entry
 FROM review_preview_sessions preview
 JOIN blobs content_blob ON content_blob.id=preview.content_blob_id
 JOIN core_artifacts artifact ON artifact.id=preview.core_artifact_id
- AND artifact.runtime_family IN ('EMULATORJS','ONS','KIRIKIRI','BUTTERSCOTCH','TYRANOSCRIPT')
+ AND artifact.runtime_family IN ('EMULATORJS','ONS','KIRIKIRI','BUTTERSCOTCH','TYRANOSCRIPT','WASM4')
  AND artifact.available_for_launch=1
 JOIN cores core ON core.id=artifact.core_id
 JOIN platform_instances instance ON instance.id=preview.target_platform_instance_id
@@ -656,7 +663,7 @@ WHERE preview.id=?
 		&source.RuntimeVersion, &source.AdapterID, &source.RelativePath,
 		&source.CompatibilityJSON, &source.CoreID, &source.CoreName, &source.Title,
 		&source.PlatformName, &source.LogicalName, &source.ContentFormat, &source.DependencyJSON,
-		&source.ContentDigest,
+		&source.ContentDigest, &source.ContentSizeBytes,
 		&source.EmulatorGameID, &source.RequiresThreads, &source.CaptureAllowed, &source.DOSEntry,
 	)
 	if err != nil {
@@ -972,25 +979,4 @@ FROM review_preview_sessions WHERE id=?
 		return ErrReviewCaptureNotAllowed
 	}
 	return nil
-}
-
-func nullableText(value string) any {
-	if value == "" {
-		return nil
-	}
-	return value
-}
-
-func nullableTextPointer(value *string) any {
-	if value == nil {
-		return nil
-	}
-	return *value
-}
-
-func nullableSQLString(value sql.NullString) any {
-	if !value.Valid {
-		return nil
-	}
-	return value.String
 }

@@ -55,7 +55,7 @@ def app_origin(value: str) -> str:
 
 
 def runtime_origin_template(value: str) -> str:
-    return f"http://{{launchId}}.{validate_pfb_id(value)}.rpg.localhost:3000"
+    return f"http://{{launchId}}.rpg.{validate_pfb_id(value)}.localhost:3000"
 
 
 def volume_name(value: str, role: str, digest: str) -> str:

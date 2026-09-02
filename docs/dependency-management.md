@@ -5,13 +5,15 @@
 | 文档状态 | 已审定 / 一期实施基线 |
 | 版本 | 1.2 |
 | 日期 | 2026-08-25 |
-| 适用范围 | EmulatorJS、RPG Maker/ONS/KiriKiri/Butterscotch/TyranoScript runtime、core artifact、兼容覆盖、预置 Arcade DAT 与密码 blocklist |
+| 适用范围 | EmulatorJS、RPG Maker/ONS/KiriKiri/Butterscotch/TyranoScript/WASM-4 runtime、core artifact、兼容覆盖、预置 Arcade DAT 与密码 blocklist |
 
 ## 1. 结论
 
 Git 只保存小型、可审查的来源清单、物化配方、大小、SHA-256、许可来源与解析统计，不保存 EmulatorJS 发布包、core、第三方或用户 ROM、BIOS、许可 payload、五份 Arcade DAT payload 或密码 blocklist payload。公开测试程序例外位于 `testdata/public-roms/`：`gba-smoke/` 产出两个内容身份不同的 mGBA 程序；`nes-smoke/` 产出分别供 FCEUmm/Nestopia 使用、内容身份不同且读取 P1/P2 的两个 iNES NROM 程序；`snes-smoke/` 产出供 SNES9x 使用的 32 KiB LoROM；`arcade-smoke/` 产出 MAME2003/Plus、FBNeo、FBA2012 CPS1/CPS2 的 Z80/68000 程序、生成图形/声音、测试依赖归档与五种小型 DAT。它们均由 Retrom 自有源码确定性生成、使用 MIT 许可，生成源与 bytes 同时提交并由 `data-check` 校验。测试 BIOS 与 CPS2 `spf2t` 父归档不含第三方 ROM/BIOS bytes，也不被目标驱动执行。其他真实 payload 在开发或镜像构建开始前按固定 URL/tag/commit 取得，写到被 Git 忽略的固定目录，并在使用前进行本地完整性校验。RPG Maker JS/Wasm 只从两个自有 fork（EasyRPG Player 和 mkxp-z-libretro-emscripten）的固定 release tag 下载预构建 asset，manifest 锁定 repo、tag、tag 对应的完整 commit、asset URL/文件名和 adapter ABI，但不保存或校验远端 expected SHA-256。同 tag 的同名重建 asset 被视为 ABI 兼容；下载后计算 observed size/SHA 用于本地缓存损坏检测和诊断，但它不参与 route identity 或远端准入。`prepare-deps`、`make dev` 和镜像构建不编译 RPG runtime，也不从 Pages、`latest`、浮动分支或本机其他 ignored 目录复制 bytes。固定 release asset 缺失、metadata 身份不符或 observed 本地完整性漂移时必须 fail closed。
 
 应用进程启动期间禁止联网下载或自动升级依赖。依赖缺失、大小或 SHA-256 不符时，后端必须拒绝进入 ready 状态并输出 `make prepare-deps` 这一条可操作命令；不能回退到 CDN、最新版本或另一个 core。
+
+WASM-4 首次接入在正式 aggregate Release 产生前只允许通过 PFB candidate overlay：候选锁必须同时冻结 `retrom-project/wasm4` fork 的 source tree/commit、构建描述、`wasm4-retrom.mjs` size/SHA-256、许可文件以及包含该构件的精确 `retrom-runtime` candidate package。Retrom 的正式 runtime manifest 在候选阶段保持不变，普通开发、镜像和发布不能消费 candidate marker。core→runtime→Retrom 产品链验收通过后，必须发布不可移动 tag/aggregate asset、写入正式 manifest 并在无 PFB overlay 的环境重新物化和复验，才能把结果提升为正式兼容证据。
 
 ## 2. 唯一事实源与目录
 

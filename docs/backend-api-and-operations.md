@@ -231,7 +231,7 @@ Action 负责 registry 登录和 push，不改变 Make target 的本地构建边
 PFB 是与 `make dev` 并列的本机容器化联调入口。只有 `make pfb-*` 可以管理开发容器、共享网络、共享开发网关和 PFB 状态；它不改变生产双镜像，也不成为 `ci`、`build-images` 或普通 `make dev` 的隐式依赖。
 
 - 每个 PFB 使用一个 Retrom Git worktree、一个应用容器和独立的数据、CAS、secret、依赖候选、Node、Next 与 Go cache。应用容器不发布宿主端口。
-- 共享网关是宿主唯一的 `127.0.0.1:3000` 监听者。规范应用 origin 为 `http://<pfb-id>.localhost:3000`，规范 runtime origin 为 `http://<launch-id>.<pfb-id>.rpg.localhost:3000`。
+- 共享网关是宿主唯一的 `127.0.0.1:3000` 监听者。规范应用 origin 为 `http://<pfb-id>.localhost:3000`，规范 runtime origin 为 `http://<launch-id>.rpg.<pfb-id>.localhost:3000`；二者同 site、不同 origin。
 - 裸 `http://localhost:3000` 只对 GET/HEAD 307 到显式选中的 PFB；写方法返回 409。合法 app/runtime Host 经严格解析后映射到 `retrom-pfb-<pfb-id>` Docker 网络别名，未知或畸形 Host 不连接任何上游。
 - 普通 `make dev` 使用宿主 `127.0.0.1:4000`，共享网关使用 `127.0.0.1:3000`，两者必须能够并行运行。全部 PFB 命令与直接 CLI 都拒绝 root/sudo；PFB 应用与共享网关容器显式使用发起命令的普通用户 UID/GID。
 - 网关只信任自己重建的转发头，Go 只信任网关精确 `/32`；网关仅向 app Host 转发页面/API/content/runtime/health，仅向 runtime Host 转发 `/__retrom/*`。
@@ -303,7 +303,7 @@ RETROM_DATA_DIR/
 | `RETROM_DEPENDENCY_ROOT` | 必填绝对只读目录；其下按 `dat/emulatorjs/<version>`、`runtime/emulatorjs/<version>` 与 `runtime/rpgmaker/v1/` 布局；RPG manifest 的 artifact `entry_path` 相对该 v1 物化根解析，不以 route/artifact ID 猜目录。开发固定为仓库 `data/` 的绝对路径，镜像内固定为只读依赖层；拒绝 root/home/symlink 逃逸。 |
 | `RETROM_DEPENDENCY_VERSIONS` | 必填、无空白/重复且按 SemVer（含 prerelease）升序；当前为 `4.2.3,4.3.0-pre`。每项必须有完整 manifest/runtime/许可 payload，DAT 只在该 manifest 声明时必需。 |
 | `RETROM_ACTIVE_EMULATORJS_VERSION` | 必填且必须属于上列；当前为 `4.2.3`。新验证逐 core 使用版本列表中最后一个声明该 core 的 artifact，不覆盖历史 revision 锁定版本。 |
-| `RETROM_RPG_RUNTIME_ORIGIN_TEMPLATE` | Go 与 Next 两个进程都必填且值相同，只含一个 `{launchId}`，无 userinfo/path/query/fragment/trailing slash。release 形式固定为 `https://{launchId}.<configured-runtime-domain>`；普通 test 形式为 `http://{launchId}.rpg.localhost:<backend-port>`；PFB test 形式为 `http://{launchId}.<pfb-id>.rpg.localhost:3000`。PFB 形状只在 test、insecure opt-in 和匹配候选锁同时成立时接受。`launchId` 是规范小写 UUID且独占完整最左 Host label，静态 suffix/端口不得从请求推导或覆盖。Next 从模板生成唯一受控 family `frame-src`，实际 iframe、Go Host、ticket 与 capability 仍逐 Launch 精确校验。 |
+| `RETROM_RPG_RUNTIME_ORIGIN_TEMPLATE` | Go 与 Next 两个进程都必填且值相同，只含一个 `{launchId}`，无 userinfo/path/query/fragment/trailing slash。release 形式固定为 `https://{launchId}.<configured-runtime-domain>`；普通 test 形式为 `http://{launchId}.rpg.localhost:<backend-port>`；PFB test 形式为 `http://{launchId}.rpg.<pfb-id>.localhost:3000`。PFB 形状只在 test、insecure opt-in 和匹配候选锁同时成立时接受。`launchId` 是规范小写 UUID且独占完整最左 Host label，静态 suffix/端口不得从请求推导或覆盖。Next 从模板生成唯一受控 family `frame-src`，实际 iframe、Go Host、ticket 与 capability 仍逐 Launch 精确校验。 |
 | `RETROM_MULTI_DISC_IMPORT_ENABLED` | 严格 `true|false`；服务配置缺省为 `false`，仓库 `make dev` 的测试服务器基线显式传入 `true`；控制新建多盘 Import、capability 投影和多盘内容替换。非法值启动失败，生产启用必须显式设为 `true`。 |
 | `RETROM_SERVER_IMPORT_ROOTS` | 服务配置缺省为 `[]`；仓库 `make dev` 在变量完全未设置时注入 `.dev-data/bios` 与 `.dev-data/roms` 对应的两项 JSON 数组，显式值（包括 `[]`）优先。生产只能显式配置已挂载的只读目录。 |
 | `RETROM_NETPLAY_ENABLED` | 严格 `true|false`，服务默认 `false`；`make dev` 测试基线为 `true`。关闭时不注册联机 API/runtime route且认证上下文令前端隐藏入口，不删除历史表。 |

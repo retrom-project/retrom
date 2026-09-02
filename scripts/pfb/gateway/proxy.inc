@@ -13,5 +13,4 @@ proxy_hide_header Cross-Origin-Resource-Policy;
 proxy_hide_header X-Content-Type-Options;
 add_header Cross-Origin-Opener-Policy same-origin always;
 add_header Cross-Origin-Embedder-Policy require-corp always;
-add_header Cross-Origin-Resource-Policy same-origin always;
 add_header X-Content-Type-Options nosniff always;

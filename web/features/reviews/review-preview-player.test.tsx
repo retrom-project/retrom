@@ -35,6 +35,55 @@ vi.mock("@xxxsen/retrom-runtime", () => ({
     : kirikiri.create(config)),
 }));
 
+async function verifyWASM4Preview() {
+  vi.useFakeTimers();
+  kirikiri.mount.mockResolvedValue(undefined);
+  kirikiri.screenshot.mockResolvedValue(new Blob(["wasm4-png"], {type: "image/png"}));
+  kirikiri.exit.mockResolvedValue(undefined);
+  kirikiri.create.mockReturnValue({
+    mount: kirikiri.mount, screenshot: kirikiri.screenshot,
+    exit: kirikiri.exit, subscribe: kirikiri.subscribe,
+  });
+  const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+    if (String(input).endsWith("/config")) {
+      return Promise.resolve(new Response(JSON.stringify({
+        runtimeFamily: "WASM4", sessionId: "preview-wasm4", gameTitle: "Pong",
+        contentDigest: "a".repeat(64), cartSizeBytes: 6818,
+        adapter: {
+          adapterKind: "WASM4_WEB", adapterId: "wasm4-web",
+          runtimeBaseUrl: "/runtime/retrom-runtime/v0.10.2/",
+          cartUrl: `/runtime/content/game/${"b".repeat(64)}/pong.wasm`,
+        },
+        reviewPreview: {importItemId: "item-wasm4", captureAllowed: true, captureAfterMs: 5000},
+      }), {status: 200, headers: {"Content-Type": "application/json"}}));
+    }
+    if (String(input).endsWith("/review-screenshot") && init?.method === "POST") {
+      return Promise.resolve(new Response(JSON.stringify({screenshotId: "shot-wasm4"}), {
+        status: 201, headers: {"Content-Type": "application/json"},
+      }));
+    }
+    throw new Error(`unexpected fetch ${String(input)}`);
+  });
+  vi.stubGlobal("fetch", fetchMock);
+
+  const view = render(<ReviewPreviewPlayer previewId="preview-wasm4" />);
+  await act(async () => {await Promise.resolve(); await Promise.resolve(); await Promise.resolve();});
+
+  expect(kirikiri.create).toHaveBeenCalledWith(expect.objectContaining({
+    sessionId: "preview-wasm4", cartSizeBytes: 6818,
+    adapter: expect.objectContaining({adapterKind: "WASM4_WEB"}),
+  }));
+  expect(kirikiri.mount).toHaveBeenCalledOnce();
+  await act(async () => {await vi.advanceTimersByTimeAsync(5_000);});
+  expect(fetchMock).toHaveBeenCalledWith(
+    "/runtime/launches/preview-wasm4/review-screenshot",
+    expect.objectContaining({method: "POST", body: expect.any(Blob)}),
+  );
+
+  view.unmount();
+  expect(kirikiri.exit).toHaveBeenCalledOnce();
+}
+
 describe("ReviewPreviewPlayer", () => {
   afterEach(() => {
     cleanup();
@@ -289,6 +338,8 @@ describe("ReviewPreviewPlayer", () => {
     view.unmount();
     expect(kirikiri.exit).toHaveBeenCalledOnce();
   });
+
+  it("mounts a bounded WASM-4 cart and uploads its review screenshot", verifyWASM4Preview);
 
   it("mounts isolated TyranoScript and uploads its JPEG review screenshot", async () => {
     vi.useFakeTimers();

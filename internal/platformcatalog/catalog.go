@@ -9,7 +9,7 @@ import (
 	"retrom/internal/contentprofile"
 )
 
-const Version = 7
+const Version = 8
 
 var ErrInvalid = errors.New("PLATFORM_CATALOG_INVALID")
 
@@ -107,6 +107,10 @@ var current = Catalog{Version: Version, Templates: []DirectoryTemplate{
 	{
 		Key: "tyranoscript/tyranoscript", PlatformID: "tyranoscript", DefaultCoreID: "tyranoscript",
 		Name: "TyranoScript 游戏", CatalogOrder: 320,
+	},
+	{
+		Key: "wasm4/wasm4", PlatformID: "wasm4", DefaultCoreID: "wasm4",
+		Name: "WASM-4 游戏", CatalogOrder: 330,
 	},
 }}
 

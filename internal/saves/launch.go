@@ -151,7 +151,7 @@ func restoreSnapshotCompatible(result launchSnapshot, binding restoreBinding) bo
 	adapterCompatible := result.adapterABI == binding.savedAdapterABI
 	if result.purpose == "PRODUCT" && (result.runtimeFamily == "RPGMAKER" || result.runtimeFamily == "ONS" ||
 		result.runtimeFamily == "KIRIKIRI" || result.runtimeFamily == "BUTTERSCOTCH" ||
-		result.runtimeFamily == "TYRANOSCRIPT") {
+		result.runtimeFamily == "TYRANOSCRIPT" || result.runtimeFamily == "WASM4") {
 		adapterCompatible = binding.savedSaveABI != "" && result.saveABI != ""
 	}
 	return result.adapterABI != "" && result.saveABI != "" && result.dependencySHA256 != "" &&

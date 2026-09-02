@@ -14,6 +14,8 @@ import {
   onsShellConfig,
   fetchTyranoScriptCheckpoint,
   tyranoScriptShellConfig,
+  fetchWASM4Checkpoint,
+  wasm4ShellConfig,
 } from "./player-bootstrap-config";
 import type {
   BootstrapResources,
@@ -39,6 +41,12 @@ import {
   tyranoScriptPlayerInstance,
   type TyranoScriptLaunchConfig,
 } from "./tyranoscript-runtime";
+import {
+  createWASM4ProductRuntime,
+  isWASM4LaunchConfig,
+  wasm4PlayerInstance,
+  type WASM4LaunchConfig,
+} from "./wasm4-runtime";
 
 type MountedFrame = { target: HTMLElement; context: MountedContext };
 
@@ -68,6 +76,7 @@ export type RetromRuntimeBootstrapHost = {
 
 export { isKiriKiriLaunchConfig, isOnsLaunchConfig };
 export { isTyranoScriptLaunchConfig };
+export { isWASM4LaunchConfig };
 
 export async function bootstrapOnsPlayer(
   params: PlayerBootstrapParams,
@@ -155,6 +164,27 @@ export async function bootstrapTyranoScriptPlayer(
     () => tyranoScriptPlayerInstance(runtime, mounted.target), host);
 }
 
+export async function bootstrapWASM4Player(
+  params: PlayerBootstrapParams,
+  resources: BootstrapResources,
+  controller: AbortController,
+  runtimeConfig: WASM4LaunchConfig,
+  host: RetromRuntimeBootstrapHost,
+) {
+  const config = wasm4ShellConfig(runtimeConfig);
+  host.applyConfig(params, config);
+  setDebugRuntime(params, runtimeConfig, "WASM4");
+  const mounted = await prepareRuntimeFrame(params, resources, controller, config, host,
+    fetchWASM4Checkpoint(runtimeConfig, controller.signal));
+  params.setMessage("正在启动 WASM-4 运行时…");
+  const runtime = createWASM4ProductRuntime(
+    runtimeConfig, mounted.context.frameWindow, mounted.context.stateBytes, controller.signal,
+  );
+  resources.nativeRuntimeSubscription = runtime.subscribe((event) => handleRetromRuntimeEvent(event, params));
+  await mountRuntime(params, resources, controller, mounted, runtime,
+    () => wasm4PlayerInstance(runtime, mounted.target), host);
+}
+
 type RuntimeIdentity = {
   coreId: string;
   artifactId: string;
@@ -165,7 +195,7 @@ type RuntimeIdentity = {
 function setDebugRuntime(
   params: PlayerBootstrapParams,
   config: RuntimeIdentity,
-  runtimeFamily: "ONS" | "KIRIKIRI" | "BUTTERSCOTCH" | "TYRANOSCRIPT",
+  runtimeFamily: "ONS" | "KIRIKIRI" | "BUTTERSCOTCH" | "TYRANOSCRIPT" | "WASM4",
 ) {
   params.setDebugRuntime({
     runtimeFamily, coreId: config.coreId, coreArtifactId: config.artifactId,

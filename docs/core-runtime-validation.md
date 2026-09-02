@@ -37,6 +37,8 @@ RPG Maker 的单一用户虚拟核心必须分别使用七个独立完整游戏�
 
 GameMaker/Butterscotch 没有可提交的第三方项目 fixture。`ACC-BUTTERSCOTCH-001` 必须消费操作者依法持有的项目归档，经 Retrom 的 Upload、Import、Review Preview、发布、PRODUCT Launch、标准手柄输入、checkpoint 与不同 Launch 恢复完整验证；缺少合法输入时只能记为 `BLOCKED`。根 `data.win` 的 `FORM` 形状识别只产生 trial-required 候选，不能替代真实核心运行。
 
+WASM-4 的 PFB 候选验收使用上游官方 carts 仓库固定 commit `ca2600db8de49d0d228ed57dd6c6778fb579a013` 下的 `platformer-test.wasm`、`pong.wasm` 与 `snake.wasm`；这些输入按 CC BY-NC-SA 4.0 只保存在操作者目录 `/mnt/d/temp/wasm4/`，不得提交或进入正式发布镜像。core→retrom-runtime 的真实 Chrome smoke 必须逐 cart 证明画面、输入、暂停/恢复、checkpoint、跨实例恢复、跨 cart 拒绝和清理；Retrom PFB 还必须用其中至少一个真实 cart 经过 Upload、服务器导入、Review Preview、发布和 PRODUCT Launch。后端集成测试或独立 runner 只能作为前置证据，不能替代最终 Retrom 浏览器链路；候选通过也不等于正式 Release。
+
 其余 enabled core 目前只有 manifest/schema、依赖物化、adapter 配置、协议或相邻纯逻辑测试，尚没有走完整 Retrom 产品链路的真实浏览器 E2E。发布或依赖升级不能把这些结构检查解释为“核心已实际启动”。表中联机基线只覆盖精确 artifact/profile 和项目自有 fixture，不证明其他 ROM 或 core 版本；新增覆盖仍应扩展 `make web-e2e` 或对应产品 E2E，并使用项目自有或有明确再分发许可、可确定性生成且能够提交的测试程序。
 
 ## 3. 验证原则

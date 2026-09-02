@@ -14,9 +14,19 @@ func TestCurrentCatalogIsValidAndReturnsDeepCopy(t *testing.T) {
 	if err := Validate(catalog); err != nil {
 		t.Fatalf("Validate() error = %v", err)
 	}
-	testassert.Falsef(t, testassert.Any(func() bool { return catalog.Version != 7 }, func() bool { return len(catalog.Templates) != 32 }), "catalog = version:%d templates:%d", catalog.Version, len(catalog.Templates))
+	testassert.Falsef(t, testassert.Any(func() bool { return catalog.Version != 8 }, func() bool { return len(catalog.Templates) != 33 }), "catalog = version:%d templates:%d", catalog.Version, len(catalog.Templates))
 	catalog.Templates[0].Name = "changed"
 	testassert.False(t, Current().Templates[0].Name != "NES 游戏", "Current returned mutable catalog storage")
+}
+
+func TestCatalogContainsWASM4Directory(t *testing.T) {
+	t.Parallel()
+	for _, template := range Current().Templates {
+		if template.Key == "wasm4/wasm4" && template.Name == "WASM-4 游戏" {
+			return
+		}
+	}
+	t.Fatal("WASM-4 directory template missing")
 }
 
 func TestCatalogContainsONSDirectory(t *testing.T) {

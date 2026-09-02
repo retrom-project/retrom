@@ -17,7 +17,7 @@ from pfb.errors import PFBError
 from pfb.identity import app_origin, pfb_id, runtime_origin_template, validate_pfb_id, volume_name
 from pfb.locks import _dependency_candidate_digest
 from pfb.registry import empty_registry, locked_registry, register_spec, save_registry
-from pfb.source_tree import source_tree_sha256, worktree_identity
+from pfb.source_tree import git_common_dir, source_tree_sha256, worktree_identity
 from pfb.spec import HOST_MODE, validate_spec
 
 
@@ -28,7 +28,7 @@ class IdentityTests(unittest.TestCase):
         self.assertEqual(pfb_id("___"), "pfb-bda251550bf0")
         identifier = pfb_id("hello")
         self.assertEqual(app_origin(identifier), "http://hello-2cf24dba5fb0.localhost:3000")
-        self.assertEqual(runtime_origin_template(identifier), "http://{launchId}.hello-2cf24dba5fb0.rpg.localhost:3000")
+        self.assertEqual(runtime_origin_template(identifier), "http://{launchId}.rpg.hello-2cf24dba5fb0.localhost:3000")
 
     def test_invalid_names_and_ids_fail_closed(self) -> None:
         for name in ("", "with space", "\n", "x" * 129):
@@ -96,6 +96,13 @@ class WorktreeTests(unittest.TestCase):
         (nested / "untracked.txt").write_text("not an initialized worktree\n", encoding="utf-8")
         self.assertEqual(first, source_tree_sha256(self.root))
 
+    def test_linked_worktree_resolves_a_narrow_shared_git_directory(self) -> None:
+        linked = Path(self.temporary.name) / "linked"
+        self._git("worktree", "add", "-b", "feat/linked", str(linked), "HEAD")
+        expected = (self.root / ".git").resolve(strict=True)
+        self.assertEqual(git_common_dir(self.root), expected)
+        self.assertEqual(git_common_dir(linked), expected)
+
 
 class SpecRegistryTests(unittest.TestCase):
     def test_unknown_spec_fields_are_rejected(self) -> None:
@@ -131,20 +138,31 @@ class GatewayContractTests(unittest.TestCase):
         root = Path(__file__).resolve().parent / "pfb/gateway"
         compose = (root / "compose.yaml").read_text(encoding="utf-8")
         app_compose = (root.parent / "compose.yaml").read_text(encoding="utf-8")
+        entrypoint = (root.parent / "entrypoint.sh").read_text(encoding="utf-8")
         nginx = (root / "nginx.conf").read_text(encoding="utf-8")
+        proxy = (root / "proxy.inc").read_text(encoding="utf-8")
         self.assertIn('"127.0.0.1:3000:3000"', compose)
         self.assertNotIn('"3000:3000"', compose)
         self.assertIn("return 307", nginx)
         self.assertIn("return 409", nginx)
         self.assertIn("PFB_UPSTREAM_UNAVAILABLE", nginx)
-        self.assertIn("rpg\\.localhost:3000", nginx)
+        self.assertIn("\\.rpg\\.", nginx)
+        self.assertIn("\\.localhost:3000", nginx)
         self.assertIn("log_format pfb", nginx)
         self.assertNotIn("access_log /dev/stdout combined", nginx)
         self.assertIn("proxy_read_timeout 28800s", nginx)
         self.assertNotIn("proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for", nginx)
+        self.assertNotIn("add_header Cross-Origin-Resource-Policy", proxy)
+        self.assertEqual(nginx.count("add_header Cross-Origin-Resource-Policy same-origin always;"), 2)
+        self.assertEqual(nginx.count("add_header Cross-Origin-Resource-Policy cross-origin always;"), 2)
         self.assertNotIn("container_name:", app_compose)
         self.assertIn('user: "${PFB_UID:?}:${PFB_GID:?}"', app_compose)
         self.assertIn('user: "${PFB_UID:?}:${PFB_GID:?}"', compose)
+        self.assertIn("PFB_RETROM_GIT_COMMON_DIR", app_compose)
+        self.assertIn("PFB_RUNTIME_GIT_COMMON_DIR", app_compose)
+        self.assertGreaterEqual(app_compose.count("read_only: true"), 2)
+        self.assertIn('http://{launchId}.rpg.${PFB_ID}.localhost:3000', entrypoint)
+        self.assertNotIn('http://{launchId}.${PFB_ID}.rpg.localhost:3000', entrypoint)
         self.assertIn("stop_grace_period: 45s", app_compose)
 
 

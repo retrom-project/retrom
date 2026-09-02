@@ -26,6 +26,14 @@ services:
         source: ${PFB_RUNTIME_ROOT:?}
         target: /workspace/runtime
       - type: bind
+        source: ${PFB_RETROM_GIT_COMMON_DIR:?}
+        target: ${PFB_RETROM_GIT_COMMON_DIR:?}
+        read_only: true
+      - type: bind
+        source: ${PFB_RUNTIME_GIT_COMMON_DIR:?}
+        target: ${PFB_RUNTIME_GIT_COMMON_DIR:?}
+        read_only: true
+      - type: bind
         source: ${PFB_NEXT_ENV_FILE:?}
         target: /workspace/retrom/web/next-env.d.ts
       - type: bind

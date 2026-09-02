@@ -8,6 +8,7 @@ import {
   type OnsRuntimeConfig,
   type ButterscotchRuntimeConfig,
   type TyranoScriptRuntimeConfig,
+  type Wasm4RuntimeConfig,
 } from "@xxxsen/retrom-runtime";
 import { captureReviewScreenshot, mountEmulatorJS, type EmulatorInstance, type PlayerConfig } from "@/features/player/adapters/ejs-4.2.3-v2";
 import { installCanvasContain } from "@/features/player/canvas-fit";
@@ -37,8 +38,13 @@ type TyranoScriptReviewConfig = TyranoScriptRuntimeConfig & {
   gameTitle: string;
   reviewPreview: ReviewPreview;
 };
+type WASM4ReviewConfig = Wasm4RuntimeConfig & {
+  runtimeFamily: "WASM4";
+  gameTitle: string;
+  reviewPreview: ReviewPreview;
+};
 type ReviewPlayerConfig = EmulatorReviewConfig | ONSReviewConfig | KiriKiriReviewConfig |
-  ButterscotchReviewConfig | TyranoScriptReviewConfig;
+  ButterscotchReviewConfig | TyranoScriptReviewConfig | WASM4ReviewConfig;
 
 type ReviewRuntime = {
   screenshot: () => Promise<Blob>;
@@ -129,6 +135,24 @@ async function mountReviewRuntime(
     };
     const runtime: GameRuntime = createRuntime(runtimeConfig, {
       frame: options.frame, frameWindow, restorePayload: null, signal: options.signal,
+    });
+    const unsubscribe = runtime.subscribe((event) => {
+      if (event.type === "FATAL_ERROR") {options.onError(event.code);}
+      if (event.type === "EXIT_REQUESTED") {options.onExitRequested();}
+    });
+    try {await runtime.mount(target);} catch (error) {
+      unsubscribe(); await runtime.exit(); throw error;
+    }
+    options.onStart({runtime, cleanup: () => {unsubscribe(); void runtime.exit();}});
+    return;
+  }
+  if (config.runtimeFamily === "WASM4") {
+    const runtimeConfig: Wasm4RuntimeConfig = {
+      sessionId: config.sessionId, contentDigest: config.contentDigest,
+      cartSizeBytes: config.cartSizeBytes, adapter: config.adapter,
+    };
+    const runtime: GameRuntime = createRuntime(runtimeConfig, {
+      frameWindow, restorePayload: null, signal: options.signal,
     });
     const unsubscribe = runtime.subscribe((event) => {
       if (event.type === "FATAL_ERROR") {options.onError(event.code);}

@@ -59,9 +59,9 @@ func TestParseRPGRuntimeOriginTemplateRequiresUniqueLaunchLabelAndMatchingScheme
 		wantErr       bool
 	}{
 		{name: "release", value: "https://{launchId}.runtime.retrom.example", origin: httpsOrigin},
-		{name: "PFB", value: "http://{launchId}.feature-a1b2c3d4e5f6.rpg.localhost:3000", origin: httpOrigin, allowInsecure: true},
+		{name: "PFB", value: "http://{launchId}.rpg.feature-a1b2c3d4e5f6.localhost:3000", origin: httpOrigin, allowInsecure: true},
 		{name: "localhost test", value: "http://{launchId}.rpg.localhost:18084", origin: localhostOrigin, allowInsecure: true},
-		{name: "wrong PFB", value: "http://{launchId}.feature-fedcba987654.rpg.localhost:3000", origin: httpOrigin, allowInsecure: true, wantErr: true},
+		{name: "wrong PFB", value: "http://{launchId}.rpg.feature-fedcba987654.localhost:3000", origin: httpOrigin, allowInsecure: true, wantErr: true},
 		{name: "mixed content", value: "http://{launchId}.rpg.localhost:8080", origin: httpsOrigin, allowInsecure: true, wantErr: true},
 		{name: "placeholder not leftmost", value: "https://rpg.{launchId}.retrom.example", origin: httpsOrigin, wantErr: true},
 		{name: "placeholder path", value: "https://runtime.retrom.example/{launchId}", origin: httpsOrigin, wantErr: true},

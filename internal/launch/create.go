@@ -76,6 +76,8 @@ func (service *Service) prepareLaunch(
 		return service.prepareButterscotchLaunch(ctx, selection)
 	case "TYRANOSCRIPT":
 		return service.prepareTyranoScriptLaunch(ctx, selection)
+	case "WASM4":
+		return service.prepareWASM4Launch(ctx, selection)
 	case "EMULATORJS":
 		return service.prepareEmulatorJSLaunch(ctx, request, selection)
 	default:
@@ -257,7 +259,7 @@ JOIN core_artifacts writer ON writer.id=s.core_artifact_id
 JOIN core_artifacts bound_artifact ON bound_artifact.id=r.core_artifact_id
 JOIN core_artifacts a ON (
   writer.runtime_family='EMULATORJS' AND a.id=writer.id
-  OR writer.runtime_family IN ('RPGMAKER','ONS','KIRIKIRI','BUTTERSCOTCH','TYRANOSCRIPT')
+  OR writer.runtime_family IN ('RPGMAKER','ONS','KIRIKIRI','BUTTERSCOTCH','TYRANOSCRIPT','WASM4')
     AND a.core_id=writer.core_id AND a.route_key=writer.route_key
     AND a.runtime_family=writer.runtime_family
 )
@@ -288,6 +290,10 @@ AND (
     AND json_extract(bound_artifact.compatibility_json,'$.gameCompatibilityLine')=
         json_extract(a.compatibility_json,'$.gameCompatibilityLine')
   OR a.runtime_family='TYRANOSCRIPT'
+    AND bound_artifact.core_id=a.core_id AND bound_artifact.route_key=a.route_key
+    AND json_extract(bound_artifact.compatibility_json,'$.gameCompatibilityLine')=
+        json_extract(a.compatibility_json,'$.gameCompatibilityLine')
+  OR a.runtime_family='WASM4'
     AND bound_artifact.core_id=a.core_id AND bound_artifact.route_key=a.route_key
     AND json_extract(bound_artifact.compatibility_json,'$.gameCompatibilityLine')=
         json_extract(a.compatibility_json,'$.gameCompatibilityLine')
@@ -365,7 +371,7 @@ AND r.game_content_revision_id=g.current_content_revision_id
 JOIN core_artifacts bound_artifact ON bound_artifact.id=r.core_artifact_id
 JOIN core_artifacts a ON (
   bound_artifact.runtime_family='EMULATORJS' AND a.id=bound_artifact.id
-  OR bound_artifact.runtime_family IN ('RPGMAKER','ONS','KIRIKIRI','BUTTERSCOTCH','TYRANOSCRIPT')
+  OR bound_artifact.runtime_family IN ('RPGMAKER','ONS','KIRIKIRI','BUTTERSCOTCH','TYRANOSCRIPT','WASM4')
     AND a.core_id=bound_artifact.core_id AND a.route_key=r.route_key
     AND a.runtime_family=bound_artifact.runtime_family
     AND json_extract(a.compatibility_json,'$.gameCompatibilityLine')=
@@ -379,7 +385,7 @@ WHERE g.id=?
 AND g.status='PUBLISHED'
 AND pi.enabled=1
 AND r.status='READY'
-AND (a.runtime_family IN ('EMULATORJS','ONS','KIRIKIRI','BUTTERSCOTCH','TYRANOSCRIPT') OR EXISTS(
+AND (a.runtime_family IN ('EMULATORJS','ONS','KIRIKIRI','BUTTERSCOTCH','TYRANOSCRIPT','WASM4') OR EXISTS(
   SELECT 1 FROM rpgmaker_variant_profiles profile
   WHERE profile.game_variant_revision_id=r.id AND profile.route_key=r.route_key
 ))
@@ -420,7 +426,7 @@ LIMIT 1
 	}
 	if selection.runtimeFamily == "RPGMAKER" || selection.runtimeFamily == "ONS" ||
 		selection.runtimeFamily == "KIRIKIRI" || selection.runtimeFamily == "BUTTERSCOTCH" ||
-		selection.runtimeFamily == "TYRANOSCRIPT" {
+		selection.runtimeFamily == "TYRANOSCRIPT" || selection.runtimeFamily == "WASM4" {
 		return launchSelectionResult{selection: selection}, nil
 	}
 	expectedDigest, err := service.currentVariantDigest(ctx, selection)
@@ -917,81 +923,4 @@ AND vf.logical_name='game.zip'
 		return "", "", "", ErrBlocked
 	}
 	return baseBlobID, "game.zip", "RETROM_DOS_DIRECT_ZIP_V1", nil
-}
-
-func validReturnTo(value, gameID string, saveStateID *string) bool {
-	if strings.ContainsAny(value, "#%\\") {
-		return false
-	}
-	if value == "/" || value == "/library" || value == "/saves" || value == "/games/"+gameID {
-		return true
-	}
-	return validImmersiveReturnTo(value, gameID, saveStateID)
-}
-
-func validImmersiveReturnTo(value, gameID string, saveStateID *string) bool {
-	if strings.HasPrefix(value, "/immersive/platforms/") {
-		return saveStateID == nil && validImmersivePlatformReturn(value, gameID)
-	}
-	return validImmersiveLibraryReturn(value, gameID, saveStateID)
-}
-
-func validImmersivePlatformReturn(value, gameID string) bool {
-	const prefix = "/immersive/platforms/"
-	const separator = "?gameId="
-	if !strings.HasPrefix(value, prefix) || strings.Count(value, "?") != 1 {
-		return false
-	}
-	platformID, returnedGameID, found := strings.Cut(strings.TrimPrefix(value, prefix), separator)
-	if !found || returnedGameID != gameID || len(platformID) == 0 || len(platformID) > 64 {
-		return false
-	}
-	for _, character := range platformID {
-		if (character < 'a' || character > 'z') && (character < '0' || character > '9') && character != '-' {
-			return false
-		}
-	}
-	return true
-}
-
-func validImmersiveLibraryReturn(value, gameID string, saveStateID *string) bool {
-	pathAndQuery := strings.Split(value, "?")
-	if len(pathAndQuery) != 2 {
-		return false
-	}
-	query, valid := parseImmersiveReturnQuery(pathAndQuery[1])
-	if !valid || query["gameId"] != gameID {
-		return false
-	}
-	switch pathAndQuery[0] {
-	case "/immersive/library/all", "/immersive/library/recent":
-		return saveStateID == nil && len(query) == 1
-	case "/immersive/library/favorites":
-		return saveStateID == nil && (len(query) == 1 ||
-			len(query) == 2 && validCanonicalUUID(query["folderId"]))
-	case "/immersive/library/saves":
-		return saveStateID != nil && len(query) == 2 && query["saveStateId"] == *saveStateID
-	default:
-		return false
-	}
-}
-
-func parseImmersiveReturnQuery(value string) (map[string]string, bool) {
-	result := make(map[string]string)
-	for _, entry := range strings.Split(value, "&") {
-		name, entryValue, found := strings.Cut(entry, "=")
-		if !found || name == "" || entryValue == "" {
-			return nil, false
-		}
-		if _, duplicate := result[name]; duplicate {
-			return nil, false
-		}
-		result[name] = entryValue
-	}
-	return result, true
-}
-
-func validCanonicalUUID(value string) bool {
-	parsed, err := uuid.Parse(value)
-	return err == nil && parsed.String() == value
 }
