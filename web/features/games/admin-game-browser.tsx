@@ -7,6 +7,7 @@ import { AppIcon } from "@/components/app-icon";
 import { EmptyState, StatusBadge } from "@/components/ui";
 import { TagChips } from "@/components/tag-picker";
 import { libraryTags } from "@/features/library/game-library";
+import { useBrowserTimeZone } from "@/lib/use-browser-time-zone";
 import {
   adminGameDirectories,
   adminGamePlatforms,
@@ -53,6 +54,7 @@ function exportGames(games: AdminGameSummary[]) {
 }
 
 export function AdminGameBrowser({ games, nowMs, initialFilters }: { games: AdminGameSummary[]; nowMs: number; initialFilters: AdminGameFilters }) {
+  const timeZone = useBrowserTimeZone();
   const searchRef = useRef<HTMLInputElement>(null);
   const [filters, setFilters] = useState(initialFilters);
   const [pageIndex, setPageIndex] = useState(0);
@@ -123,7 +125,7 @@ export function AdminGameBrowser({ games, nowMs, initialFilters }: { games: Admi
             <td className="admin-game-visibility"><StatusBadge tone={game.status === "PUBLISHED" ? "good" : "bad"}>{game.status === "PUBLISHED" ? "用户可见" : "用户不可见"}</StatusBadge></td>
             <td><StatusBadge tone={runtime.tone}>{runtime.label}</StatusBadge></td>
             <td><strong>{game.platformInstance.name}</strong><small>{game.platform.name} · 推荐 {game.defaultCore.name}</small></td>
-            <td><strong>{formatAdminGameTime(game.updatedAtMs, nowMs)}</strong><small>{adminGameUpdateNote(game)}</small></td>
+            <td><strong>{formatAdminGameTime(game.updatedAtMs, nowMs, timeZone)}</strong><small>{adminGameUpdateNote(game)}</small></td>
             <td><Link className="admin-game-manage" href={`/admin/games/${game.gameId}`}>管理</Link></td>
           </tr>;
         })}</tbody>

@@ -8,6 +8,8 @@ import { StatusBadge } from "@/components/ui";
 import type { components } from "@/lib/api/generated/schema";
 import { writeHeaders } from "@/lib/api/client";
 import { newUuid } from "@/lib/crypto";
+import { formatTime } from "@/lib/backend";
+import { useBrowserTimeZone } from "@/lib/use-browser-time-zone";
 import { responseError, uploadFiles, waitForJob } from "@/lib/upload";
 
 export type RuntimeAssetPackList = components["schemas"]["RuntimeAssetPackList"];
@@ -52,13 +54,14 @@ function RuntimePackInstallationRow({ installation, busy, onDelete }: {
   busy: boolean;
   onDelete: (installation: PackInstallation) => void;
 }) {
+  const timeZone = useBrowserTimeZone();
   const references = installation.references.variantRevisionCount + installation.references.checkpointCount;
   const deletable = references === 0 && (installation.status === "READY" || installation.status === "FAILED");
   return <article className="runtime-pack-installation">
     <div>
       <StatusBadge tone={stateTone(installation.status)}>{stateLabels[installation.status] ?? installation.status}</StatusBadge>
       <strong>v{installation.version} · {installation.filesDigest.slice(0, 8)} · {installation.fileCount.toLocaleString("zh-CN")} 个文件 · {bytes(installation.totalBytes)}</strong>
-      <small>安装于 {new Date(installation.createdAtMs).toLocaleString("zh-CN")}{installation.sourceNote ? ` · ${installation.sourceNote}` : ""}</small>
+      <small>安装于 {formatTime(installation.createdAtMs, timeZone)}{installation.sourceNote ? ` · ${installation.sourceNote}` : ""}</small>
     </div>
     <div className="runtime-pack-reference">
       <strong>{references}</strong><small>引用</small>

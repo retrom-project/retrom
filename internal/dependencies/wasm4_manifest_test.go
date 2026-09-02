@@ -10,7 +10,7 @@ func TestWASM4CandidateArtifactContractIsClosed(t *testing.T) {
 	artifact := RPGMakerArtifact{
 		CoreID: "wasm4", RuntimeFamily: "WASM4", Generation: "WASM4",
 		RouteKey: "WASM4_WEB", RuntimeAdapterKind: "WASM4_WEB",
-		RuntimeVersion: "v0.11.2", AdapterID: "wasm4-web", AdapterABI: "wasm4-state-v1",
+		RuntimeVersion: "v0.11.3", AdapterID: "wasm4-web", AdapterABI: "wasm4-state-v1",
 		EntryPath: "wasm4-retrom.mjs", RequiresThreads: false,
 		SavePayloadKind: "RUNTIME_STATE", SaveMaxBytes: 132144,
 		SelectedForNewBindings: true, AvailableForLaunch: true,

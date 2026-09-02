@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import inspect
 import io
 from pathlib import Path
 import tarfile
@@ -72,6 +73,23 @@ class FBA2012DATGeneratorTests(unittest.TestCase):
                     "FBA2012_DAT_SOURCE_ARCHIVE_UNSAFE",
                 ):
                     fbalpha2012_dat.safe_extract(archive_path, Path(directory) / "out", "root")
+
+    def test_safe_extract_supports_python_without_tar_filters(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            archive_path = Path(directory) / "source.tar.gz"
+            member = tarfile.TarInfo("root/data.txt")
+            member.size = 4
+            with tarfile.open(archive_path, "w:gz") as archive:
+                archive.addfile(member, io.BytesIO(b"data"))
+            legacy_signature = inspect.Signature([
+                inspect.Parameter("path", inspect.Parameter.POSITIONAL_OR_KEYWORD),
+                inspect.Parameter("members", inspect.Parameter.POSITIONAL_OR_KEYWORD, default=None),
+            ])
+
+            with mock.patch.object(fbalpha2012_dat.inspect, "signature", return_value=legacy_signature):
+                extracted = fbalpha2012_dat.safe_extract(archive_path, Path(directory) / "out", "root")
+
+            self.assertEqual((extracted / "data.txt").read_bytes(), b"data")
 
     def test_materialize_requires_two_identical_clean_generations(self) -> None:
         report = {
