@@ -8,6 +8,19 @@ import {
 } from "./manual-save-screenshot";
 
 describe("manual save screenshot upload boundary", () => {
+  it("keeps a bounded runtime JPEG without invoking Chromium's bitmap decoder", async () => {
+    const jpeg = new Blob(["jpeg"], { type: "image/jpeg" });
+    const createBitmap = vi.fn<() => Promise<ImageBitmap>>();
+
+    const result = await prepareManualSaveScreenshot({ screenshot: jpeg, format: "png" }, {
+      createBitmap,
+      createCanvas: () => document.createElement("canvas"),
+    });
+
+    expect(result).toEqual({ screenshot: jpeg, format: "jpg" });
+    expect(createBitmap).not.toHaveBeenCalled();
+  });
+
   it("re-encodes an already small capture as a bounded JPEG preview", async () => {
     const capture = { screenshot: new Blob(["png"], { type: "image/png" }), format: "png" };
     const bitmap = { width: 640, height: 360, close: vi.fn() } as unknown as ImageBitmap;

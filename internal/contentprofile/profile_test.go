@@ -44,9 +44,10 @@ func TestSupportedExtensionsCoverEverySeededPlatformWithoutExposingWrappers(t *t
 		"virtualboy": {".vb"}, "wonderswan": {".ws", ".wsc"},
 		"mastersystem": {".sms"}, "nintendo3ds": {".3ds", ".cci"},
 		"arcade": {".zip"}, "dos": {".exe", ".com", ".bat"},
-		"rpgmaker": {".zip", ".7z"},
-		"nes":      {".nes", ".unf", ".unif", ".fds"},
-		"wasm4":    {".wasm"},
+		"rpgmaker":     {".zip", ".7z"},
+		"tyranoscript": {".zip", ".7z", ".exe"},
+		"nes":          {".nes", ".unf", ".unif", ".fds"},
+		"wasm4":        {".wasm"},
 	}
 	for platformID, want := range tests {
 		got := SupportedExtensions(platformID)
@@ -168,6 +169,8 @@ func TestTyranoScriptProfileAcceptsOnlyProjectArchiveTransport(t *testing.T) {
 		func() bool { return profile.ArchivePolicy != ArchiveProject },
 		func() bool { return !AcceptsArchive("tyranoscript", ArchiveZIP) },
 		func() bool { return !AcceptsArchive("tyranoscript", ArchiveSevenZip) },
+		func() bool { return !AcceptsArchive("tyranoscript", ArchiveNWJSExecutable) },
+		func() bool { return !AcceptsArchive("tyranoscript", ArchiveElectronASAR) },
 		func() bool { return AcceptsRaw("tyranoscript", "game.zip") },
 	), "TyranoScript profile=%#v", profile)
 }

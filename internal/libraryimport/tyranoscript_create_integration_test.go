@@ -22,6 +22,19 @@ import (
 )
 
 func TestCreateTyranoScriptArchiveReachesTrialRequiredReview(t *testing.T) {
+	testCreateTyranoScriptInputReachesTrialRequiredReview(t, "fixture.zip", tyranoScriptProjectArchive(t))
+}
+
+func TestCreateTyranoScriptNWJSExecutableReachesTrialRequiredReview(t *testing.T) {
+	testCreateTyranoScriptInputReachesTrialRequiredReview(t, "fixture.exe", tyranoScriptNWJSExecutable(t))
+}
+
+func TestCreateTyranoScriptElectronArchiveReachesTrialRequiredReview(t *testing.T) {
+	testCreateTyranoScriptInputReachesTrialRequiredReview(t, "fixture.zip", tyranoScriptElectronArchive(t))
+}
+
+func testCreateTyranoScriptInputReachesTrialRequiredReview(t *testing.T, inputName string, input []byte) {
+	t.Helper()
 	ctx := context.Background()
 	dataDir := t.TempDir()
 	database, err := testsupport.OpenDatabase(ctx, filepath.Join(dataDir, "retrom.db"), time.Now)
@@ -42,22 +55,21 @@ func TestCreateTyranoScriptArchiveReachesTrialRequiredReview(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	archive := tyranoScriptProjectArchive(t)
 	uploadService := uploads.New(database.SQL, blobs, dataDir, time.Now)
 	upload, err := uploadService.Create(ctx, uploads.CreateRequest{
 		Purpose: "TYRANOSCRIPT_PROJECT", SourceType: "FILES",
 		Files: []uploads.FileDeclaration{{
-			ClientFileID: "tyranoscript", RelativePath: "fixture.zip", SizeBytes: int64(len(archive)),
+			ClientFileID: "tyranoscript", RelativePath: inputName, SizeBytes: int64(len(input)),
 		}},
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	digest := sha256.Sum256(archive)
+	digest := sha256.Sum256(input)
 	if err := uploadService.PutPart(
 		ctx, upload.ID, upload.Files[0].ID, 0,
-		fmt.Sprintf("bytes 0-%d/%d", len(archive)-1, len(archive)),
-		"sha-256=:"+base64.StdEncoding.EncodeToString(digest[:])+":", bytes.NewReader(archive),
+		fmt.Sprintf("bytes 0-%d/%d", len(input)-1, len(input)),
+		"sha-256=:"+base64.StdEncoding.EncodeToString(digest[:])+":", bytes.NewReader(input),
 	); err != nil {
 		t.Fatal(err)
 	}

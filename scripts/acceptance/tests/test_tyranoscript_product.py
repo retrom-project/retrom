@@ -52,9 +52,11 @@ class TyranoScriptProductAcceptanceTests(unittest.TestCase):
         self.assertNotIn("/data/game", contents)
         for contract in (
             "RETROM_TYRANOSCRIPT_SMOKE_ARCHIVE", "TYRANOSCRIPT_PROJECT_V1",
-            "/__retrom/tyranoscript/data/bgimage/title.jpg", "installVirtualStandardGamepad",
+            "/__retrom/tyranoscript/project/data/", "installVirtualStandardGamepad",
             "TYRANOSCRIPT_ACCEPTANCE_GAMEPAD_INPUT_UNOBSERVED", "checkpoint-b-created",
             "different-launch-restored-b", "post-restore-gamepad-input",
+            "resumeAfterCheckpoint", 'name: "继续游戏"',
+            'surface.screenshot({animations: "disabled"',
         ):
             self.assertIn(contract, contents)
 

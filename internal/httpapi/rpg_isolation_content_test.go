@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"database/sql"
 	"encoding/base64"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -16,6 +17,7 @@ import (
 	_ "modernc.org/sqlite"
 
 	"retrom/internal/config"
+	"retrom/internal/launch"
 	"retrom/internal/rpgmaker/isolation"
 )
 
@@ -92,6 +94,20 @@ func TestTransformTyranoScriptEntryInstallsProjectBaseAndBridge(t *testing.T) {
 	}
 }
 
+func TestProjectTyranoScriptConfigUsesIsolatedWebStorage(t *testing.T) {
+	t.Parallel()
+	original := []byte(";projectID=fixture\r\n ;configSave = file \r\n// ;configSave=file\r\n")
+	projected, err := projectTyranoScriptConfig(original)
+	if err != nil {
+		t.Fatal(err)
+	}
+	value := string(projected)
+	if !strings.Contains(value, " ;configSave = webstorage \r\n") ||
+		!strings.Contains(value, "// ;configSave=file\r\n") || strings.Contains(value, ";configSave = file \r\n") {
+		t.Fatalf("TyranoScript Config.tjs projection = %q", value)
+	}
+}
+
 func TestTyranoScriptProjectMIMEIsExplicit(t *testing.T) {
 	t.Parallel()
 	for _, logicalName := range []string{
@@ -105,6 +121,64 @@ func TestTyranoScriptProjectMIMEIsExplicit(t *testing.T) {
 		if _, ok := tyranoScriptProjectMIME(logicalName); ok {
 			t.Fatalf("unsafe TyranoScript project file accepted: %s", logicalName)
 		}
+	}
+}
+
+func TestTyranoScriptVirtualBlackBackdrop(t *testing.T) {
+	request := httptest.NewRequestWithContext(
+		t.Context(), http.MethodGet, "/__retrom/tyranoscript/project/data/bgimage/black.jpg", nil,
+	)
+	response := httptest.NewRecorder()
+	if !serveTyranoScriptVirtualAsset(response, request, "data/bgimage/black.jpg") {
+		t.Fatal("black backdrop was not served")
+	}
+	result := response.Result()
+	defer func() { _ = result.Body.Close() }()
+	contents, err := io.ReadAll(result.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.StatusCode != http.StatusOK || result.Header.Get("Content-Type") != "image/jpeg" ||
+		len(contents) < 4 || contents[0] != 0xff || contents[1] != 0xd8 ||
+		contents[len(contents)-2] != 0xff || contents[len(contents)-1] != 0xd9 {
+		t.Fatalf("virtual black backdrop status=%d type=%q bytes=%x", result.StatusCode,
+			result.Header.Get("Content-Type"), contents)
+	}
+	missing := httptest.NewRecorder()
+	if serveTyranoScriptVirtualAsset(missing, request, "data/bgimage/missing.jpg") {
+		t.Fatal("unexpected fallback for arbitrary missing project asset")
+	}
+}
+
+func TestRPGRuntimeRouteServesTyranoScriptProjectHEAD(t *testing.T) {
+	t.Parallel()
+	database, isolationService, nowMS, launchID, origin, ticket := newBootstrapReloadFixture(t)
+	if _, err := database.ExecContext(t.Context(), `
+UPDATE core_artifacts
+SET runtime_family='TYRANOSCRIPT',runtime_adapter_kind='TYRANOSCRIPT_WEB'
+`); err != nil {
+		t.Fatal(err)
+	}
+	credential, _, err := isolationService.ConsumeTicket(t.Context(), launchID, origin, ticket)
+	if err != nil {
+		t.Fatal(err)
+	}
+	now := func() time.Time { return time.UnixMilli(*nowMS) }
+	server := &Server{
+		database: database, rpgIsolation: isolationService,
+		launcher: launch.New(database, nil, nil, now), now: now,
+	}
+	request := httptest.NewRequestWithContext(
+		t.Context(), http.MethodHead,
+		origin+"/__retrom/tyranoscript/project/data/bgimage/black.jpg", nil,
+	)
+	request.AddCookie(&http.Cookie{Name: rpgRuntimeCookieName, Value: credential})
+	response := httptest.NewRecorder()
+	server.serveRPGRuntimeRoute(response, request, isolation.Access{LaunchID: launchID, Origin: origin})
+
+	if response.Code != http.StatusOK || response.Header().Get("Content-Type") != "image/jpeg" ||
+		response.Header().Get("Content-Length") == "" || response.Body.Len() != 0 {
+		t.Fatalf("TyranoScript HEAD = %d headers=%v body=%x", response.Code, response.Header(), response.Body.Bytes())
 	}
 }
 
@@ -139,7 +213,10 @@ func TestRPGRuntimeRequestTargetAllowsOnlyTyranoScriptNumericCacheBusters(t *tes
 	accepted := []string{
 		"https://runtime.example/__retrom/tyranoscript/project/data/system/Config.tjs",
 		"https://runtime.example/__retrom/tyranoscript/project/data/system/Config.tjs?_=1788123731998",
+		"https://runtime.example/__retrom/tyranoscript/project/data/system/Config.tjs?1788123731998",
+		"https://runtime.example/__retrom/tyranoscript/project/data/system/Config.tjs?812373&_=1788123731998",
 		"https://runtime.example/data/scenario/title.ks?_=1788123731998",
+		"https://runtime.example/data/scenario/title.ks?1788123731998",
 	}
 	for _, target := range accepted {
 		request := httptest.NewRequestWithContext(context.Background(), http.MethodGet, target, nil)
@@ -153,6 +230,13 @@ func TestRPGRuntimeRequestTargetAllowsOnlyTyranoScriptNumericCacheBusters(t *tes
 		"https://runtime.example/__retrom/tyranoscript/project/data/system/Config.tjs?_=1&_=2",
 		"https://runtime.example/__retrom/tyranoscript/project/data/system/Config.tjs?_=not-a-number",
 		"https://runtime.example/__retrom/tyranoscript/project/data/system/Config.tjs?_=123456789012345678901",
+		"https://runtime.example/__retrom/tyranoscript/project/data/system/Config.tjs?not-a-number",
+		"https://runtime.example/__retrom/tyranoscript/project/data/system/Config.tjs?123=456",
+		"https://runtime.example/__retrom/tyranoscript/project/data/system/Config.tjs?123&cache=456",
+		"https://runtime.example/__retrom/tyranoscript/project/data/system/Config.tjs?_=123&456",
+		"https://runtime.example/__retrom/tyranoscript/project/data/system/Config.tjs?123&_=456&_=789",
+		"https://runtime.example/__retrom/tyranoscript/project/data/system/Config.tjs?123&_=not-a-number",
+		"https://runtime.example/__retrom/tyranoscript/project/data/system/Config.tjs?123456789012345678901",
 	} {
 		request := httptest.NewRequestWithContext(context.Background(), http.MethodGet, target, nil)
 		if validRPGRuntimeRequestTarget(request) {

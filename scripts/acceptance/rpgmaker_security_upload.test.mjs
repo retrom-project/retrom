@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   createProductClient,
+  jobWaitAttemptsForBytes,
   requireFreshImportReview,
   SecurityInputBlocked,
 } from "./rpgmaker_security_upload.mjs";
@@ -40,4 +41,9 @@ test("product client forwards a bounded timeout for large import requests", asyn
   });
 
   assert.equal(observed.timeout, 120_000);
+});
+
+test("large uploads receive a bounded extended finalization window", () => {
+  assert.equal(jobWaitAttemptsForBytes(1_073_741_824), 600);
+  assert.equal(jobWaitAttemptsForBytes(1_073_741_825), 6_000);
 });

@@ -14,9 +14,9 @@ export function withQuery(path: string, values: Record<string, string>) {
   return query ? `${path}?${query}` : path;
 }
 
-export function formatTime(value: number | null | undefined) {
+export function formatTime(value: number | null | undefined, timeZone?: string) {
   if (!value) {return "尚无记录";}
-  return new Intl.DateTimeFormat("zh-CN", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value));
+  return new Intl.DateTimeFormat("zh-CN", { dateStyle: "medium", timeStyle: "short", timeZone }).format(new Date(value));
 }
 
 export function formatBytes(value: number) {

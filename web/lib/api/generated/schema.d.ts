@@ -5449,7 +5449,7 @@ export interface components {
             archive?: boolean;
             archiveEntries?: unknown;
             /** @enum {string|null} */
-            archiveFormat?: "ZIP" | "SEVEN_Z" | null;
+            archiveFormat?: "ZIP" | "SEVEN_Z" | "NWJS_EXECUTABLE" | "ELECTRON_ASAR" | null;
             arcadeDependencies?: unknown;
             attachment?: unknown;
             attachmentId?: unknown;

@@ -25,7 +25,7 @@ type Review = ReviewWorkspace & {
   importJobId: string;
   platformInstance: { id: string; name: string };
   sourceManifest: { files: Array<{ logicalName: string; role: string; sizeBytes?: number; blobSha256?: string; sourceArchiveSha256?: string | null }> };
-  sourceFiles: Array<{ uploadFileId: string; name: string; sizeBytes: number; sha256: string; md5: string; crc32: string; archive: boolean; archiveFormat: "ZIP" | "SEVEN_Z" | null; archiveEntries: Array<{ name: string; sizeBytes: number; crc32: string }> }>;
+  sourceFiles: Array<{ uploadFileId: string; name: string; sizeBytes: number; sha256: string; md5: string; crc32: string; archive: boolean; archiveFormat: "ZIP" | "SEVEN_Z" | "NWJS_EXECUTABLE" | "ELECTRON_ASAR" | null; archiveEntries: Array<{ name: string; sizeBytes: number; crc32: string }> }>;
   validation: (NonNullable<ReviewWorkspace["validation"]> & { dependencySnapshot?: DependencySnapshot }) | null;
 };
 
@@ -42,7 +42,8 @@ function GameFiles({ review }: { review: Review }) {
 
 function SourcePackage({ file }: { file: Review["sourceFiles"][number] }) {
   const entries = boundedReviewSourcePreview(file.archiveEntries);
-  return <details className="review-source-package" open={file.archive}><summary><span>{file.archive ? `${file.archiveFormat === "SEVEN_Z" ? "7z" : "ZIP"} 来源包` : "游戏文件"}</span><strong title={file.name}>{file.name}</strong><small title={`${formatBytes(file.sizeBytes)} / SHA-256 ${file.sha256}`}>{formatBytes(file.sizeBytes)} / {file.sha256.slice(0, 12)}…</small></summary>{file.archive ? <div className="review-archive-entries" aria-label={`${file.name} 文件列表`}><p>运行时使用全部成员物化后的原始内容；这里仅展示有界审计预览，来源包保留为证据。</p>{entries.visible.length ? entries.visible.map((entry, index) => <div key={`${entry.name}-${index}`}><strong title={entry.name}>{entry.name}</strong><span>{formatBytes(entry.sizeBytes)}</span><code title={`CRC32 ${entry.crc32}`}>{entry.crc32}</code></div>) : <p>压缩包内没有可展示的文件记录。</p>}<PreviewNotice hidden={entries.hidden} total={entries.total} /></div> : null}</details>;
+  const formatLabel = file.archiveFormat === "SEVEN_Z" ? "7z" : file.archiveFormat === "NWJS_EXECUTABLE" ? "NW.js EXE" : file.archiveFormat === "ELECTRON_ASAR" ? "Electron ASAR" : "ZIP";
+  return <details className="review-source-package" open={file.archive}><summary><span>{file.archive ? `${formatLabel} 来源包` : "游戏文件"}</span><strong title={file.name}>{file.name}</strong><small title={`${formatBytes(file.sizeBytes)} / SHA-256 ${file.sha256}`}>{formatBytes(file.sizeBytes)} / {file.sha256.slice(0, 12)}…</small></summary>{file.archive ? <div className="review-archive-entries" aria-label={`${file.name} 文件列表`}><p>运行时使用全部成员物化后的原始内容；这里仅展示有界审计预览，来源包保留为证据。</p>{entries.visible.length ? entries.visible.map((entry, index) => <div key={`${entry.name}-${index}`}><strong title={entry.name}>{entry.name}</strong><span>{formatBytes(entry.sizeBytes)}</span><code title={`CRC32 ${entry.crc32}`}>{entry.crc32}</code></div>) : <p>压缩包内没有可展示的文件记录。</p>}<PreviewNotice hidden={entries.hidden} total={entries.total} /></div> : null}</details>;
 }
 
 function PreviewNotice({ hidden, total }: { hidden: number; total: number }) {
