@@ -204,50 +204,17 @@ func (service *Service) prepareMarkerProjectArchive(
 	file importSourceFile,
 	definition markerProjectDefinition,
 ) (preparedDisposition, preparedGroup, preparedArchive, error) {
-	archiveFormat := profileArchiveFormat
-	if definition.archiveFormat != nil {
-		archiveFormat = definition.archiveFormat
+	format, err := service.resolveMarkerProjectArchiveFormat(file, definition)
+	if err != nil {
+		return preparedDisposition{}, preparedGroup{}, preparedArchive{}, err
 	}
-	format, reason := archiveFormat(file.path)
-	if reason != "" {
-		return preparedDisposition{}, preparedGroup{}, preparedArchive{}, ErrInvalid
-	}
-	if definition.electronASAR && format == contentprofile.ArchiveZIP {
-		detected, detectErr := importing.DetectElectronASARZIP(
-			service.blobs.Path(file.sha256), importing.RPGMakerArchiveLimits(),
-		)
-		if detectErr != nil {
-			return preparedDisposition{}, preparedGroup{}, preparedArchive{}, fmt.Errorf(
-				"detect TyranoScript Electron archive: %w", detectErr,
-			)
-		}
-		if detected {
-			format = contentprofile.ArchiveElectronASAR
-		}
-	}
-	entries, candidates, err := service.scanProjectArchive(ctx, file, format)
+	entries, candidates, project, entryByOrdinal, err := service.scanMarkerProjectArchive(
+		ctx, file, definition, format,
+	)
 	if err != nil {
 		return preparedDisposition{}, preparedGroup{}, preparedArchive{}, err
 	}
 	defer func() { discardProjectArchiveCandidates(candidates) }()
-	project, entryByOrdinal, err := normalizeArchiveProject(entries, definition)
-	if err != nil && definition.name == tyranoScriptMarkerProject.name &&
-		format == contentprofile.ArchiveZIP && markerProjectNotFound(err) {
-		wrappedEntries, wrappedCandidates, detected, wrappedErr := service.scanWrappedTyranoScriptNWJS(
-			ctx, entries, candidates,
-		)
-		if wrappedErr != nil {
-			return preparedDisposition{}, preparedGroup{}, preparedArchive{}, wrappedErr
-		}
-		if detected {
-			discardProjectArchiveCandidates(candidates)
-			entries, candidates = wrappedEntries, wrappedCandidates
-			project, entryByOrdinal, err = normalizeArchiveProject(entries, definition)
-		}
-	}
-	if err != nil {
-		return preparedDisposition{}, preparedGroup{}, preparedArchive{}, err
-	}
 	projectEntries := archiveProjectEntries(project.Files, entryByOrdinal)
 	readMetadata, err := service.projectArchiveReadMetadata(ctx, file, projectEntries, candidates)
 	if err != nil {
@@ -271,6 +238,66 @@ func (service *Service) prepareMarkerProjectArchive(
 	return sourceDisposition(file), markerProjectGroup(sources, snapshot, definition, file.path), preparedArchive{
 		blobID: file.blobID, entries: entries, materialized: materialized,
 	}, nil
+}
+
+func (service *Service) resolveMarkerProjectArchiveFormat(
+	file importSourceFile,
+	definition markerProjectDefinition,
+) (contentprofile.ArchiveFormat, error) {
+	archiveFormat := profileArchiveFormat
+	if definition.archiveFormat != nil {
+		archiveFormat = definition.archiveFormat
+	}
+	format, reason := archiveFormat(file.path)
+	if reason != "" {
+		return "", ErrInvalid
+	}
+	if !definition.electronASAR || format != contentprofile.ArchiveZIP {
+		return format, nil
+	}
+	detected, err := importing.DetectElectronASARZIP(
+		service.blobs.Path(file.sha256), importing.RPGMakerArchiveLimits(),
+	)
+	if err != nil {
+		return "", fmt.Errorf("detect TyranoScript Electron archive: %w", err)
+	}
+	if detected {
+		return contentprofile.ArchiveElectronASAR, nil
+	}
+	return format, nil
+}
+
+func (service *Service) scanMarkerProjectArchive(
+	ctx context.Context,
+	file importSourceFile,
+	definition markerProjectDefinition,
+	format contentprofile.ArchiveFormat,
+) ([]importing.ArchiveEntry, map[int]*blobstore.Candidate, fileset.Project, map[int]importing.ArchiveEntry, error) {
+	entries, candidates, err := service.scanProjectArchive(ctx, file, format)
+	if err != nil {
+		return nil, nil, fileset.Project{}, nil, err
+	}
+	project, entryByOrdinal, err := normalizeArchiveProject(entries, definition)
+	if err != nil && definition.name == tyranoScriptMarkerProject.name &&
+		format == contentprofile.ArchiveZIP && markerProjectNotFound(err) {
+		wrappedEntries, wrappedCandidates, detected, wrappedErr := service.scanWrappedTyranoScriptNWJS(
+			ctx, entries, candidates,
+		)
+		if wrappedErr != nil {
+			discardProjectArchiveCandidates(candidates)
+			return nil, nil, fileset.Project{}, nil, wrappedErr
+		}
+		if detected {
+			discardProjectArchiveCandidates(candidates)
+			entries, candidates = wrappedEntries, wrappedCandidates
+			project, entryByOrdinal, err = normalizeArchiveProject(entries, definition)
+		}
+	}
+	if err != nil {
+		discardProjectArchiveCandidates(candidates)
+		return nil, nil, fileset.Project{}, nil, err
+	}
+	return entries, candidates, project, entryByOrdinal, nil
 }
 
 func markerProjectNotFound(err error) bool {
