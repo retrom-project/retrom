@@ -19,7 +19,7 @@ func TestProfilesAcceptExactCaseInsensitiveExtensions(t *testing.T) {
 		"pce": {"game.pce"}, "pcfx": {"game.chd"}, "ngpc": {"game.ngp"},
 		"psp": {"game.iso", "game.CSO"}, "virtualboy": {"game.vb"},
 		"wonderswan": {"game.ws", "game.WSC"}, "mastersystem": {"game.sms"},
-		"nintendo3ds": {"game.3ds", "game.CCI"},
+		"nintendo3ds": {"game.3ds", "game.CCI"}, "wasm4": {"game.wasm", "game.WASM"},
 	}
 	for platformID, names := range tests {
 		for _, name := range names {
@@ -46,6 +46,7 @@ func TestSupportedExtensionsCoverEverySeededPlatformWithoutExposingWrappers(t *t
 		"arcade": {".zip"}, "dos": {".exe", ".com", ".bat"},
 		"rpgmaker": {".zip", ".7z"},
 		"nes":      {".nes", ".unf", ".unif", ".fds"},
+		"wasm4":    {".wasm"},
 	}
 	for platformID, want := range tests {
 		got := SupportedExtensions(platformID)

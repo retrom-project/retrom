@@ -99,10 +99,17 @@ def main() -> None:
             assert status == 200 and body.startswith(f"next:{PFB_ID}.localhost:3000".encode())
             assert headers["cross-origin-opener-policy"] == "same-origin"
             assert request(port, f"{PFB_ID}.localhost:3000", "/api/v1/home")[1].startswith(b"go:")
-            runtime_host = f"{LAUNCH_ID}.{PFB_ID}.rpg.localhost:3000"
-            assert request(port, runtime_host, "/__retrom/entry")[1].startswith(b"go:")
+            runtime_host = f"{LAUNCH_ID}.rpg.{PFB_ID}.localhost:3000"
+            status, body, headers = request(port, runtime_host, "/__retrom/entry")
+            assert status == 200 and body.startswith(b"go:")
+            assert headers["cross-origin-resource-policy"] == "cross-origin"
             assert request(port, runtime_host, "/not-runtime")[0] == 404
             assert request(port, runtime_host.replace("-7123-", "-7123-7"), "/__retrom/entry")[0] == 404
+            legacy_runtime_host = f"{LAUNCH_ID}.{PFB_ID}.rpg.localhost:3000"
+            status, body, headers = request(port, legacy_runtime_host, "/__retrom/entry")
+            assert status == 200 and body.startswith(b"go:")
+            assert headers["cross-origin-resource-policy"] == "cross-origin"
+            assert request(port, legacy_runtime_host, "/not-runtime")[0] == 404
             assert request(port, f"{PFB_ID.upper()}.localhost:3000", "/")[0] == 404
             assert request(port, "unknown-aaaaaaaaaaaa.localhost:3000", "/")[0] == 503
         finally:

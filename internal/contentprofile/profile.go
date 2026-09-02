@@ -73,6 +73,7 @@ var registry = map[string]Profile{
 	"wonderswan":   single("wonderswan", ".ws", ".wsc"),
 	"mastersystem": single("mastersystem", ".sms"),
 	"nintendo3ds":  raw("nintendo3ds", ".3ds", ".cci"),
+	"wasm4":        single("wasm4", ".wasm"),
 	"rpgmaker": {
 		PlatformID: "rpgmaker", ArchivePolicy: ArchiveProject,
 		ArchiveFormats: []ArchiveFormat{ArchiveZIP, ArchiveSevenZip}, FormatCode: "RPG_MAKER_PROJECT_V1",

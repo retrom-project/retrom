@@ -32,9 +32,11 @@ import {
   bootstrapKiriKiriPlayer,
   bootstrapOnsPlayer,
   bootstrapTyranoScriptPlayer,
+  bootstrapWASM4Player,
   isKiriKiriLaunchConfig,
   isOnsLaunchConfig,
   isTyranoScriptLaunchConfig,
+  isWASM4LaunchConfig,
   type RetromRuntimeBootstrapHost,
 } from "./player-bootstrap-retrom-runtime";
 import { createRpgRuntimeValidationDriver } from "./rpg-validation-driver-factory";
@@ -129,6 +131,10 @@ async function bootstrapPlayer(params: PlayerBootstrapParams, resources: Bootstr
   }
   if (isTyranoScriptLaunchConfig(rawConfig)) {
     await bootstrapTyranoScriptPlayer(params, resources, controller, rawConfig, retromRuntimeBootstrapHost);
+    return;
+  }
+  if (isWASM4LaunchConfig(rawConfig)) {
+    await bootstrapWASM4Player(params, resources, controller, rawConfig, retromRuntimeBootstrapHost);
     return;
   }
   if (isRetromRpgRuntimeConfig(rawConfig)) {

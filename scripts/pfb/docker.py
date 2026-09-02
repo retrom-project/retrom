@@ -15,6 +15,7 @@ from .common import atomic_text, canonical_bytes, sha256_bytes, sha256_file
 from .errors import PFBError
 from .identity import compose_project, network_alias, volume_name
 from .registry import locked_registry, save_registry
+from .source_tree import git_common_dir
 
 
 NETWORK = "retrom-pfb-gateway-v1"
@@ -159,6 +160,7 @@ def app_logs(root: Path, spec: dict[str, Any], service: str) -> int:
 
 def run_runtime_candidate_builder(root: Path, spec: dict[str, Any], output: Path) -> None:
     runtime_root = Path(spec["runtime"]["root"])
+    runtime_git_common = git_common_dir(runtime_root)
     toolchain_digest = _toolchain_digest(root)
     node_volume = volume_name(spec["id"], "runtime-node", toolchain_digest)
     _ensure_volume_owners([node_volume], os.getuid(), os.getgid())
@@ -176,6 +178,7 @@ def run_runtime_candidate_builder(root: Path, spec: dict[str, Any], output: Path
         "--env", f"npm_config_cache={runtime_root}/node_modules/.npm-cache",
         "--volume", f"{root}:{root}",
         "--volume", f"{runtime_root}:{runtime_root}",
+        "--volume", f"{runtime_git_common}:{runtime_git_common}:ro",
         "--volume", f"{node_volume}:{runtime_root}/node_modules",
         image,
     ]
@@ -274,9 +277,15 @@ def _app_environment(root: Path, spec: dict[str, Any], data_digest: str, toolcha
 
 def _minimal_app_environment(root: Path, spec: dict[str, Any]) -> dict[str, str]:
     generated = _prepare_generated_files(root)
+    formal_runtime_git = generated / "formal-runtime-git"
+    formal_runtime_git.mkdir(exist_ok=True)
+    runtime_git_common = git_common_dir(Path(spec["runtime"]["root"])) \
+        if spec["runtime"]["mode"] == "branch" else formal_runtime_git
     empty = "0" * 64
     return {
         "PFB_RETROM_ROOT": str(root),
+        "PFB_RETROM_GIT_COMMON_DIR": str(git_common_dir(root)),
+        "PFB_RUNTIME_GIT_COMMON_DIR": str(runtime_git_common),
         "PFB_NEXT_ENV_FILE": str(generated / "next-env.d.ts"),
         "PFB_TSCONFIG_FILE": str(generated / "tsconfig.json"),
         "PFB_RUNTIME_ROOT": str(root / ".pfb/formal-runtime"),

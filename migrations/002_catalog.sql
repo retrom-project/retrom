@@ -88,6 +88,7 @@ INSERT INTO platforms(id,name,sort_order,enabled,created_at_ms,updated_at_ms) VA
 INSERT INTO platforms(id,name,sort_order,enabled,created_at_ms,updated_at_ms) VALUES('saturn','Sega Saturn',180,1,0,0);
 INSERT INTO platforms(id,name,sort_order,enabled,created_at_ms,updated_at_ms) VALUES('snes','SNES',30,1,0,0);
 INSERT INTO platforms(id,name,sort_order,enabled,created_at_ms,updated_at_ms) VALUES('virtualboy','Virtual Boy',220,1,0,0);
+INSERT INTO platforms(id,name,sort_order,enabled,created_at_ms,updated_at_ms) VALUES('wasm4','WASM-4',81,1,0,0);
 INSERT INTO platforms(id,name,sort_order,enabled,created_at_ms,updated_at_ms) VALUES('wonderswan','WonderSwan / Color',230,1,0,0);
 INSERT INTO cores(id,name,enabled,created_at_ms,updated_at_ms) VALUES('a5200','Atari800 5200',1,0,0);
 INSERT INTO cores(id,name,enabled,created_at_ms,updated_at_ms) VALUES('azahar','Azahar',1,0,0);
@@ -127,6 +128,7 @@ INSERT INTO cores(id,name,enabled,created_at_ms,updated_at_ms) VALUES('prosystem
 INSERT INTO cores(id,name,enabled,created_at_ms,updated_at_ms) VALUES('smsplus','SMS Plus GX',1,0,0);
 INSERT INTO cores(id,name,enabled,created_at_ms,updated_at_ms) VALUES('snes9x','Snes9x',1,0,0);
 INSERT INTO cores(id,name,enabled,created_at_ms,updated_at_ms) VALUES('stella2014','Stella 2014',1,0,0);
+INSERT INTO cores(id,name,enabled,created_at_ms,updated_at_ms) VALUES('wasm4','WASM-4',1,0,0);
 INSERT INTO cores(id,name,enabled,created_at_ms,updated_at_ms) VALUES('yabause','Yabause',1,0,0);
 INSERT INTO cores(id,name,enabled,created_at_ms,updated_at_ms) VALUES('rpgmaker','RPG Maker',1,0,0);
 INSERT INTO cores(id,name,enabled,created_at_ms,updated_at_ms) VALUES('rpgmaker_2000','RPG Maker 2000',1,0,0);
@@ -185,4 +187,5 @@ INSERT INTO platform_cores(platform_id,core_id,enabled) VALUES('rpgmaker','rpgma
 INSERT INTO platform_cores(platform_id,core_id,enabled) VALUES('saturn','yabause',1);
 INSERT INTO platform_cores(platform_id,core_id,enabled) VALUES('snes','snes9x',1);
 INSERT INTO platform_cores(platform_id,core_id,enabled) VALUES('virtualboy','beetle_vb',1);
+INSERT INTO platform_cores(platform_id,core_id,enabled) VALUES('wasm4','wasm4',1);
 INSERT INTO platform_cores(platform_id,core_id,enabled) VALUES('wonderswan','mednafen_wswan',1);

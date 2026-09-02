@@ -3,7 +3,7 @@ import { isCsrfOriginAllowed } from "next/dist/server/app-render/csrf-protection
 import { localDevOrigins } from "./dev-origin";
 
 describe("localDevOrigins", () => {
-  it.each(["localhost", "feature-a1b2c3d4e5f6.localhost", "launch.feature-a1b2c3d4e5f6.rpg.localhost"])(
+  it.each(["localhost", "feature-a1b2c3d4e5f6.localhost", "launch.rpg.feature-a1b2c3d4e5f6.localhost"])(
     "allows localhost development resources from %s",
     (origin) => {
       expect(isCsrfOriginAllowed(origin, localDevOrigins())).toBe(true);

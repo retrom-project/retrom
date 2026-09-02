@@ -345,7 +345,7 @@ func validRPGRuntimeTemplateURL(
 		return false
 	}
 	if pfbID, ok := pfbIDFromLocalOrigin(publicOrigin); ok {
-		return parsed.Host == marker+"."+pfbID+".rpg.localhost:3000"
+		return parsed.Host == marker+".rpg."+pfbID+".localhost:3000"
 	}
 	return parsed.Hostname() == marker+".rpg.localhost" && parsed.Port() != ""
 }

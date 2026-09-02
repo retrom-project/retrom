@@ -197,7 +197,7 @@ RPG Maker 的存档与既有模拟器状态统一建模为运行时检查点。�
 
 普通开发入口 `make dev` 继续只启动宿主 Go 与 Next 进程，默认从 `http://localhost:4000` 访问，两个进程分别只监听 `127.0.0.1:8080` 与 `127.0.0.1:4000`。本机开发不依赖外部 DNS、TLS 证书或远程反向代理；生产同源 HTTPS 与 TLS 终结边界不变。普通开发与 PFB 命令都拒绝 root/sudo，全部长期运行进程或容器显式沿用发起命令的普通用户 UID/GID。
 
-需要并行验证多个功能分支时使用独立 PFB 命令族。每个 PFB 对应独立 Git worktree、应用容器、数据代际、CAS、secret、候选依赖和构建 cache，所有 PFB 共享唯一绑定 `127.0.0.1:3000` 的本机开发网关。规范应用 origin 是 `http://<pfb-id>.localhost:3000`，每 Launch runtime origin 是 `http://<launch-id>.<pfb-id>.rpg.localhost:3000`；裸 localhost只重定向到显式选中的 PFB。网关根据严格 Host映射 Docker 网络别名，不接收分支原文，不提供未知 Host fallback，也不向局域网发布端口。
+需要并行验证多个功能分支时使用独立 PFB 命令族。每个 PFB 对应独立 Git worktree、应用容器、数据代际、CAS、secret、候选依赖和构建 cache，所有 PFB 共享唯一绑定 `127.0.0.1:3000` 的本机开发网关。规范应用 origin 是 `http://<pfb-id>.localhost:3000`，每 Launch runtime origin 是 `http://<launch-id>.rpg.<pfb-id>.localhost:3000`；两者共享同一 schemeful site 以携带严格 runtime capability cookie，但仍保持逐 Launch 独立 origin。裸 localhost只重定向到显式选中的 PFB。网关根据严格 Host映射 Docker 网络别名，不接收分支原文，不提供未知 Host fallback，也不向局域网发布端口。
 
 PFB candidate 只用于 test 模式的发布前产品联调。分支 core 仍由各 fork 构建，`retrom-runtime` 聚合，Retrom 只消费聚合候选；候选锁记录 source/output 摘要并参与数据代际，不能进入正式 manifest、release-input digest、生产镜像或 tag workflow。正式晋升仍按 core Release、runtime Release、Retrom 正式 pin 的顺序进行，并以解除 candidate 后重跑同一产品 Case 为准。
 
@@ -284,7 +284,7 @@ erDiagram
 
 ## 6. 平台、核心与推荐游戏目录
 
-空库 migration 只写入下表的基础平台与启用关系，最终保持零 PlatformInstance。管理员在管理页显式点击“一键创建推荐目录”后，服务按 `internal/platformcatalog` 中的 31 个 Platform/Core 模板创建当前缺失项，其中 RPG Maker 只有 `rpgmaker/rpgmaker` 一个虚拟核心目录，GameMaker 只有 `butterscotch/butterscotch` 一个目录；管理员之后仍可创建、重命名、换核心、停用或软删除空目录。推荐模板不定义 slug 或扩展名：slug 由服务端生成，扩展名只由基础平台的 `contentprofile` 决定。
+空库 migration 只写入下表的基础平台与启用关系，最终保持零 PlatformInstance。管理员在管理页显式点击“一键创建推荐目录”后，服务按 `internal/platformcatalog` 中的 33 个 Platform/Core 模板创建当前缺失项，其中 RPG Maker 只有 `rpgmaker/rpgmaker` 一个虚拟核心目录，GameMaker 只有 `butterscotch/butterscotch` 一个目录，WASM-4 只有 `wasm4/wasm4` 一个目录；管理员之后仍可创建、重命名、换核心、停用或软删除空目录。推荐模板不定义 slug 或扩展名：slug 由服务端生成，扩展名只由基础平台的 `contentprofile` 决定。
 
 | 基础平台（稳定 code） | 启用核心 | 推荐目录 → 默认核心 | 备注 |
 | --- | --- | --- | --- |
@@ -314,6 +314,7 @@ erDiagram
 | Master System (`mastersystem`) | `smsplus` | Master System 游戏 → `smsplus` | `.sms`；本期只建立 Master System 映射 |
 | Nintendo 3DS (`nintendo3ds`) | `azahar` | Nintendo 3DS 游戏 → `azahar` | `.3ds` / `.cci`；4.3.0-pre thread、pointer、WebGL2 |
 | RPG Maker (`rpgmaker`) | 用户核心 `rpgmaker`；七个内部世代 core | RPG Maker 项目 → 服务端检测世代 → 对应内部 route | 一个推荐目录；歧义或未知世代拒绝，不暴露底层 adapter |
+| WASM-4 (`wasm4`) | `wasm4` | WASM-4 游戏 → `wasm4` | raw `.wasm` cart，1–65,536 bytes；独立 `WASM4_WEB` runtime，不接受 archive wrapper |
 
 平台和核心是代码种子/版本化配置；推荐目录是 release 代码 catalog，真正的游戏目录仍是管理员创建、重命名和调整默认核心的业务实体。catalog key 只记录模板接管/抑制状态，不把目录变成不可编辑 seed。游戏目录不是标签或多对多收藏集。
 

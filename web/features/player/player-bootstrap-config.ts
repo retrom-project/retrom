@@ -3,6 +3,7 @@ import type { OnsLaunchConfig } from "./ons-runtime";
 import type { KiriKiriLaunchConfig } from "./kirikiri-runtime";
 import type { ButterscotchLaunchConfig } from "./butterscotch-runtime";
 import type { TyranoScriptLaunchConfig } from "./tyranoscript-runtime";
+import type { WASM4LaunchConfig } from "./wasm4-runtime";
 import type { RpgRuntimeConfig } from "./rpg-runtime";
 import { readBoundedResponse } from "./player-shell-model";
 import type { PlayerDebugRuntime } from "./player-chrome";
@@ -66,6 +67,20 @@ export function tyranoScriptShellConfig(config: TyranoScriptLaunchConfig): Playe
   };
 }
 
+export function wasm4ShellConfig(config: WASM4LaunchConfig): PlayerConfig {
+  return {
+    mode: "single", launchId: config.launchId, emulatorjsVersion: config.runtimeVersion,
+    playerAdapterId: config.adapter.adapterId, core: config.coreId, runtimeCore: config.coreId,
+    coreName: config.coreName, coreArtifactId: config.artifactId, emulatorGameId: 0,
+    gameName: config.launchId, gameTitle: config.gameTitle, platformName: config.platformName,
+    runtimeBaseUrl: config.adapter.runtimeBaseUrl, loaderUrl: "", gameUrl: config.adapter.cartUrl,
+    biosUrl: null, parentUrl: null, stateUrl: config.checkpoint?.payloadUrl ?? null,
+    inputMode: "STANDARD", startupActions: [], requiresThreads: false, runtimePathOverrides: {},
+    defaultCoreOptions: {}, externalFiles: {}, discSet: null, dosEntry: null, warnings: config.warnings,
+    returnTo: config.returnTo, netplay: null,
+  };
+}
+
 export function rpgShellConfig(config: RpgRuntimeConfig, runtime: RpgRuntimeDescription): PlayerConfig {
   return {
     mode: "single", launchId: config.launchId, emulatorjsVersion: config.routeKey,
@@ -103,6 +118,10 @@ export async function fetchButterscotchCheckpoint(config: ButterscotchLaunchConf
 
 export async function fetchTyranoScriptCheckpoint(config: TyranoScriptLaunchConfig, signal: AbortSignal) {
   return fetchCheckpoint(config.checkpoint?.payloadUrl, 32 * 1024 * 1024, signal);
+}
+
+export async function fetchWASM4Checkpoint(config: WASM4LaunchConfig, signal: AbortSignal) {
+  return fetchCheckpoint(config.checkpoint?.payloadUrl, 132144, signal);
 }
 
 export async function fetchRpgCheckpoint(config: RpgRuntimeConfig, signal: AbortSignal) {

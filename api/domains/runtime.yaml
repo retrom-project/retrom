@@ -459,6 +459,7 @@ components:
         - $ref: '#/components/schemas/KiriKiriLaunchConfig'
         - $ref: '#/components/schemas/ButterscotchLaunchConfig'
         - $ref: '#/components/schemas/TyranoScriptLaunchConfig'
+        - $ref: '#/components/schemas/WASM4LaunchConfig'
       discriminator:
         propertyName: runtimeFamily
         mapping:
@@ -468,6 +469,7 @@ components:
           KIRIKIRI: '#/components/schemas/KiriKiriLaunchConfig'
           BUTTERSCOTCH: '#/components/schemas/ButterscotchLaunchConfig'
           TYRANOSCRIPT: '#/components/schemas/TyranoScriptLaunchConfig'
+          WASM4: '#/components/schemas/WASM4LaunchConfig'
     EmulatorJSLaunchConfig:
       type: object
       additionalProperties: false
@@ -1521,6 +1523,138 @@ components:
           nullable: true
           allOf:
             - $ref: '#/components/schemas/TyranoScriptCheckpointRestore'
+        reviewPreview:
+          $ref: '#/components/schemas/ReviewPreviewConfig'
+    WASM4AdapterConfig:
+      type: object
+      additionalProperties: false
+      required:
+        - adapterKind
+        - adapterId
+        - cartUrl
+        - runtimeBaseUrl
+      properties:
+        adapterKind:
+          type: string
+          enum:
+            - WASM4_WEB
+        adapterId:
+          type: string
+          enum:
+            - wasm4-web
+        cartUrl:
+          type: string
+          pattern: ^/runtime/content/game/[0-9a-f]{64}/[^/?#]+$
+        runtimeBaseUrl:
+          type: string
+          pattern: ^/runtime/retrom-runtime/[^/?#]+/$
+    WASM4CheckpointRestore:
+      type: object
+      additionalProperties: false
+      required:
+        - payloadKind
+        - payloadUrl
+      properties:
+        payloadKind:
+          type: string
+          enum:
+            - RUNTIME_STATE
+        payloadUrl:
+          type: string
+          pattern: ^/runtime/launches/[0-9a-f-]{36}/state$
+    WASM4LaunchConfig:
+      type: object
+      additionalProperties: false
+      required:
+        - runtimeFamily
+        - protocolVersion
+        - mode
+        - purpose
+        - launchId
+        - sessionId
+        - coreId
+        - coreName
+        - gameTitle
+        - platformName
+        - runtimeVersion
+        - artifactId
+        - contentDigest
+        - cartSizeBytes
+        - returnTo
+        - warnings
+        - adapter
+        - checkpoint
+      properties:
+        runtimeFamily:
+          type: string
+          enum:
+            - WASM4
+        protocolVersion:
+          type: integer
+          enum:
+            - 1
+        mode:
+          type: string
+          enum:
+            - single
+        purpose:
+          type: string
+          enum:
+            - PRODUCT
+            - REVIEW_PREVIEW
+        launchId:
+          type: string
+          format: uuid
+        sessionId:
+          type: string
+          format: uuid
+        coreId:
+          type: string
+          enum:
+            - wasm4
+        coreName:
+          type: string
+          minLength: 1
+          maxLength: 200
+        gameTitle:
+          type: string
+          minLength: 1
+          maxLength: 500
+        platformName:
+          type: string
+          enum:
+            - WASM-4
+        runtimeVersion:
+          type: string
+          minLength: 1
+          maxLength: 160
+        artifactId:
+          type: string
+          format: uuid
+        contentDigest:
+          type: string
+          pattern: ^[0-9a-f]{64}$
+        cartSizeBytes:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 65536
+        returnTo:
+          type: string
+          minLength: 1
+          maxLength: 2048
+        warnings:
+          type: array
+          maxItems: 16
+          items:
+            type: string
+            maxLength: 200
+        adapter:
+          $ref: '#/components/schemas/WASM4AdapterConfig'
+        checkpoint:
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/WASM4CheckpointRestore'
         reviewPreview:
           $ref: '#/components/schemas/ReviewPreviewConfig'
     RpgRuntimeGatePhase:

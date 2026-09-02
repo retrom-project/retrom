@@ -169,6 +169,13 @@ func (configuration Config) MarshalJSON() ([]byte, error) {
 		}
 		return contents, nil
 	}
+	if configuration.WASM4 != nil {
+		contents, err := json.Marshal(configuration.WASM4)
+		if err != nil {
+			return nil, fmt.Errorf("marshal WASM-4 launch config: %w", err)
+		}
+		return contents, nil
+	}
 	type plainConfig Config
 	contents, err := json.Marshal(plainConfig(configuration))
 	if err != nil {
@@ -223,6 +230,13 @@ WHERE launch.id=? AND artifact.available_for_launch=1
 			return Config{}, err
 		}
 		return Config{RuntimeFamily: "TYRANOSCRIPT", TyranoScript: &tyranoScript}, nil
+	}
+	if family == "WASM4" {
+		wasm4, err := service.wasm4ProductConfig(ctx, launchID, capability)
+		if err != nil {
+			return Config{}, err
+		}
+		return Config{RuntimeFamily: "WASM4", WASM4: &wasm4}, nil
 	}
 	return Config{}, ErrCredential
 }
