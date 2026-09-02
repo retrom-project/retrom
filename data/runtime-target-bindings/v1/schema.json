@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://retrom.dev/schema/runtime-target-bindings/v1/schema.json",
+  "title": "Retrom Runtime Target Binding Catalog V1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "catalogVersion", "bindings"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "catalogVersion": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
+    "bindings": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/binding" }
+    }
+  },
+  "$defs": {
+    "binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id", "coreId", "providerId", "targetId", "platformIds", "acceptedContentKinds",
+        "detectorProfile", "deliveryProfile", "launchPolicy", "reviewPolicy"
+      ],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" },
+        "coreId": { "type": "string", "pattern": "^[a-z0-9]+(?:[_-][a-z0-9]+)*$" },
+        "providerId": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" },
+        "targetId": { "type": "string", "pattern": "^[a-z0-9]+(?:[_-][a-z0-9]+)*$" },
+        "platformIds": {
+          "type": "array", "minItems": 1, "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^[a-z0-9]+(?:[_-][a-z0-9]+)*$" }
+        },
+        "acceptedContentKinds": {
+          "type": "array", "minItems": 1, "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]{1,63}$" }
+        },
+        "detectorProfile": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]{1,63}$" },
+        "deliveryProfile": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]{1,63}$" },
+        "launchPolicy": { "enum": ["SUPPORTED", "EXPERIMENTAL", "DISABLED"] },
+        "reviewPolicy": { "enum": ["NONE", "RPG_RUNTIME_VALIDATION_V1"] }
+      }
+    }
+  }
+}

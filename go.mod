@@ -4,6 +4,7 @@ go 1.26.5
 
 require (
 	github.com/coder/websocket v1.8.15
+	github.com/dlclark/regexp2 v1.11.4
 	github.com/getkin/kin-openapi v0.142.0
 	github.com/google/uuid v1.6.0
 	github.com/mozillazg/go-pinyin v0.21.0
