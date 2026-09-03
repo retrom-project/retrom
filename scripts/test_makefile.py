@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import tempfile
 import unittest
@@ -295,6 +296,8 @@ class MakefileDependencyTests(unittest.TestCase):
             marker = candidate / "providers" / "provider-build.json"
             marker.parent.mkdir(parents=True)
             marker.write_text("{}\n", encoding="utf-8")
+            environment = os.environ.copy()
+            environment.pop("RETROM_PROVIDER_CANDIDATE_ROOT", None)
             output = subprocess.run(
                 [
                     "make", "--no-print-directory", "--dry-run", "dev",
@@ -303,6 +306,7 @@ class MakefileDependencyTests(unittest.TestCase):
                 cwd=REPOSITORY_ROOT,
                 check=True,
                 capture_output=True,
+                env=environment,
                 text=True,
             ).stdout
         self.assertIn(f'--candidate-root "{candidate}"', output)
