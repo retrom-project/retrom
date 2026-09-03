@@ -16,6 +16,7 @@ import (
 	"retrom/internal/cleanup"
 	"retrom/internal/kirikiri/detector"
 	onsdetection "retrom/internal/ons/detector"
+	rpgvalidation "retrom/internal/rpgmaker/validation"
 	retromruntime "retrom/internal/runtime"
 	"retrom/internal/runtimebundle"
 	"retrom/internal/runtimecatalog"
@@ -195,10 +196,6 @@ func (service *Service) providerEnvelope(
 	if err != nil {
 		return Config{}, err
 	}
-	options, err := providerTargetOptions(target.OptionsKind, source)
-	if err != nil {
-		return Config{}, err
-	}
 	restore, _, err := service.providerRestore(ctx, sessionID, source, target)
 	if err != nil {
 		return Config{}, err
@@ -212,14 +209,23 @@ func (service *Service) providerEnvelope(
 		purpose = "RUNTIME_VALIDATION"
 	}
 	validation := any(nil)
+	var expectedRestorePosition *rpgvalidation.Position
 	if purpose == "RUNTIME_VALIDATION" {
 		resume, resumeErr := service.providerValidationResume(ctx, sessionID, source)
+		if resumeErr != nil {
+			return Config{}, resumeErr
+		}
+		expectedRestorePosition, resumeErr = providerExpectedRestorePosition(sessionID, resume)
 		if resumeErr != nil {
 			return Config{}, resumeErr
 		}
 		validation = map[string]any{"probeId": "rpgmaker.position.v1", "input": map[string]any{
 			"generation": source.generation, "resume": resume,
 		}}
+	}
+	options, err := providerTargetOptions(target.OptionsKind, source, expectedRestorePosition)
+	if err != nil {
+		return Config{}, err
 	}
 	contents, err := service.runtimeBuilder.Build(runtimelaunch.Input{
 		Binding: runtimecatalog.Binding{
@@ -309,7 +315,40 @@ func providerWarnings(source providerConfigSource) []string {
 	return warnings
 }
 
-func providerTargetOptions(kind string, source providerConfigSource) (map[string]any, error) {
+func providerExpectedRestorePosition(
+	launchID string,
+	resume providerValidationResume,
+) (*rpgvalidation.Position, error) {
+	if resume.RestoreLaunchID == nil || *resume.RestoreLaunchID != launchID {
+		return nil, nil
+	}
+	for _, encoded := range resume.MachineGates {
+		var gate struct {
+			Gate     string          `json:"gate"`
+			Status   string          `json:"status"`
+			Evidence json.RawMessage `json:"evidence"`
+		}
+		if json.Unmarshal(encoded, &gate) != nil || gate.Gate != "SAVE_POINT_RECORDED" || gate.Status != "PASSED" {
+			continue
+		}
+		var shape map[string]json.RawMessage
+		var position rpgvalidation.Position
+		if json.Unmarshal(gate.Evidence, &shape) != nil || len(shape) != 4 ||
+			shape["mapId"] == nil || shape["playerX"] == nil || shape["playerY"] == nil ||
+			shape["fixtureState"] == nil || json.Unmarshal(gate.Evidence, &position) != nil ||
+			position.MapID < 0 || position.PlayerX < 0 || position.PlayerY < 0 || position.FixtureState < 0 {
+			return nil, ErrCredential
+		}
+		return &position, nil
+	}
+	return nil, ErrCredential
+}
+
+func providerTargetOptions(
+	kind string,
+	source providerConfigSource,
+	expectedRestorePosition *rpgvalidation.Position,
+) (map[string]any, error) {
 	switch kind {
 	case "NONE_V1":
 		return map[string]any{"kind": kind}, nil
@@ -324,7 +363,14 @@ func providerTargetOptions(kind string, source providerConfigSource) (map[string
 		}
 		return map[string]any{"kind": kind, "dosEntryPath": dos, "initialDiscIndex": disc}, nil
 	case "RPGMAKER_V1":
-		return map[string]any{"kind": kind, "expectedRestorePosition": nil}, nil
+		var expected any
+		if expectedRestorePosition != nil {
+			expected = map[string]any{
+				"mapId": expectedRestorePosition.MapID, "playerX": expectedRestorePosition.PlayerX,
+				"playerY": expectedRestorePosition.PlayerY, "fixtureState": expectedRestorePosition.FixtureState,
+			}
+		}
+		return map[string]any{"kind": kind, "expectedRestorePosition": expected}, nil
 	case "ONS_PROJECT_V1":
 		profile, err := onsdetection.ParseSnapshot(source.dependencyJSON)
 		if err != nil {
@@ -424,6 +470,12 @@ func (service *Service) providerGameResource(
 	switch kind {
 	case "FILE_TREE_V1":
 		return service.providerFileTreeResource(ctx, sessionID, capability, kind)
+	case "SEEKABLE_BLOB_V1":
+		identity, err := service.ProjectContentIdentity(ctx, sessionID, capability)
+		if err != nil {
+			return nil, err
+		}
+		return providerSeekableProjectResource(identity, files)
 	case "NATIVE_WEB_V1", "ISOLATED_WEB_V1":
 		return service.providerWebResource(ctx, sessionID, capability, source, kind)
 	}
@@ -505,6 +557,30 @@ func providerBlobResource(
 	return map[string]any{
 		"kind": kind, "url": url, "sha256": selected.digest, "sizeBytes": selected.size,
 		"rangeRequired": kind == "SEEKABLE_BLOB_V1",
+	}, nil
+}
+
+func providerSeekableProjectResource(
+	projectIdentity string,
+	files []lockedProviderFile,
+) (map[string]any, error) {
+	selected := lockedProviderFile{}
+	for _, file := range files {
+		if file.logicalName == rpgMKXPArchiveName {
+			selected = file
+			break
+		}
+	}
+	if selected.logicalName == "" || selected.size < 1 || !validContentDigest(selected.digest) {
+		return nil, ErrCredential
+	}
+	root, err := RuntimeProjectContentRoot(projectIdentity)
+	if err != nil {
+		return nil, err
+	}
+	return map[string]any{
+		"kind": "SEEKABLE_BLOB_V1", "url": root + rpgMKXPArchivePublicName,
+		"sha256": selected.digest, "sizeBytes": selected.size, "rangeRequired": true,
 	}, nil
 }
 

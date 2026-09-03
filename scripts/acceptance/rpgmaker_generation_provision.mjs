@@ -448,6 +448,7 @@ async function openPlayer(context, playerUrl) {
   const exceptionTasks = [];
   const networkRequests = [];
   const projectRequests = [];
+  const runtimeDiagnostics = [];
   let resolveFatalError;
   const fatalError = new Promise((resolvePromise) => { resolveFatalError = resolvePromise; });
   const cdp = await context.newCDPSession(page);
@@ -508,14 +509,23 @@ async function openPlayer(context, playerUrl) {
   page.__retromConsoleDiagnostics = consoleDiagnostics;
   page.__retromNetworkRequests = networkRequests;
   page.__retromProjectRequests = projectRequests;
+  page.__retromRuntimeDiagnostics = runtimeDiagnostics;
+  await page.exposeBinding("__retromCaptureRuntimeDiagnostic", (_source, detail) => {
+    if (!detail || typeof detail.code !== "string" || typeof detail.message !== "string") { return; }
+    runtimeDiagnostics.push({
+      code: detail.code.slice(0, 128), message: detail.message.slice(0, 1_000),
+    });
+    if (runtimeDiagnostics.length > 100) { runtimeDiagnostics.splice(0, runtimeDiagnostics.length - 100); }
+  });
   await page.addInitScript(() => {
     window.__retromRuntimeDiagnostics = [];
     window.addEventListener("retrom:runtime-diagnostic", (event) => {
       const detail = event instanceof CustomEvent ? event.detail : null;
-      if (!detail || typeof detail.runtime !== "string" || typeof detail.message !== "string") { return; }
+      if (!detail || typeof detail.code !== "string" || typeof detail.message !== "string") { return; }
       window.__retromRuntimeDiagnostics.push({
-        runtime: detail.runtime.slice(0, 80), message: detail.message.slice(0, 1_000),
+        code: detail.code.slice(0, 128), message: detail.message.slice(0, 1_000),
       });
+      void window.__retromCaptureRuntimeDiagnostic?.(detail);
       if (window.__retromRuntimeDiagnostics.length > 100) {
         window.__retromRuntimeDiagnostics.splice(0, window.__retromRuntimeDiagnostics.length - 100);
       }
@@ -557,8 +567,7 @@ async function runtimeAction(page, label, keys, timeout = 120_000) {
     ]);
   } catch {
     await Promise.allSettled(page.__retromExceptionTasks ?? []);
-    const runtimeDiagnostics = await page.evaluate(() =>
-      (window.__retromRuntimeDiagnostics ?? []).slice(-20)).catch(() => []);
+    const runtimeDiagnostics = (page.__retromRuntimeDiagnostics ?? []).slice(-20);
     const diagnostics = {
       alerts: (await page.getByRole("alert").allInnerTexts()).map(trimDiagnostic).slice(0, 5),
       consoleDiagnostics: (page.__retromConsoleDiagnostics ?? []).slice(-30),
@@ -568,7 +577,7 @@ async function runtimeAction(page, label, keys, timeout = 120_000) {
       pageErrors: (page.__retromPageErrors ?? []).map(trimDiagnostic).slice(0, 5),
       projectRequests: (page.__retromProjectRequests ?? []).slice(-30),
       runtimeDiagnostics: runtimeDiagnostics.map((value) => ({
-        runtime: trimDiagnostic(value.runtime).slice(0, 80), message: trimDiagnostic(value.message),
+        code: trimDiagnostic(value.code).slice(0, 128), message: trimDiagnostic(value.message),
       })),
       statuses: (await page.getByRole("status").allInnerTexts()).map(trimDiagnostic).slice(0, 10),
     };

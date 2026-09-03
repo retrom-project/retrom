@@ -102,7 +102,14 @@ func (server *Server) launchProjectFile(writer http.ResponseWriter, request *htt
 		// generated index remains reserved internally, so uploads cannot replace it.
 		logicalName = "__retrom__/index.json"
 	}
-	content, err := server.launcher.Content(request.Context(), launchID, grant.Capability, logicalName)
+	contentLogicalName := logicalName
+	if logicalName == "game.mkxpz" {
+		contentLogicalName = "__retrom__/game.mkxpz"
+	}
+	content, err := server.launcher.Content(request.Context(), launchID, grant.Capability, contentLogicalName)
+	if err != nil && contentLogicalName != logicalName {
+		content, err = server.launcher.Content(request.Context(), launchID, grant.Capability, logicalName)
+	}
 	if err != nil {
 		content, err = server.launcher.ReviewPreviewProjectContent(
 			request.Context(), launchID, grant.Capability, logicalName,

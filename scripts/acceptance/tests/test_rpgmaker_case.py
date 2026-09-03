@@ -404,6 +404,10 @@ class EvidenceContractTests(unittest.TestCase):
         self.assertIn('page.addInitScript(() => {', source)
         self.assertIn('window.addEventListener("retrom:runtime-diagnostic"', source)
         self.assertIn("window.__retromRuntimeDiagnostics.length > 100", source)
+        self.assertIn('page.exposeBinding("__retromCaptureRuntimeDiagnostic"', source)
+        self.assertIn("page.__retromRuntimeDiagnostics = runtimeDiagnostics", source)
+        self.assertIn('typeof detail.code !== "string"', source)
+        self.assertIn("code: trimDiagnostic(value.code)", source)
         self.assertIn("runtimeDiagnostics: runtimeDiagnostics.map", source)
         self.assertIn('page.on("console", (message)', source)
         self.assertIn("page.__retromConsoleDiagnostics = consoleDiagnostics", source)
@@ -665,6 +669,12 @@ class EvidenceContractTests(unittest.TestCase):
             )
             rpgmaker.validate_restore_visual(evidence, marker, rgb)
             self.assertEqual(hashlib.sha256(visible.read_bytes()).hexdigest(), evidence["sha256"])
+            undersized = root / "undersized.png"
+            undersized.write_bytes(test_png(300, 150, rgb))
+            with self.assertRaisesRegex(rpgmaker.ContractError, "RESTORE_SCREENSHOT_PNG_INVALID"):
+                rpgmaker.png_visual_evidence(
+                    undersized, "screenshots/undersized.png", marker, rgb,
+                )
             black = root / "black.png"
             black.write_bytes(test_png(320, 180, [0, 0, 0], solid=True))
             black_evidence = rpgmaker.png_visual_evidence(
