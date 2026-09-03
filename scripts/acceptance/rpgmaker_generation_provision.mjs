@@ -444,14 +444,33 @@ async function openPlayer(context, playerUrl) {
   const page = await context.newPage();
   const consoleDiagnostics = [];
   const errors = [];
+  const exceptionDiagnostics = [];
+  const exceptionTasks = [];
+  const networkRequests = [];
   const projectRequests = [];
+  let resolveFatalError;
+  const fatalError = new Promise((resolvePromise) => { resolveFatalError = resolvePromise; });
+  const cdp = await context.newCDPSession(page);
+  await cdp.send("Runtime.enable");
+  cdp.on("Runtime.exceptionThrown", ({ exceptionDetails }) => {
+    const task = collectRuntimeException(cdp, exceptionDetails).then((diagnostic) => {
+      exceptionDiagnostics.push(diagnostic);
+      if (exceptionDiagnostics.length > 100) {
+        exceptionDiagnostics.splice(0, exceptionDiagnostics.length - 100);
+      }
+    });
+    exceptionTasks.push(task);
+  });
   page.on("console", (message) => {
     const text = message.text();
     if (!text.trim()) { return; }
     consoleDiagnostics.push({ type: message.type(), message: trimDiagnostic(text) });
     if (consoleDiagnostics.length > 100) { consoleDiagnostics.splice(0, consoleDiagnostics.length - 100); }
   });
-  page.on("pageerror", (error) => errors.push(error.stack || error.message));
+  page.on("pageerror", (error) => {
+    errors.push(error.stack || error.message);
+    resolveFatalError(error);
+  });
   page.on("request", (request) => {
     if (!request.url().includes("/runtime/content/project/")) { return; }
     projectRequests.push({
@@ -460,6 +479,10 @@ async function openPlayer(context, playerUrl) {
     });
   });
   page.on("response", (response) => {
+    networkRequests.push({
+      method: response.request().method(), url: safeStackUrl(response.url()), status: response.status(),
+    });
+    if (networkRequests.length > 500) { networkRequests.splice(0, networkRequests.length - 500); }
     if (!response.url().includes("/runtime/content/project/")) { return; }
     const match = [...projectRequests].reverse().find((item) =>
       item.method === response.request().method() && item.responseStatus === null && item.failure === null);
@@ -468,13 +491,22 @@ async function openPlayer(context, playerUrl) {
     match.contentRange = response.headers()["content-range"] ?? null;
   });
   page.on("requestfailed", (request) => {
+    networkRequests.push({
+      method: request.method(), url: safeStackUrl(request.url()),
+      failure: trimDiagnostic(request.failure()?.errorText ?? "unknown"),
+    });
+    if (networkRequests.length > 500) { networkRequests.splice(0, networkRequests.length - 500); }
     if (!request.url().includes("/runtime/content/project/")) { return; }
     const match = [...projectRequests].reverse().find((item) =>
       item.method === request.method() && item.responseStatus === null && item.failure === null);
     if (match) { match.failure = trimDiagnostic(request.failure()?.errorText ?? "unknown"); }
   });
   page.__retromPageErrors = errors;
+  page.__retromFatalError = fatalError;
+  page.__retromExceptionTasks = exceptionTasks;
+  page.__retromExceptionDiagnostics = exceptionDiagnostics;
   page.__retromConsoleDiagnostics = consoleDiagnostics;
+  page.__retromNetworkRequests = networkRequests;
   page.__retromProjectRequests = projectRequests;
   await page.addInitScript(() => {
     window.__retromRuntimeDiagnostics = [];
@@ -512,6 +544,7 @@ async function assertLaunchCookie(context, launchId) {
 
 async function runtimeAction(page, label, keys, timeout = 120_000) {
   const button = page.getByRole("button", { name: label, exact: true });
+  const fatalError = page.__retromFatalError;
   const runtimeFailure = page.getByRole("alert")
     .filter({ hasText: /\b(?:RPG|RUNTIME)_[A-Z0-9_]+\b/u }).first();
   try {
@@ -520,14 +553,18 @@ async function runtimeAction(page, label, keys, timeout = 120_000) {
       runtimeFailure.waitFor({ state: "visible", timeout }).then(() => {
         throw new Error("RPG_PROVISION_RUNTIME_FAILED");
       }),
+      fatalError.then(() => { throw new Error("RPG_PROVISION_PAGE_ERROR"); }),
     ]);
   } catch {
+    await Promise.allSettled(page.__retromExceptionTasks ?? []);
     const runtimeDiagnostics = await page.evaluate(() =>
       (window.__retromRuntimeDiagnostics ?? []).slice(-20)).catch(() => []);
     const diagnostics = {
       alerts: (await page.getByRole("alert").allInnerTexts()).map(trimDiagnostic).slice(0, 5),
       consoleDiagnostics: (page.__retromConsoleDiagnostics ?? []).slice(-30),
+      exceptionDiagnostics: (page.__retromExceptionDiagnostics ?? []).slice(-20),
       loading: (await page.locator(".player-loading").allInnerTexts()).map(trimDiagnostic).slice(0, 3),
+      networkRequests: (page.__retromNetworkRequests ?? []).slice(-100),
       pageErrors: (page.__retromPageErrors ?? []).map(trimDiagnostic).slice(0, 5),
       projectRequests: (page.__retromProjectRequests ?? []).slice(-30),
       runtimeDiagnostics: runtimeDiagnostics.map((value) => ({
@@ -550,6 +587,54 @@ async function runtimeAction(page, label, keys, timeout = 120_000) {
 
 function trimDiagnostic(value) {
   return String(value).trim().slice(0, 600);
+}
+
+async function collectRuntimeException(cdp, details) {
+  const objectId = details.exception?.objectId;
+  let ownProperties = [];
+  if (objectId) {
+    const result = await cdp.send("Runtime.getProperties", {
+      objectId, ownProperties: true, accessorPropertiesOnly: false, generatePreview: true,
+    }).catch(() => ({ result: [] }));
+    ownProperties = result.result ?? [];
+  }
+  return safeRuntimeException(details, ownProperties);
+}
+
+function safeRuntimeException(details, ownProperties = []) {
+  const frames = details.stackTrace?.callFrames ?? [];
+  const properties = [
+    ...(details.exception?.preview?.properties ?? []),
+    ...ownProperties.map((property) => ({
+      name: property.name,
+      type: property.value?.type,
+      value: property.value?.value ?? property.value?.description,
+    })),
+  ];
+  return {
+    text: trimDiagnostic(details.text).slice(0, 240),
+    description: trimDiagnostic(details.exception?.description),
+    properties: properties.slice(0, 16).map((property) => ({
+      name: String(property.name ?? "").slice(0, 80),
+      type: String(property.type ?? "").slice(0, 40),
+      value: String(property.value ?? "").slice(0, 240),
+    })),
+    frames: frames.slice(0, 8).map((frame) => ({
+      functionName: String(frame.functionName ?? "").slice(0, 160),
+      url: safeStackUrl(frame.url),
+      lineNumber: frame.lineNumber,
+      columnNumber: frame.columnNumber,
+    })),
+  };
+}
+
+function safeStackUrl(value) {
+  try {
+    const url = new URL(value);
+    return `${url.origin}${url.pathname}`;
+  } catch {
+    return "";
+  }
 }
 
 async function focusRuntimeCanvas(page) {
