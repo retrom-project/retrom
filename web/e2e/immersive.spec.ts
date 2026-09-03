@@ -202,8 +202,9 @@ async function openPlayerMenu(page: Page) {
 }
 
 async function pressMenuChord(page: Page, releaseMs: number) {
-  await setGamepadButtons(page, 0, [standardButton.select]);
-  await page.waitForTimeout(40);
+  // Inject both edges in one browser task. Splitting them across two
+  // Playwright calls lets a loaded CI host stretch the intended 40ms gap past
+  // the product's 100ms chord window, turning valid input into test flakiness.
   await setGamepadButtons(page, 0, [standardButton.select, standardButton.start]);
   await page.waitForTimeout(100);
   await setGamepadButtons(page, 0, []);
