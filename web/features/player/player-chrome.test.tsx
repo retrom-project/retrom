@@ -226,7 +226,7 @@ describe("PlayerChrome", () => {
     expect(values.onToggleDebug).toHaveBeenCalledTimes(2);
   });
 
-  it("shows only stable Provider identity in ordinary diagnostics", () => {
+  it("hides Provider implementation identity from ordinary RPG Maker diagnostics", () => {
     render(<PlayerChrome {...props({
       coreName: "RPG Maker XP",
       debugOpen: true,
@@ -240,8 +240,11 @@ describe("PlayerChrome", () => {
 
     const panel = screen.getByRole("complementary", { name: "运行调试信息" });
     expect(within(panel).getByText("RPG Maker XP")).toBeVisible();
-    expect(within(panel).getByText("retrom-runtime")).toBeVisible();
-    expect(within(panel).getByText("0.12.0")).toBeVisible();
+    expect(within(panel).queryByText("retrom-runtime")).not.toBeInTheDocument();
+    expect(within(panel).queryByText("rpgmaker-xp")).not.toBeInTheDocument();
+    expect(within(panel).queryByText("0.12.0")).not.toBeInTheDocument();
+    expect(within(panel).getByText("浏览器运行")).toBeVisible();
+    expect(within(panel).queryByText(/^Contract/u)).not.toBeInTheDocument();
   });
 
   it("identifies a standalone ONS Target by Provider identity", () => {

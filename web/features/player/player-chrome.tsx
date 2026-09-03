@@ -297,16 +297,20 @@ function PlayerToolbar(props: ToolbarProps) {
 
 function PlayerDebugPanel({ open, metrics, runtime, runtimeState, paused, netplayPaused, coreName, playerNo, discSet, discState, onClose }: { open: boolean; metrics: PlayerDebugMetrics | null; runtime: PlayerDebugRuntime; runtimeState: "loading" | "running" | "error"; paused: boolean; netplayPaused: boolean; coreName: string; playerNo: number | null; discSet: PlayerDiscSet | null; discState: RuntimeDiscStateV1 | null; onClose: () => void }) {
   const runningLabel = runtimeState === "running" ? paused || netplayPaused ? "暂停" : "运行中" : runtimeState === "loading" ? "加载中" : "错误";
-  const contractFooter = <footer title={runtime.targetContractSha256}>Contract · {runtime.targetContractSha256 || "等待配置"}</footer>;
-  return <aside id="player-debug-panel" className={`player-debug-panel${open ? " is-open" : ""}`} aria-label="运行调试信息" aria-hidden={!open}><header><div><span>实时运行诊断</span><h2>调试信息</h2></div><button type="button" className="player-debug-close" aria-label="关闭调试信息面板" disabled={!open} onClick={onClose}><AppIcon name="x" /></button></header><LiveDebug metrics={metrics} runningLabel={runningLabel} /><RuntimeDebug runtime={runtime} coreName={coreName} playerNo={playerNo} /><DisplayDebug metrics={metrics} discSet={discSet} discState={discState} />{contractFooter}</aside>;
+  const ordinaryRpgMaker = coreName === "RPG Maker" || coreName.startsWith("RPG Maker ");
+  const contractFooter = ordinaryRpgMaker ? null : <footer title={runtime.targetContractSha256}>Contract · {runtime.targetContractSha256 || "等待配置"}</footer>;
+  return <aside id="player-debug-panel" className={`player-debug-panel${open ? " is-open" : ""}`} aria-label="运行调试信息" aria-hidden={!open}><header><div><span>实时运行诊断</span><h2>调试信息</h2></div><button type="button" className="player-debug-close" aria-label="关闭调试信息面板" disabled={!open} onClick={onClose}><AppIcon name="x" /></button></header><LiveDebug metrics={metrics} runningLabel={runningLabel} /><RuntimeDebug runtime={runtime} coreName={coreName} playerNo={playerNo} ordinaryRpgMaker={ordinaryRpgMaker} /><DisplayDebug metrics={metrics} discSet={discSet} discState={discState} />{contractFooter}</aside>;
 }
 
 function LiveDebug({ metrics, runningLabel }: { metrics: PlayerDebugMetrics | null; runningLabel: string }) {
   return <section><h3>实时</h3><dl><div><dt>帧率</dt><dd>{metrics?.fps === null || metrics?.fps === undefined ? "采样中…" : `${metrics.fps.toFixed(1)} FPS`}</dd></div><div><dt>核心帧计数</dt><dd>{metrics?.frameCount === null || metrics?.frameCount === undefined ? "不可用" : metrics.frameCount.toLocaleString("en-US")}</dd></div><div><dt>运行状态</dt><dd>{runningLabel}</dd></div><div><dt>游戏分辨率</dt><dd>{metrics?.canvasWidth && metrics.canvasHeight ? `${metrics.canvasWidth} × ${metrics.canvasHeight}` : "等待画面"}</dd></div></dl></section>;
 }
 
-function RuntimeDebug({ runtime, coreName, playerNo }: { runtime: PlayerDebugRuntime; coreName: string; playerNo: number | null }) {
-  return <section><h3>运行环境</h3><dl><div><dt>Target</dt><dd title={runtime.targetId}>{coreName || runtime.targetId || "—"}</dd></div><div><dt>Provider</dt><dd>{runtime.providerId || "—"}</dd></div><div><dt>版本</dt><dd>{runtime.providerVersion || "—"}</dd></div><div><dt>隔离能力</dt><dd>{runtime.crossOriginIsolated && runtime.sharedArrayBuffer ? "COOP/COEP + SAB" : "未完整启用"}</dd></div><div><dt>Player 模式</dt><dd>{playerNo === null ? "单机" : `联机 · P${playerNo}`}</dd></div></dl></section>;
+function RuntimeDebug({ runtime, coreName, playerNo, ordinaryRpgMaker }: { runtime: PlayerDebugRuntime; coreName: string; playerNo: number | null; ordinaryRpgMaker: boolean }) {
+  const identity = ordinaryRpgMaker
+    ? <><div><dt>运行核心</dt><dd>{coreName || "RPG Maker"}</dd></div><div><dt>运行类型</dt><dd>浏览器运行</dd></div></>
+    : <><div><dt>Target</dt><dd title={runtime.targetId}>{coreName || runtime.targetId || "—"}</dd></div><div><dt>Provider</dt><dd>{runtime.providerId || "—"}</dd></div><div><dt>版本</dt><dd>{runtime.providerVersion || "—"}</dd></div></>;
+  return <section><h3>运行环境</h3><dl>{identity}<div><dt>隔离能力</dt><dd>{runtime.crossOriginIsolated && runtime.sharedArrayBuffer ? "COOP/COEP + SAB" : "未完整启用"}</dd></div><div><dt>Player 模式</dt><dd>{playerNo === null ? "单机" : `联机 · P${playerNo}`}</dd></div></dl></section>;
 }
 
 function DisplayDebug({ metrics, discSet, discState }: { metrics: PlayerDebugMetrics | null; discSet: PlayerDiscSet | null; discState: RuntimeDiscStateV1 | null }) {
