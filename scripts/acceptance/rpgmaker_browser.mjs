@@ -230,6 +230,7 @@ async function generationCase(context, writeHeaders) {
   }
   await page.getByRole("button", { name: "关闭调试信息面板" }).click();
   await diagnostics.waitFor({ state: "hidden" });
+  await page.getByRole("button", { name: "继续游戏" }).click();
   await page.waitForTimeout(500);
   await page.screenshot({ path: join(screenshotDir, `${caseId.toLowerCase()}-product-player.png`), fullPage: true });
   progress("first-launch-screenshot");
