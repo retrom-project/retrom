@@ -512,8 +512,14 @@ type approvalValidationDigestInput struct {
 
 func approvalValidationInputDigest(input approvalValidationDigestInput) (string, error) {
 	if !input.SnapshotValid {
-		validationDigest := sha256.Sum256([]byte(input.ValidationID))
-		return hex.EncodeToString(validationDigest[:]), nil
+		if input.ContentKind != contentcapability.ModeRPGMakerProjectV1 {
+			validationDigest := sha256.Sum256([]byte(input.ValidationID))
+			return hex.EncodeToString(validationDigest[:]), nil
+		}
+		input.Snapshot = corevalidation.Snapshot{
+			SchemaVersion: corevalidation.SnapshotSchemaVersion,
+			BIOS:          []corevalidation.BIOSDependency{},
+		}
 	}
 	if input.ContentKind != multidisc.ContentKind {
 		digest, err := corevalidation.ProviderValidationInputDigest(
