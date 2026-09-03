@@ -358,12 +358,12 @@ async function assertNoPlayerErrors(
   await Promise.allSettled(runtimeExceptionTasks);
   if (!pageErrors.length && !runtimeExceptions.length) {return;}
   const details = [
-    ...pageErrors.slice(0, 5),
-    ...runtimeExceptions.slice(0, 5).map((value) => JSON.stringify(value)),
-    ...consoleDiagnostics.slice(-10),
-    ...failedResponses.slice(-10),
-    ...networkResponses.slice(-100).map((value) => JSON.stringify(value)),
-  ].map((value) => value.slice(0, 1_200)).join(" | ");
+    ...pageErrors.slice(0, 5).map((value) => value.slice(0, 1_200)),
+    ...runtimeExceptions.slice(0, 5).map((value) => JSON.stringify(value).slice(0, 6_000)),
+    ...consoleDiagnostics.slice(-10).map((value) => value.slice(0, 1_200)),
+    ...failedResponses.slice(-10).map((value) => value.slice(0, 1_200)),
+    ...networkResponses.slice(-100).map((value) => JSON.stringify(value).slice(0, 1_200)),
+  ].join(" | ");
   throw new Error(`RPG_ACCEPTANCE_PLAYER_PAGE_ERROR:${details}`);
 }
 
@@ -458,16 +458,26 @@ async function revealProductToolbar(page) {
 async function collectRuntimeException(cdp, details) {
   const objectId = details.exception?.objectId;
   let ownProperties = [];
+  let runtimeStack = "";
   if (objectId) {
-    const result = await cdp.send("Runtime.getProperties", {
-      objectId, ownProperties: true, accessorPropertiesOnly: false, generatePreview: true,
-    }).catch(() => ({ result: [] }));
-    ownProperties = result.result ?? [];
+    const [properties, stack] = await Promise.all([
+      cdp.send("Runtime.getProperties", {
+        objectId, ownProperties: true, accessorPropertiesOnly: false, generatePreview: true,
+      }).catch(() => ({ result: [] })),
+      cdp.send("Runtime.callFunctionOn", {
+        objectId,
+        functionDeclaration: "function () { return typeof this.stack === 'string' ? this.stack : ''; }",
+        returnByValue: true,
+        silent: true,
+      }).catch(() => ({ result: { value: "" } })),
+    ]);
+    ownProperties = properties.result ?? [];
+    runtimeStack = stack.result?.value ?? "";
   }
-  return safeRuntimeException(details, ownProperties);
+  return safeRuntimeException(details, ownProperties, runtimeStack);
 }
 
-function safeRuntimeException(details, ownProperties = []) {
+function safeRuntimeException(details, ownProperties = [], runtimeStack = "") {
   const frames = details.stackTrace?.callFrames ?? [];
   const properties = [
     ...(details.exception?.preview?.properties ?? []),
@@ -480,6 +490,7 @@ function safeRuntimeException(details, ownProperties = []) {
   return {
     text: String(details.text ?? "").slice(0, 240),
     description: String(details.exception?.description ?? "").slice(0, 600),
+    stack: String(runtimeStack ?? "").slice(0, 2_400),
     properties: properties.slice(0, 16).map((property) => ({
       name: String(property.name ?? "").slice(0, 80),
       type: String(property.type ?? "").slice(0, 40),
