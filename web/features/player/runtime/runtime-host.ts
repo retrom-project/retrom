@@ -89,12 +89,18 @@ function frameSource(envelope: LaunchEnvelopeV1, resourceRole: string | null) {
     return {cleanupUrl: null, origin: location.origin, url: "about:blank"};
   }
   if (mode === "NONE" || mode === "SAME_ORIGIN_BLANK" || resourceRole === null) {frameError();}
-  const expectedKind = mode === "SAME_ORIGIN_RESOURCE" ? "NATIVE_WEB_V1" : "ISOLATED_WEB_V1";
   const resource = envelope.resources.find((entry) => entry.role === resourceRole && entry.ordinal === 0);
-  if (!resource || resource.kind !== expectedKind || !validWebResource(resource)) {frameError();}
+  if (!resource || !validWebResource(resource) || !resourceKindMatchesFrameMode(mode, resource.kind)) {frameError();}
   if (mode === "SAME_ORIGIN_RESOURCE" && resource.origin !== location.origin) {frameError();}
   if (mode === "ISOLATED_ORIGIN_RESOURCE" && resource.origin === location.origin) {frameError();}
   return {cleanupUrl: resource.cleanupUrl, origin: resource.origin, url: resource.entryUrl};
+}
+
+function resourceKindMatchesFrameMode(
+  mode: "SAME_ORIGIN_RESOURCE" | "ISOLATED_ORIGIN_RESOURCE",
+  kind: "NATIVE_WEB_V1" | "ISOLATED_WEB_V1",
+) {
+  return kind === "NATIVE_WEB_V1" || mode === "ISOLATED_ORIGIN_RESOURCE";
 }
 
 function validWebResource(resource: RuntimeResourceV1): resource is Extract<RuntimeResourceV1, {

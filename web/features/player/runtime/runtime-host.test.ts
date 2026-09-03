@@ -60,6 +60,24 @@ describe("RuntimeHostV1", () => {
       .rejects.toThrow("PLAYER_RUNTIME_FRAME_INVALID");
   });
 
+  it("mounts native web content on its declared isolated origin", async () => {
+    const input = envelope();
+    input.runtime.capabilities.frameMode = "ISOLATED_ORIGIN_RESOURCE";
+    input.resources = [{
+      bootstrapTicket: "t".repeat(48), cleanupUrl: null,
+      contentDigest: "c".repeat(64), entryUrl: "https://runtime.example.test/entry",
+      kind: "NATIVE_WEB_V1", ordinal: 0, origin: "https://runtime.example.test", role: "game",
+    }];
+    const target = document.createElement("div");
+    document.body.append(target);
+
+    const mounted = await createRuntimeHost(input, new AbortController().signal)
+      .mountFrame(target, {resourceRole: "game"});
+
+    expect(mounted.element.src).toBe("https://runtime.example.test/entry");
+    expect(mounted.origin).toBe("https://runtime.example.test");
+  });
+
   it("loads only same-origin restore bytes with exact size and digest", async () => {
     const bytes = new Uint8Array([1, 2, 3]);
     const fetcher = vi.fn(async () => new Response(bytes));

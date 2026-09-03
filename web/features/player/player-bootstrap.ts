@@ -9,6 +9,7 @@ import {NetplayController} from "./netplay/controller";
 import {parseNetplayProfile, type NetplayProfile} from "./netplay/controller-model";
 import {mobilePlayerQuery, portraitPlayerQuery, reducePlayerOrientation, waitForStableLandscape, type PlayerOrientationState, type PlayerRuntimeKind} from "./orientation";
 import {useSerializedPlayerBootstrap} from "./player-bootstrap-lifecycle";
+import {productCheckpointPresentation} from "./player-checkpoint-availability";
 import type {PlayerDebugRuntime} from "./player-chrome";
 import type {PlayerLoadProgress} from "./player-loading";
 import {RpgRuntimeValidationDriver} from "./rpg-runtime-validation";
@@ -215,7 +216,7 @@ async function completeSingleStart(params: PlayerBootstrapParams, validating: bo
   params.setState("running");
   const availability = params.runtime.current?.getCheckpointAvailability() ?? {available: false, reason: "UNSUPPORTED"};
   const canSave = !validating && availability.available;
-  updateCheckpointAvailability(params, canSave, availability.reason);
+  updateCheckpointAvailability(params, canSave);
   params.setSyncText(validating ? "运行验证进行中" : canSave ? "可创建存档" : "当前场景暂不可存档");
   params.setSyncTone(validating ? "busy" : canSave ? "synced" : "warning");
   params.heartbeat.current = window.setInterval(() => {void params.sendEvent("heartbeat");}, 30_000);
@@ -275,7 +276,7 @@ function handleRuntimeEvent(event: RuntimeEventV1, params: PlayerBootstrapParams
   }
   if (event.type === "CHECKPOINT_AVAILABILITY_CHANGED" &&
     params.envelope.current?.session.purpose !== "RUNTIME_VALIDATION") {
-    updateCheckpointAvailability(params, event.availability.available, event.availability.reason);
+    updateCheckpointAvailability(params, event.availability.available);
     return;
   }
   if (event.type === "DISC_CHANGED") {params.setDiscState(event.state); return;}
@@ -286,12 +287,13 @@ function handleRuntimeEvent(event: RuntimeEventV1, params: PlayerBootstrapParams
   }
 }
 
-function updateCheckpointAvailability(params: PlayerBootstrapParams, available: boolean, reason: string | null) {
+function updateCheckpointAvailability(params: PlayerBootstrapParams, available: boolean) {
   params.manualSaveAvailableRef.current = available;
   params.setManualSaveAvailable(available);
-  if (!available && reason && params.envelope.current?.session.purpose === "PRODUCT") {
-    params.setSyncText("当前场景暂不可存档");
-    params.setSyncTone("warning");
+  if (params.envelope.current?.session.purpose === "PRODUCT") {
+    const presentation = productCheckpointPresentation(available);
+    params.setSyncText(presentation.text);
+    params.setSyncTone(presentation.tone);
   }
 }
 
