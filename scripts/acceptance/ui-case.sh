@@ -2,8 +2,8 @@
 set -euo pipefail
 
 case_id="${1:-}"
-if [[ ! "$case_id" =~ ^(ACC-UI-(00[1-9]|010)|ACC-RUN-(00[2346789]|01[012])|ACC-SAVE-002|ACC-FAV-00[34]|ACC-TAG-005|ACC-BIOS-00[67]|ACC-PEG-00[56]|ACC-ES-00[56]|ACC-IMM-(00[1-9]|01[01])|ACC-MEDIA-001|ACC-STOR-001|ACC-NP-(01[456789]|02[012]))$ ]]; then
-  echo "usage: ui-case.sh ACC-UI-001..010|ACC-RUN-002..004|ACC-RUN-006..012|ACC-SAVE-002|ACC-FAV-003|ACC-FAV-004|ACC-TAG-005|ACC-BIOS-006|ACC-BIOS-007|ACC-PEG-005|ACC-PEG-006|ACC-ES-005|ACC-ES-006|ACC-IMM-001..011|ACC-MEDIA-001|ACC-STOR-001|ACC-NP-014..022" >&2
+if [[ ! "$case_id" =~ ^(ACC-UI-(00[1-9]|010)|ACC-RUN-(00[2346789]|01[012])|ACC-SAVE-002|ACC-FAV-00[34]|ACC-TAG-005|ACC-BIOS-00[67]|ACC-PEG-00[56]|ACC-ES-00[56]|ACC-IMM-(00[1-9]|01[01])|ACC-MOB-00[5-7]|ACC-MEDIA-001|ACC-STOR-001|ACC-NP-(01[456789]|02[012]))$ ]]; then
+  echo "usage: ui-case.sh ACC-UI-001..010|ACC-RUN-002..004|ACC-RUN-006..012|ACC-SAVE-002|ACC-FAV-003|ACC-FAV-004|ACC-TAG-005|ACC-BIOS-006|ACC-BIOS-007|ACC-PEG-005|ACC-PEG-006|ACC-ES-005|ACC-ES-006|ACC-IMM-001..011|ACC-MOB-005..007|ACC-MEDIA-001|ACC-STOR-001|ACC-NP-014..022" >&2
   exit 2
 fi
 
@@ -287,13 +287,23 @@ fi
 if [[ "$case_id" =~ ^ACC-NP-(01[456789]|02[012])$ ]]; then
   specification="e2e/netplay.spec.ts"
 fi
+if [[ "$case_id" =~ ^ACC-MOB-00[5-7]$ ]]; then
+  specification="e2e/mobile.spec.ts"
+fi
 playwright_grep="$case_id"
 if [[ "$case_id" == "ACC-UI-010" ]]; then
   # ACC-UI-008 performs the stateful draft/decision setup consumed by 010.
   playwright_grep="ACC-UI-008|ACC-UI-010"
 fi
-playwright_args=(playwright test "$specification" --grep "$playwright_grep")
-if [[ "$case_id" != "ACC-UI-005" && "$case_id" != "ACC-UI-006" && "$case_id" != "ACC-UI-009" && "$case_id" != "ACC-FAV-004" && "$case_id" != "ACC-BIOS-006" && "$case_id" != "ACC-PEG-005" && "$case_id" != "ACC-ES-005" && "$case_id" != "ACC-IMM-007" && "$case_id" != "ACC-MEDIA-001" && "$case_id" != "ACC-STOR-001" ]]; then
+specifications=("$specification")
+if [[ "$case_id" == "ACC-MOB-007" ]]; then
+  specifications=("e2e/mobile.spec.ts" "e2e/acceptance.spec.ts" "e2e/immersive.spec.ts")
+  playwright_grep="ACC-MOB-007|ACC-UI-005|ACC-UI-006|ACC-UI-007|ACC-IMM-007"
+fi
+playwright_args=(playwright test "${specifications[@]}" --grep "$playwright_grep")
+if [[ "$case_id" =~ ^ACC-MOB-00[56]$ ]]; then
+  playwright_args+=(--project=chrome-mobile)
+elif [[ "$case_id" != "ACC-UI-005" && "$case_id" != "ACC-UI-006" && "$case_id" != "ACC-UI-009" && "$case_id" != "ACC-FAV-004" && "$case_id" != "ACC-BIOS-006" && "$case_id" != "ACC-PEG-005" && "$case_id" != "ACC-ES-005" && "$case_id" != "ACC-IMM-007" && "$case_id" != "ACC-MOB-007" && "$case_id" != "ACC-MEDIA-001" && "$case_id" != "ACC-STOR-001" ]]; then
   playwright_args+=(--project=chrome-1280)
 else
   playwright_args+=(--workers=1)

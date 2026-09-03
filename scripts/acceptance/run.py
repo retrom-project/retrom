@@ -339,6 +339,21 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
         "-run 'TestContentIdentityUsesBytesAndDOSProjection|TestBundleIdentityIsOrderIndependentAndBindsEveryMember|TestRuntimeContentURLRejectsUnsafeOrNonCanonicalInputs|TestLaunchContentGrantCookieHasRestrictedBrowserScope|TestRuntimeContentGrantsRejectMalformedDuplicateAndUnboundedCookies|TestGameCoverReplacementRetiresOldPayloadAndStagesCapacity|TestGameDetailReturnsCoreValidationChoicesAndDOSPrograms' -count=1 && "
         "go test -tags=integration ./internal/httpapi -run '^TestRuntimeContentIsPrivateImmutableRevalidatesAndRevokes$' -count=1",
     ),
+    "ACC-MOB-005": (
+        180,
+        "scripts/acceptance/ui-case.sh ACC-MOB-005 && "
+        ".cache/tools/node-v24.18.0-linux-x64/bin/npm --prefix web test -- --run "
+        "features/player/orientation.test.ts features/player/player-session.test.tsx",
+    ),
+    "ACC-MOB-006": (
+        240,
+        "scripts/acceptance/ui-case.sh ACC-MOB-006 && "
+        ".cache/tools/node-v24.18.0-linux-x64/bin/npm --prefix web test -- --run "
+        "features/player/orientation.test.ts features/player/player-actions.test.ts "
+        "features/player/player-chrome.test.tsx features/player/runtime/runtime-actions.test.ts && "
+        "scripts/acceptance/provider-case.sh ACC-PROVIDER-007",
+    ),
+    "ACC-MOB-007": (180, "scripts/acceptance/ui-case.sh ACC-MOB-007"),
     "ACC-MEDIA-001": (
         240,
         "go test ./internal/mediaasset ./internal/httpapi -run 'TestInspect|TestGameDetailReturnsCoreValidationChoicesAndDOSPrograms' -count=1 && scripts/acceptance/ui-case.sh ACC-MEDIA-001",

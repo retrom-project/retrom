@@ -52,7 +52,7 @@
 .kpi.amber .kpi-accent { background: var(--amber); }
 .kpi.slate .kpi-accent { background: #718096; }
 .kpi strong { font-size: 34px; line-height: 1; }
-.kpi p { margin: 24px 0 0; color: #7c8596; font-size: 12px; }
+.kpi p { margin: 24px 0 0; color: var(--muted); font-size: 12px; }
 .filter-bar { margin-bottom: 18px; padding: 14px; display: grid; gap: 12px; border: 1px solid var(--line); border-radius: 13px; background: white; }
 .filter-controls { display: flex; flex-wrap: wrap; align-items: end; gap: 10px; }
 .filter-primary-row,

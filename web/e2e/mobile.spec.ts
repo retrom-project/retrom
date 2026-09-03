@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import axe from "axe-core";
-import { expectHomeCoverRatios, expectNoTextArrowsInInteractiveControls } from "./acceptance-support";
+import { evidencePath, expectHomeCoverRatios, expectNoTextArrowsInInteractiveControls } from "./acceptance-support";
 
 declare global {
   interface Window {
@@ -203,7 +203,7 @@ test("ACC-MOB-005 portrait Player validates config before it creates a frame or 
     }
 
     if (await handle.getAttribute("aria-pressed") === "true") {await handle.click();}
-    await handle.click();
+    if (await handle.getAttribute("aria-pressed") !== "true") {await handle.click();}
     await expect(handle).toHaveAttribute("aria-pressed", "true");
     const more = page.getByRole("button", { name: "更多操作" });
     await expect(more).toBeVisible();
@@ -218,5 +218,95 @@ test("ACC-MOB-005 portrait Player validates config before it creates a frame or 
     const settings = page.getByRole("region", { name: "模拟器设置工具栏" });
     await expect(settings).toBeVisible();
     await settings.getByRole("button", { name: "收起" }).click();
+  }
+});
+
+test("ACC-MOB-006 landscape Player HUD, sheets and input ownership stay bounded", async ({ page }, testInfo) => {
+  test.setTimeout(180_000);
+  await page.setViewportSize({ width: 568, height: 320 });
+  const games = await page.request.get("/api/v1/games?limit=100");
+  const game = (await games.json() as { items: Array<{ gameId: string; title: string }> }).items.find((item) => item.title === "Sudoku");
+  test.skip(!game, "The launchable acceptance fixture has not been imported.");
+  const auth = await login(page);
+  const launch = await page.request.post("/api/v1/launches", {
+    headers: { Origin: origin, "X-Retrom-Csrf": auth.csrfToken, "Idempotency-Key": crypto.randomUUID() },
+    data: {
+      gameId: game!.gameId, coreId: null, saveStateId: null, dosEntry: null, returnTo: `/games/${game!.gameId}`,
+      clientCapabilities: { secureContext: true, crossOriginIsolated: true, sharedArrayBuffer: true },
+    },
+  });
+  expect(launch.status()).toBe(201);
+  await page.goto((await launch.json() as { playUrl: string }).playUrl);
+  await expect(page.frameLocator("iframe.player-frame").locator("canvas.ejs_canvas")).toBeVisible({ timeout: 60_000 });
+
+  for (const viewport of [
+    { width: 568, height: 320 },
+    { width: 667, height: 375 },
+    { width: 844, height: 390 },
+    { width: 932, height: 430 },
+  ]) {
+    await page.setViewportSize(viewport);
+    await expectNoDocumentOverflow(page);
+    const handle = page.getByRole("button", { name: /Player 控制栏/ });
+    await expect(handle).toBeVisible();
+    const handleBounds = await handle.boundingBox();
+    expect(handleBounds?.width).toBeGreaterThanOrEqual(44);
+    expect(handleBounds?.height).toBeGreaterThanOrEqual(44);
+    if (await handle.getAttribute("aria-pressed") !== "true") {await handle.click();}
+    await expect(handle).toHaveAttribute("aria-pressed", "true");
+    const toolbarHeight = await page.locator(".player-toolbar").evaluate((element) => element.getBoundingClientRect().height);
+    expect(toolbarHeight).toBe(48);
+    const more = page.getByRole("button", { name: "更多操作" });
+    await expect(more).toBeInViewport();
+    await more.click();
+    const menu = page.getByRole("menu", { name: "Player 更多操作" });
+    const menuBounds = await menu.boundingBox();
+    expect(menuBounds?.y).toBeLessThanOrEqual(1);
+    expect(menuBounds?.height).toBeGreaterThanOrEqual(viewport.height - 1);
+    await page.keyboard.press("Escape");
+    await expect(menu).toHaveCount(0);
+    await page.screenshot({ path: evidencePath(testInfo, `player-${viewport.width}x${viewport.height}.png`) });
+  }
+});
+
+test("ACC-MOB-007 current mobile, desktop and accessibility baselines remain explicit", async ({ page, context }, testInfo) => {
+  test.setTimeout(180_000);
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  const session = await context.newCDPSession(page);
+  await session.send("Emulation.setSafeAreaInsetsOverride", {
+    insets: { top: 12, right: 8, bottom: 24, left: 8 },
+  });
+  try {
+    for (const viewport of [
+      { width: 320, height: 568 },
+      { width: 360, height: 800 },
+      { width: 390, height: 844 },
+      { width: 412, height: 915 },
+      { width: 768, height: 1024 },
+      { width: 1024, height: 768 },
+    ]) {
+      await page.setViewportSize(viewport);
+      for (const route of ["/library", "/admin/imports"] as const) {
+        await page.goto(route);
+        await page.addStyleTag({ content: "html { font-size: 200% !important; }" });
+        await expect(page.locator("main").first()).toBeVisible();
+        await expectNoDocumentOverflow(page);
+        await page.evaluate(axe.source);
+        const serious = await page.evaluate(async () => {
+          const result = await window.axe.run(document, { runOnly: { type: "tag", values: ["wcag2a", "wcag2aa"] } });
+          return result.violations.filter((violation) => violation.impact === "serious" || violation.impact === "critical");
+        });
+        expect(serious).toEqual([]);
+        await page.keyboard.press("Tab");
+        await expect(page.locator(":focus")).toBeVisible();
+      }
+      await page.screenshot({
+        path: evidencePath(testInfo, `responsive-${viewport.width}x${viewport.height}.png`),
+        fullPage: true,
+      });
+    }
+  } finally {
+    await session.send("Emulation.setSafeAreaInsetsOverride", { insets: {} });
+    await session.detach();
   }
 });
