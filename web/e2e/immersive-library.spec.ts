@@ -172,8 +172,8 @@ async function openPlayerMenu(page: Page) {
 }
 
 async function pressMenuChord(page: Page, releaseMs: number) {
-  await setGamepadButtons(page, 0, [standardButton.select]);
-  await page.waitForTimeout(40);
+  // Keep the chord inside one browser task so host scheduling cannot widen a
+  // synthetic inter-button gap beyond the product's 100ms chord window.
   await setGamepadButtons(page, 0, [standardButton.select, standardButton.start]);
   await page.waitForTimeout(100);
   await setGamepadButtons(page, 0, []);
