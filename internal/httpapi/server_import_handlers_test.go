@@ -51,7 +51,7 @@ func TestServerImportHTTPRootBoundaryAuthorizationAndIdempotency(t *testing.T) {
 		time.Now,
 	)
 	t.Cleanup(server.serverImports.Close)
-	seedHTTPTestCoreArtifact(t, server.database, "server-http-artifact", "mgba", "data/server-http.js", strings.Repeat("0", 64), "{}")
+	requireHTTPTestRuntimeTarget(t, server.database, "mgba")
 	target, err := testsupport.LookupRuntimeTarget(t.Context(), server.database, "mgba")
 	if err != nil {
 		t.Fatal(err)

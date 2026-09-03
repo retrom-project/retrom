@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 
 	"retrom/internal/testassert"
@@ -16,7 +15,7 @@ import (
 func TestBIOSFullCatalogCursorTraverses286Items(t *testing.T) {
 	t.Parallel()
 	server := newTestServer(t)
-	seedHTTPTestCoreArtifact(t, server.database, "bios-page-artifact", "mgba", "data/paging.js", strings.Repeat("0", 64), "{}")
+	requireHTTPTestRuntimeTarget(t, server.database, "mgba")
 	target, err := testsupport.LookupRuntimeTarget(t.Context(), server.database, "mgba")
 	testassert.False(t, err != nil, err)
 	transaction, err := server.database.BeginTx(context.Background(), nil)

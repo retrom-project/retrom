@@ -240,8 +240,7 @@ func seedImmersivePlay(
 	transaction, err := server.database.BeginTx(context.Background(), nil)
 	testassert.False(t, err != nil, err)
 	defer cleanup.Rollback(transaction)
-	artifactID := "01980000-0000-7000-8000-00000000fa01"
-	seedHTTPTestCoreArtifact(t, transaction, artifactID, "mgba", "data/cores/mgba-test.data", strings.Repeat("a", 64), "{}")
+	requireHTTPTestRuntimeTarget(t, transaction, "mgba")
 	target, err := testsupport.LookupRuntimeTarget(t.Context(), transaction, "mgba")
 	testassert.False(t, err != nil, err)
 	variantID, revisionID, launchID, playID := uuid.NewString(), uuid.NewString(), uuid.NewString(), uuid.NewString()

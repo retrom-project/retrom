@@ -178,7 +178,6 @@ func TestBIOSArchiveEntriesProjectLockedDATAndPersistedZIPFacts(t *testing.T) {
 	t.Parallel()
 	server := newTestServer(t)
 	const (
-		artifactID     = "01980000-0000-7000-8000-000000000201"
 		datVersionID   = "01980000-0000-7000-8000-000000000202"
 		requirementID  = "01980000-0000-7000-8000-000000000203"
 		blobID         = "01980000-0000-7000-8000-000000000204"
@@ -188,7 +187,7 @@ func TestBIOSArchiveEntriesProjectLockedDATAndPersistedZIPFacts(t *testing.T) {
 	transaction, err := server.database.BeginTx(context.Background(), nil)
 	testassert.False(t, err != nil, err)
 	defer cleanup.Rollback(transaction)
-	seedHTTPTestCoreArtifact(t, transaction, artifactID, "mame2003_plus", "data/cores/mame2003_plus-test.data", strings.Repeat("a", 64), "{}")
+	requireHTTPTestRuntimeTarget(t, transaction, "mame2003_plus")
 	target, err := testsupport.LookupRuntimeTarget(t.Context(), transaction, "mame2003_plus")
 	testassert.False(t, err != nil, err)
 	mustExecHTTPTest(t, transaction, `
