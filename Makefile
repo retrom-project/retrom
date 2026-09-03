@@ -52,7 +52,8 @@ export PLAYWRIGHT_BROWSERS_PATH
 export RETROM_CHROME_EXECUTABLE
 
 GO_PACKAGES := ./cmd/... ./internal/... ./migrations/...
-API_OPENAPI_SOURCES := api/openapi.yaml $(sort $(wildcard api/domains/*.yaml api/components/*.yaml))
+API_OPENAPI_SOURCES := api/openapi.yaml api/runtime-provider/v1/launch-envelope.schema.json \
+	$(sort $(wildcard api/domains/*.yaml api/components/*.yaml))
 API_CODEGEN_CONFIGS := $(sort $(wildcard api/codegen/*.yaml))
 API_BUNDLE := .cache/generated/openapi.bundle.yaml
 API_GO_GENERATED := internal/httpapi/generated/models.gen.go internal/httpapi/generated/server.gen.go internal/httpapi/generated/spec.gen.go

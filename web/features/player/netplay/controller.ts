@@ -581,7 +581,7 @@ export class NetplayController {
 
   private handleFailure(error: unknown) {
     if (this.stopped) {return;}
-    const message = error instanceof Error ? error.message : "INTERNAL_ERROR";
+    const message = error instanceof Error ? error.message : "INTERNAL_ERROR"; this.diagnostics?.onFailure?.(message);
     if (message === "NETPLAY_SOCKET_UNAVAILABLE") {
       this.handleTransportLoss();
       return;

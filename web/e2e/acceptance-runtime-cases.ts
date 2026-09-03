@@ -2,7 +2,7 @@ import { expect, test, type Page, type TestInfo } from "@playwright/test";
 import { currentEmulatorBrightRatio, evidencePath, noPageOverflow } from "./acceptance-support";
 import { verifyCompactFeaturedHome, verifyMobileSavedFeaturedHome } from "./acceptance-user-layout";
 import {
-  runtimeFrameCount, runtimeResource, runtimeResourceURL, runtimeResourceURLs,
+  exitRuntimePlayer, runtimeFrameCount, runtimeResource, runtimeResourceURL, runtimeResourceURLs,
   type RuntimeEnvelope,
 } from "./runtime-provider-support";
 
@@ -95,7 +95,8 @@ function registerRun002(): void {
     await expect(debugPanel.getByText(/^\d+\.\d FPS$/)).toBeVisible({ timeout: 5_000 });
     await expect(debugPanel.getByText("emulatorjs", { exact: true })).toBeVisible();
     await expect(debugPanel.getByText(configuration.runtime.providerVersion, { exact: true })).toBeVisible();
-    await expect(debugPanel.getByText("mgba", { exact: true })).toBeVisible();
+    expect(configuration.session.coreName).toBe("mGBA");
+    await expect(debugPanel.getByText(configuration.session.coreName, { exact: true })).toBeVisible();
     await expect(debugPanel.getByText("运行中", { exact: true })).toBeVisible();
     await expect(page.locator(".player-pause-overlay")).not.toHaveClass(/is-visible/);
     await page.screenshot({ path: evidencePath(testInfo, "player-debug.png"), fullPage: true });
@@ -266,7 +267,7 @@ async function verifyPublicArcadeSmoke(
   const configuration = await (await configResponse).json() as RuntimeEnvelope;
   expect(configuration).toMatchObject({
     schemaVersion: 1,
-    session: {purpose: "PRODUCT", mode: "SINGLE"},
+    session: {purpose: "PRODUCT", mode: "SINGLE", coreName: expectation.coreName},
     runtime: {providerId: "emulatorjs", providerApiVersion: 1, targetId: expectation.core},
     restore: null,
   });
@@ -307,6 +308,7 @@ async function verifyPublicArcadeSmoke(
   expect(runtimeFailures).toEqual([]);
   expect(pageErrors).toEqual([]);
   await page.screenshot({ path: evidencePath(testInfo, expectation.screenshotName), fullPage: true });
+  await exitRuntimePlayer(page);
 }
 
 async function verifyPersistedArcadeSchemaV2Launch(
@@ -441,6 +443,7 @@ function registerSave002(): void {
     const saved = await savedResponse.json() as { saveStateId: string };
     await expect(page.locator(".player-save-upload-progress")).toBeHidden({ timeout: 5_000 });
   
+    await exitRuntimePlayer(page);
     await page.goto(detailURL);
     const freshConfigResponse = page.waitForResponse((response) =>
       /\/runtime\/launches\/[^/]+\/config$/.test(response.url()) && response.status() === 200);
@@ -449,6 +452,7 @@ function registerSave002(): void {
     expect(freshConfig.restore).toBeNull();
     await expect(page.locator(".player-loading")).toBeHidden({ timeout: 60_000 });
   
+    await exitRuntimePlayer(page);
     await page.goto(detailURL);
     const detailResumeConfigResponse = page.waitForResponse((response) =>
       /\/runtime\/launches\/[^/]+\/config$/.test(response.url()) && response.status() === 200);
@@ -457,6 +461,7 @@ function registerSave002(): void {
     const detailResumeConfig = await (await detailResumeConfigResponse).json() as RuntimeEnvelope;
     expect(detailResumeConfig.restore?.url).toMatch(/\/runtime\/launches\/[^/]+\/state$/);
     await expect(page.locator(".player-loading")).toBeHidden({ timeout: 60_000 });
+    await exitRuntimePlayer(page);
     await page.goto("/saves");
     await expect(page.getByRole("heading", { name: "最近保存" })).toBeVisible();
     await expect(page.getByRole("region", { name: "筛选存档" })).toBeVisible();
@@ -479,6 +484,7 @@ function registerSave002(): void {
       /\/runtime\/launches\/[^/]+\/save-states$/.test(response.url()) && response.request().method() === "POST");
     await page.locator(".player-save-button").click();
     expect((await latestSaveResponse).status()).toBe(201);
+    await exitRuntimePlayer(page);
     await page.goto("/recent");
     await expect(page.getByRole("region", { name: "游玩统计" })).toBeVisible();
     await expect(page.getByRole("region", { name: "筛选最近游玩" })).toBeVisible();

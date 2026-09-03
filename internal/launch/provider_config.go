@@ -67,6 +67,7 @@ type providerConfigSource struct {
 	gameLine       string
 	bundleDigest   string
 	coreID         string
+	coreName       string
 	delivery       string
 	purpose        string
 	title          string
@@ -111,7 +112,7 @@ func (service *Service) productConfigSource(ctx context.Context, launchID string
 	err := service.database.QueryRowContext(ctx, `
 SELECT launch.credential_sha256,launch.state,launch.provider_id,launch.target_id,
  launch.target_contract_sha256,launch.game_compatibility_line,launch.bundle_sha256,
- variant.core_id,binding.delivery_profile,launch.purpose,metadata.title,platform.name,launch.return_to,
+ variant.core_id,core.name,binding.delivery_profile,launch.purpose,metadata.title,platform.name,launch.return_to,
  content.content_kind,revision.dependency_snapshot_json,revision.compatibility_code,launch.game_variant_revision_id,
  launch.save_state_id,launch.dos_entry_path,launch.rpgmaker_runtime_validation_id,
  launch.netplay_session_id,launch.netplay_player_no,session.room_id,session.profile_json,
@@ -120,6 +121,7 @@ SELECT launch.credential_sha256,launch.state,launch.provider_id,launch.target_id
 FROM launch_sessions launch
 JOIN game_variant_revisions revision ON revision.id=launch.game_variant_revision_id
 JOIN game_variants variant ON variant.id=revision.game_variant_id
+JOIN cores core ON core.id=variant.core_id
 JOIN game_content_revisions content ON content.id=launch.game_content_revision_id
 JOIN games game ON game.id=launch.game_id
 JOIN game_metadata_revisions metadata ON metadata.id=game.current_metadata_revision_id
@@ -132,7 +134,7 @@ WHERE launch.id=? AND launch.purpose='PRODUCT' AND revision.status='READY'
  AND revision.game_compatibility_line=launch.game_compatibility_line
 `, launchID).Scan(
 		&source.credentialHash, &source.state, &source.providerID, &source.targetID,
-		&source.targetDigest, &source.gameLine, &source.bundleDigest, &source.coreID,
+		&source.targetDigest, &source.gameLine, &source.bundleDigest, &source.coreID, &source.coreName,
 		&source.delivery, &source.purpose, &source.title, &source.platformName, &source.returnTo,
 		&source.contentKind, &source.dependencyJSON, &source.compatibility, &source.variantID, &source.saveID,
 		&source.dosEntry, &source.validationID, &source.netplayID, &source.netplayPlayer,
@@ -150,7 +152,7 @@ func (service *Service) validationConfigSource(ctx context.Context, launchID str
 	err := service.database.QueryRowContext(ctx, `
 SELECT launch.credential_sha256,launch.state,launch.provider_id,launch.target_id,
  launch.target_contract_sha256,launch.game_compatibility_line,launch.bundle_sha256,
- binding.core_id,binding.delivery_profile,launch.purpose,'RPG Maker runtime validation',instance.name,
+ binding.core_id,core.name,binding.delivery_profile,launch.purpose,'RPG Maker runtime validation',instance.name,
  launch.return_to,snapshot.content_kind,'{}','',NULL,NULL,NULL,launch.rpgmaker_runtime_validation_id,
  NULL,NULL,NULL,NULL,launch.bootstrap_expires_at_ms,launch.hard_expires_at_ms,
  launch.idle_expires_at_ms,launch.initial_disc_index,validation.generation
@@ -160,13 +162,14 @@ JOIN import_item_source_snapshots snapshot ON snapshot.id=validation.effective_s
 JOIN review_drafts draft ON draft.import_item_id=validation.import_item_id
 JOIN platform_instances instance ON instance.id=draft.target_platform_instance_id
 JOIN runtime_target_bindings binding ON binding.provider_id=launch.provider_id AND binding.target_id=launch.target_id
+JOIN cores core ON core.id=binding.core_id
 WHERE launch.id=? AND launch.purpose='RPG_RUNTIME_VALIDATION'
  AND validation.provider_id=launch.provider_id AND validation.target_id=launch.target_id
  AND validation.target_contract_sha256=launch.target_contract_sha256
  AND validation.game_compatibility_line=launch.game_compatibility_line
 `, launchID).Scan(
 		&source.credentialHash, &source.state, &source.providerID, &source.targetID,
-		&source.targetDigest, &source.gameLine, &source.bundleDigest, &source.coreID,
+		&source.targetDigest, &source.gameLine, &source.bundleDigest, &source.coreID, &source.coreName,
 		&source.delivery, &source.purpose, &source.title, &source.platformName, &source.returnTo,
 		&source.contentKind, &source.dependencyJSON, &source.compatibility, &source.variantID, &source.saveID,
 		&source.dosEntry, &source.validationID, &source.netplayID, &source.netplayPlayer,
@@ -200,7 +203,7 @@ func (service *Service) providerEnvelope(
 	if err != nil {
 		return Config{}, err
 	}
-	netplay, mode, err := providerNetplay(source)
+	netplay, mode, err := service.providerNetplay(source)
 	if err != nil {
 		return Config{}, err
 	}
@@ -225,7 +228,8 @@ func (service *Service) providerEnvelope(
 		},
 		Session: runtimelaunch.Session{
 			ID: sessionID, Purpose: purpose, Mode: mode, Title: source.title,
-			PlatformName: source.platformName, ReturnTo: source.returnTo, Warnings: providerWarnings(source),
+			PlatformName: source.platformName, CoreName: source.coreName,
+			ReturnTo: source.returnTo, Warnings: providerWarnings(source),
 		},
 		Resources: resources, TargetOptions: options, Restore: restore,
 		Validation: validation, Netplay: netplay,
@@ -756,7 +760,7 @@ WHERE save.id=? AND save.deleted_at_ms IS NULL AND compatibility.status='AVAILAB
 	}, true, nil
 }
 
-func providerNetplay(source providerConfigSource) (any, string, error) {
+func (service *Service) providerNetplay(source providerConfigSource) (any, string, error) {
 	if !source.netplayID.Valid {
 		return nil, "SINGLE", nil
 	}
@@ -767,10 +771,14 @@ func providerNetplay(source providerConfigSource) (any, string, error) {
 	if err := json.Unmarshal([]byte(source.netplayProfile.String), &profile); err != nil {
 		return nil, "", ErrCredential
 	}
+	socketURL, err := service.netplaySocketURL(source.netplayRoom.String)
+	if err != nil {
+		return nil, "", err
+	}
 	return map[string]any{
 		"roomId": source.netplayRoom.String, "sessionId": source.netplayID.String,
 		"playerNo":  source.netplayPlayer.Int64,
-		"socketUrl": "/runtime/netplay/rooms/" + source.netplayRoom.String + "/socket",
+		"socketUrl": socketURL,
 		"profile":   profile,
 	}, "NETPLAY", nil
 }

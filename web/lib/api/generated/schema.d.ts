@@ -3525,6 +3525,7 @@ export interface components {
                 mode: "SINGLE" | "NETPLAY";
                 title: string;
                 platformName: string;
+                coreName: string;
                 returnTo: string;
                 warnings: string[];
             };

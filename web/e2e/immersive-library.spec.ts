@@ -158,11 +158,26 @@ async function launchSelectedGame(page: Page, saveStateId: string | null = null)
 }
 
 async function openPlayerMenu(page: Page) {
-  await pressGamepad(page, [standardButton.select, standardButton.start], 0, 80, 100);
-  await pressGamepad(page, [standardButton.select, standardButton.start], 0, 80, 180);
+  await page.bringToFront();
+  await expect.poll(() => page.evaluate(() => document.hasFocus())).toBe(true);
+  await page.waitForTimeout(160);
+  await pressMenuChord(page, 100);
+  await expect(page.getByRole("dialog", { name: "游戏菜单" })).toHaveCount(0);
   const menu = page.getByRole("dialog", { name: "游戏菜单" });
+  for (let attempt = 0; attempt < 3 && await menu.count() === 0; attempt += 1) {
+    await pressMenuChord(page, 180);
+  }
   await expect(menu).toBeVisible();
   return menu;
+}
+
+async function pressMenuChord(page: Page, releaseMs: number) {
+  await setGamepadButtons(page, 0, [standardButton.select]);
+  await page.waitForTimeout(40);
+  await setGamepadButtons(page, 0, [standardButton.select, standardButton.start]);
+  await page.waitForTimeout(100);
+  await setGamepadButtons(page, 0, []);
+  await page.waitForTimeout(releaseMs);
 }
 
 async function selectPlayerMenuItem(page: Page, menu: Locator, target: ImmersiveMenuLabel) {

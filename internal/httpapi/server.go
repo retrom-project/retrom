@@ -165,7 +165,8 @@ func New(
 	}
 	scraper := metadatascrape.New(database, blobs, hasheous.New(nil, nil, now), now)
 	launcher := launch.New(database, dependencySet, credentials, now).WithBlobStore(blobs).
-		WithRPGRuntimeOriginTemplate(config.RPGRuntimeOriginTemplate)
+		WithRPGRuntimeOriginTemplate(config.RPGRuntimeOriginTemplate).
+		WithPublicOrigin(config.PublicOrigin.String())
 	launcher.ResumeQueuedValidationJobs()
 	importer := libraryimport.New(database, now, scraper).
 		WithBlobStore(blobs).

@@ -26,7 +26,8 @@ import {PlayerLoading, type PlayerLoadProgress} from "./player-loading";
 import type {LaunchEnvelopeV1, PlayerRuntimeV1, RuntimeDiscStateV1} from "./runtime/contract";
 import type {RuntimeController} from "./runtime/runtime-controller";
 import {captureRuntimeSave} from "./runtime/runtime-actions";
-export {readBoundedResponse, reportsNativeExit} from "./player-shell-model";
+import {canResumeFromGameSurface} from "./player-shell-model";
+export {canResumeFromGameSurface, readBoundedResponse, reportsNativeExit} from "./player-shell-model";
 
 type ShellState = "loading" | "running" | "error";
 
@@ -178,7 +179,7 @@ export function PlayerShell({launchId, experience = "standard"}: {launchId: stri
   }, [clearControlsTimer, showToast]);
 
   const handleGameSurfaceInteraction = useCallback(() => {
-    if (playerMode.current === "netplay" || !running.current || !pausedRef.current) {return;}
+    if (!canResumeFromGameSurface({mode: playerMode.current, running: running.current, paused: pausedRef.current, chromePinned: chromePinned.current})) {return;}
     const active = runtime.current;
     if (!active?.getCapabilities().pause) {return;}
     void active.resume().then(() => {
@@ -188,7 +189,6 @@ export function PlayerShell({launchId, experience = "standard"}: {launchId: stri
       showControls();
     }).catch(() => showToast("无法继续游戏", 3_000));
   }, [showControls, showToast]);
-
   const sessionParams = useMemo(() => ({
     launchId, runtime, playerMode, sequence, started, finishing, heartbeat, playEventQueue, saveUploadQueue,
     orientationStateRef, returnTo, netplayController, setOrientationState, setSaveUploadProgress,
@@ -223,7 +223,6 @@ export function PlayerShell({launchId, experience = "standard"}: {launchId: stri
     exitStrict: exitImmersiveRuntimeStrict, saveAvailable: manualSaveAvailable,
     saveGame: saveImmersiveGame, beforeMenuPause: () => undefined, onFatalError: handleImmersiveFatal,
   });
-
   const bootstrapParams = useMemo(() => ({
     launchId, experience, immersiveGamepadFilter: immersive.filter, stage, runtime, runtimeController, envelope,
     returnTo, playerMode, manualSaveAvailableRef, dosProgramMenuRef, orientationStateRef, videoRenderingModeRef,
@@ -231,11 +230,14 @@ export function PlayerShell({launchId, experience = "standard"}: {launchId: stri
     setMessage, setLoadProgress, setState, setManualSaveAvailable, setDosProgramMenu, setNetplayPlayerNo,
     setWarnings, setGameTitle, setCoreName, setPlatformName, setDebugRuntime, setDiscState, setOrientationState,
     setSyncText, setSyncTone, setEmulatorVolume, setEmulatorMuted, setPaused, setNetplayPaused,
-    setImmersiveReturnTo, setRpgValidationDriver, reportPlayerEvent, onExitRequested: handleRuntimeExitRequested,
-    sendEvent, uploadValidationCheckpoint,
-  }), [experience, handleRuntimeExitRequested, immersive.filter, launchId, reportPlayerEvent, sendEvent, uploadValidationCheckpoint]);
+    setImmersiveReturnTo, setRpgValidationDriver, reportPlayerEvent,
+    onKeyboardPause: () => keyboardPauseAction.current(), onImmersiveMenuShortcut: immersive.requestMenu,
+    onRevealControls: revealControlsAtTopEdge, onShowControls: showControls, onGameSurface: handleGameSurfaceInteraction,
+    onExitRequested: handleRuntimeExitRequested, sendEvent, uploadValidationCheckpoint,
+  }), [experience, handleGameSurfaceInteraction, handleRuntimeExitRequested, immersive.filter,
+    immersive.requestMenu, launchId, reportPlayerEvent, revealControlsAtTopEdge, sendEvent, showControls,
+    uploadValidationCheckpoint]);
   usePlayerBootstrap(bootstrapParams);
-
   const runtimeEffectParams = useMemo(() => ({
     state, debugOpen, orientationBlocked: orientationState.phase === "orientation-blocked", runtime,
     orientationButtonRef, running, pausedRef, chromePinned, controlsTimer, playerMode, netplayController,

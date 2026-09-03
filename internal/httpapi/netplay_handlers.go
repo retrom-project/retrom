@@ -357,7 +357,7 @@ func (server *Server) createNetplayLaunch(writer http.ResponseWriter, request *h
 		server.writeNetplayError(writer, request, err)
 		return
 	}
-	server.setLaunchCookie(writer, created.Launch.LaunchID)
+	server.setLaunchCookieValue(writer, created.Launch.LaunchID, created.Launch.Capability)
 	server.setNetplayCookie(writer, request.PathValue("roomId"), created.RoomCapability)
 	status := http.StatusCreated
 	if created.Launch.Existing {

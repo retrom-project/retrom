@@ -207,6 +207,7 @@ func (handler *staticHandler) ServeHTTP(writer http.ResponseWriter, request *htt
 	writer.Header().Set("Content-Type", file.mediaType)
 	writer.Header().Set("ETag", `"`+file.sha256+`"`)
 	writer.Header().Set("X-Content-Type-Options", "nosniff")
+	writer.Header().Set("Cross-Origin-Resource-Policy", "same-origin")
 	if rangeMediaTypes[file.mediaType] {
 		writer.Header().Set("Accept-Ranges", "bytes")
 	}

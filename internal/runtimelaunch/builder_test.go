@@ -15,7 +15,8 @@ func TestBuilderProducesClosedEnvelopeFromActiveProviderTarget(t *testing.T) {
 		Binding: binding,
 		Session: Session{
 			ID: "018f0f31-26fe-7a31-9d61-4ec92f16d4c3", Purpose: "PRODUCT", Mode: "SINGLE",
-			Title: "Fixture", PlatformName: "Fixture", ReturnTo: "/games/fixture", Warnings: []string{},
+			Title: "Fixture", PlatformName: "Fixture", CoreName: "Fixture Core",
+			ReturnTo: "/games/fixture", Warnings: []string{},
 		},
 		Resources: []map[string]any{{
 			"kind": "ROM_BLOB_V1", "ordinal": 0, "rangeRequired": false,
@@ -42,6 +43,10 @@ func TestBuilderProducesClosedEnvelopeFromActiveProviderTarget(t *testing.T) {
 		runtime["moduleUrl"] != "/runtime/providers/fixture/"+digest("a")+"/client.mjs" {
 		t.Fatalf("runtime = %#v", runtime)
 	}
+	session, ok := envelope["session"].(map[string]any)
+	if !ok || session["coreName"] != "Fixture Core" {
+		t.Fatalf("session = %#v", envelope["session"])
+	}
 }
 
 func TestBuilderRejectsTargetDriftAndResourceOrOptionsMismatch(t *testing.T) {
@@ -50,7 +55,8 @@ func TestBuilderRejectsTargetDriftAndResourceOrOptionsMismatch(t *testing.T) {
 		Binding: binding,
 		Session: Session{
 			ID: "018f0f31-26fe-7a31-9d61-4ec92f16d4c3", Purpose: "PRODUCT", Mode: "SINGLE",
-			Title: "Fixture", PlatformName: "Fixture", ReturnTo: "/games/fixture", Warnings: []string{},
+			Title: "Fixture", PlatformName: "Fixture", CoreName: "Fixture Core",
+			ReturnTo: "/games/fixture", Warnings: []string{},
 		},
 		Resources: []map[string]any{{
 			"kind": "ROM_BLOB_V1", "ordinal": 0, "rangeRequired": false,

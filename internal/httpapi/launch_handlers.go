@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"mime"
 	"net/http"
 	"strings"
@@ -164,7 +165,13 @@ func (server *Server) setLaunchCookie(writer http.ResponseWriter, launchID strin
 		return
 	}
 	capability := server.credentials.Capability(parsed)
-	encodedCapability := retromruntime.EncodeCapability(capability)
+	server.setLaunchCookieValue(writer, launchID, retromruntime.EncodeCapability(capability))
+}
+
+func (server *Server) setLaunchCookieValue(
+	writer http.ResponseWriter,
+	launchID, encodedCapability string,
+) {
 	http.SetCookie(
 		writer,
 		&http.Cookie{
@@ -281,12 +288,15 @@ func (server *Server) launchConfig(writer http.ResponseWriter, request *http.Req
 		request.PathValue("launchId"),
 		capability,
 	)
+	productErr := err
 	if err != nil {
 		configuration, err = server.launcher.ReviewPreviewConfig(
 			request.Context(), request.PathValue("launchId"), capability,
 		)
 	}
 	if err != nil {
+		slog.WarnContext(request.Context(), "launch configuration unavailable",
+			"launchId", request.PathValue("launchId"), "productError", productErr, "previewError", err)
 		writeError(writer, request, http.StatusUnauthorized, "LAUNCH_CREDENTIAL_INVALID", "启动会话不可用", map[string]any{})
 		return
 	}

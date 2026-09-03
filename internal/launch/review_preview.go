@@ -496,17 +496,18 @@ func (service *Service) ReviewPreviewConfig(ctx context.Context, previewID, capa
 	err := service.database.QueryRowContext(ctx, `
 SELECT preview.credential_sha256,preview.state,preview.provider_id,preview.target_id,
  preview.target_contract_sha256,preview.game_compatibility_line,preview.bundle_sha256,
- binding.core_id,binding.delivery_profile,'REVIEW_PREVIEW',preview.title,instance.name,
+ binding.core_id,core.name,binding.delivery_profile,'REVIEW_PREVIEW',preview.title,instance.name,
  '/admin/reviews/' || preview.import_item_id,preview.content_kind,preview.dependency_snapshot_json,'',
  NULL,NULL,preview.default_dos_entry,NULL,NULL,NULL,NULL,
  preview.bootstrap_expires_at_ms,preview.hard_expires_at_ms,NULL,0,preview.capture_allowed
 FROM review_preview_sessions preview
 JOIN platform_instances instance ON instance.id=preview.target_platform_instance_id
 JOIN runtime_target_bindings binding ON binding.provider_id=preview.provider_id AND binding.target_id=preview.target_id
+JOIN cores core ON core.id=binding.core_id
 WHERE preview.id=?
 `, previewID).Scan(
 		&source.credentialHash, &source.state, &source.providerID, &source.targetID,
-		&source.targetDigest, &source.gameLine, &source.bundleDigest, &source.coreID,
+		&source.targetDigest, &source.gameLine, &source.bundleDigest, &source.coreID, &source.coreName,
 		&source.delivery, &source.purpose, &source.title, &source.platformName, &source.returnTo,
 		&source.contentKind, &source.dependencyJSON, &source.compatibility, &source.variantID, &source.saveID,
 		&source.dosEntry, &source.validationID, &source.netplayID, &source.netplayPlayer,

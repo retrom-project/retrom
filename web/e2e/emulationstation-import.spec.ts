@@ -10,7 +10,7 @@ import {
   type TestInfo,
 } from "@playwright/test";
 import {
-  runtimeFrameCount, runtimeResource, runtimeResourceURL, type RuntimeEnvelope,
+  exitRuntimePlayer, runtimeFrameCount, runtimeResource, runtimeResourceURL, type RuntimeEnvelope,
 } from "./runtime-provider-support";
 
 const title = "EmulationStation GBA Smoke";
@@ -451,6 +451,7 @@ async function verifyFullProductLifecycle(page: Page, testInfo: TestInfo) {
     path: evidencePath(testInfo, "emulationstation-gba-player-running.png"),
     fullPage: true,
   });
+  await exitRuntimePlayer(page);
 
   const adminDetail = await page.request.get(`/api/v1/admin/games/${gameId}`);
   const adminDetailBody = await adminDetail.text();

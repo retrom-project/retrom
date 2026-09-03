@@ -35,6 +35,7 @@ func assertClientResponse(t *testing.T, client *httptest.ResponseRecorder) {
 	if client.Code != http.StatusOK || client.Body.String() != "export{}" ||
 		client.Header().Get("Content-Type") != "text/javascript; charset=utf-8" ||
 		client.Header().Get("X-Content-Type-Options") != "nosniff" ||
+		client.Header().Get("Cross-Origin-Resource-Policy") != "same-origin" ||
 		client.Header().Get("Cache-Control") != "public, max-age=31536000, immutable" ||
 		client.Header().Get("ETag") != `"`+digestBytes([]byte("export{}"))+`"` {
 		t.Fatalf("client response = %d headers=%v body=%q", client.Code, client.Header(), client.Body.String())

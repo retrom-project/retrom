@@ -19,6 +19,7 @@ import {RuntimeNetplayPortAdapter} from "./runtime/netplay-port-adapter";
 import {mountProviderRuntime, type RuntimeController} from "./runtime/runtime-controller";
 import type {RuntimeSavePayload} from "./runtime/runtime-actions";
 import {installRuntimeE2EDiagnostics} from "./runtime/e2e-diagnostics";
+import {installRuntimeSurfaceControls} from "./runtime/surface-controls";
 
 type ShellState = "loading" | "running" | "error";
 type SyncTone = "synced" | "busy" | "warning";
@@ -67,6 +68,11 @@ export type PlayerBootstrapParams = {
   setImmersiveReturnTo: Dispatch<SetStateAction<string>>;
   setRpgValidationDriver: Dispatch<SetStateAction<RpgRuntimeValidationDriver | null>>;
   reportPlayerEvent: (event: MultiDiscPlayerEvent) => void;
+  onKeyboardPause: () => void;
+  onImmersiveMenuShortcut: () => void;
+  onRevealControls: (clientY: number) => void;
+  onShowControls: () => void;
+  onGameSurface: () => void;
   onExitRequested: () => void;
   sendEvent: (kind: "start" | "heartbeat" | "finish") => Promise<void>;
   uploadValidationCheckpoint: (payload: RuntimeSavePayload) => Promise<ValidationCheckpointReceipt>;
@@ -74,7 +80,7 @@ export type PlayerBootstrapParams = {
 
 type BootstrapResources = {
   controller?: RuntimeController;
-  eventSubscription?: () => void;
+  surfaceControlsCleanup?: () => void;
   inputSubscription?: () => void;
   validationDriver?: RpgRuntimeValidationDriver;
   netplayController?: NetplayController;
@@ -116,13 +122,21 @@ async function bootstrapPlayer(params: PlayerBootstrapParams, resources: Bootstr
       params.setMessage(code);
       params.setState("error");
     },
+    onRuntimeEvent: (event) => handleRuntimeEvent(event, params),
   });
   if (abort.signal.aborted) {await mounted.exit(); return;}
   resources.controller = mounted;
   params.runtimeController.current = mounted;
   params.runtime.current = mounted.runtime;
   resources.e2eDiagnosticsCleanup = installRuntimeE2EDiagnostics(mounted.runtime);
-  resources.eventSubscription = mounted.runtime.subscribe((event) => handleRuntimeEvent(event, params));
+  resources.surfaceControlsCleanup = installRuntimeSurfaceControls(mounted.runtime, {
+    experience: params.experience,
+    onKeyboardPause: params.onKeyboardPause,
+    onImmersiveMenuShortcut: params.onImmersiveMenuShortcut,
+    onRevealControls: params.onRevealControls,
+    onShowControls: params.onShowControls,
+    onSurface: params.onGameSurface,
+  });
   await configureMountedRuntime(params, resources, envelope, mounted.runtime);
   if (validation) {
     void validation.attachRuntime(mounted.runtime).catch((error: unknown) => {
@@ -140,7 +154,7 @@ function applyEnvelope(params: PlayerBootstrapParams, envelope: LaunchEnvelopeV1
   params.setNetplayPlayerNo(envelope.netplay?.playerNo ?? null);
   params.setWarnings(envelope.session.warnings);
   params.setGameTitle(envelope.session.title);
-  params.setCoreName(envelope.runtime.targetId);
+  params.setCoreName(envelope.session.coreName);
   params.setPlatformName(envelope.session.platformName);
   params.setDebugRuntime({
     providerId: envelope.runtime.providerId,
@@ -347,7 +361,7 @@ function handleBootstrapError(error: unknown, abort: AbortController, params: Pl
 
 async function cleanupBootstrap(params: PlayerBootstrapParams, resources: BootstrapResources, abort: AbortController) {
   abort.abort();
-  resources.eventSubscription?.();
+  resources.surfaceControlsCleanup?.();
   resources.inputSubscription?.();
   resources.e2eDiagnosticsCleanup?.();
   resources.netplayController?.dispose();

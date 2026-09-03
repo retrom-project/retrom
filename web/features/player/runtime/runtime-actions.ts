@@ -11,7 +11,8 @@ export type RuntimeSavePayload = {
 };
 
 export async function captureRuntimeSave(runtime: PlayerRuntimeV1): Promise<RuntimeSavePayload> {
-  const [checkpoint, screenshot] = await Promise.all([runtime.checkpoint(), runtime.screenshot()]);
+  const checkpoint = await runtime.checkpoint();
+  const screenshot = await runtime.screenshot();
   if (!(checkpoint.bytes instanceof Uint8Array) || checkpoint.bytes.byteLength < 1 ||
       typeof checkpoint.format !== "string" || checkpoint.format.length < 1 ||
       !(screenshot instanceof Blob) || screenshot.size < 1) {

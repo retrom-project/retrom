@@ -50,10 +50,11 @@ function validEnvelopeBody(value: Record<string, unknown>, runtime: LaunchEnvelo
 
 function validSession(value: unknown) {
   return record(value) && exactKeys(value, [
-    "id", "mode", "platformName", "purpose", "returnTo", "title", "warnings",
+    "coreName", "id", "mode", "platformName", "purpose", "returnTo", "title", "warnings",
   ]) && uuid(value.id) && ["PRODUCT", "REVIEW_PREVIEW", "RUNTIME_VALIDATION"].includes(String(value.purpose)) &&
     ["SINGLE", "NETPLAY"].includes(String(value.mode)) && bounded(value.title, 1, 500) &&
-    bounded(value.platformName, 1, 200) && relativeURL(value.returnTo) && Array.isArray(value.warnings) &&
+    bounded(value.platformName, 1, 200) && bounded(value.coreName, 1, 200) &&
+    relativeURL(value.returnTo) && Array.isArray(value.warnings) &&
     value.warnings.length <= 16 && value.warnings.every((warning) => bounded(warning, 1, 200));
 }
 

@@ -172,6 +172,7 @@ export type LaunchEnvelopeV1 = {
     mode: RuntimeModeV1;
     title: string;
     platformName: string;
+    coreName: string;
     returnTo: string;
     warnings: string[];
   };

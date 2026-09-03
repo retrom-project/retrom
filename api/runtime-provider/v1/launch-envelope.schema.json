@@ -68,13 +68,14 @@
     "session": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "purpose", "mode", "title", "platformName", "returnTo", "warnings"],
+      "required": ["id", "purpose", "mode", "title", "platformName", "coreName", "returnTo", "warnings"],
       "properties": {
         "id": { "$ref": "common.schema.json#/$defs/uuid" },
         "purpose": { "enum": ["PRODUCT", "REVIEW_PREVIEW", "RUNTIME_VALIDATION"] },
         "mode": { "enum": ["SINGLE", "NETPLAY"] },
         "title": { "type": "string", "minLength": 1, "maxLength": 500 },
         "platformName": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "coreName": { "type": "string", "minLength": 1, "maxLength": 200 },
         "returnTo": { "$ref": "common.schema.json#/$defs/relativeUrl" },
         "warnings": { "type": "array", "maxItems": 16, "items": { "type": "string", "minLength": 1, "maxLength": 200 } }
       }

@@ -18,7 +18,8 @@ Retrom Host 不实现、注册或选择具体运行引擎。运行时只有两�
 `GET /runtime/launches/{launchId}/config` 只返回 `LaunchEnvelopeV1`。顶层固定为：
 
 - `schemaVersion=1`
-- `session`：Launch 身份、用途、模式和展示上下文
+- `session`：Launch 身份、用途、模式和 Host 展示上下文；其中 `title/platformName/coreName`
+  分别是游戏、平台与产品 Core 的冻结显示名，`coreName` 不参与 Provider Target 选择
 - `runtime`：冻结的 Provider、Bundle、Target、模块、能力和 checkpoint contract
 - `resources[]`：有序、带类型、大小、摘要与 Range 要求的授权内容
 - `targetOptions`：Provider 私有、按 `kind` 闭合的 Target 选项

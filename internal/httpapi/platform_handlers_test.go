@@ -53,7 +53,12 @@ func TestAdminPlatformsProjectsManifestBoundNetplayCapability(t *testing.T) {
 	}
 	support := make(map[string]bool)
 	for _, platform := range body.Items {
+		seen := make(map[string]struct{}, len(platform.Cores))
 		for _, core := range platform.Cores {
+			if _, exists := seen[core.ID]; exists {
+				t.Fatalf("platform %s projected duplicate core %s", platform.ID, core.ID)
+			}
+			seen[core.ID] = struct{}{}
 			support[platform.ID+"/"+core.ID] = core.NetplaySupported
 		}
 	}
