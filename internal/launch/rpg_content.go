@@ -13,9 +13,10 @@ import (
 )
 
 const (
-	rpgProjectFormat   = "RPG_MAKER_PROJECT_V1"
-	rpgEasyIndexName   = "__retrom__/index.json"
-	rpgMKXPArchiveName = "__retrom__/game.mkxpz"
+	rpgProjectFormat         = "RPG_MAKER_PROJECT_V1"
+	rpgEasyIndexName         = "__retrom__/index.json"
+	rpgMKXPArchiveName       = "__retrom__/game.mkxpz"
+	rpgMKXPArchivePublicName = "game.mkxpz"
 )
 
 func (service *Service) buildRPGProductContentPlan(

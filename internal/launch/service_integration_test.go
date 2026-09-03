@@ -399,7 +399,7 @@ WHERE id=?
 		resources, resourcesErr := service.providerResources(
 			ctx, quickLaunch.LaunchID, quickLaunch.Capability, source, target,
 		)
-		options, optionsErr := providerTargetOptions(target.OptionsKind, source)
+		options, optionsErr := providerTargetOptions(target.OptionsKind, source, nil)
 		restore, _, restoreErr := service.providerRestore(ctx, quickLaunch.LaunchID, source, target)
 		t.Fatalf("quick launch config: %v; source=%#v/%v resources=%#v/%v options=%#v/%v restore=%#v/%v",
 			err, source, sourceErr, resources, resourcesErr, options, optionsErr, restore, restoreErr)
