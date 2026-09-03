@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AppIcon } from "@/components/app-icon";
 import { StatusBadge } from "@/components/ui";
 import { formatTime, type ListResponse } from "@/lib/backend";
+import { useBrowserTimeZone } from "@/lib/use-browser-time-zone";
 import { statusTone } from "@/lib/status";
 import {
   filterImportTasks,
@@ -68,17 +69,6 @@ const rejectionDetails: Record<string, string> = {
 };
 
 const activeImportStates = new Set(["QUEUED", "RUNNING", "CANCEL_REQUESTED"]);
-const hydrationTimeZone = "UTC";
-const subscribeToTimeZone = () => () => undefined;
-
-function useBrowserTimeZone() {
-  return useSyncExternalStore(
-    subscribeToTimeZone,
-    () => Intl.DateTimeFormat().resolvedOptions().timeZone || hydrationTimeZone,
-    () => hydrationTimeZone,
-  );
-}
-
 function refreshListItem(item: ImportListItem, detail: ImportDetail): ImportListItem {
   return {
     ...item,

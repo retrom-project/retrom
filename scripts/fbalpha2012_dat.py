@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import inspect
 import json
 import os
 from pathlib import Path, PurePosixPath
@@ -60,7 +61,8 @@ def safe_extract(archive_path: Path, destination: Path, expected_root: str) -> P
             total_size += member.size
             if total_size > MAX_ARCHIVE_BYTES:
                 raise GenerationError("FBA2012_DAT_SOURCE_ARCHIVE_LIMIT")
-        archive.extractall(destination, members=members, filter="data")
+        extraction_options = {"filter": "data"} if "filter" in inspect.signature(archive.extractall).parameters else {}
+        archive.extractall(destination, members=members, **extraction_options)
     source_root = destination / expected_root
     if not source_root.is_dir():
         raise GenerationError("FBA2012_DAT_SOURCE_ARCHIVE_INVALID")

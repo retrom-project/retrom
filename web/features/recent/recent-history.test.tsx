@@ -1,3 +1,6 @@
+import { act } from "react";
+import { hydrateRoot, type Root } from "react-dom/client";
+import { renderToString } from "react-dom/server";
 import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -73,5 +76,36 @@ describe("recent history", () => {
     expect(screen.queryByRole("link", { name: /1943: The Battle of Midway/ })).not.toBeInTheDocument();
     expect(screen.queryByRole("img", { name: /1943: The Battle of Midway/ })).not.toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: "再玩一次" })).toHaveLength(1);
+  });
+
+  it("hydrates the UTC grouping before switching to the browser calendar day", async () => {
+    const originalTimeZone = process.env.TZ;
+    const now = Date.parse("2026-09-03T00:30:00.000Z");
+    const game = {
+      ...games[0],
+      status: "DELETED" as const,
+      availability: "DELETED" as const,
+      lastPlayedAtMs: Date.parse("2026-09-02T23:30:00.000Z"),
+    };
+    process.env.TZ = "UTC";
+    const container = document.createElement("div");
+    container.innerHTML = renderToString(<RecentHistory games={[game]} nowMs={now} />);
+    document.body.append(container);
+    expect(container).toHaveTextContent("更早");
+
+    process.env.TZ = "Asia/Shanghai";
+    const recoverableErrors: unknown[] = [];
+    let root: Root | undefined;
+    await act(async () => {
+      root = hydrateRoot(container, <RecentHistory games={[game]} nowMs={now} />, {
+        onRecoverableError: (error) => recoverableErrors.push(error),
+      });
+    });
+
+    expect(container).toHaveTextContent("今天");
+    expect(container).not.toHaveTextContent("更早");
+    expect(recoverableErrors).toEqual([]);
+    await act(async () => root?.unmount());
+    process.env.TZ = originalTimeZone;
   });
 });

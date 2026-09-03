@@ -5,6 +5,7 @@ import Image from "next/image";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { StatusBadge } from "@/components/ui";
 import { formatTime, type ListResponse } from "@/lib/backend";
+import { useBrowserTimeZone } from "@/lib/use-browser-time-zone";
 import { statusTone } from "@/lib/status";
 import { useAuth } from "@/features/auth/auth-provider";
 import { userStorageKey } from "@/features/auth/storage";
@@ -68,6 +69,7 @@ export function ReviewQueueRecovery({ active, values }: { active: boolean; value
 }
 
 export function ReviewQueue({ initial, values, resetPersisted = false }: { initial: ListResponse<ReviewQueueItem>; values: Record<string, string>; resetPersisted?: boolean }) {
+  const timeZone = useBrowserTimeZone();
   const { context } = useAuth();
   const listQuery = useMemo(() => queryString(values), [values]);
   const listURL = `/admin/reviews${listQuery ? `?${listQuery}` : ""}`;
@@ -183,6 +185,7 @@ export function ReviewQueue({ initial, values, resetPersisted = false }: { initi
       key={item.itemId}
       listURL={listURL}
       onRemember={remember}
+      timeZone={timeZone}
     />)}</div>
     {!visibleItems.length ? <div className="import-workflow-empty"><h2>已加载条目中没有匹配项</h2><p>继续向下滚动会加载下一页，或切换上方筛选。</p></div> : null}
     <div ref={loadMoreRef} className="infinite-scroll-sentinel" aria-hidden="true" />
@@ -190,10 +193,11 @@ export function ReviewQueue({ initial, values, resetPersisted = false }: { initi
   </section>;
 }
 
-function ReviewQueueRow({ item, listURL, onRemember }: {
+function ReviewQueueRow({ item, listURL, onRemember, timeZone }: {
   item: ReviewQueueItem;
   listURL: string;
   onRemember: () => void;
+  timeZone: string;
 }) {
   const ready = item.validationStatus === "READY" && item.blockerCodes.length === 0;
   const [candidateTitle, candidateDetail] = reviewCandidateCopy(item);
@@ -202,7 +206,7 @@ function ReviewQueueRow({ item, listURL, onRemember }: {
     <div className="review-workflow-directory">{item.platformInstance.name}</div>
     <StatusBadge tone={statusTone(item.blockerCodes[0] ?? item.validationStatus)}>{validationLabels[item.validationStatus] ?? item.validationStatus}{item.blockerCodes.length ? " · 需要处理" : ""}</StatusBadge>
     <div className="review-workflow-candidate"><strong>{candidateTitle}</strong><small>{candidateDetail}</small></div>
-    <div className="review-workflow-wait"><strong>{formatTime(item.updatedAtMs)}</strong><small>更新时间</small></div>
+    <div className="review-workflow-wait"><strong>{formatTime(item.updatedAtMs, timeZone)}</strong><small>更新时间</small></div>
     <Link prefetch={false} aria-label={ready ? "审核条目" : "处理条目"} className={ready ? "button" : "button secondary"} onClick={onRemember} href={`/admin/reviews/${item.itemId}?returnTo=${encodeURIComponent(listURL)}`}>{ready ? "审核" : "处理"}</Link>
   </article>;
 }

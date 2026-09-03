@@ -8,6 +8,8 @@ import { EmptyState, FeedbackBanner, StatusBadge } from "@/components/ui";
 import { writeHeaders } from "@/lib/api/client";
 import { newUuid } from "@/lib/crypto";
 import { responseError } from "@/lib/upload";
+import { formatTime } from "@/lib/backend";
+import { useBrowserTimeZone } from "@/lib/use-browser-time-zone";
 
 export type TagAdminItem = {
   tagId: string; name: string; status: "ACTIVE" | "DELETED"; version: number;
@@ -195,8 +197,9 @@ function TagItems({ filters, items, openEditor, setConfirmName, setDeleteItem, s
 }
 
 function TagRow({ item, onDelete, onEdit }: { item: TagAdminItem; onDelete: () => void; onEdit: () => void }) {
+  const timeZone = useBrowserTimeZone();
   const active = item.status === "ACTIVE";
-  return <tr><th scope="row"><strong title={item.name}>{item.name}</strong></th><td><StatusBadge tone={active ? "good" : "neutral"}>{active ? "活动" : "已删除"}</StatusBadge></td><td><Link href={`/admin/games?tagId=${encodeURIComponent(item.tagId)}&status=ALL`}>{item.usage.publishedGameCount} / {item.usage.deletedGameCount}</Link></td><td><Link href={`/admin/reviews?tagId=${encodeURIComponent(item.tagId)}`}>{item.usage.reviewDraftCount}</Link></td><td>{item.usage.pegasusCollectionCount}</td><td><time dateTime={new Date(item.updatedAtMs).toISOString()}>{new Date(item.updatedAtMs).toLocaleString("zh-CN")}</time></td><td><div className="tag-row-actions"><button type="button" disabled={!active} onClick={onEdit}>编辑</button><button type="button" className="danger-link" disabled={!active} onClick={onDelete}>删除</button></div></td></tr>;
+  return <tr><th scope="row"><strong title={item.name}>{item.name}</strong></th><td><StatusBadge tone={active ? "good" : "neutral"}>{active ? "活动" : "已删除"}</StatusBadge></td><td><Link href={`/admin/games?tagId=${encodeURIComponent(item.tagId)}&status=ALL`}>{item.usage.publishedGameCount} / {item.usage.deletedGameCount}</Link></td><td><Link href={`/admin/reviews?tagId=${encodeURIComponent(item.tagId)}`}>{item.usage.reviewDraftCount}</Link></td><td>{item.usage.pegasusCollectionCount}</td><td><time dateTime={new Date(item.updatedAtMs).toISOString()}>{formatTime(item.updatedAtMs, timeZone)}</time></td><td><div className="tag-row-actions"><button type="button" disabled={!active} onClick={onEdit}>编辑</button><button type="button" className="danger-link" disabled={!active} onClick={onDelete}>删除</button></div></td></tr>;
 }
 
 function TagEditorSheet({ busy, editor, error, name, nameRef, save, setEditor, setName, triggerRef }: Pick<
