@@ -1,4 +1,6 @@
 import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
+import { hydrateRoot, type Root } from "react-dom/client";
+import { renderToString } from "react-dom/server";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ReviewQueue, ReviewQueueRecovery, type ReviewQueueItem } from "./review-queue";
@@ -24,6 +26,35 @@ afterEach(() => {
 });
 
 describe("ReviewQueue", () => {
+  it("hydrates with a UTC server before showing the browser-local update time", async () => {
+    const previousTimeZone = process.env.TZ;
+    const timestamp = Date.parse("2026-09-02T12:43:00.000Z");
+    const initial = { items: [{ ...item, updatedAtMs: timestamp }], nextCursor: null };
+    const recoverableErrors: unknown[] = [];
+    let root: Root | undefined;
+    try {
+      process.env.TZ = "UTC";
+      const container = document.createElement("div");
+      container.innerHTML = renderToString(<ReviewQueue initial={initial} values={{}} />);
+      document.body.append(container);
+      expect(container).toHaveTextContent("2026年9月2日 12:43");
+
+      process.env.TZ = "Asia/Shanghai";
+      await act(async () => {
+        root = hydrateRoot(container, <ReviewQueue initial={initial} values={{}} />, {
+          onRecoverableError: (error) => recoverableErrors.push(error),
+        });
+      });
+
+      await waitFor(() => expect(container).toHaveTextContent("2026年9月2日 20:43"));
+      expect(recoverableErrors).toEqual([]);
+      await act(async () => root?.unmount());
+      container.remove();
+    } finally {
+      process.env.TZ = previousTimeZone;
+    }
+  });
+
   it("shows a compact cover and file facts without batch UUID details", () => {
     render(<ReviewQueue initial={{ items: [item], nextCursor: null }} values={{}} />);
     expect(screen.getByAltText("1941: Counter Attack 封面缩略图")).toBeInTheDocument();

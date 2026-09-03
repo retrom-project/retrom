@@ -122,6 +122,6 @@ export function adminGameUpdateNote(game: AdminGameSummary) {
   return runtimePresentation(game.runtimeStatus, game.status).note;
 }
 
-export function formatAdminGameTime(value: number, nowMs: number) {
-  return formatLibraryPlayedAt(value, nowMs);
+export function formatAdminGameTime(value: number, nowMs: number, timeZone?: string) {
+  return formatLibraryPlayedAt(value, nowMs, timeZone);
 }
