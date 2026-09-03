@@ -25,7 +25,7 @@ function evidence() {
       originalLaunchId: "01a05123-1234-7123-8123-423456789abc",
       restoreLaunchId: "01a05123-1234-7123-8123-523456789abc",
     },
-    checkpoint: { payloadKind: "RUNTIME_STATE", sizeBytes: 128 },
+    checkpoint: { format: "butterscotch-checkpoint-v2", sizeBytes: 128 },
     cache: {
       contentDigest: "b".repeat(64), firstDataWinResponseCount: 1,
       restoreDataWinResponseCount: 0, restoreIndexResponseCount: 1,
@@ -48,7 +48,7 @@ test("accepts the complete Butterscotch product chain", () => {
 test("rejects cache, input, checkpoint and browser regressions", () => {
   const invalid = [
     { ...evidence(), cache: { ...evidence().cache, restoreDataWinResponseCount: 1 } },
-    { ...evidence(), checkpoint: { payloadKind: "RUNTIME_STATE", sizeBytes: 17 * 1024 * 1024 } },
+    { ...evidence(), checkpoint: { format: "butterscotch-checkpoint-v2", sizeBytes: 17 * 1024 * 1024 } },
     { ...evidence(), browser: { pageErrorCount: 1, consoleErrorCount: 0, dialogCount: 0 } },
     {
       ...evidence(),

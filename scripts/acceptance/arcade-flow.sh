@@ -139,20 +139,22 @@ python3 "$fixture_builder_root/build.py" --check
 fixture_sha256="$(openssl dgst -sha256 "$fixture_root/$game_archive" | awk '{print $2}')"
 printf 'arcade_flow=fixtures_verified\n'
 
-core_artifacts="$(curl --fail --silent --show-error "${common[@]}" "$backend/api/v1/admin/core-artifacts")"
-core_artifact_id="$(jq -er --arg coreId "$core_id" '
+runtime_targets="$(curl --fail --silent --show-error "${common[@]}" "$backend/api/v1/admin/runtime-targets")"
+provider_id="$(jq -er --arg coreId "$core_id" '
   .items[]
   | select(
       .coreId == $coreId
-      and .selectedForNewBindings == true
-      and .availableForLaunch == true
+      and .launchPolicy != "DISABLED"
     )
-  | .id
-' <<<"$core_artifacts")"
+  | .providerId
+' <<<"$runtime_targets")"
+target_id="$(jq -er --arg coreId "$core_id" '
+  .items[] | select(.coreId == $coreId and .launchPolicy != "DISABLED") | .targetId
+' <<<"$runtime_targets")"
 if [[ "$dependency_mode" == "mame" ]]; then
   upload_files bios "$fixture_root/retrombios.zip"
   bios_upload_file_id="$(jq -r '.files[0].fileId' "$evidence/bios-result.json")"
-  bios_catalog="$(curl --fail --silent --show-error "${common[@]}" "$backend/api/v1/admin/bios?scope=FULL_CATALOG&coreArtifactId=$core_artifact_id&q=retrombios.zip")"
+  bios_catalog="$(curl --fail --silent --show-error "${common[@]}" "$backend/api/v1/admin/bios?scope=FULL_CATALOG&providerId=$provider_id&targetId=$target_id&q=retrombios.zip")"
   bios_requirement_id="$(jq -er '.items[] | select(.logicalName == "retrombios.zip") | .id' <<<"$bios_catalog")"
   bios_requirement_version="$(jq -er '.items[] | select(.logicalName == "retrombios.zip") | .version' <<<"$bios_catalog")"
   bios_installation="$(curl --fail --silent --show-error "${common[@]}" "${write[@]}" -H "Content-Type: application/json" -H "If-Match: \"v$bios_requirement_version\"" -H "Idempotency-Key: $(new_id)" -d "$(jq -nc --arg uploadFileId "$bios_upload_file_id" '{uploadFileId:$uploadFileId}')" "$backend/api/v1/admin/bios/$bios_requirement_id/installations")"
@@ -197,6 +199,23 @@ done
 [[ "$(jq -r '.items | length' <<<"$reviews")" == "1" ]]
 [[ "$(jq -r '.items[0].validationStatus' <<<"$reviews")" == "READY" ]]
 review_detail="$(curl --fail --silent --show-error "${common[@]}" "$backend/api/v1/admin/reviews/$item_id")"
+review_payload="$(jq -c '{
+  metadata,
+  selectedCandidateId,
+  selectedAssets:{
+    coverCandidateAssetId:.selectedAssets.coverCandidateAssetId,
+    coverUploadedAssetId:(.selectedAssets.coverUploadedAssetId // null),
+    backgroundCandidateAssetId:.selectedAssets.backgroundCandidateAssetId,
+    screenshotCandidateAssetIds:.selectedAssets.screenshotCandidateAssetIds
+  },
+  defaultDosEntry,
+  tagIds:[(.tags // [])[].tagId]
+}' <<<"$review_detail")"
+patched_review="$(curl --fail --silent --show-error "${common[@]}" "${write[@]}" -X PATCH \
+  -H 'Content-Type: application/json' -H "If-Match: \"v$(jq -r .version <<<"$review_detail")\"" \
+  -d "$review_payload" "$backend/api/v1/admin/reviews/$item_id")"
+review_detail="$(curl --fail --silent --show-error "${common[@]}" "$backend/api/v1/admin/reviews/$item_id")"
+[[ "$(jq -r .version <<<"$review_detail")" == "$(jq -r .version <<<"$patched_review")" ]]
 printf '%s\n' "$review_detail" >"$evidence/review-detail.json"
 dat_version_id="$(jq -er '.validation.dependencySnapshot.datVersionId' <<<"$review_detail")"
 if [[ "$dependency_mode" == "mame" ]]; then
@@ -233,7 +252,7 @@ approval_body="$(jq -c '
   else {reason:null}
   end
 ' <<<"$review_detail")"
-approved="$(curl --fail --silent --show-error "${common[@]}" "${write[@]}" -X POST -H 'Content-Type: application/json' -H 'If-Match: "v1"' -H "Idempotency-Key: $(new_id)" -d "$approval_body" "$backend/api/v1/admin/reviews/$item_id/approve")"
+approved="$(curl --fail --silent --show-error "${common[@]}" "${write[@]}" -X POST -H 'Content-Type: application/json' -H "If-Match: \"v$(jq -r .version <<<"$review_detail")\"" -H "Idempotency-Key: $(new_id)" -d "$approval_body" "$backend/api/v1/admin/reviews/$item_id/approve")"
 printf '%s\n' "$approved" >"$evidence/approved.json"
 game_id="$(jq -r .gameId <<<"$approved")"
 printf 'arcade_flow=review_approved\n'
@@ -335,16 +354,17 @@ launch_id="$(jq -r .launchId <<<"$launch")"
 [[ -n "$launch_id" && "$launch_id" != "null" ]]
 printf 'arcade_flow=launch_created\n'
 assert_game_detail_uses_arcade_snapshot after-launch ARCADE_V2
-configuration="$(curl --fail --silent --show-error -b "$evidence/cookies" "$backend/runtime/launches/$launch_id/config")"
+configuration="$(curl --fail --silent --show-error -b "$evidence/cookies" -c "$evidence/cookies" "$backend/runtime/launches/$launch_id/config")"
 printf '%s\n' "$configuration" >"$evidence/configuration.json"
 printf 'arcade_flow=config_loaded\n'
-[[ "$(jq -r .runtimeCore <<<"$configuration")" == "$core_id" ]]
-game_url="$(jq -er .gameUrl <<<"$configuration")"
+jq -e --arg providerId "$provider_id" --arg targetId "$target_id" \
+  'select(.runtime.providerId==$providerId and .runtime.targetId==$targetId)' <<<"$configuration" >/dev/null
+game_url="$(jq -er '.resources[] | select(.role=="game" and .ordinal==0) | .url' <<<"$configuration")"
 curl --fail --silent --show-error -b "$evidence/cookies" "$backend$game_url" -o "$evidence/game.zip"
 cmp "$fixture_root/$game_archive" "$evidence/game.zip"
 if [[ "$dependency_mode" == "mame" ]]; then
-  parent_url="$(jq -er .parentUrl <<<"$configuration")"
-  bios_url="$(jq -er .biosUrl <<<"$configuration")"
+  parent_url="$(jq -er '.resources[] | select(.role=="parent" and .ordinal==0) | .url' <<<"$configuration")"
+  bios_url="$(jq -er '.resources[] | select(.role=="bios" and .ordinal==0) | .files[0].url' <<<"$configuration")"
   curl --fail --silent --show-error -b "$evidence/cookies" "$backend$parent_url" -o "$evidence/parent-bundle.zip"
   curl --fail --silent --show-error -b "$evidence/cookies" "$backend$bios_url" -o "$evidence/bios-bundle.zip"
   [[ "$(unzip -Z1 "$evidence/parent-bundle.zip")" == "puckman.zip" ]]
@@ -352,13 +372,13 @@ if [[ "$dependency_mode" == "mame" ]]; then
   unzip -p "$evidence/parent-bundle.zip" puckman.zip | cmp "$fixture_root/puckman.zip" -
   unzip -p "$evidence/bios-bundle.zip" retrombios.zip | cmp "$fixture_root/retrombios.zip" -
 elif [[ "$dependency_mode" == "cps2-parent" ]]; then
-  parent_url="$(jq -er .parentUrl <<<"$configuration")"
-  jq -e 'select(.biosUrl == null)' <<<"$configuration" >/dev/null
+  parent_url="$(jq -er '.resources[] | select(.role=="parent" and .ordinal==0) | .url' <<<"$configuration")"
+  jq -e 'select(([.resources[] | select(.role=="bios")] | length)==0)' <<<"$configuration" >/dev/null
   curl --fail --silent --show-error -b "$evidence/cookies" "$backend$parent_url" -o "$evidence/parent-bundle.zip"
   [[ "$(unzip -Z1 "$evidence/parent-bundle.zip")" == "spf2t.zip" ]]
   unzip -p "$evidence/parent-bundle.zip" spf2t.zip | cmp "$fixture_root/spf2t.zip" -
 else
-  jq -e 'select(.parentUrl == null and .biosUrl == null)' <<<"$configuration" >/dev/null
+  jq -e 'select(([.resources[] | select(.role=="parent" or .role=="bios")] | length)==0)' <<<"$configuration" >/dev/null
 fi
 
 result="$(jq -nc \

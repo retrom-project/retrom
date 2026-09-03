@@ -44,8 +44,11 @@ SELECT game.id AS game_id,
        game.current_content_revision_id,
        variant.core_id,
        revision.id AS variant_revision_id,
-       revision.core_artifact_id,
-       revision.route_key,
+       revision.provider_id,
+       revision.target_id,
+       revision.target_contract_sha256,
+       revision.game_compatibility_line,
+       provider.bundle_sha256,
        revision.dat_version_id,
        revision.validation_input_digest,
        revision.compatibility_code,
@@ -57,6 +60,7 @@ FROM games game
 JOIN game_metadata_revisions metadata ON metadata.id=game.current_metadata_revision_id
 JOIN game_variants variant ON variant.game_id=game.id
 JOIN game_variant_revisions revision ON revision.id=variant.current_revision_id
+JOIN runtime_providers provider ON provider.provider_id=revision.provider_id
 JOIN game_content_revisions content ON content.id=game.current_content_revision_id
 WHERE game.status='PUBLISHED' AND metadata.title='Sudoku'
 ORDER BY revision.created_at_ms DESC LIMIT 1
@@ -140,17 +144,20 @@ VALUES(?,?,?,NULL,1,?,?)
     database.execute(
         """
 INSERT INTO game_variant_revisions(
- id,game_variant_id,game_content_revision_id,core_artifact_id,route_key,dat_version_id,
+ id,game_variant_id,game_content_revision_id,provider_id,target_id,target_contract_sha256,
+ game_compatibility_line,dat_version_id,
  validation_input_digest,emulator_game_id,status,compatibility_code,dependency_snapshot_json,
  default_dos_entry,created_at_ms
-) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)
+) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
 """,
         (
             variant_revision_id,
             variant_id,
             content_id,
-            base["core_artifact_id"],
-            base["route_key"],
+            base["provider_id"],
+            base["target_id"],
+            base["target_contract_sha256"],
+            base["game_compatibility_line"],
             base["dat_version_id"],
             base["validation_input_digest"],
             emulator_game_id,
@@ -174,8 +181,11 @@ def seed_play(
     game_id: str,
     content_revision_id: str,
     variant_revision_id: str,
-    artifact_id: str,
-    route_key: str,
+    provider_id: str,
+    target_id: str,
+    target_contract_sha256: str,
+    game_compatibility_line: str,
+    bundle_sha256: str,
     index: int,
     started_at_ms: int,
 ) -> None:
@@ -185,11 +195,12 @@ def seed_play(
         """
 INSERT INTO launch_sessions(
  id,profile_id,purpose,game_id,game_content_revision_id,game_variant_revision_id,
- core_artifact_id,route_key,save_state_id,dos_entry_path,
+ provider_id,target_id,target_contract_sha256,game_compatibility_line,bundle_sha256,
+ save_state_id,dos_entry_path,
  return_to,credential_sha256,state,bootstrap_expires_at_ms,idle_expires_at_ms,activated_at_ms,
  finished_at_ms,hard_expires_at_ms,created_at_ms,updated_at_ms,version,initial_disc_index,
  netplay_session_id,netplay_player_no,save_access
-) VALUES(?,?,'PRODUCT',?,?,?,?,?,NULL,NULL,'/immersive',?,'FINISHED',?,NULL,?,?,?, ?,?,1,0,NULL,NULL,'NORMAL')
+) VALUES(?,?,'PRODUCT',?,?,?,?,?,?,?,?,NULL,NULL,'/immersive',?,'FINISHED',?,NULL,?,?,?,?,?,1,0,NULL,NULL,'NORMAL')
 """,
         (
             launch_id,
@@ -197,8 +208,11 @@ INSERT INTO launch_sessions(
             game_id,
             content_revision_id,
             variant_revision_id,
-            artifact_id,
-            route_key,
+            provider_id,
+            target_id,
+            target_contract_sha256,
+            game_compatibility_line,
+            bundle_sha256,
             hashlib.sha256(launch_id.encode()).digest(),
             started_at_ms + 60_000,
             started_at_ms,
@@ -297,8 +311,11 @@ def seed(database_path: Path) -> dict[str, object]:
                 game_id,
                 content_revision_id,
                 variant_revision_id,
-                base["core_artifact_id"],
-                base["route_key"],
+                base["provider_id"],
+                base["target_id"],
+                base["target_contract_sha256"],
+                base["game_compatibility_line"],
+                base["bundle_sha256"],
                 index,
                 timestamp,
             )
@@ -316,8 +333,11 @@ def seed(database_path: Path) -> dict[str, object]:
             base["game_id"],
             base["current_content_revision_id"],
             base["variant_revision_id"],
-            base["core_artifact_id"],
-            base["route_key"],
+            base["provider_id"],
+            base["target_id"],
+            base["target_contract_sha256"],
+            base["game_compatibility_line"],
+            base["bundle_sha256"],
             GAME_COUNT + 1,
             latest_play + GAME_COUNT + 1,
         )

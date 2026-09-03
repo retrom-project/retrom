@@ -29,7 +29,7 @@ function assertIds(value) {
 }
 
 function assertCheckpoint(value) {
-  if (!exactRecord(value, ["payloadKind", "sizeBytes"]) || value.payloadKind !== "RUNTIME_STATE" ||
+  if (!exactRecord(value, ["format", "sizeBytes"]) || value.format !== "butterscotch-checkpoint-v2" ||
       !Number.isSafeInteger(value.sizeBytes) || value.sizeBytes < 13 || value.sizeBytes > 16 * 1024 * 1024) {
     throw new Error("BUTTERSCOTCH_ACCEPTANCE_EVIDENCE_INVALID");
   }

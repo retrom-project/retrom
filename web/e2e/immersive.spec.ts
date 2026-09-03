@@ -149,7 +149,7 @@ async function selectGameByTitle(page: Page, title: string) {
   await page.waitForTimeout(180);
 }
 
-async function launchSelectedGame(page: Page) {
+async function launchSelectedGame(page: Page, targetId = "mgba") {
   const configResponse = page.waitForResponse((response) =>
     /\/runtime\/launches\/[^/]+\/config$/.test(response.url()) && response.status() === 200);
   const launchResponse = page.waitForResponse((response) =>
@@ -167,7 +167,7 @@ async function launchSelectedGame(page: Page) {
   expect(configuration).toMatchObject({
     schemaVersion: 1,
     session: {mode: "SINGLE", purpose: "PRODUCT"},
-    runtime: {providerId: "emulatorjs", providerApiVersion: 1, targetId: "mgba"},
+    runtime: {providerId: "emulatorjs", providerApiVersion: 1, targetId},
     restore: null,
   });
   await expect(page.locator(".player-toolbar")).toHaveCount(0);
@@ -185,20 +185,39 @@ async function emulatorFrame(page: Page) {
 }
 
 async function openPlayerMenu(page: Page) {
-  await pressGamepad(page, [standardButton.select, standardButton.start], 0, 80, 100);
+  // A full-page WebGL screenshot can briefly blur the top document. Restore
+  // focus and satisfy the product's neutral-input recovery gate first.
+  await page.bringToFront();
+  await expect.poll(() => page.evaluate(() => document.hasFocus())).toBe(true);
+  await page.waitForTimeout(160);
+  await pressMenuChord(page, 100);
   await expect(page.getByRole("dialog", { name: "游戏菜单" })).toHaveCount(0);
-  await pressGamepad(page, [standardButton.select, standardButton.start], 0, 80, 180);
   const menu = page.getByRole("dialog", { name: "游戏菜单" });
+  for (let attempt = 0; attempt < 3 && await menu.count() === 0; attempt += 1) {
+    await pressMenuChord(page, 180);
+  }
   await expect(menu).toBeVisible();
   await expect(menu.getByRole("button", { name: "取消" })).toHaveAttribute("aria-current", "true");
   return menu;
 }
 
+async function pressMenuChord(page: Page, releaseMs: number) {
+  await setGamepadButtons(page, 0, [standardButton.select]);
+  await page.waitForTimeout(40);
+  await setGamepadButtons(page, 0, [standardButton.select, standardButton.start]);
+  await page.waitForTimeout(100);
+  await setGamepadButtons(page, 0, []);
+  await page.waitForTimeout(releaseMs);
+}
+
 async function exitFromPlayerMenu(page: Page) {
   const finished = page.waitForResponse((response) =>
     /\/runtime\/launches\/[^/]+\/finish$/.test(response.url()) && response.request().method() === "POST");
-  await pressGamepad(page, standardButton.right);
-  await pressGamepad(page, standardButton.right);
+  const exit = page.getByRole("dialog", { name: "游戏菜单" }).getByRole("button", { name: "退出游戏" });
+  for (let attempt = 0; attempt < 2 && await exit.getAttribute("aria-current") !== "true"; attempt += 1) {
+    await pressGamepad(page, standardButton.right);
+  }
+  await expect(exit).toHaveAttribute("aria-current", "true");
   await pressGamepad(page, standardButton.a);
   expect((await finished).ok()).toBe(true);
   await expect(page).toHaveURL(/\/immersive\/platforms\/[a-z0-9-]+\?gameId=[0-9a-f-]+$/);
@@ -440,7 +459,7 @@ test("ACC-IMM-006 Arcade keeps P2 input and gives menu ownership only to the act
   test.setTimeout(180_000);
   await openPlatform(page, "Arcade");
   const selectedGame = await selectGameForCore(page, "mame2003");
-  const { frame } = await launchSelectedGame(page);
+  const { frame } = await launchSelectedGame(page, "mame2003");
   await expect.poll(() => currentEmulatorBrightRatio(page), { timeout: 10_000 }).toBeGreaterThan(0.001);
 
   await setGamepadButtons(page, 1, [standardButton.a]);

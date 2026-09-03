@@ -182,7 +182,7 @@ async function runProductCase(activeBrowser) {
         immersiveLaunchId: immersive.launchId, originalLaunchId: original.launchId, restoreLaunchId: restored.launchId,
       },
       immersiveMenu,
-      checkpoint: { payloadKind: saved.payloadKind, sizeBytes: payloadSize },
+      checkpoint: { format: saved.checkpointFormat, sizeBytes: payloadSize },
       restoreComparison: restoreMatch.comparison,
       loading: {
         schemaVersion: 1,

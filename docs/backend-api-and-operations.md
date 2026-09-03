@@ -6,13 +6,13 @@
 | 版本 | 1.7 |
 | 日期 | 2026-08-25 |
 | 适用范围 | Retrom 一期 |
-| 技术栈 | Go、SQLite、Next.js、EmulatorJS、RetromRpgRuntime、本地内容寻址存储、OCI/Docker 镜像 |
+| 技术栈 | Go、SQLite、Next.js、Runtime Provider V1、本地内容寻址存储、OCI/Docker 镜像 |
 
 本文定义 Retrom 的部署边界、Go 模块划分、API 约定、后台任务、安全与运维要求。领域细节由对应专题文档负责，本文不重复其状态机和数据字典。
 
 ## 1. 架构结论
 
-一期后端采用 Go 模块化单体，单个 `retrom` 进程提供 JSON API、后台 Worker、EmulatorJS/RetromRpgRuntime 运行资源和受控内容端点；前端由独立的 `retrom-web` Next.js 进程提供 UI 与 Player Shell。生产环境在二者之前放置已有的 NG（Nginx/网关/反向代理），由 NG 暴露应用 HTTPS origin，并为每个 MV/MZ Launch 暴露一个从固定模板派生、永不复用的 unique HTTPS runtime origin；所有 TLS 仍只在 NG 终结。SQLite 保存业务数据与任务状态，用户文件写入本地 SHA-256 CAS。前后端分镜像是构建与部署边界，不把后端领域拆成微服务，也不引入 Redis、消息队列或 S3。
+一期后端采用 Go 模块化单体，单个 `retrom` 进程提供 JSON API、后台 Worker、Provider Bundle 静态资源和受控内容端点；前端由独立的 `retrom-web` Next.js 进程提供 UI、Player Shell 与共享 Provider dispatcher。生产环境在二者之前放置已有的 NG（Nginx/网关/反向代理），由 NG 暴露应用 HTTPS origin，并为 Native Web Launch 暴露一个从固定模板派生、永不复用的 unique HTTPS runtime origin；所有 TLS 仍只在 NG 终结。SQLite 保存业务数据与任务状态，用户文件写入本地 SHA-256 CAS。前后端分镜像是构建与部署边界，不把后端领域拆成微服务，也不引入 Redis、消息队列或 S3。
 
 ~~~mermaid
 flowchart LR
@@ -45,8 +45,12 @@ internal/emulationstationimport/ EmulationStation 扫描、映射快照、执行
 internal/metadata/        Hasheous 适配器与缓存
 internal/arcadedat/       DAT 安装、解析、依赖图与诊断
 internal/bios/            BIOS 要求、安装和状态聚合
-internal/runtime/         启动预检、LaunchSession/capability、EJS 配置
-internal/rpgmaker/        RPG 项目识别、路由/构件绑定、派生 fileset、pack 匹配、运行验证、隔离与 checkpoint 领域逻辑
+internal/runtimeprovider/ Provider Bundle 安装、激活、静态文件与只前进升级校验
+internal/runtimecatalog/  产品 Core 到 Provider Target 的绑定 catalog
+internal/runtimebundle/   Bundle 与 Launch Envelope V1 的闭合解析/语义校验
+internal/runtimelaunch/   Provider-neutral Launch Envelope 投影
+internal/launch/          启动预检、LaunchSession/capability 与产品编排
+internal/rpgmaker/        RPG 项目识别、Target binding、派生 fileset、pack 匹配、运行验证、隔离与 checkpoint 领域逻辑
 internal/rpgmaker/runtimevalidation/ RPG 运行验证 gate、状态投影与恢复协议
 internal/rpgmaker/isolation/ unique-origin capability 与 Host 隔离服务
 internal/netplay/         Room/Session 控制面、严格实时协议与有界内存 Hub
@@ -64,7 +68,8 @@ api/components/           跨领域公共 component
 api/codegen/              固定 Go models/server/spec 生成配置
 web/                      Next.js + React + Tailwind CSS
 data/dat/                 小型依赖 manifest/SHA；大 payload 由 prepare-deps 物化
-data/netplay/v2/          联机 core profile schema 与精确 artifact allowlist manifest
+data/netplay/v2/          联机 profile 与精确 Provider Target contract allowlist
+data/runtime-target-bindings/ 产品 Core 到 Provider Target 的唯一绑定 catalog
 ```
 
 依赖方向遵循 `httpapi/jobs -> application modules -> store/blobstore`。HTTP handler 不直接拼 SQL，DAT 解析器不写游戏元信息，Hasheous 适配器不判断 Arcade 可运行性。
@@ -75,7 +80,8 @@ data/netplay/v2/          联机 core profile schema 与精确 artifact allowlis
 web/app/                  Next.js 路由与页面壳
 web/proxy.ts              HTML 每请求 nonce/CSP 与跨源隔离响应头
 web/features/library/     游戏库和游戏详情
-web/features/player/      持久 Player Shell、预检、runtime factory、EmulatorJS 与 RetromRpgRuntime adapter
+web/features/player/runtime/ Launch Envelope parser、Provider dispatcher 与标准 PlayerRuntimeV1
+web/features/player/      持久 Player Shell、预检与 Provider-neutral 控件
 web/features/netplay/     房间、游戏选择、座位与实时状态 UI
 web/features/saves/       存档列表及快速启动
 web/features/admin/       导入、审核、游戏、游戏目录、BIOS/DAT
@@ -174,7 +180,7 @@ SQLite 队列表和 worker 必须实现 [数据模型第 7 节](./data-model.md#
 
 | 镜像 | Dockerfile / context | 责任 | 默认内部 HTTP 端口 |
 | --- | --- | --- | --- |
-| `retrom` | 根 `Dockerfile` / 仓库根目录 | Go API、Worker、迁移、DAT、固定 EmulatorJS/RetromRpgRuntime payload 和受控内容端点 | `8080` |
+| `retrom` | 根 `Dockerfile` / 仓库根目录 | Go API、Worker、迁移、DAT、已验证 Provider Bundles 和受控内容端点 | `8080` |
 | `retrom-web` | `web/Dockerfile` / `web/` | Next.js production/standalone UI 与 Player Shell | `3000` |
 
 根 Makefile 必须提供：
@@ -182,7 +188,7 @@ SQLite 队列表和 worker 必须实现 [数据模型第 7 节](./data-model.md#
 | Target | 精确行为 |
 | --- | --- |
 | `make build-backend-image` | 执行 `data-check`，计算/前后复核发布输入 digest，执行一次 Docker build，默认产出 `retrom:latest` 并带规定 label |
-| `make build-web-image` | 先执行离线 `data-check` 保证依赖 manifest 与 Player adapter registry 对齐，计算/前后复核同一 digest，再执行一次 Docker build，默认产出 `retrom-web:latest` 并带规定 label |
+| `make build-web-image` | 先执行离线 `data-check` 保证 Target binding 与 Provider descriptor 对齐，计算/前后复核同一 digest，再执行一次 Docker build，默认产出 `retrom-web:latest` 并带规定 label |
 | `make build-images` | 固定一份发布输入 digest，依次调用上述两个 target，最后 inspect 并比较两个 label；只有两个都等于预期值才成功 |
 
 变量契约为 `DOCKER ?= docker`、`BACKEND_IMAGE ?= retrom`、`WEB_IMAGE ?= retrom-web`、`IMAGE_TAG ?= latest`。调用者可以显式覆盖镜像仓库前缀或 tag，但默认名称不得变化。
@@ -195,7 +201,7 @@ SQLite 队列表和 worker 必须实现 [数据模型第 7 节](./data-model.md#
 - 启停本地开发进程；
 - 读取或打包用户 ROM、BIOS、SQLite、CAS、测试截图或 TLS 私钥。
 
-两个 Dockerfile 都使用多阶段构建，最终层不保留编译工具、源码缓存或开发依赖。两个镜像都不创建 Retrom 专用账号，也不声明固定 `USER`；运行身份由 Compose/Kubernetes 等部署编排显式决定，生产基线为 UID/GID `1000:1000`。后端持久数据目录必须挂载为该身份可写，镜像不得尝试 chown 未知宿主 UID。后端 dependency builder 必须读取构建参数中 `RETROM_DEPENDENCY_VERSIONS` 对应的小型 manifest 集，按固定来源逐版本物化/校验 EmulatorJS、core、可选 DAT 与许可输入；当前默认 `4.2.3,4.3.0-pre`，后者提供 DOSBox Pure、Genesis Plus GX Wide 与 Azahar 定向覆盖。完整 release 只能作为 builder 输入，随后从 manifest 导出新的只读 allowlist 目录供最终层复制；不能把下载 archive、非 allowlist core、本地依赖缓存、source checkout 或整个 `data/` 目录复制进镜像，也不能用最终层递归 `chmod` 重写整棵依赖树。前端镜像携带经过 `data-check` 的 adapter registry/实现；两个镜像必须携带完全相同的 release-input label。最终镜像中的内置依赖层必须对任意非 root 运行 UID 保持只读且可遍历，不能继承物化阶段仅 root 可访问的 `0700/0600` 权限；部署以 UID/GID `1000:1000` 运行时仍须通过同一依赖校验。
+两个 Dockerfile 都使用多阶段构建，最终层不保留编译工具、源码缓存或开发依赖。两个镜像都不创建 Retrom 专用账号，也不声明固定 `USER`；运行身份由 Compose/Kubernetes 等部署编排显式决定，生产基线为 UID/GID `1000:1000`。后端持久数据目录必须挂载为该身份可写，镜像不得尝试 chown 未知宿主 UID。后端 builder 先校验 production lock 中两个 Provider 的 descriptor/archive/逐文件完整性、Target declaration、许可与 provenance，再把闭合 stage 复制进最终层；不能把下载缓存、source checkout、candidate、未声明文件或整个 `data/` 目录复制进镜像。DAT 等非运行时依赖仍由 `RETROM_DEPENDENCY_VERSIONS` 固定并离线物化。两个镜像必须携带完全相同的 release-input label；前端只携带 Provider-neutral dispatcher，不复制 Target registry。最终镜像中的只读依赖层必须对任意非 root 运行 UID 可遍历，不能继承 builder 的私有权限。
 
 `make build-images` 不自动属于普通 `make ci`，但修改任一 Dockerfile、依赖锁文件、构建脚本、DAT/runtime 打包逻辑或发布资产时必须在合并前同时验证二者。tag 发布流水线不重复 PR quality，只保留 `make build-images` 及后续发布门禁。
 
@@ -300,9 +306,11 @@ RETROM_DATA_DIR/
 | `RETROM_DEV_STATE_DIR` | 仅供开发启动器使用；`make dev` 默认为仓库 `.dev-data/dev-state`，保存 PID 登记与接管锁。隔离验收必须覆盖为本 Case 的临时目录。 |
 | `RETROM_DATA_DIR` | 必须是已解析绝对路径；开发由 Makefile 设为仓库 `.dev-data/data`，生产为全新持久卷。它与只读 `RETROM_DEPENDENCY_ROOT` 及开发扫描目录严格分离；应用创建子目录但拒绝文件系统根、用户 home 和 symlink 数据根。 |
 | `RETROM_DB_PATH` | 未设置时派生为数据根下 `retrom.db`；若设置必须是数据根内的绝对普通文件路径。 |
-| `RETROM_DEPENDENCY_ROOT` | 必填绝对只读目录；其下按 `dat/emulatorjs/<version>`、`runtime/emulatorjs/<version>` 与 `runtime/rpgmaker/v1/` 布局；RPG manifest 的 artifact `entry_path` 相对该 v1 物化根解析，不以 route/artifact ID 猜目录。开发固定为仓库 `data/` 的绝对路径，镜像内固定为只读依赖层；拒绝 root/home/symlink 逃逸。 |
+| `RETROM_DEPENDENCY_ROOT` | 必填绝对只读目录；保存 DAT、认证种子、联机 profile 与 `runtime-target-bindings/v1/catalog.json`。开发固定为仓库 `data/` 的绝对路径，镜像内固定为只读依赖层；拒绝 root/home/symlink 逃逸。Provider Bundle 不从这里按路径猜测，而由下列 active/installed 配置定位。 |
+| `RETROM_PROVIDER_ACTIVE_PATH` | 必填绝对普通文件路径；内容是已通过完整性和只前进校验的 active Provider identity。PFB 指向 candidate 专用数据卷，production 指向 production lock 物化结果。 |
+| `RETROM_PROVIDER_INSTALLED_ROOT` | 必填绝对只读目录；按 Provider identity 保存已验证的 descriptor、archive 解包文件与安装证据。服务不从网络下载，也不扫描目录推断 Target。 |
 | `RETROM_DEPENDENCY_VERSIONS` | 必填、无空白/重复且按 SemVer（含 prerelease）升序；当前为 `4.2.3,4.3.0-pre`。每项必须有完整 manifest/runtime/许可 payload，DAT 只在该 manifest 声明时必需。 |
-| `RETROM_ACTIVE_EMULATORJS_VERSION` | 必填且必须属于上列；当前为 `4.2.3`。新验证逐 core 使用版本列表中最后一个声明该 core 的 artifact，不覆盖历史 revision 锁定版本。 |
+| `RETROM_ACTIVE_EMULATORJS_VERSION` | 必填且必须属于上列；当前为 `4.2.3`。该变量只选择 DAT 等非 Provider 依赖基线；运行 Target 选择来自 active Provider 与 binding catalog。 |
 | `RETROM_RPG_RUNTIME_ORIGIN_TEMPLATE` | Go 与 Next 两个进程都必填且值相同，只含一个 `{launchId}`，无 userinfo/path/query/fragment/trailing slash。release 形式固定为 `https://{launchId}.<configured-runtime-domain>`；普通 test 形式为 `http://{launchId}.rpg.localhost:<backend-port>`；PFB test 形式为 `http://{launchId}.rpg.<pfb-id>.localhost:3000`。PFB 形状只在 test、insecure opt-in 和匹配候选锁同时成立时接受。`launchId` 是规范小写 UUID且独占完整最左 Host label，静态 suffix/端口不得从请求推导或覆盖。Next 从模板生成唯一受控 family `frame-src`，实际 iframe、Go Host、ticket 与 capability 仍逐 Launch 精确校验。 |
 | `RETROM_MULTI_DISC_IMPORT_ENABLED` | 严格 `true|false`；服务配置缺省为 `false`，仓库 `make dev` 的测试服务器基线显式传入 `true`；控制新建多盘 Import、capability 投影和多盘内容替换。非法值启动失败，生产启用必须显式设为 `true`。 |
 | `RETROM_SERVER_IMPORT_ROOTS` | 服务配置缺省为 `[]`；仓库 `make dev` 在变量完全未设置时注入 `.dev-data/bios` 与 `.dev-data/roms` 对应的两项 JSON 数组，显式值（包括 `[]`）优先。生产只能显式配置已挂载的只读目录。 |
@@ -319,7 +327,7 @@ RETROM_DATA_DIR/
 
 上传、archive、worker 和网络边界使用 [HTTP API](./http-api-contract.md) 与 [数据模型](./data-model.md) 的安全默认值；允许部署配置调低，调高必须同步威胁评审与验收。Hasheous production base URL 固定为 `https://hasheous.org`，只通过依赖注入在测试替换，不能由不受控运行环境指向任意 host。
 
-多盘 capability 是 `RETROM_MULTI_DISC_IMPORT_ENABLED`、Platform content profile 与当前 `selected_for_new_bindings` CoreArtifact compatibility 的交集，flag 不是校验旁路。关闭时新建 MULTI Import 与 MULTI 内容替换 fail closed，但不删除证据、不取消已冻结的 Import/Attachment/Job，也不阻止既有多盘 Game 的 Launch、换盘、存档和恢复；需要阻止在途审批时必须显式 cancel/discard。既有 rejected-file reconfigure 始终保持 STANDARD。flag 值不进入日志或诊断。
+多盘 capability 是 `RETROM_MULTI_DISC_IMPORT_ENABLED`、Platform content profile 与当前 Core binding 所指 Provider Target 内容能力的交集，flag 不是校验旁路。关闭时新建 MULTI Import 与 MULTI 内容替换 fail closed，但不删除证据、不取消已冻结的 Import/Attachment/Job，也不阻止既有多盘 Game 的 Launch、换盘、存档和恢复；需要阻止在途审批时必须显式 cancel/discard。既有 rejected-file reconfigure 始终保持 STANDARD。flag 值不进入日志或诊断。
 
 环境变量解析使用封闭规则：上表列出的名称是服务配置；仅供仓库工具使用、可能被父进程继承的 `RETROM_ACCEPTANCE_*`、`RETROM_CHROME_*`、`RETROM_EJS_DEP_*` 由服务配置加载器明确忽略且不记录值；任何其他未知 `RETROM_*`（例如拼错的 `RETROM_DATA_DI` 或已移除的 example 前缀）都以 `CONFIG_UNKNOWN_VARIABLE` 快速失败。维护子命令只校验自身所需的已知服务变量，但使用同一 unknown/工具前缀规则。缺失配置、目录不可写或路径越界同样非零退出并给出变量名和稳定错误码，但不回显变量值、秘密或完整用户路径。应用配置中不存在 TLS 证书、私钥或 ACME 参数。
 
@@ -334,12 +342,12 @@ SQLite 基线：启用外键、WAL 和合理的 `busy_timeout`；仅通过版本
 ## 10. 可观测性与故障诊断
 
 - 每个 HTTP 请求和后台任务携带 `request_id` / `job_id`，结构化日志包含稳定错误码。
-- `GET /health/live` 只证明进程存活；`GET /health/ready` 每次使用独立只读连接池执行实时探测，仅在数据库可读写、migration checksum、CAS 数据根、全部 manifest 依赖、十条独立 runtime route/artifact 各恰有一个当前 `selected_for_new_bindings/available_for_launch` 构件、仍受精确绑定保护的 EmulatorJS artifact/pack 可用，以及每个当前 selected Arcade CoreArtifact 的 READY active DatVersion 均通过时返回 `200`。RPG Maker/ONS/KiriKiri/Butterscotch 的历史构件可以退役；旧存档是否可恢复由当前构件的 `readableSaveAbis` 投影，不把不兼容存档变成全局 readiness 故障。503 的闭集 reason code 按优先级为 `DATABASE_UNAVAILABLE`、`CAS_UNAVAILABLE`、`DEPENDENCY_INVALID`、`DEPENDENCY_DAT_PARSE_FAILED`、`DEPENDENCY_INDEXING`；响应不含路径/hash。冷库 DAT indexing 期间 HTTP/worker 可以存活，但除 health 外全部路由由前置启动门禁返回 `503 SERVICE_NOT_READY`，不得让部分业务读到未激活目录；首次完整就绪后该启动门禁单向打开，普通业务请求不再逐次执行健康 SQL 或因写连接短暂繁忙误报 503，实时运维状态继续由 `/health/ready` 表达。
+- `GET /health/live` 只证明进程存活；`GET /health/ready` 每次使用独立只读连接池执行实时探测，仅在数据库可读写、migration checksum、CAS 数据根、两个 active Provider Bundle 的完整性、47 个 Target 与产品 binding 闭包、仍被历史记录引用的 Target 可用，以及每个当前 Arcade Target 的 READY active DatVersion 均通过时返回 `200`。旧存档格式不可读只影响该存档的 availability；Bundle 降级、同版本换字节、删除被引用 Target 或 binding/catalog 漂移属于全局 readiness 故障。503 的闭集 reason code 按优先级为 `DATABASE_UNAVAILABLE`、`CAS_UNAVAILABLE`、`DEPENDENCY_INVALID`、`DEPENDENCY_DAT_PARSE_FAILED`、`DEPENDENCY_INDEXING`；响应不含路径/hash。冷库 DAT indexing 期间 HTTP/worker 可以存活，但除 health 外全部路由由前置启动门禁返回 `503 SERVICE_NOT_READY`，不得让部分业务读到未激活目录；首次完整就绪后该启动门禁单向打开，普通业务请求不再逐次执行健康 SQL 或因写连接短暂繁忙误报 503，实时运维状态继续由 `/health/ready` 表达。
 - 管理后台任务详情展示阶段、进度、最近错误、重试次数和下次重试时间，不展示堆栈。
-- 启动失败日志关联 `launchId`、game、VariantRevision、CoreArtifact、DAT 版本和缺失依赖，但不记录 capability。
-- RPG 运行日志只允记录非秘密 `launchId`、validation ID、selected core、generation、route key、artifact ID、adapter ABI、pack 状态、gate 名/结果/时长和稳定错误码；不记录 bootstrap ticket/cookie、项目 bytes/JS、文件名/绝对路径、存档 payload、截图 bytes 或 MV/MZ bridge message 内容。Host confusion/replay 只记录低基数 reason，不回显恶意 Host/ticket。
+- 启动失败日志关联 `launchId`、game、VariantRevision、Provider Target、DAT 版本和缺失依赖，但不记录 capability。
+- RPG 运行日志只允记录非秘密 `launchId`、validation ID、selected core、generation、`providerId/targetId/targetContractSha256`、checkpoint format、pack 状态、gate 名/结果/时长和稳定错误码；不记录 bootstrap ticket/cookie、项目 bytes/JS、文件名/绝对路径、存档 payload、截图 bytes 或 MV/MZ bridge message 内容。Host confusion/replay 只记录低基数 reason，不回显恶意 Host/ticket。
 - 联机只在 Room/Session 转移、upgrade 拒绝、resync、终局与 recovery 记录低基数结构化事件；不记录每帧 input/canonical/hash/state bytes、credential、显示名、IP、内容 hash 或路径。可聚合字段限 profile ID、playerNo、状态、终因、耗时、frame lag、rollback/resync 计数。
-- 多盘结构化事件覆盖 Import mode/parser 结果、Attachment 状态/重试/执行时长、Validation 结果、Launch 盘数、playlist/DISC 内容响应状态与 bytes，以及 Player 开始/盘数不一致/换盘/存档恢复结果。可聚合标签仅限 platform key、core key、artifact version、盘数 bucket、HTTP 状态与稳定错误码；不得记录标题、basename、路径、内容 hash 或 capability。Import/Attachment/Validation 使用持久 JobEvent，运行端使用固定 schema 的结构化日志；不存在自由形式客户端 telemetry body。
+- 多盘结构化事件覆盖 Import mode/parser 结果、Attachment 状态/重试/执行时长、Validation 结果、Launch 盘数、playlist/DISC 内容响应状态与 bytes，以及 Player 开始/盘数不一致/换盘/存档恢复结果。可聚合标签仅限 platform key、core key、Provider/Target version、盘数 bucket、HTTP 状态与稳定错误码；不得记录标题、basename、路径、内容 hash 或 capability。Import/Attachment/Validation 使用持久 JobEvent，运行端使用固定 schema 的结构化日志；不存在自由形式客户端 telemetry body。
 - EmulationStation 事件只记录 import/job ID、phase、封闭计数、执行时长和稳定错误码；不得记录 XML 文本、`command/emulator/core/provider` 值、标题、ROM/媒体 basename、绝对路径、facts digest 或底层 `os.PathError`。管理员失败详情只使用 OpenAPI 封闭字段和截断后的低敏技术 code。
 - `GET /api/v1/admin/diagnostics` 提供 HTTP 契约规定的封闭 JSON 诊断摘要，只含版本与状态计数；不打包原始日志、ROM/BIOS，不输出资源 ID、内容 hash、环境变量值或宿主路径。响应必须 `private, no-store`，字段变化先升级 schemaVersion/OpenAPI/验收，不能临时追加自由形式 map。
 - `GET /api/v1/admin/storage-analysis` 使用独立只读连接池和一个 snapshot transaction，按存储专题固定口径返回已登记 CAS payload 的用途总量；不得扫描宿主目录或返回资源标识。`POST /api/v1/admin/storage-cleanups` 只允许 ADMIN 在 CSRF/幂等保护下把当前未引用候选推进为立即可执行，仍由既有 PayloadRelease/BLOB_GC worker 逐 Blob 复核并回收；HTTP 不同步删除文件，也不返回 Blob/Job 标识。`OTHER_REFERENCED` 非零时日志只记录 category、count 和 bytes，禁止输出 Blob ID/hash/路径。
@@ -350,11 +358,11 @@ SQLite 基线：启用外键、WAL 和合理的 `busy_timeout`；仅通过版本
 
 精确命令、原子发布、引用 registry、目标必须不存在和恢复校验见[存储与数据库第 8 节](./storage-and-database.md#8-备份与恢复)。恢复发布前还要在单一事务撤销全部旧 AuthSession、ACTIVE AccountLink和非终态 Launch，把遗留联机 Session/Room 以 `RESTORE` 收口，并写 SYSTEM安全围栏审计；因此恢复后的旧 cookie/capability/WebSocket 全部无效，实时 history 不尝试恢复。命令本身不启动服务、不覆盖旧目录。
 
-当前未发布基线只接受 001–010 clean lineage 的精确有序前缀或完整集合；旧开发 lineage、旧 manifest schema、部分备份和名称/checksum 漂移都在写入前拒绝。部署本次改造时归档或删除标准开发数据库并以空根初始化；回退只能恢复与目标二进制 lineage 精确匹配的完整数据根，不得混合数据库、CAS 或密钥。恢复服务开放 HTTP 前把所有依赖外部 source 的非终态 BIOS/Pegasus/EmulationStation Job 与 aggregate 以 `SERVER_IMPORT_SOURCE_NOT_RESTORED` 失败收口；普通待审和已发布 CAS bytes 保留。首次正式发布后再按当时契约设计只追加升级，不预留未验证的转换分支。
+当前未发布基线只接受 001–010 clean lineage 的精确有序前缀或完整集合；旧开发 lineage、旧 manifest schema、部分备份和名称/checksum 漂移都在写入前拒绝。部署本次改造时归档或删除标准开发数据库并以空根初始化。备份恢复只允许由同版本或更高版本二进制读取与验证完整数据根，不得混合数据库、CAS 或密钥，也不支持二进制、schema 或 Provider 降级。恢复服务开放 HTTP 前把所有依赖外部 source 的非终态 BIOS/Pegasus/EmulationStation Job 与 aggregate 以 `SERVER_IMPORT_SOURCE_NOT_RESTORED` 失败收口；普通待审和已发布 CAS bytes 保留。首次正式发布后只追加升级，不预留降级或双读转换分支。
 
 ## 12. 统一验收入口
 
-工程门禁与双镜像执行 [一期项目验收规范](./project-acceptance.md) 的 `ACC-QA-*` 和 `ACC-PKG-*`，联机协议、安全、feature flag、单机回归与双浏览器核心生命周期执行 `ACC-NP-010`–`016`，本地进程与 NG/TLS 边界执行 `ACC-DEV-001` 和 `ACC-NET-001`–`002`（后者仅在已部署 NG 时适用），游戏维护执行 `ACC-GAME-*`，API、健康检查及诊断执行 `ACC-API-001` 和 `ACC-OPS-001`。RPG 七世代、运行依赖、unique origin、route/artifact 历史和跨 Launch 精确 checkpoint 恢复执行 `ACC-RPG-001`–`012`；其中 `ACC-RPG-008` 必须显式传 `RPG_MZ_SMOKE_ROOT`。多盘 feature flag、替换和既有内容连续性执行 `ACC-MDISC-007`；Pegasus 外部来源、恢复栅栏、共享读取治理和产品运行链执行 `ACC-PEG-001`–`006`；EmulationStation parser、外部来源、handoff、恢复/释放和产品运行链执行 `ACC-ES-001`–`006`；游戏视频资产执行 `ACC-MEDIA-001`。数据库、内容端点、任务恢复和备份由统一文档中对应 `ACC-DB-*`、`ACC-SEC-*`、`ACC-IMP-008` 与 `ACC-BKP-001` 联合覆盖。
+工程门禁与双镜像执行 [一期项目验收规范](./project-acceptance.md) 的 `ACC-QA-*` 和 `ACC-PKG-*`，联机协议、安全、feature flag、单机回归与双浏览器核心生命周期执行 `ACC-NP-010`–`016`，本地进程与 NG/TLS 边界执行 `ACC-DEV-001` 和 `ACC-NET-001`–`002`（后者仅在已部署 NG 时适用），游戏维护执行 `ACC-GAME-*`，API、健康检查及诊断执行 `ACC-API-001` 和 `ACC-OPS-001`。Provider 安装、Target binding、dispatcher 与向前升级执行 `ACC-PROVIDER-001`–`008`；RPG 七世代、运行依赖、unique origin 和跨 Launch 精确 checkpoint 恢复执行 `ACC-RPG-001`–`012`，其中 `ACC-RPG-008` 必须显式传 `RPG_MZ_SMOKE_ROOT`。多盘 feature flag、替换和既有内容连续性执行 `ACC-MDISC-007`；Pegasus 外部来源、恢复栅栏、共享读取治理和产品运行链执行 `ACC-PEG-001`–`006`；EmulationStation parser、外部来源、handoff、恢复/释放和产品运行链执行 `ACC-ES-001`–`006`；游戏视频资产执行 `ACC-MEDIA-001`。数据库、内容端点、任务恢复和备份由统一文档中对应 `ACC-DB-*`、`ACC-SEC-*`、`ACC-IMP-008` 与 `ACC-BKP-001` 联合覆盖。
 
 ## 13. 服务器导入运维
 

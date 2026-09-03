@@ -89,8 +89,9 @@
 - `make build-backend-image`、`make build-web-image` 和 `make build-images` 只构建/检查镜像；不得隐式执行 `docker run`、Compose、push、部署或修改运行数据。两个镜像必须使用依赖专题的同一 `io.retrom.release-input-sha256`，不得用 tag 相同冒充可组合证据。
 - 默认镜像名固定为后端 `retrom`、前端 `retrom-web`。改变默认名称属于构建契约变更，必须同步正式文档。
 - 两个应用进程只监听明文 HTTP。TLS 证书、TLS 握手、HTTP 到 HTTPS 跳转和 HSTS 由前置 NG/反向代理负责；不得在 Go 或 Next.js 应用内加入 TLS 终结能力。
-- `retrom-runtime` 的开发联调不得以“先发正式 Release”作为前置。先在相邻的独立 checkout 中按其 `AGENTS.md` 完成回归和基础门禁，再用 `RETROM_RUNTIME_DEV_ROOT=/absolute/path/to/retrom-runtime make dev` 显式链接本地 `dist`；本地 override 必须使用被忽略的独立 Next distDir 并把该包作为显式 transpile/watch 输入，不能复用正式依赖的持久 bundle 缓存。不得为此修改 Retrom 的正式 manifest、package lock、route identity 或发布镜像输入。`retrom-runtime` 不管理或编译第三方核心；修改核心时必须进入对应 fork，按该 fork 的 `AGENTS.md` 生成并校验本地候选资产，再用 `RETROM_RUNTIME_DEV_RELEASE_OVERRIDES` 把 runtime ID 映射到候选输出目录。只有可删除的 fresh dev DB 才可同时设置 `RETROM_RUNTIME_DEV_INCLUDE_ASSETS=true`；此时本地 checkout 的下一待发布 package version 可以与当前正式 tag 不同，候选 bytes 只装入被忽略的当前正式路径并由 dev marker 记录，不能让同一正式 artifact identity 在有引用的数据库中对应不同 bytes。
-- 本地 runtime 必须经过受影响的真实 Retrom 导入、审核预览、Launch、输入、checkpoint/恢复产品链后，才允许合并 runtime PR、打不可移动的 `v*` tag 和发布 Release；随后 Retrom 再以独立提交固定该 tag/commit/assets。正式 `deps-check`、镜像或发布门禁前必须运行 `make retrom-runtime-dev-unlink` 恢复锁定 Release，不能把本地 override 的 observed digest 当成发布证据。
+- `retrom-runtime` 与 core fork 的开发联调必须使用 PFB candidate 流程。Retrom、`retrom-runtime` 和涉及的 core 都放在同一 `.worktree/<pfb>/project/` 下，PFB spec 固定 commit、dirty/source tree digest 与候选来源；`RUNTIME_ROOT` 和 `CORE_ROOTS` 只能指向该 PFB 树。不得再把本地 `dist` 直接链接进 baseline checkout，也不得修改 production lock 来承载开发候选。
+- candidate 必须构建完整 Provider Bundle V1，并通过与 production 相同的 schema、完整性、Target contract、许可和 Launch Envelope 校验；candidate descriptor 只能覆盖 `provider-sources.json` 已声明的上游来源，不能注入 Target 或改写 Retrom binding。正式 package/release 命令发现 candidate 输入必须 fail closed。
+- 本地 Provider 必须经过受影响的真实 Retrom 导入、审核预览、Launch、共享 dispatcher、输入、checkpoint/恢复产品链后，才允许合并 runtime PR、打不可移动的 `v*` tag 和发布 Release；随后 Retrom 再以独立提交固定正式 descriptor/archive。PFB PASS 只证明 candidate，不得当作 production Release 或外部分发授权。
 
 ## 5. 质量底线
 
@@ -177,7 +178,7 @@ make web-build
 make integration-test
 ```
 
-影响 Player Shell 的浏览器交互、EmulatorJS 运行链路、core artifact、DAT、BIOS/Parent 装配或存档恢复时，还须按
+影响 Player Shell、Provider dispatcher/Module、Target contract、DAT、BIOS/Parent 装配或 checkpoint 恢复时，还须按
 第 6.1 节运行受影响的实际产品 Chrome E2E。默认先运行精确 Case，例如：
 
 ```bash
@@ -208,11 +209,11 @@ make build-images
 
 ## 8. 文档与数据维护
 
-- 正式文档描述稳定行为、接口、数据约束、验证不变量和可重复命令，不记录普通开发运行产生的临时 PASS 输出、任务 ID 或本机路径。版本化依赖/核心兼容基线可以记录固定浏览器、artifact hash、解析统计和机器结果引用，但必须同时说明它只是该版本的历史证据，正式验收仍生成当次证据。
+- 正式文档描述稳定行为、接口、数据约束、验证不变量和可重复命令，不记录普通开发运行产生的临时 PASS 输出、任务 ID 或本机路径。版本化 Provider/Target/DAT 兼容基线可以记录固定浏览器、Bundle/contract digest、解析统计和机器结果引用，但必须同时说明它只是该版本的历史证据，正式验收仍生成当次证据。
 - 字段、状态机、API 或页面细节只在其负责的专题中维护一次；总览只保留跨领域摘要和链接。
 - 可执行验收流程、标准、证据和 Case ID 只在 `docs/project-acceptance.md` 维护；领域文档只链接对应 ID，不得形成第二份清单。
 - 修改机器可读 manifest、DAT、迁移或 API schema 时，同一变更中必须更新校验、测试和相应文档。
-- 第三方 payload 不进入 Git。修改依赖 manifest、Player adapter registry、DAT/许可物化配方或 notice 规则时必须运行 `make data-check`、`make prepare-deps` 与 `make deps-check`，并验证 manifest/adapter ID/版本/实现双向一致，最终镜像只包含 allowlist、逐字节校验的许可原文和确定性 notice，而非下载 archive/缓存目录。不得让未知 EmulatorJS 版本回退到默认 adapter，不得把推断的 core source association 写成已证明精确构建源码，也不得把本地 image build 解释为外部分发授权。
+- 第三方 payload 不进入 Git。修改 Provider Bundle/Target binding、DAT/许可物化配方或 notice 规则时必须运行 `make data-check`、`make prepare-deps` 与 `make deps-check`，并验证 Provider/Bundle/Target/contract 双向一致；最终镜像只包含闭合 allowlist、逐字节校验的许可原文和确定性 notice，而非下载 archive/缓存目录。未知 Provider、Bundle 或 Target 不得回退默认实现，不得把推断的 core source association 写成已证明精确构建源码，也不得把本地 image build 解释为外部分发授权。
 - 第三方版本、core/DAT 哈希和兼容覆盖不得凭记忆填写；以仓库机器可读清单和可复现实验为准。
 
 ## 9. 安全与破坏性操作

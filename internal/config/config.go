@@ -66,6 +66,7 @@ type Config struct {
 	NetplayRoomIdleDraft     time.Duration
 	NetplayRoomIdleWaiting   time.Duration
 	NetplayReconnectLease    time.Duration
+	PFBID                    string
 }
 
 type ServerImportRoot struct {
@@ -156,7 +157,8 @@ func Load(mode Mode) (Config, error) {
 	if err != nil {
 		return Config{}, err
 	}
-	if err := validatePFBBoundary(mode, base.dependencyRoot, network.publicOrigin); err != nil {
+	pfbID, err := validatePFBBoundary(mode, network.publicOrigin)
+	if err != nil {
 		return Config{}, err
 	}
 	runtimeOptions, err := loadRuntimeOptions(base.dataDir, base.dependencyRoot)
@@ -193,52 +195,20 @@ func Load(mode Mode) (Config, error) {
 		NetplayRoomIdleDraft:   netplay.roomIdleDraft,
 		NetplayRoomIdleWaiting: netplay.roomIdleWaiting,
 		NetplayReconnectLease:  netplay.reconnectLease,
+		PFBID:                  pfbID,
 	}, nil
 }
 
-func validatePFBBoundary(mode Mode, dependencyRoot string, publicOrigin *url.URL) error {
+func validatePFBBoundary(mode Mode, publicOrigin *url.URL) (string, error) {
 	identifier := os.Getenv("RETROM_PFB_ID")
-	markerPath := filepath.Join(dependencyRoot, "runtime", "rpgmaker", "v1", ".retrom-pfb-candidate.json")
-	contents, readErr := os.ReadFile(markerPath)
-	markerPresent := readErr == nil
-	if readErr != nil && !errors.Is(readErr, os.ErrNotExist) {
-		return fmt.Errorf("%w: PFB_CANDIDATE_FORBIDDEN", errInvalidConfig)
-	}
 	if identifier == "" {
-		if markerPresent {
-			return fmt.Errorf("%w: PFB_CANDIDATE_FORBIDDEN", errInvalidConfig)
-		}
-		return nil
+		return "", nil
 	}
 	publicPFBID, validOrigin := pfbIDFromLocalOrigin(publicOrigin)
 	if mode != ModeTest || !validOrigin || publicPFBID != identifier {
-		return fmt.Errorf("%w: RETROM_PFB_ID", errInvalidConfig)
+		return "", fmt.Errorf("%w: RETROM_PFB_ID", errInvalidConfig)
 	}
-	if !markerPresent {
-		return nil
-	}
-	if !validPFBCandidateMarker(contents, identifier) {
-		return fmt.Errorf("%w: PFB_CANDIDATE_FORBIDDEN", errInvalidConfig)
-	}
-	return nil
-}
-
-func validPFBCandidateMarker(contents []byte, identifier string) bool {
-	var marker map[string]any
-	if json.Unmarshal(contents, &marker) != nil || len(marker) != 10 ||
-		marker["schemaVersion"] != float64(1) || marker["kind"] != "RETROM_PFB_CANDIDATE_V1" ||
-		marker["pfbId"] != identifier {
-		return false
-	}
-	for _, field := range []string{
-		"formalManifestSha256", "runtime", "cores", "runtimeFiles", "artifacts",
-		"filesSha256", "overlaySha256",
-	} {
-		if _, exists := marker[field]; !exists {
-			return false
-		}
-	}
-	return true
+	return identifier, nil
 }
 
 type baseConfig struct {

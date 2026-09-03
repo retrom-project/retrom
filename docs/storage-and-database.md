@@ -117,7 +117,7 @@ PRAGMA busy_timeout = 5000;
 
 ### 3.1 clean migration lineage
 
-当前基线包含 `001_identity.sql` 至 `011_emulatorjs_failed_revision_runtime.sql`。`store.Open` 在任何 schema 写入前只读检查 `schema_migrations`，只接受不存在/真正空的数据库、与当前文件逐项同名同 checksum 的有序前缀，以及完整当前 lineage。前缀用于同一 clean bootstrap 在进程中断后继续，并允许已应用 `010` 的数据库通过新增 `011` 更新 runtime trigger；已应用 migration 不得改写。名称或 checksum 漂移、空洞、未知/future 记录、没有 migration 记录却已有业务表统一只读拒绝，不按旧版本号特判，也不执行运行时修补、数据回填或关闭外键的表重建。
+当前基线包含 `001_identity.sql` 至 `010_cross_domain_invariants.sql`。`store.Open` 在任何 schema 写入前只读检查 `schema_migrations`，只接受不存在/真正空的数据库、与当前文件逐项同名同 checksum 的有序前缀，以及完整当前 lineage。前缀只用于同一 clean bootstrap 在进程中断后继续；已应用 migration 不得改写。名称或 checksum 漂移、空洞、未知/future 记录、没有 migration 记录却已有业务表统一只读拒绝，不按旧版本号特判，也不执行运行时修补、数据回填或关闭外键的表重建。
 
 项目首次发布前如发现非当前 lineage 的开发数据库，操作者必须为当前版本配置全新空数据根；程序不提供转换器、双写或隐式导入页面。仓库 `make dev` 的默认根为 `.dev-data/data`；测试与每个验收 Case 使用独立临时 data root 并在结束时删除。首次公开发布后，已发布 migration 才进入只追加纪律。
 
@@ -132,7 +132,7 @@ PRAGMA busy_timeout = 5000;
 | `auth_sessions` / `account_links` / `instance_state` / `auth_rate_limits` | 登录 session、一次性邀请/重置、初始化状态和 HMAC 限流桶 |
 | `platforms` | 基础平台 |
 | `cores` | EmulatorJS/Core 配置 |
-| `core_artifacts` | 可执行 core artifact、实际版本/hash 和兼容配置 |
+| `runtime_providers`、`runtime_targets`、`runtime_target_bindings` | 已激活 Provider Bundle、公开 Target contract 与 Product Core binding |
 | `platform_cores` | 平台与核心多对多关联 |
 | `platform_instances` | 用户维护的游戏目录及默认核心 |
 | `bios_requirements` | 固件要求 |
@@ -152,7 +152,7 @@ PlatformInstance 的复合外键、游戏唯一归属和迁移规则见 [游戏�
 | `game_content_files` | ContentRevision 的 CONTENT/DOS_SOURCE/COMPANION Blob 与逻辑路径 |
 | `dos_entries` | ContentRevision 中经过安全扫描的可执行程序候选 |
 | `game_variants` | Game + Core 唯一的稳定逻辑槽及当前 revision 指针 |
-| `game_variant_revisions` | 某 ContentRevision 在一个 CoreArtifact 上的不可变验证/运行结果 |
+| `game_variant_revisions` | 某 ContentRevision 在一个 Provider Target contract 上的不可变验证/运行结果 |
 | `variant_files` | parent、BIOS bundle、DOS launch bundle 等 core-specific/派生文件 |
 | `game_metadata_revisions` | 已发布元信息修订 |
 | `tags` / `game_tags` | 实例级 Tag tombstone 与 Game 多对多关系；不含 Blob 或宿主路径 |
@@ -169,7 +169,7 @@ PlatformInstance 的复合外键、游戏唯一归属和迁移规则见 [游戏�
 
 | 表 | 用途 |
 | --- | --- |
-| `dat_versions` | Core artifact 专属 release-managed DAT、非空内置相对路径、SHA-256、解析器版本、解析及活动状态 |
+| `dat_versions` | Provider Target 专属 release-managed DAT、非空内置相对路径、SHA-256、解析器版本、解析及活动状态 |
 | `dat_machines` | machine |
 | `dat_bios_sets` | MAME machine 的 BIOS option/default |
 | `dat_rom_entries` | ROM entry |
@@ -351,7 +351,7 @@ data/
 
 顶层恒等式固定为 `registeredBytes = protectedBytes + unreferencedBytes = sum(categories[].bytes)`，`blobCount = sum(categories[].blobCount)`。存档详情另给有效/软删除行数、去重后的状态文件引用量和截图引用量；GC 候选详情给候选 Blob 数与引用量。这些详情是可能相互重叠的引用视图，不与九类容量相加。
 
-替换封面或移除视频后，失去最后引用的旧媒体会立即从 `MEDIA/protectedBytes` 转入 `UNREFERENCED/unreferencedBytes` 并登记候选；`registeredBytes` 与物理 CAS 文件在默认 7 天宽限期结束前保持不变。ROM 或多盘内容成功替换是显式破坏性边界：事务切换 current 后删除旧 ContentFile/VariantFile、旧运行快照与其绑定存档，失去最后引用的 Blob 同样立即转 `UNREFERENCED` 并登记候选；与 current 完全相同或验证失败的输入不得触发这些删除。同一 Requirement 的 BIOS 真正替换也会撤销依赖旧 Installation 的运行与存档、删除旧 `BIOS_BUNDLE` VariantFile 载荷、清空旧 Installation Blob 引用并登记候选；不同 Requirement/CoreArtifact 的安装仍是独立有效资产。这与上传工作流引用是否已经释放是两个独立不变量。
+替换封面或移除视频后，失去最后引用的旧媒体会立即从 `MEDIA/protectedBytes` 转入 `UNREFERENCED/unreferencedBytes` 并登记候选；`registeredBytes` 与物理 CAS 文件在默认 7 天宽限期结束前保持不变。ROM 或多盘内容成功替换是显式破坏性边界：事务切换 current 后删除旧 ContentFile/VariantFile、旧运行快照与其绑定存档，失去最后引用的 Blob 同样立即转 `UNREFERENCED` 并登记候选；与 current 完全相同或验证失败的输入不得触发这些删除。同一 Requirement 的 BIOS 真正替换也会撤销依赖旧 Installation 的运行与存档、删除旧 `BIOS_BUNDLE` VariantFile 载荷、清空旧 Installation Blob 引用并登记候选；不同 Provider Target Requirement 的安装仍是独立有效资产。这与上传工作流引用是否已经释放是两个独立不变量。
 
 `POST /api/v1/admin/storage-cleanups` 是唯一在线手动回收入口：ADMIN-only，要求 CSRF 与 UUID `Idempotency-Key`，无 body/query，返回本次已推进的 `scheduledBlobCount/scheduledBytes/acceptedAtMs`，不返回 Blob/Job 标识。相同 key 重放原结果；提交成功为 202，后台逐 Blob 执行最终保护复核。明确不在本口径内的项目为 `DATABASE_FILES`、`UPLOAD_PARTS`、`JOB_SCRATCH`、`DEPENDENCY_ROOT`、`FILESYSTEM_OVERHEAD`、`UNREGISTERED_ORPHANS`、`VOLUME_FREE_SPACE`。因此该分析不能回答卷总量、剩余空间或完整磁盘占用，立即清理也不处理这些范围。统一验证为 [`ACC-STOR-001`](./project-acceptance.md#acc-stor-001已登记-cas-容量分析)。
 
@@ -463,7 +463,7 @@ GC 把初始和 effective SourceSnapshot、accepted/retryable Attachment、GameC
 
 当前 clean schema 直接创建三张无 Blob 引用的关系表：Favorite、FavoriteFolder 和 FolderMembership；不回填或推断收藏。三张表随 SQLite 离线 backup 自然进入快照；restore 的 session/link/launch 安全围栏不得删除收藏关系。
 
-回滚应用必须停止服务并恢复与目标二进制 lineage 精确匹配的完整数据根，不允许局部删表、手工降低 `schema_migrations` 或让不匹配的二进制继续写库。Blob reference registry 保持不变。完整字段和索引见 [`data-model.md`](./data-model.md)，恢复证据由 `ACC-FAV-001` 维护。
+备份恢复只用于当前或更高版本的灾难恢复，必须停止服务并恢复完整数据根，再由当前二进制验证 migration lineage、Provider active identity 和 Blob reference registry。项目不支持二进制/Provider 降级，不允许局部删表、手工降低 `schema_migrations` 或让旧二进制继续写库。完整字段和索引见 [`data-model.md`](./data-model.md)，恢复证据由 `ACC-FAV-001` 维护。
 
 ## 11. 外部服务器 source 与恢复边界
 
@@ -475,9 +475,9 @@ EmulationStation 递归发现只匹配精确小写 `gamelist.xml`；每个 XML �
 
 ## 12. 审核运行预览的存储边界
 
-当前 clean schema 直接创建 `review_preview_sessions`、`review_preview_files` 与 `review_runtime_screenshots`。预览行保留创建时的不可变来源/Validation/CoreArtifact 证据和短时 capability hash；运行内容仍引用既有 CAS Blob，不复制 ROM/BIOS。第 5 秒截图允许 READY 或阻断 Validation 写入，同时用 Item、来源、目标平台、CoreArtifact 和 prepublish generation 的 trigger 约束人工放行证据。预览不是正式 Launch 或 PlaySession，因此 restore 安全围栏无需把它转换为业务游玩历史；capability 的硬过期时间使过期子窗体不可继续读取内容。
+当前 clean schema 直接创建 `review_preview_sessions`、`review_preview_files` 与 `review_runtime_screenshots`。预览行保留创建时的不可变来源、Validation、Provider Target contract 和短时 capability hash；运行内容仍引用既有 CAS Blob，不复制 ROM/BIOS。第 5 秒截图允许 READY 或阻断 Validation 写入，同时用 Item、来源、目标平台、Target contract 和 prepublish generation 的 trigger 约束人工放行证据。预览不是正式 Launch 或 PlaySession，因此 restore 安全围栏无需把它转换为业务游玩历史；capability 的硬过期时间使过期子窗体不可继续读取内容。
 
-预览内容、现有依赖和运行截图三类 Blob 边均登记为 protective reference。截图只对仍匹配草稿当前来源、目标平台、默认 CoreArtifact 和 prepublish generation 的 Validation 投影；该 Validation 可以是 READY 或阻断状态，后者的当前截图会启用管理员人工放行。重新运行同一 Validation 会原子替换当前截图的 Blob 引用，旧 Blob 随统一 GC 规则回收，不在 HTTP、日志或清单中暴露 Blob ID/hash。完整字段和 trigger 见 [`data-model.md`](./data-model.md)。
+预览内容、现有依赖和运行截图三类 Blob 边均登记为 protective reference。截图只对仍匹配草稿当前来源、目标平台、Provider Target contract 和 prepublish generation 的 Validation 投影；该 Validation 可以是 READY 或阻断状态，后者的当前截图会启用管理员人工放行。重新运行同一 Validation 会原子替换当前截图的 Blob 引用，旧 Blob 随统一 GC 规则回收，不在 HTTP、日志或清单中暴露 Blob ID/hash。完整字段和 trigger 见 [`data-model.md`](./data-model.md)。
 
 ## 13. 联机持久化与恢复边界
 
@@ -489,6 +489,20 @@ Tag、Game/Review/Pegasus/EmulationStation 关系和 tombstone 全部只存在 S
 
 Tag 删除是业务软删除，不是存储清理：不得以减小数据库为由硬删 tombstone/关系。Tag 数据只能随完整数据根备份恢复，lineage 不匹配的应用不能写库。字段、trigger 与当前约束见 [`data-model.md`](./data-model.md)，生命周期见 [`game-tags.md`](./game-tags.md)。
 
-## 15. 统一验收入口
+## 15. Provider 激活与数据库协调
+
+服务在开放业务路由前先逐字节校验 active descriptor、已安装 Bundle、manifest、module 和所有声明资产，再把两个
+Provider 及 47 个 Target 投影为一个 canonical catalog。协调事务只能整体写入 Provider、Target、binding 和 catalog
+state；任一 Target、Host binding、DAT、BIOS、checkpoint reference 或 netplay reference 不闭合时不得部分激活。
+
+升级只允许 SemVer 增长。事务必须证明所有被 Variant/Save/Validation/Netplay 引用的 Target 仍存在，游戏兼容线不变，
+存档 format 仍包含于新 Target 的 `readFormats`。同版换 bytes、降级、移除受引用 Target、catalog digest 不一致或 active
+文件在协调后变化均使 readiness 失败。没有数据库降级或恢复旧 Provider 的路径。
+
+candidate 与 production active descriptor 使用同一 schema，但 source 和目录必须严格分离；生产备份不把 PFB candidate
+或下载 cache 当作业务数据。恢复后仍由当前部署的 production descriptor 重新协调，备份中的数据库记录不能授权一个
+未安装或摘要不符的 Bundle。
+
+## 16. 统一验收入口
 
 SQLite、migration、CAS、GC 与备份统一执行 [一期项目验收规范](./project-acceptance.md) 的 `ACC-DB-001`–`ACC-DB-002`、`ACC-CAS-001`–`ACC-CAS-002`、`ACC-BKP-001`、`ACC-AUTH-001`–`002`、`ACC-ISO-*`、`ACC-TAG-001` 与 `ACC-ES-002/004`；归档/XML 与内容访问安全执行 `ACC-SEC-001`–`ACC-SEC-002`、`ACC-ES-001`。本文不再维护重复通过条件。

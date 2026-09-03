@@ -1,6 +1,6 @@
 # Arcade DAT 基线
 
-本目录随代码维护五份真实 Arcade DAT 的小型来源 manifest、物化配方、SHA-256 和统计，不提交 DAT payload，也不包含 ROM/BIOS。当前基线只对应 EmulatorJS `v4.2.3` 与 manifest 选定的实际 core artifact；升级 EmulatorJS 或替换核心文件时，必须重新确认绑定关系，不能沿用“最新版 DAT”。
+本目录随代码维护五份真实 Arcade DAT 的小型来源 manifest、物化配方、SHA-256 和统计，不提交 DAT payload，也不包含 ROM/BIOS。每份 DAT 精确绑定 EmulatorJS Provider 的 `providerId/targetId/targetContractSha256`；升级 Provider 或改变 Target contract 时必须重新确认绑定关系，不能沿用“最新版 DAT”。
 
 ## 文件映射
 
@@ -12,9 +12,7 @@
 | `v4.2.3` | `fbalpha2012_cps1` | `emulatorjs/4.2.3/fbalpha2012_cps1/fbalpha2012-cps1.dat` | 校验锁定源码 archive 后原生构建并枚举 227 个生产 driver；两次干净生成必须逐字节相同 |
 | `v4.2.3` | `fbalpha2012_cps2` | `emulatorjs/4.2.3/fbalpha2012_cps2/fbalpha2012-cps2.dat` | 校验锁定源码 archive 后原生构建并枚举 284 个生产 driver；仅规范化 manifest 明列的一个集合外 parent |
 
-精确的 Player adapter ID、runtime base/loader、发布包、runtime allowlist、核心文件、源码提交、生成方式、文件大小、SHA-256 和解析统计位于 `emulatorjs/4.2.3/manifest.json`。adapter 的前端实现索引固定为 `web/features/player/adapters/registry.json`，由 `make data-check` 与 manifest 双向核对；版本目录是绑定关系的一部分，以后升级 EmulatorJS 时新增目录与精确 adapter，不覆盖旧基线。命令边界：
-
-每个 `selected_core_artifacts` 项还固定 `artifact_set_sha256` 与 `adapter_abi=emulatorjs-state-v1`。EJS artifact set 是该版本完整 `runtime_allowlist` 加当前 core 主入口的集合：同路径以主入口声明覆盖，规范项固定为 `{"path":path,"sha256":sha256,"sizeBytes":size}`，按 path 的 UTF-8 bytes 升序组成 canonical compact JSON array，再计算 lowercase SHA-256。`data-check` 和 Go 启动校验都会独立重算；bootstrap 把该摘要写入不可变 `core_artifacts.artifact_set_sha256`，把 adapter ABI 写入 canonical `compatibility_json.adapterAbi`。新绑定只切换 `selected_for_new_bindings`；旧 row 在精确引用消失前继续 `available_for_launch=1`，不得覆盖 artifact payload。
+每个 manifest 项只声明 DAT 来源、目标 `providerId/targetId/targetContractSha256`、parser 版本与确定性统计。Target 的入口、文件集合、能力和 checkpoint contract 只来自已激活 Provider Bundle；DAT 不复制这些字段。`data-check` 和 Go 启动校验都会独立确认目标存在、contract digest 完全匹配、DAT size/hash 与统计闭合。Provider 只向前升级；历史 Variant/Launch/Save 保留冻结的 Target contract，不允许把新字节覆盖到旧 identity。
 
 ```bash
 make data-check     # 无 payload、无网络也可运行，只校验 Git 小文件
@@ -36,11 +34,11 @@ make deps-check     # 完全离线校验本地 bytes 与解析统计
 
 ## 更新规则
 
-1. 先锁定新的 EmulatorJS 发布版本及官方发布资产 SHA-256。
-2. 对每个核心记录发布包内实际 artifact 的 SHA-256 和官方 build report。
-3. 定位对应核心源码提交。若发布物未内嵌提交号，必须像当前 manifest 一样明确标记为“按构建时间推定”，不得写成官方明示值。
+1. 先锁定更高版本的 EmulatorJS Provider Bundle，并取得目标 Arcade Target 的新 contract digest；不允许降级或同版本换字节。
+2. 从 Provider Release provenance 和上游证据确认对应 DAT 来源，但不把 Provider 私有 adapter/core/asset 映射复制到 Retrom。
+3. 定位 DAT 对应的上游源码提交。若发布证据未明示提交号，必须像当前 manifest 一样标记为“按构建时间推定”，不得写成官方明示值。
 4. 优先使用该源码提交内置的 DAT；没有预生成 DAT 时，只能用同一提交的官方生成器生成。
-5. 校验 XML 可解析、关系目标、统计值、文件大小与 SHA-256，再更新 `manifest.json` 和 `SHA256SUMS`。
-6. 用户在管理后台上传的 DAT 进入 CAS 和数据库版本表，不写回本目录。
+5. 校验 XML 可解析、关系目标、统计值、文件大小与 SHA-256，再新增版本目录并更新 `manifest.json` 和 `SHA256SUMS`，不得覆盖旧目录。
+6. DAT 是内置发布输入；管理后台、HTTP API 和数据库都不提供用户上传、切换、回滚或删除 DAT 的分支。
 
 更完整的证据链和后端约束见 [`docs/arcade-dat-baseline.md`](../../docs/arcade-dat-baseline.md) 与 [`docs/dependency-management.md`](../../docs/dependency-management.md)。

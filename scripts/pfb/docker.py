@@ -127,8 +127,7 @@ def app_up(root: Path, spec: dict[str, Any], data_digest: str, *, restart: bool 
     toolchain_digest = _toolchain_digest(root)
     environment = _app_environment(root, spec, data_digest, toolchain_digest, contract["gatewayIp"])
     _ensure_volume_owners([
-        environment["PFB_DATA_VOLUME"], environment["PFB_NODE_VOLUME"],
-        environment["PFB_RUNTIME_NODE_VOLUME"], environment["PFB_GO_VOLUME"],
+        environment["PFB_DATA_VOLUME"], environment["PFB_NODE_VOLUME"], environment["PFB_GO_VOLUME"],
         environment["PFB_NEXT_VOLUME"],
     ], os.getuid(), os.getgid())
     arguments = ["up", "-d", "--build", "--remove-orphans"]
@@ -272,7 +271,6 @@ def _app_environment(root: Path, spec: dict[str, Any], data_digest: str, toolcha
         "PFB_RUNTIME_MODE": spec["runtime"]["mode"],
         "PFB_DATA_VOLUME": volume_name(spec["id"], "data", data_digest),
         "PFB_NODE_VOLUME": volume_name(spec["id"], "node", toolchain_digest),
-        "PFB_RUNTIME_NODE_VOLUME": volume_name(spec["id"], "runtime-node", toolchain_digest),
         "PFB_GO_VOLUME": volume_name(spec["id"], "go", toolchain_digest),
         "PFB_NEXT_VOLUME": volume_name(spec["id"], "next", toolchain_digest),
         "PFB_GATEWAY_IP": gateway_ip,
@@ -301,7 +299,6 @@ def _minimal_app_environment(root: Path, spec: dict[str, Any]) -> dict[str, str]
         "PFB_ID": spec["id"],
         "PFB_DATA_VOLUME": volume_name(spec["id"], "data", empty),
         "PFB_NODE_VOLUME": volume_name(spec["id"], "node", empty),
-        "PFB_RUNTIME_NODE_VOLUME": volume_name(spec["id"], "runtime-node", empty),
         "PFB_GO_VOLUME": volume_name(spec["id"], "go", empty),
         "PFB_NEXT_VOLUME": volume_name(spec["id"], "next", empty),
         "PFB_GATEWAY_IP": "172.29.240.2",

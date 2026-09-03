@@ -136,7 +136,7 @@ function trackedUrl(value) {
   try {
     const pathname = new URL(value).pathname;
     return pathname.startsWith("/runtime/content/project/") ||
-      pathname.startsWith("/runtime/retrom-runtime/") || pathname.startsWith("/__retrom/project/");
+      pathname.startsWith("/runtime/providers/") || pathname.startsWith("/__retrom/project/");
   } catch {return false;}
 }
 
@@ -158,7 +158,7 @@ function projectIndex(value) {
 }
 
 function runtimeAsset(value) {
-  try {return new URL(value).pathname.startsWith("/runtime/retrom-runtime/");}
+  try {return new URL(value).pathname.startsWith("/runtime/providers/");}
   catch {return false;}
 }
 

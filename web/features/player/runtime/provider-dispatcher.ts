@@ -48,7 +48,7 @@ function dispatcherEnvironment(overrides: Partial<DispatcherEnvironment>): Dispa
   return {
     createModuleUrl: overrides.createModuleUrl ?? ((blob) => URL.createObjectURL(blob)),
     crossOriginIsolated: overrides.crossOriginIsolated ?? globalThis.crossOriginIsolated === true,
-    fetcher: overrides.fetcher ?? fetch,
+    fetcher: overrides.fetcher ?? ((input, init) => globalThis.fetch(input, init)),
     revokeModuleUrl: overrides.revokeModuleUrl ?? ((url) => URL.revokeObjectURL(url)),
     sha256: overrides.sha256 ?? digestSha256,
   };

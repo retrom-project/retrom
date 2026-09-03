@@ -50,11 +50,6 @@ services:
         volume:
           nocopy: true
       - type: volume
-        source: pfb-runtime-node
-        target: /workspace/runtime/node_modules
-        volume:
-          nocopy: true
-      - type: volume
         source: pfb-next
         target: /workspace/retrom/web/.next-pfb-${PFB_ID:?}
         volume:
@@ -80,8 +75,6 @@ volumes:
     name: ${PFB_DATA_VOLUME:?}
   pfb-node:
     name: ${PFB_NODE_VOLUME:?}
-  pfb-runtime-node:
-    name: ${PFB_RUNTIME_NODE_VOLUME:?}
   pfb-next:
     name: ${PFB_NEXT_VOLUME:?}
   pfb-go:

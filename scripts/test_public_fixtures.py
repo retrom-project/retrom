@@ -738,14 +738,8 @@ class PublicFixtureTests(unittest.TestCase):
         dockerignore = (REPOSITORY_ROOT / ".dockerignore").read_text(
             encoding="utf-8"
         ).splitlines()
-        self.assertIn("testdata/public-roms/*", dockerignore)
-        self.assertEqual(
-            [line for line in dockerignore if line.startswith("!testdata/public-roms")],
-            [
-                "!testdata/public-roms/arcade-smoke",
-                "!testdata/public-roms/arcade-smoke/driver-layouts.json",
-            ],
-        )
+        self.assertIn("testdata", dockerignore)
+        self.assertFalse(any(line.startswith("!testdata") for line in dockerignore))
 
 
 if __name__ == "__main__":

@@ -133,9 +133,11 @@ if [[ "$(jq -r '.status // "READY"' <<<"$launch")" == "VALIDATION_PENDING" ]]; t
   launch="$(curl --fail --silent --show-error "${common[@]}" "${write[@]}" -H "Content-Type: application/json" -H "Idempotency-Key: $(new_id)" -d "$launch_body" "$backend/api/v1/launches")"
 fi
 launch_id="$(jq -er .launchId <<<"$launch")"
-configuration="$(curl --fail --silent --show-error -b "$evidence/cookies" "$backend/runtime/launches/$launch_id/config")"
-jq -e --arg coreId "$core_id" 'select(.runtimeCore == $coreId and .biosUrl == null and .parentUrl == null)' <<<"$configuration" >/dev/null
-game_url="$(jq -er .gameUrl <<<"$configuration")"
+configuration="$(curl --fail --silent --show-error -b "$evidence/cookies" -c "$evidence/cookies" "$backend/runtime/launches/$launch_id/config")"
+jq -e --arg coreId "$core_id" '
+  select(.runtime.targetId == $coreId and ([.resources[] | select(.role=="bios" or .role=="parent")] | length) == 0)
+' <<<"$configuration" >/dev/null
+game_url="$(jq -er '.resources[] | select(.role=="game" and .ordinal==0) | .url' <<<"$configuration")"
 curl --fail --silent --show-error -b "$evidence/cookies" "$backend$game_url" -o "$evidence/game.rom"
 cmp "$fixture" "$evidence/game.rom"
 detail="$(curl --fail --silent --show-error "${common[@]}" "$backend/api/v1/games/$game_id")"

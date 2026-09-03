@@ -145,7 +145,7 @@ async function runProductCase(activeBrowser) {
         importItemId: review.itemId, gameId: approved.gameId, saveStateId: saved.saveStateId,
         originalLaunchId: original.launchId, restoreLaunchId: restored.launchId,
       },
-      checkpoint: { payloadKind: saved.payloadKind, sizeBytes: Number(stateResponse.headers()["content-length"]) },
+      checkpoint: { format: saved.checkpointFormat, sizeBytes: Number(stateResponse.headers()["content-length"]) },
       cache: {
         contentDigest,
         firstDataWinResponseCount: countProjectFile(previewResponses.urls, "data.win"),

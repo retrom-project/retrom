@@ -256,23 +256,29 @@ def protected_variant(
 ) -> dict[str, Any]:
     row = one(connection, """
 SELECT revision.id AS revision_id,game.status AS game_status,revision.status AS revision_status,
- artifact.available_for_launch,pack.definition_id,pack.installation_id,installation.files_digest
+ target.provider_id,target.target_id,target.target_contract_sha256,
+ pack.definition_id,pack.installation_id,installation.files_digest
 FROM games game
 JOIN game_variants variant ON variant.game_id=game.id
 JOIN game_variant_revisions revision ON revision.id=variant.current_revision_id
-JOIN core_artifacts artifact ON artifact.id=revision.core_artifact_id
+JOIN runtime_targets target ON target.provider_id=revision.provider_id
+ AND target.target_id=revision.target_id
+ AND target.target_contract_sha256=revision.target_contract_sha256
 JOIN game_variant_revision_runtime_packs pack ON pack.game_variant_revision_id=revision.id
 JOIN runtime_asset_pack_installations installation ON installation.id=pack.installation_id
 WHERE game.id=? AND pack.installation_id=?
 """, (reference["gameId"], reference["installationId"]), "PUBLISHED_REFERENCE")
     if row["game_status"] != "PUBLISHED" or row["revision_status"] != "READY" or \
-            row["available_for_launch"] != 1 or row["definition_id"] != "rgss1_standard":
+            row["provider_id"] != "retrom-runtime" or row["target_id"] != "rpgmaker-xp" or \
+            not SHA256.fullmatch(row["target_contract_sha256"]) or row["definition_id"] != "rgss1_standard":
         raise InspectError("RPG_ACCEPTANCE_PACK_PUBLISHED_REFERENCE_INVALID")
     return {
         "gameId": reference["gameId"], "installationId": reference["installationId"],
         "variantRevisionId": row["revision_id"], "definitionId": row["definition_id"],
         "filesDigest": row["files_digest"], "gameStatus": row["game_status"],
         "variantStatus": row["revision_status"], "availableForLaunch": True,
+        "providerId": row["provider_id"], "targetId": row["target_id"],
+        "targetContractSha256": row["target_contract_sha256"],
     }
 
 
@@ -282,13 +288,19 @@ def protected_checkpoint(
 ) -> dict[str, Any]:
     row = one(connection, """
 SELECT save.game_variant_revision_id AS revision_id,game.status AS game_status,
- revision.status AS revision_status,artifact.available_for_launch,pack.definition_id,
+ revision.status AS revision_status,target.provider_id,target.target_id,target.target_contract_sha256,
+ revision.provider_id AS revision_provider_id,revision.target_id AS revision_target_id,
+ revision.target_contract_sha256 AS revision_target_contract_sha256,
+ source.provider_id AS source_provider_id,source.target_id AS source_target_id,
+ source.target_contract_sha256 AS source_target_contract_sha256,pack.definition_id,
  pack.installation_id,installation.files_digest,source.purpose AS source_purpose,
  save.payload_sha256,save.payload_size_bytes
 FROM save_states save
 JOIN games game ON game.id=save.game_id
 JOIN game_variant_revisions revision ON revision.id=save.game_variant_revision_id
-JOIN core_artifacts artifact ON artifact.id=save.core_artifact_id
+JOIN runtime_targets target ON target.provider_id=save.provider_id
+ AND target.target_id=save.target_id
+ AND target.target_contract_sha256=save.target_contract_sha256
 JOIN game_variant_revision_runtime_packs pack ON pack.game_variant_revision_id=save.game_variant_revision_id
 JOIN runtime_asset_pack_installations installation ON installation.id=pack.installation_id
 JOIN launch_sessions source ON source.id=save.source_launch_session_id
@@ -296,8 +308,17 @@ JOIN launch_sessions source ON source.id=save.source_launch_session_id
 WHERE save.id=? AND save.game_id=? AND save.deleted_at_ms IS NULL AND pack.installation_id=?
 """, (reference["saveStateId"], reference["gameId"], reference["installationId"]), "CHECKPOINT_REFERENCE")
     if row["game_status"] != "PUBLISHED" or row["revision_status"] != "READY" or \
-            row["available_for_launch"] != 1 or row["definition_id"] != "rgss2_rpgvx" or \
-            row["source_purpose"] != "PRODUCT" or not SHA256.fullmatch(row["payload_sha256"]):
+            row["provider_id"] != "retrom-runtime" or row["target_id"] != "rpgmaker-vx" or \
+            not SHA256.fullmatch(row["target_contract_sha256"]) or row["definition_id"] != "rgss2_rpgvx" or \
+            row["source_purpose"] != "PRODUCT" or not SHA256.fullmatch(row["payload_sha256"]) or any(
+                row[key] != row[identity]
+                for key, identity in (
+                    ("revision_provider_id", "provider_id"), ("revision_target_id", "target_id"),
+                    ("revision_target_contract_sha256", "target_contract_sha256"),
+                    ("source_provider_id", "provider_id"), ("source_target_id", "target_id"),
+                    ("source_target_contract_sha256", "target_contract_sha256"),
+                )
+            ):
         raise InspectError("RPG_ACCEPTANCE_PACK_CHECKPOINT_REFERENCE_INVALID")
     return {
         "gameId": reference["gameId"], "saveStateId": reference["saveStateId"],
@@ -306,6 +327,8 @@ WHERE save.id=? AND save.game_id=? AND save.deleted_at_ms IS NULL AND pack.insta
         "payloadSha256": row["payload_sha256"], "payloadSizeBytes": row["payload_size_bytes"],
         "gameStatus": row["game_status"], "variantStatus": row["revision_status"],
         "availableForLaunch": True, "sourceLaunchPurpose": row["source_purpose"],
+        "providerId": row["provider_id"], "targetId": row["target_id"],
+        "targetContractSha256": row["target_contract_sha256"],
     }
 
 

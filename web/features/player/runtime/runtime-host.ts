@@ -45,6 +45,7 @@ export function createRuntimeHost(
       if (signal.aborted || !target.isConnected && target.ownerDocument !== document) {frameError();}
       const source = frameSource(envelope, input.resourceRole);
       const frame = document.createElement("iframe");
+      frame.className = "player-frame";
       frame.referrerPolicy = "no-referrer";
       frame.allow = "autoplay; fullscreen; gamepad";
       frame.setAttribute("sandbox", sandboxTokens.join(" "));

@@ -2702,7 +2702,7 @@ export interface paths {
             };
             cookie?: never;
         };
-        /** @description Returns the frozen payload kind and the most recent ordered adapter availability projection; immediate Player state remains driven by adapter events. */
+        /** @description Returns the frozen checkpoint format and the most recent ordered Provider availability projection; immediate Player state remains driven by Provider events. */
         get: operations["getRuntimeCheckpointStatus"];
         put?: never;
         post?: never;

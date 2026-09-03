@@ -31,6 +31,7 @@ ONS_CASES = {"ACC-ONS-001"}
 KIRIKIRI_CASES = {"ACC-KIRIKIRI-001"}
 BUTTERSCOTCH_CASES = {"ACC-BUTTERSCOTCH-001"}
 TYRANOSCRIPT_CASES = {"ACC-TYRANOSCRIPT-001"}
+PROVIDER_CASES = {f"ACC-PROVIDER-{number:03d}" for number in range(1, 9)}
 PRODUCT_CASES = RPG_CASES | ONS_CASES | KIRIKIRI_CASES | BUTTERSCOTCH_CASES | TYRANOSCRIPT_CASES
 
 
@@ -414,13 +415,11 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
         600,
         "go test -tags=integration ./internal/libraryimport "
         "-run '^TestMultiDiscDirectoryCreatesOrderedItemsAndPublishesCanonicalContent$' -count=1 -timeout=120s && "
-        ".cache/tools/node-v24.18.0-linux-x64/bin/npm --prefix web test -- "
-        "--run features/player/adapters/ejs-4.2.3-v2.test.ts",
+        "scripts/acceptance/provider-case.sh ACC-PROVIDER-007",
     ),
     "ACC-MDISC-006": (
         600,
-        ".cache/tools/node-v24.18.0-linux-x64/bin/npm --prefix web test -- "
-        "--run features/player/adapters/ejs-4.2.3-v2.test.ts features/player/multi-disc-restore.test.ts",
+        "scripts/acceptance/provider-case.sh ACC-PROVIDER-007",
     ),
     "ACC-MDISC-007": (600, "scripts/acceptance/multidisc-regression.sh"),
     "ACC-MDISC-008": (
@@ -466,6 +465,10 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
         1800,
         ".cache/tools/node-v24.18.0-linux-x64/bin/node scripts/acceptance/tyranoscript_product.mjs",
     ),
+    **{
+        case_id: (900, f"scripts/acceptance/provider-case.sh {case_id}")
+        for case_id in PROVIDER_CASES
+    },
 }
 
 

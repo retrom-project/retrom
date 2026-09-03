@@ -17,6 +17,7 @@ describe("RuntimeHostV1", () => {
     expect(mounted.element.src).toBe("about:blank");
     expect(mounted.origin).toBe(location.origin);
     expect(mounted.element.referrerPolicy).toBe("no-referrer");
+    expect(mounted.element.className).toBe("player-frame");
     expect(mounted.element.getAttribute("sandbox"))
       .toBe("allow-downloads allow-pointer-lock allow-same-origin allow-scripts");
     expect(mounted.element.allow).toBe("autoplay; fullscreen; gamepad");

@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import json
 import subprocess
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -120,6 +121,12 @@ class MakefileDependencyTests(unittest.TestCase):
         self.assertIn('playwright_command+=(-- --grep "$e2e_grep")', script)
         self.assertIn('"${playwright_command[@]}"', script)
 
+    def test_web_e2e_collects_only_playwright_spec_files(self) -> None:
+        configuration = (
+            REPOSITORY_ROOT / "web" / "playwright.config.ts"
+        ).read_text(encoding="utf-8")
+        self.assertIn("testMatch: /.*\\.spec\\.ts/", configuration)
+
     def test_runtime_e2e_uses_the_stable_player_frame_and_case_budgets(self) -> None:
         runtime_cases = (
             REPOSITORY_ROOT / "web" / "e2e" / "acceptance-runtime-cases.ts"
@@ -150,29 +157,37 @@ class MakefileDependencyTests(unittest.TestCase):
         self.assertGreaterEqual(runtime_cases.count('test.setTimeout(180_000)'), 3)
         self.assertIn('test.setTimeout(180_000);\n  const routes = [', ui_cases)
 
-    def test_arcade_acceptance_selects_the_current_launchable_artifact(self) -> None:
+    def test_arcade_acceptance_selects_the_current_launchable_target(self) -> None:
         script = (REPOSITORY_ROOT / "scripts" / "acceptance" / "arcade-flow.sh").read_text(
             encoding="utf-8"
         )
-        self.assertIn(".selectedForNewBindings == true", script)
-        self.assertIn(".availableForLaunch == true", script)
-        self.assertNotIn(".enabled == true", script)
+        self.assertIn('/api/v1/admin/runtime-targets', script)
+        self.assertIn('.launchPolicy != "DISABLED"', script)
+        self.assertNotIn("selectedForNewBindings", script)
 
-    def test_arcade_schema_v2_seeder_preserves_runtime_identity(self) -> None:
+    def test_arcade_schema_v2_seeder_preserves_provider_identity(self) -> None:
         script = (
             REPOSITORY_ROOT / "scripts" / "acceptance" / "seed-arcade-schema-v2-launch.py"
         ).read_text(encoding="utf-8")
-        self.assertIn("revision.route_key", script)
-        self.assertIn("core_artifact_id,route_key,dat_version_id", script)
+        self.assertIn("revision.provider_id", script)
+        self.assertIn("provider_id,target_id,target_contract_sha256", script)
         self.assertIn('connection.execute("PRAGMA busy_timeout=30000")', script)
 
-    def test_immersive_seeder_preserves_launch_content_and_route_identity(self) -> None:
+    def test_immersive_seeder_preserves_launch_content_and_provider_identity(self) -> None:
         script = (
             REPOSITORY_ROOT / "scripts" / "acceptance" / "seed-immersive-library.py"
         ).read_text(encoding="utf-8")
-        self.assertIn("revision.route_key", script)
+        self.assertIn("revision.provider_id", script)
         self.assertIn("game_content_revision_id", script)
-        self.assertIn("core_artifact_id,route_key,save_state_id", script)
+        self.assertIn("provider_id,target_id,target_contract_sha256", script)
+
+    def test_review_queue_seeder_preserves_provider_validation_identity(self) -> None:
+        script = (
+            REPOSITORY_ROOT / "scripts" / "acceptance" / "seed-review-queue.sh"
+        ).read_text(encoding="utf-8")
+        self.assertIn("provider_id,target_id,target_contract_sha256", script)
+        self.assertIn("game_compatibility_line", script)
+        self.assertNotIn("core_" + "artifact_id", script)
 
     def test_public_fixture_targets_cover_rpgmaker_outputs(self) -> None:
         self.assertIn("rpgmaker-smoke/build.py", self.dry_run("public-fixtures-generate"))
@@ -248,53 +263,50 @@ class MakefileDependencyTests(unittest.TestCase):
         makefile = (REPOSITORY_ROOT / "Makefile").read_text(encoding="utf-8")
         self.assertNotIn("reproduce-rpg-runtime", makefile)
 
-    def test_dev_can_link_an_explicit_local_runtime_after_locked_dependencies(self) -> None:
-        local_runtime = REPOSITORY_ROOT.parent / "retrom-runtime"
+    def test_dev_can_install_an_explicit_candidate_provider_after_web_dependencies(self) -> None:
+        candidate = REPOSITORY_ROOT / ".pfb/candidates/runtime"
         output = subprocess.run(
             [
                 "make", "--no-print-directory", "--dry-run", "dev",
-                f"RETROM_RUNTIME_DEV_ROOT={local_runtime}",
+                f"RETROM_PROVIDER_CANDIDATE_ROOT={candidate}",
             ],
             cwd=REPOSITORY_ROOT,
             check=True,
             capture_output=True,
             text=True,
         ).stdout
-        self.assertLess(output.find("npm ci"), output.find("retrom_runtime_dev.py activate"), output)
-        self.assertLess(output.find("retrom_runtime_dev.py activate"), output.find("scripts/dev.sh"), output)
-        self.assertLess(output.find("retrom_runtime_dev.py activate"), output.find("scripts/dependencies.py prepare"), output)
-        self.assertIn("npm run build", output)
-        self.assertIn("npm run package:check", output)
-        self.assertNotIn("core:ons:build", output)
-        self.assertIn('NEXT_DIST_DIR=".next-runtime-dev"', output)
-        self.assertIn(
-            "env -u RETROM_DEV_CONFIG -u RETROM_RUNTIME_DEV_ROOT -u RETROM_RUNTIME_DEV_INCLUDE_ASSETS -u RETROM_RUNTIME_DEV_RELEASE_OVERRIDES -u RETROM_RUNTIME_MATERIALIZATION_ROOT -u RETROM_RUNTIME_PFB_CANDIDATE_ROOT scripts/dev.sh",
-            output,
-        )
-
-    def test_dev_with_local_runtime_assets_stages_candidate_before_dependency_check(self) -> None:
-        local_runtime = REPOSITORY_ROOT.parent / "retrom-runtime"
-        output = subprocess.run(
-            [
-                "make", "--no-print-directory", "--dry-run", "dev",
-                f"RETROM_RUNTIME_DEV_ROOT={local_runtime}",
-                "RETROM_RUNTIME_DEV_INCLUDE_ASSETS=true",
-            ],
-            cwd=REPOSITORY_ROOT,
-            check=True,
-            capture_output=True,
-            text=True,
-        ).stdout
-        release_position = output.find("npm run release:build")
-        activation_position = output.find("retrom_runtime_dev.py activate")
+        install_position = output.find("npm ci")
+        activation_position = output.find("runtime_providers.py prepare-candidate")
         prepare_position = output.find("scripts/dependencies.py prepare")
         dev_position = output.find("scripts/dev.sh")
         self.assertTrue(
-            0 <= release_position < activation_position < prepare_position < dev_position,
+            0 <= install_position < activation_position < prepare_position < dev_position,
             output,
         )
-        self.assertIn("-u RETROM_RUNTIME_DEV_RELEASE_OVERRIDES", output)
-        self.assertIn("-u RETROM_RUNTIME_PFB_CANDIDATE_ROOT scripts/dev.sh", output)
+        self.assertIn(f'--candidate-root "{candidate}"', output)
+        self.assertIn('--source "candidate"', output)
+        self.assertIn("-u RETROM_PROVIDER_CANDIDATE_ROOT", output)
+        self.assertNotIn("retrom_runtime_dev.py", output)
+        self.assertNotIn("RETROM_RUNTIME_DEV_ROOT", output)
+
+    def test_dev_auto_selects_a_built_local_candidate(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            candidate = Path(directory)
+            marker = candidate / "providers" / "provider-build.json"
+            marker.parent.mkdir(parents=True)
+            marker.write_text("{}\n", encoding="utf-8")
+            output = subprocess.run(
+                [
+                    "make", "--no-print-directory", "--dry-run", "dev",
+                    f"RETROM_PROVIDER_CANDIDATE_AUTO_ROOT={candidate}",
+                ],
+                cwd=REPOSITORY_ROOT,
+                check=True,
+                capture_output=True,
+                text=True,
+            ).stdout
+        self.assertIn(f'--candidate-root "{candidate}"', output)
+        self.assertIn('--source "candidate"', output)
 
     def test_ci_runs_the_structure_gate_without_warning_only_bypass(self) -> None:
         output = self.dry_run("ci")
