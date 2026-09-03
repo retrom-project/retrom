@@ -70,39 +70,37 @@ pc.core_id
 			coresByPlatformID[id] = make(map[string]map[string]any)
 			items = append(items, item)
 		}
-		if coreID.Valid {
-			cores, ok := item["cores"].([]map[string]any)
-			if !ok {
-				writeError(
-					writer,
-					request,
-					http.StatusInternalServerError,
-					"INTERNAL_ERROR",
-					"平台核心投影无效",
-					map[string]any{},
-				)
-				return
-			}
-			netplaySupported := providerID.Valid && targetID.Valid && netplayLine.Valid &&
-				server.netplay.SupportsPlatformTarget(
-					id, coreID.String, providerID.String, targetID.String, netplayLine.String,
-				)
-			if core := coresByPlatformID[id][coreID.String]; core != nil {
-				if netplaySupported {
-					core["netplaySupported"] = true
-				}
-				continue
-			}
-			core := map[string]any{
-				"id": coreID.String, "name": coreName.String, "enabled": coreEnabled.Int64 == 1,
-				"netplaySupported": netplaySupported,
-			}
-			coresByPlatformID[id][coreID.String] = core
-			item["cores"] = append(
-				cores,
-				core,
-			)
+		if !coreID.Valid {
+			continue
 		}
+		cores, ok := item["cores"].([]map[string]any)
+		if !ok {
+			writeError(
+				writer,
+				request,
+				http.StatusInternalServerError,
+				"INTERNAL_ERROR",
+				"平台核心投影无效",
+				map[string]any{},
+			)
+			return
+		}
+		netplaySupported := providerID.Valid && targetID.Valid && netplayLine.Valid &&
+			server.netplay.SupportsPlatformTarget(
+				id, coreID.String, providerID.String, targetID.String, netplayLine.String,
+			)
+		if core := coresByPlatformID[id][coreID.String]; core != nil {
+			if netplaySupported {
+				core["netplaySupported"] = true
+			}
+			continue
+		}
+		core := map[string]any{
+			"id": coreID.String, "name": coreName.String, "enabled": coreEnabled.Int64 == 1,
+			"netplaySupported": netplaySupported,
+		}
+		coresByPlatformID[id][coreID.String] = core
+		item["cores"] = append(cores, core)
 	}
 	if err := rows.Err(); err != nil {
 		server.databaseError(writer, request, err)
