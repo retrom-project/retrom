@@ -165,19 +165,22 @@ async function generationCase(context, writeHeaders) {
   const loadingProbe = trackRuntimeLoading(page, projectDeclarations, loadingProbeOptions);
   const pageErrors = [];
   const runtimeExceptions = [];
+  const runtimeExceptionTasks = [];
   const dialogs = [];
-  const observedResponses = [];
+  const networkResponses = [];
   const consoleDiagnostics = [];
   const failedResponses = [];
   let responseInventoryOverflow = false;
   const cdp = await context.newCDPSession(page);
   await cdp.send("Runtime.enable");
   cdp.on("Runtime.exceptionThrown", ({ exceptionDetails }) => {
-    runtimeExceptions.push(safeRuntimeException(exceptionDetails));
+    const task = collectRuntimeException(cdp, exceptionDetails)
+      .then((diagnostic) => runtimeExceptions.push(diagnostic));
+    runtimeExceptionTasks.push(task);
   });
   page.on("pageerror", (error) => pageErrors.push(error.stack || error.message));
   page.on("console", (message) => {
-    if (["error", "warning"].includes(message.type())) {
+    if (message.text().trim()) {
       consoleDiagnostics.push(`${message.type()}:${message.text()}`.slice(0, 800));
     }
   });
@@ -186,12 +189,15 @@ async function generationCase(context, writeHeaders) {
     await dialog.dismiss();
   });
   page.on("response", (response) => {
-    if (observedResponses.length >= 20_000) {
+    if (networkResponses.length >= 20_000) {
       responseInventoryOverflow = true;
       return;
     }
     const request = response.request();
-    observedResponses.push({ url: response.url(), resourceType: request.resourceType() });
+    networkResponses.push({
+      method: request.method(), url: safeStackUrl(response.url()),
+      resourceType: request.resourceType(), status: response.status(),
+    });
     if (response.status() >= 400) {
       failedResponses.push(`${response.status()}:${response.url()}`.slice(0, 800));
     }
@@ -231,15 +237,23 @@ async function generationCase(context, writeHeaders) {
   const isolatedTarget = ["rpgmaker-mv", "rpgmaker-mz"].includes(config.runtime.targetId);
   const runtimeFrameURL = isolatedTarget ? await page.locator("iframe.player-frame").getAttribute("src") : null;
   const originInventory = runtimeFrameURL
-    ? await collectOriginInventory(page, new URL(runtimeFrameURL, baseUrl).origin, observedResponses)
+    ? await collectOriginInventory(page, new URL(runtimeFrameURL, baseUrl).origin, networkResponses)
     : null;
   progress("first-launch-origin-inventory");
-  assertNoPlayerErrors(pageErrors, runtimeExceptions, consoleDiagnostics, failedResponses);
+  await assertNoPlayerErrors(
+    pageErrors, runtimeExceptions, consoleDiagnostics, failedResponses,
+    networkResponses, runtimeExceptionTasks,
+  );
   const firstRuntimeProgress = await assertRuntimeProgress(page);
-  assertNoPlayerErrors(pageErrors, runtimeExceptions, consoleDiagnostics, failedResponses);
+  await assertNoPlayerErrors(
+    pageErrors, runtimeExceptions, consoleDiagnostics, failedResponses,
+    networkResponses, runtimeExceptionTasks,
+  );
   await page.close();
   pageErrors.length = 0;
   runtimeExceptions.length = 0;
+  runtimeExceptionTasks.length = 0;
+  networkResponses.length = 0;
   consoleDiagnostics.length = 0;
   failedResponses.length = 0;
   const cacheLaunch = await jsonRequest(context.request, "POST", "/api/v1/launches", {
@@ -254,15 +268,24 @@ async function generationCase(context, writeHeaders) {
   const cacheCdp = await context.newCDPSession(cachePage);
   await cacheCdp.send("Runtime.enable");
   cacheCdp.on("Runtime.exceptionThrown", ({ exceptionDetails }) => {
-    runtimeExceptions.push(safeRuntimeException(exceptionDetails));
+    const task = collectRuntimeException(cacheCdp, exceptionDetails)
+      .then((diagnostic) => runtimeExceptions.push(diagnostic));
+    runtimeExceptionTasks.push(task);
   });
   cachePage.on("pageerror", (error) => pageErrors.push(error.stack || error.message));
   cachePage.on("console", (message) => {
-    if (["error", "warning"].includes(message.type())) {
+    if (message.text().trim()) {
       consoleDiagnostics.push(`${message.type()}:${message.text()}`.slice(0, 800));
     }
   });
   cachePage.on("response", (response) => {
+    if (networkResponses.length < 20_000) {
+      const request = response.request();
+      networkResponses.push({
+        method: request.method(), url: safeStackUrl(response.url()),
+        resourceType: request.resourceType(), status: response.status(),
+      });
+    }
     if (response.status() >= 400) {
       failedResponses.push(`${response.status()}:${response.url()}`.slice(0, 800));
     }
@@ -281,9 +304,15 @@ async function generationCase(context, writeHeaders) {
   );
   progress("cache-launch-loading-snapshot");
   cacheLoadingProbe.stop();
-  assertNoPlayerErrors(pageErrors, runtimeExceptions, consoleDiagnostics, failedResponses);
+  await assertNoPlayerErrors(
+    pageErrors, runtimeExceptions, consoleDiagnostics, failedResponses,
+    networkResponses, runtimeExceptionTasks,
+  );
   const cacheRuntimeProgress = await assertRuntimeProgress(cachePage);
-  assertNoPlayerErrors(pageErrors, runtimeExceptions, consoleDiagnostics, failedResponses);
+  await assertNoPlayerErrors(
+    pageErrors, runtimeExceptions, consoleDiagnostics, failedResponses,
+    networkResponses, runtimeExceptionTasks,
+  );
   await cachePage.close();
   const sameProjectContentIdentity = firstVisibleLoading.projectContentIdentity === null &&
       cacheVisibleLoading.projectContentIdentity === null
@@ -322,13 +351,18 @@ async function generationCase(context, writeHeaders) {
   };
 }
 
-function assertNoPlayerErrors(pageErrors, runtimeExceptions, consoleDiagnostics, failedResponses) {
+async function assertNoPlayerErrors(
+  pageErrors, runtimeExceptions, consoleDiagnostics, failedResponses,
+  networkResponses, runtimeExceptionTasks,
+) {
+  await Promise.allSettled(runtimeExceptionTasks);
   if (!pageErrors.length && !runtimeExceptions.length) {return;}
   const details = [
     ...pageErrors.slice(0, 5),
     ...runtimeExceptions.slice(0, 5).map((value) => JSON.stringify(value)),
     ...consoleDiagnostics.slice(-10),
     ...failedResponses.slice(-10),
+    ...networkResponses.slice(-100).map((value) => JSON.stringify(value)),
   ].map((value) => value.slice(0, 1_200)).join(" | ");
   throw new Error(`RPG_ACCEPTANCE_PLAYER_PAGE_ERROR:${details}`);
 }
@@ -421,11 +455,36 @@ async function revealProductToolbar(page) {
   await page.locator(".player-toolbar.is-visible").waitFor({ state: "visible" });
 }
 
-function safeRuntimeException(details) {
+async function collectRuntimeException(cdp, details) {
+  const objectId = details.exception?.objectId;
+  let ownProperties = [];
+  if (objectId) {
+    const result = await cdp.send("Runtime.getProperties", {
+      objectId, ownProperties: true, accessorPropertiesOnly: false, generatePreview: true,
+    }).catch(() => ({ result: [] }));
+    ownProperties = result.result ?? [];
+  }
+  return safeRuntimeException(details, ownProperties);
+}
+
+function safeRuntimeException(details, ownProperties = []) {
   const frames = details.stackTrace?.callFrames ?? [];
+  const properties = [
+    ...(details.exception?.preview?.properties ?? []),
+    ...ownProperties.map((property) => ({
+      name: property.name,
+      type: property.value?.type,
+      value: property.value?.value ?? property.value?.description,
+    })),
+  ];
   return {
     text: String(details.text ?? "").slice(0, 240),
     description: String(details.exception?.description ?? "").slice(0, 600),
+    properties: properties.slice(0, 16).map((property) => ({
+      name: String(property.name ?? "").slice(0, 80),
+      type: String(property.type ?? "").slice(0, 40),
+      value: String(property.value ?? "").slice(0, 240),
+    })),
     frames: frames.slice(0, 8).map((frame) => ({
       functionName: String(frame.functionName ?? "").slice(0, 160),
       url: safeStackUrl(frame.url),
