@@ -518,20 +518,13 @@ func TestArcadeHasheousEvidenceUsesMatchedDATEntriesOnly(t *testing.T) {
 	testassert.False(t, err != nil, err)
 	dummy, err := blobs.Put(bytes.NewReader([]byte("arcade evidence dat")))
 	testassert.False(t, err != nil, err)
-	var artifactID string
-	if err := database.SQL.QueryRowContext(ctx, `
-SELECT id
-FROM core_artifacts
-WHERE core_id='fbneo'
-AND selected_for_new_bindings=1
-`).Scan(&artifactID); err != nil {
-		t.Fatal(err)
-	}
+	target, err := testsupport.LookupRuntimeTarget(ctx, database.SQL, "fbneo")
+	testassert.False(t, err != nil, err)
 	if _, err := database.SQL.ExecContext(ctx, `
 UPDATE dat_versions
 SET is_active=0
-WHERE core_artifact_id=?
-`, artifactID); err != nil {
+WHERE provider_id=? AND target_id=?
+`, target.ProviderID, target.TargetID); err != nil {
 		t.Fatal(err)
 	}
 	datID := "01980000-0000-7000-8000-000000000231"
@@ -539,7 +532,9 @@ WHERE core_artifact_id=?
 	if _, err := database.SQL.ExecContext(ctx, `
 INSERT INTO dat_versions(id,
 core_id,
-core_artifact_id,
+provider_id,
+target_id,
+target_contract_sha256,
 builtin_relative_path,
 sha256,
 parser_version,
@@ -560,6 +555,8 @@ parsed_at_ms,
 activated_at_ms) VALUES(?,
 'fbneo',
 ?,
+?,
+?,
 'testdata/arcade-evidence.dat',
 ?,
 'test',
@@ -578,7 +575,8 @@ activated_at_ms) VALUES(?,
 ?,
 ?,
 ?)
-`, datID, artifactID, dummy.SHA256, now, now, now, now); err != nil {
+`, datID, target.ProviderID, target.TargetID, target.TargetContractSHA256,
+		dummy.SHA256, now, now, now, now); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := database.SQL.ExecContext(ctx, `

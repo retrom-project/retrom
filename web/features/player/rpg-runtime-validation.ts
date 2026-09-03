@@ -1,15 +1,6 @@
 import { sha256 } from "@/lib/crypto";
-import {
-  rpgMakerPositionProbeKind,
-  type GameRuntime,
-} from "@xxxsen/retrom-runtime";
-import {
-  captureManualScreenshot,
-  captureManualState,
-  type EmulatorInstance,
-  type ManualStatePayload,
-} from "./adapters/ejs-4.2.3-v2";
-import type { RpgRuntimeConfig as RpgMakerConfig } from "./rpg-runtime";
+import type {LaunchEnvelopeV1, PlayerRuntimeV1} from "./runtime/contract";
+import {captureRuntimeSave, type RuntimeSavePayload} from "./runtime/runtime-actions";
 import {
   RpgValidationGateClient,
   rpgEngineProfile,
@@ -35,14 +26,15 @@ import {
 export type { RpgValidationMachineGate, RpgValidationSnapshot } from "./rpg-runtime-validation-snapshot";
 
 type DriverOptions = {
-  config: RpgMakerConfig;
+  envelope: LaunchEnvelopeV1;
   signal: AbortSignal;
-  uploadCheckpoint: (payload: ManualStatePayload) => Promise<ValidationCheckpointReceipt>;
+  uploadCheckpoint: (payload: RuntimeSavePayload) => Promise<ValidationCheckpointReceipt>;
   finishOriginalLaunch: () => Promise<void>;
 };
 
 export class RpgRuntimeValidationDriver {
-  private readonly config: RpgMakerConfig;
+  private readonly envelope: LaunchEnvelopeV1;
+  private readonly generation: Parameters<typeof rpgEngineProfile>[0];
   private readonly signal: AbortSignal;
   private readonly gates: RpgValidationGateClient;
   private readonly uploadCheckpoint: DriverOptions["uploadCheckpoint"];
@@ -50,20 +42,21 @@ export class RpgRuntimeValidationDriver {
   private readonly resume: RpgValidationResume;
   private readonly listeners = new Set<() => void>();
   private snapshot: RpgValidationSnapshot;
-  private instance: EmulatorInstance | null = null;
-  private runtime: GameRuntime | null = null;
+  private runtime: PlayerRuntimeV1 | null = null;
   private activeGate: RpgGate | null = null;
 
   constructor(options: DriverOptions) {
-    this.config = options.config;
+    this.envelope = options.envelope;
     this.signal = options.signal;
-    this.resume = requireValidationResume(options.config);
+    const input = requireValidationInput(options.envelope);
+    this.generation = input.generation;
+    this.resume = input.resume;
     this.gates = new RpgValidationGateClient(
-      options.config.launchId, this.resume.lastGateSequence, options.signal,
+      options.envelope.session.id, this.resume.lastGateSequence, options.signal,
     );
     this.uploadCheckpoint = options.uploadCheckpoint;
     this.finishOriginalLaunch = options.finishOriginalLaunch;
-    this.snapshot = initialValidationSnapshot(this.resume, options.config.launchId, this.isRestore());
+    this.snapshot = initialValidationSnapshot(this.resume, options.envelope.session.id, this.isRestore());
   }
 
   subscribe = (listener: () => void) => {
@@ -79,8 +72,7 @@ export class RpgRuntimeValidationDriver {
     catch (error) {this.setFatal(error); throw error;}
   }
 
-  async attachRuntime(instance: EmulatorInstance, runtime: GameRuntime) {
-    this.instance = instance;
+  async attachRuntime(runtime: PlayerRuntimeV1) {
     this.runtime = runtime;
     try {
       if (this.isRestore()) {await this.completeRestore();}
@@ -122,9 +114,8 @@ export class RpgRuntimeValidationDriver {
     const runtime = this.requireRuntime();
     await this.completeGate("RUNTIME_READY", {});
     await this.completeGate("ENGINE_PROFILE", {
-      generation: this.config.generation,
-      adapterId: this.config.adapter.adapterId,
-      engineProfile: rpgEngineProfile(this.config.generation),
+      generation: this.generation,
+      engineProfile: rpgEngineProfile(this.generation),
     });
     if (!this.gatePassed("FRAMES_300")) {
       await this.ensureBegin("FRAMES_300");
@@ -134,7 +125,7 @@ export class RpgRuntimeValidationDriver {
   }
 
   private async confirmInput() {
-    const position = readPosition(this.requireRuntime());
+    const position = await readPosition(this.requireRuntime());
     await this.passPair("INPUT", { observed: true });
     this.patch({ observedPosition: position });
     this.setPhase("audio", "保持游戏音量开启，确认已经听到当前游戏实际播放的声音。", "已听到游戏音频");
@@ -175,18 +166,16 @@ export class RpgRuntimeValidationDriver {
   }
 
   private async createCheckpoint() {
-    const instance = this.requireInstance();
     const runtime = this.requireRuntime();
-    const availability = instance.gameManager?.getCheckpointAvailability?.();
+    const availability = runtime.getCheckpointAvailability();
     if (availability?.available !== true) {
       this.patch({ busy: false, error: checkpointUnavailableMessage(availability?.reason) });
       return;
     }
     if (await this.finishUploadedCheckpoint()) {return;}
-    const before = readPosition(runtime);
-    const screenshot = await captureManualScreenshot(instance);
-    const payload = await captureManualState(instance, screenshot);
-    const after = readPosition(runtime);
+    const before = await readPosition(runtime);
+    const payload = await captureRuntimeSave(runtime);
+    const after = await readPosition(runtime);
     if (!sameRpgPosition(before, after)) {
       this.patch({ busy: false, error: "创建检查点期间位置发生变化，请在 B 点停下后重试。", observedPosition: after });
       return;
@@ -219,7 +208,7 @@ export class RpgRuntimeValidationDriver {
   }
 
   private async recordDivergence() {
-    const position = readPosition(this.requireRuntime());
+    const position = await readPosition(this.requireRuntime());
     if (!this.snapshot.savedPosition || sameRpgPosition(position, this.snapshot.savedPosition)) {
       this.patch({ busy: false, error: "C 必须与 B 至少有一个字段不同，请继续操作游戏。", observedPosition: position });
       return;
@@ -245,18 +234,17 @@ export class RpgRuntimeValidationDriver {
   }
 
   private async completeRestore() {
-    const instance = this.requireInstance();
     const runtime = this.requireRuntime();
     await this.completeGate("RESTORE_STARTED", {});
     if (!this.gatePassed("RESTORE_POSITION_VERIFIED")) {
-      const restored = readPosition(runtime);
+      const restored = await readPosition(runtime);
       await this.passPair("RESTORE_POSITION_VERIFIED", restored);
       this.patch({ observedPosition: restored });
     }
     if (!this.gatePassed("RESTORE_SCREENSHOT")) {
       await this.ensureBegin("RESTORE_SCREENSHOT");
       if (!this.resume.restoreScreenshotUploaded) {
-        await uploadRestoreScreenshot(this.config.launchId, instance, this.signal);
+        await uploadRestoreScreenshot(this.envelope.session.id, runtime, this.signal);
       }
       await this.pass("RESTORE_SCREENSHOT", {});
     }
@@ -268,7 +256,7 @@ export class RpgRuntimeValidationDriver {
   }
 
   private async confirmRestoreInput() {
-    const position = readPosition(this.requireRuntime());
+    const position = await readPosition(this.requireRuntime());
     const restored = this.snapshot.savedPosition ?? this.snapshot.observedPosition;
     if (!restored || sameRpgPosition(position, restored)) {
       this.patch({ busy: false, error: "尚未检测到恢复后的位置或测试变量变化，请先操作游戏。", observedPosition: position });
@@ -317,16 +305,11 @@ export class RpgRuntimeValidationDriver {
     this.setFatal(error);
   }
 
-  private isRestore() {return this.config.checkpoint !== null;}
+  private isRestore() {return this.envelope.restore !== null;}
 
   private gateStatus(gate: RpgGate) {return this.snapshot.gates[gate];}
 
   private gatePassed(gate: RpgGate) {return this.gateStatus(gate) === "PASSED";}
-
-  private requireInstance() {
-    if (!this.instance) {throw new Error("RPG_RUNTIME_NOT_READY");}
-    return this.instance;
-  }
 
   private requireRuntime() {
     if (!this.runtime) {throw new Error("RPG_RUNTIME_NOT_READY");}
@@ -364,10 +347,12 @@ export class RpgRuntimeValidationDriver {
   }
 }
 
-function requireValidationResume(config: RpgMakerConfig) {
-  const resume = validValidationResume(config);
+function requireValidationInput(envelope: LaunchEnvelopeV1) {
+  const input = envelope.validation?.input;
+  if (!input || !rpgGeneration(input.generation)) {throw new Error("RPG_RUNTIME_PROTOCOL_VIOLATION");}
+  const resume = validValidationResume(input.resume, envelope.session.id);
   if (!resume) {throw new Error("RPG_RUNTIME_PROTOCOL_VIOLATION");}
-  return resume;
+  return {generation: input.generation, resume};
 }
 
 function phaseTitle(phase: RpgValidationPhase) {
@@ -382,31 +367,32 @@ function phaseTitle(phase: RpgValidationPhase) {
   return phase === "error" ? "运行验证失败" : "正在执行自动检查";
 }
 
-function readPosition(runtime: GameRuntime) {
-  const probe = runtime.getValidationProbe(rpgMakerPositionProbeKind);
-  const position = probe?.value as RpgPosition | undefined;
-  if (!probe || probe.kind !== rpgMakerPositionProbeKind || probe.schemaVersion !== 1 ||
-      !position || !validateRpgPosition(position)) {
+async function readPosition(runtime: PlayerRuntimeV1) {
+  const probe = await runtime.runValidationProbe("rpgmaker.position.v1", {
+    fixtureState: 0, mapId: 1, playerX: 0, playerY: 0,
+  });
+  const position = probe.evidence as RpgPosition | undefined;
+  if (probe.probeId !== "rpgmaker.position.v1" || !position || !validateRpgPosition(position)) {
     throw new Error("RPG_RUNTIME_POSITION_UNAVAILABLE");
   }
   return { ...position };
 }
 
 export async function waitForRpgPosition(
-  runtime: GameRuntime,
+  runtime: PlayerRuntimeV1,
   signal: AbortSignal,
   wait: (signal: AbortSignal) => Promise<void> = waitForPositionSample,
 ) {
   const deadline = performance.now() + 120_000;
   while (performance.now() < deadline) {
-    try {return readPosition(runtime);}
+    try {return await readPosition(runtime);}
     catch {await wait(signal);}
   }
   throw new Error("RPG_RUNTIME_POSITION_UNAVAILABLE");
 }
 
 export async function waitForContinuousFrames(
-  runtime: GameRuntime,
+  runtime: PlayerRuntimeV1,
   signal: AbortSignal,
   wait: (signal: AbortSignal) => Promise<void> = waitForFrameSample,
 ) {
@@ -429,7 +415,7 @@ export async function waitForContinuousFrames(
 }
 
 async function readFrameWhenAvailable(
-  runtime: GameRuntime,
+  runtime: PlayerRuntimeV1,
   signal: AbortSignal,
   deadline: number,
   wait: (signal: AbortSignal) => Promise<void>,
@@ -449,7 +435,7 @@ function transientFrameReadError(error: unknown) {
     (error.message === "RPG_RUNTIME_POSITION_UNAVAILABLE" || error.message === "RPG_RUNTIME_FRAME_UNAVAILABLE");
 }
 
-function readFrame(runtime: GameRuntime) {
+function readFrame(runtime: PlayerRuntimeV1) {
   const frame = runtime.getFrameCount();
   if (!Number.isSafeInteger(frame) || Number(frame) < 0) {throw new Error("RPG_RUNTIME_FRAME_UNAVAILABLE");}
   return Number(frame);
@@ -479,22 +465,22 @@ function waitForDelay(signal: AbortSignal, delayMs: number) {
   });
 }
 
-async function checkpointEvidence(payload: ManualStatePayload, receipt: ValidationCheckpointReceipt) {
-  const digest = await sha256(payload.state);
+async function checkpointEvidence(payload: RuntimeSavePayload, receipt: ValidationCheckpointReceipt) {
+  const digest = await sha256(payload.checkpoint.bytes);
   const local = {
-    payloadKind: payload.payloadKind ?? "RUNTIME_STATE",
-    sizeBytes: payload.state.byteLength,
+    checkpointFormat: payload.checkpoint.format,
+    sizeBytes: payload.checkpoint.bytes.byteLength,
     sha256: [...digest].map((value) => value.toString(16).padStart(2, "0")).join(""),
   };
-  if (receipt.payloadKind !== local.payloadKind || receipt.sizeBytes !== local.sizeBytes || receipt.sha256 !== local.sha256) {
+  if (receipt.checkpointFormat !== local.checkpointFormat || receipt.sizeBytes !== local.sizeBytes || receipt.sha256 !== local.sha256) {
     throw new Error("RPG_CHECKPOINT_RESPONSE_MISMATCH");
   }
   return receipt satisfies RpgGateEvidence;
 }
 
-async function uploadRestoreScreenshot(launchId: string, instance: EmulatorInstance, signal: AbortSignal) {
-  const screenshot = await captureManualScreenshot(instance);
-  if (screenshot.format.toLowerCase() !== "png" || screenshot.screenshot.size <= 0 || screenshot.screenshot.size > 10 * 1024 * 1024) {
+async function uploadRestoreScreenshot(launchId: string, runtime: PlayerRuntimeV1, signal: AbortSignal) {
+  const screenshot = await runtime.screenshot();
+  if (screenshot.type !== "image/png" || screenshot.size <= 0 || screenshot.size > 10 * 1024 * 1024) {
     throw new Error("RPG_RUNTIME_SCREENSHOT_INVALID");
   }
   const response = await fetch(`/runtime/launches/${launchId}/review-screenshot`, {
@@ -502,10 +488,15 @@ async function uploadRestoreScreenshot(launchId: string, instance: EmulatorInsta
     credentials: "same-origin",
     cache: "no-store",
     headers: { "Content-Type": "image/png" },
-    body: screenshot.screenshot,
+    body: screenshot,
     signal,
   });
   if (!response.ok) {throw new Error(`RPG_RUNTIME_SCREENSHOT_HTTP_${response.status}`);}
+}
+
+function rpgGeneration(value: unknown): value is Parameters<typeof rpgEngineProfile>[0] {
+  return value === "RPG2000" || value === "RPG2003" || value === "RPGXP" || value === "RPGVX" ||
+    value === "RPGVXACE" || value === "RPGMV" || value === "RPGMZ";
 }
 
 function checkpointUnavailableMessage(reason: string | null | undefined) {

@@ -257,7 +257,10 @@ WHERE game.id=? ORDER BY file.role,file.logical_name
 	testassert.False(t, err != nil, err)
 	credentials, err := retromruntime.LoadOrCreateCredentials(dataDir)
 	testassert.False(t, err != nil, err)
-	launcher := launch.New(database.SQL, dependencySet, credentials, time.Now)
+	runtimeBuilder, err := testsupport.NewRuntimeBuilder(ctx, database.SQL)
+	testassert.False(t, err != nil, err)
+	launcher := launch.New(database.SQL, dependencySet, credentials, time.Now).
+		WithRuntimeProvider(dependencySet.RuntimeCatalog, runtimeBuilder)
 	coreID := "fbneo"
 	capabilities := launch.Capabilities{SecureContext: true, CrossOriginIsolated: true, SharedArrayBuffer: true}
 	pending, err := launcher.Create(ctx, "local", launch.CreateRequest{
@@ -272,7 +275,10 @@ WHERE game.id=? ORDER BY file.role,file.logical_name
 	})
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return createdLaunch.LaunchID == "" }), "launch after revalidation = %#v, error=%v", createdLaunch, err)
 	configuration, err := launcher.Config(ctx, createdLaunch.LaunchID, createdLaunch.Capability)
-	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return configuration.ParentURL == nil }), "launch parent config = %#v, error=%v", configuration.ParentURL, err)
+	testassert.False(t, err != nil, err)
+	envelope := testsupport.RuntimeEnvelope(t, configuration)
+	parentResource := testsupport.RuntimeEnvelopeResource(t, envelope, "parent")
+	testassert.Falsef(t, parentResource["kind"] != "PARENT_ARCHIVE_V1", "launch parent resource = %#v", parentResource)
 	parentBundle, err := launcher.BundleFiles(ctx, createdLaunch.LaunchID, createdLaunch.Capability, "PARENT")
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return fmt.Sprint(parentBundle) == "[]" }, func() bool { return len(parentBundle) != 2 }, func() bool { return parentBundle[0].LogicalName != "b.zip" }, func() bool { return parentBundle[1].LogicalName != "c.zip" }), "launch parent bundle = %#v, error=%v", parentBundle, err)
 	revalidatedDependencies := queryAttachmentStrings(t, database.SQL, `
@@ -367,27 +373,19 @@ func uploadCompleteFile(
 
 func insertArcadeParentCatalog(t *testing.T, database *sql.DB) {
 	t.Helper()
+	ctx := context.Background()
+	target, err := testsupport.LookupRuntimeTarget(ctx, database, "fbneo")
+	if err != nil {
+		t.Fatal(err)
+	}
 	now := time.Now().UnixMilli()
-	if _, err := database.ExecContext(context.Background(), `
-INSERT INTO core_artifacts(
- id,core_id,route_key,runtime_family,runtime_adapter_kind,runtime_version,adapter_id,entry_path,
- size_bytes,sha256,manifest_sha256,artifact_set_sha256,requires_threads,save_payload_kind,
- save_max_bytes,provenance_json,compatibility_json,selected_for_new_bindings,available_for_launch,
- version,created_at_ms,updated_at_ms)
-VALUES('attachment-artifact','fbneo','DEFAULT','EMULATORJS','EMULATORJS','4.2.3',
-'ejs-4.2.3-v3','data/cores/attachment.data',1,
-'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
-'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
-'cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc',
-0,'RUNTIME_STATE',67108864,'{}',
-'{"schemaVersion":5,"adapterAbi":"emulatorjs-state-v1","runtimeCoreId":"fbneo","requestedArtifactBasename":"fbneo-wasm.data","canvasResizePolicy":"NONE","defaultOptions":{},"inputMode":"STANDARD","startupActions":[],"supportedContentKinds":["SINGLE_FILE"],"multiDisc":null}',
-1,1,1,?,?);
-INSERT INTO dat_versions(id,core_id,core_artifact_id,builtin_relative_path,sha256,parser_version,
+	if _, err := database.ExecContext(ctx, `
+INSERT INTO dat_versions(id,core_id,provider_id,target_id,target_contract_sha256,builtin_relative_path,sha256,parser_version,
 parse_status,is_active,version,created_at_ms,updated_at_ms,parsed_at_ms,activated_at_ms)
-VALUES('attachment-dat','fbneo','attachment-artifact','data/dat/attachment.xml',
+VALUES('attachment-dat','fbneo',?,?,?,'data/dat/attachment.xml',
 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb','fixture',
 'READY',1,1,?,?,?,?);
-`, now, now, now, now, now, now); err != nil {
+`, target.ProviderID, target.TargetID, target.TargetContractSHA256, now, now, now, now); err != nil {
 		t.Fatal(err)
 	}
 	relations := []struct{ machine, clone string }{{"a", "b"}, {"b", "c"}, {"c", ""}}

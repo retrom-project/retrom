@@ -77,7 +77,6 @@ func (service *Service) runPreparedReplacement(
 	now int64,
 ) {
 	uploadID := snapshot.UploadSessionID
-	artifactID := snapshot.CoreArtifactID
 	files, err := collectUploadFiles(ctx, service.database, uploadID)
 	if err != nil {
 		service.fail(ctx, jobID, "GAME_CONTENT_INPUT_UNAVAILABLE")
@@ -98,7 +97,7 @@ func (service *Service) runPreparedReplacement(
 		return
 	}
 	biosSnapshot, biosStatus, biosCode, err := corevalidation.ResolveBIOS(
-		ctx, service.database, artifactID, prepared.firstContentLogicalName,
+		ctx, service.database, snapshot.ProviderID, snapshot.TargetID, prepared.firstContentLogicalName,
 	)
 	if err != nil {
 		service.fail(ctx, jobID, "GAME_CONTENT_INPUT_UNAVAILABLE")
@@ -150,55 +149,16 @@ func (service *Service) persistPreparedReplacement(
 		cleanup.Rollback(transaction)
 		service.fail(ctx, jobID, code)
 	}
-	var currentContent string
-	var currentVersion int64
-	var currentInstance, currentArtifact, currentRouteKey, currentCompatibilityJSON string
-	var currentPlatformVersion, currentArtifactVersion int64
-	var currentDAT sql.NullString
-	if err := transaction.QueryRowContext(ctx, `
-SELECT g.current_content_revision_id,
-g.version,
-g.platform_instance_id,
-	pi.version,
-	a.id,
-	a.route_key,
-	a.version,
-	a.compatibility_json,
-	(SELECT id
-FROM dat_versions
-WHERE core_artifact_id=a.id
-AND is_active=1)
-FROM games g
-JOIN platform_instances pi ON pi.id=g.platform_instance_id
-JOIN core_artifacts a ON a.core_id=pi.default_core_id
-AND a.selected_for_new_bindings=1 AND a.available_for_launch=1
-WHERE g.id=?
-AND g.status='PUBLISHED'
-`, gameID).Scan(
-		&currentContent,
-		&currentVersion,
-		&currentInstance,
-		&currentPlatformVersion,
-		&currentArtifact,
-		&currentRouteKey,
-		&currentArtifactVersion,
-		&currentCompatibilityJSON,
-		&currentDAT,
-	); err != nil ||
-		currentContent != previousContentID ||
-		currentVersion != snapshot.GameVersion ||
-		currentInstance != snapshot.PlatformInstanceID ||
-		currentPlatformVersion != snapshot.PlatformInstanceVersion ||
-		currentArtifact != snapshot.CoreArtifactID ||
-		currentRouteKey != snapshot.CoreArtifactRouteKey ||
-		currentArtifactVersion != snapshot.CoreArtifactVersion ||
-		corevalidation.CompatibilityConfigDigest(currentCompatibilityJSON) != snapshot.CompatibilityConfigDigest ||
-		nullableText(currentDAT) != pointerText(snapshot.DATVersionID) {
+	currentBinding, err := loadReplacementBinding(ctx, transaction, gameID)
+	if err != nil || !replacementBindingMatchesSnapshot(currentBinding, snapshot) ||
+		currentBinding.contentID != previousContentID ||
+		corevalidation.ContentPolicyDigest(currentBinding.contentPolicyJSON) != snapshot.TargetPolicyDigest ||
+		nullableText(currentBinding.datID) != pointerText(snapshot.DATVersionID) {
 		cleanup.Rollback(transaction)
 		service.fail(ctx, jobID, "GAME_CONTENT_SNAPSHOT_STALE")
 		return
 	}
-	unchanged, err := contentReplacementUnchanged(ctx, transaction, currentContent, prepared)
+	unchanged, err := contentReplacementUnchanged(ctx, transaction, currentBinding.contentID, prepared)
 	if err != nil {
 		cleanup.Rollback(transaction)
 		service.fail(ctx, jobID, "GAME_CONTENT_DATABASE_FAILED")
@@ -211,7 +171,7 @@ AND g.status='PUBLISHED'
 	}
 	service.writeReplacement(
 		ctx, transaction, jobID, snapshot, prepared, biosSnapshot,
-		dependencySnapshotJSON, currentDAT, now, failTransaction,
+		dependencySnapshotJSON, currentBinding.datID, now, failTransaction,
 	)
 }
 
@@ -229,7 +189,6 @@ func (service *Service) writeReplacement(
 ) {
 	gameID := snapshot.GameID
 	coreID := snapshot.CoreID
-	artifactID := snapshot.CoreArtifactID
 	contentID := newID()
 	if _, err := transaction.ExecContext(ctx, `
 INSERT INTO game_content_revisions(id,
@@ -284,8 +243,10 @@ FROM game_variant_revisions
 INSERT INTO game_variant_revisions(id,
 game_variant_id,
 game_content_revision_id,
-core_artifact_id,
-route_key,
+provider_id,
+target_id,
+target_contract_sha256,
+game_compatibility_line,
 dat_version_id,
 validation_input_digest,
 emulator_game_id,
@@ -293,6 +254,8 @@ status,
 compatibility_code,
 dependency_snapshot_json,
 created_at_ms) VALUES(?,
+?,
+?,
 ?,
 ?,
 ?,
@@ -308,8 +271,10 @@ created_at_ms) VALUES(?,
 		revisionID,
 		variantID,
 		contentID,
-		artifactID,
-		snapshot.CoreArtifactRouteKey,
+		snapshot.ProviderID,
+		snapshot.TargetID,
+		snapshot.TargetContractSHA256,
+		snapshot.GameCompatibilityLine,
 		nullableValue(snapshot.DATVersionID),
 		validationInputDigest,
 		emulatorGameID,
@@ -549,8 +514,9 @@ func replacementValidationDigest(
 	currentDAT sql.NullString,
 ) (string, error) {
 	if prepared.contentKind != multidisc.ContentKind {
-		digest, err := corevalidation.ValidationInputDigest(
-			snapshot.CoreArtifactID, contentID, currentDAT, biosSnapshot,
+		digest, err := corevalidation.ProviderValidationInputDigest(
+			snapshot.ProviderID, snapshot.TargetID, snapshot.TargetContractSHA256,
+			snapshot.GameCompatibilityLine, contentID, currentDAT, biosSnapshot,
 		)
 		if err != nil {
 			return "", fmt.Errorf("digest replacement validation input: %w", err)
@@ -563,10 +529,11 @@ func replacementValidationDigest(
 	}
 	digest, err := corevalidation.MultiDiscValidationInputDigest(corevalidation.MultiDiscValidationInput{
 		GameVariantID: variantID, GameContentRevisionID: contentID,
-		ContentKind: prepared.contentKind, CoreArtifactID: snapshot.CoreArtifactID,
-		CoreArtifactVersion:       snapshot.CoreArtifactVersion,
-		CompatibilityConfigSHA256: snapshot.CompatibilityConfigDigest,
-		DATVersionID:              currentDAT, BIOSDependencySHA256: biosDigest,
+		ContentKind: prepared.contentKind, ProviderID: snapshot.ProviderID, TargetID: snapshot.TargetID,
+		TargetContractSHA256:  snapshot.TargetContractSHA256,
+		GameCompatibilityLine: snapshot.GameCompatibilityLine,
+		ContentPolicySHA256:   snapshot.TargetPolicyDigest,
+		DATVersionID:          currentDAT, BIOSDependencySHA256: biosDigest,
 		OrderedDiscSHA256:       prepared.orderedDiscSHA256,
 		CanonicalPlaylistSHA256: prepared.canonicalPlaylist.SHA256,
 	})

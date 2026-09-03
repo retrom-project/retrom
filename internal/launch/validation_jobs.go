@@ -27,19 +27,29 @@ func (service *Service) ensureVariant(
 		return Created{}, fmt.Errorf("launch/ensure_variant: %w", err)
 	}
 	defer cleanup.Rollback(transaction)
-	var contentID, contentLogicalName, contentKind, coreID, artifactID string
-	var requiresThreads int
+	var contentID, contentLogicalName, contentKind, coreID string
+	var providerID, targetID, targetContractSHA256, gameCompatibilityLine, contentPolicyJSON string
 	var datID sql.NullString
 	err = transaction.QueryRowContext(ctx, `
 SELECT g.current_content_revision_id,
 COALESCE(f.logical_name,''),
 content.content_kind,
 c.id,
-a.id,
-a.requires_threads,
+binding.provider_id,binding.target_id,target.target_contract_sha256,target.game_compatibility_line,
+json_object(
+  'schemaVersion',1,
+  'supportedContentKinds',json((SELECT json_group_array(content_kind) FROM (
+    SELECT content_kind FROM runtime_binding_content_kinds kinds
+    WHERE kinds.binding_id=binding.binding_id ORDER BY content_kind
+  ))),
+  'multiDisc',CASE WHEN EXISTS(
+    SELECT 1 FROM runtime_binding_content_kinds kinds
+    WHERE kinds.binding_id=binding.binding_id AND kinds.content_kind='MULTI_DISC_M3U_V1'
+  ) THEN json_object('maxDiscs',8,'maxTotalBytes',1073741824,'delivery','EAGER_EXTERNAL_FILES') ELSE NULL END
+),
 (SELECT id
 FROM dat_versions
-WHERE core_artifact_id=a.id
+WHERE provider_id=target.provider_id AND target_id=target.target_id
 AND is_active=1)
 FROM games g
 JOIN platform_instances pi ON pi.id=g.platform_instance_id
@@ -50,10 +60,12 @@ JOIN platform_cores pc ON pc.platform_id=pi.platform_id
 AND pc.enabled=1
 JOIN cores c ON c.id=pc.core_id
 AND c.enabled=1
-JOIN core_artifacts a ON a.core_id=c.id
-AND a.runtime_family='EMULATORJS'
-AND a.selected_for_new_bindings=1
-AND a.available_for_launch=1
+JOIN runtime_target_bindings binding ON binding.core_id=c.id AND binding.launch_policy!='DISABLED'
+JOIN runtime_targets target ON target.provider_id=binding.provider_id AND target.target_id=binding.target_id
+JOIN runtime_binding_platforms binding_platform ON binding_platform.binding_id=binding.binding_id
+ AND binding_platform.platform_id=pi.platform_id AND binding_platform.core_id=c.id
+JOIN runtime_binding_content_kinds binding_kind ON binding_kind.binding_id=binding.binding_id
+ AND binding_kind.content_kind=content.content_kind
 WHERE g.id=?
 AND g.status='PUBLISHED'
 AND pi.enabled=1
@@ -61,15 +73,11 @@ AND c.id=CASE WHEN ?='' THEN pi.default_core_id ELSE ? END
 ORDER BY CASE f.role WHEN 'CONTENT' THEN 0 ELSE 1 END,f.sort_order,f.logical_name
 LIMIT 1
 `, request.GameID, requestedCore, requestedCore).
-		Scan(&contentID, &contentLogicalName, &contentKind, &coreID, &artifactID, &requiresThreads, &datID)
-	if err != nil ||
-		requiresThreads == 1 &&
-			(!request.ClientCapabilities.SecureContext ||
-				!request.ClientCapabilities.CrossOriginIsolated ||
-				!request.ClientCapabilities.SharedArrayBuffer) {
-		return Created{}, ErrBlocked
-	}
-	if service.dependencies.Versions[service.dependencies.Active.Manifest.EmulatorJS.Version] == nil {
+		Scan(&contentID, &contentLogicalName, &contentKind, &coreID, &providerID, &targetID,
+			&targetContractSHA256, &gameCompatibilityLine, &contentPolicyJSON, &datID)
+	target, targetExists := service.runtimeBuilder.Target(providerID, targetID)
+	if err != nil || !targetExists || target.ContractSHA256 != targetContractSHA256 ||
+		!validThreadCapabilities(target.Capabilities.RequiresThreads, request.ClientCapabilities) {
 		return Created{}, ErrBlocked
 	}
 	variantID, err := service.ensureGameVariant(ctx, transaction, request.GameID, coreID)
@@ -77,7 +85,8 @@ LIMIT 1
 		return Created{}, err
 	}
 	digest, biosDependencyDigest, err := service.validationDigests(
-		ctx, transaction, variantID, contentID, contentLogicalName, contentKind, artifactID, datID,
+		ctx, transaction, variantID, contentID, contentLogicalName, contentKind,
+		providerID, targetID, targetContractSHA256, gameCompatibilityLine, contentPolicyJSON, datID,
 	)
 	if err != nil {
 		return Created{}, ErrBlocked
@@ -104,7 +113,11 @@ AND validation_input_digest=?
 		transaction,
 		variantID,
 		contentID,
-		artifactID,
+		providerID,
+		targetID,
+		targetContractSHA256,
+		gameCompatibilityLine,
+		contentPolicyJSON,
 		datID,
 		digest,
 		biosDependencyDigest,
@@ -219,7 +232,8 @@ func (service *Service) EnsureVariantForMove(ctx context.Context, gameID, coreID
 func (service *Service) queueValidationJob(
 	ctx context.Context,
 	transaction *sql.Tx,
-	variantID, contentID, artifactID string,
+	variantID, contentID, providerID, targetID, targetContractSHA256,
+	gameCompatibilityLine, contentPolicyJSON string,
 	datID sql.NullString,
 	digest string,
 	biosDependencyDigest string,
@@ -257,12 +271,13 @@ AND dedupe_key=?
 		Scope:         validationScope{Type: "GAME_VARIANT", ID: variantID},
 		ExecutionID:   executionID,
 		Inputs: validationInputs{
-			GameVariantID:         variantID,
-			GameContentRevisionID: contentID,
-			CoreArtifactID:        artifactID,
-			DATVersionID:          nullableSQL(datID),
-			ValidationInputDigest: digest,
-			BIOSDependencyDigest:  biosDependencyDigest,
+			GameVariantID: variantID, GameContentRevisionID: contentID,
+			ProviderID: providerID, TargetID: targetID,
+			TargetContractSHA256:  targetContractSHA256,
+			GameCompatibilityLine: gameCompatibilityLine,
+			ContentPolicyJSON:     contentPolicyJSON,
+			DATVersionID:          nullableSQL(datID), ValidationInputDigest: digest,
+			BIOSDependencyDigest: biosDependencyDigest,
 		},
 	}
 	inputJSON, _ := json.Marshal(snapshot)
@@ -415,7 +430,7 @@ type datRevalidationTarget struct{ variantID, contentID string }
 func (service *Service) QueueDATRevalidations(
 	ctx context.Context,
 	transaction *sql.Tx,
-	artifactID, datID string,
+	providerID, targetID, datID string,
 ) (int64, error) {
 	rows, err := transaction.QueryContext(
 		ctx,
@@ -425,11 +440,11 @@ g.current_content_revision_id
 FROM game_variants v
 JOIN games g ON g.id=v.game_id
 JOIN game_variant_revisions r ON r.id=v.current_revision_id
-WHERE r.core_artifact_id=?
+WHERE r.provider_id=? AND r.target_id=?
 AND g.status='PUBLISHED'
 ORDER BY v.id
 `,
-		artifactID,
+		providerID, targetID,
 	)
 	if err != nil {
 		return 0, fmt.Errorf("launch/ensure_variant: %w", err)
@@ -449,7 +464,7 @@ ORDER BY v.id
 	queued := int64(0)
 	targetDAT := sql.NullString{String: datID, Valid: true}
 	for _, item := range targets {
-		created, err := service.queueDATRevalidationTarget(ctx, transaction, artifactID, targetDAT, item)
+		created, err := service.queueDATRevalidationTarget(ctx, transaction, providerID, targetID, targetDAT, item)
 		if err != nil {
 			return 0, err
 		}
@@ -463,7 +478,7 @@ ORDER BY v.id
 func (service *Service) queueDATRevalidationTarget(
 	ctx context.Context,
 	transaction *sql.Tx,
-	artifactID string,
+	providerID, targetID string,
 	targetDAT sql.NullString,
 	item datRevalidationTarget,
 ) (bool, error) {
@@ -475,11 +490,38 @@ ORDER BY sort_order,logical_name LIMIT 1
 `, item.contentID).Scan(&logicalName); err != nil {
 		return false, fmt.Errorf("launch/ensure_variant: %w", err)
 	}
-	biosSnapshot, _, _, err := corevalidation.ResolveBIOS(ctx, transaction, artifactID, logicalName)
+	var targetContractSHA256, gameCompatibilityLine, contentPolicyJSON string
+	if err := transaction.QueryRowContext(ctx, `
+SELECT target.target_contract_sha256,target.game_compatibility_line,
+json_object(
+  'schemaVersion',1,
+  'supportedContentKinds',json((SELECT json_group_array(content_kind) FROM (
+    SELECT content_kind FROM runtime_binding_content_kinds kinds
+    WHERE kinds.binding_id=binding.binding_id ORDER BY content_kind
+  ))),
+  'multiDisc',CASE WHEN EXISTS(
+    SELECT 1 FROM runtime_binding_content_kinds kinds
+    WHERE kinds.binding_id=binding.binding_id AND kinds.content_kind='MULTI_DISC_M3U_V1'
+  ) THEN json_object('maxDiscs',8,'maxTotalBytes',1073741824,'delivery','EAGER_EXTERNAL_FILES') ELSE NULL END
+)
+FROM runtime_targets target
+JOIN runtime_target_bindings binding
+ ON binding.provider_id=target.provider_id AND binding.target_id=target.target_id
+JOIN game_variants variant ON variant.id=? AND variant.core_id=binding.core_id
+WHERE target.provider_id=? AND target.target_id=?
+LIMIT 1
+`, item.variantID, providerID, targetID).Scan(
+		&targetContractSHA256, &gameCompatibilityLine, &contentPolicyJSON,
+	); err != nil {
+		return false, fmt.Errorf("launch/ensure_variant: %w", err)
+	}
+	biosSnapshot, _, _, err := corevalidation.ResolveBIOS(ctx, transaction, providerID, targetID, logicalName)
 	if err != nil {
 		return false, fmt.Errorf("launch/ensure_variant: %w", err)
 	}
-	digest, err := corevalidation.ValidationInputDigest(artifactID, item.contentID, targetDAT, biosSnapshot)
+	digest, err := corevalidation.ProviderValidationInputDigest(
+		providerID, targetID, targetContractSHA256, gameCompatibilityLine, item.contentID, targetDAT, biosSnapshot,
+	)
 	if err != nil {
 		return false, fmt.Errorf("launch/ensure_variant: %w", err)
 	}
@@ -513,7 +555,8 @@ AND current_revision_id<>?
 		return false, fmt.Errorf("launch/ensure_variant: %w", err)
 	}
 	_, created, err := service.queueValidationJob(
-		ctx, transaction, item.variantID, item.contentID, artifactID,
+		ctx, transaction, item.variantID, item.contentID, providerID, targetID,
+		targetContractSHA256, gameCompatibilityLine, contentPolicyJSON,
 		targetDAT, digest, hex.EncodeToString(biosDigest[:]),
 	)
 	return created, err
@@ -617,7 +660,11 @@ AND j.kind='VARIANT_REVALIDATE'
 		jobID,
 		snapshot.Inputs.GameVariantID,
 		snapshot.Inputs.GameContentRevisionID,
-		snapshot.Inputs.CoreArtifactID,
+		snapshot.Inputs.ProviderID,
+		snapshot.Inputs.TargetID,
+		snapshot.Inputs.TargetContractSHA256,
+		snapshot.Inputs.GameCompatibilityLine,
+		snapshot.Inputs.ContentPolicyJSON,
 		datID,
 		snapshot.Inputs.ValidationInputDigest,
 		snapshot.Inputs.BIOSDependencyDigest,

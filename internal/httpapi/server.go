@@ -32,6 +32,8 @@ import (
 	"retrom/internal/rpgmaker/packs"
 	"retrom/internal/rpgmaker/runtimevalidation"
 	retromruntime "retrom/internal/runtime"
+	"retrom/internal/runtimecatalog"
+	"retrom/internal/runtimelaunch"
 	"retrom/internal/saves"
 	"retrom/internal/serverimport"
 	"retrom/internal/storageanalysis"
@@ -109,6 +111,23 @@ type Server struct {
 	netplayHub              *netplay.Hub
 	netplayObserversMu      sync.Mutex
 	netplayObservers        map[string]int
+	runtimeProvider         http.Handler
+}
+
+func (server *Server) WithRuntimeProviderHandler(handler http.Handler) *Server {
+	if handler != nil {
+		server.runtimeProvider = handler
+	}
+	return server
+}
+
+func (server *Server) WithRuntimeProvider(
+	catalog runtimecatalog.Catalog,
+	builder *runtimelaunch.Builder,
+	handler http.Handler,
+) *Server {
+	server.launcher.WithRuntimeProvider(catalog, builder)
+	return server.WithRuntimeProviderHandler(handler)
 }
 
 func (server *Server) WithNetplay(service *netplay.Service) *Server {
@@ -208,6 +227,7 @@ func New(
 		now:              now,
 		sseHeartbeat:     15 * time.Second,
 		netplayObservers: make(map[string]int),
+		runtimeProvider:  http.NotFoundHandler(),
 	}
 	server.idempotencyQueueDrained = sync.NewCond(&server.idempotencyQueueMu)
 	payloadReleaseService.Start()
@@ -292,7 +312,7 @@ func (server *Server) registerAdminAccountRoutes(mux *http.ServeMux) {
 	)
 	mux.HandleFunc("DELETE /api/v1/admin/account-links/{accountLinkId}", server.adminRevokeAccountLink)
 	mux.HandleFunc("GET /api/v1/admin/platforms", server.platforms)
-	mux.HandleFunc("GET /api/v1/admin/core-artifacts", server.coreArtifacts)
+	mux.HandleFunc("GET /api/v1/admin/runtime-targets", server.runtimeTargets)
 	mux.HandleFunc("GET /api/v1/admin/platform-instances", server.platformInstances)
 	mux.HandleFunc("POST /api/v1/admin/platform-instances", server.createPlatformInstance)
 	mux.HandleFunc(
@@ -488,10 +508,8 @@ func (server *Server) registerContentRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/v1/admin/review-assets/{assetId}", server.reviewCandidateAsset)
 	mux.HandleFunc("HEAD /api/v1/admin/review-assets/{assetId}", server.reviewCandidateAsset)
 	mux.HandleFunc("GET /api/v1/admin/diagnostics", server.diagnostics)
-	mux.HandleFunc("GET /runtime/emulatorjs/{configuredVersion}/{runtimePath...}", server.runtimeFile)
-	mux.HandleFunc("HEAD /runtime/emulatorjs/{configuredVersion}/{runtimePath...}", server.runtimeFile)
-	mux.HandleFunc("GET /runtime/retrom-runtime/{runtimeVersion}/{runtimePath...}", server.retromRuntimeFile)
-	mux.HandleFunc("HEAD /runtime/retrom-runtime/{runtimeVersion}/{runtimePath...}", server.retromRuntimeFile)
+	mux.Handle("GET /runtime/providers/{providerId}/{bundleSha256}/{runtimePath...}", server.runtimeProvider)
+	mux.Handle("HEAD /runtime/providers/{providerId}/{bundleSha256}/{runtimePath...}", server.runtimeProvider)
 }
 
 func (server *Server) registerRuntimeRoutes(mux *http.ServeMux) {

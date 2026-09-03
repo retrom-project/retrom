@@ -19,9 +19,16 @@ import (
 var (
 	ErrManifestInvalid  = errors.New("RUNTIME_PROVIDER_MANIFEST_INVALID")
 	ErrIntegrityInvalid = errors.New("RUNTIME_PROVIDER_INTEGRITY_INVALID")
+	errTrailingJSON     = errors.New("trailing JSON")
+	errCanonicalNumber  = errors.New("non-canonical number")
+	errCanonicalType    = errors.New("unsupported canonical value")
 	identityPattern     = regexp.MustCompile(`^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$`)
-	semverPattern       = regexp.MustCompile(`^(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)(?:-(?:0|[1-9][0-9]*|[0-9A-Za-z-]*[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9][0-9]*|[0-9A-Za-z-]*[A-Za-z-][0-9A-Za-z-]*))*)?$`)
-	tokenPattern        = regexp.MustCompile(`^[a-z0-9](?:[a-z0-9.-]{0,62}[a-z0-9])?$`)
+	semverPattern       = regexp.MustCompile(
+		`^(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)` +
+			`(?:-(?:0|[1-9][0-9]*|[0-9A-Za-z-]*[A-Za-z-][0-9A-Za-z-]*)` +
+			`(?:\.(?:0|[1-9][0-9]*|[0-9A-Za-z-]*[A-Za-z-][0-9A-Za-z-]*))*)?$`,
+	)
+	tokenPattern = regexp.MustCompile(`^[a-z0-9](?:[a-z0-9.-]{0,62}[a-z0-9])?$`)
 )
 
 var resourceKinds = map[string]bool{
@@ -127,20 +134,8 @@ var integrityMediaTypes = map[string]bool{
 }
 
 func ParseIntegrity(contents []byte) (Integrity, error) {
-	value, err := parseStrictJSON(contents)
-	root, ok := value.(map[string]any)
-	if err != nil || !ok || !exactMap(root, "files", "schemaVersion") {
+	if !validIntegrityRawShape(contents) {
 		return Integrity{}, ErrIntegrityInvalid
-	}
-	items, ok := root["files"].([]any)
-	if !ok {
-		return Integrity{}, ErrIntegrityInvalid
-	}
-	for _, item := range items {
-		file, ok := item.(map[string]any)
-		if !ok || !exactMap(file, "mediaType", "path", "sha256", "sizeBytes") {
-			return Integrity{}, ErrIntegrityInvalid
-		}
 	}
 	var wire integrityWire
 	if err := decodeClosed(contents, &wire); err != nil || wire.SchemaVersion != 1 || len(wire.Files) < 3 {
@@ -149,17 +144,38 @@ func ParseIntegrity(contents []byte) (Integrity, error) {
 	result := Integrity{SchemaVersion: 1, Files: make([]IntegrityFile, 0, len(wire.Files))}
 	previous := ""
 	for _, file := range wire.Files {
-		if !safePath(file.Path) || len(file.Path) > 240 || file.SizeBytes < 0 || file.SizeBytes > 9007199254740991 ||
-			!digestPattern(file.SHA256) || !integrityMediaTypes[file.MediaType] || previous != "" && previous >= file.Path {
+		if !validIntegrityFile(file, previous) {
 			return Integrity{}, ErrIntegrityInvalid
 		}
-		result.Files = append(result.Files, IntegrityFile{
-			Path: file.Path, SizeBytes: file.SizeBytes,
-			SHA256: file.SHA256, MediaType: file.MediaType,
-		})
+		result.Files = append(result.Files, IntegrityFile(file))
 		previous = file.Path
 	}
 	return result, nil
+}
+
+func validIntegrityRawShape(contents []byte) bool {
+	value, err := parseStrictJSON(contents)
+	root, ok := value.(map[string]any)
+	if err != nil || !ok || !exactMap(root, "files", "schemaVersion") {
+		return false
+	}
+	items, ok := root["files"].([]any)
+	if !ok {
+		return false
+	}
+	for _, item := range items {
+		file, ok := item.(map[string]any)
+		if !ok || !exactMap(file, "mediaType", "path", "sha256", "sizeBytes") {
+			return false
+		}
+	}
+	return true
+}
+
+func validIntegrityFile(file integrityFileWire, previous string) bool {
+	return safePath(file.Path) && len(file.Path) <= 240 && file.SizeBytes >= 0 &&
+		file.SizeBytes <= 9007199254740991 && digestPattern(file.SHA256) &&
+		integrityMediaTypes[file.MediaType] && (previous == "" || previous < file.Path)
 }
 
 type manifestWire struct {
@@ -213,32 +229,42 @@ func validManifestRawShape(contents []byte) bool {
 		return false
 	}
 	for _, targetValue := range targets {
-		target, ok := targetValue.(map[string]any)
-		if !ok || !exactMap(target, "id", "displayName", "gameCompatibilityLine", "netplayCompatibilityLine",
-			"optionsKind", "inputs", "capabilities", "checkpoint", "assetPaths") {
+		if !validManifestRawTarget(targetValue) {
 			return false
 		}
-		capabilities, ok := target["capabilities"].(map[string]any)
-		if !ok || !exactMap(capabilities,
-			"pause", "screenshot", "checkpoint", "standardGamepad", "frameCounter", "volume", "discSwitch",
-			"nativeSettings", "inputFilter", "netplayPort", "videoModes", "requiresThreads", "frameMode", "validationProbes") {
+	}
+	return true
+}
+
+func validManifestRawTarget(value any) bool {
+	target, ok := value.(map[string]any)
+	if !ok || !exactMap(target, "id", "displayName", "gameCompatibilityLine", "netplayCompatibilityLine",
+		"optionsKind", "inputs", "capabilities", "checkpoint", "assetPaths") {
+		return false
+	}
+	capabilities, ok := target["capabilities"].(map[string]any)
+	if !ok || !exactMap(capabilities,
+		"pause", "screenshot", "checkpoint", "standardGamepad", "frameCounter", "volume", "discSwitch",
+		"nativeSettings", "inputFilter", "netplayPort", "videoModes", "requiresThreads", "frameMode",
+		"validationProbes") {
+		return false
+	}
+	inputs, ok := target["inputs"].([]any)
+	if !ok || !validManifestRawInputs(inputs) {
+		return false
+	}
+	if target["checkpoint"] == nil {
+		return true
+	}
+	checkpoint, ok := target["checkpoint"].(map[string]any)
+	return ok && exactMap(checkpoint, "writeFormat", "readFormats", "maxBytes")
+}
+
+func validManifestRawInputs(inputs []any) bool {
+	for _, value := range inputs {
+		input, ok := value.(map[string]any)
+		if !ok || !exactMap(input, "role", "kind", "cardinality", "optional") {
 			return false
-		}
-		inputs, ok := target["inputs"].([]any)
-		if !ok {
-			return false
-		}
-		for _, inputValue := range inputs {
-			input, ok := inputValue.(map[string]any)
-			if !ok || !exactMap(input, "role", "kind", "cardinality", "optional") {
-				return false
-			}
-		}
-		if target["checkpoint"] != nil {
-			checkpoint, ok := target["checkpoint"].(map[string]any)
-			if !ok || !exactMap(checkpoint, "writeFormat", "readFormats", "maxBytes") {
-				return false
-			}
 		}
 	}
 	return true
@@ -391,10 +417,10 @@ func decodeClosed(contents []byte, target any) error {
 	decoder.DisallowUnknownFields()
 	decoder.UseNumber()
 	if err := decoder.Decode(target); err != nil {
-		return err
+		return fmt.Errorf("decode closed JSON: %w", err)
 	}
 	if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
-		return errors.New("trailing JSON")
+		return errTrailingJSON
 	}
 	return nil
 }
@@ -404,7 +430,7 @@ func canonicalJSON(contents []byte) ([]byte, error) {
 	decoder.UseNumber()
 	var value any
 	if err := decoder.Decode(&value); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("decode canonical JSON: %w", err)
 	}
 	buffer := &bytes.Buffer{}
 	if err := appendCanonical(buffer, value); err != nil {
@@ -425,42 +451,52 @@ func appendCanonical(output *bytes.Buffer, value any) error {
 	case json.Number:
 		integer, err := strconv.ParseInt(typed.String(), 10, 64)
 		if err != nil || integer > 9007199254740991 || integer < -9007199254740991 {
-			return errors.New("non-canonical number")
+			return errCanonicalNumber
 		}
 		output.WriteString(strconv.FormatInt(integer, 10))
 	case []any:
-		output.WriteByte('[')
-		for index, item := range typed {
-			if index > 0 {
-				output.WriteByte(',')
-			}
-			if err := appendCanonical(output, item); err != nil {
-				return err
-			}
-		}
-		output.WriteByte(']')
+		return appendCanonicalArray(output, typed)
 	case map[string]any:
-		keys := make([]string, 0, len(typed))
-		for key := range typed {
-			keys = append(keys, key)
-		}
-		sort.Slice(keys, func(left, right int) bool { return utf16Less(keys[left], keys[right]) })
-		output.WriteByte('{')
-		for index, key := range keys {
-			if index > 0 {
-				output.WriteByte(',')
-			}
-			encoded, _ := json.Marshal(key)
-			output.Write(encoded)
-			output.WriteByte(':')
-			if err := appendCanonical(output, typed[key]); err != nil {
-				return err
-			}
-		}
-		output.WriteByte('}')
+		return appendCanonicalObject(output, typed)
 	default:
-		return fmt.Errorf("unsupported canonical value %T", value)
+		return fmt.Errorf("%w: %T", errCanonicalType, value)
 	}
+	return nil
+}
+
+func appendCanonicalArray(output *bytes.Buffer, values []any) error {
+	output.WriteByte('[')
+	for index, value := range values {
+		if index > 0 {
+			output.WriteByte(',')
+		}
+		if err := appendCanonical(output, value); err != nil {
+			return err
+		}
+	}
+	output.WriteByte(']')
+	return nil
+}
+
+func appendCanonicalObject(output *bytes.Buffer, values map[string]any) error {
+	keys := make([]string, 0, len(values))
+	for key := range values {
+		keys = append(keys, key)
+	}
+	sort.Slice(keys, func(left, right int) bool { return utf16Less(keys[left], keys[right]) })
+	output.WriteByte('{')
+	for index, key := range keys {
+		if index > 0 {
+			output.WriteByte(',')
+		}
+		encoded, _ := json.Marshal(key)
+		output.Write(encoded)
+		output.WriteByte(':')
+		if err := appendCanonical(output, values[key]); err != nil {
+			return err
+		}
+	}
+	output.WriteByte('}')
 	return nil
 }
 
@@ -479,5 +515,5 @@ func invalidManifest(err error) error {
 	if err == nil {
 		return ErrManifestInvalid
 	}
-	return fmt.Errorf("%w: %v", ErrManifestInvalid, err)
+	return fmt.Errorf("%w: %w", ErrManifestInvalid, err)
 }

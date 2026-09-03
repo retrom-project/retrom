@@ -266,14 +266,11 @@ func (server *Server) storeReviewScreenshot(writer http.ResponseWriter, request 
 		return
 	}
 	writeJSON(writer, http.StatusCreated, map[string]any{
-		"screenshotId":   result.ID,
-		"importItemId":   result.ImportItemID,
-		"validationId":   result.ValidationID,
-		"coreArtifactId": result.CoreArtifactID,
-		"widthPx":        result.WidthPX,
-		"heightPx":       result.HeightPX,
-		"capturedAtMs":   result.CapturedAtMS,
-		"url":            "/api/v1/admin/review-assets/" + result.ID,
+		"screenshotId": result.ID, "importItemId": result.ImportItemID,
+		"validationId": result.ValidationID, "providerId": result.ProviderID,
+		"targetId": result.TargetID, "targetContractSha256": result.TargetContractSHA256,
+		"widthPx": result.WidthPX, "heightPx": result.HeightPX,
+		"capturedAtMs": result.CapturedAtMS, "url": "/api/v1/admin/review-assets/" + result.ID,
 	})
 }
 
@@ -293,16 +290,14 @@ func (server *Server) launchConfig(writer http.ResponseWriter, request *http.Req
 		writeError(writer, request, http.StatusUnauthorized, "LAUNCH_CREDENTIAL_INVALID", "启动会话不可用", map[string]any{})
 		return
 	}
-	if configuration.DiscSet != nil {
-		if dimensions, dimensionErr := server.launcher.MultiDiscTelemetryDimensions(
-			request.Context(), request.PathValue("launchId"), capability,
-		); dimensionErr == nil {
-			logMultiDiscRuntime(
-				request.Context(), request.PathValue("launchId"), dimensions.PlatformKey,
-				dimensions.CoreKey, dimensions.ArtifactVersion, dimensions.DiscCount,
-				"kind", "launch", "resultCode", "OK",
-			)
-		}
+	if dimensions, dimensionErr := server.launcher.MultiDiscTelemetryDimensions(
+		request.Context(), request.PathValue("launchId"), capability,
+	); dimensionErr == nil {
+		logMultiDiscRuntime(
+			request.Context(), request.PathValue("launchId"), dimensions.PlatformKey,
+			dimensions.TargetKey, dimensions.TargetContractDigest, dimensions.DiscCount,
+			"kind", "launch", "resultCode", "OK",
+		)
 	}
 	server.setLaunchContentGrant(
 		writer, request.PathValue("launchId"), capability, 86400,

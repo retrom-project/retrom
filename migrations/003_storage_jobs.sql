@@ -115,7 +115,7 @@ CREATE TABLE "audit_events" (
   actor_user_id TEXT REFERENCES users(id),
   actor_label TEXT CHECK(actor_label IN (
     'release-setup','offline-recovery','startup-test-bootstrap','restore-security-fence',
-    'payload-release-worker'
+    'payload-release-worker','runtime-provider-reconciliation'
   )),
   action TEXT NOT NULL,
   resource_type TEXT NOT NULL,

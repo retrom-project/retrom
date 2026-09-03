@@ -51,18 +51,18 @@ func loadView(ctx context.Context, transaction *sql.Tx, importItemID, validation
 	var row viewRow
 	err := transaction.QueryRowContext(ctx, `
 SELECT id,import_item_id,review_version_at_create,runtime_binding_revision,
- effective_source_snapshot_id,core_id,generation,evidence_generation,evidence_confidence,
- route_key,artifact_id,artifact_set_sha256,adapter_id,adapter_abi,
+ effective_source_snapshot_id,generation,evidence_generation,evidence_confidence,
+ provider_id,target_id,game_compatibility_line,target_contract_sha256,
  dependency_snapshot_sha256,project_fingerprint,launch_id,restore_launch_id,state,
  last_gate_sequence,machine_gates_json,failure_code,decision_note,decided_by_user_id,
  decided_at_ms,evidence_screenshot_blob_id,created_at_ms,updated_at_ms,expires_at_ms
 FROM rpgmaker_runtime_validations WHERE id=? AND import_item_id=?
 `, validationID, importItemID).Scan(
 		&row.ValidationID, &row.ImportItemID, &row.ReviewVersionAtCreate, &row.RuntimeBindingVersion,
-		&row.RouteEvidence.EffectiveSourceSnapshotID, &row.RouteEvidence.CoreID, &row.RouteEvidence.Generation,
-		&row.evidenceGeneration, &row.RouteEvidence.EvidenceConfidence, &row.RouteEvidence.RouteKey,
-		&row.RouteEvidence.ArtifactID, &row.RouteEvidence.ArtifactSetSHA256, &row.RouteEvidence.AdapterID,
-		&row.RouteEvidence.AdapterABI, &row.RouteEvidence.DependencySnapshotSHA256,
+		&row.RouteEvidence.EffectiveSourceSnapshotID, &row.RouteEvidence.Generation,
+		&row.evidenceGeneration, &row.RouteEvidence.EvidenceConfidence, &row.RouteEvidence.ProviderID,
+		&row.RouteEvidence.TargetID, &row.RouteEvidence.GameCompatibilityLine,
+		&row.RouteEvidence.TargetContractSHA256, &row.RouteEvidence.DependencySnapshotSHA256,
 		&row.RouteEvidence.ProjectFingerprint, &row.launchID, &row.restoreID, &row.State,
 		&row.LastGateSequence, &row.machineJSON, &row.failureCode, &row.decisionNote, &row.decidedBy,
 		&row.decidedAt, &row.screenshotBlobID, &row.CreatedAtMS, &row.UpdatedAtMS, &row.ExpiresAtMS,
@@ -109,19 +109,15 @@ func loadCheckpointRoundTrip(
 	result := CheckpointRoundTrip{
 		OriginalLaunchID: stringPointer(row.launchID), RestoreLaunchID: stringPointer(row.restoreID),
 	}
-	var payloadKind, digest string
-	var resumeSlot sql.NullInt64
+	var checkpointFormat, digest string
 	var size int64
 	err := transaction.QueryRowContext(ctx, `
-SELECT payload_kind,resume_slot,size_bytes,payload_sha256
+SELECT checkpoint_format,size_bytes,payload_sha256
 FROM rpgmaker_runtime_validation_checkpoints WHERE validation_id=?
-`, row.ValidationID).Scan(&payloadKind, &resumeSlot, &size, &digest)
+`, row.ValidationID).Scan(&checkpointFormat, &size, &digest)
 	if err == nil {
 		result.Created = true
-		result.PayloadKind, result.SizeBytes, result.SHA256 = &payloadKind, &size, &digest
-		if resumeSlot.Valid {
-			result.ResumeSlot = &resumeSlot.Int64
-		}
+		result.CheckpointFormat, result.SizeBytes, result.SHA256 = &checkpointFormat, &size, &digest
 	} else if !errors.Is(err, sql.ErrNoRows) {
 		return CheckpointRoundTrip{}, fmt.Errorf("load RPG checkpoint: %w", err)
 	}
@@ -264,15 +260,15 @@ func currentValidationBinding(
 	var matches int
 	err := transaction.QueryRowContext(ctx, `
 SELECT validation.state,draft.version,
- CASE WHEN draft.runtime_binding_revision=validation.runtime_binding_revision
-  AND draft.effective_source_snapshot_id=validation.effective_source_snapshot_id
-  AND profile.project_fingerprint=validation.project_fingerprint
-  AND profile.selected_core_id=validation.core_id AND profile.generation=validation.generation
-  AND profile.evidence_generation IS validation.evidence_generation
-  AND profile.evidence_confidence=validation.evidence_confidence
-  AND profile.route_key=validation.route_key AND profile.artifact_id=validation.artifact_id
-  AND profile.artifact_set_sha256=validation.artifact_set_sha256
-  AND profile.adapter_id=validation.adapter_id AND profile.adapter_abi=validation.adapter_abi
+	 CASE WHEN draft.runtime_binding_revision=validation.runtime_binding_revision
+	  AND draft.effective_source_snapshot_id=validation.effective_source_snapshot_id
+	  AND profile.project_fingerprint=validation.project_fingerprint
+	  AND profile.generation=validation.generation
+	  AND profile.evidence_generation IS validation.evidence_generation
+	  AND profile.evidence_confidence=validation.evidence_confidence
+	  AND profile.provider_id=validation.provider_id AND profile.target_id=validation.target_id
+	  AND profile.game_compatibility_line=validation.game_compatibility_line
+	  AND profile.target_contract_sha256=validation.target_contract_sha256
   AND profile.dependency_snapshot_sha256=validation.dependency_snapshot_sha256
  THEN 1 ELSE 0 END
 FROM rpgmaker_runtime_validations validation

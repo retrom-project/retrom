@@ -7,7 +7,9 @@ CREATE TABLE import_jobs (
   platform_instance_version INTEGER NOT NULL,
   platform_id TEXT NOT NULL REFERENCES platforms(id),
   default_core_id TEXT NOT NULL REFERENCES cores(id),
-  core_artifact_id TEXT NOT NULL REFERENCES core_artifacts(id),
+  provider_id TEXT NOT NULL REFERENCES runtime_providers(provider_id),
+  target_id TEXT NOT NULL,
+  target_contract_sha256 TEXT NOT NULL CHECK(length(target_contract_sha256)=64),
   dat_version_id TEXT REFERENCES dat_versions(id),
   metadata_provider TEXT NOT NULL CHECK(metadata_provider IN ('HASHEOUS','NONE')),
   config_snapshot_json TEXT NOT NULL,
@@ -37,6 +39,7 @@ CREATE TABLE import_jobs (
 CHECK(resolved_rejected_file_count BETWEEN 0 AND rejected_file_count), reconfigured_from_import_job_id TEXT REFERENCES import_jobs(id), already_imported_item_count INTEGER NOT NULL DEFAULT 0
 CHECK(already_imported_item_count BETWEEN 0 AND discarded_item_count), already_imported_file_count INTEGER NOT NULL DEFAULT 0
 CHECK(already_imported_file_count >= 0),
+  FOREIGN KEY(provider_id,target_id) REFERENCES runtime_targets(provider_id,target_id),
   CHECK(total_item_count = queued_item_count + running_item_count + review_pending_item_count + published_item_count + discarded_item_count + failed_item_count + cancelled_item_count),
   CHECK(
     payload_state='RETAINED' AND payload_release_job_id IS NULL AND payload_released_at_ms IS NULL AND payload_last_error_code IS NULL OR
@@ -160,8 +163,10 @@ CREATE TABLE "import_item_core_validations" (
   target_platform_instance_id TEXT NOT NULL REFERENCES platform_instances(id),
   platform_instance_version INTEGER NOT NULL CHECK(platform_instance_version>=1),
   core_id TEXT NOT NULL REFERENCES cores(id),
-  core_artifact_id TEXT NOT NULL REFERENCES core_artifacts(id),
-  core_artifact_version INTEGER NOT NULL DEFAULT 1 CHECK(core_artifact_version>=1),
+  provider_id TEXT NOT NULL REFERENCES runtime_providers(provider_id),
+  target_id TEXT NOT NULL,
+  target_contract_sha256 TEXT NOT NULL CHECK(length(target_contract_sha256)=64),
+  game_compatibility_line TEXT NOT NULL CHECK(length(game_compatibility_line) BETWEEN 1 AND 64),
   prepublish_generation INTEGER NOT NULL DEFAULT 4 CHECK(prepublish_generation IN (3,4)),
   dat_version_id TEXT REFERENCES dat_versions(id),
   default_dos_entry TEXT,
@@ -172,7 +177,8 @@ CREATE TABLE "import_item_core_validations" (
   dependency_snapshot_json TEXT NOT NULL,
   created_at_ms INTEGER NOT NULL CHECK(created_at_ms>=0),
   source_snapshot_id TEXT NOT NULL REFERENCES import_item_source_snapshots(id),
-  UNIQUE(import_item_id,prepublish_input_digest)
+  UNIQUE(import_item_id,prepublish_input_digest),
+  FOREIGN KEY(provider_id,target_id) REFERENCES runtime_targets(provider_id,target_id)
 );
 
 CREATE TABLE "import_item_validation_files" (
@@ -254,7 +260,6 @@ CREATE TABLE review_drafts (
 
 CREATE TABLE rpgmaker_review_profiles (
   review_draft_id TEXT PRIMARY KEY REFERENCES review_drafts(id),
-  selected_core_id TEXT NOT NULL REFERENCES rpgmaker_core_generations(core_id),
   generation TEXT NOT NULL CHECK(generation IN (
     'RPG2000','RPG2003','RPGXP','RPGVX','RPGVXACE','RPGMV','RPGMZ'
   )),
@@ -271,16 +276,18 @@ CREATE TABLE rpgmaker_review_profiles (
   requirements_sha256 TEXT NOT NULL CHECK(length(requirements_sha256)=64 AND requirements_sha256=lower(requirements_sha256)),
   analysis_json TEXT NOT NULL CHECK(json_valid(analysis_json) AND length(CAST(analysis_json AS BLOB))<=262144),
   self_contained_override INTEGER NOT NULL DEFAULT 0 CHECK(self_contained_override IN (0,1)),
-  route_key TEXT NOT NULL,
-  artifact_id TEXT NOT NULL REFERENCES core_artifacts(id),
-  artifact_set_sha256 TEXT NOT NULL CHECK(length(artifact_set_sha256)=64 AND artifact_set_sha256=lower(artifact_set_sha256)),
-  adapter_id TEXT NOT NULL,
-  adapter_abi TEXT NOT NULL,
+  provider_id TEXT NOT NULL REFERENCES runtime_providers(provider_id),
+  target_id TEXT NOT NULL,
+  game_compatibility_line TEXT NOT NULL CHECK(length(game_compatibility_line) BETWEEN 1 AND 64),
+  target_contract_sha256 TEXT NOT NULL CHECK(
+    length(target_contract_sha256)=64 AND target_contract_sha256=lower(target_contract_sha256)
+  ),
   dependency_snapshot_sha256 TEXT NOT NULL CHECK(
     length(dependency_snapshot_sha256)=64 AND dependency_snapshot_sha256=lower(dependency_snapshot_sha256)
   ),
   created_at_ms INTEGER NOT NULL CHECK(created_at_ms>=0),
   updated_at_ms INTEGER NOT NULL CHECK(updated_at_ms>=created_at_ms),
+  FOREIGN KEY(provider_id,target_id) REFERENCES runtime_targets(provider_id,target_id),
   CHECK(
     evidence_confidence='FAMILY_ONLY' AND evidence_family='RPG2K' AND evidence_generation IS NULL
     OR evidence_confidence='MATCHED' AND evidence_generation IS NOT NULL
@@ -317,7 +324,6 @@ CREATE TABLE rpgmaker_runtime_validations (
   runtime_binding_revision INTEGER NOT NULL CHECK(runtime_binding_revision>=1),
   effective_source_snapshot_id TEXT NOT NULL REFERENCES import_item_source_snapshots(id),
   project_fingerprint TEXT NOT NULL CHECK(length(project_fingerprint)=64 AND project_fingerprint=lower(project_fingerprint)),
-  core_id TEXT NOT NULL REFERENCES rpgmaker_core_generations(core_id),
   generation TEXT NOT NULL CHECK(generation IN (
     'RPG2000','RPG2003','RPGXP','RPGVX','RPGVXACE','RPGMV','RPGMZ'
   )),
@@ -325,11 +331,12 @@ CREATE TABLE rpgmaker_runtime_validations (
     'RPG2000','RPG2003','RPGXP','RPGVX','RPGVXACE','RPGMV','RPGMZ'
   )),
   evidence_confidence TEXT NOT NULL CHECK(evidence_confidence IN ('MATCHED','FAMILY_ONLY')),
-  route_key TEXT NOT NULL,
-  artifact_id TEXT NOT NULL REFERENCES core_artifacts(id),
-  artifact_set_sha256 TEXT NOT NULL CHECK(length(artifact_set_sha256)=64 AND artifact_set_sha256=lower(artifact_set_sha256)),
-  adapter_id TEXT NOT NULL,
-  adapter_abi TEXT NOT NULL,
+  provider_id TEXT NOT NULL REFERENCES runtime_providers(provider_id),
+  target_id TEXT NOT NULL,
+  game_compatibility_line TEXT NOT NULL CHECK(length(game_compatibility_line) BETWEEN 1 AND 64),
+  target_contract_sha256 TEXT NOT NULL CHECK(
+    length(target_contract_sha256)=64 AND target_contract_sha256=lower(target_contract_sha256)
+  ),
   dependency_snapshot_sha256 TEXT NOT NULL CHECK(
     length(dependency_snapshot_sha256)=64 AND dependency_snapshot_sha256=lower(dependency_snapshot_sha256)
   ),
@@ -351,6 +358,7 @@ CREATE TABLE rpgmaker_runtime_validations (
   updated_at_ms INTEGER NOT NULL CHECK(updated_at_ms>=created_at_ms),
   expires_at_ms INTEGER NOT NULL,
   decided_at_ms INTEGER,
+  FOREIGN KEY(provider_id,target_id) REFERENCES runtime_targets(provider_id,target_id),
   CHECK(expires_at_ms=created_at_ms+900000),
   CHECK((evidence_confidence='FAMILY_ONLY')=(evidence_generation IS NULL)),
   CHECK(evidence_generation IS NULL OR evidence_generation=generation),
@@ -435,7 +443,9 @@ CREATE TABLE review_arcade_parent_attachments (
   expected_logical_name TEXT NOT NULL,
   required_by_machine TEXT NOT NULL CHECK(length(CAST(required_by_machine AS BLOB)) BETWEEN 1 AND 255),
   depth INTEGER NOT NULL CHECK(depth BETWEEN 1 AND 63),
-  core_artifact_id TEXT NOT NULL REFERENCES core_artifacts(id),
+  provider_id TEXT NOT NULL REFERENCES runtime_providers(provider_id),
+  target_id TEXT NOT NULL,
+  target_contract_sha256 TEXT NOT NULL CHECK(length(target_contract_sha256)=64),
   dat_version_id TEXT NOT NULL REFERENCES dat_versions(id),
   upload_file_id TEXT REFERENCES upload_files(id),
   accepted_blob_id TEXT REFERENCES blobs(id),
@@ -494,7 +504,11 @@ CREATE TABLE review_preview_sessions (
   source_snapshot_id TEXT NOT NULL REFERENCES import_item_source_snapshots(id),
   validation_id TEXT NOT NULL REFERENCES import_item_core_validations(id),
   target_platform_instance_id TEXT NOT NULL REFERENCES platform_instances(id),
-  core_artifact_id TEXT NOT NULL REFERENCES core_artifacts(id),
+  provider_id TEXT NOT NULL REFERENCES runtime_providers(provider_id),
+  target_id TEXT NOT NULL,
+  target_contract_sha256 TEXT NOT NULL CHECK(length(target_contract_sha256)=64),
+  game_compatibility_line TEXT NOT NULL CHECK(length(game_compatibility_line) BETWEEN 1 AND 64),
+  bundle_sha256 TEXT NOT NULL CHECK(length(bundle_sha256)=64 AND bundle_sha256=lower(bundle_sha256)),
   actor_user_id TEXT NOT NULL REFERENCES users(id),
   idempotency_key TEXT NOT NULL,
   title TEXT NOT NULL CHECK(length(CAST(title AS BLOB)) BETWEEN 1 AND 800),
@@ -527,6 +541,7 @@ CREATE TABLE review_preview_sessions (
   updated_at_ms INTEGER NOT NULL CHECK(updated_at_ms>=0),
   version INTEGER NOT NULL DEFAULT 1 CHECK(version>=1),
   UNIQUE(actor_user_id,idempotency_key),
+  FOREIGN KEY(provider_id,target_id) REFERENCES runtime_targets(provider_id,target_id),
   CHECK(state!='ACTIVE' OR activated_at_ms IS NOT NULL),
   CHECK((state IN ('EXPIRED','REVOKED'))=(finished_at_ms IS NOT NULL))
 );
@@ -564,7 +579,9 @@ CREATE TABLE review_runtime_screenshots (
   preview_session_id TEXT NOT NULL REFERENCES review_preview_sessions(id),
   source_snapshot_id TEXT NOT NULL REFERENCES import_item_source_snapshots(id),
   validation_id TEXT NOT NULL REFERENCES import_item_core_validations(id),
-  core_artifact_id TEXT NOT NULL REFERENCES core_artifacts(id),
+  provider_id TEXT NOT NULL REFERENCES runtime_providers(provider_id),
+  target_id TEXT NOT NULL,
+  target_contract_sha256 TEXT NOT NULL CHECK(length(target_contract_sha256)=64),
   blob_id TEXT NOT NULL REFERENCES blobs(id),
   media_type TEXT NOT NULL CHECK(media_type IN ('image/png','image/jpeg')),
   width_px INTEGER NOT NULL CHECK(width_px BETWEEN 1 AND 40000000),
@@ -573,7 +590,8 @@ CREATE TABLE review_runtime_screenshots (
   captured_at_ms INTEGER NOT NULL CHECK(captured_at_ms>=0),
   created_at_ms INTEGER NOT NULL CHECK(created_at_ms>=0),
   updated_at_ms INTEGER NOT NULL CHECK(updated_at_ms>=0),
-  UNIQUE(import_item_id,validation_id)
+  UNIQUE(import_item_id,validation_id),
+  FOREIGN KEY(provider_id,target_id) REFERENCES runtime_targets(provider_id,target_id)
 );
 
 CREATE TABLE review_draft_screenshot_assets (
@@ -803,4 +821,17 @@ CREATE TABLE dos_entries (
   enabled INTEGER NOT NULL CHECK(enabled IN (0,1)),
   direct_launch_safe INTEGER NOT NULL CHECK(direct_launch_safe IN (0,1)),
   PRIMARY KEY(game_content_revision_id, normalized_path)
+);
+-- Browser imports are accepted quickly and prepared by the IMPORT_GROUP worker.
+CREATE TABLE import_group_requests (
+  import_job_id TEXT PRIMARY KEY REFERENCES import_jobs(id),
+  schema_version INTEGER NOT NULL CHECK(schema_version=1),
+  request_json TEXT NOT NULL CHECK(json_valid(request_json)),
+  request_digest TEXT NOT NULL CHECK(length(request_digest)=64 AND request_digest=lower(request_digest)),
+  actor_user_id TEXT REFERENCES users(id),
+  upload_version INTEGER NOT NULL CHECK(upload_version>=1),
+  upload_manifest_digest TEXT NOT NULL CHECK(length(upload_manifest_digest)=64 AND upload_manifest_digest=lower(upload_manifest_digest)),
+  target_snapshot_json TEXT NOT NULL CHECK(json_valid(target_snapshot_json)),
+  target_snapshot_digest TEXT NOT NULL CHECK(length(target_snapshot_digest)=64 AND target_snapshot_digest=lower(target_snapshot_digest)),
+  created_at_ms INTEGER NOT NULL CHECK(created_at_ms>=0)
 );

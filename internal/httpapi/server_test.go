@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
-	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -21,6 +20,7 @@ import (
 	"retrom/internal/cleanup"
 	"retrom/internal/config"
 	"retrom/internal/testassert"
+	"retrom/internal/testsupport"
 )
 
 func TestHealthIsPublicAndProtectedWritesRequireAuthentication(t *testing.T) {
@@ -189,17 +189,20 @@ func TestBIOSArchiveEntriesProjectLockedDATAndPersistedZIPFacts(t *testing.T) {
 	testassert.False(t, err != nil, err)
 	defer cleanup.Rollback(transaction)
 	seedHTTPTestCoreArtifact(t, transaction, artifactID, "mame2003_plus", "data/cores/mame2003_plus-test.data", strings.Repeat("a", 64), "{}")
+	target, err := testsupport.LookupRuntimeTarget(t.Context(), transaction, "mame2003_plus")
+	testassert.False(t, err != nil, err)
 	mustExecHTTPTest(t, transaction, `
 INSERT INTO blobs(id,sha256,size_bytes,md5,sha1,crc32,media_type,created_at_ms)
 VALUES(?,?,1024,?,?,?,'application/zip',?)
 `, blobID, strings.Repeat("b", 64), strings.Repeat("c", 32), strings.Repeat("d", 40), strings.Repeat("e", 8), now)
 	mustExecHTTPTest(t, transaction, `
-INSERT INTO dat_versions(id,core_id,core_artifact_id,builtin_relative_path,sha256,parser_version,
+INSERT INTO dat_versions(id,core_id,provider_id,target_id,target_contract_sha256,builtin_relative_path,sha256,parser_version,
 parse_status,is_active,machine_count,rom_entry_count,disk_entry_count,bios_set_count,
 default_bios_set_count,explicit_bios_machine_count,base_dependency_target_count,unresolved_relation_count,
 version,created_at_ms,updated_at_ms,parsed_at_ms,activated_at_ms)
-VALUES(?,'mame2003_plus',?,'test.dat',?,'test','READY',1,1,1,0,0,0,1,0,0,1,?,?,?,?)
-`, datVersionID, artifactID, strings.Repeat("f", 64), now, now, now, now)
+VALUES(?,'mame2003_plus',?,?,?,'test.dat',?,'test','READY',1,1,1,0,0,0,1,0,0,1,?,?,?,?)
+`, datVersionID, target.ProviderID, target.TargetID, target.TargetContractSHA256,
+		strings.Repeat("f", 64), now, now, now, now)
 	mustExecHTTPTest(t, transaction, `
 INSERT INTO dat_machines(dat_version_id,machine_name,description,year,manufacturer,is_explicit_bios,classification)
 VALUES(?,'stvbios','ST-V BIOS','','SEGA',1,'EXPLICIT_BIOS')
@@ -209,11 +212,12 @@ INSERT INTO dat_rom_entries(dat_version_id,machine_name,ordinal,name,size_bytes,
 VALUES(?,'stvbios',0,'epr19730.ic8',524288,'d0e0889d',?,'GOOD',NULL)
 `, datVersionID, strings.Repeat("1", 40))
 	mustExecHTTPTest(t, transaction, `
-INSERT INTO bios_requirements(id,core_id,core_artifact_id,source_kind,dat_machine_name,logical_name,
+INSERT INTO bios_requirements(id,core_id,provider_id,target_id,target_contract_sha256,source_kind,dat_machine_name,logical_name,
 requirement_mode,condition_code,catalog_digest,source_url,source_version,enabled,version,created_at_ms,updated_at_ms)
-VALUES(?,'mame2003_plus',?,'DAT_MACHINE','stvbios','stvbios.zip','REQUIRED','ARCADE_DAT_DEPENDENCY',?,
+VALUES(?,'mame2003_plus',?,?,?,'DAT_MACHINE','stvbios','stvbios.zip','REQUIRED','ARCADE_DAT_DEPENDENCY',?,
 'retrom:test',?,1,1,?,?)
-`, requirementID, artifactID, strings.Repeat("2", 64), datVersionID, now, now)
+`, requirementID, target.ProviderID, target.TargetID, target.TargetContractSHA256,
+		strings.Repeat("2", 64), datVersionID, now, now)
 	mustExecHTTPTest(t, transaction, `
 INSERT INTO bios_installations(id,requirement_id,blob_id,original_filename,size_bytes,md5,sha1,sha256,
 validated_requirement_version,status,validation_details_json,is_active,version,created_at_ms,updated_at_ms)
@@ -263,10 +267,12 @@ func TestDiagnosticsUsesClosedSnapshotSchemaAndRequiredHeaders(t *testing.T) {
 		SchemaVersion         int64 `json:"schemaVersion"`
 		GeneratedAtMS         int64 `json:"generatedAtMs"`
 		DatabaseSchemaVersion int64 `json:"databaseSchemaVersion"`
-		Dependencies          struct {
-			Configured []string `json:"configuredEmulatorjsVersions"`
-			Active     string   `json:"activeEmulatorjsVersion"`
-		} `json:"dependencies"`
+		RuntimeProviders      []struct {
+			ProviderID      string `json:"providerId"`
+			ProviderVersion string `json:"providerVersion"`
+			BundleSHA256    string `json:"bundleSha256"`
+			Source          string `json:"source"`
+		} `json:"runtimeProviders"`
 		Counts struct {
 			Games struct {
 				Published int64 `json:"published"`
@@ -299,7 +305,7 @@ func TestDiagnosticsUsesClosedSnapshotSchemaAndRequiredHeaders(t *testing.T) {
 	if err := decoder.Decode(&response); err != nil {
 		t.Fatalf("diagnostics schema: %v: %s", err, recorder.Body.String())
 	}
-	testassert.Falsef(t, testassert.Any(func() bool { return response.SchemaVersion != 1 }, func() bool { return response.GeneratedAtMS != fixed.UnixMilli() }, func() bool { return response.DatabaseSchemaVersion != 14 }, func() bool { return !slices.Equal(response.Dependencies.Configured, []string{"4.2.3"}) }, func() bool { return response.Dependencies.Active != "4.2.3" }), "diagnostics values = %#v", response)
+	testassert.Falsef(t, testassert.Any(func() bool { return response.SchemaVersion != 2 }, func() bool { return response.GeneratedAtMS != fixed.UnixMilli() }, func() bool { return response.DatabaseSchemaVersion != 10 }, func() bool { return len(response.RuntimeProviders) != 2 }, func() bool { return response.RuntimeProviders[0].ProviderID != "emulatorjs" }, func() bool { return response.RuntimeProviders[1].ProviderID != "retrom-runtime" }), "diagnostics values = %#v", response)
 }
 
 func TestImportProjectionsIncludeRejectedFileProblems(t *testing.T) {
@@ -309,8 +315,8 @@ func TestImportProjectionsIncludeRejectedFileProblems(t *testing.T) {
 	if err := server.dependencies.Bootstrap(context.Background(), server.database, now); err != nil {
 		t.Fatal(err)
 	}
-	var artifactID string
-	if err := server.database.QueryRowContext(context.Background(), `SELECT id FROM core_artifacts WHERE core_id='fceumm' AND selected_for_new_bindings=1`).Scan(&artifactID); err != nil {
+	target, err := testsupport.LookupRuntimeTarget(t.Context(), server.database, "fceumm")
+	if err != nil {
 		t.Fatal(err)
 	}
 	const (
@@ -339,9 +345,9 @@ VALUES(?,?,'fc/8只眼.zip',1,1,?,'COMPLETE',?,?)
 `, uploadFileID, uploadID, blobID, timestamp, timestamp)
 	mustExecHTTPTest(t, transaction, `
 INSERT INTO import_jobs(id,upload_session_id,target_platform_instance_id,platform_instance_version,platform_id,default_core_id,
-core_artifact_id,metadata_provider,config_snapshot_json,config_snapshot_digest,state,total_item_count,rejected_file_count,version,created_at_ms,updated_at_ms)
-VALUES(?,?,(SELECT id FROM platform_instances WHERE catalog_template_key='nes/fceumm'),1,'nes','fceumm',?,'HASHEOUS','{}',?,'PARTIAL_FAILURE',0,1,1,?,?)
-`, importID, uploadID, artifactID, digest, timestamp, timestamp)
+provider_id,target_id,target_contract_sha256,metadata_provider,config_snapshot_json,config_snapshot_digest,state,total_item_count,rejected_file_count,version,created_at_ms,updated_at_ms)
+VALUES(?,?,(SELECT id FROM platform_instances WHERE catalog_template_key='nes/fceumm'),1,'nes','fceumm',?,?,?,'HASHEOUS','{}',?,'PARTIAL_FAILURE',0,1,1,?,?)
+`, importID, uploadID, target.ProviderID, target.TargetID, target.TargetContractSHA256, digest, timestamp, timestamp)
 	mustExecHTTPTest(t, transaction, `
 INSERT INTO import_job_files(import_job_id,upload_file_id,disposition,reason_code,created_at_ms,updated_at_ms)
 VALUES(?,?,'REJECTED','ARCHIVE_UNSAFE',?,?)
@@ -356,9 +362,10 @@ VALUES(?,'COMPLETE','FILES',1,0,?,1,?,?,?)
 `, extraUploadID, digest, timestamp+60_000, extraTimestamp, extraTimestamp)
 		mustExecHTTPTest(t, transaction, `
 INSERT INTO import_jobs(id,upload_session_id,target_platform_instance_id,platform_instance_version,platform_id,default_core_id,
-core_artifact_id,metadata_provider,config_snapshot_json,config_snapshot_digest,state,version,created_at_ms,updated_at_ms)
-VALUES(?,?,(SELECT id FROM platform_instances WHERE catalog_template_key='nes/fceumm'),1,'nes','fceumm',?,'HASHEOUS','{}',?,'COMPLETED',1,?,?)
-`, extraImportID, extraUploadID, artifactID, digest, extraTimestamp, extraTimestamp)
+provider_id,target_id,target_contract_sha256,metadata_provider,config_snapshot_json,config_snapshot_digest,state,version,created_at_ms,updated_at_ms)
+VALUES(?,?,(SELECT id FROM platform_instances WHERE catalog_template_key='nes/fceumm'),1,'nes','fceumm',?,?,?,'HASHEOUS','{}',?,'COMPLETED',1,?,?)
+`, extraImportID, extraUploadID, target.ProviderID, target.TargetID,
+			target.TargetContractSHA256, digest, extraTimestamp, extraTimestamp)
 	}
 	if err := transaction.Commit(); err != nil {
 		t.Fatal(err)
@@ -440,10 +447,8 @@ func TestImportOverviewCountsPegasusOnceAndHidesItsInternalJob(t *testing.T) {
 	if err := server.dependencies.Bootstrap(context.Background(), server.database, now); err != nil {
 		t.Fatal(err)
 	}
-	var artifactID string
-	if err := server.database.QueryRowContext(context.Background(), `
-SELECT id FROM core_artifacts WHERE core_id='mgba' AND selected_for_new_bindings=1
-`).Scan(&artifactID); err != nil {
+	target, err := testsupport.LookupRuntimeTarget(t.Context(), server.database, "mgba")
+	if err != nil {
 		t.Fatal(err)
 	}
 	const (
@@ -463,11 +468,11 @@ VALUES(?,'COMPLETE','FILES',1,1,?,1,?,?,?)
 `, uploadID, digest, timestamp+60_000, timestamp, timestamp)
 	mustExecHTTPTest(t, server.database, `
 INSERT INTO import_jobs(id,upload_session_id,target_platform_instance_id,platform_instance_version,
-platform_id,default_core_id,core_artifact_id,metadata_provider,config_snapshot_json,config_snapshot_digest,
+platform_id,default_core_id,provider_id,target_id,target_contract_sha256,metadata_provider,config_snapshot_json,config_snapshot_digest,
 state,total_item_count,review_pending_item_count,version,created_at_ms,updated_at_ms)
-VALUES(?,?,(SELECT id FROM platform_instances WHERE catalog_template_key='gba/mgba'),1,'gba','mgba',?,'NONE','{}',?,
+VALUES(?,?,(SELECT id FROM platform_instances WHERE catalog_template_key='gba/mgba'),1,'gba','mgba',?,?,?,'NONE','{}',?,
 'REVIEW_PENDING',1,1,1,?,?)
-`, importID, uploadID, artifactID, digest, timestamp, timestamp)
+`, importID, uploadID, target.ProviderID, target.TargetID, target.TargetContractSHA256, digest, timestamp, timestamp)
 	mustExecHTTPTest(t, server.database, `
 INSERT INTO import_items(id,import_job_id,group_key,state,source_manifest_json,source_manifest_digest,
 search_text,version,created_at_ms,updated_at_ms,completed_at_ms)

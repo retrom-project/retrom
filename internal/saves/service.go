@@ -48,9 +48,7 @@ type ManualResult struct {
 	ResourceKind     string
 	SaveStateID      string
 	ValidationID     string
-	PayloadKind      string
-	NativeProfile    *string
-	ResumeSlot       *int64
+	CheckpointFormat string
 	ScreenshotURL    *string
 	SizeBytes        int64
 	PayloadSHA256    string
@@ -64,17 +62,15 @@ type ManualResult struct {
 func (result ManualResult) MarshalJSON() ([]byte, error) {
 	if result.ResourceKind == "RPG_RUNTIME_VALIDATION_CHECKPOINT" {
 		contents, err := json.Marshal(struct {
-			ResourceKind  string  `json:"resourceKind"`
-			ValidationID  string  `json:"validationId"`
-			PayloadKind   string  `json:"payloadKind"`
-			NativeProfile *string `json:"nativeProfile"`
-			ResumeSlot    *int64  `json:"resumeSlot"`
-			SizeBytes     int64   `json:"sizeBytes"`
-			PayloadSHA256 string  `json:"sha256"`
-			CreatedAtMS   int64   `json:"createdAtMs"`
+			ResourceKind     string `json:"resourceKind"`
+			ValidationID     string `json:"validationId"`
+			CheckpointFormat string `json:"checkpointFormat"`
+			SizeBytes        int64  `json:"sizeBytes"`
+			PayloadSHA256    string `json:"sha256"`
+			CreatedAtMS      int64  `json:"createdAtMs"`
 		}{
-			result.ResourceKind, result.ValidationID, result.PayloadKind, result.NativeProfile,
-			result.ResumeSlot, result.SizeBytes, result.PayloadSHA256, result.CreatedAtMS,
+			result.ResourceKind, result.ValidationID, result.CheckpointFormat,
+			result.SizeBytes, result.PayloadSHA256, result.CreatedAtMS,
 		})
 		if err != nil {
 			return nil, fmt.Errorf("marshal validation checkpoint result: %w", err)
@@ -82,16 +78,14 @@ func (result ManualResult) MarshalJSON() ([]byte, error) {
 		return contents, nil
 	}
 	contents, err := json.Marshal(struct {
-		ResourceKind  string  `json:"resourceKind"`
-		SaveStateID   string  `json:"saveStateId"`
-		PayloadKind   string  `json:"payloadKind"`
-		NativeProfile *string `json:"nativeProfile"`
-		ResumeSlot    *int64  `json:"resumeSlot"`
-		ScreenshotURL *string `json:"screenshotUrl"`
-		CreatedAtMS   int64   `json:"createdAtMs"`
+		ResourceKind     string  `json:"resourceKind"`
+		SaveStateID      string  `json:"saveStateId"`
+		CheckpointFormat string  `json:"checkpointFormat"`
+		ScreenshotURL    *string `json:"screenshotUrl"`
+		CreatedAtMS      int64   `json:"createdAtMs"`
 	}{
-		result.ResourceKind, result.SaveStateID, result.PayloadKind, result.NativeProfile,
-		result.ResumeSlot, result.ScreenshotURL, result.CreatedAtMS,
+		result.ResourceKind, result.SaveStateID, result.CheckpointFormat,
+		result.ScreenshotURL, result.CreatedAtMS,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("marshal save checkpoint result: %w", err)
@@ -101,32 +95,30 @@ func (result ManualResult) MarshalJSON() ([]byte, error) {
 
 func (result *ManualResult) UnmarshalJSON(contents []byte) error {
 	var wire struct {
-		ResourceKind  string  `json:"resourceKind"`
-		SaveStateID   string  `json:"saveStateId"`
-		ValidationID  string  `json:"validationId"`
-		PayloadKind   string  `json:"payloadKind"`
-		NativeProfile *string `json:"nativeProfile"`
-		ResumeSlot    *int64  `json:"resumeSlot"`
-		ScreenshotURL *string `json:"screenshotUrl"`
-		SizeBytes     int64   `json:"sizeBytes"`
-		PayloadSHA256 string  `json:"sha256"`
-		CreatedAtMS   int64   `json:"createdAtMs"`
+		ResourceKind     string  `json:"resourceKind"`
+		SaveStateID      string  `json:"saveStateId"`
+		ValidationID     string  `json:"validationId"`
+		CheckpointFormat string  `json:"checkpointFormat"`
+		ScreenshotURL    *string `json:"screenshotUrl"`
+		SizeBytes        int64   `json:"sizeBytes"`
+		PayloadSHA256    string  `json:"sha256"`
+		CreatedAtMS      int64   `json:"createdAtMs"`
 	}
 	if err := json.Unmarshal(contents, &wire); err != nil {
 		return fmt.Errorf("unmarshal checkpoint result: %w", err)
 	}
 	*result = ManualResult{
 		ResourceKind: wire.ResourceKind, SaveStateID: wire.SaveStateID, ValidationID: wire.ValidationID,
-		PayloadKind: wire.PayloadKind, NativeProfile: wire.NativeProfile, ResumeSlot: wire.ResumeSlot,
-		ScreenshotURL: wire.ScreenshotURL, SizeBytes: wire.SizeBytes, PayloadSHA256: wire.PayloadSHA256,
+		CheckpointFormat: wire.CheckpointFormat,
+		ScreenshotURL:    wire.ScreenshotURL, SizeBytes: wire.SizeBytes, PayloadSHA256: wire.PayloadSHA256,
 		CreatedAtMS: wire.CreatedAtMS,
 	}
 	return nil
 }
 
 type CheckpointStatus struct {
-	PayloadKind  string                 `json:"payloadKind"`
-	Availability CheckpointAvailability `json:"availability"`
+	CheckpointFormat string                 `json:"checkpointFormat"`
+	Availability     CheckpointAvailability `json:"availability"`
 }
 
 type CheckpointAvailability struct {

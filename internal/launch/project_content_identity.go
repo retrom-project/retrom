@@ -59,11 +59,12 @@ func (service *Service) authorizedLaunchProjectIdentityFiles(
 SELECT launch.credential_sha256,launch.state,launch.bootstrap_expires_at_ms,
  launch.hard_expires_at_ms,launch.idle_expires_at_ms
 FROM launch_sessions launch
-JOIN core_artifacts artifact ON artifact.id=launch.core_artifact_id
-WHERE launch.id=? AND artifact.available_for_launch=1
- AND artifact.runtime_family IN ('RPGMAKER','ONS','KIRIKIRI','BUTTERSCOTCH','TYRANOSCRIPT')
- AND (launch.purpose='PRODUCT' OR
-      launch.purpose='RPG_RUNTIME_VALIDATION' AND artifact.runtime_family='RPGMAKER')
+JOIN runtime_target_bindings binding
+ ON binding.provider_id=launch.provider_id AND binding.target_id=launch.target_id
+WHERE launch.id=? AND binding.delivery_profile IN (
+ 'FILE_TREE_PROJECT_V1','SEEKABLE_PROJECT_ARCHIVE_V1','ISOLATED_WEB_PROJECT_V1'
+)
+ AND launch.purpose IN ('PRODUCT','RPG_RUNTIME_VALIDATION')
 `, launchID).Scan(&credentialHash, &state, &bootstrapExpires, &hardExpires, &idleExpires)
 	if err != nil || !validConfigLifetime(
 		state, bootstrapExpires, hardExpires, idleExpires, service.now().UnixMilli(),

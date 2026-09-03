@@ -24,7 +24,10 @@ type gameMoveImpact struct {
 	TargetPlatformInstanceID string   `json:"targetPlatformInstanceId"`
 	TargetPlatformVersion    int64    `json:"targetPlatformInstanceVersion"`
 	TargetCoreID             string   `json:"targetCoreId"`
-	TargetCoreArtifactID     string   `json:"targetCoreArtifactId"`
+	TargetProviderID         string   `json:"targetProviderId"`
+	TargetID                 string   `json:"targetId"`
+	TargetContractSHA256     string   `json:"targetContractSha256"`
+	TargetGameCompatibility  string   `json:"targetGameCompatibilityLine"`
 	TargetDATVersionID       any      `json:"targetDatVersionId"`
 	ValidationInputDigest    string   `json:"validationInputDigest"`
 	VariantStatus            string   `json:"variantStatus"`
@@ -37,7 +40,8 @@ func (server *Server) calculateMoveImpact(
 	targetID string,
 	expected int64,
 ) (gameMoveImpact, error) {
-	var sourceID, sourcePlatform, contentID, contentLogicalName, targetPlatform, targetCore, artifactID string
+	var sourceID, sourcePlatform, contentID, contentLogicalName, targetPlatform, targetCore string
+	var providerID, runtimeTargetID, targetContractSHA256, gameCompatibilityLine string
 	var version, targetVersion int64
 	var datID sql.NullString
 	if err := server.database.QueryRowContext(request.Context(), `
@@ -48,11 +52,11 @@ COALESCE(content.logical_name,''),
 g.version,
 target.platform_id,
 target.default_core_id,
-target.version,
-a.id,
+target.version,binding.provider_id,binding.target_id,runtime_target.target_contract_sha256,
+runtime_target.game_compatibility_line,
 (SELECT id
 FROM dat_versions
-WHERE core_artifact_id=a.id
+WHERE provider_id=binding.provider_id AND target_id=binding.target_id
 AND is_active=1)
 FROM games g
 JOIN platform_instances src ON src.id=g.platform_instance_id
@@ -61,8 +65,11 @@ AND content.role='CONTENT'
 JOIN platform_instances target ON target.id=?
 AND target.enabled=1
 AND target.deleted_at_ms IS NULL
-JOIN core_artifacts a ON a.core_id=target.default_core_id
-AND a.selected_for_new_bindings=1 AND a.available_for_launch=1
+JOIN runtime_target_bindings binding ON binding.core_id=target.default_core_id
+JOIN runtime_binding_platforms binding_platform ON binding_platform.binding_id=binding.binding_id
+ AND binding_platform.platform_id=target.platform_id AND binding_platform.core_id=target.default_core_id
+JOIN runtime_targets runtime_target ON runtime_target.provider_id=binding.provider_id
+ AND runtime_target.target_id=binding.target_id
 WHERE g.id=?
 AND g.status='PUBLISHED'
 `, targetID, request.PathValue("gameId")).Scan(
@@ -74,7 +81,10 @@ AND g.status='PUBLISHED'
 		&targetPlatform,
 		&targetCore,
 		&targetVersion,
-		&artifactID,
+		&providerID,
+		&runtimeTargetID,
+		&targetContractSHA256,
+		&gameCompatibilityLine,
 		&datID,
 	); err != nil {
 		return gameMoveImpact{}, fmt.Errorf("httpapi/game_handlers: %w", err)
@@ -86,13 +96,17 @@ AND g.status='PUBLISHED'
 	biosSnapshot, _, _, err := corevalidation.ResolveBIOS(
 		request.Context(),
 		server.database,
-		artifactID,
+		providerID,
+		runtimeTargetID,
 		contentLogicalName,
 	)
 	if err != nil {
 		return gameMoveImpact{}, fmt.Errorf("httpapi/game_handlers: %w", err)
 	}
-	inputDigest, err := corevalidation.ValidationInputDigest(artifactID, contentID, datID, biosSnapshot)
+	inputDigest, err := corevalidation.ProviderValidationInputDigest(
+		providerID, runtimeTargetID, targetContractSHA256, gameCompatibilityLine,
+		contentID, datID, biosSnapshot,
+	)
 	if err != nil {
 		return gameMoveImpact{}, fmt.Errorf("httpapi/game_handlers: %w", err)
 	}
@@ -144,7 +158,10 @@ r.id DESC LIMIT 1
 		TargetPlatformInstanceID: targetID,
 		TargetPlatformVersion:    targetVersion,
 		TargetCoreID:             targetCore,
-		TargetCoreArtifactID:     artifactID,
+		TargetProviderID:         providerID,
+		TargetID:                 runtimeTargetID,
+		TargetContractSHA256:     targetContractSHA256,
+		TargetGameCompatibility:  gameCompatibilityLine,
 		TargetDATVersionID:       nullableString(datID),
 		ValidationInputDigest:    inputDigest,
 		VariantStatus:            status,

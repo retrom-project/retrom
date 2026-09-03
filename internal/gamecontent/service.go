@@ -39,31 +39,30 @@ type Service struct {
 }
 
 type jobSnapshot struct {
-	ExecutionID               string  `json:"executionId"`
-	GameID                    string  `json:"gameId"`
-	GameVersion               int64   `json:"gameVersion"`
-	BaseContentRevisionID     string  `json:"baseContentRevisionId"`
-	UploadSessionID           string  `json:"uploadSessionId"`
-	PlatformID                string  `json:"platformId"`
-	PlatformInstanceID        string  `json:"platformInstanceId"`
-	PlatformInstanceVersion   int64   `json:"platformInstanceVersion"`
-	CoreID                    string  `json:"coreId"`
-	CoreArtifactID            string  `json:"coreArtifactId"`
-	CoreArtifactRouteKey      string  `json:"coreArtifactRouteKey"`
-	CoreArtifactVersion       int64   `json:"coreArtifactVersion"`
-	CompatibilityConfigDigest string  `json:"compatibilityConfigDigest"`
-	ContentMode               string  `json:"contentMode"`
-	MaxDiscs                  int     `json:"maxDiscs,omitempty"`
-	MaxTotalBytes             int64   `json:"maxTotalBytes,omitempty"`
-	DATVersionID              *string `json:"datVersionId"`
-	ConfigSnapshotDigest      string  `json:"configSnapshotDigest"`
-	BaseVariantRevisionID     string  `json:"baseVariantRevisionId,omitempty"`
-	RPGGeneration             string  `json:"rpgGeneration,omitempty"`
-	RPGAdapterID              string  `json:"rpgAdapterId,omitempty"`
-	RPGAdapterABI             string  `json:"rpgAdapterAbi,omitempty"`
-	RPGArtifactSetSHA256      string  `json:"rpgArtifactSetSha256,omitempty"`
-	RPGDependencySHA256       string  `json:"rpgDependencySha256,omitempty"`
-	RPGRequirementsSHA256     string  `json:"rpgRequirementsSha256,omitempty"`
+	ExecutionID             string  `json:"executionId"`
+	GameID                  string  `json:"gameId"`
+	GameVersion             int64   `json:"gameVersion"`
+	BaseContentRevisionID   string  `json:"baseContentRevisionId"`
+	UploadSessionID         string  `json:"uploadSessionId"`
+	PlatformID              string  `json:"platformId"`
+	PlatformInstanceID      string  `json:"platformInstanceId"`
+	PlatformInstanceVersion int64   `json:"platformInstanceVersion"`
+	CoreID                  string  `json:"coreId"`
+	ProviderID              string  `json:"providerId"`
+	TargetID                string  `json:"targetId"`
+	TargetContractSHA256    string  `json:"targetContractSha256"`
+	GameCompatibilityLine   string  `json:"gameCompatibilityLine"`
+	ContentPolicyJSON       string  `json:"contentPolicyJson"`
+	TargetPolicyDigest      string  `json:"targetPolicyDigest"`
+	ContentMode             string  `json:"contentMode"`
+	MaxDiscs                int     `json:"maxDiscs,omitempty"`
+	MaxTotalBytes           int64   `json:"maxTotalBytes,omitempty"`
+	DATVersionID            *string `json:"datVersionId"`
+	ConfigSnapshotDigest    string  `json:"configSnapshotDigest"`
+	BaseVariantRevisionID   string  `json:"baseVariantRevisionId,omitempty"`
+	RPGGeneration           string  `json:"rpgGeneration,omitempty"`
+	RPGDependencySHA256     string  `json:"rpgDependencySha256,omitempty"`
+	RPGRequirementsSHA256   string  `json:"rpgRequirementsSha256,omitempty"`
 }
 
 type uploadedFile struct {
@@ -220,15 +219,14 @@ func (service *Service) scheduleFresh(
 		return Scheduled{}, ErrInvalid
 	}
 	contentID, instanceID, platformID := binding.contentID, binding.instanceID, binding.platformID
-	coreID, artifactID, routeKey := binding.coreID, binding.artifactID, binding.routeKey
-	artifactVersion, compatibilityJSON := binding.artifactVersion, binding.compatibilityJSON
+	coreID, contentPolicyJSON := binding.coreID, binding.contentPolicyJSON
 	platformVersion, datID := binding.platformVersion, binding.datID
 	if platformID == "rpgmaker" && contentMode != contentcapability.ModeRPGMakerProjectV1 ||
 		platformID != "rpgmaker" && contentMode == contentcapability.ModeRPGMakerProjectV1 {
 		return Scheduled{}, ErrInvalid
 	}
 	capabilities := contentcapability.Resolve(
-		platformID, true, service.multiDiscImportEnabled, compatibilityJSON,
+		platformID, true, service.multiDiscImportEnabled, contentPolicyJSON,
 	)
 	if contentMode == contentcapability.ModeMultiDiscM3UV1 && capabilities.MultiDisc == nil {
 		return Scheduled{}, ErrInvalid
@@ -237,37 +235,37 @@ func (service *Service) scheduleFresh(
 		return Scheduled{}, err
 	}
 	jobID, consumptionID, executionID := newID(), newID(), newID()
-	compatibilityDigest := corevalidation.CompatibilityConfigDigest(compatibilityJSON)
+	targetPolicyDigest := corevalidation.ContentPolicyDigest(contentPolicyJSON)
 	configInput := fmt.Sprintf(
-		"%s\x00%d\x00%s\x00%s\x00%d\x00%s\x00%s\x00%s",
-		instanceID, platformVersion, artifactID, routeKey, artifactVersion, compatibilityDigest,
+		"%s\x00%d\x00%s\x00%s\x00%s\x00%s\x00%s\x00%s\x00%s",
+		instanceID, platformVersion, binding.providerID, binding.targetID, binding.targetContractSHA256,
+		binding.gameCompatibilityLine, targetPolicyDigest,
 		contentMode, nullableText(datID),
 	)
 	configDigest := sha256.Sum256([]byte(configInput))
 	snapshot := jobSnapshot{
-		ExecutionID:               executionID,
-		GameID:                    gameID,
-		GameVersion:               expectedVersion,
-		BaseContentRevisionID:     contentID,
-		UploadSessionID:           uploadID,
-		PlatformID:                platformID,
-		PlatformInstanceID:        instanceID,
-		PlatformInstanceVersion:   platformVersion,
-		CoreID:                    coreID,
-		CoreArtifactID:            artifactID,
-		CoreArtifactRouteKey:      routeKey,
-		CoreArtifactVersion:       artifactVersion,
-		CompatibilityConfigDigest: compatibilityDigest,
-		ContentMode:               contentMode,
-		DATVersionID:              nullablePointer(datID),
-		ConfigSnapshotDigest:      hex.EncodeToString(configDigest[:]),
-		BaseVariantRevisionID:     binding.variantRevisionID,
-		RPGGeneration:             binding.rpgGeneration,
-		RPGAdapterID:              binding.rpgAdapterID,
-		RPGAdapterABI:             binding.rpgAdapterABI,
-		RPGArtifactSetSHA256:      binding.rpgArtifactSetSHA256,
-		RPGDependencySHA256:       binding.rpgDependencySHA256,
-		RPGRequirementsSHA256:     binding.rpgRequirementsSHA256,
+		ExecutionID:             executionID,
+		GameID:                  gameID,
+		GameVersion:             expectedVersion,
+		BaseContentRevisionID:   contentID,
+		UploadSessionID:         uploadID,
+		PlatformID:              platformID,
+		PlatformInstanceID:      instanceID,
+		PlatformInstanceVersion: platformVersion,
+		CoreID:                  coreID,
+		ProviderID:              binding.providerID,
+		TargetID:                binding.targetID,
+		TargetContractSHA256:    binding.targetContractSHA256,
+		GameCompatibilityLine:   binding.gameCompatibilityLine,
+		ContentPolicyJSON:       contentPolicyJSON,
+		TargetPolicyDigest:      targetPolicyDigest,
+		ContentMode:             contentMode,
+		DATVersionID:            nullablePointer(datID),
+		ConfigSnapshotDigest:    hex.EncodeToString(configDigest[:]),
+		BaseVariantRevisionID:   binding.variantRevisionID,
+		RPGGeneration:           binding.rpgGeneration,
+		RPGDependencySHA256:     binding.rpgDependencySHA256,
+		RPGRequirementsSHA256:   binding.rpgRequirementsSHA256,
 	}
 	if capabilities.MultiDisc != nil && contentMode == contentcapability.ModeMultiDiscM3UV1 {
 		snapshot.MaxDiscs = capabilities.MultiDisc.MaxDiscs

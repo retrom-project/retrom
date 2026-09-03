@@ -1,4 +1,4 @@
-import type { ManualScreenshot } from "./adapters/ejs-screenshot";
+export type ManualScreenshot = {screenshot: Blob; format: string};
 
 export const maximumManualSaveScreenshotBytes = 10 * 1024 * 1024;
 export const maximumManualSaveScreenshotWidth = 640;

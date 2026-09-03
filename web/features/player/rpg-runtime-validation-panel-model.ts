@@ -35,11 +35,11 @@ function passedGateEvidenceText(machineGate: RpgValidationMachineGate) {
     });
   }
   if ("generation" in evidence) {
-    return `${evidence.generation} · ${evidence.engineProfile} · ${evidence.adapterId}`;
+    return `${evidence.generation} · ${evidence.engineProfile}`;
   }
   if ("continuousFrames" in evidence) {return `${evidence.continuousFrames} 个连续帧`;}
-  if ("payloadKind" in evidence) {
-    return `${evidence.payloadKind} · ${evidence.sizeBytes} bytes · SHA-256 ${shortDigest(evidence.sha256)}`;
+  if ("checkpointFormat" in evidence) {
+    return `${evidence.checkpointFormat} · ${evidence.sizeBytes} bytes · SHA-256 ${shortDigest(evidence.sha256)}`;
   }
   if ("observed" in evidence) {
     return machineGate.gate === "AUDIO" ? "实际游戏音频已确认" : "真实输入已观察";

@@ -64,60 +64,78 @@ func ParseActiveDescriptor(contents []byte) (ActiveDescriptor, error) {
 func validActiveRawShape(contents []byte) bool {
 	value, err := parseStrictJSON(contents)
 	active, ok := value.(map[string]any)
-	if err != nil || !ok || !exactMap(active, "schemaVersion", "source", "sourceTreeSha256", "release", "providers") {
+	if err != nil || !ok ||
+		!exactMap(active, "schemaVersion", "source", "sourceTreeSha256", "release", "providers") ||
+		!validActiveRawRelease(active["release"]) {
 		return false
-	}
-	if active["release"] != nil {
-		release, ok := active["release"].(map[string]any)
-		if !ok || !exactMap(release, "repository", "tag", "commit") {
-			return false
-		}
 	}
 	providers, ok := active["providers"].([]any)
 	if !ok {
 		return false
 	}
 	for _, providerValue := range providers {
-		provider, ok := providerValue.(map[string]any)
-		if !ok || !exactMap(provider,
-			"providerId", "providerVersion", "providerApiVersion", "bundleSha256", "bundleSizeBytes",
-			"manifestSha256", "moduleSha256", "clientModulePath", "installationPath", "fileCount",
-			"unpackedSizeBytes", "targets") {
+		if !validActiveRawProvider(providerValue) {
 			return false
-		}
-		targets, ok := provider["targets"].([]any)
-		if !ok {
-			return false
-		}
-		for _, targetValue := range targets {
-			target, ok := targetValue.(map[string]any)
-			if !ok || !exactMap(target, "id", "gameCompatibilityLine", "netplayCompatibilityLine", "checkpoint", "targetContractSha256") {
-				return false
-			}
-			if target["checkpoint"] != nil {
-				checkpoint, ok := target["checkpoint"].(map[string]any)
-				if !ok || !exactMap(checkpoint, "writeFormat", "readFormats", "maxBytes") {
-					return false
-				}
-			}
 		}
 	}
 	return true
+}
+
+func validActiveRawRelease(value any) bool {
+	if value == nil {
+		return true
+	}
+	release, ok := value.(map[string]any)
+	return ok && exactMap(release, "repository", "tag", "commit")
+}
+
+func validActiveRawProvider(value any) bool {
+	provider, ok := value.(map[string]any)
+	if !ok || !exactMap(provider,
+		"providerId", "providerVersion", "providerApiVersion", "bundleSha256", "bundleSizeBytes",
+		"manifestSha256", "moduleSha256", "clientModulePath", "installationPath", "fileCount",
+		"unpackedSizeBytes", "targets") {
+		return false
+	}
+	targets, ok := provider["targets"].([]any)
+	if !ok {
+		return false
+	}
+	for _, target := range targets {
+		if !validActiveRawTarget(target) {
+			return false
+		}
+	}
+	return true
+}
+
+func validActiveRawTarget(value any) bool {
+	target, ok := value.(map[string]any)
+	if !ok || !exactMap(target,
+		"id", "gameCompatibilityLine", "netplayCompatibilityLine", "checkpoint", "targetContractSha256") {
+		return false
+	}
+	if target["checkpoint"] == nil {
+		return true
+	}
+	checkpoint, ok := target["checkpoint"].(map[string]any)
+	return ok && exactMap(checkpoint, "writeFormat", "readFormats", "maxBytes")
 }
 
 func validActive(value ActiveDescriptor) bool {
 	if value.SchemaVersion != 1 || len(value.Providers) == 0 {
 		return false
 	}
-	if value.Source == "candidate" {
+	switch value.Source {
+	case "candidate":
 		if value.Release != nil || value.SourceTreeSHA256 == nil || !digestPattern(*value.SourceTreeSHA256) {
 			return false
 		}
-	} else if value.Source == "production" {
+	case "production":
 		if value.SourceTreeSHA256 != nil || value.Release == nil || !validRelease(*value.Release) {
 			return false
 		}
-	} else {
+	default:
 		return false
 	}
 	previous := ""
@@ -131,15 +149,12 @@ func validActive(value ActiveDescriptor) bool {
 }
 
 func validRelease(value ReleaseIdentity) bool {
-	return value.Repository == providerRepository && releaseTagPattern.MatchString(value.Tag) && commitPattern.MatchString(value.Commit)
+	return value.Repository == providerRepository && releaseTagPattern.MatchString(value.Tag) &&
+		commitPattern.MatchString(value.Commit)
 }
 
 func validActiveProvider(value ActiveProvider) bool {
-	if !identityPattern.MatchString(value.ProviderID) || !semverPattern.MatchString(value.ProviderVersion) ||
-		value.ProviderAPI != 1 || !digestPattern(value.BundleSHA256) || !digestPattern(value.ManifestSHA256) ||
-		!digestPattern(value.ModuleSHA256) || value.ClientModulePath != "client.mjs" ||
-		value.InstallationPath != value.ProviderID+"/"+value.BundleSHA256 || !positiveSafe(value.BundleSizeBytes) ||
-		value.FileCount < 3 || value.FileCount > 100000 || !positiveSafe(value.UnpackedSizeBytes) || len(value.Targets) == 0 {
+	if !validActiveProviderIdentity(value) || !validActiveProviderSize(value) || len(value.Targets) == 0 {
 		return false
 	}
 	previous := ""
@@ -150,6 +165,18 @@ func validActiveProvider(value ActiveProvider) bool {
 		previous = target.ID
 	}
 	return true
+}
+
+func validActiveProviderIdentity(value ActiveProvider) bool {
+	return identityPattern.MatchString(value.ProviderID) && semverPattern.MatchString(value.ProviderVersion) &&
+		value.ProviderAPI == 1 && digestPattern(value.BundleSHA256) && digestPattern(value.ManifestSHA256) &&
+		digestPattern(value.ModuleSHA256) && value.ClientModulePath == "client.mjs" &&
+		value.InstallationPath == value.ProviderID+"/"+value.BundleSHA256
+}
+
+func validActiveProviderSize(value ActiveProvider) bool {
+	return positiveSafe(value.BundleSizeBytes) && value.FileCount >= 3 && value.FileCount <= 100000 &&
+		positiveSafe(value.UnpackedSizeBytes)
 }
 
 func validActiveTarget(value ActiveTarget) bool {

@@ -33,8 +33,9 @@ func TestMultiDiscValidationInputDigestIsOrderedAndIncludesSemanticInputs(t *tes
 	t.Parallel()
 	input := MultiDiscValidationInput{
 		GameVariantID: "variant", GameContentRevisionID: "content",
-		ContentKind: MultiDiscContentKind, CoreArtifactID: "artifact", CoreArtifactVersion: 3,
-		CompatibilityConfigSHA256: strings64("a"), DATVersionID: sql.NullString{},
+		ContentKind: MultiDiscContentKind, ProviderID: "emulatorjs", TargetID: "yabause",
+		TargetContractSHA256: strings64("a"), GameCompatibilityLine: "saturn-v1",
+		ContentPolicySHA256: strings64("f"), DATVersionID: sql.NullString{},
 		BIOSDependencySHA256:    strings64("b"),
 		OrderedDiscSHA256:       []string{strings64("c"), strings64("d")},
 		CanonicalPlaylistSHA256: strings64("e"),

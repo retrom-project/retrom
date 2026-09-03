@@ -206,7 +206,7 @@ function ActiveRoomView({ busy, confirmAction, copied, error, mutate, onConfirm,
   terminal: boolean;
 }) {
   const title = room.game?.title ?? "等待房主选择游戏";
-  const description = room.game ? `${room.game.platformName} · ${room.game.coreName} · EmulatorJS ${room.game.emulatorjsVersion}` : "游戏锁定后即可选择座位。";
+  const description = room.game ? `${room.game.platformName} · ${room.game.coreName} · ${room.game.providerId}/${room.game.targetId}` : "游戏锁定后即可选择座位。";
   const statusTone = room.state === "RUNNING" ? "good" : terminal ? "neutral" : "info";
   const closing = confirmAction === "close";
   return <div className="page-layout netplay-room-page">
@@ -375,5 +375,5 @@ function ProfileDialog({ game, onClose, onSelect }: { game: NetplayGame; onClose
     document.addEventListener("keydown", keydown);
     return () => { document.removeEventListener("keydown", keydown); previous?.focus(); };
   }, [onClose]);
-  return <div className="netplay-dialog-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) {onClose();} }}><div ref={dialog} className="netplay-profile-dialog" role="dialog" aria-modal="true" aria-labelledby="profile-dialog-title"><h2 id="profile-dialog-title">选择 {game.title} 的联机配置</h2><p>每位玩家将使用完全相同的核心和运行时。</p><div>{game.netplayProfiles.map((profile) => <button key={profile.id} type="button" onClick={() => onSelect(profile.id)}><strong>{profile.coreName}</strong><span>EmulatorJS {profile.emulatorjsVersion} · 最多 {profile.maxPlayers} 人</span></button>)}</div><button className="button secondary" type="button" onClick={onClose}>取消</button></div></div>;
+  return <div className="netplay-dialog-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) {onClose();} }}><div ref={dialog} className="netplay-profile-dialog" role="dialog" aria-modal="true" aria-labelledby="profile-dialog-title"><h2 id="profile-dialog-title">选择 {game.title} 的联机配置</h2><p>每位玩家将使用完全相同的核心和运行时。</p><div>{game.netplayProfiles.map((profile) => <button key={profile.id} type="button" onClick={() => onSelect(profile.id)}><strong>{profile.coreName}</strong><span>{profile.providerId}/{profile.targetId} · 最多 {profile.maxPlayers} 人</span></button>)}</div><button className="button secondary" type="button" onClick={onClose}>取消</button></div></div>;
 }

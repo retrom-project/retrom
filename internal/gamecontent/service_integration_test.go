@@ -70,7 +70,10 @@ INSERT INTO profiles(id,display_name,created_at_ms) VALUES('rpg-replacement-prof
 	}
 	credentials, err := retromruntime.LoadOrCreateCredentials(dataDir)
 	testassert.False(t, err != nil, err)
-	if _, err := launch.New(database.SQL, dependencySet, credentials, time.Now).CreateRPGValidation(
+	runtimeBuilder, err := testsupport.NewRuntimeBuilder(ctx, database.SQL)
+	testassert.False(t, err != nil, err)
+	if _, err := launch.New(database.SQL, dependencySet, credentials, time.Now).
+		WithRuntimeProvider(dependencySet.RuntimeCatalog, runtimeBuilder).CreateRPGValidation(
 		ctx, "rpg-replacement-profile", validation.ValidationID, "/admin/reviews/"+itemID,
 		launch.Capabilities{},
 	); err != nil {
@@ -94,10 +97,10 @@ SELECT current_content_revision_id,version FROM games WHERE id=?
 	} else if binding.rpgGeneration != "RPG2000" {
 		t.Fatalf("RPG replacement binding = %#v", binding)
 	}
-	upgradedArtifactID := installRPGMakerRuntimeUpgrade(t, ctx, database.SQL, "rpgmaker_2000")
+	upgradedTargetContract := installRPGMakerRuntimeUpgrade(t, ctx, database.SQL, "rpgmaker-2000")
 	if binding, bindingErr := loadReplacementBinding(ctx, database.SQL, published.GameID); bindingErr != nil {
 		t.Fatalf("load upgraded RPG replacement binding: %v", bindingErr)
-	} else if binding.artifactID != upgradedArtifactID || binding.rpgGeneration != "RPG2000" {
+	} else if binding.targetContractSHA256 != upgradedTargetContract || binding.rpgGeneration != "RPG2000" {
 		t.Fatalf("upgraded RPG replacement binding = %#v", binding)
 	}
 
@@ -116,27 +119,27 @@ SELECT current_content_revision_id,version FROM games WHERE id=?
 	)
 	testassert.False(t, err != nil, err)
 	waitForJob(t, ctx, database.SQL, sameGeneration.JobID, "SUCCEEDED")
-	var replacementContent, generation, runtimeValidationID, replacementArtifactID string
+	var replacementContent, generation, runtimeValidationID, replacementTargetContract string
 	var replacementVersion int64
 	if err := database.SQL.QueryRowContext(ctx, `
 SELECT game.current_content_revision_id,game.version,content.evidence_generation,
-       COALESCE(profile.runtime_validation_id,''),revision.core_artifact_id
+       COALESCE(profile.runtime_validation_id,''),revision.target_contract_sha256
 FROM games game
 JOIN rpgmaker_content_profiles content ON content.content_revision_id=game.current_content_revision_id
 JOIN game_variants variant ON variant.game_id=game.id
 JOIN game_variant_revisions revision ON revision.id=variant.current_revision_id
 JOIN rpgmaker_variant_profiles profile ON profile.game_variant_revision_id=variant.current_revision_id
-WHERE game.id=? AND variant.core_id='rpgmaker_2000'
+WHERE game.id=? AND variant.core_id='rpgmaker'
 `, published.GameID).Scan(
-		&replacementContent, &replacementVersion, &generation, &runtimeValidationID, &replacementArtifactID,
+		&replacementContent, &replacementVersion, &generation, &runtimeValidationID, &replacementTargetContract,
 	); err != nil {
 		t.Fatal(err)
 	}
 	if replacementContent == originalContent || replacementVersion != gameVersion+1 ||
-		generation != "RPG2000" || runtimeValidationID != "" || replacementArtifactID != upgradedArtifactID {
+		generation != "RPG2000" || runtimeValidationID != "" || replacementTargetContract != upgradedTargetContract {
 		t.Fatalf(
 			"same-generation replacement = %s/%d/%s/%q/%s",
-			replacementContent, replacementVersion, generation, runtimeValidationID, replacementArtifactID,
+			replacementContent, replacementVersion, generation, runtimeValidationID, replacementTargetContract,
 		)
 	}
 
@@ -153,53 +156,28 @@ WHERE game.id=? AND variant.core_id='rpgmaker_2000'
 	)
 }
 
-func installRPGMakerRuntimeUpgrade(t *testing.T, ctx context.Context, database *sql.DB, coreID string) string {
+func installRPGMakerRuntimeUpgrade(t *testing.T, ctx context.Context, database *sql.DB, targetID string) string {
 	t.Helper()
 	transaction, err := database.BeginTx(ctx, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer cleanup.Rollback(transaction)
-	var previousID string
-	if err := transaction.QueryRowContext(ctx, `
-SELECT id FROM core_artifacts
-WHERE core_id=? AND runtime_family='RPGMAKER'
-  AND selected_for_new_bindings=1 AND available_for_launch=1
-`, coreID).Scan(&previousID); err != nil {
-		t.Fatal(err)
-	}
 	now := time.Now().UnixMilli()
+	contract := sha256.Sum256([]byte("RPG Maker replacement forward Provider Target fixture"))
+	bundle := sha256.Sum256([]byte("RPG Maker replacement forward Provider Bundle fixture"))
 	if _, err := transaction.ExecContext(ctx, `
-UPDATE core_artifacts
-SET selected_for_new_bindings=0,available_for_launch=0,version=version+1,updated_at_ms=?
-WHERE id=?
-`, now, previousID); err != nil {
-		t.Fatal(err)
-	}
-	upgradedID, err := uuid.NewV7()
-	if err != nil {
-		t.Fatal(err)
-	}
-	artifactSet := sha256.Sum256([]byte("RPG Maker replacement forward runtime fixture"))
-	if _, err := transaction.ExecContext(ctx, `
-INSERT INTO core_artifacts(
- id,core_id,route_key,runtime_family,runtime_adapter_kind,runtime_version,adapter_id,
- entry_path,size_bytes,sha256,manifest_sha256,artifact_set_sha256,requires_threads,
- save_payload_kind,save_max_bytes,provenance_json,compatibility_json,
- selected_for_new_bindings,available_for_launch,version,created_at_ms,updated_at_ms
-)
-SELECT ?,core_id,route_key,runtime_family,runtime_adapter_kind,'test-forward-runtime',adapter_id,
-       entry_path,size_bytes,sha256,manifest_sha256,?,requires_threads,
-       save_payload_kind,save_max_bytes,provenance_json,compatibility_json,
-       1,1,1,?,?
-FROM core_artifacts WHERE id=?
-`, upgradedID.String(), fmt.Sprintf("%x", artifactSet), now, now, previousID); err != nil {
+UPDATE runtime_targets SET target_contract_sha256=?
+WHERE provider_id='retrom-runtime' AND target_id=?;
+UPDATE runtime_providers SET provider_version='1.1.0',bundle_sha256=?,activated_at_ms=?
+WHERE provider_id='retrom-runtime'
+`, fmt.Sprintf("%x", contract), targetID, fmt.Sprintf("%x", bundle), now); err != nil {
 		t.Fatal(err)
 	}
 	if err := transaction.Commit(); err != nil {
 		t.Fatal(err)
 	}
-	return upgradedID.String()
+	return fmt.Sprintf("%x", contract)
 }
 
 func rpgMakerFixtureFiles(t *testing.T, root string) map[string][]byte {

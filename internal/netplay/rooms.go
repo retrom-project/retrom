@@ -24,15 +24,16 @@ type RoomMember struct {
 }
 
 type RoomGame struct {
-	GameID            string `json:"gameId"`
-	Title             string `json:"title"`
-	Status            string `json:"status"`
-	Availability      string `json:"availability"`
-	PlatformName      string `json:"platformName"`
-	ProfileID         string `json:"profileId"`
-	CoreName          string `json:"coreName"`
-	EmulatorJSVersion string `json:"emulatorjsVersion"`
-	MaxPlayers        int    `json:"maxPlayers"`
+	GameID       string `json:"gameId"`
+	Title        string `json:"title"`
+	Status       string `json:"status"`
+	Availability string `json:"availability"`
+	PlatformName string `json:"platformName"`
+	ProfileID    string `json:"profileId"`
+	CoreName     string `json:"coreName"`
+	ProviderID   string `json:"providerId"`
+	TargetID     string `json:"targetId"`
+	MaxPlayers   int    `json:"maxPlayers"`
 }
 
 type SessionSummary struct {
@@ -226,17 +227,17 @@ FROM netplay_rooms WHERE id=?
 		var game RoomGame
 		game.GameID, game.ProfileID, game.MaxPlayers = gameID.String, profileID.String, int(maxPlayers.Int64)
 		if err := service.database.QueryRowContext(ctx, `
-SELECT metadata.title,game.status,platform.name,core.name,artifact.runtime_version
+SELECT metadata.title,game.status,platform.name,core.name,revision.provider_id,revision.target_id
 FROM games game
 JOIN game_metadata_revisions metadata ON metadata.id=game.current_metadata_revision_id
 JOIN platform_instances instance ON instance.id=game.platform_instance_id
 JOIN platforms platform ON platform.id=instance.platform_id
 JOIN game_variant_revisions revision ON revision.id=?
-JOIN core_artifacts artifact ON artifact.id=revision.core_artifact_id
-JOIN cores core ON core.id=artifact.core_id
+JOIN game_variants variant ON variant.id=revision.game_variant_id
+JOIN cores core ON core.id=variant.core_id
 WHERE game.id=?
 `, variantID.String, gameID.String).Scan(
-			&game.Title, &game.Status, &game.PlatformName, &game.CoreName, &game.EmulatorJSVersion,
+			&game.Title, &game.Status, &game.PlatformName, &game.CoreName, &game.ProviderID, &game.TargetID,
 		); err != nil {
 			return Room{}, fmt.Errorf("netplay/get room game: %w", err)
 		}
@@ -331,9 +332,8 @@ func (service *Service) SelectGame(
 		return Room{}, ErrInvalidProfile
 	}
 	canonical, digest, err := service.registry.CanonicalProfile(CanonicalProfileInput{
-		ManifestProfile: selected.Manifest, CoreArtifactID: selected.CoreArtifactID,
-		GameVariantRevisionID:  selected.VariantRevisionID,
-		DependencySnapshotJSON: selected.DependencySnapshotJSON, DefaultCoreOptions: selected.DefaultCoreOptions,
+		ManifestProfile: selected.Manifest, TargetContractSHA256: selected.TargetContractSHA256,
+		GameVariantRevisionID: selected.VariantRevisionID, DependencySnapshotJSON: selected.DependencySnapshotJSON,
 	})
 	if err != nil || len(canonical) == 0 {
 		return Room{}, ErrInvalidProfile

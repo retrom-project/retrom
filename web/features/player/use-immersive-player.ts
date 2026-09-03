@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useRef, useState, type Dispatch, type MutableRefObject, type SetStateAction } from "react";
 import { getActiveImmersiveGamepadIndex, setActiveImmersiveGamepadIndex } from "@/features/immersive/active-gamepad";
-import { setEmulatorPaused } from "./pause-control";
 import {
   ImmersiveMenuInputReader,
   ImmersiveNeutralGate,
@@ -11,7 +10,7 @@ import {
   isStandardImmersiveGamepad,
 } from "./immersive-controls";
 import { ImmersiveGamepadFilter } from "./immersive-gamepad-filter";
-import type { EmulatorInstance } from "./adapters/ejs-4.2.3-v2";
+import type {PlayerRuntimeV1} from "./runtime/contract";
 import {
   moveImmersiveMenuSelection,
   selectableImmersiveMenuItem,
@@ -26,7 +25,7 @@ export type ImmersivePlayerOverlay =
 
 type Params = {
   enabled: boolean;
-  emulator: MutableRefObject<EmulatorInstance | undefined>;
+  runtime: MutableRefObject<PlayerRuntimeV1 | null>;
   pausedRef: MutableRefObject<boolean>;
   running: boolean;
   setPaused: Dispatch<SetStateAction<boolean>>;
@@ -41,7 +40,7 @@ type PauseOwner = "menu" | "disconnect" | null;
 
 export function useImmersivePlayer(params: Params) {
   const {
-    enabled, emulator, pausedRef, running, setPaused, exitStrict, saveAvailable, saveGame, beforeMenuPause, onFatalError,
+    enabled, runtime, pausedRef, running, setPaused, exitStrict, saveAvailable, saveGame, beforeMenuPause, onFatalError,
   } = params;
   const [overlay, setOverlay] = useState<ImmersivePlayerOverlay>({ kind: "closed" });
   const overlayRef = useRef(overlay);
@@ -71,10 +70,11 @@ export function useImmersivePlayer(params: Params) {
     filter.setBlocked(true);
     if (!pausedRef.current) {
       beforeMenuPause();
-      if (setEmulatorPaused(emulator.current, true)) {
+      const active = runtime.current;
+      if (active?.getCapabilities().pause) {
         pauseOwner.current = "menu";
-        pausedRef.current = true;
-        setPaused(true);
+        void active.pause().then(() => {pausedRef.current = true; setPaused(true);})
+          .catch(() => onFatalError("PLAYER_IMMERSIVE_PAUSE_UNAVAILABLE"));
       } else {
         onFatalError("PLAYER_IMMERSIVE_PAUSE_UNAVAILABLE");
         return;
@@ -82,7 +82,7 @@ export function useImmersivePlayer(params: Params) {
     }
     menuReader.current.reset();
     updateOverlay({ kind: "menu", error: "", notice: "", pending: false, selected: 0 });
-  }, [beforeMenuPause, emulator, enabled, filter, onFatalError, pausedRef, setPaused, updateOverlay]);
+  }, [beforeMenuPause, enabled, filter, onFatalError, pausedRef, runtime, setPaused, updateOverlay]);
 
   useEffect(() => {
     filter.setOnMenuGesture(requestMenu);
@@ -175,11 +175,11 @@ export function useImmersivePlayer(params: Params) {
     if (!running) {return;}
     return startImmersivePoll({
       filter, activeIndex, overlayRef, pauseOwner, reconnectTarget, menuReader, closingGate,
-      reconnectGate, previousPressed, previousReconnectA, suspended, emulator,
+      reconnectGate, previousPressed, previousReconnectA, suspended, runtime,
       pausedRef, setPaused, updateOverlay, beginClose,
       menuCancel, menuMove, runSelectedMenuAction, onFatalError,
     });
-  }, [beginClose, emulator, enabled, filter, menuCancel, menuMove, onFatalError, pausedRef, runSelectedMenuAction, running, setPaused, updateOverlay]);
+  }, [beginClose, enabled, filter, menuCancel, menuMove, onFatalError, pausedRef, runSelectedMenuAction, running, runtime, setPaused, updateOverlay]);
 
   useEffect(() => {
     if (!enabled) {return;}
@@ -210,7 +210,7 @@ type PollParams = {
   previousPressed: MutableRefObject<Map<number, boolean>>;
   previousReconnectA: MutableRefObject<boolean>;
   suspended: MutableRefObject<boolean>;
-  emulator: MutableRefObject<EmulatorInstance | undefined>;
+  runtime: MutableRefObject<PlayerRuntimeV1 | null>;
   pausedRef: MutableRefObject<boolean>;
   setPaused: Dispatch<SetStateAction<boolean>>;
   updateOverlay: (next: ImmersivePlayerOverlay) => void;
@@ -272,10 +272,12 @@ function pollMenu(params: PollParams, gamepads: (Gamepad | null)[], nowMs: numbe
 function pollClosing(params: PollParams, gamepads: (Gamepad | null)[], nowMs: number) {
   if (!params.closingGate.current.update(isNeutralGamepads(gamepads), nowMs)) {return;}
   if (params.pauseOwner.current) {
-    if (!setEmulatorPaused(params.emulator.current, false)) {
+    const active = params.runtime.current;
+    if (!active?.getCapabilities().pause) {
       params.onFatalError("PLAYER_IMMERSIVE_RESUME_UNAVAILABLE");
       return;
     }
+    void active.resume().catch(() => params.onFatalError("PLAYER_IMMERSIVE_RESUME_UNAVAILABLE"));
     params.pausedRef.current = false;
     params.setPaused(false);
   }
@@ -289,10 +291,12 @@ function enterReconnect(params: PollParams, target: "game" | "menu") {
   params.reconnectTarget.current = target;
   params.filter.setBlocked(true);
   if (!params.pausedRef.current) {
-    if (!setEmulatorPaused(params.emulator.current, true)) {
+    const active = params.runtime.current;
+    if (!active?.getCapabilities().pause) {
       params.onFatalError("PLAYER_IMMERSIVE_PAUSE_UNAVAILABLE");
       return;
     }
+    void active.pause().catch(() => params.onFatalError("PLAYER_IMMERSIVE_PAUSE_UNAVAILABLE"));
     params.pauseOwner.current = "disconnect";
     params.pausedRef.current = true;
     params.setPaused(true);

@@ -2,7 +2,7 @@ import type { components } from "@/lib/api/generated/schema";
 
 export type ValidationCheckpointReceipt = Pick<
   components["schemas"]["ValidationCheckpointCreated"],
-  "payloadKind" | "sizeBytes" | "sha256"
+  "checkpointFormat" | "sizeBytes" | "sha256"
 >;
 
 export function parseValidationCheckpointReceipt(contents: string): ValidationCheckpointReceipt {
@@ -18,14 +18,14 @@ export function parseValidationCheckpointReceipt(contents: string): ValidationCh
   if (!validResponseIdentity(keys, response) || !validResponseValues(response, sizeBytes)) {
     throw new Error("RPG_CHECKPOINT_RESPONSE_INVALID");
   }
-  return { payloadKind: response.payloadKind, sizeBytes, sha256: response.sha256 };
+  return { checkpointFormat: response.checkpointFormat, sizeBytes, sha256: response.sha256 };
 }
 
 function validResponseIdentity(
   keys: string,
   response: Partial<components["schemas"]["ValidationCheckpointCreated"]>,
 ) {
-  return keys === "createdAtMs,nativeProfile,payloadKind,resourceKind,resumeSlot,sha256,sizeBytes,validationId" &&
+  return keys === "checkpointFormat,createdAtMs,resourceKind,sha256,sizeBytes,validationId" &&
     response.resourceKind === "RPG_RUNTIME_VALIDATION_CHECKPOINT" && canonicalUuid(response.validationId);
 }
 
@@ -33,22 +33,10 @@ function validResponseValues(
   response: Partial<components["schemas"]["ValidationCheckpointCreated"]>,
   sizeBytes: number,
 ): response is components["schemas"]["ValidationCheckpointCreated"] {
-  return payloadKind(response.payloadKind) && nativeProfile(response.nativeProfile) && resumeSlot(response.resumeSlot) &&
+  return typeof response.checkpointFormat === "string" && response.checkpointFormat.length >= 1 &&
     Number.isSafeInteger(sizeBytes) && sizeBytes >= 1 && sizeBytes <= 268_435_456 &&
     typeof response.sha256 === "string" && /^[0-9a-f]{64}$/.test(response.sha256) &&
     Number.isSafeInteger(response.createdAtMs) && Number(response.createdAtMs) >= 0;
-}
-
-function payloadKind(value: unknown): value is components["schemas"]["CheckpointPayloadKind"] {
-  return value === "RUNTIME_STATE" || value === "NATIVE_SAVE_BUNDLE_V1";
-}
-
-function nativeProfile(value: unknown): value is components["schemas"]["NativeCheckpointProfile"] | null {
-  return value === null || value === "EASYRPG_V1" || value === "RPGMV_V1" || value === "RPGMZ_V1";
-}
-
-function resumeSlot(value: unknown): value is number | null {
-  return value === null || Number.isSafeInteger(value) && Number(value) >= 1 && Number(value) <= 2_147_483_647;
 }
 
 function canonicalUuid(value: unknown) {

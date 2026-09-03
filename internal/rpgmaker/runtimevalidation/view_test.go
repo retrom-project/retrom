@@ -33,13 +33,13 @@ func TestGetReconcilesValidationWhoseGameWindowAlreadyClosed(t *testing.T) {
 INSERT INTO rpgmaker_runtime_validations(
  id,import_item_id,review_version_at_create,runtime_binding_revision,
  effective_source_snapshot_id,project_fingerprint,core_id,generation,
- evidence_confidence,route_key,artifact_id,artifact_set_sha256,adapter_id,adapter_abi,
+ evidence_confidence,provider_id,target_id,game_compatibility_line,target_contract_sha256,
  dependency_snapshot_sha256,launch_id,state,last_gate_sequence,machine_gates_json,
  created_at_ms,updated_at_ms,expires_at_ms
 ) VALUES(
- ?,?,1,1,'snapshot','fingerprint','rpgmaker_2000','RPG2000','FAMILY_ONLY','easyrpg',
- 'artifact','aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
- 'easyrpg-web','easyrpg-save','bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+ ?,?,1,1,'snapshot','fingerprint','rpgmaker_2000','RPG2000','FAMILY_ONLY','retrom-runtime',
+ 'rpgmaker-2000','rpgmaker-2000-v1','aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+ 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
  ?,'STARTING',0,?,1000,1001,2000
 )`, validationID, itemID, launchID, machineGates); err != nil {
 		t.Fatal(err)
@@ -67,13 +67,14 @@ func TestLoadViewAcceptsFailedValidationBeforeLaunch(t *testing.T) {
 INSERT INTO rpgmaker_runtime_validations(
  id,import_item_id,review_version_at_create,runtime_binding_revision,
  effective_source_snapshot_id,project_fingerprint,core_id,generation,
- evidence_generation,evidence_confidence,route_key,artifact_id,artifact_set_sha256,
- adapter_id,adapter_abi,dependency_snapshot_sha256,launch_id,restore_launch_id,state,
+ evidence_generation,evidence_confidence,provider_id,target_id,game_compatibility_line,
+ target_contract_sha256,dependency_snapshot_sha256,launch_id,restore_launch_id,state,
  last_gate_sequence,machine_gates_json,failure_code,created_at_ms,updated_at_ms,expires_at_ms
 ) VALUES(
  'validation','item',1,1,'snapshot','fingerprint','rpgmaker_2000','RPG2000',
- NULL,'FAMILY_ONLY','easyrpg','artifact','aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
- 'easyrpg-web','easyrpg-save','bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+ NULL,'FAMILY_ONLY','retrom-runtime','rpgmaker-2000','rpgmaker-2000-v1',
+ 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+ 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
  NULL,NULL,'FAILED',0,?,'RPG_RUNTIME_ROUTE_UNAVAILABLE',1000,1001,2000
 )`, machineGates); err != nil {
 		t.Fatal(err)
@@ -107,13 +108,14 @@ func TestLoadViewRejectsNonFailedValidationWithoutLaunch(t *testing.T) {
 INSERT INTO rpgmaker_runtime_validations(
  id,import_item_id,review_version_at_create,runtime_binding_revision,
  effective_source_snapshot_id,project_fingerprint,core_id,generation,
- evidence_confidence,route_key,artifact_id,artifact_set_sha256,adapter_id,adapter_abi,
+ evidence_confidence,provider_id,target_id,game_compatibility_line,target_contract_sha256,
 	 dependency_snapshot_sha256,state,last_gate_sequence,
  machine_gates_json,created_at_ms,updated_at_ms,expires_at_ms
 ) VALUES(
  'validation','item',1,1,'snapshot','fingerprint','rpgmaker_2000','RPG2000',
- 'FAMILY_ONLY','easyrpg','artifact','aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
- 'easyrpg-web','easyrpg-save','bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+ 'FAMILY_ONLY','retrom-runtime','rpgmaker-2000','rpgmaker-2000-v1',
+ 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+ 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
  'CREATED',0,?,1000,1001,2000
 )`, machineGates); err != nil {
 		t.Fatal(err)
@@ -173,14 +175,14 @@ CREATE TABLE rpgmaker_runtime_validations(
  id TEXT PRIMARY KEY,import_item_id TEXT,review_version_at_create INTEGER,
  runtime_binding_revision INTEGER,effective_source_snapshot_id TEXT,
  project_fingerprint TEXT,core_id TEXT,generation TEXT,evidence_generation TEXT,
- evidence_confidence TEXT,route_key TEXT,artifact_id TEXT,artifact_set_sha256 TEXT,
- adapter_id TEXT,adapter_abi TEXT,dependency_snapshot_sha256 TEXT,launch_id TEXT,
+ evidence_confidence TEXT,provider_id TEXT,target_id TEXT,game_compatibility_line TEXT,
+ target_contract_sha256 TEXT,dependency_snapshot_sha256 TEXT,launch_id TEXT,
  restore_launch_id TEXT,state TEXT,last_gate_sequence INTEGER,machine_gates_json TEXT,
  failure_code TEXT,decision_note TEXT,decided_by_user_id TEXT,decided_at_ms INTEGER,
  evidence_screenshot_blob_id TEXT,created_at_ms INTEGER,updated_at_ms INTEGER,expires_at_ms INTEGER
 );
 CREATE TABLE rpgmaker_runtime_validation_checkpoints(
- validation_id TEXT,payload_kind TEXT,resume_slot INTEGER,size_bytes INTEGER,payload_sha256 TEXT
+ validation_id TEXT,checkpoint_format TEXT,size_bytes INTEGER,payload_sha256 TEXT
 );
 CREATE TABLE rpgmaker_runtime_validation_gate_events(
  validation_id TEXT,sequence INTEGER,event_id TEXT,launch_id TEXT,gate TEXT,phase TEXT,

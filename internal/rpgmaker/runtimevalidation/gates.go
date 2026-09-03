@@ -15,10 +15,10 @@ import (
 )
 
 type validationRuntime struct {
-	id, launchID, generation, adapterID, state string
-	restoreLaunchID                            sql.NullString
-	lastSequence, expiresAtMS                  int64
-	evidenceScreenshot                         sql.NullString
+	id, launchID, generation, state string
+	restoreLaunchID                 sql.NullString
+	lastSequence, expiresAtMS       int64
+	evidenceScreenshot              sql.NullString
 }
 
 type storedEvent struct {
@@ -166,14 +166,14 @@ func (service *Service) authorizeGateLaunch(
 	var hardExpires int64
 	err := transaction.QueryRowContext(ctx, `
 SELECT validation.id,validation.launch_id,validation.restore_launch_id,
- validation.generation,validation.adapter_id,validation.state,validation.last_gate_sequence,
+ validation.generation,validation.state,validation.last_gate_sequence,
  validation.expires_at_ms,validation.evidence_screenshot_blob_id,
  launch.credential_sha256,launch.state,launch.purpose,launch.hard_expires_at_ms
 FROM launch_sessions launch
 JOIN rpgmaker_runtime_validations validation ON validation.id=launch.rpgmaker_runtime_validation_id
 WHERE launch.id=?
 `, launchID).Scan(
-		&runtime.id, &runtime.launchID, &runtime.restoreLaunchID, &runtime.generation, &runtime.adapterID,
+		&runtime.id, &runtime.launchID, &runtime.restoreLaunchID, &runtime.generation,
 		&runtime.state, &runtime.lastSequence, &runtime.expiresAtMS, &runtime.evidenceScreenshot,
 		&credentialHash, &launchState, &purpose, &hardExpires,
 	)
@@ -426,11 +426,10 @@ func validateEngineProfileEvidence(
 ) (json.RawMessage, *rpgvalidation.Position, error) {
 	var evidence struct {
 		Generation    string `json:"generation"`
-		AdapterID     string `json:"adapterId"`
 		EngineProfile string `json:"engineProfile"`
 	}
 	canonical, err := canonicalEvidence(contents, &evidence)
-	if err != nil || evidence.Generation != runtime.generation || evidence.AdapterID != runtime.adapterID ||
+	if err != nil || evidence.Generation != runtime.generation ||
 		evidence.EngineProfile != engineProfile(runtime.generation) {
 		return nil, nil, ErrProtocol
 	}
@@ -466,21 +465,21 @@ func (service *Service) validateCheckpointEvidence(
 	contents json.RawMessage,
 ) (json.RawMessage, *rpgvalidation.Position, error) {
 	var evidence struct {
-		PayloadKind string `json:"payloadKind"`
-		SizeBytes   int64  `json:"sizeBytes"`
-		SHA256      string `json:"sha256"`
+		CheckpointFormat string `json:"checkpointFormat"`
+		SizeBytes        int64  `json:"sizeBytes"`
+		SHA256           string `json:"sha256"`
 	}
 	canonical, err := canonicalEvidence(contents, &evidence)
 	if err != nil {
 		return nil, nil, ErrProtocol
 	}
-	var payloadKind, digest string
+	var checkpointFormat, digest string
 	var size int64
 	if err := transaction.QueryRowContext(ctx, `
-SELECT payload_kind,size_bytes,payload_sha256
+SELECT checkpoint_format,size_bytes,payload_sha256
 FROM rpgmaker_runtime_validation_checkpoints WHERE validation_id=?
-`, validationID).Scan(&payloadKind, &size, &digest); err != nil ||
-		evidence.PayloadKind != payloadKind || evidence.SizeBytes != size || evidence.SHA256 != digest {
+`, validationID).Scan(&checkpointFormat, &size, &digest); err != nil ||
+		evidence.CheckpointFormat != checkpointFormat || evidence.SizeBytes != size || evidence.SHA256 != digest {
 		return nil, nil, ErrProtocol
 	}
 	return canonical, nil, nil

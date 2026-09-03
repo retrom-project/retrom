@@ -444,7 +444,7 @@ def _launch_text(value: object, minimum: int, maximum: int, label: str) -> str:
 
 
 def _launch_relative_url(value: object, label: str) -> str:
-    if not isinstance(value, str) or not 2 <= len(value) <= 2048 or not value.startswith("/") or \
+    if not isinstance(value, str) or not 1 <= len(value) <= 2048 or not value.startswith("/") or \
             value.startswith("//") or "\\" in value or "#" in value or not all(" " <= item <= "~" for item in value):
         _fail(f"{label} is invalid")
     return value

@@ -218,7 +218,7 @@ func TestPrepareStaticBIOSDependenciesLeavesRPGMakerValidationToRuntimePacks(t *
 		dependencySnapshot: `{"bindings":[],"schemaVersion":1}`,
 	}}
 	if err := prepareStaticBIOSDependencies(
-		context.Background(), nil, "rpg-artifact", "rpgmaker", groups,
+		context.Background(), nil, "retrom-runtime", "rpgmaker-2000", "rpgmaker", groups,
 	); err != nil {
 		t.Fatalf("prepareStaticBIOSDependencies() error = %v", err)
 	}

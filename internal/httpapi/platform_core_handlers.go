@@ -31,7 +31,10 @@ type coreImpact struct {
 	PlatformInstanceID      string           `json:"platformInstanceId"`
 	PlatformInstanceVersion int64            `json:"platformInstanceVersion"`
 	CoreID                  string           `json:"coreId"`
-	CoreArtifactID          string           `json:"coreArtifactId"`
+	ProviderID              string           `json:"providerId"`
+	TargetID                string           `json:"targetId"`
+	TargetContractSHA256    string           `json:"targetContractSha256"`
+	GameCompatibilityLine   string           `json:"gameCompatibilityLine"`
 	DATVersionID            any              `json:"datVersionId"`
 	Games                   []coreImpactGame `json:"games"`
 }
@@ -72,19 +75,22 @@ AND enabled=1
 		allowed != 1 {
 		return coreImpact{}, nil, nil, errInvalidCore
 	}
-	var artifactID string
+	var providerID, targetID, targetContractSHA256, gameCompatibilityLine string
 	var datVersionID sql.NullString
 	if err := server.database.QueryRowContext(request.Context(), `
-SELECT a.id,
+SELECT binding.provider_id,binding.target_id,target.target_contract_sha256,target.game_compatibility_line,
 (SELECT id
 FROM dat_versions
-WHERE core_artifact_id=a.id
+WHERE provider_id=binding.provider_id AND target_id=binding.target_id
 AND is_active=1)
-FROM core_artifacts a
-WHERE a.core_id=?
-AND a.runtime_version=?
-AND a.selected_for_new_bindings=1 AND a.available_for_launch=1
-`, coreID, server.config.ActiveEJSVersion).Scan(&artifactID, &datVersionID); err != nil {
+FROM runtime_target_bindings binding
+JOIN runtime_binding_platforms binding_platform ON binding_platform.binding_id=binding.binding_id
+ AND binding_platform.platform_id=? AND binding_platform.core_id=?
+JOIN runtime_targets target ON target.provider_id=binding.provider_id AND target.target_id=binding.target_id
+WHERE binding.core_id=? AND binding.launch_policy<>'DISABLED'
+`, platformID, coreID, coreID).Scan(
+		&providerID, &targetID, &targetContractSHA256, &gameCompatibilityLine, &datVersionID,
+	); err != nil {
 		return coreImpact{}, nil, nil, errInvalidCore
 	}
 	rows, err := server.database.QueryContext(
@@ -155,7 +161,10 @@ ORDER BY g.id
 		PlatformInstanceID:      instanceID,
 		PlatformInstanceVersion: version,
 		CoreID:                  coreID,
-		CoreArtifactID:          artifactID,
+		ProviderID:              providerID,
+		TargetID:                targetID,
+		TargetContractSHA256:    targetContractSHA256,
+		GameCompatibilityLine:   gameCompatibilityLine,
 		DATVersionID:            nullableString(datVersionID),
 		Games:                   games,
 	}

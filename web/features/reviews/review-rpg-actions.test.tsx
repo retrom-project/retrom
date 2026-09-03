@@ -28,8 +28,9 @@ function launchedRPGValidation(): NonNullable<NonNullable<ReviewWorkspace["rpgMa
     validationId: "rpg-validation", importItemId: "item-1", reviewVersionAtCreate: 1,
     runtimeBindingRevision: 1, launchId: "rpg-launch", restoreLaunchId: null, state: "STARTING",
     lastGateSequence: 0, machineGates: [], failureCode: null, expiresAtMs: Date.now() + 60_000,
-    routeEvidence: { coreId: "rpgmaker_mv", generation: "RPGMV", evidenceGeneration: "RPGMV", evidenceConfidence: "MATCHED", routeKey: "RPGMV_NATIVE", adapterId: "native-web", adapterAbi: "native-save" },
-    checkpointRoundTrip: { created: false, payloadKind: null, resumeSlot: null, sizeBytes: null, sha256: null, originalLaunchId: "rpg-launch", initialPosition: null, savedPosition: null, divergedPosition: null, originalLaunchEnded: false, restoreLaunchId: null, restoreStarted: false, restoredPosition: null, positionVerified: false, screenshotUrl: null, restoreInputPosition: null, restoreInputVerified: false },
+    routeEvidence: { effectiveSourceSnapshotId: "10000000-0000-4000-8000-000000000001", generation: "RPGMV", evidenceGeneration: "RPGMV", evidenceConfidence: "MATCHED", providerId: "retrom-runtime", targetId: "rpgmaker-mv", gameCompatibilityLine: "rpgmaker-mv-v1", targetContractSha256: "b".repeat(64), dependencySnapshotSha256: "c".repeat(64), projectFingerprint: "d".repeat(64) },
+    checkpointRoundTrip: { created: false, checkpointFormat: null, sizeBytes: null, sha256: null, originalLaunchId: "rpg-launch", initialPosition: null, savedPosition: null, divergedPosition: null, originalLaunchEnded: false, restoreLaunchId: null, restoreStarted: false, restoredPosition: null, positionVerified: false, screenshotUrl: null, restoreInputPosition: null, restoreInputVerified: false },
+    createdAtMs: 0, updatedAtMs: 0,
     decision: null,
   };
 }
@@ -54,7 +55,7 @@ describe("ReviewActions RPG runtime validation", () => {
     const user = userEvent.setup();
     render(<ReviewActions review={{
       ...refreshed, version: 1, validationStale: true,
-      runtimeVersionChange: { previous: "v0.7.5", current: "v0.7.6" },
+      targetContractChange: { previous: "a".repeat(64), current: "b".repeat(64) },
     }} />);
 
     expect(screen.getByRole("button", { name: "重新运行检查" })).toBeEnabled();

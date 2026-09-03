@@ -211,8 +211,8 @@ paths:
     $ref: ./domains/catalog.yaml#/paths/~1api~1v1~1admin~1games~1{gameId}~1move
   /api/v1/admin/platforms:
     $ref: ./domains/catalog.yaml#/paths/~1api~1v1~1admin~1platforms
-  /api/v1/admin/core-artifacts:
-    $ref: ./domains/catalog.yaml#/paths/~1api~1v1~1admin~1core-artifacts
+  /api/v1/admin/runtime-targets:
+    $ref: ./domains/catalog.yaml#/paths/~1api~1v1~1admin~1runtime-targets
   /api/v1/admin/platform-instances:
     $ref: ./domains/catalog.yaml#/paths/~1api~1v1~1admin~1platform-instances
   /api/v1/admin/platform-instances/recommendations:
@@ -293,10 +293,8 @@ paths:
     $ref: ./domains/runtime.yaml#/paths/~1content~1save-states~1{saveStateId}~1screenshot
   /api/v1/admin/review-assets/{assetId}:
     $ref: ./domains/runtime.yaml#/paths/~1api~1v1~1admin~1review-assets~1{assetId}
-  /runtime/emulatorjs/{configuredVersion}/{runtimePath}:
-    $ref: ./domains/runtime.yaml#/paths/~1runtime~1emulatorjs~1{configuredVersion}~1{runtimePath}
-  /runtime/retrom-runtime/{runtimeVersion}/{runtimePath}:
-    $ref: ./domains/runtime.yaml#/paths/~1runtime~1retrom-runtime~1{runtimeVersion}~1{runtimePath}
+  /runtime/providers/{providerId}/{bundleSha256}/{runtimePath}:
+    $ref: ./domains/runtime.yaml#/paths/~1runtime~1providers~1{providerId}~1{bundleSha256}~1{runtimePath}
   /runtime/content/project/{contentIdentity}/{projectPath}:
     $ref: ./domains/runtime.yaml#/paths/~1runtime~1content~1project~1{contentIdentity}~1{projectPath}
   /runtime/launches/{launchId}/config:
@@ -332,6 +330,20 @@ components:
     sessionCookie:
       $ref: ./components/common.yaml#/components/securitySchemes/sessionCookie
   schemas:
+    DiagnosticsSnapshot:
+      $ref: ./domains/operations.yaml#/components/schemas/DiagnosticsSnapshot
+    DiagnosticsRuntimeProvider:
+      $ref: ./domains/operations.yaml#/components/schemas/DiagnosticsRuntimeProvider
+    DiagnosticsCounts:
+      $ref: ./domains/operations.yaml#/components/schemas/DiagnosticsCounts
+    DiagnosticsLifecycleCounts:
+      $ref: ./domains/operations.yaml#/components/schemas/DiagnosticsLifecycleCounts
+    DiagnosticsGameCounts:
+      $ref: ./domains/operations.yaml#/components/schemas/DiagnosticsGameCounts
+    DiagnosticsJobCounts:
+      $ref: ./domains/operations.yaml#/components/schemas/DiagnosticsJobCounts
+    DiagnosticsDATCounts:
+      $ref: ./domains/operations.yaml#/components/schemas/DiagnosticsDATCounts
     StorageAnalysis:
       $ref: ./domains/operations.yaml#/components/schemas/StorageAnalysis
     StorageAnalysisTotals:
@@ -494,76 +506,22 @@ components:
       $ref: ./domains/runtime.yaml#/components/schemas/ReviewPreviewConfig
     LaunchConfig:
       $ref: ./domains/runtime.yaml#/components/schemas/LaunchConfig
-    EmulatorJSLaunchConfig:
-      $ref: ./domains/runtime.yaml#/components/schemas/EmulatorJSLaunchConfig
     RpgGeneration:
       $ref: ./components/common.yaml#/components/schemas/RpgGeneration
     RpgCoreID:
       $ref: ./components/common.yaml#/components/schemas/RpgCoreID
-    CheckpointPayloadKind:
-      $ref: ./components/common.yaml#/components/schemas/CheckpointPayloadKind
-    NativeCheckpointProfile:
-      $ref: ./domains/runtime.yaml#/components/schemas/NativeCheckpointProfile
+    CheckpointFormat:
+      $ref: ./components/common.yaml#/components/schemas/CheckpointFormat
     CheckpointUnavailableReason:
       $ref: ./domains/runtime.yaml#/components/schemas/CheckpointUnavailableReason
     CheckpointAvailability:
       $ref: ./domains/runtime.yaml#/components/schemas/CheckpointAvailability
-    RpgCheckpointRestore:
-      $ref: ./domains/runtime.yaml#/components/schemas/RpgCheckpointRestore
-    FileTreeSource:
-      $ref: ./domains/runtime.yaml#/components/schemas/FileTreeSource
-    EasyRpgAdapterConfig:
-      $ref: ./domains/runtime.yaml#/components/schemas/EasyRpgAdapterConfig
-    MkxpCoreArtifact:
-      $ref: ./domains/runtime.yaml#/components/schemas/MkxpCoreArtifact
-    SeekableBlobSource:
-      $ref: ./domains/runtime.yaml#/components/schemas/SeekableBlobSource
-    MkxpRtpArchive:
-      $ref: ./domains/runtime.yaml#/components/schemas/MkxpRtpArchive
-    MkxpAdapterConfig:
-      $ref: ./domains/runtime.yaml#/components/schemas/MkxpAdapterConfig
-    NativeWebAdapterConfig:
-      $ref: ./domains/runtime.yaml#/components/schemas/NativeWebAdapterConfig
-    RpgAdapterConfig:
-      $ref: ./domains/runtime.yaml#/components/schemas/RpgAdapterConfig
-    RpgMakerLaunchConfig:
-      $ref: ./domains/runtime.yaml#/components/schemas/RpgMakerLaunchConfig
-    OnsAdapterConfig:
-      $ref: ./domains/runtime.yaml#/components/schemas/OnsAdapterConfig
-    OnsCheckpointRestore:
-      $ref: ./domains/runtime.yaml#/components/schemas/OnsCheckpointRestore
-    OnsLaunchConfig:
-      $ref: ./domains/runtime.yaml#/components/schemas/OnsLaunchConfig
-    KiriKiriAdapterConfig:
-      $ref: ./domains/runtime.yaml#/components/schemas/KiriKiriAdapterConfig
-    KiriKiriCheckpointRestore:
-      $ref: ./domains/runtime.yaml#/components/schemas/KiriKiriCheckpointRestore
-    KiriKiriLaunchConfig:
-      $ref: ./domains/runtime.yaml#/components/schemas/KiriKiriLaunchConfig
-    ButterscotchAdapterConfig:
-      $ref: ./domains/runtime.yaml#/components/schemas/ButterscotchAdapterConfig
-    ButterscotchCheckpointRestore:
-      $ref: ./domains/runtime.yaml#/components/schemas/ButterscotchCheckpointRestore
-    ButterscotchLaunchConfig:
-      $ref: ./domains/runtime.yaml#/components/schemas/ButterscotchLaunchConfig
-    TyranoScriptAdapterConfig:
-      $ref: ./domains/runtime.yaml#/components/schemas/TyranoScriptAdapterConfig
-    TyranoScriptCheckpointRestore:
-      $ref: ./domains/runtime.yaml#/components/schemas/TyranoScriptCheckpointRestore
-    TyranoScriptLaunchConfig:
-      $ref: ./domains/runtime.yaml#/components/schemas/TyranoScriptLaunchConfig
-    WASM4AdapterConfig:
-      $ref: ./domains/runtime.yaml#/components/schemas/WASM4AdapterConfig
-    WASM4CheckpointRestore:
-      $ref: ./domains/runtime.yaml#/components/schemas/WASM4CheckpointRestore
-    WASM4LaunchConfig:
-      $ref: ./domains/runtime.yaml#/components/schemas/WASM4LaunchConfig
     RuntimeAssetPackKind:
       $ref: ./domains/imports.yaml#/components/schemas/RuntimeAssetPackKind
-    CoreArtifactAdminItem:
-      $ref: ./domains/catalog.yaml#/components/schemas/CoreArtifactAdminItem
-    CoreArtifactList:
-      $ref: ./domains/catalog.yaml#/components/schemas/CoreArtifactList
+    RuntimeTargetAdminItem:
+      $ref: ./domains/catalog.yaml#/components/schemas/RuntimeTargetAdminItem
+    RuntimeTargetList:
+      $ref: ./domains/catalog.yaml#/components/schemas/RuntimeTargetList
     RuntimeAssetPackDefinition:
       $ref: ./domains/imports.yaml#/components/schemas/RuntimeAssetPackDefinition
     RuntimeAssetPackReferenceCounts:
@@ -608,8 +566,8 @@ components:
       $ref: ./components/common.yaml#/components/schemas/RpgRuntimeMachineGate
     RpgRuntimeValidationResume:
       $ref: ./domains/runtime.yaml#/components/schemas/RpgRuntimeValidationResume
-    RpgRuntimeRouteEvidence:
-      $ref: ./domains/reviews.yaml#/components/schemas/RpgRuntimeRouteEvidence
+    RpgRuntimeTargetEvidence:
+      $ref: ./domains/reviews.yaml#/components/schemas/RpgRuntimeTargetEvidence
     RpgCheckpointRoundTrip:
       $ref: ./domains/reviews.yaml#/components/schemas/RpgCheckpointRoundTrip
     RpgRuntimeReviewerDecision:
@@ -630,10 +588,6 @@ components:
       $ref: ./domains/runtime.yaml#/components/schemas/RuntimeCheckpointCreated
     CheckpointStatus:
       $ref: ./domains/runtime.yaml#/components/schemas/CheckpointStatus
-    NetplayLaunchConfig:
-      $ref: ./domains/runtime.yaml#/components/schemas/NetplayLaunchConfig
-    NetplayCanonicalProfile:
-      $ref: ./domains/runtime.yaml#/components/schemas/NetplayCanonicalProfile
     CreateUploadRequest:
       $ref: ./domains/imports.yaml#/components/schemas/CreateUploadRequest
     CreateImportRequest:
@@ -996,8 +950,8 @@ components:
       $ref: ./domains/imports.yaml#/components/responses/PreconditionRequiredResponse
     RuntimeAssetPackListResponse:
       $ref: ./domains/imports.yaml#/components/responses/RuntimeAssetPackListResponse
-    CoreArtifactListResponse:
-      $ref: ./domains/catalog.yaml#/components/responses/CoreArtifactListResponse
+    RuntimeTargetListResponse:
+      $ref: ./domains/catalog.yaml#/components/responses/RuntimeTargetListResponse
     RuntimeAssetPackInstallResponse:
       $ref: ./domains/imports.yaml#/components/responses/RuntimeAssetPackInstallResponse
     RpgRuntimeValidationLaunchResponse:
@@ -1030,6 +984,8 @@ components:
       $ref: ./components/common.yaml#/components/responses/RpgUnprocessableResponse
     RpgServiceUnavailableResponse:
       $ref: ./domains/imports.yaml#/components/responses/RpgServiceUnavailableResponse
+    DiagnosticsResponse:
+      $ref: ./domains/operations.yaml#/components/responses/DiagnosticsResponse
     StorageAnalysisResponse:
       $ref: ./domains/operations.yaml#/components/responses/StorageAnalysisResponse
     StorageCleanupResponse:
@@ -1163,8 +1119,10 @@ components:
       $ref: ./components/common.yaml#/components/parameters/PlatformInstanceIDQuery
     CoreIDQuery:
       $ref: ./components/common.yaml#/components/parameters/CoreIDQuery
-    CoreArtifactIDQuery:
-      $ref: ./domains/catalog.yaml#/components/parameters/CoreArtifactIDQuery
+    ProviderIDQuery:
+      $ref: ./domains/catalog.yaml#/components/parameters/ProviderIDQuery
+    TargetIDQuery:
+      $ref: ./domains/catalog.yaml#/components/parameters/TargetIDQuery
     ImportJobIDQuery:
       $ref: ./domains/reviews.yaml#/components/parameters/ImportJobIDQuery
     PegasusImportIDQuery:
@@ -1315,7 +1273,5 @@ components:
       $ref: ./domains/identity.yaml#/components/parameters/UserID
     AccountLinkID:
       $ref: ./domains/identity.yaml#/components/parameters/AccountLinkID
-    ConfiguredVersion:
-      $ref: ./domains/runtime.yaml#/components/parameters/ConfiguredVersion
     LogicalName:
       $ref: ./domains/runtime.yaml#/components/parameters/LogicalName

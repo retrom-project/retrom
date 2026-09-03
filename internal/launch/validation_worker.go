@@ -12,7 +12,6 @@ import (
 
 	"retrom/internal/arcadedat"
 	"retrom/internal/cleanup"
-	"retrom/internal/contentcapability"
 	"retrom/internal/contentprofile"
 	"retrom/internal/corevalidation"
 
@@ -29,7 +28,8 @@ type variantValidationOutcome struct {
 // One readiness decision spans every validation input.
 func (service *Service) validateVariant(
 	parent context.Context,
-	jobID, variantID, contentID, artifactID string,
+	jobID, variantID, contentID, providerID, targetID, targetContractSHA256,
+	gameCompatibilityLine, contentPolicyJSON string,
 	datID sql.NullString,
 	digest string,
 	biosDependencyDigest string,
@@ -46,13 +46,15 @@ func (service *Service) validateVariant(
 		}
 	}()
 	outcome, err := service.loadValidationOutcome(
-		ctx, variantID, contentID, artifactID, datID, digest, biosDependencyDigest,
+		ctx, variantID, contentID, providerID, targetID, targetContractSHA256,
+		gameCompatibilityLine, contentPolicyJSON, datID, digest, biosDependencyDigest,
 	)
 	if err != nil {
 		return
 	}
 	if err := service.persistValidationOutcome(
-		ctx, jobID, variantID, contentID, artifactID, digest, datID, outcome,
+		ctx, jobID, variantID, contentID, providerID, targetID, targetContractSHA256,
+		gameCompatibilityLine, digest, datID, outcome,
 	); err != nil {
 		return
 	}
@@ -83,7 +85,8 @@ VALUES(?,'GAME_VARIANT',?,'STARTED','{}',?)
 
 func (service *Service) loadValidationOutcome(
 	ctx context.Context,
-	variantID, contentID, artifactID string,
+	variantID, contentID, providerID, targetID, targetContractSHA256,
+	gameCompatibilityLine, contentPolicyJSON string,
 	datID sql.NullString,
 	digest, biosDependencyDigest string,
 ) (variantValidationOutcome, error) {
@@ -97,7 +100,8 @@ r.content_kind FROM game_content_revisions r WHERE r.id=?
 		return variantValidationOutcome{}, fmt.Errorf("load validation content: %w", err)
 	}
 	currentDigest, currentBIOSDigest, biosSnapshot, biosStatus, biosCode, err := service.currentValidationEvidence(
-		ctx, variantID, contentID, contentLogicalName, contentKind, artifactID, datID,
+		ctx, variantID, contentID, contentLogicalName, contentKind,
+		providerID, targetID, targetContractSHA256, gameCompatibilityLine, contentPolicyJSON, datID,
 	)
 	if err != nil {
 		return variantValidationOutcome{}, fmt.Errorf("load validation evidence: %w", err)
@@ -115,7 +119,7 @@ r.content_kind FROM game_content_revisions r WHERE r.id=?
 			return variantValidationOutcome{}, err
 		}
 	}
-	status, code := service.validateContentForArtifact(ctx, contentID, artifactID, datID)
+	status, code := service.validateContentForTarget(ctx, contentID, providerID, targetID, datID)
 	if biosStatus != "READY" {
 		status, code = biosStatus, biosCode
 	}
@@ -127,7 +131,8 @@ r.content_kind FROM game_content_revisions r WHERE r.id=?
 
 func (service *Service) persistValidationOutcome(
 	ctx context.Context,
-	jobID, variantID, contentID, artifactID, digest string,
+	jobID, variantID, contentID, providerID, targetID, targetContractSHA256,
+	gameCompatibilityLine, digest string,
 	datID sql.NullString,
 	outcome variantValidationOutcome,
 ) error {
@@ -144,7 +149,8 @@ func (service *Service) persistValidationOutcome(
 		return err
 	}
 	if err := service.insertValidationRevision(
-		ctx, transaction, revisionID, variantID, contentID, artifactID, digest, datID,
+		ctx, transaction, revisionID, variantID, contentID, providerID, targetID,
+		targetContractSHA256, gameCompatibilityLine, digest, datID,
 		defaultDOSEntry, emulatorGameID, outcome,
 	); err != nil {
 		return err
@@ -195,21 +201,26 @@ SELECT COALESCE(MAX(emulator_game_id),1000)+1 FROM game_variant_revisions
 func (service *Service) insertValidationRevision(
 	ctx context.Context,
 	transaction *sql.Tx,
-	revisionID, variantID, contentID, artifactID, digest string,
+	revisionID, variantID, contentID, providerID, targetID, targetContractSHA256,
+	gameCompatibilityLine, digest string,
 	datID sql.NullString,
 	defaultDOSEntry sql.NullString,
 	emulatorGameID any,
 	outcome variantValidationOutcome,
 ) error {
 	_, err := transaction.ExecContext(ctx, `
-INSERT INTO game_variant_revisions(id,game_variant_id,game_content_revision_id,core_artifact_id,route_key,
+INSERT INTO game_variant_revisions(id,game_variant_id,game_content_revision_id,
+provider_id,target_id,target_contract_sha256,game_compatibility_line,
 dat_version_id,validation_input_digest,emulator_game_id,status,compatibility_code,
 dependency_snapshot_json,default_dos_entry,created_at_ms)
-SELECT ?,?,?,artifact.id,artifact.route_key,?,?,?,?,?,?,?,?
-FROM core_artifacts artifact WHERE artifact.id=? AND artifact.runtime_family='EMULATORJS'
-`, revisionID, variantID, contentID, nullableSQL(datID), digest, emulatorGameID,
+SELECT ?,?,?,?,?,?,?, ?,?,?,?,?,?,?,?
+FROM runtime_targets target
+WHERE target.provider_id=? AND target.target_id=?
+ AND target.target_contract_sha256=? AND target.game_compatibility_line=?
+`, revisionID, variantID, contentID, providerID, targetID, targetContractSHA256,
+		gameCompatibilityLine, nullableSQL(datID), digest, emulatorGameID,
 		outcome.status, outcome.code, outcome.dependencySnapshotJSON, nullableSQL(defaultDOSEntry),
-		service.now().UnixMilli(), artifactID)
+		service.now().UnixMilli(), providerID, targetID, targetContractSHA256, gameCompatibilityLine)
 	if err != nil {
 		return fmt.Errorf("insert validation revision: %w", err)
 	}
@@ -318,15 +329,15 @@ AND finished_at_ms=?
 `, now, now, jobID, variantID, now, jobID, now)
 }
 
-func (service *Service) validateContentForArtifact(
+func (service *Service) validateContentForTarget(
 	ctx context.Context,
-	contentID, artifactID string,
+	contentID, providerID, targetID string,
 	datID sql.NullString,
 ) (string, string) {
-	var coreID, platformID, logicalName, contentKind, compatibilityJSON string
+	var coreID, platformID, logicalName, contentKind string
 	var relationshipEnabled int
 	err := service.database.QueryRowContext(ctx, `
-SELECT a.core_id,
+SELECT binding.core_id,
 pi.platform_id,
 COALESCE((SELECT f.logical_name
 FROM game_content_files f
@@ -335,29 +346,32 @@ AND f.role='CONTENT'
 ORDER BY f.sort_order,f.logical_name
 LIMIT 1),''),
 cr.content_kind,
-a.compatibility_json,
 EXISTS(SELECT 1
 FROM platform_cores pc
 WHERE pc.platform_id=pi.platform_id
-AND pc.core_id=a.core_id
+AND pc.core_id=binding.core_id
 AND pc.enabled=1)
-FROM core_artifacts a
+FROM runtime_target_bindings binding
 JOIN game_content_revisions cr ON cr.id=?
 JOIN games g ON g.id=cr.game_id
 JOIN platform_instances pi ON pi.id=g.platform_instance_id
-WHERE a.id=?
-`, contentID, artifactID).
-		Scan(&coreID, &platformID, &logicalName, &contentKind, &compatibilityJSON, &relationshipEnabled)
+JOIN runtime_binding_platforms binding_platform ON binding_platform.binding_id=binding.binding_id
+ AND binding_platform.platform_id=pi.platform_id AND binding_platform.core_id=binding.core_id
+JOIN runtime_binding_content_kinds binding_kind ON binding_kind.binding_id=binding.binding_id
+ AND binding_kind.content_kind=cr.content_kind
+WHERE binding.provider_id=? AND binding.target_id=? AND binding.launch_policy!='DISABLED'
+`, contentID, providerID, targetID).
+		Scan(&coreID, &platformID, &logicalName, &contentKind, &relationshipEnabled)
 	if err != nil {
 		return "BLOCKED", "LAUNCH_CORE_VALIDATION_UNAVAILABLE"
 	}
 	if relationshipEnabled != 1 {
 		return "INCOMPATIBLE", "CORE_PLATFORM_UNSUPPORTED"
 	}
-	if status, code := validateContentProfile(platformID, logicalName, contentKind, compatibilityJSON); status != "READY" {
+	if status, code := validateContentProfile(platformID, logicalName, contentKind); status != "READY" {
 		return status, code
 	}
-	if status, code := service.validateStaticBIOSForContent(ctx, artifactID, logicalName); status != "READY" {
+	if status, code := service.validateStaticBIOSForContent(ctx, providerID, targetID, logicalName); status != "READY" {
 		return status, code
 	}
 	if arcadedat.SupportsCore(coreID) {
@@ -366,10 +380,9 @@ WHERE a.id=?
 	return "READY", "READY"
 }
 
-func validateContentProfile(platformID, logicalName, contentKind, compatibilityJSON string) (string, string) {
+func validateContentProfile(platformID, logicalName, contentKind string) (string, string) {
 	if contentKind == corevalidation.MultiDiscContentKind &&
-		(!contentprofile.AllowsContentKind(platformID, contentprofile.ContentKindMultiDiscM3UV1) ||
-			!contentcapability.SupportsContentKind(compatibilityJSON, contentKind)) {
+		!contentprofile.AllowsContentKind(platformID, contentprofile.ContentKindMultiDiscM3UV1) {
 		return "INCOMPATIBLE", "CORE_CONTENT_FORMAT_UNSUPPORTED"
 	}
 	if _, exists := contentprofile.ByPlatform(platformID); exists {
@@ -408,9 +421,9 @@ AND lower(machine_name)=lower(?)
 
 func (service *Service) validateStaticBIOSForContent(
 	ctx context.Context,
-	artifactID, logicalName string,
+	providerID, targetID, logicalName string,
 ) (string, string) {
-	_, status, code, err := corevalidation.ResolveBIOS(ctx, service.database, artifactID, logicalName)
+	_, status, code, err := corevalidation.ResolveBIOS(ctx, service.database, providerID, targetID, logicalName)
 	if err != nil {
 		return "BLOCKED", "LAUNCH_CORE_VALIDATION_UNAVAILABLE"
 	}

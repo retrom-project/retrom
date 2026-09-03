@@ -51,7 +51,7 @@ export function ReviewActions({ review, activeTags = [], returnTo = "/admin/revi
   const [toast, setToast] = useState<ToastMessage | null>(null);
   const [validationCurrent, setValidationCurrent] = useState(validationWasCurrent);
   const [validationStale, setValidationStale] = useState(initialRuntime.validationStale);
-  const [runtimeVersionChange, setRuntimeVersionChange] = useState(initialRuntime.runtimeVersionChange);
+  const [targetContractChange, setTargetContractChange] = useState(initialRuntime.targetContractChange);
   const [currentValidation, setCurrentValidation] = useState(initialRuntime.validation);
   const [effectiveSourceSnapshotId, setEffectiveSourceSnapshotId] = useState(initialRuntime.effectiveSourceSnapshotId);
   const [arcadeDependencies, setArcadeDependencies] = useState(initialRuntime.arcadeDependencies);
@@ -75,7 +75,7 @@ export function ReviewActions({ review, activeTags = [], returnTo = "/admin/revi
     setCurrentValidation(updated.validation);
     setValidationCurrent(updated.validation?.current ?? false);
     setValidationStale(updated.validationStale ?? false);
-    setRuntimeVersionChange(updated.runtimeVersionChange ?? null);
+    setTargetContractChange(updated.targetContractChange ?? null);
     setEffectiveSourceSnapshotId(updated.effectiveSourceSnapshotId ?? "");
     setArcadeDependencies(updated.arcadeDependencies ?? null);
     setMultiDisc(updated.multiDisc ?? null);
@@ -86,7 +86,7 @@ export function ReviewActions({ review, activeTags = [], returnTo = "/admin/revi
     setRPGMaker(updated.rpgMaker ?? null);
     setTags(updated.tags ?? []);
     router.refresh();
-  }, [router, setArcadeDependencies, setCandidates, setCurrentValidation, setEffectiveSourceSnapshotId, setMultiDisc, setRPGMaker, setRuntimeScreenshot, setRuntimeVersionChange, setServerCanApprove, setTags, setUploadedAssets, setValidationCurrent, setValidationStale]);
+  }, [router, setArcadeDependencies, setCandidates, setCurrentValidation, setEffectiveSourceSnapshotId, setMultiDisc, setRPGMaker, setRuntimeScreenshot, setServerCanApprove, setTags, setTargetContractChange, setUploadedAssets, setValidationCurrent, setValidationStale]);
 
   const refreshReview = useCallback(async () => {
     const response = await fetch(`/api/v1/admin/reviews/${review.itemId}`, { cache: "no-store" });
@@ -206,7 +206,7 @@ export function ReviewActions({ review, activeTags = [], returnTo = "/admin/revi
   const covers = reviewCoverPresentation(review, candidates, uploadedAssets, cover, comparison);
   const readiness = reviewReadiness(validationStatus, validationCurrent, runtimeScreenshot, effectiveCanApprove(rpgMaker, serverCanApprove), arcadeDependencies?.activeAttachment?.state, multiDisc?.activeAttachment?.state, Boolean(rpgMaker));
 
-  return <ReviewActionsView model={{ review, activeTags, sourceDisplayName, platformInstanceName, children, form, updateField, candidateId, cover, setCover, defaultDosEntry, setDefaultDosEntry, tags, setTags, busy, saveState, notice, jobProgress, validationStatus, validationStale, runtimeVersionChange, runtimeScreenshot, rpgMaker, setRPGMaker, rpgValidation, sourceCover: covers.source, selectedCover: covers.selected, currentCompareCover: covers.currentComparison, nextCompareCover: covers.nextComparison, comparison, setComparison, arcadeDependencies, multiDisc, ...readiness, saveLabel: saveStateLabel(saveState), attachments, commands, toast, setToast }} />;
+  return <ReviewActionsView model={{ review, activeTags, sourceDisplayName, platformInstanceName, children, form, updateField, candidateId, cover, setCover, defaultDosEntry, setDefaultDosEntry, tags, setTags, busy, saveState, notice, jobProgress, validationStatus, validationStale, targetContractChange, runtimeScreenshot, rpgMaker, setRPGMaker, rpgValidation, sourceCover: covers.source, selectedCover: covers.selected, currentCompareCover: covers.currentComparison, nextCompareCover: covers.nextComparison, comparison, setComparison, arcadeDependencies, multiDisc, ...readiness, saveLabel: saveStateLabel(saveState), attachments, commands, toast, setToast }} />;
 }
 
 function effectiveCanApprove(rpgMaker: ReviewWorkspace["rpgMaker"], serverCanApprove: boolean) {
@@ -219,7 +219,7 @@ type ReviewViewModel = {
   form: MetadataForm; updateField: (key: keyof MetadataForm, value: string) => void; candidateId: string | null;
   cover: CoverSelection; setCover: Dispatch<SetStateAction<CoverSelection>>; defaultDosEntry: string | null; setDefaultDosEntry: Dispatch<SetStateAction<string | null>>;
   tags: TagReference[]; setTags: Dispatch<SetStateAction<TagReference[]>>; busy: string | null; saveState: "saved" | "pending" | "saving" | "error";
-  notice: string; jobProgress: string; validationStatus: string | null; validationStale: boolean; runtimeVersionChange: ReviewWorkspace["runtimeVersionChange"]; runtimeScreenshot: ReviewWorkspace["runtimeScreenshot"];
+  notice: string; jobProgress: string; validationStatus: string | null; validationStale: boolean; targetContractChange: ReviewWorkspace["targetContractChange"]; runtimeScreenshot: ReviewWorkspace["runtimeScreenshot"];
   rpgMaker: NonNullable<ReviewWorkspace["rpgMaker"]> | null; setRPGMaker: Dispatch<SetStateAction<NonNullable<ReviewWorkspace["rpgMaker"]> | null>>; rpgValidation: ReturnType<typeof useRPGReviewValidation>;
   sourceCover: PreviewAsset | null; selectedCover: PreviewAsset | null; currentCompareCover: PreviewAsset | null; nextCompareCover: PreviewAsset | null;
   comparison: Comparison | null; setComparison: Dispatch<SetStateAction<Comparison | null>>; arcadeDependencies: ArcadeDependencies | null; multiDisc: ReviewMultiDisc | null;
@@ -291,7 +291,7 @@ function ReviewDecision({ model }: { model: ReviewViewModel }) {
 }
 
 function reviewDecisionMessage(model: ReviewViewModel) {
-  if (model.validationStale && model.runtimeVersionChange) {return `Runtime ${model.runtimeVersionChange.previous} → ${model.runtimeVersionChange.current}，请重新检查。`;}
+  if (model.validationStale && model.targetContractChange) {return `Runtime Target 契约 ${shortDigest(model.targetContractChange.previous)} → ${shortDigest(model.targetContractChange.current)}，请重新检查。`;}
   if (model.validationStale) {return "Runtime 已更新，请先重新运行检查。";}
   if (model.validationReady) {return "运行检查已经通过，可以发布。";}
   if (model.screenshotOverride) {return "已取得第 5 秒运行截图，可由管理员确认后发布。";}
@@ -306,12 +306,14 @@ function RPGReviewDecision({ model }: { model: ReviewViewModel }) {
 }
 
 function rpgDecisionMessage(model: ReviewViewModel, validation: ReviewViewModel["rpgValidation"]["validation"]) {
-  if (model.validationStale && model.runtimeVersionChange) {return `Runtime ${model.runtimeVersionChange.previous} → ${model.runtimeVersionChange.current}，请重新检查。`;}
+  if (model.validationStale && model.targetContractChange) {return `Runtime Target 契约 ${shortDigest(model.targetContractChange.previous)} → ${shortDigest(model.targetContractChange.current)}，请重新检查。`;}
   if (model.validationStale) {return "Runtime 已更新，请先重新运行检查。";}
   if (validation && !model.rpgMaker?.runtimeValidationCurrent) {return "当前绑定已变化；历史验证不能发布，请重新运行游戏。";}
   if (validation?.launchId) {return "游戏 Launch 已创建；确认可运行后即可发布，高级恢复验证为可选。";}
   return "请先运行一次游戏，随后即可通过并发布。";
 }
+
+function shortDigest(value: string) {return value.slice(0, 8);}
 
 function RPGValidationActions({ model, descriptionId, message }: { model: ReviewViewModel; descriptionId?: string; message: string }) {
   return <div className="review-workflow-preview-actions">

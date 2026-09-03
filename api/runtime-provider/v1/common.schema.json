@@ -20,7 +20,7 @@
       "maxLength": 240,
       "pattern": "^(?!/)(?!.*(?:^|/)\\.{1,2}(?:/|$))(?!.*//)(?!.*[\\\\?#])[A-Za-z0-9._/-]+$"
     },
-    "relativeUrl": { "type": "string", "minLength": 2, "maxLength": 2048, "pattern": "^/(?!/)(?!.*[\\\\#])[ -~]+$" },
+    "relativeUrl": { "type": "string", "minLength": 1, "maxLength": 2048, "pattern": "^/(?!/)(?!.*[\\\\#])[ -~]*$" },
     "httpOrigin": { "type": "string", "minLength": 8, "maxLength": 2048, "pattern": "^https?://[^/#]+(?::[0-9]+)?$" },
     "httpUrl": { "type": "string", "minLength": 8, "maxLength": 2048, "pattern": "^https?://[^#]+$" },
     "webSocketUrl": { "type": "string", "minLength": 7, "maxLength": 2048, "pattern": "^wss?://[^#]+$" },

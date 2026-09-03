@@ -18,27 +18,29 @@ import (
 var ErrCatalogChanged = errors.New("BIOS_REQUIREMENT_CATALOG_CHANGED")
 
 type ServerInstallRequest struct {
-	ServerImportID      string
-	JobID               string
-	CandidateID         string
-	RequirementID       string
-	RequirementVersion  int64
-	CoreArtifactVersion int64
-	SourceVersion       string
-	CatalogDigest       string
-	SourceKind          string
-	LogicalName         string
-	OriginalFilename    string
-	Metadata            blobstore.Metadata
-	Status              string
-	MatchMethod         string
-	Details             map[string]any
-	ArchiveEntries      []importing.ArchiveEntry
-	ReplaceIfBetter     bool
-	StaticExpectation   *StaticExpectation
-	StaticEvaluation    *StaticEvaluation
-	DATExpectedEntries  []ExpectedDATEntry
-	DATEvaluation       *DATEvaluation
+	ServerImportID       string
+	JobID                string
+	CandidateID          string
+	RequirementID        string
+	RequirementVersion   int64
+	ProviderID           string
+	TargetID             string
+	TargetContractSHA256 string
+	SourceVersion        string
+	CatalogDigest        string
+	SourceKind           string
+	LogicalName          string
+	OriginalFilename     string
+	Metadata             blobstore.Metadata
+	Status               string
+	MatchMethod          string
+	Details              map[string]any
+	ArchiveEntries       []importing.ArchiveEntry
+	ReplaceIfBetter      bool
+	StaticExpectation    *StaticExpectation
+	StaticEvaluation     *StaticEvaluation
+	DATExpectedEntries   []ExpectedDATEntry
+	DATEvaluation        *DATEvaluation
 }
 
 type ServerInstallResult struct {
@@ -94,20 +96,29 @@ func validateServerCatalog(
 	request ServerInstallRequest,
 ) (int64, error) {
 	var sourceKind, sourceVersion, catalogDigest string
-	var version, artifactVersion int64
+	var requestProviderID, requestTargetID, requestTargetContract string
+	var version int64
 	if err := transaction.QueryRowContext(ctx, `
 SELECT requirement.source_kind,
 requirement.source_version,
 requirement.catalog_digest,
 requirement.version,
-artifact.version
+requirement.provider_id,
+requirement.target_id,
+requirement.target_contract_sha256
 FROM bios_requirements requirement
-JOIN core_artifacts artifact ON artifact.id=requirement.core_artifact_id AND artifact.available_for_launch=1
+JOIN runtime_targets target ON target.provider_id=requirement.provider_id
+ AND target.target_id=requirement.target_id
+ AND target.target_contract_sha256=requirement.target_contract_sha256
 WHERE requirement.id=? AND requirement.enabled=1
-`, request.RequirementID).Scan(&sourceKind, &sourceVersion, &catalogDigest, &version, &artifactVersion); err != nil ||
+`, request.RequirementID).Scan(
+		&sourceKind, &sourceVersion, &catalogDigest, &version,
+		&requestProviderID, &requestTargetID, &requestTargetContract,
+	); err != nil ||
 		sourceKind != request.SourceKind || sourceVersion != request.SourceVersion ||
 		catalogDigest != request.CatalogDigest ||
-		version != request.RequirementVersion || artifactVersion != request.CoreArtifactVersion {
+		version != request.RequirementVersion || requestProviderID != request.ProviderID ||
+		requestTargetID != request.TargetID || requestTargetContract != request.TargetContractSHA256 {
 		return 0, ErrCatalogChanged
 	}
 	return version, nil

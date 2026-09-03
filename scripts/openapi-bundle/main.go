@@ -184,7 +184,165 @@ func (cache *documentCache) resolveInline(node *yaml.Node, filename string) (*ya
 	if err != nil {
 		return nil, fmt.Errorf("resolve OpenAPI reference %s: %w", reference, err)
 	}
+	if filepath.Ext(target) == ".json" {
+		return cache.resolveJSONSchema(selected, target)
+	}
 	return cache.resolveRegular(selected, target)
+}
+
+// resolveJSONSchema projects the authoritative draft-2020-12 Provider schema
+// into the OpenAPI 3.0 schema subset used by code generation. References are
+// expanded from the authority files; no hand-maintained HTTP DTO copy exists.
+func (cache *documentCache) resolveJSONSchema(node *yaml.Node, filename string) (*yaml.Node, error) {
+	if node.Kind == yaml.MappingNode {
+		if reference, ok := mappingScalar(node, "$ref"); ok {
+			target := filename
+			fragment := ""
+			var err error
+			if strings.HasPrefix(reference, "#") {
+				fragment = "/" + strings.TrimPrefix(strings.TrimPrefix(reference, "#"), "/")
+			} else {
+				target, fragment, err = cache.reference(filename, reference)
+				if err != nil {
+					return nil, err
+				}
+			}
+			if filepath.Base(target) == "common.schema.json" && fragment == "/$defs/jsonObject" {
+				return &yaml.Node{Kind: yaml.MappingNode, Content: []*yaml.Node{
+					{Kind: yaml.ScalarNode, Tag: "!!str", Value: "type"},
+					{Kind: yaml.ScalarNode, Tag: "!!str", Value: "object"},
+					{Kind: yaml.ScalarNode, Tag: "!!str", Value: "maxProperties"},
+					{Kind: yaml.ScalarNode, Tag: "!!int", Value: "64"},
+					{Kind: yaml.ScalarNode, Tag: "!!str", Value: "additionalProperties"},
+					{Kind: yaml.ScalarNode, Tag: "!!bool", Value: "true"},
+				}}, nil
+			}
+			document, err := cache.load(target)
+			if err != nil {
+				return nil, err
+			}
+			selected, err := selectJSONPointer(document, fragment)
+			if err != nil {
+				return nil, fmt.Errorf("resolve JSON Schema reference %s: %w", reference, err)
+			}
+			return cache.resolveJSONSchema(selected, target)
+		}
+		if nullable, ok := nullableAlternative(node); ok {
+			resolved, err := cache.resolveJSONSchema(nullable, filename)
+			if err != nil {
+				return nil, err
+			}
+			result := cloneShallow(resolved)
+			result.Content = append([]*yaml.Node{}, resolved.Content...)
+			result.Content = append(result.Content,
+				&yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: "nullable"},
+				&yaml.Node{Kind: yaml.ScalarNode, Tag: "!!bool", Value: "true"},
+			)
+			return result, nil
+		}
+		result := cloneShallow(node)
+		result.Content = make([]*yaml.Node, 0, len(node.Content))
+		for index := 0; index < len(node.Content); index += 2 {
+			key := node.Content[index]
+			value := node.Content[index+1]
+			switch key.Value {
+			case "$schema", "$id", "$defs", "if", "then", "else":
+				continue
+			case "const":
+				resolved, err := cache.resolveJSONSchema(value, filename)
+				if err != nil {
+					return nil, err
+				}
+				result.Content = append(result.Content,
+					&yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: "enum"},
+					&yaml.Node{Kind: yaml.SequenceNode, Content: []*yaml.Node{resolved}},
+				)
+			case "pattern":
+				if value.Kind == yaml.ScalarNode && strings.Contains(value.Value, "(?") {
+					continue
+				}
+				result.Content = append(result.Content, cloneNode(key), cloneNode(value))
+			case "allOf":
+				if value.Kind != yaml.SequenceNode {
+					return nil, errors.New("JSON Schema allOf must be an array")
+				}
+				sequence := &yaml.Node{Kind: yaml.SequenceNode}
+				for _, child := range value.Content {
+					if _, conditional := mappingScalar(child, "if"); conditional || mappingHasKey(child, "if") {
+						continue
+					}
+					resolved, err := cache.resolveJSONSchema(child, filename)
+					if err != nil {
+						return nil, err
+					}
+					sequence.Content = append(sequence.Content, resolved)
+				}
+				if len(sequence.Content) > 0 {
+					result.Content = append(result.Content, cloneNode(key), sequence)
+				}
+			default:
+				resolved, err := cache.resolveJSONSchema(value, filename)
+				if err != nil {
+					return nil, err
+				}
+				result.Content = append(result.Content, cloneNode(key), resolved)
+			}
+		}
+		return result, nil
+	}
+	if node.Kind == yaml.SequenceNode {
+		result := cloneShallow(node)
+		result.Content = make([]*yaml.Node, 0, len(node.Content))
+		for _, child := range node.Content {
+			resolved, err := cache.resolveJSONSchema(child, filename)
+			if err != nil {
+				return nil, err
+			}
+			result.Content = append(result.Content, resolved)
+		}
+		return result, nil
+	}
+	return cloneNode(node), nil
+}
+
+func nullableAlternative(node *yaml.Node) (*yaml.Node, bool) {
+	if node.Kind != yaml.MappingNode || len(node.Content) != 2 || node.Content[0].Value != "oneOf" {
+		return nil, false
+	}
+	values := node.Content[1]
+	if values.Kind != yaml.SequenceNode || len(values.Content) != 2 {
+		return nil, false
+	}
+	for index, value := range values.Content {
+		if kind, ok := mappingScalar(value, "type"); ok && kind == "null" {
+			return values.Content[1-index], true
+		}
+	}
+	return nil, false
+}
+
+func mappingScalar(node *yaml.Node, key string) (string, bool) {
+	if node.Kind != yaml.MappingNode {
+		return "", false
+	}
+	for index := 0; index < len(node.Content); index += 2 {
+		if node.Content[index].Value == key && node.Content[index+1].Kind == yaml.ScalarNode {
+			return node.Content[index+1].Value, true
+		}
+	}
+	return "", false
+}
+
+func mappingHasKey(node *yaml.Node, key string) bool {
+	if node.Kind != yaml.MappingNode {
+		return false
+	}
+	for index := 0; index < len(node.Content); index += 2 {
+		if node.Content[index].Value == key {
+			return true
+		}
+	}
+	return false
 }
 
 func (cache *documentCache) resolveRegular(node *yaml.Node, filename string) (*yaml.Node, error) {
@@ -193,9 +351,20 @@ func (cache *documentCache) resolveRegular(node *yaml.Node, filename string) (*y
 		return nil, err
 	}
 	if external {
-		_, fragment, err := cache.reference(filename, reference)
+		target, fragment, err := cache.reference(filename, reference)
 		if err != nil {
 			return nil, err
+		}
+		if filepath.Ext(target) == ".json" {
+			document, loadErr := cache.load(target)
+			if loadErr != nil {
+				return nil, loadErr
+			}
+			selected, selectErr := selectJSONPointer(document, fragment)
+			if selectErr != nil {
+				return nil, fmt.Errorf("resolve OpenAPI reference %s: %w", reference, selectErr)
+			}
+			return cache.resolveJSONSchema(selected, target)
 		}
 		result := cloneNode(node)
 		result.Content[1].Value = "#" + fragment
@@ -249,6 +418,9 @@ func (cache *documentCache) reference(currentFile, reference string) (string, st
 	if err != nil || relative == ".." || strings.HasPrefix(relative, ".."+string(filepath.Separator)) {
 		return "", "", fmt.Errorf("OpenAPI reference leaves API root: %s", parsed.Redacted())
 	}
+	if parsed.Fragment == "" && filepath.Ext(target) == ".json" {
+		return target, "", nil
+	}
 	if parsed.Fragment == "" {
 		return "", "", fmt.Errorf("OpenAPI reference has no JSON pointer: %s", parsed.Redacted())
 	}
@@ -259,6 +431,9 @@ func selectJSONPointer(document *yaml.Node, pointer string) (*yaml.Node, error) 
 	current := document
 	if current.Kind == yaml.DocumentNode && len(current.Content) == 1 {
 		current = current.Content[0]
+	}
+	if pointer == "" {
+		return current, nil
 	}
 	for _, encoded := range strings.Split(strings.TrimPrefix(pointer, "/"), "/") {
 		segment := strings.ReplaceAll(strings.ReplaceAll(encoded, "~1", "/"), "~0", "~")

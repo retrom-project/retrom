@@ -49,12 +49,7 @@ func TestPlatformDefaultsSelectBindingsOnlyByProductCore(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, template := range platformcatalog.Current().Templates {
-		matches := make([]Binding, 0)
-		for _, binding := range catalog.Bindings {
-			if binding.CoreID == template.DefaultCoreID && containsString(binding.PlatformIDs, template.PlatformID) {
-				matches = append(matches, binding)
-			}
-		}
+		matches := defaultBindings(catalog, template.PlatformID, template.DefaultCoreID)
 		if template.PlatformID == "rpgmaker" {
 			if len(matches) != 7 {
 				t.Fatalf("RPG Maker generation bindings = %d, want 7", len(matches))
@@ -78,6 +73,16 @@ func TestPlatformDefaultsSelectBindingsOnlyByProductCore(t *testing.T) {
 			t.Fatalf("missing default binding %#v", expected)
 		}
 	}
+}
+
+func defaultBindings(catalog Catalog, platformID, coreID string) []Binding {
+	matches := make([]Binding, 0)
+	for _, binding := range catalog.Bindings {
+		if binding.CoreID == coreID && containsString(binding.PlatformIDs, platformID) {
+			matches = append(matches, binding)
+		}
+	}
+	return matches
 }
 
 func TestResolveBindingClosesOrdinaryAndRPGSelection(t *testing.T) {

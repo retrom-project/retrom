@@ -403,7 +403,9 @@ components:
         - requirementId
         - coreId
         - coreName
-        - coreArtifactId
+        - providerId
+        - targetId
+        - targetContractSha256
         - logicalName
         - requirementMode
         - sourceKind
@@ -422,8 +424,15 @@ components:
           type: string
         coreName:
           type: string
-        coreArtifactId:
+        providerId:
           type: string
+          pattern: ^[a-z0-9]+(?:-[a-z0-9]+)*$
+        targetId:
+          type: string
+          pattern: ^[a-z0-9]+(?:-[a-z0-9]+)*$
+        targetContractSha256:
+          type: string
+          pattern: ^[0-9a-f]{64}$
         logicalName:
           type: string
         requirementMode:

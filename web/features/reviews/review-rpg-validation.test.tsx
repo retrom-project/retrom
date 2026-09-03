@@ -27,15 +27,16 @@ const review: RPGMakerReview = {
     state: "AWAITING_DECISION",
     lastGateSequence: 28,
     machineGates: [
-      { gate: "ENGINE_PROFILE", status: "PASSED", begunAtMs: 1, completedAtMs: 2, evidence: { generation: "RPGMZ", adapterId: "native-web", engineProfile: "RPGMZ" }, failureCode: null },
+      { gate: "ENGINE_PROFILE", status: "PASSED", begunAtMs: 1, completedAtMs: 2, evidence: { generation: "RPGMZ", engineProfile: "RPGMZ" }, failureCode: null },
       { gate: "FRAMES_300", status: "PASSED", begunAtMs: 3, completedAtMs: 4, evidence: { continuousFrames: 360 }, failureCode: null },
       { gate: "SAVE_POINT_RECORDED", status: "PASSED", begunAtMs: 5, completedAtMs: 6, evidence: { mapId: 1, playerX: 8, playerY: 7, fixtureState: 1 }, failureCode: null },
-      { gate: "CHECKPOINT_CREATED", status: "PASSED", begunAtMs: 7, completedAtMs: 8, evidence: { payloadKind: "NATIVE_SAVE_BUNDLE_V1", sizeBytes: 4096, sha256: "a".repeat(64) }, failureCode: null },
+      { gate: "CHECKPOINT_CREATED", status: "PASSED", begunAtMs: 7, completedAtMs: 8, evidence: { checkpointFormat: "rpgmaker-native-save-v1", sizeBytes: 4096, sha256: "a".repeat(64) }, failureCode: null },
     ],
     failureCode: null,
     expiresAtMs: 10,
-    routeEvidence: { coreId: "rpgmaker_mz", generation: "RPGMZ", evidenceGeneration: "RPGMZ", evidenceConfidence: "MATCHED", routeKey: "RPGMZ_NATIVE", adapterId: "native-web", adapterAbi: "native-save" },
-    checkpointRoundTrip: { created: true, payloadKind: "NATIVE_SAVE_BUNDLE_V1", resumeSlot: 1, sizeBytes: 4096, sha256: "a".repeat(64), originalLaunchId: "10000000-0000-4000-8000-000000000003", initialPosition: { mapId: 1, playerX: 4, playerY: 7, fixtureState: 0 }, savedPosition: { mapId: 1, playerX: 8, playerY: 7, fixtureState: 1 }, divergedPosition: { mapId: 1, playerX: 11, playerY: 7, fixtureState: 2 }, originalLaunchEnded: true, restoreLaunchId: "10000000-0000-4000-8000-000000000004", restoreStarted: true, restoredPosition: { mapId: 1, playerX: 8, playerY: 7, fixtureState: 1 }, positionVerified: true, screenshotUrl: "/screenshot", restoreInputPosition: { mapId: 1, playerX: 9, playerY: 7, fixtureState: 1 }, restoreInputVerified: true },
+    routeEvidence: { effectiveSourceSnapshotId: "10000000-0000-4000-8000-000000000005", generation: "RPGMZ", evidenceGeneration: "RPGMZ", evidenceConfidence: "MATCHED", providerId: "retrom-runtime", targetId: "rpgmaker-mz", gameCompatibilityLine: "rpgmaker-mz-v1", targetContractSha256: "b".repeat(64), dependencySnapshotSha256: "c".repeat(64), projectFingerprint: "d".repeat(64) },
+    checkpointRoundTrip: { created: true, checkpointFormat: "rpgmaker-native-save-v1", sizeBytes: 4096, sha256: "a".repeat(64), originalLaunchId: "10000000-0000-4000-8000-000000000003", initialPosition: { mapId: 1, playerX: 4, playerY: 7, fixtureState: 0 }, savedPosition: { mapId: 1, playerX: 8, playerY: 7, fixtureState: 1 }, divergedPosition: { mapId: 1, playerX: 11, playerY: 7, fixtureState: 2 }, originalLaunchEnded: true, restoreLaunchId: "10000000-0000-4000-8000-000000000004", restoreStarted: true, restoredPosition: { mapId: 1, playerX: 8, playerY: 7, fixtureState: 1 }, positionVerified: true, screenshotUrl: "/api/v1/admin/review-assets/shot", restoreInputPosition: { mapId: 1, playerX: 9, playerY: 7, fixtureState: 1 }, restoreInputVerified: true },
+    createdAtMs: 0, updatedAtMs: 9,
     decision: null,
   },
 };
@@ -55,19 +56,19 @@ describe("RPGValidationCard", () => {
     expect(screen.getByText("10000000-0000-4000-8000-000000000003")).toBeVisible();
     expect(screen.getByText("10000000-0000-4000-8000-000000000004")).toBeVisible();
     expect(screen.getByText("服务端 gate 序号：28")).toBeVisible();
-    expect(screen.getByText("RPGMZ · RPGMZ · native-web")).toBeVisible();
+    expect(screen.getByText("RPGMZ · RPGMZ")).toBeVisible();
     expect(screen.getByText("连续帧 360")).toBeVisible();
     expect(screen.getAllByText("地图 1 · (8, 7) · 状态 1").length).toBeGreaterThan(0);
-    expect(screen.getByText(/NATIVE_SAVE_BUNDLE_V1 · 4 KB · SHA-256 a{12}/)).toBeVisible();
+    expect(screen.getByText(/rpgmaker-native-save-v1 · 4 KB · SHA-256 a{12}/)).toBeVisible();
   });
 
   it("surfaces a failed result in the compact summary without expanding the evidence", () => {
     render(<RPGValidationCard value={{
       ...review,
-      runtimeValidation: { ...review.runtimeValidation!, state: "FAILED", failureCode: "RPG_RUNTIME_GATE_INPUT_FAILED" },
+      runtimeValidation: { ...review.runtimeValidation!, state: "FAILED", failureCode: "RPG_RUNTIME_PROTOCOL_VIOLATION" },
     }} disabled={false} onChange={vi.fn()} />);
 
-    expect(screen.getByText("验证失败 · RPG_RUNTIME_GATE_INPUT_FAILED")).toBeVisible();
+    expect(screen.getByText("验证失败 · RPG_RUNTIME_PROTOCOL_VIOLATION")).toBeVisible();
     expect(screen.getByText("连续帧 360")).not.toBeVisible();
   });
 

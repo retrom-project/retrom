@@ -77,8 +77,10 @@ CREATE TABLE pegasus_import_collections (
   target_platform_instance_version INTEGER CHECK(target_platform_instance_version IS NULL OR target_platform_instance_version>=1),
   target_platform_id TEXT REFERENCES platforms(id),
   target_default_core_id TEXT REFERENCES cores(id),
-  target_core_artifact_id TEXT REFERENCES core_artifacts(id),
-  target_core_artifact_version INTEGER CHECK(target_core_artifact_version IS NULL OR target_core_artifact_version>=1),
+  target_provider_id TEXT REFERENCES runtime_providers(provider_id),
+  target_id TEXT,
+  target_contract_sha256 TEXT CHECK(target_contract_sha256 IS NULL OR length(target_contract_sha256)=64),
+
   target_dat_version_id TEXT REFERENCES dat_versions(id),
   created_at_ms INTEGER NOT NULL CHECK(created_at_ms>=0),
   updated_at_ms INTEGER NOT NULL CHECK(updated_at_ms>=created_at_ms), tag_snapshot_json TEXT NOT NULL DEFAULT '[]'
@@ -88,8 +90,10 @@ CHECK(json_valid(tag_snapshot_json) AND json_type(tag_snapshot_json)='array'),
   CHECK((mapping_action='IMPORT')=(target_platform_instance_version IS NOT NULL)),
   CHECK((mapping_action='IMPORT')=(target_platform_id IS NOT NULL)),
   CHECK((mapping_action='IMPORT')=(target_default_core_id IS NOT NULL)),
-  CHECK((mapping_action='IMPORT')=(target_core_artifact_id IS NOT NULL)),
-  CHECK((mapping_action='IMPORT')=(target_core_artifact_version IS NOT NULL))
+  CHECK((mapping_action='IMPORT')=(target_provider_id IS NOT NULL)),
+  CHECK((mapping_action='IMPORT')=(target_id IS NOT NULL)),
+  CHECK((mapping_action='IMPORT')=(target_contract_sha256 IS NOT NULL)),
+  FOREIGN KEY(target_provider_id,target_id) REFERENCES runtime_targets(provider_id,target_id)
 );
 
 CREATE TABLE pegasus_collection_tags (
@@ -286,8 +290,10 @@ CREATE TABLE emulationstation_import_collections (
   target_platform_instance_version INTEGER CHECK(target_platform_instance_version IS NULL OR target_platform_instance_version>=1),
   target_platform_id TEXT REFERENCES platforms(id),
   target_default_core_id TEXT REFERENCES cores(id),
-  target_core_artifact_id TEXT REFERENCES core_artifacts(id),
-  target_core_artifact_version INTEGER CHECK(target_core_artifact_version IS NULL OR target_core_artifact_version>=1),
+  target_provider_id TEXT REFERENCES runtime_providers(provider_id),
+  target_id TEXT,
+  target_contract_sha256 TEXT CHECK(target_contract_sha256 IS NULL OR length(target_contract_sha256)=64),
+
   target_dat_version_id TEXT REFERENCES dat_versions(id),
   tag_snapshot_json TEXT NOT NULL DEFAULT '[]' CHECK(json_valid(tag_snapshot_json) AND json_type(tag_snapshot_json)='array'),
   created_at_ms INTEGER NOT NULL CHECK(created_at_ms>=0),
@@ -296,15 +302,16 @@ CREATE TABLE emulationstation_import_collections (
   CHECK(game_count>0 OR mapping_action IS NULL OR mapping_action='SKIP'),
   CHECK(
     mapping_action IS NULL AND target_platform_instance_id IS NULL AND target_platform_instance_version IS NULL
-      AND target_platform_id IS NULL AND target_default_core_id IS NULL AND target_core_artifact_id IS NULL
-      AND target_core_artifact_version IS NULL AND target_dat_version_id IS NULL AND tag_snapshot_json='[]'
+      AND target_platform_id IS NULL AND target_default_core_id IS NULL AND target_provider_id IS NULL
+      AND target_id IS NULL AND target_contract_sha256 IS NULL AND target_dat_version_id IS NULL AND tag_snapshot_json='[]'
     OR mapping_action='SKIP' AND target_platform_instance_id IS NULL AND target_platform_instance_version IS NULL
-      AND target_platform_id IS NULL AND target_default_core_id IS NULL AND target_core_artifact_id IS NULL
-      AND target_core_artifact_version IS NULL AND target_dat_version_id IS NULL AND tag_snapshot_json='[]'
+      AND target_platform_id IS NULL AND target_default_core_id IS NULL AND target_provider_id IS NULL
+      AND target_id IS NULL AND target_contract_sha256 IS NULL AND target_dat_version_id IS NULL AND tag_snapshot_json='[]'
     OR mapping_action='IMPORT' AND target_platform_instance_id IS NOT NULL AND target_platform_instance_version IS NOT NULL
-      AND target_platform_id IS NOT NULL AND target_default_core_id IS NOT NULL AND target_core_artifact_id IS NOT NULL
-      AND target_core_artifact_version IS NOT NULL
-  )
+      AND target_platform_id IS NOT NULL AND target_default_core_id IS NOT NULL AND target_provider_id IS NOT NULL
+      AND target_id IS NOT NULL AND target_contract_sha256 IS NOT NULL
+  ),
+  FOREIGN KEY(target_provider_id,target_id) REFERENCES runtime_targets(provider_id,target_id)
 );
 
 CREATE TABLE emulationstation_collection_tags (

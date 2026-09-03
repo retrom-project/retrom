@@ -447,7 +447,7 @@ r.crc32,
 r.sha1
 FROM dat_rom_entries r
 JOIN dat_versions d ON d.id=r.dat_version_id
-JOIN bios_requirements q ON q.core_artifact_id=d.core_artifact_id
+JOIN bios_requirements q ON q.provider_id=d.provider_id AND q.target_id=d.target_id
 AND q.dat_machine_name=r.machine_name
 AND q.source_version=r.dat_version_id
 WHERE q.id=?

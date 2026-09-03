@@ -1,4 +1,5 @@
 import type { TagReference } from "@/components/tag-picker";
+import type {components} from "@/lib/api/generated/schema";
 import type { ArcadeDependencies } from "./arcade-dependency-tree";
 
 export type ReviewAsset = { candidateAssetId: string; kind: "COVER" | "BACKGROUND" | "SCREENSHOT" | "UNKNOWN"; ordinal: number; status: string; widthPx: number | null; heightPx: number | null; mediaType: string | null; errorCode: string | null };
@@ -18,16 +19,9 @@ export type ReviewSourceMedia = ReviewSourceMediaBase & (
   | { sourceKind: "PEGASUS"; pegasusImportId: string; emulationStationImportId?: never }
   | { sourceKind: "EMULATIONSTATION"; emulationStationImportId: string; pegasusImportId?: never }
 );
-export type RPGPosition = { mapId: number; playerX: number; playerY: number; fixtureState: number };
-export type RPGMachineGate = { gate: string; status: "NOT_STARTED" | "IN_PROGRESS" | "PASSED" | "FAILED"; begunAtMs: number | null; completedAtMs: number | null; evidence: unknown; failureCode: string | null };
-export type RPGRuntimeValidation = {
-  validationId: string; importItemId: string; reviewVersionAtCreate: number; runtimeBindingRevision: number;
-  launchId: string | null; restoreLaunchId: string | null; state: "CREATED" | "STARTING" | "RUNNING" | "CHECKPOINTED" | "RESTORED" | "AWAITING_DECISION" | "PASSED" | "FAILED" | "EXPIRED";
-  lastGateSequence: number; machineGates: RPGMachineGate[]; failureCode: string | null; expiresAtMs: number;
-  routeEvidence: { coreId: string; generation: string; evidenceGeneration: string | null; evidenceConfidence: "MATCHED" | "FAMILY_ONLY"; routeKey: string; adapterId: string; adapterAbi: string };
-  checkpointRoundTrip: { created: boolean; payloadKind: string | null; resumeSlot: number | null; sizeBytes: number | null; sha256: string | null; originalLaunchId: string | null; initialPosition: RPGPosition | null; savedPosition: RPGPosition | null; divergedPosition: RPGPosition | null; originalLaunchEnded: boolean; restoreLaunchId: string | null; restoreStarted: boolean; restoredPosition: RPGPosition | null; positionVerified: boolean; screenshotUrl: string | null; restoreInputPosition: RPGPosition | null; restoreInputVerified: boolean };
-  decision: { decision: "PASS" | "FAIL"; note: string; decidedAtMs: number } | null;
-};
+export type RPGPosition = components["schemas"]["RpgPositionEvidence"];
+export type RPGMachineGate = components["schemas"]["RpgRuntimeMachineGate"];
+export type RPGRuntimeValidation = components["schemas"]["RpgRuntimeValidation"];
 export type RPGMakerReview = {
   selectedCoreId: string; generation: string; evidenceGeneration: string | null; evidenceConfidence: "MATCHED" | "FAMILY_ONLY";
   selfContained: boolean; selfContainedOverride: boolean; runtimeBindingRevision: number;
@@ -37,14 +31,14 @@ export type RPGMakerReview = {
 };
 export type ReviewWorkspace = {
   itemId: string; version: number; platformInstance?: { id: string; name: string }; effectiveSourceSnapshotId?: string; canApprove?: boolean; validationStale?: boolean;
-  runtimeVersionChange?: { previous: string; current: string } | null;
+  targetContractChange?: { previous: string; current: string } | null;
   arcadeDependencies?: ArcadeDependencies | null; multiDisc?: ReviewMultiDisc | null;
   metadata: { title: string; description: string; developer: string; publisher: string; genre: string; players: number | null; releaseYear: number | null };
   validation: { id: string; status: string; current: boolean; compatibilityCode: string } | null;
   candidates: ReviewCandidate[]; uploadedAssets?: UploadedReviewAsset[];
   sourceMedia?: ReviewSourceMedia | null;
   rpgMaker?: RPGMakerReview | null;
-  runtimeScreenshot?: { screenshotId: string; validationId: string; coreArtifactId: string; widthPx: number; heightPx: number; capturedAfterMs: 5000; capturedAtMs: number; url: string } | null;
+  runtimeScreenshot?: { screenshotId: string; validationId: string; providerId: string; targetId: string; targetContractSha256: string; widthPx: number; heightPx: number; capturedAfterMs: 5000; capturedAtMs: number; url: string } | null;
   scrapeRuns?: ReviewScrapeRun[]; selectedCandidateId: string | null;
   selectedAssets: { coverCandidateAssetId: string | null; coverUploadedAssetId?: string | null; backgroundCandidateAssetId: string | null; screenshotCandidateAssetIds: string[] };
   defaultDosEntry: string | null; dosEntries: Array<{ path: string; originalPath: string; kind: string; enabled: boolean; directLaunchSafe: boolean }>;
@@ -146,7 +140,7 @@ export function initialRuntimeState(review: ReviewWorkspace) {
   return {
     validationWasCurrent,
     validationStale: review.validationStale ?? false,
-    runtimeVersionChange: review.runtimeVersionChange ?? null,
+    targetContractChange: review.targetContractChange ?? null,
     validation: review.validation,
     effectiveSourceSnapshotId: review.effectiveSourceSnapshotId ?? "",
     arcadeDependencies: review.arcadeDependencies ?? null,

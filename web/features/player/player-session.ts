@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, type Dispatch, type SetStateAction } from "react";
 import { newUuid } from "@/lib/crypto";
-import { readDiscState, type DiscSet, type EmulatorInstance, type ManualStatePayload, type PlayerConfig } from "./adapters/ejs-4.2.3-v2";
+import type {PlayerRuntimeV1} from "./runtime/contract";
+import type {RuntimeSavePayload} from "./runtime/runtime-actions";
 import { uploadWithProgress, type SaveUploadProgress } from "./upload-with-progress";
 import { maximumManualSaveScreenshotBytes, prepareManualSaveScreenshot } from "./manual-save-screenshot";
 import { reducePlayerOrientation, unlockLandscape, type PlayerOrientationState } from "./orientation";
@@ -15,10 +16,10 @@ type Mutable<T> = { current: T };
 type SyncTone = "synced" | "busy" | "warning";
 
 export type PlayerSessionParams = {
-  launchId: string; emulator: Mutable<EmulatorInstance | undefined>; playerMode: Mutable<PlayerConfig["mode"]>;
+  launchId: string; runtime: Mutable<PlayerRuntimeV1 | null>; playerMode: Mutable<"single" | "netplay">;
   sequence: Mutable<number>; started: Mutable<boolean>; finishing: Mutable<boolean>;
   heartbeat: Mutable<number | null>; playEventQueue: Mutable<Promise<void>>; saveUploadQueue: Mutable<Promise<void>>;
-  discSetRef: Mutable<DiscSet | null>; orientationStateRef: Mutable<PlayerOrientationState>; returnTo: Mutable<string>;
+  orientationStateRef: Mutable<PlayerOrientationState>; returnTo: Mutable<string>;
   netplayController: Mutable<NetplayController | null>;
   replaceImmersiveRoute: (url: string) => void;
   setOrientationState: Dispatch<SetStateAction<PlayerOrientationState>>; setSaveUploadProgress: Dispatch<SetStateAction<number | null>>;
@@ -35,10 +36,9 @@ export function usePlayerSession(params: PlayerSessionParams) {
     params.setSyncTone("busy");
   }, [params]);
 
-  const uploadManualState = useCallback(async (payload: ManualStatePayload) => Boolean(await queueStateUpload(payload, params, reportProgress)), [params, reportProgress]);
-  const uploadValidationCheckpoint = useCallback(async (payload: ManualStatePayload) => {
-    if (!payload.validationPurpose) {throw new Error("RPG_CHECKPOINT_RESPONSE_INVALID");}
-    const result = await queueStateUpload(payload, params, reportProgress);
+  const uploadManualState = useCallback(async (payload: RuntimeSavePayload) => Boolean(await queueStateUpload(payload, false, params, reportProgress)), [params, reportProgress]);
+  const uploadValidationCheckpoint = useCallback(async (payload: RuntimeSavePayload) => {
+    const result = await queueStateUpload(payload, true, params, reportProgress);
     if (!result || result === true) {throw new Error("RPG_CHECKPOINT_UPLOAD_FAILED");}
     return result;
   }, [params, reportProgress]);
@@ -70,7 +70,7 @@ async function sendPlayerEvent(kind: "start" | "heartbeat" | "finish", params: P
   if (kind === "heartbeat" && !params.started.current) {throw new Error("PLAY_SESSION_NOT_STARTED");}
   const firstOrUnstartedFinish = kind === "start" || kind === "finish" && !params.started.current;
   const next = firstOrUnstartedFinish ? 0 : params.sequence.current + 1;
-  const response = await fetch(`/runtime/launches/${params.launchId}/${kind}`, { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ clientSequence: next, clientObservedAtMs: Date.now(), previousInterval: firstOrUnstartedFinish ? null : { running: true, visible: document.visibilityState === "visible", paused: params.emulator.current?.paused === true } }) });
+  const response = await fetch(`/runtime/launches/${params.launchId}/${kind}`, { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ clientSequence: next, clientObservedAtMs: Date.now(), previousInterval: firstOrUnstartedFinish ? null : { running: true, visible: document.visibilityState === "visible", paused: params.runtime.current?.getState() === "PAUSED" } }) });
   if (!response.ok) {throw new Error("PLAY_SESSION_EVENT_FAILED");}
   params.sequence.current = next;
   if (kind === "start") {params.started.current = true;}
@@ -85,8 +85,8 @@ function beginPlayerFinish(params: PlayerSessionParams) {
   }
 }
 
-function queueStateUpload(payload: ManualStatePayload, params: PlayerSessionParams, reportProgress: (progress: SaveUploadProgress) => void) {
-  const result = params.saveUploadQueue.current.then(() => uploadState(payload, params, reportProgress));
+function queueStateUpload(payload: RuntimeSavePayload, validation: boolean, params: PlayerSessionParams, reportProgress: (progress: SaveUploadProgress) => void) {
+  const result = params.saveUploadQueue.current.then(() => uploadState(payload, validation, params, reportProgress));
   params.saveUploadQueue.current = result.then(() => undefined, () => undefined);
   return result.catch(() => {
     params.setSaveUploadProgress(null); params.setSyncText("保存失败"); params.setSyncTone("warning");
@@ -129,20 +129,19 @@ async function exitImmersivePlayer(
   params.replaceImmersiveRoute(params.returnTo.current);
 }
 
-async function uploadState(payload: ManualStatePayload, params: PlayerSessionParams, reportProgress: (progress: SaveUploadProgress) => void) {
-  if (!payload.state.byteLength) {return rejectSave(params, "状态为空，未创建存档。");}
-  const discIndex = currentDiscIndex(params);
+async function uploadState(payload: RuntimeSavePayload, validation: boolean, params: PlayerSessionParams, reportProgress: (progress: SaveUploadProgress) => void) {
+  if (!payload.checkpoint.bytes.byteLength) {return rejectSave(params, "状态为空，未创建存档。");}
+  const discIndex = await currentDiscIndex(params);
   if (discIndex === "unavailable") {return rejectSave(params, "无法读取当前光盘，未创建存档。");}
   const preparedScreenshot = await prepareManualSaveScreenshot({
     screenshot: payload.screenshot,
-    format: payload.format,
+    format: screenshotExtension(payload.screenshot),
   });
   const uploadPayload = {
-    ...payload,
     screenshot: preparedScreenshot?.screenshot ?? new Blob(),
     format: preparedScreenshot?.format ?? "png",
   };
-  const form = createSaveForm(uploadPayload, discIndex);
+  const form = createSaveForm(payload, uploadPayload, discIndex, validation);
   const startedAt = performance.now();
   params.setSaveUploadProgress(0);
   await waitForSaveUploadPresentationTurn();
@@ -151,7 +150,7 @@ async function uploadState(payload: ManualStatePayload, params: PlayerSessionPar
     response = await uploadWithProgress({
       url: `/runtime/launches/${params.launchId}/save-states`, method: "POST",
       headers: { "Idempotency-Key": newUuid() }, body: form,
-      totalBytes: uploadPayload.state.byteLength + uploadPayload.screenshot.size,
+      totalBytes: payload.checkpoint.bytes.byteLength + uploadPayload.screenshot.size,
       timeoutMs: SAVE_UPLOAD_TIMEOUT_MS, onProgress: reportProgress,
     });
   } finally {
@@ -161,33 +160,38 @@ async function uploadState(payload: ManualStatePayload, params: PlayerSessionPar
   if (!response.ok) {return rejectSave(params, "手动存档失败，服务器未创建不完整记录");}
   params.setSyncText("已同步"); params.setSyncTone("synced");
   params.showToast(uploadPayload.screenshot.size ? "手动存档和截图已保存" : "手动存档已保存，未附带截图");
-  return uploadResult(payload, response.body);
+  return uploadResult(validation, response.body);
 }
 
-function uploadResult(payload: ManualStatePayload, responseBody: string): true | ValidationCheckpointReceipt {
-  return payload.validationPurpose ? parseValidationCheckpointReceipt(responseBody) : true;
+function uploadResult(validation: boolean, responseBody: string): true | ValidationCheckpointReceipt {
+  return validation ? parseValidationCheckpointReceipt(responseBody) : true;
 }
 
-function currentDiscIndex(params: PlayerSessionParams): number | undefined | "unavailable" {
-  if (!params.discSetRef.current) {return undefined;}
+async function currentDiscIndex(params: PlayerSessionParams): Promise<number | undefined | "unavailable"> {
+  const runtime = params.runtime.current;
+  if (!runtime?.getCapabilities().discSwitch) {return undefined;}
   try {
-    if (!params.emulator.current) {return "unavailable";}
-    return readDiscState(params.emulator.current, params.discSetRef.current.count).currentIndex;
+    return (await runtime.getDiscState()).currentIndex;
   } catch {return "unavailable";}
 }
 
-export function createSaveForm(payload: ManualStatePayload, discIndex: number | undefined) {
+export function createSaveForm(
+  payload: RuntimeSavePayload,
+  screenshot: {screenshot: Blob; format: string},
+  discIndex: number | undefined,
+  validation = false,
+) {
   const form = new FormData();
   const metadata = {
-    payloadKind: payload.payloadKind ?? "RUNTIME_STATE",
-    ...(payload.validationPurpose ? {} : { name: `手动存档 ${new Date().toLocaleString("zh-CN")}` }),
+    checkpointFormat: payload.checkpoint.format,
+    ...(validation ? {} : { name: `手动存档 ${new Date().toLocaleString("zh-CN")}` }),
     ...(discIndex === undefined ? {} : { discIndex }),
   };
   form.append("metadata", new Blob([JSON.stringify(metadata)], { type: "application/json" }));
-  const stateBytes = new Uint8Array(payload.state).slice().buffer;
+  const stateBytes = new Uint8Array(payload.checkpoint.bytes).slice().buffer;
   form.append("payload", new Blob([stateBytes], { type: "application/octet-stream" }), "payload.bin");
-  if (payload.screenshot.size > 0 && payload.screenshot.size <= maximumManualSaveScreenshotBytes) {
-    form.append("screenshot", payload.screenshot, `screenshot.${payload.format || "png"}`);
+  if (screenshot.screenshot.size > 0 && screenshot.screenshot.size <= maximumManualSaveScreenshotBytes) {
+    form.append("screenshot", screenshot.screenshot, `screenshot.${screenshot.format || "png"}`);
   }
   return form;
 }
@@ -230,5 +234,9 @@ function finishOnPageHide(params: PlayerSessionParams) {
   if (params.finishing.current) {return;}
   const wasStarted = params.started.current;
   beginPlayerFinish(params);
-  void fetch(`/runtime/launches/${params.launchId}/finish`, { method: "POST", credentials: "same-origin", keepalive: true, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ clientSequence: wasStarted ? params.sequence.current + 1 : 0, clientObservedAtMs: Date.now(), previousInterval: wasStarted ? { running: true, visible: document.visibilityState === "visible", paused: params.emulator.current?.paused === true } : null }) });
+  void fetch(`/runtime/launches/${params.launchId}/finish`, { method: "POST", credentials: "same-origin", keepalive: true, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ clientSequence: wasStarted ? params.sequence.current + 1 : 0, clientObservedAtMs: Date.now(), previousInterval: wasStarted ? { running: true, visible: document.visibilityState === "visible", paused: params.runtime.current?.getState() === "PAUSED" } : null }) });
+}
+
+function screenshotExtension(screenshot: Blob) {
+  return screenshot.type === "image/jpeg" ? "jpg" : screenshot.type === "image/webp" ? "webp" : "png";
 }

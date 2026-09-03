@@ -9,6 +9,7 @@ import (
 
 	"retrom/internal/cleanup"
 	"retrom/internal/importing"
+	retromruntime "retrom/internal/runtime"
 )
 
 const maximumRuntimePackFiles = 20_000
@@ -34,8 +35,7 @@ func (service *Service) RuntimePackIndex(
 	launchID, capability string,
 	slot int,
 ) (ProjectIndexView, error) {
-	source, err := service.authorizedRPGConfigSource(ctx, launchID, capability)
-	if err != nil || source.runtimeKind != "EASYRPG_WEB" || slot < 0 || slot > 2 {
+	if err := service.authorizeRuntimePack(ctx, launchID, capability); err != nil || slot < 0 || slot > 2 {
 		return ProjectIndexView{}, ErrCredential
 	}
 	installationID, err := service.runtimePackInstallation(ctx, launchID, slot)
@@ -107,8 +107,7 @@ func (service *Service) RuntimePackFile(
 	slot int,
 	logicalName string,
 ) (RuntimePackFileView, error) {
-	source, err := service.authorizedRPGConfigSource(ctx, launchID, capability)
-	if err != nil || source.runtimeKind != "EASYRPG_WEB" || slot < 0 || slot > 2 {
+	if err := service.authorizeRuntimePack(ctx, launchID, capability); err != nil || slot < 0 || slot > 2 {
 		return RuntimePackFileView{}, ErrCredential
 	}
 	normalized, err := importing.ValidateLogicalPath(logicalName)
@@ -128,6 +127,33 @@ WHERE installation_id=? AND path=?
 		return RuntimePackFileView{}, ErrCredential
 	}
 	return view, nil
+}
+
+func (service *Service) authorizeRuntimePack(ctx context.Context, launchID, capability string) error {
+	if service.runtimeBuilder == nil {
+		return ErrCredential
+	}
+	var credential []byte
+	var providerID, targetID, state string
+	var hardExpires int64
+	err := service.database.QueryRowContext(ctx, `
+SELECT credential_sha256,provider_id,target_id,state,hard_expires_at_ms
+FROM launch_sessions WHERE id=?
+`, launchID).Scan(&credential, &providerID, &targetID, &state, &hardExpires)
+	if err != nil || !retromruntime.MatchesCapability(capability, credential) ||
+		state != "ACTIVE" || hardExpires <= service.now().UnixMilli() {
+		return ErrCredential
+	}
+	target, exists := service.runtimeBuilder.Target(providerID, targetID)
+	if !exists {
+		return ErrCredential
+	}
+	for _, input := range target.Inputs {
+		if input.Role == "rtp" && input.Kind == "FILE_TREE_V1" {
+			return nil
+		}
+	}
+	return ErrCredential
 }
 
 func (service *Service) runtimePackInstallation(

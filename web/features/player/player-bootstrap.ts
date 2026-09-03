@@ -1,98 +1,84 @@
 "use client";
 
-import type { Dispatch, RefObject, SetStateAction } from "react";
-import { mountEmulatorJS, validateConfig, type DiscSet, type DiscState, type EmulatorInstance, type ManualStatePayload, type PlayerConfig } from "./adapters/ejs-4.2.3-v2";
-import { installCanvasContain } from "./canvas-fit";
-import { closeEmulatorSettingsPanels } from "./emulator-settings";
-import { prepareMultiDiscLaunch } from "./multi-disc-restore";
-import { multiDiscPlayerResultCode, type MultiDiscPlayerEvent } from "./multi-disc-telemetry";
-import { clearTransientSaveStorage, isTransientSaveFileSystem } from "./transient-save-storage";
-import { requiresExplicitStateRestore } from "./explicit-state-restore";
-import { canCreateRecoverableManualState } from "./dosbox-pure-state";
-import { installPlayerFrameStyle } from "./player-frame-style";
-import { applyVideoRenderingMode, type VideoRenderingMode } from "./video-rendering";
-import { mobilePlayerQuery, portraitPlayerQuery, reducePlayerOrientation, waitForStableLandscape, type PlayerOrientationState, type PlayerRuntimeKind } from "./orientation";
-import type { NetplayController } from "./netplay/controller";
-import { formatPlayerBytes, readBoundedResponse, reportsNativeExit } from "./player-shell-model";
-import { shouldRevealPlayerControlsForKey } from "./player-controls-visibility";
-import type { PlayerDebugRuntime } from "./player-chrome";
-import { handlePlayerPauseShortcut } from "./keyboard-controls";
-import type { ImmersiveGamepadFilter } from "./immersive-gamepad-filter";
-import { installRuntimeImmersiveGamepadFilter } from "./runtime-immersive-gamepad";
-import { validateImmersivePlayerConfig } from "./immersive-player-config";
-import { getImmersiveAudioPreferences } from "@/features/immersive/immersive-audio-preferences";
-import { applyInitialPlayerVolume } from "./immersive-player-volume";
-import { describeRetromRpgRuntime, isRetromRpgRuntimeConfig, mountRetromRpgRuntime, validateRpgRuntimeConfig, type RpgRuntimeConfig } from "./rpg-runtime";
-import type { RpgRuntimeValidationDriver } from "./rpg-runtime-validation";
-import type { ValidationCheckpointReceipt } from "./rpg-validation-checkpoint-response";
-import { isButterscotchLaunchConfig } from "./butterscotch-runtime";
-import { fetchRpgCheckpoint, observedRuntimeDiscCount, rpgDebugRuntime, rpgShellConfig } from "./player-bootstrap-config";
-import {
-  bootstrapButterscotchPlayer,
-  bootstrapKiriKiriPlayer,
-  bootstrapOnsPlayer,
-  bootstrapTyranoScriptPlayer,
-  bootstrapWASM4Player,
-  isKiriKiriLaunchConfig,
-  isOnsLaunchConfig,
-  isTyranoScriptLaunchConfig,
-  isWASM4LaunchConfig,
-  type RetromRuntimeBootstrapHost,
-} from "./player-bootstrap-retrom-runtime";
-import { createRpgRuntimeValidationDriver } from "./rpg-validation-driver-factory";
-import { startNetplay } from "./player-bootstrap-netplay";
-import {
-  useSerializedPlayerBootstrap,
-} from "./player-bootstrap-lifecycle";
-import type { PlayerLoadProgress } from "./player-loading";
-import { handleRetromRuntimeEvent } from "./player-bootstrap-ons";
-import { waitForPlayerFrame } from "./player-frame-ready";
+import type {Dispatch, RefObject, SetStateAction} from "react";
+import {getImmersiveAudioPreferences} from "@/features/immersive/immersive-audio-preferences";
+import {sha256} from "@/lib/crypto";
+import type {ImmersiveGamepadFilter} from "./immersive-gamepad-filter";
+import type {MultiDiscPlayerEvent} from "./multi-disc-telemetry";
+import {NetplayController} from "./netplay/controller";
+import {parseNetplayProfile, type NetplayProfile} from "./netplay/controller-model";
+import {mobilePlayerQuery, portraitPlayerQuery, reducePlayerOrientation, waitForStableLandscape, type PlayerOrientationState, type PlayerRuntimeKind} from "./orientation";
+import {useSerializedPlayerBootstrap} from "./player-bootstrap-lifecycle";
+import type {PlayerDebugRuntime} from "./player-chrome";
+import type {PlayerLoadProgress} from "./player-loading";
+import {RpgRuntimeValidationDriver} from "./rpg-runtime-validation";
+import type {ValidationCheckpointReceipt} from "./rpg-validation-checkpoint-response";
+import type {LaunchEnvelopeV1, PlayerRuntimeV1, RuntimeDiscStateV1, RuntimeEventV1, RuntimeVideoModeV1} from "./runtime/contract";
+import {parseLaunchEnvelopeJSON} from "./runtime/envelope";
+import {RuntimeNetplayPortAdapter} from "./runtime/netplay-port-adapter";
+import {mountProviderRuntime, type RuntimeController} from "./runtime/runtime-controller";
+import type {RuntimeSavePayload} from "./runtime/runtime-actions";
+import {installRuntimeE2EDiagnostics} from "./runtime/e2e-diagnostics";
 
 type ShellState = "loading" | "running" | "error";
 type SyncTone = "synced" | "busy" | "warning";
-type Mutable<T> = { current: T };
+type Mutable<T> = {current: T};
 
 export type PlayerBootstrapParams = {
   launchId: string;
   experience: "standard" | "immersive";
   immersiveGamepadFilter?: ImmersiveGamepadFilter;
-  stage: RefObject<HTMLDivElement | null>; frameRef: RefObject<HTMLIFrameElement | null>; emulator: Mutable<EmulatorInstance | undefined>;
-  returnTo: Mutable<string>; playerMode: Mutable<PlayerConfig["mode"]>; manualSaveAvailableRef: Mutable<boolean>;
+  stage: RefObject<HTMLDivElement | null>;
+  runtime: Mutable<PlayerRuntimeV1 | null>;
+  runtimeController: Mutable<RuntimeController | null>;
+  envelope: Mutable<LaunchEnvelopeV1 | null>;
+  returnTo: Mutable<string>;
+  playerMode: Mutable<"single" | "netplay">;
+  manualSaveAvailableRef: Mutable<boolean>;
   dosProgramMenuRef: Mutable<boolean>;
-  netplayConfig: Mutable<NonNullable<PlayerConfig["netplay"]> | null>; discSetRef: Mutable<DiscSet | null>;
-  orientationStateRef: Mutable<PlayerOrientationState>; videoRenderingModeRef: Mutable<VideoRenderingMode>;
-  lastAudibleVolume: Mutable<number>; pausedRef: Mutable<boolean>; started: Mutable<boolean>; finishing: Mutable<boolean>;
-  heartbeat: Mutable<number | null>; toastTimer: Mutable<number | null>; netplayController: Mutable<NetplayController | null>; netplayPausedRef: Mutable<boolean>;
-  setMessage: Dispatch<SetStateAction<string>>; setLoadProgress: Dispatch<SetStateAction<PlayerLoadProgress | null>>;
-  setState: Dispatch<SetStateAction<ShellState>>; setManualSaveAvailable: Dispatch<SetStateAction<boolean>>;
+  orientationStateRef: Mutable<PlayerOrientationState>;
+  videoRenderingModeRef: Mutable<RuntimeVideoModeV1>;
+  pausedRef: Mutable<boolean>;
+  started: Mutable<boolean>;
+  finishing: Mutable<boolean>;
+  heartbeat: Mutable<number | null>;
+  toastTimer: Mutable<number | null>;
+  netplayController: Mutable<NetplayController | null>;
+  netplayPausedRef: Mutable<boolean>;
+  setMessage: Dispatch<SetStateAction<string>>;
+  setLoadProgress: Dispatch<SetStateAction<PlayerLoadProgress | null>>;
+  setState: Dispatch<SetStateAction<ShellState>>;
+  setManualSaveAvailable: Dispatch<SetStateAction<boolean>>;
   setDosProgramMenu: Dispatch<SetStateAction<boolean>>;
-  setNetplayPlayerNo: Dispatch<SetStateAction<number | null>>; setWarnings: Dispatch<SetStateAction<string[]>>; setGameTitle: Dispatch<SetStateAction<string>>;
-  setCoreName: Dispatch<SetStateAction<string>>; setPlatformName: Dispatch<SetStateAction<string>>; setDebugRuntime: Dispatch<SetStateAction<PlayerDebugRuntime>>;
-  setDiscSet: Dispatch<SetStateAction<DiscSet | null>>; setDiscState: Dispatch<SetStateAction<DiscState | null>>; setOrientationState: Dispatch<SetStateAction<PlayerOrientationState>>;
-  setFrameEnabled: Dispatch<SetStateAction<boolean>>; setSyncText: Dispatch<SetStateAction<string>>; setSyncTone: Dispatch<SetStateAction<SyncTone>>;
-  setEmulatorVolume: Dispatch<SetStateAction<number>>; setEmulatorMuted: Dispatch<SetStateAction<boolean>>; setPaused: Dispatch<SetStateAction<boolean>>;
+  setNetplayPlayerNo: Dispatch<SetStateAction<number | null>>;
+  setWarnings: Dispatch<SetStateAction<string[]>>;
+  setGameTitle: Dispatch<SetStateAction<string>>;
+  setCoreName: Dispatch<SetStateAction<string>>;
+  setPlatformName: Dispatch<SetStateAction<string>>;
+  setDebugRuntime: Dispatch<SetStateAction<PlayerDebugRuntime>>;
+  setDiscState: Dispatch<SetStateAction<RuntimeDiscStateV1 | null>>;
+  setOrientationState: Dispatch<SetStateAction<PlayerOrientationState>>;
+  setSyncText: Dispatch<SetStateAction<string>>;
+  setSyncTone: Dispatch<SetStateAction<SyncTone>>;
+  setEmulatorVolume: Dispatch<SetStateAction<number>>;
+  setEmulatorMuted: Dispatch<SetStateAction<boolean>>;
+  setPaused: Dispatch<SetStateAction<boolean>>;
   setNetplayPaused: Dispatch<SetStateAction<boolean>>;
   setImmersiveReturnTo: Dispatch<SetStateAction<string>>;
   setRpgValidationDriver: Dispatch<SetStateAction<RpgRuntimeValidationDriver | null>>;
-  reportPlayerEvent: (event: MultiDiscPlayerEvent) => void; revealControlsAtTopEdge: (clientY: number) => void; showControls: () => void;
-  onKeyboardPause: () => void;
-  onImmersiveMenuShortcut: () => void;
+  reportPlayerEvent: (event: MultiDiscPlayerEvent) => void;
   onExitRequested: () => void;
   sendEvent: (kind: "start" | "heartbeat" | "finish") => Promise<void>;
-  uploadManualState: (payload: ManualStatePayload) => Promise<boolean>;
-  uploadValidationCheckpoint: (payload: ManualStatePayload) => Promise<ValidationCheckpointReceipt>;
+  uploadValidationCheckpoint: (payload: RuntimeSavePayload) => Promise<ValidationCheckpointReceipt>;
 };
 
-export type BootstrapResources = {
-  cleanup?: () => void | Promise<void>; cleanupRuntimeGamepadFilter?: () => void; canvasContain?: ReturnType<typeof installCanvasContain>; cleanupFrameControls?: () => void;
-  nativeMenuObserver?: MutationObserver; ownedNetplayController?: NetplayController;
-  rpgRuntimeSubscription?: () => void; nativeRuntimeSubscription?: () => void; rpgValidationDriver?: RpgRuntimeValidationDriver;
-};
-
-export type MountedContext = {
-  params: PlayerBootstrapParams; resources: BootstrapResources; controller: AbortController; config: PlayerConfig;
-  frame: HTMLIFrameElement; frameWindow: Window; frameDocument: Document; stateBytes: Uint8Array | null;
-  crossOriginFrame: boolean;
+type BootstrapResources = {
+  controller?: RuntimeController;
+  eventSubscription?: () => void;
+  inputSubscription?: () => void;
+  validationDriver?: RpgRuntimeValidationDriver;
+  netplayController?: NetplayController;
+  e2eDiagnosticsCleanup?: () => void;
 };
 
 export function usePlayerBootstrap(params: PlayerBootstrapParams) {
@@ -103,72 +89,202 @@ export function usePlayerBootstrap(params: PlayerBootstrapParams) {
 
 function createBootstrapResources(): BootstrapResources {return {};}
 
-const retromRuntimeBootstrapHost: RetromRuntimeBootstrapHost = {
-  applyConfig,
-  prepareOrientation,
-  prepareFrame,
-  mountFrame,
-  handleReady,
-  completeStart: completeSinglePlayerStart,
-};
-
-async function bootstrapPlayer(params: PlayerBootstrapParams, resources: BootstrapResources, controller: AbortController) {
+async function bootstrapPlayer(params: PlayerBootstrapParams, resources: BootstrapResources, abort: AbortController) {
   params.setLoadProgress(null);
-  params.setMessage("正在加载 Core、ROM 与依赖配置…");
-  const response = await fetch(`/runtime/launches/${params.launchId}/config`, { credentials: "same-origin", cache: "no-store", signal: controller.signal });
+  params.setMessage("正在验证 Provider 启动契约…");
+  const response = await fetch(`/runtime/launches/${params.launchId}/config`, {
+    credentials: "same-origin", cache: "no-store", signal: abort.signal,
+  });
   if (!response.ok) {throw new Error(`LAUNCH_CONFIG_${response.status}`);}
-  const rawConfig: unknown = await response.json();
-  if (isOnsLaunchConfig(rawConfig)) {
-    await bootstrapOnsPlayer(params, resources, controller, rawConfig, retromRuntimeBootstrapHost);
-    return;
+  const envelope = parseLaunchEnvelopeJSON(await response.text());
+  validateExperience(params.experience, envelope);
+  applyEnvelope(params, envelope);
+  await prepareOrientation(params, envelope, abort.signal);
+  if (!params.stage.current) {throw new Error("PLAYER_RUNTIME_FRAME_INVALID");}
+
+  const validation = createValidationDriver(params, envelope, abort.signal);
+  if (validation) {
+    resources.validationDriver = validation;
+    params.setRpgValidationDriver(validation);
+    await validation.prepare();
   }
-  if (isKiriKiriLaunchConfig(rawConfig)) {
-    await bootstrapKiriKiriPlayer(params, resources, controller, rawConfig, retromRuntimeBootstrapHost);
-    return;
+  const mounted = await mountProviderRuntime(envelope, params.stage.current, {
+    signal: abort.signal,
+    onExitRequested: params.onExitRequested,
+    onFatalError: (code) => {
+      void validation?.reportRuntimeFailure(new Error(code));
+      params.setMessage(code);
+      params.setState("error");
+    },
+  });
+  if (abort.signal.aborted) {await mounted.exit(); return;}
+  resources.controller = mounted;
+  params.runtimeController.current = mounted;
+  params.runtime.current = mounted.runtime;
+  resources.e2eDiagnosticsCleanup = installRuntimeE2EDiagnostics(mounted.runtime);
+  resources.eventSubscription = mounted.runtime.subscribe((event) => handleRuntimeEvent(event, params));
+  await configureMountedRuntime(params, resources, envelope, mounted.runtime);
+  if (validation) {
+    void validation.attachRuntime(mounted.runtime).catch((error: unknown) => {
+      params.setMessage(error instanceof Error ? error.message : "RPG_RUNTIME_VALIDATION_FAILED");
+      params.setState("error");
+    });
   }
-  if (isButterscotchLaunchConfig(rawConfig)) {
-    await bootstrapButterscotchPlayer(params, resources, controller, rawConfig, retromRuntimeBootstrapHost);
-    return;
-  }
-  if (isTyranoScriptLaunchConfig(rawConfig)) {
-    await bootstrapTyranoScriptPlayer(params, resources, controller, rawConfig, retromRuntimeBootstrapHost);
-    return;
-  }
-  if (isWASM4LaunchConfig(rawConfig)) {
-    await bootstrapWASM4Player(params, resources, controller, rawConfig, retromRuntimeBootstrapHost);
-    return;
-  }
-  if (isRetromRpgRuntimeConfig(rawConfig)) {
-    await bootstrapRpgMakerPlayer(params, resources, controller, rawConfig);
-    return;
-  }
-  const config = rawConfig as PlayerConfig;
-  validateConfig(config);
-  if (params.experience === "immersive") {validateImmersivePlayerConfig(config);}
-  applyConfig(params, config);
-  await prepareOrientation(params, config, controller);
-  const frame = await prepareFrame(params, controller);
-  await describeDiscSet(params, config, controller);
-  const stateBytes = await fetchLaunchState(config, controller);
-  const mounted = mountFrame(params, resources, controller, config, frame, stateBytes);
-  resources.cleanup = mountEmulatorJS(
-    config,
-    mounted.target,
-    createMountCallbacks(mounted.context),
-    mounted.context.frameWindow,
-    params.experience === "immersive" ? { immersiveGamepadFilter: params.immersiveGamepadFilter } : undefined,
-  );
 }
 
-async function bootstrapRpgMakerPlayer(
+function applyEnvelope(params: PlayerBootstrapParams, envelope: LaunchEnvelopeV1) {
+  params.envelope.current = envelope;
+  params.returnTo.current = envelope.session.returnTo;
+  if (params.experience === "immersive") {params.setImmersiveReturnTo(envelope.session.returnTo);}
+  params.playerMode.current = envelope.session.mode === "NETPLAY" ? "netplay" : "single";
+  params.setNetplayPlayerNo(envelope.netplay?.playerNo ?? null);
+  params.setWarnings(envelope.session.warnings);
+  params.setGameTitle(envelope.session.title);
+  params.setCoreName(envelope.runtime.targetId);
+  params.setPlatformName(envelope.session.platformName);
+  params.setDebugRuntime({
+    providerId: envelope.runtime.providerId,
+    providerVersion: envelope.runtime.providerVersion,
+    targetId: envelope.runtime.targetId,
+    targetContractSha256: envelope.runtime.targetContractSha256,
+    crossOriginIsolated: window.crossOriginIsolated,
+    sharedArrayBuffer: typeof SharedArrayBuffer !== "undefined",
+  });
+  const dosProgramMenu = envelope.runtime.targetId === "dosbox-pure" &&
+    envelope.targetOptions.kind === "EMULATORJS_V1" && envelope.targetOptions.dosEntryPath === null;
+  params.dosProgramMenuRef.current = dosProgramMenu;
+  params.setDosProgramMenu(dosProgramMenu);
+  params.setDiscState(null);
+}
+
+async function configureMountedRuntime(
   params: PlayerBootstrapParams,
   resources: BootstrapResources,
-  controller: AbortController,
-  rpgConfig: RpgRuntimeConfig,
+  envelope: LaunchEnvelopeV1,
+  runtime: PlayerRuntimeV1,
 ) {
-  validateRpgRuntimeConfig(rpgConfig);
-  const validationDriver = createRpgRuntimeValidationDriver({
-    config: rpgConfig, signal: controller.signal, uploadCheckpoint: params.uploadValidationCheckpoint,
+  const capabilities = runtime.getCapabilities();
+  if (capabilities.volume) {
+    const preferences = params.experience === "immersive" ? getImmersiveAudioPreferences() : null;
+    const volume = preferences?.gameVolume ?? 0.5;
+    const muted = preferences?.gameMuted === true || volume === 0;
+    await runtime.setVolume(muted ? 0 : volume);
+    params.setEmulatorVolume(volume);
+    params.setEmulatorMuted(muted);
+  }
+  if (capabilities.videoModes.includes(params.videoRenderingModeRef.current)) {
+    await runtime.setVideoMode(params.videoRenderingModeRef.current);
+  }
+  if (params.experience === "immersive") {
+    const policy = params.immersiveGamepadFilter;
+    if (!policy || !capabilities.inputFilter) {throw new Error("PLAYER_IMMERSIVE_GAMEPAD_FILTER_UNAVAILABLE");}
+    await runtime.setInputFilter(policy.getPolicy());
+    resources.inputSubscription = policy.subscribe((next) => {void runtime.setInputFilter(next);});
+  }
+  if (capabilities.discSwitch) {
+    const disc = await runtime.getDiscState();
+    params.setDiscState(disc);
+    params.reportPlayerEvent({eventType: "START", resultCode: "OK", discCount: disc.count, observedDiscCount: disc.count});
+  }
+  if (envelope.session.mode === "NETPLAY") {
+    await startNetplay(params, resources, envelope, runtime);
+    return;
+  }
+  await completeSingleStart(params, envelope.session.purpose === "RUNTIME_VALIDATION");
+}
+
+async function completeSingleStart(params: PlayerBootstrapParams, validating: boolean) {
+  params.pausedRef.current = false;
+  params.setPaused(false);
+  applyStartedOrientation(params);
+  await params.sendEvent("start");
+  params.setState("running");
+  const availability = params.runtime.current?.getCheckpointAvailability() ?? {available: false, reason: "UNSUPPORTED"};
+  const canSave = !validating && availability.available;
+  updateCheckpointAvailability(params, canSave, availability.reason);
+  params.setSyncText(validating ? "运行验证进行中" : canSave ? "可创建存档" : "当前场景暂不可存档");
+  params.setSyncTone(validating ? "busy" : canSave ? "synced" : "warning");
+  params.heartbeat.current = window.setInterval(() => {void params.sendEvent("heartbeat");}, 30_000);
+}
+
+async function startNetplay(
+  params: PlayerBootstrapParams,
+  resources: BootstrapResources,
+  envelope: LaunchEnvelopeV1,
+  runtime: PlayerRuntimeV1,
+) {
+  const netplay = envelope.netplay;
+  if (!netplay) {throw new Error("PLAYER_NETPLAY_CONFIG_INVALID");}
+  const profile = parseNetplayProfile(netplay.profile);
+  const profileDigest = await digestProfile(profile);
+  const port = new RuntimeNetplayPortAdapter(await runtime.getNetplayPort());
+  const config = {
+    roomId: netplay.roomId, sessionId: netplay.sessionId, playerNo: netplay.playerNo,
+    runtimeSocketUrl: netplay.socketUrl, netplayProfile: profile,
+  };
+  const holder: {current?: NetplayController} = {};
+  const current = () => params.netplayController.current === holder.current;
+  const controller = new NetplayController(config, profileDigest, port, {
+    onStatus: (text, tone) => {if (current()) {params.setSyncText(text); params.setSyncTone(tone);}},
+    onRunning: () => {
+      if (!current()) {return;}
+      params.netplayPausedRef.current = false;
+      params.setNetplayPaused(false);
+      applyStartedOrientation(params);
+      if (params.started.current) {return;}
+      void params.sendEvent("start").then(() => {
+        params.setState("running");
+        params.heartbeat.current = window.setInterval(() => {void params.sendEvent("heartbeat");}, 30_000);
+      }).catch(() => {params.setState("error"); params.setMessage("PLAY_SESSION_EVENT_FAILED");});
+    },
+    onPaused: () => {if (current()) {params.netplayPausedRef.current = true; params.setNetplayPaused(true);}},
+    onEnded: (reason) => {
+      if (!current()) {return;}
+      params.setSyncText("联机已结束"); params.setSyncTone("warning"); params.setMessage(reason);
+      void params.sendEvent("finish").catch(() => undefined)
+        .finally(() => window.setTimeout(() => window.location.replace(params.returnTo.current), 600));
+    },
+  });
+  holder.current = controller;
+  resources.netplayController = controller;
+  params.netplayController.current = controller;
+  params.setMessage("正在建立联机同步屏障…");
+  await controller.start();
+}
+
+function handleRuntimeEvent(event: RuntimeEventV1, params: PlayerBootstrapParams) {
+  if (event.type === "LOAD_PROGRESS") {
+    params.setLoadProgress(event.totalBytes === null ? null : {
+      loadedBytes: event.loadedBytes, totalBytes: event.totalBytes,
+    });
+    return;
+  }
+  if (event.type === "CHECKPOINT_AVAILABILITY_CHANGED" &&
+    params.envelope.current?.session.purpose !== "RUNTIME_VALIDATION") {
+    updateCheckpointAvailability(params, event.availability.available, event.availability.reason);
+    return;
+  }
+  if (event.type === "DISC_CHANGED") {params.setDiscState(event.state); return;}
+  if (event.type === "STATE_CHANGED") {
+    const paused = event.state === "PAUSED";
+    params.pausedRef.current = paused;
+    params.setPaused(paused);
+  }
+}
+
+function updateCheckpointAvailability(params: PlayerBootstrapParams, available: boolean, reason: string | null) {
+  params.manualSaveAvailableRef.current = available;
+  params.setManualSaveAvailable(available);
+  if (!available && reason && params.envelope.current?.session.purpose === "PRODUCT") {
+    params.setSyncText("当前场景暂不可存档");
+    params.setSyncTone("warning");
+  }
+}
+
+function createValidationDriver(params: PlayerBootstrapParams, envelope: LaunchEnvelopeV1, signal: AbortSignal) {
+  if (envelope.session.purpose !== "RUNTIME_VALIDATION") {return null;}
+  return new RpgRuntimeValidationDriver({
+    envelope, signal, uploadCheckpoint: params.uploadValidationCheckpoint,
     finishOriginalLaunch: async () => {
       if (params.heartbeat.current !== null) {
         window.clearInterval(params.heartbeat.current);
@@ -177,376 +293,72 @@ async function bootstrapRpgMakerPlayer(
       await params.sendEvent("finish");
     },
   });
-  if (validationDriver) {
-    resources.rpgValidationDriver = validationDriver;
-    params.setRpgValidationDriver(validationDriver);
-  }
-  await validationDriver?.prepare();
-  const runtimeDescription = describeRetromRpgRuntime(rpgConfig);
-  const config = rpgShellConfig(rpgConfig, runtimeDescription);
-  applyConfig(params, config);
-  params.setDebugRuntime(rpgDebugRuntime(rpgConfig));
-  await prepareOrientation(params, config, controller);
-  const frame = await prepareFrame(params, controller);
-  const stateBytes = await fetchRpgCheckpoint(rpgConfig, controller.signal);
-  const mounted = mountFrame(
-    params, resources, controller, config, frame, stateBytes,
-    runtimeDescription.crossOriginFrame,
-  );
-  resources.cleanupRuntimeGamepadFilter = installRuntimeImmersiveGamepadFilter(params.experience, mounted.context.frameWindow, params.immersiveGamepadFilter);
-  params.setMessage("正在启动 RPG Maker 运行时…");
-  let mountedRuntime: Awaited<ReturnType<typeof mountRetromRpgRuntime>>;
-  try {
-    mountedRuntime = await mountRetromRpgRuntime(rpgConfig, mounted.target, {
-      frame: mounted.context.frame,
-      frameWindow: mounted.context.frameWindow,
-      restorePayload: stateBytes,
-      signal: controller.signal,
-    });
-  } catch (error) {
-    await validationDriver?.reportRuntimeFailure(error);
-    throw error;
-  }
-  if (controller.signal.aborted) {
-    await mountedRuntime.runtime.exit();
-    return;
-  }
-  try {
-    resources.cleanup = () => mountedRuntime.runtime.exit();
-    resources.rpgRuntimeSubscription = mountedRuntime.runtime.subscribe((event) => {
-      handleRetromRuntimeEvent(event, params);
-      if (event.type !== "CHECKPOINT_AVAILABILITY_CHANGED" || validationDriver) {return;}
-      params.manualSaveAvailableRef.current = event.availability.available;
-      params.setManualSaveAvailable(event.availability.available);
-    });
-    handleReady(mounted.context, mountedRuntime.playerInstance);
-    const availability = mountedRuntime.runtime.getCheckpointAvailability();
-    const canSave = !validationDriver && availability?.available === true;
-    params.manualSaveAvailableRef.current = canSave;
-    params.setManualSaveAvailable(canSave);
-    completeSinglePlayerStart(mounted.context, false, validationDriver ? "运行验证进行中" : undefined);
-  } catch (error) {
-    await validationDriver?.reportRuntimeFailure(error);
-    await mountedRuntime.runtime.exit();
-    throw error;
-  }
-  if (validationDriver) {
-    void validationDriver.attachRuntime(mountedRuntime.playerInstance, mountedRuntime.runtime).catch(() => {
-      params.setSyncText("运行验证失败");
-      params.setSyncTone("warning");
-    });
-  }
 }
 
-function applyConfig(params: PlayerBootstrapParams, config: PlayerConfig) {
-  params.returnTo.current = config.returnTo;
-  if (params.experience === "immersive") {params.setImmersiveReturnTo(config.returnTo);}
-  params.playerMode.current = config.mode;
-  params.manualSaveAvailableRef.current = canCreateRecoverableManualState(config);
-  params.setManualSaveAvailable(params.manualSaveAvailableRef.current);
-  params.dosProgramMenuRef.current = config.runtimeCore === "dosbox_pure" && !config.dosEntry;
-  params.setDosProgramMenu(params.dosProgramMenuRef.current);
-  params.netplayConfig.current = config.netplay;
-  params.setNetplayPlayerNo(config.netplay?.playerNo ?? null);
-  params.setWarnings(config.warnings ?? []);
-  params.setGameTitle(config.gameTitle);
-  params.setCoreName(config.coreName || config.core);
-  params.setPlatformName(config.platformName);
-  params.setDebugRuntime({ runtimeFamily: "EMULATORJS", coreId: config.core, coreArtifactId: config.coreArtifactId, emulatorJSVersion: config.emulatorjsVersion, playerAdapterId: config.playerAdapterId, inputMode: config.inputMode, crossOriginIsolated: window.crossOriginIsolated, sharedArrayBuffer: typeof SharedArrayBuffer !== "undefined" });
-  params.discSetRef.current = config.discSet ?? null;
-  params.setDiscSet(config.discSet ?? null);
-  params.setDiscState(null);
-}
-
-async function prepareOrientation(params: PlayerBootstrapParams, config: PlayerConfig, controller: AbortController) {
-  const mobileQuery = window.matchMedia(mobilePlayerQuery);
-  const portraitQuery = window.matchMedia(portraitPlayerQuery);
-  const runtimeKind: PlayerRuntimeKind = config.mode === "single" ? "single" : config.netplay?.playerNo === 1 ? "netplay-p1" : "netplay-p2";
-  let orientation = reducePlayerOrientation(params.orientationStateRef.current, { type: "config-ready", mobile: mobileQuery.matches, portrait: portraitQuery.matches, runtimeKind });
-  params.orientationStateRef.current = orientation.state;
-  params.setOrientationState(orientation.state);
-  if (orientation.state.phase !== "orientation-blocked") {return;}
+async function prepareOrientation(params: PlayerBootstrapParams, envelope: LaunchEnvelopeV1, signal: AbortSignal) {
+  if (typeof window.matchMedia !== "function") {return;}
+  const mobile = window.matchMedia(mobilePlayerQuery);
+  const portrait = window.matchMedia(portraitPlayerQuery);
+  const kind: PlayerRuntimeKind = envelope.session.mode === "SINGLE" ? "single" :
+    envelope.netplay?.playerNo === 1 ? "netplay-p1" : "netplay-p2";
+  let transition = reducePlayerOrientation(params.orientationStateRef.current, {
+    type: "config-ready", mobile: mobile.matches, portrait: portrait.matches, runtimeKind: kind,
+  });
+  params.orientationStateRef.current = transition.state;
+  params.setOrientationState(transition.state);
+  if (transition.state.phase !== "orientation-blocked") {return;}
   params.setMessage("请横向握持设备开始游戏");
-  await waitForStableLandscape(portraitQuery, controller.signal, (portrait) => {
-    orientation = reducePlayerOrientation(params.orientationStateRef.current, { type: "orientation-stable", portrait, paused: false });
-    params.orientationStateRef.current = orientation.state;
-    params.setOrientationState(orientation.state);
+  await waitForStableLandscape(portrait, signal, (nextPortrait) => {
+    transition = reducePlayerOrientation(params.orientationStateRef.current, {
+      type: "orientation-stable", portrait: nextPortrait, paused: false,
+    });
+    params.orientationStateRef.current = transition.state;
+    params.setOrientationState(transition.state);
   });
 }
 
-async function prepareFrame(params: PlayerBootstrapParams, controller: AbortController) {
-  params.setFrameEnabled(true);
-  return waitForPlayerFrame(params.frameRef, controller.signal);
-}
-
-async function describeDiscSet(params: PlayerBootstrapParams, config: PlayerConfig, controller: AbortController) {
-  if (!config.discSet) {return;}
-  const sizes = await Promise.all(config.discSet.entries.map(async (entry) => {
-    const source = config.externalFiles[entry.virtualPath];
-    const head = await fetch(source, { method: "HEAD", credentials: "same-origin", cache: "no-store", signal: controller.signal });
-    if (!head.ok) {throw new Error("PLAYER_DISC_SET_INVALID");}
-    const size = Number(head.headers.get("content-length") ?? "NaN");
-    if (!Number.isSafeInteger(size) || size < 8) {throw new Error("PLAYER_DISC_SET_INVALID");}
-    return size;
-  }));
-  params.setMessage(`正在准备多盘内容 · ${config.discSet.count} 张光盘 · ${formatPlayerBytes(sizes.reduce((total, size) => total + size, 0))}`);
-}
-
-async function fetchLaunchState(config: PlayerConfig, controller: AbortController) {
-  if (!(config.discSet || requiresExplicitStateRestore(config)) || !config.stateUrl) {return null;}
-  const response = await fetch(config.stateUrl, { credentials: "same-origin", cache: "no-store", signal: controller.signal });
-  if (!response.ok) {throw new Error("PLAYER_SAVE_STATE_UNAVAILABLE");}
-  const stateBytes = await readBoundedResponse(response, 64 * 1024 * 1024);
-  if (stateBytes.byteLength === 0) {throw new Error("PLAYER_SAVE_STATE_UNAVAILABLE");}
-  return stateBytes;
-}
-
-function mountFrame(
-  params: PlayerBootstrapParams,
-  resources: BootstrapResources,
-  controller: AbortController,
-  config: PlayerConfig,
-  frame: HTMLIFrameElement,
-  stateBytes: Uint8Array | null,
-  crossOriginFrame = false,
-) {
-  if (!params.stage.current) {throw new Error("PLAYER_FRAME_UNAVAILABLE");}
-  const frameWindow = frame.contentWindow;
-  const frameDocument = frame.contentDocument;
-  if (!frameWindow || !frameDocument) {throw new Error("PLAYER_FRAME_UNAVAILABLE");}
-  frameDocument.documentElement.lang = "zh-CN";
-  frameDocument.documentElement.classList.add("retrom-native-menu-locked");
-  installPlayerFrameStyle(frameDocument);
-  const target = frameDocument.createElement("div");
-  target.id = "game";
-  frameDocument.body.append(target);
-  resources.canvasContain = installCanvasContain(frameDocument, () => params.emulator.current?.gameManager?.getVideoDimensions?.("aspect"));
-  resources.cleanupFrameControls = installFrameControls(frameDocument, frame, config.inputMode, params);
-  return {
-    target,
-    context: {
-      params, resources, controller, config, frame, frameWindow, frameDocument, stateBytes, crossOriginFrame,
-    } satisfies MountedContext,
-  };
-}
-
-function installFrameControls(document: Document, frame: HTMLIFrameElement, inputMode: string, params: PlayerBootstrapParams) {
-  if (params.experience === "immersive") {
-    const key = (event: KeyboardEvent) => {
-      if (event.key.toLowerCase() !== "m") {return;}
-      event.preventDefault();
-      event.stopImmediatePropagation();
-      params.onImmersiveMenuShortcut();
-    };
-    document.addEventListener("keydown", key, true);
-    return () => document.removeEventListener("keydown", key, true);
-  }
-  const pointer = (event: PointerEvent) => params.revealControlsAtTopEdge(event.clientY);
-  const key = (event: KeyboardEvent) => {
-    if (shouldRevealPlayerControlsForKey(event.key)) {params.showControls();}
-    handlePlayerPauseShortcut(event, params.onKeyboardPause);
-  };
-  const click = (event: MouseEvent) => {
-    const target = event.target;
-    if (target && "closest" in target && typeof target.closest === "function" && target.closest(".ejs_menu_bar,.ejs_popup_container,.ejs_cheat_parent,.ejs_control_bar,button,a,input,select,textarea,[role=button]")) {return;}
-    frame.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
-    frame.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-  };
-  document.addEventListener("pointermove", pointer, { passive: true });
-  document.addEventListener("keydown", key);
-  if (inputMode === "STANDARD") {document.addEventListener("click", click);}
-  return () => {
-    document.removeEventListener("pointermove", pointer);
-    document.removeEventListener("keydown", key);
-    if (inputMode === "STANDARD") {document.removeEventListener("click", click);}
-  };
-}
-
-function createMountCallbacks(context: MountedContext) {
-  return {
-    onReady: (instance: EmulatorInstance) => handleReady(context, instance),
-    onGameStart: () => handleGameStart(context),
-    onSaveState: (payload: ManualStatePayload) => {void context.params.uploadManualState(payload);},
-  };
-}
-
-function handleReady(context: MountedContext, instance: EmulatorInstance) {
-  if (context.controller.signal.aborted) {return;}
-  const { params, frameDocument, resources } = context;
-  params.emulator.current = instance;
-  applyVideoRenderingMode(instance, instance.canvas ?? frameDocument.querySelector<HTMLCanvasElement>("canvas"), params.videoRenderingModeRef.current);
-  const initialVolume = applyInitialPlayerVolume(
-    instance,
-    params.experience === "immersive" ? getImmersiveAudioPreferences() : null,
-  );
-  params.setEmulatorVolume(initialVolume.volume);
-  params.setEmulatorMuted(initialVolume.muted);
-  if (initialVolume.lastAudibleVolume !== null) {params.lastAudibleVolume.current = initialVolume.lastAudibleVolume;}
-  lockNativeMenu(frameDocument, resources);
-  instance.on("saveState", () => undefined);
-  instance.on("saveDatabaseLoaded", () => clearTransientStorage(params, instance));
-  instance.on("exit", () => reportNativeExit(params));
-}
-
-function lockNativeMenu(document: Document, resources: BootstrapResources) {
-  const nativeMenu = document.querySelector<HTMLElement>(".ejs_menu_bar");
-  if (!nativeMenu) {return;}
-  resources.nativeMenuObserver = new MutationObserver(() => {
-    if (nativeMenu.classList.contains("ejs_menu_bar_hidden")) {document.documentElement.classList.add("retrom-native-menu-locked");}
+function applyStartedOrientation(params: PlayerBootstrapParams) {
+  const transition = reducePlayerOrientation(params.orientationStateRef.current, {
+    type: "runtime-started", paused: false,
   });
-  resources.nativeMenuObserver.observe(nativeMenu, { attributes: true, attributeFilter: ["class"] });
+  params.orientationStateRef.current = transition.state;
+  params.setOrientationState(transition.state);
 }
 
-function clearTransientStorage(params: PlayerBootstrapParams, instance: EmulatorInstance) {
-  const fs = instance.gameManager?.FS;
-  if (!fs || !isTransientSaveFileSystem(fs)) {
-    params.setState("error"); params.setMessage("LAUNCH_TRANSIENT_SAVE_FS_UNAVAILABLE");
-    throw new Error("LAUNCH_TRANSIENT_SAVE_FS_UNAVAILABLE");
-  }
-  try {clearTransientSaveStorage(fs);}
-  catch (error) {params.setState("error"); params.setMessage(error instanceof Error ? error.message : "LAUNCH_TRANSIENT_SAVE_CLEAR_FAILED"); throw error;}
-}
-
-function reportNativeExit(params: PlayerBootstrapParams) {
-  if (!reportsNativeExit(params.playerMode.current, params.finishing.current)) {return;}
-  params.onExitRequested();
-}
-
-function handleGameStart(context: MountedContext) {
-  const { params, controller, frameDocument, config } = context;
-  if (controller.signal.aborted) {return false;}
-  frameDocument.documentElement.classList.add("retrom-native-menu-locked");
-  params.emulator.current?.menu?.close?.();
-  applyVideoRenderingMode(params.emulator.current, params.emulator.current?.canvas ?? frameDocument.querySelector<HTMLCanvasElement>("canvas"), params.videoRenderingModeRef.current);
-  if (!prepareContentStart(context)) {return false;}
-  if (config.mode === "netplay") {return startNetplay(context);}
-  completeSinglePlayerStart(context, false);
-  return true;
-}
-
-function prepareContentStart(context: MountedContext) {
-  try {
-    if (context.config.discSet) {return prepareMultiDiscStart(context);}
-    if (context.stateBytes && requiresExplicitStateRestore(context.config)) {return restoreSingleDiscState(context);}
-    return true;
-  } catch (caught) {
-    reportContentStartFailure(context, caught);
-    return false;
+function validateExperience(experience: "standard" | "immersive", envelope: LaunchEnvelopeV1) {
+  if (experience !== "immersive") {return;}
+  if (envelope.session.mode !== "SINGLE" || !envelope.session.returnTo.startsWith("/immersive/")) {
+    throw new Error("PLAYER_IMMERSIVE_SINGLE_ONLY");
   }
 }
 
-function prepareMultiDiscStart(context: MountedContext) {
-  const { params, config, stateBytes } = context;
-  const discSet = config.discSet;
-  if (!discSet) {return true;}
-  params.setMessage(`正在切换到光盘 ${discSet.initialDiscIndex + 1}`);
-  if (!params.emulator.current) {throw new Error("PLAYER_DISC_API_UNAVAILABLE");}
-  const selected = prepareMultiDiscLaunch(params.emulator.current, discSet);
-  params.setDiscState(selected);
-  params.reportPlayerEvent({ eventType: "START", resultCode: "OK", discCount: discSet.count, observedDiscCount: selected.count });
-  if (!stateBytes) {params.emulator.current.gameManager?.toggleMainLoop?.(true); return true;}
-  const manager = params.emulator.current.gameManager;
-  if (!manager?.loadExplicitStateAndWait) {throw new Error("PLAYER_STATE_RESTORE_COMPATIBILITY_UNAVAILABLE");}
-  params.setMessage("正在恢复指定存档");
-  void manager.loadExplicitStateAndWait(stateBytes).then(() => {
-    params.reportPlayerEvent({ eventType: "SAVE_RESTORE_SUCCESS", resultCode: "OK", discCount: discSet.count, observedDiscCount: selected.count });
-    completeSinglePlayerStart(context, true);
-  }).catch((caught: unknown) => reportAsyncMultiDiscRestoreFailure(context, caught, discSet));
-  return false;
+async function digestProfile(profile: NetplayProfile) {
+  const bytes = new TextEncoder().encode(JSON.stringify(profile));
+  const digest = await sha256(bytes);
+  return [...digest].map((value) => value.toString(16).padStart(2, "0")).join("");
 }
 
-function restoreSingleDiscState(context: MountedContext) {
-  const manager = context.params.emulator.current?.gameManager;
-  if (!manager?.loadExplicitStateAndWait || !context.stateBytes) {throw new Error("PLAYER_STATE_RESTORE_COMPATIBILITY_UNAVAILABLE");}
-  context.params.setMessage("正在恢复指定存档");
-  void manager.loadExplicitStateAndWait(context.stateBytes).then(() => completeSinglePlayerStart(context, true)).catch(() => {
-    if (context.controller.signal.aborted) {return;}
-    context.params.setState("error"); context.params.setMessage("PLAYER_SAVE_STATE_RESTORE_FAILED");
-  });
-  return false;
-}
-
-function reportAsyncMultiDiscRestoreFailure(context: MountedContext, caught: unknown, discSet: DiscSet) {
-  if (context.controller.signal.aborted) {return;}
-  const observedDiscCount = observedRuntimeDiscCount(context.params.emulator.current);
-  const resultCode = multiDiscPlayerResultCode(caught, "PLAYER_SAVE_STATE_RESTORE_FAILED");
-  context.params.reportPlayerEvent({ eventType: "SAVE_RESTORE_FAILURE", resultCode, discCount: discSet.count, observedDiscCount });
-  context.params.setState("error"); context.params.setMessage(resultCode);
-}
-
-function reportContentStartFailure(context: MountedContext, caught: unknown) {
-  const discSet = context.config.discSet;
-  if (discSet) {
-    const observedDiscCount = observedRuntimeDiscCount(context.params.emulator.current);
-    const resultCode = multiDiscPlayerResultCode(caught, context.stateBytes ? "PLAYER_SAVE_STATE_RESTORE_FAILED" : "PLAYER_DISC_API_UNAVAILABLE");
-    if (resultCode === "PLAYER_DISC_SET_INVALID" && observedDiscCount !== null && observedDiscCount !== discSet.count) {
-      context.params.reportPlayerEvent({ eventType: "DISK_COUNT_MISMATCH", resultCode, discCount: discSet.count, observedDiscCount });
-    }
-    if (context.stateBytes) {context.params.reportPlayerEvent({ eventType: "SAVE_RESTORE_FAILURE", resultCode, discCount: discSet.count, observedDiscCount });}
-  }
-  context.params.setState("error");
-  context.params.setMessage(caught instanceof Error ? caught.message : "PLAYER_DISC_SET_INVALID");
-}
-
-function completeSinglePlayerStart(context: MountedContext, resumeMainLoop: boolean, syncTextOverride?: string) {
-  const { params, controller, resources, frameWindow } = context;
-  if (controller.signal.aborted) {return;}
-  if (params.emulator.current) {
-    params.emulator.current.paused = false;
-    if (resumeMainLoop) {params.emulator.current.gameManager?.toggleMainLoop?.(true);}
-  }
-  params.pausedRef.current = false;
-  params.setPaused(false);
-  const orientation = reducePlayerOrientation(params.orientationStateRef.current, { type: "runtime-started", paused: false });
-  params.orientationStateRef.current = orientation.state;
-  params.setOrientationState(orientation.state);
-  schedulePlayerCanvasRefresh(
-    context.crossOriginFrame,
-    frameWindow,
-    () => resources.canvasContain?.refresh(),
-  );
-  void params.sendEvent("start").then(() => {
-    params.setState("running");
-    params.setSyncText(syncTextOverride ?? (params.manualSaveAvailableRef.current
-      ? "可创建存档"
-      : params.dosProgramMenuRef.current ? "程序菜单模式不可存档" : "当前场景暂不可存档"));
-    params.setSyncTone(syncTextOverride ? "busy" : params.manualSaveAvailableRef.current ? "synced" : "warning");
-    params.heartbeat.current = window.setInterval(() => {void params.sendEvent("heartbeat");}, 30_000);
-  }).catch(() => {params.setState("error"); params.setMessage("PLAY_SESSION_EVENT_FAILED");});
-}
-
-export function schedulePlayerCanvasRefresh(
-  crossOriginFrame: boolean,
-  frameWindow: Window,
-  refresh: () => void,
-) {
-  if (crossOriginFrame) {
-    window.requestAnimationFrame(refresh);
-    return;
-  }
-  frameWindow.requestAnimationFrame(refresh);
-}
-
-function handleBootstrapError(error: unknown, controller: AbortController, params: PlayerBootstrapParams) {
-  if (controller.signal.aborted) {return;}
-  const code = error instanceof Error ? error.message : "启动失败";
+function handleBootstrapError(error: unknown, abort: AbortController, params: PlayerBootstrapParams) {
+  if (abort.signal.aborted) {return;}
+  const code = error instanceof Error ? error.message : "PLAYER_RUNTIME_FAILED";
   params.setMessage(code === "LAUNCH_CONFIG_401" ? "启动会话不可用，请从游戏详情或存档重新开始。" : code);
   params.setState("error");
 }
 
-async function cleanupBootstrap(params: PlayerBootstrapParams, resources: BootstrapResources, controller: AbortController) {
-  controller.abort(); resources.cleanupRuntimeGamepadFilter?.(); resources.canvasContain?.cleanup(); resources.cleanupFrameControls?.();
-	resources.rpgRuntimeSubscription?.();
-	resources.nativeRuntimeSubscription?.();
-  resources.ownedNetplayController?.dispose();
-  if (params.netplayController.current === resources.ownedNetplayController) {params.netplayController.current = null;}
-  closeEmulatorSettingsPanels(params.emulator.current);
-  resources.nativeMenuObserver?.disconnect();
-  if (params.heartbeat.current !== null) {window.clearInterval(params.heartbeat.current);}
-  if (params.toastTimer.current !== null) {window.clearTimeout(params.toastTimer.current);}
-  const validationDriver = resources.rpgValidationDriver;
-  if (validationDriver) {
-    params.setRpgValidationDriver((current) => current === validationDriver ? null : current);
+async function cleanupBootstrap(params: PlayerBootstrapParams, resources: BootstrapResources, abort: AbortController) {
+  abort.abort();
+  resources.eventSubscription?.();
+  resources.inputSubscription?.();
+  resources.e2eDiagnosticsCleanup?.();
+  resources.netplayController?.dispose();
+  if (params.netplayController.current === resources.netplayController) {params.netplayController.current = null;}
+  if (params.heartbeat.current !== null) {window.clearInterval(params.heartbeat.current); params.heartbeat.current = null;}
+  if (params.toastTimer.current !== null) {window.clearTimeout(params.toastTimer.current); params.toastTimer.current = null;}
+  if (resources.validationDriver) {
+    params.setRpgValidationDriver((current) => current === resources.validationDriver ? null : current);
   }
-  await resources.cleanup?.();
+  await resources.controller?.exit().catch(() => undefined);
+  if (params.runtimeController.current === resources.controller) {params.runtimeController.current = null;}
+  if (params.runtime.current === resources.controller?.runtime) {params.runtime.current = null;}
+  params.envelope.current = null;
 }

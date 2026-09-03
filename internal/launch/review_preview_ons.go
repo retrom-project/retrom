@@ -17,28 +17,6 @@ import (
 
 const maximumONSProjectFiles = 100_000
 
-func (service *Service) validateONSReviewPreviewSource(source reviewPreviewSource) error {
-	if _, err := detector.ParseSnapshot(source.DependencySnapshot); err != nil {
-		return ErrReviewPreviewUnavailable
-	}
-	compatibility, err := parseONSCompatibility(source.CompatibilityJSON)
-	if err != nil || source.AdapterKind != "ONS_YURI_WEB" || source.AdapterID != "ons-yuri-web" ||
-		source.CoreID != "onscripter_yuri" || source.ContentKind != onsProjectFormat {
-		return ErrReviewPreviewUnavailable
-	}
-	if _, _, exists := service.dependencies.RetromRuntimeFile(
-		source.RuntimeVersion, compatibility.JSPath,
-	); !exists {
-		return ErrReviewPreviewUnavailable
-	}
-	if _, _, exists := service.dependencies.RetromRuntimeFile(
-		source.RuntimeVersion, compatibility.WasmPath,
-	); !exists {
-		return ErrReviewPreviewUnavailable
-	}
-	return nil
-}
-
 type ProjectIndexView struct {
 	Contents []byte
 	SHA256   string
@@ -90,12 +68,13 @@ func (service *Service) productONSProjectIndex(
 SELECT launch.credential_sha256,launch.state,launch.hard_expires_at_ms,
  metadata.title,revision.dependency_snapshot_json
 FROM launch_sessions launch
-JOIN core_artifacts artifact ON artifact.id=launch.core_artifact_id
 JOIN game_variant_revisions revision ON revision.id=launch.game_variant_revision_id
 JOIN games game ON game.id=launch.game_id
 JOIN game_metadata_revisions metadata ON metadata.id=game.current_metadata_revision_id
-WHERE launch.id=? AND launch.purpose='PRODUCT' AND artifact.runtime_family='ONS'
- AND artifact.available_for_launch=1
+WHERE launch.id=? AND launch.purpose='PRODUCT' AND launch.target_id=revision.target_id
+ AND launch.provider_id=revision.provider_id
+ AND EXISTS(SELECT 1 FROM launch_content_files file WHERE file.launch_session_id=launch.id
+  AND file.format_version='ONS_PROJECT_V1')
 `, launchID).Scan(&credentialHash, &state, &hardExpires, &title, &dependencyJSON)
 	if err != nil || !retromruntime.MatchesCapability(capability, credentialHash) ||
 		state != "ACTIVE" || hardExpires <= service.now().UnixMilli() {
@@ -304,14 +283,14 @@ func (service *Service) ReviewPreviewProjectContent(
 		return ContentView{}, ErrCredential
 	}
 	var credentialHash []byte
-	var digest, state, format, coreID, platformKey string
-	var hardExpires, artifactVersion int64
+	var digest, state, format, coreID, providerID, targetID, targetContractSHA256, platformKey string
+	var hardExpires int64
 	err = service.database.QueryRowContext(ctx, `
 SELECT preview.credential_sha256,preview.state,preview.hard_expires_at_ms,blob.sha256,
-preview.content_format,artifact.core_id,artifact.version,platform.id
+preview.content_format,binding.core_id,preview.provider_id,preview.target_id,
+preview.target_contract_sha256,platform.id
 FROM review_preview_sessions preview
-JOIN core_artifacts artifact ON artifact.id=preview.core_artifact_id
- AND artifact.runtime_family IN ('ONS','KIRIKIRI','BUTTERSCOTCH','TYRANOSCRIPT')
+JOIN runtime_target_bindings binding ON binding.provider_id=preview.provider_id AND binding.target_id=preview.target_id
 JOIN platform_instances instance ON instance.id=preview.target_platform_instance_id
 JOIN platforms platform ON platform.id=instance.platform_id
 JOIN (
@@ -326,7 +305,8 @@ WHERE preview.id=?
   'ONS_PROJECT_V1','KIRIKIRI_PROJECT_V1','BUTTERSCOTCH_PROJECT_V1','TYRANOSCRIPT_PROJECT_V1'
  )
 `, normalized, previewID).Scan(
-		&credentialHash, &state, &hardExpires, &digest, &format, &coreID, &artifactVersion, &platformKey,
+		&credentialHash, &state, &hardExpires, &digest, &format, &coreID,
+		&providerID, &targetID, &targetContractSHA256, &platformKey,
 	)
 	if err != nil || format != onsProjectFormat && format != kirikiriProjectFormat &&
 		format != butterscotchProjectFormat && format != tyranoScriptProjectFormat ||
@@ -334,8 +314,8 @@ WHERE preview.id=?
 		return ContentView{}, ErrCredential
 	}
 	return ContentView{
-		Digest: digest, Format: format, CoreID: coreID,
-		PlatformKey: platformKey, ArtifactVersion: artifactVersion,
+		Digest: digest, Format: format, CoreID: coreID, ProviderID: providerID, TargetID: targetID,
+		TargetContractSHA256: targetContractSHA256, PlatformKey: platformKey,
 	}, nil
 }
 

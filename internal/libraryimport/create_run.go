@@ -119,12 +119,15 @@ func (run *creationRun) initialize() error {
 		return fmt.Errorf("libraryimport/service: validate import tags: %w", err)
 	}
 	run.tagReferences = tagReferences
-	biosCatalog, err := corevalidation.Catalog(run.ctx, run.transaction, run.plan.target.artifactID)
+	biosCatalog, err := corevalidation.Catalog(
+		run.ctx, run.transaction, run.plan.target.providerID, run.plan.target.targetID,
+	)
 	if err != nil {
 		return fmt.Errorf("libraryimport/service: %w", err)
 	}
 	if err := prepareStaticBIOSDependencies(
-		run.ctx, run.transaction, run.plan.target.artifactID, run.plan.target.platformID, run.plan.groups,
+		run.ctx, run.transaction, run.plan.target.providerID, run.plan.target.targetID,
+		run.plan.target.platformID, run.plan.groups,
 	); err != nil {
 		return fmt.Errorf("prepare import BIOS dependencies: %w", err)
 	}
@@ -157,20 +160,24 @@ SELECT state FROM upload_sessions WHERE id=?
 `, run.plan.request.UploadID).Scan(&uploadState); err != nil || uploadState != "COMPLETE" {
 		return ErrInvalid
 	}
-	var version, artifactVersion int64
-	var artifactID, compatibilityConfig string
+	var version int64
+	var providerID, targetID, targetContractSHA256 string
 	target := run.plan.target
 	err := run.transaction.QueryRowContext(run.ctx, `
-SELECT pi.version,a.id,a.version,a.compatibility_json
+SELECT pi.version,target.provider_id,target.target_id,target.target_contract_sha256
 FROM platform_instances pi
-JOIN core_artifacts a ON a.id=? AND a.core_id=? AND a.selected_for_new_bindings=1
+JOIN runtime_target_bindings binding ON binding.core_id=? AND binding.provider_id=? AND binding.target_id=?
+ AND binding.launch_policy!='DISABLED'
+JOIN runtime_binding_platforms binding_platform ON binding_platform.binding_id=binding.binding_id
+ AND binding_platform.platform_id=pi.platform_id
+JOIN runtime_targets target ON target.provider_id=binding.provider_id AND target.target_id=binding.target_id
 WHERE pi.id=? AND pi.default_core_id=? AND pi.enabled=1 AND pi.deleted_at_ms IS NULL
-`, target.artifactID, target.coreID, run.plan.request.TargetPlatformInstanceID, target.defaultCoreID).Scan(
-		&version, &artifactID, &artifactVersion, &compatibilityConfig,
+`, target.coreID, target.providerID, target.targetID,
+		run.plan.request.TargetPlatformInstanceID, target.defaultCoreID).Scan(
+		&version, &providerID, &targetID, &targetContractSHA256,
 	)
-	if err != nil || version != target.instanceVersion || artifactID != target.artifactID ||
-		artifactVersion != target.artifactVersion ||
-		compatibilityConfigDigest(compatibilityConfig) != compatibilityConfigDigest(target.compatibilityConfig) {
+	if err != nil || version != target.instanceVersion || providerID != target.providerID ||
+		targetID != target.targetID || targetContractSHA256 != target.targetContractSHA256 {
 		return ErrInvalid
 	}
 	return nil
@@ -183,16 +190,16 @@ func (run *creationRun) configSnapshot(biosCatalog []corevalidation.BIOSCatalogE
 		"platformInstanceId":      run.plan.request.TargetPlatformInstanceID,
 		"platformInstanceVersion": target.instanceVersion, "platformId": target.platformID,
 		"defaultCoreId": target.defaultCoreID, "resolvedCoreId": target.coreID,
-		"coreArtifactId":    target.artifactID,
-		"emulatorjsVersion": target.emulatorVersion, "coreArtifactPath": target.artifactPath,
-		"coreArtifactSha256": target.artifactSHA, "coreArtifactVersion": target.artifactVersion,
-		"compatibilityConfigDigest": compatibilityConfigDigest(target.compatibilityConfig),
-		"datVersionId":              nullable(run.plan.datID), "biosRequirements": biosCatalog,
+		"providerId": target.providerID, "targetId": target.targetID,
+		"targetContractSha256":  target.targetContractSHA256,
+		"gameCompatibilityLine": target.gameCompatibilityLine,
+		"contentPolicyDigest":   compatibilityConfigDigest(target.contentPolicyJSON),
+		"datVersionId":          nullable(run.plan.datID), "biosRequirements": biosCatalog,
 		"metadataProviderConfigVersion": 1, "tags": run.tagReferences,
 	}
 	if run.plan.contentMode == contentcapability.ModeMultiDiscM3UV1 {
 		capabilities := contentcapability.Resolve(
-			target.platformID, true, run.service.multiDiscImportEnabled, target.compatibilityConfig,
+			target.platformID, true, run.service.multiDiscImportEnabled, target.contentPolicyJSON,
 		)
 		config["multiDisc"] = capabilities.MultiDisc
 	}

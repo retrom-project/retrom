@@ -59,8 +59,10 @@ CREATE TABLE archive_entries (
   original_relative_path TEXT NOT NULL,
   normalized_path TEXT NOT NULL,
   ascii_casefold_path TEXT NOT NULL,
-  archive_format TEXT NOT NULL CHECK(archive_format IN ('ZIP','SEVEN_Z')),
-  compression_profile TEXT NOT NULL CHECK(compression_profile IN ('STORE','DEFLATE','SEVEN_Z_DECODER_VALIDATED')),
+  archive_format TEXT NOT NULL CHECK(archive_format IN ('ZIP','SEVEN_Z','ELECTRON_ASAR')),
+  compression_profile TEXT NOT NULL CHECK(compression_profile IN (
+    'STORE','DEFLATE','SEVEN_Z_DECODER_VALIDATED','ELECTRON_ASAR_STORE','ELECTRON_ASAR_DEFLATE'
+  )),
   uncompressed_size_bytes INTEGER NOT NULL CHECK(uncompressed_size_bytes >= 0),
   crc32 TEXT NOT NULL CHECK(length(crc32) = 8),
   md5 TEXT NOT NULL CHECK(length(md5) = 32),
@@ -72,7 +74,8 @@ CREATE TABLE archive_entries (
   UNIQUE(archive_blob_id, normalized_path),
   UNIQUE(archive_blob_id, ascii_casefold_path),
   CHECK((archive_format='ZIP' AND compression_profile IN ('STORE','DEFLATE')) OR
-        (archive_format='SEVEN_Z' AND compression_profile='SEVEN_Z_DECODER_VALIDATED'))
+        (archive_format='SEVEN_Z' AND compression_profile='SEVEN_Z_DECODER_VALIDATED') OR
+        (archive_format='ELECTRON_ASAR' AND compression_profile IN ('ELECTRON_ASAR_STORE','ELECTRON_ASAR_DEFLATE')))
 );
 
 CREATE TABLE "upload_consumptions" (

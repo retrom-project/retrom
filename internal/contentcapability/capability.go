@@ -30,14 +30,9 @@ type ImportCapabilities struct {
 	MultiDisc    *MultiDiscLimits `json:"multiDisc"`
 }
 
-type compatibility struct {
+type targetPolicy struct {
 	SchemaVersion         int      `json:"schemaVersion"`
 	SupportedContentKinds []string `json:"supportedContentKinds"`
-	MultiDisc             *struct {
-		MaxDiscs      int    `json:"maxDiscs"`
-		MaxTotalBytes int64  `json:"maxTotalBytes"`
-		Delivery      string `json:"delivery"`
-	} `json:"multiDisc"`
 }
 
 func Resolve(
@@ -54,13 +49,14 @@ func Resolve(
 		!contentprofile.AllowsContentKind(platformID, contentprofile.ContentKindMultiDiscM3UV1) {
 		return result
 	}
-	var compatibility compatibility
-	if json.Unmarshal([]byte(compatibilityJSON), &compatibility) != nil || !validMultiDiscCompatibility(compatibility) {
+	var policy targetPolicy
+	if json.Unmarshal([]byte(compatibilityJSON), &policy) != nil || policy.SchemaVersion != 1 ||
+		!slices.Contains(policy.SupportedContentKinds, ModeMultiDiscM3UV1) {
 		return result
 	}
 	result.ContentModes = append(result.ContentModes, ModeMultiDiscM3UV1)
 	result.MultiDisc = &MultiDiscLimits{
-		MaxDiscs: compatibility.MultiDisc.MaxDiscs, MaxTotalBytes: compatibility.MultiDisc.MaxTotalBytes,
+		MaxDiscs: MaximumMultiDiscCount, MaxTotalBytes: MaximumMultiDiscBytes,
 	}
 	return result
 }
@@ -85,61 +81,26 @@ func projectImportCapabilities(platformID string, enabled bool) (ImportCapabilit
 	}
 }
 
-func validMultiDiscCompatibility(value compatibility) bool {
-	return value.SchemaVersion == 5 && value.MultiDisc != nil &&
-		slices.Contains(value.SupportedContentKinds, ModeMultiDiscM3UV1) &&
-		value.MultiDisc.MaxDiscs >= 2 && value.MultiDisc.MaxDiscs <= MaximumMultiDiscCount &&
-		value.MultiDisc.MaxTotalBytes >= 1 && value.MultiDisc.MaxTotalBytes <= MaximumMultiDiscBytes &&
-		value.MultiDisc.Delivery == DeliveryEagerExternal
-}
-
 // SupportsContentKind is the publication-time capability check. Unlike import
 // admission it intentionally does not consult the feature flag, so a frozen
 // in-flight review can be completed after admission is closed.
 func SupportsContentKind(compatibilityJSON, contentKind string) bool {
-	if allowedAdapterABIs := projectAdapterABIs(contentKind); allowedAdapterABIs != nil {
-		var projectCompatibility struct {
-			AdapterABI string `json:"adapterAbi"`
-		}
-		if json.Unmarshal([]byte(compatibilityJSON), &projectCompatibility) != nil {
-			return false
-		}
-		return slices.Contains(allowedAdapterABIs, projectCompatibility.AdapterABI)
+	var policy targetPolicy
+	if json.Unmarshal([]byte(compatibilityJSON), &policy) != nil {
+		return false
 	}
-	var compatibility compatibility
-	if json.Unmarshal([]byte(compatibilityJSON), &compatibility) != nil ||
-		compatibility.SchemaVersion != 5 ||
-		!slices.Contains(compatibility.SupportedContentKinds, contentKind) {
+	if policy.SchemaVersion != 1 {
 		return false
 	}
 	switch contentKind {
 	case string(contentprofile.ContentKindSingleFile), string(contentprofile.ContentKindDOSBundle):
-		return true
+		return slices.Contains(policy.SupportedContentKinds, contentKind)
 	case string(contentprofile.ContentKindMultiDiscM3UV1):
-		return compatibility.MultiDisc != nil &&
-			compatibility.MultiDisc.MaxDiscs >= 2 &&
-			compatibility.MultiDisc.MaxDiscs <= MaximumMultiDiscCount &&
-			compatibility.MultiDisc.MaxTotalBytes >= 1 &&
-			compatibility.MultiDisc.MaxTotalBytes <= MaximumMultiDiscBytes &&
-			compatibility.MultiDisc.Delivery == DeliveryEagerExternal
+		return slices.Contains(policy.SupportedContentKinds, contentKind)
+	case ModeRPGMakerProjectV1, ModeONSProjectV1, ModeKiriKiriProjectV1,
+		ModeButterscotchProjectV1, ModeTyranoScriptProjectV1:
+		return slices.Contains(policy.SupportedContentKinds, contentKind)
 	default:
 		return false
-	}
-}
-
-func projectAdapterABIs(contentKind string) []string {
-	switch contentKind {
-	case ModeRPGMakerProjectV1:
-		return []string{"easyrpg-save", "mkxp-state-compact", "native-save"}
-	case ModeONSProjectV1:
-		return []string{"ons-save"}
-	case ModeKiriKiriProjectV1:
-		return []string{"kirikiri-kag-bookmark"}
-	case ModeButterscotchProjectV1:
-		return []string{"butterscotch-checkpoint-v2"}
-	case ModeTyranoScriptProjectV1:
-		return []string{"tyranoscript-snapshot-v1"}
-	default:
-		return nil
 	}
 }

@@ -1,6 +1,7 @@
 package runtimeprovider
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
@@ -19,7 +20,18 @@ func TestStaticHandlerServesOnlyVerifiedActivePublicFiles(t *testing.T) {
 	bundle := strings.Repeat("a", 64)
 	base := "/runtime/providers/fixture/" + bundle + "/"
 
-	client := request(t, handler, http.MethodGet, base+"client.mjs", "")
+	assertClientResponse(t, request(t, handler, http.MethodGet, base+"client.mjs", ""))
+	assertHeadResponse(t, request(t, handler, http.MethodHead, base+"client.mjs", ""))
+	assertRangeResponse(t, request(t, handler, http.MethodGet, base+"assets/core.wasm", "bytes=1-2"))
+	unsupportedRange := request(t, handler, http.MethodGet, base+"client.mjs", "bytes=0-1")
+	if unsupportedRange.Code != http.StatusRequestedRangeNotSatisfiable {
+		t.Fatalf("unsupported range = %d %q", unsupportedRange.Code, unsupportedRange.Body.String())
+	}
+	assertNotFoundPaths(t, handler, base, bundle)
+}
+
+func assertClientResponse(t *testing.T, client *httptest.ResponseRecorder) {
+	t.Helper()
 	if client.Code != http.StatusOK || client.Body.String() != "export{}" ||
 		client.Header().Get("Content-Type") != "text/javascript; charset=utf-8" ||
 		client.Header().Get("X-Content-Type-Options") != "nosniff" ||
@@ -27,20 +39,25 @@ func TestStaticHandlerServesOnlyVerifiedActivePublicFiles(t *testing.T) {
 		client.Header().Get("ETag") != `"`+digestBytes([]byte("export{}"))+`"` {
 		t.Fatalf("client response = %d headers=%v body=%q", client.Code, client.Header(), client.Body.String())
 	}
-	head := request(t, handler, http.MethodHead, base+"client.mjs", "")
+}
+
+func assertHeadResponse(t *testing.T, head *httptest.ResponseRecorder) {
+	t.Helper()
 	if head.Code != http.StatusOK || head.Body.Len() != 0 || head.Header().Get("Content-Length") != "8" {
 		t.Fatalf("HEAD response = %d headers=%v body=%q", head.Code, head.Header(), head.Body.String())
 	}
-	partial := request(t, handler, http.MethodGet, base+"assets/core.wasm", "bytes=1-2")
+}
+
+func assertRangeResponse(t *testing.T, partial *httptest.ResponseRecorder) {
+	t.Helper()
 	if partial.Code != http.StatusPartialContent || partial.Body.String() != "as" ||
 		partial.Header().Get("Accept-Ranges") != "bytes" {
 		t.Fatalf("range response = %d headers=%v body=%q", partial.Code, partial.Header(), partial.Body.String())
 	}
-	unsupportedRange := request(t, handler, http.MethodGet, base+"client.mjs", "bytes=0-1")
-	if unsupportedRange.Code != http.StatusRequestedRangeNotSatisfiable {
-		t.Fatalf("unsupported range = %d %q", unsupportedRange.Code, unsupportedRange.Body.String())
-	}
+}
 
+func assertNotFoundPaths(t *testing.T, handler http.Handler, base, bundle string) {
+	t.Helper()
 	for _, path := range []string{
 		"/runtime/providers/fixture/" + strings.Repeat("b", 64) + "/client.mjs",
 		base + "provider.json", base + "assets/", base + "%2e%2e/client.mjs",
@@ -141,7 +158,7 @@ func fixtureActive(bundle string) runtimebundle.ActiveDescriptor {
 
 func request(t *testing.T, handler http.Handler, method, path, byteRange string) *httptest.ResponseRecorder {
 	t.Helper()
-	request := httptest.NewRequest(method, path, nil)
+	request := httptest.NewRequestWithContext(context.Background(), method, path, nil)
 	if byteRange != "" {
 		request.Header.Set("Range", byteRange)
 	}

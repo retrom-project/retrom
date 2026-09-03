@@ -42,12 +42,12 @@ type approvalRun struct {
 	contentKind                   string
 	dependencySnapshotJSON        string
 	coreID                        string
-	artifactID                    string
-	routeKey                      string
-	artifactCompatibility         string
-	runtimeFamily                 string
+	providerID                    string
+	targetID                      string
+	targetContractSHA256          string
+	gameCompatibilityLine         string
+	contentPolicyJSON             string
 	draftVersion                  int64
-	artifactVersion               int64
 	datID                         sql.NullString
 	validationDOSEntry            sql.NullString
 	draftDOSEntry                 sql.NullString
@@ -74,9 +74,6 @@ type approvalRun struct {
 	screenshotIDs                 []string
 	rpgValidationID               string
 	rpgGeneration                 string
-	rpgAdapterID                  string
-	rpgAdapterABI                 string
-	rpgArtifactSetSHA             string
 	rpgDependencySnapshotSHA      string
 }
 
@@ -128,9 +125,9 @@ func (run *approvalRun) load() error {
 		&run.draftID, &run.state, &run.importID, &run.configJSON, &run.platformID,
 		&run.platformInstanceID, &run.validationID, &run.validationStatus, &run.metadataJSON,
 		&run.sourceSnapshotID, &run.sourceManifestJSON, &run.sourceManifestDigest,
-		&run.contentKind, &run.coreID, &run.artifactID, &run.routeKey, &run.artifactCompatibility,
-		&run.runtimeFamily,
-		&run.artifactVersion, &run.datID, &run.validationDOSEntry, &run.draftDOSEntry,
+		&run.contentKind, &run.coreID, &run.providerID, &run.targetID,
+		&run.targetContractSHA256, &run.gameCompatibilityLine, &run.contentPolicyJSON,
+		&run.datID, &run.validationDOSEntry, &run.draftDOSEntry,
 		&run.dependencySnapshotJSON, &run.approvalScreenshotID, &run.draftVersion,
 		&run.candidateID, &run.coverID, &run.uploadedCoverID, &run.backgroundID,
 	)
@@ -154,7 +151,7 @@ func (run *approvalRun) prepare() error {
 		return err
 	}
 	if run.platformID != "rpgmaker" &&
-		!contentcapability.SupportsContentKind(run.artifactCompatibility, run.contentKind) {
+		!contentcapability.SupportsContentKind(run.contentPolicyJSON, run.contentKind) {
 		return ErrInvalid
 	}
 	if run.platformID == "rpgmaker" {
@@ -209,7 +206,8 @@ func (run *approvalRun) prepareValidationSnapshot() error {
 	if !run.screenshotOverride {
 		if err := run.service.validateCurrentApprovalDependencySnapshot(
 			run.ctx, run.transaction, run.sourceSnapshotID, run.validationID, run.platformID,
-			run.artifactID, run.artifactCompatibility, run.contentKind, run.dependencySnapshotJSON,
+			run.providerID, run.targetID, run.contentPolicyJSON,
+			run.contentKind, run.dependencySnapshotJSON,
 		); err != nil {
 			return err
 		}
@@ -269,13 +267,26 @@ const approvalDraftQuery = `
 SELECT d.id,i.state,i.import_job_id,j.config_snapshot_json,p.platform_id,
   d.target_platform_instance_id,v.id,v.status,d.metadata_json,source_snapshot.id,
   source_snapshot.source_manifest_json,source_snapshot.source_manifest_digest,
-  source_snapshot.content_kind,v.core_id,v.core_artifact_id,a.route_key,a.compatibility_json,a.runtime_family,
-  v.core_artifact_version,v.dat_version_id,v.default_dos_entry,d.default_dos_entry,
+  source_snapshot.content_kind,v.core_id,v.provider_id,v.target_id,v.target_contract_sha256,
+  v.game_compatibility_line,
+  json_object(
+    'schemaVersion',1,
+    'supportedContentKinds',json((SELECT json_group_array(content_kind) FROM (
+      SELECT content_kind FROM runtime_binding_content_kinds kinds
+      WHERE kinds.binding_id=binding.binding_id ORDER BY content_kind
+    ))),
+    'multiDisc',CASE WHEN EXISTS(
+      SELECT 1 FROM runtime_binding_content_kinds kinds
+      WHERE kinds.binding_id=binding.binding_id AND kinds.content_kind='MULTI_DISC_M3U_V1'
+    ) THEN json_object('maxDiscs',8,'maxTotalBytes',1073741824,'delivery','EAGER_EXTERNAL_FILES') ELSE NULL END
+  ),
+  v.dat_version_id,v.default_dos_entry,d.default_dos_entry,
   v.dependency_snapshot_json,
   (SELECT screenshot.id FROM review_runtime_screenshots screenshot
    WHERE screenshot.import_item_id=i.id AND screenshot.validation_id=v.id
      AND screenshot.source_snapshot_id=d.effective_source_snapshot_id
-     AND screenshot.core_artifact_id=v.core_artifact_id
+     AND screenshot.provider_id=v.provider_id AND screenshot.target_id=v.target_id
+     AND screenshot.target_contract_sha256=v.target_contract_sha256
    ORDER BY screenshot.captured_at_ms DESC,screenshot.id DESC LIMIT 1),
   d.version,d.selected_candidate_id,d.cover_candidate_asset_id,d.cover_uploaded_asset_id,
   d.background_candidate_asset_id
@@ -286,23 +297,23 @@ JOIN import_item_source_snapshots source_snapshot ON source_snapshot.id=d.effect
 JOIN platform_instances p ON p.id=d.target_platform_instance_id
   AND p.enabled=1 AND p.deleted_at_ms IS NULL
 LEFT JOIN rpgmaker_review_profiles rpg_binding ON rpg_binding.review_draft_id=d.id
-JOIN core_artifacts a ON a.id=CASE WHEN p.platform_id='rpgmaker' THEN rpg_binding.artifact_id ELSE (
-  SELECT selected.id FROM core_artifacts selected
-  WHERE selected.core_id=p.default_core_id AND selected.selected_for_new_bindings=1
-) END
 JOIN import_item_core_validations v ON v.id=(
   SELECT candidate.id FROM import_item_core_validations candidate
   WHERE candidate.import_item_id=i.id
     AND candidate.source_snapshot_id=d.effective_source_snapshot_id
     AND candidate.target_platform_instance_id=d.target_platform_instance_id
-    AND candidate.core_artifact_id=a.id
   ORDER BY candidate.created_at_ms DESC,candidate.id DESC LIMIT 1
 )
 AND v.source_snapshot_id=d.effective_source_snapshot_id
 AND v.target_platform_instance_id=d.target_platform_instance_id
-AND v.core_artifact_id=a.id
 AND p.version=v.platform_instance_version
-AND a.version=v.core_artifact_version
+JOIN runtime_targets target ON target.provider_id=v.provider_id AND target.target_id=v.target_id
+ AND target.target_contract_sha256=v.target_contract_sha256
+ AND target.game_compatibility_line=v.game_compatibility_line
+JOIN runtime_target_bindings binding ON binding.provider_id=v.provider_id AND binding.target_id=v.target_id
+ AND binding.core_id=v.core_id AND binding.launch_policy!='DISABLED'
+JOIN runtime_binding_platforms binding_platform ON binding_platform.binding_id=binding.binding_id
+ AND binding_platform.platform_id=p.platform_id
 WHERE i.id=?
 AND (i.review_handoff_kind='DIRECT' OR EXISTS(
   SELECT 1 FROM emulationstation_import_items reserved_source
@@ -316,31 +327,31 @@ AND (p.platform_id='rpgmaker' AND EXISTS(
     AND runtime_validation.runtime_binding_revision=d.runtime_binding_revision
     AND runtime_validation.effective_source_snapshot_id=d.effective_source_snapshot_id
   WHERE rpg_profile.review_draft_id=d.id AND runtime_validation.launch_id IS NOT NULL
-    AND runtime_validation.core_id=rpg_profile.selected_core_id
     AND runtime_validation.generation=rpg_profile.generation
-    AND runtime_validation.artifact_id=rpg_profile.artifact_id
-    AND runtime_validation.route_key=rpg_profile.route_key
+    AND runtime_validation.provider_id=rpg_profile.provider_id
+    AND runtime_validation.target_id=rpg_profile.target_id
+    AND runtime_validation.target_contract_sha256=rpg_profile.target_contract_sha256
+    AND runtime_validation.game_compatibility_line=rpg_profile.game_compatibility_line
     AND runtime_validation.project_fingerprint=rpg_profile.project_fingerprint
-    AND runtime_validation.adapter_abi=rpg_profile.adapter_abi
     AND runtime_validation.dependency_snapshot_sha256=rpg_profile.dependency_snapshot_sha256
 ) OR p.platform_id<>'rpgmaker' AND (v.status='READY' OR EXISTS(
   SELECT 1 FROM review_runtime_screenshots screenshot
   WHERE screenshot.import_item_id=i.id AND screenshot.validation_id=v.id
     AND screenshot.source_snapshot_id=d.effective_source_snapshot_id
-    AND screenshot.core_artifact_id=v.core_artifact_id
+    AND screenshot.provider_id=v.provider_id AND screenshot.target_id=v.target_id
+    AND screenshot.target_contract_sha256=v.target_contract_sha256
 )))
 AND v.prepublish_generation=4
 AND v.default_dos_entry IS d.default_dos_entry
 AND v.dat_version_id IS (
   SELECT active.id FROM dat_versions active
-  WHERE active.core_artifact_id=a.id AND active.is_active=1
+  WHERE active.provider_id=v.provider_id AND active.target_id=v.target_id AND active.is_active=1
 )
 `
 
 func (run *approvalRun) loadLaunchedRPGValidation() error {
 	err := run.transaction.QueryRowContext(run.ctx, `
-SELECT validation.id,profile.generation,profile.adapter_id,profile.adapter_abi,
-profile.artifact_set_sha256,profile.dependency_snapshot_sha256
+SELECT validation.id,profile.generation,profile.dependency_snapshot_sha256
 FROM review_drafts draft
 JOIN rpgmaker_review_profiles profile ON profile.review_draft_id=draft.id
 JOIN rpgmaker_runtime_validations validation
@@ -348,19 +359,16 @@ JOIN rpgmaker_runtime_validations validation
   AND validation.runtime_binding_revision=draft.runtime_binding_revision
   AND validation.effective_source_snapshot_id=draft.effective_source_snapshot_id
   AND validation.launch_id IS NOT NULL
-  AND validation.core_id=profile.selected_core_id
   AND validation.generation=profile.generation
-  AND validation.route_key=profile.route_key
-  AND validation.artifact_id=profile.artifact_id
-  AND validation.artifact_set_sha256=profile.artifact_set_sha256
-  AND validation.adapter_id=profile.adapter_id
-  AND validation.adapter_abi=profile.adapter_abi
+  AND validation.provider_id=profile.provider_id
+  AND validation.target_id=profile.target_id
+  AND validation.target_contract_sha256=profile.target_contract_sha256
+  AND validation.game_compatibility_line=profile.game_compatibility_line
   AND validation.dependency_snapshot_sha256=profile.dependency_snapshot_sha256
   AND validation.project_fingerprint=profile.project_fingerprint
 WHERE draft.id=?
 `, run.draftID).Scan(
-		&run.rpgValidationID, &run.rpgGeneration, &run.rpgAdapterID, &run.rpgAdapterABI,
-		&run.rpgArtifactSetSHA, &run.rpgDependencySnapshotSHA,
+		&run.rpgValidationID, &run.rpgGeneration, &run.rpgDependencySnapshotSHA,
 	)
 	if err != nil {
 		return ErrInvalid

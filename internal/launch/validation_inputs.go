@@ -17,7 +17,11 @@ import (
 type validationInputs struct {
 	GameVariantID         string `json:"gameVariantId"`
 	GameContentRevisionID string `json:"gameContentRevisionId"`
-	CoreArtifactID        string `json:"coreArtifactId"`
+	ProviderID            string `json:"providerId"`
+	TargetID              string `json:"targetId"`
+	TargetContractSHA256  string `json:"targetContractSha256"`
+	GameCompatibilityLine string `json:"gameCompatibilityLine"`
+	ContentPolicyJSON     string `json:"contentPolicyJson"`
 	DATVersionID          any    `json:"datVersionId"`
 	ValidationInputDigest string `json:"validationInputDigest"`
 	BIOSDependencyDigest  string `json:"biosDependencyDigest"`
@@ -134,10 +138,12 @@ func nullInt64Pointer(value sql.NullInt64) *int64 {
 func (service *Service) resolveVariantBIOS(
 	ctx context.Context,
 	database corevalidation.Queryer,
-	variantID, contentID, artifactID, contentLogicalName string,
+	variantID, contentID, providerID, targetID, contentLogicalName string,
 	datID sql.NullString,
 ) (corevalidation.Snapshot, string, string, error) {
-	snapshot, status, code, err := corevalidation.ResolveBIOS(ctx, database, artifactID, contentLogicalName)
+	snapshot, status, code, err := corevalidation.ResolveBIOS(
+		ctx, database, providerID, targetID, contentLogicalName,
+	)
 	if err != nil {
 		return snapshot, status, code, fmt.Errorf("launch validation static BIOS: %w", err)
 	}
@@ -165,7 +171,7 @@ AND revision.game_content_revision_id=?
 AND revision.dat_version_id IS ?
 JOIN variant_dependencies dependency ON dependency.game_variant_revision_id=revision.id
 AND dependency.kind='BIOS_OR_BASE'
-LEFT JOIN bios_requirements requirement ON requirement.core_artifact_id=?
+LEFT JOIN bios_requirements requirement ON requirement.provider_id=? AND requirement.target_id=?
 AND requirement.source_kind='DAT_MACHINE'
 AND requirement.source_version=?
 AND requirement.logical_name=dependency.logical_archive
@@ -175,7 +181,7 @@ AND installation.is_active=1
 AND installation.validated_requirement_version=requirement.version
 WHERE variant.id=?
 ORDER BY dependency.logical_archive
-`, contentID, nullableSQL(datID), artifactID, datID.String, variantID)
+`, contentID, nullableSQL(datID), providerID, targetID, datID.String, variantID)
 	if err != nil {
 		return corevalidation.Snapshot{}, "BLOCKED", "LAUNCH_CORE_VALIDATION_UNAVAILABLE",
 			fmt.Errorf("launch validation Arcade BIOS: %w", err)
@@ -209,22 +215,26 @@ ORDER BY dependency.logical_archive
 func (service *Service) validationDigests(
 	ctx context.Context,
 	transaction *sql.Tx,
-	variantID, contentID, contentLogicalName, contentKind, artifactID string,
+	variantID, contentID, contentLogicalName, contentKind,
+	providerID, targetID, targetContractSHA256, gameCompatibilityLine, contentPolicyJSON string,
 	datID sql.NullString,
 ) (string, string, error) {
 	biosSnapshot, _, _, err := service.resolveVariantBIOS(
-		ctx, transaction, variantID, contentID, artifactID, contentLogicalName, datID,
+		ctx, transaction, variantID, contentID, providerID, targetID, contentLogicalName, datID,
 	)
 	if err != nil {
 		return "", "", ErrBlocked
 	}
 	if contentKind == corevalidation.MultiDiscContentKind {
 		digest, biosDigest, _, digestErr := service.multiDiscRevalidationInputs(
-			ctx, variantID, contentID, artifactID, datID, biosSnapshot,
+			ctx, transaction, variantID, contentID, providerID, targetID, targetContractSHA256,
+			gameCompatibilityLine, contentPolicyJSON, datID, biosSnapshot,
 		)
 		return digest, biosDigest, digestErr
 	}
-	digest, err := corevalidation.ValidationInputDigest(artifactID, contentID, datID, biosSnapshot)
+	digest, err := corevalidation.ProviderValidationInputDigest(
+		providerID, targetID, targetContractSHA256, gameCompatibilityLine, contentID, datID, biosSnapshot,
+	)
 	if err != nil {
 		return "", "", fmt.Errorf("launch validation digest: %w", err)
 	}
@@ -238,22 +248,26 @@ func (service *Service) validationDigests(
 
 func (service *Service) currentValidationEvidence(
 	ctx context.Context,
-	variantID, contentID, contentLogicalName, contentKind, artifactID string,
+	variantID, contentID, contentLogicalName, contentKind,
+	providerID, targetID, targetContractSHA256, gameCompatibilityLine, contentPolicyJSON string,
 	datID sql.NullString,
 ) (string, string, corevalidation.Snapshot, string, string, error) {
 	biosSnapshot, biosStatus, biosCode, err := service.resolveVariantBIOS(
-		ctx, service.database, variantID, contentID, artifactID, contentLogicalName, datID,
+		ctx, service.database, variantID, contentID, providerID, targetID, contentLogicalName, datID,
 	)
 	if err != nil {
 		return "", "", corevalidation.Snapshot{}, "", "", fmt.Errorf("launch validation BIOS: %w", err)
 	}
 	if contentKind == corevalidation.MultiDiscContentKind {
 		digest, biosDigest, snapshot, digestErr := service.multiDiscRevalidationInputs(
-			ctx, variantID, contentID, artifactID, datID, biosSnapshot,
+			ctx, service.database, variantID, contentID, providerID, targetID, targetContractSHA256,
+			gameCompatibilityLine, contentPolicyJSON, datID, biosSnapshot,
 		)
 		return digest, biosDigest, snapshot, biosStatus, biosCode, digestErr
 	}
-	digest, err := corevalidation.ValidationInputDigest(artifactID, contentID, datID, biosSnapshot)
+	digest, err := corevalidation.ProviderValidationInputDigest(
+		providerID, targetID, targetContractSHA256, gameCompatibilityLine, contentID, datID, biosSnapshot,
+	)
 	if err != nil {
 		return "", "", corevalidation.Snapshot{}, "", "", fmt.Errorf("launch validation digest: %w", err)
 	}

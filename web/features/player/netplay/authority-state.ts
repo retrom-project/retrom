@@ -1,63 +1,70 @@
-import type { EJSNetplayFrameBridge } from "./ejs-netplay-4.2.3-v1";
-import {
-  coreStateBytes,
-  digestHex,
-  transferCoreStateBytes,
-  transferStateBytes,
-} from "./ejs-netplay-4.2.3-v1";
-import type { NetplayDiagnostics } from "./controller-model";
-
-export function acceptsAuthorityNormalization(
-  profileID: string,
-  expected: Uint8Array,
-  result: Awaited<ReturnType<EJSNetplayFrameBridge["loadStateForTransfer"]>>,
-) {
-  if (result.coreExact) {return true;}
-  if (profileID !== "nestopia-423-v1") {return false;}
-  const expectedCore = transferCoreStateBytes(coreStateBytes(expected), profileID);
-  const recapturedCore = transferCoreStateBytes(coreStateBytes(result.recaptured), profileID);
-  return expectedCore.byteLength === recapturedCore.byteLength &&
-    expectedCore.every((byte, index) => byte === recapturedCore[index]);
-}
+import type {NetplayRuntimePort} from "../runtime/netplay-port-adapter";
+import type {NetplayDiagnostics} from "./controller-model";
+import {digestNetplayState, equalNetplayState} from "./state-digest";
 
 export async function prepareAuthorityTransfer(
-  profileID: string,
+  _profileID: string,
   maxStateBytes: number,
-  bridge: EJSNetplayFrameBridge,
+  bridge: NetplayRuntimePort,
   diagnostics: NetplayDiagnostics | undefined,
-  context: { epoch: number; nextFrame: number },
+  context: {epoch: number; nextFrame: number},
 ) {
-  const captured = bridge.captureState();
-  const normalized = await bridge.loadStateForTransfer(captured);
-  diagnostics?.onAuthorityNormalization?.({ ...context, attempt: 1, ...normalizationEvidence(normalized) });
-  let state: Uint8Array = normalized.recaptured;
-  if (!acceptsAuthorityNormalization(profileID, captured, normalized)) {
-    const fixedPoint = await bridge.loadStateForTransfer(state);
-    diagnostics?.onAuthorityNormalization?.({ ...context, attempt: 2, ...normalizationEvidence(fixedPoint) });
-    if (!fixedPoint.coreExact) {throw new Error("STATE_INVALID");}
-    state = fixedPoint.recaptured;
+  const captured = await bridge.captureState(context.nextFrame);
+  await bridge.loadStateAndWait(captured, context.nextFrame);
+  let state = await bridge.captureState(context.nextFrame);
+  diagnostics?.onAuthorityNormalization?.({
+    ...context, attempt: 1, expectedCoreBytes: captured.byteLength, recapturedCoreBytes: state.byteLength,
+    firstCoreMismatch: firstMismatch(captured, state), lastCoreMismatch: lastMismatch(captured, state),
+    coreMismatchCount: mismatchCount(captured, state), coreMismatchRanges: mismatchRanges(captured, state),
+  });
+  if (!equalNetplayState(captured, state)) {
+    await bridge.loadStateAndWait(state, context.nextFrame);
+    const fixed = await bridge.captureState(context.nextFrame);
+    diagnostics?.onAuthorityNormalization?.({
+      ...context, attempt: 2, expectedCoreBytes: state.byteLength, recapturedCoreBytes: fixed.byteLength,
+      firstCoreMismatch: firstMismatch(state, fixed), lastCoreMismatch: lastMismatch(state, fixed),
+      coreMismatchCount: mismatchCount(state, fixed), coreMismatchRanges: mismatchRanges(state, fixed),
+    });
+    if (!equalNetplayState(state, fixed)) {throw new Error("STATE_INVALID");}
+    state = fixed;
   }
-  if (state.byteLength > maxStateBytes) {throw new Error("STATE_RING_CAPACITY_EXCEEDED");}
-  state = transferStateBytes(state, profileID);
-  const [stateSha256, coreSha256] = await Promise.all([
-    digestHex(state), digestHex(coreStateBytes(state)),
-  ]);
-  diagnostics?.onStateCapture?.({ ...context, byteLength: state.byteLength, stateDigest: stateSha256, coreDigest: coreSha256 });
-  const recaptured = transferStateBytes(bridge.captureState(), profileID);
-  return { state, stateSha256, coreSha256, recaptureMatched: equalBytes(state, recaptured) };
+  if (state.byteLength < 1 || state.byteLength > maxStateBytes) {throw new Error("STATE_RING_CAPACITY_EXCEEDED");}
+  const stateSha256 = await digestNetplayState(state);
+  diagnostics?.onStateCapture?.({
+    ...context, byteLength: state.byteLength, stateDigest: stateSha256, coreDigest: stateSha256,
+  });
+  const recaptured = await bridge.captureState(context.nextFrame);
+  return {state, stateSha256, coreSha256: stateSha256, recaptureMatched: equalNetplayState(state, recaptured)};
 }
 
-function normalizationEvidence(result: Awaited<ReturnType<EJSNetplayFrameBridge["loadStateForTransfer"]>>) {
-  return {
-    expectedCoreBytes: result.expectedCoreBytes,
-    recapturedCoreBytes: result.recapturedCoreBytes,
-    firstCoreMismatch: result.firstCoreMismatch,
-    lastCoreMismatch: result.lastCoreMismatch,
-    coreMismatchCount: result.coreMismatchCount,
-    coreMismatchRanges: result.coreMismatchRanges,
-  };
+function firstMismatch(left: Uint8Array, right: Uint8Array) {
+  const length = Math.max(left.byteLength, right.byteLength);
+  for (let index = 0; index < length; index += 1) {if (left[index] !== right[index]) {return index;}}
+  return -1;
 }
 
-function equalBytes(left: Uint8Array, right: Uint8Array) {
-  return left.byteLength === right.byteLength && left.every((value, index) => value === right[index]);
+function lastMismatch(left: Uint8Array, right: Uint8Array) {
+  for (let index = Math.max(left.byteLength, right.byteLength) - 1; index >= 0; index -= 1) {
+    if (left[index] !== right[index]) {return index;}
+  }
+  return -1;
+}
+
+function mismatchCount(left: Uint8Array, right: Uint8Array) {
+  let count = 0;
+  for (let index = 0; index < Math.max(left.byteLength, right.byteLength); index += 1) {
+    if (left[index] !== right[index]) {count += 1;}
+  }
+  return count;
+}
+
+function mismatchRanges(left: Uint8Array, right: Uint8Array) {
+  const ranges: Array<{start: number; end: number}> = [];
+  for (let index = 0; index < Math.max(left.byteLength, right.byteLength); index += 1) {
+    if (left[index] === right[index]) {continue;}
+    const tail = ranges.at(-1);
+    if (tail?.end === index) {tail.end += 1;}
+    else if (ranges.length < 32) {ranges.push({start: index, end: index + 1});}
+  }
+  return ranges;
 }

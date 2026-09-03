@@ -122,20 +122,20 @@ func (service *Service) persistRPGMakerReplacementVariant(
 	inputDigest := rpgReplacementValidationDigest(snapshot, profile.projectFingerprint, contentID, variantID)
 	if _, err := transaction.ExecContext(ctx, `
 INSERT INTO game_variant_revisions(
- id,game_variant_id,game_content_revision_id,core_artifact_id,route_key,dat_version_id,
+ id,game_variant_id,game_content_revision_id,provider_id,target_id,target_contract_sha256,
+ game_compatibility_line,dat_version_id,
  validation_input_digest,emulator_game_id,status,compatibility_code,dependency_snapshot_json,created_at_ms
-) VALUES(?,?,?,?,?,NULL,?,NULL,'READY','READY',?,?)
-`, revisionID, variantID, contentID, snapshot.CoreArtifactID, snapshot.CoreArtifactRouteKey,
+) VALUES(?,?,?,?,?,?,?,NULL,?,NULL,'READY','READY',?,?)
+`, revisionID, variantID, contentID, snapshot.ProviderID, snapshot.TargetID,
+		snapshot.TargetContractSHA256, snapshot.GameCompatibilityLine,
 		inputDigest, binding.dependencySnapshotJSON, now); err != nil {
 		return "", fmt.Errorf("insert RPG replacement variant: %w", err)
 	}
 	if _, err := transaction.ExecContext(ctx, `
 INSERT INTO rpgmaker_variant_profiles(
- game_variant_revision_id,generation,route_key,adapter_id,adapter_abi,
- artifact_set_sha256,dependency_snapshot_sha256,runtime_validation_id
-) VALUES(?,?,?,?,?,?,?,NULL)
-`, revisionID, snapshot.RPGGeneration, snapshot.CoreArtifactRouteKey, snapshot.RPGAdapterID,
-		snapshot.RPGAdapterABI, snapshot.RPGArtifactSetSHA256, snapshot.RPGDependencySHA256); err != nil {
+ game_variant_revision_id,generation,dependency_snapshot_sha256,runtime_validation_id
+) VALUES(?,?,?,NULL)
+`, revisionID, snapshot.RPGGeneration, snapshot.RPGDependencySHA256); err != nil {
 		return "", fmt.Errorf("insert RPG replacement variant profile: %w", err)
 	}
 	if err := service.persistRPGMakerReplacementVariantFiles(
@@ -184,9 +184,9 @@ func rpgReplacementValidationDigest(
 	projectFingerprint, contentID, variantID string,
 ) string {
 	digest := sha256.Sum256([]byte(fmt.Sprintf(
-		"RETROM_RPG_REPLACEMENT_V1\x00%s\x00%s\x00%s\x00%s\x00%s\x00%s\x00%s",
-		variantID, contentID, projectFingerprint, snapshot.CoreArtifactID,
-		snapshot.CoreArtifactRouteKey, snapshot.RPGAdapterABI, snapshot.RPGDependencySHA256,
+		"RETROM_RPG_REPLACEMENT_V2\x00%s\x00%s\x00%s\x00%s\x00%s\x00%s\x00%s",
+		variantID, contentID, projectFingerprint, snapshot.ProviderID,
+		snapshot.TargetID, snapshot.TargetContractSHA256, snapshot.RPGDependencySHA256,
 	)))
 	return hex.EncodeToString(digest[:])
 }

@@ -15,7 +15,7 @@ type publishedVariantDependency struct {
 
 func (run *approvalRun) persistVariant() error {
 	var emulatorGameID any
-	if run.runtimeFamily == "EMULATORJS" {
+	if run.providerID == "emulatorjs" {
 		var nextID int64
 		if err := run.transaction.QueryRowContext(run.ctx, `
 SELECT COALESCE(MAX(emulator_game_id),1000)+1 FROM game_variant_revisions
@@ -26,8 +26,10 @@ SELECT COALESCE(MAX(emulator_game_id),1000)+1 FROM game_variant_revisions
 	}
 	inputDigest, err := approvalValidationInputDigest(approvalValidationDigestInput{
 		VariantID: run.variantID, ContentID: run.contentID, ContentKind: run.contentKind,
-		ArtifactID: run.artifactID, ArtifactVersion: run.artifactVersion,
-		ArtifactCompatibility: run.artifactCompatibility, DATID: run.datID,
+		ProviderID: run.providerID, TargetID: run.targetID,
+		TargetContractSHA256:  run.targetContractSHA256,
+		GameCompatibilityLine: run.gameCompatibilityLine,
+		ContentPolicyJSON:     run.contentPolicyJSON, DATID: run.datID,
 		ValidationID: run.validationID, Snapshot: run.validationSnapshot, SnapshotValid: run.snapshotValid,
 	})
 	if err != nil {
@@ -73,11 +75,13 @@ VALUES(?,?,?,NULL,1,?,?)
 	}
 	_, err = run.transaction.ExecContext(run.ctx, `
 INSERT INTO game_variant_revisions(
-  id,game_variant_id,game_content_revision_id,core_artifact_id,route_key,dat_version_id,
+  id,game_variant_id,game_content_revision_id,provider_id,target_id,target_contract_sha256,
+  game_compatibility_line,dat_version_id,
   validation_input_digest,emulator_game_id,status,compatibility_code,
   dependency_snapshot_json,default_dos_entry,created_at_ms
-) VALUES(?,?,?,?,?,?,?,?,'READY',?,?,?,?)
-`, run.variantRevisionID, run.variantID, run.contentID, run.artifactID, run.routeKey, nullable(run.datID),
+) VALUES(?,?,?,?,?,?,?,?,?,?,'READY',?,?,?,?)
+`, run.variantRevisionID, run.variantID, run.contentID, run.providerID, run.targetID,
+		run.targetContractSHA256, run.gameCompatibilityLine, nullable(run.datID),
 		inputDigest, emulatorGameID, compatibilityCode, run.runtimeDependencySnapshotJSON,
 		nullable(defaultDOSEntry), run.now)
 	if err != nil {
@@ -100,11 +104,9 @@ func (run *approvalRun) insertRPGMakerVariantProfile() error {
 	}
 	_, err := run.transaction.ExecContext(run.ctx, `
 INSERT INTO rpgmaker_variant_profiles(
-  game_variant_revision_id,generation,route_key,adapter_id,adapter_abi,
-  artifact_set_sha256,dependency_snapshot_sha256,runtime_validation_id
-) VALUES(?,?,?,?,?,?,?,?)
-`, run.variantRevisionID, run.rpgGeneration, run.routeKey, run.rpgAdapterID, run.rpgAdapterABI,
-		run.rpgArtifactSetSHA, run.rpgDependencySnapshotSHA, run.rpgValidationID)
+  game_variant_revision_id,generation,dependency_snapshot_sha256,runtime_validation_id
+) VALUES(?,?,?,?)
+`, run.variantRevisionID, run.rpgGeneration, run.rpgDependencySnapshotSHA, run.rpgValidationID)
 	if err != nil {
 		return fmt.Errorf("libraryimport/rpgmaker variant profile: %w", err)
 	}

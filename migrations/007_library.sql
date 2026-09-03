@@ -169,8 +169,10 @@ CREATE TABLE game_variant_revisions (
   id TEXT PRIMARY KEY,
   game_variant_id TEXT NOT NULL REFERENCES game_variants(id),
   game_content_revision_id TEXT NOT NULL REFERENCES game_content_revisions(id),
-  core_artifact_id TEXT NOT NULL REFERENCES core_artifacts(id),
-  route_key TEXT NOT NULL CHECK(length(route_key) BETWEEN 1 AND 160),
+  provider_id TEXT NOT NULL REFERENCES runtime_providers(provider_id),
+  target_id TEXT NOT NULL,
+  target_contract_sha256 TEXT NOT NULL CHECK(length(target_contract_sha256)=64),
+  game_compatibility_line TEXT NOT NULL CHECK(length(game_compatibility_line) BETWEEN 1 AND 64),
   dat_version_id TEXT REFERENCES dat_versions(id),
   validation_input_digest TEXT NOT NULL CHECK(length(validation_input_digest) = 64),
   emulator_game_id INTEGER UNIQUE CHECK(emulator_game_id IS NULL OR emulator_game_id BETWEEN 1 AND 9007199254740991),
@@ -181,6 +183,7 @@ CREATE TABLE game_variant_revisions (
   created_at_ms INTEGER NOT NULL,
   UNIQUE(game_variant_id, validation_input_digest),
   UNIQUE(id, game_variant_id),
+  FOREIGN KEY(provider_id,target_id) REFERENCES runtime_targets(provider_id,target_id),
   CHECK(status='READY' OR emulator_game_id IS NULL)
 );
 
@@ -220,10 +223,6 @@ CREATE TABLE rpgmaker_variant_profiles (
   generation TEXT NOT NULL CHECK(generation IN (
     'RPG2000','RPG2003','RPGXP','RPGVX','RPGVXACE','RPGMV','RPGMZ'
   )),
-  route_key TEXT NOT NULL,
-  adapter_id TEXT NOT NULL,
-  adapter_abi TEXT NOT NULL,
-  artifact_set_sha256 TEXT NOT NULL CHECK(length(artifact_set_sha256)=64 AND artifact_set_sha256=lower(artifact_set_sha256)),
   dependency_snapshot_sha256 TEXT NOT NULL CHECK(
     length(dependency_snapshot_sha256)=64 AND dependency_snapshot_sha256=lower(dependency_snapshot_sha256)
   ),

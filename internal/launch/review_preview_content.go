@@ -14,22 +14,23 @@ func (service *Service) ReviewPreviewContent(
 	previewID, capability, logicalName string,
 ) (ContentView, error) {
 	var credentialHash []byte
-	var digest, state, format, coreID, platformKey string
+	var digest, state, format, coreID, providerID, targetID, targetContractSHA256, platformKey string
 	var dosEntry sql.NullString
-	var hardExpires, artifactVersion int64
+	var hardExpires int64
 	var discCount int
 	err := service.database.QueryRowContext(ctx, `
 SELECT preview.credential_sha256,preview.state,preview.hard_expires_at_ms,blob.sha256,
-preview.content_format,artifact.core_id,artifact.version,platform.id,preview.default_dos_entry,
+preview.content_format,binding.core_id,preview.provider_id,preview.target_id,
+preview.target_contract_sha256,platform.id,preview.default_dos_entry,
 (SELECT count(*) FROM review_preview_files file WHERE file.preview_session_id=preview.id AND file.role='DISC')
 FROM review_preview_sessions preview
 JOIN blobs blob ON blob.id=preview.content_blob_id
-JOIN core_artifacts artifact ON artifact.id=preview.core_artifact_id
+JOIN runtime_target_bindings binding ON binding.provider_id=preview.provider_id AND binding.target_id=preview.target_id
 JOIN platform_instances instance ON instance.id=preview.target_platform_instance_id
 JOIN platforms platform ON platform.id=instance.platform_id
 WHERE preview.id=? AND preview.content_logical_name=?
 `, previewID, logicalName).Scan(&credentialHash, &state, &hardExpires, &digest, &format,
-		&coreID, &artifactVersion, &platformKey, &dosEntry, &discCount)
+		&coreID, &providerID, &targetID, &targetContractSHA256, &platformKey, &dosEntry, &discCount)
 	if err != nil || !reviewPreviewCredential(service.now().UnixMilli(), capability, credentialHash, state, hardExpires) {
 		return ContentView{}, ErrCredential
 	}
@@ -38,8 +39,9 @@ WHERE preview.id=? AND preview.content_logical_name=?
 		selected = &dosEntry.String
 	}
 	return ContentView{
-		Digest: digest, Format: format, CoreID: coreID, DOSEntry: selected,
-		PlatformKey: platformKey, ArtifactVersion: artifactVersion, DiscCount: discCount,
+		Digest: digest, Format: format, CoreID: coreID, ProviderID: providerID, TargetID: targetID,
+		TargetContractSHA256: targetContractSHA256, DOSEntry: selected,
+		PlatformKey: platformKey, DiscCount: discCount,
 	}, nil
 }
 
@@ -48,22 +50,22 @@ func (service *Service) ReviewPreviewExternal(
 	previewID, capability, logicalName string,
 ) (ExternalView, error) {
 	var credentialHash []byte
-	var digest, state, role, platformKey, coreKey string
-	var hardExpires, artifactVersion int64
+	var digest, state, role, platformKey, coreKey, providerID, targetID, targetContractSHA256 string
+	var hardExpires int64
 	var discCount int
 	err := service.database.QueryRowContext(ctx, `
 SELECT preview.credential_sha256,preview.state,preview.hard_expires_at_ms,blob.sha256,file.role,
-platform.id,artifact.core_id,artifact.version,
+platform.id,binding.core_id,preview.provider_id,preview.target_id,preview.target_contract_sha256,
 (SELECT count(*) FROM review_preview_files disc WHERE disc.preview_session_id=preview.id AND disc.role='DISC')
 FROM review_preview_sessions preview
 JOIN review_preview_files file ON file.preview_session_id=preview.id AND file.role IN ('EXTERNAL_FILE','DISC')
 JOIN blobs blob ON blob.id=file.blob_id
-JOIN core_artifacts artifact ON artifact.id=preview.core_artifact_id
+JOIN runtime_target_bindings binding ON binding.provider_id=preview.provider_id AND binding.target_id=preview.target_id
 JOIN platform_instances instance ON instance.id=preview.target_platform_instance_id
 JOIN platforms platform ON platform.id=instance.platform_id
 WHERE preview.id=? AND file.logical_name=?
 `, previewID, logicalName).Scan(&credentialHash, &state, &hardExpires, &digest, &role,
-		&platformKey, &coreKey, &artifactVersion, &discCount)
+		&platformKey, &coreKey, &providerID, &targetID, &targetContractSHA256, &discCount)
 	if err != nil || !reviewPreviewCredential(service.now().UnixMilli(), capability, credentialHash, state, hardExpires) {
 		return ExternalView{}, ErrCredential
 	}
@@ -73,7 +75,8 @@ WHERE preview.id=? AND file.logical_name=?
 	}
 	return ExternalView{
 		Digest: digest, Kind: kind, PlatformKey: platformKey, CoreKey: coreKey,
-		ArtifactVersion: artifactVersion, DiscCount: discCount,
+		ProviderID: providerID, TargetID: targetID, TargetContractSHA256: targetContractSHA256,
+		DiscCount: discCount,
 	}, nil
 }
 

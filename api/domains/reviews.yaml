@@ -104,7 +104,7 @@ paths:
       - $ref: ../components/common.yaml#/components/parameters/ImportItemID
     get:
       operationId: getAdminReview
-      description: Returns the review workspace. When a historical validation is stale because the selected runtime changed, runtimeVersionChange identifies the previous and current runtime versions.
+      description: Returns the review workspace. When a historical validation is stale because the selected Runtime Target changed, targetContractChange identifies the previous and current Target contract digests.
       responses:
         '200':
           $ref: ../components/common.yaml#/components/responses/JSONResponse
@@ -122,7 +122,7 @@ paths:
       - $ref: ../components/common.yaml#/components/parameters/ImportItemID
     post:
       operationId: postAdminReviewRuntimeValidation
-      description: Freezes the current RPG Maker source, selected version core, route, artifact and runtime-pack binding into a fifteen-minute validation Launch.
+      description: Freezes the current RPG Maker source, Provider Target contract and runtime-pack binding into a fifteen-minute validation Launch.
       parameters:
         - $ref: ../components/common.yaml#/components/parameters/IfMatch
         - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey
@@ -330,28 +330,24 @@ components:
         installationId:
           type: string
           format: uuid
-    RpgRuntimeRouteEvidence:
+    RpgRuntimeTargetEvidence:
       type: object
       additionalProperties: false
       required:
         - effectiveSourceSnapshotId
-        - coreId
         - generation
         - evidenceGeneration
         - evidenceConfidence
-        - routeKey
-        - artifactId
-        - artifactSetSha256
-        - adapterId
-        - adapterAbi
+        - providerId
+        - targetId
+        - gameCompatibilityLine
+        - targetContractSha256
         - dependencySnapshotSha256
         - projectFingerprint
       properties:
         effectiveSourceSnapshotId:
           type: string
           format: uuid
-        coreId:
-          $ref: ../components/common.yaml#/components/schemas/RpgCoreID
         generation:
           $ref: ../components/common.yaml#/components/schemas/RpgGeneration
         evidenceGeneration:
@@ -363,25 +359,18 @@ components:
           enum:
             - MATCHED
             - FAMILY_ONLY
-        routeKey:
+        providerId:
           type: string
-          pattern: ^RPG[A-Z0-9_]{1,95}$
-        artifactId:
+          pattern: ^[a-z0-9]+(?:-[a-z0-9]+)*$
+        targetId:
           type: string
-          format: uuid
-        artifactSetSha256:
+          pattern: ^[a-z0-9]+(?:-[a-z0-9]+)*$
+        gameCompatibilityLine:
+          type: string
+          pattern: ^[a-z0-9](?:[a-z0-9.-]{0,62}[a-z0-9])?$
+        targetContractSha256:
           type: string
           pattern: ^[0-9a-f]{64}$
-        adapterId:
-          type: string
-          enum:
-            - easyrpg-web
-            - mkxp-libretro-web
-            - native-web
-        adapterAbi:
-          type: string
-          minLength: 1
-          maxLength: 160
         dependencySnapshotSha256:
           type: string
           pattern: ^[0-9a-f]{64}$
@@ -393,8 +382,7 @@ components:
       additionalProperties: false
       required:
         - created
-        - payloadKind
-        - resumeSlot
+        - checkpointFormat
         - sizeBytes
         - sha256
         - originalLaunchId
@@ -412,16 +400,10 @@ components:
       properties:
         created:
           type: boolean
-        payloadKind:
+        checkpointFormat:
           nullable: true
           allOf:
-            - $ref: ../components/common.yaml#/components/schemas/CheckpointPayloadKind
-        resumeSlot:
-          type: integer
-          format: int64
-          minimum: 1
-          maximum: 2147483647
-          nullable: true
+            - $ref: ../components/common.yaml#/components/schemas/CheckpointFormat
         sizeBytes:
           type: integer
           format: int64
@@ -545,7 +527,7 @@ components:
           format: int64
           minimum: 0
         routeEvidence:
-          $ref: '#/components/schemas/RpgRuntimeRouteEvidence'
+          $ref: '#/components/schemas/RpgRuntimeTargetEvidence'
         machineGates:
           type: array
           minItems: 14

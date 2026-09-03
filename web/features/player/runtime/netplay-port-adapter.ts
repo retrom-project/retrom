@@ -3,10 +3,20 @@ import {playerRuntimeError} from "./errors";
 
 type CanonicalPlayers = readonly [readonly number[], readonly number[], readonly number[], readonly number[]];
 
+export interface NetplayRuntimePort {
+  pauseAtBoundary(): Promise<number>;
+  captureState(frame: number): Promise<Uint8Array>;
+  loadStateAndWait(state: Uint8Array, frame: number): Promise<void>;
+  runFrame(players: CanonicalPlayers, frame: number, suppressOutput?: boolean): Promise<void>;
+  sampleLocalControls(): number[];
+  resetLocalControls(): void;
+  close(): Promise<void>;
+}
+
 const playerCount = 4;
 const controlCount = 24;
 
-export class RuntimeNetplayPortAdapter {
+export class RuntimeNetplayPortAdapter implements NetplayRuntimePort {
   private closePromise: Promise<void> | null = null;
 
   constructor(private readonly port: RuntimeNetplayPortV1) {

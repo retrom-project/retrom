@@ -19,10 +19,11 @@ import (
 )
 
 type importGroupTargetGuard struct {
-	ArtifactID                string `json:"artifactId"`
-	ArtifactVersion           int64  `json:"artifactVersion"`
-	CompatibilityConfigDigest string `json:"compatibilityConfigDigest"`
-	CoreID                    string `json:"coreId"`
+	ProviderID            string `json:"providerId"`
+	TargetID              string `json:"targetId"`
+	TargetContractSHA256  string `json:"targetContractSha256"`
+	GameCompatibilityLine string `json:"gameCompatibilityLine"`
+	CoreID                string `json:"coreId"`
 }
 
 type importGroupTargetSnapshot struct {
@@ -109,7 +110,7 @@ func (service *Service) admitImportGroup(
 		return importGroupAdmission{}, err
 	}
 	capabilities := contentcapability.Resolve(
-		target.platformID, true, service.multiDiscImportEnabled, target.compatibilityConfig,
+		target.platformID, true, service.multiDiscImportEnabled, target.contentPolicyJSON,
 	)
 	if contentMode == contentcapability.ModeMultiDiscM3UV1 && capabilities.MultiDisc == nil {
 		return importGroupAdmission{}, ErrMultiDiscModeUnavailable
@@ -155,7 +156,7 @@ func (service *Service) importGroupTargetSnapshot(
 		PlatformInstanceID:      request.TargetPlatformInstanceID,
 		PlatformInstanceVersion: target.instanceVersion,
 	}
-	if target.artifactID != "" {
+	if target.providerID != "" {
 		snapshot.Targets = []importGroupTargetGuard{targetGuard(target)}
 		return snapshot, target, nil
 	}
@@ -163,11 +164,13 @@ func (service *Service) importGroupTargetSnapshot(
 		return importGroupTargetSnapshot{}, creationTarget{}, ErrInvalid
 	}
 	rows, err := service.database.QueryContext(ctx, `
-SELECT artifact.id,artifact.core_id,artifact.version,artifact.compatibility_json
-FROM core_artifacts artifact
-JOIN rpgmaker_core_generations generation ON generation.core_id=artifact.core_id
-WHERE artifact.selected_for_new_bindings=1 AND artifact.available_for_launch=1
-ORDER BY generation.generation,artifact.id
+SELECT binding.core_id,binding.provider_id,binding.target_id,target.target_contract_sha256,
+ target.game_compatibility_line
+FROM runtime_target_bindings binding
+JOIN runtime_binding_platforms platform ON platform.binding_id=binding.binding_id AND platform.platform_id='rpgmaker'
+JOIN runtime_targets target ON target.provider_id=binding.provider_id AND target.target_id=binding.target_id
+WHERE binding.core_id='rpgmaker' AND binding.launch_policy!='DISABLED'
+ORDER BY binding.detector_profile,binding.provider_id,binding.target_id
 `)
 	if err != nil {
 		return importGroupTargetSnapshot{}, creationTarget{}, fmt.Errorf("libraryimport/queue: list RPG targets: %w", err)
@@ -175,11 +178,12 @@ ORDER BY generation.generation,artifact.id
 	defer func() { cleanup.Error("close", rows.Close()) }()
 	for rows.Next() {
 		var guard importGroupTargetGuard
-		var compatibility string
-		if err := rows.Scan(&guard.ArtifactID, &guard.CoreID, &guard.ArtifactVersion, &compatibility); err != nil {
+		if err := rows.Scan(
+			&guard.CoreID, &guard.ProviderID, &guard.TargetID,
+			&guard.TargetContractSHA256, &guard.GameCompatibilityLine,
+		); err != nil {
 			return importGroupTargetSnapshot{}, creationTarget{}, fmt.Errorf("libraryimport/queue: scan RPG target: %w", err)
 		}
-		guard.CompatibilityConfigDigest = compatibilityConfigDigest(compatibility)
 		snapshot.Targets = append(snapshot.Targets, guard)
 	}
 	if err := rows.Err(); err != nil {
@@ -189,19 +193,23 @@ ORDER BY generation.generation,artifact.id
 		return importGroupTargetSnapshot{}, creationTarget{}, ErrInvalid
 	}
 	sort.Slice(snapshot.Targets, func(left, right int) bool {
-		return snapshot.Targets[left].CoreID < snapshot.Targets[right].CoreID
+		return snapshot.Targets[left].ProviderID+"\x00"+snapshot.Targets[left].TargetID <
+			snapshot.Targets[right].ProviderID+"\x00"+snapshot.Targets[right].TargetID
 	})
 	provisional := target
-	provisional.artifactID = snapshot.Targets[0].ArtifactID
+	provisional.providerID = snapshot.Targets[0].ProviderID
+	provisional.targetID = snapshot.Targets[0].TargetID
+	provisional.targetContractSHA256 = snapshot.Targets[0].TargetContractSHA256
+	provisional.gameCompatibilityLine = snapshot.Targets[0].GameCompatibilityLine
 	provisional.coreID = snapshot.Targets[0].CoreID
-	provisional.artifactVersion = snapshot.Targets[0].ArtifactVersion
 	return snapshot, provisional, nil
 }
 
 func targetGuard(target creationTarget) importGroupTargetGuard {
 	return importGroupTargetGuard{
-		ArtifactID: target.artifactID, ArtifactVersion: target.artifactVersion, CoreID: target.coreID,
-		CompatibilityConfigDigest: compatibilityConfigDigest(target.compatibilityConfig),
+		ProviderID: target.providerID, TargetID: target.targetID,
+		TargetContractSHA256:  target.targetContractSHA256,
+		GameCompatibilityLine: target.gameCompatibilityLine, CoreID: target.coreID,
 	}
 }
 
@@ -230,7 +238,9 @@ func (service *Service) insertQueuedImportGroup(
 		"schemaVersion": 3, "bindingState": "PENDING", "contentMode": contentMode,
 		"platformInstanceId":      request.TargetPlatformInstanceID,
 		"platformInstanceVersion": provisional.instanceVersion, "platformId": provisional.platformID,
-		"defaultCoreId": provisional.defaultCoreID, "resolvedCoreId": nil, "coreArtifactId": nil,
+		"defaultCoreId": provisional.defaultCoreID, "resolvedCoreId": nil,
+		"providerId": provisional.providerID, "targetId": provisional.targetID,
+		"targetContractSha256":          provisional.targetContractSHA256,
 		"metadataProviderConfigVersion": 1, "tags": tags,
 	})
 	dedupe := sha256.Sum256([]byte("retrom-job-dedupe-v1\x00IMPORT_GROUP\x00" + importID))
@@ -262,7 +272,8 @@ VALUES(?,1,?,?,?)
 	_, err = transaction.ExecContext(ctx, insertImportJobSQL,
 		importID, request.UploadID, request.TargetPlatformInstanceID,
 		provisional.instanceVersion, provisional.platformID, provisional.defaultCoreID,
-		provisional.artifactID, nil, request.MetadataProvider, string(configJSON), configDigest,
+		provisional.providerID, provisional.targetID, provisional.targetContractSHA256,
+		nil, request.MetadataProvider, string(configJSON), configDigest,
 		"QUEUED", 0, 0, 0, 0, 0, now, now, nil,
 	)
 	if err != nil {

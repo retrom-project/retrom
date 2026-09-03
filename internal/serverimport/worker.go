@@ -342,7 +342,8 @@ func (service *Service) commitCandidate(
 	_, err := service.firmware.InstallServerCandidate(ctx, firmware.ServerInstallRequest{
 		ServerImportID: unit.ImportID, JobID: unit.JobID,
 		CandidateID: selected.ID, RequirementID: item.RequirementID, RequirementVersion: item.RequirementVersion,
-		CoreArtifactVersion: item.CoreArtifactVersion, SourceVersion: item.SourceVersion,
+		ProviderID: item.ProviderID, TargetID: item.TargetID,
+		TargetContractSHA256: item.TargetContractSHA256, SourceVersion: item.SourceVersion,
 		CatalogDigest: item.CatalogDigest, SourceKind: item.SourceKind, LogicalName: item.LogicalName,
 		OriginalFilename: selected.File.Basename,
 		Metadata:         selected.Metadata, Status: status, MatchMethod: method, Details: selected.Details,

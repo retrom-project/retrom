@@ -216,14 +216,13 @@ func (server *Server) storeRPGRuntimeScreenshot(
 		return true, fmt.Errorf("store RPG runtime screenshot: %w", err)
 	}
 	writeJSON(writer, http.StatusCreated, map[string]any{
-		"screenshotId":   result.ValidationID,
-		"importItemId":   result.ImportItemID,
-		"validationId":   result.ValidationID,
-		"coreArtifactId": result.ArtifactID,
-		"widthPx":        result.WidthPX,
-		"heightPx":       result.HeightPX,
-		"capturedAtMs":   result.CapturedAtMS,
-		"url":            "/api/v1/admin/review-assets/" + result.ValidationID,
+		"screenshotId": result.ValidationID,
+		"importItemId": result.ImportItemID,
+		"validationId": result.ValidationID,
+		"widthPx":      result.WidthPX,
+		"heightPx":     result.HeightPX,
+		"capturedAtMs": result.CapturedAtMS,
+		"url":          "/api/v1/admin/review-assets/" + result.ValidationID,
 	})
 	return true, nil
 }

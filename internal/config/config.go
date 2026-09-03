@@ -27,6 +27,7 @@ var knownVariables = map[string]struct{}{
 	"RETROM_RPG_RUNTIME_ORIGIN_TEMPLATE":  {},
 	"RETROM_DB_PATH":                      {}, "RETROM_DEPENDENCY_ROOT": {}, "RETROM_DEPENDENCY_VERSIONS": {},
 	"RETROM_ACTIVE_EMULATORJS_VERSION": {}, "RETROM_TRUSTED_PROXIES": {},
+	"RETROM_PROVIDER_ACTIVE_PATH": {}, "RETROM_PROVIDER_INSTALLED_ROOT": {},
 	"RETROM_STARTUP_CHECK_TIMEOUT": {}, "RETROM_LOG_LEVEL": {},
 	"RETROM_MULTI_DISC_IMPORT_ENABLED":    {},
 	"RETROM_PFB_ID":                       {},
@@ -52,6 +53,9 @@ type Config struct {
 	DependencyRoot           string
 	DependencyVersions       []string
 	ActiveEJSVersion         string
+	ProviderActivePath       string
+	ProviderInstalledRoot    string
+	RuntimeTargetCatalogPath string
 	TrustedProxies           []netip.Prefix
 	StartupCheckTimeout      time.Duration
 	LogLevel                 string
@@ -163,12 +167,26 @@ func Load(mode Mode) (Config, error) {
 	if err != nil {
 		return Config{}, err
 	}
+	providerActivePath, err := checkedAbsolutePath(
+		"RETROM_PROVIDER_ACTIVE_PATH", os.Getenv("RETROM_PROVIDER_ACTIVE_PATH"),
+	)
+	if err != nil {
+		return Config{}, err
+	}
+	providerInstalledRoot, err := checkedExistingDir(
+		"RETROM_PROVIDER_INSTALLED_ROOT", os.Getenv("RETROM_PROVIDER_INSTALLED_ROOT"),
+	)
+	if err != nil {
+		return Config{}, err
+	}
 	return Config{
 		Mode: mode, HTTPAddr: network.httpAddr, PublicOrigin: network.publicOrigin,
 		RPGRuntimeOriginTemplate: network.rpgRuntimeOriginTemplate,
 		DataDir:                  base.dataDir, DBPath: base.dbPath, DependencyRoot: base.dependencyRoot,
 		DependencyVersions: base.versions, ActiveEJSVersion: base.active,
-		TrustedProxies: network.proxies, StartupCheckTimeout: runtimeOptions.startupTimeout,
+		ProviderActivePath: providerActivePath, ProviderInstalledRoot: providerInstalledRoot,
+		RuntimeTargetCatalogPath: filepath.Join(base.dependencyRoot, "runtime-target-bindings", "v1", "catalog.json"),
+		TrustedProxies:           network.proxies, StartupCheckTimeout: runtimeOptions.startupTimeout,
 		LogLevel: runtimeOptions.logLevel, MultiDiscImportEnabled: runtimeOptions.multiDiscImportEnabled,
 		ServerImportRoots: runtimeOptions.serverImportRoots,
 		NetplayEnabled:    netplay.enabled, NetplayMaxActiveRooms: netplay.maxActiveRooms,
@@ -639,6 +657,13 @@ func checkedExistingDir(name, raw string) (string, error) {
 	// raw passed the same absolute/clean/non-root boundary above and must already exist.
 	info, err := os.Lstat(raw)
 	if err != nil || !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
+		return "", fmt.Errorf("%w: %s", errInvalidConfig, name)
+	}
+	return raw, nil
+}
+
+func checkedAbsolutePath(name, raw string) (string, error) {
+	if raw == "" || !filepath.IsAbs(raw) || filepath.Clean(raw) != raw || raw == string(filepath.Separator) {
 		return "", fmt.Errorf("%w: %s", errInvalidConfig, name)
 	}
 	return raw, nil

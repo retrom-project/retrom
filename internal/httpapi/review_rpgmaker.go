@@ -54,7 +54,7 @@ func (server *Server) reviewRPGMaker(
 	var evidenceGeneration, validationID sql.NullString
 	var analysisJSON string
 	err := server.database.QueryRowContext(ctx, `
-SELECT profile.selected_core_id,profile.generation,profile.evidence_generation,
+SELECT binding.core_id,profile.generation,profile.evidence_generation,
  profile.evidence_confidence,profile.self_contained_override,draft.runtime_binding_revision,
  profile.analysis_json,(
    SELECT validation.id
@@ -64,6 +64,8 @@ SELECT profile.selected_core_id,profile.generation,profile.evidence_generation,
  )
 FROM review_drafts draft
 JOIN rpgmaker_review_profiles profile ON profile.review_draft_id=draft.id
+JOIN runtime_target_bindings binding
+  ON binding.provider_id=profile.provider_id AND binding.target_id=profile.target_id
 WHERE draft.import_item_id=?
 `, itemID).Scan(
 		&projection.SelectedCoreID, &projection.Generation, &evidenceGeneration,

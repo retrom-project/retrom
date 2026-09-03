@@ -18,24 +18,6 @@ const (
 	rpgMKXPArchiveName = "__retrom__/game.mkxpz"
 )
 
-func (service *Service) isRPGMakerCore(ctx context.Context, coreID, gameID string) bool {
-	if coreID == "" {
-		_ = service.database.QueryRowContext(ctx, `
-SELECT instance.default_core_id FROM games game
-JOIN platform_instances instance ON instance.id=game.platform_instance_id
-WHERE game.id=?
-`, gameID).Scan(&coreID)
-	}
-	if coreID == "rpgmaker" {
-		return true
-	}
-	var exists int
-	_ = service.database.QueryRowContext(ctx, `
-SELECT EXISTS(SELECT 1 FROM rpgmaker_core_generations WHERE core_id=?)
-`, coreID).Scan(&exists)
-	return exists == 1
-}
-
 func (service *Service) buildRPGProductContentPlan(
 	ctx context.Context,
 	selection launchSelection,
@@ -62,7 +44,7 @@ ORDER BY 2
 	if err != nil {
 		return launchContentPlan{}, err
 	}
-	requiredRole, nativeRuntime, err := requiredRPGContent(ctx, service.database, selection.artifactID)
+	requiredRole, nativeRuntime, err := requiredRPGContent(selection.deliveryProfile)
 	if err != nil {
 		return launchContentPlan{}, err
 	}
@@ -75,7 +57,7 @@ func (service *Service) buildRPGValidationContentPlan(
 		QueryContext(context.Context, string, ...any) (*sql.Rows, error)
 		QueryRowContext(context.Context, string, ...any) *sql.Row
 	},
-	validationID, sourceSnapshotID, artifactID string,
+	validationID, sourceSnapshotID, deliveryProfile string,
 ) (launchContentPlan, error) {
 	files, err := queryLockedContentFiles(ctx, queryer, `
 SELECT file.blob_id,file.logical_name,'PROJECT_FILE'
@@ -89,8 +71,9 @@ JOIN import_item_core_validations core_validation ON core_validation.id=(
   FROM import_item_core_validations candidate
   WHERE candidate.import_item_id=validation.import_item_id
     AND candidate.source_snapshot_id=validation.effective_source_snapshot_id
-    AND candidate.core_id=validation.core_id
-    AND candidate.core_artifact_id=validation.artifact_id
+    AND candidate.provider_id=validation.provider_id
+    AND candidate.target_id=validation.target_id
+    AND candidate.target_contract_sha256=validation.target_contract_sha256
   ORDER BY candidate.created_at_ms DESC,candidate.id DESC
   LIMIT 1
 )
@@ -110,33 +93,20 @@ ORDER BY 2
 	if err != nil {
 		return launchContentPlan{}, err
 	}
-	requiredRole, nativeRuntime, err := requiredRPGContent(ctx, queryer, artifactID)
+	requiredRole, nativeRuntime, err := requiredRPGContent(deliveryProfile)
 	if err != nil {
 		return launchContentPlan{}, err
 	}
 	return makeRPGContentPlan(files, requiredRole, nativeRuntime)
 }
 
-func requiredRPGContent(
-	ctx context.Context,
-	queryer interface {
-		QueryRowContext(context.Context, string, ...any) *sql.Row
-	},
-	artifactID string,
-) (string, bool, error) {
-	var kind string
-	if err := queryer.QueryRowContext(ctx, `
-SELECT runtime_adapter_kind FROM core_artifacts
-WHERE id=? AND runtime_family='RPGMAKER' AND available_for_launch=1
-	`, artifactID).Scan(&kind); err != nil {
-		return "", false, ErrBlocked
-	}
-	switch kind {
-	case "EASYRPG_WEB":
+func requiredRPGContent(deliveryProfile string) (string, bool, error) {
+	switch deliveryProfile {
+	case "FILE_TREE_PROJECT_V1":
 		return "RPG_EASYRPG_INDEX", false, nil
-	case "MKXP_LIBRETRO_WEB":
+	case "SEEKABLE_PROJECT_ARCHIVE_V1":
 		return "RPG_MAKER_LAUNCH_BUNDLE", false, nil
-	case "NATIVE_WEB":
+	case "ISOLATED_WEB_PROJECT_V1":
 		return "", true, nil
 	default:
 		return "", false, ErrBlocked

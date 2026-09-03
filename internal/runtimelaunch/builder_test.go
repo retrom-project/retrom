@@ -34,7 +34,10 @@ func TestBuilderProducesClosedEnvelopeFromActiveProviderTarget(t *testing.T) {
 	if err != nil {
 		t.Fatalf("built envelope rejected: %v\n%s", err, contents)
 	}
-	runtime := envelope["runtime"].(map[string]any)
+	runtime, ok := envelope["runtime"].(map[string]any)
+	if !ok {
+		t.Fatalf("runtime = %#v", envelope["runtime"])
+	}
 	if runtime["providerId"] != "fixture" || runtime["targetId"] != "target" ||
 		runtime["moduleUrl"] != "/runtime/providers/fixture/"+digest("a")+"/client.mjs" {
 		t.Fatalf("runtime = %#v", runtime)

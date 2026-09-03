@@ -1307,7 +1307,7 @@ export interface paths {
             };
             cookie?: never;
         };
-        /** @description Returns the review workspace. When a historical validation is stale because the selected runtime changed, runtimeVersionChange identifies the previous and current runtime versions. */
+        /** @description Returns the review workspace. When a historical validation is stale because the selected Runtime Target changed, targetContractChange identifies the previous and current Target contract digests. */
         get: operations["getAdminReview"];
         put?: never;
         post?: never;
@@ -1328,7 +1328,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Freezes the current RPG Maker source, selected version core, route, artifact and runtime-pack binding into a fifteen-minute validation Launch. */
+        /** @description Freezes the current RPG Maker source, Provider Target contract and runtime-pack binding into a fifteen-minute validation Launch. */
         post: operations["postAdminReviewRuntimeValidation"];
         delete?: never;
         options?: never;
@@ -1809,7 +1809,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description The platform/core catalog. Each core projects netplaySupported from the exact platform, enabled CoreArtifact version and SHA-256 recorded in the current netplay manifest; it is a core capability marker, not per-game eligibility. */
+        /** @description The platform/core catalog. Each core projects netplaySupported from its active Provider Target and current netplay compatibility line; it is a core capability marker, not per-game eligibility. */
         get: operations["getAdminPlatforms"];
         put?: never;
         post?: never;
@@ -1819,14 +1819,14 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/admin/core-artifacts": {
+    "/api/v1/admin/runtime-targets": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get: operations["getAdminCoreArtifacts"];
+        get: operations["getAdminRuntimeTargets"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2542,45 +2542,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/runtime/emulatorjs/{configuredVersion}/{runtimePath}": {
-        parameters: {
-            query?: {
-                /** @description EmulatorJS cache-buster; ignored for allowlist and file selection. */
-                v?: string;
-            };
-            header?: never;
-            path: {
-                configuredVersion: components["parameters"]["ConfiguredVersion"];
-                runtimePath: string;
-            };
-            cookie?: never;
-        };
-        get: operations["getRuntimeEmulatorJS"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head: operations["headRuntimeEmulatorJS"];
-        patch?: never;
-        trace?: never;
-    };
-    "/runtime/retrom-runtime/{runtimeVersion}/{runtimePath}": {
+    "/runtime/providers/{providerId}/{bundleSha256}/{runtimePath}": {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                runtimeVersion: string;
+                providerId: string;
+                bundleSha256: string;
                 runtimePath: string;
             };
             cookie?: never;
         };
-        /** @description Serves only a declared retrom-runtime Release asset from the dependency manifest allowlist. */
-        get: operations["getRetromRuntimeArtifact"];
+        /** @description Serves only a manifest/integrity allowlisted file from the active content-addressed Provider Bundle. */
+        get: operations["getRuntimeProviderResource"];
         put?: never;
         post?: never;
         delete?: never;
         options?: never;
-        head: operations["headRetromRuntimeArtifact"];
+        head: operations["headRuntimeProviderResource"];
         patch?: never;
         trace?: never;
     };
@@ -2706,7 +2685,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Creates either a product SaveState or the single temporary checkpoint of an RPG_RUNTIME_VALIDATION Launch. The metadata part is strict RuntimeCheckpointMetadata JSON; authoritative artifact, user, content revision, adapter ABI, save ABI and dependency bindings always come from the Launch. Total multipart input is capped at 270 MiB only on this route. */
+        /** @description Creates either a product SaveState or the single temporary checkpoint of a runtime-validation Launch. The metadata is strict RuntimeCheckpointMetadata JSON; Provider identity, Target compatibility, checkpoint format and dependency bindings are validated against the immutable Launch snapshot. Total multipart input is capped at 270 MiB only on this route. */
         post: operations["postRuntimeSaveState"];
         delete?: never;
         options?: never;
@@ -2870,6 +2849,69 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        DiagnosticsSnapshot: {
+            /** @enum {integer} */
+            schemaVersion: 2;
+            /** Format: int64 */
+            generatedAtMs: number;
+            /** @enum {integer} */
+            databaseSchemaVersion: 10;
+            runtimeProviders: components["schemas"]["DiagnosticsRuntimeProvider"][];
+            counts: components["schemas"]["DiagnosticsCounts"];
+        };
+        DiagnosticsRuntimeProvider: {
+            providerId: string;
+            providerVersion: string;
+            bundleSha256: string;
+            /** @enum {string} */
+            source: "candidate" | "production";
+        };
+        DiagnosticsCounts: {
+            games: components["schemas"]["DiagnosticsGameCounts"];
+            saveStates: components["schemas"]["DiagnosticsLifecycleCounts"];
+            /** Format: int64 */
+            blobs: number;
+            jobs: components["schemas"]["DiagnosticsJobCounts"];
+            datVersions: components["schemas"]["DiagnosticsDATCounts"];
+        };
+        DiagnosticsLifecycleCounts: {
+            /** Format: int64 */
+            active: number;
+            /** Format: int64 */
+            deleted: number;
+        };
+        DiagnosticsGameCounts: {
+            /** Format: int64 */
+            published: number;
+            /** Format: int64 */
+            deleted: number;
+        };
+        DiagnosticsJobCounts: {
+            /** Format: int64 */
+            queued: number;
+            /** Format: int64 */
+            running: number;
+            /** Format: int64 */
+            cancelRequested: number;
+            /** Format: int64 */
+            succeeded: number;
+            /** Format: int64 */
+            failed: number;
+            /** Format: int64 */
+            cancelled: number;
+        };
+        DiagnosticsDATCounts: {
+            /** Format: int64 */
+            pending: number;
+            /** Format: int64 */
+            parsing: number;
+            /** Format: int64 */
+            ready: number;
+            /** Format: int64 */
+            failed: number;
+            /** Format: int64 */
+            cancelled: number;
+        };
         StorageAnalysis: {
             /** @enum {string} */
             scope: "REGISTERED_CAS_PAYLOAD_V1";
@@ -3334,7 +3376,9 @@ export interface components {
             id: string;
             coreId: string;
             coreName: string;
-            emulatorjsVersion: string;
+            providerId: string;
+            targetId: string;
+            netplayCompatibilityLine: string;
             maxPlayers: number;
         };
         NetplayGameSummary: {
@@ -3385,7 +3429,8 @@ export interface components {
             platformName: string;
             profileId: string;
             coreName: string;
-            emulatorjsVersion: string;
+            providerId: string;
+            targetId: string;
             maxPlayers: number;
         };
         NetplaySessionSummary: {
@@ -3468,451 +3513,190 @@ export interface components {
             captureAllowed: boolean;
             captureAfterMs: number;
         };
-        LaunchConfig: components["schemas"]["EmulatorJSLaunchConfig"] | components["schemas"]["RpgMakerLaunchConfig"] | components["schemas"]["OnsLaunchConfig"] | components["schemas"]["KiriKiriLaunchConfig"] | components["schemas"]["ButterscotchLaunchConfig"] | components["schemas"]["TyranoScriptLaunchConfig"] | components["schemas"]["WASM4LaunchConfig"];
-        EmulatorJSLaunchConfig: {
-            /**
-             * @description discriminator enum property added by openapi-typescript
-             * @enum {string}
-             */
-            runtimeFamily: "EMULATORJS";
-            /** @enum {string} */
-            mode: "single" | "netplay";
-            /** Format: uuid */
-            launchId: string;
-            emulatorjsVersion: string;
-            /** @enum {string} */
-            playerAdapterId: "ejs-4.2.3-v2" | "ejs-4.2.3-v3" | "ejs-4.3.0-pre-v2";
-            core: string;
-            runtimeCore: string;
-            coreName: string;
-            /** Format: uuid */
-            coreArtifactId: string;
-            /** Format: int64 */
-            emulatorGameId: number;
-            gameName: string;
-            gameTitle: string;
-            platformName: string;
-            runtimeBaseUrl: string;
-            loaderUrl: string;
-            gameUrl: string;
-            biosUrl: string | null;
-            parentUrl: string | null;
-            stateUrl: string | null;
-            /** @enum {string} */
-            inputMode: "STANDARD" | "POINTER";
-            startupActions: components["schemas"]["StartupAction"][];
-            requiresThreads: boolean;
-            runtimePathOverrides: {
-                [key: string]: string;
+        /** Retrom Launch Envelope V1 */
+        LaunchConfig: {
+            /** @enum {unknown} */
+            schemaVersion: 1;
+            session: {
+                id: string;
+                /** @enum {unknown} */
+                purpose: "PRODUCT" | "REVIEW_PREVIEW" | "RUNTIME_VALIDATION";
+                /** @enum {unknown} */
+                mode: "SINGLE" | "NETPLAY";
+                title: string;
+                platformName: string;
+                returnTo: string;
+                warnings: string[];
             };
-            defaultCoreOptions: {
-                [key: string]: string;
+            runtime: {
+                providerId: string;
+                providerVersion: string;
+                /** @enum {unknown} */
+                providerApiVersion: 1;
+                bundleSha256: string;
+                targetId: string;
+                gameCompatibilityLine: string;
+                targetContractSha256: string;
+                capabilities: {
+                    pause: boolean;
+                    screenshot: boolean;
+                    checkpoint: boolean;
+                    standardGamepad: boolean;
+                    frameCounter: boolean;
+                    volume: boolean;
+                    discSwitch: boolean;
+                    nativeSettings: boolean;
+                    inputFilter: boolean;
+                    netplayPort: boolean;
+                    videoModes: ("original" | "pixel" | "smooth" | "sharp-bilinear" | "adaptive-sharpen")[];
+                    requiresThreads: boolean;
+                    /** @enum {unknown} */
+                    frameMode: "NONE" | "SAME_ORIGIN_BLANK" | "SAME_ORIGIN_RESOURCE" | "ISOLATED_ORIGIN_RESOURCE";
+                    validationProbes: string[];
+                };
+                checkpoint: {
+                    writeFormat: string;
+                    readFormats: string[];
+                    maxBytes: number;
+                } | null;
+                moduleUrl: string;
+                moduleSha256: string;
+                runtimeBaseUrl: string;
             };
-            externalFiles: {
-                [key: string]: string;
+            resources: ({
+                role: string;
+                ordinal: number;
+                /** @enum {unknown} */
+                kind: "ROM_BLOB_V1" | "SEEKABLE_BLOB_V1" | "PARENT_ARCHIVE_V1" | "WASM4_CART_V1";
+                url: string;
+                sha256: string;
+                sizeBytes: number;
+                rangeRequired: boolean;
+            } | {
+                role: string;
+                ordinal: number;
+                /** @enum {unknown} */
+                kind: "FILE_TREE_V1";
+                indexUrl: string;
+                contentDigest: string;
+            } | {
+                role: string;
+                ordinal: number;
+                /** @enum {unknown} */
+                kind: "NATIVE_WEB_V1" | "ISOLATED_WEB_V1";
+                origin: string;
+                entryUrl: string;
+                bootstrapTicket: string;
+                cleanupUrl: string | null;
+                contentDigest: string;
+            } | {
+                role: string;
+                ordinal: number;
+                /** @enum {unknown} */
+                kind: "BIOS_BUNDLE_V1" | "EXTERNAL_FILE_SET_V1";
+                files: {
+                    logicalName: string;
+                    virtualPath: string;
+                    url: string;
+                    sha256: string;
+                    sizeBytes: number;
+                }[];
+            } | {
+                role: string;
+                ordinal: number;
+                /** @enum {unknown} */
+                kind: "MULTI_DISC_V1";
+                initialDiscIndex: number;
+                entries: {
+                    index: number;
+                    label: string;
+                    url: string;
+                    sha256: string;
+                    sizeBytes: number;
+                }[];
+            })[];
+            targetOptions: {
+                /** @enum {unknown} */
+                kind: "NONE_V1";
+            } | {
+                /** @enum {unknown} */
+                kind: "EMULATORJS_V1";
+                dosEntryPath: string | null;
+                initialDiscIndex: number | null;
+            } | {
+                /** @enum {unknown} */
+                kind: "RPGMAKER_V1";
+                expectedRestorePosition: {
+                    mapId: number;
+                    playerX: number;
+                    playerY: number;
+                    fixtureState: number;
+                } | null;
+            } | {
+                /** @enum {unknown} */
+                kind: "ONS_PROJECT_V1";
+                /** @enum {unknown} */
+                scriptEncoding: "gbk" | "sjis" | "utf8";
+            } | {
+                /** @enum {unknown} */
+                kind: "KIRIKIRI_PROJECT_V1";
+                startupXp3Path: string | null;
             };
-            discSet: components["schemas"]["DiscSet"];
-            dosEntry: string | null;
-            warnings: string[];
-            returnTo: string;
-            reviewPreview?: components["schemas"]["ReviewPreviewConfig"];
-            netplay: components["schemas"]["NetplayLaunchConfig"] | null;
+            restore: {
+                url: string;
+                format: string;
+                sha256: string;
+                sizeBytes: number;
+            } | null;
+            validation: {
+                probeId: string;
+                input: {
+                    [key: string]: unknown;
+                };
+            } | null;
+            netplay: {
+                roomId: string;
+                sessionId: string;
+                playerNo: number;
+                socketUrl: string;
+                profile: {
+                    [key: string]: unknown;
+                };
+            } | null;
         };
         /** @enum {string} */
         RpgGeneration: "RPG2000" | "RPG2003" | "RPGXP" | "RPGVX" | "RPGVXACE" | "RPGMV" | "RPGMZ";
         /** @enum {string} */
         RpgCoreID: "rpgmaker_2000" | "rpgmaker_2003" | "rpgmaker_xp" | "rpgmaker_vx" | "rpgmaker_vx_ace" | "rpgmaker_mv" | "rpgmaker_mz";
+        CheckpointFormat: string;
         /** @enum {string} */
-        CheckpointPayloadKind: "RUNTIME_STATE" | "NATIVE_SAVE_BUNDLE_V1" | "ONS_SAVE_BUNDLE_V1" | "KIRIKIRI_SAVE_BUNDLE_V1";
-        /** @enum {string} */
-        NativeCheckpointProfile: "EASYRPG_V1" | "RPGMV_V1" | "RPGMZ_V1";
-        /** @enum {string} */
-        CheckpointUnavailableReason: "NOT_ON_MAP" | "SAVE_DISABLED" | "MESSAGE_ACTIVE" | "EVENT_ACTIVE" | "BUSY" | "RUNTIME_NOT_READY" | "RUNTIME_FAILED" | "CHECKPOINT_ALREADY_CREATED" | "NETPLAY_UNSUPPORTED";
-        /** @description reason is null exactly when available is true and is required to be a stable enum when available is false. */
+        CheckpointUnavailableReason: "CORE_REPORTED_UNAVAILABLE" | "STARTUP_NOT_READY" | "SESSION_TERMINAL";
         CheckpointAvailability: {
             available: boolean;
+            /** Format: int64 */
+            sequence: number;
             reason: components["schemas"]["CheckpointUnavailableReason"] | null;
-        };
-        RpgCheckpointRestore: {
-            payloadKind: components["schemas"]["CheckpointPayloadKind"];
-            payloadUrl: string;
-        };
-        FileTreeSource: {
-            /** @enum {string} */
-            kind: "FILE_TREE_V1";
-            indexUrl: string;
-        };
-        EasyRpgAdapterConfig: {
-            /**
-             * @description discriminator enum property added by openapi-typescript
-             * @enum {string}
-             */
-            adapterKind: "EASYRPG_WEB";
-            /** @enum {string} */
-            adapterId: "easyrpg-web";
-            /** @enum {string} */
-            engineMode: "rpg2k" | "rpg2k3";
-            runtimeBaseUrl: string;
-            projectRootUrl: string;
-            projectIndexUrl: string;
-            rtpSource: components["schemas"]["FileTreeSource"] | null;
-            /** @enum {integer} */
-            checkpointSlot: 100;
-        };
-        MkxpCoreArtifact: {
-            jsUrl: string;
-            /** Format: int64 */
-            jsSizeBytes: number;
-            jsSha256: string;
-            wasmUrl: string;
-            /** Format: int64 */
-            wasmSizeBytes: number;
-            wasmSha256: string;
-            artifactSetSha256: string;
-        };
-        SeekableBlobSource: {
-            /** @enum {string} */
-            kind: "SEEKABLE_BLOB_V1";
-            /** @enum {boolean} */
-            rangeRequired: true;
-            url: string;
-            sha256: string;
-            /** Format: int64 */
-            sizeBytes: number;
-        };
-        MkxpRtpArchive: {
-            declaredName: string;
-            /** @enum {string} */
-            kind: "SEEKABLE_BLOB_V1";
-            /** @enum {boolean} */
-            rangeRequired: true;
-            url: string;
-            sha256: string;
-            /** Format: int64 */
-            sizeBytes: number;
-        };
-        MkxpAdapterConfig: {
-            /**
-             * @description discriminator enum property added by openapi-typescript
-             * @enum {string}
-             */
-            adapterKind: "MKXP_LIBRETRO_WEB";
-            /** @enum {string} */
-            adapterId: "mkxp-libretro-web";
-            core: components["schemas"]["MkxpCoreArtifact"];
-            runtimeBaseUrl: string;
-            projectArchive: components["schemas"]["SeekableBlobSource"];
-            rtpArchives: components["schemas"]["MkxpRtpArchive"][];
-            /** @enum {integer} */
-            rgssVersion: 1 | 2 | 3;
-            /** @enum {integer} */
-            stateBufferBytes: 268435456;
-        };
-        NativeWebAdapterConfig: {
-            /**
-             * @description discriminator enum property added by openapi-typescript
-             * @enum {string}
-             */
-            adapterKind: "NATIVE_WEB";
-            /** @enum {string} */
-            adapterId: "native-web";
-            /** @enum {string} */
-            bridgeProfile: "RPGMV" | "RPGMZ";
-            /** Format: uri */
-            uniqueOrigin: string;
-            /** Format: uri */
-            bootstrapUrl: string;
-            bootstrapTicket: string;
-        };
-        RpgAdapterConfig: components["schemas"]["EasyRpgAdapterConfig"] | components["schemas"]["MkxpAdapterConfig"] | components["schemas"]["NativeWebAdapterConfig"];
-        RpgMakerLaunchConfig: {
-            /**
-             * @description discriminator enum property added by openapi-typescript
-             * @enum {string}
-             */
-            runtimeFamily: "RPGMAKER";
-            /** @enum {integer} */
-            protocolVersion: 1;
-            /** @enum {string} */
-            mode: "single";
-            /** @enum {string} */
-            purpose: "PRODUCT" | "RPG_RUNTIME_VALIDATION";
-            /** Format: uuid */
-            launchId: string;
-            coreId: components["schemas"]["RpgCoreID"];
-            coreName: string;
-            gameTitle: string;
-            /** @enum {string} */
-            platformName: "RPG Maker";
-            returnTo: string;
-            warnings: string[];
-            generation: components["schemas"]["RpgGeneration"];
-            routeKey: string;
-            /** Format: uuid */
-            artifactId: string;
-            checkpoint: components["schemas"]["RpgCheckpointRestore"] | null;
-            checkpointAvailability: components["schemas"]["CheckpointAvailability"];
-            runtimeValidation: components["schemas"]["RpgRuntimeValidationResume"] | null;
-            adapter: components["schemas"]["RpgAdapterConfig"];
-        };
-        OnsAdapterConfig: {
-            /** @enum {string} */
-            adapterKind: "ONS_YURI_WEB";
-            /** @enum {string} */
-            adapterId: "ons-yuri-web";
-            runtimeBaseUrl: string;
-            projectIndexUrl: string;
-            /** @enum {string} */
-            scriptEncoding: "gbk" | "sjis" | "utf8";
-            /** @enum {integer} */
-            checkpointSlot: 999;
-        };
-        OnsCheckpointRestore: {
-            /** @enum {string} */
-            payloadKind: "ONS_SAVE_BUNDLE_V1";
-            payloadUrl: string;
-        };
-        OnsLaunchConfig: {
-            /**
-             * @description discriminator enum property added by openapi-typescript
-             * @enum {string}
-             */
-            runtimeFamily: "ONS";
-            /** @enum {integer} */
-            protocolVersion: 1;
-            /** @enum {string} */
-            mode: "single";
-            /** @enum {string} */
-            purpose: "PRODUCT" | "REVIEW_PREVIEW";
-            /** Format: uuid */
-            launchId: string;
-            /** Format: uuid */
-            sessionId: string;
-            /** @enum {string} */
-            coreId: "onscripter_yuri";
-            coreName: string;
-            gameTitle: string;
-            /** @enum {string} */
-            platformName: "ONScripter";
-            runtimeVersion: string;
-            /** Format: uuid */
-            artifactId: string;
-            returnTo: string;
-            warnings: string[];
-            adapter: components["schemas"]["OnsAdapterConfig"];
-            checkpoint: components["schemas"]["OnsCheckpointRestore"] | null;
-            reviewPreview?: components["schemas"]["ReviewPreviewConfig"];
-        };
-        KiriKiriAdapterConfig: {
-            /** @enum {string} */
-            adapterKind: "KIRIKIRI2_WEB";
-            /** @enum {string} */
-            adapterId: "kirikiri2-web";
-            runtimeBaseUrl: string;
-            projectIndexUrl: string;
-            startupXp3Path: string | null;
-            /** @enum {integer} */
-            checkpointSlot: 1999;
-        };
-        KiriKiriCheckpointRestore: {
-            /** @enum {string} */
-            payloadKind: "KIRIKIRI_SAVE_BUNDLE_V1";
-            payloadUrl: string;
-        };
-        KiriKiriLaunchConfig: {
-            /**
-             * @description discriminator enum property added by openapi-typescript
-             * @enum {string}
-             */
-            runtimeFamily: "KIRIKIRI";
-            /** @enum {integer} */
-            protocolVersion: 1;
-            /** @enum {string} */
-            mode: "single";
-            /** @enum {string} */
-            purpose: "PRODUCT" | "REVIEW_PREVIEW";
-            /** Format: uuid */
-            launchId: string;
-            /** Format: uuid */
-            sessionId: string;
-            /** @enum {string} */
-            coreId: "kirikiri2";
-            coreName: string;
-            gameTitle: string;
-            /** @enum {string} */
-            platformName: "KiriKiri";
-            runtimeVersion: string;
-            /** Format: uuid */
-            artifactId: string;
-            returnTo: string;
-            warnings: string[];
-            adapter: components["schemas"]["KiriKiriAdapterConfig"];
-            checkpoint: components["schemas"]["KiriKiriCheckpointRestore"] | null;
-            reviewPreview?: components["schemas"]["ReviewPreviewConfig"];
-        };
-        ButterscotchAdapterConfig: {
-            /** @enum {string} */
-            adapterKind: "BUTTERSCOTCH_WEB";
-            /** @enum {string} */
-            adapterId: "butterscotch-web";
-            runtimeBaseUrl: string;
-            projectIndexUrl: string;
-        };
-        ButterscotchCheckpointRestore: {
-            /** @enum {string} */
-            payloadKind: "RUNTIME_STATE";
-            payloadUrl: string;
-        };
-        ButterscotchLaunchConfig: {
-            /**
-             * @description discriminator enum property added by openapi-typescript
-             * @enum {string}
-             */
-            runtimeFamily: "BUTTERSCOTCH";
-            /** @enum {integer} */
-            protocolVersion: 1;
-            /** @enum {string} */
-            mode: "single";
-            /** @enum {string} */
-            purpose: "PRODUCT" | "REVIEW_PREVIEW";
-            /** Format: uuid */
-            launchId: string;
-            /** Format: uuid */
-            sessionId: string;
-            /** @enum {string} */
-            coreId: "butterscotch";
-            coreName: string;
-            gameTitle: string;
-            /** @enum {string} */
-            platformName: "GameMaker";
-            runtimeVersion: string;
-            /** Format: uuid */
-            artifactId: string;
-            contentDigest: string;
-            returnTo: string;
-            warnings: string[];
-            adapter: components["schemas"]["ButterscotchAdapterConfig"];
-            checkpoint: components["schemas"]["ButterscotchCheckpointRestore"] | null;
-            reviewPreview?: components["schemas"]["ReviewPreviewConfig"];
-        };
-        TyranoScriptAdapterConfig: {
-            /** @enum {string} */
-            adapterKind: "TYRANOSCRIPT_WEB";
-            /** @enum {string} */
-            adapterId: "tyranoscript-web";
-            bootstrapTicket: string;
-            /** Format: uri */
-            cleanupUrl: string | null;
-            /** Format: uri */
-            entryUrl: string;
-            /** Format: uri */
-            uniqueOrigin: string;
-        };
-        TyranoScriptCheckpointRestore: {
-            /** @enum {string} */
-            payloadKind: "RUNTIME_STATE";
-            payloadUrl: string;
-        };
-        TyranoScriptLaunchConfig: {
-            /**
-             * @description discriminator enum property added by openapi-typescript
-             * @enum {string}
-             */
-            runtimeFamily: "TYRANOSCRIPT";
-            /** @enum {integer} */
-            protocolVersion: 1;
-            /** @enum {string} */
-            mode: "single";
-            /** @enum {string} */
-            purpose: "PRODUCT" | "REVIEW_PREVIEW";
-            /** Format: uuid */
-            launchId: string;
-            /** Format: uuid */
-            sessionId: string;
-            /** @enum {string} */
-            coreId: "tyranoscript";
-            coreName: string;
-            gameTitle: string;
-            /** @enum {string} */
-            platformName: "TyranoScript";
-            runtimeVersion: string;
-            /** Format: uuid */
-            artifactId: string;
-            contentDigest: string;
-            returnTo: string;
-            warnings: string[];
-            adapter: components["schemas"]["TyranoScriptAdapterConfig"];
-            checkpoint: components["schemas"]["TyranoScriptCheckpointRestore"] | null;
-            reviewPreview?: components["schemas"]["ReviewPreviewConfig"];
-        };
-        WASM4AdapterConfig: {
-            /** @enum {string} */
-            adapterKind: "WASM4_WEB";
-            /** @enum {string} */
-            adapterId: "wasm4-web";
-            cartUrl: string;
-            runtimeBaseUrl: string;
-        };
-        WASM4CheckpointRestore: {
-            /** @enum {string} */
-            payloadKind: "RUNTIME_STATE";
-            payloadUrl: string;
-        };
-        WASM4LaunchConfig: {
-            /**
-             * @description discriminator enum property added by openapi-typescript
-             * @enum {string}
-             */
-            runtimeFamily: "WASM4";
-            /** @enum {integer} */
-            protocolVersion: 1;
-            /** @enum {string} */
-            mode: "single";
-            /** @enum {string} */
-            purpose: "PRODUCT" | "REVIEW_PREVIEW";
-            /** Format: uuid */
-            launchId: string;
-            /** Format: uuid */
-            sessionId: string;
-            /** @enum {string} */
-            coreId: "wasm4";
-            coreName: string;
-            gameTitle: string;
-            /** @enum {string} */
-            platformName: "WASM-4";
-            runtimeVersion: string;
-            /** Format: uuid */
-            artifactId: string;
-            contentDigest: string;
-            /** Format: int64 */
-            cartSizeBytes: number;
-            returnTo: string;
-            warnings: string[];
-            adapter: components["schemas"]["WASM4AdapterConfig"];
-            checkpoint: components["schemas"]["WASM4CheckpointRestore"] | null;
-            reviewPreview?: components["schemas"]["ReviewPreviewConfig"];
         };
         /** @enum {string} */
         RuntimeAssetPackKind: "RPG2000_RTP" | "RPG2003_RTP" | "RGSS1_RTP_STANDARD" | "RGSS2_RTP_RPGVX" | "RGSS3_RTP_RPGVXAce" | "RGSS_CUSTOM_RTP";
-        CoreArtifactAdminItem: {
-            /** Format: uuid */
-            id: string;
+        RuntimeTargetAdminItem: {
+            providerId: string;
+            providerVersion: string;
+            /** @enum {integer} */
+            providerApiVersion: 1;
+            bundleSha256: string;
+            targetId: string;
+            displayName: string;
+            gameCompatibilityLine: string;
+            netplayCompatibilityLine: string | null;
+            targetContractSha256: string;
             coreId: string;
             coreName: string;
-            routeKey: string;
-            runtimeFamily: string;
-            runtimeAdapterKind: string;
-            runtimeVersion: string;
-            adapterId: string;
-            selectedForNewBindings: boolean;
-            availableForLaunch: boolean;
-            /** Format: int64 */
-            version: number;
-            /** Format: int64 */
-            sizeBytes: number;
+            /** @enum {string} */
+            launchPolicy: "SUPPORTED" | "EXPERIMENTAL" | "DISABLED";
         };
-        CoreArtifactList: {
-            items: components["schemas"]["CoreArtifactAdminItem"][];
+        RuntimeTargetList: {
+            items: components["schemas"]["RuntimeTargetAdminItem"][];
             nextCursor: string | null;
         };
         RuntimeAssetPackDefinition: {
@@ -4011,8 +3795,6 @@ export interface components {
         RpgEngineProfileEvidence: {
             generation: components["schemas"]["RpgGeneration"];
             /** @enum {string} */
-            adapterId: "easyrpg-web" | "mkxp-libretro-web" | "native-web";
-            /** @enum {string} */
             engineProfile: "rpg2k" | "rpg2k3" | "rgss1" | "rgss2" | "rgss3" | "RPGMV" | "RPGMZ";
         };
         RpgFrameEvidence: {
@@ -4023,7 +3805,7 @@ export interface components {
             observed: true;
         };
         RpgCheckpointGateEvidence: {
-            payloadKind: components["schemas"]["CheckpointPayloadKind"];
+            checkpointFormat: components["schemas"]["CheckpointFormat"];
             /** Format: int64 */
             sizeBytes: number;
             sha256: string;
@@ -4075,30 +3857,24 @@ export interface components {
             checkpointEvidence: components["schemas"]["RpgCheckpointGateEvidence"] | null;
             restoreScreenshotUploaded: boolean;
         };
-        RpgRuntimeRouteEvidence: {
+        RpgRuntimeTargetEvidence: {
             /** Format: uuid */
             effectiveSourceSnapshotId: string;
-            coreId: components["schemas"]["RpgCoreID"];
             generation: components["schemas"]["RpgGeneration"];
             evidenceGeneration: components["schemas"]["RpgGeneration"] | null;
             /** @enum {string} */
             evidenceConfidence: "MATCHED" | "FAMILY_ONLY";
-            routeKey: string;
-            /** Format: uuid */
-            artifactId: string;
-            artifactSetSha256: string;
-            /** @enum {string} */
-            adapterId: "easyrpg-web" | "mkxp-libretro-web" | "native-web";
-            adapterAbi: string;
+            providerId: string;
+            targetId: string;
+            gameCompatibilityLine: string;
+            targetContractSha256: string;
             dependencySnapshotSha256: string;
             projectFingerprint: string;
         };
         /** @description positionVerified is true only when restoreLaunchId differs from originalLaunchId, restoredPosition equals savedPosition field-for-field, and savedPosition differs from initialPosition and divergedPosition. restoreInputVerified additionally requires post-screenshot input to produce a position different from restoredPosition; screenshotUrl must represent the restored saved marker. */
         RpgCheckpointRoundTrip: {
             created: boolean;
-            payloadKind: components["schemas"]["CheckpointPayloadKind"] | null;
-            /** Format: int64 */
-            resumeSlot: number | null;
+            checkpointFormat: components["schemas"]["CheckpointFormat"] | null;
             /** Format: int64 */
             sizeBytes: number | null;
             sha256: string | null;
@@ -4143,7 +3919,7 @@ export interface components {
             state: components["schemas"]["RpgRuntimeValidationState"];
             /** Format: int64 */
             lastGateSequence: number;
-            routeEvidence: components["schemas"]["RpgRuntimeRouteEvidence"];
+            routeEvidence: components["schemas"]["RpgRuntimeTargetEvidence"];
             /** @description Exactly one entry for every RpgRuntimeGate in enum order. */
             machineGates: components["schemas"]["RpgRuntimeMachineGate"][];
             checkpointRoundTrip: components["schemas"]["RpgCheckpointRoundTrip"];
@@ -4171,11 +3947,11 @@ export interface components {
             /** @description FAIL requires a non-empty normalized value. Both decisions enforce LF normalization, NFC, Unicode-whitespace trim, at most 500 Unicode scalars and 2,000 UTF-8 bytes, and reject the documented control-character set. */
             note: string;
         };
-        /** @description PRODUCT requires name after trim to contain 1..120 Unicode code points; RPG_RUNTIME_VALIDATION omits name. discIndex is required and in range only for a multi-disc PRODUCT Launch and otherwise omitted or null. nativeProfile and resumeSlot are never client authority; the server derives and validates them from the frozen artifact and payload. */
+        /** @description PRODUCT requires name after trim to contain 1..120 Unicode code points; runtime validation omits name. discIndex is required and in range only for a multi-disc PRODUCT Launch and otherwise omitted or null. The format must be declared readable by the Launch Target. */
         RuntimeCheckpointMetadata: {
             name?: string;
             discIndex?: number | null;
-            payloadKind: components["schemas"]["CheckpointPayloadKind"];
+            checkpointFormat: components["schemas"]["CheckpointFormat"];
         };
         ProductSaveStateCreated: {
             /**
@@ -4185,10 +3961,7 @@ export interface components {
             resourceKind: "SAVE_STATE";
             /** Format: uuid */
             saveStateId: string;
-            payloadKind: components["schemas"]["CheckpointPayloadKind"];
-            nativeProfile: components["schemas"]["NativeCheckpointProfile"] | null;
-            /** Format: int64 */
-            resumeSlot: number | null;
+            checkpointFormat: components["schemas"]["CheckpointFormat"];
             screenshotUrl: string | null;
             /** Format: int64 */
             createdAtMs: number;
@@ -4201,10 +3974,7 @@ export interface components {
             resourceKind: "RPG_RUNTIME_VALIDATION_CHECKPOINT";
             /** Format: uuid */
             validationId: string;
-            payloadKind: components["schemas"]["CheckpointPayloadKind"];
-            nativeProfile: components["schemas"]["NativeCheckpointProfile"] | null;
-            /** Format: int64 */
-            resumeSlot: number | null;
+            checkpointFormat: components["schemas"]["CheckpointFormat"];
             /** Format: int64 */
             sizeBytes: number;
             sha256: string;
@@ -4213,52 +3983,8 @@ export interface components {
         };
         RuntimeCheckpointCreated: components["schemas"]["ProductSaveStateCreated"] | components["schemas"]["ValidationCheckpointCreated"];
         CheckpointStatus: {
-            payloadKind: components["schemas"]["CheckpointPayloadKind"];
+            checkpointFormat: components["schemas"]["CheckpointFormat"];
             availability: components["schemas"]["CheckpointAvailability"];
-        };
-        NetplayLaunchConfig: {
-            /** Format: uuid */
-            roomId: string;
-            /** Format: uuid */
-            sessionId: string;
-            playerNo: number;
-            netplayProfile: components["schemas"]["NetplayCanonicalProfile"];
-            runtimeSocketUrl: string;
-        };
-        NetplayCanonicalProfile: {
-            /** @enum {integer} */
-            schemaVersion: 1;
-            /** @enum {string} */
-            protocolVersion: "retrom-netplay-v2";
-            profileId: string;
-            /** @enum {string} */
-            emulatorjsVersion: "4.2.3";
-            /** @enum {string} */
-            playerAdapterId: "ejs-4.2.3-v2";
-            /** @enum {string} */
-            netplayAdapterId: "ejs-netplay-4.2.3-v1";
-            /** Format: uuid */
-            coreArtifactId: string;
-            coreArtifactSha256: string;
-            /** Format: uuid */
-            gameVariantRevisionId: string;
-            sourceManifestDigest: string;
-            dependencySnapshotDigest: string;
-            defaultCoreOptions: {
-                [key: string]: string;
-            };
-            /** @enum {integer} */
-            controlCount: 24;
-            maxPlayers: number;
-            maxPredictionFrames: number;
-            /** @enum {integer} */
-            maxRollbackFrames: 120;
-            /** @enum {integer} */
-            checkpointEveryFrames: 120;
-            /** @enum {integer} */
-            canonicalHistoryFrames: 600;
-            /** @enum {integer} */
-            maxStateBytes: 1048576;
         };
         CreateUploadRequest: {
             /**
@@ -4713,7 +4439,9 @@ export interface components {
             requirementId: string;
             coreId: string;
             coreName: string;
-            coreArtifactId: string;
+            providerId: string;
+            targetId: string;
+            targetContractSha256: string;
             logicalName: string;
             /** @enum {string} */
             requirementMode: "REQUIRED" | "OPTIONAL" | "CONDITIONAL";
@@ -5208,7 +4936,9 @@ export interface components {
             id: string;
             coreId: string;
             coreName: string;
-            coreArtifactId: string;
+            providerId: string;
+            targetId: string;
+            targetContractSha256: string;
             logicalName: string;
             /** @enum {string} */
             sourceKind: "STATIC" | "DAT_MACHINE";
@@ -5429,7 +5159,6 @@ export interface components {
             active?: unknown;
             activeAttachment?: unknown;
             activeDurationMs?: unknown;
-            activeEmulatorjsVersion?: unknown;
             activeInstallation?: unknown;
             activeLaunchCount?: unknown;
             actor?: {
@@ -5506,13 +5235,11 @@ export interface components {
             configSnapshot?: unknown;
             configSnapshotDigest?: unknown;
             configuredDependencyVersionCount?: unknown;
-            configuredEmulatorjsVersions?: unknown;
             configuredVersion?: unknown;
             contentKind?: unknown;
             contentRevisionId?: unknown;
             contentIdentityDigest?: unknown;
             core?: unknown;
-            coreArtifactId?: unknown;
             coreId?: unknown;
             coreName?: string;
             coreOptions?: unknown;
@@ -5569,7 +5296,6 @@ export interface components {
             edges?: unknown;
             emulatorGameId?: unknown;
             emulatorjs?: unknown;
-            emulatorjsVersion?: unknown;
             enabled?: unknown;
             entries?: unknown;
             error?: unknown;
@@ -5682,7 +5408,6 @@ export interface components {
             playSessionId?: unknown;
             playUrl?: unknown;
             player?: unknown;
-            playerAdapterId?: unknown;
             players?: unknown;
             previousInterval?: unknown;
             presentDiscCount?: unknown;
@@ -5740,7 +5465,7 @@ export interface components {
             runtimeBaseUrl?: unknown;
             runtimePath?: unknown;
             runtimePathOverrides?: unknown;
-            runtimeVersionChange?: {
+            targetContractChange?: {
                 previous: string;
                 current: string;
             } | null;
@@ -5889,13 +5614,13 @@ export interface components {
                 "application/json": components["schemas"]["RuntimeAssetPackList"];
             };
         };
-        /** @description Administrative immutable runtime artifact catalog */
-        CoreArtifactListResponse: {
+        /** @description Administrative immutable Runtime Target catalog */
+        RuntimeTargetListResponse: {
             headers: {
                 [name: string]: unknown;
             };
             content: {
-                "application/json": components["schemas"]["CoreArtifactList"];
+                "application/json": components["schemas"]["RuntimeTargetList"];
             };
         };
         /** @description Runtime-pack installation validation accepted */
@@ -6045,6 +5770,15 @@ export interface components {
             };
             content: {
                 "application/json": components["schemas"]["RpgErrorEnvelope"];
+            };
+        };
+        /** @description Runtime Provider and database diagnostic snapshot */
+        DiagnosticsResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["DiagnosticsSnapshot"];
             };
         };
         /** @description Registered CAS payload capacity snapshot */
@@ -6480,7 +6214,7 @@ export interface components {
                 "application/json": components["schemas"]["ImmersiveLibraryGameList"];
             };
         };
-        /** @description Immutable launch configuration derived from the locked core artifact and dependencies */
+        /** @description Exact Launch Envelope V1 derived from an immutable Provider Target and authorized resources */
         LaunchConfigResponse: {
             headers: {
                 [name: string]: unknown;
@@ -6561,7 +6295,8 @@ export interface components {
         TagSort: "NAME_ASC" | "UPDATED_DESC";
         PlatformInstanceIDQuery: string;
         CoreIDQuery: string;
-        CoreArtifactIDQuery: string;
+        ProviderIDQuery: string;
+        TargetIDQuery: string;
         ImportJobIDQuery: string;
         PegasusImportIDQuery: string;
         EmulationStationImportIDQuery: string;
@@ -6637,7 +6372,6 @@ export interface components {
         NetplaySessionID: string;
         UserID: string;
         AccountLinkID: string;
-        ConfiguredVersion: string;
         LogicalName: string;
     };
     requestBodies: {
@@ -9028,7 +8762,7 @@ export interface operations {
             200: components["responses"]["JSONResponse"];
         };
     };
-    getAdminCoreArtifacts: {
+    getAdminRuntimeTargets: {
         parameters: {
             query?: never;
             header?: never;
@@ -9037,7 +8771,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            200: components["responses"]["CoreArtifactListResponse"];
+            200: components["responses"]["RuntimeTargetListResponse"];
         };
     };
     getAdminPlatformInstances: {
@@ -9201,7 +8935,8 @@ export interface operations {
                 q?: components["parameters"]["Q"];
                 platformId?: components["parameters"]["PlatformIDQuery"];
                 coreId?: components["parameters"]["CoreIDQuery"];
-                coreArtifactId?: components["parameters"]["CoreArtifactIDQuery"];
+                providerId?: components["parameters"]["ProviderIDQuery"];
+                targetId?: components["parameters"]["TargetIDQuery"];
                 scope?: components["parameters"]["Scope"];
                 status?: components["parameters"]["Status"];
                 quick?: components["parameters"]["BIOSQuick"];
@@ -9773,7 +9508,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            200: components["responses"]["JSONResponse"];
+            200: components["responses"]["DiagnosticsResponse"];
         };
     };
     getAdminStorageAnalysis: {
@@ -9891,48 +9626,13 @@ export interface operations {
             200: components["responses"]["BinaryResponse"];
         };
     };
-    getRuntimeEmulatorJS: {
-        parameters: {
-            query?: {
-                /** @description EmulatorJS cache-buster; ignored for allowlist and file selection. */
-                v?: string;
-            };
-            header?: never;
-            path: {
-                configuredVersion: components["parameters"]["ConfiguredVersion"];
-                runtimePath: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: components["responses"]["BinaryResponse"];
-        };
-    };
-    headRuntimeEmulatorJS: {
-        parameters: {
-            query?: {
-                /** @description EmulatorJS cache-buster; ignored for allowlist and file selection. */
-                v?: string;
-            };
-            header?: never;
-            path: {
-                configuredVersion: components["parameters"]["ConfiguredVersion"];
-                runtimePath: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: components["responses"]["BinaryResponse"];
-        };
-    };
-    getRetromRuntimeArtifact: {
+    getRuntimeProviderResource: {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                runtimeVersion: string;
+                providerId: string;
+                bundleSha256: string;
                 runtimePath: string;
             };
             cookie?: never;
@@ -9940,14 +9640,17 @@ export interface operations {
         requestBody?: never;
         responses: {
             200: components["responses"]["BinaryResponse"];
+            404: components["responses"]["JSONResponse"];
+            416: components["responses"]["JSONResponse"];
         };
     };
-    headRetromRuntimeArtifact: {
+    headRuntimeProviderResource: {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                runtimeVersion: string;
+                providerId: string;
+                bundleSha256: string;
                 runtimePath: string;
             };
             cookie?: never;
@@ -9955,6 +9658,8 @@ export interface operations {
         requestBody?: never;
         responses: {
             200: components["responses"]["BinaryResponse"];
+            404: components["responses"]["JSONResponse"];
+            416: components["responses"]["JSONResponse"];
         };
     };
     getRuntimeProjectFile: {

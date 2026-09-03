@@ -16,11 +16,31 @@ import (
 
 	"retrom/internal/cleanup"
 	"retrom/internal/libraryimport"
-	"retrom/internal/rpgmaker/detector"
-	"retrom/internal/rpgmaker/routing"
 	retromruntime "retrom/internal/runtime"
+	"retrom/internal/runtimecatalog"
 	"retrom/internal/testsupport"
 )
+
+func rpgValidationRuntimeCatalog() runtimecatalog.Catalog {
+	return runtimecatalog.Catalog{SchemaVersion: 1, CatalogVersion: 1, Bindings: []runtimecatalog.Binding{{
+		ID: "retrom-runtime-rpgmaker-2000", CoreID: "rpgmaker", ProviderID: "retrom-runtime",
+		TargetID: "rpgmaker-2000", PlatformIDs: []string{"rpgmaker"},
+		AcceptedContentKinds: []string{"RPG_MAKER_PROJECT_V1"}, DetectorProfile: "RPG2000",
+		DeliveryProfile: "FILE_TREE_PROJECT_V1", LaunchPolicy: "SUPPORTED",
+		ReviewPolicy: "RPG_RUNTIME_VALIDATION_V1",
+	}}}
+}
+
+func newRPGValidationLaunchService(
+	t *testing.T, ctx context.Context, database *sql.DB, credentials *retromruntime.Credentials, now func() time.Time,
+) *Service {
+	t.Helper()
+	builder, err := testsupport.NewRuntimeBuilder(ctx, database)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return New(database, nil, credentials, now).WithRuntimeProvider(rpgValidationRuntimeCatalog(), builder)
+}
 
 func TestRPGValidationLaunchLocksProjectAndRestoresAfterTerminalOriginal(t *testing.T) {
 	t.Parallel()
@@ -38,7 +58,7 @@ func TestRPGValidationLaunchLocksProjectAndRestoresAfterTerminalOriginal(t *test
 	if err != nil {
 		t.Fatal(err)
 	}
-	service := New(database.SQL, nil, credentials, func() time.Time { return now })
+	service := newRPGValidationLaunchService(t, ctx, database.SQL, credentials, func() time.Time { return now })
 	created, err := service.CreateRPGValidation(
 		ctx, "local", fixture.validationID, "/admin/reviews/"+fixture.itemID, Capabilities{},
 	)
@@ -53,20 +73,17 @@ func TestRPGValidationLaunchLocksProjectAndRestoresAfterTerminalOriginal(t *test
 		t.Fatalf("replay RPG validation launch = %#v, error=%v", replayed, err)
 	}
 	configuration, err := service.Config(ctx, created.LaunchID, created.Capability)
-	if err != nil || configuration.RPGMaker == nil || configuration.RPGMaker.Purpose != "RPG_RUNTIME_VALIDATION" ||
-		configuration.RPGMaker.RuntimeValidation == nil ||
-		configuration.RPGMaker.RuntimeValidation.OriginalLaunchID != created.LaunchID ||
-		configuration.RPGMaker.RuntimeValidation.LastGateSequence != 0 ||
-		len(configuration.RPGMaker.RuntimeValidation.MachineGates) != 14 {
+	if err != nil {
 		t.Fatalf("RPG validation config = %#v, error=%v", configuration, err)
 	}
-	assertRPGValidationState(t, database.SQL, fixture.validationID, "STARTING")
-	encoded, err := MarshalConfig(configuration)
-	var union map[string]any
-	if err != nil || json.Unmarshal(encoded, &union) != nil || union["runtimeFamily"] != "RPGMAKER" ||
-		union["adapter"].(map[string]any)["adapterKind"] != "EASYRPG_WEB" {
-		t.Fatalf("RPG config union = %s, error=%v", encoded, err)
+	union := testsupport.RuntimeEnvelope(t, configuration)
+	session := testsupport.RuntimeEnvelopeObject(t, union, "session")
+	runtimeIdentity := testsupport.RuntimeEnvelopeObject(t, union, "runtime")
+	if session["purpose"] != "RUNTIME_VALIDATION" || runtimeIdentity["providerId"] != "retrom-runtime" ||
+		runtimeIdentity["targetId"] != "rpgmaker-2000" {
+		t.Fatalf("RPG validation envelope identity = %#v / %#v", session, runtimeIdentity)
 	}
+	assertRPGValidationState(t, database.SQL, fixture.validationID, "STARTING")
 	assertRPGValidationConfigJSONShape(t, union, 0, created.LaunchID, nil)
 	assertRPGValidationContent(t, ctx, database.SQL, service, created, fixture)
 	start := PlayEvent{ClientSequence: 0, ClientObservedAtMS: now.UnixMilli()}
@@ -98,20 +115,14 @@ func TestRPGValidationLaunchLocksProjectAndRestoresAfterTerminalOriginal(t *test
 	}
 	assertCopiedRPGValidationContent(t, database.SQL, created.LaunchID, restore.LaunchID)
 	restoreConfig, err := service.Config(ctx, restore.LaunchID, restore.Capability)
-	if err != nil || restoreConfig.RPGMaker == nil || restoreConfig.RPGMaker.Checkpoint == nil ||
-		restoreConfig.RPGMaker.Checkpoint.PayloadURL != "/runtime/launches/"+restore.LaunchID+"/state" ||
-		restoreConfig.RPGMaker.RuntimeValidation == nil ||
-		restoreConfig.RPGMaker.RuntimeValidation.OriginalLaunchID != created.LaunchID ||
-		restoreConfig.RPGMaker.RuntimeValidation.RestoreLaunchID == nil ||
-		*restoreConfig.RPGMaker.RuntimeValidation.RestoreLaunchID != restore.LaunchID ||
-		restoreConfig.RPGMaker.RuntimeValidation.LastGateSequence != 20 ||
-		restoreConfig.RPGMaker.RuntimeValidation.CheckpointEvidence == nil {
+	if err != nil {
 		t.Fatalf("RPG restore config = %#v, error=%v", restoreConfig, err)
 	}
-	restoreEncoded, err := MarshalConfig(restoreConfig)
-	var restoreUnion map[string]any
-	if err != nil || json.Unmarshal(restoreEncoded, &restoreUnion) != nil {
-		t.Fatalf("marshal RPG restore config = %s, error=%v", restoreEncoded, err)
+	restoreUnion := testsupport.RuntimeEnvelope(t, restoreConfig)
+	restorePayload := testsupport.RuntimeEnvelopeObject(t, restoreUnion, "restore")
+	if restorePayload["url"] != "/runtime/launches/"+restore.LaunchID+"/state" ||
+		restorePayload["format"] != "test-checkpoint-v1" {
+		t.Fatalf("RPG restore payload = %#v", restorePayload)
 	}
 	assertRPGValidationConfigJSONShape(t, restoreUnion, 20, created.LaunchID, &restore.LaunchID)
 	assertRPGPlaySessionCount(t, database.SQL, restore.LaunchID, 0)
@@ -145,7 +156,7 @@ func TestRPGValidationLaunchAllowsReviewApprovalBeforeOptionalMachineGates(t *te
 	if err != nil {
 		t.Fatal(err)
 	}
-	launcher := New(database.SQL, nil, credentials, func() time.Time { return now })
+	launcher := newRPGValidationLaunchService(t, ctx, database.SQL, credentials, func() time.Time { return now })
 	created, err := launcher.CreateRPGValidation(
 		ctx, "local", fixture.validationID, "/admin/reviews/"+fixture.itemID, Capabilities{},
 	)
@@ -174,19 +185,22 @@ WHERE game.id=?`, approved.GameID).Scan(&validationID, &validationState); err !=
 func assertRPGValidationConfigJSONShape(
 	t *testing.T,
 	configuration map[string]any,
-	lastSequence float64,
+	lastSequence int64,
 	originalLaunchID string,
 	restoreLaunchID *string,
 ) {
 	t.Helper()
-	assertRPGJSONKeys(t, configuration,
-		"adapter", "artifactId", "checkpoint", "checkpointAvailability", "coreId", "coreName",
-		"gameTitle", "generation", "launchId", "mode", "platformName", "protocolVersion", "purpose",
-		"returnTo", "routeKey", "runtimeFamily", "runtimeValidation", "warnings",
-	)
-	resume, ok := configuration["runtimeValidation"].(map[string]any)
+	validation, ok := configuration["validation"].(map[string]any)
+	if !ok || validation["probeId"] != "rpgmaker.position.v1" {
+		t.Fatalf("runtime validation envelope = %#v", configuration["validation"])
+	}
+	input, ok := validation["input"].(map[string]any)
+	if !ok || input["generation"] != "RPG2000" {
+		t.Fatalf("runtime validation input = %#v", validation["input"])
+	}
+	resume, ok := input["resume"].(map[string]any)
 	if !ok {
-		t.Fatalf("runtimeValidation JSON = %#v", configuration["runtimeValidation"])
+		t.Fatalf("runtime validation resume = %#v", input["resume"])
 	}
 	assertRPGJSONKeys(t, resume,
 		"checkpointEvidence", "lastGateSequence", "machineGates", "originalLaunchId", "restoreLaunchId",
@@ -241,7 +255,7 @@ func TestRPGProjectContentUsesOnlyUniqueASCIICaseFoldFallback(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	service := New(database.SQL, nil, credentials, func() time.Time { return now })
+	service := newRPGValidationLaunchService(t, ctx, database.SQL, credentials, func() time.Time { return now })
 	created, err := service.CreateRPGValidation(
 		ctx, "local", fixture.validationID, "/admin/reviews/"+fixture.itemID, Capabilities{},
 	)
@@ -284,6 +298,13 @@ func seedRPGValidationLaunchFixture(
 	now int64,
 ) rpgValidationLaunchFixture {
 	t.Helper()
+	if err := testsupport.SeedRuntimeProviders(context.Background(), database, rpgValidationRuntimeCatalog()); err != nil {
+		t.Fatal(err)
+	}
+	target, err := testsupport.LookupRuntimeTarget(context.Background(), database, "rpgmaker")
+	if err != nil {
+		t.Fatal(err)
+	}
 	fixture := rpgValidationLaunchFixture{
 		validationID: "rpg-validation", itemID: "rpg-item", projectBlobID: "rpg-project-a",
 		projectSHA: strings.Repeat("1", 64), indexBlobID: "rpg-index",
@@ -299,21 +320,6 @@ INSERT INTO blobs(id,sha256,size_bytes,md5,sha1,crc32,media_type,created_at_ms)
 VALUES(?,?,10,?,?,?,'application/octet-stream',?)`, blob.id, blob.sha, strings.Repeat("a", 32),
 			strings.Repeat("b", 40), strings.Repeat("c", 8), now)
 	}
-	artifactSet := strings.Repeat("5", 64)
-	currentRoute, err := routing.Current("rpgmaker_2000", detector.RPG2000)
-	if err != nil {
-		t.Fatal(err)
-	}
-	mustRPGLaunchSQL(t, database, `
-INSERT INTO core_artifacts(
- id,core_id,route_key,runtime_family,runtime_adapter_kind,runtime_version,adapter_id,entry_path,
- size_bytes,sha256,manifest_sha256,artifact_set_sha256,requires_threads,save_payload_kind,
- save_max_bytes,provenance_json,compatibility_json,selected_for_new_bindings,available_for_launch,
- version,created_at_ms,updated_at_ms)
-VALUES('rpg-artifact','rpgmaker_2000','RPG2000_EASYRPG','RPGMAKER','EASYRPG_WEB',
- ?,'easyrpg-web','runtime/easyrpg.js',1,?,?,?,0,'NATIVE_SAVE_BUNDLE_V1',
- 67108864,'{}','{}',1,1,1,?,?)`, currentRoute.RuntimeVersion,
-		strings.Repeat("6", 64), strings.Repeat("7", 64), artifactSet, now, now)
 	mustRPGLaunchSQL(t, database, `
 INSERT INTO platform_instances(
  id,platform_id,default_core_id,name,slug,sort_order,enabled,version,created_at_ms,updated_at_ms)
@@ -334,10 +340,11 @@ VALUES(?,'rpg-upload',?,10,10,?,'COMPLETE',?,?)`, file.id, file.path, file.blob,
 	}
 	mustRPGLaunchSQL(t, database, `
 INSERT INTO import_jobs(id,upload_session_id,target_platform_instance_id,platform_instance_version,
- platform_id,default_core_id,core_artifact_id,metadata_provider,config_snapshot_json,
+ platform_id,default_core_id,provider_id,target_id,target_contract_sha256,metadata_provider,config_snapshot_json,
  config_snapshot_digest,state,total_item_count,review_pending_item_count,created_at_ms,updated_at_ms)
-VALUES('rpg-import','rpg-upload','rpg-platform',1,'rpgmaker','rpgmaker_2000','rpg-artifact',
- 'NONE','{}',?,'REVIEW_PENDING',1,1,?,?)`, strings.Repeat("9", 64), now, now)
+VALUES('rpg-import','rpg-upload','rpg-platform',1,'rpgmaker','rpgmaker',?,?,?,
+ 'NONE','{}',?,'REVIEW_PENDING',1,1,?,?)`, target.ProviderID, target.TargetID,
+		target.TargetContractSHA256, strings.Repeat("9", 64), now, now)
 	mustRPGLaunchSQL(t, database, `
 INSERT INTO import_items(id,import_job_id,group_key,state,source_manifest_json,source_manifest_digest,
  search_text,created_at_ms,updated_at_ms)
@@ -365,12 +372,13 @@ INSERT INTO review_drafts(id,import_item_id,target_platform_instance_id,metadata
 VALUES('01980000-0000-7000-8000-000000000901',?,'rpg-platform','{}',1,1,?,?,'rpg-snapshot')`, fixture.itemID, now, now)
 	mustRPGLaunchSQL(t, database, `
 INSERT INTO import_item_core_validations(id,import_item_id,target_platform_instance_id,
- platform_instance_version,core_id,core_artifact_id,core_artifact_version,prepublish_generation,
+ platform_instance_version,core_id,provider_id,target_id,target_contract_sha256,game_compatibility_line,prepublish_generation,
  source_manifest_digest,source_snapshot_id,prepublish_input_digest,status,compatibility_code,
  dependency_snapshot_json,created_at_ms)
-VALUES('rpg-core-validation',?,'rpg-platform',1,'rpgmaker_2000','rpg-artifact',1,4,?,
- 'rpg-snapshot',?,'BLOCKED','RPG_RUNTIME_VALIDATION_REQUIRED','{}',?)`, fixture.itemID, strings.Repeat("d", 64),
-		strings.Repeat("e", 64), now)
+VALUES('rpg-core-validation',?,'rpg-platform',1,'rpgmaker',?,?,?,?,4,?,
+ 'rpg-snapshot',?,'BLOCKED','RPG_RUNTIME_VALIDATION_REQUIRED','{}',?)`, fixture.itemID,
+		target.ProviderID, target.TargetID, target.TargetContractSHA256, target.GameCompatibilityLine,
+		strings.Repeat("d", 64), strings.Repeat("e", 64), now)
 	mustRPGLaunchSQL(t, database, `
 INSERT INTO import_item_validation_files(import_item_core_validation_id,role,logical_name,blob_id,
  sort_order,created_at_ms)
@@ -381,23 +389,23 @@ WHERE id='01980000-0000-7000-8000-000000000901'`, now)
 	projectFingerprint, dependency := strings.Repeat("c", 64), strings.Repeat("f", 64)
 	mustRPGLaunchSQL(t, database, `
 INSERT INTO rpgmaker_review_profiles(
- review_draft_id,selected_core_id,generation,evidence_family,evidence_generation,evidence_confidence,
+ review_draft_id,generation,evidence_family,evidence_generation,evidence_confidence,
  file_count,total_bytes,project_fingerprint,requirements_sha256,analysis_json,self_contained_override,
- route_key,artifact_id,artifact_set_sha256,adapter_id,adapter_abi,dependency_snapshot_sha256,
+ provider_id,target_id,game_compatibility_line,target_contract_sha256,dependency_snapshot_sha256,
  created_at_ms,updated_at_ms)
-VALUES('01980000-0000-7000-8000-000000000901','rpgmaker_2000','RPG2000','RPG2K','RPG2000','MATCHED',2,20,?,?,'{}',1,
- 'RPG2000_EASYRPG','rpg-artifact',?,'easyrpg-web','easyrpg-save',?,?,?)`,
-		projectFingerprint, strings.Repeat("0", 64), artifactSet, dependency, now, now)
+VALUES('01980000-0000-7000-8000-000000000901','RPG2000','RPG2K','RPG2000','MATCHED',2,20,?,?,'{}',1,
+ ?,?,?,?,?,?,?)`, projectFingerprint, strings.Repeat("0", 64), target.ProviderID, target.TargetID,
+		target.GameCompatibilityLine, target.TargetContractSHA256, dependency, now, now)
 	mustRPGLaunchSQL(t, database, `
 INSERT INTO rpgmaker_runtime_validations(
  id,import_item_id,review_version_at_create,runtime_binding_revision,effective_source_snapshot_id,
- project_fingerprint,core_id,generation,evidence_generation,evidence_confidence,route_key,artifact_id,
- artifact_set_sha256,adapter_id,adapter_abi,dependency_snapshot_sha256,state,machine_gates_json,
+ project_fingerprint,generation,evidence_generation,evidence_confidence,provider_id,target_id,
+ game_compatibility_line,target_contract_sha256,dependency_snapshot_sha256,state,machine_gates_json,
  created_at_ms,updated_at_ms,expires_at_ms)
-VALUES(?,?,2,1,'rpg-snapshot',?,'rpgmaker_2000','RPG2000','RPG2000','MATCHED',
- 'RPG2000_EASYRPG','rpg-artifact',?,'easyrpg-web','easyrpg-save',?,
- 'CREATED',?,?,?,?)`, fixture.validationID, fixture.itemID, projectFingerprint, artifactSet,
-		dependency, rpgValidationMachineGatesJSON(t, -1), now, now, now+900_000)
+VALUES(?,?,2,1,'rpg-snapshot',?,'RPG2000','RPG2000','MATCHED',?,?,?,?,?,
+ 'CREATED',?,?,?,?)`, fixture.validationID, fixture.itemID, projectFingerprint, target.ProviderID,
+		target.TargetID, target.GameCompatibilityLine, target.TargetContractSHA256, dependency,
+		rpgValidationMachineGatesJSON(t, -1), now, now, now+900_000)
 	return fixture
 }
 
@@ -437,8 +445,8 @@ func checkpointRPGValidation(
 UPDATE rpgmaker_runtime_validations SET state='RUNNING',updated_at_ms=? WHERE id=?`, now, fixture.validationID)
 	mustRPGLaunchSQL(t, database, `
 INSERT INTO rpgmaker_runtime_validation_checkpoints(
- validation_id,payload_blob_id,payload_kind,native_profile,resume_slot,payload_sha256,size_bytes,created_at_ms)
-VALUES(?,'rpg-checkpoint','NATIVE_SAVE_BUNDLE_V1','EASYRPG_V1',100,?,10,?)`,
+ validation_id,payload_blob_id,checkpoint_format,payload_sha256,size_bytes,created_at_ms)
+VALUES(?,'rpg-checkpoint','test-checkpoint-v1',?,10,?)`,
 		fixture.validationID, strings.Repeat("4", 64), now)
 	appendRPGValidationOriginalGates(t, database, fixture.validationID, launchID, now)
 	mustRPGLaunchSQL(t, database, `
