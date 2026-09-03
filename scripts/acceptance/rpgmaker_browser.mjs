@@ -167,6 +167,8 @@ async function generationCase(context, writeHeaders) {
   const runtimeExceptions = [];
   const dialogs = [];
   const observedResponses = [];
+  const consoleDiagnostics = [];
+  const failedResponses = [];
   let responseInventoryOverflow = false;
   const cdp = await context.newCDPSession(page);
   await cdp.send("Runtime.enable");
@@ -174,6 +176,11 @@ async function generationCase(context, writeHeaders) {
     runtimeExceptions.push(safeRuntimeException(exceptionDetails));
   });
   page.on("pageerror", (error) => pageErrors.push(error.stack || error.message));
+  page.on("console", (message) => {
+    if (["error", "warning"].includes(message.type())) {
+      consoleDiagnostics.push(`${message.type()}:${message.text()}`.slice(0, 800));
+    }
+  });
   page.on("dialog", async (dialog) => {
     dialogs.push(dialog.message().slice(0, 400));
     await dialog.dismiss();
@@ -185,6 +192,9 @@ async function generationCase(context, writeHeaders) {
     }
     const request = response.request();
     observedResponses.push({ url: response.url(), resourceType: request.resourceType() });
+    if (response.status() >= 400) {
+      failedResponses.push(`${response.status()}:${response.url()}`.slice(0, 800));
+    }
   });
   progress("first-launch-navigation");
   await page.goto(`${baseUrl}${launch.playUrl}`, { waitUntil: "domcontentloaded" });
@@ -224,10 +234,14 @@ async function generationCase(context, writeHeaders) {
     ? await collectOriginInventory(page, new URL(runtimeFrameURL, baseUrl).origin, observedResponses)
     : null;
   progress("first-launch-origin-inventory");
-  assertNoPlayerErrors(pageErrors, runtimeExceptions);
+  assertNoPlayerErrors(pageErrors, runtimeExceptions, consoleDiagnostics, failedResponses);
+  const firstRuntimeProgress = await assertRuntimeProgress(page);
+  assertNoPlayerErrors(pageErrors, runtimeExceptions, consoleDiagnostics, failedResponses);
   await page.close();
   pageErrors.length = 0;
   runtimeExceptions.length = 0;
+  consoleDiagnostics.length = 0;
+  failedResponses.length = 0;
   const cacheLaunch = await jsonRequest(context.request, "POST", "/api/v1/launches", {
     headers: writeHeaders(), expected: 201,
     data: {
@@ -237,7 +251,22 @@ async function generationCase(context, writeHeaders) {
     },
   });
   const cachePage = await context.newPage();
+  const cacheCdp = await context.newCDPSession(cachePage);
+  await cacheCdp.send("Runtime.enable");
+  cacheCdp.on("Runtime.exceptionThrown", ({ exceptionDetails }) => {
+    runtimeExceptions.push(safeRuntimeException(exceptionDetails));
+  });
   cachePage.on("pageerror", (error) => pageErrors.push(error.stack || error.message));
+  cachePage.on("console", (message) => {
+    if (["error", "warning"].includes(message.type())) {
+      consoleDiagnostics.push(`${message.type()}:${message.text()}`.slice(0, 800));
+    }
+  });
+  cachePage.on("response", (response) => {
+    if (response.status() >= 400) {
+      failedResponses.push(`${response.status()}:${response.url()}`.slice(0, 800));
+    }
+  });
   cachePage.on("dialog", async (dialog) => {
     dialogs.push(dialog.message().slice(0, 400));
     await dialog.dismiss();
@@ -252,7 +281,9 @@ async function generationCase(context, writeHeaders) {
   );
   progress("cache-launch-loading-snapshot");
   cacheLoadingProbe.stop();
-  assertNoPlayerErrors(pageErrors, runtimeExceptions);
+  assertNoPlayerErrors(pageErrors, runtimeExceptions, consoleDiagnostics, failedResponses);
+  const cacheRuntimeProgress = await assertRuntimeProgress(cachePage);
+  assertNoPlayerErrors(pageErrors, runtimeExceptions, consoleDiagnostics, failedResponses);
   await cachePage.close();
   const sameProjectContentIdentity = firstVisibleLoading.projectContentIdentity === null &&
       cacheVisibleLoading.projectContentIdentity === null
@@ -266,6 +297,7 @@ async function generationCase(context, writeHeaders) {
     runtimeEnvironment: { chromeVersion },
     productLaunch: {
       launchId: launch.launchId, playerRunning: true,
+      runtimeProgress: { firstLaunch: firstRuntimeProgress, cacheLaunch: cacheRuntimeProgress },
       config: {
         purpose: config.session.purpose, providerId: config.runtime.providerId,
         providerVersion: config.runtime.providerVersion, targetId: config.runtime.targetId,
@@ -290,13 +322,38 @@ async function generationCase(context, writeHeaders) {
   };
 }
 
-function assertNoPlayerErrors(pageErrors, runtimeExceptions) {
+function assertNoPlayerErrors(pageErrors, runtimeExceptions, consoleDiagnostics, failedResponses) {
   if (!pageErrors.length && !runtimeExceptions.length) {return;}
   const details = [
     ...pageErrors.slice(0, 5),
     ...runtimeExceptions.slice(0, 5).map((value) => JSON.stringify(value)),
+    ...consoleDiagnostics.slice(-10),
+    ...failedResponses.slice(-10),
   ].map((value) => value.slice(0, 1_200)).join(" | ");
   throw new Error(`RPG_ACCEPTANCE_PLAYER_PAGE_ERROR:${details}`);
+}
+
+async function assertRuntimeProgress(page) {
+  const frameCount = () => window.__RETROM_E2E_RUNTIME_V1__?.getFrameCount() ?? null;
+  const beforeFrame = await page.evaluate(frameCount);
+  if (!Number.isSafeInteger(beforeFrame) || beforeFrame < 0) {
+    throw new Error("RPG_ACCEPTANCE_PRODUCT_RUNTIME_PROGRESS_UNAVAILABLE");
+  }
+  try {
+    await page.waitForFunction(
+      (before) => {
+        const after = window.__RETROM_E2E_RUNTIME_V1__?.getFrameCount();
+        return Number.isSafeInteger(after) && after > before;
+      },
+      beforeFrame,
+      { timeout: 10_000 },
+    );
+  } catch {
+    const afterFrame = await page.evaluate(frameCount);
+    throw new Error(`RPG_ACCEPTANCE_PRODUCT_RUNTIME_STALLED:${beforeFrame}:${afterFrame}`);
+  }
+  const afterFrame = await page.evaluate(frameCount);
+  return { beforeFrame, afterFrame };
 }
 
 function projectLoadingDeclarations(config) {

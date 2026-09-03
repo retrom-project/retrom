@@ -463,6 +463,24 @@ class EvidenceContractTests(unittest.TestCase):
         self.assertLess(first_stop, source.index("assertNoPlayerErrors(", first_stop, first_close))
         self.assertLess(cache_stop, source.index("assertNoPlayerErrors(", cache_stop, cache_close))
 
+    def test_generation_browser_proves_product_runtime_progress_on_both_launches(self) -> None:
+        source = BROWSER_PATH.read_text()
+        self.assertIn("const firstRuntimeProgress = await assertRuntimeProgress(page);", source)
+        self.assertIn("const cacheRuntimeProgress = await assertRuntimeProgress(cachePage);", source)
+        self.assertIn(
+            "runtimeProgress: { firstLaunch: firstRuntimeProgress, cacheLaunch: cacheRuntimeProgress },",
+            source,
+        )
+        self.assertIn("RPG_ACCEPTANCE_PRODUCT_RUNTIME_STALLED", source)
+        self.assertNotIn("rpg_product_frame_probe", source)
+
+    def test_generation_evidence_requires_progress_on_both_product_launches(self) -> None:
+        spec = rpgmaker.GENERATION_CASES["ACC-RPG-002"]
+        payload = product_payload(spec, "a" * 64)
+        del payload["productLaunch"]["runtimeProgress"]["cacheLaunch"]
+        with self.assertRaisesRegex(rpgmaker.ContractError, "PRODUCT_RUNTIME_PROGRESS_INVALID"):
+            rpgmaker.validate_generation_evidence(payload, spec, "a" * 64)
+
     def test_generation_provision_covers_all_seven_current_targets_and_state_inputs(self) -> None:
         source = GENERATION_PROVISION_PATH.read_text()
         expected = {
@@ -1070,6 +1088,10 @@ def product_payload(spec, digest: str) -> dict:
         },
         "productLaunch": {
             "launchId": product, "playerRunning": True,
+            "runtimeProgress": {
+                "firstLaunch": {"beforeFrame": 62, "afterFrame": 64},
+                "cacheLaunch": {"beforeFrame": 60, "afterFrame": 63},
+            },
             "config": {
                 "purpose": "PRODUCT", "providerId": "retrom-runtime", "providerVersion": "0.12.0",
                 "targetId": spec.target_id, "targetContractSha256": target_contract,

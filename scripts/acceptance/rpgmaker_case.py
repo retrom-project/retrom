@@ -857,6 +857,7 @@ def validate_generation_evidence(
     if not UUID.fullmatch(launch_id) or launch_id in {validation.get("launchId"), validation.get("restoreLaunchId")}:
         raise ContractError("RPG_ACCEPTANCE_PRODUCT_LAUNCH_ID_INVALID")
     require_equal(product.get("playerRunning"), True, "PLAYER_RUNNING")
+    validate_product_runtime_progress(product.get("runtimeProgress"))
     validate_input_transcript(payload.get("inputTranscript"), spec, target["targetContractSha256"])
     marker, marker_rgb = validate_input_provenance(
         payload.get("inputProvenance"), spec, expected_project_digest,
@@ -903,6 +904,17 @@ def validate_generation_evidence(
             payload["inputProvenance"].get("engineVersion"),
             "MZ_ENGINE_VERSION",
         )
+
+
+def validate_product_runtime_progress(value: Any) -> None:
+    if not isinstance(value, dict) or set(value) != {"firstLaunch", "cacheLaunch"}:
+        raise ContractError("RPG_ACCEPTANCE_PRODUCT_RUNTIME_PROGRESS_INVALID")
+    for snapshot in value.values():
+        if not isinstance(snapshot, dict) or set(snapshot) != {"beforeFrame", "afterFrame"} or any(
+            not isinstance(snapshot.get(key), int) or isinstance(snapshot.get(key), bool) or snapshot[key] < 0
+            for key in ("beforeFrame", "afterFrame")
+        ) or snapshot["afterFrame"] <= snapshot["beforeFrame"]:
+            raise ContractError("RPG_ACCEPTANCE_PRODUCT_RUNTIME_PROGRESS_INVALID")
 
 
 def validate_checkpoint(validation: dict[str, Any], gates: list[dict[str, Any]] | None = None) -> None:
