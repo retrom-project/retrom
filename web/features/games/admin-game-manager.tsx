@@ -11,7 +11,7 @@ import { AdminGameManagerView } from "./admin-game-manager-view";
 
 export type Revision = { id: string; sourceKind: string; sourceRefId: string | null; current: boolean; createdAtMs: number };
 export type ContentRevision = Revision & { contentKind: string; files: Array<{ role: string; logicalName: string; sortOrder: number; sizeBytes: number; sha256: string }> };
-export type VariantRevision = { id: string; contentRevisionId: string; coreArtifactId: string; datVersionId: string | null; status: string; compatibilityCode: string; dependencySnapshot?: { multiDisc?: { canonicalPlaylistSha256?: string } }; current: boolean; createdAtMs: number };
+export type VariantRevision = { id: string; contentRevisionId: string; datVersionId: string | null; status: string; compatibilityCode: string; dependencySnapshot?: { multiDisc?: { canonicalPlaylistSha256?: string } }; current: boolean; createdAtMs: number };
 export type Variant = { id: string; coreId: string; coreName: string; currentRevisionId: string | null; version: number; revisions: VariantRevision[] };
 export type Asset = { assetId: string; kind: string; ordinal: number; widthPx: number | null; heightPx: number | null; mediaType: string; url: string };
 

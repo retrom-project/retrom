@@ -8,8 +8,8 @@ esac
 
 python3 -m scripts.pfb.cli entrypoint-check --root /workspace/retrom --pfb-id "$PFB_ID"
 
-mkdir -p /pfb-data/home /pfb-data/data /pfb-data/dev-state /pfb-data/dependencies
-for source in dat auth netplay; do
+mkdir -p /pfb-data/home /pfb-data/data /pfb-data/dev-state /pfb-data/dependencies /pfb-data/providers/installed
+for source in dat auth netplay runtime-target-bindings; do
   rm -rf "/pfb-data/dependencies/$source"
   cp -a "/workspace/retrom/data/$source" "/pfb-data/dependencies/$source"
 done
@@ -29,14 +29,14 @@ export NEXT_BACKEND_ORIGIN=http://127.0.0.1:8080
 export NEXT_DEV_DIST_DIR=".next-pfb-${PFB_ID}"
 export NODE_HOME=/usr/local
 
-runtime_arguments=()
-runtime_watch=false
+provider_arguments=()
 if [[ "${PFB_RUNTIME_MODE:-formal}" == "branch" ]]; then
-  (cd /workspace/runtime && npm ci)
-  export RETROM_RUNTIME_DEV_RELEASE_OVERRIDES
-  RETROM_RUNTIME_DEV_RELEASE_OVERRIDES="$(python3 -m scripts.pfb.cli runtime-overrides --root /workspace/retrom --pfb-id "$PFB_ID")"
-  runtime_arguments+=(RETROM_RUNTIME_DEV_ROOT=/workspace/runtime RETROM_RUNTIME_DEV_INCLUDE_ASSETS=true RETROM_RUNTIME_PFB_CANDIDATE_ROOT=/workspace/retrom/.pfb/candidates/runtime)
-  runtime_watch=true
+  provider_arguments+=(
+    RETROM_PROVIDER_CANDIDATE_ROOT=/workspace/retrom/.pfb/candidates/runtime
+    RETROM_PROVIDER_INSTALLED_ROOT=/pfb-data/providers/installed
+    RETROM_PROVIDER_ACTIVE_PATH=/pfb-data/providers/active.json
+    RETROM_PROVIDER_SOURCE=candidate
+  )
 fi
 
 unset PFB_RUNTIME_MODE PFB_GATEWAY_IP
@@ -53,24 +53,8 @@ shutdown() {
 }
 trap 'shutdown; exit 143' TERM INT
 
-make dev GO_PREPARE_MODE=system NODE_PREPARE_MODE=system "${runtime_arguments[@]}" &
+make dev GO_PREPARE_MODE=system NODE_PREPARE_MODE=system "${provider_arguments[@]}" &
 children+=("$!")
-
-if [[ "$runtime_watch" == true ]]; then
-  for _ in {1..300}; do
-    kill -0 "${children[0]}" 2>/dev/null || { wait "${children[0]}"; exit $?; }
-    if curl --fail --silent http://127.0.0.1:8080/health/live >/dev/null \
-      && curl --fail --silent http://127.0.0.1:3000/ >/dev/null; then
-      break
-    fi
-    sleep 1
-  done
-  curl --fail --silent http://127.0.0.1:8080/health/live >/dev/null \
-    && curl --fail --silent http://127.0.0.1:3000/ >/dev/null \
-    || { shutdown; echo 'PFB_UPSTREAM_UNAVAILABLE' >&2; exit 1; }
-  (cd /workspace/runtime && npm run dev:watch) &
-  children+=("$!")
-fi
 
 set +e
 wait -n "${children[@]}"

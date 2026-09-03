@@ -22,9 +22,8 @@ var (
 	errBIOSOptions      = errors.New("DEPENDENCY_BIOS_ACTIVATION_OPTIONS_INVALID")
 )
 
-// Manifest is the third-party DAT provenance document. Runtime implementation
-// fields in the source document are intentionally ignored: runtime selection
-// and assets are owned exclusively by Provider declarations.
+// Manifest is the third-party DAT provenance document. Runtime selection,
+// implementation assets and licenses are owned exclusively by Provider bundles.
 type Manifest struct {
 	SchemaVersion int `json:"schema_version"`
 	EmulatorJS    struct {
@@ -115,7 +114,7 @@ func loadManifest(datRoot, versionName string) (Manifest, string, error) {
 	}
 	var manifest Manifest
 	if err := json.Unmarshal(contents, &manifest); err != nil ||
-		manifest.SchemaVersion != 7 || manifest.EmulatorJS.Version != versionName {
+		manifest.SchemaVersion != 8 || manifest.EmulatorJS.Version != versionName {
 		return Manifest{}, "", fmt.Errorf("%w: manifest schema", ErrInvalid)
 	}
 	digest := sha256.Sum256(contents)

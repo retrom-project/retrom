@@ -43,6 +43,8 @@ var (
 	errAdminArgument   = errors.New("ADMIN_RESET_ARGUMENT_INVALID")
 	errCommand         = errors.New("COMMAND_INVALID")
 	errTerminal        = errors.New("TERMINAL_DESCRIPTOR_INVALID")
+	errPFBCandidate    = errors.New("PFB_CANDIDATE_PROVIDER_REQUIRED")
+	errProduction      = errors.New("PRODUCTION_PROVIDER_REQUIRED")
 )
 
 func main() {
@@ -368,21 +370,11 @@ func bootstrapServerResources(
 	if err != nil {
 		return result, fmt.Errorf("verify runtime provider installation: %w", err)
 	}
-	result.database, err = store.Open(ctx, configuration.DBPath, time.Now)
-	if err != nil {
-		return result, fmt.Errorf("retrom/main: %w", err)
+	if err := validateRuntimeProviderSource(configuration, result.runtimeProviders); err != nil {
+		return result, fmt.Errorf("verify runtime provider installation: %w", err)
 	}
-	if err := result.runtimeProviders.Reconcile(ctx, result.database.SQL, time.Now()); err != nil {
-		return result, fmt.Errorf("reconcile runtime providers: %w", err)
-	}
-	if err := result.dependencies.Bootstrap(ctx, result.database.SQL, time.Now()); err != nil {
-		return result, fmt.Errorf("bootstrap dependency records: %w", err)
-	}
-	if err := platforminstance.New(result.database.SQL, time.Now).ValidateCatalog(ctx); err != nil {
-		return result, fmt.Errorf("validate recommended game directories: %w", err)
-	}
-	if err := result.database.IntegrityCheck(ctx); err != nil {
-		return result, fmt.Errorf("retrom/main: %w", err)
+	if err := openAndBootstrapDatabase(ctx, configuration, &result); err != nil {
+		return result, err
 	}
 	result.blobs, err = blobstore.Open(configuration.DataDir)
 	if err != nil {
@@ -404,6 +396,41 @@ func bootstrapServerResources(
 	}
 	succeeded = true
 	return result, nil
+}
+
+func validateRuntimeProviderSource(configuration config.Config, installation runtimeprovider.Installation) error {
+	if configuration.PFBID != "" && installation.Active.Source != "candidate" {
+		return errPFBCandidate
+	}
+	if configuration.Mode == config.ModeRelease && installation.Active.Source != "production" {
+		return errProduction
+	}
+	return nil
+}
+
+func openAndBootstrapDatabase(
+	ctx context.Context,
+	configuration config.Config,
+	resources *serverResources,
+) error {
+	database, err := store.Open(ctx, configuration.DBPath, time.Now)
+	if err != nil {
+		return fmt.Errorf("retrom/main: %w", err)
+	}
+	resources.database = database
+	if err := resources.runtimeProviders.Reconcile(ctx, database.SQL, time.Now()); err != nil {
+		return fmt.Errorf("reconcile runtime providers: %w", err)
+	}
+	if err := resources.dependencies.Bootstrap(ctx, database.SQL, time.Now()); err != nil {
+		return fmt.Errorf("bootstrap dependency records: %w", err)
+	}
+	if err := platforminstance.New(database.SQL, time.Now).ValidateCatalog(ctx); err != nil {
+		return fmt.Errorf("validate recommended game directories: %w", err)
+	}
+	if err := database.IntegrityCheck(ctx); err != nil {
+		return fmt.Errorf("retrom/main: %w", err)
+	}
+	return nil
 }
 
 func initializeRuntimeServices(

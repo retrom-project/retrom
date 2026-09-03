@@ -42,8 +42,11 @@ def main() -> None:
         """
 SELECT game.platform_instance_id,
        game.current_content_revision_id,
-       revision.core_artifact_id,
-       revision.route_key,
+       revision.id,
+       revision.provider_id,
+       revision.target_id,
+       revision.target_contract_sha256,
+       revision.game_compatibility_line,
        revision.dat_version_id,
        revision.dependency_snapshot_json
 FROM games game
@@ -60,7 +63,10 @@ LIMIT 1
     ).fetchone()
     if source is None:
         raise SystemExit(f"no imported {core_id} Arcade schema-v2 revision is available")
-    platform_instance_id, source_content_id, artifact_id, route_key, dat_version_id, snapshot_json = source
+    (
+        platform_instance_id, source_content_id, source_revision_id, provider_id, target_id,
+        target_contract_sha256, game_compatibility_line, dat_version_id, snapshot_json,
+    ) = source
     snapshot = json.loads(snapshot_json)
     if (
         snapshot.get("schemaVersion") != 2
@@ -82,8 +88,8 @@ LIMIT 1
     roles = {
         row[0]
         for row in connection.execute(
-            "SELECT role FROM variant_files WHERE game_variant_revision_id=(SELECT id FROM game_variant_revisions WHERE game_content_revision_id=? AND core_artifact_id=? AND json_extract(dependency_snapshot_json,'$.schemaVersion')=2 ORDER BY created_at_ms DESC,id DESC LIMIT 1)",
-            (source_content_id, artifact_id),
+            "SELECT role FROM variant_files WHERE game_variant_revision_id=?",
+            (source_revision_id,),
         )
     }
     if not {"PARENT", "BIOS_BUNDLE"}.issubset(roles):
@@ -92,16 +98,6 @@ LIMIT 1
     game_id, metadata_id, content_id, variant_id, revision_id = (new_id() for _ in range(5))
     now = int(time.time() * 1000)
     digest = hashlib.sha256(f"{core_id}:{revision_id}:schema-v2".encode()).hexdigest()
-    source_revision_id = connection.execute(
-        """
-SELECT id FROM game_variant_revisions
-WHERE game_content_revision_id=? AND core_artifact_id=?
-  AND json_extract(dependency_snapshot_json,'$.schemaVersion')=2
-ORDER BY created_at_ms DESC,id DESC LIMIT 1
-""",
-        (source_content_id, artifact_id),
-    ).fetchone()[0]
-
     connection.execute("BEGIN IMMEDIATE")
     connection.execute("PRAGMA defer_foreign_keys=ON")
     connection.execute(
@@ -158,17 +154,20 @@ VALUES(?,?,?,NULL,1,?,?)
     connection.execute(
         """
 INSERT INTO game_variant_revisions(
-  id,game_variant_id,game_content_revision_id,core_artifact_id,route_key,dat_version_id,
+  id,game_variant_id,game_content_revision_id,provider_id,target_id,target_contract_sha256,
+  game_compatibility_line,dat_version_id,
   validation_input_digest,emulator_game_id,status,compatibility_code,
   dependency_snapshot_json,default_dos_entry,created_at_ms
-) VALUES(?,?,?,?,?,?,?,?,'READY','REVIEW_SCREENSHOT_OVERRIDE',?,NULL,?)
+) VALUES(?,?,?,?,?,?,?,?,?,?,'READY','REVIEW_SCREENSHOT_OVERRIDE',?,NULL,?)
 """,
         (
             revision_id,
             variant_id,
             content_id,
-            artifact_id,
-            route_key,
+            provider_id,
+            target_id,
+            target_contract_sha256,
+            game_compatibility_line,
             dat_version_id,
             digest,
             emulator_game_id,

@@ -46,36 +46,34 @@ afterEach(() => {
 });
 
 describe("useImmersivePlayer save menu", () => {
-  it("samples the shell gamepad reader when the runtime never polls input", () => {
-    let poll: FrameRequestCallback = () => undefined;
+  it("samples gamepad input even when the top document has no animation frames", () => {
+    vi.useFakeTimers();
     let gamepads: Gamepad[] = [gamepad()];
     const previous = Object.getOwnPropertyDescriptor(window.navigator, "getGamepads");
     Object.defineProperty(window.navigator, "getGamepads", {
       configurable: true,
       value: () => gamepads,
     });
-    vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => {
-      poll = callback;
-      return 1;
-    });
+    vi.spyOn(window, "requestAnimationFrame").mockReturnValue(1);
     vi.spyOn(window, "cancelAnimationFrame").mockImplementation(() => undefined);
     setActiveImmersiveGamepadIndex(0);
 
     try {
-      const { result, current } = renderImmersivePlayer(vi.fn(async () => true));
-      const sample = (nowMs: number, select = false, start = false) => act(() => {
+      const { result } = renderImmersivePlayer(vi.fn(async () => true));
+      const sample = (elapsedMs: number, select = false, start = false) => act(() => {
         gamepads = [gamepad(select, start)];
-        poll(nowMs);
+        vi.advanceTimersByTime(elapsedMs);
       });
-      sample(0, true);
-      sample(40, true, true);
-      sample(50);
-      sample(110, true);
-      sample(150, true, true);
+      sample(20, true);
+      sample(20, true, true);
+      sample(20);
+      sample(60);
+      sample(20, true);
+      sample(20, true, true);
 
       expect(result.current.overlay).toMatchObject({ kind: "menu" });
-      expect(current.pause).toHaveBeenCalledOnce();
     } finally {
+      vi.useRealTimers();
       if (previous) {Object.defineProperty(window.navigator, "getGamepads", previous);}
       else {Reflect.deleteProperty(window.navigator, "getGamepads");}
     }

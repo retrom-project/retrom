@@ -12,7 +12,7 @@
 - BIOS/Firmware Requirement 定义核心启动所需文件及期望 hash。
 - Arcade DAT 用于特定核心下的 machine、ROM entry、clone/parent 和 BIOS/base archive 识别。
 - DAT 不是展示元信息刮削源；Hasheous 的职责见 [导入、刮削与审核](./import-and-review.md)。
-- BIOS 与 DAT 按 Core/Core artifact 管理，不按 PlatformInstance 复制；游戏目录只引用默认 Core。
+- BIOS 与 DAT 按 Provider Target 契约管理，不按 PlatformInstance 复制；游戏目录只引用默认 Core，Core binding 决定当前 Target。
 - 浏览器和 EmulatorJS 不解析原始 DAT。后端预解析并持久化，页面查询物化结果，启动查询依赖快照。
 
 精确来源、commit、artifact hash、DAT hash 和已知格式差异以 [EmulatorJS 4.2.3 Arcade DAT 基线](./arcade-dat-baseline.md)及 [`data/dat` manifest](../data/dat/emulatorjs/4.2.3/manifest.json) 为唯一事实源。
@@ -104,9 +104,9 @@ MelonDS 三项必须全部存在才能得到 READY。它们不进入根 BIOS bun
 
 MAME 2003 和 MAME 2003-Plus 的旧 List XML 没有显式 `isbios` 属性；当前真实基线各有 17 个由 `romof != cloneof` 推导的 base dependency target。名称、entry 和 hash 必须从活动 DAT 解析，不能复制 FBNeo 列表。
 
-数据库中的 BIOS Requirement 是 CoreArtifact 内的稳定逻辑安装槽，而不是把某份 DAT entry 复制成永不变化的手工表：静态固件 slot 的 `source_kind=STATIC`，condition/activation 按第 3.8 节；Arcade BIOS/base archive 的 slot 为 `DAT_MACHINE`，logical name 固定 `<machine>.zip`，`catalog_digest` 来自活动 DAT 的规范必需 entry 集，外层 ZIP 本身没有 DAT 规定的唯一 hash。切换 DAT 时按 logical slot upsert/disable 并递增发生变化的 requirement version，旧安装 Blob 不复制；随后针对新 catalog 重验证 active installation。
+数据库中的 BIOS Requirement 是 Provider Target 内的稳定逻辑安装槽，而不是把某份 DAT entry 复制成永不变化的手工表：静态固件 slot 的 `source_kind=STATIC`，condition/activation 按第 3.8 节；Arcade BIOS/base archive 的 slot 为 `DAT_MACHINE`，logical name 固定 `<machine>.zip`，`catalog_digest` 来自活动 DAT 的规范必需 entry 集，外层 ZIP 本身没有 DAT 规定的唯一 hash。切换 DAT 时按 logical slot upsert/disable 并递增发生变化的 requirement version，旧安装 Blob 不复制；随后针对新 catalog 重验证 active installation。
 
-CoreArtifact 升级会建立新的 Requirement 槽，不把旧 artifact 的 active installation 暗中复制成新安装；旧 VariantRevision/存档仍按其快照使用旧槽与 Blob，新 artifact 在 BIOS 页明确显示未安装。用户再次选择同一文件安装时 CAS 会按 SHA-256 去重，但会创建归属新 Requirement 的独立 Installation 并重新校验。这样不会把旧 core 的“已匹配”结论冒充新 core 的证据，也没有未建模的跨 artifact 自动迁移。
+Provider Target 升级会建立新的 Requirement 槽，不把旧 Target 的 active installation 暗中复制成新安装；既有审计快照继续引用旧槽身份，新 Target 在 BIOS 页明确显示未安装。用户再次选择同一文件安装时 CAS 会按 SHA-256 去重，但会创建归属新 Requirement 的独立 Installation 并重新校验。这样不会把旧 Target 的“已匹配”结论冒充新 Target 的证据，也没有未建模的跨 Target 自动迁移。
 
 ### 3.7 dosbox_pure
 
@@ -114,7 +114,7 @@ CoreArtifact 升级会建立新的 Requirement 槽，不把旧 artifact 的 acti
 
 ### 3.8 条件与 core option 的精确规则
 
-静态目录不能只保存文件名/hash：Gambatte 和 mGBA 的上游都要求 core option 开启后才会使用可选启动 BIOS。每个 CoreArtifact 的 seed 因此还要写入下表的稳定 `condition_code` 与 canonical `activation_options_json`；它们属于 Requirement/catalog digest，不允许前端按 core display name 特判：
+静态目录不能只保存文件名/hash：Gambatte 和 mGBA 的上游都要求 core option 开启后才会使用可选启动 BIOS。每个 Provider Target 的 seed 因此还要写入下表的稳定 `condition_code` 与 canonical `activation_options_json`；它们属于 Requirement/catalog digest，不允许前端按 core display name 特判：
 
 | Core / Requirement | mode / condition_code | 一期适用条件 | activation_options_json |
 | --- | --- | --- | --- |
@@ -149,7 +149,7 @@ BIOS 页面默认只统计当前游戏库各 GameVariant 当前 VariantRevision 
 
 `MISSING_ENTRY` installation 可以作为用户已上传文件保留并维持 active，方便展示实际缺项和直接替换，但绝不能装入 READY Variant 或 Launch bundle；`INVALID`（损坏、不安全或不可读 archive）在上传时保留审计记录但不能成为 active。DAT_MACHINE 安装必须在数据库写事务外按统一 ZIP 安全限制扫描归档，并把条目 hash 目录持久化；校验范围只含普通条目与默认 BIOS set 的非 NODUMP 条目。文件名不同时，仅当 size 与 DAT SHA-1（缺失时为 CRC32）一致才视为历史别名并记录 Warning；同名但内容不同为 `HASH_WARNING`，内容不存在才是 `MISSING_ENTRY`。静态文件 hash 不匹配也统一为 `HASH_WARNING` 并可进入 Launch bundle。每次状态都记录 `validated_requirement_version`，页面若发现版本不一致显示“待重验证”，不能继续使用旧 MATCHED 标签。
 
-生成初始待审核条目和点击“重新运行检查”时都必须刷新两类 BIOS 快照：STATIC requirement 重新按当前安装集合求值；Arcade `DAT_MACHINE` 的 `BIOS_OR_BASE` 依赖按快照中的 machine 精确查找同 CoreArtifact 的 `<machine>.zip` active installation。命中 `MATCHED/HASH_WARNING` 后更新依赖状态、从 `missingEntries` 移除该 archive，并把实际 Blob 加入新的不可变 `BIOS_BUNDLE` ValidationFile；只在原阻断确为 `LAUNCH_BIOS_MISSING` 且全部缺项解除时转为 READY。已经在运行检查开始前安装的 BIOS 不得先误报为缺失；已安装无关 BIOS 不能解除阻断，也不能要求用户重新导入游戏。
+生成初始待审核条目和点击“重新运行检查”时都必须刷新两类 BIOS 快照：STATIC requirement 重新按当前安装集合求值；Arcade `DAT_MACHINE` 的 `BIOS_OR_BASE` 依赖按快照中的 machine 精确查找同 Provider Target 的 `<machine>.zip` active installation。命中 `MATCHED/HASH_WARNING` 后更新依赖状态、从 `missingEntries` 移除该 archive，并把实际 Blob 加入新的不可变 `BIOS_BUNDLE` ValidationFile；只在原阻断确为 `LAUNCH_BIOS_MISSING` 且全部缺项解除时转为 READY。已经在运行检查开始前安装的 BIOS 不得先误报为缺失；已安装无关 BIOS 不能解除阻断，也不能要求用户重新导入游戏。
 
 ## 5. 真实 DAT 基线
 
@@ -166,13 +166,13 @@ FBNeo、MAME2003-Plus 与两个 FBA2012 source commit 按 EmulatorJS v4.2.3 官�
 ## 6. DAT 生命周期
 
 1. 仓库只保存 `data/dat/emulatorjs/<version>/manifest.json` 和 `SHA256SUMS`；真实 DAT payload 由 `make prepare-deps` 按固定配方预下载/生成到同一被 Git 忽略的版本目录。
-2. 服务同步启动阶段只校验、不下载；按 release manifest 为每个 DAT-capable CoreArtifact 登记 DatVersion。`builtin_relative_path`、SHA-256 和 parser version 都是非空当前字段，不存在用户来源、上传 Blob 或兼容状态列。若 manifest 选择与数据库当前 active 不同，启动引导先停用旧选择并推进 CoreArtifact version，使服务保持 not ready，不能在后台索引期间继续使用旧 DAT。
-3. 缺少索引时创建唯一、不可取消的 `DAT_PARSE` Job，并在事务外使用第 7.1 节的 streaming XML parser。当前 enabled Arcade artifact 完成前服务 live 但以 `DEPENDENCY_INDEXING` not ready；确定性失败时以 `DEPENDENCY_DAT_PARSE_FAILED` not ready，不能回退到空目录、其他 core 的 DAT 或旧 artifact。
-4. 只有 manifest 固定的 SHA-256、EmulatorJS version 与实际 CoreArtifact 均匹配，且解析统计与 manifest 一致的内置 DatVersion 才能在短事务内成为 active。激活同时同步 DAT_MACHINE requirements、写系统审计；已建立正确索引的重复启动只修复 active 指针，不重复解析。
+2. 服务同步启动阶段只校验、不下载；按 release manifest 为每个 DAT-capable Provider Target 登记 DatVersion。`builtin_relative_path`、SHA-256 和 parser version 都是非空当前字段，不存在用户来源、上传 Blob 或兼容状态列。若 manifest 选择与数据库当前 active 不同，启动引导先停用旧选择并推进 Provider Target version，使服务保持 not ready，不能在后台索引期间继续使用旧 DAT。
+3. 缺少索引时创建唯一、不可取消的 `DAT_PARSE` Job，并在事务外使用第 7.1 节的 streaming XML parser。当前 Arcade Provider Target 完成前服务 live 但以 `DEPENDENCY_INDEXING` not ready；确定性失败时以 `DEPENDENCY_DAT_PARSE_FAILED` not ready，不能回退到空目录、其他 Core 的 DAT 或旧 Target。
+4. 只有 manifest 固定的 SHA-256、EmulatorJS version 与实际 Provider Target 均匹配，且解析统计与 manifest 一致的内置 DatVersion 才能在短事务内成为 active。激活同时同步 DAT_MACHINE requirements、写系统审计；已建立正确索引的重复启动只修复 active 指针，不重复解析。
 5. 管理员和普通用户都不能上传、创建、比较、启用、回滚或删除 DAT。OpenAPI、HTTP router、数据库 schema 和 Web UI 均不存在用户 DAT、DAT diff 或 base-version 输入分支。
 6. DatVersion 身份仍被 Import、VariantRevision、ReviewEvent 和 Launch 精确引用；release manifest 升级产生新的内置 DatVersion，成功索引后由启动引导激活，受影响稳定 GameVariant 通过既有版本/输入漂移机制按需重校验。既有 current VariantRevision 和 Launch 保留原 DatVersion 与依赖快照，不被静默改写。
 
-同步启动 60 秒预算不包含后台解析，解析使用通用 DAT_PARSE execution deadline 与重启 lease 恢复规则。文件名相同但 SHA-256 不同仍是不同内置版本；同一 `(CoreArtifact, SHA-256, parser version)` 只能有一条记录。
+同步启动 60 秒预算不包含后台解析，解析使用通用 DAT_PARSE execution deadline 与重启 lease 恢复规则。文件名相同但 SHA-256 不同仍是不同内置版本；同一 `(Provider Target, SHA-256, parser version)` 只能有一条记录。
 
 DAT 与任务时间字段使用数据模型中唯一命名的 `created_at_ms`、`activated_at_ms`、`parsed_at_ms` 等 Unix 毫秒 INTEGER；不存在另一套 `imported_at_ms` 字段。
 
@@ -271,8 +271,8 @@ Arcade DAT 没有管理员 HTTP API；运行时只通过审核、GameVariant、L
 
 ## 12. 服务器目录批量导入
 
-任务创建时直接从数据库冻结所有 `available_for_launch=1` CoreArtifact 的 `enabled=1` Requirement：STATIC 与活动 DAT 的 DAT_MACHINE 均包含，REQUIRED/OPTIONAL/CONDITIONAL 均包含；`available_for_launch=0` 的已退休 artifact、历史 DAT slot 和当前游戏库范围不参与。是否仍用于新绑定由 `selected_for_new_bindings` 独立表达，不能拿它替代这里的历史运行可用性门禁。一个 Blob 可分别满足多个 Requirement，但 Installation 不跨 Requirement 共享。
+任务创建时直接从数据库冻结当前 Provider catalog 中、被产品 Core binding 引用的全部 enabled Requirement：STATIC 与活动 DAT 的 DAT_MACHINE 均包含，REQUIRED/OPTIONAL/CONDITIONAL 均包含；不在当前 catalog/binding 闭包内的旧 Target、历史 DAT slot 和当前游戏库范围不参与。一个 Blob 可分别满足多个 Requirement，但 Installation 不跨 Requirement 共享。
 
 STATIC 的可信 exact 要求全部已声明 size/hash 同时一致；否则依次按期望 size、精确 basename、较大 size 作低置信度选择，结果保持 `HASH_WARNING`。DAT_MACHINE 只把逻辑 `.zip` 交给全局串行 archive scanner，并优先安全、可启动、matched/aliased 更多且 mismatched/missing 更少的候选；最后以规范相对路径和确定性 ID 稳定排序。只以质量证据比较是否覆盖，身份、文件名或新扫描本身不增加质量。
 
-`replaceIfBetter=false` 保留任何 active Installation；开启后也只允许严格更优，禁止同分、证据不完整或降级替换。相同 bytes 且 Requirement version/catalog 未变时不创建 revision；Requirement 版本改变时相同 bytes 仍重验并可形成新 revision。提交前重新检查完整 catalog digest、Requirement/CoreArtifact/DAT 版本和 source bytes；漂移分别以稳定条目结果收口。真正替换时，旧 Installation 行保留 filename/size/hash/status 和来源审计，但 `blob_id` 单向清空并记录 `payload_released_at_ms`；依赖它的存档、运行快照和旧 `BIOS_BUNDLE` VariantFile 载荷同步清理，活动 Launch/Play/Netplay 终止。旧 VariantRevision 只保留不可变依赖审计，当前 validation digest 因依赖变化失效，下一次 Launch 先走既有异步重校验并生成绑定新 BIOS 的 revision。
+`replaceIfBetter=false` 保留任何 active Installation；开启后也只允许严格更优，禁止同分、证据不完整或降级替换。相同 bytes 且 Requirement version/catalog 未变时不创建 revision；Requirement 版本改变时相同 bytes 仍重验并可形成新 revision。提交前重新检查完整 catalog digest、Requirement/Provider Target/DAT 版本和 source bytes；漂移分别以稳定条目结果收口。真正替换时，旧 Installation 行保留 filename/size/hash/status 和来源审计，但 `blob_id` 单向清空并记录 `payload_released_at_ms`；依赖它的存档、运行快照和旧 `BIOS_BUNDLE` VariantFile 载荷同步清理，活动 Launch/Play/Netplay 终止。旧 VariantRevision 只保留不可变依赖审计，当前 validation digest 因依赖变化失效，下一次 Launch 先走既有异步重校验并生成绑定新 BIOS 的 revision。

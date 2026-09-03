@@ -184,8 +184,7 @@ class GatewayContractTests(unittest.TestCase):
 class DataGenerationTests(unittest.TestCase):
     def test_pure_application_source_changes_reuse_data_generation(self) -> None:
         base = {
-            "formalDependencyManifestSha256": "a" * 64,
-            "runtimeOverlaySha256": None,
+            "providerInputSha256": "a" * 64,
             "candidateFilesSha256": "b" * 64,
             "retrom": {"sourceTreeSha256": "c" * 64},
         }

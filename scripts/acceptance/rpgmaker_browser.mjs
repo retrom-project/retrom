@@ -43,9 +43,9 @@ try {
 
 async function catalogCase(context, writeHeaders) {
   const coreIds = ["rpgmaker"];
-  const internalCoreIds = [
-    "rpgmaker_2000", "rpgmaker_2003", "rpgmaker_xp", "rpgmaker_vx",
-    "rpgmaker_vx_ace", "rpgmaker_mv", "rpgmaker_mz",
+  const targetIds = [
+    "rpgmaker-2000", "rpgmaker-2003", "rpgmaker-xp", "rpgmaker-vx",
+    "rpgmaker-vx-ace", "rpgmaker-mv", "rpgmaker-mz",
   ];
   const templateKeys = ["rpgmaker/rpgmaker"];
   const platforms = await jsonRequest(context.request, "GET", "/api/v1/admin/platforms");
@@ -76,11 +76,11 @@ async function catalogCase(context, writeHeaders) {
   if (apply) {
     exact(enabledInstances.map((item) => item.defaultCoreId).sort(), [...coreIds], "RPG_ACCEPTANCE_DIRECTORY_CORE_BINDINGS");
   }
-  const artifacts = await allArtifacts(context.request);
-  const selected = artifacts.filter((item) => internalCoreIds.includes(item.coreId) && item.selectedForNewBindings && item.availableForLaunch);
-  exact(selected.map((item) => item.coreId).sort(), [...internalCoreIds].sort(), "RPG_ACCEPTANCE_SELECTED_ARTIFACTS");
-  if (selected.some((item) => !item.id || !item.routeKey || item.runtimeFamily !== "RPGMAKER")) {
-    throw new Error("RPG_ACCEPTANCE_ARTIFACT_DIAGNOSTIC_INCOMPLETE");
+  const targets = await allRuntimeTargets(context.request);
+  const selected = targets.filter((item) => item.providerId === "retrom-runtime" && targetIds.includes(item.targetId));
+  exact(selected.map((item) => item.targetId).sort(), [...targetIds].sort(), "RPG_ACCEPTANCE_SELECTED_TARGETS");
+  if (selected.some((item) => !/^[0-9a-f]{64}$/.test(item.targetContractSha256 ?? ""))) {
+    throw new Error("RPG_ACCEPTANCE_TARGET_DIAGNOSTIC_INCOMPLETE");
   }
   const page = await context.newPage();
   await page.goto(`${baseUrl}/admin/platform-instances`, { waitUntil: "domcontentloaded", timeout: 120_000 });
@@ -91,24 +91,24 @@ async function catalogCase(context, writeHeaders) {
   }
   await page.goto(`${baseUrl}/admin/bios?tab=rpgmaker`, { waitUntil: "domcontentloaded", timeout: 120_000 });
   await page.waitForFunction(
-    (routes) => routes.every((route) => document.body.innerText.includes(route)),
-    selected.map((item) => item.routeKey),
+    (identifiers) => identifiers.every((identifier) => document.body.innerText.includes(identifier)),
+    selected.map((item) => item.targetId),
     { timeout: 120_000 },
   );
   await page.screenshot({ path: join(screenshotDir, "rpgmaker-runtime-diagnostics.png"), fullPage: true });
   const diagnosticText = await page.locator("body").innerText();
   for (const item of selected) {
-    if (!diagnosticText.includes(item.routeKey) || !diagnosticText.includes(item.id)) {
-      throw new Error("RPG_ACCEPTANCE_ARTIFACT_DIAGNOSTIC_NOT_VISIBLE");
+    if (!diagnosticText.includes(item.targetId) || !diagnosticText.includes(item.providerVersion)) {
+      throw new Error("RPG_ACCEPTANCE_TARGET_DIAGNOSTIC_NOT_VISIBLE");
     }
   }
   await page.close();
   return {
     schemaVersion: 1, caseId, status: apply ? "PASS" : "BLOCKED",
     reason: apply ? null : "只读 preflight 完成；fresh DB 必须显式设置 RETROM_ACC_RPG_001_MODE=APPLY 才执行推荐目录事务",
-    catalog: { platformId: "rpgmaker", coreIds, internalCoreIds, templateKeys },
+    catalog: { platformId: "rpgmaker", coreIds, targetIds, templateKeys },
     recommendationStates: covered.map((item) => ({ templateKey: item.templateKey, state: item.state })),
-    artifacts: selected.map(safeArtifact),
+    targets: selected.map(safeTarget),
     screenshots: ["screenshots/rpgmaker-directories.png", "screenshots/rpgmaker-runtime-diagnostics.png"],
   };
 }
@@ -148,7 +148,7 @@ async function generationCase(context, writeHeaders) {
   const launch = await jsonRequest(context.request, "POST", "/api/v1/launches", {
     headers: writeHeaders(), expected: 201,
     data: {
-      gameId, coreId: validation.routeEvidence.coreId, saveStateId: null, dosEntry: null,
+      gameId, coreId: "rpgmaker", saveStateId: null, dosEntry: null,
       returnTo: `/games/${gameId}`,
       clientCapabilities: { secureContext: true, crossOriginIsolated: true, sharedArrayBuffer: true },
     },
@@ -157,9 +157,9 @@ async function generationCase(context, writeHeaders) {
   if (!/^\/play\/[0-9a-f-]{36}$/.test(launch.playUrl ?? "")) {
     throw new Error("RPG_ACCEPTANCE_PRODUCT_PLAY_URL_INVALID");
   }
-  const projectDeclarations = projectLoadingDeclarations(config.adapter);
+  const projectDeclarations = projectLoadingDeclarations(config);
   const loadingProbeOptions = {
-    collectRuntimeTimings: config.adapter?.adapterKind !== "NATIVE_WEB",
+    collectRuntimeTimings: !["rpgmaker-mv", "rpgmaker-mz"].includes(config.runtime.targetId),
   };
   const page = await context.newPage();
   const loadingProbe = trackRuntimeLoading(page, projectDeclarations, loadingProbeOptions);
@@ -193,7 +193,7 @@ async function generationCase(context, writeHeaders) {
   await waitForProductSaveAvailability(page, pageErrors, runtimeExceptions, dialogs, caseId);
   progress("first-launch-ready");
   const firstVisibleLoading = applyEasyProjectDeclaration(
-    await loadingProbe.snapshot(), config.adapter, inputTranscript.upload,
+    await loadingProbe.snapshot(), config, inputTranscript.upload,
   );
   progress("first-launch-loading-snapshot");
   loadingProbe.stop();
@@ -205,10 +205,10 @@ async function generationCase(context, writeHeaders) {
   const diagnostics = page.getByRole("complementary", { name: "运行调试信息" });
   await diagnostics.waitFor({ state: "visible" });
   const diagnosticText = await diagnostics.innerText();
-  if (!diagnosticText.includes(config.coreName) || !diagnosticText.includes("RPG Maker")) {
+  if (!diagnosticText.includes("RPG Maker")) {
     throw new Error("RPG_ACCEPTANCE_PLAYER_DIAGNOSTIC_BINDING_MISMATCH");
   }
-  const internalValues = [config.routeKey, config.artifactId, config.adapter?.adapterId].filter(Boolean);
+  const internalValues = [config.runtime.providerId, config.runtime.targetId];
   if (internalValues.some((value) => diagnosticText.includes(value))) {
     throw new Error("RPG_ACCEPTANCE_PLAYER_DIAGNOSTIC_IMPLEMENTATION_LEAK");
   }
@@ -218,15 +218,17 @@ async function generationCase(context, writeHeaders) {
   await page.screenshot({ path: join(screenshotDir, `${caseId.toLowerCase()}-product-player.png`), fullPage: true });
   progress("first-launch-screenshot");
   if (responseInventoryOverflow) { throw new Error("RPG_ACCEPTANCE_ORIGIN_INVENTORY_OVERFLOW"); }
-  const originInventory = config.adapter?.adapterKind === "NATIVE_WEB"
-    ? await collectOriginInventory(page, config.adapter.uniqueOrigin, observedResponses)
+  const isolatedTarget = ["rpgmaker-mv", "rpgmaker-mz"].includes(config.runtime.targetId);
+  const runtimeFrameURL = isolatedTarget ? await page.locator("iframe.player-frame").getAttribute("src") : null;
+  const originInventory = runtimeFrameURL
+    ? await collectOriginInventory(page, new URL(runtimeFrameURL, baseUrl).origin, observedResponses)
     : null;
   progress("first-launch-origin-inventory");
   await page.close();
   const cacheLaunch = await jsonRequest(context.request, "POST", "/api/v1/launches", {
     headers: writeHeaders(), expected: 201,
     data: {
-      gameId, coreId: validation.routeEvidence.coreId, saveStateId: null, dosEntry: null,
+      gameId, coreId: "rpgmaker", saveStateId: null, dosEntry: null,
       returnTo: `/games/${gameId}`,
       clientCapabilities: { secureContext: true, crossOriginIsolated: true, sharedArrayBuffer: true },
     },
@@ -243,7 +245,7 @@ async function generationCase(context, writeHeaders) {
   await waitForProductSaveAvailability(cachePage, pageErrors, runtimeExceptions, dialogs, caseId);
   progress("cache-launch-ready");
   const cacheVisibleLoading = applyEasyProjectDeclaration(
-    await cacheLoadingProbe.snapshot(), config.adapter, inputTranscript.upload,
+    await cacheLoadingProbe.snapshot(), config, inputTranscript.upload,
   );
   progress("cache-launch-loading-snapshot");
   cacheLoadingProbe.stop();
@@ -268,11 +270,12 @@ async function generationCase(context, writeHeaders) {
     productLaunch: {
       launchId: launch.launchId, playerRunning: true,
       config: {
-        runtimeFamily: config.runtimeFamily, purpose: config.purpose, coreId: config.coreId,
-        generation: config.generation, routeKey: config.routeKey, artifactId: config.artifactId,
-        adapterId: config.adapter?.adapterId, adapterKind: config.adapter?.adapterKind,
-        stateBufferBytes: config.adapter?.stateBufferBytes,
-        bridgeProfile: config.adapter?.bridgeProfile,
+        purpose: config.session.purpose, providerId: config.runtime.providerId,
+        providerVersion: config.runtime.providerVersion, targetId: config.runtime.targetId,
+        targetContractSha256: config.runtime.targetContractSha256,
+        gameCompatibilityLine: config.runtime.gameCompatibilityLine,
+        checkpointFormat: config.runtime.checkpoint?.writeFormat ?? null,
+        checkpointMaxBytes: config.runtime.checkpoint?.maxBytes ?? null,
       },
     },
     ...(originInventory ? { originInventory } : {}),
@@ -290,9 +293,9 @@ async function generationCase(context, writeHeaders) {
   };
 }
 
-function projectLoadingDeclarations(adapter) {
-  if (adapter?.adapterKind !== "MKXP_LIBRETRO_WEB") {return [];}
-  const sources = [adapter.projectArchive, ...array(adapter.rtpArchives)];
+function projectLoadingDeclarations(config) {
+  if (!["rpgmaker-xp", "rpgmaker-vx", "rpgmaker-vx-ace"].includes(config?.runtime?.targetId)) {return [];}
+  const sources = array(config.resources).filter((source) => source.kind === "SEEKABLE_BLOB_V1");
   return sources.map((source) => {
     if (source?.kind !== "SEEKABLE_BLOB_V1" || source.rangeRequired !== true ||
       !Number.isSafeInteger(source.sizeBytes) || source.sizeBytes < 1 || typeof source.url !== "string") {
@@ -302,8 +305,8 @@ function projectLoadingDeclarations(adapter) {
   });
 }
 
-function applyEasyProjectDeclaration(snapshot, adapter, upload) {
-  if (adapter?.adapterKind !== "EASYRPG_WEB") {return snapshot;}
+function applyEasyProjectDeclaration(snapshot, config, upload) {
+  if (!["rpgmaker-2000", "rpgmaker-2003"].includes(config?.runtime?.targetId)) {return snapshot;}
   const fileCount = Number(upload?.fileCount);
   const totalBytes = Number(upload?.totalBytes);
   const evidence = snapshot?.evidence;
@@ -409,7 +412,8 @@ async function readInputTranscript(request, importJobId) {
     import: {
       importJobId: imported.importJobId, uploadId: imported.uploadId, state: imported.state,
       payloadState: imported.payloadState, platformId: imported.platformId,
-      defaultCoreId: imported.defaultCoreId, coreArtifactId: imported.coreArtifactId,
+      defaultCoreId: imported.defaultCoreId, providerId: imported.providerId,
+      targetId: imported.targetId, targetContractSha256: imported.targetContractSha256,
       counts: {
         total: counts.total, queued: counts.queued, running: counts.running,
         reviewPending: counts.reviewPending, published: counts.published,
@@ -474,12 +478,12 @@ function projectResourcePath(pathname) {
     || /^\/(?:js|data|audio|img|effects|fonts)\//.test(pathname);
 }
 
-async function allArtifacts(request) {
+async function allRuntimeTargets(request) {
   const items = [];
   let cursor = "";
   do {
     const query = cursor ? `?cursor=${encodeURIComponent(cursor)}` : "";
-    const response = await jsonRequest(request, "GET", `/api/v1/admin/core-artifacts${query}`);
+    const response = await jsonRequest(request, "GET", `/api/v1/admin/runtime-targets${query}`);
     items.push(...array(response.items));
     cursor = response.nextCursor ?? "";
   } while (cursor);
@@ -503,7 +507,7 @@ function safeReview(review, validation) {
     itemId: review.importItemId, reviewEventId: review.reviewEventId, decision: review.eventType,
     version: null, contentIdentityDigest: route.projectFingerprint,
     rpgMaker: {
-      selectedCoreId: route.coreId, generation: route.generation,
+      selectedCoreId: "rpgmaker", generation: route.generation,
       evidenceGeneration: route.evidenceGeneration, evidenceConfidence: route.evidenceConfidence,
       runtimeBindingRevision: validation.runtimeBindingRevision, runtimeValidationCurrent: true,
     },
@@ -522,12 +526,11 @@ function safeValidation(value) {
   };
 }
 
-function safeArtifact(item) {
+function safeTarget(item) {
   return {
-    id: item.id, coreId: item.coreId, coreName: item.coreName, routeKey: item.routeKey,
-    runtimeFamily: item.runtimeFamily, adapterId: item.adapterId,
-    selectedForNewBindings: item.selectedForNewBindings, availableForLaunch: item.availableForLaunch,
-    version: item.version, sizeBytes: item.sizeBytes,
+    providerId: item.providerId, providerVersion: item.providerVersion, targetId: item.targetId,
+    targetContractSha256: item.targetContractSha256, gameCompatibilityLine: item.gameCompatibilityLine,
+    coreId: item.coreId, coreName: item.coreName,
   };
 }
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Compute the deterministic release input digest shared by both images."""
+"""Compute the deterministic, production-only image input digest."""
 
 from __future__ import annotations
 
@@ -13,16 +13,11 @@ import sys
 from pathlib import Path, PurePosixPath
 
 from dependencies import CheckError, parse_versions
+from runtime_provider_bundle import validate_provider_lock
 
 
 ROOT = Path(__file__).resolve().parent.parent
-RPG_RUNTIME_MANIFEST_KEYS = {
-    "schema_version",
-    "runtime_id",
-    "release",
-    "runtime_files",
-    "artifacts",
-}
+PROVIDER_IDS = ("emulatorjs", "retrom-runtime")
 
 
 def canonical(value: object) -> bytes:
@@ -31,22 +26,6 @@ def canonical(value: object) -> bytes:
 
 def sha256(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
-
-
-def validate_rpg_runtime_manifest(manifest: object) -> None:
-    if (
-        not isinstance(manifest, dict)
-        or set(manifest) != RPG_RUNTIME_MANIFEST_KEYS
-        or manifest.get("schema_version") != 3
-        or manifest.get("runtime_id") != "retrom-runtime"
-        or not isinstance(manifest.get("release"), dict)
-        or not manifest["release"]
-    ):
-        raise ValueError("RELEASE_INPUT_RPG_RUNTIME_MANIFEST_INVALID")
-    for key in ("runtime_files", "artifacts"):
-        rows = manifest.get(key)
-        if not isinstance(rows, list) or not rows or any(not isinstance(row, dict) for row in rows):
-            raise ValueError("RELEASE_INPUT_RPG_RUNTIME_MANIFEST_INVALID")
 
 
 def source_entries() -> list[dict[str, object]]:
@@ -71,8 +50,6 @@ def source_entries() -> list[dict[str, object]]:
         try:
             info = absolute.lstat()
         except FileNotFoundError:
-            # git ls-files includes tracked paths deleted from an unstaged
-            # worktree. They are absent from the source tree being built.
             continue
         if stat.S_ISLNK(info.st_mode):
             mode = "120000"
@@ -87,41 +64,70 @@ def source_entries() -> list[dict[str, object]]:
     return entries
 
 
+def provider_lock_entries() -> list[dict[str, object]]:
+    root = ROOT / "data/runtime-providers"
+    if any((ROOT / relative).exists() for relative in (
+        ".pfb/candidates/runtime/providers",
+        "data/runtime-providers/active.json",
+        "data/runtime-providers/candidate-active.json",
+        "data/runtime-providers/installed",
+        "data/runtime-providers/cache",
+        "data/runtime-providers/archive",
+    )):
+        raise ValueError("RELEASE_INPUT_CANDIDATE_OR_MUTABLE_PROVIDER_FORBIDDEN")
+    paths = [root / f"{provider_id}.lock.json" for provider_id in PROVIDER_IDS]
+    if any(not path.is_file() or path.is_symlink() for path in paths):
+        raise ValueError("RELEASE_INPUT_PROVIDER_LOCKS_MISSING")
+    entries = []
+    release_identity: tuple[str, str, str] | None = None
+    for provider_id, path in zip(PROVIDER_IDS, paths, strict=True):
+        raw = path.read_bytes()
+        lock = validate_provider_lock(json.loads(raw))
+        if lock["providerId"] != provider_id:
+            raise ValueError("RELEASE_INPUT_PROVIDER_LOCK_INVALID")
+        identity = (lock["repository"], lock["tag"], lock["commit"])
+        if release_identity is None:
+            release_identity = identity
+        elif identity != release_identity:
+            raise ValueError("RELEASE_INPUT_PROVIDER_RELEASE_MISMATCH")
+        entries.append({
+            "bundleSha256": lock["bundleSha256"],
+            "lockSha256": sha256(raw),
+            "providerId": provider_id,
+            "providerVersion": lock["providerVersion"],
+        })
+    return entries
+
+
 def release_input_value(versions: list[str], active: str) -> dict[str, object]:
-    if (ROOT / "data/runtime/rpgmaker/v1/.retrom-pfb-candidate.json").exists():
-        raise ValueError("PFB_CANDIDATE_FORBIDDEN")
     normalized = parse_versions(",".join(versions))
     if normalized != versions:
         raise ValueError("RELEASE_INPUT_DEPENDENCY_VERSIONS_INVALID")
     if active not in versions:
         raise ValueError("RELEASE_INPUT_ACTIVE_VERSION_INVALID")
-    dependency_versions: list[dict[str, str]] = []
+    dependency_versions = []
     for version in versions:
-        manifest_path = ROOT / "data/dat/emulatorjs" / version / "manifest.json"
-        manifest_bytes = manifest_path.read_bytes()
+        manifest_bytes = (ROOT / "data/dat/emulatorjs" / version / "manifest.json").read_bytes()
         manifest = json.loads(manifest_bytes)
-        dependency_versions.append(
-            {
-                "version": version,
-                "manifestSha256": sha256(manifest_bytes),
-                "playerAdapterId": manifest["emulatorjs"]["player_adapter"]["id"],
-            }
-        )
-    rpg_manifest_bytes = (ROOT / "data/dat/rpgmaker/v1/manifest.json").read_bytes()
-    rpg_manifest = json.loads(rpg_manifest_bytes)
-    validate_rpg_runtime_manifest(rpg_manifest)
+        if manifest.get("schema_version") != 8 or "player_adapter" in manifest.get("emulatorjs", {}):
+            raise ValueError("RELEASE_INPUT_DAT_MANIFEST_INVALID")
+        dependency_versions.append({
+            "manifestSha256": sha256(manifest_bytes),
+            "version": version,
+        })
     return {
-        "schemaVersion": 1,
+        "schemaVersion": 2,
         "sourceTreeSha256": sha256(canonical(source_entries())),
         "dependencyVersions": dependency_versions,
         "activeEmulatorjsVersion": active,
         "passwordBlocklistManifestSha256": sha256(
             (ROOT / "data/auth/password-blocklists/v1/manifest.json").read_bytes()
         ),
-        "netplayManifestSha256": sha256(
-            (ROOT / "data/netplay/v2/manifest.json").read_bytes()
+        "netplayManifestSha256": sha256((ROOT / "data/netplay/v2/manifest.json").read_bytes()),
+        "runtimeTargetCatalogSha256": sha256(
+            (ROOT / "data/runtime-target-bindings/v1/catalog.json").read_bytes()
         ),
-        "rpgMakerRuntimeManifestSha256": sha256(rpg_manifest_bytes),
+        "providerLocks": provider_lock_entries(),
     }
 
 

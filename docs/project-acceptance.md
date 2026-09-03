@@ -228,15 +228,15 @@ make acceptance-case CASE=<case-id>
 - 上限：900 秒。
 - 执行：`make build-backend-image`，随后 `docker image inspect retrom:latest`；用 `docker image save` 到验收临时目录检查最终 image layer 文件清单，再以 UID/GID `1000:1000`、只读 rootfs、无网络的一次性容器读取并哈希全部内置依赖，容器不挂载数据卷、不启动 Retrom 服务。
 - 流程：先记录 `make release-input-digest`，只构建根 Dockerfile；检查镜像名、镜像没有创建或声明固定运行用户、HTTP 入口、最终镜像配置/发布输入 label、`THIRD_PARTY_NOTICES`、两个 EmulatorJS manifest 的 38 个许可 component、单一 `retrom-runtime` tag 的 runtime allowlist/许可/notice/上游源码定位、五份 DAT 以及密码 blocklist/许可；从适用 manifest 在验收临时目录重建 notice 并逐字节比较。最后确认所有依赖目录对任意非 root UID 可读、可遍历且不可写，所有依赖文件可读且不可写。
-- 通过标准：默认 target 为 `retrom:latest`，image config 的 `User` 为空且 `/etc/passwd` 不含 Retrom 专用账号，运行身份完全由部署编排决定；`io.retrom.release-input-sha256` 等于包含密码与 runtime manifest digest 的本次 helper 值；所有 runtime/DAT/license/blocklist artifact 命中本地 observed 或固定 manifest 校验。最终文件包含 36 个 EmulatorJS 跨版本 selected core/report 条目（合并为 35 个当前新绑定 artifact）、十条独立 runtime route/artifact 的当前 tag allowlist payload、aggregate notice/许可、PPSSPP assets、五份 DAT、10,000 行密码 blocklist及 MIT 许可，但不包含 runtime 历史版本目录、RTP、用户 MV/MZ/GameMaker 项目、下载 archive、上游源码树、非 allowlist core、用户数据、缓存、TLS 私钥或开发启动命令；被忽略 payload 未被 Git 跟踪且构建不 push。以部署基线 UID/GID `1000:1000` 运行只读依赖校验时不得出现 `payload unavailable`。
+- 通过标准：默认 target 为 `retrom:latest`，image config 的 `User` 为空且 `/etc/passwd` 不含 Retrom 专用账号，运行身份完全由部署编排决定；`io.retrom.release-input-sha256` 等于包含密码与 runtime manifest digest 的本次 helper 值；所有 runtime/DAT/license/blocklist artifact 命中本地 observed 或固定 manifest 校验。最终文件包含 36 个 EmulatorJS 跨版本 selected core/report 条目（合并为 35 个当前新绑定 artifact）、十条独立 runtime Provider/Target 的当前 tag allowlist payload、aggregate notice/许可、PPSSPP assets、五份 DAT、10,000 行密码 blocklist及 MIT 许可，但不包含 runtime 历史版本目录、RTP、用户 MV/MZ/GameMaker 项目、下载 archive、上游源码树、非 allowlist core、用户数据、缓存、TLS 私钥或开发启动命令；被忽略 payload 未被 Git 跟踪且构建不 push。以部署基线 UID/GID `1000:1000` 运行只读依赖校验时不得出现 `payload unavailable`。
 - 证据：build log、image ID、RepoTags、User、Entrypoint/Cmd、最终 layer 文件/size/permission 清单、Git tracked-file size 检查、artifact 校验摘要和 UID `1000` 只读校验结果；一次性校验容器销毁后不留下容器、网络或 volume。
 
 ### ACC-PKG-002：前端镜像构建
 
 - 上限：900 秒。
 - 执行：`make acceptance-case CASE=ACC-PKG-002`。
-- 流程：runner 记录 `make release-input-digest`，调用 `make build-web-image` 并 inspect `retrom-web:latest`；确认 target 在编译生产代码前执行 `data-check`，检查 manifest 的 `player_adapter` 与 `web/features/player/adapters/registry.json` 双向一致且每个登记项有实现，再检查 standalone production 产物、镜像没有创建或声明固定运行用户以及内部 HTTP 入口。最后在临时工作树副本把 manifest adapter ID 改为未知值，运行同一 `data-check` 并要求预期失败；不在主工作树留修改，也不对负向样本再构建镜像。
-- 通过标准：默认目标 tag 为 `retrom-web:latest`，image config 的 `User` 为空且 `/etc/passwd` 不含 Retrom 专用账号，运行身份完全由部署编排决定；`io.retrom.release-input-sha256` 等于本次 helper 值；普通基线 `ejs-4.2.3-v3` 精确映射版本 `4.2.3`，runtime base/loader 路径命中 manifest allowlist，未知或无实现登记项使临时副本的校验失败；镜像没有开发依赖/缓存、内置后端地址、TLS 私钥或用户数据，Cmd 不是 `next dev`。
+- 流程：runner 记录 `make release-input-digest`，调用 `make build-web-image` 并 inspect `retrom-web:latest`；确认 target 在编译生产代码前执行 `data-check`，检查两个 production Provider lock、Bundle/manifest/module digest 与 47 个 Target binding 闭包，再检查 standalone production 产物、镜像没有创建或声明固定运行用户以及内部 HTTP 入口。最后在临时工作树副本篡改一个 Target contract digest，运行同一 `data-check` 并要求预期失败；不在主工作树留修改，也不对负向样本再构建镜像。
+- 通过标准：默认目标 tag 为 `retrom-web:latest`，image config 的 `User` 为空且 `/etc/passwd` 不含 Retrom 专用账号，运行身份完全由部署编排决定；`io.retrom.release-input-sha256` 等于本次 helper 值；镜像只包含 lock 指定的内容寻址 Provider Bundle，Web 不包含第二份 adapter/core/asset registry，未知 Target、contract 漂移或无 Module 实现都使临时副本校验失败；镜像没有开发依赖/缓存、内置后端地址、TLS 私钥或用户数据，Cmd 不是 `next dev`。
 - 证据：build log、image inspect/digest 摘要与负向 `data-check` 错误；不启动容器。
 
 ### ACC-PKG-003：镜像 Target 只构建不运行
@@ -384,7 +384,7 @@ make acceptance-case CASE=<case-id>
 - 上限：240 秒。
 - 执行：`make acceptance-case CASE=ACC-STOR-001`。
 - 流程：在隔离空库通过标准导入流写入项目自有 fixture，再加入 durable、非终态 workflow、终态待释放 workflow、runtime、跨长期用途共享、受保护 archive/member、无业务根 archive/member、软删除存档和 GC 候选的确定性小型组合；执行 PayloadRelease 前后分别调用容量 API，再从 ADMIN 打开 `/admin/storage`，确认一次立即清理并等待 worker 收口。以同一幂等 key 重放，再以缺 key、USER/匿名和未知 query 重试，并覆盖既有 viewport、刷新、失败刷新和确认框矩阵。
-- 通过标准：API 只使用 `REGISTERED_CAS_PAYLOAD_V1`，带 `private, no-store`，byte 为无符号十进制字符串；九类按固定顺序含零值，分类 byte/count 之和等于顶层，`protectedBytes + unreferencedBytes = registeredBytes`，同大小不同 Blob 分别计数。保护集合与 GC 使用同一 registry；终态释放前 payload 仍计 workflow，释放后只在没有其他边时进入未引用，独占/共享字节和游戏删除影响摘要逐 Blob 去重且完全一致。封面替换/视频移除后旧 Asset URL 立即 404；ROM/多盘或同 Requirement BIOS 的成功替换同时清理旧运行/存档与旧 durable 边；各自失去最后引用的 Blob 从原分类转入 UNREFERENCED/候选，正常情况下 registered 总量只在宽限期后下降；ADMIN 确认立即清理后，POST 只跳过保留期并返回已调度量，worker 仍逐 Blob 复核保护集合，真正无引用数据收口后 registered/unreferenced/candidate 同步下降，恢复引用的数据不删除。相同 key 只产生一条 `STORAGE_CLEANUP_REQUESTED` 审计并重放原响应，缺 key/CSRF、USER/匿名均失败。完全相同 ROM、多盘或失败替换不得释放 current；不同 Requirement/CoreArtifact 的 BIOS 继续受保护。受保护 archive 的用途单向传播到 member，无业务根 archive 不反向保护；一个长期用途压过 workflow/runtime，两个长期用途归共享。存档状态/截图和清理候选是去重引用视图，不与分类相加；溢出、registry 新增/删除保护边未同步容量语义、读库失败都 fail closed。其余鉴权、脱敏、交互、响应式和无障碍标准不变。
+- 通过标准：API 只使用 `REGISTERED_CAS_PAYLOAD_V1`，带 `private, no-store`，byte 为无符号十进制字符串；九类按固定顺序含零值，分类 byte/count 之和等于顶层，`protectedBytes + unreferencedBytes = registeredBytes`，同大小不同 Blob 分别计数。保护集合与 GC 使用同一 registry；终态释放前 payload 仍计 workflow，释放后只在没有其他边时进入未引用，独占/共享字节和游戏删除影响摘要逐 Blob 去重且完全一致。封面替换/视频移除后旧 Asset URL 立即 404；ROM/多盘或同 Requirement BIOS 的成功替换同时清理旧运行/存档与旧 durable 边；各自失去最后引用的 Blob 从原分类转入 UNREFERENCED/候选，正常情况下 registered 总量只在宽限期后下降；ADMIN 确认立即清理后，POST 只跳过保留期并返回已调度量，worker 仍逐 Blob 复核保护集合，真正无引用数据收口后 registered/unreferenced/candidate 同步下降，恢复引用的数据不删除。相同 key 只产生一条 `STORAGE_CLEANUP_REQUESTED` 审计并重放原响应，缺 key/CSRF、USER/匿名均失败。完全相同 ROM、多盘或失败替换不得释放 current；不同 Requirement/Provider Target 的 BIOS 继续受保护。受保护 archive 的用途单向传播到 member，无业务根 archive 不反向保护；一个长期用途压过 workflow/runtime，两个长期用途归共享。存档状态/截图和清理候选是去重引用视图，不与分类相加；溢出、registry 新增/删除保护边未同步容量语义、读库失败都 fail closed。其余鉴权、脱敏、交互、响应式和无障碍标准不变。
 - 证据：API JSON 与直接 `SUM(blobs.size_bytes)`/行数对比、registry/分类单元与 SQLite 组合测试输出、鉴权/脱敏矩阵、viewport DOM/axe 断言和当前截图。
 
 ### ACC-BKP-001：备份与空目录恢复
@@ -540,7 +540,7 @@ make acceptance-case CASE=<case-id>
 - 上限：180 秒。
 - 执行：`make acceptance-case CASE=ACC-PLAT-003`。
 - 流程：目录内放置 3 个已发布游戏和旧核心存档；以 `limit=1` 分页预览从 `fbneo` 改为 `mame2003` 的影响，检查全量 counts/相同 digest/无重复 items。在一次后续页前改变任一 current revision 验证旧 cursor 失效，恢复固定输入后重新完整预览并确认；分别普通启动和从旧存档启动。
-- 通过标准：每页 `counts/impactDigest/platformInstanceVersion` 一致，3 项按 Game ID 稳定遍历，漂移后返回 `409 IMPACT_PREVIEW_STALE` 而不拼接快照。变更前列出受影响/不兼容游戏；普通启动改用新默认核心；旧存档仍锁定原 CoreArtifact/VariantRevision；不兼容时明确阻断而非静默回退。
+- 通过标准：每页 `counts/impactDigest/platformInstanceVersion` 一致，3 项按 Game ID 稳定遍历，漂移后返回 `409 IMPACT_PREVIEW_STALE` 而不拼接快照。变更前列出受影响/不兼容游戏；普通启动改用新默认核心；旧存档仍锁定原 Provider Target/VariantRevision；不兼容时明确阻断而非静默回退。
 - 证据：影响预览、两次 launch payload 和存档绑定。
 
 ### ACC-PLAT-004：游戏移动边界
@@ -574,7 +574,7 @@ make acceptance-case CASE=<case-id>
 - 上限：180 秒。
 - 执行：`make acceptance-case CASE=ACC-GAME-001`。
 - 流程：在游戏管理按关键字、基础平台和游戏目录找到固定游戏，并检查桌面筛选栏顺序与对齐；检查发布信息/媒体/内容与运行版本/管理操作四区；在未修改时检查保存按钮，记录当前 version，编辑标题、简介、年份与类型并保存，再次检查按钮和版本；替换固定 PNG；针对 current ContentRevision 触发 Hasheous stub 重新刮削，先不采用候选，再选择部分字段和 READY media 应用；构造一个旧 ContentRevision run 做负向 apply，最后用旧 ETag 提交一次并发编辑。
-- 通过标准：搜索/筛选结果正确，桌面端“排序”紧跟“运行状态”且位于同一行；没有字段变化和保存成功后“保存新版本”都禁用，不会创建空修订；每次确认修改创建可追溯 MetadataRevision/current Asset，ADMIN_EDIT revision 的 source ref 为 NULL 且同事务 AuditEvent 指向新 revision，RESCRAPE_APPLY ref 精确指向被采用 Candidate；切换 current 后全部旧 GameAsset 叶子删除、旧 URL 404，未改媒体通过新 Asset 指向同一 Blob，失去最后引用的替换/移除媒体进入 GC 候选。游戏库、详情和管理页读取同一当前值。运行区分开显示当前/历史 ContentRevision、各 Core VariantRevision、CoreArtifact/DAT，而不暴露宿主路径/Blob 编辑；显式重新刮削绕过旧 cache，创建独立 MetadataScrapeRun/QueryAttempt/Candidate/Asset 且不自动覆盖，旧 content run 不能 apply；采用范围与字段 diff 一致；旧 ETag 写入以 409 拒绝；Game ID、current content 和游戏目录不变。
+- 通过标准：搜索/筛选结果正确，桌面端“排序”紧跟“运行状态”且位于同一行；没有字段变化和保存成功后“保存新版本”都禁用，不会创建空修订；每次确认修改创建可追溯 MetadataRevision/current Asset，ADMIN_EDIT revision 的 source ref 为 NULL 且同事务 AuditEvent 指向新 revision，RESCRAPE_APPLY ref 精确指向被采用 Candidate；切换 current 后全部旧 GameAsset 叶子删除、旧 URL 404，未改媒体通过新 Asset 指向同一 Blob，失去最后引用的替换/移除媒体进入 GC 候选。游戏库、详情和管理页读取同一当前值。运行区分开显示当前/历史 ContentRevision、各 Core VariantRevision、Provider Target/DAT，而不暴露宿主路径/Blob 编辑；显式重新刮削绕过旧 cache，创建独立 MetadataScrapeRun/QueryAttempt/Candidate/Asset 且不自动覆盖，旧 content run 不能 apply；采用范围与字段 diff 一致；旧 ETag 写入以 409 拒绝；Game ID、current content 和游戏目录不变。
 - 证据：查询参数、修改前后 API、revision/diff、Blob SHA-256、冲突响应及三处当前 UI 截图。
 
 ### ACC-GAME-002：重新上传与不可变文件 revision
@@ -582,7 +582,7 @@ make acceptance-case CASE=<case-id>
 - 上限：180 秒。
 - 执行：`make acceptance-case CASE=ACC-GAME-002`。
 - 流程：为当前 `fceumm` revision 创建一份带截图存档和活动 Launch；创建 COMPLETE UploadSession 后调用内容 revision endpoint。先分别提交 byte-identical ROM 和损坏输入，再用不同内容执行成功替换，并在另一次运行中于验证与提交之间改变目录默认 core/version，确认 retryable conflict。比较 Upload consumption、GameContentRevision/ContentFiles、各 Core VariantRevision、两个 current pointer、存档、Launch/Netplay 与 GC 候选。多盘分支先提交相同盘序/Disc hash，再用一盘不变一盘变化、最后多盘同时变化的完整目录重复验证。RPG Maker 分支先发布固定 RPG2000 项目，再依次提交同世代但不同 filesDigest 的完整目录、固定 RPG2003 目录和依赖声明变化的 RPG2000 目录。
-- 通过标准：创建 Job 与 whole-session consumption 原子且同一 Upload 不能再被 Import/Asset 使用；相同单 ROM 或完全相同多盘以不可重试 `GAME_CONTENT_UNCHANGED` 结束并释放 consumption，不改变 current、不创建 revision、不删除存档。损坏输入和快照竞态同样不改变 current 或存档；仍可重试的失败保留输入引用。只有不同的新内容 READY 且最新快照一致时才原子创建新的 GameContentRevision 和默认 core VariantRevision、切换 Game content 与该 Variant current；旧 Content/Variant revision 行继续可审计，但旧 ContentFile/VariantFile、Launch payload 和绑定存档已删除，活动 Launch/Play 被撤销且 Netplay 以 `GAME_CONTENT_REPLACED` 结束，独占旧 Blob 进入 GC 候选，共享未变光盘仍由新 current 保护。RPG Maker 同世代替换保留内部 core/route/逻辑游戏兼容线和运行依赖，使用该线当前 selected artifact/adapter ABI 重新生成派生运行文件，且新 `runtime_validation_id` 为空；旧 artifact 已退役也不能阻断替换。RPG2000→RPG2003 以不可重试 `RPG_REPLACEMENT_GENERATION_MISMATCH` 拒绝，依赖声明变化以不可重试 `RPG_REPLACEMENT_DEPENDENCIES_CHANGED` 拒绝，两者均不得创建 revision、切 current 或删除存档。其他 core 对新内容显示 `NEEDS_VALIDATION`，新普通启动只使用新 revision。
+- 通过标准：创建 Job 与 whole-session consumption 原子且同一 Upload 不能再被 Import/Asset 使用；相同单 ROM 或完全相同多盘以不可重试 `GAME_CONTENT_UNCHANGED` 结束并释放 consumption，不改变 current、不创建 revision、不删除存档。损坏输入和快照竞态同样不改变 current 或存档；仍可重试的失败保留输入引用。只有不同的新内容 READY 且最新快照一致时才原子创建新的 GameContentRevision 和默认 Core VariantRevision、切换 Game content 与该 Variant current；旧 Content/Variant revision 行继续可审计，但旧 ContentFile/VariantFile、Launch payload 和绑定存档已删除，活动 Launch/Play 被撤销且 Netplay 以 `GAME_CONTENT_REPLACED` 结束，独占旧 Blob 进入 GC 候选，共享未变光盘仍由新 current 保护。RPG Maker 同世代替换保留逻辑游戏兼容线和运行依赖，使用当前 Core binding 所指 Provider Target 及其 checkpoint write format 重新生成派生运行文件，且新 `runtime_validation_id` 为空；旧 Target 不在当前 catalog 时也不能改变世代判定。RPG2000→RPG2003 以不可重试 `RPG_REPLACEMENT_GENERATION_MISMATCH` 拒绝，依赖声明变化以不可重试 `RPG_REPLACEMENT_DEPENDENCIES_CHANGED` 拒绝，两者均不得创建 revision、切 current 或删除存档。其他 Core 对新内容显示 `NEEDS_VALIDATION`，新普通启动只使用新 revision。
 - 证据：单 ROM与多盘上传/Job 结果、原始/派生 hash、Content/Variant revision 链、Upload/Blob/GC 引用、存档与运行终止状态、快照冲突事件和兼容诊断。
 
 ### ACC-GAME-003：永久删除、版本保护与墓碑关系
@@ -648,7 +648,7 @@ make acceptance-case CASE=<case-id>
 - 上限：180 秒。
 - 执行：`make acceptance-case CASE=ACC-IMP-007`。
 - 流程：先用同一 GBA bytes、不同文件名创建两个 ImportJob，使二者在任一发布前都进入审核；发布第一项，普通 approve 第二项，再用响应给出的当前已有 Game 集合二次确认并发布。随后第三次以另一文件名上传相同 bytes。另对两个 Item 分别编辑字段，选择 READY Validation、文本 Candidate 和来自同 Item 两个已完成 run 的 READY media 后 approve/discard；对 READY 与缺 Parent/BIOS 的 blocker 分别打开审核预览，在 production CSP（不含 `unsafe-eval`）下用 4.2.3 的真实 7z core Worker 与 ZIP 内容 Worker 启动，在核心报告 start 前后检查 5 秒 timer、截图上传与草稿投影，并用 blocker 的当前截图直接人工放行和启动；再注入 iframe 异步错误与无 start 超时，生成新 Validation 证明旧截图失效。故障注入证明审批事务没有 archive/ZIP/网络调用；之后尝试修改旧 ReviewEvent，并从历史页回放。再使用固定 `a.zip -> b.zip -> c.zip` Arcade 向量：child-only 进入审核，以不同本地名补 b、错误 c、正确 c，metadata PATCH 与 Attachment Job 并行；正确 c 完成后先用补传前 ETag 发起一次发布以制造版本交错，再验证客户端刷新和有界重试；另在刷新前修改一个发布字段，证明不会自动重试覆盖并发编辑。最后 approve，读取 Content/Variant 文件和 Parent ReviewEvent，并触发一次同 ContentRevision/DatVersion 的首次启动重校验后读取 Player config 与 Parent bundle。另制造补传后的 effective content identity 命中，执行一次拒绝确认和一次精确确认。
-- 通过标准：匹配当前目录/config 和 effective source snapshot 的 READY Validation，或同一当前阻断 Validation 的第 5 秒截图，可 Approve；两类审核预览都锁定 source/Validation/CoreArtifact，生产 CSP 保持不含 `unsafe-eval`，4.2.3 的 7z 与 ZIP Worker 在各自 version-bound 转换后均不执行 `eval` 且真实触发 `EJS_onGameStart`，任一源形状漂移则 fail closed。真实 start 前不计时，第 4,999ms 没有截图、第 5,000ms 才开始优先读取核心最后一帧，静态 ROM/BIOS 错误画面可辨识且不能退化为黑帧，核心截图有界失败才回退 canvas，最终保存非空 PNG 并在活动 Review GET 投影；iframe 同步错误、未处理 rejection 或 30 秒未 start 都显示可操作失败而非永久 loading。Blocker 预览只交付主 ROM 与实际存在的依赖、不创建正式 Game/LaunchSession/PlaySession/SaveState；截图写入后启用 Approve，发布 Variant 保留 `REVIEW_SCREENSHOT_OVERRIDE` 结论，ReviewEvent v2 只保留 override reason 而不保存 screenshot ID，正式单机启动继续最佳努力交付，Netplay 仍严格阻断。重新检查、换目录或 CoreArtifact 漂移后旧截图不能投影或放行。第二项首次 approve 返回 `409 DUPLICATE_GAME_CONFIRMATION_REQUIRED` 且不产生 Game/ReviewEvent，错误/过期/重复 acknowledged ID 不能越过；精确 `ALLOW_NEW` 确认后才发布，并在最终事件保留当前有效内容的结构化摘要、policy 和已有 Game IDs。第三次识别直接将 Item 置 `DISCARDED`、任务 `COMPLETED`，计数/文件投影为已导入跳过，保留指向前两个 Game/current ContentRevision 的文字匹配，不创建 ReviewDraft、Validation、刮削或第三个 Game；改文件名/UploadSession 不影响身份，不同基础平台和 `DELETED` Game 不误阻断。Arcade 接受 b 只追加 revision 2 并仍 BLOCKED，错误 c REJECTED 且快照/digest 不变，正确 c 追加 revision 3/READY；metadata PATCH 不被覆盖。补传导致的首次 stale 发布必须重新 GET Review，并在发布草稿逐字段等价、当前可发布且无 active Attachment 时使用新 ETag 和新 Idempotency-Key 自动成功一次；另一编辑者改字段、当前仍阻断或第二次 stale 时不得重试或发布。Approve 的 GameContentFiles 从 revision 3 包含 CONTENT a 与 COMPANION b/c，VariantFiles 含 PARENT b/c；ReviewEvent 保存前后文字/结构化快照、Validation 结论和来源类型，不含媒体 ID/URL、Blob/hash、路径、MIME、尺寸、ROM bytes 或宿主路径。同内容、同 DAT 的后继启动重校验仍保留这两项 PARENT 与依赖索引，config `parentUrl` 非空且 bundle 根级包含 `b.zip/c.zip`。补传后的重复检查使用 revision 3 digest，不沿用 child-only digest。审批只复制 effective source/ValidationFile refs 并原子发布到唯一游戏目录，不做耗时计算。Discard 会取消 active Attachment 且不发布；Approve/Discard 在决策事务写 `ReviewEvent.schemaVersion=2` 并调度 ImportItem/ImportJob PayloadRelease。活动审核期的来源、候选媒体、预览截图和补传仍可用，进入终态后释放 Job 清空其 payload FK/行并将 UploadFile 推进到可 PURGED 状态；审核历史 API/DOM 仍可回放决定、字段差异、Validation 和来源种类，但没有封面、视频、媒体占位或当前 Game 媒体回填。共享到已发布 Game 的 Blob 由 durable 边继续保护，纯 workflow 独占 Blob 进入 GC 候选；释放失败只把 payload 状态置 FAILED 并保留已完成的领域决定，诊断码可重试且不得回滚成待审核。旧 ReviewEvent 不可更新。
+- 通过标准：匹配当前目录/config 和 effective source snapshot 的 READY Validation，或同一当前阻断 Validation 的第 5 秒截图，可 Approve；两类审核预览都锁定 source/Validation/Provider Target，生产 CSP 保持不含 `unsafe-eval`，4.2.3 的 7z 与 ZIP Worker 在各自 version-bound 转换后均不执行 `eval` 且真实触发 `EJS_onGameStart`，任一源形状漂移则 fail closed。真实 start 前不计时，第 4,999ms 没有截图、第 5,000ms 才开始优先读取核心最后一帧，静态 ROM/BIOS 错误画面可辨识且不能退化为黑帧，核心截图有界失败才回退 canvas，最终保存非空 PNG 并在活动 Review GET 投影；iframe 同步错误、未处理 rejection 或 30 秒未 start 都显示可操作失败而非永久 loading。Blocker 预览只交付主 ROM 与实际存在的依赖、不创建正式 Game/LaunchSession/PlaySession/SaveState；截图写入后启用 Approve，发布 Variant 保留 `REVIEW_SCREENSHOT_OVERRIDE` 结论，ReviewEvent v2 只保留 override reason 而不保存 screenshot ID，正式单机启动继续最佳努力交付，Netplay 仍严格阻断。重新检查、换目录或 Provider Target 漂移后旧截图不能投影或放行。第二项首次 approve 返回 `409 DUPLICATE_GAME_CONFIRMATION_REQUIRED` 且不产生 Game/ReviewEvent，错误/过期/重复 acknowledged ID 不能越过；精确 `ALLOW_NEW` 确认后才发布，并在最终事件保留当前有效内容的结构化摘要、policy 和已有 Game IDs。第三次识别直接将 Item 置 `DISCARDED`、任务 `COMPLETED`，计数/文件投影为已导入跳过，保留指向前两个 Game/current ContentRevision 的文字匹配，不创建 ReviewDraft、Validation、刮削或第三个 Game；改文件名/UploadSession 不影响身份，不同基础平台和 `DELETED` Game 不误阻断。Arcade 接受 b 只追加 revision 2 并仍 BLOCKED，错误 c REJECTED 且快照/digest 不变，正确 c 追加 revision 3/READY；metadata PATCH 不被覆盖。补传导致的首次 stale 发布必须重新 GET Review，并在发布草稿逐字段等价、当前可发布且无 active Attachment 时使用新 ETag 和新 Idempotency-Key 自动成功一次；另一编辑者改字段、当前仍阻断或第二次 stale 时不得重试或发布。Approve 的 GameContentFiles 从 revision 3 包含 CONTENT a 与 COMPANION b/c，VariantFiles 含 PARENT b/c；ReviewEvent 保存前后文字/结构化快照、Validation 结论和来源类型，不含媒体 ID/URL、Blob/hash、路径、MIME、尺寸、ROM bytes 或宿主路径。同内容、同 DAT 的后继启动重校验仍保留这两项 PARENT 与依赖索引，config `parentUrl` 非空且 bundle 根级包含 `b.zip/c.zip`。补传后的重复检查使用 revision 3 digest，不沿用 child-only digest。审批只复制 effective source/ValidationFile refs 并原子发布到唯一游戏目录，不做耗时计算。Discard 会取消 active Attachment 且不发布；Approve/Discard 在决策事务写 `ReviewEvent.schemaVersion=2` 并调度 ImportItem/ImportJob PayloadRelease。活动审核期的来源、候选媒体、预览截图和补传仍可用，进入终态后释放 Job 清空其 payload FK/行并将 UploadFile 推进到可 PURGED 状态；审核历史 API/DOM 仍可回放决定、字段差异、Validation 和来源种类，但没有封面、视频、媒体占位或当前 Game 媒体回填。共享到已发布 Game 的 Blob 由 durable 边继续保护，纯 workflow 独占 Blob 进入 GC 候选；释放失败只把 payload 状态置 FAILED 并保留已完成的领域决定，诊断码可重试且不得回滚成待审核。旧 ReviewEvent 不可更新。
 - 证据：三次普通任务与 Arcade 分步任务的 Item/文件/快照/Validation/consumption 计数、两次发布响应、409 details、确认和 schema v2 ReviewEvent、Content/Variant 文件、PayloadRelease/GC 状态、游戏库结果、纯文字历史 API/DOM 和旧事件更新拒绝。
 
 - 聚合补充流程：对同一批两个 Item 分别 approve/discard，并在每次决策前后读取 ImportJob 聚合与入库总览。
@@ -668,7 +668,7 @@ make acceptance-case CASE=<case-id>
 - 上限：240 秒。
 - 执行：`make acceptance-case CASE=ACC-IMP-009`。
 - 流程：创建跨两个 ImportJob 的 READY、阻断截图 override、重复内容、active Parent/多盘 Attachment、过期 Validation 和非法标题 Item；另创建一个使用 Arcade dependency snapshot schema v2、当前 DAT closure 与冻结 Parent/BIOS ValidationFile 完整的 READY Item。以 `q/tagId/importJobId/pegasusImportId/platformInstanceId/blockerCode` 的固定组合预览完整范围。预览后分别修改一个草稿、发布一个重复来源并并发创建两个 batch，验证 stale/active；重新预览后启动。处理期间在发布事务和批次结果之间故障注入、请求取消并模拟进程退出/重启；另在 worker 基础设施失败后领域 retry，最后对一份含非终态批次的 backup 执行 restore。
-- 通过标准：预览计数互斥覆盖 matched，candidate 只含严格 generation 4 READY、当前来源/目录/CoreArtifact/DAT/BIOS/DOS/dependency、合法标题、无重复和 active Attachment 的 Item；截图 override 永远排除。Arcade v2 READY 必须按当前 active DAT 重投影 closure、逐 machine 核对 required entries，并确认外部依赖各有唯一冻结 ValidationFile 后进入 candidate 与成功发布；不能因 BIOS v1 parser 不识别 v2 字段而计入 not-ready/stale。范围枚举不受列表 limit/cursor/已加载 DOM 影响，scope/candidate digest 漂移返回 `REVIEW_BULK_PREVIEW_STALE`，零项/10,001/第二个 active batch 使用稳定错误且不创建半个 Job。每个 PUBLISHED 的 Game/Revision/ReviewEvent、普通与对应服务器来源聚合和 batch item/counter 同事务提交，故障时全部回滚；事件含 `QUICK_STRICT_READY/bulkApprovalId`。处理前 duplicate/changed/not-ready 分别 skip，意外项 final failure 不阻断后续项；取消只收口未提交项，已发布不回滚。重启只恢复未提交项且不重复 Game/Revision/Event，通用 Job retry 被拒绝、worker-only 领域 retry 增加 execution；restore 把遗留 Item 取消、aggregate/Job 置 `FAILED/RESTORE_INTERRUPTED` 并保留已发布项。fresh schema 的 foreign key/integrity 检查无结果。
+- 通过标准：预览计数互斥覆盖 matched，candidate 只含严格 generation 4 READY、当前来源/目录/Provider Target/DAT/BIOS/DOS/dependency、合法标题、无重复和 active Attachment 的 Item；截图 override 永远排除。Arcade v2 READY 必须按当前 active DAT 重投影 closure、逐 machine 核对 required entries，并确认外部依赖各有唯一冻结 ValidationFile 后进入 candidate 与成功发布；不能因 BIOS v1 parser 不识别 v2 字段而计入 not-ready/stale。范围枚举不受列表 limit/cursor/已加载 DOM 影响，scope/candidate digest 漂移返回 `REVIEW_BULK_PREVIEW_STALE`，零项/10,001/第二个 active batch 使用稳定错误且不创建半个 Job。每个 PUBLISHED 的 Game/Revision/ReviewEvent、普通与对应服务器来源聚合和 batch item/counter 同事务提交，故障时全部回滚；事件含 `QUICK_STRICT_READY/bulkApprovalId`。处理前 duplicate/changed/not-ready 分别 skip，意外项 final failure 不阻断后续项；取消只收口未提交项，已发布不回滚。重启只恢复未提交项且不重复 Game/Revision/Event，通用 Job retry 被拒绝、worker-only 领域 retry 增加 execution；restore 把遗留 Item 取消、aggregate/Job 置 `FAILED/RESTORE_INTERRUPTED` 并保留已发布项。fresh schema 的 foreign key/integrity 检查无结果。
 - 证据：preview/create HTTP 摘要、当前 schema/store 约束、故障注入事务行、JobEvent/ReviewEvent、取消/重启/retry/restore 状态序列及最终 Game 数。
 
 ## 11. BIOS 与 Arcade DAT
@@ -678,8 +678,8 @@ make acceptance-case CASE=<case-id>
 - 上限：300 秒。
 - 前置：计时前已执行一次 `make prepare-deps`，本 Case 期间断网。
 - 执行：`make acceptance-case CASE=ACC-DAT-001`。
-- 流程：runner 先执行 `make data-check` 与 `make deps-check`，验证运行时 manifest/adapter/allowlist、36 个 EmulatorJS 跨版本 selected core/report 条目、单一 `retrom-runtime` tag 的十条独立 route/artifact、PPSSPP assets、mame2003 override、38 个 EmulatorJS 许可 component、runtime aggregate notice/许可/上游源码定位、五份 DAT，以及密码 blocklist manifest、10,000 行 payload 和 MIT 许可；离线重建适用 notice。再用全新临时 SQLite 和真实五份 DAT 断网启动服务，等待 ready 并重启复用；最后运行 seed/约束负向与 Git payload 边界检查。
-- 通过标准：离线命令成功，所有值与机器基线一致；两份普通 manifest 的 adapter 精确为 `ejs-4.2.3-v3 → 4.2.3`、`ejs-4.3.0-pre-v2 → 4.3.0-pre`，联机 manifest 继续精确引用 legacy `ejs-4.2.3-v2`，base/loader 命中 allowlist，缺失、未知、版本错配或无实现 adapter 均使 `data-check` 失败；35 个 enabled EmulatorJS Core 各恰有一条当前 `selected_for_new_bindings=1,available_for_launch=1` CoreArtifact，七个 RPG Maker 世代 Core 加 ONS、KiriKiri 与 Butterscotch 各恰有一条同状态 route/artifact，全部逐项等于当前 tag manifest；线程 basename 与实际 artifact 一致，未知版本/route 不回退默认 adapter。冷库先 live/`DEPENDENCY_INDEXING`，五个不可取消 bootstrap Job 在事务外解析，最终五个 Arcade core 各有独立 READY active DAT；重启不重跑 parser。两个 FBA2012 DAT 必须从锁定源码分别完成双生成且 bytes 相同。许可输入逐项命中 size/hash，notice 可重复生成；DAT、EJS/runtime/license/notice payload 均未被 Git 跟踪，独立 runtime 本机物化目录不存在历史版本。整个 Case 断网且启动/解析不尝试 CDN；部署前由 `ACC-PKG-001`–`003` 比较两镜像 release-input digest。
+- 流程：runner 先执行 `make data-check` 与 `make deps-check`，验证两个 Provider Bundle/manifest、47 个 Target、产品 Core binding 闭包、PPSSPP assets、mame2003 override、38 个 EmulatorJS 许可 component、retrom-runtime aggregate notice/许可/上游源码定位、五份 DAT，以及密码 blocklist manifest、10,000 行 payload 和 MIT 许可；离线重建适用 notice。再用全新临时 SQLite 和真实五份 DAT 断网启动服务，等待 ready 并重启复用；最后运行 Provider schema/Target binding/seed 负向、约束负向与 Git payload 边界检查。
+- 通过标准：离线命令成功，两个 Provider manifest 都通过封闭 schema、canonical digest、Bundle/module digest 和来源身份校验；EmulatorJS Provider 恰声明 35 个 Target，retrom-runtime Provider 恰声明 12 个 Target。每个产品 Core 恰有一个 binding，且 `providerId/targetId/targetContractSha256` 与当前 manifest 逐项一致；Retrom Go、Web、DAT 和验收代码中不存在第二份 Provider 私有 adapter/core/route registry，也不存在未知 Target 的默认回退。冷库先 live/`DEPENDENCY_INDEXING`，五个不可取消 bootstrap Job 在事务外解析，最终五个 Arcade Target 各有独立 READY active DAT；重启不重跑 parser。两个 FBA2012 DAT 必须从锁定源码分别完成双生成且 bytes 相同。许可输入逐项命中 size/hash，notice 可重复生成；DAT、Provider/runtime/license/notice payload 均未被 Git 跟踪，独立 runtime 本机物化目录不存在历史版本。整个 Case 断网且启动/解析不尝试 CDN；部署前由 `ACC-PKG-001`–`003` 比较两镜像 release-input digest。
 - 证据：逐文件校验/统计、DatVersion/Job 状态序列与 parser 调用计数、事务批次摘要、Git 跟踪边界和断网 network log。
 
 ### ACC-DAT-002：Core 隔离与依赖闭包
@@ -687,7 +687,7 @@ make acceptance-case CASE=<case-id>
 - 上限：300 秒。
 - 执行：`make acceptance-case CASE=ACC-DAT-002`。
 - 流程：用确定性 Arcade DAT/ZIP 向量验证 core-scoped parent/BIOS 依赖闭包、补充内容和组装隔离，并交换两个核心的 DAT/依赖上下文。
-- 通过标准：Requirement、Parent 与 BIOS 不跨 CoreArtifact/DatVersion 串用；依赖组装只包含当前核心允许的 entry，缺项、错误 hash 与跨核心 DAT 必须拒绝。本 Case 不包含真实游戏导入、Launch 或浏览器帧执行。
+- 通过标准：Requirement、Parent 与 BIOS 不跨 Provider Target/DatVersion 串用；依赖组装只包含当前核心允许的 entry，缺项、错误 hash 与跨核心 DAT 必须拒绝。本 Case 不包含真实游戏导入、Launch 或浏览器帧执行。
 - 证据：确定性依赖闭包集成测试输出。
 
 ### ACC-BIOS-001：正确与错误 Hash 上传
@@ -719,7 +719,7 @@ make acceptance-case CASE=<case-id>
 - 上限：180 秒。
 - 执行：`make acceptance-case CASE=ACC-BIOS-004`。
 - 流程：固定 source 覆盖 STATIC exact、大小相同重命名、同名错误 hash、大文件 fallback，以及两个 Arcade Core 的同名 ZIP、完整/不一致/缺 entry；同一 bytes 同时关联两个 Requirement。执行完整发现、排序、最终复验和安装。
-- 通过标准：完整 hash 永远优先于 size/name，fallback 固定为 warning；DAT 安全且 launchable、matched/aliased 更优者获胜，非逻辑 ZIP 不被展开。CAS 按 SHA-256 去重，但 Installation、Candidate、ArchiveEntry 与结果按 Requirement/CoreArtifact 隔离；选择和未选原因稳定。
+- 通过标准：完整 hash 永远优先于 size/name，fallback 固定为 warning；DAT 安全且 launchable、matched/aliased 更优者获胜，非逻辑 ZIP 不被展开。CAS 按 SHA-256 去重，但 Installation、Candidate、ArchiveEntry 与结果按 Requirement/Provider Target 隔离；选择和未选原因稳定。
 - 证据：候选 rank、hash/DAT count、CAS/Installation 查询和结果投影。
 
 ### ACC-BIOS-005：覆盖防降级、漂移与原子审计
@@ -758,8 +758,8 @@ make acceptance-case CASE=<case-id>
 
 - 上限：300 秒。
 - 执行：`make acceptance-case CASE=ACC-DAT-004`。
-- 流程：物化固定 dependency manifest；先让同一 CoreArtifact 的另一 BUILTIN DatVersion 处于 active，再执行 `BootstrapCatalogs`，并重复执行验证幂等性。
-- 通过标准：引导只选择 manifest 中路径/SHA-256 精确匹配的 BUILTIN DatVersion；旧 active 被停用、CoreArtifact version 递增，目标完成解析后成为唯一 READY active，Requirement 全部指向目标；重复引导不增加 DatVersion/Job，也不再次增加 artifact version。
+- 流程：物化固定 dependency manifest；先让同一 Provider Target 的另一 BUILTIN DatVersion 处于 active，再执行 `BootstrapCatalogs`，并重复执行验证幂等性。
+- 通过标准：引导只选择 manifest 中路径/SHA-256 精确匹配的 BUILTIN DatVersion；旧 active 被停用、Provider Target 相关 catalog version 递增，目标完成解析后成为唯一 READY active，Requirement 全部指向目标；重复引导不增加 DatVersion/Job，也不再次推进 catalog version。
 - 证据：聚焦 dependency integration 测试输出、前后 active ID/version、Requirement sourceVersion 与行数。
 
 ### ACC-DAT-005：恶意/错误 DAT 拒绝
@@ -773,11 +773,11 @@ make acceptance-case CASE=<case-id>
 ### ACC-DAT-006：版本升级证据审计（条件 Case）
 
 - 上限：900 秒。
-- 条件：EmulatorJS、任一 core artifact 或预置 DAT 相比上一已接受版本发生变化；否则为 `NOT_APPLICABLE`。
+- 条件：EmulatorJS Provider Bundle、任一 Target contract 或预置 DAT 相比上一已接受版本发生变化；否则为 `NOT_APPLICABLE`。
 - 执行：`make acceptance-case CASE=ACC-DAT-006`。
-- 流程：检查新版本目录、发布物 digest、core source 证据、DAT 同提交/生成证据、parser stats、关系完整性、manifest Player adapter 描述/前端 registry/实现一一对应，以及受影响产品集成、`make web-e2e` 和存档兼容结果；先放入未登记 adapter 的小型 manifest 夹具验证 `data-check` 和 Player config guard 失败，再登记并把新版本追加到配置列表但不切 active，创建一份锁定旧 artifact 的存档，再切 active 并分别普通启动、从旧存档启动，最后切回旧 active。
-- 通过标准：不覆盖旧版本；相同 `(core_id,route_key,artifact_set_sha256)` 只复用逐字段完全相同的不可变行，任一 identity 碰撞或 payload/运行语义漂移都 fail closed；静态路由只暴露每份 manifest allowlist。未登记/版本不符 adapter 使 `data-check` 失败，浏览器 guard 以 `PLAYER_ADAPTER_UNSUPPORTED` 在 loader 前拒绝且不套用 v4.2.3 默认；全部证据和适用 Case 已通过后才能选择为新绑定。config 中 `emulatorjsVersion/playerAdapterId/runtimeBaseUrl/loaderUrl/path override` 始终来自锁定 artifact 的 `runtime_version/adapter_id/entry_path/compatibility_json` 与精确 manifest；切换后普通启动使用新 `selected_for_new_bindings` artifact 与其 manifest 固定 DAT，旧存档仍从旧版本 URL 和对应 adapter 加载锁定且 `available_for_launch` 的 artifact，release 回退只切回旧选择及其 manifest DAT，不改历史 revision。仍有保护引用的旧版本不可从配置列表、adapter registry 或镜像移除，也不可将 `available_for_launch` 置零；缺任一证据即失败。
-- 证据：升级 manifest、受影响产品测试与未覆盖核心清单、切换/回滚记录。
+- 流程：检查新 Bundle descriptor/archive digest、core source 证据、Target declaration、DAT 同提交/生成证据、parser stats、binding 闭包和受影响产品集成；先用未知 Target、contract 摘要漂移、同版本换字节和降级 fixture 证明安装/readiness 失败。再用旧 Bundle 创建真实 SaveState，只把 production lock 向更高 Provider 版本推进，重启同一数据库并分别普通启动、从旧存档启动。不得执行降级或切回旧 active。
+- 通过标准：Provider declaration 是唯一 Target registry；静态路由只暴露 active Bundle closed allowlist，Launch 只返回 Envelope V1，浏览器只经共享 dispatcher。升级后普通 Launch 使用新 `bundleSha256/targetContractSha256`；旧存档仅在新 Target `readFormats` 包含旧格式时恢复，否则保留为不可恢复并返回 `LAUNCH_SAVE_INCOMPATIBLE`。降级、同版本换 bytes、删除被引用 Target、改变兼容线、contract/binding/DAT 漂移均 fail closed；不存在默认 Provider、旧模块或旧 Bundle fallback。
+- 证据：两版正式 descriptor/archive/source 身份、升级前后 Provider/Target/contract、受影响产品测试、旧存档兼容或明确不兼容结果，以及全部只前进负向记录。
 
 ## 12. Pegasus 服务器目录导入与视频媒体
 
@@ -802,7 +802,7 @@ make acceptance-case CASE=<case-id>
 - 上限：300 秒。
 - 执行：`make acceptance-case CASE=ACC-PEG-003`。
 - 流程：扫描含两个 Collection 的固定目录，不设置默认映射并按 ETag 提交显式映射；准备普通单文件、M3U+CHD 和 Arcade ZIP+同目标 companion，并在 Arcade Collection 中放入超过 64 个无关 ZIP；在审核前查询 Game，再对 READY 条目逐项 Approve、对另一条目 Discard，并让一个 Pegasus Arcade blocker 先补传 Parent ZIP、等待后继 Validation READY 后以当前 Review ETag Approve；再次导入相同来源与相同内容的另一来源；在审核交接中点模拟进程退出并恢复。
-- 通过标准：未映射时不能开始；计划冻结游戏平台目录/核心版本；三种内容均复用既有验证与普通审核管线，M3U 顺序与 Arcade primary source 正确；Arcade 只装配冻结 DAT parent/romof 闭包中的显式 ZIP，无关 ZIP 不进入单 Item 来源且不会触发 64 文件上限。导入前已安装且匹配冻结 CoreArtifact 的 DAT BIOS 在初始 Validation 中即为 `SATISFIED_EXTERNAL` 并进入 `BIOS_BUNDLE`，不得先误报缺失；同时仍缺 Parent 或主内容不匹配的条目继续按真实原因阻断。Worker 完成后 READY 与 blocker 都为普通 `REVIEW_PENDING` 且 Game 数仍为零；只有后续逐项或严格 READY 快速审批才创建 Game。Parent 接受后有效 source manifest、content identity 与 Review version 同步推进，Approve 必须使用后继快照成功创建带 `SERVER_PEGASUS_IMPORT` 来源的 Game/Revision/媒体并同步两组计数，不能再按 Pegasus 初始 manifest 拒绝；Discard 保留 ReviewEvent 并同步为 `REVIEW_DISCARDED`。历史详情在最终事件选择封面 ID 为空时仍按其 ImportItem 一一关联的 Pegasus Item 返回保留的 COPIED COVER，不依赖后续可变的 Game 当前媒体。交接中点恢复复用同一个内部 ImportItem，不重复草稿事件，未交接条目不可见且不可发布。library validation 未通过时原样保留精确 status、compatibility code、Core 与封闭依赖证据；library import 内部错误收口为可重试失败，并持久化 stage/operation/cause/受限技术详情/数量上限和可用关联 ID；重复结果列出全部既有匹配，不生成审核事项或重复创建 Game/Revision/Blob，条目仍有稳定结果和链接。
+- 通过标准：未映射时不能开始；计划冻结游戏平台目录/核心版本；三种内容均复用既有验证与普通审核管线，M3U 顺序与 Arcade primary source 正确；Arcade 只装配冻结 DAT parent/romof 闭包中的显式 ZIP，无关 ZIP 不进入单 Item 来源且不会触发 64 文件上限。导入前已安装且匹配冻结 Provider Target 的 DAT BIOS 在初始 Validation 中即为 `SATISFIED_EXTERNAL` 并进入 `BIOS_BUNDLE`，不得先误报缺失；同时仍缺 Parent 或主内容不匹配的条目继续按真实原因阻断。Worker 完成后 READY 与 blocker 都为普通 `REVIEW_PENDING` 且 Game 数仍为零；只有后续逐项或严格 READY 快速审批才创建 Game。Parent 接受后有效 source manifest、content identity 与 Review version 同步推进，Approve 必须使用后继快照成功创建带 `SERVER_PEGASUS_IMPORT` 来源的 Game/Revision/媒体并同步两组计数，不能再按 Pegasus 初始 manifest 拒绝；Discard 保留 ReviewEvent 并同步为 `REVIEW_DISCARDED`。历史详情在最终事件选择封面 ID 为空时仍按其 ImportItem 一一关联的 Pegasus Item 返回保留的 COPIED COVER，不依赖后续可变的 Game 当前媒体。交接中点恢复复用同一个内部 ImportItem，不重复草稿事件，未交接条目不可见且不可发布。library validation 未通过时原样保留精确 status、compatibility code、Core 与封闭依赖证据；library import 内部错误收口为可重试失败，并持久化 stage/operation/cause/受限技术详情/数量上限和可用关联 ID；重复结果列出全部既有匹配，不生成审核事项或重复创建 Game/Revision/Blob，条目仍有稳定结果和链接。
 - 证据：Migration/服务集成测试、发布与重复摘要。
 
 ### ACC-PEG-004：取消、重试、恢复、GC 与 restore fence
@@ -826,7 +826,7 @@ make acceptance-case CASE=<case-id>
 - 上限：300 秒。
 - 执行：`make acceptance-case CASE=ACC-PEG-006`。
 - 流程：将 `testdata/public-roms/gba-smoke/pegasus-smoke.gba` 与最小 `metadata.pegasus.txt` 复制到隔离的只读服务器 root；Chrome 从服务器导入页选择该目录，等待真实 scanner 进入 `AWAITING_MAPPING`，把唯一 Collection 显式映射到 GBA 游戏目录并启动 Worker。任务完成后进入 `pegasusImportId` 限定审核队列，打开 READY 条目并“通过并发布”，再从新建 Game 详情一次点击创建 Launch，读取 config、装载锁定 mGBA artifact 并等待核心帧推进。
-- 通过标准：公开 fixture 的 size/SHA-256 与生成器一致且在本 Case 前不存在同标题 Game；扫描、映射、复制、验证和审核交接均消费真实后端，不得 route mock 或直接写库。Worker 结束时条目为待审核且 Game 仍不存在；审核详情保留 `Pegasus · GBA Smoke` 来源，发布后恰有一个新 Game。Launch config 锁定 `mgba`、EmulatorJS `4.2.3` 与普通 `ejs-4.2.3-v3`，`gameUrl` 只指向本 Launch 的 `pegasus-smoke.gba` 内容端点；真实 Player canvas 可见且 `getFrameNum()` 至少继续推进 30 帧。
+- 通过标准：公开 fixture 的 size/SHA-256 与生成器一致且在本 Case 前不存在同标题 Game；扫描、映射、复制、验证和审核交接均消费真实后端，不得 route mock 或直接写库。Worker 结束时条目为待审核且 Game 仍不存在；审核详情保留 `Pegasus · GBA Smoke` 来源，发布后恰有一个新 Game。Launch Envelope 锁定 `providerId=emulatorjs`、`targetId=mgba` 和当前 target contract，`resources` 中 game URL 只指向本 Launch 的 `pegasus-smoke.gba` 内容端点；真实 Player canvas 可见且标准 frame counter 至少继续推进 30 帧。
 - 证据：Playwright DOM/API/config/帧数断言、运行中 Player 截图和 fixture identity 输出。
 
 ### ACC-MEDIA-001：VIDEO 上传、服务与详情播放策略
@@ -851,7 +851,7 @@ make acceptance-case CASE=<case-id>
 
 - 上限：240 秒。
 - 执行：`make acceptance-case CASE=ACC-ES-002`。
-- 流程：在同一隔离 root 准备两个独立来源。Case A 的所选父目录含至少三个子目录，每个子目录各有一份 `gamelist.xml` 与多份游戏文件，其中一份清单无效；Case B 是无子目录目录，只有一份 `gamelist.xml` 和多份游戏文件。分别通过真实 HTTP create/list/detail/gamelists/collections 扫描；以 ETag 分批提交每 Collection 的 IMPORT/SKIP、目标游戏目录与 Tag，start 前后制造 root、清单、源文件、PlatformInstance/CoreArtifact/DAT/Tag 漂移。另覆盖匿名/USER、CSRF/Origin、strict body/query、unknown root、traversal/symlink/special、cursor、active/20 waiting/expiry/delete 边界。
+- 流程：在同一隔离 root 准备两个独立来源。Case A 的所选父目录含至少三个子目录，每个子目录各有一份 `gamelist.xml` 与多份游戏文件，其中一份清单无效；Case B 是无子目录目录，只有一份 `gamelist.xml` 和多份游戏文件。分别通过真实 HTTP create/list/detail/gamelists/collections 扫描；以 ETag 分批提交每 Collection 的 IMPORT/SKIP、目标游戏目录与 Tag，start 前后制造 root、清单、源文件、PlatformInstance/Provider Target/DAT/Tag 漂移。另覆盖匿名/USER、CSRF/Origin、strict body/query、unknown root、traversal/symlink/special、cursor、active/20 waiting/expiry/delete 边界。
 - 通过标准：Case A 中每份有效清单恰为一个 Collection，无效清单独立显示且不吞掉合法 sibling；Case B 恰为一个 Collection且清单中的多游戏分别形成 Item，父子/同目录文件不会误合并。客户端只看到 root label/相对路径；无默认或猜测映射，全部行明确决定且至少一个非空 IMPORT 后才能 start。目标漂移要求重新映射，source/root 漂移要求新计划；任何失败都不创建 Game 或越权 Blob。HTTP 权限、ETag/idempotency/cursor/delete 与稳定错误完全符合 OpenAPI，响应/日志不泄露绝对路径、XML、facts/hash 或底层错误。
 - 证据：A/B 目录的脱敏相对 tree、Gamelist/Collection/Item counts 与 mapping snapshot、HTTP/权限矩阵、漂移前后 ETag/状态和数据库/CAS 零副作用摘要。
 
@@ -884,7 +884,7 @@ make acceptance-case CASE=<case-id>
 - 上限：300 秒。
 - 执行：`make acceptance-case CASE=ACC-ES-006`。
 - 流程：运行 `make public-fixtures-check`，把 `testdata/public-roms/gba-smoke/emulationstation-smoke.gba` 与最小严格 `gamelist.xml` 复制到隔离只读 server root。Chrome 从 EmulationStation 卡选择目录，等待真实 scanner 到 `AWAITING_MAPPING`，把唯一 Collection 显式映射到 GBA/mGBA 并启动。任务完成后进入限定审核队列逐项 Approve，从新 Game 详情一次点击创建 Launch，读取 config/内容并等待核心帧；退出后通过管理员 Game 详情取得删除 impact 并永久删除，等待 release 到可验证终态。
-- 通过标准：ROM、gamelist、项目自有封面和项目自有视频的 size/SHA-256/完整 bytes 与唯一确定性生成源一致，且 ROM 与普通/Pegasus 两个 GBA 身份不同；gamelist 只能引用同目录这三个项目自有 payload。扫描、映射、复制、验证、审核、发布、Launch、内容端点与 Player 全部经过真实产品代码，无 route mock/直接写库。Worker 结束时 Game 为零，审核页的 EmulationStation 封面和视频可见且受保护端点返回锁定 bytes；Approve 后恰有一个新 Game，用户详情投影并可读取同一封面与视频。Launch config 锁定 `mgba`、EmulatorJS `4.2.3`、普通 `ejs-4.2.3-v3` 与仅本 Launch 可读的 `emulationstation-smoke.gba`，真实 canvas 可见且 `getFrameNum()` 至少继续推进 30 帧。永久删除后 public detail、config、ROM、封面、视频和再次 Launch 均不可用，Game 为不可恢复墓碑；流程与 Game payload 最终释放，ROM/COVER/VIDEO 三个独占 Blob 均从受保护分类转入 `UNREFERENCED` 与 GC candidate，不能泄漏。共享引用保护继续由 `ACC-ES-004` 证明。
+- 通过标准：ROM、gamelist、项目自有封面和项目自有视频的 size/SHA-256/完整 bytes 与唯一确定性生成源一致，且 ROM 与普通/Pegasus 两个 GBA 身份不同；gamelist 只能引用同目录这三个项目自有 payload。扫描、映射、复制、验证、审核、发布、Launch、内容端点与 Player 全部经过真实产品代码，无 route mock/直接写库。Worker 结束时 Game 为零，审核页的 EmulationStation 封面和视频可见且受保护端点返回锁定 bytes；Approve 后恰有一个新 Game，用户详情投影并可读取同一封面与视频。Launch Envelope 锁定 `providerId=emulatorjs`、`targetId=mgba`、当前 target contract 与仅本 Launch 可读的 `emulationstation-smoke.gba` resource，真实 canvas 可见且标准 frame counter 至少继续推进 30 帧。永久删除后 public detail、Envelope、ROM、封面、视频和再次 Launch 均不可用，Game 为不可恢复墓碑；流程与 Game payload 最终释放，ROM/COVER/VIDEO 三个独占 Blob 均从受保护分类转入 `UNREFERENCED` 与 GC candidate，不能泄漏。共享引用保护继续由 `ACC-ES-004` 证明。
 - 证据：fixture identity、计划/审核/Game/Launch ID、DOM/API/config/content/帧数、运行中 Player 截图、删除 impact/payload 状态与最终独占引用摘要。
 
 ## 13. 启动、存档与游玩数据
@@ -902,7 +902,7 @@ make acceptance-case CASE=<case-id>
 - 上限：180 秒。
 - 执行：`make acceptance-case CASE=ACC-RUN-002`。
 - 流程：先用 `testdata/public-roms/gba-smoke/gba-smoke.gba` 经过真实上传、导入、审核和发布建立 mGBA 游戏；在详情点击一次“开始游戏”，记录原始点击、Fullscreen 调用、launch/config 请求、iframe 配置、EmulatorJS network 和 start 事件；运行后读取实际 controls，按 `P` 暂停并再次按 `P` 继续；打开右侧“调试信息”面板并等待两次采样；打开模拟器设置，依次切换画面模式以及 Core/显示面板；再用 `mame2003` override 执行一次短流程。`make web-e2e` 另在物理 4K 150% 项目重复真实 mGBA Player 链路并校验截图像素尺寸。
-- 通过标准：对始终存在的 `document.documentElement` 的 Fullscreen 请求仍在用户激活链且发生于第一个 await 前；同一 Player Shell 显示加载并自动开始；没有 Retrom 第二个 Start 或 EmulatorJS `Play Now`；进入有效帧画面。实际 controls 只含运行时专题规定的键盘绑定，所有未列键盘 control 为未绑定；共享投币键 `5` 只命中 P1 control 2，P2 control 2 未绑定，确保一次物理按键只注入一路 coin；P1 的全部 gamepad `value2` 与上游默认逐项相同且 P2/P3/P4 gamepad 默认不变；`P` 不成为游戏 control，能停止并恢复核心帧推进，同时正确投影 Player/heartbeat 的暂停状态。默认“锐利像素”关闭 shader 且 canvas 计算样式为 `image-rendering: pixelated`；“清晰增强”启用 `retrom-sharp-bilinear`，增强锐化、原始画面与返回默认模式即时更新当前 EJS shader/CSS，原始画面关闭 shader 并恢复浏览器默认缩放。顶部栏保留唯一常驻“创建存档”，更多菜单不重复该动作；Core 设置切到显示设置后 Graphics Settings 与 shader 入口可见。`make web-e2e` 的物理 4K 150% Player 截图必须为 3840×2160。点击“调试信息”不暂停 main loop，右侧面板显示从核心帧计数按相邻单调时钟采样计算的一位小数 FPS、累计帧数、真实 canvas 分辨率、Core/EmulatorJS/adapter、输入模式、隔离能力、viewport/DPR 和非秘密 artifact ID，关闭后不残留可聚焦控件。进入游玩页与退出返回均替换当前浏览器历史项，退出后浏览器后退不得重新进入 Player Shell。config 严格符合 HTTP 契约且不含 secret/Blob/宿主路径；`emulatorGameId` 为 `1..9007199254740991` 的 JSON number、`gameName` 为其稳定十进制派生，Arcade `gameUrl` basename 精确为 DAT machine 的 `<machine>.zip`。iframe 先设置 `player/pathtodata/gameName/gameID/paths/defaultControls` 再加载固定 loader，`typeof EJS_gameID === "number"`。EJS 配置固定 `language=zh-CN`、`disableAutoLang=false`（按 v4.2.3 的反向 sentinel 语义），网络只请求 manifest 中的 `zh-CN.json`，不得按系统 locale 或 CDN fallback；普通 core artifact 来自 config 的 basename 映射，`mame2003-wasm.data` 精确请求固定 4.2.1 override，未请求 4.2.3 同名 artifact 或外部 CDN。
+- 通过标准：对始终存在的 `document.documentElement` 的 Fullscreen 请求仍在用户激活链且发生于第一个 await 前；同一 Player Shell 显示加载并自动开始；没有 Retrom 第二个 Start 或 EmulatorJS `Play Now`；进入有效帧画面。实际 controls 只含运行时专题规定的键盘绑定，所有未列键盘 control 为未绑定；共享投币键 `5` 只命中 P1 control 2，P2 control 2 未绑定，确保一次物理按键只注入一路 coin；P1 的全部 gamepad `value2` 与上游默认逐项相同且 P2/P3/P4 gamepad 默认不变；`P` 不成为游戏 control，能停止并恢复核心帧推进，同时正确投影 Player/heartbeat 的暂停状态。默认“锐利像素”关闭 shader 且 canvas 计算样式为 `image-rendering: pixelated`；“清晰增强”启用 `retrom-sharp-bilinear`，增强锐化、原始画面与返回默认模式即时更新当前 EJS shader/CSS，原始画面关闭 shader 并恢复浏览器默认缩放。顶部栏保留唯一常驻“创建存档”，更多菜单不重复该动作；Core 设置切到显示设置后 Graphics Settings 与 shader 入口可见。`make web-e2e` 的物理 4K 150% Player 截图必须为 3840×2160。点击“调试信息”不暂停 main loop，右侧面板显示从核心帧计数按相邻单调时钟采样计算的一位小数 FPS、累计帧数、真实 canvas 分辨率、Core/EmulatorJS/adapter、输入模式、隔离能力、viewport/DPR 和非秘密 target contract digest，关闭后不残留可聚焦控件。进入游玩页与退出返回均替换当前浏览器历史项，退出后浏览器后退不得重新进入 Player Shell。config 严格符合 HTTP 契约且不含 secret/Blob/宿主路径；`emulatorGameId` 为 `1..9007199254740991` 的 JSON number、`gameName` 为其稳定十进制派生，Arcade `gameUrl` basename 精确为 DAT machine 的 `<machine>.zip`。iframe 先设置 `player/pathtodata/gameName/gameID/paths/defaultControls` 再加载固定 loader，`typeof EJS_gameID === "number"`。EJS 配置固定 `language=zh-CN`、`disableAutoLang=false`（按 v4.2.3 的反向 sentinel 语义），网络只请求 manifest 中的 `zh-CN.json`，不得按系统 locale 或 CDN fallback；普通 core artifact 来自 config 的 basename 映射，`mame2003-wasm.data` 精确请求固定 4.2.1 override，未请求 4.2.3 同名 artifact 或外部 CDN。
 - 证据：Playwright trace、两份 config/network 摘要、事件顺序、Player/调试信息截图和按钮断言。
 
 ### ACC-RUN-003：全屏拒绝与深链接恢复
@@ -934,7 +934,7 @@ make acceptance-case CASE=<case-id>
 - 上限：300 秒。
 - 执行：`make acceptance-case CASE=ACC-RUN-006`。
 - 流程：先确认 `ACC-DAT-004` 已独立验证 production manifest 的 MAME 2003 DAT；本 Case 在临时验收数据库中由 acceptance-only Go 装置把项目自有 `mame2003-smoke.xml` 登记为 test-only `BUILTIN/READY`，不调用任何 DAT HTTP/UI 路由。分别通过真实 BIOS installation 与普通 Import 上传 `retrombios.zip`、`pacman.zip` Child、`puckman.zip` Parent，核对审核 schema v2 依赖快照、审核发布、读取详情页并触发首次启动重验证。再从同次实际导入形成的 Content、DatVersion、Parent 与 BIOS 不可变证据复现 screenshot-approved 的 schema v2 current revision，不经首次重验证从详情页直接 Launch。读取两条 Launch config 与受限内容，随后由 Chrome 通过 Retrom Player 启动 MAME 2003。
-- 通过标准：test-only active DatVersion 为 `BUILTIN/READY` 且与小型 DAT SHA-256 一致，但不得被解释为 production manifest 基线；其 `pacman`、`cloneof=puckman`、`romof=retrombios` 与三份 archive entry 的 name、size、CRC32、SHA-1 和 fixture bytes 一致。审核及发布 current revision 的依赖证据锁定同一 DatVersion 的 Arcade schema v2，包含 `PARENT puckman` 与 `BIOS_OR_BASE retrombios` 两个 `SATISFIED_EXTERNAL`，不能出现普通 BIOS schema v1 的 `bios` 字段；详情页在首次启动重验证前后都投影同一 DatVersion/READY/schema v2。正常发布、首次重验证与直接 Launch 都保留同一 ContentRevision、DatVersion、Parent 和 BIOS；config `parentUrl/biosUrl` 均非空，并保留 `REVIEW_SCREENSHOT_OVERRIDE` 诊断。config 精确选择 `mame2003`、普通 `ejs-4.2.3-v3` 与 4.2.1 data override；游戏、Parent 和 BIOS 端点 bytes 与 fixture 精确相同。Player 默认启用推荐清晰 shader 与像素合成缩放，无必需 runtime/content 请求失败或页面异常，canvas 两次采样不同，调试遥测为“运行中”且 FPS 大于 0。测试 BIOS 不被目标驱动执行。
+- 通过标准：test-only active DatVersion 为 `BUILTIN/READY` 且与小型 DAT SHA-256 一致，但不得被解释为 production manifest 基线；其 `pacman`、`cloneof=puckman`、`romof=retrombios` 与三份 archive entry 的 name、size、CRC32、SHA-1 和 fixture bytes 一致。审核及发布 current revision 的依赖证据锁定同一 DatVersion 的 Arcade schema v2，包含 `PARENT puckman` 与 `BIOS_OR_BASE retrombios` 两个 `SATISFIED_EXTERNAL`，不能出现普通 BIOS schema v1 的 `bios` 字段；详情页在首次启动重验证前后都投影同一 DatVersion/READY/schema v2。正常发布、首次重验证与直接 Launch 都保留同一 ContentRevision、DatVersion、Parent 和 BIOS；Envelope 的 `PARENT_ARCHIVE_V1/BIOS_BUNDLE_V1` resources 均非空，并保留 `REVIEW_SCREENSHOT_OVERRIDE` 诊断。Envelope 精确选择 `providerId=emulatorjs`、`targetId=mame2003` 和当前 target contract；Provider 私有 4.2.1 override 不泄漏到 Host。游戏、Parent 和 BIOS 端点 bytes 与 fixture 精确相同。Player 默认启用推荐清晰 shader 与像素合成缩放，无必需 Provider/content 请求失败或页面异常，canvas 两次采样不同，调试遥测为“运行中”且 FPS 大于 0。测试 BIOS 不被目标驱动执行。
 - 证据：fixture/production manifest 分层校验、test-only DatVersion/import/review/launch ID、三路内容比对、Playwright trace、动画帧/遥测断言与运行截图。
 
 ### ACC-RUN-007：FBNeo test-only 内置 DAT、Split、Parent 与 BIOS 单机产品链路
@@ -942,14 +942,14 @@ make acceptance-case CASE=<case-id>
 - 上限：300 秒。
 - 执行：`make acceptance-case CASE=ACC-RUN-007`。
 - 流程：先确认 `ACC-DAT-004` 已独立验证 production manifest 的 FBNeo DAT；本 Case 在临时验收数据库中由 acceptance-only Go 装置把项目自有 `fbneo-smoke.dat` 登记为 test-only `BUILTIN/READY`，不调用任何 DAT HTTP/UI 路由。分别通过真实 BIOS installation 与普通 Import 上传 `retrombios.zip`、`pacman.zip` Child、`puckman.zip` Parent，核对审核 schema v2 依赖快照、审核发布、读取详情页并触发首次启动重验证。再从同次实际导入形成的 Content、DatVersion、Parent 与 BIOS 不可变证据复现 screenshot-approved 的 schema v2 current revision，不经首次重验证从详情页直接 Launch。读取两条 Launch config 与受限内容，随后由单个 Chrome 页面通过 Retrom Player 启动 FinalBurn Neo。
-- 通过标准：test-only active DatVersion 为 `BUILTIN/READY` 且与小型 DAT SHA-256 一致，但不得被解释为 production manifest 基线；其 `pacman`、`cloneof=puckman`、`romof=retrombios` 与三份 archive entry 的 name、size、FBNeo 锁定驱动 CRC32 和 fixture bytes 一致。审核及发布 current revision 的依赖证据锁定同一 DatVersion 的 Arcade schema v2，包含 `PARENT puckman` 与 `BIOS_OR_BASE retrombios` 两个 `SATISFIED_EXTERNAL`，不能出现普通 BIOS schema v1 的 `bios` 字段；详情页在首次启动重验证前后都投影同一 DatVersion/READY/schema v2。正常发布、首次重验证与直接 Launch 都保留同一 ContentRevision、DatVersion、Parent 和 BIOS；config `parentUrl/biosUrl` 均非空，并保留 `REVIEW_SCREENSHOT_OVERRIDE` 诊断。config 精确选择 `fbneo`、普通 `ejs-4.2.3-v3` 与锁定 4.2.3 core artifact；游戏、Parent 和 BIOS 端点 bytes 与 fixture 精确相同。Player 默认启用推荐清晰 shader 与像素合成缩放，无必需 runtime/content 请求失败或页面异常，canvas 两次采样不同，调试遥测为“运行中”且 FPS 大于 0；测试 BIOS 不被目标驱动执行，本 Case 不创建联机房间、不验证双浏览器 confirmed frame、lockstep 或 digest 收敛。
+- 通过标准：test-only active DatVersion 为 `BUILTIN/READY` 且与小型 DAT SHA-256 一致，但不得被解释为 production manifest 基线；其 `pacman`、`cloneof=puckman`、`romof=retrombios` 与三份 archive entry 的 name、size、FBNeo 锁定驱动 CRC32 和 fixture bytes 一致。审核及发布 current revision 的依赖证据锁定同一 DatVersion 的 Arcade schema v2，包含 `PARENT puckman` 与 `BIOS_OR_BASE retrombios` 两个 `SATISFIED_EXTERNAL`，不能出现普通 BIOS schema v1 的 `bios` 字段；详情页在首次启动重验证前后都投影同一 DatVersion/READY/schema v2。正常发布、首次重验证与直接 Launch 都保留同一 ContentRevision、DatVersion、Parent 和 BIOS；Envelope 的 `PARENT_ARCHIVE_V1/BIOS_BUNDLE_V1` resources 均非空，并保留 `REVIEW_SCREENSHOT_OVERRIDE` 诊断。Envelope 精确选择 `providerId=emulatorjs`、`targetId=fbneo` 和当前 target contract，游戏、Parent 和 BIOS 端点 bytes 与 fixture 精确相同。Player 默认启用推荐清晰 shader 与像素合成缩放，无必需 Provider/content 请求失败或页面异常，canvas 两次采样不同，调试遥测为“运行中”且 FPS 大于 0；测试 BIOS 不被目标驱动执行，本 Case 不创建联机房间、不验证双浏览器 confirmed frame、lockstep 或 digest 收敛。
 - 证据：fixture/production manifest 分层校验、test-only DatVersion/import/review/launch ID、三路内容比对、Playwright trace、动画帧/遥测断言与运行截图。
 
 ### ACC-RUN-008：SNES9x 自有 LoROM 单机执行与状态恢复
 
 - 上限：300 秒。执行：`make acceptance-case CASE=ACC-RUN-008`。
 - 流程：将 `snes-smoke.sfc` 经过真实 upload、Import、Review、Approve 建立 READY 游戏，以 `snes9x` 启动 Player，比对 config、ROM 和 core artifact；注入方向/动作输入后捕获 native state 与画面，创建显式存档，再从该存档独立启动两次。
-- 通过标准：config 精确为 EmulatorJS 4.2.3、普通 `ejs-4.2.3-v3`、`snes9x-wasm.data`，不带 Parent/BIOS；ROM bytes 与项目自有 32 KiB LoROM 一致。输入后 core digest 和可见画面都发生变化，RASTATE `MEM` 非空且不超过 1 MiB；两次恢复均由原生 load 完成且得到同一完整 core digest，无页面异常或必需 runtime/content 请求失败。
+- 通过标准：Envelope 精确为 `providerId=emulatorjs`、`targetId=snes9x` 和当前 target contract，只含 game resource，不带 Parent/BIOS；ROM bytes 与项目自有 32 KiB LoROM 一致。输入后 checkpoint digest 和可见画面都发生变化，checkpoint 非空且不超过 1 MiB；两次恢复均由 Provider 完成且得到同一完整 digest，无页面异常或必需 Provider/content 请求失败。
 - 证据：产品导入/审核/发布结果、config/content/artifact 摘要、输入前后 state/画面、存档与两次恢复 digest、运行截图。
 
 ### ACC-RUN-009：Nestopia 自有 NES 单机执行与状态恢复
@@ -985,7 +985,7 @@ make acceptance-case CASE=<case-id>
 - 上限：180 秒。
 - 执行：`make acceptance-case CASE=ACC-SAVE-001`。
 - 流程：启动游戏后打开退出确认，从操作区最左侧点击“创建存档”；等待成功提示，确认弹窗仍保持打开后取消退出；读取存档记录与“我的存档”卡片。另注入一次创建失败并从同一弹窗重试。
-- 通过标准：退出确认内“创建存档、取消、退出游戏”的视觉与 DOM 顺序一致；创建时暂停并锁定弹窗内的离开动作，成功后弹窗不自动退出、显示不可重复点击的“已创建存档”，失败明确说明未创建不完整记录并显示“重试创建存档”。非空状态 Blob 必须与 SaveState 在同一事务引用；上传按实际字节显示 0–100% 进度，直到 HTTP 成功/失败或网络错误才结束，失败同时提醒用户。正常截图路径在暂停前从仍运行的帧取得，工具栏最迟 750ms 暂停而截图可在独立 5 秒期限内继续完成，不能因暂停先完成就丢弃迟到截图；优先使用 core framebuffer，核心原始帧方向与显示 aspect 互换时或能力不可用时回退 canvas，结果方向与 Player 一致、可解码且具有非零亮度分布，已暂停时复用进入暂停瞬间缓存的最后一帧，不能生成全黑 canvas 截图。另注入全部截图路径失败：请求省略 screenshot、存档仍成功且 API 的 `screenshotUrl=null`、UI 显示“无预览图”；空 state 仍必须拒绝且不建记录。两种成功记录都包含 Profile、Game、ContentRevision、CoreArtifact、GameVariantRevision、名称、整数时间和累计时长。物理 4K 150% Player 必须完成带截图创建、服务端截图解码和继续游戏流程。
+- 通过标准：退出确认内“创建存档、取消、退出游戏”的视觉与 DOM 顺序一致；创建时暂停并锁定弹窗内的离开动作，成功后弹窗不自动退出、显示不可重复点击的“已创建存档”，失败明确说明未创建不完整记录并显示“重试创建存档”。非空状态 Blob 必须与 SaveState 在同一事务引用；上传按实际字节显示 0–100% 进度，直到 HTTP 成功/失败或网络错误才结束，失败同时提醒用户。正常截图路径在暂停前从仍运行的帧取得，工具栏最迟 750ms 暂停而截图可在独立 5 秒期限内继续完成，不能因暂停先完成就丢弃迟到截图；优先使用 core framebuffer，核心原始帧方向与显示 aspect 互换时或能力不可用时回退 canvas，结果方向与 Player 一致、可解码且具有非零亮度分布，已暂停时复用进入暂停瞬间缓存的最后一帧，不能生成全黑 canvas 截图。另注入全部截图路径失败：请求省略 screenshot、存档仍成功且 API 的 `screenshotUrl=null`、UI 显示“无预览图”；空 state 仍必须拒绝且不建记录。两种成功记录都包含 Profile、Game、ContentRevision、Provider Target、GameVariantRevision、名称、整数时间和累计时长。物理 4K 150% Player 必须完成带截图创建、服务端截图解码和继续游戏流程。
 - 证据：退出确认三个状态、存档 API/数据库、CAS hash 和当前截图。
 
 ### ACC-SAVE-002：三个入口快速恢复与不兼容拒绝
@@ -1001,7 +1001,7 @@ make acceptance-case CASE=<case-id>
 - 上限：180 秒。
 - 执行：`make acceptance-case CASE=ACC-SAVE-003`。
 - 流程：分别在已有真实产品覆盖的 NES、FBNeo 与其余选定核心上从普通 Launch 开始，记录 config 与网络请求；持续运行后直接退出，再重新普通启动。随后在同一 Chrome profile 的 `/data/saves` 预置陈旧本地文件并再次普通启动。对每个受测核心只通过“创建存档”生成有效 state 和可选截图，等待上传进度完成，再从该 SaveState 启动并比较保存前后的可辨识位置；MAME 竖屏游戏的带截图分支额外比较 Player 与存档截图方向。对上传失败、空 state、畸形 state 及跨 artifact/revision 做负向验证，并证明无截图的合法存档仍可恢复。
-- 通过标准：全部当前 artifact 的 config 不包含自动/持久目录存档字段，Launch 不绑定隐式存档；Player 不监听/上传目录存档，定时运行、直接退出与 `pagehide` 都不产生 SaveState。`saveDatabaseLoaded` 在 start 前清空整个 `/data/saves`，普通开始不从服务端或同浏览器 IDBFS 复活上次位置。只有点击“创建存档”产生 multipart 上传，0–100% 进度保持到 HTTP 成功/失败或网络错误，失败明确提醒且不创建不完整记录。指定存档在 4.2.3 至少等待一帧和 serialization readiness，再以原生 task 成功为 start 门禁；恢复画面/位置与保存点一致，失败必须阻断而不能伪装回到开头。竖屏存档截图与实际显示同向；不同 CoreArtifact/VariantRevision 不串用。数据库、API 和运行时只存在显式 SaveState 能力。
+- 通过标准：全部当前 artifact 的 config 不包含自动/持久目录存档字段，Launch 不绑定隐式存档；Player 不监听/上传目录存档，定时运行、直接退出与 `pagehide` 都不产生 SaveState。`saveDatabaseLoaded` 在 start 前清空整个 `/data/saves`，普通开始不从服务端或同浏览器 IDBFS 复活上次位置。只有点击“创建存档”产生 multipart 上传，0–100% 进度保持到 HTTP 成功/失败或网络错误，失败明确提醒且不创建不完整记录。指定存档在 4.2.3 至少等待一帧和 serialization readiness，再以原生 task 成功为 start 门禁；恢复画面/位置与保存点一致，失败必须阻断而不能伪装回到开头。竖屏存档截图与实际显示同向；不同 Provider Target/VariantRevision 不串用。数据库、API 和运行时只存在显式 SaveState 能力。
 - 证据：各核心 config/网络请求、普通启动前后画面对比、显式上传进度及成功/失败 UI、state-load 原生日志、恢复位置对比、竖屏截图尺寸/方向、IDBFS 清理与数据库行数。
 
 ### ACC-PLAY-001：有效游玩时长
@@ -1134,11 +1134,11 @@ make acceptance-case CASE=<case-id>
 - 通过标准：content identity、canonical playlist、ordered Disc hashes、Variant V3 digest 和 Launch 锁定值一致；`gameUrl/externalFiles/discSet` 完整且连续；合法内容的 ETag/长度/Range 正确，所有跨范围读取失败且不泄露 Blob ID、原始路径或 capability。
 - 证据：发布 revision/validation snapshot、Launch/config、内容响应摘要、授权负向和 CAS hash 对照。
 
-### ACC-MDISC-005：双盘发布与 Player adapter 换盘契约
+### ACC-MDISC-005：双盘发布与 Provider 换盘契约
 
 - 上限：600 秒。
 - 执行：`make acceptance-case CASE=ACC-MDISC-005`。
-- 流程：用确定性临时内容走 Retrom 多盘导入、发布与 Launch 投影，并对实际普通 `ejs-4.2.3-v3` Player adapter 执行 `0 → 1 → 0`、no-op、错误盘数和暂停保持测试。
+- 流程：用确定性临时内容走 Retrom 多盘导入、发布与 Launch Envelope 投影，并对 EmulatorJS Provider 的标准 `getDiscState/switchDisc` 执行 `0 → 1 → 0`、no-op、错误盘数和暂停保持测试。
 - 通过标准：发布内容形成连续双盘 canonical playlist 与 `discSet`；adapter 读取 `diskCount=2`，每次切盘回读正确，no-op 不重复切换，失败不误改当前盘，busy/live 状态按契约收口。
 - 证据：产品集成测试与 adapter 单元测试输出。本 Case 不宣称真实 Saturn ROM 已在浏览器中运行。
 
@@ -1146,7 +1146,7 @@ make acceptance-case CASE=<case-id>
 
 - 上限：600 秒。
 - 执行：`make acceptance-case CASE=ACC-MDISC-006`。
-- 流程：用确定性三盘 config 与实际 Player adapter 往返全部 index；以 `discIndex=1` 的显式 SaveState 驱动恢复状态机，并确认没有任何自动存档请求。
+- 流程：用确定性三盘 Launch Envelope 与实际 EmulatorJS Provider 往返全部 index；以 `discIndex=1` 的显式 SaveState 驱动恢复状态机，并确认没有任何自动存档请求。
 - 通过标准：adapter 只接受连续三盘集合；恢复严格先切到光盘 2 并回读，再显式 load state，之后恢复 main loop/start；失败保持暂停且单盘行为无回归。
 - 证据：存档服务集成测试、adapter 与 restore 状态机测试输出。本 Case 不宣称真实 Saturn ROM 已在浏览器中运行。
 
@@ -1155,7 +1155,7 @@ make acceptance-case CASE=<case-id>
 - 上限：600 秒。
 - 执行：`make acceptance-case CASE=ACC-MDISC-007`。
 - 流程：检查 Saturn/yabause 与 PSX/3DO/PC-FX capability；验证省略 `contentMode`、默认核心影响、完整目录替换成功/失败、V2→V3→V3 bootstrap、关闭/重开 flag 对新建与既有任务/内容的影响，并运行共享 adapter 的多盘聚焦测试。
-- 通过标准：只有能力交集暴露 MULTI；缺省始终 STANDARD；替换创建新不可变 revision且失败保留旧 current；artifact ID 不变、version 只递增一次、重放不改 updated time，既有 SaveState 绑定不变；flag 关闭只阻止新建/替换，不偷换冻结任务且已发布内容仍可运行。共享 adapter 的盘数、换盘和恢复测试全部通过。
+- 通过标准：只有能力交集暴露 MULTI；缺省始终 STANDARD；替换创建新不可变 revision且失败保留旧 current；target contract digest 不变、version 只递增一次、重放不改 updated time，既有 SaveState 绑定不变；flag 关闭只阻止新建/替换，不偷换冻结任务且已发布内容仍可运行。共享 adapter 的盘数、换盘和恢复测试全部通过。
 - 证据：capability/flag 矩阵、替换前后 revision、bootstrap 行、在途/已发布行为和 adapter 测试输出。
 
 ### ACC-MDISC-008：授权、审计与私有数据隔离
@@ -1416,7 +1416,7 @@ make acceptance-case CASE=<case-id>
 - 上限：180 秒。执行：`make acceptance-case CASE=ACC-IMM-005`。
 - 流程：在真实 GBA Player 中依次发送单独 Select、Start、一次完整 chord、满足 `100/60/650ms` 的双 chord；菜单中用左右/A/B 取消，再次打开并创建存档，第三次打开后退出。
 - 通过标准：单键按判定窗后到 Core；第一次 chord 作为前缀被抑制且不打开菜单；第二次 chord 先将全部本地输入归零、在 Core 暂停前发起运行帧截图并确认 Core 暂停，菜单严格为“取消、创建存档、退出游戏”且默认取消。取消只恢复本菜单拥有的暂停；创建存档复用暂停前截图并捕获暂停后的 state 一并上传，防止重复提交和暂停后黑帧，成功后可由当前 Profile 读取并恢复；不支持捕获时按钮禁用并说明。退出执行 finish/revoke，无粘键、无自动存档、无输入穿透。
-- 证据：fake-clock 状态机输出、Player adapter/Gamepad 快照、pause owner trace、菜单截图与网络时序。
+- 证据：fake-clock 状态机输出、Provider input-filter/Gamepad 快照、pause owner trace、菜单截图与网络时序。
 
 ### ACC-IMM-006：Arcade 与多输入回归
 
@@ -1435,7 +1435,7 @@ make acceptance-case CASE=<case-id>
 ### ACC-IMM-008：adapter、依赖与普通 UI 回归
 
 - 上限：240 秒。执行：`make acceptance-case CASE=ACC-IMM-008`。
-- 流程：校验普通 manifest/OpenAPI/registry 使用 `ejs-4.2.3-v3` 与 `ejs-4.3.0-pre-v2`，联机仍精确使用 legacy `ejs-4.2.3-v2`；运行 registry/manifest 双向校验、35 core 配置回归、普通桌面/移动 Player 与已登记联机产品用例。
+- 流程：校验 EmulatorJS Provider declaration/Bundle/OpenAPI/Host binding 对 35 个 Target 的身份与 contract digest 完全闭合；运行无重复 registry 扫描、35 Target 配置回归、普通桌面/移动 Player 与已登记联机产品用例。Provider 私有 adapter 版本不得进入 Retrom schema、API 或 Web。
 - 通过标准：未知或版本不匹配 adapter fail closed；新普通 adapter 在非沉浸分支与前代行为等价且不安装过滤；联机 config/adapter 不接受沉浸参数。既有普通启动、存档、多盘、移动 HUD 和八个联机 profile 不回退。
 - 证据：`data-check/deps-check`、adapter 单测、OpenAPI/schema 检查和既有产品 E2E 结果。
 
@@ -1500,9 +1500,45 @@ Select 操作一次系统菜单。报告只记录浏览器版本、OS、standard
 ID。没有实体设备时自动化 Case 可以 PASS，但沉浸模式发布验收必须标记 `BLOCKED`，不得把注入 E2E 写成
 实体兼容通过。
 
-## 22. RPG Maker 全世代产品链
+## 22. Runtime Provider 架构
 
-本节 Case 必须通过“实际导入→审核选定版本核心→运行验证→发布→产品 Launch→Player”链路，不得使用独立 demo、旧 review preview 或 screenshot override 绕过产品代码。每次执行使用独立临时 SQLite/CAS、固定 Chrome 与当次 JSON/trace/截图。
+以下八项是 Provider 架构的固定验收入口，统一执行 `make acceptance-case CASE=ACC-PROVIDER-NNN`。每项只调用列出的聚焦检查；PFB 产品验收另执行本节之后受影响的既有产品 Case。正式发布资产尚未获授权时，006 使用 candidate 与发布流程 fixture，不伪造 production lock。
+
+### ACC-PROVIDER-001：Bundle 完整性与确定性
+
+- 上限：900 秒。证明两个 Bundle 的 closed schema、完整性、许可、provenance、确定性构建以及恶意归档拒绝。
+
+### ACC-PROVIDER-002：Target 与 Host binding 闭包
+
+- 上限：900 秒。证明 35 个 EmulatorJS Target、12 个 retrom-runtime Target、Product Core binding 全量闭合，且不存在第二份 Target registry。
+
+### ACC-PROVIDER-003：Envelope 与 Dispatcher
+
+- 上限：900 秒。证明所有 Launch 只返回 Launch Envelope V1，module 身份和 hash 匹配，前端只经共享 dispatcher mount，Provider 静态路由及 CSP fail closed。
+
+### ACC-PROVIDER-004：Opaque checkpoint 往返
+
+- 上限：900 秒。证明 Host 不解释 checkpoint bytes，存储的 format/size/hash 精确，跨 Launch restore 与 availability 状态一致。
+
+### ACC-PROVIDER-005：只前进激活
+
+- 上限：900 秒。证明高版本兼容升级成功；降级、同版换 bytes、删除被引用 Target、不可读 checkpoint format 和 catalog 漂移均拒绝启动。
+
+### ACC-PROVIDER-006：Candidate、镜像与发布边界
+
+- 上限：900 秒。证明 candidate/production 隔离、PFB source stale 检测、release input digest 和镜像 active identity 使用同一 Provider 输入。
+
+### ACC-PROVIDER-007：EmulatorJS 行为闭包
+
+- 上限：900 秒。证明普通单机、多盘、画面设置、沉浸输入过滤及八个 netplay profile 只通过标准 PlayerRuntime/RuntimeNetplayPort 行为。
+
+### ACC-PROVIDER-008：retrom-runtime 产品闭包
+
+- 上限：900 秒。证明 12 个 Target 的 Product、Review Preview、Runtime Validation、unique-origin、checkpoint、输入和清理生命周期均由 retrom-runtime Provider 承接。
+
+## 23. RPG Maker 全世代产品链
+
+本节 Case 必须通过“实际导入→服务端选择 Provider Target→运行验证→发布→产品 Launch→共享 dispatcher→Provider Module”链路，不得使用独立 demo、旧 review preview 或 screenshot override 绕过产品代码。每次执行使用独立临时 SQLite/CAS、固定 Chrome 与当次 JSON/trace/截图。
 
 自动验收入口统一为 `make acceptance-case CASE=ACC-RPG-NNN`。`ACC-RPG-001` 要求
 `RETROM_ACCEPTANCE_BASE_URL`、`RETROM_ACCEPTANCE_USERNAME` 与
@@ -1511,10 +1547,10 @@ ID。没有实体设备时自动化 Case 可以 PASS，但沉浸模式发布验�
 `RETROM_ACC_RPG_NNN_IMPORT_ITEM_ID`、`RETROM_ACC_RPG_NNN_VALIDATION_ID` 与
 `RETROM_ACC_RPG_NNN_GAME_ID`。这些 ID 只用于定位当次实际产品记录；发布后 active Review 详情按产品契约返回
 404，因此 runner 必须重新读取不可变的 APPROVED review-history event、Validation 与已发布 Game，
-不得接受操作者提供 expected route、generation、gate 或位置结果。002 至 007 固定以
+不得接受操作者提供 expected Provider Target、generation、gate 或位置结果。002 至 007 固定以
 `testdata/public-roms/rpgmaker-smoke/` 对应公开项目逐文件计算 `RETROM_FILESET_V1` 并与服务端
 `projectFingerprint` 比较；008 额外要求绝对路径 `RPG_MZ_SMOKE_ROOT`，只把 digest/文件数/总字节写入日志，
-不得记录路径或复制项目。runner 随后必须新建一次与冻结 validation route/artifact 一致的 PRODUCT Launch，
+不得记录路径或复制项目。runner 随后必须新建一次与冻结 Validation 的 `providerId/targetId/targetContractSha256` 一致的 PRODUCT Launch，
 用 Chrome 打开其真实 Player 并保存截图。缺少任一 live 输入、MZ 根或场景所需合法资源时结果为 `BLOCKED`，
 不能记为 `NOT_APPLICABLE` 或退化成静态 fixture/API 检查。结构化产品证据写入 Case 目录的
 `rpgmaker-product.json`，并内嵌到统一 `result.json.productEvidence`；Cookie、CSRF、Launch capability 和宿主
@@ -1550,27 +1586,27 @@ Review 与所需 validation Launch。`negative-matrix/matrix.json` 必须精确�
 
 世代运行 Case 的存档必须执行同一严格流程：原 Launch 以 `INITIAL_POSITION_RECORDED` 持久化可见状态 A，移动并改变 fixture 变量得到 B，在 B 创建服务端 checkpoint，继续移动/改值得到与 B 不同的 C，结束原 Launch，再由 checkpoint 创建 `launchId` 不同的 restore Launch。恢复后 bridge 回读的 `mapId/playerX/playerY/fixtureState` 必须逐字段等于 B，至少一字段不同于 A 和 C，恢复截图 marker 与 B 一致；随后必须继续真实输入并以 `RESTORE_INPUT` 持久化与恢复位置不同的四字段证据。刷新原 Launch 或 restore Launch 时必须从服务端最后序号和 gate 投影继续，网络中断重放只允许复用同一 eventId，页面刷新不得重复任何已完成 BEGIN/PASS。只有 RESTORE_INPUT 后进入 `AWAITING_DECISION`；只有 Blob/hash 一致、save/load API 成功、同 Launch 内回读或只看截图都不得 PASS。
 
-世代 Case 的 `result.json` 必须包含 selected core ID、expected generation、nullable evidence generation、evidence confidence、content files digest、route key、runtime family、artifact ID/digest、adapter ABI、pack dependency digest、两个不同 Launch ID（不含凭据）、ready/frame/checkpoint/restore gate 及 A/B/C/restore 字段级断言。用户截图只显示 RPG Maker 版本核心名，不显示 EasyRPG、mkxp-z、native host、adapter 或 bridge。
+世代 Case 的 `result.json` 必须包含 selected core ID、expected generation、nullable evidence generation、evidence confidence、content files digest、`providerId/targetId/targetContractSha256`、checkpoint format、pack dependency digest、两个不同 Launch ID（不含凭据）、ready/frame/checkpoint/restore gate 及 A/B/C/restore 字段级断言。用户截图只显示 RPG Maker 版本核心名，不显示 EasyRPG、mkxp-z、native host、Provider 私有实现或 bridge。
 
-### ACC-RPG-001：单一虚拟核心与七条内部路线
+### ACC-RPG-001：单一虚拟核心与七个 Provider Target
 
 - 上限：180 秒。执行：`make acceptance-case CASE=ACC-RPG-001`。
 - 流程：读取 catalog，在空库一键补齐推荐目录，查看用户目录/core 选择器与管理运行诊断。
-- 通过标准：只有一个 `rpgmaker` 平台、一个用户可见 `rpgmaker` 虚拟核心和一个推荐目录；分别导入七个精确 fixture 时服务端选择七个不同内部 core/route，用户 UI 不出现内部 core 或底层实现，管理诊断仍可审计七条 route/artifact。
+- 通过标准：只有一个 `rpgmaker` 平台、一个用户可见 `rpgmaker` 虚拟核心和一个推荐目录；分别导入七个精确 fixture 时服务端选择 `retrom-runtime` Provider 的七个不同 Target，用户 UI 不出现 Target 或底层实现，管理诊断仍可审计七条 Provider/Target/contract binding。
 - 证据：catalog/API 响应、单一目录截图、七条检测映射与管理诊断截图。
 
 ### ACC-RPG-002：RPG Maker 2000
 
 - 上限：300 秒。执行：`make acceptance-case CASE=ACC-RPG-002`。
-- 流程：通过唯一 `rpgmaker` 目录导入 2000 公开 fixture，由服务端选择 2000 内部路线并完成产品链和 A→B 保存→C→不同 Launch 恢复。
-- 通过标准：expected/evidence generation=`RPG2000`、confidence=`MATCHED`、route=`RPG2000_EASYRPG`，engine gate 回读 RPG2k，Player 显示 `RETROM RPG2000`；位置/变量/截图精确回到 B 且不是 A/C。
+- 流程：通过唯一 `rpgmaker` 目录导入 2000 公开 fixture，由服务端选择 `retrom-runtime/rpgmaker-2000` 并完成产品链和 A→B 保存→C→不同 Launch 恢复。
+- 通过标准：expected/evidence generation=`RPG2000`、confidence=`MATCHED`、Target=`rpgmaker-2000`，engine gate 回读 RPG2k，Player 显示 `RETROM RPG2000`；位置/变量/截图精确回到 B 且不是 A/C。
 - 证据：通用世代证据、engine profile 和 A/B/C/restore 断言。
 
 ### ACC-RPG-003：RPG Maker 2003
 
 - 上限：300 秒。执行：`make acceptance-case CASE=ACC-RPG-003`。
-- 流程：通过唯一 `rpgmaker` 目录导入 2003 fixture，由服务端选择 2003 内部路线并完成产品链和 A→B 保存→C→不同 Launch 恢复。
-- 通过标准：expected/evidence generation=`RPG2003`、confidence=`MATCHED`、route=`RPG2003_EASYRPG`，engine gate 回读 RPG2k3，Player 显示 `RETROM RPG2003`；精确回到 B，不得依靠共同文件名、自动 fallback 或 load success 判定。
+- 流程：通过唯一 `rpgmaker` 目录导入 2003 fixture，由服务端选择 `retrom-runtime/rpgmaker-2003` 并完成产品链和 A→B 保存→C→不同 Launch 恢复。
+- 通过标准：expected/evidence generation=`RPG2003`、confidence=`MATCHED`、Target=`rpgmaker-2003`，engine gate 回读 RPG2k3，Player 显示 `RETROM RPG2003`；精确回到 B，不得依靠共同文件名、自动 fallback 或 load success 判定。
 - 证据：通用世代证据、engine profile 和 A/B/C/restore 断言。
 
 ### ACC-RPG-004：RPG Maker XP
@@ -1581,29 +1617,29 @@ Review 与所需 validation Launch。`negative-matrix/matrix.json` 必须精确�
   为可选扩展证据：设置新的绝对 `RETROM_ACC_RPG_004_TRACE` 时，以 `0600 + create-exclusive` 写入实际压缩
   checkpoint 的 payload/multipart 字节数、270 MiB+1 的 413 和 validation/restore 两次禁线程拒绝，不记录 cookie、凭据或输入路径。
   随后把三个 ID（以及执行扩展边界时的同一 trace）传给正式 Case。
-- 流程：通过唯一 `rpgmaker` 目录导入 fixture，由服务端选择 RGSS1 线程 artifact，执行 A→B 保存→C→不同 Launch 恢复。可选扩展边界另验证 270 MiB 请求天花板和禁线程启动拒绝。
-- 通过标准：route=`RPGXP_MKXP`、RGSS1/profile/marker 正确；Launch config 仍固定 256 MiB core serialize buffer，但实际 checkpoint 必须为大于紧凑信封且小于 256 MiB 的 `mkxp-state-compact` payload，服务端返回的 bytes/digest 与上传一致；地图/色坐标/变量逐项回到 B，恢复后可继续输入。提供扩展 trace 时，还必须证明 270 MiB+1 返回 413，并且 validation/restore 任一次报告非 secure context、非 `crossOriginIsolated` 或 SharedArrayBuffer 不可用时，都在签发 Launch credential/下载项目 payload 前稳定失败。
+- 流程：通过唯一 `rpgmaker` 目录导入 fixture，由服务端选择 `retrom-runtime/rpgmaker-xp`，执行 A→B 保存→C→不同 Launch 恢复。可选扩展边界另验证 270 MiB 请求天花板和禁线程启动拒绝。
+- 通过标准：Target=`rpgmaker-xp`、RGSS1/profile/marker 正确；Launch Envelope 声明的 checkpoint 上限为 256 MiB，实际 checkpoint 必须为大于紧凑信封且小于该上限的 `mkxp-state-compact` payload，服务端返回的 bytes/digest 与上传一致；地图/色坐标/变量逐项回到 B，恢复后可继续输入。提供扩展 trace 时，还必须证明 270 MiB+1 返回 413，并且 validation/restore 任一次报告非 secure context、非 `crossOriginIsolated` 或 SharedArrayBuffer 不可用时，都在签发 Launch credential/下载项目 payload 前稳定失败。
 - 证据：通用世代证据和压缩 checkpoint payload 大小/哈希；提供扩展 trace 时再强制校验实际 payload/multipart 字节数、270 MiB 与禁线程负向结果。
 
 ### ACC-RPG-005：RPG Maker VX
 
 - 上限：300 秒。执行：`make acceptance-case CASE=ACC-RPG-005`。
-- 流程：通过唯一 `rpgmaker` 目录导入 fixture，由服务端选择 `RPGVX_MKXP`/RGSS2 并执行 A→B 保存→C→不同 Launch 恢复。
-- 通过标准：route/profile/marker 精确对应 VX；checkpoint 为小于 256 MiB 的 `mkxp-state-compact` payload；B 与 C 不同，恢复后地图/坐标/变量逐字段等于 B 且可继续输入。
+- 流程：通过唯一 `rpgmaker` 目录导入 fixture，由服务端选择 `retrom-runtime/rpgmaker-vx`/RGSS2 并执行 A→B 保存→C→不同 Launch 恢复。
+- 通过标准：Target/profile/marker 精确对应 VX；checkpoint 为小于 256 MiB 的 `mkxp-state-compact` payload；B 与 C 不同，恢复后地图/坐标/变量逐字段等于 B 且可继续输入。
 - 证据：通用世代证据与 A/B/C/restore 断言。
 
 ### ACC-RPG-006：RPG Maker VX Ace
 
 - 上限：300 秒。执行：`make acceptance-case CASE=ACC-RPG-006`。
-- 流程：通过唯一 `rpgmaker` 目录导入 fixture，由服务端选择 `RPGVXACE_MKXP`/RGSS3 并执行 A→B 保存→C→不同 Launch 恢复。
-- 通过标准：route/profile/marker 精确对应 VX Ace；checkpoint 为小于 256 MiB 的 `mkxp-state-compact` payload；B 与 C 不同，恢复后地图/坐标/变量逐字段等于 B 且可继续输入。
+- 流程：通过唯一 `rpgmaker` 目录导入 fixture，由服务端选择 `retrom-runtime/rpgmaker-vx-ace`/RGSS3 并执行 A→B 保存→C→不同 Launch 恢复。
+- 通过标准：Target/profile/marker 精确对应 VX Ace；checkpoint 为小于 256 MiB 的 `mkxp-state-compact` payload；B 与 C 不同，恢复后地图/坐标/变量逐字段等于 B 且可继续输入。
 - 证据：通用世代证据与 A/B/C/restore 断言。
 
 ### ACC-RPG-007：RPG Maker MV
 
 - 上限：300 秒。执行：`make acceptance-case CASE=ACC-RPG-007`。
-- 流程：通过唯一 `rpgmaker` 目录导入固定 MIT fixture，由服务端选择 `RPGMV_NATIVE`，在 unique runtime origin 运行 300 连续帧，将 fixture 变量从 0 改为 B=1、创建 checkpoint、再改为 C=2，结束并从不同 Launch 恢复。
-- 通过标准：MV route/profile/marker、帧、输入和音频 gate 通过；map/xy/变量/截图回到 B=1；普通 app origin 的 document/script/resource/cache 不存在游戏 JS 或项目资源。
+- 流程：通过唯一 `rpgmaker` 目录导入固定 MIT fixture，由服务端选择 `retrom-runtime/rpgmaker-mv`，在 unique runtime origin 运行 300 连续帧，将 fixture 变量从 0 改为 B=1、创建 checkpoint、再改为 C=2，结束并从不同 Launch 恢复。
+- 通过标准：MV Target/profile/marker、帧、输入和音频 gate 通过；map/xy/变量/截图回到 B=1；普通 app origin 的 document/script/resource/cache 不存在游戏 JS 或项目资源。
 - 证据：通用世代证据、两个 origin 的 network/DOM/cache 清单和 A/B/C/restore 断言。
 
 ### ACC-RPG-008：RPG Maker MZ
@@ -1627,9 +1663,9 @@ Review 与所需 validation Launch。`negative-matrix/matrix.json` 必须精确�
   `node scripts/acceptance/rpgmaker_generation_provision.mjs ACC-RPG-008`；stdout 返回本次实际产品链的
   `importItemId/validationId/gameId`。正式 Case 必须继续使用同一目录与同一 provenance，不能用旧 import、旧
   validation 或手工拼接的转换说明替代。
-- 流程：将工具输出目录和 provenance 分别作为 `RPG_MZ_SMOKE_ROOT`、`RPG_MZ_SMOKE_PROVENANCE`，经 `rpgmaker_mz` 导入，在当前 `RPGMZ_NATIVE` unique origin 执行 marker、300 帧、输入/音频与 A→B=1 保存→C=2→不同 Launch 恢复。
-- 通过标准：MZ generation/shape/route/artifact/bridge 精确绑定，转换 provenance 与实际项目逐字段一致，map/xy/变量/截图回到 B；恢复 PNG 必须含 marker 的精确 RGB，同时在排除固定 marker 矩形后仍达到独立的非黑像素和颜色桶下限，证明实际游戏地图可见；shape harness 或黑屏上的 marker 不能替代真实产品结果。
-- 证据：只记录来源 URL/版本/SHA、转换清单与 files digest、engine version、route/artifact/bridge、Chrome 版本、gate 时长和结果，不复制项目，不记录内容/绝对路径/凭据。
+- 流程：将工具输出目录和 provenance 分别作为 `RPG_MZ_SMOKE_ROOT`、`RPG_MZ_SMOKE_PROVENANCE`，经 `rpgmaker_mz` 导入，由 `retrom-runtime/rpgmaker-mz` 在 unique origin 执行 marker、300 帧、输入/音频与 A→B=1 保存→C=2→不同 Launch 恢复。
+- 通过标准：MZ generation/shape/Provider Target/contract/bridge 精确绑定，转换 provenance 与实际项目逐字段一致，map/xy/变量/截图回到 B；恢复 PNG 必须含 marker 的精确 RGB，同时在排除固定 marker 矩形后仍达到独立的非黑像素和颜色桶下限，证明实际游戏地图可见；shape harness 或黑屏上的 marker 不能替代真实产品结果。
+- 证据：只记录来源 URL/版本/SHA、转换清单与 files digest、engine version、Provider/Target/contract/bridge、Chrome 版本、gate 时长和结果，不复制项目，不记录内容/绝对路径/凭据。
 
 ### ACC-RPG-009：RTP/资源包
 
@@ -1740,17 +1776,16 @@ Review 与所需 validation Launch。`negative-matrix/matrix.json` 必须精确�
 - 上限：300 秒。执行：`make acceptance-case CASE=ACC-RPG-011`。
 - 流程：分别运行项目自有 MV/MZ malicious harness，尝试 parent DOM/app cookie、top navigation、popup、form、external fetch、service worker、非 allowlist API、ticket replay/过期和 Host confusion；同时执行合法 render、MessageChannel、截图和 checkpoint。
 - 通过标准：越权操作均被 browser/NG/Go 组合边界阻止，runtime Host 不接受 app session/API/HTML fallback，bootstrap GET 是唯一无凭据 GET 且 ticket 一次消费，CSP 含 `base-uri 'self'`；合法 bridge/render/save 仍成功。
-- 证据：必须恰有一份 MV 与一份 MZ harness；两个 origin 的 CSP/cookie/Host/network/navigation/service-worker 记录、同 ticket 重放 410、已认证 capability reload 303→entry、MV/MZ 各自冻结的 route/artifact/adapter、14 gate、不同 Launch checkpoint 与独立 original/restore 截图；四个 original/restore Launch ID 必须全局不同，两个世代的截图文件名不得复用或互相覆盖。不得记录 bootstrap ticket 或 runtime capability。缺少 Chrome 输入时 runner 必须在启动浏览器前以 `BLOCKED` 结束。
+- 证据：必须恰有一份 MV 与一份 MZ harness；两个 origin 的 CSP/cookie/Host/network/navigation/service-worker 记录、同 ticket 重放 410、已认证 capability reload 303→entry、MV/MZ 各自冻结的 Provider/Target/adapter、14 gate、不同 Launch checkpoint 与独立 original/restore 截图；四个 original/restore Launch ID 必须全局不同，两个世代的截图文件名不得复用或互相覆盖。不得记录 bootstrap ticket 或 runtime capability。缺少 Chrome 输入时 runner 必须在启动浏览器前以 `BLOCKED` 结束。
 
 ### ACC-RPG-012：前向运行时升级与存档兼容
 
-- 当前状态：`BLOCKED`。只有在出现第二个已完成七核心产品验证的稳定 `retrom-runtime` tag 后才启用；当前执行必须在读取数据库或启动浏览器前返回 `RPG_SECOND_RUNTIME_RELEASE_REQUIRED`。不得预建 previous/next route、向数据库注入历史构件、篡改存档绑定或保留旧 runtime bundle。
-- 上限：300 秒。启用后使用专用 DB/CAS，按真实部署顺序完成两阶段产品链：先固定旧 tag 启动 Retrom，经 Upload/Import/Review/Player 创建至少一个 RPG Maker 或 ONS 游戏和真实 SaveState；停止服务后把同一 Retrom checkout 的唯一 manifest pin 升级为新 tag，运行正常 migration/bootstrap，再重启同一 DB。两阶段只能使用各自 tag 的真实 Release 资产和普通产品 API，不使用 acceptance-only artifact seeder。
-- 兼容升级：新 tag 保持相同 `coreId/routeKey/gameCompatibilityLine`，并在 `readableSaveAbis` 包含旧 save ABI。升级后旧 Game 的普通 Launch 必须使用新 artifact；旧 SaveState 必须仍可由新 artifact 创建不同 Launch、恢复到保存位置并继续输入；新 SaveState 必须记录新 tag 的 adapter ABI 和 save ABI。旧 artifact 必须已退役且运行内容端点不可再访问。
-- 破坏性存档升级：新 tag 仍保持相同 `gameCompatibilityLine`，但 `readableSaveAbis` 不包含旧 save ABI。升级后同一个 Game 的普通 Launch 仍必须使用新 artifact 并正常运行；旧 SaveState 保留在 `availability=ALL`，状态为 `BLOCKED`、reason=`SAVE_RUNTIME_INCOMPATIBLE`，不得出现在默认可恢复列表、首页恢复点、游戏详情可用计数或沉浸模式存档入口。用该 save ID 创建 Launch 必须返回 `422 LAUNCH_SAVE_INCOMPATIBLE` 且不创建 Launch；从新 runtime 创建的新 SaveState 必须可恢复。
-- 游戏兼容线变化：若同一 core/route 的新 manifest 改变 `gameCompatibilityLine`，而数据库已有 READY 游戏 revision，bootstrap/readiness 必须 fail closed；发布流程必须把这种变化作为新逻辑 route/core 设计，而不能静默让既有游戏进入未知兼容性。
-- EmulatorJS 不参与本规则，继续精确绑定历史 artifact；本 Case 不改变其回滚或历史构件保留策略。Retrom 不提供 runtime 回滚 UI/API，也不在升级后加载旧 RPG Maker/ONS bundle。
-- 证据：两次真实 tag/commit/metadata 身份、升级前后 artifact 与逻辑兼容字段、旧 Game 普通 Launch 的当前 artifact、兼容旧存档跨 Launch 恢复及恢复后输入、破坏性旧存档的保留/过滤/422 无副作用、新存档恢复，以及旧 runtime 内容端点不可用。证据不得包含本机路径、Cookie、CSRF、Launch capability 或游戏 bytes。
+- 当前状态：`BLOCKED`。只有在出现第二个已完成 12 Target 产品验证的更高稳定 `retrom-runtime` Provider Release 后才启用；当前执行必须在读取数据库或启动浏览器前返回 `RPG_SECOND_RUNTIME_RELEASE_REQUIRED`。不得伪造历史 Provider、篡改存档绑定或保留可被选择的旧 Bundle。
+- 上限：300 秒。启用后使用专用 DB/CAS，按真实部署顺序完成两阶段产品链：先用旧 Provider Bundle 启动 Retrom，经 Upload/Import/Review/Player 创建至少一个游戏和真实 SaveState；停止服务后只把 production lock 升级到更高 Provider 版本，运行正常 bootstrap/reconcile，再重启同一 DB。两阶段只能使用各自真实 Release descriptor/archive 和普通产品 API，不使用 acceptance-only seeder。
+- 兼容升级：新 Bundle 保持相同 `providerId/targetId/gameCompatibilityLine`，新 Target 的 `readFormats` 包含旧 `checkpointFormat`。升级后旧 Game 的普通 Launch 必须使用新 `bundleSha256/targetContractSha256`；旧 SaveState 必须仍可由新 Bundle 创建不同 Launch、恢复到保存位置并继续输入；新 SaveState 必须记录新 Target contract 和写格式。旧 Bundle 的静态端点不得再作为 fallback。
+- 不兼容 checkpoint：新 Bundle 仍保持相同 `gameCompatibilityLine`，但 `readFormats` 不包含旧格式。升级后同一个 Game 的普通 Launch 仍必须使用新 Bundle 并正常运行；旧 SaveState 保留在 `availability=ALL`，状态为 `BLOCKED`、reason=`SAVE_RUNTIME_INCOMPATIBLE`，不得出现在默认可恢复列表。用该 save ID 创建 Launch 必须返回 `422 LAUNCH_SAVE_INCOMPATIBLE` 且不创建 Launch；从新 Provider 创建的新 SaveState 必须可恢复。
+- 只前进门禁：降级、同版本不同 `bundleSha256`、删除仍被引用 Target、改变既有 `gameCompatibilityLine` 或让历史必需 checkpoint format 不可读时，bootstrap/readiness 必须 fail closed。Retrom 不提供运行时回滚 UI/API，也不加载旧 Bundle 兜底。
+- 证据：两次真实 Release/tag/commit/descriptor/archive 身份、升级前后 Bundle/Target contract、旧 Game 普通 Launch 的当前 Provider identity、兼容旧存档跨 Launch 恢复及恢复后输入、不兼容旧存档的保留/过滤/422 无副作用、新存档恢复、所有降级负向结果，以及旧 Bundle 不可回退。证据不得包含本机路径、Cookie、CSRF、Launch capability 或游戏 bytes。
 
 ### ACC-ONS-001：ONS 最小产品闭环
 
@@ -1783,7 +1818,7 @@ Review 与所需 validation Launch。`negative-matrix/matrix.json` 必须精确�
 - 能力边界：checkpoint 只在上游定义的稳定等待标签 `text/l/p/s` 可创建，启动过程的瞬时 `bg` 等活动标签不能提前启用存档。直接 NW.js EXE 输入只解析已验证的 PE 后追加 ZIP；ZIP 包装输入先验证整个外层包，再只允许唯一合法 NW.js EXE 的追加 ZIP进入项目；Electron 输入只解析已验证外层 ZIP 中的 ASAR header、packed bytes 与明确登记的 `app.asar.unpacked` 文件。三者都绝不执行原生程序；没有合法包装、存在多个合法 NW.js EXE、路径/offset/size/integrity 不闭合、归档不安全或缺少项目 marker 均 fail closed。Case 只证明锁定 `retrom-runtime` tag 或显式本地候选与当次合法样本的最小兼容性，不扩大为任意 TyranoScript 插件或项目的兼容声明。
 - 证据：当次 `result.json`、`tyranoscript-product.json` 与三张 PNG。结构化证据只含非秘密产品 ID、payload kind/size、B/C/恢复 B 的场景与指令序号、内容身份、资源状态计数、截图尺寸/非黑像素/digest 和浏览器错误计数，不含归档路径、逻辑文件路径、游戏 bytes、账号、CSRF、cookie 或 Launch capability。本地候选 PASS 只允许进入 runtime Release 流程；Release 完成后 Retrom 必须解除本地链接、固定 tag/commit/assets并重跑本 Case。
 
-## 23. 缺陷处理与重验
+## 24. 缺陷处理与重验
 
 任一 Case 出现非预期行为即登记 defect，不能在原结果上直接改成 PASS：
 
@@ -1809,7 +1844,7 @@ red/green/root cause/fix/result/rerun 映射、green command 非零或超时的�
 
 若错误只能在真实 EmulatorJS/Chrome 中出现，仍必须在最近确定性边界加自动化测试，并收紧实际 Retrom 产品 E2E 或 UI runner 断言。不得用“只能人工复现”免除固化，也不得新增绕过产品链路的独立 example 页面代替回归。
 
-## 24. 最终通过标准
+## 25. 最终通过标准
 
 一期项目只有同时满足以下条件才可标记 `PASS`：
 
@@ -1830,7 +1865,7 @@ red/green/root cause/fix/result/rerun 映射、green command 非零或超时的�
 
 AI Agent 的最终交付摘要必须列出：总结果、失败/阻塞 Case ID、实际执行命令、证据目录、本次新增回归测试，以及任何 `NOT_APPLICABLE` 原因。不得仅回复“验收通过”。
 
-## 25. 专题覆盖映射
+## 26. 专题覆盖映射
 
 | 专题 | 统一 Case |
 | --- | --- |
@@ -1853,7 +1888,7 @@ AI Agent 的最终交付摘要必须列出：总结果、失败/阻塞 Case ID�
 | 游戏标签 | `ACC-TAG-001`–`005` |
 | 联机协议、安全、真实双浏览器核心与生命周期 | `ACC-NP-010`–`022` |
 | 沉浸模式独立 UI、资料库/收藏/存档导航、声音与系统菜单、真实单机 Player、内容身份缓存和输入隔离 | `ACC-IMM-001`–`012`，以及实体 standard 手柄 smoke |
-| RPG Maker 七世代核心、项目导入、route/artifact、资源包、运行验证、原生 Web 隔离、跨 Launch checkpoint 精确恢复与恢复后输入 | `ACC-RPG-001`–`012` |
+| RPG Maker 七世代核心、项目导入、Provider/Target、资源包、运行验证、原生 Web 隔离、跨 Launch checkpoint 精确恢复与恢复后输入 | `ACC-RPG-001`–`012` |
 | ONS 项目导入、审核试玩、发布、基本控制、存档与不同 Launch 恢复 | `ACC-ONS-001` |
 | KiriKiri2 KAG 项目导入、审核试玩、发布、基本控制、书签存档与不同 Launch 恢复 | `ACC-KIRIKIRI-001` |
 | GameMaker 项目导入、审核试玩、发布、标准手柄控制、即时存档、不同 Launch 恢复与项目缓存复用 | `ACC-BUTTERSCOTCH-001` |

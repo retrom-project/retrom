@@ -62,18 +62,18 @@ class GenerationCase:
     generation: str
     evidence_generation: str | None
     confidence: str
-    route_key: str
+    target_id: str
     fixture_directory: str | None
 
 
 GENERATION_CASES = {
-    "ACC-RPG-002": GenerationCase("rpgmaker_2000", "RPG2000", "RPG2000", "MATCHED", "RPG2000_EASYRPG", "rpg2000"),
-    "ACC-RPG-003": GenerationCase("rpgmaker_2003", "RPG2003", "RPG2003", "MATCHED", "RPG2003_EASYRPG", "rpg2003"),
-    "ACC-RPG-004": GenerationCase("rpgmaker_xp", "RPGXP", "RPGXP", "MATCHED", "RPGXP_MKXP", "rpgxp"),
-    "ACC-RPG-005": GenerationCase("rpgmaker_vx", "RPGVX", "RPGVX", "MATCHED", "RPGVX_MKXP", "rpgvx"),
-    "ACC-RPG-006": GenerationCase("rpgmaker_vx_ace", "RPGVXACE", "RPGVXACE", "MATCHED", "RPGVXACE_MKXP", "rpgvxace"),
-    "ACC-RPG-007": GenerationCase("rpgmaker_mv", "RPGMV", "RPGMV", "MATCHED", "RPGMV_NATIVE", "rpgmv"),
-    "ACC-RPG-008": GenerationCase("rpgmaker_mz", "RPGMZ", "RPGMZ", "MATCHED", "RPGMZ_NATIVE", None),
+    "ACC-RPG-002": GenerationCase(USER_CORE_ID, "RPG2000", "RPG2000", "MATCHED", "rpgmaker-2000", "rpg2000"),
+    "ACC-RPG-003": GenerationCase(USER_CORE_ID, "RPG2003", "RPG2003", "MATCHED", "rpgmaker-2003", "rpg2003"),
+    "ACC-RPG-004": GenerationCase(USER_CORE_ID, "RPGXP", "RPGXP", "MATCHED", "rpgmaker-xp", "rpgxp"),
+    "ACC-RPG-005": GenerationCase(USER_CORE_ID, "RPGVX", "RPGVX", "MATCHED", "rpgmaker-vx", "rpgvx"),
+    "ACC-RPG-006": GenerationCase(USER_CORE_ID, "RPGVXACE", "RPGVXACE", "MATCHED", "rpgmaker-vx-ace", "rpgvxace"),
+    "ACC-RPG-007": GenerationCase(USER_CORE_ID, "RPGMV", "RPGMV", "MATCHED", "rpgmaker-mv", "rpgmv"),
+    "ACC-RPG-008": GenerationCase(USER_CORE_ID, "RPGMZ", "RPGMZ", "MATCHED", "rpgmaker-mz", None),
 }
 PACK_CASE = "ACC-RPG-009"
 COMPATIBILITY_CASE = "ACC-RPG-012"
@@ -82,23 +82,14 @@ DEFERRED_CASES = {
     COMPATIBILITY_CASE: "RPG_SECOND_RUNTIME_RELEASE_REQUIRED",
 }
 MINIMAL_CLOSURE_CASES = {PACK_CASE, "ACC-RPG-010", "ACC-RPG-011"}
-ISOLATION_ROUTES = {
-    "RPGMV": ("rpgmaker_mv", "RPGMV_NATIVE", "native-web"),
-    "RPGMZ": ("rpgmaker_mz", "RPGMZ_NATIVE", "native-web"),
+ISOLATION_TARGETS = {
+    "RPGMV": "rpgmaker-mv",
+    "RPGMZ": "rpgmaker-mz",
 }
-SECURITY_CORES = {
-    "RPG2000": "rpgmaker_2000", "RPG2003": "rpgmaker_2003", "RPGXP": "rpgmaker_xp",
-    "RPGVX": "rpgmaker_vx", "RPGVXACE": "rpgmaker_vx_ace", "RPGMV": "rpgmaker_mv",
-    "RPGMZ": "rpgmaker_mz",
-}
-SECURITY_ROUTES = {
-    "RPG2000": ("RPG2000_EASYRPG", "EASYRPG_WEB"),
-    "RPG2003": ("RPG2003_EASYRPG", "EASYRPG_WEB"),
-    "RPGXP": ("RPGXP_MKXP", "MKXP_LIBRETRO_WEB"),
-    "RPGVX": ("RPGVX_MKXP", "MKXP_LIBRETRO_WEB"),
-    "RPGVXACE": ("RPGVXACE_MKXP", "MKXP_LIBRETRO_WEB"),
-    "RPGMV": ("RPGMV_NATIVE", "NATIVE_WEB"),
-    "RPGMZ": ("RPGMZ_NATIVE", "NATIVE_WEB"),
+SECURITY_TARGETS = {
+    "RPG2000": "rpgmaker-2000", "RPG2003": "rpgmaker-2003", "RPGXP": "rpgmaker-xp",
+    "RPGVX": "rpgmaker-vx", "RPGVXACE": "rpgmaker-vx-ace", "RPGMV": "rpgmaker-mv",
+    "RPGMZ": "rpgmaker-mz",
 }
 SECURITY_UNSAFE = {
     "dual-root": (False, 409, "RPG_PROJECT_ROOT_AMBIGUOUS"),
@@ -463,7 +454,7 @@ def contains_secret_or_path(value: Any) -> bool:
     return False
 
 
-def validate_input_transcript(value: Any, spec: GenerationCase, artifact_id: str) -> None:
+def validate_input_transcript(value: Any, spec: GenerationCase, target_contract: str) -> None:
     if not isinstance(value, dict) or set(value) != {"transportScheme", "upload", "import"} or \
             value.get("transportScheme") not in {"HTTPS", "HTTP_LOCALHOST"} or contains_secret_or_path(value):
         raise ContractError("RPG_ACCEPTANCE_INPUT_TRANSCRIPT_INVALID")
@@ -474,7 +465,7 @@ def validate_input_transcript(value: Any, spec: GenerationCase, artifact_id: str
     }
     import_keys = {
         "importJobId", "uploadId", "state", "payloadState", "platformId", "defaultCoreId",
-        "coreArtifactId", "counts", "createdAtMs", "updatedAtMs",
+        "providerId", "targetId", "targetContractSha256", "counts", "createdAtMs", "updatedAtMs",
     }
     if not isinstance(upload, dict) or set(upload) != upload_keys or \
             not isinstance(imported, dict) or set(imported) != import_keys:
@@ -495,7 +486,8 @@ def validate_input_transcript(value: Any, spec: GenerationCase, artifact_id: str
             imported.get("uploadId") != upload["uploadId"] or imported.get("state") != "COMPLETED" or \
             imported.get("payloadState") not in {"RETAINED", "RELEASING", "RELEASED"} or \
             imported.get("platformId") != "rpgmaker" or imported.get("defaultCoreId") != USER_CORE_ID or \
-            imported.get("coreArtifactId") != artifact_id or not isinstance(counts, dict) or \
+            imported.get("providerId") != "retrom-runtime" or imported.get("targetId") != spec.target_id or \
+            imported.get("targetContractSha256") != target_contract or not isinstance(counts, dict) or \
             set(counts) != expected_count_keys or counts.get("total") != 1 or counts.get("published") != 1 or \
             any(counts.get(key) != 0 for key in expected_count_keys - {"total", "published"}):
         raise ContractError("RPG_ACCEPTANCE_INPUT_TRANSCRIPT_INVALID")
@@ -655,8 +647,8 @@ def valid_compact_mkxp_checkpoint_size(value: Any) -> bool:
 def validate_xp_runtime_trace(value: Any, checkpoint: dict[str, Any], config: dict[str, Any]) -> None:
     if not isinstance(value, dict) or set(value) != {
         "schemaVersion", "checkpointUpload", "oversizeRejection", "threadCapabilityRejections",
-    } or value.get("schemaVersion") != 1 or config.get("adapterKind") != "MKXP_LIBRETRO_WEB" or \
-            config.get("stateBufferBytes") != XP_STATE_BYTES:
+    } or value.get("schemaVersion") != 1 or config.get("checkpointMaxBytes") != XP_STATE_BYTES or \
+            config.get("checkpointFormat") != "mkxp-state-compact-v1":
         raise ContractError("RPG_ACCEPTANCE_XP_RUNTIME_TRACE_INVALID")
     upload, oversize, rejections = (
         value.get("checkpointUpload"), value.get("oversizeRejection"), value.get("threadCapabilityRejections"),
@@ -810,28 +802,25 @@ def validate_generation_evidence(
     if not all(isinstance(value, dict) for value in (review, validation, product)):
         raise ContractError("RPG_ACCEPTANCE_PRODUCT_EVIDENCE_INVALID")
     assert isinstance(review, dict) and isinstance(validation, dict) and isinstance(product, dict)
-    route = validation.get("routeEvidence")
-    if not isinstance(route, dict):
-        raise ContractError("RPG_ACCEPTANCE_ROUTE_EVIDENCE_MISSING")
-    expected_route = {
-        "coreId": spec.core_id, "generation": spec.generation,
+    target = validation.get("routeEvidence")
+    if not isinstance(target, dict):
+        raise ContractError("RPG_ACCEPTANCE_TARGET_EVIDENCE_MISSING")
+    expected_target = {
+        "providerId": "retrom-runtime", "targetId": spec.target_id, "generation": spec.generation,
         "evidenceGeneration": spec.evidence_generation, "evidenceConfidence": spec.confidence,
-        "routeKey": spec.route_key, "projectFingerprint": expected_project_digest,
+        "gameCompatibilityLine": f"{spec.target_id}-v1", "projectFingerprint": expected_project_digest,
     }
-    for key, expected in expected_route.items():
-        require_equal(route.get(key), expected, f"ROUTE_{key.upper()}")
-    for key in ("artifactId", "artifactSetSha256", "adapterId", "adapterAbi", "dependencySnapshotSha256"):
-        if not route.get(key):
-            raise ContractError(f"RPG_ACCEPTANCE_ROUTE_{key.upper()}_MISSING")
-    if not UUID.fullmatch(str(route["artifactId"])):
-        raise ContractError("RPG_ACCEPTANCE_ARTIFACT_ID_INVALID")
-    for key in ("artifactSetSha256", "dependencySnapshotSha256", "projectFingerprint"):
-        if not SHA256.fullmatch(str(route[key])):
-            raise ContractError(f"RPG_ACCEPTANCE_ROUTE_{key.upper()}_INVALID")
+    for key, expected in expected_target.items():
+        require_equal(target.get(key), expected, f"TARGET_{key.upper()}")
+    if not UUID.fullmatch(str(target.get("effectiveSourceSnapshotId", ""))):
+        raise ContractError("RPG_ACCEPTANCE_TARGET_SOURCE_SNAPSHOT_INVALID")
+    for key in ("targetContractSha256", "dependencySnapshotSha256", "projectFingerprint"):
+        if not SHA256.fullmatch(str(target.get(key, ""))):
+            raise ContractError(f"RPG_ACCEPTANCE_TARGET_{key.upper()}_INVALID")
     rpg_review = review.get("rpgMaker")
     if not isinstance(rpg_review, dict):
         raise ContractError("RPG_ACCEPTANCE_REVIEW_RPG_MISSING")
-    require_equal(rpg_review.get("selectedCoreId"), spec.core_id, "REVIEW_CORE")
+    require_equal(rpg_review.get("selectedCoreId"), USER_CORE_ID, "REVIEW_CORE")
     require_equal(rpg_review.get("generation"), spec.generation, "REVIEW_GENERATION")
     require_equal(rpg_review.get("evidenceGeneration"), spec.evidence_generation, "REVIEW_EVIDENCE_GENERATION")
     require_equal(rpg_review.get("evidenceConfidence"), spec.confidence, "REVIEW_EVIDENCE_CONFIDENCE")
@@ -849,7 +838,6 @@ def validate_generation_evidence(
     engine_gate = next(item for item in gates if item["gate"] == "ENGINE_PROFILE")
     engine_evidence = engine_gate.get("evidence")
     if not isinstance(engine_evidence, dict) or engine_evidence.get("generation") != spec.generation or \
-            engine_evidence.get("adapterId") != route["adapterId"] or \
             engine_evidence.get("engineProfile") != ENGINE_PROFILES[spec.generation]:
         raise ContractError("RPG_ACCEPTANCE_ENGINE_PROFILE_INVALID")
     frame_gate = next(item for item in gates if item["gate"] == "FRAMES_300")
@@ -860,16 +848,16 @@ def validate_generation_evidence(
     if not isinstance(config, dict):
         raise ContractError("RPG_ACCEPTANCE_PRODUCT_CONFIG_MISSING")
     for key, expected in {
-        "runtimeFamily": "RPGMAKER", "purpose": "PRODUCT", "coreId": spec.core_id,
-        "generation": spec.generation, "routeKey": spec.route_key, "artifactId": route["artifactId"],
+        "purpose": "PRODUCT", "providerId": "retrom-runtime", "targetId": spec.target_id,
+        "targetContractSha256": target["targetContractSha256"],
+        "gameCompatibilityLine": target["gameCompatibilityLine"],
     }.items():
         require_equal(config.get(key), expected, f"PRODUCT_{key.upper()}")
     launch_id = str(product.get("launchId", ""))
     if not UUID.fullmatch(launch_id) or launch_id in {validation.get("launchId"), validation.get("restoreLaunchId")}:
         raise ContractError("RPG_ACCEPTANCE_PRODUCT_LAUNCH_ID_INVALID")
     require_equal(product.get("playerRunning"), True, "PLAYER_RUNNING")
-    require_equal(config.get("adapterId"), route["adapterId"], "PRODUCT_ADAPTER")
-    validate_input_transcript(payload.get("inputTranscript"), spec, route["artifactId"])
+    validate_input_transcript(payload.get("inputTranscript"), spec, target["targetContractSha256"])
     marker, marker_rgb = validate_input_provenance(
         payload.get("inputProvenance"), spec, expected_project_digest,
     )
@@ -898,8 +886,8 @@ def validate_generation_evidence(
         raise ContractError("RPG_ACCEPTANCE_PRODUCT_SCREENSHOTS_INVALID")
     validate_runtime_environment(payload.get("runtimeEnvironment"), spec, gates)
     if spec.generation in {"RPGXP", "RPGVX", "RPGVXACE"}:
-        if config.get("adapterKind") != "MKXP_LIBRETRO_WEB" or \
-                config.get("stateBufferBytes") != XP_STATE_BYTES or \
+        if config.get("checkpointMaxBytes") != XP_STATE_BYTES or \
+                config.get("checkpointFormat") != "mkxp-state-compact-v1" or \
                 not valid_compact_mkxp_checkpoint_size(
                     validation["checkpointRoundTrip"].get("sizeBytes"),
                 ):
@@ -908,7 +896,6 @@ def validate_generation_evidence(
         if "xpRuntimeTrace" in payload:
             validate_xp_runtime_trace(payload["xpRuntimeTrace"], validation["checkpointRoundTrip"], config)
     if spec.generation in {"RPGMV", "RPGMZ"}:
-        require_equal(config.get("bridgeProfile"), ENGINE_PROFILES[spec.generation], "PRODUCT_BRIDGE_PROFILE")
         validate_origin_inventory(payload.get("originInventory"), launch_id)
     if spec.generation == "RPGMZ":
         require_equal(
@@ -1186,7 +1173,14 @@ def validate_pack_database_evidence(payload: dict[str, Any]) -> None:
             protected["publishedVariant"].get("definitionId") != "rgss1_standard" or \
             protected["restorableCheckpoint"].get("definitionId") != "rgss2_rpgvx" or \
             protected["publishedVariant"].get("availableForLaunch") is not True or \
-            protected["restorableCheckpoint"].get("availableForLaunch") is not True:
+            protected["restorableCheckpoint"].get("availableForLaunch") is not True or any(
+                item.get("providerId") != "retrom-runtime" or item.get("targetId") != target_id or
+                not SHA256.fullmatch(str(item.get("targetContractSha256", "")))
+                for item, target_id in (
+                    (protected["publishedVariant"], "rpgmaker-xp"),
+                    (protected["restorableCheckpoint"], "rpgmaker-vx"),
+                )
+            ):
         raise ContractError("RPG_ACCEPTANCE_PACK_PROTECTED_REFERENCE_EVIDENCE_INVALID")
     for role, item in protected.items():
         planned = payload["protectedReferences"][role]
@@ -1328,12 +1322,12 @@ def validate_nested_security(value: Any) -> None:
     row_keys = {
         "generation", "format", "detection", "sidecar", "sha256", "sizeBytes", "filesDigest",
         "postInspectionFilesDigest", "nestedEntryCount", "importJobId", "importItemId",
-        "contentIdentityDigest", "validationId", "launchId", "routeKey", "artifactId",
-        "adapterKind", "projection", "launchFinished",
+        "contentIdentityDigest", "validationId", "launchId", "providerId", "targetId",
+        "targetContractSha256", "projection", "launchFinished",
     }
     expected = {
         (generation, archive_format, detection)
-        for generation in SECURITY_CORES
+        for generation in SECURITY_TARGETS
         for archive_format in ("7Z", "GZIP", "RAR", "TAR", "ZIP")
         for detection in ("extension", "magic")
     }
@@ -1356,7 +1350,7 @@ def validate_nested_security(value: Any) -> None:
 
 def valid_nested_security_row(item: dict[str, Any]) -> bool:
     generation = item["generation"]
-    route_key, adapter_kind = SECURITY_ROUTES[generation]
+    target_id = SECURITY_TARGETS[generation]
     logical_name = item.get("sidecar")
     if not isinstance(logical_name, str) or not logical_name.startswith("RetromNested/") or \
             logical_name.count("/") != 1 or logical_name.endswith("/") or ".." in logical_name or \
@@ -1365,19 +1359,19 @@ def valid_nested_security_row(item: dict[str, Any]) -> bool:
             item["sizeBytes"] <= 0 or not SHA256.fullmatch(str(item.get("filesDigest", ""))) or \
             item.get("postInspectionFilesDigest") != item.get("filesDigest") or item.get("nestedEntryCount") != 0 or \
             not SHA256.fullmatch(str(item.get("contentIdentityDigest", ""))) or \
-            item.get("routeKey") != route_key or item.get("adapterKind") != adapter_kind or \
-            not UUID.fullmatch(str(item.get("artifactId", ""))) or item.get("launchFinished") is not True:
+            item.get("providerId") != "retrom-runtime" or item.get("targetId") != target_id or \
+            not SHA256.fullmatch(str(item.get("targetContractSha256", ""))) or item.get("launchFinished") is not True:
         return False
     projection = item.get("projection")
     keys = {"kind", "status", "logicalName", "sha256", "sizeBytes", "containerSha256", "exactMember"}
     if not isinstance(projection, dict) or set(projection) != keys or projection.get("logicalName") != logical_name:
         return False
-    if adapter_kind == "NATIVE_WEB":
+    if generation in {"RPGMV", "RPGMZ"}:
         return projection == {
             "kind": "NATIVE_WEB_DENIED", "status": 404, "logicalName": logical_name,
             "sha256": None, "sizeBytes": None, "containerSha256": None, "exactMember": False,
         }
-    expected_kind = "EASYRPG_PROJECT_FILE" if adapter_kind == "EASYRPG_WEB" else "MKXP_ARCHIVE_MEMBER"
+    expected_kind = "EASYRPG_PROJECT_FILE" if generation in {"RPG2000", "RPG2003"} else "MKXP_ARCHIVE_MEMBER"
     return projection.get("kind") == expected_kind and projection.get("status") == 200 and \
         projection.get("sha256") == item["sha256"] and projection.get("sizeBytes") == item["sizeBytes"] and \
         SHA256.fullmatch(str(projection.get("containerSha256", ""))) is not None and \
@@ -1417,7 +1411,7 @@ def validate_isolation_harness(harness: dict[str, Any]) -> None:
         "securityRequests", "bootstrap", "machineGates", "checkpointRoundTrip",
     }
     generation = harness.get("generation")
-    if set(harness) != keys or generation not in ISOLATION_ROUTES or any(
+    if set(harness) != keys or generation not in ISOLATION_TARGETS or any(
         not UUID.fullmatch(str(harness.get(key)))
         for key in ("importItemId", "validationId", "originalLaunchId", "restoreLaunchId")
     ):
@@ -1444,16 +1438,15 @@ def validate_isolation_harness(harness: dict[str, Any]) -> None:
 
 
 def validate_isolation_runtime(harness: dict[str, Any], generation: str) -> None:
-    core_id, route_key, adapter_id = ISOLATION_ROUTES[generation]
+    target_id = ISOLATION_TARGETS[generation]
     config = harness.get("config")
     expected_config = {
-        "runtimeFamily": "RPGMAKER", "generation": generation, "coreId": core_id,
-        "routeKey": route_key, "adapterId": adapter_id,
+        "providerId": "retrom-runtime", "targetId": target_id,
     }
-    if not isinstance(config, dict) or set(config) != {*expected_config, "artifactId"} or any(
+    if not isinstance(config, dict) or set(config) != {*expected_config, "targetContractSha256"} or any(
         config.get(key) != value for key, value in expected_config.items()
-    ) or not UUID.fullmatch(str(config.get("artifactId"))):
-        raise ContractError("RPG_ACCEPTANCE_ISOLATION_ROUTE_INVALID")
+    ) or not SHA256.fullmatch(str(config.get("targetContractSha256"))):
+        raise ContractError("RPG_ACCEPTANCE_ISOLATION_TARGET_INVALID")
     origin = urlparse(str(harness.get("runtimeOrigin", "")))
     hostname = origin.hostname or ""
     if origin.scheme not in {"http", "https"} or origin.username or origin.password or \

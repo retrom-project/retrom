@@ -95,9 +95,6 @@ export class ImmersiveGamepadFilter {
   }
 
   private openMenu() {
-    this.blocked = true;
-    this.reset();
-    this.emitPolicy();
     this.onMenuGesture();
   }
 

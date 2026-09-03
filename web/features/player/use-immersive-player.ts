@@ -222,14 +222,13 @@ type PollParams = {
 };
 
 function startImmersivePoll(params: PollParams) {
-  let frame = 0;
-  const poll = (nowMs: number) => {
+  const poll = () => {
     const gamepads = typeof navigator.getGamepads === "function" ? Array.from(navigator.getGamepads()) : [];
-    pollImmersiveState(params, gamepads, nowMs);
-    frame = window.requestAnimationFrame(poll);
+    pollImmersiveState(params, gamepads, performance.now());
   };
-  frame = window.requestAnimationFrame(poll);
-  return () => window.cancelAnimationFrame(frame);
+  poll();
+  const timer = window.setInterval(poll, 16);
+  return () => window.clearInterval(timer);
 }
 
 function pollImmersiveState(params: PollParams, gamepads: (Gamepad | null)[], nowMs: number) {

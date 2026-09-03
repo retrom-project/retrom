@@ -18,31 +18,28 @@ def build_lock(root: Path, spec: dict[str, Any]) -> tuple[dict[str, Any], dict[s
         runtime["mode"] = "branch"
         descriptor = root / ".pfb/candidates/runtime/retrom-runtime-candidate.json"
         runtime["candidateSha256"] = sha256_file(descriptor) if descriptor.exists() else None
-    formal_manifest = root / "data/dat/rpgmaker/v1/manifest.json"
-    overlay = root / ".pfb/candidates/runtime/.retrom-pfb-candidate.json"
+    provider_input_sha = _provider_input_digest(root, spec["runtime"]["mode"])
     candidate_files_sha = _candidate_files_digest(root / ".pfb/candidates")
     lock = {
-        "schemaVersion": 1,
-        "kind": "RETROM_PFB_LOCK_V1",
+        "schemaVersion": 2,
+        "kind": "RETROM_PFB_LOCK_V2",
         "pfbId": spec["id"],
         "retrom": retrom,
         "runtime": runtime,
         "cores": _core_lock_entries(root, spec),
-        "formalDependencyManifestSha256": sha256_file(formal_manifest),
-        "runtimeOverlaySha256": sha256_file(overlay) if overlay.exists() else None,
+        "providerInputSha256": provider_input_sha,
         "candidateFilesSha256": candidate_files_sha,
     }
     candidate_digest = _dependency_candidate_digest(lock)
     migration_digest = migration_tree_sha256(root)
-    compatibility_payload = {
+    data_digest = sha256_bytes(canonical_bytes({
         "candidateDigest": candidate_digest,
         "migrationTreeSha256": migration_digest,
-        "formalDependencyManifestSha256": lock["formalDependencyManifestSha256"],
-    }
-    data_digest = sha256_bytes(canonical_bytes(compatibility_payload))
+        "providerInputSha256": provider_input_sha,
+    }))
     data_lock = {
-        "schemaVersion": 1,
-        "kind": "RETROM_PFB_DATA_LOCK_V1",
+        "schemaVersion": 2,
+        "kind": "RETROM_PFB_DATA_LOCK_V2",
         "pfbId": spec["id"],
         "candidateDigest": candidate_digest,
         "migrationTreeSha256": migration_digest,
@@ -86,12 +83,9 @@ def entrypoint_locks(root: Path, spec: dict[str, Any], runtime_root: Path) -> tu
         descriptor = root / ".pfb/candidates/cores" / core["id"] / "retrom-core-candidate.json"
         if sha256_file(descriptor) != core["candidateSha256"]:
             raise PFBError("PFB_SOURCE_STALE", f"core-{core['id']}")
-    manifest_sha = sha256_file(root / "data/dat/rpgmaker/v1/manifest.json")
-    overlay = root / ".pfb/candidates/runtime/.retrom-pfb-candidate.json"
-    overlay_sha = sha256_file(overlay) if overlay.exists() else None
+    provider_input_sha = _provider_input_digest(root, spec["runtime"]["mode"])
     if (
-        lock["formalDependencyManifestSha256"] != manifest_sha
-        or lock["runtimeOverlaySha256"] != overlay_sha
+        lock["providerInputSha256"] != provider_input_sha
         or lock["candidateFilesSha256"] != _candidate_files_digest(root / ".pfb/candidates")
     ):
         raise PFBError("PFB_SOURCE_STALE", "candidate")
@@ -102,7 +96,7 @@ def entrypoint_locks(root: Path, spec: dict[str, Any], runtime_root: Path) -> tu
     expected_data_digest = sha256_bytes(canonical_bytes({
         "candidateDigest": candidate_digest,
         "migrationTreeSha256": data_lock["migrationTreeSha256"],
-        "formalDependencyManifestSha256": manifest_sha,
+        "providerInputSha256": provider_input_sha,
     }))
     if data_lock["dataCompatibilityDigest"] != expected_data_digest:
         raise PFBError("PFB_DATA_GENERATION_MISMATCH")
@@ -127,10 +121,22 @@ def _candidate_files_digest(root: Path) -> str:
 
 def _dependency_candidate_digest(lock: dict[str, Any]) -> str:
     return sha256_bytes(canonical_bytes({
-        "formalDependencyManifestSha256": lock["formalDependencyManifestSha256"],
-        "runtimeOverlaySha256": lock["runtimeOverlaySha256"],
+        "providerInputSha256": lock["providerInputSha256"],
         "candidateFilesSha256": lock["candidateFilesSha256"],
     }))
+
+
+def _provider_input_digest(root: Path, runtime_mode: str) -> str | None:
+    if runtime_mode == "branch":
+        provider_build = root / ".pfb/candidates/runtime/providers/provider-build.json"
+        return sha256_file(provider_build) if provider_build.is_file() else None
+    lock_root = root / "data/runtime-providers"
+    entries = [
+        {"path": path.name, "sha256": sha256_file(path)}
+        for path in sorted(lock_root.glob("*.lock.json"), key=lambda item: item.name.encode("utf-8"))
+        if path.is_file() and not path.is_symlink()
+    ]
+    return sha256_bytes(canonical_bytes(entries))
 
 
 def _core_lock_entries(root: Path, spec: dict[str, Any]) -> list[dict[str, Any]]:
@@ -149,17 +155,17 @@ def _core_lock_entries(root: Path, spec: dict[str, Any]) -> list[dict[str, Any]]
 def _validate_lock_shape(lock: Any, data: Any, pfb_id: str) -> None:
     lock_fields = {
         "schemaVersion", "kind", "pfbId", "retrom", "runtime", "cores",
-        "formalDependencyManifestSha256", "runtimeOverlaySha256", "candidateFilesSha256",
+        "providerInputSha256", "candidateFilesSha256",
     }
     data_fields = {
         "schemaVersion", "kind", "pfbId", "candidateDigest",
         "migrationTreeSha256", "dataCompatibilityDigest",
     }
-    if not isinstance(lock, dict) or set(lock) != lock_fields or lock.get("schemaVersion") != 1 or lock.get("kind") != "RETROM_PFB_LOCK_V1" or lock.get("pfbId") != pfb_id:
+    if not isinstance(lock, dict) or set(lock) != lock_fields or lock.get("schemaVersion") != 2 or lock.get("kind") != "RETROM_PFB_LOCK_V2" or lock.get("pfbId") != pfb_id:
         raise PFBError("PFB_CANDIDATE_OUTPUT_INVALID", "lock")
-    if not isinstance(data, dict) or set(data) != data_fields or data.get("schemaVersion") != 1 or data.get("kind") != "RETROM_PFB_DATA_LOCK_V1" or data.get("pfbId") != pfb_id:
+    if not isinstance(data, dict) or set(data) != data_fields or data.get("schemaVersion") != 2 or data.get("kind") != "RETROM_PFB_DATA_LOCK_V2" or data.get("pfbId") != pfb_id:
         raise PFBError("PFB_CANDIDATE_OUTPUT_INVALID", "data-lock")
-    for field in ("formalDependencyManifestSha256", "candidateFilesSha256"):
+    for field in ("providerInputSha256", "candidateFilesSha256"):
         if not lowercase_hex(lock[field], 64):
             raise PFBError("PFB_CANDIDATE_OUTPUT_INVALID", field)
     for field in ("candidateDigest", "migrationTreeSha256", "dataCompatibilityDigest"):

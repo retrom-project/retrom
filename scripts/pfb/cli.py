@@ -51,12 +51,11 @@ def parser() -> argparse.ArgumentParser:
     root_commands = {
         "init", "validate", "build", "up", "use", "restart", "down",
         "status", "logs", "verify", "prune", "destroy", "entrypoint-check",
-        "runtime-overrides",
     }
     for command in sorted(root_commands):
         child = subparsers.add_parser(command)
         child.add_argument("--root", required=True, type=Path)
-        if command in {"entrypoint-check", "runtime-overrides"}:
+        if command == "entrypoint-check":
             child.add_argument("--pfb-id", required=True)
         else:
             child.add_argument("--pfb", required=True)
@@ -349,18 +348,6 @@ def command_entrypoint_check(root: Path, args: argparse.Namespace) -> int:
     return 0
 
 
-def command_runtime_overrides(root: Path, args: argparse.Namespace) -> int:
-    spec = load_json(root / ".pfb/spec.json")
-    if not isinstance(spec, dict) or spec.get("id") != args.pfb_id:
-        raise PFBError("PFB_SPEC_INVALID", "entrypoint-id")
-    value = {
-        core["id"]: str(root / ".pfb/candidates/cores" / core["id"])
-        for core in spec["cores"]
-    }
-    print(canonical_bytes(value).decode("utf-8"))
-    return 0
-
-
 def _build_cores(spec: dict[str, Any], destination: Path) -> None:
     destination.mkdir(parents=True)
     for core in spec["cores"]:
@@ -432,6 +419,8 @@ def _validate_branch_policy(spec: dict[str, Any]) -> None:
 def _require_candidate_outputs(lock: dict[str, Any], spec: dict[str, Any]) -> None:
     if spec["runtime"]["mode"] == "branch" and not lowercase_hex(lock["runtime"].get("candidateSha256"), 64):
         raise PFBError("PFB_CANDIDATE_OUTPUT_INVALID", "runtime")
+    if not lowercase_hex(lock.get("providerInputSha256"), 64):
+        raise PFBError("PFB_CANDIDATE_OUTPUT_INVALID", "provider-input")
     if any(not lowercase_hex(item.get("candidateSha256"), 64) for item in lock["cores"]):
         raise PFBError("PFB_CANDIDATE_OUTPUT_INVALID", "core")
 

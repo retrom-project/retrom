@@ -115,8 +115,9 @@ async function contentSafetyCase(context, client, instances) {
       importJobId: outcome.body.importJobId, importItemId: review.itemId,
       contentIdentityDigest: review.contentIdentityDigest,
       validationId: inspected.validationId, launchId: inspected.launchId,
-      routeKey: inspected.config.routeKey, artifactId: inspected.config.artifactId,
-      adapterKind: inspected.config.adapter.adapterKind,
+      providerId: inspected.config.runtime.providerId,
+      targetId: inspected.config.runtime.targetId,
+      targetContractSha256: inspected.config.runtime.targetContractSha256,
       projection: inspected.projection, launchFinished: inspected.launchFinished,
     });
   }
@@ -155,8 +156,9 @@ async function isolationCase(context, client, instances) {
     await launched.page.bringToFront();
     await completeOriginalValidation(launched.page, launched.frame, input.generation);
     const checkpointed = await waitForValidation(client, review.itemId, launched.validationId, "CHECKPOINTED");
+    const launchedResource = providerResource(launched.config, "NATIVE_WEB_V1");
     launched.bootstrap.inactiveBootstrapStatus = await browserNavigationStatus(
-      context, launched.config.adapter.bootstrapUrl,
+      context, launchedResource.entryUrl,
     );
     const restored = await createRestoreLaunch(
       context, client, review, checkpointed, basename(restoreScreenshot),
@@ -212,14 +214,15 @@ async function openValidationPlayer(context, client, created, screenshotName, in
   );
   await page.goto(`${baseUrl}${created.playerUrl}`, { waitUntil: "domcontentloaded" });
   config = await (await configResponse).json();
-  requireLocalRuntimeSite(baseUrl, config.adapter?.uniqueOrigin);
+  const nativeResource = providerResource(config, "NATIVE_WEB_V1", false);
+  requireLocalRuntimeSite(baseUrl, nativeResource?.origin);
   await page.waitForFunction(() => document.querySelector("iframe") !== null, null, { timeout: 120_000 });
-  const frame = await waitForHarnessFrame(page, inspectIsolation, config.adapter?.uniqueOrigin);
+  const frame = await waitForHarnessFrame(page, inspectIsolation, nativeResource?.origin);
   if (screenshotName) {
     await page.screenshot({ path: join(caseDir, "screenshots", screenshotName), fullPage: true });
   }
   const runtimeOrigin = new URL(frame.url()).origin;
-  const nativeOrigin = config.adapter?.adapterKind === "NATIVE_WEB" ? config.adapter.uniqueOrigin : null;
+  const nativeOrigin = nativeResource?.origin ?? null;
   if (inspectIsolation && (runtimeOrigin === baseUrl || nativeOrigin !== runtimeOrigin)) {
     throw new Error("RPG_ACCEPTANCE_ISOLATION_ORIGIN_INVALID");
   }
@@ -333,12 +336,16 @@ async function inspectNestedProject(context, client, review, sidecar) {
     exact(response.status(), 200, "RPG_ACCEPTANCE_NESTED_CONFIG_STATUS");
     launchActive = true;
     config = await response.json();
-    if (config.adapter?.adapterKind === "EASYRPG_WEB") {
-      projection = await inspectEasyRPGProjection(client, config.adapter, sidecar);
-    } else if (config.adapter?.adapterKind === "MKXP_LIBRETRO_WEB") {
-      projection = await inspectMKXPProjection(client, config.adapter, sidecar);
+    if (["rpgmaker-2000", "rpgmaker-2003"].includes(config.runtime?.targetId)) {
+      projection = await inspectEasyRPGProjection(
+        client, providerResource(config, "FILE_TREE_V1"), sidecar,
+      );
+    } else if (["rpgmaker-xp", "rpgmaker-vx", "rpgmaker-vx-ace"].includes(config.runtime?.targetId)) {
+      projection = await inspectMKXPProjection(
+        client, providerResource(config, "SEEKABLE_BLOB_V1"), sidecar,
+      );
     } else {
-      throw new Error("RPG_ACCEPTANCE_NESTED_ADAPTER_INVALID");
+      throw new Error("RPG_ACCEPTANCE_NESTED_TARGET_INVALID");
     }
   } finally {
     if (launchActive) { await finishInspectionLaunch(client, created.launchId); }
@@ -408,15 +415,19 @@ async function finishOpenedValidationLaunch(page, launchId) {
   exact(result.body?.state, "FINISHED", "RPG_ACCEPTANCE_OPAQUE_LAUNCH_FINISH_STATE");
 }
 
-async function inspectEasyRPGProjection(client, adapter, sidecar) {
-  const indexResponse = await client.raw("GET", adapter.projectIndexUrl);
+async function inspectEasyRPGProjection(client, resource, sidecar) {
+  const indexResponse = await client.raw("GET", resource.indexUrl);
   exact(indexResponse.status(), 200, "RPG_ACCEPTANCE_NESTED_EASY_INDEX_STATUS");
   const indexBytes = Buffer.from(await indexResponse.body());
   const index = JSON.parse(indexBytes.toString("utf8"));
   if (!easyRPGIndexPaths(index.cache).includes(sidecar.name)) {
     throw new Error("RPG_ACCEPTANCE_NESTED_EASY_INDEX_MEMBER_MISSING");
   }
-  const response = await client.raw("GET", `${adapter.projectRootUrl}${encodedLogicalPath(sidecar.name)}`);
+  if (!resource.indexUrl.endsWith("/index.json")) {
+    throw new Error("RPG_ACCEPTANCE_NESTED_EASY_INDEX_URL_INVALID");
+  }
+  const projectRootUrl = resource.indexUrl.slice(0, -"index.json".length);
+  const response = await client.raw("GET", `${projectRootUrl}${encodedLogicalPath(sidecar.name)}`);
   exact(response.status(), 200, "RPG_ACCEPTANCE_NESTED_EASY_CONTENT_STATUS");
   const contents = Buffer.from(await response.body());
   exactBytes(contents, sidecar, "RPG_ACCEPTANCE_NESTED_EASY_CONTENT");
@@ -443,18 +454,18 @@ function easyRPGIndexPaths(cache, prefix = []) {
   return paths;
 }
 
-async function inspectMKXPProjection(client, adapter, sidecar) {
-  const response = await client.raw("GET", adapter.projectArchive.url);
+async function inspectMKXPProjection(client, resource, sidecar) {
+  const response = await client.raw("GET", resource.url);
   exact(response.status(), 200, "RPG_ACCEPTANCE_NESTED_MKXP_ARCHIVE_STATUS");
   const archive = Buffer.from(await response.body());
-  exact(archive.length, adapter.projectArchive.sizeBytes, "RPG_ACCEPTANCE_NESTED_MKXP_ARCHIVE_SIZE");
-  exact(sha256(archive), adapter.projectArchive.sha256, "RPG_ACCEPTANCE_NESTED_MKXP_ARCHIVE_SHA");
+  exact(archive.length, resource.sizeBytes, "RPG_ACCEPTANCE_NESTED_MKXP_ARCHIVE_SIZE");
+  exact(sha256(archive), resource.sha256, "RPG_ACCEPTANCE_NESTED_MKXP_ARCHIVE_SHA");
   const contents = storedZIPMember(archive, sidecar.name);
   exactBytes(contents, sidecar, "RPG_ACCEPTANCE_NESTED_MKXP_MEMBER");
   return {
     kind: "MKXP_ARCHIVE_MEMBER", status: response.status(), logicalName: sidecar.name,
     sha256: sha256(contents), sizeBytes: contents.length,
-    containerSha256: adapter.projectArchive.sha256, exactMember: true,
+    containerSha256: resource.sha256, exactMember: true,
   };
 }
 
@@ -557,9 +568,9 @@ function sha256(contents) {
 }
 
 async function bootstrapChecks(context, frame, config, runtimeOrigin) {
-  const isolated = config.adapter?.adapterKind === "NATIVE_WEB" ? config.adapter : null;
-  if (!isolated?.bootstrapUrl || !isolated.bootstrapTicket) { throw new Error("RPG_ACCEPTANCE_BOOTSTRAP_CONFIG_MISSING"); }
-  const authenticatedReloadStatus = await browserNavigationStatus(context, isolated.bootstrapUrl);
+  const isolated = providerResource(config, "NATIVE_WEB_V1");
+  if (!isolated.entryUrl || !isolated.bootstrapTicket) { throw new Error("RPG_ACCEPTANCE_BOOTSTRAP_CONFIG_MISSING"); }
+  const authenticatedReloadStatus = await browserNavigationStatus(context, isolated.entryUrl);
   const replayStatus = await runtimeBootstrapReplayStatus(frame, isolated.bootstrapTicket);
   const appHostEntry = await context.request.get(`${baseUrl}/__retrom/entry`, { failOnStatusCode: false });
   const runtimeApiStatus = await runtimeRequestStatus(frame, "/api/v1/admin/reviews", "GET");
@@ -640,9 +651,18 @@ function assertRejected(outcome, expectedCode) {
 
 function safeConfig(config) {
   return {
-    runtimeFamily: config.runtimeFamily, generation: config.generation, coreId: config.coreId,
-    routeKey: config.routeKey, artifactId: config.artifactId, adapterId: config.adapter?.adapterId,
+    providerId: config.runtime.providerId, targetId: config.runtime.targetId,
+    targetContractSha256: config.runtime.targetContractSha256,
   };
+}
+
+function providerResource(config, kind, requiredResource = true) {
+  const matches = Array.isArray(config?.resources)
+    ? config.resources.filter((resource) => resource?.role === "game" && resource?.kind === kind)
+    : [];
+  if (matches.length === 1) { return matches[0]; }
+  if (!requiredResource && matches.length === 0) { return null; }
+  throw new Error(`RPG_ACCEPTANCE_PROVIDER_RESOURCE_${kind}_INVALID`);
 }
 
 function required(name) {

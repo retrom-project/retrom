@@ -12,7 +12,7 @@ test("rejects black frames, ineffective input, reused launches, and wrong payloa
     (value) => {value.screenshots.preview.nonBlackPixels = 0;},
     (value) => {value.screenshots.productAfterInput.rgbaSha256 = value.screenshots.productBeforeInput.rgbaSha256;},
     (value) => {value.ids.restoreLaunchId = value.ids.originalLaunchId;},
-    (value) => {value.checkpoint.payloadKind = "RUNTIME_STATE";},
+    (value) => {value.checkpoint.format = "wrong-format";},
     (value) => {value.screenshots.preview.backingWidth = 300; value.screenshots.preview.backingHeight = 150;},
     (value) => {value.screenshots.preview.centerOffsetXPx = 2;},
     (value) => {value.screenshots.preview.focused = false;},
@@ -52,7 +52,7 @@ function evidence() {
       originalLaunchId: "01a0452f-a9e9-7c54-a65e-c75fc19a473b",
       restoreLaunchId: "01a0452f-bc94-7cc2-8403-4819f3c381e2",
     },
-    checkpoint: { payloadKind: "ONS_SAVE_BUNDLE_V1", sizeBytes: 36_194 },
+    checkpoint: { format: "ons-save-bundle-v1", sizeBytes: 36_194 },
     loading: {
       schemaVersion: 1,
       sameProjectContentIdentity: true,

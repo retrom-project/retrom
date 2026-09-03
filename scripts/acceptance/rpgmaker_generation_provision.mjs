@@ -15,45 +15,45 @@ import { isLocalAcceptanceHostname } from "./rpgmaker_url.mjs";
 
 const cases = {
   "ACC-RPG-002": {
-    coreId: "rpgmaker_2000", generation: "RPG2000", routeKey: "RPG2000_EASYRPG",
+    coreId: "rpgmaker", generation: "RPG2000", targetId: "rpgmaker-2000",
     source: () => resolve("testdata/public-roms/rpgmaker-smoke/rpg2000"),
     prefix: "rpg2000/", saveKeys: ["ArrowRight", "ArrowRight"],
     divergeKeys: ["ArrowRight", "ArrowRight"],
     restoreKeys: ["ArrowRight", "ArrowRight", "ArrowRight", "ArrowRight", "ArrowRight"],
   },
   "ACC-RPG-003": {
-    coreId: "rpgmaker_2003", generation: "RPG2003", routeKey: "RPG2003_EASYRPG",
+    coreId: "rpgmaker", generation: "RPG2003", targetId: "rpgmaker-2003",
     source: () => resolve("testdata/public-roms/rpgmaker-smoke/rpg2003"),
     prefix: "rpg2003/", saveKeys: ["ArrowRight", "ArrowRight"],
     divergeKeys: ["ArrowRight", "ArrowRight"],
     restoreKeys: ["ArrowRight", "ArrowRight", "ArrowRight", "ArrowRight", "ArrowRight"],
   },
   "ACC-RPG-004": {
-    coreId: "rpgmaker_xp", generation: "RPGXP", routeKey: "RPGXP_MKXP",
+    coreId: "rpgmaker", generation: "RPGXP", targetId: "rpgmaker-xp",
     source: () => resolve("testdata/public-roms/rpgmaker-smoke/rpgxp"),
     prefix: "rpgxp/", saveKeys: ["ArrowRight", "KeyX"],
     divergeKeys: ["ArrowRight", "KeyX"], restoreKeys: ["ArrowRight", "KeyX"],
   },
   "ACC-RPG-005": {
-    coreId: "rpgmaker_vx", generation: "RPGVX", routeKey: "RPGVX_MKXP",
+    coreId: "rpgmaker", generation: "RPGVX", targetId: "rpgmaker-vx",
     source: () => resolve("testdata/public-roms/rpgmaker-smoke/rpgvx"),
     prefix: "rpgvx/", saveKeys: ["ArrowRight", "KeyX"],
     divergeKeys: ["ArrowRight", "KeyX"], restoreKeys: ["ArrowRight", "KeyX"],
   },
   "ACC-RPG-006": {
-    coreId: "rpgmaker_vx_ace", generation: "RPGVXACE", routeKey: "RPGVXACE_MKXP",
+    coreId: "rpgmaker", generation: "RPGVXACE", targetId: "rpgmaker-vx-ace",
     source: () => resolve("testdata/public-roms/rpgmaker-smoke/rpgvxace"),
     prefix: "rpgvxace/", saveKeys: ["ArrowRight", "KeyX"],
     divergeKeys: ["ArrowRight", "KeyX"], restoreKeys: ["ArrowRight", "KeyX"],
   },
   "ACC-RPG-007": {
-    coreId: "rpgmaker_mv", generation: "RPGMV", routeKey: "RPGMV_NATIVE",
+    coreId: "rpgmaker", generation: "RPGMV", targetId: "rpgmaker-mv",
     source: () => resolve("testdata/public-roms/rpgmaker-smoke/rpgmv"),
     prefix: "rpgmv/", saveKeys: ["ArrowRight", "Enter"],
     divergeKeys: ["ArrowRight", "Enter"], restoreKeys: ["ArrowRight", "Enter"],
   },
   "ACC-RPG-008": {
-    coreId: "rpgmaker_mz", generation: "RPGMZ", routeKey: "RPGMZ_NATIVE",
+    coreId: "rpgmaker", generation: "RPGMZ", targetId: "rpgmaker-mz",
     source: () => resolve(required("RPG_MZ_SMOKE_ROOT")),
     prefix: "rpgmz/", saveKeys: ["ArrowRight", "Enter"],
     divergeKeys: ["ArrowRight", "Enter"], restoreKeys: ["ArrowRight", "Enter"],
@@ -110,7 +110,7 @@ try {
   process.stdout.write(`${JSON.stringify({
     schemaVersion: 1, caseId, importItemId: review.itemId,
     validationId: published.validation.validationId, gameId: published.gameId,
-    routeKey: config.routeKey, xpTraceWritten: Boolean(tracePath),
+    providerId: "retrom-runtime", targetId: config.targetId, xpTraceWritten: Boolean(tracePath),
   }, null, 2)}\n`);
 } finally {
   await browser.close();
@@ -257,7 +257,8 @@ async function validateAndPublish(context, client, review) {
   exact(decision.status(), 200, "RPG_PROVISION_DECISION_FAILED");
   const validation = await decision.json();
   exact(validation.state, "PASSED", "RPG_PROVISION_VALIDATION_NOT_PASSED");
-  exact(validation.routeEvidence?.routeKey, config.routeKey, "RPG_PROVISION_ROUTE_MISMATCH");
+  exact(validation.routeEvidence?.providerId, "retrom-runtime", "RPG_PROVISION_PROVIDER_MISMATCH");
+  exact(validation.routeEvidence?.targetId, config.targetId, "RPG_PROVISION_TARGET_MISMATCH");
   const currentReview = await client.json("GET", `/api/v1/admin/reviews/${review.itemId}`);
   const approvalResponse = await client.raw("POST", `/api/v1/admin/reviews/${review.itemId}/approve`, {
     headers: validationHeaders(client, currentReview.version), data: {},
@@ -430,12 +431,12 @@ async function platformInstance(client) {
 }
 
 async function assertSelectedRoute(client) {
-  const response = await client.json("GET", "/api/v1/admin/core-artifacts");
+  const response = await client.json("GET", "/api/v1/admin/runtime-targets");
   const selected = (response.items ?? []).filter((item) =>
-    item.coreId === config.coreId && item.selectedForNewBindings && item.availableForLaunch,
+    item.coreId === config.coreId && item.providerId === "retrom-runtime" && item.targetId === config.targetId,
   );
-  if (selected.length !== 1 || selected[0].routeKey !== config.routeKey) {
-    throw new Error("RPG_PROVISION_SELECTED_ROUTE_MISMATCH");
+  if (selected.length !== 1 || !/^[0-9a-f]{64}$/.test(selected[0].targetContractSha256)) {
+    throw new Error("RPG_PROVISION_SELECTED_TARGET_MISMATCH");
   }
 }
 

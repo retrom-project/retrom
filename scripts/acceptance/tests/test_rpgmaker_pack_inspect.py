@@ -30,11 +30,11 @@ CREATE TABLE job_events(id INTEGER PRIMARY KEY AUTOINCREMENT,job_id TEXT,event_t
 CREATE TABLE job_input_snapshots(job_id TEXT,execution_no INTEGER,input_json TEXT,input_digest TEXT);
 CREATE TABLE games(id TEXT,status TEXT,current_content_revision_id TEXT);
 CREATE TABLE game_variants(id TEXT,game_id TEXT,current_revision_id TEXT);
-CREATE TABLE game_variant_revisions(id TEXT,status TEXT,core_artifact_id TEXT);
-CREATE TABLE core_artifacts(id TEXT,available_for_launch INTEGER);
+CREATE TABLE runtime_targets(provider_id TEXT,target_id TEXT,target_contract_sha256 TEXT,PRIMARY KEY(provider_id,target_id));
+CREATE TABLE game_variant_revisions(id TEXT,status TEXT,provider_id TEXT,target_id TEXT,target_contract_sha256 TEXT);
 CREATE TABLE game_variant_revision_runtime_packs(game_variant_revision_id TEXT,definition_id TEXT,installation_id TEXT);
-CREATE TABLE save_states(id TEXT,game_id TEXT,game_variant_revision_id TEXT,core_artifact_id TEXT,deleted_at_ms INTEGER,payload_sha256 TEXT,payload_size_bytes INTEGER,source_launch_session_id TEXT);
-CREATE TABLE launch_sessions(id TEXT,purpose TEXT,game_id TEXT,game_variant_revision_id TEXT);
+CREATE TABLE save_states(id TEXT,game_id TEXT,game_variant_revision_id TEXT,provider_id TEXT,target_id TEXT,target_contract_sha256 TEXT,deleted_at_ms INTEGER,payload_sha256 TEXT,payload_size_bytes INTEGER,source_launch_session_id TEXT);
+CREATE TABLE launch_sessions(id TEXT,purpose TEXT,game_id TEXT,game_variant_revision_id TEXT,provider_id TEXT,target_id TEXT,target_contract_sha256 TEXT);
 CREATE TABLE game_content_revisions(id TEXT,source_ref_id TEXT);
 CREATE TABLE rpgmaker_variant_profiles(game_variant_revision_id TEXT,generation TEXT);
 CREATE TABLE review_drafts(id TEXT,import_item_id TEXT,runtime_binding_revision INTEGER);
@@ -106,17 +106,23 @@ def seed_protected_references(database: sqlite3.Connection, observed: dict) -> N
         ("publishedVariant", "rgss1_standard"), ("restorableCheckpoint", "rgss2_rpgvx"),
     )):
         reference = protected[role]
-        artifact_id = pack_uuid(200 + index)
         variant_id = pack_uuid(210 + index)
         revision_id = pack_uuid(220 + index)
-        database.execute("INSERT INTO core_artifacts VALUES(?,1)", (artifact_id,))
+        target_id = "rpgmaker-xp" if role == "publishedVariant" else "rpgmaker-vx"
+        target_contract = f"{index + 70:064x}"
+        database.execute(
+            "INSERT INTO runtime_targets VALUES('retrom-runtime',?,?)", (target_id, target_contract),
+        )
         database.execute(
             "INSERT INTO runtime_asset_pack_installations VALUES(?,?,?,?,1,10,?,NULL)",
             (reference["installationId"], "READY", definition, f"{index + 90:064x}", f"{index + 92:064x}"),
         )
         database.execute("INSERT INTO games VALUES(?,'PUBLISHED',?)", (reference["gameId"], pack_uuid(230 + index)))
         database.execute("INSERT INTO game_variants VALUES(?,?,?)", (variant_id, reference["gameId"], revision_id))
-        database.execute("INSERT INTO game_variant_revisions VALUES(?,'READY',?)", (revision_id, artifact_id))
+        database.execute(
+            "INSERT INTO game_variant_revisions VALUES(?,'READY','retrom-runtime',?,?)",
+            (revision_id, target_id, target_contract),
+        )
         database.execute(
             "INSERT INTO game_variant_revision_runtime_packs VALUES(?,?,?)",
             (revision_id, definition, reference["installationId"]),
@@ -124,13 +130,13 @@ def seed_protected_references(database: sqlite3.Connection, observed: dict) -> N
         if role == "restorableCheckpoint":
             launch_id = pack_uuid(240)
             database.execute(
-                "INSERT INTO launch_sessions VALUES(?,'PRODUCT',?,?)",
-                (launch_id, reference["gameId"], revision_id),
+                "INSERT INTO launch_sessions VALUES(?,'PRODUCT',?,?,'retrom-runtime',?,?)",
+                (launch_id, reference["gameId"], revision_id, target_id, target_contract),
             )
             database.execute(
-                "INSERT INTO save_states VALUES(?,?,?,?,NULL,?,?,?)",
-                (reference["saveStateId"], reference["gameId"], revision_id, artifact_id,
-                 "a" * 64, 64, launch_id),
+                "INSERT INTO save_states VALUES(?,?,?,'retrom-runtime',?,?,NULL,?,?,?)",
+                (reference["saveStateId"], reference["gameId"], revision_id, target_id,
+                 target_contract, "a" * 64, 64, launch_id),
             )
 
 
@@ -139,12 +145,18 @@ def seed_review_relations(database: sqlite3.Connection, observed: dict) -> None:
         content_id = pack_uuid(250 + index)
         variant_id = pack_uuid(260 + index)
         revision_id = pack_uuid(270 + index)
-        artifact_id = pack_uuid(280 + index)
-        database.execute("INSERT INTO core_artifacts VALUES(?,1)", (artifact_id,))
+        target_id = "rpgmaker-xp"
+        target_contract = f"{index + 110:064x}"
+        database.execute(
+            "INSERT OR IGNORE INTO runtime_targets VALUES('retrom-runtime',?,?)", (target_id, target_contract),
+        )
         database.execute("INSERT INTO games VALUES(?,'PUBLISHED',?)", (item["gameId"], content_id))
         database.execute("INSERT INTO game_content_revisions VALUES(?,?)", (content_id, item["itemId"]))
         database.execute("INSERT INTO game_variants VALUES(?,?,?)", (variant_id, item["gameId"], revision_id))
-        database.execute("INSERT INTO game_variant_revisions VALUES(?,'READY',?)", (revision_id, artifact_id))
+        database.execute(
+            "INSERT INTO game_variant_revisions VALUES(?,'READY','retrom-runtime',?,?)",
+            (revision_id, target_id, target_contract),
+        )
         database.execute("INSERT INTO rpgmaker_variant_profiles VALUES(?,?)", (revision_id, item["generation"]))
     selected = [
         item for item in observed["reviews"]["matcherRejections"]
@@ -183,6 +195,14 @@ def seed_zero_release(database: sqlite3.Connection, observed: dict) -> None:
 
 
 class RPGMakerPackInspectTests(unittest.TestCase):
+    def test_inspector_uses_provider_target_identity(self) -> None:
+        source = MODULE_PATH.read_text()
+        self.assertNotIn("core_artifacts", source)
+        self.assertNotIn("core_artifact_id", source)
+        self.assertIn("target.target_contract_sha256", source)
+        self.assertIn('"providerId"', source)
+        self.assertIn('"targetId"', source)
+
     def test_inspector_proves_database_relations_without_writing(self) -> None:
         observed = pack_evidence_payload()
         observed["status"] = "OBSERVED"

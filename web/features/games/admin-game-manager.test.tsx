@@ -40,7 +40,7 @@ const game: AdminGame = {
   metadataRevisions: [{ id: "metadata-1", sourceKind: "MANUAL", sourceRefId: null, current: true, createdAtMs: 200 }],
   assets: [],
   contentRevisions: [{ id: "content-1", sourceKind: "IMPORT", sourceRefId: "upload-1", contentKind: "SINGLE", current: true, createdAtMs: 150, files: [{ role: "CONTENT", logicalName: "1943.zip", sortOrder: 0, sizeBytes: 4, sha256: "a".repeat(64) }] }],
-  variants: [{ id: "variant-1", coreId: "fbneo", coreName: "FinalBurn Neo", currentRevisionId: "variant-revision-1", version: 1, revisions: [{ id: "variant-revision-1", contentRevisionId: "content-1", coreArtifactId: "artifact-1", datVersionId: null, status: "READY", compatibilityCode: "READY", current: true, createdAtMs: 180 }] }],
+  variants: [{ id: "variant-1", coreId: "fbneo", coreName: "FinalBurn Neo", currentRevisionId: "variant-revision-1", version: 1, revisions: [{ id: "variant-revision-1", contentRevisionId: "content-1", datVersionId: null, status: "READY", compatibilityCode: "READY", current: true, createdAtMs: 180 }] }],
 };
 
 const directories: PlatformInstanceOption[] = [
@@ -291,7 +291,7 @@ describe("AdminGameManager", () => {
         id: "rpg-variant", coreId: "rpgmaker_2000", coreName: "RPG Maker 2000",
         currentRevisionId: "rpg-revision", version: 1,
         revisions: [{
-          id: "rpg-revision", contentRevisionId: "rpg-content", coreArtifactId: "rpg-artifact",
+          id: "rpg-revision", contentRevisionId: "rpg-content",
           datVersionId: null, status: "READY", compatibilityCode: "READY", current: true, createdAtMs: 180,
         }],
       }],

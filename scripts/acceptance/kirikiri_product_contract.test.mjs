@@ -56,7 +56,7 @@ function evidence() {
       saveStateId: "01a0452f-bc6d-7d0a-b975-891ece6a0cc9",
     },
     immersiveMenu: { actions: ["取消", "创建存档", "退出游戏"], screenshot: "screenshots/immersive-exit-menu.png" },
-    checkpoint: { payloadKind: "KIRIKIRI_SAVE_BUNDLE_V1", sizeBytes: 128_000 },
+    checkpoint: { format: "kirikiri-save-bundle-v1", sizeBytes: 128_000 },
     restoreComparison: {
       discriminativePixelCount: 160, matched: true,
       restoredToBMeanDistance: 12, restoredToCMeanDistance: 120,

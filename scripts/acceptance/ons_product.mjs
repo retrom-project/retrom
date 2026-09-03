@@ -137,7 +137,7 @@ async function runProductCase(activeBrowser) {
         importItemId: review.itemId, gameId: approved.gameId, saveStateId: saved.saveStateId,
         originalLaunchId: original.launchId, restoreLaunchId: restored.launchId,
       },
-      checkpoint: { payloadKind: saved.payloadKind, sizeBytes: payloadSize },
+      checkpoint: { format: saved.checkpointFormat, sizeBytes: payloadSize },
       loading: {
         schemaVersion: 1,
         sameProjectContentIdentity: firstVisibleLoading.projectContentIdentity !== null &&

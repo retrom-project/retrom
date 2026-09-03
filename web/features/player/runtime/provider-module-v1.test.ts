@@ -28,6 +28,36 @@ describe("Provider Module V1 dispatcher", () => {
     expect(createRuntime).toHaveBeenCalledWith(envelope, host);
   });
 
+  it("invokes the default browser fetch with the global receiver", async () => {
+    const envelope = fixtureEnvelope();
+    const runtime = fixtureRuntime();
+    const originalFetch = globalThis.fetch;
+    const browserFetch = vi.fn(function(this: unknown) {
+      if (this !== globalThis) {throw new TypeError("Illegal invocation");}
+      return Promise.resolve(new Response("export{}", {
+        headers: {"content-length": "8", "content-type": "text/javascript; charset=utf-8"},
+      }));
+    });
+    vi.stubGlobal("fetch", browserFetch);
+    try {
+      await expect(loadProviderRuntime(envelope, fixtureHost(), async () => ({
+        createRuntime: vi.fn(async () => runtime),
+        providerApiVersion: 1,
+        providerId: "fixture",
+        providerVersion: "1.0.0",
+        validateLaunchRequest: vi.fn((value) => value),
+      }), {
+        createModuleUrl: vi.fn(() => "blob:retrom-provider"),
+        crossOriginIsolated: true,
+        revokeModuleUrl: vi.fn(),
+        sha256: vi.fn(async () => envelope.runtime.moduleSha256),
+      })).resolves.toBe(runtime);
+    } finally {
+      vi.stubGlobal("fetch", originalFetch);
+    }
+    expect(browserFetch).toHaveBeenCalledOnce();
+  });
+
   it("rejects identity mismatches and modules with extra exports", async () => {
     const envelope = fixtureEnvelope();
     const base = {
