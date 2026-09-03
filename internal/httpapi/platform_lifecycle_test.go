@@ -19,7 +19,7 @@ import (
 func TestPlatformLifecycleUsesImpactDigestVersioningAndAudit(t *testing.T) {
 	t.Parallel()
 	server := newTestServer(t)
-	seedHTTPTestCoreArtifact(t, server.database, "01980000-0000-7000-8000-000000000099", "mgba", "data/cores/mgba-test.data", strings.Repeat("a", 64), "{}")
+	requireHTTPTestRuntimeTarget(t, server.database, "mgba")
 	handler := server.Handler()
 	cookie, csrfToken := testSessionCredentials()
 	send := func(method, target, body string, headers map[string]string) *httptest.ResponseRecorder {

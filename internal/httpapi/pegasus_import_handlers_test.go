@@ -37,7 +37,7 @@ func TestPegasusImportHTTPScanMappingAndSourceDrift(t *testing.T) {
 		[]config.ServerImportRoot{{ID: "games", Label: "Game Library", Path: root, CanonicalPath: root}}, time.Now,
 	)
 	server.pegasusImports.Start()
-	seedHTTPTestCoreArtifact(t, server.database, "pegasus-http-artifact", "fceumm", "data/pegasus-http.js", strings.Repeat("0", 64), "{}")
+	requireHTTPTestRuntimeTarget(t, server.database, "fceumm")
 	handler := server.Handler()
 	cookie, csrf := testSessionCredentials()
 

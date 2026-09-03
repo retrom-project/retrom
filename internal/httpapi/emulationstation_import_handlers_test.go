@@ -247,7 +247,7 @@ func writeEmulationStationHTTPFixture(t *testing.T, path, title string) {
 
 func seedEmulationStationHTTPArtifact(t *testing.T, server *Server) {
 	t.Helper()
-	seedHTTPTestCoreArtifact(t, server.database, "emulationstation-http-artifact", "fceumm", "data/emulationstation-http.js", strings.Repeat("0", 64), `{"schemaVersion":5,"supportedContentKinds":["SINGLE_FILE"]}`)
+	requireHTTPTestRuntimeTarget(t, server.database, "fceumm")
 }
 
 func waitForEmulationStationMapping(

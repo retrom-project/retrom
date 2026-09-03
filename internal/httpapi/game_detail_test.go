@@ -45,16 +45,12 @@ func mustExecHTTPTest(t *testing.T, execer httpTestSQLExecer, query string, argu
 	testassert.False(t, err != nil, err)
 }
 
-func seedHTTPTestCoreArtifact(
+func requireHTTPTestRuntimeTarget(
 	t *testing.T,
 	execer httpTestSQLExecer,
-	id, coreID, entryPath, entrySHA256, compatibility string,
+	coreID string,
 ) {
 	t.Helper()
-	_ = id
-	_ = entryPath
-	_ = entrySHA256
-	_ = compatibility
 	if _, err := testsupport.LookupRuntimeTarget(context.Background(), execer, coreID); err != nil {
 		t.Fatal(err)
 	}
@@ -91,14 +87,13 @@ func TestGameDetailReturnsCoreValidationChoicesAndDOSPrograms(t *testing.T) {
 	variantID := "01980000-0000-7000-8000-000000000106"
 	variantRevisionID := "01980000-0000-7000-8000-000000000107"
 	saveStateID := "01980000-0000-7000-8000-000000000108"
-	coreArtifactID := "01980000-0000-7000-8000-000000000109"
 	transaction, err := server.database.BeginTx(context.Background(), nil)
 	testassert.False(t, err != nil, err)
 	defer cleanup.Rollback(transaction)
 	now := time.Now().UnixMilli()
 	fixture := gameDetailSeed{now: now}
 	seedGameDetailMedia(t, server, transaction, gameID, metadataID, contentID, coverBlobID, coverAssetID, videoAssetID, &fixture)
-	seedGameDetailRuntime(t, server, transaction, gameID, contentID, variantID, variantRevisionID, saveStateID, coreArtifactID, &fixture)
+	seedGameDetailRuntime(t, server, transaction, gameID, contentID, variantID, variantRevisionID, saveStateID, &fixture)
 	videoPayload, screenshot := fixture.videoPayload, fixture.screenshot
 	videoMetadata := fixture.videoMetadata
 	latestLaunchID, videoBlobID, screenshotBlobID := fixture.latestLaunchID, fixture.videoBlobID, fixture.screenshotBlobID
@@ -175,7 +170,7 @@ func TestGameDetailReturnsCoreValidationChoicesAndDOSPrograms(t *testing.T) {
 	missingGameSaves := httptest.NewRecorder()
 	server.Handler().ServeHTTP(missingGameSaves, httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/saves?gameId="+uuid.NewString(), nil))
 	testassert.Falsef(t, testassert.Any(func() bool { return missingGameSaves.Code != http.StatusOK }, func() bool { return !strings.Contains(missingGameSaves.Body.String(), `"items":[]`) }), "save missing game filter = %d: %s", missingGameSaves.Code, missingGameSaves.Body.String())
-	assertGameHomeAndActivity(t, server, gameID, variantRevisionID, coreArtifactID, screenshotBlobID, latestLaunchID, now, expectedCoverURL, saveStateID, screenshot)
+	assertGameHomeAndActivity(t, server, gameID, variantRevisionID, screenshotBlobID, latestLaunchID, now, expectedCoverURL, saveStateID, screenshot)
 	assertScreenshotlessSaveProjections(t, server, gameID)
 	assertGameProfileIsolation(t, server, gameID, saveStateID, now)
 	assertGameAdminMutations(t, server, gameID, contentID, coverBlobID, now, videoPayload, videoMetadata, videoBlobID)
@@ -201,7 +196,7 @@ func assertScreenshotlessSaveProjections(t *testing.T, server *Server, gameID st
 
 func assertGameHomeAndActivity(
 	t *testing.T, server *Server,
-	gameID, variantRevisionID, _ string, screenshotBlobID, latestLaunchID string,
+	gameID, variantRevisionID, screenshotBlobID, latestLaunchID string,
 	now int64, expectedCoverURL, saveStateID string, screenshot []byte,
 ) {
 	home := httptest.NewRecorder()
@@ -785,7 +780,7 @@ VALUES(?,?,?,?,'VIDEO',0,NULL,NULL,'video/mp4',?)
 
 func seedGameDetailRuntime(
 	t *testing.T, server *Server, transaction *sql.Tx,
-	gameID, contentID, variantID, variantRevisionID, saveStateID, coreArtifactID string,
+	gameID, contentID, variantID, variantRevisionID, saveStateID string,
 	fixture *gameDetailSeed,
 ) {
 	now := fixture.now
@@ -811,7 +806,7 @@ direct_launch_safe) VALUES(?,
 1,
 0)
 `, contentID, contentID)
-	seedHTTPTestCoreArtifact(t, transaction, coreArtifactID, "dosbox_pure", "cores/dosbox_pure.js", strings.Repeat("6", 64), "{}")
+	requireHTTPTestRuntimeTarget(t, transaction, "dosbox_pure")
 	target, err := testsupport.LookupRuntimeTarget(t.Context(), transaction, "dosbox_pure")
 	testassert.False(t, err != nil, err)
 	mustExecHTTPTest(t, transaction, `
