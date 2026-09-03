@@ -94,13 +94,28 @@ export function overlayFile(files, path, relativePath) {
   return mergeFiles(files, [{ ...source, relativePath }]);
 }
 
-export async function reviewForImport(client, importJobId) {
-  const queue = await client.json("GET", `/api/v1/admin/reviews?importJobId=${encodeURIComponent(importJobId)}&limit=20`);
-  if (Array.isArray(queue.items) && queue.items.length === 1) {
-    return client.json("GET", `/api/v1/admin/reviews/${queue.items[0].itemId}`);
+export async function reviewForImport(client, importJobId, options = {}) {
+  const attempts = options.attempts ?? 300;
+  const waitMs = options.waitMs ?? 100;
+  if (!Number.isInteger(attempts) || attempts < 1 || !Number.isInteger(waitMs) || waitMs < 0) {
+    throw new Error("RPG_ACCEPTANCE_SECURITY_REVIEW_WAIT_INVALID");
   }
-  const job = await client.json("GET", `/api/v1/admin/imports/${importJobId}`);
-  requireFreshImportReview(queue, job);
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    const queue = await client.json(
+      "GET", `/api/v1/admin/reviews?importJobId=${encodeURIComponent(importJobId)}&limit=20`,
+    );
+    if (Array.isArray(queue.items) && queue.items.length === 1) {
+      return client.json("GET", `/api/v1/admin/reviews/${queue.items[0].itemId}`);
+    }
+    const job = await client.json("GET", `/api/v1/admin/imports/${importJobId}`);
+    requireFreshImportReview(queue, job);
+    if (!Array.isArray(queue.items) || queue.items.length > 1) {
+      throw new Error("RPG_ACCEPTANCE_SECURITY_REVIEW_CARDINALITY");
+    }
+    if (attempt + 1 < attempts) {
+      await new Promise((resolvePromise) => setTimeout(resolvePromise, waitMs));
+    }
+  }
   throw new Error("RPG_ACCEPTANCE_SECURITY_REVIEW_CARDINALITY");
 }
 
