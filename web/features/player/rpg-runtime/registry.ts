@@ -5,37 +5,37 @@ export const rpgRuntimeRoutes = [
   {
     coreId: "rpgmaker_2000", generation: "RPG2000", routeKey: "RPG2000_EASYRPG",
     adapterKind: "EASYRPG_WEB", adapterId: "easyrpg-web", engineMode: "rpg2k",
-    runtimeVersion: "v0.11.3",
+    runtimeVersion: "v0.11.4",
   },
   {
     coreId: "rpgmaker_2003", generation: "RPG2003", routeKey: "RPG2003_EASYRPG",
     adapterKind: "EASYRPG_WEB", adapterId: "easyrpg-web", engineMode: "rpg2k3",
-    runtimeVersion: "v0.11.3",
+    runtimeVersion: "v0.11.4",
   },
   {
     coreId: "rpgmaker_xp", generation: "RPGXP", routeKey: "RPGXP_MKXP",
     adapterKind: "MKXP_LIBRETRO_WEB", adapterId: "mkxp-libretro-web", rgssVersion: 1,
-    runtimeVersion: "v0.11.3",
+    runtimeVersion: "v0.11.4",
   },
   {
     coreId: "rpgmaker_vx", generation: "RPGVX", routeKey: "RPGVX_MKXP",
     adapterKind: "MKXP_LIBRETRO_WEB", adapterId: "mkxp-libretro-web", rgssVersion: 2,
-    runtimeVersion: "v0.11.3",
+    runtimeVersion: "v0.11.4",
   },
   {
     coreId: "rpgmaker_vx_ace", generation: "RPGVXACE", routeKey: "RPGVXACE_MKXP",
     adapterKind: "MKXP_LIBRETRO_WEB", adapterId: "mkxp-libretro-web", rgssVersion: 3,
-    runtimeVersion: "v0.11.3",
+    runtimeVersion: "v0.11.4",
   },
   {
     coreId: "rpgmaker_mv", generation: "RPGMV", routeKey: "RPGMV_NATIVE",
     adapterKind: "NATIVE_WEB", adapterId: "native-web", bridgeProfile: "RPGMV",
-    runtimeVersion: "v0.11.3",
+    runtimeVersion: "v0.11.4",
   },
   {
     coreId: "rpgmaker_mz", generation: "RPGMZ", routeKey: "RPGMZ_NATIVE",
     adapterKind: "NATIVE_WEB", adapterId: "native-web", bridgeProfile: "RPGMZ",
-    runtimeVersion: "v0.11.3",
+    runtimeVersion: "v0.11.4",
   },
 ] as const;
 

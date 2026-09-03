@@ -14,7 +14,7 @@ function config() {
   return {
     runtimeFamily: "TYRANOSCRIPT", protocolVersion: 1, mode: "single", purpose: "PRODUCT",
     launchId, sessionId: launchId, coreId: "tyranoscript", coreName: "TyranoScript",
-    gameTitle: "TyranoScript fixture", platformName: "TyranoScript", runtimeVersion: "v0.11.3", artifactId,
+    gameTitle: "TyranoScript fixture", platformName: "TyranoScript", runtimeVersion: "v0.11.4", artifactId,
     contentDigest: "a".repeat(64), returnTo: "/games/game-1", warnings: [],
     adapter: {
       adapterKind: "TYRANOSCRIPT_WEB", adapterId: "tyranoscript-web",
