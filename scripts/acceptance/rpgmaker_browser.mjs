@@ -224,7 +224,10 @@ async function generationCase(context, writeHeaders) {
     ? await collectOriginInventory(page, new URL(runtimeFrameURL, baseUrl).origin, observedResponses)
     : null;
   progress("first-launch-origin-inventory");
+  assertNoPlayerErrors(pageErrors, runtimeExceptions);
   await page.close();
+  pageErrors.length = 0;
+  runtimeExceptions.length = 0;
   const cacheLaunch = await jsonRequest(context.request, "POST", "/api/v1/launches", {
     headers: writeHeaders(), expected: 201,
     data: {
@@ -249,14 +252,8 @@ async function generationCase(context, writeHeaders) {
   );
   progress("cache-launch-loading-snapshot");
   cacheLoadingProbe.stop();
+  assertNoPlayerErrors(pageErrors, runtimeExceptions);
   await cachePage.close();
-  if (pageErrors.length) {
-    const details = [
-      ...pageErrors.slice(0, 5),
-      ...runtimeExceptions.slice(0, 5).map((value) => JSON.stringify(value)),
-    ].map((value) => value.slice(0, 1_200)).join(" | ");
-    throw new Error(`RPG_ACCEPTANCE_PLAYER_PAGE_ERROR:${details}`);
-  }
   const sameProjectContentIdentity = firstVisibleLoading.projectContentIdentity === null &&
       cacheVisibleLoading.projectContentIdentity === null
     ? null
@@ -291,6 +288,15 @@ async function generationCase(context, writeHeaders) {
       `screenshots/${caseId.toLowerCase()}-product-player.png`,
     ],
   };
+}
+
+function assertNoPlayerErrors(pageErrors, runtimeExceptions) {
+  if (!pageErrors.length && !runtimeExceptions.length) {return;}
+  const details = [
+    ...pageErrors.slice(0, 5),
+    ...runtimeExceptions.slice(0, 5).map((value) => JSON.stringify(value)),
+  ].map((value) => value.slice(0, 1_200)).join(" | ");
+  throw new Error(`RPG_ACCEPTANCE_PLAYER_PAGE_ERROR:${details}`);
 }
 
 function projectLoadingDeclarations(config) {

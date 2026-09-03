@@ -454,6 +454,15 @@ class EvidenceContractTests(unittest.TestCase):
         self.assertEqual(2, source.count("trackRuntimeLoading("))
         self.assertEqual(3, source.count("loadingProbeOptions"))
 
+    def test_generation_browser_rejects_runtime_errors_before_tearing_down_each_page(self) -> None:
+        source = BROWSER_PATH.read_text()
+        first_stop = source.index("loadingProbe.stop();")
+        first_close = source.index("await page.close();", first_stop)
+        cache_stop = source.index("cacheLoadingProbe.stop();")
+        cache_close = source.index("await cachePage.close();", cache_stop)
+        self.assertLess(first_stop, source.index("assertNoPlayerErrors(", first_stop, first_close))
+        self.assertLess(cache_stop, source.index("assertNoPlayerErrors(", cache_stop, cache_close))
+
     def test_generation_provision_covers_all_seven_current_targets_and_state_inputs(self) -> None:
         source = GENERATION_PROVISION_PATH.read_text()
         expected = {
