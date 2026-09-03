@@ -211,9 +211,12 @@ func (service *Service) providerEnvelope(
 		if resumeErr != nil {
 			return Config{}, resumeErr
 		}
-		expectedRestorePosition, resumeErr = providerExpectedRestorePosition(sessionID, resume)
+		position, restorePositionPresent, resumeErr := providerExpectedRestorePosition(sessionID, resume)
 		if resumeErr != nil {
 			return Config{}, resumeErr
+		}
+		if restorePositionPresent {
+			expectedRestorePosition = &position
 		}
 		validation = map[string]any{"probeId": "rpgmaker.position.v1", "input": map[string]any{
 			"generation": source.generation, "resume": resume,
@@ -314,30 +317,46 @@ func providerWarnings(source providerConfigSource) []string {
 func providerExpectedRestorePosition(
 	launchID string,
 	resume providerValidationResume,
-) (*rpgvalidation.Position, error) {
+) (rpgvalidation.Position, bool, error) {
 	if resume.RestoreLaunchID == nil || *resume.RestoreLaunchID != launchID {
-		return nil, nil
+		return rpgvalidation.Position{}, false, nil
 	}
 	for _, encoded := range resume.MachineGates {
-		var gate struct {
-			Gate     string          `json:"gate"`
-			Status   string          `json:"status"`
-			Evidence json.RawMessage `json:"evidence"`
-		}
-		if json.Unmarshal(encoded, &gate) != nil || gate.Gate != "SAVE_POINT_RECORDED" || gate.Status != "PASSED" {
+		evidence, recorded := providerRecordedPositionEvidence(encoded)
+		if !recorded {
 			continue
 		}
-		var shape map[string]json.RawMessage
-		var position rpgvalidation.Position
-		if json.Unmarshal(gate.Evidence, &shape) != nil || len(shape) != 4 ||
-			shape["mapId"] == nil || shape["playerX"] == nil || shape["playerY"] == nil ||
-			shape["fixtureState"] == nil || json.Unmarshal(gate.Evidence, &position) != nil ||
-			position.MapID < 0 || position.PlayerX < 0 || position.PlayerY < 0 || position.FixtureState < 0 {
-			return nil, ErrCredential
+		position, err := providerPositionEvidence(evidence)
+		if err != nil {
+			return rpgvalidation.Position{}, false, err
 		}
-		return &position, nil
+		return position, true, nil
 	}
-	return nil, ErrCredential
+	return rpgvalidation.Position{}, false, ErrCredential
+}
+
+func providerRecordedPositionEvidence(encoded json.RawMessage) (json.RawMessage, bool) {
+	var gate struct {
+		Gate     string          `json:"gate"`
+		Status   string          `json:"status"`
+		Evidence json.RawMessage `json:"evidence"`
+	}
+	if json.Unmarshal(encoded, &gate) != nil || gate.Gate != "SAVE_POINT_RECORDED" || gate.Status != "PASSED" {
+		return nil, false
+	}
+	return gate.Evidence, true
+}
+
+func providerPositionEvidence(evidence json.RawMessage) (rpgvalidation.Position, error) {
+	var shape map[string]json.RawMessage
+	var position rpgvalidation.Position
+	if json.Unmarshal(evidence, &shape) != nil || len(shape) != 4 ||
+		shape["mapId"] == nil || shape["playerX"] == nil || shape["playerY"] == nil ||
+		shape["fixtureState"] == nil || json.Unmarshal(evidence, &position) != nil ||
+		position.MapID < 0 || position.PlayerX < 0 || position.PlayerY < 0 || position.FixtureState < 0 {
+		return rpgvalidation.Position{}, ErrCredential
+	}
+	return position, nil
 }
 
 func providerTargetOptions(

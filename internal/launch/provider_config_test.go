@@ -33,11 +33,14 @@ func TestProviderTargetOptionsIncludesValidationRestorePosition(t *testing.T) {
 			json.RawMessage(`{"gate":"SAVE_POINT_RECORDED","status":"PASSED","evidence":{"mapId":1,"playerX":10,"playerY":8,"fixtureState":1}}`),
 		},
 	}
-	position, err := providerExpectedRestorePosition(restoreLaunchID, resume)
+	position, present, err := providerExpectedRestorePosition(restoreLaunchID, resume)
 	if err != nil {
 		t.Fatalf("expected restore position: %v", err)
 	}
-	options, err := providerTargetOptions("RPGMAKER_V1", providerConfigSource{}, position)
+	if !present {
+		t.Fatal("expected restore position was not reported as present")
+	}
+	options, err := providerTargetOptions("RPGMAKER_V1", providerConfigSource{}, &position)
 	if err != nil {
 		t.Fatalf("RPG Maker target options: %v", err)
 	}
@@ -55,7 +58,7 @@ func TestProviderTargetOptionsIncludesValidationRestorePosition(t *testing.T) {
 func TestProviderExpectedRestorePositionFailsClosedWithoutSavedGate(t *testing.T) {
 	t.Parallel()
 	restoreLaunchID := "10000000-0000-4000-8000-000000000002"
-	_, err := providerExpectedRestorePosition(restoreLaunchID, providerValidationResume{
+	_, _, err := providerExpectedRestorePosition(restoreLaunchID, providerValidationResume{
 		RestoreLaunchID: &restoreLaunchID,
 		MachineGates:    []json.RawMessage{json.RawMessage(`{"gate":"SAVE_POINT_RECORDED","status":"IN_PROGRESS","evidence":null}`)},
 	})
