@@ -477,6 +477,9 @@ class EvidenceContractTests(unittest.TestCase):
     def test_generation_browser_preserves_runtime_exception_properties_and_network_context(self) -> None:
         source = BROWSER_PATH.read_text()
         self.assertIn('cdp.send("Runtime.getProperties"', source)
+        self.assertIn('cdp.send("Runtime.callFunctionOn"', source)
+        self.assertIn("stack: String(runtimeStack", source)
+        self.assertIn("JSON.stringify(value).slice(0, 6_000)", source)
         self.assertIn("const runtimeExceptionTasks = [];", source)
         self.assertIn("await Promise.allSettled(runtimeExceptionTasks);", source)
         self.assertIn("properties: properties.slice(0, 16).map", source)
