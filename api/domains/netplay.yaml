@@ -261,7 +261,9 @@ components:
         - id
         - coreId
         - coreName
-        - emulatorjsVersion
+        - providerId
+        - targetId
+        - netplayCompatibilityLine
         - maxPlayers
       properties:
         id:
@@ -271,7 +273,13 @@ components:
           type: string
         coreName:
           type: string
-        emulatorjsVersion:
+        providerId:
+          type: string
+          pattern: ^[a-z0-9-]{1,64}$
+        targetId:
+          type: string
+          pattern: ^[a-z0-9-]{1,64}$
+        netplayCompatibilityLine:
           type: string
         maxPlayers:
           type: integer
@@ -410,7 +418,8 @@ components:
         - platformName
         - profileId
         - coreName
-        - emulatorjsVersion
+        - providerId
+        - targetId
         - maxPlayers
       properties:
         gameId:
@@ -434,8 +443,12 @@ components:
           type: string
         coreName:
           type: string
-        emulatorjsVersion:
+        providerId:
           type: string
+          pattern: ^[a-z0-9-]{1,64}$
+        targetId:
+          type: string
+          pattern: ^[a-z0-9-]{1,64}$
         maxPlayers:
           type: integer
           minimum: 2

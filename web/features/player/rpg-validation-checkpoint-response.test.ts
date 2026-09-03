@@ -4,9 +4,7 @@ import { parseValidationCheckpointReceipt } from "./rpg-validation-checkpoint-re
 const valid = {
   resourceKind: "RPG_RUNTIME_VALIDATION_CHECKPOINT",
   validationId: "019c9195-8775-73c5-ad38-e1bcdd301b21",
-  payloadKind: "NATIVE_SAVE_BUNDLE_V1",
-  nativeProfile: "RPGMV_V1",
-  resumeSlot: 1,
+  checkpointFormat: "rpgmaker-mv-v1",
   sizeBytes: 3,
   sha256: "039058c6f2c0cb492c533b0a4d14ef77cc0f78abccced5287d84a1a2011cfb81",
   createdAtMs: 1,
@@ -15,7 +13,7 @@ const valid = {
 describe("parseValidationCheckpointReceipt", () => {
   it("returns only the server-authoritative checkpoint gate evidence", () => {
     expect(parseValidationCheckpointReceipt(JSON.stringify(valid))).toEqual({
-      payloadKind: "NATIVE_SAVE_BUNDLE_V1",
+      checkpointFormat: "rpgmaker-mv-v1",
       sizeBytes: 3,
       sha256: valid.sha256,
     });

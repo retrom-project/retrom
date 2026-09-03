@@ -146,7 +146,8 @@ func (service *Service) resolveMultiDiscAttachmentValidation(
 		return nil, "", ErrInvalid
 	}
 	snapshot, status, code, err := corevalidation.ResolveBIOS(
-		ctx, transaction, candidate.input.CoreArtifactID, candidate.resultEntries[0].File.LogicalName,
+		ctx, transaction, candidate.input.ProviderID, candidate.input.TargetID,
+		candidate.resultEntries[0].File.LogicalName,
 	)
 	if err != nil {
 		return nil, "", multiDiscAttachmentStoreError("resolve BIOS", err)
@@ -187,36 +188,63 @@ func currentMultiDiscAttachmentInput(
 	transaction *sql.Tx,
 	candidate multiDiscAttachmentCandidate,
 ) (string, error) {
-	var itemState, snapshotID, platformID, targetID, coreID, artifactID, compatibility string
-	var platformVersion, artifactVersion int64
+	var current currentMultiDiscInput
 	if err := transaction.QueryRowContext(ctx, `
 SELECT item.state,draft.effective_source_snapshot_id,platform.platform_id,platform.id,
-platform.version,platform.default_core_id,artifact.id,artifact.version,artifact.compatibility_json
+platform.version,platform.default_core_id,target.provider_id,target.target_id,
+target.target_contract_sha256,target.game_compatibility_line,
+json_object(
+  'schemaVersion',1,
+  'supportedContentKinds',json((SELECT json_group_array(content_kind) FROM (
+    SELECT content_kind FROM runtime_binding_content_kinds kinds
+    WHERE kinds.binding_id=runtime_binding.binding_id ORDER BY content_kind
+  ))),
+  'multiDisc',json_object('maxDiscs',8,'maxTotalBytes',1073741824,'delivery','EAGER_EXTERNAL_FILES')
+)
 FROM import_items item
 JOIN review_drafts draft ON draft.id=? AND draft.import_item_id=item.id
 JOIN platform_instances platform ON platform.id=draft.target_platform_instance_id
 AND platform.enabled=1 AND platform.deleted_at_ms IS NULL
-JOIN core_artifacts artifact ON artifact.core_id=platform.default_core_id AND artifact.selected_for_new_bindings=1
-WHERE item.id=?
-`, candidate.input.ReviewDraftID, candidate.input.ImportItemID).Scan(
-		&itemState, &snapshotID, &platformID, &targetID, &platformVersion, &coreID,
-		&artifactID, &artifactVersion, &compatibility,
+JOIN runtime_target_bindings runtime_binding ON runtime_binding.core_id=platform.default_core_id
+  AND runtime_binding.launch_policy<>'DISABLED'
+JOIN runtime_binding_platforms platform_binding ON platform_binding.binding_id=runtime_binding.binding_id
+  AND platform_binding.platform_id=platform.platform_id
+JOIN runtime_targets target ON target.provider_id=runtime_binding.provider_id
+  AND target.target_id=runtime_binding.target_id
+	WHERE item.id=?
+	`, candidate.input.ReviewDraftID, candidate.input.ImportItemID).Scan(
+		&current.itemState, &current.snapshotID, &current.platformID, &current.platformInstanceID,
+		&current.platformVersion, &current.coreID, &current.providerID, &current.targetID,
+		&current.targetContract, &current.gameLine, &current.contentPolicy,
 	); err != nil {
 		return "", multiDiscAttachmentStoreError("read current input", err)
 	}
-	if itemState != "REVIEW_PENDING" || snapshotID != candidate.input.BaseSourceSnapshotID ||
-		platformID != candidate.input.TargetPlatformID || targetID != candidate.input.PlatformInstanceID ||
-		platformVersion != candidate.input.PlatformVersion || coreID != candidate.input.CoreID ||
-		artifactID != candidate.input.CoreArtifactID || artifactVersion != candidate.input.CoreArtifactVersion ||
-		compatibilityConfigDigest(compatibility) != candidate.input.CompatibilityDigest {
+	if !current.matches(candidate.input) {
 		return "", ErrInvalid
 	}
-	capabilities := contentcapability.Resolve(platformID, true, true, compatibility)
+	capabilities := contentcapability.Resolve(current.platformID, true, true, current.contentPolicy)
 	if capabilities.MultiDisc == nil || capabilities.MultiDisc.MaxDiscs != candidate.input.MaxDiscs ||
 		capabilities.MultiDisc.MaxTotalBytes != candidate.input.MaxTotalBytes {
 		return "", ErrInvalid
 	}
-	return compatibility, nil
+	return current.contentPolicy, nil
+}
+
+type currentMultiDiscInput struct {
+	itemState, snapshotID, platformID, platformInstanceID, coreID string
+	providerID, targetID, targetContract, gameLine, contentPolicy string
+	platformVersion                                               int64
+}
+
+func (current currentMultiDiscInput) matches(expected multiDiscAttachmentInput) bool {
+	return current.itemState == "REVIEW_PENDING" && current.snapshotID == expected.BaseSourceSnapshotID &&
+		current.platformID == expected.TargetPlatformID &&
+		current.platformInstanceID == expected.PlatformInstanceID &&
+		current.platformVersion == expected.PlatformVersion && current.coreID == expected.CoreID &&
+		current.providerID == expected.ProviderID && current.targetID == expected.TargetID &&
+		current.targetContract == expected.TargetContractSHA256 &&
+		current.gameLine == expected.GameCompatibilityLine &&
+		compatibilityConfigDigest(current.contentPolicy) == expected.ContentPolicyDigest
 }
 
 func verifyMultiDiscAttachmentOwnership(
@@ -305,22 +333,25 @@ func insertMultiDiscValidation(
 		SchemaVersion: 1, ValidatorVersion: validatorMultiV4,
 		SourceSnapshotID: snapshotID, SourceManifestDigest: candidate.resultManifestDigest,
 		ContentKind: multidisc.ContentKind, TargetPlatformInstanceID: candidate.input.PlatformInstanceID,
-		PlatformInstanceVersion:   candidate.input.PlatformVersion,
-		CoreArtifactID:            candidate.input.CoreArtifactID,
-		CoreArtifactVersion:       candidate.input.CoreArtifactVersion,
-		CompatibilityConfigDigest: candidate.input.CompatibilityDigest,
-		DependencySnapshot:        json.RawMessage(dependencyJSON), Status: candidate.validationStatus,
+		PlatformInstanceVersion: candidate.input.PlatformVersion,
+		ProviderID:              candidate.input.ProviderID, TargetID: candidate.input.TargetID,
+		TargetContractSHA256:  candidate.input.TargetContractSHA256,
+		GameCompatibilityLine: candidate.input.GameCompatibilityLine,
+		ContentPolicyDigest:   candidate.input.ContentPolicyDigest,
+		DependencySnapshot:    json.RawMessage(dependencyJSON), Status: candidate.validationStatus,
 		CompatibilityCode: candidate.compatibilityCode,
 	})
 	if _, err := transaction.ExecContext(ctx, `
 INSERT INTO import_item_core_validations(id,import_item_id,target_platform_instance_id,
-platform_instance_version,core_id,core_artifact_id,core_artifact_version,prepublish_generation,
+platform_instance_version,core_id,provider_id,target_id,target_contract_sha256,game_compatibility_line,
+prepublish_generation,
 dat_version_id,default_dos_entry,source_manifest_digest,source_snapshot_id,prepublish_input_digest,
 status,compatibility_code,dependency_snapshot_json,created_at_ms)
-VALUES(?,?,?,?,?,?,?,4,NULL,NULL,?,?,?,?,?,?,?)
+VALUES(?,?,?,?,?,?,?,?,?,4,NULL,NULL,?,?,?,?,?,?,?)
 `, validationID, candidate.input.ImportItemID, candidate.input.PlatformInstanceID,
-		candidate.input.PlatformVersion, candidate.input.CoreID, candidate.input.CoreArtifactID,
-		candidate.input.CoreArtifactVersion, candidate.resultManifestDigest, snapshotID, inputDigest,
+		candidate.input.PlatformVersion, candidate.input.CoreID, candidate.input.ProviderID,
+		candidate.input.TargetID, candidate.input.TargetContractSHA256, candidate.input.GameCompatibilityLine,
+		candidate.resultManifestDigest, snapshotID, inputDigest,
 		candidate.validationStatus, candidate.compatibilityCode, dependencyJSON, now); err != nil {
 		return multiDiscAttachmentStoreError("insert validation", err)
 	}

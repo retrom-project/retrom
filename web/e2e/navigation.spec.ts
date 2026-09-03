@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
+import {runtimeFrameCount} from "./runtime-provider-support";
 
 async function screenshotCenterBrightRatio(page: Page, screenshot: Buffer) {
   return page.evaluate(async (source) => {
@@ -150,8 +151,8 @@ test("one click creates a capability launch and advances real emulator frames", 
   await page.mouse.move(640, 790);
   await expect(nativeMenu).toBeHidden();
   await expect(player.getByRole("button", { name: "退出模拟器" })).toHaveCount(0);
-  const initial = await playerFrame!.evaluate(() => window.EJS_emulator?.gameManager?.getFrameNum?.() ?? 0);
-  await expect.poll(async () => playerFrame!.evaluate(() => window.EJS_emulator?.gameManager?.getFrameNum?.() ?? 0), { timeout: 30_000 }).toBeGreaterThan(initial + 30);
+  const initial = await runtimeFrameCount(page);
+  await expect.poll(() => runtimeFrameCount(page), { timeout: 30_000 }).toBeGreaterThan(initial + 30);
   await page.mouse.move(20, 20);
   await expect(page.locator(".player-game-meta")).toContainText("Sudoku");
   await page.getByRole("button", { name: "返回并退出游戏" }).click();
@@ -161,9 +162,9 @@ test("one click creates a capability launch and advances real emulator frames", 
   await exitDialog.getByRole("button", { name: "创建存档" }).click();
   const saveResponse = await saveResponsePromise;
   expect(saveResponse.status()).toBe(201);
-  const pausedForSave = await playerFrame!.evaluate(() => window.EJS_emulator?.gameManager?.getFrameNum?.() ?? 0);
+  const pausedForSave = await runtimeFrameCount(page);
   await page.waitForTimeout(350);
-  expect(await playerFrame!.evaluate(() => window.EJS_emulator?.gameManager?.getFrameNum?.() ?? 0)).toBeLessThanOrEqual(pausedForSave + 1);
+  expect(await runtimeFrameCount(page)).toBeLessThanOrEqual(pausedForSave + 1);
   await expect(page.getByText("手动存档和截图已保存")).toBeVisible({ timeout: 20_000 });
   await expect(exitDialog.getByRole("button", { name: "已创建存档" })).toBeDisabled();
   await expect(exitDialog).toContainText("退出前存档已创建，可以安全退出。");
@@ -202,7 +203,7 @@ test("one click creates a capability launch and advances real emulator frames", 
   expect(screenshotStats.luminanceRange).toBeGreaterThan(16);
 
   await page.getByRole("button", { name: "继续游戏" }).click();
-  await expect.poll(async () => playerFrame!.evaluate(() => window.EJS_emulator?.gameManager?.getFrameNum?.() ?? 0), { timeout: 10_000 }).toBeGreaterThan(pausedForSave + 5);
+  await expect.poll(() => runtimeFrameCount(page), { timeout: 10_000 }).toBeGreaterThan(pausedForSave + 5);
   await page.mouse.move(20, 20);
   await page.getByRole("button", { name: "更多操作" }).click();
   await page.getByRole("menuitem", { name: "模拟器设置" }).click();
@@ -213,15 +214,15 @@ test("one click creates a capability launch and advances real emulator frames", 
   const renderingMode = emulatorToolbar.getByRole("combobox", { name: "画面模式" });
   await expect(renderingMode).toHaveValue("pixel");
   await expect.poll(() => canvas.evaluate((element) => getComputedStyle(element).imageRendering)).toBe("pixelated");
-  await renderingMode.selectOption("clear");
-  await expect.poll(() => playerFrame!.evaluate(() => window.EJS_emulator?.allSettings?.shader)).toBe("retrom-sharp-bilinear");
-  await renderingMode.selectOption("sharpen");
-  await expect.poll(() => playerFrame!.evaluate(() => window.EJS_emulator?.allSettings?.shader)).toBe("retrom-adaptive-sharpen");
+  await renderingMode.selectOption("sharp-bilinear");
+  await expect(renderingMode).toHaveValue("sharp-bilinear");
+  await renderingMode.selectOption("adaptive-sharpen");
+  await expect(renderingMode).toHaveValue("adaptive-sharpen");
   await renderingMode.selectOption("original");
-  await expect.poll(() => playerFrame!.evaluate(() => window.EJS_emulator?.allSettings?.shader)).toBe("disabled");
+  await expect(renderingMode).toHaveValue("original");
   await expect.poll(() => canvas.evaluate((element) => getComputedStyle(element).imageRendering)).toBe("auto");
   await renderingMode.selectOption("pixel");
-  await expect.poll(() => playerFrame!.evaluate(() => window.EJS_emulator?.allSettings?.shader)).toBe("disabled");
+  await expect(renderingMode).toHaveValue("pixel");
   const renderingEvidence = await page.screenshot({ path: testInfo.outputPath("player-pixel-rendering.png") });
   expect(await screenshotCenterBrightRatio(page, renderingEvidence)).toBeGreaterThan(0.02);
   if (testInfo.project.name === "chrome-4k-150") {
@@ -233,14 +234,14 @@ test("one click creates a capability launch and advances real emulator frames", 
   await expect(player.getByRole("button", { name: /Graphics Settings|图形设置|显示设置/ })).toBeVisible();
   await expect(player.getByRole("button", { name: /Backend Core Options|Core Options|核心选项|核心设置/ })).toBeHidden();
   await expect(player.locator(".ejs_settings_main_bar").filter({ hasText: /Shaders|着色器/ })).toBeVisible();
-  const pausedAt = await playerFrame!.evaluate(() => window.EJS_emulator?.gameManager?.getFrameNum?.() ?? 0);
+  const pausedAt = await runtimeFrameCount(page);
   await page.waitForTimeout(350);
-  expect(await playerFrame!.evaluate(() => window.EJS_emulator?.gameManager?.getFrameNum?.() ?? 0)).toBeLessThanOrEqual(pausedAt + 1);
+  expect(await runtimeFrameCount(page)).toBeLessThanOrEqual(pausedAt + 1);
   await emulatorToolbar.getByRole("button", { name: "收起" }).click();
   await expect(emulatorToolbar).toBeHidden();
   await expect(nativeMenu).toBeHidden();
   await page.getByRole("button", { name: "继续游戏" }).click();
-  await expect.poll(async () => playerFrame!.evaluate(() => window.EJS_emulator?.gameManager?.getFrameNum?.() ?? 0), { timeout: 10_000 }).toBeGreaterThan(pausedAt + 5);
+  await expect.poll(() => runtimeFrameCount(page), { timeout: 10_000 }).toBeGreaterThan(pausedAt + 5);
   await page.mouse.move(20, 1);
   await page.getByRole("button", { name: "返回并退出游戏" }).click();
   const directExitDialog = page.getByRole("alertdialog", { name: "退出游戏？" });

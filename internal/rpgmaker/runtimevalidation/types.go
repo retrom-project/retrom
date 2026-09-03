@@ -36,15 +36,13 @@ type GateAccepted struct {
 
 type RouteEvidence struct {
 	EffectiveSourceSnapshotID string  `json:"effectiveSourceSnapshotId"`
-	CoreID                    string  `json:"coreId"`
 	Generation                string  `json:"generation"`
 	EvidenceGeneration        *string `json:"evidenceGeneration"`
 	EvidenceConfidence        string  `json:"evidenceConfidence"`
-	RouteKey                  string  `json:"routeKey"`
-	ArtifactID                string  `json:"artifactId"`
-	ArtifactSetSHA256         string  `json:"artifactSetSha256"`
-	AdapterID                 string  `json:"adapterId"`
-	AdapterABI                string  `json:"adapterAbi"`
+	ProviderID                string  `json:"providerId"`
+	TargetID                  string  `json:"targetId"`
+	GameCompatibilityLine     string  `json:"gameCompatibilityLine"`
+	TargetContractSHA256      string  `json:"targetContractSha256"`
 	DependencySnapshotSHA256  string  `json:"dependencySnapshotSha256"`
 	ProjectFingerprint        string  `json:"projectFingerprint"`
 }
@@ -58,8 +56,7 @@ type Position struct {
 
 type CheckpointRoundTrip struct {
 	Created              bool      `json:"created"`
-	PayloadKind          *string   `json:"payloadKind"`
-	ResumeSlot           *int64    `json:"resumeSlot"`
+	CheckpointFormat     *string   `json:"checkpointFormat"`
 	SizeBytes            *int64    `json:"sizeBytes"`
 	SHA256               *string   `json:"sha256"`
 	OriginalLaunchID     *string   `json:"originalLaunchId"`
@@ -104,7 +101,6 @@ type View struct {
 type Screenshot struct {
 	ValidationID string
 	ImportItemID string
-	ArtifactID   string
 	WidthPX      int64
 	HeightPX     int64
 	CapturedAtMS int64

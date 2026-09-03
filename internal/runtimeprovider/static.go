@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"retrom/internal/cleanup"
 	"retrom/internal/runtimebundle"
 )
 
@@ -23,20 +24,42 @@ var (
 	providerIDPattern = regexp.MustCompile(`^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$`)
 	digestPattern     = regexp.MustCompile(`^[0-9a-f]{64}$`)
 	publicMediaTypes  = map[string]bool{
-		"text/javascript; charset=utf-8": true, "text/css; charset=utf-8": true,
-		"text/plain; charset=utf-8": true, "application/json; charset=utf-8": true,
-		"application/wasm": true, "application/octet-stream": true, "application/zip": true,
-		"application/x-7z-compressed": true, "image/png": true, "image/jpeg": true,
-		"image/gif": true, "image/webp": true, "image/svg+xml": true, "image/x-icon": true,
-		"audio/ogg": true, "audio/mpeg": true, "audio/wav": true, "font/woff": true, "font/woff2": true,
+		"text/javascript; charset=utf-8":  true,
+		"text/css; charset=utf-8":         true,
+		"text/plain; charset=utf-8":       true,
+		"application/json; charset=utf-8": true,
+		"application/wasm":                true,
+		"application/octet-stream":        true,
+		"application/zip":                 true,
+		"application/x-7z-compressed":     true,
+		"image/png":                       true,
+		"image/jpeg":                      true,
+		"image/gif":                       true,
+		"image/webp":                      true,
+		"image/svg+xml":                   true,
+		"image/x-icon":                    true,
+		"audio/ogg":                       true,
+		"audio/mpeg":                      true,
+		"audio/wav":                       true,
+		"font/woff":                       true,
+		"font/woff2":                      true,
 	}
 	rangeMediaTypes = map[string]bool{
-		"application/wasm": true, "application/octet-stream": true, "application/zip": true,
-		"application/x-7z-compressed": true, "audio/ogg": true, "audio/mpeg": true, "audio/wav": true,
+		"application/wasm":            true,
+		"application/octet-stream":    true,
+		"application/zip":             true,
+		"application/x-7z-compressed": true,
+		"audio/ogg":                   true,
+		"audio/mpeg":                  true,
+		"audio/wav":                   true,
 	}
 	nonPublicPaths = map[string]bool{
-		".installation.json": true, "integrity.json": true, "provider.json": true,
-		"provenance.json": true, "provider-build.json": true, "provider-release.json": true,
+		".installation.json":    true,
+		"integrity.json":        true,
+		"provider.json":         true,
+		"provenance.json":       true,
+		"provider-build.json":   true,
+		"provider-release.json": true,
 	}
 )
 
@@ -63,49 +86,93 @@ func NewStaticHandler(
 	result := &staticHandler{files: make(map[string]staticFile)}
 	providerIDs := make(map[string]bool, len(active.Providers))
 	for _, provider := range active.Providers {
-		if providerIDs[provider.ProviderID] || !providerIDPattern.MatchString(provider.ProviderID) ||
-			!digestPattern.MatchString(provider.BundleSHA256) ||
-			provider.InstallationPath != provider.ProviderID+"/"+provider.BundleSHA256 {
+		if providerIDs[provider.ProviderID] {
 			return nil, ErrInstallationInvalid
 		}
 		providerIDs[provider.ProviderID] = true
 		files, exists := integrityByProvider[provider.ProviderID]
-		if !exists || len(files) == 0 {
+		if !exists {
 			return nil, ErrInstallationInvalid
 		}
-		seen := make(map[string]bool, len(files))
-		clientModuleVerified := false
-		for _, file := range files {
-			if seen[file.Path] || !safeBundlePath(file.Path) || file.SizeBytes < 0 ||
-				!digestPattern.MatchString(file.SHA256) || !publicMediaTypes[file.MediaType] {
-				return nil, ErrInstallationInvalid
-			}
-			seen[file.Path] = true
-			fullPath := filepath.Join(root, filepath.FromSlash(provider.InstallationPath), filepath.FromSlash(file.Path))
-			if err := verifyInstalledFile(fullPath, file); err != nil {
-				return nil, err
-			}
-			if file.Path == provider.ClientModulePath {
-				if file.Path != "client.mjs" || file.MediaType != "text/javascript; charset=utf-8" ||
-					file.SHA256 != provider.ModuleSHA256 {
-					return nil, ErrInstallationInvalid
-				}
-				clientModuleVerified = true
-			}
-			if nonPublicPaths[file.Path] {
-				continue
-			}
-			key := provider.ProviderID + "\x00" + provider.BundleSHA256 + "\x00" + file.Path
-			result.files[key] = staticFile{path: fullPath, sizeBytes: file.SizeBytes, sha256: file.SHA256, mediaType: file.MediaType}
+		staticFiles, err := addStaticProvider(root, provider, files)
+		if err != nil {
+			return nil, err
 		}
-		if !clientModuleVerified {
-			return nil, ErrInstallationInvalid
+		for path, file := range staticFiles {
+			key := provider.ProviderID + "\x00" + provider.BundleSHA256 + "\x00" + path
+			result.files[key] = file
 		}
 	}
 	if len(providerIDs) != len(integrityByProvider) {
 		return nil, ErrInstallationInvalid
 	}
 	return result, nil
+}
+
+func addStaticProvider(
+	root string,
+	provider runtimebundle.ActiveProvider,
+	files []runtimebundle.IntegrityFile,
+) (map[string]staticFile, error) {
+	if !providerIDPattern.MatchString(provider.ProviderID) ||
+		!digestPattern.MatchString(provider.BundleSHA256) ||
+		provider.InstallationPath != provider.ProviderID+"/"+provider.BundleSHA256 || len(files) == 0 {
+		return nil, ErrInstallationInvalid
+	}
+	result := make(map[string]staticFile)
+	seen := make(map[string]bool, len(files))
+	clientModuleVerified := false
+	for _, file := range files {
+		if seen[file.Path] {
+			return nil, ErrInstallationInvalid
+		}
+		seen[file.Path] = true
+		static, isClientModule, err := loadStaticFile(root, provider, file)
+		if err != nil {
+			return nil, err
+		}
+		clientModuleVerified = clientModuleVerified || isClientModule
+		if static != nil {
+			result[file.Path] = *static
+		}
+	}
+	if !clientModuleVerified {
+		return nil, ErrInstallationInvalid
+	}
+	return result, nil
+}
+
+func loadStaticFile(
+	root string,
+	provider runtimebundle.ActiveProvider,
+	file runtimebundle.IntegrityFile,
+) (*staticFile, bool, error) {
+	if !safeBundlePath(file.Path) || file.SizeBytes < 0 ||
+		!digestPattern.MatchString(file.SHA256) || !publicMediaTypes[file.MediaType] {
+		return nil, false, ErrInstallationInvalid
+	}
+	fullPath := filepath.Join(
+		root,
+		filepath.FromSlash(provider.InstallationPath),
+		filepath.FromSlash(file.Path),
+	)
+	if err := verifyInstalledFile(fullPath, file); err != nil {
+		return nil, false, err
+	}
+	isClientModule := file.Path == provider.ClientModulePath
+	if isClientModule && (file.Path != "client.mjs" ||
+		file.MediaType != "text/javascript; charset=utf-8" || file.SHA256 != provider.ModuleSHA256) {
+		return nil, false, ErrInstallationInvalid
+	}
+	if nonPublicPaths[file.Path] {
+		return nil, isClientModule, nil
+	}
+	return &staticFile{
+		path:      fullPath,
+		sizeBytes: file.SizeBytes,
+		sha256:    file.SHA256,
+		mediaType: file.MediaType,
+	}, isClientModule, nil
 }
 
 func (handler *staticHandler) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
@@ -124,7 +191,8 @@ func (handler *staticHandler) ServeHTTP(writer http.ResponseWriter, request *htt
 		http.NotFound(writer, request)
 		return
 	}
-	if request.Header.Get("Range") != "" && (!rangeMediaTypes[file.mediaType] || strings.Contains(request.Header.Get("Range"), ",")) {
+	rangeHeader := request.Header.Get("Range")
+	if rangeHeader != "" && (!rangeMediaTypes[file.mediaType] || strings.Contains(rangeHeader, ",")) {
 		writer.Header().Set("Content-Range", fmt.Sprintf("bytes */%d", file.sizeBytes))
 		writer.WriteHeader(http.StatusRequestedRangeNotSatisfiable)
 		return
@@ -134,7 +202,7 @@ func (handler *staticHandler) ServeHTTP(writer http.ResponseWriter, request *htt
 		http.NotFound(writer, request)
 		return
 	}
-	defer body.Close()
+	defer func() { cleanup.Error("close provider body", body.Close()) }()
 	writer.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
 	writer.Header().Set("Content-Type", file.mediaType)
 	writer.Header().Set("ETag", `"`+file.sha256+`"`)
@@ -183,7 +251,7 @@ func verifyInstalledFile(path string, expected runtimebundle.IntegrityFile) erro
 	if err != nil {
 		return installationInvalid(err)
 	}
-	defer file.Close()
+	defer func() { cleanup.Error("close provider file", file.Close()) }()
 	digest := sha256.New()
 	if _, err := io.Copy(digest, file); err != nil {
 		return installationInvalid(err)
@@ -195,5 +263,5 @@ func verifyInstalledFile(path string, expected runtimebundle.IntegrityFile) erro
 }
 
 func installationInvalid(err error) error {
-	return fmt.Errorf("%w: %v", ErrInstallationInvalid, err)
+	return fmt.Errorf("%w: %w", ErrInstallationInvalid, err)
 }

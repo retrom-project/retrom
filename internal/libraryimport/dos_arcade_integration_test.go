@@ -95,12 +95,8 @@ func TestArcadeDraftBIOSStateRefreshesInstalledDATMachineDependency(t *testing.T
 	if err := dependencySet.Bootstrap(ctx, database.SQL, time.Now()); err != nil {
 		t.Fatal(err)
 	}
-	var artifactID string
-	if err := database.SQL.QueryRowContext(ctx, `
-SELECT id FROM core_artifacts WHERE core_id='fbneo' AND selected_for_new_bindings=1
-`).Scan(&artifactID); err != nil {
-		t.Fatal(err)
-	}
+	target, err := testsupport.LookupRuntimeTarget(ctx, database.SQL, "fbneo")
+	testassert.False(t, err != nil, err)
 	blobs, err := blobstore.Open(dataDir)
 	testassert.False(t, err != nil, err)
 	archive := makeZIP(t, map[string][]byte{"b.bin": []byte("bios")})
@@ -110,12 +106,13 @@ SELECT id FROM core_artifacts WHERE core_id='fbneo' AND selected_for_new_binding
 	testassert.False(t, err != nil, err)
 	const requirementID = "01990000-0000-7000-8000-000000000101"
 	if _, err := database.SQL.ExecContext(ctx, `
-INSERT INTO bios_requirements(id,core_id,core_artifact_id,source_kind,dat_machine_name,logical_name,
+INSERT INTO bios_requirements(id,core_id,provider_id,target_id,target_contract_sha256,source_kind,dat_machine_name,logical_name,
 requirement_mode,condition_code,activation_options_json,catalog_digest,size_bytes,md5,sha1,sha256,
 source_url,source_version,enabled,version,created_at_ms,updated_at_ms,delivery_kind,emulator_path)
-VALUES(?,'fbneo',?,'DAT_MACHINE','bios','bios.zip','REQUIRED','ARCADE_DAT_DEPENDENCY','{}',?,
+VALUES(?,'fbneo',?,?,?,'DAT_MACHINE','bios','bios.zip','REQUIRED','ARCADE_DAT_DEPENDENCY','{}',?,
 NULL,NULL,NULL,NULL,'test://bios','test',1,1,?,?,'BIOS_BUNDLE',NULL)
-`, requirementID, artifactID, strings.Repeat("a", 64), time.Now().UnixMilli(), time.Now().UnixMilli()); err != nil {
+`, requirementID, target.ProviderID, target.TargetID, target.TargetContractSHA256,
+		strings.Repeat("a", 64), time.Now().UnixMilli(), time.Now().UnixMilli()); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := database.SQL.ExecContext(ctx, `
@@ -131,7 +128,7 @@ VALUES('01990000-0000-7000-8000-000000000102',?,?,?, ?,?,?,?,1,'MATCHED','{}',1,
 	testassert.False(t, err != nil, err)
 	t.Cleanup(func() { cleanup.Rollback(transaction) })
 	resolved, err := resolveArcadeDraftBIOSState(
-		ctx, transaction, artifactID, previous, "BLOCKED", "LAUNCH_BIOS_MISSING",
+		ctx, transaction, target.ProviderID, target.TargetID, previous, "BLOCKED", "LAUNCH_BIOS_MISSING",
 	)
 	testassert.False(t, err != nil, err)
 	testassert.Falsef(t, testassert.Any(func() bool { return !resolved.tracked }, func() bool { return resolved.replaceBundle }, func() bool { return resolved.status != "READY" }, func() bool { return resolved.code != "READY" }, func() bool { return len(resolved.dependencies) != 1 }, func() bool { return resolved.dependencies[0].BlobID == nil }, func() bool { return *resolved.dependencies[0].BlobID != blobID }), "resolved arcade BIOS state = %#v", resolved)
@@ -158,10 +155,8 @@ func TestArcadeImportUsesInstalledBIOSBeforeCreatingReview(t *testing.T) {
 	}
 	blobs, err := blobstore.Open(dataDir)
 	testassert.False(t, err != nil, err)
-	var artifactID string
-	if err := database.SQL.QueryRowContext(ctx, `
-SELECT id FROM core_artifacts WHERE core_id='fbneo' AND selected_for_new_bindings=1
-`).Scan(&artifactID); err != nil {
+	target, err := testsupport.LookupRuntimeTarget(ctx, database.SQL, "fbneo")
+	if err != nil {
 		t.Fatal(err)
 	}
 	now := time.Now().UnixMilli()
@@ -169,18 +164,18 @@ SELECT id FROM core_artifacts WHERE core_id='fbneo' AND selected_for_new_binding
 	testassert.False(t, err != nil, err)
 	if _, err := database.SQL.ExecContext(ctx, `
 UPDATE dat_versions SET is_active=0,version=version+1,updated_at_ms=?
-WHERE core_artifact_id=? AND is_active=1
-`, now, artifactID); err != nil {
+WHERE provider_id=? AND target_id=? AND is_active=1
+`, now, target.ProviderID, target.TargetID); err != nil {
 		t.Fatal(err)
 	}
 	const datID = "01990000-0000-7000-8000-000000000201"
 	if _, err := database.SQL.ExecContext(ctx, `
-INSERT INTO dat_versions(id,core_id,core_artifact_id,builtin_relative_path,sha256,parser_version,
+INSERT INTO dat_versions(id,core_id,provider_id,target_id,target_contract_sha256,builtin_relative_path,sha256,parser_version,
 parse_status,is_active,machine_count,rom_entry_count,disk_entry_count,
 bios_set_count,default_bios_set_count,explicit_bios_machine_count,base_dependency_target_count,
 unresolved_relation_count,version,created_at_ms,updated_at_ms,parsed_at_ms,activated_at_ms)
-VALUES(?,'fbneo',?,'testdata/installed-bios.dat',?,'test','READY',1,2,2,0,0,0,1,1,0,1,?,?,?,?)
-`, datID, artifactID, dummy.SHA256, now, now, now, now); err != nil {
+VALUES(?,'fbneo',?,?,?,'testdata/installed-bios.dat',?,'test','READY',1,2,2,0,0,0,1,1,0,1,?,?,?,?)
+`, datID, target.ProviderID, target.TargetID, target.TargetContractSHA256, dummy.SHA256, now, now, now, now); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := database.SQL.ExecContext(ctx, `
@@ -220,12 +215,13 @@ VALUES(?,?,0,?,?,?,?,'GOOD')
 	testassert.False(t, err != nil, err)
 	const requirementID = "01990000-0000-7000-8000-000000000202"
 	if _, err := database.SQL.ExecContext(ctx, `
-INSERT INTO bios_requirements(id,core_id,core_artifact_id,source_kind,dat_machine_name,logical_name,
+INSERT INTO bios_requirements(id,core_id,provider_id,target_id,target_contract_sha256,source_kind,dat_machine_name,logical_name,
 requirement_mode,condition_code,activation_options_json,catalog_digest,size_bytes,md5,sha1,sha256,
 source_url,source_version,enabled,version,created_at_ms,updated_at_ms,delivery_kind,emulator_path)
-VALUES(?,'fbneo',?,'DAT_MACHINE','codexbios','codexbios.zip','REQUIRED',
+VALUES(?,'fbneo',?,?,?,'DAT_MACHINE','codexbios','codexbios.zip','REQUIRED',
 'ARCADE_DAT_DEPENDENCY','{}',?,NULL,NULL,NULL,NULL,'test://bios',?,1,1,?,?,'BIOS_BUNDLE',NULL)
-`, requirementID, artifactID, strings.Repeat("a", 64), datID, now, now); err != nil {
+`, requirementID, target.ProviderID, target.TargetID, target.TargetContractSHA256,
+		strings.Repeat("a", 64), datID, now, now); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := database.SQL.ExecContext(ctx, `
@@ -343,7 +339,10 @@ INSERT INTO profiles(id,display_name,created_at_ms) VALUES('local','Arcade BIOS 
 	}
 	credentials, err := retromruntime.LoadOrCreateCredentials(dataDir)
 	testassert.False(t, err != nil, err)
-	launcher := launch.New(database.SQL, dependencySet, credentials, time.Now)
+	runtimeBuilder, err := testsupport.NewRuntimeBuilder(ctx, database.SQL)
+	testassert.False(t, err != nil, err)
+	launcher := launch.New(database.SQL, dependencySet, credentials, time.Now).
+		WithRuntimeProvider(dependencySet.RuntimeCatalog, runtimeBuilder)
 	coreID := "fbneo"
 	capabilities := launch.Capabilities{
 		SecureContext: true, CrossOriginIsolated: true, SharedArrayBuffer: true,
@@ -388,7 +387,10 @@ WHERE variant.game_id=? AND variant.core_id='fbneo'
 	})
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return createdLaunch.LaunchID == "" }), "Arcade BIOS launch after revalidation = %#v, error=%v", createdLaunch, err)
 	configuration, err := launcher.Config(ctx, createdLaunch.LaunchID, createdLaunch.Capability)
-	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return configuration.BIOSURL == nil }), "Arcade BIOS launch config = %#v, error=%v", configuration, err)
+	testassert.False(t, err != nil, err)
+	envelope := testsupport.RuntimeEnvelope(t, configuration)
+	bios := testsupport.RuntimeEnvelopeResource(t, envelope, "bios")
+	testassert.Falsef(t, bios["kind"] != "BIOS_BUNDLE_V1", "Arcade BIOS launch resource = %#v", bios)
 	bundle, err := launcher.BundleFiles(ctx, createdLaunch.LaunchID, createdLaunch.Capability, "BIOS_BUNDLE")
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return len(bundle) != 1 }, func() bool { return bundle[0].LogicalName != "codexbios.zip" }, func() bool { return bundle[0].SHA256 != replacementMetadata.SHA256 }), "Arcade BIOS launch bundle = %#v, error=%v", bundle, err)
 }

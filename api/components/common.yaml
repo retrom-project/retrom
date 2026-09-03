@@ -56,13 +56,9 @@ components:
         - rpgmaker_vx_ace
         - rpgmaker_mv
         - rpgmaker_mz
-    CheckpointPayloadKind:
+    CheckpointFormat:
       type: string
-      enum:
-        - RUNTIME_STATE
-        - NATIVE_SAVE_BUNDLE_V1
-        - ONS_SAVE_BUNDLE_V1
-        - KIRIKIRI_SAVE_BUNDLE_V1
+      pattern: ^[a-z0-9](?:[a-z0-9.-]{0,62}[a-z0-9])?$
     RpgRuntimeValidationState:
       type: string
       enum:
@@ -129,17 +125,10 @@ components:
       additionalProperties: false
       required:
         - generation
-        - adapterId
         - engineProfile
       properties:
         generation:
           $ref: '#/components/schemas/RpgGeneration'
-        adapterId:
-          type: string
-          enum:
-            - easyrpg-web
-            - mkxp-libretro-web
-            - native-web
         engineProfile:
           type: string
           enum:
@@ -174,12 +163,12 @@ components:
       type: object
       additionalProperties: false
       required:
-        - payloadKind
+        - checkpointFormat
         - sizeBytes
         - sha256
       properties:
-        payloadKind:
-          $ref: '#/components/schemas/CheckpointPayloadKind'
+        checkpointFormat:
+          $ref: '#/components/schemas/CheckpointFormat'
         sizeBytes:
           type: integer
           format: int64
@@ -239,7 +228,7 @@ components:
       type: object
       additionalProperties: false
       required:
-        - payloadKind
+        - checkpointFormat
       properties:
         name:
           type: string
@@ -250,9 +239,9 @@ components:
           minimum: 0
           maximum: 7
           nullable: true
-        payloadKind:
-          $ref: '#/components/schemas/CheckpointPayloadKind'
-      description: PRODUCT requires name after trim to contain 1..120 Unicode code points; RPG_RUNTIME_VALIDATION omits name. discIndex is required and in range only for a multi-disc PRODUCT Launch and otherwise omitted or null. nativeProfile and resumeSlot are never client authority; the server derives and validates them from the frozen artifact and payload.
+        checkpointFormat:
+          $ref: '#/components/schemas/CheckpointFormat'
+      description: PRODUCT requires name after trim to contain 1..120 Unicode code points; runtime validation omits name. discIndex is required and in range only for a multi-disc PRODUCT Launch and otherwise omitted or null. The format must be declared readable by the Launch Target.
     ReasonRequest:
       type: object
       additionalProperties: false
@@ -518,7 +507,6 @@ components:
         active: {}
         activeAttachment: {}
         activeDurationMs: {}
-        activeEmulatorjsVersion: {}
         activeInstallation: {}
         activeLaunchCount: {}
         actor:
@@ -615,13 +603,11 @@ components:
         configSnapshot: {}
         configSnapshotDigest: {}
         configuredDependencyVersionCount: {}
-        configuredEmulatorjsVersions: {}
         configuredVersion: {}
         contentKind: {}
         contentRevisionId: {}
         contentIdentityDigest: {}
         core: {}
-        coreArtifactId: {}
         coreId: {}
         coreName:
           type: string
@@ -680,7 +666,6 @@ components:
         edges: {}
         emulatorGameId: {}
         emulatorjs: {}
-        emulatorjsVersion: {}
         enabled: {}
         entries: {}
         error: {}
@@ -799,7 +784,6 @@ components:
         playSessionId: {}
         playUrl: {}
         player: {}
-        playerAdapterId: {}
         players: {}
         previousInterval: {}
         presentDiscCount: {}
@@ -859,7 +843,7 @@ components:
         runtimeBaseUrl: {}
         runtimePath: {}
         runtimePathOverrides: {}
-        runtimeVersionChange:
+        targetContractChange:
           type: object
           nullable: true
           additionalProperties: false
@@ -869,10 +853,10 @@ components:
           properties:
             previous:
               type: string
-              minLength: 1
+              pattern: ^[0-9a-f]{64}$
             current:
               type: string
-              minLength: 1
+              pattern: ^[0-9a-f]{64}$
         sample: {}
         saveStateCount: {}
         saveStateId: {}

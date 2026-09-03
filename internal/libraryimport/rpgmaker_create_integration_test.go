@@ -104,20 +104,20 @@ WHERE item.import_job_id=?
 		metadataProvider != "NONE" {
 		t.Fatalf("RPG review state/code/title/provider = %s/%s/%q/%s", state, code, title, metadataProvider)
 	}
-	var defaultCoreID, selectedCoreID, generation, routeKey string
+	var defaultCoreID, providerID, targetID, generation string
 	if err := database.SQL.QueryRowContext(ctx, `
-SELECT instance.default_core_id,profile.selected_core_id,profile.generation,profile.route_key
+SELECT instance.default_core_id,profile.provider_id,profile.target_id,profile.generation
 FROM import_items item
 JOIN review_drafts draft ON draft.import_item_id=item.id
 JOIN platform_instances instance ON instance.id=draft.target_platform_instance_id
 JOIN rpgmaker_review_profiles profile ON profile.review_draft_id=draft.id
 WHERE item.import_job_id=?
-`, created.ImportJobID).Scan(&defaultCoreID, &selectedCoreID, &generation, &routeKey); err != nil {
+`, created.ImportJobID).Scan(&defaultCoreID, &providerID, &targetID, &generation); err != nil {
 		t.Fatal(err)
 	}
-	if defaultCoreID != "rpgmaker" || selectedCoreID != "rpgmaker_mv" || generation != "RPGMV" ||
-		routeKey != "RPGMV_NATIVE" {
-		t.Fatalf("virtual binding = %s/%s/%s/%s", defaultCoreID, selectedCoreID, generation, routeKey)
+	if defaultCoreID != "rpgmaker" || providerID != "retrom-runtime" || targetID != "rpgmaker-mv" ||
+		generation != "RPGMV" {
+		t.Fatalf("virtual binding = %s/%s/%s/%s", defaultCoreID, providerID, targetID, generation)
 	}
 	var role, nestedSHA, nestedBlobID string
 	var nestedOrdinal int

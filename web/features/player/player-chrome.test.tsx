@@ -32,9 +32,8 @@ function props(overrides: Partial<Parameters<typeof PlayerChrome>[0]> = {}): Par
     debugOpen: false,
     debugMetrics: null,
     debugRuntime: {
-      runtimeFamily: "EMULATORJS",
-      coreId: "fbneo", coreArtifactId: "artifact-1", emulatorJSVersion: "4.2.3",
-      playerAdapterId: "ejs-4.2.3-v3", inputMode: "STANDARD",
+      providerId: "emulatorjs", providerVersion: "1.0.0", targetId: "fbneo",
+      targetContractSha256: "a".repeat(64),
       crossOriginIsolated: true, sharedArrayBuffer: true,
     },
     runtimeState: "running",
@@ -128,13 +127,12 @@ describe("PlayerChrome", () => {
     const values = props({
       paused: true,
       discSet: {
-        contentKind: "MULTI_DISC_M3U_V1", count: 2, initialDiscIndex: 0,
         entries: [
-          { index: 0, label: "光盘 1", virtualPath: "/disc-001.chd" },
-          { index: 1, label: "光盘 2", virtualPath: "/disc-002.chd" },
-        ]
+          {index: 0, label: "光盘 1"},
+          {index: 1, label: "光盘 2"},
+        ], count: 2,
       },
-      discState: { count: 2, currentIndex: 0 },
+      discState: {count: 2, currentIndex: 0, labels: ["光盘 1", "光盘 2"]},
     });
     render(<PlayerChrome {...values} />);
 
@@ -152,14 +150,13 @@ describe("PlayerChrome", () => {
     const values = props({
       paused: true,
       discSet: {
-        contentKind: "MULTI_DISC_M3U_V1", count: 3, initialDiscIndex: 1,
         entries: [
-          { index: 0, label: "光盘 1", virtualPath: "/disc-001.chd" },
-          { index: 1, label: "光盘 2", virtualPath: "/disc-002.chd" },
-          { index: 2, label: "光盘 3", virtualPath: "/disc-003.chd" },
-        ]
+          {index: 0, label: "光盘 1"},
+          {index: 1, label: "光盘 2"},
+          {index: 2, label: "光盘 3"},
+        ], count: 3,
       },
-      discState: { count: 3, currentIndex: 1 },
+      discState: {count: 3, currentIndex: 1, labels: ["光盘 1", "光盘 2", "光盘 3"]},
     });
     render(<PlayerChrome {...values} />);
 
@@ -229,20 +226,13 @@ describe("PlayerChrome", () => {
     expect(values.onToggleDebug).toHaveBeenCalledTimes(2);
   });
 
-  it("keeps RPG runtime implementation details out of ordinary diagnostics", () => {
-    const internalValues = [
-      "RPGXP_MKXP", "mkxp-libretro-web", "artifact-rpg-xp",
-    ];
+  it("shows only stable Provider identity in ordinary diagnostics", () => {
     render(<PlayerChrome {...props({
       coreName: "RPG Maker XP",
       debugOpen: true,
       debugRuntime: {
-        runtimeFamily: "RPGMAKER",
-        coreId: "rpgmaker_xp",
-        coreArtifactId: internalValues[2],
-        emulatorJSVersion: internalValues[0],
-        playerAdapterId: internalValues[1],
-        inputMode: "STANDARD",
+        providerId: "retrom-runtime", providerVersion: "0.12.0", targetId: "rpgmaker-xp",
+        targetContractSha256: "b".repeat(64),
         crossOriginIsolated: true,
         sharedArrayBuffer: true,
       },
@@ -250,29 +240,24 @@ describe("PlayerChrome", () => {
 
     const panel = screen.getByRole("complementary", { name: "运行调试信息" });
     expect(within(panel).getByText("RPG Maker XP")).toBeVisible();
-    expect(within(panel).getByText("RPG Maker")).toBeVisible();
-    expect(within(panel).queryByText("EmulatorJS")).not.toBeInTheDocument();
-    expect(within(panel).queryByText("Player adapter")).not.toBeInTheDocument();
-    for (const value of internalValues) {
-      expect(within(panel).queryByText(value)).not.toBeInTheDocument();
-    }
+    expect(within(panel).getByText("retrom-runtime")).toBeVisible();
+    expect(within(panel).getByText("0.12.0")).toBeVisible();
   });
 
-  it("identifies the standalone ONS runtime without labeling it EmulatorJS", () => {
+  it("identifies a standalone ONS Target by Provider identity", () => {
     render(<PlayerChrome {...props({
       coreName: "ONScripterYuri",
       debugOpen: true,
       debugRuntime: {
-        runtimeFamily: "ONS", coreId: "onscripter_yuri", coreArtifactId: "artifact-ons",
-        emulatorJSVersion: "v0.3.7", playerAdapterId: "ons-yuri-web", inputMode: "STANDARD",
+        providerId: "retrom-runtime", providerVersion: "0.12.0", targetId: "onscripter-yuri",
+        targetContractSha256: "c".repeat(64),
         crossOriginIsolated: true, sharedArrayBuffer: true,
       },
     })} />);
     const panel = screen.getByRole("complementary", { name: "运行调试信息" });
-    expect(within(panel).getByText("ONScripter")).toBeVisible();
-    expect(within(panel).getByText("v0.3.7")).toBeVisible();
-    expect(within(panel).getByText("ons-yuri-web")).toBeVisible();
-    expect(within(panel).queryByText("EmulatorJS")).not.toBeInTheDocument();
+    expect(within(panel).getByText("ONScripterYuri")).toBeVisible();
+    expect(within(panel).getByText("retrom-runtime")).toBeVisible();
+    expect(within(panel).getByText("0.12.0")).toBeVisible();
   });
 
   it("keeps the toolbar paused until the user returns to the game surface", async () => {
@@ -308,8 +293,8 @@ describe("PlayerChrome", () => {
 
     await user.click(screen.getByRole("button", { name: "显示" }));
     expect(values.onOpenEmulatorPanel).toHaveBeenCalledWith("display");
-    await user.selectOptions(screen.getByRole("combobox", { name: "画面模式" }), "sharpen");
-    expect(values.onChangeVideoRenderingMode).toHaveBeenCalledWith("sharpen");
+    await user.selectOptions(screen.getByRole("combobox", { name: "画面模式" }), "adaptive-sharpen");
+    expect(values.onChangeVideoRenderingMode).toHaveBeenCalledWith("adaptive-sharpen");
     await user.click(screen.getByRole("button", { name: "静音" }));
     expect(values.onToggleEmulatorMute).toHaveBeenCalledOnce();
     await user.click(screen.getByRole("button", { name: "收起" }));

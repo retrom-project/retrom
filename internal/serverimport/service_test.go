@@ -18,6 +18,7 @@ import (
 	retromruntime "retrom/internal/runtime"
 	"retrom/internal/store"
 	"retrom/internal/testassert"
+	"retrom/internal/testsupport"
 )
 
 func TestServerBIOSImportDiscoversAndInstallsExactStaticCandidate(t *testing.T) {
@@ -36,6 +37,11 @@ func TestServerBIOSImportDiscoversAndInstallsExactStaticCandidate(t *testing.T) 
 	database, err := store.Open(ctx, filepath.Join(dataDir, "retrom.db"), time.Now)
 	testassert.False(t, err != nil, err)
 	defer func() { _ = database.Close() }()
+	if err := testsupport.SeedPlatformInstances(ctx, database.SQL); err != nil {
+		t.Fatal(err)
+	}
+	runtimeIdentity, err := testsupport.LookupRuntimeTarget(ctx, database.SQL, "mgba")
+	testassert.False(t, err != nil, err)
 	blobs, err := blobstore.Open(dataDir)
 	testassert.False(t, err != nil, err)
 	credentials, err := retromruntime.LoadOrCreateCredentials(dataDir)
@@ -44,24 +50,18 @@ func TestServerBIOSImportDiscoversAndInstallsExactStaticCandidate(t *testing.T) 
 	if _, err := database.SQL.ExecContext(context.Background(), `
 INSERT INTO profiles(id,display_name,created_at_ms) VALUES('01980000-0000-7000-8000-00000000a001','Admin',1);
 INSERT INTO users(id,profile_id,username,display_name,role,status,created_at_ms,updated_at_ms)
-VALUES('01980000-0000-7000-8000-00000000b001','01980000-0000-7000-8000-00000000a001','server.admin','Admin','ADMIN','ENABLED',1,1);
-INSERT INTO core_artifacts(
-id,core_id,route_key,runtime_family,runtime_adapter_kind,runtime_version,adapter_id,entry_path,
-size_bytes,sha256,manifest_sha256,artifact_set_sha256,requires_threads,save_payload_kind,save_max_bytes,
-provenance_json,compatibility_json,selected_for_new_bindings,available_for_launch,version,created_at_ms,updated_at_ms)
-VALUES('fixture-artifact','mgba','DEFAULT','EMULATORJS','EMULATORJS','4.2.3','ejs-4.2.3-v2',
-'data/loader.js',1,lower(hex(zeroblob(32))),lower(hex(zeroblob(32))),?,0,'RUNTIME_STATE',67108864,
-'{}','{"adapterAbi":"emulatorjs-state-v1"}',1,1,1,1,1)
-`, fmt.Sprintf("%064x", 1)); err != nil {
+VALUES('01980000-0000-7000-8000-00000000b001','01980000-0000-7000-8000-00000000a001','server.admin','Admin','ADMIN','ENABLED',1,1)
+`); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := database.SQL.ExecContext(context.Background(), `
-INSERT INTO bios_requirements(id,core_id,core_artifact_id,source_kind,dat_machine_name,logical_name,
+INSERT INTO bios_requirements(id,core_id,provider_id,target_id,target_contract_sha256,source_kind,dat_machine_name,logical_name,
 requirement_mode,condition_code,activation_options_json,catalog_digest,size_bytes,md5,sha1,sha256,
 source_url,source_version,enabled,version,created_at_ms,updated_at_ms,delivery_kind,emulator_path)
-VALUES('fixture-requirement','mgba','fixture-artifact','STATIC',NULL,'bios.bin','REQUIRED',NULL,NULL,?,?,?,?,?,
+VALUES('fixture-requirement','mgba',?,?,?,'STATIC',NULL,'bios.bin','REQUIRED',NULL,NULL,?,?,?,?,?,
 'https://example.invalid/bios','fixture-v1',1,1,1,1,'BIOS_BUNDLE',NULL)
-`, fmt.Sprintf("%064x", 2), len(contents), md5Value, sha1Value,
+`, runtimeIdentity.ProviderID, runtimeIdentity.TargetID, runtimeIdentity.TargetContractSHA256,
+		fmt.Sprintf("%064x", 2), len(contents), md5Value, sha1Value,
 		fmt.Sprintf("%x", sha256.Sum256(contents))); err != nil {
 		t.Fatal(err)
 	}

@@ -47,11 +47,11 @@ type Binding struct {
 }
 
 type frozenBinding struct {
-	reviewDraftID, sourceSnapshotID, projectFingerprint                 string
-	coreID, generation, routeKey, artifactID, artifactSetSHA256         string
-	adapterID, adapterABI, dependencySnapshotSHA256, evidenceConfidence string
-	evidenceGeneration                                                  sql.NullString
-	reviewVersion, runtimeBindingRevision                               int64
+	reviewDraftID, sourceSnapshotID, projectFingerprint                string
+	generation, providerID, targetID, gameCompatibilityLine            string
+	targetContractSHA256, dependencySnapshotSHA256, evidenceConfidence string
+	evidenceGeneration                                                 sql.NullString
+	reviewVersion, runtimeBindingRevision                              int64
 }
 
 func (service *Service) Create(
@@ -101,16 +101,16 @@ func (service *Service) Create(
 	if _, err := transaction.ExecContext(ctx, `
 INSERT INTO rpgmaker_runtime_validations(
  id,import_item_id,review_version_at_create,runtime_binding_revision,
- effective_source_snapshot_id,project_fingerprint,core_id,generation,
- evidence_generation,evidence_confidence,route_key,artifact_id,
- artifact_set_sha256,adapter_id,adapter_abi,dependency_snapshot_sha256,
+ effective_source_snapshot_id,project_fingerprint,generation,
+ evidence_generation,evidence_confidence,provider_id,target_id,
+ game_compatibility_line,target_contract_sha256,dependency_snapshot_sha256,
  state,last_gate_sequence,machine_gates_json,created_at_ms,updated_at_ms,expires_at_ms
-) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,
+) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,
  'CREATED',0,?,?,?,?)
 `, validationID.String(), importItemID, binding.reviewVersion, binding.runtimeBindingRevision,
-		binding.sourceSnapshotID, binding.projectFingerprint, binding.coreID, binding.generation,
-		nullableString(binding.evidenceGeneration), binding.evidenceConfidence, binding.routeKey, binding.artifactID,
-		binding.artifactSetSHA256, binding.adapterID, binding.adapterABI, binding.dependencySnapshotSHA256,
+		binding.sourceSnapshotID, binding.projectFingerprint, binding.generation,
+		nullableString(binding.evidenceGeneration), binding.evidenceConfidence, binding.providerID, binding.targetID,
+		binding.gameCompatibilityLine, binding.targetContractSHA256, binding.dependencySnapshotSHA256,
 		machineGates, now, now, expiresAt); err != nil {
 		return Binding{}, fmt.Errorf("insert RPG validation: %w", err)
 	}
@@ -129,25 +129,24 @@ func loadCurrentBinding(ctx context.Context, transaction *sql.Tx, importItemID s
 	var itemState, contentKind string
 	err := transaction.QueryRowContext(ctx, `
 SELECT draft.id,draft.version,draft.runtime_binding_revision,draft.effective_source_snapshot_id,
- profile.project_fingerprint,profile.selected_core_id,profile.generation,profile.evidence_generation,
- profile.evidence_confidence,profile.route_key,profile.artifact_id,profile.artifact_set_sha256,
- profile.adapter_id,profile.adapter_abi,profile.dependency_snapshot_sha256,
+ profile.project_fingerprint,profile.generation,profile.evidence_generation,
+ profile.evidence_confidence,profile.provider_id,profile.target_id,profile.game_compatibility_line,
+ profile.target_contract_sha256,profile.dependency_snapshot_sha256,
  item.state,snapshot.content_kind
 FROM review_drafts draft
 JOIN import_items item ON item.id=draft.import_item_id
 JOIN import_item_source_snapshots snapshot ON snapshot.id=draft.effective_source_snapshot_id
  AND snapshot.import_item_id=draft.import_item_id
 JOIN rpgmaker_review_profiles profile ON profile.review_draft_id=draft.id
-JOIN core_artifacts artifact ON artifact.id=profile.artifact_id
- AND artifact.core_id=profile.selected_core_id AND artifact.route_key=profile.route_key
- AND artifact.runtime_family='RPGMAKER'
- AND artifact.selected_for_new_bindings=1 AND artifact.available_for_launch=1
+JOIN runtime_targets target ON target.provider_id=profile.provider_id AND target.target_id=profile.target_id
+ AND target.target_contract_sha256=profile.target_contract_sha256
+ AND target.game_compatibility_line=profile.game_compatibility_line
 WHERE draft.import_item_id=?
 `, importItemID).Scan(
 		&binding.reviewDraftID, &binding.reviewVersion, &binding.runtimeBindingRevision,
-		&binding.sourceSnapshotID, &binding.projectFingerprint, &binding.coreID, &binding.generation,
-		&binding.evidenceGeneration, &binding.evidenceConfidence, &binding.routeKey, &binding.artifactID,
-		&binding.artifactSetSHA256, &binding.adapterID, &binding.adapterABI,
+		&binding.sourceSnapshotID, &binding.projectFingerprint, &binding.generation,
+		&binding.evidenceGeneration, &binding.evidenceConfidence, &binding.providerID, &binding.targetID,
+		&binding.gameCompatibilityLine, &binding.targetContractSHA256,
 		&binding.dependencySnapshotSHA256, &itemState, &contentKind,
 	)
 	if err != nil {

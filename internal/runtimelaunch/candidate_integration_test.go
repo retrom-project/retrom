@@ -25,6 +25,36 @@ func TestInstalledCandidateBuildsDeterministicEnvelopeForAll47Bindings(t *testin
 	if err != nil {
 		t.Fatal(err)
 	}
+	manifests := loadCandidateManifests(t, root, active)
+	builder, err := NewBuilder(active, manifests)
+	if err != nil {
+		t.Fatal(err)
+	}
+	catalogContents, err := os.ReadFile(filepath.Join("..", "..", "data", "runtime-target-bindings", "v1", "catalog.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	catalog, err := runtimecatalog.ParseCatalog(catalogContents)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(catalog.Bindings) != 47 {
+		t.Fatalf("binding count = %d", len(catalog.Bindings))
+	}
+
+	for _, binding := range catalog.Bindings {
+		t.Run(binding.ProviderID+"/"+binding.TargetID, func(t *testing.T) {
+			assertCandidateBinding(t, builder, manifests, binding)
+		})
+	}
+}
+
+func loadCandidateManifests(
+	t *testing.T,
+	root string,
+	active runtimebundle.ActiveDescriptor,
+) map[string]runtimebundle.Manifest {
+	t.Helper()
 	manifests := make(map[string]runtimebundle.Manifest, len(active.Providers))
 	for _, provider := range active.Providers {
 		directory := filepath.Join(root, "installed", filepath.FromSlash(provider.InstallationPath))
@@ -50,48 +80,37 @@ func TestInstalledCandidateBuildsDeterministicEnvelopeForAll47Bindings(t *testin
 		}
 		manifests[provider.ProviderID] = bound
 	}
-	builder, err := NewBuilder(active, manifests)
-	if err != nil {
-		t.Fatal(err)
-	}
-	catalogContents, err := os.ReadFile(filepath.Join("..", "..", "data", "runtime-target-bindings", "v1", "catalog.json"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	catalog, err := runtimecatalog.ParseCatalog(catalogContents)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(catalog.Bindings) != 47 {
-		t.Fatalf("binding count = %d", len(catalog.Bindings))
-	}
+	return manifests
+}
 
-	for _, binding := range catalog.Bindings {
-		binding := binding
-		t.Run(binding.ProviderID+"/"+binding.TargetID, func(t *testing.T) {
-			target := findManifestTarget(t, manifests[binding.ProviderID], binding.TargetID)
-			input := Input{Binding: binding, Session: Session{
-				ID: "018f0f31-26fe-7a31-9d61-4ec92f16d4c3", Purpose: "PRODUCT", Mode: "SINGLE",
-				Title: target.DisplayName, PlatformName: binding.PlatformIDs[0], ReturnTo: "/games/fixture",
-			}, Resources: resourcesForTarget(target), TargetOptions: optionsForTarget(target.OptionsKind)}
-			first, buildErr := builder.Build(input)
-			if buildErr != nil {
-				t.Fatal(buildErr)
-			}
-			second, buildErr := builder.Build(input)
-			if buildErr != nil {
-				t.Fatal(buildErr)
-			}
-			if string(first) != string(second) {
-				t.Fatal("Envelope bytes are not deterministic")
-			}
-			var envelope map[string]any
-			if err := json.Unmarshal(first, &envelope); err != nil {
-				t.Fatal(err)
-			}
-			assertForbiddenKeysAbsent(t, envelope)
-		})
+func assertCandidateBinding(
+	t *testing.T,
+	builder *Builder,
+	manifests map[string]runtimebundle.Manifest,
+	binding runtimecatalog.Binding,
+) {
+	t.Helper()
+	target := findManifestTarget(t, manifests[binding.ProviderID], binding.TargetID)
+	input := Input{Binding: binding, Session: Session{
+		ID: "018f0f31-26fe-7a31-9d61-4ec92f16d4c3", Purpose: "PRODUCT", Mode: "SINGLE",
+		Title: target.DisplayName, PlatformName: binding.PlatformIDs[0], ReturnTo: "/games/fixture",
+	}, Resources: resourcesForTarget(target), TargetOptions: optionsForTarget(target.OptionsKind)}
+	first, err := builder.Build(input)
+	if err != nil {
+		t.Fatal(err)
 	}
+	second, err := builder.Build(input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(first) != string(second) {
+		t.Fatal("Envelope bytes are not deterministic")
+	}
+	var envelope map[string]any
+	if err := json.Unmarshal(first, &envelope); err != nil {
+		t.Fatal(err)
+	}
+	assertForbiddenKeysAbsent(t, envelope)
 }
 
 func findManifestTarget(t *testing.T, manifest runtimebundle.Manifest, targetID string) runtimebundle.Target {

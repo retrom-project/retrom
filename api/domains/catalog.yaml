@@ -229,16 +229,16 @@ paths:
   /api/v1/admin/platforms:
     get:
       operationId: getAdminPlatforms
-      description: The platform/core catalog. Each core projects netplaySupported from the exact platform, enabled CoreArtifact version and SHA-256 recorded in the current netplay manifest; it is a core capability marker, not per-game eligibility.
+      description: The platform/core catalog. Each core projects netplaySupported from its active Provider Target and current netplay compatibility line; it is a core capability marker, not per-game eligibility.
       responses:
         '200':
           $ref: ../components/common.yaml#/components/responses/JSONResponse
-  /api/v1/admin/core-artifacts:
+  /api/v1/admin/runtime-targets:
     get:
-      operationId: getAdminCoreArtifacts
+      operationId: getAdminRuntimeTargets
       responses:
         '200':
-          $ref: '#/components/responses/CoreArtifactListResponse'
+          $ref: '#/components/responses/RuntimeTargetListResponse'
   /api/v1/admin/platform-instances:
     get:
       operationId: getAdminPlatformInstances
@@ -345,7 +345,8 @@ paths:
         - $ref: ../components/common.yaml#/components/parameters/Q
         - $ref: ../components/common.yaml#/components/parameters/PlatformIDQuery
         - $ref: ../components/common.yaml#/components/parameters/CoreIDQuery
-        - $ref: '#/components/parameters/CoreArtifactIDQuery'
+        - $ref: '#/components/parameters/ProviderIDQuery'
+        - $ref: '#/components/parameters/TargetIDQuery'
         - $ref: '#/components/parameters/Scope'
         - $ref: ../components/common.yaml#/components/parameters/Status
         - $ref: '#/components/parameters/BIOSQuick'
@@ -550,26 +551,54 @@ components:
           maxItems: 20
           items:
             $ref: ../components/common.yaml#/components/schemas/TagReference
-    CoreArtifactAdminItem:
+    RuntimeTargetAdminItem:
       type: object
       additionalProperties: false
       required:
-        - id
+        - providerId
+        - providerVersion
+        - providerApiVersion
+        - bundleSha256
+        - targetId
+        - displayName
+        - gameCompatibilityLine
+        - netplayCompatibilityLine
+        - targetContractSha256
         - coreId
         - coreName
-        - routeKey
-        - runtimeFamily
-        - runtimeAdapterKind
-        - runtimeVersion
-        - adapterId
-        - selectedForNewBindings
-        - availableForLaunch
-        - version
-        - sizeBytes
+        - launchPolicy
       properties:
-        id:
+        providerId:
           type: string
-          format: uuid
+          pattern: ^[a-z0-9]+(?:-[a-z0-9]+)*$
+        providerVersion:
+          type: string
+        providerApiVersion:
+          type: integer
+          enum:
+            - 1
+        bundleSha256:
+          type: string
+          pattern: ^[0-9a-f]{64}$
+        targetId:
+          type: string
+          pattern: ^[a-z0-9]+(?:-[a-z0-9]+)*$
+        displayName:
+          type: string
+          minLength: 1
+          maxLength: 120
+        gameCompatibilityLine:
+          type: string
+          minLength: 1
+          maxLength: 64
+        netplayCompatibilityLine:
+          type: string
+          nullable: true
+          minLength: 1
+          maxLength: 64
+        targetContractSha256:
+          type: string
+          pattern: ^[0-9a-f]{64}$
         coreId:
           type: string
           pattern: ^[a-z0-9_]{1,64}$
@@ -577,38 +606,13 @@ components:
           type: string
           minLength: 1
           maxLength: 200
-        routeKey:
+        launchPolicy:
           type: string
-          pattern: ^[A-Z][A-Z0-9_]{0,159}$
-        runtimeFamily:
-          type: string
-          minLength: 1
-          maxLength: 64
-        runtimeAdapterKind:
-          type: string
-          minLength: 1
-          maxLength: 64
-        runtimeVersion:
-          type: string
-          minLength: 1
-          maxLength: 160
-        adapterId:
-          type: string
-          minLength: 1
-          maxLength: 160
-        selectedForNewBindings:
-          type: boolean
-        availableForLaunch:
-          type: boolean
-        version:
-          type: integer
-          format: int64
-          minimum: 1
-        sizeBytes:
-          type: integer
-          format: int64
-          minimum: 0
-    CoreArtifactList:
+          enum:
+            - SUPPORTED
+            - EXPERIMENTAL
+            - DISABLED
+    RuntimeTargetList:
       type: object
       additionalProperties: false
       required:
@@ -618,7 +622,7 @@ components:
         items:
           type: array
           items:
-            $ref: '#/components/schemas/CoreArtifactAdminItem'
+            $ref: '#/components/schemas/RuntimeTargetAdminItem'
         nextCursor:
           type: string
           nullable: true
@@ -1100,7 +1104,9 @@ components:
         - id
         - coreId
         - coreName
-        - coreArtifactId
+        - providerId
+        - targetId
+        - targetContractSha256
         - logicalName
         - sourceKind
         - requirementMode
@@ -1117,8 +1123,15 @@ components:
           type: string
         coreName:
           type: string
-        coreArtifactId:
+        providerId:
           type: string
+          pattern: ^[a-z0-9]+(?:-[a-z0-9]+)*$
+        targetId:
+          type: string
+          pattern: ^[a-z0-9]+(?:-[a-z0-9]+)*$
+        targetContractSha256:
+          type: string
+          pattern: ^[0-9a-f]{64}$
         logicalName:
           type: string
         sourceKind:
@@ -1343,12 +1356,12 @@ components:
           schema:
             $ref: '#/components/schemas/DefaultCoreRequest'
   responses:
-    CoreArtifactListResponse:
-      description: Administrative immutable runtime artifact catalog
+    RuntimeTargetListResponse:
+      description: Administrative immutable Runtime Target catalog
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/CoreArtifactList'
+            $ref: '#/components/schemas/RuntimeTargetList'
     PlatformInstanceRecommendationsResponse:
       description: Recommended platform/core directory catalog and current coverage
       content:
@@ -1419,12 +1432,18 @@ components:
           - NAME_ASC
           - UPDATED_DESC
         default: NAME_ASC
-    CoreArtifactIDQuery:
-      name: coreArtifactId
+    ProviderIDQuery:
+      name: providerId
       in: query
       schema:
         type: string
-        format: uuid
+        pattern: ^[a-z0-9]+(?:-[a-z0-9]+)*$
+    TargetIDQuery:
+      name: targetId
+      in: query
+      schema:
+        type: string
+        pattern: ^[a-z0-9]+(?:-[a-z0-9]+)*$
     Enabled:
       name: enabled
       in: query

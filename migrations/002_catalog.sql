@@ -17,18 +17,98 @@ CREATE TABLE cores (
   updated_at_ms INTEGER NOT NULL CHECK(updated_at_ms >= created_at_ms)
 );
 
-CREATE TABLE rpgmaker_core_generations (
-  core_id TEXT PRIMARY KEY REFERENCES cores(id),
-  generation TEXT NOT NULL UNIQUE CHECK(generation IN (
-    'RPG2000','RPG2003','RPGXP','RPGVX','RPGVXACE','RPGMV','RPGMZ'
-  ))
-);
-
 CREATE TABLE platform_cores (
   platform_id TEXT NOT NULL REFERENCES platforms(id),
   core_id TEXT NOT NULL REFERENCES cores(id),
   enabled INTEGER NOT NULL CHECK(enabled IN (0,1)),
   PRIMARY KEY(platform_id, core_id)
+);
+
+CREATE TABLE runtime_providers (
+  provider_id TEXT PRIMARY KEY CHECK(
+    length(provider_id) BETWEEN 1 AND 64 AND provider_id=lower(provider_id)
+    AND provider_id NOT GLOB '*[^a-z0-9-]*'
+  ),
+  provider_version TEXT NOT NULL CHECK(length(provider_version) BETWEEN 5 AND 128),
+  provider_api_version INTEGER NOT NULL CHECK(provider_api_version=1),
+  bundle_sha256 TEXT NOT NULL UNIQUE CHECK(length(bundle_sha256)=64 AND bundle_sha256=lower(bundle_sha256)),
+  manifest_sha256 TEXT NOT NULL CHECK(length(manifest_sha256)=64 AND manifest_sha256=lower(manifest_sha256)),
+  module_sha256 TEXT NOT NULL CHECK(length(module_sha256)=64 AND module_sha256=lower(module_sha256)),
+  source TEXT NOT NULL CHECK(source IN ('candidate','production')),
+  release_repository TEXT,
+  release_tag TEXT,
+  release_commit TEXT,
+  activated_at_ms INTEGER NOT NULL CHECK(activated_at_ms>=0),
+  UNIQUE(provider_id,bundle_sha256),
+  CHECK(
+    source='candidate' AND release_repository IS NULL AND release_tag IS NULL AND release_commit IS NULL
+    OR source='production' AND release_repository IS NOT NULL AND release_tag IS NOT NULL
+      AND length(release_commit)=40 AND release_commit=lower(release_commit)
+  )
+);
+
+CREATE TABLE runtime_targets (
+  provider_id TEXT NOT NULL REFERENCES runtime_providers(provider_id) ON DELETE CASCADE,
+  target_id TEXT NOT NULL CHECK(
+    length(target_id) BETWEEN 1 AND 64 AND target_id=lower(target_id)
+    AND target_id NOT GLOB '*[^a-z0-9-]*'
+  ),
+  display_name TEXT NOT NULL CHECK(length(display_name) BETWEEN 1 AND 120),
+  game_compatibility_line TEXT NOT NULL CHECK(length(game_compatibility_line) BETWEEN 1 AND 64),
+  netplay_compatibility_line TEXT CHECK(length(netplay_compatibility_line) BETWEEN 1 AND 64),
+  options_kind TEXT NOT NULL CHECK(options_kind IN (
+    'NONE_V1','EMULATORJS_V1','RPGMAKER_V1','ONS_PROJECT_V1','KIRIKIRI_PROJECT_V1'
+  )),
+  capabilities_json TEXT NOT NULL CHECK(json_valid(capabilities_json)),
+  checkpoint_json TEXT CHECK(checkpoint_json IS NULL OR json_valid(checkpoint_json)),
+  manifest_fragment_json TEXT NOT NULL CHECK(json_valid(manifest_fragment_json)),
+  target_contract_sha256 TEXT NOT NULL CHECK(
+    length(target_contract_sha256)=64 AND target_contract_sha256=lower(target_contract_sha256)
+  ),
+  PRIMARY KEY(provider_id,target_id),
+  UNIQUE(provider_id,target_id,target_contract_sha256),
+  UNIQUE(provider_id,target_id,target_contract_sha256,game_compatibility_line),
+  UNIQUE(provider_id,target_id,target_contract_sha256,netplay_compatibility_line)
+);
+
+CREATE TABLE runtime_catalog_state (
+  singleton INTEGER PRIMARY KEY CHECK(singleton=1),
+  catalog_version INTEGER NOT NULL CHECK(catalog_version>=1),
+  catalog_sha256 TEXT NOT NULL CHECK(length(catalog_sha256)=64 AND catalog_sha256=lower(catalog_sha256)),
+  activated_at_ms INTEGER NOT NULL CHECK(activated_at_ms>=0)
+);
+
+CREATE TABLE runtime_target_bindings (
+  binding_id TEXT PRIMARY KEY CHECK(
+    length(binding_id) BETWEEN 1 AND 128 AND binding_id=lower(binding_id)
+    AND binding_id NOT GLOB '*[^a-z0-9-]*'
+  ),
+  core_id TEXT NOT NULL REFERENCES cores(id),
+  provider_id TEXT NOT NULL,
+  target_id TEXT NOT NULL,
+  detector_profile TEXT NOT NULL CHECK(length(detector_profile) BETWEEN 2 AND 64),
+  delivery_profile TEXT NOT NULL CHECK(length(delivery_profile) BETWEEN 2 AND 64),
+  launch_policy TEXT NOT NULL CHECK(launch_policy IN ('SUPPORTED','EXPERIMENTAL','DISABLED')),
+  review_policy TEXT NOT NULL CHECK(review_policy IN ('NONE','RPG_RUNTIME_VALIDATION_V1')),
+  UNIQUE(provider_id,target_id),
+  FOREIGN KEY(provider_id,target_id) REFERENCES runtime_targets(provider_id,target_id) ON DELETE CASCADE
+);
+
+CREATE TABLE runtime_binding_platforms (
+  binding_id TEXT NOT NULL REFERENCES runtime_target_bindings(binding_id) ON DELETE CASCADE,
+  platform_id TEXT NOT NULL,
+  core_id TEXT NOT NULL,
+  PRIMARY KEY(binding_id,platform_id),
+  FOREIGN KEY(platform_id,core_id) REFERENCES platform_cores(platform_id,core_id)
+);
+
+CREATE TABLE runtime_binding_content_kinds (
+  binding_id TEXT NOT NULL REFERENCES runtime_target_bindings(binding_id) ON DELETE CASCADE,
+  content_kind TEXT NOT NULL CHECK(content_kind IN (
+    'SINGLE_FILE','DOS_BUNDLE','MULTI_DISC_M3U_V1','RPG_MAKER_PROJECT_V1','ONS_PROJECT_V1',
+    'KIRIKIRI_PROJECT_V1','BUTTERSCOTCH_PROJECT_V1','TYRANOSCRIPT_PROJECT_V1'
+  )),
+  PRIMARY KEY(binding_id,content_kind)
 );
 
 CREATE TABLE platform_instances (
@@ -131,20 +211,6 @@ INSERT INTO cores(id,name,enabled,created_at_ms,updated_at_ms) VALUES('stella201
 INSERT INTO cores(id,name,enabled,created_at_ms,updated_at_ms) VALUES('wasm4','WASM-4',1,0,0);
 INSERT INTO cores(id,name,enabled,created_at_ms,updated_at_ms) VALUES('yabause','Yabause',1,0,0);
 INSERT INTO cores(id,name,enabled,created_at_ms,updated_at_ms) VALUES('rpgmaker','RPG Maker',1,0,0);
-INSERT INTO cores(id,name,enabled,created_at_ms,updated_at_ms) VALUES('rpgmaker_2000','RPG Maker 2000',1,0,0);
-INSERT INTO cores(id,name,enabled,created_at_ms,updated_at_ms) VALUES('rpgmaker_2003','RPG Maker 2003',1,0,0);
-INSERT INTO cores(id,name,enabled,created_at_ms,updated_at_ms) VALUES('rpgmaker_xp','RPG Maker XP',1,0,0);
-INSERT INTO cores(id,name,enabled,created_at_ms,updated_at_ms) VALUES('rpgmaker_vx','RPG Maker VX',1,0,0);
-INSERT INTO cores(id,name,enabled,created_at_ms,updated_at_ms) VALUES('rpgmaker_vx_ace','RPG Maker VX Ace',1,0,0);
-INSERT INTO cores(id,name,enabled,created_at_ms,updated_at_ms) VALUES('rpgmaker_mv','RPG Maker MV',1,0,0);
-INSERT INTO cores(id,name,enabled,created_at_ms,updated_at_ms) VALUES('rpgmaker_mz','RPG Maker MZ',1,0,0);
-INSERT INTO rpgmaker_core_generations(core_id,generation) VALUES('rpgmaker_2000','RPG2000');
-INSERT INTO rpgmaker_core_generations(core_id,generation) VALUES('rpgmaker_2003','RPG2003');
-INSERT INTO rpgmaker_core_generations(core_id,generation) VALUES('rpgmaker_xp','RPGXP');
-INSERT INTO rpgmaker_core_generations(core_id,generation) VALUES('rpgmaker_vx','RPGVX');
-INSERT INTO rpgmaker_core_generations(core_id,generation) VALUES('rpgmaker_vx_ace','RPGVXACE');
-INSERT INTO rpgmaker_core_generations(core_id,generation) VALUES('rpgmaker_mv','RPGMV');
-INSERT INTO rpgmaker_core_generations(core_id,generation) VALUES('rpgmaker_mz','RPGMZ');
 INSERT INTO platform_cores(platform_id,core_id,enabled) VALUES('3do','opera',1);
 INSERT INTO platform_cores(platform_id,core_id,enabled) VALUES('arcade','fbalpha2012_cps1',1);
 INSERT INTO platform_cores(platform_id,core_id,enabled) VALUES('arcade','fbalpha2012_cps2',1);

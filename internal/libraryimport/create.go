@@ -13,14 +13,16 @@ func (service *Service) Create(ctx context.Context, request CreateRequest) (Crea
 func resolveInitialArcadeBIOSState(
 	ctx context.Context,
 	transaction *sql.Tx,
-	platformID, artifactID string,
+	platformID, providerID, targetID string,
 	group *preparedGroup,
 	status, code, snapshotJSON string,
 ) (string, string, string, error) {
 	if platformID != "arcade" {
 		return status, code, snapshotJSON, nil
 	}
-	biosState, err := resolveArcadeDraftBIOSState(ctx, transaction, artifactID, snapshotJSON, status, code)
+	biosState, err := resolveArcadeDraftBIOSState(
+		ctx, transaction, providerID, targetID, snapshotJSON, status, code,
+	)
 	if err != nil {
 		return "", "", "", err
 	}

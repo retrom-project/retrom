@@ -22,6 +22,7 @@ import (
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
 	"retrom/internal/testassert"
+	"retrom/internal/testsupport"
 )
 
 func anyTrue(values ...bool) bool {
@@ -35,6 +36,7 @@ func anyTrue(values ...bool) bool {
 
 type httpTestSQLExecer interface {
 	ExecContext(context.Context, string, ...any) (sql.Result, error)
+	QueryRowContext(context.Context, string, ...any) *sql.Row
 }
 
 func mustExecHTTPTest(t *testing.T, execer httpTestSQLExecer, query string, arguments ...any) {
@@ -49,26 +51,13 @@ func seedHTTPTestCoreArtifact(
 	id, coreID, entryPath, entrySHA256, compatibility string,
 ) {
 	t.Helper()
-	var compatibilityValue map[string]any
-	if err := json.Unmarshal([]byte(compatibility), &compatibilityValue); err != nil {
-		t.Fatalf("decode test artifact compatibility: %v", err)
+	_ = id
+	_ = entryPath
+	_ = entrySHA256
+	_ = compatibility
+	if _, err := testsupport.LookupRuntimeTarget(context.Background(), execer, coreID); err != nil {
+		t.Fatal(err)
 	}
-	compatibilityValue["adapterAbi"] = "emulatorjs-state-v1"
-	compatibilityBytes, err := json.Marshal(compatibilityValue)
-	if err != nil {
-		t.Fatalf("encode test artifact compatibility: %v", err)
-	}
-	setDigest := sha256.Sum256([]byte(id))
-	mustExecHTTPTest(t, execer, `
-INSERT OR IGNORE INTO core_artifacts(
- id,core_id,route_key,runtime_family,runtime_adapter_kind,runtime_version,adapter_id,entry_path,
- size_bytes,sha256,manifest_sha256,artifact_set_sha256,requires_threads,save_payload_kind,
- save_max_bytes,provenance_json,compatibility_json,selected_for_new_bindings,available_for_launch,
- version,created_at_ms,updated_at_ms)
-VALUES(?,?,'DEFAULT','EMULATORJS','EMULATORJS','4.2.3','ejs-4.2.3-v2',?,1,?,
- ?,?,0,'RUNTIME_STATE',67108864,'{}',?,1,1,1,0,0)
-`, id, coreID, entryPath, entrySHA256, strings.Repeat("f", 64),
-		hex.EncodeToString(setDigest[:]), string(compatibilityBytes))
 }
 
 func mustDecodeHTTPTest(t *testing.T, contents []byte, destination any) {
@@ -212,7 +201,7 @@ func assertScreenshotlessSaveProjections(t *testing.T, server *Server, gameID st
 
 func assertGameHomeAndActivity(
 	t *testing.T, server *Server,
-	gameID, variantRevisionID, coreArtifactID, screenshotBlobID, latestLaunchID string,
+	gameID, variantRevisionID, _ string, screenshotBlobID, latestLaunchID string,
 	now int64, expectedCoverURL, saveStateID string, screenshot []byte,
 ) {
 	home := httptest.NewRecorder()
@@ -242,14 +231,15 @@ func assertGameHomeAndActivity(
 	sessionSaveID := uuid.NewString()
 	payloadDigest := sha256.Sum256(screenshot)
 	mustExecHTTPTest(t, server.database, `
-INSERT INTO save_states(id,profile_id,game_id,game_content_revision_id,game_variant_revision_id,core_artifact_id,
-adapter_abi,save_abi,dependency_snapshot_sha256,dat_version_id,dos_entry_path,payload_blob_id,payload_kind,
+INSERT INTO save_states(id,profile_id,game_id,game_content_revision_id,game_variant_revision_id,
+provider_id,target_id,target_contract_sha256,game_compatibility_line,checkpoint_format,
+dependency_snapshot_sha256,dat_version_id,dos_entry_path,payload_blob_id,
 payload_sha256,payload_size_bytes,screenshot_blob_id,source_launch_session_id,name,active_duration_ms,version,
 created_at_ms,updated_at_ms,deleted_at_ms)
-SELECT ?,'local',?,revision.game_content_revision_id,?,?,
-       'emulatorjs-state-v1','emulatorjs-state-v1',?,NULL,NULL,?,'RUNTIME_STATE',?,?,?,?,'本次游玩存档',240000,1,?,?,NULL
+SELECT ?,'local',?,revision.game_content_revision_id,?,revision.provider_id,revision.target_id,
+       revision.target_contract_sha256,revision.game_compatibility_line,'test-checkpoint-v1',?,NULL,NULL,?,?,?,?,?,'本次游玩存档',240000,1,?,?,NULL
 FROM game_variant_revisions revision WHERE revision.id=?
-`, sessionSaveID, gameID, variantRevisionID, coreArtifactID, strings.Repeat("d", 64), screenshotBlobID,
+`, sessionSaveID, gameID, variantRevisionID, strings.Repeat("d", 64), screenshotBlobID,
 		hex.EncodeToString(payloadDigest[:]), len(screenshot), screenshotBlobID, latestLaunchID, now+20, now+20,
 		variantRevisionID)
 	var alternateLaunchID string
@@ -272,7 +262,7 @@ FROM game_variant_revisions revision WHERE revision.id=?
 	testassert.Falsef(t, homeWithSessionSave.Code != http.StatusOK, "home with session save = %d: %s", homeWithSessionSave.Code, homeWithSessionSave.Body.String())
 	mustDecodeHTTPTest(t, homeWithSessionSave.Body.Bytes(), &homeResponse)
 	testassert.Falsef(t, testassert.Any(func() bool { return homeResponse.FeaturedGame == nil }, func() bool { return homeResponse.FeaturedGame.LastSessionSave == nil }, func() bool { return homeResponse.FeaturedGame.LastSessionSave.SaveStateID != sessionSaveID }), "featured session save = %#v", homeResponse.FeaturedGame)
-	seedRecentGameHistory(t, server.database, coreArtifactID, now, 55)
+	seedRecentGameHistory(t, server.database, now, 55)
 	latest := httptest.NewRecorder()
 	server.Handler().ServeHTTP(latest, httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/home", nil))
 	testassert.Falsef(t, latest.Code != http.StatusOK, "home latest games = %d: %s", latest.Code, latest.Body.String())
@@ -604,8 +594,10 @@ VALUES(?,?,?,'cover','COVER',0,'/cover','READY',?,600,800,'image/png',NULL,?,1,?
 	return candidateID, candidateAssetID
 }
 
-func seedRecentGameHistory(t *testing.T, database *sql.DB, coreArtifactID string, now int64, count int) {
+func seedRecentGameHistory(t *testing.T, database *sql.DB, now int64, count int) {
 	t.Helper()
+	target, err := testsupport.LookupRuntimeTarget(t.Context(), database, "dosbox_pure")
+	testassert.False(t, err != nil, err)
 	transaction, err := database.BeginTx(context.Background(), nil)
 	testassert.False(t, err != nil, err)
 	defer cleanup.Rollback(transaction)
@@ -637,17 +629,21 @@ INSERT INTO game_variants(id,game_id,core_id,current_revision_id,version,created
 VALUES(?,?,'dosbox_pure',NULL,1,?,?)
 `, variantID, gameID, now, now)
 		mustExecHTTPTest(t, transaction, `
-INSERT INTO game_variant_revisions(id,game_variant_id,game_content_revision_id,core_artifact_id,dat_version_id,
-route_key,validation_input_digest,emulator_game_id,status,compatibility_code,dependency_snapshot_json,default_dos_entry,created_at_ms)
-VALUES(?,?,?,?,NULL,'DEFAULT',?,?,'READY','READY','{}',NULL,?)
-`, variantRevisionID, variantID, contentID, coreArtifactID, strings.Repeat("8", 64), 10_000+index, now)
+INSERT INTO game_variant_revisions(id,game_variant_id,game_content_revision_id,
+provider_id,target_id,target_contract_sha256,game_compatibility_line,dat_version_id,
+validation_input_digest,emulator_game_id,status,compatibility_code,dependency_snapshot_json,default_dos_entry,created_at_ms)
+VALUES(?,?,?,?,?,?,?,NULL,?,?,'READY','READY','{}',NULL,?)
+`, variantRevisionID, variantID, contentID, target.ProviderID, target.TargetID,
+			target.TargetContractSHA256, target.GameCompatibilityLine, strings.Repeat("8", 64), 10_000+index, now)
 		mustExecHTTPTest(t, transaction, "UPDATE game_variants SET current_revision_id=? WHERE id=?", variantRevisionID, variantID)
 		mustExecHTTPTest(t, transaction, `
 INSERT INTO launch_sessions(id,profile_id,purpose,game_id,game_content_revision_id,game_variant_revision_id,
-core_artifact_id,route_key,return_to,credential_sha256,
+provider_id,target_id,target_contract_sha256,game_compatibility_line,bundle_sha256,return_to,credential_sha256,
 state,bootstrap_expires_at_ms,finished_at_ms,hard_expires_at_ms,created_at_ms,updated_at_ms,version)
-VALUES(?,'local','PRODUCT',?,?,?,?, 'DEFAULT','/recent',zeroblob(32),'FINISHED',?,?,?,?,?,1)
-`, launchID, gameID, contentID, variantRevisionID, coreArtifactID, now+60_000, now, now+120_000, now, now)
+VALUES(?,'local','PRODUCT',?,?,?,?,?,?,?,?,'/recent',zeroblob(32),'FINISHED',?,?,?,?,?,1)
+`, launchID, gameID, contentID, variantRevisionID, target.ProviderID, target.TargetID,
+			target.TargetContractSHA256, target.GameCompatibilityLine, target.BundleSHA256,
+			now+60_000, now, now+120_000, now, now)
 		mustExecHTTPTest(t, transaction, `
 INSERT INTO play_sessions(id,launch_session_id,profile_id,game_id,game_variant_revision_id,started_at_ms,
 last_heartbeat_at_ms,ended_at_ms,active_duration_ms,last_client_sequence,state,version,created_at_ms,updated_at_ms)
@@ -816,15 +812,19 @@ direct_launch_safe) VALUES(?,
 0)
 `, contentID, contentID)
 	seedHTTPTestCoreArtifact(t, transaction, coreArtifactID, "dosbox_pure", "cores/dosbox_pure.js", strings.Repeat("6", 64), "{}")
+	target, err := testsupport.LookupRuntimeTarget(t.Context(), transaction, "dosbox_pure")
+	testassert.False(t, err != nil, err)
 	mustExecHTTPTest(t, transaction, `
 INSERT INTO game_variants(id,game_id,core_id,current_revision_id,version,created_at_ms,updated_at_ms)
 VALUES(?,?,?,NULL,1,?,?)
 `, variantID, gameID, "dosbox_pure", now, now)
 	mustExecHTTPTest(t, transaction, `
-INSERT INTO game_variant_revisions(id,game_variant_id,game_content_revision_id,core_artifact_id,dat_version_id,
-route_key,validation_input_digest,emulator_game_id,status,compatibility_code,dependency_snapshot_json,default_dos_entry,created_at_ms)
-VALUES(?,?,?,?,NULL,'DEFAULT',?,9001,'READY','READY','{}',NULL,?)
-`, variantRevisionID, variantID, contentID, coreArtifactID, strings.Repeat("5", 64), now)
+INSERT INTO game_variant_revisions(id,game_variant_id,game_content_revision_id,
+provider_id,target_id,target_contract_sha256,game_compatibility_line,dat_version_id,
+validation_input_digest,emulator_game_id,status,compatibility_code,dependency_snapshot_json,default_dos_entry,created_at_ms)
+VALUES(?,?,?,?,?,?,?,NULL,?,9001,'READY','READY','{}',NULL,?)
+`, variantRevisionID, variantID, contentID, target.ProviderID, target.TargetID,
+		target.TargetContractSHA256, target.GameCompatibilityLine, strings.Repeat("5", 64), now)
 	mustExecHTTPTest(t, transaction, "UPDATE game_variants SET current_revision_id=? WHERE id=?", variantRevisionID, variantID)
 	fixture.screenshot = []byte("retrom-save-fixture.screenshot")
 	screenshotMetadata, err := server.blobs.Put(bytes.NewReader(fixture.screenshot))
@@ -834,29 +834,37 @@ VALUES(?,?,?,?,NULL,'DEFAULT',?,9001,'READY','READY','{}',NULL,?)
 	sourceLaunchID := uuid.NewString()
 	mustExecHTTPTest(t, transaction, `
 INSERT INTO launch_sessions(id,profile_id,purpose,game_id,game_content_revision_id,game_variant_revision_id,
-core_artifact_id,route_key,return_to,
+provider_id,target_id,target_contract_sha256,game_compatibility_line,bundle_sha256,return_to,
 credential_sha256,state,bootstrap_expires_at_ms,finished_at_ms,hard_expires_at_ms,created_at_ms,updated_at_ms,version)
-VALUES(?,'local','PRODUCT',?,?,?,?, 'DEFAULT','/',zeroblob(32),'FINISHED',?,?,?, ?,?,1)
-`, sourceLaunchID, gameID, contentID, variantRevisionID, coreArtifactID,
+VALUES(?,'local','PRODUCT',?,?,?,?,?,?,?,?, '/',zeroblob(32),'FINISHED',?,?,?, ?,?,1)
+`, sourceLaunchID, gameID, contentID, variantRevisionID,
+		target.ProviderID, target.TargetID, target.TargetContractSHA256,
+		target.GameCompatibilityLine, target.BundleSHA256,
 		now+60_000, now, now+120_000, now, now)
 	payloadDigest := sha256.Sum256(fixture.screenshot)
 	mustExecHTTPTest(t, transaction, `
-INSERT INTO save_states(id,profile_id,game_id,game_content_revision_id,game_variant_revision_id,core_artifact_id,
-adapter_abi,save_abi,dependency_snapshot_sha256,dat_version_id,dos_entry_path,payload_blob_id,payload_kind,
+INSERT INTO save_states(id,profile_id,game_id,game_content_revision_id,game_variant_revision_id,
+provider_id,target_id,target_contract_sha256,game_compatibility_line,checkpoint_format,
+dependency_snapshot_sha256,dat_version_id,dos_entry_path,payload_blob_id,
 payload_sha256,payload_size_bytes,screenshot_blob_id,source_launch_session_id,name,active_duration_ms,version,
 created_at_ms,updated_at_ms,deleted_at_ms)
-VALUES(?,'local',?,?,?,?,'emulatorjs-state-v1','emulatorjs-state-v1',?,NULL,NULL,?,'RUNTIME_STATE',?,?,?,?,'入口存档',180000,1,?,?,NULL)
-`, saveStateID, gameID, contentID, variantRevisionID, coreArtifactID, strings.Repeat("d", 64),
+VALUES(?,'local',?,?,?,?,?,?,?,'test-checkpoint-v1',?,NULL,NULL,?,?,?,?,?,'入口存档',180000,1,?,?,NULL)
+`, saveStateID, gameID, contentID, variantRevisionID,
+		target.ProviderID, target.TargetID, target.TargetContractSHA256, target.GameCompatibilityLine,
+		strings.Repeat("d", 64),
 		fixture.screenshotBlobID, hex.EncodeToString(payloadDigest[:]), len(fixture.screenshot),
 		fixture.screenshotBlobID, sourceLaunchID, now, now)
 	for index := 0; index < 8; index++ {
 		mustExecHTTPTest(t, transaction, `
-INSERT INTO save_states(id,profile_id,game_id,game_content_revision_id,game_variant_revision_id,core_artifact_id,
-adapter_abi,save_abi,dependency_snapshot_sha256,dat_version_id,dos_entry_path,payload_blob_id,payload_kind,
+INSERT INTO save_states(id,profile_id,game_id,game_content_revision_id,game_variant_revision_id,
+provider_id,target_id,target_contract_sha256,game_compatibility_line,checkpoint_format,
+dependency_snapshot_sha256,dat_version_id,dos_entry_path,payload_blob_id,
 payload_sha256,payload_size_bytes,screenshot_blob_id,source_launch_session_id,name,active_duration_ms,version,
 created_at_ms,updated_at_ms,deleted_at_ms)
-VALUES(?,'local',?,?,?,?,'emulatorjs-state-v1','emulatorjs-state-v1',?,NULL,NULL,?,'RUNTIME_STATE',?,?,?, ?,?,60000,1,?,?,NULL)
-`, uuid.NewString(), gameID, contentID, variantRevisionID, coreArtifactID, strings.Repeat("d", 64),
+VALUES(?,'local',?,?,?,?,?,?,?,'test-checkpoint-v1',?,NULL,NULL,?,?,?,?, ?,?,60000,1,?,?,NULL)
+`, uuid.NewString(), gameID, contentID, variantRevisionID,
+			target.ProviderID, target.TargetID, target.TargetContractSHA256, target.GameCompatibilityLine,
+			strings.Repeat("d", 64),
 			fixture.screenshotBlobID, hex.EncodeToString(payloadDigest[:]), len(fixture.screenshot),
 			fixture.screenshotBlobID, sourceLaunchID, fmt.Sprintf("额外存档 %d", index+1),
 			now+int64(index+1), now+int64(index+1))
@@ -866,10 +874,12 @@ VALUES(?,'local',?,?,?,?,'emulatorjs-state-v1','emulatorjs-state-v1',?,NULL,NULL
 		fixture.latestLaunchID = launchID
 		mustExecHTTPTest(t, transaction, `
 INSERT INTO launch_sessions(id,profile_id,purpose,game_id,game_content_revision_id,game_variant_revision_id,
-core_artifact_id,route_key,return_to,
+provider_id,target_id,target_contract_sha256,game_compatibility_line,bundle_sha256,return_to,
 credential_sha256,state,bootstrap_expires_at_ms,finished_at_ms,hard_expires_at_ms,created_at_ms,updated_at_ms,version)
-VALUES(?,'local','PRODUCT',?,?,?,?, 'DEFAULT','/',zeroblob(32),'FINISHED',?,?,?, ?,?,1)
-`, launchID, gameID, contentID, variantRevisionID, coreArtifactID,
+VALUES(?,'local','PRODUCT',?,?,?,?,?,?,?,?, '/',zeroblob(32),'FINISHED',?,?,?, ?,?,1)
+`, launchID, gameID, contentID, variantRevisionID,
+			target.ProviderID, target.TargetID, target.TargetContractSHA256,
+			target.GameCompatibilityLine, target.BundleSHA256,
 			now+60_000, now+int64(index), now+120_000, now, now+int64(index))
 		mustExecHTTPTest(t, transaction, `
 INSERT INTO play_sessions(id,launch_session_id,profile_id,game_id,game_variant_revision_id,started_at_ms,

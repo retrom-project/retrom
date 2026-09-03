@@ -1,19 +1,17 @@
 "use client";
 
 import { useEffect, type Dispatch, type MutableRefObject, type SetStateAction } from "react";
-import type { EmulatorInstance, ManualScreenshot, PlayerConfig } from "./adapters/ejs-4.2.3-v2";
-import { setEmulatorPaused } from "./pause-control";
+import type {PlayerRuntimeV1} from "./runtime/contract";
 
 type Params = {
-  emulator: MutableRefObject<EmulatorInstance | undefined>;
+  runtime: MutableRefObject<PlayerRuntimeV1 | null>;
   keyboardPauseActionRef: MutableRefObject<() => void>;
-  playerMode: MutableRefObject<PlayerConfig["mode"]>;
+  playerMode: MutableRefObject<"single" | "netplay">;
   running: MutableRefObject<boolean>;
   chromePinned: MutableRefObject<boolean>;
   pausePending: MutableRefObject<boolean>;
   netplayPlayerNo: number | null;
   pausedRef: MutableRefObject<boolean>;
-  lastManualScreenshot: MutableRefObject<ManualScreenshot | null>;
   setPaused: Dispatch<SetStateAction<boolean>>;
   setControlsVisible: Dispatch<SetStateAction<boolean>>;
   clearControlsTimer: () => void;
@@ -24,7 +22,7 @@ type Params = {
 
 export function usePlayerKeyboardPause(params: Params) {
   const {
-    chromePinned, clearControlsTimer, emulator, keyboardPauseActionRef, lastManualScreenshot,
+    chromePinned, clearControlsTimer, runtime, keyboardPauseActionRef,
     netplayPlayerNo, pausePending, pausedRef, playerMode, running, setControlsVisible,
     setPaused, showControls, showToast, toggleNetplayPause,
   } = params;
@@ -37,22 +35,24 @@ export function usePlayerKeyboardPause(params: Params) {
         return;
       }
       const nextPaused = !pausedRef.current;
-      if (!setEmulatorPaused(emulator.current, nextPaused)) {return;}
-      pausedRef.current = nextPaused;
-      setPaused(nextPaused);
-      if (nextPaused) {
-        showToast("游戏已暂停，按 P 或点击游戏画面继续");
-        setControlsVisible(true);
-        clearControlsTimer();
-        return;
-      }
-      lastManualScreenshot.current = null;
-      showToast("游戏已继续");
-      showControls();
+      const active = runtime.current;
+      if (!active?.getCapabilities().pause) {return;}
+      void (nextPaused ? active.pause() : active.resume()).then(() => {
+        pausedRef.current = nextPaused;
+        setPaused(nextPaused);
+        if (nextPaused) {
+          showToast("游戏已暂停，按 P 或点击游戏画面继续");
+          setControlsVisible(true);
+          clearControlsTimer();
+          return;
+        }
+        showToast("游戏已继续");
+        showControls();
+      }).catch(() => showToast("无法更改暂停状态", 3_000));
     };
     return () => {keyboardPauseActionRef.current = () => undefined;};
   }, [
-    chromePinned, clearControlsTimer, emulator, keyboardPauseActionRef, lastManualScreenshot,
+    chromePinned, clearControlsTimer, runtime, keyboardPauseActionRef,
     netplayPlayerNo, pausePending, pausedRef, playerMode, running, setControlsVisible, setPaused,
     showControls, showToast, toggleNetplayPause,
   ]);

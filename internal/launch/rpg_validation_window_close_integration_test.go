@@ -32,7 +32,7 @@ func TestRPGValidationWindowCloseFailsUnfinishedValidation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	service := New(database.SQL, nil, credentials, func() time.Time { return now })
+	service := newRPGValidationLaunchService(t, ctx, database.SQL, credentials, func() time.Time { return now })
 	created, err := service.CreateRPGValidation(
 		ctx, "local", fixture.validationID, "/admin/reviews/"+fixture.itemID, Capabilities{},
 	)

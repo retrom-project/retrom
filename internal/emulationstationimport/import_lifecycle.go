@@ -178,16 +178,18 @@ func (service *Service) verifyMappingTargets(ctx context.Context, importID strin
 SELECT count(*)
 FROM emulationstation_import_collections collection
 LEFT JOIN platform_instances instance ON instance.id=collection.target_platform_instance_id
-LEFT JOIN core_artifacts artifact ON artifact.id=collection.target_core_artifact_id
+LEFT JOIN runtime_targets target
+  ON target.provider_id=collection.target_provider_id AND target.target_id=collection.target_id
+LEFT JOIN runtime_target_bindings binding
+  ON binding.provider_id=target.provider_id AND binding.target_id=target.target_id
 LEFT JOIN dat_versions dat ON dat.id=collection.target_dat_version_id
 WHERE collection.import_id=? AND collection.mapping_action='IMPORT' AND (
  instance.id IS NULL OR instance.enabled<>1 OR instance.deleted_at_ms IS NOT NULL OR
  instance.version<>collection.target_platform_instance_version OR
  instance.platform_id<>collection.target_platform_id OR
  instance.default_core_id<>collection.target_default_core_id OR
- artifact.id IS NULL OR artifact.available_for_launch<>1 OR
- artifact.version<>collection.target_core_artifact_version OR
- artifact.core_id<>collection.target_default_core_id OR
+ target.provider_id IS NULL OR target.target_contract_sha256<>collection.target_contract_sha256 OR
+ binding.core_id<>collection.target_default_core_id OR binding.launch_policy='DISABLED' OR
  collection.target_dat_version_id IS NOT NULL AND (dat.id IS NULL OR dat.is_active<>1)
 )`, importID).Scan(&changed)
 	if err != nil {

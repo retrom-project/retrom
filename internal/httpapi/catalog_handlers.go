@@ -22,14 +22,17 @@ p.enabled,
 pc.core_id,
 c.name,
 pc.enabled,
-a.runtime_family,
-a.runtime_version,
-a.sha256
+binding.provider_id,
+binding.target_id,
+target.netplay_compatibility_line
 FROM platforms p
 LEFT JOIN platform_cores pc ON pc.platform_id=p.id
 LEFT JOIN cores c ON c.id=pc.core_id
-LEFT JOIN core_artifacts a ON a.core_id=pc.core_id
- AND a.selected_for_new_bindings=1 AND a.available_for_launch=1
+LEFT JOIN runtime_binding_platforms binding_platform
+ ON binding_platform.platform_id=p.id AND binding_platform.core_id=pc.core_id
+LEFT JOIN runtime_target_bindings binding ON binding.binding_id=binding_platform.binding_id
+ AND binding.launch_policy!='DISABLED'
+LEFT JOIN runtime_targets target ON target.provider_id=binding.provider_id AND target.target_id=binding.target_id
 ORDER BY p.sort_order,
 pc.core_id
 `,
@@ -44,11 +47,11 @@ pc.core_id
 	for rows.Next() {
 		var id, name string
 		var sortOrder, enabled int
-		var coreID, coreName, runtimeFamily, runtimeVersion, artifactSHA sql.NullString
+		var coreID, coreName, providerID, targetID, netplayLine sql.NullString
 		var coreEnabled sql.NullInt64
 		if err := rows.Scan(
 			&id, &name, &sortOrder, &enabled, &coreID, &coreName, &coreEnabled,
-			&runtimeFamily, &runtimeVersion, &artifactSHA,
+			&providerID, &targetID, &netplayLine,
 		); err != nil {
 			server.databaseError(writer, request, err)
 			return
@@ -78,9 +81,9 @@ pc.core_id
 				)
 				return
 			}
-			netplaySupported := runtimeFamily.String == "EMULATORJS" && runtimeVersion.Valid && artifactSHA.Valid &&
-				server.netplay.SupportsPlatformCoreArtifact(
-					id, coreID.String, runtimeVersion.String, artifactSHA.String,
+			netplaySupported := providerID.Valid && targetID.Valid && netplayLine.Valid &&
+				server.netplay.SupportsPlatformTarget(
+					id, coreID.String, providerID.String, targetID.String, netplayLine.String,
 				)
 			item["cores"] = append(
 				cores,
@@ -98,27 +101,27 @@ pc.core_id
 	writeJSON(writer, http.StatusOK, map[string]any{"items": items, "nextCursor": nil})
 }
 
-func (server *Server) coreArtifacts(writer http.ResponseWriter, request *http.Request) {
+func (server *Server) runtimeTargets(writer http.ResponseWriter, request *http.Request) {
 	rows, err := server.database.QueryContext(
 		request.Context(),
 		`
-SELECT a.id,
-a.core_id,
+SELECT provider.provider_id,
+provider.provider_version,
+provider.provider_api_version,
+provider.bundle_sha256,
+target.target_id,
+target.display_name,
+target.game_compatibility_line,
+target.netplay_compatibility_line,
+target.target_contract_sha256,
+binding.core_id,
 c.name,
-a.route_key,
-a.runtime_family,
-a.runtime_adapter_kind,
-a.runtime_version,
-a.adapter_id,
-a.selected_for_new_bindings,
-a.available_for_launch,
-a.version,
-a.size_bytes
-FROM core_artifacts a
-JOIN cores c ON c.id=a.core_id
-ORDER BY c.name,
-a.runtime_version,
-a.id
+binding.launch_policy
+FROM runtime_providers provider
+JOIN runtime_targets target ON target.provider_id=provider.provider_id
+JOIN runtime_target_bindings binding ON binding.provider_id=target.provider_id AND binding.target_id=target.target_id
+JOIN cores c ON c.id=binding.core_id
+ORDER BY provider.provider_id,target.target_id
 `,
 	)
 	if err != nil {
@@ -128,22 +131,14 @@ a.id
 	defer func() { cleanup.Error("close", rows.Close()) }()
 	items := make([]map[string]any, 0)
 	for rows.Next() {
-		var id, coreID, coreName, routeKey, runtimeFamily, adapterKind, runtimeVersion, adapterID string
-		var selected, available int
-		var version, size int64
+		var providerID, providerVersion, bundleSHA256, targetID, displayName string
+		var gameLine, targetContractSHA256, coreID, coreName, launchPolicy string
+		var providerAPIVersion int
+		var netplayLine sql.NullString
 		if err := rows.Scan(
-			&id,
-			&coreID,
-			&coreName,
-			&routeKey,
-			&runtimeFamily,
-			&adapterKind,
-			&runtimeVersion,
-			&adapterID,
-			&selected,
-			&available,
-			&version,
-			&size,
+			&providerID, &providerVersion, &providerAPIVersion, &bundleSHA256,
+			&targetID, &displayName, &gameLine, &netplayLine, &targetContractSHA256,
+			&coreID, &coreName, &launchPolicy,
 		); err != nil {
 			server.databaseError(writer, request, err)
 			return
@@ -151,18 +146,12 @@ a.id
 		items = append(
 			items,
 			map[string]any{
-				"id":                     id,
-				"coreId":                 coreID,
-				"coreName":               coreName,
-				"routeKey":               routeKey,
-				"runtimeFamily":          runtimeFamily,
-				"runtimeAdapterKind":     adapterKind,
-				"runtimeVersion":         runtimeVersion,
-				"adapterId":              adapterID,
-				"selectedForNewBindings": selected == 1,
-				"availableForLaunch":     available == 1,
-				"version":                version,
-				"sizeBytes":              size,
+				"providerId": providerID, "providerVersion": providerVersion,
+				"providerApiVersion": providerAPIVersion, "bundleSha256": bundleSHA256,
+				"targetId": targetID, "displayName": displayName,
+				"gameCompatibilityLine": gameLine, "netplayCompatibilityLine": nullableString(netplayLine),
+				"targetContractSha256": targetContractSHA256,
+				"coreId":               coreID, "coreName": coreName, "launchPolicy": launchPolicy,
 			},
 		)
 	}
@@ -213,10 +202,21 @@ pi.version,
 pi.updated_at_ms,
 (SELECT count(*) FROM games g WHERE g.platform_instance_id=pi.id)
 ,
-COALESCE((SELECT a.compatibility_json
- FROM core_artifacts a
- WHERE a.core_id=pi.default_core_id
- AND a.selected_for_new_bindings=1 AND a.available_for_launch=1
+COALESCE((SELECT json_object(
+  'schemaVersion',1,
+  'supportedContentKinds',json((SELECT json_group_array(content_kind) FROM (
+    SELECT content_kind FROM runtime_binding_content_kinds kinds
+    WHERE kinds.binding_id=binding.binding_id ORDER BY content_kind
+  ))),
+  'multiDisc',CASE WHEN EXISTS(
+    SELECT 1 FROM runtime_binding_content_kinds kinds
+    WHERE kinds.binding_id=binding.binding_id AND kinds.content_kind='MULTI_DISC_M3U_V1'
+  ) THEN json_object('maxDiscs',8,'maxTotalBytes',1073741824,'delivery','EAGER_EXTERNAL_FILES') ELSE NULL END
+ )
+ FROM runtime_target_bindings binding
+ JOIN runtime_binding_platforms binding_platform ON binding_platform.binding_id=binding.binding_id
+  AND binding_platform.platform_id=pi.platform_id AND binding_platform.core_id=pi.default_core_id
+ WHERE binding.core_id=pi.default_core_id AND binding.launch_policy<>'DISABLED'
  LIMIT 1),'{}')
 FROM platform_instances pi
 JOIN platforms p ON p.id=pi.platform_id

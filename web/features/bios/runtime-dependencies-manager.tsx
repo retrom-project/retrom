@@ -2,7 +2,7 @@
 
 import { useRef, useState, type KeyboardEvent } from "react";
 import { BIOSManager, type BIOSListResponse } from "./bios-manager";
-import { RuntimeAssetPackManager, type CoreArtifactList, type RuntimeAssetPackList } from "./runtime-asset-pack-manager";
+import {RuntimeAssetPackManager, type RuntimeAssetPackList, type RuntimeTargetList} from "./runtime-asset-pack-manager";
 import type { BIOSFilters, BIOSQuickFilter } from "./runtime-dependencies";
 
 type Scope = "REQUIRED_BY_LIBRARY" | "FULL_CATALOG";
@@ -17,14 +17,14 @@ function setTabURL(tab: Tab) {
 export function RuntimeDependenciesManager({
   initialBIOS,
   initialPackList,
-  initialCoreArtifacts,
+  initialRuntimeTargets,
   initialTab,
   initialScope,
   initialFilters,
 }: {
   initialBIOS: BIOSListResponse;
   initialPackList: RuntimeAssetPackList;
-  initialCoreArtifacts: CoreArtifactList;
+  initialRuntimeTargets: RuntimeTargetList;
   initialTab: Tab;
   initialScope: Scope;
   initialFilters: Partial<BIOSFilters> & { quick: BIOSQuickFilter };
@@ -55,7 +55,7 @@ export function RuntimeDependenciesManager({
     <div role="tabpanel" aria-label={tab === "bios" ? "BIOS 文件" : "RPG Maker 运行包"}>
       {tab === "bios"
         ? <BIOSManager initialResponse={initialBIOS} initialScope={initialScope} initialFilters={initialFilters} />
-        : <RuntimeAssetPackManager initialList={initialPackList} initialCoreArtifacts={initialCoreArtifacts} />}
+        : <RuntimeAssetPackManager initialList={initialPackList} initialRuntimeTargets={initialRuntimeTargets} />}
     </div>
   </>;
 }

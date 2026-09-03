@@ -27,7 +27,7 @@ func TestMigrationsCreateCurrentSchemaAndReferenceCatalog(t *testing.T) {
 	testassert.Falsef(t, database.IntegrityCheck(ctx) != nil, "fresh database integrity failed")
 
 	tables := queryStrings(t, database.SQL, "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name")
-	testassert.Falsef(t, len(tables) != 123, "fresh schema table count = %d", len(tables))
+	testassert.Falsef(t, len(tables) != 127, "fresh schema table count = %d", len(tables))
 	assertColumns(t, database.SQL, "import_group_requests",
 		"import_job_id", "request_digest", "actor_user_id", "upload_version",
 		"upload_manifest_digest", "target_snapshot_digest")
@@ -47,28 +47,34 @@ WHERE type='trigger' AND name LIKE 'import_group_requests_immutable_%' ORDER BY 
 		"import_item_id", "preview_session_id", "validation_id", "blob_id", "captured_after_ms", "captured_at_ms")
 	assertColumns(t, database.SQL, "netplay_rooms", "host_profile_id", "state", "profile_digest", "expires_at_ms")
 	assertColumns(t, database.SQL, "netplay_room_members", "room_id", "profile_id", "player_no", "ready")
-	assertColumns(t, database.SQL, "netplay_sessions", "profile_json", "occupied_seat_mask", "resync_count")
+	assertColumns(t, database.SQL, "netplay_sessions", "provider_id", "target_id", "target_contract_sha256",
+		"netplay_compatibility_line", "profile_json", "occupied_seat_mask", "resync_count")
 	assertColumns(t, database.SQL, "netplay_session_participants", "credential_sha256", "lease_expires_at_ms")
 	assertColumns(t, database.SQL, "netplay_events", "event_type", "data_json", "created_at_ms")
 	assertColumns(t, database.SQL, "launch_sessions", "netplay_session_id", "netplay_player_no", "save_access")
-	assertColumns(t, database.SQL, "launch_sessions", "purpose", "game_content_revision_id", "route_key",
+	assertColumns(t, database.SQL, "launch_sessions", "purpose", "game_content_revision_id", "provider_id",
+		"target_id", "target_contract_sha256", "game_compatibility_line", "bundle_sha256",
 		"effective_source_snapshot_id", "rpgmaker_runtime_validation_id")
-	assertColumns(t, database.SQL, "core_artifacts", "route_key", "runtime_family", "runtime_adapter_kind",
-		"runtime_version", "adapter_id", "entry_path", "manifest_sha256", "artifact_set_sha256",
-		"requires_threads", "save_payload_kind", "save_max_bytes", "selected_for_new_bindings",
-		"available_for_launch", "retired_at_ms")
-	assertColumns(t, database.SQL, "save_states", "game_content_revision_id", "payload_blob_id", "payload_kind",
-		"native_profile", "resume_slot", "payload_sha256", "payload_size_bytes", "adapter_abi",
-		"dependency_snapshot_sha256")
+	assertColumns(t, database.SQL, "runtime_providers", "provider_version", "provider_api_version",
+		"bundle_sha256", "manifest_sha256", "module_sha256", "source")
+	assertColumns(t, database.SQL, "runtime_targets", "target_id", "target_contract_sha256",
+		"game_compatibility_line", "netplay_compatibility_line", "capabilities_json", "checkpoint_json")
+	assertColumns(t, database.SQL, "runtime_target_bindings", "core_id", "provider_id", "target_id",
+		"detector_profile", "delivery_profile", "launch_policy", "review_policy")
+	assertColumns(t, database.SQL, "save_states", "game_content_revision_id", "provider_id", "target_id",
+		"target_contract_sha256", "game_compatibility_line", "checkpoint_format", "payload_blob_id",
+		"payload_sha256", "payload_size_bytes", "dependency_snapshot_sha256")
 	assertColumns(t, database.SQL, "rpgmaker_runtime_validations", "runtime_binding_revision", "project_fingerprint",
-		"launch_id", "restore_launch_id", "last_gate_sequence", "machine_gates_json")
-	assertColumns(t, database.SQL, "rpgmaker_runtime_validation_checkpoints", "payload_blob_id", "payload_kind")
+		"provider_id", "target_id", "target_contract_sha256", "launch_id", "restore_launch_id",
+		"last_gate_sequence", "machine_gates_json")
+	assertColumns(t, database.SQL, "rpgmaker_runtime_validation_checkpoints", "payload_blob_id", "checkpoint_format")
 	assertColumns(t, database.SQL, "isolated_runtime_bootstrap_tickets", "launch_id", "preview_id")
 	assertColumns(t, database.SQL, "isolated_runtime_capabilities", "launch_id", "preview_id")
 	assertColumns(t, database.SQL, "runtime_asset_pack_installations", "status", "version", "validated_at_ms")
 	assertNotNullColumn(t, database.SQL, "game_metadata_revisions", "title_initial")
 	assertNotNullColumn(t, database.SQL, "save_states", "source_launch_session_id")
-	assertColumns(t, database.SQL, "dat_versions", "builtin_relative_path", "sha256", "parser_version", "parse_status")
+	assertColumns(t, database.SQL, "dat_versions", "provider_id", "target_id", "target_contract_sha256",
+		"builtin_relative_path", "sha256", "parser_version", "parse_status")
 	assertColumns(t, database.SQL, "review_bulk_approvals", "source_flagged_count")
 
 	var platformCount, coreCount, relationCount, directoryCount int
@@ -82,7 +88,7 @@ SELECT (SELECT count(*) FROM platforms),
 	}
 	testassert.Falsef(t, testassert.Any(
 		func() bool { return platformCount != 31 },
-		func() bool { return coreCount != 48 },
+		func() bool { return coreCount != 41 },
 		func() bool { return relationCount != 44 },
 		func() bool { return directoryCount != 0 },
 	), "seed counts = %d/%d/%d/%d", platformCount, coreCount, relationCount, directoryCount)
@@ -112,20 +118,11 @@ SELECT (SELECT count(*) FROM profiles),(SELECT count(*) FROM users),state FROM i
 		"fbneo", "fceumm", "gambatte", "genesis_plus_gx", "genesis_plus_gx_wide", "handy", "kirikiri2", "mame2003", "mame2003_plus",
 		"mednafen_ngp", "mednafen_pce", "mednafen_pcfx", "mednafen_psx_hw", "mednafen_wswan", "melonds", "mgba",
 		"mupen64plus_next", "nestopia", "onscripter_yuri", "opera", "parallel_n64", "pcsx_rearmed", "picodrive", "ppsspp", "prosystem",
-		"rpgmaker", "rpgmaker_2000", "rpgmaker_2003", "rpgmaker_mv", "rpgmaker_mz", "rpgmaker_vx", "rpgmaker_vx_ace", "rpgmaker_xp", "smsplus",
+		"rpgmaker", "smsplus",
 		"snes9x", "stella2014", "tyranoscript", "wasm4", "yabause",
 	}
 	testassert.Truef(t, slices.Equal(queryStrings(t, database.SQL, "SELECT id FROM cores ORDER BY id"), wantCores), "core catalog drifted")
 	testassert.Falsef(t, tableColumns(t, database.SQL, "cores")["requires_threads"], "thread capability remained on cores")
-	testassert.Truef(t, slices.Equal(
-		queryStrings(t, database.SQL, "SELECT core_id||'='||generation FROM rpgmaker_core_generations ORDER BY core_id"),
-		[]string{
-			"rpgmaker_2000=RPG2000", "rpgmaker_2003=RPG2003", "rpgmaker_mv=RPGMV",
-			"rpgmaker_mz=RPGMZ", "rpgmaker_vx=RPGVX", "rpgmaker_vx_ace=RPGVXACE",
-			"rpgmaker_xp=RPGXP",
-		},
-	), "RPG Maker core generation catalog drifted")
-
 	assertCurrentClosedEnums(t, database.SQL)
 }
 
@@ -223,7 +220,7 @@ func TestCurrentMigrationLineageResumeAndReopen(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "retrom.db")
 	sources, err := migrationSources()
 	testassert.False(t, err != nil, err)
-	testassert.Falsef(t, len(sources) != 14, "migration count = %d", len(sources))
+	testassert.Falsef(t, len(sources) != 10, "migration count = %d", len(sources))
 	database := openMigrationTestDatabase(t, path)
 	for _, source := range sources[:len(sources)-1] {
 		if err := runMigration(ctx, database, source, time.Now); err != nil {
@@ -274,6 +271,53 @@ SELECT count(*) FROM archive_entries WHERE archive_blob_id='archive'
 	reopened, err := Open(ctx, path, time.Now)
 	testassert.Falsef(t, err != nil, "idempotent reopen: %v", err)
 	testassert.False(t, reopened.Close() != nil, "close reopened database")
+}
+
+func TestFreshSchemaUsesProviderTargetProjectionWithoutLegacyRuntimeSemantics(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "retrom.db")
+	createCurrentDatabase(t, path)
+	database, err := sql.Open("sqlite", path)
+	testassert.False(t, err != nil, err)
+	defer func() { cleanup.Error("close", database.Close()) }()
+
+	rows, err := database.QueryContext(t.Context(), `
+SELECT name,sql FROM sqlite_schema WHERE sql IS NOT NULL ORDER BY name
+	`)
+	testassert.False(t, err != nil, err)
+	defer func() { cleanup.Error("close schema rows", rows.Close()) }()
+	forbidden := []string{
+		"route_key", "runtime_family", "runtime_adapter_kind", "adapter_abi", "save_abi",
+		"payload_kind", "native_profile", "resume_slot", "core_artifact_id", "core_artifacts",
+	}
+	foundTables := map[string]bool{}
+	for rows.Next() {
+		var name, statement string
+		if err := rows.Scan(&name, &statement); err != nil {
+			t.Fatal(err)
+		}
+		foundTables[name] = true
+		lowered := strings.ToLower(statement)
+		for _, legacy := range forbidden {
+			if strings.Contains(lowered, legacy) {
+				t.Fatalf("schema object %s retains %q: %s", name, legacy, statement)
+			}
+		}
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatal(err)
+	}
+	for _, required := range []string{"runtime_providers", "runtime_targets", "runtime_catalog_state"} {
+		if !foundTables[required] {
+			t.Fatalf("missing Provider projection table %s", required)
+		}
+	}
+	var syntheticRPGCores int
+	if err := database.QueryRowContext(t.Context(), `SELECT count(*) FROM cores WHERE id LIKE 'rpgmaker_%'`).Scan(&syntheticRPGCores); err != nil {
+		t.Fatal(err)
+	}
+	if syntheticRPGCores != 0 {
+		t.Fatalf("synthetic RPG generation cores = %d", syntheticRPGCores)
+	}
 }
 
 func TestMigrationPreflightRejectsOldCorruptGapAndFutureLineages(t *testing.T) {

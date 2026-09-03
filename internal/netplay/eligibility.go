@@ -17,11 +17,13 @@ import (
 )
 
 type ProfileSummary struct {
-	ID                string `json:"id"`
-	CoreID            string `json:"coreId"`
-	CoreName          string `json:"coreName"`
-	EmulatorJSVersion string `json:"emulatorjsVersion"`
-	MaxPlayers        int    `json:"maxPlayers"`
+	ID                       string `json:"id"`
+	CoreID                   string `json:"coreId"`
+	CoreName                 string `json:"coreName"`
+	ProviderID               string `json:"providerId"`
+	TargetID                 string `json:"targetId"`
+	NetplayCompatibilityLine string `json:"netplayCompatibilityLine"`
+	MaxPlayers               int    `json:"maxPlayers"`
 }
 
 type GameSummary struct {
@@ -44,9 +46,8 @@ type eligibleProfile struct {
 	Summary                ProfileSummary
 	Manifest               ManifestProfile
 	VariantRevisionID      string
-	CoreArtifactID         string
+	TargetContractSHA256   string
 	DependencySnapshotJSON string
-	DefaultCoreOptions     map[string]string
 }
 
 func (service *Service) Games(ctx context.Context, profileID, availability string) ([]GameSummary, error) {
@@ -250,12 +251,14 @@ func (service *Service) dependencySnapshotCurrent(ctx context.Context, row eligi
 	if row.datVersionID.Valid {
 		return service.arcadeDependencySnapshotRunnable(ctx, row)
 	}
-	artifactID, logicalName, rawSnapshot := row.artifactID, row.logicalName, row.dependencyJSON
+	logicalName, rawSnapshot := row.logicalName, row.dependencyJSON
 	lockedJSON, valid := lockedSnapshotJSON(rawSnapshot)
 	if !valid {
 		return false, nil
 	}
-	current, status, _, err := corevalidation.ResolveBIOS(ctx, service.database, artifactID, logicalName)
+	current, status, _, err := corevalidation.ResolveBIOS(
+		ctx, service.database, row.providerID, row.targetID, logicalName,
+	)
 	if err != nil {
 		return false, serviceError("resolve BIOS snapshot", err)
 	}
@@ -486,10 +489,9 @@ func lockedSnapshotJSON(raw string) ([]byte, bool) {
 }
 
 type eligibilityRow struct {
-	revisionID, artifactID, platformID, coreID, coreName, emulatorVersion, artifactSHA string
-	dependencyJSON, compatibilityJSON, contentKind, logicalName                        string
-	datVersionID                                                                       sql.NullString
-	artifactEnabled                                                                    int
+	revisionID, providerID, targetID, targetContractSHA256, netplayCompatibilityLine string
+	platformID, coreID, coreName, dependencyJSON, contentKind, logicalName           string
+	datVersionID                                                                     sql.NullString
 }
 
 func (service *Service) profileEligibility(ctx context.Context, gameID string) ([]eligibleProfile, string, error) {
@@ -525,21 +527,30 @@ func (service *Service) profileEligibility(ctx context.Context, gameID string) (
 
 func (service *Service) queryEligibilityRows(ctx context.Context, gameID string) ([]eligibilityRow, error) {
 	rows, err := service.database.QueryContext(ctx, `
-SELECT revision.id,artifact.id,platform.id,artifact.core_id,core.name,artifact.runtime_version,artifact.sha256,
-  revision.dependency_snapshot_json,artifact.compatibility_json,content.content_kind,
-  file.logical_name,revision.dat_version_id,artifact.available_for_launch
+SELECT revision.id,revision.provider_id,revision.target_id,revision.target_contract_sha256,
+  target.netplay_compatibility_line,platform.id,variant.core_id,core.name,
+  revision.dependency_snapshot_json,content.content_kind,file.logical_name,revision.dat_version_id
 FROM games game
 JOIN platform_instances instance ON instance.id=game.platform_instance_id
 JOIN platforms platform ON platform.id=instance.platform_id
 JOIN game_variants variant ON variant.game_id=game.id
 JOIN game_variant_revisions revision ON revision.id=variant.current_revision_id
   AND revision.game_content_revision_id=game.current_content_revision_id AND revision.status='READY'
-JOIN core_artifacts artifact ON artifact.id=revision.core_artifact_id
-JOIN cores core ON core.id=artifact.core_id
 JOIN game_content_revisions content ON content.id=revision.game_content_revision_id
+JOIN runtime_targets target ON target.provider_id=revision.provider_id AND target.target_id=revision.target_id
+ AND target.target_contract_sha256=revision.target_contract_sha256
+ AND target.netplay_compatibility_line IS NOT NULL
+ AND json_extract(target.capabilities_json,'$.netplayPort')=1
+JOIN runtime_target_bindings binding ON binding.provider_id=target.provider_id AND binding.target_id=target.target_id
+ AND binding.core_id=variant.core_id AND binding.launch_policy!='DISABLED'
+JOIN runtime_binding_platforms binding_platform ON binding_platform.binding_id=binding.binding_id
+ AND binding_platform.platform_id=platform.id AND binding_platform.core_id=variant.core_id
+JOIN runtime_binding_content_kinds binding_kind ON binding_kind.binding_id=binding.binding_id
+ AND binding_kind.content_kind=content.content_kind
+JOIN cores core ON core.id=variant.core_id
 JOIN game_content_files file ON file.game_content_revision_id=content.id AND file.role='CONTENT'
 WHERE game.id=? AND game.status='PUBLISHED'
-ORDER BY artifact.core_id,revision.id,file.sort_order,file.logical_name
+ORDER BY variant.core_id,revision.id,file.sort_order,file.logical_name
 `, gameID)
 	if err != nil {
 		return nil, fmt.Errorf("netplay/eligible profiles: %w", err)
@@ -549,10 +560,9 @@ ORDER BY artifact.core_id,revision.id,file.sort_order,file.logical_name
 	for rows.Next() {
 		var row eligibilityRow
 		if err := rows.Scan(
-			&row.revisionID, &row.artifactID, &row.platformID, &row.coreID, &row.coreName,
-			&row.emulatorVersion, &row.artifactSHA,
-			&row.dependencyJSON, &row.compatibilityJSON, &row.contentKind, &row.logicalName, &row.datVersionID,
-			&row.artifactEnabled,
+			&row.revisionID, &row.providerID, &row.targetID, &row.targetContractSHA256,
+			&row.netplayCompatibilityLine, &row.platformID, &row.coreID, &row.coreName,
+			&row.dependencyJSON, &row.contentKind, &row.logicalName, &row.datVersionID,
 		); err != nil {
 			return nil, fmt.Errorf("netplay/eligible profile row: %w", err)
 		}
@@ -569,11 +579,11 @@ func (service *Service) matchEligibleProfile(
 	row eligibilityRow,
 	candidate ManifestProfile,
 ) (eligibleProfile, bool, bool, bool, error) {
-	contentKindAllowed, artifactMatches := service.matchesCoreProfile(row, candidate)
+	contentKindAllowed, targetMatches := service.matchesTargetProfile(row, candidate)
 	if !contentKindAllowed {
 		return eligibleProfile{}, false, false, false, nil
 	}
-	if !artifactMatches {
+	if !targetMatches {
 		return eligibleProfile{}, contentKindAllowed, false, false, nil
 	}
 	current, err := service.dependencySnapshotCurrent(ctx, row)
@@ -583,27 +593,18 @@ func (service *Service) matchEligibleProfile(
 	return eligibleProfile{
 		Summary: ProfileSummary{
 			ID: candidate.ID, CoreID: row.coreID, CoreName: row.coreName,
-			EmulatorJSVersion: row.emulatorVersion, MaxPlayers: candidate.MaxPlayers,
+			ProviderID: row.providerID, TargetID: row.targetID,
+			NetplayCompatibilityLine: row.netplayCompatibilityLine, MaxPlayers: candidate.MaxPlayers,
 		},
-		Manifest: candidate, VariantRevisionID: row.revisionID, CoreArtifactID: row.artifactID,
-		DependencySnapshotJSON: row.dependencyJSON, DefaultCoreOptions: compatibilityOptions(row.compatibilityJSON),
+		Manifest: candidate, VariantRevisionID: row.revisionID,
+		TargetContractSHA256: row.targetContractSHA256, DependencySnapshotJSON: row.dependencyJSON,
 	}, contentKindAllowed, true, current, nil
 }
 
-func (service *Service) matchesCoreProfile(row eligibilityRow, candidate ManifestProfile) (bool, bool) {
+func (service *Service) matchesTargetProfile(row eligibilityRow, candidate ManifestProfile) (bool, bool) {
 	contentKindAllowed := slices.Contains(service.registry.Manifest.Protocol.AllowedContentKinds, row.contentKind)
-	artifactMatches := contentKindAllowed && slices.Contains(candidate.PlatformIDs, row.platformID) &&
-		row.artifactEnabled == 1 && candidate.CoreID == row.coreID &&
-		candidate.EmulatorJSVersion == row.emulatorVersion && candidate.CoreArtifactSHA256 == row.artifactSHA
-	return contentKindAllowed, artifactMatches
-}
-
-func compatibilityOptions(raw string) map[string]string {
-	var compatibility struct {
-		DefaultOptions map[string]string `json:"defaultOptions"`
-	}
-	if json.Unmarshal([]byte(raw), &compatibility) != nil || compatibility.DefaultOptions == nil {
-		return map[string]string{}
-	}
-	return compatibility.DefaultOptions
+	targetMatches := contentKindAllowed && slices.Contains(candidate.PlatformIDs, row.platformID) &&
+		candidate.CoreID == row.coreID && candidate.ProviderID == row.providerID &&
+		candidate.TargetID == row.targetID && candidate.NetplayCompatibilityLine == row.netplayCompatibilityLine
+	return contentKindAllowed, targetMatches
 }

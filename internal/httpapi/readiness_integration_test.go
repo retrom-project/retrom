@@ -16,6 +16,7 @@ import (
 func TestReadinessGatesBusinessRoutesDuringDATIndexing(t *testing.T) {
 	t.Parallel()
 	server := newTestServer(t)
+	server.startupReady.Store(false)
 	ctx := context.Background()
 	if err := server.dependencies.Bootstrap(ctx, server.database, time.Now()); err != nil {
 		t.Fatal(err)
@@ -42,6 +43,7 @@ func TestReadinessGatesBusinessRoutesDuringDATIndexing(t *testing.T) {
 func TestStartupReadinessGateDoesNotReprobeForEveryBusinessRequest(t *testing.T) {
 	t.Parallel()
 	server := newTestServer(t)
+	server.startupReady.Store(false)
 	ctx := context.Background()
 	if err := server.dependencies.Bootstrap(ctx, server.database, time.Now()); err != nil {
 		t.Fatal(err)

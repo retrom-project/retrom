@@ -43,12 +43,19 @@ type resolvedTarget struct {
 	target   runtimebundle.Target
 }
 
+func (builder *Builder) Target(providerID, targetID string) (runtimebundle.Target, bool) {
+	if builder == nil {
+		return runtimebundle.Target{}, false
+	}
+	resolved, exists := builder.targets[providerID+"\x00"+targetID]
+	return resolved.target, exists
+}
+
 func NewBuilder(active runtimebundle.ActiveDescriptor, manifests map[string]runtimebundle.Manifest) (*Builder, error) {
 	result := &Builder{targets: make(map[string]resolvedTarget)}
 	for _, provider := range active.Providers {
 		manifest, exists := manifests[provider.ProviderID]
-		if !exists || manifest.ProviderID != provider.ProviderID || manifest.ProviderVersion != provider.ProviderVersion ||
-			manifest.ProviderAPI != provider.ProviderAPI || manifest.ClientModulePath != provider.ClientModulePath {
+		if !exists || !providerMatchesManifest(provider, manifest) {
 			return nil, ErrEnvelopeInvalid
 		}
 		manifestTargets := make(map[string]runtimebundle.Target, len(manifest.Targets))
@@ -60,10 +67,7 @@ func NewBuilder(active runtimebundle.ActiveDescriptor, manifests map[string]runt
 		}
 		for _, activeTarget := range provider.Targets {
 			target, exists := manifestTargets[activeTarget.ID]
-			if !exists || target.GameCompatibilityLine != activeTarget.GameCompatibilityLine ||
-				target.NetplayCompatibilityLine == nil != (activeTarget.NetplayCompatibilityLine == nil) ||
-				target.NetplayCompatibilityLine != nil && *target.NetplayCompatibilityLine != *activeTarget.NetplayCompatibilityLine ||
-				target.ContractSHA256 != activeTarget.ContractSHA256 || !reflect.DeepEqual(target.Checkpoint, activeTarget.Checkpoint) {
+			if !exists || !targetMatchesActive(target, activeTarget) {
 				return nil, ErrEnvelopeInvalid
 			}
 			key := provider.ProviderID + "\x00" + target.ID
@@ -77,6 +81,22 @@ func NewBuilder(active runtimebundle.ActiveDescriptor, manifests map[string]runt
 		return nil, ErrEnvelopeInvalid
 	}
 	return result, nil
+}
+
+func providerMatchesManifest(provider runtimebundle.ActiveProvider, manifest runtimebundle.Manifest) bool {
+	return manifest.ProviderID == provider.ProviderID && manifest.ProviderVersion == provider.ProviderVersion &&
+		manifest.ProviderAPI == provider.ProviderAPI && manifest.ClientModulePath == provider.ClientModulePath
+}
+
+func targetMatchesActive(target runtimebundle.Target, active runtimebundle.ActiveTarget) bool {
+	if target.GameCompatibilityLine != active.GameCompatibilityLine ||
+		target.NetplayCompatibilityLine == nil != (active.NetplayCompatibilityLine == nil) {
+		return false
+	}
+	if target.NetplayCompatibilityLine != nil && *target.NetplayCompatibilityLine != *active.NetplayCompatibilityLine {
+		return false
+	}
+	return target.ContractSHA256 == active.ContractSHA256 && reflect.DeepEqual(target.Checkpoint, active.Checkpoint)
 }
 
 func (builder *Builder) Build(input Input) ([]byte, error) {
@@ -114,10 +134,10 @@ func (builder *Builder) Build(input Input) ([]byte, error) {
 	}
 	contents, err := json.Marshal(envelope)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %v", ErrEnvelopeInvalid, err)
+		return nil, fmt.Errorf("%w: %w", ErrEnvelopeInvalid, err)
 	}
 	if _, err := runtimebundle.ParseLaunchEnvelope(contents); err != nil {
-		return nil, fmt.Errorf("%w: %v", ErrEnvelopeInvalid, err)
+		return nil, fmt.Errorf("%w: %w", ErrEnvelopeInvalid, err)
 	}
 	return contents, nil
 }

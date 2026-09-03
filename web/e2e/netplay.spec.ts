@@ -6,7 +6,7 @@ import {
   checkpointMismatches, checkpointPair, diagnosticEvents, matchingCheckpoint, verifySNESNoOpHashRecovery,
   type DiagnosticEvent,
 } from "./netplay-checkpoints";
-
+import {runtimeResource, type RuntimeEnvelope} from "./runtime-provider-support";
 const origin = process.env.RETROM_WEB_ORIGIN ?? "http://localhost:4000";
 const alicePassword = "A1!retrom-netplay-acceptance";
 
@@ -279,9 +279,9 @@ async function createSession(
     page.on("console", (message) => { if (message.type() === "error") {consoleErrors.push(`${label}:${message.text()}`);} });
     page.on("pageerror", (error) => consoleErrors.push(`${label}:${error.message}`));
   }
-  const configResponses: Array<Record<string, unknown>> = [];
+  const configResponses: RuntimeEnvelope[] = [];
   for (const page of [hostPage, guestPage]) {page.on("response", async (response) => {
-    if (/\/runtime\/launches\/[^/]+\/config$/.test(response.url()) && response.ok()) {configResponses.push(await response.json() as Record<string, unknown>);}
+    if (/\/runtime\/launches\/[^/]+\/config$/.test(response.url()) && response.ok()) {configResponses.push(await response.json() as RuntimeEnvelope);}
   });}
   await Promise.all([hostPage.goto(hostLaunch.playUrl), guestPage.goto(guestLaunch.playUrl)]);
   await Promise.all([
@@ -541,15 +541,17 @@ async function verifyStrictExpansionProfile(
   try {
     expect(session.configResponses).toHaveLength(2);
     for (const configuration of session.configResponses) {
-      expect(configuration).toMatchObject({ core: result.coreId, runtimeCore: result.coreId, mode: "netplay" });
-      const netplay = configuration.netplay as { netplayProfile?: { profileId?: string } } | undefined;
-      expect(netplay?.netplayProfile?.profileId).toBe(result.profileId);
+      expect(configuration).toMatchObject({
+        session: {purpose: "PRODUCT", mode: "NETPLAY"},
+        runtime: {providerId: "emulatorjs", providerApiVersion: 1},
+      });
+      expect(configuration.netplay?.profile.profileId).toBe(result.profileId);
       const expectsParent = result.expectsParent ?? [
         "mame2003", "mame2003_plus", "fbalpha2012_cps2",
       ].includes(result.coreId);
       const expectsBios = result.expectsBios ?? ["mame2003", "mame2003_plus"].includes(result.coreId);
-      expect(Boolean(configuration.parentUrl)).toBe(expectsParent);
-      expect(Boolean(configuration.biosUrl)).toBe(expectsBios);
+      expect(runtimeResource(configuration, "parent") !== null).toBe(expectsParent);
+      expect(runtimeResource(configuration, "bios") !== null).toBe(expectsBios);
     }
     const initial = await Promise.all([
       diagnosticEvents(session.hostPage), diagnosticEvents(session.guestPage),
@@ -647,7 +649,7 @@ test.describe.serial("real dual-browser netplay", () => {
     const session = await createSession(browser, testInfo, gameId!, "fceumm-423-v1", fixtureSha256!);
     try {
       expect(session.configResponses).toHaveLength(2);
-      expect(session.configResponses.every((config) => !config.biosUrl)).toBe(true);
+      expect(session.configResponses.every((config) => runtimeResource(config, "bios") === null)).toBe(true);
       const initial = await Promise.all([diagnosticEvents(session.hostPage), diagnosticEvents(session.guestPage)]);
       expect(initial[0].some((event) => event.kind === "state-capture")).toBe(true);
       expect(initial[1].some((event) => event.kind === "state-load" && event.nativeCompletion && event.coreExact)).toBe(true);
@@ -729,7 +731,8 @@ test.describe.serial("real dual-browser netplay", () => {
       const hostCanvas = await canvasDigest(session.hostPage, testInfo, "fbneo-p1-canvas.png");
       const guestCanvas = await canvasDigest(session.guestPage, testInfo, "fbneo-p2-canvas.png");
       expect(hostCanvas.digest).toBe(guestCanvas.digest);
-      expect(session.configResponses.every((config) => Boolean(config.parentUrl) && Boolean(config.biosUrl))).toBe(true);
+      expect(session.configResponses.every((config) =>
+        runtimeResource(config, "parent") !== null && runtimeResource(config, "bios") !== null)).toBe(true);
       expect(session.consoleErrors).toEqual([]);
     } finally {
       await session.cleanup();

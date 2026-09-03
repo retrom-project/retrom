@@ -16,6 +16,7 @@ import (
 	"retrom/internal/platforminstance"
 	"retrom/internal/store"
 	"retrom/internal/testassert"
+	"retrom/internal/testsupport"
 )
 
 const testUserID = "01980000-0000-7000-8000-000000009901"
@@ -38,6 +39,9 @@ VALUES(?,'test-profile','directory-admin','Directory Admin','ADMIN','ENABLED',0,
 		filepath.Join("..", "..", "data"), []string{"4.2.3", "4.3.0-pre"}, "4.2.3",
 	)
 	testassert.False(t, err != nil, err)
+	if err := testsupport.SeedRuntimeProviders(t.Context(), database.SQL, dependencySet.RuntimeCatalog); err != nil {
+		t.Fatal(err)
+	}
 	if err := dependencySet.Bootstrap(t.Context(), database.SQL, time.UnixMilli(1_786_000_000_000)); err != nil {
 		t.Fatal(err)
 	}

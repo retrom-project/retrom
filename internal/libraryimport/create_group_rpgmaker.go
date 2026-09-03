@@ -7,7 +7,6 @@ import (
 	"fmt"
 
 	"retrom/internal/rpgmaker/detector"
-	"retrom/internal/rpgmaker/routing"
 )
 
 type rpgManifestSummary struct {
@@ -28,8 +27,7 @@ func (run *creationRun) persistRPGMakerReviewProfile(record *groupRecord) error 
 		return nil
 	}
 	target := run.plan.target
-	route, err := resolveRPGCreationRoute(target, profile.ExpectedGeneration)
-	if err != nil {
+	if target.coreID != detector.VirtualCoreID || target.providerID == "" || target.targetID == "" {
 		return ErrInvalid
 	}
 	summary, err := loadRPGManifestSummary(record.manifestJSON, len(record.group.sources))
@@ -46,33 +44,20 @@ func (run *creationRun) persistRPGMakerReviewProfile(record *groupRecord) error 
 	evidenceGeneration := rpgEvidenceGeneration(profile.EvidenceGeneration)
 	_, err = run.transaction.ExecContext(run.ctx, `
 INSERT INTO rpgmaker_review_profiles(
-  review_draft_id,selected_core_id,generation,evidence_family,evidence_generation,
+  review_draft_id,generation,evidence_family,evidence_generation,
   evidence_confidence,engine_version,entry_html_path,file_count,total_bytes,project_fingerprint,
-  requirements_sha256,analysis_json,self_contained_override,route_key,artifact_id,
-  artifact_set_sha256,adapter_id,adapter_abi,dependency_snapshot_sha256,created_at_ms,updated_at_ms
-) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
-`, record.draftID, profile.SelectedCoreID, profile.ExpectedGeneration, profile.EvidenceFamily,
+  requirements_sha256,analysis_json,self_contained_override,provider_id,target_id,
+  game_compatibility_line,target_contract_sha256,dependency_snapshot_sha256,created_at_ms,updated_at_ms
+) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+`, record.draftID, profile.ExpectedGeneration, profile.EvidenceFamily,
 		evidenceGeneration, profile.EvidenceConfidence, nullableString(profile.EngineVersion), entryHTML,
 		summary.FileCount, summary.TotalBytes, summary.FilesDigest, requirementsSHA, string(analysisJSON),
-		0, route.RouteKey, target.artifactID, target.artifactSetSHA,
-		route.AdapterID, route.AdapterABI, hex.EncodeToString(dependencyDigest[:]), run.now, run.now)
+		0, target.providerID, target.targetID, target.gameCompatibilityLine,
+		target.targetContractSHA256, hex.EncodeToString(dependencyDigest[:]), run.now, run.now)
 	if err != nil {
 		return fmt.Errorf("libraryimport/rpgmaker profile: %w", err)
 	}
 	return nil
-}
-
-func resolveRPGCreationRoute(target creationTarget, generation detector.Generation) (routing.Entry, error) {
-	route, err := routing.ByRoute(target.coreID, target.routeKey)
-	if err != nil || route.Generation != generation || !validRPGCreationRoute(target, route) {
-		return routing.Entry{}, routing.ErrUnavailable
-	}
-	return route, nil
-}
-
-func validRPGCreationRoute(target creationTarget, route routing.Entry) bool {
-	return target.runtimeFamily == routing.FamilyRPGMaker && route.RouteKey == target.routeKey &&
-		route.AdapterID == target.adapterID && route.AdapterABI == target.adapterABI && route.SavePayloadKind != ""
 }
 
 func loadRPGManifestSummary(contents []byte, expectedFiles int) (rpgManifestSummary, error) {

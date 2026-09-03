@@ -70,6 +70,8 @@ func TestScanMapImportCreatesReviewBeforePublishingGameAndMedia(t *testing.T) {
 	repositoryRoot := filepath.Clean(filepath.Join(filepath.Dir(filename), "..", ".."))
 	dependencySet, err := dependencies.Load(filepath.Join(repositoryRoot, "data"), []string{"4.2.3"}, "4.2.3")
 	testassert.False(t, err != nil, err)
+	err = testsupport.SeedRuntimeProviders(ctx, database.SQL, dependencySet.RuntimeCatalog)
+	testassert.False(t, err != nil, err)
 	err = dependencySet.Bootstrap(ctx, database.SQL, time.Now())
 	testassert.False(t, err != nil, err)
 	mustExecPegasusTest(ctx, t, database.SQL, `

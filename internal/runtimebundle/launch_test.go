@@ -24,7 +24,6 @@ func TestSharedLaunchEnvelopeFixtures(t *testing.T) {
 		}
 		sort.Slice(entries, func(left, right int) bool { return entries[left].Name() < entries[right].Name() })
 		for _, entry := range entries {
-			entry := entry
 			t.Run(test.directory+"/"+entry.Name(), func(t *testing.T) {
 				contents, err := os.ReadFile(filepath.Join(root, test.directory, entry.Name()))
 				if err != nil {
@@ -44,6 +43,18 @@ func TestSharedLaunchEnvelopeFixtures(t *testing.T) {
 
 func TestJSONSchemaAgreesWithSharedLaunchEnvelopeFixtures(t *testing.T) {
 	root := filepath.Join("..", "..", "api", "runtime-provider", "v1")
+	schema := compileLaunchEnvelopeSchema(t, root)
+	fixtureRoot := filepath.Join(root, "fixtures")
+	for _, test := range []struct {
+		directory string
+		valid     bool
+	}{{directory: "valid", valid: true}, {directory: "invalid", valid: false}} {
+		assertSchemaFixtureDirectory(t, schema, fixtureRoot, test.directory, test.valid)
+	}
+}
+
+func compileLaunchEnvelopeSchema(t *testing.T, root string) *jsonschema.Schema {
+	t.Helper()
 	compiler := jsonschema.NewCompiler()
 	compiler.UseRegexpEngine(compileECMAScriptRegexp)
 	for _, name := range []string{
@@ -65,35 +76,37 @@ func TestJSONSchemaAgreesWithSharedLaunchEnvelopeFixtures(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	fixtureRoot := filepath.Join(root, "fixtures")
-	for _, test := range []struct {
-		directory string
-		valid     bool
-	}{{directory: "valid", valid: true}, {directory: "invalid", valid: false}} {
-		entries, err := os.ReadDir(filepath.Join(fixtureRoot, test.directory))
-		if err != nil {
-			t.Fatal(err)
-		}
-		for _, entry := range entries {
-			entry := entry
-			t.Run(test.directory+"/"+entry.Name(), func(t *testing.T) {
-				contents, err := os.ReadFile(filepath.Join(fixtureRoot, test.directory, entry.Name()))
-				if err != nil {
-					t.Fatal(err)
-				}
-				instance, parseErr := parseStrictJSON(contents)
-				validationErr := parseErr
-				if validationErr == nil {
-					validationErr = schema.Validate(instance)
-				}
-				if test.valid && validationErr != nil {
-					t.Fatalf("valid fixture rejected: %v", validationErr)
-				}
-				if !test.valid && validationErr == nil {
-					t.Fatal("invalid fixture accepted")
-				}
-			})
-		}
+	return schema
+}
+
+func assertSchemaFixtureDirectory(
+	t *testing.T,
+	schema *jsonschema.Schema,
+	fixtureRoot, directory string,
+	valid bool,
+) {
+	t.Helper()
+	entries, err := os.ReadDir(filepath.Join(fixtureRoot, directory))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, entry := range entries {
+		t.Run(directory+"/"+entry.Name(), func(t *testing.T) {
+			contents, err := os.ReadFile(filepath.Join(fixtureRoot, directory, entry.Name()))
+			if err != nil {
+				t.Fatal(err)
+			}
+			instance, validationErr := parseStrictJSON(contents)
+			if validationErr == nil {
+				validationErr = schema.Validate(instance)
+			}
+			if valid && validationErr != nil {
+				t.Fatalf("valid fixture rejected: %v", validationErr)
+			}
+			if !valid && validationErr == nil {
+				t.Fatal("invalid fixture accepted")
+			}
+		})
 	}
 }
 

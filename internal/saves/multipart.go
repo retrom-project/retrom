@@ -17,10 +17,10 @@ import (
 )
 
 type manualMetadata struct {
-	PayloadKind string `json:"payloadKind"`
-	Name        string `json:"name,omitempty"`
-	DiscIndex   *int   `json:"discIndex,omitempty"`
-	namePresent bool
+	CheckpointFormat string `json:"checkpointFormat"`
+	Name             string `json:"name,omitempty"`
+	DiscIndex        *int   `json:"discIndex,omitempty"`
+	namePresent      bool
 }
 
 type parsedManual struct {
@@ -36,11 +36,11 @@ func (service *Service) parseManual(request *http.Request, launch launchSnapshot
 		return parsedManual{}, ErrInvalid
 	}
 	reader := multipart.NewReader(request.Body, parameters["boundary"])
-	result, seen, err := service.readManualParts(reader, launch.payloadMaxBytes)
+	result, seen, err := service.readManualParts(reader, launch.checkpointMaxBytes)
 	if err != nil {
 		return parsedManual{}, err
 	}
-	if !seen["metadata"] || !seen["payload"] || result.metadata.PayloadKind != launch.payloadKind {
+	if !seen["metadata"] || !seen["payload"] || result.metadata.CheckpointFormat != launch.checkpointFormat {
 		return parsedManual{}, ErrCheckpointInvalid
 	}
 	if !validMetadataForLaunch(result.metadata, launch) {
@@ -154,9 +154,9 @@ func parseManualMetadata(part *multipart.Part, metadata *manualMetadata) error {
 
 func decodeMetadataField(decoder *json.Decoder, name string, metadata *manualMetadata) error {
 	switch name {
-	case "payloadKind":
-		if err := decoder.Decode(&metadata.PayloadKind); err != nil {
-			return fmt.Errorf("decode payload kind: %w", err)
+	case "checkpointFormat":
+		if err := decoder.Decode(&metadata.CheckpointFormat); err != nil {
+			return fmt.Errorf("decode checkpoint format: %w", err)
 		}
 	case "name":
 		metadata.namePresent = true
@@ -174,8 +174,7 @@ func decodeMetadataField(decoder *json.Decoder, name string, metadata *manualMet
 }
 
 func validMetadataForLaunch(metadata manualMetadata, launch launchSnapshot) bool {
-	if metadata.PayloadKind != "RUNTIME_STATE" && metadata.PayloadKind != "NATIVE_SAVE_BUNDLE_V1" &&
-		metadata.PayloadKind != "ONS_SAVE_BUNDLE_V1" && metadata.PayloadKind != "KIRIKIRI_SAVE_BUNDLE_V1" {
+	if metadata.CheckpointFormat != launch.checkpointFormat {
 		return false
 	}
 	if launch.purpose == "RPG_RUNTIME_VALIDATION" {

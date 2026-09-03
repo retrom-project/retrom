@@ -114,10 +114,8 @@ describe("manual save multipart", () => {
   it("keeps a valid checkpoint when its best-effort screenshot exceeds the server limit", () => {
     const form = createSaveForm({
       screenshot: new Blob([new Uint8Array(10 * 1024 * 1024 + 1)], { type: "image/png" }),
-      format: "png",
-      state: Uint8Array.of(1, 2, 3),
-      payloadKind: "KIRIKIRI_SAVE_BUNDLE_V1",
-    }, undefined);
+      checkpoint: {format: "fixture-v1", bytes: Uint8Array.of(1, 2, 3), metadata: null},
+    }, {screenshot: new Blob([new Uint8Array(10 * 1024 * 1024 + 1)], {type: "image/png"}), format: "png"}, undefined);
 
     expect(form.get("payload")).toBeInstanceOf(Blob);
     expect(form.get("screenshot")).toBeNull();
@@ -131,7 +129,7 @@ function dispatchBeforeUnload() {
 function sessionParams(): PlayerSessionParams {
   return {
     launchId: "launch-1",
-    emulator: { current: undefined },
+    runtime: {current: null},
     playerMode: { current: "single" },
     sequence: { current: 0 },
     started: { current: false },
@@ -139,7 +137,6 @@ function sessionParams(): PlayerSessionParams {
     heartbeat: { current: null },
     playEventQueue: { current: Promise.resolve() },
     saveUploadQueue: { current: Promise.resolve() },
-    discSetRef: { current: null },
     orientationStateRef: { current: initialPlayerOrientationState },
     returnTo: { current: "/library" },
     netplayController: { current: null },

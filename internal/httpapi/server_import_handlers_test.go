@@ -19,6 +19,7 @@ import (
 	"retrom/internal/config"
 	"retrom/internal/serverimport"
 	"retrom/internal/testassert"
+	"retrom/internal/testsupport"
 )
 
 type serverImportRejectAuthenticator struct{}
@@ -51,14 +52,18 @@ func TestServerImportHTTPRootBoundaryAuthorizationAndIdempotency(t *testing.T) {
 	)
 	t.Cleanup(server.serverImports.Close)
 	seedHTTPTestCoreArtifact(t, server.database, "server-http-artifact", "mgba", "data/server-http.js", strings.Repeat("0", 64), "{}")
+	target, err := testsupport.LookupRuntimeTarget(t.Context(), server.database, "mgba")
+	if err != nil {
+		t.Fatal(err)
+	}
 	if _, err := server.database.ExecContext(context.Background(), `
-INSERT INTO bios_requirements(id,core_id,core_artifact_id,source_kind,dat_machine_name,logical_name,
+INSERT INTO bios_requirements(id,core_id,provider_id,target_id,target_contract_sha256,source_kind,dat_machine_name,logical_name,
 requirement_mode,condition_code,activation_options_json,catalog_digest,size_bytes,md5,sha1,sha256,
 source_url,source_version,enabled,version,created_at_ms,updated_at_ms,delivery_kind,emulator_path)
-VALUES('server-http-requirement','mgba','server-http-artifact','STATIC',NULL,'bios.bin','REQUIRED',NULL,NULL,
+VALUES('server-http-requirement','mgba',?,?,?,'STATIC',NULL,'bios.bin','REQUIRED',NULL,NULL,
 lower(hex(zeroblob(32))),7,'c0a53b8a2b3c6f7a7f6e1fcbf9f99f15',NULL,NULL,
 'https://example.invalid/bios','server-http-v1',1,1,1,1,'BIOS_BUNDLE',NULL)
-`); err != nil {
+`, target.ProviderID, target.TargetID, target.TargetContractSHA256); err != nil {
 		t.Fatal(err)
 	}
 	handler := server.Handler()

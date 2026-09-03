@@ -401,11 +401,14 @@ func (server *Server) adminGameVariants(ctx context.Context, gameID string) ([]m
 SELECT v.id,v.core_id,c.name,v.current_revision_id,v.version,
 COALESCE((SELECT json_group_array(json_object(
 'id', ordered.id,'contentRevisionId', ordered.game_content_revision_id,
-'coreArtifactId', ordered.core_artifact_id,'datVersionId', ordered.dat_version_id,
+'providerId', ordered.provider_id,'targetId',ordered.target_id,
+'targetContractSha256',ordered.target_contract_sha256,
+'gameCompatibilityLine',ordered.game_compatibility_line,'datVersionId', ordered.dat_version_id,
 'status', ordered.status,'compatibilityCode', ordered.compatibility_code,
 'dependencySnapshot', json(ordered.dependency_snapshot_json),
 'current', ordered.id=v.current_revision_id,'createdAtMs', ordered.created_at_ms))
-FROM (SELECT id,game_content_revision_id,core_artifact_id,dat_version_id,status,compatibility_code,
+FROM (SELECT id,game_content_revision_id,provider_id,target_id,target_contract_sha256,
+game_compatibility_line,dat_version_id,status,compatibility_code,
 dependency_snapshot_json,created_at_ms
 FROM game_variant_revisions WHERE game_variant_id=v.id
 ORDER BY created_at_ms DESC,id DESC) ordered), '[]')

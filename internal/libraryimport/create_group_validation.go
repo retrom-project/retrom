@@ -19,7 +19,8 @@ func (run *creationRun) persistGroupValidation(record *groupRecord) error {
 	}
 	var err error
 	status, code, snapshot, err = resolveInitialArcadeBIOSState(
-		run.ctx, run.transaction, run.plan.target.platformID, run.plan.target.artifactID,
+		run.ctx, run.transaction, run.plan.target.platformID,
+		run.plan.target.providerID, run.plan.target.targetID,
 		record.group, status, code, snapshot,
 	)
 	if err != nil {
@@ -46,22 +47,25 @@ func (run *creationRun) insertCoreValidation(record *groupRecord, dependencySnap
 		ContentKind:              record.contentKind,
 		TargetPlatformInstanceID: run.plan.request.TargetPlatformInstanceID,
 		PlatformInstanceVersion:  target.instanceVersion,
-		CoreArtifactID:           target.artifactID, CoreArtifactVersion: target.artifactVersion,
-		CompatibilityConfigDigest: compatibilityConfigDigest(target.compatibilityConfig),
-		DATVersionID:              nullStringPointer(run.plan.datID),
-		DefaultDOSEntry:           stringPointer(record.group.defaultDOSEntry),
-		DependencySnapshot:        json.RawMessage(dependencySnapshot),
-		Status:                    record.validationStatus, CompatibilityCode: record.compatibilityCode,
+		ProviderID:               target.providerID, TargetID: target.targetID,
+		TargetContractSHA256:  target.targetContractSHA256,
+		GameCompatibilityLine: target.gameCompatibilityLine,
+		ContentPolicyDigest:   compatibilityConfigDigest(target.contentPolicyJSON),
+		DATVersionID:          nullStringPointer(run.plan.datID),
+		DefaultDOSEntry:       stringPointer(record.group.defaultDOSEntry),
+		DependencySnapshot:    json.RawMessage(dependencySnapshot),
+		Status:                record.validationStatus, CompatibilityCode: record.compatibilityCode,
 	})
 	_, err := run.transaction.ExecContext(run.ctx, `
 INSERT INTO import_item_core_validations(
   id,import_item_id,target_platform_instance_id,platform_instance_version,core_id,
-  core_artifact_id,core_artifact_version,prepublish_generation,dat_version_id,
+  provider_id,target_id,target_contract_sha256,game_compatibility_line,prepublish_generation,dat_version_id,
   default_dos_entry,source_manifest_digest,source_snapshot_id,prepublish_input_digest,
   status,compatibility_code,dependency_snapshot_json,created_at_ms
-) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
 `, record.validationID, record.itemID, run.plan.request.TargetPlatformInstanceID,
-		target.instanceVersion, target.coreID, target.artifactID, target.artifactVersion,
+		target.instanceVersion, target.coreID, target.providerID, target.targetID,
+		target.targetContractSHA256, target.gameCompatibilityLine,
 		prepublishGeneration, nullable(run.plan.datID), nullableText(record.group.defaultDOSEntry),
 		record.manifestDigest, record.sourceSnapshotID, inputDigest, record.validationStatus,
 		record.compatibilityCode, dependencySnapshot, run.now)

@@ -1,4 +1,4 @@
-import type { RpgRuntimeConfig as RpgMakerConfig } from "./rpg-runtime";
+import type {components} from "@/lib/api/generated/schema";
 import {
   rpgValidationGates,
   validateRpgPosition,
@@ -10,7 +10,20 @@ import {
 export type RpgValidationGateStatus = "NOT_STARTED" | "IN_PROGRESS" | "PASSED" | "FAILED";
 export type RpgValidationPhase = "automatic" | "input" | "audio" | "save" | "diverge" | "finish" |
   "original-complete" | "restore-input" | "restore-complete" | "error";
-export type RpgValidationResume = NonNullable<RpgMakerConfig["runtimeValidation"]>;
+export type RpgValidationResume = {
+  validationId: string;
+  state: components["schemas"]["RpgRuntimeValidationState"];
+  originalLaunchId: string;
+  restoreLaunchId: string | null;
+  lastGateSequence: number;
+  machineGates: components["schemas"]["RpgRuntimeMachineGate"][];
+  checkpointEvidence: {
+    checkpointFormat: string;
+    sizeBytes: number;
+    sha256: string;
+  } | null;
+  restoreScreenshotUploaded: boolean;
+};
 export type RpgValidationMachineGate = RpgValidationResume["machineGates"][number];
 
 export type RpgValidationSnapshot = {
@@ -114,12 +127,62 @@ export function projectPositionEvidence(
   return {};
 }
 
-export function validValidationResume(config: RpgMakerConfig) {
-  const resume = config.runtimeValidation;
-  const currentLaunch = resume?.restoreLaunchId === config.launchId || resume?.originalLaunchId === config.launchId;
-  const validOrder = resume?.machineGates.length === rpgValidationGates.length &&
-    resume.machineGates.every((gate, index) => gate.gate === rpgValidationGates[index]);
-  return resume && currentLaunch && validOrder ? resume : null;
+export function validValidationResume(value: unknown, currentLaunchId: string) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {return null;}
+  const resume = value as RpgValidationResume;
+  return validResumeShape(value, resume) && validResumeLaunches(resume, currentLaunchId) &&
+    validResumeProgress(resume) && validCheckpointEvidence(resume.checkpointEvidence) &&
+    typeof resume.restoreScreenshotUploaded === "boolean" ? resume : null;
+}
+
+function validResumeShape(value: object, resume: RpgValidationResume) {
+  return Object.keys(value).sort().join(",") ===
+    "checkpointEvidence,lastGateSequence,machineGates,originalLaunchId,restoreLaunchId,restoreScreenshotUploaded,state,validationId" &&
+    canonicalUuid(resume.validationId) && validValidationState(resume.state);
+}
+
+function validResumeLaunches(resume: RpgValidationResume, currentLaunchId: string) {
+  const current = resume.restoreLaunchId === currentLaunchId || resume.originalLaunchId === currentLaunchId;
+  return current && canonicalUuid(resume.originalLaunchId) &&
+    (resume.restoreLaunchId === null || canonicalUuid(resume.restoreLaunchId));
+}
+
+function validResumeProgress(resume: RpgValidationResume) {
+  const sequence = Number.isSafeInteger(resume.lastGateSequence) && resume.lastGateSequence >= 0 &&
+    resume.lastGateSequence <= rpgValidationGates.length * 2;
+  const gates = Array.isArray(resume.machineGates) && resume.machineGates.length === rpgValidationGates.length &&
+    resume.machineGates.every((gate, index) => validMachineGate(gate, rpgValidationGates[index]!));
+  return sequence && gates;
+}
+
+function validMachineGate(value: unknown, expectedGate: RpgGate) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {return false;}
+  const gate = value as RpgValidationMachineGate;
+  const timestamp = (item: unknown) => item === null || Number.isSafeInteger(item) && Number(item) >= 0;
+  return Object.keys(value).sort().join(",") === "begunAtMs,completedAtMs,evidence,failureCode,gate,status" &&
+    gate.gate === expectedGate && ["NOT_STARTED", "IN_PROGRESS", "PASSED", "FAILED"].includes(gate.status) &&
+    timestamp(gate.begunAtMs) && timestamp(gate.completedAtMs) &&
+    (gate.evidence === null || typeof gate.evidence === "object" && !Array.isArray(gate.evidence)) &&
+    (gate.failureCode === null || typeof gate.failureCode === "string");
+}
+
+function validCheckpointEvidence(value: unknown) {
+  if (value === null) {return true;}
+  if (!value || typeof value !== "object" || Array.isArray(value)) {return false;}
+  const evidence = value as NonNullable<RpgValidationResume["checkpointEvidence"]>;
+  return Object.keys(value).sort().join(",") === "checkpointFormat,sha256,sizeBytes" &&
+    typeof evidence.checkpointFormat === "string" && evidence.checkpointFormat.length > 0 &&
+    Number.isSafeInteger(evidence.sizeBytes) && evidence.sizeBytes > 0 &&
+    typeof evidence.sha256 === "string" && /^[0-9a-f]{64}$/u.test(evidence.sha256);
+}
+
+function validValidationState(value: unknown): value is RpgValidationResume["state"] {
+  return typeof value === "string" && ["CREATED", "STARTING", "RUNNING", "CHECKPOINTED", "RESTORED",
+    "AWAITING_DECISION", "PASSED", "FAILED", "EXPIRED"].includes(value);
+}
+
+function canonicalUuid(value: unknown) {
+  return typeof value === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u.test(value);
 }
 
 function cloneMachineGate(gate: RpgValidationMachineGate): RpgValidationMachineGate {

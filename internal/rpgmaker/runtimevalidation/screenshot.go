@@ -14,7 +14,7 @@ import (
 )
 
 type screenshotTarget struct {
-	validationID, importItemID, artifactID string
+	validationID, importItemID string
 }
 
 func (service *Service) StoreRestoreScreenshot(
@@ -70,7 +70,7 @@ WHERE id=? AND state='RESTORED' AND evidence_screenshot_blob_id IS NULL
 		return Screenshot{}, fmt.Errorf("commit RPG screenshot: %w", err)
 	}
 	return Screenshot{
-		ValidationID: target.validationID, ImportItemID: target.importItemID, ArtifactID: target.artifactID,
+		ValidationID: target.validationID, ImportItemID: target.importItemID,
 		WidthPX: image.WidthPX, HeightPX: image.HeightPX, CapturedAtMS: now,
 	}, nil
 }
@@ -90,7 +90,7 @@ func (service *Service) authorizeScreenshot(
 	var hardExpires, validationExpires int64
 	var existing sql.NullString
 	err := querier.QueryRowContext(ctx, `
-SELECT validation.id,validation.import_item_id,validation.artifact_id,
+SELECT validation.id,validation.import_item_id,
  validation.expires_at_ms,validation.evidence_screenshot_blob_id,
  launch.credential_sha256,launch.state,launch.hard_expires_at_ms
 FROM launch_sessions launch
@@ -99,7 +99,7 @@ JOIN rpgmaker_runtime_validations validation
  AND validation.restore_launch_id=launch.id
 WHERE launch.id=? AND launch.purpose='RPG_RUNTIME_VALIDATION' AND validation.state='RESTORED'
 `, launchID).Scan(
-		&target.validationID, &target.importItemID, &target.artifactID, &validationExpires, &existing,
+		&target.validationID, &target.importItemID, &validationExpires, &existing,
 		&credentialHash, &launchState, &hardExpires,
 	)
 	now := service.now().UnixMilli()

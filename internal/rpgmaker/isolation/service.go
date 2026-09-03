@@ -28,12 +28,12 @@ type Service struct {
 }
 
 type Access struct {
-	LaunchID string
-	Origin   string
-	Profile  string
-	Family   string
-	Preview  bool
-	Expires  int64
+	LaunchID      string
+	Origin        string
+	Profile       string
+	ContentFormat string
+	Preview       bool
+	Expires       int64
 }
 
 func New(database *sql.DB, template string, now func() time.Time) *Service {
@@ -72,20 +72,21 @@ func (service *Service) runtimeTemplate() (*url.URL, string, bool) {
 func (service *Service) InspectBootstrap(ctx context.Context, launchID, origin string) (Access, error) {
 	var access Access
 	err := service.database.QueryRowContext(ctx, `
-SELECT ticket.profile_id,ticket.expires_at_ms,artifact.runtime_family,ticket.preview_id IS NOT NULL
+SELECT ticket.profile_id,ticket.expires_at_ms,
+ COALESCE(preview.content_format,(SELECT min(file.format_version) FROM launch_content_files file
+                                  WHERE file.launch_session_id=launch.id)),
+ ticket.preview_id IS NOT NULL
 FROM isolated_runtime_bootstrap_tickets ticket
 LEFT JOIN launch_sessions launch ON launch.id=ticket.launch_id
 LEFT JOIN review_preview_sessions preview ON preview.id=ticket.preview_id
-JOIN core_artifacts artifact ON artifact.id=COALESCE(launch.core_artifact_id,preview.core_artifact_id)
 WHERE COALESCE(ticket.launch_id,ticket.preview_id)=? AND ticket.expected_origin=?
   AND ticket.consumed_at_ms IS NULL AND ticket.expires_at_ms>?
   AND (ticket.launch_id IS NOT NULL AND launch.state='ACTIVE' AND launch.hard_expires_at_ms>?
     OR ticket.preview_id IS NOT NULL AND preview.state='ACTIVE' AND preview.hard_expires_at_ms>?)
-  AND (artifact.runtime_family='RPGMAKER' AND artifact.runtime_adapter_kind='NATIVE_WEB'
-    OR artifact.runtime_family='TYRANOSCRIPT' AND artifact.runtime_adapter_kind='TYRANOSCRIPT_WEB')
-  AND artifact.available_for_launch=1
+  AND COALESCE(preview.content_format,(SELECT min(file.format_version) FROM launch_content_files file
+      WHERE file.launch_session_id=launch.id)) IN ('RPG_MAKER_PROJECT_V1','TYRANOSCRIPT_PROJECT_V1')
 `, launchID, origin, service.now().UnixMilli(), service.now().UnixMilli(), service.now().UnixMilli()).Scan(
-		&access.Profile, &access.Expires, &access.Family, &access.Preview,
+		&access.Profile, &access.Expires, &access.ContentFormat, &access.Preview,
 	)
 	if err != nil {
 		return Access{}, ErrCredential
@@ -111,20 +112,20 @@ func (service *Service) ConsumeTicket(
 	var access Access
 	err = transaction.QueryRowContext(ctx, `
 SELECT ticket.profile_id,COALESCE(launch.hard_expires_at_ms,preview.hard_expires_at_ms),
- artifact.runtime_family,ticket.preview_id IS NOT NULL
+ COALESCE(preview.content_format,(SELECT min(file.format_version) FROM launch_content_files file
+                                  WHERE file.launch_session_id=launch.id)),
+ ticket.preview_id IS NOT NULL
 FROM isolated_runtime_bootstrap_tickets ticket
 LEFT JOIN launch_sessions launch ON launch.id=ticket.launch_id
 LEFT JOIN review_preview_sessions preview ON preview.id=ticket.preview_id
-JOIN core_artifacts artifact ON artifact.id=COALESCE(launch.core_artifact_id,preview.core_artifact_id)
 WHERE COALESCE(ticket.launch_id,ticket.preview_id)=? AND ticket.ticket_sha256=? AND ticket.expected_origin=?
   AND ticket.consumed_at_ms IS NULL AND ticket.expires_at_ms>?
   AND (ticket.launch_id IS NOT NULL AND launch.state='ACTIVE' AND launch.hard_expires_at_ms>?
     OR ticket.preview_id IS NOT NULL AND preview.state='ACTIVE' AND preview.hard_expires_at_ms>?)
-  AND (artifact.runtime_family='RPGMAKER' AND artifact.runtime_adapter_kind='NATIVE_WEB'
-    OR artifact.runtime_family='TYRANOSCRIPT' AND artifact.runtime_adapter_kind='TYRANOSCRIPT_WEB')
-  AND artifact.available_for_launch=1
+  AND COALESCE(preview.content_format,(SELECT min(file.format_version) FROM launch_content_files file
+      WHERE file.launch_session_id=launch.id)) IN ('RPG_MAKER_PROJECT_V1','TYRANOSCRIPT_PROJECT_V1')
 `, launchID, ticketDigest[:], origin, now, now, now).Scan(
-		&access.Profile, &access.Expires, &access.Family, &access.Preview,
+		&access.Profile, &access.Expires, &access.ContentFormat, &access.Preview,
 	)
 	if err != nil {
 		return "", Access{}, ErrCredential
@@ -175,21 +176,21 @@ func (service *Service) Authenticate(
 	digest := sha256.Sum256(credentialBytes)
 	var access Access
 	err = service.database.QueryRowContext(ctx, `
-SELECT capability.profile_id,capability.expires_at_ms,artifact.runtime_family,
+SELECT capability.profile_id,capability.expires_at_ms,
+ COALESCE(preview.content_format,(SELECT min(file.format_version) FROM launch_content_files file
+                                  WHERE file.launch_session_id=launch.id)),
  capability.preview_id IS NOT NULL
 FROM isolated_runtime_capabilities capability
 LEFT JOIN launch_sessions launch ON launch.id=capability.launch_id
 LEFT JOIN review_preview_sessions preview ON preview.id=capability.preview_id
-JOIN core_artifacts artifact ON artifact.id=COALESCE(launch.core_artifact_id,preview.core_artifact_id)
 WHERE capability.credential_sha256=? AND COALESCE(capability.launch_id,capability.preview_id)=?
   AND capability.expected_origin=? AND capability.revoked_at_ms IS NULL AND capability.expires_at_ms>?
   AND (capability.launch_id IS NOT NULL AND launch.state='ACTIVE' AND launch.hard_expires_at_ms>?
     OR capability.preview_id IS NOT NULL AND preview.state='ACTIVE' AND preview.hard_expires_at_ms>?)
-  AND (artifact.runtime_family='RPGMAKER' AND artifact.runtime_adapter_kind='NATIVE_WEB'
-    OR artifact.runtime_family='TYRANOSCRIPT' AND artifact.runtime_adapter_kind='TYRANOSCRIPT_WEB')
-  AND artifact.available_for_launch=1
+  AND COALESCE(preview.content_format,(SELECT min(file.format_version) FROM launch_content_files file
+      WHERE file.launch_session_id=launch.id)) IN ('RPG_MAKER_PROJECT_V1','TYRANOSCRIPT_PROJECT_V1')
 `, digest[:], launchID, origin, service.now().UnixMilli(), service.now().UnixMilli(), service.now().UnixMilli()).Scan(
-		&access.Profile, &access.Expires, &access.Family, &access.Preview,
+		&access.Profile, &access.Expires, &access.ContentFormat, &access.Preview,
 	)
 	if err != nil {
 		return Access{}, ErrCredential

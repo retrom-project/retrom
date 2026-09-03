@@ -205,14 +205,14 @@ func bootstrapStaticBIOS(
 	ctx context.Context,
 	transaction *sql.Tx,
 	versionName string,
-	selectedArtifacts map[string]string,
+	selectedTargets map[string]runtimeTarget,
 	now time.Time,
 ) error {
 	if err := validateBIOSActivationOptions(staticBIOSCatalog); err != nil {
 		return err
 	}
 	for _, requirement := range staticBIOSCatalog {
-		artifactID, selected := selectedArtifacts[requirement.coreID]
+		target, selected := selectedTargets[requirement.coreID]
 		if !selected {
 			continue
 		}
@@ -234,13 +234,17 @@ func bootstrapStaticBIOS(
 			},
 		)
 		digest := sha256.Sum256(canonical)
-		id := uuid.NewSHA1(uuid.NameSpaceURL, []byte("retrom:bios:"+artifactID+":"+requirement.logical)).String()
+		id := uuid.NewSHA1(uuid.NameSpaceURL, []byte(
+			"retrom:bios:"+target.providerID+":"+target.targetID+":"+requirement.logical,
+		)).String()
 		_, err := transaction.ExecContext(
 			ctx,
 			`
 INSERT INTO bios_requirements(id,
 core_id,
-core_artifact_id,
+provider_id,
+target_id,
+target_contract_sha256,
 source_kind,
 dat_machine_name,
 logical_name,
@@ -262,6 +266,8 @@ delivery_kind,
 emulator_path) VALUES(?,
 ?,
 ?,
+?,
+?,
 'STATIC',
 NULL,
 ?,
@@ -280,7 +286,7 @@ NULL,
 ?,
 ?,
 ?,
-?) ON CONFLICT(core_artifact_id,
+?) ON CONFLICT(provider_id,target_id,
 logical_name)
 DO UPDATE SET requirement_mode=excluded.requirement_mode,
 condition_code=excluded.condition_code,
@@ -300,7 +306,9 @@ updated_at_ms=excluded.updated_at_ms
 `,
 			id,
 			requirement.coreID,
-			artifactID,
+			target.providerID,
+			target.targetID,
+			target.contractSHA256,
 			requirement.logical,
 			requirement.mode,
 			requirement.condition,

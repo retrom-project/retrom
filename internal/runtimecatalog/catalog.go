@@ -16,6 +16,7 @@ var (
 	ErrBindingNotFound  = errors.New("RUNTIME_TARGET_BINDING_NOT_FOUND")
 	ErrBindingAmbiguous = errors.New("RUNTIME_TARGET_BINDING_AMBIGUOUS")
 	ErrBindingDisabled  = errors.New("RUNTIME_TARGET_BINDING_DISABLED")
+	errTrailingJSON     = errors.New("trailing JSON")
 	kebabPattern        = regexp.MustCompile(`^[a-z0-9]+(?:-[a-z0-9]+)*$`)
 	identifierPattern   = regexp.MustCompile(`^[a-z0-9]+(?:[-_][a-z0-9]+)*$`)
 	profilePattern      = regexp.MustCompile(`^[A-Z][A-Z0-9_]{1,63}$`)
@@ -55,7 +56,7 @@ func ParseCatalog(contents []byte) (Catalog, error) {
 		return Catalog{}, invalidCatalog(err)
 	}
 	if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
-		return Catalog{}, invalidCatalog(errors.New("trailing JSON"))
+		return Catalog{}, invalidCatalog(errTrailingJSON)
 	}
 	if result.SchemaVersion != 1 || result.CatalogVersion < 1 || len(result.Bindings) == 0 {
 		return Catalog{}, ErrCatalogInvalid
@@ -65,7 +66,8 @@ func ParseCatalog(contents []byte) (Catalog, error) {
 	previous := ""
 	for _, binding := range result.Bindings {
 		identity := binding.ProviderID + "\x00" + binding.TargetID
-		if !validBinding(binding) || bindingIDs[binding.ID] || identities[identity] || previous != "" && previous >= identity {
+		if !validBinding(binding) || bindingIDs[binding.ID] || identities[identity] ||
+			previous != "" && previous >= identity {
 			return Catalog{}, ErrCatalogInvalid
 		}
 		bindingIDs[binding.ID] = true
@@ -104,44 +106,55 @@ func Resolve(catalog Catalog, request ResolveRequest) (Binding, error) {
 	}
 
 	var selected Binding
+	var err error
 	if request.CoreID == "rpgmaker" {
-		positiveEvidence := 0
-		for _, matched := range request.DetectorEvidence {
-			if matched {
-				positiveEvidence++
-			}
-		}
-		if positiveEvidence != 1 {
-			return Binding{}, ErrBindingAmbiguous
-		}
-		matches := 0
-		for _, candidate := range candidates {
-			if request.DetectorEvidence[candidate.DetectorProfile] {
-				selected = candidate
-				matches++
-			}
-		}
-		if matches == 0 {
-			return Binding{}, ErrBindingNotFound
-		}
-		if matches != 1 {
-			return Binding{}, ErrBindingAmbiguous
-		}
+		selected, err = resolveRPGMaker(candidates, request.DetectorEvidence)
 	} else {
-		for _, matched := range request.DetectorEvidence {
-			if matched {
-				return Binding{}, ErrBindingAmbiguous
-			}
-		}
-		if len(candidates) != 1 {
-			return Binding{}, ErrBindingAmbiguous
-		}
-		selected = candidates[0]
+		selected, err = resolveExact(candidates, request.DetectorEvidence)
+	}
+	if err != nil {
+		return Binding{}, err
 	}
 	if selected.LaunchPolicy == "DISABLED" {
 		return Binding{}, fmt.Errorf("%w: %s", ErrBindingDisabled, selected.ID)
 	}
 	return selected, nil
+}
+
+func resolveRPGMaker(candidates []Binding, evidence map[string]bool) (Binding, error) {
+	if positiveEvidenceCount(evidence) != 1 {
+		return Binding{}, ErrBindingAmbiguous
+	}
+	matches := make([]Binding, 0, 1)
+	for _, candidate := range candidates {
+		if evidence[candidate.DetectorProfile] {
+			matches = append(matches, candidate)
+		}
+	}
+	if len(matches) == 0 {
+		return Binding{}, ErrBindingNotFound
+	}
+	if len(matches) != 1 {
+		return Binding{}, ErrBindingAmbiguous
+	}
+	return matches[0], nil
+}
+
+func resolveExact(candidates []Binding, evidence map[string]bool) (Binding, error) {
+	if positiveEvidenceCount(evidence) != 0 || len(candidates) != 1 {
+		return Binding{}, ErrBindingAmbiguous
+	}
+	return candidates[0], nil
+}
+
+func positiveEvidenceCount(evidence map[string]bool) int {
+	count := 0
+	for _, matched := range evidence {
+		if matched {
+			count++
+		}
+	}
+	return count
 }
 
 func validBinding(value Binding) bool {
@@ -183,5 +196,5 @@ func contains(values []string, expected string) bool {
 }
 
 func invalidCatalog(err error) error {
-	return fmt.Errorf("%w: %v", ErrCatalogInvalid, err)
+	return fmt.Errorf("%w: %w", ErrCatalogInvalid, err)
 }

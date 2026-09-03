@@ -18,7 +18,6 @@ import (
 	"retrom/internal/rpgmaker/detector"
 	"retrom/internal/rpgmaker/fileset"
 	"retrom/internal/rpgmaker/materializer"
-	"retrom/internal/rpgmaker/routing"
 )
 
 type preparedRPGMakerReplacement struct {
@@ -72,11 +71,8 @@ func (service *Service) prepareRPGMakerReplacement(
 	if err != nil {
 		return preparedReplacement{}, err
 	}
-	if string(profile.ExpectedGeneration) != snapshot.RPGGeneration || profile.SelectedCoreID != snapshot.CoreID {
+	if string(profile.ExpectedGeneration) != snapshot.RPGGeneration {
 		return preparedReplacement{}, &replacementValidationError{code: "RPG_REPLACEMENT_GENERATION_MISMATCH"}
-	}
-	if !rpgReplacementRouteMatches(snapshot, profile.ExpectedGeneration) {
-		return preparedReplacement{}, &replacementValidationError{code: "RPG_REPLACEMENT_BINDING_UNAVAILABLE"}
 	}
 	projectFiles, sessionState := fileset.ExcludeSessionState(profile.ExpectedGeneration, project.Files)
 	replacement, materializerSources, manifestFiles := buildRPGMakerReplacementFiles(
@@ -238,12 +234,6 @@ func (service *Service) writeRPGMakerReplacementArchive(
 		)
 	}
 	return metadata, nil
-}
-
-func rpgReplacementRouteMatches(snapshot jobSnapshot, generation detector.Generation) bool {
-	route, err := routing.ByRoute(snapshot.CoreID, snapshot.CoreArtifactRouteKey)
-	return err == nil && route.Generation == generation && route.AdapterID == snapshot.RPGAdapterID &&
-		route.AdapterABI == snapshot.RPGAdapterABI
 }
 
 func rpgReplacementRequirements(profile detector.Profile) ([]byte, string) {

@@ -1,4 +1,4 @@
-import type { EmulatorInstance } from "./adapters/ejs-4.2.3-v2";
+import type {PlayerRuntimeV1} from "./runtime/contract";
 
 export type PlayerDebugSample = {
   frameCount: number | null;
@@ -19,9 +19,9 @@ function boundedRuntimeNumber(value: unknown) {
   return typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : null;
 }
 
-function readFrameCount(instance: EmulatorInstance | undefined) {
+function readFrameCount(runtime: PlayerRuntimeV1 | null) {
   try {
-    return boundedRuntimeNumber(instance?.gameManager?.getFrameNum?.());
+    return boundedRuntimeNumber(runtime?.getFrameCount());
   } catch {
     return null;
   }
@@ -37,13 +37,13 @@ function sampledFPS(previous: PlayerDebugSample | null, frameCount: number | nul
 }
 
 export function samplePlayerDebugMetrics(
-  instance: EmulatorInstance | undefined,
+  runtime: PlayerRuntimeV1 | null,
   canvas: HTMLCanvasElement | null,
   previous: PlayerDebugSample | null,
   sampledAtMs: number,
   viewport: { width: number; height: number; devicePixelRatio: number },
 ): { metrics: PlayerDebugMetrics; sample: PlayerDebugSample } {
-  const frameCount = readFrameCount(instance);
+  const frameCount = readFrameCount(runtime);
   const fps = sampledFPS(previous, frameCount, sampledAtMs);
   const width = boundedRuntimeNumber(canvas?.width);
   const height = boundedRuntimeNumber(canvas?.height);

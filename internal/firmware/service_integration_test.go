@@ -76,19 +76,20 @@ WHERE id=?
 		testassert.Falsef(t, time.Now().After(deadline), "finalize state = %s", state)
 		time.Sleep(10 * time.Millisecond)
 	}
-	var requirementID, artifactID string
+	var requirementID string
 	var version int64
 	if err := database.SQL.QueryRowContext(ctx, `
 SELECT id,
-version,
-core_artifact_id
+version
 FROM bios_requirements
 WHERE core_id='mgba'
 AND logical_name='gba_bios.bin'
 AND enabled=1
-`).Scan(&requirementID, &version, &artifactID); err != nil {
+`).Scan(&requirementID, &version); err != nil {
 		t.Fatal(err)
 	}
+	runtimeIdentity, err := testsupport.LookupRuntimeTarget(ctx, database.SQL, "mgba")
+	testassert.False(t, err != nil, err)
 	var md5Value, sha1Value, sha256Value string
 	if err := database.SQL.QueryRowContext(ctx, `
 SELECT b.md5,
@@ -114,7 +115,7 @@ WHERE f.id=?
 		t.Fatal(err)
 	}
 	lifecycle := seedFirmwareReplacementLifecycle(
-		t, ctx, database.SQL, blobs, artifactID, result.InstallationID, oldBlobID,
+		t, ctx, database.SQL, blobs, runtimeIdentity, result.InstallationID, oldBlobID,
 	)
 	replacementFileID := completeFirmwareUpload(
 		t, ctx, database.SQL, uploadService, "gba_bios.bin", []byte("retrom-replacement-bios\n"),
@@ -158,7 +159,7 @@ func seedFirmwareReplacementLifecycle(
 	ctx context.Context,
 	database *sql.DB,
 	blobs *blobstore.Store,
-	artifactID, installationID, biosBlobID string,
+	runtimeIdentity testsupport.RuntimeTargetIdentity, installationID, biosBlobID string,
 ) firmwareReplacementLifecycle {
 	t.Helper()
 	contentBlobID := ensureFirmwareBlob(t, ctx, database, blobs, []byte("firmware-game-content"))
@@ -202,31 +203,43 @@ VALUES('firmware-content','CONTENT','firmware.gba',?,0)`, []any{contentBlobID}},
 		{`INSERT INTO game_variants(id,game_id,core_id,current_revision_id,created_at_ms,updated_at_ms)
 VALUES('firmware-variant','firmware-game','mgba',NULL,?,?)`, []any{now, now}},
 		{
-			`INSERT INTO game_variant_revisions(id,game_variant_id,game_content_revision_id,core_artifact_id,
-route_key,validation_input_digest,emulator_game_id,status,compatibility_code,dependency_snapshot_json,created_at_ms)
-VALUES('firmware-variant-revision','firmware-variant','firmware-content',?,'DEFAULT',?,800001,'READY','READY',?,?)`,
-			[]any{artifactID, strings.Repeat("2", 64), snapshot, now},
+			`INSERT INTO game_variant_revisions(id,game_variant_id,game_content_revision_id,provider_id,target_id,
+target_contract_sha256,game_compatibility_line,validation_input_digest,emulator_game_id,status,compatibility_code,dependency_snapshot_json,created_at_ms)
+VALUES('firmware-variant-revision','firmware-variant','firmware-content',?,?,?,?,?,800001,'READY','READY',?,?)`,
+			[]any{
+				runtimeIdentity.ProviderID, runtimeIdentity.TargetID, runtimeIdentity.TargetContractSHA256,
+				runtimeIdentity.GameCompatibilityLine, strings.Repeat("2", 64), snapshot, now,
+			},
 		},
 		{`UPDATE game_variants SET current_revision_id='firmware-variant-revision' WHERE id='firmware-variant'`, nil},
 		{`INSERT INTO variant_files(game_variant_revision_id,role,logical_name,blob_id,sort_order)
 VALUES('firmware-variant-revision','BIOS_BUNDLE','gba_bios.bin',?,0)`, []any{biosBlobID}},
 		{`INSERT INTO profiles(id,display_name,created_at_ms) VALUES('firmware-profile','Firmware',?)`, []any{now}},
 		{`INSERT INTO launch_sessions(id,profile_id,purpose,game_id,game_content_revision_id,
-game_variant_revision_id,core_artifact_id,route_key,return_to,credential_sha256,state,
+game_variant_revision_id,provider_id,target_id,target_contract_sha256,game_compatibility_line,bundle_sha256,return_to,credential_sha256,state,
 bootstrap_expires_at_ms,idle_expires_at_ms,activated_at_ms,
 hard_expires_at_ms,created_at_ms,updated_at_ms)
 VALUES('firmware-launch','firmware-profile','PRODUCT','firmware-game','firmware-content',
-'firmware-variant-revision',?,'DEFAULT','/',?,'ACTIVE',
-?,?,?,?,?,?)`, []any{artifactID, make([]byte, 32), now + 60_000, now + 60_000, now, now + 120_000, now, now}},
+'firmware-variant-revision',?,?,?,?,?,'/',?,'ACTIVE',
+?,?,?,?,?,?)`, []any{
+			runtimeIdentity.ProviderID, runtimeIdentity.TargetID, runtimeIdentity.TargetContractSHA256,
+			runtimeIdentity.GameCompatibilityLine, runtimeIdentity.BundleSHA256, make([]byte, 32),
+			now + 60_000, now + 60_000, now, now + 120_000, now, now,
+		}},
 		{`INSERT INTO launch_content_files(launch_session_id,logical_name,blob_id,format_version,created_at_ms)
 VALUES('firmware-launch','firmware.gba',?,'SOURCE_V1',?)`, []any{contentBlobID, now}},
 		{
 			`INSERT INTO save_states(id,profile_id,game_id,game_content_revision_id,game_variant_revision_id,
-core_artifact_id,adapter_abi,save_abi,dependency_snapshot_sha256,payload_blob_id,payload_kind,payload_sha256,
+provider_id,target_id,target_contract_sha256,game_compatibility_line,checkpoint_format,
+dependency_snapshot_sha256,payload_blob_id,payload_sha256,
 payload_size_bytes,screenshot_blob_id,name,active_duration_ms,created_at_ms,updated_at_ms,source_launch_session_id)
-VALUES('firmware-save','firmware-profile','firmware-game','firmware-content','firmware-variant-revision',?,
-'emulatorjs-state-v1','emulatorjs-state-v1',?,?,'RUNTIME_STATE',?,?,?,'Firmware save',1,?,?,'firmware-launch')`,
-			[]any{artifactID, snapshotDigest, stateBlobID, stateDigest, len(statePayload), screenshotBlobID, now, now},
+VALUES('firmware-save','firmware-profile','firmware-game','firmware-content','firmware-variant-revision',?,?,?,?,
+'test-checkpoint-v1',?,?,?,? ,?,'Firmware save',1,?,?,'firmware-launch')`,
+			[]any{
+				runtimeIdentity.ProviderID, runtimeIdentity.TargetID, runtimeIdentity.TargetContractSHA256,
+				runtimeIdentity.GameCompatibilityLine, snapshotDigest, stateBlobID, stateDigest,
+				len(statePayload), screenshotBlobID, now, now,
+			},
 		},
 	}
 	for _, statement := range statements {
@@ -361,24 +374,20 @@ func TestDATMachineBIOSScansUploadAndAcceptsContentMatchedFilenameAlias(t *testi
 	if err := dependencySet.Bootstrap(ctx, database.SQL, time.Now()); err != nil {
 		t.Fatal(err)
 	}
-	var artifactID string
-	if err := database.SQL.QueryRowContext(ctx, `
-SELECT id FROM core_artifacts
-WHERE core_id='mame2003_plus' AND selected_for_new_bindings=1 AND available_for_launch=1 LIMIT 1
-`).Scan(&artifactID); err != nil {
-		t.Fatal(err)
-	}
+	runtimeIdentity, err := testsupport.LookupRuntimeTarget(ctx, database.SQL, "mame2003_plus")
+	testassert.False(t, err != nil, err)
 	contents := []byte("deterministic ST-V BIOS fixture")
 	_, sha1Value := legacychecksum.Sum(contents)
 	crc32Value := fmt.Sprintf("%08x", crc32.ChecksumIEEE(contents))
 	now := time.Now().UnixMilli()
 	if _, err := database.SQL.ExecContext(ctx, `
-INSERT INTO dat_versions(id,core_id,core_artifact_id,builtin_relative_path,sha256,parser_version,
+INSERT INTO dat_versions(id,core_id,provider_id,target_id,target_contract_sha256,builtin_relative_path,sha256,parser_version,
 parse_status,is_active,machine_count,rom_entry_count,disk_entry_count,bios_set_count,
 default_bios_set_count,explicit_bios_machine_count,base_dependency_target_count,unresolved_relation_count,
 version,created_at_ms,updated_at_ms,parsed_at_ms,activated_at_ms)
-VALUES('dat-test','mame2003_plus',?,'test.dat',?,'test-parser','READY',1,1,1,0,1,1,1,0,0,1,?,?,?,?)
-`, artifactID, strings.Repeat("a", 64), now, now, now, now); err != nil {
+VALUES('dat-test','mame2003_plus',?,?,?,'test.dat',?,'test-parser','READY',1,1,1,0,1,1,1,0,0,1,?,?,?,?)
+`, runtimeIdentity.ProviderID, runtimeIdentity.TargetID, runtimeIdentity.TargetContractSHA256,
+		strings.Repeat("a", 64), now, now, now, now); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := database.SQL.ExecContext(ctx, `
@@ -407,11 +416,12 @@ VALUES('dat-test','stvbios',1,'non-default.bin',4,'00000000',?,'GOOD','usa')
 		t.Fatal(err)
 	}
 	if _, err := database.SQL.ExecContext(ctx, `
-INSERT INTO bios_requirements(id,core_id,core_artifact_id,source_kind,dat_machine_name,logical_name,
+INSERT INTO bios_requirements(id,core_id,provider_id,target_id,target_contract_sha256,source_kind,dat_machine_name,logical_name,
 requirement_mode,condition_code,catalog_digest,source_url,source_version,enabled,version,created_at_ms,updated_at_ms)
-VALUES('requirement-test','mame2003_plus',?,'DAT_MACHINE','stvbios','stvbios.zip','REQUIRED',
+VALUES('requirement-test','mame2003_plus',?,?,?,'DAT_MACHINE','stvbios','stvbios.zip','REQUIRED',
 'ARCADE_DAT_DEPENDENCY',?,'retrom:test','dat-test',1,1,?,?)
-`, artifactID, strings.Repeat("b", 64), now, now); err != nil {
+`, runtimeIdentity.ProviderID, runtimeIdentity.TargetID, runtimeIdentity.TargetContractSHA256,
+		strings.Repeat("b", 64), now, now); err != nil {
 		t.Fatal(err)
 	}
 	var archive bytes.Buffer

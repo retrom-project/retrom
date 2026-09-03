@@ -37,8 +37,8 @@ func (server *Server) launchGame(writer http.ResponseWriter, request *http.Reque
 	if err != nil {
 		if isMultiDisc {
 			logMultiDiscContentResponse(
-				request.Context(), authorizedLaunchID, content.PlatformKey, content.CoreID,
-				content.ArtifactVersion, content.DiscCount, "PLAYLIST", http.StatusServiceUnavailable, 0,
+				request.Context(), authorizedLaunchID, content.PlatformKey, content.TargetID,
+				content.TargetContractSHA256, content.DiscCount, "PLAYLIST", http.StatusServiceUnavailable, 0,
 				"CAS_UNAVAILABLE",
 			)
 		}
@@ -240,8 +240,8 @@ func (server *Server) recordMultiDiscContentResponse(
 		resultCode = "HTTP_ERROR"
 	}
 	logMultiDiscContentResponse(
-		request.Context(), authorizedLaunchID, content.PlatformKey, content.CoreID,
-		content.ArtifactVersion, content.DiscCount, "PLAYLIST", status, response.bytes, resultCode,
+		request.Context(), authorizedLaunchID, content.PlatformKey, content.TargetID,
+		content.TargetContractSHA256, content.DiscCount, "PLAYLIST", status, response.bytes, resultCode,
 	)
 }
 
@@ -337,8 +337,8 @@ func (server *Server) recordExternalContentResponse(
 		resultCode = "HTTP_ERROR"
 	}
 	logMultiDiscContentResponse(
-		request.Context(), authorizedLaunchID, content.PlatformKey, content.CoreKey,
-		content.ArtifactVersion, content.DiscCount, "DISC", status, response.bytes, resultCode,
+		request.Context(), authorizedLaunchID, content.PlatformKey, content.TargetID,
+		content.TargetContractSHA256, content.DiscCount, "DISC", status, response.bytes, resultCode,
 	)
 }
 

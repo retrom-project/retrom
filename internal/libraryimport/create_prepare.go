@@ -9,25 +9,20 @@ import (
 	"retrom/internal/cleanup"
 	"retrom/internal/contentcapability"
 	"retrom/internal/rpgmaker/detector"
-	"retrom/internal/rpgmaker/routing"
 )
 
 type creationTarget struct {
-	platformID          string
-	defaultCoreID       string
-	coreID              string
-	artifactID          string
-	emulatorVersion     string
-	artifactPath        string
-	artifactSHA         string
-	artifactSetSHA      string
-	routeKey            string
-	runtimeFamily       string
-	adapterID           string
-	adapterABI          string
-	compatibilityConfig string
-	instanceVersion     int64
-	artifactVersion     int64
+	platformID            string
+	defaultCoreID         string
+	coreID                string
+	bindingID             string
+	providerID            string
+	targetID              string
+	targetContractSHA256  string
+	gameCompatibilityLine string
+	deliveryProfile       string
+	contentPolicyJSON     string
+	instanceVersion       int64
 }
 
 type creationPlan struct {
@@ -112,7 +107,7 @@ func (service *Service) prepareCreation(ctx context.Context, rawRequest CreateRe
 		return creationPlan{}, err
 	}
 	capabilities := contentcapability.Resolve(
-		target.platformID, true, service.multiDiscImportEnabled, target.compatibilityConfig,
+		target.platformID, true, service.multiDiscImportEnabled, target.contentPolicyJSON,
 	)
 	if contentMode == contentcapability.ModeMultiDiscM3UV1 && capabilities.MultiDisc == nil {
 		return creationPlan{}, ErrMultiDiscModeUnavailable
@@ -122,8 +117,8 @@ func (service *Service) prepareCreation(ctx context.Context, rawRequest CreateRe
 		return creationPlan{}, err
 	}
 	datID := sql.NullString{}
-	if target.artifactID != "" {
-		datID = service.loadActiveDATID(ctx, target.artifactID)
+	if target.providerID != "" {
+		datID = service.loadActiveDATID(ctx, target.providerID, target.targetID)
 	}
 	plan := creationPlan{
 		request: request, contentMode: contentMode, sourceType: sourceType,
@@ -136,7 +131,7 @@ func (service *Service) prepareCreation(ctx context.Context, rawRequest CreateRe
 		return creationPlan{}, err
 	}
 	if contentMode == contentcapability.ModeRPGMakerProjectV1 {
-		plan.datID = service.loadActiveDATID(ctx, plan.target.artifactID)
+		plan.datID = service.loadActiveDATID(ctx, plan.target.providerID, plan.target.targetID)
 	}
 	return plan, nil
 }
@@ -149,11 +144,7 @@ func (service *Service) resolveRPGMakerTarget(ctx context.Context, plan *creatio
 		return ErrInvalid
 	}
 	profile := plan.groups[0].rpgProfile
-	route, err := routing.Current(profile.SelectedCoreID, profile.ExpectedGeneration)
-	if err != nil {
-		return ErrInvalid
-	}
-	return service.loadArtifactTarget(ctx, &plan.target, route)
+	return service.loadRPGTarget(ctx, &plan.target, profile.ExpectedGeneration)
 }
 
 func (service *Service) prepareContent(
@@ -279,69 +270,83 @@ WHERE pi.id=? AND pi.enabled=1 AND pi.deleted_at_ms IS NULL
 	if target.platformID == "rpgmaker" && target.defaultCoreID == detector.VirtualCoreID {
 		return target, nil
 	}
-	return target, service.loadDefaultArtifactTarget(ctx, &target)
+	return target, service.loadBoundTarget(ctx, &target, "")
 }
 
-func (service *Service) loadDefaultArtifactTarget(ctx context.Context, target *creationTarget) error {
-	var route routing.Entry
-	err := service.database.QueryRowContext(ctx, `
-SELECT id,runtime_version,entry_path,sha256,version,compatibility_json,
-artifact_set_sha256,route_key,runtime_family,adapter_id
-FROM core_artifacts
-WHERE core_id=? AND selected_for_new_bindings=1
-`, target.coreID).Scan(
-		&target.artifactID, &target.emulatorVersion, &target.artifactPath, &target.artifactSHA,
-		&target.artifactVersion, &target.compatibilityConfig, &target.artifactSetSHA,
-		&target.routeKey, &target.runtimeFamily, &target.adapterID,
-	)
-	if err != nil {
-		return ErrInvalid
-	}
-	return decodeTargetAdapterABI(target, route)
-}
-
-func (service *Service) loadArtifactTarget(
+func (service *Service) loadRPGTarget(
 	ctx context.Context,
 	target *creationTarget,
-	route routing.Entry,
+	generation detector.Generation,
 ) error {
-	target.coreID = route.CoreID
-	err := service.database.QueryRowContext(ctx, `
-SELECT id,runtime_version,entry_path,sha256,version,compatibility_json,
-artifact_set_sha256,route_key,runtime_family,adapter_id
-FROM core_artifacts
-WHERE core_id=? AND route_key=? AND selected_for_new_bindings=1 AND available_for_launch=1
-`, route.CoreID, route.RouteKey).Scan(
-		&target.artifactID, &target.emulatorVersion, &target.artifactPath, &target.artifactSHA,
-		&target.artifactVersion, &target.compatibilityConfig, &target.artifactSetSHA,
-		&target.routeKey, &target.runtimeFamily, &target.adapterID,
+	target.coreID = detector.VirtualCoreID
+	return service.loadBoundTarget(ctx, target, string(generation))
+}
+
+func (service *Service) loadBoundTarget(
+	ctx context.Context,
+	target *creationTarget,
+	detectorProfile string,
+) error {
+	query := `
+SELECT binding.binding_id,binding.core_id,binding.provider_id,binding.target_id,
+ target.target_contract_sha256,target.game_compatibility_line,binding.delivery_profile
+FROM runtime_target_bindings binding
+JOIN runtime_binding_platforms platform ON platform.binding_id=binding.binding_id AND platform.platform_id=?
+JOIN runtime_targets target ON target.provider_id=binding.provider_id AND target.target_id=binding.target_id
+WHERE binding.core_id=? AND binding.launch_policy!='DISABLED'`
+	arguments := []any{target.platformID, target.coreID}
+	if detectorProfile != "" {
+		query += ` AND binding.detector_profile=?`
+		arguments = append(arguments, detectorProfile)
+	}
+	err := service.database.QueryRowContext(ctx, query, arguments...).Scan(
+		&target.bindingID, &target.coreID, &target.providerID, &target.targetID,
+		&target.targetContractSHA256, &target.gameCompatibilityLine, &target.deliveryProfile,
 	)
 	if err != nil {
 		return ErrInvalid
 	}
-	return decodeTargetAdapterABI(target, route)
-}
-
-func decodeTargetAdapterABI(target *creationTarget, route routing.Entry) error {
-	var compatibility struct {
-		AdapterABI string `json:"adapterAbi"`
-	}
-	if json.Unmarshal([]byte(target.compatibilityConfig), &compatibility) != nil || compatibility.AdapterABI == "" {
+	rows, err := service.database.QueryContext(ctx, `
+SELECT content_kind FROM runtime_binding_content_kinds WHERE binding_id=? ORDER BY content_kind
+`, target.bindingID)
+	if err != nil {
 		return ErrInvalid
 	}
-	target.adapterABI = compatibility.AdapterABI
-	if route.RouteKey != "" && (target.routeKey != route.RouteKey || target.adapterID != route.AdapterID ||
-		target.adapterABI != route.AdapterABI) {
+	defer func() { cleanup.Error("close", rows.Close()) }()
+	contentKinds := make([]string, 0, 2)
+	for rows.Next() {
+		var contentKind string
+		if rows.Scan(&contentKind) != nil {
+			return ErrInvalid
+		}
+		contentKinds = append(contentKinds, contentKind)
+	}
+	if rows.Err() != nil || len(contentKinds) == 0 {
 		return ErrInvalid
 	}
+	policy := map[string]any{"schemaVersion": 1, "supportedContentKinds": contentKinds, "multiDisc": nil}
+	for _, contentKind := range contentKinds {
+		if contentKind == contentcapability.ModeMultiDiscM3UV1 {
+			policy["multiDisc"] = map[string]any{
+				"maxDiscs":      contentcapability.MaximumMultiDiscCount,
+				"maxTotalBytes": contentcapability.MaximumMultiDiscBytes,
+				"delivery":      contentcapability.DeliveryEagerExternal,
+			}
+		}
+	}
+	contents, err := json.Marshal(policy)
+	if err != nil {
+		return ErrInvalid
+	}
+	target.contentPolicyJSON = string(contents)
 	return nil
 }
 
-func (service *Service) loadActiveDATID(ctx context.Context, artifactID string) sql.NullString {
+func (service *Service) loadActiveDATID(ctx context.Context, providerID, targetID string) sql.NullString {
 	var datID sql.NullString
 	_ = service.database.QueryRowContext(ctx, `
-SELECT id FROM dat_versions WHERE core_artifact_id=? AND is_active=1
-`, artifactID).Scan(&datID)
+SELECT id FROM dat_versions WHERE provider_id=? AND target_id=? AND is_active=1
+`, providerID, targetID).Scan(&datID)
 	return datID
 }
 

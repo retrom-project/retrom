@@ -164,17 +164,17 @@ updated_at_ms) VALUES(?,
 	}
 	credentials, err := retromruntime.LoadOrCreateCredentials(dataDir)
 	testassert.False(t, err != nil, err)
-	service := New(database.SQL, dependencySet, credentials, time.Now)
-	var fceummArtifactID string
-	if err := database.SQL.QueryRowContext(ctx, `
-SELECT id
-FROM core_artifacts
-WHERE core_id='fceumm'
-AND selected_for_new_bindings=1
-`).Scan(&fceummArtifactID); err != nil {
+	runtimeBuilder, err := testsupport.NewRuntimeBuilder(ctx, database.SQL)
+	testassert.False(t, err != nil, err)
+	service := New(database.SQL, dependencySet, credentials, time.Now).
+		WithRuntimeProvider(dependencySet.RuntimeCatalog, runtimeBuilder)
+	fceummTarget, err := testsupport.LookupRuntimeTarget(ctx, database.SQL, "fceumm")
+	if err != nil {
 		t.Fatal(err)
 	}
-	if status, code := service.validateStaticBIOSForContent(ctx, fceummArtifactID, "Missing.fds"); status != "BLOCKED" || code != "LAUNCH_BIOS_MISSING" {
+	if status, code := service.validateStaticBIOSForContent(
+		ctx, fceummTarget.ProviderID, fceummTarget.TargetID, "Missing.fds",
+	); status != "BLOCKED" || code != "LAUNCH_BIOS_MISSING" {
 		t.Fatalf("missing required FDS BIOS validation = %s/%s", status, code)
 	}
 	assertMissingFDSValidationFinishes(t, ctx, database.SQL, service, approved.GameID)
@@ -219,23 +219,35 @@ SELECT state,error_code FROM jobs WHERE id=?
 	}
 	configuration, err := service.Config(ctx, createdLaunch.LaunchID, createdLaunch.Capability)
 	testassert.Falsef(t, err != nil, "config: %v", err)
-	testassert.Falsef(t, testassert.Any(func() bool { return configuration.Core != "mgba" }, func() bool { return configuration.EmulatorJSVersion != "4.2.3" }, func() bool { return configuration.GameURL == "" }, func() bool { return configuration.CoreName != "mGBA" }, func() bool { return configuration.GameTitle != "Launch" }, func() bool { return configuration.PlatformName != "Game Boy Advance" }, func() bool { return configuration.BIOSURL == nil }, func() bool { return configuration.DefaultCoreOptions["mgba_use_bios"] != "ON" }, func() bool { return configuration.StartupActions == nil }, func() bool { return len(configuration.Warnings) != 1 }, func() bool { return configuration.Warnings[0] != "BIOS_HASH_WARNING" }), "configuration = %#v", configuration)
+	envelope := testsupport.RuntimeEnvelope(t, configuration)
+	session := testsupport.RuntimeEnvelopeObject(t, envelope, "session")
+	runtimeIdentity := testsupport.RuntimeEnvelopeObject(t, envelope, "runtime")
+	gameResource := testsupport.RuntimeEnvelopeResource(t, envelope, "game")
+	biosResource := testsupport.RuntimeEnvelopeResource(t, envelope, "bios")
+	warnings, _ := session["warnings"].([]any)
+	testassert.Falsef(t, testassert.Any(
+		func() bool { return runtimeIdentity["targetId"] != "mgba" },
+		func() bool { return gameResource["url"] == "" },
+		func() bool { return session["title"] != "Launch" },
+		func() bool { return session["platformName"] != "Game Boy Advance" },
+		func() bool { return biosResource["kind"] != "BIOS_BUNDLE_V1" },
+		func() bool { return len(warnings) != 1 || warnings[0] != "BIOS_HASH_WARNING" },
+	), "launch envelope = %#v", envelope)
 	bundle, err := service.BundleFiles(ctx, createdLaunch.LaunchID, createdLaunch.Capability, "BIOS_BUNDLE")
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return len(bundle) != 1 }, func() bool { return bundle[0].LogicalName != "gba_bios.bin" }, func() bool { return bundle[0].SHA256 != firmwareMetadata.SHA256 }), "BIOS bundle = %#v, error=%v", bundle, err)
 	contentDigest, err := service.ContentBlob(ctx, createdLaunch.LaunchID, createdLaunch.Capability, "Launch.gba")
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return contentDigest != base64DigestHex(digest) }), "content digest = %s, error = %v", contentDigest, err)
-	var lockedContentRevisionID, lockedVariantRevisionID, lockedArtifactID string
-	var lockedAdapterABI, lockedDependencyJSON string
+	var lockedContentRevisionID, lockedVariantRevisionID string
+	var lockedProviderID, lockedTargetID, lockedTargetContract, lockedGameLine, lockedDependencyJSON string
 	if err := database.SQL.QueryRowContext(ctx, `
-SELECT launch.game_content_revision_id,launch.game_variant_revision_id,launch.core_artifact_id,
- json_extract(artifact.compatibility_json,'$.adapterAbi'),revision.dependency_snapshot_json
+SELECT launch.game_content_revision_id,launch.game_variant_revision_id,launch.provider_id,
+ launch.target_id,launch.target_contract_sha256,launch.game_compatibility_line,revision.dependency_snapshot_json
 FROM launch_sessions launch
-JOIN core_artifacts artifact ON artifact.id=launch.core_artifact_id
 JOIN game_variant_revisions revision ON revision.id=launch.game_variant_revision_id
 WHERE launch.id=?
 `, createdLaunch.LaunchID).Scan(
-		&lockedContentRevisionID, &lockedVariantRevisionID, &lockedArtifactID,
-		&lockedAdapterABI, &lockedDependencyJSON,
+		&lockedContentRevisionID, &lockedVariantRevisionID, &lockedProviderID,
+		&lockedTargetID, &lockedTargetContract, &lockedGameLine, &lockedDependencyJSON,
 	); err != nil {
 		t.Fatal(err)
 	}
@@ -247,12 +259,13 @@ profile_id,
 game_id,
 game_content_revision_id,
 game_variant_revision_id,
-core_artifact_id,
-adapter_abi,
-save_abi,
+provider_id,
+target_id,
+target_contract_sha256,
+game_compatibility_line,
+checkpoint_format,
 dependency_snapshot_sha256,
 payload_blob_id,
-payload_kind,
 payload_sha256,
 payload_size_bytes,
 screenshot_blob_id,
@@ -270,8 +283,9 @@ updated_at_ms) VALUES(?,
 ?,
 ?,
 ?,
+'test-checkpoint-v1',
 ?,
-'RUNTIME_STATE',
+?,
 ?,
 ?,
 ?,
@@ -286,9 +300,10 @@ updated_at_ms) VALUES(?,
 		approved.GameID,
 		lockedContentRevisionID,
 		lockedVariantRevisionID,
-		lockedArtifactID,
-		lockedAdapterABI,
-		lockedAdapterABI,
+		lockedProviderID,
+		lockedTargetID,
+		lockedTargetContract,
+		lockedGameLine,
 		hex.EncodeToString(lockedDependencyDigest[:]),
 		firmwareBlobID,
 		firmwareMetadata.SHA256,
@@ -378,7 +393,23 @@ WHERE id=?
 	)
 	testassert.Falsef(t, err != nil, "locked save quick launch: %v", err)
 	quickConfig, err := service.Config(ctx, quickLaunch.LaunchID, quickLaunch.Capability)
-	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return quickConfig.Core != "mgba" }, func() bool { return quickConfig.StateURL == nil }), "locked save config = %#v, error=%v", quickConfig, err)
+	if err != nil {
+		source, sourceErr := service.productConfigSource(ctx, quickLaunch.LaunchID)
+		target, _ := service.runtimeBuilder.Target(source.providerID, source.targetID)
+		resources, resourcesErr := service.providerResources(
+			ctx, quickLaunch.LaunchID, quickLaunch.Capability, source, target,
+		)
+		options, optionsErr := providerTargetOptions(target.OptionsKind, source)
+		restore, _, restoreErr := service.providerRestore(ctx, quickLaunch.LaunchID, source, target)
+		t.Fatalf("quick launch config: %v; source=%#v/%v resources=%#v/%v options=%#v/%v restore=%#v/%v",
+			err, source, sourceErr, resources, resourcesErr, options, optionsErr, restore, restoreErr)
+	}
+	quickEnvelope := testsupport.RuntimeEnvelope(t, quickConfig)
+	quickRuntime := testsupport.RuntimeEnvelopeObject(t, quickEnvelope, "runtime")
+	testassert.Falsef(t, testassert.Any(
+		func() bool { return quickRuntime["targetId"] != "mgba" },
+		func() bool { return quickEnvelope["restore"] == nil },
+	), "locked save envelope = %#v", quickEnvelope)
 	gbContentID := newUUID()
 	contentTx, err := database.SQL.BeginTx(ctx, nil)
 	testassert.False(t, err != nil, err)
@@ -513,12 +544,15 @@ sort_order) VALUES(?,
 	`, currentVariantRevisionID, contentBlobID); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := service.Create(ctx, "local", CreateRequest{GameID: approved.GameID, CoreID: &gambatte, ReturnTo: "/", ClientCapabilities: Capabilities{SecureContext: true, CrossOriginIsolated: true, SharedArrayBuffer: true}}); !errors.Is(
-		err,
-		ErrBlocked,
-	) {
-		t.Fatalf("case-insensitive launch logical-name collision error = %v", err)
-	}
+	separateResources, err := service.Create(ctx, "local", CreateRequest{GameID: approved.GameID, CoreID: &gambatte, ReturnTo: "/", ClientCapabilities: Capabilities{SecureContext: true, CrossOriginIsolated: true, SharedArrayBuffer: true}})
+	testassert.False(t, err != nil, err)
+	separateConfig, err := service.Config(ctx, separateResources.LaunchID, separateResources.Capability)
+	testassert.False(t, err != nil, err)
+	separateEnvelope := testsupport.RuntimeEnvelope(t, separateConfig)
+	gameURL, _ := testsupport.RuntimeEnvelopeResource(t, separateEnvelope, "game")["url"].(string)
+	parentURL, _ := testsupport.RuntimeEnvelopeResource(t, separateEnvelope, "parent")["url"].(string)
+	testassert.Falsef(t, gameURL == "" || parentURL == "" || gameURL == parentURL,
+		"Provider resource lanes collided: game=%q parent=%q", gameURL, parentURL)
 }
 
 func assertMissingFDSValidationFinishes(

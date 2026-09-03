@@ -7,8 +7,11 @@ CREATE TABLE launch_sessions (
   game_id TEXT REFERENCES games(id),
   game_content_revision_id TEXT REFERENCES game_content_revisions(id),
   game_variant_revision_id TEXT REFERENCES game_variant_revisions(id),
-  core_artifact_id TEXT NOT NULL REFERENCES core_artifacts(id),
-  route_key TEXT NOT NULL CHECK(length(route_key) BETWEEN 1 AND 160),
+  provider_id TEXT NOT NULL REFERENCES runtime_providers(provider_id),
+  target_id TEXT NOT NULL,
+  target_contract_sha256 TEXT NOT NULL CHECK(length(target_contract_sha256)=64),
+  game_compatibility_line TEXT NOT NULL CHECK(length(game_compatibility_line) BETWEEN 1 AND 64),
+  bundle_sha256 TEXT NOT NULL CHECK(length(bundle_sha256)=64 AND bundle_sha256=lower(bundle_sha256)),
   effective_source_snapshot_id TEXT REFERENCES import_item_source_snapshots(id),
   rpgmaker_runtime_validation_id TEXT REFERENCES rpgmaker_runtime_validations(id),
   save_state_id TEXT REFERENCES save_states(id),
@@ -25,6 +28,7 @@ CREATE TABLE launch_sessions (
   updated_at_ms INTEGER NOT NULL,
   version INTEGER NOT NULL DEFAULT 1, initial_disc_index INTEGER NOT NULL DEFAULT 0 CHECK(initial_disc_index BETWEEN 0 AND 7), netplay_session_id TEXT REFERENCES netplay_sessions(id), netplay_player_no INTEGER CHECK(netplay_player_no IS NULL OR netplay_player_no BETWEEN 1 AND 4), save_access TEXT NOT NULL DEFAULT 'NORMAL'
   CHECK(save_access IN ('NORMAL','NETPLAY_DISABLED')),
+  FOREIGN KEY(provider_id,target_id) REFERENCES runtime_targets(provider_id,target_id),
   CHECK(hard_expires_at_ms >= bootstrap_expires_at_ms),
   CHECK(state != 'ACTIVE' OR activated_at_ms IS NOT NULL),
   CHECK((state IN ('FINISHED','EXPIRED','REVOKED')) = (finished_at_ms IS NOT NULL)),
@@ -83,20 +87,17 @@ CREATE TABLE save_states (
   game_id TEXT NOT NULL REFERENCES games(id),
   game_content_revision_id TEXT NOT NULL REFERENCES game_content_revisions(id),
   game_variant_revision_id TEXT NOT NULL REFERENCES game_variant_revisions(id),
-  core_artifact_id TEXT NOT NULL REFERENCES core_artifacts(id),
-  adapter_abi TEXT NOT NULL,
-  save_abi TEXT NOT NULL,
+  provider_id TEXT NOT NULL REFERENCES runtime_providers(provider_id),
+  target_id TEXT NOT NULL,
+  target_contract_sha256 TEXT NOT NULL CHECK(length(target_contract_sha256)=64),
+  game_compatibility_line TEXT NOT NULL CHECK(length(game_compatibility_line) BETWEEN 1 AND 64),
+  checkpoint_format TEXT NOT NULL CHECK(length(checkpoint_format) BETWEEN 1 AND 128),
   dependency_snapshot_sha256 TEXT NOT NULL CHECK(
     length(dependency_snapshot_sha256)=64 AND dependency_snapshot_sha256=lower(dependency_snapshot_sha256)
   ),
   dat_version_id TEXT REFERENCES dat_versions(id),
   dos_entry_path TEXT,
   payload_blob_id TEXT NOT NULL REFERENCES blobs(id),
-  payload_kind TEXT NOT NULL CHECK(payload_kind IN (
-    'RUNTIME_STATE','NATIVE_SAVE_BUNDLE_V1','ONS_SAVE_BUNDLE_V1','KIRIKIRI_SAVE_BUNDLE_V1'
-  )),
-  native_profile TEXT CHECK(native_profile IS NULL OR native_profile IN ('EASYRPG_V1','RPGMV_V1','RPGMZ_V1')),
-  resume_slot INTEGER CHECK(resume_slot IS NULL OR resume_slot BETWEEN 1 AND 2147483647),
   payload_sha256 TEXT NOT NULL CHECK(length(payload_sha256)=64 AND payload_sha256=lower(payload_sha256)),
   payload_size_bytes INTEGER NOT NULL CHECK(payload_size_bytes BETWEEN 1 AND 268435456),
   screenshot_blob_id TEXT REFERENCES blobs(id),
@@ -108,27 +109,16 @@ CREATE TABLE save_states (
   deleted_at_ms INTEGER,
   source_launch_session_id TEXT NOT NULL REFERENCES launch_sessions(id),
   disc_index INTEGER CHECK(disc_index BETWEEN 0 AND 7),
-  CHECK(
-    payload_kind='RUNTIME_STATE' AND native_profile IS NULL AND resume_slot IS NULL
-    OR payload_kind='NATIVE_SAVE_BUNDLE_V1' AND native_profile IS NOT NULL AND resume_slot IS NOT NULL
-    OR payload_kind='ONS_SAVE_BUNDLE_V1' AND native_profile IS NULL AND resume_slot IS NULL
-    OR payload_kind='KIRIKIRI_SAVE_BUNDLE_V1' AND native_profile IS NULL AND resume_slot IS NULL
-  )
+  FOREIGN KEY(provider_id,target_id) REFERENCES runtime_targets(provider_id,target_id)
 );
 
 CREATE TABLE rpgmaker_runtime_validation_checkpoints (
   validation_id TEXT PRIMARY KEY REFERENCES rpgmaker_runtime_validations(id),
   payload_blob_id TEXT NOT NULL REFERENCES blobs(id),
-  payload_kind TEXT NOT NULL CHECK(payload_kind IN ('RUNTIME_STATE','NATIVE_SAVE_BUNDLE_V1')),
-  native_profile TEXT CHECK(native_profile IS NULL OR native_profile IN ('EASYRPG_V1','RPGMV_V1','RPGMZ_V1')),
-  resume_slot INTEGER CHECK(resume_slot IS NULL OR resume_slot BETWEEN 1 AND 2147483647),
+  checkpoint_format TEXT NOT NULL CHECK(length(checkpoint_format) BETWEEN 1 AND 128),
   payload_sha256 TEXT NOT NULL CHECK(length(payload_sha256)=64 AND payload_sha256=lower(payload_sha256)),
   size_bytes INTEGER NOT NULL CHECK(size_bytes BETWEEN 1 AND 268435456),
-  created_at_ms INTEGER NOT NULL CHECK(created_at_ms>=0),
-  CHECK(
-    payload_kind='RUNTIME_STATE' AND native_profile IS NULL AND resume_slot IS NULL
-    OR payload_kind='NATIVE_SAVE_BUNDLE_V1' AND native_profile IS NOT NULL AND resume_slot IS NOT NULL
-  )
+  created_at_ms INTEGER NOT NULL CHECK(created_at_ms>=0)
 );
 
 CREATE TABLE isolated_runtime_bootstrap_tickets (
@@ -256,7 +246,10 @@ CREATE TABLE netplay_sessions (
   )),
   game_id TEXT NOT NULL REFERENCES games(id),
   game_variant_revision_id TEXT NOT NULL REFERENCES game_variant_revisions(id),
-  core_artifact_id TEXT NOT NULL REFERENCES core_artifacts(id),
+  provider_id TEXT NOT NULL REFERENCES runtime_providers(provider_id),
+  target_id TEXT NOT NULL,
+  target_contract_sha256 TEXT NOT NULL CHECK(length(target_contract_sha256)=64),
+  netplay_compatibility_line TEXT NOT NULL CHECK(length(netplay_compatibility_line) BETWEEN 1 AND 64),
   netplay_profile_id TEXT NOT NULL,
   profile_json TEXT NOT NULL CHECK(json_valid(profile_json) AND json_type(profile_json)='object'),
   profile_digest TEXT NOT NULL CHECK(profile_digest GLOB '[0-9a-f]*' AND length(profile_digest)=64),
@@ -277,6 +270,7 @@ CREATE TABLE netplay_sessions (
     'GAME_CONTENT_REPLACED','BIOS_REPLACED'
   )),
   UNIQUE(room_id,session_no),
+  FOREIGN KEY(provider_id,target_id) REFERENCES runtime_targets(provider_id,target_id),
   CHECK((state IN ('FINISHED','FAILED'))=(finished_at_ms IS NOT NULL)),
   CHECK((finished_at_ms IS NULL)=(end_reason IS NULL)),
   CHECK(started_at_ms IS NULL OR started_at_ms>=created_at_ms),

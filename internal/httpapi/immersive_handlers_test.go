@@ -23,6 +23,7 @@ import (
 	"retrom/internal/httpapi/generated"
 	"retrom/internal/payloadrelease"
 	"retrom/internal/testassert"
+	"retrom/internal/testsupport"
 )
 
 type immersiveGameSeed struct {
@@ -131,23 +132,19 @@ func assertImmersiveOperation(
 		"operation ID for %s = %q", path, item.Get.OperationID)
 }
 
-func assertImmersiveAdapterEnums(t *testing.T, specification *openapi3.T) {
+func assertImmersiveProviderContract(t *testing.T, specification *openapi3.T) {
 	t.Helper()
-	playerAdapter := specification.Components.Schemas["EmulatorJSLaunchConfig"].Value.
-		Properties["playerAdapterId"].Value
-	adapterEnums := make(map[string]bool, len(playerAdapter.Enum))
-	for _, value := range playerAdapter.Enum {
-		if adapter, ok := value.(string); ok {
-			adapterEnums[adapter] = true
-		}
+	profileRef := specification.Components.Schemas["RuntimeTargetAdminItem"]
+	testassert.False(t, profileRef == nil || profileRef.Value == nil, "missing RuntimeTargetAdminItem")
+	profile := profileRef.Value
+	for _, property := range []string{"providerId", "targetId", "targetContractSha256"} {
+		testassert.Falsef(t, profile.Properties[property] == nil,
+			"RuntimeTargetAdminItem missing %s", property)
 	}
-	for _, expected := range []string{"ejs-4.2.3-v2", "ejs-4.2.3-v3", "ejs-4.3.0-pre-v2"} {
-		testassert.Falsef(t, !adapterEnums[expected], "missing PlayerConfig adapter %q in %v", expected, adapterEnums)
+	for _, forbidden := range []string{"playerAdapterId", "runtimeFamily", "routeKey"} {
+		testassert.Falsef(t, profile.Properties[forbidden] != nil,
+			"RuntimeTargetAdminItem retains %s", forbidden)
 	}
-	netplayAdapter := specification.Components.Schemas["NetplayCanonicalProfile"].Value.
-		Properties["playerAdapterId"].Value
-	testassert.Falsef(t, len(netplayAdapter.Enum) != 1 || netplayAdapter.Enum[0] != "ejs-4.2.3-v2",
-		"netplay player adapter enum = %v", netplayAdapter.Enum)
 }
 
 func TestImmersiveOpenAPIContractIsTypedAndBounded(t *testing.T) {
@@ -163,7 +160,7 @@ func TestImmersiveOpenAPIContractIsTypedAndBounded(t *testing.T) {
 	limit := specification.Components.Parameters["Limit50"].Value.Schema.Value
 	testassert.Falsef(t, limit.Max == nil || *limit.Max != 50 || limit.Min == nil || *limit.Min != 1,
 		"immersive limit schema = %#v", limit)
-	assertImmersiveAdapterEnums(t, specification)
+	assertImmersiveProviderContract(t, specification)
 }
 
 func seedImmersiveBlob(
@@ -245,6 +242,8 @@ func seedImmersivePlay(
 	defer cleanup.Rollback(transaction)
 	artifactID := "01980000-0000-7000-8000-00000000fa01"
 	seedHTTPTestCoreArtifact(t, transaction, artifactID, "mgba", "data/cores/mgba-test.data", strings.Repeat("a", 64), "{}")
+	target, err := testsupport.LookupRuntimeTarget(t.Context(), transaction, "mgba")
+	testassert.False(t, err != nil, err)
 	variantID, revisionID, launchID, playID := uuid.NewString(), uuid.NewString(), uuid.NewString(), uuid.NewString()
 	mustExecHTTPTest(t, transaction, `
 INSERT INTO game_variants(id,game_id,core_id,current_revision_id,version,created_at_ms,updated_at_ms)
@@ -252,19 +251,24 @@ VALUES(?,?,'mgba',NULL,1,0,0)
 `, variantID, seed.GameID)
 	mustExecHTTPTest(t, transaction, `
 INSERT INTO game_variant_revisions(
- id,game_variant_id,game_content_revision_id,core_artifact_id,route_key,dat_version_id,validation_input_digest,
+ id,game_variant_id,game_content_revision_id,provider_id,target_id,target_contract_sha256,game_compatibility_line,
+ dat_version_id,validation_input_digest,
  emulator_game_id,status,compatibility_code,dependency_snapshot_json,default_dos_entry,created_at_ms
-) VALUES(?,?,?,?, 'DEFAULT',NULL,?,?,'READY','READY','{}',NULL,0)
-`, revisionID, variantID, seed.ContentID, artifactID,
+) VALUES(?,?,?,?,?,?,?,NULL,?,?,'READY','READY','{}',NULL,0)
+`, revisionID, variantID, seed.ContentID, target.ProviderID, target.TargetID,
+		target.TargetContractSHA256, target.GameCompatibilityLine,
 		strings.Repeat(fmt.Sprintf("%x", emulatorGameID%16), 64), emulatorGameID)
 	mustExecHTTPTest(t, transaction, "UPDATE game_variants SET current_revision_id=? WHERE id=?", revisionID, variantID)
 	mustExecHTTPTest(t, transaction, `
 INSERT INTO launch_sessions(
- id,profile_id,purpose,game_id,game_content_revision_id,game_variant_revision_id,core_artifact_id,route_key,
+ id,profile_id,purpose,game_id,game_content_revision_id,game_variant_revision_id,
+ provider_id,target_id,target_contract_sha256,game_compatibility_line,bundle_sha256,
  return_to,credential_sha256,state,
  bootstrap_expires_at_ms,finished_at_ms,hard_expires_at_ms,created_at_ms,updated_at_ms,version
-) VALUES(?,?,'PRODUCT',?,?,?,?, 'DEFAULT','/',zeroblob(32),'FINISHED',?,?,?,?,?,1)
-`, launchID, profileID, seed.GameID, seed.ContentID, revisionID, artifactID,
+) VALUES(?,?,'PRODUCT',?,?,?,?,?,?,?,?,'/',zeroblob(32),'FINISHED',?,?,?,?,?,1)
+`, launchID, profileID, seed.GameID, seed.ContentID, revisionID,
+		target.ProviderID, target.TargetID, target.TargetContractSHA256,
+		target.GameCompatibilityLine, target.BundleSHA256,
 		startedAtMS+1000, startedAtMS+500,
 		startedAtMS+2000, startedAtMS, startedAtMS+500)
 	mustExecHTTPTest(t, transaction, `

@@ -72,25 +72,30 @@ VALUES(?,?,?,7000)
 	statePayload := []byte("state")
 	stateBlobID := seedImmersiveBlob(t, server, transaction, string(statePayload), "application/octet-stream", 7000)
 	screenshotBlobID := seedImmersiveBlob(t, server, transaction, "screenshot", "image/png", 7000)
-	var contentID, revisionID, artifactID, launchID string
+	var contentID, revisionID, providerID, targetID, targetContract, gameLine, launchID string
 	err = transaction.QueryRowContext(t.Context(), `
-SELECT revision.game_content_revision_id,revision.id,revision.core_artifact_id,launch.id
+SELECT revision.game_content_revision_id,revision.id,revision.provider_id,revision.target_id,
+       revision.target_contract_sha256,revision.game_compatibility_line,launch.id
 FROM game_variants variant
 JOIN game_variant_revisions revision ON revision.id=variant.current_revision_id
 JOIN launch_sessions launch ON launch.game_variant_revision_id=revision.id
 WHERE variant.game_id=?
 ORDER BY launch.created_at_ms DESC LIMIT 1
-`, savedGameID).Scan(&contentID, &revisionID, &artifactID, &launchID)
+`, savedGameID).Scan(
+		&contentID, &revisionID, &providerID, &targetID, &targetContract, &gameLine, &launchID,
+	)
 	testassert.False(t, err != nil, err)
 	payloadDigest := sha256.Sum256(statePayload)
 	mustExecHTTPTest(t, transaction, `
 INSERT INTO save_states(
- id,profile_id,game_id,game_content_revision_id,game_variant_revision_id,core_artifact_id,
- adapter_abi,save_abi,dependency_snapshot_sha256,dat_version_id,dos_entry_path,payload_blob_id,payload_kind,
+ id,profile_id,game_id,game_content_revision_id,game_variant_revision_id,
+ provider_id,target_id,target_contract_sha256,game_compatibility_line,checkpoint_format,
+ dependency_snapshot_sha256,dat_version_id,dos_entry_path,payload_blob_id,
  payload_sha256,payload_size_bytes,screenshot_blob_id,name,active_duration_ms,version,created_at_ms,updated_at_ms,
  deleted_at_ms,source_launch_session_id,disc_index
-) VALUES(?,?,?,?,?,?,'emulatorjs-state-v1','emulatorjs-state-v1',?,NULL,NULL,?,'RUNTIME_STATE',?, ?,?,'第一章',100,1,7000,7000,NULL,?,NULL)
-`, saveStateID, profileID, savedGameID, contentID, revisionID, artifactID, strings.Repeat("d", 64),
+) VALUES(?,?,?,?,?,?,?,?,?,'test-checkpoint-v1',?,NULL,NULL,?,?, ?,?,'第一章',100,1,7000,7000,NULL,?,NULL)
+`, saveStateID, profileID, savedGameID, contentID, revisionID,
+		providerID, targetID, targetContract, gameLine, strings.Repeat("d", 64),
 		stateBlobID, hex.EncodeToString(payloadDigest[:]), len(statePayload), screenshotBlobID, launchID)
 	mustCommitHTTPTest(t, transaction)
 }

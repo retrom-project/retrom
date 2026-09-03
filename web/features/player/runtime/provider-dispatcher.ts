@@ -163,7 +163,7 @@ function stringArraysEqual(actual: unknown, expected: readonly string[]) {
 }
 
 async function importProviderModule(url: string): Promise<unknown> {
-  return import(/* @vite-ignore */ url);
+  return import(/* webpackIgnore: true */ /* turbopackIgnore: true */ url);
 }
 
 function record(value: unknown): value is Record<string, unknown> {

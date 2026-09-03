@@ -14,28 +14,38 @@ import (
 )
 
 const (
-	rpgSchemaArtifactID = "rpg-artifact"
-	rpgSchemaValidation = "rpg-validation"
-	rpgSchemaOriginal   = "rpg-original-launch"
-	rpgSchemaRestore    = "rpg-restore-launch"
+	rpgSchemaProvider       = "retrom-runtime"
+	rpgSchemaTarget         = "rpgmaker-2000"
+	rpgSchemaTargetContract = "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+	rpgSchemaGameLine       = "rpgmaker-2000-v1"
+	rpgSchemaBundle         = "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+	rpgSchemaValidation     = "rpg-validation"
+	rpgSchemaOriginal       = "rpg-original-launch"
+	rpgSchemaRestore        = "rpg-restore-launch"
 )
 
-func TestRPGMakerArtifactSelectionAndCoreRouteAreDatabaseConstraints(t *testing.T) {
+func TestRPGMakerProviderTargetSelectionAndCoreRouteAreDatabaseConstraints(t *testing.T) {
 	t.Parallel()
 	database := openRPGMakerSchemaDatabase(t)
 	defer func() { cleanup.Error("close", database.Close()) }()
-	insertRPGMakerArtifact(t, database, rpgSchemaArtifactID, "rpgmaker_2000", "RPG2000_EASYRPG_TEST", true)
-
-	err := insertRPGMakerArtifactError(
-		t, database, "second-selected", "rpgmaker_2000", "RPG2000_EASYRPG_OTHER", true,
-	)
+	insertRPGMakerProviderProjection(t, database)
+	mustExecRPGSchema(t, database, `
+INSERT INTO runtime_target_bindings(
+ binding_id,core_id,provider_id,target_id,detector_profile,delivery_profile,launch_policy,review_policy
+) VALUES('retrom-runtime-rpgmaker-2000','rpgmaker',?1,?2,'RPG2000','FILE_TREE_PROJECT_V1','SUPPORTED','RPG_RUNTIME_VALIDATION_V1')`,
+		rpgSchemaProvider, rpgSchemaTarget)
+	_, err := database.ExecContext(t.Context(), `
+INSERT INTO runtime_target_bindings(
+ binding_id,core_id,provider_id,target_id,detector_profile,delivery_profile,launch_policy,review_policy
+) VALUES('second-selected','fceumm',?1,?2,'RPG2000','FILE_TREE_PROJECT_V1','SUPPORTED','RPG_RUNTIME_VALIDATION_V1')`,
+		rpgSchemaProvider, rpgSchemaTarget)
 	testassert.Truef(t, err != nil && strings.Contains(err.Error(), "UNIQUE constraint failed"),
-		"second selected RPG artifact error = %v", err)
-	err = insertRPGMakerArtifactError(
-		t, database, "wrong-route", "rpgmaker_2003", "RPG2000_EASYRPG_WRONG", false,
-	)
-	testassert.Truef(t, err != nil && strings.Contains(err.Error(), "artifact runtime/core route mismatch"),
-		"wrong route error = %v", err)
+		"second binding for Provider Target error = %v", err)
+	_, err = database.ExecContext(t.Context(), `
+INSERT INTO runtime_binding_platforms(binding_id,platform_id,core_id)
+VALUES('retrom-runtime-rpgmaker-2000','nes','rpgmaker')`)
+	testassert.Truef(t, err != nil && strings.Contains(err.Error(), "FOREIGN KEY constraint failed"),
+		"cross-core platform route error = %v", err)
 }
 
 func TestRuntimePackFilesAreStagedContiguouslyBeforeReady(t *testing.T) {
@@ -137,39 +147,27 @@ func openRPGMakerSchemaDatabase(t *testing.T) *sql.DB {
 	return database.SQL
 }
 
-func insertRPGMakerArtifact(t *testing.T, database *sql.DB, id, coreID, route string, selected bool) {
+func insertRPGMakerProviderProjection(t *testing.T, database *sql.DB) {
 	t.Helper()
-	err := insertRPGMakerArtifactError(t, database, id, coreID, route, selected)
-	testassert.Falsef(t, err != nil, "insert artifact: %v", err)
-}
-
-func insertRPGMakerArtifactError(
-	t *testing.T,
-	database *sql.DB,
-	id, coreID, route string,
-	selected bool,
-) error {
-	t.Helper()
-	selectedValue := 0
-	if selected {
-		selectedValue = 1
-	}
-	_, err := database.ExecContext(context.Background(), `
-INSERT INTO core_artifacts(
- id,core_id,route_key,runtime_family,runtime_adapter_kind,runtime_version,adapter_id,entry_path,
- size_bytes,sha256,manifest_sha256,artifact_set_sha256,requires_threads,save_payload_kind,
- save_max_bytes,provenance_json,compatibility_json,selected_for_new_bindings,available_for_launch,
- version,created_at_ms,updated_at_ms
-) VALUES(?, ?, ?, 'RPGMAKER','EASYRPG_WEB','v0.2.0','easyrpg-web','runtime/easyrpg.js',
- 1,?,?,?,0,'NATIVE_SAVE_BUNDLE_V1',67108864,'{}','{}',?,1,1,1,1)
-`, id, coreID, route, strings.Repeat("d", 64), strings.Repeat("e", 64), strings.Repeat("f", 64), selectedValue)
-	return err
+	mustExecRPGSchema(t, database, `
+INSERT INTO runtime_providers(
+ provider_id,provider_version,provider_api_version,bundle_sha256,manifest_sha256,module_sha256,
+ source,activated_at_ms
+) VALUES(?1,'1.0.0',1,?2,?3,?4,'candidate',1)`, rpgSchemaProvider, rpgSchemaBundle,
+		strings.Repeat("d", 64), strings.Repeat("c", 64))
+	mustExecRPGSchema(t, database, `
+INSERT INTO runtime_targets(
+ provider_id,target_id,display_name,game_compatibility_line,options_kind,capabilities_json,
+ checkpoint_json,manifest_fragment_json,target_contract_sha256
+) VALUES(?1,?2,'RPG Maker 2000',?3,'RPGMAKER_V1','{}',
+ '{"writeFormat":"checkpoint-v1","readFormats":["checkpoint-v1"],"maxBytes":67108864}','{}',?4)`,
+		rpgSchemaProvider, rpgSchemaTarget, rpgSchemaGameLine, rpgSchemaTargetContract)
 }
 
 func preparePositionValidation(t *testing.T, database *sql.DB) {
 	t.Helper()
 	insertSchemaIdentity(t, database)
-	insertRPGMakerArtifact(t, database, rpgSchemaArtifactID, "rpgmaker_2000", "RPG2000_EASYRPG_TEST", true)
+	insertRPGMakerProviderProjection(t, database)
 	insertSchemaBlob(t, database, "checkpoint-blob", "a", 10)
 	mustExecRPGSchema(t, database, `
 INSERT INTO platform_instances(
@@ -183,10 +181,10 @@ INSERT INTO upload_sessions(
 	mustExecRPGSchema(t, database, `
 INSERT INTO import_jobs(
  id,upload_session_id,target_platform_instance_id,platform_instance_version,platform_id,default_core_id,
- core_artifact_id,metadata_provider,config_snapshot_json,config_snapshot_digest,state,total_item_count,
+ provider_id,target_id,target_contract_sha256,metadata_provider,config_snapshot_json,config_snapshot_digest,state,total_item_count,
  review_pending_item_count,created_at_ms,updated_at_ms
-) VALUES('import','upload','directory',1,'rpgmaker','rpgmaker',?1,'NONE','{}',?2,
- 'REVIEW_PENDING',1,1,1,1)`, rpgSchemaArtifactID, strings.Repeat("2", 64))
+) VALUES('import','upload','directory',1,'rpgmaker','rpgmaker',?1,?2,?3,'NONE','{}',?4,
+ 'REVIEW_PENDING',1,1,1,1)`, rpgSchemaProvider, rpgSchemaTarget, rpgSchemaTargetContract, strings.Repeat("2", 64))
 	mustExecRPGSchema(t, database, `
 INSERT INTO import_items(
  id,import_job_id,group_key,state,source_manifest_json,source_manifest_digest,search_text,created_at_ms,updated_at_ms
@@ -206,24 +204,22 @@ INSERT INTO review_drafts(
 ) VALUES('review','item','directory','{}',1,1,1,1,'snapshot')`)
 	mustExecRPGSchema(t, database, `
 INSERT INTO rpgmaker_review_profiles(
- review_draft_id,selected_core_id,generation,evidence_family,evidence_generation,evidence_confidence,
+ review_draft_id,generation,evidence_family,evidence_generation,evidence_confidence,
  file_count,total_bytes,project_fingerprint,requirements_sha256,analysis_json,self_contained_override,
- route_key,artifact_id,artifact_set_sha256,adapter_id,adapter_abi,dependency_snapshot_sha256,
+ provider_id,target_id,game_compatibility_line,target_contract_sha256,dependency_snapshot_sha256,
  created_at_ms,updated_at_ms
-) VALUES('review','rpgmaker_2000','RPG2000','RPG2K','RPG2000','MATCHED',1,10,?1,?2,'{}',1,
- 'RPG2000_EASYRPG_TEST',?3,?4,'easyrpg-web','easy-abi',?5,1,1)`,
-		strings.Repeat("5", 64), strings.Repeat("7", 64), rpgSchemaArtifactID,
-		strings.Repeat("f", 64), strings.Repeat("8", 64))
+) VALUES('review','RPG2000','RPG2K','RPG2000','MATCHED',1,10,?1,?2,'{}',1,
+ ?3,?4,?5,?6,?7,1,1)`, strings.Repeat("5", 64), strings.Repeat("7", 64),
+		rpgSchemaProvider, rpgSchemaTarget, rpgSchemaGameLine, rpgSchemaTargetContract, strings.Repeat("8", 64))
 	mustExecRPGSchema(t, database, `
 INSERT INTO rpgmaker_runtime_validations(
  id,import_item_id,review_version_at_create,runtime_binding_revision,effective_source_snapshot_id,
- project_fingerprint,core_id,generation,evidence_generation,evidence_confidence,route_key,artifact_id,
- artifact_set_sha256,adapter_id,adapter_abi,dependency_snapshot_sha256,state,machine_gates_json,
+ project_fingerprint,generation,evidence_generation,evidence_confidence,provider_id,target_id,
+ game_compatibility_line,target_contract_sha256,dependency_snapshot_sha256,state,machine_gates_json,
  created_at_ms,updated_at_ms,expires_at_ms
-) VALUES(?1,'item',1,1,'snapshot',?2,'rpgmaker_2000','RPG2000','RPG2000','MATCHED',
- 'RPG2000_EASYRPG_TEST',?3,?4,'easyrpg-web','easy-abi',?5,'CREATED','{}',1,1,900001)`,
-		rpgSchemaValidation, strings.Repeat("5", 64), rpgSchemaArtifactID,
-		strings.Repeat("f", 64), strings.Repeat("8", 64))
+) VALUES(?1,'item',1,1,'snapshot',?2,'RPG2000','RPG2000','MATCHED',?3,?4,?5,?6,?7,
+ 'CREATED','{}',1,1,900001)`, rpgSchemaValidation, strings.Repeat("5", 64),
+		rpgSchemaProvider, rpgSchemaTarget, rpgSchemaGameLine, rpgSchemaTargetContract, strings.Repeat("8", 64))
 	insertValidationLaunch(t, database, rpgSchemaOriginal, 1)
 	mustExecRPGSchema(t, database, `UPDATE rpgmaker_runtime_validations SET launch_id=?1,state='STARTING' WHERE id=?2`,
 		rpgSchemaOriginal, rpgSchemaValidation)
@@ -239,8 +235,8 @@ func insertValidationCheckpoint(t *testing.T, database *sql.DB) {
 	t.Helper()
 	mustExecRPGSchema(t, database, `
 INSERT INTO rpgmaker_runtime_validation_checkpoints(
- validation_id,payload_blob_id,payload_kind,native_profile,resume_slot,payload_sha256,size_bytes,created_at_ms
-) VALUES(?1,'checkpoint-blob','NATIVE_SAVE_BUNDLE_V1','EASYRPG_V1',100,?2,10,2)`,
+ validation_id,payload_blob_id,checkpoint_format,payload_sha256,size_bytes,created_at_ms
+) VALUES(?1,'checkpoint-blob','checkpoint-v1',?2,10,2)`,
 		rpgSchemaValidation, strings.Repeat("a", 64))
 }
 
@@ -257,11 +253,12 @@ func insertValidationLaunch(t *testing.T, database *sql.DB, id string, createdAt
 	t.Helper()
 	mustExecRPGSchema(t, database, `
 INSERT INTO launch_sessions(
- id,profile_id,purpose,core_artifact_id,route_key,effective_source_snapshot_id,
+ id,profile_id,purpose,provider_id,target_id,target_contract_sha256,game_compatibility_line,bundle_sha256,effective_source_snapshot_id,
  rpgmaker_runtime_validation_id,return_to,credential_sha256,state,bootstrap_expires_at_ms,
  hard_expires_at_ms,created_at_ms,updated_at_ms
-) VALUES(?1,'profile','RPG_RUNTIME_VALIDATION',?2,'RPG2000_EASYRPG_TEST','snapshot',?3,
- '/admin/reviews',?4,'CREATED',?5,?6,?7,?7)`, id, rpgSchemaArtifactID, rpgSchemaValidation,
+) VALUES(?1,'profile','RPG_RUNTIME_VALIDATION',?2,?3,?4,?5,?6,'snapshot',?7,
+ '/admin/reviews',?8,'CREATED',?9,?10,?11,?11)`, id, rpgSchemaProvider, rpgSchemaTarget,
+		rpgSchemaTargetContract, rpgSchemaGameLine, rpgSchemaBundle, rpgSchemaValidation,
 		[]byte(strings.Repeat(id[:1], 32)), createdAt+60000, createdAt+900000, createdAt)
 }
 

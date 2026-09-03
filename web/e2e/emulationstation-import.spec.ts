@@ -9,6 +9,9 @@ import {
   type Page,
   type TestInfo,
 } from "@playwright/test";
+import {
+  runtimeFrameCount, runtimeResource, runtimeResourceURL, type RuntimeEnvelope,
+} from "./runtime-provider-support";
 
 const title = "EmulationStation GBA Smoke";
 const romFixture = {
@@ -416,25 +419,17 @@ async function verifyFullProductLifecycle(page: Page, testInfo: TestInfo) {
   await expect(page).toHaveURL(/\/play\/[0-9a-f-]+$/, { timeout: 10_000 });
   const configHTTP = await configResponse;
   const configURL = configHTTP.url();
-  const config = await configHTTP.json() as {
-    gameTitle: string;
-    core: string;
-    coreName: string;
-    playerAdapterId: string;
-    emulatorjsVersion: string;
-    gameUrl: string;
-  };
+  const config = await configHTTP.json() as RuntimeEnvelope;
   expect(config).toMatchObject({
-    gameTitle: title,
-    core: "mgba",
-    coreName: "mGBA",
-    playerAdapterId: "ejs-4.2.3-v3",
-    emulatorjsVersion: "4.2.3",
+    schemaVersion: 1,
+    session: {title, purpose: "PRODUCT", mode: "SINGLE"},
+    runtime: {providerId: "emulatorjs", providerApiVersion: 1, targetId: "mgba"},
   });
-  expect(config.gameUrl).toMatch(
+  const gameURL = runtimeResourceURL(runtimeResource(config, "game"));
+  expect(gameURL).toMatch(
     /\/runtime\/content\/game\/[0-9a-f]{64}\/emulationstation-smoke\.gba$/,
   );
-  const content = await page.request.get(config.gameUrl);
+  const content = await page.request.get(gameURL!);
   expect(content.ok()).toBe(true);
   const contentBody = await content.body();
   const contentHash = createHash("sha256")
@@ -447,13 +442,9 @@ async function verifyFullProductLifecycle(page: Page, testInfo: TestInfo) {
   await expect(player.locator("canvas.ejs_canvas")).toBeVisible({ timeout: 60_000 });
   const frame = page.frames().find((candidate) => candidate !== page.mainFrame());
   expect(frame).toBeTruthy();
-  const initialFrame = await frame!.evaluate(
-    () => window.EJS_emulator?.gameManager?.getFrameNum?.() ?? 0,
-  );
+  const initialFrame = await runtimeFrameCount(page);
   await expect.poll(
-    async () => frame!.evaluate(
-      () => window.EJS_emulator?.gameManager?.getFrameNum?.() ?? 0,
-    ),
+    () => runtimeFrameCount(page),
     { timeout: 30_000 },
   ).toBeGreaterThan(initialFrame + 30);
   await page.screenshot({
@@ -517,7 +508,7 @@ async function verifyFullProductLifecycle(page: Page, testInfo: TestInfo) {
 
   expect((await page.request.get(`/api/v1/games/${gameId}`)).ok()).toBe(false);
   expect((await page.request.get(configURL)).ok()).toBe(false);
-  expect((await page.request.get(config.gameUrl)).ok()).toBe(false);
+  expect((await page.request.get(gameURL!)).ok()).toBe(false);
   expect((await page.request.get(publicDetail.coverUrl!)).ok()).toBe(false);
   expect((await page.request.get(publicDetail.videoUrl!)).ok()).toBe(false);
   const launch = await page.request.post("/api/v1/launches", {

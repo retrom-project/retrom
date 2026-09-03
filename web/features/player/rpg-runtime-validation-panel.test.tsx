@@ -24,9 +24,9 @@ describe("RpgRuntimeValidationPanel", () => {
     expect(within(panel).getByText(restoreLaunchId)).toBeVisible();
     expect(within(panel).getByText("28 / 28")).toBeVisible();
     expect(within(panel).getAllByRole("listitem")).toHaveLength(14);
-    expect(gateRow(panel, "ENGINE_PROFILE")).toHaveTextContent("RPGMZ · RPGMZ · native-web");
+    expect(gateRow(panel, "ENGINE_PROFILE")).toHaveTextContent("RPGMZ · RPGMZ");
     expect(gateRow(panel, "FRAMES_300")).toHaveTextContent("360 个连续帧");
-    expect(gateRow(panel, "CHECKPOINT_CREATED")).toHaveTextContent("NATIVE_SAVE_BUNDLE_V1");
+    expect(gateRow(panel, "CHECKPOINT_CREATED")).toHaveTextContent("rpgmaker-mz-v1");
     expect(gateRow(panel, "RESTORE_SCREENSHOT")).toHaveTextContent("恢复截图已关联");
     expect(gateRow(panel, "RESTORE_INPUT")).toHaveTextContent("地图 1 · X 13 · Y 8 · 变量 1");
     expect(within(panel).getByText("初始 A").nextSibling).toHaveTextContent("地图 1 · X 10 · Y 8 · 变量 0");
@@ -70,11 +70,11 @@ function panelDriver(
   } as const;
   const evidence = (gate: RpgGate): RpgGateEvidence => {
     if (gate in positions) {return positions[gate as keyof typeof positions];}
-    if (gate === "ENGINE_PROFILE") {return { generation: "RPGMZ", adapterId: "native-web", engineProfile: "RPGMZ" };}
+    if (gate === "ENGINE_PROFILE") {return {generation: "RPGMZ", engineProfile: "RPGMZ"};}
     if (gate === "FRAMES_300") {return { continuousFrames: 360 };}
     if (gate === "INPUT" || gate === "AUDIO") {return { observed: true };}
     if (gate === "CHECKPOINT_CREATED") {
-      return { payloadKind: "NATIVE_SAVE_BUNDLE_V1", sizeBytes: 47_816, sha256: "a".repeat(64) };
+      return {checkpointFormat: "rpgmaker-mz-v1", sizeBytes: 47_816, sha256: "a".repeat(64)};
     }
     return {};
   };

@@ -52,10 +52,6 @@ VALUES(?,'wasm4-profile','wasm4-admin','WASM-4 Admin','ADMIN','ENABLED',0,0);
 	if err := dependencySet.Bootstrap(ctx, database.SQL, time.Now()); err != nil {
 		t.Fatal(err)
 	}
-	if _, _, exists := dependencySet.RetromRuntimeFile("v0.11.2", "wasm4-retrom.mjs"); !exists {
-		t.Fatal("WASM-4 runtime module is absent from the PFB allowlist")
-	}
-
 	blobs, err := blobstore.Open(dataDir)
 	if err != nil {
 		t.Fatal(err)
@@ -116,7 +112,12 @@ VALUES(?,'wasm4-profile','wasm4-admin','WASM-4 Admin','ADMIN','ENABLED',0,0);
 	if err != nil {
 		t.Fatal(err)
 	}
-	service := New(database.SQL, dependencySet, credentials, time.Now).WithBlobStore(blobs)
+	runtimeBuilder, err := testsupport.NewRuntimeBuilder(ctx, database.SQL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	service := New(database.SQL, dependencySet, credentials, time.Now).WithBlobStore(blobs).
+		WithRuntimeProvider(dependencySet.RuntimeCatalog, runtimeBuilder)
 	preview, err := service.CreateReviewPreview(ctx, ReviewPreviewRequest{
 		ImportItemID: itemID, ActorUserID: actorID, IdempotencyKey: "wasm4-preview-1",
 		ClientCapabilities: Capabilities{SecureContext: true},
@@ -125,10 +126,16 @@ VALUES(?,'wasm4-profile','wasm4-admin','WASM-4 Admin','ADMIN','ENABLED',0,0);
 		t.Fatalf("CreateReviewPreview(WASM-4)=%#v, %v", preview, err)
 	}
 	previewConfig, err := service.ReviewPreviewConfig(ctx, preview.PreviewID, preview.Capability)
-	if err != nil || previewConfig.WASM4 == nil || previewConfig.WASM4.Purpose != "REVIEW_PREVIEW" ||
-		previewConfig.WASM4.CartSizeBytes != int64(len(cart)) ||
-		previewConfig.WASM4.Adapter.AdapterKind != "WASM4_WEB" {
+	if err != nil {
 		t.Fatalf("ReviewPreviewConfig(WASM-4)=%#v, %v", previewConfig, err)
+	}
+	previewEnvelope := testsupport.RuntimeEnvelope(t, previewConfig)
+	previewSession := testsupport.RuntimeEnvelopeObject(t, previewEnvelope, "session")
+	previewRuntime := testsupport.RuntimeEnvelopeObject(t, previewEnvelope, "runtime")
+	previewCart := testsupport.RuntimeEnvelopeResource(t, previewEnvelope, "game")
+	if previewSession["purpose"] != "REVIEW_PREVIEW" || previewRuntime["targetId"] != "wasm4" ||
+		previewCart["kind"] != "WASM4_CART_V1" || previewCart["sizeBytes"] != int64(len(cart)) {
+		t.Fatalf("WASM-4 preview envelope=%#v", previewEnvelope)
 	}
 	previewContent, err := service.ReviewPreviewContent(
 		ctx, preview.PreviewID, preview.Capability, "Pong.wasm",
@@ -160,13 +167,17 @@ VALUES(?,'wasm4-profile','wasm4-admin','WASM-4 Admin','ADMIN','ENABLED',0,0);
 		t.Fatal(err)
 	}
 	product, err := service.Config(ctx, created.LaunchID, created.Capability)
-	if err != nil || product.WASM4 == nil || product.WASM4.Purpose != "PRODUCT" ||
-		product.WASM4.ContentDigest != base64DigestHex(digest) || product.WASM4.CartSizeBytes != int64(len(cart)) ||
-		product.WASM4.Adapter.CartURL == "" || product.WASM4.Checkpoint != nil {
+	if err != nil {
 		t.Fatalf("Config(WASM-4 product)=%#v, %v", product, err)
 	}
-	if encoded, err := MarshalConfig(product); err != nil || !bytes.Contains(encoded, []byte(`"runtimeFamily":"WASM4"`)) {
-		t.Fatalf("MarshalConfig(WASM-4)=%s, %v", encoded, err)
+	productEnvelope := testsupport.RuntimeEnvelope(t, product)
+	productSession := testsupport.RuntimeEnvelopeObject(t, productEnvelope, "session")
+	productRuntime := testsupport.RuntimeEnvelopeObject(t, productEnvelope, "runtime")
+	productCart := testsupport.RuntimeEnvelopeResource(t, productEnvelope, "game")
+	if productSession["purpose"] != "PRODUCT" || productRuntime["targetId"] != "wasm4" ||
+		productCart["sha256"] != base64DigestHex(digest) || productCart["sizeBytes"] != int64(len(cart)) ||
+		productCart["url"] == "" || productEnvelope["restore"] != nil {
+		t.Fatalf("WASM-4 product envelope=%#v", productEnvelope)
 	}
 	servedDigest, err := service.ContentBlob(ctx, created.LaunchID, created.Capability, "Pong.wasm")
 	if err != nil || servedDigest != base64DigestHex(digest) {

@@ -1,78 +1,11 @@
 -- Clean pre-release baseline: dependencies.
 
-CREATE TABLE core_artifacts (
-  id TEXT PRIMARY KEY,
-  core_id TEXT NOT NULL REFERENCES cores(id),
-  route_key TEXT NOT NULL CHECK(
-    length(route_key) BETWEEN 1 AND 160 AND route_key=upper(route_key)
-    AND route_key NOT GLOB '*[^A-Z0-9_]*'
-  ),
-  runtime_family TEXT NOT NULL CHECK(runtime_family IN (
-    'EMULATORJS','RPGMAKER','ONS','KIRIKIRI','BUTTERSCOTCH','TYRANOSCRIPT','WASM4'
-  )),
-  runtime_adapter_kind TEXT NOT NULL CHECK(runtime_adapter_kind IN (
-    'EMULATORJS','EASYRPG_WEB','MKXP_LIBRETRO_WEB','NATIVE_WEB','ONS_YURI_WEB','KIRIKIRI2_WEB',
-    'BUTTERSCOTCH_WEB','TYRANOSCRIPT_WEB','WASM4_WEB'
-  )),
-  runtime_version TEXT NOT NULL CHECK(
-    length(runtime_version) BETWEEN 1 AND 160 AND lower(runtime_version)<>'latest'
-  ),
-  adapter_id TEXT NOT NULL CHECK(length(adapter_id) BETWEEN 1 AND 160),
-  entry_path TEXT NOT NULL CHECK(
-    length(CAST(entry_path AS BLOB)) BETWEEN 1 AND 4096
-    AND entry_path NOT LIKE '/%' AND entry_path NOT LIKE '%\%'
-    AND entry_path NOT LIKE '%?%' AND entry_path NOT LIKE '%#%'
-    AND instr(entry_path,char(0))=0 AND entry_path NOT LIKE '%//%'
-    AND entry_path NOT LIKE './%' AND entry_path NOT LIKE '%/./%'
-    AND entry_path NOT LIKE '../%' AND entry_path NOT LIKE '%/../%'
-    AND entry_path NOT LIKE '%/.' AND entry_path NOT LIKE '%/..'
-  ),
-  size_bytes INTEGER NOT NULL CHECK(size_bytes >= 0),
-  sha256 TEXT NOT NULL CHECK(length(sha256) = 64 AND sha256 = lower(sha256)),
-  manifest_sha256 TEXT NOT NULL CHECK(length(manifest_sha256)=64 AND manifest_sha256=lower(manifest_sha256)),
-  artifact_set_sha256 TEXT NOT NULL CHECK(length(artifact_set_sha256)=64 AND artifact_set_sha256=lower(artifact_set_sha256)),
-  requires_threads INTEGER NOT NULL CHECK(requires_threads IN (0,1)),
-  save_payload_kind TEXT NOT NULL CHECK(save_payload_kind IN (
-    'RUNTIME_STATE','NATIVE_SAVE_BUNDLE_V1','ONS_SAVE_BUNDLE_V1','KIRIKIRI_SAVE_BUNDLE_V1'
-  )),
-  save_max_bytes INTEGER NOT NULL CHECK(save_max_bytes BETWEEN 1 AND 268435456),
-  provenance_json TEXT NOT NULL,
-  compatibility_json TEXT NOT NULL,
-  selected_for_new_bindings INTEGER NOT NULL CHECK(selected_for_new_bindings IN (0,1)),
-  available_for_launch INTEGER NOT NULL CHECK(available_for_launch IN (0,1)),
-  version INTEGER NOT NULL DEFAULT 1 CHECK(version >= 1),
-  created_at_ms INTEGER NOT NULL CHECK(created_at_ms >= 0),
-  updated_at_ms INTEGER NOT NULL CHECK(updated_at_ms >= created_at_ms),
-  retired_at_ms INTEGER CHECK(retired_at_ms IS NULL OR retired_at_ms>=created_at_ms),
-  UNIQUE(core_id,route_key,artifact_set_sha256),
-  UNIQUE(id,core_id),
-  CHECK(
-    runtime_family='EMULATORJS' AND runtime_adapter_kind='EMULATORJS' AND route_key='DEFAULT'
-    OR runtime_family='RPGMAKER' AND runtime_adapter_kind IN ('EASYRPG_WEB','MKXP_LIBRETRO_WEB','NATIVE_WEB') AND route_key<>'DEFAULT'
-    OR runtime_family='ONS' AND runtime_adapter_kind='ONS_YURI_WEB' AND route_key='ONS_YURI'
-    OR runtime_family='KIRIKIRI' AND runtime_adapter_kind='KIRIKIRI2_WEB' AND route_key='KIRIKIRI2_KAG'
-    OR runtime_family='BUTTERSCOTCH' AND runtime_adapter_kind='BUTTERSCOTCH_WEB'
-      AND route_key='BUTTERSCOTCH_GAMEMAKER'
-    OR runtime_family='TYRANOSCRIPT' AND runtime_adapter_kind='TYRANOSCRIPT_WEB'
-      AND route_key='TYRANOSCRIPT_WEB'
-    OR runtime_family='WASM4' AND runtime_adapter_kind='WASM4_WEB'
-      AND route_key='WASM4_WEB'
-  ),
-  CHECK(selected_for_new_bindings=0 OR available_for_launch=1 AND retired_at_ms IS NULL),
-  CHECK(runtime_adapter_kind<>'EASYRPG_WEB' OR requires_threads=0 AND save_payload_kind='NATIVE_SAVE_BUNDLE_V1'),
-  CHECK(runtime_adapter_kind<>'MKXP_LIBRETRO_WEB' OR requires_threads=1 AND save_payload_kind='RUNTIME_STATE'),
-  CHECK(runtime_adapter_kind<>'NATIVE_WEB' OR requires_threads=0 AND save_payload_kind='NATIVE_SAVE_BUNDLE_V1'),
-  CHECK(runtime_adapter_kind<>'ONS_YURI_WEB' OR requires_threads=0 AND save_payload_kind='ONS_SAVE_BUNDLE_V1'),
-  CHECK(runtime_adapter_kind<>'KIRIKIRI2_WEB' OR requires_threads=1 AND save_payload_kind='KIRIKIRI_SAVE_BUNDLE_V1'),
-  CHECK(runtime_adapter_kind<>'BUTTERSCOTCH_WEB' OR requires_threads=1 AND save_payload_kind='RUNTIME_STATE'),
-  CHECK(runtime_adapter_kind<>'TYRANOSCRIPT_WEB' OR requires_threads=0 AND save_payload_kind='RUNTIME_STATE'),
-  CHECK(runtime_adapter_kind<>'WASM4_WEB' OR requires_threads=0 AND save_payload_kind='RUNTIME_STATE')
-);
-
 CREATE TABLE bios_requirements (
   id TEXT PRIMARY KEY,
   core_id TEXT NOT NULL REFERENCES cores(id),
-  core_artifact_id TEXT NOT NULL,
+  provider_id TEXT NOT NULL,
+  target_id TEXT NOT NULL,
+  target_contract_sha256 TEXT NOT NULL CHECK(length(target_contract_sha256)=64),
   source_kind TEXT NOT NULL CHECK(source_kind IN ('STATIC','DAT_MACHINE')),
   dat_machine_name TEXT,
   logical_name TEXT NOT NULL,
@@ -91,8 +24,8 @@ CREATE TABLE bios_requirements (
   created_at_ms INTEGER NOT NULL,
   updated_at_ms INTEGER NOT NULL, delivery_kind TEXT NOT NULL DEFAULT 'BIOS_BUNDLE'
 CHECK(delivery_kind IN ('BIOS_BUNDLE','EXTERNAL_FILE')), emulator_path TEXT,
-  UNIQUE(core_artifact_id, logical_name),
-  FOREIGN KEY(core_artifact_id, core_id) REFERENCES core_artifacts(id, core_id),
+  UNIQUE(provider_id,target_id,logical_name),
+  FOREIGN KEY(provider_id,target_id) REFERENCES runtime_targets(provider_id,target_id),
   CHECK((source_kind = 'STATIC' AND dat_machine_name IS NULL) OR (source_kind = 'DAT_MACHINE' AND dat_machine_name IS NOT NULL))
 );
 
@@ -122,7 +55,9 @@ CHECK(source_kind IN ('BROWSER_UPLOAD','SERVER_DIRECTORY')), server_import_candi
 CREATE TABLE dat_versions (
   id TEXT PRIMARY KEY,
   core_id TEXT NOT NULL REFERENCES cores(id),
-  core_artifact_id TEXT NOT NULL,
+  provider_id TEXT NOT NULL,
+  target_id TEXT NOT NULL,
+  target_contract_sha256 TEXT NOT NULL CHECK(length(target_contract_sha256)=64),
   builtin_relative_path TEXT NOT NULL,
   sha256 TEXT NOT NULL CHECK(length(sha256) = 64),
   parser_version TEXT NOT NULL,
@@ -141,9 +76,9 @@ CREATE TABLE dat_versions (
   updated_at_ms INTEGER NOT NULL,
   parsed_at_ms INTEGER,
   activated_at_ms INTEGER,
-  UNIQUE(id, core_artifact_id),
-  UNIQUE(core_artifact_id, sha256, parser_version),
-  FOREIGN KEY(core_artifact_id, core_id) REFERENCES core_artifacts(id, core_id),
+  UNIQUE(id,provider_id,target_id),
+  UNIQUE(provider_id,target_id,sha256,parser_version),
+  FOREIGN KEY(provider_id,target_id) REFERENCES runtime_targets(provider_id,target_id),
   CHECK((parse_status = 'READY') = (parsed_at_ms IS NOT NULL)),
   CHECK(is_active = 0 OR parse_status = 'READY')
 );
@@ -284,8 +219,9 @@ CREATE TABLE server_bios_import_items (
   requirement_version INTEGER NOT NULL CHECK(requirement_version>=1),
   core_id TEXT NOT NULL REFERENCES cores(id),
   core_name_snapshot TEXT NOT NULL,
-  core_artifact_id TEXT NOT NULL REFERENCES core_artifacts(id),
-  core_artifact_version INTEGER NOT NULL CHECK(core_artifact_version>=1),
+  provider_id TEXT NOT NULL,
+  target_id TEXT NOT NULL,
+  target_contract_sha256 TEXT NOT NULL CHECK(length(target_contract_sha256)=64),
   source_kind TEXT NOT NULL CHECK(source_kind IN ('STATIC','DAT_MACHINE')),
   logical_name TEXT NOT NULL,
   requirement_mode TEXT NOT NULL CHECK(requirement_mode IN ('REQUIRED','OPTIONAL','CONDITIONAL')),
@@ -319,7 +255,8 @@ CREATE TABLE server_bios_import_items (
   PRIMARY KEY(server_import_id,requirement_id),
   CHECK((source_kind='STATIC' AND dat_version_id IS NULL AND dat_machine_name IS NULL) OR
         (source_kind='DAT_MACHINE' AND dat_version_id IS NOT NULL AND dat_machine_name IS NOT NULL)),
-  CHECK((state IN ('PENDING','EVALUATING'))=(completed_at_ms IS NULL))
+  CHECK((state IN ('PENDING','EVALUATING'))=(completed_at_ms IS NULL)),
+  FOREIGN KEY(provider_id,target_id) REFERENCES runtime_targets(provider_id,target_id)
 );
 
 CREATE TABLE runtime_asset_pack_definitions (

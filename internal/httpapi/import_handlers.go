@@ -246,7 +246,8 @@ ORDER BY upload.relative_path,upload.id
 
 // Aggregate and item projections are read together to preserve one import snapshot response.
 func (server *Server) importDetail(writer http.ResponseWriter, request *http.Request) {
-	var id, uploadID, targetID, targetName, platformID, coreID, artifactID, provider, state, configJSON string
+	var id, uploadID, targetID, targetName, platformID, coreID, runtimeProviderID, runtimeTargetID string
+	var targetContractSHA256, metadataProvider, state, configJSON string
 	var payloadState string
 	var datID, errorCode, cancelReason, reconfiguredFrom, payloadReleaseJobID sql.NullString
 	var version, total, queued, running, pending, published, discarded int64
@@ -259,7 +260,9 @@ i.target_platform_instance_id,
 p.name,
 i.platform_id,
 i.default_core_id,
-i.core_artifact_id,
+i.provider_id,
+i.target_id,
+i.target_contract_sha256,
 i.dat_version_id,
 i.metadata_provider,
 i.config_snapshot_json,
@@ -296,9 +299,11 @@ WHERE i.id=?
 			&targetName,
 			&platformID,
 			&coreID,
-			&artifactID,
+			&runtimeProviderID,
+			&runtimeTargetID,
+			&targetContractSHA256,
 			&datID,
-			&provider,
+			&metadataProvider,
 			&configJSON,
 			&state,
 			&payloadState,
@@ -333,10 +338,6 @@ WHERE i.id=?
 	}
 	var configValue any
 	_ = json.Unmarshal([]byte(configJSON), &configValue)
-	artifactValue := any(artifactID)
-	if config, ok := configValue.(map[string]any); ok && config["bindingState"] == "PENDING" {
-		artifactValue = nil
-	}
 	fileOutcomes, err := server.importFileOutcomes(request.Context(), id)
 	if err != nil {
 		server.databaseError(writer, request, err)
@@ -358,9 +359,11 @@ WHERE i.id=?
 		"targetPlatformInstance":      map[string]any{"id": targetID, "name": targetName},
 		"platformId":                  platformID,
 		"defaultCoreId":               coreID,
-		"coreArtifactId":              artifactValue,
+		"providerId":                  runtimeProviderID,
+		"targetId":                    runtimeTargetID,
+		"targetContractSha256":        targetContractSHA256,
 		"datVersionId":                nullableString(datID),
-		"metadataProvider":            provider,
+		"metadataProvider":            metadataProvider,
 		"reconfiguredFromImportJobId": nullableString(reconfiguredFrom),
 		"configSnapshot":              configValue,
 		"fileOutcomes":                fileOutcomes,

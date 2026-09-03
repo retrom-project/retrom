@@ -4,7 +4,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { BIOSManager, type BIOSListResponse, type BIOSRequirement } from "./bios-manager";
 
 const item = (id: string, overrides: Partial<BIOSRequirement> = {}): BIOSRequirement => ({
-  id, coreId: "mgba", coreName: "mGBA", coreArtifactId: "artifact", logicalName: `${id}.bin`,
+  id, coreId: "mgba", coreName: "mGBA", providerId: "emulatorjs", targetId: "mgba",
+  targetContractSha256: "a".repeat(64), logicalName: `${id}.bin`,
   sourceKind: "STATIC", requirementMode: "REQUIRED", conditionCode: null, expectedMd5: null,
   enabled: true, version: 1, status: "MATCHED", activeInstallation: null, ...overrides,
 });

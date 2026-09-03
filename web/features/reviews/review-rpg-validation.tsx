@@ -211,11 +211,11 @@ function gateEvidenceText(evidence: unknown) {
   }
   if (Number.isInteger(value.continuousFrames)) {return `连续帧 ${value.continuousFrames}`;}
   if (typeof value.observed === "boolean") {return `observed=${String(value.observed)}`;}
-  if (typeof value.generation === "string" && typeof value.adapterId === "string" && typeof value.engineProfile === "string") {
-    return `${value.generation} · ${value.engineProfile} · ${value.adapterId}`;
+  if (typeof value.generation === "string" && typeof value.engineProfile === "string") {
+    return `${value.generation} · ${value.engineProfile}`;
   }
-  if (typeof value.payloadKind === "string" && Number.isInteger(value.sizeBytes) && typeof value.sha256 === "string") {
-    return `${value.payloadKind} · ${formatBytes(Number(value.sizeBytes))} · SHA-256 ${value.sha256.slice(0, 12)}…`;
+  if (typeof value.checkpointFormat === "string" && Number.isInteger(value.sizeBytes) && typeof value.sha256 === "string") {
+    return `${value.checkpointFormat} · ${formatBytes(Number(value.sizeBytes))} · SHA-256 ${value.sha256.slice(0, 12)}…`;
   }
   return "服务端证据已记录";
 }
@@ -268,7 +268,7 @@ function validationSummary(validation: RPGRuntimeValidation) {
 
 function RPGValidationIdentity({ validation }: { validation: RPGRuntimeValidation | null }) {
   if (!validation) {return null;}
-  return <div className="review-rpg-roundtrip"><strong>服务端验证身份</strong><span>original Launch：<code>{validation.launchId ?? "尚未创建"}</code></span><span>restore Launch：<code>{validation.restoreLaunchId ?? "尚未创建"}</code></span><span>服务端 gate 序号：{validation.lastGateSequence}</span></div>;
+  return <div className="review-rpg-roundtrip"><strong>服务端验证身份</strong><span>Provider Target：<code>{validation.routeEvidence.providerId}/{validation.routeEvidence.targetId}</code></span><span>original Launch：<code>{validation.launchId ?? "尚未创建"}</code></span><span>restore Launch：<code>{validation.restoreLaunchId ?? "尚未创建"}</code></span><span>服务端 gate 序号：{validation.lastGateSequence}</span></div>;
 }
 
 function RPGValidationFacts({ value }: { value: RPGMakerReview }) {
@@ -290,7 +290,7 @@ function RPGCheckpointRoundTrip({ validation }: { validation: RPGRuntimeValidati
   const checkpoint = validation?.checkpointRoundTrip;
   if (!checkpoint?.created) {return null;}
   const payloadSize = checkpoint.sizeBytes === null ? "大小未知" : formatBytes(checkpoint.sizeBytes);
-  return <div className="review-rpg-roundtrip"><strong>跨 Launch 恢复证据</strong><span>checkpoint：{payloadSize} · {checkpoint.sha256?.slice(0, 12) ?? "无摘要"}…</span><span>A：{positionText(checkpoint.initialPosition)}</span><span>B：{positionText(checkpoint.savedPosition)}</span><span>C：{positionText(checkpoint.divergedPosition)}</span><span>恢复：{positionText(checkpoint.restoredPosition)} · {checkpoint.positionVerified ? "逐字段匹配 B，且不同于 A/C" : "尚未完成精确匹配"}</span><span>恢复后输入：{positionText(checkpoint.restoreInputPosition)} · {checkpoint.restoreInputVerified ? "已证明可继续操作" : "尚未验证"}</span></div>;
+  return <div className="review-rpg-roundtrip"><strong>跨 Launch 恢复证据</strong><span>checkpoint：{checkpoint.checkpointFormat} · {payloadSize} · {checkpoint.sha256?.slice(0, 12) ?? "无摘要"}…</span><span>A：{positionText(checkpoint.initialPosition)}</span><span>B：{positionText(checkpoint.savedPosition)}</span><span>C：{positionText(checkpoint.divergedPosition)}</span><span>恢复：{positionText(checkpoint.restoredPosition)} · {checkpoint.positionVerified ? "逐字段匹配 B，且不同于 A/C" : "尚未完成精确匹配"}</span><span>恢复后输入：{positionText(checkpoint.restoreInputPosition)} · {checkpoint.restoreInputVerified ? "已证明可继续操作" : "尚未验证"}</span></div>;
 }
 
 function coreLabel(coreId: string) {

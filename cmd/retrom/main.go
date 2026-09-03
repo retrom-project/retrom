@@ -32,6 +32,7 @@ import (
 	"retrom/internal/platforminstance"
 	"retrom/internal/processlock"
 	retromruntime "retrom/internal/runtime"
+	"retrom/internal/runtimeprovider"
 	"retrom/internal/store"
 )
 
@@ -290,6 +291,11 @@ func run(mode config.Mode) error {
 		configuration, resources.database.SQL, resources.dependencies, resources.blobs,
 		resources.credentials, accountService, accountService, time.Now,
 	).WithReadinessDatabase(resources.database.ReadOnly).WithNetplay(netplayService)
+	apiServer.WithRuntimeProvider(
+		resources.runtimeProviders.Catalog,
+		resources.runtimeProviders.Builder,
+		resources.runtimeProviders.Handler,
+	)
 	defer apiServer.Close()
 	return serveHTTP(configuration, apiServer)
 }
@@ -317,6 +323,7 @@ type serverResources struct {
 	credentials        *retromruntime.Credentials
 	netplayRegistry    *netplay.Registry
 	netplayCredentials *netplay.Credentials
+	runtimeProviders   runtimeprovider.Installation
 }
 
 func (resources *serverResources) close() {
@@ -354,9 +361,19 @@ func bootstrapServerResources(
 	if err != nil {
 		return result, fmt.Errorf("verify dependencies: %w", err)
 	}
+	result.runtimeProviders, err = runtimeprovider.LoadInstallation(runtimeprovider.Paths{
+		ActivePath: configuration.ProviderActivePath, InstalledRoot: configuration.ProviderInstalledRoot,
+		CatalogPath: configuration.RuntimeTargetCatalogPath,
+	})
+	if err != nil {
+		return result, fmt.Errorf("verify runtime provider installation: %w", err)
+	}
 	result.database, err = store.Open(ctx, configuration.DBPath, time.Now)
 	if err != nil {
 		return result, fmt.Errorf("retrom/main: %w", err)
+	}
+	if err := result.runtimeProviders.Reconcile(ctx, result.database.SQL, time.Now()); err != nil {
+		return result, fmt.Errorf("reconcile runtime providers: %w", err)
 	}
 	if err := result.dependencies.Bootstrap(ctx, result.database.SQL, time.Now()); err != nil {
 		return result, fmt.Errorf("bootstrap dependency records: %w", err)

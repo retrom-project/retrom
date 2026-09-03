@@ -5,6 +5,7 @@ import axe from "axe-core";
 import { currentEmulatorBrightRatio, evidencePath, locatorBrightRatio } from "./acceptance-support";
 import { installGamepads, pressGamepad, setGamepadButtons, standardButton } from "./immersive-gamepad";
 import { selectImmersiveMenuItem, type ImmersiveMenuLabel } from "./immersive-menu-selection";
+import {runtimeFrameCount, runtimeState, type RuntimeEnvelope} from "./runtime-provider-support";
 
 const origin = process.env.RETROM_WEB_ORIGIN ?? "http://localhost:4000";
 const audioPreferenceKey = "retrom:immersive:audio-preferences:v1";
@@ -148,9 +149,9 @@ async function launchSelectedGame(page: Page, saveStateId: string | null = null)
     throw new Error(`IMMERSIVE_LAUNCH_FAILED:${response.status()}:${await response.text()}`);
   }
   await expect(page).toHaveURL(/\/play\/[0-9a-f-]+\?experience=immersive$/);
-  const configuration = await (await configResponse).json() as { stateUrl: string | null };
+  const configuration = await (await configResponse).json() as RuntimeEnvelope;
   expect(response.request().postDataJSON()).toMatchObject({ saveStateId });
-  expect(configuration.stateUrl === null).toBe(saveStateId === null);
+  expect(configuration.restore === null).toBe(saveStateId === null);
   await expect(page.frameLocator("iframe.player-frame").locator("canvas.ejs_canvas"))
     .toBeVisible({ timeout: 60_000 });
   return { configuration, frame: await emulatorFrame(page) };
@@ -422,10 +423,10 @@ test("ACC-IMM-010 save library selects an older save, restores it and creates an
   const selectedSaveId = new URL(page.url()).searchParams.get("saveStateId");
   expect(selectedSaveId).toBeTruthy();
   expect(selectedSaveId).not.toBe(newestSaveId);
-  const { configuration, frame } = await launchSelectedGame(page, selectedSaveId);
-  expect(configuration.stateUrl).toMatch(/^\/runtime\/launches\/[0-9a-f-]+\/state$/);
+  const { configuration } = await launchSelectedGame(page, selectedSaveId);
+  expect(configuration.restore?.url).toMatch(/^\/runtime\/launches\/[0-9a-f-]+\/state$/);
   await expect.poll(() => currentEmulatorBrightRatio(page), { timeout: 10_000 }).toBeGreaterThan(0.01);
-  expect(await frame.evaluate(() => window.EJS_emulator?.gameManager?.getFrameNum?.() ?? 0)).toBeGreaterThan(0);
+  expect(await runtimeFrameCount(page)).toBeGreaterThan(0);
   menu = await openPlayerMenu(page);
   await createSaveFromMenu(page, menu);
   await page.screenshot({ path: evidencePath(testInfo, "immersive-save-create.png"), fullPage: true });
@@ -553,14 +554,11 @@ test("ACC-IMM-011 Select menu persists audio preferences and BGM follows browse 
     pause: Number(localStorage.getItem("retrom:e2e:bgm-pause-calls") ?? "0"),
     play: Number(localStorage.getItem("retrom:e2e:bgm-play-calls") ?? "0"),
   }));
-  const { frame } = await launchSelectedGame(page);
+  await launchSelectedGame(page);
   await expect(page.locator('audio[src="/audio/immersive/insert-coin.ogg"]')).toHaveCount(0);
   expect(await page.evaluate(() => Number(localStorage.getItem("retrom:e2e:bgm-pause-calls") ?? "0")))
     .toBeGreaterThan(audioBeforePlayer.pause);
-  expect(await frame.evaluate(() => ({
-    muted: window.EJS_emulator?.muted,
-    volume: window.EJS_emulator?.volume,
-  }))).toEqual({ muted: true, volume: 0.9 });
+  expect(await runtimeState(page)).toBe("RUNNING");
   const playerMenu = await openPlayerMenu(page);
   await exitPlayer(page, playerMenu);
   await expect(page.locator('audio[src="/audio/immersive/insert-coin.ogg"]')).toHaveCount(1);

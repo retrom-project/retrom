@@ -38,10 +38,8 @@ func TestRetryAndCancelKeepImportItemAggregatesInSync(t *testing.T) {
 	if err := dependencySet.Bootstrap(ctx, database.SQL, time.Now()); err != nil {
 		t.Fatal(err)
 	}
-	var artifactID string
-	if err := database.SQL.QueryRowContext(context.Background(), `
-SELECT id FROM core_artifacts WHERE core_id='mgba' AND selected_for_new_bindings=1
-`).Scan(&artifactID); err != nil {
+	target, err := testsupport.LookupRuntimeTarget(ctx, database.SQL, "mgba")
+	if err != nil {
 		t.Fatal(err)
 	}
 	const (
@@ -63,11 +61,11 @@ VALUES(?,'COMPLETE','FILES',1,0,?,1,10000,1000,1000)
 	}
 	if _, err := database.SQL.ExecContext(context.Background(), `
 INSERT INTO import_jobs(id,upload_session_id,target_platform_instance_id,platform_instance_version,
-platform_id,default_core_id,core_artifact_id,metadata_provider,config_snapshot_json,config_snapshot_digest,
+platform_id,default_core_id,provider_id,target_id,target_contract_sha256,metadata_provider,config_snapshot_json,config_snapshot_digest,
 state,total_item_count,failed_item_count,version,created_at_ms,updated_at_ms)
-VALUES(?,?,(SELECT id FROM platform_instances WHERE catalog_template_key='gba/mgba'),1,'gba','mgba',?,'NONE','{}',?,
+VALUES(?,?,(SELECT id FROM platform_instances WHERE catalog_template_key='gba/mgba'),1,'gba','mgba',?,?,?,'NONE','{}',?,
 'PARTIAL_FAILURE',1,1,1,1000,1000)
-`, retryImportID, retryUploadID, artifactID, digest); err != nil {
+`, retryImportID, retryUploadID, target.ProviderID, target.TargetID, target.TargetContractSHA256, digest); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := database.SQL.ExecContext(context.Background(), `
@@ -102,11 +100,11 @@ WHERE job.id=? AND item.id=?
 
 	if _, err := database.SQL.ExecContext(context.Background(), `
 INSERT INTO import_jobs(id,upload_session_id,target_platform_instance_id,platform_instance_version,
-platform_id,default_core_id,core_artifact_id,metadata_provider,config_snapshot_json,config_snapshot_digest,
+platform_id,default_core_id,provider_id,target_id,target_contract_sha256,metadata_provider,config_snapshot_json,config_snapshot_digest,
 state,total_item_count,queued_item_count,review_pending_item_count,failed_item_count,version,created_at_ms,updated_at_ms)
-VALUES(?,?,(SELECT id FROM platform_instances WHERE catalog_template_key='gba/mgba'),1,'gba','mgba',?,'NONE','{}',?,
+VALUES(?,?,(SELECT id FROM platform_instances WHERE catalog_template_key='gba/mgba'),1,'gba','mgba',?,?,?,'NONE','{}',?,
 'PARTIAL_FAILURE',4,1,1,2,1,1000,1000)
-`, cancelImportID, cancelUploadID, artifactID, digest); err != nil {
+`, cancelImportID, cancelUploadID, target.ProviderID, target.TargetID, target.TargetContractSHA256, digest); err != nil {
 		t.Fatal(err)
 	}
 	cancelItems := []struct {

@@ -57,7 +57,7 @@ SELECT id FROM import_items WHERE import_job_id=?
 	server.review(recorder, request)
 	testassert.Falsef(t, testassert.Any(
 		func() bool { return recorder.Code != http.StatusOK },
-		func() bool { return !strings.Contains(recorder.Body.String(), `"selectedCoreId":"rpgmaker_2000"`) },
+		func() bool { return !strings.Contains(recorder.Body.String(), `"selectedCoreId":"rpgmaker"`) },
 	), "RPG Maker virtual review detail = %d %s", recorder.Code, recorder.Body.String())
 }
 

@@ -8,7 +8,11 @@ import (
 func TestContentIdentityUsesBytesAndDOSProjection(t *testing.T) {
 	t.Parallel()
 	digest := strings.Repeat("a", 64)
-	content := ContentView{Digest: digest, Format: "RETROM_SINGLE_FILE_V1", CoreID: "mgba"}
+	contract := strings.Repeat("c", 64)
+	content := ContentView{
+		Digest: digest, Format: "RETROM_SINGLE_FILE_V1", CoreID: "mgba",
+		ProviderID: "emulatorjs", TargetID: "mgba", TargetContractSHA256: contract,
+	}
 	identity, err := ContentIdentity(content)
 	if err != nil || identity == digest {
 		t.Fatalf("single identity = %q, error=%v", identity, err)
@@ -20,6 +24,7 @@ func TestContentIdentityUsesBytesAndDOSProjection(t *testing.T) {
 	replacedDigest := strings.Repeat("b", 64)
 	replacedIdentity, err := ContentIdentity(ContentView{
 		Digest: replacedDigest, Format: "RETROM_SINGLE_FILE_V1", CoreID: "mgba",
+		ProviderID: "emulatorjs", TargetID: "mgba", TargetContractSHA256: contract,
 	})
 	if err != nil || replacedIdentity == identity {
 		t.Fatalf("replaced identity = %q, error=%v; original=%q", replacedIdentity, err, identity)
@@ -28,12 +33,14 @@ func TestContentIdentityUsesBytesAndDOSProjection(t *testing.T) {
 	entryB := "GAMEB.EXE"
 	dosA, err := ContentIdentity(ContentView{
 		Digest: digest, Format: "RETROM_DOS_DIRECT_ZIP_V1", CoreID: "dosbox_pure", DOSEntry: &entryA,
+		ProviderID: "emulatorjs", TargetID: "dosbox-pure", TargetContractSHA256: contract,
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
 	dosB, err := ContentIdentity(ContentView{
 		Digest: digest, Format: "RETROM_DOS_DIRECT_ZIP_V1", CoreID: "dosbox_pure", DOSEntry: &entryB,
+		ProviderID: "emulatorjs", TargetID: "dosbox-pure", TargetContractSHA256: contract,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -75,6 +82,7 @@ func TestRuntimeContentURLRejectsUnsafeOrNonCanonicalInputs(t *testing.T) {
 	digest := strings.Repeat("a", 64)
 	identity, err := ContentIdentity(ContentView{
 		Digest: digest, Format: "RETROM_SINGLE_FILE_V1", CoreID: "mgba",
+		ProviderID: "emulatorjs", TargetID: "mgba", TargetContractSHA256: strings.Repeat("c", 64),
 	})
 	if err != nil {
 		t.Fatal(err)

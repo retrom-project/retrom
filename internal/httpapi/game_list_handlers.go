@@ -180,13 +180,14 @@ func (server *Server) gameRecentSaveStates(
 SELECT s.id,
 s.name,
 s.created_at_ms,
-a.core_id,
+v.core_id,
 c.name,
 s.disc_index,
 s.screenshot_blob_id IS NOT NULL
 FROM save_states s
-JOIN core_artifacts a ON a.id=s.core_artifact_id
-JOIN cores c ON c.id=a.core_id
+JOIN game_variant_revisions r ON r.id=s.game_variant_revision_id
+JOIN game_variants v ON v.id=r.game_variant_id
+JOIN cores c ON c.id=v.core_id
 JOIN save_state_runtime_compatibility compatibility
   ON compatibility.save_state_id=s.id AND compatibility.status='AVAILABLE'
 WHERE s.game_id=?
@@ -245,11 +246,20 @@ func (server *Server) gameCoreOptions(ctx context.Context, gameID string) ([]map
 	rows, err := server.database.QueryContext(ctx, `
 SELECT c.id,
 c.name,
-COALESCE(bound_artifact.requires_threads,selected_artifact.requires_threads,0),
+COALESCE(json_extract(bound_target.capabilities_json,'$.requiresThreads'),
+ (SELECT max(json_extract(candidate_target.capabilities_json,'$.requiresThreads'))
+  FROM runtime_target_bindings candidate
+  JOIN runtime_binding_platforms candidate_platform ON candidate_platform.binding_id=candidate.binding_id
+   AND candidate_platform.platform_id=pi.platform_id AND candidate_platform.core_id=c.id
+  JOIN runtime_targets candidate_target ON candidate_target.provider_id=candidate.provider_id
+   AND candidate_target.target_id=candidate.target_id
+  WHERE candidate.core_id=c.id AND candidate.launch_policy<>'DISABLED'),0),
 pi.default_core_id,
 v.current_revision_id,
 r.id,
-r.core_artifact_id,
+r.provider_id,
+r.target_id,
+r.target_contract_sha256,
 r.dat_version_id,
 r.status,
 r.compatibility_code
@@ -264,9 +274,8 @@ AND (v.core_id=c.id OR pi.platform_id='rpgmaker')
 LEFT
 JOIN game_variant_revisions r ON r.id=v.current_revision_id
 AND r.game_content_revision_id=g.current_content_revision_id
-LEFT JOIN core_artifacts bound_artifact ON bound_artifact.id=r.core_artifact_id
-LEFT JOIN core_artifacts selected_artifact ON selected_artifact.core_id=c.id
-AND selected_artifact.selected_for_new_bindings=1
+LEFT JOIN runtime_targets bound_target ON bound_target.provider_id=r.provider_id AND bound_target.target_id=r.target_id
+ AND bound_target.target_contract_sha256=r.target_contract_sha256
 WHERE g.id=?
 ORDER BY c.name,
 c.id
@@ -281,7 +290,8 @@ c.id
 	for rows.Next() {
 		var coreID, coreName, defaultCoreID string
 		var requiresThreads int
-		var currentRevision, revisionID, artifactID, datVersionID, status, compatibility sql.NullString
+		var currentRevision, revisionID, providerID, targetID, targetContract sql.NullString
+		var datVersionID, status, compatibility sql.NullString
 		if err := rows.Scan(
 			&coreID,
 			&coreName,
@@ -289,7 +299,9 @@ c.id
 			&defaultCoreID,
 			&currentRevision,
 			&revisionID,
-			&artifactID,
+			&providerID,
+			&targetID,
+			&targetContract,
 			&datVersionID,
 			&status,
 			&compatibility,
@@ -314,9 +326,9 @@ c.id
 		coreOptions = append(coreOptions, map[string]any{
 			"coreId": coreID, "name": coreName, "isDefault": coreID == defaultCoreID, "status": projectedStatus,
 			"revalidationStatus": "NOT_REQUIRED", "currentVariantRevisionId": nullableString(currentRevision),
-			"coreArtifactId": nullableString(
-				artifactID,
-			), "datVersionId": nullableString(datVersionID), "revalidationJobId": nil,
+			"providerId": nullableString(providerID), "targetId": nullableString(targetID),
+			"targetContractSha256": nullableString(targetContract),
+			"datVersionId":         nullableString(datVersionID), "revalidationJobId": nil,
 			"requiresThreads": requiresThreads == 1, "reasons": reasons,
 		})
 	}

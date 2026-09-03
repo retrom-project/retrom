@@ -4,7 +4,7 @@ paths:
       operationId: getAdminDiagnostics
       responses:
         '200':
-          $ref: ../components/common.yaml#/components/responses/JSONResponse
+          $ref: '#/components/responses/DiagnosticsResponse'
   /api/v1/admin/storage-analysis:
     get:
       operationId: getAdminStorageAnalysis
@@ -24,6 +24,144 @@ paths:
           $ref: '#/components/responses/StorageCleanupResponse'
 components:
   schemas:
+    DiagnosticsSnapshot:
+      type: object
+      additionalProperties: false
+      required:
+        - schemaVersion
+        - generatedAtMs
+        - databaseSchemaVersion
+        - runtimeProviders
+        - counts
+      properties:
+        schemaVersion:
+          type: integer
+          enum:
+            - 2
+        generatedAtMs:
+          type: integer
+          format: int64
+          minimum: 0
+        databaseSchemaVersion:
+          type: integer
+          enum:
+            - 10
+        runtimeProviders:
+          type: array
+          minItems: 2
+          maxItems: 2
+          items:
+            $ref: '#/components/schemas/DiagnosticsRuntimeProvider'
+        counts:
+          $ref: '#/components/schemas/DiagnosticsCounts'
+    DiagnosticsRuntimeProvider:
+      type: object
+      additionalProperties: false
+      required:
+        - providerId
+        - providerVersion
+        - bundleSha256
+        - source
+      properties:
+        providerId:
+          type: string
+          pattern: ^[a-z0-9]+(?:-[a-z0-9]+)*$
+        providerVersion:
+          type: string
+          minLength: 5
+          maxLength: 128
+        bundleSha256:
+          type: string
+          pattern: ^[0-9a-f]{64}$
+        source:
+          type: string
+          enum:
+            - candidate
+            - production
+    DiagnosticsCounts:
+      type: object
+      additionalProperties: false
+      required:
+        - games
+        - saveStates
+        - blobs
+        - jobs
+        - datVersions
+      properties:
+        games:
+          $ref: '#/components/schemas/DiagnosticsGameCounts'
+        saveStates:
+          $ref: '#/components/schemas/DiagnosticsLifecycleCounts'
+        blobs:
+          type: integer
+          format: int64
+          minimum: 0
+        jobs:
+          $ref: '#/components/schemas/DiagnosticsJobCounts'
+        datVersions:
+          $ref: '#/components/schemas/DiagnosticsDATCounts'
+    DiagnosticsLifecycleCounts:
+      type: object
+      additionalProperties: false
+      required:
+        - active
+        - deleted
+      properties:
+        active:
+          type: integer
+          format: int64
+          minimum: 0
+        deleted:
+          type: integer
+          format: int64
+          minimum: 0
+    DiagnosticsGameCounts:
+      type: object
+      additionalProperties: false
+      required:
+        - published
+        - deleted
+      properties:
+        published:
+          type: integer
+          format: int64
+          minimum: 0
+        deleted:
+          type: integer
+          format: int64
+          minimum: 0
+    DiagnosticsJobCounts:
+      type: object
+      additionalProperties: false
+      required:
+        - queued
+        - running
+        - cancelRequested
+        - succeeded
+        - failed
+        - cancelled
+      properties:
+        queued: {type: integer, format: int64, minimum: 0}
+        running: {type: integer, format: int64, minimum: 0}
+        cancelRequested: {type: integer, format: int64, minimum: 0}
+        succeeded: {type: integer, format: int64, minimum: 0}
+        failed: {type: integer, format: int64, minimum: 0}
+        cancelled: {type: integer, format: int64, minimum: 0}
+    DiagnosticsDATCounts:
+      type: object
+      additionalProperties: false
+      required:
+        - pending
+        - parsing
+        - ready
+        - failed
+        - cancelled
+      properties:
+        pending: {type: integer, format: int64, minimum: 0}
+        parsing: {type: integer, format: int64, minimum: 0}
+        ready: {type: integer, format: int64, minimum: 0}
+        failed: {type: integer, format: int64, minimum: 0}
+        cancelled: {type: integer, format: int64, minimum: 0}
     StorageAnalysis:
       type: object
       additionalProperties: false
@@ -184,6 +322,12 @@ components:
           format: int64
           minimum: 0
   responses:
+    DiagnosticsResponse:
+      description: Runtime Provider and database diagnostic snapshot
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/DiagnosticsSnapshot'
     StorageAnalysisResponse:
       description: Registered CAS payload capacity snapshot
       content:
