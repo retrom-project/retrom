@@ -474,6 +474,16 @@ class EvidenceContractTests(unittest.TestCase):
         self.assertLess(first_stop, source.index("assertNoPlayerErrors(", first_stop, first_close))
         self.assertLess(cache_stop, source.index("assertNoPlayerErrors(", cache_stop, cache_close))
 
+    def test_generation_browser_preserves_runtime_exception_properties_and_network_context(self) -> None:
+        source = BROWSER_PATH.read_text()
+        self.assertIn('cdp.send("Runtime.getProperties"', source)
+        self.assertIn("const runtimeExceptionTasks = [];", source)
+        self.assertIn("await Promise.allSettled(runtimeExceptionTasks);", source)
+        self.assertIn("properties: properties.slice(0, 16).map", source)
+        self.assertIn("networkResponses.slice(-100).map", source)
+        self.assertIn("status: response.status()", source)
+        self.assertNotIn('["error", "warning"].includes(message.type())', source)
+
     def test_generation_browser_proves_product_runtime_progress_on_both_launches(self) -> None:
         source = BROWSER_PATH.read_text()
         self.assertIn("const firstRuntimeProgress = await assertRuntimeProgress(page);", source)
