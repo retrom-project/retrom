@@ -65,11 +65,12 @@ func validLaunchEnvelope(value map[string]any) bool {
 }
 
 func validLaunchSession(value map[string]any) bool {
-	if !exactMap(value, "id", "mode", "platformName", "purpose", "returnTo", "title", "warnings") ||
+	if !exactMap(value, "coreName", "id", "mode", "platformName", "purpose", "returnTo", "title", "warnings") ||
 		!uuidPattern.MatchString(stringValue(value["id"])) ||
 		!oneOf(stringValue(value["purpose"]), "PRODUCT", "REVIEW_PREVIEW", "RUNTIME_VALIDATION") ||
 		!oneOf(stringValue(value["mode"]), "SINGLE", "NETPLAY") ||
 		!boundedString(value["title"], 500) || !boundedString(value["platformName"], 200) ||
+		!boundedString(value["coreName"], 200) ||
 		!relativeURLValue(value["returnTo"]) {
 		return false
 	}

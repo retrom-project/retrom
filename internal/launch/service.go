@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"net/url"
 	"time"
 
 	"github.com/google/uuid"
@@ -81,6 +82,7 @@ type Service struct {
 	now                      func() time.Time
 	runtimeCatalog           runtimecatalog.Catalog
 	runtimeBuilder           *runtimelaunch.Builder
+	publicOrigin             string
 }
 
 func (service *Service) WithRuntimeProvider(
@@ -109,6 +111,28 @@ func (service *Service) WithBlobStore(blobs *blobstore.Store) *Service {
 func (service *Service) WithRPGRuntimeOriginTemplate(template string) *Service {
 	service.rpgRuntimeOriginTemplate = template
 	return service
+}
+
+func (service *Service) WithPublicOrigin(origin string) *Service {
+	service.publicOrigin = origin
+	return service
+}
+
+func (service *Service) netplaySocketURL(roomID string) (string, error) {
+	origin, err := url.Parse(service.publicOrigin)
+	if err != nil || origin.Host == "" || origin.RawQuery != "" || origin.Fragment != "" || origin.Path != "" {
+		return "", ErrCredential
+	}
+	switch origin.Scheme {
+	case "http":
+		origin.Scheme = "ws"
+	case "https":
+		origin.Scheme = "wss"
+	default:
+		return "", ErrCredential
+	}
+	origin.Path = "/runtime/netplay/rooms/" + roomID + "/socket"
+	return origin.String(), nil
 }
 
 func (service *Service) SaveAccess(ctx context.Context, launchID, capability string) (string, error) {

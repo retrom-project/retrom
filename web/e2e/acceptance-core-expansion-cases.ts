@@ -2,7 +2,7 @@ import {createHash} from "node:crypto";
 import { expect, test, type Page, type TestInfo } from "@playwright/test";
 import { currentEmulatorBrightRatio, evidencePath } from "./acceptance-support";
 import {
-  runtimeCheckpoint, runtimeFrameCount, runtimeResource, runtimeResourceURLs,
+  exitRuntimePlayer, runtimeCheckpoint, runtimeFrameCount, runtimeResource, runtimeResourceURLs,
   type RuntimeEnvelope,
 } from "./runtime-provider-support";
 
@@ -149,7 +149,7 @@ async function verifyCore(page: Page, testInfo: TestInfo, expectation: Expansion
 
   await page.mouse.move(640, 1);
   const saveResponse = page.waitForResponse((response) =>
-    /\/runtime\/launches\/[^/]+\/save-states$/.test(response.url()) && response.request().method() === "POST");
+    /\/runtime\/launches\/[^/]+\/save-states$/.test(response.url()) && response.request().method() === "POST", {timeout: 30_000});
   await page.locator(".player-save-button").click();
   const savedResponse = await saveResponse;
   expect(savedResponse.status()).toBe(201);
@@ -157,6 +157,7 @@ async function verifyCore(page: Page, testInfo: TestInfo, expectation: Expansion
   const resumeLaunch = await createLaunch(page, csrfToken, result.gameId, expectation.coreId, saveStateId);
   const resumeConfigResponse = page.waitForResponse((response) =>
     /\/runtime\/launches\/[^/]+\/config$/.test(response.url()) && response.status() === 200);
+  await exitRuntimePlayer(page);
   await page.goto(resumeLaunch.playUrl);
   const resumeConfiguration = await (await resumeConfigResponse).json() as RuntimeEnvelope;
   expect(resumeConfiguration.restore?.url).toMatch(/\/state$/);
@@ -174,6 +175,7 @@ async function verifyCore(page: Page, testInfo: TestInfo, expectation: Expansion
   const repeatedLaunch = await createLaunch(page, csrfToken, result.gameId, expectation.coreId, saveStateId);
   const repeatedConfigResponse = page.waitForResponse((response) =>
     /\/runtime\/launches\/[^/]+\/config$/.test(response.url()) && response.status() === 200);
+  await exitRuntimePlayer(page);
   await page.goto(repeatedLaunch.playUrl);
   const repeatedConfiguration = await (await repeatedConfigResponse).json() as RuntimeEnvelope;
   expect(repeatedConfiguration.restore).toMatchObject({

@@ -6,7 +6,9 @@ import {
   checkpointMismatches, checkpointPair, diagnosticEvents, matchingCheckpoint, verifySNESNoOpHashRecovery,
   type DiagnosticEvent,
 } from "./netplay-checkpoints";
-import {runtimeResource, type RuntimeEnvelope} from "./runtime-provider-support";
+import {
+  assertLaunchConfigAvailable, runtimeResource, setEmulatorDirectionalInput, type RuntimeEnvelope,
+} from "./runtime-provider-support";
 const origin = process.env.RETROM_WEB_ORIGIN ?? "http://localhost:4000";
 const alicePassword = "A1!retrom-netplay-acceptance";
 
@@ -155,6 +157,7 @@ async function installDiagnostics(page: Page) {
         onLockstep: (value: Record<string, unknown>) => record("lockstep", value),
         onFrameStep: (value: Record<string, unknown>) => record("frame-step", value),
         onRetained: (value: Record<string, unknown>) => record("retained", value),
+        onFailure: (message: string) => record("failure", { message }),
         onEnded: (reason: string) => record("ended", { reason }),
       };
     };
@@ -219,24 +222,12 @@ async function waitForCPSVisualStability(
   ]);
 }
 
-async function setDirectionalInput(page: Page, pressed: boolean) {
-  if (pressed) {
-    const canvas = page.frameLocator("iframe.player-frame").locator("canvas.ejs_canvas");
-    await canvas.click({ position: { x: 64, y: 64 } });
-    // Each netplay browser contributes its local P1 controls; the bridge maps
-    // that input to the participant seat before sending it to the server.
-    await page.keyboard.down("a");
-  } else {
-    await page.keyboard.up("a");
-  }
-}
-
 async function tapDirectionalInput(page: Page, frames = 12) {
   const before = Math.max(-1, ...(await diagnosticEvents(page))
     .filter((event) => event.kind === "canonical").map((event) => event.frame ?? -1));
-  await setDirectionalInput(page, true);
+  await setEmulatorDirectionalInput(page, true);
   await waitForFrame(page, before + frames);
-  await setDirectionalInput(page, false);
+  await setEmulatorDirectionalInput(page, false);
 }
 
 async function createSession(
@@ -271,6 +262,12 @@ async function createSession(
   expect(guestLaunchResponse.ok()).toBe(true);
   const hostLaunch = await hostLaunchResponse.json() as { launchId: string; playUrl: string };
   const guestLaunch = await guestLaunchResponse.json() as { launchId: string; playUrl: string };
+  for (const [label, context, response, launch] of [
+    ["P1", host, hostLaunchResponse, hostLaunch],
+    ["P2", guest, guestLaunchResponse, guestLaunch],
+  ] as const) {
+    await assertLaunchConfigAvailable(label, context, response, launch, origin);
+  }
   const hostPage = await host.newPage();
   const guestPage = await guest.newPage();
   await Promise.all([installDiagnostics(hostPage), installDiagnostics(guestPage)]);
@@ -422,7 +419,7 @@ async function verifyLockstepBufferAdaptation(session: Awaited<ReturnType<typeof
       .__RETROM_NETPLAY_ACCEPTANCE__!;
     state.delayMS = 100;
   });
-  await setDirectionalInput(session.guestPage, true);
+  await setEmulatorDirectionalInput(session.guestPage, true);
   let elevatedBuffer = baselineBuffer;
   await expect.poll(async () => {
     const samples = (await diagnosticEvents(session.guestPage)).filter((event) =>
@@ -437,7 +434,7 @@ async function verifyLockstepBufferAdaptation(session: Awaited<ReturnType<typeof
       .__RETROM_NETPLAY_ACCEPTANCE__!;
     state.delayMS = 0;
   });
-  await setDirectionalInput(session.guestPage, false);
+  await setEmulatorDirectionalInput(session.guestPage, false);
   let recoverySamples = 0;
   await expect.poll(async () => {
     // The boundary sample was already observed when delay was reset and is
@@ -658,7 +655,7 @@ test.describe.serial("real dual-browser netplay", () => {
         const state = (window as typeof window & { __RETROM_NETPLAY_ACCEPTANCE__?: { delayMS: number } }).__RETROM_NETPLAY_ACCEPTANCE__!;
         state.delayMS = 80;
       });
-      await setDirectionalInput(session.guestPage, true);
+      await setEmulatorDirectionalInput(session.guestPage, true);
       await expect.poll(async () => (await diagnosticEvents(session.hostPage))
         .filter((event) => event.kind === "rollback" && (event.depth ?? 0) >= 1 && (event.depth ?? 0) <= 8).length,
       { timeout: 30_000 }).toBeGreaterThan(0);
@@ -666,7 +663,7 @@ test.describe.serial("real dual-browser netplay", () => {
         const state = (window as typeof window & { __RETROM_NETPLAY_ACCEPTANCE__?: { delayMS: number } }).__RETROM_NETPLAY_ACCEPTANCE__!;
         state.delayMS = 0;
       });
-      await setDirectionalInput(session.guestPage, false);
+      await setEmulatorDirectionalInput(session.guestPage, false);
       const checkpoint = await matchingCheckpoint(session.hostPage, session.guestPage, 359);
       expect(checkpoint.coreDigest).toMatch(/^[0-9a-f]{64}$/);
       const [hostEvents, guestEvents] = await Promise.all([
@@ -713,14 +710,14 @@ test.describe.serial("real dual-browser netplay", () => {
         const state = (window as typeof window & { __RETROM_NETPLAY_ACCEPTANCE__?: { delayMS: number } }).__RETROM_NETPLAY_ACCEPTANCE__!;
         state.delayMS = 100;
       });
-      await setDirectionalInput(session.guestPage, true);
+      await setEmulatorDirectionalInput(session.guestPage, true);
       await expect.poll(async () => Math.max(1, ...(await diagnosticEvents(session.guestPage))
         .filter((event) => event.kind === "lockstep").map((event) => event.inputBufferFrames ?? 1)), { timeout: 30_000 }).toBeGreaterThan(1);
       await session.guestPage.evaluate(() => {
         const state = (window as typeof window & { __RETROM_NETPLAY_ACCEPTANCE__?: { delayMS: number } }).__RETROM_NETPLAY_ACCEPTANCE__!;
         state.delayMS = 0;
       });
-      await setDirectionalInput(session.guestPage, false);
+      await setEmulatorDirectionalInput(session.guestPage, false);
       await matchingCheckpoint(session.hostPage, session.guestPage, 719);
       const events = await diagnosticEvents(session.guestPage);
       expect(events.filter((event) => event.kind === "canonical").every((event) => (event.predictionFrames ?? 0) === 0)).toBe(true);

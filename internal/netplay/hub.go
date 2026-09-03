@@ -469,6 +469,9 @@ func (session *realtimeSession) sendPeerHistoryLocked(
 
 func (session *realtimeSession) prepareResync(ctx context.Context) {
 	if err := session.service.PrepareReconnectResync(ctx, session.roomID, session.sessionID); err != nil {
+		slog.ErrorContext(ctx, "netplay reconnect resync preparation failed",
+			"roomId", session.roomID, "sessionId", session.sessionID, "error", err,
+		)
 		session.fail(ctx, "INTERNAL_ERROR", "")
 		return
 	}

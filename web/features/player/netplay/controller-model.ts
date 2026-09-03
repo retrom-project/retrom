@@ -99,7 +99,6 @@ type StateLoadEvidence = {
   recapturedCoreBytes: number;
   firstCoreMismatch: number;
 };
-type CheckpointBlockDigest = { tag: string; start: number; end: number; digest: string };
 type FrameStepEvidence = {
   frame: number;
   phase: "STARTED" | "COMPLETED";
@@ -119,7 +118,8 @@ export type NetplayDiagnostics = {
   onLockstep?: (evidence: { frame: number; inputBufferFrames: number; roundTripMS: number | null }) => void;
   onFrameStep?: (evidence: FrameStepEvidence) => void;
   onRetained?: (evidence: { states: number; predicted: number; canonical: number; stateBytes: number }) => void;
-  onCheckpoint?: (evidence: { epoch: number; frame: number; coreDigest: string; stateBlocks?: CheckpointBlockDigest[] }) => void;
+  onCheckpoint?: (evidence: { epoch: number; frame: number; coreDigest: string }) => void;
+  onFailure?: (message: string) => void;
   onEnded?: (reason: string) => void;
 };
 

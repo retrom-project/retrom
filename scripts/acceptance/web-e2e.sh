@@ -177,9 +177,13 @@ if [[ -n "$e2e_grep" ]]; then
   playwright_command+=(-- --grep "$e2e_grep")
 fi
 
+emulatorjs_bundle_sha256="$(jq -er '.providers[] | select(.providerId == "emulatorjs") | .bundleSha256' \
+  "$dev_state/runtime-providers/active.json")"
+
 (cd web && \
   RETROM_WEB_ORIGIN="$web_origin" \
   RETROM_E2E_DATABASE="$temporary_root/data/retrom.db" \
+  RETROM_E2E_EMULATORJS_BUNDLE_SHA256="$emulatorjs_bundle_sha256" \
   RETROM_NETPLAY_NES_GAME_ID="$(jq -r .gameId "$temporary_root/netplay-fceumm.json")" \
   RETROM_NETPLAY_NES_FIXTURE_SHA256="$(jq -r .fixtureSha256 "$temporary_root/netplay-fceumm.json")" \
   RETROM_NETPLAY_FBNEO_GAME_ID="$(jq -r .gameId "$temporary_root/netplay-fbneo.json")" \

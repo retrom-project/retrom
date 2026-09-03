@@ -1,15 +1,14 @@
 import { expect, type Page } from "@playwright/test";
 
-type CheckpointBlock = { tag: string; start: number; end: number; digest: string };
-
 export type DiagnosticEvent = {
   eventSeq?: number; kind: string; frame?: number; epoch?: number; nextFrame?: number; atFrame?: number;
   depth?: number; predictionFrames?: number; coreDigest?: string; stateDigest?: string;
   inputBufferFrames?: number; phase?: string; reason?: string; reconnect?: boolean; resync?: boolean;
+  message?: string;
   states?: number; predicted?: number; canonical?: number; stateBytes?: number;
   nativeCompletion?: boolean; byteExact?: boolean; coreExact?: boolean; changed?: boolean;
   byteLength?: number; attempt?: number; expectedCoreBytes?: number; recapturedCoreBytes?: number;
-  firstCoreMismatch?: number; coreMismatchCount?: number; stateBlocks?: CheckpointBlock[];
+  firstCoreMismatch?: number; coreMismatchCount?: number;
 };
 
 type NetplayPages = { hostPage: Page; guestPage: Page };
@@ -48,14 +47,6 @@ export function checkpointMismatches(hostEvents: DiagnosticEvent[], guestEvents:
   });
 }
 
-function expectSNESBoundarySignature(mismatch: { host: DiagnosticEvent; guest: DiagnosticEvent }) {
-  const hostBlocks = new Map((mismatch.host.stateBlocks ?? []).map((block) => [block.tag, block.digest]));
-  const guestBlocks = new Map((mismatch.guest.stateBlocks ?? []).map((block) => [block.tag, block.digest]));
-  expect(hostBlocks.size).toBe(12);
-  expect([...hostBlocks.keys()]).toEqual([...guestBlocks.keys()]);
-  expect([...hostBlocks].filter(([tag, digest]) => guestBlocks.get(tag) !== digest)).not.toHaveLength(0);
-}
-
 export async function verifySNESNoOpHashRecovery(
   session: NetplayPages,
   mismatch: { host: DiagnosticEvent; guest: DiagnosticEvent },
@@ -65,7 +56,6 @@ export async function verifySNESNoOpHashRecovery(
   expect(mismatch.host.coreDigest).not.toBe(mismatch.guest.coreDigest);
   expect(mismatch.host.epoch).toBe(mismatch.guest.epoch);
   expect(mismatch.host.frame).toBe(mismatch.guest.frame);
-  expectSNESBoundarySignature(mismatch);
   const sourceEpoch = mismatch.host.epoch!;
   const mismatchFrame = mismatch.host.frame!;
   expect(sourceEpoch).toBeGreaterThanOrEqual(0);

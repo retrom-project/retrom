@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { readBoundedResponse, reportsNativeExit } from "./player-shell";
+import { canResumeFromGameSurface, readBoundedResponse, reportsNativeExit } from "./player-shell";
 
 describe("readBoundedResponse", () => {
   it("assembles a bounded streamed state", async () => {
@@ -32,5 +32,14 @@ describe("reportsNativeExit", () => {
     expect(reportsNativeExit("single")).toBe(true);
     expect(reportsNativeExit("netplay")).toBe(false);
     expect(reportsNativeExit("single", true)).toBe(false);
+  });
+});
+
+describe("canResumeFromGameSurface", () => {
+  it("does not resume while host chrome owns the interaction", () => {
+    expect(canResumeFromGameSurface({mode: "single", running: true, paused: true, chromePinned: true}))
+      .toBe(false);
+    expect(canResumeFromGameSurface({mode: "single", running: true, paused: true, chromePinned: false}))
+      .toBe(true);
   });
 });

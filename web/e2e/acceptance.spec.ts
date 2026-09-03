@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { evidencePath, expectNoTextArrowsInInteractiveControls, noPageOverflow, pageCanvasGaps, pngDimensions, type HorizontalGaps } from "./acceptance-support";
+import { evidencePath, expectNoTextArrowsInInteractiveControls, noPageOverflow, pageCanvasGaps, pngDimensions, retryOnceOnConnectionReset, type HorizontalGaps } from "./acceptance-support";
 import { registerRuntimeAcceptanceTests } from "./acceptance-runtime-cases";
 import { registerCoreExpansionAcceptanceTests } from "./acceptance-core-expansion-cases";
 import { verifyUserDesktopLayouts } from "./acceptance-user-layout";
@@ -8,7 +8,7 @@ test.beforeEach(async ({ page }, testInfo) => {
   const multiViewport = /^ACC-UI-00[56]\\b/.test(testInfo.title);
   test.skip(!multiViewport && testInfo.project.name !== "chrome-1280", "此状态型 Case 只消费一次共享验收夹具");
   const origin = process.env.RETROM_WEB_ORIGIN ?? "http://localhost:4000";
-  const response = await page.request.post("/api/v1/auth/login", { data: { username: "test", password: "test" }, headers: { Origin: origin } });
+  const response = await retryOnceOnConnectionReset(() => page.request.post("/api/v1/auth/login", { data: { username: "test", password: "test" }, headers: { Origin: origin } }));
   expect(response.ok()).toBe(true);
 });
 

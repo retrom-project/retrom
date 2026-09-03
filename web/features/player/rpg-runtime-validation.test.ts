@@ -182,7 +182,7 @@ function validationEnvelope(restoring: boolean): LaunchEnvelopeV1 {
   };
   return {
     schemaVersion: 1,
-    session: {id: launchId, purpose: "RUNTIME_VALIDATION", mode: "SINGLE", title: "Fixture",
+    session: {coreName: "Fixture Core", id: launchId, purpose: "RUNTIME_VALIDATION", mode: "SINGLE", title: "Fixture",
       platformName: "RPG Maker", returnTo: "/admin/reviews/item", warnings: []},
     runtime: {providerId: "retrom-runtime", providerVersion: "0.12.0", providerApiVersion: 1,
       bundleSha256: "a".repeat(64), targetId: "rpgmaker-2000", gameCompatibilityLine: "rpgmaker-2000-v1",

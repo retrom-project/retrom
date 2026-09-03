@@ -155,7 +155,7 @@ def validate_launch_envelope(value: object) -> None:
 
 def _validate_launch_session(value: object) -> Mapping[str, object]:
     session = _launch_record(value, "session")
-    _launch_keys(session, {"id", "mode", "platformName", "purpose", "returnTo", "title", "warnings"}, "session")
+    _launch_keys(session, {"coreName", "id", "mode", "platformName", "purpose", "returnTo", "title", "warnings"}, "session")
     if not isinstance(session["id"], str) or not re.fullmatch(
         r"[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}", session["id"]
     ) or session["purpose"] not in {"PRODUCT", "REVIEW_PREVIEW", "RUNTIME_VALIDATION"} or \
@@ -163,6 +163,7 @@ def _validate_launch_session(value: object) -> Mapping[str, object]:
         _fail("session identity, purpose, or mode is invalid")
     _launch_text(session["title"], 1, 500, "session.title")
     _launch_text(session["platformName"], 1, 200, "session.platformName")
+    _launch_text(session["coreName"], 1, 200, "session.coreName")
     _launch_relative_url(session["returnTo"], "session.returnTo")
     warnings = _launch_array(session["warnings"], "session.warnings")
     if len(warnings) > 16:

@@ -1,6 +1,6 @@
 import {describe, expect, it, vi} from "vitest";
 
-import type {PlayerRuntimeV1} from "./contract";
+import type {PlayerRuntimeV1, RuntimeCheckpointV1} from "./contract";
 import {captureRuntimeSave, setRuntimePaused, switchRuntimeDisc} from "./runtime-actions";
 
 describe("Provider runtime actions", () => {
@@ -13,6 +13,21 @@ describe("Provider runtime actions", () => {
     });
     expect(payload.screenshot.type).toBe("image/png");
     expect(runtime.checkpoint).toHaveBeenCalledOnce();
+    expect(runtime.screenshot).toHaveBeenCalledOnce();
+  });
+
+  it("serializes native checkpoint and screenshot capture", async () => {
+    let finishCheckpoint!: (value: RuntimeCheckpointV1) => void;
+    const runtime = fixtureRuntime();
+    runtime.checkpoint = vi.fn(() => new Promise<RuntimeCheckpointV1>((resolve) => {finishCheckpoint = resolve;}));
+
+    const saving = captureRuntimeSave(runtime);
+    await vi.waitFor(() => expect(runtime.checkpoint).toHaveBeenCalledOnce());
+    expect(runtime.screenshot).not.toHaveBeenCalled();
+    finishCheckpoint({
+      bytes: new Uint8Array([1, 2, 3]), format: "fixture-checkpoint-v1", metadata: null,
+    });
+    await saving;
     expect(runtime.screenshot).toHaveBeenCalledOnce();
   });
 

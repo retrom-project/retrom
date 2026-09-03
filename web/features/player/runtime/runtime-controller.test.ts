@@ -49,6 +49,21 @@ describe("provider runtime controller", () => {
     abort.abort();
     await vi.waitFor(() => expect(runtime.exit).toHaveBeenCalledOnce());
   });
+
+  it("subscribes the Host to lifecycle events before mount starts", async () => {
+    const runtime = fixtureRuntime();
+    const availability = {available: true, reason: null};
+    runtime.mount.mockImplementationOnce(async () => {
+      runtime.emit({type: "CHECKPOINT_AVAILABILITY_CHANGED", availability});
+    });
+    const onRuntimeEvent = vi.fn();
+
+    await mountProviderRuntime(envelope(), document.createElement("div"), {
+      dispatcher: verifiedDispatcher(), importer: async () => fixtureModule(runtime), onRuntimeEvent,
+    });
+
+    expect(onRuntimeEvent).toHaveBeenCalledWith({type: "CHECKPOINT_AVAILABILITY_CHANGED", availability});
+  });
 });
 
 function fixtureModule(runtime: PlayerRuntimeV1) {
@@ -108,7 +123,7 @@ function envelope(): LaunchEnvelopeV1 {
       runtimeBaseUrl: `/runtime/providers/fixture/${bundle}/`, targetContractSha256: "c".repeat(64),
       targetId: "fixture",
     },
-    session: {id: "018f0f31-26fe-7a31-9d61-4ec92f16d4c3", mode: "SINGLE", platformName: "Fixture",
+    session: {coreName: "Fixture Core", id: "018f0f31-26fe-7a31-9d61-4ec92f16d4c3", mode: "SINGLE", platformName: "Fixture",
       purpose: "PRODUCT", returnTo: "/games/fixture", title: "Fixture", warnings: []},
     targetOptions: {kind: "NONE_V1"}, validation: null,
   };

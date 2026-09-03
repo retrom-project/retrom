@@ -1,4 +1,4 @@
-import type {LaunchEnvelopeV1, PlayerRuntimeV1} from "./contract";
+import type {LaunchEnvelopeV1, PlayerRuntimeV1, RuntimeEventV1} from "./contract";
 import {
   loadProviderRuntime, type DispatcherEnvironment, type ProviderImporter,
 } from "./provider-dispatcher";
@@ -16,6 +16,7 @@ type ControllerOptions = {
   importer?: ProviderImporter;
   onExitRequested?: () => void;
   onFatalError?: (code: string) => void;
+  onRuntimeEvent?: (event: RuntimeEventV1) => void;
   signal?: AbortSignal;
 };
 
@@ -46,6 +47,7 @@ export async function mountProviderRuntime(
   try {
     runtime = await loadProviderRuntime(envelope, host, options.importer, options.dispatcher);
     unsubscribe = runtime.subscribe((event) => {
+      options.onRuntimeEvent?.(event);
       if (terminalEventHandled || event.type !== "EXIT_REQUESTED" && event.type !== "FATAL_ERROR") {return;}
       terminalEventHandled = true;
       if (event.type === "EXIT_REQUESTED") {options.onExitRequested?.();}

@@ -44,6 +44,7 @@ pc.core_id
 	defer func() { cleanup.Error("close", rows.Close()) }()
 	items := make([]map[string]any, 0)
 	byID := make(map[string]map[string]any)
+	coresByPlatformID := make(map[string]map[string]map[string]any)
 	for rows.Next() {
 		var id, name string
 		var sortOrder, enabled int
@@ -66,6 +67,7 @@ pc.core_id
 				"cores":     []map[string]any{},
 			}
 			byID[id] = item
+			coresByPlatformID[id] = make(map[string]map[string]any)
 			items = append(items, item)
 		}
 		if coreID.Valid {
@@ -85,12 +87,20 @@ pc.core_id
 				server.netplay.SupportsPlatformTarget(
 					id, coreID.String, providerID.String, targetID.String, netplayLine.String,
 				)
+			if core := coresByPlatformID[id][coreID.String]; core != nil {
+				if netplaySupported {
+					core["netplaySupported"] = true
+				}
+				continue
+			}
+			core := map[string]any{
+				"id": coreID.String, "name": coreName.String, "enabled": coreEnabled.Int64 == 1,
+				"netplaySupported": netplaySupported,
+			}
+			coresByPlatformID[id][coreID.String] = core
 			item["cores"] = append(
 				cores,
-				map[string]any{
-					"id": coreID.String, "name": coreName.String, "enabled": coreEnabled.Int64 == 1,
-					"netplaySupported": netplaySupported,
-				},
+				core,
 			)
 		}
 	}

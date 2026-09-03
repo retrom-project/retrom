@@ -19,6 +19,7 @@ type Session struct {
 	Mode         string
 	Title        string
 	PlatformName string
+	CoreName     string
 	ReturnTo     string
 	Warnings     []string
 }
@@ -117,7 +118,7 @@ func (builder *Builder) Build(input Input) ([]byte, error) {
 		"schemaVersion": 1,
 		"session": map[string]any{
 			"id": input.Session.ID, "purpose": input.Session.Purpose, "mode": input.Session.Mode,
-			"title": input.Session.Title, "platformName": input.Session.PlatformName,
+			"title": input.Session.Title, "platformName": input.Session.PlatformName, "coreName": input.Session.CoreName,
 			"returnTo": input.Session.ReturnTo, "warnings": warnings,
 		},
 		"runtime": map[string]any{
