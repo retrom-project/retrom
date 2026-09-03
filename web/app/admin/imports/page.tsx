@@ -26,8 +26,8 @@ export default async function ImportOverviewPage() {
         <Kpi label="异常条目" value={summary.issueItems} note="需要重新整理或补齐依赖" tone="slate" />
         <Kpi label="历史完成批次" value={summary.completed} note="按用户发起的顶层导入统计" tone="cyan" />
       </section>
-      <section className="panel import-pipeline-panel">
-        <div className="panel-head"><div><h2>当前入库流水线</h2><p>展示当前任务规模和需要处理的真实条目。</p></div><StatusBadge tone="info">实时快照</StatusBadge></div>
+      <section className="panel import-pipeline-panel" aria-labelledby="import-pipeline-title" tabIndex={0}>
+        <div className="panel-head"><div><h2 id="import-pipeline-title">当前入库流水线</h2><p>展示当前任务规模和需要处理的真实条目。</p></div><StatusBadge tone="info">实时快照</StatusBadge></div>
         <div className="import-pipeline">
           <div className="is-done"><i>1</i><strong>上传与校验</strong><b>{summary.running} 个批次</b><span>浏览器上传或服务器扫描</span></div>
           <div className="is-done"><i>2</i><strong>识别游戏</strong><b>{summary.processingItems} 个处理中</b><span>当前非终态批次的已知条目</span></div>
