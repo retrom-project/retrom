@@ -39,6 +39,7 @@ var (
 	ErrSchemaInvalid     = errors.New("DATABASE_SCHEMA_INVALID")
 	errIntegrityCheck    = errors.New("sqlite integrity check failed")
 	errForeignKeyCheck   = errors.New("sqlite foreign key check failed")
+	errForeignKeysOff    = errors.New("migration foreign keys remain disabled")
 	errDatabaseFilename  = errors.New("invalid database filename")
 	errMigrationFilename = errors.New("invalid migration name")
 )
@@ -477,7 +478,7 @@ func runMigration(
 			return fmt.Errorf("read restored migration foreign keys: %w", err)
 		}
 		if enabled != 1 {
-			return fmt.Errorf("restore migration foreign keys: enabled=%d", enabled)
+			return fmt.Errorf("restore migration foreign keys: %w: enabled=%d", errForeignKeysOff, enabled)
 		}
 	}
 	return nil
