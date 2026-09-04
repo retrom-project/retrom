@@ -94,7 +94,22 @@ func (service *Service) executeImport(ctx context.Context, unit work, root Root)
 			return
 		}
 		service.processItem(ctx, unit, root, item)
+		finished, err := service.itemFinished(ctx, item.ID)
+		if err != nil || !finished {
+			service.fail(ctx, unit, "INTERNAL_ERROR", true)
+			return
+		}
 	}
+}
+
+func (service *Service) itemFinished(ctx context.Context, itemID string) (bool, error) {
+	var active int
+	if err := service.database.QueryRowContext(ctx, `
+SELECT execution_state IN ('PENDING','COPYING','VALIDATING')
+FROM emulationstation_import_items WHERE id=?`, itemID).Scan(&active); err != nil {
+		return false, fmt.Errorf("emulationstationimport/read processed item state: %w", err)
+	}
+	return active == 0, nil
 }
 
 func (service *Service) nextItem(ctx context.Context, importID string) (executionItem, bool, error) {
