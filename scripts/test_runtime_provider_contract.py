@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import re
 import subprocess
 import sys
 import tempfile
@@ -35,7 +36,12 @@ def valid_manifest() -> dict[str, object]:
                 "displayName": "WASM-4",
                 "gameCompatibilityLine": "wasm4-v1",
                 "netplayCompatibilityLine": None,
-                "optionsKind": "NONE_V1",
+                "targetOptionsSchema": {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "properties": {},
+                    "required": [],
+                },
                 "capabilities": {
                     "pause": True,
                     "screenshot": True,
@@ -55,7 +61,7 @@ def valid_manifest() -> dict[str, object]:
                 "inputs": [
                     {
                         "role": "game",
-                        "kind": "WASM4_CART_V1",
+                        "kind": "WASM4_CART",
                         "cardinality": "ONE",
                         "optional": False,
                     }
@@ -94,6 +100,35 @@ class RuntimeProviderAuthorityTests(unittest.TestCase):
 
     def test_accepts_latest_main_wasm4_target(self) -> None:
         validate_provider_manifest(valid_manifest())
+
+    def test_target_options_are_discriminator_free_and_provider_schema_owned(self) -> None:
+        manifest = valid_manifest()
+        target = manifest["targets"][0]  # type: ignore[index]
+        self.assertNotIn("optionsKind", target)
+        schema = target["targetOptionsSchema"]
+        self.assertEqual(schema, {
+            "type": "object", "additionalProperties": False, "properties": {}, "required": [],
+        })
+        validate_provider_manifest(manifest)
+
+        invalid = deepcopy(manifest)
+        invalid["targets"][0]["optionsKind"] = "NONE_V1"  # type: ignore[index]
+        with self.assertRaises(ContractError):
+            validate_provider_manifest(invalid)
+
+    def test_manifest_structure_version_is_not_the_provider_api_support_policy(self) -> None:
+        future_api = deepcopy(valid_manifest())
+        future_api["providerApiVersion"] = 2
+        validate_provider_manifest(future_api)
+
+    def test_semantic_contract_values_do_not_embed_versions(self) -> None:
+        suffix = re.compile(r"_V[0-9]+$")
+        manifest = valid_manifest()
+        target = manifest["targets"][0]  # type: ignore[index]
+        semantic_values = [
+            *(item["kind"] for item in target["inputs"]),  # type: ignore[index]
+        ]
+        self.assertFalse([value for value in semantic_values if suffix.search(value)])
 
     def test_shared_launch_envelope_fixtures_have_the_declared_result(self) -> None:
         fixture_root = ROOT / "api/runtime-provider/v1/fixtures"
