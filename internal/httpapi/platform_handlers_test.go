@@ -266,10 +266,19 @@ VALUES(?,?,'game.chd',?,?,?,'COMPLETE',?,?)
 	unsupported := send(`{"uploadId":"` + secondUpload + `","targetPlatformInstanceId":"` + playstationID + `","metadataProvider":"NONE","tagIds":[],"contentMode":"MULTI_DISC"}`)
 	testassert.Falsef(t, testassert.Any(func() bool { return unsupported.Code != http.StatusUnprocessableEntity }, func() bool { return !strings.Contains(unsupported.Body.String(), "MULTI_DISC_MODE_UNAVAILABLE") }), "unsupported target = %d %s", unsupported.Code, unsupported.Body.String())
 	projectAsStandard := send(`{"uploadId":"` + fifthUpload + `","targetPlatformInstanceId":"` + rpgMakerID + `","metadataProvider":"NONE","tagIds":[],"contentMode":"STANDARD"}`)
-	testassert.Falsef(t, testassert.Any(
-		func() bool { return projectAsStandard.Code != http.StatusUnprocessableEntity },
-		func() bool { return !strings.Contains(projectAsStandard.Body.String(), "CONTENT_MODE_UNAVAILABLE") },
-	), "project target with standard mode = %d %s", projectAsStandard.Code, projectAsStandard.Body.String())
+	testassert.Falsef(t, projectAsStandard.Code != http.StatusAccepted, "project target with standard mode = %d %s", projectAsStandard.Code, projectAsStandard.Body.String())
+	projectCreated := decodeCreatedImport(t, projectAsStandard)
+	projectFailure := waitForImportState(t, server, projectCreated.ImportJobID, func(state string) bool {
+		return state == "FAILED"
+	})
+	var canonicalMode string
+	if err := server.database.QueryRowContext(context.Background(), `
+SELECT json_extract(request_json,'$.request.contentMode')
+FROM import_group_requests WHERE import_job_id=?
+`, projectCreated.ImportJobID).Scan(&canonicalMode); err != nil {
+		t.Fatal(err)
+	}
+	testassert.Falsef(t, projectFailure != "RPG_PROJECT_NOT_FOUND" || canonicalMode != "RPG_MAKER_PROJECT", "canonical project admission = failure:%s mode:%s", projectFailure, canonicalMode)
 	omitted := send(`{"uploadId":"` + thirdUpload + `","targetPlatformInstanceId":"` + saturnID + `","metadataProvider":"NONE","tagIds":[]}`)
 	explicit := send(`{"uploadId":"` + fourthUpload + `","targetPlatformInstanceId":"` + saturnID + `","metadataProvider":"NONE","tagIds":[],"contentMode":"STANDARD"}`)
 	testassert.Falsef(t, testassert.Any(func() bool { return omitted.Code != http.StatusAccepted }, func() bool { return explicit.Code != http.StatusAccepted }), "standard admission omitted=%d %s explicit=%d %s", omitted.Code, omitted.Body.String(), explicit.Code, explicit.Body.String())
