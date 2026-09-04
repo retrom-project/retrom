@@ -321,11 +321,12 @@ function PlayerShellView({experience, immersive, paused, orientationState, chrom
   </main>;
 }
 
-function PlayerStage({blocked, stage, state, message, loadProgress, returnTo, immersive, onSurface}: {
+export function PlayerStage({blocked, stage, state, message, loadProgress, returnTo, immersive, onSurface}: {
   blocked: boolean; stage: RefObject<HTMLDivElement | null>; state: ShellState; message: string;
   loadProgress: PlayerLoadProgress | null; returnTo: string; immersive: boolean; onSurface: () => void;
 }) {
-  return <div className="player-stage" ref={stage} inert={blocked ? true : undefined} aria-hidden={blocked || undefined} onClick={onSurface}>
+  return <div className="player-stage" inert={blocked ? true : undefined} aria-hidden={blocked || undefined} onClick={onSurface}>
+    <div className="player-runtime-mount" ref={stage} />
     {state !== "running" ? <PlayerLoading state={state} message={message} progress={loadProgress} returnTo={returnTo} immersive={immersive} /> : null}
   </div>;
 }
