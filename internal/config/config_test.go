@@ -103,6 +103,31 @@ func TestPFBCandidateBoundaryRequiresTestModeAndMatchingLocalOrigin(t *testing.T
 	}
 }
 
+func TestPFBProviderDevBoundaryFailsClosedOutsideMatchingTestPFB(t *testing.T) {
+	root := t.TempDir()
+	identifier := "feature-a1b2c3d4e5f6"
+	if value, err := validateProviderDevBoundary(ModeTest, identifier, root); err != nil || value != root {
+		t.Fatalf("matching test PFB dev root = %q, %v", value, err)
+	}
+	for _, test := range []struct {
+		name string
+		mode Mode
+		pfb  string
+		root string
+	}{
+		{name: "release", mode: ModeRelease, pfb: identifier, root: root},
+		{name: "missing PFB id", mode: ModeTest, root: root},
+		{name: "missing dev root", mode: ModeTest, pfb: identifier},
+		{name: "relative dev root", mode: ModeTest, pfb: identifier, root: "relative"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			if _, err := validateProviderDevBoundary(test.mode, test.pfb, test.root); err == nil {
+				t.Fatal("loose provider boundary accepted invalid configuration")
+			}
+		})
+	}
+}
+
 func TestParseServerImportRootsStrictSchemaAndOverlap(t *testing.T) {
 	t.Parallel()
 	base := t.TempDir()

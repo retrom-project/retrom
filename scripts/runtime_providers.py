@@ -11,12 +11,20 @@ import urllib.request
 from pathlib import Path, PurePosixPath
 from typing import Any
 
-from runtime_provider_bundle import (
-    describe_installed_provider,
-    install_provider_bundle,
-    load_provider_lock,
-    validate_provider_lock,
-)
+if __package__:
+    from scripts.runtime_provider_bundle import (
+        describe_installed_provider,
+        install_provider_bundle,
+        load_provider_lock,
+        validate_provider_lock,
+    )
+else:
+    from runtime_provider_bundle import (
+        describe_installed_provider,
+        install_provider_bundle,
+        load_provider_lock,
+        validate_provider_lock,
+    )
 
 
 REPOSITORY = "https://github.com/retrom-project/retrom-runtime"

@@ -95,4 +95,4 @@ Provider 报告真实 ready/start 后，Host 才调用 `POST /runtime/launches/{
 - `retrom-runtime` 12 个 Target 的 Product、Review Preview、Runtime Validation 与 unique-origin 测试；
 - `ACC-PROVIDER-001` 至 `ACC-PROVIDER-008`，以及受影响的现有 Player/RPG/沉浸产品 Case。
 
-PFB 必须从同一隔离 worktree 生成 candidate Bundle 和 Retrom 镜像。candidate 不能进入 production lock；正式发布命令也不能消费 candidate。最终验收以 `make pfb-verify`、真实浏览器产品链和两次确定性构建摘要一致为准。
+PFB 必须从同一隔离 worktree 运行 Retrom/runtime 源码，但不生成 Provider candidate Bundle 或 Retrom 镜像。它以已验证的基座 Provider 提供 manifest、Target contract和大体积资产，只叠加按 revision 校验的 loose开发模块/本地adapter资源；该开发层不能进入production lock、release input或正式镜像。最终验收以 `make pfb-verify`、真实浏览器产品链和正式发布流程自身的确定性构建摘要为准。

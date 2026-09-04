@@ -69,10 +69,11 @@ make dev
 
 需要同时运行多个功能分支时，使用独立的 PFB 命令族。每个 PFB 应位于独立 Git worktree；应用容器不发布宿主端口，只有共享网关监听 `127.0.0.1:3000`。普通 `make dev` 使用 4000，因此可与 PFB 网关同时运行；PFB 应用与共享网关容器都显式使用发起命令的普通用户 UID/GID。
 
-仅修改 Retrom 时：
+初始化轻量 PFB（即使只改 Retrom，也需要同一 PFB 中的 runtime worktree 作为开发 provider watcher）：
 
 ```bash
-make pfb-init PFB=feat-library-filter
+make pfb-init PFB=feat-library-filter \
+  RUNTIME_ROOT=/absolute/path/to/retrom-runtime
 make pfb-validate PFB=feat-library-filter
 make pfb-build PFB=feat-library-filter
 make pfb-up PFB=feat-library-filter
@@ -92,7 +93,11 @@ make pfb-build PFB=feat-ons-save
 make pfb-up PFB=feat-ons-save
 ```
 
-使用 `make pfb-status PFB=<name>` 查看 Git、锁、容器、健康与 URL；`make pfb-verify PFB=<name>` 保存网关、控制器和后端隔离检查的本地证据；`pfb-down` 保留数据代际，`pfb-destroy PFB=<name> CONFIRM=<pfb-id>` 才删除该 PFB 的容器、专属卷和本地生成状态。PFB v1 的严格前置为 Linux x86-64（含 WSL2）、默认本机 Docker context、Compose v2 和仓库锁定的 Chrome；不支持的平台由 `pfb-validate` 明确拒绝。
+`pfb-build` 只在首次使用或 package/toolchain 定义变化时准备开发镜像、Node/Go 依赖与生成代码；它不构建 Provider archive、core 或 release candidate。新环境通过显式、upgrade-only 的 `pfb-provider-import` 复用已验证 Provider 基座，旧命名卷则通过一次 `pfb-migrate-storage` 保留数据迁移。日常修改直接由 bind mount 生效：Web 使用 Next HMR，Go 修改后执行 `pfb-restart`，`retrom-runtime` adapter 由轻量 watcher 只重建开发 `client.mjs` 和本地 adapter 资源，随后执行一次 `pfb-restart` 让 Go 重新装载 revision。`pfb-up` 固定使用 Compose `--no-build`，`pfb-restart` 只重启已有容器。
+
+持久数据库、CAS、上传、provider 基座与依赖/cache 位于当前 Retrom worktree 的 `.pfb/workspace/`，因此同一 PFB 的 ID、URL 和数据不会因 down/up/restart 改变。旧命名卷实例先停止，再用 `make pfb-migrate-storage PFB=<name> CONFIRM=<pfb-id>` 一次性原子迁移；源卷保留。只有真正不兼容的开发数据变化才使用 `pfb-data-reset`，它会先归档旧数据。core 永远只由显式 `make pfb-core-build PFB=<name> CORE=<id>` 构建。完整操作与安全边界见 [PFB 轻量开发容器](docs/pfb-development.md)。
+
+使用 `make pfb-status PFB=<name>` 查看容器、健康、workspace、开发 provider revision 与 URL；`make pfb-verify PFB=<name>` 保存隔离检查证据。`pfb-down` 保留 workspace，`pfb-remove` 保留 workspace 但移除容器/注册，`pfb-destroy PFB=<name> CONFIRM=<pfb-id>` 才删除该 worktree 的 `.pfb/` 状态。严格前置为 Linux x86-64（含 WSL2）、默认本机 Docker context、Compose v2 和仓库锁定的 Chrome；不支持的平台由 `pfb-validate` 明确拒绝。
 
 ## 添加自己的游戏
 
@@ -156,7 +161,7 @@ retrom restore \
 | --- | --- |
 | `make install-deps` | 初始化并校验开发、测试所需的固定依赖 |
 | `make dev` | 在宿主机启动 Go 后端和 Next.js 开发服务 |
-| `make pfb-init/build/up` | 初始化、构建并启动一个隔离的并行功能分支环境 |
+| `make pfb-init/build/up` | 初始化、准备开发工具链并启动隔离的并行功能分支环境 |
 | `make pfb-status/use/down` | 查看、选择或停止一个 PFB 环境 |
 | `make ci` | 运行仓库内可重复的质量、单元、集成和数据检查 |
 | `make web-e2e` | 使用项目自有的 GBA 与 Arcade 测试程序运行 Chrome 产品 E2E |

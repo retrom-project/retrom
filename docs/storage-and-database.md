@@ -499,7 +499,7 @@ state；任一 Target、Host binding、DAT、BIOS、checkpoint reference 或 net
 存档 format 仍包含于新 Target 的 `readFormats`。同版换 bytes、降级、移除受引用 Target、catalog digest 不一致或 active
 文件在协调后变化均使 readiness 失败。没有数据库降级或恢复旧 Provider 的路径。
 
-candidate 与 production active descriptor 使用同一 schema，但 source 和目录必须严格分离；生产备份不把 PFB candidate
+PFB loose provider 与 production active descriptor 的source和目录必须严格分离；生产备份不包含`.pfb/`开发层
 或下载 cache 当作业务数据。恢复后仍由当前部署的 production descriptor 重新协调，备份中的数据库记录不能授权一个
 未安装或摘要不符的 Bundle。
 

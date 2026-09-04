@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import inspect
 import os
 import stat
 import subprocess
@@ -13,10 +14,16 @@ from pathlib import Path
 from unittest import mock
 
 from pfb.common import canonical_bytes
-from pfb.docker import _runtime_git_mount_arguments
+from pfb.docker import (
+    _runtime_git_mount_arguments,
+    app_restart,
+    app_up,
+    import_provider_base,
+    migrate_legacy_storage,
+    workspace_paths,
+)
 from pfb.errors import PFBError
 from pfb.identity import app_origin, pfb_id, runtime_origin_template, validate_pfb_id, volume_name
-from pfb.locks import _dependency_candidate_digest
 from pfb.registry import empty_registry, locked_registry, register_spec, save_registry
 from pfb.source_tree import git_common_dir, source_tree_sha256, worktree_identity
 from pfb.spec import HOST_MODE, validate_spec
@@ -181,17 +188,89 @@ class GatewayContractTests(unittest.TestCase):
         self.assertIn("stop_grace_period: 45s", app_compose)
 
 
-class DataGenerationTests(unittest.TestCase):
-    def test_pure_application_source_changes_reuse_data_generation(self) -> None:
-        base = {
-            "providerInputSha256": "a" * 64,
-            "candidateFilesSha256": "b" * 64,
-            "retrom": {"sourceTreeSha256": "c" * 64},
-        }
-        changed = {**base, "retrom": {"sourceTreeSha256": "d" * 64}}
-        self.assertEqual(_dependency_candidate_digest(base), _dependency_candidate_digest(changed))
-        changed_candidate = {**base, "candidateFilesSha256": "e" * 64}
-        self.assertNotEqual(_dependency_candidate_digest(base), _dependency_candidate_digest(changed_candidate))
+class LightweightDevelopmentContractTests(unittest.TestCase):
+    def test_daily_lifecycle_never_builds_release_candidates(self) -> None:
+        root = Path(__file__).resolve().parent
+        controller = (root / "pfb/cli.py").read_text(encoding="utf-8")
+        docker_controller = (root / "pfb/docker.py").read_text(encoding="utf-8")
+        compose = (root / "pfb/compose.yaml").read_text(encoding="utf-8")
+        entrypoint = (root / "pfb/entrypoint.sh").read_text(encoding="utf-8")
+        self.assertNotIn("run_runtime_candidate_builder", controller)
+        self.assertNotIn("_checked_current_locks", controller)
+        self.assertNotIn('"--build"', docker_controller)
+        self.assertIn('"--no-build"', docker_controller)
+        self.assertNotIn("build:", compose)
+        self.assertNotIn("entrypoint-check", entrypoint)
+        self.assertNotIn("make dev", entrypoint)
+        self.assertIn("scripts/dev.sh", entrypoint)
+        self.assertIn("pfb-provider-watch.mjs", entrypoint)
+        self.assertFalse((root / "pfb/locks.py").exists())
+        for operation in (app_up, app_restart):
+            source = inspect.getsource(operation)
+            self.assertNotIn("npm", source)
+            self.assertNotIn("candidate", source)
+            self.assertNotIn("docker build", source)
+
+    def test_workspace_is_stable_and_bind_mounted(self) -> None:
+        root = Path("/tmp/retrom-pfb-fixture")
+        paths = workspace_paths(root)
+        self.assertEqual(paths["root"], root / ".pfb/workspace")
+        self.assertEqual(paths["data"], root / ".pfb/workspace/data")
+        self.assertEqual(paths["providerDev"], root / ".pfb/workspace/providers/dev")
+        compose = (Path(__file__).resolve().parent / "pfb/compose.yaml").read_text(encoding="utf-8")
+        self.assertIn("source: ${PFB_WORKSPACE_ROOT:?}", compose)
+        self.assertNotIn("type: volume", compose)
+        self.assertNotIn("volumes:\n  pfb-", compose)
+        second = workspace_paths(Path("/tmp/retrom-pfb-other"))
+        self.assertNotEqual(paths["root"], second["root"])
+        self.assertNotEqual(paths["data"], second["data"])
+
+    def test_expensive_core_build_and_storage_mutations_are_explicit(self) -> None:
+        makefile = (Path(__file__).resolve().parents[1] / "Makefile").read_text(encoding="utf-8")
+        self.assertIn("pfb-core-build", makefile)
+        self.assertIn("pfb-migrate-storage", makefile)
+        self.assertIn("pfb-data-reset", makefile)
+        self.assertIn("CORE is required", makefile)
+        self.assertIn("CONFIRM", makefile)
+
+    def test_legacy_migration_is_staged_and_preserves_source_volumes(self) -> None:
+        source = inspect.getsource(migrate_legacy_storage)
+        self.assertIn(".workspace-migrating", source)
+        self.assertIn("_tree_fingerprint", source)
+        self.assertIn("staging.rename(paths[\"root\"])", source)
+        self.assertNotIn("volume rm", source)
+
+    def test_provider_base_import_is_staged_verified_and_idempotent(self) -> None:
+        with tempfile.TemporaryDirectory(dir="/tmp") as temporary:
+            root = Path(temporary) / "retrom"
+            source = Path(temporary) / "source"
+            bundle = source / "installed/retrom-runtime/a"
+            bundle.mkdir(parents=True)
+            (bundle / "client.mjs").write_text("export default 1;\n", encoding="utf-8")
+            active = {
+                "providers": [{"installationPath": "retrom-runtime/a"}],
+                "release": None,
+                "schemaVersion": 1,
+                "source": "candidate",
+                "sourceTreeSha256": "a" * 64,
+            }
+            (source / "active.json").write_text(json.dumps(active), encoding="utf-8")
+            root.mkdir()
+            validations: list[tuple[Path, Path]] = []
+
+            def validate(active_path: Path, installed_root: Path) -> dict[str, object]:
+                validations.append((active_path, installed_root))
+                return json.loads(active_path.read_text(encoding="utf-8"))
+
+            first = import_provider_base(root, source, validate, lambda _current, _incoming: None)
+            second = import_provider_base(root, source, validate, lambda _current, _incoming: None)
+            destination = workspace_paths(root)
+            self.assertEqual(first, second)
+            self.assertEqual((destination["providerInstalled"] / "retrom-runtime/a/client.mjs").read_text(),
+                             "export default 1;\n")
+            self.assertEqual(json.loads(destination["providerActive"].read_text()), active)
+            self.assertGreaterEqual(len(validations), 4)
+            self.assertFalse((root / ".pfb/.providers-importing").exists())
 
 
 if __name__ == "__main__":

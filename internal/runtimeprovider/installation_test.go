@@ -15,6 +15,8 @@ import (
 
 	"retrom/internal/cleanup"
 	"retrom/internal/runtimebundle"
+	"retrom/internal/runtimecatalog"
+	"retrom/internal/runtimelaunch"
 	"retrom/internal/store"
 )
 
@@ -83,6 +85,75 @@ func TestLoadInstallationRejectsDescriptorManifestAndInstalledByteDrift(t *testi
 				t.Fatal("invalid installation accepted")
 			}
 		})
+	}
+}
+
+func TestLoadInstallationOverlaysPFBDevModuleWithoutChangingBaseBundle(t *testing.T) {
+	root := t.TempDir()
+	paths := writeInstallationFixture(t, root)
+	devRoot := filepath.Join(root, "dev-provider")
+	if err := os.MkdirAll(devRoot, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	module := []byte("export const dev=true")
+	devFiles := []devFileDescriptor{{
+		Path: "client.mjs", SizeBytes: int64(len(module)), SHA256: sha256Hex(module),
+		MediaType: "text/javascript; charset=utf-8",
+	}}
+	revision := developmentRevision("fixture", paths.bundleSHA256, devFiles)
+	revisionRoot := filepath.Join(devRoot, "revisions", revision)
+	if err := os.MkdirAll(revisionRoot, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, filepath.Join(revisionRoot, "client.mjs"), string(module))
+	writeJSON(t, filepath.Join(devRoot, "dev-provider.json"), map[string]any{
+		"schemaVersion":    1,
+		"providerId":       "fixture",
+		"baseBundleSha256": paths.bundleSHA256,
+		"revision":         revision,
+		"files": []map[string]any{{
+			"path": "client.mjs", "sizeBytes": len(module), "sha256": sha256Hex(module),
+			"mediaType": "text/javascript; charset=utf-8",
+		}},
+	})
+	paths.DevRoot = devRoot
+	installation, err := LoadInstallation(paths.Paths)
+	if err != nil {
+		t.Fatal(err)
+	}
+	response := httptest.NewRecorder()
+	installation.Handler.ServeHTTP(response, httptest.NewRequestWithContext(t.Context(), http.MethodGet,
+		"/runtime/providers/fixture/"+paths.bundleSHA256+"/client.mjs", nil))
+	if response.Code != http.StatusOK || response.Body.String() != string(module) ||
+		response.Header().Get("Cache-Control") != "no-store" {
+		t.Fatalf("dev module response = %d headers=%v body=%q", response.Code, response.Header(), response.Body.String())
+	}
+	envelope, err := installation.Builder.Build(runtimelaunch.Input{
+		Binding: runtimecatalog.Binding{ProviderID: "fixture", TargetID: "fixture", LaunchPolicy: "SUPPORTED"},
+		Session: runtimelaunch.Session{
+			ID: "0198abcd-1234-7123-8abc-1234567890ab", Purpose: "PRODUCT", Mode: "SINGLE",
+			Title: "Fixture", PlatformName: "Fixture", CoreName: "Fixture", ReturnTo: "/games/fixture",
+		},
+		Resources: []map[string]any{{
+			"role": "game", "kind": "ROM_BLOB_V1", "url": "/runtime/content/game",
+			"ordinal": 0, "rangeRequired": false, "sha256": strings.Repeat("d", 64), "sizeBytes": 3,
+		}},
+		TargetOptions: map[string]any{"kind": "NONE_V1"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var decoded map[string]any
+	if err := json.Unmarshal(envelope, &decoded); err != nil {
+		t.Fatal(err)
+	}
+	runtimeValue, ok := decoded["runtime"].(map[string]any)
+	if !ok {
+		t.Fatalf("runtime = %#v", decoded["runtime"])
+	}
+	if runtimeValue["bundleSha256"] != paths.bundleSHA256 || runtimeValue["moduleSha256"] != sha256Hex(module) ||
+		runtimeValue["moduleUrl"] != "/runtime/providers/fixture/"+paths.bundleSHA256+"/client.mjs" {
+		t.Fatalf("dev launch runtime = %#v", runtimeValue)
 	}
 }
 

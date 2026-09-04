@@ -39,7 +39,7 @@ HTTP、运行时、依赖及统一验收专题维护。
 
 ## 从这里开始
 
-全新 checkout 先执行 `make install-deps`，再用 `make prepare-deps && make deps-check` 物化并离线校验生产 Provider lock、DAT 与许可输入。普通开发执行 `make dev` 并访问 `http://localhost:4000`；并行跨仓联调使用根工作区的命名 PFB 流程，每个 PFB 拥有独立 Provider candidate、数据代际和 `.localhost` origin，共享网关只绑定 `127.0.0.1:3000`。`make dev` 与全部 `make pfb-*` 必须由当前普通用户执行。正式镜像只接收 production active descriptor；PFB 镜像只接收本 PFB 的 candidate descriptor，candidate 不能进入 production lock、release input 或正式镜像。Provider Bundle 的 manifest/module/assets 均逐字节校验；任何身份、hash、Target binding 或 active descriptor 漂移都在启动前 fail closed。
+全新 checkout 先执行 `make install-deps`，再用 `make prepare-deps && make deps-check` 物化并离线校验生产 Provider lock、DAT 与许可输入。普通开发执行 `make dev` 并访问 `http://localhost:4000`；并行跨仓联调使用命名 PFB，每个 PFB 拥有 worktree 本地 `.pfb/workspace`、loose dev provider revision 和稳定 `.localhost` origin，共享网关只绑定 `127.0.0.1:3000`。PFB 直接 bind mount Go/Next/runtime 源码，日常 up/restart 不构建镜像、Provider archive或core。正式镜像只接收 production active descriptor；PFB开发层不能进入production lock、release input或正式镜像。Provider基座的manifest/module/assets仍逐字节校验，loose override只在合法test PFB中按路径/size/hash/revision失败关闭。
 
 - [`../AGENTS.md`](../AGENTS.md)：项目级 Agent 实施铁律；任何代码、测试、迁移或正式文档变更都必须先遵守。
 - [`retrom-product-architecture.md`](./retrom-product-architecture.md)：一期范围、关键决策、系统关系、业务流程和阶段计划。
@@ -62,6 +62,7 @@ HTTP、运行时、依赖及统一验收专题维护。
 - [`http-api-contract.md`](./http-api-contract.md)：认证/授权、Origin/CSRF、JSON/错误、乐观并发、分块上传、SSE、launch cookie、内容缓存和 route 的唯一 HTTP 细节契约。
 - [`dependency-management.md`](./dependency-management.md)：EmulatorJS/core/DAT 与 RPG Maker 开源运行时的小型 manifest、构建前物化、离线校验、镜像 allowlist、许可与升级规则。
 - [`backend-api-and-operations.md`](./backend-api-and-operations.md)：Go 模块、HTTP/API、后台任务、文件端点、双镜像、`make dev`、NG/TLS 边界、安全和部署。
+- [`pfb-development.md`](./pfb-development.md)：PFB 轻量开发容器、loose provider、持久 workspace、迁移与验收。
 - [`engineering-quality-and-testing.md`](./engineering-quality-and-testing.md)：Go/Next.js lint、统一命令、镜像构建 targets、关键路径测试、bug 回归固化与 CI 落地规范。
 - [`arcade-dat-baseline.md`](./arcade-dat-baseline.md)：EmulatorJS 4.2.3、实际 core artifact、真实 Arcade DAT、SHA-256 和升级流程的精确绑定基线。
 

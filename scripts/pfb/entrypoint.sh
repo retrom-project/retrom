@@ -6,58 +6,55 @@ case "${PFB_ID:-}" in
   * ) echo 'PFB_SPEC_INVALID:entrypoint-id' >&2; exit 2 ;;
 esac
 
-python3 -m scripts.pfb.cli entrypoint-check --root /workspace/retrom --pfb-id "$PFB_ID"
+mkdir -p /pfb-workspace/{data,dev-state,home,providers/dev,providers/installed}
 
-mkdir -p /pfb-data/home /pfb-data/data /pfb-data/dev-state /pfb-data/dependencies /pfb-data/providers/installed
-for source in dat auth netplay runtime-target-bindings; do
-  rm -rf "/pfb-data/dependencies/$source"
-  cp -a "/workspace/retrom/data/$source" "/pfb-data/dependencies/$source"
-done
-
+export RETROM_MODE=test
 export RETROM_PUBLIC_ORIGIN="http://${PFB_ID}.localhost:3000"
 export RETROM_ALLOW_INSECURE_PUBLIC_ORIGIN=true
 export RETROM_PFB_ID="$PFB_ID"
 export RETROM_RPG_RUNTIME_ORIGIN_TEMPLATE="http://{launchId}.rpg.${PFB_ID}.localhost:3000"
 export RETROM_HTTP_ADDR=0.0.0.0:8080
 export RETROM_TRUSTED_PROXIES="${PFB_GATEWAY_IP}/32"
-export RETROM_DEV_STATE_DIR=/pfb-data/dev-state
-export RETROM_DATA_DIR=/pfb-data/data
-export RETROM_DEPENDENCY_ROOT=/pfb-data/dependencies
+export RETROM_DEV_STATE_DIR=/pfb-workspace/dev-state
+export RETROM_DATA_DIR=/pfb-workspace/data
+export RETROM_DEPENDENCY_ROOT=/workspace/retrom/data
+export RETROM_DEPENDENCY_VERSIONS=4.2.3,4.3.0-pre
+export RETROM_ACTIVE_EMULATORJS_VERSION=4.2.3
+export RETROM_PROVIDER_INSTALLED_ROOT=/pfb-workspace/providers/installed
+export RETROM_PROVIDER_ACTIVE_PATH=/pfb-workspace/providers/active.json
+export RETROM_PROVIDER_DEV_ROOT=/pfb-workspace/providers/dev
+export PFB_PROVIDER_INSTALLED_ROOT="$RETROM_PROVIDER_INSTALLED_ROOT"
+export PFB_PROVIDER_ACTIVE_PATH="$RETROM_PROVIDER_ACTIVE_PATH"
+export PFB_PROVIDER_DEV_ROOT="$RETROM_PROVIDER_DEV_ROOT"
+export RETROM_MULTI_DISC_IMPORT_ENABLED=true
+export RETROM_NETPLAY_ENABLED=true
+export RETROM_NETPLAY_MAX_ACTIVE_ROOMS=16
+export RETROM_SERVER_IMPORT_ROOTS='[]'
 export NEXT_DEV_HOST=0.0.0.0
 export NEXT_DEV_PORT=3000
 export NEXT_BACKEND_ORIGIN=http://127.0.0.1:8080
-export NEXT_DEV_DIST_DIR=".next-pfb-${PFB_ID}"
+export NEXT_DIST_DIR=".next-pfb-${PFB_ID}"
 export NODE_HOME=/usr/local
 
-provider_arguments=()
-if [[ "${PFB_RUNTIME_MODE:-formal}" == "branch" ]]; then
-  provider_arguments+=(
-    RETROM_PROVIDER_CANDIDATE_ROOT=/workspace/retrom/.pfb/candidates/runtime
-    RETROM_PROVIDER_INSTALLED_ROOT=/pfb-data/providers/installed
-    RETROM_PROVIDER_ACTIVE_PATH=/pfb-data/providers/active.json
-    RETROM_PROVIDER_SOURCE=candidate
-  )
-fi
+unset PFB_GATEWAY_IP
 
-unset PFB_RUNTIME_MODE PFB_GATEWAY_IP
+node /workspace/runtime/scripts/pfb-provider-watch.mjs --once
+node /workspace/runtime/scripts/pfb-provider-watch.mjs &
+watcher_pid=$!
+/workspace/retrom/scripts/dev.sh &
+dev_pid=$!
 
-children=()
 shutdown() {
   trap - TERM INT
-  RETROM_DEV_STATE_DIR=/pfb-data/dev-state RETROM_DATA_DIR=/pfb-data/data \
+  RETROM_DEV_STATE_DIR=/pfb-workspace/dev-state RETROM_DATA_DIR=/pfb-workspace/data \
     /workspace/retrom/scripts/dev.sh --stop 2>/dev/null || true
-  if ((${#children[@]})); then
-    kill -TERM "${children[@]}" 2>/dev/null || true
-    wait "${children[@]}" 2>/dev/null || true
-  fi
+  kill -TERM "$watcher_pid" "$dev_pid" 2>/dev/null || true
+  wait "$watcher_pid" "$dev_pid" 2>/dev/null || true
 }
 trap 'shutdown; exit 143' TERM INT
 
-make dev GO_PREPARE_MODE=system NODE_PREPARE_MODE=system "${provider_arguments[@]}" &
-children+=("$!")
-
 set +e
-wait -n "${children[@]}"
+wait -n "$watcher_pid" "$dev_pid"
 status=$?
 set -e
 shutdown

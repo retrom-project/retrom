@@ -81,11 +81,12 @@
 | `make release-input-digest` | 离线计算依赖专题规定的源码/依赖发布输入指纹，stdout 只输出 64 位小写 SHA-256 | 否 |
 | `make ci` | `quality-structure-check + api-check + backend-check + web-check + integration-test + data-check` | 仅依赖/构建产物与被忽略的 Go 生成物 |
 | `make dev` | 先生成被忽略的 Go API 文件并执行 `prepare-deps + web-install`；设置绝对路径 `RETROM_RUNTIME_DEV_ROOT` 时再应用显式本地 runtime link，随后在宿主机启动 Go/Next.js 并统一处理退出信号；不使用 Docker | 会写本地依赖/开发数据缓存与被忽略的 Go 生成物 |
-| `make pfb-init/validate/status` | 确定性建立或只读检查 PFB ID、严格 spec、registry、worktree、工具链、Chrome 与 source/锁状态；不操作 Git、不启动容器 | `init` 写被忽略的 `.pfb/` 与 owner-only全局 registry，其余只读 |
-| `make pfb-build` | 构建 branch core候选、聚合 runtime候选、生成 Retrom overlay、candidate lock与数据代际锁；staging全部通过后原子发布 | 只写 PFB 候选、日志和被忽略的依赖 stage |
-| `make pfb-up/use/restart/down/status/logs` | 仅管理 PFB 应用容器、共享 loopback开发网关、显式 localhost选择与状态；不改变生产镜像、正式依赖或 Git | 写 PFB状态/日志并按命令管理开发容器，不自动删除卷 |
-| `make pfb-verify` | 执行 `ACC-PFB-*` 基础设施及受影响产品 Case，把锁、网络、拓扑和结果写入当前 PFB证据目录 | 只写 `.pfb/evidence/` 与验收临时状态 |
-| `make pfb-prune/destroy` | 只有 exact `CONFIRM=<pfb-id>` 时删除 registry明确列出的旧代际或该 PFB资源；不删除 Git worktree/branch/其他PFB/共享网关 | 是，范围由 registry与确认值双重限制 |
+| `make pfb-init/validate/status` | 确定性建立或只读检查 PFB ID、严格 spec、registry、worktree、工具链、Chrome、workspace 与 dev provider revision；不操作 Git、不启动容器 | `init` 写被忽略的 `.pfb/` 与 owner-only全局 registry，其余只读 |
+| `make pfb-build` | 仅在工具链或 package/API 生成输入变化时准备开发镜像、Node/Go依赖与生成代码；不构建 core、Provider archive、candidate tar或生产镜像 | 写 `.pfb/workspace` 中的可复用开发cache；相同输入幂等复用 |
+| `make pfb-up/use/restart/down/status/logs` | `up` 只执行 Compose `--no-build`，`restart` 只重启 app；管理共享 loopback网关、选择和状态，不运行 `npm ci` 或切换数据 | 写 PFB状态/日志并管理开发容器；workspace、旧卷、URL均保留 |
+| `make pfb-core-build` | 只构建 `CORE=<id>` 精确指定的 core worktree；绝不由 init/build/up/restart 隐式调用 | 写该 PFB workspace 的 core build输出 |
+| `make pfb-verify` | 执行 `ACC-PFB-*` 基础设施及受影响产品 Case，把网络、workspace、provider revision和结果写入当前 PFB证据目录 | 只写 `.pfb/evidence/` 与验收临时状态 |
+| `make pfb-migrate-storage/data-reset/remove/destroy` | 只在停止态和 exact `CONFIRM=<pfb-id>` 下迁移旧卷、归档重置数据、移除注册或销毁 `.pfb/`；迁移保留源卷，remove保留workspace | 是，范围由spec/registry/确认值共同限制 |
 | `make build-backend-image` | 只构建 `retrom:${IMAGE_TAG}`，前后复核并标记 release-input digest | 只写本地镜像缓存 |
 | `make build-web-image` | 只构建 `retrom-web:${IMAGE_TAG}`，前后复核并标记同一 digest | 只写本地镜像缓存 |
 | `make build-images` | 以同一 digest 依次构建上述两个镜像，最后 inspect label 一致性 | 只写本地镜像缓存 |
@@ -254,7 +255,7 @@ flat config 必须设置 `linterOptions.noInlineConfig=true` 且 unused disable 
 | 产品运行时 E2E | 真实 Retrom 导入/Launch/内容端点/Player 是否能驱动 EmulatorJS 核心 | `web/e2e/` + `testdata/public-roms/` 项目自有 ROM | 按影响范围/发布门禁 |
 | RPG Maker 产品 E2E | 七版本项目导入、Provider/Target、三 adapter、unique-origin、A→B→C→不同 Launch 恢复到 B 与恢复后 `RESTORE_INPUT` | `web/e2e/` + 合法确定性 fixture/操作者 MZ deployment | 发布门禁 |
 | 联机协议与回归 | 房间/协议边界、安全拒绝、feature flag、容量、单机路径，以及八个精确 profile 的双浏览器核心与生命周期 | 聚焦 Go/Web 测试 + `ACC-NP-010`–`022` | 按影响范围/发布门禁 |
-| PFB 基础设施 | ID/spec/registry、worktree/source指纹、严格 Host、共享网关、双PFB隔离、candidate/output漂移、数据代际、正式路径拒绝与销毁确认 | Python/Node/Go单测 + Docker/Chrome `ACC-PFB-001`–`012` | PFB实现和候选供应链变更 |
+| PFB 基础设施 | ID/spec/registry、严格 Host、共享网关、双PFB隔离、持久workspace、loose provider revision、无隐式build、显式core、旧卷迁移、release拒绝与销毁确认 | Python/Node/Go单测 + Docker/Chrome `ACC-PFB-001`–`012` | PFB实现、runtime开发层或存储边界变更 |
 
 命名要求：
 

@@ -28,6 +28,7 @@ var knownVariables = map[string]struct{}{
 	"RETROM_DB_PATH":                      {}, "RETROM_DEPENDENCY_ROOT": {}, "RETROM_DEPENDENCY_VERSIONS": {},
 	"RETROM_ACTIVE_EMULATORJS_VERSION": {}, "RETROM_TRUSTED_PROXIES": {},
 	"RETROM_PROVIDER_ACTIVE_PATH": {}, "RETROM_PROVIDER_INSTALLED_ROOT": {},
+	"RETROM_PROVIDER_DEV_ROOT":     {},
 	"RETROM_STARTUP_CHECK_TIMEOUT": {}, "RETROM_LOG_LEVEL": {},
 	"RETROM_MULTI_DISC_IMPORT_ENABLED":    {},
 	"RETROM_PFB_ID":                       {},
@@ -55,6 +56,7 @@ type Config struct {
 	ActiveEJSVersion         string
 	ProviderActivePath       string
 	ProviderInstalledRoot    string
+	ProviderDevRoot          string
 	RuntimeTargetCatalogPath string
 	TrustedProxies           []netip.Prefix
 	StartupCheckTimeout      time.Duration
@@ -181,12 +183,17 @@ func Load(mode Mode) (Config, error) {
 	if err != nil {
 		return Config{}, err
 	}
+	providerDevRoot, err := validateProviderDevBoundary(mode, pfbID, os.Getenv("RETROM_PROVIDER_DEV_ROOT"))
+	if err != nil {
+		return Config{}, err
+	}
 	return Config{
 		Mode: mode, HTTPAddr: network.httpAddr, PublicOrigin: network.publicOrigin,
 		RPGRuntimeOriginTemplate: network.rpgRuntimeOriginTemplate,
 		DataDir:                  base.dataDir, DBPath: base.dbPath, DependencyRoot: base.dependencyRoot,
 		DependencyVersions: base.versions, ActiveEJSVersion: base.active,
 		ProviderActivePath: providerActivePath, ProviderInstalledRoot: providerInstalledRoot,
+		ProviderDevRoot:          providerDevRoot,
 		RuntimeTargetCatalogPath: filepath.Join(base.dependencyRoot, "runtime-target-bindings", "v1", "catalog.json"),
 		TrustedProxies:           network.proxies, StartupCheckTimeout: runtimeOptions.startupTimeout,
 		LogLevel: runtimeOptions.logLevel, MultiDiscImportEnabled: runtimeOptions.multiDiscImportEnabled,
@@ -197,6 +204,16 @@ func Load(mode Mode) (Config, error) {
 		NetplayReconnectLease:  netplay.reconnectLease,
 		PFBID:                  pfbID,
 	}, nil
+}
+
+func validateProviderDevBoundary(mode Mode, pfbID, raw string) (string, error) {
+	if raw == "" && pfbID == "" {
+		return "", nil
+	}
+	if mode != ModeTest || pfbID == "" || raw == "" {
+		return "", fmt.Errorf("%w: RETROM_PROVIDER_DEV_ROOT", errInvalidConfig)
+	}
+	return checkedExistingDir("RETROM_PROVIDER_DEV_ROOT", raw)
 }
 
 func validatePFBBoundary(mode Mode, publicOrigin *url.URL) (string, error) {
