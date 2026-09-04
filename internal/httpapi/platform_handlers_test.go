@@ -234,13 +234,17 @@ VALUES(?,?,'game.chd',?,?,?,'COMPLETE',?,?)
 	const secondUpload = "01980000-0000-7000-8000-000000007102"
 	const thirdUpload = "01980000-0000-7000-8000-000000007103"
 	const fourthUpload = "01980000-0000-7000-8000-000000007104"
+	const fifthUpload = "01980000-0000-7000-8000-000000007105"
 	createUpload(firstUpload, "01980000-0000-7000-8000-000000007111")
 	createUpload(secondUpload, "01980000-0000-7000-8000-000000007112")
 	createUpload(thirdUpload, "01980000-0000-7000-8000-000000007113")
 	createUpload(fourthUpload, "01980000-0000-7000-8000-000000007114")
+	createUpload(fifthUpload, "01980000-0000-7000-8000-000000007115")
 	saturnID, err := testsupport.PlatformInstanceID(t.Context(), server.database, "saturn/yabause")
 	testassert.False(t, err != nil, err)
 	playstationID, err := testsupport.PlatformInstanceID(t.Context(), server.database, "psx/pcsx_rearmed")
+	testassert.False(t, err != nil, err)
+	rpgMakerID, err := testsupport.PlatformInstanceID(t.Context(), server.database, "rpgmaker/rpgmaker")
 	testassert.False(t, err != nil, err)
 	send := func(body string) *httptest.ResponseRecorder {
 		t.Helper()
@@ -261,6 +265,11 @@ VALUES(?,?,'game.chd',?,?,?,'COMPLETE',?,?)
 	)
 	unsupported := send(`{"uploadId":"` + secondUpload + `","targetPlatformInstanceId":"` + playstationID + `","metadataProvider":"NONE","tagIds":[],"contentMode":"MULTI_DISC"}`)
 	testassert.Falsef(t, testassert.Any(func() bool { return unsupported.Code != http.StatusUnprocessableEntity }, func() bool { return !strings.Contains(unsupported.Body.String(), "MULTI_DISC_MODE_UNAVAILABLE") }), "unsupported target = %d %s", unsupported.Code, unsupported.Body.String())
+	projectAsStandard := send(`{"uploadId":"` + fifthUpload + `","targetPlatformInstanceId":"` + rpgMakerID + `","metadataProvider":"NONE","tagIds":[],"contentMode":"STANDARD"}`)
+	testassert.Falsef(t, testassert.Any(
+		func() bool { return projectAsStandard.Code != http.StatusUnprocessableEntity },
+		func() bool { return !strings.Contains(projectAsStandard.Body.String(), "CONTENT_MODE_UNAVAILABLE") },
+	), "project target with standard mode = %d %s", projectAsStandard.Code, projectAsStandard.Body.String())
 	omitted := send(`{"uploadId":"` + thirdUpload + `","targetPlatformInstanceId":"` + saturnID + `","metadataProvider":"NONE","tagIds":[]}`)
 	explicit := send(`{"uploadId":"` + fourthUpload + `","targetPlatformInstanceId":"` + saturnID + `","metadataProvider":"NONE","tagIds":[],"contentMode":"STANDARD"}`)
 	testassert.Falsef(t, testassert.Any(func() bool { return omitted.Code != http.StatusAccepted }, func() bool { return explicit.Code != http.StatusAccepted }), "standard admission omitted=%d %s explicit=%d %s", omitted.Code, omitted.Body.String(), explicit.Code, explicit.Body.String())
