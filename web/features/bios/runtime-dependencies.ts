@@ -13,7 +13,6 @@ export type BIOSRequirement = {
   coreName: string;
   providerId: string;
   targetId: string;
-  targetContractSha256: string;
   logicalName: string;
   sourceKind: string;
   requirementMode: string;

@@ -23,8 +23,8 @@ export function validateLaunchEnvelopeBoundary(value: unknown): LaunchEnvelopeV1
 
 function launchRuntime(value: unknown): LaunchEnvelopeV1["runtime"] | null {
   if (!record(value) || !exactKeys(value, [
-    "bundleSha256", "capabilities", "checkpoint", "gameCompatibilityLine", "moduleSha256", "moduleUrl",
-    "providerApiVersion", "providerId", "providerVersion", "runtimeBaseUrl", "targetContractSha256", "targetId",
+    "bundleSha256", "capabilities", "checkpoint", "moduleSha256", "moduleUrl",
+    "providerApiVersion", "providerId", "providerVersion", "runtimeBaseUrl", "targetId",
   ]) || !validRuntimeIdentity(value) || !validRuntimeDigests(value) || !validCapabilities(value.capabilities) ||
     !validCheckpoint(value.checkpoint, value.capabilities.checkpoint)) {return null;}
   return value as unknown as LaunchEnvelopeV1["runtime"];
@@ -32,12 +32,11 @@ function launchRuntime(value: unknown): LaunchEnvelopeV1["runtime"] | null {
 
 function validRuntimeIdentity(value: Record<string, unknown>) {
   return value.providerApiVersion === 1 && validIdentity(value.providerId) && validIdentity(value.targetId) &&
-    validToken(value.gameCompatibilityLine) && typeof value.providerVersion === "string" &&
-    semver.test(value.providerVersion);
+    typeof value.providerVersion === "string" && semver.test(value.providerVersion);
 }
 
 function validRuntimeDigests(value: Record<string, unknown>) {
-  return validDigest(value.bundleSha256) && validDigest(value.moduleSha256) && validDigest(value.targetContractSha256);
+  return validDigest(value.bundleSha256) && validDigest(value.moduleSha256);
 }
 
 function validEnvelopeBody(value: Record<string, unknown>, runtime: LaunchEnvelopeV1["runtime"]) {

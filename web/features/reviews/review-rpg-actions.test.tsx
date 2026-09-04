@@ -11,24 +11,23 @@ const review: ReviewWorkspace = {
   itemId: "item-1", version: 1, canApprove: false,
   platformInstance: { id: "rpg-directory", name: "RPG Maker MV" },
   metadata: { title: "Manual", description: "", developer: "", publisher: "", genre: "", players: null, releaseYear: null },
-  validation: { id: "static-validation", status: "BLOCKED", current: true, compatibilityCode: "RPG_RUNTIME_VALIDATION_REQUIRED" },
+  validation: { id: "static-validation", status: "BLOCKED", compatibilityCode: "RPG_RUNTIME_VALIDATION_REQUIRED" },
   candidates: [], uploadedAssets: [], scrapeRuns: [], selectedCandidateId: null,
   selectedAssets: { coverCandidateAssetId: null, coverUploadedAssetId: null, backgroundCandidateAssetId: null, screenshotCandidateAssetIds: [] },
   defaultDosEntry: null, dosEntries: [],
   rpgMaker: {
     selectedCoreId: "rpgmaker_mv", generation: "RPGMV", evidenceGeneration: "RPGMV",
     evidenceConfidence: "MATCHED", selfContained: true, selfContainedOverride: false,
-    runtimeBindingRevision: 1, runtimePackRequirements: [], runtimePackSelections: [],
-    runtimeValidation: null, runtimeValidationCurrent: false,
+    runtimePackRequirements: [], runtimePackSelections: [], runtimeValidation: null,
   },
 };
 
 function launchedRPGValidation(): NonNullable<NonNullable<ReviewWorkspace["rpgMaker"]>["runtimeValidation"]> {
   return {
     validationId: "rpg-validation", importItemId: "item-1", reviewVersionAtCreate: 1,
-    runtimeBindingRevision: 1, launchId: "rpg-launch", restoreLaunchId: null, state: "STARTING",
+    launchId: "rpg-launch", restoreLaunchId: null, state: "STARTING",
     lastGateSequence: 0, machineGates: [], failureCode: null, expiresAtMs: Date.now() + 60_000,
-    routeEvidence: { effectiveSourceSnapshotId: "10000000-0000-4000-8000-000000000001", generation: "RPGMV", evidenceGeneration: "RPGMV", evidenceConfidence: "MATCHED", providerId: "retrom-runtime", targetId: "rpgmaker-mv", gameCompatibilityLine: "rpgmaker-mv-v1", targetContractSha256: "b".repeat(64), dependencySnapshotSha256: "c".repeat(64), projectFingerprint: "d".repeat(64) },
+    routeEvidence: { effectiveSourceSnapshotId: "10000000-0000-4000-8000-000000000001", generation: "RPGMV", evidenceGeneration: "RPGMV", evidenceConfidence: "MATCHED", providerId: "retrom-runtime", targetId: "rpgmaker-mv", dependencySnapshotSha256: "c".repeat(64), projectFingerprint: "d".repeat(64) },
     checkpointRoundTrip: { created: false, checkpointFormat: null, sizeBytes: null, sha256: null, originalLaunchId: "rpg-launch", initialPosition: null, savedPosition: null, divergedPosition: null, originalLaunchEnded: false, restoreLaunchId: null, restoreStarted: false, restoredPosition: null, positionVerified: false, screenshotUrl: null, restoreInputPosition: null, restoreInputVerified: false },
     createdAtMs: 0, updatedAtMs: 0,
     decision: null,
@@ -42,26 +41,10 @@ function jsonResponse(body: unknown, status = 200) {
 afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
 describe("ReviewActions RPG runtime validation", () => {
-  it("keeps runtime recheck visible and enables it only while an RPG binding is stale", async () => {
-    const refreshed: ReviewWorkspace = {
-      ...review, version: 2, validationStale: false,
-      validation: { ...review.validation!, id: "validation-2", current: true },
-      rpgMaker: { ...review.rpgMaker!, runtimeBindingRevision: 2 },
-    };
-    const fetchMock = vi.fn((_input: RequestInfo | URL, init?: RequestInit) => Promise.resolve(
-      jsonResponse(init?.method === "PATCH" ? { version: 2 } : refreshed),
-    ));
-    vi.stubGlobal("fetch", fetchMock);
-    const user = userEvent.setup();
-    render(<ReviewActions review={{
-      ...refreshed, version: 1, validationStale: true,
-      targetContractChange: { previous: "a".repeat(64), current: "b".repeat(64) },
-    }} />);
+  it("does not expose a runtime deployment recheck action", () => {
+    render(<ReviewActions review={review} />);
 
-    expect(screen.getByRole("button", { name: "重新运行检查" })).toBeEnabled();
-    expect(screen.getByRole("button", { name: "运行游戏" })).toBeDisabled();
-    await user.click(screen.getByRole("button", { name: "重新运行检查" }));
-    await waitFor(() => expect(screen.getByRole("button", { name: "重新运行检查" })).toBeDisabled());
+    expect(screen.queryByRole("button", { name: "重新运行检查" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "运行游戏" })).toBeEnabled();
   });
 
@@ -72,11 +55,11 @@ describe("ReviewActions RPG runtime validation", () => {
       vi.stubGlobal("fetch", fetchMock);
       render(<ReviewActions review={{
         ...review, canApprove: true,
-        rpgMaker: { ...review.rpgMaker!, runtimeValidation: launchedRPGValidation(), runtimeValidationCurrent: true },
+        rpgMaker: { ...review.rpgMaker!, runtimeValidation: launchedRPGValidation() },
       }} />);
 
       expect(screen.getByRole("button", { name: "通过并发布" })).toBeEnabled();
-      expect(screen.getByRole("button", { name: "重新运行检查" })).toBeDisabled();
+      expect(screen.queryByRole("button", { name: "重新运行检查" })).not.toBeInTheDocument();
       expect(screen.getByRole("button", { name: "运行游戏" })).toBeDisabled();
       await act(() => vi.advanceTimersByTimeAsync(3_000));
       expect(fetchMock).not.toHaveBeenCalled();

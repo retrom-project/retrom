@@ -99,7 +99,7 @@ paths:
       - $ref: '#/components/parameters/RequirementID'
     post:
       operationId: postAdminBIOSInstallation
-      description: Installs a new active BIOS revision. Replacing the active installation releases its payload and invalidates saves and runtime sessions bound to the old BIOS snapshot.
+      description: Installs or replaces the current BIOS payload. Existing saves remain associated with their game and active runtime sessions are closed before the current payload changes.
       parameters:
         - $ref: ../components/common.yaml#/components/parameters/IfMatch
         - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey
@@ -405,7 +405,6 @@ components:
         - coreName
         - providerId
         - targetId
-        - targetContractSha256
         - logicalName
         - requirementMode
         - sourceKind
@@ -430,9 +429,6 @@ components:
         targetId:
           type: string
           pattern: ^[a-z0-9]+(?:-[a-z0-9]+)*$
-        targetContractSha256:
-          type: string
-          pattern: ^[0-9a-f]{64}$
         logicalName:
           type: string
         requirementMode:

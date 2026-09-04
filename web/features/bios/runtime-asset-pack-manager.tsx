@@ -55,7 +55,7 @@ function RuntimePackInstallationRow({ installation, busy, onDelete }: {
   onDelete: (installation: PackInstallation) => void;
 }) {
   const timeZone = useBrowserTimeZone();
-  const references = installation.references.variantRevisionCount + installation.references.checkpointCount;
+  const references = installation.references.gameCount + installation.references.checkpointCount;
   const deletable = references === 0 && (installation.status === "READY" || installation.status === "FAILED");
   return <article className="runtime-pack-installation">
     <div>
@@ -65,9 +65,9 @@ function RuntimePackInstallationRow({ installation, busy, onDelete }: {
     </div>
     <div className="runtime-pack-reference">
       <strong>{references}</strong><small>引用</small>
-      <span>{installation.references.variantRevisionCount} 个游戏版本 · {installation.references.checkpointCount} 个存档</span>
+      <span>{installation.references.gameCount} 款游戏 · {installation.references.checkpointCount} 个存档</span>
     </div>
-    <button type="button" className="runtime-delete-button" disabled={busy || !deletable} title={references ? "仍被游戏版本或存档引用，不能删除" : undefined} onClick={() => onDelete(installation)}>删除</button>
+    <button type="button" className="runtime-delete-button" disabled={busy || !deletable} title={references ? "仍被游戏或存档引用，不能删除" : undefined} onClick={() => onDelete(installation)}>删除</button>
     {installation.diagnostics.map((diagnostic) => <p className="runtime-pack-diagnostic" key={`${diagnostic.code}-${diagnostic.message}`}>{diagnostic.code} · {diagnostic.message}</p>)}
   </article>;
 }
@@ -96,7 +96,7 @@ function RuntimeTargetDiagnostics({catalog}: {catalog: RuntimeTargetList}) {
     <div className="runtime-core-diagnostic-grid">{rpgTargetOrder.map((targetId) => {
       const target = targets.get(targetId);
       return <article key={targetId}><div><strong>{target?.displayName ?? targetId}</strong><small>{target?.coreName ?? "RPG Maker"}</small></div>
-        {target ? <><code>{target.providerId}/{target.targetId}</code><small title={target.targetContractSha256}>Provider v{target.providerVersion} · contract {target.targetContractSha256.slice(0, 8)}</small><StatusBadge tone={target.launchPolicy === "SUPPORTED" ? "good" : target.launchPolicy === "EXPERIMENTAL" ? "warn" : "bad"}>{target.launchPolicy === "SUPPORTED" ? "可启动" : target.launchPolicy === "EXPERIMENTAL" ? "实验性" : "已禁用"}</StatusBadge></> : <StatusBadge tone="bad">未登记</StatusBadge>}
+        {target ? <><code>{target.providerId}/{target.targetId}</code><small>Provider v{target.providerVersion}</small><StatusBadge tone={target.launchPolicy === "SUPPORTED" ? "good" : target.launchPolicy === "EXPERIMENTAL" ? "warn" : "bad"}>{target.launchPolicy === "SUPPORTED" ? "可启动" : target.launchPolicy === "EXPERIMENTAL" ? "实验性" : "已禁用"}</StatusBadge></> : <StatusBadge tone="bad">未登记</StatusBadge>}
       </article>;
     })}</div>
   </section>;

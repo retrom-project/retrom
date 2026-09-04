@@ -9,7 +9,7 @@ import { newUuid } from "@/lib/crypto";
 import { writeHeaders } from "@/lib/api/client";
 import { responseError, uploadOne, waitForJob } from "@/lib/upload";
 import {
-  candidateForm, readyCover, reviewReadyForPublish, sameDraftPayload, scrapeResult, workspaceDraftPayload,
+  candidateForm, readyCover, scrapeResult,
   type Comparison, type CoverSelection, type DraftPayload, type DuplicateGame, type MetadataForm,
   type ReviewCandidate, type ReviewWorkspace, type UploadedReviewAsset,
 } from "./review-actions-model";
@@ -19,7 +19,7 @@ type SaveDraft = (key: string, payload: DraftPayload, force?: boolean) => Promis
 
 type CommandParams = {
   review: ReviewWorkspace; returnTo: string; nextItemId: string | null;
-  versionRef: { current: number }; latestPayloadRef: { current: DraftPayload }; validationRefreshRequestedRef: { current: boolean };
+  versionRef: { current: number };
   draftKey: string; draftPayload: DraftPayload; form: MetadataForm; cover: CoverSelection;
   uploadedAssets: UploadedReviewAsset[]; comparison: Comparison | null;
   refreshReview: () => Promise<ReviewWorkspace>; flushDraft: () => Promise<boolean>; enqueueSave: SaveDraft; run: Runner;
@@ -114,16 +114,6 @@ export function useReviewCommands(params: CommandParams) {
     if (!succeeded && !popup.closed) {popup.close();}
   }
 
-  async function revalidate() {
-    return params.run("重新运行检查", async () => {
-      if (!await params.enqueueSave(params.draftKey, params.draftPayload, true)) {throw new Error("无法保存当前审核内容");}
-      params.validationRefreshRequestedRef.current = true;
-      const updated = await params.refreshReview();
-      const ready = updated.canApprove ?? (updated.validation?.current === true && updated.validation.status === "READY");
-      params.setNotice(ready ? "运行检查已通过，可以发布。" : "运行检查已更新，请按最新提示继续处理。");
-    });
-  }
-
   async function confirmDuplicatePublish() {
     if (!duplicateConfirmation || !await params.flushDraft()) {return;}
     await publish(duplicateConfirmation);
@@ -140,7 +130,7 @@ export function useReviewCommands(params: CommandParams) {
     });
   }
 
-  return { duplicateConfirmation, setDuplicateConfirmation, rescrape, uploadCover, applyComparison, approve, launchPreview, revalidate, confirmDuplicatePublish, discard };
+  return { duplicateConfirmation, setDuplicateConfirmation, rescrape, uploadCover, applyComparison, approve, launchPreview, confirmDuplicatePublish, discard };
 }
 
 function handleScrapeResult(metadataProvider: "HASHEOUS" | "NONE", scrapeRunId: string, updated: ReviewWorkspace, params: CommandParams) {
@@ -158,17 +148,12 @@ function handleScrapeResult(metadataProvider: "HASHEOUS" | "NONE", scrapeRunId: 
 }
 
 async function publishUntilTerminal(body: object, params: CommandParams, setDuplicateConfirmation: Dispatch<SetStateAction<DuplicateGame[] | null>>) {
-  let staleRetryAvailable = true;
-  for (;;) {
-    const response = await fetch(`/api/v1/admin/reviews/${params.review.itemId}/approve`, { method: "POST", credentials: "same-origin", headers: await writeHeaders({ "Content-Type": "application/json", "If-Match": `"v${params.versionRef.current}"`, "Idempotency-Key": newUuid() }), body: JSON.stringify(body) });
-    if (response.ok) {setDuplicateConfirmation(null); return true;}
-    const payload = await response.json().catch(() => null) as ApprovalErrorPayload;
-    const duplicates = duplicateGamesFrom(payload);
-    if (duplicates) {setDuplicateConfirmation(duplicates); return false;}
-    if (payload?.error?.code !== "REVIEW_VALIDATION_STALE" || !staleRetryAvailable) {throw new Error(payload?.error?.message ?? "发布失败：请确认实时保存和运行检查均已完成");}
-    staleRetryAvailable = false;
-    await verifyStaleReview(params);
-  }
+  const response = await fetch(`/api/v1/admin/reviews/${params.review.itemId}/approve`, { method: "POST", credentials: "same-origin", headers: await writeHeaders({ "Content-Type": "application/json", "If-Match": `"v${params.versionRef.current}"`, "Idempotency-Key": newUuid() }), body: JSON.stringify(body) });
+  if (response.ok) {setDuplicateConfirmation(null); return true;}
+  const payload = await response.json().catch(() => null) as ApprovalErrorPayload;
+  const duplicates = duplicateGamesFrom(payload);
+  if (duplicates) {setDuplicateConfirmation(duplicates); return false;}
+  throw new Error(payload?.error?.message ?? "发布失败：请确认实时保存和运行检查均已完成");
 }
 
 type ApprovalErrorPayload = { error?: { code?: string; message?: string; details?: { games?: DuplicateGame[] } } } | null;
@@ -176,13 +161,6 @@ type ApprovalErrorPayload = { error?: { code?: string; message?: string; details
 function duplicateGamesFrom(payload: ApprovalErrorPayload) {
   if (payload?.error?.code !== "DUPLICATE_GAME_CONFIRMATION_REQUIRED") {return null;}
   return payload.error.details?.games?.length ? payload.error.details.games : null;
-}
-
-async function verifyStaleReview(params: CommandParams) {
-  const updated = await params.refreshReview();
-  const targetChanged = Boolean(params.review.platformInstance && updated.platformInstance && params.review.platformInstance.id !== updated.platformInstance.id);
-  if (targetChanged || !sameDraftPayload(workspaceDraftPayload(updated), params.latestPayloadRef.current)) {throw new Error("审核发布信息已在其他位置发生变化，请刷新页面核对后重试");}
-  if (!reviewReadyForPublish(updated)) {throw new Error("审核状态已更新，请等待补传校验完成或按最新运行检查继续处理");}
 }
 
 function openPreviewWindow(setToast: Dispatch<SetStateAction<ToastMessage | null>>) {

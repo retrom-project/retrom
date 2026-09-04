@@ -43,7 +43,6 @@ function item(requirementId: string, logicalName = `${requirementId}.bin`): Serv
     coreName: "mGBA",
     providerId: "emulatorjs",
     targetId: "mgba",
-    targetContractSha256: "a".repeat(64),
     logicalName,
     requirementMode: "REQUIRED",
     sourceKind: "STATIC",

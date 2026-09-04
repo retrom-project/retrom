@@ -199,8 +199,8 @@ paths:
     $ref: ./domains/catalog.yaml#/paths/~1api~1v1~1admin~1games~1{gameId}~1assets
   /api/v1/admin/games/{gameId}/assets/{assetKind}:
     $ref: ./domains/catalog.yaml#/paths/~1api~1v1~1admin~1games~1{gameId}~1assets~1{assetKind}
-  /api/v1/admin/games/{gameId}/content-revisions:
-    $ref: ./domains/catalog.yaml#/paths/~1api~1v1~1admin~1games~1{gameId}~1content-revisions
+  /api/v1/admin/games/{gameId}/content-replacement:
+    $ref: ./domains/catalog.yaml#/paths/~1api~1v1~1admin~1games~1{gameId}~1content-replacement
   /api/v1/admin/games/{gameId}/scrape-candidates:
     $ref: ./domains/catalog.yaml#/paths/~1api~1v1~1admin~1games~1{gameId}~1scrape-candidates
   /api/v1/admin/games/{gameId}/scrape-candidates/{candidateId}/apply:
@@ -416,6 +416,18 @@ components:
       $ref: ./domains/catalog.yaml#/components/schemas/ReplaceGameTagsRequest
     GameTagsResult:
       $ref: ./domains/catalog.yaml#/components/schemas/GameTagsResult
+    GameMutationResult:
+      $ref: ./domains/catalog.yaml#/components/schemas/GameMutationResult
+    AdminGameFile:
+      $ref: ./domains/catalog.yaml#/components/schemas/AdminGameFile
+    AdminGameAsset:
+      $ref: ./domains/catalog.yaml#/components/schemas/AdminGameAsset
+    AdminGameVariant:
+      $ref: ./domains/catalog.yaml#/components/schemas/AdminGameVariant
+    AdminGameDeleteImpact:
+      $ref: ./domains/catalog.yaml#/components/schemas/AdminGameDeleteImpact
+    AdminGameDetail:
+      $ref: ./domains/catalog.yaml#/components/schemas/AdminGameDetail
     FavoriteReference:
       $ref: ./domains/library.yaml#/components/schemas/FavoriteReference
     FavoriteState:
@@ -1006,6 +1018,10 @@ components:
       $ref: ./domains/catalog.yaml#/components/responses/CommonTagsApplyResponse
     GameTagsResponse:
       $ref: ./domains/catalog.yaml#/components/responses/GameTagsResponse
+    GameMutationResponse:
+      $ref: ./domains/catalog.yaml#/components/responses/GameMutationResponse
+    AdminGameDetailResponse:
+      $ref: ./domains/catalog.yaml#/components/responses/AdminGameDetailResponse
     BIOSListResponse:
       $ref: ./domains/catalog.yaml#/components/responses/BIOSListResponse
     ServerImportRootListResponse:

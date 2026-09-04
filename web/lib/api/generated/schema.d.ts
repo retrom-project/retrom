@@ -310,7 +310,7 @@ export interface paths {
             };
             cookie?: never;
         };
-        /** @description Published game detail from an enabled platform directory; coverUrl and videoUrl are nullable logical URLs of the current metadata revision's ordinal-zero COVER and VIDEO assets. No ordinary game list DTO exposes videoUrl; the dedicated immersive platform projection is the only additional user read model. saveStateCount is the total non-deleted save count, and saveStates contains at most the eight newest owner-filtered entries with nullable discIndex/discLabel. */
+        /** @description Published game detail from an enabled platform directory; coverUrl and videoUrl are nullable logical URLs of the current game's ordinal-zero COVER and VIDEO assets. No ordinary game list DTO exposes videoUrl; the dedicated immersive platform projection is the only additional user read model. saveStateCount is the total non-deleted save count, and saveStates contains at most the eight newest owner-filtered entries with nullable discIndex/discLabel. */
         get: operations["getGame"];
         put?: never;
         post?: never;
@@ -346,7 +346,7 @@ export interface paths {
             };
             cookie?: never;
         };
-        /** @description Returns one visible platform and its title-ordered immersive game page. Text, COVER and VIDEO are projected only from each game's current metadata revision, and play history is isolated to the authenticated Profile. */
+        /** @description Returns one visible platform and its title-ordered immersive game page. Text, COVER and VIDEO are projected from each game's current state, and play history is isolated to the authenticated Profile. */
         get: operations["getImmersivePlatformGames"];
         put?: never;
         post?: never;
@@ -1307,7 +1307,7 @@ export interface paths {
             };
             cookie?: never;
         };
-        /** @description Returns the review workspace. When a historical validation is stale because the selected Runtime Target changed, targetContractChange identifies the previous and current Target contract digests. */
+        /** @description Returns the review workspace and the latest validation for its current staged source. */
         get: operations["getAdminReview"];
         put?: never;
         post?: never;
@@ -1328,7 +1328,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Freezes the current RPG Maker source, Provider Target contract and runtime-pack binding into a fifteen-minute validation Launch. */
+        /** @description Freezes the current RPG Maker source and selected runtime packs into a fifteen-minute validation Launch using the active Provider Target. */
         post: operations["postAdminReviewRuntimeValidation"];
         delete?: never;
         options?: never;
@@ -1641,7 +1641,7 @@ export interface paths {
             };
             cookie?: never;
         };
-        /** @description Returns the complete management workbench projection and a generatedAtMs timestamp for deterministic relative-time presentation. */
+        /** @description Returns the current management workbench projection and a generatedAtMs timestamp for deterministic relative-time presentation. */
         get: operations["getAdminGame"];
         put?: never;
         post?: never;
@@ -1681,7 +1681,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Creates a complete current media revision, retires all prior GameAsset leaves, and stages newly unreferenced payload for retention-aware GC. */
+        /** @description Replaces the selected current media slot and stages newly unreferenced payload for retention-aware GC. */
         post: operations["postAdminGameAsset"];
         delete?: never;
         options?: never;
@@ -1702,14 +1702,14 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        /** @description Removes the selected media kind by creating a new immutable metadata revision with the remaining complete media set, then retires prior GameAsset leaves. */
+        /** @description Removes the selected media kind from the game's current media set and stages newly unreferenced payload for retention-aware GC. */
         delete: operations["deleteAdminGameAsset"];
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/v1/admin/games/{gameId}/content-revisions": {
+    "/api/v1/admin/games/{gameId}/content-replacement": {
         parameters: {
             query?: never;
             header?: never;
@@ -1720,8 +1720,8 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Schedules a destructive complete content replacement. Byte-identical single-ROM content or the same ordered multi-disc hashes fail terminally with GAME_CONTENT_UNCHANGED. A successful switch retires old content/runtime payload and deletes saves bound to superseded revisions; a failed replacement changes none of them. contentMode defaults strictly to STANDARD; MULTI_DISC requires a complete DIRECTORY upload and never uses review attachment repair. */
-        post: operations["postAdminGameContentRevision"];
+        /** @description Schedules an atomic complete content replacement. Byte-identical single-ROM content or the same ordered multi-disc hashes fail terminally with GAME_CONTENT_UNCHANGED. A successful switch updates current game files and the current variant together while preserving saves; a failed replacement changes neither. contentMode defaults strictly to STANDARD; MULTI_DISC requires a complete DIRECTORY upload and never uses review attachment repair. */
+        post: operations["postAdminGameContentReplacement"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1737,7 +1737,7 @@ export interface paths {
             };
             cookie?: never;
         };
-        /** @description Returns the latest candidate metadata, evidence, hit counts, and candidate media assets for the current content revision. */
+        /** @description Returns the latest candidate metadata, evidence, hit counts, and candidate media assets for the game's current content. */
         get: operations["getAdminGameScrapeCandidates"];
         put?: never;
         post: operations["postAdminGameScrapeCandidates"];
@@ -1809,7 +1809,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description The platform/core catalog. Each core projects netplaySupported from its active Provider Target and current netplay compatibility line; it is a core capability marker, not per-game eligibility. */
+        /** @description The platform/core catalog. Each core projects netplaySupported from its active Provider Target and current netplay profile; it is a core capability marker, not per-game eligibility. */
         get: operations["getAdminPlatforms"];
         put?: never;
         post?: never;
@@ -2410,7 +2410,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Installs a new active BIOS revision. Replacing the active installation releases its payload and invalidates saves and runtime sessions bound to the old BIOS snapshot. */
+        /** @description Installs or replaces the current BIOS payload. Existing saves remain associated with their game and active runtime sessions are closed before the current payload changes. */
         post: operations["postAdminBIOSInstallation"];
         delete?: never;
         options?: never;
@@ -2496,7 +2496,7 @@ export interface paths {
             };
             cookie?: never;
         };
-        /** @description Serves only an asset owned by the published game's current metadata revision; retired asset IDs return 404. */
+        /** @description Serves only an asset owned by the current published game; replaced asset IDs return 404. */
         get: operations["getContentAsset"];
         put?: never;
         post?: never;
@@ -3156,6 +3156,103 @@ export interface components {
             version: number;
             tags: components["schemas"]["TagReference"][];
         };
+        GameMutationResult: {
+            /** Format: uuid */
+            gameId: string;
+            /** Format: int64 */
+            version: number;
+        };
+        AdminGameFile: {
+            role: string;
+            logicalName: string;
+            sortOrder: number;
+            /** Format: int64 */
+            sizeBytes: number;
+            sha256: string;
+        };
+        AdminGameAsset: {
+            /** Format: uuid */
+            assetId: string;
+            kind: string;
+            ordinal: number;
+            widthPx: number | null;
+            heightPx: number | null;
+            mediaType: string;
+            url: string;
+        };
+        AdminGameVariant: {
+            /** Format: uuid */
+            id: string;
+            coreId: string;
+            coreName: string;
+            providerId: string | null;
+            targetId: string | null;
+            datVersionId: string | null;
+            status: string;
+            compatibilityCode: string;
+            dependencySnapshot: {
+                [key: string]: unknown;
+            };
+            /** Format: int64 */
+            version: number;
+            /** Format: int64 */
+            createdAtMs: number;
+            /** Format: int64 */
+            updatedAtMs: number;
+        };
+        AdminGameDeleteImpact: {
+            impactDigest: string;
+            registeredBytes: string;
+            exclusiveBytes: string;
+            sharedBytes: string;
+            blobCount: number;
+            saveStateCount: number;
+            assetCount: number;
+            contentFileCount: number;
+            activeLaunchCount: number;
+            activeNetplayCount: number;
+            reviewEventCount: number;
+            sourceKinds: string[];
+        };
+        AdminGameDetail: {
+            /** Format: uuid */
+            gameId: string;
+            status: string;
+            /** @enum {string} */
+            payloadState: "RETAINED" | "RELEASING" | "RELEASED" | "FAILED";
+            /** Format: uuid */
+            payloadReleaseJobId: string | null;
+            payloadLastErrorCode: string | null;
+            title: string;
+            description: string;
+            developer: string;
+            publisher: string;
+            genre: string;
+            players: number | null;
+            releaseYear: number | null;
+            platformId: string;
+            platformInstance: {
+                /** Format: uuid */
+                id: string;
+                name: string;
+            };
+            contentKind: string;
+            files: components["schemas"]["AdminGameFile"][];
+            /** Format: int64 */
+            version: number;
+            /** Format: int64 */
+            createdAtMs: number;
+            /** Format: int64 */
+            updatedAtMs: number;
+            /** Format: int64 */
+            generatedAtMs: number;
+            /** Format: int64 */
+            deletedAtMs: number | null;
+            deleteImpact: components["schemas"]["AdminGameDeleteImpact"];
+            assets: components["schemas"]["AdminGameAsset"][];
+            variants: components["schemas"]["AdminGameVariant"][];
+            tags: components["schemas"]["TagReference"][];
+        };
         FavoriteReference: {
             /** Format: int64 */
             favoritedAtMs: number;
@@ -3378,7 +3475,7 @@ export interface components {
             coreName: string;
             providerId: string;
             targetId: string;
-            netplayCompatibilityLine: string;
+            bundleSha256: string;
             maxPlayers: number;
         };
         NetplayGameSummary: {
@@ -3536,8 +3633,6 @@ export interface components {
                 providerApiVersion: 1;
                 bundleSha256: string;
                 targetId: string;
-                gameCompatibilityLine: string;
-                targetContractSha256: string;
                 capabilities: {
                     pause: boolean;
                     screenshot: boolean;
@@ -3637,7 +3732,30 @@ export interface components {
                 playerNo: number;
                 socketUrl: string;
                 profile: {
-                    [key: string]: unknown;
+                    bundleSha256: string;
+                    /** @enum {unknown} */
+                    canonicalHistoryFrames: 600;
+                    /** @enum {unknown} */
+                    checkpointEveryFrames: 120;
+                    /** @enum {unknown} */
+                    controlCount: 24;
+                    coreId: string;
+                    dependencySnapshotDigest: string;
+                    maxPlayers: number;
+                    maxPredictionFrames: number;
+                    /** @enum {unknown} */
+                    maxRollbackFrames: 120;
+                    /** @enum {unknown} */
+                    maxStateBytes: 1048576;
+                    platformIds: string[];
+                    profileId: string;
+                    /** @enum {unknown} */
+                    protocolVersion: "retrom-netplay-v2";
+                    providerId: string;
+                    /** @enum {unknown} */
+                    schemaVersion: 2;
+                    sourceManifestDigest: string;
+                    targetId: string;
                 };
             } | null;
         };
@@ -3664,9 +3782,6 @@ export interface components {
             bundleSha256: string;
             targetId: string;
             displayName: string;
-            gameCompatibilityLine: string;
-            netplayCompatibilityLine: string | null;
-            targetContractSha256: string;
             coreId: string;
             coreName: string;
             /** @enum {string} */
@@ -3691,7 +3806,7 @@ export interface components {
         };
         RuntimeAssetPackReferenceCounts: {
             /** Format: int64 */
-            variantRevisionCount: number;
+            gameCount: number;
             /** Format: int64 */
             checkpointCount: number;
         };
@@ -3843,8 +3958,6 @@ export interface components {
             evidenceConfidence: "MATCHED" | "FAMILY_ONLY";
             providerId: string;
             targetId: string;
-            gameCompatibilityLine: string;
-            targetContractSha256: string;
             dependencySnapshotSha256: string;
             projectFingerprint: string;
         };
@@ -3884,8 +3997,6 @@ export interface components {
             importItemId: string;
             /** Format: int64 */
             reviewVersionAtCreate: number;
-            /** Format: int64 */
-            runtimeBindingRevision: number;
             /**
              * Format: uuid
              * @description Null only when validation reached FAILED before its initial Launch was issued.
@@ -4418,7 +4529,6 @@ export interface components {
             coreName: string;
             providerId: string;
             targetId: string;
-            targetContractSha256: string;
             logicalName: string;
             /** @enum {string} */
             requirementMode: "REQUIRED" | "OPTIONAL" | "CONDITIONAL";
@@ -4620,8 +4730,6 @@ export interface components {
             existingMatches: {
                 /** Format: uuid */
                 gameId: string;
-                /** Format: uuid */
-                contentRevisionId: string;
             }[];
             /** Format: int64 */
             updatedAtMs: number;
@@ -4889,8 +4997,6 @@ export interface components {
             existingMatches: {
                 /** Format: uuid */
                 gameId: string;
-                /** Format: uuid */
-                contentRevisionId: string;
             }[];
             /** Format: int64 */
             updatedAtMs: number;
@@ -4915,7 +5021,6 @@ export interface components {
             coreName: string;
             providerId: string;
             targetId: string;
-            targetContractSha256: string;
             logicalName: string;
             /** @enum {string} */
             sourceKind: "STATIC" | "DAT_MACHINE";
@@ -5170,7 +5275,6 @@ export interface components {
             availability?: unknown;
             backgroundCandidateAssetId?: unknown;
             base?: unknown;
-            baseContentRevisionId?: unknown;
             binary?: unknown;
             bios?: unknown;
             biosSetCount?: unknown;
@@ -5214,7 +5318,6 @@ export interface components {
             configuredDependencyVersionCount?: unknown;
             configuredVersion?: unknown;
             contentKind?: unknown;
-            contentRevisionId?: unknown;
             contentIdentityDigest?: unknown;
             core?: unknown;
             coreId?: unknown;
@@ -5227,10 +5330,7 @@ export interface components {
             createdAtMs?: unknown;
             crossOriginIsolated?: unknown;
             csrfToken?: string;
-            currentContentRevisionId?: unknown;
             current?: unknown;
-            currentMetadataRevisionId?: unknown;
-            currentVariantRevisionId?: unknown;
             dat?: unknown;
             datEvidence?: unknown;
             datVersionId?: unknown;
@@ -5354,7 +5454,6 @@ export interface components {
             message?: unknown;
             metadata?: unknown;
             metadataProvider?: unknown;
-            metadataRevisionId?: unknown;
             missingDiscCount?: unknown;
             missingReferences?: unknown;
             mode?: unknown;
@@ -5442,10 +5541,6 @@ export interface components {
             runtimeBaseUrl?: unknown;
             runtimePath?: unknown;
             runtimePathOverrides?: unknown;
-            targetContractChange?: {
-                previous: string;
-                current: string;
-            } | null;
             sample?: unknown;
             saveStateCount?: unknown;
             saveStateId?: unknown;
@@ -5525,7 +5620,6 @@ export interface components {
             uploadSessionId?: unknown;
             validatedRequirementVersion?: unknown;
             validation?: unknown;
-            validationStale?: unknown;
             validationDetails?: unknown;
             validationJobId?: unknown;
             validationStatus?: unknown;
@@ -5848,6 +5942,26 @@ export interface components {
             };
             content: {
                 "application/json": components["schemas"]["GameTagsResult"];
+            };
+        };
+        /** @description Current game state after a successful mutation */
+        GameMutationResponse: {
+            headers: {
+                ETag?: string;
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["GameMutationResult"];
+            };
+        };
+        /** @description Current game management projection */
+        AdminGameDetailResponse: {
+            headers: {
+                ETag?: string;
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["AdminGameDetail"];
             };
         };
         /** @description Cursor-paged BIOS catalog with scope-wide aggregates */
@@ -8531,7 +8645,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            200: components["responses"]["JSONResponse"];
+            200: components["responses"]["AdminGameDetailResponse"];
         };
     };
     deleteAdminGame: {
@@ -8565,7 +8679,7 @@ export interface operations {
         };
         requestBody: components["requestBodies"]["MetadataFields"];
         responses: {
-            200: components["responses"]["JSONResponse"];
+            200: components["responses"]["GameMutationResponse"];
         };
     };
     putAdminGameTags: {
@@ -8626,7 +8740,7 @@ export interface operations {
             };
         };
     };
-    postAdminGameContentRevision: {
+    postAdminGameContentReplacement: {
         parameters: {
             query?: never;
             header: {

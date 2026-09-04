@@ -98,7 +98,7 @@ function createBootstrapResources(): BootstrapResources {return {};}
 
 async function bootstrapPlayer(params: PlayerBootstrapParams, resources: BootstrapResources, abort: AbortController) {
   params.setLoadProgress(null);
-  params.setMessage("正在验证 Provider 启动契约…");
+  params.setMessage("正在验证 Provider 启动信息…");
   const response = await fetch(`/runtime/launches/${params.launchId}/config`, {
     credentials: "same-origin", cache: "no-store", signal: abort.signal,
   });
@@ -161,7 +161,6 @@ function applyEnvelope(params: PlayerBootstrapParams, envelope: LaunchEnvelopeV1
     providerId: envelope.runtime.providerId,
     providerVersion: envelope.runtime.providerVersion,
     targetId: envelope.runtime.targetId,
-    targetContractSha256: envelope.runtime.targetContractSha256,
     crossOriginIsolated: window.crossOriginIsolated,
     sharedArrayBuffer: typeof SharedArrayBuffer !== "undefined",
   });

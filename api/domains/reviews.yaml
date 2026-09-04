@@ -104,7 +104,7 @@ paths:
       - $ref: ../components/common.yaml#/components/parameters/ImportItemID
     get:
       operationId: getAdminReview
-      description: Returns the review workspace. When a historical validation is stale because the selected Runtime Target changed, targetContractChange identifies the previous and current Target contract digests.
+      description: Returns the review workspace and the latest validation for its current staged source.
       responses:
         '200':
           $ref: ../components/common.yaml#/components/responses/JSONResponse
@@ -122,7 +122,7 @@ paths:
       - $ref: ../components/common.yaml#/components/parameters/ImportItemID
     post:
       operationId: postAdminReviewRuntimeValidation
-      description: Freezes the current RPG Maker source, Provider Target contract and runtime-pack binding into a fifteen-minute validation Launch.
+      description: Freezes the current RPG Maker source and selected runtime packs into a fifteen-minute validation Launch using the active Provider Target.
       parameters:
         - $ref: ../components/common.yaml#/components/parameters/IfMatch
         - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey
@@ -340,8 +340,6 @@ components:
         - evidenceConfidence
         - providerId
         - targetId
-        - gameCompatibilityLine
-        - targetContractSha256
         - dependencySnapshotSha256
         - projectFingerprint
       properties:
@@ -365,12 +363,6 @@ components:
         targetId:
           type: string
           pattern: ^[a-z0-9]+(?:-[a-z0-9]+)*$
-        gameCompatibilityLine:
-          type: string
-          pattern: ^[a-z0-9](?:[a-z0-9.-]{0,62}[a-z0-9])?$
-        targetContractSha256:
-          type: string
-          pattern: ^[0-9a-f]{64}$
         dependencySnapshotSha256:
           type: string
           pattern: ^[0-9a-f]{64}$
@@ -483,7 +475,6 @@ components:
         - validationId
         - importItemId
         - reviewVersionAtCreate
-        - runtimeBindingRevision
         - launchId
         - restoreLaunchId
         - state
@@ -504,10 +495,6 @@ components:
           type: string
           format: uuid
         reviewVersionAtCreate:
-          type: integer
-          format: int64
-          minimum: 1
-        runtimeBindingRevision:
           type: integer
           format: int64
           minimum: 1

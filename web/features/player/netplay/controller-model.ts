@@ -4,11 +4,9 @@ export type NetplayProfile = {
   profileId: string;
   providerId: string;
   targetId: string;
-  targetContractSha256: string;
-  netplayCompatibilityLine: string;
+  bundleSha256: string;
   coreId: string;
   platformIds: string[];
-  gameVariantRevisionId: string;
   sourceManifestDigest: string;
   dependencySnapshotDigest: string;
   controlCount: 24;
@@ -32,9 +30,9 @@ const digest = /^[0-9a-f]{64}$/u;
 const identity = /^[a-z0-9]+(?:-[a-z0-9]+)*$/u;
 const profileKeys = [
   "canonicalHistoryFrames", "checkpointEveryFrames", "controlCount", "coreId",
-  "dependencySnapshotDigest", "gameVariantRevisionId", "maxPlayers", "maxPredictionFrames",
-  "maxRollbackFrames", "maxStateBytes", "netplayCompatibilityLine", "platformIds", "profileId",
-  "protocolVersion", "providerId", "schemaVersion", "sourceManifestDigest", "targetContractSha256",
+  "bundleSha256", "dependencySnapshotDigest", "maxPlayers", "maxPredictionFrames",
+  "maxRollbackFrames", "maxStateBytes", "platformIds", "profileId",
+  "protocolVersion", "providerId", "schemaVersion", "sourceManifestDigest",
   "targetId",
 ].sort().join(",");
 
@@ -46,9 +44,7 @@ function validProfileIdentity(value: Record<string, unknown>) {
 
 function validProfileContentIdentity(value: Record<string, unknown>) {
   return typeof value.coreId === "string" && value.coreId.length >= 1 &&
-    typeof value.netplayCompatibilityLine === "string" && value.netplayCompatibilityLine.length >= 1 &&
-    typeof value.gameVariantRevisionId === "string" && value.gameVariantRevisionId.length >= 1 &&
-    [value.targetContractSha256, value.sourceManifestDigest, value.dependencySnapshotDigest]
+    [value.bundleSha256, value.sourceManifestDigest, value.dependencySnapshotDigest]
       .every((entry) => typeof entry === "string" && digest.test(entry));
 }
 

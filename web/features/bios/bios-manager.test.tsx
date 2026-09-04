@@ -5,7 +5,7 @@ import { BIOSManager, type BIOSListResponse, type BIOSRequirement } from "./bios
 
 const item = (id: string, overrides: Partial<BIOSRequirement> = {}): BIOSRequirement => ({
   id, coreId: "mgba", coreName: "mGBA", providerId: "emulatorjs", targetId: "mgba",
-  targetContractSha256: "a".repeat(64), logicalName: `${id}.bin`,
+  logicalName: `${id}.bin`,
   sourceKind: "STATIC", requirementMode: "REQUIRED", conditionCode: null, expectedMd5: null,
   enabled: true, version: 1, status: "MATCHED", activeInstallation: null, ...overrides,
 });

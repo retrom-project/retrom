@@ -71,7 +71,7 @@ export function ReviewPreviewPlayer({previewId}: {previewId: string}) {
       if (!response.ok) {throw new Error("审核预览会话已失效，请回到审核页重新运行");}
       const envelope = parseLaunchEnvelopeJSON(await response.text());
       if (envelope.session.purpose !== "REVIEW_PREVIEW" || envelope.session.mode !== "SINGLE") {
-        throw new Error("审核预览启动契约无效");
+        throw new Error("审核预览启动信息无效");
       }
       const target = targetRef.current;
       if (!target) {throw new Error("无法创建 Provider 挂载点");}

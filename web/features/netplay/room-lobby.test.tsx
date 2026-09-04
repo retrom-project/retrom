@@ -61,8 +61,8 @@ function game(): NetplayGame {
     availability: "SUPPORTED",
     blockerCode: null,
     netplayProfiles: [
-      { id: "fceumm-423-v1", coreId: "fceumm", coreName: "FCEUmm", providerId: "emulatorjs", targetId: "fceumm", netplayCompatibilityLine: "emulatorjs-netplay-v2", maxPlayers: 2 },
-      { id: "fceumm-423-alt", coreId: "fceumm", coreName: "FCEUmm 严格", providerId: "emulatorjs", targetId: "fceumm", netplayCompatibilityLine: "emulatorjs-netplay-v2", maxPlayers: 2 },
+      { id: "fceumm-423-v1", coreId: "fceumm", coreName: "FCEUmm", providerId: "emulatorjs", targetId: "fceumm", bundleSha256: "1".repeat(64), maxPlayers: 2 },
+      { id: "fceumm-423-alt", coreId: "fceumm", coreName: "FCEUmm 严格", providerId: "emulatorjs", targetId: "fceumm", bundleSha256: "1".repeat(64), maxPlayers: 2 },
     ],
   };
 }

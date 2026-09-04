@@ -59,7 +59,7 @@ export function GameContentReplacementDialog({
 
   return <>
     <button className="button secondary" type="button" disabled={disabled} onClick={() => setOpen(true)}>替换游戏文件</button>
-    <ConfirmDialog open={open} wide title="替换游戏内容" description={`只有新内容通过校验才会切换。成功后旧游戏文件、运行快照和 ${saveStateCount} 份存档会永久失效；内容完全相同时不会替换。`} confirmLabel="上传并替换内容" busy={disabled} confirmDisabled={!files.length || preflighting || !multiDiscValid} onCancel={close} onConfirm={() => void submit()}>
+    <ConfirmDialog open={open} wide title="替换游戏内容" description={`只有新内容通过校验才会切换。当前 ${saveStateCount} 份存档会继续保留；内容完全相同时不会替换。`} confirmLabel="上传并替换内容" busy={disabled} confirmDisabled={!files.length || preflighting || !multiDiscValid} onCancel={close} onConfirm={() => void submit()}>
       <ReplacementDialogContents {...{
         disabled, files, mode, multiDiscLimits, preflight, preflighting, setFiles, setMode, setPreflight, totalBytes,
       }} />

@@ -6,9 +6,9 @@ import {testNetplayPort} from "./netplay-port.test-helper";
 
 const profile: NetplayProfile = {
   schemaVersion: 2, protocolVersion: "retrom-netplay-v2", profileId: "snes9x-v1",
-  providerId: "emulatorjs", targetId: "snes9x", targetContractSha256: "1".repeat(64),
-  netplayCompatibilityLine: "emulatorjs-netplay-v1", coreId: "snes9x", platformIds: ["snes"],
-  gameVariantRevisionId: "revision", sourceManifestDigest: "2".repeat(64), dependencySnapshotDigest: "3".repeat(64),
+  providerId: "emulatorjs", targetId: "snes9x", bundleSha256: "1".repeat(64),
+ coreId: "snes9x", platformIds: ["snes"],
+  sourceManifestDigest: "2".repeat(64), dependencySnapshotDigest: "3".repeat(64),
   controlCount: 24, maxPlayers: 2, maxPredictionFrames: 0,
   maxRollbackFrames: 120, checkpointEveryFrames: 120, canonicalHistoryFrames: 600, maxStateBytes: 1_048_576,
 };
