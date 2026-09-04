@@ -1,6 +1,8 @@
 import hashlib
 import io
 import json
+import subprocess
+import sys
 import tarfile
 import tempfile
 import unittest
@@ -21,6 +23,17 @@ from runtime_providers import (
 
 
 class RuntimeProviderInstallerTest(unittest.TestCase):
+    def test_bundle_module_is_importable_by_the_pfb_package_entrypoint(self):
+        root = Path(__file__).resolve().parent.parent
+        result = subprocess.run(
+            [sys.executable, "-c", "import scripts.runtime_provider_bundle"],
+            cwd=root,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+
     def test_installs_a_closed_verified_bundle_by_content_digest(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
