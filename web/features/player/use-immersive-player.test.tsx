@@ -46,6 +46,37 @@ afterEach(() => {
 });
 
 describe("useImmersivePlayer save menu", () => {
+  it("ignores a transient missing gamepad sample before showing reconnect", async () => {
+    vi.useFakeTimers();
+    let gamepads: Gamepad[] = [gamepad()];
+    const previous = Object.getOwnPropertyDescriptor(window.navigator, "getGamepads");
+    Object.defineProperty(window.navigator, "getGamepads", {
+      configurable: true,
+      value: () => gamepads,
+    });
+    setActiveImmersiveGamepadIndex(0);
+
+    try {
+      const { result, unmount } = renderImmersivePlayer(vi.fn(async () => true));
+      await act(() => vi.advanceTimersByTimeAsync(20));
+      gamepads = [];
+      await act(() => vi.advanceTimersByTimeAsync(200));
+      expect(result.current.overlay).toEqual({ kind: "closed" });
+      gamepads = [gamepad()];
+      await act(() => vi.advanceTimersByTimeAsync(20));
+      expect(result.current.overlay).toEqual({ kind: "closed" });
+
+      gamepads = [];
+      await act(() => vi.advanceTimersByTimeAsync(300));
+      expect(result.current.overlay).toMatchObject({ kind: "reconnect" });
+      unmount();
+    } finally {
+      vi.useRealTimers();
+      if (previous) {Object.defineProperty(window.navigator, "getGamepads", previous);}
+      else {Reflect.deleteProperty(window.navigator, "getGamepads");}
+    }
+  });
+
   it("samples gamepad input even when the top document has no animation frames", () => {
     vi.useFakeTimers();
     let gamepads: Gamepad[] = [gamepad()];
