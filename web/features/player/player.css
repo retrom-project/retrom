@@ -66,6 +66,7 @@
 .player-disc-menu button[aria-checked="true"] { background: #2a3350; color: #dcd7ff; }
 .player-disc-menu button:disabled { cursor: wait; opacity: .65; }
 .player-stage { position: absolute; inset: 0; min-width: 0; min-height: 0; display: grid; place-items: center; overflow: hidden; background: #000; }
+.player-runtime-mount { grid-area: 1 / 1; width: 100%; height: 100%; min-width: 0; min-height: 0; overflow: hidden; }
 .player-frame { grid-area: 1 / 1; width: 100%; height: 100%; border: 0; background: #000; }
 .player-pause-overlay { position: absolute; z-index: 14; inset: 0; padding: 0; display: grid; place-items: center; color: inherit; border: 0; background: rgb(0 0 0 / 22%); opacity: 0; pointer-events: none; transition: opacity 150ms ease; }
 .player-pause-overlay.is-visible { opacity: 1; pointer-events: auto; cursor: pointer; }
