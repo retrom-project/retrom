@@ -18,7 +18,7 @@ const review: ReviewWorkspace = {
   itemId: "item-1", version: 1,
   platformInstance: { id: "platform-1", name: "GBA 游戏" },
   metadata: { title: "Manual", description: "", developer: "", publisher: "", genre: "", players: null, releaseYear: null },
-  validation: { id: "validation-1", status: "READY", current: true, compatibilityCode: "READY" },
+  validation: { id: "validation-1", status: "READY", compatibilityCode: "READY" },
   candidates: [], uploadedAssets: [], scrapeRuns: [], selectedCandidateId: null,
   selectedAssets: { coverCandidateAssetId: null, coverUploadedAssetId: null, backgroundCandidateAssetId: null, screenshotCandidateAssetIds: [] },
   defaultDosEntry: null, dosEntries: [],
@@ -68,16 +68,16 @@ describe("ReviewActions metadata", () => {
     expect(screen.getByRole("button", { name: "通过并发布" })).toBeEnabled();
   });
 
-  it("uses the RPG validation workflow and preserves runtime binding fields in autosave", async () => {
+  it("uses the RPG validation workflow and preserves runtime pack selections in autosave", async () => {
     const rpgReview: ReviewWorkspace = {
       ...review,
       canApprove: false,
       platformInstance: { id: "rpg-directory", name: "RPG Maker MV" },
-      validation: { id: "static-validation", status: "BLOCKED", current: true, compatibilityCode: "RPG_RUNTIME_VALIDATION_REQUIRED" },
+      validation: { id: "static-validation", status: "BLOCKED", compatibilityCode: "RPG_RUNTIME_VALIDATION_REQUIRED" },
       rpgMaker: {
         selectedCoreId: "rpgmaker_mv", generation: "RPGMV", evidenceGeneration: "RPGMV",
         evidenceConfidence: "MATCHED", selfContained: true, selfContainedOverride: false,
-        runtimeBindingRevision: 1, runtimePackRequirements: [], runtimePackSelections: [], runtimeValidation: null, runtimeValidationCurrent: false,
+        runtimePackRequirements: [], runtimePackSelections: [], runtimeValidation: null,
       },
     };
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ version: 2 }));
@@ -263,57 +263,13 @@ describe("ReviewActions metadata continuation", () => {
     }, { timeout: 2_000 });
   });
 
-  it("refreshes a stale ready validation before enabling publish", async () => {
-    const refreshed = { ...review, version: 2, canApprove: true, validationStale: false, validation: { ...review.validation!, current: true } };
-    const fetchMock = vi.fn((_input: RequestInfo | URL, init?: RequestInit) => Promise.resolve(jsonResponse(init?.method === "PATCH" ? { version: 2 } : refreshed)));
-    vi.stubGlobal("fetch", fetchMock);
-    render(<ReviewActions review={{ ...review, canApprove: false, validationStale: true, validation: { ...review.validation!, current: false } }} />);
+  it("does not expose runtime deployment contract or recheck state", () => {
+    render(<ReviewActions review={review} />);
 
-    expect(screen.getByRole("button", { name: "通过并发布" })).toBeDisabled();
-    expect(screen.getByText("Runtime 待重检")).toBeInTheDocument();
-    expect(screen.getByText("Runtime 已更新，请先重新运行检查。")).toBeVisible();
-    expect(screen.getByRole("button", { name: "运行游戏" })).toBeDisabled();
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
-      expect.stringMatching(/reviews\/item-1$/),
-      expect.objectContaining({ method: "PATCH", body: expect.stringContaining('"title":"Manual"') }),
-    ));
-    await waitFor(() => expect(screen.getByRole("button", { name: "通过并发布" })).toBeEnabled());
+    expect(screen.queryByText(/Runtime Target/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Runtime 待重检/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "重新运行检查" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "运行游戏" })).toBeEnabled();
-    expect(fetchMock).toHaveBeenCalledWith("/api/v1/admin/reviews/item-1", { cache: "no-store" });
-  });
-
-  it("reruns blocked validation without opening a game preview", async () => {
-    const refreshed = {
-      ...review,
-      version: 2,
-      canApprove: true,
-      validationStale: false,
-      validation: { ...review.validation!, id: "validation-2", status: "READY", current: true, compatibilityCode: "READY" },
-    };
-    const popup = { closed: false, close: vi.fn(), location: { replace: vi.fn() }, document: { title: "", body: { style: { cssText: "" }, textContent: "" } } } as unknown as Window;
-    const open = vi.spyOn(window, "open").mockReturnValue(popup);
-    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
-      const url = String(input);
-      if (url.endsWith("/previews")) {return Promise.resolve(jsonResponse({ previewId: "preview-1", playUrl: "/admin/review-previews/preview-1", captureAllowed: true, captureAfterMs: 5000 }, 201));}
-      return Promise.resolve(jsonResponse(init?.method === "PATCH" ? { version: 2 } : refreshed));
-    });
-    vi.stubGlobal("fetch", fetchMock);
-    const user = userEvent.setup();
-    render(<ReviewActions review={{ ...review, validationStale: true, targetContractChange: { previous: "a".repeat(64), current: "b".repeat(64) }, validation: { ...review.validation!, status: "BLOCKED", current: false, compatibilityCode: "LAUNCH_BIOS_MISSING" } }} />);
-
-    expect(screen.getByRole("button", { name: "通过并发布" })).toBeDisabled();
-    expect(screen.getByText("Runtime Target 契约 aaaaaaaa → bbbbbbbb，请重新检查。")).toBeVisible();
-    expect(screen.getByText("Runtime 待重检")).toBeVisible();
-    expect(screen.getByRole("button", { name: "运行游戏" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "运行游戏" })).toHaveAttribute("aria-describedby", "review-runtime-refresh-required");
-    expect(screen.getByRole("button", { name: "运行游戏" })).toHaveAttribute("title", "Runtime Target 契约 aaaaaaaa → bbbbbbbb，请重新检查。");
-    await user.click(screen.getByRole("button", { name: "重新运行检查" }));
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(expect.stringMatching(/reviews\/item-1$/), expect.objectContaining({ method: "PATCH" })));
-    await waitFor(() => expect(screen.getByRole("button", { name: "通过并发布" })).toBeEnabled());
-    expect(fetchMock).toHaveBeenCalledWith("/api/v1/admin/reviews/item-1", { cache: "no-store" });
-    expect(open).not.toHaveBeenCalled();
-    expect(fetchMock.mock.calls.some(([input]) => String(input).endsWith("/previews"))).toBe(false);
-    expect(router.refresh).toHaveBeenCalled();
   });
 
   it("opens a best-effort game preview without requiring publish-ready validation", async () => {
@@ -324,7 +280,7 @@ describe("ReviewActions metadata continuation", () => {
       ...review,
       metadata: { ...review.metadata, description: "界".repeat(12_167) },
       canApprove: false,
-      validation: { ...review.validation!, status: "BLOCKED", current: true, compatibilityCode: "LAUNCH_PARENT_MISSING" },
+      validation: { ...review.validation!, status: "BLOCKED", compatibilityCode: "LAUNCH_PARENT_MISSING" },
     };
     const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
@@ -346,7 +302,7 @@ describe("ReviewActions metadata continuation", () => {
 
   it("shows the current five-second runtime screenshot", () => {
     render(<ReviewActions review={{ ...review, runtimeScreenshot: {
-      screenshotId: "shot-1", validationId: "validation-1", providerId: "emulatorjs", targetId: "mgba", targetContractSha256: "a".repeat(64),
+      screenshotId: "shot-1", validationId: "validation-1", providerId: "emulatorjs", targetId: "mgba",
       widthPx: 640, heightPx: 480, capturedAfterMs: 5000, capturedAtMs: 123,
       url: "/api/v1/admin/review-assets/shot-1",
     } }} />);
@@ -362,9 +318,9 @@ describe("ReviewActions validation", () => {
     render(<ReviewActions review={{
       ...review,
       canApprove: true,
-      validation: { ...review.validation!, status: "BLOCKED", current: true, compatibilityCode: "LAUNCH_PARENT_MISSING" },
+      validation: { ...review.validation!, status: "BLOCKED", compatibilityCode: "LAUNCH_PARENT_MISSING" },
       runtimeScreenshot: {
-        screenshotId: "shot-blocked", validationId: "validation-1", providerId: "emulatorjs", targetId: "mgba", targetContractSha256: "a".repeat(64),
+        screenshotId: "shot-blocked", validationId: "validation-1", providerId: "emulatorjs", targetId: "mgba",
         widthPx: 640, heightPx: 480, capturedAfterMs: 5000, capturedAtMs: 123,
         url: "/api/v1/admin/review-assets/shot-blocked",
       },
@@ -380,7 +336,7 @@ describe("ReviewActions validation", () => {
       ...review,
       version: 7,
       effectiveSourceSnapshotId: "snapshot-1",
-      validation: { id: "validation-1", status: "BLOCKED", current: true, compatibilityCode: "LAUNCH_PARENT_MISSING" },
+      validation: { id: "validation-1", status: "BLOCKED", compatibilityCode: "LAUNCH_PARENT_MISSING" },
       arcadeDependencies: {
         machine: "a", status: "BLOCKED", compatibilityCode: "LAUNCH_PARENT_MISSING", activeAttachment: null,
         nodes: [{ kind: "PARENT", machine: "b", requiredBy: "a", depth: 1, expectedLogicalName: "b.zip", state: "MISSING", requiredEntryCount: 1, canAttach: true, attachment: null }],
@@ -390,7 +346,7 @@ describe("ReviewActions validation", () => {
       ...parentReview,
       version: 9,
       effectiveSourceSnapshotId: "snapshot-2",
-      validation: { id: "validation-2", status: "READY", current: true, compatibilityCode: "READY" },
+      validation: { id: "validation-2", status: "READY", compatibilityCode: "READY" },
       arcadeDependencies: { machine: "a", status: "READY", compatibilityCode: "READY", activeAttachment: null, nodes: [{ ...parentReview.arcadeDependencies!.nodes[0], state: "SATISFIED_EXTERNAL", canAttach: false, attachment: null }] },
     };
     upload.uploadOne.mockResolvedValue({ uploadId: "upload-1", uploadFileId: "upload-file-1" });
@@ -424,7 +380,7 @@ describe("ReviewActions validation", () => {
     const blocked: ReviewWorkspace = {
       ...review,
       version: 4,
-      validation: { id: "validation-multi-1", status: "BLOCKED", current: true, compatibilityCode: "LAUNCH_MULTI_DISC_INCOMPLETE" },
+      validation: { id: "validation-multi-1", status: "BLOCKED", compatibilityCode: "LAUNCH_MULTI_DISC_INCOMPLETE" },
       multiDisc: {
         contentKind: "MULTI_DISC",
         playlist: { name: "game.m3u", sizeBytes: 18, sha256: "a".repeat(64) },
@@ -440,7 +396,7 @@ describe("ReviewActions validation", () => {
     const refreshed: ReviewWorkspace = {
       ...blocked,
       version: 5,
-      validation: { id: "validation-multi-2", status: "READY", current: true, compatibilityCode: "READY" },
+      validation: { id: "validation-multi-2", status: "READY", compatibilityCode: "READY" },
       multiDisc: {
         ...blocked.multiDisc!, presentDiscCount: 2, missingDiscCount: 0, missingReferences: [], canAttachMissingDiscs: false,
         entries: blocked.multiDisc!.entries.map((entry) => entry.discIndex === 1 ? { ...entry, state: "PRESENT", logicalName: "two.chd", sizeBytes: 4, sha256: "c".repeat(64) } : entry),
@@ -482,7 +438,7 @@ describe("ReviewActions validation", () => {
   it("keeps the exact-set drawer selection after a review version conflict", async () => {
     const blocked: ReviewWorkspace = {
       ...review, version: 4, canApprove: false,
-      validation: { id: "validation-multi-1", status: "BLOCKED", current: true, compatibilityCode: "LAUNCH_MULTI_DISC_INCOMPLETE" },
+      validation: { id: "validation-multi-1", status: "BLOCKED", compatibilityCode: "LAUNCH_MULTI_DISC_INCOMPLETE" },
       multiDisc: {
         contentKind: "MULTI_DISC", playlist: { name: "game.m3u", sizeBytes: 18, sha256: "a".repeat(64) },
         discCount: 2, presentDiscCount: 1, missingDiscCount: 1, totalPresentBytes: 4, maxDiscs: 8, maxTotalBytes: 1024,
@@ -518,7 +474,7 @@ describe("ReviewActions validation", () => {
     const failedAttachment = { attachmentId: "attachment-retry", state: "FAILED_RETRYABLE", errorCode: "REVIEW_MULTI_DISC_VALIDATION_UNAVAILABLE", jobId: "job-retry", jobState: "FAILED", version: 2, jobVersion: 3, canRetry: true };
     const blocked: ReviewWorkspace = {
       ...review, version: 6, canApprove: false,
-      validation: { id: "validation-multi-1", status: "BLOCKED", current: true, compatibilityCode: "LAUNCH_MULTI_DISC_INCOMPLETE" },
+      validation: { id: "validation-multi-1", status: "BLOCKED", compatibilityCode: "LAUNCH_MULTI_DISC_INCOMPLETE" },
       multiDisc: {
         contentKind: "MULTI_DISC", playlist: { name: "game.m3u", sizeBytes: 18, sha256: "a".repeat(64) },
         discCount: 2, presentDiscCount: 1, missingDiscCount: 1, totalPresentBytes: 4, maxDiscs: 8, maxTotalBytes: 1024,
@@ -531,7 +487,7 @@ describe("ReviewActions validation", () => {
     };
     const refreshed: ReviewWorkspace = {
       ...blocked, version: 7, canApprove: true,
-      validation: { id: "validation-multi-2", status: "READY", current: true, compatibilityCode: "READY" },
+      validation: { id: "validation-multi-2", status: "READY", compatibilityCode: "READY" },
       multiDisc: {
         ...blocked.multiDisc!, presentDiscCount: 2, missingDiscCount: 0, missingReferences: [], latestAttachment: { ...failedAttachment, state: "ACCEPTED", errorCode: null, jobState: "SUCCEEDED", canRetry: false },
         entries: blocked.multiDisc!.entries.map((entry) => entry.discIndex === 1 ? { ...entry, state: "PRESENT", logicalName: "two.chd", sizeBytes: 4, sha256: "c".repeat(64) } : entry),
@@ -572,61 +528,12 @@ describe("ReviewActions validation", () => {
 
 describe("ReviewActions decisions", () => {
 
-  it("retries publish with the current review version after a Parent attachment advances only validation state", async () => {
-    const staleParentReview: ReviewWorkspace = {
-      ...review,
-      version: 7,
-      canApprove: true,
-      effectiveSourceSnapshotId: "snapshot-before-parent",
-      arcadeDependencies: {
-        machine: "a", status: "READY", compatibilityCode: "READY", activeAttachment: null,
-        nodes: [{ kind: "PARENT", machine: "b", requiredBy: "a", depth: 1, expectedLogicalName: "b.zip", state: "SATISFIED_EXTERNAL", requiredEntryCount: 1, canAttach: false, attachment: null }],
-      },
-    };
-    const currentParentReview: ReviewWorkspace = {
-      ...staleParentReview,
-      version: 9,
-      effectiveSourceSnapshotId: "snapshot-after-parent",
-      validation: { id: "validation-after-parent", status: "READY", current: true, compatibilityCode: "READY" },
-    };
-    let approveCount = 0;
-    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+  it("treats an optimistic review conflict as terminal without hidden retries", async () => {
+    const fetchMock = vi.fn((input: RequestInfo | URL) => {
       const url = String(input);
       if (url.endsWith("/approve")) {
-        approveCount += 1;
-        return Promise.resolve(approveCount === 1
-          ? jsonResponse({ error: { code: "REVIEW_VALIDATION_STALE", message: "审核输入或验证结果已经变化" } }, 409)
-          : jsonResponse({ gameId: "game-after-parent" }, 201));
+        return Promise.resolve(jsonResponse({ error: { code: "REVIEW_VERSION_CONFLICT", message: "审核条目已在其他位置发生变化" } }, 409));
       }
-      if (url.endsWith("/reviews/item-1") && !init?.method) {return Promise.resolve(jsonResponse(currentParentReview));}
-      throw new Error(`unexpected fetch ${url}`);
-    });
-    vi.stubGlobal("fetch", fetchMock);
-    const user = userEvent.setup();
-    render(<ReviewActions review={staleParentReview} returnTo="/admin/reviews" />);
-
-    await user.click(screen.getByRole("button", { name: "通过并发布" }));
-
-    await waitFor(() => expect(router.replace).toHaveBeenCalledWith("/admin/reviews"));
-    const approveRequests = fetchMock.mock.calls.filter(([url]) => String(url).endsWith("/approve"));
-    expect(approveRequests).toHaveLength(2);
-    expect(approveRequests[0]?.[1]?.headers).toMatchObject({ "If-Match": '"v7"' });
-    expect(approveRequests[1]?.[1]?.headers).toMatchObject({ "If-Match": '"v9"' });
-    expect(fetchMock).toHaveBeenCalledWith("/api/v1/admin/reviews/item-1", { cache: "no-store" });
-  });
-
-  it("does not retry a stale publish when another editor changed publish fields", async () => {
-    const changedElsewhere: ReviewWorkspace = {
-      ...review,
-      version: 2,
-      metadata: { ...review.metadata, title: "Changed elsewhere" },
-    };
-    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
-      const url = String(input);
-      if (url.endsWith("/approve")) {
-        return Promise.resolve(jsonResponse({ error: { code: "REVIEW_VALIDATION_STALE", message: "审核输入或验证结果已经变化" } }, 409));
-      }
-      if (url.endsWith("/reviews/item-1") && !init?.method) {return Promise.resolve(jsonResponse(changedElsewhere));}
       throw new Error(`unexpected fetch ${url}`);
     });
     vi.stubGlobal("fetch", fetchMock);
@@ -635,8 +542,9 @@ describe("ReviewActions decisions", () => {
 
     await user.click(screen.getByRole("button", { name: "通过并发布" }));
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("审核发布信息已在其他位置发生变化，请刷新页面核对后重试");
+    expect(await screen.findByRole("alert")).toHaveTextContent("审核条目已在其他位置发生变化");
     expect(fetchMock.mock.calls.filter(([url]) => String(url).endsWith("/approve"))).toHaveLength(1);
+    expect(fetchMock.mock.calls.some(([url]) => String(url).endsWith("/reviews/item-1"))).toBe(false);
     expect(router.replace).not.toHaveBeenCalled();
   });
 

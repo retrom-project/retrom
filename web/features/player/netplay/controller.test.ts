@@ -44,9 +44,8 @@ const launch: NetplayLaunchConfig = {
   runtimeSocketUrl: "/runtime/netplay/rooms/01980000-0000-7000-8000-000000000001/socket",
   netplayProfile: {
     schemaVersion: 2, protocolVersion: "retrom-netplay-v2", profileId: "fceumm-v1", platformIds: ["nes"],
-    providerId: "emulatorjs", targetId: "fceumm", targetContractSha256: "1".repeat(64),
-    netplayCompatibilityLine: "emulatorjs-netplay-v1", coreId: "fceumm",
-    gameVariantRevisionId: "01980000-0000-7000-8000-000000000004",
+    providerId: "emulatorjs", targetId: "fceumm", bundleSha256: "1".repeat(64),
+ coreId: "fceumm",
     sourceManifestDigest: "2".repeat(64), dependencySnapshotDigest: "3".repeat(64),
     controlCount: 24, maxPlayers: 2, maxPredictionFrames: 8, maxRollbackFrames: 120,
     checkpointEveryFrames: 120, canonicalHistoryFrames: 600, maxStateBytes: 1_048_576,
@@ -82,7 +81,10 @@ describe("NetplayController reconnect lease", () => {
     expect(FakeSocket.instances).toHaveLength(1);
     const first = FakeSocket.instances[0]!;
     expect(JSON.parse(first.sent[0] as string)).toMatchObject({ type: "HELLO", seq: 0, lastCanonicalFrame: -1, lastServerSeq: 0 });
-    expect(JSON.parse(first.sent[1] as string)).toMatchObject({ type: "RUNTIME_READY", seq: 1 });
+    expect(JSON.parse(first.sent[1] as string)).toMatchObject({
+      type: "RUNTIME_READY", seq: 1, providerId: "emulatorjs", targetId: "fceumm",
+      bundleSha256: "1".repeat(64),
+    });
     first.message(JSON.stringify({ v: 1, type: "START_EPOCH", sessionId: launch.sessionId, epoch: 0, seq: 1, nextFrame: 0, occupiedSeatMask: 3 }));
     await Promise.resolve(); await Promise.resolve();
     expect(onRunning).toHaveBeenCalledOnce();

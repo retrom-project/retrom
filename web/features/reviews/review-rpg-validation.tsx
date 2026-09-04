@@ -30,9 +30,7 @@ export function useRPGReviewValidation(params: RPGValidationParams) {
   const replaceValidation = useCallback((next: RPGRuntimeValidation) => {
     setRPGMaker((current) => current ? {
       ...current,
-      runtimeBindingRevision: next.runtimeBindingRevision,
       runtimeValidation: next,
-      runtimeValidationCurrent: true,
     } : current);
   }, [setRPGMaker]);
 
@@ -137,9 +135,9 @@ export function useRPGReviewValidation(params: RPGValidationParams) {
     create,
     restore,
     decide,
-    canCreate: !validation || !rpgMaker?.runtimeValidationCurrent || ["PASSED", "FAILED", "EXPIRED"].includes(validation.state),
-    canRestore: rpgMaker?.runtimeValidationCurrent === true && validation?.state === "CHECKPOINTED" && validation.checkpointRoundTrip.originalLaunchEnded,
-    canDecide: rpgMaker?.runtimeValidationCurrent === true && validation?.state === "AWAITING_DECISION",
+    canCreate: !validation || ["PASSED", "FAILED", "EXPIRED"].includes(validation.state),
+    canRestore: validation?.state === "CHECKPOINTED" && validation.checkpointRoundTrip.originalLaunchEnded,
+    canDecide: validation?.state === "AWAITING_DECISION",
   };
 }
 
@@ -277,7 +275,6 @@ function RPGValidationFacts({ value }: { value: RPGMakerReview }) {
     <div><span>所选版本</span><strong>{coreLabel(value.selectedCoreId)}</strong></div>
     <div><span>内容校验</span><strong>{value.evidenceConfidence === "MATCHED" ? "版本精确匹配" : "2000/2003 家族匹配"}</strong></div>
     <div><span>运行包</span><strong>{packLabel}</strong></div>
-    <div><span>绑定版本</span><strong>Revision {value.runtimeBindingRevision}</strong></div>
   </div>;
 }
 

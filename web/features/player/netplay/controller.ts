@@ -189,7 +189,7 @@ export class NetplayController {
       this.send("RUNTIME_READY", {
         providerId: this.config.netplayProfile.providerId,
         targetId: this.config.netplayProfile.targetId,
-        targetContractSha256: this.config.netplayProfile.targetContractSha256,
+        bundleSha256: this.config.netplayProfile.bundleSha256,
       });
     }
   }

@@ -15,7 +15,7 @@ const referenced: RuntimeAssetPackList["installations"][number] = {
   installationId: "01980000-0000-7000-8000-000000000010", definitionId: definition.definitionId,
   filesDigest: "a".repeat(64), fileCount: 2, totalBytes: 4096, bundleSha256: "b".repeat(64),
   status: "READY", diagnostics: [], sourceNote: "licensed media", version: 2, createdAtMs: 1,
-  validatedAtMs: 2, deletedAtMs: null, references: { variantRevisionCount: 1, checkpointCount: 1 },
+  validatedAtMs: 2, deletedAtMs: null, references: { gameCount: 1, checkpointCount: 1 },
 };
 
 const emptyBIOS: BIOSListResponse = {
@@ -28,8 +28,7 @@ const emptyBIOS: BIOSListResponse = {
 const runtimeTargets: RuntimeTargetList = {items: [{
   providerId: "retrom-runtime", providerVersion: "0.12.0", providerApiVersion: 1,
   bundleSha256: "a".repeat(64), targetId: "rpgmaker-2000", displayName: "RPG Maker 2000",
-  gameCompatibilityLine: "rpgmaker-2000-v1", netplayCompatibilityLine: null,
-  targetContractSha256: "b".repeat(64), coreId: "rpgmaker", coreName: "RPG Maker",
+  coreId: "rpgmaker", coreName: "RPG Maker",
   launchPolicy: "SUPPORTED",
 }], nextCursor: null };
 
@@ -41,7 +40,7 @@ describe("RuntimeAssetPackManager", () => {
     render(<RuntimeAssetPackManager initialList={{ definitions: [definition], installations: [referenced] }} initialRuntimeTargets={runtimeTargets} />);
     expect(screen.getByText("RPG Maker 2000 RTP")).toBeVisible();
     expect(screen.getByText("retrom-runtime/rpgmaker-2000")).toBeVisible();
-    expect(screen.getByText("1 个游戏版本 · 1 个存档")).toBeVisible();
+    expect(screen.getByText("1 款游戏 · 1 个存档")).toBeVisible();
     expect(screen.getByRole("button", { name: "删除" })).toBeDisabled();
   });
 

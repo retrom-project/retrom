@@ -23,9 +23,8 @@ const launch: NetplayLaunchConfig = {
   runtimeSocketUrl: "/runtime/netplay/rooms/01980000-0000-7000-8000-000000000001/socket",
   netplayProfile: {
     schemaVersion: 2, protocolVersion: "retrom-netplay-v2", profileId: "fceumm-v1",
-    providerId: "emulatorjs", targetId: "fceumm", targetContractSha256: "1".repeat(64),
-    netplayCompatibilityLine: "emulatorjs-netplay-v1", coreId: "fceumm", platformIds: ["nes"],
-    gameVariantRevisionId: "01980000-0000-7000-8000-000000000004",
+    providerId: "emulatorjs", targetId: "fceumm", bundleSha256: "1".repeat(64),
+ coreId: "fceumm", platformIds: ["nes"],
     sourceManifestDigest: "2".repeat(64), dependencySnapshotDigest: "3".repeat(64),
     controlCount: 24, maxPlayers: 2, maxPredictionFrames: 8, maxRollbackFrames: 120,
     checkpointEveryFrames: 120, canonicalHistoryFrames: 600, maxStateBytes: 1_048_576,

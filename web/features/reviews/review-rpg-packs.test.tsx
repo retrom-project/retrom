@@ -7,9 +7,8 @@ import { RPGPackControls } from "./review-rpg-packs";
 const review: RPGMakerReview = {
   selectedCoreId: "rpgmaker_xp", generation: "RPGXP", evidenceGeneration: "RPGXP",
   evidenceConfidence: "MATCHED", selfContained: false, selfContainedOverride: false,
-  runtimeBindingRevision: 1,
   runtimePackRequirements: [{ slot: 1, declaredName: "Standard", normalizedDeclaredName: "standard" }],
-  runtimePackSelections: [], runtimeValidation: null, runtimeValidationCurrent: false,
+  runtimePackSelections: [], runtimeValidation: null,
 };
 
 afterEach(() => {cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals();});
@@ -19,7 +18,7 @@ describe("RPGPackControls", () => {
     const installationId = "01980000-0000-7000-8000-000000000020";
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({
       definitions: [{ definitionId: "rgss1_standard", kind: "RGSS1_RTP_STANDARD", generation: "RPGXP", declaredName: "Standard", normalizedDeclaredName: "standard", displayName: "RPG Maker XP RTP", requiredLayoutVersion: "mkxpz-v1", origin: "BUILTIN", enabled: true }],
-      installations: [{ installationId, definitionId: "rgss1_standard", filesDigest: "a".repeat(64), fileCount: 100, totalBytes: 1024, bundleSha256: "b".repeat(64), status: "READY", diagnostics: [], sourceNote: null, references: { variantRevisionCount: 0, checkpointCount: 0 }, version: 1, createdAtMs: 1, validatedAtMs: 2, deletedAtMs: null }],
+      installations: [{ installationId, definitionId: "rgss1_standard", filesDigest: "a".repeat(64), fileCount: 100, totalBytes: 1024, bundleSha256: "b".repeat(64), status: "READY", diagnostics: [], sourceNote: null, references: { gameCount: 0, checkpointCount: 0 }, version: 1, createdAtMs: 1, validatedAtMs: 2, deletedAtMs: null }],
     }), { status: 200, headers: { "Content-Type": "application/json" } })));
     const onChange = vi.fn();
     const user = userEvent.setup();
@@ -27,8 +26,8 @@ describe("RPGPackControls", () => {
     const select = await screen.findByRole("combobox", { name: /Slot 1 · Standard/ });
     await user.selectOptions(select, installationId);
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({
-      runtimeValidationCurrent: false,
       runtimePackSelections: [{ slot: 1, declaredName: "Standard", installationId }],
+      runtimeValidation: null,
     }));
   });
 

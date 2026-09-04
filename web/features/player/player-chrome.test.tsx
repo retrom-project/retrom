@@ -33,7 +33,6 @@ function props(overrides: Partial<Parameters<typeof PlayerChrome>[0]> = {}): Par
     debugMetrics: null,
     debugRuntime: {
       providerId: "emulatorjs", providerVersion: "1.0.0", targetId: "fbneo",
-      targetContractSha256: "a".repeat(64),
       crossOriginIsolated: true, sharedArrayBuffer: true,
     },
     runtimeState: "running",
@@ -232,7 +231,6 @@ describe("PlayerChrome", () => {
       debugOpen: true,
       debugRuntime: {
         providerId: "retrom-runtime", providerVersion: "0.12.0", targetId: "rpgmaker-xp",
-        targetContractSha256: "b".repeat(64),
         crossOriginIsolated: true,
         sharedArrayBuffer: true,
       },
@@ -253,7 +251,6 @@ describe("PlayerChrome", () => {
       debugOpen: true,
       debugRuntime: {
         providerId: "retrom-runtime", providerVersion: "0.12.0", targetId: "onscripter-yuri",
-        targetContractSha256: "c".repeat(64),
         crossOriginIsolated: true, sharedArrayBuffer: true,
       },
     })} />);

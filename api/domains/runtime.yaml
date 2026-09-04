@@ -4,7 +4,7 @@ paths:
       - $ref: '#/components/parameters/AssetID'
     get:
       operationId: getContentAsset
-      description: Serves only an asset owned by the published game's current metadata revision; retired asset IDs return 404.
+      description: Serves only an asset owned by the current published game; replaced asset IDs return 404.
       responses:
         '200':
           $ref: '#/components/responses/BinaryResponse'

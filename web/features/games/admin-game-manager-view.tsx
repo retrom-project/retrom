@@ -13,13 +13,12 @@ import { GameContentReplacementDialog } from "./game-content-replacement-dialog"
 import type {
   AdminGame,
   Asset,
-  ContentRevision,
+  GameFile,
   MetadataDraft,
   PendingMove,
   PlatformInstanceOption,
   ScrapeCandidate,
   Variant,
-  VariantRevision,
 } from "./admin-game-manager";
 
 type ComparisonField = { key: "title" | "developer" | "publisher" | "genre" | "players" | "releaseYear"; label: string };
@@ -33,11 +32,9 @@ export type AdminGameManagerViewProps = {
   comparisonCover: ScrapeCandidate["assets"][number] | null;
   comparisonFields: ComparisonField[];
   cover: Asset | undefined;
-  currentContent: ContentRevision | undefined;
-  currentDiscs: ContentRevision["files"];
+  currentDiscs: GameFile[];
   currentFile: string;
   currentInstance: PlatformInstanceOption | undefined;
-  currentRuntime: VariantRevision | undefined;
   currentVariant: Variant | undefined;
   disabled: boolean;
   draft: MetadataDraft;
@@ -75,17 +72,17 @@ export type AdminGameManagerViewProps = {
   video: Asset | undefined;
 };
 
-function GameHero(props: Pick<AdminGameManagerViewProps, "cover" | "currentFile" | "currentInstance" | "currentRuntime" | "currentVariant" | "game" | "gameTags" | "metadataComplete" | "runtime">) {
+function GameHero(props: Pick<AdminGameManagerViewProps, "cover" | "currentFile" | "currentInstance" | "currentVariant" | "game" | "gameTags" | "metadataComplete" | "runtime">) {
   const timeZone = useBrowserTimeZone();
   const { cover, currentInstance, currentVariant, game, gameTags, metadataComplete, runtime } = props;
   return <>
     <section className="admin-game-hero">
       <div className="admin-game-hero-cover">{cover ? <Image src={cover.url} alt={`${game.title} 封面`} fill sizes="102px" unoptimized /> : <span role="img" aria-label={`${game.title} 暂无封面`}>RETROM</span>}</div>
       <div className="admin-game-hero-copy"><h2>{game.title}</h2><p>{currentInstance?.platformName ?? game.platformId} · {game.platformInstance.name}{game.releaseYear ? ` · ${game.releaseYear}` : ""}{game.developer ? ` · ${game.developer}` : ""}</p><TagChips tags={gameTags} /><div><StatusBadge tone={game.status === "PUBLISHED" ? "good" : "bad"}>{game.status === "PUBLISHED" ? "用户可见" : "用户不可见"}</StatusBadge><StatusBadge tone={runtime.tone}>{runtime.label}</StatusBadge><StatusBadge tone={metadataComplete ? "info" : "warn"}>{metadataComplete ? "资料完整" : "资料待补充"}</StatusBadge></div></div>
-      <div className="admin-game-hero-update"><span>最近更新</span><strong>{formatAdminGameTime(game.updatedAtMs, game.generatedAtMs, timeZone)}</strong><small>{game.metadataRevisions.length} 个信息版本 · {game.contentRevisions.length} 个内容版本</small></div>
+      <div className="admin-game-hero-update"><span>最近更新</span><strong>{formatAdminGameTime(game.updatedAtMs, game.generatedAtMs, timeZone)}</strong><small>{game.files.length} 个当前内容文件 · {game.variants.length} 种运行方式</small></div>
     </section>
     <section className="admin-game-overview" aria-label="游戏概览">
-      <div><span>所属目录</span><strong>{game.platformInstance.name}</strong></div><div><span>推荐运行方式</span><strong>{currentInstance?.defaultCoreName ?? currentVariant?.coreName ?? "尚未配置"}</strong></div><div><span>当前游戏文件</span><strong>{props.currentFile}</strong></div><div><span>最后运行验证</span><strong>{formatTime(props.currentRuntime?.createdAtMs, timeZone)}</strong></div><div><span>关联存档</span><strong>{game.deleteImpact.saveStateCount} 份</strong></div>
+      <div><span>所属目录</span><strong>{game.platformInstance.name}</strong></div><div><span>推荐运行方式</span><strong>{currentInstance?.defaultCoreName ?? currentVariant?.coreName ?? "尚未配置"}</strong></div><div><span>当前游戏文件</span><strong>{props.currentFile}</strong></div><div><span>最后运行验证</span><strong>{formatTime(currentVariant?.updatedAtMs, timeZone)}</strong></div><div><span>关联存档</span><strong>{game.deleteImpact.saveStateCount} 份</strong></div>
     </section>
   </>;
 }
@@ -103,7 +100,7 @@ function PublishInformation(props: Pick<AdminGameManagerViewProps, "currentInsta
     <label>开发商<input name="developer" value={props.draft.developer} onChange={update("developer")} maxLength={200} /></label><label>发行商<input name="publisher" value={props.draft.publisher} onChange={update("publisher")} maxLength={200} /></label>
     <label>类型<input name="genre" value={props.draft.genre} onChange={update("genre")} maxLength={200} /></label><label>玩家数<input name="players" type="number" min={1} max={64} value={props.draft.players} onChange={update("players")} /></label>
     <label>发行年份<input name="releaseYear" type="number" min={1950} value={props.draft.releaseYear} onChange={update("releaseYear")} /></label><label>平台<input value={props.currentInstance?.platformName ?? props.game.platformId} readOnly aria-readonly="true" /></label>
-    <div className="admin-game-savebar full"><span>上次保存：{formatAdminGameTime(props.game.updatedAtMs, props.game.generatedAtMs, timeZone)}</span><div><details><summary>查看版本历史</summary><div>{props.game.metadataRevisions.map((revision) => <small key={revision.id}>{revision.current ? "● 当前" : "○ 历史"} · {formatTime(revision.createdAtMs, timeZone)} · {revision.sourceKind}</small>)}</div></details><button className="button" disabled={props.disabled || !props.metadataDirty}>保存新版本</button></div></div>
+    <div className="admin-game-savebar full"><span>上次保存：{formatAdminGameTime(props.game.updatedAtMs, props.game.generatedAtMs, timeZone)}</span><div><button className="button" disabled={props.disabled || !props.metadataDirty}>保存发布信息</button></div></div>
   </form></section>;
 }
 
@@ -118,7 +115,7 @@ function MediaManager(props: Pick<AdminGameManagerViewProps, "clientReady" | "co
   </div></section>;
 }
 
-function DiscEvidence({ canonicalPlaylistSHA256, discs }: { canonicalPlaylistSHA256: string; discs: ContentRevision["files"] }) {
+function DiscEvidence({ canonicalPlaylistSHA256, discs }: { canonicalPlaylistSHA256: string; discs: GameFile[] }) {
   if (!discs.length) {return null;}
   return <div className="admin-game-disc-evidence"><div><strong>当前盘序</strong><code title={canonicalPlaylistSHA256}>playlist SHA-256 · {canonicalPlaylistSHA256 || "不可用"}</code></div><ol>{discs.map((disc, index) => <li key={disc.sha256}><span>光盘 {index + 1}</span><strong>{disc.logicalName}</strong><small>{formatBytes(disc.sizeBytes)} · {disc.sha256.slice(0, 12)}…</small></li>)}</ol></div>;
 }
@@ -133,19 +130,19 @@ function replacementContentPresentation(contentKind: string | undefined, multiDi
   return { key: multiDiscAvailable ? "multi-capable" : "standard", label: "普通内容", mode: "STANDARD" as const };
 }
 
-function contentFileSummary(files: ContentRevision["files"]) {
+function contentFileSummary(files: GameFile[]) {
   if (!files.length) {return "载荷已释放";}
   const visible = files.slice(0, 5).map((file) => file.logicalName).join("、");
   return files.length > 5 ? `${visible} 等 ${files.length} 个文件` : visible;
 }
 
-function RuntimeManager(props: Pick<AdminGameManagerViewProps, "canonicalPlaylistSHA256" | "currentContent" | "currentDiscs" | "currentFile" | "currentInstance" | "currentRuntime" | "currentVariant" | "disabled" | "game" | "multiDiscReplacementLimits" | "onReplaceContent" | "runtime">) {
+function RuntimeManager(props: Pick<AdminGameManagerViewProps, "canonicalPlaylistSHA256" | "currentDiscs" | "currentFile" | "currentInstance" | "currentVariant" | "disabled" | "game" | "multiDiscReplacementLimits" | "onReplaceContent" | "runtime">) {
   const timeZone = useBrowserTimeZone();
-  const content = replacementContentPresentation(props.currentContent?.contentKind, props.multiDiscReplacementLimits !== null);
-  return <section className="panel admin-game-runtime" id="admin-game-runtime"><div className="panel-head"><h2>游戏文件与运行环境</h2></div><div className="panel-body"><div className="admin-game-runtime-grid"><div><span>当前游戏文件</span><strong>{props.currentFile}</strong></div><div><span>内容类型</span><strong>{content.label}</strong></div><div><span>推荐运行方式</span><strong>{props.currentInstance?.defaultCoreName ?? props.currentVariant?.coreName ?? "尚未配置"}</strong></div><div><span>兼容状态</span><strong className={props.runtime.tone}>{props.runtime.label}</strong></div><div><span>最后验证</span><strong>{formatTime(props.currentRuntime?.createdAtMs, timeZone)}</strong></div></div>
+  const content = replacementContentPresentation(props.game.contentKind, props.multiDiscReplacementLimits !== null);
+  return <section className="panel admin-game-runtime" id="admin-game-runtime"><div className="panel-head"><h2>游戏文件与运行环境</h2></div><div className="panel-body"><div className="admin-game-runtime-grid"><div><span>当前游戏文件</span><strong>{props.currentFile}</strong></div><div><span>内容类型</span><strong>{content.label}</strong></div><div><span>推荐运行方式</span><strong>{props.currentInstance?.defaultCoreName ?? props.currentVariant?.coreName ?? "尚未配置"}</strong></div><div><span>兼容状态</span><strong className={props.runtime.tone}>{props.runtime.label}</strong></div><div><span>最后验证</span><strong>{formatTime(props.currentVariant?.updatedAtMs, timeZone)}</strong></div></div>
     <DiscEvidence canonicalPlaylistSHA256={props.canonicalPlaylistSHA256} discs={props.currentDiscs} />
-    <div className="admin-game-runtime-note"><p>替换内容必须与当前 ROM 不同。新内容验证通过后才切换，并清理旧游戏文件、运行快照及其绑定存档；失败时不会改动当前内容。</p><GameContentReplacementDialog key={`${props.currentContent?.id ?? "none"}:${content.key}`} initialMode={content.mode} multiDiscLimits={props.multiDiscReplacementLimits} saveStateCount={props.game.deleteImpact.saveStateCount} disabled={props.disabled} onSubmit={props.onReplaceContent} /></div>
-    <details className="admin-game-technical"><summary>技术详情</summary><div>{props.game.contentRevisions.map((revision) => <p key={revision.id}><strong>{revision.current ? "当前内容" : "历史内容"}</strong> · {revision.contentKind} · {formatTime(revision.createdAtMs, timeZone)} · {contentFileSummary(revision.files)}<code>{revision.id}</code></p>)}{props.game.variants.map((variant) => <p key={variant.id}><strong>{variant.coreName}</strong> · {variant.revisions.map((revision) => `${revision.current ? "当前" : "历史"} ${revision.status}`).join(" / ")}<code>{variant.id}</code></p>)}</div></details>
+    <div className="admin-game-runtime-note"><p>替换内容必须与当前 ROM 不同。新内容验证通过后才切换；失败时不会改动当前内容，现有存档继续保留。</p><GameContentReplacementDialog key={`${props.game.version}:${content.key}`} initialMode={content.mode} multiDiscLimits={props.multiDiscReplacementLimits} saveStateCount={props.game.deleteImpact.saveStateCount} disabled={props.disabled} onSubmit={props.onReplaceContent} /></div>
+    <details className="admin-game-technical"><summary>技术详情</summary><div><p><strong>当前内容</strong> · {props.game.contentKind} · {contentFileSummary(props.game.files)}</p>{props.game.variants.map((variant) => <p key={variant.id}><strong>{variant.coreName}</strong> · {variant.status}<code>{variant.id}</code></p>)}</div></details>
   </div></section>;
 }
 
@@ -178,19 +175,19 @@ function ComparisonDialog(props: Pick<AdminGameManagerViewProps, "busy" | "compa
 
 function MoveDialog(props: Pick<AdminGameManagerViewProps, "busy" | "game" | "onCloseMove" | "onConfirmMove" | "pendingMove">) {
   const blocked = Boolean(props.pendingMove?.result.impact.blockerCodes.length);
-  return <ConfirmDialog open={props.pendingMove !== null} title={`移动“${props.game.title}”到新目录？`} description={`目标目录：${props.pendingMove?.targetName ?? ""}`} confirmLabel="确认移动" tone={blocked ? "danger" : "default"} busy={props.busy !== null} onCancel={props.onCloseMove} onConfirm={props.onConfirmMove}><ul><li>新的推荐运行方式：{props.pendingMove?.result.impact.targetCoreId}</li><li>检查结果：{props.pendingMove?.result.impact.variantStatus}</li>{blocked ? <li>{props.pendingMove?.result.impact.blockerCodes.length} 项问题会暂时阻止运行</li> : <li>没有发现会阻止运行的问题</li>}<li>游戏文件、存档和历史版本不会移动或删除</li></ul></ConfirmDialog>;
+  return <ConfirmDialog open={props.pendingMove !== null} title={`移动“${props.game.title}”到新目录？`} description={`目标目录：${props.pendingMove?.targetName ?? ""}`} confirmLabel="确认移动" tone={blocked ? "danger" : "default"} busy={props.busy !== null} onCancel={props.onCloseMove} onConfirm={props.onConfirmMove}><ul><li>新的推荐运行方式：{props.pendingMove?.result.impact.targetCoreId}</li><li>检查结果：{props.pendingMove?.result.impact.variantStatus}</li>{blocked ? <li>{props.pendingMove?.result.impact.blockerCodes.length} 项问题会暂时阻止运行</li> : <li>没有发现会阻止运行的问题</li>}<li>游戏文件和存档不会移动或删除</li></ul></ConfirmDialog>;
 }
 
 export function AdminGameManagerView(props: AdminGameManagerViewProps) {
   if (props.game.status === "DELETED") {
-    return <div className="admin-game-detail"><Toast toast={props.error ? { message: props.error, tone: "bad" } : props.notice ? { message: props.notice, tone: "good" } : null} onDismiss={props.onDismissToast} /><GameHero cover={undefined} currentFile="已清理" currentInstance={props.currentInstance} currentRuntime={props.currentRuntime} currentVariant={props.currentVariant} game={props.game} gameTags={props.gameTags} metadataComplete={props.metadataComplete} runtime={props.runtime} /><DeletedGameStatus game={props.game} onRetry={props.onRetryPayloadRelease} /></div>;
+    return <div className="admin-game-detail"><Toast toast={props.error ? { message: props.error, tone: "bad" } : props.notice ? { message: props.notice, tone: "good" } : null} onDismiss={props.onDismissToast} /><GameHero cover={undefined} currentFile="已清理" currentInstance={props.currentInstance} currentVariant={props.currentVariant} game={props.game} gameTags={props.gameTags} metadataComplete={props.metadataComplete} runtime={props.runtime} /><DeletedGameStatus game={props.game} onRetry={props.onRetryPayloadRelease} /></div>;
   }
   return <div className="admin-game-detail">
     <Toast toast={props.error ? { message: props.error, tone: "bad" } : props.notice ? { message: props.notice, tone: "good" } : null} onDismiss={props.onDismissToast} />
-    <GameHero cover={props.cover} currentFile={props.currentFile} currentInstance={props.currentInstance} currentRuntime={props.currentRuntime} currentVariant={props.currentVariant} game={props.game} gameTags={props.gameTags} metadataComplete={props.metadataComplete} runtime={props.runtime} />
+    <GameHero cover={props.cover} currentFile={props.currentFile} currentInstance={props.currentInstance} currentVariant={props.currentVariant} game={props.game} gameTags={props.gameTags} metadataComplete={props.metadataComplete} runtime={props.runtime} />
     <GameTags activeTags={props.activeTags} busy={props.busy} gameTags={props.gameTags} onGameTags={props.onGameTags} onSaveTags={props.onSaveTags} tagsDirty={props.tagsDirty} />
     <div className="admin-game-primary-grid"><PublishInformation currentInstance={props.currentInstance} disabled={props.disabled} draft={props.draft} game={props.game} metadataDirty={props.metadataDirty} onDraft={props.onDraft} onSaveMetadata={props.onSaveMetadata} /><MediaManager clientReady={props.clientReady} cover={props.cover} disabled={props.disabled} game={props.game} onRemoveVideo={props.onRemoveVideo} onReplaceAsset={props.onReplaceAsset} video={props.video} /></div>
-    <RuntimeManager canonicalPlaylistSHA256={props.canonicalPlaylistSHA256} currentContent={props.currentContent} currentDiscs={props.currentDiscs} currentFile={props.currentFile} currentInstance={props.currentInstance} currentRuntime={props.currentRuntime} currentVariant={props.currentVariant} disabled={props.disabled} game={props.game} multiDiscReplacementLimits={props.multiDiscReplacementLimits} onReplaceContent={props.onReplaceContent} runtime={props.runtime} />
+    <RuntimeManager canonicalPlaylistSHA256={props.canonicalPlaylistSHA256} currentDiscs={props.currentDiscs} currentFile={props.currentFile} currentInstance={props.currentInstance} currentVariant={props.currentVariant} disabled={props.disabled} game={props.game} multiDiscReplacementLimits={props.multiDiscReplacementLimits} onReplaceContent={props.onReplaceContent} runtime={props.runtime} />
     <ManagementActions busy={props.busy} disabled={props.disabled} moveTarget={props.moveTarget} moveTargets={props.moveTargets} onMoveTarget={props.onMoveTarget} onOpenComparison={props.onOpenComparison} onPreviewMove={props.onPreviewMove} onRescrape={props.onRescrape} scrapeCandidates={props.scrapeCandidates} />
     <RemoveGame disabled={props.disabled} game={props.game} onRemove={props.onRemove} />
     <ComparisonDialog busy={props.busy} comparison={props.comparison} comparisonCover={props.comparisonCover} comparisonFields={props.comparisonFields} cover={props.cover} game={props.game} onApplyCandidate={props.onApplyCandidate} onCloseComparison={props.onCloseComparison} />

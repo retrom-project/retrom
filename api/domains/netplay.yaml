@@ -263,7 +263,7 @@ components:
         - coreName
         - providerId
         - targetId
-        - netplayCompatibilityLine
+        - bundleSha256
         - maxPlayers
       properties:
         id:
@@ -279,8 +279,9 @@ components:
         targetId:
           type: string
           pattern: ^[a-z0-9-]{1,64}$
-        netplayCompatibilityLine:
+        bundleSha256:
           type: string
+          pattern: ^[0-9a-f]{64}$
         maxPlayers:
           type: integer
           minimum: 2

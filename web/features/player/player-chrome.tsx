@@ -16,7 +16,6 @@ export type PlayerDebugRuntime = {
   providerId: string;
   providerVersion: string;
   targetId: string;
-  targetContractSha256: string;
   crossOriginIsolated: boolean;
   sharedArrayBuffer: boolean;
 };
@@ -298,8 +297,7 @@ function PlayerToolbar(props: ToolbarProps) {
 function PlayerDebugPanel({ open, metrics, runtime, runtimeState, paused, netplayPaused, coreName, playerNo, discSet, discState, onClose }: { open: boolean; metrics: PlayerDebugMetrics | null; runtime: PlayerDebugRuntime; runtimeState: "loading" | "running" | "error"; paused: boolean; netplayPaused: boolean; coreName: string; playerNo: number | null; discSet: PlayerDiscSet | null; discState: RuntimeDiscStateV1 | null; onClose: () => void }) {
   const runningLabel = runtimeState === "running" ? paused || netplayPaused ? "暂停" : "运行中" : runtimeState === "loading" ? "加载中" : "错误";
   const ordinaryRpgMaker = coreName === "RPG Maker" || coreName.startsWith("RPG Maker ");
-  const contractFooter = ordinaryRpgMaker ? null : <footer title={runtime.targetContractSha256}>Contract · {runtime.targetContractSha256 || "等待配置"}</footer>;
-  return <aside id="player-debug-panel" className={`player-debug-panel${open ? " is-open" : ""}`} aria-label="运行调试信息" aria-hidden={!open}><header><div><span>实时运行诊断</span><h2>调试信息</h2></div><button type="button" className="player-debug-close" aria-label="关闭调试信息面板" disabled={!open} onClick={onClose}><AppIcon name="x" /></button></header><LiveDebug metrics={metrics} runningLabel={runningLabel} /><RuntimeDebug runtime={runtime} coreName={coreName} playerNo={playerNo} ordinaryRpgMaker={ordinaryRpgMaker} /><DisplayDebug metrics={metrics} discSet={discSet} discState={discState} />{contractFooter}</aside>;
+  return <aside id="player-debug-panel" className={`player-debug-panel${open ? " is-open" : ""}`} aria-label="运行调试信息" aria-hidden={!open}><header><div><span>实时运行诊断</span><h2>调试信息</h2></div><button type="button" className="player-debug-close" aria-label="关闭调试信息面板" disabled={!open} onClick={onClose}><AppIcon name="x" /></button></header><LiveDebug metrics={metrics} runningLabel={runningLabel} /><RuntimeDebug runtime={runtime} coreName={coreName} playerNo={playerNo} ordinaryRpgMaker={ordinaryRpgMaker} /><DisplayDebug metrics={metrics} discSet={discSet} discState={discState} /></aside>;
 }
 
 function LiveDebug({ metrics, runningLabel }: { metrics: PlayerDebugMetrics | null; runningLabel: string }) {

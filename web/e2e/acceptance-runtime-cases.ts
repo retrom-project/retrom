@@ -337,23 +337,18 @@ async function verifyPersistedArcadeSchemaV2Launch(
   const admin = await adminResponse.json() as {
     variants: Array<{
       coreId: string;
-      currentRevisionId: string;
-      revisions: Array<{
-        id: string;
-        datVersionId: string | null;
-        dependencySnapshot: {
-          schemaVersion: number;
-          datVersionId?: string;
-          bios?: unknown;
-          dependencies?: Array<{ kind: string; machine: string; state: string }>;
-        };
-      }>;
+      datVersionId: string | null;
+      dependencySnapshot: {
+        schemaVersion: number;
+        datVersionId?: string;
+        bios?: unknown;
+        dependencies?: Array<{ kind: string; machine: string; state: string }>;
+      };
     }>;
   };
   const variant = admin.variants.find((item) => item.coreId === expectation.core);
-  const revision = variant?.revisions.find((item) => item.id === variant.currentRevisionId);
-  expect(revision?.datVersionId).toBe(coreOption?.datVersionId);
-  expect(revision?.dependencySnapshot).toMatchObject({
+  expect(variant?.datVersionId).toBe(coreOption?.datVersionId);
+  expect(variant?.dependencySnapshot).toMatchObject({
     schemaVersion: 2,
     datVersionId: coreOption?.datVersionId,
     dependencies: expect.arrayContaining([
@@ -361,7 +356,7 @@ async function verifyPersistedArcadeSchemaV2Launch(
       expect.objectContaining({ kind: "BIOS_OR_BASE", machine: "retrombios", state: "SATISFIED_EXTERNAL" }),
     ]),
   });
-  expect(revision?.dependencySnapshot.bios).toBeUndefined();
+  expect(variant?.dependencySnapshot.bios).toBeUndefined();
 
   const configResponse = page.waitForResponse((response) =>
     /\/runtime\/launches\/[^/]+\/config$/.test(response.url()) && response.status() === 200);

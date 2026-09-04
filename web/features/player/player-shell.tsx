@@ -32,7 +32,7 @@ export {canResumeFromGameSurface, readBoundedResponse, reportsNativeExit} from "
 type ShellState = "loading" | "running" | "error";
 
 const initialDebugRuntime: PlayerDebugRuntime = {
-  providerId: "", providerVersion: "", targetId: "", targetContractSha256: "",
+  providerId: "", providerVersion: "", targetId: "",
   crossOriginIsolated: false, sharedArrayBuffer: false,
 };
 
@@ -55,7 +55,7 @@ export function PlayerShell({launchId, experience = "standard"}: {launchId: stri
   const envelope = useRef<LaunchEnvelopeV1 | null>(null);
   const [state, setState] = useState<ShellState>("loading");
   const [immersiveReturnTo, setImmersiveReturnTo] = useState("/immersive");
-  const [message, setMessage] = useState("正在验证 Provider 启动契约…");
+  const [message, setMessage] = useState("正在验证 Provider 启动信息…");
   const [loadProgress, setLoadProgress] = useState<PlayerLoadProgress | null>(null);
   const [warnings, setWarnings] = useState<string[]>([]);
   const [toast, setToast] = useState("");

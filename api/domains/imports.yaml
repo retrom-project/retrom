@@ -365,10 +365,10 @@ components:
       type: object
       additionalProperties: false
       required:
-        - variantRevisionCount
+        - gameCount
         - checkpointCount
       properties:
-        variantRevisionCount:
+        gameCount:
           type: integer
           format: int64
           minimum: 0

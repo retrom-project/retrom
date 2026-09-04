@@ -87,7 +87,6 @@
 .metadata-compare-column-cover .button { width: 100%; margin-top: 7px; }
 .metadata-compare-column-description p { max-height: 260px; margin: 0; overflow: auto; white-space: pre-wrap; line-height: 1.55; }
 .metadata-compare-column-description textarea { width: 100%; min-height: 220px; padding: 10px; resize: vertical; border: 1px solid var(--line); border-radius: 8px; color: var(--ink); background: white; line-height: 1.55; }
-.revision-list { display: grid; gap: 5px; padding: 0 24px 20px; color: var(--muted); }
 .asset-grid { display: grid; gap: 12px; grid-template-columns: repeat(3, minmax(0, 1fr)); margin-bottom: 18px; }
 .asset-grid figure { margin: 0; }
 .asset-grid img { aspect-ratio: 16 / 10; border-radius: 10px; object-fit: cover; width: 100%; }

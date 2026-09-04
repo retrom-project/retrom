@@ -50,6 +50,23 @@ describe("provider runtime controller", () => {
     await vi.waitFor(() => expect(runtime.exit).toHaveBeenCalledOnce());
   });
 
+  it("keeps Host resources alive until Provider exit cleanup settles", async () => {
+    let releaseExit!: () => void;
+    const runtime = fixtureRuntime();
+    runtime.exit.mockImplementationOnce(() => new Promise<void>((resolve) => {releaseExit = resolve;}));
+    const controller = await mountProviderRuntime(envelope(), document.createElement("div"), {
+      dispatcher: verifiedDispatcher(), importer: async () => fixtureModule(runtime),
+    });
+
+    const exiting = controller.exit();
+    await vi.waitFor(() => expect(runtime.exit).toHaveBeenCalledOnce());
+
+    expect(controller.signal.aborted).toBe(false);
+    releaseExit();
+    await exiting;
+    expect(controller.signal.aborted).toBe(true);
+  });
+
   it("subscribes the Host to lifecycle events before mount starts", async () => {
     const runtime = fixtureRuntime();
     const availability = {available: true, reason: null};
@@ -90,7 +107,7 @@ function fixtureRuntime() {
     checkpoint: vi.fn(async () => {throw new Error("unused");}),
     closeNativeSettings: vi.fn(async () => {throw new Error("unused");}),
     emit: (event: RuntimeEventV1) => listener?.(event),
-    exit: vi.fn(async () => undefined), getCanvas: () => null,
+    exit: vi.fn(async (): Promise<void> => undefined), getCanvas: () => null,
     getCapabilities: () => envelope().runtime.capabilities,
     getCheckpointAvailability: () => ({available: false, reason: "UNSUPPORTED"}),
     getDiscState: vi.fn(async () => {throw new Error("unused");}),
@@ -117,10 +134,10 @@ function envelope(): LaunchEnvelopeV1 {
       bundleSha256: bundle, capabilities: {checkpoint: false, frameCounter: false, frameMode: "NONE",
         discSwitch: false, inputFilter: false, nativeSettings: false, netplayPort: false, pause: false,
         requiresThreads: false, screenshot: false, standardGamepad: false,
-        validationProbes: [], videoModes: [], volume: false}, checkpoint: null, gameCompatibilityLine: "fixture-v1",
+        validationProbes: [], videoModes: [], volume: false}, checkpoint: null,
       moduleSha256: "a".repeat(64), moduleUrl: `/runtime/providers/fixture/${bundle}/client.mjs`,
       providerApiVersion: 1, providerId: "fixture", providerVersion: "1.0.0",
-      runtimeBaseUrl: `/runtime/providers/fixture/${bundle}/`, targetContractSha256: "c".repeat(64),
+      runtimeBaseUrl: `/runtime/providers/fixture/${bundle}/`,
       targetId: "fixture",
     },
     session: {coreName: "Fixture Core", id: "018f0f31-26fe-7a31-9d61-4ec92f16d4c3", mode: "SINGLE", platformName: "Fixture",
