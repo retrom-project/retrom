@@ -41,6 +41,35 @@ func TestPrepublishDigestV4GoldenAndSemanticInputs(t *testing.T) {
 	testassert.False(t, testassert.Any(func() bool { return prepublishDigest(base) == prepublishDigest(changedTarget) }, func() bool { return prepublishDigest(base) == prepublishDigest(changedCompatibility) }, func() bool { return prepublishDigest(base) == prepublishDigest(changedKind) }), "prepublish digest ignored a semantic validation input")
 }
 
+func TestCompatibilityConfigDigestIgnoresJSONObjectKeyOrder(t *testing.T) {
+	t.Parallel()
+	importOrder := `{"schemaVersion":1,"multiDisc":null,"supportedContentKinds":["SINGLE_FILE"]}`
+	reviewOrder := `{"supportedContentKinds":["SINGLE_FILE"],"schemaVersion":1,"multiDisc":null}`
+	if compatibilityConfigDigest(importOrder) != compatibilityConfigDigest(reviewOrder) {
+		t.Fatal("semantically identical content policies produced different digests")
+	}
+}
+
+func TestPrepublishDigestMatchesLegacyRawContentPolicy(t *testing.T) {
+	t.Parallel()
+	legacyPolicy := `{"schemaVersion":1,"supportedContentKinds":["SINGLE_FILE"],"multiDisc":null}`
+	current := prepublishDigestInput{
+		SchemaVersion: 1, ValidatorVersion: validatorReviewV4,
+		SourceSnapshotID: "snapshot-1", SourceManifestDigest: "a",
+		ContentKind: "SINGLE_FILE", TargetPlatformInstanceID: "platform-1",
+		PlatformInstanceVersion: 1, ProviderID: "onscripter", TargetID: "onscripter-yuri",
+		TargetContractSHA256: "b", GameCompatibilityLine: "ons-v1",
+		ContentPolicyDigest: compatibilityConfigDigest(legacyPolicy),
+		DependencySnapshot:  json.RawMessage(`{"schemaVersion":2,"dependencies":[]}`),
+		Status:              "BLOCKED", CompatibilityCode: "ONS_RUNTIME_TRIAL_REQUIRED",
+	}
+	legacy := current
+	legacy.ContentPolicyDigest = legacyCompatibilityConfigDigest(legacyPolicy)
+	if !prepublishDigestMatches(prepublishDigest(legacy), current, legacyPolicy) {
+		t.Fatal("legacy validation using the raw content-policy digest became stale")
+	}
+}
+
 func TestPreparedGroupContentKind(t *testing.T) {
 	t.Parallel()
 	if got := preparedGroupContentKind(preparedGroup{sources: []preparedSource{{role: "CONTENT"}}}); got != "SINGLE_FILE" {

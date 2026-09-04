@@ -38,6 +38,25 @@ afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
 describe("ReviewActions metadata", () => {
 
+  it("keeps an automatic scrape failure diagnosis visible on the review", () => {
+    render(<ReviewActions review={{
+      ...review,
+      scrapeRuns: [{
+        scrapeRunId: "run-older-miss", jobId: "job-older-miss", provider: "HASHEOUS",
+        state: "COMPLETED", jobState: "SUCCEEDED", createdAtMs: 1, completedAtMs: 2,
+        errorCode: null, evidenceCount: 1, attemptCount: 1, candidateCount: 0,
+        outcomes: { hit: 0, miss: 1, rateLimited: 0, timeout: 0, invalidResponse: 0, networkError: 0 },
+      }, {
+        scrapeRunId: "run-rate-limited", jobId: "job-rate-limited", provider: "HASHEOUS",
+        state: "COMPLETED", jobState: "SUCCEEDED", createdAtMs: 3, completedAtMs: 4,
+        errorCode: null, evidenceCount: 1, attemptCount: 3, candidateCount: 0,
+        outcomes: { hit: 0, miss: 0, rateLimited: 3, timeout: 0, invalidResponse: 0, networkError: 0 },
+      }],
+    }} />);
+
+    expect(screen.getByText("上游限流、超时或网络异常")).toBeVisible();
+  });
+
   it("exposes the four-step mobile review workflow without changing decision actions", () => {
     render(<ReviewActions review={review}><section>来源文件与依赖</section></ReviewActions>);
     const steps = within(screen.getByRole("navigation", { name: "审核步骤" })).getAllByRole("link");

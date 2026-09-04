@@ -47,17 +47,39 @@ func prepublishDigest(input prepublishDigestInput) string {
 	return hex.EncodeToString(digest[:])
 }
 
-func prepublishDigestMatches(digest string, input prepublishDigestInput) bool {
-	for _, version := range []string{validatorImportV4, validatorReviewV4, validatorArcadeV4, validatorMultiV4} {
-		input.ValidatorVersion = version
-		if subtle.ConstantTimeCompare([]byte(digest), []byte(prepublishDigest(input))) == 1 {
-			return true
+func prepublishDigestMatches(digest string, input prepublishDigestInput, legacyContentPolicies ...string) bool {
+	inputs := []prepublishDigestInput{input}
+	for _, policy := range legacyContentPolicies {
+		legacy := input
+		legacy.ContentPolicyDigest = legacyCompatibilityConfigDigest(policy)
+		if legacy.ContentPolicyDigest != input.ContentPolicyDigest {
+			inputs = append(inputs, legacy)
+		}
+	}
+	for _, candidate := range inputs {
+		for _, version := range []string{validatorImportV4, validatorReviewV4, validatorArcadeV4, validatorMultiV4} {
+			candidate.ValidatorVersion = version
+			if subtle.ConstantTimeCompare([]byte(digest), []byte(prepublishDigest(candidate))) == 1 {
+				return true
+			}
 		}
 	}
 	return false
 }
 
 func compatibilityConfigDigest(compatibility string) string {
+	var value any
+	if err := json.Unmarshal([]byte(compatibility), &value); err != nil {
+		return legacyCompatibilityConfigDigest(compatibility)
+	}
+	canonical, err := json.Marshal(value)
+	if err != nil {
+		return legacyCompatibilityConfigDigest(compatibility)
+	}
+	return legacyCompatibilityConfigDigest(string(canonical))
+}
+
+func legacyCompatibilityConfigDigest(compatibility string) string {
 	digest := sha256.Sum256([]byte(compatibility))
 	return hex.EncodeToString(digest[:])
 }
@@ -200,5 +222,5 @@ func (service *Service) ReviewValidationCurrent(ctx context.Context, validationI
 	if !current {
 		return false, nil
 	}
-	return prepublishDigestMatches(value.inputDigest, input), nil
+	return prepublishDigestMatches(value.inputDigest, input, value.contentPolicyJSON), nil
 }
