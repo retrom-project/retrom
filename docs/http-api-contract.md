@@ -176,7 +176,7 @@ POST /api/v1/admin/imports
 }
 ```
 
-`metadataProvider` 仅允许 `HASHEOUS | NONE`；Arcade DAT 不是 provider。`contentMode=RPG_MAKER_PROJECT` 没有单 ROM 哈希语义，用户只选择 `rpgmaker` 虚拟核心且禁用在线刮削：客户端固定显示并提交 `NONE`，服务端也把旧客户端提交的 `HASHEOUS` 规范化为 `NONE`。
+`metadataProvider` 仅允许 `HASHEOUS | NONE`；Arcade DAT 不是 provider。`contentMode=RPG_MAKER_PROJECT` 没有单 ROM 哈希语义，用户只选择 `rpgmaker` 虚拟核心且禁用在线刮削：客户端固定显示并提交 `NONE`，服务端也把旧客户端提交的 `HASHEOUS` 规范化为 `NONE`。普通文件入口提交 `contentMode=STANDARD`、`purpose=GENERAL` 并选择 `rpgmaker` 目标时，若输入是恰一个 ZIP/7z（或一个完整 DIRECTORY），服务端必须在写入不可变任务快照前规范化为 `RPG_MAKER_PROJECT/NONE`，再由项目 bytes 检测 2000/2003/XP/VX/VX Ace/MV/MZ 世代；不得把该归档交给普通 ROM 单文件分组，也不得依赖文件名猜世代。
 
 创建端点只执行有界准入：校验 UploadSession 已 `COMPLETE`、用途/来源类型、目标目录与当前候选 Provider Target 能力，随后在一个短事务创建 `ImportJob(state=QUEUED)`、`IMPORT_GROUP Job`、每个 UploadFile 的 `PENDING` disposition、whole-session consumption 以及不可变 `import_group_requests` 输入快照，并立即返回 `202 {importJobId,jobId,state:"QUEUED",itemCount:0}`。浏览器收到 202 后直接进入 `/admin/imports/tasks`；不得继续把上传进度停在 92% 等待项目识别。
 
@@ -257,7 +257,7 @@ Content-Type: application/json
 
 ### 5.3 多盘 Import 与 Review Attachment
 
-`POST /api/v1/admin/imports` 与 `POST /api/v1/admin/games/{gameId}/content-revisions` 的可选 `contentMode` 只允许 `STANDARD|MULTI_DISC|RPG_MAKER_PROJECT|ONS_PROJECT|KIRIKIRI_PROJECT|BUTTERSCOTCH_PROJECT|TYRANOSCRIPT_PROJECT`，缺省严格为 STANDARD。MULTI 必须引用完整 DIRECTORY Upload，且 capability 由 feature flag、平台 profile 与当前 Target binding 共同决定。首次独立 runtime 项目导入接受一个完整 DIRECTORY，或 FILES 中恰好一个 ZIP/7z；`TYRANOSCRIPT_PROJECT` 还接受恰一个经 PE 与追加 ZIP 双重验证的 NW.js EXE、恰一个只包装唯一合法 NW.js EXE 与桌面边车的安全 ZIP，以及恰一个含 Windows EXE 与 `resources/app.asar` 的 Electron 分发 ZIP。已发布 RPG 游戏的内容替换只接受完整 DIRECTORY，并由 Provider Target 重新检测 generation，不接受客户端指定内部世代。新旧 generation 不同的 Job 以不可重试 `RPG_REPLACEMENT_GENERATION_MISMATCH` 失败；运行依赖声明变化以不可重试 `RPG_REPLACEMENT_DEPENDENCIES_CHANGED` 失败；两种失败均保留当前内容和存档。Review detail 的可空 `multiDisc` 只返回 playlist 摘要、ordered entries、PRESENT/MISSING、大小/hash、缺失引用、冻结的 `maxDiscs/maxTotalBytes` 与 attachment 状态，不返回 Blob ID、宿主路径或 capability。Attachment 状态包含 Job/Attachment version、可空 diagnostics 与仅在通用 Job 可人工重试时为 true 的 `canRetry`。
+`POST /api/v1/admin/imports` 与 `POST /api/v1/admin/games/{gameId}/content-revisions` 的可选 `contentMode` 只允许 `STANDARD|MULTI_DISC|RPG_MAKER_PROJECT|ONS_PROJECT|KIRIKIRI_PROJECT|BUTTERSCOTCH_PROJECT|TYRANOSCRIPT_PROJECT`，缺省为 STANDARD；唯一的导入期目标规范化是上一节定义的 `STANDARD + rpgmaker -> RPG_MAKER_PROJECT`，它不适用于内容替换或其他平台。MULTI 必须引用完整 DIRECTORY Upload，且 capability 由 feature flag、平台 profile 与当前 Target binding 共同决定。首次独立 runtime 项目导入接受一个完整 DIRECTORY，或 FILES 中恰好一个 ZIP/7z；`TYRANOSCRIPT_PROJECT` 还接受恰一个经 PE 与追加 ZIP 双重验证的 NW.js EXE、恰一个只包装唯一合法 NW.js EXE 与桌面边车的安全 ZIP，以及恰一个含 Windows EXE 与 `resources/app.asar` 的 Electron 分发 ZIP。已发布 RPG 游戏的内容替换只接受完整 DIRECTORY，并由 Provider Target 重新检测 generation，不接受客户端指定内部世代。新旧 generation 不同的 Job 以不可重试 `RPG_REPLACEMENT_GENERATION_MISMATCH` 失败；运行依赖声明变化以不可重试 `RPG_REPLACEMENT_DEPENDENCIES_CHANGED` 失败；两种失败均保留当前内容和存档。Review detail 的可空 `multiDisc` 只返回 playlist 摘要、ordered entries、PRESENT/MISSING、大小/hash、缺失引用、冻结的 `maxDiscs/maxTotalBytes` 与 attachment 状态，不返回 Blob ID、宿主路径或 capability。Attachment 状态包含 Job/Attachment version、可空 diagnostics 与仅在通用 Job 可人工重试时为 true 的 `canRetry`。
 
 `POST /api/v1/admin/reviews/{importItemId}/multi-disc-attachments` 要求 ADMIN、同源/CSRF、`If-Match`、User-scoped `Idempotency-Key` 与 `{uploadId}`，只接受包含当前全部缺盘的 COMPLETE FILES upload。成功为 202，返回 Job/Attachment、`Location`、新 Review ETag；版本、active/retry、能力漂移、集合不符与内容无效使用 OpenAPI 中稳定错误码。关闭新 Import flag 不取消已冻结的 Attachment/Job，也不影响已发布读取。
 

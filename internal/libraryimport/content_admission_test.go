@@ -3,10 +3,77 @@ package libraryimport
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"testing"
 
+	"retrom/internal/contentcapability"
 	"retrom/internal/testassert"
 )
+
+func TestRPGMakerStandardArchiveAdmissionCanonicalizesToProjectDetection(t *testing.T) {
+	t.Parallel()
+	for _, logicalName := range []string{"Lucky.easyrpg.zip", "Game.7z"} {
+		t.Run(logicalName, func(t *testing.T) {
+			t.Parallel()
+			request, mode, err := normalizeTargetCreateRequest(
+				CreateRequest{ContentMode: contentcapability.ModeStandard, MetadataProvider: "HASHEOUS"},
+				contentcapability.ModeStandard,
+				"GENERAL",
+				"FILES",
+				[]importSourceFile{{path: logicalName}},
+				creationTarget{platformID: "rpgmaker"},
+			)
+			if err != nil || mode != contentcapability.ModeRPGMakerProject ||
+				request.ContentMode != contentcapability.ModeRPGMakerProject || request.MetadataProvider != "NONE" {
+				t.Fatalf("normalized request/mode = %#v/%q, error=%v", request, mode, err)
+			}
+		})
+	}
+}
+
+func TestRPGMakerStandardFileAdmissionRejectsNonProjectShapes(t *testing.T) {
+	t.Parallel()
+	for _, test := range []struct {
+		name       string
+		sourceType string
+		files      []importSourceFile
+	}{
+		{name: "multiple archives", sourceType: "FILES", files: []importSourceFile{{path: "one.zip"}, {path: "two.zip"}}},
+		{name: "unsupported extension", sourceType: "FILES", files: []importSourceFile{{path: "game.exe"}}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			_, _, err := normalizeTargetCreateRequest(
+				CreateRequest{ContentMode: contentcapability.ModeStandard, MetadataProvider: "NONE"},
+				contentcapability.ModeStandard,
+				"GENERAL",
+				test.sourceType,
+				test.files,
+				creationTarget{platformID: "rpgmaker"},
+			)
+			if !errors.Is(err, ErrInvalid) {
+				t.Fatalf("normalizeTargetCreateRequest() error = %v, want ErrInvalid", err)
+			}
+		})
+	}
+}
+
+func TestStandardArchiveAdmissionDoesNotRewriteOtherPlatforms(t *testing.T) {
+	t.Parallel()
+	want := CreateRequest{ContentMode: contentcapability.ModeStandard, MetadataProvider: "HASHEOUS"}
+	request, mode, err := normalizeTargetCreateRequest(
+		want,
+		contentcapability.ModeStandard,
+		"GENERAL",
+		"FILES",
+		[]importSourceFile{{path: "game.zip"}},
+		creationTarget{platformID: "nes"},
+	)
+	if err != nil || request.ContentMode != want.ContentMode ||
+		request.MetadataProvider != want.MetadataProvider || mode != contentcapability.ModeStandard {
+		t.Fatalf("non-RPG request/mode = %#v/%q, error=%v", request, mode, err)
+	}
+}
 
 func TestExpandedPlatformsAdmitTheirVerifiedRawExtensions(t *testing.T) {
 	t.Parallel()

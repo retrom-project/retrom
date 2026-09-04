@@ -344,7 +344,7 @@ ImportItem 进入 `PUBLISHED/DISCARDED/FAILED_FINAL/CANCELLED` 后立即进入�
 
 ## 13. 多盘目录、缺盘与补传
 
-Import create 的 `contentMode` 缺省严格等价于 `STANDARD`；新 Web 对两种模式都显式发送。MULTI 只接受 `sourceType=DIRECTORY`，以每个 M3U 的直接父目录分组：同目录必须恰有一个 M3U，引用只允许安全 CHD basename，按精确 UTF-8 后唯一 ASCII case-fold 匹配，整组限制 2–8 盘和 1 GiB。不同子目录可在同一 UploadSession 形成多个 Item；未引用文件记录为 `IGNORED/NOT_REFERENCED_BY_PLAYLIST`。局部非法目录产生稳定 rejected outcome，不阻断其他合法目录。
+Import create 的 `contentMode` 缺省等价于 `STANDARD`；新 Web 对两种模式都显式发送。为保留普通文件入口的既有行为，`STANDARD + GENERAL` 在目标为 `rpgmaker` 且来源为恰一个 ZIP/7z（或完整 DIRECTORY）时，于准入事务前规范化为 `RPG_MAKER_PROJECT + NONE`；其他目标不得套用该规则。MULTI 只接受 `sourceType=DIRECTORY`，以每个 M3U 的直接父目录分组：同目录必须恰有一个 M3U，引用只允许安全 CHD basename，按精确 UTF-8 后唯一 ASCII case-fold 匹配，整组限制 2–8 盘和 1 GiB。不同子目录可在同一 UploadSession 形成多个 Item；未引用文件记录为 `IGNORED/NOT_REFERENCED_BY_PLAYLIST`。局部非法目录产生稳定 rejected outcome，不阻断其他合法目录。
 
 导入任务列表必须标明冻结的 MULTI 模式；详情按 Item 显示 playlist、总盘数、已找到/缺失盘数和最多 20 个未引用 basename，并保留未截断计数。即使任务已经进入待审核且没有异常，详情入口仍可用。任务详情不得返回 Blob ID 或宿主路径。
 
