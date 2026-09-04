@@ -2,9 +2,7 @@ package saves
 
 import (
 	"context"
-	"crypto/sha256"
 	"database/sql"
-	"encoding/hex"
 	"errors"
 	"fmt"
 
@@ -14,35 +12,28 @@ import (
 const maxStoredCheckpointBytes = int64(256 << 20)
 
 type launchSnapshot struct {
-	principalID, profileID, purpose, gameID, contentRevisionID string
-	variantRevisionID, validationID                            string
-	providerID, targetID, targetContractSHA256                 string
-	gameCompatibilityLine, checkpointFormat                    string
-	dependencySHA256                                           string
-	datVersionID, dosEntry                                     sql.NullString
-	credentialHash                                             []byte
-	state                                                      string
-	hardExpiresAtMS, checkpointMaxBytes                        int64
-	contentFormat                                              string
-	discCount, initialDiscIndex                                int
-	originalValidationLaunch                                   bool
+	principalID, profileID, purpose, gameID, validationID string
+	providerID, targetID, checkpointFormat                string
+	dosEntry                                              sql.NullString
+	credentialHash                                        []byte
+	state                                                 string
+	hardExpiresAtMS, checkpointMaxBytes                   int64
+	contentFormat                                         string
+	discCount, initialDiscIndex                           int
+	originalValidationLaunch                              bool
 }
 
 func (service *Service) launch(ctx context.Context, launchID, capability string) (launchSnapshot, error) {
 	var result launchSnapshot
-	var gameID, contentRevisionID, variantRevisionID, validationID sql.NullString
-	var variantDependencyJSON, productDependency, validationDependency sql.NullString
+	var gameID, validationID sql.NullString
 	var validationLaunchID, writeFormat sql.NullString
 	var checkpointMaxBytes sql.NullInt64
 	err := service.database.QueryRowContext(ctx, `
 SELECT COALESCE(user.id,launch.profile_id),launch.profile_id,launch.purpose,
- launch.game_id,launch.game_content_revision_id,launch.game_variant_revision_id,
- launch.rpgmaker_runtime_validation_id,launch.provider_id,launch.target_id,
- launch.target_contract_sha256,launch.game_compatibility_line,
- revision.dat_version_id,launch.dos_entry_path,launch.credential_sha256,launch.state,
+ launch.game_id,launch.rpgmaker_runtime_validation_id,launch.provider_id,launch.target_id,
+ launch.dos_entry_path,launch.credential_sha256,launch.state,
  launch.hard_expires_at_ms,json_extract(target.checkpoint_json,'$.writeFormat'),
- json_extract(target.checkpoint_json,'$.maxBytes'),revision.dependency_snapshot_json,
- product_profile.dependency_snapshot_sha256,validation.dependency_snapshot_sha256,validation.launch_id,
+ json_extract(target.checkpoint_json,'$.maxBytes'),validation.launch_id,
  CASE WHEN EXISTS(SELECT 1 FROM launch_content_files file
        WHERE file.launch_session_id=launch.id AND file.format_version='RETROM_MULTIDISC_M3U_V1')
       THEN 'RETROM_MULTIDISC_M3U_V1'
@@ -53,31 +44,19 @@ SELECT COALESCE(user.id,launch.profile_id),launch.profile_id,launch.purpose,
  launch.initial_disc_index
 FROM launch_sessions launch
 JOIN runtime_targets target ON target.provider_id=launch.provider_id AND target.target_id=launch.target_id
- AND target.target_contract_sha256=launch.target_contract_sha256
-LEFT JOIN game_variant_revisions revision ON revision.id=launch.game_variant_revision_id
-LEFT JOIN rpgmaker_variant_profiles product_profile
-  ON product_profile.game_variant_revision_id=launch.game_variant_revision_id
 LEFT JOIN rpgmaker_runtime_validations validation
   ON validation.id=launch.rpgmaker_runtime_validation_id
 LEFT JOIN users user ON user.profile_id=launch.profile_id
 WHERE launch.id=? AND (
- launch.purpose='PRODUCT' AND revision.id IS NOT NULL
-   AND revision.provider_id=launch.provider_id AND revision.target_id=launch.target_id
-   AND revision.target_contract_sha256=launch.target_contract_sha256
-   AND revision.game_compatibility_line=launch.game_compatibility_line
+ launch.purpose='PRODUCT' AND launch.game_id IS NOT NULL
  OR launch.purpose='RPG_RUNTIME_VALIDATION' AND validation.id IS NOT NULL
    AND validation.provider_id=launch.provider_id AND validation.target_id=launch.target_id
-   AND validation.target_contract_sha256=launch.target_contract_sha256
-   AND validation.game_compatibility_line=launch.game_compatibility_line
 )
 `, launchID).Scan(
 		&result.principalID, &result.profileID, &result.purpose,
-		&gameID, &contentRevisionID, &variantRevisionID, &validationID,
-		&result.providerID, &result.targetID, &result.targetContractSHA256,
-		&result.gameCompatibilityLine, &result.datVersionID, &result.dosEntry,
+		&gameID, &validationID, &result.providerID, &result.targetID, &result.dosEntry,
 		&result.credentialHash, &result.state, &result.hardExpiresAtMS, &writeFormat,
-		&checkpointMaxBytes, &variantDependencyJSON, &productDependency,
-		&validationDependency, &validationLaunchID,
+		&checkpointMaxBytes, &validationLaunchID,
 		&result.contentFormat, &result.discCount, &result.initialDiscIndex,
 	)
 	if !validLaunchAccess(err, capability, result, service.now().UnixMilli()) {
@@ -88,14 +67,12 @@ WHERE launch.id=? AND (
 	}
 	result.checkpointFormat = writeFormat.String
 	result.checkpointMaxBytes = min(checkpointMaxBytes.Int64, maxStoredCheckpointBytes)
-	result.gameID, result.contentRevisionID, result.variantRevisionID = gameID.String, contentRevisionID.String,
-		variantRevisionID.String
+	result.gameID = gameID.String
 	result.validationID = validationID.String
 	if result.purpose == "PRODUCT" {
-		return bindProductLaunch(result, gameID, contentRevisionID, variantRevisionID,
-			variantDependencyJSON, productDependency)
+		return bindProductLaunch(result, gameID)
 	}
-	return bindValidationLaunch(result, validationID, validationDependency, validationLaunchID, launchID)
+	return bindValidationLaunch(result, validationID, validationLaunchID, launchID)
 }
 
 func validLaunchAccess(err error, capability string, launch launchSnapshot, now int64) bool {
@@ -105,31 +82,23 @@ func validLaunchAccess(err error, capability string, launch launchSnapshot, now 
 
 func bindProductLaunch(
 	result launchSnapshot,
-	gameID, contentRevisionID, variantRevisionID, variantDependencyJSON, productDependency sql.NullString,
+	gameID sql.NullString,
 ) (launchSnapshot, error) {
-	if !gameID.Valid || !contentRevisionID.Valid || !variantRevisionID.Valid || !variantDependencyJSON.Valid ||
-		!validLaunchDiscShape(result) {
+	if !gameID.Valid || !validLaunchDiscShape(result) {
 		return launchSnapshot{}, ErrCredential
-	}
-	if productDependency.Valid {
-		result.dependencySHA256 = productDependency.String
-	} else {
-		digest := sha256.Sum256([]byte(variantDependencyJSON.String))
-		result.dependencySHA256 = hex.EncodeToString(digest[:])
 	}
 	return result, nil
 }
 
 func bindValidationLaunch(
 	result launchSnapshot,
-	validationID, dependency, originalLaunchID sql.NullString,
+	validationID, originalLaunchID sql.NullString,
 	launchID string,
 ) (launchSnapshot, error) {
-	if result.purpose != "RPG_RUNTIME_VALIDATION" || !validationID.Valid || !dependency.Valid ||
+	if result.purpose != "RPG_RUNTIME_VALIDATION" || !validationID.Valid ||
 		!originalLaunchID.Valid {
 		return launchSnapshot{}, ErrCredential
 	}
-	result.dependencySHA256 = dependency.String
 	result.originalValidationLaunch = originalLaunchID.String == launchID
 	return result, nil
 }
@@ -142,32 +111,16 @@ func validLaunchDiscShape(result launchSnapshot) bool {
 }
 
 type restoreBinding struct {
-	gameID, contentID, variantID, validationID sql.NullString
-	variantDependencyJSON, productDependency   sql.NullString
-	validationDependency                       sql.NullString
-	payloadDigest, savedDependency             string
-	checkpointFormat                           string
-	savedSize                                  int64
+	gameID, validationID            sql.NullString
+	payloadDigest, checkpointFormat string
+	savedSize                       int64
 }
 
 func bindRestoreSnapshot(result launchSnapshot, binding restoreBinding) (launchSnapshot, error) {
 	result.gameID = binding.gameID.String
-	result.contentRevisionID = binding.contentID.String
-	result.variantRevisionID = binding.variantID.String
 	result.validationID = binding.validationID.String
-	if result.purpose == "PRODUCT" {
-		if binding.productDependency.Valid {
-			result.dependencySHA256 = binding.productDependency.String
-		} else if binding.variantDependencyJSON.Valid {
-			digest := sha256.Sum256([]byte(binding.variantDependencyJSON.String))
-			result.dependencySHA256 = hex.EncodeToString(digest[:])
-		}
-	} else if binding.validationDependency.Valid {
-		result.dependencySHA256 = binding.validationDependency.String
-	}
 	result.checkpointFormat = binding.checkpointFormat
-	if result.dependencySHA256 == "" || result.dependencySHA256 != binding.savedDependency ||
-		binding.savedSize < 1 || binding.savedSize > result.checkpointMaxBytes {
+	if binding.savedSize < 1 || binding.savedSize > result.checkpointMaxBytes {
 		return launchSnapshot{}, ErrCheckpointIncompatible
 	}
 	return result, nil
@@ -180,26 +133,17 @@ func loadLaunchForRestore(
 	var binding restoreBinding
 	var targetMaximum int64
 	err := database.QueryRowContext(ctx, `
-SELECT launch.purpose,launch.profile_id,launch.game_id,launch.game_content_revision_id,
- launch.game_variant_revision_id,launch.rpgmaker_runtime_validation_id,
- launch.provider_id,launch.target_id,launch.target_contract_sha256,launch.game_compatibility_line,
- json_extract(target.checkpoint_json,'$.maxBytes'),revision.dependency_snapshot_json,
- product_profile.dependency_snapshot_sha256,validation.dependency_snapshot_sha256,
+SELECT launch.purpose,launch.profile_id,launch.game_id,launch.rpgmaker_runtime_validation_id,
+ launch.provider_id,launch.target_id,json_extract(target.checkpoint_json,'$.maxBytes'),
  COALESCE(save.payload_sha256,checkpoint.payload_sha256),
  COALESCE(save.payload_size_bytes,checkpoint.size_bytes),
- COALESCE(save.dependency_snapshot_sha256,validation.dependency_snapshot_sha256),
  COALESCE(save.checkpoint_format,checkpoint.checkpoint_format)
 FROM launch_sessions launch
 JOIN runtime_targets target ON target.provider_id=launch.provider_id AND target.target_id=launch.target_id
- AND target.target_contract_sha256=launch.target_contract_sha256 AND target.checkpoint_json IS NOT NULL
-LEFT JOIN game_variant_revisions revision ON revision.id=launch.game_variant_revision_id
-LEFT JOIN rpgmaker_variant_profiles product_profile
-  ON product_profile.game_variant_revision_id=launch.game_variant_revision_id
+ AND target.checkpoint_json IS NOT NULL
 LEFT JOIN rpgmaker_runtime_validations validation
   ON validation.id=launch.rpgmaker_runtime_validation_id
 LEFT JOIN save_states save ON save.id=launch.save_state_id AND save.deleted_at_ms IS NULL
-LEFT JOIN save_state_runtime_compatibility save_compatibility
-  ON save_compatibility.save_state_id=save.id
 LEFT JOIN blobs save_blob ON save_blob.id=save.payload_blob_id
 LEFT JOIN rpgmaker_runtime_validation_checkpoints checkpoint
   ON checkpoint.validation_id=validation.id AND validation.restore_launch_id=launch.id
@@ -207,27 +151,20 @@ LEFT JOIN blobs checkpoint_blob ON checkpoint_blob.id=checkpoint.payload_blob_id
 WHERE launch.id=? AND (
  launch.purpose='PRODUCT' AND save.id IS NOT NULL
    AND save.profile_id=launch.profile_id AND save.game_id=launch.game_id
-   AND save.game_content_revision_id=launch.game_content_revision_id
-   AND save.game_variant_revision_id=launch.game_variant_revision_id
-   AND save.provider_id=launch.provider_id AND save.target_id=launch.target_id
-   AND save.game_compatibility_line=launch.game_compatibility_line
-   AND save_compatibility.status='AVAILABLE'
+   AND EXISTS(SELECT 1 FROM json_each(target.checkpoint_json,'$.readFormats') readable
+              WHERE readable.type='text' AND readable.value=save.checkpoint_format)
    AND save_blob.sha256=save.payload_sha256 AND save_blob.size_bytes=save.payload_size_bytes
  OR launch.purpose='RPG_RUNTIME_VALIDATION' AND checkpoint.validation_id IS NOT NULL
    AND validation.state IN ('CHECKPOINTED','RESTORED','AWAITING_DECISION')
    AND validation.provider_id=launch.provider_id AND validation.target_id=launch.target_id
-   AND validation.target_contract_sha256=launch.target_contract_sha256
-   AND validation.game_compatibility_line=launch.game_compatibility_line
    AND EXISTS(SELECT 1 FROM json_each(target.checkpoint_json,'$.readFormats') readable
               WHERE readable.type='text' AND readable.value=checkpoint.checkpoint_format)
    AND checkpoint_blob.sha256=checkpoint.payload_sha256 AND checkpoint_blob.size_bytes=checkpoint.size_bytes
 )
 	`, launchID).Scan(
-		&result.purpose, &result.profileID, &binding.gameID, &binding.contentID, &binding.variantID,
-		&binding.validationID, &result.providerID, &result.targetID, &result.targetContractSHA256,
-		&result.gameCompatibilityLine, &targetMaximum, &binding.variantDependencyJSON,
-		&binding.productDependency, &binding.validationDependency, &binding.payloadDigest,
-		&binding.savedSize, &binding.savedDependency, &binding.checkpointFormat,
+		&result.purpose, &result.profileID, &binding.gameID, &binding.validationID,
+		&result.providerID, &result.targetID, &targetMaximum, &binding.payloadDigest,
+		&binding.savedSize, &binding.checkpointFormat,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
 		return launchSnapshot{}, "", 0, ErrCheckpointIncompatible

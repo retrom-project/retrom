@@ -200,7 +200,8 @@ class EvidenceContractTests(unittest.TestCase):
         self.assertNotIn("adapterKind", source)
         self.assertIn("providerResource(config,", source)
         self.assertIn("config.runtime.targetId", source)
-        self.assertIn("targetContractSha256", source)
+        self.assertIn("bundleSha256", source)
+        self.assertNotIn("targetContractSha256", source)
 
     def test_product_drivers_reveal_toolbar_through_the_visible_hud_handle(self) -> None:
         source = BROWSER_PATH.read_text()
@@ -838,7 +839,7 @@ class EvidenceContractTests(unittest.TestCase):
     def test_pack_evidence_requires_provider_target_identity_for_protected_references(self) -> None:
         payload = pack_evidence_payload()
         payload["databaseEvidence"]["protectedReferences"]["publishedVariant"].pop(
-            "targetContractSha256",
+            "bundleSha256",
         )
         with self.assertRaisesRegex(rpgmaker.ContractError, "PROTECTED_REFERENCE_EVIDENCE_INVALID"):
             rpgmaker.validate_pack_evidence(payload)
@@ -1022,12 +1023,12 @@ def pack_evidence_payload() -> dict:
         "publishedVariant": {
             **protected_references["publishedVariant"], "definitionId": "rgss1_standard",
             "availableForLaunch": True, "providerId": "retrom-runtime", "targetId": "rpgmaker-xp",
-            "targetContractSha256": "c" * 64,
+            "bundleSha256": "c" * 64,
         },
         "restorableCheckpoint": {
             **protected_references["restorableCheckpoint"], "definitionId": "rgss2_rpgvx",
             "availableForLaunch": True, "providerId": "retrom-runtime", "targetId": "rpgmaker-vx",
-            "targetContractSha256": "d" * 64,
+            "bundleSha256": "d" * 64,
         },
     }
     zero_upload = database_uploads["zeroReference"]
@@ -1108,8 +1109,7 @@ def product_payload(spec, digest: str) -> dict:
                 "effectiveSourceSnapshotId": "44444444-4444-4444-8444-444444444444",
                 "providerId": "retrom-runtime", "targetId": spec.target_id, "generation": spec.generation,
                 "evidenceGeneration": spec.evidence_generation, "evidenceConfidence": spec.confidence,
-                "gameCompatibilityLine": f"{spec.target_id}-v1", "projectFingerprint": digest,
-                "targetContractSha256": target_contract, "dependencySnapshotSha256": "d" * 64,
+                "projectFingerprint": digest, "dependencySnapshotSha256": "d" * 64,
             },
             "machineGates": machine_gates,
             "checkpointRoundTrip": {
@@ -1133,8 +1133,7 @@ def product_payload(spec, digest: str) -> dict:
             },
             "config": {
                 "purpose": "PRODUCT", "providerId": "retrom-runtime", "providerVersion": "0.12.0",
-                "targetId": spec.target_id, "targetContractSha256": target_contract,
-                "gameCompatibilityLine": f"{spec.target_id}-v1",
+                "targetId": spec.target_id, "bundleSha256": target_contract,
                 "checkpointFormat": "provider-checkpoint-v1", "checkpointMaxBytes": 64 * 1024 * 1024,
             },
         },
@@ -1149,7 +1148,7 @@ def product_payload(spec, digest: str) -> dict:
                 "importJobId": import_id, "uploadId": upload_id, "state": "COMPLETED",
                 "payloadState": "RELEASED", "platformId": "rpgmaker",
                 "defaultCoreId": rpgmaker.USER_CORE_ID, "providerId": "retrom-runtime",
-                "targetId": spec.target_id, "targetContractSha256": target_contract,
+                "targetId": spec.target_id,
                 "counts": {
                     "total": 1, "queued": 0, "running": 0, "reviewPending": 0,
                     "published": 1, "discarded": 0, "failed": 0, "cancelled": 0,
@@ -1324,7 +1323,7 @@ def content_security_evidence_payload() -> dict:
                     "contentIdentityDigest": f"{index + 200:064x}",
                     "validationId": pack_uuid(400 + index), "launchId": pack_uuid(500 + index),
                     "providerId": "retrom-runtime", "targetId": targets[generation],
-                    "targetContractSha256": f"{generation_index + 600:064x}",
+                    "bundleSha256": f"{generation_index + 600:064x}",
                     "projection": {
                         "kind": projection_kind, "status": 200 if projected else 404,
                         "logicalName": logical_name, "sha256": digest if projected else None,
@@ -1389,7 +1388,7 @@ def isolation_evidence_payload() -> dict:
             "config": {
                 "providerId": "retrom-runtime",
                 "targetId": "rpgmaker-mv" if generation == "RPGMV" else "rpgmaker-mz",
-                "targetContractSha256": f"{index:064x}",
+                "bundleSha256": f"{index:064x}",
             },
             "originalScreenshot": f"screenshots/acc-rpg-011-{generation.lower()}.png",
             "csp": "base-uri 'self'; worker-src 'self' blob:; connect-src 'self'",

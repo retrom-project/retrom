@@ -28,14 +28,13 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["id", "providerId", "targetId", "coreId", "platformIds", "netplayCompatibilityLine", "maxPlayers", "maxPredictionFrames"],
+        "required": ["id", "providerId", "targetId", "coreId", "platformIds", "maxPlayers", "maxPredictionFrames"],
         "properties": {
           "id": {"type": "string", "pattern": "^[a-z0-9-]{1,64}$"},
           "providerId": {"const": "emulatorjs"},
           "targetId": {"type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"},
           "coreId": {"type": "string", "pattern": "^[a-z0-9_]{1,64}$"},
           "platformIds": {"type": "array", "minItems": 1, "maxItems": 8, "uniqueItems": true, "items": {"type": "string", "pattern": "^[a-z0-9-]{1,64}$"}},
-          "netplayCompatibilityLine": {"const": "emulatorjs-netplay-v2"},
           "maxPlayers": {"type": "integer", "minimum": 2, "maximum": 4},
           "maxPredictionFrames": {"type": "integer", "minimum": 0, "maximum": 8}
         }

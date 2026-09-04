@@ -28,8 +28,7 @@ _MANIFEST_KEYS = {
     "clientModulePath", "targets",
 }
 _TARGET_KEYS = {
-    "id", "displayName", "gameCompatibilityLine", "netplayCompatibilityLine",
-    "targetOptionsSchema", "capabilities", "inputs", "checkpoint", "assetPaths",
+    "id", "displayName", "targetOptionsSchema", "capabilities", "inputs", "checkpoint", "assetPaths",
 }
 _CAPABILITY_KEYS = {
     "pause", "screenshot", "checkpoint", "standardGamepad", "frameCounter",
@@ -175,8 +174,8 @@ def _validate_launch_session(value: object) -> Mapping[str, object]:
 def _validate_launch_runtime(value: object) -> Mapping[str, object]:
     runtime = _launch_record(value, "runtime")
     _launch_keys(runtime, {
-        "bundleSha256", "capabilities", "checkpoint", "gameCompatibilityLine", "moduleSha256", "moduleUrl",
-        "providerApiVersion", "providerId", "providerVersion", "runtimeBaseUrl", "targetContractSha256", "targetId",
+        "bundleSha256", "capabilities", "checkpoint", "moduleSha256", "moduleUrl",
+        "providerApiVersion", "providerId", "providerVersion", "runtimeBaseUrl", "targetId",
     }, "runtime")
     if runtime["providerApiVersion"] != 1:
         _fail("runtime.providerApiVersion must be 1")
@@ -185,9 +184,7 @@ def _validate_launch_runtime(value: object) -> Mapping[str, object]:
             _fail(f"runtime.{key} is invalid")
     if not isinstance(runtime["providerVersion"], str) or not _SEMVER.fullmatch(runtime["providerVersion"]):
         _fail("runtime.providerVersion is invalid")
-    if not isinstance(runtime["gameCompatibilityLine"], str) or not _TOKEN.fullmatch(runtime["gameCompatibilityLine"]):
-        _fail("runtime.gameCompatibilityLine is invalid")
-    for key in ("bundleSha256", "moduleSha256", "targetContractSha256"):
+    for key in ("bundleSha256", "moduleSha256"):
         if not isinstance(runtime[key], str) or not re.fullmatch(r"[0-9a-f]{64}", runtime[key]):
             _fail(f"runtime.{key} is invalid")
     capabilities = _validate_launch_capabilities(runtime["capabilities"])
@@ -585,10 +582,6 @@ def _validate_target(target: Mapping[str, object], index: int) -> str:
     _exact_keys(target, _TARGET_KEYS, label)
     target_id = _identity(target["id"], f"{label}.id")
     _bounded_text(target["displayName"], f"{label}.displayName", 1, 120)
-    _token(target["gameCompatibilityLine"], f"{label}.gameCompatibilityLine")
-    netplay = target["netplayCompatibilityLine"]
-    if netplay is not None:
-        _token(netplay, f"{label}.netplayCompatibilityLine")
     _validate_target_options_schema(target["targetOptionsSchema"], f"{label}.targetOptionsSchema", 0, root=True)
 
     capabilities = _record(target["capabilities"], f"{label}.capabilities")

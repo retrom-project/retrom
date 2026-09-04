@@ -143,11 +143,9 @@ VALUES(?,'ons-preview-profile','ons-preview-admin','ONS Admin','ADMIN','ENABLED'
 	}
 	var contentKind, compatibilityCode string
 	if err := database.SQL.QueryRowContext(ctx, `
-SELECT content.content_kind,revision.compatibility_code
+SELECT game.content_kind,variant.compatibility_code
 FROM games game
-JOIN game_content_revisions content ON content.id=game.current_content_revision_id
 JOIN game_variants variant ON variant.game_id=game.id
-JOIN game_variant_revisions revision ON revision.id=variant.current_revision_id
 WHERE game.id=?
 `, approved.GameID).Scan(&contentKind, &compatibilityCode); err != nil ||
 		contentKind != onsProjectFormat || compatibilityCode != reviewScreenshotOverrideCode {
@@ -207,7 +205,7 @@ func assertONSProductRoundTrip(
 	}
 	var providerID, targetID, checkpointFormat string
 	if err := database.QueryRowContext(ctx, `
-SELECT save.provider_id,save.target_id,save.checkpoint_format
+SELECT launch.provider_id,launch.target_id,save.checkpoint_format
 FROM launch_sessions launch
 JOIN save_states save ON save.source_launch_session_id=launch.id
 WHERE launch.id=? AND save.id=?

@@ -146,6 +146,56 @@ WHERE item.import_job_id=? AND file.logical_name='audio/bgm/config'
 			role, nestedOrdinal, nestedSHA, recursivelyIndexed,
 		)
 	}
+
+	var itemID, validationID string
+	var draftVersion int64
+	if err := database.SQL.QueryRowContext(ctx, `
+SELECT item.id,draft.version,profile.provider_id,profile.target_id,
+ (SELECT validation.id FROM import_item_core_validations validation
+  WHERE validation.import_item_id=item.id ORDER BY validation.created_at_ms DESC,validation.id DESC LIMIT 1)
+FROM import_items item
+JOIN review_drafts draft ON draft.import_item_id=item.id
+JOIN rpgmaker_review_profiles profile ON profile.review_draft_id=draft.id
+WHERE item.import_job_id=?
+`, created.ImportJobID).Scan(&itemID, &draftVersion, &providerID, &targetID, &validationID); err != nil {
+		t.Fatal(err)
+	}
+	replacementBundle := fmt.Sprintf("%064x", 42)
+	if _, err := database.SQL.ExecContext(ctx, `
+UPDATE runtime_providers SET provider_version='1.1.0',bundle_sha256=?,activated_at_ms=activated_at_ms+1
+WHERE provider_id='retrom-runtime'
+`, replacementBundle); err != nil {
+		t.Fatal(err)
+	}
+	validationCurrent, err := New(database.SQL, time.Now).ReviewValidationCurrent(ctx, validationID)
+	if err != nil || !validationCurrent {
+		t.Fatalf("review validation after provider bundle upgrade = %t, error=%v", validationCurrent, err)
+	}
+	var reboundProvider, reboundTarget string
+	var reboundVersion int64
+	if err := database.SQL.QueryRowContext(ctx, `
+SELECT draft.version,profile.provider_id,profile.target_id
+FROM review_drafts draft
+JOIN rpgmaker_review_profiles profile ON profile.review_draft_id=draft.id
+WHERE draft.import_item_id=?
+`, itemID).Scan(&reboundVersion, &reboundProvider, &reboundTarget); err != nil {
+		t.Fatal(err)
+	}
+	if reboundVersion != draftVersion || reboundProvider != providerID || reboundTarget != targetID {
+		t.Fatalf(
+			"stable runtime route version=%d route=%s/%s want=%d %s/%s",
+			reboundVersion, reboundProvider, reboundTarget, draftVersion, providerID, targetID,
+		)
+	}
+	var validationCount int
+	if err := database.SQL.QueryRowContext(ctx, `
+	SELECT COUNT(*) FROM import_item_core_validations WHERE import_item_id=?
+`, itemID).Scan(&validationCount); err != nil {
+		t.Fatal(err)
+	}
+	if validationCount != 1 {
+		t.Fatalf("provider bundle upgrade created redundant review validations: %d", validationCount)
+	}
 }
 
 func waitForRPGUploadFinalization(t *testing.T, ctx context.Context, database *sql.DB, jobID string) {

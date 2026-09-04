@@ -20,20 +20,18 @@ func TestPrepublishDigestV4GoldenAndSemanticInputs(t *testing.T) {
 		PlatformInstanceVersion:  7,
 		ProviderID:               "emulatorjs",
 		TargetID:                 "fbneo",
-		TargetContractSHA256:     "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-		GameCompatibilityLine:    "fbneo-v1",
 		ContentPolicyDigest:      "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
 		DATVersionID:             &datID,
 		DependencySnapshot:       json.RawMessage(`{"schemaVersion":2,"dependencies":[]}`),
 		Status:                   "READY",
 		CompatibilityCode:        "READY",
 	}
-	const expected = "5d407b095c7c858bd4e1a5a4087db6f873b1317420935af346b48e2275efe0aa"
+	const expected = "3d601c0757f378bedbe3ea4b6fde04a5bb6a6138c2af15a1da2f7ea83e925227"
 	if got := prepublishDigest(base); got != expected {
 		t.Fatalf("prepublish golden = %s", got)
 	}
 	changedTarget := base
-	changedTarget.TargetContractSHA256 = "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+	changedTarget.TargetID = "mednafen-saturn"
 	changedCompatibility := base
 	changedCompatibility.ContentPolicyDigest = "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
 	changedKind := base
@@ -58,7 +56,6 @@ func TestPrepublishDigestMatchesLegacyRawContentPolicy(t *testing.T) {
 		SourceSnapshotID: "snapshot-1", SourceManifestDigest: "a",
 		ContentKind: "SINGLE_FILE", TargetPlatformInstanceID: "platform-1",
 		PlatformInstanceVersion: 1, ProviderID: "onscripter", TargetID: "onscripter-yuri",
-		TargetContractSHA256: "b", GameCompatibilityLine: "ons-v1",
 		ContentPolicyDigest: compatibilityConfigDigest(legacyPolicy),
 		DependencySnapshot:  json.RawMessage(`{"schemaVersion":2,"dependencies":[]}`),
 		Status:              "BLOCKED", CompatibilityCode: "ONS_RUNTIME_TRIAL_REQUIRED",

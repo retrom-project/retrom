@@ -198,12 +198,12 @@ WHERE item.import_id=? AND item.execution_state='REVIEW_PENDING' AND item.title=
 	testassert.False(t, err != nil, err)
 	var gameID, title string
 	var assetCount, gameMappedTags, gameExternalTags int
-	mustScanPegasusTest(t, database.SQL.QueryRowContext(context.Background(), `SELECT game.id,metadata.title,
-  (SELECT count(*) FROM game_assets asset WHERE asset.game_id=game.id AND asset.metadata_revision_id=game.current_metadata_revision_id),
+	mustScanPegasusTest(t, database.SQL.QueryRowContext(context.Background(), `SELECT game.id,game.title,
+  (SELECT count(*) FROM game_assets asset WHERE asset.game_id=game.id),
   (SELECT count(*) FROM game_tags relation WHERE relation.game_id=game.id AND relation.tag_id=?),
   (SELECT count(*) FROM game_tags relation WHERE relation.game_id=game.id AND relation.tag_id=?)
-FROM games game JOIN game_metadata_revisions metadata ON metadata.id=game.current_metadata_revision_id
-WHERE metadata.source_kind='SERVER_PEGASUS_IMPORT'`, mappedTag.TagID, externalTag.TagID),
+FROM games game
+WHERE game.metadata_source_kind='SERVER_PEGASUS_IMPORT'`, mappedTag.TagID, externalTag.TagID),
 		&gameID, &title, &assetCount, &gameMappedTags, &gameExternalTags)
 	testassert.Falsef(t, testassert.Any(func() bool { return gameID == "" }, func() bool { return title != "Published Fixture" }, func() bool { return assetCount != 2 }, func() bool { return gameMappedTags != 1 }, func() bool { return gameExternalTags != 0 }), "published game = %q/%q assets=%d tags=%d/%d", gameID, title, assetCount, gameMappedTags, gameExternalTags)
 	decided, err := service.Get(ctx, created.ID)
@@ -239,7 +239,7 @@ SELECT
  (SELECT count(*) FROM import_items WHERE id IN (SELECT library_import_item_id FROM pegasus_import_items WHERE import_id=?) AND payload_state='RELEASED'),
  (SELECT count(*) FROM pegasus_import_item_files file JOIN pegasus_import_items item ON item.id=file.item_id WHERE item.import_id=? AND (file.blob_id IS NOT NULL OR file.source_archive_blob_id IS NOT NULL))+
  (SELECT count(*) FROM pegasus_import_item_assets asset JOIN pegasus_import_items item ON item.id=asset.item_id WHERE item.import_id=? AND asset.blob_id IS NOT NULL),
- (SELECT count(*) FROM game_content_files file JOIN game_content_revisions revision ON revision.id=file.game_content_revision_id WHERE revision.game_id=?)+
+ (SELECT count(*) FROM game_files file WHERE file.game_id=?)+
  (SELECT count(*) FROM game_assets WHERE game_id=?)
 `, importID, importID, importID, importID, gameID, gameID),
 		&releasedPegasus, &releasedImports, &pegasusBlobRefs, &gamePayloadRows)

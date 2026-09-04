@@ -16,7 +16,7 @@ func TestCopyRPGMakerRuntimePacksFreezesDraftSelections(t *testing.T) {
 	}
 	run := approvalRun{
 		ctx: t.Context(), transaction: transaction, platformID: "rpgmaker",
-		variantRevisionID: "variant", draftID: "draft",
+		variantID: "variant", draftID: "draft",
 	}
 	if err := run.copyRPGMakerRuntimePacks(); err != nil {
 		t.Fatal(err)
@@ -51,8 +51,8 @@ CREATE TABLE review_draft_runtime_pack_selections(
   review_draft_id TEXT,slot INTEGER,declared_name TEXT,normalized_declared_name TEXT,
   definition_id TEXT,installation_id TEXT
 );
-CREATE TABLE game_variant_revision_runtime_packs(
-  game_variant_revision_id TEXT,slot INTEGER,declared_name TEXT,normalized_declared_name TEXT,
+CREATE TABLE game_variant_runtime_packs(
+  game_variant_id TEXT,slot INTEGER,declared_name TEXT,normalized_declared_name TEXT,
   definition_id TEXT,installation_id TEXT
 );
 INSERT INTO review_draft_runtime_pack_selections VALUES
@@ -67,8 +67,8 @@ INSERT INTO review_draft_runtime_pack_selections VALUES
 func frozenRuntimePackSelections(t *testing.T, database *sql.DB) []frozenRuntimePackSelection {
 	t.Helper()
 	rows, err := database.QueryContext(t.Context(), `
-SELECT game_variant_revision_id,slot,declared_name,normalized_declared_name,definition_id,installation_id
-FROM game_variant_revision_runtime_packs ORDER BY slot
+SELECT game_variant_id,slot,declared_name,normalized_declared_name,definition_id,installation_id
+FROM game_variant_runtime_packs ORDER BY slot
 `)
 	if err != nil {
 		t.Fatal(err)

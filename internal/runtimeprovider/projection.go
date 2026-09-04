@@ -23,7 +23,6 @@ var (
 	ErrProjectionInvalid            = errors.New("RUNTIME_PROVIDER_PROJECTION_INVALID")
 	ErrProviderDowngrade            = errors.New("RUNTIME_PROVIDER_DOWNGRADE_FORBIDDEN")
 	ErrProviderVersionRebuilt       = errors.New("RUNTIME_PROVIDER_VERSION_REBUILT")
-	ErrProviderCompatibilityChanged = errors.New("RUNTIME_PROVIDER_COMPATIBILITY_CHANGED")
 	ErrProviderTargetReferenced     = errors.New("RUNTIME_PROVIDER_TARGET_REFERENCED")
 	ErrProviderCheckpointUnreadable = errors.New("RUNTIME_PROVIDER_CHECKPOINT_FORMAT_UNREADABLE")
 	ErrCatalogDowngrade             = errors.New("RUNTIME_TARGET_CATALOG_DOWNGRADE_FORBIDDEN")
@@ -48,22 +47,16 @@ type providerProjection struct {
 }
 
 type targetProjection struct {
-	target             runtimebundle.Target
-	capabilitiesJSON   string
-	checkpointJSON     *string
-	targetOptionsJSON  string
-	manifestFragment   string
-	targetContractHash string
+	target            runtimebundle.Target
+	capabilitiesJSON  string
+	checkpointJSON    *string
+	targetOptionsJSON string
+	manifestFragment  string
 }
 
 type currentProvider struct {
 	version      string
 	bundleSHA256 string
-}
-
-type currentTarget struct {
-	gameCompatibilityLine    string
-	netplayCompatibilityLine sql.NullString
 }
 
 func NewProjection(
@@ -137,10 +130,7 @@ func projectProvider(
 }
 
 func targetMatchesActiveProjection(target runtimebundle.Target, active runtimebundle.ActiveTarget) bool {
-	return active.ContractSHA256 == target.ContractSHA256 &&
-		active.GameCompatibilityLine == target.GameCompatibilityLine &&
-		equalOptionalString(active.NetplayCompatibilityLine, target.NetplayCompatibilityLine) &&
-		equalCheckpoint(active.Checkpoint, target.Checkpoint)
+	return equalCheckpoint(active.Checkpoint, target.Checkpoint)
 }
 
 func projectTarget(target runtimebundle.Target) (targetProjection, error) {
@@ -168,7 +158,6 @@ func projectTarget(target runtimebundle.Target) (targetProjection, error) {
 	return targetProjection{
 		target: target, capabilitiesJSON: string(capabilities), checkpointJSON: checkpointJSON,
 		targetOptionsJSON: string(optionsSchema), manifestFragment: string(fragment),
-		targetContractHash: target.ContractSHA256,
 	}, nil
 }
 
@@ -243,12 +232,8 @@ func prepareReconciliation(
 	if err != nil {
 		return nil, nil, false, err
 	}
-	currentTargets, err := loadCurrentTargets(ctx, transaction)
-	if err != nil {
-		return nil, nil, false, err
-	}
 	changedProviders, err := validateProviderTransition(
-		ctx, transaction, currentProviders, currentTargets, candidate,
+		ctx, transaction, currentProviders, candidate,
 	)
 	if err != nil {
 		return nil, nil, false, err
@@ -311,39 +296,10 @@ func loadCurrentProviders(ctx context.Context, transaction *sql.Tx) (map[string]
 	return result, nil
 }
 
-func loadCurrentTargets(ctx context.Context, transaction *sql.Tx) (map[string]currentTarget, error) {
-	rows, err := transaction.QueryContext(ctx, `
-SELECT provider_id,target_id,game_compatibility_line,netplay_compatibility_line FROM runtime_targets
-`)
-	if err != nil {
-		return nil, fmt.Errorf("reconcile runtime providers: read targets: %w", err)
-	}
-	defer func() { cleanup.Error("close target rows", rows.Close()) }()
-	result := make(map[string]currentTarget)
-	for rows.Next() {
-		var providerID, targetID string
-		var target currentTarget
-		if err := rows.Scan(
-			&providerID,
-			&targetID,
-			&target.gameCompatibilityLine,
-			&target.netplayCompatibilityLine,
-		); err != nil {
-			return nil, fmt.Errorf("reconcile runtime providers: scan target: %w", err)
-		}
-		result[providerID+"\x00"+targetID] = target
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("reconcile runtime providers: targets: %w", err)
-	}
-	return result, nil
-}
-
 func validateProviderTransition(
 	ctx context.Context,
 	transaction *sql.Tx,
 	currentProviders map[string]currentProvider,
-	currentTargets map[string]currentTarget,
 	candidate Projection,
 ) ([]string, error) {
 	candidateProviders := make(map[string]providerProjection, len(candidate.providers))
@@ -363,10 +319,7 @@ func validateProviderTransition(
 		for _, target := range provider.targets {
 			identity := providerID + "\x00" + target.target.ID
 			candidateTargets[identity] = target
-			previous, targetExists := currentTargets[identity]
-			if err := validateTargetTransition(
-				ctx, transaction, providerID, target, previous, targetExists,
-			); err != nil {
+			if err := validateTargetTransition(ctx, transaction, providerID, target); err != nil {
 				return nil, err
 			}
 		}
@@ -376,14 +329,26 @@ func validateProviderTransition(
 		return nil, err
 	}
 	changed = append(changed, removedProviders...)
-	for identity := range currentTargets {
+	rows, err := transaction.QueryContext(ctx, `SELECT provider_id,target_id FROM runtime_targets`)
+	if err != nil {
+		return nil, fmt.Errorf("reconcile runtime providers: enumerate current targets: %w", err)
+	}
+	defer func() { cleanup.Error("close current target rows", rows.Close()) }()
+	for rows.Next() {
+		var providerID, targetID string
+		if err := rows.Scan(&providerID, &targetID); err != nil {
+			return nil, fmt.Errorf("reconcile runtime providers: scan current target: %w", err)
+		}
+		identity := providerID + "\x00" + targetID
 		if _, exists := candidateTargets[identity]; exists {
 			continue
 		}
-		providerID, targetID := splitIdentity(identity)
 		if err := ensureTargetUnreferenced(ctx, transaction, providerID, targetID); err != nil {
 			return nil, err
 		}
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("reconcile runtime providers: current targets: %w", err)
 	}
 	sort.Strings(changed)
 	return changed, nil
@@ -412,14 +377,7 @@ func validateTargetTransition(
 	transaction *sql.Tx,
 	providerID string,
 	target targetProjection,
-	previous currentTarget,
-	exists bool,
 ) error {
-	if exists &&
-		(previous.gameCompatibilityLine != target.target.GameCompatibilityLine ||
-			!nullMatches(previous.netplayCompatibilityLine, target.target.NetplayCompatibilityLine)) {
-		return fmt.Errorf("%w: %s/%s", ErrProviderCompatibilityChanged, providerID, target.target.ID)
-	}
 	return validateCheckpointFormats(ctx, transaction, providerID, target)
 }
 
@@ -476,7 +434,9 @@ func validateCheckpointFormats(
 		}
 	}
 	queries := []string{
-		`SELECT DISTINCT checkpoint_format FROM save_states WHERE provider_id=? AND target_id=? AND deleted_at_ms IS NULL`,
+		`SELECT DISTINCT save.checkpoint_format FROM save_states save
+JOIN game_variants variant ON variant.game_id=save.game_id
+WHERE variant.provider_id=? AND variant.target_id=? AND save.deleted_at_ms IS NULL`,
 		`SELECT DISTINCT checkpoint.checkpoint_format
 FROM rpgmaker_runtime_validation_checkpoints checkpoint
 JOIN rpgmaker_runtime_validations validation ON validation.id=checkpoint.validation_id
@@ -543,9 +503,8 @@ func ensureTargetUnreferenced(ctx context.Context, transaction *sql.Tx, provider
 		{"rpgmaker_runtime_validations", "provider_id", "target_id"},
 		{"review_preview_sessions", "provider_id", "target_id"},
 		{"review_runtime_screenshots", "provider_id", "target_id"},
-		{"game_variant_revisions", "provider_id", "target_id"},
+		{"game_variants", "provider_id", "target_id"},
 		{"launch_sessions", "provider_id", "target_id"},
-		{"save_states", "provider_id", "target_id"},
 		{"netplay_sessions", "provider_id", "target_id"},
 		{"pegasus_import_collections", "target_provider_id", "target_id"},
 		{"emulationstation_import_collections", "target_provider_id", "target_id"},
@@ -569,12 +528,10 @@ func terminateProviderSessions(ctx context.Context, transaction *sql.Tx, provide
 		query string
 		args  []any
 	}{
-		{`UPDATE launch_sessions SET state='REVOKED',finished_at_ms=?,updated_at_ms=?,version=version+1
-WHERE provider_id=? AND state IN ('CREATED','ACTIVE')`, []any{now, now, providerID}},
-		{`UPDATE review_preview_sessions SET state='REVOKED',finished_at_ms=?,updated_at_ms=?,version=version+1
-WHERE provider_id=? AND state IN ('CREATED','ACTIVE')`, []any{now, now, providerID}},
-		{`UPDATE rpgmaker_runtime_validations SET state='EXPIRED',failure_code='RUNTIME_PROVIDER_UPGRADED',
-updated_at_ms=? WHERE provider_id=? AND state NOT IN ('PASSED','FAILED','EXPIRED')`, []any{now, providerID}},
+		{`UPDATE netplay_rooms SET state='ENDED',current_session_id=NULL,ended_at_ms=?,end_reason='SERVER_RESTARTED',
+updated_at_ms=?,version=version+1 WHERE state IN ('WAITING','STARTING','RUNNING') AND current_session_id IN (
+ SELECT id FROM netplay_sessions WHERE provider_id=?
+)`, []any{now, now, providerID}},
 		{`UPDATE netplay_sessions SET state='FAILED',end_reason='SERVER_RESTARTED',
 finished_at_ms=?,updated_at_ms=?,version=version+1
 WHERE provider_id=? AND state NOT IN ('FINISHED','FAILED')`, []any{now, now, providerID}},
@@ -694,19 +651,16 @@ func writeTarget(
 ) error {
 	_, err := transaction.ExecContext(ctx, `
 INSERT INTO runtime_targets(
-  provider_id,target_id,display_name,game_compatibility_line,netplay_compatibility_line,
-  target_options_schema_json,capabilities_json,checkpoint_json,manifest_fragment_json,target_contract_sha256
-) VALUES(?,?,?,?,?,?,?,?,?,?)
+	provider_id,target_id,display_name,target_options_schema_json,capabilities_json,checkpoint_json,manifest_fragment_json
+) VALUES(?,?,?,?,?,?,?)
 ON CONFLICT(provider_id,target_id) DO UPDATE SET
-  display_name=excluded.display_name,game_compatibility_line=excluded.game_compatibility_line,
-  netplay_compatibility_line=excluded.netplay_compatibility_line,
-  target_options_schema_json=excluded.target_options_schema_json,
-  capabilities_json=excluded.capabilities_json,checkpoint_json=excluded.checkpoint_json,
-  manifest_fragment_json=excluded.manifest_fragment_json,target_contract_sha256=excluded.target_contract_sha256
+	display_name=excluded.display_name,
+	target_options_schema_json=excluded.target_options_schema_json,
+	capabilities_json=excluded.capabilities_json,checkpoint_json=excluded.checkpoint_json,
+	manifest_fragment_json=excluded.manifest_fragment_json
 	`, providerID, projected.target.ID, projected.target.DisplayName,
-		projected.target.GameCompatibilityLine, projected.target.NetplayCompatibilityLine,
 		projected.targetOptionsJSON, projected.capabilitiesJSON, projected.checkpointJSON,
-		projected.manifestFragment, projected.targetContractHash)
+		projected.manifestFragment)
 	if err != nil {
 		return fmt.Errorf("reconcile runtime providers: write target: %w", err)
 	}
@@ -823,23 +777,6 @@ ON CONFLICT(singleton) DO UPDATE SET catalog_version=excluded.catalog_version,
 		return fmt.Errorf("reconcile runtime providers: write catalog state: %w", err)
 	}
 	return nil
-}
-
-func splitIdentity(identity string) (string, string) {
-	for index := range identity {
-		if identity[index] == 0 {
-			return identity[:index], identity[index+1:]
-		}
-	}
-	return identity, ""
-}
-
-func nullMatches(previous sql.NullString, next *string) bool {
-	return previous.Valid == (next != nil) && (!previous.Valid || previous.String == *next)
-}
-
-func equalOptionalString(left, right *string) bool {
-	return (left == nil) == (right == nil) && (left == nil || *left == *right)
 }
 
 func equalCheckpoint(left, right *runtimebundle.Checkpoint) bool {

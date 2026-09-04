@@ -106,12 +106,12 @@ func TestArcadeDraftBIOSStateRefreshesInstalledDATMachineDependency(t *testing.T
 	testassert.False(t, err != nil, err)
 	const requirementID = "01990000-0000-7000-8000-000000000101"
 	if _, err := database.SQL.ExecContext(ctx, `
-INSERT INTO bios_requirements(id,core_id,provider_id,target_id,target_contract_sha256,source_kind,dat_machine_name,logical_name,
+INSERT INTO bios_requirements(id,core_id,provider_id,target_id,source_kind,dat_machine_name,logical_name,
 requirement_mode,condition_code,activation_options_json,catalog_digest,size_bytes,md5,sha1,sha256,
 source_url,source_version,enabled,version,created_at_ms,updated_at_ms,delivery_kind,emulator_path)
-VALUES(?,'fbneo',?,?,?,'DAT_MACHINE','bios','bios.zip','REQUIRED','ARCADE_DAT_DEPENDENCY','{}',?,
+VALUES(?,'fbneo',?,?,'DAT_MACHINE','bios','bios.zip','REQUIRED','ARCADE_DAT_DEPENDENCY','{}',?,
 NULL,NULL,NULL,NULL,'test://bios','test',1,1,?,?,'BIOS_BUNDLE',NULL)
-`, requirementID, target.ProviderID, target.TargetID, target.TargetContractSHA256,
+`, requirementID, target.ProviderID, target.TargetID,
 		strings.Repeat("a", 64), time.Now().UnixMilli(), time.Now().UnixMilli()); err != nil {
 		t.Fatal(err)
 	}
@@ -170,12 +170,12 @@ WHERE provider_id=? AND target_id=? AND is_active=1
 	}
 	const datID = "01990000-0000-7000-8000-000000000201"
 	if _, err := database.SQL.ExecContext(ctx, `
-INSERT INTO dat_versions(id,core_id,provider_id,target_id,target_contract_sha256,builtin_relative_path,sha256,parser_version,
+INSERT INTO dat_versions(id,core_id,provider_id,target_id,builtin_relative_path,sha256,parser_version,
 parse_status,is_active,machine_count,rom_entry_count,disk_entry_count,
 bios_set_count,default_bios_set_count,explicit_bios_machine_count,base_dependency_target_count,
 unresolved_relation_count,version,created_at_ms,updated_at_ms,parsed_at_ms,activated_at_ms)
-VALUES(?,'fbneo',?,?,?,'testdata/installed-bios.dat',?,'test','READY',1,2,2,0,0,0,1,1,0,1,?,?,?,?)
-`, datID, target.ProviderID, target.TargetID, target.TargetContractSHA256, dummy.SHA256, now, now, now, now); err != nil {
+VALUES(?,'fbneo',?,?,'testdata/installed-bios.dat',?,'test','READY',1,2,2,0,0,0,1,1,0,1,?,?,?,?)
+`, datID, target.ProviderID, target.TargetID, dummy.SHA256, now, now, now, now); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := database.SQL.ExecContext(ctx, `
@@ -215,12 +215,12 @@ VALUES(?,?,0,?,?,?,?,'GOOD')
 	testassert.False(t, err != nil, err)
 	const requirementID = "01990000-0000-7000-8000-000000000202"
 	if _, err := database.SQL.ExecContext(ctx, `
-INSERT INTO bios_requirements(id,core_id,provider_id,target_id,target_contract_sha256,source_kind,dat_machine_name,logical_name,
+INSERT INTO bios_requirements(id,core_id,provider_id,target_id,source_kind,dat_machine_name,logical_name,
 requirement_mode,condition_code,activation_options_json,catalog_digest,size_bytes,md5,sha1,sha256,
 source_url,source_version,enabled,version,created_at_ms,updated_at_ms,delivery_kind,emulator_path)
-VALUES(?,'fbneo',?,?,?,'DAT_MACHINE','codexbios','codexbios.zip','REQUIRED',
+VALUES(?,'fbneo',?,?,'DAT_MACHINE','codexbios','codexbios.zip','REQUIRED',
 'ARCADE_DAT_DEPENDENCY','{}',?,NULL,NULL,NULL,NULL,'test://bios',?,1,1,?,?,'BIOS_BUNDLE',NULL)
-`, requirementID, target.ProviderID, target.TargetID, target.TargetContractSHA256,
+`, requirementID, target.ProviderID, target.TargetID,
 		strings.Repeat("a", 64), datID, now, now); err != nil {
 		t.Fatal(err)
 	}
@@ -368,9 +368,8 @@ INSERT INTO profiles(id,display_name,created_at_ms) VALUES('local','Arcade BIOS 
 	}
 	var refreshedSnapshot string
 	if err := database.SQL.QueryRowContext(ctx, `
-SELECT revision.dependency_snapshot_json
+SELECT variant.dependency_snapshot_json
 FROM game_variants variant
-JOIN game_variant_revisions revision ON revision.id=variant.current_revision_id
 WHERE variant.game_id=? AND variant.core_id='fbneo'
 `, approved.GameID).Scan(&refreshedSnapshot); err != nil {
 		t.Fatal(err)

@@ -41,10 +41,7 @@ const validCandidateActive = `{
     "providerVersion":"1.0.0",
     "targets":[{
       "checkpoint":{"maxBytes":1024,"readFormats":["fixture-state-v1"],"writeFormat":"fixture-state-v1"},
-      "gameCompatibilityLine":"fixture-v1",
-      "id":"fixture",
-      "netplayCompatibilityLine":null,
-      "targetContractSha256":"dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+      "id":"fixture"
     }],
     "unpackedSizeBytes":200
   }],

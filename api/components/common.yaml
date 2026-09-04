@@ -827,7 +827,6 @@ components:
         reviewPendingCount: {}
         reviewPendingItemCount: {}
         reviewVersion: {}
-        revisionId: {}
         role: {}
         rom: {}
         romEntryCount: {}

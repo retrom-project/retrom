@@ -157,10 +157,8 @@ WHERE item.import_id=? AND item.title='Discard fixture'
 
 	var gameID, metadataSource, contentSource string
 	testassert.False(t, database.SQL.QueryRowContext(ctx, `
-SELECT game.id,metadata.source_kind,content.source_kind
+SELECT game.id,game.metadata_source_kind,game.content_source_kind
 FROM games game
-JOIN game_metadata_revisions metadata ON metadata.id=game.current_metadata_revision_id
-JOIN game_content_revisions content ON content.id=game.current_content_revision_id
 `).Scan(&gameID, &metadataSource, &contentSource) != nil, "resolve published game")
 	testassert.Falsef(t,
 		metadataSource != "SERVER_EMULATIONSTATION_IMPORT" || contentSource != metadataSource,
@@ -280,8 +278,7 @@ SELECT
  (SELECT count(*) FROM emulationstation_import_item_assets asset
    JOIN emulationstation_import_items item ON item.id=asset.item_id
    WHERE item.import_id=? AND asset.blob_id IS NOT NULL),
- (SELECT count(*) FROM game_content_files file
-   JOIN game_content_revisions revision ON revision.id=file.game_content_revision_id WHERE revision.game_id=?)+
+ (SELECT count(*) FROM game_files file WHERE file.game_id=?)+
  (SELECT count(*) FROM game_assets WHERE game_id=?)
 `, importID, importID, importID, importID, gameID, gameID).Scan(
 		&releasedSource, &releasedImports, &sourceBlobRefs, &gamePayloadRows,

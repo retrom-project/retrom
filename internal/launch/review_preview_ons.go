@@ -66,13 +66,10 @@ func (service *Service) productONSProjectIndex(
 	var hardExpires int64
 	err := service.database.QueryRowContext(ctx, `
 SELECT launch.credential_sha256,launch.state,launch.hard_expires_at_ms,
- metadata.title,revision.dependency_snapshot_json
+ game.title,launch.dependency_snapshot_json
 FROM launch_sessions launch
-JOIN game_variant_revisions revision ON revision.id=launch.game_variant_revision_id
 JOIN games game ON game.id=launch.game_id
-JOIN game_metadata_revisions metadata ON metadata.id=game.current_metadata_revision_id
-WHERE launch.id=? AND launch.purpose='PRODUCT' AND launch.target_id=revision.target_id
- AND launch.provider_id=revision.provider_id
+WHERE launch.id=? AND launch.purpose='PRODUCT'
  AND EXISTS(SELECT 1 FROM launch_content_files file WHERE file.launch_session_id=launch.id
   AND file.format_version='ONS_PROJECT')
 `, launchID).Scan(&credentialHash, &state, &hardExpires, &title, &dependencyJSON)
@@ -283,12 +280,12 @@ func (service *Service) ReviewPreviewProjectContent(
 		return ContentView{}, ErrCredential
 	}
 	var credentialHash []byte
-	var digest, state, format, coreID, providerID, targetID, targetContractSHA256, platformKey string
+	var digest, state, format, coreID, providerID, targetID, bundleSHA256, platformKey string
 	var hardExpires int64
 	err = service.database.QueryRowContext(ctx, `
 SELECT preview.credential_sha256,preview.state,preview.hard_expires_at_ms,blob.sha256,
 preview.content_format,binding.core_id,preview.provider_id,preview.target_id,
-preview.target_contract_sha256,platform.id
+preview.bundle_sha256,platform.id
 FROM review_preview_sessions preview
 JOIN runtime_target_bindings binding ON binding.provider_id=preview.provider_id AND binding.target_id=preview.target_id
 JOIN platform_instances instance ON instance.id=preview.target_platform_instance_id
@@ -306,7 +303,7 @@ WHERE preview.id=?
  )
 `, normalized, previewID).Scan(
 		&credentialHash, &state, &hardExpires, &digest, &format, &coreID,
-		&providerID, &targetID, &targetContractSHA256, &platformKey,
+		&providerID, &targetID, &bundleSHA256, &platformKey,
 	)
 	if err != nil || format != onsProjectFormat && format != kirikiriProjectFormat &&
 		format != butterscotchProjectFormat && format != tyranoScriptProjectFormat ||
@@ -315,7 +312,7 @@ WHERE preview.id=?
 	}
 	return ContentView{
 		Digest: digest, Format: format, CoreID: coreID, ProviderID: providerID, TargetID: targetID,
-		TargetContractSHA256: targetContractSHA256, PlatformKey: platformKey,
+		BundleSHA256: bundleSHA256, PlatformKey: platformKey,
 	}, nil
 }
 

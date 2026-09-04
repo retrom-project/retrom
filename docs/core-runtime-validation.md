@@ -10,7 +10,7 @@
 
 只有经过 Retrom Upload/Import/Review/Publish、创建 Launch、读取 Launch Envelope、由共享 dispatcher mount Provider、加载受限内容并在真实 Chrome 中产生帧和输入结果，才算产品链路证据。独立引擎页面、解析器、HTTP 200、静止 canvas、结构测试或 Provider 自测都不能替代产品证据。
 
-每次证据必须记录精确 `providerId/bundleSha256/targetId/targetContractSha256`、内容 revision、依赖 snapshot 与测试 fixture digest。Provider Target 之外不得再记录或选择内部路由、宿主适配器或旧式运行构件身份。
+每次执行证据必须记录精确 `providerId/bundleSha256/targetId`、当前内容 manifest、依赖 snapshot 与测试 fixture digest。Provider Target 之外不得再记录或选择内部路由、宿主适配器或旧式运行构件身份。
 
 ## 2. 已覆盖产品 Target
 
@@ -39,7 +39,7 @@
 
 ## 4. EmulatorJS 特殊边界
 
-EmulatorJS Provider declaration 是 35 个 Target 的唯一行为 registry。`mame2003` 的 4.2.1 core 覆盖、DOSBox Pure 的 state 修复、线程 core、shader、启动动作、多盘和八个 netplay profile 都封装在该 Provider 中。Retrom 只看 Target contract 与标准能力，不按 core 名在 Go 或前端复制规则。
+EmulatorJS Provider declaration 是 35 个 Target 的唯一行为 registry。`mame2003` 的 4.2.1 core 覆盖、DOSBox Pure 的 state 修复、线程 core、shader、启动动作、多盘和八个 netplay profile 都封装在该 Provider 中。Retrom 只看 Target declaration 与标准能力，不按 core 名在 Go 或前端复制规则。
 
 指定存档不能在首帧盲目自动加载；Provider 必须等待目标核心可序列化，再执行原生 load 并以明确失败 fail closed。普通开始必须清理浏览器遗留的隐式目录存档，只有用户点击“创建存档”才上传显式 checkpoint。
 
@@ -55,10 +55,10 @@ Provider 升级必须在同一数据库上顺序启动旧版与更高版本，�
 
 - active Bundle 只向前移动；
 - 同版本不同 bytes、降级和 Target 删除均拒绝 readiness；
-- `gameCompatibilityLine` 保持一致；
+- 稳定 `providerId/targetId` 保持一致；
 - 兼容升级的 `readFormats` 包含旧 checkpoint format，旧 Save 可由新 Bundle 恢复；
 - 不兼容格式仍保留 Save 记录但创建恢复 Launch 返回 `LAUNCH_SAVE_INCOMPATIBLE`；
-- 新普通 Launch 和新 Save 都绑定新 Bundle/Target contract；
+- 新普通 Launch 和新 Save 都绑定新 Bundle/Target declaration；
 - 不再从旧 Bundle 静态端点或旧模块 fallback。
 
 PFB只能证明当前worktree、基座Provider与loose revision组合的产品行为；正式Release授权后必须使用production lock重跑相同Case，才可成为发布证据。

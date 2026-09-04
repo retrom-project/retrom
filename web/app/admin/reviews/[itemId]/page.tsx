@@ -1,6 +1,7 @@
 import { ButtonLink, PageHeader, StatusBadge } from "@/components/ui";
 import { FlashToast } from "@/components/flash-toast";
 import { ReviewActions, type ReviewWorkspace } from "@/features/reviews/review-actions";
+import {rpgReviewRuntimeStatus} from "@/features/reviews/review-actions-model";
 import { adjacentReviewItemId } from "@/features/reviews/review-navigation";
 import { type ReviewQueueItem } from "@/features/reviews/review-queue";
 import { ReviewValidationGuidance, reviewCompatibilityLabel, type ReviewDependencySnapshot } from "@/features/reviews/review-validation-guidance";
@@ -81,6 +82,7 @@ type ReviewDetailSummary = {
   dependencyIssueCount: number;
   dependencySnapshot: DependencySnapshot | undefined;
   sourceDisplayName: string;
+  suppressGenericGuidance: boolean;
   validationStatus: string;
 };
 
@@ -107,16 +109,18 @@ function reviewSourceDisplayName(review: Review) {
 }
 
 function summarizeReview(review: Review): ReviewDetailSummary {
-  const validationStatus = review.validation?.status ?? "PENDING";
-  const compatibilityCode = review.validation?.compatibilityCode ?? validationStatus;
+  const rpgStatus = review.rpgMaker ? rpgReviewRuntimeStatus(review.rpgMaker) : null;
+  const validationStatus = rpgStatus?.status ?? review.validation?.status ?? "PENDING";
+  const compatibilityCode = rpgStatus?.compatibilityCode ?? review.validation?.compatibilityCode ?? validationStatus;
   const dependencySnapshot = review.validation?.dependencySnapshot;
   return {
     compatibilityCode,
-    compatibilityLabel: reviewCompatibilityLabel(compatibilityCode, validationStatus),
+    compatibilityLabel: rpgStatus?.compatibilityLabel ?? reviewCompatibilityLabel(compatibilityCode, validationStatus),
     dependencyCount: dependencyCount(dependencySnapshot),
     dependencyIssueCount: dependencyIssueCount(dependencySnapshot),
     dependencySnapshot,
     sourceDisplayName: reviewSourceDisplayName(review),
+    suppressGenericGuidance: rpgStatus !== null,
     validationStatus,
   };
 }
@@ -134,7 +138,7 @@ function ReviewCapability({ review, summary }: { review: Review; summary: Review
   return <section className="panel review-workflow-capability">
     <div className="panel-head"><div><h2>① 能不能发布？</h2><p>直接展示文件、运行方式和依赖检查结论。</p></div><StatusBadge tone={statusTone(summary.compatibilityCode)}>{summary.compatibilityLabel}</StatusBadge></div>
     <div className="panel-body review-capability-list">
-      <ReviewValidationGuidance status={summary.validationStatus} compatibilityCode={summary.compatibilityCode} snapshot={summary.dependencySnapshot} />
+      {summary.suppressGenericGuidance ? null : <ReviewValidationGuidance status={summary.validationStatus} compatibilityCode={summary.compatibilityCode} snapshot={summary.dependencySnapshot} />}
       <div><strong>游戏文件</strong><span>{summary.sourceDisplayName} · {sourceSize}</span></div>
       <div><strong>运行检查</strong><span>{runtimeCheck}</span></div>
       <div><strong>依赖检查</strong><span>{dependencyCheck}</span></div>

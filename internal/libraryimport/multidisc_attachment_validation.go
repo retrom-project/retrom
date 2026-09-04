@@ -192,7 +192,6 @@ func currentMultiDiscAttachmentInput(
 	if err := transaction.QueryRowContext(ctx, `
 SELECT item.state,draft.effective_source_snapshot_id,platform.platform_id,platform.id,
 platform.version,platform.default_core_id,target.provider_id,target.target_id,
-target.target_contract_sha256,target.game_compatibility_line,
 json_object(
   'schemaVersion',1,
   'supportedContentKinds',json((SELECT json_group_array(content_kind) FROM (
@@ -215,7 +214,7 @@ JOIN runtime_targets target ON target.provider_id=runtime_binding.provider_id
 	`, candidate.input.ReviewDraftID, candidate.input.ImportItemID).Scan(
 		&current.itemState, &current.snapshotID, &current.platformID, &current.platformInstanceID,
 		&current.platformVersion, &current.coreID, &current.providerID, &current.targetID,
-		&current.targetContract, &current.gameLine, &current.contentPolicy,
+		&current.contentPolicy,
 	); err != nil {
 		return "", multiDiscAttachmentStoreError("read current input", err)
 	}
@@ -232,7 +231,7 @@ JOIN runtime_targets target ON target.provider_id=runtime_binding.provider_id
 
 type currentMultiDiscInput struct {
 	itemState, snapshotID, platformID, platformInstanceID, coreID string
-	providerID, targetID, targetContract, gameLine, contentPolicy string
+	providerID, targetID, contentPolicy                           string
 	platformVersion                                               int64
 }
 
@@ -242,8 +241,6 @@ func (current currentMultiDiscInput) matches(expected multiDiscAttachmentInput) 
 		current.platformInstanceID == expected.PlatformInstanceID &&
 		current.platformVersion == expected.PlatformVersion && current.coreID == expected.CoreID &&
 		current.providerID == expected.ProviderID && current.targetID == expected.TargetID &&
-		current.targetContract == expected.TargetContractSHA256 &&
-		current.gameLine == expected.GameCompatibilityLine &&
 		compatibilityConfigDigest(current.contentPolicy) == expected.ContentPolicyDigest
 }
 
@@ -335,22 +332,19 @@ func insertMultiDiscValidation(
 		ContentKind: multidisc.ContentKind, TargetPlatformInstanceID: candidate.input.PlatformInstanceID,
 		PlatformInstanceVersion: candidate.input.PlatformVersion,
 		ProviderID:              candidate.input.ProviderID, TargetID: candidate.input.TargetID,
-		TargetContractSHA256:  candidate.input.TargetContractSHA256,
-		GameCompatibilityLine: candidate.input.GameCompatibilityLine,
-		ContentPolicyDigest:   candidate.input.ContentPolicyDigest,
-		DependencySnapshot:    json.RawMessage(dependencyJSON), Status: candidate.validationStatus,
+		ContentPolicyDigest: candidate.input.ContentPolicyDigest,
+		DependencySnapshot:  json.RawMessage(dependencyJSON), Status: candidate.validationStatus,
 		CompatibilityCode: candidate.compatibilityCode,
 	})
 	if _, err := transaction.ExecContext(ctx, `
 INSERT INTO import_item_core_validations(id,import_item_id,target_platform_instance_id,
-platform_instance_version,core_id,provider_id,target_id,target_contract_sha256,game_compatibility_line,
-prepublish_generation,
+platform_instance_version,core_id,provider_id,target_id,prepublish_generation,
 dat_version_id,default_dos_entry,source_manifest_digest,source_snapshot_id,prepublish_input_digest,
 status,compatibility_code,dependency_snapshot_json,created_at_ms)
-VALUES(?,?,?,?,?,?,?,?,?,4,NULL,NULL,?,?,?,?,?,?,?)
+VALUES(?,?,?,?,?,?,?,4,NULL,NULL,?,?,?,?,?,?,?)
 `, validationID, candidate.input.ImportItemID, candidate.input.PlatformInstanceID,
 		candidate.input.PlatformVersion, candidate.input.CoreID, candidate.input.ProviderID,
-		candidate.input.TargetID, candidate.input.TargetContractSHA256, candidate.input.GameCompatibilityLine,
+		candidate.input.TargetID,
 		candidate.resultManifestDigest, snapshotID, inputDigest,
 		candidate.validationStatus, candidate.compatibilityCode, dependencyJSON, now); err != nil {
 		return multiDiscAttachmentStoreError("insert validation", err)
@@ -388,10 +382,10 @@ func recordMultiDiscDuplicateEvidence(
 	}
 	for _, game := range duplicates {
 		if _, err := transaction.ExecContext(ctx, `
-INSERT INTO import_item_duplicate_matches(import_item_id,existing_game_id,
-existing_game_content_revision_id,content_identity_digest,detected_stage,created_at_ms)
-VALUES(?,?,?,?,'IDENTIFICATION',?) ON CONFLICT(import_item_id,existing_game_id) DO NOTHING
-`, itemID, game.GameID, game.CurrentContentRevisionID, identity, now); err != nil {
+INSERT INTO import_item_duplicate_matches(
+ import_item_id,existing_game_id,content_identity_digest,detected_stage,created_at_ms
+) VALUES(?,?,?,'IDENTIFICATION',?) ON CONFLICT(import_item_id,existing_game_id) DO NOTHING
+`, itemID, game.GameID, identity, now); err != nil {
 			return multiDiscAttachmentStoreError("insert duplicate evidence", err)
 		}
 	}

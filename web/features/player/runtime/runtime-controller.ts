@@ -36,8 +36,11 @@ export async function mountProviderRuntime(
       options.signal?.removeEventListener("abort", externalAbort);
       unsubscribe?.();
       unsubscribe = null;
-      abort.abort();
-      if (runtime) {await runtime.exit();}
+      try {
+        if (runtime) {await runtime.exit();}
+      } finally {
+        abort.abort();
+      }
     })();
     return exitPromise;
   };

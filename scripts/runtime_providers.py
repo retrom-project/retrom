@@ -13,6 +13,7 @@ from typing import Any
 
 if __package__:
     from scripts.runtime_provider_bundle import (
+        describe_legacy_installed_provider,
         describe_installed_provider,
         install_provider_bundle,
         load_provider_lock,
@@ -20,6 +21,7 @@ if __package__:
     )
 else:
     from runtime_provider_bundle import (
+        describe_legacy_installed_provider,
         describe_installed_provider,
         install_provider_bundle,
         load_provider_lock,
@@ -155,6 +157,32 @@ def prepare_production_providers(
 
 
 def check_active_providers(active_path: Path, installed_root: Path, expected_source: str) -> dict[str, Any]:
+    return _check_active_providers(active_path, installed_root, expected_source, describe_installed_provider)
+
+
+def check_active_providers_for_upgrade(
+    active_path: Path,
+    installed_root: Path,
+    expected_source: str,
+) -> dict[str, Any]:
+    """Accept a fully verified legacy base only as the current side of a forward upgrade."""
+    try:
+        return check_active_providers(active_path, installed_root, expected_source)
+    except ValueError:
+        return _check_active_providers(
+            active_path,
+            installed_root,
+            expected_source,
+            describe_legacy_installed_provider,
+        )
+
+
+def _check_active_providers(
+    active_path: Path,
+    installed_root: Path,
+    expected_source: str,
+    describe_provider,
+) -> dict[str, Any]:
     active = _load_json(active_path, "RUNTIME_PROVIDER_ACTIVE_INVALID")
     if set(active) != {"providers", "release", "schemaVersion", "source", "sourceTreeSha256"} or \
             active["schemaVersion"] != 1 or active["source"] != expected_source or \
@@ -175,7 +203,7 @@ def check_active_providers(active_path: Path, installed_root: Path, expected_sou
                 "providerId", "providerVersion", "unpackedSizeBytes",
             )},
         }
-        if describe_installed_provider(record, installed_root) != provider:
+        if describe_provider(record, installed_root) != provider:
             raise ValueError("RUNTIME_PROVIDER_ACTIVE_INVALID")
     return active
 
@@ -264,12 +292,6 @@ def verify_provider_upgrade(
             raise ValueError("RUNTIME_PROVIDER_DOWNGRADE_FORBIDDEN")
         if ordering == 0 and proposed["bundleSha256"] != previous["bundleSha256"]:
             raise ValueError("RUNTIME_PROVIDER_VERSION_REBUILT")
-        previous_targets = {target["id"]: target for target in previous["targets"]}
-        proposed_targets = {target["id"]: target for target in proposed["targets"]}
-        for target_id, previous_target in previous_targets.items():
-            proposed_target = proposed_targets.get(target_id)
-            if proposed_target and proposed_target["gameCompatibilityLine"] != previous_target["gameCompatibilityLine"]:
-                raise ValueError("RUNTIME_PROVIDER_GAME_COMPATIBILITY_CHANGED")
     for reference in checkpoint_references:
         if not isinstance(reference, dict) or set(reference) != {"format", "providerId", "targetId"}:
             raise ValueError("RUNTIME_PROVIDER_CHECKPOINT_REFERENCE_INVALID")

@@ -38,11 +38,9 @@ func (service *Service) productButterscotchProjectIndex(
 	var hardExpires int64
 	err := service.database.QueryRowContext(ctx, `
 SELECT launch.credential_sha256,launch.state,launch.hard_expires_at_ms,
- revision.dependency_snapshot_json
+ launch.dependency_snapshot_json
 FROM launch_sessions launch
-JOIN game_variant_revisions revision ON revision.id=launch.game_variant_revision_id
 WHERE launch.id=? AND launch.purpose='PRODUCT'
- AND launch.provider_id=revision.provider_id AND launch.target_id=revision.target_id
  AND EXISTS(SELECT 1 FROM launch_content_files file WHERE file.launch_session_id=launch.id
   AND file.format_version='BUTTERSCOTCH_PROJECT')
 `, launchID).Scan(&credentialHash, &state, &hardExpires, &dependencyJSON)

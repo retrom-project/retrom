@@ -41,8 +41,6 @@ type RouteEvidence struct {
 	EvidenceConfidence        string  `json:"evidenceConfidence"`
 	ProviderID                string  `json:"providerId"`
 	TargetID                  string  `json:"targetId"`
-	GameCompatibilityLine     string  `json:"gameCompatibilityLine"`
-	TargetContractSHA256      string  `json:"targetContractSha256"`
 	DependencySnapshotSHA256  string  `json:"dependencySnapshotSha256"`
 	ProjectFingerprint        string  `json:"projectFingerprint"`
 }
@@ -83,7 +81,6 @@ type View struct {
 	ValidationID          string              `json:"validationId"`
 	ImportItemID          string              `json:"importItemId"`
 	ReviewVersionAtCreate int64               `json:"reviewVersionAtCreate"`
-	RuntimeBindingVersion int64               `json:"runtimeBindingRevision"`
 	LaunchID              *string             `json:"launchId"`
 	RestoreLaunchID       *string             `json:"restoreLaunchId"`
 	State                 string              `json:"state"`

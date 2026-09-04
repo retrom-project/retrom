@@ -62,7 +62,7 @@ func requestID(ctx context.Context) string {
 
 func logMultiDiscRuntime(
 	ctx context.Context,
-	launchID, platformKey, targetKey, targetContractDigest string,
+	launchID, platformKey, targetKey, bundleDigest string,
 	discCount int,
 	attributes ...any,
 ) {
@@ -73,7 +73,7 @@ func logMultiDiscRuntime(
 		"launchId", launchID,
 		"platformKey", platformKey,
 		"targetKey", targetKey,
-		"targetContractSha256", targetContractDigest,
+		"bundleSha256", bundleDigest,
 		"discCountBucket", discCountBucket(discCount),
 	)
 	slog.InfoContext(ctx, "multi-disc runtime event", append(base, attributes...)...)
@@ -127,7 +127,7 @@ func (server *Server) multiDiscPlayerEvent(writer http.ResponseWriter, request *
 	}
 	logMultiDiscRuntime(
 		request.Context(), request.PathValue("launchId"), dimensions.PlatformKey, dimensions.TargetKey,
-		dimensions.TargetContractDigest, dimensions.DiscCount,
+		dimensions.BundleDigest, dimensions.DiscCount,
 		"kind", "player",
 		"playerEvent", string(body.EventType),
 		"resultCode", string(body.ResultCode),
@@ -138,7 +138,7 @@ func (server *Server) multiDiscPlayerEvent(writer http.ResponseWriter, request *
 
 func logMultiDiscContentResponse(
 	ctx context.Context,
-	launchID, platformKey, targetKey, targetContractDigest string,
+	launchID, platformKey, targetKey, bundleDigest string,
 	discCount int,
 	contentRole string,
 	status int,
@@ -146,7 +146,7 @@ func logMultiDiscContentResponse(
 	resultCode string,
 ) {
 	logMultiDiscRuntime(
-		ctx, launchID, platformKey, targetKey, targetContractDigest, discCount,
+		ctx, launchID, platformKey, targetKey, bundleDigest, discCount,
 		"kind", "content",
 		"contentRole", contentRole,
 		"httpStatus", strconv.Itoa(status),

@@ -111,8 +111,7 @@ type reviewBulkCandidate struct {
 	itemID, sourceSnapshotID, platformInstanceID, platformName, platformID string
 	title, contentKind                                                     string
 	reviewVersion, platformVersion                                         int64
-	providerID, targetID, targetContractSHA256, gameCompatibilityLine      sql.NullString
-	contentPolicyJSON, currentTargetContractSHA256                         sql.NullString
+	providerID, targetID, contentPolicyJSON                                sql.NullString
 	validationID, validationStatus, dependencySnapshot                     sql.NullString
 	validationGeneration, validationPlatformVersion                        sql.NullInt64
 	validationDAT, currentDAT, validationDOSEntry, draftDOSEntry           sql.NullString
@@ -170,8 +169,7 @@ func reviewBulkCandidatesQuery(scope ReviewBulkScope) (string, []any) {
 	query := `
 SELECT item.id,draft.version,draft.effective_source_snapshot_id,
        json_extract(draft.metadata_json,'$.title'),instance.id,instance.name,instance.platform_id,instance.version,
-       validation.provider_id,validation.target_id,validation.target_contract_sha256,
-       validation.game_compatibility_line,
+       validation.provider_id,validation.target_id,
        CASE WHEN binding.binding_id IS NULL THEN NULL ELSE json_object(
          'schemaVersion',1,
          'supportedContentKinds',json((SELECT json_group_array(content_kind) FROM (
@@ -183,7 +181,6 @@ SELECT item.id,draft.version,draft.effective_source_snapshot_id,
            WHERE kinds.binding_id=binding.binding_id AND kinds.content_kind='MULTI_DISC'
          ) THEN json_object('maxDiscs',8,'maxTotalBytes',1073741824,'delivery','EAGER_EXTERNAL_FILES') ELSE NULL END
        ) END,
-       CASE WHEN binding_platform.binding_id IS NULL THEN NULL ELSE target.target_contract_sha256 END,
        validation.id,validation.status,validation.prepublish_generation,
        validation.platform_instance_version,
        validation.dat_version_id,
@@ -194,8 +191,7 @@ SELECT item.id,draft.version,draft.effective_source_snapshot_id,
        EXISTS(SELECT 1 FROM review_runtime_screenshots screenshot
          WHERE screenshot.import_item_id=item.id AND screenshot.validation_id=validation.id
          AND screenshot.source_snapshot_id=draft.effective_source_snapshot_id
-         AND screenshot.provider_id=validation.provider_id AND screenshot.target_id=validation.target_id
-         AND screenshot.target_contract_sha256=validation.target_contract_sha256),
+         AND screenshot.provider_id=validation.provider_id AND screenshot.target_id=validation.target_id),
        EXISTS(SELECT 1 FROM review_arcade_parent_attachments attachment
          WHERE attachment.import_item_id=item.id AND attachment.state IN ('QUEUED','RUNNING')) OR
        EXISTS(SELECT 1 FROM review_multidisc_attachments attachment
@@ -283,9 +279,7 @@ func scanReviewBulkCandidates(
 			&candidate.itemID, &candidate.reviewVersion, &candidate.sourceSnapshotID,
 			&candidate.title, &candidate.platformInstanceID, &candidate.platformName, &candidate.platformID,
 			&candidate.platformVersion,
-			&candidate.providerID, &candidate.targetID, &candidate.targetContractSHA256,
-			&candidate.gameCompatibilityLine, &candidate.contentPolicyJSON,
-			&candidate.currentTargetContractSHA256,
+			&candidate.providerID, &candidate.targetID, &candidate.contentPolicyJSON,
 			&candidate.validationID, &candidate.validationStatus, &candidate.validationGeneration,
 			&candidate.validationPlatformVersion,
 			&candidate.validationDAT, &candidate.currentDAT, &candidate.validationDOSEntry,
@@ -312,10 +306,7 @@ func preliminaryQuickApprovalReady(candidate reviewBulkCandidate) bool {
 }
 
 func quickApprovalArtifactReady(candidate reviewBulkCandidate) bool {
-	return candidate.providerID.Valid && candidate.targetID.Valid && candidate.targetContractSHA256.Valid &&
-		candidate.gameCompatibilityLine.Valid && candidate.contentPolicyJSON.Valid &&
-		candidate.currentTargetContractSHA256.Valid &&
-		candidate.currentTargetContractSHA256.String == candidate.targetContractSHA256.String
+	return candidate.providerID.Valid && candidate.targetID.Valid && candidate.contentPolicyJSON.Valid
 }
 
 func quickApprovalValidationCurrent(candidate reviewBulkCandidate) bool {

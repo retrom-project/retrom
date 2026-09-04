@@ -55,12 +55,12 @@ VALUES('01980000-0000-7000-8000-00000000b001','01980000-0000-7000-8000-00000000a
 		t.Fatal(err)
 	}
 	if _, err := database.SQL.ExecContext(context.Background(), `
-INSERT INTO bios_requirements(id,core_id,provider_id,target_id,target_contract_sha256,source_kind,dat_machine_name,logical_name,
+INSERT INTO bios_requirements(id,core_id,provider_id,target_id,source_kind,dat_machine_name,logical_name,
 requirement_mode,condition_code,activation_options_json,catalog_digest,size_bytes,md5,sha1,sha256,
 source_url,source_version,enabled,version,created_at_ms,updated_at_ms,delivery_kind,emulator_path)
-VALUES('fixture-requirement','mgba',?,?,?,'STATIC',NULL,'bios.bin','REQUIRED',NULL,NULL,?,?,?,?,?,
+VALUES('fixture-requirement','mgba',?,?,'STATIC',NULL,'bios.bin','REQUIRED',NULL,NULL,?,?,?,?,?,
 'https://example.invalid/bios','fixture-v1',1,1,1,1,'BIOS_BUNDLE',NULL)
-`, runtimeIdentity.ProviderID, runtimeIdentity.TargetID, runtimeIdentity.TargetContractSHA256,
+`, runtimeIdentity.ProviderID, runtimeIdentity.TargetID,
 		fmt.Sprintf("%064x", 2), len(contents), md5Value, sha1Value,
 		fmt.Sprintf("%x", sha256.Sum256(contents))); err != nil {
 		t.Fatal(err)

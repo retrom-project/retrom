@@ -228,9 +228,8 @@ SELECT diagnostics_json FROM review_arcade_parent_attachments WHERE id=?
 	if pegasus {
 		var contentSource, pegasusState string
 		if err := database.SQL.QueryRowContext(ctx, `
-SELECT content.source_kind,item.execution_state
+SELECT game.content_source_kind,item.execution_state
 FROM games game
-JOIN game_content_revisions content ON content.id=game.current_content_revision_id
 JOIN pegasus_import_items item ON item.published_game_id=game.id
 WHERE game.id=?
 `, approved.GameID).Scan(&contentSource, &pegasusState); err != nil ||
@@ -240,14 +239,14 @@ WHERE game.id=?
 	}
 	contentNames := queryAttachmentStrings(t, database.SQL, `
 SELECT file.role||':'||file.logical_name
-FROM games game JOIN game_content_files file ON file.game_content_revision_id=game.current_content_revision_id
+FROM games game JOIN game_files file ON file.game_id=game.id
 WHERE game.id=? ORDER BY file.role,file.logical_name
 `, approved.GameID)
 	testassert.Falsef(t, fmt.Sprint(contentNames) != "[COMPANION:b.zip COMPANION:c.zip CONTENT:a.zip]", "published content = %v", contentNames)
 	variantNames := queryAttachmentStrings(t, database.SQL, `
 SELECT file.role||':'||file.logical_name
 FROM games game JOIN game_variants variant ON variant.game_id=game.id
-JOIN variant_files file ON file.game_variant_revision_id=variant.current_revision_id
+JOIN variant_files file ON file.game_variant_id=variant.id
 WHERE game.id=? ORDER BY file.role,file.logical_name
 `, approved.GameID)
 	testassert.Falsef(t, fmt.Sprint(variantNames) != "[PARENT:b.zip PARENT:c.zip]", "published variant files = %v", variantNames)
@@ -263,17 +262,11 @@ WHERE game.id=? ORDER BY file.role,file.logical_name
 		WithRuntimeProvider(dependencySet.RuntimeCatalog, runtimeBuilder)
 	coreID := "fbneo"
 	capabilities := launch.Capabilities{SecureContext: true, CrossOriginIsolated: true, SharedArrayBuffer: true}
-	pending, err := launcher.Create(ctx, "local", launch.CreateRequest{
-		GameID: approved.GameID, CoreID: &coreID, ReturnTo: "/games/" + approved.GameID,
-		ClientCapabilities: capabilities,
-	})
-	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return pending.Status != "VALIDATION_PENDING" }, func() bool { return pending.JobID == "" }), "first launch revalidation = %#v, error=%v", pending, err)
-	waitParentJob(t, database.SQL, pending.JobID, "SUCCEEDED")
 	createdLaunch, err := launcher.Create(ctx, "local", launch.CreateRequest{
 		GameID: approved.GameID, CoreID: &coreID, ReturnTo: "/games/" + approved.GameID,
 		ClientCapabilities: capabilities,
 	})
-	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return createdLaunch.LaunchID == "" }), "launch after revalidation = %#v, error=%v", createdLaunch, err)
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return createdLaunch.LaunchID == "" }), "launch current published variant = %#v, error=%v", createdLaunch, err)
 	configuration, err := launcher.Config(ctx, createdLaunch.LaunchID, createdLaunch.Capability)
 	testassert.False(t, err != nil, err)
 	envelope := testsupport.RuntimeEnvelope(t, configuration)
@@ -284,10 +277,10 @@ WHERE game.id=? ORDER BY file.role,file.logical_name
 	revalidatedDependencies := queryAttachmentStrings(t, database.SQL, `
 SELECT dependency.kind||':'||dependency.logical_archive
 FROM game_variants variant
-JOIN variant_dependencies dependency ON dependency.game_variant_revision_id=variant.current_revision_id
+JOIN variant_dependencies dependency ON dependency.game_variant_id=variant.id
 WHERE variant.game_id=? ORDER BY dependency.kind,dependency.logical_archive
 `, approved.GameID)
-	testassert.Falsef(t, fmt.Sprint(revalidatedDependencies) != "[PARENT:b.zip PARENT:c.zip]", "revalidated dependencies = %v", revalidatedDependencies)
+	testassert.Falsef(t, fmt.Sprint(revalidatedDependencies) != "[PARENT:b.zip PARENT:c.zip]", "published dependencies = %v", revalidatedDependencies)
 }
 
 func linkReviewToPegasusOrigin(
@@ -380,12 +373,12 @@ func insertArcadeParentCatalog(t *testing.T, database *sql.DB) {
 	}
 	now := time.Now().UnixMilli()
 	if _, err := database.ExecContext(ctx, `
-INSERT INTO dat_versions(id,core_id,provider_id,target_id,target_contract_sha256,builtin_relative_path,sha256,parser_version,
+INSERT INTO dat_versions(id,core_id,provider_id,target_id,builtin_relative_path,sha256,parser_version,
 parse_status,is_active,version,created_at_ms,updated_at_ms,parsed_at_ms,activated_at_ms)
-VALUES('attachment-dat','fbneo',?,?,?,'data/dat/attachment.xml',
+VALUES('attachment-dat','fbneo',?,?,'data/dat/attachment.xml',
 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb','fixture',
 'READY',1,1,?,?,?,?);
-`, target.ProviderID, target.TargetID, target.TargetContractSHA256, now, now, now, now); err != nil {
+`, target.ProviderID, target.TargetID, now, now, now, now); err != nil {
 		t.Fatal(err)
 	}
 	relations := []struct{ machine, clone string }{{"a", "b"}, {"b", "c"}, {"c", ""}}

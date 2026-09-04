@@ -42,8 +42,8 @@ type Diagnostic struct {
 }
 
 type ReferenceCounts struct {
-	VariantRevisionCount int64 `json:"variantRevisionCount"`
-	CheckpointCount      int64 `json:"checkpointCount"`
+	GameCount       int64 `json:"gameCount"`
+	CheckpointCount int64 `json:"checkpointCount"`
 }
 
 type DefinitionView struct {

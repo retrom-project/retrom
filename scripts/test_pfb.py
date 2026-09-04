@@ -272,6 +272,56 @@ class LightweightDevelopmentContractTests(unittest.TestCase):
             self.assertGreaterEqual(len(validations), 4)
             self.assertFalse((root / ".pfb/.providers-importing").exists())
 
+    def test_provider_import_can_use_a_separate_current_base_validator(self) -> None:
+        with tempfile.TemporaryDirectory(dir="/tmp") as temporary:
+            root = Path(temporary) / "retrom"
+            legacy_source = Path(temporary) / "legacy"
+            incoming_source = Path(temporary) / "incoming"
+            root.mkdir()
+
+            def write_source(source: Path, marker: str) -> None:
+                bundle = source / f"installed/retrom-runtime/{marker}"
+                bundle.mkdir(parents=True)
+                (bundle / "client.mjs").write_text(f"export default '{marker}';\n", encoding="utf-8")
+                active = {
+                    "format": marker,
+                    "providers": [{"installationPath": f"retrom-runtime/{marker}"}],
+                    "source": "candidate",
+                }
+                (source / "active.json").write_text(json.dumps(active), encoding="utf-8")
+
+            write_source(legacy_source, "legacy")
+            write_source(incoming_source, "current")
+
+            def load(active_path: Path, _installed_root: Path) -> dict[str, object]:
+                return json.loads(active_path.read_text(encoding="utf-8"))
+
+            import_provider_base(root, legacy_source, load, lambda _current, _incoming: None)
+
+            def strict(active_path: Path, installed_root: Path) -> dict[str, object]:
+                value = load(active_path, installed_root)
+                if value.get("format") != "current":
+                    raise ValueError("not-current")
+                return value
+
+            current_validations = 0
+
+            def validate_current(active_path: Path, installed_root: Path) -> dict[str, object]:
+                nonlocal current_validations
+                current_validations += 1
+                return load(active_path, installed_root)
+
+            imported = import_provider_base(
+                root,
+                incoming_source,
+                strict,
+                lambda current, incoming: self.assertEqual((current["format"], incoming["format"]),
+                                                            ("legacy", "current")),
+                validate_current=validate_current,
+            )
+            self.assertEqual(imported["providerCount"], 1)
+            self.assertEqual(current_validations, 1)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -55,7 +55,7 @@ export function useRPGReviewValidation(params: RPGValidationParams) {
     }
   }, []);
 
-  const watchPopupClose = useCallback((popup: Window, validationId: string) => {
+  const watchPopupClose = useCallback((popup: Window, validationId: string, launchId: string) => {
     stopPopupWatch();
     popupWatchRef.current = window.setInterval(() => {
       if (!popup.closed) {return;}
@@ -65,7 +65,7 @@ export function useRPGReviewValidation(params: RPGValidationParams) {
       }
       popupRefreshRef.current = window.setTimeout(() => {
         popupRefreshRef.current = null;
-        void readValidation(validationId).then((next) => {
+        void finishValidationLaunch(launchId).then(() => readValidation(validationId)).then((next) => {
           if (["PASSED", "FAILED", "EXPIRED"].includes(next.state)) {
             setNotice("游戏窗口已关闭，可以再次运行游戏。");
           }
@@ -87,10 +87,10 @@ export function useRPGReviewValidation(params: RPGValidationParams) {
         body: JSON.stringify({ clientCapabilities: browserCapabilities() }),
       });
       if (!response.ok) {throw new Error(await responseError(response, "无法创建 RPG Maker 运行验证"));}
-      const created = await response.json() as { validationId: string; playerUrl: string };
+      const created = await response.json() as { validationId: string; launchId: string; playerUrl: string };
       await readValidation(created.validationId);
       navigatePopup(popup, created.playerUrl);
-      watchPopupClose(popup, created.validationId);
+      watchPopupClose(popup, created.validationId, created.launchId);
       setNotice("游戏窗口已打开；确认游戏可运行后即可返回审核页发布，高级恢复验证为可选。");
     });
     if (!succeeded && !popup.closed) {popup.close();}
@@ -107,10 +107,10 @@ export function useRPGReviewValidation(params: RPGValidationParams) {
         body: JSON.stringify({ clientCapabilities: browserCapabilities() }),
       });
       if (!response.ok) {throw new Error(await responseError(response, "无法创建恢复验证 Launch"));}
-      const created = await response.json() as { playerUrl: string };
+      const created = await response.json() as { launchId: string; playerUrl: string };
       await readValidation(validation.validationId);
       navigatePopup(popup, created.playerUrl);
-      watchPopupClose(popup, validation.validationId);
+      watchPopupClose(popup, validation.validationId, created.launchId);
       setNotice("已创建不同的恢复 Launch；系统将逐字段核对地图、坐标和验证状态。");
     });
     if (!succeeded && !popup.closed) {popup.close();}
@@ -139,6 +139,14 @@ export function useRPGReviewValidation(params: RPGValidationParams) {
     canRestore: validation?.state === "CHECKPOINTED" && validation.checkpointRoundTrip.originalLaunchEnded,
     canDecide: validation?.state === "AWAITING_DECISION",
   };
+}
+
+async function finishValidationLaunch(launchId: string) {
+  await fetch(`/runtime/launches/${launchId}/finish`, {
+    method: "POST", credentials: "same-origin", keepalive: true,
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ clientSequence: 0, clientObservedAtMs: Date.now(), previousInterval: null }),
+  }).catch(() => undefined);
 }
 
 async function rpgWriteHeaders(version: number) {

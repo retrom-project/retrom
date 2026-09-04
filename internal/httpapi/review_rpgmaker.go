@@ -19,7 +19,6 @@ type reviewRPGMakerProjection struct {
 	EvidenceConfidence       string                     `json:"evidenceConfidence"`
 	SelfContained            bool                       `json:"selfContained"`
 	SelfContainedOverride    bool                       `json:"selfContainedOverride"`
-	RuntimeBindingVersion    int64                      `json:"runtimeBindingRevision"`
 	RuntimePackRequirements  []reviewRPGPackRequirement `json:"runtimePackRequirements"`
 	RuntimePackSelections    []reviewRPGPackSelection   `json:"runtimePackSelections"`
 	RuntimeValidation        *runtimevalidation.View    `json:"runtimeValidation"`
@@ -55,11 +54,18 @@ func (server *Server) reviewRPGMaker(
 	var analysisJSON string
 	err := server.database.QueryRowContext(ctx, `
 SELECT binding.core_id,profile.generation,profile.evidence_generation,
- profile.evidence_confidence,profile.self_contained_override,draft.runtime_binding_revision,
+ profile.evidence_confidence,profile.self_contained_override,
  profile.analysis_json,(
    SELECT validation.id
    FROM rpgmaker_runtime_validations validation
    WHERE validation.import_item_id=draft.import_item_id
+     AND validation.effective_source_snapshot_id=draft.effective_source_snapshot_id
+     AND validation.project_fingerprint=profile.project_fingerprint
+     AND validation.generation=profile.generation
+     AND validation.evidence_generation IS profile.evidence_generation
+     AND validation.evidence_confidence=profile.evidence_confidence
+     AND validation.provider_id=profile.provider_id AND validation.target_id=profile.target_id
+     AND validation.dependency_snapshot_sha256=profile.dependency_snapshot_sha256
    ORDER BY validation.created_at_ms DESC,validation.id DESC LIMIT 1
  )
 FROM review_drafts draft
@@ -70,7 +76,7 @@ WHERE draft.import_item_id=?
 `, itemID).Scan(
 		&projection.SelectedCoreID, &projection.Generation, &evidenceGeneration,
 		&projection.EvidenceConfidence, &projection.SelfContainedOverride,
-		&projection.RuntimeBindingVersion, &analysisJSON, &validationID,
+		&analysisJSON, &validationID,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, false, nil
@@ -100,7 +106,7 @@ WHERE draft.import_item_id=?
 		return nil, false, fmt.Errorf("review RPG Maker validation: %w", err)
 	}
 	projection.RuntimeValidation = &view
-	projection.RuntimeValidationCurrent = view.RuntimeBindingVersion == projection.RuntimeBindingVersion
+	projection.RuntimeValidationCurrent = true
 	projection.canApprove = view.LaunchID != nil && projection.RuntimeValidationCurrent
 	return &projection, true, nil
 }

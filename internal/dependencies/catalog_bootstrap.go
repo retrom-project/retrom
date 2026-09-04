@@ -250,8 +250,7 @@ AND d.parser_version='retrom-dat-v1'
 AND d.core_id=?
 AND d.provider_id=?
 AND d.target_id=?
-AND d.target_contract_sha256=?
-`, datSHA, coreID, target.providerID, target.targetID, target.contractSHA256).
+`, datSHA, coreID, target.providerID, target.targetID).
 		Scan(&state.id, &state.parseStatus, &state.indexed)
 	if err != nil {
 		return state, fmt.Errorf("query built-in DAT index: %w", err)
@@ -496,14 +495,14 @@ func activateBuiltInDAT(
 	datID string,
 	now time.Time,
 ) error {
-	var providerID, targetID, contractSHA256, parseStatus string
+	var providerID, targetID, parseStatus string
 	var alreadyActive int
 	if err := transaction.QueryRowContext(ctx, `
-SELECT d.provider_id,d.target_id,d.target_contract_sha256,d.parse_status,d.is_active
+SELECT d.provider_id,d.target_id,d.parse_status,d.is_active
 FROM dat_versions d
 JOIN runtime_targets target ON target.provider_id=d.provider_id AND target.target_id=d.target_id
 WHERE d.id=?
-`, datID).Scan(&providerID, &targetID, &contractSHA256, &parseStatus, &alreadyActive); err != nil {
+`, datID).Scan(&providerID, &targetID, &parseStatus, &alreadyActive); err != nil {
 		return fmt.Errorf("inspect selected built-in DAT: %w", err)
 	}
 	if parseStatus != "READY" {
@@ -524,9 +523,9 @@ WHERE provider_id=? AND target_id=? AND is_active=1 AND id<>?
 	if _, err := transaction.ExecContext(ctx, `
 UPDATE dat_versions
 SET is_active=1,activated_at_ms=?,version=version+1,updated_at_ms=?
-WHERE id=? AND provider_id=? AND target_id=? AND target_contract_sha256=?
+WHERE id=? AND provider_id=? AND target_id=?
   AND parse_status='READY' AND is_active=0
-`, now.UnixMilli(), now.UnixMilli(), datID, providerID, targetID, contractSHA256); err != nil {
+`, now.UnixMilli(), now.UnixMilli(), datID, providerID, targetID); err != nil {
 		return fmt.Errorf("activate selected built-in DAT: %w", err)
 	}
 	if err := datindex.SyncRequirements(ctx, transaction, datID, now); err != nil {

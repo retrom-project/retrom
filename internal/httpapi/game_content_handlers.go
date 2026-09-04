@@ -12,10 +12,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/google/uuid"
-
 	"retrom/internal/cleanup"
 	"retrom/internal/gamecontent"
+	"retrom/internal/gametitle"
 	"retrom/internal/payloadrelease"
 )
 
@@ -65,7 +64,7 @@ func (value *optionalNullableInt64) UnmarshalJSON(contents []byte) error {
 	return nil
 }
 
-func (server *Server) createGameContentRevision(writer http.ResponseWriter, request *http.Request) {
+func (server *Server) createGameContentReplacement(writer http.ResponseWriter, request *http.Request) {
 	expected, ok := requireVersion(writer, request)
 	if !ok {
 		return
@@ -90,7 +89,7 @@ func (server *Server) createGameContentRevision(writer http.ResponseWriter, requ
 		UploadID    string `json:"uploadId"`
 		ContentMode string `json:"contentMode"`
 	}{
-		OperationID: "postAdminGameContentRevision",
+		OperationID: "postAdminGameContentReplacement",
 		GameID:      request.PathValue("gameId"),
 		IfMatch:     expected,
 		MediaType:   "application/json",
@@ -136,18 +135,18 @@ func (server *Server) createGameContentRevision(writer http.ResponseWriter, requ
 // Contract branches stay contiguous for a single auditable decision.
 func (server *Server) adminGame(writer http.ResponseWriter, request *http.Request) {
 	var title, description, developer, publisher, genre, status, payloadState string
-	var instanceID, instanceName, platformID, contentID, metadataID string
+	var instanceID, instanceName, platformID, contentKind string
 	var players, releaseYear, deletedAt sql.NullInt64
 	var releaseJobID, payloadError sql.NullString
 	var version, createdAt, updatedAt int64
 	err := server.database.QueryRowContext(request.Context(), `
-SELECT m.title,
-m.description,
-m.developer,
-m.publisher,
-m.genre,
-m.players,
-m.release_year,
+SELECT g.title,
+g.description,
+g.developer,
+g.publisher,
+g.genre,
+g.players,
+g.release_year,
 g.status,
 g.payload_state,
 g.payload_release_job_id,
@@ -155,14 +154,12 @@ g.payload_last_error_code,
 pi.id,
 pi.name,
 pi.platform_id,
-g.current_content_revision_id,
-g.current_metadata_revision_id,
+g.content_kind,
 g.version,
 g.created_at_ms,
 g.updated_at_ms,
 g.deleted_at_ms
 FROM games g
-JOIN game_metadata_revisions m ON m.id=g.current_metadata_revision_id
 JOIN platform_instances pi ON pi.id=g.platform_instance_id
 WHERE g.id=?
 `, request.PathValue("gameId")).
@@ -181,8 +178,7 @@ WHERE g.id=?
 			&instanceID,
 			&instanceName,
 			&platformID,
-			&contentID,
-			&metadataID,
+			&contentKind,
 			&version,
 			&createdAt,
 			&updatedAt,
@@ -201,28 +197,19 @@ WHERE g.id=?
 		server.databaseError(writer, request, err)
 		return
 	}
-	metadataRevisions, err := server.gameMetadataRevisions(request.Context(), request.PathValue("gameId"), metadataID)
+	assets, err := server.adminGameAssets(request.Context(), request.PathValue("gameId"))
 	if err != nil {
 		server.databaseError(writer, request, err)
 		return
 	}
-	assets, err := server.adminGameAssets(request.Context(), request.PathValue("gameId"), metadataID)
-	if err != nil {
-		server.databaseError(writer, request, err)
-		return
-	}
-	contentRevisions, err := server.gameContentRevisions(
-		request.Context(), request.PathValue("gameId"), contentID,
-	)
+	files, err := server.adminGameFiles(request.Context(), request.PathValue("gameId"))
 	if err != nil {
 		server.databaseError(writer, request, err)
 		return
 	}
 	if status == "DELETED" {
 		assets = []map[string]any{}
-		for _, revision := range contentRevisions {
-			revision["files"] = []map[string]any{}
-		}
+		files = []map[string]any{}
 	}
 	variants, err := server.adminGameVariants(request.Context(), request.PathValue("gameId"))
 	if err != nil {
@@ -244,134 +231,51 @@ WHERE g.id=?
 		"publisher": publisher, "genre": genre,
 		"players": nullableInteger(players), "releaseYear": nullableInteger(releaseYear),
 		"platformId": platformID, "platformInstance": map[string]any{"id": instanceID, "name": instanceName},
-		"currentContentRevisionId": contentID, "currentMetadataRevisionId": metadataID, "version": version,
+		"contentKind": contentKind, "files": files, "version": version,
 		"createdAtMs": createdAt, "updatedAtMs": updatedAt, "generatedAtMs": server.now().UnixMilli(),
-		"deletedAtMs":       nullableInteger(deletedAt),
-		"deleteImpact":      impact,
-		"metadataRevisions": metadataRevisions, "assets": assets, "contentRevisions": contentRevisions,
+		"deletedAtMs":  nullableInteger(deletedAt),
+		"deleteImpact": impact, "assets": assets,
 		"variants": variants, "tags": tags,
 	})
 }
 
-func (server *Server) gameContentRevisions(
-	ctx context.Context,
-	gameID, currentContentID string,
-) ([]map[string]any, error) {
-	contentRows, err := server.database.QueryContext(ctx, `
-SELECT cr.id,
-cr.source_kind,
-cr.source_ref_id,
-cr.content_kind,
-cr.created_at_ms,
-COALESCE((SELECT json_group_array(json_object(
-'role', ordered.role,
-'logicalName', ordered.logical_name,
-'sortOrder', ordered.sort_order,
-'sizeBytes', ordered.size_bytes,
-'sha256', ordered.sha256))
-FROM (SELECT role,
-logical_name,
-sort_order,
-blob.size_bytes,
-blob.sha256
-FROM game_content_files file
-JOIN blobs blob ON blob.id=file.blob_id
-WHERE file.game_content_revision_id=cr.id
-ORDER BY sort_order,
-role,
-logical_name) ordered), '[]')
-FROM game_content_revisions cr
-WHERE cr.game_id=?
-ORDER BY cr.created_at_ms DESC,
-cr.id DESC
-`, gameID)
-	if err != nil {
-		return nil, fmt.Errorf("query game content revisions: %w", err)
-	}
-	defer func() { cleanup.Error("close", contentRows.Close()) }()
-	contentRevisions := make([]map[string]any, 0)
-	for contentRows.Next() {
-		var id, sourceKind, sourceRef, contentKind, filesJSON string
-		var createdAtMS int64
-		if err := contentRows.Scan(&id, &sourceKind, &sourceRef, &contentKind, &createdAtMS, &filesJSON); err != nil {
-			return nil, fmt.Errorf("scan game content revision: %w", err)
-		}
-		files := make([]map[string]any, 0)
-		if err := json.Unmarshal([]byte(filesJSON), &files); err != nil {
-			return nil, fmt.Errorf("decode game content revision files: %w", err)
-		}
-		contentRevisions = append(
-			contentRevisions,
-			map[string]any{
-				"id":          id,
-				"sourceKind":  sourceKind,
-				"sourceRefId": sourceRef,
-				"contentKind": contentKind,
-				"current":     id == currentContentID,
-				"files":       files,
-				"createdAtMs": createdAtMS,
-			},
-		)
-	}
-	if err := contentRows.Err(); err != nil {
-		return nil, fmt.Errorf("iterate game content revisions: %w", err)
-	}
-	return contentRevisions, nil
-}
-
-func (server *Server) gameMetadataRevisions(
-	ctx context.Context,
-	gameID, currentMetadataID string,
-) ([]map[string]any, error) {
-	metadataRows, err := server.database.QueryContext(ctx, `
-SELECT id,
-source_kind,
-source_ref_id,
-created_at_ms
-FROM game_metadata_revisions
-WHERE game_id=?
-ORDER BY created_at_ms DESC,
-id DESC
-`, gameID)
-	if err != nil {
-		return nil, fmt.Errorf("query game metadata revisions: %w", err)
-	}
-	defer func() { cleanup.Error("close", metadataRows.Close()) }()
-	metadataRevisions := make([]map[string]any, 0)
-	for metadataRows.Next() {
-		var id, sourceKind string
-		var sourceRef sql.NullString
-		var createdAtMS int64
-		if err := metadataRows.Scan(&id, &sourceKind, &sourceRef, &createdAtMS); err != nil {
-			return nil, fmt.Errorf("scan game metadata revision: %w", err)
-		}
-		metadataRevisions = append(
-			metadataRevisions,
-			map[string]any{
-				"id":          id,
-				"sourceKind":  sourceKind,
-				"sourceRefId": nullableString(sourceRef),
-				"current":     id == currentMetadataID,
-				"createdAtMs": createdAtMS,
-			},
-		)
-	}
-	if err := metadataRows.Err(); err != nil {
-		return nil, fmt.Errorf("scan game metadata revisions: %w", err)
-	}
-	return metadataRevisions, nil
-}
-
-func (server *Server) adminGameAssets(
-	ctx context.Context,
-	gameID, metadataID string,
-) ([]map[string]any, error) {
+func (server *Server) adminGameFiles(ctx context.Context, gameID string) ([]map[string]any, error) {
 	rows, err := server.database.QueryContext(ctx, `
-SELECT id,kind,ordinal,width_px,height_px,media_type,created_at_ms
+SELECT file.role,file.logical_name,file.sort_order,blob.size_bytes,blob.sha256
+FROM game_files file
+JOIN blobs blob ON blob.id=file.blob_id
+WHERE file.game_id=?
+ORDER BY file.sort_order,file.role,file.logical_name
+`, gameID)
+	if err != nil {
+		return nil, fmt.Errorf("query admin game files: %w", err)
+	}
+	defer func() { cleanup.Error("close", rows.Close()) }()
+	files := make([]map[string]any, 0)
+	for rows.Next() {
+		var role, logicalName, sha256 string
+		var sortOrder, sizeBytes int64
+		if err := rows.Scan(&role, &logicalName, &sortOrder, &sizeBytes, &sha256); err != nil {
+			return nil, fmt.Errorf("scan admin game file: %w", err)
+		}
+		files = append(files, map[string]any{
+			"role": role, "logicalName": logicalName, "sortOrder": sortOrder,
+			"sizeBytes": sizeBytes, "sha256": sha256,
+		})
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate admin game files: %w", err)
+	}
+	return files, nil
+}
+
+func (server *Server) adminGameAssets(ctx context.Context, gameID string) ([]map[string]any, error) {
+	rows, err := server.database.QueryContext(ctx, `
+SELECT id,kind,ordinal,width_px,height_px,media_type
 FROM game_assets
-WHERE game_id=? AND metadata_revision_id=?
+WHERE game_id=?
 ORDER BY kind,ordinal,id
-`, gameID, metadataID)
+`, gameID)
 	if err != nil {
 		return nil, fmt.Errorf("query admin game assets: %w", err)
 	}
@@ -379,15 +283,15 @@ ORDER BY kind,ordinal,id
 	assets := make([]map[string]any, 0)
 	for rows.Next() {
 		var id, kind, mediaType string
-		var ordinal, createdAtMS int64
+		var ordinal int64
 		var width, height sql.NullInt64
-		if err := rows.Scan(&id, &kind, &ordinal, &width, &height, &mediaType, &createdAtMS); err != nil {
+		if err := rows.Scan(&id, &kind, &ordinal, &width, &height, &mediaType); err != nil {
 			return nil, fmt.Errorf("scan admin game asset: %w", err)
 		}
 		assets = append(assets, map[string]any{
 			"assetId": id, "kind": kind, "ordinal": ordinal,
 			"widthPx": nullableInteger(width), "heightPx": nullableInteger(height),
-			"mediaType": mediaType, "url": "/content/assets/" + id, "createdAtMs": createdAtMS,
+			"mediaType": mediaType, "url": "/content/assets/" + id,
 		})
 	}
 	if err := rows.Err(); err != nil {
@@ -398,24 +302,13 @@ ORDER BY kind,ordinal,id
 
 func (server *Server) adminGameVariants(ctx context.Context, gameID string) ([]map[string]any, error) {
 	rows, err := server.database.QueryContext(ctx, `
-SELECT v.id,v.core_id,c.name,v.current_revision_id,v.version,
-COALESCE((SELECT json_group_array(json_object(
-'id', ordered.id,'contentRevisionId', ordered.game_content_revision_id,
-'providerId', ordered.provider_id,'targetId',ordered.target_id,
-'targetContractSha256',ordered.target_contract_sha256,
-'gameCompatibilityLine',ordered.game_compatibility_line,'datVersionId', ordered.dat_version_id,
-'status', ordered.status,'compatibilityCode', ordered.compatibility_code,
-'dependencySnapshot', json(ordered.dependency_snapshot_json),
-'current', ordered.id=v.current_revision_id,'createdAtMs', ordered.created_at_ms))
-FROM (SELECT id,game_content_revision_id,provider_id,target_id,target_contract_sha256,
-game_compatibility_line,dat_version_id,status,compatibility_code,
-dependency_snapshot_json,created_at_ms
-FROM game_variant_revisions WHERE game_variant_id=v.id
-ORDER BY created_at_ms DESC,id DESC) ordered), '[]')
-FROM game_variants v
-JOIN cores c ON c.id=v.core_id
-WHERE v.game_id=?
-ORDER BY c.name,v.id
+SELECT variant.id,variant.core_id,core.name,variant.provider_id,variant.target_id,
+ variant.dat_version_id,variant.status,variant.compatibility_code,variant.dependency_snapshot_json,
+ variant.version,variant.created_at_ms,variant.updated_at_ms
+FROM game_variants variant
+JOIN cores core ON core.id=variant.core_id
+WHERE variant.game_id=?
+ORDER BY core.name,variant.id
 `, gameID)
 	if err != nil {
 		return nil, fmt.Errorf("query admin game variants: %w", err)
@@ -423,19 +316,25 @@ ORDER BY c.name,v.id
 	defer func() { cleanup.Error("close", rows.Close()) }()
 	variants := make([]map[string]any, 0)
 	for rows.Next() {
-		var id, coreID, coreName, revisionsJSON string
-		var currentRevision sql.NullString
-		var version int64
-		if err := rows.Scan(&id, &coreID, &coreName, &currentRevision, &version, &revisionsJSON); err != nil {
+		var id, coreID, coreName, status, compatibilityCode, dependencyJSON string
+		var providerID, targetID, datVersionID sql.NullString
+		var version, createdAtMS, updatedAtMS int64
+		if err := rows.Scan(
+			&id, &coreID, &coreName, &providerID, &targetID, &datVersionID, &status,
+			&compatibilityCode, &dependencyJSON, &version, &createdAtMS, &updatedAtMS,
+		); err != nil {
 			return nil, fmt.Errorf("scan admin game variant: %w", err)
 		}
-		revisions := make([]map[string]any, 0)
-		if err := json.Unmarshal([]byte(revisionsJSON), &revisions); err != nil {
-			return nil, fmt.Errorf("decode admin game variant revisions: %w", err)
+		dependencySnapshot := make(map[string]any)
+		if err := json.Unmarshal([]byte(dependencyJSON), &dependencySnapshot); err != nil {
+			return nil, fmt.Errorf("decode admin game variant dependency snapshot: %w", err)
 		}
 		variants = append(variants, map[string]any{
 			"id": id, "coreId": coreID, "coreName": coreName,
-			"currentRevisionId": nullableString(currentRevision), "version": version, "revisions": revisions,
+			"providerId": nullableString(providerID), "targetId": nullableString(targetID),
+			"datVersionId": nullableString(datVersionID), "status": status,
+			"compatibilityCode": compatibilityCode, "dependencySnapshot": dependencySnapshot,
+			"version": version, "createdAtMs": createdAtMS, "updatedAtMs": updatedAtMS,
 		})
 	}
 	if err := rows.Err(); err != nil {
@@ -501,69 +400,28 @@ func applyPatchGameMetadata(metadata *gameMetadata, body patchGameRequest) {
 	}
 }
 
-func copyGameMetadataAssets(
-	ctx context.Context,
-	transaction *sql.Tx,
-	gameID, currentMetadataID, revisionID string,
-	now int64,
-) error {
-	assetRows, err := transaction.QueryContext(ctx, `
-SELECT blob_id,kind,ordinal,width_px,height_px,media_type
-FROM game_assets
-WHERE game_id=? AND metadata_revision_id=?
-ORDER BY kind,ordinal
-`, gameID, currentMetadataID)
-	if err != nil {
-		return fmt.Errorf("query current game assets: %w", err)
-	}
-	defer func() { cleanup.Error("close", assetRows.Close()) }()
-	for assetRows.Next() {
-		var blobID, kind, mediaType string
-		var ordinal int64
-		var width, height sql.NullInt64
-		if err := assetRows.Scan(&blobID, &kind, &ordinal, &width, &height, &mediaType); err != nil {
-			return fmt.Errorf("scan current game asset: %w", err)
-		}
-		assetID, _ := uuid.NewV7()
-		if _, err := transaction.ExecContext(ctx, `
-INSERT INTO game_assets(
-id,game_id,metadata_revision_id,blob_id,kind,ordinal,width_px,height_px,media_type,created_at_ms
-) VALUES(?,?,?,?,?,?,?,?,?,?)
-`, assetID.String(), gameID, revisionID, blobID, kind, ordinal, nullableInteger(width),
-			nullableInteger(height), mediaType, now); err != nil {
-			return fmt.Errorf("copy current game asset: %w", err)
-		}
-	}
-	if err := assetRows.Err(); err != nil {
-		return fmt.Errorf("iterate current game assets: %w", err)
-	}
-	return nil
-}
-
 type patchGameState struct {
-	metadataID, status string
-	version            int64
-	metadata           gameMetadata
+	status   string
+	version  int64
+	metadata gameMetadata
 }
 
 func loadPatchGameState(ctx context.Context, transaction *sql.Tx, gameID string) (patchGameState, error) {
 	var state patchGameState
 	err := transaction.QueryRowContext(ctx, `
-SELECT g.current_metadata_revision_id,
-g.status,
+SELECT g.status,
 g.version,
-m.title,
-m.description,
-m.developer,
-m.publisher,
-m.genre,
-m.players,
-m.release_year
+g.title,
+g.description,
+g.developer,
+g.publisher,
+g.genre,
+g.players,
+g.release_year
 FROM games g
-JOIN game_metadata_revisions m ON m.id=g.current_metadata_revision_id
 WHERE g.id=?
 `, gameID).Scan(
-		&state.metadataID, &state.status, &state.version, &state.metadata.Title, &state.metadata.Description,
+		&state.status, &state.version, &state.metadata.Title, &state.metadata.Description,
 		&state.metadata.Developer, &state.metadata.Publisher, &state.metadata.Genre, &state.metadata.Players,
 		&state.metadata.ReleaseYear,
 	)
@@ -608,20 +466,7 @@ func (server *Server) patchAdminGame(writer http.ResponseWriter, request *http.R
 		return
 	}
 	applyPatchGameMetadata(&state.metadata, body)
-	revisionID, _ := uuid.NewV7()
 	now := server.now().UnixMilli()
-	if err := insertAdminGameMetadataRevision(
-		request.Context(), transaction, revisionID.String(), request.PathValue("gameId"), state.metadata, now,
-	); err != nil {
-		server.databaseError(writer, request, err)
-		return
-	}
-	if err := copyGameMetadataAssets(
-		request.Context(), transaction, request.PathValue("gameId"), state.metadataID, revisionID.String(), now,
-	); err != nil {
-		server.databaseError(writer, request, err)
-		return
-	}
 	search := strings.ToLower(
 		strings.Join(
 			[]string{state.metadata.Title, state.metadata.Developer, state.metadata.Publisher, state.metadata.Genre}, " ",
@@ -631,14 +476,21 @@ func (server *Server) patchAdminGame(writer http.ResponseWriter, request *http.R
 		request.Context(),
 		`
 UPDATE games
-SET current_metadata_revision_id=?,
-search_text=?,
+SET title=?,title_initial=?,description=?,developer=?,publisher=?,genre=?,players=?,release_year=?,
+metadata_source_kind='ADMIN_EDIT',metadata_source_ref_id=NULL,search_text=?,
 version=version+1,
 updated_at_ms=?
 WHERE id=?
 AND version=?
 `,
-		revisionID.String(),
+		state.metadata.Title,
+		gametitle.Initial(state.metadata.Title),
+		state.metadata.Description,
+		state.metadata.Developer,
+		state.metadata.Publisher,
+		state.metadata.Genre,
+		nullableInteger(state.metadata.Players),
+		nullableInteger(state.metadata.ReleaseYear),
 		search,
 		now,
 		request.PathValue("gameId"),
@@ -653,20 +505,14 @@ AND version=?
 		writeError(writer, request, http.StatusConflict, "VERSION_CONFLICT", "游戏已被修改", map[string]any{})
 		return
 	}
-	if err := server.retireSupersededGameAssets(
-		request.Context(), transaction, request.PathValue("gameId"), revisionID.String(),
-	); err != nil {
-		server.databaseError(writer, request, err)
-		return
-	}
 	if err := insertAudit(
 		request,
 		transaction,
 		"GAME_METADATA_UPDATED",
 		"GAME",
 		request.PathValue("gameId"),
-		map[string]any{"metadataRevisionId": state.metadataID},
-		map[string]any{"metadataRevisionId": revisionID.String()},
+		map[string]any{"version": expected},
+		map[string]any{"version": expected + 1},
 		now,
 	); err != nil {
 		server.databaseError(writer, request, err)
@@ -682,10 +528,7 @@ AND version=?
 		writer,
 		http.StatusOK,
 		map[string]any{
-			"gameId":             request.PathValue("gameId"),
-			"metadataRevisionId": revisionID.String(),
-			"version":            expected + 1,
-			"updatedAtMs":        now,
+			"gameId": request.PathValue("gameId"), "version": expected + 1,
 		},
 	)
 }

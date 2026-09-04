@@ -276,23 +276,23 @@ flat config 必须设置 `linterOptions.noInlineConfig=true` 且 unused disable 
 | 目录与归档导入 | 多文件分组、单 ROM/多文件游戏、Unicode 文件名、路径穿越、绝对路径、symlink、条目/展开大小/压缩比上限 |
 | 多盘解析、导入与审核 | M3U UTF-8/BOM/LF/CRLF、basename/case-fold/重复/歧义、2–8 盘和总量、坏 CHD、递归多组/局部失败、缺盘占位、精确补传、snapshot 不可变、generation 4 证据；parser 保留 `FuzzParse` seed 且 fuzz 不得越权 I/O、panic 或无界分配 |
 | 游戏目录与默认核心 | 默认核心必须属于基础平台；Game 只能有一个非空游戏目录；导入快照不随配置变化；非法跨平台移动拒绝 |
-| 游戏维护 | 元信息/媒体 revision、重新刮削候选不自动覆盖、乐观版本冲突、文件替换不可变、失败替换回滚、软删除与引用保护 |
+| 游戏维护 | 元信息/媒体当前态、重新刮削候选不自动覆盖、乐观版本冲突、文件替换原子化、失败替换保持原状、软删除与引用保护 |
 | 导入任务与审核 | 状态转换、幂等重试、租约到期恢复、部分失败、取消竞争、重复发布防护、审核快照与历史不可变 |
 | Hasheous 适配 | 哈希请求与响应映射、未命中、超时、429/Retry-After、畸形响应、缓存；常规测试不得访问真实外网 |
 | Arcade DAT | 对三个核心分别解析 machine/clone/parent/BIOS、依赖闭包、循环/缺失引用、活动版本隔离，并对固定真实 DAT 运行集成校验 |
 | BIOS 安装与诊断 | 文件名/哈希匹配；哈希不符保存并警告；必需项缺失阻断；可选项缺失不阻断；不同核心状态不串用 |
 | 启动预检与 capability | 默认核心与单次覆盖、必需依赖、DOS 程序、静态 BIOS schema v1 与 Arcade DAT schema v2 分流、Arcade 冻结 BIOS bundle、cookie capability hash/过期/范围/一次启动绑定、复制 launchId 无 cookie 拒绝、未授权 Blob 与路径逃逸拒绝、日志脱敏 |
-| 多盘发布、Launch 与存档 | canonical playlist/ordered identity、artifact V3 digest、config discSet、playlist/Disc GET/HEAD/单 Range、跨 Launch/原名拒绝、当前盘存档与先切盘后恢复、替换失败保留旧 revision |
+| 多盘发布、Launch 与存档 | canonical playlist/ordered identity、artifact V3 digest、config discSet、playlist/Disc GET/HEAD/单 Range、跨 Launch/原名拒绝、当前盘存档与先切盘后恢复、替换失败保持当前内容 |
 | 账户初始化与认证 | 数据库 `PENDING/COMPLETED` 及 context 映射、release setup code、test bootstrap、Argon2 参数、密码 blocklist、通用登录错误、session 轮换/过期/撤销、Origin/Fetch Metadata/CSRF、限流与可信代理 |
 | 用户管理 | 邀请/重置 secret 单次显示且数据库不保存 secret/hash、角色和状态转换、ETag、本人保护、最后管理员保护、停用/删除级联撤销、离线 admin-reset 与 restore 安全栅栏 |
 | 私有数据隔离 | 所有 Profile 派生列表/详情/写入按认证主体限定；跨用户 ID、cursor、Idempotency-Key、SaveState 和 Launch 探测均不泄露也不串写 |
 | 收藏与收藏夹 | 名称 NFC/空白/case-fold 边界、收藏状态机、Folder 上限/version、批量边界和原子失败；卡片 E2E 锁定收藏前后相同的按钮/图标几何、居中位置及红色实心状态；current-schema 复合 owner FK、隐藏投影；每条 route 的 strict JSON/query、CSRF、cursor、ETag、幂等与两个 Profile 隔离 |
 | 联机控制面与实时协议 | Room/Member/Session 全状态与非法边、core profile 准入（同 artifact 的不同 ROM 名称/大小/hash 均可选，错版本/artifact/content kind/READY/dependency 均拒绝）、profile canonical digest、2/3/4 occupied mask、乱序贡献与 neutral seat、seq/frame/int16/大小校验、租约/history、前三次真实 resync/第四次终局、slow peer/backpressure、prepare/restart/restore 收口；Hub 必须跑 race test，SQLite 不保存实时 state/input bytes |
 | NG/代理边界 | 只信任 allowlist 代理的转发头、公开 origin 校验、伪造 `X-Forwarded-*` 拒绝、应用仅绑定 HTTP 且没有证书配置路径 |
-| 存档与恢复 | 非空 checkpoint payload 必需、PRODUCT 截图可选且缺失时 API/UI 明确返回空预览、存档绑定 Provider Target 与 GameVariantRevision、兼容恢复、不匹配拒绝、旧 revision 被引用时 GC 保护；RPG runtime validation 的恢复证据截图仍是发布 gate 必需项 |
+| 存档与恢复 | 非空 checkpoint payload 必需、PRODUCT 截图可选且缺失时 API/UI 明确返回空预览；存档按 Profile+Game 归属并记录 checkpoint format，恢复时由该 Game 当前 READY Target 的 `readFormats` 判定兼容，不匹配时保留存档并明确拒绝；Launch 已物化 payload 由自身引用保护，不依赖业务版本表；Provider 只向前升级时普通启动使用当前 Bundle，旧存档只要格式可读即可恢复；RPG runtime validation 的恢复证据截图仍是发布 gate 必需项 |
 | RPG Maker 项目与运行时 | selected-core×signature outcome（含 RPG2K family-only）、LCF/INI/HTML/JSON/parser fuzz、路径/gencache 冲突、V2 fileset、pack match/ref protection、route uniqueness、validation 状态机、bootstrap ticket 一次消费、native bundle codec、checkpoint compatibility；恢复必须断言 A→B 保存→C→不同 Launch 的 map/坐标/变量回到 B |
 | 游玩时长 | 心跳幂等、页面不可见/暂停不累计、失联上限、重复 finish、异常时钟、整数毫秒持久化 |
-| SQLite migration | 空库 001–011 建表、当前有序前缀续跑、名称/checksum/gap/unknown/future 拒绝、重复启动、事务回滚、外键/索引、所有业务时刻列为 `INTEGER` |
+| SQLite migration | 空库 001–012 建表、既有 001–011 数据单向升级、当前有序前缀续跑、名称/checksum/gap/unknown/future 拒绝、重复启动、事务回滚、外键/索引、所有业务时刻列为 `INTEGER` |
 | Blob GC/备份恢复 | 引用扫描、竞态保护、孤儿回收、仍被存档/任务引用的 Blob 保留、恢复后数据库与内容引用一致 |
 | 已登记 CAS 容量分析 | registry 每条 `PROTECTIVE` 边与容量语义双向覆盖；保护集与 GC 共用；Archive 用途单向传播；长期用途优先/跨长期用途共享；同大小不同 Blob 不误去重；九类含零值且总量恒等；int64 溢出失败；存档/候选引用视图不与分类相加；ADMIN/USER/匿名、未知 query、脱敏、空库与读库失败 |
 
@@ -445,6 +445,7 @@ RPG Maker fixture 必须遵守同一再分发规则：生成源、许可、固�
 | `/web/eslint.config.mjs` | Next.js/TypeScript lint 基线 |
 | `/web/next.config.ts` | standalone 输出、本地后端 rewrite 与固定 COOP/COEP/CORP/`nosniff` 头 |
 | `/web/proxy.ts` | Next.js 16 动态 HTML 的逐响应 nonce CSP；开发模式唯一受控的 `unsafe-eval` 例外 |
+| `/web/lib/chrome-devtools-web-vitals-guard.ts` | 仅开发模式、nonce 保护的 Chrome DevTools web-vitals 已知异常隔离；只匹配同时含 `reportAllChanges` 与 `n.timeout` 的匿名注入栈，应用 URL、其他匿名错误和 production 必须原样传播 |
 | `/web/tsconfig.json` | TypeScript strict 与 alias |
 | `/web/vitest.config.ts` | jsdom、setup、alias 与测试匹配 |
 | `/web/vitest.setup.ts` | matcher 和最小浏览器 API fake |
@@ -474,7 +475,7 @@ RPG Maker fixture 必须遵守同一再分发规则：生成源、许可、固�
 
 - parser/scanner：UTF-8 BOM、LF/CRLF、续行与 flowing text、字段别名、同一 metadata 多 game、目录内多个 metadata、大小/条目/深度门禁、非法命令值、路径穿越、symlink/special file、来源中途变化和稳定 `sourceKey`。
 - 映射/持久化：当前 clean schema 只包含 review handoff、精确诊断与受当前来源/目标/Provider Target/generation 约束的 preview/screenshot Blob 保护边；Collection 显式映射、ETag、版本冻结；最大 64 文件的投影、全部声明文件参与确定性 key、M3U+CHD 有序分组、Arcade 当前 ZIP 与冻结 DAT 依赖闭包内的同目标显式 companion 集。
-- 审核/发布/重复：单文件和多盘沿用既有 library import/validation/review/publish 事务；Worker 完成后只产生 `REVIEW_PENDING` 且零 Game，READY 与 blocker 都可在统一队列处理；初始 Arcade Validation 会采用导入前已经安装且匹配当前 Provider Target 的 DAT BIOS，生成 `SATISFIED_EXTERNAL` 依赖与 `BIOS_BUNDLE` 文件，真正仍缺 Parent/内容的条目继续阻断。Approve/Discard 原子推进普通与 Pegasus 两组状态/计数，来源 COVER/VIDEO 正确保留，用户封面选择优先。快速审批覆盖完整筛选枚举、preview/create digest 漂移、严格 READY 与截图 override 分界、duplicate/Attachment 排除、逐项原子记账、取消竞争、重启恢复、restore fence、worker-only retry、10,000/10,001 上限和两个并发创建；另以真实 Arcade dependency snapshot schema v2 覆盖预览 candidate 与最终发布，证明它走 Arcade DAT closure/required-entry/ValidationFile 校验而不是 BIOS schema v1 解析失败分支。交接崩溃恢复复用已有内部 ImportItem 且不重复系统草稿事件；未完成交接的 Item 不出现在队列/详情且不能发布。同一来源重扫和内容重复列出全部已有游戏并返回稳定结果；失败/取消不删除审核事项或回滚已经提交的游戏，重试不重复 Game/Revision/Blob。
+- 审核/发布/重复：单文件和多盘沿用既有 library import/validation/review/publish 事务；Worker 完成后只产生 `REVIEW_PENDING` 且零 Game，READY 与 blocker 都可在统一队列处理；初始 Arcade Validation 会采用导入前已经安装且匹配当前 Provider Target 的 DAT BIOS，生成 `SATISFIED_EXTERNAL` 依赖与 `BIOS_BUNDLE` 文件，真正仍缺 Parent/内容的条目继续阻断。Approve/Discard 原子推进普通与 Pegasus 两组状态/计数，来源 COVER/VIDEO 正确保留，用户封面选择优先。快速审批覆盖完整筛选枚举、preview/create digest 漂移、严格 READY 与截图 override 分界、duplicate/Attachment 排除、逐项原子记账、取消竞争、重启恢复、restore fence、worker-only retry、10,000/10,001 上限和两个并发创建；另以真实 Arcade dependency snapshot schema v2 覆盖预览 candidate 与最终发布，证明它走 Arcade DAT closure/required-entry/ValidationFile 校验而不是 BIOS schema v1 解析失败分支。交接崩溃恢复复用已有内部 ImportItem 且不重复系统草稿事件；未完成交接的 Item 不出现在队列/详情且不能发布。同一来源重扫和内容重复列出全部已有游戏并返回稳定结果；失败/取消不删除审核事项或回滚已经提交的游戏，重试不重复 Game、GameFiles、GameVariant 或 Blob。
 - Worker/存储：BIOS、Pegasus 与 EmulationStation 共用 2-reader limiter；lease/heartbeat/deadline/attempt 耗尽、重启恢复、restore fence、外部 root 变更、媒体告警、保护边 GC 和 backup/restore 均有确定性测试。
 - HTTP/UI：ADMIN/USER/匿名/CSRF、strict body、Idempotency、ETag、cursor/filter/SSE；`pegasusImportId` 精确队列筛选、来源媒体 GET/HEAD 与 COVER/VIDEO kind；审核 best-effort preview 锁定现有依赖，READY/阻断均在 `EJS_onGameStart + 5000ms` 优先读取核心最后一帧并上传 PNG，核心截图有界失败时回退 canvas，使静态 ROM/BIOS 错误画面不退化成黑帧；当前阻断截图启用人工发布 override，过期 Validation 拒绝、弹窗失败提示和四个等宽决策按钮。快速审批 UI 覆盖当前筛选的服务端影响预览、零候选/active/stale、进度恢复、取消/retry、终态缓存清理、结果链接与 390/1280/物理 4K 150% scale 的键盘/reduced-motion。三张服务器导入能力卡中 Pegasus 的三步 Drawer、无默认映射、关闭恢复、同计划轮询重渲染不重置映射/焦点/滚动、详情审核行动区和逐行审核入口保持不变。
 - 产品运行：独立的项目自有 `pegasus-smoke.gba` 必须从临时服务器 root 经 Chrome 完成目录选择、真实扫描、显式 GBA 映射、Worker、待审核、逐项发布、Game 详情、Launch config、受限内容端点与 mGBA 帧推进；不得复用普通上传已经发布的相同内容、直接写库、mock Pegasus API 或只检查 canvas 元素。
@@ -511,9 +512,9 @@ RPG Maker fixture 必须遵守同一再分发规则：生成源、许可、固�
 
 - 纯逻辑测试覆盖 standard mapping、轴阈值/回滞、中立门禁、A/B/方向沿触发、重复节流、断开/隐藏清零，以及 Select+Start 的 `100/60/650ms` 双组合键状态机；
 - 标题首字符纯逻辑测试覆盖 ASCII 数字、大小写字母、常用与多音汉字的固定拼音首字母、符号/emoji/空白
-  回退 `#`；所有 MetadataRevision 生产 writer 和改名事务都断言同一字段与数据库值域，不能只测沉浸查询；
+  回退 `#`；所有 Game 当前元信息字段 生产 writer 和改名事务都断言同一字段与数据库值域，不能只测沉浸查询；
 - HTTP 集成测试覆盖 destinations 固定四卡顺序、Profile 隔离、平台可见性、收藏夹 ownership、存档投影、
-  `titleInitial/title/gameId` 分页与 recent 时序例外、媒体/描述 current revision、签名 cursor 的范围绑定、
+  `titleInitial/title/gameId` 分页与 recent 时序例外、媒体/描述当前态、签名 cursor 的范围绑定、
   未知 query、非法 folderId、隐藏平台 404 和媒体 revision 退役；
 - React 测试使用可控 Gamepad source 覆盖首页显式/手柄两种入口、焦点保持、同帧方向+A、destination 左右
   环绕和定向动画、资料库/平台游戏浏览、收藏夹、Y 默认收藏及红色右侧爱心、存档横向大/小框选择与非黑屏截图、长简介无滚动条自动滚动及 reduced-motion 静止、媒体等高、700ms

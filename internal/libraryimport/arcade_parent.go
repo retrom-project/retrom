@@ -79,29 +79,27 @@ type ParentAttachmentCreated struct {
 }
 
 type parentAttachmentInput struct {
-	SchemaVersion         int    `json:"schemaVersion"`
-	AttachmentID          string `json:"attachmentId"`
-	ImportItemID          string `json:"importItemId"`
-	ReviewDraftID         string `json:"reviewDraftId"`
-	BaseSourceSnapshotID  string `json:"baseSourceSnapshotId"`
-	DependencyMachine     string `json:"dependencyMachine"`
-	ProviderID            string `json:"providerId"`
-	TargetID              string `json:"targetId"`
-	TargetContractSHA256  string `json:"targetContractSha256"`
-	GameCompatibilityLine string `json:"gameCompatibilityLine"`
-	ContentPolicyDigest   string `json:"contentPolicyDigest"`
-	DATVersionID          string `json:"datVersionId"`
-	UploadFileID          string `json:"uploadFileId"`
+	SchemaVersion        int    `json:"schemaVersion"`
+	AttachmentID         string `json:"attachmentId"`
+	ImportItemID         string `json:"importItemId"`
+	ReviewDraftID        string `json:"reviewDraftId"`
+	BaseSourceSnapshotID string `json:"baseSourceSnapshotId"`
+	DependencyMachine    string `json:"dependencyMachine"`
+	ProviderID           string `json:"providerId"`
+	TargetID             string `json:"targetId"`
+	ContentPolicyDigest  string `json:"contentPolicyDigest"`
+	DATVersionID         string `json:"datVersionId"`
+	UploadFileID         string `json:"uploadFileId"`
 }
 
 type parentAttachmentCandidate struct {
-	attachmentID, itemID, draftID, baseSnapshotID                                                 string
-	machine, requiredBy, providerID, targetID, targetContractSHA256, gameCompatibilityLine, datID string
-	uploadFileID, uploadSessionID, originalName                                                   string
-	blobID, blobSHA                                                                               string
-	blobSize                                                                                      int64
-	contentPolicyDigest                                                                           string
-	depth                                                                                         int
+	attachmentID, itemID, draftID, baseSnapshotID    string
+	machine, requiredBy, providerID, targetID, datID string
+	uploadFileID, uploadSessionID, originalName      string
+	blobID, blobSHA                                  string
+	blobSize                                         int64
+	contentPolicyDigest                              string
+	depth                                            int
 }
 
 // Preconditions intentionally share one transaction and one stable error mapping.
@@ -149,30 +147,28 @@ func invalidParentAttachmentRequest(
 }
 
 type parentAttachmentSetup struct {
-	service               *Service
-	ctx                   context.Context
-	transaction           *sql.Tx
-	itemID                string
-	expectedVersion       int64
-	request               ParentAttachmentRequest
-	draftID               string
-	targetID              string
-	effectiveSnapshotID   string
-	platformID            string
-	coreID                string
-	providerID            string
-	runtimeTargetID       string
-	targetContractSHA256  string
-	gameCompatibilityLine string
-	contentPolicyJSON     string
-	activeDATID           sql.NullString
-	platformVersion       int64
-	dependency            arcadeDraftDependency
-	uploadSessionID       string
-	originalName          string
-	blobID                string
-	blobSHA               string
-	blobSize              int64
+	service             *Service
+	ctx                 context.Context
+	transaction         *sql.Tx
+	itemID              string
+	expectedVersion     int64
+	request             ParentAttachmentRequest
+	draftID             string
+	targetID            string
+	effectiveSnapshotID string
+	platformID          string
+	coreID              string
+	providerID          string
+	runtimeTargetID     string
+	contentPolicyJSON   string
+	activeDATID         sql.NullString
+	platformVersion     int64
+	dependency          arcadeDraftDependency
+	uploadSessionID     string
+	originalName        string
+	blobID              string
+	blobSHA             string
+	blobSize            int64
 }
 
 func (setup *parentAttachmentSetup) load() error {
@@ -194,8 +190,7 @@ func (setup *parentAttachmentSetup) loadDraft() error {
 	err := setup.transaction.QueryRowContext(setup.ctx, `
 SELECT draft.id,item.state,draft.version,draft.target_platform_instance_id,
   draft.effective_source_snapshot_id,platform.platform_id,platform.version,
-  platform.default_core_id,target.provider_id,target.target_id,target.target_contract_sha256,
-  target.game_compatibility_line,
+  platform.default_core_id,target.provider_id,target.target_id,
   json_object(
     'schemaVersion',1,
     'supportedContentKinds',json((SELECT json_group_array(content_kind) FROM (
@@ -223,7 +218,7 @@ WHERE item.id=?
 `, setup.itemID).Scan(
 		&setup.draftID, &itemState, &draftVersion, &setup.targetID, &setup.effectiveSnapshotID,
 		&setup.platformID, &setup.platformVersion, &setup.coreID, &setup.providerID, &setup.runtimeTargetID,
-		&setup.targetContractSHA256, &setup.gameCompatibilityLine, &setup.contentPolicyJSON, &setup.activeDATID,
+		&setup.contentPolicyJSON, &setup.activeDATID,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
 		return parentError(ParentErrorNotFound, err)
@@ -245,25 +240,25 @@ WHERE item.id=?
 }
 
 func (setup *parentAttachmentSetup) validateSelectedValidation() error {
-	var targetID, snapshotID, coreID, providerID, runtimeTargetID, targetContract, gameLine string
+	var targetID, snapshotID, coreID, providerID, runtimeTargetID string
 	var datID sql.NullString
 	var platformVersion, generation int64
 	var dependencyJSON string
 	err := setup.transaction.QueryRowContext(setup.ctx, `
 SELECT target_platform_instance_id,platform_instance_version,core_id,provider_id,target_id,
-  target_contract_sha256,game_compatibility_line,prepublish_generation,dat_version_id,source_snapshot_id,
+  prepublish_generation,dat_version_id,source_snapshot_id,
   dependency_snapshot_json
 FROM import_item_core_validations
 WHERE id=? AND import_item_id=?
 `, setup.request.ValidationID, setup.itemID).Scan(
-		&targetID, &platformVersion, &coreID, &providerID, &runtimeTargetID, &targetContract, &gameLine,
+		&targetID, &platformVersion, &coreID, &providerID, &runtimeTargetID,
 		&generation, &datID, &snapshotID, &dependencyJSON,
 	)
 	if err != nil {
 		return parentError(ParentErrorInputStale, err)
 	}
 	if !setup.validationMatches(
-		targetID, snapshotID, coreID, providerID, runtimeTargetID, targetContract, gameLine, datID,
+		targetID, snapshotID, coreID, providerID, runtimeTargetID, datID,
 		platformVersion, generation,
 	) {
 		return parentError(ParentErrorInputStale, ErrInvalid)
@@ -287,13 +282,12 @@ WHERE id=? AND import_item_id=?
 }
 
 func (setup *parentAttachmentSetup) validationMatches(
-	targetID, snapshotID, coreID, providerID, runtimeTargetID, targetContract, gameLine string,
+	targetID, snapshotID, coreID, providerID, runtimeTargetID string,
 	datID sql.NullString,
 	platformVersion, generation int64,
 ) bool {
 	return targetID == setup.targetID && platformVersion == setup.platformVersion &&
 		coreID == setup.coreID && providerID == setup.providerID && runtimeTargetID == setup.runtimeTargetID &&
-		targetContract == setup.targetContractSHA256 && gameLine == setup.gameCompatibilityLine &&
 		snapshotID == setup.effectiveSnapshotID &&
 		generation == prepublishGeneration && datID.Valid && datID.String == setup.activeDATID.String
 }
@@ -371,10 +365,8 @@ func (setup *parentAttachmentSetup) input(attachmentID string) parentAttachmentI
 		SchemaVersion: 1, AttachmentID: attachmentID, ImportItemID: setup.itemID,
 		ReviewDraftID: setup.draftID, BaseSourceSnapshotID: setup.effectiveSnapshotID,
 		DependencyMachine: setup.dependency.Machine, ProviderID: setup.providerID,
-		TargetID: setup.runtimeTargetID, TargetContractSHA256: setup.targetContractSHA256,
-		GameCompatibilityLine: setup.gameCompatibilityLine,
-		ContentPolicyDigest:   compatibilityConfigDigest(setup.contentPolicyJSON),
-		DATVersionID:          setup.activeDATID.String, UploadFileID: setup.request.UploadFileID,
+		TargetID: setup.runtimeTargetID, ContentPolicyDigest: compatibilityConfigDigest(setup.contentPolicyJSON),
+		DATVersionID: setup.activeDATID.String, UploadFileID: setup.request.UploadFileID,
 	}
 }
 
@@ -408,13 +400,12 @@ func (setup *parentAttachmentSetup) insertAttachment(attachmentID, jobID string,
 	_, err := setup.transaction.ExecContext(setup.ctx, `
 INSERT INTO review_arcade_parent_attachments(
   id,import_item_id,review_draft_id,base_source_snapshot_id,dependency_machine,
-  expected_logical_name,required_by_machine,depth,provider_id,target_id,target_contract_sha256,dat_version_id,
+  expected_logical_name,required_by_machine,depth,provider_id,target_id,dat_version_id,
   upload_file_id,original_filename,state,diagnostics_json,job_id,version,created_at_ms,updated_at_ms
-) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,'QUEUED','{}',?,1,?,?)
+) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,'QUEUED','{}',?,1,?,?)
 `, attachmentID, setup.itemID, setup.draftID, setup.effectiveSnapshotID,
 		setup.dependency.Machine, setup.dependency.Machine+".zip", *setup.dependency.RequiredBy,
-		setup.dependency.Depth, setup.providerID, setup.runtimeTargetID, setup.targetContractSHA256,
-		setup.activeDATID.String,
+		setup.dependency.Depth, setup.providerID, setup.runtimeTargetID, setup.activeDATID.String,
 		setup.request.UploadFileID, filepath.Base(setup.originalName), jobID, now, now)
 	if err != nil {
 		if strings.Contains(err.Error(), "review_arcade_parent_active") {

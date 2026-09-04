@@ -435,7 +435,7 @@ async function assertSelectedRoute(client) {
   const selected = (response.items ?? []).filter((item) =>
     item.coreId === config.coreId && item.providerId === "retrom-runtime" && item.targetId === config.targetId,
   );
-  if (selected.length !== 1 || !/^[0-9a-f]{64}$/.test(selected[0].targetContractSha256)) {
+  if (selected.length !== 1 || !/^[0-9a-f]{64}$/.test(selected[0].bundleSha256)) {
     throw new Error("RPG_PROVISION_SELECTED_TARGET_MISMATCH");
   }
 }

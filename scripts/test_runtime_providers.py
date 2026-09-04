@@ -8,6 +8,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from runtime_provider_contract import canonical_json_bytes
 from runtime_provider_bundle import (
     check_installed_provider,
     install_provider_bundle,
@@ -15,6 +16,7 @@ from runtime_provider_bundle import (
 )
 from runtime_providers import (
     check_active_providers,
+    check_active_providers_for_upgrade,
     pin_provider_release,
     prepare_candidate_providers,
     prepare_production_providers,
@@ -172,6 +174,26 @@ class RuntimeProviderInstallerTest(unittest.TestCase):
             [{"format": "state-v1", "providerId": "fixture", "targetId": "fixture"}],
         )
 
+    def test_legacy_active_base_is_fully_verified_only_as_an_upgrade_source(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            active_path, installed_root, legacy = legacy_active_fixture(root)
+
+            with self.assertRaises(ValueError):
+                check_active_providers(active_path, installed_root, "candidate")
+            current = check_active_providers_for_upgrade(active_path, installed_root, "candidate")
+            self.assertEqual(current, legacy)
+            verify_provider_upgrade(
+                current,
+                active_fixture(version="1.1.0", bundle="b", read_formats=["state-v1"]),
+                [],
+            )
+
+            installed = installed_root / legacy["providers"][0]["installationPath"]
+            (installed / "client.mjs").write_text("tampered\n", encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "PROVIDER_INTEGRITY_INVALID"):
+                check_active_providers_for_upgrade(active_path, installed_root, "candidate")
+
     def test_pins_release_then_prepares_from_a_verified_offline_cache(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
@@ -223,33 +245,35 @@ class RuntimeProviderInstallerTest(unittest.TestCase):
                 )
 
 
-def fixture_bundle(root: Path, manifest_asset="assets/core.wasm", provider_api=1):
+def fixture_bundle(root: Path, manifest_asset="assets/core.wasm", provider_api=1, *, legacy=False):
+    target = {
+        **({
+            "gameCompatibilityLine": "fixture-v1",
+            "netplayCompatibilityLine": None,
+        } if legacy else {}),
+        "assetPaths": [manifest_asset],
+        "capabilities": {
+            "checkpoint": False, "frameCounter": False, "frameMode": "NONE",
+            "discSwitch": False, "inputFilter": False, "nativeSettings": False,
+            "netplayPort": False, "pause": False, "requiresThreads": False,
+            "screenshot": False, "standardGamepad": False,
+            "validationProbes": [], "videoModes": [], "volume": False,
+        },
+        "checkpoint": None,
+        "displayName": "Fixture",
+        "id": "fixture",
+        "inputs": [{"cardinality": "ONE", "kind": "ROM_BLOB", "optional": False, "role": "game"}],
+        "targetOptionsSchema": {
+            "additionalProperties": False, "properties": {}, "required": [], "type": "object",
+        },
+    }
     manifest = json_bytes({
         "clientModulePath": "client.mjs",
         "providerApiVersion": provider_api,
         "providerId": "fixture",
         "providerVersion": "1.0.0",
         "schemaVersion": 1,
-        "targets": [{
-            "assetPaths": [manifest_asset],
-            "capabilities": {
-                "checkpoint": False, "frameCounter": False, "frameMode": "NONE",
-                "discSwitch": False, "inputFilter": False, "nativeSettings": False,
-                "netplayPort": False,
-                "pause": False, "requiresThreads": False, "screenshot": False,
-                "standardGamepad": False, "validationProbes": [], "videoModes": [],
-                "volume": False,
-            },
-            "checkpoint": None,
-            "displayName": "Fixture",
-            "gameCompatibilityLine": "fixture-v1",
-            "id": "fixture",
-            "inputs": [{"cardinality": "ONE", "kind": "ROM_BLOB", "optional": False, "role": "game"}],
-            "netplayCompatibilityLine": None,
-            "targetOptionsSchema": {
-                "additionalProperties": False, "properties": {}, "required": [], "type": "object",
-            },
-        }],
+        "targets": [target],
     })
     files = {
         "assets/core.wasm": b"\x00asm\x01\x00\x00\x00",
@@ -290,6 +314,72 @@ def fixture_bundle(root: Path, manifest_asset="assets/core.wasm", provider_api=1
     return archive, lock
 
 
+def legacy_active_fixture(root: Path):
+    archive, lock = fixture_bundle(root, legacy=True)
+    installed_root = root / "installed"
+    installed = installed_root / "fixture" / lock["bundleSha256"]
+    installed.mkdir(parents=True)
+    with tarfile.open(archive, "r:gz") as source:
+        for member in source:
+            payload = source.extractfile(member)
+            assert payload is not None
+            target = installed / member.name
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(payload.read())
+    proof = {
+        "bundleSha256": lock["bundleSha256"],
+        "fileCount": lock["fileCount"],
+        "manifestSha256": lock["manifestSha256"],
+        "providerId": lock["providerId"],
+        "providerVersion": lock["providerVersion"],
+        "schemaVersion": 1,
+        "unpackedSizeBytes": lock["unpackedSizeBytes"],
+    }
+    (installed / ".installation.json").write_text(json.dumps(proof), encoding="utf-8")
+    manifest = json.loads((installed / "provider.json").read_text(encoding="utf-8"))
+    integrity = json.loads((installed / "integrity.json").read_text(encoding="utf-8"))
+    entries = {entry["path"]: entry for entry in integrity["files"]}
+    target = manifest["targets"][0]
+    contract = {
+        "assets": [{
+            "path": path,
+            "sha256": entries[path]["sha256"],
+            "sizeBytes": entries[path]["sizeBytes"],
+        } for path in target["assetPaths"]],
+        "schemaVersion": 1,
+        "target": target,
+    }
+    active = {
+        "providers": [{
+            "bundleSha256": lock["bundleSha256"],
+            "bundleSizeBytes": lock["bundleSizeBytes"],
+            "clientModulePath": "client.mjs",
+            "fileCount": lock["fileCount"],
+            "installationPath": f'fixture/{lock["bundleSha256"]}',
+            "manifestSha256": lock["manifestSha256"],
+            "moduleSha256": entries["client.mjs"]["sha256"],
+            "providerApiVersion": 1,
+            "providerId": "fixture",
+            "providerVersion": "1.0.0",
+            "targets": [{
+                "checkpoint": None,
+                "gameCompatibilityLine": "fixture-v1",
+                "id": "fixture",
+                "netplayCompatibilityLine": None,
+                "targetContractSha256": digest(canonical_json_bytes(contract)),
+            }],
+            "unpackedSizeBytes": lock["unpackedSizeBytes"],
+        }],
+        "release": None,
+        "schemaVersion": 1,
+        "source": "candidate",
+        "sourceTreeSha256": "f" * 64,
+    }
+    active_path = root / "active.json"
+    active_path.write_text(json.dumps(active), encoding="utf-8")
+    return active_path, installed_root, active
+
+
 def active_fixture(*, version, bundle, read_formats):
     checkpoint = {
         "maxBytes": 1024,
@@ -308,10 +398,7 @@ def active_fixture(*, version, bundle, read_formats):
             "providerVersion": version,
             "targets": [{
                 "checkpoint": checkpoint,
-                "gameCompatibilityLine": "fixture-v1",
                 "id": "fixture",
-                "netplayCompatibilityLine": None,
-                "targetContractSha256": "e" * 64,
             }],
         }],
         "release": None,

@@ -22,9 +22,9 @@ func contentReplacementUnchanged(
 	wanted := preparedContentIdentity(prepared)
 	rows, err := transaction.QueryContext(ctx, `
 SELECT file.role,blob.sha256
-FROM game_content_files file
+FROM game_files file
 JOIN blobs blob ON blob.id=file.blob_id
-WHERE file.game_content_revision_id=?
+WHERE file.game_id=?
   AND (?!='MULTI_DISC' OR file.role='DISC')
 ORDER BY file.sort_order,file.role,file.logical_name
 `, currentContentID, prepared.contentKind)

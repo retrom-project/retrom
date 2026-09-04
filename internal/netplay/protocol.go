@@ -36,7 +36,7 @@ type ClientMessage struct {
 	LastServerSeq         uint64  `json:"lastServerSeq,omitempty"`
 	ProviderID            string  `json:"providerId,omitempty"`
 	TargetID              string  `json:"targetId,omitempty"`
-	TargetContractSHA256  string  `json:"targetContractSha256,omitempty"`
+	BundleSHA256          string  `json:"bundleSha256,omitempty"`
 	Frame                 int64   `json:"frame,omitempty"`
 	Controls              []int16 `json:"controls,omitempty"`
 	CoreDigest            string  `json:"coreDigest,omitempty"`
@@ -79,7 +79,7 @@ func validClientMessageFields(contents []byte, messageType string) bool {
 			"protocolVersion", "profileDigest", "playerNo", "credentialGeneration",
 			"lastCanonicalFrame", "lastServerSeq",
 		},
-		"RUNTIME_READY":   {"providerId", "targetId", "targetContractSha256"},
+		"RUNTIME_READY":   {"providerId", "targetId", "bundleSha256"},
 		"INPUT":           {"frame", "playerNo", "controls"},
 		"HASH":            {"frame", "coreDigest"},
 		"PAUSED":          {},

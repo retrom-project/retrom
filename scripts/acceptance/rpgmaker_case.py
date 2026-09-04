@@ -454,7 +454,7 @@ def contains_secret_or_path(value: Any) -> bool:
     return False
 
 
-def validate_input_transcript(value: Any, spec: GenerationCase, target_contract: str) -> None:
+def validate_input_transcript(value: Any, spec: GenerationCase) -> None:
     if not isinstance(value, dict) or set(value) != {"transportScheme", "upload", "import"} or \
             value.get("transportScheme") not in {"HTTPS", "HTTP_LOCALHOST"} or contains_secret_or_path(value):
         raise ContractError("RPG_ACCEPTANCE_INPUT_TRANSCRIPT_INVALID")
@@ -465,7 +465,7 @@ def validate_input_transcript(value: Any, spec: GenerationCase, target_contract:
     }
     import_keys = {
         "importJobId", "uploadId", "state", "payloadState", "platformId", "defaultCoreId",
-        "providerId", "targetId", "targetContractSha256", "counts", "createdAtMs", "updatedAtMs",
+        "providerId", "targetId", "counts", "createdAtMs", "updatedAtMs",
     }
     if not isinstance(upload, dict) or set(upload) != upload_keys or \
             not isinstance(imported, dict) or set(imported) != import_keys:
@@ -487,8 +487,8 @@ def validate_input_transcript(value: Any, spec: GenerationCase, target_contract:
             imported.get("payloadState") not in {"RETAINED", "RELEASING", "RELEASED"} or \
             imported.get("platformId") != "rpgmaker" or imported.get("defaultCoreId") != USER_CORE_ID or \
             imported.get("providerId") != "retrom-runtime" or imported.get("targetId") != spec.target_id or \
-            imported.get("targetContractSha256") != target_contract or not isinstance(counts, dict) or \
-            set(counts) != expected_count_keys or counts.get("total") != 1 or counts.get("published") != 1 or \
+            not isinstance(counts, dict) or set(counts) != expected_count_keys or \
+            counts.get("total") != 1 or counts.get("published") != 1 or \
             any(counts.get(key) != 0 for key in expected_count_keys - {"total", "published"}):
         raise ContractError("RPG_ACCEPTANCE_INPUT_TRANSCRIPT_INVALID")
     created, updated = imported.get("createdAtMs"), imported.get("updatedAtMs")
@@ -808,13 +808,13 @@ def validate_generation_evidence(
     expected_target = {
         "providerId": "retrom-runtime", "targetId": spec.target_id, "generation": spec.generation,
         "evidenceGeneration": spec.evidence_generation, "evidenceConfidence": spec.confidence,
-        "gameCompatibilityLine": f"{spec.target_id}-v1", "projectFingerprint": expected_project_digest,
+        "projectFingerprint": expected_project_digest,
     }
     for key, expected in expected_target.items():
         require_equal(target.get(key), expected, f"TARGET_{key.upper()}")
     if not UUID.fullmatch(str(target.get("effectiveSourceSnapshotId", ""))):
         raise ContractError("RPG_ACCEPTANCE_TARGET_SOURCE_SNAPSHOT_INVALID")
-    for key in ("targetContractSha256", "dependencySnapshotSha256", "projectFingerprint"):
+    for key in ("dependencySnapshotSha256", "projectFingerprint"):
         if not SHA256.fullmatch(str(target.get(key, ""))):
             raise ContractError(f"RPG_ACCEPTANCE_TARGET_{key.upper()}_INVALID")
     rpg_review = review.get("rpgMaker")
@@ -849,16 +849,16 @@ def validate_generation_evidence(
         raise ContractError("RPG_ACCEPTANCE_PRODUCT_CONFIG_MISSING")
     for key, expected in {
         "purpose": "PRODUCT", "providerId": "retrom-runtime", "targetId": spec.target_id,
-        "targetContractSha256": target["targetContractSha256"],
-        "gameCompatibilityLine": target["gameCompatibilityLine"],
     }.items():
         require_equal(config.get(key), expected, f"PRODUCT_{key.upper()}")
+    if not SHA256.fullmatch(str(config.get("bundleSha256", ""))):
+        raise ContractError("RPG_ACCEPTANCE_PRODUCT_BUNDLESHA256_INVALID")
     launch_id = str(product.get("launchId", ""))
     if not UUID.fullmatch(launch_id) or launch_id in {validation.get("launchId"), validation.get("restoreLaunchId")}:
         raise ContractError("RPG_ACCEPTANCE_PRODUCT_LAUNCH_ID_INVALID")
     require_equal(product.get("playerRunning"), True, "PLAYER_RUNNING")
     validate_product_runtime_progress(product.get("runtimeProgress"))
-    validate_input_transcript(payload.get("inputTranscript"), spec, target["targetContractSha256"])
+    validate_input_transcript(payload.get("inputTranscript"), spec)
     marker, marker_rgb = validate_input_provenance(
         payload.get("inputProvenance"), spec, expected_project_digest,
     )
@@ -1187,7 +1187,7 @@ def validate_pack_database_evidence(payload: dict[str, Any]) -> None:
             protected["publishedVariant"].get("availableForLaunch") is not True or \
             protected["restorableCheckpoint"].get("availableForLaunch") is not True or any(
                 item.get("providerId") != "retrom-runtime" or item.get("targetId") != target_id or
-                not SHA256.fullmatch(str(item.get("targetContractSha256", "")))
+                not SHA256.fullmatch(str(item.get("bundleSha256", "")))
                 for item, target_id in (
                     (protected["publishedVariant"], "rpgmaker-xp"),
                     (protected["restorableCheckpoint"], "rpgmaker-vx"),
@@ -1335,7 +1335,7 @@ def validate_nested_security(value: Any) -> None:
         "generation", "format", "detection", "sidecar", "sha256", "sizeBytes", "filesDigest",
         "postInspectionFilesDigest", "nestedEntryCount", "importJobId", "importItemId",
         "contentIdentityDigest", "validationId", "launchId", "providerId", "targetId",
-        "targetContractSha256", "projection", "launchFinished",
+        "bundleSha256", "projection", "launchFinished",
     }
     expected = {
         (generation, archive_format, detection)
@@ -1372,7 +1372,7 @@ def valid_nested_security_row(item: dict[str, Any]) -> bool:
             item.get("postInspectionFilesDigest") != item.get("filesDigest") or item.get("nestedEntryCount") != 0 or \
             not SHA256.fullmatch(str(item.get("contentIdentityDigest", ""))) or \
             item.get("providerId") != "retrom-runtime" or item.get("targetId") != target_id or \
-            not SHA256.fullmatch(str(item.get("targetContractSha256", ""))) or item.get("launchFinished") is not True:
+            not SHA256.fullmatch(str(item.get("bundleSha256", ""))) or item.get("launchFinished") is not True:
         return False
     projection = item.get("projection")
     keys = {"kind", "status", "logicalName", "sha256", "sizeBytes", "containerSha256", "exactMember"}
@@ -1455,9 +1455,9 @@ def validate_isolation_runtime(harness: dict[str, Any], generation: str) -> None
     expected_config = {
         "providerId": "retrom-runtime", "targetId": target_id,
     }
-    if not isinstance(config, dict) or set(config) != {*expected_config, "targetContractSha256"} or any(
+    if not isinstance(config, dict) or set(config) != {*expected_config, "bundleSha256"} or any(
         config.get(key) != value for key, value in expected_config.items()
-    ) or not SHA256.fullmatch(str(config.get("targetContractSha256"))):
+    ) or not SHA256.fullmatch(str(config.get("bundleSha256"))):
         raise ContractError("RPG_ACCEPTANCE_ISOLATION_TARGET_INVALID")
     origin = urlparse(str(harness.get("runtimeOrigin", "")))
     hostname = origin.hostname or ""

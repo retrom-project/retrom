@@ -79,7 +79,7 @@ async function catalogCase(context, writeHeaders) {
   const targets = await allRuntimeTargets(context.request);
   const selected = targets.filter((item) => item.providerId === "retrom-runtime" && targetIds.includes(item.targetId));
   exact(selected.map((item) => item.targetId).sort(), [...targetIds].sort(), "RPG_ACCEPTANCE_SELECTED_TARGETS");
-  if (selected.some((item) => !/^[0-9a-f]{64}$/.test(item.targetContractSha256 ?? ""))) {
+  if (selected.some((item) => !/^[0-9a-f]{64}$/.test(item.bundleSha256 ?? ""))) {
     throw new Error("RPG_ACCEPTANCE_TARGET_DIAGNOSTIC_INCOMPLETE");
   }
   const page = await context.newPage();
@@ -331,8 +331,7 @@ async function generationCase(context, writeHeaders) {
       config: {
         purpose: config.session.purpose, providerId: config.runtime.providerId,
         providerVersion: config.runtime.providerVersion, targetId: config.runtime.targetId,
-        targetContractSha256: config.runtime.targetContractSha256,
-        gameCompatibilityLine: config.runtime.gameCompatibilityLine,
+        bundleSha256: config.runtime.bundleSha256,
         checkpointFormat: config.runtime.checkpoint?.writeFormat ?? null,
         checkpointMaxBytes: config.runtime.checkpoint?.maxBytes ?? null,
       },
@@ -547,7 +546,7 @@ async function readInputTranscript(request, importJobId) {
       importJobId: imported.importJobId, uploadId: imported.uploadId, state: imported.state,
       payloadState: imported.payloadState, platformId: imported.platformId,
       defaultCoreId: imported.defaultCoreId, providerId: imported.providerId,
-      targetId: imported.targetId, targetContractSha256: imported.targetContractSha256,
+      targetId: imported.targetId,
       counts: {
         total: counts.total, queued: counts.queued, running: counts.running,
         reviewPending: counts.reviewPending, published: counts.published,
@@ -643,7 +642,7 @@ function safeReview(review, validation) {
     rpgMaker: {
       selectedCoreId: "rpgmaker", generation: route.generation,
       evidenceGeneration: route.evidenceGeneration, evidenceConfidence: route.evidenceConfidence,
-      runtimeBindingRevision: validation.runtimeBindingRevision, runtimeValidationCurrent: true,
+      reviewVersionAtCreate: validation.reviewVersionAtCreate, runtimeValidationCurrent: true,
     },
   };
 }
@@ -651,7 +650,7 @@ function safeReview(review, validation) {
 function safeValidation(value) {
   return {
     validationId: value.validationId, importItemId: value.importItemId,
-    reviewVersionAtCreate: value.reviewVersionAtCreate, runtimeBindingRevision: value.runtimeBindingRevision,
+    reviewVersionAtCreate: value.reviewVersionAtCreate,
     launchId: value.launchId, restoreLaunchId: value.restoreLaunchId, state: value.state,
     lastGateSequence: value.lastGateSequence, routeEvidence: value.routeEvidence,
     machineGates: value.machineGates, checkpointRoundTrip: value.checkpointRoundTrip,
@@ -663,7 +662,7 @@ function safeValidation(value) {
 function safeTarget(item) {
   return {
     providerId: item.providerId, providerVersion: item.providerVersion, targetId: item.targetId,
-    targetContractSha256: item.targetContractSha256, gameCompatibilityLine: item.gameCompatibilityLine,
+    bundleSha256: item.bundleSha256,
     coreId: item.coreId, coreName: item.coreName,
   };
 }

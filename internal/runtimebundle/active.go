@@ -43,11 +43,8 @@ type ActiveProvider struct {
 }
 
 type ActiveTarget struct {
-	ID                       string      `json:"id"`
-	GameCompatibilityLine    string      `json:"gameCompatibilityLine"`
-	NetplayCompatibilityLine *string     `json:"netplayCompatibilityLine"`
-	Checkpoint               *Checkpoint `json:"checkpoint"`
-	ContractSHA256           string      `json:"targetContractSha256"`
+	ID         string      `json:"id"`
+	Checkpoint *Checkpoint `json:"checkpoint"`
 }
 
 func ParseActiveDescriptor(contents []byte) (ActiveDescriptor, error) {
@@ -111,8 +108,7 @@ func validActiveRawProvider(value any) bool {
 
 func validActiveRawTarget(value any) bool {
 	target, ok := value.(map[string]any)
-	if !ok || !exactMap(target,
-		"id", "gameCompatibilityLine", "netplayCompatibilityLine", "checkpoint", "targetContractSha256") {
+	if !ok || !exactMap(target, "id", "checkpoint") {
 		return false
 	}
 	if target["checkpoint"] == nil {
@@ -180,11 +176,8 @@ func validActiveProviderSize(value ActiveProvider) bool {
 }
 
 func validActiveTarget(value ActiveTarget) bool {
-	if !identityPattern.MatchString(value.ID) || !tokenPattern.MatchString(value.GameCompatibilityLine) ||
-		!digestPattern(value.ContractSHA256) || value.Checkpoint != nil && !validCheckpoint(*value.Checkpoint) {
-		return false
-	}
-	return value.NetplayCompatibilityLine == nil || tokenPattern.MatchString(*value.NetplayCompatibilityLine)
+	return identityPattern.MatchString(value.ID) &&
+		(value.Checkpoint == nil || validCheckpoint(*value.Checkpoint))
 }
 
 func positiveSafe(value int64) bool {

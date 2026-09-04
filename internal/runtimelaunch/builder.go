@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"reflect"
 
 	"retrom/internal/runtimebundle"
 	"retrom/internal/runtimecatalog"
@@ -52,6 +51,14 @@ func (builder *Builder) Target(providerID, targetID string) (runtimebundle.Targe
 	return resolved.target, exists
 }
 
+func (builder *Builder) BundleSHA256(providerID, targetID string) (string, bool) {
+	if builder == nil {
+		return "", false
+	}
+	resolved, exists := builder.targets[providerID+"\x00"+targetID]
+	return resolved.provider.BundleSHA256, exists
+}
+
 func NewBuilder(active runtimebundle.ActiveDescriptor, manifests map[string]runtimebundle.Manifest) (*Builder, error) {
 	result := &Builder{targets: make(map[string]resolvedTarget)}
 	for _, provider := range active.Providers {
@@ -90,14 +97,23 @@ func providerMatchesManifest(provider runtimebundle.ActiveProvider, manifest run
 }
 
 func targetMatchesActive(target runtimebundle.Target, active runtimebundle.ActiveTarget) bool {
-	if target.GameCompatibilityLine != active.GameCompatibilityLine ||
-		target.NetplayCompatibilityLine == nil != (active.NetplayCompatibilityLine == nil) {
+	return equalCheckpoint(target.Checkpoint, active.Checkpoint)
+}
+
+func equalCheckpoint(left, right *runtimebundle.Checkpoint) bool {
+	if left == nil || right == nil {
+		return left == nil && right == nil
+	}
+	if left.WriteFormat != right.WriteFormat || left.MaxBytes != right.MaxBytes ||
+		len(left.ReadFormats) != len(right.ReadFormats) {
 		return false
 	}
-	if target.NetplayCompatibilityLine != nil && *target.NetplayCompatibilityLine != *active.NetplayCompatibilityLine {
-		return false
+	for index := range left.ReadFormats {
+		if left.ReadFormats[index] != right.ReadFormats[index] {
+			return false
+		}
 	}
-	return target.ContractSHA256 == active.ContractSHA256 && reflect.DeepEqual(target.Checkpoint, active.Checkpoint)
+	return true
 }
 
 func (builder *Builder) Build(input Input) ([]byte, error) {
@@ -125,9 +141,7 @@ func (builder *Builder) Build(input Input) ([]byte, error) {
 			"providerId": resolved.provider.ProviderID, "providerVersion": resolved.provider.ProviderVersion,
 			"providerApiVersion": resolved.provider.ProviderAPI, "targetId": resolved.target.ID,
 			"bundleSha256": resolved.provider.BundleSHA256, "moduleSha256": resolved.provider.ModuleSHA256,
-			"targetContractSha256":  resolved.active.ContractSHA256,
-			"gameCompatibilityLine": resolved.active.GameCompatibilityLine,
-			"runtimeBaseUrl":        base, "moduleUrl": base + resolved.provider.ClientModulePath,
+			"runtimeBaseUrl": base, "moduleUrl": base + resolved.provider.ClientModulePath,
 			"capabilities": resolved.target.Capabilities, "checkpoint": resolved.target.Checkpoint,
 		},
 		"resources": input.Resources, "targetOptions": input.TargetOptions,

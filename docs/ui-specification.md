@@ -188,7 +188,7 @@ Next.js 入口代理必须在受保护页面开始服务端渲染前读取 `GET 
 4. 第四层横向展示全部有启用 Core 的基础平台，服务端按名称和 ID 确定性排序。用户可用图钉置顶，置顶顺序保存在当前浏览器本地，不修改服务端平台或目录排序；平台入口同样进入游戏库的精确平台筛选。
 5. 第五层是单行“我的资料库”摘要，只显示可见游戏数、未删除手动存档数和累计有效游玩时长，不使用抢占主任务视觉优先级的大统计卡。
 
-最近游玩、最新添加与主卡使用当前 MetadataRevision 的封面；主卡没有封面时显示可读占位。最后一次游玩产生的存档即使引用旧 GameVariantRevision，也按该 SaveState 锁定环境恢复。
+最近游玩、最新添加与主卡使用当前 Game 当前元信息字段 的封面；主卡没有封面时显示可读占位。最后一次游玩产生的存档即使引用旧 GameVariant，也按该 SaveState 锁定环境恢复。
 
 ### 6.2 游戏库
 
@@ -230,7 +230,7 @@ RPG Maker 游戏不显示世代核心下拉框，只显示用户 Core“RPG Make
 - 缺 BIOS/不兼容时按钮禁用并显示具体文件或原因。
 - BIOS hash 不一致是 Warning，允许一次点击继续。
 - 用户显式切换核心后，浏览器按游戏记住该选择，后续从该浏览器进入游戏详情时优先用于普通启动；选回推荐核心即清除偏好。该偏好不修改游戏目录，存档启动仍锁定存档创建时的运行环境。
-- DOS 启动程序或显式“显示程序菜单”只在 Launch 成功创建后按游戏写入浏览器偏好；仅改变下拉框或启动失败都不写。再次进入详情优先恢复该选择，候选已被新 revision 删除/禁用时回退审核默认；审核默认本身不能安全直启时直接回退程序菜单。从状态存档继续不读取也不改写此偏好。
+- DOS 启动程序或显式“显示程序菜单”只在 Launch 成功创建后按游戏写入浏览器偏好；仅改变下拉框或启动失败都不写。再次进入详情优先恢复该选择，候选已被当前内容替换删除或禁用时回退审核默认；审核默认本身不能安全直启时直接回退程序菜单。从状态存档继续不读取也不改写此偏好。
 - 使用非默认核心时，“更换运行方式”后显示红色“（未采用默认核心）”，说明文字同步以危险色提示当前游戏已采用浏览器偏好。
 - “更换运行方式”使用居中对话框，打开时不改变 Hero 高度。对话框明确说明普通重新开始使用所选 Core，而存档恢复使用存档锁定 Core；选择只在点击“应用”后写入浏览器偏好，点击遮罩、`Escape` 或“取消”放弃本次选择。
 
@@ -327,7 +327,7 @@ RPG Maker 的“创建存档”按钮使用 Provider checkpoint availability 事
 - 加载层只展示 Variant 验证/依赖物化、预检、Core/WASM、ROM、BIOS、存档恢复等进度。验证 Job 失败时退出全屏并返回来源上下文，不自动无限重建 Job。
 - 顶部 58px 深色半透明工具栏使用紧凑左右结构：左侧返回按钮先打开退出确认，随后显示完整游戏标题与“运行核心 · 基础平台”；右侧依次是存档状态、调试信息、创建存档、暂停/继续、全屏和更多操作。存档状态以绿/紫/黄状态点配合“可创建存档 / 正在上传存档 N% / 已同步 / 保存失败”等文字表达；BIOS Warning 使用独立黄色提示点，点击后显示可读原因，不能占用一整段工具栏宽度。PlaySession 运行中使用浏览器原生离站确认拦截误触的浏览器回退、刷新和关闭；受控退出不重复弹出该提示。
 - 主操作只保留“调试信息”、创建存档、暂停状态、全屏和更多菜单；“模拟器设置、查看快捷键、查看运行提醒、退出游戏”收进更多菜单，更多菜单不得重复提供顶部栏已有的“创建存档”。除调试信息与光盘菜单外，点击顶部工具栏任意位置或其中任一操作都自动暂停 EmulatorJS main loop，令 PlaySession heartbeat 标记 `paused=true`；工具栏内不能恢复，只有重新点击游戏画面区域，或在设置/弹层未占用 Player 时按 `P`，才继续运行，并在暂停画面中央明确提示“点击游戏画面继续”。EmulatorJS 原生底栏及触屏右上角的原生虚拟手柄菜单入口始终隐藏且不能被靠近边缘或画面点击自行唤出；点击“模拟器设置”显示 Retrom 自绘的居中底部工具栏，固定提供控制、显示、Core 设置、画面模式、音量、静音和收起，并把前三项桥接到当前 EmulatorJS 实例的真实设置面板。“控制”使用与文字同一 flex 基线的项目矢量图标，不能依赖会产生字体基线偏移的 emoji。画面模式固定为“清晰增强/锐利像素/增强锐化/平滑增强/原始画面”，首次使用、偏好不可读或偏好值未知时默认“锐利像素”（无 shader、像素缩放），选择即时生效并按认证用户保存在本浏览器。Core 设置切到显示设置必须真正展示 Graphics Settings 及 shader 入口。点击自绘栏或设置面板不能误恢复游戏。自绘栏和可见的原生设置面板都不提供 EmulatorJS 退出入口，退出与左侧返回统一使用 Retrom 深色影响确认窗。默认键盘完整表和联机席位差异以运行时专题为唯一事实源；UI 不把键盘映射写入 gamepad control。
-- 点击“调试信息”不暂停游戏，在屏幕右侧滑入只读诊断面板并保持顶部工具栏可见。面板以清晰分组展示 runtime 帧计数计算的 FPS、累计帧数、运行状态、画面分辨率、输入模式、隔离能力、Player 模式、viewport 与 DPR；EmulatorJS 分支另外显示 Provider/Target 版本和锁定的 target contract digest，普通 RPG Maker 分支只显示“RPG Maker”、检测世代与运行类型。Provider 私有 adapter、core 与 asset mapping 只允许出现在 Provider 自身开发诊断，不进入普通 Player 或 Retrom API。关闭按钮与“调试信息”再次点击都可收起。窄视口下侧栏宽度不得超出 stage，减少动态效果时取消滑入动画；诊断数据只在当前 Player 内采样，不持久化或展示凭据、内容 hash、宿主路径。
+- 点击“调试信息”不暂停游戏，在屏幕右侧滑入只读诊断面板并保持顶部工具栏可见。面板以清晰分组展示 runtime 帧计数计算的 FPS、累计帧数、运行状态、画面分辨率、输入模式、隔离能力、Player 模式、viewport 与 DPR；EmulatorJS 分支另外显示 Provider/Target 版本和锁定的 Bundle digest，普通 RPG Maker 分支只显示“RPG Maker”、检测世代与运行类型。Provider 私有 adapter、core 与 asset mapping 只允许出现在 Provider 自身开发诊断，不进入普通 Player 或 Retrom API。关闭按钮与“调试信息”再次点击都可收起。窄视口下侧栏宽度不得超出 stage，减少动态效果时取消滑入动画；诊断数据只在当前 Player 内采样，不持久化或展示凭据、内容 hash、宿主路径。
 - 创建手动存档时必须先得到可恢复的非空 payload，并最佳努力采集可解码、包含实际画面的进度预览：工具栏触发暂停时先从仍在运行的下一帧采集画面，最迟 750ms 暂停并读取状态；截图即使晚于暂停完成，也必须在独立 5 秒有界窗口内继续生成并供当前保存使用，不能因暂停先完成就丢弃迟到截图。截图优先读取 core framebuffer，避免物理 4K/高 DPR 的 viewport-sized shader canvas 编码超时或暂停后 WebGL 黑帧，核心能力不可用时才回退 EmulatorJS canvas；若游戏已经暂停则复用进入暂停瞬间缓存的最后一帧。有效采集在上传边界按比例限制到最多 `640×360`，统一转成质量 `0.75` 的 JPEG；全黑或近全黑采集、捕获失败、转换失败或 JPEG 仍超过 10 MiB 时省略可选 screenshot part、显示非阻断“未生成预览图”，仍提交有效 payload。payload 与可用截图作为同一次创建提交。
 - 游戏进入运行态后，工具栏立即向上隐藏；只有鼠标进入 viewport 顶部 32 CSS px、`Tab` 导航或焦点进入工具栏时才展示，鼠标离开工具栏后立即再次隐藏。方向键、WASD、动作键、投币和开始等普通游戏键盘输入不得唤出工具栏或刷新其隐藏计时；显式按 `P` 暂停后仍按暂停态契约保持工具栏可见。暂停期间，或指针/焦点停留在工具栏、更多菜单、调试面板、设置面板和退出窗内时不得自动消失。左下角用低对比度短提示说明“移到屏幕顶部显示 Retrom 控制”；加载、上传进度、toast 和退出窗都覆盖在 stage 上方，不能改变 canvas 的可用高度。
 - `Escape` 仅退出浏览器全屏，不结束游戏。
@@ -340,7 +340,7 @@ RPG Maker 的“创建存档”按钮使用 Provider checkpoint availability 事
 
 `/netplay` 只有 feature flag 开启且已登录时可进入。标题区提供唯一“创建房间”主操作并在提交中防双击；下方固定分“当前房间”和“最近联机”两区，分别覆盖 skeleton、空状态、容量/限流错误和终态卡片。Room card 展示短房号、状态、游戏/core、参与人数与进入入口，不暴露 Profile ID、Launch 或 credential。
 
-房主新建后进入 DRAFT 游戏选择页。该页复用游戏库的标题、搜索、集合/平台筛选、排序、响应式卡片与空状态；只增加 SUPPORTED/UNSUPPORTED eligibility、blocker 文案和“选择”。SUPPORTED 表示当前 READY VariantRevision 命中 manifest 的 EmulatorJS/core artifact profile、协议允许的内容类型与有效依赖快照，不表示该 ROM 被逐游戏登记；若同一游戏有多条 core profile 才打开窄对话框。筛选以 `history.replaceState` 维护 `q/platformId/platformInstanceId/availability/sort`，`/` 快捷键聚焦搜索，不能复制一套漂移的游戏库布局。首个 server render 必须从 App Router `searchParams` 得到同一规范化筛选并作为 Client Component 初值，而且只读取最多 100 款的首个服务端页；WAITING/STARTING/RUNNING/终态房间不读取游戏目录。用户实际向下滚动且末尾哨兵进入视口后才读取一个续页，哨兵再次离开并进入才可继续；任一时刻只允许一个续页请求，并保留可点击的重试/继续加载入口。不得在 server render 循环读取全部页，也不得在 hydration 后才从 `window.location` 补写状态而造成 HTML 漂移；刷新和前进/后退必须恢复同一结果。
+房主新建后进入 DRAFT 游戏选择页。该页复用游戏库的标题、搜索、集合/平台筛选、排序、响应式卡片与空状态；只增加 SUPPORTED/UNSUPPORTED eligibility、blocker 文案和“选择”。SUPPORTED 表示当前 READY GameVariant 命中 manifest 的 EmulatorJS/core artifact profile、协议允许的内容类型与有效依赖快照，不表示该 ROM 被逐游戏登记；若同一游戏有多条 core profile 才打开窄对话框。筛选以 `history.replaceState` 维护 `q/platformId/platformInstanceId/availability/sort`，`/` 快捷键聚焦搜索，不能复制一套漂移的游戏库布局。首个 server render 必须从 App Router `searchParams` 得到同一规范化筛选并作为 Client Component 初值，而且只读取最多 100 款的首个服务端页；WAITING/STARTING/RUNNING/终态房间不读取游戏目录。用户实际向下滚动且末尾哨兵进入视口后才读取一个续页，哨兵再次离开并进入才可继续；任一时刻只允许一个续页请求，并保留可点击的重试/继续加载入口。不得在 server render 循环读取全部页，也不得在 hydration 后才从 `window.location` 补写状态而造成 HTML 漂移；刷新和前进/后退必须恢复同一结果。
 
 WAITING 房间展示游戏锁定摘要、复制本站房间链接、P1–P4 座位卡与底部操作。未占座访客只能选择支持范围内的空 P2–P4；成员 ready 后先取消才能换座。房主可在 WAITING 移出访客、更换游戏、关闭房间，只有至少两人且全员 ready 时“开始联机”可用。房间快照按版本单调前进，较旧的 mutation 响应不得覆盖 SSE 已显示的成员状态；ready 恰逢另一成员更新而冲突时刷新并至多自动重试一次，不向用户暴露可自行恢复的“房间信息被修改”。SSE 断线提示不得遮盖座位；连续失败转为 5 秒轮询并保留可重试错误。STARTING 为每人自动创建自己的 Launch 并 `location.replace` 到 Player，不展示第二个启动按钮；终态原位说明 reason 并返回联机首页。所选 Game 被永久删除时房间立即以 `GAME_DELETED` 结束，最近联机卡和房间页保留原标题并显示“已删除”，中文原因显示“游戏已删除”，不再提供启动动作。
 
@@ -476,7 +476,7 @@ DOM、工具栏和输入规则不受影响。
 
 RPG Maker 审核详情在普通“能不能发布”区增加“检测世代 / 内容校验 / 运行包 / 运行验证”四块。检测世代只读；无法唯一裁决时审核阻断，不提供内部 core 选择器。重新上传内容后必须重新检测并生成 runtime binding revision。pack slot 必须显示声明名、唯一 installation、missing/ambiguous 状态和“前往运行依赖”，不得把 RTP 混入 BIOS。
 
-RPG 条目的“运行游戏”不打开五秒截图 preview，而是在当前操作产生的新 Player 窗体中创建 runtime validation。创建 validation 前读取当前浏览器的 secure context/cross-origin isolation/SharedArrayBuffer 能力；当前 binding 成功取得原始 Launch ID 后，“通过并发布”立即解除置灰，管理员可根据主动运行结果决定。“运行游戏”始终占据固定操作位：当前 validation 活跃时只禁用并保留按钮，不能从布局中移除；子窗体关闭且服务端收口 validation 后原位重新启用，允许管理员反复运行。“重新运行检查”也始终占据相邻固定操作位，但只在 `validationStale=true` 时启用，用于刷新 Provider Target contract 变更后的服务端内容校验与 binding；重检恢复 current 后原位禁用，不能用“运行游戏”冒充重检。审核页不对服务端 interval 轮询 validation；只在本地观察本次子窗体是否关闭，并在关闭后执行一次有界的状态读取。checkpoint 完成后的“验证恢复”动作必须再次读取浏览器能力，再创建 restore Launch，不能复用第一次摘要。审核卡标题不显示 `RUNNING`、`STARTING` 或 `AWAITING_DECISION` 等内部状态枚举；审核页默认只显示单行“高级验证详情”摘要，固定给出服务端序号 `lastGateSequence / 28` 和完成、进行中、失败或过期状态。摘要与长错误码必须单行省略，不能展开后才暴露当前结论，也不能在默认状态拉高左栏并反向撑高元数据与媒体栏。该摘要使用可键盘操作的原生 disclosure，管理员主动展开后才显示 original/restore Launch ID、A/B/C/恢复/恢复后输入证据和严格排序的 14 个 machine gate：`RUNTIME_READY`、`ENGINE_PROFILE`、`FRAMES_300`、`INPUT`、`AUDIO`、`INITIAL_POSITION_RECORDED`（A）、`SAVE_POINT_RECORDED`（B）、`CHECKPOINT_CREATED`、`POST_SAVE_STATE_DIVERGED`（C）、`ORIGINAL_LAUNCH_ENDED`、`RESTORE_STARTED`、`RESTORE_POSITION_VERIFIED`（恢复到 B）、`RESTORE_SCREENSHOT`、`RESTORE_INPUT`（恢复后真实输入位置）。运行游戏窗口继续承担实时、完整证据展示；审核页的收起内容只用于离开 Player 后审计。原始与恢复 Launch ID 可作为非秘密关联信息显示，capability/cookie 不得出现。高级验证进入 `AWAITING_DECISION` 后才显示其 PASS/FAIL 决策，机器失败不得伪造成高级 PASS，但不撤销已经创建真实 Launch 的发布资格。非 RPG 条目的旧 preview/override 保持原样。
+RPG 条目的“运行游戏”不打开五秒截图 preview，而是在当前操作产生的新 Player 窗体中创建 runtime validation。创建 validation 前读取当前浏览器的 secure context/cross-origin isolation/SharedArrayBuffer 能力；当前 binding 成功取得原始 Launch ID 后，“通过并发布”立即解除置灰，管理员可根据主动运行结果决定。“运行游戏”始终占据固定操作位：当前 validation 活跃时只禁用并保留按钮，不能从布局中移除；子窗体关闭且服务端收口 validation 后原位重新启用，允许管理员反复运行。“重新运行检查”也始终占据相邻固定操作位，但只在 `validationStale=true` 时启用，用于刷新来源快照、目标目录、草稿、DAT 或依赖等真实输入变化后的服务端内容校验；仅 Provider Bundle 只向前升级时保持禁用。重检恢复 current 后原位禁用，不能用“运行游戏”冒充重检。审核页不对服务端 interval 轮询 validation；只在本地观察本次子窗体是否关闭，并在关闭后以该 Launch 的 HttpOnly capability 发送一次 finish、再执行一次有界状态读取，不能依赖 Player 在装载中关闭时一定发出 pagehide。checkpoint 完成后的“验证恢复”动作必须再次读取浏览器能力，再创建 restore Launch，不能复用第一次摘要。审核卡标题不显示 `RUNNING`、`STARTING` 或 `AWAITING_DECISION` 等内部状态枚举；审核页默认只显示单行“高级验证详情”摘要，固定给出服务端序号 `lastGateSequence / 28` 和完成、进行中、失败或过期状态。摘要与长错误码必须单行省略，不能展开后才暴露当前结论，也不能在默认状态拉高左栏并反向撑高元数据与媒体栏。该摘要使用可键盘操作的原生 disclosure，管理员主动展开后才显示 original/restore Launch ID、A/B/C/恢复/恢复后输入证据和严格排序的 14 个 machine gate：`RUNTIME_READY`、`ENGINE_PROFILE`、`FRAMES_300`、`INPUT`、`AUDIO`、`INITIAL_POSITION_RECORDED`（A）、`SAVE_POINT_RECORDED`（B）、`CHECKPOINT_CREATED`、`POST_SAVE_STATE_DIVERGED`（C）、`ORIGINAL_LAUNCH_ENDED`、`RESTORE_STARTED`、`RESTORE_POSITION_VERIFIED`（恢复到 B）、`RESTORE_SCREENSHOT`、`RESTORE_INPUT`（恢复后真实输入位置）。运行游戏窗口继续承担实时、完整证据展示；审核页的收起内容只用于离开 Player 后审计。原始与恢复 Launch ID 可作为非秘密关联信息显示，capability/cookie 不得出现。高级验证进入 `AWAITING_DECISION` 后才显示其 PASS/FAIL 决策，机器失败不得伪造成高级 PASS，但不撤销已经创建真实 Launch 的发布资格。非 RPG 条目的旧 preview/override 保持原样。
 
 `/admin/reviews` 首先是可浏览的全局待审队列，不得直接把第一条详情冒充整个页面。队列支持关键字、普通/Pegasus/EmulationStation 批次、游戏目录、Blocker 和更新时间排序；三个来源批次筛选互斥。服务端每页最多返回 20 条，用户滚动到已加载列表末尾才继续取页。同一次停留在底部预加载区只自动读取一页，哨兵离开并再次进入后才能继续自动读取；任一时刻只允许一个续页请求，键盘和失败重试继续使用“继续加载”按钮。每行详情入口必须关闭 Next.js viewport 自动预取；只有用户实际点击“审核/处理”时才读取详情，不能让长队列同时触发多份 RSC 详情、认证上下文和封面请求。“当前已加载 / 可以发布 / 运行异常 / 未找到信息”是作用于已加载集合的可操作筛选按钮，数量必须来自相同集合并随加载和筛选同步更新。每行展示封面缩略图（无封面用占位图）、来源文件/目录、草稿标题、文件总大小、主内容 MD5、目标游戏目录、Validation 状态、信息来源和更新时间；桌面队列的各行必须复用同一列轨，目标游戏目录和信息来源等列不能因 Validation/Blocker 文案或操作按钮宽度不同而左右漂移。服务器 metadata 已读取时显示“Pegasus · Collection / 等待管理员核对”或“EmulationStation · Collection / 等待管理员核对”，不能因 `candidateCount=0` 误归为“未找到信息”。EmulationStation 的 hidden/adult/kidgame 以非颜色提示展示。列表不展示含糊的“批次详情”或直接下拉 UUID；来源详情进入审核分别携带 `importJobId`、`pegasusImportId` 或 `emulationStationImportId`，固定批次筛选在“清除全部”后仍保留。
 
@@ -484,7 +484,7 @@ RPG 条目的“运行游戏”不打开五秒截图 preview，而是在当前�
 
 首次刮削成功时，页面把候选基础信息和 READY 封面自动填入草稿并立即通过当前 ETag 实时保存。之后每次“重新查询游戏信息”只产生一个对比对话框：最外层固定为左右两栏，左栏是当前信息，右栏是最新结果；每一栏内部的上半部再分为左侧短元信息（标题、开发商、发行商、类型、玩家数和年份等）与右侧 3:4 封面，下半部展示该栏完整简介。对应字段一致显示绿色边框，不一致显示红色边框；右栏短字段、简介和新封面可编辑或替换，左栏保持只读。取消丢弃本次结果，应用覆盖当前客户端状态、清除不兼容的旧候选素材选择并触发实时保存；页面下方不得不断追加查询结果卡片。
 
-“重新运行检查 / 运行游戏、丢弃条目 / 通过并发布”按视觉顺序排列为两行两列，四个按钮使用完全相同的列宽和可点击高度；`运行游戏`位于`重新运行检查`右侧，使用克制的浅紫次操作样式，不能与主发布按钮争夺层级。“重新运行检查”只保存草稿并刷新服务端 Validation 与页面状态，不调用 `window.open`、不创建审核 Preview，也不因结果 READY 自动运行游戏。Provider Target 或 Runtime 升级使服务端投影 `validationStale=true` 时，摘要短状态固定为“Runtime 待重检”，审核决定只替换既有单行说明；`targetContractChange` 存在时显示“Runtime {previous} → {current}，请重新检查”，否则显示“Runtime 已更新，请先重新运行检查”。`运行游戏`禁用并关联同一完整说明；不得增加撑高页首卡片的独立提示条，过长版本只在该行省略显示。重新检查完成并取得当前绑定后原位恢复入口。当前绑定上的 BLOCKED Validation 不属于该状态，仍允许尽最大可能的诊断预览。“运行游戏”必须从原始 click 同步打开独立子窗体，再异步创建审核预览，避免浏览器弹窗策略把它阻断；阻断条目仍允许尽最大可能交付主 ROM 与当前已有依赖。每次核心真实触发 `EJS_onGameStart` 后均在第 5 秒自动截图，不以依赖状态为前置条件；审核预览优先读取核心自身保存的最后一帧，以保留停止刷新的 ROM/BIOS 缺失错误画面，2 秒内不可用时回退到 canvas 截图。阻断条目取得与当前 Validation 一致的截图后，“通过并发布”解除置灰，管理员可用截图人工判断。重新检查生成新 Validation 时旧截图立即失效，不得继续放行。弹窗被阻止、运行失败、未触发游戏开始或截图上传失败都提供可操作提示，不把旧截图当成成功。
+“重新运行检查 / 运行游戏、丢弃条目 / 通过并发布”按视觉顺序排列为两行两列，四个按钮使用完全相同的列宽和可点击高度；`运行游戏`位于`重新运行检查`右侧，使用克制的浅紫次操作样式，不能与主发布按钮争夺层级。“重新运行检查”只保存草稿并刷新服务端 Validation 与页面状态，不调用 `window.open`、不创建审核 Preview，也不因结果 READY 自动运行游戏。只有来源快照、目标目录、草稿版本、DAT、依赖或其他真实校验输入变化时，服务端才投影 `validationStale=true` 并显示“运行检查已过期，请重新检查”；Provider Bundle 的只向前升级不改变稳定 Provider/Target，也不得单独令 Validation 过期。`运行游戏`在真实 stale 时禁用并关联同一完整说明；不得增加撑高页首卡片的独立提示条。重新检查完成后原位恢复入口。当前绑定上的 BLOCKED Validation 不属于 stale，仍允许尽最大可能的诊断预览。“运行游戏”必须从原始 click 同步打开独立子窗体，再异步创建审核预览，避免浏览器弹窗策略把它阻断；阻断条目仍允许尽最大可能交付主 ROM 与当前已有依赖。每次核心真实触发 `EJS_onGameStart` 后均在第 5 秒自动截图，不以依赖状态为前置条件；审核预览优先读取核心自身保存的最后一帧，以保留停止刷新的 ROM/BIOS 缺失错误画面，2 秒内不可用时回退到 canvas 截图。阻断条目取得与当前 Validation 一致的截图后，“通过并发布”解除置灰，管理员可用截图人工判断。真实校验输入变化并生成新 Validation 时旧截图立即失效，不得继续放行。弹窗被阻止、运行失败、未触发游戏开始或截图上传失败都提供可操作提示，不把旧截图当成成功。
 
 页首摘要卡片使用稳定高度，内部第 5 秒运行截图不写死独立高度，而是拉伸占满摘要卡片提供的可用空间；等待、阻断与真实截图三种状态不能改变摘要卡片的外框尺寸。真实图片只在截图框内 `contain` 等比缩放，不能根据原始宽高比撑高最外层摘要卡片；摘要卡片与右侧“审核决定”顶部对齐且互不拉伸。
 
@@ -512,10 +512,10 @@ Parent 操作打开可用键盘关闭和焦点回退的 modal，只接受一个 
 
 管理详情不是用户游戏详情复用表单。页头下依次为封面/身份/状态概览、所属目录/推荐运行方式/当前文件/最后验证/关联存档摘要，再进入固定四区；不显示“基本信息 / 媒体 / 游戏文件与运行 / 管理操作”锚点导航，用户按页面自然滚动浏览：
 
-1. “发布信息”：标题、描述、年份、开发商、发行商、类型、玩家数；保存创建新的 MetadataRevision，必须携带当前 ETag。初始进入、用户没有修改任何字段，以及保存成功后，“保存新版本”都必须禁用；只有当前表单与已保存基线有实际差异时才启用。
+1. “发布信息”：标题、描述、年份、开发商、发行商、类型、玩家数；保存创建新的 Game 当前元信息字段，必须携带当前 ETag。初始进入、用户没有修改任何字段，以及保存成功后，“保存新版本”都必须禁用；只有当前表单与已保存基线有实际差异时才启用。
 2. “媒体”：只展示当前封面与视频预览及各自替换入口；背景图和游戏截图没有用户侧消费入口，不占用管理工作台空间，但只要仍在当前媒体清单中就不得因页面收敛而删除。封面容器始终保持 3:4，在双栏中按可用高度等比放大，底边与“媒体”内容容器对齐，图片居中裁切填满；视频槽占据封面之外的全部可用宽高，视频保持原始宽高比完整适配、不裁切，并在槽内水平、垂直居中。上传成功创建新 Asset，不原地覆盖旧 Blob；current 切换后旧 Asset URL 失效并进入统一回收流程。
-3. “内容与运行版本”：先展示 Game 当前/历史 GameContentRevision 及用户文件清单；已释放 payload 的历史 revision 显示“载荷已释放”。再按 Core 展示稳定 GameVariant、当前/历史 VariantRevision、Provider Target、DAT、派生文件、依赖诊断和兼容状态。替换游戏文件对话框必须明确成功后会永久清理旧 ROM/盘组、运行快照和受影响存档并显示存档数量；只有新内容对目录默认 core 验证 READY 且配置快照未漂移时才原子切换，失败保留 current 与存档。RPG Maker 游戏固定显示完整项目目录选择，不暴露内部世代选择器；服务端重新识别后只允许与当前 generation 相同且运行依赖声明未变的项目，跨世代失败需明确提示当前内容与存档未变。内容完全相同时原位提示“未执行替换”，不能显示成功。
-4. “管理操作”：重新刮削只生成候选预览，完成后自动打开与审核页一致的对比窗口；最外层保持“当前信息 / 最新候选”左右两栏，每栏内部上方为“短元信息 + 3:4 封面”、下方为完整简介。应用时未提供的字段和媒体保持当前值，确认后才创建 metadata revision。移动目录必须先主动选择目标并点击预览，若返回 `VALIDATION_PENDING` 就在原对话框展示可返回的任务进度并等待，任务完成后自动用新幂等键重新预览，绝不提前移动；永久删除独立置于全宽红色边框“危险操作”区，左侧展示清理范围说明，右侧固定放置“永久删除游戏”按钮。按钮打开只含影响摘要、取消与确认操作的确认框，不要求管理员再次输入游戏标题。
+3. “内容与运行状态”：展示 Game 当前 GameFiles 和用户文件清单，再按 Core 展示稳定 GameVariant、Provider Target、DAT、派生文件、依赖诊断和兼容状态；业务变更历史只从 AuditEvent 展示，不拼装可恢复的历史版本。替换游戏文件对话框必须明确成功后会永久清理旧 ROM/盘组、已物化运行资源和受影响存档并显示存档数量；只有新内容对目录默认 core 验证 READY 且配置快照未漂移时才原子替换当前态，失败保留原内容与存档。RPG Maker 游戏固定显示完整项目目录选择，不暴露内部世代选择器；服务端重新识别后只允许与当前 generation 相同且运行依赖声明未变的项目，跨世代失败需明确提示当前内容与存档未变。内容完全相同时原位提示“未执行替换”，不能显示成功。
+4. “管理操作”：重新刮削只生成候选预览，完成后自动打开与审核页一致的对比窗口；最外层保持“当前信息 / 最新候选”左右两栏，每栏内部上方为“短元信息 + 3:4 封面”、下方为完整简介。应用时未提供的字段和媒体保持当前值，确认后才原子更新 Game/GameAsset 当前态并写 AuditEvent。移动目录必须先主动选择目标并点击预览，若返回 `VALIDATION_PENDING` 就在原对话框展示可返回的任务进度并等待，任务完成后自动用新幂等键重新预览，绝不提前移动；永久删除独立置于全宽红色边框“危险操作”区，左侧展示清理范围说明，右侧固定放置“永久删除游戏”按钮。按钮打开只含影响摘要、取消与确认操作的确认框，不要求管理员再次输入游戏标题。
 
 页面从当前详情自动提交标题、当前 ETag 和预检 `impactDigest`，标题不作为用户输入项；影响在确认期间变化时原位刷新预检并要求再次确认。202 后页面立即退出编辑态，显示“游戏已删除，正在清理数据”和 release Job；FAILED 展示稳定错误码与“重试清理”，RELEASED 显示“数据引用已清理，将由存储回收任务处理”，不承诺 CAS 文件即时消失。墓碑详情只展示原标题与结构化历史，封面、视频、内容、存档和编辑入口全部消失。
 
@@ -541,7 +541,7 @@ Parent 操作打开可用键盘关闭和焦点回退的 modal，只接受一个 
 
 ### 7.5 运行依赖与 BIOS
 
-页面名称稳定为“运行依赖”，顶部使用“BIOS 文件”“RPG Maker 运行包”两个 tab，深链固定为 `?tab=bios|rpgmaker`；tab 支持左右方向键、Home/End、正确 `aria-selected` 与刷新恢复。RPG tab 先以管理员诊断只读列出七个世代的 `providerId/targetId/targetContractSha256`、checkpoint format 与启动可用性；Provider 私有 adapter/core identity 不进入 Retrom API 或页面，该诊断也不得进入普通用户 Core 选择器。随后按 2000、2003、XP、VX、VX Ace 分组显示 pack definition、声明名、文件数/总量、验证状态、上传时间、来源备注和被引用数量；MV/MZ 明确为项目自包含且没有 Retrom pack。主操作为“上传运行包”，打开可键盘关闭且焦点回退的右侧 Drawer，只接受单目录或单 ZIP/7z，固定提示“仅上传你有权使用的运行包”，并在未选完整 payload 前禁用安装。同一定义有多个 READY installation 时并列显示版本，不能静默替换；引用非零时删除禁用并解释，上传总是创建新 installation。
+页面名称稳定为“运行依赖”，顶部使用“BIOS 文件”“RPG Maker 运行包”两个 tab，深链固定为 `?tab=bios|rpgmaker`；tab 支持左右方向键、Home/End、正确 `aria-selected` 与刷新恢复。RPG tab 先以管理员诊断只读列出七个世代的 `providerId/targetId/bundleSha256`、checkpoint format 与启动可用性；Provider 私有 adapter/core identity 不进入 Retrom API 或页面，该诊断也不得进入普通用户 Core 选择器。随后按 2000、2003、XP、VX、VX Ace 分组显示 pack definition、声明名、文件数/总量、验证状态、上传时间、来源备注和被引用数量；MV/MZ 明确为项目自包含且没有 Retrom pack。主操作为“上传运行包”，打开可键盘关闭且焦点回退的右侧 Drawer，只接受单目录或单 ZIP/7z，固定提示“仅上传你有权使用的运行包”，并在未选完整 payload 前禁用安装。同一定义有多个 READY installation 时并列显示版本，不能静默替换；引用非零时删除禁用并解释，上传总是创建新 installation。
 
 BIOS 文件页默认展示当前游戏库实际所需项，并可在页面内无刷新切换完整 BIOS 目录。页首固定显示当前范围、缺失/阻断、需要核对和已就绪四项摘要；关键字、运行方式和状态筛选以及“需要处理/必需/可选”快速筛选只更新下方结果，不插入推动内容的标签。列表先展示会阻断或需要核对的项目，再展示已就绪与可选项；当前接口不能证明的“影响 N 款游戏”不得用示例数字冒充，改用真实的当前游戏库引用、阻断和可选语义。STATIC 文件的期望/当前 MD5 直接展示，`HASH_WARNING` 明确说明仍可启动。已安装项的替换操作旁必须提前说明会清理依赖旧 BIOS 的存档和运行会话；服务器目录的“允许替换”开关显示同一破坏性影响。已安装的 Arcade `DAT_MACHINE` ZIP 把文件名显示为可聚焦按钮；点击打开宽对话框，左侧为该 Requirement 锁定 DAT 版本要求的完整面板，右侧为安装时已安全扫描并落库的 ZIP 实际内容面板，不增加居中的第三栏。两侧各自以文件列表展示；`name`、`size`、`crc` 是位于列表上方的横向三列表头，每个文件在下方占一个仅略高于文字行高的紧凑行并按相同列序展示对应值，字段名不得重复放到每行左侧。匹配、内容别名、校验不一致、缺失和额外文件通过整行背景色区分，行内不显示状态徽标或状态文案；鼠标悬停时 tooltip 显示具体状态，辅助技术仍可读取同一说明。两栏共享纵向滚动位置以便目视比对。HTTP 读取不重新解压用户内容。
 
@@ -580,7 +580,7 @@ EmulationStation Drawer 同样是 760px 右侧三步流程：“选择目录 →
 
 阻断或失败行先显示可理解的具体原因，展开“查看具体原因与处理建议”后展示稳定错误码、检查 Core/machine、缺失或不匹配条目、parent/BIOS/多盘依赖明细及对应修复动作；内部失败另展示失败阶段、内部操作、底层 cause code、对应来源 Item ID、来源相对路径、观察数量/上限、可用的内部 ImportJob/ImportItem ID 和受限技术详情。BIOS 阻断提供 BIOS 管理入口。不得只显示“运行检查阻断”或没有排查上下文的 `PEGASUS_LIBRARY_IMPORT_FAILED/EMULATIONSTATION_LIBRARY_IMPORT_FAILED`。可重试失败在页头提供“重新运行检查”，直接复用原计划和映射恢复诊断，不要求重新选择目录。取消不删除已生成审核事项或回滚已发布游戏；普通 retry 只为服务端声明可重试的终态提供，delete 只在服务端允许的无执行结果计划出现。
 
-游戏详情 Hero 先展示 cover。存在 VIDEO 时，视频必须 muted、inline、loop、`preload="metadata"`；仅在页面前台且 Hero 可见累计 2 秒后尝试自动播放，`playing` 后以 200ms 淡入。播放拒绝、媒体错误、stalled 或 5 秒无 `playing` 时保持封面并提供显式播放；用户暂停后本次页面不再自动恢复。`prefers-reduced-motion` 下完全禁用自动播放和淡入。游戏库卡片/列表不加载或自动播放视频。管理员媒体区提供占据封面外全部剩余空间的独立 VIDEO 槽，只接收 MP4/WebM；视频尺寸可未知，使用 `object-fit: contain` 与 `object-position: 50% 50%` 等比居中完整适配且不自动播放，上传、替换和删除都产生不可变媒体 revision，并在新 revision 成为 current 后释放旧 Asset 叶子引用。
+游戏详情 Hero 先展示 cover。存在 VIDEO 时，视频必须 muted、inline、loop、`preload="metadata"`；仅在页面前台且 Hero 可见累计 2 秒后尝试自动播放，`playing` 后以 200ms 淡入。播放拒绝、媒体错误、stalled 或 5 秒无 `playing` 时保持封面并提供显式播放；用户暂停后本次页面不再自动恢复。`prefers-reduced-motion` 下完全禁用自动播放和淡入。游戏库卡片/列表不加载或自动播放视频。管理员媒体区提供占据封面外全部剩余空间的独立 VIDEO 槽，只接收 MP4/WebM；视频尺寸可未知，使用 `object-fit: contain` 与 `object-position: 50% 50%` 等比居中完整适配且不自动播放。上传、替换和删除都原子更新 GameAsset 当前态、递增 Game version、写 AuditEvent，并释放失去引用的旧 Asset payload。
 
 ### 7.8 标签管理与跨页面接入
 
@@ -615,7 +615,7 @@ EmulationStation Drawer 同样是 760px 右侧三步流程：“选择目录 →
 
 任务进度卡的状态、进度、问题摘要和右侧主动作使用固定列边界，“需要处理”和“已完成”不能因动作数量不同而横向错位。多盘明细由任务摘要中的紧凑“多盘”入口渐进展开，不在右侧动作列重复显示“查看多盘详情”；右侧只保留审核、查看结果等当前主任务。
 
-审核详情在来源文件上方显示只读“多盘内容”卡，按盘序列出 source basename、canonical label、大小/hash 和缺失状态。缺盘时 Approve 禁用，只允许一次选择当前全部缺失 basename；补传沿用通用 Upload/Job SSE、支持断线恢复和 retryable Job retry，终态重新获取 Review。新 snapshot 生效后原卡就地刷新，旧 snapshot 不可编辑。游戏管理详情显示当前 content kind、ordered canonical discs 与 playlist hash；“替换游戏文件”先打开保留原管理页上下文的对话框，MULTI 选项只在当前目录 capability 允许时显示。多盘替换必须选择完整目录并复用导入预检，但只允许恰好一个完整盘组，缺盘组不能像导入一样继续；失败不改变 current revision。
+审核详情在来源文件上方显示只读“多盘内容”卡，按盘序列出 source basename、canonical label、大小/hash 和缺失状态。缺盘时 Approve 禁用，只允许一次选择当前全部缺失 basename；补传沿用通用 Upload/Job SSE、支持断线恢复和 retryable Job retry，终态重新获取 Review。新 snapshot 生效后原卡就地刷新，旧 snapshot 不可编辑。游戏管理详情显示当前 content kind、ordered canonical discs 与 playlist hash；“替换游戏文件”先打开保留原管理页上下文的对话框，MULTI 选项只在当前目录 capability 允许时显示。多盘替换必须选择完整目录并复用导入预检，但只允许恰好一个完整盘组，缺盘组不能像导入一样继续；失败不改变 GameFiles/GameVariant 当前态。
 
 Player 在 loader 启动前显示“正在准备多盘内容 · N 张光盘 · 总大小”，盘组校验完成后在“创建存档”前显示 `光盘 N / M`。换盘菜单按顺序列出全部盘，支持 Tab、方向键、Home/End、Enter/Space 和 Escape，当前盘有文本/图标双重状态；换盘期间使用 `aria-live=polite`，失败用 alert 并保持原盘号。存档卡和启动入口显示保存时的“光盘 N”；从存档继续不要求用户重新选盘，若锁定盘组不兼容则原位阻断。
 

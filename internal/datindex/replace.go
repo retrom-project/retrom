@@ -218,16 +218,15 @@ func insertMachineContents(
 
 // Requirement upserts and stale-row deactivation must remain one auditable atomic synchronization.
 func SyncRequirements(ctx context.Context, transaction *sql.Tx, datID string, now time.Time) error {
-	var coreID, providerID, targetID, targetContractSHA256, datSHA256 string
+	var coreID, providerID, targetID, datSHA256 string
 	if err := transaction.QueryRowContext(ctx, `
 SELECT core_id,
 provider_id,
 target_id,
-target_contract_sha256,
 sha256
 FROM dat_versions
 WHERE id=?
-`, datID).Scan(&coreID, &providerID, &targetID, &targetContractSHA256, &datSHA256); err != nil {
+`, datID).Scan(&coreID, &providerID, &targetID, &datSHA256); err != nil {
 		return fmt.Errorf(
 
 			// Dependency targets include unresolved romof names. They are preserved as
@@ -271,8 +270,7 @@ ORDER BY 1
 	for _, machine := range machines {
 		if err := syncRequirement(ctx, transaction, requirementSyncInput{
 			datID: datID, datSHA256: datSHA256, coreID: coreID,
-			providerID: providerID, targetID: targetID,
-			targetContractSHA256: targetContractSHA256, machine: machine, now: now,
+			providerID: providerID, targetID: targetID, machine: machine, now: now,
 		}); err != nil {
 			return err
 		}
@@ -301,8 +299,8 @@ AND source_version!=?
 }
 
 type requirementSyncInput struct {
-	datID, datSHA256, coreID, providerID, targetID, targetContractSHA256, machine string
-	now                                                                           time.Time
+	datID, datSHA256, coreID, providerID, targetID, machine string
+	now                                                     time.Time
 }
 
 func syncRequirement(ctx context.Context, transaction *sql.Tx, input requirementSyncInput) error {
@@ -324,10 +322,10 @@ func syncRequirement(ctx context.Context, transaction *sql.Tx, input requirement
 	)).String()
 	_, err = transaction.ExecContext(ctx, `
 INSERT INTO bios_requirements(
- id,core_id,provider_id,target_id,target_contract_sha256,source_kind,dat_machine_name,
+ id,core_id,provider_id,target_id,source_kind,dat_machine_name,
  logical_name,requirement_mode,condition_code,activation_options_json,catalog_digest,
  size_bytes,md5,sha1,sha256,source_url,source_version,enabled,version,created_at_ms,updated_at_ms
-) VALUES(?,?,?,?,?,'DAT_MACHINE',?,?,'REQUIRED','ARCADE_DAT_DEPENDENCY',NULL,?,
+) VALUES(?,?,?,?,'DAT_MACHINE',?,?,'REQUIRED','ARCADE_DAT_DEPENDENCY',NULL,?,
  NULL,NULL,NULL,NULL,?,?,1,1,?,?)
 ON CONFLICT(provider_id,target_id,logical_name) DO UPDATE SET
  dat_machine_name=excluded.dat_machine_name,requirement_mode=excluded.requirement_mode,
@@ -336,8 +334,8 @@ ON CONFLICT(provider_id,target_id,logical_name) DO UPDATE SET
  version=CASE WHEN bios_requirements.catalog_digest!=excluded.catalog_digest
    OR bios_requirements.enabled=0 THEN bios_requirements.version+1 ELSE bios_requirements.version END,
  updated_at_ms=excluded.updated_at_ms
-`, requirementID, input.coreID, input.providerID, input.targetID, input.targetContractSHA256,
-		input.machine, logicalName, hex.EncodeToString(digest[:]),
+`, requirementID, input.coreID, input.providerID, input.targetID, input.machine,
+		logicalName, hex.EncodeToString(digest[:]),
 		fmt.Sprintf("retrom:dat:%s#%s", input.datID, input.machine), input.datID,
 		input.now.UnixMilli(), input.now.UnixMilli())
 	if err != nil {

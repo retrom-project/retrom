@@ -57,8 +57,6 @@ type draftValidationRefresh struct {
 	coreID                  string
 	providerID              string
 	runtimeTargetID         string
-	targetContractSHA256    string
-	gameCompatibilityLine   string
 	contentPolicyJSON       string
 	datID                   sql.NullString
 	sourceID                string
@@ -96,7 +94,7 @@ WHERE id=? AND enabled=1 AND deleted_at_ms IS NULL
 	}
 	state.coreID = defaultCoreID
 	err = state.transaction.QueryRowContext(state.ctx, `
-SELECT binding.provider_id,binding.target_id,target.target_contract_sha256,target.game_compatibility_line,
+SELECT binding.provider_id,binding.target_id,
   (SELECT id FROM dat_versions WHERE provider_id=binding.provider_id AND target_id=binding.target_id AND is_active=1),
   json_object(
     'schemaVersion',1,
@@ -114,9 +112,8 @@ JOIN runtime_binding_platforms binding_platform ON binding_platform.binding_id=b
  AND binding_platform.platform_id=?
 JOIN runtime_targets target ON target.provider_id=binding.provider_id AND target.target_id=binding.target_id
 WHERE binding.core_id=? AND binding.launch_policy!='DISABLED'
-`, platformID, defaultCoreID).Scan(
-		&state.providerID, &state.runtimeTargetID, &state.targetContractSHA256,
-		&state.gameCompatibilityLine, &state.datID, &state.contentPolicyJSON,
+	`, platformID, defaultCoreID).Scan(
+		&state.providerID, &state.runtimeTargetID, &state.datID, &state.contentPolicyJSON,
 	)
 	if err != nil {
 		return ErrInvalid
@@ -126,19 +123,15 @@ WHERE binding.core_id=? AND binding.launch_policy!='DISABLED'
 
 func (state *draftValidationRefresh) loadRPGMakerInputs() error {
 	err := state.transaction.QueryRowContext(state.ctx, `
-SELECT 'rpgmaker',profile.provider_id,profile.target_id,profile.target_contract_sha256,
- profile.game_compatibility_line,
+SELECT 'rpgmaker',profile.provider_id,profile.target_id,
  (SELECT id FROM dat_versions WHERE provider_id=profile.provider_id AND target_id=profile.target_id AND is_active=1),
  json_object('schemaVersion',1,'supportedContentKinds',json_array('RPG_MAKER_PROJECT'),'multiDisc',NULL)
 FROM review_drafts draft
 JOIN rpgmaker_review_profiles profile ON profile.review_draft_id=draft.id
 JOIN runtime_targets target ON target.provider_id=profile.provider_id AND target.target_id=profile.target_id
- AND target.target_contract_sha256=profile.target_contract_sha256
- AND target.game_compatibility_line=profile.game_compatibility_line
 WHERE draft.import_item_id=? AND draft.target_platform_instance_id=?
 `, state.itemID, state.targetID).Scan(
-		&state.coreID, &state.providerID, &state.runtimeTargetID, &state.targetContractSHA256,
-		&state.gameCompatibilityLine, &state.datID, &state.contentPolicyJSON,
+		&state.coreID, &state.providerID, &state.runtimeTargetID, &state.datID, &state.contentPolicyJSON,
 	)
 	if err != nil {
 		return ErrInvalid
@@ -153,12 +146,11 @@ SELECT id,source_manifest_digest,prepublish_input_digest,status,
 FROM import_item_core_validations
 WHERE import_item_id=? AND source_snapshot_id=? AND target_platform_instance_id=?
   AND platform_instance_version=? AND core_id=? AND provider_id=? AND target_id=?
-  AND target_contract_sha256=? AND game_compatibility_line=? AND prepublish_generation=4
+  AND prepublish_generation=4
   AND dat_version_id IS ? AND default_dos_entry IS ?
 ORDER BY created_at_ms DESC,id DESC LIMIT 1
 	`, state.itemID, state.effectiveSnapshotID, state.targetID, state.platformVersion,
 		state.coreID, state.providerID, state.runtimeTargetID,
-		state.targetContractSHA256, state.gameCompatibilityLine,
 		nullable(state.datID), nullable(state.dosEntry)).Scan(
 		&state.sourceID, &state.sourceManifestDigest, &state.sourceInputDigest,
 		&state.sourceStatus, &state.compatibilityCode, &state.dependencySnapshot,
@@ -200,10 +192,8 @@ func (state *draftValidationRefresh) exactValidationCurrent() bool {
 		SourceManifestDigest: state.sourceManifestDigest, ContentKind: state.contentKind,
 		TargetPlatformInstanceID: state.targetID, PlatformInstanceVersion: state.platformVersion,
 		ProviderID: state.providerID, TargetID: state.runtimeTargetID,
-		TargetContractSHA256:  state.targetContractSHA256,
-		GameCompatibilityLine: state.gameCompatibilityLine,
-		ContentPolicyDigest:   compatibilityConfigDigest(state.contentPolicyJSON),
-		DATVersionID:          nullStringPointer(state.datID), DefaultDOSEntry: nullStringPointer(state.dosEntry),
+		ContentPolicyDigest: compatibilityConfigDigest(state.contentPolicyJSON),
+		DATVersionID:        nullStringPointer(state.datID), DefaultDOSEntry: nullStringPointer(state.dosEntry),
 		DependencySnapshot: json.RawMessage(state.dependencySnapshot), Status: state.sourceStatus,
 		CompatibilityCode: state.compatibilityCode,
 	}, state.contentPolicyJSON)
@@ -218,9 +208,10 @@ SELECT validation.id,validation.source_manifest_digest,validation.prepublish_inp
   validation.status,validation.compatibility_code,validation.dependency_snapshot_json
 FROM import_item_core_validations validation
 WHERE validation.import_item_id=? AND validation.source_snapshot_id=? AND validation.core_id=?
-  AND validation.game_compatibility_line=? AND validation.dat_version_id IS ?
+  AND validation.provider_id=? AND validation.target_id=? AND validation.dat_version_id IS ?
 ORDER BY validation.created_at_ms DESC,validation.id DESC LIMIT 1
-`, state.itemID, state.effectiveSnapshotID, state.coreID, state.gameCompatibilityLine, nullable(state.datID)).Scan(
+`, state.itemID, state.effectiveSnapshotID, state.coreID, state.providerID,
+		state.runtimeTargetID, nullable(state.datID)).Scan(
 		&state.sourceID, &state.sourceManifestDigest, &state.sourceInputDigest,
 		&state.sourceStatus, &state.compatibilityCode, &state.dependencySnapshot,
 	)
@@ -258,13 +249,12 @@ func (state *draftValidationRefresh) insertValidation() (string, error) {
 	_, err := state.transaction.ExecContext(state.ctx, `
 INSERT INTO import_item_core_validations(
   id,import_item_id,target_platform_instance_id,platform_instance_version,core_id,
-  provider_id,target_id,target_contract_sha256,game_compatibility_line,prepublish_generation,dat_version_id,
+  provider_id,target_id,prepublish_generation,dat_version_id,
   default_dos_entry,source_manifest_digest,source_snapshot_id,prepublish_input_digest,
   status,compatibility_code,dependency_snapshot_json,created_at_ms
-) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
 `, createdID.String(), state.itemID, state.targetID, state.platformVersion, state.coreID,
-		state.providerID, state.runtimeTargetID, state.targetContractSHA256, state.gameCompatibilityLine,
-		prepublishGeneration, nullable(state.datID),
+		state.providerID, state.runtimeTargetID, prepublishGeneration, nullable(state.datID),
 		nullable(state.dosEntry), state.effectiveManifestDigest, state.effectiveSnapshotID,
 		digest, state.sourceStatus, state.compatibilityCode, state.dependencySnapshot, now)
 	if err != nil {
@@ -286,10 +276,8 @@ func (state *draftValidationRefresh) digestInput() prepublishDigestInput {
 		SourceManifestDigest: state.effectiveManifestDigest, ContentKind: state.contentKind,
 		TargetPlatformInstanceID: state.targetID, PlatformInstanceVersion: state.platformVersion,
 		ProviderID: state.providerID, TargetID: state.runtimeTargetID,
-		TargetContractSHA256:  state.targetContractSHA256,
-		GameCompatibilityLine: state.gameCompatibilityLine,
-		ContentPolicyDigest:   compatibilityConfigDigest(state.contentPolicyJSON),
-		DATVersionID:          nullStringPointer(state.datID), DefaultDOSEntry: nullStringPointer(state.dosEntry),
+		ContentPolicyDigest: compatibilityConfigDigest(state.contentPolicyJSON),
+		DATVersionID:        nullStringPointer(state.datID), DefaultDOSEntry: nullStringPointer(state.dosEntry),
 		DependencySnapshot: json.RawMessage(state.dependencySnapshot), Status: state.sourceStatus,
 		CompatibilityCode: state.compatibilityCode,
 	}

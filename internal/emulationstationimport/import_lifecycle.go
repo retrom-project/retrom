@@ -188,7 +188,7 @@ WHERE collection.import_id=? AND collection.mapping_action='IMPORT' AND (
  instance.version<>collection.target_platform_instance_version OR
  instance.platform_id<>collection.target_platform_id OR
  instance.default_core_id<>collection.target_default_core_id OR
- target.provider_id IS NULL OR target.target_contract_sha256<>collection.target_contract_sha256 OR
+ target.provider_id IS NULL OR
  binding.core_id<>collection.target_default_core_id OR binding.launch_policy='DISABLED' OR
  collection.target_dat_version_id IS NOT NULL AND (dat.id IS NULL OR dat.is_active<>1)
 )`, importID).Scan(&changed)

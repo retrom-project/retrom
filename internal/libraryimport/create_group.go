@@ -112,10 +112,10 @@ func (run *creationRun) insertDuplicateMatches(
 	for _, game := range games {
 		_, err := run.transaction.ExecContext(run.ctx, `
 INSERT INTO import_item_duplicate_matches(
-  import_item_id,existing_game_id,existing_game_content_revision_id,
+  import_item_id,existing_game_id,
   content_identity_digest,detected_stage,created_at_ms
-) VALUES(?,?,?,?,'IDENTIFICATION',?)
-`, itemID, game.GameID, game.CurrentContentRevisionID, identityDigest, run.now)
+) VALUES(?,?,?,'IDENTIFICATION',?)
+`, itemID, game.GameID, identityDigest, run.now)
 		if err != nil {
 			return fmt.Errorf("libraryimport/service: %w", err)
 		}

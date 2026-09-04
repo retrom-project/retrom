@@ -61,11 +61,11 @@ VALUES(?,'COMPLETE','FILES',1,0,?,1,10000,1000,1000)
 	}
 	if _, err := database.SQL.ExecContext(context.Background(), `
 INSERT INTO import_jobs(id,upload_session_id,target_platform_instance_id,platform_instance_version,
-platform_id,default_core_id,provider_id,target_id,target_contract_sha256,metadata_provider,config_snapshot_json,config_snapshot_digest,
+platform_id,default_core_id,provider_id,target_id,metadata_provider,config_snapshot_json,config_snapshot_digest,
 state,total_item_count,failed_item_count,version,created_at_ms,updated_at_ms)
-VALUES(?,?,(SELECT id FROM platform_instances WHERE catalog_template_key='gba/mgba'),1,'gba','mgba',?,?,?,'NONE','{}',?,
+VALUES(?,?,(SELECT id FROM platform_instances WHERE catalog_template_key='gba/mgba'),1,'gba','mgba',?,?,'NONE','{}',?,
 'PARTIAL_FAILURE',1,1,1,1000,1000)
-`, retryImportID, retryUploadID, target.ProviderID, target.TargetID, target.TargetContractSHA256, digest); err != nil {
+`, retryImportID, retryUploadID, target.ProviderID, target.TargetID, digest); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := database.SQL.ExecContext(context.Background(), `
@@ -100,11 +100,11 @@ WHERE job.id=? AND item.id=?
 
 	if _, err := database.SQL.ExecContext(context.Background(), `
 INSERT INTO import_jobs(id,upload_session_id,target_platform_instance_id,platform_instance_version,
-platform_id,default_core_id,provider_id,target_id,target_contract_sha256,metadata_provider,config_snapshot_json,config_snapshot_digest,
+platform_id,default_core_id,provider_id,target_id,metadata_provider,config_snapshot_json,config_snapshot_digest,
 state,total_item_count,queued_item_count,review_pending_item_count,failed_item_count,version,created_at_ms,updated_at_ms)
-VALUES(?,?,(SELECT id FROM platform_instances WHERE catalog_template_key='gba/mgba'),1,'gba','mgba',?,?,?,'NONE','{}',?,
+VALUES(?,?,(SELECT id FROM platform_instances WHERE catalog_template_key='gba/mgba'),1,'gba','mgba',?,?,'NONE','{}',?,
 'PARTIAL_FAILURE',4,1,1,2,1,1000,1000)
-`, cancelImportID, cancelUploadID, target.ProviderID, target.TargetID, target.TargetContractSHA256, digest); err != nil {
+`, cancelImportID, cancelUploadID, target.ProviderID, target.TargetID, digest); err != nil {
 		t.Fatal(err)
 	}
 	cancelItems := []struct {
@@ -389,7 +389,7 @@ SELECT f.logical_name,
 b.sha256,
 f.source_archive_blob_id
 FROM games g
-JOIN game_content_files f ON f.game_content_revision_id=g.current_content_revision_id
+JOIN game_files f ON f.game_id=g.id
 JOIN blobs b ON b.id=f.blob_id
 WHERE g.id=?
 `, approved.GameID).Scan(&publishedLogical, &publishedSHA, &sourceArchive); err != nil ||

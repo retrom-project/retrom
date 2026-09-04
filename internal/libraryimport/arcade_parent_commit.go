@@ -204,24 +204,21 @@ func insertParentCoreValidation(
 		SourceManifestDigest: manifestDigest, ContentKind: target.contentKind,
 		TargetPlatformInstanceID: target.targetID, PlatformInstanceVersion: target.platformVersion,
 		ProviderID: target.providerID, TargetID: target.runtimeTargetID,
-		TargetContractSHA256:  target.targetContractSHA256,
-		GameCompatibilityLine: target.gameCompatibilityLine,
-		ContentPolicyDigest:   compatibilityConfigDigest(target.contentPolicyJSON),
-		DATVersionID:          stringPointer(candidate.datID),
-		DependencySnapshot:    json.RawMessage(validation.dependencySnapshot),
-		Status:                validation.validationStatus, CompatibilityCode: validation.compatibilityCode,
+		ContentPolicyDigest: compatibilityConfigDigest(target.contentPolicyJSON),
+		DATVersionID:        stringPointer(candidate.datID),
+		DependencySnapshot:  json.RawMessage(validation.dependencySnapshot),
+		Status:              validation.validationStatus, CompatibilityCode: validation.compatibilityCode,
 	})
 	_, err := transaction.ExecContext(ctx, `
 INSERT INTO import_item_core_validations(
   id,import_item_id,target_platform_instance_id,platform_instance_version,core_id,
-  provider_id,target_id,target_contract_sha256,game_compatibility_line,
+  provider_id,target_id,
   dat_version_id,default_dos_entry,
   prepublish_generation,source_manifest_digest,source_snapshot_id,prepublish_input_digest,
   status,compatibility_code,dependency_snapshot_json,created_at_ms
-) VALUES(?,?,?,?,?,?,?,?,?,?,NULL,?,?,?,?,?,?,?,?)
+) VALUES(?,?,?,?,?,?,?,?,NULL,?,?,?,?,?,?,?,?)
 `, validationID, candidate.itemID, target.targetID, target.platformVersion, target.coreID,
-		target.providerID, target.runtimeTargetID, target.targetContractSHA256, target.gameCompatibilityLine,
-		candidate.datID, prepublishGeneration,
+		target.providerID, target.runtimeTargetID, candidate.datID, prepublishGeneration,
 		manifestDigest, snapshotID, digest, validation.validationStatus,
 		validation.compatibilityCode, validation.dependencySnapshot, now)
 	if err != nil {
@@ -241,15 +238,13 @@ INSERT INTO import_item_validation_files(
 }
 
 type parentCommitTarget struct {
-	contentKind           string
-	targetID              string
-	coreID                string
-	providerID            string
-	runtimeTargetID       string
-	targetContractSHA256  string
-	gameCompatibilityLine string
-	contentPolicyJSON     string
-	platformVersion       int64
+	contentKind       string
+	targetID          string
+	coreID            string
+	providerID        string
+	runtimeTargetID   string
+	contentPolicyJSON string
+	platformVersion   int64
 }
 
 func loadParentCommitTarget(
@@ -263,7 +258,7 @@ func loadParentCommitTarget(
 	err := transaction.QueryRowContext(ctx, `
 SELECT item.state,draft.effective_source_snapshot_id,draft.target_platform_instance_id,
 source_snapshot.content_kind,platform.version,platform.default_core_id,
-target.provider_id,target.target_id,target.target_contract_sha256,target.game_compatibility_line,
+target.provider_id,target.target_id,
 json_object(
   'schemaVersion',1,
   'supportedContentKinds',json((SELECT json_group_array(content_kind) FROM (
@@ -292,12 +287,10 @@ WHERE item.id=?
 `, candidate.draftID, candidate.itemID).Scan(
 		&itemState, &currentSnapshotID, &target.targetID, &target.contentKind,
 		&target.platformVersion, &target.coreID, &target.providerID, &target.runtimeTargetID,
-		&target.targetContractSHA256, &target.gameCompatibilityLine, &target.contentPolicyJSON, &activeDATID,
+		&target.contentPolicyJSON, &activeDATID,
 	)
 	valid := err == nil && itemState == "REVIEW_PENDING" && currentSnapshotID == candidate.baseSnapshotID &&
 		target.providerID == candidate.providerID && target.runtimeTargetID == candidate.targetID &&
-		target.targetContractSHA256 == candidate.targetContractSHA256 &&
-		target.gameCompatibilityLine == candidate.gameCompatibilityLine &&
 		compatibilityConfigDigest(target.contentPolicyJSON) == candidate.contentPolicyDigest &&
 		activeDATID.Valid && activeDATID.String == candidate.datID
 	if !valid {

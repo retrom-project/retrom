@@ -28,6 +28,7 @@ export type RPGMakerReview = {
   runtimePackRequirements: Array<{ slot: number; declaredName: string; normalizedDeclaredName: string }>;
   runtimePackSelections: Array<{ slot: number; declaredName: string; installationId: string }>;
   runtimeValidation: RPGRuntimeValidation | null;
+  runtimeValidationCurrent?: boolean;
 };
 export type ReviewWorkspace = {
   itemId: string; version: number; platformInstance?: { id: string; name: string }; effectiveSourceSnapshotId?: string; canApprove?: boolean;
@@ -93,6 +94,16 @@ export function reviewReadyForPublish(review: ReviewWorkspace) {
   const multiDiscActive = review.multiDisc?.activeAttachment?.state;
   const attachmentActive = [parentActive, multiDiscActive].some((state) => state === "QUEUED" || state === "RUNNING");
   return (review.canApprove ?? review.validation?.status === "READY") && !attachmentActive;
+}
+
+export function rpgReviewRuntimeStatus(value: RPGMakerReview) {
+  const current = value.runtimeValidationCurrent ?? true;
+  if (current && value.runtimeValidation?.launchId) {
+    return {compatibilityCode: "READY", compatibilityLabel: "已启动游戏，可发布", status: "READY"};
+  }
+  return {
+    compatibilityCode: "NEEDS_VALIDATION", compatibilityLabel: "等待启动游戏", status: "PENDING",
+  };
 }
 
 export function previewAsset(candidates: ReviewCandidate[], uploaded: UploadedReviewAsset[], cover: CoverSelection): PreviewAsset | null {

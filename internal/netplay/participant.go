@@ -35,7 +35,7 @@ type SocketParticipant struct {
 	ProfileDigest        string
 	ProviderID           string
 	TargetID             string
-	TargetContractSHA256 string
+	BundleSHA256         string
 	RoomVersion          int64
 	SessionVersion       int64
 	SessionState         string
@@ -52,7 +52,7 @@ func (service *Service) AuthenticateSocket(
 	err := service.database.QueryRowContext(ctx, `
 SELECT room.id,session.id,participant.profile_id,participant.player_no,
   participant.credential_generation,session.profile_digest,session.provider_id,session.target_id,
-  session.target_contract_sha256,
+  session.bundle_sha256,
   room.version,session.version,session.state,session.occupied_seat_mask,session.player_count,
   participant.credential_sha256,launch.state
 FROM netplay_rooms room
@@ -64,7 +64,7 @@ WHERE room.id=? AND participant.profile_id=? AND room.state IN ('STARTING','RUNN
 `, roomID, profileID).Scan(
 		&participant.RoomID, &participant.SessionID, &participant.ProfileID, &participant.PlayerNo,
 		&participant.CredentialGeneration, &participant.ProfileDigest, &participant.ProviderID,
-		&participant.TargetID, &participant.TargetContractSHA256,
+		&participant.TargetID, &participant.BundleSHA256,
 		&participant.RoomVersion, &participant.SessionVersion, &participant.SessionState,
 		&participant.OccupiedSeatMask, &participant.PlayerCount,
 		&credentialHash, &launchState,
@@ -257,11 +257,10 @@ func (service *Service) CreateParticipantLaunch(
 	credentialHash := HashCapability(credential)
 	created, err := launcher.CreateNetplay(ctx, launch.NetplayCreateRequest{
 		RoomID: roomID, SessionID: sessionID, ProfileID: profileID, PlayerNo: spec.playerNo,
-		GameID: spec.gameID, GameVariantRevisionID: spec.revisionID,
+		GameID: spec.gameID, GameVariantID: spec.variantID,
 		ProviderID: spec.providerID, TargetID: spec.targetID,
-		TargetContractSHA256:     spec.targetContractSHA256,
-		NetplayCompatibilityLine: spec.netplayCompatibilityLine,
-		ReturnTo:                 "/netplay/rooms/" + roomID, ClientCapabilities: capabilities,
+		BundleSHA256: spec.bundleSHA256,
+		ReturnTo:     "/netplay/rooms/" + roomID, ClientCapabilities: capabilities,
 		CredentialGeneration: spec.generation, NetplayCredentialSHA256: credentialHash[:],
 	})
 	if err != nil {
@@ -281,14 +280,13 @@ func (service *Service) CreateParticipantLaunch(
 }
 
 type participantLaunchSpec struct {
-	gameID                   string
-	revisionID               string
-	providerID               string
-	targetID                 string
-	targetContractSHA256     string
-	netplayCompatibilityLine string
-	playerNo                 int
-	generation               int64
+	gameID       string
+	variantID    string
+	providerID   string
+	targetID     string
+	bundleSHA256 string
+	playerNo     int
+	generation   int64
 }
 
 func (service *Service) participantLaunchSpec(
@@ -297,15 +295,15 @@ func (service *Service) participantLaunchSpec(
 	var spec participantLaunchSpec
 	var sessionState, participantState string
 	if err := service.database.QueryRowContext(ctx, `
-SELECT session.game_id,session.game_variant_revision_id,session.provider_id,session.target_id,
- session.target_contract_sha256,session.netplay_compatibility_line,session.state,
+SELECT session.game_id,session.game_variant_id,session.provider_id,session.target_id,
+ session.bundle_sha256,session.state,
   participant.player_no,participant.state,participant.credential_generation
 FROM netplay_sessions session
 JOIN netplay_session_participants participant ON participant.netplay_session_id=session.id
 WHERE session.id=? AND session.room_id=? AND participant.profile_id=?
 `, sessionID, roomID, profileID).Scan(
-		&spec.gameID, &spec.revisionID, &spec.providerID, &spec.targetID,
-		&spec.targetContractSHA256, &spec.netplayCompatibilityLine, &sessionState,
+		&spec.gameID, &spec.variantID, &spec.providerID, &spec.targetID,
+		&spec.bundleSHA256, &sessionState,
 		&spec.playerNo, &participantState, &spec.generation,
 	); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {

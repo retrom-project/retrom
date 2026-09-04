@@ -100,10 +100,10 @@ func NewService(
 }
 
 func (service *Service) SupportsPlatformTarget(
-	platformID, coreID, providerID, targetID, netplayCompatibilityLine string,
+	platformID, coreID, providerID, targetID string,
 ) bool {
 	return service != nil && service.registry.SupportsPlatformTarget(
-		platformID, coreID, providerID, targetID, netplayCompatibilityLine,
+		platformID, coreID, providerID, targetID,
 	)
 }
 

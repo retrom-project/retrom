@@ -18,6 +18,7 @@ import (
 	"github.com/google/uuid"
 
 	"retrom/internal/blobstore"
+	"retrom/internal/cleanup"
 	"retrom/internal/launch"
 	"retrom/internal/libraryimport"
 	"retrom/internal/testassert"
@@ -143,16 +144,30 @@ func addParentBundleToLaunch(t *testing.T, server *Server, created launch.Create
 		t.Context(), server.database, metadata, "application/zip", time.Now().UnixMilli(),
 	)
 	testassert.False(t, err != nil, err)
-	var revisionID string
-	if err := server.database.QueryRowContext(t.Context(),
-		`SELECT game_variant_revision_id FROM launch_sessions WHERE id=?`, created.LaunchID,
-	).Scan(&revisionID); err != nil {
+	var variantID string
+	if err := server.database.QueryRowContext(t.Context(), `
+SELECT variant.id
+FROM launch_sessions launch
+JOIN game_variants variant ON variant.game_id=launch.game_id AND variant.core_id=launch.core_id
+WHERE launch.id=?`, created.LaunchID).Scan(&variantID); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := server.database.ExecContext(t.Context(), `
-INSERT INTO variant_files(game_variant_revision_id,role,logical_name,blob_id,sort_order)
+	transaction, err := server.database.BeginTx(t.Context(), nil)
+	testassert.False(t, err != nil, err)
+	defer cleanup.Rollback(transaction)
+	if _, err := transaction.ExecContext(t.Context(), `
+INSERT INTO variant_files(game_variant_id,role,logical_name,blob_id,sort_order)
 VALUES(?,'PARENT','parent.zip',?,0)
-`, revisionID, blobID); err != nil {
+`, variantID, blobID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := transaction.ExecContext(t.Context(), `
+INSERT INTO launch_external_files(launch_session_id,virtual_path,logical_name,blob_id,created_at_ms,kind)
+VALUES(?,'/__retrom__/parent/00/parent.zip','parent.zip',?,?,'PARENT')
+`, created.LaunchID, blobID, time.Now().UnixMilli()); err != nil {
+		t.Fatal(err)
+	}
+	if err := transaction.Commit(); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -317,7 +332,7 @@ func TestRuntimeContentIsPrivateImmutableRevalidatesAndRevokes(t *testing.T) {
 		"revoked content = %d headers=%v body=%s", revoked.Code, revoked.Header(), revoked.Body.String())
 }
 
-func TestMultiDiscAttachmentHTTPContractAndReviewProjection(t *testing.T) {
+func TestMultiDiscAttachmentHTTPContractAndProviderUpgradeProjection(t *testing.T) {
 	server := newTestServer(t)
 	ctx := context.Background()
 	if err := server.dependencies.Bootstrap(ctx, server.database, time.Now()); err != nil {
@@ -415,21 +430,20 @@ func TestMultiDiscAttachmentHTTPContractAndReviewProjection(t *testing.T) {
 		t.Fatalf("accepted review = %d %s", review.Code, review.Body.String())
 	}
 	if _, err := server.database.ExecContext(ctx, `
-UPDATE runtime_targets
-SET target_contract_sha256=?
-WHERE (provider_id,target_id)=(
- SELECT binding.provider_id,binding.target_id
- FROM runtime_target_bindings binding
+UPDATE runtime_providers
+SET provider_version='1.1.0',bundle_sha256=?,manifest_sha256=?,module_sha256=?,activated_at_ms=activated_at_ms+1
+WHERE provider_id=(
+ SELECT binding.provider_id FROM runtime_target_bindings binding
  WHERE binding.core_id='yabause' LIMIT 1
 )
-`, strings.Repeat("d", 64)); err != nil {
+`, strings.Repeat("d", 64), strings.Repeat("e", 64), strings.Repeat("f", 64)); err != nil {
 		t.Fatal(err)
 	}
 	staleRequest := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/admin/reviews/"+itemID, nil)
 	staleRequest.AddCookie(cookie)
 	stale := httptest.NewRecorder()
 	handler.ServeHTTP(stale, staleRequest)
-	testassert.Falsef(t, testassert.Any(func() bool { return stale.Code != http.StatusOK }, func() bool { return !strings.Contains(stale.Body.String(), `"validationStale":true`) }, func() bool { return !strings.Contains(stale.Body.String(), `"canApprove":false`) }), "compatibility-stale review = %d %s", stale.Code, stale.Body.String())
+	testassert.Falsef(t, testassert.Any(func() bool { return stale.Code != http.StatusOK }, func() bool { return strings.Contains(stale.Body.String(), `"validationStale":true`) }, func() bool { return !strings.Contains(stale.Body.String(), `"canApprove":true`) }), "provider-upgraded review = %d %s", stale.Code, stale.Body.String())
 }
 
 func TestMultiDiscPlayerEventHTTPContract(t *testing.T) {

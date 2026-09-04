@@ -27,7 +27,7 @@ func TestMigrationsCreateCurrentSchemaAndReferenceCatalog(t *testing.T) {
 	testassert.Falsef(t, database.IntegrityCheck(ctx) != nil, "fresh database integrity failed")
 
 	tables := queryStrings(t, database.SQL, "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name")
-	testassert.Falsef(t, len(tables) != 128, "fresh schema table count = %d", len(tables))
+	testassert.Falsef(t, len(tables) != 125, "fresh schema table count = %d", len(tables))
 	assertColumns(t, database.SQL, "import_group_requests",
 		"import_job_id", "request_digest", "actor_user_id", "upload_version",
 		"upload_manifest_digest", "target_snapshot_digest")
@@ -47,34 +47,32 @@ WHERE type='trigger' AND name LIKE 'import_group_requests_immutable_%' ORDER BY 
 		"import_item_id", "preview_session_id", "validation_id", "blob_id", "captured_after_ms", "captured_at_ms")
 	assertColumns(t, database.SQL, "netplay_rooms", "host_profile_id", "state", "profile_digest", "expires_at_ms")
 	assertColumns(t, database.SQL, "netplay_room_members", "room_id", "profile_id", "player_no", "ready")
-	assertColumns(t, database.SQL, "netplay_sessions", "provider_id", "target_id", "target_contract_sha256",
-		"netplay_compatibility_line", "profile_json", "occupied_seat_mask", "resync_count")
+	assertColumns(t, database.SQL, "netplay_sessions", "provider_id", "target_id", "bundle_sha256",
+		"profile_json", "occupied_seat_mask", "resync_count")
 	assertColumns(t, database.SQL, "netplay_session_participants", "credential_sha256", "lease_expires_at_ms")
 	assertColumns(t, database.SQL, "netplay_events", "event_type", "data_json", "created_at_ms")
 	assertColumns(t, database.SQL, "launch_sessions", "netplay_session_id", "netplay_player_no", "save_access")
-	assertColumns(t, database.SQL, "launch_sessions", "purpose", "game_content_revision_id", "provider_id",
-		"target_id", "target_contract_sha256", "game_compatibility_line", "bundle_sha256",
+	assertColumns(t, database.SQL, "launch_sessions", "purpose", "game_id", "core_id", "provider_id",
+		"target_id", "bundle_sha256", "content_kind", "dependency_snapshot_json", "compatibility_code",
 		"effective_source_snapshot_id", "rpgmaker_runtime_validation_id")
 	assertColumns(t, database.SQL, "runtime_providers", "provider_version", "provider_api_version",
 		"bundle_sha256", "manifest_sha256", "module_sha256", "source")
-	assertColumns(t, database.SQL, "runtime_targets", "target_id", "target_contract_sha256",
-		"game_compatibility_line", "netplay_compatibility_line", "target_options_schema_json",
+	assertColumns(t, database.SQL, "runtime_targets", "target_id", "target_options_schema_json",
 		"capabilities_json", "checkpoint_json")
 	assertColumns(t, database.SQL, "runtime_target_bindings", "core_id", "provider_id", "target_id",
 		"detector_profile", "delivery_profile", "launch_policy", "review_policy")
-	assertColumns(t, database.SQL, "save_states", "game_content_revision_id", "provider_id", "target_id",
-		"target_contract_sha256", "game_compatibility_line", "checkpoint_format", "payload_blob_id",
-		"payload_sha256", "payload_size_bytes", "dependency_snapshot_sha256")
-	assertColumns(t, database.SQL, "rpgmaker_runtime_validations", "runtime_binding_revision", "project_fingerprint",
-		"provider_id", "target_id", "target_contract_sha256", "launch_id", "restore_launch_id",
+	assertColumns(t, database.SQL, "save_states", "game_id", "checkpoint_format", "payload_blob_id",
+		"payload_sha256", "payload_size_bytes", "source_launch_session_id")
+	assertColumns(t, database.SQL, "rpgmaker_runtime_validations", "review_version_at_create", "project_fingerprint",
+		"provider_id", "target_id", "launch_id", "restore_launch_id",
 		"last_gate_sequence", "machine_gates_json")
 	assertColumns(t, database.SQL, "rpgmaker_runtime_validation_checkpoints", "payload_blob_id", "checkpoint_format")
 	assertColumns(t, database.SQL, "isolated_runtime_bootstrap_tickets", "launch_id", "preview_id")
 	assertColumns(t, database.SQL, "isolated_runtime_capabilities", "launch_id", "preview_id")
 	assertColumns(t, database.SQL, "runtime_asset_pack_installations", "status", "version", "validated_at_ms")
-	assertNotNullColumn(t, database.SQL, "game_metadata_revisions", "title_initial")
+	assertNotNullColumn(t, database.SQL, "games", "title_initial")
 	assertNotNullColumn(t, database.SQL, "save_states", "source_launch_session_id")
-	assertColumns(t, database.SQL, "dat_versions", "provider_id", "target_id", "target_contract_sha256",
+	assertColumns(t, database.SQL, "dat_versions", "provider_id", "target_id",
 		"builtin_relative_path", "sha256", "parser_version", "parse_status")
 	assertColumns(t, database.SQL, "review_bulk_approvals", "source_flagged_count")
 
@@ -127,6 +125,31 @@ SELECT (SELECT count(*) FROM profiles),(SELECT count(*) FROM users),state FROM i
 	assertCurrentClosedEnums(t, database.SQL)
 }
 
+func TestSchemaUsesCurrentGameStateWithoutBusinessRevisions(t *testing.T) {
+	t.Parallel()
+	database, err := Open(t.Context(), filepath.Join(t.TempDir(), "retrom.db"), time.Now)
+	testassert.False(t, err != nil, err)
+	defer func() { cleanup.Error("close", database.Close()) }()
+
+	tables := queryStrings(t, database.SQL, `
+SELECT name FROM sqlite_master
+WHERE type='table' AND name IN ('game_content_revisions','game_metadata_revisions','game_variant_revisions')
+ORDER BY name`)
+	testassert.Truef(t, len(tables) == 0, "business revision tables still exist: %v", tables)
+	assertColumns(t, database.SQL, "games",
+		"title", "description", "developer", "publisher", "genre", "content_kind",
+		"source_manifest_json", "source_manifest_digest", "version")
+	assertColumns(t, database.SQL, "game_files", "game_id", "role", "logical_name", "blob_id", "sort_order")
+	assertColumns(t, database.SQL, "game_variants",
+		"game_id", "core_id", "provider_id", "target_id", "status", "dependency_snapshot_json", "version")
+	for table := range map[string]struct{}{"save_states": {}, "launch_sessions": {}, "play_sessions": {}} {
+		columns := tableColumns(t, database.SQL, table)
+		for _, forbidden := range []string{"game_content_revision_id", "game_variant_revision_id"} {
+			testassert.Falsef(t, columns[forbidden], "%s still contains %s", table, forbidden)
+		}
+	}
+}
+
 func TestGameMetadataTitleInitialConstraint(t *testing.T) {
 	t.Parallel()
 	database, err := Open(t.Context(), filepath.Join(t.TempDir(), "retrom.db"), time.Now)
@@ -140,10 +163,13 @@ func TestGameMetadataTitleInitialConstraint(t *testing.T) {
 	}
 	insert := func(id, initial string) error {
 		_, insertErr := transaction.ExecContext(t.Context(), `
-INSERT INTO game_metadata_revisions(
- id,game_id,title,title_initial,description,developer,publisher,genre,source_kind,created_at_ms
-) VALUES(?,'missing-game','Game',?,'','','','','ADMIN_EDIT',1)
-`, id, initial)
+INSERT INTO games(
+ id,platform_instance_id,title,title_initial,description,developer,publisher,genre,
+ metadata_source_kind,content_source_kind,content_source_ref_id,source_manifest_json,
+ source_manifest_digest,status,search_text,created_at_ms,updated_at_ms
+) VALUES(?,'missing-instance','Game',?,'','','','',
+ 'ADMIN_EDIT','ADMIN_REPLACE','fixture','{}',?,'PUBLISHED','game',1,1)
+`, id, initial, strings.Repeat("a", 64))
 		return insertErr
 	}
 	for index, initial := range []string{"#", "0", "9", "A", "Z"} {
@@ -165,7 +191,7 @@ func assertCurrentClosedEnums(t *testing.T, database *sql.DB) {
 		"emulationstation_import_items": "execution_state TEXT NOT NULL CHECK(execution_state IN ('PENDING','COPYING','VALIDATING','REVIEW_PENDING','PUBLISHED','REVIEW_DISCARDED','SKIPPED_EXISTING','SKIPPED_MAPPING','BLOCKED_SOURCE','BLOCKED_CONTENT','SOURCE_CHANGED','READ_FAILED','COMMIT_FAILED','CANCELLED'))",
 		"pegasus_imports":               "phase TEXT CHECK(phase IS NULL OR phase IN ('DISCOVERING_METADATA','PARSING_METADATA','RESOLVING_SOURCES','COPYING_CONTENT','VALIDATING','PREPARING_REVIEWS'))",
 		"pegasus_import_items":          "execution_state TEXT NOT NULL CHECK(execution_state IN ('PENDING','COPYING','VALIDATING','REVIEW_PENDING','PUBLISHED','REVIEW_DISCARDED','SKIPPED_EXISTING','SKIPPED_MAPPING','BLOCKED_SOURCE','BLOCKED_CONTENT','SOURCE_CHANGED','READ_FAILED','COMMIT_FAILED','CANCELLED'))",
-		"upload_consumptions":           "consumer_type TEXT NOT NULL CHECK(consumer_type IN ( 'IMPORT_JOB','GAME_FILE_REVISION_JOB','GAME_ASSET','REVIEW_ASSET','REVIEW_ARCADE_PARENT', 'REVIEW_MULTI_DISC','BIOS_INSTALLATION','RUNTIME_ASSET_PACK_INSTALLATION' ))",
+		"upload_consumptions":           "consumer_type TEXT NOT NULL CHECK(consumer_type IN ( 'IMPORT_JOB','GAME_CONTENT_REPLACE_JOB','GAME_ASSET','REVIEW_ASSET','REVIEW_ARCADE_PARENT', 'REVIEW_MULTI_DISC','BIOS_INSTALLATION','RUNTIME_ASSET_PACK_INSTALLATION' ))",
 	} {
 		var source string
 		if err := database.QueryRowContext(t.Context(), "SELECT sql FROM sqlite_master WHERE type='table' AND name=?", table).Scan(&source); err != nil {
@@ -173,15 +199,6 @@ func assertCurrentClosedEnums(t *testing.T, database *sql.DB) {
 		}
 		testassert.Truef(t, strings.Contains(strings.Join(strings.Fields(source), " "), current), "%s lacks current closed enum", table)
 	}
-	var contentTrigger, metadataTrigger string
-	if err := database.QueryRowContext(t.Context(), "SELECT sql FROM sqlite_master WHERE type='trigger' AND name='game_content_revisions_pegasus_source_insert'").Scan(&contentTrigger); err != nil {
-		t.Fatal(err)
-	}
-	if err := database.QueryRowContext(t.Context(), "SELECT sql FROM sqlite_master WHERE type='trigger' AND name='game_metadata_revisions_pegasus_source_insert'").Scan(&metadataTrigger); err != nil {
-		t.Fatal(err)
-	}
-	testassert.Truef(t, strings.Contains(contentTrigger, "execution_state='REVIEW_PENDING'"), "content trigger lacks current review boundary")
-	testassert.Truef(t, strings.Contains(metadataTrigger, "execution_state='REVIEW_PENDING'"), "metadata trigger lacks current review boundary")
 }
 
 func TestOpenProvidesIndependentConfiguredReadPool(t *testing.T) {
@@ -221,7 +238,7 @@ func TestCurrentMigrationLineageResumeAndReopen(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "retrom.db")
 	sources, err := migrationSources()
 	testassert.False(t, err != nil, err)
-	testassert.Falsef(t, len(sources) != 11, "migration count = %d", len(sources))
+	testassert.Falsef(t, len(sources) != 12, "migration count = %d", len(sources))
 	database := openMigrationTestDatabase(t, path)
 	for _, source := range sources[:len(sources)-1] {
 		if err := runMigration(ctx, database, source, time.Now); err != nil {
@@ -272,6 +289,99 @@ SELECT count(*) FROM archive_entries WHERE archive_blob_id='archive'
 	reopened, err := Open(ctx, path, time.Now)
 	testassert.Falsef(t, err != nil, "idempotent reopen: %v", err)
 	testassert.False(t, reopened.Close() != nil, "close reopened database")
+}
+
+func TestRuntimeProviderCurrentStateMigrationPreservesPublishedGame(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	path := filepath.Join(t.TempDir(), "retrom.db")
+	database := openMigrationTestDatabase(t, path)
+	defer func() { cleanup.Error("close", database.Close()) }()
+	sources, err := migrationSources()
+	testassert.False(t, err != nil, err)
+	for _, source := range sources[:11] {
+		if err := runMigration(ctx, database, source, time.Now); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	transaction, err := database.BeginTx(ctx, nil)
+	testassert.False(t, err != nil, err)
+	if _, err := transaction.ExecContext(ctx, "PRAGMA defer_foreign_keys=ON"); err != nil {
+		t.Fatal(err)
+	}
+	digest := strings.Repeat("a", 64)
+	statements := []string{
+		`INSERT INTO platform_instances(
+id,platform_id,default_core_id,name,slug,description,sort_order,enabled,created_at_ms,updated_at_ms
+) VALUES('instance','rpgmaker','rpgmaker','RPG Maker','rpg-maker','',0,1,1,1)`,
+		`INSERT INTO runtime_providers(
+provider_id,provider_version,provider_api_version,bundle_sha256,manifest_sha256,module_sha256,source,activated_at_ms
+) VALUES('fixture','1.0.0',1,'` + digest + `','` + digest + `','` + digest + `','candidate',1)`,
+		`INSERT INTO runtime_targets(
+provider_id,target_id,display_name,game_compatibility_line,target_options_schema_json,
+capabilities_json,checkpoint_json,manifest_fragment_json,target_contract_sha256
+) VALUES('fixture','fixture','Fixture','fixture-v1','{}','{}',NULL,'{}','` + digest + `')`,
+		`INSERT INTO game_metadata_revisions(
+id,game_id,title,title_initial,description,developer,publisher,genre,source_kind,created_at_ms
+) VALUES('metadata','game','Fixture','F','','','','','ADMIN_EDIT',1)`,
+		`INSERT INTO game_content_revisions(
+id,game_id,content_kind,source_kind,source_ref_id,source_manifest_json,source_manifest_digest,created_at_ms
+) VALUES('content','game','SINGLE_FILE','ADMIN_REPLACE','fixture','{}','` + digest + `',1)`,
+		`INSERT INTO games(
+id,platform_instance_id,status,current_metadata_revision_id,current_content_revision_id,
+search_text,created_at_ms,updated_at_ms
+) VALUES('game','instance','PUBLISHED','metadata','content','fixture',1,1)`,
+		`INSERT INTO blobs(id,sha256,size_bytes,md5,sha1,crc32,media_type,created_at_ms)
+VALUES('blob','` + digest + `',1,'` + strings.Repeat("b", 32) + `','` + strings.Repeat("c", 40) +
+			`','` + strings.Repeat("d", 8) + `','application/octet-stream',1)`,
+		`INSERT INTO game_content_files(game_content_revision_id,role,logical_name,blob_id,sort_order)
+VALUES('content','CONTENT','fixture.bin','blob',0)`,
+		`INSERT INTO game_variant_revisions(
+id,game_variant_id,game_content_revision_id,provider_id,target_id,target_contract_sha256,
+game_compatibility_line,validation_input_digest,status,compatibility_code,dependency_snapshot_json,created_at_ms
+) VALUES('variant-state','variant','content','fixture','fixture','` + digest + `',
+'fixture-v1','` + digest + `','READY','READY','{}',1)`,
+		`INSERT INTO game_variants(id,game_id,core_id,current_revision_id,created_at_ms,updated_at_ms)
+VALUES('variant','game','rpgmaker','variant-state',1,1)`,
+	}
+	for _, statement := range statements {
+		if _, err := transaction.ExecContext(ctx, statement); err != nil {
+			cleanup.Error("rollback", transaction.Rollback())
+			t.Fatal(err)
+		}
+	}
+	if err := transaction.Commit(); err != nil {
+		t.Fatal(err)
+	}
+	if err := runMigration(ctx, database, sources[11], time.Now); err != nil {
+		t.Fatal(err)
+	}
+
+	var title, logicalName, providerID, compatibility string
+	if err := database.QueryRowContext(ctx, `
+SELECT game.title,file.logical_name,variant.provider_id,variant.compatibility_code
+FROM games game
+JOIN game_files file ON file.game_id=game.id
+JOIN game_variants variant ON variant.game_id=game.id
+WHERE game.id='game'
+`).Scan(&title, &logicalName, &providerID, &compatibility); err != nil {
+		t.Fatal(err)
+	}
+	testassert.Falsef(t, title != "Fixture" || logicalName != "fixture.bin" ||
+		providerID != "fixture" || compatibility != "READY",
+		"migrated game = %q/%q/%q/%q", title, logicalName, providerID, compatibility)
+	var legacyTableCount, foreignKeys int
+	if err := database.QueryRowContext(ctx, `
+SELECT (SELECT count(*) FROM sqlite_schema WHERE type='table' AND name IN (
+  'game_metadata_revisions','game_content_revisions','game_variant_revisions'
+)),(SELECT foreign_keys FROM pragma_foreign_keys)
+`).Scan(&legacyTableCount, &foreignKeys); err != nil {
+		t.Fatal(err)
+	}
+	testassert.Falsef(t, legacyTableCount != 0 || foreignKeys != 1,
+		"legacy tables or foreign-key mode remain: %d/%d", legacyTableCount, foreignKeys)
+	testassert.False(t, verifyMigrationForeignKeys(ctx, database) != nil, "migrated foreign keys failed")
 }
 
 func TestFreshSchemaUsesProviderTargetProjectionWithoutLegacyRuntimeSemantics(t *testing.T) {

@@ -254,7 +254,11 @@ def command_core_build(root: Path, args: argparse.Namespace) -> int:
 
 
 def command_provider_import(root: Path, args: argparse.Namespace) -> int:
-    from scripts.runtime_providers import check_active_providers, verify_provider_upgrade
+    from scripts.runtime_providers import (
+        check_active_providers,
+        check_active_providers_for_upgrade,
+        verify_provider_upgrade,
+    )
 
     spec = _confirmed_spec(root, args.pfb, args.confirm)
     if app_container_running(compose_project(spec["id"])):
@@ -267,11 +271,19 @@ def command_provider_import(root: Path, args: argparse.Namespace) -> int:
             raise PFBError("PFB_PROVIDER_BASE_INVALID", "source")
         return check_active_providers(active_path, installed_root, source)
 
+    def validate_current(active_path: Path, installed_root: Path) -> dict[str, Any]:
+        value = load_json(active_path, "PFB_PROVIDER_BASE_INVALID")
+        source = value.get("source") if isinstance(value, dict) else None
+        if source not in {"candidate", "production"}:
+            raise PFBError("PFB_PROVIDER_BASE_INVALID", "source")
+        return check_active_providers_for_upgrade(active_path, installed_root, source)
+
     result = import_provider_base(
         root,
         args.source_root,
         validate,
         lambda current, incoming: verify_provider_upgrade(current, incoming, []),
+        validate_current=validate_current,
     )
     _result({"id": spec["id"], "status": "IMPORTED", **result})
     return 0

@@ -3,7 +3,6 @@ package runtimebundle
 
 import (
 	"bytes"
-	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -53,16 +52,13 @@ type Manifest struct {
 }
 
 type Target struct {
-	ID                       string              `json:"id"`
-	DisplayName              string              `json:"displayName"`
-	GameCompatibilityLine    string              `json:"gameCompatibilityLine"`
-	NetplayCompatibilityLine *string             `json:"netplayCompatibilityLine"`
-	TargetOptionsSchema      TargetOptionsSchema `json:"targetOptionsSchema"`
-	Inputs                   []Input             `json:"inputs"`
-	Capabilities             Capabilities        `json:"capabilities"`
-	Checkpoint               *Checkpoint         `json:"checkpoint"`
-	AssetPaths               []string            `json:"assetPaths"`
-	ContractSHA256           string              `json:"-"`
+	ID                  string              `json:"id"`
+	DisplayName         string              `json:"displayName"`
+	TargetOptionsSchema TargetOptionsSchema `json:"targetOptionsSchema"`
+	Inputs              []Input             `json:"inputs"`
+	Capabilities        Capabilities        `json:"capabilities"`
+	Checkpoint          *Checkpoint         `json:"checkpoint"`
+	AssetPaths          []string            `json:"assetPaths"`
 }
 
 type Input struct {
@@ -233,7 +229,7 @@ func validManifestRawShape(contents []byte) bool {
 
 func validManifestRawTarget(value any) bool {
 	target, ok := value.(map[string]any)
-	if !ok || !exactMap(target, "id", "displayName", "gameCompatibilityLine", "netplayCompatibilityLine",
+	if !ok || !exactMap(target, "id", "displayName",
 		"targetOptionsSchema", "inputs", "capabilities", "checkpoint", "assetPaths") {
 		return false
 	}
@@ -267,12 +263,8 @@ func validManifestRawInputs(inputs []any) bool {
 
 func validTarget(target Target) bool {
 	if !identityPattern.MatchString(target.ID) || len(target.DisplayName) == 0 || len(target.DisplayName) > 120 ||
-		!tokenPattern.MatchString(target.GameCompatibilityLine) ||
 		!validTargetOptionsSchema(target.TargetOptionsSchema, 0, true) ||
 		!validCapabilities(target.Capabilities) || !validInputs(target.Inputs) || !sortedPaths(target.AssetPaths) {
-		return false
-	}
-	if target.NetplayCompatibilityLine != nil && !tokenPattern.MatchString(*target.NetplayCompatibilityLine) {
 		return false
 	}
 	return target.Capabilities.Checkpoint == (target.Checkpoint != nil) &&
@@ -298,33 +290,15 @@ func BindTargetIntegrity(manifest Manifest, files []IntegrityFile) (Manifest, er
 		}
 		byPath[file.Path] = file
 	}
-	result := manifest
-	result.Targets = append([]Target(nil), manifest.Targets...)
-	for index, target := range result.Targets {
-		assets := make([]IntegrityFile, 0, len(target.AssetPaths))
+	for _, target := range manifest.Targets {
 		for _, path := range target.AssetPaths {
-			file, exists := byPath[path]
+			_, exists := byPath[path]
 			if !exists {
 				return Manifest{}, ErrManifestInvalid
 			}
-			assets = append(assets, file)
 		}
-		payload, err := json.Marshal(map[string]any{
-			"schemaVersion": 1,
-			"target":        target,
-			"assets":        assets,
-		})
-		if err != nil {
-			return Manifest{}, invalidManifest(err)
-		}
-		canonical, err := canonicalJSON(payload)
-		if err != nil {
-			return Manifest{}, invalidManifest(err)
-		}
-		digest := sha256.Sum256(canonical)
-		result.Targets[index].ContractSHA256 = hex.EncodeToString(digest[:])
 	}
-	return result, nil
+	return manifest, nil
 }
 
 func digestPattern(value string) bool {

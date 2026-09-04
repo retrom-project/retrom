@@ -11,13 +11,13 @@
     "allowedContentKinds": ["SINGLE_FILE"]
   },
   "profiles": [
-    {"id":"fceumm-423-v1","providerId":"emulatorjs","targetId":"fceumm","coreId":"fceumm","platformIds":["nes"],"netplayCompatibilityLine":"emulatorjs-netplay-v2","maxPlayers":2,"maxPredictionFrames":8},
-    {"id":"fbneo-423-v1","providerId":"emulatorjs","targetId":"fbneo","coreId":"fbneo","platformIds":["arcade"],"netplayCompatibilityLine":"emulatorjs-netplay-v2","maxPlayers":2,"maxPredictionFrames":0},
-    {"id":"snes9x-423-v1","providerId":"emulatorjs","targetId":"snes9x","coreId":"snes9x","platformIds":["snes"],"netplayCompatibilityLine":"emulatorjs-netplay-v2","maxPlayers":2,"maxPredictionFrames":0},
-    {"id":"mame2003-423-override-v1","providerId":"emulatorjs","targetId":"mame2003","coreId":"mame2003","platformIds":["arcade"],"netplayCompatibilityLine":"emulatorjs-netplay-v2","maxPlayers":2,"maxPredictionFrames":0},
-    {"id":"mame2003-plus-423-v1","providerId":"emulatorjs","targetId":"mame2003-plus","coreId":"mame2003_plus","platformIds":["arcade"],"netplayCompatibilityLine":"emulatorjs-netplay-v2","maxPlayers":2,"maxPredictionFrames":0},
-    {"id":"fbalpha2012-cps1-423-v1","providerId":"emulatorjs","targetId":"fbalpha2012-cps1","coreId":"fbalpha2012_cps1","platformIds":["arcade"],"netplayCompatibilityLine":"emulatorjs-netplay-v2","maxPlayers":2,"maxPredictionFrames":0},
-    {"id":"fbalpha2012-cps2-423-v1","providerId":"emulatorjs","targetId":"fbalpha2012-cps2","coreId":"fbalpha2012_cps2","platformIds":["arcade"],"netplayCompatibilityLine":"emulatorjs-netplay-v2","maxPlayers":2,"maxPredictionFrames":0},
-    {"id":"nestopia-423-v1","providerId":"emulatorjs","targetId":"nestopia","coreId":"nestopia","platformIds":["nes"],"netplayCompatibilityLine":"emulatorjs-netplay-v2","maxPlayers":2,"maxPredictionFrames":0}
+    {"id":"fceumm-423-v1","providerId":"emulatorjs","targetId":"fceumm","coreId":"fceumm","platformIds":["nes"],"maxPlayers":2,"maxPredictionFrames":8},
+    {"id":"fbneo-423-v1","providerId":"emulatorjs","targetId":"fbneo","coreId":"fbneo","platformIds":["arcade"],"maxPlayers":2,"maxPredictionFrames":0},
+    {"id":"snes9x-423-v1","providerId":"emulatorjs","targetId":"snes9x","coreId":"snes9x","platformIds":["snes"],"maxPlayers":2,"maxPredictionFrames":0},
+    {"id":"mame2003-423-override-v1","providerId":"emulatorjs","targetId":"mame2003","coreId":"mame2003","platformIds":["arcade"],"maxPlayers":2,"maxPredictionFrames":0},
+    {"id":"mame2003-plus-423-v1","providerId":"emulatorjs","targetId":"mame2003-plus","coreId":"mame2003_plus","platformIds":["arcade"],"maxPlayers":2,"maxPredictionFrames":0},
+    {"id":"fbalpha2012-cps1-423-v1","providerId":"emulatorjs","targetId":"fbalpha2012-cps1","coreId":"fbalpha2012_cps1","platformIds":["arcade"],"maxPlayers":2,"maxPredictionFrames":0},
+    {"id":"fbalpha2012-cps2-423-v1","providerId":"emulatorjs","targetId":"fbalpha2012-cps2","coreId":"fbalpha2012_cps2","platformIds":["arcade"],"maxPlayers":2,"maxPredictionFrames":0},
+    {"id":"nestopia-423-v1","providerId":"emulatorjs","targetId":"nestopia","coreId":"nestopia","platformIds":["nes"],"maxPlayers":2,"maxPredictionFrames":0}
   ]
 }

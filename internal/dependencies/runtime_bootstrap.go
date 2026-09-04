@@ -93,7 +93,6 @@ INSERT INTO dat_versions(id,
  core_id,
  provider_id,
  target_id,
- target_contract_sha256,
  builtin_relative_path,
  sha256,
  parser_version,
@@ -113,7 +112,6 @@ INSERT INTO dat_versions(id,
  parsed_at_ms,
  activated_at_ms)
 VALUES(?,
-?,
 ?,
 ?,
 ?,
@@ -141,8 +139,8 @@ parser_version) DO UPDATE SET
   builtin_relative_path=excluded.builtin_relative_path,
 updated_at_ms=excluded.updated_at_ms
 `,
-		id, coreID, target.providerID, target.targetID, target.contractSHA256,
-		relativePath, digest, now.UnixMilli(), now.UnixMilli())
+		id, coreID, target.providerID, target.targetID, relativePath, digest,
+		now.UnixMilli(), now.UnixMilli())
 	if err != nil {
 		return fmt.Errorf("upsert builtin DAT version: %w", err)
 	}

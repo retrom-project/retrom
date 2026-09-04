@@ -59,11 +59,13 @@ func (run *draftPatchRun) applyRPGMakerBinding() error {
 	if resolution.DependencySHA256 != hex.EncodeToString(digest[:]) {
 		return ErrInvalid
 	}
-	changed, err := run.replaceRPGPackSelections(resolution.Bindings, override, resolution.DependencySHA256)
+	packBindingChanged, err := run.replaceRPGPackSelections(
+		resolution.Bindings, override, resolution.DependencySHA256,
+	)
 	if err != nil {
 		return err
 	}
-	run.rpgBindingChanged = changed
+	run.rpgBindingChanged = packBindingChanged
 	return nil
 }
 

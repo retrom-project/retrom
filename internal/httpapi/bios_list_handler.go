@@ -70,7 +70,7 @@ func (server *Server) bios(writer http.ResponseWriter, request *http.Request) {
 	}
 	query := `
 SELECT requirement.id,requirement.core_id,core.name,requirement.provider_id,requirement.target_id,
-requirement.target_contract_sha256,requirement.logical_name,
+requirement.logical_name,
 requirement.source_kind,requirement.requirement_mode,requirement.condition_code,requirement.md5,requirement.enabled,
 requirement.version,` + biosStatusExpression + `,installation.id,installation.md5,installation.sha1,installation.sha256,
 installation.validated_requirement_version,installation.created_at_ms
@@ -88,14 +88,14 @@ requirement.logical_name COLLATE BINARY,requirement.id COLLATE BINARY LIMIT ?`
 	items := make([]map[string]any, 0, parsed.limit+1)
 	sortNames := make([][3]string, 0, parsed.limit+1)
 	for rows.Next() {
-		var id, coreID, coreName, providerID, targetID, targetContract string
+		var id, coreID, coreName, providerID, targetID string
 		var logicalName, sourceKind, mode, itemStatus string
 		var condition, expectedMD5, installationID, installedMD5, installedSHA1, installedSHA256 sql.NullString
 		var validatedVersion, installedAt sql.NullInt64
 		var enabled int
 		var version int64
 		if err := rows.Scan(
-			&id, &coreID, &coreName, &providerID, &targetID, &targetContract,
+			&id, &coreID, &coreName, &providerID, &targetID,
 			&logicalName, &sourceKind, &mode, &condition,
 			&expectedMD5, &enabled, &version, &itemStatus, &installationID, &installedMD5,
 			&installedSHA1, &installedSHA256, &validatedVersion, &installedAt,
@@ -106,20 +106,19 @@ requirement.logical_name COLLATE BINARY,requirement.id COLLATE BINARY LIMIT ?`
 		items = append(
 			items,
 			map[string]any{
-				"id":                   id,
-				"coreId":               coreID,
-				"coreName":             coreName,
-				"providerId":           providerID,
-				"targetId":             targetID,
-				"targetContractSha256": targetContract,
-				"logicalName":          logicalName,
-				"sourceKind":           sourceKind,
-				"requirementMode":      mode,
-				"conditionCode":        nullableString(condition),
-				"expectedMd5":          nullableString(expectedMD5),
-				"enabled":              enabled == 1,
-				"version":              version,
-				"status":               itemStatus,
+				"id":              id,
+				"coreId":          coreID,
+				"coreName":        coreName,
+				"providerId":      providerID,
+				"targetId":        targetID,
+				"logicalName":     logicalName,
+				"sourceKind":      sourceKind,
+				"requirementMode": mode,
+				"conditionCode":   nullableString(condition),
+				"expectedMd5":     nullableString(expectedMD5),
+				"enabled":         enabled == 1,
+				"version":         version,
+				"status":          itemStatus,
 				"activeInstallation": nullableBIOSInstallation(
 					installationID,
 					installedMD5,
@@ -255,9 +254,8 @@ func biosScopeSQL(scope string) string {
 		return "1=1"
 	}
 	return `EXISTS(SELECT 1 FROM game_variants variant
-JOIN game_variant_revisions revision ON revision.id=variant.current_revision_id
 JOIN games game ON game.id=variant.game_id
-WHERE revision.provider_id=requirement.provider_id AND revision.target_id=requirement.target_id
+WHERE variant.provider_id=requirement.provider_id AND variant.target_id=requirement.target_id
  AND game.status='PUBLISHED')`
 }
 

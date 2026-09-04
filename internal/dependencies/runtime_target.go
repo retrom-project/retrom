@@ -9,10 +9,8 @@ import (
 )
 
 type runtimeTarget struct {
-	providerID        string
-	targetID          string
-	contractSHA256    string
-	gameCompatibility string
+	providerID string
+	targetID   string
 }
 
 func (set *Set) targetForCore(ctx context.Context, query interface {
@@ -37,11 +35,10 @@ func (set *Set) targetForCore(ctx context.Context, query interface {
 		return runtimeTarget{}, fmt.Errorf("%w: runtime target missing for core %s", ErrInvalid, coreID)
 	}
 	result := runtimeTarget{providerID: selected.ProviderID, targetID: selected.TargetID}
+	var exists int
 	if err := query.QueryRowContext(ctx, `
-SELECT target_contract_sha256,game_compatibility_line
-FROM runtime_targets
-WHERE provider_id=? AND target_id=?
-`, result.providerID, result.targetID).Scan(&result.contractSHA256, &result.gameCompatibility); err != nil {
+SELECT 1 FROM runtime_targets WHERE provider_id=? AND target_id=?
+`, result.providerID, result.targetID).Scan(&exists); err != nil {
 		return runtimeTarget{}, fmt.Errorf("resolve runtime target for core %s: %w", coreID, err)
 	}
 	return result, nil

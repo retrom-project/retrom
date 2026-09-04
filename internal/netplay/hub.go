@@ -74,31 +74,31 @@ type stateTransfer struct {
 }
 
 type realtimeSession struct {
-	mu                   sync.Mutex
-	hub                  *Hub
-	service              *Service
-	roomID               string
-	sessionID            string
-	profileDigest        string
-	providerID           string
-	targetID             string
-	targetContractSHA256 string
-	occupiedMask         int
-	playerCount          int
-	peers                map[int]*peer
-	participants         map[string]int
-	serverSeq            uint64
-	epoch                uint32
-	nextFrame            int64
-	inputs               map[int64]map[int][24]int16
-	history              []canonicalFrame
-	hashes               map[int64]map[int]string
-	resyncTimes          []time.Time
-	transfer             *stateTransfer
-	running              bool
-	ended                bool
-	leaseTimers          map[int]*time.Timer
-	pause                *pauseBarrier
+	mu            sync.Mutex
+	hub           *Hub
+	service       *Service
+	roomID        string
+	sessionID     string
+	profileDigest string
+	providerID    string
+	targetID      string
+	bundleSHA256  string
+	occupiedMask  int
+	playerCount   int
+	peers         map[int]*peer
+	participants  map[string]int
+	serverSeq     uint64
+	epoch         uint32
+	nextFrame     int64
+	inputs        map[int64]map[int][24]int16
+	history       []canonicalFrame
+	hashes        map[int64]map[int]string
+	resyncTimes   []time.Time
+	transfer      *stateTransfer
+	running       bool
+	ended         bool
+	leaseTimers   map[int]*time.Timer
+	pause         *pauseBarrier
 }
 
 type pauseBarrier struct {
@@ -129,7 +129,7 @@ func (hub *Hub) session(participant SocketParticipant) (*realtimeSession, error)
 	current = &realtimeSession{
 		hub: hub, service: hub.service, roomID: participant.RoomID, sessionID: participant.SessionID,
 		profileDigest: participant.ProfileDigest, providerID: participant.ProviderID,
-		targetID: participant.TargetID, targetContractSHA256: participant.TargetContractSHA256,
+		targetID: participant.TargetID, bundleSHA256: participant.BundleSHA256,
 		occupiedMask: participant.OccupiedSeatMask, playerCount: participant.PlayerCount,
 		peers: make(map[int]*peer), participants: make(map[string]int), inputs: make(map[int64]map[int][24]int16),
 		hashes: make(map[int64]map[int]string), leaseTimers: make(map[int]*time.Timer),
@@ -419,7 +419,7 @@ func (session *realtimeSession) peerAllowedLocked(client *peer) bool {
 	participant := client.participant
 	return !session.ended && participant.ProfileDigest == session.profileDigest &&
 		participant.ProviderID == session.providerID && participant.TargetID == session.targetID &&
-		participant.TargetContractSHA256 == session.targetContractSHA256 &&
+		participant.BundleSHA256 == session.bundleSHA256 &&
 		session.occupiedMask&(1<<(participant.PlayerNo-1)) != 0
 }
 

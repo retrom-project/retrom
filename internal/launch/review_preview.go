@@ -46,8 +46,7 @@ type ReviewPreviewCreated struct {
 
 type reviewPreviewSource struct {
 	SourceSnapshotID, PlatformInstanceID, PlatformName, PlatformKey        string
-	ProviderID, TargetID, TargetContractSHA256, GameCompatibilityLine      string
-	BundleSHA256, CoreID, DeliveryProfile                                  string
+	ProviderID, TargetID, BundleSHA256, CoreID, DeliveryProfile            string
 	Title, ContentKind, ValidationID, ValidationStatus, DependencySnapshot string
 	DefaultDOSEntry, SelectedValidationID, DATVersionID                    sql.NullString
 	RequiresThreads                                                        bool
@@ -120,8 +119,8 @@ func (service *Service) validateReviewPreviewSource(
 	capabilities Capabilities,
 ) error {
 	target, exists := service.runtimeBuilder.Target(source.ProviderID, source.TargetID)
-	if !exists || target.ContractSHA256 != source.TargetContractSHA256 ||
-		target.GameCompatibilityLine != source.GameCompatibilityLine {
+	bundleSHA256, bundleExists := service.runtimeBuilder.BundleSHA256(source.ProviderID, source.TargetID)
+	if !exists || !bundleExists || bundleSHA256 != source.BundleSHA256 {
 		return ErrReviewPreviewUnavailable
 	}
 	if source.RequiresThreads && (!capabilities.SecureContext || !capabilities.CrossOriginIsolated ||
@@ -165,15 +164,15 @@ func (service *Service) persistReviewPreview(
 	defer cleanup.Rollback(transaction)
 	_, err = transaction.ExecContext(ctx, `
 INSERT INTO review_preview_sessions(id,import_item_id,source_snapshot_id,validation_id,
-target_platform_instance_id,provider_id,target_id,target_contract_sha256,game_compatibility_line,bundle_sha256,
+	target_platform_instance_id,provider_id,target_id,bundle_sha256,
 actor_user_id,idempotency_key,title,content_kind,
 content_blob_id,content_logical_name,content_format,dependency_snapshot_json,default_dos_entry,
 emulator_game_id,capture_allowed,credential_sha256,state,bootstrap_expires_at_ms,hard_expires_at_ms,
 created_at_ms,updated_at_ms)
-VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'CREATED',?,?,?,?)
+VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'CREATED',?,?,?,?)
 `, previewID, request.ImportItemID, source.SourceSnapshotID, nullableText(source.ValidationID),
-		source.PlatformInstanceID, source.ProviderID, source.TargetID, source.TargetContractSHA256,
-		source.GameCompatibilityLine, source.BundleSHA256, request.ActorUserID,
+		source.PlatformInstanceID, source.ProviderID, source.TargetID,
+		source.BundleSHA256, request.ActorUserID,
 		request.IdempotencyKey, title, source.ContentKind,
 		content.BlobID, content.LogicalName, content.Format, source.DependencySnapshot,
 		nullableSQLString(source.DefaultDOSEntry), emulatorGameID, captureAllowed, capabilityHash,
@@ -239,8 +238,7 @@ func (service *Service) reviewPreviewSource(ctx context.Context, itemID string) 
 	var validationID, validationStatus, dependencySnapshot sql.NullString
 	err := service.database.QueryRowContext(ctx, `
 SELECT draft.effective_source_snapshot_id,draft.target_platform_instance_id,instance.name,platform.id,
-validation.provider_id,validation.target_id,target.target_contract_sha256,target.game_compatibility_line,
-provider.bundle_sha256,validation.core_id,binding.delivery_profile,
+	validation.provider_id,validation.target_id,provider.bundle_sha256,validation.core_id,binding.delivery_profile,
 COALESCE(json_extract(draft.metadata_json,'$.title'),''),snapshot.content_kind,
 validation.id,validation.status,validation.dependency_snapshot_json,draft.default_dos_entry,
 draft.selected_validation_id,validation.dat_version_id
@@ -264,8 +262,8 @@ JOIN runtime_target_bindings binding ON binding.provider_id=target.provider_id A
 WHERE item.id=? AND item.state='REVIEW_PENDING'
 `, itemID).Scan(
 		&value.SourceSnapshotID, &value.PlatformInstanceID, &value.PlatformName, &value.PlatformKey,
-		&value.ProviderID, &value.TargetID, &value.TargetContractSHA256, &value.GameCompatibilityLine,
-		&value.BundleSHA256, &value.CoreID, &value.DeliveryProfile, &value.Title, &value.ContentKind,
+		&value.ProviderID, &value.TargetID, &value.BundleSHA256, &value.CoreID,
+		&value.DeliveryProfile, &value.Title, &value.ContentKind,
 		&validationID, &validationStatus, &dependencySnapshot, &value.DefaultDOSEntry,
 		&value.SelectedValidationID, &value.DATVersionID,
 	)
@@ -495,10 +493,10 @@ func (service *Service) ReviewPreviewConfig(ctx context.Context, previewID, capa
 	var captureAllowed int
 	err := service.database.QueryRowContext(ctx, `
 SELECT preview.credential_sha256,preview.state,preview.provider_id,preview.target_id,
- preview.target_contract_sha256,preview.game_compatibility_line,preview.bundle_sha256,
+	 preview.bundle_sha256,
  binding.core_id,core.name,binding.delivery_profile,'REVIEW_PREVIEW',preview.title,instance.name,
  '/admin/reviews/' || preview.import_item_id,preview.content_kind,preview.dependency_snapshot_json,'',
- NULL,NULL,preview.default_dos_entry,NULL,NULL,NULL,NULL,
+	 NULL,preview.default_dos_entry,NULL,NULL,NULL,NULL,
  preview.bootstrap_expires_at_ms,preview.hard_expires_at_ms,NULL,0,preview.capture_allowed
 FROM review_preview_sessions preview
 JOIN platform_instances instance ON instance.id=preview.target_platform_instance_id
@@ -507,9 +505,9 @@ JOIN cores core ON core.id=binding.core_id
 WHERE preview.id=?
 `, previewID).Scan(
 		&source.credentialHash, &source.state, &source.providerID, &source.targetID,
-		&source.targetDigest, &source.gameLine, &source.bundleDigest, &source.coreID, &source.coreName,
+		&source.bundleDigest, &source.coreID, &source.coreName,
 		&source.delivery, &source.purpose, &source.title, &source.platformName, &source.returnTo,
-		&source.contentKind, &source.dependencyJSON, &source.compatibility, &source.variantID, &source.saveID,
+		&source.contentKind, &source.dependencyJSON, &source.compatibility, &source.saveID,
 		&source.dosEntry, &source.validationID, &source.netplayID, &source.netplayPlayer,
 		&source.netplayRoom, &source.bootstrapEnd, &source.hardEnd, &source.idleEnd,
 		&source.initialDisc, &captureAllowed,
@@ -540,9 +538,9 @@ WHERE id=? AND state='CREATED'
 }
 
 type ReviewScreenshot struct {
-	ID, ImportItemID, ValidationID             string
-	ProviderID, TargetID, TargetContractSHA256 string
-	WidthPX, HeightPX, CapturedAtMS            int64
+	ID, ImportItemID, ValidationID  string
+	ProviderID, TargetID            string
+	WidthPX, HeightPX, CapturedAtMS int64
 }
 
 type reviewScreenshotImage struct {
@@ -551,8 +549,8 @@ type reviewScreenshotImage struct {
 }
 
 type reviewScreenshotTarget struct {
-	ItemID, SourceSnapshotID, ValidationID     string
-	ProviderID, TargetID, TargetContractSHA256 string
+	ItemID, SourceSnapshotID, ValidationID string
+	ProviderID, TargetID                   string
 }
 
 func (service *Service) StoreReviewScreenshot(
@@ -624,8 +622,7 @@ func (service *Service) persistReviewScreenshot(
 	return ReviewScreenshot{
 		ID: screenshotID.String(), ImportItemID: target.ItemID, ValidationID: target.ValidationID,
 		ProviderID: target.ProviderID, TargetID: target.TargetID,
-		TargetContractSHA256: target.TargetContractSHA256,
-		WidthPX:              image.Image.WidthPX, HeightPX: image.Image.HeightPX,
+		WidthPX: image.Image.WidthPX, HeightPX: image.Image.HeightPX,
 		CapturedAtMS: now,
 	}, nil
 }
@@ -642,8 +639,8 @@ func (service *Service) reviewScreenshotTarget(
 	var captureAllowed int
 	err := transaction.QueryRowContext(ctx, `
 SELECT preview.credential_sha256,preview.state,preview.hard_expires_at_ms,preview.import_item_id,
-preview.source_snapshot_id,preview.validation_id,preview.provider_id,preview.target_id,
-preview.target_contract_sha256,preview.capture_allowed
+	preview.source_snapshot_id,preview.validation_id,preview.provider_id,preview.target_id,
+	preview.capture_allowed
 FROM review_preview_sessions preview
 JOIN import_items item ON item.id=preview.import_item_id AND item.state='REVIEW_PENDING'
 JOIN review_drafts draft ON draft.import_item_id=item.id
@@ -653,22 +650,19 @@ JOIN import_item_core_validations validation ON validation.id=preview.validation
  AND validation.import_item_id=preview.import_item_id
  AND validation.source_snapshot_id=preview.source_snapshot_id
  AND validation.target_platform_instance_id=preview.target_platform_instance_id
- AND validation.provider_id=preview.provider_id AND validation.target_id=preview.target_id
- AND validation.target_contract_sha256=preview.target_contract_sha256
+	 AND validation.provider_id=preview.provider_id AND validation.target_id=preview.target_id
  AND validation.id=(
   SELECT candidate.id FROM import_item_core_validations candidate
   WHERE candidate.import_item_id=preview.import_item_id
    AND candidate.source_snapshot_id=preview.source_snapshot_id
    AND candidate.target_platform_instance_id=preview.target_platform_instance_id
-   AND candidate.provider_id=preview.provider_id AND candidate.target_id=preview.target_id
-   AND candidate.target_contract_sha256=preview.target_contract_sha256
+	   AND candidate.provider_id=preview.provider_id AND candidate.target_id=preview.target_id
   ORDER BY candidate.created_at_ms DESC,candidate.id DESC LIMIT 1
  )
 WHERE preview.id=?
 	`, previewID).Scan(
 		&credentialHash, &state, &hardExpires, &target.ItemID, &target.SourceSnapshotID,
-		&target.ValidationID, &target.ProviderID, &target.TargetID,
-		&target.TargetContractSHA256, &captureAllowed,
+		&target.ValidationID, &target.ProviderID, &target.TargetID, &captureAllowed,
 	)
 	if err != nil || !reviewPreviewCredential(service.now().UnixMilli(), capability, credentialHash, state, hardExpires) {
 		return reviewScreenshotTarget{}, ErrCredential
@@ -690,18 +684,17 @@ func insertReviewScreenshot(
 ) error {
 	_, err := transaction.ExecContext(ctx, `
 INSERT INTO review_runtime_screenshots(id,import_item_id,preview_session_id,source_snapshot_id,
-validation_id,provider_id,target_id,target_contract_sha256,blob_id,media_type,width_px,height_px,captured_after_ms,
+	validation_id,provider_id,target_id,blob_id,media_type,width_px,height_px,captured_after_ms,
 captured_at_ms,created_at_ms,updated_at_ms)
-VALUES(?,?,?,?,?,?,?,?,?,?,?,?,5000,?,?,?)
+VALUES(?,?,?,?,?,?,?,?,?,?,?,5000,?,?,?)
 ON CONFLICT(import_item_id,validation_id) DO UPDATE SET
 id=excluded.id,preview_session_id=excluded.preview_session_id,source_snapshot_id=excluded.source_snapshot_id,
 provider_id=excluded.provider_id,target_id=excluded.target_id,
-target_contract_sha256=excluded.target_contract_sha256,
-blob_id=excluded.blob_id,media_type=excluded.media_type,
+	blob_id=excluded.blob_id,media_type=excluded.media_type,
 width_px=excluded.width_px,height_px=excluded.height_px,captured_after_ms=excluded.captured_after_ms,
 captured_at_ms=excluded.captured_at_ms,updated_at_ms=excluded.updated_at_ms
 	`, screenshotID, target.ItemID, previewID, target.SourceSnapshotID, target.ValidationID,
-		target.ProviderID, target.TargetID, target.TargetContractSHA256, blobID,
+		target.ProviderID, target.TargetID, blobID,
 		image.MediaType, image.WidthPX, image.HeightPX, now, now, now)
 	if err != nil {
 		return fmt.Errorf("store review screenshot: %w", err)

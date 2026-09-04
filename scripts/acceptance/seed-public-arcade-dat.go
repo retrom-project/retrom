@@ -198,13 +198,12 @@ func installSmokeDAT(
 	coreID, datPath, digestHex string,
 	catalog arcadedat.Catalog,
 ) (string, string, string, error) {
-	var providerID, targetID, targetContractSHA256 string
+	var providerID, targetID string
 	if err := database.QueryRowContext(ctx, `
-SELECT binding.provider_id,binding.target_id,target.target_contract_sha256
+SELECT binding.provider_id,binding.target_id
 FROM runtime_target_bindings binding
-JOIN runtime_targets target ON target.provider_id=binding.provider_id AND target.target_id=binding.target_id
 WHERE binding.core_id=? AND binding.launch_policy!='DISABLED'
-`, coreID).Scan(&providerID, &targetID, &targetContractSHA256); err != nil {
+`, coreID).Scan(&providerID, &targetID); err != nil {
 		return "", "", "", fmt.Errorf("find selected runtime target: %w", err)
 	}
 	transaction, err := database.BeginTx(ctx, nil)
@@ -216,12 +215,12 @@ WHERE binding.core_id=? AND binding.launch_policy!='DISABLED'
 	nowMS := time.Now().UTC().UnixMilli()
 	stats := catalog.Stats
 	if _, err := transaction.ExecContext(ctx, `
-INSERT INTO dat_versions(id,core_id,provider_id,target_id,target_contract_sha256,builtin_relative_path,sha256,
+INSERT INTO dat_versions(id,core_id,provider_id,target_id,builtin_relative_path,sha256,
 parser_version,parse_status,is_active,machine_count,rom_entry_count,disk_entry_count,
 bios_set_count,default_bios_set_count,explicit_bios_machine_count,base_dependency_target_count,
 unresolved_relation_count,version,created_at_ms,updated_at_ms,parsed_at_ms,activated_at_ms)
-VALUES(?,?,?,?,?,?,?,'retrom-dat-v1','READY',0,?,?,?,?,?,?,?,?,1,?,?,?,NULL)
-`, datID, coreID, providerID, targetID, targetContractSHA256,
+VALUES(?,?,?,?,?,?,'retrom-dat-v1','READY',0,?,?,?,?,?,?,?,?,1,?,?,?,NULL)
+`, datID, coreID, providerID, targetID,
 		"acceptance/"+coreID+"/"+filepath.Base(datPath), digestHex,
 		stats.MachineCount, stats.ROMEntryCount, stats.DiskEntryCount, stats.BIOSSetCount,
 		stats.DefaultBIOSSetCount, stats.ExplicitBIOSMachineCount, stats.BaseDependencyTargetCount,

@@ -21,8 +21,9 @@ func TestRegistryProducesStableProviderTargetCanonicalProfile(t *testing.T) {
 	profile, ok := registry.Profile("fbneo-423-v1")
 	testassert.True(t, ok, "expected profile missing")
 	input := CanonicalProfileInput{
-		ManifestProfile: profile, TargetContractSHA256: strings.Repeat("a", 64),
-		GameVariantRevisionID:  "01980000-0000-7000-8000-000000000002",
+		ManifestProfile:        profile,
+		BundleSHA256:           strings.Repeat("a", 64),
+		SourceManifestDigest:   strings.Repeat("b", 64),
 		DependencySnapshotJSON: `{"schemaVersion":1}`,
 	}
 	canonicalA, digestA, err := registry.CanonicalProfile(input)
@@ -30,10 +31,10 @@ func TestRegistryProducesStableProviderTargetCanonicalProfile(t *testing.T) {
 	canonicalB, digestB, err := registry.CanonicalProfile(input)
 	testassert.Falsef(t, err != nil || string(canonicalA) != string(canonicalB) || digestA != digestB ||
 		!validDigest(digestA), "canonical profile drift: %s/%s error=%v", digestA, digestB, err)
-	input.TargetContractSHA256 = strings.Repeat("b", 64)
+	input.BundleSHA256 = strings.Repeat("c", 64)
 	_, changedDigest, err := registry.CanonicalProfile(input)
 	if err != nil || changedDigest == digestA {
-		t.Fatalf("Target contract identity was not bound: %s/%s error=%v", digestA, changedDigest, err)
+		t.Fatalf("runtime bundle identity was not bound: %s/%s error=%v", digestA, changedDigest, err)
 	}
 }
 
@@ -66,15 +67,14 @@ func TestRegistryContainsOnlyTheEightProviderTargetProfiles(t *testing.T) {
 	}
 	profile, ok := registry.Profile("fceumm-423-v1")
 	if !ok || profile.ProviderID != "emulatorjs" || profile.TargetID != "fceumm" ||
-		profile.NetplayCompatibilityLine != "emulatorjs-netplay-v2" ||
 		!slices.Equal(profile.PlatformIDs, []string{"nes"}) {
 		t.Fatalf("FCEUmm profile = %+v, exists=%t", profile, ok)
 	}
 	testassert.True(t, registry.SupportsPlatformTarget(
-		"nes", "fceumm", "emulatorjs", "fceumm", "emulatorjs-netplay-v2",
+		"nes", "fceumm", "emulatorjs", "fceumm",
 	), "FCEUmm Provider Target should support netplay on NES")
 	testassert.False(t, registry.SupportsPlatformTarget(
-		"snes", "fceumm", "emulatorjs", "fceumm", "emulatorjs-netplay-v2",
+		"snes", "fceumm", "emulatorjs", "fceumm",
 	), "mismatched platform was marked as netplay capable")
 }
 

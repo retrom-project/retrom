@@ -14,14 +14,12 @@ import (
 )
 
 const (
-	rpgSchemaProvider       = "retrom-runtime"
-	rpgSchemaTarget         = "rpgmaker-2000"
-	rpgSchemaTargetContract = "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
-	rpgSchemaGameLine       = "rpgmaker-2000-v1"
-	rpgSchemaBundle         = "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
-	rpgSchemaValidation     = "rpg-validation"
-	rpgSchemaOriginal       = "rpg-original-launch"
-	rpgSchemaRestore        = "rpg-restore-launch"
+	rpgSchemaProvider   = "retrom-runtime"
+	rpgSchemaTarget     = "rpgmaker-2000"
+	rpgSchemaBundle     = "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+	rpgSchemaValidation = "rpg-validation"
+	rpgSchemaOriginal   = "rpg-original-launch"
+	rpgSchemaRestore    = "rpg-restore-launch"
 )
 
 func TestRPGMakerProviderTargetSelectionAndCoreRouteAreDatabaseConstraints(t *testing.T) {
@@ -157,11 +155,11 @@ INSERT INTO runtime_providers(
 		strings.Repeat("d", 64), strings.Repeat("c", 64))
 	mustExecRPGSchema(t, database, `
 INSERT INTO runtime_targets(
- provider_id,target_id,display_name,game_compatibility_line,target_options_schema_json,capabilities_json,
- checkpoint_json,manifest_fragment_json,target_contract_sha256
-) VALUES(?1,?2,'RPG Maker 2000',?3,'{"type":"object","additionalProperties":false,"properties":{},"required":[]}','{}',
- '{"writeFormat":"checkpoint-v1","readFormats":["checkpoint-v1"],"maxBytes":67108864}','{}',?4)`,
-		rpgSchemaProvider, rpgSchemaTarget, rpgSchemaGameLine, rpgSchemaTargetContract)
+ provider_id,target_id,display_name,target_options_schema_json,capabilities_json,
+ checkpoint_json,manifest_fragment_json
+) VALUES(?1,?2,'RPG Maker 2000','{"type":"object","additionalProperties":false,"properties":{},"required":[]}','{}',
+ '{"writeFormat":"checkpoint-v1","readFormats":["checkpoint-v1"],"maxBytes":67108864}','{}')`,
+		rpgSchemaProvider, rpgSchemaTarget)
 }
 
 func preparePositionValidation(t *testing.T, database *sql.DB) {
@@ -181,10 +179,10 @@ INSERT INTO upload_sessions(
 	mustExecRPGSchema(t, database, `
 INSERT INTO import_jobs(
  id,upload_session_id,target_platform_instance_id,platform_instance_version,platform_id,default_core_id,
- provider_id,target_id,target_contract_sha256,metadata_provider,config_snapshot_json,config_snapshot_digest,state,total_item_count,
+ provider_id,target_id,metadata_provider,config_snapshot_json,config_snapshot_digest,state,total_item_count,
  review_pending_item_count,created_at_ms,updated_at_ms
-) VALUES('import','upload','directory',1,'rpgmaker','rpgmaker',?1,?2,?3,'NONE','{}',?4,
- 'REVIEW_PENDING',1,1,1,1)`, rpgSchemaProvider, rpgSchemaTarget, rpgSchemaTargetContract, strings.Repeat("2", 64))
+) VALUES('import','upload','directory',1,'rpgmaker','rpgmaker',?1,?2,'NONE','{}',?3,
+ 'REVIEW_PENDING',1,1,1,1)`, rpgSchemaProvider, rpgSchemaTarget, strings.Repeat("2", 64))
 	mustExecRPGSchema(t, database, `
 INSERT INTO import_items(
  id,import_job_id,group_key,state,source_manifest_json,source_manifest_digest,search_text,created_at_ms,updated_at_ms
@@ -199,27 +197,27 @@ INSERT INTO import_item_source_snapshots(
 		manifest, strings.Repeat("6", 64))
 	mustExecRPGSchema(t, database, `
 INSERT INTO review_drafts(
- id,import_item_id,target_platform_instance_id,metadata_json,runtime_binding_revision,version,
+ id,import_item_id,target_platform_instance_id,metadata_json,version,
  created_at_ms,updated_at_ms,effective_source_snapshot_id
-) VALUES('review','item','directory','{}',1,1,1,1,'snapshot')`)
+) VALUES('review','item','directory','{}',1,1,1,'snapshot')`)
 	mustExecRPGSchema(t, database, `
 INSERT INTO rpgmaker_review_profiles(
  review_draft_id,generation,evidence_family,evidence_generation,evidence_confidence,
  file_count,total_bytes,project_fingerprint,requirements_sha256,analysis_json,self_contained_override,
- provider_id,target_id,game_compatibility_line,target_contract_sha256,dependency_snapshot_sha256,
+ provider_id,target_id,dependency_snapshot_sha256,
  created_at_ms,updated_at_ms
 ) VALUES('review','RPG2000','RPG2K','RPG2000','MATCHED',1,10,?1,?2,'{}',1,
- ?3,?4,?5,?6,?7,1,1)`, strings.Repeat("5", 64), strings.Repeat("7", 64),
-		rpgSchemaProvider, rpgSchemaTarget, rpgSchemaGameLine, rpgSchemaTargetContract, strings.Repeat("8", 64))
+ ?3,?4,?5,1,1)`, strings.Repeat("5", 64), strings.Repeat("7", 64),
+		rpgSchemaProvider, rpgSchemaTarget, strings.Repeat("8", 64))
 	mustExecRPGSchema(t, database, `
 INSERT INTO rpgmaker_runtime_validations(
- id,import_item_id,review_version_at_create,runtime_binding_revision,effective_source_snapshot_id,
+ id,import_item_id,review_version_at_create,effective_source_snapshot_id,
  project_fingerprint,generation,evidence_generation,evidence_confidence,provider_id,target_id,
- game_compatibility_line,target_contract_sha256,dependency_snapshot_sha256,state,machine_gates_json,
+ dependency_snapshot_sha256,state,machine_gates_json,
  created_at_ms,updated_at_ms,expires_at_ms
-) VALUES(?1,'item',1,1,'snapshot',?2,'RPG2000','RPG2000','MATCHED',?3,?4,?5,?6,?7,
+) VALUES(?1,'item',1,'snapshot',?2,'RPG2000','RPG2000','MATCHED',?3,?4,?5,
  'CREATED','{}',1,1,900001)`, rpgSchemaValidation, strings.Repeat("5", 64),
-		rpgSchemaProvider, rpgSchemaTarget, rpgSchemaGameLine, rpgSchemaTargetContract, strings.Repeat("8", 64))
+		rpgSchemaProvider, rpgSchemaTarget, strings.Repeat("8", 64))
 	insertValidationLaunch(t, database, rpgSchemaOriginal, 1)
 	mustExecRPGSchema(t, database, `UPDATE rpgmaker_runtime_validations SET launch_id=?1,state='STARTING' WHERE id=?2`,
 		rpgSchemaOriginal, rpgSchemaValidation)
@@ -253,12 +251,14 @@ func insertValidationLaunch(t *testing.T, database *sql.DB, id string, createdAt
 	t.Helper()
 	mustExecRPGSchema(t, database, `
 INSERT INTO launch_sessions(
- id,profile_id,purpose,provider_id,target_id,target_contract_sha256,game_compatibility_line,bundle_sha256,effective_source_snapshot_id,
+ id,profile_id,purpose,core_id,provider_id,target_id,bundle_sha256,content_kind,dependency_snapshot_json,
+ compatibility_code,effective_source_snapshot_id,
  rpgmaker_runtime_validation_id,return_to,credential_sha256,state,bootstrap_expires_at_ms,
  hard_expires_at_ms,created_at_ms,updated_at_ms
-) VALUES(?1,'profile','RPG_RUNTIME_VALIDATION',?2,?3,?4,?5,?6,'snapshot',?7,
- '/admin/reviews',?8,'CREATED',?9,?10,?11,?11)`, id, rpgSchemaProvider, rpgSchemaTarget,
-		rpgSchemaTargetContract, rpgSchemaGameLine, rpgSchemaBundle, rpgSchemaValidation,
+) VALUES(?1,'profile','RPG_RUNTIME_VALIDATION','rpgmaker',?2,?3,?4,'RPG_MAKER_PROJECT','{}',
+ 'READY','snapshot',?5,
+ '/admin/reviews',?6,'CREATED',?7,?8,?9,?9)`, id, rpgSchemaProvider, rpgSchemaTarget,
+		rpgSchemaBundle, rpgSchemaValidation,
 		[]byte(strings.Repeat(id[:1], 32)), createdAt+60000, createdAt+900000, createdAt)
 }
 

@@ -87,8 +87,7 @@ func (run *approvalRun) marshalApprovalEvidence() approvalEvidence {
 		"defaultDosEntry": nullable(run.draftDOSEntry), "tags": run.publishedTags,
 	})
 	after, _ := json.Marshal(map[string]any{
-		"schemaVersion": 2, "gameId": run.gameID, "metadataRevisionId": run.metadataID,
-		"contentRevisionId": run.contentID, "variantRevisionId": run.variantRevisionID,
+		"schemaVersion": 2, "gameId": run.gameID, "gameVariantId": run.variantID,
 		"tags": run.publishedTags,
 	})
 	diff, _ := json.Marshal(run.approvalDiff())

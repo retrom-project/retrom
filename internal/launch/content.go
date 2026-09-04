@@ -13,15 +13,15 @@ func (service *Service) ContentBlob(ctx context.Context, launchID, capability, l
 }
 
 type ContentView struct {
-	Digest               string
-	Format               string
-	CoreID               string
-	ProviderID           string
-	TargetID             string
-	TargetContractSHA256 string
-	DOSEntry             *string
-	PlatformKey          string
-	DiscCount            int
+	Digest       string
+	Format       string
+	CoreID       string
+	ProviderID   string
+	TargetID     string
+	BundleSHA256 string
+	DOSEntry     *string
+	PlatformKey  string
+	DiscCount    int
 }
 
 func (service *Service) Content(ctx context.Context, launchID, capability, logicalName string) (ContentView, error) {
@@ -68,7 +68,7 @@ func (service *Service) content(
 		folded = 1
 	}
 	var credentialHash []byte
-	var digest, state, format, coreID, providerID, targetID, targetContractSHA256, platformKey string
+	var digest, state, format, coreID, providerID, targetID, bundleSHA256, platformKey string
 	var dosEntry sql.NullString
 	var hardExpires int64
 	var discCount int
@@ -78,8 +78,8 @@ l.state,
 l.hard_expires_at_ms,
 b.sha256,
 lc.format_version,
-binding.core_id,
-l.provider_id,l.target_id,l.target_contract_sha256,
+l.core_id,
+l.provider_id,l.target_id,l.bundle_sha256,
 COALESCE(platform.id,'rpgmaker'),
 l.dos_entry_path,
 (SELECT count(*) FROM launch_external_files file
@@ -87,7 +87,6 @@ l.dos_entry_path,
 FROM launch_sessions l
 JOIN launch_content_files lc ON lc.launch_session_id=l.id
 JOIN blobs b ON b.id=lc.blob_id
-JOIN runtime_target_bindings binding ON binding.provider_id=l.provider_id AND binding.target_id=l.target_id
 LEFT JOIN games game ON game.id=l.game_id
 LEFT JOIN platform_instances instance ON instance.id=game.platform_instance_id
 LEFT JOIN platforms platform ON platform.id=instance.platform_id
@@ -110,7 +109,7 @@ AND (
 AND l.purpose IN ('PRODUCT','RPG_RUNTIME_VALIDATION')
 `, launchID, folded, logicalName, folded, logicalName, logicalName).Scan(
 		&credentialHash, &state, &hardExpires, &digest, &format, &coreID,
-		&providerID, &targetID, &targetContractSHA256, &platformKey, &dosEntry, &discCount,
+		&providerID, &targetID, &bundleSHA256, &platformKey, &dosEntry, &discCount,
 	)
 	if err != nil {
 		return ContentView{}, nil, "", 0, ErrCredential
@@ -121,20 +120,20 @@ AND l.purpose IN ('PRODUCT','RPG_RUNTIME_VALIDATION')
 	}
 	return ContentView{
 		Digest: digest, Format: format, CoreID: coreID, ProviderID: providerID, TargetID: targetID,
-		TargetContractSHA256: targetContractSHA256, DOSEntry: selected,
+		BundleSHA256: bundleSHA256, DOSEntry: selected,
 		PlatformKey: platformKey, DiscCount: discCount,
 	}, credentialHash, state, hardExpires, nil
 }
 
 type ExternalView struct {
-	Digest               string
-	Kind                 string
-	PlatformKey          string
-	CoreKey              string
-	ProviderID           string
-	TargetID             string
-	TargetContractSHA256 string
-	DiscCount            int
+	Digest       string
+	Kind         string
+	PlatformKey  string
+	CoreKey      string
+	ProviderID   string
+	TargetID     string
+	BundleSHA256 string
+	DiscCount    int
 }
 
 func (service *Service) External(
@@ -142,7 +141,7 @@ func (service *Service) External(
 	launchID, capability, logicalName string,
 ) (ExternalView, error) {
 	var credentialHash []byte
-	var digest, state, kind, platformKey, coreKey, providerID, targetID, targetContractSHA256 string
+	var digest, state, kind, platformKey, coreKey, providerID, targetID, bundleSHA256 string
 	var hardExpires int64
 	var discCount int
 	err := service.database.QueryRowContext(ctx, `
@@ -152,14 +151,13 @@ launch.hard_expires_at_ms,
 blob.sha256,
 file.kind,
 platform.id,
-binding.core_id,
-launch.provider_id,launch.target_id,launch.target_contract_sha256,
+launch.core_id,
+launch.provider_id,launch.target_id,launch.bundle_sha256,
 (SELECT count(*) FROM launch_external_files disc
  WHERE disc.launch_session_id=launch.id AND disc.kind='DISC')
 FROM launch_sessions launch
 JOIN launch_external_files file ON file.launch_session_id=launch.id
 JOIN blobs blob ON blob.id=file.blob_id
-JOIN runtime_target_bindings binding ON binding.provider_id=launch.provider_id AND binding.target_id=launch.target_id
 JOIN games game ON game.id=launch.game_id
 JOIN platform_instances instance ON instance.id=game.platform_instance_id
 JOIN platforms platform ON platform.id=instance.platform_id
@@ -167,7 +165,7 @@ WHERE launch.id=?
 AND file.logical_name=?
 `, launchID, logicalName).Scan(
 		&credentialHash, &state, &hardExpires, &digest, &kind, &platformKey,
-		&coreKey, &providerID, &targetID, &targetContractSHA256, &discCount,
+		&coreKey, &providerID, &targetID, &bundleSHA256, &discCount,
 	)
 	if err != nil || !retromruntime.MatchesCapability(capability, credentialHash) ||
 		hardExpires <= service.now().UnixMilli() || state != "ACTIVE" {
@@ -175,7 +173,7 @@ AND file.logical_name=?
 	}
 	return ExternalView{
 		Digest: digest, Kind: kind, PlatformKey: platformKey, CoreKey: coreKey,
-		ProviderID: providerID, TargetID: targetID, TargetContractSHA256: targetContractSHA256,
+		ProviderID: providerID, TargetID: targetID, BundleSHA256: bundleSHA256,
 		DiscCount: discCount,
 	}, nil
 }

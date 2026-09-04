@@ -71,7 +71,7 @@ func (service *Service) closeItemWithFailure(
 		setExisting = existingGameID
 		var value string
 		if err := service.database.QueryRowContext(
-			ctx, `SELECT current_content_revision_id FROM games WHERE id=?`, existingGameID,
+			ctx, `SELECT id FROM games WHERE id=?`, existingGameID,
 		).Scan(&value); err == nil {
 			revision = value
 		}
@@ -87,7 +87,7 @@ func (service *Service) closeItemWithFailure(
 SET execution_state=?,error_code=?,retryable=?,
 error_details_json=?,
 existing_game_id=COALESCE(?,existing_game_id),
-existing_content_revision_id=COALESCE(?,existing_content_revision_id),
+existing_game_id=COALESCE(?,existing_game_id),
 completed_at_ms=?,version=version+1,updated_at_ms=?
 WHERE id=? AND execution_state IN ('COPYING','VALIDATING')`,
 		state,

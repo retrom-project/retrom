@@ -33,13 +33,14 @@ func (service *Service) CreateRPGValidationRestore(
 }
 
 type rpgValidationBinding struct {
-	itemID, sourceSnapshotID, providerID, targetID            string
-	targetContractSHA256, gameCompatibilityLine, bundleSHA256 string
-	deliveryProfile                                           string
-	launchID, restoreLaunchID                                 sql.NullString
-	state                                                     string
-	expiresAt                                                 int64
-	requiresThreads                                           bool
+	itemID, sourceSnapshotID, providerID, targetID string
+	bundleSHA256, coreID, contentKind              string
+	dependencySnapshot, compatibilityCode          string
+	deliveryProfile                                string
+	launchID, restoreLaunchID                      sql.NullString
+	state                                          string
+	expiresAt                                      int64
+	requiresThreads                                bool
 }
 
 func (service *Service) createRPGValidationLaunch(
@@ -105,20 +106,30 @@ func loadRPGValidationBinding(
 	var binding rpgValidationBinding
 	err := transaction.QueryRowContext(ctx, `
 SELECT validation.import_item_id,validation.effective_source_snapshot_id,
-validation.provider_id,validation.target_id,target.target_contract_sha256,
-target.game_compatibility_line,provider.bundle_sha256,binding.delivery_profile,
+validation.provider_id,validation.target_id,provider.bundle_sha256,
+core_validation.core_id,snapshot.content_kind,core_validation.dependency_snapshot_json,
+core_validation.compatibility_code,binding.delivery_profile,
 validation.launch_id,validation.restore_launch_id,validation.state,validation.expires_at_ms,
 json_extract(target.capabilities_json,'$.requiresThreads')
 FROM rpgmaker_runtime_validations validation
+JOIN import_item_source_snapshots snapshot ON snapshot.id=validation.effective_source_snapshot_id
+JOIN import_item_core_validations core_validation ON core_validation.id=(
+ SELECT candidate.id FROM import_item_core_validations candidate
+ WHERE candidate.import_item_id=validation.import_item_id
+  AND candidate.source_snapshot_id=validation.effective_source_snapshot_id
+  AND candidate.provider_id=validation.provider_id AND candidate.target_id=validation.target_id
+ ORDER BY candidate.created_at_ms DESC,candidate.id DESC LIMIT 1
+)
 JOIN runtime_targets target ON target.provider_id=validation.provider_id AND target.target_id=validation.target_id
 JOIN runtime_providers provider ON provider.provider_id=target.provider_id
-JOIN runtime_target_bindings binding ON binding.provider_id=target.provider_id AND binding.target_id=target.target_id
+JOIN runtime_target_bindings binding ON binding.provider_id=target.provider_id
+ AND binding.target_id=target.target_id AND binding.core_id=core_validation.core_id
 WHERE validation.id=? AND binding.review_policy='RPG_RUNTIME_VALIDATION'
  AND binding.launch_policy!='DISABLED'
 `, validationID).Scan(
 		&binding.itemID, &binding.sourceSnapshotID, &binding.providerID, &binding.targetID,
-		&binding.targetContractSHA256, &binding.gameCompatibilityLine, &binding.bundleSHA256,
-		&binding.deliveryProfile,
+		&binding.bundleSHA256, &binding.coreID, &binding.contentKind,
+		&binding.dependencySnapshot, &binding.compatibilityCode, &binding.deliveryProfile,
 		&binding.launchID, &binding.restoreLaunchID, &binding.state, &binding.expiresAt,
 		&binding.requiresThreads,
 	)
@@ -196,14 +207,15 @@ func (service *Service) insertRPGValidationLaunch(
 	bootstrapExpires := min(binding.expiresAt, now+int64(5*time.Minute/time.Millisecond))
 	if _, err := transaction.ExecContext(ctx, `
 INSERT INTO launch_sessions(
-  id,profile_id,purpose,game_id,game_content_revision_id,game_variant_revision_id,
-  provider_id,target_id,target_contract_sha256,game_compatibility_line,bundle_sha256,
+  id,profile_id,purpose,game_id,core_id,provider_id,target_id,bundle_sha256,
+  content_kind,dependency_snapshot_json,compatibility_code,
   effective_source_snapshot_id,rpgmaker_runtime_validation_id,
   save_state_id,dos_entry_path,initial_disc_index,return_to,credential_sha256,state,
   bootstrap_expires_at_ms,hard_expires_at_ms,created_at_ms,updated_at_ms)
-VALUES(?,?,'RPG_RUNTIME_VALIDATION',NULL,NULL,NULL,?,?,?,?,?,?,?,NULL,NULL,0,?,?,'CREATED',?,?,?,?)
-`, launchID.String(), profileID, binding.providerID, binding.targetID,
-		binding.targetContractSHA256, binding.gameCompatibilityLine, binding.bundleSHA256, binding.sourceSnapshotID,
+VALUES(?,?,'RPG_RUNTIME_VALIDATION',NULL,?,?,?,?,?,?,?,?,?,NULL,NULL,0,?,?,'CREATED',?,?,?,?)
+`, launchID.String(), profileID, binding.coreID, binding.providerID, binding.targetID,
+		binding.bundleSHA256, binding.contentKind, binding.dependencySnapshot, binding.compatibilityCode,
+		binding.sourceSnapshotID,
 		validationID, returnTo, credentialHash[:], bootstrapExpires, binding.expiresAt, now, now); err != nil {
 		return Created{}, fmt.Errorf("insert RPG validation launch: %w", err)
 	}

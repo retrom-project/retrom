@@ -12,8 +12,10 @@ import (
 	"retrom/internal/testassert"
 )
 
-var triggerRowReferencePattern = regexp.MustCompile(`(?i)\b(?:NEW|OLD)\.([a-z_][a-z0-9_]*)`)
-var triggerUpdateColumnsPattern = regexp.MustCompile(`(?is)\bUPDATE\s+OF\s+(.+?)\s+ON\s+[a-z_][a-z0-9_]*`)
+var (
+	triggerRowReferencePattern  = regexp.MustCompile(`(?i)\b(?:NEW|OLD)\.([a-z_][a-z0-9_]*)`)
+	triggerUpdateColumnsPattern = regexp.MustCompile(`(?is)\bUPDATE\s+OF\s+(.+?)\s+ON\s+[a-z_][a-z0-9_]*`)
+)
 
 func TestCurrentCrossDomainInvariantsContainNoLegacyCompatibilityIndexes(t *testing.T) {
 	t.Parallel()
@@ -38,6 +40,7 @@ func TestCurrentCrossDomainTriggersReferenceExistingOwnerColumns(t *testing.T) {
 	rows, err := database.SQL.QueryContext(t.Context(), `
 SELECT name,tbl_name,sql FROM sqlite_schema WHERE type='trigger' ORDER BY name`)
 	testassert.False(t, err != nil, err)
+	defer func() { testassert.False(t, rows.Close() != nil, "close trigger rows") }()
 	type triggerSchema struct {
 		name      string
 		table     string
@@ -54,7 +57,6 @@ SELECT name,tbl_name,sql FROM sqlite_schema WHERE type='trigger' ORDER BY name`)
 	if err := rows.Err(); err != nil {
 		t.Fatal(err)
 	}
-	testassert.False(t, rows.Close() != nil, "close trigger rows")
 	for _, trigger := range triggers {
 		columns := tableColumns(t, database.SQL, trigger.table)
 		if match := triggerUpdateColumnsPattern.FindStringSubmatch(trigger.statement); match != nil {

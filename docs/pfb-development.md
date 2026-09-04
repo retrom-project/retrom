@@ -37,9 +37,9 @@ PFB ID 从逻辑名称确定性派生，因此同一 spec 的稳定 URL 始终�
 
 ## Loose dev provider
 
-PFB 启动前，`retrom-runtime/scripts/pfb-provider-watch.mjs --once` 从当前基座 active descriptor 与 integrity 文件读取 asset index/Target contract，使用 esbuild 只生成自包含 `client.mjs`，并复制 `provider-sources.json` 声明的本地 adapter 资源。文件摘要列表决定 `revision`；文件先在 staging 完成，再原子 rename 到 `dev/revisions/<revision>/` 的不可变目录，最后才原子切换 `dev-provider.json`。旧 Go 进程始终读取启动时绑定的旧 revision，新进程重启后才读取新 revision，因此 watcher 与 restart 之间也不会出现 module SHA/ETag/响应字节错配。常驻 watcher 监听 `src/`、`assets/`、package 与 provider source 声明。
+PFB 启动前，`retrom-runtime/scripts/pfb-provider-watch.mjs --once` 从当前基座 active descriptor 与 integrity 文件读取 asset index/Target declaration，使用 esbuild 只生成自包含 `client.mjs`，并复制 `provider-sources.json` 声明的本地 adapter 资源。文件摘要列表决定 `revision`；文件先在 staging 完成，再原子 rename 到 `dev/revisions/<revision>/` 的不可变目录，最后才原子切换 `dev-provider.json`。旧 Go 进程始终读取启动时绑定的旧 revision，新进程重启后才读取新 revision，因此 watcher 与 restart 之间也不会出现 module SHA/ETag/响应字节错配。常驻 watcher 监听 `src/`、`assets/`、package 与 provider source 声明。
 
-Go 在启动时验证：descriptor 严格字段、provider/base bundle 身份、路径闭合、排序、size/SHA-256/media type、revision 和所有 override 都属于基座公开文件。开发文件沿原 `/runtime/providers/<provider>/<base-bundle>/...` 路径返回，使用 `Cache-Control: no-store` 与开发 ETag；Launch Envelope 保留基座 bundle/Target contract，但 `moduleSha256` 使用开发模块摘要。当前阶段 watcher 更新后执行一次 `pfb-restart`，让 Go 重新加载新 revision；无需 `pfb-build`。
+Go 在启动时验证：descriptor 严格字段、provider/base bundle 身份、路径闭合、排序、size/SHA-256/media type、revision 和所有 override 都属于基座公开文件。开发文件沿原 `/runtime/providers/<provider>/<base-bundle>/...` 路径返回，使用 `Cache-Control: no-store` 与开发 ETag；Launch Envelope 保留基座 bundle/Target declaration，但 `moduleSha256` 使用开发模块摘要。当前阶段 watcher 更新后执行一次 `pfb-restart`，让 Go 重新加载新 revision；无需 `pfb-build`。
 
 `RETROM_PROVIDER_DEV_ROOT` 是失败关闭边界：只有 `RETROM_MODE=test`、非空合法 `RETROM_PFB_ID` 与匹配的本地 PFB origin 同时成立时才接受；普通 `make dev` 两者都不设置，release 模式对任何 loose root 无条件拒绝。生产 active descriptor、Provider archive、release digest、双镜像和 CI 不读取 `.pfb/`。
 

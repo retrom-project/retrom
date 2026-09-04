@@ -5531,7 +5531,6 @@ export interface components {
             reviewPendingCount?: unknown;
             reviewPendingItemCount?: unknown;
             reviewVersion?: unknown;
-            revisionId?: unknown;
             role?: unknown;
             rom?: unknown;
             romEntryCount?: unknown;

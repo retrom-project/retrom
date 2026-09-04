@@ -112,11 +112,11 @@ FROM review_drafts draft WHERE draft.import_item_id=?
 	arcadeSnapshot := fmt.Sprintf(`{"schemaVersion":2,"machine":"review-child","datVersionId":%q,"closure":[],"dependencies":[{"kind":"PARENT","machine":"review-parent","state":"SATISFIED_EXTERNAL","requiredEntries":[]}],"missingEntries":[],"mismatchedEntries":[],"warnings":[]}`, datVersionID)
 	if _, err := database.SQL.ExecContext(ctx, `
 INSERT INTO import_item_core_validations(id,import_item_id,target_platform_instance_id,
-platform_instance_version,core_id,provider_id,target_id,target_contract_sha256,game_compatibility_line,prepublish_generation,
+platform_instance_version,core_id,provider_id,target_id,prepublish_generation,
 dat_version_id,default_dos_entry,source_manifest_digest,source_snapshot_id,prepublish_input_digest,
 status,compatibility_code,dependency_snapshot_json,created_at_ms)
 SELECT ?,import_item_id,target_platform_instance_id,platform_instance_version,core_id,provider_id,target_id,
-target_contract_sha256,game_compatibility_line,prepublish_generation,?,default_dos_entry,source_manifest_digest,source_snapshot_id,
+prepublish_generation,?,default_dos_entry,source_manifest_digest,source_snapshot_id,
 ?,status,compatibility_code,?,created_at_ms+1
 FROM import_item_core_validations WHERE id=?
 `, arcadeValidationID, datVersionID, strings.Repeat("a", 64), arcadeSnapshot, baseValidationID); err != nil {
@@ -188,43 +188,29 @@ WHERE import_item_id=? AND effective_source_snapshot_id=?
 	testassert.Falsef(t, err != nil, "approve blocked screenshot override: %v", err)
 	var compatibilityCode string
 	if err := database.SQL.QueryRowContext(ctx, `
-SELECT revision.compatibility_code
+SELECT variant.compatibility_code
 FROM games game
 JOIN game_variants variant ON variant.game_id=game.id
-JOIN game_variant_revisions revision ON revision.id=variant.current_revision_id
 WHERE game.id=?
 `, approved.GameID).Scan(&compatibilityCode); err != nil || compatibilityCode != "REVIEW_SCREENSHOT_OVERRIDE" {
 		t.Fatalf("screenshot override compatibility = %q, error=%v", compatibilityCode, err)
 	}
-	arcadeOverrideRevisionID := newUUID()
+	var arcadeOverrideVariantID string
 	arcadeOverrideSnapshot := fmt.Sprintf(
 		`{"schemaVersion":2,"machine":"review-blocked","datVersionId":%q,"closure":[],"dependencies":[{"kind":"BIOS_OR_BASE","machine":"review-bios","state":"SATISFIED_EXTERNAL","requiredEntries":[]}],"missingEntries":[],"mismatchedEntries":[],"warnings":[]}`,
 		datVersionID,
 	)
-	if _, err := database.SQL.ExecContext(ctx, `
-INSERT INTO game_variant_revisions(id,game_variant_id,game_content_revision_id,provider_id,target_id,
-target_contract_sha256,game_compatibility_line,dat_version_id,validation_input_digest,emulator_game_id,status,compatibility_code,
-dependency_snapshot_json,default_dos_entry,created_at_ms)
-SELECT ?,variant.id,current.game_content_revision_id,current.provider_id,current.target_id,
-current.target_contract_sha256,current.game_compatibility_line,?, ?,current.emulator_game_id+100000,
-'READY','REVIEW_SCREENSHOT_OVERRIDE',?,current.default_dos_entry,current.created_at_ms+1
-FROM game_variants variant
-JOIN game_variant_revisions current ON current.id=variant.current_revision_id
-WHERE variant.game_id=?
-`, arcadeOverrideRevisionID, datVersionID, strings.Repeat("b", 64), arcadeOverrideSnapshot,
-		approved.GameID); err != nil {
+	if err := database.SQL.QueryRowContext(ctx, `
+UPDATE game_variants SET dat_version_id=?,status='READY',compatibility_code='REVIEW_SCREENSHOT_OVERRIDE',
+dependency_snapshot_json=?,version=version+1,updated_at_ms=updated_at_ms+1
+WHERE game_id=? RETURNING id
+`, datVersionID, arcadeOverrideSnapshot, approved.GameID).Scan(&arcadeOverrideVariantID); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := database.SQL.ExecContext(ctx, `
-UPDATE game_variants SET current_revision_id=?,version=version+1,updated_at_ms=updated_at_ms+1
-WHERE game_id=?
-`, arcadeOverrideRevisionID, approved.GameID); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := database.SQL.ExecContext(ctx, `
-INSERT INTO variant_files(game_variant_revision_id,role,logical_name,blob_id,sort_order)
+INSERT INTO variant_files(game_variant_id,role,logical_name,blob_id,sort_order)
 VALUES(?,'BIOS_BUNDLE','review-bios.zip',?,0)
-`, arcadeOverrideRevisionID, parentBlobID); err != nil {
+`, arcadeOverrideVariantID, parentBlobID); err != nil {
 		t.Fatal(err)
 	}
 	createdLaunch, err := service.Create(ctx, "review-preview-profile", CreateRequest{

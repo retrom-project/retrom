@@ -68,7 +68,7 @@ api/components/           跨领域公共 component
 api/codegen/              固定 Go models/server/spec 生成配置
 web/                      Next.js + React + Tailwind CSS
 data/dat/                 小型依赖 manifest/SHA；大 payload 由 prepare-deps 物化
-data/netplay/v2/          联机 profile 与精确 Provider Target contract allowlist
+data/netplay/v2/          联机 profile 与精确 Provider Target declaration allowlist
 data/runtime-target-bindings/ 产品 Core 到 Provider Target 的唯一绑定 catalog
 ```
 
@@ -246,7 +246,7 @@ PFB ID 从调用者给出的逻辑名称确定性派生为短 slug 加 SHA-256 �
 
 PFB 命令闭集为 `pfb-init/validate/build/up/use/restart/down/status/logs/verify/core-build/migrate-storage/data-reset/remove/destroy` 和 `pfb-gateway-up/down`。参数错误返回 2，工具链或运行失败返回 1；所有命令失败关闭，不自动操作 Git、不自动删除迁移前旧卷，也不把 Docker socket 挂入应用容器。`pfb-build` 只准备摘要变化的工具链/package依赖/生成代码；`up` 固定 `--no-build`，`restart` 只重启 app，core 只由显式 `core-build CORE=<id>` 触发。源码与 Provider digest 不参与数据兼容性：兼容 migration 原地前进，只有明确的数据语义不兼容才由 exact ID 的 `data-reset` 归档旧数据并新建空根。
 
-运行中的 Retrom/runtime 源码直接 bind mount。Next HMR 消费 Web 变化，Go 源码在轻量 restart 后由 `go run` 重编译；runtime watcher 只重建 PFB loose `client.mjs` 和本地 adapter 资源。基座 Provider 的 bundle/manifest/Target contract 与大体积静态资产仍逐字节验证；开发文件采用独立 SHA-256 revision、`no-store` 响应并只覆盖基座公开路径。详细布局、迁移和命令语义见 [PFB 轻量开发容器](./pfb-development.md)。
+运行中的 Retrom/runtime 源码直接 bind mount。Next HMR 消费 Web 变化，Go 源码在轻量 restart 后由 `go run` 重编译；runtime watcher 只重建 PFB loose `client.mjs` 和本地 adapter 资源。基座 Provider 的 bundle/manifest/Target declaration 与大体积静态资产仍逐字节验证；开发文件采用独立 SHA-256 revision、`no-store` 响应并只覆盖基座公开路径。详细布局、迁移和命令语义见 [PFB 轻量开发容器](./pfb-development.md)。
 
 开发拓扑仍只有一个标准 Go 进程和一个标准 `next dev` 进程。`scripts/dev.sh` 只给 Next 子进程预加载仓库内的 upgrade hook；该 hook 仅匹配精确的 `/runtime/netplay/rooms/{roomId}/socket` 路径，把 method、Origin、Cookie、Fetch Metadata、Upgrade 与 `Sec-WebSocket-Protocol` 原样转发到 `NEXT_BACKEND_ORIGIN`，并逐字节桥接升级后的 socket。其他 upgrade（包括 HMR）继续由 Next 自己处理，普通 HTTP 仍走既有 rewrite。验收必须证明未认证的合法联机 upgrade 经前端端口到达 Go 并返回 `401 AUTHENTICATION_REQUIRED`，而不是由 Next 返回自己的 403；生产不加载此开发 hook，仍由上一节 NG 路由负责。
 
@@ -347,8 +347,8 @@ SQLite 基线：启用外键、WAL 和合理的 `busy_timeout`；仅通过版本
 - 每个 HTTP 请求和后台任务携带 `request_id` / `job_id`，结构化日志包含稳定错误码。
 - `GET /health/live` 只证明进程存活；`GET /health/ready` 每次使用独立只读连接池执行实时探测，仅在数据库可读写、migration checksum、CAS 数据根、两个 active Provider Bundle 的完整性、47 个 Target 与产品 binding 闭包、仍被历史记录引用的 Target 可用，以及每个当前 Arcade Target 的 READY active DatVersion 均通过时返回 `200`。旧存档格式不可读只影响该存档的 availability；Bundle 降级、同版本换字节、删除被引用 Target 或 binding/catalog 漂移属于全局 readiness 故障。503 的闭集 reason code 按优先级为 `DATABASE_UNAVAILABLE`、`CAS_UNAVAILABLE`、`DEPENDENCY_INVALID`、`DEPENDENCY_DAT_PARSE_FAILED`、`DEPENDENCY_INDEXING`；响应不含路径/hash。冷库 DAT indexing 期间 HTTP/worker 可以存活，但除 health 外全部路由由前置启动门禁返回 `503 SERVICE_NOT_READY`，不得让部分业务读到未激活目录；首次完整就绪后该启动门禁单向打开，普通业务请求不再逐次执行健康 SQL 或因写连接短暂繁忙误报 503，实时运维状态继续由 `/health/ready` 表达。
 - 管理后台任务详情展示阶段、进度、最近错误、重试次数和下次重试时间，不展示堆栈。
-- 启动失败日志关联 `launchId`、game、VariantRevision、Provider Target、DAT 版本和缺失依赖，但不记录 capability。
-- RPG 运行日志只允记录非秘密 `launchId`、validation ID、selected core、generation、`providerId/targetId/targetContractSha256`、checkpoint format、pack 状态、gate 名/结果/时长和稳定错误码；不记录 bootstrap ticket/cookie、项目 bytes/JS、文件名/绝对路径、存档 payload、截图 bytes 或 MV/MZ bridge message 内容。Host confusion/replay 只记录低基数 reason，不回显恶意 Host/ticket。
+- 启动失败日志关联 `launchId`、game、GameVariant、Provider Target、DAT 版本和缺失依赖，但不记录 capability。
+- RPG 运行日志只允记录非秘密 `launchId`、validation ID、selected core、generation、`providerId/targetId/bundleSha256`、checkpoint format、pack 状态、gate 名/结果/时长和稳定错误码；不记录 bootstrap ticket/cookie、项目 bytes/JS、文件名/绝对路径、存档 payload、截图 bytes 或 MV/MZ bridge message 内容。Host confusion/replay 只记录低基数 reason，不回显恶意 Host/ticket。
 - 联机只在 Room/Session 转移、upgrade 拒绝、resync、终局与 recovery 记录低基数结构化事件；不记录每帧 input/canonical/hash/state bytes、credential、显示名、IP、内容 hash 或路径。可聚合字段限 profile ID、playerNo、状态、终因、耗时、frame lag、rollback/resync 计数。
 - 多盘结构化事件覆盖 Import mode/parser 结果、Attachment 状态/重试/执行时长、Validation 结果、Launch 盘数、playlist/DISC 内容响应状态与 bytes，以及 Player 开始/盘数不一致/换盘/存档恢复结果。可聚合标签仅限 platform key、core key、Provider/Target version、盘数 bucket、HTTP 状态与稳定错误码；不得记录标题、basename、路径、内容 hash 或 capability。Import/Attachment/Validation 使用持久 JobEvent，运行端使用固定 schema 的结构化日志；不存在自由形式客户端 telemetry body。
 - EmulationStation 事件只记录 import/job ID、phase、封闭计数、执行时长和稳定错误码；不得记录 XML 文本、`command/emulator/core/provider` 值、标题、ROM/媒体 basename、绝对路径、facts digest 或底层 `os.PathError`。管理员失败详情只使用 OpenAPI 封闭字段和截断后的低敏技术 code。

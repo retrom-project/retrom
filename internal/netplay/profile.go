@@ -42,14 +42,13 @@ type Protocol struct {
 }
 
 type ManifestProfile struct {
-	ID                       string   `json:"id"`
-	ProviderID               string   `json:"providerId"`
-	TargetID                 string   `json:"targetId"`
-	CoreID                   string   `json:"coreId"`
-	PlatformIDs              []string `json:"platformIds"`
-	NetplayCompatibilityLine string   `json:"netplayCompatibilityLine"`
-	MaxPlayers               int      `json:"maxPlayers"`
-	MaxPredictionFrames      int      `json:"maxPredictionFrames"`
+	ID                  string   `json:"id"`
+	ProviderID          string   `json:"providerId"`
+	TargetID            string   `json:"targetId"`
+	CoreID              string   `json:"coreId"`
+	PlatformIDs         []string `json:"platformIds"`
+	MaxPlayers          int      `json:"maxPlayers"`
+	MaxPredictionFrames int      `json:"maxPredictionFrames"`
 }
 
 type Manifest struct {
@@ -131,7 +130,7 @@ func validManifestProfile(profile ManifestProfile, dependencySet *dependencies.S
 func validManifestProfileShape(profile ManifestProfile) bool {
 	return profile.ID != "" && profile.ID == strings.ToLower(profile.ID) && len(profile.ID) <= 64 &&
 		profile.ProviderID != "" && profile.TargetID != "" && profile.CoreID != "" &&
-		profile.NetplayCompatibilityLine != "" && validPlatformIDs(profile.PlatformIDs) &&
+		validPlatformIDs(profile.PlatformIDs) &&
 		profile.MaxPlayers >= 2 && profile.MaxPlayers <= 4 && profile.MaxPredictionFrames >= 0 &&
 		profile.MaxPredictionFrames <= MaxPredictionFrames
 }
@@ -176,14 +175,14 @@ func (registry *Registry) Profiles() []ManifestProfile {
 }
 
 func (registry *Registry) SupportsPlatformTarget(
-	platformID, coreID, providerID, targetID, netplayCompatibilityLine string,
+	platformID, coreID, providerID, targetID string,
 ) bool {
 	if registry == nil {
 		return false
 	}
 	return slices.ContainsFunc(registry.Manifest.Profiles, func(profile ManifestProfile) bool {
 		return profile.CoreID == coreID && profile.ProviderID == providerID && profile.TargetID == targetID &&
-			profile.NetplayCompatibilityLine == netplayCompatibilityLine && slices.Contains(profile.PlatformIDs, platformID)
+			slices.Contains(profile.PlatformIDs, platformID)
 	})
 }
 
@@ -197,14 +196,14 @@ func validDigest(value string) bool {
 
 type CanonicalProfileInput struct {
 	ManifestProfile
-	TargetContractSHA256   string
-	GameVariantRevisionID  string
+	BundleSHA256           string
+	SourceManifestDigest   string
 	DependencySnapshotJSON string
 }
 
 func (registry *Registry) CanonicalProfile(input CanonicalProfileInput) ([]byte, string, error) {
-	if _, ok := registry.Profile(input.ID); !ok || !validDigest(input.TargetContractSHA256) ||
-		input.GameVariantRevisionID == "" {
+	if _, ok := registry.Profile(input.ID); !ok || !validDigest(input.BundleSHA256) ||
+		!validDigest(input.SourceManifestDigest) {
 		return nil, "", ErrManifestInvalid
 	}
 	dependencyDigest := sha256.Sum256([]byte(input.DependencySnapshotJSON))
@@ -212,10 +211,8 @@ func (registry *Registry) CanonicalProfile(input CanonicalProfileInput) ([]byte,
 		"schemaVersion": 2, "protocolVersion": ProtocolVersion, "profileId": input.ID,
 		"coreId": input.CoreID, "platformIds": input.PlatformIDs,
 		"providerId": input.ProviderID, "targetId": input.TargetID,
-		"targetContractSha256":     input.TargetContractSHA256,
-		"netplayCompatibilityLine": input.NetplayCompatibilityLine,
-		"gameVariantRevisionId":    input.GameVariantRevisionID,
-		"sourceManifestDigest":     registry.ManifestDigest,
+		"bundleSha256":             input.BundleSHA256,
+		"sourceManifestDigest":     input.SourceManifestDigest,
 		"dependencySnapshotDigest": hex.EncodeToString(dependencyDigest[:]),
 		"controlCount":             ControlCount, "maxPlayers": input.MaxPlayers,
 		"maxPredictionFrames": input.MaxPredictionFrames, "maxRollbackFrames": MaxRollbackFrames,

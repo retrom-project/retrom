@@ -12,7 +12,7 @@
 - BIOS/Firmware Requirement 定义核心启动所需文件及期望 hash。
 - Arcade DAT 用于特定核心下的 machine、ROM entry、clone/parent 和 BIOS/base archive 识别。
 - DAT 不是展示元信息刮削源；Hasheous 的职责见 [导入、刮削与审核](./import-and-review.md)。
-- BIOS 与 DAT 按 Provider Target 契约管理，不按 PlatformInstance 复制；游戏目录只引用默认 Core，Core binding 决定当前 Target。
+- BIOS 与 DAT 按 Provider Target declaration管理，不按 PlatformInstance 复制；游戏目录只引用默认 Core，Core binding 决定当前 Target。
 - 浏览器和 EmulatorJS 不解析原始 DAT。后端预解析并持久化，页面查询物化结果，启动查询依赖快照。
 
 精确来源、commit、artifact hash、DAT hash 和已知格式差异以 [EmulatorJS 4.2.3 Arcade DAT 基线](./arcade-dat-baseline.md)及 [`data/dat` manifest](../data/dat/emulatorjs/4.2.3/manifest.json) 为唯一事实源。
@@ -110,7 +110,7 @@ Provider Target 升级会建立新的 Requirement 槽，不把旧 Target 的 act
 
 ### 3.7 dosbox_pure
 
-普通 DOS 游戏没有统一固定 BIOS。可执行程序和目录内容属于 GameContentRevision，`dosbox.conf`/启动 ZIP 属于 GameVariantRevision 的派生文件；ISO/CUE/IMG/VHD 等磁盘镜像一期不接收，不能因 Core 未来可能支持而展示成已支持 BIOS/内容类型。
+普通 DOS 游戏没有统一固定 BIOS。可执行程序和目录内容属于 GameFiles，`dosbox.conf`/启动 ZIP 属于 GameVariant 的派生文件；ISO/CUE/IMG/VHD 等磁盘镜像一期不接收，不能因 Core 未来可能支持而展示成已支持 BIOS/内容类型。
 
 ### 3.8 条件与 core option 的精确规则
 
@@ -129,7 +129,7 @@ Provider Target 升级会建立新的 Requirement 槽，不把旧 Target 的 act
 | mgba / `gbc_bios.bin` | `OPTIONAL / GBC_CONTENT` | primary content 后缀为 `.gbc` | `{"mgba_use_bios":"ON"}` |
 | mgba / `sgb_bios.bin` | `OPTIONAL / MGBA_SGB_MODEL` | 一期不提供 SGB model 选择，目录中可上传但标“未使用” | `{"mgba_use_bios":"ON"}` |
 
-primary content 指 GameContentRevision 中唯一 `CONTENT` 文件；host-console 原 ZIP 已在验证阶段物化成保留真实后缀的唯一可运行 member，因此不能用上传 archive 的 `.zip` 后缀判断。逻辑名按 ASCII lower-case 比较最后一个后缀，不读标题或刮削平台猜类型。FDS/GB/GBC/GBA 按表中后缀判定；一期对 BS-X/Sufami 没有足够可靠的独立 classifier，所以这两项“已安装则对全部 Snes9x Variant 装入并进入 digest、未安装则只在完整目录显示且不产生逐游戏 Warning”，由 core 决定是否实际读取。`GAME_GENIE_ADDON_MODE/MGBA_SGB_MODEL` 一期恒不适用。其余 STATIC requirement 的适用集合与 active installation/status/options 一并进入 `validation_input_digest/dependency_snapshot_json`；不适用项不装入本次 bundle，也不触发本游戏重校验。
+primary content 指 GameFiles 中唯一 `CONTENT` 文件；host-console 原 ZIP 已在验证阶段物化成保留真实后缀的唯一可运行 member，因此不能用上传 archive 的 `.zip` 后缀判断。逻辑名按 ASCII lower-case 比较最后一个后缀，不读标题或刮削平台猜类型。FDS/GB/GBC/GBA 按表中后缀判定；一期对 BS-X/Sufami 没有足够可靠的独立 classifier，所以这两项“已安装则对全部 Snes9x Variant 装入并进入 digest、未安装则只在完整目录显示且不产生逐游戏 Warning”，由 core 决定是否实际读取。`GAME_GENIE_ADDON_MODE/MGBA_SGB_MODEL` 一期恒不适用。其余 STATIC requirement 的适用集合与 active installation/status/options 一并进入 `validation_input_digest/dependency_snapshot_json`；不适用项不装入本次 bundle，也不触发本游戏重校验。
 
 适用的 REQUIRED/CONDITIONAL 项缺失时阻断；适用 OPTIONAL 缺失时仅 Warning 且不加 activation option。存在 `MATCHED` 或 `HASH_WARNING` active installation 时按逻辑名装入 BIOS bundle并合并其 activation options；对 DAT_MACHINE，全部必需 entry 名存在但 size/hash 有差异也属于 `HASH_WARNING`。错误 hash 始终遵循“提示但允许”的产品要求；只有缺少必需 entry 的 `MISSING_ENTRY` 与不可读的 `INVALID` 不装入。每次 EmulatorJS 实例都是新配置，所以无需发送反向的 `disabled/OFF`，也不能让浏览器上一次设置成为事实源。上游依据分别是 [Gambatte BIOS/core option](https://docs.libretro.com/library/gambatte/) 与 [mGBA BIOS/core option](https://docs.libretro.com/library/mgba/)。
 
@@ -145,7 +145,7 @@ primary content 指 GameContentRevision 中唯一 `CONTENT` 文件；host-consol
 | 文件不可读或 archive 损坏 | `INVALID` | 否 |
 | parent/BIOS entry 已内含于游戏 archive | `SATISFIED_BY_CONTENT` | 是 |
 
-BIOS 页面默认只统计当前游戏库各 GameVariant 当前 VariantRevision 实际引用的 Requirement；核心完整目录中的未使用项标记“未使用”，不进入红色缺失计数。
+BIOS 页面默认只统计当前游戏库各 GameVariant 当前 GameVariant 实际引用的 Requirement；核心完整目录中的未使用项标记“未使用”，不进入红色缺失计数。
 
 `MISSING_ENTRY` installation 可以作为用户已上传文件保留并维持 active，方便展示实际缺项和直接替换，但绝不能装入 READY Variant 或 Launch bundle；`INVALID`（损坏、不安全或不可读 archive）在上传时保留审计记录但不能成为 active。DAT_MACHINE 安装必须在数据库写事务外按统一 ZIP 安全限制扫描归档，并把条目 hash 目录持久化；校验范围只含普通条目与默认 BIOS set 的非 NODUMP 条目。文件名不同时，仅当 size 与 DAT SHA-1（缺失时为 CRC32）一致才视为历史别名并记录 Warning；同名但内容不同为 `HASH_WARNING`，内容不存在才是 `MISSING_ENTRY`。静态文件 hash 不匹配也统一为 `HASH_WARNING` 并可进入 Launch bundle。每次状态都记录 `validated_requirement_version`，页面若发现版本不一致显示“待重验证”，不能继续使用旧 MATCHED 标签。
 
@@ -170,7 +170,7 @@ FBNeo、MAME2003-Plus 与两个 FBA2012 source commit 按 EmulatorJS v4.2.3 官�
 3. 缺少索引时创建唯一、不可取消的 `DAT_PARSE` Job，并在事务外使用第 7.1 节的 streaming XML parser。当前 Arcade Provider Target 完成前服务 live 但以 `DEPENDENCY_INDEXING` not ready；确定性失败时以 `DEPENDENCY_DAT_PARSE_FAILED` not ready，不能回退到空目录、其他 Core 的 DAT 或旧 Target。
 4. 只有 manifest 固定的 SHA-256、EmulatorJS version 与实际 Provider Target 均匹配，且解析统计与 manifest 一致的内置 DatVersion 才能在短事务内成为 active。激活同时同步 DAT_MACHINE requirements、写系统审计；已建立正确索引的重复启动只修复 active 指针，不重复解析。
 5. 管理员和普通用户都不能上传、创建、比较、启用、回滚或删除 DAT。OpenAPI、HTTP router、数据库 schema 和 Web UI 均不存在用户 DAT、DAT diff 或 base-version 输入分支。
-6. DatVersion 身份仍被 Import、VariantRevision、ReviewEvent 和 Launch 精确引用；release manifest 升级产生新的内置 DatVersion，成功索引后由启动引导激活，受影响稳定 GameVariant 通过既有版本/输入漂移机制按需重校验。既有 current VariantRevision 和 Launch 保留原 DatVersion 与依赖快照，不被静默改写。
+6. DatVersion 身份仍被 Import、GameVariant、ReviewEvent 和 Launch 精确引用；release manifest 升级产生新的内置 DatVersion，成功索引后由启动引导激活，受影响稳定 GameVariant 通过既有版本/输入漂移机制按需重校验。既有 current GameVariant 和 Launch 保留原 DatVersion 与依赖快照，不被静默改写。
 
 同步启动 60 秒预算不包含后台解析，解析使用通用 DAT_PARSE execution deadline 与重启 lease 恢复规则。文件名相同但 SHA-256 不同仍是不同内置版本；同一 `(Provider Target, SHA-256, parser version)` 只能有一条记录。
 
@@ -211,10 +211,10 @@ scanner 与 XML decoder 必须从无文件系统/网络 callback 的 `io.Limited
 
 1. 顶层 ROMset ZIP 的 basename 去掉最后一个 `.zip` 后按 ASCII case-insensitive 与 machine name 精确匹配；不做前缀/模糊猜测。每个 Arcade archive 内只接受安全的 flat file entry；目录或 `machine/rom.bin` 结构按 Merged 证据处理而不是拍平成普通 ROMset。
 2. 读取 ZIP central directory，不默认解压全部内容；entry logical name 按 ASCII case-insensitive 唯一，碰撞阻断。实际 bytes 的 size 必须匹配；DAT 有 CRC32 时校验 CRC32，有 SHA-1 时物化/流式读取该 entry 并校验 SHA-1，两者都有时两者都必须命中。非 NODUMP 条目至少有一个可校验 hash；不能仅凭 hash 接受错误逻辑文件名。
-3. 从目标 machine 沿 `cloneof` 构造无环 parent 链，并把 `romof != cloneof` 的目标加入 BIOS/base archive；每个 archive 名必须来自该 GameContentRevision 的 CONTENT/COMPANION，不得扫描全局无归属 Blob。NODUMP entry 排除；有 bios name 时只保留机器 default bios option。
+3. 从目标 machine 沿 `cloneof` 构造无环 parent 链，并把 `romof != cloneof` 的目标加入 BIOS/base archive；每个 archive 名必须来自该 GameFiles 的 CONTENT/COMPANION，不得扫描全局无归属 Blob。NODUMP entry 排除；有 bios name 时只保留机器 default bios option。
 4. 对 machine 自有非 merge entry，要求在其逻辑 archive 中以 DAT `name` 存在；对 `merge` entry，Split 可由声明 parent archive 中的 `merge_name` 满足。Full Non-Merged 允许目标 CONTENT archive 自身满足整个 parent/BIOS 闭包。主 machine 与 parent 的 entry 必须 name/size/hash 匹配，否则阻断；BIOS/base archive 只要必需 entry 名齐全即可装入，size/hash 全部匹配记 `SATISFIED_BY_CONTENT`/`SATISFIED_EXTERNAL`，存在差异则记 `HASH_WARNING` 并允许 READY/Launch，同时把期望值与实际值带入 Warning。任何外部 archive 仍按其逻辑 machine 名核对。
 5. 若 clone 特有 entry 只出现在 parent archive 的子目录/合并结构、所选 machine 没有独立 CONTENT archive，或必须依赖 DAT 闭包之外的同 ZIP 子目录，则确定为 `UNSUPPORTED_MERGED_ROMSET`。如果闭包存在但某个独立 archive/entry 缺失，则是可修复的 `MISSING`，不能误报为 Merged。
-6. 为指定 Core 创建/复用稳定 GameVariant，并生成直接引用目标 GameContentRevision 的不可变 GameVariantRevision；保存 DAT version、逐 archive/entry 依赖与诊断快照，不写入 Game 展示字段。
+6. 为指定 Core 创建/复用稳定 GameVariant，并生成直接引用目标 GameFiles 的不可变 GameVariant；保存 DAT version、逐 archive/entry 依赖与诊断快照，不写入 Game 展示字段。
 
 一期 ROMset：
 
@@ -233,7 +233,7 @@ Full Non-Merged 可以由 CONTENT 满足闭包；Split 的独立 Parent 使用�
 
 Parent 必需 ROM 排除 NODUMP、保留 BADDUMP warning，按 ASCII case-insensitive entry name 精确匹配，size 必须相等；DAT 提供 CRC32/SHA-1 时全部校验。正确 bytes 即使名为 `anything.zip` 也在新快照中绑定为 `<machine>.zip`；同名错误、缺项或 hash 不符为 `REVIEW_PARENT_CONTENT_MISMATCH`。额外不冲突 entry 只进 diagnostics，不能替代缺项。每次接受后必须从 CONTENT 重建并重验完整闭包；补 b 后仍缺 c 时保持 BLOCKED，补齐且 BIOS 满足后才 READY。Launch 继续只使用 selected READY ValidationFiles 生成确定性根级 Parent bundle，补传不改变 Player bundle 协议。
 
-发布后的首次启动可能因当前 BIOS 输入快照与审核期摘要不同而创建后继 VariantRevision。只有后继仍引用同一 GameContentRevision 和同一 DatVersion 时，重校验才继承 current revision 已验证的 `PARENT` VariantFiles 与 `variant_dependencies`，并重新生成 BIOS bundle；不得因摘要归一化丢失 Parent，也不得把旧 DAT 的 Parent 关联带入新 DAT。
+发布后的首次启动可能因当前 BIOS 输入快照与审核期摘要不同而更新 GameVariant。只有 GameFiles 和 DatVersion 均未变化时，重校验才保留当前态已验证的 `PARENT` VariantFiles 与 `variant_dependencies`，并重新生成 BIOS bundle；不得因摘要归一化丢失 Parent，也不得把旧 DAT 的 Parent 关联带入新 DAT。
 
 ### 8.2 公开自动化回归夹具
 
@@ -275,4 +275,4 @@ Arcade DAT 没有管理员 HTTP API；运行时只通过审核、GameVariant、L
 
 STATIC 的可信 exact 要求全部已声明 size/hash 同时一致；否则依次按期望 size、精确 basename、较大 size 作低置信度选择，结果保持 `HASH_WARNING`。DAT_MACHINE 只把逻辑 `.zip` 交给全局串行 archive scanner，并优先安全、可启动、matched/aliased 更多且 mismatched/missing 更少的候选；最后以规范相对路径和确定性 ID 稳定排序。只以质量证据比较是否覆盖，身份、文件名或新扫描本身不增加质量。
 
-`replaceIfBetter=false` 保留任何 active Installation；开启后也只允许严格更优，禁止同分、证据不完整或降级替换。相同 bytes 且 Requirement version/catalog 未变时不创建 revision；Requirement 版本改变时相同 bytes 仍重验并可形成新 revision。提交前重新检查完整 catalog digest、Requirement/Provider Target/DAT 版本和 source bytes；漂移分别以稳定条目结果收口。真正替换时，旧 Installation 行保留 filename/size/hash/status 和来源审计，但 `blob_id` 单向清空并记录 `payload_released_at_ms`；依赖它的存档、运行快照和旧 `BIOS_BUNDLE` VariantFile 载荷同步清理，活动 Launch/Play/Netplay 终止。旧 VariantRevision 只保留不可变依赖审计，当前 validation digest 因依赖变化失效，下一次 Launch 先走既有异步重校验并生成绑定新 BIOS 的 revision。
+`replaceIfBetter=false` 保留任何 active Installation；开启后也只允许严格更优，禁止同分、证据不完整或降级替换。相同 bytes 且 Requirement/catalog 未变时保持当前态；Requirement 改变时相同 bytes 仍重新校验。提交前重新检查完整 catalog digest、Requirement/稳定 Provider Target、DAT 和 source bytes；漂移分别以稳定条目结果收口。真正替换时，旧 Installation payload 单向释放并只保留来源审计；依赖它的已物化运行资源和旧 `BIOS_BUNDLE` VariantFile 被清理，活动 Launch/Play/Netplay 终止。SaveState 仍按 Game 保留，其可恢复性由当前 READY Target 的 `readFormats` 决定；受影响 GameVariant 转为需要重新校验，下一次 Launch 先复用或创建异步重校验 Job，并原子更新当前依赖与 VariantFiles。

@@ -32,9 +32,8 @@ func TestBIOSAppliesUsesOnlyCanonicalContentSuffix(t *testing.T) {
 func TestMultiDiscValidationInputDigestIsOrderedAndIncludesSemanticInputs(t *testing.T) {
 	t.Parallel()
 	input := MultiDiscValidationInput{
-		GameVariantID: "variant", GameContentRevisionID: "content",
+		GameVariantID: "variant", GameID: "content",
 		ContentKind: MultiDiscContentKind, ProviderID: "emulatorjs", TargetID: "yabause",
-		TargetContractSHA256: strings64("a"), GameCompatibilityLine: "saturn-v1",
 		ContentPolicySHA256: strings64("f"), DATVersionID: sql.NullString{},
 		BIOSDependencySHA256:    strings64("b"),
 		OrderedDiscSHA256:       []string{strings64("c"), strings64("d")},
@@ -45,6 +44,33 @@ func TestMultiDiscValidationInputDigestIsOrderedAndIncludesSemanticInputs(t *tes
 	input.OrderedDiscSHA256[0], input.OrderedDiscSHA256[1] = input.OrderedDiscSHA256[1], input.OrderedDiscSHA256[0]
 	second, err := MultiDiscValidationInputDigest(input)
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return first == second }), "ordered digest did not change: first=%q second=%q err=%v", first, second, err)
+}
+
+func TestValidationDigestsUseStableProviderTargetIdentity(t *testing.T) {
+	t.Parallel()
+	snapshot := Snapshot{SchemaVersion: SnapshotSchemaVersion, BIOS: []BIOSDependency{}}
+	first, err := ProviderValidationInputDigest(
+		"retrom-runtime", "rpgmaker-mv", "content", sql.NullString{}, snapshot,
+	)
+	testassert.False(t, err != nil, err)
+	second, err := ProviderValidationInputDigest(
+		"retrom-runtime", "rpgmaker-mv", "content", sql.NullString{}, snapshot,
+	)
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return first != second }),
+		"Provider deployment changed validation digest: %q != %q, error=%v", first, second, err)
+
+	multi := MultiDiscValidationInput{
+		GameVariantID: "variant", GameID: "content",
+		ContentKind: MultiDiscContentKind, ProviderID: "emulatorjs", TargetID: "yabause",
+		ContentPolicySHA256: strings64("f"), DATVersionID: sql.NullString{},
+		BIOSDependencySHA256: strings64("b"), OrderedDiscSHA256: []string{strings64("c"), strings64("d")},
+		CanonicalPlaylistSHA256: strings64("e"),
+	}
+	first, err = MultiDiscValidationInputDigest(multi)
+	testassert.False(t, err != nil, err)
+	second, err = MultiDiscValidationInputDigest(multi)
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return first != second }),
+		"Provider deployment changed multi-disc digest: %q != %q, error=%v", first, second, err)
 }
 
 func strings64(value string) string {

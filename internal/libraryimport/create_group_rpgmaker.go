@@ -47,13 +47,12 @@ INSERT INTO rpgmaker_review_profiles(
   review_draft_id,generation,evidence_family,evidence_generation,
   evidence_confidence,engine_version,entry_html_path,file_count,total_bytes,project_fingerprint,
   requirements_sha256,analysis_json,self_contained_override,provider_id,target_id,
-  game_compatibility_line,target_contract_sha256,dependency_snapshot_sha256,created_at_ms,updated_at_ms
-) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+  dependency_snapshot_sha256,created_at_ms,updated_at_ms
+) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
 `, record.draftID, profile.ExpectedGeneration, profile.EvidenceFamily,
 		evidenceGeneration, profile.EvidenceConfidence, nullableString(profile.EngineVersion), entryHTML,
 		summary.FileCount, summary.TotalBytes, summary.FilesDigest, requirementsSHA, string(analysisJSON),
-		0, target.providerID, target.targetID, target.gameCompatibilityLine,
-		target.targetContractSHA256, hex.EncodeToString(dependencyDigest[:]), run.now, run.now)
+		0, target.providerID, target.targetID, hex.EncodeToString(dependencyDigest[:]), run.now, run.now)
 	if err != nil {
 		return fmt.Errorf("libraryimport/rpgmaker profile: %w", err)
 	}

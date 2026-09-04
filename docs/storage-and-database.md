@@ -46,7 +46,7 @@
 CREATE TABLE play_sessions (
     id TEXT PRIMARY KEY,
     profile_id TEXT NOT NULL,
-    game_variant_revision_id TEXT NOT NULL,
+    game_id TEXT NOT NULL,
     started_at_ms INTEGER NOT NULL CHECK (started_at_ms >= 0),
     last_heartbeat_at_ms INTEGER NOT NULL CHECK (last_heartbeat_at_ms >= started_at_ms),
     ended_at_ms INTEGER,
@@ -113,7 +113,7 @@ PRAGMA busy_timeout = 5000;
 - 布尔值使用 `INTEGER NOT NULL CHECK (value IN (0, 1))`。
 - 枚举使用 `TEXT` 加 `CHECK` 或稳定字典表，不使用依赖插入顺序的整数枚举。
 - JSON 只用于不可变快照、低频配置和 provider raw payload；可查询关系必须规范化。
-- 代码种子 ID 使用稳定 code；其他业务实体使用规范小写 UUIDv7 文本。EmulatorJS 要求 number 类型 `EJS_gameID` 的 GameVariantRevision 另存稳定唯一 `INTEGER` surrogate key，范围固定 `1..9007199254740991`，API 不把它字符串化。
+- 代码种子 ID 使用稳定 code；其他业务实体使用规范小写 UUIDv7 文本。EmulatorJS 要求 number 类型 `EJS_gameID` 的 GameVariant 另存稳定唯一 `INTEGER` surrogate key，范围固定 `1..9007199254740991`，API 不把它字符串化。
 
 ### 3.1 clean migration lineage
 
@@ -132,7 +132,7 @@ PRAGMA busy_timeout = 5000;
 | `auth_sessions` / `account_links` / `instance_state` / `auth_rate_limits` | 登录 session、一次性邀请/重置、初始化状态和 HMAC 限流桶 |
 | `platforms` | 基础平台 |
 | `cores` | EmulatorJS/Core 配置 |
-| `runtime_providers`、`runtime_targets`、`runtime_target_bindings` | 已激活 Provider Bundle、含 options schema 的公开 Target contract 与 Product Core binding |
+| `runtime_providers`、`runtime_targets`、`runtime_target_bindings` | 已激活 Provider Bundle、公开 Target declaration 与 Product Core binding |
 | `content_kinds` | Host 持久内容类型 reference catalog；业务表通过外键引用，不复制固定枚举列表 |
 | `platform_cores` | 平台与核心多对多关联 |
 | `platform_instances` | 用户维护的游戏目录及默认核心 |
@@ -147,15 +147,12 @@ PlatformInstance 的复合外键、游戏唯一归属和迁移规则见 [游戏�
 | --- | --- |
 | `blobs` | CAS 文件、大小及多种内容哈希 |
 | `archive_entries` | 经安全扫描的 archive entry 路径、大小、内容 hash 与可选物化 Blob |
-| `games` | 用户可见游戏；`platform_instance_id/current_content_revision_id` 必填，不保存 `platform_id` |
+| `games` | 用户可见游戏及当前 metadata/content 来源；`platform_instance_id` 必填，不保存 `platform_id` |
 | `game_assets` | 封面、背景、截图等 |
-| `game_content_revisions` | 一次已接受的不可变用户内容版本与 canonical manifest |
-| `game_content_files` | ContentRevision 的 CONTENT/DOS_SOURCE/COMPANION Blob 与逻辑路径 |
-| `dos_entries` | ContentRevision 中经过安全扫描的可执行程序候选 |
-| `game_variants` | Game + Core 唯一的稳定逻辑槽及当前 revision 指针 |
-| `game_variant_revisions` | 某 ContentRevision 在一个 Provider Target contract 上的不可变验证/运行结果 |
+| `game_files` | Game 当前 CONTENT/DOS_SOURCE/COMPANION/PROJECT_FILE 等 Blob 与逻辑路径 |
+| `game_variants` | Game + Core 唯一的稳定当前验证/运行状态，含 Provider/Target、DAT 与依赖快照 |
+| `dos_entries` | GameFiles中经过安全扫描的可执行程序候选 |
 | `variant_files` | parent、BIOS bundle、DOS launch bundle 等 core-specific/派生文件 |
-| `game_metadata_revisions` | 已发布元信息修订 |
 | `tags` / `game_tags` | 实例级 Tag tombstone 与 Game 多对多关系；不含 Blob 或宿主路径 |
 
 `variant_files.role` 一期固定支持：
@@ -164,7 +161,7 @@ PlatformInstance 的复合外键、游戏唯一归属和迁移规则见 [游戏�
 - `BIOS_BUNDLE`
 - `DOS_LAUNCH_BUNDLE`
 
-用户内容的 `CONTENT/DOS_SOURCE/COMPANION` role 只属于 `game_content_files`；不得再复制到 VariantRevision 形成第二条“当前文件”事实源。
+用户内容的 `CONTENT/DOS_SOURCE/COMPANION` role 只属于 `game_files`；不得再复制到 GameVariant 形成第二条“当前文件”事实源。
 
 ### 4.3 DAT
 
@@ -175,7 +172,7 @@ PlatformInstance 的复合外键、游戏唯一归属和迁移规则见 [游戏�
 | `dat_bios_sets` | MAME machine 的 BIOS option/default |
 | `dat_rom_entries` | ROM entry |
 | `dat_disk_entries` | CHD/disk |
-| `variant_dependencies` | GameVariantRevision 的 parent/BIOS 依赖快照 |
+| `variant_dependencies` | GameVariant 的 parent/BIOS 依赖快照 |
 
 ### 4.4 导入、审核与元信息
 
@@ -231,7 +228,7 @@ PlatformInstance 的复合外键、游戏唯一归属和迁移规则见 [游戏�
 | `netplay_sessions` / `netplay_session_participants` | 锁定 profile snapshot、每人 Launch/credential hash、断线 lease 与 resync 状态 |
 | `netplay_events` | 不含输入/state/秘密的房间 append-only 控制事件 |
 
-所有表中的时间点和时长必须遵守第 2 节，不能由各模块自行选择类型或单位。表的必需字段、枚举、唯一索引、append-only revision 和 trigger 以 [一期数据库实体与不变量](./data-model.md) 为唯一数据字典；本节只做模块目录，不能据此省略该文档的约束。
+所有表中的时间点和时长必须遵守第 2 节，不能由各模块自行选择类型或单位。表的必需字段、枚举、唯一索引、append-only evidence 和 trigger 以 [一期数据库实体与不变量](./data-model.md) 为唯一数据字典；本节只做模块目录，不能据此省略该文档的约束。
 
 ## 5. 本地 CAS 文件存储
 
@@ -311,7 +308,7 @@ data/
 - ZIP central directory 的每个 name 都先执行该算法。显式目录 entry 必须且只能以单个 `/` 结尾：分类为 directory 后先去掉这个终止符，再对剩余非空 path 执行 `SAFE_LOGICAL_PATH_V1`，通过后忽略该 entry；不能把“目录例外”用于接受 `//`、根目录、`.`/`..` 或反斜杠。任何 symlink、hardlink/device/FIFO/socket、加密 entry 或路径不安全都会阻断整个 archive。无 Unix mode 的非目录 entry 可按 regular file 处理；存在 mode 时只接受 regular file/directory。只支持 ZIP method 0（Store）和 8（Deflate）；ZIP64 只有在同一大小门禁内才允许，不注册额外 decompressor。
 - `archive_entries.original_relative_path` 保留安全原名，`normalized_path` 保留其大小写，另保存 `ascii_casefold_path`（只把 ASCII `A..Z` 映射为 `a..z`）。同一 archive 对 normalized path 和 ASCII-casefold path 都唯一；因此 `ROM.BIN/rom.bin` 稳定阻断而不会在 Arcade/DOS 虚拟文件系统中互相覆盖。DAT entry lookup、BIOS 重验证和依赖预览查询该已索引 key，不重读 archive。
 - 安全扫描在同一次有界解压流中计算每个 regular entry 的 size/CRC32/MD5/SHA-1/SHA-256，并在完整 archive 通过所有门禁后才原子提交 ArchiveEntry 集；不因 central-directory 声明值相同而跳过实际 bytes。只有主机唯一 ROM member、DOS_SOURCE 或其他明确领域引用需要独立 bytes 时才物化到 CAS；Arcade ROMset 验证可使用已保存 hash，不默认复制全部内层 entry。同一 Archive Blob 后续在另一合法领域流程需要 member 时，允许经数据模型规定的一次性校验提升填写 `materialized_blob_id`；不得为规避不可变字段而重复造 ArchiveEntry 或盲目重读所有 entry。
-- ArchiveEntry 是所属 archive Blob 的不可变派生索引，不是让 owning Blob 永久免于 GC 的业务引用。普通 repository 不提供删除 entry 的方法；只有当 owning Blob 无业务保护引用、所有 entry 无 GameContentFile/ImportItemSourceFile/ContentHashEvidence 等复合外键引用时，GC 才能在删除 owning Blob 的同一短事务先按 `archive_blob_id` 成组删除 entry。若 entry 物化的内层 Blob 不再有其他引用，它在后续 GC 轮次独立进入保留期；不在同一事务级联删物理文件。
+- ArchiveEntry 是所属 archive Blob 的不可变派生索引，不是让 owning Blob 永久免于 GC 的业务引用。普通 repository 不提供删除 entry 的方法；只有当 owning Blob 无业务保护引用、所有 entry 无 GameFile/ImportItemSourceFile/ContentHashEvidence 等复合外键引用时，GC 才能在删除 owning Blob 的同一短事务先按 `archive_blob_id` 成组删除 entry。若 entry 物化的内层 Blob 不再有其他引用，它在后续 GC 轮次独立进入保留期；不在同一事务级联删物理文件。
 - 限制 entry 数、单 entry 展开大小、总展开大小和压缩比；压缩大小为 0 而展开大小非 0 直接视为超限。路径/entry 门禁先于物化。默认情况下，任一 regular-file entry 的规范扩展名或文件魔数只要表明它仍是 ZIP/7z/RAR/TAR/gzip 等归档，就以 `NESTED_ARCHIVE_UNSUPPORTED` 阻断整个外层 archive；一期不递归展开，也不能靠改扩展名绕过魔数检查。只有 DOS 与 RPG Maker 可请求扫描器“标记但不展开”：二者都将项目根内层 archive 自身的原始 bytes 物化到不可变源快照，绝不打开内层目录、使用内层 marker 或执行内层内容。某次 Launch 是否锁定、打包或提供该不透明文件，继续由所选运行适配器的固定运行投影决定；源快照保留不等于 Native Web 子域可以读取任意后缀。普通 ROM、Arcade、BIOS 与其他消费者继续使用默认拒绝策略。
 - XML DAT 解析只允许 BIOS/DAT 专题定义的一个有界 DOCTYPE 声明并在 token stream 前安全移除；绝不解释 DTD/实体，也不允许外部实体或网络访问。不能把这条简写实现成“拒绝所有真实 DAT 的 DOCTYPE”。
 - 不信任扩展名、ZIP 声明 MIME 或 archive 内路径。
@@ -323,9 +320,9 @@ data/
 - GC、备份完整性检查和存储审计共用一份机器可读 `blob reference registry`，每个 schema 中的 Blob FK/JSON Blob 引用必须恰好登记为以下一类：`PROTECTIVE`（业务根引用）、`ARCHIVE_OWNERSHIP`（`archive_entries.archive_blob_id/materialized_blob_id` 的派生所有权边）或 `BOOKKEEPING`（`blob_gc_candidates.blob_id` 等不阻止删除的记账边）。未登记、重复登记或分类错误都使 CI 失败；不把可变 `ref_count` 作为事实源。
 - 业务释放同时使用代码内 `payload ownership registry`，其边集必须与 Blob registry 双向完全一致，并把每条边唯一归入 Game、运行时、ImportItem、PegasusItem、EmulationStationItem、ScrapeRun、Upload、全局 TTL、全局耐久、Archive 或记账生命周期。PayloadRelease 只解除其 scope 被授权的边；BIOS 等全局耐久引用不受 Game/Import 清理影响。
 - GC 保护集先取所有 `PROTECTIVE` Blob，再对其中的 archive Blob 加入该 ArchiveEntry 已物化的 entry Blob；一期从不递归展开嵌套 archive，DOS 与 RPG Maker 都只保留内层 archive 文件本身的一层原始 entry bytes，因此一层闭包即完整。`ARCHIVE_OWNERSHIP` 不会反向把一个无业务根的 owning archive 变成永久受保护；`BOOKKEEPING` 从不进入保护集。备份不能直接采用这个 GC 保护集：它逐字节复制未裁剪的 SQLite 快照，所以必须复制快照中每一条 `blobs` 行对应的物理文件，包括尚在 GC 宽限期的无业务引用行；registry 用于证明所有引用边都命中这些 Blob 行。只有“物理文件存在但数据库没有 Blob 行”的 crash orphan 才不进入备份。
-- GameContentRevision、ImportItem/Upload/Job、Review snapshot、SaveState、媒体、旧 GameVariantRevision 和 DAT 均可能引用 Blob。
-- Pegasus 与 EmulationStation 扫描阶段都不写 Blob；执行阶段复制出的 item file、source archive 与 COVER/VIDEO 分别在格式专属 file/asset 表中形成 protective 边。发布后的 Game revision/Asset 继续独立保护相同 CAS bytes，计划历史与 Game 生命周期互不代替。
-- Import publish/discard/final-fail/cancel、Pegasus/EmulationStation 终态、替换文件/媒体消费完成会异步解除流程 payload；Game 永久删除会解除 Game/运行时及其已终态来源链的 payload。游戏媒体 current revision 切换还会在同一事务删除旧 GameAsset 叶子引用并登记 GC 候选，避免文字 metadata 历史长期保护旧封面/视频。领域事务不直接删除 Blob 或 CAS 文件。
+- Game/GameFiles、ImportItem/Upload/Job、Review snapshot、SaveState、媒体、旧 GameVariant 和 DAT 均可能引用 Blob。
+- Pegasus 与 EmulationStation 扫描阶段都不写 Blob；执行阶段复制出的 item file、source archive 与 COVER/VIDEO 分别在格式专属 file/asset 表中形成 protective 边。发布后的 Game/Asset 继续独立保护相同 CAS bytes，计划历史与 Game 生命周期互不代替。
+- Import publish/discard/final-fail/cancel、Pegasus/EmulationStation 终态、替换文件/媒体消费完成会异步解除流程 payload；Game 永久删除会解除 Game/运行时及其已终态来源链的 payload。游戏媒体当前态切换还会在同一事务删除旧 GameAsset 叶子引用并登记 GC 候选，避免文字 metadata 历史长期保护旧封面/视频。领域事务不直接删除 Blob 或 CAS 文件。
 - 失去最后保护引用后先进入默认 7 天回收保留期，配置只允许 24 小时至 30 天；每个候选关联唯一 BLOB_GC Job。宽限到期时再次计算完整保护集，有新引用就撤销候选，不得误删共享内容。ADMIN 可通过容量页显式确认立即回收；该操作先补齐全部未引用候选，再把仍未引用候选的 `available_at_ms/scheduled_at_ms` 推进到当前时刻，失败 Job 创建新 execution 后重排队，并写 `STORAGE_CLEANUP_REQUESTED` AuditEvent。它只跳过保留时间，不绕过 worker、保护集合复核、物理删除重试或共享引用保护。
 - 过期的无消费 Upload archive 在失去最后 `PROTECTIVE` 边后可正常进入 GC，不能被自身 ArchiveEntry 永久保活。删除事务再次计算保护集并检查所有 entry 复合外键；有新引用即撤销 candidate。无引用 archive 先成组删索引再删 Blob 行，事务提交后才删除物理文件；物理删除失败由同一 Job 输入幂等重试。UploadFile 最后一个 consumption 释放且没有领域叶子后转 `PURGED` 并清空 final Blob，但保留相对路径、声明/接收大小与结果。
 - Hasheous raw response 是独立 TTL owner：每小时按到期时间和 ID 每批最多 200 个处理；仍被 RUNNING ScrapeRun 使用时保留，安全到期后删除 cache pointer、清空 raw Blob、转 `RELEASED` 并进入相同候选流程。
@@ -476,9 +473,9 @@ EmulationStation 递归发现只匹配精确小写 `gamelist.xml`；每个 XML �
 
 ## 12. 审核运行预览的存储边界
 
-当前 clean schema 直接创建 `review_preview_sessions`、`review_preview_files` 与 `review_runtime_screenshots`。预览行保留创建时的不可变来源、Validation、Provider Target contract 和短时 capability hash；运行内容仍引用既有 CAS Blob，不复制 ROM/BIOS。第 5 秒截图允许 READY 或阻断 Validation 写入，同时用 Item、来源、目标平台、Target contract 和 prepublish generation 的 trigger 约束人工放行证据。预览不是正式 Launch 或 PlaySession，因此 restore 安全围栏无需把它转换为业务游玩历史；capability 的硬过期时间使过期子窗体不可继续读取内容。
+当前 clean schema 直接创建 `review_preview_sessions`、`review_preview_files` 与 `review_runtime_screenshots`。预览行保留创建时的不可变来源、Validation、Provider Target 和短时 capability hash；运行内容仍引用既有 CAS Blob，不复制 ROM/BIOS。第 5 秒截图允许 READY 或阻断 Validation 写入，同时用 Item、来源、目标平台、Provider Target 和 prepublish generation 的 trigger 约束人工放行证据。预览不是正式 Launch 或 PlaySession，因此 restore 安全围栏无需把它转换为业务游玩历史；capability 的硬过期时间使过期子窗体不可继续读取内容。
 
-预览内容、现有依赖和运行截图三类 Blob 边均登记为 protective reference。截图只对仍匹配草稿当前来源、目标平台、Provider Target contract 和 prepublish generation 的 Validation 投影；该 Validation 可以是 READY 或阻断状态，后者的当前截图会启用管理员人工放行。重新运行同一 Validation 会原子替换当前截图的 Blob 引用，旧 Blob 随统一 GC 规则回收，不在 HTTP、日志或清单中暴露 Blob ID/hash。完整字段和 trigger 见 [`data-model.md`](./data-model.md)。
+预览内容、现有依赖和运行截图三类 Blob 边均登记为 protective reference。截图只对仍匹配草稿当前来源、目标平台、Provider Target 和 prepublish generation 的 Validation 投影；该 Validation 可以是 READY 或阻断状态，后者的当前截图会启用管理员人工放行。重新运行同一 Validation 会原子替换当前截图的 Blob 引用，旧 Blob 随统一 GC 规则回收，不在 HTTP、日志或清单中暴露 Blob ID/hash。完整字段和 trigger 见 [`data-model.md`](./data-model.md)。
 
 ## 13. 联机持久化与恢复边界
 
@@ -496,8 +493,8 @@ Tag 删除是业务软删除，不是存储清理：不得以减小数据库为�
 Provider 及 47 个 Target 投影为一个 canonical catalog。协调事务只能整体写入 Provider、Target、binding 和 catalog
 state；任一 Target、Host binding、DAT、BIOS、checkpoint reference 或 netplay reference 不闭合时不得部分激活。
 
-升级只允许 SemVer 增长。事务必须证明所有被 Variant/Save/Validation/Netplay 引用的 Target 仍存在，游戏兼容线不变，
-存档 format 仍包含于新 Target 的 `readFormats`。同版换 bytes、降级、移除受引用 Target、catalog digest 不一致或 active
+升级只允许 SemVer 增长。事务必须证明所有被 Variant、Validation 和 Netplay 引用的 Target 仍存在，且每个存档的
+checkpoint format 仍可由至少一个当前 READY GameVariant 的 Target `readFormats` 读取。同版换 bytes、降级、移除受引用 Target、catalog digest 不一致或 active
 文件在协调后变化均使 readiness 失败。没有数据库降级或恢复旧 Provider 的路径。
 
 PFB loose provider 与 production active descriptor 的source和目录必须严格分离；生产备份不包含`.pfb/`开发层

@@ -52,51 +52,14 @@ var (
 	errLockedPlaylistMismatch = fmt.Errorf("locked playlist mismatch")
 )
 
-func (service *Service) expectedMultiDiscDigest(
-	ctx context.Context,
-	selection launchSelection,
-	biosSnapshot corevalidation.Snapshot,
-) (string, error) {
-	ordered, canonicalDigest, err := service.multiDiscBlobEvidence(
-		ctx, service.database, selection.variantRevisionID, selection.contentRevisionID,
-	)
-	if err != nil {
-		return "", err
-	}
-	biosDigest, err := corevalidation.BIOSDependencyDigest(biosSnapshot)
-	if err != nil {
-		return "", ErrBlocked
-	}
-	digest, err := corevalidation.MultiDiscValidationInputDigest(corevalidation.MultiDiscValidationInput{
-		GameVariantID: selection.variantID, GameContentRevisionID: selection.contentRevisionID,
-		ContentKind: selection.contentKind, ProviderID: selection.providerID, TargetID: selection.targetID,
-		TargetContractSHA256:  selection.targetContractSHA256,
-		GameCompatibilityLine: selection.gameCompatibilityLine,
-		ContentPolicySHA256:   corevalidation.ContentPolicyDigest(selection.contentPolicyJSON),
-		DATVersionID:          selection.revisionDATID, BIOSDependencySHA256: biosDigest,
-		OrderedDiscSHA256: ordered, CanonicalPlaylistSHA256: canonicalDigest,
-	})
-	if err != nil {
-		return "", fmt.Errorf("launch/multi-disc validation input: %w", err)
-	}
-	return digest, nil
-}
-
 func (service *Service) multiDiscRevalidationInputs(
 	ctx context.Context,
 	database multiDiscQueryer,
-	variantID, contentRevisionID, providerID, targetID, targetContractSHA256,
-	gameCompatibilityLine, contentPolicyJSON string,
+	variantID, gameID, providerID, targetID, contentPolicyJSON string,
 	datID sql.NullString,
 	biosSnapshot corevalidation.Snapshot,
 ) (string, string, corevalidation.Snapshot, error) {
-	var revisionID string
-	if err := database.QueryRowContext(ctx, `
-SELECT current_revision_id FROM game_variants WHERE id=?
-`, variantID).Scan(&revisionID); err != nil {
-		return "", "", corevalidation.Snapshot{}, ErrBlocked
-	}
-	ordered, canonicalDigest, err := service.multiDiscBlobEvidence(ctx, database, revisionID, contentRevisionID)
+	ordered, canonicalDigest, err := service.multiDiscBlobEvidence(ctx, database, variantID, gameID)
 	if err != nil {
 		return "", "", corevalidation.Snapshot{}, err
 	}
@@ -111,9 +74,8 @@ SELECT current_revision_id FROM game_variants WHERE id=?
 		Delivery: corevalidation.MultiDiscDelivery,
 	}
 	digest, err := corevalidation.MultiDiscValidationInputDigest(corevalidation.MultiDiscValidationInput{
-		GameVariantID: variantID, GameContentRevisionID: contentRevisionID,
+		GameVariantID: variantID, GameID: gameID,
 		ContentKind: corevalidation.MultiDiscContentKind, ProviderID: providerID, TargetID: targetID,
-		TargetContractSHA256: targetContractSHA256, GameCompatibilityLine: gameCompatibilityLine,
 		ContentPolicySHA256: corevalidation.ContentPolicyDigest(contentPolicyJSON),
 		DATVersionID:        datID, BIOSDependencySHA256: biosDigest,
 		OrderedDiscSHA256: ordered, CanonicalPlaylistSHA256: canonicalDigest,
@@ -127,14 +89,14 @@ SELECT current_revision_id FROM game_variants WHERE id=?
 func (service *Service) multiDiscBlobEvidence(
 	ctx context.Context,
 	database multiDiscQueryer,
-	variantRevisionID, contentRevisionID string,
+	variantID, gameID string,
 ) ([]string, string, error) {
 	rows, err := database.QueryContext(ctx, `
-SELECT blob.sha256 FROM game_content_files file
+SELECT blob.sha256 FROM game_files file
 JOIN blobs blob ON blob.id=file.blob_id
-WHERE file.game_content_revision_id=? AND file.role='DISC'
+WHERE file.game_id=? AND file.role='DISC'
 ORDER BY file.sort_order,file.logical_name
-`, contentRevisionID)
+`, gameID)
 	if err != nil {
 		return nil, "", fmt.Errorf("launch/multi-disc evidence: %w", err)
 	}
@@ -153,9 +115,9 @@ ORDER BY file.sort_order,file.logical_name
 	var canonicalDigest string
 	if err := database.QueryRowContext(ctx, `
 SELECT blob.sha256 FROM variant_files file JOIN blobs blob ON blob.id=file.blob_id
-WHERE file.game_variant_revision_id=? AND file.role='MULTI_DISC_PLAYLIST'
+WHERE file.game_variant_id=? AND file.role='MULTI_DISC_PLAYLIST'
  AND file.logical_name='playlist.m3u'
-`, variantRevisionID).Scan(&canonicalDigest); err != nil {
+`, variantID).Scan(&canonicalDigest); err != nil {
 		return nil, "", ErrBlocked
 	}
 	return ordered, canonicalDigest, nil
@@ -163,7 +125,7 @@ WHERE file.game_variant_revision_id=? AND file.role='MULTI_DISC_PLAYLIST'
 
 func (service *Service) buildMultiDiscLaunchContentPlan(
 	ctx context.Context,
-	variantRevisionID, contentID, snapshotJSON string,
+	variantID, contentID, snapshotJSON string,
 ) (launchContentPlan, error) {
 	snapshot, err := corevalidation.ParseSnapshot(snapshotJSON)
 	if err != nil || snapshot.MultiDisc == nil || len(snapshot.MultiDisc.MissingEntries) != 0 {
@@ -174,9 +136,9 @@ func (service *Service) buildMultiDiscLaunchContentPlan(
 	if err := service.database.QueryRowContext(ctx, `
 SELECT file.blob_id,blob.sha256,blob.size_bytes
 FROM variant_files file JOIN blobs blob ON blob.id=file.blob_id
-WHERE file.game_variant_revision_id=? AND file.role='MULTI_DISC_PLAYLIST'
+WHERE file.game_variant_id=? AND file.role='MULTI_DISC_PLAYLIST'
  AND file.logical_name='playlist.m3u'
-`, variantRevisionID).Scan(&playlistBlobID, &playlistDigest, &playlistSize); err != nil {
+`, variantID).Scan(&playlistBlobID, &playlistDigest, &playlistSize); err != nil {
 		return launchContentPlan{}, ErrBlocked
 	}
 	discs, canonical, err := service.readLockedMultiDiscs(ctx, contentID, 1_073_741_824)
@@ -207,8 +169,8 @@ func (service *Service) readLockedMultiDiscs(
 ) ([]lockedDisc, []byte, error) {
 	rows, err := service.database.QueryContext(ctx, `
 SELECT file.blob_id,blob.sha256,blob.size_bytes,file.sort_order
-FROM game_content_files file JOIN blobs blob ON blob.id=file.blob_id
-WHERE file.game_content_revision_id=? AND file.role='DISC'
+FROM game_files file JOIN blobs blob ON blob.id=file.blob_id
+WHERE file.game_id=? AND file.role='DISC'
 ORDER BY file.sort_order,file.logical_name
 `, contentID)
 	if err != nil {

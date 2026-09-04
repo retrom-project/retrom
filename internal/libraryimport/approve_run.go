@@ -44,8 +44,6 @@ type approvalRun struct {
 	coreID                        string
 	providerID                    string
 	targetID                      string
-	targetContractSHA256          string
-	gameCompatibilityLine         string
 	contentPolicyJSON             string
 	draftVersion                  int64
 	datID                         sql.NullString
@@ -65,10 +63,7 @@ type approvalRun struct {
 	duplicateGames                []DuplicateGame
 	now                           int64
 	gameID                        string
-	metadataID                    string
-	contentID                     string
 	variantID                     string
-	variantRevisionID             string
 	eventID                       string
 	publishedTags                 []tagging.Reference
 	screenshotIDs                 []string
@@ -126,7 +121,7 @@ func (run *approvalRun) load() error {
 		&run.platformInstanceID, &run.validationID, &run.validationStatus, &run.metadataJSON,
 		&run.sourceSnapshotID, &run.sourceManifestJSON, &run.sourceManifestDigest,
 		&run.contentKind, &run.coreID, &run.providerID, &run.targetID,
-		&run.targetContractSHA256, &run.gameCompatibilityLine, &run.contentPolicyJSON,
+		&run.contentPolicyJSON,
 		&run.datID, &run.validationDOSEntry, &run.draftDOSEntry,
 		&run.dependencySnapshotJSON, &run.approvalScreenshotID, &run.draftVersion,
 		&run.candidateID, &run.coverID, &run.uploadedCoverID, &run.backgroundID,
@@ -252,14 +247,9 @@ func (run *approvalRun) prepareDuplicateDecision() error {
 
 func (run *approvalRun) allocateIDs() {
 	gameID, _ := uuid.NewV7()
-	metadataID, _ := uuid.NewV7()
-	contentID, _ := uuid.NewV7()
 	variantID, _ := uuid.NewV7()
-	variantRevisionID, _ := uuid.NewV7()
 	eventID, _ := uuid.NewV7()
-	run.gameID, run.metadataID, run.contentID = gameID.String(), metadataID.String(), contentID.String()
-	run.variantID = variantID.String()
-	run.variantRevisionID = variantRevisionID.String()
+	run.gameID, run.variantID = gameID.String(), variantID.String()
 	run.eventID = eventID.String()
 }
 
@@ -267,8 +257,7 @@ const approvalDraftQuery = `
 SELECT d.id,i.state,i.import_job_id,j.config_snapshot_json,p.platform_id,
   d.target_platform_instance_id,v.id,v.status,d.metadata_json,source_snapshot.id,
   source_snapshot.source_manifest_json,source_snapshot.source_manifest_digest,
-  source_snapshot.content_kind,v.core_id,v.provider_id,v.target_id,v.target_contract_sha256,
-  v.game_compatibility_line,
+  source_snapshot.content_kind,v.core_id,v.provider_id,v.target_id,
   json_object(
     'schemaVersion',1,
     'supportedContentKinds',json((SELECT json_group_array(content_kind) FROM (
@@ -286,7 +275,6 @@ SELECT d.id,i.state,i.import_job_id,j.config_snapshot_json,p.platform_id,
    WHERE screenshot.import_item_id=i.id AND screenshot.validation_id=v.id
      AND screenshot.source_snapshot_id=d.effective_source_snapshot_id
      AND screenshot.provider_id=v.provider_id AND screenshot.target_id=v.target_id
-     AND screenshot.target_contract_sha256=v.target_contract_sha256
    ORDER BY screenshot.captured_at_ms DESC,screenshot.id DESC LIMIT 1),
   d.version,d.selected_candidate_id,d.cover_candidate_asset_id,d.cover_uploaded_asset_id,
   d.background_candidate_asset_id
@@ -308,8 +296,6 @@ AND v.source_snapshot_id=d.effective_source_snapshot_id
 AND v.target_platform_instance_id=d.target_platform_instance_id
 AND p.version=v.platform_instance_version
 JOIN runtime_targets target ON target.provider_id=v.provider_id AND target.target_id=v.target_id
- AND target.target_contract_sha256=v.target_contract_sha256
- AND target.game_compatibility_line=v.game_compatibility_line
 JOIN runtime_target_bindings binding ON binding.provider_id=v.provider_id AND binding.target_id=v.target_id
  AND binding.core_id=v.core_id AND binding.launch_policy!='DISABLED'
 JOIN runtime_binding_platforms binding_platform ON binding_platform.binding_id=binding.binding_id
@@ -324,14 +310,11 @@ AND (p.platform_id='rpgmaker' AND EXISTS(
   SELECT 1 FROM rpgmaker_review_profiles rpg_profile
   JOIN rpgmaker_runtime_validations runtime_validation
     ON runtime_validation.import_item_id=i.id
-    AND runtime_validation.runtime_binding_revision=d.runtime_binding_revision
     AND runtime_validation.effective_source_snapshot_id=d.effective_source_snapshot_id
   WHERE rpg_profile.review_draft_id=d.id AND runtime_validation.launch_id IS NOT NULL
     AND runtime_validation.generation=rpg_profile.generation
     AND runtime_validation.provider_id=rpg_profile.provider_id
     AND runtime_validation.target_id=rpg_profile.target_id
-    AND runtime_validation.target_contract_sha256=rpg_profile.target_contract_sha256
-    AND runtime_validation.game_compatibility_line=rpg_profile.game_compatibility_line
     AND runtime_validation.project_fingerprint=rpg_profile.project_fingerprint
     AND runtime_validation.dependency_snapshot_sha256=rpg_profile.dependency_snapshot_sha256
 ) OR p.platform_id<>'rpgmaker' AND (v.status='READY' OR EXISTS(
@@ -339,7 +322,6 @@ AND (p.platform_id='rpgmaker' AND EXISTS(
   WHERE screenshot.import_item_id=i.id AND screenshot.validation_id=v.id
     AND screenshot.source_snapshot_id=d.effective_source_snapshot_id
     AND screenshot.provider_id=v.provider_id AND screenshot.target_id=v.target_id
-    AND screenshot.target_contract_sha256=v.target_contract_sha256
 )))
 AND v.prepublish_generation=4
 AND v.default_dos_entry IS d.default_dos_entry
@@ -356,14 +338,11 @@ FROM review_drafts draft
 JOIN rpgmaker_review_profiles profile ON profile.review_draft_id=draft.id
 JOIN rpgmaker_runtime_validations validation
   ON validation.import_item_id=draft.import_item_id
-  AND validation.runtime_binding_revision=draft.runtime_binding_revision
   AND validation.effective_source_snapshot_id=draft.effective_source_snapshot_id
   AND validation.launch_id IS NOT NULL
   AND validation.generation=profile.generation
   AND validation.provider_id=profile.provider_id
   AND validation.target_id=profile.target_id
-  AND validation.target_contract_sha256=profile.target_contract_sha256
-  AND validation.game_compatibility_line=profile.game_compatibility_line
   AND validation.dependency_snapshot_sha256=profile.dependency_snapshot_sha256
   AND validation.project_fingerprint=profile.project_fingerprint
 WHERE draft.id=?

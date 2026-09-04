@@ -170,24 +170,27 @@ class MakefileDependencyTests(unittest.TestCase):
         script = (
             REPOSITORY_ROOT / "scripts" / "acceptance" / "seed-arcade-schema-v2-launch.py"
         ).read_text(encoding="utf-8")
-        self.assertIn("revision.provider_id", script)
-        self.assertIn("provider_id,target_id,target_contract_sha256", script)
+        self.assertIn("variant.provider_id", script)
+        self.assertIn("provider_id,target_id", script)
+        self.assertNotIn("target_contract_sha256", script)
         self.assertIn('connection.execute("PRAGMA busy_timeout=30000")', script)
 
     def test_immersive_seeder_preserves_launch_content_and_provider_identity(self) -> None:
         script = (
             REPOSITORY_ROOT / "scripts" / "acceptance" / "seed-immersive-library.py"
         ).read_text(encoding="utf-8")
-        self.assertIn("revision.provider_id", script)
-        self.assertIn("game_content_revision_id", script)
-        self.assertIn("provider_id,target_id,target_contract_sha256", script)
+        self.assertIn("variant.provider_id", script)
+        self.assertIn("game_files", script)
+        self.assertIn("provider_id,target_id,bundle_sha256", script)
+        self.assertNotIn("game_content_revision_id", script)
 
     def test_review_queue_seeder_preserves_provider_validation_identity(self) -> None:
         script = (
             REPOSITORY_ROOT / "scripts" / "acceptance" / "seed-review-queue.sh"
         ).read_text(encoding="utf-8")
-        self.assertIn("provider_id,target_id,target_contract_sha256", script)
-        self.assertIn("game_compatibility_line", script)
+        self.assertIn("provider_id,target_id", script)
+        self.assertNotIn("target_contract_sha256", script)
+        self.assertNotIn("game_compatibility_line", script)
         self.assertNotIn("core_" + "artifact_id", script)
 
     def test_public_fixture_targets_cover_rpgmaker_outputs(self) -> None:

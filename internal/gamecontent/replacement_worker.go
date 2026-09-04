@@ -133,12 +133,11 @@ func (service *Service) persistPreparedReplacement(
 	jobID string,
 	snapshot jobSnapshot,
 	prepared preparedReplacement,
-	biosSnapshot corevalidation.Snapshot,
+	_ corevalidation.Snapshot,
 	dependencySnapshotJSON []byte,
 	now int64,
 ) {
 	gameID := snapshot.GameID
-	previousContentID := snapshot.BaseContentRevisionID
 	transaction, err := service.database.BeginTx(ctx, nil)
 	if err != nil {
 		service.fail(ctx, jobID, "GAME_CONTENT_DATABASE_FAILED")
@@ -151,14 +150,13 @@ func (service *Service) persistPreparedReplacement(
 	}
 	currentBinding, err := loadReplacementBinding(ctx, transaction, gameID)
 	if err != nil || !replacementBindingMatchesSnapshot(currentBinding, snapshot) ||
-		currentBinding.contentID != previousContentID ||
 		corevalidation.ContentPolicyDigest(currentBinding.contentPolicyJSON) != snapshot.TargetPolicyDigest ||
 		nullableText(currentBinding.datID) != pointerText(snapshot.DATVersionID) {
 		cleanup.Rollback(transaction)
-		service.fail(ctx, jobID, "GAME_CONTENT_SNAPSHOT_STALE")
+		service.failTerminal(ctx, jobID, "GAME_CONTENT_CHANGED")
 		return
 	}
-	unchanged, err := contentReplacementUnchanged(ctx, transaction, currentBinding.contentID, prepared)
+	unchanged, err := contentReplacementUnchanged(ctx, transaction, gameID, prepared)
 	if err != nil {
 		cleanup.Rollback(transaction)
 		service.fail(ctx, jobID, "GAME_CONTENT_DATABASE_FAILED")
@@ -169,9 +167,19 @@ func (service *Service) persistPreparedReplacement(
 		service.failUnchanged(ctx, jobID)
 		return
 	}
+	if service.payloadReleases == nil {
+		failTransaction("GAME_CONTENT_DATABASE_FAILED")
+		return
+	}
+	impact, err := service.payloadReleases.RetireCurrentGameContent(
+		ctx, transaction, gameID, snapshot.VariantID, now,
+	)
+	if err != nil {
+		failTransaction("GAME_CONTENT_DATABASE_FAILED")
+		return
+	}
 	service.writeReplacement(
-		ctx, transaction, jobID, snapshot, prepared, biosSnapshot,
-		dependencySnapshotJSON, currentBinding.datID, now, failTransaction,
+		ctx, transaction, jobID, snapshot, prepared, dependencySnapshotJSON, impact, now, failTransaction,
 	)
 }
 
@@ -181,115 +189,71 @@ func (service *Service) writeReplacement(
 	jobID string,
 	snapshot jobSnapshot,
 	prepared preparedReplacement,
-	biosSnapshot corevalidation.Snapshot,
 	dependencySnapshotJSON []byte,
-	currentDAT sql.NullString,
+	impact payloadrelease.ContentReplacementImpact,
 	now int64,
 	failTransaction func(string),
 ) {
 	gameID := snapshot.GameID
-	coreID := snapshot.CoreID
-	contentID := newID()
-	if _, err := transaction.ExecContext(ctx, `
-INSERT INTO game_content_revisions(id,
-game_id,
-content_kind,
-source_kind,
-source_ref_id,
-source_manifest_json,
-source_manifest_digest,
-created_at_ms) VALUES(?,
-?,
-?,
-'ADMIN_REPLACE',
-?,
-?,
-?,
-?)
-	`,
-		contentID, gameID, prepared.contentKind, jobID,
-		string(prepared.manifest), prepared.manifestDigest, now,
-	); err != nil {
-		failTransaction("GAME_CONTENT_DATABASE_FAILED")
-		return
-	}
-	if err := persistReplacementFiles(ctx, transaction, contentID, prepared.files); err != nil {
-		failTransaction("GAME_CONTENT_DATABASE_FAILED")
-		return
-	}
-	variantID, err := ensureReplacementVariant(ctx, transaction, gameID, coreID, now)
+	gameResult, err := transaction.ExecContext(ctx, `
+UPDATE games SET content_kind=?,content_source_kind='ADMIN_REPLACE',content_source_ref_id=?,
+ source_manifest_json=?,source_manifest_digest=?,version=version+1,updated_at_ms=?
+WHERE id=? AND version=? AND source_manifest_digest=? AND status='PUBLISHED'
+`, prepared.contentKind, jobID, string(prepared.manifest), prepared.manifestDigest, now,
+		gameID, snapshot.GameVersion, snapshot.BaseManifestDigest)
 	if err != nil {
 		failTransaction("GAME_CONTENT_DATABASE_FAILED")
 		return
 	}
-	var emulatorGameID int64
-	if err := transaction.QueryRowContext(ctx, `
-SELECT COALESCE(MAX(emulator_game_id),
-1000)+1
-FROM game_variant_revisions
-`).Scan(&emulatorGameID); err != nil {
+	if changed, _ := gameResult.RowsAffected(); changed != 1 {
+		failTransaction("GAME_CONTENT_CHANGED")
+		return
+	}
+	if _, err := transaction.ExecContext(ctx, `DELETE FROM game_files WHERE game_id=?`, gameID); err != nil {
 		failTransaction("GAME_CONTENT_DATABASE_FAILED")
 		return
 	}
-	revisionID := newID()
-	validationInputDigest, err := replacementValidationDigest(
-		snapshot, prepared, biosSnapshot, variantID, contentID, currentDAT,
-	)
-	if err != nil {
+	if err := persistReplacementFiles(ctx, transaction, gameID, prepared.files); err != nil {
 		failTransaction("GAME_CONTENT_DATABASE_FAILED")
 		return
 	}
-	if _, err := transaction.ExecContext(ctx, `
-INSERT INTO game_variant_revisions(id,
-game_variant_id,
-game_content_revision_id,
-provider_id,
-target_id,
-target_contract_sha256,
-game_compatibility_line,
-dat_version_id,
-validation_input_digest,
-emulator_game_id,
-status,
-compatibility_code,
-dependency_snapshot_json,
-created_at_ms) VALUES(?,
-?,
-?,
-?,
-?,
-?,
-?,
-?,
-?,
-?,
-'READY',
-'READY',
-?,
-?)
-`,
-		revisionID,
-		variantID,
-		contentID,
-		snapshot.ProviderID,
-		snapshot.TargetID,
-		snapshot.TargetContractSHA256,
-		snapshot.GameCompatibilityLine,
-		nullableValue(snapshot.DATVersionID),
-		validationInputDigest,
-		emulatorGameID,
-		string(dependencySnapshotJSON),
-		now,
+	if _, err := transaction.ExecContext(
+		ctx, `DELETE FROM variant_files WHERE game_variant_id=?`, snapshot.VariantID,
 	); err != nil {
 		failTransaction("GAME_CONTENT_DATABASE_FAILED")
 		return
 	}
-	if err := service.attachReplacementPlaylist(ctx, transaction, revisionID, prepared, now); err != nil {
+	if _, err := transaction.ExecContext(
+		ctx, `DELETE FROM variant_dependencies WHERE game_variant_id=?`, snapshot.VariantID,
+	); err != nil {
+		failTransaction("GAME_CONTENT_DATABASE_FAILED")
+		return
+	}
+	if err := service.attachReplacementPlaylist(ctx, transaction, snapshot.VariantID, prepared, now); err != nil {
+		failTransaction("GAME_CONTENT_DATABASE_FAILED")
+		return
+	}
+	variantResult, err := transaction.ExecContext(ctx, `
+UPDATE game_variants SET provider_id=?,target_id=?,dat_version_id=?,status='READY',
+ compatibility_code='READY',dependency_snapshot_json=?,version=version+1,updated_at_ms=?
+WHERE id=? AND game_id=?
+`, snapshot.ProviderID, snapshot.TargetID, nullableValue(snapshot.DATVersionID),
+		string(dependencySnapshotJSON), now, snapshot.VariantID, gameID)
+	if err != nil {
+		failTransaction("GAME_CONTENT_DATABASE_FAILED")
+		return
+	}
+	if changed, _ := variantResult.RowsAffected(); changed != 1 {
+		failTransaction("GAME_CONTENT_CHANGED")
+		return
+	}
+	if err := service.payloadReleases.StageCandidates(ctx, transaction, impact.CandidateBlobIDs); err != nil {
 		failTransaction("GAME_CONTENT_DATABASE_FAILED")
 		return
 	}
 	service.finishReplacement(
-		ctx, transaction, jobID, snapshot, contentID, variantID, revisionID, now, failTransaction,
+		ctx, transaction, jobID, snapshot, prepared.manifestDigest, impact.SaveStateCount,
+		failTransaction,
 	)
 }
 
@@ -298,58 +262,11 @@ func (service *Service) finishReplacement(
 	transaction *sql.Tx,
 	jobID string,
 	snapshot jobSnapshot,
-	contentID, variantID, revisionID string,
-	now int64,
+	manifestDigest string,
+	retiredSaveStateCount int64,
 	failTransaction func(string),
 ) {
 	gameID := snapshot.GameID
-	previousContentID := snapshot.BaseContentRevisionID
-	if _, err := transaction.ExecContext(ctx, `
-UPDATE game_variants
-SET current_revision_id=?,
-version=version+1,
-updated_at_ms=?
-WHERE id=?
-`, revisionID, now, variantID); err != nil {
-		failTransaction("GAME_CONTENT_DATABASE_FAILED")
-		return
-	}
-	gameResult, err := transaction.ExecContext(
-		ctx,
-		`
-UPDATE games
-SET current_content_revision_id=?,
-version=version+1,
-updated_at_ms=?
-WHERE id=?
-AND current_content_revision_id=?
-AND version=?
-`,
-		contentID,
-		now,
-		gameID,
-		previousContentID,
-		snapshot.GameVersion,
-	)
-	if err != nil {
-		failTransaction("GAME_CONTENT_DATABASE_FAILED")
-		return
-	}
-	if changed, _ := gameResult.RowsAffected(); changed != 1 {
-		failTransaction("GAME_CONTENT_SNAPSHOT_STALE")
-		return
-	}
-	if service.payloadReleases == nil {
-		failTransaction("GAME_CONTENT_DATABASE_FAILED")
-		return
-	}
-	impact, err := service.payloadReleases.RetireSupersededGameContent(
-		ctx, transaction, gameID, contentID, now,
-	)
-	if err != nil {
-		failTransaction("GAME_CONTENT_DATABASE_FAILED")
-		return
-	}
 	finished := service.now().UnixMilli()
 	jobResult, err := transaction.ExecContext(
 		ctx,
@@ -391,10 +308,8 @@ created_at_ms) VALUES(?,
 `,
 		jobID,
 		gameID,
-		fmt.Sprintf(
-			`{"contentRevisionId":%q,"variantRevisionId":%q,"retiredSaveStateCount":%d}`,
-			contentID, revisionID, impact.SaveStateCount,
-		),
+		fmt.Sprintf(`{"gameId":%q,"gameVariantId":%q,"manifestDigest":%q,"retiredSaveStateCount":%d}`,
+			gameID, snapshot.VariantID, manifestDigest, retiredSaveStateCount),
 		finished,
 	); err != nil {
 		failTransaction("GAME_CONTENT_DATABASE_FAILED")
@@ -402,7 +317,7 @@ created_at_ms) VALUES(?,
 	}
 	var consumptionID string
 	if err := transaction.QueryRowContext(ctx, `
-SELECT id FROM upload_consumptions WHERE consumer_type='GAME_FILE_REVISION_JOB' AND consumer_id=?
+	SELECT id FROM upload_consumptions WHERE consumer_type='GAME_CONTENT_REPLACE_JOB' AND consumer_id=?
 `, jobID).Scan(&consumptionID); err != nil {
 		failTransaction("GAME_CONTENT_DATABASE_FAILED")
 		return
@@ -415,7 +330,9 @@ SELECT id FROM upload_consumptions WHERE consumer_type='GAME_FILE_REVISION_JOB' 
 		service.fail(ctx, jobID, "GAME_CONTENT_DATABASE_FAILED")
 		return
 	}
-	service.payloadReleases.Signal()
+	if service.payloadReleases != nil {
+		service.payloadReleases.Signal()
+	}
 }
 
 func persistReplacementFiles(
@@ -426,7 +343,7 @@ func persistReplacementFiles(
 ) error {
 	for _, value := range files {
 		if _, err := transaction.ExecContext(ctx, `
-INSERT INTO game_content_files(game_content_revision_id,
+INSERT INTO game_files(game_id,
 role,
 logical_name,
 blob_id,
@@ -442,49 +359,10 @@ sort_order) VALUES(?,
 	return nil
 }
 
-func ensureReplacementVariant(
-	ctx context.Context,
-	transaction *sql.Tx,
-	gameID, coreID string,
-	now int64,
-) (string, error) {
-	var variantID string
-	err := transaction.QueryRowContext(ctx, `
-SELECT id
-FROM game_variants
-WHERE game_id=?
-AND core_id=?
-`, gameID, coreID).
-		Scan(&variantID)
-	if errors.Is(err, sql.ErrNoRows) {
-		variantID = newID()
-		if _, err := transaction.ExecContext(ctx, `
-INSERT INTO game_variants(id,
-game_id,
-core_id,
-current_revision_id,
-version,
-created_at_ms,
-updated_at_ms) VALUES(?,
-?,
-?,
-NULL,
-1,
-?,
-?)
-`, variantID, gameID, coreID, now, now); err != nil {
-			return "", fmt.Errorf("create replacement variant: %w", err)
-		}
-	} else if err != nil {
-		return "", fmt.Errorf("find replacement variant: %w", err)
-	}
-	return variantID, nil
-}
-
 func (service *Service) attachReplacementPlaylist(
 	ctx context.Context,
 	transaction *sql.Tx,
-	revisionID string,
+	variantID string,
 	prepared preparedReplacement,
 	now int64,
 ) error {
@@ -498,47 +376,10 @@ func (service *Service) attachReplacementPlaylist(
 		return fmt.Errorf("register replacement playlist: %w", err)
 	}
 	if _, err := transaction.ExecContext(ctx, `
-INSERT INTO variant_files(game_variant_revision_id,role,logical_name,blob_id,sort_order)
+INSERT INTO variant_files(game_variant_id,role,logical_name,blob_id,sort_order)
 VALUES(?,'MULTI_DISC_PLAYLIST','playlist.m3u',?,0)
-`, revisionID, playlistBlobID); err != nil {
+`, variantID, playlistBlobID); err != nil {
 		return fmt.Errorf("attach replacement playlist: %w", err)
 	}
 	return nil
-}
-
-func replacementValidationDigest(
-	snapshot jobSnapshot,
-	prepared preparedReplacement,
-	biosSnapshot corevalidation.Snapshot,
-	variantID, contentID string,
-	currentDAT sql.NullString,
-) (string, error) {
-	if prepared.contentKind != multidisc.ContentKind {
-		digest, err := corevalidation.ProviderValidationInputDigest(
-			snapshot.ProviderID, snapshot.TargetID, snapshot.TargetContractSHA256,
-			snapshot.GameCompatibilityLine, contentID, currentDAT, biosSnapshot,
-		)
-		if err != nil {
-			return "", fmt.Errorf("digest replacement validation input: %w", err)
-		}
-		return digest, nil
-	}
-	biosDigest, err := corevalidation.BIOSDependencyDigest(biosSnapshot)
-	if err != nil {
-		return "", fmt.Errorf("digest replacement BIOS dependencies: %w", err)
-	}
-	digest, err := corevalidation.MultiDiscValidationInputDigest(corevalidation.MultiDiscValidationInput{
-		GameVariantID: variantID, GameContentRevisionID: contentID,
-		ContentKind: prepared.contentKind, ProviderID: snapshot.ProviderID, TargetID: snapshot.TargetID,
-		TargetContractSHA256:  snapshot.TargetContractSHA256,
-		GameCompatibilityLine: snapshot.GameCompatibilityLine,
-		ContentPolicySHA256:   snapshot.TargetPolicyDigest,
-		DATVersionID:          currentDAT, BIOSDependencySHA256: biosDigest,
-		OrderedDiscSHA256:       prepared.orderedDiscSHA256,
-		CanonicalPlaylistSHA256: prepared.canonicalPlaylist.SHA256,
-	})
-	if err != nil {
-		return "", fmt.Errorf("digest multi-disc replacement validation input: %w", err)
-	}
-	return digest, nil
 }
