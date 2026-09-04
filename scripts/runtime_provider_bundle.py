@@ -10,7 +10,10 @@ import tempfile
 from pathlib import Path, PurePosixPath
 from typing import Any
 
-from runtime_provider_contract import validate_provider_manifest
+if __package__:
+    from scripts.runtime_provider_contract import validate_provider_manifest
+else:
+    from runtime_provider_contract import validate_provider_manifest
 
 
 LOCK_KEYS = {
