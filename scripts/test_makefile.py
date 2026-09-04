@@ -240,14 +240,14 @@ class MakefileDependencyTests(unittest.TestCase):
         entrypoint = (REPOSITORY_ROOT / "scripts/pfb/entrypoint.sh").read_text(
             encoding="utf-8"
         )
-        self.assertIn(
-            "make dev GO_PREPARE_MODE=system NODE_PREPARE_MODE=system",
-            entrypoint,
-        )
+        self.assertIn("/workspace/retrom/scripts/dev.sh", entrypoint)
+        self.assertIn("pfb-provider-watch.mjs", entrypoint)
+        self.assertNotIn("make dev", entrypoint)
         for target in (
             "pfb-init", "pfb-validate", "pfb-build", "pfb-up", "pfb-use",
             "pfb-restart", "pfb-down", "pfb-status", "pfb-logs", "pfb-verify",
-            "pfb-prune", "pfb-destroy", "pfb-gateway-up", "pfb-gateway-down",
+            "pfb-core-build", "pfb-provider-import", "pfb-migrate-storage", "pfb-data-reset", "pfb-remove",
+            "pfb-destroy", "pfb-gateway-up", "pfb-gateway-down",
         ):
             output = self.dry_run(target)
             self.assertLess(

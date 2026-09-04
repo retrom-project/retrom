@@ -199,9 +199,9 @@ Provider 激活只向前：允许更高版本在兼容线和 checkpoint 可读�
 
 普通开发入口 `make dev` 继续只启动宿主 Go 与 Next 进程，默认从 `http://localhost:4000` 访问，两个进程分别只监听 `127.0.0.1:8080` 与 `127.0.0.1:4000`。本机开发不依赖外部 DNS、TLS 证书或远程反向代理；生产同源 HTTPS 与 TLS 终结边界不变。普通开发与 PFB 命令都拒绝 root/sudo，全部长期运行进程或容器显式沿用发起命令的普通用户 UID/GID。
 
-需要并行验证多个功能分支时使用独立 PFB 命令族。每个 PFB 对应独立 Git worktree、应用容器、数据代际、CAS、secret、候选依赖和构建 cache，所有 PFB 共享唯一绑定 `127.0.0.1:3000` 的本机开发网关。规范应用 origin 是 `http://<pfb-id>.localhost:3000`，每 Launch runtime origin 是 `http://<launch-id>.rpg.<pfb-id>.localhost:3000`；两者共享同一 schemeful site 以携带严格 runtime capability cookie，但仍保持逐 Launch 独立 origin。裸 localhost只重定向到显式选中的 PFB。网关根据严格 Host映射 Docker 网络别名，不接收分支原文，不提供未知 Host fallback，也不向局域网发布端口。
+需要并行验证多个功能分支时使用独立 PFB 命令族。每个 PFB 对应同一棵Git worktree、应用容器和worktree本地`.pfb/workspace`，其中隔离数据库/CAS/secret、Provider开发层与构建cache；所有PFB共享唯一绑定`127.0.0.1:3000`的本机开发网关。规范应用origin是`http://<pfb-id>.localhost:3000`，每Launch runtime origin是`http://<launch-id>.rpg.<pfb-id>.localhost:3000`；两者共享同一schemeful site以携带严格runtime capability cookie，但仍保持逐Launch独立origin。裸localhost只重定向到显式选中的PFB。网关根据严格Host映射Docker网络别名，不接收分支原文，不提供unknown Host fallback，也不向局域网发布端口。
 
-PFB candidate 只用于 test 模式的发布前产品联调。分支 core 仍由各 fork 构建，`retrom-runtime` 聚合，Retrom 只消费聚合候选；候选锁记录 source/output 摘要并参与数据代际，不能进入正式 manifest、release-input digest、生产镜像或 tag workflow。正式晋升仍按 core Release、runtime Release、Retrom 正式 pin 的顺序进行，并以解除 candidate 后重跑同一产品 Case 为准。
+PFB只用于test模式的发布前产品联调，不承担候选归档。Retrom/runtime源码直接bind mount；runtime watcher只生成按revision验证的loose模块/本地adapter资源，core只由显式命令构建。loose开发层不能进入正式manifest、release-input digest、生产镜像或tag workflow。正式晋升仍按core Release、runtime Release、Retrom production pin顺序进行，并以从正式Provider安装重跑同一产品Case为准。
 
 ## 4. 系统上下文
 

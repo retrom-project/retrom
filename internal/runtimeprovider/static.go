@@ -64,7 +64,8 @@ var (
 )
 
 type staticHandler struct {
-	files map[string]staticFile
+	files    map[string]staticFile
+	devFiles map[string]staticFile
 }
 
 type staticFile struct {
@@ -79,11 +80,20 @@ func NewStaticHandler(
 	active runtimebundle.ActiveDescriptor,
 	integrityByProvider map[string][]runtimebundle.IntegrityFile,
 ) (http.Handler, error) {
+	return newStaticHandler(installedRoot, active, integrityByProvider, nil)
+}
+
+func newStaticHandler(
+	installedRoot string,
+	active runtimebundle.ActiveDescriptor,
+	integrityByProvider map[string][]runtimebundle.IntegrityFile,
+	development *devProvider,
+) (http.Handler, error) {
 	root, err := filepath.Abs(installedRoot)
 	if err != nil {
 		return nil, installationInvalid(err)
 	}
-	result := &staticHandler{files: make(map[string]staticFile)}
+	result := &staticHandler{files: make(map[string]staticFile), devFiles: make(map[string]staticFile)}
 	providerIDs := make(map[string]bool, len(active.Providers))
 	for _, provider := range active.Providers {
 		if providerIDs[provider.ProviderID] {
@@ -105,6 +115,15 @@ func NewStaticHandler(
 	}
 	if len(providerIDs) != len(integrityByProvider) {
 		return nil, ErrInstallationInvalid
+	}
+	if development != nil {
+		for path, file := range development.files {
+			key := development.providerID + "\x00" + development.bundleSHA + "\x00" + path
+			if _, exists := result.files[key]; !exists {
+				return nil, ErrInstallationInvalid
+			}
+			result.devFiles[key] = file
+		}
 	}
 	return result, nil
 }
@@ -186,7 +205,12 @@ func (handler *staticHandler) ServeHTTP(writer http.ResponseWriter, request *htt
 		http.NotFound(writer, request)
 		return
 	}
-	file, exists := handler.files[providerID+"\x00"+bundleDigest+"\x00"+path]
+	key := providerID + "\x00" + bundleDigest + "\x00" + path
+	file, development := handler.devFiles[key]
+	if !development {
+		file = handler.files[key]
+	}
+	exists := file.path != ""
 	if !exists {
 		http.NotFound(writer, request)
 		return
@@ -203,7 +227,11 @@ func (handler *staticHandler) ServeHTTP(writer http.ResponseWriter, request *htt
 		return
 	}
 	defer func() { cleanup.Error("close provider body", body.Close()) }()
-	writer.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+	if development {
+		writer.Header().Set("Cache-Control", "no-store")
+	} else {
+		writer.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+	}
 	writer.Header().Set("Content-Type", file.mediaType)
 	writer.Header().Set("ETag", `"`+file.sha256+`"`)
 	writer.Header().Set("X-Content-Type-Options", "nosniff")

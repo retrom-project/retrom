@@ -43,7 +43,6 @@ var (
 	errAdminArgument   = errors.New("ADMIN_RESET_ARGUMENT_INVALID")
 	errCommand         = errors.New("COMMAND_INVALID")
 	errTerminal        = errors.New("TERMINAL_DESCRIPTOR_INVALID")
-	errPFBCandidate    = errors.New("PFB_CANDIDATE_PROVIDER_REQUIRED")
 	errProduction      = errors.New("PRODUCTION_PROVIDER_REQUIRED")
 )
 
@@ -365,7 +364,7 @@ func bootstrapServerResources(
 	}
 	result.runtimeProviders, err = runtimeprovider.LoadInstallation(runtimeprovider.Paths{
 		ActivePath: configuration.ProviderActivePath, InstalledRoot: configuration.ProviderInstalledRoot,
-		CatalogPath: configuration.RuntimeTargetCatalogPath,
+		CatalogPath: configuration.RuntimeTargetCatalogPath, DevRoot: configuration.ProviderDevRoot,
 	})
 	if err != nil {
 		return result, fmt.Errorf("verify runtime provider installation: %w", err)
@@ -399,9 +398,6 @@ func bootstrapServerResources(
 }
 
 func validateRuntimeProviderSource(configuration config.Config, installation runtimeprovider.Installation) error {
-	if configuration.PFBID != "" && installation.Active.Source != "candidate" {
-		return errPFBCandidate
-	}
 	if configuration.Mode == config.ModeRelease && installation.Active.Source != "production" {
 		return errProduction
 	}

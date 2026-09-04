@@ -64,7 +64,8 @@ API_GO_GENERATED := internal/httpapi/generated/models.gen.go internal/httpapi/ge
 	build-web-image build-images acceptance-prepare acceptance-case acceptance-report \
 	runtime-provider-prepare runtime-provider-prepare-candidate runtime-provider-check runtime-provider-pin-release runtime-provider-verify-upgrade \
 	runtime-provider-prepare-auto \
-	require-local-user pfb-init pfb-validate pfb-build pfb-up pfb-use pfb-restart pfb-down pfb-status pfb-logs pfb-verify pfb-prune pfb-destroy pfb-gateway-up pfb-gateway-down
+	require-local-user pfb-init pfb-validate pfb-build pfb-up pfb-use pfb-restart pfb-down pfb-status pfb-logs pfb-verify \
+	pfb-core-build pfb-provider-import pfb-migrate-storage pfb-data-reset pfb-remove pfb-destroy pfb-gateway-up pfb-gateway-down
 
 .NOTPARALLEL: dev
 
@@ -293,13 +294,17 @@ pfb-logs: require-local-user
 	@test -n "$(PFB)" || { echo 'PFB is required' >&2; exit 2; }
 	@python3 -m scripts.pfb.cli logs --root "$(CURDIR)" --pfb "$(PFB)" --service "$(or $(SERVICE),all)"
 
-pfb-prune: require-local-user
-	@test -n "$(PFB)" && test -n "$(KEEP)" && test -n "$(CONFIRM)" || { echo 'PFB, KEEP and CONFIRM are required' >&2; exit 2; }
-	@python3 -m scripts.pfb.cli prune --root "$(CURDIR)" --pfb "$(PFB)" --keep "$(KEEP)" --confirm "$(CONFIRM)"
+pfb-core-build: require-local-user
+	@test -n "$(PFB)" && test -n "$(CORE)" || { echo 'PFB and CORE is required' >&2; exit 2; }
+	@python3 -m scripts.pfb.cli core-build --root "$(CURDIR)" --pfb "$(PFB)" --core "$(CORE)"
 
-pfb-destroy: require-local-user
+pfb-provider-import: require-local-user
+	@test -n "$(PFB)" && test -n "$(SOURCE_ROOT)" && test -n "$(CONFIRM)" || { echo 'PFB, SOURCE_ROOT and CONFIRM are required' >&2; exit 2; }
+	@python3 -m scripts.pfb.cli provider-import --root "$(CURDIR)" --pfb "$(PFB)" --source-root "$(SOURCE_ROOT)" --confirm "$(CONFIRM)"
+
+pfb-migrate-storage pfb-data-reset pfb-remove pfb-destroy: require-local-user
 	@test -n "$(PFB)" && test -n "$(CONFIRM)" || { echo 'PFB and CONFIRM are required' >&2; exit 2; }
-	@python3 -m scripts.pfb.cli destroy --root "$(CURDIR)" --pfb "$(PFB)" --confirm "$(CONFIRM)"
+	@python3 -m scripts.pfb.cli "$(@:pfb-%=%)" --root "$(CURDIR)" --pfb "$(PFB)" --confirm "$(CONFIRM)"
 
 pfb-gateway-up pfb-gateway-down: require-local-user
 	@python3 -m scripts.pfb.cli "$(@:pfb-%=%)" --root "$(CURDIR)"

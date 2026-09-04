@@ -62,13 +62,13 @@ Provider 安装和数据库 reconcile 在对外 ready 之前完成。激活事�
 
 不提供降级、回滚或旧 Bundle fallback。升级失败保持服务未 ready，由部署者修复新输入并继续向前。
 
-## 6. Candidate 与 production
+## 6. PFB 开发层与 production
 
-PFB candidate 只由命名 worktree 中的 Retrom、`retrom-runtime` 和 core worktree 构建。PFB spec 固定各仓库 commit、dirty/source tree digest 和必要的本地 core source；构建前后都校验 stale，不能混入 baseline checkout 或另一个 PFB 的文件。
+PFB 只消费同一命名 worktree 中的 Retrom 与 `retrom-runtime` 源码，不再构建或锁定完整 candidate Bundle。workspace 中已安装的基座 Provider 必须先通过正式 Bundle schema、integrity、Target contract 与静态文件验证；runtime watcher 从基座读取 asset index/Target digest，只重建 `client.mjs` 和 `provider-sources.json` 已声明的本地 adapter 资源。
 
-candidate descriptor 可以覆盖 `provider-sources.json` 已声明的上游来源，但不能注入未声明 Target、改写 Retrom binding 或伪造正式 Release 坐标。candidate Bundle 存放在 PFB 专用目录，由 PFB lock V2 引用。
+loose descriptor 只能覆盖同一 provider/base bundle 中已有的公开路径，不能注入 Target、改写 Retrom binding、伪造 Release 坐标或替换未知大体积 core。Go 启动逐文件验证 size/SHA-256/media type与内容revision，并只在合法test PFB中接受；release 和普通非 PFB 进程拒绝 `RETROM_PROVIDER_DEV_ROOT`。
 
-production lock 只接受已授权的正式 Provider archive、descriptor 和 SHA-256。正式 `provider:build/provider:check/release:build` 发现 candidate 输入时必须失败；PFB 构建也不得误用 production lock。两种锁都引用同一 Bundle schema和验证器，不存在功能不同的开发 manifest。
+production lock 仍只接受已授权的正式 Provider archive、descriptor 和 SHA-256。正式 `provider:build/provider:check/release:build`、release input digest与双镜像不读取 `.pfb/`，也不能消费loose descriptor。PFB产品验证与正式归档/许可/确定性构建是两条互补门禁，PFB PASS不构成发布授权。
 
 ## 7. 镜像与 release input digest
 
@@ -81,9 +81,9 @@ Retrom 镜像构建输入必须包含：
 - OpenAPI 与 Launch Envelope schema；
 - Web build dependencies。
 
-`release-input-digest` 对上述输入做规范摘要。Docker build、后端启动日志、PFB lock 和验收证据必须报告同一 Provider identity。镜像内只复制已验证的 Provider stage，不在 build 时从网络解析 `latest`，也不允许运行容器从宿主源码目录补文件。
+`release-input-digest` 对上述输入做规范摘要。Docker build和后端启动日志必须报告同一生产Provider identity；PFB evidence另报告基座identity与dev revision，不能冒充release digest。镜像内只复制已验证的Provider stage，不在build时从网络解析`latest`，也不允许运行容器从宿主源码目录补文件。
 
-正式 release 可以因为尚未授权发布资产而暂不可执行；这不允许用 candidate 冒充 production。PFB 验收使用 candidate，正式发布授权后再生成 production lock 并重跑完全相同的验证链。
+正式 release 可以因为尚未授权发布资产而暂不可执行；这不允许用PFB loose开发层冒充production。正式发布授权后生成production lock，并重跑归档完整性、确定性和受影响的相同产品链。
 
 ## 8. DAT 与 BIOS
 
@@ -127,7 +127,7 @@ Retrom:
   make web-lint web-typecheck web-test web-build
 ```
 
-Provider archive 必须连续构建两次并比较 digest。PFB 另执行 `pfb-validate/build/up/verify` 和 `ACC-PROVIDER-001..008`。任何 schema、Target 数量、binding、digest、许可、来源、candidate/production 隔离或只前进规则失败都属于阻断错误。
+Provider archive 必须连续构建两次并比较digest。PFB另执行`pfb-validate/build/up/verify`、loose boundary与`ACC-PROVIDER-001..008`。任何schema、Target数量、binding、digest、许可、来源、PFB/production隔离或只前进规则失败都属于阻断错误。
 
 ## 11. 追溯与日志
 

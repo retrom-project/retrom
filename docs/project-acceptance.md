@@ -277,7 +277,7 @@ make acceptance-case CASE=<case-id>
 
 - 上限：120 秒。
 - 执行：`make acceptance-case CASE=ACC-PFB-001`。
-- 通过标准：名称到短 slug+12hex 的向量稳定；unknown field、非法/碰撞ID、symlink/home/root、非worktree、detached HEAD与branch漂移全部以稳定码拒绝；registry采用owner-only锁和原子替换且不保存secret或候选bytes。
+- 通过标准：名称到短 slug+12hex 的向量稳定；unknown field、非法/碰撞ID、symlink/home/root、非worktree与detached HEAD全部以稳定码拒绝；registry采用owner-only锁和原子替换且不保存secret、业务数据或Provider字节。
 
 ### ACC-PFB-002：普通 localhost 开发回归与 PFB 端口隔离
 
@@ -315,35 +315,35 @@ make acceptance-case CASE=<case-id>
 - 执行：`make acceptance-case CASE=ACC-PFB-007`。
 - 通过标准：`<launch>.rpg.<pfb>.localhost:3000` exact origin成功且只服务 `/__retrom/*`，与 `<pfb>.localhost:3000` 同 site 但不同 origin；跨PFB Host/cookie/ticket/capability、错误UUID/port/path均拒绝，应用origin不执行用户项目脚本。
 
-### ACC-PFB-008：既有 core 分支候选
+### ACC-PFB-008：runtime watcher 与 cache revision
 
 - 上限：900 秒。
 - 执行：`make acceptance-case CASE=ACC-PFB-008`。
-- 通过标准：core descriptor、runtime aggregate、Retrom overlay和实际artifact identity逐字节一致；候选经过fresh数据的真实导入、审核预览、发布、Launch、输入、checkpoint、不同Launch恢复与恢复后输入。
+- 通过标准：修改已纳入bundle的runtime adapter后，只重建loose `client.mjs`/本地adapter资源并原子改变revision；不运行`npm ci`、Provider tar、all-provider/core builder或镜像build。轻量restart后Launch使用新module SHA，静态响应`no-store`，真实导入、审核预览、发布、Launch、输入、checkpoint/恢复产品链通过。
 
-### ACC-PFB-009：新增 core 候选闭集
+### ACC-PFB-009：显式 core build 闭集
 
 - 上限：900 秒。
 - 执行：`make acceptance-case CASE=ACC-PFB-009`。
-- 通过标准：不改正式manifest即可由reviewable candidate declaration完成真实产品链；unknown route、fallback、缺ABI/checkpoint/descriptor或正式命令发现candidate声明均失败关闭。
+- 通过标准：init/build/up/restart和文档/Go/Web/runtime adapter变化都不调用core builder；只有`pfb-core-build CORE=<known-id>`构建一个精确core。unknown core、缺wrapper/descriptor/ABI或跨PFB路径失败关闭；构建结果不能自动进入production lock或Release。
 
-### ACC-PFB-010：候选锁与数据代际
+### ACC-PFB-010：workspace 持久性、迁移与数据操作
 
 - 上限：240 秒。
 - 执行：`make acceptance-case CASE=ACC-PFB-010`。
-- 通过标准：source dirty bytes、candidate output、spec或migration任一变化使旧锁STALE并派生新data volume；旧代际不自动删除，错误代际不能强制复用。
+- 通过标准：数据库/CAS/上传/secret/provider/cache固定在当前worktree `.pfb/workspace`，源码和provider revision变化不切换数据；down/up/restart后账号、Game、Save、ID和URL保持。旧命名卷只读复制到同FS staging、内容指纹一致后原子发布，重复迁移幂等且源卷保留；data-reset先归档，remove保留workspace，destroy只在exact ID下删除`.pfb/`且不删除Git worktree/branch/旧卷。
 
-### ACC-PFB-011：正式路径防污染
+### ACC-PFB-011：loose provider 与正式路径隔离
 
 - 上限：900 秒。
 - 执行：`make acceptance-case CASE=ACC-PFB-011`。
-- 通过标准：`data-check`、`deps-check`、release-input digest、双镜像和tag/release流程对任一candidate marker均以稳定码失败；正式镜像、metadata和notice不包含PFB字段、路径或候选bytes。
+- 通过标准：loose root只在`RETROM_MODE=test`、合法匹配PFB ID/origin时接受；release、缺PFB ID、错误origin、unknown/base mismatch、路径/size/hash/revision漂移全部失败关闭。`data-check`、`deps-check`、release-input digest、双镜像和tag/release流程不读取`.pfb/`；正式镜像、metadata和notice不包含PFB路径或loose字节。
 
-### ACC-PFB-012：core→runtime→Retrom 晋升闭环
+### ACC-PFB-012：轻量开发循环与发布流程独立
 
 - 上限：1800 秒。
 - 执行：`make acceptance-case CASE=ACC-PFB-012`。
-- 通过标准：core与runtime不可移动正式tag发布后，Retrom解除candidate、固定正式pin、从全新依赖根重验同一产品Case与双镜像；PFB候选不进入正式Git、依赖、digest或镜像。
+- 通过标准：`pfb-up`使用`--no-build`，`pfb-restart`只restart；Web变化由HMR可见，Go变化在restart后可见，runtime adapter变化只改变dev revision，纯文档变化不触发runtime/toolchain构建。两个PFB可并行且互不影响。正式core/runtime不可移动tag与Retrom production pin继续走原有独立归档、许可、确定性、全新依赖根和双镜像验证；PFB开发层不进入正式Git输入、digest或镜像。
 
 ## 6. 数据库、CAS、安全、API 与运维
 
@@ -1502,7 +1502,7 @@ ID。没有实体设备时自动化 Case 可以 PASS，但沉浸模式发布验�
 
 ## 22. Runtime Provider 架构
 
-以下八项是 Provider 架构的固定验收入口，统一执行 `make acceptance-case CASE=ACC-PROVIDER-NNN`。每项只调用列出的聚焦检查；PFB 产品验收另执行本节之后受影响的既有产品 Case。正式发布资产尚未获授权时，006 使用 candidate 与发布流程 fixture，不伪造 production lock。
+以下八项是 Provider 架构的固定验收入口，统一执行 `make acceptance-case CASE=ACC-PROVIDER-NNN`。每项只调用列出的聚焦检查；PFB 产品验收另执行本节之后受影响的既有产品 Case。正式发布资产尚未获授权时，006 使用发布流程 fixture，不用PFB loose开发层伪造production lock。
 
 ### ACC-PROVIDER-001：Bundle 完整性与确定性
 
@@ -1526,7 +1526,7 @@ ID。没有实体设备时自动化 Case 可以 PASS，但沉浸模式发布验�
 
 ### ACC-PROVIDER-006：Candidate、镜像与发布边界
 
-- 上限：900 秒。证明 candidate/production 隔离、PFB source stale 检测、release input digest 和镜像 active identity 使用同一 Provider 输入。
+- 上限：900 秒。证明 PFB loose/production 隔离、release input digest 和镜像 active identity 使用同一生产Provider输入，且正式流程不读取`.pfb/`。
 
 ### ACC-PROVIDER-007：EmulatorJS 行为闭包
 

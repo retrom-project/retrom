@@ -30,6 +30,7 @@ type Paths struct {
 	ActivePath    string
 	InstalledRoot string
 	CatalogPath   string
+	DevRoot       string
 }
 
 // Installation is the completely verified runtime snapshot used by one
@@ -54,6 +55,7 @@ func LoadInstallation(paths Paths) (Installation, error) {
 	if err != nil {
 		return Installation{}, installationInvalid(err)
 	}
+	baseActive := active
 	root, err := filepath.Abs(paths.InstalledRoot)
 	if err != nil {
 		return Installation{}, installationInvalid(err)
@@ -61,6 +63,14 @@ func LoadInstallation(paths Paths) (Installation, error) {
 	manifests, integrityByProvider, err := loadInstalledProviders(root, active)
 	if err != nil {
 		return Installation{}, err
+	}
+	var development *devProvider
+	if paths.DevRoot != "" {
+		development, err = loadDevProvider(paths.DevRoot, active)
+		if err != nil {
+			return Installation{}, err
+		}
+		active = development.apply(active)
 	}
 	catalogContents, err := readMetadata(paths.CatalogPath)
 	if err != nil {
@@ -78,7 +88,7 @@ func LoadInstallation(paths Paths) (Installation, error) {
 	if err != nil {
 		return Installation{}, installationInvalid(err)
 	}
-	handler, err := NewStaticHandler(root, active, integrityByProvider)
+	handler, err := newStaticHandler(root, baseActive, integrityByProvider, development)
 	if err != nil {
 		return Installation{}, err
 	}

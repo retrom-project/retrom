@@ -219,7 +219,7 @@ OpenAPI、后端、集成、前端、结构、公开 fixture、data/dependency�
 3. 将 clean 001–010 migration、OpenAPI、Go catalog/launch/save/netplay 和全部领域引用原子切换为 Provider/Target/contract digest；旧开发数据库拒绝并重建，不做降级或转换。
 4. 所有运行入口只返回 Launch Envelope V1；Web 只经共享 dispatcher 加载 Provider module 并操作 `PlayerRuntimeV1`，不保留第二个 registry 或 family factory。
 5. 将 EmulatorJS、RPG Maker、ONS、KiriKiri、Butterscotch、TyranoScript、WASM-4、单机、多盘、沉浸、Validation 与 netplay 行为全部迁移到 Provider 生命周期。
-6. 更新生产/PFB 构建、release input digest 与镜像边界；PFB candidate source 任一变化都使构建 stale，运行镜像 active identity 必须等于 candidate descriptor。
+6. 更新生产/PFB边界：PFB改为bind-mount轻量开发容器，loose provider只在合法test PFB中使用并按revision校验；release input digest、生产镜像与正式active identity不读取`.pfb/`。
 7. 把稳定契约按职责写入正式文档，删除临时方案；运行 `ACC-PROVIDER-001`–`008`、全部直接受影响产品 Case 和完整工程门禁。
 
 每个 checkpoint 产品 Case 必须证明真实跨 Launch 恢复，而不是只证明 bytes 可下载。RPG 世代继续使用 A→B 保存→C→不同 Launch 恢复到 B→继续输入；MZ 合法商业样本仍是条件性外部发布证据，不阻塞 Provider 架构的仓库内确定性门禁。
