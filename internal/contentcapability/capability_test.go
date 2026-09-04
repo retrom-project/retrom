@@ -7,7 +7,7 @@ import (
 	"retrom/internal/testassert"
 )
 
-const saturnTargetPolicy = `{"schemaVersion":1,"supportedContentKinds":["MULTI_DISC_M3U_V1","SINGLE_FILE"]}`
+const saturnTargetPolicy = `{"schemaVersion":1,"supportedContentKinds":["MULTI_DISC","SINGLE_FILE"]}`
 
 func TestResolveRequiresFeaturePlatformInstanceAndArtifactIntersection(t *testing.T) {
 	t.Parallel()
@@ -31,7 +31,7 @@ func TestResolveRequiresFeaturePlatformInstanceAndArtifactIntersection(t *testin
 			t.Parallel()
 			got := Resolve(test.platform, test.instance, test.feature, test.compatibility)
 			if test.wantMulti {
-				testassert.Falsef(t, testassert.Any(func() bool { return !reflect.DeepEqual(got.ContentModes, []string{ModeStandard, ModeMultiDiscM3UV1}) }, func() bool { return got.MultiDisc == nil }, func() bool { return got.MultiDisc.MaxDiscs != 8 }, func() bool { return got.MultiDisc.MaxTotalBytes != MaximumMultiDiscBytes }), "Resolve() = %#v", got)
+				testassert.Falsef(t, testassert.Any(func() bool { return !reflect.DeepEqual(got.ContentModes, []string{ModeStandard, ModeMultiDisc}) }, func() bool { return got.MultiDisc == nil }, func() bool { return got.MultiDisc.MaxDiscs != 8 }, func() bool { return got.MultiDisc.MaxTotalBytes != MaximumMultiDiscBytes }), "Resolve() = %#v", got)
 				return
 			}
 			testassert.Falsef(t, testassert.Any(func() bool { return !reflect.DeepEqual(got.ContentModes, []string{ModeStandard}) }, func() bool { return got.MultiDisc != nil }), "Resolve() failed closed = %#v", got)
@@ -43,7 +43,7 @@ func TestResolveRPGMakerUsesOnlyProjectMode(t *testing.T) {
 	t.Parallel()
 	got := Resolve("rpgmaker", true, false, `{}`)
 	testassert.Falsef(t, testassert.Any(
-		func() bool { return !reflect.DeepEqual(got.ContentModes, []string{ModeRPGMakerProjectV1}) },
+		func() bool { return !reflect.DeepEqual(got.ContentModes, []string{ModeRPGMakerProject}) },
 		func() bool { return got.MultiDisc != nil },
 	), "RPG Maker capabilities = %#v", got)
 
@@ -55,11 +55,11 @@ func TestResolveONSUsesOnlyProjectMode(t *testing.T) {
 	t.Parallel()
 	got := Resolve("ons", true, false, `{}`)
 	testassert.Falsef(t, testassert.Any(
-		func() bool { return !reflect.DeepEqual(got.ContentModes, []string{ModeONSProjectV1}) },
+		func() bool { return !reflect.DeepEqual(got.ContentModes, []string{ModeONSProject}) },
 		func() bool { return got.MultiDisc != nil },
 	), "ONS capabilities = %#v", got)
-	if !SupportsContentKind(`{"schemaVersion":1,"supportedContentKinds":["ONS_PROJECT_V1"]}`, ModeONSProjectV1) ||
-		SupportsContentKind(`{"schemaVersion":1,"supportedContentKinds":["SINGLE_FILE"]}`, ModeONSProjectV1) {
+	if !SupportsContentKind(`{"schemaVersion":1,"supportedContentKinds":["ONS_PROJECT"]}`, ModeONSProject) ||
+		SupportsContentKind(`{"schemaVersion":1,"supportedContentKinds":["SINGLE_FILE"]}`, ModeONSProject) {
 		t.Fatal("ONS publication capability did not enforce Host binding")
 	}
 }
@@ -68,11 +68,11 @@ func TestResolveButterscotchUsesOnlyProjectMode(t *testing.T) {
 	t.Parallel()
 	got := Resolve("butterscotch", true, false, `{}`)
 	testassert.Falsef(t, testassert.Any(
-		func() bool { return !reflect.DeepEqual(got.ContentModes, []string{ModeButterscotchProjectV1}) },
+		func() bool { return !reflect.DeepEqual(got.ContentModes, []string{ModeButterscotchProject}) },
 		func() bool { return got.MultiDisc != nil },
 	), "Butterscotch capabilities=%#v", got)
-	if !SupportsContentKind(`{"schemaVersion":1,"supportedContentKinds":["BUTTERSCOTCH_PROJECT_V1"]}`, ModeButterscotchProjectV1) ||
-		SupportsContentKind(`{"schemaVersion":1,"supportedContentKinds":["SINGLE_FILE"]}`, ModeButterscotchProjectV1) {
+	if !SupportsContentKind(`{"schemaVersion":1,"supportedContentKinds":["BUTTERSCOTCH_PROJECT"]}`, ModeButterscotchProject) ||
+		SupportsContentKind(`{"schemaVersion":1,"supportedContentKinds":["SINGLE_FILE"]}`, ModeButterscotchProject) {
 		t.Fatal("Butterscotch publication capability did not enforce Host binding")
 	}
 }
@@ -81,11 +81,11 @@ func TestResolveTyranoScriptUsesOnlyProjectMode(t *testing.T) {
 	t.Parallel()
 	got := Resolve("tyranoscript", true, false, `{}`)
 	testassert.Falsef(t, testassert.Any(
-		func() bool { return !reflect.DeepEqual(got.ContentModes, []string{ModeTyranoScriptProjectV1}) },
+		func() bool { return !reflect.DeepEqual(got.ContentModes, []string{ModeTyranoScriptProject}) },
 		func() bool { return got.MultiDisc != nil },
 	), "TyranoScript capabilities=%#v", got)
-	if !SupportsContentKind(`{"schemaVersion":1,"supportedContentKinds":["TYRANOSCRIPT_PROJECT_V1"]}`, ModeTyranoScriptProjectV1) ||
-		SupportsContentKind(`{"schemaVersion":1,"supportedContentKinds":["SINGLE_FILE"]}`, ModeTyranoScriptProjectV1) {
+	if !SupportsContentKind(`{"schemaVersion":1,"supportedContentKinds":["TYRANOSCRIPT_PROJECT"]}`, ModeTyranoScriptProject) ||
+		SupportsContentKind(`{"schemaVersion":1,"supportedContentKinds":["SINGLE_FILE"]}`, ModeTyranoScriptProject) {
 		t.Fatal("TyranoScript publication capability did not enforce Host binding")
 	}
 }
@@ -95,18 +95,18 @@ func TestSupportsContentKindRequiresExplicitProviderInputs(t *testing.T) {
 	standard := `{"schemaVersion":1,"supportedContentKinds":["SINGLE_FILE"]}`
 	testassert.False(t, testassert.Any(
 		func() bool { return !SupportsContentKind(standard, "SINGLE_FILE") },
-		func() bool { return SupportsContentKind(standard, "MULTI_DISC_M3U_V1") },
-		func() bool { return !SupportsContentKind(saturnTargetPolicy, "MULTI_DISC_M3U_V1") },
+		func() bool { return SupportsContentKind(standard, "MULTI_DISC") },
+		func() bool { return !SupportsContentKind(saturnTargetPolicy, "MULTI_DISC") },
 		func() bool {
 			return SupportsContentKind(`{"schemaVersion":1,"supportedContentKinds":[]}`, "SINGLE_FILE")
 		},
 		func() bool { return SupportsContentKind(saturnTargetPolicy, "UNKNOWN") },
 		func() bool {
-			return !SupportsContentKind(`{"schemaVersion":1,"supportedContentKinds":["RPG_MAKER_PROJECT_V1"]}`, ModeRPGMakerProjectV1)
+			return !SupportsContentKind(`{"schemaVersion":1,"supportedContentKinds":["RPG_MAKER_PROJECT"]}`, ModeRPGMakerProject)
 		},
 		func() bool {
-			return SupportsContentKind(standard, ModeRPGMakerProjectV1)
+			return SupportsContentKind(standard, ModeRPGMakerProject)
 		},
-		func() bool { return SupportsContentKind(`not-json`, ModeRPGMakerProjectV1) },
+		func() bool { return SupportsContentKind(`not-json`, ModeRPGMakerProject) },
 	), "publication capability did not fail closed against the Host binding")
 }

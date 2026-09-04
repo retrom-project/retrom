@@ -236,7 +236,7 @@ describe("AdminGameManager", () => {
   it("preflights one complete multi-disc directory before creating a replacement job", async () => {
     const capableDirectories: PlatformInstanceOption[] = directories.map((directory) => directory.id === "fbneo-games" ? {
       ...directory,
-      importCapabilities: { contentModes: ["STANDARD", "MULTI_DISC_M3U_V1"], multiDisc: { maxDiscs: 8, maxTotalBytes: 1024 } },
+      importCapabilities: { contentModes: ["STANDARD", "MULTI_DISC"], multiDisc: { maxDiscs: 8, maxTotalBytes: 1024 } },
     } : directory);
     upload.uploadFiles.mockResolvedValue({ uploadId: "upload-multi", uploadFileIds: ["playlist", "one", "two"] });
     const fetchMock = vi.fn<(input: RequestInfo | URL, init?: RequestInit) => Promise<Response>>(() => Promise.resolve(new Response(JSON.stringify({ jobId: "job-content" }), { status: 202, headers: { "Content-Type": "application/json" } })));
@@ -261,7 +261,7 @@ describe("AdminGameManager", () => {
 
     await waitFor(() => expect(upload.uploadFiles).toHaveBeenCalledWith(files, expect.any(Function)));
     const request = fetchMock.mock.calls.find(([url]) => String(url).endsWith("/content-revisions"));
-    expect(JSON.parse(String(request?.[1]?.body))).toEqual({ uploadId: "upload-multi", contentMode: "MULTI_DISC_M3U_V1" });
+    expect(JSON.parse(String(request?.[1]?.body))).toEqual({ uploadId: "upload-multi", contentMode: "MULTI_DISC" });
     expect(upload.waitForJob).toHaveBeenCalledWith("job-content", expect.any(Function));
     await waitFor(() => expect(screen.queryByRole("alertdialog", { name: "替换游戏内容" })).not.toBeInTheDocument());
   });
@@ -269,7 +269,7 @@ describe("AdminGameManager", () => {
   it("does not allow a missing-disc directory to replace published content", async () => {
     const capableDirectories: PlatformInstanceOption[] = directories.map((directory) => directory.id === "fbneo-games" ? {
       ...directory,
-      importCapabilities: { contentModes: ["STANDARD", "MULTI_DISC_M3U_V1"], multiDisc: { maxDiscs: 8, maxTotalBytes: 1024 } },
+      importCapabilities: { contentModes: ["STANDARD", "MULTI_DISC"], multiDisc: { maxDiscs: 8, maxTotalBytes: 1024 } },
     } : directory);
     const user = userEvent.setup();
     render(<AdminGameManager game={game} platformInstances={capableDirectories} candidates={[]} />);
@@ -292,7 +292,7 @@ describe("AdminGameManager", () => {
     const rpgDirectory: PlatformInstanceOption = {
       id: "rpgmaker-games", platformId: "rpgmaker", platformName: "RPG Maker",
       name: "RPG Maker 游戏", defaultCoreId: "rpgmaker", defaultCoreName: "RPG Maker",
-      enabled: true, importCapabilities: { contentModes: ["RPG_MAKER_PROJECT_V1"], multiDisc: null },
+      enabled: true, importCapabilities: { contentModes: ["RPG_MAKER_PROJECT"], multiDisc: null },
     };
     const rpgGame: AdminGame = {
       ...game,
@@ -301,7 +301,7 @@ describe("AdminGameManager", () => {
       currentContentRevisionId: "rpg-content",
       contentRevisions: [{
         id: "rpg-content", sourceKind: "IMPORT", sourceRefId: "rpg-import",
-        contentKind: "RPG_MAKER_PROJECT_V1", current: true, createdAtMs: 150,
+        contentKind: "RPG_MAKER_PROJECT", current: true, createdAtMs: 150,
         files: [{ role: "PROJECT_FILE", logicalName: "RPG_RT.ldb", sortOrder: 0, sizeBytes: 4, sha256: "b".repeat(64) }],
       }],
       variants: [{
@@ -336,7 +336,7 @@ describe("AdminGameManager", () => {
     await waitFor(() => expect(upload.uploadFiles).toHaveBeenCalledWith(files, expect.any(Function)));
     const request = fetchMock.mock.calls.find(([url]) => String(url).endsWith("/content-revisions"));
     expect(JSON.parse(String(request?.[1]?.body))).toEqual({
-      uploadId: "rpg-upload", contentMode: "RPG_MAKER_PROJECT_V1",
+      uploadId: "rpg-upload", contentMode: "RPG_MAKER_PROJECT",
     });
     expect(await screen.findByText("替换项目属于另一个 RPG Maker 世代，当前游戏内容与存档未变更。")).toBeVisible();
   });

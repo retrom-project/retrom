@@ -19,10 +19,10 @@ func TestBuilderProducesClosedEnvelopeFromActiveProviderTarget(t *testing.T) {
 			ReturnTo: "/games/fixture", Warnings: []string{},
 		},
 		Resources: []map[string]any{{
-			"kind": "ROM_BLOB_V1", "ordinal": 0, "rangeRequired": false,
+			"kind": "ROM_BLOB", "ordinal": 0, "rangeRequired": false,
 			"role": "game", "sha256": digest("e"), "sizeBytes": 3, "url": "/runtime/content/game",
 		}},
-		TargetOptions: map[string]any{"kind": "NONE_V1"},
+		TargetOptions: map[string]any{},
 		Restore: map[string]any{
 			"format": "fixture-state-v1", "sha256": digest("f"),
 			"sizeBytes": 3, "url": "/runtime/checkpoints/fixture",
@@ -59,16 +59,16 @@ func TestBuilderRejectsTargetDriftAndResourceOrOptionsMismatch(t *testing.T) {
 			ReturnTo: "/games/fixture", Warnings: []string{},
 		},
 		Resources: []map[string]any{{
-			"kind": "ROM_BLOB_V1", "ordinal": 0, "rangeRequired": false,
+			"kind": "ROM_BLOB", "ordinal": 0, "rangeRequired": false,
 			"role": "game", "sha256": digest("e"), "sizeBytes": 3, "url": "/runtime/content/game",
 		}},
-		TargetOptions: map[string]any{"kind": "NONE_V1"},
+		TargetOptions: map[string]any{"kind": "NONE"},
 	}
 	for name, mutate := range map[string]func(*Input){
 		"unknown target":      func(value *Input) { value.Binding.TargetID = "other" },
-		"wrong resource kind": func(value *Input) { value.Resources[0]["kind"] = "FILE_TREE_V1" },
+		"wrong resource kind": func(value *Input) { value.Resources[0]["kind"] = "FILE_TREE" },
 		"missing resource":    func(value *Input) { value.Resources = nil },
-		"wrong options":       func(value *Input) { value.TargetOptions["kind"] = "EMULATORJS_V1" },
+		"wrong options":       func(value *Input) { value.TargetOptions["undeclared"] = true },
 	} {
 		t.Run(name, func(t *testing.T) {
 			candidate := cloneInput(base)
@@ -85,7 +85,11 @@ func fixtureBuilder(t *testing.T) (*Builder, runtimecatalog.Binding) {
 	checkpoint := &runtimebundle.Checkpoint{WriteFormat: "fixture-state-v1", ReadFormats: []string{"fixture-state-v1"}, MaxBytes: 1024}
 	target := runtimebundle.Target{
 		ID: "target", DisplayName: "Fixture", GameCompatibilityLine: "fixture-v1",
-		OptionsKind: "NONE_V1", Inputs: []runtimebundle.Input{{Role: "game", Kind: "ROM_BLOB_V1", Cardinality: "ONE"}},
+		TargetOptionsSchema: runtimebundle.TargetOptionsSchema{
+			"type": "object", "additionalProperties": false,
+			"properties": map[string]any{}, "required": []any{},
+		},
+		Inputs:       []runtimebundle.Input{{Role: "game", Kind: "ROM_BLOB", Cardinality: "ONE"}},
 		Capabilities: runtimebundle.Capabilities{Checkpoint: true, FrameMode: "NONE", VideoModes: []string{}, ValidationProbes: []string{}},
 		Checkpoint:   checkpoint, AssetPaths: []string{"client.mjs"}, ContractSHA256: digest("d"),
 	}

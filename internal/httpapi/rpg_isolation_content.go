@@ -65,13 +65,13 @@ func (server *Server) rpgBootstrapPage(
 ) {
 	setRPGFrameDocumentPolicy(writer)
 	if authorized, err := server.authenticateRPGRuntime(request, access); err == nil &&
-		authorized.ContentFormat == "RPG_MAKER_PROJECT_V1" {
+		authorized.ContentFormat == "RPG_MAKER_PROJECT" {
 		writer.Header().Set("Cache-Control", "private, no-store")
 		http.Redirect(writer, request, "/__retrom/entry", http.StatusSeeOther)
 		return
 	}
 	inspected, err := server.rpgIsolation.InspectBootstrap(request.Context(), access.LaunchID, access.Origin)
-	if err != nil || inspected.ContentFormat != "RPG_MAKER_PROJECT_V1" {
+	if err != nil || inspected.ContentFormat != "RPG_MAKER_PROJECT" {
 		writeError(writer, request, http.StatusGone, "RPG_RUNTIME_BOOTSTRAP_EXPIRED", "RPG Maker 启动凭据已过期", map[string]any{})
 		return
 	}
@@ -111,7 +111,7 @@ func (server *Server) rpgBootstrapConsume(
 	credential, consumed, err := server.rpgIsolation.ConsumeTicket(
 		request.Context(), access.LaunchID, access.Origin, body.Ticket,
 	)
-	if err != nil || consumed.ContentFormat != "RPG_MAKER_PROJECT_V1" {
+	if err != nil || consumed.ContentFormat != "RPG_MAKER_PROJECT" {
 		writeError(writer, request, http.StatusGone, "RPG_RUNTIME_BOOTSTRAP_EXPIRED", "RPG Maker 启动凭据已过期", map[string]any{})
 		return
 	}
@@ -157,12 +157,12 @@ func (server *Server) rpgRuntimeEntry(
 ) {
 	setRPGFrameDocumentPolicy(writer)
 	if authorized, err := server.authenticateRPGRuntime(request, access); err != nil ||
-		authorized.ContentFormat != "RPG_MAKER_PROJECT_V1" {
+		authorized.ContentFormat != "RPG_MAKER_PROJECT" {
 		http.NotFound(writer, request)
 		return
 	}
 	content, err := server.launcher.ContentAuthorized(request.Context(), access.LaunchID, "index.html")
-	if err != nil || content.Format != "RPG_MAKER_PROJECT_V1" {
+	if err != nil || content.Format != "RPG_MAKER_PROJECT" {
 		http.NotFound(writer, request)
 		return
 	}
@@ -201,7 +201,7 @@ func (server *Server) rpgRuntimeBridge(
 	access isolation.Access,
 ) {
 	if authorized, err := server.authenticateRPGRuntime(request, access); err != nil ||
-		authorized.ContentFormat != "RPG_MAKER_PROJECT_V1" {
+		authorized.ContentFormat != "RPG_MAKER_PROJECT" {
 		http.NotFound(writer, request)
 		return
 	}
@@ -221,7 +221,7 @@ func (server *Server) rpgRuntimeProject(
 	access isolation.Access,
 ) {
 	if authorized, err := server.authenticateRPGRuntime(request, access); err != nil ||
-		authorized.ContentFormat != "RPG_MAKER_PROJECT_V1" {
+		authorized.ContentFormat != "RPG_MAKER_PROJECT" {
 		http.NotFound(writer, request)
 		return
 	}
@@ -257,7 +257,7 @@ func (server *Server) rpgRuntimeRestorePayload(
 	access isolation.Access,
 ) {
 	if authorized, err := server.authenticateRPGRuntime(request, access); err != nil ||
-		authorized.ContentFormat != "RPG_MAKER_PROJECT_V1" {
+		authorized.ContentFormat != "RPG_MAKER_PROJECT" {
 		http.NotFound(writer, request)
 		return
 	}

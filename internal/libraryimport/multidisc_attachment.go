@@ -212,7 +212,7 @@ validation.target_contract_sha256,validation.game_compatibility_line
 FROM import_items item
 JOIN review_drafts draft ON draft.import_item_id=item.id
 JOIN import_item_source_snapshots snapshot ON snapshot.id=draft.effective_source_snapshot_id
-AND snapshot.content_kind='MULTI_DISC_M3U_V1'
+AND snapshot.content_kind='MULTI_DISC'
 JOIN platform_instances platform ON platform.id=draft.target_platform_instance_id
 AND platform.enabled=1 AND platform.deleted_at_ms IS NULL
 JOIN runtime_target_bindings runtime_binding ON runtime_binding.core_id=platform.default_core_id

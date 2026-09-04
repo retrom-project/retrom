@@ -738,7 +738,7 @@ components:
           enum:
             - SINGLE_FILE
             - DOS_BUNDLE
-            - MULTI_DISC_M3U_V1
+            - MULTI_DISC
         tags:
           type: array
           maxItems: 20

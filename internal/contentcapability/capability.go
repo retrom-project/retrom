@@ -8,16 +8,16 @@ import (
 )
 
 const (
-	ModeStandard              = "STANDARD"
-	ModeMultiDiscM3UV1        = "MULTI_DISC_M3U_V1"
-	ModeRPGMakerProjectV1     = "RPG_MAKER_PROJECT_V1"
-	ModeONSProjectV1          = "ONS_PROJECT_V1"
-	ModeKiriKiriProjectV1     = "KIRIKIRI_PROJECT_V1"
-	ModeButterscotchProjectV1 = "BUTTERSCOTCH_PROJECT_V1"
-	ModeTyranoScriptProjectV1 = "TYRANOSCRIPT_PROJECT_V1"
-	DeliveryEagerExternal     = "EAGER_EXTERNAL_FILES"
-	MaximumMultiDiscCount     = 8
-	MaximumMultiDiscBytes     = int64(1_073_741_824)
+	ModeStandard            = "STANDARD"
+	ModeMultiDisc           = "MULTI_DISC"
+	ModeRPGMakerProject     = "RPG_MAKER_PROJECT"
+	ModeONSProject          = "ONS_PROJECT"
+	ModeKiriKiriProject     = "KIRIKIRI_PROJECT"
+	ModeButterscotchProject = "BUTTERSCOTCH_PROJECT"
+	ModeTyranoScriptProject = "TYRANOSCRIPT_PROJECT"
+	DeliveryEagerExternal   = "EAGER_EXTERNAL_FILES"
+	MaximumMultiDiscCount   = 8
+	MaximumMultiDiscBytes   = int64(1_073_741_824)
 )
 
 type MultiDiscLimits struct {
@@ -46,15 +46,15 @@ func Resolve(
 		return project
 	}
 	if !platformInstanceEnabled || !featureEnabled ||
-		!contentprofile.AllowsContentKind(platformID, contentprofile.ContentKindMultiDiscM3UV1) {
+		!contentprofile.AllowsContentKind(platformID, contentprofile.ContentKindMultiDisc) {
 		return result
 	}
 	var policy targetPolicy
 	if json.Unmarshal([]byte(compatibilityJSON), &policy) != nil || policy.SchemaVersion != 1 ||
-		!slices.Contains(policy.SupportedContentKinds, ModeMultiDiscM3UV1) {
+		!slices.Contains(policy.SupportedContentKinds, ModeMultiDisc) {
 		return result
 	}
-	result.ContentModes = append(result.ContentModes, ModeMultiDiscM3UV1)
+	result.ContentModes = append(result.ContentModes, ModeMultiDisc)
 	result.MultiDisc = &MultiDiscLimits{
 		MaxDiscs: MaximumMultiDiscCount, MaxTotalBytes: MaximumMultiDiscBytes,
 	}
@@ -67,15 +67,15 @@ func projectImportCapabilities(platformID string, enabled bool) (ImportCapabilit
 	}
 	switch platformID {
 	case "rpgmaker":
-		return ImportCapabilities{ContentModes: []string{ModeRPGMakerProjectV1}}, true
+		return ImportCapabilities{ContentModes: []string{ModeRPGMakerProject}}, true
 	case "ons":
-		return ImportCapabilities{ContentModes: []string{ModeONSProjectV1}}, true
+		return ImportCapabilities{ContentModes: []string{ModeONSProject}}, true
 	case "kirikiri":
-		return ImportCapabilities{ContentModes: []string{ModeKiriKiriProjectV1}}, true
+		return ImportCapabilities{ContentModes: []string{ModeKiriKiriProject}}, true
 	case "butterscotch":
-		return ImportCapabilities{ContentModes: []string{ModeButterscotchProjectV1}}, true
+		return ImportCapabilities{ContentModes: []string{ModeButterscotchProject}}, true
 	case "tyranoscript":
-		return ImportCapabilities{ContentModes: []string{ModeTyranoScriptProjectV1}}, true
+		return ImportCapabilities{ContentModes: []string{ModeTyranoScriptProject}}, true
 	default:
 		return ImportCapabilities{}, false
 	}
@@ -95,10 +95,10 @@ func SupportsContentKind(compatibilityJSON, contentKind string) bool {
 	switch contentKind {
 	case string(contentprofile.ContentKindSingleFile), string(contentprofile.ContentKindDOSBundle):
 		return slices.Contains(policy.SupportedContentKinds, contentKind)
-	case string(contentprofile.ContentKindMultiDiscM3UV1):
+	case string(contentprofile.ContentKindMultiDisc):
 		return slices.Contains(policy.SupportedContentKinds, contentKind)
-	case ModeRPGMakerProjectV1, ModeONSProjectV1, ModeKiriKiriProjectV1,
-		ModeButterscotchProjectV1, ModeTyranoScriptProjectV1:
+	case ModeRPGMakerProject, ModeONSProject, ModeKiriKiriProject,
+		ModeButterscotchProject, ModeTyranoScriptProject:
 		return slices.Contains(policy.SupportedContentKinds, contentKind)
 	default:
 		return false

@@ -75,7 +75,7 @@ async function runProductCase(activeBrowser) {
       timeout: 120_000,
       data: {
         uploadId, targetPlatformInstanceId: platformInstanceId, metadataProvider: "NONE",
-        contentMode: "ONS_PROJECT_V1", tagIds: [],
+        contentMode: "ONS_PROJECT", tagIds: [],
       },
     });
     requireStatus(importedResponse.status(), 202, "ONS_ACCEPTANCE_IMPORT_CREATE_FAILED");

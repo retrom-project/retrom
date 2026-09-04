@@ -159,7 +159,7 @@ func (service *Service) persistReviewPreview(
 		return fmt.Errorf("launch/review preview: %w", err)
 	}
 	var emulatorGameID any
-	if source.DeliveryProfile == "EMULATORJS_CONTENT_V1" || source.DeliveryProfile == "ROM_BLOB_V1" {
+	if source.DeliveryProfile == "EMULATORJS_CONTENT" || source.DeliveryProfile == "ROM_BLOB" {
 		emulatorGameID = max(now, 1)
 	}
 	defer cleanup.Rollback(transaction)
@@ -190,7 +190,7 @@ VALUES(?,?,?,?,?,?,?)
 			return fmt.Errorf("lock review preview dependency: %w", err)
 		}
 	}
-	if source.DeliveryProfile == "ISOLATED_WEB_PROJECT_V1" {
+	if source.DeliveryProfile == "ISOLATED_WEB_PROJECT" {
 		if err := service.lockIsolatedPreviewBootstrapTicket(
 			ctx, transaction, previewID, request.ActorUserID, now,
 		); err != nil {

@@ -178,7 +178,11 @@ func projectionFixtureForTarget(targetID, version, digestByte string, catalogVer
 	checkpoint := &runtimebundle.Checkpoint{WriteFormat: readFormats[len(readFormats)-1], ReadFormats: readFormats, MaxBytes: 1024}
 	target := runtimebundle.Target{
 		ID: targetID, DisplayName: "Fixture", GameCompatibilityLine: compatibility,
-		OptionsKind: "NONE_V1", Inputs: []runtimebundle.Input{{Role: "game", Kind: "ROM_BLOB_V1", Cardinality: "ONE"}},
+		TargetOptionsSchema: runtimebundle.TargetOptionsSchema{
+			"type": "object", "additionalProperties": false,
+			"properties": map[string]any{}, "required": []any{},
+		},
+		Inputs:       []runtimebundle.Input{{Role: "game", Kind: "ROM_BLOB", Cardinality: "ONE"}},
 		Capabilities: runtimebundle.Capabilities{Checkpoint: true, FrameMode: "NONE", VideoModes: []string{}, ValidationProbes: []string{}},
 		Checkpoint:   checkpoint, AssetPaths: []string{"client.mjs"}, ContractSHA256: digest,
 	}
@@ -193,7 +197,7 @@ func projectionFixtureForTarget(targetID, version, digestByte string, catalogVer
 	catalog := runtimecatalog.Catalog{SchemaVersion: 1, CatalogVersion: catalogVersion, Bindings: []runtimecatalog.Binding{{
 		ID: "fixture-" + targetID, CoreID: "gambatte", ProviderID: "fixture", TargetID: targetID,
 		PlatformIDs: []string{"gbc"}, AcceptedContentKinds: []string{"SINGLE_FILE"},
-		DetectorProfile: "ROM_FILE", DeliveryProfile: "ROM_BLOB_V1", LaunchPolicy: "SUPPORTED", ReviewPolicy: "NONE",
+		DetectorProfile: "ROM_FILE", DeliveryProfile: "ROM_BLOB", LaunchPolicy: "SUPPORTED", ReviewPolicy: "NONE",
 	}}}
 	projection, err := NewProjection(active, map[string]runtimebundle.Manifest{"fixture": {
 		SchemaVersion: 1, ProviderID: "fixture", ProviderVersion: version, ProviderAPI: 1,

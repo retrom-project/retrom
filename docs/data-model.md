@@ -6,7 +6,7 @@ HTTP 字段以 `api/openapi.yaml` 的统一 bundle 为准。
 
 ## 1. 基线与身份
 
-- 当前项目尚未发布，只支持 clean 001–010 lineage。非当前开发数据库必须更换为空数据根后重建；没有降级、旧表转换、双写或运行时 schema 修补。
+- 当前项目尚未发布，只支持 clean 001–011 lineage。非当前开发数据库必须更换为空数据根后重建；没有降级、旧表转换、双写或运行时 schema 修补。
 - 业务主键使用 UUIDv7 字符串；SHA-256 使用 64 位小写十六进制；业务时刻使用 Unix 毫秒 `INTEGER`。
 - 数据库只保存摘要、逻辑 ID 和相对存储键，不保存 Launch 明文凭据、Cookie、CSRF token、用户主机绝对路径或第三方内容明文。
 - current pointer 只前移到同 owner 的不可变 revision。完成态 revision、事件、快照和证据禁止修改。
@@ -26,16 +26,18 @@ RuntimeProvider
 
 ### 2.1 `runtime_providers`
 
-每个 Provider 恰好一行，冻结 `provider_id`、SemVer `provider_version`、`provider_api_version=1`、Bundle/manifest/client
+每个 Provider 恰好一行，冻结 `provider_id`、SemVer `provider_version`、正整数 `provider_api_version`、Bundle/manifest/client
 module SHA-256、`source=candidate|production` 和单调激活时刻。production 还必须有不可移动 repository/tag/commit；
 candidate 的三项 release 身份全为空。
+
+数据库只保存已验证的结构事实；当前安装器和 active loader 仍只支持 Provider API 1，其他正整数不能被激活。
 
 `provider_id + bundle_sha256` 唯一。同一版本换 bytes、降级、身份不一致或活动文件突变均在启动协调前拒绝。
 
 ### 2.2 `runtime_targets`
 
 Target 由 Provider manifest 投影，主键是 `(provider_id,target_id)`。每行冻结展示名、游戏兼容线、可空联机兼容线、
-options kind、capabilities、checkpoint contract、公开 manifest fragment 和 canonical fragment 的
+闭合 `target_options_schema_json`、capabilities、checkpoint contract、公开 manifest fragment 和 canonical fragment 的
 `target_contract_sha256`。
 
 数据库不保存 Provider 私有 adapter、core 或 asset mapping。任何消费者只引用 Provider、Target 和 contract digest；
@@ -44,7 +46,8 @@ Target 公开字段只能来自已校验 Bundle manifest。
 ### 2.3 bindings 与 catalog state
 
 `runtime_target_bindings` 把产品 `core_id` 绑定到一个 Target，并声明 detector、delivery、launch policy 和 review
-policy；`runtime_binding_platforms`、`runtime_binding_content_kinds` 收紧适用平台与内容类型。一个 Target 只能有一条
+policy；`runtime_binding_platforms`、`runtime_binding_content_kinds` 收紧适用平台与内容类型。内容类型通过
+`content_kinds` reference catalog 外键约束，不在多张业务表复制固定 `CHECK IN (...)` 列表。一个 Target 只能有一条
 Host binding。`runtime_catalog_state` 保存当前完整 catalog 的单调版本、canonical digest 和激活时刻。
 
 EmulatorJS Provider 当前声明 35 个 Target；retrom-runtime Provider 当前声明 12 个 Target。RPG Maker 对用户只有

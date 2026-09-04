@@ -44,13 +44,13 @@ func (server *Server) tyranoScriptBootstrapPage(
 ) {
 	setRPGFrameDocumentPolicy(writer)
 	if authorized, err := server.authenticateRPGRuntime(request, access); err == nil &&
-		authorized.ContentFormat == "TYRANOSCRIPT_PROJECT_V1" {
+		authorized.ContentFormat == "TYRANOSCRIPT_PROJECT" {
 		writer.Header().Set("Cache-Control", "private, no-store")
 		http.Redirect(writer, request, "/__retrom/tyranoscript/entry", http.StatusSeeOther)
 		return
 	}
 	inspected, err := server.rpgIsolation.InspectBootstrap(request.Context(), access.LaunchID, access.Origin)
-	if err != nil || inspected.ContentFormat != "TYRANOSCRIPT_PROJECT_V1" {
+	if err != nil || inspected.ContentFormat != "TYRANOSCRIPT_PROJECT" {
 		http.NotFound(writer, request)
 		return
 	}
@@ -87,7 +87,7 @@ func (server *Server) tyranoScriptBootstrapConsume(
 	credential, consumed, err := server.rpgIsolation.ConsumeTicket(
 		request.Context(), access.LaunchID, access.Origin, body.Ticket,
 	)
-	if err != nil || consumed.ContentFormat != "TYRANOSCRIPT_PROJECT_V1" {
+	if err != nil || consumed.ContentFormat != "TYRANOSCRIPT_PROJECT" {
 		http.NotFound(writer, request)
 		return
 	}
@@ -104,7 +104,7 @@ func (server *Server) tyranoScriptRuntimeEntry(
 ) {
 	setRPGFrameDocumentPolicy(writer)
 	authorized, err := server.authenticateRPGRuntime(request, access)
-	if err != nil || authorized.ContentFormat != "TYRANOSCRIPT_PROJECT_V1" {
+	if err != nil || authorized.ContentFormat != "TYRANOSCRIPT_PROJECT" {
 		http.NotFound(writer, request)
 		return
 	}
@@ -143,7 +143,7 @@ func (server *Server) tyranoScriptRuntimeBridge(
 	access isolation.Access,
 ) {
 	authorized, err := server.authenticateRPGRuntime(request, access)
-	if err != nil || authorized.ContentFormat != "TYRANOSCRIPT_PROJECT_V1" {
+	if err != nil || authorized.ContentFormat != "TYRANOSCRIPT_PROJECT" {
 		http.NotFound(writer, request)
 		return
 	}
@@ -163,7 +163,7 @@ func (server *Server) tyranoScriptRuntimeProject(
 	access isolation.Access,
 ) {
 	authorized, err := server.authenticateRPGRuntime(request, access)
-	if err != nil || authorized.ContentFormat != "TYRANOSCRIPT_PROJECT_V1" || isRPGServiceWorkerRequest(request) {
+	if err != nil || authorized.ContentFormat != "TYRANOSCRIPT_PROJECT" || isRPGServiceWorkerRequest(request) {
 		http.NotFound(writer, request)
 		return
 	}

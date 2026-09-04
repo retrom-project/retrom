@@ -34,12 +34,12 @@
         },
         "acceptedContentKinds": {
           "type": "array", "minItems": 1, "uniqueItems": true,
-          "items": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]{1,63}$" }
+          "items": { "type": "string", "pattern": "^(?!.*_V[0-9]+$)[A-Z][A-Z0-9_]{1,63}$" }
         },
-        "detectorProfile": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]{1,63}$" },
-        "deliveryProfile": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]{1,63}$" },
+        "detectorProfile": { "type": "string", "pattern": "^(?!.*_V[0-9]+$)[A-Z][A-Z0-9_]{1,63}$" },
+        "deliveryProfile": { "type": "string", "pattern": "^(?!.*_V[0-9]+$)[A-Z][A-Z0-9_]{1,63}$" },
         "launchPolicy": { "enum": ["SUPPORTED", "EXPERIMENTAL", "DISABLED"] },
-        "reviewPolicy": { "enum": ["NONE", "RPG_RUNTIME_VALIDATION_V1"] }
+        "reviewPolicy": { "enum": ["NONE", "RPG_RUNTIME_VALIDATION"] }
       }
     }
   }

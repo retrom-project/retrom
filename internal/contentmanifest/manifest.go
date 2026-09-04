@@ -51,8 +51,8 @@ func FilesDigest(files []File) (string, int64, error) {
 
 func validContentKind(value string) bool {
 	switch value {
-	case "SINGLE_FILE", "DOS_BUNDLE", "MULTI_DISC_M3U_V1", "RPG_MAKER_PROJECT_V1", "ONS_PROJECT_V1",
-		"KIRIKIRI_PROJECT_V1", "BUTTERSCOTCH_PROJECT_V1", "TYRANOSCRIPT_PROJECT_V1":
+	case "SINGLE_FILE", "DOS_BUNDLE", "MULTI_DISC", "RPG_MAKER_PROJECT", "ONS_PROJECT",
+		"KIRIKIRI_PROJECT", "BUTTERSCOTCH_PROJECT", "TYRANOSCRIPT_PROJECT":
 		return true
 	default:
 		return false

@@ -156,7 +156,7 @@ paths:
       - $ref: ../components/common.yaml#/components/parameters/GameID
     post:
       operationId: postAdminGameContentRevision
-      description: Schedules a destructive complete content replacement. Byte-identical single-ROM content or the same ordered multi-disc hashes fail terminally with GAME_CONTENT_UNCHANGED. A successful switch retires old content/runtime payload and deletes saves bound to superseded revisions; a failed replacement changes none of them. contentMode defaults strictly to STANDARD; MULTI_DISC_M3U_V1 requires a complete DIRECTORY upload and never uses review attachment repair.
+      description: Schedules a destructive complete content replacement. Byte-identical single-ROM content or the same ordered multi-disc hashes fail terminally with GAME_CONTENT_UNCHANGED. A successful switch retires old content/runtime payload and deletes saves bound to superseded revisions; a failed replacement changes none of them. contentMode defaults strictly to STANDARD; MULTI_DISC requires a complete DIRECTORY upload and never uses review attachment repair.
       parameters:
         - $ref: ../components/common.yaml#/components/parameters/IfMatch
         - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey
@@ -698,12 +698,12 @@ components:
           type: string
           enum:
             - STANDARD
-            - MULTI_DISC_M3U_V1
-            - RPG_MAKER_PROJECT_V1
-            - ONS_PROJECT_V1
-            - KIRIKIRI_PROJECT_V1
-            - BUTTERSCOTCH_PROJECT_V1
-            - TYRANOSCRIPT_PROJECT_V1
+            - MULTI_DISC
+            - RPG_MAKER_PROJECT
+            - ONS_PROJECT
+            - KIRIKIRI_PROJECT
+            - BUTTERSCOTCH_PROJECT
+            - TYRANOSCRIPT_PROJECT
           default: STANDARD
     ApplyCandidateRequest:
       type: object

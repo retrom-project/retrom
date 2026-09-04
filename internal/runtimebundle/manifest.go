@@ -32,20 +32,15 @@ var (
 )
 
 var resourceKinds = map[string]bool{
-	"ROM_BLOB_V1": true, "FILE_TREE_V1": true, "SEEKABLE_BLOB_V1": true,
-	"NATIVE_WEB_V1": true, "ISOLATED_WEB_V1": true, "BIOS_BUNDLE_V1": true,
-	"PARENT_ARCHIVE_V1": true, "MULTI_DISC_V1": true, "EXTERNAL_FILE_SET_V1": true,
-	"WASM4_CART_V1": true,
+	"ROM_BLOB": true, "FILE_TREE": true, "SEEKABLE_BLOB": true,
+	"NATIVE_WEB": true, "ISOLATED_WEB": true, "BIOS_BUNDLE": true,
+	"PARENT_ARCHIVE": true, "MULTI_DISC": true, "EXTERNAL_FILE_SET": true,
+	"WASM4_CART": true,
 }
 
 var videoModes = map[string]bool{
 	"original": true, "pixel": true, "smooth": true,
 	"sharp-bilinear": true, "adaptive-sharpen": true,
-}
-
-var optionKinds = map[string]bool{
-	"NONE_V1": true, "EMULATORJS_V1": true, "RPGMAKER_V1": true,
-	"ONS_PROJECT_V1": true, "KIRIKIRI_PROJECT_V1": true,
 }
 
 type Manifest struct {
@@ -58,16 +53,16 @@ type Manifest struct {
 }
 
 type Target struct {
-	ID                       string       `json:"id"`
-	DisplayName              string       `json:"displayName"`
-	GameCompatibilityLine    string       `json:"gameCompatibilityLine"`
-	NetplayCompatibilityLine *string      `json:"netplayCompatibilityLine"`
-	OptionsKind              string       `json:"optionsKind"`
-	Inputs                   []Input      `json:"inputs"`
-	Capabilities             Capabilities `json:"capabilities"`
-	Checkpoint               *Checkpoint  `json:"checkpoint"`
-	AssetPaths               []string     `json:"assetPaths"`
-	ContractSHA256           string       `json:"-"`
+	ID                       string              `json:"id"`
+	DisplayName              string              `json:"displayName"`
+	GameCompatibilityLine    string              `json:"gameCompatibilityLine"`
+	NetplayCompatibilityLine *string             `json:"netplayCompatibilityLine"`
+	TargetOptionsSchema      TargetOptionsSchema `json:"targetOptionsSchema"`
+	Inputs                   []Input             `json:"inputs"`
+	Capabilities             Capabilities        `json:"capabilities"`
+	Checkpoint               *Checkpoint         `json:"checkpoint"`
+	AssetPaths               []string            `json:"assetPaths"`
+	ContractSHA256           string              `json:"-"`
 }
 
 type Input struct {
@@ -194,7 +189,7 @@ func ParseManifest(contents []byte) (Manifest, error) {
 	var wire manifestWire
 	if err := decodeClosed(contents, &wire); err != nil || wire.SchemaVersion != 1 ||
 		!identityPattern.MatchString(wire.ProviderID) || !semverPattern.MatchString(wire.ProviderVersion) ||
-		wire.ProviderAPI != 1 || wire.ClientModulePath != "client.mjs" || len(wire.Targets) == 0 {
+		wire.ProviderAPI < 1 || wire.ClientModulePath != "client.mjs" || len(wire.Targets) == 0 {
 		return Manifest{}, invalidManifest(err)
 	}
 	result := Manifest{
@@ -239,7 +234,7 @@ func validManifestRawShape(contents []byte) bool {
 func validManifestRawTarget(value any) bool {
 	target, ok := value.(map[string]any)
 	if !ok || !exactMap(target, "id", "displayName", "gameCompatibilityLine", "netplayCompatibilityLine",
-		"optionsKind", "inputs", "capabilities", "checkpoint", "assetPaths") {
+		"targetOptionsSchema", "inputs", "capabilities", "checkpoint", "assetPaths") {
 		return false
 	}
 	capabilities, ok := target["capabilities"].(map[string]any)
@@ -272,7 +267,8 @@ func validManifestRawInputs(inputs []any) bool {
 
 func validTarget(target Target) bool {
 	if !identityPattern.MatchString(target.ID) || len(target.DisplayName) == 0 || len(target.DisplayName) > 120 ||
-		!tokenPattern.MatchString(target.GameCompatibilityLine) || !optionKinds[target.OptionsKind] ||
+		!tokenPattern.MatchString(target.GameCompatibilityLine) ||
+		!validTargetOptionsSchema(target.TargetOptionsSchema, 0, true) ||
 		!validCapabilities(target.Capabilities) || !validInputs(target.Inputs) || !sortedPaths(target.AssetPaths) {
 		return false
 	}

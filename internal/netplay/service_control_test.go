@@ -236,7 +236,7 @@ func TestCoreProfilesIgnorePerGameContentIdentity(t *testing.T) {
 			contentAllowed, targetMatches = service.matchesTargetProfile(eligibilityRow{
 				platformID: test.platformID, coreID: test.coreID, providerID: profile.ProviderID,
 				targetID: profile.TargetID, netplayCompatibilityLine: profile.NetplayCompatibilityLine,
-				contentKind: "MULTI_DISC_M3U_V1",
+				contentKind: "MULTI_DISC",
 			}, profile)
 			testassert.Falsef(t, testassert.Any(func() bool { return contentAllowed }, func() bool { return targetMatches }), "unsupported %s content kind matched Target profile", test.coreID)
 			contentAllowed, targetMatches = service.matchesTargetProfile(eligibilityRow{

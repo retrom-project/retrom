@@ -60,7 +60,7 @@ func TestBootstrapTicketIsSingleUseAndCapabilityRevocationIsTerminal(t *testing.
 		context.Background(), fixture.launchID, fixture.origin, fixture.ticket,
 	)
 	if err != nil || access.LaunchID != fixture.launchID || access.Origin != fixture.origin ||
-		access.ContentFormat != "RPG_MAKER_PROJECT_V1" || access.Preview {
+		access.ContentFormat != "RPG_MAKER_PROJECT" || access.Preview {
 		t.Fatalf("consume ticket = (%q,%#v,%v)", credential, access, err)
 	}
 	if _, err := fixture.service.InspectBootstrap(
@@ -119,19 +119,19 @@ func TestTyranoScriptPreviewTicketCreatesPreviewScopedCapability(t *testing.T) {
 	access, err := fixture.service.InspectBootstrap(
 		context.Background(), fixture.launchID, fixture.origin,
 	)
-	if err != nil || access.ContentFormat != "TYRANOSCRIPT_PROJECT_V1" || !access.Preview {
+	if err != nil || access.ContentFormat != "TYRANOSCRIPT_PROJECT" || !access.Preview {
 		t.Fatalf("inspect preview bootstrap = (%#v,%v)", access, err)
 	}
 	credential, consumed, err := fixture.service.ConsumeTicket(
 		context.Background(), fixture.launchID, fixture.origin, fixture.ticket,
 	)
-	if err != nil || consumed.ContentFormat != "TYRANOSCRIPT_PROJECT_V1" || !consumed.Preview {
+	if err != nil || consumed.ContentFormat != "TYRANOSCRIPT_PROJECT" || !consumed.Preview {
 		t.Fatalf("consume preview bootstrap = (%q,%#v,%v)", credential, consumed, err)
 	}
 	authorized, err := fixture.service.Authenticate(
 		context.Background(), fixture.launchID, fixture.origin, credential,
 	)
-	if err != nil || authorized.Profile != "profile" || authorized.ContentFormat != "TYRANOSCRIPT_PROJECT_V1" ||
+	if err != nil || authorized.Profile != "profile" || authorized.ContentFormat != "TYRANOSCRIPT_PROJECT" ||
 		!authorized.Preview {
 		t.Fatalf("authenticate preview capability = (%#v,%v)", authorized, err)
 	}
@@ -234,7 +234,7 @@ CREATE TABLE isolated_runtime_capabilities(
 		arguments []any
 	}{
 		{`INSERT INTO launch_sessions VALUES(?,'profile','ACTIVE',?)`, []any{launchID, nowMS + 120_000}},
-		{`INSERT INTO launch_content_files VALUES(?,'index.html','RPG_MAKER_PROJECT_V1')`, []any{launchID}},
+		{`INSERT INTO launch_content_files VALUES(?,'index.html','RPG_MAKER_PROJECT')`, []any{launchID}},
 		{`INSERT INTO isolated_runtime_bootstrap_tickets VALUES(?,?,NULL,'profile',?,?,NULL)`, []any{ticketDigest[:], launchID, origin, nowMS + 60_000}},
 	}
 	if preview {
@@ -242,7 +242,7 @@ CREATE TABLE isolated_runtime_capabilities(
 			query     string
 			arguments []any
 		}{
-			{`INSERT INTO review_preview_sessions VALUES(?,'ACTIVE',?,'TYRANOSCRIPT_PROJECT_V1')`, []any{launchID, nowMS + 120_000}},
+			{`INSERT INTO review_preview_sessions VALUES(?,'ACTIVE',?,'TYRANOSCRIPT_PROJECT')`, []any{launchID, nowMS + 120_000}},
 			{`INSERT INTO isolated_runtime_bootstrap_tickets VALUES(?,NULL,?,'profile',?,?,NULL)`, []any{ticketDigest[:], launchID, origin, nowMS + 60_000}},
 		}
 	}

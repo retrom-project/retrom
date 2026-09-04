@@ -1,8 +1,8 @@
 package launch
 
 const (
-	onsProjectFormat          = "ONS_PROJECT_V1"
-	kirikiriProjectFormat     = "KIRIKIRI_PROJECT_V1"
-	butterscotchProjectFormat = "BUTTERSCOTCH_PROJECT_V1"
-	tyranoScriptProjectFormat = "TYRANOSCRIPT_PROJECT_V1"
+	onsProjectFormat          = "ONS_PROJECT"
+	kirikiriProjectFormat     = "KIRIKIRI_PROJECT"
+	butterscotchProjectFormat = "BUTTERSCOTCH_PROJECT"
+	tyranoScriptProjectFormat = "TYRANOSCRIPT_PROJECT"
 )

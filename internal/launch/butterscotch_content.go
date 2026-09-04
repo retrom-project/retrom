@@ -44,7 +44,7 @@ JOIN game_variant_revisions revision ON revision.id=launch.game_variant_revision
 WHERE launch.id=? AND launch.purpose='PRODUCT'
  AND launch.provider_id=revision.provider_id AND launch.target_id=revision.target_id
  AND EXISTS(SELECT 1 FROM launch_content_files file WHERE file.launch_session_id=launch.id
-  AND file.format_version='BUTTERSCOTCH_PROJECT_V1')
+  AND file.format_version='BUTTERSCOTCH_PROJECT')
 `, launchID).Scan(&credentialHash, &state, &hardExpires, &dependencyJSON)
 	if err != nil || !retromruntime.MatchesCapability(capability, credentialHash) ||
 		state != "ACTIVE" || hardExpires <= service.now().UnixMilli() {
@@ -61,7 +61,7 @@ WHERE launch.id=? AND launch.purpose='PRODUCT'
 	rows, err := service.database.QueryContext(ctx, `
 SELECT file.logical_name,blob.size_bytes FROM launch_content_files file
 JOIN blobs blob ON blob.id=file.blob_id
-WHERE file.launch_session_id=? AND file.format_version='BUTTERSCOTCH_PROJECT_V1'
+WHERE file.launch_session_id=? AND file.format_version='BUTTERSCOTCH_PROJECT'
 ORDER BY file.logical_name
 `, launchID)
 	if err != nil {
@@ -88,7 +88,7 @@ func (service *Service) reviewPreviewButterscotchProjectIndex(
 	err := service.database.QueryRowContext(ctx, `
 SELECT credential_sha256,state,hard_expires_at_ms,dependency_snapshot_json
 FROM review_preview_sessions
-WHERE id=? AND content_kind='BUTTERSCOTCH_PROJECT_V1' AND content_format='BUTTERSCOTCH_PROJECT_V1'
+WHERE id=? AND content_kind='BUTTERSCOTCH_PROJECT' AND content_format='BUTTERSCOTCH_PROJECT'
 `, previewID).Scan(&credentialHash, &state, &hardExpires, &dependencyJSON)
 	if err != nil || !reviewPreviewCredential(
 		service.now().UnixMilli(), capability, credentialHash, state, hardExpires,

@@ -382,7 +382,7 @@ WHERE binding.provider_id=? AND binding.target_id=? AND binding.launch_policy!='
 
 func validateContentProfile(platformID, logicalName, contentKind string) (string, string) {
 	if contentKind == corevalidation.MultiDiscContentKind &&
-		!contentprofile.AllowsContentKind(platformID, contentprofile.ContentKindMultiDiscM3UV1) {
+		!contentprofile.AllowsContentKind(platformID, contentprofile.ContentKindMultiDisc) {
 		return "INCOMPATIBLE", "CORE_CONTENT_FORMAT_UNSUPPORTED"
 	}
 	if _, exists := contentprofile.ByPlatform(platformID); exists {

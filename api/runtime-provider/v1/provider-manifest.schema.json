@@ -52,7 +52,7 @@
         "displayName",
         "gameCompatibilityLine",
         "netplayCompatibilityLine",
-        "optionsKind",
+        "targetOptionsSchema",
         "capabilities",
         "inputs",
         "checkpoint",
@@ -68,15 +68,7 @@
             { "$ref": "#/$defs/token" }
           ]
         },
-        "optionsKind": {
-          "enum": [
-            "NONE_V1",
-            "EMULATORJS_V1",
-            "RPGMAKER_V1",
-            "ONS_PROJECT_V1",
-            "KIRIKIRI_PROJECT_V1"
-          ]
-        },
+        "targetOptionsSchema": { "$ref": "#/$defs/targetOptionsSchema" },
         "capabilities": { "$ref": "#/$defs/capabilities" },
         "inputs": {
           "type": "array",
@@ -156,16 +148,16 @@
         "role": { "$ref": "#/$defs/identity" },
         "kind": {
           "enum": [
-            "ROM_BLOB_V1",
-            "FILE_TREE_V1",
-            "SEEKABLE_BLOB_V1",
-            "NATIVE_WEB_V1",
-            "ISOLATED_WEB_V1",
-            "BIOS_BUNDLE_V1",
-            "PARENT_ARCHIVE_V1",
-            "MULTI_DISC_V1",
-            "EXTERNAL_FILE_SET_V1",
-            "WASM4_CART_V1"
+            "ROM_BLOB",
+            "FILE_TREE",
+            "SEEKABLE_BLOB",
+            "NATIVE_WEB",
+            "ISOLATED_WEB",
+            "BIOS_BUNDLE",
+            "PARENT_ARCHIVE",
+            "MULTI_DISC",
+            "EXTERNAL_FILE_SET",
+            "WASM4_CART"
           ]
         },
         "cardinality": { "enum": ["ONE", "MANY"] },
@@ -185,6 +177,99 @@
           "items": { "$ref": "#/$defs/token" }
         },
         "maxBytes": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 }
+      }
+    },
+    "targetOptionsSchema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "additionalProperties", "properties", "required"],
+      "properties": {
+        "type": { "const": "object" },
+        "additionalProperties": { "const": false },
+        "properties": {
+          "type": "object",
+          "maxProperties": 64,
+          "propertyNames": { "pattern": "^[A-Za-z][A-Za-z0-9]{0,63}$" },
+          "additionalProperties": { "$ref": "#/$defs/targetOptionsPropertySchema" }
+        },
+        "required": {
+          "type": "array",
+          "maxItems": 64,
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9]{0,63}$" }
+        }
+      }
+    },
+    "targetOptionsPropertySchema": {
+      "oneOf": [
+        { "$ref": "#/$defs/targetOptionsObjectPropertySchema" },
+        { "$ref": "#/$defs/targetOptionsArrayPropertySchema" },
+        { "$ref": "#/$defs/targetOptionsStringPropertySchema" },
+        { "$ref": "#/$defs/targetOptionsIntegerPropertySchema" },
+        { "$ref": "#/$defs/targetOptionsBooleanPropertySchema" }
+      ]
+    },
+    "targetOptionsObjectPropertySchema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "additionalProperties", "properties", "required"],
+      "properties": {
+        "type": { "enum": ["object", ["object", "null"]] },
+        "additionalProperties": { "const": false },
+        "properties": {
+          "type": "object",
+          "maxProperties": 64,
+          "propertyNames": { "pattern": "^[A-Za-z][A-Za-z0-9]{0,63}$" },
+          "additionalProperties": { "$ref": "#/$defs/targetOptionsPropertySchema" }
+        },
+        "required": {
+          "type": "array", "maxItems": 64, "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9]{0,63}$" }
+        }
+      }
+    },
+    "targetOptionsArrayPropertySchema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "items", "maxItems"],
+      "properties": {
+        "type": { "enum": ["array", ["array", "null"]] },
+        "items": { "$ref": "#/$defs/targetOptionsPropertySchema" },
+        "minItems": { "type": "integer", "minimum": 0, "maximum": 256 },
+        "maxItems": { "type": "integer", "minimum": 0, "maximum": 256 }
+      }
+    },
+    "targetOptionsStringPropertySchema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type"],
+      "properties": {
+        "type": { "enum": ["string", ["string", "null"]] },
+        "enum": {
+          "type": "array", "minItems": 1, "maxItems": 64, "uniqueItems": true,
+          "items": { "type": "string", "maxLength": 4096 }
+        },
+        "format": { "const": "safe-path" },
+        "minLength": { "type": "integer", "minimum": 0, "maximum": 4096 },
+        "maxLength": { "type": "integer", "minimum": 0, "maximum": 4096 }
+      }
+    },
+    "targetOptionsIntegerPropertySchema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type"],
+      "properties": {
+        "type": { "enum": ["integer", ["integer", "null"]] },
+        "minimum": { "type": "integer", "minimum": -9007199254740991, "maximum": 9007199254740991 },
+        "maximum": { "type": "integer", "minimum": -9007199254740991, "maximum": 9007199254740991 }
+      }
+    },
+    "targetOptionsBooleanPropertySchema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type"],
+      "properties": {
+        "type": { "enum": ["boolean", ["boolean", "null"]] }
       }
     }
   }

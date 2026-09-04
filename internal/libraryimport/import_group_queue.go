@@ -112,7 +112,7 @@ func (service *Service) admitImportGroup(
 	capabilities := contentcapability.Resolve(
 		target.platformID, true, service.multiDiscImportEnabled, target.contentPolicyJSON,
 	)
-	if contentMode == contentcapability.ModeMultiDiscM3UV1 && capabilities.MultiDisc == nil {
+	if contentMode == contentcapability.ModeMultiDisc && capabilities.MultiDisc == nil {
 		return importGroupAdmission{}, ErrMultiDiscModeUnavailable
 	}
 	files, err := service.loadImportSourceFiles(ctx, request.UploadID)

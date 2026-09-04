@@ -3,8 +3,8 @@
 | 属性 | 内容 |
 | --- | --- |
 | 文档状态 | 已实施 / 一期权威基线 |
-| 版本 | 2.0 |
-| 日期 | 2026-09-03 |
+| 版本 | 2.1 |
+| 日期 | 2026-09-04 |
 | 协议事实源 | `api/runtime-provider/v1/`、`api/domains/runtime.yaml` |
 
 ## 1. 架构边界
@@ -22,12 +22,14 @@ Retrom Host 不实现、注册或选择具体运行引擎。运行时只有两�
   分别是游戏、平台与产品 Core 的冻结显示名，`coreName` 不参与 Provider Target 选择
 - `runtime`：冻结的 Provider、Bundle、Target、模块、能力和 checkpoint contract
 - `resources[]`：有序、带类型、大小、摘要与 Range 要求的授权内容
-- `targetOptions`：Provider 私有、按 `kind` 闭合的 Target 选项
+- `targetOptions`：Provider 私有、由该 Target 的内联 `targetOptionsSchema` 精确闭合的选项对象；没有判别字段
 - `restore`：可空的不透明 checkpoint 输入
 - `validation`：可空的运行验证输入
 - `netplay`：可空的联机输入
 
-Go 在返回前以共享 schema 和语义验证器校验完整 envelope。前端再次解析同一闭合契约；未知字段、错误组合、不安全 URL、超出 JavaScript safe integer 的数字、Provider 身份漂移或模块路径越界一律拒绝。
+Go 在返回前先执行 envelope 的共享结构校验，再用已激活 Target declaration 中的 `targetOptionsSchema` 精确校验选项；未知字段、缺少必填字段、错误类型和越界值都不能进入 envelope。前端 dispatcher 只负责 JSON-safe、深度、fan-out 与 16 KiB 大小边界，不复制任何 Target schema；Provider Module 在 mount 前用自己随 Bundle 发布的同一 schema 再做一次精确校验。模块 URL 越界、摘要或身份漂移、超出 JavaScript safe integer 的数字同样一律拒绝。
+
+`targetOptionsSchema` 是受限、闭合的 JSON Schema 形状，只支持 object/array/string/integer/boolean、显式 nullable、安全相对路径、枚举和有界长度/数量；根必须是 `additionalProperties=false` 的 object。schema 本身进入 `targetContractSha256`，因此增加、删除或收紧选项都会形成新的 Target contract，不能在同一摘要下静默改变行为。
 
 ## 3. Provider dispatcher
 
@@ -37,7 +39,7 @@ Player 只有一个 dispatcher：
 2. 读取模块并验证 `moduleSha256`；
 3. 动态导入 Provider Module V1；
 4. 验证模块导出的 API 版本和 Provider 身份；
-5. 调用 `mount(envelope)` 并取得标准 `PlayerRuntimeV1`；
+5. Provider Module 按自身 Target schema 精确校验 `targetOptions` 后调用 `mount(envelope)`，并取得标准 `PlayerRuntimeV1`；
 6. 在退出、错误或 React 卸载时恰好一次执行清理。
 
 Host 只消费标准能力和事件，不按 `providerId`、`targetId`、引擎或游戏类型分支。Provider 实现暂停、音量、输入过滤、视频模式、换盘、截图、帧计数、checkpoint、联机端口和 unique-origin 等行为；不支持的能力必须在 declaration 与运行对象上同时明确缺失。
@@ -46,7 +48,9 @@ Host 只消费标准能力和事件，不按 `providerId`、`targetId`、引擎�
 
 Provider 静态文件只从 `/runtime/providers/{providerId}/{bundleSha256}/{runtimePath}` 提供。路径必须命中已验证 Bundle 的 closed allowlist，服务端在安装时和读取时校验 size/SHA-256；未知 Provider、摘要、路径、MIME、查询或本机字节漂移均 fail closed。成功响应是 immutable 且带强 ETag。
 
-游戏、BIOS、parent、多盘、项目文件、运行包和 cart 不属于 Provider Bundle，通过 envelope 的 `resources[]` 授权。每个资源固定 role、ordinal、kind、URL、size、SHA-256 与 Range 要求。Provider 不能读取 envelope 未声明的内容，也不能从文件扩展、标题或 Core 名称猜测输入。
+游戏、BIOS、parent、多盘、项目文件、运行包和 cart 不属于 Provider Bundle，通过 envelope 的 `resources[]` 授权。公开资源 kind 固定为无版本后缀的语义标识：`ROM_BLOB`、`FILE_TREE`、`SEEKABLE_BLOB`、`NATIVE_WEB`、`ISOLATED_WEB`、`BIOS_BUNDLE`、`PARENT_ARCHIVE`、`MULTI_DISC`、`EXTERNAL_FILE_SET`、`WASM4_CART`。每个资源固定 role、ordinal、kind、URL、size、SHA-256 与 Range 要求。Provider 不能读取 envelope 未声明的内容，也不能从文件扩展、标题或 Core 名称猜测输入。
+
+内容 kind、资源 kind、detector/delivery profile、launch/review policy 等长期语义 ID 都不携带 `_Vn`；其兼容变化由 schema/catalog/contract digest 表达。只有可被独立解析或散列的真实格式与域分隔符保留显式版本，例如 `Launch Envelope V1`、checkpoint format、`RETROM_FILESET_V1` 和 hash domain。来源 M3U 只是 `MULTI_DISC` 内容的 parser/证据表示，不成为另一种持久内容 kind。
 
 内容 URL 由冻结输入生成稳定 identity；输入任一字节、依赖选择或影响输出的选项变化都产生新 URL。同一输入可在不同 Launch 中复用浏览器私有缓存，但服务端每次网络请求仍验证 grant 和 Launch 状态。
 
@@ -89,6 +93,8 @@ Provider 报告真实 ready/start 后，Host 才调用 `POST /runtime/launches/{
 - Provider Bundle schema、完整性、确定性、恶意归档与来源边界测试；
 - 47 个 Target 与产品 Core binding 闭包测试；
 - Go/TypeScript 对同一 Launch Envelope fixtures 的接受与拒绝测试；
+- Go/TypeScript 对同一 Provider-owned `targetOptionsSchema` fixtures 的接受与拒绝测试，以及 schema 改变必然改变 Target contract digest 的测试；
+- 静态门禁拒绝语义 ID 中的 `_Vn`，只允许显式列出的序列化/checkpoint/hash-domain 格式；
 - dispatcher 的模块 URL/hash、身份、mount、能力与 cleanup 测试；
 - checkpoint 跨 Launch 往返、格式/大小/摘要和降级拒绝测试；
 - EmulatorJS 单机、多盘、沉浸输入与 8 个联机 profile 测试；

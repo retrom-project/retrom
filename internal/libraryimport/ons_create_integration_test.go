@@ -74,7 +74,7 @@ func TestCreateONSArchiveReachesTrialRequiredReview(t *testing.T) {
 		UploadID: upload.ID, TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(
 			t, database.SQL, "ons/onscripter_yuri",
 		),
-		MetadataProvider: "HASHEOUS", ContentMode: "ONS_PROJECT_V1", TagIDs: []string{},
+		MetadataProvider: "HASHEOUS", ContentMode: "ONS_PROJECT", TagIDs: []string{},
 	})
 	if err != nil {
 		t.Fatalf("Create(ONS) error = %v", err)
@@ -99,7 +99,7 @@ WHERE item.import_job_id=?
 		t.Fatal(err)
 	}
 	if state != "REVIEW_PENDING" || code != "ONS_RUNTIME_TRIAL_REQUIRED" ||
-		contentKind != "ONS_PROJECT_V1" || metadataProvider != "NONE" || providerID != "retrom-runtime" ||
+		contentKind != "ONS_PROJECT" || metadataProvider != "NONE" || providerID != "retrom-runtime" ||
 		targetID != "onscripter-yuri" || selectedValidation != nil {
 		t.Fatalf(
 			"ONS review = %s/%s/%s/%s/%s/%s selected=%v",

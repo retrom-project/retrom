@@ -182,7 +182,7 @@ FROM content_hash_evidence e
 JOIN metadata_scrape_runs r ON r.id=e.scrape_run_id
 WHERE r.job_id=?
 `, scrapeJobID).Scan(&rawProfile, &rawCRC32, &rawMD5, &rawSHA1, &rawSHA256); err != nil ||
-		rawProfile != "RAW_FILE_V1" ||
+		rawProfile != "RAW_FILE" ||
 		rawCRC32 != fmt.Sprintf("%08x", crc32.ChecksumIEEE(contents)) ||
 		rawMD5 != legacyMD5 ||
 		rawSHA1 != legacySHA1 ||
@@ -330,7 +330,7 @@ FROM content_hash_evidence e
 JOIN metadata_scrape_runs r ON r.id=e.scrape_run_id
 WHERE r.job_id=?
 `, secondScrapeJobID).Scan(&memberProfile, &memberArchiveID, &memberOrdinal); err != nil ||
-		memberProfile != "SINGLE_ARCHIVE_MEMBER_V1" || !memberArchiveID.Valid || !memberOrdinal.Valid {
+		memberProfile != "SINGLE_ARCHIVE_MEMBER" || !memberArchiveID.Valid || !memberOrdinal.Valid {
 		t.Fatalf("archive member evidence = %s/%#v/%#v, error=%v", memberProfile, memberArchiveID, memberOrdinal, err)
 	}
 	var networkAttempts, cacheAttempts, providerResponses int64
@@ -716,7 +716,7 @@ WHERE id=?
 	var evidenceCount, arcadeProfileCount, leakedHashCount int
 	if err := database.SQL.QueryRowContext(ctx, `
 SELECT count(*),
-sum(profile='ARCADE_DAT_ENTRIES_V1'),
+sum(profile='ARCADE_DAT_ENTRIES'),
 sum(md5 IS NOT NULL
 OR sha256 IS NOT NULL)
 FROM content_hash_evidence

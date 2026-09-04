@@ -608,12 +608,12 @@ components:
           type: string
           enum:
             - STANDARD
-            - MULTI_DISC_M3U_V1
-            - RPG_MAKER_PROJECT_V1
-            - ONS_PROJECT_V1
-            - KIRIKIRI_PROJECT_V1
-            - BUTTERSCOTCH_PROJECT_V1
-            - TYRANOSCRIPT_PROJECT_V1
+            - MULTI_DISC
+            - RPG_MAKER_PROJECT
+            - ONS_PROJECT
+            - KIRIKIRI_PROJECT
+            - BUTTERSCOTCH_PROJECT
+            - TYRANOSCRIPT_PROJECT
           description: Omitted requests use STANDARD.
     ReconfigureImportRequest:
       type: object

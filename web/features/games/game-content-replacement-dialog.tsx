@@ -8,7 +8,7 @@ import { preflightMultiDisc, type MultiDiscPreflight as MultiDiscPreflightResult
 import { MultiDiscPreflight } from "@/features/imports/multidisc-preflight-view";
 import { formatBytes } from "@/lib/backend";
 
-type ContentMode = "STANDARD" | "MULTI_DISC_M3U_V1" | "RPG_MAKER_PROJECT_V1";
+type ContentMode = "STANDARD" | "MULTI_DISC" | "RPG_MAKER_PROJECT";
 
 export function GameContentReplacementDialog({
   initialMode,
@@ -25,17 +25,17 @@ export function GameContentReplacementDialog({
 }) {
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<ContentMode>(
-    initialMode === "RPG_MAKER_PROJECT_V1" || initialMode === "MULTI_DISC_M3U_V1" && multiDiscLimits
+    initialMode === "RPG_MAKER_PROJECT" || initialMode === "MULTI_DISC" && multiDiscLimits
       ? initialMode
       : "STANDARD",
   );
   const [files, setFiles] = useState<File[]>([]);
   const [preflight, setPreflight] = useState<MultiDiscPreflightResult | null>(null);
   const totalBytes = useMemo(() => files.reduce((total, file) => total + file.size, 0), [files]);
-  const preflighting = mode === "MULTI_DISC_M3U_V1" && files.length > 0 && preflight === null;
+  const preflighting = mode === "MULTI_DISC" && files.length > 0 && preflight === null;
 
   useEffect(() => {
-    if (!open || mode !== "MULTI_DISC_M3U_V1" || !multiDiscLimits || !files.length) {return;}
+    if (!open || mode !== "MULTI_DISC" || !multiDiscLimits || !files.length) {return;}
     let disposed = false;
     void preflightMultiDisc(files.map((file) => ({ path: file.webkitRelativePath || file.name, file })), multiDiscLimits)
       .then((result) => { if (!disposed) {setPreflight(result);} });
@@ -48,7 +48,7 @@ export function GameContentReplacementDialog({
     setFiles([]);
     setPreflight(null);
   };
-  const multiDiscValid = mode !== "MULTI_DISC_M3U_V1" || Boolean(
+  const multiDiscValid = mode !== "MULTI_DISC" || Boolean(
     preflight?.detected && preflight.groups.length === 1 && preflight.completeGroupCount === 1 &&
     preflight.blockedGroupCount === 0 && preflight.rejectedGroupCount === 0,
   );
@@ -81,10 +81,10 @@ function ReplacementDialogContents({
   setPreflight: (preflight: MultiDiscPreflightResult | null) => void;
   totalBytes: number;
 }) {
-  const multiDisc = mode === "MULTI_DISC_M3U_V1";
-  const rpgMaker = mode === "RPG_MAKER_PROJECT_V1";
+  const multiDisc = mode === "MULTI_DISC";
+  const rpgMaker = mode === "RPG_MAKER_PROJECT";
   const changeMode = (selected: boolean) => {
-    setMode(selected ? "MULTI_DISC_M3U_V1" : "STANDARD");
+    setMode(selected ? "MULTI_DISC" : "STANDARD");
     setFiles([]);
     setPreflight(null);
   };

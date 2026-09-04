@@ -197,7 +197,7 @@ func (run *creationRun) configSnapshot(biosCatalog []corevalidation.BIOSCatalogE
 		"datVersionId":          nullable(run.plan.datID), "biosRequirements": biosCatalog,
 		"metadataProviderConfigVersion": 1, "tags": run.tagReferences,
 	}
-	if run.plan.contentMode == contentcapability.ModeMultiDiscM3UV1 {
+	if run.plan.contentMode == contentcapability.ModeMultiDisc {
 		capabilities := contentcapability.Resolve(
 			target.platformID, true, run.service.multiDiscImportEnabled, target.contentPolicyJSON,
 		)

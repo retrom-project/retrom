@@ -17,6 +17,12 @@ CREATE TABLE cores (
   updated_at_ms INTEGER NOT NULL CHECK(updated_at_ms >= created_at_ms)
 );
 
+CREATE TABLE content_kinds (
+  id TEXT PRIMARY KEY CHECK(
+    length(id) BETWEEN 2 AND 64 AND id=upper(id) AND id NOT GLOB '*[^A-Z0-9_]*'
+  )
+);
+
 CREATE TABLE platform_cores (
   platform_id TEXT NOT NULL REFERENCES platforms(id),
   core_id TEXT NOT NULL REFERENCES cores(id),
@@ -30,7 +36,7 @@ CREATE TABLE runtime_providers (
     AND provider_id NOT GLOB '*[^a-z0-9-]*'
   ),
   provider_version TEXT NOT NULL CHECK(length(provider_version) BETWEEN 5 AND 128),
-  provider_api_version INTEGER NOT NULL CHECK(provider_api_version=1),
+  provider_api_version INTEGER NOT NULL CHECK(provider_api_version>=1),
   bundle_sha256 TEXT NOT NULL UNIQUE CHECK(length(bundle_sha256)=64 AND bundle_sha256=lower(bundle_sha256)),
   manifest_sha256 TEXT NOT NULL CHECK(length(manifest_sha256)=64 AND manifest_sha256=lower(manifest_sha256)),
   module_sha256 TEXT NOT NULL CHECK(length(module_sha256)=64 AND module_sha256=lower(module_sha256)),
@@ -56,9 +62,9 @@ CREATE TABLE runtime_targets (
   display_name TEXT NOT NULL CHECK(length(display_name) BETWEEN 1 AND 120),
   game_compatibility_line TEXT NOT NULL CHECK(length(game_compatibility_line) BETWEEN 1 AND 64),
   netplay_compatibility_line TEXT CHECK(length(netplay_compatibility_line) BETWEEN 1 AND 64),
-  options_kind TEXT NOT NULL CHECK(options_kind IN (
-    'NONE_V1','EMULATORJS_V1','RPGMAKER_V1','ONS_PROJECT_V1','KIRIKIRI_PROJECT_V1'
-  )),
+  target_options_schema_json TEXT NOT NULL CHECK(
+    json_valid(target_options_schema_json) AND json_type(target_options_schema_json)='object'
+  ),
   capabilities_json TEXT NOT NULL CHECK(json_valid(capabilities_json)),
   checkpoint_json TEXT CHECK(checkpoint_json IS NULL OR json_valid(checkpoint_json)),
   manifest_fragment_json TEXT NOT NULL CHECK(json_valid(manifest_fragment_json)),
@@ -88,8 +94,14 @@ CREATE TABLE runtime_target_bindings (
   target_id TEXT NOT NULL,
   detector_profile TEXT NOT NULL CHECK(length(detector_profile) BETWEEN 2 AND 64),
   delivery_profile TEXT NOT NULL CHECK(length(delivery_profile) BETWEEN 2 AND 64),
-  launch_policy TEXT NOT NULL CHECK(launch_policy IN ('SUPPORTED','EXPERIMENTAL','DISABLED')),
-  review_policy TEXT NOT NULL CHECK(review_policy IN ('NONE','RPG_RUNTIME_VALIDATION_V1')),
+  launch_policy TEXT NOT NULL CHECK(
+    length(launch_policy) BETWEEN 2 AND 64 AND launch_policy=upper(launch_policy)
+    AND launch_policy NOT GLOB '*[^A-Z0-9_]*'
+  ),
+  review_policy TEXT NOT NULL CHECK(
+    length(review_policy) BETWEEN 2 AND 64 AND review_policy=upper(review_policy)
+    AND review_policy NOT GLOB '*[^A-Z0-9_]*'
+  ),
   UNIQUE(provider_id,target_id),
   FOREIGN KEY(provider_id,target_id) REFERENCES runtime_targets(provider_id,target_id) ON DELETE CASCADE
 );
@@ -104,10 +116,7 @@ CREATE TABLE runtime_binding_platforms (
 
 CREATE TABLE runtime_binding_content_kinds (
   binding_id TEXT NOT NULL REFERENCES runtime_target_bindings(binding_id) ON DELETE CASCADE,
-  content_kind TEXT NOT NULL CHECK(content_kind IN (
-    'SINGLE_FILE','DOS_BUNDLE','MULTI_DISC_M3U_V1','RPG_MAKER_PROJECT_V1','ONS_PROJECT_V1',
-    'KIRIKIRI_PROJECT_V1','BUTTERSCOTCH_PROJECT_V1','TYRANOSCRIPT_PROJECT_V1'
-  )),
+  content_kind TEXT NOT NULL REFERENCES content_kinds(id),
   PRIMARY KEY(binding_id,content_kind)
 );
 
@@ -139,6 +148,15 @@ CHECK (
 );
 
 -- Stable reference catalog; instance data is intentionally empty.
+INSERT INTO content_kinds(id) VALUES('BUTTERSCOTCH_PROJECT');
+INSERT INTO content_kinds(id) VALUES('DOS_BUNDLE');
+INSERT INTO content_kinds(id) VALUES('KIRIKIRI_PROJECT');
+INSERT INTO content_kinds(id) VALUES('MULTI_DISC');
+INSERT INTO content_kinds(id) VALUES('ONS_PROJECT');
+INSERT INTO content_kinds(id) VALUES('RPG_MAKER_PROJECT');
+INSERT INTO content_kinds(id) VALUES('SINGLE_FILE');
+INSERT INTO content_kinds(id) VALUES('TYRANOSCRIPT_PROJECT');
+
 INSERT INTO platforms(id,name,sort_order,enabled,created_at_ms,updated_at_ms) VALUES('3do','3DO',200,1,0,0);
 INSERT INTO platforms(id,name,sort_order,enabled,created_at_ms,updated_at_ms) VALUES('arcade','Arcade',60,1,0,0);
 INSERT INTO platforms(id,name,sort_order,enabled,created_at_ms,updated_at_ms) VALUES('atari2600','Atari 2600',90,1,0,0);

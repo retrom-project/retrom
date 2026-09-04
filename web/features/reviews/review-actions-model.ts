@@ -8,7 +8,7 @@ export type ReviewCandidate = { candidateId: string; scrapeRunId: string; provid
 export type ReviewScrapeRun = { scrapeRunId: string; jobId: string; provider: "HASHEOUS" | "NONE"; state: string; jobState: string; createdAtMs: number; completedAtMs: number | null; errorCode: string | null; evidenceCount: number; attemptCount: number; candidateCount: number; outcomes: { hit: number; miss: number; rateLimited: number; timeout: number; invalidResponse: number; networkError: number } };
 export type ReviewMultiDiscAttachment = { attachmentId: string; state: string; errorCode: string | null; diagnostics?: unknown; jobId: string; jobState: string; version?: number; jobVersion?: number; canRetry?: boolean };
 export type ReviewMultiDisc = {
-  contentKind: "MULTI_DISC_M3U_V1"; playlist: { name: string; sizeBytes: number; sha256: string };
+  contentKind: "MULTI_DISC"; playlist: { name: string; sizeBytes: number; sha256: string };
   discCount: number; presentDiscCount: number; missingDiscCount: number; totalPresentBytes: number; maxDiscs?: number; maxTotalBytes?: number;
   entries: Array<{ index: number; discIndex: number; label: string; sourceReference: string; canonicalName: string; state: "PRESENT" | "MISSING"; logicalName: string | null; sizeBytes: number | null; sha256: string | null }>;
   missingReferences: string[]; canAttachMissingDiscs: boolean; latestAttachment: ReviewMultiDiscAttachment | null; activeAttachment: ReviewMultiDiscAttachment | null;

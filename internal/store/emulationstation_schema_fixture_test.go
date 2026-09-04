@@ -151,8 +151,9 @@ INSERT INTO runtime_providers(
 	_, err = fixture.database.SQL.ExecContext(t.Context(), `
 INSERT INTO runtime_targets(
  provider_id,target_id,display_name,game_compatibility_line,netplay_compatibility_line,
- options_kind,capabilities_json,checkpoint_json,manifest_fragment_json,target_contract_sha256
-) VALUES('emulatorjs','fceumm','FCEUmm','fceumm-v1','emulatorjs-netplay-v2','EMULATORJS_V1','{}',
+ target_options_schema_json,capabilities_json,checkpoint_json,manifest_fragment_json,target_contract_sha256
+) VALUES('emulatorjs','fceumm','FCEUmm','fceumm-v1','emulatorjs-netplay-v2',
+ '{"type":"object","additionalProperties":false,"properties":{},"required":[]}','{}',
  '{"writeFormat":"checkpoint-v1","readFormats":["checkpoint-v1"],"maxBytes":67108864}','{}',?)
 `, testDigestD)
 	testassert.False(t, err != nil, err)

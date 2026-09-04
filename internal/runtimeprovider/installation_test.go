@@ -135,10 +135,10 @@ func TestLoadInstallationOverlaysPFBDevModuleWithoutChangingBaseBundle(t *testin
 			Title: "Fixture", PlatformName: "Fixture", CoreName: "Fixture", ReturnTo: "/games/fixture",
 		},
 		Resources: []map[string]any{{
-			"role": "game", "kind": "ROM_BLOB_V1", "url": "/runtime/content/game",
+			"role": "game", "kind": "ROM_BLOB", "url": "/runtime/content/game",
 			"ordinal": 0, "rangeRequired": false, "sha256": strings.Repeat("d", 64), "sizeBytes": 3,
 		}},
-		TargetOptions: map[string]any{"kind": "NONE_V1"},
+		TargetOptions: map[string]any{},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -168,7 +168,7 @@ func writeInstallationFixture(t *testing.T, root string) installationFixture {
 	t.Helper()
 	module := []byte("export{}")
 	moduleDigest := sha256Hex(module)
-	providerJSON := []byte(`{"schemaVersion":1,"providerId":"fixture","providerVersion":"1.0.0","providerApiVersion":1,"clientModulePath":"client.mjs","targets":[{"id":"fixture","displayName":"Fixture","gameCompatibilityLine":"fixture-v1","netplayCompatibilityLine":null,"optionsKind":"NONE_V1","inputs":[{"role":"game","kind":"ROM_BLOB_V1","cardinality":"ONE","optional":false}],"capabilities":{"pause":false,"screenshot":false,"checkpoint":false,"standardGamepad":false,"frameCounter":false,"volume":false,"discSwitch":false,"nativeSettings":false,"inputFilter":false,"netplayPort":false,"videoModes":[],"requiresThreads":false,"frameMode":"NONE","validationProbes":[]},"checkpoint":null,"assetPaths":["client.mjs"]}]}`)
+	providerJSON := []byte(`{"schemaVersion":1,"providerId":"fixture","providerVersion":"1.0.0","providerApiVersion":1,"clientModulePath":"client.mjs","targets":[{"id":"fixture","displayName":"Fixture","gameCompatibilityLine":"fixture-v1","netplayCompatibilityLine":null,"targetOptionsSchema":{"type":"object","additionalProperties":false,"properties":{},"required":[]},"inputs":[{"role":"game","kind":"ROM_BLOB","cardinality":"ONE","optional":false}],"capabilities":{"pause":false,"screenshot":false,"checkpoint":false,"standardGamepad":false,"frameCounter":false,"volume":false,"discSwitch":false,"nativeSettings":false,"inputFilter":false,"netplayPort":false,"videoModes":[],"requiresThreads":false,"frameMode":"NONE","validationProbes":[]},"checkpoint":null,"assetPaths":["client.mjs"]}]}`)
 	providerDigest := sha256Hex(providerJSON)
 	integrityValue := map[string]any{
 		"schemaVersion": 1,
@@ -227,7 +227,7 @@ func writeInstallationFixture(t *testing.T, root string) installationFixture {
 		"bindings": []map[string]any{{
 			"id": "fixture", "coreId": "fixture", "providerId": "fixture", "targetId": "fixture",
 			"platformIds": []string{"fixture"}, "acceptedContentKinds": []string{"SINGLE_FILE"},
-			"detectorProfile": "FIXTURE", "deliveryProfile": "ROM_BLOB_V1",
+			"detectorProfile": "FIXTURE", "deliveryProfile": "ROM_BLOB",
 			"launchPolicy": "SUPPORTED", "reviewPolicy": "NONE",
 		}},
 	})

@@ -426,7 +426,7 @@ describe("ReviewActions validation", () => {
       version: 4,
       validation: { id: "validation-multi-1", status: "BLOCKED", current: true, compatibilityCode: "LAUNCH_MULTI_DISC_INCOMPLETE" },
       multiDisc: {
-        contentKind: "MULTI_DISC_M3U_V1",
+        contentKind: "MULTI_DISC",
         playlist: { name: "game.m3u", sizeBytes: 18, sha256: "a".repeat(64) },
         discCount: 2, presentDiscCount: 1, missingDiscCount: 1, totalPresentBytes: 4,
         maxDiscs: 8, maxTotalBytes: 1024,
@@ -484,7 +484,7 @@ describe("ReviewActions validation", () => {
       ...review, version: 4, canApprove: false,
       validation: { id: "validation-multi-1", status: "BLOCKED", current: true, compatibilityCode: "LAUNCH_MULTI_DISC_INCOMPLETE" },
       multiDisc: {
-        contentKind: "MULTI_DISC_M3U_V1", playlist: { name: "game.m3u", sizeBytes: 18, sha256: "a".repeat(64) },
+        contentKind: "MULTI_DISC", playlist: { name: "game.m3u", sizeBytes: 18, sha256: "a".repeat(64) },
         discCount: 2, presentDiscCount: 1, missingDiscCount: 1, totalPresentBytes: 4, maxDiscs: 8, maxTotalBytes: 1024,
         entries: [
           { index: 0, discIndex: 0, label: "光盘 1", sourceReference: "one.chd", canonicalName: "disc-001.chd", state: "PRESENT", logicalName: "one.chd", sizeBytes: 4, sha256: "b".repeat(64) },
@@ -520,7 +520,7 @@ describe("ReviewActions validation", () => {
       ...review, version: 6, canApprove: false,
       validation: { id: "validation-multi-1", status: "BLOCKED", current: true, compatibilityCode: "LAUNCH_MULTI_DISC_INCOMPLETE" },
       multiDisc: {
-        contentKind: "MULTI_DISC_M3U_V1", playlist: { name: "game.m3u", sizeBytes: 18, sha256: "a".repeat(64) },
+        contentKind: "MULTI_DISC", playlist: { name: "game.m3u", sizeBytes: 18, sha256: "a".repeat(64) },
         discCount: 2, presentDiscCount: 1, missingDiscCount: 1, totalPresentBytes: 4, maxDiscs: 8, maxTotalBytes: 1024,
         entries: [
           { index: 0, discIndex: 0, label: "光盘 1", sourceReference: "one.chd", canonicalName: "disc-001.chd", state: "PRESENT", logicalName: "one.chd", sizeBytes: 4, sha256: "b".repeat(64) },

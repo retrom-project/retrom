@@ -106,7 +106,7 @@ func (builder *Builder) Build(input Input) ([]byte, error) {
 	}
 	resolved, exists := builder.targets[input.Binding.ProviderID+"\x00"+input.Binding.TargetID]
 	if !exists || !validResources(resolved.target.Inputs, input.Resources) ||
-		input.TargetOptions == nil || input.TargetOptions["kind"] != resolved.target.OptionsKind {
+		!runtimebundle.ValidateTargetOptions(resolved.target.TargetOptionsSchema, input.TargetOptions) {
 		return nil, ErrEnvelopeInvalid
 	}
 	warnings := input.Session.Warnings

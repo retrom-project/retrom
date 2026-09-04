@@ -1720,7 +1720,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Schedules a destructive complete content replacement. Byte-identical single-ROM content or the same ordered multi-disc hashes fail terminally with GAME_CONTENT_UNCHANGED. A successful switch retires old content/runtime payload and deletes saves bound to superseded revisions; a failed replacement changes none of them. contentMode defaults strictly to STANDARD; MULTI_DISC_M3U_V1 requires a complete DIRECTORY upload and never uses review attachment repair. */
+        /** @description Schedules a destructive complete content replacement. Byte-identical single-ROM content or the same ordered multi-disc hashes fail terminally with GAME_CONTENT_UNCHANGED. A successful switch retires old content/runtime payload and deletes saves bound to superseded revisions; a failed replacement changes none of them. contentMode defaults strictly to STANDARD; MULTI_DISC requires a complete DIRECTORY upload and never uses review attachment repair. */
         post: operations["postAdminGameContentRevision"];
         delete?: never;
         options?: never;
@@ -3502,7 +3502,7 @@ export interface components {
         };
         DiscSet: {
             /** @enum {string} */
-            contentKind: "MULTI_DISC_M3U_V1";
+            contentKind: "MULTI_DISC";
             count: number;
             initialDiscIndex: number;
             entries: components["schemas"]["DiscEntry"][];
@@ -3568,7 +3568,7 @@ export interface components {
                 role: string;
                 ordinal: number;
                 /** @enum {unknown} */
-                kind: "ROM_BLOB_V1" | "SEEKABLE_BLOB_V1" | "PARENT_ARCHIVE_V1" | "WASM4_CART_V1";
+                kind: "ROM_BLOB" | "SEEKABLE_BLOB" | "PARENT_ARCHIVE" | "WASM4_CART";
                 url: string;
                 sha256: string;
                 sizeBytes: number;
@@ -3577,14 +3577,14 @@ export interface components {
                 role: string;
                 ordinal: number;
                 /** @enum {unknown} */
-                kind: "FILE_TREE_V1";
+                kind: "FILE_TREE";
                 indexUrl: string;
                 contentDigest: string;
             } | {
                 role: string;
                 ordinal: number;
                 /** @enum {unknown} */
-                kind: "NATIVE_WEB_V1" | "ISOLATED_WEB_V1";
+                kind: "NATIVE_WEB" | "ISOLATED_WEB";
                 origin: string;
                 entryUrl: string;
                 bootstrapTicket: string;
@@ -3594,7 +3594,7 @@ export interface components {
                 role: string;
                 ordinal: number;
                 /** @enum {unknown} */
-                kind: "BIOS_BUNDLE_V1" | "EXTERNAL_FILE_SET_V1";
+                kind: "BIOS_BUNDLE" | "EXTERNAL_FILE_SET";
                 files: {
                     logicalName: string;
                     virtualPath: string;
@@ -3606,7 +3606,7 @@ export interface components {
                 role: string;
                 ordinal: number;
                 /** @enum {unknown} */
-                kind: "MULTI_DISC_V1";
+                kind: "MULTI_DISC";
                 initialDiscIndex: number;
                 entries: {
                     index: number;
@@ -3617,31 +3617,7 @@ export interface components {
                 }[];
             })[];
             targetOptions: {
-                /** @enum {unknown} */
-                kind: "NONE_V1";
-            } | {
-                /** @enum {unknown} */
-                kind: "EMULATORJS_V1";
-                dosEntryPath: string | null;
-                initialDiscIndex: number | null;
-            } | {
-                /** @enum {unknown} */
-                kind: "RPGMAKER_V1";
-                expectedRestorePosition: {
-                    mapId: number;
-                    playerX: number;
-                    playerY: number;
-                    fixtureState: number;
-                } | null;
-            } | {
-                /** @enum {unknown} */
-                kind: "ONS_PROJECT_V1";
-                /** @enum {unknown} */
-                scriptEncoding: "gbk" | "sjis" | "utf8";
-            } | {
-                /** @enum {unknown} */
-                kind: "KIRIKIRI_PROJECT_V1";
-                startupXp3Path: string | null;
+                [key: string]: unknown;
             };
             restore: {
                 url: string;
@@ -4018,7 +3994,7 @@ export interface components {
              * @description Omitted requests use STANDARD.
              * @enum {string}
              */
-            contentMode?: "STANDARD" | "MULTI_DISC_M3U_V1" | "RPG_MAKER_PROJECT_V1" | "ONS_PROJECT_V1" | "KIRIKIRI_PROJECT_V1" | "BUTTERSCOTCH_PROJECT_V1" | "TYRANOSCRIPT_PROJECT_V1";
+            contentMode?: "STANDARD" | "MULTI_DISC" | "RPG_MAKER_PROJECT" | "ONS_PROJECT" | "KIRIKIRI_PROJECT" | "BUTTERSCOTCH_PROJECT" | "TYRANOSCRIPT_PROJECT";
         };
         ReconfigureImportRequest: {
             /** Format: uuid */
@@ -4188,7 +4164,7 @@ export interface components {
              * @default STANDARD
              * @enum {string}
              */
-            contentMode: "STANDARD" | "MULTI_DISC_M3U_V1" | "RPG_MAKER_PROJECT_V1" | "ONS_PROJECT_V1" | "KIRIKIRI_PROJECT_V1" | "BUTTERSCOTCH_PROJECT_V1" | "TYRANOSCRIPT_PROJECT_V1";
+            contentMode: "STANDARD" | "MULTI_DISC" | "RPG_MAKER_PROJECT" | "ONS_PROJECT" | "KIRIKIRI_PROJECT" | "BUTTERSCOTCH_PROJECT" | "TYRANOSCRIPT_PROJECT";
         };
         ApplyCandidateRequest: {
             fields: ("title" | "description" | "developer" | "publisher" | "genre" | "players" | "releaseYear")[];
@@ -4621,7 +4597,7 @@ export interface components {
             /** Format: uuid */
             payloadReleaseJobId: string | null;
             /** @enum {string|null} */
-            contentKind: "SINGLE_FILE" | "DOS_BUNDLE" | "MULTI_DISC_M3U_V1" | null;
+            contentKind: "SINGLE_FILE" | "DOS_BUNDLE" | "MULTI_DISC" | null;
             tags: components["schemas"]["TagReference"][];
             media: {
                 /** @enum {string} */
@@ -4890,7 +4866,7 @@ export interface components {
             /** Format: uuid */
             payloadReleaseJobId: string | null;
             /** @enum {string|null} */
-            contentKind: "SINGLE_FILE" | "DOS_BUNDLE" | "MULTI_DISC_M3U_V1" | null;
+            contentKind: "SINGLE_FILE" | "DOS_BUNDLE" | "MULTI_DISC" | null;
             tags: components["schemas"]["TagReference"][];
             media: {
                 /** @enum {string} */

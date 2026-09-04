@@ -27,13 +27,13 @@ func TestProjectReviewArchiveFormatRequiresValidatedTyranoScriptExecutableContex
 		contentKind, name string
 		stored, expected  any
 	}{
-		{"TYRANOSCRIPT_PROJECT_V1", "game.exe", "ZIP", "NWJS_EXECUTABLE"},
-		{"TYRANOSCRIPT_PROJECT_V1", "GAME.EXE", "ZIP", "NWJS_EXECUTABLE"},
-		{"TYRANOSCRIPT_PROJECT_V1", "game.zip", "ZIP", "ZIP"},
+		{"TYRANOSCRIPT_PROJECT", "game.exe", "ZIP", "NWJS_EXECUTABLE"},
+		{"TYRANOSCRIPT_PROJECT", "GAME.EXE", "ZIP", "NWJS_EXECUTABLE"},
+		{"TYRANOSCRIPT_PROJECT", "game.zip", "ZIP", "ZIP"},
 		{"SINGLE_FILE", "game.exe", "ZIP", "ZIP"},
-		{"TYRANOSCRIPT_PROJECT_V1", "game.exe", "SEVEN_Z", "SEVEN_Z"},
-		{"TYRANOSCRIPT_PROJECT_V1", "game.zip", "ELECTRON_ASAR", "ELECTRON_ASAR"},
-		{"TYRANOSCRIPT_PROJECT_V1", "game.exe", nil, nil},
+		{"TYRANOSCRIPT_PROJECT", "game.exe", "SEVEN_Z", "SEVEN_Z"},
+		{"TYRANOSCRIPT_PROJECT", "game.zip", "ELECTRON_ASAR", "ELECTRON_ASAR"},
+		{"TYRANOSCRIPT_PROJECT", "game.exe", nil, nil},
 	} {
 		if actual := projectReviewArchiveFormat(test.contentKind, test.name, test.stored); actual != test.expected {
 			t.Fatalf("projectReviewArchiveFormat(%q,%q,%v)=%v, want %v",

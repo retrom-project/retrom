@@ -59,8 +59,8 @@ function metadataDraft(game: AdminGame): MetadataDraft {
 
 function contentPresentation(game: AdminGame, instance: PlatformInstanceOption | undefined) {
   const current = game.contentRevisions.find((revision) => revision.current) ?? game.contentRevisions[0];
-  const supportsMultiDisc = instance?.importCapabilities?.contentModes.includes("MULTI_DISC_M3U_V1") ?? false;
-  const discs = current?.contentKind === "MULTI_DISC_M3U_V1"
+  const supportsMultiDisc = instance?.importCapabilities?.contentModes.includes("MULTI_DISC") ?? false;
+  const discs = current?.contentKind === "MULTI_DISC"
     ? current.files.filter((file) => file.role === "DISC").sort((left, right) => left.sortOrder - right.sortOrder)
     : [];
   return {
@@ -193,7 +193,7 @@ export function AdminGameManager({ game, platformInstances, candidates, activeTa
     });
   }
 
-  async function replaceContent(files: File[], mode: "STANDARD" | "MULTI_DISC_M3U_V1" | "RPG_MAKER_PROJECT_V1") {
+  async function replaceContent(files: File[], mode: "STANDARD" | "MULTI_DISC" | "RPG_MAKER_PROJECT") {
     return action("content", async () => {
       const uploaded = await uploadFiles(files, setNotice);
       const response = await fetch(`/api/v1/admin/games/${game.gameId}/content-revisions`, { method: "POST", credentials: "same-origin", headers: { ...await versionedHeaders(), "Idempotency-Key": newUuid() }, body: JSON.stringify({ uploadId: uploaded.uploadId, contentMode: mode }) });

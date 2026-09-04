@@ -51,6 +51,7 @@ type targetProjection struct {
 	target             runtimebundle.Target
 	capabilitiesJSON   string
 	checkpointJSON     *string
+	targetOptionsJSON  string
 	manifestFragment   string
 	targetContractHash string
 }
@@ -160,9 +161,14 @@ func projectTarget(target runtimebundle.Target) (targetProjection, error) {
 	if err != nil {
 		return targetProjection{}, projectionInvalid(err)
 	}
+	optionsSchema, err := json.Marshal(target.TargetOptionsSchema)
+	if err != nil {
+		return targetProjection{}, projectionInvalid(err)
+	}
 	return targetProjection{
 		target: target, capabilitiesJSON: string(capabilities), checkpointJSON: checkpointJSON,
-		manifestFragment: string(fragment), targetContractHash: target.ContractSHA256,
+		targetOptionsJSON: string(optionsSchema), manifestFragment: string(fragment),
+		targetContractHash: target.ContractSHA256,
 	}, nil
 }
 
@@ -689,16 +695,17 @@ func writeTarget(
 	_, err := transaction.ExecContext(ctx, `
 INSERT INTO runtime_targets(
   provider_id,target_id,display_name,game_compatibility_line,netplay_compatibility_line,
-  options_kind,capabilities_json,checkpoint_json,manifest_fragment_json,target_contract_sha256
+  target_options_schema_json,capabilities_json,checkpoint_json,manifest_fragment_json,target_contract_sha256
 ) VALUES(?,?,?,?,?,?,?,?,?,?)
 ON CONFLICT(provider_id,target_id) DO UPDATE SET
   display_name=excluded.display_name,game_compatibility_line=excluded.game_compatibility_line,
-  netplay_compatibility_line=excluded.netplay_compatibility_line,options_kind=excluded.options_kind,
+  netplay_compatibility_line=excluded.netplay_compatibility_line,
+  target_options_schema_json=excluded.target_options_schema_json,
   capabilities_json=excluded.capabilities_json,checkpoint_json=excluded.checkpoint_json,
   manifest_fragment_json=excluded.manifest_fragment_json,target_contract_sha256=excluded.target_contract_sha256
-`, providerID, projected.target.ID, projected.target.DisplayName,
+	`, providerID, projected.target.ID, projected.target.DisplayName,
 		projected.target.GameCompatibilityLine, projected.target.NetplayCompatibilityLine,
-		projected.target.OptionsKind, projected.capabilitiesJSON, projected.checkpointJSON,
+		projected.targetOptionsJSON, projected.capabilitiesJSON, projected.checkpointJSON,
 		projected.manifestFragment, projected.targetContractHash)
 	if err != nil {
 		return fmt.Errorf("reconcile runtime providers: write target: %w", err)

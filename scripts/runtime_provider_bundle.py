@@ -38,6 +38,7 @@ LOWER_COMMIT = re.compile(r"^[0-9a-f]{40}$")
 PROVIDER_ID = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$")
 RELEASE_TAG = re.compile(r"^v[0-9]+\.[0-9]+\.[0-9]+$")
 MAX_SAFE_INTEGER = 9_007_199_254_740_991
+SUPPORTED_PROVIDER_API_VERSION = 1
 
 
 def validate_provider_lock(value: Any) -> dict[str, Any]:
@@ -233,6 +234,8 @@ def _verify_extracted(root: Path, lock: dict[str, Any], allow_proof: bool = Fals
     if expected_paths != actual_paths:
         _integrity_invalid()
     validate_provider_manifest(manifest_value)
+    if manifest_value["providerApiVersion"] != SUPPORTED_PROVIDER_API_VERSION:
+        raise ValueError("RUNTIME_PROVIDER_API_UNSUPPORTED")
     declared_assets = {
         path
         for target in manifest_value["targets"]

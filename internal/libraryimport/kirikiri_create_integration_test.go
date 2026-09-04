@@ -74,7 +74,7 @@ func TestCreateKiriKiriArchiveReachesTrialRequiredReview(t *testing.T) {
 		UploadID: upload.ID, TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(
 			t, database.SQL, "kirikiri/kirikiri2",
 		),
-		MetadataProvider: "HASHEOUS", ContentMode: "KIRIKIRI_PROJECT_V1", TagIDs: []string{},
+		MetadataProvider: "HASHEOUS", ContentMode: "KIRIKIRI_PROJECT", TagIDs: []string{},
 	})
 	if err != nil {
 		t.Fatalf("Create(KiriKiri) error = %v", err)
@@ -99,7 +99,7 @@ WHERE item.import_job_id=?
 		t.Fatal(err)
 	}
 	if state != "REVIEW_PENDING" || code != "KIRIKIRI_RUNTIME_TRIAL_REQUIRED" ||
-		contentKind != "KIRIKIRI_PROJECT_V1" || metadataProvider != "NONE" || providerID != "retrom-runtime" ||
+		contentKind != "KIRIKIRI_PROJECT" || metadataProvider != "NONE" || providerID != "retrom-runtime" ||
 		targetID != "kirikiri2-kag" || selectedValidation != nil {
 		t.Fatalf(
 			"KiriKiri review = %s/%s/%s/%s/%s/%s selected=%v",

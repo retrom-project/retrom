@@ -134,7 +134,7 @@ VALUES(?,'wasm4-profile','wasm4-admin','WASM-4 Admin','ADMIN','ENABLED',0,0);
 	previewRuntime := testsupport.RuntimeEnvelopeObject(t, previewEnvelope, "runtime")
 	previewCart := testsupport.RuntimeEnvelopeResource(t, previewEnvelope, "game")
 	if previewSession["purpose"] != "REVIEW_PREVIEW" || previewRuntime["targetId"] != "wasm4" ||
-		previewCart["kind"] != "WASM4_CART_V1" || previewCart["sizeBytes"] != int64(len(cart)) {
+		previewCart["kind"] != "WASM4_CART" || previewCart["sizeBytes"] != int64(len(cart)) {
 		t.Fatalf("WASM-4 preview envelope=%#v", previewEnvelope)
 	}
 	previewContent, err := service.ReviewPreviewContent(

@@ -100,8 +100,8 @@ func TestArchivePoliciesAreExplicitAndReturnedByValue(t *testing.T) {
 func TestMultiDiscContentKindIsExplicitlyLimitedToSaturn(t *testing.T) {
 	t.Parallel()
 	for platformID := range registry {
-		got := AllowsContentKind(platformID, ContentKindMultiDiscM3UV1)
-		testassert.CheckFalsef(t, got != (platformID == "saturn"), "AllowsContentKind(%q, MULTI_DISC_M3U_V1) = %t", platformID, got)
+		got := AllowsContentKind(platformID, ContentKindMultiDisc)
+		testassert.CheckFalsef(t, got != (platformID == "saturn"), "AllowsContentKind(%q, MULTI_DISC) = %t", platformID, got)
 		switch platformID {
 		case "rpgmaker":
 			testassert.CheckTruef(t, AllowsContentKind(platformID, ContentKindRPGMakerProject), "RPG Maker project support missing")
@@ -122,7 +122,7 @@ func TestMultiDiscContentKindIsExplicitlyLimitedToSaturn(t *testing.T) {
 			testassert.CheckTruef(t, AllowsContentKind(platformID, ContentKindSingleFile), "platform %q lost SINGLE_FILE support", platformID)
 		}
 	}
-	testassert.False(t, AllowsContentKind("unknown", ContentKindMultiDiscM3UV1), "unknown platform accepted multi-disc content")
+	testassert.False(t, AllowsContentKind("unknown", ContentKindMultiDisc), "unknown platform accepted multi-disc content")
 }
 
 func TestONSProfileAcceptsOnlyProjectArchiveTransport(t *testing.T) {

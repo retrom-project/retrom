@@ -190,7 +190,7 @@ function validationEnvelope(restoring: boolean): LaunchEnvelopeV1 {
       checkpoint: {writeFormat: "fixture-v1", readFormats: ["fixture-v1"], maxBytes: 1024},
       moduleUrl: "/runtime/providers/retrom-runtime/a/client.mjs", moduleSha256: "c".repeat(64),
       runtimeBaseUrl: "/runtime/providers/retrom-runtime/a/"},
-    resources: [], targetOptions: {kind: "RPGMAKER_V1", expectedRestorePosition: null},
+    resources: [], targetOptions: {expectedRestorePosition: null},
     restore: restoring ? {url: `/runtime/launches/${launchId}/state`, format: "fixture-v1", sha256: fixtureDigest, sizeBytes: 3} : null,
     validation: {probeId: "rpgmaker.position.v1", input: {generation: "RPG2000", resume}}, netplay: null,
   };

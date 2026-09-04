@@ -136,7 +136,7 @@ async function provisionReview(client, sourceFiles, platformInstanceId) {
   if (review.itemId !== resumeItemId || !validationCanBeReplaced
       || review.rpgMaker?.selectedCoreId !== config.coreId
       || review.rpgMaker?.generation !== config.generation
-      || review.sourceManifest?.contentKind !== "RPG_MAKER_PROJECT_V1"
+      || review.sourceManifest?.contentKind !== "RPG_MAKER_PROJECT"
       || review.sourceManifest?.fileCount !== expected.fileCount
       || review.sourceManifest?.totalBytes !== expected.totalBytes
       || review.sourceManifest?.filesDigest !== expected.filesDigest) {

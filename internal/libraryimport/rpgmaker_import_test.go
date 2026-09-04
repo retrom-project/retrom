@@ -32,7 +32,7 @@ func TestPrepareRPGMakerDirectoryKeepsOneNormalizedProject(t *testing.T) {
 
 func assertPreparedMVProject(t *testing.T, groups []preparedGroup, archives []preparedArchive) {
 	t.Helper()
-	if len(groups) != 1 || len(archives) != 0 || groups[0].contentKind != "RPG_MAKER_PROJECT_V1" ||
+	if len(groups) != 1 || len(archives) != 0 || groups[0].contentKind != "RPG_MAKER_PROJECT" ||
 		groups[0].rpgProfile == nil || groups[0].rpgProfile.ExpectedGeneration != detector.RPGMV ||
 		groups[0].rpgProjectRoot != "www" || groups[0].titleSource != "Export" ||
 		len(groups[0].sources) != 10 {

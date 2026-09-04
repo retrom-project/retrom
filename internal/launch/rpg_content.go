@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	rpgProjectFormat         = "RPG_MAKER_PROJECT_V1"
+	rpgProjectFormat         = "RPG_MAKER_PROJECT"
 	rpgEasyIndexName         = "__retrom__/index.json"
 	rpgMKXPArchiveName       = "__retrom__/game.mkxpz"
 	rpgMKXPArchivePublicName = "game.mkxpz"
@@ -103,11 +103,11 @@ ORDER BY 2
 
 func requiredRPGContent(deliveryProfile string) (string, bool, error) {
 	switch deliveryProfile {
-	case "FILE_TREE_PROJECT_V1":
+	case "FILE_TREE_PROJECT":
 		return "RPG_EASYRPG_INDEX", false, nil
-	case "SEEKABLE_PROJECT_ARCHIVE_V1":
+	case "SEEKABLE_PROJECT_ARCHIVE":
 		return "RPG_MAKER_LAUNCH_BUNDLE", false, nil
-	case "ISOLATED_WEB_PROJECT_V1":
+	case "ISOLATED_WEB_PROJECT":
 		return "", true, nil
 	default:
 		return "", false, ErrBlocked

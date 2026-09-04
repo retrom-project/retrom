@@ -75,7 +75,7 @@ func TestCreateButterscotchArchiveReachesTrialRequiredReview(t *testing.T) {
 		UploadID: upload.ID, TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(
 			t, database.SQL, "butterscotch/butterscotch",
 		),
-		MetadataProvider: "HASHEOUS", ContentMode: "BUTTERSCOTCH_PROJECT_V1", TagIDs: []string{},
+		MetadataProvider: "HASHEOUS", ContentMode: "BUTTERSCOTCH_PROJECT", TagIDs: []string{},
 	})
 	if err != nil {
 		t.Fatalf("Create(Butterscotch) error = %v", err)
@@ -100,7 +100,7 @@ WHERE item.import_job_id=?
 		t.Fatal(err)
 	}
 	if state != "REVIEW_PENDING" || code != "BUTTERSCOTCH_RUNTIME_TRIAL_REQUIRED" ||
-		contentKind != "BUTTERSCOTCH_PROJECT_V1" || metadataProvider != "NONE" ||
+		contentKind != "BUTTERSCOTCH_PROJECT" || metadataProvider != "NONE" ||
 		providerID != "retrom-runtime" || targetID != "butterscotch-gamemaker" || selectedValidation != nil {
 		t.Fatalf("Butterscotch review = %s/%s/%s/%s/%s/%s selected=%v",
 			state, code, contentKind, metadataProvider, providerID, targetID, selectedValidation)

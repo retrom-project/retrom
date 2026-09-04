@@ -24,17 +24,17 @@ const (
 	ArchiveSinglePrimary ArchivePolicy = "SINGLE_PRIMARY"
 	ArchiveProject       ArchivePolicy = "PROJECT"
 
-	RawFileFormat             = "RAW_FILE_V1"
-	SingleArchiveMemberFormat = "SINGLE_ARCHIVE_MEMBER_V1"
+	RawFileFormat             = "RAW_FILE"
+	SingleArchiveMemberFormat = "SINGLE_ARCHIVE_MEMBER"
 
 	ContentKindSingleFile          ContentKind = "SINGLE_FILE"
 	ContentKindDOSBundle           ContentKind = "DOS_BUNDLE"
-	ContentKindMultiDiscM3UV1      ContentKind = "MULTI_DISC_M3U_V1"
-	ContentKindRPGMakerProject     ContentKind = "RPG_MAKER_PROJECT_V1"
-	ContentKindONSProject          ContentKind = "ONS_PROJECT_V1"
-	ContentKindKiriKiriProject     ContentKind = "KIRIKIRI_PROJECT_V1"
-	ContentKindButterscotchProject ContentKind = "BUTTERSCOTCH_PROJECT_V1"
-	ContentKindTyranoScriptProject ContentKind = "TYRANOSCRIPT_PROJECT_V1"
+	ContentKindMultiDisc           ContentKind = "MULTI_DISC"
+	ContentKindRPGMakerProject     ContentKind = "RPG_MAKER_PROJECT"
+	ContentKindONSProject          ContentKind = "ONS_PROJECT"
+	ContentKindKiriKiriProject     ContentKind = "KIRIKIRI_PROJECT"
+	ContentKindButterscotchProject ContentKind = "BUTTERSCOTCH_PROJECT"
+	ContentKindTyranoScriptProject ContentKind = "TYRANOSCRIPT_PROJECT"
 )
 
 var (
@@ -61,7 +61,7 @@ var registry = map[string]Profile{
 	"atari5200":    single("atari5200", ".a52"),
 	"psx":          raw("psx", ".chd"),
 	"lynx":         single("lynx", ".lnx"),
-	"saturn":       withContentKinds(raw("saturn", ".chd"), ContentKindSingleFile, ContentKindMultiDiscM3UV1),
+	"saturn":       withContentKinds(raw("saturn", ".chd"), ContentKindSingleFile, ContentKindMultiDisc),
 	"megadrive":    single("megadrive", ".md"),
 	"n64":          single("n64", ".z64"),
 	"3do":          raw("3do", ".chd"),
@@ -78,22 +78,22 @@ var registry = map[string]Profile{
 	"wasm4":        single("wasm4", ".wasm"),
 	"rpgmaker": {
 		PlatformID: "rpgmaker", ArchivePolicy: ArchiveProject,
-		ArchiveFormats: []ArchiveFormat{ArchiveZIP, ArchiveSevenZip}, FormatCode: "RPG_MAKER_PROJECT_V1",
+		ArchiveFormats: []ArchiveFormat{ArchiveZIP, ArchiveSevenZip}, FormatCode: "RPG_MAKER_PROJECT",
 		ContentKinds: []ContentKind{ContentKindRPGMakerProject},
 	},
 	"ons": {
 		PlatformID: "ons", ArchivePolicy: ArchiveProject,
-		ArchiveFormats: []ArchiveFormat{ArchiveZIP, ArchiveSevenZip}, FormatCode: "ONS_PROJECT_V1",
+		ArchiveFormats: []ArchiveFormat{ArchiveZIP, ArchiveSevenZip}, FormatCode: "ONS_PROJECT",
 		ContentKinds: []ContentKind{ContentKindONSProject},
 	},
 	"kirikiri": {
 		PlatformID: "kirikiri", ArchivePolicy: ArchiveProject,
-		ArchiveFormats: []ArchiveFormat{ArchiveZIP, ArchiveSevenZip}, FormatCode: "KIRIKIRI_PROJECT_V1",
+		ArchiveFormats: []ArchiveFormat{ArchiveZIP, ArchiveSevenZip}, FormatCode: "KIRIKIRI_PROJECT",
 		ContentKinds: []ContentKind{ContentKindKiriKiriProject},
 	},
 	"butterscotch": {
 		PlatformID: "butterscotch", ArchivePolicy: ArchiveProject,
-		ArchiveFormats: []ArchiveFormat{ArchiveZIP, ArchiveSevenZip}, FormatCode: "BUTTERSCOTCH_PROJECT_V1",
+		ArchiveFormats: []ArchiveFormat{ArchiveZIP, ArchiveSevenZip}, FormatCode: "BUTTERSCOTCH_PROJECT",
 		ContentKinds: []ContentKind{ContentKindButterscotchProject},
 	},
 	"tyranoscript": {
@@ -101,7 +101,7 @@ var registry = map[string]Profile{
 		ArchiveFormats: []ArchiveFormat{
 			ArchiveZIP, ArchiveSevenZip, ArchiveNWJSExecutable, ArchiveElectronASAR,
 		},
-		FormatCode:   "TYRANOSCRIPT_PROJECT_V1",
+		FormatCode:   "TYRANOSCRIPT_PROJECT",
 		ContentKinds: []ContentKind{ContentKindTyranoScriptProject},
 	},
 }

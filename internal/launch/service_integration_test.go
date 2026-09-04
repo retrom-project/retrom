@@ -230,7 +230,7 @@ SELECT state,error_code FROM jobs WHERE id=?
 		func() bool { return gameResource["url"] == "" },
 		func() bool { return session["title"] != "Launch" },
 		func() bool { return session["platformName"] != "Game Boy Advance" },
-		func() bool { return biosResource["kind"] != "BIOS_BUNDLE_V1" },
+		func() bool { return biosResource["kind"] != "BIOS_BUNDLE" },
 		func() bool { return len(warnings) != 1 || warnings[0] != "BIOS_HASH_WARNING" },
 	), "launch envelope = %#v", envelope)
 	bundle, err := service.BundleFiles(ctx, createdLaunch.LaunchID, createdLaunch.Capability, "BIOS_BUNDLE")
@@ -399,7 +399,7 @@ WHERE id=?
 		resources, resourcesErr := service.providerResources(
 			ctx, quickLaunch.LaunchID, quickLaunch.Capability, source, target,
 		)
-		options, optionsErr := providerTargetOptions(target.OptionsKind, source, nil)
+		options, optionsErr := providerTargetOptions(target.TargetOptionsSchema, source, nil)
 		restore, _, restoreErr := service.providerRestore(ctx, quickLaunch.LaunchID, source, target)
 		t.Fatalf("quick launch config: %v; source=%#v/%v resources=%#v/%v options=%#v/%v restore=%#v/%v",
 			err, source, sourceErr, resources, resourcesErr, options, optionsErr, restore, restoreErr)

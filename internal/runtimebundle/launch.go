@@ -2,6 +2,7 @@ package runtimebundle
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/url"
@@ -21,9 +22,9 @@ var (
 	uuidPattern         = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$`)
 	bootstrapPattern    = regexp.MustCompile(`^[A-Za-z0-9_-]{43,128}$`)
 	launchResourceKinds = map[string]bool{
-		"ROM_BLOB_V1": true, "SEEKABLE_BLOB_V1": true, "PARENT_ARCHIVE_V1": true, "WASM4_CART_V1": true,
-		"FILE_TREE_V1": true, "NATIVE_WEB_V1": true, "ISOLATED_WEB_V1": true,
-		"BIOS_BUNDLE_V1": true, "EXTERNAL_FILE_SET_V1": true, "MULTI_DISC_V1": true,
+		"ROM_BLOB": true, "SEEKABLE_BLOB": true, "PARENT_ARCHIVE": true, "WASM4_CART": true,
+		"FILE_TREE": true, "NATIVE_WEB": true, "ISOLATED_WEB": true,
+		"BIOS_BUNDLE": true, "EXTERNAL_FILE_SET": true, "MULTI_DISC": true,
 	}
 )
 
@@ -206,16 +207,16 @@ func validLaunchResources(value any) bool {
 
 func validLaunchResourceShape(value map[string]any, kind string) bool {
 	switch kind {
-	case "ROM_BLOB_V1", "SEEKABLE_BLOB_V1", "PARENT_ARCHIVE_V1", "WASM4_CART_V1":
+	case "ROM_BLOB", "SEEKABLE_BLOB", "PARENT_ARCHIVE", "WASM4_CART":
 		return validBlobResource(value, kind)
-	case "FILE_TREE_V1":
+	case "FILE_TREE":
 		return exactMap(value, "contentDigest", "indexUrl", "kind", "ordinal", "role") &&
 			launchDigestPattern.MatchString(stringValue(value["contentDigest"])) && relativeURLValue(value["indexUrl"])
-	case "NATIVE_WEB_V1", "ISOLATED_WEB_V1":
+	case "NATIVE_WEB", "ISOLATED_WEB":
 		return validWebResource(value)
-	case "BIOS_BUNDLE_V1", "EXTERNAL_FILE_SET_V1":
+	case "BIOS_BUNDLE", "EXTERNAL_FILE_SET":
 		return validFileSetResource(value)
-	case "MULTI_DISC_V1":
+	case "MULTI_DISC":
 		return validMultiDiscResource(value)
 	}
 	return false
@@ -226,7 +227,7 @@ func validBlobResource(value map[string]any, kind string) bool {
 	return exactMap(value, "kind", "ordinal", "rangeRequired", "role", "sha256", "sizeBytes", "url") && ok &&
 		launchDigestPattern.MatchString(stringValue(value["sha256"])) && positiveLaunchInteger(value["sizeBytes"]) &&
 		relativeURLValue(value["url"]) &&
-		rangeRequired == (kind == "SEEKABLE_BLOB_V1" || kind == "PARENT_ARCHIVE_V1")
+		rangeRequired == (kind == "SEEKABLE_BLOB" || kind == "PARENT_ARCHIVE")
 }
 
 func validWebResource(value map[string]any) bool {
@@ -291,47 +292,11 @@ func validMultiDiscEntry(entry map[string]any, index int) bool {
 
 func validLaunchOptions(value any) bool {
 	options, ok := launchObject(value)
-	if !ok {
+	if !ok || !validJSONValue(options, 0, true) {
 		return false
 	}
-	switch options["kind"] {
-	case "NONE_V1":
-		return exactMap(options, "kind")
-	case "EMULATORJS_V1":
-		return validEmulatorJSOptions(options)
-	case "RPGMAKER_V1":
-		return validRPGMakerOptions(options)
-	case "ONS_PROJECT_V1":
-		return exactMap(options, "kind", "scriptEncoding") &&
-			oneOf(stringValue(options["scriptEncoding"]), "gbk", "sjis", "utf8")
-	case "KIRIKIRI_PROJECT_V1":
-		return exactMap(options, "kind", "startupXp3Path") &&
-			(options["startupXp3Path"] == nil || safePath(stringValue(options["startupXp3Path"])))
-	}
-	return false
-}
-
-func validEmulatorJSOptions(options map[string]any) bool {
-	_, initialOK := nonNegativeLaunchInteger(options["initialDiscIndex"])
-	return exactMap(options, "dosEntryPath", "initialDiscIndex", "kind") &&
-		(options["dosEntryPath"] == nil || safePath(stringValue(options["dosEntryPath"]))) &&
-		(options["initialDiscIndex"] == nil || initialOK)
-}
-
-func validRPGMakerOptions(options map[string]any) bool {
-	if !exactMap(options, "expectedRestorePosition", "kind") || options["expectedRestorePosition"] == nil {
-		return exactMap(options, "expectedRestorePosition", "kind")
-	}
-	position, ok := launchObject(options["expectedRestorePosition"])
-	if !ok || !exactMap(position, "fixtureState", "mapId", "playerX", "playerY") {
-		return false
-	}
-	for _, item := range position {
-		if _, ok := nonNegativeLaunchInteger(item); !ok {
-			return false
-		}
-	}
-	return true
+	contents, err := json.Marshal(options)
+	return err == nil && len(contents) <= maxTargetOptionsBytes
 }
 
 func validLaunchRestore(value, checkpointValue any) bool {

@@ -77,7 +77,7 @@ async function runProductCase(activeBrowser) {
       timeout: 120_000,
       data: {
         uploadId, targetPlatformInstanceId: platformInstanceId, metadataProvider: "NONE",
-        contentMode: "KIRIKIRI_PROJECT_V1", tagIds: [],
+        contentMode: "KIRIKIRI_PROJECT", tagIds: [],
       },
     });
     if (importedResponse.status() !== 202) {

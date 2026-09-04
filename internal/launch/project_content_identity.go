@@ -62,7 +62,7 @@ FROM launch_sessions launch
 JOIN runtime_target_bindings binding
  ON binding.provider_id=launch.provider_id AND binding.target_id=launch.target_id
 WHERE launch.id=? AND binding.delivery_profile IN (
- 'FILE_TREE_PROJECT_V1','SEEKABLE_PROJECT_ARCHIVE_V1','ISOLATED_WEB_PROJECT_V1'
+ 'FILE_TREE_PROJECT','SEEKABLE_PROJECT_ARCHIVE','ISOLATED_WEB_PROJECT'
 )
  AND launch.purpose IN ('PRODUCT','RPG_RUNTIME_VALIDATION')
 `, launchID).Scan(&credentialHash, &state, &bootstrapExpires, &hardExpires, &idleExpires)
@@ -78,8 +78,8 @@ FROM launch_content_files content
 JOIN blobs blob ON blob.id=content.blob_id
 WHERE content.launch_session_id=?
  AND content.format_version IN (
-  'RPG_MAKER_PROJECT_V1','ONS_PROJECT_V1','KIRIKIRI_PROJECT_V1','BUTTERSCOTCH_PROJECT_V1',
-  'TYRANOSCRIPT_PROJECT_V1'
+  'RPG_MAKER_PROJECT','ONS_PROJECT','KIRIKIRI_PROJECT','BUTTERSCOTCH_PROJECT',
+  'TYRANOSCRIPT_PROJECT'
  )
 ORDER BY content.logical_name
 `, launchID)
@@ -105,7 +105,7 @@ func (service *Service) authorizedReviewProjectIdentityFiles(
 SELECT credential_sha256,state,hard_expires_at_ms
 FROM review_preview_sessions
 WHERE id=? AND content_kind IN (
- 'ONS_PROJECT_V1','KIRIKIRI_PROJECT_V1','BUTTERSCOTCH_PROJECT_V1','TYRANOSCRIPT_PROJECT_V1'
+ 'ONS_PROJECT','KIRIKIRI_PROJECT','BUTTERSCOTCH_PROJECT','TYRANOSCRIPT_PROJECT'
 )
 `, previewID).Scan(&credentialHash, &state, &hardExpires)
 	if err != nil || !reviewPreviewCredential(

@@ -74,7 +74,7 @@ JOIN game_metadata_revisions metadata ON metadata.id=game.current_metadata_revis
 WHERE launch.id=? AND launch.purpose='PRODUCT' AND launch.target_id=revision.target_id
  AND launch.provider_id=revision.provider_id
  AND EXISTS(SELECT 1 FROM launch_content_files file WHERE file.launch_session_id=launch.id
-  AND file.format_version='ONS_PROJECT_V1')
+  AND file.format_version='ONS_PROJECT')
 `, launchID).Scan(&credentialHash, &state, &hardExpires, &title, &dependencyJSON)
 	if err != nil || !retromruntime.MatchesCapability(capability, credentialHash) ||
 		state != "ACTIVE" || hardExpires <= service.now().UnixMilli() {
@@ -96,7 +96,7 @@ WHERE launch.id=? AND launch.purpose='PRODUCT' AND launch.target_id=revision.tar
 SELECT content.logical_name,blob.size_bytes
 FROM launch_content_files content
 JOIN blobs blob ON blob.id=content.blob_id
-WHERE content.launch_session_id=? AND content.format_version='ONS_PROJECT_V1'
+WHERE content.launch_session_id=? AND content.format_version='ONS_PROJECT'
 ORDER BY content.logical_name
 `, launchID)
 	if err != nil {
@@ -168,7 +168,7 @@ func (service *Service) ReviewPreviewProjectIndex(
 	err := service.database.QueryRowContext(ctx, `
 SELECT credential_sha256,state,hard_expires_at_ms,title,dependency_snapshot_json,content_logical_name
 FROM review_preview_sessions
-WHERE id=? AND content_kind='ONS_PROJECT_V1' AND content_format='ONS_PROJECT_V1'
+WHERE id=? AND content_kind='ONS_PROJECT' AND content_format='ONS_PROJECT'
 `, previewID).Scan(&credentialHash, &state, &hardExpires, &title, &dependencyJSON, &primaryName)
 	if err != nil || !reviewPreviewCredential(service.now().UnixMilli(), capability, credentialHash, state, hardExpires) {
 		return ProjectIndexView{}, ErrCredential
@@ -302,7 +302,7 @@ JOIN (
 JOIN blobs blob ON blob.id=file.blob_id
 WHERE preview.id=?
  AND preview.content_kind IN (
-  'ONS_PROJECT_V1','KIRIKIRI_PROJECT_V1','BUTTERSCOTCH_PROJECT_V1','TYRANOSCRIPT_PROJECT_V1'
+  'ONS_PROJECT','KIRIKIRI_PROJECT','BUTTERSCOTCH_PROJECT','TYRANOSCRIPT_PROJECT'
  )
 `, normalized, previewID).Scan(
 		&credentialHash, &state, &hardExpires, &digest, &format, &coreID,

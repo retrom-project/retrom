@@ -128,13 +128,13 @@ describe("ImportTaskBoard", () => {
     const user = userEvent.setup();
     vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({
       itemSummaries: [{
-        itemId: "item-1", state: "REVIEW_PENDING", contentKind: "MULTI_DISC_M3U_V1", playlist: "Panzer Dragoon Saga.m3u",
+        itemId: "item-1", state: "REVIEW_PENDING", contentKind: "MULTI_DISC", playlist: "Panzer Dragoon Saga.m3u",
         discCount: 3, presentDiscCount: 2, missingDiscCount: 1, ignoredFileCount: 22, ignoredFiles: ["notes.txt", "cover.jpg"],
       }],
       fileOutcomes: [],
     }), { status: 200, headers: { "Content-Type": "application/json" } })));
     render(<ImportTaskBoard initial={{ items: [{
-      id: "multi-import", state: "REVIEW_PENDING", platformInstanceName: "Saturn 游戏", metadataProvider: "NONE", contentMode: "MULTI_DISC_M3U_V1",
+      id: "multi-import", state: "REVIEW_PENDING", platformInstanceName: "Saturn 游戏", metadataProvider: "NONE", contentMode: "MULTI_DISC",
       totalItemCount: 1, reviewPendingItemCount: 1, failedItemCount: 0, rejectedFileCount: 0,
       version: 1, createdAtMs: 1, updatedAtMs: 2,
     }], nextCursor: null }} />);
@@ -160,7 +160,7 @@ describe("ImportTaskBoard", () => {
       fileOutcomes: [{ uploadFileId: "playlist-1", name: "game/game.m3u", sizeBytes: 42, disposition: "REJECTED", reasonCode: "MULTI_DISC_PLAYLIST_INVALID", resolution: null }],
     }), { status: 200, headers: { "Content-Type": "application/json" } })));
     render(<ImportTaskBoard initial={{ items: [{
-      id: "multi-rejected", state: "PARTIAL_FAILURE", platformInstanceName: "Saturn 游戏", metadataProvider: "NONE", contentMode: "MULTI_DISC_M3U_V1",
+      id: "multi-rejected", state: "PARTIAL_FAILURE", platformInstanceName: "Saturn 游戏", metadataProvider: "NONE", contentMode: "MULTI_DISC",
       totalItemCount: 0, reviewPendingItemCount: 0, failedItemCount: 0, rejectedFileCount: 1,
       version: 1, createdAtMs: 1, updatedAtMs: 2,
     }], nextCursor: null }} />);

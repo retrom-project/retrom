@@ -86,7 +86,7 @@ func testCreateTyranoScriptInputReachesTrialRequiredReview(t *testing.T, inputNa
 		UploadID: upload.ID, TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(
 			t, database.SQL, "tyranoscript/tyranoscript",
 		),
-		MetadataProvider: "HASHEOUS", ContentMode: "TYRANOSCRIPT_PROJECT_V1", TagIDs: []string{},
+		MetadataProvider: "HASHEOUS", ContentMode: "TYRANOSCRIPT_PROJECT", TagIDs: []string{},
 	})
 	if err != nil {
 		t.Fatalf("Create(TyranoScript) error = %v", err)
@@ -111,7 +111,7 @@ WHERE item.import_job_id=?
 		t.Fatal(err)
 	}
 	if state != "REVIEW_PENDING" || code != "TYRANOSCRIPT_RUNTIME_TRIAL_REQUIRED" ||
-		contentKind != "TYRANOSCRIPT_PROJECT_V1" || metadataProvider != "NONE" ||
+		contentKind != "TYRANOSCRIPT_PROJECT" || metadataProvider != "NONE" ||
 		providerID != "retrom-runtime" || targetID != "tyranoscript" || selectedValidation != nil {
 		t.Fatalf("TyranoScript review = %s/%s/%s/%s/%s/%s selected=%v",
 			state, code, contentKind, metadataProvider, providerID, targetID, selectedValidation)

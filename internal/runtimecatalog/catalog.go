@@ -20,6 +20,7 @@ var (
 	kebabPattern        = regexp.MustCompile(`^[a-z0-9]+(?:-[a-z0-9]+)*$`)
 	identifierPattern   = regexp.MustCompile(`^[a-z0-9]+(?:[-_][a-z0-9]+)*$`)
 	profilePattern      = regexp.MustCompile(`^[A-Z][A-Z0-9_]{1,63}$`)
+	versionedSemantic   = regexp.MustCompile(`_V[0-9]+$`)
 )
 
 type ResolveRequest struct {
@@ -158,6 +159,13 @@ func positiveEvidenceCount(evidence map[string]bool) int {
 }
 
 func validBinding(value Binding) bool {
+	if !validBindingIdentity(value) || !validBindingSemantics(value) {
+		return false
+	}
+	return validLaunchPolicy(value.LaunchPolicy) && validReviewPolicy(value.ReviewPolicy)
+}
+
+func validBindingIdentity(value Binding) bool {
 	if !kebabPattern.MatchString(value.ID) || !identifierPattern.MatchString(value.CoreID) ||
 		!kebabPattern.MatchString(value.ProviderID) || !identifierPattern.MatchString(value.TargetID) ||
 		!profilePattern.MatchString(value.DetectorProfile) ||
@@ -165,13 +173,28 @@ func validBinding(value Binding) bool {
 		!sortedMatches(value.AcceptedContentKinds, profilePattern) {
 		return false
 	}
-	if value.LaunchPolicy != "SUPPORTED" && value.LaunchPolicy != "EXPERIMENTAL" && value.LaunchPolicy != "DISABLED" {
-		return false
-	}
-	if value.ReviewPolicy != "NONE" && value.ReviewPolicy != "RPG_RUNTIME_VALIDATION_V1" {
-		return false
+	return true
+}
+
+func validBindingSemantics(value Binding) bool {
+	semanticValues := append([]string{
+		value.DetectorProfile, value.DeliveryProfile, value.LaunchPolicy, value.ReviewPolicy,
+	},
+		value.AcceptedContentKinds...)
+	for _, semanticValue := range semanticValues {
+		if versionedSemantic.MatchString(semanticValue) {
+			return false
+		}
 	}
 	return true
+}
+
+func validLaunchPolicy(value string) bool {
+	return value == "SUPPORTED" || value == "EXPERIMENTAL" || value == "DISABLED"
+}
+
+func validReviewPolicy(value string) bool {
+	return value == "NONE" || value == "RPG_RUNTIME_VALIDATION"
 }
 
 func sortedMatches(values []string, pattern *regexp.Regexp) bool {

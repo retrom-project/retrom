@@ -95,19 +95,19 @@ function validResources(value: unknown): value is RuntimeResourceV1[] {
 }
 
 function validResource(value: Record<string, unknown>) {
-  if (["ROM_BLOB_V1", "SEEKABLE_BLOB_V1", "PARENT_ARCHIVE_V1", "WASM4_CART_V1"].includes(String(value.kind))) {
+  if (["ROM_BLOB", "SEEKABLE_BLOB", "PARENT_ARCHIVE", "WASM4_CART"].includes(String(value.kind))) {
     return validBlobResource(value);
   }
-  if (value.kind === "FILE_TREE_V1") {return validFileTreeResource(value);}
-  if (value.kind === "NATIVE_WEB_V1" || value.kind === "ISOLATED_WEB_V1") {return validWebResource(value);}
-  if (value.kind === "BIOS_BUNDLE_V1" || value.kind === "EXTERNAL_FILE_SET_V1") {return validFileSetResource(value);}
-  return value.kind === "MULTI_DISC_V1" && validMultiDiscResource(value);
+  if (value.kind === "FILE_TREE") {return validFileTreeResource(value);}
+  if (value.kind === "NATIVE_WEB" || value.kind === "ISOLATED_WEB") {return validWebResource(value);}
+  if (value.kind === "BIOS_BUNDLE" || value.kind === "EXTERNAL_FILE_SET") {return validFileSetResource(value);}
+  return value.kind === "MULTI_DISC" && validMultiDiscResource(value);
 }
 
 function validBlobResource(value: Record<string, unknown>) {
   return exactKeys(value, ["kind", "ordinal", "rangeRequired", "role", "sha256", "sizeBytes", "url"]) &&
     validDigest(value.sha256) && positiveInteger(value.sizeBytes) && relativeURL(value.url) &&
-    value.rangeRequired === ["SEEKABLE_BLOB_V1", "PARENT_ARCHIVE_V1"].includes(String(value.kind));
+    value.rangeRequired === ["SEEKABLE_BLOB", "PARENT_ARCHIVE"].includes(String(value.kind));
 }
 
 function validFileTreeResource(value: Record<string, unknown>) {
@@ -149,31 +149,9 @@ function validDiscEntry(value: unknown, index: number) {
 }
 
 function validTargetOptions(value: unknown): value is TargetOptionsV1 {
-  if (!record(value)) {return false;}
-  if (value.kind === "NONE_V1") {return exactKeys(value, ["kind"]);}
-  if (value.kind === "EMULATORJS_V1") {return validEmulatorJsOptions(value);}
-  if (value.kind === "RPGMAKER_V1") {return validRpgMakerOptions(value);}
-  if (value.kind === "ONS_PROJECT_V1") {return validOnsOptions(value);}
-  return value.kind === "KIRIKIRI_PROJECT_V1" && validKirikiriOptions(value);
-}
-
-function validEmulatorJsOptions(value: Record<string, unknown>) {
-  return exactKeys(value, ["dosEntryPath", "initialDiscIndex", "kind"]) &&
-    (value.dosEntryPath === null || safePath(value.dosEntryPath)) &&
-    (value.initialDiscIndex === null || nonNegativeInteger(value.initialDiscIndex));
-}
-function validRpgMakerOptions(value: Record<string, unknown>) {
-  if (!exactKeys(value, ["expectedRestorePosition", "kind"])) {return false;}
-  const position = value.expectedRestorePosition;
-  return position === null || record(position) && exactKeys(position, ["fixtureState", "mapId", "playerX", "playerY"]) &&
-    [position.fixtureState, position.mapId, position.playerX, position.playerY].every(nonNegativeInteger);
-}
-function validOnsOptions(value: Record<string, unknown>) {
-  return exactKeys(value, ["kind", "scriptEncoding"]) && ["gbk", "sjis", "utf8"].includes(String(value.scriptEncoding));
-}
-function validKirikiriOptions(value: Record<string, unknown>) {
-  return exactKeys(value, ["kind", "startupXp3Path"]) &&
-    (value.startupXp3Path === null || safePath(value.startupXp3Path));
+  if (!jsonRecord(value)) {return false;}
+  try {return new TextEncoder().encode(JSON.stringify(value)).byteLength <= 16 * 1024;}
+  catch {return false;}
 }
 
 function validRestore(value: unknown, checkpoint: unknown) {

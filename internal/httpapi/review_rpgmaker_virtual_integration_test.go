@@ -41,7 +41,7 @@ SELECT id FROM platform_instances WHERE catalog_template_key='rpgmaker/rpgmaker'
 		ctx,
 		libraryimport.CreateRequest{
 			UploadID: uploadID, TargetPlatformInstanceID: platformInstanceID,
-			MetadataProvider: "NONE", ContentMode: "RPG_MAKER_PROJECT_V1",
+			MetadataProvider: "NONE", ContentMode: "RPG_MAKER_PROJECT",
 		},
 	)
 	testassert.False(t, err != nil, err)

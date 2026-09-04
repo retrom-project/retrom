@@ -177,7 +177,7 @@ flowchart LR
 
 ### M16：Payload 生命周期与 Game 永久删除
 
-范围：先更新 OpenAPI 和 001–010 clean migration，建立 Blob/ownership registry 双向门禁、ReviewEvent v2 和各领域 payload state；随后实现持久 PayloadRelease/Provider TTL/BLOB_GC dispatcher，并把普通上传、Pegasus、文件/媒体替换的全部终态入口接通。最后实现 Game 影响摘要、墓碑式永久删除、共享引用保护、公共内容阻断、最近/收藏/联机历史墓碑和管理端进度/重试。
+范围：先更新 OpenAPI 和 001–011 clean migration，建立 Blob/ownership registry 双向门禁、ReviewEvent v2 和各领域 payload state；随后实现持久 PayloadRelease/Provider TTL/BLOB_GC dispatcher，并把普通上传、Pegasus、文件/媒体替换的全部终态入口接通。最后实现 Game 影响摘要、墓碑式永久删除、共享引用保护、公共内容阻断、最近/收藏/联机历史墓碑和管理端进度/重试。
 
 退出门禁：完整执行 `ACC-GAME-003`、`ACC-IMP-007/008`、`ACC-PEG-004`、`ACC-CAS-002`、`ACC-STOR-001`、`ACC-UI-008`，并运行 API、后端、集成、前端、`make web-e2e` 与 `make ci` 全门禁。全新数据库和开发实例必须重建；普通上传与 Pegasus 发布/丢弃、共享 Blob、进程中断、provider TTL、Game 删除和 GC 宽限均需确定性证据。正式文档与统一 UI 源/导出 HTML 闭环后删除临时方案目录。
 
@@ -216,7 +216,7 @@ OpenAPI、后端、集成、前端、结构、公开 fixture、data/dependency�
 
 1. 冻结 Provider contract、canonical JSON、Bundle layout、Target declarations 和 Product Core bindings；EmulatorJS 35 个 Target 与 retrom-runtime 12 个 Target 只有各 Provider declaration 一份映射事实源。
 2. 建立确定性 candidate/release Bundle、安装器、active descriptor 与只向前升级验证；candidate 与 production 目录、锁和镜像输入完全分离。
-3. 将 clean 001–010 migration、OpenAPI、Go catalog/launch/save/netplay 和全部领域引用原子切换为 Provider/Target/contract digest；旧开发数据库拒绝并重建，不做降级或转换。
+3. 将 clean 001–011 migration、OpenAPI、Go catalog/launch/save/netplay 和全部领域引用原子切换为 Provider/Target/contract digest；旧开发数据库拒绝并重建，不做降级或转换。
 4. 所有运行入口只返回 Launch Envelope V1；Web 只经共享 dispatcher 加载 Provider module 并操作 `PlayerRuntimeV1`，不保留第二个 registry 或 family factory。
 5. 将 EmulatorJS、RPG Maker、ONS、KiriKiri、Butterscotch、TyranoScript、WASM-4、单机、多盘、沉浸、Validation 与 netplay 行为全部迁移到 Provider 生命周期。
 6. 更新生产/PFB边界：PFB改为bind-mount轻量开发容器，loose provider只在合法test PFB中使用并按revision校验；release input digest、生产镜像与正式active identity不读取`.pfb/`。

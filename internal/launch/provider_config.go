@@ -222,7 +222,7 @@ func (service *Service) providerEnvelope(
 			"generation": source.generation, "resume": resume,
 		}}
 	}
-	options, err := providerTargetOptions(target.OptionsKind, source, expectedRestorePosition)
+	options, err := providerTargetOptions(target.TargetOptionsSchema, source, expectedRestorePosition)
 	if err != nil {
 		return Config{}, err
 	}
@@ -360,51 +360,62 @@ func providerPositionEvidence(evidence json.RawMessage) (rpgvalidation.Position,
 }
 
 func providerTargetOptions(
-	kind string,
+	schema runtimebundle.TargetOptionsSchema,
 	source providerConfigSource,
 	expectedRestorePosition *rpgvalidation.Position,
 ) (map[string]any, error) {
-	switch kind {
-	case "NONE_V1":
-		return map[string]any{"kind": kind}, nil
-	case "EMULATORJS_V1":
-		var dos any
-		if source.dosEntry.Valid {
-			dos = source.dosEntry.String
-		}
-		var disc any
-		if source.contentKind == "MULTI_DISC_M3U_V1" {
-			disc = source.initialDisc
-		}
-		return map[string]any{"kind": kind, "dosEntryPath": dos, "initialDiscIndex": disc}, nil
-	case "RPGMAKER_V1":
-		var expected any
-		if expectedRestorePosition != nil {
-			expected = map[string]any{
-				"mapId": expectedRestorePosition.MapID, "playerX": expectedRestorePosition.PlayerX,
-				"playerY": expectedRestorePosition.PlayerY, "fixtureState": expectedRestorePosition.FixtureState,
-			}
-		}
-		return map[string]any{"kind": kind, "expectedRestorePosition": expected}, nil
-	case "ONS_PROJECT_V1":
-		profile, err := onsdetection.ParseSnapshot(source.dependencyJSON)
-		if err != nil {
-			return nil, ErrCredential
-		}
-		return map[string]any{"kind": kind, "scriptEncoding": profile.ScriptEncoding}, nil
-	case "KIRIKIRI_PROJECT_V1":
-		profile, err := detector.ParseSnapshot(source.dependencyJSON)
-		if err != nil {
-			return nil, ErrCredential
-		}
-		var startup any
-		if profile.StartupXP3Path != nil {
-			startup = *profile.StartupXP3Path
-		}
-		return map[string]any{"kind": kind, "startupXp3Path": startup}, nil
-	default:
+	properties, ok := schema["properties"].(map[string]any)
+	if !ok {
 		return nil, ErrCredential
 	}
+	result := make(map[string]any, len(properties))
+	for property := range properties {
+		switch property {
+		case "dosEntryPath":
+			var dos any
+			if source.dosEntry.Valid {
+				dos = source.dosEntry.String
+			}
+			result[property] = dos
+		case "initialDiscIndex":
+			var disc any
+			if source.contentKind == "MULTI_DISC" {
+				disc = source.initialDisc
+			}
+			result[property] = disc
+		case "expectedRestorePosition":
+			var expected any
+			if expectedRestorePosition != nil {
+				expected = map[string]any{
+					"mapId": expectedRestorePosition.MapID, "playerX": expectedRestorePosition.PlayerX,
+					"playerY": expectedRestorePosition.PlayerY, "fixtureState": expectedRestorePosition.FixtureState,
+				}
+			}
+			result[property] = expected
+		case "scriptEncoding":
+			profile, err := onsdetection.ParseSnapshot(source.dependencyJSON)
+			if err != nil {
+				return nil, ErrCredential
+			}
+			result[property] = profile.ScriptEncoding
+		case "startupXp3Path":
+			profile, err := detector.ParseSnapshot(source.dependencyJSON)
+			if err != nil {
+				return nil, ErrCredential
+			}
+			var startup any
+			if profile.StartupXP3Path != nil {
+				startup = *profile.StartupXP3Path
+			}
+			result[property] = startup
+		default:
+			return nil, ErrCredential
+		}
+	}
+	if !runtimebundle.ValidateTargetOptions(schema, result) {
+		return nil, ErrCredential
+	}
+	return result, nil
 }
 
 type lockedProviderFile struct {
@@ -483,15 +494,15 @@ func (service *Service) providerGameResource(
 	files []lockedProviderFile,
 ) (map[string]any, error) {
 	switch kind {
-	case "FILE_TREE_V1":
+	case "FILE_TREE":
 		return service.providerFileTreeResource(ctx, sessionID, capability, kind)
-	case "SEEKABLE_BLOB_V1":
+	case "SEEKABLE_BLOB":
 		identity, err := service.ProjectContentIdentity(ctx, sessionID, capability)
 		if err != nil {
 			return nil, err
 		}
 		return providerSeekableProjectResource(identity, files)
-	case "NATIVE_WEB_V1", "ISOLATED_WEB_V1":
+	case "NATIVE_WEB", "ISOLATED_WEB":
 		return service.providerWebResource(ctx, sessionID, capability, source, kind)
 	}
 	return providerBlobResource(source, kind, files)
@@ -527,7 +538,7 @@ func (service *Service) providerWebResource(
 		return nil, err
 	}
 	entry, cleanupURL := origin+"/__retrom/bootstrap", any(nil)
-	if source.contentKind == "TYRANOSCRIPT_PROJECT_V1" {
+	if source.contentKind == "TYRANOSCRIPT_PROJECT" {
 		entry = origin + "/__retrom/tyranoscript/bootstrap"
 		cleanupURL = origin + "/__retrom/tyranoscript/cleanup"
 	}
@@ -544,11 +555,11 @@ func providerBlobResource(
 ) (map[string]any, error) {
 	selected := lockedProviderFile{}
 	for _, file := range files {
-		if kind == "SEEKABLE_BLOB_V1" && file.logicalName == rpgMKXPArchiveName {
+		if kind == "SEEKABLE_BLOB" && file.logicalName == rpgMKXPArchiveName {
 			selected = file
 			break
 		}
-		if kind != "SEEKABLE_BLOB_V1" && !strings.HasPrefix(file.logicalName, "__retrom__/") {
+		if kind != "SEEKABLE_BLOB" && !strings.HasPrefix(file.logicalName, "__retrom__/") {
 			selected = file
 			break
 		}
@@ -571,7 +582,7 @@ func providerBlobResource(
 	}
 	return map[string]any{
 		"kind": kind, "url": url, "sha256": selected.digest, "sizeBytes": selected.size,
-		"rangeRequired": kind == "SEEKABLE_BLOB_V1",
+		"rangeRequired": kind == "SEEKABLE_BLOB",
 	}, nil
 }
 
@@ -594,7 +605,7 @@ func providerSeekableProjectResource(
 		return nil, err
 	}
 	return map[string]any{
-		"kind": "SEEKABLE_BLOB_V1", "url": root + rpgMKXPArchivePublicName,
+		"kind": "SEEKABLE_BLOB", "url": root + rpgMKXPArchivePublicName,
 		"sha256": selected.digest, "sizeBytes": selected.size, "rangeRequired": true,
 	}, nil
 }
@@ -607,7 +618,7 @@ func (service *Service) providerBundleResource(
 	if err != nil {
 		files, err = service.ReviewPreviewBundleFiles(ctx, launchID, capability, role)
 	}
-	if err != nil || len(files) == 0 || resourceKind != "BIOS_BUNDLE_V1" {
+	if err != nil || len(files) == 0 || resourceKind != "BIOS_BUNDLE" {
 		return nil, ErrCredential
 	}
 	identity, err := BundleIdentity(files)
@@ -632,7 +643,7 @@ func (service *Service) providerParentResource(
 	if err != nil {
 		files, err = service.ReviewPreviewBundleFiles(ctx, launchID, capability, "PARENT")
 	}
-	if err != nil || len(files) == 0 || resourceKind != "PARENT_ARCHIVE_V1" {
+	if err != nil || len(files) == 0 || resourceKind != "PARENT_ARCHIVE" {
 		return nil, ErrCredential
 	}
 	identity, err := BundleIdentity(files)
@@ -653,7 +664,7 @@ func (service *Service) providerExternalResource(
 	ctx context.Context,
 	launchID, resourceKind string,
 ) (map[string]any, error) {
-	if resourceKind != "EXTERNAL_FILE_SET_V1" {
+	if resourceKind != "EXTERNAL_FILE_SET" {
 		return nil, ErrCredential
 	}
 	rows, err := service.database.QueryContext(ctx, `
@@ -705,7 +716,7 @@ func (service *Service) providerDiscResource(
 	initialDisc int64,
 	resourceKind string,
 ) (map[string]any, error) {
-	if resourceKind != "MULTI_DISC_V1" {
+	if resourceKind != "MULTI_DISC" {
 		return nil, ErrCredential
 	}
 	rows, err := service.database.QueryContext(ctx, `
@@ -783,12 +794,12 @@ ORDER BY file.logical_name
 			return nil, fmt.Errorf("scan Provider runtime pack: %w", err)
 		}
 		switch resourceKind {
-		case "SEEKABLE_BLOB_V1":
+		case "SEEKABLE_BLOB":
 			resources = append(resources, map[string]any{
 				"kind": resourceKind, "url": root + logicalName, "sha256": digest,
 				"sizeBytes": size, "rangeRequired": true,
 			})
-		case "FILE_TREE_V1":
+		case "FILE_TREE":
 			slot := strings.TrimSuffix(strings.TrimPrefix(logicalName, "__retrom__/pack-"), ".zip")
 			resources = append(resources, map[string]any{
 				"kind": resourceKind, "indexUrl": root + "__retrom__/packs/" + slot + "/index.json",

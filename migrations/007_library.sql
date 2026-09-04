@@ -70,20 +70,17 @@ CREATE TABLE "game_assets" (
 CREATE TABLE "game_content_revisions" (
   id TEXT PRIMARY KEY,
   game_id TEXT NOT NULL REFERENCES games(id),
-  content_kind TEXT NOT NULL DEFAULT 'SINGLE_FILE' CHECK(content_kind IN (
-    'SINGLE_FILE','DOS_BUNDLE','MULTI_DISC_M3U_V1','RPG_MAKER_PROJECT_V1','ONS_PROJECT_V1',
-    'KIRIKIRI_PROJECT_V1','BUTTERSCOTCH_PROJECT_V1','TYRANOSCRIPT_PROJECT_V1'
-  )),
+  content_kind TEXT NOT NULL DEFAULT 'SINGLE_FILE' REFERENCES content_kinds(id),
   source_kind TEXT NOT NULL CHECK(source_kind IN ('IMPORT_REVIEW','ADMIN_REPLACE','SERVER_PEGASUS_IMPORT','SERVER_EMULATIONSTATION_IMPORT')),
   source_ref_id TEXT NOT NULL,
   source_manifest_json TEXT NOT NULL,
   source_manifest_digest TEXT NOT NULL CHECK(length(source_manifest_digest)=64),
   created_at_ms INTEGER NOT NULL CHECK(created_at_ms>=0),
   UNIQUE(id,game_id),
-  CHECK(content_kind<>'RPG_MAKER_PROJECT_V1' OR
+  CHECK(content_kind<>'RPG_MAKER_PROJECT' OR
     json_valid(source_manifest_json)
     AND json_extract(source_manifest_json,'$.schemaVersion')=2
-    AND json_extract(source_manifest_json,'$.contentKind')='RPG_MAKER_PROJECT_V1'
+    AND json_extract(source_manifest_json,'$.contentKind')='RPG_MAKER_PROJECT'
     AND json_type(source_manifest_json,'$.fileCount')='integer'
     AND json_extract(source_manifest_json,'$.fileCount') BETWEEN 1 AND 10000
     AND json_type(source_manifest_json,'$.totalBytes')='integer'
@@ -91,10 +88,10 @@ CREATE TABLE "game_content_revisions" (
     AND length(json_extract(source_manifest_json,'$.filesDigest'))=64
     AND json_extract(source_manifest_json,'$.filesDigest')=lower(json_extract(source_manifest_json,'$.filesDigest'))
   ),
-  CHECK(content_kind<>'ONS_PROJECT_V1' OR
+  CHECK(content_kind<>'ONS_PROJECT' OR
     json_valid(source_manifest_json)
     AND json_extract(source_manifest_json,'$.schemaVersion')=2
-    AND json_extract(source_manifest_json,'$.contentKind')='ONS_PROJECT_V1'
+    AND json_extract(source_manifest_json,'$.contentKind')='ONS_PROJECT'
     AND json_type(source_manifest_json,'$.fileCount')='integer'
     AND json_extract(source_manifest_json,'$.fileCount') BETWEEN 1 AND 10000
     AND json_type(source_manifest_json,'$.totalBytes')='integer'
@@ -102,10 +99,10 @@ CREATE TABLE "game_content_revisions" (
     AND length(json_extract(source_manifest_json,'$.filesDigest'))=64
     AND json_extract(source_manifest_json,'$.filesDigest')=lower(json_extract(source_manifest_json,'$.filesDigest'))
   ),
-  CHECK(content_kind<>'KIRIKIRI_PROJECT_V1' OR
+  CHECK(content_kind<>'KIRIKIRI_PROJECT' OR
     json_valid(source_manifest_json)
     AND json_extract(source_manifest_json,'$.schemaVersion')=2
-    AND json_extract(source_manifest_json,'$.contentKind')='KIRIKIRI_PROJECT_V1'
+    AND json_extract(source_manifest_json,'$.contentKind')='KIRIKIRI_PROJECT'
     AND json_type(source_manifest_json,'$.fileCount')='integer'
     AND json_extract(source_manifest_json,'$.fileCount') BETWEEN 1 AND 10000
     AND json_type(source_manifest_json,'$.totalBytes')='integer'
@@ -113,10 +110,10 @@ CREATE TABLE "game_content_revisions" (
     AND length(json_extract(source_manifest_json,'$.filesDigest'))=64
     AND json_extract(source_manifest_json,'$.filesDigest')=lower(json_extract(source_manifest_json,'$.filesDigest'))
   ),
-  CHECK(content_kind<>'BUTTERSCOTCH_PROJECT_V1' OR
+  CHECK(content_kind<>'BUTTERSCOTCH_PROJECT' OR
     json_valid(source_manifest_json)
     AND json_extract(source_manifest_json,'$.schemaVersion')=2
-    AND json_extract(source_manifest_json,'$.contentKind')='BUTTERSCOTCH_PROJECT_V1'
+    AND json_extract(source_manifest_json,'$.contentKind')='BUTTERSCOTCH_PROJECT'
     AND json_type(source_manifest_json,'$.fileCount')='integer'
     AND json_extract(source_manifest_json,'$.fileCount') BETWEEN 1 AND 10000
     AND json_type(source_manifest_json,'$.totalBytes')='integer'
@@ -124,10 +121,10 @@ CREATE TABLE "game_content_revisions" (
     AND length(json_extract(source_manifest_json,'$.filesDigest'))=64
     AND json_extract(source_manifest_json,'$.filesDigest')=lower(json_extract(source_manifest_json,'$.filesDigest'))
   ),
-  CHECK(content_kind<>'TYRANOSCRIPT_PROJECT_V1' OR
+  CHECK(content_kind<>'TYRANOSCRIPT_PROJECT' OR
     json_valid(source_manifest_json)
     AND json_extract(source_manifest_json,'$.schemaVersion')=2
-    AND json_extract(source_manifest_json,'$.contentKind')='TYRANOSCRIPT_PROJECT_V1'
+    AND json_extract(source_manifest_json,'$.contentKind')='TYRANOSCRIPT_PROJECT'
     AND json_type(source_manifest_json,'$.fileCount')='integer'
     AND json_extract(source_manifest_json,'$.fileCount') BETWEEN 1 AND 10000
     AND json_type(source_manifest_json,'$.totalBytes')='integer'

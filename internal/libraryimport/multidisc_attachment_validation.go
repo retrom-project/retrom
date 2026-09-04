@@ -288,7 +288,7 @@ func insertMultiDiscSourceSnapshot(
 	if _, err := transaction.ExecContext(ctx, `
 INSERT INTO import_item_source_snapshots(id,import_item_id,revision_no,content_kind,
 source_manifest_json,source_manifest_digest,created_by,created_at_ms)
-VALUES(?,?,?,'MULTI_DISC_M3U_V1',?,?,'MULTI_DISC_ATTACHMENT',?)
+VALUES(?,?,?,'MULTI_DISC',?,?,'MULTI_DISC_ATTACHMENT',?)
 `, snapshotID, candidate.input.ImportItemID, revision,
 		candidate.resultManifestJSON, candidate.resultManifestDigest, now); err != nil {
 		return multiDiscAttachmentStoreError("insert source snapshot", err)

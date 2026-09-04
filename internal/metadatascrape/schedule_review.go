@@ -326,7 +326,7 @@ func insertGameContentEvidence(
 		_, err := transaction.ExecContext(ctx, `
 INSERT INTO content_hash_evidence(id,scrape_run_id,profile,blob_id,archive_blob_id,
 archive_entry_ordinal,crc32,md5,sha1,sha256,query_order,created_at_ms)
-VALUES(?,?,'SINGLE_ARCHIVE_MEMBER_V1',NULL,?,?,?,?,?,?,?,?)
+VALUES(?,?,'SINGLE_ARCHIVE_MEMBER',NULL,?,?,?,?,?,?,?,?)
 `, newID(), runID, archiveBlobID.String, archiveOrdinal.Int64,
 			crc32Value, md5Value, sha1Value, sha256Value, order, now)
 		if err != nil {
@@ -336,7 +336,7 @@ VALUES(?,?,'SINGLE_ARCHIVE_MEMBER_V1',NULL,?,?,?,?,?,?,?,?)
 	}
 	_, err := transaction.ExecContext(ctx, `
 INSERT INTO content_hash_evidence(id,scrape_run_id,profile,blob_id,crc32,md5,sha1,sha256,
-query_order,created_at_ms) VALUES(?,?,'RAW_FILE_V1',?,?,?,?,?,?,?)
+query_order,created_at_ms) VALUES(?,?,'RAW_FILE',?,?,?,?,?,?,?)
 `, newID(), runID, blobID, crc32Value, md5Value, sha1Value, sha256Value, order, now)
 	if err != nil {
 		return fmt.Errorf("metadatascrape/service: %w", err)

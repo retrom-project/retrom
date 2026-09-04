@@ -108,7 +108,6 @@ describe("Provider Module V1 dispatcher", () => {
     for (const mutate of [
       (value: LaunchEnvelopeV1) => Object.assign(value.session, {adapterId: "leaked"}),
       (value: LaunchEnvelopeV1) => Object.assign(value.runtime.capabilities, {extra: true}),
-      (value: LaunchEnvelopeV1) => Object.assign(value.targetOptions, {core: "leaked"}),
       (value: LaunchEnvelopeV1) => {value.session.returnTo = "https://evil.example";},
       (value: LaunchEnvelopeV1) => {value.runtime.checkpoint = {maxBytes: 0, readFormats: ["bad"], writeFormat: "bad"};},
       (value: LaunchEnvelopeV1) => {value.restore = {
@@ -125,6 +124,20 @@ describe("Provider Module V1 dispatcher", () => {
         .rejects.toThrow("PLAYER_LAUNCH_ENVELOPE_INVALID");
     }
     expect(importer).not.toHaveBeenCalled();
+  });
+
+  it("leaves exact targetOptions validation to the Provider module", async () => {
+    const envelope = fixtureEnvelope();
+    Object.assign(envelope.targetOptions, {providerOwnedOption: true});
+    const validateLaunchRequest = vi.fn(() => {throw new Error("PROVIDER_LAUNCH_REQUEST_INVALID");});
+    const importer = vi.fn(async () => ({
+      createRuntime: vi.fn(), providerApiVersion: 1, providerId: "fixture",
+      providerVersion: "1.0.0", validateLaunchRequest,
+    }));
+    await expect(loadProviderRuntime(envelope, fixtureHost(), importer, verifiedEnvironment(envelope)))
+      .rejects.toThrow("PROVIDER_LAUNCH_REQUEST_INVALID");
+    expect(importer).toHaveBeenCalledOnce();
+    expect(validateLaunchRequest).toHaveBeenCalledWith(envelope);
   });
 
   it("rejects oversized, mislabeled and digest-mismatched module bytes before import", async () => {
@@ -194,7 +207,7 @@ function fixtureEnvelope(): LaunchEnvelopeV1 {
       platformName: "Fixture", purpose: "PRODUCT", returnTo: "/games/fixture",
       title: "Fixture", warnings: [],
     },
-    targetOptions: {kind: "NONE_V1"},
+    targetOptions: {},
     validation: null,
   } as unknown as LaunchEnvelopeV1;
 }

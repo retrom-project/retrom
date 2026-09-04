@@ -109,18 +109,18 @@ func (service *Service) buildProviderContentPlan(
 	selection launchSelection,
 ) (launchContentPlan, error) {
 	switch selection.deliveryProfile {
-	case "EMULATORJS_CONTENT_V1":
+	case "EMULATORJS_CONTENT":
 		return service.buildEmulatorContentPlan(ctx, selection)
-	case "ROM_BLOB_V1":
+	case "ROM_BLOB":
 		return service.buildSingleContentPlan(ctx, selection, "SOURCE_V1")
-	case "FILE_TREE_PROJECT_V1":
+	case "FILE_TREE_PROJECT":
 		if selection.contentKind == rpgProjectFormat {
 			return service.buildRPGProductContentPlan(ctx, selection)
 		}
 		return service.buildProjectContentPlan(ctx, selection)
-	case "SEEKABLE_PROJECT_ARCHIVE_V1":
+	case "SEEKABLE_PROJECT_ARCHIVE":
 		return service.buildRPGProductContentPlan(ctx, selection)
-	case "ISOLATED_WEB_PROJECT_V1":
+	case "ISOLATED_WEB_PROJECT":
 		if selection.contentKind == rpgProjectFormat {
 			return service.buildRPGProductContentPlan(ctx, selection)
 		}
@@ -208,7 +208,7 @@ json_object(
   ))),
   'multiDisc',CASE WHEN EXISTS(
     SELECT 1 FROM runtime_binding_content_kinds kinds
-    WHERE kinds.binding_id=binding.binding_id AND kinds.content_kind='MULTI_DISC_M3U_V1'
+    WHERE kinds.binding_id=binding.binding_id AND kinds.content_kind='MULTI_DISC'
   ) THEN json_object('maxDiscs',8,'maxTotalBytes',1073741824,'delivery','EAGER_EXTERNAL_FILES') ELSE NULL END
 ),
 revision.dependency_snapshot_json,
@@ -465,7 +465,7 @@ VALUES(?,?,'PRODUCT',?,?,?,?,?,?,?,?,?,?,?,?,?,'CREATED',?,?,?,?)
 		request.ReturnTo, capabilityHash[:], bootstrapExpires, hardExpires, now, now); err != nil {
 		return Created{}, fmt.Errorf("create launch session: %w", err)
 	}
-	if selection.deliveryProfile == "ISOLATED_WEB_PROJECT_V1" {
+	if selection.deliveryProfile == "ISOLATED_WEB_PROJECT" {
 		if err := service.lockIsolatedLaunchBootstrapTicket(ctx, transaction, launchID.String(), profileID, now); err != nil {
 			return Created{}, err
 		}
@@ -486,7 +486,7 @@ VALUES(?,?,?,?,?,'DISC')
 			return Created{}, fmt.Errorf("lock launch disc: %w", err)
 		}
 	}
-	if selection.deliveryProfile == "EMULATORJS_CONTENT_V1" {
+	if selection.deliveryProfile == "EMULATORJS_CONTENT" {
 		if err := service.lockExternalBIOS(
 			ctx, transaction, launchID.String(), selection.variantRevisionID, now,
 			selection.revisionCompatibilityCode == reviewScreenshotOverrideCode,
