@@ -37,6 +37,7 @@ type Params = {
 };
 
 type PauseOwner = "menu" | "disconnect" | null;
+const MISSING_GAMEPAD_GRACE_MS = 250;
 
 export function useImmersivePlayer(params: Params) {
   const {
@@ -54,6 +55,7 @@ export function useImmersivePlayer(params: Params) {
   const reconnectGate = useRef(new ImmersiveNeutralGate());
   const previousPressed = useRef(new Map<number, boolean>());
   const previousReconnectA = useRef(false);
+  const missingSinceMs = useRef<number | null>(null);
   const suspended = useRef(false);
   const [filter] = useState(() => new ImmersiveGamepadFilter({
     activeGamepadIndex: getActiveImmersiveGamepadIndex(),
@@ -172,10 +174,10 @@ export function useImmersivePlayer(params: Params) {
       filter.reset();
       filter.setBlocked(!running);
     }
-    if (!running) {return;}
+    if (!running) {missingSinceMs.current = null; return;}
     return startImmersivePoll({
       filter, activeIndex, overlayRef, pauseOwner, reconnectTarget, menuReader, closingGate,
-      reconnectGate, previousPressed, previousReconnectA, suspended, runtime,
+      reconnectGate, previousPressed, previousReconnectA, missingSinceMs, suspended, runtime,
       pausedRef, setPaused, updateOverlay, beginClose,
       menuCancel, menuMove, runSelectedMenuAction, onFatalError,
     });
@@ -183,7 +185,13 @@ export function useImmersivePlayer(params: Params) {
 
   useEffect(() => {
     if (!enabled) {return;}
-    const suspend = () => {suspended.current = true; filter.setBlocked(true); filter.reset(); closingGate.current.reset();};
+    const suspend = () => {
+      suspended.current = true;
+      missingSinceMs.current = null;
+      filter.setBlocked(true);
+      filter.reset();
+      closingGate.current.reset();
+    };
     const visibility = () => {if (document.hidden) {suspend();}};
     window.addEventListener("blur", suspend);
     document.addEventListener("visibilitychange", visibility);
@@ -209,6 +217,7 @@ type PollParams = {
   reconnectGate: MutableRefObject<ImmersiveNeutralGate>;
   previousPressed: MutableRefObject<Map<number, boolean>>;
   previousReconnectA: MutableRefObject<boolean>;
+  missingSinceMs: MutableRefObject<number | null>;
   suspended: MutableRefObject<boolean>;
   runtime: MutableRefObject<PlayerRuntimeV1 | null>;
   pausedRef: MutableRefObject<boolean>;
@@ -241,15 +250,25 @@ function pollImmersiveState(params: PollParams, gamepads: (Gamepad | null)[], no
     return;
   }
   const overlay = params.overlayRef.current;
-  if (overlay.kind !== "reconnect" && params.activeIndex.current !== null &&
-    !isStandardImmersiveGamepad(gamepads.find((gamepad) => gamepad?.index === params.activeIndex.current))) {
+  if (overlay.kind !== "reconnect" && activeGamepadMissing(params.activeIndex.current, gamepads)) {
+    if (params.missingSinceMs.current === null) {
+      params.missingSinceMs.current = nowMs;
+      return;
+    }
+    if (nowMs - params.missingSinceMs.current < MISSING_GAMEPAD_GRACE_MS) {return;}
     enterReconnect(params, overlay.kind === "menu" ? "menu" : "game");
     return;
   }
+  params.missingSinceMs.current = null;
   if (overlay.kind === "closed") {params.filter.observe(gamepads, nowMs);}
   if (overlay.kind === "menu") {pollMenu(params, gamepads, nowMs);}
   if (overlay.kind === "closing") {pollClosing(params, gamepads, nowMs);}
   if (overlay.kind === "reconnect") {pollReconnect(params, gamepads, nowMs);}
+}
+
+function activeGamepadMissing(activeIndex: number | null, gamepads: (Gamepad | null)[]) {
+  return activeIndex !== null &&
+    !isStandardImmersiveGamepad(gamepads.find((gamepad) => gamepad?.index === activeIndex));
 }
 
 function claimFallbackGamepad(params: PollParams, gamepads: (Gamepad | null)[]) {
@@ -305,6 +324,7 @@ function enterReconnect(params: PollParams, target: "game" | "menu") {
   params.reconnectGate.current.reset();
   params.previousPressed.current.clear();
   params.previousReconnectA.current = false;
+  params.missingSinceMs.current = null;
   params.updateOverlay({ kind: "reconnect", ready: false });
 }
 
