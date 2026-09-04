@@ -53,7 +53,7 @@ flowchart LR
 
 ## 3. Clean migration 落地顺序
 
-项目首次发布前的唯一基线是下面的 current-schema 创建链；每张业务表只创建一次，不包含 ALTER/rename-copy-drop、业务回填或旧版本转换。首次公开发布后，已发布 migration 文件才进入不可改写的只追加纪律：
+当前唯一基线是下面的单向 current-schema 迁移链；每张业务表只创建一次，后续 migration 可以替换 trigger/index，但不使用 ALTER/rename-copy-drop 重建业务表，不做业务回填、旧版本双读或降级转换。迁移文件一旦被应用就进入不可改写的只追加纪律：
 
 1. `001_identity.sql`：账号、凭据、session、account link 与实例状态；
 2. `002_catalog.sql`：Platform/Core、RuntimeProvider/RuntimeTarget、Core binding 与零实例目录的 PlatformInstance；
@@ -65,6 +65,7 @@ flowchart LR
 8. `008_server_import.sql`：Pegasus 与 EmulationStation 当前 review-handoff 模型；
 9. `009_runtime.sql`：PRODUCT/RPG_RUNTIME_VALIDATION Launch、PlaySession、opaque checkpoint、隔离 runtime ticket/capability 与 Netplay；
 10. `010_cross_domain_invariants.sql`：只能在全部 owner table 存在后建立的 Provider/Target/profile/pack/checkpoint/Launch 索引和 trigger。
+11. `011_emulationstation_import_liveness.sql`：前向修正 EmulationStation 内容拒绝路径的条目状态迁移；worker 另以处理后工作态检查保证终态写入失败不会形成忙循环。
 
 循环 current pointer 使用数据模型规定的 deferred FK；clean migration 全程保持 `foreign_keys=ON`，每条在事务中应用并记录 name/checksum，最终执行 `foreign_key_check` 与 schema introspection。运行时代码不按 migration 数字分支，不关闭外键，不回填业务数据，也不动态修补 schema。
 

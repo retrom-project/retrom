@@ -1,7 +1,7 @@
 # Retrom 数据模型
 
 本文描述稳定领域关系和跨表不变量。字段、CHECK、FK、索引与 trigger 的逐字节事实源是
-`migrations/001_identity.sql` 至 `migrations/010_cross_domain_invariants.sql`；本文不复制一份会漂移的 SQL 字典。
+`migrations/001_identity.sql` 至 `migrations/011_emulationstation_import_liveness.sql`；本文不复制一份会漂移的 SQL 字典。
 HTTP 字段以 `api/openapi.yaml` 的统一 bundle 为准。
 
 ## 1. 基线与身份
@@ -147,3 +147,5 @@ consumption；最后一个引用消失后才建立 GC candidate，并等待配�
 
 任何领域新增运行时引用时，都必须使用同一三元组并在 010 或后续已发布 migration 中补复合约束；禁止新增第二套
 运行选择字段或从 Target ID 推导 Provider 私有实现。
+
+`011_emulationstation_import_liveness.sql` 保留上述约束，并允许 EmulationStation 条目在 library import 未产生可交接的 review item 时从 `COPYING` 直接进入 `BLOCKED_CONTENT`。任何条目处理返回后都不得仍处于 `PENDING | COPYING | VALIDATING`；否则 worker 终止当前执行并按有界退避重试，不得立即重复处理同一条目。

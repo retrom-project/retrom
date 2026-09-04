@@ -220,6 +220,24 @@ WHERE id=?
 	testassert.False(t, err != nil, err)
 }
 
+func TestEmulationStationSchemaAllowsCopyingItemToCloseAsBlockedContent(t *testing.T) {
+	t.Parallel()
+	fixture := openEmulationStationSchemaFixture(t)
+	_, err := fixture.database.SQL.ExecContext(t.Context(), `
+UPDATE emulationstation_import_items
+SET execution_state='COPYING',updated_at_ms=2
+WHERE id=?
+`, fixture.itemID)
+	testassert.False(t, err != nil, err)
+	_, err = fixture.database.SQL.ExecContext(t.Context(), `
+UPDATE emulationstation_import_items
+SET execution_state='BLOCKED_CONTENT',error_code='EMULATIONSTATION_CONTENT_FORMAT_UNSUPPORTED',
+ retryable=0,completed_at_ms=3,version=version+1,updated_at_ms=3
+WHERE id=?
+`, fixture.itemID)
+	testassert.False(t, err != nil, err)
+}
+
 func TestServerReviewSourceOwnershipIsMutuallyExclusive(t *testing.T) {
 	t.Parallel()
 	t.Run("Pegasus insert after EmulationStation link", func(t *testing.T) {

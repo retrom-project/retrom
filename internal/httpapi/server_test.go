@@ -304,7 +304,7 @@ func TestDiagnosticsUsesClosedSnapshotSchemaAndRequiredHeaders(t *testing.T) {
 	if err := decoder.Decode(&response); err != nil {
 		t.Fatalf("diagnostics schema: %v: %s", err, recorder.Body.String())
 	}
-	testassert.Falsef(t, testassert.Any(func() bool { return response.SchemaVersion != 2 }, func() bool { return response.GeneratedAtMS != fixed.UnixMilli() }, func() bool { return response.DatabaseSchemaVersion != 10 }, func() bool { return len(response.RuntimeProviders) != 2 }, func() bool { return response.RuntimeProviders[0].ProviderID != "emulatorjs" }, func() bool { return response.RuntimeProviders[1].ProviderID != "retrom-runtime" }), "diagnostics values = %#v", response)
+	testassert.Falsef(t, testassert.Any(func() bool { return response.SchemaVersion != 2 }, func() bool { return response.GeneratedAtMS != fixed.UnixMilli() }, func() bool { return response.DatabaseSchemaVersion != 11 }, func() bool { return len(response.RuntimeProviders) != 2 }, func() bool { return response.RuntimeProviders[0].ProviderID != "emulatorjs" }, func() bool { return response.RuntimeProviders[1].ProviderID != "retrom-runtime" }), "diagnostics values = %#v", response)
 }
 
 func TestImportProjectionsIncludeRejectedFileProblems(t *testing.T) {
