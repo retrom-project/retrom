@@ -3985,13 +3985,13 @@ export interface components {
             /** Format: uuid */
             targetPlatformInstanceId: string;
             /**
-             * @description Project content modes are normalized to NONE because projects have no single-ROM hash identity.
+             * @description Project content modes are normalized to NONE because projects have no single-ROM hash identity. A STANDARD import targeting rpgmaker with one ZIP/7z or a complete directory is normalized to RPG_MAKER_PROJECT and NONE before its immutable job snapshot is created.
              * @enum {string}
              */
             metadataProvider: "HASHEOUS" | "NONE";
             tagIds: string[];
             /**
-             * @description Omitted requests use STANDARD.
+             * @description Omitted requests use STANDARD. For import creation only, STANDARD targeting rpgmaker with one ZIP/7z or a complete directory is normalized to RPG_MAKER_PROJECT before the immutable job snapshot is created.
              * @enum {string}
              */
             contentMode?: "STANDARD" | "MULTI_DISC" | "RPG_MAKER_PROJECT" | "ONS_PROJECT" | "KIRIKIRI_PROJECT" | "BUTTERSCOTCH_PROJECT" | "TYRANOSCRIPT_PROJECT";

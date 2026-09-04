@@ -8,6 +8,7 @@ import (
 
 	"retrom/internal/cleanup"
 	"retrom/internal/contentcapability"
+	"retrom/internal/contentprofile"
 	"retrom/internal/rpgmaker/detector"
 )
 
@@ -92,18 +93,28 @@ func (service *Service) prepareCreation(ctx context.Context, rawRequest CreateRe
 	if err != nil {
 		return creationPlan{}, err
 	}
-	if request.MetadataProvider == "HASHEOUS" && service.scraper == nil {
-		return creationPlan{}, fmt.Errorf("libraryimport/service: %w", errMetadataScraperNotConfigured)
-	}
 	purpose, sourceType, err := service.loadCompletedUpload(ctx, request.UploadID)
 	if err != nil {
 		return creationPlan{}, err
 	}
-	if err := validateCreationUpload(contentMode, sourceType, purpose); err != nil {
-		return creationPlan{}, err
-	}
 	target, err := service.loadCreationTarget(ctx, request.TargetPlatformInstanceID)
 	if err != nil {
+		return creationPlan{}, err
+	}
+	files, err := service.loadImportSourceFiles(ctx, request.UploadID)
+	if err != nil {
+		return creationPlan{}, err
+	}
+	request, contentMode, err = normalizeTargetCreateRequest(
+		request, contentMode, purpose, sourceType, files, target,
+	)
+	if err != nil {
+		return creationPlan{}, err
+	}
+	if request.MetadataProvider == "HASHEOUS" && service.scraper == nil {
+		return creationPlan{}, fmt.Errorf("libraryimport/service: %w", errMetadataScraperNotConfigured)
+	}
+	if err := validateCreationUpload(contentMode, sourceType, purpose); err != nil {
 		return creationPlan{}, err
 	}
 	capabilities := contentcapability.Resolve(
@@ -111,10 +122,6 @@ func (service *Service) prepareCreation(ctx context.Context, rawRequest CreateRe
 	)
 	if contentMode == contentcapability.ModeMultiDisc && capabilities.MultiDisc == nil {
 		return creationPlan{}, ErrMultiDiscModeUnavailable
-	}
-	files, err := service.loadImportSourceFiles(ctx, request.UploadID)
-	if err != nil {
-		return creationPlan{}, err
 	}
 	datID := sql.NullString{}
 	if target.providerID != "" {
@@ -134,6 +141,42 @@ func (service *Service) prepareCreation(ctx context.Context, rawRequest CreateRe
 		plan.datID = service.loadActiveDATID(ctx, plan.target.providerID, plan.target.targetID)
 	}
 	return plan, nil
+}
+
+// A single archive selected through the ordinary file picker is still an RPG
+// Maker project. The transport intent is deliberately normalized before the
+// immutable queue snapshot is written, so every RPG generation follows the
+// same detector and runtime-binding path as an explicit project upload.
+func normalizeTargetCreateRequest(
+	request CreateRequest,
+	contentMode, purpose, sourceType string,
+	files []importSourceFile,
+	target creationTarget,
+) (CreateRequest, string, error) {
+	if target.platformID != "rpgmaker" {
+		return request, contentMode, nil
+	}
+	if contentMode == contentcapability.ModeStandard {
+		contentMode = contentcapability.ModeRPGMakerProject
+	}
+	if contentMode == contentcapability.ModeRPGMakerProject {
+		request.ContentMode = contentMode
+		request.MetadataProvider = "NONE"
+	}
+	if contentMode != contentcapability.ModeRPGMakerProject || purpose != "GENERAL" {
+		return request, contentMode, nil
+	}
+	if sourceType == "DIRECTORY" {
+		return request, contentMode, nil
+	}
+	if sourceType != "FILES" || len(files) != 1 {
+		return CreateRequest{}, "", ErrInvalid
+	}
+	format, reason := profileArchiveFormat(files[0].path)
+	if reason != "" || format != contentprofile.ArchiveZIP && format != contentprofile.ArchiveSevenZip {
+		return CreateRequest{}, "", ErrInvalid
+	}
+	return request, contentMode, nil
 }
 
 func (service *Service) resolveRPGMakerTarget(ctx context.Context, plan *creationPlan) error {
@@ -206,7 +249,7 @@ func validateCreationUpload(contentMode, sourceType, purpose string) error {
 		return ErrMultiDiscModeUnavailable
 	}
 	if contentMode == contentcapability.ModeRPGMakerProject {
-		if purpose != "RPG_MAKER_PROJECT" {
+		if purpose != "RPG_MAKER_PROJECT" && purpose != "GENERAL" {
 			return ErrInvalid
 		}
 		return nil

@@ -95,18 +95,28 @@ func (service *Service) admitImportGroup(
 	if err != nil {
 		return importGroupAdmission{}, err
 	}
-	if request.MetadataProvider == "HASHEOUS" && service.scraper == nil {
-		return importGroupAdmission{}, fmt.Errorf("libraryimport/service: %w", errMetadataScraperNotConfigured)
-	}
 	purpose, sourceType, uploadVersion, manifestDigest, err := service.loadQueuedUpload(ctx, request.UploadID)
 	if err != nil {
 		return importGroupAdmission{}, err
 	}
-	if err := validateCreationUpload(contentMode, sourceType, purpose); err != nil {
-		return importGroupAdmission{}, err
-	}
 	target, err := service.loadCreationTarget(ctx, request.TargetPlatformInstanceID)
 	if err != nil {
+		return importGroupAdmission{}, err
+	}
+	files, err := service.loadImportSourceFiles(ctx, request.UploadID)
+	if err != nil || len(files) == 0 {
+		return importGroupAdmission{}, ErrInvalid
+	}
+	request, contentMode, err = normalizeTargetCreateRequest(
+		request, contentMode, purpose, sourceType, files, target,
+	)
+	if err != nil {
+		return importGroupAdmission{}, err
+	}
+	if request.MetadataProvider == "HASHEOUS" && service.scraper == nil {
+		return importGroupAdmission{}, fmt.Errorf("libraryimport/service: %w", errMetadataScraperNotConfigured)
+	}
+	if err := validateCreationUpload(contentMode, sourceType, purpose); err != nil {
 		return importGroupAdmission{}, err
 	}
 	capabilities := contentcapability.Resolve(
@@ -114,10 +124,6 @@ func (service *Service) admitImportGroup(
 	)
 	if contentMode == contentcapability.ModeMultiDisc && capabilities.MultiDisc == nil {
 		return importGroupAdmission{}, ErrMultiDiscModeUnavailable
-	}
-	files, err := service.loadImportSourceFiles(ctx, request.UploadID)
-	if err != nil || len(files) == 0 {
-		return importGroupAdmission{}, ErrInvalid
 	}
 	targetSnapshot, provisional, err := service.importGroupTargetSnapshot(ctx, request, target)
 	if err != nil {
