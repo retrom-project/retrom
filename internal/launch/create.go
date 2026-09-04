@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"path"
+	"slices"
 	"strings"
 	"time"
 
@@ -51,14 +52,14 @@ type launchPreparation struct {
 }
 
 type launchSelection struct {
-	variantID, variantRevisionID, selectedCore                           string
-	providerID, targetID, targetContractSHA256, gameCompatibilityLine    string
-	bundleSHA256, contentRevisionID, contentLogicalName, contentKind     string
-	platformID, platformName, gameTitle, deliveryProfile                 string
-	contentPolicyJSON, dependencySnapshotJSON, revisionCompatibilityCode string
-	revisionDATID                                                        sql.NullString
-	savedDOSEntry                                                        sql.NullString
-	savedDiscIndex                                                       sql.NullInt64
+	variantID, selectedCore                                      string
+	providerID, targetID, bundleSHA256                           string
+	gameID, contentLogicalName, contentKind                      string
+	platformID, platformName, gameTitle, deliveryProfile         string
+	contentPolicyJSON, dependencySnapshotJSON, compatibilityCode string
+	datID                                                        sql.NullString
+	savedDOSEntry                                                sql.NullString
+	savedDiscIndex                                               sql.NullInt64
 }
 
 type launchSelectionResult struct {
@@ -72,16 +73,14 @@ func (service *Service) prepareLaunch(
 	selection launchSelection,
 ) (launchPreparation, error) {
 	target, exists := service.runtimeBuilder.Target(selection.providerID, selection.targetID)
-	if !exists || target.ContractSHA256 != selection.targetContractSHA256 ||
-		target.GameCompatibilityLine != selection.gameCompatibilityLine ||
-		!validThreadCapabilities(target.Capabilities.RequiresThreads, request.ClientCapabilities) {
+	if !exists || !validThreadCapabilities(target.Capabilities.RequiresThreads, request.ClientCapabilities) {
 		return launchPreparation{}, ErrBlocked
 	}
 	selectedDOSEntry := request.DOSEntry
 	if request.SaveStateID != nil && selection.savedDOSEntry.Valid {
 		selectedDOSEntry = &selection.savedDOSEntry.String
 	}
-	if err := service.validateDOSEntry(ctx, selection.variantRevisionID, selectedDOSEntry); err != nil {
+	if err := service.validateDOSEntry(ctx, selection.variantID, selectedDOSEntry); err != nil {
 		return launchPreparation{}, err
 	}
 	plan, err := service.buildProviderContentPlan(ctx, selection)
@@ -139,10 +138,10 @@ func (service *Service) buildSingleContentPlan(
 	file.Format = format
 	if err := service.database.QueryRowContext(ctx, `
 SELECT file.blob_id,file.logical_name
-FROM game_content_files file
-WHERE file.game_content_revision_id=? AND file.role='CONTENT'
+FROM game_files file
+WHERE file.game_id=? AND file.role='CONTENT'
 ORDER BY file.sort_order,file.logical_name LIMIT 1
-`, selection.contentRevisionID).Scan(&file.BlobID, &file.LogicalName); err != nil {
+`, selection.gameID).Scan(&file.BlobID, &file.LogicalName); err != nil {
 		return launchContentPlan{}, ErrBlocked
 	}
 	return launchContentPlan{ContentKind: selection.contentKind, Files: []lockedContentFile{file}}, nil
@@ -152,7 +151,7 @@ func (service *Service) buildProjectContentPlan(
 	ctx context.Context,
 	selection launchSelection,
 ) (launchContentPlan, error) {
-	files, err := service.projectProductFiles(ctx, selection.contentRevisionID, selection.contentKind, 100_000)
+	files, err := service.projectProductFiles(ctx, selection.gameID, selection.contentKind, 100_000)
 	if err != nil || len(files) == 0 {
 		return launchContentPlan{}, ErrBlocked
 	}
@@ -165,7 +164,7 @@ func (service *Service) buildEmulatorContentPlan(
 ) (launchContentPlan, error) {
 	if selection.contentKind == corevalidation.MultiDiscContentKind {
 		return service.buildMultiDiscLaunchContentPlan(
-			ctx, selection.variantRevisionID, selection.contentRevisionID, selection.dependencySnapshotJSON,
+			ctx, selection.variantID, selection.gameID, selection.dependencySnapshotJSON,
 		)
 	}
 	if selection.contentKind == "DOS_BUNDLE" {
@@ -173,8 +172,8 @@ func (service *Service) buildEmulatorContentPlan(
 		file.LogicalName, file.Format = "game.zip", "RETROM_DOS_DIRECT_ZIP_V1"
 		if err := service.database.QueryRowContext(ctx, `
 SELECT blob_id FROM variant_files
-WHERE game_variant_revision_id=? AND role='DOS_LAUNCH_BUNDLE' AND logical_name='game.zip'
-`, selection.variantRevisionID).Scan(&file.BlobID); err != nil {
+WHERE game_variant_id=? AND role='DOS_LAUNCH_BUNDLE' AND logical_name='game.zip'
+`, selection.variantID).Scan(&file.BlobID); err != nil {
 			return launchContentPlan{}, ErrBlocked
 		}
 		return launchContentPlan{ContentKind: selection.contentKind, Files: []lockedContentFile{file}}, nil
@@ -196,10 +195,9 @@ func (service *Service) selectLaunchVariant(
 }
 
 const launchSelectionColumns = `
-revision.game_variant_id,revision.id,variant.core_id,
-revision.provider_id,revision.target_id,target.target_contract_sha256,target.game_compatibility_line,
-provider.bundle_sha256,revision.game_content_revision_id,content.content_kind,
-platform.id,platform.name,metadata.title,binding.delivery_profile,
+variant.id,variant.core_id,variant.provider_id,variant.target_id,
+provider.bundle_sha256,game.id,game.content_kind,
+platform.id,platform.name,game.title,binding.delivery_profile,
 json_object(
   'schemaVersion',1,
   'supportedContentKinds',json((SELECT json_group_array(content_kind) FROM (
@@ -211,26 +209,21 @@ json_object(
     WHERE kinds.binding_id=binding.binding_id AND kinds.content_kind='MULTI_DISC'
   ) THEN json_object('maxDiscs',8,'maxTotalBytes',1073741824,'delivery','EAGER_EXTERNAL_FILES') ELSE NULL END
 ),
-revision.dependency_snapshot_json,
-revision.compatibility_code,revision.dat_version_id,
-COALESCE((SELECT file.logical_name FROM game_content_files file
- WHERE file.game_content_revision_id=revision.game_content_revision_id
+variant.dependency_snapshot_json,
+variant.compatibility_code,variant.dat_version_id,
+COALESCE((SELECT file.logical_name FROM game_files file
+ WHERE file.game_id=game.id
  AND file.role IN ('CONTENT','DISC','DOS_SOURCE','PROJECT_FILE')
  ORDER BY CASE file.role WHEN 'CONTENT' THEN 0 WHEN 'DISC' THEN 1 WHEN 'DOS_SOURCE' THEN 2 ELSE 3 END,
  file.sort_order,file.logical_name LIMIT 1),'')`
 
-func scanLaunchSelection(row *sql.Row, selection *launchSelection, validationDigest *string) error {
+func scanLaunchSelection(row *sql.Row, selection *launchSelection) error {
 	destinations := []any{
-		&selection.variantID, &selection.variantRevisionID, &selection.selectedCore,
-		&selection.providerID, &selection.targetID, &selection.targetContractSHA256,
-		&selection.gameCompatibilityLine, &selection.bundleSHA256, &selection.contentRevisionID,
+		&selection.variantID, &selection.selectedCore,
+		&selection.providerID, &selection.targetID, &selection.bundleSHA256, &selection.gameID,
 		&selection.contentKind, &selection.platformID, &selection.platformName, &selection.gameTitle,
 		&selection.deliveryProfile, &selection.contentPolicyJSON, &selection.dependencySnapshotJSON,
-		&selection.revisionCompatibilityCode,
-		&selection.revisionDATID, &selection.contentLogicalName,
-	}
-	if validationDigest != nil {
-		destinations = append(destinations, validationDigest)
+		&selection.compatibilityCode, &selection.datID, &selection.contentLogicalName,
 	}
 	if err := row.Scan(destinations...); err != nil {
 		return fmt.Errorf("scan launch selection: %w", err)
@@ -253,31 +246,25 @@ FROM save_states save
 JOIN games game ON game.id=save.game_id
 JOIN platform_instances instance ON instance.id=game.platform_instance_id
 JOIN platforms platform ON platform.id=instance.platform_id
-JOIN game_metadata_revisions metadata ON metadata.id=game.current_metadata_revision_id
-JOIN game_variant_revisions revision ON revision.id=save.game_variant_revision_id
- AND revision.game_content_revision_id=save.game_content_revision_id
-JOIN game_variants variant ON variant.id=revision.game_variant_id
-JOIN game_content_revisions content ON content.id=revision.game_content_revision_id
-JOIN runtime_targets target ON target.provider_id=save.provider_id AND target.target_id=save.target_id
- AND target.game_compatibility_line=save.game_compatibility_line
+JOIN game_variants variant ON variant.game_id=game.id
+JOIN runtime_targets target ON target.provider_id=variant.provider_id AND target.target_id=variant.target_id
 JOIN runtime_providers provider ON provider.provider_id=target.provider_id
 JOIN runtime_target_bindings binding ON binding.provider_id=target.provider_id AND binding.target_id=target.target_id
-JOIN save_state_runtime_compatibility compatibility
- ON compatibility.save_state_id=save.id AND compatibility.status='AVAILABLE'
 WHERE save.id=? AND save.game_id=? AND save.profile_id=? AND save.deleted_at_ms IS NULL
- AND game.status='PUBLISHED' AND instance.enabled=1 AND revision.status='READY'
- AND revision.provider_id=save.provider_id AND revision.target_id=save.target_id
- AND revision.game_compatibility_line=save.game_compatibility_line
- AND binding.launch_policy!='DISABLED'`
-	row := service.database.QueryRowContext(ctx, query, *request.SaveStateID, request.GameID, profileID)
+	 AND game.status='PUBLISHED' AND instance.enabled=1 AND variant.status='READY'
+	 AND binding.core_id=variant.core_id AND binding.launch_policy!='DISABLED'
+	 AND variant.core_id=CASE WHEN ?='' THEN instance.default_core_id ELSE ? END
+	 AND target.checkpoint_json IS NOT NULL AND EXISTS(
+	   SELECT 1 FROM json_each(target.checkpoint_json,'$.readFormats') readable
+	   WHERE readable.type='text' AND readable.value=save.checkpoint_format
+	 )`
+	row := service.database.QueryRowContext(ctx, query, *request.SaveStateID, request.GameID, profileID, coreID, coreID)
 	destinations := []any{
-		&selection.variantID, &selection.variantRevisionID, &selection.selectedCore,
-		&selection.providerID, &selection.targetID, &selection.targetContractSHA256,
-		&selection.gameCompatibilityLine, &selection.bundleSHA256, &selection.contentRevisionID,
+		&selection.variantID, &selection.selectedCore,
+		&selection.providerID, &selection.targetID, &selection.bundleSHA256, &selection.gameID,
 		&selection.contentKind, &selection.platformID, &selection.platformName, &selection.gameTitle,
 		&selection.deliveryProfile, &selection.contentPolicyJSON, &selection.dependencySnapshotJSON,
-		&selection.revisionCompatibilityCode,
-		&selection.revisionDATID, &selection.contentLogicalName,
+		&selection.compatibilityCode, &selection.datID, &selection.contentLogicalName,
 		&selection.savedDOSEntry, &selection.savedDiscIndex,
 	}
 	if err := row.Scan(destinations...); err != nil {
@@ -298,16 +285,23 @@ func (service *Service) saveStateRuntimeIncompatible(
 	ctx context.Context,
 	profileID, gameID, saveStateID string,
 ) bool {
-	var status string
+	var unreadable int
 	err := service.database.QueryRowContext(ctx, `
-SELECT compatibility.status
+SELECT NOT EXISTS(
+	SELECT 1
+	FROM game_variants variant
+	JOIN runtime_targets target ON target.provider_id=variant.provider_id AND target.target_id=variant.target_id
+	WHERE variant.game_id=save.game_id AND variant.status='READY'
+	AND target.checkpoint_json IS NOT NULL
+	AND EXISTS(SELECT 1 FROM json_each(target.checkpoint_json,'$.readFormats') readable
+	 WHERE readable.type='text' AND readable.value=save.checkpoint_format)
+)
 FROM save_states save
 JOIN games game ON game.id=save.game_id
-JOIN save_state_runtime_compatibility compatibility ON compatibility.save_state_id=save.id
 WHERE save.id=? AND save.profile_id=? AND save.game_id=? AND save.deleted_at_ms IS NULL
  AND game.status='PUBLISHED'
-`, saveStateID, profileID, gameID).Scan(&status)
-	return err == nil && status == "INCOMPATIBLE_RUNTIME"
+`, saveStateID, profileID, gameID).Scan(&unreadable)
+	return err == nil && unreadable == 1
 }
 
 func (service *Service) selectCurrentLaunchVariant(
@@ -317,31 +311,25 @@ func (service *Service) selectCurrentLaunchVariant(
 	coreID string,
 ) (launchSelectionResult, error) {
 	var selection launchSelection
-	var validationDigest string
-	query := `SELECT ` + launchSelectionColumns + `,revision.validation_input_digest
+	query := `SELECT ` + launchSelectionColumns + `
 FROM games game
 JOIN platform_instances instance ON instance.id=game.platform_instance_id
 JOIN platforms platform ON platform.id=instance.platform_id
-JOIN game_metadata_revisions metadata ON metadata.id=game.current_metadata_revision_id
 JOIN game_variants variant ON variant.game_id=game.id
-JOIN game_variant_revisions revision ON revision.id=variant.current_revision_id
- AND revision.game_content_revision_id=game.current_content_revision_id
-JOIN game_content_revisions content ON content.id=revision.game_content_revision_id
-JOIN runtime_targets target ON target.provider_id=revision.provider_id AND target.target_id=revision.target_id
- AND target.game_compatibility_line=revision.game_compatibility_line
+JOIN runtime_targets target ON target.provider_id=variant.provider_id AND target.target_id=variant.target_id
 JOIN runtime_providers provider ON provider.provider_id=target.provider_id
 JOIN runtime_target_bindings binding ON binding.provider_id=target.provider_id AND binding.target_id=target.target_id
 JOIN runtime_binding_platforms binding_platform ON binding_platform.binding_id=binding.binding_id
  AND binding_platform.platform_id=instance.platform_id AND binding_platform.core_id=variant.core_id
 JOIN runtime_binding_content_kinds binding_kind ON binding_kind.binding_id=binding.binding_id
- AND binding_kind.content_kind=content.content_kind
-WHERE game.id=? AND game.status='PUBLISHED' AND instance.enabled=1 AND revision.status='READY'
+	 AND binding_kind.content_kind=game.content_kind
+WHERE game.id=? AND game.status='PUBLISHED' AND instance.enabled=1 AND variant.status='READY'
  AND binding.launch_policy!='DISABLED'
  AND variant.core_id=CASE WHEN ?='' THEN instance.default_core_id ELSE ? END
 LIMIT 1`
 	if err := scanLaunchSelection(
 		service.database.QueryRowContext(ctx, query, request.GameID, coreID, coreID),
-		&selection, &validationDigest,
+		&selection,
 	); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			created, ensureErr := service.ensureVariant(ctx, profileID, request, coreID, true)
@@ -349,44 +337,103 @@ LIMIT 1`
 		}
 		return launchSelectionResult{}, ErrBlocked
 	}
-	if selection.revisionCompatibilityCode == reviewScreenshotOverrideCode {
-		return launchSelectionResult{selection: selection}, nil
-	}
-	expected, err := service.currentVariantDigest(ctx, selection)
+	fresh, err := service.currentBIOSMatchesDependencySnapshot(ctx, selection)
 	if err != nil {
 		return launchSelectionResult{}, ErrBlocked
 	}
-	if validationDigest != expected {
+	if !fresh {
 		created, ensureErr := service.ensureVariant(ctx, profileID, request, coreID, true)
 		return launchSelectionResult{retry: &created}, ensureErr
 	}
 	return launchSelectionResult{selection: selection}, nil
 }
 
-func (service *Service) currentVariantDigest(ctx context.Context, selection launchSelection) (string, error) {
-	biosSnapshot, biosStatus, _, err := service.resolveVariantBIOS(
-		ctx, service.database, selection.variantID, selection.contentRevisionID,
-		selection.providerID, selection.targetID, selection.contentLogicalName, selection.revisionDATID,
-	)
-	if err != nil || biosStatus != "READY" {
-		return "", ErrBlocked
+func (service *Service) currentBIOSMatchesDependencySnapshot(
+	ctx context.Context,
+	selection launchSelection,
+) (bool, error) {
+	if selection.compatibilityCode == reviewScreenshotOverrideCode {
+		return true, nil
 	}
-	if selection.contentKind == corevalidation.MultiDiscContentKind {
-		return service.expectedMultiDiscDigest(ctx, selection, biosSnapshot)
+	// DAT-backed variants are invalidated by the transactional DAT/BIOS
+	// replacement flows; their schema-v2 closure is not a static BIOS snapshot.
+	if selection.datID.Valid {
+		return service.currentDATBIOSMatchesLockedFiles(ctx, selection)
 	}
-	digest, err := corevalidation.ProviderValidationInputDigest(
-		selection.providerID, selection.targetID, selection.targetContractSHA256,
-		selection.gameCompatibilityLine, selection.contentRevisionID, selection.revisionDATID, biosSnapshot,
+	current, _, _, err := corevalidation.ResolveBIOS(
+		ctx, service.database, selection.providerID, selection.targetID, selection.contentLogicalName,
 	)
 	if err != nil {
-		return "", fmt.Errorf("digest current launch variant: %w", err)
+		return false, fmt.Errorf("launch/resolve current BIOS: %w", err)
 	}
-	return digest, nil
+	locked, err := corevalidation.ParseRuntimeBIOSDependencies(selection.dependencySnapshotJSON)
+	if err != nil {
+		// Provider-only project targets can legitimately carry an opaque empty
+		// dependency snapshot. They are fresh when the Host has no BIOS facts.
+		if len(current.BIOS) == 0 {
+			return true, nil
+		}
+		return false, fmt.Errorf("launch/parse locked BIOS dependencies: %w", err)
+	}
+	current.BIOS = append([]corevalidation.BIOSDependency(nil), current.BIOS...)
+	lockedSnapshot := corevalidation.Snapshot{
+		SchemaVersion: corevalidation.SnapshotSchemaVersion,
+		BIOS:          append([]corevalidation.BIOSDependency(nil), locked...),
+	}
+	currentDigest, err := corevalidation.BIOSDependencyDigest(current)
+	if err != nil {
+		return false, fmt.Errorf("launch/digest current BIOS dependencies: %w", err)
+	}
+	lockedDigest, err := corevalidation.BIOSDependencyDigest(lockedSnapshot)
+	if err != nil {
+		return false, fmt.Errorf("launch/digest locked BIOS dependencies: %w", err)
+	}
+	return currentDigest == lockedDigest, nil
+}
+
+func (service *Service) currentDATBIOSMatchesLockedFiles(
+	ctx context.Context,
+	selection launchSelection,
+) (bool, error) {
+	current, _, _, err := service.resolveVariantBIOS(
+		ctx, service.database, selection.variantID, selection.gameID,
+		selection.providerID, selection.targetID, selection.contentLogicalName, selection.datID,
+	)
+	if err != nil {
+		return false, err
+	}
+	type lockedBIOS struct{ logicalName, blobID string }
+	wanted := make([]lockedBIOS, 0, len(current.BIOS))
+	for _, dependency := range current.BIOS {
+		if dependency.DeliveryKind == "BIOS_BUNDLE" && dependency.BlobID != nil {
+			wanted = append(wanted, lockedBIOS{dependency.LogicalName, *dependency.BlobID})
+		}
+	}
+	rows, err := service.database.QueryContext(ctx, `
+SELECT logical_name,blob_id FROM variant_files
+WHERE game_variant_id=? AND role='BIOS_BUNDLE' ORDER BY sort_order,logical_name
+`, selection.variantID)
+	if err != nil {
+		return false, fmt.Errorf("launch/query locked DAT BIOS files: %w", err)
+	}
+	defer func() { cleanup.Error("close current DAT BIOS files", rows.Close()) }()
+	locked := make([]lockedBIOS, 0, len(wanted))
+	for rows.Next() {
+		var file lockedBIOS
+		if err := rows.Scan(&file.logicalName, &file.blobID); err != nil {
+			return false, fmt.Errorf("launch/scan locked DAT BIOS file: %w", err)
+		}
+		locked = append(locked, file)
+	}
+	if err := rows.Err(); err != nil {
+		return false, fmt.Errorf("launch/iterate locked DAT BIOS files: %w", err)
+	}
+	return slices.Equal(wanted, locked), nil
 }
 
 func (service *Service) validateDOSEntry(
 	ctx context.Context,
-	variantRevisionID string,
+	variantID string,
 	selectedDOSEntry *string,
 ) error {
 	if selectedDOSEntry == nil {
@@ -395,10 +442,10 @@ func (service *Service) validateDOSEntry(
 	var directLaunchSafe int
 	err := service.database.QueryRowContext(ctx, `
 SELECT entry.direct_launch_safe
-FROM game_variant_revisions revision
-JOIN dos_entries entry ON entry.game_content_revision_id=revision.game_content_revision_id
+FROM game_variants revision
+JOIN dos_entries entry ON entry.game_id=revision.game_id
 WHERE revision.id=? AND entry.normalized_path=? AND entry.enabled=1
-`, variantRevisionID, *selectedDOSEntry).Scan(&directLaunchSafe)
+`, variantID, *selectedDOSEntry).Scan(&directLaunchSafe)
 	if errors.Is(err, sql.ErrNoRows) {
 		return ErrDOSEntryMissing
 	}
@@ -453,14 +500,14 @@ func (service *Service) persistLaunch(
 	defer cleanup.Rollback(transaction)
 	if _, err = transaction.ExecContext(ctx, `
 INSERT INTO launch_sessions(
- id,profile_id,purpose,game_id,game_content_revision_id,game_variant_revision_id,
- provider_id,target_id,target_contract_sha256,game_compatibility_line,bundle_sha256,
+ id,profile_id,purpose,game_id,core_id,provider_id,target_id,bundle_sha256,
+ content_kind,dependency_snapshot_json,compatibility_code,
  save_state_id,dos_entry_path,initial_disc_index,return_to,credential_sha256,state,
  bootstrap_expires_at_ms,hard_expires_at_ms,created_at_ms,updated_at_ms)
 VALUES(?,?,'PRODUCT',?,?,?,?,?,?,?,?,?,?,?,?,?,'CREATED',?,?,?,?)
-`, launchID.String(), profileID, request.GameID, selection.contentRevisionID,
-		selection.variantRevisionID, selection.providerID, selection.targetID,
-		selection.targetContractSHA256, selection.gameCompatibilityLine, selection.bundleSHA256,
+`, launchID.String(), profileID, request.GameID, selection.selectedCore,
+		selection.providerID, selection.targetID, selection.bundleSHA256,
+		selection.contentKind, selection.dependencySnapshotJSON, selection.compatibilityCode,
 		request.SaveStateID, preparation.selectedDOSEntry, preparation.initialDiscIndex,
 		request.ReturnTo, capabilityHash[:], bootstrapExpires, hardExpires, now, now); err != nil {
 		return Created{}, fmt.Errorf("create launch session: %w", err)
@@ -488,11 +535,15 @@ VALUES(?,?,?,?,?,'DISC')
 	}
 	if selection.deliveryProfile == "EMULATORJS_CONTENT" {
 		if err := service.lockExternalBIOS(
-			ctx, transaction, launchID.String(), selection.variantRevisionID, now,
-			selection.revisionCompatibilityCode == reviewScreenshotOverrideCode,
+			ctx, transaction, launchID.String(), selection.variantID, now, false,
 		); err != nil {
 			return Created{}, err
 		}
+	}
+	if err := service.lockVariantBundleFiles(
+		ctx, transaction, launchID.String(), selection.variantID, now,
+	); err != nil {
+		return Created{}, err
 	}
 	if err := transaction.Commit(); err != nil {
 		return Created{}, fmt.Errorf("commit launch session: %w", err)
@@ -504,20 +555,56 @@ VALUES(?,?,?,?,?,'DISC')
 	}, nil
 }
 
+func (service *Service) lockVariantBundleFiles(
+	ctx context.Context,
+	transaction *sql.Tx,
+	launchID, variantID string,
+	now int64,
+) error {
+	rows, err := transaction.QueryContext(ctx, `
+SELECT role,logical_name,blob_id,sort_order
+FROM variant_files
+WHERE game_variant_id=? AND role IN ('BIOS_BUNDLE','PARENT')
+ORDER BY role,sort_order,logical_name
+`, variantID)
+	if err != nil {
+		return fmt.Errorf("load current variant bundle files: %w", err)
+	}
+	defer func() { cleanup.Error("close", rows.Close()) }()
+	for rows.Next() {
+		var role, logicalName, blobID string
+		var sortOrder int
+		if err := rows.Scan(&role, &logicalName, &blobID, &sortOrder); err != nil {
+			return fmt.Errorf("scan current variant bundle file: %w", err)
+		}
+		virtualPath := fmt.Sprintf("/__retrom__/%s/%02d/%s", strings.ToLower(role), sortOrder, logicalName)
+		if _, err := transaction.ExecContext(ctx, `
+INSERT INTO launch_external_files(launch_session_id,virtual_path,logical_name,blob_id,created_at_ms,kind)
+VALUES(?,?,?,?,?,?)
+`, launchID, virtualPath, logicalName, blobID, now, role); err != nil {
+			return fmt.Errorf("lock current variant bundle file: %w", err)
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("iterate current variant bundle files: %w", err)
+	}
+	return nil
+}
+
 func (service *Service) lockExternalBIOS(
 	ctx context.Context,
 	transaction *sql.Tx,
-	launchID, variantRevisionID string,
+	launchID, variantID string,
 	now int64,
 	allowMissing bool,
 ) error {
 	var snapshotJSON, contentLogicalName string
 	if err := transaction.QueryRowContext(ctx, `
 SELECT revision.dependency_snapshot_json,content.logical_name
-FROM game_variant_revisions revision
+FROM game_variants revision
 JOIN launch_content_files content ON content.launch_session_id=?
 WHERE revision.id=? ORDER BY content.logical_name LIMIT 1
-`, launchID, variantRevisionID).Scan(&snapshotJSON, &contentLogicalName); err != nil {
+`, launchID, variantID).Scan(&snapshotJSON, &contentLogicalName); err != nil {
 		return ErrBlocked
 	}
 	dependencies, err := corevalidation.ParseRuntimeBIOSDependencies(snapshotJSON)

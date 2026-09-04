@@ -19,7 +19,7 @@ func (service *Service) releaseGame(ctx context.Context, job claimedJob) error {
 		return fmt.Errorf("payloadrelease/game transaction: %w", err)
 	}
 	defer cleanup.Rollback(transaction)
-	complete, err := ensureGameRelease(ctx, transaction, job)
+	complete, err := ensureGameRelease(ctx, transaction, job, service.now().UnixMilli())
 	if err != nil || complete {
 		return err
 	}
@@ -32,7 +32,7 @@ func (service *Service) releaseGame(ctx context.Context, job claimedJob) error {
 	return nil
 }
 
-func ensureGameRelease(ctx context.Context, transaction *sql.Tx, job claimedJob) (bool, error) {
+func ensureGameRelease(ctx context.Context, transaction *sql.Tx, job claimedJob, now int64) (bool, error) {
 	var status, payloadState string
 	var version int64
 	var releaseJob sql.NullString
@@ -48,7 +48,7 @@ SELECT status,version,payload_state,payload_release_job_id FROM games WHERE id=?
 	if status != "DELETED" || !releaseJob.Valid || releaseJob.String != job.ID {
 		return false, releaseFailure("PAYLOAD_RELEASE_SCOPE_NOT_TERMINAL")
 	}
-	if version != job.Input.Inputs.ScopeVersion && payloadState != "RELEASED" {
+	if version != job.Input.Inputs.ScopeVersion && payloadState != "FAILED" && payloadState != "RELEASED" {
 		return false, releaseFailure("PAYLOAD_RELEASE_SCOPE_VERSION_MISMATCH")
 	}
 	if payloadState == "RELEASED" {
@@ -57,9 +57,10 @@ SELECT status,version,payload_state,payload_release_job_id FROM games WHERE id=?
 	if payloadState == "FAILED" {
 		if _, err := transaction.ExecContext(ctx, `
 UPDATE games
-SET payload_state='RELEASING',payload_last_error_code=NULL
+SET payload_state='RELEASING',payload_last_error_code=NULL,
+version=version+1,updated_at_ms=?
 WHERE id=?
-`, job.ScopeID); err != nil {
+`, now, job.ScopeID); err != nil {
 			return false, fmt.Errorf("payloadrelease/retry game: %w", err)
 		}
 	}
@@ -111,9 +112,10 @@ WHERE payload_released_at_ms IS NULL AND scrape_run_id IN (
 		return err
 	}
 	if _, err := transaction.ExecContext(ctx, `
-UPDATE games SET payload_state='RELEASED',payload_released_at_ms=?,payload_last_error_code=NULL
+UPDATE games SET payload_state='RELEASED',payload_released_at_ms=?,payload_last_error_code=NULL,
+version=version+1,updated_at_ms=?
 WHERE id=? AND status='DELETED' AND payload_state IN ('RELEASING','FAILED','RELEASED')
-`, now, gameID); err != nil {
+`, now, now, gameID); err != nil {
 		return fmt.Errorf("payloadrelease/complete game: %w", err)
 	}
 	return nil
@@ -124,7 +126,7 @@ func (service *Service) waitForGameMutations(ctx context.Context, gameID string)
 		var active int
 		if err := service.database.QueryRowContext(ctx, `
 SELECT count(*) FROM jobs WHERE scope_type='GAME' AND scope_id=?
-AND kind IN ('GAME_FILE_REVISION','METADATA_SCRAPE','MEDIA_FETCH')
+AND kind IN ('GAME_CONTENT_REPLACE','METADATA_SCRAPE','MEDIA_FETCH')
 AND state IN ('QUEUED','RUNNING','CANCEL_REQUESTED')
 `, gameID).Scan(&active); err != nil {
 			return fmt.Errorf("payloadrelease/check mutations: %w", err)
@@ -191,15 +193,13 @@ func gameDeleteStatements() []string {
  WHERE run.game_id=? ORDER BY asset.rowid LIMIT 200
 )`,
 		`DELETE FROM game_assets WHERE rowid IN (SELECT rowid FROM game_assets WHERE game_id=? ORDER BY rowid LIMIT 200)`,
-		`DELETE FROM game_content_files WHERE rowid IN (
- SELECT file.rowid FROM game_content_files file
- JOIN game_content_revisions revision ON revision.id=file.game_content_revision_id
- WHERE revision.game_id=? ORDER BY file.rowid LIMIT 200
+		`DELETE FROM game_files WHERE rowid IN (
+ SELECT file.rowid FROM game_files file
+ WHERE file.game_id=? ORDER BY file.rowid LIMIT 200
 )`,
 		`DELETE FROM variant_files WHERE rowid IN (
  SELECT file.rowid FROM variant_files file
- JOIN game_variant_revisions revision ON revision.id=file.game_variant_revision_id
- JOIN game_variants variant ON variant.id=revision.game_variant_id
+ JOIN game_variants variant ON variant.id=file.game_variant_id
  WHERE variant.game_id=? ORDER BY file.rowid LIMIT 200
 )`,
 	}
@@ -210,9 +210,9 @@ func releaseGameConsumptions(ctx context.Context, transaction *sql.Tx, gameID st
 UPDATE upload_consumptions SET released_at_ms=?,release_reason='GAME_DELETED',version=version+1
 WHERE released_at_ms IS NULL AND (
   consumer_type='GAME_ASSET' AND consumer_id IN (SELECT id FROM game_assets WHERE game_id=?) OR
-  consumer_type='GAME_FILE_REVISION_JOB' AND consumer_id IN (
-    SELECT source_ref_id FROM game_content_revisions WHERE game_id=? AND source_kind='ADMIN_REPLACE'
-  )
+	  consumer_type='GAME_CONTENT_REPLACE_JOB' AND consumer_id=(
+	    SELECT content_source_ref_id FROM games WHERE id=? AND content_source_kind='ADMIN_REPLACE'
+	  )
 )
 `, now, gameID, gameID); err != nil {
 		return fmt.Errorf("payloadrelease/release game consumptions: %w", err)
@@ -225,12 +225,10 @@ func assertGameReleased(ctx context.Context, transaction *sql.Tx, gameID string)
 	err := transaction.QueryRowContext(ctx, `
 SELECT
  (SELECT count(*) FROM game_assets WHERE game_id=?)+
- (SELECT count(*) FROM game_content_files file
-  JOIN game_content_revisions revision ON revision.id=file.game_content_revision_id
-  WHERE revision.game_id=?)+
+ (SELECT count(*) FROM game_files file
+  WHERE file.game_id=?)+
  (SELECT count(*) FROM variant_files file
-  JOIN game_variant_revisions revision ON revision.id=file.game_variant_revision_id
-  JOIN game_variants variant ON variant.id=revision.game_variant_id
+  JOIN game_variants variant ON variant.id=file.game_variant_id
   WHERE variant.game_id=?)+
  (SELECT count(*) FROM save_states WHERE game_id=?)+
  (SELECT count(*) FROM launch_content_files file

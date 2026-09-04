@@ -18,12 +18,12 @@ func ContentIdentity(content ContentView) (string, error) {
 		return "", ErrBlocked
 	}
 	if content.Format == "" || content.CoreID == "" || content.ProviderID == "" || content.TargetID == "" ||
-		!validContentDigest(content.TargetContractSHA256) ||
+		!validContentDigest(content.BundleSHA256) ||
 		content.Format == "RETROM_DOS_DIRECT_ZIP_V1" && content.CoreID != "dosbox_pure" {
 		return "", ErrBlocked
 	}
-	digestInput := "RETROM_RUNTIME_GAME_V2\x00" + content.Format + "\x00" + content.ProviderID + "\x00" +
-		content.TargetID + "\x00" + content.TargetContractSHA256 + "\x00" + content.Digest + "\x00" +
+	digestInput := "RETROM_RUNTIME_GAME_V3\x00" + content.Format + "\x00" + content.ProviderID + "\x00" +
+		content.TargetID + "\x00" + content.BundleSHA256 + "\x00" + content.Digest + "\x00" +
 		nullableDOSEntry(content.DOSEntry)
 	digest := sha256.Sum256([]byte(digestInput))
 	return hex.EncodeToString(digest[:]), nil

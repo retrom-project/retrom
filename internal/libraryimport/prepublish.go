@@ -31,8 +31,6 @@ type prepublishDigestInput struct {
 	PlatformInstanceVersion  int64           `json:"platformInstanceVersion"`
 	ProviderID               string          `json:"providerId"`
 	TargetID                 string          `json:"targetId"`
-	TargetContractSHA256     string          `json:"targetContractSha256"`
-	GameCompatibilityLine    string          `json:"gameCompatibilityLine"`
 	ContentPolicyDigest      string          `json:"contentPolicyDigest"`
 	DATVersionID             *string         `json:"datVersionId"`
 	DefaultDOSEntry          *string         `json:"defaultDosEntry"`
@@ -115,12 +113,12 @@ func preparedGroupContentKind(group preparedGroup) string {
 type reviewValidationEvidence struct {
 	generation, platformVersion                                        int64
 	sourceSnapshotID, platformInstanceID, coreID, providerID, targetID string
-	targetContractSHA256, gameCompatibilityLine, manifestDigest        string
-	inputDigest, status, compatibilityCode, dependencyJSON             string
+	manifestDigest, inputDigest, status, compatibilityCode             string
+	dependencyJSON                                                     string
 	validationDAT, validationDOS, draftDOS, activeDAT                  sql.NullString
 	draftSnapshotID, draftPlatformInstanceID, snapshotManifestDigest   string
 	contentKind, contentPolicyJSON                                     string
-	currentCoreID, currentTargetContractSHA256, currentGameLine        string
+	currentCoreID                                                      string
 	currentPlatformVersion                                             int64
 }
 
@@ -133,15 +131,13 @@ func (service *Service) readReviewValidationEvidence(
 SELECT validation.prepublish_generation,validation.platform_instance_version,
 validation.source_snapshot_id,
 validation.target_platform_instance_id,validation.core_id,validation.provider_id,validation.target_id,
-validation.target_contract_sha256,validation.game_compatibility_line,
 validation.source_manifest_digest,validation.prepublish_input_digest,validation.status,
 validation.compatibility_code,validation.dependency_snapshot_json,validation.dat_version_id,
 validation.default_dos_entry,draft.default_dos_entry,
 (SELECT active.id FROM dat_versions active
  WHERE active.provider_id=validation.provider_id AND active.target_id=validation.target_id AND active.is_active=1),
 draft.effective_source_snapshot_id,draft.target_platform_instance_id,
-snapshot.source_manifest_digest,snapshot.content_kind,
-binding.core_id,target.target_contract_sha256,target.game_compatibility_line,platform.version,
+snapshot.source_manifest_digest,snapshot.content_kind,binding.core_id,platform.version,
 json_object(
  'schemaVersion',1,
  'supportedContentKinds',json((SELECT json_group_array(content_kind) FROM (
@@ -169,12 +165,11 @@ WHERE validation.id=?
 `, validationID).Scan(
 		&value.generation, &value.platformVersion,
 		&value.sourceSnapshotID, &value.platformInstanceID, &value.coreID,
-		&value.providerID, &value.targetID, &value.targetContractSHA256, &value.gameCompatibilityLine,
+		&value.providerID, &value.targetID,
 		&value.manifestDigest, &value.inputDigest, &value.status, &value.compatibilityCode,
 		&value.dependencyJSON, &value.validationDAT, &value.validationDOS, &value.draftDOS,
 		&value.activeDAT, &value.draftSnapshotID, &value.draftPlatformInstanceID,
 		&value.snapshotManifestDigest, &value.contentKind, &value.currentCoreID,
-		&value.currentTargetContractSHA256, &value.currentGameLine,
 		&value.currentPlatformVersion, &value.contentPolicyJSON,
 	)
 	if err != nil {
@@ -190,8 +185,7 @@ func nullableStringsEqual(left, right sql.NullString) bool {
 func (value reviewValidationEvidence) currentInput() (prepublishDigestInput, bool) {
 	current := value.generation == prepublishGeneration && value.sourceSnapshotID == value.draftSnapshotID &&
 		value.platformInstanceID == value.draftPlatformInstanceID && value.platformVersion == value.currentPlatformVersion &&
-		value.coreID == value.currentCoreID && value.targetContractSHA256 == value.currentTargetContractSHA256 &&
-		value.gameCompatibilityLine == value.currentGameLine && value.manifestDigest == value.snapshotManifestDigest &&
+		value.coreID == value.currentCoreID && value.manifestDigest == value.snapshotManifestDigest &&
 		nullableStringsEqual(value.validationDAT, value.activeDAT) &&
 		nullableStringsEqual(value.validationDOS, value.draftDOS) &&
 		contentcapability.SupportsContentKind(value.contentPolicyJSON, value.contentKind)
@@ -203,12 +197,10 @@ func (value reviewValidationEvidence) currentInput() (prepublishDigestInput, boo
 		SourceManifestDigest: value.manifestDigest, ContentKind: value.contentKind,
 		TargetPlatformInstanceID: value.platformInstanceID, PlatformInstanceVersion: value.platformVersion,
 		ProviderID: value.providerID, TargetID: value.targetID,
-		TargetContractSHA256:  value.targetContractSHA256,
-		GameCompatibilityLine: value.gameCompatibilityLine,
-		ContentPolicyDigest:   compatibilityConfigDigest(value.contentPolicyJSON),
-		DATVersionID:          nullStringPointer(value.validationDAT),
-		DefaultDOSEntry:       nullStringPointer(value.validationDOS),
-		DependencySnapshot:    json.RawMessage(value.dependencyJSON), Status: value.status,
+		ContentPolicyDigest: compatibilityConfigDigest(value.contentPolicyJSON),
+		DATVersionID:        nullStringPointer(value.validationDAT),
+		DefaultDOSEntry:     nullStringPointer(value.validationDOS),
+		DependencySnapshot:  json.RawMessage(value.dependencyJSON), Status: value.status,
 		CompatibilityCode: value.compatibilityCode,
 	}, true
 }

@@ -41,7 +41,7 @@ func (service *Service) RecordPlay(
 
 type playLaunchSource struct {
 	purpose, state, profileID string
-	gameID, variantRevisionID sql.NullString
+	gameID                    sql.NullString
 	idleExpires               sql.NullInt64
 }
 
@@ -60,7 +60,6 @@ purpose,
 state,
 profile_id,
 game_id,
-game_variant_revision_id,
 hard_expires_at_ms,
 idle_expires_at_ms
 FROM launch_sessions
@@ -71,7 +70,6 @@ WHERE id=?
 		&source.state,
 		&source.profileID,
 		&source.gameID,
-		&source.variantRevisionID,
 		&hardExpires,
 		&source.idleExpires,
 	); err != nil ||
@@ -90,7 +88,7 @@ func recordProductPlay(
 	now int64,
 	source playLaunchSource,
 ) (PlayResult, error) {
-	if source.purpose != "PRODUCT" || !source.gameID.Valid || !source.variantRevisionID.Valid {
+	if source.purpose != "PRODUCT" || !source.gameID.Valid {
 		return PlayResult{}, ErrBlocked
 	}
 	var playID, playState string
@@ -109,7 +107,7 @@ WHERE launch_session_id=?
 	}
 	if kind == "start" {
 		return startPlaySession(
-			ctx, transaction, launchID, source.profileID, source.gameID.String, source.variantRevisionID.String,
+			ctx, transaction, launchID, source.profileID, source.gameID.String,
 			source.state, playID, playState, err, event, now,
 		)
 	}
@@ -279,7 +277,7 @@ AND client_sequence=?
 func startPlaySession(
 	ctx context.Context,
 	transaction *sql.Tx,
-	launchID, profileID, gameID, variantRevisionID, launchState, playID, playState string,
+	launchID, profileID, gameID, launchState, playID, playState string,
 	lookupErr error,
 	event PlayEvent,
 	now int64,
@@ -300,7 +298,6 @@ INSERT INTO play_sessions(id,
 launch_session_id,
 profile_id,
 game_id,
-game_variant_revision_id,
 started_at_ms,
 last_heartbeat_at_ms,
 active_duration_ms,
@@ -314,14 +311,13 @@ updated_at_ms) VALUES(?,
 ?,
 ?,
 ?,
-?,
 0,
 0,
 'ACTIVE',
 1,
 ?,
 ?)
-`, playID, launchID, profileID, gameID, variantRevisionID, now, now, now, now); err != nil {
+`, playID, launchID, profileID, gameID, now, now, now, now); err != nil {
 		return PlayResult{}, fmt.Errorf("launch/service: %w", err)
 	}
 	if _, err := transaction.ExecContext(ctx, `

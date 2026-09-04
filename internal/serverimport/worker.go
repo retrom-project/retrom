@@ -343,7 +343,7 @@ func (service *Service) commitCandidate(
 		ServerImportID: unit.ImportID, JobID: unit.JobID,
 		CandidateID: selected.ID, RequirementID: item.RequirementID, RequirementVersion: item.RequirementVersion,
 		ProviderID: item.ProviderID, TargetID: item.TargetID,
-		TargetContractSHA256: item.TargetContractSHA256, SourceVersion: item.SourceVersion,
+		SourceVersion: item.SourceVersion,
 		CatalogDigest: item.CatalogDigest, SourceKind: item.SourceKind, LogicalName: item.LogicalName,
 		OriginalFilename: selected.File.Basename,
 		Metadata:         selected.Metadata, Status: status, MatchMethod: method, Details: selected.Details,

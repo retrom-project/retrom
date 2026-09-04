@@ -247,7 +247,7 @@ ORDER BY upload.relative_path,upload.id
 // Aggregate and item projections are read together to preserve one import snapshot response.
 func (server *Server) importDetail(writer http.ResponseWriter, request *http.Request) {
 	var id, uploadID, targetID, targetName, platformID, coreID, runtimeProviderID, runtimeTargetID string
-	var targetContractSHA256, metadataProvider, state, configJSON string
+	var metadataProvider, state, configJSON string
 	var payloadState string
 	var datID, errorCode, cancelReason, reconfiguredFrom, payloadReleaseJobID sql.NullString
 	var version, total, queued, running, pending, published, discarded int64
@@ -262,7 +262,6 @@ i.platform_id,
 i.default_core_id,
 i.provider_id,
 i.target_id,
-i.target_contract_sha256,
 i.dat_version_id,
 i.metadata_provider,
 i.config_snapshot_json,
@@ -301,7 +300,6 @@ WHERE i.id=?
 			&coreID,
 			&runtimeProviderID,
 			&runtimeTargetID,
-			&targetContractSHA256,
 			&datID,
 			&metadataProvider,
 			&configJSON,
@@ -361,7 +359,6 @@ WHERE i.id=?
 		"defaultCoreId":               coreID,
 		"providerId":                  runtimeProviderID,
 		"targetId":                    runtimeTargetID,
-		"targetContractSha256":        targetContractSHA256,
 		"datVersionId":                nullableString(datID),
 		"metadataProvider":            metadataProvider,
 		"reconfiguredFromImportJobId": nullableString(reconfiguredFrom),
@@ -499,7 +496,7 @@ instance.name
 FROM import_item_duplicate_matches match
 JOIN import_items item ON item.id=match.import_item_id
 JOIN games game ON game.id=match.existing_game_id
-JOIN game_metadata_revisions metadata ON metadata.id=game.current_metadata_revision_id
+JOIN games metadata ON metadata.id=game.id
 JOIN platform_instances instance ON instance.id=game.platform_instance_id
 WHERE item.import_job_id=?
 ORDER BY item.created_at_ms,item.id,game.created_at_ms,game.id

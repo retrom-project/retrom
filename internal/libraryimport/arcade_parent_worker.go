@@ -230,7 +230,7 @@ SELECT id,scope_type,scope_id,'STARTED','{}',? FROM jobs WHERE id=?
 	if err := transaction.QueryRowContext(ctx, `
 SELECT attachment.id,attachment.import_item_id,attachment.review_draft_id,
 attachment.base_source_snapshot_id,attachment.dependency_machine,attachment.required_by_machine,
-attachment.depth,attachment.provider_id,attachment.target_id,attachment.target_contract_sha256,
+attachment.depth,attachment.provider_id,attachment.target_id,
 attachment.dat_version_id,attachment.upload_file_id,
 file.upload_session_id,attachment.original_filename,file.final_blob_id,blob.sha256,blob.size_bytes
 FROM review_arcade_parent_attachments attachment
@@ -240,7 +240,7 @@ WHERE attachment.job_id=? AND attachment.state='RUNNING'
 `, jobID).Scan(
 		&candidate.attachmentID, &candidate.itemID, &candidate.draftID, &candidate.baseSnapshotID,
 		&candidate.machine, &candidate.requiredBy, &candidate.depth, &candidate.providerID, &candidate.targetID,
-		&candidate.targetContractSHA256, &candidate.datID,
+		&candidate.datID,
 		&candidate.uploadFileID, &candidate.uploadSessionID, &candidate.originalName, &candidate.blobID,
 		&candidate.blobSHA, &candidate.blobSize,
 	); err != nil {
@@ -258,11 +258,9 @@ WHERE input.job_id=?
 	var frozenInput parentAttachmentInput
 	if err := json.Unmarshal([]byte(frozenInputJSON), &frozenInput); err != nil ||
 		frozenInput.ProviderID != candidate.providerID || frozenInput.TargetID != candidate.targetID ||
-		frozenInput.TargetContractSHA256 != candidate.targetContractSHA256 ||
-		frozenInput.GameCompatibilityLine == "" || len(frozenInput.ContentPolicyDigest) != 64 {
+		len(frozenInput.ContentPolicyDigest) != 64 {
 		return parentAttachmentCandidate{}, "", ErrInvalid
 	}
-	candidate.gameCompatibilityLine = frozenInput.GameCompatibilityLine
 	candidate.contentPolicyDigest = frozenInput.ContentPolicyDigest
 	if err := transaction.Commit(); err != nil {
 		return parentAttachmentCandidate{}, "", parentStoreError("commit claim", err)

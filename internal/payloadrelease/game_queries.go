@@ -9,15 +9,12 @@ import (
 func gameBlobIDs(ctx context.Context, transaction *sql.Tx, gameID string) ([]string, error) {
 	return collectIDs(ctx, transaction, `
 SELECT blob_id FROM game_assets WHERE game_id=?
-UNION ALL SELECT file.blob_id FROM game_content_files file
- JOIN game_content_revisions revision ON revision.id=file.game_content_revision_id
- WHERE revision.game_id=?
-UNION ALL SELECT file.source_archive_blob_id FROM game_content_files file
- JOIN game_content_revisions revision ON revision.id=file.game_content_revision_id
- WHERE revision.game_id=?
+UNION ALL SELECT file.blob_id FROM game_files file
+ WHERE file.game_id=?
+UNION ALL SELECT file.source_archive_blob_id FROM game_files file
+ WHERE file.game_id=?
 UNION ALL SELECT file.blob_id FROM variant_files file
- JOIN game_variant_revisions revision ON revision.id=file.game_variant_revision_id
- JOIN game_variants variant ON variant.id=revision.game_variant_id WHERE variant.game_id=?
+ JOIN game_variants variant ON variant.id=file.game_variant_id WHERE variant.game_id=?
 UNION ALL SELECT payload_blob_id FROM save_states WHERE game_id=?
 UNION ALL SELECT screenshot_blob_id FROM save_states WHERE game_id=?
 UNION ALL SELECT file.blob_id FROM launch_content_files file
@@ -38,16 +35,16 @@ func gameConsumptionSessions(ctx context.Context, transaction *sql.Tx, gameID st
 	return collectIDs(ctx, transaction, `
 SELECT upload_session_id FROM upload_consumptions WHERE
 consumer_type='GAME_ASSET' AND consumer_id IN (SELECT id FROM game_assets WHERE game_id=?) OR
-consumer_type='GAME_FILE_REVISION_JOB' AND consumer_id IN (
-  SELECT source_ref_id FROM game_content_revisions WHERE game_id=? AND source_kind='ADMIN_REPLACE'
+consumer_type='GAME_CONTENT_REPLACE_JOB' AND consumer_id=(
+  SELECT content_source_ref_id FROM games WHERE id=? AND content_source_kind='ADMIN_REPLACE'
 )
 `, gameID, gameID)
 }
 
 func (service *Service) releaseGameSources(ctx context.Context, transaction *sql.Tx, gameID string, now int64) error {
 	importItems, err := collectIDs(ctx, transaction, `
-SELECT source_ref_id FROM game_content_revisions WHERE game_id=? AND source_kind='IMPORT_REVIEW'
-UNION SELECT source_ref_id FROM game_metadata_revisions WHERE game_id=? AND source_kind='IMPORT_REVIEW'
+SELECT metadata_source_ref_id FROM games WHERE id=? AND metadata_source_kind='IMPORT_REVIEW'
+UNION SELECT content_source_ref_id FROM games WHERE id=? AND content_source_kind='IMPORT_REVIEW'
 `, gameID, gameID)
 	if err != nil {
 		return err
@@ -56,8 +53,8 @@ UNION SELECT source_ref_id FROM game_metadata_revisions WHERE game_id=? AND sour
 		return err
 	}
 	pegasusItems, err := collectIDs(ctx, transaction, `
-SELECT source_ref_id FROM game_content_revisions WHERE game_id=? AND source_kind='SERVER_PEGASUS_IMPORT'
-UNION SELECT source_ref_id FROM game_metadata_revisions WHERE game_id=? AND source_kind='SERVER_PEGASUS_IMPORT'
+SELECT metadata_source_ref_id FROM games WHERE id=? AND metadata_source_kind='SERVER_PEGASUS_IMPORT'
+UNION SELECT content_source_ref_id FROM games WHERE id=? AND content_source_kind='SERVER_PEGASUS_IMPORT'
 `, gameID, gameID)
 	if err != nil {
 		return err
@@ -66,10 +63,10 @@ UNION SELECT source_ref_id FROM game_metadata_revisions WHERE game_id=? AND sour
 		return err
 	}
 	emulationStationItems, err := collectIDs(ctx, transaction, `
-SELECT source_ref_id FROM game_content_revisions
- WHERE game_id=? AND source_kind='SERVER_EMULATIONSTATION_IMPORT'
-UNION SELECT source_ref_id FROM game_metadata_revisions
- WHERE game_id=? AND source_kind='SERVER_EMULATIONSTATION_IMPORT'
+SELECT metadata_source_ref_id FROM games
+ WHERE id=? AND metadata_source_kind='SERVER_EMULATIONSTATION_IMPORT'
+UNION SELECT content_source_ref_id FROM games
+ WHERE id=? AND content_source_kind='SERVER_EMULATIONSTATION_IMPORT'
 `, gameID, gameID)
 	if err != nil {
 		return err

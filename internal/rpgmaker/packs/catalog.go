@@ -63,12 +63,12 @@ SELECT installation.id,installation.definition_id,installation.files_digest,
  installation.status,installation.diagnostic_json,installation.source_note,
  installation.version,installation.created_at_ms,installation.validated_at_ms,
  installation.deleted_at_ms,
- (SELECT count(*) FROM game_variant_revision_runtime_packs reference
+ (SELECT count(*) FROM game_variant_runtime_packs reference
   WHERE reference.installation_id=installation.id),
  (SELECT count(*) FROM save_states save
-  JOIN game_variant_revision_runtime_packs reference
-    ON reference.game_variant_revision_id=save.game_variant_revision_id
-  WHERE reference.installation_id=installation.id AND save.deleted_at_ms IS NULL)
+  JOIN launch_content_files locked ON locked.launch_session_id=save.source_launch_session_id
+  WHERE locked.blob_id=installation.bundle_blob_id
+    AND locked.logical_name LIKE '__retrom__/pack-%.zip' AND save.deleted_at_ms IS NULL)
 FROM runtime_asset_pack_installations installation
 JOIN runtime_asset_pack_definitions definition ON definition.id=installation.definition_id
 ORDER BY CASE definition.generation
@@ -106,7 +106,7 @@ func scanInstallation(row rowScanner) (InstallationView, error) {
 	err := row.Scan(
 		&item.InstallationID, &item.DefinitionID, &item.FilesDigest, &item.FileCount,
 		&item.TotalBytes, &bundle, &item.Status, &diagnostics, &note, &item.Version,
-		&item.CreatedAtMS, &validated, &deleted, &item.References.VariantRevisionCount,
+		&item.CreatedAtMS, &validated, &deleted, &item.References.GameCount,
 		&item.References.CheckpointCount,
 	)
 	if err != nil {
@@ -141,7 +141,7 @@ func (service *Service) Delete(ctx context.Context, installationID string, expec
 	if err != nil {
 		return err
 	}
-	if references.VariantRevisionCount != 0 || references.CheckpointCount != 0 {
+	if references.GameCount != 0 || references.CheckpointCount != 0 {
 		return ErrReferenced
 	}
 	blobIDs, err := installationBlobIDs(ctx, transaction, installationID)
@@ -197,13 +197,14 @@ func installationReferences(
 	var result ReferenceCounts
 	err := transaction.QueryRowContext(ctx, `
 SELECT
- (SELECT count(*) FROM game_variant_revision_runtime_packs reference
+ (SELECT count(*) FROM game_variant_runtime_packs reference
   WHERE reference.installation_id=?),
  (SELECT count(*) FROM save_states save
-  JOIN game_variant_revision_runtime_packs reference
-    ON reference.game_variant_revision_id=save.game_variant_revision_id
-  WHERE reference.installation_id=? AND save.deleted_at_ms IS NULL)
-`, installationID, installationID).Scan(&result.VariantRevisionCount, &result.CheckpointCount)
+  JOIN launch_content_files locked ON locked.launch_session_id=save.source_launch_session_id
+  JOIN runtime_asset_pack_installations installation ON installation.id=?
+  WHERE locked.blob_id=installation.bundle_blob_id
+    AND locked.logical_name LIKE '__retrom__/pack-%.zip' AND save.deleted_at_ms IS NULL)
+`, installationID, installationID).Scan(&result.GameCount, &result.CheckpointCount)
 	if err != nil {
 		return ReferenceCounts{}, fmt.Errorf("runtime pack references: %w", err)
 	}

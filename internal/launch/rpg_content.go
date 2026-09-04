@@ -28,20 +28,20 @@ func (service *Service) buildRPGProductContentPlan(
 	}
 	files, err := queryLockedContentFiles(ctx, service.database, `
 SELECT file.blob_id,file.logical_name,'PROJECT_FILE'
-FROM game_content_files file
-WHERE file.game_content_revision_id=? AND file.role='PROJECT_FILE'
+FROM game_files file
+WHERE file.game_id=? AND file.role='PROJECT_FILE'
 UNION ALL
 SELECT file.blob_id,file.logical_name,file.role
 FROM variant_files file
-WHERE file.game_variant_revision_id=?
+WHERE file.game_variant_id=?
   AND file.role IN ('RPG_EASYRPG_INDEX','RPG_MAKER_LAUNCH_BUNDLE')
 UNION ALL
 SELECT installation.bundle_blob_id,selection.declared_name,'RPG_RUNTIME_PACK:' || selection.slot
-FROM game_variant_revision_runtime_packs selection
+FROM game_variant_runtime_packs selection
 JOIN runtime_asset_pack_installations installation ON installation.id=selection.installation_id
-WHERE selection.game_variant_revision_id=? AND installation.status='READY'
+WHERE selection.game_variant_id=? AND installation.status='READY'
 ORDER BY 2
-`, selection.contentRevisionID, selection.variantRevisionID, selection.variantRevisionID)
+`, selection.gameID, selection.variantID, selection.variantID)
 	if err != nil {
 		return launchContentPlan{}, err
 	}
@@ -74,7 +74,6 @@ JOIN import_item_core_validations core_validation ON core_validation.id=(
     AND candidate.source_snapshot_id=validation.effective_source_snapshot_id
     AND candidate.provider_id=validation.provider_id
     AND candidate.target_id=validation.target_id
-    AND candidate.target_contract_sha256=validation.target_contract_sha256
   ORDER BY candidate.created_at_ms DESC,candidate.id DESC
   LIMIT 1
 )

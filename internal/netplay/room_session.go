@@ -68,7 +68,7 @@ WHERE id=? AND version=?
 
 type startRoomState struct {
 	gameID        string
-	revisionID    string
+	variantID     string
 	profileID     string
 	profileDigest string
 	maxPlayers    int64
@@ -88,10 +88,10 @@ func loadStartRoom(
 	var state, host string
 	var version int64
 	if err := queryer.QueryRowContext(ctx, `
-SELECT state,host_profile_id,version,selected_game_id,selected_game_variant_revision_id,
+SELECT state,host_profile_id,version,selected_game_id,selected_game_variant_id,
 netplay_profile_id,profile_digest,max_players FROM netplay_rooms WHERE id=?
 `, roomID).Scan(
-		&state, &host, &version, &result.gameID, &result.revisionID,
+		&state, &host, &version, &result.gameID, &result.variantID,
 		&result.profileID, &result.profileDigest, &result.maxPlayers,
 	); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -120,7 +120,7 @@ func (service *Service) lockedStartProfile(
 	}
 	var locked *eligibleProfile
 	for index := range eligible {
-		if eligible[index].Manifest.ID == state.profileID && eligible[index].VariantRevisionID == state.revisionID {
+		if eligible[index].Manifest.ID == state.profileID && eligible[index].VariantID == state.variantID {
 			locked = &eligible[index]
 		}
 	}
@@ -128,8 +128,9 @@ func (service *Service) lockedStartProfile(
 		return nil, nil, "", ErrProfileStale
 	}
 	canonical, digest, err := service.registry.CanonicalProfile(CanonicalProfileInput{
-		ManifestProfile: locked.Manifest, TargetContractSHA256: locked.TargetContractSHA256,
-		GameVariantRevisionID: locked.VariantRevisionID, DependencySnapshotJSON: locked.DependencySnapshotJSON,
+		ManifestProfile: locked.Manifest, BundleSHA256: locked.BundleSHA256,
+		SourceManifestDigest:   locked.SourceManifestDigest,
+		DependencySnapshotJSON: locked.DependencySnapshotJSON,
 	})
 	if err != nil || digest != state.profileDigest {
 		return nil, nil, "", ErrProfileStale
@@ -196,14 +197,13 @@ SELECT COALESCE(max(session_no),0)+1 FROM netplay_sessions WHERE room_id=?
 	}
 	sessionID := newV7()
 	if _, err := transaction.ExecContext(ctx, `
-INSERT INTO netplay_sessions(id,room_id,session_no,state,game_id,game_variant_revision_id,
-provider_id,target_id,target_contract_sha256,netplay_compatibility_line,
+INSERT INTO netplay_sessions(id,room_id,session_no,state,game_id,game_variant_id,
+provider_id,target_id,bundle_sha256,
 netplay_profile_id,profile_json,profile_digest,player_count,occupied_seat_mask,
 authority_player_no,resync_count,version,created_at_ms,updated_at_ms)
-VALUES(?,?,?,'PREPARING',?,?,?,?,?,?,?,?,?,?,?,1,0,1,?,?)
-`, sessionID, roomID, sessionNo, state.gameID, state.revisionID,
-		locked.Manifest.ProviderID, locked.Manifest.TargetID, locked.TargetContractSHA256,
-		locked.Manifest.NetplayCompatibilityLine, state.profileID,
+VALUES(?,?,?,'PREPARING',?,?,?,?,?,?,?,?,?,?,1,0,1,?,?)
+`, sessionID, roomID, sessionNo, state.gameID, state.variantID,
+		locked.Manifest.ProviderID, locked.Manifest.TargetID, locked.BundleSHA256, state.profileID,
 		string(canonical), digest, len(members), mask, now, now); err != nil {
 		return "", fmt.Errorf("netplay/create session: %w", err)
 	}

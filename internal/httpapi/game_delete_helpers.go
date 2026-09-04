@@ -93,7 +93,7 @@ func loadDeleteGameState(
 	err := transaction.QueryRowContext(ctx, `
 SELECT m.title,g.status,g.payload_state,g.payload_release_job_id,g.version
 FROM games g
-JOIN game_metadata_revisions m ON m.id=g.current_metadata_revision_id
+JOIN games m ON m.id=g.id
 WHERE g.id=?
 `, gameID).Scan(
 		&state.title, &state.status, &state.payloadState, &state.releaseJobID, &state.version,
@@ -265,7 +265,7 @@ INSERT INTO job_events(job_id,scope_type,scope_id,event_type,data_json,created_a
 SELECT id,scope_type,scope_id,CASE state WHEN 'QUEUED' THEN 'CANCELLED' ELSE 'CANCEL_REQUESTED' END,
 '{"schemaVersion":1,"reason":"GAME_DELETED"}',?
 FROM jobs WHERE scope_type='GAME' AND scope_id=?
-AND kind IN ('GAME_FILE_REVISION','METADATA_SCRAPE','MEDIA_FETCH') AND state IN ('QUEUED','RUNNING')
+AND kind IN ('GAME_CONTENT_REPLACE','METADATA_SCRAPE','MEDIA_FETCH') AND state IN ('QUEUED','RUNNING')
 `, now, gameID); err != nil {
 		return fmt.Errorf("delete game mutation events: %w", err)
 	}
@@ -277,7 +277,7 @@ AND kind IN ('GAME_FILE_REVISION','METADATA_SCRAPE','MEDIA_FETCH') AND state IN 
 			`UPDATE jobs SET state=CASE WHEN state='QUEUED' THEN 'CANCELLED' ELSE 'CANCEL_REQUESTED' END,
 cancel_requested_at_ms=?,cancel_reason='game deleted',finished_at_ms=CASE WHEN state='QUEUED' THEN ? ELSE NULL END,
 version=version+1,updated_at_ms=? WHERE scope_type='GAME' AND scope_id=?
-AND kind IN ('GAME_FILE_REVISION','METADATA_SCRAPE','MEDIA_FETCH') AND state IN ('QUEUED','RUNNING')`,
+AND kind IN ('GAME_CONTENT_REPLACE','METADATA_SCRAPE','MEDIA_FETCH') AND state IN ('QUEUED','RUNNING')`,
 			[]any{now, now, now, gameID},
 		},
 		{`UPDATE launch_sessions SET state='REVOKED',finished_at_ms=COALESCE(finished_at_ms,?),updated_at_ms=?,

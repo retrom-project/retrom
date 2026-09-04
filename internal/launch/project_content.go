@@ -9,14 +9,14 @@ import (
 
 func (service *Service) projectProductFiles(
 	ctx context.Context,
-	contentRevisionID, format string,
+	gameID, format string,
 	maximumFiles int,
 ) ([]lockedContentFile, error) {
 	rows, err := service.database.QueryContext(ctx, `
-SELECT blob_id,logical_name FROM game_content_files
-WHERE game_content_revision_id=? AND role='PROJECT_FILE'
+SELECT blob_id,logical_name FROM game_files
+WHERE game_id=? AND role='PROJECT_FILE'
 ORDER BY sort_order,logical_name
-`, contentRevisionID)
+`, gameID)
 	if err != nil {
 		return nil, fmt.Errorf("load project product files: %w", err)
 	}

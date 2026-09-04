@@ -95,7 +95,6 @@ type Item struct {
 	CoreName                   string         `json:"coreName"`
 	ProviderID                 string         `json:"providerId"`
 	TargetID                   string         `json:"targetId"`
-	TargetContractSHA256       string         `json:"targetContractSha256"`
 	LogicalName                string         `json:"logicalName"`
 	RequirementMode            string         `json:"requirementMode"`
 	SourceKind                 string         `json:"sourceKind"`
@@ -231,7 +230,6 @@ type catalogItem struct {
 	CoreName                  string  `json:"coreName"`
 	ProviderID                string  `json:"providerId"`
 	TargetID                  string  `json:"targetId"`
-	TargetContractSHA256      string  `json:"targetContractSha256"`
 	SourceKind                string  `json:"sourceKind"`
 	LogicalName               string  `json:"logicalName"`
 	RequirementMode           string  `json:"requirementMode"`
@@ -414,7 +412,7 @@ func boolInteger(value bool) int {
 func (service *Service) freezeCatalog(ctx context.Context) ([]catalogItem, error) {
 	rows, err := service.database.QueryContext(ctx, `
 SELECT requirement.id,requirement.version,requirement.core_id,core.name,requirement.provider_id,
-requirement.target_id,requirement.target_contract_sha256,requirement.source_kind,
+requirement.target_id,requirement.source_kind,
 requirement.logical_name,requirement.requirement_mode,
 requirement.condition_code,requirement.activation_options_json,requirement.delivery_kind,requirement.emulator_path,
 requirement.source_version,requirement.catalog_digest,
@@ -425,9 +423,8 @@ dat.parse_status,dat.is_active
 FROM bios_requirements requirement
 JOIN cores core ON core.id=requirement.core_id
 JOIN runtime_targets target ON target.provider_id=requirement.provider_id AND target.target_id=requirement.target_id
- AND target.target_contract_sha256=requirement.target_contract_sha256
 LEFT JOIN dat_versions dat ON dat.id=requirement.source_version AND dat.provider_id=requirement.provider_id
- AND dat.target_id=requirement.target_id AND dat.target_contract_sha256=requirement.target_contract_sha256
+ AND dat.target_id=requirement.target_id
 LEFT JOIN bios_installations installation ON installation.requirement_id=requirement.id
  AND installation.is_active=1
 LEFT JOIN blobs blob ON blob.id=installation.blob_id
@@ -445,7 +442,7 @@ ORDER BY requirement.id COLLATE BINARY
 		var datActive sql.NullInt64
 		if err := rows.Scan(
 			&item.RequirementID, &item.RequirementVersion, &item.CoreID, &item.CoreName, &item.ProviderID,
-			&item.TargetID, &item.TargetContractSHA256, &item.SourceKind, &item.LogicalName, &item.RequirementMode,
+			&item.TargetID, &item.SourceKind, &item.LogicalName, &item.RequirementMode,
 			&item.ConditionCode, &item.ActivationOptionsJSON, &item.DeliveryKind, &item.EmulatorPath,
 			&item.SourceVersion, &item.CatalogDigest, &item.DATVersionID,
 			&item.DATMachineName, &item.ExpectedSize, &item.ExpectedMD5, &item.ExpectedSHA1, &item.ExpectedSHA256,
@@ -477,12 +474,12 @@ func insertCatalogItem(ctx context.Context, transaction *sql.Tx, importID string
 		`
 INSERT INTO server_bios_import_items(
 server_import_id,requirement_id,requirement_version,core_id,core_name_snapshot,provider_id,target_id,
-target_contract_sha256,source_kind,logical_name,requirement_mode,condition_code,delivery_kind,emulator_path,
+source_kind,logical_name,requirement_mode,condition_code,delivery_kind,emulator_path,
 activation_options_json,source_version,catalog_digest,dat_version_id,dat_machine_name,expected_size_bytes,
 expected_md5,expected_sha1,expected_sha256,
 active_installation_id_snapshot,active_installation_version_snapshot,active_blob_sha256_snapshot,
 active_status_snapshot,active_validated_requirement_version_snapshot,state,created_at_ms,updated_at_ms)
-VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'PENDING',?,?)
+VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'PENDING',?,?)
 `,
 		importID,
 		item.RequirementID,
@@ -491,7 +488,6 @@ VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'PENDING',?,?)
 		item.CoreName,
 		item.ProviderID,
 		item.TargetID,
-		item.TargetContractSHA256,
 		item.SourceKind,
 		item.LogicalName,
 		item.RequirementMode,

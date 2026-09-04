@@ -88,8 +88,8 @@ func validLaunchSession(value map[string]any) bool {
 }
 
 func validLaunchRuntime(value map[string]any) bool {
-	if !exactMap(value, "bundleSha256", "capabilities", "checkpoint", "gameCompatibilityLine", "moduleSha256", "moduleUrl",
-		"providerApiVersion", "providerId", "providerVersion", "runtimeBaseUrl", "targetContractSha256", "targetId") ||
+	if !exactMap(value, "bundleSha256", "capabilities", "checkpoint", "moduleSha256", "moduleUrl",
+		"providerApiVersion", "providerId", "providerVersion", "runtimeBaseUrl", "targetId") ||
 		!validLaunchRuntimeIdentity(value) {
 		return false
 	}
@@ -111,10 +111,8 @@ func validLaunchRuntimeIdentity(value map[string]any) bool {
 		identityPattern.MatchString(stringValue(value["providerId"])) &&
 		identityPattern.MatchString(stringValue(value["targetId"])) &&
 		semverPattern.MatchString(stringValue(value["providerVersion"])) &&
-		tokenPattern.MatchString(stringValue(value["gameCompatibilityLine"])) &&
 		launchDigestPattern.MatchString(stringValue(value["bundleSha256"])) &&
-		launchDigestPattern.MatchString(stringValue(value["moduleSha256"])) &&
-		launchDigestPattern.MatchString(stringValue(value["targetContractSha256"]))
+		launchDigestPattern.MatchString(stringValue(value["moduleSha256"]))
 }
 
 func validLaunchCapabilities(value map[string]any) bool {

@@ -312,7 +312,7 @@ func validCompleteMultiDiscSnapshot(snapshot MultiDiscSnapshot) bool {
 }
 
 func ProviderValidationInputDigest(
-	providerID, targetID, targetContractSHA256, gameCompatibilityLine, contentID string,
+	providerID, targetID, gameID string,
 	datID sql.NullString,
 	snapshot Snapshot,
 ) (string, error) {
@@ -322,14 +322,12 @@ func ProviderValidationInputDigest(
 	}
 	biosDigest := sha256.Sum256(snapshotJSON)
 	input, err := json.Marshal(map[string]any{
-		"biosDependencyDigest":  hex.EncodeToString(biosDigest[:]),
-		"providerId":            providerID,
-		"targetId":              targetID,
-		"targetContractSha256":  targetContractSHA256,
-		"gameCompatibilityLine": gameCompatibilityLine,
-		"datVersionId":          nullableSQLString(datID),
-		"gameContentRevisionId": contentID,
-		"schemaVersion":         3,
+		"biosDependencyDigest": hex.EncodeToString(biosDigest[:]),
+		"providerId":           providerID,
+		"targetId":             targetID,
+		"datVersionId":         nullableSQLString(datID),
+		"gameId":               gameID,
+		"schemaVersion":        4,
 	})
 	if err != nil {
 		return "", fmt.Errorf("corevalidation/digest input: %w", err)
@@ -338,16 +336,14 @@ func ProviderValidationInputDigest(
 	return hex.EncodeToString(digest[:]), nil
 }
 
-const MultiDiscValidationSchema = "RETROM_VARIANT_VALIDATION_INPUT_V3"
+const MultiDiscValidationSchema = "RETROM_VARIANT_VALIDATION_INPUT_V4"
 
 type MultiDiscValidationInput struct {
 	GameVariantID           string
-	GameContentRevisionID   string
+	GameID                  string
 	ContentKind             string
 	ProviderID              string
 	TargetID                string
-	TargetContractSHA256    string
-	GameCompatibilityLine   string
 	ContentPolicySHA256     string
 	DATVersionID            sql.NullString
 	BIOSDependencySHA256    string
@@ -378,12 +374,10 @@ func MultiDiscValidationInputDigest(input MultiDiscValidationInput) (string, err
 	canonical, err := json.Marshal(struct {
 		SchemaVersion           string   `json:"schemaVersion"`
 		GameVariantID           string   `json:"gameVariantId"`
-		GameContentRevisionID   string   `json:"gameContentRevisionId"`
+		GameID                  string   `json:"gameId"`
 		ContentKind             string   `json:"contentKind"`
 		ProviderID              string   `json:"providerId"`
 		TargetID                string   `json:"targetId"`
-		TargetContractSHA256    string   `json:"targetContractSha256"`
-		GameCompatibilityLine   string   `json:"gameCompatibilityLine"`
 		ContentPolicySHA256     string   `json:"contentPolicySha256"`
 		DATVersionID            any      `json:"datVersionId"`
 		BIOSDependencySHA256    string   `json:"biosDependencySha256"`
@@ -391,10 +385,8 @@ func MultiDiscValidationInputDigest(input MultiDiscValidationInput) (string, err
 		CanonicalPlaylistSHA256 string   `json:"canonicalPlaylistSha256"`
 	}{
 		SchemaVersion: MultiDiscValidationSchema,
-		GameVariantID: input.GameVariantID, GameContentRevisionID: input.GameContentRevisionID,
+		GameVariantID: input.GameVariantID, GameID: input.GameID,
 		ContentKind: input.ContentKind, ProviderID: input.ProviderID, TargetID: input.TargetID,
-		TargetContractSHA256:    input.TargetContractSHA256,
-		GameCompatibilityLine:   input.GameCompatibilityLine,
 		ContentPolicySHA256:     input.ContentPolicySHA256,
 		DATVersionID:            nullableSQLString(input.DATVersionID),
 		BIOSDependencySHA256:    input.BIOSDependencySHA256,
@@ -409,9 +401,8 @@ func MultiDiscValidationInputDigest(input MultiDiscValidationInput) (string, err
 }
 
 func validMultiDiscValidationInput(input MultiDiscValidationInput) bool {
-	if input.GameVariantID == "" || input.GameContentRevisionID == "" || input.ContentKind == "" ||
-		input.ProviderID == "" || input.TargetID == "" || !validSHA256(input.TargetContractSHA256) ||
-		input.GameCompatibilityLine == "" || !validSHA256(input.ContentPolicySHA256) ||
+	if input.GameVariantID == "" || input.GameID == "" || input.ContentKind == "" ||
+		input.ProviderID == "" || input.TargetID == "" || !validSHA256(input.ContentPolicySHA256) ||
 		!validSHA256(input.BIOSDependencySHA256) || !validSHA256(input.CanonicalPlaylistSHA256) ||
 		len(input.OrderedDiscSHA256) < 2 || len(input.OrderedDiscSHA256) > 8 {
 		return false

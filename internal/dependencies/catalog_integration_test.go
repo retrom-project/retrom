@@ -86,12 +86,12 @@ AND core_id IN ('fbalpha2012_cps1','fbalpha2012_cps2')
 	if err := set.BootstrapCatalogs(ctx, database.SQL, time.Now()); err != nil {
 		t.Fatalf("idempotent bootstrap: %v", err)
 	}
-	var providerID, targetID, targetContractSHA256, selectedDATID string
+	var providerID, targetID, selectedDATID string
 	if err := database.SQL.QueryRowContext(ctx, `
-SELECT d.provider_id,d.target_id,d.target_contract_sha256,d.id
+SELECT d.provider_id,d.target_id,d.id
 FROM dat_versions d
 WHERE d.core_id='fbneo' AND d.is_active=1
-`).Scan(&providerID, &targetID, &targetContractSHA256, &selectedDATID); err != nil {
+`).Scan(&providerID, &targetID, &selectedDATID); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := database.SQL.ExecContext(ctx, `UPDATE dat_versions SET is_active=0 WHERE id=?`, selectedDATID); err != nil {
@@ -99,13 +99,13 @@ WHERE d.core_id='fbneo' AND d.is_active=1
 	}
 	const supersededID = "01990000-0000-7000-8000-000000000038"
 	if _, err := database.SQL.ExecContext(ctx, `
-INSERT INTO dat_versions(id,core_id,provider_id,target_id,target_contract_sha256,builtin_relative_path,sha256,parser_version,
+INSERT INTO dat_versions(id,core_id,provider_id,target_id,builtin_relative_path,sha256,parser_version,
 parse_status,is_active,machine_count,rom_entry_count,disk_entry_count,bios_set_count,
 default_bios_set_count,explicit_bios_machine_count,base_dependency_target_count,unresolved_relation_count,
 version,created_at_ms,updated_at_ms,parsed_at_ms,activated_at_ms)
-VALUES(?,'fbneo',?,?,?,'legacy/fbneo.dat',?,'legacy-parser','READY',1,
+VALUES(?,'fbneo',?,?,'legacy/fbneo.dat',?,'legacy-parser','READY',1,
 0,0,0,0,0,0,0,0,1,1,1,1,1)
-`, supersededID, providerID, targetID, targetContractSHA256, strings.Repeat("e", 64)); err != nil {
+`, supersededID, providerID, targetID, strings.Repeat("e", 64)); err != nil {
 		t.Fatal(err)
 	}
 	selectionTime := time.Now().Add(time.Second)

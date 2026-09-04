@@ -23,8 +23,7 @@ pc.core_id,
 c.name,
 pc.enabled,
 binding.provider_id,
-binding.target_id,
-target.netplay_compatibility_line
+binding.target_id
 FROM platforms p
 LEFT JOIN platform_cores pc ON pc.platform_id=p.id
 LEFT JOIN cores c ON c.id=pc.core_id
@@ -48,11 +47,11 @@ pc.core_id
 	for rows.Next() {
 		var id, name string
 		var sortOrder, enabled int
-		var coreID, coreName, providerID, targetID, netplayLine sql.NullString
+		var coreID, coreName, providerID, targetID sql.NullString
 		var coreEnabled sql.NullInt64
 		if err := rows.Scan(
 			&id, &name, &sortOrder, &enabled, &coreID, &coreName, &coreEnabled,
-			&providerID, &targetID, &netplayLine,
+			&providerID, &targetID,
 		); err != nil {
 			server.databaseError(writer, request, err)
 			return
@@ -85,9 +84,9 @@ pc.core_id
 			)
 			return
 		}
-		netplaySupported := providerID.Valid && targetID.Valid && netplayLine.Valid &&
+		netplaySupported := providerID.Valid && targetID.Valid &&
 			server.netplay.SupportsPlatformTarget(
-				id, coreID.String, providerID.String, targetID.String, netplayLine.String,
+				id, coreID.String, providerID.String, targetID.String,
 			)
 		if core := coresByPlatformID[id][coreID.String]; core != nil {
 			if netplaySupported {
@@ -119,9 +118,6 @@ provider.provider_api_version,
 provider.bundle_sha256,
 target.target_id,
 target.display_name,
-target.game_compatibility_line,
-target.netplay_compatibility_line,
-target.target_contract_sha256,
 binding.core_id,
 c.name,
 binding.launch_policy
@@ -140,13 +136,11 @@ ORDER BY provider.provider_id,target.target_id
 	items := make([]map[string]any, 0)
 	for rows.Next() {
 		var providerID, providerVersion, bundleSHA256, targetID, displayName string
-		var gameLine, targetContractSHA256, coreID, coreName, launchPolicy string
+		var coreID, coreName, launchPolicy string
 		var providerAPIVersion int
-		var netplayLine sql.NullString
 		if err := rows.Scan(
 			&providerID, &providerVersion, &providerAPIVersion, &bundleSHA256,
-			&targetID, &displayName, &gameLine, &netplayLine, &targetContractSHA256,
-			&coreID, &coreName, &launchPolicy,
+			&targetID, &displayName, &coreID, &coreName, &launchPolicy,
 		); err != nil {
 			server.databaseError(writer, request, err)
 			return
@@ -157,9 +151,7 @@ ORDER BY provider.provider_id,target.target_id
 				"providerId": providerID, "providerVersion": providerVersion,
 				"providerApiVersion": providerAPIVersion, "bundleSha256": bundleSHA256,
 				"targetId": targetID, "displayName": displayName,
-				"gameCompatibilityLine": gameLine, "netplayCompatibilityLine": nullableString(netplayLine),
-				"targetContractSha256": targetContractSHA256,
-				"coreId":               coreID, "coreName": coreName, "launchPolicy": launchPolicy,
+				"coreId": coreID, "coreName": coreName, "launchPolicy": launchPolicy,
 			},
 		)
 	}

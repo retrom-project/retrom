@@ -502,7 +502,6 @@ func screenshotOverrideRuntimeSnapshot(snapshot corevalidation.Snapshot) coreval
 
 type approvalValidationDigestInput struct {
 	VariantID, ContentID, ContentKind, ProviderID, TargetID string
-	TargetContractSHA256, GameCompatibilityLine             string
 	ContentPolicyJSON                                       string
 	DATID                                                   sql.NullString
 	ValidationID                                            string
@@ -523,8 +522,7 @@ func approvalValidationInputDigest(input approvalValidationDigestInput) (string,
 	}
 	if input.ContentKind != multidisc.ContentKind {
 		digest, err := corevalidation.ProviderValidationInputDigest(
-			input.ProviderID, input.TargetID, input.TargetContractSHA256,
-			input.GameCompatibilityLine, input.ContentID, input.DATID, input.Snapshot,
+			input.ProviderID, input.TargetID, input.ContentID, input.DATID, input.Snapshot,
 		)
 		if err != nil {
 			return "", fmt.Errorf("libraryimport/service: %w", err)
@@ -539,12 +537,10 @@ func approvalValidationInputDigest(input approvalValidationDigestInput) (string,
 		return "", ErrInvalid
 	}
 	digest, err := corevalidation.MultiDiscValidationInputDigest(corevalidation.MultiDiscValidationInput{
-		GameVariantID: input.VariantID, GameContentRevisionID: input.ContentID,
+		GameVariantID: input.VariantID, GameID: input.ContentID,
 		ContentKind: input.ContentKind, ProviderID: input.ProviderID, TargetID: input.TargetID,
-		TargetContractSHA256:  input.TargetContractSHA256,
-		GameCompatibilityLine: input.GameCompatibilityLine,
-		ContentPolicySHA256:   corevalidation.ContentPolicyDigest(input.ContentPolicyJSON),
-		DATVersionID:          input.DATID, BIOSDependencySHA256: biosDigest,
+		ContentPolicySHA256: corevalidation.ContentPolicyDigest(input.ContentPolicyJSON),
+		DATVersionID:        input.DATID, BIOSDependencySHA256: biosDigest,
 		OrderedDiscSHA256:       input.Snapshot.MultiDisc.OrderedDiscSHA256,
 		CanonicalPlaylistSHA256: input.Snapshot.MultiDisc.CanonicalPlaylistSHA256,
 	})

@@ -135,26 +135,27 @@ func (service *Service) ScheduleGame(
 		return Scheduled{}, 0, fmt.Errorf("metadatascrape/service: %w", err)
 	}
 	defer cleanup.Rollback(transaction)
-	var contentID, platformID string
+	var sourceManifestDigest, platformID string
 	var currentVersion int64
 	if err := transaction.QueryRowContext(ctx, `
-SELECT g.current_content_revision_id,
+SELECT g.source_manifest_digest,
 g.version,
 p.platform_id
 FROM games g
 JOIN platform_instances p ON p.id=g.platform_instance_id
 WHERE g.id=?
 AND g.status='PUBLISHED'
-`, gameID).Scan(&contentID, &currentVersion, &platformID); err != nil ||
+`, gameID).Scan(&sourceManifestDigest, &currentVersion, &platformID); err != nil ||
 		currentVersion != expectedVersion {
 		return Scheduled{}, 0, errGameVersionConflict
 	}
 	runID, jobID := newID(), newID()
 	now := service.now().UnixMilli()
-	dedupe := sha256.Sum256([]byte("metadata-game-v1:" + gameID + ":" + contentID + ":" + runID))
-	payload, _ := json.Marshal(
-		map[string]any{"contentRevisionId": contentID, "gameId": gameID, "provider": "HASHEOUS", "bypassCache": true},
-	)
+	dedupe := sha256.Sum256([]byte("metadata-game-v1:" + gameID + ":" + sourceManifestDigest + ":" + runID))
+	payload, _ := json.Marshal(map[string]any{
+		"gameId": gameID, "sourceManifestDigest": sourceManifestDigest,
+		"provider": "HASHEOUS", "bypassCache": true,
+	})
 	if _, err := transaction.ExecContext(ctx, `
 INSERT INTO jobs(id,
 scope_type,
@@ -188,15 +189,15 @@ updated_at_ms) VALUES(?,
 	}
 	if _, err := transaction.ExecContext(ctx, `
 INSERT INTO metadata_scrape_runs(id,
+import_item_id,
 game_id,
-game_content_revision_id,
 job_id,
 provider,
 provider_config_version,
 state,
 created_at_ms,
 updated_at_ms) VALUES(?,
-?,
+NULL,
 ?,
 ?,
 'HASHEOUS',
@@ -204,11 +205,11 @@ updated_at_ms) VALUES(?,
 'RUNNING',
 ?,
 ?)
-`, runID, gameID, contentID, jobID, now, now); err != nil {
+`, runID, gameID, jobID, now, now); err != nil {
 		return Scheduled{}, 0, fmt.Errorf("metadatascrape/service: %w", err)
 	}
 	if err := service.scheduleGameEvidence(
-		ctx, transaction, gameID, contentID, platformID, runID, now,
+		ctx, transaction, gameID, platformID, runID, now,
 	); err != nil {
 		return Scheduled{}, 0, err
 	}
@@ -235,12 +236,10 @@ SET version=version+1,
 updated_at_ms=?
 WHERE id=?
 AND version=?
-AND current_content_revision_id=?
 `,
 		now,
 		gameID,
 		expectedVersion,
-		contentID,
 	)
 	if err != nil {
 		return Scheduled{}, 0, fmt.Errorf("metadatascrape/service: %w", err)
@@ -258,13 +257,13 @@ AND current_content_revision_id=?
 func (service *Service) scheduleGameEvidence(
 	ctx context.Context,
 	transaction *sql.Tx,
-	gameID, contentID, platformID, runID string,
+	gameID, platformID, runID string,
 	now int64,
 ) error {
 	if platformID == "arcade" {
-		return service.scheduleGameArcadeEvidence(ctx, transaction, gameID, contentID, runID, now)
+		return service.scheduleGameArcadeEvidence(ctx, transaction, gameID, gameID, runID, now)
 	}
-	return service.scheduleGameContentEvidence(ctx, transaction, contentID, runID, now)
+	return service.scheduleGameContentEvidence(ctx, transaction, gameID, runID, now)
 }
 
 func (service *Service) scheduleGameContentEvidence(
@@ -276,8 +275,8 @@ func (service *Service) scheduleGameContentEvidence(
 	rows, err := transaction.QueryContext(ctx, `
 SELECT f.logical_name,b.id,b.crc32,b.md5,b.sha1,b.sha256,
 f.source_archive_blob_id,f.source_archive_entry_ordinal
-FROM game_content_files f JOIN blobs b ON b.id=f.blob_id
-WHERE f.game_content_revision_id=? AND f.role='CONTENT'
+FROM game_files f JOIN blobs b ON b.id=f.blob_id
+WHERE f.game_id=? AND f.role='CONTENT'
 ORDER BY f.sort_order,f.logical_name
 `, contentID)
 	if err != nil {

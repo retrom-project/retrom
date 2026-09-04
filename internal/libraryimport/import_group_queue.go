@@ -19,11 +19,9 @@ import (
 )
 
 type importGroupTargetGuard struct {
-	ProviderID            string `json:"providerId"`
-	TargetID              string `json:"targetId"`
-	TargetContractSHA256  string `json:"targetContractSha256"`
-	GameCompatibilityLine string `json:"gameCompatibilityLine"`
-	CoreID                string `json:"coreId"`
+	ProviderID string `json:"providerId"`
+	TargetID   string `json:"targetId"`
+	CoreID     string `json:"coreId"`
 }
 
 type importGroupTargetSnapshot struct {
@@ -170,8 +168,7 @@ func (service *Service) importGroupTargetSnapshot(
 		return importGroupTargetSnapshot{}, creationTarget{}, ErrInvalid
 	}
 	rows, err := service.database.QueryContext(ctx, `
-SELECT binding.core_id,binding.provider_id,binding.target_id,target.target_contract_sha256,
- target.game_compatibility_line
+SELECT binding.core_id,binding.provider_id,binding.target_id
 FROM runtime_target_bindings binding
 JOIN runtime_binding_platforms platform ON platform.binding_id=binding.binding_id AND platform.platform_id='rpgmaker'
 JOIN runtime_targets target ON target.provider_id=binding.provider_id AND target.target_id=binding.target_id
@@ -184,10 +181,7 @@ ORDER BY binding.detector_profile,binding.provider_id,binding.target_id
 	defer func() { cleanup.Error("close", rows.Close()) }()
 	for rows.Next() {
 		var guard importGroupTargetGuard
-		if err := rows.Scan(
-			&guard.CoreID, &guard.ProviderID, &guard.TargetID,
-			&guard.TargetContractSHA256, &guard.GameCompatibilityLine,
-		); err != nil {
+		if err := rows.Scan(&guard.CoreID, &guard.ProviderID, &guard.TargetID); err != nil {
 			return importGroupTargetSnapshot{}, creationTarget{}, fmt.Errorf("libraryimport/queue: scan RPG target: %w", err)
 		}
 		snapshot.Targets = append(snapshot.Targets, guard)
@@ -205,8 +199,6 @@ ORDER BY binding.detector_profile,binding.provider_id,binding.target_id
 	provisional := target
 	provisional.providerID = snapshot.Targets[0].ProviderID
 	provisional.targetID = snapshot.Targets[0].TargetID
-	provisional.targetContractSHA256 = snapshot.Targets[0].TargetContractSHA256
-	provisional.gameCompatibilityLine = snapshot.Targets[0].GameCompatibilityLine
 	provisional.coreID = snapshot.Targets[0].CoreID
 	return snapshot, provisional, nil
 }
@@ -214,8 +206,7 @@ ORDER BY binding.detector_profile,binding.provider_id,binding.target_id
 func targetGuard(target creationTarget) importGroupTargetGuard {
 	return importGroupTargetGuard{
 		ProviderID: target.providerID, TargetID: target.targetID,
-		TargetContractSHA256:  target.targetContractSHA256,
-		GameCompatibilityLine: target.gameCompatibilityLine, CoreID: target.coreID,
+		CoreID: target.coreID,
 	}
 }
 
@@ -246,7 +237,6 @@ func (service *Service) insertQueuedImportGroup(
 		"platformInstanceVersion": provisional.instanceVersion, "platformId": provisional.platformID,
 		"defaultCoreId": provisional.defaultCoreID, "resolvedCoreId": nil,
 		"providerId": provisional.providerID, "targetId": provisional.targetID,
-		"targetContractSha256":          provisional.targetContractSHA256,
 		"metadataProviderConfigVersion": 1, "tags": tags,
 	})
 	dedupe := sha256.Sum256([]byte("retrom-job-dedupe-v1\x00IMPORT_GROUP\x00" + importID))
@@ -278,7 +268,7 @@ VALUES(?,1,?,?,?)
 	_, err = transaction.ExecContext(ctx, insertImportJobSQL,
 		importID, request.UploadID, request.TargetPlatformInstanceID,
 		provisional.instanceVersion, provisional.platformID, provisional.defaultCoreID,
-		provisional.providerID, provisional.targetID, provisional.targetContractSHA256,
+		provisional.providerID, provisional.targetID,
 		nil, request.MetadataProvider, string(configJSON), configDigest,
 		"QUEUED", 0, 0, 0, 0, 0, now, now, nil,
 	)

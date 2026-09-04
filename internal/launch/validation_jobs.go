@@ -11,10 +11,8 @@ import (
 	"time"
 
 	"retrom/internal/cleanup"
-	"retrom/internal/corevalidation"
 )
 
-// Contract branches stay contiguous for a single auditable decision.
 func (service *Service) ensureVariant(
 	ctx context.Context,
 	profileID string,
@@ -27,15 +25,18 @@ func (service *Service) ensureVariant(
 		return Created{}, fmt.Errorf("launch/ensure_variant: %w", err)
 	}
 	defer cleanup.Rollback(transaction)
-	var contentID, contentLogicalName, contentKind, coreID string
-	var providerID, targetID, targetContractSHA256, gameCompatibilityLine, contentPolicyJSON string
+
+	var gameID, contentLogicalName, contentKind, coreID string
+	var providerID, targetID, contentPolicyJSON, sourceManifestDigest string
+	var gameVersion int64
 	var datID sql.NullString
 	err = transaction.QueryRowContext(ctx, `
-SELECT g.current_content_revision_id,
-COALESCE(f.logical_name,''),
-content.content_kind,
-c.id,
-binding.provider_id,binding.target_id,target.target_contract_sha256,target.game_compatibility_line,
+SELECT game.id,
+COALESCE(file.logical_name,''),
+game.content_kind,
+core.id,
+binding.provider_id,
+binding.target_id,
 json_object(
   'schemaVersion',1,
   'supportedContentKinds',json((SELECT json_group_array(content_kind) FROM (
@@ -47,86 +48,77 @@ json_object(
     WHERE kinds.binding_id=binding.binding_id AND kinds.content_kind='MULTI_DISC'
   ) THEN json_object('maxDiscs',8,'maxTotalBytes',1073741824,'delivery','EAGER_EXTERNAL_FILES') ELSE NULL END
 ),
-(SELECT id
-FROM dat_versions
-WHERE provider_id=target.provider_id AND target_id=target.target_id
-AND is_active=1)
-FROM games g
-JOIN platform_instances pi ON pi.id=g.platform_instance_id
-JOIN game_content_revisions content ON content.id=g.current_content_revision_id
-LEFT JOIN game_content_files f ON f.game_content_revision_id=g.current_content_revision_id
-AND f.role IN ('CONTENT','DISC')
-JOIN platform_cores pc ON pc.platform_id=pi.platform_id
-AND pc.enabled=1
-JOIN cores c ON c.id=pc.core_id
-AND c.enabled=1
-JOIN runtime_target_bindings binding ON binding.core_id=c.id AND binding.launch_policy!='DISABLED'
+(SELECT id FROM dat_versions
+ WHERE provider_id=binding.provider_id AND target_id=binding.target_id AND is_active=1),
+game.version,
+game.source_manifest_digest
+FROM games game
+JOIN platform_instances instance ON instance.id=game.platform_instance_id
+LEFT JOIN game_files file ON file.game_id=game.id AND file.role IN ('CONTENT','DISC')
+JOIN platform_cores platform_core ON platform_core.platform_id=instance.platform_id AND platform_core.enabled=1
+JOIN cores core ON core.id=platform_core.core_id AND core.enabled=1
+JOIN runtime_target_bindings binding ON binding.core_id=core.id AND binding.launch_policy!='DISABLED'
 JOIN runtime_targets target ON target.provider_id=binding.provider_id AND target.target_id=binding.target_id
 JOIN runtime_binding_platforms binding_platform ON binding_platform.binding_id=binding.binding_id
- AND binding_platform.platform_id=pi.platform_id AND binding_platform.core_id=c.id
+ AND binding_platform.platform_id=instance.platform_id AND binding_platform.core_id=core.id
 JOIN runtime_binding_content_kinds binding_kind ON binding_kind.binding_id=binding.binding_id
- AND binding_kind.content_kind=content.content_kind
-WHERE g.id=?
-AND g.status='PUBLISHED'
-AND pi.enabled=1
-AND c.id=CASE WHEN ?='' THEN pi.default_core_id ELSE ? END
-ORDER BY CASE f.role WHEN 'CONTENT' THEN 0 ELSE 1 END,f.sort_order,f.logical_name
+ AND binding_kind.content_kind=game.content_kind
+WHERE game.id=? AND game.status='PUBLISHED' AND instance.enabled=1
+AND core.id=CASE WHEN ?='' THEN instance.default_core_id ELSE ? END
+ORDER BY CASE file.role WHEN 'CONTENT' THEN 0 ELSE 1 END,file.sort_order,file.logical_name
 LIMIT 1
-`, request.GameID, requestedCore, requestedCore).
-		Scan(&contentID, &contentLogicalName, &contentKind, &coreID, &providerID, &targetID,
-			&targetContractSHA256, &gameCompatibilityLine, &contentPolicyJSON, &datID)
+`, request.GameID, requestedCore, requestedCore).Scan(
+		&gameID, &contentLogicalName, &contentKind, &coreID, &providerID, &targetID,
+		&contentPolicyJSON, &datID, &gameVersion, &sourceManifestDigest,
+	)
 	target, targetExists := service.runtimeBuilder.Target(providerID, targetID)
-	if err != nil || !targetExists || target.ContractSHA256 != targetContractSHA256 ||
+	if err != nil || !targetExists ||
 		!validThreadCapabilities(target.Capabilities.RequiresThreads, request.ClientCapabilities) {
 		return Created{}, ErrBlocked
 	}
-	variantID, err := service.ensureGameVariant(ctx, transaction, request.GameID, coreID)
+	variantID, err := service.ensureGameVariant(
+		ctx, transaction, gameID, coreID, providerID, targetID, datID,
+	)
 	if err != nil {
 		return Created{}, err
 	}
-	digest, biosDependencyDigest, err := service.validationDigests(
-		ctx, transaction, variantID, contentID, contentLogicalName, contentKind,
-		providerID, targetID, targetContractSHA256, gameCompatibilityLine, contentPolicyJSON, datID,
+	baseDigest, biosDependencyDigest, err := service.validationDigests(
+		ctx, transaction, variantID, gameID, contentLogicalName, contentKind,
+		providerID, targetID, contentPolicyJSON, datID,
 	)
 	if err != nil {
 		return Created{}, ErrBlocked
 	}
-	var existingRevisionID, existingStatus string
-	err = transaction.QueryRowContext(ctx, `
-SELECT id,
-status
-FROM game_variant_revisions
-WHERE game_variant_id=?
-AND validation_input_digest=?
-`, variantID, digest).
-		Scan(&existingRevisionID, &existingStatus)
-	if err == nil {
-		return service.useExistingValidation(
-			ctx, transaction, profileID, request, variantID, existingRevisionID, existingStatus, launchWhenReady,
-		)
-	}
-	if !errors.Is(err, sql.ErrNoRows) {
-		return Created{}, fmt.Errorf("launch/ensure_variant: %w", err)
-	}
-	jobID, _, err := service.queueValidationJob(
-		ctx,
-		transaction,
-		variantID,
-		contentID,
-		providerID,
-		targetID,
-		targetContractSHA256,
-		gameCompatibilityLine,
-		contentPolicyJSON,
-		datID,
-		digest,
-		biosDependencyDigest,
+	digest := bindCurrentGameStateDigest(baseDigest, gameVersion, sourceManifestDigest)
+	jobID, queued, err := service.queueValidationJob(
+		ctx, transaction, variantID, gameID, gameVersion, sourceManifestDigest,
+		providerID, targetID, contentPolicyJSON, datID, digest, biosDependencyDigest,
 	)
 	if err != nil {
 		return Created{}, err
 	}
+	if queued {
+		if _, err := transaction.ExecContext(ctx, `
+UPDATE game_variants SET status='BLOCKED',compatibility_code='VALIDATION_PENDING',
+emulator_game_id=NULL,version=version+1,updated_at_ms=? WHERE id=?
+`, service.now().UnixMilli(), variantID); err != nil {
+			return Created{}, fmt.Errorf("launch/ensure_variant: %w", err)
+		}
+	}
+	var status string
+	if err := transaction.QueryRowContext(
+		ctx, `SELECT status FROM game_variants WHERE id=?`, variantID,
+	).Scan(&status); err != nil {
+		return Created{}, fmt.Errorf("launch/ensure_variant: %w", err)
+	}
 	if err := transaction.Commit(); err != nil {
 		return Created{}, fmt.Errorf("launch/ensure_variant: %w", err)
+	}
+	if status == "READY" {
+		if launchWhenReady {
+			return service.Create(ctx, profileID, request)
+		}
+		return Created{Status: "READY"}, nil
 	}
 	if launchWhenReady {
 		go service.resumeValidationJob(context.WithoutCancel(ctx), jobID)
@@ -134,17 +126,25 @@ AND validation_input_digest=?
 	return Created{Status: "VALIDATION_PENDING", JobID: jobID, RetryAfterMS: 1000}, nil
 }
 
+func bindCurrentGameStateDigest(baseDigest string, gameVersion int64, sourceManifestDigest string) string {
+	canonical, _ := json.Marshal(struct {
+		BaseDigest           string `json:"baseDigest"`
+		GameVersion          int64  `json:"gameVersion"`
+		SourceManifestDigest string `json:"sourceManifestDigest"`
+	}{baseDigest, gameVersion, sourceManifestDigest})
+	digest := sha256.Sum256(canonical)
+	return hex.EncodeToString(digest[:])
+}
+
 func (service *Service) ensureGameVariant(
 	ctx context.Context,
 	transaction *sql.Tx,
-	gameID, coreID string,
+	gameID, coreID, providerID, targetID string,
+	datID sql.NullString,
 ) (string, error) {
 	var variantID string
 	err := transaction.QueryRowContext(ctx, `
-SELECT id
-FROM game_variants
-WHERE game_id=?
-AND core_id=?
+SELECT id FROM game_variants WHERE game_id=? AND core_id=?
 `, gameID, coreID).Scan(&variantID)
 	if err == nil {
 		return variantID, nil
@@ -155,104 +155,49 @@ AND core_id=?
 	variantID = newUUID()
 	now := service.now().UnixMilli()
 	if _, err := transaction.ExecContext(ctx, `
-INSERT INTO game_variants(id,
-game_id,
-core_id,
-current_revision_id,
-version,
-created_at_ms,
-updated_at_ms) VALUES(?,
-?,
-?,
-NULL,
-1,
-?,
-?)
-`, variantID, gameID, coreID, now, now); err != nil {
+INSERT INTO game_variants(
+ id,game_id,core_id,provider_id,target_id,dat_version_id,emulator_game_id,
+ status,compatibility_code,dependency_snapshot_json,default_dos_entry,
+ version,created_at_ms,updated_at_ms
+) VALUES(?,?,?,?,?,?,NULL,'BLOCKED','VALIDATION_PENDING','{}',NULL,1,?,?)
+`, variantID, gameID, coreID, providerID, targetID, nullableSQL(datID), now, now); err != nil {
 		return "", fmt.Errorf("launch/ensure_variant: %w", err)
 	}
 	return variantID, nil
 }
 
-func (service *Service) useExistingValidation(
-	ctx context.Context,
-	transaction *sql.Tx,
-	profileID string,
-	request CreateRequest,
-	variantID, revisionID, status string,
-	launchWhenReady bool,
-) (Created, error) {
-	if status != "READY" {
-		return Created{}, ErrBlocked
-	}
-	if _, err := transaction.ExecContext(ctx, `
-UPDATE game_variants
-SET current_revision_id=?,
-version=version+1,
-updated_at_ms=?
-WHERE id=?
-AND current_revision_id IS NOT ?
-`, revisionID, service.now().UnixMilli(), variantID, revisionID); err != nil {
-		return Created{}, fmt.Errorf("launch/ensure_variant: %w", err)
-	}
-	if err := transaction.Commit(); err != nil {
-		return Created{}, fmt.Errorf("launch/ensure_variant: %w", err)
-	}
-	if launchWhenReady {
-		return service.Create(ctx, profileID, request)
-	}
-	return Created{Status: "READY"}, nil
-}
-
-// ResumeValidationJob resumes one queued validation. Claiming the Job is the
+// ResumeValidationJob resumes one queued validation. Claiming the job is the
 // idempotency boundary, so duplicate resume signals are harmless.
 func (service *Service) ResumeValidationJob(ctx context.Context, jobID string) {
 	service.resumeValidationJob(ctx, jobID)
 }
 
-// EnsureVariantForMove never creates a LaunchSession. It either returns the
-// shared validation Job or makes an already validated revision current.
+// EnsureVariantForMove validates the requested current core without creating a launch session.
 func (service *Service) EnsureVariantForMove(ctx context.Context, gameID, coreID string) (Created, error) {
 	selected := coreID
-	return service.ensureVariant(
-		ctx,
-		"",
-		CreateRequest{
-			GameID:             gameID,
-			CoreID:             &selected,
-			ReturnTo:           "/games/" + gameID,
-			ClientCapabilities: Capabilities{SecureContext: true, CrossOriginIsolated: true, SharedArrayBuffer: true},
-		},
-		coreID,
-		false,
-	)
+	return service.ensureVariant(ctx, "", CreateRequest{
+		GameID: gameID, CoreID: &selected, ReturnTo: "/games/" + gameID,
+		ClientCapabilities: Capabilities{SecureContext: true, CrossOriginIsolated: true, SharedArrayBuffer: true},
+	}, coreID, false)
 }
 
-// Deduplication, lease recovery, job creation, and event emission share one transaction.
 func (service *Service) queueValidationJob(
 	ctx context.Context,
 	transaction *sql.Tx,
-	variantID, contentID, providerID, targetID, targetContractSHA256,
-	gameCompatibilityLine, contentPolicyJSON string,
+	variantID, gameID string,
+	gameVersion int64,
+	sourceManifestDigest, providerID, targetID, contentPolicyJSON string,
 	datID sql.NullString,
-	digest string,
-	biosDependencyDigest string,
+	digest, biosDependencyDigest string,
 ) (string, bool, error) {
 	dedupeKey := validationDedupeKey(variantID, digest)
 	var jobID, jobState string
 	var retryable sql.NullInt64
 	var executionNo, jobVersion int64
 	err := transaction.QueryRowContext(ctx, `
-SELECT id,
-state,
-error_retryable,
-execution_no,
-version
-FROM jobs
-WHERE kind='VARIANT_REVALIDATE'
-AND dedupe_key=?
-`, dedupeKey).
-		Scan(&jobID, &jobState, &retryable, &executionNo, &jobVersion)
+SELECT id,state,error_retryable,execution_no,version
+FROM jobs WHERE kind='VARIANT_VALIDATE' AND dedupe_key=?
+`, dedupeKey).Scan(&jobID, &jobState, &retryable, &executionNo, &jobVersion)
 	if err == nil {
 		return service.reuseValidationJob(
 			ctx, transaction, variantID, jobID, jobState, retryable, executionNo, jobVersion,
@@ -267,77 +212,36 @@ AND dedupe_key=?
 	payload, _ := json.Marshal(map[string]any{"schemaVersion": 1, "inputExecutionNo": 1})
 	snapshot := validationSnapshot{
 		SchemaVersion: 1,
-		Kind:          "VARIANT_REVALIDATE",
+		Kind:          "VARIANT_VALIDATE",
 		Scope:         validationScope{Type: "GAME_VARIANT", ID: variantID},
 		ExecutionID:   executionID,
 		Inputs: validationInputs{
-			GameVariantID: variantID, GameContentRevisionID: contentID,
-			ProviderID: providerID, TargetID: targetID,
-			TargetContractSHA256:  targetContractSHA256,
-			GameCompatibilityLine: gameCompatibilityLine,
-			ContentPolicyJSON:     contentPolicyJSON,
-			DATVersionID:          nullableSQL(datID), ValidationInputDigest: digest,
+			GameID: gameID, GameVariantID: variantID, GameVersion: gameVersion,
+			SourceManifestDigest: sourceManifestDigest,
+			ProviderID:           providerID, TargetID: targetID, ContentPolicyJSON: contentPolicyJSON,
+			DATVersionID: nullableSQL(datID), ValidationInputDigest: digest,
 			BIOSDependencyDigest: biosDependencyDigest,
 		},
 	}
 	inputJSON, _ := json.Marshal(snapshot)
 	inputHash := sha256.Sum256(inputJSON)
 	if _, err := transaction.ExecContext(ctx, `
-INSERT INTO jobs(id,
-scope_type,
-scope_id,
-kind,
-dedupe_key,
-execution_no,
-payload_json,
-cancellable,
-state,
-attempt_count,
-max_attempts,
-available_at_ms,
-created_at_ms,
-updated_at_ms) VALUES(?,
-'GAME_VARIANT',
-?,
-'VARIANT_REVALIDATE',
-?,
-1,
-?,
-0,
-'QUEUED',
-0,
-2,
-?,
-?,
-?)
+INSERT INTO jobs(
+ id,scope_type,scope_id,kind,dedupe_key,execution_no,payload_json,cancellable,state,
+ attempt_count,max_attempts,available_at_ms,created_at_ms,updated_at_ms
+) VALUES(?,'GAME_VARIANT',?,'VARIANT_VALIDATE',?,1,?,0,'QUEUED',0,2,?,?,?)
 `, jobID, variantID, dedupeKey, string(payload), now, now, now); err != nil {
 		return "", false, fmt.Errorf("launch/ensure_variant: %w", err)
 	}
 	if _, err := transaction.ExecContext(ctx, `
-INSERT INTO job_input_snapshots(job_id,
-execution_no,
-input_json,
-input_digest,
-created_at_ms) VALUES(?,
-1,
-?,
-?,
-?)
+INSERT INTO job_input_snapshots(job_id,execution_no,input_json,input_digest,created_at_ms)
+VALUES(?,1,?,?,?)
 `, jobID, string(inputJSON), hex.EncodeToString(inputHash[:]), now); err != nil {
 		return "", false, fmt.Errorf("launch/ensure_variant: %w", err)
 	}
 	if _, err := transaction.ExecContext(ctx, `
-INSERT INTO job_events(job_id,
-scope_type,
-scope_id,
-event_type,
-data_json,
-created_at_ms) VALUES(?,
-'GAME_VARIANT',
-?,
-'QUEUED',
-'{}',
-?)
+INSERT INTO job_events(job_id,scope_type,scope_id,event_type,data_json,created_at_ms)
+VALUES(?,'GAME_VARIANT',?,'QUEUED','{}',?)
 `, jobID, variantID, now); err != nil {
 		return "", false, fmt.Errorf("launch/ensure_variant: %w", err)
 	}
@@ -379,7 +283,7 @@ SELECT input_json FROM job_input_snapshots WHERE job_id=? AND execution_no=?
 	}
 	var snapshot validationSnapshot
 	if err := json.Unmarshal([]byte(previousJSON), &snapshot); err != nil ||
-		snapshot.SchemaVersion != 1 || snapshot.Kind != "VARIANT_REVALIDATE" ||
+		snapshot.SchemaVersion != 1 || snapshot.Kind != "VARIANT_VALIDATE" ||
 		snapshot.Scope.Type != "GAME_VARIANT" || snapshot.Scope.ID != variantID {
 		return ErrBlocked
 	}
@@ -421,39 +325,28 @@ VALUES(?,'GAME_VARIANT',?,'RETRY_SCHEDULED',json_object('schemaVersion',1,'execu
 	return nil
 }
 
-type datRevalidationTarget struct{ variantID, contentID string }
+type datValidationTarget struct{ variantID, gameID string }
 
-// QueueDATRevalidations records every job in the caller's DAT activation
-// transaction. Workers are resumed only after that transaction commits.
-//
-// The DAT fan-out and per-variant deduplication share one consistent catalog snapshot.
+// QueueDATRevalidations validates affected current Arcade variants against the newly active DAT.
 func (service *Service) QueueDATRevalidations(
 	ctx context.Context,
 	transaction *sql.Tx,
 	providerID, targetID, datID string,
 ) (int64, error) {
-	rows, err := transaction.QueryContext(
-		ctx,
-		`
-SELECT v.id,
-g.current_content_revision_id
-FROM game_variants v
-JOIN games g ON g.id=v.game_id
-JOIN game_variant_revisions r ON r.id=v.current_revision_id
-WHERE r.provider_id=? AND r.target_id=?
-AND g.status='PUBLISHED'
-ORDER BY v.id
-`,
-		providerID, targetID,
-	)
+	rows, err := transaction.QueryContext(ctx, `
+SELECT variant.id,game.id
+FROM game_variants variant JOIN games game ON game.id=variant.game_id
+WHERE variant.provider_id=? AND variant.target_id=? AND game.status='PUBLISHED'
+ORDER BY variant.id
+`, providerID, targetID)
 	if err != nil {
 		return 0, fmt.Errorf("launch/ensure_variant: %w", err)
 	}
 	defer func() { cleanup.Error("close", rows.Close()) }()
-	targets := make([]datRevalidationTarget, 0)
+	targets := make([]datValidationTarget, 0)
 	for rows.Next() {
-		var item datRevalidationTarget
-		if err := rows.Scan(&item.variantID, &item.contentID); err != nil {
+		var item datValidationTarget
+		if err := rows.Scan(&item.variantID, &item.gameID); err != nil {
 			return 0, fmt.Errorf("launch/ensure_variant: %w", err)
 		}
 		targets = append(targets, item)
@@ -464,7 +357,7 @@ ORDER BY v.id
 	queued := int64(0)
 	targetDAT := sql.NullString{String: datID, Valid: true}
 	for _, item := range targets {
-		created, err := service.queueDATRevalidationTarget(ctx, transaction, providerID, targetID, targetDAT, item)
+		created, err := service.queueDATValidationTarget(ctx, transaction, providerID, targetID, targetDAT, item)
 		if err != nil {
 			return 0, err
 		}
@@ -475,110 +368,77 @@ ORDER BY v.id
 	return queued, nil
 }
 
-func (service *Service) queueDATRevalidationTarget(
+func (service *Service) queueDATValidationTarget(
 	ctx context.Context,
 	transaction *sql.Tx,
 	providerID, targetID string,
 	targetDAT sql.NullString,
-	item datRevalidationTarget,
+	item datValidationTarget,
 ) (bool, error) {
-	var logicalName string
+	var logicalName, contentKind, sourceManifestDigest, contentPolicyJSON string
+	var gameVersion int64
 	if err := transaction.QueryRowContext(ctx, `
-SELECT logical_name FROM game_content_files
-WHERE game_content_revision_id=? AND role='CONTENT'
-ORDER BY sort_order,logical_name LIMIT 1
-`, item.contentID).Scan(&logicalName); err != nil {
-		return false, fmt.Errorf("launch/ensure_variant: %w", err)
-	}
-	var targetContractSHA256, gameCompatibilityLine, contentPolicyJSON string
-	if err := transaction.QueryRowContext(ctx, `
-SELECT target.target_contract_sha256,target.game_compatibility_line,
+SELECT COALESCE((SELECT logical_name FROM game_files
+ WHERE game_id=game.id AND role IN ('CONTENT','DISC')
+ ORDER BY CASE role WHEN 'CONTENT' THEN 0 ELSE 1 END,sort_order,logical_name LIMIT 1),''),
+game.content_kind,game.version,game.source_manifest_digest,
 json_object(
-  'schemaVersion',1,
-  'supportedContentKinds',json((SELECT json_group_array(content_kind) FROM (
-    SELECT content_kind FROM runtime_binding_content_kinds kinds
-    WHERE kinds.binding_id=binding.binding_id ORDER BY content_kind
-  ))),
-  'multiDisc',CASE WHEN EXISTS(
-    SELECT 1 FROM runtime_binding_content_kinds kinds
-    WHERE kinds.binding_id=binding.binding_id AND kinds.content_kind='MULTI_DISC'
-  ) THEN json_object('maxDiscs',8,'maxTotalBytes',1073741824,'delivery','EAGER_EXTERNAL_FILES') ELSE NULL END
+ 'schemaVersion',1,
+ 'supportedContentKinds',json((SELECT json_group_array(content_kind) FROM (
+   SELECT content_kind FROM runtime_binding_content_kinds kinds
+   WHERE kinds.binding_id=binding.binding_id ORDER BY content_kind
+ ))),
+ 'multiDisc',CASE WHEN EXISTS(
+   SELECT 1 FROM runtime_binding_content_kinds kinds
+   WHERE kinds.binding_id=binding.binding_id AND kinds.content_kind='MULTI_DISC'
+ ) THEN json_object('maxDiscs',8,'maxTotalBytes',1073741824,'delivery','EAGER_EXTERNAL_FILES') ELSE NULL END
 )
-FROM runtime_targets target
-JOIN runtime_target_bindings binding
- ON binding.provider_id=target.provider_id AND binding.target_id=target.target_id
-JOIN game_variants variant ON variant.id=? AND variant.core_id=binding.core_id
-WHERE target.provider_id=? AND target.target_id=?
+FROM games game
+JOIN game_variants variant ON variant.id=? AND variant.game_id=game.id
+JOIN runtime_target_bindings binding ON binding.core_id=variant.core_id
+ AND binding.provider_id=? AND binding.target_id=? AND binding.launch_policy!='DISABLED'
 LIMIT 1
 `, item.variantID, providerID, targetID).Scan(
-		&targetContractSHA256, &gameCompatibilityLine, &contentPolicyJSON,
+		&logicalName, &contentKind, &gameVersion, &sourceManifestDigest, &contentPolicyJSON,
 	); err != nil {
 		return false, fmt.Errorf("launch/ensure_variant: %w", err)
 	}
-	biosSnapshot, _, _, err := corevalidation.ResolveBIOS(ctx, transaction, providerID, targetID, logicalName)
-	if err != nil {
-		return false, fmt.Errorf("launch/ensure_variant: %w", err)
-	}
-	digest, err := corevalidation.ProviderValidationInputDigest(
-		providerID, targetID, targetContractSHA256, gameCompatibilityLine, item.contentID, targetDAT, biosSnapshot,
+	baseDigest, biosDigest, err := service.validationDigests(
+		ctx, transaction, item.variantID, item.gameID, logicalName, contentKind,
+		providerID, targetID, contentPolicyJSON, targetDAT,
 	)
 	if err != nil {
 		return false, fmt.Errorf("launch/ensure_variant: %w", err)
 	}
-	biosJSON, _ := biosSnapshot.JSON()
-	biosDigest := sha256.Sum256(biosJSON)
-	var revisionID, status string
-	err = transaction.QueryRowContext(ctx, `
-SELECT id,
-status
-FROM game_variant_revisions
-WHERE game_variant_id=?
-AND validation_input_digest=?
-`, item.variantID, digest).
-		Scan(&revisionID, &status)
-	if err == nil {
-		if status == "READY" {
-			if _, err := transaction.ExecContext(ctx, `
-UPDATE game_variants
-SET current_revision_id=?,
-version=version+1,
-updated_at_ms=?
-WHERE id=?
-AND current_revision_id<>?
-`, revisionID, service.now().UnixMilli(), item.variantID, revisionID); err != nil {
-				return false, fmt.Errorf("launch/ensure_variant: %w", err)
-			}
-		}
-		return false, nil
-	}
-	if !errors.Is(err, sql.ErrNoRows) {
-		return false, fmt.Errorf("launch/ensure_variant: %w", err)
-	}
+	digest := bindCurrentGameStateDigest(baseDigest, gameVersion, sourceManifestDigest)
 	_, created, err := service.queueValidationJob(
-		ctx, transaction, item.variantID, item.contentID, providerID, targetID,
-		targetContractSHA256, gameCompatibilityLine, contentPolicyJSON,
-		targetDAT, digest, hex.EncodeToString(biosDigest[:]),
+		ctx, transaction, item.variantID, item.gameID, gameVersion, sourceManifestDigest,
+		providerID, targetID, contentPolicyJSON, targetDAT, digest, biosDigest,
 	)
-	return created, err
+	if err != nil {
+		return false, err
+	}
+	if created {
+		if _, err := transaction.ExecContext(ctx, `
+UPDATE game_variants
+SET dat_version_id=?,status='BLOCKED',compatibility_code='VALIDATION_PENDING',
+emulator_game_id=NULL,version=version+1,updated_at_ms=?
+WHERE id=?
+`, targetDAT.String, service.now().UnixMilli(), item.variantID); err != nil {
+			return false, fmt.Errorf("launch/ensure_variant: %w", err)
+		}
+	}
+	return created, nil
 }
 
-// ResumeQueuedValidationJobs is idempotent: each worker first claims its row
-// with a state transition, so concurrent resume scans cannot duplicate work.
+// ResumeQueuedValidationJobs is idempotent: each worker first claims its row.
 func (service *Service) ResumeQueuedValidationJobs() {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	service.recoverStaleValidationJobs(ctx)
-	rows, err := service.database.QueryContext(
-		ctx,
-		`
-SELECT id
-FROM jobs
-WHERE kind='VARIANT_REVALIDATE'
-AND state='QUEUED'
-ORDER BY created_at_ms,
-id
-`,
-	)
+	rows, err := service.database.QueryContext(ctx, `
+SELECT id FROM jobs WHERE kind='VARIANT_VALIDATE' AND state='QUEUED' ORDER BY created_at_ms,id
+`)
 	if err != nil {
 		return
 	}
@@ -605,68 +465,35 @@ func (service *Service) recoverStaleValidationJobs(ctx context.Context) {
 	now := service.now().UnixMilli()
 	_, _ = service.database.ExecContext(ctx, `
 UPDATE jobs
-SET state='FAILED',
-error_code='LAUNCH_CORE_VALIDATION_UNAVAILABLE',
-error_retryable=1,
-finished_at_ms=?,
-leased_until_ms=NULL,
-version=version+1,
-updated_at_ms=?
-WHERE kind='VARIANT_REVALIDATE'
-AND state='RUNNING'
-AND leased_until_ms<?
-AND attempt_count>=max_attempts;
+SET state='FAILED',error_code='LAUNCH_CORE_VALIDATION_UNAVAILABLE',error_retryable=1,
+finished_at_ms=?,leased_until_ms=NULL,version=version+1,updated_at_ms=?
+WHERE kind='VARIANT_VALIDATE' AND state='RUNNING' AND leased_until_ms<? AND attempt_count>=max_attempts;
 
 UPDATE jobs
-SET state='QUEUED',
-available_at_ms=?,
-execution_started_at_ms=NULL,
-execution_deadline_at_ms=NULL,
-leased_until_ms=NULL,
-heartbeat_at_ms=NULL,
-worker_id=NULL,
-version=version+1,
-updated_at_ms=?
-WHERE kind='VARIANT_REVALIDATE'
-AND state='RUNNING'
-AND leased_until_ms<?
-AND attempt_count<max_attempts
+SET state='QUEUED',available_at_ms=?,execution_started_at_ms=NULL,execution_deadline_at_ms=NULL,
+leased_until_ms=NULL,heartbeat_at_ms=NULL,worker_id=NULL,version=version+1,updated_at_ms=?
+WHERE kind='VARIANT_VALIDATE' AND state='RUNNING' AND leased_until_ms<? AND attempt_count<max_attempts
 `, now, now, now, now, now, now)
 }
 
 func (service *Service) resumeValidationJob(parent context.Context, jobID string) {
 	var inputJSON string
 	if err := service.database.QueryRowContext(parent, `
-SELECT s.input_json
-FROM jobs j
-JOIN job_input_snapshots s ON s.job_id=j.id
-AND s.execution_no=j.execution_no
-WHERE j.id=?
-AND j.kind='VARIANT_REVALIDATE'
+SELECT snapshot.input_json
+FROM jobs job JOIN job_input_snapshots snapshot
+ ON snapshot.job_id=job.id AND snapshot.execution_no=job.execution_no
+WHERE job.id=? AND job.kind='VARIANT_VALIDATE'
 `, jobID).Scan(&inputJSON); err != nil {
 		return
 	}
 	var snapshot validationSnapshot
-	if err := json.Unmarshal([]byte(inputJSON), &snapshot); err != nil || snapshot.SchemaVersion != 1 ||
-		snapshot.Kind != "VARIANT_REVALIDATE" {
+	if err := json.Unmarshal([]byte(inputJSON), &snapshot); err != nil ||
+		snapshot.SchemaVersion != 1 || snapshot.Kind != "VARIANT_VALIDATE" {
 		return
 	}
 	datID := sql.NullString{}
 	if value, ok := snapshot.Inputs.DATVersionID.(string); ok && value != "" {
 		datID = sql.NullString{String: value, Valid: true}
 	}
-	service.validateVariant(
-		parent,
-		jobID,
-		snapshot.Inputs.GameVariantID,
-		snapshot.Inputs.GameContentRevisionID,
-		snapshot.Inputs.ProviderID,
-		snapshot.Inputs.TargetID,
-		snapshot.Inputs.TargetContractSHA256,
-		snapshot.Inputs.GameCompatibilityLine,
-		snapshot.Inputs.ContentPolicyJSON,
-		datID,
-		snapshot.Inputs.ValidationInputDigest,
-		snapshot.Inputs.BIOSDependencyDigest,
-	)
+	service.validateVariant(parent, jobID, snapshot.Inputs, datID)
 }

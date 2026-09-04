@@ -20,13 +20,10 @@ import (
 // fixtures. Tests resolve it through the same Host binding projection as
 // production code instead of recreating Provider-owned Target facts.
 type RuntimeTargetIdentity struct {
-	ProviderID               string
-	ProviderVersion          string
-	TargetID                 string
-	TargetContractSHA256     string
-	GameCompatibilityLine    string
-	NetplayCompatibilityLine string
-	BundleSHA256             string
+	ProviderID      string
+	ProviderVersion string
+	TargetID        string
+	BundleSHA256    string
 }
 
 // NewRuntimeBuilder reconstructs the Provider-neutral launch builder from the
@@ -36,7 +33,7 @@ func NewRuntimeBuilder(ctx context.Context, database *sql.DB) (*runtimelaunch.Bu
 	rows, err := database.QueryContext(ctx, `
 SELECT provider.provider_id,provider.provider_version,provider.provider_api_version,
        provider.bundle_sha256,provider.manifest_sha256,provider.module_sha256,
-       target.manifest_fragment_json,target.target_contract_sha256
+       target.manifest_fragment_json
 FROM runtime_providers provider
 LEFT JOIN runtime_targets target ON target.provider_id=provider.provider_id
 ORDER BY provider.provider_id,target.target_id
@@ -50,10 +47,10 @@ ORDER BY provider.provider_id,target.target_id
 	providerIndexes := make(map[string]int)
 	for rows.Next() {
 		var provider runtimebundle.ActiveProvider
-		var fragment, contract sql.NullString
+		var fragment sql.NullString
 		if err := rows.Scan(&provider.ProviderID, &provider.ProviderVersion, &provider.ProviderAPI,
 			&provider.BundleSHA256, &provider.ManifestSHA256, &provider.ModuleSHA256,
-			&fragment, &contract); err != nil {
+			&fragment); err != nil {
 			return nil, fmt.Errorf("testsupport: scan runtime provider: %w", err)
 		}
 		providerIndex, exists := providerIndexes[provider.ProviderID]
@@ -74,16 +71,11 @@ ORDER BY provider.provider_id,target.target_id
 		if err := json.Unmarshal([]byte(fragment.String), &target); err != nil {
 			return nil, fmt.Errorf("testsupport: decode runtime target: %w", err)
 		}
-		target.ContractSHA256 = contract.String
 		manifest := manifests[provider.ProviderID]
 		manifest.Targets = append(manifest.Targets, target)
 		manifests[provider.ProviderID] = manifest
 		active.Providers[providerIndex].Targets = append(active.Providers[providerIndex].Targets,
-			runtimebundle.ActiveTarget{
-				ID: target.ID, GameCompatibilityLine: target.GameCompatibilityLine,
-				NetplayCompatibilityLine: target.NetplayCompatibilityLine,
-				Checkpoint:               target.Checkpoint, ContractSHA256: contract.String,
-			})
+			runtimebundle.ActiveTarget{ID: target.ID, Checkpoint: target.Checkpoint})
 	}
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("testsupport: runtime providers: %w", err)
@@ -106,8 +98,7 @@ func LookupRuntimeTarget(
 ) (RuntimeTargetIdentity, error) {
 	var identity RuntimeTargetIdentity
 	err := database.QueryRowContext(ctx, `
-SELECT binding.provider_id,provider.provider_version,binding.target_id,target.target_contract_sha256,
-       target.game_compatibility_line,coalesce(target.netplay_compatibility_line,''),provider.bundle_sha256
+SELECT binding.provider_id,provider.provider_version,binding.target_id,provider.bundle_sha256
 FROM runtime_target_bindings binding
 JOIN runtime_targets target
   ON target.provider_id=binding.provider_id AND target.target_id=binding.target_id
@@ -119,9 +110,6 @@ LIMIT 1
 		&identity.ProviderID,
 		&identity.ProviderVersion,
 		&identity.TargetID,
-		&identity.TargetContractSHA256,
-		&identity.GameCompatibilityLine,
-		&identity.NetplayCompatibilityLine,
 		&identity.BundleSHA256,
 	)
 	if err != nil {
@@ -210,15 +198,6 @@ func insertFixtureTargets(
 	sort.Strings(keys)
 	for _, key := range keys {
 		binding := targets[key]
-		contract := fixtureDigest("target:" + key)
-		gameLine := "test-" + strings.ReplaceAll(binding.TargetID, "_", "-") + "-v1"
-		if len(gameLine) > 64 {
-			gameLine = "test-game-v1"
-		}
-		var netplayLine any
-		if binding.ProviderID == "emulatorjs" {
-			netplayLine = "emulatorjs-netplay-v2"
-		}
 		optionsSchema := fixtureTargetOptionsSchema(binding.TargetID)
 		validationProbes := []string{}
 		if strings.HasPrefix(binding.TargetID, "rpgmaker-") {
@@ -227,7 +206,7 @@ func insertFixtureTargets(
 		capabilities := map[string]any{
 			"pause": true, "screenshot": true, "checkpoint": true, "standardGamepad": true,
 			"frameCounter": true, "volume": true, "discSwitch": binding.TargetID == "yabause",
-			"nativeSettings": true, "inputFilter": true, "netplayPort": netplayLine != nil,
+			"nativeSettings": true, "inputFilter": true, "netplayPort": binding.ProviderID == "emulatorjs",
 			"videoModes": []string{"original"}, "requiresThreads": false, "frameMode": "NONE",
 			"validationProbes": validationProbes,
 		}
@@ -239,17 +218,16 @@ func insertFixtureTargets(
 		checkpointJSON, _ := json.Marshal(checkpoint)
 		fragmentJSON, _ := json.Marshal(map[string]any{
 			"id": binding.TargetID, "displayName": binding.TargetID,
-			"gameCompatibilityLine": gameLine, "netplayCompatibilityLine": netplayLine,
 			"targetOptionsSchema": optionsSchema, "inputs": fixtureInputs(binding), "capabilities": capabilities,
 			"checkpoint": checkpoint, "assetPaths": []string{"client.mjs"},
 		})
 		if _, err := transaction.ExecContext(ctx, `
 INSERT INTO runtime_targets(
- provider_id,target_id,display_name,game_compatibility_line,netplay_compatibility_line,
- target_options_schema_json,capabilities_json,checkpoint_json,manifest_fragment_json,target_contract_sha256
-) VALUES(?,?,?,?,?,?,?,?,?,?)
-`, binding.ProviderID, binding.TargetID, binding.TargetID, gameLine, netplayLine, string(mustJSON(optionsSchema)),
-			string(capabilitiesJSON), string(checkpointJSON), string(fragmentJSON), contract); err != nil {
+ provider_id,target_id,display_name,target_options_schema_json,capabilities_json,
+ checkpoint_json,manifest_fragment_json
+) VALUES(?,?,?,?,?,?,?)
+`, binding.ProviderID, binding.TargetID, binding.TargetID, string(mustJSON(optionsSchema)),
+			string(capabilitiesJSON), string(checkpointJSON), string(fragmentJSON)); err != nil {
 			return fmt.Errorf("testsupport: insert target %s/%s: %w", binding.ProviderID, binding.TargetID, err)
 		}
 	}

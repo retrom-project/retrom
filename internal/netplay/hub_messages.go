@@ -43,7 +43,7 @@ func (session *realtimeSession) handleRuntimeReady(
 	message ClientMessage,
 ) error {
 	if message.ProviderID != session.providerID || message.TargetID != session.targetID ||
-		message.TargetContractSHA256 != session.targetContractSHA256 {
+		message.BundleSHA256 != session.bundleSHA256 {
 		return ErrProtocol
 	}
 	allReady, err := session.service.MarkRuntimeReady(ctx, client.participant)

@@ -13,17 +13,15 @@ import (
 )
 
 type creationTarget struct {
-	platformID            string
-	defaultCoreID         string
-	coreID                string
-	bindingID             string
-	providerID            string
-	targetID              string
-	targetContractSHA256  string
-	gameCompatibilityLine string
-	deliveryProfile       string
-	contentPolicyJSON     string
-	instanceVersion       int64
+	platformID        string
+	defaultCoreID     string
+	coreID            string
+	bindingID         string
+	providerID        string
+	targetID          string
+	deliveryProfile   string
+	contentPolicyJSON string
+	instanceVersion   int64
 }
 
 type creationPlan struct {
@@ -332,7 +330,7 @@ func (service *Service) loadBoundTarget(
 ) error {
 	query := `
 SELECT binding.binding_id,binding.core_id,binding.provider_id,binding.target_id,
- target.target_contract_sha256,target.game_compatibility_line,binding.delivery_profile
+ binding.delivery_profile
 FROM runtime_target_bindings binding
 JOIN runtime_binding_platforms platform ON platform.binding_id=binding.binding_id AND platform.platform_id=?
 JOIN runtime_targets target ON target.provider_id=binding.provider_id AND target.target_id=binding.target_id
@@ -344,7 +342,7 @@ WHERE binding.core_id=? AND binding.launch_policy!='DISABLED'`
 	}
 	err := service.database.QueryRowContext(ctx, query, arguments...).Scan(
 		&target.bindingID, &target.coreID, &target.providerID, &target.targetID,
-		&target.targetContractSHA256, &target.gameCompatibilityLine, &target.deliveryProfile,
+		&target.deliveryProfile,
 	)
 	if err != nil {
 		return ErrInvalid

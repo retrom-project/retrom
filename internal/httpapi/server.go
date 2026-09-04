@@ -487,7 +487,7 @@ func (server *Server) registerAdminLibraryRoutes(mux *http.ServeMux) {
 		{"PUT /api/v1/admin/games/{gameId}/tags", server.putAdminGameTags},
 		{"POST /api/v1/admin/games/{gameId}/assets", server.createGameAsset},
 		{"DELETE /api/v1/admin/games/{gameId}/assets/{assetKind}", server.deleteGameAsset},
-		{"POST /api/v1/admin/games/{gameId}/content-revisions", server.createGameContentRevision},
+		{"POST /api/v1/admin/games/{gameId}/content-replacement", server.createGameContentReplacement},
 		{"GET /api/v1/admin/games/{gameId}/scrape-candidates", server.gameScrapeCandidates},
 		{"POST /api/v1/admin/games/{gameId}/scrape-candidates", server.scrapeGame},
 		{"POST /api/v1/admin/games/{gameId}/scrape-candidates/{candidateId}/apply", server.applyGameScrapeCandidate},

@@ -162,28 +162,15 @@ func (service *Service) runtimePackInstallation(
 	slot int,
 ) (string, error) {
 	rows, err := service.database.QueryContext(ctx, `
-SELECT selection.installation_id
+SELECT installation.id
 FROM launch_sessions launch
-JOIN game_variant_revision_runtime_packs selection
-  ON selection.game_variant_revision_id=launch.game_variant_revision_id
-JOIN runtime_asset_pack_installations installation
-  ON installation.id=selection.installation_id AND installation.status='READY'
 JOIN launch_content_files locked ON locked.launch_session_id=launch.id
-  AND locked.blob_id=installation.bundle_blob_id
-WHERE launch.id=? AND launch.purpose='PRODUCT' AND selection.slot=?
-UNION ALL
-SELECT selection.installation_id
-FROM launch_sessions launch
-JOIN rpgmaker_runtime_validations validation
-  ON validation.id=launch.rpgmaker_runtime_validation_id
-JOIN review_drafts draft ON draft.import_item_id=validation.import_item_id
-JOIN review_draft_runtime_pack_selections selection ON selection.review_draft_id=draft.id
+ AND locked.logical_name=?
 JOIN runtime_asset_pack_installations installation
-  ON installation.id=selection.installation_id AND installation.status='READY'
-JOIN launch_content_files locked ON locked.launch_session_id=launch.id
-  AND locked.blob_id=installation.bundle_blob_id
-WHERE launch.id=? AND launch.purpose='RPG_RUNTIME_VALIDATION' AND selection.slot=?
-`, launchID, slot, launchID, slot)
+ ON installation.bundle_blob_id=locked.blob_id AND installation.status='READY'
+WHERE launch.id=? AND launch.purpose IN ('PRODUCT','RPG_RUNTIME_VALIDATION')
+ORDER BY installation.id
+`, fmt.Sprintf("__retrom__/pack-%d.zip", slot), launchID)
 	if err != nil {
 		return "", fmt.Errorf("load runtime pack selection: %w", err)
 	}

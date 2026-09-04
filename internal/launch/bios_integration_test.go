@@ -5,7 +5,6 @@ package launch
 import (
 	"bytes"
 	"context"
-	"database/sql"
 	"errors"
 	"path/filepath"
 	"runtime"
@@ -104,12 +103,7 @@ VALUES(?,?,?,?,?,?,?,?,?,'HASH_WARNING','{}',?,1,?,?)
 		ctx, database.SQL, target.ProviderID, target.TargetID, "game.nds",
 	)
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return status != "READY" }), "MelonDS BIOS snapshot = %#v/%s, error=%v", snapshot, status, err)
-	contentID, gameID, metadataID, variantID, revisionID := newUUID(), newUUID(), newUUID(), newUUID(), newUUID()
-	digest, err := corevalidation.ProviderValidationInputDigest(
-		target.ProviderID, target.TargetID, target.TargetContractSHA256,
-		target.GameCompatibilityLine, contentID, sql.NullString{}, snapshot,
-	)
-	testassert.False(t, err != nil, err)
+	gameID, variantID := newUUID(), newUUID()
 	snapshotJSON, err := snapshot.JSON()
 	testassert.False(t, err != nil, err)
 	now := time.Now().UnixMilli()
@@ -120,18 +114,17 @@ VALUES(?,?,?,?,?,?,?,?,?,'HASH_WARNING','{}',?,1,?,?)
 		query string
 		args  []any
 	}{
-		{`PRAGMA defer_foreign_keys=ON`, nil},
-		{`INSERT INTO game_metadata_revisions(id,game_id,title,title_initial,description,developer,publisher,genre,players,release_year,source_kind,source_ref_id,created_at_ms)
-VALUES(?,?,'MelonDS fixture','M','','','','',NULL,NULL,'IMPORT_REVIEW','fixture',?)`, []any{metadataID, gameID, now}},
-		{`INSERT INTO game_content_revisions(id,game_id,source_kind,source_ref_id,source_manifest_json,source_manifest_digest,created_at_ms)
-VALUES(?,?,'IMPORT_REVIEW','fixture','{}',?,?)`, []any{contentID, gameID, strings.Repeat("a", 64), now}},
-		{`INSERT INTO games(id,platform_instance_id,status,current_metadata_revision_id,current_content_revision_id,search_text,version,created_at_ms,updated_at_ms)
-VALUES(?,?,'PUBLISHED',?,?,'melonds fixture',1,?,?)`, []any{gameID, platformInstanceID, metadataID, contentID, now, now}},
-		{`INSERT INTO game_content_files(game_content_revision_id,role,logical_name,blob_id,sort_order) VALUES(?,'CONTENT','game.nds',?,0)`, []any{contentID, gameBlobID}},
-		{`INSERT INTO game_variants(id,game_id,core_id,current_revision_id,version,created_at_ms,updated_at_ms) VALUES(?,?,'melonds',NULL,1,?,?)`, []any{variantID, gameID, now, now}},
-		{`INSERT INTO game_variant_revisions(id,game_variant_id,game_content_revision_id,provider_id,target_id,target_contract_sha256,game_compatibility_line,dat_version_id,validation_input_digest,emulator_game_id,status,compatibility_code,dependency_snapshot_json,created_at_ms)
-VALUES(?,?,?,?,?,?,?,NULL,?,8100,'READY','READY',?,?)`, []any{revisionID, variantID, contentID, target.ProviderID, target.TargetID, target.TargetContractSHA256, target.GameCompatibilityLine, digest, string(snapshotJSON), now}},
-		{`UPDATE game_variants SET current_revision_id=? WHERE id=?`, []any{revisionID, variantID}},
+		{`INSERT INTO games(
+id,platform_instance_id,title,title_initial,description,developer,publisher,genre,players,release_year,
+metadata_source_kind,metadata_source_ref_id,content_kind,content_source_kind,content_source_ref_id,
+source_manifest_json,source_manifest_digest,status,search_text,version,created_at_ms,updated_at_ms)
+VALUES(?,?,'MelonDS fixture','M','','','','',NULL,NULL,'IMPORT_REVIEW','fixture','SINGLE_FILE',
+'IMPORT_REVIEW','fixture','{}',?,'PUBLISHED','melonds fixture',1,?,?)`, []any{gameID, platformInstanceID, strings.Repeat("a", 64), now, now}},
+		{`INSERT INTO game_files(game_id,role,logical_name,blob_id,sort_order) VALUES(?,'CONTENT','game.nds',?,0)`, []any{gameID, gameBlobID}},
+		{`INSERT INTO game_variants(
+id,game_id,core_id,provider_id,target_id,dat_version_id,emulator_game_id,status,compatibility_code,
+dependency_snapshot_json,version,created_at_ms,updated_at_ms)
+VALUES(?,?,'melonds',?,?,NULL,8100,'READY','READY',?,1,?,?)`, []any{variantID, gameID, target.ProviderID, target.TargetID, string(snapshotJSON), now, now}},
 	}
 	for _, statement := range statements {
 		if _, err := transaction.ExecContext(ctx, statement.query, statement.args...); err != nil {

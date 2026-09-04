@@ -255,30 +255,29 @@ def protected_variant(
     reference: dict[str, Any],
 ) -> dict[str, Any]:
     row = one(connection, """
-SELECT revision.id AS revision_id,game.status AS game_status,revision.status AS revision_status,
- target.provider_id,target.target_id,target.target_contract_sha256,
+SELECT variant.id AS variant_id,game.status AS game_status,variant.status AS variant_status,
+ variant.provider_id,variant.target_id,provider.bundle_sha256,
  pack.definition_id,pack.installation_id,installation.files_digest
 FROM games game
 JOIN game_variants variant ON variant.game_id=game.id
-JOIN game_variant_revisions revision ON revision.id=variant.current_revision_id
-JOIN runtime_targets target ON target.provider_id=revision.provider_id
- AND target.target_id=revision.target_id
- AND target.target_contract_sha256=revision.target_contract_sha256
-JOIN game_variant_revision_runtime_packs pack ON pack.game_variant_revision_id=revision.id
+JOIN runtime_providers provider ON provider.provider_id=variant.provider_id
+JOIN runtime_targets target ON target.provider_id=variant.provider_id
+ AND target.target_id=variant.target_id
+JOIN game_variant_runtime_packs pack ON pack.game_variant_id=variant.id
 JOIN runtime_asset_pack_installations installation ON installation.id=pack.installation_id
 WHERE game.id=? AND pack.installation_id=?
 """, (reference["gameId"], reference["installationId"]), "PUBLISHED_REFERENCE")
-    if row["game_status"] != "PUBLISHED" or row["revision_status"] != "READY" or \
+    if row["game_status"] != "PUBLISHED" or row["variant_status"] != "READY" or \
             row["provider_id"] != "retrom-runtime" or row["target_id"] != "rpgmaker-xp" or \
-            not SHA256.fullmatch(row["target_contract_sha256"]) or row["definition_id"] != "rgss1_standard":
+            not SHA256.fullmatch(row["bundle_sha256"]) or row["definition_id"] != "rgss1_standard":
         raise InspectError("RPG_ACCEPTANCE_PACK_PUBLISHED_REFERENCE_INVALID")
     return {
         "gameId": reference["gameId"], "installationId": reference["installationId"],
-        "variantRevisionId": row["revision_id"], "definitionId": row["definition_id"],
+        "gameVariantId": row["variant_id"], "definitionId": row["definition_id"],
         "filesDigest": row["files_digest"], "gameStatus": row["game_status"],
-        "variantStatus": row["revision_status"], "availableForLaunch": True,
+        "variantStatus": row["variant_status"], "availableForLaunch": True,
         "providerId": row["provider_id"], "targetId": row["target_id"],
-        "targetContractSha256": row["target_contract_sha256"],
+        "bundleSha256": row["bundle_sha256"],
     }
 
 
@@ -287,48 +286,42 @@ def protected_checkpoint(
     reference: dict[str, Any],
 ) -> dict[str, Any]:
     row = one(connection, """
-SELECT save.game_variant_revision_id AS revision_id,game.status AS game_status,
- revision.status AS revision_status,target.provider_id,target.target_id,target.target_contract_sha256,
- revision.provider_id AS revision_provider_id,revision.target_id AS revision_target_id,
- revision.target_contract_sha256 AS revision_target_contract_sha256,
+SELECT variant.id AS variant_id,game.status AS game_status,
+ variant.status AS variant_status,variant.provider_id,variant.target_id,provider.bundle_sha256,
  source.provider_id AS source_provider_id,source.target_id AS source_target_id,
- source.target_contract_sha256 AS source_target_contract_sha256,pack.definition_id,
+ source.bundle_sha256 AS source_bundle_sha256,pack.definition_id,
  pack.installation_id,installation.files_digest,source.purpose AS source_purpose,
- save.payload_sha256,save.payload_size_bytes
+ save.payload_sha256,save.payload_size_bytes,save.checkpoint_format,target.checkpoint_json
 FROM save_states save
 JOIN games game ON game.id=save.game_id
-JOIN game_variant_revisions revision ON revision.id=save.game_variant_revision_id
-JOIN runtime_targets target ON target.provider_id=save.provider_id
- AND target.target_id=save.target_id
- AND target.target_contract_sha256=save.target_contract_sha256
-JOIN game_variant_revision_runtime_packs pack ON pack.game_variant_revision_id=save.game_variant_revision_id
+JOIN game_variants variant ON variant.game_id=game.id
+JOIN runtime_providers provider ON provider.provider_id=variant.provider_id
+JOIN runtime_targets target ON target.provider_id=variant.provider_id
+ AND target.target_id=variant.target_id
+JOIN game_variant_runtime_packs pack ON pack.game_variant_id=variant.id
 JOIN runtime_asset_pack_installations installation ON installation.id=pack.installation_id
 JOIN launch_sessions source ON source.id=save.source_launch_session_id
-  AND source.game_id=save.game_id AND source.game_variant_revision_id=save.game_variant_revision_id
+  AND source.game_id=save.game_id
 WHERE save.id=? AND save.game_id=? AND save.deleted_at_ms IS NULL AND pack.installation_id=?
 """, (reference["saveStateId"], reference["gameId"], reference["installationId"]), "CHECKPOINT_REFERENCE")
-    if row["game_status"] != "PUBLISHED" or row["revision_status"] != "READY" or \
+    checkpoint = json.loads(row["checkpoint_json"] or "null")
+    if row["game_status"] != "PUBLISHED" or row["variant_status"] != "READY" or \
             row["provider_id"] != "retrom-runtime" or row["target_id"] != "rpgmaker-vx" or \
-            not SHA256.fullmatch(row["target_contract_sha256"]) or row["definition_id"] != "rgss2_rpgvx" or \
-            row["source_purpose"] != "PRODUCT" or not SHA256.fullmatch(row["payload_sha256"]) or any(
-                row[key] != row[identity]
-                for key, identity in (
-                    ("revision_provider_id", "provider_id"), ("revision_target_id", "target_id"),
-                    ("revision_target_contract_sha256", "target_contract_sha256"),
-                    ("source_provider_id", "provider_id"), ("source_target_id", "target_id"),
-                    ("source_target_contract_sha256", "target_contract_sha256"),
-                )
-            ):
+            not SHA256.fullmatch(row["bundle_sha256"]) or row["definition_id"] != "rgss2_rpgvx" or \
+            row["source_purpose"] != "PRODUCT" or not SHA256.fullmatch(row["payload_sha256"]) or \
+            row["source_provider_id"] != row["provider_id"] or row["source_target_id"] != row["target_id"] or \
+            not SHA256.fullmatch(row["source_bundle_sha256"]) or not isinstance(checkpoint, dict) or \
+            row["checkpoint_format"] not in checkpoint.get("readFormats", []):
         raise InspectError("RPG_ACCEPTANCE_PACK_CHECKPOINT_REFERENCE_INVALID")
     return {
         "gameId": reference["gameId"], "saveStateId": reference["saveStateId"],
-        "installationId": reference["installationId"], "variantRevisionId": row["revision_id"],
+        "installationId": reference["installationId"], "gameVariantId": row["variant_id"],
         "definitionId": row["definition_id"], "filesDigest": row["files_digest"],
         "payloadSha256": row["payload_sha256"], "payloadSizeBytes": row["payload_size_bytes"],
-        "gameStatus": row["game_status"], "variantStatus": row["revision_status"],
+        "gameStatus": row["game_status"], "variantStatus": row["variant_status"],
         "availableForLaunch": True, "sourceLaunchPurpose": row["source_purpose"],
         "providerId": row["provider_id"], "targetId": row["target_id"],
-        "targetContractSha256": row["target_contract_sha256"],
+        "bundleSha256": row["bundle_sha256"],
     }
 
 
@@ -336,15 +329,13 @@ def published_reviews(connection: sqlite3.Connection, observed: dict[str, Any]) 
     result = []
     for item in observed.get("reviews", {}).get("published", []):
         row = one(connection, """
-SELECT game.status,content.source_ref_id,profile.generation
+SELECT game.status,game.content_source_ref_id,profile.generation
 FROM games game
-JOIN game_content_revisions content ON content.id=game.current_content_revision_id
 JOIN game_variants variant ON variant.game_id=game.id
-JOIN game_variant_revisions revision ON revision.id=variant.current_revision_id
-JOIN rpgmaker_variant_profiles profile ON profile.game_variant_revision_id=revision.id
+JOIN rpgmaker_game_profiles profile ON profile.game_id=game.id
 WHERE game.id=?
 """, (item.get("gameId"),), "PUBLISHED_REVIEW")
-        if row["status"] != "PUBLISHED" or row["source_ref_id"] != item.get("itemId") or \
+        if row["status"] != "PUBLISHED" or row["content_source_ref_id"] != item.get("itemId") or \
                 row["generation"] != item.get("generation"):
             raise InspectError("RPG_ACCEPTANCE_PACK_PUBLISHED_REVIEW_INVALID")
         result.append({
@@ -360,8 +351,8 @@ def selected_reviews(connection: sqlite3.Connection, observed: dict[str, Any]) -
         if item.get("matcher") not in {"SELECTED", "AMBIGUOUS"}:
             continue
         row = one(connection, """
-SELECT selection.slot,selection.installation_id,draft.runtime_binding_revision,
- validation.runtime_binding_revision AS validation_binding_revision
+SELECT selection.slot,selection.installation_id,draft.version AS review_version,
+ validation.review_version_at_create AS validation_review_version
 FROM review_drafts draft
 JOIN review_draft_runtime_pack_selections selection ON selection.review_draft_id=draft.id
 LEFT JOIN rpgmaker_runtime_validations validation ON validation.id=(
@@ -371,13 +362,13 @@ LEFT JOIN rpgmaker_runtime_validations validation ON validation.id=(
 WHERE draft.import_item_id=?
 """, (item.get("itemId"),), "REVIEW_SELECTION")
         if row["installation_id"] != item.get("installationId") or \
-                row["runtime_binding_revision"] == row["validation_binding_revision"]:
+                row["review_version"] == row["validation_review_version"]:
             raise InspectError("RPG_ACCEPTANCE_PACK_REVIEW_SELECTION_INVALID")
         result.append({
             "role": item.get("role"), "itemId": item.get("itemId"),
             "slot": row["slot"], "installationId": row["installation_id"],
-            "runtimeBindingRevision": row["runtime_binding_revision"],
-            "validationBindingRevision": row["validation_binding_revision"],
+            "reviewVersion": row["review_version"],
+            "validationReviewVersion": row["validation_review_version"],
         })
     return result
 

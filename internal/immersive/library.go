@@ -122,12 +122,12 @@ SELECT game.id,
        (SELECT asset.id
         FROM game_assets asset
         WHERE asset.game_id=game.id
-        AND asset.metadata_revision_id=game.current_metadata_revision_id
+        AND asset.game_id=game.id
         AND asset.kind='COVER' AND asset.ordinal=0
         LIMIT 1),
        profile_play.last_played_at_ms
 FROM games game
-JOIN game_metadata_revisions metadata ON metadata.id=game.current_metadata_revision_id
+JOIN games metadata ON metadata.id=game.id
 JOIN platform_instances instance ON instance.id=game.platform_instance_id
 LEFT JOIN profile_play ON profile_play.game_id=game.id
 WHERE game.status='PUBLISHED' AND instance.enabled=1 AND (` + condition + `)
@@ -333,16 +333,16 @@ SELECT game.id,
        core.id,
        core.name,
        (SELECT asset.id FROM game_assets asset
-        WHERE asset.game_id=game.id AND asset.metadata_revision_id=game.current_metadata_revision_id
+        WHERE asset.game_id=game.id AND asset.game_id=game.id
         AND asset.kind='COVER' AND asset.ordinal=0 LIMIT 1),
        (SELECT asset.id FROM game_assets asset
-        WHERE asset.game_id=game.id AND asset.metadata_revision_id=game.current_metadata_revision_id
+        WHERE asset.game_id=game.id AND asset.game_id=game.id
         AND asset.kind='VIDEO' AND asset.ordinal=0 LIMIT 1),
        profile_play.last_played_at_ms,
        EXISTS(SELECT 1 FROM favorite_games favorite
               WHERE favorite.profile_id=? AND favorite.game_id=game.id)
 FROM games game
-JOIN game_metadata_revisions metadata ON metadata.id=game.current_metadata_revision_id
+JOIN games metadata ON metadata.id=game.id
 JOIN platform_instances instance ON instance.id=game.platform_instance_id
 JOIN cores core ON core.id=instance.default_core_id
 LEFT JOIN profile_play ON profile_play.game_id=game.id

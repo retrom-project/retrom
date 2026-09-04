@@ -29,25 +29,23 @@ const (
 )
 
 type ServerImportItem struct {
-	ItemID                    string
-	State                     string
-	ValidationStatus          string
-	CompatibilityCode         string
-	CoreID                    string
-	CoreName                  string
-	DependencySnapshotJSON    string
-	ContentKind               string
-	SourceManifestJSON        string
-	SourceManifestDigest      string
-	ExistingGameID            string
-	ExistingContentRevisionID string
-	ExistingMatches           []ServerDuplicateMatch
-	SourceRelativePaths       []string
+	ItemID                 string
+	State                  string
+	ValidationStatus       string
+	CompatibilityCode      string
+	CoreID                 string
+	CoreName               string
+	DependencySnapshotJSON string
+	ContentKind            string
+	SourceManifestJSON     string
+	SourceManifestDigest   string
+	ExistingGameID         string
+	ExistingMatches        []ServerDuplicateMatch
+	SourceRelativePaths    []string
 }
 
 type ServerDuplicateMatch struct {
-	GameID            string `json:"gameId"`
-	ContentRevisionID string `json:"contentRevisionId"`
+	GameID string `json:"gameId"`
 }
 
 type ServerImportResult struct {
@@ -226,7 +224,7 @@ func (service *Service) serverImportResult(ctx context.Context, created Created)
 SELECT item.id,item.state,COALESCE(validation.status,''),COALESCE(validation.compatibility_code,''),
 COALESCE(validation.core_id,''),COALESCE(core.name,''),COALESCE(validation.dependency_snapshot_json,''),
 snapshot.content_kind,snapshot.source_manifest_json,snapshot.source_manifest_digest,
-COALESCE(duplicate.existing_game_id,''),COALESCE(duplicate.existing_game_content_revision_id,''),
+COALESCE(duplicate.existing_game_id,''),
 COALESCE((SELECT json_group_array(relative_path) FROM (
  SELECT DISTINCT upload.relative_path AS relative_path
  FROM import_item_source_files source JOIN upload_files upload ON upload.id=source.upload_file_id
@@ -260,7 +258,7 @@ ORDER BY item.id,duplicate.existing_game_id
 		if err := rows.Scan(&item.ItemID, &item.State, &item.ValidationStatus, &item.CompatibilityCode,
 			&item.CoreID, &item.CoreName, &item.DependencySnapshotJSON,
 			&item.ContentKind, &item.SourceManifestJSON, &item.SourceManifestDigest,
-			&item.ExistingGameID, &item.ExistingContentRevisionID, &sourcePaths); err != nil {
+			&item.ExistingGameID, &sourcePaths); err != nil {
 			return ServerImportResult{}, fmt.Errorf("libraryimport/server source: %w", err)
 		}
 		_ = json.Unmarshal([]byte(sourcePaths), &item.SourceRelativePaths)
@@ -268,10 +266,7 @@ ORDER BY item.id,duplicate.existing_game_id
 			if item.ExistingGameID != "" {
 				result.Items[index].ExistingMatches = append(
 					result.Items[index].ExistingMatches,
-					ServerDuplicateMatch{
-						GameID:            item.ExistingGameID,
-						ContentRevisionID: item.ExistingContentRevisionID,
-					},
+					ServerDuplicateMatch{GameID: item.ExistingGameID},
 				)
 			}
 			continue
@@ -279,7 +274,7 @@ ORDER BY item.id,duplicate.existing_game_id
 		if item.ExistingGameID != "" {
 			item.ExistingMatches = append(
 				item.ExistingMatches,
-				ServerDuplicateMatch{GameID: item.ExistingGameID, ContentRevisionID: item.ExistingContentRevisionID},
+				ServerDuplicateMatch{GameID: item.ExistingGameID},
 			)
 		}
 		itemIndexes[item.ItemID] = len(result.Items)
@@ -688,7 +683,7 @@ WHERE id=(SELECT import_id FROM emulationstation_import_items
 func (service *Service) copyExternalAssets(
 	ctx context.Context,
 	transaction *sql.Tx,
-	gameID, metadataID string,
+	gameID string,
 	assets []ExternalAsset,
 	now int64,
 ) error {
@@ -705,10 +700,10 @@ func (service *Service) copyExternalAssets(
 		assetID, _ := uuid.NewV7()
 		if _, err := transaction.ExecContext(ctx, `
 INSERT INTO game_assets(
-id,game_id,metadata_revision_id,blob_id,kind,ordinal,width_px,height_px,media_type,created_at_ms
+id,game_id,blob_id,kind,ordinal,width_px,height_px,media_type,created_at_ms
 )
-VALUES(?,?,?,?,?,0,?,?,?,?)
-`, assetID.String(), gameID, metadataID, asset.BlobID, asset.Kind,
+VALUES(?,?,?, ?,0,?,?,?,?)
+`, assetID.String(), gameID, asset.BlobID, asset.Kind,
 			asset.WidthPX, asset.HeightPX, asset.MediaType, now); err != nil {
 			return fmt.Errorf("libraryimport/server asset: %w", err)
 		}

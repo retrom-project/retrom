@@ -19,15 +19,12 @@ type gameMoveImpact struct {
 	Action                   string   `json:"action"`
 	GameID                   string   `json:"gameId"`
 	GameVersion              int64    `json:"gameVersion"`
-	ContentRevisionID        string   `json:"contentRevisionId"`
 	SourcePlatformInstanceID string   `json:"sourcePlatformInstanceId"`
 	TargetPlatformInstanceID string   `json:"targetPlatformInstanceId"`
 	TargetPlatformVersion    int64    `json:"targetPlatformInstanceVersion"`
 	TargetCoreID             string   `json:"targetCoreId"`
 	TargetProviderID         string   `json:"targetProviderId"`
 	TargetID                 string   `json:"targetId"`
-	TargetContractSHA256     string   `json:"targetContractSha256"`
-	TargetGameCompatibility  string   `json:"targetGameCompatibilityLine"`
 	TargetDATVersionID       any      `json:"targetDatVersionId"`
 	ValidationInputDigest    string   `json:"validationInputDigest"`
 	VariantStatus            string   `json:"variantStatus"`
@@ -40,27 +37,25 @@ func (server *Server) calculateMoveImpact(
 	targetID string,
 	expected int64,
 ) (gameMoveImpact, error) {
-	var sourceID, sourcePlatform, contentID, contentLogicalName, targetPlatform, targetCore string
-	var providerID, runtimeTargetID, targetContractSHA256, gameCompatibilityLine string
+	var sourceID, sourcePlatform, contentLogicalName, targetPlatform, targetCore string
+	var providerID, runtimeTargetID string
 	var version, targetVersion int64
 	var datID sql.NullString
 	if err := server.database.QueryRowContext(request.Context(), `
 SELECT g.platform_instance_id,
 src.platform_id,
-g.current_content_revision_id,
 COALESCE(content.logical_name,''),
 g.version,
 target.platform_id,
 target.default_core_id,
-target.version,binding.provider_id,binding.target_id,runtime_target.target_contract_sha256,
-runtime_target.game_compatibility_line,
+target.version,binding.provider_id,binding.target_id,
 (SELECT id
 FROM dat_versions
 WHERE provider_id=binding.provider_id AND target_id=binding.target_id
 AND is_active=1)
 FROM games g
 JOIN platform_instances src ON src.id=g.platform_instance_id
-LEFT JOIN game_content_files content ON content.game_content_revision_id=g.current_content_revision_id
+LEFT JOIN game_files content ON content.game_id=g.id
 AND content.role='CONTENT'
 JOIN platform_instances target ON target.id=?
 AND target.enabled=1
@@ -75,7 +70,6 @@ AND g.status='PUBLISHED'
 `, targetID, request.PathValue("gameId")).Scan(
 		&sourceID,
 		&sourcePlatform,
-		&contentID,
 		&contentLogicalName,
 		&version,
 		&targetPlatform,
@@ -83,8 +77,6 @@ AND g.status='PUBLISHED'
 		&targetVersion,
 		&providerID,
 		&runtimeTargetID,
-		&targetContractSHA256,
-		&gameCompatibilityLine,
 		&datID,
 	); err != nil {
 		return gameMoveImpact{}, fmt.Errorf("httpapi/game_handlers: %w", err)
@@ -104,8 +96,7 @@ AND g.status='PUBLISHED'
 		return gameMoveImpact{}, fmt.Errorf("httpapi/game_handlers: %w", err)
 	}
 	inputDigest, err := corevalidation.ProviderValidationInputDigest(
-		providerID, runtimeTargetID, targetContractSHA256, gameCompatibilityLine,
-		contentID, datID, biosSnapshot,
+		providerID, runtimeTargetID, request.PathValue("gameId"), datID, biosSnapshot,
 	)
 	if err != nil {
 		return gameMoveImpact{}, fmt.Errorf("httpapi/game_handlers: %w", err)
@@ -114,34 +105,23 @@ AND g.status='PUBLISHED'
 	err = server.database.QueryRowContext(request.Context(), `
 SELECT r.status,
 r.compatibility_code
-FROM game_variants v
-JOIN game_variant_revisions r ON r.id=v.current_revision_id
-WHERE v.game_id=?
-AND v.core_id=?
-AND r.validation_input_digest=?
-`, request.PathValue("gameId"), targetCore, inputDigest).
+FROM game_variants r
+WHERE r.game_id=?
+AND r.core_id=?
+AND r.provider_id=?
+AND r.target_id=?
+AND r.dat_version_id IS ?
+`, request.PathValue("gameId"), targetCore, providerID, runtimeTargetID, nullableString(datID)).
 		Scan(&storedStatus, &storedCode)
 	switch {
 	case err == nil:
-		status, code = storedStatus, storedCode
-	case errors.Is(err, sql.ErrNoRows):
-		err = server.database.QueryRowContext(request.Context(), `
-SELECT r.status,
-r.compatibility_code
-FROM game_variants v
-JOIN game_variant_revisions r ON r.game_variant_id=v.id
-WHERE v.game_id=?
-AND v.core_id=?
-AND r.validation_input_digest=?
-ORDER BY r.created_at_ms DESC,
-r.id DESC LIMIT 1
-`, request.PathValue("gameId"), targetCore, inputDigest).
-			Scan(&storedStatus, &storedCode)
-		if err == nil && storedStatus != "READY" {
+		if storedStatus == "BLOCKED" && storedCode == "VALIDATION_PENDING" {
+			status, code = "NEEDS_VALIDATION", "VARIANT_VALIDATION_REQUIRED"
+		} else {
 			status, code = storedStatus, storedCode
-		} else if err != nil && !errors.Is(err, sql.ErrNoRows) {
-			return gameMoveImpact{}, fmt.Errorf("httpapi/game_handlers: %w", err)
 		}
+	case errors.Is(err, sql.ErrNoRows):
+		// A missing current binding must be validated before the move can be committed.
 	default:
 		return gameMoveImpact{}, fmt.Errorf("httpapi/game_handlers: %w", err)
 	}
@@ -153,15 +133,12 @@ r.id DESC LIMIT 1
 		Action:                   "MOVE_GAME",
 		GameID:                   request.PathValue("gameId"),
 		GameVersion:              version,
-		ContentRevisionID:        contentID,
 		SourcePlatformInstanceID: sourceID,
 		TargetPlatformInstanceID: targetID,
 		TargetPlatformVersion:    targetVersion,
 		TargetCoreID:             targetCore,
 		TargetProviderID:         providerID,
 		TargetID:                 runtimeTargetID,
-		TargetContractSHA256:     targetContractSHA256,
-		TargetGameCompatibility:  gameCompatibilityLine,
 		TargetDATVersionID:       nullableString(datID),
 		ValidationInputDigest:    inputDigest,
 		VariantStatus:            status,
@@ -405,29 +382,24 @@ func (server *Server) scrapeGame(writer http.ResponseWriter, request *http.Reque
 
 // Cursor validation and the candidate/evidence projection form one stable response contract.
 func (server *Server) gameScrapeCandidates(writer http.ResponseWriter, request *http.Request) {
-	var runID, contentID string
+	var runID string
 	err := server.database.QueryRowContext(request.Context(), `
-SELECT r.id,
-r.game_content_revision_id
+SELECT r.id
 FROM metadata_scrape_runs r
-JOIN games g ON g.id=r.game_id
-AND g.current_content_revision_id=r.game_content_revision_id
+JOIN games g ON g.id=r.game_id AND g.status='PUBLISHED'
 WHERE r.game_id=?
 AND r.provider='HASHEOUS'
 AND r.state='COMPLETED'
 ORDER BY r.created_at_ms DESC,
 r.id DESC LIMIT 1
 `, request.PathValue("gameId")).
-		Scan(&runID, &contentID)
+		Scan(&runID)
 	if errors.Is(err, sql.ErrNoRows) {
 		writeJSON(
 			writer,
 			http.StatusOK,
 			map[string]any{
-				"gameId":            request.PathValue("gameId"),
-				"contentRevisionId": nil,
-				"scrapeRunId":       nil,
-				"items":             []any{},
+				"gameId": request.PathValue("gameId"), "scrapeRunId": nil, "items": []any{},
 			},
 		)
 		return
@@ -514,10 +486,7 @@ id
 		writer,
 		http.StatusOK,
 		map[string]any{
-			"gameId":            request.PathValue("gameId"),
-			"contentRevisionId": contentID,
-			"scrapeRunId":       runID,
-			"items":             items,
+			"gameId": request.PathValue("gameId"), "scrapeRunId": runID, "items": items,
 		},
 	)
 }

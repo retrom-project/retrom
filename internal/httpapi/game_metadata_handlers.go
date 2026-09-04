@@ -22,7 +22,7 @@ type applyCandidateRequest struct {
 	SelectedAssets libraryimport.SelectedAssets `json:"selectedAssets"`
 }
 
-// Candidate freshness checks, revision creation, media linking, and audit write share one transaction.
+// Candidate freshness, metadata changes, selected media replacement, and optimistic locking share one transaction.
 func (server *Server) applyGameScrapeCandidate(writer http.ResponseWriter, request *http.Request) {
 	expected, ok := requireVersion(writer, request)
 	if !ok {
@@ -43,42 +43,35 @@ func (server *Server) applyGameScrapeCandidate(writer http.ResponseWriter, reque
 		return
 	}
 	defer cleanup.Rollback(transaction)
-	var currentMetadataID, contentID, candidateMetadataJSON string
+	var candidateMetadataJSON string
 	var current gameMetadata
 	var version int64
 	err = transaction.QueryRowContext(request.Context(), `
-SELECT g.current_metadata_revision_id,
-g.current_content_revision_id,
-g.version,
-m.title,
-m.description,
-m.developer,
-m.publisher,
-m.genre,
-m.players,
-m.release_year,
+SELECT g.version,
+g.title,
+g.description,
+g.developer,
+g.publisher,
+g.genre,
+g.players,
+g.release_year,
 c.normalized_metadata_json
 FROM games g
-JOIN game_metadata_revisions m ON m.id=g.current_metadata_revision_id
 JOIN scrape_candidates c ON c.id=?
 JOIN metadata_scrape_runs r ON r.id=c.scrape_run_id
 AND r.game_id=g.id
-AND r.game_content_revision_id=g.current_content_revision_id
 AND r.state='COMPLETED'
 WHERE g.id=?
 AND g.status='PUBLISHED'
 AND r.id=(SELECT id
 FROM metadata_scrape_runs
 WHERE game_id=g.id
-AND game_content_revision_id=g.current_content_revision_id
 AND provider='HASHEOUS'
 AND state='COMPLETED'
 ORDER BY created_at_ms DESC,
 id DESC LIMIT 1)
 `, request.PathValue("candidateId"), request.PathValue("gameId")).
 		Scan(
-			&currentMetadataID,
-			&contentID,
 			&version,
 			&current.Title,
 			&current.Description,
@@ -99,14 +92,13 @@ id DESC LIMIT 1)
 		return
 	}
 	applyMetadataFields(&current, candidate, body.Fields)
-	revisionID, assetIDs, err := server.createCandidateMetadataRevision(
-		request,
-		transaction,
-		request.PathValue("gameId"),
-		currentMetadataID,
-		request.PathValue("candidateId"),
-		current,
-		body.SelectedAssets,
+	if strings.TrimSpace(current.Title) == "" {
+		writeError(writer, request, http.StatusUnprocessableEntity, "SCRAPE_METADATA_INVALID", "候选元数据无效", map[string]any{})
+		return
+	}
+	assetIDs, replacedBlobIDs, err := replaceCandidateAssets(
+		request.Context(), transaction, request.PathValue("gameId"), request.PathValue("candidateId"),
+		body.SelectedAssets, server.now().UnixMilli(),
 	)
 	if err != nil {
 		writeError(
@@ -124,22 +116,37 @@ id DESC LIMIT 1)
 		request.Context(),
 		`
 UPDATE games
-SET current_metadata_revision_id=?,
+SET title=?,
+title_initial=?,
+description=?,
+developer=?,
+publisher=?,
+genre=?,
+players=?,
+release_year=?,
+metadata_source_kind='RESCRAPE_APPLY',
+metadata_source_ref_id=?,
 search_text=?,
 version=version+1,
 updated_at_ms=?
 WHERE id=?
 AND version=?
-AND current_content_revision_id=?
 `,
-		revisionID,
+		current.Title,
+		gametitle.Initial(current.Title),
+		current.Description,
+		current.Developer,
+		current.Publisher,
+		current.Genre,
+		nullableInteger(current.Players),
+		nullableInteger(current.ReleaseYear),
+		request.PathValue("candidateId"),
 		strings.ToLower(
 			strings.Join([]string{current.Title, current.Developer, current.Publisher, current.Genre}, " "),
 		),
 		now,
 		request.PathValue("gameId"),
 		expected,
-		contentID,
 	)
 	if err != nil {
 		server.databaseError(writer, request, err)
@@ -149,9 +156,7 @@ AND current_content_revision_id=?
 		writeError(writer, request, http.StatusConflict, "VERSION_CONFLICT", "游戏已被修改", map[string]any{})
 		return
 	}
-	if err := server.retireSupersededGameAssets(
-		request.Context(), transaction, request.PathValue("gameId"), revisionID,
-	); err != nil {
+	if err := server.payloadReleases.StageCandidates(request.Context(), transaction, replacedBlobIDs); err != nil {
 		server.databaseError(writer, request, err)
 		return
 	}
@@ -165,11 +170,8 @@ AND current_content_revision_id=?
 		writer,
 		http.StatusOK,
 		map[string]any{
-			"gameId":             request.PathValue("gameId"),
-			"metadataRevisionId": revisionID,
-			"assetIds":           assetIDs,
-			"version":            expected + 1,
-			"updatedAtMs":        now,
+			"gameId": request.PathValue("gameId"), "assetIds": assetIDs,
+			"version": expected + 1, "updatedAtMs": now,
 		},
 	)
 }
@@ -226,169 +228,89 @@ func applyMetadataFields(target *gameMetadata, candidate map[string]any, fields 
 	}
 }
 
-func (server *Server) createCandidateMetadataRevision(
-	request *http.Request,
-	transaction *sql.Tx,
-	gameID, previousMetadataID, candidateID string,
-	metadata gameMetadata,
-	selected libraryimport.SelectedAssets,
-) (string, []string, error) {
-	revisionID, _ := uuid.NewV7()
-	now := server.now().UnixMilli()
-	_, err := transaction.ExecContext(
-		request.Context(),
-		`
-INSERT INTO game_metadata_revisions(id,
-game_id,
-title,
-title_initial,
-description,
-developer,
-publisher,
-genre,
-players,
-release_year,
-source_kind,
-source_ref_id,
-created_at_ms) VALUES(?,
-?,
-?,
-?,
-?,
-?,
-?,
-?,
-?,
-?,
-'RESCRAPE_APPLY',
-?,
-?)
-`,
-		revisionID.String(),
-		gameID,
-		metadata.Title,
-		gametitle.Initial(metadata.Title),
-		metadata.Description,
-		metadata.Developer,
-		metadata.Publisher,
-		metadata.Genre,
-		nullableInteger(metadata.Players),
-		nullableInteger(metadata.ReleaseYear),
-		candidateID,
-		now,
-	)
-	if err != nil {
-		return "", nil, fmt.Errorf("httpapi/game_handlers: %w", err)
-	}
-	if err := copyCurrentGameAssets(
-		request.Context(), transaction, gameID, previousMetadataID, revisionID.String(), selected, now,
-	); err != nil {
-		return "", nil, err
-	}
-	createdIDs, err := createSelectedCandidateAssets(
-		request.Context(), transaction, gameID, revisionID.String(), candidateID, selected, now,
-	)
-	if err != nil {
-		return "", nil, err
-	}
-	return revisionID.String(), createdIDs, nil
-}
-
-type currentGameAsset struct {
-	blobID, kind, mediaType string
-	ordinal                 int64
-	width, height           sql.NullInt64
-}
-
-func copyCurrentGameAssets(
-	ctx context.Context,
-	transaction *sql.Tx,
-	gameID, previousMetadataID, revisionID string,
-	selected libraryimport.SelectedAssets,
-	now int64,
-) error {
-	replaceCover := selected.CoverCandidateAssetID != nil
-	replaceBackground := selected.BackgroundCandidateAssetID != nil
-	replaceScreenshots := len(selected.ScreenshotCandidateAssetIDs) > 0
-	rows, err := transaction.QueryContext(ctx, `
-SELECT blob_id,kind,ordinal,width_px,height_px,media_type
-FROM game_assets
-WHERE game_id=?
-AND metadata_revision_id=?
-AND NOT (kind='COVER' AND ?)
-AND NOT (kind='BACKGROUND' AND ?)
-AND NOT (kind='SCREENSHOT' AND ?)
-ORDER BY kind,ordinal
-`, gameID, previousMetadataID, replaceCover, replaceBackground, replaceScreenshots)
-	if err != nil {
-		return fmt.Errorf("httpapi/game_handlers: query current assets: %w", err)
-	}
-	defer func() { cleanup.Error("close", rows.Close()) }()
-	currentAssets := make([]currentGameAsset, 0)
-	for rows.Next() {
-		var asset currentGameAsset
-		if err := rows.Scan(
-			&asset.blobID,
-			&asset.kind,
-			&asset.ordinal,
-			&asset.width,
-			&asset.height,
-			&asset.mediaType,
-		); err != nil {
-			return fmt.Errorf("httpapi/game_handlers: scan current asset: %w", err)
-		}
-		currentAssets = append(currentAssets, asset)
-	}
-	if err := rows.Err(); err != nil {
-		return fmt.Errorf("httpapi/game_handlers: scan current assets: %w", err)
-	}
-	for _, asset := range currentAssets {
-		assetID, _ := uuid.NewV7()
-		if _, err := transaction.ExecContext(ctx, `
-INSERT INTO game_assets(id,
-game_id,
-metadata_revision_id,
-blob_id,
-kind,
-ordinal,
-width_px,
-height_px,
-media_type,
-created_at_ms) VALUES(?,?,?,?,?,?,?,?,?,?)
-	`, assetID.String(), gameID, revisionID, asset.blobID, asset.kind, asset.ordinal,
-			nullableInteger(asset.width), nullableInteger(asset.height),
-			asset.mediaType, now); err != nil {
-			return fmt.Errorf("httpapi/game_handlers: preserve current asset: %w", err)
-		}
-	}
-	return nil
-}
-
 type selectedCandidateAsset struct {
 	id      string
 	kind    string
 	ordinal int64
 }
 
-func createSelectedCandidateAssets(
+func replaceCandidateAssets(
 	ctx context.Context,
 	transaction *sql.Tx,
-	gameID, revisionID, candidateID string,
+	gameID, candidateID string,
 	selected libraryimport.SelectedAssets,
 	now int64,
-) ([]string, error) {
+) ([]string, []string, error) {
 	selectedAssets := selectedCandidateAssets(selected)
+	for _, selectedAsset := range selectedAssets {
+		if err := validateSelectedCandidateAsset(ctx, transaction, candidateID, selectedAsset); err != nil {
+			return nil, nil, err
+		}
+	}
+	replacedBlobIDs := make([]string, 0)
+	for _, kind := range selectedAssetKinds(selected) {
+		blobIDs, err := removeGameAssetsByKind(ctx, transaction, gameID, kind)
+		if err != nil {
+			return nil, nil, err
+		}
+		replacedBlobIDs = append(replacedBlobIDs, blobIDs...)
+	}
 	createdIDs := make([]string, 0, len(selectedAssets))
 	for _, selectedAsset := range selectedAssets {
 		createdID, err := createSelectedCandidateAsset(
-			ctx, transaction, gameID, revisionID, candidateID, selectedAsset, now,
+			ctx, transaction, gameID, candidateID, selectedAsset, now,
 		)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		createdIDs = append(createdIDs, createdID)
 	}
-	return createdIDs, nil
+	return createdIDs, replacedBlobIDs, nil
+}
+
+func selectedAssetKinds(selected libraryimport.SelectedAssets) []string {
+	kinds := make([]string, 0, 3)
+	if selected.CoverCandidateAssetID != nil {
+		kinds = append(kinds, "COVER")
+	}
+	if selected.BackgroundCandidateAssetID != nil {
+		kinds = append(kinds, "BACKGROUND")
+	}
+	if len(selected.ScreenshotCandidateAssetIDs) > 0 {
+		kinds = append(kinds, "SCREENSHOT")
+	}
+	return kinds
+}
+
+func removeGameAssetsByKind(
+	ctx context.Context,
+	transaction *sql.Tx,
+	gameID, kind string,
+) ([]string, error) {
+	rows, err := transaction.QueryContext(ctx, `
+SELECT blob_id FROM game_assets WHERE game_id=? AND kind=? ORDER BY ordinal,id
+`, gameID, kind)
+	if err != nil {
+		return nil, fmt.Errorf("httpapi/list replaced candidate assets: %w", err)
+	}
+	defer func() { cleanup.Error("close replaced candidate assets", rows.Close()) }()
+	blobIDs := make([]string, 0)
+	for rows.Next() {
+		var blobID string
+		if err := rows.Scan(&blobID); err != nil {
+			return nil, fmt.Errorf("httpapi/scan replaced candidate asset: %w", err)
+		}
+		blobIDs = append(blobIDs, blobID)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("httpapi/iterate replaced candidate assets: %w", err)
+	}
+	if _, err := transaction.ExecContext(
+		ctx, `DELETE FROM game_assets WHERE game_id=? AND kind=?`, gameID, kind,
+	); err != nil {
+		return nil, fmt.Errorf("httpapi/delete replaced candidate assets: %w", err)
+	}
+	return blobIDs, nil
 }
 
 func selectedCandidateAssets(selected libraryimport.SelectedAssets) []selectedCandidateAsset {
@@ -417,7 +339,7 @@ func selectedCandidateAssets(selected libraryimport.SelectedAssets) []selectedCa
 func createSelectedCandidateAsset(
 	ctx context.Context,
 	transaction *sql.Tx,
-	gameID, revisionID, candidateID string,
+	gameID, candidateID string,
 	selected selectedCandidateAsset,
 	now int64,
 ) (string, error) {
@@ -446,7 +368,6 @@ AND status='READY'
 	if _, err := transaction.ExecContext(ctx, `
 INSERT INTO game_assets(id,
 game_id,
-metadata_revision_id,
 blob_id,
 kind,
 ordinal,
@@ -461,12 +382,10 @@ created_at_ms) VALUES(?,
 ?,
 ?,
 ?,
-?,
 ?)
 `,
 		assetID.String(),
 		gameID,
-		revisionID,
 		blobID,
 		kind,
 		selected.ordinal,
@@ -478,6 +397,26 @@ created_at_ms) VALUES(?,
 		return "", fmt.Errorf("httpapi/game_handlers: %w", err)
 	}
 	return assetID.String(), nil
+}
+
+func validateSelectedCandidateAsset(
+	ctx context.Context,
+	transaction *sql.Tx,
+	candidateID string,
+	selected selectedCandidateAsset,
+) error {
+	var kind string
+	err := transaction.QueryRowContext(ctx, `
+SELECT kind_hint FROM scrape_candidate_assets
+WHERE id=? AND scrape_candidate_id=? AND status='READY'
+`, selected.id, candidateID).Scan(&kind)
+	if err != nil {
+		return fmt.Errorf("httpapi/game_handlers: %w", err)
+	}
+	if kind != selected.kind {
+		return errCandidateAssetKind
+	}
+	return nil
 }
 
 func inspectUploadedGameAsset(

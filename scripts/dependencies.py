@@ -285,10 +285,9 @@ def validate_netplay_manifest() -> None:
 def valid_netplay_profile(profile: object, bindings: list[object]) -> bool:
     fields = {
         "id", "providerId", "targetId", "coreId", "platformIds",
-        "netplayCompatibilityLine", "maxPlayers", "maxPredictionFrames",
+        "maxPlayers", "maxPredictionFrames",
     }
     if not isinstance(profile, dict) or set(profile) != fields or profile.get("providerId") != "emulatorjs" or \
-            profile.get("netplayCompatibilityLine") != "emulatorjs-netplay-v2" or \
             not isinstance(profile.get("platformIds"), list) or not 2 <= profile.get("maxPlayers", 0) <= 4 or \
             not 0 <= profile.get("maxPredictionFrames", -1) <= 8:
         return False

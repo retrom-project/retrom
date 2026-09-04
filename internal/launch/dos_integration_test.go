@@ -202,13 +202,13 @@ WHERE launch_session_id=?
 	) {
 		t.Fatalf("missing DOS entry error = %v", err)
 	}
-	var variantID, providerID, targetID, targetContract, gameLine string
+	var variantID, providerID, targetID string
+	var gameVersion int64
 	if err := database.SQL.QueryRowContext(ctx, `
-SELECT v.id,r.provider_id,r.target_id,r.target_contract_sha256,r.game_compatibility_line
-FROM game_variants v
-JOIN game_variant_revisions r ON r.id=v.current_revision_id
-WHERE v.game_id=?
-`, approved.GameID).Scan(&variantID, &providerID, &targetID, &targetContract, &gameLine); err != nil {
+SELECT variant.id,variant.provider_id,variant.target_id,game.version
+FROM game_variants variant JOIN games game ON game.id=variant.game_id
+WHERE variant.game_id=?
+`, approved.GameID).Scan(&variantID, &providerID, &targetID, &gameVersion); err != nil {
 		t.Fatal(err)
 	}
 	transaction, err := database.SQL.BeginTx(ctx, nil)
@@ -217,11 +217,11 @@ WHERE v.game_id=?
 		ctx,
 		transaction,
 		variantID,
-		"missing-content-revision",
+		"missing-game",
+		gameVersion,
+		strings.Repeat("a", 64),
 		providerID,
 		targetID,
-		targetContract,
-		gameLine,
 		`{"schemaVersion":1,"supportedContentKinds":["SINGLE_FILE"],"multiDisc":null}`,
 		sql.NullString{},
 		strings.Repeat("0", 64),
@@ -248,11 +248,11 @@ WHERE v.game_id=?
 		ctx,
 		retryTx,
 		variantID,
-		"missing-content-revision",
+		"missing-game",
+		gameVersion,
+		strings.Repeat("a", 64),
 		providerID,
 		targetID,
-		targetContract,
-		gameLine,
 		`{"schemaVersion":1,"supportedContentKinds":["SINGLE_FILE"],"multiDisc":null}`,
 		sql.NullString{},
 		strings.Repeat("0", 64),

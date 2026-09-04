@@ -42,7 +42,7 @@ type jobSnapshot struct {
 	ExecutionID             string  `json:"executionId"`
 	GameID                  string  `json:"gameId"`
 	GameVersion             int64   `json:"gameVersion"`
-	BaseContentRevisionID   string  `json:"baseContentRevisionId"`
+	BaseManifestDigest      string  `json:"baseManifestDigest"`
 	UploadSessionID         string  `json:"uploadSessionId"`
 	PlatformID              string  `json:"platformId"`
 	PlatformInstanceID      string  `json:"platformInstanceId"`
@@ -50,8 +50,6 @@ type jobSnapshot struct {
 	CoreID                  string  `json:"coreId"`
 	ProviderID              string  `json:"providerId"`
 	TargetID                string  `json:"targetId"`
-	TargetContractSHA256    string  `json:"targetContractSha256"`
-	GameCompatibilityLine   string  `json:"gameCompatibilityLine"`
 	ContentPolicyJSON       string  `json:"contentPolicyJson"`
 	TargetPolicyDigest      string  `json:"targetPolicyDigest"`
 	ContentMode             string  `json:"contentMode"`
@@ -59,7 +57,7 @@ type jobSnapshot struct {
 	MaxTotalBytes           int64   `json:"maxTotalBytes,omitempty"`
 	DATVersionID            *string `json:"datVersionId"`
 	ConfigSnapshotDigest    string  `json:"configSnapshotDigest"`
-	BaseVariantRevisionID   string  `json:"baseVariantRevisionId,omitempty"`
+	VariantID               string  `json:"variantId,omitempty"`
 	RPGGeneration           string  `json:"rpgGeneration,omitempty"`
 	RPGDependencySHA256     string  `json:"rpgDependencySha256,omitempty"`
 	RPGRequirementsSHA256   string  `json:"rpgRequirementsSha256,omitempty"`
@@ -218,7 +216,7 @@ func (service *Service) scheduleFresh(
 	if err != nil || binding.version != expectedVersion {
 		return Scheduled{}, ErrInvalid
 	}
-	contentID, instanceID, platformID := binding.contentID, binding.instanceID, binding.platformID
+	instanceID, platformID := binding.instanceID, binding.platformID
 	coreID, contentPolicyJSON := binding.coreID, binding.contentPolicyJSON
 	platformVersion, datID := binding.platformVersion, binding.datID
 	if platformID == "rpgmaker" && contentMode != contentcapability.ModeRPGMakerProject ||
@@ -237,9 +235,8 @@ func (service *Service) scheduleFresh(
 	jobID, consumptionID, executionID := newID(), newID(), newID()
 	targetPolicyDigest := corevalidation.ContentPolicyDigest(contentPolicyJSON)
 	configInput := fmt.Sprintf(
-		"%s\x00%d\x00%s\x00%s\x00%s\x00%s\x00%s\x00%s\x00%s",
-		instanceID, platformVersion, binding.providerID, binding.targetID, binding.targetContractSHA256,
-		binding.gameCompatibilityLine, targetPolicyDigest,
+		"%s\x00%d\x00%s\x00%s\x00%s\x00%s\x00%s",
+		instanceID, platformVersion, binding.providerID, binding.targetID, targetPolicyDigest,
 		contentMode, nullableText(datID),
 	)
 	configDigest := sha256.Sum256([]byte(configInput))
@@ -247,7 +244,7 @@ func (service *Service) scheduleFresh(
 		ExecutionID:             executionID,
 		GameID:                  gameID,
 		GameVersion:             expectedVersion,
-		BaseContentRevisionID:   contentID,
+		BaseManifestDigest:      binding.manifestDigest,
 		UploadSessionID:         uploadID,
 		PlatformID:              platformID,
 		PlatformInstanceID:      instanceID,
@@ -255,14 +252,12 @@ func (service *Service) scheduleFresh(
 		CoreID:                  coreID,
 		ProviderID:              binding.providerID,
 		TargetID:                binding.targetID,
-		TargetContractSHA256:    binding.targetContractSHA256,
-		GameCompatibilityLine:   binding.gameCompatibilityLine,
 		ContentPolicyJSON:       contentPolicyJSON,
 		TargetPolicyDigest:      targetPolicyDigest,
 		ContentMode:             contentMode,
 		DATVersionID:            nullablePointer(datID),
 		ConfigSnapshotDigest:    hex.EncodeToString(configDigest[:]),
-		BaseVariantRevisionID:   binding.variantRevisionID,
+		VariantID:               binding.variantID,
 		RPGGeneration:           binding.rpgGeneration,
 		RPGDependencySHA256:     binding.rpgDependencySHA256,
 		RPGRequirementsSHA256:   binding.rpgRequirementsSHA256,
@@ -289,14 +284,14 @@ func (service *Service) persistFreshSchedule(
 	executionID := snapshot.ExecutionID
 	envelope := inputEnvelope{
 		SchemaVersion: 1,
-		Kind:          "GAME_FILE_REVISION",
+		Kind:          "GAME_CONTENT_REPLACE",
 		Scope:         map[string]any{"type": "GAME", "id": gameID},
 		ExecutionID:   executionID,
 		Inputs:        snapshot,
 	}
 	inputJSON, _ := json.Marshal(envelope)
 	dedupeInput, _ := json.Marshal(map[string]any{"executionId": executionID, "gameId": gameID})
-	dedupe := sha256.Sum256(append([]byte("retrom-job-dedupe-v1\x00GAME_FILE_REVISION\x00"), dedupeInput...))
+	dedupe := sha256.Sum256(append([]byte("retrom-job-dedupe-v1\x00GAME_CONTENT_REPLACE\x00"), dedupeInput...))
 	if _, err := transaction.ExecContext(ctx, `
 INSERT INTO jobs(id,
 scope_type,
@@ -314,7 +309,7 @@ created_at_ms,
 updated_at_ms) VALUES(?,
 'GAME',
 ?,
-'GAME_FILE_REVISION',
+'GAME_CONTENT_REPLACE',
 ?,
 1,
 '{"schemaVersion":1,"inputExecutionNo":1}',
@@ -337,7 +332,7 @@ consumer_id,
 created_at_ms) VALUES(?,
 ?,
 NULL,
-'GAME_FILE_REVISION_JOB',
+'GAME_CONTENT_REPLACE_JOB',
 ?,
 ?)
 	`, consumptionID, uploadID, jobID, now); err != nil {
@@ -391,7 +386,7 @@ response_headers_json,
 response_body,
 created_at_ms,
 expires_at_ms) VALUES(?,
-'postAdminGameContentRevision',
+'postAdminGameContentReplacement',
 ?,
 ?,
 202,
@@ -427,7 +422,7 @@ func loadScheduledReplay(
 	if _, err := transaction.ExecContext(ctx, `
 DELETE
 FROM idempotency_records
-WHERE operation_id='postAdminGameContentRevision'
+WHERE operation_id='postAdminGameContentReplacement'
 AND key=?
 AND principal_id=?
 AND expires_at_ms<=?
@@ -440,7 +435,7 @@ AND expires_at_ms<=?
 SELECT request_digest,
 response_body
 FROM idempotency_records
-WHERE operation_id='postAdminGameContentRevision'
+WHERE operation_id='postAdminGameContentReplacement'
 AND key=?
 AND principal_id=?
 `, key, principalID).

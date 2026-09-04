@@ -31,10 +31,10 @@ func (configuration Config) MarshalJSON() ([]byte, error) {
 }
 
 type MultiDiscTelemetryDimensions struct {
-	PlatformKey          string
-	TargetKey            string
-	TargetContractDigest string
-	DiscCount            int
+	PlatformKey  string
+	TargetKey    string
+	BundleDigest string
+	DiscCount    int
 }
 
 type BundleFile struct {
@@ -60,8 +60,6 @@ type providerConfigSource struct {
 	state          string
 	providerID     string
 	targetID       string
-	targetDigest   string
-	gameLine       string
 	bundleDigest   string
 	coreID         string
 	coreName       string
@@ -74,7 +72,6 @@ type providerConfigSource struct {
 	generation     string
 	dependencyJSON string
 	compatibility  string
-	variantID      sql.NullString
 	saveID         sql.NullString
 	dosEntry       sql.NullString
 	validationID   sql.NullString
@@ -108,32 +105,26 @@ func (service *Service) productConfigSource(ctx context.Context, launchID string
 	var source providerConfigSource
 	err := service.database.QueryRowContext(ctx, `
 SELECT launch.credential_sha256,launch.state,launch.provider_id,launch.target_id,
- launch.target_contract_sha256,launch.game_compatibility_line,launch.bundle_sha256,
- variant.core_id,core.name,binding.delivery_profile,launch.purpose,metadata.title,platform.name,launch.return_to,
- content.content_kind,revision.dependency_snapshot_json,revision.compatibility_code,launch.game_variant_revision_id,
+ launch.bundle_sha256,
+ launch.core_id,core.name,binding.delivery_profile,launch.purpose,game.title,platform.name,launch.return_to,
+ launch.content_kind,launch.dependency_snapshot_json,launch.compatibility_code,
  launch.save_state_id,launch.dos_entry_path,launch.rpgmaker_runtime_validation_id,
  launch.netplay_session_id,launch.netplay_player_no,session.room_id,session.profile_json,
  launch.bootstrap_expires_at_ms,launch.hard_expires_at_ms,launch.idle_expires_at_ms,
  launch.initial_disc_index
 FROM launch_sessions launch
-JOIN game_variant_revisions revision ON revision.id=launch.game_variant_revision_id
-JOIN game_variants variant ON variant.id=revision.game_variant_id
-JOIN cores core ON core.id=variant.core_id
-JOIN game_content_revisions content ON content.id=launch.game_content_revision_id
+JOIN cores core ON core.id=launch.core_id
 JOIN games game ON game.id=launch.game_id
-JOIN game_metadata_revisions metadata ON metadata.id=game.current_metadata_revision_id
 JOIN platform_instances instance ON instance.id=game.platform_instance_id
 JOIN platforms platform ON platform.id=instance.platform_id
 JOIN runtime_target_bindings binding ON binding.provider_id=launch.provider_id AND binding.target_id=launch.target_id
 LEFT JOIN netplay_sessions session ON session.id=launch.netplay_session_id
-WHERE launch.id=? AND launch.purpose='PRODUCT' AND revision.status='READY'
- AND revision.provider_id=launch.provider_id AND revision.target_id=launch.target_id
- AND revision.game_compatibility_line=launch.game_compatibility_line
+WHERE launch.id=? AND launch.purpose='PRODUCT'
 `, launchID).Scan(
 		&source.credentialHash, &source.state, &source.providerID, &source.targetID,
-		&source.targetDigest, &source.gameLine, &source.bundleDigest, &source.coreID, &source.coreName,
+		&source.bundleDigest, &source.coreID, &source.coreName,
 		&source.delivery, &source.purpose, &source.title, &source.platformName, &source.returnTo,
-		&source.contentKind, &source.dependencyJSON, &source.compatibility, &source.variantID, &source.saveID,
+		&source.contentKind, &source.dependencyJSON, &source.compatibility, &source.saveID,
 		&source.dosEntry, &source.validationID, &source.netplayID, &source.netplayPlayer,
 		&source.netplayRoom, &source.netplayProfile, &source.bootstrapEnd, &source.hardEnd,
 		&source.idleEnd, &source.initialDisc,
@@ -148,9 +139,10 @@ func (service *Service) validationConfigSource(ctx context.Context, launchID str
 	var source providerConfigSource
 	err := service.database.QueryRowContext(ctx, `
 SELECT launch.credential_sha256,launch.state,launch.provider_id,launch.target_id,
- launch.target_contract_sha256,launch.game_compatibility_line,launch.bundle_sha256,
- binding.core_id,core.name,binding.delivery_profile,launch.purpose,'RPG Maker runtime validation',instance.name,
- launch.return_to,snapshot.content_kind,'{}','',NULL,NULL,NULL,launch.rpgmaker_runtime_validation_id,
+ launch.bundle_sha256,
+ launch.core_id,core.name,binding.delivery_profile,launch.purpose,'RPG Maker runtime validation',instance.name,
+ launch.return_to,launch.content_kind,launch.dependency_snapshot_json,launch.compatibility_code,
+ NULL,NULL,launch.rpgmaker_runtime_validation_id,
  NULL,NULL,NULL,NULL,launch.bootstrap_expires_at_ms,launch.hard_expires_at_ms,
  launch.idle_expires_at_ms,launch.initial_disc_index,validation.generation
 FROM launch_sessions launch
@@ -159,16 +151,14 @@ JOIN import_item_source_snapshots snapshot ON snapshot.id=validation.effective_s
 JOIN review_drafts draft ON draft.import_item_id=validation.import_item_id
 JOIN platform_instances instance ON instance.id=draft.target_platform_instance_id
 JOIN runtime_target_bindings binding ON binding.provider_id=launch.provider_id AND binding.target_id=launch.target_id
-JOIN cores core ON core.id=binding.core_id
+JOIN cores core ON core.id=launch.core_id
 WHERE launch.id=? AND launch.purpose='RPG_RUNTIME_VALIDATION'
  AND validation.provider_id=launch.provider_id AND validation.target_id=launch.target_id
- AND validation.target_contract_sha256=launch.target_contract_sha256
- AND validation.game_compatibility_line=launch.game_compatibility_line
 `, launchID).Scan(
 		&source.credentialHash, &source.state, &source.providerID, &source.targetID,
-		&source.targetDigest, &source.gameLine, &source.bundleDigest, &source.coreID, &source.coreName,
+		&source.bundleDigest, &source.coreID, &source.coreName,
 		&source.delivery, &source.purpose, &source.title, &source.platformName, &source.returnTo,
-		&source.contentKind, &source.dependencyJSON, &source.compatibility, &source.variantID, &source.saveID,
+		&source.contentKind, &source.dependencyJSON, &source.compatibility, &source.saveID,
 		&source.dosEntry, &source.validationID, &source.netplayID, &source.netplayPlayer,
 		&source.netplayRoom, &source.netplayProfile, &source.bootstrapEnd, &source.hardEnd,
 		&source.idleEnd, &source.initialDisc, &source.generation,
@@ -185,7 +175,8 @@ func (service *Service) providerEnvelope(
 	source providerConfigSource,
 ) (Config, error) {
 	target, exists := service.runtimeBuilder.Target(source.providerID, source.targetID)
-	if !exists || target.ContractSHA256 != source.targetDigest || target.GameCompatibilityLine != source.gameLine {
+	bundleDigest, bundleExists := service.runtimeBuilder.BundleSHA256(source.providerID, source.targetID)
+	if !exists || !bundleExists || bundleDigest != source.bundleDigest {
 		return Config{}, ErrCredential
 	}
 	resources, err := service.providerResources(ctx, sessionID, capability, source, target)
@@ -570,8 +561,8 @@ func providerBlobResource(
 	identity, err := ContentIdentity(ContentView{
 		Digest: selected.digest, Format: selected.format, CoreID: source.coreID,
 		ProviderID: source.providerID, TargetID: source.targetID,
-		TargetContractSHA256: source.targetDigest,
-		DOSEntry:             nullableStringPointer(source.dosEntry),
+		BundleSHA256: source.bundleDigest,
+		DOSEntry:     nullableStringPointer(source.dosEntry),
 	})
 	if err != nil {
 		return nil, err
@@ -848,8 +839,8 @@ WHERE validation.id=? AND validation.restore_launch_id=?
 	var size int64
 	if err := service.database.QueryRowContext(ctx, `
 SELECT save.checkpoint_format,save.payload_sha256,save.payload_size_bytes
-FROM save_states save JOIN save_state_runtime_compatibility compatibility ON compatibility.save_state_id=save.id
-WHERE save.id=? AND save.deleted_at_ms IS NULL AND compatibility.status='AVAILABLE'
+FROM save_states save
+WHERE save.id=? AND save.deleted_at_ms IS NULL
 	`, source.saveID.String).Scan(&format, &digest, &size); err != nil {
 		return nil, false, ErrCredential
 	}
@@ -921,12 +912,12 @@ func (service *Service) MultiDiscTelemetryDimensions(
 	launchID, capability string,
 ) (MultiDiscTelemetryDimensions, error) {
 	var credentialHash []byte
-	var state, platformKey, targetKey, targetDigest, contentFormat string
+	var state, platformKey, targetKey, bundleDigest, contentFormat string
 	var hardEnd int64
 	var discCount int
 	err := service.database.QueryRowContext(ctx, `
 SELECT launch.credential_sha256,launch.state,launch.hard_expires_at_ms,platform.id,
- launch.target_id,launch.target_contract_sha256,content.format_version,
+ launch.target_id,launch.bundle_sha256,content.format_version,
  (SELECT count(*) FROM launch_external_files file WHERE file.launch_session_id=launch.id AND file.kind='DISC')
 FROM launch_sessions launch
 JOIN games game ON game.id=launch.game_id
@@ -935,7 +926,7 @@ JOIN platforms platform ON platform.id=instance.platform_id
 JOIN launch_content_files content ON content.launch_session_id=launch.id
 WHERE launch.id=? AND content.format_version='RETROM_MULTIDISC_M3U_V1'
 `, launchID).Scan(
-		&credentialHash, &state, &hardEnd, &platformKey, &targetKey, &targetDigest, &contentFormat, &discCount,
+		&credentialHash, &state, &hardEnd, &platformKey, &targetKey, &bundleDigest, &contentFormat, &discCount,
 	)
 	if err != nil || !retromruntime.MatchesCapability(capability, credentialHash) ||
 		hardEnd <= service.now().UnixMilli() ||
@@ -943,7 +934,7 @@ WHERE launch.id=? AND content.format_version='RETROM_MULTIDISC_M3U_V1'
 		return MultiDiscTelemetryDimensions{}, ErrCredential
 	}
 	return MultiDiscTelemetryDimensions{
-		PlatformKey: platformKey, TargetKey: targetKey, TargetContractDigest: targetDigest, DiscCount: discCount,
+		PlatformKey: platformKey, TargetKey: targetKey, BundleDigest: bundleDigest, DiscCount: discCount,
 	}, nil
 }
 
@@ -964,9 +955,9 @@ SELECT credential_sha256,state,hard_expires_at_ms FROM launch_sessions WHERE id=
 	rows, err := service.database.QueryContext(ctx, `
 SELECT file.logical_name,blob.sha256
 FROM launch_sessions launch
-JOIN variant_files file ON file.game_variant_revision_id=launch.game_variant_revision_id
+JOIN launch_external_files file ON file.launch_session_id=launch.id
 JOIN blobs blob ON blob.id=file.blob_id
-WHERE launch.id=? AND file.role=? ORDER BY file.logical_name
+WHERE launch.id=? AND file.kind=? ORDER BY file.logical_name
 	`, launchID, kind)
 	if err != nil {
 		return nil, fmt.Errorf("load launch bundle files: %w", err)

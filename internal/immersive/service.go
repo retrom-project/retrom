@@ -121,7 +121,7 @@ WITH profile_play AS (
          (SELECT asset.id
           FROM game_assets asset
           WHERE asset.game_id=game.id
-          AND asset.metadata_revision_id=game.current_metadata_revision_id
+          AND asset.game_id=game.id
           AND asset.kind='COVER'
           AND asset.ordinal=0
           LIMIT 1) AS cover_asset_id,
@@ -134,7 +134,7 @@ WITH profile_play AS (
                     game.id DESC
          ) AS platform_rank
   FROM games game
-  JOIN game_metadata_revisions metadata ON metadata.id=game.current_metadata_revision_id
+  JOIN games metadata ON metadata.id=game.id
   JOIN platform_instances instance ON instance.id=game.platform_instance_id
   LEFT JOIN profile_play ON profile_play.game_id=game.id
   WHERE game.status='PUBLISHED'
@@ -258,14 +258,14 @@ SELECT game.id,
        (SELECT asset.id
         FROM game_assets asset
         WHERE asset.game_id=game.id
-        AND asset.metadata_revision_id=game.current_metadata_revision_id
+        AND asset.game_id=game.id
         AND asset.kind='COVER'
         AND asset.ordinal=0
         LIMIT 1),
        (SELECT asset.id
         FROM game_assets asset
         WHERE asset.game_id=game.id
-        AND asset.metadata_revision_id=game.current_metadata_revision_id
+        AND asset.game_id=game.id
         AND asset.kind='VIDEO'
         AND asset.ordinal=0
         LIMIT 1),
@@ -278,7 +278,7 @@ SELECT game.id,
          WHERE favorite.profile_id=? AND favorite.game_id=game.id
        )
 FROM games game
-JOIN game_metadata_revisions metadata ON metadata.id=game.current_metadata_revision_id
+JOIN games metadata ON metadata.id=game.id
 JOIN platform_instances instance ON instance.id=game.platform_instance_id
 JOIN cores core ON core.id=instance.default_core_id
 WHERE instance.platform_id=?

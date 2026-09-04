@@ -195,12 +195,12 @@ INSERT INTO blobs(id,sha256,size_bytes,md5,sha1,crc32,media_type,created_at_ms)
 VALUES(?,?,1024,?,?,?,'application/zip',?)
 `, blobID, strings.Repeat("b", 64), strings.Repeat("c", 32), strings.Repeat("d", 40), strings.Repeat("e", 8), now)
 	mustExecHTTPTest(t, transaction, `
-INSERT INTO dat_versions(id,core_id,provider_id,target_id,target_contract_sha256,builtin_relative_path,sha256,parser_version,
+INSERT INTO dat_versions(id,core_id,provider_id,target_id,builtin_relative_path,sha256,parser_version,
 parse_status,is_active,machine_count,rom_entry_count,disk_entry_count,bios_set_count,
 default_bios_set_count,explicit_bios_machine_count,base_dependency_target_count,unresolved_relation_count,
 version,created_at_ms,updated_at_ms,parsed_at_ms,activated_at_ms)
-VALUES(?,'mame2003_plus',?,?,?,'test.dat',?,'test','READY',1,1,1,0,0,0,1,0,0,1,?,?,?,?)
-`, datVersionID, target.ProviderID, target.TargetID, target.TargetContractSHA256,
+VALUES(?,'mame2003_plus',?,?,'test.dat',?,'test','READY',1,1,1,0,0,0,1,0,0,1,?,?,?,?)
+`, datVersionID, target.ProviderID, target.TargetID,
 		strings.Repeat("f", 64), now, now, now, now)
 	mustExecHTTPTest(t, transaction, `
 INSERT INTO dat_machines(dat_version_id,machine_name,description,year,manufacturer,is_explicit_bios,classification)
@@ -211,11 +211,11 @@ INSERT INTO dat_rom_entries(dat_version_id,machine_name,ordinal,name,size_bytes,
 VALUES(?,'stvbios',0,'epr19730.ic8',524288,'d0e0889d',?,'GOOD',NULL)
 `, datVersionID, strings.Repeat("1", 40))
 	mustExecHTTPTest(t, transaction, `
-INSERT INTO bios_requirements(id,core_id,provider_id,target_id,target_contract_sha256,source_kind,dat_machine_name,logical_name,
+INSERT INTO bios_requirements(id,core_id,provider_id,target_id,source_kind,dat_machine_name,logical_name,
 requirement_mode,condition_code,catalog_digest,source_url,source_version,enabled,version,created_at_ms,updated_at_ms)
-VALUES(?,'mame2003_plus',?,?,?,'DAT_MACHINE','stvbios','stvbios.zip','REQUIRED','ARCADE_DAT_DEPENDENCY',?,
+VALUES(?,'mame2003_plus',?,?,'DAT_MACHINE','stvbios','stvbios.zip','REQUIRED','ARCADE_DAT_DEPENDENCY',?,
 'retrom:test',?,1,1,?,?)
-`, requirementID, target.ProviderID, target.TargetID, target.TargetContractSHA256,
+`, requirementID, target.ProviderID, target.TargetID,
 		strings.Repeat("2", 64), datVersionID, now, now)
 	mustExecHTTPTest(t, transaction, `
 INSERT INTO bios_installations(id,requirement_id,blob_id,original_filename,size_bytes,md5,sha1,sha256,
@@ -304,7 +304,7 @@ func TestDiagnosticsUsesClosedSnapshotSchemaAndRequiredHeaders(t *testing.T) {
 	if err := decoder.Decode(&response); err != nil {
 		t.Fatalf("diagnostics schema: %v: %s", err, recorder.Body.String())
 	}
-	testassert.Falsef(t, testassert.Any(func() bool { return response.SchemaVersion != 2 }, func() bool { return response.GeneratedAtMS != fixed.UnixMilli() }, func() bool { return response.DatabaseSchemaVersion != 11 }, func() bool { return len(response.RuntimeProviders) != 2 }, func() bool { return response.RuntimeProviders[0].ProviderID != "emulatorjs" }, func() bool { return response.RuntimeProviders[1].ProviderID != "retrom-runtime" }), "diagnostics values = %#v", response)
+	testassert.Falsef(t, testassert.Any(func() bool { return response.SchemaVersion != 2 }, func() bool { return response.GeneratedAtMS != fixed.UnixMilli() }, func() bool { return response.DatabaseSchemaVersion != 12 }, func() bool { return len(response.RuntimeProviders) != 2 }, func() bool { return response.RuntimeProviders[0].ProviderID != "emulatorjs" }, func() bool { return response.RuntimeProviders[1].ProviderID != "retrom-runtime" }), "diagnostics values = %#v", response)
 }
 
 func TestImportProjectionsIncludeRejectedFileProblems(t *testing.T) {
@@ -344,9 +344,9 @@ VALUES(?,?,'fc/8只眼.zip',1,1,?,'COMPLETE',?,?)
 `, uploadFileID, uploadID, blobID, timestamp, timestamp)
 	mustExecHTTPTest(t, transaction, `
 INSERT INTO import_jobs(id,upload_session_id,target_platform_instance_id,platform_instance_version,platform_id,default_core_id,
-provider_id,target_id,target_contract_sha256,metadata_provider,config_snapshot_json,config_snapshot_digest,state,total_item_count,rejected_file_count,version,created_at_ms,updated_at_ms)
-VALUES(?,?,(SELECT id FROM platform_instances WHERE catalog_template_key='nes/fceumm'),1,'nes','fceumm',?,?,?,'HASHEOUS','{}',?,'PARTIAL_FAILURE',0,1,1,?,?)
-`, importID, uploadID, target.ProviderID, target.TargetID, target.TargetContractSHA256, digest, timestamp, timestamp)
+provider_id,target_id,metadata_provider,config_snapshot_json,config_snapshot_digest,state,total_item_count,rejected_file_count,version,created_at_ms,updated_at_ms)
+VALUES(?,?,(SELECT id FROM platform_instances WHERE catalog_template_key='nes/fceumm'),1,'nes','fceumm',?,?,'HASHEOUS','{}',?,'PARTIAL_FAILURE',0,1,1,?,?)
+`, importID, uploadID, target.ProviderID, target.TargetID, digest, timestamp, timestamp)
 	mustExecHTTPTest(t, transaction, `
 INSERT INTO import_job_files(import_job_id,upload_file_id,disposition,reason_code,created_at_ms,updated_at_ms)
 VALUES(?,?,'REJECTED','ARCHIVE_UNSAFE',?,?)
@@ -361,10 +361,10 @@ VALUES(?,'COMPLETE','FILES',1,0,?,1,?,?,?)
 `, extraUploadID, digest, timestamp+60_000, extraTimestamp, extraTimestamp)
 		mustExecHTTPTest(t, transaction, `
 INSERT INTO import_jobs(id,upload_session_id,target_platform_instance_id,platform_instance_version,platform_id,default_core_id,
-provider_id,target_id,target_contract_sha256,metadata_provider,config_snapshot_json,config_snapshot_digest,state,version,created_at_ms,updated_at_ms)
-VALUES(?,?,(SELECT id FROM platform_instances WHERE catalog_template_key='nes/fceumm'),1,'nes','fceumm',?,?,?,'HASHEOUS','{}',?,'COMPLETED',1,?,?)
+provider_id,target_id,metadata_provider,config_snapshot_json,config_snapshot_digest,state,version,created_at_ms,updated_at_ms)
+VALUES(?,?,(SELECT id FROM platform_instances WHERE catalog_template_key='nes/fceumm'),1,'nes','fceumm',?,?,'HASHEOUS','{}',?,'COMPLETED',1,?,?)
 `, extraImportID, extraUploadID, target.ProviderID, target.TargetID,
-			target.TargetContractSHA256, digest, extraTimestamp, extraTimestamp)
+			digest, extraTimestamp, extraTimestamp)
 	}
 	if err := transaction.Commit(); err != nil {
 		t.Fatal(err)
@@ -467,11 +467,11 @@ VALUES(?,'COMPLETE','FILES',1,1,?,1,?,?,?)
 `, uploadID, digest, timestamp+60_000, timestamp, timestamp)
 	mustExecHTTPTest(t, server.database, `
 INSERT INTO import_jobs(id,upload_session_id,target_platform_instance_id,platform_instance_version,
-platform_id,default_core_id,provider_id,target_id,target_contract_sha256,metadata_provider,config_snapshot_json,config_snapshot_digest,
+platform_id,default_core_id,provider_id,target_id,metadata_provider,config_snapshot_json,config_snapshot_digest,
 state,total_item_count,review_pending_item_count,version,created_at_ms,updated_at_ms)
-VALUES(?,?,(SELECT id FROM platform_instances WHERE catalog_template_key='gba/mgba'),1,'gba','mgba',?,?,?,'NONE','{}',?,
+VALUES(?,?,(SELECT id FROM platform_instances WHERE catalog_template_key='gba/mgba'),1,'gba','mgba',?,?,'NONE','{}',?,
 'REVIEW_PENDING',1,1,1,?,?)
-`, importID, uploadID, target.ProviderID, target.TargetID, target.TargetContractSHA256, digest, timestamp, timestamp)
+`, importID, uploadID, target.ProviderID, target.TargetID, digest, timestamp, timestamp)
 	mustExecHTTPTest(t, server.database, `
 INSERT INTO import_items(id,import_job_id,group_key,state,source_manifest_json,source_manifest_digest,
 search_text,version,created_at_ms,updated_at_ms,completed_at_ms)

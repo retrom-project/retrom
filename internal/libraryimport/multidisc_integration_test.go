@@ -265,8 +265,8 @@ AND disposition='IGNORED' AND reason_code='NOT_REFERENCED_BY_PLAYLIST'
 	published := queryAttachmentStrings(t, database.SQL, `
 SELECT revision.content_kind||':'||file.role||':'||printf('%d',file.sort_order)
 FROM games game
-JOIN game_content_revisions revision ON revision.id=game.current_content_revision_id
-JOIN game_content_files file ON file.game_content_revision_id=revision.id
+JOIN games revision ON revision.id=game.id
+JOIN game_files file ON file.game_id=revision.id
 WHERE game.id=? ORDER BY file.role,file.sort_order
 `, approved.GameID)
 	testassert.Falsef(t, len(published) != 3, "published content = %v", published)
@@ -295,7 +295,7 @@ WHERE game.id=? ORDER BY file.role,file.sort_order
 	discEntries, ok := discSet["entries"].([]any)
 	testassert.Falsef(t, testassert.Any(func() bool { return discSet["kind"] != "MULTI_DISC" }, func() bool { return fmt.Sprint(discSet["initialDiscIndex"]) != "0" }, func() bool { return !ok }, func() bool { return len(discEntries) != 2 }), "multi-disc launch resource = %#v", discSet)
 	dimensions, err := launcher.MultiDiscTelemetryDimensions(ctx, createdLaunch.LaunchID, createdLaunch.Capability)
-	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return dimensions.PlatformKey != "saturn" }, func() bool { return dimensions.TargetKey != "yabause" }, func() bool { return len(dimensions.TargetContractDigest) != 64 }, func() bool { return dimensions.DiscCount != 2 }), "multi-disc telemetry dimensions = %#v, error=%v", dimensions, err)
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return dimensions.PlatformKey != "saturn" }, func() bool { return dimensions.TargetKey != "yabause" }, func() bool { return len(dimensions.BundleDigest) != 64 }, func() bool { return dimensions.DiscCount != 2 }), "multi-disc telemetry dimensions = %#v, error=%v", dimensions, err)
 	for index, rawEntry := range discEntries {
 		entry, entryOK := rawEntry.(map[string]any)
 		expectedName := fmt.Sprintf("disc-%03d.chd", index+1)
@@ -305,7 +305,7 @@ WHERE game.id=? ORDER BY file.role,file.sort_order
 		if _, err := launcher.ExternalBlob(ctx, createdLaunch.LaunchID, createdLaunch.Capability, expectedName); err != nil {
 			t.Fatalf("locked disc %d: %v", index, err)
 		}
-		testassert.Falsef(t, testassert.Any(func() bool { return viewErr != nil }, func() bool { return view.Kind != "DISC" }, func() bool { return view.PlatformKey != "saturn" }, func() bool { return view.TargetID != "yabause" }, func() bool { return view.DiscCount != 2 }, func() bool { return view.TargetContractSHA256 != dimensions.TargetContractDigest }), "observable disc %d = %#v, error=%v", index, view, viewErr)
+		testassert.Falsef(t, testassert.Any(func() bool { return viewErr != nil }, func() bool { return view.Kind != "DISC" }, func() bool { return view.PlatformKey != "saturn" }, func() bool { return view.TargetID != "yabause" }, func() bool { return view.DiscCount != 2 }, func() bool { return view.BundleSHA256 != dimensions.BundleDigest }), "observable disc %d = %#v, error=%v", index, view, viewErr)
 	}
 	if _, err := launcher.ExternalBlob(
 		ctx, createdLaunch.LaunchID, createdLaunch.Capability, "Disc One.CHD",

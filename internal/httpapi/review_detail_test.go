@@ -103,27 +103,19 @@ func TestBlockedReviewDetailRemainsVisibleWithoutSelectedValidation(t *testing.T
 	}, func() bool {
 		return !strings.Contains(recorder.Body.String(), `"scrapeRuns":[{"attemptCount":0,"candidateCount":1,"completedAtMs":`)
 	}, func() bool { return !strings.Contains(recorder.Body.String(), `"provider":"HASHEOUS"`) }, func() bool {
-		return !strings.Contains(recorder.Body.String(), `"targetContractChange":null`)
+		return strings.Contains(recorder.Body.String(), `"validationStale"`)
 	}), "blocked review detail = %d %s", recorder.Code, recorder.Body.String())
-	replacementContract := strings.Repeat("9", 64)
-	mustExecHTTPTest(t, server.database, `
-UPDATE runtime_targets SET target_contract_sha256=?
-WHERE provider_id=? AND target_id=?
-`, replacementContract, target.ProviderID, target.TargetID)
 	mustExecHTTPTest(t, server.database, `
 UPDATE runtime_providers SET provider_version='1.0.1'
 WHERE provider_id=?
 `, target.ProviderID)
-	staleRuntime := httptest.NewRecorder()
-	server.review(staleRuntime, request)
+	upgradedRuntime := httptest.NewRecorder()
+	server.review(upgradedRuntime, request)
 	testassert.Falsef(t, testassert.Any(
-		func() bool { return staleRuntime.Code != http.StatusOK },
-		func() bool { return !strings.Contains(staleRuntime.Body.String(), `"validationStale":true`) },
-		func() bool { return !strings.Contains(staleRuntime.Body.String(), `"id":"`+validationID+`"`) },
-		func() bool {
-			return !strings.Contains(staleRuntime.Body.String(), `"targetContractChange":{"current":"`+replacementContract+`","previous":"`+target.TargetContractSHA256+`"}`)
-		},
-	), "runtime-stale review detail = %d %s", staleRuntime.Code, staleRuntime.Body.String())
+		func() bool { return upgradedRuntime.Code != http.StatusOK },
+		func() bool { return !strings.Contains(upgradedRuntime.Body.String(), `"id":"`+validationID+`"`) },
+		func() bool { return strings.Contains(upgradedRuntime.Body.String(), `"validationStale"`) },
+	), "runtime upgrade review detail = %d %s", upgradedRuntime.Code, upgradedRuntime.Body.String())
 	uploadedCover := httptest.NewRecorder()
 	invalidCoverRequest := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/v1/admin/reviews/"+itemID+"/assets", strings.NewReader(`{"uploadFileId":"`+coverUploadFileID+`","kind":"BACKGROUND"}`))
 	invalidCoverRequest.SetPathValue("importItemId", itemID)
@@ -143,7 +135,7 @@ WHERE provider_id=?
 	server.patchReview(patch, patchRequest)
 	testassert.Falsef(t, anyTrue(patch.Code != http.StatusOK, !strings.Contains(patch.Body.String(), `"version":2`)),
 		"select review cover = %d %s", patch.Code, patch.Body.String())
-	assertRuntimeValidationRefreshed(t, server, request, itemID, target.ProviderID, target.TargetID, replacementContract)
+	assertRuntimeValidationCurrent(t, server, request, itemID, target.ProviderID, target.TargetID)
 	staleCover := httptest.NewRecorder()
 	staleCoverRequest := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/v1/admin/reviews/"+itemID+"/assets", strings.NewReader(`{"uploadFileId":"`+coverUploadFileID+`","kind":"COVER"}`))
 	staleCoverRequest.SetPathValue("importItemId", itemID)
@@ -171,37 +163,35 @@ UPDATE review_drafts SET cover_candidate_asset_id=? WHERE import_item_id=?
 	testassert.Falsef(t, anyTrue(filteredList.Code != http.StatusOK,
 		!strings.Contains(filteredList.Body.String(), `"itemId":"`+itemID+`"`)),
 		"review queue import filter = %d %s", filteredList.Code, filteredList.Body.String())
-	target.TargetContractSHA256 = replacementContract
 	assertPegasusReviewSources(
 		t, server, itemID, importID, target, coverBlobID,
 		manifest, digest, timestamp, coverMetadata,
 	)
 }
 
-func assertRuntimeValidationRefreshed(
+func assertRuntimeValidationCurrent(
 	t *testing.T,
 	server *Server,
 	request *http.Request,
-	itemID, providerID, targetID, targetContract string,
+	itemID, providerID, targetID string,
 ) {
 	t.Helper()
 	var validationID, status string
 	if err := server.database.QueryRowContext(context.Background(), `
 SELECT id,status FROM import_item_core_validations
-WHERE import_item_id=? AND provider_id=? AND target_id=? AND target_contract_sha256=?
+WHERE import_item_id=? AND provider_id=? AND target_id=?
 ORDER BY created_at_ms DESC,id DESC LIMIT 1
-`, itemID, providerID, targetID, targetContract).Scan(&validationID, &status); err != nil {
-		t.Fatalf("read refreshed runtime validation: %v", err)
+`, itemID, providerID, targetID).Scan(&validationID, &status); err != nil {
+		t.Fatalf("read current runtime validation: %v", err)
 	}
 	response := httptest.NewRecorder()
 	server.review(response, request)
 	testassert.Falsef(t, testassert.Any(
 		func() bool { return response.Code != http.StatusOK },
-		func() bool { return strings.Contains(response.Body.String(), `"validationStale":true`) },
-		func() bool { return !strings.Contains(response.Body.String(), `"targetContractChange":null`) },
+		func() bool { return strings.Contains(response.Body.String(), `"validationStale"`) },
 		func() bool { return !strings.Contains(response.Body.String(), `"id":"`+validationID+`"`) },
 		func() bool { return status != "BLOCKED" },
-	), "refreshed runtime review detail = %d %s", response.Code, response.Body.String())
+	), "current runtime review detail = %d %s", response.Code, response.Body.String())
 }
 
 func createReviewCoverFixture(t *testing.T, server *Server, itemID, uploadFileID string) string {
@@ -265,11 +255,11 @@ INSERT INTO pegasus_imports(
 INSERT INTO pegasus_import_collections(
  id,import_id,metadata_relative_path,segment_ordinal,name,game_count,mapping_action,
  target_platform_instance_id,target_platform_instance_version,target_platform_id,target_default_core_id,
- target_provider_id,target_id,target_contract_sha256,created_at_ms,updated_at_ms
+ target_provider_id,target_id,created_at_ms,updated_at_ms
 ) VALUES(?,?,'FC/metadata.pegasus.txt',0,'FC',1,'IMPORT',
- (SELECT id FROM platform_instances WHERE catalog_template_key='gba/mgba'),1,'gba','mgba',?,?,?,?,?)
+ (SELECT id FROM platform_instances WHERE catalog_template_key='gba/mgba'),1,'gba','mgba',?,?,?,?)
 `, pegasusCollectionID, pegasusImportID, target.ProviderID, target.TargetID,
-		target.TargetContractSHA256, timestamp, timestamp)
+		timestamp, timestamp)
 	mustExecHTTPTest(t, server.database, `
 INSERT INTO pegasus_import_items(
  id,import_id,collection_id,metadata_relative_path,game_ordinal,source_key,title,discovery_state,
@@ -412,7 +402,6 @@ platform_id,
 default_core_id,
 provider_id,
 target_id,
-target_contract_sha256,
 metadata_provider,
 config_snapshot_json,
 config_snapshot_digest,
@@ -429,7 +418,6 @@ updated_at_ms) VALUES(?,
 'mgba',
 ?,
 ?,
-?,
 'HASHEOUS',
 '{}',
 ?,
@@ -439,8 +427,7 @@ updated_at_ms) VALUES(?,
 1,
 ?,
 ?)
-`, importID, uploadID, target.ProviderID, target.TargetID, target.TargetContractSHA256,
-		digest, timestamp, timestamp)
+`, importID, uploadID, target.ProviderID, target.TargetID, digest, timestamp, timestamp)
 	mustExecHTTPTest(t, transaction, `
 INSERT INTO import_items(id,
 import_job_id,
@@ -509,8 +496,6 @@ platform_instance_version,
 core_id,
 provider_id,
 target_id,
-target_contract_sha256,
-game_compatibility_line,
 source_manifest_digest,
 source_snapshot_id,
 prepublish_input_digest,
@@ -527,14 +512,11 @@ created_at_ms) VALUES(?,
 ?,
 ?,
 ?,
-?,
-?,
 'BLOCKED',
 'DEPENDENCY_MISSING',
 '{"dependencies":[]}',
 ?)
-`, validationID, itemID, target.ProviderID, target.TargetID, target.TargetContractSHA256,
-		target.GameCompatibilityLine, digest, sourceSnapshotID, digest, timestamp)
+`, validationID, itemID, target.ProviderID, target.TargetID, digest, sourceSnapshotID, digest, timestamp)
 	mustExecHTTPTest(t, transaction, `
 INSERT INTO review_drafts(id,
 import_item_id,

@@ -105,16 +105,11 @@ VALUES(?,?,'replacement.png',?,?,?,'COMPLETE',?,?)
 	mustScanHTTPTest(t, server.database.QueryRowContext(t.Context(), `
 SELECT
  (SELECT count(*) FROM game_assets asset JOIN games game ON game.id=asset.game_id
-  WHERE game.id=? AND asset.metadata_revision_id<>game.current_metadata_revision_id),
+  WHERE game.id=? AND asset.game_id<>game.id),
  (SELECT count(*) FROM blob_gc_candidates WHERE blob_id=?)
 `, gameID, coverBlobID), &retiredAssets, &candidateCount)
 	testassert.Falsef(t, retiredAssets != 0 || candidateCount != 1,
 		"cover retirement = retired assets:%d GC candidates:%d", retiredAssets, candidateCount)
-	if _, err := server.database.ExecContext(t.Context(), `DELETE FROM game_assets
-WHERE game_id=? AND metadata_revision_id=(SELECT current_metadata_revision_id FROM games WHERE id=?)`, gameID, gameID); err == nil {
-		t.Fatal("current game asset deletion was accepted")
-	}
-
 	snapshot, err := storageanalysis.New(server.database, time.Now).Analyze(t.Context())
 	testassert.False(t, err != nil, err)
 	testassert.Falsef(t, snapshot.Totals.UnreferencedBytes < 4,

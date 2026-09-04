@@ -161,10 +161,10 @@ SELECT state FROM upload_sessions WHERE id=?
 		return ErrInvalid
 	}
 	var version int64
-	var providerID, targetID, targetContractSHA256 string
+	var providerID, targetID string
 	target := run.plan.target
 	err := run.transaction.QueryRowContext(run.ctx, `
-SELECT pi.version,target.provider_id,target.target_id,target.target_contract_sha256
+SELECT pi.version,target.provider_id,target.target_id
 FROM platform_instances pi
 JOIN runtime_target_bindings binding ON binding.core_id=? AND binding.provider_id=? AND binding.target_id=?
  AND binding.launch_policy!='DISABLED'
@@ -174,10 +174,10 @@ JOIN runtime_targets target ON target.provider_id=binding.provider_id AND target
 WHERE pi.id=? AND pi.default_core_id=? AND pi.enabled=1 AND pi.deleted_at_ms IS NULL
 `, target.coreID, target.providerID, target.targetID,
 		run.plan.request.TargetPlatformInstanceID, target.defaultCoreID).Scan(
-		&version, &providerID, &targetID, &targetContractSHA256,
+		&version, &providerID, &targetID,
 	)
 	if err != nil || version != target.instanceVersion || providerID != target.providerID ||
-		targetID != target.targetID || targetContractSHA256 != target.targetContractSHA256 {
+		targetID != target.targetID {
 		return ErrInvalid
 	}
 	return nil
@@ -191,10 +191,8 @@ func (run *creationRun) configSnapshot(biosCatalog []corevalidation.BIOSCatalogE
 		"platformInstanceVersion": target.instanceVersion, "platformId": target.platformID,
 		"defaultCoreId": target.defaultCoreID, "resolvedCoreId": target.coreID,
 		"providerId": target.providerID, "targetId": target.targetID,
-		"targetContractSha256":  target.targetContractSHA256,
-		"gameCompatibilityLine": target.gameCompatibilityLine,
-		"contentPolicyDigest":   compatibilityConfigDigest(target.contentPolicyJSON),
-		"datVersionId":          nullable(run.plan.datID), "biosRequirements": biosCatalog,
+		"contentPolicyDigest": compatibilityConfigDigest(target.contentPolicyJSON),
+		"datVersionId":        nullable(run.plan.datID), "biosRequirements": biosCatalog,
 		"metadataProviderConfigVersion": 1, "tags": run.tagReferences,
 	}
 	if run.plan.contentMode == contentcapability.ModeMultiDisc {

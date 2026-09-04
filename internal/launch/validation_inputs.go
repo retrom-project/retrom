@@ -15,12 +15,12 @@ import (
 )
 
 type validationInputs struct {
+	GameID                string `json:"gameId"`
 	GameVariantID         string `json:"gameVariantId"`
-	GameContentRevisionID string `json:"gameContentRevisionId"`
+	GameVersion           int64  `json:"gameVersion"`
+	SourceManifestDigest  string `json:"sourceManifestDigest"`
 	ProviderID            string `json:"providerId"`
 	TargetID              string `json:"targetId"`
-	TargetContractSHA256  string `json:"targetContractSha256"`
-	GameCompatibilityLine string `json:"gameCompatibilityLine"`
 	ContentPolicyJSON     string `json:"contentPolicyJson"`
 	DATVersionID          any    `json:"datVersionId"`
 	ValidationInputDigest string `json:"validationInputDigest"`
@@ -43,7 +43,7 @@ type validationScope struct {
 func validationDedupeKey(variantID, digest string) string {
 	canonical, _ := json.Marshal(map[string]string{"gameVariantId": variantID, "validationInputDigest": digest})
 	value := sha256.New()
-	_, _ = value.Write([]byte("retrom-job-dedupe-v1\x00VARIANT_REVALIDATE\x00"))
+	_, _ = value.Write([]byte("retrom-job-dedupe-v1\x00VARIANT_VALIDATE\x00"))
 	_, _ = value.Write(canonical)
 	return hex.EncodeToString(value.Sum(nil))
 }
@@ -166,10 +166,7 @@ installation.version,
 installation.blob_id,
 installation.status
 FROM game_variants variant
-JOIN game_variant_revisions revision ON revision.id=variant.current_revision_id
-AND revision.game_content_revision_id=?
-AND revision.dat_version_id IS ?
-JOIN variant_dependencies dependency ON dependency.game_variant_revision_id=revision.id
+JOIN variant_dependencies dependency ON dependency.game_variant_id=variant.id
 AND dependency.kind='BIOS_OR_BASE'
 LEFT JOIN bios_requirements requirement ON requirement.provider_id=? AND requirement.target_id=?
 AND requirement.source_kind='DAT_MACHINE'
@@ -179,9 +176,9 @@ AND requirement.enabled=1
 LEFT JOIN bios_installations installation ON installation.requirement_id=requirement.id
 AND installation.is_active=1
 AND installation.validated_requirement_version=requirement.version
-WHERE variant.id=?
+WHERE variant.id=? AND variant.game_id=? AND variant.dat_version_id IS ?
 ORDER BY dependency.logical_archive
-`, contentID, nullableSQL(datID), providerID, targetID, datID.String, variantID)
+`, providerID, targetID, datID.String, variantID, contentID, nullableSQL(datID))
 	if err != nil {
 		return corevalidation.Snapshot{}, "BLOCKED", "LAUNCH_CORE_VALIDATION_UNAVAILABLE",
 			fmt.Errorf("launch validation Arcade BIOS: %w", err)
@@ -216,7 +213,7 @@ func (service *Service) validationDigests(
 	ctx context.Context,
 	transaction *sql.Tx,
 	variantID, contentID, contentLogicalName, contentKind,
-	providerID, targetID, targetContractSHA256, gameCompatibilityLine, contentPolicyJSON string,
+	providerID, targetID, contentPolicyJSON string,
 	datID sql.NullString,
 ) (string, string, error) {
 	biosSnapshot, _, _, err := service.resolveVariantBIOS(
@@ -227,13 +224,13 @@ func (service *Service) validationDigests(
 	}
 	if contentKind == corevalidation.MultiDiscContentKind {
 		digest, biosDigest, _, digestErr := service.multiDiscRevalidationInputs(
-			ctx, transaction, variantID, contentID, providerID, targetID, targetContractSHA256,
-			gameCompatibilityLine, contentPolicyJSON, datID, biosSnapshot,
+			ctx, transaction, variantID, contentID, providerID, targetID,
+			contentPolicyJSON, datID, biosSnapshot,
 		)
 		return digest, biosDigest, digestErr
 	}
 	digest, err := corevalidation.ProviderValidationInputDigest(
-		providerID, targetID, targetContractSHA256, gameCompatibilityLine, contentID, datID, biosSnapshot,
+		providerID, targetID, contentID, datID, biosSnapshot,
 	)
 	if err != nil {
 		return "", "", fmt.Errorf("launch validation digest: %w", err)
@@ -249,7 +246,7 @@ func (service *Service) validationDigests(
 func (service *Service) currentValidationEvidence(
 	ctx context.Context,
 	variantID, contentID, contentLogicalName, contentKind,
-	providerID, targetID, targetContractSHA256, gameCompatibilityLine, contentPolicyJSON string,
+	providerID, targetID, contentPolicyJSON string,
 	datID sql.NullString,
 ) (string, string, corevalidation.Snapshot, string, string, error) {
 	biosSnapshot, biosStatus, biosCode, err := service.resolveVariantBIOS(
@@ -260,13 +257,13 @@ func (service *Service) currentValidationEvidence(
 	}
 	if contentKind == corevalidation.MultiDiscContentKind {
 		digest, biosDigest, snapshot, digestErr := service.multiDiscRevalidationInputs(
-			ctx, service.database, variantID, contentID, providerID, targetID, targetContractSHA256,
-			gameCompatibilityLine, contentPolicyJSON, datID, biosSnapshot,
+			ctx, service.database, variantID, contentID, providerID, targetID,
+			contentPolicyJSON, datID, biosSnapshot,
 		)
 		return digest, biosDigest, snapshot, biosStatus, biosCode, digestErr
 	}
 	digest, err := corevalidation.ProviderValidationInputDigest(
-		providerID, targetID, targetContractSHA256, gameCompatibilityLine, contentID, datID, biosSnapshot,
+		providerID, targetID, contentID, datID, biosSnapshot,
 	)
 	if err != nil {
 		return "", "", corevalidation.Snapshot{}, "", "", fmt.Errorf("launch validation digest: %w", err)
@@ -307,11 +304,8 @@ func (service *Service) lockedArcadeDependencySnapshot(
 	var raw string
 	if err := service.database.QueryRowContext(ctx, `
 SELECT revision.dependency_snapshot_json
-FROM game_variants variant
-JOIN game_variant_revisions revision ON revision.id=variant.current_revision_id
-WHERE variant.id=?
-AND revision.game_content_revision_id=?
-AND revision.dat_version_id=?
+FROM game_variants revision
+WHERE revision.id=? AND revision.game_id=? AND revision.dat_version_id=?
 `, variantID, contentID, datID).Scan(&raw); err != nil {
 		return "", fmt.Errorf("load locked Arcade dependency snapshot: %w", err)
 	}

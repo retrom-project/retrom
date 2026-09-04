@@ -203,7 +203,7 @@ func (service *Service) Room(ctx context.Context, roomID, viewerProfileID string
 	var gameID, variantID, profileID, digest, sessionID, reason sql.NullString
 	var maxPlayers, endedAt sql.NullInt64
 	err := service.database.QueryRowContext(ctx, `
-SELECT id,state,version,selected_game_id,selected_game_variant_revision_id,netplay_profile_id,
+SELECT id,state,version,selected_game_id,selected_game_variant_id,netplay_profile_id,
   profile_digest,max_players,current_session_id,expires_at_ms,ended_at_ms,end_reason,updated_at_ms
 FROM netplay_rooms WHERE id=?
 `, roomID).Scan(
@@ -227,13 +227,11 @@ FROM netplay_rooms WHERE id=?
 		var game RoomGame
 		game.GameID, game.ProfileID, game.MaxPlayers = gameID.String, profileID.String, int(maxPlayers.Int64)
 		if err := service.database.QueryRowContext(ctx, `
-SELECT metadata.title,game.status,platform.name,core.name,revision.provider_id,revision.target_id
+SELECT game.title,game.status,platform.name,core.name,variant.provider_id,variant.target_id
 FROM games game
-JOIN game_metadata_revisions metadata ON metadata.id=game.current_metadata_revision_id
 JOIN platform_instances instance ON instance.id=game.platform_instance_id
 JOIN platforms platform ON platform.id=instance.platform_id
-JOIN game_variant_revisions revision ON revision.id=?
-JOIN game_variants variant ON variant.id=revision.game_variant_id
+JOIN game_variants variant ON variant.id=? AND variant.game_id=game.id
 JOIN cores core ON core.id=variant.core_id
 WHERE game.id=?
 `, variantID.String, gameID.String).Scan(
@@ -332,8 +330,9 @@ func (service *Service) SelectGame(
 		return Room{}, ErrInvalidProfile
 	}
 	canonical, digest, err := service.registry.CanonicalProfile(CanonicalProfileInput{
-		ManifestProfile: selected.Manifest, TargetContractSHA256: selected.TargetContractSHA256,
-		GameVariantRevisionID: selected.VariantRevisionID, DependencySnapshotJSON: selected.DependencySnapshotJSON,
+		ManifestProfile: selected.Manifest, BundleSHA256: selected.BundleSHA256,
+		SourceManifestDigest:   selected.SourceManifestDigest,
+		DependencySnapshotJSON: selected.DependencySnapshotJSON,
 	})
 	if err != nil || len(canonical) == 0 {
 		return Room{}, ErrInvalidProfile
@@ -388,10 +387,10 @@ SELECT count(*) FROM netplay_room_members WHERE room_id=? AND left_at_ms IS NULL
 		return ErrInvalidSeat
 	}
 	result, err := transaction.ExecContext(ctx, `
-UPDATE netplay_rooms SET state='WAITING',selected_game_id=?,selected_game_variant_revision_id=?,
+UPDATE netplay_rooms SET state='WAITING',selected_game_id=?,selected_game_variant_id=?,
 netplay_profile_id=?,profile_digest=?,max_players=?,current_session_id=NULL,version=version+1,
 expires_at_ms=?,updated_at_ms=? WHERE id=? AND version=?
-`, gameID, selected.VariantRevisionID, profileID, digest, selected.Manifest.MaxPlayers,
+`, gameID, selected.VariantID, profileID, digest, selected.Manifest.MaxPlayers,
 		now+service.options.WaitingIdle.Milliseconds(), now, roomID, expectedVersion)
 	if err != nil {
 		return serviceError("select game update", err)
@@ -435,7 +434,7 @@ func (service *Service) ClearGame(
 		ctx, roomID, actorProfileID, expectedVersion, []string{RoomStateWaiting},
 		func(transaction *sql.Tx, now int64) error {
 			if _, err := transaction.ExecContext(ctx, `
-UPDATE netplay_rooms SET state='DRAFT',selected_game_id=NULL,selected_game_variant_revision_id=NULL,
+UPDATE netplay_rooms SET state='DRAFT',selected_game_id=NULL,selected_game_variant_id=NULL,
 netplay_profile_id=NULL,profile_digest=NULL,max_players=NULL,version=version+1,
 expires_at_ms=?,updated_at_ms=? WHERE id=? AND version=?
 	`, now+service.options.DraftIdle.Milliseconds(), now, roomID, expectedVersion); err != nil {

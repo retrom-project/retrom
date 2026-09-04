@@ -150,12 +150,11 @@ INSERT INTO runtime_providers(
 	testassert.False(t, err != nil, err)
 	_, err = fixture.database.SQL.ExecContext(t.Context(), `
 INSERT INTO runtime_targets(
- provider_id,target_id,display_name,game_compatibility_line,netplay_compatibility_line,
- target_options_schema_json,capabilities_json,checkpoint_json,manifest_fragment_json,target_contract_sha256
-) VALUES('emulatorjs','fceumm','FCEUmm','fceumm-v1','emulatorjs-netplay-v2',
+ provider_id,target_id,display_name,target_options_schema_json,capabilities_json,checkpoint_json,manifest_fragment_json
+) VALUES('emulatorjs','fceumm','FCEUmm',
  '{"type":"object","additionalProperties":false,"properties":{},"required":[]}','{}',
- '{"writeFormat":"checkpoint-v1","readFormats":["checkpoint-v1"],"maxBytes":67108864}','{}',?)
-`, testDigestD)
+ '{"writeFormat":"checkpoint-v1","readFormats":["checkpoint-v1"],"maxBytes":67108864}','{}')
+`)
 	testassert.False(t, err != nil, err)
 	_, err = fixture.database.SQL.ExecContext(t.Context(), `
 INSERT INTO platform_instances(
@@ -172,11 +171,11 @@ INSERT INTO upload_sessions(
 	_, err = fixture.database.SQL.ExecContext(t.Context(), `
 INSERT INTO import_jobs(
  id,upload_session_id,target_platform_instance_id,platform_instance_version,platform_id,default_core_id,
- provider_id,target_id,target_contract_sha256,metadata_provider,config_snapshot_json,config_snapshot_digest,state,total_item_count,
+ provider_id,target_id,metadata_provider,config_snapshot_json,config_snapshot_digest,state,total_item_count,
  review_pending_item_count,created_at_ms,updated_at_ms
-) VALUES(?,'upload-schema','platform-schema',1,'nes','fceumm','emulatorjs','fceumm',?,'NONE','{}',?,
+) VALUES(?,'upload-schema','platform-schema',1,'nes','fceumm','emulatorjs','fceumm','NONE','{}',?,
  'REVIEW_PENDING',1,1,1,1)
-`, jobID, testDigestD, testDigestC)
+`, jobID, testDigestC)
 	testassert.False(t, err != nil, err)
 	_, err = fixture.database.SQL.ExecContext(t.Context(), `
 INSERT INTO import_items(

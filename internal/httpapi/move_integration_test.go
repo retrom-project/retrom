@@ -5,9 +5,7 @@ package httpapi
 import (
 	"bytes"
 	"context"
-	"crypto/sha256"
 	"database/sql"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -151,20 +149,19 @@ updated_at_ms) VALUES(?,
 	)
 	testassert.Falsef(t, testassert.Any(func() bool { return committed.Code != http.StatusOK }, func() bool { return committed.Header().Get("ETag") != `"v2"` }), "move commit = %d %s", committed.Code, committed.Body.String())
 	var storedTarget, storedContent string
-	var version, variantCount, revisionCount, auditCount int64
+	var version, variantCount, auditCount int64
 	if err := server.database.QueryRowContext(ctx, `
 SELECT platform_instance_id,
-current_content_revision_id,
+id,
 version,
 (SELECT count(*) FROM game_variants WHERE game_id=games.id),
-(SELECT count(*) FROM game_variant_revisions r JOIN game_variants v ON v.id=r.game_variant_id WHERE v.game_id=games.id),
 (SELECT count(*) FROM audit_events WHERE resource_type='GAME' AND resource_id=games.id AND action='GAME_MOVED')
 FROM games
 WHERE id=?
-`, gameID).Scan(&storedTarget, &storedContent, &version, &variantCount, &revisionCount, &auditCount); err != nil {
+`, gameID).Scan(&storedTarget, &storedContent, &version, &variantCount, &auditCount); err != nil {
 		t.Fatal(err)
 	}
-	testassert.Falsef(t, testassert.Any(func() bool { return storedTarget != targetID }, func() bool { return storedContent != contentID }, func() bool { return version != 2 }, func() bool { return variantCount != 2 }, func() bool { return revisionCount != 2 }, func() bool { return auditCount != 1 }), "move state = target:%s content:%s version:%d variants:%d revisions:%d audits:%d", storedTarget, storedContent, version, variantCount, revisionCount, auditCount)
+	testassert.Falsef(t, testassert.Any(func() bool { return storedTarget != targetID }, func() bool { return storedContent != contentID }, func() bool { return version != 2 }, func() bool { return variantCount != 2 }, func() bool { return auditCount != 1 }), "move state = target:%s content:%s version:%d variants:%d audits:%d", storedTarget, storedContent, version, variantCount, auditCount)
 }
 
 func waitForIdempotencyQueue(t *testing.T, server *Server, expected int) {
@@ -313,53 +310,13 @@ func TestDefaultCoreImpactPaginationRejectsDriftAndPreservesSaveLaunch(t *testin
 		t.Fatalf("first default core page = %d %s, error=%v", first.Code, first.Body.String(), err)
 	}
 	oldCursor := *firstBody.NextCursor
-	newMetadataID := "01980000-0000-7000-8000-000000000192"
 	if _, err := server.database.ExecContext(ctx, `
-INSERT INTO game_metadata_revisions(id,
-game_id,
-title,
-title_initial,
-description,
-developer,
-publisher,
-genre,
-players,
-release_year,
-source_kind,
-source_ref_id,
-created_at_ms)
-SELECT ?,
-game_id,
-title,
-title_initial,
-description,
-developer,
-publisher,
-genre,
-players,
-release_year,
-'ADMIN_EDIT',
-NULL,
-?
-FROM game_metadata_revisions
-WHERE id=(SELECT current_metadata_revision_id FROM games WHERE id=?)
-`, newMetadataID, time.Now().UnixMilli(), gameID); err != nil {
-		t.Fatal(err)
-	}
-	var originalMetadataID string
-	if err := server.database.QueryRowContext(ctx, `SELECT current_metadata_revision_id FROM games WHERE id=?`, gameID).
-		Scan(&originalMetadataID); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := server.database.ExecContext(ctx, `UPDATE games SET current_metadata_revision_id=? WHERE id=?`, newMetadataID, gameID); err != nil {
+UPDATE games SET version=version+1,updated_at_ms=? WHERE id=?
+`, time.Now().UnixMilli(), gameID); err != nil {
 		t.Fatal(err)
 	}
 	stale := preview(&oldCursor)
 	testassert.Falsef(t, testassert.Any(func() bool { return stale.Code != http.StatusConflict }, func() bool { return !strings.Contains(stale.Body.String(), `"code":"IMPACT_PREVIEW_STALE"`) }), "drifted preview cursor = %d %s", stale.Code, stale.Body.String())
-	if _, err := server.database.ExecContext(ctx, `UPDATE games SET current_metadata_revision_id=? WHERE id=?`, originalMetadataID, gameID); err != nil {
-		t.Fatal(err)
-	}
-
 	seen := map[string]struct{}{}
 	var cursorValue *string
 	var digest string
@@ -405,6 +362,7 @@ WHERE id=(SELECT current_metadata_revision_id FROM games WHERE id=?)
 		launch.CreateRequest{GameID: gameID, ReturnTo: "/games/" + gameID, ClientCapabilities: capabilities},
 	)
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return pending.Status != "VALIDATION_PENDING" }, func() bool { return pending.JobID == "" }), "new default core launch = %#v, error=%v", pending, err)
+	waitForHTTPJob(t, server.database, pending.JobID, "SUCCEEDED")
 	saved, err := server.launcher.Create(
 		ctx,
 		"local",
@@ -415,18 +373,13 @@ WHERE id=(SELECT current_metadata_revision_id FROM games WHERE id=?)
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return saved.LaunchID == "" }, func() bool { return saved.Status == "VALIDATION_PENDING" }), "old save launch = %#v, error=%v", saved, err)
 	var savedCore string
 	if err := server.database.QueryRowContext(ctx, `
-SELECT binding.core_id
-FROM launch_sessions l
-JOIN runtime_target_bindings binding
- ON binding.provider_id=l.provider_id AND binding.target_id=l.target_id
-WHERE l.id=?
-LIMIT 1
-`, saved.LaunchID).Scan(&savedCore); err != nil || savedCore != "gambatte" {
+SELECT core_id FROM launch_sessions WHERE id=?
+`, saved.LaunchID).Scan(&savedCore); err != nil || savedCore != "mgba" {
 		t.Fatalf("save launch core = %s, error=%v", savedCore, err)
 	}
 }
 
-func TestGameMetadataRevisionProjectionAndOptimisticEdit(t *testing.T) {
+func TestGameMetadataCurrentStateProjectionAndOptimisticEdit(t *testing.T) {
 	server := newReadyHTTPServer(t)
 	gameID, contentID := seedMovableGame(t, server)
 	handler, cookie, csrf := httpSession(t, server)
@@ -434,7 +387,7 @@ func TestGameMetadataRevisionProjectionAndOptimisticEdit(t *testing.T) {
 	detail := httptest.NewRecorder()
 	detailRequest := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/admin/games/"+gameID, nil)
 	handler.ServeHTTP(detail, detailRequest)
-	testassert.Falsef(t, testassert.Any(func() bool { return detail.Code != http.StatusOK }, func() bool { return detail.Header().Get("ETag") != `"v1"` }, func() bool { return !strings.Contains(detail.Body.String(), `"contentRevisions"`) }, func() bool { return !strings.Contains(detail.Body.String(), `"variants"`) }), "admin game projection = %d %s", detail.Code, detail.Body.String())
+	testassert.Falsef(t, testassert.Any(func() bool { return detail.Code != http.StatusOK }, func() bool { return detail.Header().Get("ETag") != `"v1"` }, func() bool { return !strings.Contains(detail.Body.String(), `"files"`) }, func() bool { return !strings.Contains(detail.Body.String(), `"variants"`) }, func() bool { return strings.Contains(detail.Body.String(), `"contentRevisions"`) }), "admin game projection = %d %s", detail.Code, detail.Body.String())
 
 	sendPatch := func(etag string) *httptest.ResponseRecorder {
 		request := httptest.NewRequestWithContext(context.Background(),
@@ -455,27 +408,24 @@ func TestGameMetadataRevisionProjectionAndOptimisticEdit(t *testing.T) {
 	testassert.Falsef(t, testassert.Any(func() bool { return edited.Code != http.StatusOK }, func() bool { return edited.Header().Get("ETag") != `"v2"` }), "metadata edit = %d %s", edited.Code, edited.Body.String())
 	stale := sendPatch(`"v1"`)
 	testassert.Falsef(t, testassert.Any(func() bool { return stale.Code != http.StatusConflict }, func() bool { return !strings.Contains(stale.Body.String(), `"code":"VERSION_CONFLICT"`) }), "stale metadata edit = %d %s", stale.Code, stale.Body.String())
-	var title, titleInitial, previousTitleInitial, sourceKind string
+	var title, titleInitial, sourceKind string
 	var sourceRef sql.NullString
 	var storedContent, ownerID string
-	var auditCount, revisionCount int64
+	var version, auditCount int64
 	if err := server.database.QueryRowContext(context.Background(), `
-SELECT m.title,
-m.title_initial,
-(SELECT previous.title_initial FROM game_metadata_revisions previous
- WHERE previous.game_id=g.id AND previous.id<>g.current_metadata_revision_id),
-m.source_kind,
-m.source_ref_id,
-g.current_content_revision_id,
+SELECT g.title,
+g.title_initial,
+g.metadata_source_kind,
+g.metadata_source_ref_id,
+g.id,
 g.platform_instance_id,
-(SELECT count(*) FROM game_metadata_revisions WHERE game_id=g.id),
+g.version,
 (SELECT count(*) FROM audit_events WHERE resource_type='GAME' AND resource_id=g.id AND action='GAME_METADATA_UPDATED')
 FROM games g
-JOIN game_metadata_revisions m ON m.id=g.current_metadata_revision_id
 WHERE g.id=?
 `, gameID).Scan(
-		&title, &titleInitial, &previousTitleInitial, &sourceKind, &sourceRef,
-		&storedContent, &ownerID, &revisionCount, &auditCount,
+		&title, &titleInitial, &sourceKind, &sourceRef,
+		&storedContent, &ownerID, &version, &auditCount,
 	); err != nil {
 		t.Fatal(err)
 	}
@@ -483,15 +433,14 @@ WHERE g.id=?
 	testassert.Falsef(t, testassert.Any(
 		func() bool { return title != "打击者1945" },
 		func() bool { return titleInitial != "D" },
-		func() bool { return previousTitleInitial != "M" },
 		func() bool { return sourceKind != "ADMIN_EDIT" },
 		func() bool { return sourceRef.Valid },
 		func() bool { return storedContent != contentID },
 		func() bool { return ownerID != gbcID },
-		func() bool { return revisionCount != 2 },
+		func() bool { return version != 2 },
 		func() bool { return auditCount != 1 },
-	), "metadata state = title:%s initial:%s/%s source:%s/%v content:%s owner:%s revisions:%d audits:%d",
-		title, titleInitial, previousTitleInitial, sourceKind, sourceRef, storedContent, ownerID, revisionCount, auditCount)
+	), "metadata state = title:%s initial:%s source:%s/%v content:%s owner:%s version:%d audits:%d",
+		title, titleInitial, sourceKind, sourceRef, storedContent, ownerID, version, auditCount)
 	public := httptest.NewRecorder()
 	handler.ServeHTTP(public, httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/games/"+gameID, nil))
 	testassert.Falsef(t, testassert.Any(func() bool { return public.Code != http.StatusOK }, func() bool { return !strings.Contains(public.Body.String(), `"title":"打击者1945"`) }), "public game metadata = %d %s", public.Code, public.Body.String())
@@ -541,26 +490,24 @@ VALUES(?,?,'payload-history-admin','Payload History Admin','ADMIN','ENABLED',1,1
 	if !ok {
 		t.Fatalf("launch game resource = %#v", gameResource)
 	}
-	var revisionID, blobID string
+	var blobID string
 	if err := server.database.QueryRowContext(ctx, `
-SELECT r.id,
-f.blob_id
+SELECT f.blob_id
 FROM games g
 JOIN game_variants v ON v.game_id=g.id AND v.core_id='gambatte'
-JOIN game_variant_revisions r ON r.id=v.current_revision_id
-JOIN game_content_files f ON f.game_content_revision_id=g.current_content_revision_id AND f.role='CONTENT'
+JOIN game_files f ON f.game_id=g.id AND f.role='CONTENT'
 WHERE g.id=?
-`, gameID).Scan(&revisionID, &blobID); err != nil {
+`, gameID).Scan(&blobID); err != nil {
 		t.Fatal(err)
 	}
 	saveID := "01980000-0000-7000-8000-000000000193"
 	seedProductSave(t, server.database, saveID, created.LaunchID, "Delete fixture save")
 	if _, err := server.database.ExecContext(ctx, `
-INSERT INTO play_sessions(id,launch_session_id,profile_id,game_id,game_variant_revision_id,
+INSERT INTO play_sessions(id,launch_session_id,profile_id,game_id,
 started_at_ms,last_heartbeat_at_ms,active_duration_ms,last_client_sequence,state,version,created_at_ms,updated_at_ms)
-VALUES(?,?,(SELECT profile_id FROM launch_sessions WHERE id=?),?,?,?, ?,60000,0,'ACTIVE',1,?,?)
+VALUES(?,?,(SELECT profile_id FROM launch_sessions WHERE id=?),?,?,?,60000,0,'ACTIVE',1,?,?)
 `, "01980000-0000-7000-8000-000000000192", created.LaunchID, created.LaunchID, gameID,
-		revisionID, time.Now().UnixMilli(), time.Now().UnixMilli(), time.Now().UnixMilli(), time.Now().UnixMilli()); err != nil {
+		time.Now().UnixMilli(), time.Now().UnixMilli(), time.Now().UnixMilli(), time.Now().UnixMilli()); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := server.database.ExecContext(ctx, `
@@ -630,24 +577,29 @@ SELECT profile_id,?,? FROM launch_sessions WHERE id=?
 			break
 		}
 		if time.Now().After(deadline) {
-			t.Fatalf("game payload state = %s", payloadState)
+			var jobState, jobError, payloadError sql.NullString
+			_ = server.database.QueryRowContext(ctx, `
+SELECT job.state,job.error_code,game.payload_last_error_code
+FROM games game LEFT JOIN jobs job ON job.id=game.payload_release_job_id
+WHERE game.id=?`, gameID).Scan(&jobState, &jobError, &payloadError)
+			t.Fatalf("game payload state = %s, job=%s/%s, payloadError=%s",
+				payloadState, jobState.String, jobError.String, payloadError.String)
 		}
 		time.Sleep(10 * time.Millisecond)
 	}
 	var status, payloadState, launchState string
 	var deletedAt sql.NullInt64
-	var version, saveCount, metadataCount, contentCount, contentFileCount, variantCount, variantFileCount, auditCount int64
+	var version, saveCount, gameCount, contentFileCount, variantCount, variantFileCount, auditCount int64
 	if err := server.database.QueryRowContext(ctx, `
 SELECT g.status,
 g.payload_state,
 g.deleted_at_ms,
 g.version,
 (SELECT count(*) FROM save_states WHERE game_id=g.id),
-(SELECT count(*) FROM game_metadata_revisions WHERE game_id=g.id),
-(SELECT count(*) FROM game_content_revisions WHERE game_id=g.id),
-(SELECT count(*) FROM game_content_files file JOIN game_content_revisions revision ON revision.id=file.game_content_revision_id WHERE revision.game_id=g.id),
-(SELECT count(*) FROM game_variant_revisions r JOIN game_variants v ON v.id=r.game_variant_id WHERE v.game_id=g.id),
-(SELECT count(*) FROM variant_files file JOIN game_variant_revisions revision ON revision.id=file.game_variant_revision_id JOIN game_variants variant ON variant.id=revision.game_variant_id WHERE variant.game_id=g.id),
+(SELECT count(*) FROM games current_game WHERE current_game.id=g.id),
+(SELECT count(*) FROM game_files file WHERE file.game_id=g.id),
+(SELECT count(*) FROM game_variants variant WHERE variant.game_id=g.id),
+(SELECT count(*) FROM variant_files file JOIN game_variants variant ON variant.id=file.game_variant_id WHERE variant.game_id=g.id),
 (SELECT count(*) FROM audit_events WHERE resource_type='GAME' AND resource_id=g.id AND action='GAME_PERMANENT_DELETE_REQUESTED'),
 (SELECT state FROM launch_sessions WHERE id=?)
 FROM games g
@@ -658,8 +610,7 @@ WHERE g.id=?
 		&deletedAt,
 		&version,
 		&saveCount,
-		&metadataCount,
-		&contentCount,
+		&gameCount,
 		&contentFileCount,
 		&variantCount,
 		&variantFileCount,
@@ -668,7 +619,7 @@ WHERE g.id=?
 	); err != nil {
 		t.Fatal(err)
 	}
-	testassert.Falsef(t, testassert.Any(func() bool { return status != "DELETED" }, func() bool { return payloadState != "RELEASED" }, func() bool { return !deletedAt.Valid }, func() bool { return version != 2 }, func() bool { return saveCount != 0 }, func() bool { return metadataCount != 1 }, func() bool { return contentCount != 1 }, func() bool { return contentFileCount != 0 }, func() bool { return variantCount != 1 }, func() bool { return variantFileCount != 0 }, func() bool { return auditCount != 1 }, func() bool { return launchState != "REVOKED" }), "deleted aggregate = %s/%s/%v v%d saves:%d metadata:%d content:%d/%d variants:%d/%d audits:%d launch:%s", status, payloadState, deletedAt, version, saveCount, metadataCount, contentCount, contentFileCount, variantCount, variantFileCount, auditCount, launchState)
+	testassert.Falsef(t, testassert.Any(func() bool { return status != "DELETED" }, func() bool { return payloadState != "RELEASED" }, func() bool { return !deletedAt.Valid }, func() bool { return version != 3 }, func() bool { return saveCount != 0 }, func() bool { return gameCount != 1 }, func() bool { return contentFileCount != 0 }, func() bool { return variantCount != 1 }, func() bool { return variantFileCount != 0 }, func() bool { return auditCount != 1 }, func() bool { return launchState != "REVOKED" }), "deleted aggregate = %s/%s/%v v%d saves:%d games:%d content:%d variants:%d/%d audits:%d launch:%s", status, payloadState, deletedAt, version, saveCount, gameCount, contentFileCount, variantCount, variantFileCount, auditCount, launchState)
 	afterDeleteRequest := httptest.NewRequestWithContext(ctx, http.MethodGet, gameURL, nil)
 	afterDeleteRequest.Header.Set("Cache-Control", "no-cache")
 	afterDeleteRequest.AddCookie(runtimeGrant)
@@ -739,7 +690,13 @@ func waitForPayloadState(t *testing.T, database *sql.DB, gameID, expected string
 			return
 		}
 		if time.Now().After(deadline) {
-			t.Fatalf("game %s payload state = %s", gameID, state)
+			var jobState, jobError, payloadError sql.NullString
+			_ = database.QueryRowContext(context.Background(), `
+SELECT job.state,job.error_code,game.payload_last_error_code
+FROM games game LEFT JOIN jobs job ON job.id=game.payload_release_job_id
+WHERE game.id=?`, gameID).Scan(&jobState, &jobError, &payloadError)
+			t.Fatalf("game %s payload state = %s, job=%s/%s, payloadError=%s",
+				gameID, state, jobState.String, jobError.String, payloadError.String)
 		}
 		time.Sleep(10 * time.Millisecond)
 	}
@@ -774,11 +731,8 @@ func seedMovableGame(t *testing.T, server *Server) (string, string) {
 	blobID, err := blobstore.EnsureRecord(ctx, server.database, metadata, "application/octet-stream", time.Now().UnixMilli())
 	testassert.False(t, err != nil, err)
 	gameID := "01980000-0000-7000-8000-000000000176"
-	metadataID := "01980000-0000-7000-8000-000000000177"
-	contentID := "01980000-0000-7000-8000-000000000178"
 	variantID := "01980000-0000-7000-8000-000000000179"
-	revisionID := "01980000-0000-7000-8000-000000000180"
-	validationDigest, dependencySnapshot := validationFixture(t, server.database, target, contentID, "move.gbc")
+	_, dependencySnapshot := validationFixture(t, server.database, target, gameID, "move.gbc")
 	now := time.Now().UnixMilli()
 	transaction, err := server.database.BeginTx(ctx, nil)
 	testassert.False(t, err != nil, err)
@@ -789,43 +743,25 @@ func seedMovableGame(t *testing.T, server *Server) (string, string) {
 	}{
 		{`PRAGMA defer_foreign_keys=ON`, nil},
 		{`
-INSERT INTO game_metadata_revisions(id, game_id, title, title_initial, description, developer, publisher, genre, players,
-release_year, source_kind, source_ref_id, created_at_ms)
-VALUES(?, ?, 'Move fixture', 'M', '', '', '', '', NULL, NULL, 'ADMIN_EDIT', NULL, ?)
-`, []any{metadataID, gameID, now}},
+INSERT INTO games(
+ id,platform_instance_id,title,title_initial,description,developer,publisher,genre,players,release_year,
+ metadata_source_kind,content_kind,content_source_kind,content_source_ref_id,source_manifest_json,source_manifest_digest,
+ status,search_text,version,created_at_ms,updated_at_ms
+) VALUES(?,(SELECT id FROM platform_instances WHERE catalog_template_key='gbc/gambatte'),
+ 'Move fixture','M','','','','',NULL,NULL,'ADMIN_EDIT','SINGLE_FILE','ADMIN_REPLACE','fixture','{}',?,
+ 'PUBLISHED','move fixture',1,?,?)
+`, []any{gameID, strings.Repeat("1", 64), now, now}},
 		{`
-INSERT INTO game_content_revisions(id, game_id, source_kind, source_ref_id, source_manifest_json,
-source_manifest_digest, created_at_ms)
-VALUES(?, ?, 'ADMIN_REPLACE', 'fixture', '{}', ?, ?)
-`, []any{contentID, gameID, strings.Repeat("1", 64), now}},
-		{`
-INSERT INTO games(id, platform_instance_id, status, current_metadata_revision_id, current_content_revision_id,
-search_text, version, created_at_ms, updated_at_ms)
-VALUES(?, (SELECT id FROM platform_instances WHERE catalog_template_key='gbc/gambatte'), 'PUBLISHED', ?, ?, 'move fixture', 1, ?, ?)
-`, []any{gameID, metadataID, contentID, now, now}},
-		{`
-INSERT INTO game_content_files(game_content_revision_id, role, logical_name, blob_id, sort_order)
+INSERT INTO game_files(game_id, role, logical_name, blob_id, sort_order)
 VALUES(?, 'CONTENT', 'move.gbc', ?, 0)
-`, []any{contentID, blobID}},
+`, []any{gameID, blobID}},
 		{`
-INSERT INTO game_variants(id, game_id, core_id, current_revision_id, version, created_at_ms, updated_at_ms)
-VALUES(?, ?, 'gambatte', NULL, 1, ?, ?)
-`, []any{variantID, gameID, now, now}},
-		{`
-INSERT INTO game_variant_revisions(id, game_variant_id, game_content_revision_id,
-provider_id,target_id,target_contract_sha256,game_compatibility_line,
-dat_version_id, validation_input_digest, emulator_game_id, status, compatibility_code,
-dependency_snapshot_json, created_at_ms)
-VALUES(?, ?, ?, ?, ?, ?, ?, NULL, ?, 7001, 'READY', 'READY', ?, ?)
+INSERT INTO game_variants(id,game_id,core_id,provider_id,target_id,dat_version_id,emulator_game_id,
+ status,compatibility_code,dependency_snapshot_json,version,created_at_ms,updated_at_ms)
+VALUES(?,?,'gambatte',?,?,NULL,7001,'READY','READY',?,1,?,?)
 `, []any{
-			revisionID, variantID, contentID, target.ProviderID, target.TargetID,
-			target.TargetContractSHA256, target.GameCompatibilityLine, validationDigest, dependencySnapshot, now,
+			variantID, gameID, target.ProviderID, target.TargetID, dependencySnapshot, now, now,
 		}},
-		{`
-UPDATE game_variants
-SET current_revision_id=?
-WHERE id=?
-`, []any{revisionID, variantID}},
 	}
 	for _, statement := range statements {
 		if _, err := transaction.ExecContext(ctx, statement.query, statement.args...); err != nil {
@@ -835,20 +771,17 @@ WHERE id=?
 	if err := transaction.Commit(); err != nil {
 		t.Fatal(err)
 	}
-	return gameID, contentID
+	return gameID, gameID
 }
 
 func cloneMovableGame(
 	t *testing.T,
 	server *Server,
-	sourceGameID, gameSuffix, metadataSuffix, contentSuffix, variantSuffix, revisionSuffix string,
+	sourceGameID, gameSuffix, _ string, _ string, variantSuffix, _ string,
 ) {
 	t.Helper()
 	id := func(suffix string) string { return "01980000-0000-7000-8000-000000000" + suffix }
 	ctx := context.Background()
-	target, err := testsupport.LookupRuntimeTarget(ctx, server.database, "gambatte")
-	testassert.False(t, err != nil, err)
-	validationDigest, _ := validationFixture(t, server.database, target, id(contentSuffix), "move.gbc")
 	transaction, err := server.database.BeginTx(ctx, nil)
 	testassert.False(t, err != nil, err)
 	defer cleanup.Rollback(transaction)
@@ -860,56 +793,32 @@ func cloneMovableGame(
 		args  []any
 	}{
 		{`
-INSERT INTO game_metadata_revisions(id, game_id, title, title_initial, description, developer, publisher, genre, players,
-release_year, source_kind, source_ref_id, created_at_ms)
-SELECT ?, ?, title || ?, title_initial, description, developer, publisher, genre, players, release_year, source_kind, source_ref_id,
-created_at_ms
-FROM game_metadata_revisions
-WHERE id=(SELECT current_metadata_revision_id FROM games WHERE id=?)
-`, []any{id(metadataSuffix), id(gameSuffix), gameSuffix, sourceGameID}},
-		{`
-INSERT INTO game_content_revisions(id, game_id, source_kind, source_ref_id, source_manifest_json,
-source_manifest_digest, created_at_ms)
-SELECT ?, ?, source_kind, source_ref_id, source_manifest_json, source_manifest_digest, created_at_ms
-FROM game_content_revisions
-WHERE id=(SELECT current_content_revision_id FROM games WHERE id=?)
-`, []any{id(contentSuffix), id(gameSuffix), sourceGameID}},
-		{`
-INSERT INTO games(id, platform_instance_id, status, current_metadata_revision_id, current_content_revision_id,
-search_text, version, created_at_ms, updated_at_ms)
-SELECT ?, platform_instance_id, status, ?, ?, search_text || ?, 1, created_at_ms, updated_at_ms
+INSERT INTO games(
+ id,platform_instance_id,title,title_initial,description,developer,publisher,genre,players,release_year,
+ metadata_source_kind,metadata_source_ref_id,content_kind,content_source_kind,content_source_ref_id,
+ source_manifest_json,source_manifest_digest,status,search_text,version,created_at_ms,updated_at_ms)
+SELECT ?,platform_instance_id,title || ?,title_initial,description,developer,publisher,genre,players,release_year,
+ metadata_source_kind,metadata_source_ref_id,content_kind,content_source_kind,content_source_ref_id || ?,
+ source_manifest_json,source_manifest_digest,status,search_text || ?,1,created_at_ms,updated_at_ms
 FROM games
 WHERE id=?
-`, []any{id(gameSuffix), id(metadataSuffix), id(contentSuffix), gameSuffix, sourceGameID}},
+`, []any{id(gameSuffix), gameSuffix, gameSuffix, gameSuffix, sourceGameID}},
 		{`
-INSERT INTO game_content_files(game_content_revision_id, role, logical_name, blob_id, sort_order,
+INSERT INTO game_files(game_id, role, logical_name, blob_id, sort_order,
 source_archive_blob_id, source_archive_entry_ordinal)
 SELECT ?, role, logical_name, blob_id, sort_order, source_archive_blob_id, source_archive_entry_ordinal
-FROM game_content_files
-WHERE game_content_revision_id=(SELECT current_content_revision_id FROM games WHERE id=?)
-`, []any{id(contentSuffix), sourceGameID}},
+FROM game_files
+WHERE game_id=?
+`, []any{id(gameSuffix), sourceGameID}},
 		{`
-INSERT INTO game_variants(id, game_id, core_id, current_revision_id, version, created_at_ms, updated_at_ms)
-SELECT ?, ?, core_id, NULL, 1, created_at_ms, updated_at_ms
+INSERT INTO game_variants(
+ id,game_id,core_id,provider_id,target_id,dat_version_id,emulator_game_id,status,
+ compatibility_code,dependency_snapshot_json,default_dos_entry,version,created_at_ms,updated_at_ms)
+SELECT ?,?,core_id,provider_id,target_id,dat_version_id,emulator_game_id + ?,status,
+ compatibility_code,dependency_snapshot_json,default_dos_entry,1,created_at_ms,updated_at_ms
 FROM game_variants
 WHERE game_id=? AND core_id='gambatte'
-`, []any{id(variantSuffix), id(gameSuffix), sourceGameID}},
-		{`
-INSERT INTO game_variant_revisions(id, game_variant_id, game_content_revision_id,
-provider_id,target_id,target_contract_sha256,game_compatibility_line,
-dat_version_id, validation_input_digest, emulator_game_id, status, compatibility_code,
-dependency_snapshot_json, created_at_ms)
-SELECT ?, ?, ?, provider_id,target_id,target_contract_sha256,game_compatibility_line,
-dat_version_id, ?, emulator_game_id + ?, status, compatibility_code,
-dependency_snapshot_json, created_at_ms
-FROM game_variant_revisions
-WHERE id=(SELECT current_revision_id FROM game_variants WHERE game_id=? AND core_id='gambatte')
-		`, []any{
-			id(revisionSuffix), id(variantSuffix), id(contentSuffix),
-			validationDigest,
-			mustSuffixInt(t, gameSuffix), sourceGameID,
-		}},
-		{`UPDATE game_variants SET current_revision_id=? WHERE id=?`, []any{id(revisionSuffix), id(variantSuffix)}},
+`, []any{id(variantSuffix), id(gameSuffix), mustSuffixInt(t, gameSuffix), sourceGameID}},
 	}
 	for _, statement := range statements {
 		if _, err := transaction.ExecContext(ctx, statement.query, statement.args...); err != nil {
@@ -923,49 +832,38 @@ WHERE id=(SELECT current_revision_id FROM game_variants WHERE game_id=? AND core
 
 func seedProductSave(t *testing.T, database *sql.DB, saveID, launchID, name string) {
 	t.Helper()
-	var profileID, gameID, contentID, variantID string
-	var providerID, targetID, targetContractSHA256, gameCompatibilityLine string
-	var checkpointFormat, dependencyJSON, payloadBlobID, payloadSHA256 string
-	var datVersionID, dosEntryPath sql.NullString
+	var profileID, gameID string
+	var checkpointFormat, payloadBlobID, payloadSHA256 string
+	var dosEntryPath sql.NullString
 	var payloadSize int64
 	if err := database.QueryRowContext(context.Background(), `
-SELECT launch.profile_id,launch.game_id,launch.game_content_revision_id,
- launch.game_variant_revision_id,launch.provider_id,launch.target_id,
- launch.target_contract_sha256,launch.game_compatibility_line,
- json_extract(target.checkpoint_json,'$.writeFormat'),revision.dependency_snapshot_json,
+SELECT launch.profile_id,launch.game_id,
+ json_extract(target.checkpoint_json,'$.writeFormat'),
  content.blob_id,blob.sha256,blob.size_bytes,
- revision.dat_version_id,launch.dos_entry_path
+ launch.dos_entry_path
 FROM launch_sessions launch
 JOIN runtime_targets target ON target.provider_id=launch.provider_id AND target.target_id=launch.target_id
-JOIN game_variant_revisions revision ON revision.id=launch.game_variant_revision_id
-JOIN game_content_files content
-  ON content.game_content_revision_id=launch.game_content_revision_id AND content.role='CONTENT'
+JOIN game_files content
+  ON content.game_id=launch.game_id AND content.role='CONTENT'
 JOIN blobs blob ON blob.id=content.blob_id
 WHERE launch.id=?
 ORDER BY content.sort_order,content.logical_name
 LIMIT 1
 `, launchID).Scan(
-		&profileID, &gameID, &contentID, &variantID, &providerID, &targetID,
-		&targetContractSHA256, &gameCompatibilityLine, &checkpointFormat, &dependencyJSON,
-		&payloadBlobID, &payloadSHA256, &payloadSize,
-		&datVersionID, &dosEntryPath,
+		&profileID, &gameID, &checkpointFormat,
+		&payloadBlobID, &payloadSHA256, &payloadSize, &dosEntryPath,
 	); err != nil {
 		t.Fatal(err)
 	}
-	dependencyDigest := sha256.Sum256([]byte(dependencyJSON))
 	now := time.Now().UnixMilli()
 	if _, err := database.ExecContext(context.Background(), `
 INSERT INTO save_states(
- id,profile_id,game_id,game_content_revision_id,game_variant_revision_id,
- provider_id,target_id,target_contract_sha256,game_compatibility_line,checkpoint_format,
- dependency_snapshot_sha256,dat_version_id,dos_entry_path,
+ id,profile_id,game_id,checkpoint_format,dos_entry_path,
  payload_blob_id,payload_sha256,payload_size_bytes,
  screenshot_blob_id,name,active_duration_ms,version,created_at_ms,updated_at_ms,
  source_launch_session_id,disc_index)
-VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,NULL,?,0,1,?,?,?,NULL)
-`, saveID, profileID, gameID, contentID, variantID, providerID, targetID,
-		targetContractSHA256, gameCompatibilityLine, checkpointFormat,
-		hex.EncodeToString(dependencyDigest[:]), datVersionID, dosEntryPath,
+VALUES(?,?,?,?,?,?,?,?,NULL,?,0,1,?,?,?,NULL)
+`, saveID, profileID, gameID, checkpointFormat, dosEntryPath,
 		payloadBlobID, payloadSHA256, payloadSize, name, now, now, launchID); err != nil {
 		t.Fatal(err)
 	}
@@ -983,8 +881,7 @@ func validationFixture(
 	)
 	testassert.False(t, err != nil, err)
 	digest, err := corevalidation.ProviderValidationInputDigest(
-		target.ProviderID, target.TargetID, target.TargetContractSHA256,
-		target.GameCompatibilityLine, contentID, sql.NullString{}, snapshot,
+		target.ProviderID, target.TargetID, contentID, sql.NullString{}, snapshot,
 	)
 	testassert.False(t, err != nil, err)
 	encoded, err := snapshot.JSON()

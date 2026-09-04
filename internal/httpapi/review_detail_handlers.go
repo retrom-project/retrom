@@ -33,12 +33,10 @@ json_object(
    WHERE kinds.binding_id=current_binding.binding_id AND kinds.content_kind='MULTI_DISC'
  ) THEN json_object('maxDiscs',8,'maxTotalBytes',1073741824,'delivery','EAGER_EXTERNAL_FILES') ELSE NULL END
 ),
-current_target.target_contract_sha256,
 v.id,
 v.status,
 v.compatibility_code,
 v.dependency_snapshot_json,
-v.target_contract_sha256,
 d.selected_validation_id,
 source_snapshot.id,
 source_snapshot.source_manifest_json,
@@ -101,8 +99,8 @@ AND NOT EXISTS(
 // Contract branches stay contiguous for a single auditable decision.
 func (server *Server) review(writer http.ResponseWriter, request *http.Request) {
 	var itemID, importJobID, metadata, platformID, platformName, sourceSnapshotID, sourceManifest string
-	var sourceContentKind, currentTargetManifest, currentTargetContract string
-	var validationID, validationStatus, compatibilityCode, dependencySnapshot, validationTargetContract sql.NullString
+	var sourceContentKind, currentTargetManifest string
+	var validationID, validationStatus, compatibilityCode, dependencySnapshot sql.NullString
 	var selectedValidationID sql.NullString
 	var validationGeneration sql.NullInt64
 	var selectedCandidateID, coverID, uploadedCoverID, backgroundID, defaultDOSEntry sql.NullString
@@ -119,12 +117,10 @@ func (server *Server) review(writer http.ResponseWriter, request *http.Request) 
 			&platformID,
 			&platformName,
 			&currentTargetManifest,
-			&currentTargetContract,
 			&validationID,
 			&validationStatus,
 			&compatibilityCode,
 			&dependencySnapshot,
-			&validationTargetContract,
 			&selectedValidationID,
 			&sourceSnapshotID,
 			&sourceManifest,
@@ -176,13 +172,7 @@ func (server *Server) review(writer http.ResponseWriter, request *http.Request) 
 			"name": platformName,
 		}, "metadata": metadataValue, "sourceManifest": sourceValue,
 		"validation": evidence.validation.value, "candidates": evidence.candidates,
-		"scrapeRuns":      evidence.scrapeRuns,
-		"validationStale": evidence.validation.stale,
-		"targetContractChange": targetContractChange(
-			evidence.validation.stale,
-			validationTargetContract,
-			currentTargetContract,
-		),
+		"scrapeRuns":                   evidence.scrapeRuns,
 		"selectedValidationGeneration": evidence.validation.selectedGeneration,
 		"canApprove":                   canApprove,
 		"uploadedAssets":               evidence.uploadedAssets, "sourceFiles": evidence.sourceFiles,
@@ -201,13 +191,6 @@ func (server *Server) review(writer http.ResponseWriter, request *http.Request) 
 			"screenshotCandidateAssetIds": evidence.screenshotIDs,
 		}, "dosEntries": evidence.dosEntries, "tags": reviewTags,
 	})
-}
-
-func targetContractChange(stale bool, previous sql.NullString, current string) any {
-	if !stale || !previous.Valid || previous.String == current {
-		return nil
-	}
-	return map[string]string{"previous": previous.String, "current": current}
 }
 
 func reviewDocuments(metadata, sourceManifest string) (any, any) {
@@ -313,17 +296,17 @@ func (server *Server) reviewRuntimeScreenshot(
 	if !validationCurrent || !validationID.Valid {
 		return optionalReviewProjection{}, nil
 	}
-	var id, providerID, targetID, targetContractSHA256 string
+	var id, providerID, targetID string
 	var width, height, capturedAtMS int64
 	err := server.database.QueryRowContext(ctx, `
-SELECT screenshot.id,screenshot.provider_id,screenshot.target_id,screenshot.target_contract_sha256,
+SELECT screenshot.id,screenshot.provider_id,screenshot.target_id,
 screenshot.width_px,screenshot.height_px,screenshot.captured_at_ms
 FROM review_runtime_screenshots screenshot
 JOIN review_drafts draft ON draft.import_item_id=screenshot.import_item_id
 WHERE screenshot.import_item_id=? AND screenshot.validation_id=?
 AND screenshot.source_snapshot_id=draft.effective_source_snapshot_id
 `, itemID, validationID.String).Scan(
-		&id, &providerID, &targetID, &targetContractSHA256, &width, &height, &capturedAtMS,
+		&id, &providerID, &targetID, &width, &height, &capturedAtMS,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
 		return optionalReviewProjection{}, nil
@@ -333,8 +316,8 @@ AND screenshot.source_snapshot_id=draft.effective_source_snapshot_id
 	}
 	return optionalReviewProjection{value: map[string]any{
 		"screenshotId": id, "validationId": validationID.String, "providerId": providerID,
-		"targetId": targetID, "targetContractSha256": targetContractSHA256,
-		"widthPx": width, "heightPx": height, "capturedAfterMs": int64(5_000),
+		"targetId": targetID,
+		"widthPx":  width, "heightPx": height, "capturedAfterMs": int64(5_000),
 		"capturedAtMs": capturedAtMS, "url": "/api/v1/admin/review-assets/" + id,
 	}}, nil
 }

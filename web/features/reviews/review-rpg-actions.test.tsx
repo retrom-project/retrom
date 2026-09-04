@@ -78,7 +78,12 @@ describe("ReviewActions RPG runtime validation", () => {
     const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
       if (url.endsWith("/runtime-validations") && init?.method === "POST") {
-        return Promise.resolve(jsonResponse({ validationId: "rpg-validation", playerUrl: "/play/rpg-launch" }, 201));
+        return Promise.resolve(jsonResponse({
+          validationId: "rpg-validation", launchId: "rpg-launch", playerUrl: "/play/rpg-launch",
+        }, 201));
+      }
+      if (url.endsWith("/runtime/launches/rpg-launch/finish") && init?.method === "POST") {
+        return Promise.resolve(jsonResponse({ state: "FINISHED" }));
       }
       if (url.endsWith("/runtime-validations/rpg-validation") && !init?.method) {
         validationReads += 1;
@@ -100,6 +105,10 @@ describe("ReviewActions RPG runtime validation", () => {
     await act(() => new Promise((resolve) => window.setTimeout(resolve, 1_100)));
     expect(screen.getByRole("button", { name: "通过并发布" })).toBeEnabled();
     expect(screen.getByRole("button", { name: "运行游戏" })).toBeEnabled();
-    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(fetchMock).toHaveBeenCalledWith("/runtime/launches/rpg-launch/finish", expect.objectContaining({
+      method: "POST", credentials: "same-origin",
+      body: expect.stringContaining('"clientSequence":0'),
+    }));
+    expect(fetchMock).toHaveBeenCalledTimes(4);
   });
 });

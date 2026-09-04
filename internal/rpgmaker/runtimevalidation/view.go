@@ -50,19 +50,18 @@ func (service *Service) Get(ctx context.Context, importItemID, validationID stri
 func loadView(ctx context.Context, transaction *sql.Tx, importItemID, validationID string) (View, error) {
 	var row viewRow
 	err := transaction.QueryRowContext(ctx, `
-SELECT id,import_item_id,review_version_at_create,runtime_binding_revision,
+SELECT id,import_item_id,review_version_at_create,
  effective_source_snapshot_id,generation,evidence_generation,evidence_confidence,
- provider_id,target_id,game_compatibility_line,target_contract_sha256,
+ provider_id,target_id,
  dependency_snapshot_sha256,project_fingerprint,launch_id,restore_launch_id,state,
  last_gate_sequence,machine_gates_json,failure_code,decision_note,decided_by_user_id,
  decided_at_ms,evidence_screenshot_blob_id,created_at_ms,updated_at_ms,expires_at_ms
 FROM rpgmaker_runtime_validations WHERE id=? AND import_item_id=?
 `, validationID, importItemID).Scan(
-		&row.ValidationID, &row.ImportItemID, &row.ReviewVersionAtCreate, &row.RuntimeBindingVersion,
+		&row.ValidationID, &row.ImportItemID, &row.ReviewVersionAtCreate,
 		&row.RouteEvidence.EffectiveSourceSnapshotID, &row.RouteEvidence.Generation,
 		&row.evidenceGeneration, &row.RouteEvidence.EvidenceConfidence, &row.RouteEvidence.ProviderID,
-		&row.RouteEvidence.TargetID, &row.RouteEvidence.GameCompatibilityLine,
-		&row.RouteEvidence.TargetContractSHA256, &row.RouteEvidence.DependencySnapshotSHA256,
+		&row.RouteEvidence.TargetID, &row.RouteEvidence.DependencySnapshotSHA256,
 		&row.RouteEvidence.ProjectFingerprint, &row.launchID, &row.restoreID, &row.State,
 		&row.LastGateSequence, &row.machineJSON, &row.failureCode, &row.decisionNote, &row.decidedBy,
 		&row.decidedAt, &row.screenshotBlobID, &row.CreatedAtMS, &row.UpdatedAtMS, &row.ExpiresAtMS,
@@ -260,15 +259,12 @@ func currentValidationBinding(
 	var matches int
 	err := transaction.QueryRowContext(ctx, `
 SELECT validation.state,draft.version,
-	 CASE WHEN draft.runtime_binding_revision=validation.runtime_binding_revision
-	  AND draft.effective_source_snapshot_id=validation.effective_source_snapshot_id
+	 CASE WHEN draft.effective_source_snapshot_id=validation.effective_source_snapshot_id
 	  AND profile.project_fingerprint=validation.project_fingerprint
 	  AND profile.generation=validation.generation
 	  AND profile.evidence_generation IS validation.evidence_generation
 	  AND profile.evidence_confidence=validation.evidence_confidence
 	  AND profile.provider_id=validation.provider_id AND profile.target_id=validation.target_id
-	  AND profile.game_compatibility_line=validation.game_compatibility_line
-	  AND profile.target_contract_sha256=validation.target_contract_sha256
   AND profile.dependency_snapshot_sha256=validation.dependency_snapshot_sha256
  THEN 1 ELSE 0 END
 FROM rpgmaker_runtime_validations validation
@@ -332,6 +328,19 @@ WHERE id=? AND state='CREATED'
 }
 
 func expireOneValidation(ctx context.Context, transaction *sql.Tx, validationID string, now int64) error {
+	if _, err := transaction.ExecContext(ctx, `
+UPDATE launch_sessions
+SET state='EXPIRED',finished_at_ms=?,updated_at_ms=?,version=version+1
+WHERE purpose='RPG_RUNTIME_VALIDATION' AND state IN ('CREATED','ACTIVE')
+ AND rpgmaker_runtime_validation_id=?
+ AND EXISTS(
+  SELECT 1 FROM rpgmaker_runtime_validations validation
+  WHERE validation.id=? AND validation.expires_at_ms<=?
+   AND validation.state NOT IN ('PASSED','FAILED','EXPIRED')
+ )
+`, now, now, validationID, validationID, now); err != nil {
+		return fmt.Errorf("expire RPG validation launches: %w", err)
+	}
 	if _, err := transaction.ExecContext(ctx, `
 UPDATE rpgmaker_runtime_validations
 SET state='EXPIRED',failure_code='RPG_RUNTIME_TIMEOUT',updated_at_ms=?

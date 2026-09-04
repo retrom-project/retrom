@@ -319,7 +319,7 @@ FROM jobs WHERE id=? AND state='FAILED'
 	var consumptionID string
 	if err := transaction.QueryRowContext(ctx, `
 SELECT id FROM upload_consumptions
-WHERE consumer_type='GAME_FILE_REVISION_JOB' AND consumer_id=?
+WHERE consumer_type='GAME_CONTENT_REPLACE_JOB' AND consumer_id=?
 `, jobID).Scan(&consumptionID); err != nil {
 		return
 	}

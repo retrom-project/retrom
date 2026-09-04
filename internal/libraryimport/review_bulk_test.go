@@ -12,19 +12,16 @@ func TestPreliminaryQuickApprovalReadyRequiresStrictCurrentReadyEvidence(t *test
 	t.Parallel()
 	ready := reviewBulkCandidate{
 		title: "Strict Ready", contentKind: "SINGLE_FILE", platformVersion: 3,
-		providerID:            sql.NullString{String: "emulatorjs", Valid: true},
-		targetID:              sql.NullString{String: "fceumm", Valid: true},
-		targetContractSHA256:  sql.NullString{String: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", Valid: true},
-		gameCompatibilityLine: sql.NullString{String: "fceumm-v1", Valid: true},
+		providerID: sql.NullString{String: "emulatorjs", Valid: true},
+		targetID:   sql.NullString{String: "fceumm", Valid: true},
 		contentPolicyJSON: sql.NullString{
 			String: `{"schemaVersion":1,"supportedContentKinds":["SINGLE_FILE"]}`,
 			Valid:  true,
 		},
-		currentTargetContractSHA256: sql.NullString{String: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", Valid: true},
-		validationID:                sql.NullString{String: "validation", Valid: true},
-		validationStatus:            sql.NullString{String: "READY", Valid: true},
-		validationGeneration:        sql.NullInt64{Int64: prepublishGeneration, Valid: true},
-		validationPlatformVersion:   sql.NullInt64{Int64: 3, Valid: true},
+		validationID:              sql.NullString{String: "validation", Valid: true},
+		validationStatus:          sql.NullString{String: "READY", Valid: true},
+		validationGeneration:      sql.NullInt64{Int64: prepublishGeneration, Valid: true},
+		validationPlatformVersion: sql.NullInt64{Int64: 3, Valid: true},
 	}
 	testassert.True(t, preliminaryQuickApprovalReady(ready), "current READY evidence was rejected")
 
@@ -37,9 +34,7 @@ func TestPreliminaryQuickApprovalReadyRequiresStrictCurrentReadyEvidence(t *test
 			value.screenshotCurrent = true
 		}},
 		{"platform drift", func(value *reviewBulkCandidate) { value.validationPlatformVersion.Int64++ }},
-		{"target drift", func(value *reviewBulkCandidate) {
-			value.currentTargetContractSHA256.String = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
-		}},
+		{"target unavailable", func(value *reviewBulkCandidate) { value.targetID.Valid = false }},
 		{"generation drift", func(value *reviewBulkCandidate) { value.validationGeneration.Int64-- }},
 		{"invalid title", func(value *reviewBulkCandidate) { value.title = "\n" }},
 	}

@@ -57,13 +57,13 @@ func TestServerImportHTTPRootBoundaryAuthorizationAndIdempotency(t *testing.T) {
 		t.Fatal(err)
 	}
 	if _, err := server.database.ExecContext(context.Background(), `
-INSERT INTO bios_requirements(id,core_id,provider_id,target_id,target_contract_sha256,source_kind,dat_machine_name,logical_name,
+INSERT INTO bios_requirements(id,core_id,provider_id,target_id,source_kind,dat_machine_name,logical_name,
 requirement_mode,condition_code,activation_options_json,catalog_digest,size_bytes,md5,sha1,sha256,
 source_url,source_version,enabled,version,created_at_ms,updated_at_ms,delivery_kind,emulator_path)
-VALUES('server-http-requirement','mgba',?,?,?,'STATIC',NULL,'bios.bin','REQUIRED',NULL,NULL,
+VALUES('server-http-requirement','mgba',?,?,'STATIC',NULL,'bios.bin','REQUIRED',NULL,NULL,
 lower(hex(zeroblob(32))),7,'c0a53b8a2b3c6f7a7f6e1fcbf9f99f15',NULL,NULL,
 'https://example.invalid/bios','server-http-v1',1,1,1,1,'BIOS_BUNDLE',NULL)
-`, target.ProviderID, target.TargetID, target.TargetContractSHA256); err != nil {
+`, target.ProviderID, target.TargetID); err != nil {
 		t.Fatal(err)
 	}
 	handler := server.Handler()

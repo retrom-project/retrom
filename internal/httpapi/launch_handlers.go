@@ -275,8 +275,8 @@ func (server *Server) storeReviewScreenshot(writer http.ResponseWriter, request 
 	writeJSON(writer, http.StatusCreated, map[string]any{
 		"screenshotId": result.ID, "importItemId": result.ImportItemID,
 		"validationId": result.ValidationID, "providerId": result.ProviderID,
-		"targetId": result.TargetID, "targetContractSha256": result.TargetContractSHA256,
-		"widthPx": result.WidthPX, "heightPx": result.HeightPX,
+		"targetId": result.TargetID,
+		"widthPx":  result.WidthPX, "heightPx": result.HeightPX,
 		"capturedAtMs": result.CapturedAtMS, "url": "/api/v1/admin/review-assets/" + result.ID,
 	})
 }
@@ -305,7 +305,7 @@ func (server *Server) launchConfig(writer http.ResponseWriter, request *http.Req
 	); dimensionErr == nil {
 		logMultiDiscRuntime(
 			request.Context(), request.PathValue("launchId"), dimensions.PlatformKey,
-			dimensions.TargetKey, dimensions.TargetContractDigest, dimensions.DiscCount,
+			dimensions.TargetKey, dimensions.BundleDigest, dimensions.DiscCount,
 			"kind", "launch", "resultCode", "OK",
 		)
 	}

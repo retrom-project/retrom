@@ -151,12 +151,31 @@ export type RuntimeJSONValueV1 = null | boolean | string | number |
 export type TargetOptionsV1 = { [key: string]: RuntimeJSONValueV1 };
 
 export type RuntimeValidationV1 = { probeId: string; input: Record<string, unknown> };
+export type NetplayProfileV2 = {
+  bundleSha256: string;
+  canonicalHistoryFrames: 600;
+  checkpointEveryFrames: 120;
+  controlCount: 24;
+  coreId: string;
+  dependencySnapshotDigest: string;
+  maxPlayers: number;
+  maxPredictionFrames: number;
+  maxRollbackFrames: 120;
+  maxStateBytes: 1048576;
+  platformIds: string[];
+  profileId: string;
+  protocolVersion: "retrom-netplay-v2";
+  providerId: string;
+  schemaVersion: 2;
+  sourceManifestDigest: string;
+  targetId: string;
+};
 export type RuntimeNetplayV1 = {
   roomId: string;
   sessionId: string;
   playerNo: number;
   socketUrl: string;
-  profile: Record<string, unknown>;
+  profile: NetplayProfileV2;
 };
 
 export type LaunchEnvelopeV1 = {
@@ -177,8 +196,6 @@ export type LaunchEnvelopeV1 = {
     providerApiVersion: 1;
     bundleSha256: string;
     targetId: string;
-    gameCompatibilityLine: string;
-    targetContractSha256: string;
     capabilities: RuntimeCapabilitiesV1;
     checkpoint: { writeFormat: string; readFormats: string[]; maxBytes: number } | null;
     moduleUrl: string;

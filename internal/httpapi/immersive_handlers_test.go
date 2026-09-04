@@ -137,11 +137,11 @@ func assertImmersiveProviderContract(t *testing.T, specification *openapi3.T) {
 	profileRef := specification.Components.Schemas["RuntimeTargetAdminItem"]
 	testassert.False(t, profileRef == nil || profileRef.Value == nil, "missing RuntimeTargetAdminItem")
 	profile := profileRef.Value
-	for _, property := range []string{"providerId", "targetId", "targetContractSha256"} {
+	for _, property := range []string{"providerId", "targetId", "bundleSha256"} {
 		testassert.Falsef(t, profile.Properties[property] == nil,
 			"RuntimeTargetAdminItem missing %s", property)
 	}
-	for _, forbidden := range []string{"playerAdapterId", "runtimeFamily", "routeKey"} {
+	for _, forbidden := range []string{"playerAdapterId", "runtimeFamily", "routeKey", "targetContractSha256"} {
 		testassert.Falsef(t, profile.Properties[forbidden] != nil,
 			"RuntimeTargetAdminItem retains %s", forbidden)
 	}
@@ -190,16 +190,16 @@ func seedImmersiveAssets(
 	if seed.CoverID != "" {
 		coverBlobID := seedImmersiveBlob(t, server, transaction, coverPayload, "image/png", now)
 		mustExecHTTPTest(t, transaction, `
-INSERT INTO game_assets(id,game_id,metadata_revision_id,blob_id,kind,ordinal,width_px,height_px,media_type,created_at_ms)
-VALUES(?,?,?,?,'COVER',0,500,700,'image/png',?)
-`, seed.CoverID, seed.GameID, seed.MetadataID, coverBlobID, now)
+INSERT INTO game_assets(id,game_id,blob_id,kind,ordinal,width_px,height_px,media_type,created_at_ms)
+VALUES(?,?,?,'COVER',0,500,700,'image/png',?)
+`, seed.CoverID, seed.GameID, coverBlobID, now)
 	}
 	if seed.VideoID != "" {
 		videoBlobID := seedImmersiveBlob(t, server, transaction, videoPayload, "video/webm", now)
 		mustExecHTTPTest(t, transaction, `
-INSERT INTO game_assets(id,game_id,metadata_revision_id,blob_id,kind,ordinal,width_px,height_px,media_type,created_at_ms)
-VALUES(?,?,?,?,'VIDEO',0,NULL,NULL,'video/webm',?)
-`, seed.VideoID, seed.GameID, seed.MetadataID, videoBlobID, now)
+INSERT INTO game_assets(id,game_id,blob_id,kind,ordinal,width_px,height_px,media_type,created_at_ms)
+VALUES(?,?,?,'VIDEO',0,NULL,NULL,'video/webm',?)
+`, seed.VideoID, seed.GameID, videoBlobID, now)
 	}
 }
 
@@ -210,21 +210,14 @@ func seedImmersiveGame(t *testing.T, server *Server, seed immersiveGameSeed, now
 	defer cleanup.Rollback(transaction)
 	mustExecHTTPTest(t, transaction, "PRAGMA defer_foreign_keys=ON")
 	mustExecHTTPTest(t, transaction, `
-INSERT INTO game_metadata_revisions(
- id,game_id,title,title_initial,description,developer,publisher,genre,players,release_year,source_kind,source_ref_id,created_at_ms
-) VALUES(?,?,?,?,?,'Retrom Studio','','Action',1,1999,'ADMIN_EDIT',NULL,?)
-`, seed.MetadataID, seed.GameID, seed.Title, gametitle.Initial(seed.Title), seed.Description, now)
-	mustExecHTTPTest(t, transaction, `
-INSERT INTO game_content_revisions(
- id,game_id,source_kind,source_ref_id,source_manifest_json,source_manifest_digest,created_at_ms
-) VALUES(?,?,'ADMIN_REPLACE','immersive-test','[]',?,?)
-`, seed.ContentID, seed.GameID, strings.Repeat(seed.GameID[len(seed.GameID)-1:], 64), now)
-	mustExecHTTPTest(t, transaction, `
 INSERT INTO games(
- id,platform_instance_id,status,current_metadata_revision_id,current_content_revision_id,
- search_text,version,created_at_ms,updated_at_ms
-) VALUES(?,(SELECT id FROM platform_instances WHERE catalog_template_key='gba/mgba'),'PUBLISHED',?,?,lower(?),1,?,?)
-`, seed.GameID, seed.MetadataID, seed.ContentID, seed.Title, now, now)
+ id,platform_instance_id,title,title_initial,description,developer,publisher,genre,players,release_year,
+ metadata_source_kind,content_kind,content_source_kind,content_source_ref_id,source_manifest_json,source_manifest_digest,
+ status,search_text,version,created_at_ms,updated_at_ms
+) VALUES(?,(SELECT id FROM platform_instances WHERE catalog_template_key='gba/mgba'),?,?,?,'Retrom Studio','','Action',1,1999,
+ 'ADMIN_EDIT','SINGLE_FILE','ADMIN_REPLACE','immersive-test','[]',?,'PUBLISHED',lower(?),1,?,?)
+`, seed.GameID, seed.Title, gametitle.Initial(seed.Title), seed.Description,
+		strings.Repeat(seed.GameID[len(seed.GameID)-1:], 64), seed.Title, now, now)
 	seedImmersiveAssets(t, server, transaction, seed, "cover-"+seed.GameID, "video-"+seed.GameID, now)
 	mustCommitHTTPTest(t, transaction)
 }
@@ -243,39 +236,29 @@ func seedImmersivePlay(
 	requireHTTPTestRuntimeTarget(t, transaction, "mgba")
 	target, err := testsupport.LookupRuntimeTarget(t.Context(), transaction, "mgba")
 	testassert.False(t, err != nil, err)
-	variantID, revisionID, launchID, playID := uuid.NewString(), uuid.NewString(), uuid.NewString(), uuid.NewString()
+	variantID, launchID, playID := uuid.NewString(), uuid.NewString(), uuid.NewString()
 	mustExecHTTPTest(t, transaction, `
-INSERT INTO game_variants(id,game_id,core_id,current_revision_id,version,created_at_ms,updated_at_ms)
-VALUES(?,?,'mgba',NULL,1,0,0)
-`, variantID, seed.GameID)
-	mustExecHTTPTest(t, transaction, `
-INSERT INTO game_variant_revisions(
- id,game_variant_id,game_content_revision_id,provider_id,target_id,target_contract_sha256,game_compatibility_line,
- dat_version_id,validation_input_digest,
- emulator_game_id,status,compatibility_code,dependency_snapshot_json,default_dos_entry,created_at_ms
-) VALUES(?,?,?,?,?,?,?,NULL,?,?,'READY','READY','{}',NULL,0)
-`, revisionID, variantID, seed.ContentID, target.ProviderID, target.TargetID,
-		target.TargetContractSHA256, target.GameCompatibilityLine,
-		strings.Repeat(fmt.Sprintf("%x", emulatorGameID%16), 64), emulatorGameID)
-	mustExecHTTPTest(t, transaction, "UPDATE game_variants SET current_revision_id=? WHERE id=?", revisionID, variantID)
+INSERT INTO game_variants(
+ id,game_id,core_id,provider_id,target_id,dat_version_id,emulator_game_id,status,
+ compatibility_code,dependency_snapshot_json,default_dos_entry,version,created_at_ms,updated_at_ms
+) VALUES(?,?,'mgba',?,?,NULL,?,'READY','READY','{}',NULL,1,0,0)
+`, variantID, seed.GameID, target.ProviderID, target.TargetID, emulatorGameID)
 	mustExecHTTPTest(t, transaction, `
 INSERT INTO launch_sessions(
- id,profile_id,purpose,game_id,game_content_revision_id,game_variant_revision_id,
- provider_id,target_id,target_contract_sha256,game_compatibility_line,bundle_sha256,
+ id,profile_id,purpose,game_id,core_id,provider_id,target_id,bundle_sha256,
+ content_kind,dependency_snapshot_json,compatibility_code,
  return_to,credential_sha256,state,
  bootstrap_expires_at_ms,finished_at_ms,hard_expires_at_ms,created_at_ms,updated_at_ms,version
-) VALUES(?,?,'PRODUCT',?,?,?,?,?,?,?,?,'/',zeroblob(32),'FINISHED',?,?,?,?,?,1)
-`, launchID, profileID, seed.GameID, seed.ContentID, revisionID,
-		target.ProviderID, target.TargetID, target.TargetContractSHA256,
-		target.GameCompatibilityLine, target.BundleSHA256,
+) VALUES(?,?,'PRODUCT',?,'mgba',?,?,?,'SINGLE_FILE','{}','READY','/',zeroblob(32),'FINISHED',?,?,?,?,?,1)
+`, launchID, profileID, seed.GameID, target.ProviderID, target.TargetID, target.BundleSHA256,
 		startedAtMS+1000, startedAtMS+500,
 		startedAtMS+2000, startedAtMS, startedAtMS+500)
 	mustExecHTTPTest(t, transaction, `
 INSERT INTO play_sessions(
- id,launch_session_id,profile_id,game_id,game_variant_revision_id,started_at_ms,last_heartbeat_at_ms,
+ id,launch_session_id,profile_id,game_id,started_at_ms,last_heartbeat_at_ms,
  ended_at_ms,active_duration_ms,last_client_sequence,state,version,created_at_ms,updated_at_ms
-) VALUES(?,?,?,?,?,?,?,?,100,1,'FINISHED',1,?,?)
-`, playID, launchID, profileID, seed.GameID, revisionID, startedAtMS, startedAtMS+500,
+) VALUES(?,?,?,?,?,?,?,100,1,'FINISHED',1,?,?)
+`, playID, launchID, profileID, seed.GameID, startedAtMS, startedAtMS+500,
 		startedAtMS+500, startedAtMS, startedAtMS+500)
 	mustCommitHTTPTest(t, transaction)
 }
@@ -423,16 +406,13 @@ func replaceImmersiveMetadata(t *testing.T, server *Server, game immersiveGameSe
 	transaction, err := server.database.BeginTx(context.Background(), nil)
 	testassert.False(t, err != nil, err)
 	defer cleanup.Rollback(transaction)
-	mustExecHTTPTest(t, transaction, `
-INSERT INTO game_metadata_revisions(
- id,game_id,title,title_initial,description,developer,publisher,genre,players,release_year,source_kind,source_ref_id,created_at_ms
-) VALUES(?,?,?,'R',?,'New Studio','','Adventure',1,2001,'ADMIN_EDIT',NULL,2000)
-`, replacement.MetadataID, game.GameID, replacement.Title, replacement.Description)
+	mustExecHTTPTest(t, transaction, "DELETE FROM game_assets WHERE game_id=?", game.GameID)
 	seedImmersiveAssets(t, server, transaction, replacement, "replacement-cover", "replacement-video", 2000)
 	mustExecHTTPTest(t, transaction, `
-UPDATE games SET current_metadata_revision_id=?,search_text=lower(?),version=version+1,updated_at_ms=2000 WHERE id=?
-`, replacement.MetadataID, replacement.Title, game.GameID)
-	mustExecHTTPTest(t, transaction, "DELETE FROM game_assets WHERE metadata_revision_id=?", game.MetadataID)
+UPDATE games SET title=?,title_initial=?,description=?,developer='New Studio',publisher='',genre='Adventure',
+ players=1,release_year=2001,metadata_source_kind='ADMIN_EDIT',metadata_source_ref_id=NULL,
+ search_text=lower(?),version=version+1,updated_at_ms=2000 WHERE id=?
+`, replacement.Title, gametitle.Initial(replacement.Title), replacement.Description, replacement.Title, game.GameID)
 	mustCommitHTTPTest(t, transaction)
 }
 

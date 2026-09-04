@@ -18,12 +18,16 @@ func TestDeleteRejectsVariantAndCheckpointReferences(t *testing.T) {
 	database.SetMaxOpenConns(1)
 	t.Cleanup(func() { _ = database.Close() })
 	if _, err := database.ExecContext(context.Background(), `
-CREATE TABLE runtime_asset_pack_installations(id TEXT PRIMARY KEY,status TEXT,version INTEGER);
-CREATE TABLE game_variant_revision_runtime_packs(game_variant_revision_id TEXT,installation_id TEXT);
-CREATE TABLE save_states(id TEXT,game_variant_revision_id TEXT,deleted_at_ms INTEGER);
-INSERT INTO runtime_asset_pack_installations VALUES('018f47d2-3b83-7a3b-8c8e-7d5688a45001','READY',3);
-INSERT INTO game_variant_revision_runtime_packs VALUES('variant','018f47d2-3b83-7a3b-8c8e-7d5688a45001');
-INSERT INTO save_states VALUES('active','variant',NULL),('deleted','variant',10);
+CREATE TABLE runtime_asset_pack_installations(id TEXT PRIMARY KEY,status TEXT,version INTEGER,bundle_blob_id TEXT);
+CREATE TABLE game_variant_runtime_packs(game_variant_id TEXT,installation_id TEXT);
+CREATE TABLE save_states(id TEXT,source_launch_session_id TEXT,deleted_at_ms INTEGER);
+CREATE TABLE launch_content_files(launch_session_id TEXT,logical_name TEXT,blob_id TEXT);
+INSERT INTO runtime_asset_pack_installations VALUES('018f47d2-3b83-7a3b-8c8e-7d5688a45001','READY',3,'pack-bundle');
+INSERT INTO game_variant_runtime_packs VALUES('variant','018f47d2-3b83-7a3b-8c8e-7d5688a45001');
+INSERT INTO save_states VALUES('active','launch-active',NULL),('deleted','launch-deleted',10);
+INSERT INTO launch_content_files VALUES
+ ('launch-active','__retrom__/pack-0.zip','pack-bundle'),
+ ('launch-deleted','__retrom__/pack-0.zip','pack-bundle');
 `); err != nil {
 		t.Fatal(err)
 	}
@@ -36,7 +40,7 @@ INSERT INTO save_states VALUES('active','variant',NULL),('deleted','variant',10)
 		context.Background(), transaction, "018f47d2-3b83-7a3b-8c8e-7d5688a45001",
 	)
 	_ = transaction.Rollback()
-	if err != nil || references != (ReferenceCounts{VariantRevisionCount: 1, CheckpointCount: 1}) {
+	if err != nil || references != (ReferenceCounts{GameCount: 1, CheckpointCount: 1}) {
 		t.Fatalf("installation references = %#v, error=%v", references, err)
 	}
 	err = service.Delete(context.Background(), "018f47d2-3b83-7a3b-8c8e-7d5688a45001", 3)

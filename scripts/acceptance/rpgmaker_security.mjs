@@ -117,7 +117,7 @@ async function contentSafetyCase(context, client, instances) {
       validationId: inspected.validationId, launchId: inspected.launchId,
       providerId: inspected.config.runtime.providerId,
       targetId: inspected.config.runtime.targetId,
-      targetContractSha256: inspected.config.runtime.targetContractSha256,
+      bundleSha256: inspected.config.runtime.bundleSha256,
       projection: inspected.projection, launchFinished: inspected.launchFinished,
     });
   }
@@ -652,7 +652,7 @@ function assertRejected(outcome, expectedCode) {
 function safeConfig(config) {
   return {
     providerId: config.runtime.providerId, targetId: config.runtime.targetId,
-    targetContractSha256: config.runtime.targetContractSha256,
+    bundleSha256: config.runtime.bundleSha256,
   };
 }
 

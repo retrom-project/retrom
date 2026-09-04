@@ -14,14 +14,14 @@ func (service *Service) ReviewPreviewContent(
 	previewID, capability, logicalName string,
 ) (ContentView, error) {
 	var credentialHash []byte
-	var digest, state, format, coreID, providerID, targetID, targetContractSHA256, platformKey string
+	var digest, state, format, coreID, providerID, targetID, bundleSHA256, platformKey string
 	var dosEntry sql.NullString
 	var hardExpires int64
 	var discCount int
 	err := service.database.QueryRowContext(ctx, `
 SELECT preview.credential_sha256,preview.state,preview.hard_expires_at_ms,blob.sha256,
 preview.content_format,binding.core_id,preview.provider_id,preview.target_id,
-preview.target_contract_sha256,platform.id,preview.default_dos_entry,
+preview.bundle_sha256,platform.id,preview.default_dos_entry,
 (SELECT count(*) FROM review_preview_files file WHERE file.preview_session_id=preview.id AND file.role='DISC')
 FROM review_preview_sessions preview
 JOIN blobs blob ON blob.id=preview.content_blob_id
@@ -30,7 +30,7 @@ JOIN platform_instances instance ON instance.id=preview.target_platform_instance
 JOIN platforms platform ON platform.id=instance.platform_id
 WHERE preview.id=? AND preview.content_logical_name=?
 `, previewID, logicalName).Scan(&credentialHash, &state, &hardExpires, &digest, &format,
-		&coreID, &providerID, &targetID, &targetContractSHA256, &platformKey, &dosEntry, &discCount)
+		&coreID, &providerID, &targetID, &bundleSHA256, &platformKey, &dosEntry, &discCount)
 	if err != nil || !reviewPreviewCredential(service.now().UnixMilli(), capability, credentialHash, state, hardExpires) {
 		return ContentView{}, ErrCredential
 	}
@@ -40,7 +40,7 @@ WHERE preview.id=? AND preview.content_logical_name=?
 	}
 	return ContentView{
 		Digest: digest, Format: format, CoreID: coreID, ProviderID: providerID, TargetID: targetID,
-		TargetContractSHA256: targetContractSHA256, DOSEntry: selected,
+		BundleSHA256: bundleSHA256, DOSEntry: selected,
 		PlatformKey: platformKey, DiscCount: discCount,
 	}, nil
 }
@@ -50,12 +50,12 @@ func (service *Service) ReviewPreviewExternal(
 	previewID, capability, logicalName string,
 ) (ExternalView, error) {
 	var credentialHash []byte
-	var digest, state, role, platformKey, coreKey, providerID, targetID, targetContractSHA256 string
+	var digest, state, role, platformKey, coreKey, providerID, targetID, bundleSHA256 string
 	var hardExpires int64
 	var discCount int
 	err := service.database.QueryRowContext(ctx, `
 SELECT preview.credential_sha256,preview.state,preview.hard_expires_at_ms,blob.sha256,file.role,
-platform.id,binding.core_id,preview.provider_id,preview.target_id,preview.target_contract_sha256,
+platform.id,binding.core_id,preview.provider_id,preview.target_id,preview.bundle_sha256,
 (SELECT count(*) FROM review_preview_files disc WHERE disc.preview_session_id=preview.id AND disc.role='DISC')
 FROM review_preview_sessions preview
 JOIN review_preview_files file ON file.preview_session_id=preview.id AND file.role IN ('EXTERNAL_FILE','DISC')
@@ -65,7 +65,7 @@ JOIN platform_instances instance ON instance.id=preview.target_platform_instance
 JOIN platforms platform ON platform.id=instance.platform_id
 WHERE preview.id=? AND file.logical_name=?
 `, previewID, logicalName).Scan(&credentialHash, &state, &hardExpires, &digest, &role,
-		&platformKey, &coreKey, &providerID, &targetID, &targetContractSHA256, &discCount)
+		&platformKey, &coreKey, &providerID, &targetID, &bundleSHA256, &discCount)
 	if err != nil || !reviewPreviewCredential(service.now().UnixMilli(), capability, credentialHash, state, hardExpires) {
 		return ExternalView{}, ErrCredential
 	}
@@ -75,7 +75,7 @@ WHERE preview.id=? AND file.logical_name=?
 	}
 	return ExternalView{
 		Digest: digest, Kind: kind, PlatformKey: platformKey, CoreKey: coreKey,
-		ProviderID: providerID, TargetID: targetID, TargetContractSHA256: targetContractSHA256,
+		ProviderID: providerID, TargetID: targetID, BundleSHA256: bundleSHA256,
 		DiscCount: discCount,
 	}, nil
 }

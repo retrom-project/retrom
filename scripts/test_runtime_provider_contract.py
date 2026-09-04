@@ -34,8 +34,6 @@ def valid_manifest() -> dict[str, object]:
             {
                 "id": "wasm4",
                 "displayName": "WASM-4",
-                "gameCompatibilityLine": "wasm4-v1",
-                "netplayCompatibilityLine": None,
                 "targetOptionsSchema": {
                     "type": "object",
                     "additionalProperties": False,
@@ -161,7 +159,8 @@ class RuntimeProviderAuthorityTests(unittest.TestCase):
         serialized_formats = {
             "ARGON2ID_V1", "RETROM_DOS_DIRECT_ZIP_V1", "RETROM_FILESET_V1",
             "RETROM_LAUNCH_BUNDLE_V1", "RETROM_MULTIDISC_M3U_V1",
-            "RETROM_RUNTIME_EXTERNAL_V1", "RETROM_RUNTIME_GAME_V2", "RETROM_RUNTIME_PROJECT_V1",
+            "RETROM_RUNTIME_EXTERNAL_V1", "RETROM_RUNTIME_GAME_V2", "RETROM_RUNTIME_GAME_V3",
+            "RETROM_RUNTIME_PROJECT_V1",
             "RETROM_SINGLE_FILE_V1", "RETROM_VARIANT_VALIDATION_INPUT_V3", "SOURCE_V1",
         }
         paths = [

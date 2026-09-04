@@ -228,7 +228,7 @@ WITH candidates AS (
          core.id AS core_id,core.name AS core_name,
          CASE WHEN game.status='PUBLISHED' THEN (SELECT asset.id FROM game_assets asset
           WHERE asset.game_id=game.id
-          AND asset.metadata_revision_id=game.current_metadata_revision_id
+          AND asset.game_id=game.id
           AND asset.kind='COVER'
           ORDER BY asset.ordinal,asset.id LIMIT 1) END AS cover_asset_id,
          metadata.release_year AS release_year,
@@ -245,7 +245,7 @@ WITH candidates AS (
          COALESCE(metadata.release_year,-1) AS release_year_key
   FROM favorite_games favorite
   JOIN games game ON game.id=favorite.game_id
-  JOIN game_metadata_revisions metadata ON metadata.id=game.current_metadata_revision_id
+  JOIN games metadata ON metadata.id=game.id
   JOIN platform_instances instance ON instance.id=game.platform_instance_id
   JOIN platforms platform ON platform.id=instance.platform_id
   JOIN cores core ON core.id=instance.default_core_id

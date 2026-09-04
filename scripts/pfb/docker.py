@@ -127,6 +127,8 @@ def import_provider_base(
     source_root: Path,
     validate: Callable[[Path, Path], dict[str, Any]],
     verify_upgrade: Callable[[dict[str, Any], dict[str, Any]], None],
+    *,
+    validate_current: Callable[[Path, Path], dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """Import an already-installed Provider base without archives or network access."""
     paths = ensure_workspace(root)
@@ -143,7 +145,7 @@ def import_provider_base(
     try:
         incoming = validate(source_active, source_installed)
         if paths["providerActive"].is_file():
-            current = validate(paths["providerActive"], paths["providerInstalled"])
+            current = (validate_current or validate)(paths["providerActive"], paths["providerInstalled"])
             verify_upgrade(current, incoming)
     except (OSError, TypeError, ValueError) as exc:
         raise PFBError("PFB_PROVIDER_BASE_INVALID", str(exc)[:160]) from exc

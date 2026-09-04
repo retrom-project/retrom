@@ -17,13 +17,12 @@ import (
 )
 
 type ProfileSummary struct {
-	ID                       string `json:"id"`
-	CoreID                   string `json:"coreId"`
-	CoreName                 string `json:"coreName"`
-	ProviderID               string `json:"providerId"`
-	TargetID                 string `json:"targetId"`
-	NetplayCompatibilityLine string `json:"netplayCompatibilityLine"`
-	MaxPlayers               int    `json:"maxPlayers"`
+	ID         string `json:"id"`
+	CoreID     string `json:"coreId"`
+	CoreName   string `json:"coreName"`
+	ProviderID string `json:"providerId"`
+	TargetID   string `json:"targetId"`
+	MaxPlayers int    `json:"maxPlayers"`
 }
 
 type GameSummary struct {
@@ -45,8 +44,9 @@ type GameSummary struct {
 type eligibleProfile struct {
 	Summary                ProfileSummary
 	Manifest               ManifestProfile
-	VariantRevisionID      string
-	TargetContractSHA256   string
+	VariantID              string
+	BundleSHA256           string
+	SourceManifestDigest   string
 	DependencySnapshotJSON string
 }
 
@@ -141,22 +141,21 @@ func (service *Service) queryGamePage(
 	limit int,
 ) ([]GameSummary, bool, error) {
 	query := `
-SELECT game.id,metadata.title,platform.id,platform.name,instance.id,instance.name,game.created_at_ms,
+SELECT game.id,game.title,platform.id,platform.name,instance.id,instance.name,game.created_at_ms,
   (SELECT max(play.started_at_ms) FROM play_sessions play WHERE play.game_id=game.id AND play.profile_id=?),
   (SELECT asset.id FROM game_assets asset
-   WHERE asset.game_id=game.id AND asset.metadata_revision_id=game.current_metadata_revision_id
+   WHERE asset.game_id=game.id
      AND asset.kind='COVER' AND asset.ordinal=0 LIMIT 1)
 FROM games game
-JOIN game_metadata_revisions metadata ON metadata.id=game.current_metadata_revision_id
 JOIN platform_instances instance ON instance.id=game.platform_instance_id
 JOIN platforms platform ON platform.id=instance.platform_id
 WHERE game.status='PUBLISHED' AND instance.enabled=1`
 	arguments := []any{profileID}
 	if afterGameID != "" {
-		query += ` AND (lower(metadata.title)>? OR (lower(metadata.title)=? AND game.id>?))`
+		query += ` AND (lower(game.title)>? OR (lower(game.title)=? AND game.id>?))`
 		arguments = append(arguments, afterTitle, afterTitle, afterGameID)
 	}
-	query += ` ORDER BY lower(metadata.title),game.id LIMIT ?`
+	query += ` ORDER BY lower(game.title),game.id LIMIT ?`
 	arguments = append(arguments, limit)
 	rows, err := service.database.QueryContext(ctx, query, arguments...)
 	if err != nil {
@@ -325,7 +324,7 @@ func (service *Service) arcadeDependencySnapshotRunnable(ctx context.Context, ro
 	if len(snapshot.Dependencies) != len(locked) || len(closure) != len(locked)+1 {
 		return false, nil
 	}
-	return service.arcadeSnapshotDependenciesRunnable(ctx, row.revisionID, snapshot, closure, locked)
+	return service.arcadeSnapshotDependenciesRunnable(ctx, row.variantID, snapshot, closure, locked)
 }
 
 func validArcadeRuntimeSnapshot(raw string) bool {
@@ -375,9 +374,9 @@ func (service *Service) loadNetplayArcadeDependencies(
 	rows, err := service.database.QueryContext(ctx, `
 SELECT kind,logical_archive,source_machine_name,required_entries_json,state
 FROM variant_dependencies
-WHERE game_variant_revision_id=? AND dat_version_id=?
+WHERE game_variant_id=? AND dat_version_id=?
 ORDER BY kind,logical_archive
-	`, row.revisionID, row.datVersionID.String)
+	`, row.variantID, row.datVersionID.String)
 	if err != nil {
 		return nil, false, serviceError("load Arcade dependencies", err)
 	}
@@ -409,7 +408,7 @@ ORDER BY kind,logical_archive
 
 func (service *Service) arcadeSnapshotDependenciesRunnable(
 	ctx context.Context,
-	revisionID string,
+	variantID string,
 	snapshot netplayArcadeSnapshot,
 	closure map[string]netplayArcadeClosureNode,
 	locked map[string]netplayLockedArcadeDependency,
@@ -431,7 +430,7 @@ func (service *Service) arcadeSnapshotDependenciesRunnable(
 			expectedWarnings = append(expectedWarnings, dependency.Machine+".zip:HASH_WARNING")
 		}
 		if stored.state == "SATISFIED_EXTERNAL" || stored.state == "HASH_WARNING" {
-			available, err := service.netplayArcadeDependencyFileAvailable(ctx, revisionID, dependency)
+			available, err := service.netplayArcadeDependencyFileAvailable(ctx, variantID, dependency)
 			if err != nil || !available {
 				return false, err
 			}
@@ -459,7 +458,7 @@ func netplayArcadeDependencyMatches(
 
 func (service *Service) netplayArcadeDependencyFileAvailable(
 	ctx context.Context,
-	revisionID string,
+	variantID string,
 	dependency netplayArcadeDependency,
 ) (bool, error) {
 	role := "BIOS_BUNDLE"
@@ -469,8 +468,8 @@ func (service *Service) netplayArcadeDependencyFileAvailable(
 	var count int
 	if err := service.database.QueryRowContext(ctx, `
 SELECT count(*) FROM variant_files
-WHERE game_variant_revision_id=? AND role=? AND logical_name=?
-	`, revisionID, role, dependency.ExpectedLogicalName).Scan(&count); err != nil {
+WHERE game_variant_id=? AND role=? AND logical_name=?
+	`, variantID, role, dependency.ExpectedLogicalName).Scan(&count); err != nil {
 		return false, serviceError("check Arcade dependency file", err)
 	}
 	if count != 1 {
@@ -489,9 +488,9 @@ func lockedSnapshotJSON(raw string) ([]byte, bool) {
 }
 
 type eligibilityRow struct {
-	revisionID, providerID, targetID, targetContractSHA256, netplayCompatibilityLine string
-	platformID, coreID, coreName, dependencyJSON, contentKind, logicalName           string
-	datVersionID                                                                     sql.NullString
+	variantID, providerID, targetID, bundleSHA256, sourceManifestDigest    string
+	platformID, coreID, coreName, dependencyJSON, contentKind, logicalName string
+	datVersionID                                                           sql.NullString
 }
 
 func (service *Service) profileEligibility(ctx context.Context, gameID string) ([]eligibleProfile, string, error) {
@@ -527,30 +526,26 @@ func (service *Service) profileEligibility(ctx context.Context, gameID string) (
 
 func (service *Service) queryEligibilityRows(ctx context.Context, gameID string) ([]eligibilityRow, error) {
 	rows, err := service.database.QueryContext(ctx, `
-SELECT revision.id,revision.provider_id,revision.target_id,revision.target_contract_sha256,
-  target.netplay_compatibility_line,platform.id,variant.core_id,core.name,
-  revision.dependency_snapshot_json,content.content_kind,file.logical_name,revision.dat_version_id
+SELECT variant.id,variant.provider_id,variant.target_id,provider.bundle_sha256,game.source_manifest_digest,
+  platform.id,variant.core_id,core.name,variant.dependency_snapshot_json,game.content_kind,
+  file.logical_name,variant.dat_version_id
 FROM games game
 JOIN platform_instances instance ON instance.id=game.platform_instance_id
 JOIN platforms platform ON platform.id=instance.platform_id
-JOIN game_variants variant ON variant.game_id=game.id
-JOIN game_variant_revisions revision ON revision.id=variant.current_revision_id
-  AND revision.game_content_revision_id=game.current_content_revision_id AND revision.status='READY'
-JOIN game_content_revisions content ON content.id=revision.game_content_revision_id
-JOIN runtime_targets target ON target.provider_id=revision.provider_id AND target.target_id=revision.target_id
- AND target.target_contract_sha256=revision.target_contract_sha256
- AND target.netplay_compatibility_line IS NOT NULL
+JOIN game_variants variant ON variant.game_id=game.id AND variant.status='READY'
+JOIN runtime_targets target ON target.provider_id=variant.provider_id AND target.target_id=variant.target_id
  AND json_extract(target.capabilities_json,'$.netplayPort')=1
+JOIN runtime_providers provider ON provider.provider_id=target.provider_id
 JOIN runtime_target_bindings binding ON binding.provider_id=target.provider_id AND binding.target_id=target.target_id
  AND binding.core_id=variant.core_id AND binding.launch_policy!='DISABLED'
 JOIN runtime_binding_platforms binding_platform ON binding_platform.binding_id=binding.binding_id
  AND binding_platform.platform_id=platform.id AND binding_platform.core_id=variant.core_id
 JOIN runtime_binding_content_kinds binding_kind ON binding_kind.binding_id=binding.binding_id
- AND binding_kind.content_kind=content.content_kind
+ AND binding_kind.content_kind=game.content_kind
 JOIN cores core ON core.id=variant.core_id
-JOIN game_content_files file ON file.game_content_revision_id=content.id AND file.role='CONTENT'
+JOIN game_files file ON file.game_id=game.id AND file.role='CONTENT'
 WHERE game.id=? AND game.status='PUBLISHED'
-ORDER BY variant.core_id,revision.id,file.sort_order,file.logical_name
+ORDER BY variant.core_id,variant.id,file.sort_order,file.logical_name
 `, gameID)
 	if err != nil {
 		return nil, fmt.Errorf("netplay/eligible profiles: %w", err)
@@ -560,8 +555,8 @@ ORDER BY variant.core_id,revision.id,file.sort_order,file.logical_name
 	for rows.Next() {
 		var row eligibilityRow
 		if err := rows.Scan(
-			&row.revisionID, &row.providerID, &row.targetID, &row.targetContractSHA256,
-			&row.netplayCompatibilityLine, &row.platformID, &row.coreID, &row.coreName,
+			&row.variantID, &row.providerID, &row.targetID, &row.bundleSHA256, &row.sourceManifestDigest,
+			&row.platformID, &row.coreID, &row.coreName,
 			&row.dependencyJSON, &row.contentKind, &row.logicalName, &row.datVersionID,
 		); err != nil {
 			return nil, fmt.Errorf("netplay/eligible profile row: %w", err)
@@ -594,10 +589,10 @@ func (service *Service) matchEligibleProfile(
 		Summary: ProfileSummary{
 			ID: candidate.ID, CoreID: row.coreID, CoreName: row.coreName,
 			ProviderID: row.providerID, TargetID: row.targetID,
-			NetplayCompatibilityLine: row.netplayCompatibilityLine, MaxPlayers: candidate.MaxPlayers,
+			MaxPlayers: candidate.MaxPlayers,
 		},
-		Manifest: candidate, VariantRevisionID: row.revisionID,
-		TargetContractSHA256: row.targetContractSHA256, DependencySnapshotJSON: row.dependencyJSON,
+		Manifest: candidate, VariantID: row.variantID, BundleSHA256: row.bundleSHA256,
+		SourceManifestDigest: row.sourceManifestDigest, DependencySnapshotJSON: row.dependencyJSON,
 	}, contentKindAllowed, true, current, nil
 }
 
@@ -605,6 +600,6 @@ func (service *Service) matchesTargetProfile(row eligibilityRow, candidate Manif
 	contentKindAllowed := slices.Contains(service.registry.Manifest.Protocol.AllowedContentKinds, row.contentKind)
 	targetMatches := contentKindAllowed && slices.Contains(candidate.PlatformIDs, row.platformID) &&
 		candidate.CoreID == row.coreID && candidate.ProviderID == row.providerID &&
-		candidate.TargetID == row.targetID && candidate.NetplayCompatibilityLine == row.netplayCompatibilityLine
+		candidate.TargetID == row.targetID
 	return contentKindAllowed, targetMatches
 }

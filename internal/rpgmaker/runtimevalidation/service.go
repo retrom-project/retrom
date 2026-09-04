@@ -39,19 +39,18 @@ func New(database *sql.DB, blobs *blobstore.Store, now func() time.Time) *Servic
 }
 
 type Binding struct {
-	ValidationID          string
-	ImportItemID          string
-	ReviewVersion         int64
-	RuntimeBindingVersion int64
-	ExpiresAtMS           int64
+	ValidationID  string
+	ImportItemID  string
+	ReviewVersion int64
+	ExpiresAtMS   int64
 }
 
 type frozenBinding struct {
-	reviewDraftID, sourceSnapshotID, projectFingerprint                string
-	generation, providerID, targetID, gameCompatibilityLine            string
-	targetContractSHA256, dependencySnapshotSHA256, evidenceConfidence string
-	evidenceGeneration                                                 sql.NullString
-	reviewVersion, runtimeBindingRevision                              int64
+	reviewDraftID, sourceSnapshotID, projectFingerprint string
+	generation, providerID, targetID                    string
+	dependencySnapshotSHA256, evidenceConfidence        string
+	evidenceGeneration                                  sql.NullString
+	reviewVersion                                       int64
 }
 
 func (service *Service) Create(
@@ -84,7 +83,7 @@ func (service *Service) Create(
 	if binding.reviewVersion != expectedReviewVersion {
 		return Binding{}, ErrVersion
 	}
-	if exists, err := activeValidationExists(ctx, transaction, importItemID, binding.runtimeBindingRevision); err != nil {
+	if exists, err := activeValidationExists(ctx, transaction, importItemID); err != nil {
 		return Binding{}, err
 	} else if exists {
 		return Binding{}, ErrInvalidState
@@ -100,17 +99,16 @@ func (service *Service) Create(
 	}
 	if _, err := transaction.ExecContext(ctx, `
 INSERT INTO rpgmaker_runtime_validations(
- id,import_item_id,review_version_at_create,runtime_binding_revision,
- effective_source_snapshot_id,project_fingerprint,generation,
+ id,import_item_id,review_version_at_create,effective_source_snapshot_id,project_fingerprint,generation,
  evidence_generation,evidence_confidence,provider_id,target_id,
- game_compatibility_line,target_contract_sha256,dependency_snapshot_sha256,
+ dependency_snapshot_sha256,
  state,last_gate_sequence,machine_gates_json,created_at_ms,updated_at_ms,expires_at_ms
-) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,
+) VALUES(?,?,?,?,?,?,?,?,?,?,?,
  'CREATED',0,?,?,?,?)
-`, validationID.String(), importItemID, binding.reviewVersion, binding.runtimeBindingRevision,
-		binding.sourceSnapshotID, binding.projectFingerprint, binding.generation,
+`, validationID.String(), importItemID, binding.reviewVersion, binding.sourceSnapshotID,
+		binding.projectFingerprint, binding.generation,
 		nullableString(binding.evidenceGeneration), binding.evidenceConfidence, binding.providerID, binding.targetID,
-		binding.gameCompatibilityLine, binding.targetContractSHA256, binding.dependencySnapshotSHA256,
+		binding.dependencySnapshotSHA256,
 		machineGates, now, now, expiresAt); err != nil {
 		return Binding{}, fmt.Errorf("insert RPG validation: %w", err)
 	}
@@ -119,8 +117,8 @@ INSERT INTO rpgmaker_runtime_validations(
 	}
 	return Binding{
 		ValidationID: validationID.String(), ImportItemID: importItemID,
-		ReviewVersion: binding.reviewVersion, RuntimeBindingVersion: binding.runtimeBindingRevision,
-		ExpiresAtMS: expiresAt,
+		ReviewVersion: binding.reviewVersion,
+		ExpiresAtMS:   expiresAt,
 	}, nil
 }
 
@@ -128,10 +126,9 @@ func loadCurrentBinding(ctx context.Context, transaction *sql.Tx, importItemID s
 	var binding frozenBinding
 	var itemState, contentKind string
 	err := transaction.QueryRowContext(ctx, `
-SELECT draft.id,draft.version,draft.runtime_binding_revision,draft.effective_source_snapshot_id,
+SELECT draft.id,draft.version,draft.effective_source_snapshot_id,
  profile.project_fingerprint,profile.generation,profile.evidence_generation,
- profile.evidence_confidence,profile.provider_id,profile.target_id,profile.game_compatibility_line,
- profile.target_contract_sha256,profile.dependency_snapshot_sha256,
+ profile.evidence_confidence,profile.provider_id,profile.target_id,profile.dependency_snapshot_sha256,
  item.state,snapshot.content_kind
 FROM review_drafts draft
 JOIN import_items item ON item.id=draft.import_item_id
@@ -139,14 +136,11 @@ JOIN import_item_source_snapshots snapshot ON snapshot.id=draft.effective_source
  AND snapshot.import_item_id=draft.import_item_id
 JOIN rpgmaker_review_profiles profile ON profile.review_draft_id=draft.id
 JOIN runtime_targets target ON target.provider_id=profile.provider_id AND target.target_id=profile.target_id
- AND target.target_contract_sha256=profile.target_contract_sha256
- AND target.game_compatibility_line=profile.game_compatibility_line
 WHERE draft.import_item_id=?
 `, importItemID).Scan(
-		&binding.reviewDraftID, &binding.reviewVersion, &binding.runtimeBindingRevision,
-		&binding.sourceSnapshotID, &binding.projectFingerprint, &binding.generation,
+		&binding.reviewDraftID, &binding.reviewVersion, &binding.sourceSnapshotID,
+		&binding.projectFingerprint, &binding.generation,
 		&binding.evidenceGeneration, &binding.evidenceConfidence, &binding.providerID, &binding.targetID,
-		&binding.gameCompatibilityLine, &binding.targetContractSHA256,
 		&binding.dependencySnapshotSHA256, &itemState, &contentKind,
 	)
 	if err != nil {
@@ -162,14 +156,13 @@ func activeValidationExists(
 	ctx context.Context,
 	transaction *sql.Tx,
 	importItemID string,
-	bindingRevision int64,
 ) (bool, error) {
 	var count int
 	err := transaction.QueryRowContext(ctx, `
 SELECT count(*) FROM rpgmaker_runtime_validations
-WHERE import_item_id=? AND runtime_binding_revision=?
+WHERE import_item_id=?
  AND state NOT IN ('PASSED','FAILED','EXPIRED')
-`, importItemID, bindingRevision).Scan(&count)
+`, importItemID).Scan(&count)
 	if err != nil {
 		return false, fmt.Errorf("query active RPG validation: %w", err)
 	}
@@ -177,6 +170,18 @@ WHERE import_item_id=? AND runtime_binding_revision=?
 }
 
 func expireValidation(ctx context.Context, transaction *sql.Tx, importItemID string, now int64) error {
+	if _, err := transaction.ExecContext(ctx, `
+UPDATE launch_sessions
+SET state='EXPIRED',finished_at_ms=?,updated_at_ms=?,version=version+1
+WHERE purpose='RPG_RUNTIME_VALIDATION' AND state IN ('CREATED','ACTIVE')
+ AND rpgmaker_runtime_validation_id IN (
+  SELECT id FROM rpgmaker_runtime_validations
+  WHERE import_item_id=? AND expires_at_ms<=?
+   AND state NOT IN ('PASSED','FAILED','EXPIRED')
+ )
+`, now, now, importItemID, now); err != nil {
+		return fmt.Errorf("expire RPG validation launches: %w", err)
+	}
 	if _, err := transaction.ExecContext(ctx, `
 UPDATE rpgmaker_runtime_validations
 SET state='EXPIRED',failure_code='RPG_RUNTIME_TIMEOUT',updated_at_ms=?

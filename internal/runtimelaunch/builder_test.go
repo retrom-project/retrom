@@ -84,14 +84,14 @@ func fixtureBuilder(t *testing.T) (*Builder, runtimecatalog.Binding) {
 	t.Helper()
 	checkpoint := &runtimebundle.Checkpoint{WriteFormat: "fixture-state-v1", ReadFormats: []string{"fixture-state-v1"}, MaxBytes: 1024}
 	target := runtimebundle.Target{
-		ID: "target", DisplayName: "Fixture", GameCompatibilityLine: "fixture-v1",
+		ID: "target", DisplayName: "Fixture",
 		TargetOptionsSchema: runtimebundle.TargetOptionsSchema{
 			"type": "object", "additionalProperties": false,
 			"properties": map[string]any{}, "required": []any{},
 		},
 		Inputs:       []runtimebundle.Input{{Role: "game", Kind: "ROM_BLOB", Cardinality: "ONE"}},
 		Capabilities: runtimebundle.Capabilities{Checkpoint: true, FrameMode: "NONE", VideoModes: []string{}, ValidationProbes: []string{}},
-		Checkpoint:   checkpoint, AssetPaths: []string{"client.mjs"}, ContractSHA256: digest("d"),
+		Checkpoint:   checkpoint, AssetPaths: []string{"client.mjs"},
 	}
 	manifest := runtimebundle.Manifest{
 		SchemaVersion: 1, ProviderID: "fixture", ProviderVersion: "1.0.0",
@@ -103,8 +103,7 @@ func fixtureBuilder(t *testing.T) (*Builder, runtimecatalog.Binding) {
 			ProviderID: "fixture", ProviderVersion: "1.0.0", ProviderAPI: 1,
 			BundleSHA256: digest("a"), ModuleSHA256: digest("b"), ClientModulePath: "client.mjs",
 			Targets: []runtimebundle.ActiveTarget{{
-				ID: "target", GameCompatibilityLine: "fixture-v1",
-				Checkpoint: checkpoint, ContractSHA256: digest("d"),
+				ID: "target", Checkpoint: checkpoint,
 			}},
 		}},
 	}

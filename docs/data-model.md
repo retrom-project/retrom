@@ -1,154 +1,87 @@
 # Retrom 数据模型
 
-本文描述稳定领域关系和跨表不变量。字段、CHECK、FK、索引与 trigger 的逐字节事实源是
-`migrations/001_identity.sql` 至 `migrations/011_emulationstation_import_liveness.sql`；本文不复制一份会漂移的 SQL 字典。
-HTTP 字段以 `api/openapi.yaml` 的统一 bundle 为准。
+字段、CHECK、FK、索引与 trigger 的逐字节事实源是 `migrations/001_identity.sql` 至 `migrations/012_runtime_provider_current_state.sql`；本文只描述稳定领域关系。HTTP 字段以 `api/openapi.yaml` 的统一 bundle 为准。
 
-## 1. 基线与身份
+## 1. 基线
 
-- 当前项目尚未发布，只支持 clean 001–011 lineage。非当前开发数据库必须更换为空数据根后重建；没有降级、旧表转换、双写或运行时 schema 修补。
-- 业务主键使用 UUIDv7 字符串；SHA-256 使用 64 位小写十六进制；业务时刻使用 Unix 毫秒 `INTEGER`。
-- 数据库只保存摘要、逻辑 ID 和相对存储键，不保存 Launch 明文凭据、Cookie、CSRF token、用户主机绝对路径或第三方内容明文。
-- current pointer 只前移到同 owner 的不可变 revision。完成态 revision、事件、快照和证据禁止修改。
+- 项目尚未发布，数据库使用 clean 001–011 lineage，只支持向前升级；不提供降级、旧表转换、双写或运行时 schema 修补。
+- 业务主键使用 UUIDv7，摘要使用 64 位小写 SHA-256，时刻使用 Unix 毫秒 `INTEGER`。
+- 当前业务状态原位更新并推进 `version`；需要追踪的历史进入 audit、event、job input、来源快照和验证证据，不为 metadata、content、Variant 建平行业务版本树。
+- 数据库不保存 Launch 明文 capability、Cookie、CSRF token、用户主机绝对路径或 Provider 私有实现映射。
 
 ## 2. Runtime Provider catalog
-
-运行时部署和选择只有以下公开层级：
 
 ```text
 RuntimeProvider
   └─ RuntimeTarget
        ├─ RuntimeTargetBinding ── Product Core / Platform / content kind
        ├─ BIOSRequirement / DatVersion
-       ├─ Import validation / VariantRevision
-       └─ LaunchSession / SaveState / NetplaySession
+       ├─ ImportValidation / GameVariant
+       └─ LaunchSession / NetplaySession
 ```
 
-### 2.1 `runtime_providers`
+`runtime_providers` 每个 Provider 一行，保存当前 SemVer、Provider API、Bundle/manifest/module SHA-256、来源与激活时刻。安装器拒绝降级、同版本换字节、身份不一致和活动文件漂移。
 
-每个 Provider 恰好一行，冻结 `provider_id`、SemVer `provider_version`、正整数 `provider_api_version`、Bundle/manifest/client
-module SHA-256、`source=candidate|production` 和单调激活时刻。production 还必须有不可移动 repository/tag/commit；
-candidate 的三项 release 身份全为空。
+`runtime_targets` 的主键是 `(provider_id,target_id)`，保存当前 Provider manifest 投影的展示名、闭合 options schema、能力、checkpoint declaration 和公开 fragment。稳定引用只使用 Provider/Target；Bundle digest 只在需要重现实际执行字节的 Launch、Preview 与 Netplay session 中冻结。
 
-数据库只保存已验证的结构事实；当前安装器和 active loader 仍只支持 Provider API 1，其他正整数不能被激活。
+`runtime_target_bindings` 把产品 `core_id` 绑定到一个稳定 Target，并通过 platform/content-kind 关系收紧适用范围。数据库不保存 adapter、引擎 core、入口或资产映射。
 
-`provider_id + bundle_sha256` 唯一。同一版本换 bytes、降级、身份不一致或活动文件突变均在启动协调前拒绝。
+## 3. Game current state
 
-### 2.2 `runtime_targets`
+`games` 是用户可见游戏及其当前 metadata/content 根：它直接保存 PlatformInstance、标题字段、metadata 来源、content kind/来源、规范 manifest、状态、payload 生命周期、搜索文本和 `version`。
 
-Target 由 Provider manifest 投影，主键是 `(provider_id,target_id)`。每行冻结展示名、游戏兼容线、可空联机兼容线、
-闭合 `target_options_schema_json`、capabilities、checkpoint contract、公开 manifest fragment 和 canonical fragment 的
-`target_contract_sha256`。
+`game_assets` 与 `game_files` 直接归属 Game。`game_variants` 每个 `(game_id,core_id)` 一行，保存当前 Provider/Target、DAT、emulator game ID、兼容状态、依赖快照、DOS 入口和版本。`rpgmaker_game_profiles`、`rpgmaker_variant_profiles`、`variant_dependencies`、`variant_files` 和 runtime pack selection 都引用稳定 Game 或 Variant ID。
 
-数据库不保存 Provider 私有 adapter、core 或 asset mapping。任何消费者只引用 Provider、Target 和 contract digest；
-Target 公开字段只能来自已校验 Bundle manifest。
+metadata 编辑和媒体替换原位推进 Game；内容替换在后台准备完成后执行一次事务切换，删除旧文件、派生物、运行资源和存档，再写入新当前态。永久删除保留 Game tombstone 与审计，异步释放 payload。
 
-### 2.3 bindings 与 catalog state
+## 4. 依赖与 DAT
 
-`runtime_target_bindings` 把产品 `core_id` 绑定到一个 Target，并声明 detector、delivery、launch policy 和 review
-policy；`runtime_binding_platforms`、`runtime_binding_content_kinds` 收紧适用平台与内容类型。内容类型通过
-`content_kinds` reference catalog 外键约束，不在多张业务表复制固定 `CHECK IN (...)` 列表。一个 Target 只能有一条
-Host binding。`runtime_catalog_state` 保存当前完整 catalog 的单调版本、canonical digest 和激活时刻。
+`bios_requirements`、`dat_versions` 和服务器 BIOS 导入项引用稳定 Provider/Target。当前 active DAT 可以前移；已创建 Launch 只消费其冻结的依赖文件。BIOS 安装替换会撤销受影响的活动运行并把当前 Variant 置为待重验，但不会删除仍可由当前 Target 读取的 Game 存档。
 
-EmulatorJS Provider 当前声明 35 个 Target；retrom-runtime Provider 当前声明 12 个 Target。RPG Maker 对用户只有
-`rpgmaker` Core，七个世代是 retrom-runtime Target，不是七个用户可选 Core。
+依赖 snapshot 是规范 JSON，包含所选 BIOS、parent/base、多盘或 runtime pack 的实际闭包。Variant 保存当前 snapshot，Launch 创建时复制 snapshot 并锁定实际 Blob 边。
 
-## 3. 平台、目录与游戏
+## 5. 导入、审核与刮削
 
-- `platforms`、`cores`、`platform_cores` 是 reference catalog；`platform_instances` 是管理员维护的游戏目录。
-- `games` 只归属一个 PlatformInstance。metadata、媒体、内容与运行兼容性分别使用不可变 revision 或关系表。
-- `game_content_revisions` 与 `game_content_files` 冻结用户内容；原始 bytes 进入 CAS，逻辑路径必须通过安全路径规范。
-- `game_variants` 是 `(game,core)` 稳定逻辑槽；`game_variant_revisions` 是 append-only 验证结果。
+Upload、Archive、ImportJob、ImportItem、来源快照、Validation、ReviewDraft/Event、ScrapeRun 与服务器导入维持各自 owner、版本、幂等和 payload release 边界。运行选择只保存稳定 `provider_id/target_id`；是否 stale 由当前来源、目录 Core、Target、DAT、依赖和内容策略等真实输入比较决定，Provider Bundle 单独升级不使审核结果失效。
 
-`game_variant_revisions` 冻结 `provider_id`、`target_id`、`target_contract_sha256`、游戏兼容线、可空 DAT、validation
-input digest、依赖快照和状态。READY 结果必须引用当前内容 revision，且 Provider/Target/contract 与 binding 一致。
-EmulatorJS 可额外保存正整数 `emulator_game_id`；其他 Target 不伪造该值。
+发布事务将审核 metadata、媒体、内容文件与默认 Variant 一次写入 Game current state。重新刮削以稳定 `game_id` 为 owner 创建候选；显式应用候选才更新当前 metadata/assets，不能因为旧内容版本表已经删除而丢失 Game 关联。
 
-## 4. 依赖、DAT 与运行包
+RPG Maker validation 保存来源快照、项目 fingerprint、generation、Provider/Target 和依赖摘要。原 Launch 与 restore Launch 必须不同，gate event 连续且 append-only；临时 checkpoint 在工作流终态后释放，不进入用户存档列表。
 
-- `bios_requirements`、`dat_versions` 和服务器 BIOS 导入项都引用 Provider Target 及其 contract digest。
-- 同一 Target 只有一条 READY active DAT；DAT 更新创建新版本，不改写已发布 VariantRevision 的冻结引用。
-- `bios_installations`、DAT machine/ROM/disk/BIOS set 表保存解析与安装证据；Blob 可去重，领域安装状态不可跨 Target 复用。
-- RPG runtime asset pack definition/installation/file 和 Variant pack selection 保持独立领域模型。被 Variant 或可恢复 checkpoint 引用的安装不能删除或替换。
+## 6. Launch 与资源冻结
 
-依赖 snapshot 必须由规范 JSON 计算摘要，包含 Target contract、DAT、BIOS、parent/base、多盘或 runtime pack 的实际闭包。
-普通 Launch 只消费 VariantRevision 已冻结的闭包，不读取“当前最新”依赖重新拼装。
+`launch_sessions` 保存用途、Game/Core、稳定 Provider/Target、冻结 `bundle_sha256`、内容类型、依赖 snapshot、兼容状态、可选 save/validation/netplay owner、凭据摘要和生命周期。`launch_content_files` 与 `launch_external_files` 锁定本次内容、BIOS、parent 和 disc Blob；创建后 Game、Variant、DAT、BIOS 或 Provider 当前态变化都不能改写既有 Launch。
 
-## 5. 上传、导入与审核
+Review Preview 使用相同冻结原则；Provider 静态资源由 Provider/Bundle/path 三元组读取并逐请求校验 allowlist 与摘要。
 
-上传、归档、ImportJob、ImportItem、来源快照、validation、ReviewDraft/Event、ScrapeRun 与服务器导入都保持原有
-owner、版本、幂等和 payload release 边界。与运行时有关的冻结字段统一为：
+## 7. SaveState
 
-```text
-provider_id
-target_id
-target_contract_sha256
-game_compatibility_line（适用时）
-```
+`save_states` 保存 Profile、Game、checkpoint format、payload Blob/SHA-256/size、可选截图、DOS 路径/disc index 和来源 Launch。它不复制 Provider、Target、Bundle 或 Variant 身份。
 
-`import_jobs` 与 `import_item_core_validations` 在创建时保存 Target identity；Review 的运行输入变化递增
-`runtime_binding_revision`。标题、标签或媒体变化不能偷换 Target。发布事务必须重新比较来源快照、目标目录、Core、
-Target contract、依赖 snapshot 和所需 runtime validation；任一漂移返回稳定的 validation-stale 错误。
+写入必须来自同一 Profile/Game 的有效 PRODUCT Launch，且格式位于 Target `readFormats`、大小不超过 `maxBytes`。恢复使用当前 READY Variant；只要当前 Target 声明可读该 checkpoint format 即可。不可读存档保留为 BLOCKED 投影，不加载旧 Provider、不 fallback，也不阻止无存档启动。
 
-RPG Maker 内容证据保存在 `rpgmaker_content_profiles`；审核和 validation 保存 generation、Provider Target、project
-fingerprint 与依赖摘要。`rpgmaker_runtime_validations` 的原 Launch 和 restore Launch 必须不同，gate event 连续、
-append-only，临时 checkpoint 在终态后进入 payload release，不进入用户存档列表。
+## 8. Play、隔离与联机
 
-## 6. Launch、资源与游玩
+`play_sessions` 与事件使用连续 client sequence 计算有效游玩时长。`isolated_runtime_bootstrap_tickets` 和 `isolated_runtime_capabilities` 为每个 Launch/Preview 提供一次性、exact-origin 授权。
 
-`launch_sessions` 对 PRODUCT 与 RPG runtime validation 使用同一模型，并冻结 Provider、Target、Target contract、
-游戏兼容线、Bundle digest、内容/Variant/validation owner、capability 摘要、用途、return path、生命周期和可选 netplay
-信息。
+Netplay room、session、participant 与 event 保存当前选择和会话冻结态。Netplay session 冻结 Provider/Target、Bundle、内容/依赖摘要和 profile；参与者 Launch 必须一致。联机兼容由标准 Target 能力和 profile 精确匹配决定，不使用平行稳定 Target字段。
 
-明文 capability 只在浏览器 Cookie 中存在。`launch_content_files`、`launch_external_files` 与 Provider resource builder
-把当次授权内容投影为 Launch Envelope resources；创建后 current pointer、DAT 或安装变化不能改变本次资源。
+## 9. Blob ownership 与释放
 
-`play_sessions` 与事件通过连续 client sequence 计算有效时长。页面不可见、运行暂停或失联区间不计时；重放同一
-sequence 幂等，跳号冲突。
+每个 CAS Blob 必须存在于 `internal/blobregistry/registry.json` 并由 payload release ownership registry 分类。流程进入终态后由持久 Job 单向释放 consumption；最后一个保护引用消失后才建立 GC candidate，并等待配置宽限期。
 
-## 7. Opaque checkpoint 与存档
+Game 内容替换会立即移除旧 Game-owned 与 Game-runtime-owned 边；BIOS 替换只移除旧 BIOS 相关运行边；Game 删除移除内容、媒体、存档和运行边。共享 Blob 始终由剩余 owner 保护。
 
-`save_states` 不解释 Provider payload。每行冻结 Profile、Game、ContentRevision、VariantRevision、Provider、Target、
-Target contract、游戏兼容线、`checkpoint_format`、依赖 snapshot、可空 DAT/DOS/disc、payload Blob/SHA-256/size、
-来源 Launch 和可选截图。
+## 10. 数据库不变量
 
-来源 Launch、VariantRevision 和 SaveState 的运行身份必须逐字段一致。写入格式必须等于 Target 的
-`checkpoint.writeFormat`；恢复时格式必须在当前 Target 的 `readFormats` 中且 payload 不超过 `maxBytes`。Host 只校验
-外层格式、大小和摘要，不解析 EmulatorJS state、RPG bundle、KiriKiri/ONS/Tyrano snapshot 等 Provider 私有内容。
+`010_cross_domain_invariants.sql` 至少保证：
 
-普通游戏启动使用当前已激活的兼容 Target；旧 SaveState 是否可恢复由同一游戏兼容线和 `readFormats` 决定。不可读
-存档保留为 BLOCKED 投影，不自动加载旧 Provider、不 fallback，也不阻止无存档启动。
+- Provider/Target 引用命中当前 catalog，Launch/Netplay 的 Bundle 命中创建时的当前 Provider；
+- Game、Variant 的稳定 owner 和逐次 `version` 更新；
+- Launch、Preview、Save、Validation 与资源 owner 一致；
+- checkpoint format 位于 Target 的可读格式集合；
+- 隔离 capability 的 owner/origin/expiry 一致；
+- payload release 不产生悬空 Blob 引用；
+- 来源快照、gate event 和其他证据保持不可变。
 
-## 8. 隔离运行时
-
-`isolated_runtime_bootstrap_tickets` 与 `isolated_runtime_capabilities` 为每个 Launch 或 Preview 提供一次性 ticket 和
-host-only HttpOnly capability。数据库只存摘要、期望 origin、owner 和 expiry。ticket 只能消费一次；Launch 结束、
-过期或清理会撤销 capability。用户项目 JavaScript 只能在该 Launch 的 unique origin 执行，不能退回应用 origin。
-
-## 9. Netplay
-
-房间、成员、Session、参与者和事件保持单进程控制面。`netplay_sessions` 冻结 Provider Target、Target contract、
-联机兼容线、内容和依赖 identity；参与者 Launch 必须完全相同。Provider 只通过标准 `RuntimeNetplayPort` 暴露帧、输入、
-state 与 hash；联机 Launch 禁止创建或恢复普通存档。
-
-## 10. Blob ownership、GC 与删除
-
-所有 CAS Blob 必须至少有一个领域 owner 或流程 consumption。流程进入真终态后由持久 PayloadRelease Job 单向释放
-consumption；最后一个引用消失后才建立 GC candidate，并等待配置宽限期。Game 永久删除保留文字墓碑与审计，运行
-能力立即关闭，独占 payload 异步释放；共享 Blob 继续受其他 owner 保护。
-
-## 11. 跨域 trigger 最低集合
-
-`010_cross_domain_invariants.sql` 必须保证：
-
-- 所有 Provider/Target/contract 引用命中同一已激活 catalog；
-- Variant、Launch、Save、Validation、DAT、BIOS 和 Netplay 的复合身份一致；
-- current pointer、不可变 revision/event/snapshot 不被回写；
-- Save 与来源 Launch owner、依赖、格式一致；
-- 隔离 capability owner/origin 一致；
-- payload release 与 Blob owner 不会产生悬空引用。
-
-任何领域新增运行时引用时，都必须使用同一三元组并在 010 或后续已发布 migration 中补复合约束；禁止新增第二套
-运行选择字段或从 Target ID 推导 Provider 私有实现。
-
-`011_emulationstation_import_liveness.sql` 保留上述约束，并允许 EmulationStation 条目在 library import 未产生可交接的 review item 时从 `COPYING` 直接进入 `BLOCKED_CONTENT`。任何条目处理返回后都不得仍处于 `PENDING | COPYING | VALIDATING`；否则 worker 终止当前执行并按有界退避重试，不得立即重复处理同一条目。
+新增运行时引用时必须复用稳定 Provider/Target 和既有 Bundle 冻结规则，禁止新增第二套运行选择字段或从 Target ID 推导 Provider 私有实现。

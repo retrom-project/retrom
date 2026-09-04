@@ -153,7 +153,6 @@ target_platform_id=NULL,
 target_default_core_id=NULL,
 target_provider_id=NULL,
 target_id=NULL,
-target_contract_sha256=NULL,
 target_dat_version_id=NULL,
 updated_at_ms=?
 WHERE id=?
@@ -173,7 +172,7 @@ func (service *Service) importCollection(
 	now int64,
 ) error {
 	var instanceVersion int64
-	var platformID, coreID, providerID, targetID, targetContract string
+	var platformID, coreID, providerID, targetID string
 	var datID sql.NullString
 	err := transaction.QueryRowContext(ctx, `
 SELECT instance.version,
@@ -181,7 +180,6 @@ instance.platform_id,
 instance.default_core_id,
 target.provider_id,
 target.target_id,
-target.target_contract_sha256,
 (SELECT id FROM dat_versions WHERE provider_id=target.provider_id AND target_id=target.target_id AND is_active=1)
 FROM platform_instances instance
 JOIN platforms platform ON platform.id=instance.platform_id AND platform.enabled=1
@@ -193,7 +191,7 @@ JOIN runtime_targets target ON target.provider_id=binding.provider_id AND target
 WHERE instance.id=?
 AND instance.enabled=1
 AND instance.deleted_at_ms IS NULL`, mapping.PlatformInstanceID).
-		Scan(&instanceVersion, &platformID, &coreID, &providerID, &targetID, &targetContract, &datID)
+		Scan(&instanceVersion, &platformID, &coreID, &providerID, &targetID, &datID)
 	if err != nil {
 		return ErrInvalid
 	}
@@ -217,13 +215,12 @@ target_platform_id=?,
 target_default_core_id=?,
 target_provider_id=?,
 target_id=?,
-target_contract_sha256=?,
 target_dat_version_id=?,
 updated_at_ms=?
 WHERE id=?
 AND import_id=?
 AND game_count>0`, string(tagSnapshot), mapping.PlatformInstanceID, instanceVersion, platformID, coreID, providerID,
-		targetID, targetContract, nullable(datID), now, mapping.CollectionID, importID)
+		targetID, nullable(datID), now, mapping.CollectionID, importID)
 	if err != nil || rowsAffected(result) != 1 {
 		return ErrInvalid
 	}
