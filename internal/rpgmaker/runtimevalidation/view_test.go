@@ -99,7 +99,7 @@ INSERT INTO rpgmaker_runtime_validations(
 	}
 	var state string
 	var finishedAt int64
-	if err := database.QueryRow(`SELECT state,finished_at_ms FROM launch_sessions WHERE id=?`, launchID).
+	if err := database.QueryRowContext(context.Background(), `SELECT state,finished_at_ms FROM launch_sessions WHERE id=?`, launchID).
 		Scan(&state, &finishedAt); err != nil {
 		t.Fatal(err)
 	}
@@ -151,7 +151,7 @@ INSERT INTO rpgmaker_runtime_validations(
 	}
 	var state string
 	var finishedAt int64
-	if err := database.QueryRow(`SELECT state,finished_at_ms FROM launch_sessions WHERE id=?`, launchID).
+	if err := database.QueryRowContext(context.Background(), `SELECT state,finished_at_ms FROM launch_sessions WHERE id=?`, launchID).
 		Scan(&state, &finishedAt); err != nil {
 		t.Fatal(err)
 	}
