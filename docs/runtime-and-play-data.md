@@ -60,7 +60,7 @@ Checkpoint 对 Host 是不透明字节。Target declaration 固定 `writeFormat/
 
 EmulatorJS Provider 自己维护 35 个 Target 的 EJS core、配置、多盘和联机 profile。Retrom 不维护 EJS registry，也不向页面暴露引擎私有 globals。
 
-`retrom-runtime` Provider 自己维护 12 个 Target，覆盖 EasyRPG、mkxp、MV/MZ、ONS、KiriKiri、Butterscotch、TyranoScript 与 WASM-4 等行为。项目索引、seekable blob、file tree、native web 和 cart 通过资源 kind 表达；引擎专属 checkpoint codec、输入、渲染、OPFS/Range 策略、unique-origin bootstrap 与清理均留在 Provider 内。当前 TyranoScript 固定来源使用 r7 bridge；被项目脚本移出 DOM 的缓冲媒体由 bridge 中止遗留请求，避免快速跳过视频后耗尽同源连接。
+`retrom-runtime` Provider 自己维护 12 个 Target，覆盖 EasyRPG、mkxp、MV/MZ、ONS、KiriKiri、Butterscotch、TyranoScript 与 WASM-4 等行为。项目索引、seekable blob、file tree、native web 和 cart 通过资源 kind 表达；引擎专属 checkpoint codec、输入、渲染、OPFS/Range 策略、unique-origin bootstrap 与清理均留在 Provider 内。Butterscotch 保持真实 `640×480` backing buffer，并由 Provider 根据运行 surface 实时计算等比最大内接的 CSS display 尺寸；横屏和竖屏都必须在不拉伸、不裁剪的前提下至少贴满一条边，不能退回固定 `640×480` 小窗。当前 TyranoScript 固定来源使用 r7 bridge；被项目脚本移出 DOM 的缓冲媒体由 bridge 中止遗留请求，避免快速跳过视频后耗尽同源连接。
 
 RPG Runtime Validation 继续使用相同 Provider Module 与 envelope。`validation` 只携带服务端验证状态和 probe 输入；Provider 发布标准帧、输入、截图与 checkpoint 能力，RPG gate driver 在标准运行对象之上推进 14 个有序 gate，不创建另一套 Player。
 

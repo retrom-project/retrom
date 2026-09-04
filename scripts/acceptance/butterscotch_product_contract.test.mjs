@@ -9,7 +9,7 @@ import {
 const screenshot = {
   backingHeight: 480, backingWidth: 640, centerOffsetXPx: 0, centerOffsetYPx: 0,
   displayHeight: 480, displayWidth: 640, focused: true, height: 480,
-  nonBlackPixels: 10_000, rgbaSha256: "a".repeat(64), width: 640,
+  nonBlackPixels: 10_000, rgbaSha256: "a".repeat(64), surfaceHeight: 480, surfaceWidth: 640, width: 640,
 };
 
 function evidence() {
@@ -53,6 +53,13 @@ test("rejects cache, input, checkpoint and browser regressions", () => {
     {
       ...evidence(),
       screenshots: { ...evidence().screenshots, productAfterInput: evidence().screenshots.productBeforeInput },
+    },
+    {
+      ...evidence(),
+      screenshots: {
+        ...evidence().screenshots,
+        preview: { ...screenshot, surfaceHeight: 1_000, surfaceWidth: 1_440 },
+      },
     },
   ];
   for (const value of invalid) {
