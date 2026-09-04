@@ -152,8 +152,8 @@ func (server *Server) projectContent(
 
 func supportedProjectFormat(format string) bool {
 	switch format {
-	case "RPG_MAKER_PROJECT_V1", "ONS_PROJECT_V1", "KIRIKIRI_PROJECT_V1",
-		"BUTTERSCOTCH_PROJECT_V1", "TYRANOSCRIPT_PROJECT_V1":
+	case "RPG_MAKER_PROJECT", "ONS_PROJECT", "KIRIKIRI_PROJECT",
+		"BUTTERSCOTCH_PROJECT", "TYRANOSCRIPT_PROJECT":
 		return true
 	default:
 		return false

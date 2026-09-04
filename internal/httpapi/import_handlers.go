@@ -181,7 +181,7 @@ JOIN import_item_source_snapshot_files playlist ON playlist.source_snapshot_id=s
 AND playlist.role='PLAYLIST_SOURCE'
 JOIN upload_files upload ON upload.id=playlist.upload_file_id
 LEFT JOIN import_item_multidisc_entries entry ON entry.source_snapshot_id=snapshot.id
-WHERE item.import_job_id=? AND snapshot.content_kind='MULTI_DISC_M3U_V1'
+WHERE item.import_job_id=? AND snapshot.content_kind='MULTI_DISC'
 GROUP BY item.id,item.state,snapshot.content_kind,playlist.logical_name,upload.relative_path
 ORDER BY upload.relative_path,item.id
 `, importJobID)

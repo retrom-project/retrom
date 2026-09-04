@@ -154,7 +154,7 @@ func TestRPGRuntimeRouteServesTyranoScriptProjectHEAD(t *testing.T) {
 	t.Parallel()
 	database, isolationService, nowMS, launchID, origin, ticket := newBootstrapReloadFixture(t)
 	if _, err := database.ExecContext(t.Context(), `
-UPDATE launch_content_files SET format_version='TYRANOSCRIPT_PROJECT_V1'
+UPDATE launch_content_files SET format_version='TYRANOSCRIPT_PROJECT'
 `); err != nil {
 		t.Fatal(err)
 	}
@@ -380,7 +380,7 @@ CREATE TABLE isolated_runtime_capabilities(
 		arguments []any
 	}{
 		{`INSERT INTO launch_sessions VALUES(?,'profile','ACTIVE',?)`, []any{launchID, nowMS + 120_000}},
-		{`INSERT INTO launch_content_files VALUES(?,'index.html','RPG_MAKER_PROJECT_V1')`, []any{launchID}},
+		{`INSERT INTO launch_content_files VALUES(?,'index.html','RPG_MAKER_PROJECT')`, []any{launchID}},
 		{`INSERT INTO isolated_runtime_bootstrap_tickets VALUES(?,?,NULL,'profile',?,?,NULL)`, []any{ticketDigest[:], launchID, origin, nowMS + 60_000}},
 	} {
 		if _, err := database.ExecContext(ctx, statement.query, statement.arguments...); err != nil {

@@ -108,19 +108,19 @@ export interface RuntimeHostV1 {
 export type RestoreDescriptorV1 = { url: string; format: string; sha256: string; sizeBytes: number };
 export type RuntimeResourceIdentityV1 = { role: string; ordinal: number };
 export type RuntimeBlobResourceV1 = RuntimeResourceIdentityV1 & {
-  kind: "ROM_BLOB_V1" | "SEEKABLE_BLOB_V1" | "PARENT_ARCHIVE_V1" | "WASM4_CART_V1";
+  kind: "ROM_BLOB" | "SEEKABLE_BLOB" | "PARENT_ARCHIVE" | "WASM4_CART";
   url: string;
   sha256: string;
   sizeBytes: number;
   rangeRequired: boolean;
 };
 export type RuntimeFileTreeResourceV1 = RuntimeResourceIdentityV1 & {
-  kind: "FILE_TREE_V1";
+  kind: "FILE_TREE";
   indexUrl: string;
   contentDigest: string;
 };
 export type RuntimeWebResourceV1 = RuntimeResourceIdentityV1 & {
-  kind: "NATIVE_WEB_V1" | "ISOLATED_WEB_V1";
+  kind: "NATIVE_WEB" | "ISOLATED_WEB";
   origin: string;
   entryUrl: string;
   bootstrapTicket: string;
@@ -135,25 +135,20 @@ export type RuntimeFileEntryV1 = {
   sizeBytes: number;
 };
 export type RuntimeFileSetResourceV1 = RuntimeResourceIdentityV1 & {
-  kind: "BIOS_BUNDLE_V1" | "EXTERNAL_FILE_SET_V1";
+  kind: "BIOS_BUNDLE" | "EXTERNAL_FILE_SET";
   files: RuntimeFileEntryV1[];
 };
 export type RuntimeMultiDiscResourceV1 = RuntimeResourceIdentityV1 & {
-  kind: "MULTI_DISC_V1";
+  kind: "MULTI_DISC";
   initialDiscIndex: number;
   entries: Array<{ index: number; label: string; url: string; sha256: string; sizeBytes: number }>;
 };
 export type RuntimeResourceV1 = RuntimeBlobResourceV1 | RuntimeFileTreeResourceV1 |
   RuntimeWebResourceV1 | RuntimeFileSetResourceV1 | RuntimeMultiDiscResourceV1;
 
-export type TargetOptionsV1 =
-  | { kind: "NONE_V1" }
-  | { kind: "EMULATORJS_V1"; dosEntryPath: string | null; initialDiscIndex: number | null }
-  | { kind: "RPGMAKER_V1"; expectedRestorePosition: {
-      mapId: number; playerX: number; playerY: number; fixtureState: number;
-    } | null }
-  | { kind: "ONS_PROJECT_V1"; scriptEncoding: "gbk" | "sjis" | "utf8" }
-  | { kind: "KIRIKIRI_PROJECT_V1"; startupXp3Path: string | null };
+export type RuntimeJSONValueV1 = null | boolean | string | number |
+  RuntimeJSONValueV1[] | { [key: string]: RuntimeJSONValueV1 };
+export type TargetOptionsV1 = { [key: string]: RuntimeJSONValueV1 };
 
 export type RuntimeValidationV1 = { probeId: string; input: Record<string, unknown> };
 export type RuntimeNetplayV1 = {

@@ -25,7 +25,7 @@ SELECT file.role,blob.sha256
 FROM game_content_files file
 JOIN blobs blob ON blob.id=file.blob_id
 WHERE file.game_content_revision_id=?
-  AND (?!='MULTI_DISC_M3U_V1' OR file.role='DISC')
+  AND (?!='MULTI_DISC' OR file.role='DISC')
 ORDER BY file.sort_order,file.role,file.logical_name
 `, currentContentID, prepared.contentKind)
 	if err != nil {

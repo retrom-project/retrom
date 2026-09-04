@@ -110,7 +110,7 @@ describe("UploadPicker", () => {
     const user = userEvent.setup();
     render(<UploadPicker directories={[{
       id: "rpg-mv", name: "RPG Maker MV", platformName: "RPG Maker", coreName: "RPG Maker MV",
-      importCapabilities: { contentModes: ["RPG_MAKER_PROJECT_V1"], multiDisc: null },
+      importCapabilities: { contentModes: ["RPG_MAKER_PROJECT"], multiDisc: null },
     }]} />);
 
     const project = new File(["project"], "game.zip", { type: "application/zip" });
@@ -131,7 +131,7 @@ describe("UploadPicker", () => {
     await user.click(screen.getByRole("button", { name: "上传并验证 RPG Maker 项目" }));
     expect(upload.uploadFiles).toHaveBeenCalledWith(expect.any(Array), expect.any(Function), "RPG_MAKER_PROJECT");
     expect(fetchMock).toHaveBeenCalledWith("/api/v1/admin/imports", expect.objectContaining({
-      body: JSON.stringify({ uploadId: "rpg-upload", targetPlatformInstanceId: "rpg-mv", metadataProvider: "NONE", contentMode: "RPG_MAKER_PROJECT_V1", tagIds: [] }),
+      body: JSON.stringify({ uploadId: "rpg-upload", targetPlatformInstanceId: "rpg-mv", metadataProvider: "NONE", contentMode: "RPG_MAKER_PROJECT", tagIds: [] }),
     }));
   });
 
@@ -141,7 +141,7 @@ describe("UploadPicker", () => {
     const user = userEvent.setup();
     render(<UploadPicker directories={[{
       id: "ons", name: "ONS 游戏", platformName: "ONS", coreName: "ONScripterYuri",
-      importCapabilities: { contentModes: ["ONS_PROJECT_V1"], multiDisc: null },
+      importCapabilities: { contentModes: ["ONS_PROJECT"], multiDisc: null },
     }]} />);
 
     const project = new File(["project"], "game.7z", { type: "application/x-7z-compressed" });
@@ -156,7 +156,7 @@ describe("UploadPicker", () => {
     await user.click(screen.getByRole("button", { name: "上传并试运行 ONS 项目" }));
     expect(upload.uploadFiles).toHaveBeenCalledWith(expect.any(Array), expect.any(Function), "ONS_PROJECT");
     expect(fetchMock).toHaveBeenCalledWith("/api/v1/admin/imports", expect.objectContaining({
-      body: JSON.stringify({ uploadId: "rpg-upload", targetPlatformInstanceId: "ons", metadataProvider: "NONE", contentMode: "ONS_PROJECT_V1", tagIds: [] }),
+      body: JSON.stringify({ uploadId: "rpg-upload", targetPlatformInstanceId: "ons", metadataProvider: "NONE", contentMode: "ONS_PROJECT", tagIds: [] }),
     }));
   });
 
@@ -166,7 +166,7 @@ describe("UploadPicker", () => {
     const user = userEvent.setup();
     render(<UploadPicker directories={[{
       id: "kirikiri", name: "KiriKiri 游戏", platformName: "KiriKiri", coreName: "KiriKiri2",
-      importCapabilities: { contentModes: ["KIRIKIRI_PROJECT_V1"], multiDisc: null },
+      importCapabilities: { contentModes: ["KIRIKIRI_PROJECT"], multiDisc: null },
     }]} />);
 
     const project = new File(["project"], "game.zip", { type: "application/zip" });
@@ -181,7 +181,7 @@ describe("UploadPicker", () => {
     await user.click(screen.getByRole("button", { name: "上传并试运行 KiriKiri 项目" }));
     expect(upload.uploadFiles).toHaveBeenCalledWith(expect.any(Array), expect.any(Function), "KIRIKIRI_PROJECT");
     expect(fetchMock).toHaveBeenCalledWith("/api/v1/admin/imports", expect.objectContaining({
-      body: JSON.stringify({ uploadId: "rpg-upload", targetPlatformInstanceId: "kirikiri", metadataProvider: "NONE", contentMode: "KIRIKIRI_PROJECT_V1", tagIds: [] }),
+      body: JSON.stringify({ uploadId: "rpg-upload", targetPlatformInstanceId: "kirikiri", metadataProvider: "NONE", contentMode: "KIRIKIRI_PROJECT", tagIds: [] }),
     }));
   });
 
@@ -191,7 +191,7 @@ describe("UploadPicker", () => {
     const user = userEvent.setup();
     render(<UploadPicker directories={[{
       id: "butterscotch", name: "GameMaker 游戏", platformName: "GameMaker", coreName: "Butterscotch",
-      importCapabilities: { contentModes: ["BUTTERSCOTCH_PROJECT_V1"], multiDisc: null },
+      importCapabilities: { contentModes: ["BUTTERSCOTCH_PROJECT"], multiDisc: null },
     }]} />);
 
     await user.upload(screen.getByLabelText("选择导入文件"), new File(["FORM"], "game.zip"));
@@ -204,7 +204,7 @@ describe("UploadPicker", () => {
     await user.click(screen.getByRole("button", { name: "上传并试运行 GameMaker 项目" }));
     expect(upload.uploadFiles).toHaveBeenCalledWith(expect.any(Array), expect.any(Function), "BUTTERSCOTCH_PROJECT");
     expect(fetchMock).toHaveBeenCalledWith("/api/v1/admin/imports", expect.objectContaining({
-      body: JSON.stringify({ uploadId: "rpg-upload", targetPlatformInstanceId: "butterscotch", metadataProvider: "NONE", contentMode: "BUTTERSCOTCH_PROJECT_V1", tagIds: [] }),
+      body: JSON.stringify({ uploadId: "rpg-upload", targetPlatformInstanceId: "butterscotch", metadataProvider: "NONE", contentMode: "BUTTERSCOTCH_PROJECT", tagIds: [] }),
     }));
   });
 
@@ -216,7 +216,7 @@ describe("UploadPicker", () => {
     const user = userEvent.setup();
     render(<UploadPicker directories={[{
       id: "tyranoscript", name: "TyranoScript 游戏", platformName: "TyranoScript", coreName: "TyranoScript",
-      importCapabilities: {contentModes: ["TYRANOSCRIPT_PROJECT_V1"], multiDisc: null},
+      importCapabilities: {contentModes: ["TYRANOSCRIPT_PROJECT"], multiDisc: null},
     }]} />);
 
     await user.upload(screen.getByLabelText("选择导入文件"), new File(["MZ"], "game.exe"));
@@ -232,7 +232,7 @@ describe("UploadPicker", () => {
     expect(fetchMock).toHaveBeenCalledWith("/api/v1/admin/imports", expect.objectContaining({
       body: JSON.stringify({
         uploadId: "rpg-upload", targetPlatformInstanceId: "tyranoscript", metadataProvider: "NONE",
-        contentMode: "TYRANOSCRIPT_PROJECT_V1", tagIds: [],
+        contentMode: "TYRANOSCRIPT_PROJECT", tagIds: [],
       }),
     }));
   });
@@ -246,7 +246,7 @@ describe("UploadPicker", () => {
     const user = userEvent.setup();
     render(<UploadPicker directories={[{
       id: "ons", name: "ONS 游戏", platformName: "ONS", coreName: "ONScripterYuri",
-      importCapabilities: { contentModes: ["ONS_PROJECT_V1"], multiDisc: null },
+      importCapabilities: { contentModes: ["ONS_PROJECT"], multiDisc: null },
     }]} />);
 
     await user.upload(screen.getByLabelText("选择导入文件"), new File(["project"], "game.zip"));
@@ -262,7 +262,7 @@ describe("UploadPicker", () => {
     const user = userEvent.setup();
     render(<UploadPicker directories={[
       { id: "gba", name: "GBA 游戏", platformName: "Game Boy Advance", coreName: "mGBA", importCapabilities: { contentModes: ["STANDARD"], multiDisc: null } },
-      { id: "saturn", name: "Saturn 游戏", platformName: "Sega Saturn", coreName: "Yabause", importCapabilities: { contentModes: ["STANDARD", "MULTI_DISC_M3U_V1"], multiDisc: { maxDiscs: 8, maxTotalBytes: 1024 } } },
+      { id: "saturn", name: "Saturn 游戏", platformName: "Sega Saturn", coreName: "Yabause", importCapabilities: { contentModes: ["STANDARD", "MULTI_DISC"], multiDisc: { maxDiscs: 8, maxTotalBytes: 1024 } } },
     ]} />);
     const playlist = new File(["one.chd\ntwo.chd\n"], "game.m3u");
     const firstDisc = new File(["MComprHDone"], "one.chd");

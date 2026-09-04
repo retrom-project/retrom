@@ -53,7 +53,7 @@ SELECT runtime_binding.core_id,target.provider_id,target.target_id,target.target
          ))),
          'multiDisc',CASE WHEN EXISTS(
            SELECT 1 FROM runtime_binding_content_kinds kinds
-           WHERE kinds.binding_id=runtime_binding.binding_id AND kinds.content_kind='MULTI_DISC_M3U_V1'
+           WHERE kinds.binding_id=runtime_binding.binding_id AND kinds.content_kind='MULTI_DISC'
          ) THEN json_object('maxDiscs',8,'maxTotalBytes',1073741824,'delivery','EAGER_EXTERNAL_FILES') ELSE NULL END
        ),
        (SELECT id FROM dat_versions dat

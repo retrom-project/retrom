@@ -128,11 +128,7 @@ CREATE TABLE "import_item_source_snapshots" (
   id TEXT PRIMARY KEY,
   import_item_id TEXT NOT NULL REFERENCES import_items(id),
   revision_no INTEGER NOT NULL CHECK(revision_no>=1),
-  content_kind TEXT NOT NULL DEFAULT 'SINGLE_FILE'
-    CHECK(content_kind IN (
-      'SINGLE_FILE','DOS_BUNDLE','MULTI_DISC_M3U_V1','RPG_MAKER_PROJECT_V1','ONS_PROJECT_V1',
-      'KIRIKIRI_PROJECT_V1','BUTTERSCOTCH_PROJECT_V1','TYRANOSCRIPT_PROJECT_V1'
-    )),
+  content_kind TEXT NOT NULL DEFAULT 'SINGLE_FILE' REFERENCES content_kinds(id),
   source_manifest_json TEXT NOT NULL,
   source_manifest_digest TEXT NOT NULL
     CHECK(length(source_manifest_digest)=64 AND source_manifest_digest=lower(source_manifest_digest)),
@@ -512,24 +508,16 @@ CREATE TABLE review_preview_sessions (
   actor_user_id TEXT NOT NULL REFERENCES users(id),
   idempotency_key TEXT NOT NULL,
   title TEXT NOT NULL CHECK(length(CAST(title AS BLOB)) BETWEEN 1 AND 800),
-  content_kind TEXT NOT NULL CHECK(content_kind IN (
-    'SINGLE_FILE','DOS_BUNDLE','MULTI_DISC_M3U_V1','ONS_PROJECT_V1','KIRIKIRI_PROJECT_V1',
-    'BUTTERSCOTCH_PROJECT_V1','TYRANOSCRIPT_PROJECT_V1'
-  )),
+  content_kind TEXT NOT NULL REFERENCES content_kinds(id),
   content_blob_id TEXT NOT NULL REFERENCES blobs(id),
   content_logical_name TEXT NOT NULL CHECK(length(CAST(content_logical_name AS BLOB)) BETWEEN 1 AND 512),
-  content_format TEXT NOT NULL CHECK(content_format IN (
-    'SOURCE_V1','RETROM_DOS_DIRECT_ZIP_V1','RETROM_MULTIDISC_M3U_V1','ONS_PROJECT_V1',
-    'KIRIKIRI_PROJECT_V1','BUTTERSCOTCH_PROJECT_V1','TYRANOSCRIPT_PROJECT_V1'
-  )),
+  content_format TEXT NOT NULL CHECK(
+    length(content_format) BETWEEN 2 AND 64 AND content_format=upper(content_format)
+    AND content_format NOT GLOB '*[^A-Z0-9_]*'
+  ),
   dependency_snapshot_json TEXT NOT NULL,
   default_dos_entry TEXT,
-  emulator_game_id INTEGER CHECK(
-    content_kind IN ('ONS_PROJECT_V1','KIRIKIRI_PROJECT_V1','BUTTERSCOTCH_PROJECT_V1','TYRANOSCRIPT_PROJECT_V1')
-      AND emulator_game_id IS NULL OR
-    content_kind NOT IN ('ONS_PROJECT_V1','KIRIKIRI_PROJECT_V1','BUTTERSCOTCH_PROJECT_V1','TYRANOSCRIPT_PROJECT_V1')
-      AND emulator_game_id>0
-  ),
+  emulator_game_id INTEGER CHECK(emulator_game_id IS NULL OR emulator_game_id>0),
   capture_allowed INTEGER NOT NULL CHECK(capture_allowed IN (0,1)),
   credential_sha256 BLOB NOT NULL CHECK(length(credential_sha256)=32),
   state TEXT NOT NULL CHECK(state IN ('CREATED','ACTIVE','EXPIRED','REVOKED')),
@@ -784,7 +772,10 @@ CREATE TABLE scrape_candidate_assets (
 CREATE TABLE content_hash_evidence (
   id TEXT PRIMARY KEY,
   scrape_run_id TEXT NOT NULL REFERENCES metadata_scrape_runs(id),
-  profile TEXT NOT NULL CHECK(profile IN ('RAW_FILE_V1','SINGLE_ARCHIVE_MEMBER_V1','ARCADE_DAT_ENTRIES_V1')),
+  profile TEXT NOT NULL CHECK(
+    length(profile) BETWEEN 2 AND 64 AND profile=upper(profile)
+    AND profile NOT GLOB '*[^A-Z0-9_]*'
+  ),
   blob_id TEXT REFERENCES blobs(id),
   archive_blob_id TEXT,
   archive_entry_ordinal INTEGER,

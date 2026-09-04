@@ -32,7 +32,7 @@ describe("RuntimeHostV1", () => {
     input.resources = [{
       bootstrapTicket: "t".repeat(48), cleanupUrl: "https://runtime.example.test/cleanup",
       contentDigest: "c".repeat(64), entryUrl: "https://runtime.example.test/entry",
-      kind: "ISOLATED_WEB_V1", ordinal: 0, origin: "https://runtime.example.test", role: "game",
+      kind: "ISOLATED_WEB", ordinal: 0, origin: "https://runtime.example.test", role: "game",
     }];
     const controller = new AbortController();
     const fetcher = vi.fn(async () => new Response(null, {status: 204}));
@@ -66,7 +66,7 @@ describe("RuntimeHostV1", () => {
     input.resources = [{
       bootstrapTicket: "t".repeat(48), cleanupUrl: null,
       contentDigest: "c".repeat(64), entryUrl: "https://runtime.example.test/entry",
-      kind: "NATIVE_WEB_V1", ordinal: 0, origin: "https://runtime.example.test", role: "game",
+      kind: "NATIVE_WEB", ordinal: 0, origin: "https://runtime.example.test", role: "game",
     }];
     const target = document.createElement("div");
     document.body.append(target);
@@ -128,6 +128,6 @@ function envelope(): LaunchEnvelopeV1 {
     },
     session: {coreName: "Fixture Core", id: "018f0f31-26fe-7a31-9d61-4ec92f16d4c3", mode: "SINGLE", platformName: "Fixture",
       purpose: "PRODUCT", returnTo: "/games/fixture", title: "Fixture", warnings: []},
-    targetOptions: {kind: "NONE_V1"}, validation: null,
+    targetOptions: {}, validation: null,
   };
 }

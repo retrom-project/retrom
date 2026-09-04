@@ -166,7 +166,7 @@ function applyEnvelope(params: PlayerBootstrapParams, envelope: LaunchEnvelopeV1
     sharedArrayBuffer: typeof SharedArrayBuffer !== "undefined",
   });
   const dosProgramMenu = envelope.runtime.targetId === "dosbox-pure" &&
-    envelope.targetOptions.kind === "EMULATORJS_V1" && envelope.targetOptions.dosEntryPath === null;
+    envelope.targetOptions.dosEntryPath === null;
   params.dosProgramMenuRef.current = dosProgramMenu;
   params.setDosProgramMenu(dosProgramMenu);
   params.setDiscState(null);

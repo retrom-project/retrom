@@ -84,6 +84,33 @@ func TestTargetContractDigestIncludesEveryDeclaredAssetDigest(t *testing.T) {
 	}
 }
 
+func TestTargetContractDigestIncludesTargetOptionsSchema(t *testing.T) {
+	t.Parallel()
+	manifest, err := ParseManifest([]byte(fixtureManifest))
+	if err != nil {
+		t.Fatal(err)
+	}
+	files := []IntegrityFile{{
+		Path: "assets/core.wasm", SizeBytes: 1, SHA256: strings.Repeat("a", 64),
+	}}
+	first, err := BindTargetIntegrity(manifest, files)
+	if err != nil {
+		t.Fatal(err)
+	}
+	manifest.Targets[0].TargetOptionsSchema = TargetOptionsSchema{
+		"type": "object", "additionalProperties": false,
+		"properties": map[string]any{"slot": map[string]any{"type": "integer", "minimum": int64(0)}},
+		"required":   []any{"slot"},
+	}
+	second, err := BindTargetIntegrity(manifest, files)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if first.Targets[0].ContractSHA256 == second.Targets[0].ContractSHA256 {
+		t.Fatal("target contract digest ignored changed targetOptions schema")
+	}
+}
+
 func TestParseIntegrityClosesMediaAndOrdering(t *testing.T) {
 	valid := `{"schemaVersion":1,"files":[` +
 		`{"path":"assets/core.wasm","sizeBytes":4,"sha256":"` + strings.Repeat("a", 64) + `","mediaType":"application/wasm"},` +
@@ -116,8 +143,8 @@ const fixtureManifest = `{
     "displayName":"Core",
     "gameCompatibilityLine":"core-v1",
     "netplayCompatibilityLine":null,
-    "optionsKind":"NONE_V1",
-    "inputs":[{"role":"game","kind":"ROM_BLOB_V1","cardinality":"ONE","optional":false}],
+    "targetOptionsSchema":{"type":"object","additionalProperties":false,"properties":{},"required":[]},
+    "inputs":[{"role":"game","kind":"ROM_BLOB","cardinality":"ONE","optional":false}],
     "capabilities":{"pause":true,"screenshot":true,"checkpoint":false,"standardGamepad":true,"frameCounter":false,"volume":true,"discSwitch":false,"nativeSettings":true,"inputFilter":true,"netplayPort":false,"videoModes":["original","pixel"],"requiresThreads":false,"frameMode":"SAME_ORIGIN_BLANK","validationProbes":[]},
     "checkpoint":null,
     "assetPaths":["assets/core.wasm"]

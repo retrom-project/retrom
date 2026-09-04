@@ -29,7 +29,7 @@ _MANIFEST_KEYS = {
 }
 _TARGET_KEYS = {
     "id", "displayName", "gameCompatibilityLine", "netplayCompatibilityLine",
-    "optionsKind", "capabilities", "inputs", "checkpoint", "assetPaths",
+    "targetOptionsSchema", "capabilities", "inputs", "checkpoint", "assetPaths",
 }
 _CAPABILITY_KEYS = {
     "pause", "screenshot", "checkpoint", "standardGamepad", "frameCounter",
@@ -42,14 +42,12 @@ _FRAME_MODES = {
     "NONE", "SAME_ORIGIN_BLANK", "SAME_ORIGIN_RESOURCE", "ISOLATED_ORIGIN_RESOURCE",
 }
 _RESOURCE_KINDS = {
-    "ROM_BLOB_V1", "FILE_TREE_V1", "SEEKABLE_BLOB_V1", "NATIVE_WEB_V1",
-    "ISOLATED_WEB_V1", "BIOS_BUNDLE_V1", "PARENT_ARCHIVE_V1", "MULTI_DISC_V1",
-    "EXTERNAL_FILE_SET_V1", "WASM4_CART_V1",
+    "ROM_BLOB", "FILE_TREE", "SEEKABLE_BLOB", "NATIVE_WEB",
+    "ISOLATED_WEB", "BIOS_BUNDLE", "PARENT_ARCHIVE", "MULTI_DISC",
+    "EXTERNAL_FILE_SET", "WASM4_CART",
 }
 _VIDEO_MODES = {"original", "pixel", "smooth", "sharp-bilinear", "adaptive-sharpen"}
-_OPTIONS_KINDS = {
-    "NONE_V1", "EMULATORJS_V1", "RPGMAKER_V1", "ONS_PROJECT_V1", "KIRIKIRI_PROJECT_V1",
-}
+_SCHEMA_PROPERTY = re.compile(r"^[A-Za-z][A-Za-z0-9]{0,63}$")
 _AUTHORITY_FILES = (
     "common.schema.json",
     "launch-envelope.schema.json",
@@ -68,6 +66,7 @@ _AUTHORITY_FILES = (
     "fixtures/invalid/netplay-resource.json",
     "fixtures/invalid/unknown-top-level.json",
     "fixtures/invalid/unsafe-integer-json-input.json",
+    "fixtures/target-options/schema-validation.json",
     "fixtures/valid/checkpoint-validation.json",
     "fixtures/valid/netplay.json",
     "fixtures/valid/single-minimal.json",
@@ -250,19 +249,19 @@ def _validate_launch_resources(value: object) -> None:
             _fail("resource identity is invalid")
         roles.setdefault(role, []).append(ordinal)
         kind = resource.get("kind")
-        if kind in {"ROM_BLOB_V1", "SEEKABLE_BLOB_V1", "PARENT_ARCHIVE_V1", "WASM4_CART_V1"}:
+        if kind in {"ROM_BLOB", "SEEKABLE_BLOB", "PARENT_ARCHIVE", "WASM4_CART"}:
             _launch_keys(resource, {"kind", "ordinal", "rangeRequired", "role", "sha256", "sizeBytes", "url"}, "resource")
             _launch_digest(resource["sha256"], "resource.sha256")
             _launch_positive_integer(resource["sizeBytes"], "resource.sizeBytes")
             _launch_relative_url(resource["url"], "resource.url")
-            expected_range = kind in {"SEEKABLE_BLOB_V1", "PARENT_ARCHIVE_V1"}
+            expected_range = kind in {"SEEKABLE_BLOB", "PARENT_ARCHIVE"}
             if resource["rangeRequired"] is not expected_range:
                 _fail("resource.rangeRequired is invalid")
-        elif kind == "FILE_TREE_V1":
+        elif kind == "FILE_TREE":
             _launch_keys(resource, {"contentDigest", "indexUrl", "kind", "ordinal", "role"}, "resource")
             _launch_digest(resource["contentDigest"], "resource.contentDigest")
             _launch_relative_url(resource["indexUrl"], "resource.indexUrl")
-        elif kind in {"NATIVE_WEB_V1", "ISOLATED_WEB_V1"}:
+        elif kind in {"NATIVE_WEB", "ISOLATED_WEB"}:
             _launch_keys(resource, {
                 "bootstrapTicket", "cleanupUrl", "contentDigest", "entryUrl", "kind", "ordinal", "origin", "role",
             }, "resource")
@@ -275,7 +274,7 @@ def _validate_launch_resources(value: object) -> None:
                     _fail(f"resource.{key} is invalid")
             if not isinstance(resource["bootstrapTicket"], str) or not re.fullmatch(r"[A-Za-z0-9_-]{43,128}", resource["bootstrapTicket"]):
                 _fail("resource.bootstrapTicket is invalid")
-        elif kind in {"BIOS_BUNDLE_V1", "EXTERNAL_FILE_SET_V1"}:
+        elif kind in {"BIOS_BUNDLE", "EXTERNAL_FILE_SET"}:
             _launch_keys(resource, {"files", "kind", "ordinal", "role"}, "resource")
             files = _launch_array(resource["files"], "resource.files")
             paths = []
@@ -290,7 +289,7 @@ def _validate_launch_resources(value: object) -> None:
                 _launch_digest(file["sha256"], "resource.file.sha256")
                 _launch_positive_integer(file["sizeBytes"], "resource.file.sizeBytes")
             _launch_sorted_unique(paths, "resource.files")
-        elif kind == "MULTI_DISC_V1":
+        elif kind == "MULTI_DISC":
             _launch_keys(resource, {"entries", "initialDiscIndex", "kind", "ordinal", "role"}, "resource")
             entries = _launch_array(resource["entries"], "resource.entries")
             if not entries or not _launch_non_negative(resource["initialDiscIndex"]) or resource["initialDiscIndex"] >= len(entries):
@@ -312,33 +311,9 @@ def _validate_launch_resources(value: object) -> None:
 
 def _validate_launch_options(value: object) -> None:
     options = _launch_record(value, "targetOptions")
-    kind = options.get("kind")
-    if kind == "NONE_V1":
-        _launch_keys(options, {"kind"}, "targetOptions")
-    elif kind == "EMULATORJS_V1":
-        _launch_keys(options, {"dosEntryPath", "initialDiscIndex", "kind"}, "targetOptions")
-        if options["dosEntryPath"] is not None:
-            _launch_safe_path(options["dosEntryPath"], "targetOptions.dosEntryPath")
-        if options["initialDiscIndex"] is not None and not _launch_non_negative(options["initialDiscIndex"]):
-            _fail("targetOptions.initialDiscIndex is invalid")
-    elif kind == "RPGMAKER_V1":
-        _launch_keys(options, {"expectedRestorePosition", "kind"}, "targetOptions")
-        position = options["expectedRestorePosition"]
-        if position is not None:
-            position_record = _launch_record(position, "targetOptions.expectedRestorePosition")
-            _launch_keys(position_record, {"fixtureState", "mapId", "playerX", "playerY"}, "targetOptions.expectedRestorePosition")
-            if any(not _launch_non_negative(item) for item in position_record.values()):
-                _fail("targetOptions restore position is invalid")
-    elif kind == "ONS_PROJECT_V1":
-        _launch_keys(options, {"kind", "scriptEncoding"}, "targetOptions")
-        if options["scriptEncoding"] not in {"gbk", "sjis", "utf8"}:
-            _fail("targetOptions.scriptEncoding is invalid")
-    elif kind == "KIRIKIRI_PROJECT_V1":
-        _launch_keys(options, {"kind", "startupXp3Path"}, "targetOptions")
-        if options["startupXp3Path"] is not None:
-            _launch_safe_path(options["startupXp3Path"], "targetOptions.startupXp3Path")
-    else:
-        _fail("targetOptions.kind is invalid")
+    _validate_launch_json(options, 0)
+    if len(json.dumps(options, ensure_ascii=False, separators=(",", ":")).encode("utf-8")) > 16 * 1024:
+        _fail("targetOptions exceeds the generic boundary")
 
 
 def _validate_launch_restore(value: object, checkpoint_value: object) -> None:
@@ -614,8 +589,7 @@ def _validate_target(target: Mapping[str, object], index: int) -> str:
     netplay = target["netplayCompatibilityLine"]
     if netplay is not None:
         _token(netplay, f"{label}.netplayCompatibilityLine")
-    if target["optionsKind"] not in _OPTIONS_KINDS:
-        _fail(f"{label}.optionsKind is unsupported")
+    _validate_target_options_schema(target["targetOptionsSchema"], f"{label}.targetOptionsSchema", 0, root=True)
 
     capabilities = _record(target["capabilities"], f"{label}.capabilities")
     _validate_capabilities(capabilities, label)
@@ -632,6 +606,85 @@ def _validate_target(target: Mapping[str, object], index: int) -> str:
     for path_index, path in enumerate(paths):
         _safe_path(path, f"{label}.assetPaths[{path_index}]")
     return target_id
+
+
+def _validate_target_options_schema(value: object, label: str, depth: int, *, root: bool = False) -> None:
+    schema = _record(value, label)
+    if depth > 8:
+        _fail(f"{label} exceeds the schema depth limit")
+    base_type, nullable = _target_options_schema_type(schema.get("type"), label)
+    if root and (base_type != "object" or nullable):
+        _fail(f"{label} root must be a non-null object")
+    allowed = {
+        "object": {"type", "additionalProperties", "properties", "required"},
+        "array": {"type", "items", "minItems", "maxItems"},
+        "string": {"type", "enum", "format", "minLength", "maxLength"},
+        "integer": {"type", "minimum", "maximum"},
+        "boolean": {"type"},
+    }[base_type]
+    if not set(schema).issubset(allowed) or "type" not in schema:
+        _fail(f"{label} contains unsupported schema keywords")
+    if base_type == "object":
+        _exact_keys(schema, allowed, label)
+        if schema["additionalProperties"] is not False:
+            _fail(f"{label}.additionalProperties must be false")
+        properties = _record(schema["properties"], f"{label}.properties")
+        if len(properties) > 64 or any(not _SCHEMA_PROPERTY.fullmatch(key) for key in properties):
+            _fail(f"{label}.properties is invalid")
+        required = _string_array(schema["required"], f"{label}.required")
+        _sorted_unique(required, f"{label}.required")
+        if any(key not in properties for key in required):
+            _fail(f"{label}.required names an unknown property")
+        for key, property_schema in properties.items():
+            _validate_target_options_schema(property_schema, f"{label}.properties.{key}", depth + 1)
+        return
+    if base_type == "array":
+        if "items" not in schema or "maxItems" not in schema:
+            _fail(f"{label} array schema is incomplete")
+        maximum = _non_negative_safe_integer(schema["maxItems"], f"{label}.maxItems")
+        minimum = _non_negative_safe_integer(schema.get("minItems", 0), f"{label}.minItems")
+        if maximum > 256 or minimum > maximum:
+            _fail(f"{label} array bounds are invalid")
+        _validate_target_options_schema(schema["items"], f"{label}.items", depth + 1)
+        return
+    if base_type == "string":
+        minimum = _non_negative_safe_integer(schema.get("minLength", 0), f"{label}.minLength")
+        maximum = _non_negative_safe_integer(schema.get("maxLength", 4096), f"{label}.maxLength")
+        if maximum > 4096 or minimum > maximum or schema.get("format") not in {None, "safe-path"}:
+            _fail(f"{label} string bounds or format is invalid")
+        if "enum" in schema:
+            enum = _string_array(schema["enum"], f"{label}.enum", allow_empty=False)
+            _sorted_unique(enum, f"{label}.enum")
+            if len(enum) > 64:
+                _fail(f"{label}.enum has too many values")
+        return
+    if base_type == "integer":
+        minimum = _safe_integer(schema.get("minimum", -_SAFE_INTEGER), f"{label}.minimum")
+        maximum = _safe_integer(schema.get("maximum", _SAFE_INTEGER), f"{label}.maximum")
+        if minimum > maximum:
+            _fail(f"{label} integer bounds are invalid")
+
+
+def _target_options_schema_type(value: object, label: str) -> tuple[str, bool]:
+    types = {"array", "boolean", "integer", "object", "string"}
+    if isinstance(value, str) and value in types:
+        return value, False
+    if isinstance(value, list) and len(value) == 2 and value[0] in types and value[1] == "null":
+        return value[0], True
+    _fail(f"{label}.type is invalid")
+
+
+def _safe_integer(value: object, label: str) -> int:
+    if isinstance(value, bool) or not isinstance(value, int) or abs(value) > _SAFE_INTEGER:
+        _fail(f"{label} must be a safe integer")
+    return value
+
+
+def _non_negative_safe_integer(value: object, label: str) -> int:
+    result = _safe_integer(value, label)
+    if result < 0:
+        _fail(f"{label} must be non-negative")
+    return result
 
 
 def _validate_capabilities(capabilities: Mapping[str, object], target_label: str) -> None:

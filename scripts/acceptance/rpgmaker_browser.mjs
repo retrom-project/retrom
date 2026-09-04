@@ -393,9 +393,9 @@ async function assertRuntimeProgress(page) {
 
 function projectLoadingDeclarations(config) {
   if (!["rpgmaker-xp", "rpgmaker-vx", "rpgmaker-vx-ace"].includes(config?.runtime?.targetId)) {return [];}
-  const sources = array(config.resources).filter((source) => source.kind === "SEEKABLE_BLOB_V1");
+  const sources = array(config.resources).filter((source) => source.kind === "SEEKABLE_BLOB");
   return sources.map((source) => {
-    if (source?.kind !== "SEEKABLE_BLOB_V1" || source.rangeRequired !== true ||
+    if (source?.kind !== "SEEKABLE_BLOB" || source.rangeRequired !== true ||
       !Number.isSafeInteger(source.sizeBytes) || source.sizeBytes < 1 || typeof source.url !== "string") {
       throw new Error("RPG_ACCEPTANCE_RUNTIME_LOADING_CONFIG_INVALID");
     }

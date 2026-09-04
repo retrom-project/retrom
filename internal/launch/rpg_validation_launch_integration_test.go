@@ -25,9 +25,9 @@ func rpgValidationRuntimeCatalog() runtimecatalog.Catalog {
 	return runtimecatalog.Catalog{SchemaVersion: 1, CatalogVersion: 1, Bindings: []runtimecatalog.Binding{{
 		ID: "retrom-runtime-rpgmaker-2000", CoreID: "rpgmaker", ProviderID: "retrom-runtime",
 		TargetID: "rpgmaker-2000", PlatformIDs: []string{"rpgmaker"},
-		AcceptedContentKinds: []string{"RPG_MAKER_PROJECT_V1"}, DetectorProfile: "RPG2000",
-		DeliveryProfile: "FILE_TREE_PROJECT_V1", LaunchPolicy: "SUPPORTED",
-		ReviewPolicy: "RPG_RUNTIME_VALIDATION_V1",
+		AcceptedContentKinds: []string{"RPG_MAKER_PROJECT"}, DetectorProfile: "RPG2000",
+		DeliveryProfile: "FILE_TREE_PROJECT", LaunchPolicy: "SUPPORTED",
+		ReviewPolicy: "RPG_RUNTIME_VALIDATION",
 	}}}
 }
 
@@ -350,12 +350,12 @@ INSERT INTO import_items(id,import_job_id,group_key,state,source_manifest_json,s
  search_text,created_at_ms,updated_at_ms)
 VALUES(?,'rpg-import',?,'REVIEW_PENDING','{}',?,'rpg fixture',?,?)`, fixture.itemID,
 		strings.Repeat("a", 64), strings.Repeat("b", 64), now, now)
-	manifest := `{"schemaVersion":2,"contentKind":"RPG_MAKER_PROJECT_V1","fileCount":2,"totalBytes":20,"filesDigest":"` +
+	manifest := `{"schemaVersion":2,"contentKind":"RPG_MAKER_PROJECT","fileCount":2,"totalBytes":20,"filesDigest":"` +
 		strings.Repeat("c", 64) + `"}`
 	mustRPGLaunchSQL(t, database, `
 INSERT INTO import_item_source_snapshots(id,import_item_id,revision_no,content_kind,
  source_manifest_json,source_manifest_digest,created_by,created_at_ms)
-VALUES('rpg-snapshot',?,1,'RPG_MAKER_PROJECT_V1',?,?,'IDENTIFICATION',?)`, fixture.itemID,
+VALUES('rpg-snapshot',?,1,'RPG_MAKER_PROJECT',?,?,'IDENTIFICATION',?)`, fixture.itemID,
 		manifest, strings.Repeat("d", 64), now)
 	for index, file := range []struct{ upload, logical, blob string }{
 		{"rpg-upload-a", "RPG_RT.ldb", fixture.projectBlobID},

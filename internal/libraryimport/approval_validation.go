@@ -512,7 +512,7 @@ type approvalValidationDigestInput struct {
 
 func approvalValidationInputDigest(input approvalValidationDigestInput) (string, error) {
 	if !input.SnapshotValid {
-		if input.ContentKind != contentcapability.ModeRPGMakerProjectV1 {
+		if input.ContentKind != contentcapability.ModeRPGMakerProject {
 			validationDigest := sha256.Sum256([]byte(input.ValidationID))
 			return hex.EncodeToString(validationDigest[:]), nil
 		}

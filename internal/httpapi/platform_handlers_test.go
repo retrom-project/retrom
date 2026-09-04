@@ -250,7 +250,7 @@ VALUES(?,?,'game.chd',?,?,?,'COMPLETE',?,?)
 		server.createImport(response, request)
 		return response
 	}
-	missing := send(`{"uploadId":"` + firstUpload + `","targetPlatformInstanceId":"` + saturnID + `","metadataProvider":"NONE","tagIds":[],"contentMode":"MULTI_DISC_M3U_V1"}`)
+	missing := send(`{"uploadId":"` + firstUpload + `","targetPlatformInstanceId":"` + saturnID + `","metadataProvider":"NONE","tagIds":[],"contentMode":"MULTI_DISC"}`)
 	testassert.Falsef(t, missing.Code != http.StatusAccepted, "missing playlist = %d %s", missing.Code, missing.Body.String())
 	missingCreated := decodeCreatedImport(t, missing)
 	missingCode := waitForImportState(t, server, missingCreated.ImportJobID, func(state string) bool {
@@ -259,7 +259,7 @@ VALUES(?,?,'game.chd',?,?,?,'COMPLETE',?,?)
 	testassert.Falsef(
 		t, missingCode != "MULTI_DISC_PLAYLIST_MISSING", "missing playlist code = %s", missingCode,
 	)
-	unsupported := send(`{"uploadId":"` + secondUpload + `","targetPlatformInstanceId":"` + playstationID + `","metadataProvider":"NONE","tagIds":[],"contentMode":"MULTI_DISC_M3U_V1"}`)
+	unsupported := send(`{"uploadId":"` + secondUpload + `","targetPlatformInstanceId":"` + playstationID + `","metadataProvider":"NONE","tagIds":[],"contentMode":"MULTI_DISC"}`)
 	testassert.Falsef(t, testassert.Any(func() bool { return unsupported.Code != http.StatusUnprocessableEntity }, func() bool { return !strings.Contains(unsupported.Body.String(), "MULTI_DISC_MODE_UNAVAILABLE") }), "unsupported target = %d %s", unsupported.Code, unsupported.Body.String())
 	omitted := send(`{"uploadId":"` + thirdUpload + `","targetPlatformInstanceId":"` + saturnID + `","metadataProvider":"NONE","tagIds":[]}`)
 	explicit := send(`{"uploadId":"` + fourthUpload + `","targetPlatformInstanceId":"` + saturnID + `","metadataProvider":"NONE","tagIds":[],"contentMode":"STANDARD"}`)
@@ -364,14 +364,14 @@ func TestPlatformImportCapabilitiesUseFeaturePlatformAndArtifactIntersection(t *
 	}
 	assertPlatformExtensions(t, items, wantExtensions)
 	if saturn := items["saturn"].ImportCapabilities; len(saturn.ContentModes) != 2 ||
-		saturn.ContentModes[1] != contentcapability.ModeMultiDiscM3UV1 || saturn.MultiDisc == nil {
+		saturn.ContentModes[1] != contentcapability.ModeMultiDisc || saturn.MultiDisc == nil {
 		t.Fatalf("Saturn capabilities = %#v", saturn)
 	}
 	if psx := items["psx"].ImportCapabilities; len(psx.ContentModes) != 1 || psx.MultiDisc != nil {
 		t.Fatalf("PSX capabilities = %#v", psx)
 	}
 	if rpgMaker := items["rpgmaker"].ImportCapabilities; len(rpgMaker.ContentModes) != 1 ||
-		rpgMaker.ContentModes[0] != contentcapability.ModeRPGMakerProjectV1 || rpgMaker.MultiDisc != nil {
+		rpgMaker.ContentModes[0] != contentcapability.ModeRPGMakerProject || rpgMaker.MultiDisc != nil {
 		t.Fatalf("RPG Maker capabilities = %#v", rpgMaker)
 	}
 }

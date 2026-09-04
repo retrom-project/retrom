@@ -147,7 +147,7 @@ SQLite 使用 WAL；所有用户文件写入一个明确的数据目录。Next.j
 
 ### 3.8 多盘内容是一个不可拆分 revision
 
-Saturn/yabause 的 `MULTI_DISC_M3U_V1` 内容由同一物理目录中的一个来源 M3U 与按其顺序引用的 2–8 个 CHD 组成。ImportItem、SourceSnapshot、GameContentRevision、GameVariantRevision、Launch 和 SaveState 都以整组盘序为边界；缺盘只形成审核依赖，不创建占位 Blob。发布后运行时仅暴露服务端规范化的 `playlist.m3u` 与 `disc-NNN.chd`，不暴露原始路径。该能力由 feature flag、Platform content profile 与当前 active Provider Target 声明的内容能力三者取交集，首发只有 Saturn/yabause 可用；关闭新导入能力不破坏已发布多盘内容的运行和存档。
+Saturn/yabause 的 `MULTI_DISC` 内容由同一物理目录中的一个来源 M3U 与按其顺序引用的 2–8 个 CHD 组成。ImportItem、SourceSnapshot、GameContentRevision、GameVariantRevision、Launch 和 SaveState 都以整组盘序为边界；缺盘只形成审核依赖，不创建占位 Blob。发布后运行时仅暴露服务端规范化的 `playlist.m3u` 与 `disc-NNN.chd`，不暴露原始路径。该能力由 feature flag、Platform content profile 与当前 active Provider Target 声明的内容能力三者取交集，首发只有 Saturn/yabause 可用；关闭新导入能力不破坏已发布多盘内容的运行和存档。
 
 ### 3.9 收藏是 Profile 私有的独立多对多能力
 
@@ -189,7 +189,7 @@ SaveState 链路，取消与退出都不会自动存档。其余输入仍交给 
 
 浏览器运行实现只由两个不可变 Provider Bundle 提供：`emulatorjs` 声明 35 个 Target，`retrom-runtime` 声明 12 个 Target。Provider manifest 是 Target 能力、资源输入、checkpoint 格式、兼容线和 module 资产的公开唯一声明；Provider 内部可以使用私有 adapter/core，但 Retrom 数据库、Go、OpenAPI、Web 与验收不得复制或依赖该映射。Host 只维护 Product Core 到 `(providerId,targetId)` 的 binding，并在激活时冻结 `targetContractSha256`。
 
-所有运行入口共享 `Launch Envelope V1`。Envelope 只包含 session、Provider/Target 身份、capabilities、checkpoint 契约、授权 resources、target options、restore、validation 与 netplay；不暴露 Provider 私有实现。Web 的唯一装载入口是共享 Provider dispatcher：它校验 module URL、SHA-256、Provider 身份和 API version，再调用 `createRuntime` 并只向 Player 暴露 `PlayerRuntimeV1`。Player Shell 不按 RPG 世代、引擎或 Target 分支，也不从项目内容重选实现。
+所有运行入口共享 `Launch Envelope V1`。Envelope 只包含 session、Provider/Target 身份、capabilities、checkpoint 契约、授权 resources、target options、restore、validation 与 netplay；不暴露 Provider 私有实现。每个 Target 在 Provider declaration 中内联闭合 `targetOptionsSchema` 并把它纳入 contract digest；Host 签发前和 Provider Module mount 前分别精确校验，Web dispatcher 只保留 JSON-safe、深度和大小等通用门禁，不维护 `optionsKind` 或 Target 私有字段。Web 的唯一装载入口是共享 Provider dispatcher：它校验 module URL、SHA-256、Provider 身份和 API version，再调用 `createRuntime` 并只向 Player 暴露 `PlayerRuntimeV1`。Player Shell 不按 RPG 世代、引擎或 Target 分支，也不从项目内容重选实现。
 
 RPG Maker 对用户仍是一个 `rpgmaker` Core。服务端依据项目 bytes 的封闭证据判定 generation，并绑定七个 Target 之一：`rpgmaker-2000`、`rpgmaker-2003`、`rpgmaker-xp`、`rpgmaker-vx`、`rpgmaker-vx-ace`、`rpgmaker-mv` 或 `rpgmaker-mz`。多世代、未知或歧义证据 fail closed。发布冻结内容、Provider/Target contract、逻辑游戏兼容线、依赖快照与运行验证；Launch 不重探测、不 fallback。RPG Maker 检查点与其他运行时统一为 opaque bytes + format，Host 只校验声明格式、大小和摘要。自动化验收仍以 A→B 存档→C→不同 Launch 恢复到 B→继续输入证明真实可恢复性。
 
@@ -483,7 +483,7 @@ Phase 0 未通过时，不进入大规模业务实现。
 
 ### Phase 8：Runtime Provider 原子切换
 
-- 以 clean 001–010 schema、Provider Bundle/Target catalog、Launch Envelope V1 和共享 dispatcher 同时替换 Host 的旧运行选择路径。
+- 以 clean 001–011 schema、Provider Bundle/Target catalog、Launch Envelope V1 和共享 dispatcher 同时替换 Host 的旧运行选择路径。
 - EmulatorJS 35 个 Target 与 retrom-runtime 12 个 Target 共享 `PlayerRuntimeV1` 生命周期；RPG MV/MZ 等需要隔离的 Target 仍由 Provider resource 声明 unique origin。
 - 以 `ACC-PROVIDER-001`–`008`、全部直接受影响产品 Case、全量代码/依赖/镜像门禁为退出条件；MZ 合法商业样本继续作为条件性外部产品证据。
 

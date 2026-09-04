@@ -225,7 +225,7 @@ JOIN platform_instances instance ON instance.id=game.platform_instance_id
 JOIN game_metadata_revisions metadata ON metadata.id=game.current_metadata_revision_id
 JOIN game_content_revisions revision ON revision.id=game.current_content_revision_id
 WHERE game.status='PUBLISHED' AND instance.platform_id=?
-AND revision.content_kind='MULTI_DISC_M3U_V1'
+AND revision.content_kind='MULTI_DISC'
 AND NOT EXISTS(
   SELECT incoming.sort_order,incoming.blob_id
   FROM import_item_source_snapshot_files incoming

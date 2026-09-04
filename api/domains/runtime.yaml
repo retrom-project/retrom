@@ -405,7 +405,7 @@ components:
         contentKind:
           type: string
           enum:
-            - MULTI_DISC_M3U_V1
+            - MULTI_DISC
         count:
           type: integer
           minimum: 2

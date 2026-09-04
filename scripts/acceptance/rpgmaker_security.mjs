@@ -156,7 +156,7 @@ async function isolationCase(context, client, instances) {
     await launched.page.bringToFront();
     await completeOriginalValidation(launched.page, launched.frame, input.generation);
     const checkpointed = await waitForValidation(client, review.itemId, launched.validationId, "CHECKPOINTED");
-    const launchedResource = providerResource(launched.config, "NATIVE_WEB_V1");
+    const launchedResource = providerResource(launched.config, "NATIVE_WEB");
     launched.bootstrap.inactiveBootstrapStatus = await browserNavigationStatus(
       context, launchedResource.entryUrl,
     );
@@ -214,7 +214,7 @@ async function openValidationPlayer(context, client, created, screenshotName, in
   );
   await page.goto(`${baseUrl}${created.playerUrl}`, { waitUntil: "domcontentloaded" });
   config = await (await configResponse).json();
-  const nativeResource = providerResource(config, "NATIVE_WEB_V1", false);
+  const nativeResource = providerResource(config, "NATIVE_WEB", false);
   requireLocalRuntimeSite(baseUrl, nativeResource?.origin);
   await page.waitForFunction(() => document.querySelector("iframe") !== null, null, { timeout: 120_000 });
   const frame = await waitForHarnessFrame(page, inspectIsolation, nativeResource?.origin);
@@ -338,11 +338,11 @@ async function inspectNestedProject(context, client, review, sidecar) {
     config = await response.json();
     if (["rpgmaker-2000", "rpgmaker-2003"].includes(config.runtime?.targetId)) {
       projection = await inspectEasyRPGProjection(
-        client, providerResource(config, "FILE_TREE_V1"), sidecar,
+        client, providerResource(config, "FILE_TREE"), sidecar,
       );
     } else if (["rpgmaker-xp", "rpgmaker-vx", "rpgmaker-vx-ace"].includes(config.runtime?.targetId)) {
       projection = await inspectMKXPProjection(
-        client, providerResource(config, "SEEKABLE_BLOB_V1"), sidecar,
+        client, providerResource(config, "SEEKABLE_BLOB"), sidecar,
       );
     } else {
       throw new Error("RPG_ACCEPTANCE_NESTED_TARGET_INVALID");
@@ -568,7 +568,7 @@ function sha256(contents) {
 }
 
 async function bootstrapChecks(context, frame, config, runtimeOrigin) {
-  const isolated = providerResource(config, "NATIVE_WEB_V1");
+  const isolated = providerResource(config, "NATIVE_WEB");
   if (!isolated.entryUrl || !isolated.bootstrapTicket) { throw new Error("RPG_ACCEPTANCE_BOOTSTRAP_CONFIG_MISSING"); }
   const authenticatedReloadStatus = await browserNavigationStatus(context, isolated.entryUrl);
   const replayStatus = await runtimeBootstrapReplayStatus(frame, isolated.bootstrapTicket);

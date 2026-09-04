@@ -84,6 +84,13 @@ class RuntimeProviderInstallerTest(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "PROVIDER_MANIFEST_ASSET_CLOSURE_INVALID"):
                 install_provider_bundle(archive, lock, root / "installed")
 
+    def test_installer_rejects_an_unsupported_provider_api(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            archive, lock = fixture_bundle(root, provider_api=2)
+            with self.assertRaisesRegex(ValueError, "RUNTIME_PROVIDER_API_UNSUPPORTED"):
+                install_provider_bundle(archive, lock, root / "installed")
+
     def test_revalidates_every_installed_byte_instead_of_trusting_the_proof(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
@@ -203,10 +210,10 @@ class RuntimeProviderInstallerTest(unittest.TestCase):
                 )
 
 
-def fixture_bundle(root: Path, manifest_asset="assets/core.wasm"):
+def fixture_bundle(root: Path, manifest_asset="assets/core.wasm", provider_api=1):
     manifest = json_bytes({
         "clientModulePath": "client.mjs",
-        "providerApiVersion": 1,
+        "providerApiVersion": provider_api,
         "providerId": "fixture",
         "providerVersion": "1.0.0",
         "schemaVersion": 1,
@@ -224,9 +231,11 @@ def fixture_bundle(root: Path, manifest_asset="assets/core.wasm"):
             "displayName": "Fixture",
             "gameCompatibilityLine": "fixture-v1",
             "id": "fixture",
-            "inputs": [{"cardinality": "ONE", "kind": "ROM_BLOB_V1", "optional": False, "role": "game"}],
+            "inputs": [{"cardinality": "ONE", "kind": "ROM_BLOB", "optional": False, "role": "game"}],
             "netplayCompatibilityLine": None,
-            "optionsKind": "NONE_V1",
+            "targetOptionsSchema": {
+                "additionalProperties": False, "properties": {}, "required": [], "type": "object",
+            },
         }],
     })
     files = {

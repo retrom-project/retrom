@@ -96,13 +96,13 @@ AND (
  (?=0 AND lc.logical_name=?)
  OR (
   ?=1
-  AND lc.format_version='RPG_MAKER_PROJECT_V1'
+  AND lc.format_version='RPG_MAKER_PROJECT'
   AND lc.logical_name=? COLLATE NOCASE
   AND 1=(
    SELECT count(*)
    FROM launch_content_files candidate
    WHERE candidate.launch_session_id=l.id
-   AND candidate.format_version='RPG_MAKER_PROJECT_V1'
+   AND candidate.format_version='RPG_MAKER_PROJECT'
    AND candidate.logical_name=? COLLATE NOCASE
   )
  )

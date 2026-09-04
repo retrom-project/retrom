@@ -40,7 +40,7 @@ func TestQueuedImportGroupReturnsBeforePreparationAndPublishesProgress(t *testin
 		UploadID: uploadID, TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(
 			t, database.SQL, "ons/onscripter_yuri",
 		),
-		MetadataProvider: "NONE", ContentMode: "ONS_PROJECT_V1", TagIDs: []string{},
+		MetadataProvider: "NONE", ContentMode: "ONS_PROJECT", TagIDs: []string{},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -111,7 +111,7 @@ func TestQueuedImportGroupReportsInvalidProjectAsTerminalFailure(t *testing.T) {
 		UploadID: uploadID, TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(
 			t, database.SQL, "ons/onscripter_yuri",
 		),
-		MetadataProvider: "NONE", ContentMode: "ONS_PROJECT_V1", TagIDs: []string{},
+		MetadataProvider: "NONE", ContentMode: "ONS_PROJECT", TagIDs: []string{},
 	})
 	if err != nil {
 		t.Fatalf("QueueCreate() error = %v", err)
@@ -209,11 +209,11 @@ func TestQueuedKiriKiriAndRPGMakerProjectsResolveInBackground(t *testing.T) {
 	}{
 		{
 			name: "KiriKiri", purpose: "KIRIKIRI_PROJECT", catalogKey: "kirikiri/kirikiri2",
-			contentMode: "KIRIKIRI_PROJECT_V1", expectedState: "REVIEW_PENDING", archive: kirikiriProjectArchive,
+			contentMode: "KIRIKIRI_PROJECT", expectedState: "REVIEW_PENDING", archive: kirikiriProjectArchive,
 		},
 		{
 			name: "RPGMaker", purpose: "RPG_MAKER_PROJECT", catalogKey: "rpgmaker/rpgmaker",
-			contentMode: "RPG_MAKER_PROJECT_V1", expectedState: "REVIEW_PENDING",
+			contentMode: "RPG_MAKER_PROJECT", expectedState: "REVIEW_PENDING",
 			archive: rpgMakerMVArchiveWithMToolSidecar,
 		},
 	} {
@@ -252,7 +252,7 @@ func onsImportGroupRequest(t *testing.T, database *sql.DB, uploadID string) Crea
 		UploadID: uploadID, TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(
 			t, database, "ons/onscripter_yuri",
 		),
-		MetadataProvider: "NONE", ContentMode: "ONS_PROJECT_V1", TagIDs: []string{},
+		MetadataProvider: "NONE", ContentMode: "ONS_PROJECT", TagIDs: []string{},
 	}
 }
 

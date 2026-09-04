@@ -27,7 +27,7 @@ func TestMigrationsCreateCurrentSchemaAndReferenceCatalog(t *testing.T) {
 	testassert.Falsef(t, database.IntegrityCheck(ctx) != nil, "fresh database integrity failed")
 
 	tables := queryStrings(t, database.SQL, "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name")
-	testassert.Falsef(t, len(tables) != 127, "fresh schema table count = %d", len(tables))
+	testassert.Falsef(t, len(tables) != 128, "fresh schema table count = %d", len(tables))
 	assertColumns(t, database.SQL, "import_group_requests",
 		"import_job_id", "request_digest", "actor_user_id", "upload_version",
 		"upload_manifest_digest", "target_snapshot_digest")
@@ -58,7 +58,8 @@ WHERE type='trigger' AND name LIKE 'import_group_requests_immutable_%' ORDER BY 
 	assertColumns(t, database.SQL, "runtime_providers", "provider_version", "provider_api_version",
 		"bundle_sha256", "manifest_sha256", "module_sha256", "source")
 	assertColumns(t, database.SQL, "runtime_targets", "target_id", "target_contract_sha256",
-		"game_compatibility_line", "netplay_compatibility_line", "capabilities_json", "checkpoint_json")
+		"game_compatibility_line", "netplay_compatibility_line", "target_options_schema_json",
+		"capabilities_json", "checkpoint_json")
 	assertColumns(t, database.SQL, "runtime_target_bindings", "core_id", "provider_id", "target_id",
 		"detector_profile", "delivery_profile", "launch_policy", "review_policy")
 	assertColumns(t, database.SQL, "save_states", "game_content_revision_id", "provider_id", "target_id",

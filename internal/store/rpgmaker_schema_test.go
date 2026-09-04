@@ -32,12 +32,12 @@ func TestRPGMakerProviderTargetSelectionAndCoreRouteAreDatabaseConstraints(t *te
 	mustExecRPGSchema(t, database, `
 INSERT INTO runtime_target_bindings(
  binding_id,core_id,provider_id,target_id,detector_profile,delivery_profile,launch_policy,review_policy
-) VALUES('retrom-runtime-rpgmaker-2000','rpgmaker',?1,?2,'RPG2000','FILE_TREE_PROJECT_V1','SUPPORTED','RPG_RUNTIME_VALIDATION_V1')`,
+) VALUES('retrom-runtime-rpgmaker-2000','rpgmaker',?1,?2,'RPG2000','FILE_TREE_PROJECT','SUPPORTED','RPG_RUNTIME_VALIDATION')`,
 		rpgSchemaProvider, rpgSchemaTarget)
 	_, err := database.ExecContext(t.Context(), `
 INSERT INTO runtime_target_bindings(
  binding_id,core_id,provider_id,target_id,detector_profile,delivery_profile,launch_policy,review_policy
-) VALUES('second-selected','fceumm',?1,?2,'RPG2000','FILE_TREE_PROJECT_V1','SUPPORTED','RPG_RUNTIME_VALIDATION_V1')`,
+) VALUES('second-selected','fceumm',?1,?2,'RPG2000','FILE_TREE_PROJECT','SUPPORTED','RPG_RUNTIME_VALIDATION')`,
 		rpgSchemaProvider, rpgSchemaTarget)
 	testassert.Truef(t, err != nil && strings.Contains(err.Error(), "UNIQUE constraint failed"),
 		"second binding for Provider Target error = %v", err)
@@ -157,9 +157,9 @@ INSERT INTO runtime_providers(
 		strings.Repeat("d", 64), strings.Repeat("c", 64))
 	mustExecRPGSchema(t, database, `
 INSERT INTO runtime_targets(
- provider_id,target_id,display_name,game_compatibility_line,options_kind,capabilities_json,
+ provider_id,target_id,display_name,game_compatibility_line,target_options_schema_json,capabilities_json,
  checkpoint_json,manifest_fragment_json,target_contract_sha256
-) VALUES(?1,?2,'RPG Maker 2000',?3,'RPGMAKER_V1','{}',
+) VALUES(?1,?2,'RPG Maker 2000',?3,'{"type":"object","additionalProperties":false,"properties":{},"required":[]}','{}',
  '{"writeFormat":"checkpoint-v1","readFormats":["checkpoint-v1"],"maxBytes":67108864}','{}',?4)`,
 		rpgSchemaProvider, rpgSchemaTarget, rpgSchemaGameLine, rpgSchemaTargetContract)
 }
@@ -190,12 +190,12 @@ INSERT INTO import_items(
  id,import_job_id,group_key,state,source_manifest_json,source_manifest_digest,search_text,created_at_ms,updated_at_ms
 ) VALUES('item','import',?1,'REVIEW_PENDING','{}',?2,'fixture',1,1)`,
 		strings.Repeat("3", 64), strings.Repeat("4", 64))
-	manifest := `{"schemaVersion":2,"contentKind":"RPG_MAKER_PROJECT_V1","fileCount":1,"totalBytes":10,"filesDigest":"` +
+	manifest := `{"schemaVersion":2,"contentKind":"RPG_MAKER_PROJECT","fileCount":1,"totalBytes":10,"filesDigest":"` +
 		strings.Repeat("5", 64) + `"}`
 	mustExecRPGSchema(t, database, `
 INSERT INTO import_item_source_snapshots(
  id,import_item_id,revision_no,content_kind,source_manifest_json,source_manifest_digest,created_by,created_at_ms
-) VALUES('snapshot','item',1,'RPG_MAKER_PROJECT_V1',?1,?2,'IDENTIFICATION',1)`,
+) VALUES('snapshot','item',1,'RPG_MAKER_PROJECT',?1,?2,'IDENTIFICATION',1)`,
 		manifest, strings.Repeat("6", 64))
 	mustExecRPGSchema(t, database, `
 INSERT INTO review_drafts(

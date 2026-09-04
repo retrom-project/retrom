@@ -5,6 +5,8 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+
+	"retrom/internal/runtimebundle"
 )
 
 func TestProviderBlobResourcePublishesMaterializedMKXPArchive(t *testing.T) {
@@ -40,12 +42,22 @@ func TestProviderTargetOptionsIncludesValidationRestorePosition(t *testing.T) {
 	if !present {
 		t.Fatal("expected restore position was not reported as present")
 	}
-	options, err := providerTargetOptions("RPGMAKER_V1", providerConfigSource{}, &position)
+	options, err := providerTargetOptions(runtimebundle.TargetOptionsSchema{
+		"type": "object", "additionalProperties": false,
+		"properties": map[string]any{"expectedRestorePosition": map[string]any{
+			"type": []any{"object", "null"}, "additionalProperties": false,
+			"properties": map[string]any{
+				"fixtureState": map[string]any{"type": "integer", "minimum": int64(0)},
+				"mapId":        map[string]any{"type": "integer", "minimum": int64(0)},
+				"playerX":      map[string]any{"type": "integer", "minimum": int64(0)},
+				"playerY":      map[string]any{"type": "integer", "minimum": int64(0)},
+			}, "required": []any{"fixtureState", "mapId", "playerX", "playerY"},
+		}}, "required": []any{"expectedRestorePosition"},
+	}, providerConfigSource{}, &position)
 	if err != nil {
 		t.Fatalf("RPG Maker target options: %v", err)
 	}
 	want := map[string]any{
-		"kind": "RPGMAKER_V1",
 		"expectedRestorePosition": map[string]any{
 			"mapId": int64(1), "playerX": int64(10), "playerY": int64(8), "fixtureState": int64(1),
 		},

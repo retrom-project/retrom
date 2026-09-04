@@ -219,7 +219,7 @@ func insertFixtureTargets(
 		if binding.ProviderID == "emulatorjs" {
 			netplayLine = "emulatorjs-netplay-v2"
 		}
-		optionsKind := fixtureOptionsKind(binding.TargetID)
+		optionsSchema := fixtureTargetOptionsSchema(binding.TargetID)
 		validationProbes := []string{}
 		if strings.HasPrefix(binding.TargetID, "rpgmaker-") {
 			validationProbes = []string{"rpgmaker.position.v1"}
@@ -240,15 +240,15 @@ func insertFixtureTargets(
 		fragmentJSON, _ := json.Marshal(map[string]any{
 			"id": binding.TargetID, "displayName": binding.TargetID,
 			"gameCompatibilityLine": gameLine, "netplayCompatibilityLine": netplayLine,
-			"optionsKind": optionsKind, "inputs": fixtureInputs(binding), "capabilities": capabilities,
+			"targetOptionsSchema": optionsSchema, "inputs": fixtureInputs(binding), "capabilities": capabilities,
 			"checkpoint": checkpoint, "assetPaths": []string{"client.mjs"},
 		})
 		if _, err := transaction.ExecContext(ctx, `
 INSERT INTO runtime_targets(
  provider_id,target_id,display_name,game_compatibility_line,netplay_compatibility_line,
- options_kind,capabilities_json,checkpoint_json,manifest_fragment_json,target_contract_sha256
+ target_options_schema_json,capabilities_json,checkpoint_json,manifest_fragment_json,target_contract_sha256
 ) VALUES(?,?,?,?,?,?,?,?,?,?)
-`, binding.ProviderID, binding.TargetID, binding.TargetID, gameLine, netplayLine, optionsKind,
+`, binding.ProviderID, binding.TargetID, binding.TargetID, gameLine, netplayLine, string(mustJSON(optionsSchema)),
 			string(capabilitiesJSON), string(checkpointJSON), string(fragmentJSON), contract); err != nil {
 			return fmt.Errorf("testsupport: insert target %s/%s: %w", binding.ProviderID, binding.TargetID, err)
 		}
@@ -301,27 +301,27 @@ VALUES(1,?, ?,0)
 func fixtureInputs(binding runtimecatalog.Binding) []map[string]any {
 	if binding.ProviderID == "emulatorjs" {
 		return []map[string]any{
-			{"role": "game", "kind": "ROM_BLOB_V1", "cardinality": "ONE", "optional": false},
-			{"role": "bios", "kind": "BIOS_BUNDLE_V1", "cardinality": "ONE", "optional": true},
-			{"role": "parent", "kind": "PARENT_ARCHIVE_V1", "cardinality": "ONE", "optional": true},
-			{"role": "discs", "kind": "MULTI_DISC_V1", "cardinality": "ONE", "optional": true},
-			{"role": "external", "kind": "EXTERNAL_FILE_SET_V1", "cardinality": "ONE", "optional": true},
+			{"role": "game", "kind": "ROM_BLOB", "cardinality": "ONE", "optional": false},
+			{"role": "bios", "kind": "BIOS_BUNDLE", "cardinality": "ONE", "optional": true},
+			{"role": "parent", "kind": "PARENT_ARCHIVE", "cardinality": "ONE", "optional": true},
+			{"role": "discs", "kind": "MULTI_DISC", "cardinality": "ONE", "optional": true},
+			{"role": "external", "kind": "EXTERNAL_FILE_SET", "cardinality": "ONE", "optional": true},
 		}
 	}
-	gameKind := "ROM_BLOB_V1"
+	gameKind := "ROM_BLOB"
 	switch binding.TargetID {
 	case "wasm4":
-		gameKind = "WASM4_CART_V1"
+		gameKind = "WASM4_CART"
 	case "rpgmaker-xp", "rpgmaker-vx", "rpgmaker-vx-ace":
-		gameKind = "SEEKABLE_BLOB_V1"
+		gameKind = "SEEKABLE_BLOB"
 	case "butterscotch-gamemaker":
-		gameKind = "NATIVE_WEB_V1"
+		gameKind = "NATIVE_WEB"
 	case "tyranoscript":
-		gameKind = "ISOLATED_WEB_V1"
+		gameKind = "ISOLATED_WEB"
 	case "onscripter-yuri", "kirikiri2-kag", "rpgmaker-2000", "rpgmaker-2003":
-		gameKind = "FILE_TREE_V1"
+		gameKind = "FILE_TREE"
 	case "rpgmaker-mv", "rpgmaker-mz":
-		gameKind = "NATIVE_WEB_V1"
+		gameKind = "NATIVE_WEB"
 	}
 	result := []map[string]any{{"role": "game", "kind": gameKind, "cardinality": "ONE", "optional": false}}
 	if strings.HasPrefix(binding.TargetID, "rpgmaker-") {
@@ -332,19 +332,51 @@ func fixtureInputs(binding runtimecatalog.Binding) []map[string]any {
 	return result
 }
 
-func fixtureOptionsKind(targetID string) string {
+func fixtureTargetOptionsSchema(targetID string) map[string]any {
+	property := func(properties map[string]any, required ...string) map[string]any {
+		required = append([]string{}, required...)
+		return map[string]any{
+			"type": "object", "additionalProperties": false,
+			"properties": properties, "required": required,
+		}
+	}
 	switch {
 	case strings.HasPrefix(targetID, "rpgmaker-"):
-		return "RPGMAKER_V1"
+		return property(map[string]any{"expectedRestorePosition": map[string]any{
+			"type": []any{"object", "null"}, "additionalProperties": false,
+			"properties": map[string]any{
+				"fixtureState": map[string]any{"type": "integer", "minimum": int64(0)},
+				"mapId":        map[string]any{"type": "integer", "minimum": int64(0)},
+				"playerX":      map[string]any{"type": "integer", "minimum": int64(0)},
+				"playerY":      map[string]any{"type": "integer", "minimum": int64(0)},
+			}, "required": []any{"fixtureState", "mapId", "playerX", "playerY"},
+		}}, "expectedRestorePosition")
 	case targetID == "onscripter-yuri":
-		return "ONS_PROJECT_V1"
+		return property(map[string]any{"scriptEncoding": map[string]any{
+			"type": "string", "enum": []any{"gbk", "sjis", "utf8"},
+		}}, "scriptEncoding")
 	case targetID == "kirikiri2-kag":
-		return "KIRIKIRI_PROJECT_V1"
+		return property(map[string]any{"startupXp3Path": map[string]any{
+			"type": []any{"string", "null"}, "format": "safe-path", "maxLength": int64(240),
+		}}, "startupXp3Path")
 	case targetID == "butterscotch-gamemaker" || targetID == "tyranoscript" || targetID == "wasm4":
-		return "NONE_V1"
+		return property(map[string]any{})
 	default:
-		return "EMULATORJS_V1"
+		return property(map[string]any{
+			"dosEntryPath": map[string]any{
+				"type": []any{"string", "null"}, "format": "safe-path", "maxLength": int64(240),
+			},
+			"initialDiscIndex": map[string]any{"type": []any{"integer", "null"}, "minimum": int64(0)},
+		}, "dosEntryPath", "initialDiscIndex")
 	}
+}
+
+func mustJSON(value any) []byte {
+	contents, err := json.Marshal(value)
+	if err != nil {
+		panic(err)
+	}
+	return contents
 }
 
 func fixtureDigest(value string) string {

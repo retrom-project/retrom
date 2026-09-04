@@ -278,7 +278,7 @@ WHERE game.id=? ORDER BY file.role,file.logical_name
 	testassert.False(t, err != nil, err)
 	envelope := testsupport.RuntimeEnvelope(t, configuration)
 	parentResource := testsupport.RuntimeEnvelopeResource(t, envelope, "parent")
-	testassert.Falsef(t, parentResource["kind"] != "PARENT_ARCHIVE_V1", "launch parent resource = %#v", parentResource)
+	testassert.Falsef(t, parentResource["kind"] != "PARENT_ARCHIVE", "launch parent resource = %#v", parentResource)
 	parentBundle, err := launcher.BundleFiles(ctx, createdLaunch.LaunchID, createdLaunch.Capability, "PARENT")
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return fmt.Sprint(parentBundle) == "[]" }, func() bool { return len(parentBundle) != 2 }, func() bool { return parentBundle[0].LogicalName != "b.zip" }, func() bool { return parentBundle[1].LogicalName != "c.zip" }), "launch parent bundle = %#v, error=%v", parentBundle, err)
 	revalidatedDependencies := queryAttachmentStrings(t, database.SQL, `

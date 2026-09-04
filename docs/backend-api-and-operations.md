@@ -361,7 +361,7 @@ SQLite 基线：启用外键、WAL 和合理的 `busy_timeout`；仅通过版本
 
 精确命令、原子发布、引用 registry、目标必须不存在和恢复校验见[存储与数据库第 8 节](./storage-and-database.md#8-备份与恢复)。恢复发布前还要在单一事务撤销全部旧 AuthSession、ACTIVE AccountLink和非终态 Launch，把遗留联机 Session/Room 以 `RESTORE` 收口，并写 SYSTEM安全围栏审计；因此恢复后的旧 cookie/capability/WebSocket 全部无效，实时 history 不尝试恢复。命令本身不启动服务、不覆盖旧目录。
 
-当前未发布基线只接受 001–010 clean lineage 的精确有序前缀或完整集合；旧开发 lineage、旧 manifest schema、部分备份和名称/checksum 漂移都在写入前拒绝。部署本次改造时归档或删除标准开发数据库并以空根初始化。备份恢复只允许由同版本或更高版本二进制读取与验证完整数据根，不得混合数据库、CAS 或密钥，也不支持二进制、schema 或 Provider 降级。恢复服务开放 HTTP 前把所有依赖外部 source 的非终态 BIOS/Pegasus/EmulationStation Job 与 aggregate 以 `SERVER_IMPORT_SOURCE_NOT_RESTORED` 失败收口；普通待审和已发布 CAS bytes 保留。首次正式发布后只追加升级，不预留降级或双读转换分支。
+当前未发布基线只接受 001–011 clean lineage 的精确有序前缀或完整集合；旧开发 lineage、旧 manifest schema、部分备份和名称/checksum 漂移都在写入前拒绝。部署本次改造时归档或删除标准开发数据库并以空根初始化。备份恢复只允许由同版本或更高版本二进制读取与验证完整数据根，不得混合数据库、CAS 或密钥，也不支持二进制、schema 或 Provider 降级。恢复服务开放 HTTP 前把所有依赖外部 source 的非终态 BIOS/Pegasus/EmulationStation Job 与 aggregate 以 `SERVER_IMPORT_SOURCE_NOT_RESTORED` 失败收口；普通待审和已发布 CAS bytes 保留。首次正式发布后只追加升级，不预留降级或双读转换分支。
 
 ## 12. 统一验收入口
 

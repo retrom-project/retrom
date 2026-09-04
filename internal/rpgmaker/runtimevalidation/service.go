@@ -152,7 +152,7 @@ WHERE draft.import_item_id=?
 	if err != nil {
 		return frozenBinding{}, fmt.Errorf("load frozen RPG validation binding: %w", err)
 	}
-	if itemState != "REVIEW_PENDING" || contentKind != "RPG_MAKER_PROJECT_V1" {
+	if itemState != "REVIEW_PENDING" || contentKind != "RPG_MAKER_PROJECT" {
 		return frozenBinding{}, sql.ErrNoRows
 	}
 	return binding, nil

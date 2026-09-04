@@ -98,15 +98,15 @@ function frameSource(envelope: LaunchEnvelopeV1, resourceRole: string | null) {
 
 function resourceKindMatchesFrameMode(
   mode: "SAME_ORIGIN_RESOURCE" | "ISOLATED_ORIGIN_RESOURCE",
-  kind: "NATIVE_WEB_V1" | "ISOLATED_WEB_V1",
+  kind: "NATIVE_WEB" | "ISOLATED_WEB",
 ) {
-  return kind === "NATIVE_WEB_V1" || mode === "ISOLATED_ORIGIN_RESOURCE";
+  return kind === "NATIVE_WEB" || mode === "ISOLATED_ORIGIN_RESOURCE";
 }
 
 function validWebResource(resource: RuntimeResourceV1): resource is Extract<RuntimeResourceV1, {
-  kind: "NATIVE_WEB_V1" | "ISOLATED_WEB_V1";
+  kind: "NATIVE_WEB" | "ISOLATED_WEB";
 }> {
-  if (resource.kind !== "NATIVE_WEB_V1" && resource.kind !== "ISOLATED_WEB_V1") {return false;}
+  if (resource.kind !== "NATIVE_WEB" && resource.kind !== "ISOLATED_WEB") {return false;}
   try {
     const entry = new URL(resource.entryUrl, location.href);
     const origin = new URL(resource.origin);

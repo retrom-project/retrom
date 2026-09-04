@@ -390,7 +390,7 @@ WHERE variant.game_id=? AND variant.core_id='fbneo'
 	testassert.False(t, err != nil, err)
 	envelope := testsupport.RuntimeEnvelope(t, configuration)
 	bios := testsupport.RuntimeEnvelopeResource(t, envelope, "bios")
-	testassert.Falsef(t, bios["kind"] != "BIOS_BUNDLE_V1", "Arcade BIOS launch resource = %#v", bios)
+	testassert.Falsef(t, bios["kind"] != "BIOS_BUNDLE", "Arcade BIOS launch resource = %#v", bios)
 	bundle, err := launcher.BundleFiles(ctx, createdLaunch.LaunchID, createdLaunch.Capability, "BIOS_BUNDLE")
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return len(bundle) != 1 }, func() bool { return bundle[0].LogicalName != "codexbios.zip" }, func() bool { return bundle[0].SHA256 != replacementMetadata.SHA256 }), "Arcade BIOS launch bundle = %#v, error=%v", bundle, err)
 }

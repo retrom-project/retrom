@@ -112,7 +112,7 @@ class RuntimeProviderAuthorityTests(unittest.TestCase):
         validate_provider_manifest(manifest)
 
         invalid = deepcopy(manifest)
-        invalid["targets"][0]["optionsKind"] = "NONE_V1"  # type: ignore[index]
+        invalid["targets"][0]["optionsKind"] = "NONE"  # type: ignore[index]
         with self.assertRaises(ContractError):
             validate_provider_manifest(invalid)
 
@@ -123,12 +123,64 @@ class RuntimeProviderAuthorityTests(unittest.TestCase):
 
     def test_semantic_contract_values_do_not_embed_versions(self) -> None:
         suffix = re.compile(r"_V[0-9]+$")
-        manifest = valid_manifest()
-        target = manifest["targets"][0]  # type: ignore[index]
-        semantic_values = [
-            *(item["kind"] for item in target["inputs"]),  # type: ignore[index]
+        semantic_fields = {
+            "kind", "contentKind", "acceptedContentKinds", "supportedContentKinds",
+            "detectorProfile", "deliveryProfile", "launchPolicy", "reviewPolicy", "optionsKind",
+        }
+
+        def strings(value: object) -> list[str]:
+            if isinstance(value, str):
+                return [value]
+            if isinstance(value, list):
+                return [item for child in value for item in strings(child)]
+            if isinstance(value, dict):
+                return [item for child in value.values() for item in strings(child)]
+            return []
+
+        def semantic_values(value: object) -> list[str]:
+            if isinstance(value, list):
+                return [item for child in value for item in semantic_values(child)]
+            if not isinstance(value, dict):
+                return []
+            result: list[str] = []
+            for key, child in value.items():
+                if key in semantic_fields:
+                    result.extend(strings(child))
+                result.extend(semantic_values(child))
+            return result
+
+        documents = [
+            json.loads((ROOT / "api/runtime-provider/v1/provider-manifest.schema.json").read_text()),
+            json.loads((ROOT / "api/runtime-provider/v1/runtime-resource.schema.json").read_text()),
+            json.loads((ROOT / "data/runtime-target-bindings/v1/catalog.json").read_text()),
+            json.loads((ROOT / "data/runtime-target-bindings/v1/schema.json").read_text()),
         ]
-        self.assertFalse([value for value in semantic_values if suffix.search(value)])
+        offenders = sorted({item for document in documents for item in semantic_values(document) if suffix.search(item)})
+        self.assertEqual(offenders, [])
+
+        serialized_formats = {
+            "ARGON2ID_V1", "RETROM_DOS_DIRECT_ZIP_V1", "RETROM_FILESET_V1",
+            "RETROM_LAUNCH_BUNDLE_V1", "RETROM_MULTIDISC_M3U_V1",
+            "RETROM_RUNTIME_EXTERNAL_V1", "RETROM_RUNTIME_GAME_V2", "RETROM_RUNTIME_PROJECT_V1",
+            "RETROM_SINGLE_FILE_V1", "RETROM_VARIANT_VALIDATION_INPUT_V3", "SOURCE_V1",
+        }
+        paths = [
+            ROOT / "api/domains/catalog.yaml", ROOT / "api/domains/imports.yaml",
+            ROOT / "api/domains/runtime.yaml", ROOT / "data/runtime-target-bindings/v1/catalog.json",
+            ROOT / "internal/contentcapability", ROOT / "internal/contentmanifest", ROOT / "internal/contentprofile",
+            ROOT / "internal/launch", ROOT / "internal/runtimecatalog", ROOT / "migrations",
+            ROOT / "web/features/imports", ROOT / "web/features/player", ROOT / "web/features/reviews",
+        ]
+        quoted = re.compile(r'(?<![A-Z0-9_])([A-Z][A-Z0-9_]*_V[0-9]+)(?![A-Z0-9_])')
+        found: set[str] = set()
+        for path in paths:
+            files = [path] if path.is_file() else [item for item in path.rglob("*") if item.is_file()]
+            for file in files:
+                try:
+                    found.update(quoted.findall(file.read_text(encoding="utf-8")))
+                except UnicodeDecodeError:
+                    continue
+        self.assertEqual(found - serialized_formats, set())
 
     def test_shared_launch_envelope_fixtures_have_the_declared_result(self) -> None:
         fixture_root = ROOT / "api/runtime-provider/v1/fixtures"
@@ -143,7 +195,7 @@ class RuntimeProviderAuthorityTests(unittest.TestCase):
         candidate = deepcopy(valid_manifest())
         candidate["targets"][0]["inputs"].append({  # type: ignore[index]
             "role": "netplay",
-            "kind": "NETPLAY_CHANNEL_V1",
+            "kind": "NETPLAY_CHANNEL",
             "cardinality": "ONE",
             "optional": True,
         })
@@ -162,7 +214,7 @@ class RuntimeProviderAuthorityTests(unittest.TestCase):
             "sampleLocalControls(", "resetLocalControls(", "close(",
         ):
             self.assertIn(operation, source)
-        self.assertNotIn("NETPLAY_CHANNEL_V1", source)
+        self.assertNotIn("NETPLAY_CHANNEL", source)
         self.assertNotIn("EmulatorJS", source)
 
     def test_rejects_unknown_fields_at_every_contract_boundary(self) -> None:
@@ -267,6 +319,7 @@ class RuntimeProviderAuthorityTests(unittest.TestCase):
                     "fixtures/invalid/netplay-resource.json",
                     "fixtures/invalid/unknown-top-level.json",
                     "fixtures/invalid/unsafe-integer-json-input.json",
+                    "fixtures/target-options/schema-validation.json",
                     "fixtures/valid/checkpoint-validation.json",
                     "fixtures/valid/netplay.json",
                     "fixtures/valid/single-minimal.json",

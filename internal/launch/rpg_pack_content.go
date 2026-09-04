@@ -149,7 +149,7 @@ FROM launch_sessions WHERE id=?
 		return ErrCredential
 	}
 	for _, input := range target.Inputs {
-		if input.Role == "rtp" && input.Kind == "FILE_TREE_V1" {
+		if input.Role == "rtp" && input.Kind == "FILE_TREE" {
 			return nil
 		}
 	}

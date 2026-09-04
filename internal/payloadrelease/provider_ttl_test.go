@@ -90,7 +90,7 @@ VALUES('provider-job','GAME','provider-game','METADATA_SCRAPE',?,1,'{}',1,'RUNNI
 		{`INSERT INTO metadata_scrape_runs(id,game_id,game_content_revision_id,job_id,provider,provider_config_version,state,version,created_at_ms,updated_at_ms)
 VALUES('provider-run','provider-game','provider-content','provider-job','HASHEOUS',1,'RUNNING',1,?,?)`, []any{now.UnixMilli(), now.UnixMilli()}},
 		{`INSERT INTO content_hash_evidence(id,scrape_run_id,profile,blob_id,sha256,query_order,created_at_ms)
-VALUES('provider-evidence','provider-run','RAW_FILE_V1','provider-busy',?,0,?)`, []any{busy.SHA256, now.UnixMilli()}},
+VALUES('provider-evidence','provider-run','RAW_FILE','provider-busy',?,0,?)`, []any{busy.SHA256, now.UnixMilli()}},
 		{`INSERT INTO metadata_provider_responses(id,provider,request_digest,http_status,outcome,raw_response_blob_id,raw_payload_state,fetched_at_ms,expires_at_ms)
 VALUES('response-free','HASHEOUS',?,200,'HIT','provider-free','RETAINED',?,?)`, []any{free.SHA256, now.Add(-time.Hour).UnixMilli(), now.Add(-time.Minute).UnixMilli()}},
 		{`INSERT INTO metadata_provider_responses(id,provider,request_digest,http_status,outcome,raw_response_blob_id,raw_payload_state,fetched_at_ms,expires_at_ms)

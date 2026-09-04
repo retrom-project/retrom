@@ -114,7 +114,7 @@ func createMultiDiscHTTPLaunch(t *testing.T, server *Server) (launch.Created, st
 	})
 	createdImport, err := server.importer.Create(ctx, libraryimport.CreateRequest{
 		UploadID: uploadID, TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(t, server.database, "saturn/yabause"),
-		MetadataProvider: "NONE", ContentMode: "MULTI_DISC_M3U_V1",
+		MetadataProvider: "NONE", ContentMode: "MULTI_DISC",
 	})
 	testassert.False(t, err != nil, err)
 	var itemID string
@@ -336,7 +336,7 @@ func TestMultiDiscAttachmentHTTPContractAndReviewProjection(t *testing.T) {
 	})
 	createdImport, err := server.importer.Create(ctx, libraryimport.CreateRequest{
 		UploadID: baseUploadID, TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(t, server.database, "saturn/yabause"),
-		MetadataProvider: "NONE", ContentMode: "MULTI_DISC_M3U_V1",
+		MetadataProvider: "NONE", ContentMode: "MULTI_DISC",
 	})
 	testassert.False(t, err != nil, err)
 	var itemID string
@@ -352,9 +352,9 @@ func TestMultiDiscAttachmentHTTPContractAndReviewProjection(t *testing.T) {
 	importDetail := httptest.NewRecorder()
 	server.importDetail(importDetail, importDetailRequest)
 	for _, expected := range []string{
-		`"contentMode":"MULTI_DISC_M3U_V1"`,
+		`"contentMode":"MULTI_DISC"`,
 		`"itemSummaries":[`,
-		`"contentKind":"MULTI_DISC_M3U_V1"`,
+		`"contentKind":"MULTI_DISC"`,
 		`"playlist":"game.m3u"`,
 		`"discCount":3`,
 		`"presentDiscCount":2`,
@@ -450,7 +450,7 @@ func TestMultiDiscPlayerEventHTTPContract(t *testing.T) {
 	})
 	createdImport, err := server.importer.Create(ctx, libraryimport.CreateRequest{
 		UploadID: uploadID, TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(t, server.database, "saturn/yabause"),
-		MetadataProvider: "NONE", ContentMode: "MULTI_DISC_M3U_V1",
+		MetadataProvider: "NONE", ContentMode: "MULTI_DISC",
 	})
 	testassert.False(t, err != nil, err)
 	var itemID string

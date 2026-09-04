@@ -687,7 +687,7 @@ CREATE TRIGGER import_item_multidisc_entries_owner_insert
 BEFORE INSERT ON import_item_multidisc_entries
 WHEN NOT EXISTS(
   SELECT 1 FROM import_item_source_snapshots snapshot
-  WHERE snapshot.id=NEW.source_snapshot_id AND snapshot.content_kind='MULTI_DISC_M3U_V1'
+  WHERE snapshot.id=NEW.source_snapshot_id AND snapshot.content_kind='MULTI_DISC'
 )
 OR NEW.state='PRESENT' AND NOT EXISTS(
   SELECT 1 FROM import_item_source_snapshot_files file
@@ -1869,7 +1869,7 @@ WHEN NOT EXISTS(
   JOIN jobs job ON job.id=NEW.job_id
   WHERE draft.id=NEW.review_draft_id AND draft.import_item_id=NEW.import_item_id
   AND draft.effective_source_snapshot_id=NEW.base_source_snapshot_id
-  AND snapshot.import_item_id=NEW.import_item_id AND snapshot.content_kind='MULTI_DISC_M3U_V1'
+  AND snapshot.import_item_id=NEW.import_item_id AND snapshot.content_kind='MULTI_DISC'
   AND job.scope_type='IMPORT_ITEM' AND job.scope_id=NEW.import_item_id
   AND job.kind='REVIEW_MULTI_DISC_VALIDATE'
 )
@@ -1881,7 +1881,7 @@ WHEN NEW.state='ACCEPTED' AND NOT EXISTS(
   SELECT 1 FROM import_item_source_snapshots snapshot
   JOIN import_item_core_validations validation ON validation.id=NEW.result_validation_id
   WHERE snapshot.id=NEW.result_source_snapshot_id AND snapshot.import_item_id=NEW.import_item_id
-  AND snapshot.content_kind='MULTI_DISC_M3U_V1' AND snapshot.created_by='MULTI_DISC_ATTACHMENT'
+  AND snapshot.content_kind='MULTI_DISC' AND snapshot.created_by='MULTI_DISC_ATTACHMENT'
   AND snapshot.revision_no=(
     SELECT revision_no+1 FROM import_item_source_snapshots WHERE id=NEW.base_source_snapshot_id
   )
@@ -1926,9 +1926,6 @@ WHEN NEW.role='PROJECT_FILE' AND NOT EXISTS (
     AND source.logical_name=NEW.logical_name
     AND source.blob_id=NEW.blob_id
   WHERE preview.id=NEW.preview_session_id
-    AND preview.content_kind IN (
-      'ONS_PROJECT_V1','KIRIKIRI_PROJECT_V1','BUTTERSCOTCH_PROJECT_V1','TYRANOSCRIPT_PROJECT_V1'
-    )
 )
 BEGIN SELECT RAISE(ABORT,'invalid review preview project file'); END;
 
@@ -2258,7 +2255,7 @@ CREATE TRIGGER rpgmaker_content_profiles_validate_insert
 BEFORE INSERT ON rpgmaker_content_profiles
 WHEN NOT EXISTS(
   SELECT 1 FROM game_content_revisions revision
-  WHERE revision.id=NEW.content_revision_id AND revision.content_kind='RPG_MAKER_PROJECT_V1'
+  WHERE revision.id=NEW.content_revision_id AND revision.content_kind='RPG_MAKER_PROJECT'
     AND json_extract(revision.source_manifest_json,'$.fileCount')=NEW.file_count
     AND json_extract(revision.source_manifest_json,'$.totalBytes')=NEW.total_bytes
     AND json_extract(revision.source_manifest_json,'$.filesDigest')=NEW.project_fingerprint

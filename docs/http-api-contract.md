@@ -72,7 +72,7 @@ cursor 是服务端签名/校验的不透明字符串，绑定路由、排序和
 
 全局 readiness 为 false 时，前置 middleware 必须在 validator、body 读取、静态 runtime 和领域 handler 之前阻断除 `/health/live`、`/health/ready` 外的所有后端路由，返回 `503` 标准错误 envelope：`code=SERVICE_NOT_READY`，`details={"reasonCode":"<与 ready 相同的稳定枚举>"}`。健康端点仍使用第 9 节的专用非 envelope 外形；前端只能根据 code/reasonCode 展示稍后重试，不得绕过门禁调用部分管理能力。
 
-`sourceFiles[]` 对归档来源额外返回 `archiveFormat: ZIP|SEVEN_Z|NWJS_EXECUTABLE|ELECTRON_ASAR`；非归档为 null。审核 UI 必须明确区分“来源 ZIP/7z/NW.js EXE/Electron ASAR 分发包”与“物化后的运行 CONTENT”，不能自行根据文件扩展名猜测，也不能在详情 GET 时重新解析 archive。服务端只在冻结的 `TYRANOSCRIPT_PROJECT_V1` 来源、原 Upload 名为 `.exe` 且已存在安全扫描后的 ZIP entry 证据三项同时成立时投影 `NWJS_EXECUTABLE`；安全 ZIP 包装的 NW.js EXE 仍投影为来源 `ZIP`，但其项目 entry 必须全部来自导入事务内已验证并物化的唯一 EXE 追加包，不能把桌面边车混入项目。`ELECTRON_ASAR` 则只来自同内容种类下已验证的 Windows Electron 分发 ZIP和安全物化后的 ASAR 虚拟成员。这些格式均表示导入时已经验证桌面包装，服务端绝不执行其中的原生程序。
+`sourceFiles[]` 对归档来源额外返回 `archiveFormat: ZIP|SEVEN_Z|NWJS_EXECUTABLE|ELECTRON_ASAR`；非归档为 null。审核 UI 必须明确区分“来源 ZIP/7z/NW.js EXE/Electron ASAR 分发包”与“物化后的运行 CONTENT”，不能自行根据文件扩展名猜测，也不能在详情 GET 时重新解析 archive。服务端只在冻结的 `TYRANOSCRIPT_PROJECT` 来源、原 Upload 名为 `.exe` 且已存在安全扫描后的 ZIP entry 证据三项同时成立时投影 `NWJS_EXECUTABLE`；安全 ZIP 包装的 NW.js EXE 仍投影为来源 `ZIP`，但其项目 entry 必须全部来自导入事务内已验证并物化的唯一 EXE 追加包，不能把桌面边车混入项目。`ELECTRON_ASAR` 则只来自同内容种类下已验证的 Windows Electron 分发 ZIP和安全物化后的 ASAR 虚拟成员。这些格式均表示导入时已经验证桌面包装，服务端绝不执行其中的原生程序。
 
 ## 2. 认证、授权与同源写入
 
@@ -176,7 +176,7 @@ POST /api/v1/admin/imports
 }
 ```
 
-`metadataProvider` 仅允许 `HASHEOUS | NONE`；Arcade DAT 不是 provider。`contentMode=RPG_MAKER_PROJECT_V1` 没有单 ROM 哈希语义，用户只选择 `rpgmaker` 虚拟核心且禁用在线刮削：客户端固定显示并提交 `NONE`，服务端也把旧客户端提交的 `HASHEOUS` 规范化为 `NONE`。
+`metadataProvider` 仅允许 `HASHEOUS | NONE`；Arcade DAT 不是 provider。`contentMode=RPG_MAKER_PROJECT` 没有单 ROM 哈希语义，用户只选择 `rpgmaker` 虚拟核心且禁用在线刮削：客户端固定显示并提交 `NONE`，服务端也把旧客户端提交的 `HASHEOUS` 规范化为 `NONE`。
 
 创建端点只执行有界准入：校验 UploadSession 已 `COMPLETE`、用途/来源类型、目标目录与当前候选 Provider Target 能力，随后在一个短事务创建 `ImportJob(state=QUEUED)`、`IMPORT_GROUP Job`、每个 UploadFile 的 `PENDING` disposition、whole-session consumption 以及不可变 `import_group_requests` 输入快照，并立即返回 `202 {importJobId,jobId,state:"QUEUED",itemCount:0}`。浏览器收到 202 后直接进入 `/admin/imports/tasks`；不得继续把上传进度停在 92% 等待项目识别。
 
@@ -257,7 +257,7 @@ Content-Type: application/json
 
 ### 5.3 多盘 Import 与 Review Attachment
 
-`POST /api/v1/admin/imports` 与 `POST /api/v1/admin/games/{gameId}/content-revisions` 的可选 `contentMode` 只允许 `STANDARD|MULTI_DISC_M3U_V1|RPG_MAKER_PROJECT_V1|ONS_PROJECT_V1|KIRIKIRI_PROJECT_V1|BUTTERSCOTCH_PROJECT_V1|TYRANOSCRIPT_PROJECT_V1`，缺省严格为 STANDARD。MULTI 必须引用完整 DIRECTORY Upload，且 capability 由 feature flag、平台 profile 与当前 Target binding 共同决定。首次独立 runtime 项目导入接受一个完整 DIRECTORY，或 FILES 中恰好一个 ZIP/7z；`TYRANOSCRIPT_PROJECT_V1` 还接受恰一个经 PE 与追加 ZIP 双重验证的 NW.js EXE、恰一个只包装唯一合法 NW.js EXE 与桌面边车的安全 ZIP，以及恰一个含 Windows EXE 与 `resources/app.asar` 的 Electron 分发 ZIP。已发布 RPG 游戏的内容替换只接受完整 DIRECTORY，并由 Provider Target 重新检测 generation，不接受客户端指定内部世代。新旧 generation 不同的 Job 以不可重试 `RPG_REPLACEMENT_GENERATION_MISMATCH` 失败；运行依赖声明变化以不可重试 `RPG_REPLACEMENT_DEPENDENCIES_CHANGED` 失败；两种失败均保留当前内容和存档。Review detail 的可空 `multiDisc` 只返回 playlist 摘要、ordered entries、PRESENT/MISSING、大小/hash、缺失引用、冻结的 `maxDiscs/maxTotalBytes` 与 attachment 状态，不返回 Blob ID、宿主路径或 capability。Attachment 状态包含 Job/Attachment version、可空 diagnostics 与仅在通用 Job 可人工重试时为 true 的 `canRetry`。
+`POST /api/v1/admin/imports` 与 `POST /api/v1/admin/games/{gameId}/content-revisions` 的可选 `contentMode` 只允许 `STANDARD|MULTI_DISC|RPG_MAKER_PROJECT|ONS_PROJECT|KIRIKIRI_PROJECT|BUTTERSCOTCH_PROJECT|TYRANOSCRIPT_PROJECT`，缺省严格为 STANDARD。MULTI 必须引用完整 DIRECTORY Upload，且 capability 由 feature flag、平台 profile 与当前 Target binding 共同决定。首次独立 runtime 项目导入接受一个完整 DIRECTORY，或 FILES 中恰好一个 ZIP/7z；`TYRANOSCRIPT_PROJECT` 还接受恰一个经 PE 与追加 ZIP 双重验证的 NW.js EXE、恰一个只包装唯一合法 NW.js EXE 与桌面边车的安全 ZIP，以及恰一个含 Windows EXE 与 `resources/app.asar` 的 Electron 分发 ZIP。已发布 RPG 游戏的内容替换只接受完整 DIRECTORY，并由 Provider Target 重新检测 generation，不接受客户端指定内部世代。新旧 generation 不同的 Job 以不可重试 `RPG_REPLACEMENT_GENERATION_MISMATCH` 失败；运行依赖声明变化以不可重试 `RPG_REPLACEMENT_DEPENDENCIES_CHANGED` 失败；两种失败均保留当前内容和存档。Review detail 的可空 `multiDisc` 只返回 playlist 摘要、ordered entries、PRESENT/MISSING、大小/hash、缺失引用、冻结的 `maxDiscs/maxTotalBytes` 与 attachment 状态，不返回 Blob ID、宿主路径或 capability。Attachment 状态包含 Job/Attachment version、可空 diagnostics 与仅在通用 Job 可人工重试时为 true 的 `canRetry`。
 
 `POST /api/v1/admin/reviews/{importItemId}/multi-disc-attachments` 要求 ADMIN、同源/CSRF、`If-Match`、User-scoped `Idempotency-Key` 与 `{uploadId}`，只接受包含当前全部缺盘的 COMPLETE FILES upload。成功为 202，返回 Job/Attachment、`Location`、新 Review ETag；版本、active/retry、能力漂移、集合不符与内容无效使用 OpenAPI 中稳定错误码。关闭新 Import flag 不取消已冻结的 Attachment/Job，也不影响已发布读取。
 
@@ -355,7 +355,7 @@ PlaySession 事件 API 位于 launch cookie 的限定 Path 内，同时要求正
 
 `GET /runtime/launches/{launchId}/config` 是首次 bootstrap 请求；credential、5 分钟 bootstrap TTL 和全部预检快照有效后，服务端原子把 LaunchSession 从 `CREATED` 转为 `ACTIVE` 并返回严格的 Launch Envelope V1。字段级唯一事实源是 `api/runtime-provider/v1/launch-envelope.schema.json`，可执行的完整正反例位于同目录 `fixtures/valid` 与 `fixtures/invalid`；本文不维护会漂移的缩写 JSON 副本。
 
-`runtime` 身份必须逐字段匹配已激活 Bundle 与 Target declaration；`moduleUrl` 必须位于同一 `providerId/bundleSha256` 静态根且响应字节命中 `moduleSha256`。`capabilities`、`checkpoint`、`resources[]`、`targetOptions`、`restore`、`validation` 和 `netplay` 都由共享 JSON Schema 与语义校验器闭合验证。Provider 私有的核心选择、引擎设置、启动动作、文件映射和兼容补丁只能位于该 Provider 的 `targetOptions` 或 Bundle 内部；Host、页面和数据库不得维护第二份映射或按 `targetId` 补默认值。所有 URL 必须是契约允许的站内路径，响应不得含 capability、Blob ID、宿主路径或客户端可改写 URL。
+`runtime` 身份必须逐字段匹配已激活 Bundle 与 Target declaration；`moduleUrl` 必须位于同一 `providerId/bundleSha256` 静态根且响应字节命中 `moduleSha256`。`capabilities`、`checkpoint`、`resources[]`、`restore`、`validation` 和 `netplay` 由共享 JSON Schema 与语义校验器闭合验证；`targetOptions` 先通过共享 JSON-safe/深度/大小边界，再由已激活 Target 的内联 `targetOptionsSchema` 精确校验，Provider Module mount 前以自身同一声明复核。Provider 私有的核心选择、引擎设置、启动动作、文件映射和兼容补丁只能位于该 Provider 的 `targetOptions` 或 Bundle 内部；Host、页面和数据库不得维护 `optionsKind`、第二份字段映射或按 `targetId` 补默认值。所有 URL 必须是契约允许的站内路径，响应不得含 capability、Blob ID、宿主路径或客户端可改写 URL。
 
 二进制端点支持 `GET`、`HEAD` 和单 Range；多 Range 返回 `416`。所有响应设置正确 MIME、`X-Content-Type-Options: nosniff`、`Accept-Ranges: bytes` 和强 ETag。DOS 的 `game.zip` 是从锁定基础 Blob与 entry 确定性派生的 seekable 虚拟 ZIP，HEAD/Range/完整 GET 必须同 size/ETag 且不落盘。受限 URL 不包含 Blob ID/hash，不设置 `public`，错误响应也不得泄露资源是否属于其他游戏。
 
@@ -821,7 +821,7 @@ Game 一旦 DELETED，公共 `GET /api/v1/games/{gameId}`、Launch 创建、Game
 
 ### 16.1 管理与审核 API
 
-上传 transport 仍只用 `sourceType=FILES|DIRECTORY`；`upload_sessions.purpose` 新增 `RPG_MAKER_PROJECT|RUNTIME_ASSET_PACK`，Import create 的 `contentMode` 新增 `RPG_MAKER_PROJECT_V1`。项目 mode 只接受一个 DIRECTORY，或 FILES 中恰好一个 `.zip/.7z`；不得新增含混的传输枚举。Pegasus、EmulationStation 和通用 server import 向 `rpgmaker` 目标创建项目时固定返回 `422 RPG_SERVER_IMPORT_UNSUPPORTED`。
+上传 transport 仍只用 `sourceType=FILES|DIRECTORY`；`upload_sessions.purpose` 新增 `RPG_MAKER_PROJECT|RUNTIME_ASSET_PACK`，Import create 的 `contentMode` 新增 `RPG_MAKER_PROJECT`。项目 mode 只接受一个 DIRECTORY，或 FILES 中恰好一个 `.zip/.7z`；不得新增含混的传输枚举。Pegasus、EmulationStation 和通用 server import 向 `rpgmaker` 目标创建项目时固定返回 `422 RPG_SERVER_IMPORT_UNSUPPORTED`。
 
 RPG 条目的 Review detail 额外返回可空 `rpgMaker`：固定包含 `selectedCoreId/generation/evidenceGeneration/evidenceConfidence/selfContained/selfContainedOverride/runtimeBindingRevision/runtimePackRequirements/runtimePackSelections/runtimeValidation/runtimeValidationCurrent`。`runtimePackRequirements` 按 slot 返回 `{slot,declaredName,normalizedDeclaredName}`，其中规范名是服务端 Unicode NFKC full case-fold 结果；管理端必须用它与 pack definition 的同名字段精确匹配，不得用 JavaScript locale lowercase 猜测。`runtimePackSelections` 是按 slot 排序的 `{slot,declaredName,installationId}`；`runtimeValidation` 为当前条目最新一次验证的完整只读投影或 null，`runtimeValidationCurrent` 精确表示其 binding revision 是否仍等于当前草稿。RPG 的 `canApprove` 在该验证仍 current 且已经分配原始 `launchId` 时为 true；管理员主动点击“运行游戏”并取得 Launch 即可确认发布，后续机器 gate、checkpoint 和跨 Launch 恢复是可选的高级验证。`runtimeScreenshot` 固定为 null；存在恢复证据时只从 `rpgMaker.runtimeValidation.checkpointRoundTrip.screenshotUrl` 读取，绝不触发普通截图 override。审核页不后台轮询验证投影；它只在创建 Launch、用户主动执行高级验证动作、重新载入页面，以及本地观察到本次游戏子窗体关闭后读取一次。validation Launch 在 `ORIGINAL_LAUNCH_ENDED` 通过前关闭，或 restore Launch 在 `RESTORE_INPUT` 通过前关闭时，服务端以 `RPG_RUNTIME_VALIDATION_WINDOW_CLOSED` 收口为 `FAILED`；已完成相应终态 gate 的正常关闭不改变验证状态。读取验证或创建下一次验证时，服务端还必须对账已经终结的 Launch 与仍未终结的 validation，修复旧进程或进程外过期留下的孤儿状态。终态 validation 不阻塞同一 binding 新建验证，因此管理员可多次运行游戏。
 

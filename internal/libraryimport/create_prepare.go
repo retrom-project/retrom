@@ -66,10 +66,10 @@ func normalizeCreateRequest(request CreateRequest) (CreateRequest, string, error
 
 func validCreateContentMode(contentMode string) bool {
 	switch contentMode {
-	case contentcapability.ModeStandard, contentcapability.ModeMultiDiscM3UV1,
-		contentcapability.ModeRPGMakerProjectV1, contentcapability.ModeONSProjectV1,
-		contentcapability.ModeKiriKiriProjectV1, contentcapability.ModeButterscotchProjectV1,
-		contentcapability.ModeTyranoScriptProjectV1:
+	case contentcapability.ModeStandard, contentcapability.ModeMultiDisc,
+		contentcapability.ModeRPGMakerProject, contentcapability.ModeONSProject,
+		contentcapability.ModeKiriKiriProject, contentcapability.ModeButterscotchProject,
+		contentcapability.ModeTyranoScriptProject:
 		return true
 	default:
 		return false
@@ -78,9 +78,9 @@ func validCreateContentMode(contentMode string) bool {
 
 func projectCreateContentMode(contentMode string) bool {
 	switch contentMode {
-	case contentcapability.ModeRPGMakerProjectV1, contentcapability.ModeONSProjectV1,
-		contentcapability.ModeKiriKiriProjectV1, contentcapability.ModeButterscotchProjectV1,
-		contentcapability.ModeTyranoScriptProjectV1:
+	case contentcapability.ModeRPGMakerProject, contentcapability.ModeONSProject,
+		contentcapability.ModeKiriKiriProject, contentcapability.ModeButterscotchProject,
+		contentcapability.ModeTyranoScriptProject:
 		return true
 	default:
 		return false
@@ -109,7 +109,7 @@ func (service *Service) prepareCreation(ctx context.Context, rawRequest CreateRe
 	capabilities := contentcapability.Resolve(
 		target.platformID, true, service.multiDiscImportEnabled, target.contentPolicyJSON,
 	)
-	if contentMode == contentcapability.ModeMultiDiscM3UV1 && capabilities.MultiDisc == nil {
+	if contentMode == contentcapability.ModeMultiDisc && capabilities.MultiDisc == nil {
 		return creationPlan{}, ErrMultiDiscModeUnavailable
 	}
 	files, err := service.loadImportSourceFiles(ctx, request.UploadID)
@@ -130,14 +130,14 @@ func (service *Service) prepareCreation(ctx context.Context, rawRequest CreateRe
 	if err := service.resolveRPGMakerTarget(ctx, &plan); err != nil {
 		return creationPlan{}, err
 	}
-	if contentMode == contentcapability.ModeRPGMakerProjectV1 {
+	if contentMode == contentcapability.ModeRPGMakerProject {
 		plan.datID = service.loadActiveDATID(ctx, plan.target.providerID, plan.target.targetID)
 	}
 	return plan, nil
 }
 
 func (service *Service) resolveRPGMakerTarget(ctx context.Context, plan *creationPlan) error {
-	if plan.contentMode != contentcapability.ModeRPGMakerProjectV1 {
+	if plan.contentMode != contentcapability.ModeRPGMakerProject {
 		return nil
 	}
 	if len(plan.groups) != 1 || plan.groups[0].rpgProfile == nil {
@@ -154,37 +154,37 @@ func (service *Service) prepareContent(
 ) error {
 	var err error
 	switch plan.contentMode {
-	case contentcapability.ModeMultiDiscM3UV1:
+	case contentcapability.ModeMultiDisc:
 		plan.dispositions, plan.groups, err = service.prepareMultiDiscFiles(plan.files, *capabilities.MultiDisc)
-	case contentcapability.ModeRPGMakerProjectV1:
+	case contentcapability.ModeRPGMakerProject:
 		if plan.target.platformID != "rpgmaker" {
 			return ErrInvalid
 		}
 		plan.dispositions, plan.groups, plan.archives, err = service.prepareRPGMakerProject(
 			ctx, plan.sourceType, plan.files, plan.target.defaultCoreID,
 		)
-	case contentcapability.ModeONSProjectV1:
+	case contentcapability.ModeONSProject:
 		if plan.target.platformID != "ons" {
 			return ErrInvalid
 		}
 		plan.dispositions, plan.groups, plan.archives, err = service.prepareONSProject(
 			ctx, plan.sourceType, plan.files,
 		)
-	case contentcapability.ModeKiriKiriProjectV1:
+	case contentcapability.ModeKiriKiriProject:
 		if plan.target.platformID != "kirikiri" {
 			return ErrInvalid
 		}
 		plan.dispositions, plan.groups, plan.archives, err = service.prepareKiriKiriProject(
 			ctx, plan.sourceType, plan.files,
 		)
-	case contentcapability.ModeButterscotchProjectV1:
+	case contentcapability.ModeButterscotchProject:
 		if plan.target.platformID != "butterscotch" {
 			return ErrInvalid
 		}
 		plan.dispositions, plan.groups, plan.archives, err = service.prepareButterscotchProject(
 			ctx, plan.sourceType, plan.files,
 		)
-	case contentcapability.ModeTyranoScriptProjectV1:
+	case contentcapability.ModeTyranoScriptProject:
 		if plan.target.platformID != "tyranoscript" {
 			return ErrInvalid
 		}
@@ -202,34 +202,34 @@ func (service *Service) prepareContent(
 }
 
 func validateCreationUpload(contentMode, sourceType, purpose string) error {
-	if contentMode == contentcapability.ModeMultiDiscM3UV1 && sourceType != "DIRECTORY" {
+	if contentMode == contentcapability.ModeMultiDisc && sourceType != "DIRECTORY" {
 		return ErrMultiDiscModeUnavailable
 	}
-	if contentMode == contentcapability.ModeRPGMakerProjectV1 {
+	if contentMode == contentcapability.ModeRPGMakerProject {
 		if purpose != "RPG_MAKER_PROJECT" {
 			return ErrInvalid
 		}
 		return nil
 	}
-	if contentMode == contentcapability.ModeONSProjectV1 {
+	if contentMode == contentcapability.ModeONSProject {
 		if purpose != "ONS_PROJECT" {
 			return ErrInvalid
 		}
 		return nil
 	}
-	if contentMode == contentcapability.ModeKiriKiriProjectV1 {
+	if contentMode == contentcapability.ModeKiriKiriProject {
 		if purpose != "KIRIKIRI_PROJECT" {
 			return ErrInvalid
 		}
 		return nil
 	}
-	if contentMode == contentcapability.ModeButterscotchProjectV1 {
+	if contentMode == contentcapability.ModeButterscotchProject {
 		if purpose != "BUTTERSCOTCH_PROJECT" {
 			return ErrInvalid
 		}
 		return nil
 	}
-	if contentMode == contentcapability.ModeTyranoScriptProjectV1 {
+	if contentMode == contentcapability.ModeTyranoScriptProject {
 		if purpose != "TYRANOSCRIPT_PROJECT" {
 			return ErrInvalid
 		}
@@ -326,7 +326,7 @@ SELECT content_kind FROM runtime_binding_content_kinds WHERE binding_id=? ORDER 
 	}
 	policy := map[string]any{"schemaVersion": 1, "supportedContentKinds": contentKinds, "multiDisc": nil}
 	for _, contentKind := range contentKinds {
-		if contentKind == contentcapability.ModeMultiDiscM3UV1 {
+		if contentKind == contentcapability.ModeMultiDisc {
 			policy["multiDisc"] = map[string]any{
 				"maxDiscs":      contentcapability.MaximumMultiDiscCount,
 				"maxTotalBytes": contentcapability.MaximumMultiDiscBytes,

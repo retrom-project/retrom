@@ -125,6 +125,6 @@ function envelope(): LaunchEnvelopeV1 {
     },
     session: {coreName: "Fixture Core", id: "018f0f31-26fe-7a31-9d61-4ec92f16d4c3", mode: "SINGLE", platformName: "Fixture",
       purpose: "PRODUCT", returnTo: "/games/fixture", title: "Fixture", warnings: []},
-    targetOptions: {kind: "NONE_V1"}, validation: null,
+    targetOptions: {}, validation: null,
   };
 }

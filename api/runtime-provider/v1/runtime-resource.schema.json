@@ -23,14 +23,14 @@
       "properties": {
         "role": { "$ref": "#/$defs/identity" },
         "ordinal": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
-        "kind": { "enum": ["ROM_BLOB_V1", "SEEKABLE_BLOB_V1", "PARENT_ARCHIVE_V1", "WASM4_CART_V1"] },
+        "kind": { "enum": ["ROM_BLOB", "SEEKABLE_BLOB", "PARENT_ARCHIVE", "WASM4_CART"] },
         "url": { "$ref": "#/$defs/relativeUrl" },
         "sha256": { "$ref": "#/$defs/digest" },
         "sizeBytes": { "$ref": "#/$defs/positiveSafeInteger" },
         "rangeRequired": { "type": "boolean" }
       },
       "allOf": [{
-        "if": { "properties": { "kind": { "enum": ["SEEKABLE_BLOB_V1", "PARENT_ARCHIVE_V1"] } } },
+        "if": { "properties": { "kind": { "enum": ["SEEKABLE_BLOB", "PARENT_ARCHIVE"] } } },
         "then": { "properties": { "rangeRequired": { "const": true } } },
         "else": { "properties": { "rangeRequired": { "const": false } } }
       }]
@@ -42,7 +42,7 @@
       "properties": {
         "role": { "$ref": "#/$defs/identity" },
         "ordinal": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
-        "kind": { "const": "FILE_TREE_V1" },
+        "kind": { "const": "FILE_TREE" },
         "indexUrl": { "$ref": "#/$defs/relativeUrl" },
         "contentDigest": { "$ref": "#/$defs/digest" }
       }
@@ -54,7 +54,7 @@
       "properties": {
         "role": { "$ref": "#/$defs/identity" },
         "ordinal": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
-        "kind": { "enum": ["NATIVE_WEB_V1", "ISOLATED_WEB_V1"] },
+        "kind": { "enum": ["NATIVE_WEB", "ISOLATED_WEB"] },
         "origin": { "$ref": "#/$defs/httpUrl" },
         "entryUrl": { "$ref": "#/$defs/httpUrl" },
         "bootstrapTicket": { "type": "string", "pattern": "^[A-Za-z0-9_-]{43,128}$" },
@@ -81,7 +81,7 @@
       "properties": {
         "role": { "$ref": "#/$defs/identity" },
         "ordinal": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
-        "kind": { "enum": ["BIOS_BUNDLE_V1", "EXTERNAL_FILE_SET_V1"] },
+        "kind": { "enum": ["BIOS_BUNDLE", "EXTERNAL_FILE_SET"] },
         "files": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/fileEntry" } }
       }
     },
@@ -104,7 +104,7 @@
       "properties": {
         "role": { "$ref": "#/$defs/identity" },
         "ordinal": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
-        "kind": { "const": "MULTI_DISC_V1" },
+        "kind": { "const": "MULTI_DISC" },
         "initialDiscIndex": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
         "entries": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/discEntry" } }
       }
@@ -118,50 +118,6 @@
         { "$ref": "#/$defs/multiDiscResource" }
       ]
     },
-    "targetOptions": {
-      "oneOf": [
-        { "type": "object", "additionalProperties": false, "required": ["kind"], "properties": { "kind": { "const": "NONE_V1" } } },
-        {
-          "type": "object", "additionalProperties": false,
-          "required": ["kind", "dosEntryPath", "initialDiscIndex"],
-          "properties": {
-            "kind": { "const": "EMULATORJS_V1" },
-            "dosEntryPath": { "oneOf": [{ "type": "null" }, { "type": "string", "minLength": 1, "maxLength": 240 }] },
-            "initialDiscIndex": { "oneOf": [{ "type": "null" }, { "type": "integer", "minimum": 0, "maximum": 9007199254740991 }] }
-          }
-        },
-        {
-          "type": "object", "additionalProperties": false,
-          "required": ["kind", "expectedRestorePosition"],
-          "properties": {
-            "kind": { "const": "RPGMAKER_V1" },
-            "expectedRestorePosition": {
-              "oneOf": [
-                { "type": "null" },
-                {
-                  "type": "object", "additionalProperties": false,
-                  "required": ["mapId", "playerX", "playerY", "fixtureState"],
-                  "properties": {
-                    "mapId": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
-                    "playerX": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
-                    "playerY": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
-                    "fixtureState": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 }
-                  }
-                }
-              ]
-            }
-          }
-        },
-        { "type": "object", "additionalProperties": false, "required": ["kind", "scriptEncoding"], "properties": { "kind": { "const": "ONS_PROJECT_V1" }, "scriptEncoding": { "enum": ["gbk", "sjis", "utf8"] } } },
-        {
-          "type": "object", "additionalProperties": false,
-          "required": ["kind", "startupXp3Path"],
-          "properties": {
-            "kind": { "const": "KIRIKIRI_PROJECT_V1" },
-            "startupXp3Path": { "oneOf": [{ "type": "null" }, { "type": "string", "minLength": 1, "maxLength": 240 }] }
-          }
-        }
-      ]
-    }
+    "targetOptions": { "$ref": "common.schema.json#/$defs/jsonObject" }
   }
 }

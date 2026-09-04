@@ -55,7 +55,7 @@ export function createProductClient(context, baseUrl, csrfToken) {
     const response = await raw("POST", "/api/v1/admin/imports", {
       headers: writeHeaders(), data: {
         uploadId, targetPlatformInstanceId: platformInstanceId,
-        metadataProvider: "NONE", contentMode: "RPG_MAKER_PROJECT_V1", tagIds: [],
+        metadataProvider: "NONE", contentMode: "RPG_MAKER_PROJECT", tagIds: [],
       },
     });
     const body = await response.json();

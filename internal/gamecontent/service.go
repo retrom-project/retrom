@@ -175,8 +175,8 @@ func (service *Service) schedule(
 	if contentMode == "" {
 		contentMode = contentcapability.ModeStandard
 	}
-	if contentMode != contentcapability.ModeStandard && contentMode != contentcapability.ModeMultiDiscM3UV1 &&
-		contentMode != contentcapability.ModeRPGMakerProjectV1 {
+	if contentMode != contentcapability.ModeStandard && contentMode != contentcapability.ModeMultiDisc &&
+		contentMode != contentcapability.ModeRPGMakerProject {
 		return Scheduled{}, false, ErrInvalid
 	}
 	transaction, err := service.database.BeginTx(ctx, nil)
@@ -221,14 +221,14 @@ func (service *Service) scheduleFresh(
 	contentID, instanceID, platformID := binding.contentID, binding.instanceID, binding.platformID
 	coreID, contentPolicyJSON := binding.coreID, binding.contentPolicyJSON
 	platformVersion, datID := binding.platformVersion, binding.datID
-	if platformID == "rpgmaker" && contentMode != contentcapability.ModeRPGMakerProjectV1 ||
-		platformID != "rpgmaker" && contentMode == contentcapability.ModeRPGMakerProjectV1 {
+	if platformID == "rpgmaker" && contentMode != contentcapability.ModeRPGMakerProject ||
+		platformID != "rpgmaker" && contentMode == contentcapability.ModeRPGMakerProject {
 		return Scheduled{}, ErrInvalid
 	}
 	capabilities := contentcapability.Resolve(
 		platformID, true, service.multiDiscImportEnabled, contentPolicyJSON,
 	)
-	if contentMode == contentcapability.ModeMultiDiscM3UV1 && capabilities.MultiDisc == nil {
+	if contentMode == contentcapability.ModeMultiDisc && capabilities.MultiDisc == nil {
 		return Scheduled{}, ErrInvalid
 	}
 	if err := validateReplacementUpload(ctx, transaction, uploadID, contentMode, platformID); err != nil {
@@ -267,7 +267,7 @@ func (service *Service) scheduleFresh(
 		RPGDependencySHA256:     binding.rpgDependencySHA256,
 		RPGRequirementsSHA256:   binding.rpgRequirementsSHA256,
 	}
-	if capabilities.MultiDisc != nil && contentMode == contentcapability.ModeMultiDiscM3UV1 {
+	if capabilities.MultiDisc != nil && contentMode == contentcapability.ModeMultiDisc {
 		snapshot.MaxDiscs = capabilities.MultiDisc.MaxDiscs
 		snapshot.MaxTotalBytes = capabilities.MultiDisc.MaxTotalBytes
 	}
@@ -480,8 +480,8 @@ WHERE id=?
 		uploadState != "COMPLETE" ||
 		fileCount == 0 ||
 		contentMode == contentcapability.ModeStandard && platformID != "dos" && fileCount != 1 ||
-		contentMode == contentcapability.ModeMultiDiscM3UV1 && sourceType != "DIRECTORY" ||
-		contentMode == contentcapability.ModeRPGMakerProjectV1 && sourceType != "DIRECTORY" {
+		contentMode == contentcapability.ModeMultiDisc && sourceType != "DIRECTORY" ||
+		contentMode == contentcapability.ModeRPGMakerProject && sourceType != "DIRECTORY" {
 		return ErrInvalid
 	}
 	var consumed int

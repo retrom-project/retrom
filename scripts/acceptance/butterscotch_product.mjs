@@ -81,7 +81,7 @@ async function runProductCase(activeBrowser) {
       headers: client.writeHeaders(), timeout: 120_000,
       data: {
         uploadId, targetPlatformInstanceId: platformInstanceId, metadataProvider: "NONE",
-        contentMode: "BUTTERSCOTCH_PROJECT_V1", tagIds: [],
+        contentMode: "BUTTERSCOTCH_PROJECT", tagIds: [],
       },
     });
     requireStatus(importedResponse.status(), 202, "BUTTERSCOTCH_ACCEPTANCE_IMPORT_CREATE_FAILED");

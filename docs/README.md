@@ -4,7 +4,7 @@ Retrom 的规划文档按“总览 + 统一验收 + 领域专题 + 可执行数�
 
 ## 实施就绪结论
 
-当前数据库由 `001_identity.sql`–`011_emulationstation_import_liveness.sql` 的 clean migration lineage 建立最终模型；只支持向前升级，不提供降级或双读分支。运行时以 Provider Bundle 为唯一部署单元：EmulatorJS Provider 声明 35 个 Target，retrom-runtime Provider 声明 12 个 Target；Retrom 只保存已激活 Provider/Target、产品 Core binding 和不可变 contract digest，不保存或推导 Provider 私有 adapter/core 映射。所有 Product、Review Preview、RPG Runtime Validation、存档、多盘、沉浸与联机 Launch 都返回同一 `Launch Envelope V1`，Web 只通过共享 Provider dispatcher 装载 module 并取得 `PlayerRuntimeV1`。
+当前数据库由 `001_identity.sql`–`011_emulationstation_import_liveness.sql` 的 clean migration lineage 建立最终模型；只支持向前升级，不提供降级或双读分支。运行时以 Provider Bundle 为唯一部署单元：EmulatorJS Provider 声明 35 个 Target，retrom-runtime Provider 声明 12 个 Target；Retrom 只保存已激活 Provider/Target、Provider 自带的闭合 options schema、产品 Core binding 和不可变 contract digest，不保存或推导 Provider 私有 adapter/core 映射，也不维护 `optionsKind`。所有 Product、Review Preview、RPG Runtime Validation、存档、多盘、沉浸与联机 Launch 都返回同一 `Launch Envelope V1`；Go 按 Target schema 精确验证选项，Web 只通过共享 Provider dispatcher 做通用边界并装载 module，Provider Module 复核精确 schema 后取得 `PlayerRuntimeV1`。
 
 全新数据库只 seed Platform/Core/关系等 reference catalog，PlatformInstance 初始为零；管理员在游戏目录页一键补齐推荐模板。RPG Maker 对用户仍是唯一 `rpgmaker` Core，服务端按项目证据绑定 `rpgmaker-2000` 至 `rpgmaker-mz` 七个 Provider Target；这些 Target 只用于不可变运行绑定和管理诊断，不进入用户 Core 选择器。FDS 归入 NES/FCEUmm，扩展名只由平台内容 profile 提供。Pegasus/EmulationStation、标签、收藏、Payload 生命周期与受限异地联机继续使用各自领域契约；八个联机 profile 绑定精确 Provider Target 和 `netplayCompatibilityLine`，不按单个 ROM 建产品白名单。
 

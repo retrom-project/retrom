@@ -20,7 +20,7 @@ func TestParseCatalogAndRejectImplementationFacts(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if catalog.SchemaVersion != 1 || catalog.CatalogVersion != 1 || len(catalog.Bindings) != 47 {
+	if catalog.SchemaVersion != 1 || catalog.CatalogVersion != 2 || len(catalog.Bindings) != 47 {
 		t.Fatalf("catalog = %#v", catalog)
 	}
 	for _, binding := range catalog.Bindings {
@@ -31,8 +31,8 @@ func TestParseCatalogAndRejectImplementationFacts(t *testing.T) {
 			t.Fatalf("RPG generation leaked as Product Core: %#v", binding)
 		}
 	}
-	changed := strings.Replace(string(contents), `"catalogVersion": 1`,
-		`"catalogVersion": 1, "adapterId": "leaked"`, 1)
+	changed := strings.Replace(string(contents), `"catalogVersion": 2`,
+		`"catalogVersion": 2, "adapterId": "leaked"`, 1)
 	_, err = ParseCatalog([]byte(changed))
 	if !errors.Is(err, ErrCatalogInvalid) {
 		t.Fatalf("unknown field error = %v", err)
@@ -102,7 +102,7 @@ func TestResolveBindingClosesOrdinaryAndRPGSelection(t *testing.T) {
 		t.Fatalf("ordinary binding = %#v, %v", gambatte, err)
 	}
 	rpg, err := Resolve(catalog, ResolveRequest{
-		PlatformID: "rpgmaker", CoreID: "rpgmaker", ContentKind: "RPG_MAKER_PROJECT_V1",
+		PlatformID: "rpgmaker", CoreID: "rpgmaker", ContentKind: "RPG_MAKER_PROJECT",
 		DetectorEvidence: map[string]bool{"RPGMV": true},
 	})
 	if err != nil || rpg.ProviderID != "retrom-runtime" || rpg.TargetID != "rpgmaker-mv" {
@@ -112,13 +112,13 @@ func TestResolveBindingClosesOrdinaryAndRPGSelection(t *testing.T) {
 	for name, request := range map[string]ResolveRequest{
 		"missing platform": {PlatformID: "nes", CoreID: "gambatte", ContentKind: "SINGLE_FILE"},
 		"wrong content":    {PlatformID: "gbc", CoreID: "gambatte", ContentKind: "DOS_BUNDLE"},
-		"RPG no evidence":  {PlatformID: "rpgmaker", CoreID: "rpgmaker", ContentKind: "RPG_MAKER_PROJECT_V1"},
+		"RPG no evidence":  {PlatformID: "rpgmaker", CoreID: "rpgmaker", ContentKind: "RPG_MAKER_PROJECT"},
 		"RPG multiple evidence": {
-			PlatformID: "rpgmaker", CoreID: "rpgmaker", ContentKind: "RPG_MAKER_PROJECT_V1",
+			PlatformID: "rpgmaker", CoreID: "rpgmaker", ContentKind: "RPG_MAKER_PROJECT",
 			DetectorEvidence: map[string]bool{"RPGMV": true, "RPGMZ": true},
 		},
 		"RPG unknown evidence": {
-			PlatformID: "rpgmaker", CoreID: "rpgmaker", ContentKind: "RPG_MAKER_PROJECT_V1",
+			PlatformID: "rpgmaker", CoreID: "rpgmaker", ContentKind: "RPG_MAKER_PROJECT",
 			DetectorEvidence: map[string]bool{"UNDECLARED": true},
 		},
 	} {

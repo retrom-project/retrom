@@ -84,7 +84,7 @@ WHERE COALESCE(ticket.launch_id,ticket.preview_id)=? AND ticket.expected_origin=
   AND (ticket.launch_id IS NOT NULL AND launch.state='ACTIVE' AND launch.hard_expires_at_ms>?
     OR ticket.preview_id IS NOT NULL AND preview.state='ACTIVE' AND preview.hard_expires_at_ms>?)
   AND COALESCE(preview.content_format,(SELECT min(file.format_version) FROM launch_content_files file
-      WHERE file.launch_session_id=launch.id)) IN ('RPG_MAKER_PROJECT_V1','TYRANOSCRIPT_PROJECT_V1')
+      WHERE file.launch_session_id=launch.id)) IN ('RPG_MAKER_PROJECT','TYRANOSCRIPT_PROJECT')
 `, launchID, origin, service.now().UnixMilli(), service.now().UnixMilli(), service.now().UnixMilli()).Scan(
 		&access.Profile, &access.Expires, &access.ContentFormat, &access.Preview,
 	)
@@ -123,7 +123,7 @@ WHERE COALESCE(ticket.launch_id,ticket.preview_id)=? AND ticket.ticket_sha256=? 
   AND (ticket.launch_id IS NOT NULL AND launch.state='ACTIVE' AND launch.hard_expires_at_ms>?
     OR ticket.preview_id IS NOT NULL AND preview.state='ACTIVE' AND preview.hard_expires_at_ms>?)
   AND COALESCE(preview.content_format,(SELECT min(file.format_version) FROM launch_content_files file
-      WHERE file.launch_session_id=launch.id)) IN ('RPG_MAKER_PROJECT_V1','TYRANOSCRIPT_PROJECT_V1')
+      WHERE file.launch_session_id=launch.id)) IN ('RPG_MAKER_PROJECT','TYRANOSCRIPT_PROJECT')
 `, launchID, ticketDigest[:], origin, now, now, now).Scan(
 		&access.Profile, &access.Expires, &access.ContentFormat, &access.Preview,
 	)
@@ -188,7 +188,7 @@ WHERE capability.credential_sha256=? AND COALESCE(capability.launch_id,capabilit
   AND (capability.launch_id IS NOT NULL AND launch.state='ACTIVE' AND launch.hard_expires_at_ms>?
     OR capability.preview_id IS NOT NULL AND preview.state='ACTIVE' AND preview.hard_expires_at_ms>?)
   AND COALESCE(preview.content_format,(SELECT min(file.format_version) FROM launch_content_files file
-      WHERE file.launch_session_id=launch.id)) IN ('RPG_MAKER_PROJECT_V1','TYRANOSCRIPT_PROJECT_V1')
+      WHERE file.launch_session_id=launch.id)) IN ('RPG_MAKER_PROJECT','TYRANOSCRIPT_PROJECT')
 `, digest[:], launchID, origin, service.now().UnixMilli(), service.now().UnixMilli(), service.now().UnixMilli()).Scan(
 		&access.Profile, &access.Expires, &access.ContentFormat, &access.Preview,
 	)

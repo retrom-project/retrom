@@ -196,7 +196,7 @@ func TestMultiDiscDirectoryCreatesOrderedItemsAndPublishesCanonicalContent(t *te
 	})
 	created, err := importer.Create(ctx, CreateRequest{
 		UploadID: uploadID, TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(t, database.SQL, "saturn/yabause"),
-		MetadataProvider: "NONE", ContentMode: "MULTI_DISC_M3U_V1",
+		MetadataProvider: "NONE", ContentMode: "MULTI_DISC",
 	})
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return created.ItemCount != 2 }), "Create() = %#v, error=%v", created, err)
 	var importEventData string
@@ -204,7 +204,7 @@ func TestMultiDiscDirectoryCreatesOrderedItemsAndPublishesCanonicalContent(t *te
 SELECT data_json FROM job_events
 WHERE job_id=? AND scope_type='IMPORT_GROUP' AND event_type='SUCCEEDED'
 `, created.JobID).Scan(&importEventData); err != nil ||
-		!strings.Contains(importEventData, `"contentMode":"MULTI_DISC_M3U_V1"`) ||
+		!strings.Contains(importEventData, `"contentMode":"MULTI_DISC"`) ||
 		!strings.Contains(importEventData, `"parserResultCode":"MATCHED"`) {
 		t.Fatalf("multi-disc import event = %q, error=%v", importEventData, err)
 	}
@@ -293,7 +293,7 @@ WHERE game.id=? ORDER BY file.role,file.sort_order
 	envelope := testsupport.RuntimeEnvelope(t, configuration)
 	discSet := testsupport.RuntimeEnvelopeResource(t, envelope, "discs")
 	discEntries, ok := discSet["entries"].([]any)
-	testassert.Falsef(t, testassert.Any(func() bool { return discSet["kind"] != "MULTI_DISC_V1" }, func() bool { return fmt.Sprint(discSet["initialDiscIndex"]) != "0" }, func() bool { return !ok }, func() bool { return len(discEntries) != 2 }), "multi-disc launch resource = %#v", discSet)
+	testassert.Falsef(t, testassert.Any(func() bool { return discSet["kind"] != "MULTI_DISC" }, func() bool { return fmt.Sprint(discSet["initialDiscIndex"]) != "0" }, func() bool { return !ok }, func() bool { return len(discEntries) != 2 }), "multi-disc launch resource = %#v", discSet)
 	dimensions, err := launcher.MultiDiscTelemetryDimensions(ctx, createdLaunch.LaunchID, createdLaunch.Capability)
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return dimensions.PlatformKey != "saturn" }, func() bool { return dimensions.TargetKey != "yabause" }, func() bool { return len(dimensions.TargetContractDigest) != 64 }, func() bool { return dimensions.DiscCount != 2 }), "multi-disc telemetry dimensions = %#v, error=%v", dimensions, err)
 	for index, rawEntry := range discEntries {
@@ -342,7 +342,7 @@ func TestMultiDiscMissingDiscIsBlockedWithoutPlaceholderBlob(t *testing.T) {
 	})
 	created, err := importer.Create(ctx, CreateRequest{
 		UploadID: uploadID, TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(t, database.SQL, "saturn/yabause"),
-		MetadataProvider: "NONE", ContentMode: "MULTI_DISC_M3U_V1",
+		MetadataProvider: "NONE", ContentMode: "MULTI_DISC",
 	})
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return created.ItemCount != 1 }), "Create() = %#v, error=%v", created, err)
 	var itemID, validationStatus, compatibilityCode string
@@ -442,7 +442,7 @@ func TestMultiDiscAttachmentRejectsNonExactSetWithoutAdvancingDraft(t *testing.T
 	})
 	created, err := importer.Create(ctx, CreateRequest{
 		UploadID: baseUploadID, TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(t, database.SQL, "saturn/yabause"),
-		MetadataProvider: "NONE", ContentMode: "MULTI_DISC_M3U_V1",
+		MetadataProvider: "NONE", ContentMode: "MULTI_DISC",
 	})
 	testassert.False(t, err != nil, err)
 	var itemID, baseSnapshotID string
@@ -505,7 +505,7 @@ func TestMultiDiscAdmissionRejectsMissingPlaylistAndUnsupportedTargetWithoutCons
 	})
 	request := CreateRequest{
 		UploadID: uploadID, TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(t, database.SQL, "saturn/yabause"),
-		MetadataProvider: "NONE", ContentMode: "MULTI_DISC_M3U_V1",
+		MetadataProvider: "NONE", ContentMode: "MULTI_DISC",
 	}
 	if _, err := importer.Create(ctx, request); !errors.Is(err, ErrMultiDiscPlaylistMissing) {
 		t.Fatalf("missing playlist error = %v", err)

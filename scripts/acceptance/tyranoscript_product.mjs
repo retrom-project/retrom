@@ -73,7 +73,7 @@ async function runProductCase(activeBrowser) {
       headers: client.writeHeaders(), expected: 202, timeout: 120_000,
       data: {
         uploadId, targetPlatformInstanceId: platformInstanceId, metadataProvider: "NONE",
-        contentMode: "TYRANOSCRIPT_PROJECT_V1", tagIds: [],
+        contentMode: "TYRANOSCRIPT_PROJECT", tagIds: [],
       },
     });
     await waitForImport(client, imported.importJobId);

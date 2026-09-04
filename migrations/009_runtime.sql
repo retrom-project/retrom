@@ -48,11 +48,10 @@ CREATE TABLE "launch_content_files" (
   launch_session_id TEXT NOT NULL REFERENCES launch_sessions(id),
   logical_name TEXT NOT NULL CHECK(length(logical_name) BETWEEN 1 AND 512),
   blob_id TEXT NOT NULL REFERENCES blobs(id),
-  format_version TEXT NOT NULL CHECK(format_version IN (
-    'SOURCE_V1','RETROM_DOS_DIRECT_ZIP_V1','RETROM_MULTIDISC_M3U_V1',
-    'RPG_MAKER_PROJECT_V1','ONS_PROJECT_V1','KIRIKIRI_PROJECT_V1','BUTTERSCOTCH_PROJECT_V1',
-    'TYRANOSCRIPT_PROJECT_V1'
-  )),
+  format_version TEXT NOT NULL CHECK(
+    length(format_version) BETWEEN 2 AND 64 AND format_version=upper(format_version)
+    AND format_version NOT GLOB '*[^A-Z0-9_]*'
+  ),
   created_at_ms INTEGER NOT NULL CHECK(created_at_ms>=0),
   PRIMARY KEY(launch_session_id,logical_name)
 );

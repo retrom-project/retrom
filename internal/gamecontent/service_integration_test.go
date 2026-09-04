@@ -57,7 +57,7 @@ func TestRPGMakerReplacementKeepsPublishedGeneration(t *testing.T) {
 		UploadID: initialUpload, TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(
 			t, database.SQL, "rpgmaker/rpgmaker",
 		),
-		MetadataProvider: "NONE", ContentMode: "RPG_MAKER_PROJECT_V1",
+		MetadataProvider: "NONE", ContentMode: "RPG_MAKER_PROJECT",
 	})
 	testassert.False(t, err != nil, err)
 	itemID := importItemID(t, ctx, database.SQL, created.ImportJobID)
@@ -109,13 +109,13 @@ SELECT current_content_revision_id,version FROM games WHERE id=?
 	uploadValidationTx, err := database.SQL.BeginTx(ctx, nil)
 	testassert.False(t, err != nil, err)
 	if validationErr := validateReplacementUpload(
-		ctx, uploadValidationTx, sameGenerationUpload, "RPG_MAKER_PROJECT_V1", "rpgmaker",
+		ctx, uploadValidationTx, sameGenerationUpload, "RPG_MAKER_PROJECT", "rpgmaker",
 	); validationErr != nil {
 		t.Fatalf("validate RPG replacement upload: %v", validationErr)
 	}
 	cleanup.Rollback(uploadValidationTx)
 	sameGeneration, err := service.ScheduleMode(
-		ctx, published.GameID, sameGenerationUpload, "RPG_MAKER_PROJECT_V1", gameVersion,
+		ctx, published.GameID, sameGenerationUpload, "RPG_MAKER_PROJECT", gameVersion,
 	)
 	testassert.False(t, err != nil, err)
 	waitForJob(t, ctx, database.SQL, sameGeneration.JobID, "SUCCEEDED")
@@ -146,7 +146,7 @@ WHERE game.id=? AND variant.core_id='rpgmaker'
 	rpg2003 := rpgMakerFixtureFiles(t, filepath.Join(repositoryRoot, "testdata/public-roms/rpgmaker-smoke/rpg2003"))
 	differentGenerationUpload := completeRPGMakerDirectoryUpload(t, ctx, database.SQL, uploadService, rpg2003)
 	differentGeneration, err := service.ScheduleMode(
-		ctx, published.GameID, differentGenerationUpload, "RPG_MAKER_PROJECT_V1", replacementVersion,
+		ctx, published.GameID, differentGenerationUpload, "RPG_MAKER_PROJECT", replacementVersion,
 	)
 	testassert.False(t, err != nil, err)
 	waitForJob(t, ctx, database.SQL, differentGeneration.JobID, "FAILED")
@@ -496,7 +496,7 @@ SELECT current_content_revision_id,version FROM games WHERE id=?
 	service := New(database.SQL, time.Now).WithBlobStore(blobs).
 		WithPayloadRelease(releaseService).WithMultiDiscImportEnabled(true)
 	scheduled, err := service.ScheduleMode(
-		ctx, published.GameID, replacementUpload, "MULTI_DISC_M3U_V1", gameVersion,
+		ctx, published.GameID, replacementUpload, "MULTI_DISC", gameVersion,
 	)
 	testassert.False(t, err != nil, err)
 	waitForJob(t, ctx, database.SQL, scheduled.JobID, "SUCCEEDED")
@@ -509,7 +509,7 @@ WHERE game.id=?
 `, published.GameID).Scan(&currentContentID, &replacedVersion, &contentKind); err != nil {
 		t.Fatal(err)
 	}
-	testassert.Falsef(t, testassert.Any(func() bool { return currentContentID == originalContentID }, func() bool { return replacedVersion != gameVersion+1 }, func() bool { return contentKind != "MULTI_DISC_M3U_V1" }), "replacement = %s/%d/%s", currentContentID, replacedVersion, contentKind)
+	testassert.Falsef(t, testassert.Any(func() bool { return currentContentID == originalContentID }, func() bool { return replacedVersion != gameVersion+1 }, func() bool { return contentKind != "MULTI_DISC" }), "replacement = %s/%d/%s", currentContentID, replacedVersion, contentKind)
 	assertContentPayloadCount(t, ctx, database.SQL, originalContentID, 0)
 	var discCount, playlistCount int
 	if err := database.SQL.QueryRowContext(ctx, `
@@ -526,7 +526,7 @@ SELECT (SELECT count(*) FROM game_content_files WHERE game_content_revision_id=?
 		"broken/one.chd":  fakeReplacementCHD("one-new"),
 	})
 	failed, err := service.ScheduleMode(
-		ctx, published.GameID, missingUpload, "MULTI_DISC_M3U_V1", replacedVersion,
+		ctx, published.GameID, missingUpload, "MULTI_DISC", replacedVersion,
 	)
 	testassert.False(t, err != nil, err)
 	waitForJob(t, ctx, database.SQL, failed.JobID, "FAILED")
@@ -547,7 +547,7 @@ SELECT (SELECT count(*) FROM game_content_files WHERE game_content_revision_id=?
 		"same/two.chd":  fakeReplacementCHD("two"),
 	})
 	unchanged, err := service.ScheduleMode(
-		ctx, published.GameID, unchangedUpload, "MULTI_DISC_M3U_V1", replacedVersion,
+		ctx, published.GameID, unchangedUpload, "MULTI_DISC", replacedVersion,
 	)
 	testassert.False(t, err != nil, err)
 	waitForJob(t, ctx, database.SQL, unchanged.JobID, "FAILED")
@@ -572,7 +572,7 @@ SELECT
 		"next/two.chd":  fakeReplacementCHD("two-new"),
 	})
 	changed, err := service.ScheduleMode(
-		ctx, published.GameID, partialChangeUpload, "MULTI_DISC_M3U_V1", replacedVersion,
+		ctx, published.GameID, partialChangeUpload, "MULTI_DISC", replacedVersion,
 	)
 	testassert.False(t, err != nil, err)
 	waitForJob(t, ctx, database.SQL, changed.JobID, "SUCCEEDED")

@@ -30,7 +30,7 @@ json_object(
  ))),
  'multiDisc',CASE WHEN EXISTS(
    SELECT 1 FROM runtime_binding_content_kinds kinds
-   WHERE kinds.binding_id=current_binding.binding_id AND kinds.content_kind='MULTI_DISC_M3U_V1'
+   WHERE kinds.binding_id=current_binding.binding_id AND kinds.content_kind='MULTI_DISC'
  ) THEN json_object('maxDiscs',8,'maxTotalBytes',1073741824,'delivery','EAGER_EXTERNAL_FILES') ELSE NULL END
 ),
 current_target.target_contract_sha256,
@@ -699,7 +699,7 @@ ORDER BY min(s.sort_order),f.relative_path,f.id
 }
 
 func projectReviewArchiveFormat(sourceContentKind, sourceName string, storedFormat any) any {
-	if sourceContentKind == "TYRANOSCRIPT_PROJECT_V1" && storedFormat == "ZIP" &&
+	if sourceContentKind == "TYRANOSCRIPT_PROJECT" && storedFormat == "ZIP" &&
 		strings.EqualFold(path.Ext(sourceName), ".exe") {
 		return "NWJS_EXECUTABLE"
 	}

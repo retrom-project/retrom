@@ -13,7 +13,7 @@ class RuntimeTargetBindingsTest(unittest.TestCase):
         catalog = load_runtime_target_bindings(
             ROOT / "data/runtime-target-bindings/v1/catalog.json"
         )
-        self.assertEqual(catalog["catalogVersion"], 1)
+        self.assertEqual(catalog["catalogVersion"], 2)
         self.assertEqual(len(catalog["bindings"]), 47)
         self.assertEqual(
             {item["providerId"] for item in catalog["bindings"]},
@@ -41,7 +41,7 @@ class RuntimeTargetBindingsTest(unittest.TestCase):
         value = json.loads(source)
         for forbidden in (
             "providerVersion", "adapterId", "adapterKind", "adapterAbi", "capabilities",
-            "optionsKind", "checkpoint", "assetPaths", "runtimeBaseUrl",
+            "optionsKind", "targetOptionsSchema", "checkpoint", "assetPaths", "runtimeBaseUrl",
             "selectedForNewBindings", "priority",
         ):
             self.assertNotIn(forbidden, source)

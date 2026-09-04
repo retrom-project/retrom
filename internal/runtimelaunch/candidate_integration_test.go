@@ -94,7 +94,7 @@ func assertCandidateBinding(
 	input := Input{Binding: binding, Session: Session{
 		ID: "018f0f31-26fe-7a31-9d61-4ec92f16d4c3", Purpose: "PRODUCT", Mode: "SINGLE",
 		Title: target.DisplayName, PlatformName: binding.PlatformIDs[0], ReturnTo: "/games/fixture",
-	}, Resources: resourcesForTarget(target), TargetOptions: optionsForTarget(target.OptionsKind)}
+	}, Resources: resourcesForTarget(target), TargetOptions: optionsForTarget(target.TargetOptionsSchema)}
 	first, err := builder.Build(input)
 	if err != nil {
 		t.Fatal(err)
@@ -129,21 +129,21 @@ func resourcesForTarget(target runtimebundle.Target) []map[string]any {
 	for _, input := range target.Inputs {
 		base := map[string]any{"kind": input.Kind, "ordinal": 0, "role": input.Role}
 		switch input.Kind {
-		case "ROM_BLOB_V1", "SEEKABLE_BLOB_V1", "PARENT_ARCHIVE_V1", "WASM4_CART_V1":
-			base["rangeRequired"] = input.Kind == "SEEKABLE_BLOB_V1" || input.Kind == "PARENT_ARCHIVE_V1"
+		case "ROM_BLOB", "SEEKABLE_BLOB", "PARENT_ARCHIVE", "WASM4_CART":
+			base["rangeRequired"] = input.Kind == "SEEKABLE_BLOB" || input.Kind == "PARENT_ARCHIVE"
 			base["sha256"], base["sizeBytes"], base["url"] = strings.Repeat("e", 64), 3, "/runtime/content/"+input.Role
-		case "FILE_TREE_V1":
+		case "FILE_TREE":
 			base["contentDigest"], base["indexUrl"] = strings.Repeat("e", 64), "/runtime/content/"+input.Role+"/index"
-		case "NATIVE_WEB_V1", "ISOLATED_WEB_V1":
+		case "NATIVE_WEB", "ISOLATED_WEB":
 			base["bootstrapTicket"], base["cleanupUrl"] = strings.Repeat("t", 48), "https://runtime.example.test/cleanup"
 			base["contentDigest"], base["entryUrl"] = strings.Repeat("e", 64), "https://runtime.example.test/entry"
 			base["origin"] = "https://runtime.example.test"
-		case "BIOS_BUNDLE_V1", "EXTERNAL_FILE_SET_V1":
+		case "BIOS_BUNDLE", "EXTERNAL_FILE_SET":
 			base["files"] = []map[string]any{{
 				"logicalName": "firmware", "sha256": strings.Repeat("e", 64),
 				"sizeBytes": 3, "url": "/runtime/content/" + input.Role + "/firmware", "virtualPath": "firmware.bin",
 			}}
-		case "MULTI_DISC_V1":
+		case "MULTI_DISC":
 			base["entries"] = []map[string]any{{
 				"index": 0, "label": "Disc 1", "sha256": strings.Repeat("e", 64),
 				"sizeBytes": 3, "url": "/runtime/content/" + input.Role + "/disc-1",
@@ -157,21 +157,25 @@ func resourcesForTarget(target runtimebundle.Target) []map[string]any {
 	return result
 }
 
-func optionsForTarget(kind string) map[string]any {
-	switch kind {
-	case "NONE_V1":
-		return map[string]any{"kind": kind}
-	case "EMULATORJS_V1":
-		return map[string]any{"kind": kind, "dosEntryPath": nil, "initialDiscIndex": nil}
-	case "RPGMAKER_V1":
-		return map[string]any{"kind": kind, "expectedRestorePosition": nil}
-	case "ONS_PROJECT_V1":
-		return map[string]any{"kind": kind, "scriptEncoding": "utf8"}
-	case "KIRIKIRI_PROJECT_V1":
-		return map[string]any{"kind": kind, "startupXp3Path": nil}
-	default:
-		panic(fmt.Sprintf("unhandled options kind %q", kind))
+func optionsForTarget(schema runtimebundle.TargetOptionsSchema) map[string]any {
+	properties, ok := schema["properties"].(map[string]any)
+	if !ok {
+		panic("target options schema properties missing")
 	}
+	result := make(map[string]any, len(properties))
+	for property := range properties {
+		switch property {
+		case "dosEntryPath", "expectedRestorePosition", "startupXp3Path":
+			result[property] = nil
+		case "initialDiscIndex":
+			result[property] = nil
+		case "scriptEncoding":
+			result[property] = "utf8"
+		default:
+			panic(fmt.Sprintf("unhandled target option %q", property))
+		}
+	}
+	return result
 }
 
 func assertForbiddenKeysAbsent(t *testing.T, value any) {

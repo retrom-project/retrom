@@ -17,7 +17,7 @@ import (
 const SnapshotSchemaVersion = 1
 
 const (
-	MultiDiscContentKind   = "MULTI_DISC_M3U_V1"
+	MultiDiscContentKind   = "MULTI_DISC"
 	MultiDiscParserVersion = "RETROM_MULTIDISC_M3U_V1"
 	MultiDiscDelivery      = "EAGER_EXTERNAL_FILES"
 )

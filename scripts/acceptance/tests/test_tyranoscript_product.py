@@ -51,7 +51,7 @@ class TyranoScriptProductAcceptanceTests(unittest.TestCase):
         contents = DRIVER_PATH.read_text(encoding="utf-8") + contract_path.read_text(encoding="utf-8")
         self.assertNotIn("/data/game", contents)
         for contract in (
-            "RETROM_TYRANOSCRIPT_SMOKE_ARCHIVE", "TYRANOSCRIPT_PROJECT_V1",
+            "RETROM_TYRANOSCRIPT_SMOKE_ARCHIVE", "TYRANOSCRIPT_PROJECT",
             "/__retrom/tyranoscript/project/data/", "installVirtualStandardGamepad",
             "TYRANOSCRIPT_ACCEPTANCE_GAMEPAD_INPUT_UNOBSERVED", "checkpoint-b-created",
             "different-launch-restored-b", "post-restore-gamepad-input",

@@ -113,7 +113,7 @@ FROM rpgmaker_runtime_validations validation
 JOIN runtime_targets target ON target.provider_id=validation.provider_id AND target.target_id=validation.target_id
 JOIN runtime_providers provider ON provider.provider_id=target.provider_id
 JOIN runtime_target_bindings binding ON binding.provider_id=target.provider_id AND binding.target_id=target.target_id
-WHERE validation.id=? AND binding.review_policy='RPG_RUNTIME_VALIDATION_V1'
+WHERE validation.id=? AND binding.review_policy='RPG_RUNTIME_VALIDATION'
  AND binding.launch_policy!='DISABLED'
 `, validationID).Scan(
 		&binding.itemID, &binding.sourceSnapshotID, &binding.providerID, &binding.targetID,
@@ -207,7 +207,7 @@ VALUES(?,?,'RPG_RUNTIME_VALIDATION',NULL,NULL,NULL,?,?,?,?,?,?,?,NULL,NULL,0,?,?
 		validationID, returnTo, credentialHash[:], bootstrapExpires, binding.expiresAt, now, now); err != nil {
 		return Created{}, fmt.Errorf("insert RPG validation launch: %w", err)
 	}
-	if binding.deliveryProfile == "ISOLATED_WEB_PROJECT_V1" {
+	if binding.deliveryProfile == "ISOLATED_WEB_PROJECT" {
 		if err := service.lockIsolatedLaunchBootstrapTicket(
 			ctx, transaction, launchID.String(), profileID, now,
 		); err != nil {

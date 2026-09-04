@@ -39,7 +39,7 @@ func validButterscotchPreparedResult(
 		return false
 	}
 	group := groups[0]
-	return group.contentKind == "BUTTERSCOTCH_PROJECT_V1" && group.validationStatus == "BLOCKED" &&
+	return group.contentKind == "BUTTERSCOTCH_PROJECT" && group.validationStatus == "BLOCKED" &&
 		group.compatibilityCode == "BUTTERSCOTCH_RUNTIME_TRIAL_REQUIRED" &&
 		group.titleSource == "Fixture" && countIgnoredDispositions(dispositions) == 1
 }

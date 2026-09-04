@@ -64,7 +64,7 @@ export type AdminGameManagerViewProps = {
   onRetryPayloadRelease: () => void;
   onRemoveVideo: () => void;
   onReplaceAsset: (file: File, kind: "COVER" | "VIDEO", ordinal: number) => void;
-  onReplaceContent: (files: File[], mode: "STANDARD" | "MULTI_DISC_M3U_V1" | "RPG_MAKER_PROJECT_V1") => Promise<boolean>;
+  onReplaceContent: (files: File[], mode: "STANDARD" | "MULTI_DISC" | "RPG_MAKER_PROJECT") => Promise<boolean>;
   onRescrape: () => void;
   onSaveMetadata: (event: FormEvent<HTMLFormElement>) => void;
   onSaveTags: () => void;
@@ -124,11 +124,11 @@ function DiscEvidence({ canonicalPlaylistSHA256, discs }: { canonicalPlaylistSHA
 }
 
 function replacementContentPresentation(contentKind: string | undefined, multiDiscAvailable: boolean) {
-  if (contentKind === "RPG_MAKER_PROJECT_V1") {
-    return { key: "rpgmaker", label: "RPG Maker 项目", mode: "RPG_MAKER_PROJECT_V1" as const };
+  if (contentKind === "RPG_MAKER_PROJECT") {
+    return { key: "rpgmaker", label: "RPG Maker 项目", mode: "RPG_MAKER_PROJECT" as const };
   }
-  if (contentKind === "MULTI_DISC_M3U_V1") {
-    return { key: "multi", label: "多盘 M3U", mode: "MULTI_DISC_M3U_V1" as const };
+  if (contentKind === "MULTI_DISC") {
+    return { key: "multi", label: "多盘 M3U", mode: "MULTI_DISC" as const };
   }
   return { key: multiDiscAvailable ? "multi-capable" : "standard", label: "普通内容", mode: "STANDARD" as const };
 }

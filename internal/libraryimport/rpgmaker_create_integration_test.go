@@ -77,7 +77,7 @@ func TestCreateRPGMakerMVArchiveReachesReviewPending(t *testing.T) {
 		UploadID: upload.ID, TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(
 			t, database.SQL, "rpgmaker/rpgmaker",
 		),
-		MetadataProvider: "HASHEOUS", ContentMode: "RPG_MAKER_PROJECT_V1", TagIDs: []string{},
+		MetadataProvider: "HASHEOUS", ContentMode: "RPG_MAKER_PROJECT", TagIDs: []string{},
 	})
 	if err != nil {
 		t.Fatalf("Create(RPG Maker MV) error = %v", err)
