@@ -57,6 +57,22 @@ export function useRPGReviewValidation(params: RPGValidationParams) {
 
   const watchPopupClose = useCallback((popup: Window, validationId: string, launchId: string) => {
     stopPopupWatch();
+    const refreshAfterClose = (allowRetry: boolean) => {
+      void readValidation(validationId).then((next) => {
+        if (isTerminalValidation(next.state)) {
+          setNotice("游戏窗口已关闭，可以再次运行游戏。");
+          return;
+        }
+        if (!allowRetry) {
+          setNotice("游戏窗口已关闭；刷新页面可获取最新验证状态。");
+          return;
+        }
+        popupRefreshRef.current = window.setTimeout(() => {
+          popupRefreshRef.current = null;
+          refreshAfterClose(false);
+        }, 500);
+      }).catch(() => setNotice("游戏窗口已关闭；刷新页面可获取最新验证状态。"));
+    };
     popupWatchRef.current = window.setInterval(() => {
       if (!popup.closed) {return;}
       if (popupWatchRef.current !== null) {
@@ -65,11 +81,7 @@ export function useRPGReviewValidation(params: RPGValidationParams) {
       }
       popupRefreshRef.current = window.setTimeout(() => {
         popupRefreshRef.current = null;
-        void finishValidationLaunch(launchId).then(() => readValidation(validationId)).then((next) => {
-          if (["PASSED", "FAILED", "EXPIRED"].includes(next.state)) {
-            setNotice("游戏窗口已关闭，可以再次运行游戏。");
-          }
-        }).catch(() => setNotice("游戏窗口已关闭；刷新页面可获取最新验证状态。"));
+        void finishValidationLaunch(launchId).then(() => refreshAfterClose(true));
       }, 350);
     }, 250);
   }, [readValidation, setNotice, stopPopupWatch]);
@@ -139,6 +151,10 @@ export function useRPGReviewValidation(params: RPGValidationParams) {
     canRestore: validation?.state === "CHECKPOINTED" && validation.checkpointRoundTrip.originalLaunchEnded,
     canDecide: validation?.state === "AWAITING_DECISION",
   };
+}
+
+function isTerminalValidation(state: RPGRuntimeValidation["state"]) {
+  return ["PASSED", "FAILED", "EXPIRED"].includes(state);
 }
 
 async function finishValidationLaunch(launchId: string) {

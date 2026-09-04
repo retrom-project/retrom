@@ -336,7 +336,7 @@ WHERE purpose='RPG_RUNTIME_VALIDATION' AND state IN ('CREATED','ACTIVE')
  AND EXISTS(
   SELECT 1 FROM rpgmaker_runtime_validations validation
   WHERE validation.id=? AND validation.expires_at_ms<=?
-   AND validation.state NOT IN ('PASSED','FAILED','EXPIRED')
+   AND validation.state NOT IN ('PASSED','FAILED')
  )
 `, now, now, validationID, validationID, now); err != nil {
 		return fmt.Errorf("expire RPG validation launches: %w", err)

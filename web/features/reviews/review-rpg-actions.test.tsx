@@ -68,7 +68,7 @@ describe("ReviewActions RPG runtime validation", () => {
     }
   });
 
-  it("keeps the run action visible and refreshes once after its window closes", async () => {
+  it("keeps the run action visible and retries one non-terminal close reconciliation", async () => {
     const popup = {
       closed: false, close: vi.fn(), location: { replace: vi.fn() },
       document: { title: "", body: { style: { cssText: "" }, textContent: "" } },
@@ -88,7 +88,7 @@ describe("ReviewActions RPG runtime validation", () => {
       if (url.endsWith("/runtime-validations/rpg-validation") && !init?.method) {
         validationReads += 1;
         const validation = launchedRPGValidation();
-        return Promise.resolve(jsonResponse(validationReads === 1 ? validation : {
+        return Promise.resolve(jsonResponse(validationReads < 3 ? validation : {
           ...validation, state: "FAILED", failureCode: "RPG_RUNTIME_VALIDATION_WINDOW_CLOSED",
         }));
       }
@@ -109,6 +109,7 @@ describe("ReviewActions RPG runtime validation", () => {
       method: "POST", credentials: "same-origin",
       body: expect.stringContaining('"clientSequence":0'),
     }));
-    expect(fetchMock).toHaveBeenCalledTimes(4);
+    expect(validationReads).toBe(3);
+    expect(fetchMock).toHaveBeenCalledTimes(5);
   });
 });

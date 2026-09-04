@@ -108,6 +108,58 @@ INSERT INTO rpgmaker_runtime_validations(
 	}
 }
 
+func TestGetRepairsExpiredValidationWithActiveLaunch(t *testing.T) {
+	t.Parallel()
+	database := openViewTestDatabase(t)
+	machineGates, err := initialMachineGates()
+	if err != nil {
+		t.Fatal(err)
+	}
+	const (
+		itemID       = "00000000-0000-4000-8000-000000000021"
+		validationID = "00000000-0000-4000-8000-000000000022"
+		launchID     = "00000000-0000-4000-8000-000000000023"
+	)
+	if _, err := database.ExecContext(context.Background(), `
+INSERT INTO launch_sessions(id,state,rpgmaker_runtime_validation_id)
+VALUES(?,'ACTIVE',?)`, launchID, validationID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := database.ExecContext(context.Background(), `
+INSERT INTO rpgmaker_runtime_validations(
+ id,import_item_id,review_version_at_create,
+ effective_source_snapshot_id,project_fingerprint,generation,
+ evidence_confidence,provider_id,target_id,
+ dependency_snapshot_sha256,launch_id,state,last_gate_sequence,machine_gates_json,
+ failure_code,created_at_ms,updated_at_ms,expires_at_ms
+) VALUES(
+ ?,?,1,'snapshot','fingerprint','RPG2000','FAMILY_ONLY','retrom-runtime',
+ 'rpgmaker-2000',
+ 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+ ?,'EXPIRED',0,?,'RPG_RUNTIME_TIMEOUT',1000,1200,1200
+)`, validationID, itemID, launchID, machineGates); err != nil {
+		t.Fatal(err)
+	}
+
+	view, err := New(database, nil, func() time.Time { return time.UnixMilli(1500) }).
+		Get(context.Background(), itemID, validationID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if view.State != "EXPIRED" {
+		t.Fatalf("expired validation = %#v", view)
+	}
+	var state string
+	var finishedAt int64
+	if err := database.QueryRow(`SELECT state,finished_at_ms FROM launch_sessions WHERE id=?`, launchID).
+		Scan(&state, &finishedAt); err != nil {
+		t.Fatal(err)
+	}
+	if state != "EXPIRED" || finishedAt != 1500 {
+		t.Fatalf("repaired launch = state %q, finishedAt %d", state, finishedAt)
+	}
+}
+
 func TestLoadViewAcceptsFailedValidationBeforeLaunch(t *testing.T) {
 	t.Parallel()
 	database := openViewTestDatabase(t)
