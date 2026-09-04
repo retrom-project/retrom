@@ -339,6 +339,8 @@ async function canvasLayoutEvidence(canvas) {
       focused: element.ownerDocument.activeElement === element,
       displayWidth: canvasRect.width,
       displayHeight: canvasRect.height,
+      surfaceWidth: surfaceRect.width,
+      surfaceHeight: surfaceRect.height,
     };
   });
 }
@@ -347,6 +349,8 @@ function validCanvasLayout(layout) {
   return layout !== null && Number.isSafeInteger(layout.backingWidth) && layout.backingWidth >= 64 &&
     Number.isSafeInteger(layout.backingHeight) && layout.backingHeight >= 64 &&
     layout.displayWidth >= 64 && layout.displayHeight >= 64 &&
+    layout.surfaceWidth >= layout.displayWidth && layout.surfaceHeight >= layout.displayHeight &&
+    (layout.surfaceWidth - layout.displayWidth <= 1 || layout.surfaceHeight - layout.displayHeight <= 1) &&
     Math.abs(layout.backingWidth / layout.backingHeight - layout.displayWidth / layout.displayHeight) <= 0.01 &&
     layout.centerOffsetXPx <= 1 && layout.centerOffsetYPx <= 1 && layout.focused === true;
 }

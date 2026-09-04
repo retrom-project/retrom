@@ -66,13 +66,16 @@ function assertScreenshots(value) {
 function assertScreenshot(value) {
   if (!exactRecord(value, [
     "backingHeight", "backingWidth", "centerOffsetXPx", "centerOffsetYPx", "displayHeight", "displayWidth",
-    "focused", "height", "nonBlackPixels", "rgbaSha256", "width",
+    "focused", "height", "nonBlackPixels", "rgbaSha256", "surfaceHeight", "surfaceWidth", "width",
   ]) || !Number.isSafeInteger(value.width) || value.width < 64 ||
       !Number.isSafeInteger(value.height) || value.height < 64 ||
       !Number.isSafeInteger(value.backingWidth) || value.backingWidth < 64 ||
       !Number.isSafeInteger(value.backingHeight) || value.backingHeight < 64 ||
       typeof value.displayWidth !== "number" || value.displayWidth < 64 ||
       typeof value.displayHeight !== "number" || value.displayHeight < 64 ||
+      typeof value.surfaceWidth !== "number" || value.surfaceWidth < value.displayWidth ||
+      typeof value.surfaceHeight !== "number" || value.surfaceHeight < value.displayHeight ||
+      value.surfaceWidth - value.displayWidth > 1 && value.surfaceHeight - value.displayHeight > 1 ||
       Math.abs(value.backingWidth / value.backingHeight - value.displayWidth / value.displayHeight) > 0.01 ||
       typeof value.centerOffsetXPx !== "number" || value.centerOffsetXPx < 0 || value.centerOffsetXPx > 1 ||
       typeof value.centerOffsetYPx !== "number" || value.centerOffsetYPx < 0 || value.centerOffsetYPx > 1 ||
