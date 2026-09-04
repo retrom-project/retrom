@@ -19,7 +19,7 @@ import { useReviewCommands } from "./review-commands";
 import { RPGValidationCard, useRPGReviewValidation } from "./review-rpg-validation";
 import {
   activeAttachmentJobId, compareFields, initialDraftState, initialRuntimeState, reviewCoverPresentation,
-  reviewReadiness, saveStateLabel, toPayload, withRPGMakerDraft,
+  reviewReadiness, saveStateLabel, scrapeResult, toPayload, withRPGMakerDraft,
   type Comparison, type CoverSelection, type DraftPayload, type MetadataForm, type PreviewAsset,
   type ReviewMultiDisc, type ReviewMultiDiscAttachment, type ReviewWorkspace,
 } from "./review-actions-model";
@@ -251,6 +251,14 @@ function reviewMetadataLabel(model: ReviewViewModel) {
   if (model.candidateId) {return "已找到游戏信息";}
   if (model.review.sourceMedia?.sourceKind === "EMULATIONSTATION") {return "已读取 Gamelist 信息";}
   if (model.review.sourceMedia) {return "已读取 Pegasus 信息";}
+  let latestRun = model.review.scrapeRuns?.[0];
+  for (const run of model.review.scrapeRuns ?? []) {
+    if (!latestRun || run.createdAtMs > latestRun.createdAtMs ||
+        run.createdAtMs === latestRun.createdAtMs && run.scrapeRunId > latestRun.scrapeRunId) {
+      latestRun = run;
+    }
+  }
+  if (latestRun) {return scrapeResult(latestRun);}
   return "未找到游戏信息";
 }
 

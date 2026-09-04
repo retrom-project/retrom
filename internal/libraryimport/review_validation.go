@@ -206,7 +206,7 @@ func (state *draftValidationRefresh) exactValidationCurrent() bool {
 		DATVersionID:          nullStringPointer(state.datID), DefaultDOSEntry: nullStringPointer(state.dosEntry),
 		DependencySnapshot: json.RawMessage(state.dependencySnapshot), Status: state.sourceStatus,
 		CompatibilityCode: state.compatibilityCode,
-	})
+	}, state.contentPolicyJSON)
 }
 
 func (state *draftValidationRefresh) loadFallbackValidation() error {
