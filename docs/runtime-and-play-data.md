@@ -61,7 +61,7 @@ Checkpoint 对 Host 是不透明字节。Target declaration 的 `writeFormat`、
 
 非 RPG 审核 preview 和正式 Launch 复用相同 Provider Module 与 envelope。RPG Maker 审核保存 generation、项目 fingerprint、来源快照、Provider/Target 与依赖摘要；创建正式 `RPG_RUNTIME_VALIDATION` Launch 后可发布。A→B checkpoint→C→独立 restore Launch 的 14 个 gate 是可选高级验证及自动化验收基线。
 
-“重新运行检查”按当前真实输入更新或创建 validation。仅 Provider Bundle 前移不会产生 `validationStale`，也不会要求用户在上传后无故重检；来源、Target、DAT、依赖或项目证据改变才会失效。当前 validation 即使为 BLOCKED，仍允许尽最大可能启动诊断 Player。
+草稿 PATCH、来源替换和依赖处理按当前真实输入更新或创建 validation，并原子切换 ReviewDraft 的当前选择；审核页没有 `validationStale` 或人工“重新运行检查”状态。Provider Bundle 前移不会改变稳定 Provider/Target，也不会要求用户在上传后无故重检；来源、Target、DAT、依赖或项目证据改变时，对应写事务直接生成新的当前校验。当前 validation 即使为 BLOCKED，仍允许尽最大可能启动诊断 Player。
 
 ## 8. 联机
 

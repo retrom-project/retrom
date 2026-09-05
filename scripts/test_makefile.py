@@ -166,6 +166,15 @@ class MakefileDependencyTests(unittest.TestCase):
         self.assertIn('.launchPolicy != "DISABLED"', script)
         self.assertNotIn("selectedForNewBindings", script)
 
+    def test_arcade_acceptance_uses_the_current_variant_projection(self) -> None:
+        script = (REPOSITORY_ROOT / "scripts" / "acceptance" / "arcade-flow.sh").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn(".variants[]", script)
+        self.assertIn("| .dependencySnapshot", script)
+        self.assertNotIn("currentRevisionId", script)
+        self.assertNotIn(".revisions[]", script)
+
     def test_arcade_schema_v2_seeder_preserves_provider_identity(self) -> None:
         script = (
             REPOSITORY_ROOT / "scripts" / "acceptance" / "seed-arcade-schema-v2-launch.py"

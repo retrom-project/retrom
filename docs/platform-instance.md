@@ -176,7 +176,7 @@ SQLite 无法仅靠上述外键验证 `platform_cores.enabled = 1` 或“GameVar
 - <code>target_platform_instance_id</code>。
 - <code>platform_id_snapshot</code>。
 - <code>default_core_id_snapshot</code>。
-- 默认 Core 当前 binding 的 `providerId/targetId/bundleSha256` 快照。
+- 默认 Core 当前 binding 的稳定 `providerId/targetId` 快照；Bundle 只在实际 Launch/Preview/Netplay 创建时冻结。
 - Arcade 使用的 <code>dat_version_id_snapshot</code>。
 
 这样可以避免任务执行期间游戏目录或活动 DAT 发生变化而静默改变识别结果。
