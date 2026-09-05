@@ -156,12 +156,15 @@ func (server *Server) rpgRuntimeEntry(
 	access isolation.Access,
 ) {
 	setRPGFrameDocumentPolicy(writer)
-	if authorized, err := server.authenticateRPGRuntime(request, access); err != nil ||
+	authorized, err := server.authenticateRPGRuntime(request, access)
+	if err != nil ||
 		authorized.ContentFormat != "RPG_MAKER_PROJECT" {
 		http.NotFound(writer, request)
 		return
 	}
-	content, err := server.launcher.ContentAuthorized(request.Context(), access.LaunchID, "index.html")
+	content, err := server.launcher.ContentAuthorized(
+		request.Context(), access.LaunchID, "index.html", authorized.Preview,
+	)
 	if err != nil || content.Format != "RPG_MAKER_PROJECT" {
 		http.NotFound(writer, request)
 		return
@@ -200,13 +203,14 @@ func (server *Server) rpgRuntimeBridge(
 	request *http.Request,
 	access isolation.Access,
 ) {
-	if authorized, err := server.authenticateRPGRuntime(request, access); err != nil ||
+	authorized, err := server.authenticateRPGRuntime(request, access)
+	if err != nil ||
 		authorized.ContentFormat != "RPG_MAKER_PROJECT" {
 		http.NotFound(writer, request)
 		return
 	}
 	asset, err := server.launcher.ProviderAssetAuthorized(
-		request.Context(), access.LaunchID, false, "bridge.js",
+		request.Context(), access.LaunchID, authorized.Preview, "bridge.js",
 	)
 	if err != nil {
 		http.NotFound(writer, request)
@@ -220,7 +224,8 @@ func (server *Server) rpgRuntimeProject(
 	request *http.Request,
 	access isolation.Access,
 ) {
-	if authorized, err := server.authenticateRPGRuntime(request, access); err != nil ||
+	authorized, err := server.authenticateRPGRuntime(request, access)
+	if err != nil ||
 		authorized.ContentFormat != "RPG_MAKER_PROJECT" {
 		http.NotFound(writer, request)
 		return
@@ -239,7 +244,9 @@ func (server *Server) rpgRuntimeProject(
 		http.NotFound(writer, request)
 		return
 	}
-	content, err := server.launcher.RPGProjectContentAuthorized(request.Context(), access.LaunchID, logicalName)
+	content, err := server.launcher.RPGProjectContentAuthorized(
+		request.Context(), access.LaunchID, logicalName, authorized.Preview,
+	)
 	if err != nil {
 		http.NotFound(writer, request)
 		return

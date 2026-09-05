@@ -33,7 +33,12 @@ func (service *Service) Content(ctx context.Context, launchID, capability, logic
 	return content, nil
 }
 
-func (service *Service) ContentAuthorized(ctx context.Context, launchID, logicalName string) (ContentView, error) {
+func (service *Service) ContentAuthorized(
+	ctx context.Context, launchID, logicalName string, preview bool,
+) (ContentView, error) {
+	if preview {
+		return service.reviewPreviewProjectContentAuthorized(ctx, launchID, logicalName, false)
+	}
 	content, _, state, hardExpires, err := service.content(ctx, launchID, logicalName, false)
 	if err != nil || hardExpires <= service.now().UnixMilli() || state != "ACTIVE" {
 		return ContentView{}, ErrCredential
@@ -44,8 +49,16 @@ func (service *Service) ContentAuthorized(ctx context.Context, launchID, logical
 func (service *Service) RPGProjectContentAuthorized(
 	ctx context.Context,
 	launchID, logicalName string,
+	preview bool,
 ) (ContentView, error) {
-	content, err := service.ContentAuthorized(ctx, launchID, logicalName)
+	if preview {
+		content, err := service.reviewPreviewProjectContentAuthorized(ctx, launchID, logicalName, true)
+		if err != nil || content.Format != rpgProjectFormat {
+			return ContentView{}, ErrCredential
+		}
+		return content, nil
+	}
+	content, err := service.ContentAuthorized(ctx, launchID, logicalName, false)
 	if err == nil {
 		if content.Format != rpgProjectFormat {
 			return ContentView{}, ErrCredential

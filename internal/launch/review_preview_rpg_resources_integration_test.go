@@ -72,4 +72,14 @@ func TestRPGReviewPreviewKeepsUniqueASCIICaseFoldContentLookup(t *testing.T) {
 	if _, err := fixture.launcher.ReviewPreviewProjectContent(t.Context(), preview.PreviewID, preview.Capability, "../RPG_RT.ldb"); err == nil {
 		t.Fatal("case-fold lookup admitted traversal")
 	}
+	if _, err := fixture.launcher.ContentAuthorized(t.Context(), preview.PreviewID, "rpg_rt.LDB", true); err == nil {
+		t.Fatal("exact isolated entry lookup applied RPG project case folding")
+	}
+	isolated, err := fixture.launcher.RPGProjectContentAuthorized(t.Context(), preview.PreviewID, "rpg_rt.LDB", true)
+	if err != nil || isolated.Digest != content.Digest {
+		t.Fatalf("authenticated isolated project changed frozen content: %+v %v", isolated, err)
+	}
+	if _, err := fixture.launcher.RPGProjectContentAuthorized(t.Context(), preview.PreviewID, "../RPG_RT.ldb", true); err == nil {
+		t.Fatal("isolated project lookup admitted traversal")
+	}
 }

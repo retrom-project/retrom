@@ -90,15 +90,15 @@ func TestRPGProjectContentUsesOnlyUniqueASCIICaseFoldFallback(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	exact, err := service.RPGProjectContentAuthorized(ctx, created.LaunchID, "RPG_RT.ldb")
+	exact, err := service.RPGProjectContentAuthorized(ctx, created.LaunchID, "RPG_RT.ldb", false)
 	if err != nil || exact.Digest != fixture.projectSHA {
 		t.Fatalf("exact RPG content = %#v, error=%v", exact, err)
 	}
-	folded, err := service.RPGProjectContentAuthorized(ctx, created.LaunchID, "rpg_rt.LDB")
+	folded, err := service.RPGProjectContentAuthorized(ctx, created.LaunchID, "rpg_rt.LDB", false)
 	if err != nil || folded.Digest != fixture.projectSHA {
 		t.Fatalf("folded RPG content = %#v, error=%v", folded, err)
 	}
-	if _, err := service.ContentAuthorized(ctx, created.LaunchID, "rpg_rt.LDB"); !errors.Is(err, ErrCredential) {
+	if _, err := service.ContentAuthorized(ctx, created.LaunchID, "rpg_rt.LDB", false); !errors.Is(err, ErrCredential) {
 		t.Fatalf("ordinary content accepted folded path: %v", err)
 	}
 
@@ -107,7 +107,7 @@ func TestRPGProjectContentUsesOnlyUniqueASCIICaseFoldFallback(t *testing.T) {
 	SELECT launch_session_id,'rpg_rt.ldb',blob_id,format_version,created_at_ms
 FROM launch_content_files
 WHERE launch_session_id=? AND logical_name='RPG_RT.ldb'`, created.LaunchID)
-	if _, err := service.RPGProjectContentAuthorized(ctx, created.LaunchID, "RpG_Rt.LdB"); !errors.Is(err, ErrCredential) {
+	if _, err := service.RPGProjectContentAuthorized(ctx, created.LaunchID, "RpG_Rt.LdB", false); !errors.Is(err, ErrCredential) {
 		t.Fatalf("ambiguous folded RPG content accepted: %v", err)
 	}
 }

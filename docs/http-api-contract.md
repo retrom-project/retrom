@@ -852,6 +852,8 @@ Butterscotch core 需要本地文件路径，因此 adapter 必须先把冻结�
 
 ### 16.2 MV/MZ runtime origin
 
+独立运行域同时服务 `PRODUCT` 与 `REVIEW_PREVIEW`。ticket/cookie 认证结果决定后续读取哪一类冻结会话；entry、bridge、project、restore 与 cleanup 必须保留该作用域，不得认证预览后再查询 `launch_sessions`。两类会话共用文件读取与状态/期限校验，预览不创建 Game 或产品 Launch；预览恢复只读取新会话冻结的 checkpoint，即使来源预览随后再次保存也不得改变恢复内容。未知、跨会话、撤销与过期凭据仍拒绝。
+
 `/__retrom/*` 不属于 cookie-authenticated `/api/v1` client。请求 Host 必须精确匹配配置模板中以 launchId 为完整最左 label 的 unique origin；应用 cookie 必须 host-only。allowlist 恰为：
 
 ```text

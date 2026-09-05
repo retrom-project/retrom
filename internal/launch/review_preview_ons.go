@@ -277,9 +277,31 @@ func (service *Service) ReviewPreviewProjectContent(
 	ctx context.Context,
 	previewID, capability, logicalName string,
 ) (ContentView, error) {
+	content, credential, state, expires, err := service.reviewPreviewProjectFile(ctx, previewID, logicalName, true)
+	if err != nil || !reviewPreviewCredential(service.now().UnixMilli(), capability, credential, state, expires) {
+		return ContentView{}, ErrCredential
+	}
+	return content, nil
+}
+
+// The caller must authenticate the isolated runtime credential before using this
+// path. Both access paths read the same frozen files and enforce session lifetime.
+func (service *Service) reviewPreviewProjectContentAuthorized(
+	ctx context.Context, previewID, logicalName string, foldedRPGPath bool,
+) (ContentView, error) {
+	content, _, state, expires, err := service.reviewPreviewProjectFile(ctx, previewID, logicalName, foldedRPGPath)
+	if err != nil || state != "ACTIVE" || expires <= service.now().UnixMilli() {
+		return ContentView{}, ErrCredential
+	}
+	return content, nil
+}
+
+func (service *Service) reviewPreviewProjectFile(
+	ctx context.Context, previewID, logicalName string, foldedRPGPath bool,
+) (ContentView, []byte, string, int64, error) {
 	normalized, err := importing.ValidateLogicalPath(logicalName)
 	if err != nil || normalized != logicalName {
-		return ContentView{}, ErrCredential
+		return ContentView{}, nil, "", 0, ErrCredential
 	}
 	var credentialHash []byte
 	var digest, state, format, coreID, providerID, targetID, bundleSHA256, platformKey string
@@ -300,25 +322,24 @@ JOIN runtime_target_bindings binding ON binding.provider_id=preview.provider_id 
 JOIN platform_instances instance ON instance.id=preview.target_platform_instance_id
 JOIN platforms platform ON platform.id=instance.platform_id
 JOIN preview_files file ON file.preview_session_id=preview.id AND (
- file.logical_name=? OR preview.content_format='RPG_MAKER_PROJECT' AND lower(file.logical_name)=lower(?)
+ file.logical_name=? OR ? AND preview.content_format='RPG_MAKER_PROJECT' AND lower(file.logical_name)=lower(?)
  AND NOT EXISTS(SELECT 1 FROM preview_files exact WHERE exact.logical_name=?)
  AND (SELECT count(*) FROM preview_files folded WHERE lower(folded.logical_name)=lower(?))=1
 )
 JOIN blobs blob ON blob.id=file.blob_id
 WHERE preview.id=?
 
-`, previewID, previewID, normalized, normalized, normalized, normalized, previewID).Scan(
+`, previewID, previewID, normalized, foldedRPGPath, normalized, normalized, normalized, previewID).Scan(
 		&credentialHash, &state, &hardExpires, &digest, &format, &coreID,
 		&providerID, &targetID, &bundleSHA256, &platformKey,
 	)
-	if err != nil || !contentprofile.IsProjectContentKind(contentprofile.ContentKind(format)) ||
-		!reviewPreviewCredential(service.now().UnixMilli(), capability, credentialHash, state, hardExpires) {
-		return ContentView{}, ErrCredential
+	if err != nil || !contentprofile.IsProjectContentKind(contentprofile.ContentKind(format)) {
+		return ContentView{}, nil, "", 0, ErrCredential
 	}
 	return ContentView{
 		Digest: digest, Format: format, CoreID: coreID, ProviderID: providerID, TargetID: targetID,
 		BundleSHA256: bundleSHA256, PlatformKey: platformKey,
-	}, nil
+	}, credentialHash, state, hardExpires, nil
 }
 
 func escapeProjectPath(logicalName string) string {
