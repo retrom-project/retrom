@@ -19,8 +19,9 @@ export async function readPopulation(client) {
     const rows = [];
     const cursors = new Set();
     let cursor = null;
-    for (let page = 0; page < 100; page++) {
-      const response = await client.json("GET", `${route}?limit=100${kind === "saves" ? "&availability=ALL" : ""}${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ""}`);
+    const limit = kind === "reviews" ? 20 : 100;
+    for (let page = 0; page < 10_000 / limit; page++) {
+      const response = await client.json("GET", `${route}?limit=${limit}${kind === "saves" ? "&availability=ALL" : ""}${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ""}`);
       if (!Array.isArray(response.items)) {throw new Error("RPG_009_PROVISION_POPULATION_INVALID");}
       rows.push(...response.items.map((item) => ({id: item[idKey], sha256: digest(
         Object.fromEntries(stableFields[kind].filter((key) => key in item).map((key) => [key, item[key]])),
