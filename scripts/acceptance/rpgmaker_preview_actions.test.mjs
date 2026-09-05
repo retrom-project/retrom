@@ -3,17 +3,18 @@ import {createHash} from "node:crypto";
 import test from "node:test";
 import {advanceFixture, capturePreviewCheckpoint, inspectPreviewCheckpoint, observeOwnedFixture, observePreviewFrames, resumePreview, revealPreviewToolbar, waitForPreviewReady} from "./rpgmaker_preview_actions.mjs";
 
-test("revealing the toolbar uses hover without clicking its already-toggled handle", async () => {
+test("revealing the toolbar holds its real hover region before observing or clicking controls", async () => {
   const calls = [];
   const page = {locator: (selector) => {
     if (selector === ".player-hud-handle") {return {
       hover: async () => {calls.push("hover");},
       click: async () => {assert.fail("hover already reveals the toolbar; clicking toggles it closed");},
     };}
+    if (selector === ".player-game-meta") {return {hover: async () => {calls.push("hold");}};}
     return {evaluate: async () => false, waitFor: async () => {calls.push("visible");}};
   }};
   await revealPreviewToolbar(page);
-  assert.deepEqual(calls, ["hover", "visible"]);
+  assert.deepEqual(calls, ["hover", "visible", "hold"]);
 });
 
 test("checkpoint request rejection is observed before clicking so cleanup cannot hide the UI failure", async () => {
@@ -23,7 +24,7 @@ test("checkpoint request rejection is observed before clicking so cleanup cannot
   const page = {
     context: () => ({newCDPSession: async () => session}),
     url: () => "http://example.test/play/preview-1",
-    locator: () => ({evaluate: async () => true, waitFor: async () => {}}),
+    locator: () => ({evaluate: async () => true, waitFor: async () => {}, hover: async () => {}}),
     waitForRequest: () => ({
       then(_success, failure) {
         observedRejection = typeof failure === "function";

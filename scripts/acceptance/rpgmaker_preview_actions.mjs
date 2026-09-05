@@ -82,6 +82,9 @@ export async function revealPreviewToolbar(page) {
     await page.locator(".player-hud-handle").hover();
   }
   await page.locator(".player-toolbar.is-visible").waitFor({state: "visible"});
+  // The reveal handle starts a two-second idle timer; entering the toolbar is
+  // the product's normal hold interaction. Keep it open during CDP setup too.
+  await page.locator(".player-game-meta").hover();
 }
 
 export async function resumePreview(page) {
