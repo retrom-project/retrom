@@ -364,6 +364,14 @@ make web-e2e
 
 另运行所有受影响的产品集成测试。现有 E2E 未覆盖到的核心按 [`core-runtime-validation.md`](./core-runtime-validation.md) 明确报告，不能把 manifest 校验或相邻核心成功外推成运行兼容。
 
+### 8.2 浏览器注入脚本与应用错误的责任边界
+
+匿名 `VM…` 堆栈不能单凭函数名归因于 Retrom、Next.js 或 Provider。诊断应记录浏览器实际版本、执行上下文名称、源脚本 SHA-256 与行列位置，并与发布该脚本的上游源码核对。Chrome DevTools 的 Live Metrics 使用名为 `DevTools Performance Metrics` 的独立执行上下文注入自身脚本；主 document 的 `window.onerror`/`error` listener 不拥有该上下文。禁止在应用、Player 或各个路由中按错误文本/堆栈调用 `preventDefault`、`stopImmediatePropagation` 来冒充修复，也不能通过替换 PerformanceObserver、清空 performance entries、关闭 SPA 导航或控制台过滤来让验收通过。
+
+已确认的一类 `et.reportAllChanges` / `n.timeout` / `startTime` 故障来自 DevTools 内置 INP 消费者：软导航重置后，指标库可返回没有 Event Timing entry 的估算指标，而消费者直接读取 `entries[0].startTime`。应核对 [DevTools 注入与销毁逻辑](https://github.com/ChromeDevTools/devtools-frontend/blob/main/front_end/models/live-metrics/LiveMetrics.ts)、[指标消费者](https://github.com/ChromeDevTools/devtools-frontend/blob/main/front_end/models/live-metrics/web-vitals-injected/spec/spec.ts) 和 [上游缺陷 #792](https://github.com/GoogleChrome/web-vitals/issues/792)。应用依赖升级不能替换浏览器内置脚本。浏览器侧临时规避是在 DevTools 设置 → 偏好设置 → 性能中取消「启用软导航性能监控」（`Enable soft navigation performance monitoring`），再刷新页面；这不是根本修复，不能替代安装并验证包含上游修复的 Chrome 版本。
+
+应用回归由 `ACC-UI-001` 覆盖后台到首页及历史导航、零非预期页面异常和错误可见性；开发/生产 Root Layout 均不得注入吞错脚本。给异常伪造相同 stack 只能验证错误传播，不能证明复现或修复了真实浏览器缺陷。使用原始 DevTools bundle 和受控 observer 输入的诊断必须明确标注为脚本边界诊断，保留开关两组证据，不得冒充实际浏览器自然交互验收。普通无 DevTools 的固定 Chrome E2E 通过，也不能外推为其他 Chrome 版本的内置指标脚本已修复。
+
 ## 9. 覆盖率、夹具与测试可靠性
 
 ### 9.1 覆盖率策略
@@ -445,7 +453,6 @@ RPG Maker fixture 必须遵守同一再分发规则：生成源、许可、固�
 | `/web/eslint.config.mjs` | Next.js/TypeScript lint 基线 |
 | `/web/next.config.ts` | standalone 输出、本地后端 rewrite 与固定 COOP/COEP/CORP/`nosniff` 头 |
 | `/web/proxy.ts` | Next.js 16 动态 HTML 的逐响应 nonce CSP；开发模式唯一受控的 `unsafe-eval` 例外 |
-| `/web/lib/chrome-devtools-web-vitals-guard.ts` | 仅开发模式、nonce 保护的 Chrome DevTools web-vitals 已知异常隔离；只匹配同时含 `reportAllChanges` 与 `n.timeout` 的匿名注入栈，应用 URL、其他匿名错误和 production 必须原样传播 |
 | `/web/tsconfig.json` | TypeScript strict 与 alias |
 | `/web/vitest.config.ts` | jsdom、setup、alias 与测试匹配 |
 | `/web/vitest.setup.ts` | matcher 和最小浏览器 API fake |
