@@ -5,7 +5,7 @@ import { join, resolve } from "node:path";
 
 import { chromium } from "../../web/node_modules/playwright/index.mjs";
 
-import {captureOptionalReviewScreenshot} from "./rpgmaker_preview_actions.mjs";
+import {captureOptionalReviewScreenshot, revealPreviewToolbar} from "./rpgmaker_preview_actions.mjs";
 
 import { assertKiriKiriProductEvidence, kirikiriProductStages } from "./kirikiri_product_contract.mjs";
 import { compareKiriKiriVisualSamples } from "./kirikiri_visual_match.mjs";
@@ -453,7 +453,7 @@ async function focusRuntimeCanvas(canvas) {
 }
 
 async function createCheckpoint(page, launchId) {
-  await page.mouse.move(720, 1);
+  await revealPreviewToolbar(page);
   const saveButton = page.getByRole("button", { name: "创建存档", exact: true });
   await saveButton.waitFor({ state: "visible", timeout: 120_000 });
   await waitForEnabled(saveButton, 120_000);
@@ -467,9 +467,9 @@ async function createCheckpoint(page, launchId) {
 }
 
 async function resumePlayerAfterCheckpoint(page) {
-  const paused = page.getByRole("button", { name: "已暂停，点击游戏画面继续", exact: true });
-  await paused.waitFor({ state: "visible", timeout: 120_000 });
-  await page.locator(".player-stage").dispatchEvent("click");
+  const paused = page.getByRole("button", { name: "继续游戏", exact: true });
+	await paused.waitFor({ state: "visible", timeout: 120_000 });
+  await paused.click();
   await paused.waitFor({ state: "hidden", timeout: 10_000 });
 }
 
