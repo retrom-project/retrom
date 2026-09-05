@@ -29,9 +29,9 @@ export async function waitForPreviewReady(page) {
     const runtimeDiagnostics = (page.__retromRuntimeDiagnostics ?? []).slice(-20);
     const trimDiagnostic = (value) => String(value).trim().slice(0, 600);
     const diagnostics = {
-      alerts: (await page.getByRole("alert").allInnerTexts()).map(trimDiagnostic).slice(0, 5),
-      loading: (await page.locator(".player-loading").allTextContents()).map(trimDiagnostic).slice(0, 3),
-      statuses: (await page.getByRole("status").allTextContents()).map(trimDiagnostic).slice(0, 10),
+      alerts: (await page.getByRole("alert").allInnerTexts().catch(() => [])).map(trimDiagnostic).slice(0, 5),
+      loading: (await page.locator(".player-loading").allTextContents().catch(() => [])).map(trimDiagnostic).slice(0, 3),
+      statuses: (await page.getByRole("status").allTextContents().catch(() => [])).map(trimDiagnostic).slice(0, 10),
       pageErrors: (page.__retromPageErrors ?? []).map(trimDiagnostic).slice(0, 5),
       consoleDiagnostics: (page.__retromConsoleDiagnostics ?? []).slice(-30),
       exceptionDiagnostics: (page.__retromExceptionDiagnostics ?? []).slice(-20),

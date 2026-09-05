@@ -7,7 +7,8 @@ const receipt = {resourceKind: "REVIEW_PREVIEW_CHECKPOINT", previewId: "preview-
   checkpointFormat: "fixture-v1", createdAtMs: 123};
 test("a session finishing during mount reports diagnostics instead of waiting for the outer hard timeout", async () => {
   const pending = new Promise(() => {});
-  const locator = {waitFor: () => pending, allInnerTexts: async () => [], allTextContents: async () => []};
+  const unavailable = async () => {throw new Error("Execution context was destroyed by navigation");};
+  const locator = {waitFor: () => pending, allInnerTexts: unavailable, allTextContents: unavailable};
   const page = {
     getByRole: () => ({...locator, filter: () => ({...locator, first: () => locator})}),
     locator: () => locator,
