@@ -6,7 +6,8 @@ import { join, resolve } from "node:path";
 
 import { chromium } from "../../web/node_modules/playwright/index.mjs";
 
-import {captureOptionalReviewScreenshot} from "./rpgmaker_preview_actions.mjs";
+import {captureOptionalReviewScreenshot, revealPreviewToolbar} from "./rpgmaker_preview_actions.mjs";
+import {installVirtualStandardGamepad} from "./standard_gamepad.mjs";
 import sharp from "../../web/node_modules/sharp/dist/index.mjs";
 
 import {
@@ -63,6 +64,8 @@ try {
 async function runProductCase(activeBrowser) {
   const context = await activeBrowser.newContext({viewport: {width: 1440, height: 1000}, ...localProxy.contextOptions});
   await installVirtualStandardGamepad(context);
+  await context.addInitScript((enabled) => {globalThis.__retromRuntimeDebug = enabled;},
+    process.env.RETROM_ACCEPTANCE_DEBUG === "1");
   const browserEvidence = {pageErrorCount: 0, consoleErrorCount: 0, dialogCount: 0, ignoredSandboxAlertCount: 0};
   const resources = {engineAsset200Count: 0, failedResponseCount: 0};
   try {
@@ -103,7 +106,7 @@ async function runProductCase(activeBrowser) {
     const originalPage = await trackedPage(context, browserEvidence, resources);
     const configPromise = waitForConfig(originalPage, original.launchId);
     await originalPage.goto(`${baseUrl}${original.playUrl}`, {waitUntil: "domcontentloaded", timeout: 120_000});
-    const contentDigest = (await configPromise).contentDigest;
+    const contentDigest = requireTyranoScriptRuntimeSite(await configPromise).contentDigest;
     await waitForCheckpoint(originalPage);
     const originalSurface = await tyranoSurface(originalPage);
     await originalSurface.evaluate(() => {window.TYRANO.kag.stat.f.__retrom_checkpoint_marker = "B";});
@@ -335,10 +338,11 @@ async function advanceTyranoToStableWait(surface) {
 }
 
 async function createCheckpoint(page, launchId) {
+  await revealPreviewToolbar(page);
   const responsePromise = page.waitForResponse((response) =>
     response.request().method() === "POST" && response.url().includes(`/runtime/launches/${launchId}/save-states`),
   {timeout: 120_000});
-  await page.getByRole("button", {name: "创建存档", exact: true}).click({force: true});
+  await page.getByRole("button", {name: "创建存档", exact: true}).click();
   const response = await responsePromise;
   requireStatus(response.status(), 201, "TYRANOSCRIPT_ACCEPTANCE_SAVE_FAILED");
   return response.json();
@@ -346,11 +350,9 @@ async function createCheckpoint(page, launchId) {
 
 async function resumeAfterCheckpoint(page) {
   const resumeButton = page.getByRole("button", {name: "继续游戏", exact: true});
-  if (!await resumeButton.isVisible().catch(() => false)) {
-    throw new Error("TYRANOSCRIPT_ACCEPTANCE_RESUME_UNAVAILABLE");
-  }
-  await resumeButton.click({force: true});
-  await page.waitForTimeout(250);
+  await resumeButton.waitFor({state: "visible"});
+  await resumeButton.click();
+  await resumeButton.waitFor({state: "hidden"});
 }
 
 async function waitForConfig(page, launchId) {
@@ -363,7 +365,15 @@ async function waitForConfig(page, launchId) {
 
 function requireTyranoScriptRuntimeSite(config) {
   try {
-    requireLocalRuntimeSite(baseUrl, config.adapter?.uniqueOrigin);
+    const games = config.resources?.filter((resource) => resource.role === "game");
+    const game = games?.[0];
+    if (games?.length !== 1 || game.kind !== "ISOLATED_WEB" ||
+      typeof game.origin !== "string" || !game.origin ||
+      typeof game.contentDigest !== "string" || !/^[a-f0-9]{64}$/u.test(game.contentDigest)) {
+      throw new Error("invalid isolated game resource");
+    }
+    requireLocalRuntimeSite(baseUrl, game.origin);
+    return game;
   } catch {
     throw new Error("TYRANOSCRIPT_ACCEPTANCE_RUNTIME_ORIGIN_INVALID");
   }
@@ -419,26 +429,6 @@ async function screenshotEvidence(surface, stem) {
     height: decoded.info.height, nonBlackPixels,
     pngSha256: createHash("sha256").update(pngBytes).digest("hex"), width: decoded.info.width,
   };
-}
-
-async function installVirtualStandardGamepad(context) {
-  await context.addInitScript((runtimeDebug) => {
-    globalThis.__retromRuntimeDebug = runtimeDebug;
-    const state = {
-      axes: [0, 0, 0, 0],
-      buttons: Array.from({length: 17}, () => ({pressed: false, touched: false, value: 0})),
-    };
-    Object.defineProperty(navigator, "getGamepads", {
-      configurable: true,
-      value: () => [{
-        axes: state.axes, buttons: state.buttons, connected: true,
-        id: "Retrom acceptance standard gamepad", index: 0, mapping: "standard", timestamp: performance.now(),
-      }],
-    });
-    globalThis.__retromTestGamepad = {
-      button(index, pressed) {state.buttons[index] = {pressed, touched: pressed, value: pressed ? 1 : 0};},
-    };
-  }, process.env.RETROM_ACCEPTANCE_DEBUG === "1");
 }
 
 function requireGamepadB(value) {
