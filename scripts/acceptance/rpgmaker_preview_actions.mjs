@@ -1,6 +1,6 @@
 import {createHash} from "node:crypto";
 import {readEasyRpgPosition, readRgssFixtureLine} from "./rpgmaker_fixture_observation.mjs";
-import {installCheckpointUploadObservation, readCheckpointMultipart} from "./rpgmaker_checkpoint_upload.mjs";
+import {observeCheckpointUpload, readCheckpointMultipart} from "./rpgmaker_checkpoint_upload.mjs";
 
 // Browser automation of the same Player buttons used by a reviewer.
 export function observeOwnedFixture(page) {
@@ -76,14 +76,12 @@ export async function resumePreview(page) {
 
 export async function capturePreviewCheckpoint(page, previewId) {
   await revealPreviewToolbar(page);
-  await page.evaluate(installCheckpointUploadObservation, previewId);
-  try {return await captureObservedCheckpoint(page, previewId);}
-  finally {
-    if (!page.isClosed()) {await page.evaluate(() => globalThis.__retromCheckpointUploadObservation?.dispose());}
-  }
+  const observation = await observeCheckpointUpload(page, previewId);
+  try {return await captureObservedCheckpoint(page, previewId, observation);}
+  finally {await observation.close();}
 }
 
-async function captureObservedCheckpoint(page, previewId) {
+async function captureObservedCheckpoint(page, previewId, observation) {
   const startedAtMs = Date.now();
   const requestTask = page.waitForRequest((request) => request.method() === "POST" &&
     new URL(request.url()).pathname === "/runtime/launches/" + previewId + "/save-states", {timeout: 300_000});
@@ -92,7 +90,7 @@ async function captureObservedCheckpoint(page, previewId) {
   const response = await request.response();
   if (!response) {throw new Error("RPG_PREVIEW_CHECKPOINT_RESPONSE_MISSING");}
   const receipt = await response.json();
-  const observed = await page.evaluate(() => globalThis.__retromCheckpointUploadObservation.take());
+  const observed = await observation.take(request);
   const result = await inspectPreviewCheckpoint(request, response.status(), receipt, previewId, observed);
   await resumePreview(page);
   return {...result, startedAtMs, finishedAtMs: Date.now()};
