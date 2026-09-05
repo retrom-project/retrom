@@ -13,6 +13,7 @@ import { localRpgAcceptanceProxy } from "./rpgmaker_local_proxy.mjs";
 import { createProductClient, singleFile } from "./rpgmaker_security_upload.mjs";
 import { isLocalAcceptanceHostname } from "./rpgmaker_url.mjs";
 import { trackRuntimeLoading } from "./runtime_loading_evidence.mjs";
+import {installVirtualStandardGamepad} from "./standard_gamepad.mjs";
 
 const caseId = "ACC-KIRIKIRI-001";
 const requiredEnvironment = [
@@ -397,33 +398,6 @@ async function setVirtualGamepadButton(canvas, index, pressed) {
   await canvas.evaluate((element, input) => {
     element.ownerDocument.defaultView?.__retromTestGamepad?.button(input.index, input.pressed);
   }, { index, pressed });
-}
-
-async function installVirtualStandardGamepad(context) {
-  await context.addInitScript(() => {
-    const state = {
-      axes: [0, 0, 0, 0],
-      buttons: Array.from({ length: 17 }, () => ({ pressed: false, touched: false, value: 0 })),
-    };
-    Object.defineProperty(navigator, "getGamepads", {
-      configurable: true,
-      value: () => [{
-        axes: state.axes,
-        buttons: state.buttons,
-        connected: true,
-        id: "Retrom acceptance standard gamepad",
-        index: 0,
-        mapping: "standard",
-        timestamp: performance.now(),
-      }],
-    });
-    globalThis.__retromTestGamepad = {
-      axis(index, value) {state.axes[index] = value;},
-      button(index, pressed) {
-        state.buttons[index] = { pressed, touched: pressed, value: pressed ? 1 : 0 };
-      },
-    };
-  });
 }
 
 async function waitForKagStable(canvas) {
