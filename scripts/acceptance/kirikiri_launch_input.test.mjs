@@ -36,3 +36,17 @@ test("Kiri controller buttons reach both Host immersive controls and core realms
   await driverFunction("setVirtualGamepadButton")(canvas, 8, true);
   assert.deepEqual(received, [[[8, true]], [[8, true]]]);
 });
+
+test("Kiri checkpoint resumes through the actual pause button and awaits its acknowledgement", async () => {
+  const events = [];
+  const page = {
+    getByRole: (role, options) => {
+      assert.equal(role, "button");
+      assert.equal(options.name, "继续游戏");
+      return {waitFor: async ({state}) => events.push(state), click: async () => events.push("click")};
+    },
+    locator: () => {assert.fail("dispatching a synthetic stage click is not a Player action");},
+  };
+  await driverFunction("resumePlayerAfterCheckpoint")(page);
+  assert.deepEqual(events, ["visible", "click", "hidden"]);
+});

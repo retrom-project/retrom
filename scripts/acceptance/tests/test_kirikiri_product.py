@@ -118,8 +118,10 @@ class KiriKiriProductAcceptanceTests(unittest.TestCase):
         self.assertIn(resume, contents)
         self.assertLess(contents.index(checkpoint), contents.index(resume))
         self.assertLess(contents.index(resume), contents.index(continue_input, contents.index(resume)))
-        self.assertIn('getByRole("button", { name: "已暂停，点击游戏画面继续"', contents)
-        self.assertIn('locator(".player-stage").dispatchEvent("click")', contents)
+        self.assertIn('getByRole("button", { name: "继续游戏"', contents)
+        self.assertIn('await paused.click();', contents)
+        self.assertIn('await paused.waitFor({ state: "hidden"', contents)
+        self.assertNotIn('locator(".player-stage").dispatchEvent("click")', contents)
 
     def test_smoke_input_scans_bounded_kag_menu_targets_with_the_gamepad(self) -> None:
         contents = DRIVER_PATH.read_text(encoding="utf-8")
