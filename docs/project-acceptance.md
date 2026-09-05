@@ -1841,6 +1841,7 @@ Review 与普通预览会话。`negative-matrix/matrix.json` 必须精确声明 
 
 ### ACC-BUTTERSCOTCH-001：GameMaker 最小产品闭环
 
+- Fresh 前置：所选输入在当次隔离实例中尚未发布。同一内容已发布时，产品去重会正确跳过 Review，不能把空审核列表当成导入回归，也不得修改游戏 bytes、删除已发布游戏或重建共享 PFB 来规避去重；另用独立隔离验收实例执行本 Case，保留原实例的数据和已有失败证据。
 - 上限：300 秒。执行：`RETROM_BUTTERSCOTCH_SMOKE_ARCHIVE=<absolute-licensed-project-archive> make acceptance-case CASE=ACC-BUTTERSCOTCH-001`；同时需要公共的 `RETROM_ACCEPTANCE_BASE_URL/USERNAME/PASSWORD` 与 `RETROM_CHROME_EXECUTABLE`，基础地址必须为 HTTPS origin 或 loopback 验收 origin。
 - 流程：经正式 Upload 创建 `BUTTERSCOTCH_PROJECT` Import，等待唯一 Review；打开 Review Preview，等待 `data.win` 下载、OPFS 写入、真实 `640×480` backing canvas、等比最大化的 display canvas 与按需截图；审核发布后创建 PRODUCT Launch，注入标准手柄并只用方向与 A 键证明画面变化，再创建 `RUNTIME_STATE` checkpoint；关闭原页面，以该存档创建 ID 不同的 PRODUCT Launch，等待服务端 state 和 core restore ready，再次用标准手柄证明恢复后输入。全过程不直接加载第三方示例页，也不把格式检测当成运行证明。
 - 通过标准：预览和两个 PRODUCT Launch 均运行当前 `BUTTERSCOTCH_GAMEMAKER/butterscotch-web`；canvas 相对 `data-butterscotch-runtime-surface` 横纵居中偏差各不超过 1 px、backing/display 宽高比误差不超过 `0.01` 且持有焦点，display 在 surface 内至少一条边的剩余空间不超过 1 px，不能保持固定 `640×480` 小窗。五张实际 canvas PNG 均为非黑有效画面，首次与恢复后标准手柄输入分别改变 RGBA digest；checkpoint 为 13 bytes 至 16 MiB 范围内的 `RUNTIME_STATE`，不同 Launch 成功读取。预览只下载一次 `data.win`，恢复 Launch 仍读取一次冻结 `index.json`，但不再请求 `data.win`，从而证明同内容身份的 OPFS 项目缓存复用；浏览器没有 page error、console error 或意外 dialog。
