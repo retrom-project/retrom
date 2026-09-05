@@ -65,8 +65,7 @@ func waitForContext(ctx context.Context, duration time.Duration) error {
 
 func (service *Service) Start() {
 	_ = service.recoverInterruptedJobs(context.Background())
-	_ = service.releaseExpiredProviderPayloads(context.Background())
-	_ = service.stageAllUnreferenced(context.Background())
+	_ = service.ReconcileGC(context.Background())
 	service.wait.Add(1)
 	go service.loop()
 	service.Signal()
@@ -98,6 +97,9 @@ func (service *Service) Signal() {
 }
 
 func (service *Service) ReconcileGC(ctx context.Context) error {
+	if err := service.releaseExpiredReviewPreviews(ctx); err != nil {
+		return err
+	}
 	if err := service.releaseExpiredProviderPayloads(ctx); err != nil {
 		return err
 	}
@@ -117,8 +119,7 @@ func (service *Service) loop() {
 		case <-service.wake:
 		case <-poll.C:
 		case <-maintenance.C:
-			_ = service.releaseExpiredProviderPayloads(context.Background())
-			_ = service.stageAllUnreferenced(context.Background())
+			_ = service.ReconcileGC(context.Background())
 		}
 		for {
 			didWork, _ := service.RunOnce(context.Background())

@@ -214,16 +214,11 @@ func insertFixtureTargets(
 	for _, key := range keys {
 		binding := targets[key]
 		optionsSchema := fixtureTargetOptionsSchema(binding.TargetID)
-		validationProbes := []string{}
-		if strings.HasPrefix(binding.TargetID, "rpgmaker-") {
-			validationProbes = []string{"rpgmaker.position.v1"}
-		}
 		capabilities := map[string]any{
 			"pause": true, "screenshot": true, "checkpoint": true, "standardGamepad": true,
 			"frameCounter": true, "volume": true, "discSwitch": binding.TargetID == "yabause",
 			"nativeSettings": true, "inputFilter": true, "netplayPort": binding.ProviderID == "emulatorjs",
 			"videoModes": []string{"original"}, "requiresThreads": false, "frameMode": "NONE",
-			"validationProbes": validationProbes,
 		}
 		checkpoint := map[string]any{
 			"writeFormat": "test-checkpoint-v1", "readFormats": []string{"test-checkpoint-v1"},
@@ -261,10 +256,10 @@ func insertFixtureBindings(
 		}
 		if _, err := transaction.ExecContext(ctx, `
 INSERT INTO runtime_target_bindings(
- binding_id,core_id,provider_id,target_id,detector_profile,delivery_profile,launch_policy,review_policy
-) VALUES(?,?,?,?,?,?,?,?)
+ binding_id,core_id,provider_id,target_id,detector_profile,delivery_profile,launch_policy
+) VALUES(?,?,?,?,?,?,?)
 `, binding.ID, binding.CoreID, binding.ProviderID, binding.TargetID, binding.DetectorProfile,
-			strategy.Delivery, binding.LaunchPolicy, strategy.Review); err != nil {
+			strategy.Delivery, binding.LaunchPolicy); err != nil {
 			return fmt.Errorf("testsupport: insert runtime binding %s: %w", binding.ID, err)
 		}
 		for _, platformID := range binding.PlatformIDs {
@@ -339,15 +334,7 @@ func fixtureTargetOptionsSchema(targetID string) map[string]any {
 	}
 	switch {
 	case strings.HasPrefix(targetID, "rpgmaker-"):
-		return property(map[string]any{"expectedRestorePosition": map[string]any{
-			"type": []any{"object", "null"}, "additionalProperties": false,
-			"properties": map[string]any{
-				"fixtureState": map[string]any{"type": "integer", "minimum": int64(0)},
-				"mapId":        map[string]any{"type": "integer", "minimum": int64(0)},
-				"playerX":      map[string]any{"type": "integer", "minimum": int64(0)},
-				"playerY":      map[string]any{"type": "integer", "minimum": int64(0)},
-			}, "required": []any{"fixtureState", "mapId", "playerX", "playerY"},
-		}}, "expectedRestorePosition")
+		return property(map[string]any{})
 	case targetID == "onscripter-yuri":
 		return property(map[string]any{"scriptEncoding": map[string]any{
 			"type": "string", "enum": []any{"gbk", "sjis", "utf8"},

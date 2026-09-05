@@ -135,6 +135,7 @@ def prepare_review_project(
         if contents.count(before) != 1:
             raise ValueError(f"review fixture source drift: {source_name}/{ini_name}")
         contents = contents.replace(before, after)
+    contents += f"; Retrom acceptance scenario: ACC-RPG-009/{destination.name}\n"
     ini.write_text(contents, encoding="utf-8", newline="\n")
 
 

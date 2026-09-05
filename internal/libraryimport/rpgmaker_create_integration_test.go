@@ -100,7 +100,7 @@ WHERE item.import_job_id=?
 `, created.ImportJobID).Scan(&state, &code, &title, &metadataProvider); err != nil {
 		t.Fatal(err)
 	}
-	if state != "REVIEW_PENDING" || code != "RPG_RUNTIME_VALIDATION_REQUIRED" || title != "fixture" ||
+	if state != "REVIEW_PENDING" || code != "READY" || title != "fixture" ||
 		metadataProvider != "NONE" {
 		t.Fatalf("RPG review state/code/title/provider = %s/%s/%q/%s", state, code, title, metadataProvider)
 	}
@@ -195,6 +195,10 @@ WHERE draft.import_item_id=?
 	}
 	if validationCount != 1 {
 		t.Fatalf("provider bundle upgrade created redundant review validations: %d", validationCount)
+	}
+	approved, err := New(database.SQL, time.Now).Approve(ctx, itemID, draftVersion)
+	if err != nil || approved.GameID == "" {
+		t.Fatalf("READY RPG review must approve without a runtime proof session: %+v %v", approved, err)
 	}
 }
 

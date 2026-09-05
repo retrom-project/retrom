@@ -23,11 +23,8 @@ import (
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
 	"retrom/internal/dependencies"
-	"retrom/internal/launch"
 	"retrom/internal/libraryimport"
 	"retrom/internal/payloadrelease"
-	"retrom/internal/rpgmaker/runtimevalidation"
-	retromruntime "retrom/internal/runtime"
 	"retrom/internal/testassert"
 	"retrom/internal/testsupport"
 	"retrom/internal/uploads"
@@ -61,24 +58,6 @@ func TestRPGMakerReplacementKeepsPublishedGeneration(t *testing.T) {
 	})
 	testassert.False(t, err != nil, err)
 	itemID := importItemID(t, ctx, database.SQL, created.ImportJobID)
-	validation, err := runtimevalidation.New(database.SQL, blobs, time.Now).Create(ctx, itemID, 1)
-	testassert.False(t, err != nil, err)
-	if _, err := database.SQL.ExecContext(ctx, `
-INSERT INTO profiles(id,display_name,created_at_ms) VALUES('rpg-replacement-profile','RPG replacement',0)
-`); err != nil {
-		t.Fatal(err)
-	}
-	credentials, err := retromruntime.LoadOrCreateCredentials(dataDir)
-	testassert.False(t, err != nil, err)
-	runtimeBuilder, err := testsupport.NewRuntimeBuilder(ctx, database.SQL)
-	testassert.False(t, err != nil, err)
-	if _, err := launch.New(database.SQL, dependencySet, credentials, time.Now).
-		WithRuntimeProvider(dependencySet.RuntimeCatalog, runtimeBuilder).CreateRPGValidation(
-		ctx, "rpg-replacement-profile", validation.ValidationID, "/admin/reviews/"+itemID,
-		launch.Capabilities{},
-	); err != nil {
-		t.Fatal(err)
-	}
 	published, err := importer.Approve(ctx, itemID, 1)
 	testassert.False(t, err != nil, err)
 	var originalContent string
@@ -119,26 +98,25 @@ SELECT id,version FROM games WHERE id=?
 	)
 	testassert.False(t, err != nil, err)
 	waitForJob(t, ctx, database.SQL, sameGeneration.JobID, "SUCCEEDED")
-	var replacementContent, generation, runtimeValidationID string
+	var replacementContent, generation string
 	var replacementVersion int64
 	if err := database.SQL.QueryRowContext(ctx, `
-SELECT game.id,game.version,content.evidence_generation,
-       COALESCE(profile.runtime_validation_id,'')
+SELECT game.id,game.version,content.evidence_generation
 FROM games game
 JOIN rpgmaker_game_profiles content ON content.game_id=game.id
 JOIN game_variants variant ON variant.game_id=game.id
 JOIN rpgmaker_variant_profiles profile ON profile.game_variant_id=variant.id
 WHERE game.id=? AND variant.core_id='rpgmaker'
 `, published.GameID).Scan(
-		&replacementContent, &replacementVersion, &generation, &runtimeValidationID,
+		&replacementContent, &replacementVersion, &generation,
 	); err != nil {
 		t.Fatal(err)
 	}
 	if replacementContent != originalContent || replacementVersion != gameVersion+1 ||
-		generation != "RPG2000" || runtimeValidationID != "" {
+		generation != "RPG2000" {
 		t.Fatalf(
-			"same-generation replacement = %s/%d/%s/%q",
-			replacementContent, replacementVersion, generation, runtimeValidationID,
+			"same-generation replacement = %s/%d/%s",
+			replacementContent, replacementVersion, generation,
 		)
 	}
 

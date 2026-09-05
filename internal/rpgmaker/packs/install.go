@@ -14,7 +14,6 @@ import (
 
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
-	"retrom/internal/rpgmaker/validation"
 	"retrom/internal/runtimecatalog"
 )
 
@@ -114,7 +113,7 @@ func normalizeInstallRequest(request InstallRequest) (InstallRequest, error) {
 	note := ""
 	if request.SourceNote != nil {
 		var err error
-		note, err = validation.NormalizeDecisionNote(*request.SourceNote)
+		note, err = normalizeSourceNote(*request.SourceNote)
 		if err != nil {
 			return InstallRequest{}, ErrInvalid
 		}

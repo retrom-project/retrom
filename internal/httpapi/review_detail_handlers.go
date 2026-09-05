@@ -140,12 +140,12 @@ func (server *Server) review(writer http.ResponseWriter, request *http.Request) 
 		server.databaseError(writer, request, err)
 		return
 	}
-	rpgMaker, hasRPGMaker, err := server.reviewRPGMaker(request.Context(), itemID)
+	rpgMaker, err := server.reviewRPGMaker(request.Context(), itemID)
 	if err != nil {
 		server.databaseError(writer, request, err)
 		return
 	}
-	canApprove := reviewApproval(&evidence, rpgMaker, hasRPGMaker)
+	canApprove := reviewApproval(&evidence)
 	reviewTags, err := server.activeReviewTags(request.Context(), itemID)
 	if err != nil {
 		server.databaseError(writer, request, err)
@@ -165,7 +165,7 @@ func (server *Server) review(writer http.ResponseWriter, request *http.Request) 
 		"uploadedAssets": evidence.uploadedAssets, "sourceFiles": evidence.sourceFiles,
 		"sourceMedia":       evidence.sourceMedia.value,
 		"runtimeScreenshot": evidence.runtimeScreenshot.value,
-		"rpgMaker":          rpgMaker,
+		"rpgMaker":          rpgMaker.value,
 		"duplicateGames":    evidence.duplicateGames, "contentIdentityDigest": evidence.contentIdentityDigest,
 		"arcadeDependencies":  evidence.arcadeDependencies,
 		"multiDisc":           evidence.multiDisc,
@@ -192,15 +192,9 @@ func reviewDocuments(metadata, sourceManifest string) (any, any) {
 
 func reviewApproval(
 	evidence *reviewEvidence,
-	rpgMaker *reviewRPGMakerProjection,
-	hasRPGMaker bool,
 ) bool {
 	gateReviewMultiDiscAttachment(evidence.multiDisc, evidence.validation.stale)
-	if !hasRPGMaker {
-		return evidence.validation.canApprove || evidence.runtimeScreenshot.value != nil
-	}
-	evidence.runtimeScreenshot = optionalReviewProjection{}
-	return rpgMaker.canApprove
+	return evidence.validation.canApprove || evidence.runtimeScreenshot.value != nil
 }
 
 type reviewEvidence struct {
@@ -304,7 +298,7 @@ AND screenshot.source_snapshot_id=draft.effective_source_snapshot_id
 	return optionalReviewProjection{value: map[string]any{
 		"screenshotId": id, "validationId": validationID.String, "providerId": providerID,
 		"targetId": targetID,
-		"widthPx":  width, "heightPx": height, "capturedAfterMs": int64(5_000),
+		"widthPx":  width, "heightPx": height,
 		"capturedAtMs": capturedAtMS, "url": "/api/v1/admin/review-assets/" + id,
 	}}, nil
 }

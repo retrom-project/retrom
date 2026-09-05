@@ -6,12 +6,14 @@ import {
 import { basename, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { chromium } from "../../web/node_modules/playwright/index.mjs";
 import { normalizedBase } from "./rpgmaker_url.mjs";
+import {assertPackCasePopulation, checkedPopulationPreservation} from "./rpgmaker_pack_population.mjs";
 
 const caseDir = required("RETROM_RPG_CASE_DIR");
 const baseUrl = normalizedBase(required("RETROM_ACCEPTANCE_BASE_URL"));
 const plan = JSON.parse(readFileSync(required("RETROM_ACC_RPG_009_PLAN"), "utf8"));
 const provisionEvidencePath = exactProvisionEvidence(required("RETROM_ACC_RPG_009_PROVISION_EVIDENCE"));
 const provisionEvidence = JSON.parse(readFileSync(provisionEvidencePath, "utf8"));
+checkedPopulationPreservation(provisionEvidence.populationPreservation);
 if (provisionEvidence.schemaVersion !== 1 || provisionEvidence.caseId !== "ACC-RPG-009"
     || provisionEvidence.status !== "PROVISIONED") {
   throw new Error("RPG_ACCEPTANCE_PACK_PROVISION_EVIDENCE_INVALID");
@@ -45,11 +47,14 @@ try {
   const writeHeaders = () => ({
     Origin: baseUrl, "X-Retrom-Csrf": login.csrfToken, "Idempotency-Key": randomUUID(),
   });
+  const populationClient = {json: (method, path) => jsonRequest(context.request, method, path)};
+  await assertPackCasePopulation(populationClient, provisionEvidence.populationPreservation,
+    plan.protectedReferences, plan.reviewIds, []);
   const before = await packCatalog(context.request);
   const expectedInitialInstallations = new Set(Object.values(plan.protectedReferences).map((item) => item.installationId));
   if (before.installations.length !== expectedInitialInstallations.size
       || before.installations.some((row) => !expectedInitialInstallations.has(row.installationId))) {
-    throw new Error("RPG_ACCEPTANCE_PACK_DATABASE_NOT_DEDICATED");
+    throw new Error("RPG_ACCEPTANCE_PACK_INSTALLATION_SET_INVALID");
   }
   const protectedRows = Object.fromEntries(Object.entries(plan.protectedReferences).map(([role, reference]) =>
     [role, installation(before, reference.installationId)]));
@@ -100,7 +105,7 @@ try {
     rpg2000Missing: "rpg2000Rtp", rpg2003Missing: "rpg2003Rtp",
     rpgxpCustom: "rgss1Custom", rpgvxCustom: "rgss2Custom", rpgvxaceCustom: "rgss3Custom",
   })) {
-    matcherRejections.push(await selectBindingAndRejectStaleApproval(
+    matcherRejections.push(await selectBindingAndAssertReadiness(
       context.request, writeHeaders, role, reviews[role], installedRows[uploadRole].installationId,
     ));
   }
@@ -161,6 +166,8 @@ try {
   }
   const evidence = {
     schemaVersion: 1, caseId: "ACC-RPG-009", status: "OBSERVED",
+    populationPreservation: await assertPackCasePopulation(populationClient, provisionEvidence.populationPreservation,
+      plan.protectedReferences, plan.reviewIds, publishedReviews),
     installations: Object.fromEntries(Object.entries(installedRows).map(([role, row]) => [role, safeInstallation(row)])),
     reviews: { published: publishedReviews, matcherRejections },
     protectedReferences: plan.protectedReferences,
@@ -326,12 +333,20 @@ function validateReviewRole(role, review) {
     }
   } else if (requirements.length !== 1 || requirements[0].declaredName !== declaredName
       || requirements[0].slot !== (["RPG2000", "RPG2003"].includes(generation) ? 0 : 1)
-      || rpg.runtimePackSelections.length !== 0 || rpg.selfContainedOverride) {
+      || rpg.selfContainedOverride) {
     throw new Error("RPG_ACCEPTANCE_PACK_MATCHER_PRECONDITION_INVALID");
   }
-  if (["selfContained", "noRtp"].includes(mode)
-      && (!rpg.runtimeValidationCurrent || rpg.runtimeValidation?.state !== "PASSED")) {
-    throw new Error("RPG_ACCEPTANCE_PACK_REVIEW_VALIDATION_NOT_PASSED");
+  const initialBinding = {
+    rpgxpStandardAmbiguous: plan.protectedReferences.publishedVariant.installationId,
+    rpgvxStandardAmbiguous: plan.protectedReferences.restorableCheckpoint.installationId,
+  }[role];
+  if (initialBinding ? rpg.runtimePackSelections.length !== 1 ||
+      rpg.runtimePackSelections[0].installationId !== initialBinding : rpg.runtimePackSelections.length !== 0) {
+    throw new Error("RPG_ACCEPTANCE_PACK_INITIAL_SELECTION_INVALID");
+  }
+  if (["selfContained", "noRtp"].includes(mode) &&
+      (!review.canApprove || !review.validation?.current || review.validation.status !== "READY")) {
+    throw new Error("RPG_ACCEPTANCE_PACK_REVIEW_NOT_READY");
   }
 }
 
@@ -373,7 +388,7 @@ async function rejectIncompleteBinding(request, writeHeaders, role, snapshot) {
   };
 }
 
-async function selectBindingAndRejectStaleApproval(request, writeHeaders, role, snapshot, installationId) {
+async function selectBindingAndAssertReadiness(request, writeHeaders, role, snapshot, installationId) {
   const requirement = snapshot.body.rpgMaker.runtimePackRequirements[0];
   const patched = await patchBinding(request, writeHeaders, snapshot, [{ slot: requirement.slot, installationId }], 200);
   if (patched.body.itemId !== snapshot.body.itemId || patched.body.version !== snapshot.body.version + 1) {
@@ -381,12 +396,14 @@ async function selectBindingAndRejectStaleApproval(request, writeHeaders, role, 
   }
   const refreshed = await reviewSnapshot(request, snapshot.body.itemId);
   const selected = refreshed.body.rpgMaker?.runtimePackSelections?.find((item) => item.slot === requirement.slot);
-  if (selected?.installationId !== installationId || refreshed.body.rpgMaker?.runtimeValidationCurrent !== false) {
+  if (selected?.installationId !== installationId || !refreshed.body.canApprove ||
+      !refreshed.body.validation?.current || refreshed.body.validation.status !== "READY") {
     throw new Error("RPG_ACCEPTANCE_PACK_EXPLICIT_SELECTION_INVALID");
   }
   return {
     role, itemId: snapshot.body.itemId, matcher: "SELECTED", patchStatus: 200, installationId,
-    publish: await rejectApproval(request, writeHeaders, refreshed),
+    publishReadiness: {canApprove: refreshed.body.canApprove, current: refreshed.body.validation.current,
+      status: refreshed.body.validation.status},
   };
 }
 
@@ -395,7 +412,7 @@ async function rejectAmbiguousThenSelect(request, writeHeaders, role, snapshot, 
   if (rejected.body.error?.code !== "REVIEW_DRAFT_INVALID") {
     throw new Error("RPG_ACCEPTANCE_PACK_MATCHER_REJECTION_INVALID");
   }
-  const selected = await selectBindingAndRejectStaleApproval(request, writeHeaders, role, snapshot, installationId);
+  const selected = await selectBindingAndAssertReadiness(request, writeHeaders, role, snapshot, installationId);
   return { ...selected, matcher: "AMBIGUOUS", rejectionStatus: 422, rejectionCode: rejected.body.error.code };
 }
 
@@ -408,7 +425,6 @@ async function approveReadyReview(request, writeHeaders, role, snapshot) {
   if (!/^[0-9a-f-]{36}$/.test(body.gameId ?? "")) {throw new Error("RPG_ACCEPTANCE_PACK_APPROVAL_INVALID");}
   return {
     role, itemId: snapshot.body.itemId, gameId: body.gameId,
-    validationId: snapshot.body.rpgMaker.runtimeValidation.validationId,
     generation: snapshot.body.rpgMaker.generation, status: 201,
   };
 }

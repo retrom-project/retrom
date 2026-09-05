@@ -9,21 +9,17 @@ import (
 
 	"retrom/internal/cleanup"
 	"retrom/internal/rpgmaker/packs"
-	"retrom/internal/rpgmaker/runtimevalidation"
 )
 
 type reviewRPGMakerProjection struct {
-	SelectedCoreID           string                     `json:"selectedCoreId"`
-	Generation               string                     `json:"generation"`
-	EvidenceGeneration       *string                    `json:"evidenceGeneration"`
-	EvidenceConfidence       string                     `json:"evidenceConfidence"`
-	SelfContained            bool                       `json:"selfContained"`
-	SelfContainedOverride    bool                       `json:"selfContainedOverride"`
-	RuntimePackRequirements  []reviewRPGPackRequirement `json:"runtimePackRequirements"`
-	RuntimePackSelections    []reviewRPGPackSelection   `json:"runtimePackSelections"`
-	RuntimeValidation        *runtimevalidation.View    `json:"runtimeValidation"`
-	RuntimeValidationCurrent bool                       `json:"runtimeValidationCurrent"`
-	canApprove               bool
+	SelectedCoreID          string                     `json:"selectedCoreId"`
+	Generation              string                     `json:"generation"`
+	EvidenceGeneration      *string                    `json:"evidenceGeneration"`
+	EvidenceConfidence      string                     `json:"evidenceConfidence"`
+	SelfContained           bool                       `json:"selfContained"`
+	SelfContainedOverride   bool                       `json:"selfContainedOverride"`
+	RuntimePackRequirements []reviewRPGPackRequirement `json:"runtimePackRequirements"`
+	RuntimePackSelections   []reviewRPGPackSelection   `json:"runtimePackSelections"`
 }
 
 type reviewRPGPackSelection struct {
@@ -48,26 +44,14 @@ type reviewRPGAnalysisProjection struct {
 func (server *Server) reviewRPGMaker(
 	ctx context.Context,
 	itemID string,
-) (*reviewRPGMakerProjection, bool, error) {
+) (optionalReviewProjection, error) {
 	var projection reviewRPGMakerProjection
-	var evidenceGeneration, validationID sql.NullString
+	var evidenceGeneration sql.NullString
 	var analysisJSON string
 	err := server.database.QueryRowContext(ctx, `
 SELECT binding.core_id,profile.generation,profile.evidence_generation,
  profile.evidence_confidence,profile.self_contained_override,
- profile.analysis_json,(
-   SELECT validation.id
-   FROM rpgmaker_runtime_validations validation
-   WHERE validation.import_item_id=draft.import_item_id
-     AND validation.effective_source_snapshot_id=draft.effective_source_snapshot_id
-     AND validation.project_fingerprint=profile.project_fingerprint
-     AND validation.generation=profile.generation
-     AND validation.evidence_generation IS profile.evidence_generation
-     AND validation.evidence_confidence=profile.evidence_confidence
-     AND validation.provider_id=profile.provider_id AND validation.target_id=profile.target_id
-     AND validation.dependency_snapshot_sha256=profile.dependency_snapshot_sha256
-   ORDER BY validation.created_at_ms DESC,validation.id DESC LIMIT 1
- )
+ profile.analysis_json
 FROM review_drafts draft
 JOIN rpgmaker_review_profiles profile ON profile.review_draft_id=draft.id
 JOIN runtime_target_bindings binding
@@ -76,18 +60,18 @@ WHERE draft.import_item_id=?
 `, itemID).Scan(
 		&projection.SelectedCoreID, &projection.Generation, &evidenceGeneration,
 		&projection.EvidenceConfidence, &projection.SelfContainedOverride,
-		&analysisJSON, &validationID,
+		&analysisJSON,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
-		return nil, false, nil
+		return optionalReviewProjection{}, nil
 	}
 	if err != nil {
-		return nil, false, fmt.Errorf("review RPG Maker profile: %w", err)
+		return optionalReviewProjection{}, fmt.Errorf("review RPG Maker profile: %w", err)
 	}
 	projection.EvidenceGeneration = reviewOptionalString(evidenceGeneration)
 	var analysis reviewRPGAnalysisProjection
 	if err := json.Unmarshal([]byte(analysisJSON), &analysis); err != nil {
-		return nil, false, fmt.Errorf("review RPG Maker analysis: %w", err)
+		return optionalReviewProjection{}, fmt.Errorf("review RPG Maker analysis: %w", err)
 	}
 	projection.SelfContained = analysis.SelfContained
 	projection.RuntimePackRequirements = reviewRPGPackRequirements(
@@ -95,20 +79,11 @@ WHERE draft.import_item_id=?
 	)
 	selections, err := server.reviewRPGPackSelections(ctx, itemID)
 	if err != nil {
-		return nil, false, err
+		return optionalReviewProjection{}, err
 	}
 	projection.RuntimePackSelections = selections
-	if !validationID.Valid {
-		return &projection, true, nil
-	}
-	view, err := server.rpgValidations.Get(ctx, itemID, validationID.String)
-	if err != nil {
-		return nil, false, fmt.Errorf("review RPG Maker validation: %w", err)
-	}
-	projection.RuntimeValidation = &view
-	projection.RuntimeValidationCurrent = true
-	projection.canApprove = view.LaunchID != nil && projection.RuntimeValidationCurrent
-	return &projection, true, nil
+
+	return optionalReviewProjection{value: &projection}, nil
 }
 
 func reviewRPGPackRequirements(

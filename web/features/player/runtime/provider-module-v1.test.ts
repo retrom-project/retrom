@@ -182,7 +182,7 @@ function fixtureEnvelope(): LaunchEnvelopeV1 {
         checkpoint: false, frameCounter: false, frameMode: "NONE", pause: false,
         discSwitch: false, inputFilter: false, nativeSettings: false, netplayPort: false,
         requiresThreads: false, screenshot: false, standardGamepad: false,
-        validationProbes: [], videoModes: [], volume: false,
+        videoModes: [], volume: false,
       },
       checkpoint: null,
       moduleSha256: digest,
@@ -202,7 +202,6 @@ function fixtureEnvelope(): LaunchEnvelopeV1 {
       title: "Fixture", warnings: [],
     },
     targetOptions: {},
-    validation: null,
   } as unknown as LaunchEnvelopeV1;
 }
 
@@ -231,7 +230,6 @@ function fixtureRuntime(): PlayerRuntimeV1 {
     openNativeSettings: vi.fn(async () => {throw new Error("unused");}),
     pause: vi.fn(async () => undefined),
     resume: vi.fn(async () => undefined),
-    runValidationProbe: vi.fn(async () => {throw new Error("unused");}),
     screenshot: vi.fn(async () => new Blob()),
     setInputFilter: vi.fn(async () => {throw new Error("unused");}),
     setVideoMode: vi.fn(async () => {throw new Error("unused");}),

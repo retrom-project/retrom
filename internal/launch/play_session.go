@@ -33,8 +33,8 @@ func (service *Service) RecordPlay(
 	if err != nil {
 		return PlayResult{}, err
 	}
-	if source.purpose == "RPG_RUNTIME_VALIDATION" {
-		return recordRPGValidationPlay(ctx, transaction, launchID, source.state, kind, event, now)
+	if source.purpose == "REVIEW_PREVIEW" {
+		return recordReviewPreviewPlay(ctx, transaction, launchID, source.state, kind, event, now)
 	}
 	return recordProductPlay(ctx, transaction, launchID, kind, event, now, source)
 }
@@ -56,7 +56,7 @@ func loadPlayLaunch(
 	var hardExpires int64
 	if err := transaction.QueryRowContext(ctx, `
 SELECT credential_sha256,
-purpose,
+'PRODUCT',
 state,
 profile_id,
 game_id,
@@ -64,7 +64,10 @@ hard_expires_at_ms,
 idle_expires_at_ms
 FROM launch_sessions
 WHERE id=?
-`, launchID).Scan(
+UNION ALL
+SELECT credential_sha256,'REVIEW_PREVIEW',state,'',NULL,hard_expires_at_ms,NULL
+FROM review_preview_sessions WHERE id=?
+`, launchID, launchID).Scan(
 		&credentialHash,
 		&source.purpose,
 		&source.state,
@@ -123,111 +126,6 @@ WHERE launch_session_id=?
 	return recordPlayProgress(
 		ctx, transaction, launchID, playID, kind, event, lastHeartbeat, now,
 	)
-}
-
-// RPG runtime-validation launches deliberately do not create play_sessions:
-// they are not attached to a published game and therefore have no game_id to
-// account play time against. Config activation owns CREATED -> ACTIVE; the play
-// endpoint only accepts the normal player event shapes and closes the launch on
-// finish so a checkpointed validation can create its distinct restore launch.
-func recordRPGValidationPlay(
-	ctx context.Context,
-	transaction *sql.Tx,
-	launchID, launchState, kind string,
-	event PlayEvent,
-	now int64,
-) (PlayResult, error) {
-	if !validRPGPlayEvent(kind, event) {
-		return PlayResult{}, ErrBlocked
-	}
-	if launchState == "FINISHED" && kind == "finish" {
-		return rpgPlayResult(event.ClientSequence, "FINISHED"), nil
-	}
-	if launchState != "ACTIVE" {
-		return PlayResult{}, ErrBlocked
-	}
-	state := "ACTIVE"
-	if kind == "finish" {
-		if err := finishRPGValidationLaunch(ctx, transaction, launchID, now); err != nil {
-			return PlayResult{}, err
-		}
-		state = "FINISHED"
-	}
-	if err := transaction.Commit(); err != nil {
-		return PlayResult{}, fmt.Errorf("launch/service: %w", err)
-	}
-	return rpgPlayResult(event.ClientSequence, state), nil
-}
-
-func validRPGPlayEvent(kind string, event PlayEvent) bool {
-	if kind == "start" {
-		return event.ClientSequence == 0 && event.PreviousInterval == nil
-	}
-	if kind != "heartbeat" && kind != "finish" {
-		return false
-	}
-	return event.ClientSequence > 0 && event.PreviousInterval != nil ||
-		kind == "finish" && event.ClientSequence == 0 && event.PreviousInterval == nil
-}
-
-func finishRPGValidationLaunch(
-	ctx context.Context,
-	transaction *sql.Tx,
-	launchID string,
-	now int64,
-) error {
-	result, err := transaction.ExecContext(ctx, `
-UPDATE launch_sessions
-SET state='FINISHED',finished_at_ms=?,updated_at_ms=?,version=version+1
-WHERE id=? AND purpose='RPG_RUNTIME_VALIDATION' AND state='ACTIVE'
-`, now, now, launchID)
-	if err != nil {
-		return fmt.Errorf("launch/service: %w", err)
-	}
-	updated, err := result.RowsAffected()
-	if err != nil || updated != 1 {
-		return ErrBlocked
-	}
-	if err := failUnfinishedRPGValidation(ctx, transaction, launchID, now); err != nil {
-		return err
-	}
-	return nil
-}
-
-func failUnfinishedRPGValidation(
-	ctx context.Context,
-	transaction *sql.Tx,
-	launchID string,
-	now int64,
-) error {
-	_, err := transaction.ExecContext(ctx, `
-UPDATE rpgmaker_runtime_validations
-SET state='FAILED',failure_code='RPG_RUNTIME_VALIDATION_WINDOW_CLOSED',updated_at_ms=?
-WHERE state NOT IN ('PASSED','FAILED','EXPIRED')
-AND (
-  launch_id=? AND NOT EXISTS(
-    SELECT 1 FROM rpgmaker_runtime_validation_gate_events event
-    WHERE event.validation_id=rpgmaker_runtime_validations.id
-      AND event.gate='ORIGINAL_LAUNCH_ENDED' AND event.phase='PASS'
-  )
-  OR restore_launch_id=? AND NOT EXISTS(
-    SELECT 1 FROM rpgmaker_runtime_validation_gate_events event
-    WHERE event.validation_id=rpgmaker_runtime_validations.id
-      AND event.gate='RESTORE_INPUT' AND event.phase='PASS'
-  )
-)
-`, now, launchID, launchID)
-	if err != nil {
-		return fmt.Errorf("launch/service: close RPG validation: %w", err)
-	}
-	return nil
-}
-
-func rpgPlayResult(sequence int64, state string) PlayResult {
-	return PlayResult{
-		PlaySessionID: nil, ClientSequence: sequence,
-		AcceptedDuration: 0, State: state,
-	}
 }
 
 func replayPlayEvent(

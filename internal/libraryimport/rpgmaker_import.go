@@ -211,9 +211,7 @@ func newRPGMakerGroup(
 	sort.Strings(removed)
 	return preparedGroup{
 		sources: sources, contentKind: string(contentprofile.ContentKindRPGMakerProject),
-		validationStatus: "BLOCKED", compatibilityCode: "RPG_RUNTIME_VALIDATION_REQUIRED",
-		dependencySnapshot: `{"bindings":[],"schemaVersion":1}`,
-		titleSource:        titleSource, titleSourceExplicit: true, rpgProfile: &profileCopy,
+		titleSource: titleSource, titleSourceExplicit: true, rpgProfile: &profileCopy,
 		rpgProjectRoot: root, rpgRemovedFiles: removed,
 	}
 }

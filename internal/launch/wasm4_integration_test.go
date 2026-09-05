@@ -122,7 +122,7 @@ VALUES(?,'wasm4-profile','wasm4-admin','WASM-4 Admin','ADMIN','ENABLED',0,0);
 		ImportItemID: itemID, ActorUserID: actorID, IdempotencyKey: "wasm4-preview-1",
 		ClientCapabilities: Capabilities{SecureContext: true},
 	})
-	if err != nil || !preview.CaptureAllowed {
+	if err != nil {
 		t.Fatalf("CreateReviewPreview(WASM-4)=%#v, %v", preview, err)
 	}
 	previewConfig, err := service.ReviewPreviewConfig(ctx, preview.PreviewID, preview.Capability)

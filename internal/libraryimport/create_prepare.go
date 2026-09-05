@@ -135,9 +135,7 @@ func normalizeTargetCreateRequest(
 	if target.platformID != "rpgmaker" {
 		return request, contentMode, nil
 	}
-	if contentMode == contentcapability.ModeStandard {
-		contentMode = contentcapability.ModeRPGMakerProject
-	}
+	contentMode = normalizeTargetContentMode(target.platformID, contentMode)
 	if contentMode == contentcapability.ModeRPGMakerProject {
 		request.ContentMode = contentMode
 		request.MetadataProvider = "NONE"
@@ -156,6 +154,13 @@ func normalizeTargetCreateRequest(
 		return CreateRequest{}, "", ErrInvalid
 	}
 	return request, contentMode, nil
+}
+
+func normalizeTargetContentMode(platformID, contentMode string) string {
+	if platformID == "rpgmaker" && contentMode == contentcapability.ModeStandard {
+		return contentcapability.ModeRPGMakerProject
+	}
+	return contentMode
 }
 
 func (service *Service) resolveRPGMakerTarget(ctx context.Context, plan *creationPlan) error {

@@ -1,7 +1,6 @@
 import { ButtonLink, PageHeader, StatusBadge } from "@/components/ui";
 import { FlashToast } from "@/components/flash-toast";
 import { ReviewActions, type ReviewWorkspace } from "@/features/reviews/review-actions";
-import {rpgReviewRuntimeStatus} from "@/features/reviews/review-actions-model";
 import { adjacentReviewItemId } from "@/features/reviews/review-navigation";
 import { type ReviewQueueItem } from "@/features/reviews/review-queue";
 import { ReviewValidationGuidance, reviewCompatibilityLabel, type ReviewDependencySnapshot } from "@/features/reviews/review-validation-guidance";
@@ -109,18 +108,17 @@ function reviewSourceDisplayName(review: Review) {
 }
 
 function summarizeReview(review: Review): ReviewDetailSummary {
-  const rpgStatus = review.rpgMaker ? rpgReviewRuntimeStatus(review.rpgMaker) : null;
-  const validationStatus = rpgStatus?.status ?? review.validation?.status ?? "PENDING";
-  const compatibilityCode = rpgStatus?.compatibilityCode ?? review.validation?.compatibilityCode ?? validationStatus;
+  const validationStatus = review.validation?.status ?? "PENDING";
+  const compatibilityCode = review.validation?.compatibilityCode ?? validationStatus;
   const dependencySnapshot = review.validation?.dependencySnapshot;
   return {
     compatibilityCode,
-    compatibilityLabel: rpgStatus?.compatibilityLabel ?? reviewCompatibilityLabel(compatibilityCode, validationStatus),
+    compatibilityLabel: reviewCompatibilityLabel(compatibilityCode, validationStatus),
     dependencyCount: dependencyCount(dependencySnapshot),
     dependencyIssueCount: dependencyIssueCount(dependencySnapshot),
     dependencySnapshot,
     sourceDisplayName: reviewSourceDisplayName(review),
-    suppressGenericGuidance: rpgStatus !== null,
+    suppressGenericGuidance: false,
     validationStatus,
   };
 }

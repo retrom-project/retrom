@@ -610,10 +610,10 @@ INSERT INTO game_variants(
 ) VALUES(?,?,'dosbox_pure',?,?,?,'READY','READY','{}',1,?,?)
 `, variantID, gameID, target.ProviderID, target.TargetID, 10_000+index, now, now)
 		mustExecHTTPTest(t, transaction, `
-INSERT INTO launch_sessions(id,profile_id,purpose,game_id,core_id,provider_id,target_id,bundle_sha256,
+INSERT INTO launch_sessions(id,profile_id,game_id,core_id,provider_id,target_id,bundle_sha256,
 content_kind,dependency_snapshot_json,compatibility_code,return_to,credential_sha256,
 state,bootstrap_expires_at_ms,finished_at_ms,hard_expires_at_ms,created_at_ms,updated_at_ms,version)
-VALUES(?,'local','PRODUCT',?,'dosbox_pure',?,?,?,'SINGLE_FILE','{}','READY','/recent',zeroblob(32),'FINISHED',?,?,?,?,?,1)
+VALUES(?,'local',?,'dosbox_pure',?,?,?,'SINGLE_FILE','{}','READY','/recent',zeroblob(32),'FINISHED',?,?,?,?,?,1)
 `, launchID, gameID, target.ProviderID, target.TargetID, target.BundleSHA256,
 			now+60_000, now, now+120_000, now, now)
 		mustExecHTTPTest(t, transaction, `
@@ -747,10 +747,10 @@ INSERT INTO game_variants(
 	testassert.False(t, err != nil, err)
 	sourceLaunchID := uuid.NewString()
 	mustExecHTTPTest(t, transaction, `
-INSERT INTO launch_sessions(id,profile_id,purpose,game_id,core_id,
+INSERT INTO launch_sessions(id,profile_id,game_id,core_id,
 provider_id,target_id,bundle_sha256,content_kind,dependency_snapshot_json,compatibility_code,return_to,
 credential_sha256,state,bootstrap_expires_at_ms,finished_at_ms,hard_expires_at_ms,created_at_ms,updated_at_ms,version)
-VALUES(?,'local','PRODUCT',?,'dosbox_pure',?,?,?,'SINGLE_FILE','{}','READY','/',zeroblob(32),'FINISHED',?,?,?, ?,?,1)
+VALUES(?,'local',?,'dosbox_pure',?,?,?,'SINGLE_FILE','{}','READY','/',zeroblob(32),'FINISHED',?,?,?, ?,?,1)
 `, sourceLaunchID, gameID, target.ProviderID, target.TargetID, target.BundleSHA256,
 		now+60_000, now, now+120_000, now, now)
 	payloadDigest := sha256.Sum256(fixture.screenshot)
@@ -775,10 +775,10 @@ INSERT INTO save_states(
 		launchID, playID := uuid.NewString(), uuid.NewString()
 		fixture.latestLaunchID = launchID
 		mustExecHTTPTest(t, transaction, `
-INSERT INTO launch_sessions(id,profile_id,purpose,game_id,core_id,
+INSERT INTO launch_sessions(id,profile_id,game_id,core_id,
 provider_id,target_id,bundle_sha256,content_kind,dependency_snapshot_json,compatibility_code,return_to,
 credential_sha256,state,bootstrap_expires_at_ms,finished_at_ms,hard_expires_at_ms,created_at_ms,updated_at_ms,version)
-VALUES(?,'local','PRODUCT',?,'dosbox_pure',?,?,?,'SINGLE_FILE','{}','READY','/',zeroblob(32),'FINISHED',?,?,?, ?,?,1)
+VALUES(?,'local',?,'dosbox_pure',?,?,?,'SINGLE_FILE','{}','READY','/',zeroblob(32),'FINISHED',?,?,?, ?,?,1)
 `, launchID, gameID, target.ProviderID, target.TargetID, target.BundleSHA256,
 			now+60_000, now+int64(index), now+120_000, now, now+int64(index))
 		mustExecHTTPTest(t, transaction, `

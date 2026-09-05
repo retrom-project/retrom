@@ -1,7 +1,7 @@
 #!/usr/bin/env node
-import { randomUUID } from "node:crypto";
-import { mkdirSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { createHash, randomUUID } from "node:crypto";
+import { lstatSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { basename, dirname, isAbsolute, join } from "node:path";
 import { chromium } from "../../web/node_modules/playwright/index.mjs";
 import { localRpgAcceptanceProxy } from "./rpgmaker_local_proxy.mjs";
 import { normalizedBase } from "./rpgmaker_url.mjs";
@@ -116,33 +116,36 @@ async function catalogCase(context, writeHeaders) {
 async function generationCase(context, writeHeaders) {
   const prefix = `RETROM_${caseId.replaceAll("-", "_")}`;
   const itemId = required(`${prefix}_IMPORT_ITEM_ID`);
-  const validationId = required(`${prefix}_VALIDATION_ID`);
-  const gameId = required(`${prefix}_GAME_ID`);
+  const trialPath = required(prefix + "_TRIAL_EVIDENCE");
+  const gameId = required(prefix + "_GAME_ID");
   const expectedDigest = required("RETROM_RPG_EXPECTED_PROJECT_DIGEST");
-  const validation = await jsonRequest(
-    context.request, "GET", `/api/v1/admin/reviews/${itemId}/runtime-validations/${validationId}`,
-  );
-  if (validation.importItemId !== itemId || validation.validationId !== validationId) {
-    throw new Error("RPG_ACCEPTANCE_VALIDATION_RELATION_INVALID");
+  if (!isAbsolute(trialPath) || !lstatSync(trialPath).isFile() || lstatSync(trialPath).isSymbolicLink() ||
+      lstatSync(trialPath).size > 1_048_576) {throw new Error("RPG_ACCEPTANCE_TRIAL_FILE_INVALID");}
+  const runtimeTrial = JSON.parse(readFileSync(trialPath, "utf8"));
+  if (runtimeTrial.kind !== "DEVELOPMENT_RUNTIME_TRIAL" || runtimeTrial.schemaVersion !== 1 ||
+      runtimeTrial.importItemId !== itemId || runtimeTrial.caseId !== caseId || runtimeTrial.gameId !== gameId) {
+    throw new Error("RPG_ACCEPTANCE_TRIAL_RELATION_INVALID");
   }
-  if (validation.routeEvidence?.projectFingerprint !== expectedDigest) {
+  if (runtimeTrial.routeEvidence?.projectFingerprint !== expectedDigest) {
     throw new Error("RPG_ACCEPTANCE_FIXTURE_DIGEST_MISMATCH");
   }
   const approved = await approvedReview(context.request, itemId, gameId);
   const review = approved.event;
   const inputTranscript = await readInputTranscript(context.request, approved.importJobId);
-  const restoreScreenshotUrl = validation.checkpointRoundTrip?.screenshotUrl;
-  if (!restoreScreenshotUrl?.startsWith("/api/v1/admin/review-assets/")) {
+  const screenshot = runtimeTrial.restoredScreenshot;
+  if (screenshot?.fileName !== basename(trialPath) + "-restored.png") {
     throw new Error("RPG_ACCEPTANCE_RESTORE_SCREENSHOT_MISSING");
   }
-  const restoreScreenshot = await context.request.get(`${baseUrl}${restoreScreenshotUrl}`, { failOnStatusCode: false });
-  if (restoreScreenshot.status() !== 200 || !restoreScreenshot.headers()["content-type"]?.startsWith("image/")) {
+  const imagePath = join(dirname(trialPath), screenshot.fileName);
+  const stat = lstatSync(imagePath);
+  if (!stat.isFile() || stat.isSymbolicLink() || stat.size !== screenshot.sizeBytes || stat.size > 64 * 1024 * 1024) {
     throw new Error("RPG_ACCEPTANCE_RESTORE_SCREENSHOT_UNAVAILABLE");
   }
-  writeFileSync(
-    join(screenshotDir, `${caseId.toLowerCase()}-restored-marker.png`),
-    await restoreScreenshot.body(),
-  );
+  const restoreScreenshot = readFileSync(imagePath);
+  if (createHash("sha256").update(restoreScreenshot).digest("hex") !== screenshot.sha256) {
+    throw new Error("RPG_ACCEPTANCE_RESTORE_SCREENSHOT_DIGEST_MISMATCH");
+  }
+  writeFileSync(join(screenshotDir, caseId.toLowerCase() + "-restored-marker.png"), restoreScreenshot);
   const game = await jsonRequest(context.request, "GET", `/api/v1/admin/games/${gameId}`);
   if (game.status !== "PUBLISHED") { throw new Error("RPG_ACCEPTANCE_GAME_NOT_PUBLISHED"); }
   const launch = await jsonRequest(context.request, "POST", "/api/v1/launches", {
@@ -322,7 +325,7 @@ async function generationCase(context, writeHeaders) {
       firstVisibleLoading.projectContentIdentity === cacheVisibleLoading.projectContentIdentity;
   return {
     schemaVersion: 1, caseId, status: "PASS",
-    review: safeReview(review, validation), validation: safeValidation(validation),
+    review: safeReview(review, runtimeTrial), runtimeTrial,
     inputTranscript,
     runtimeEnvironment: { chromeVersion },
     productLaunch: {
@@ -634,28 +637,15 @@ async function jsonRequest(request, method, path, options = {}) {
   return response.json();
 }
 
-function safeReview(review, validation) {
-  const route = validation.routeEvidence;
+function safeReview(review, runtimeTrial) {
+  const route = runtimeTrial.routeEvidence;
   return {
     itemId: review.importItemId, reviewEventId: review.reviewEventId, decision: review.eventType,
     version: null, contentIdentityDigest: route.projectFingerprint,
     rpgMaker: {
       selectedCoreId: "rpgmaker", generation: route.generation,
       evidenceGeneration: route.evidenceGeneration, evidenceConfidence: route.evidenceConfidence,
-      reviewVersionAtCreate: validation.reviewVersionAtCreate, runtimeValidationCurrent: true,
     },
-  };
-}
-
-function safeValidation(value) {
-  return {
-    validationId: value.validationId, importItemId: value.importItemId,
-    reviewVersionAtCreate: value.reviewVersionAtCreate,
-    launchId: value.launchId, restoreLaunchId: value.restoreLaunchId, state: value.state,
-    lastGateSequence: value.lastGateSequence, routeEvidence: value.routeEvidence,
-    machineGates: value.machineGates, checkpointRoundTrip: value.checkpointRoundTrip,
-    failureCode: value.failureCode, decision: value.decision,
-    createdAtMs: value.createdAtMs, updatedAtMs: value.updatedAtMs, expiresAtMs: value.expiresAtMs,
   };
 }
 

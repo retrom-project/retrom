@@ -67,7 +67,6 @@ type approvalRun struct {
 	eventID                       string
 	publishedTags                 []tagging.Reference
 	screenshotIDs                 []string
-	rpgValidationID               string
 	rpgGeneration                 string
 	rpgDependencySnapshotSHA      string
 }
@@ -129,7 +128,7 @@ func (run *approvalRun) load() error {
 	if err != nil || run.state != "REVIEW_PENDING" || run.draftVersion != run.expectedVersion {
 		return ErrInvalid
 	}
-	if run.options.strictReady && run.platformID != "rpgmaker" && run.validationStatus != "READY" {
+	if run.options.strictReady && run.validationStatus != "READY" {
 		return ErrInvalid
 	}
 	if run.options.expectedValidationID != "" && run.validationID != run.options.expectedValidationID {
@@ -145,12 +144,11 @@ func (run *approvalRun) prepare() error {
 	if err := run.resolveServerOrigin(); err != nil {
 		return err
 	}
-	if run.platformID != "rpgmaker" &&
-		!run.contentPolicy.Supports(run.contentKind) {
+	if !run.contentPolicy.Supports(run.contentKind) {
 		return ErrInvalid
 	}
 	if run.platformID == "rpgmaker" {
-		if err := run.loadLaunchedRPGValidation(); err != nil {
+		if err := run.loadRPGProfile(); err != nil {
 			return err
 		}
 	}
@@ -189,9 +187,6 @@ func (run *approvalRun) resolveServerOrigin() error {
 
 func (run *approvalRun) prepareValidationSnapshot() error {
 	if run.platformID == "rpgmaker" {
-		if run.approvalScreenshotID.Valid || run.validationStatus == "READY" {
-			return ErrInvalid
-		}
 		run.runtimeDependencySnapshotJSON = run.dependencySnapshotJSON
 		return nil
 	}
@@ -274,7 +269,6 @@ JOIN review_drafts d ON d.import_item_id=i.id
 JOIN import_item_source_snapshots source_snapshot ON source_snapshot.id=d.effective_source_snapshot_id
 JOIN platform_instances p ON p.id=d.target_platform_instance_id
   AND p.enabled=1 AND p.deleted_at_ms IS NULL
-LEFT JOIN rpgmaker_review_profiles rpg_binding ON rpg_binding.review_draft_id=d.id
 JOIN import_item_core_validations v ON v.id=(
   SELECT candidate.id FROM import_item_core_validations candidate
   WHERE candidate.import_item_id=i.id
@@ -296,23 +290,12 @@ AND (i.review_handoff_kind='DIRECT' OR EXISTS(
   WHERE reserved_source.library_import_item_id=i.id
   AND reserved_source.execution_state='REVIEW_PENDING'
 ))
-AND (p.platform_id='rpgmaker' AND EXISTS(
-  SELECT 1 FROM rpgmaker_review_profiles rpg_profile
-  JOIN rpgmaker_runtime_validations runtime_validation
-    ON runtime_validation.import_item_id=i.id
-    AND runtime_validation.effective_source_snapshot_id=d.effective_source_snapshot_id
-  WHERE rpg_profile.review_draft_id=d.id AND runtime_validation.launch_id IS NOT NULL
-    AND runtime_validation.generation=rpg_profile.generation
-    AND runtime_validation.provider_id=rpg_profile.provider_id
-    AND runtime_validation.target_id=rpg_profile.target_id
-    AND runtime_validation.project_fingerprint=rpg_profile.project_fingerprint
-    AND runtime_validation.dependency_snapshot_sha256=rpg_profile.dependency_snapshot_sha256
-) OR p.platform_id<>'rpgmaker' AND (v.status='READY' OR EXISTS(
+AND (v.status='READY' OR EXISTS(
   SELECT 1 FROM review_runtime_screenshots screenshot
   WHERE screenshot.import_item_id=i.id AND screenshot.validation_id=v.id
     AND screenshot.source_snapshot_id=d.effective_source_snapshot_id
     AND screenshot.provider_id=v.provider_id AND screenshot.target_id=v.target_id
-)))
+))
 AND v.default_dos_entry IS d.default_dos_entry
 AND v.dat_version_id IS (
   SELECT active.id FROM dat_versions active
@@ -320,26 +303,12 @@ AND v.dat_version_id IS (
 )
 `
 
-func (run *approvalRun) loadLaunchedRPGValidation() error {
-	err := run.transaction.QueryRowContext(run.ctx, `
-SELECT validation.id,profile.generation,profile.dependency_snapshot_sha256
-FROM review_drafts draft
-JOIN rpgmaker_review_profiles profile ON profile.review_draft_id=draft.id
-JOIN rpgmaker_runtime_validations validation
-  ON validation.import_item_id=draft.import_item_id
-  AND validation.effective_source_snapshot_id=draft.effective_source_snapshot_id
-  AND validation.launch_id IS NOT NULL
-  AND validation.generation=profile.generation
-  AND validation.provider_id=profile.provider_id
-  AND validation.target_id=profile.target_id
-  AND validation.dependency_snapshot_sha256=profile.dependency_snapshot_sha256
-  AND validation.project_fingerprint=profile.project_fingerprint
-WHERE draft.id=?
-`, run.draftID).Scan(
-		&run.rpgValidationID, &run.rpgGeneration, &run.rpgDependencySnapshotSHA,
-	)
-	if err != nil {
+func (run *approvalRun) loadRPGProfile() error {
+	profile, resolution, state, err := loadReviewRPGDependencies(run.ctx, run.transaction, run.draftID)
+	if err != nil || state.status != "READY" || state.snapshotJSON != run.dependencySnapshotJSON ||
+		profile.dependencySHA256 != resolution.DependencySHA256 {
 		return ErrInvalid
 	}
+	run.rpgGeneration, run.rpgDependencySnapshotSHA = profile.generation, resolution.DependencySHA256
 	return nil
 }

@@ -33,8 +33,12 @@ The RGSS projects contain one project-owned
 Ruby program in a deterministic Ruby Marshal 4.8 array with a deterministic
 stored-zlib member. Arrow input moves a visible block and the confirm input
 cycles variable 1 through 0, 1, and 2. Rendering uses only solid rectangles so
-the fixture does not depend on an RTP or host font. Their globals match Retrom's
-read-only position bridge, so checkpoint acceptance can compare map, x/y, and variable.
+the fixture does not depend on an RTP or host font. The owned Ruby program emits
+its actual map, x/y, variable and frame count every 30 frames. Only the development
+acceptance harness reads this output; no production Provider position bridge exists.
+For LCF, the harness reads map, x/y and variable 1 from ordinary uploaded LSD saves;
+for MV/MZ it observes the actual engine globals in the browser. None of these
+observations is submitted to a production validation endpoint or approval gate.
 The MV project enters a standard `Scene_Map`, moves the standard `$gamePlayer`,
 cycles `$gameVariables[1]` from 0 to 1 to 2 on confirm, and saves only through
 the standard `DataManager` pipeline. Its marker PNG and short WAV are generated

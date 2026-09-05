@@ -15,6 +15,19 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 
 
 class MakefileDependencyTests(unittest.TestCase):
+    def test_data_check_covers_preserving_pfb_identity_when_adding_a_core(self) -> None:
+        self.assertIn("python3 -m unittest scripts.test_pfb_init", self.dry_run("data-check"))
+        self.assertIn("python3 -m unittest scripts.test_pfb_data_reset", self.dry_run("data-check"))
+
+    def test_data_reset_forwards_optional_verified_provider_base(self) -> None:
+        output = subprocess.run(
+            ["make", "--dry-run", "pfb-data-reset", "PFB=fixture", "CONFIRM=fixture-000000000000",
+             "SOURCE_ROOT=/tmp/verified-provider-base"],
+            cwd=REPOSITORY_ROOT, check=True, text=True, capture_output=True,
+        ).stdout
+        self.assertIn('--source-root "/tmp/verified-provider-base"', output)
+        self.assertNotIn("--source-root", self.dry_run("pfb-data-reset"))
+
     def test_quality_sentinels_hash_source_without_requiring_a_provider_release(self) -> None:
         script = (REPOSITORY_ROOT / "scripts/acceptance/quality-sentinels.sh").read_text(encoding="utf-8")
         self.assertNotIn("make --no-print-directory -C", script)

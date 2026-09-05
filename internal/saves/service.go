@@ -47,11 +47,9 @@ func New(
 type ManualResult struct {
 	ResourceKind     string
 	SaveStateID      string
-	ValidationID     string
+	PreviewID        string
 	CheckpointFormat string
 	ScreenshotURL    *string
-	SizeBytes        int64
-	PayloadSHA256    string
 	CreatedAtMS      int64
 	Name             string
 	DiscIndex        *int
@@ -60,20 +58,18 @@ type ManualResult struct {
 }
 
 func (result ManualResult) MarshalJSON() ([]byte, error) {
-	if result.ResourceKind == "RPG_RUNTIME_VALIDATION_CHECKPOINT" {
+	if result.ResourceKind == "REVIEW_PREVIEW_CHECKPOINT" {
 		contents, err := json.Marshal(struct {
 			ResourceKind     string `json:"resourceKind"`
-			ValidationID     string `json:"validationId"`
+			PreviewID        string `json:"previewId"`
 			CheckpointFormat string `json:"checkpointFormat"`
-			SizeBytes        int64  `json:"sizeBytes"`
-			PayloadSHA256    string `json:"sha256"`
 			CreatedAtMS      int64  `json:"createdAtMs"`
 		}{
-			result.ResourceKind, result.ValidationID, result.CheckpointFormat,
-			result.SizeBytes, result.PayloadSHA256, result.CreatedAtMS,
+			result.ResourceKind, result.PreviewID, result.CheckpointFormat,
+			result.CreatedAtMS,
 		})
 		if err != nil {
-			return nil, fmt.Errorf("marshal validation checkpoint result: %w", err)
+			return nil, fmt.Errorf("marshal review checkpoint result: %w", err)
 		}
 		return contents, nil
 	}
@@ -97,21 +93,19 @@ func (result *ManualResult) UnmarshalJSON(contents []byte) error {
 	var wire struct {
 		ResourceKind     string  `json:"resourceKind"`
 		SaveStateID      string  `json:"saveStateId"`
-		ValidationID     string  `json:"validationId"`
+		PreviewID        string  `json:"previewId"`
 		CheckpointFormat string  `json:"checkpointFormat"`
 		ScreenshotURL    *string `json:"screenshotUrl"`
-		SizeBytes        int64   `json:"sizeBytes"`
-		PayloadSHA256    string  `json:"sha256"`
 		CreatedAtMS      int64   `json:"createdAtMs"`
 	}
 	if err := json.Unmarshal(contents, &wire); err != nil {
 		return fmt.Errorf("unmarshal checkpoint result: %w", err)
 	}
 	*result = ManualResult{
-		ResourceKind: wire.ResourceKind, SaveStateID: wire.SaveStateID, ValidationID: wire.ValidationID,
+		ResourceKind: wire.ResourceKind, SaveStateID: wire.SaveStateID, PreviewID: wire.PreviewID,
 		CheckpointFormat: wire.CheckpointFormat,
-		ScreenshotURL:    wire.ScreenshotURL, SizeBytes: wire.SizeBytes, PayloadSHA256: wire.PayloadSHA256,
-		CreatedAtMS: wire.CreatedAtMS,
+		ScreenshotURL:    wire.ScreenshotURL,
+		CreatedAtMS:      wire.CreatedAtMS,
 	}
 	return nil
 }

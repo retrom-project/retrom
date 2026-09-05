@@ -8,9 +8,9 @@ Retrom 的规划文档按“总览 + 统一验收 + 领域专题 + 可执行数�
 
 全新数据库只 seed Platform/Core/关系等 reference catalog，PlatformInstance 初始为零；管理员在游戏目录页一键补齐推荐模板。RPG Maker 对用户仍是唯一 `rpgmaker` Core，服务端按项目证据绑定 `rpgmaker-2000` 至 `rpgmaker-mz` 七个 Provider Target；这些 Target 只用于不可变运行绑定和管理诊断，不进入用户 Core 选择器。FDS 归入 NES/FCEUmm，扩展名只由平台内容 profile 提供。Pegasus/EmulationStation、标签、收藏、Payload 生命周期与受限异地联机继续使用各自领域契约；八个联机 profile 绑定精确 Provider Target 和 `netplay profile digest`，不按单个 ROM 建产品白名单。
 
-一期基线、账户隔离、Saturn/yabause 多盘系统、服务器 BIOS 导入、Pegasus ROM 目录导入与精确诊断、统一审核交接、审核运行预览、截图人工放行和快速审批都已落入代码、OpenAPI 和生成物。当前版本要求登录，区分 `ADMIN`/`USER`，每个账号拥有独立 Profile。部署者配置的只读 root 同时承载 BIOS 与 Pegasus 两种管理导入：前者按完整启用 catalog 逐项安装，后者按 `metadata.pegasus.txt` 扫描、显式 Collection 映射、复制与运行检查后生成普通审核事项。审核页可预览当前筛选范围，并把严格 `READY`、没有重复内容且没有活动补传的条目交给可恢复后台批次发布；截图人工放行、重复内容和其他需要判断的条目继续逐项处理。审核详情仍可在隔离子窗体中尽最大可能运行当前来源，核心真实启动后第 5 秒保存运行截图；进入发布、丢弃、跳过或不可恢复失败等终态后，审核历史只保留 ReviewEvent v2 的文字与结构化审计，工作流 CAS payload 由可恢复的 PayloadRelease 后台任务释放。管理员“永久删除游戏”保留 Game 与历史关系的文字墓碑，立即关闭运行能力并异步释放游戏内容、媒体、存档和运行时 payload；共享 Blob 继续受保护，独占 Blob 经 24 小时至 30 天的配置宽限期后由有界 GC 回收。详情页可在前台可见满两秒后静音播放当前 VIDEO，其他用户列表保持 cover-only。正式细节分别由数据、导入、HTTP、运维和 UI 专题维护。
+一期基线、账户隔离、Saturn/yabause 多盘系统、服务器 BIOS 导入、Pegasus ROM 目录导入与精确诊断、统一审核交接、审核运行预览、截图人工放行和快速审批都已落入代码、OpenAPI 和生成物。当前版本要求登录，区分 `ADMIN`/`USER`，每个账号拥有独立 Profile。部署者配置的只读 root 同时承载 BIOS 与 Pegasus 两种管理导入：前者按完整启用 catalog 逐项安装，后者按 `metadata.pegasus.txt` 扫描、显式 Collection 映射、复制与运行检查后生成普通审核事项。审核页可预览当前筛选范围，并把严格 `READY`、没有重复内容且没有活动补传的条目交给可恢复后台批次发布；截图人工放行、重复内容和其他需要判断的条目继续逐项处理。审核详情仍可在隔离子窗体中尽最大可能运行当前来源，通过普通 Player 按需保存运行截图；进入发布、丢弃、跳过或不可恢复失败等终态后，审核历史只保留 ReviewEvent v2 的文字与结构化审计，工作流 CAS payload 由可恢复的 PayloadRelease 后台任务释放。管理员“永久删除游戏”保留 Game 与历史关系的文字墓碑，立即关闭运行能力并异步释放游戏内容、媒体、存档和运行时 payload；共享 Blob 继续受保护，独占 Blob 经 24 小时至 30 天的配置宽限期后由有界 GC 回收。详情页可在前台可见满两秒后静音播放当前 VIDEO，其他用户列表保持 cover-only。正式细节分别由数据、导入、HTTP、运维和 UI 专题维护。
 
-上述审核 preview、第 5 秒截图和截图人工放行只适用于非 RPG Maker 条目。RPG Maker 项目使用正式 `RPG_RUNTIME_VALIDATION` Launch；管理员已主动发起并成功创建真实 Player 检查后即可“通过并发布”，不要求普通上传者逐项完成复杂校验。A→B 保存→C→不同 Launch 精确恢复到 B 与恢复后 `RESTORE_INPUT` 是可选的高级审核流程，同时仍是七核心自动化发布验收门禁；一旦选择执行，机器 gate 失败不能由截图 override。
+所有项目类型（包括 RPG Maker）共用审核 Preview 与普通 Player：点击“运行游戏”同步打开子窗口，服务端校验当前来源、目标、文件、依赖及浏览器能力后签发会话；Player 使用普通 config/start/heartbeat/finish、Provider dispatcher 和退出清理，不创建假 Game，也没有专用机器证明、额外验证决定或人工重检流程。管理员可按需保存运行截图、重复创建会话级临时 checkpoint，并从已有 checkpoint 创建新的 Preview 恢复，不要求先结束原 Preview。临时内容在会话到期或审核结束时释放；正式发布仍由当前来源与实际依赖检查决定。
 
 标准手柄沉浸模式是独立于普通 PC/移动界面的电视交互面：普通首页既提供显式入口，也可由任意标准手柄
 按键打开确认层。进入后先按“全部游戏、最近游玩、收藏游戏、我的存档”固定顺序展示 Profile 私有入口，
@@ -52,7 +52,7 @@ HTTP、运行时、依赖及统一验收专题维护。
 - [`platform-instance.md`](./platform-instance.md)：游戏目录（PlatformInstance）的唯一归属、默认核心、导入快照、数据库约束和生命周期。
 - [`import-and-review.md`](./import-and-review.md)：文件/目录导入、Hasheous 哈希刮削、任务状态机、人工审核、Arcade Parent 与多盘缺盘补充、历史回溯。
 - [`bios-and-arcade.md`](./bios-and-arcade.md)：BIOS 文件、哈希提示、服务器目录批量导入、核心专属 Arcade DAT、完整 machine/parent/BIOS 依赖闭包和 Parent ZIP 内容校验。
-- [`runtime-and-play-data.md`](./runtime-and-play-data.md)：直接启动、全屏 Player Shell、移动横屏方向门禁、预检、EmulatorJS、`RetromRpgRuntime`、DOS 启动程序、通用检查点与游玩时长。
+- [`runtime-and-play-data.md`](./runtime-and-play-data.md)：直接启动、全屏 Player Shell、移动横屏方向门禁、启动检查、Provider dispatcher、DOS 启动程序、通用检查点与游玩时长。
 - 受限联机不建立第二份专题；manifest 归依赖专题，持久状态归数据专题，REST/SSE/WebSocket 归 HTTP 专题，rollback/Player 归运行时专题，页面归 UI 专题。
 - [`favorites-and-collections.md`](./favorites-and-collections.md)：Profile 私有收藏、可重复加入的收藏夹、跨页面接入与统一验收入口。
 - [`game-tags.md`](./game-tags.md)：实例共享、管理员维护的游戏标签，覆盖生命周期、关系并发、导入继承、搜索投影与页面接入。

@@ -17,10 +17,10 @@ test("summarizes lazy project reads without serializing logical paths", () => {
     responses: [
       { contentLength: 800, status: 200, url: `${root}index.json` },
       { contentLength: 2048, status: 200, url: `${root}0.txt` },
-      { contentLength: 240000, status: 200, url: "https://retrom.example/runtime/retrom-runtime/v/core.js" },
+      { contentLength: 240000, status: 200, url: `https://retrom.example/runtime/providers/retrom-runtime/${"c".repeat(64)}/core.js` },
     ],
     timings: [
-      { decodedBodySize: 240000, transferSize: 0, url: "https://retrom.example/runtime/retrom-runtime/v/core.js" },
+      { decodedBodySize: 240000, transferSize: 0, url: `https://retrom.example/runtime/providers/retrom-runtime/${"c".repeat(64)}/core.js` },
     ],
   });
 

@@ -83,9 +83,9 @@ func (run *approvalRun) insertRPGMakerVariantProfile() error {
 	}
 	_, err := run.transaction.ExecContext(run.ctx, `
 INSERT INTO rpgmaker_variant_profiles(
-  game_variant_id,generation,dependency_snapshot_sha256,runtime_validation_id
-) VALUES(?,?,?,?)
-`, run.variantID, run.rpgGeneration, run.rpgDependencySnapshotSHA, run.rpgValidationID)
+  game_variant_id,generation,dependency_snapshot_sha256
+) VALUES(?,?,?)
+`, run.variantID, run.rpgGeneration, run.rpgDependencySnapshotSHA)
 	if err != nil {
 		return fmt.Errorf("libraryimport/rpgmaker variant profile: %w", err)
 	}

@@ -29,7 +29,6 @@ type Input struct {
 	Resources     []map[string]any
 	TargetOptions map[string]any
 	Restore       any
-	Validation    any
 	Netplay       any
 }
 
@@ -145,7 +144,7 @@ func (builder *Builder) Build(input Input) ([]byte, error) {
 			"capabilities": resolved.target.Capabilities, "checkpoint": resolved.target.Checkpoint,
 		},
 		"resources": input.Resources, "targetOptions": input.TargetOptions,
-		"restore": input.Restore, "validation": input.Validation, "netplay": input.Netplay,
+		"restore": input.Restore, "netplay": input.Netplay,
 	}
 	contents, err := json.Marshal(envelope)
 	if err != nil {

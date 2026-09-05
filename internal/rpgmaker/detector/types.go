@@ -41,7 +41,6 @@ const (
 type Requirement string
 
 const (
-	RequirementRuntimeValidation  Requirement = "RUNTIME_VALIDATION_REQUIRED"
 	RequirementRPG2KRTP           Requirement = "RPG2K_RTP_REQUIRED"
 	RequirementNativeWebIsolation Requirement = "NATIVE_WEB_ISOLATION_REQUIRED"
 )

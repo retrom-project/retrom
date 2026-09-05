@@ -204,18 +204,8 @@ SELECT digest,media_type FROM (
   AND (i.state='REVIEW_PENDING' OR EXISTS (
     SELECT 1 FROM review_events e WHERE e.import_item_id=i.id AND e.event_type IN ('APPROVED','DISCARDED')
   ))
-  UNION ALL
-  SELECT b.sha256 AS digest,'image/png' AS media_type
-  FROM rpgmaker_runtime_validations validation
-  JOIN blobs b ON b.id=validation.evidence_screenshot_blob_id
-  JOIN import_items i ON i.id=validation.import_item_id
-  WHERE validation.id=?
-  AND (i.state='REVIEW_PENDING' OR EXISTS (
-    SELECT 1 FROM review_events e WHERE e.import_item_id=i.id AND e.event_type IN ('APPROVED','DISCARDED')
-  ))
 ) LIMIT 1
-`, request.PathValue("assetId"), request.PathValue("assetId"), request.PathValue("assetId"),
-		request.PathValue("assetId")).Scan(&digest, &mediaType)
+`, request.PathValue("assetId"), request.PathValue("assetId"), request.PathValue("assetId")).Scan(&digest, &mediaType)
 	if errors.Is(err, sql.ErrNoRows) {
 		kind := request.URL.Query().Get("kind")
 		if kind == "" {

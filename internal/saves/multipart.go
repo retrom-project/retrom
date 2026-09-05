@@ -177,9 +177,6 @@ func validMetadataForLaunch(metadata manualMetadata, launch launchSnapshot) bool
 	if metadata.CheckpointFormat != launch.checkpointFormat {
 		return false
 	}
-	if launch.purpose == "RPG_RUNTIME_VALIDATION" {
-		return !metadata.namePresent && metadata.DiscIndex == nil && launch.originalValidationLaunch
-	}
 	return validName(metadata.Name) && validManualDiscIndex(launch, metadata.DiscIndex)
 }
 

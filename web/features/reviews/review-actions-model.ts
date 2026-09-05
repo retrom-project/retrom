@@ -1,5 +1,4 @@
 import type { TagReference } from "@/components/tag-picker";
-import type {components} from "@/lib/api/generated/schema";
 import type { ArcadeDependencies } from "./arcade-dependency-tree";
 
 export type ReviewAsset = { candidateAssetId: string; kind: "COVER" | "BACKGROUND" | "SCREENSHOT" | "UNKNOWN"; ordinal: number; status: string; widthPx: number | null; heightPx: number | null; mediaType: string | null; errorCode: string | null };
@@ -19,16 +18,11 @@ export type ReviewSourceMedia = ReviewSourceMediaBase & (
   | { sourceKind: "PEGASUS"; pegasusImportId: string; emulationStationImportId?: never }
   | { sourceKind: "EMULATIONSTATION"; emulationStationImportId: string; pegasusImportId?: never }
 );
-export type RPGPosition = components["schemas"]["RpgPositionEvidence"];
-export type RPGMachineGate = components["schemas"]["RpgRuntimeMachineGate"];
-export type RPGRuntimeValidation = components["schemas"]["RpgRuntimeValidation"];
 export type RPGMakerReview = {
   selectedCoreId: string; generation: string; evidenceGeneration: string | null; evidenceConfidence: "MATCHED" | "FAMILY_ONLY";
   selfContained: boolean; selfContainedOverride: boolean;
   runtimePackRequirements: Array<{ slot: number; declaredName: string; normalizedDeclaredName: string }>;
   runtimePackSelections: Array<{ slot: number; declaredName: string; installationId: string }>;
-  runtimeValidation: RPGRuntimeValidation | null;
-  runtimeValidationCurrent?: boolean;
 };
 export type ReviewWorkspace = {
   itemId: string; version: number; platformInstance?: { id: string; name: string }; effectiveSourceSnapshotId?: string; canApprove?: boolean;
@@ -38,7 +32,7 @@ export type ReviewWorkspace = {
   candidates: ReviewCandidate[]; uploadedAssets?: UploadedReviewAsset[];
   sourceMedia?: ReviewSourceMedia | null;
   rpgMaker?: RPGMakerReview | null;
-  runtimeScreenshot?: { screenshotId: string; validationId: string; providerId: string; targetId: string; widthPx: number; heightPx: number; capturedAfterMs: 5000; capturedAtMs: number; url: string } | null;
+  runtimeScreenshot?: { screenshotId: string; validationId: string; providerId: string; targetId: string; widthPx: number; heightPx: number; capturedAtMs: number; url: string } | null;
   scrapeRuns?: ReviewScrapeRun[]; selectedCandidateId: string | null;
   selectedAssets: { coverCandidateAssetId: string | null; coverUploadedAssetId?: string | null; backgroundCandidateAssetId: string | null; screenshotCandidateAssetIds: string[] };
   defaultDosEntry: string | null; dosEntries: Array<{ path: string; originalPath: string; kind: string; enabled: boolean; directLaunchSafe: boolean }>;
@@ -94,16 +88,6 @@ export function reviewReadyForPublish(review: ReviewWorkspace) {
   const multiDiscActive = review.multiDisc?.activeAttachment?.state;
   const attachmentActive = [parentActive, multiDiscActive].some((state) => state === "QUEUED" || state === "RUNNING");
   return (review.canApprove ?? review.validation?.status === "READY") && !attachmentActive;
-}
-
-export function rpgReviewRuntimeStatus(value: RPGMakerReview) {
-  const current = value.runtimeValidationCurrent ?? true;
-  if (current && value.runtimeValidation?.launchId) {
-    return {compatibilityCode: "READY", compatibilityLabel: "已启动游戏，可发布", status: "READY"};
-  }
-  return {
-    compatibilityCode: "NEEDS_VALIDATION", compatibilityLabel: "等待启动游戏", status: "PENDING",
-  };
 }
 
 export function previewAsset(candidates: ReviewCandidate[], uploaded: UploadedReviewAsset[], cover: CoverSelection): PreviewAsset | null {

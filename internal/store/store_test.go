@@ -38,13 +38,25 @@ WHERE type='trigger' AND name LIKE 'import_group_requests_immutable_%' ORDER BY 
 	for _, table := range tables {
 		assertIntegerTimeColumns(t, database.SQL, table)
 	}
-	testassert.Falsef(t, len(tables) != 125, "fresh schema table count = %d", len(tables))
+	testassert.Falsef(t, len(tables) != 122, "fresh schema table count = %d", len(tables))
 	assertColumns(t, database.SQL, "review_preview_sessions",
-		"import_item_id", "source_snapshot_id", "validation_id", "capture_allowed", "credential_sha256",
-		"bootstrap_expires_at_ms", "hard_expires_at_ms")
+		"import_item_id", "source_snapshot_id", "validation_id", "credential_sha256",
+		"bootstrap_expires_at_ms", "hard_expires_at_ms", "checkpoint_payload_blob_id", "checkpoint_format",
+		"restore_from_preview_id", "restore_payload_blob_id", "restore_checkpoint_format")
 	assertColumns(t, database.SQL, "review_preview_files", "preview_session_id", "role", "blob_id", "virtual_path")
 	assertColumns(t, database.SQL, "review_runtime_screenshots",
-		"import_item_id", "preview_session_id", "validation_id", "blob_id", "captured_after_ms", "captured_at_ms")
+		"import_item_id", "preview_session_id", "validation_id", "blob_id", "captured_at_ms")
+	for _, removed := range []struct{ table, column string }{
+		{"review_preview_sessions", "capture_allowed"}, {"review_runtime_screenshots", "captured_after_ms"},
+	} {
+		var found int
+		if err := database.SQL.QueryRowContext(t.Context(), "SELECT count(*) FROM pragma_table_info(?) WHERE name=?", removed.table, removed.column).Scan(&found); err != nil {
+			t.Fatal(err)
+		}
+		if found != 0 {
+			t.Fatalf("obsolete review screenshot policy remains: %s.%s", removed.table, removed.column)
+		}
+	}
 	assertColumns(t, database.SQL, "netplay_rooms", "host_profile_id", "state", "profile_digest", "expires_at_ms")
 	assertColumns(t, database.SQL, "netplay_room_members", "room_id", "profile_id", "player_no", "ready")
 	assertColumns(t, database.SQL, "netplay_sessions", "provider_id", "target_id", "bundle_sha256",
@@ -52,21 +64,16 @@ WHERE type='trigger' AND name LIKE 'import_group_requests_immutable_%' ORDER BY 
 	assertColumns(t, database.SQL, "netplay_session_participants", "credential_sha256", "lease_expires_at_ms")
 	assertColumns(t, database.SQL, "netplay_events", "event_type", "data_json", "created_at_ms")
 	assertColumns(t, database.SQL, "launch_sessions", "netplay_session_id", "netplay_player_no", "save_access")
-	assertColumns(t, database.SQL, "launch_sessions", "purpose", "game_id", "core_id", "provider_id",
-		"target_id", "bundle_sha256", "content_kind", "dependency_snapshot_json", "compatibility_code",
-		"effective_source_snapshot_id", "rpgmaker_runtime_validation_id")
+	assertColumns(t, database.SQL, "launch_sessions", "game_id", "core_id", "provider_id",
+		"target_id", "bundle_sha256", "content_kind", "dependency_snapshot_json", "compatibility_code")
 	assertColumns(t, database.SQL, "runtime_providers", "provider_version", "provider_api_version",
 		"bundle_sha256", "manifest_sha256", "module_sha256", "source")
 	assertColumns(t, database.SQL, "runtime_targets", "target_id", "target_options_schema_json",
 		"capabilities_json", "checkpoint_json")
 	assertColumns(t, database.SQL, "runtime_target_bindings", "core_id", "provider_id", "target_id",
-		"detector_profile", "delivery_profile", "launch_policy", "review_policy")
+		"detector_profile", "delivery_profile", "launch_policy")
 	assertColumns(t, database.SQL, "save_states", "game_id", "checkpoint_format", "payload_blob_id",
 		"payload_sha256", "payload_size_bytes", "source_launch_session_id")
-	assertColumns(t, database.SQL, "rpgmaker_runtime_validations", "review_version_at_create", "project_fingerprint",
-		"provider_id", "target_id", "launch_id", "restore_launch_id",
-		"last_gate_sequence", "machine_gates_json")
-	assertColumns(t, database.SQL, "rpgmaker_runtime_validation_checkpoints", "payload_blob_id", "checkpoint_format")
 	assertColumns(t, database.SQL, "isolated_runtime_bootstrap_tickets", "launch_id", "preview_id")
 	assertColumns(t, database.SQL, "isolated_runtime_capabilities", "launch_id", "preview_id")
 	assertColumns(t, database.SQL, "runtime_asset_pack_installations", "status", "version", "validated_at_ms")

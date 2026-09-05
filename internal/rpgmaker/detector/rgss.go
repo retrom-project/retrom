@@ -66,7 +66,7 @@ func detectRGSS(files *catalog) ([]evidence, error) {
 	}
 	return []evidence{{
 		generation: generation, family: FamilyRGSS, markers: markers, rtpDependencies: rtpDependencies,
-		requirements: []Requirement{RequirementRuntimeValidation},
+		requirements: []Requirement{},
 	}}, nil
 }
 

@@ -1,6 +1,6 @@
 export type ProviderApiVersionV1 = 1;
 
-export type RuntimePurposeV1 = "PRODUCT" | "REVIEW_PREVIEW" | "RUNTIME_VALIDATION";
+export type RuntimePurposeV1 = "PRODUCT" | "REVIEW_PREVIEW";
 export type RuntimeModeV1 = "SINGLE" | "NETPLAY";
 export type RuntimeStateV1 = "CREATED" | "MOUNTING" | "RUNNING" | "PAUSED" |
   "CHECKPOINTING" | "EXITING" | "EXITED" | "FAILED";
@@ -30,7 +30,6 @@ export type RuntimeCapabilitiesV1 = {
   videoModes: RuntimeVideoModeV1[];
   requiresThreads: boolean;
   frameMode: RuntimeFrameModeV1;
-  validationProbes: string[];
 };
 
 export type RuntimeCheckpointV1 = {
@@ -41,11 +40,6 @@ export type RuntimeCheckpointV1 = {
 export type RuntimeCheckpointAvailabilityV1 = { available: boolean; reason: string | null };
 export type RuntimeDiscStateV1 = { count: number; currentIndex: number; labels: string[] };
 export type RuntimeInputFilterPolicyV1 = { activeGamepadIndex: number | null; suppressInput: boolean };
-export type RuntimeValidationResultV1 = {
-  probeId: string;
-  passed: boolean;
-  evidence: Record<string, unknown>;
-};
 
 export type RuntimeEventV1 =
   | { type: "STATE_CHANGED"; previous: RuntimeStateV1; state: RuntimeStateV1 }
@@ -83,7 +77,6 @@ export interface PlayerRuntimeV1 {
   switchDisc(index: number): Promise<RuntimeDiscStateV1>;
   setInputFilter(policy: RuntimeInputFilterPolicyV1 | null): Promise<void>;
   getNetplayPort(): Promise<RuntimeNetplayPortV1>;
-  runValidationProbe(id: string, input: Record<string, unknown>): Promise<RuntimeValidationResultV1>;
   getState(): RuntimeStateV1;
   getCapabilities(): RuntimeCapabilitiesV1;
   getCheckpointAvailability(): RuntimeCheckpointAvailabilityV1;
@@ -151,7 +144,6 @@ export type RuntimeJSONValueV1 = null | boolean | string | number |
   RuntimeJSONValueV1[] | { [key: string]: RuntimeJSONValueV1 };
 export type TargetOptionsV1 = { [key: string]: RuntimeJSONValueV1 };
 
-export type RuntimeValidationV1 = { probeId: string; input: Record<string, unknown> };
 export type NetplayProfileV2 = {
   bundleSha256: string;
   canonicalHistoryFrames: 600;
@@ -206,7 +198,6 @@ export type LaunchEnvelopeV1 = {
   resources: RuntimeResourceV1[];
   targetOptions: TargetOptionsV1;
   restore: RestoreDescriptorV1 | null;
-  validation: RuntimeValidationV1 | null;
   netplay: RuntimeNetplayV1 | null;
 };
 

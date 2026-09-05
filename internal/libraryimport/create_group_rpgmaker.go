@@ -56,7 +56,8 @@ INSERT INTO rpgmaker_review_profiles(
 	if err != nil {
 		return fmt.Errorf("libraryimport/rpgmaker profile: %w", err)
 	}
-	return nil
+	return replaceRPGPackSelections(run.ctx, run.transaction, record.draftID,
+		record.group.rpgPackBindings, false, hex.EncodeToString(dependencyDigest[:]), run.now)
 }
 
 func loadRPGManifestSummary(contents []byte, expectedFiles int) (rpgManifestSummary, error) {

@@ -15,33 +15,30 @@ import (
 
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
+	"retrom/internal/contentprofile"
 	"retrom/internal/corevalidation"
 	"retrom/internal/importing"
 	"retrom/internal/mediaasset"
 	retromruntime "retrom/internal/runtime"
 )
 
-const reviewCaptureAfterMS int64 = 5_000
-
 var (
 	ErrReviewPreviewUnavailable = errors.New("REVIEW_PREVIEW_UNAVAILABLE")
-	ErrReviewCaptureNotAllowed  = errors.New("REVIEW_CAPTURE_NOT_ALLOWED")
 	ErrReviewScreenshotInvalid  = errors.New("REVIEW_SCREENSHOT_INVALID")
 )
 
 type ReviewPreviewRequest struct {
-	ImportItemID       string
-	ActorUserID        string
-	IdempotencyKey     string
-	ClientCapabilities Capabilities
+	ImportItemID         string
+	ActorUserID          string
+	IdempotencyKey       string
+	ClientCapabilities   Capabilities
+	RestoreFromPreviewID *string
 }
 
 type ReviewPreviewCreated struct {
-	PreviewID      string `json:"previewId"`
-	PlayURL        string `json:"playUrl"`
-	CaptureAllowed bool   `json:"captureAllowed"`
-	CaptureAfterMS int64  `json:"captureAfterMs"`
-	Capability     string `json:"-"`
+	PreviewID  string `json:"previewId"`
+	PlayURL    string `json:"playUrl"`
+	Capability string `json:"-"`
 }
 
 type reviewPreviewSource struct {
@@ -96,15 +93,13 @@ func (service *Service) CreateReviewPreview(
 	}
 	capability := service.credentials.Capability(previewID)
 	capabilityHash := retromruntime.HashCapability(capability)
-	captureAllowed := true
 	if err := service.persistReviewPreview(
-		ctx, request, source, content, previewID.String(), capabilityHash[:], captureAllowed,
+		ctx, request, source, content, previewID.String(), capabilityHash[:],
 	); err != nil {
 		return ReviewPreviewCreated{}, fmt.Errorf("persist review preview: %w", err)
 	}
 	return ReviewPreviewCreated{
 		PreviewID: previewID.String(), PlayURL: "/admin/review-previews/" + previewID.String(),
-		CaptureAllowed: captureAllowed, CaptureAfterMS: reviewCaptureAfterMS,
 		Capability: retromruntime.EncodeCapability(capability),
 	}, nil
 }
@@ -144,7 +139,6 @@ func (service *Service) persistReviewPreview(
 	content reviewPreviewContentSet,
 	previewID string,
 	capabilityHash []byte,
-	captureAllowed bool,
 ) error {
 	now := service.now().UnixMilli()
 	bootstrapExpires := now + int64(5*time.Minute/time.Millisecond)
@@ -162,20 +156,26 @@ func (service *Service) persistReviewPreview(
 		emulatorGameID = max(now, 1)
 	}
 	defer cleanup.Rollback(transaction)
+	restore, err := loadReviewPreviewRestore(ctx, transaction, request, source, content, now)
+	if err != nil {
+		return err
+	}
 	_, err = transaction.ExecContext(ctx, `
 INSERT INTO review_preview_sessions(id,import_item_id,source_snapshot_id,validation_id,
 	target_platform_instance_id,provider_id,target_id,bundle_sha256,
 actor_user_id,idempotency_key,title,content_kind,
 content_blob_id,content_logical_name,content_format,dependency_snapshot_json,default_dos_entry,
-emulator_game_id,capture_allowed,credential_sha256,state,bootstrap_expires_at_ms,hard_expires_at_ms,
+restore_from_preview_id,restore_payload_blob_id,restore_checkpoint_format,
+emulator_game_id,credential_sha256,state,bootstrap_expires_at_ms,hard_expires_at_ms,
 created_at_ms,updated_at_ms)
-VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'CREATED',?,?,?,?)
+VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'CREATED',?,?,?,?)
 `, previewID, request.ImportItemID, source.SourceSnapshotID, nullableText(source.ValidationID),
 		source.PlatformInstanceID, source.ProviderID, source.TargetID,
 		source.BundleSHA256, request.ActorUserID,
 		request.IdempotencyKey, title, source.ContentKind,
 		content.BlobID, content.LogicalName, content.Format, source.DependencySnapshot,
-		nullableSQLString(source.DefaultDOSEntry), emulatorGameID, captureAllowed, capabilityHash,
+		nullableSQLString(source.DefaultDOSEntry), nullableTextPointer(request.RestoreFromPreviewID),
+		nullableSQLString(restore.blobID), nullableSQLString(restore.format), emulatorGameID, capabilityHash,
 		bootstrapExpires, hardExpires, now, now)
 	if err != nil {
 		return fmt.Errorf("create review preview: %w", err)
@@ -207,19 +207,20 @@ func (service *Service) replayReviewPreview(
 	request ReviewPreviewRequest,
 ) (ReviewPreviewCreated, bool, error) {
 	var id, itemID string
-	var captureAllowed int
+	var restoredFrom sql.NullString
 	err := service.database.QueryRowContext(ctx, `
-SELECT id,import_item_id,capture_allowed
+SELECT id,import_item_id,restore_from_preview_id
 FROM review_preview_sessions
 WHERE actor_user_id=? AND idempotency_key=?
-`, request.ActorUserID, request.IdempotencyKey).Scan(&id, &itemID, &captureAllowed)
+`, request.ActorUserID, request.IdempotencyKey).Scan(&id, &itemID, &restoredFrom)
 	if errors.Is(err, sql.ErrNoRows) {
 		return ReviewPreviewCreated{}, false, nil
 	}
 	if err != nil {
 		return ReviewPreviewCreated{}, false, fmt.Errorf("replay review preview: %w", err)
 	}
-	if itemID != request.ImportItemID {
+	if itemID != request.ImportItemID || restoredFrom.Valid != (request.RestoreFromPreviewID != nil) ||
+		restoredFrom.Valid && restoredFrom.String != *request.RestoreFromPreviewID {
 		return ReviewPreviewCreated{}, true, ErrReviewPreviewUnavailable
 	}
 	parsed, err := uuid.Parse(id)
@@ -228,7 +229,6 @@ WHERE actor_user_id=? AND idempotency_key=?
 	}
 	return ReviewPreviewCreated{
 		PreviewID: id, PlayURL: "/admin/review-previews/" + id,
-		CaptureAllowed: captureAllowed == 1, CaptureAfterMS: reviewCaptureAfterMS,
 		Capability: retromruntime.EncodeCapability(service.credentials.Capability(parsed)),
 	}, true, nil
 }
@@ -289,8 +289,7 @@ func (service *Service) reviewPreviewContent(
 	if err != nil {
 		return reviewPreviewContentSet{}, fmt.Errorf("load primary review content: %w", err)
 	}
-	if source.ContentKind == onsProjectFormat || source.ContentKind == kirikiriProjectFormat ||
-		source.ContentKind == butterscotchProjectFormat || source.ContentKind == tyranoScriptProjectFormat {
+	if contentprofile.IsProjectContentKind(contentprofile.ContentKind(source.ContentKind)) {
 		if !validPreviewFileSet(content.LogicalName, content.Files) {
 			return reviewPreviewContentSet{}, fmt.Errorf("validate review project names: %w", ErrReviewPreviewUnavailable)
 		}
@@ -350,6 +349,8 @@ WHERE import_item_core_validation_id=? AND role='MULTI_DISC_PLAYLIST' AND logica
 			return reviewPreviewContentSet{}, err
 		}
 		content.Files = files
+	case rpgProjectFormat:
+		return service.reviewPreviewRPGContent(ctx, source)
 	case onsProjectFormat:
 		return service.reviewPreviewONSContent(ctx, source)
 	case kirikiriProjectFormat:
@@ -466,7 +467,7 @@ func validPreviewFileSet(contentName string, files []reviewPreviewFile) bool {
 	seenNames := map[string]struct{}{importing.ASCIICaseFold(contentName): {}}
 	seenPaths := make(map[string]struct{})
 	for _, file := range files {
-		if file.Role == "PROJECT_FILE" {
+		if file.Role == "PROJECT_FILE" || file.Role == "RUNTIME_FILE" {
 			if _, err := importing.ValidateLogicalPath(file.LogicalName); err != nil || file.VirtualPath != nil {
 				return false
 			}
@@ -490,7 +491,6 @@ func validPreviewFileSet(contentName string, files []reviewPreviewFile) bool {
 
 func (service *Service) ReviewPreviewConfig(ctx context.Context, previewID, capability string) (Config, error) {
 	var source providerConfigSource
-	var captureAllowed int
 	err := service.database.QueryRowContext(ctx, `
 SELECT preview.credential_sha256,preview.state,preview.provider_id,preview.target_id,
 	 preview.bundle_sha256,
@@ -498,7 +498,7 @@ SELECT preview.credential_sha256,preview.state,preview.provider_id,preview.targe
  'REVIEW_PREVIEW',preview.title,instance.name,
  '/admin/reviews/' || preview.import_item_id,preview.content_kind,preview.dependency_snapshot_json,'',
 	 NULL,preview.default_dos_entry,NULL,NULL,NULL,NULL,
- preview.bootstrap_expires_at_ms,preview.hard_expires_at_ms,NULL,0,preview.capture_allowed
+ preview.bootstrap_expires_at_ms,preview.hard_expires_at_ms,NULL,0
 FROM review_preview_sessions preview
 JOIN platform_instances instance ON instance.id=preview.target_platform_instance_id
 JOIN runtime_target_bindings binding ON binding.provider_id=preview.provider_id AND binding.target_id=preview.target_id
@@ -509,9 +509,9 @@ WHERE preview.id=?
 		&source.bundleDigest, &source.coreID, &source.coreName,
 		&source.detectorProfile, &source.delivery, &source.purpose, &source.title, &source.platformName, &source.returnTo,
 		&source.contentKind, &source.dependencyJSON, &source.compatibility, &source.saveID,
-		&source.dosEntry, &source.validationID, &source.netplayID, &source.netplayPlayer,
-		&source.netplayRoom, &source.bootstrapEnd, &source.hardEnd, &source.idleEnd,
-		&source.initialDisc, &captureAllowed,
+		&source.dosEntry, &source.netplayID, &source.netplayPlayer,
+		&source.netplayRoom, &source.netplayProfile, &source.bootstrapEnd, &source.hardEnd, &source.idleEnd,
+		&source.initialDisc,
 	)
 	if err != nil || service.runtimeBuilder == nil ||
 		!retromruntime.MatchesCapability(capability, source.credentialHash) ||
@@ -637,11 +637,9 @@ func (service *Service) reviewScreenshotTarget(
 	var credentialHash []byte
 	var state string
 	var hardExpires int64
-	var captureAllowed int
 	err := transaction.QueryRowContext(ctx, `
 SELECT preview.credential_sha256,preview.state,preview.hard_expires_at_ms,preview.import_item_id,
-	preview.source_snapshot_id,preview.validation_id,preview.provider_id,preview.target_id,
-	preview.capture_allowed
+	preview.source_snapshot_id,preview.validation_id,preview.provider_id,preview.target_id
 FROM review_preview_sessions preview
 JOIN import_items item ON item.id=preview.import_item_id AND item.state='REVIEW_PENDING'
 JOIN review_drafts draft ON draft.import_item_id=item.id
@@ -663,13 +661,10 @@ JOIN import_item_core_validations validation ON validation.id=preview.validation
 WHERE preview.id=?
 	`, previewID).Scan(
 		&credentialHash, &state, &hardExpires, &target.ItemID, &target.SourceSnapshotID,
-		&target.ValidationID, &target.ProviderID, &target.TargetID, &captureAllowed,
+		&target.ValidationID, &target.ProviderID, &target.TargetID,
 	)
 	if err != nil || !reviewPreviewCredential(service.now().UnixMilli(), capability, credentialHash, state, hardExpires) {
 		return reviewScreenshotTarget{}, ErrCredential
-	}
-	if captureAllowed != 1 {
-		return reviewScreenshotTarget{}, ErrReviewCaptureNotAllowed
 	}
 	return target, nil
 }
@@ -685,14 +680,14 @@ func insertReviewScreenshot(
 ) error {
 	_, err := transaction.ExecContext(ctx, `
 INSERT INTO review_runtime_screenshots(id,import_item_id,preview_session_id,source_snapshot_id,
-	validation_id,provider_id,target_id,blob_id,media_type,width_px,height_px,captured_after_ms,
+	validation_id,provider_id,target_id,blob_id,media_type,width_px,height_px,
 captured_at_ms,created_at_ms,updated_at_ms)
-VALUES(?,?,?,?,?,?,?,?,?,?,?,5000,?,?,?)
+VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)
 ON CONFLICT(import_item_id,validation_id) DO UPDATE SET
 id=excluded.id,preview_session_id=excluded.preview_session_id,source_snapshot_id=excluded.source_snapshot_id,
 provider_id=excluded.provider_id,target_id=excluded.target_id,
 	blob_id=excluded.blob_id,media_type=excluded.media_type,
-width_px=excluded.width_px,height_px=excluded.height_px,captured_after_ms=excluded.captured_after_ms,
+width_px=excluded.width_px,height_px=excluded.height_px,
 captured_at_ms=excluded.captured_at_ms,updated_at_ms=excluded.updated_at_ms
 	`, screenshotID, target.ItemID, previewID, target.SourceSnapshotID, target.ValidationID,
 		target.ProviderID, target.TargetID, blobID,
@@ -707,16 +702,12 @@ func (service *Service) authorizeReviewScreenshot(ctx context.Context, previewID
 	var credentialHash []byte
 	var state string
 	var hardExpires int64
-	var captureAllowed int
 	err := service.database.QueryRowContext(ctx, `
-SELECT credential_sha256,state,hard_expires_at_ms,capture_allowed
+SELECT credential_sha256,state,hard_expires_at_ms
 FROM review_preview_sessions WHERE id=?
-`, previewID).Scan(&credentialHash, &state, &hardExpires, &captureAllowed)
+`, previewID).Scan(&credentialHash, &state, &hardExpires)
 	if err != nil || !reviewPreviewCredential(service.now().UnixMilli(), capability, credentialHash, state, hardExpires) {
 		return ErrCredential
-	}
-	if captureAllowed != 1 {
-		return ErrReviewCaptureNotAllowed
 	}
 	return nil
 }

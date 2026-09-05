@@ -34,11 +34,11 @@ CREATE TABLE runtime_providers(provider_id TEXT PRIMARY KEY,bundle_sha256 TEXT);
 CREATE TABLE runtime_targets(provider_id TEXT,target_id TEXT,checkpoint_json TEXT,PRIMARY KEY(provider_id,target_id));
 CREATE TABLE game_variant_runtime_packs(game_variant_id TEXT,definition_id TEXT,installation_id TEXT);
 CREATE TABLE save_states(id TEXT,game_id TEXT,checkpoint_format TEXT,deleted_at_ms INTEGER,payload_sha256 TEXT,payload_size_bytes INTEGER,source_launch_session_id TEXT);
-CREATE TABLE launch_sessions(id TEXT,purpose TEXT,game_id TEXT,provider_id TEXT,target_id TEXT,bundle_sha256 TEXT);
+CREATE TABLE launch_sessions(id TEXT,game_id TEXT,provider_id TEXT,target_id TEXT,bundle_sha256 TEXT);
 CREATE TABLE rpgmaker_game_profiles(game_id TEXT,generation TEXT);
-CREATE TABLE review_drafts(id TEXT,import_item_id TEXT,version INTEGER);
+CREATE TABLE review_drafts(id TEXT,import_item_id TEXT,version INTEGER,selected_validation_id TEXT,effective_source_snapshot_id TEXT);
 CREATE TABLE review_draft_runtime_pack_selections(review_draft_id TEXT,slot INTEGER,installation_id TEXT);
-CREATE TABLE rpgmaker_runtime_validations(id TEXT,import_item_id TEXT,review_version_at_create INTEGER,created_at_ms INTEGER);
+CREATE TABLE import_item_core_validations(id TEXT,import_item_id TEXT,source_snapshot_id TEXT,status TEXT,dependency_snapshot_json TEXT);
 CREATE TABLE upload_files(upload_session_id TEXT,state TEXT,final_blob_id TEXT,payload_released_at_ms INTEGER);
 CREATE TABLE blobs(id TEXT,sha256 TEXT);
 CREATE TABLE blob_gc_candidates(blob_id TEXT,first_unreferenced_at_ms INTEGER,scheduled_at_ms INTEGER,deleted_at_ms INTEGER);
@@ -131,7 +131,7 @@ def seed_protected_references(database: sqlite3.Connection, observed: dict) -> N
         if role == "restorableCheckpoint":
             launch_id = pack_uuid(240)
             database.execute(
-                "INSERT INTO launch_sessions VALUES(?,'PRODUCT',?,'retrom-runtime',?,?)",
+                "INSERT INTO launch_sessions VALUES(?,?,'retrom-runtime',?,?)",
                 (launch_id, reference["gameId"], target_id, bundle_sha),
             )
             database.execute(
@@ -163,14 +163,18 @@ def seed_review_relations(database: sqlite3.Connection, observed: dict) -> None:
     ]
     for index, item in enumerate(selected):
         draft_id = pack_uuid(300 + index)
-        database.execute("INSERT INTO review_drafts VALUES(?,?,2)", (draft_id, item["itemId"]))
+        validation_id, snapshot_id = pack_uuid(310 + index), pack_uuid(330 + index)
+        database.execute("INSERT INTO review_drafts VALUES(?,?,2,?,?)",
+                         (draft_id, item["itemId"], validation_id, snapshot_id))
         database.execute(
             "INSERT INTO review_draft_runtime_pack_selections VALUES(?,1,?)",
             (draft_id, item["installationId"]),
         )
         database.execute(
-            "INSERT INTO rpgmaker_runtime_validations VALUES(?,?,1,1)",
-            (pack_uuid(310 + index), item["itemId"]),
+            "INSERT INTO import_item_core_validations VALUES(?,?,?,'READY',?)",
+            (validation_id, item["itemId"], snapshot_id, json.dumps({
+                "schemaVersion": 1, "bindings": [{"slot": 1, "installationId": item["installationId"]}],
+            })),
         )
 
 
@@ -194,6 +198,17 @@ def seed_zero_release(database: sqlite3.Connection, observed: dict) -> None:
 
 
 class RPGMakerPackInspectTests(unittest.TestCase):
+    def test_population_evidence_rejects_missing_changed_or_duplicate_original_rows(self) -> None:
+        population = {"games": [{"id": pack_uuid(500), "sha256": "a" * 64}], "saves": [], "reviews": []}
+        inspector.validate_population_preservation({"before": population, "after": population})
+        for value in (None, {}, {"before": population, "after": {}},
+                      {"before": {"games": []}, "after": {"games": []}}):
+            with self.subTest(value=value), self.assertRaises(inspector.InspectError):
+                inspector.validate_population_preservation(value)
+        population["games"].append(population["games"][0])
+        with self.assertRaises(inspector.InspectError):
+            inspector.validate_population_preservation({"before": population, "after": population})
+
     def test_inspector_uses_provider_target_identity(self) -> None:
         source = MODULE_PATH.read_text()
         self.assertNotIn("core_artifacts", source)
@@ -213,7 +228,6 @@ class RPGMakerPackInspectTests(unittest.TestCase):
             database_path = Path(directory) / "retrom.db"
             database = sqlite3.connect(database_path)
             seed_database(database, observed)
-            database.execute("DELETE FROM rpgmaker_runtime_validations WHERE id=?", (pack_uuid(310),))
             database.commit()
             database.close()
             evidence_path = Path(directory) / "provision.json"
@@ -228,9 +242,13 @@ class RPGMakerPackInspectTests(unittest.TestCase):
                     "protectedProjects": {"publishedVariant": {}, "restorableCheckpoint": {}},
                 },
                 "planIdentity": plan,
+                "populationPreservation": {
+                    "before": {"games": [], "saves": [], "reviews": []},
+                    "after": {"games": [], "saves": [], "reviews": []},
+                },
                 "counts": {
                     "protectedInstallationCount": 2, "protectedGameCount": 2,
-                    "reviewItemCount": 13, "readyUnapprovedReviewCount": 5,
+                    "reviewItemCount": 13, "selfContainedOrNoRtpReviewCount": 5,
                 },
                 "repository": {
                     "gitCommit": "1" * 40, "gitDirty": False,
@@ -249,7 +267,23 @@ class RPGMakerPackInspectTests(unittest.TestCase):
             self.assertEqual("rgss2_rpgvx", result["protectedReferences"]["restorableCheckpoint"]["definitionId"])
             self.assertEqual(evidence, result["provisioningEvidence"]["payload"])
 
-    def test_inspector_rejects_non_product_checkpoint_source(self) -> None:
+    def test_selected_review_requires_current_source_and_ready_dependency(self) -> None:
+        observed = pack_evidence_payload()
+        with sqlite3.connect(":memory:") as database:
+            database.row_factory = sqlite3.Row
+            seed_database(database, observed)
+            self.assertEqual(8, len(inspector.selected_reviews(database, observed)))
+            for column, value in (("source_snapshot_id", "wrong-source"), ("status", "BLOCKED"),
+                                  ("dependency_snapshot_json", '{"schemaVersion":1,"bindings":[]}')):
+                with self.subTest(column=column):
+                    database.execute("SAVEPOINT mutation")
+                    database.execute(f"UPDATE import_item_core_validations SET {column}=?", (value,))
+                    with self.assertRaisesRegex(inspector.InspectError, "REVIEW_SELECTION_INVALID"):
+                        inspector.selected_reviews(database, observed)
+                    database.execute("ROLLBACK TO mutation")
+                    database.execute("RELEASE mutation")
+
+    def test_inspector_rejects_checkpoint_source_from_another_game(self) -> None:
         observed = pack_evidence_payload()
         observed["status"] = "OBSERVED"
         plan = {
@@ -260,7 +294,7 @@ class RPGMakerPackInspectTests(unittest.TestCase):
             database_path = Path(directory) / "retrom.db"
             database = sqlite3.connect(database_path)
             seed_database(database, observed)
-            database.execute("UPDATE launch_sessions SET purpose='RPG_RUNTIME_VALIDATION'")
+            database.execute("UPDATE launch_sessions SET game_id='another-game'")
             database.commit()
             database.close()
             with self.assertRaisesRegex(inspector.InspectError, "CHECKPOINT_REFERENCE_INVALID"):

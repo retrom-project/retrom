@@ -5,6 +5,8 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 
 import { chromium } from "../../web/node_modules/playwright/index.mjs";
+
+import {captureOptionalReviewScreenshot} from "./rpgmaker_preview_actions.mjs";
 import sharp from "../../web/node_modules/sharp/dist/index.mjs";
 
 import {
@@ -85,7 +87,7 @@ async function runProductCase(activeBrowser) {
     await previewPage.goto(`${baseUrl}${preview.playUrl}`, {waitUntil: "domcontentloaded", timeout: 120_000});
     requireTyranoScriptRuntimeSite(await previewConfigPromise);
     try {
-      await waitForPreviewCapture(client, review.itemId, previewPage);
+      await waitForPreviewCapture(client, review.itemId, previewPage, preview.previewId);
     } catch (error) {
       debugAcceptance(`page:closed=${previewPage.isClosed()}:url=${previewPage.url()}`);
       debugAcceptance(`preview:${await previewPage.locator("body").innerText().catch((reason) =>
@@ -195,18 +197,11 @@ async function createPreview(client, itemId) {
   });
 }
 
-async function waitForPreviewCapture(client, itemId, page) {
-  // TyranoScript 4.x can starve its renderer when Playwright continuously polls the page or its
-  // browser-bound request context during startup. Give the fixed five-second capture one quiet
-  // settle window, then verify the persisted evidence and UI exactly once.
-  await page.waitForTimeout(20_000);
+async function waitForPreviewCapture(client, itemId, page, previewId) {
+  await captureOptionalReviewScreenshot(page, previewId);
   const review = await client.json("GET", `/api/v1/admin/reviews/${itemId}`);
   if (!review.runtimeScreenshot) {
-    throw new Error("TYRANOSCRIPT_ACCEPTANCE_PREVIEW_CAPTURE_TIMEOUT");
-  }
-  const text = await page.locator("body").innerText({timeout: 10_000});
-  if (!text.includes("第 5 秒运行截图已保存；可以继续试玩。")) {
-    throw new Error("TYRANOSCRIPT_ACCEPTANCE_PREVIEW_CAPTURE_UI_MISSING");
+    throw new Error("TYRANOSCRIPT_ACCEPTANCE_PREVIEW_CAPTURE_MISSING");
   }
 }
 

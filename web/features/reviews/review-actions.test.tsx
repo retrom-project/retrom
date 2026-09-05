@@ -1,4 +1,4 @@
-import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type * as UploadModule from "@/lib/upload";
@@ -102,16 +102,16 @@ describe("ReviewActions metadata", () => {
     expect(screen.getByRole("button", { name: "通过并发布" })).toBeEnabled();
   });
 
-  it("uses the RPG validation workflow and preserves runtime pack selections in autosave", async () => {
+  it("uses ordinary publish readiness for RPG and preserves runtime pack selections in autosave", async () => {
     const rpgReview: ReviewWorkspace = {
       ...review,
-      canApprove: false,
+      canApprove: true,
       platformInstance: { id: "rpg-directory", name: "RPG Maker MV" },
-      validation: { id: "static-validation", status: "BLOCKED", compatibilityCode: "RPG_RUNTIME_VALIDATION_REQUIRED" },
+      validation: { id: "static-validation", status: "READY", compatibilityCode: "READY" },
       rpgMaker: {
-        selectedCoreId: "rpgmaker_mv", generation: "RPGMV", evidenceGeneration: "RPGMV",
+        selectedCoreId: "rpgmaker", generation: "RPGMV", evidenceGeneration: "RPGMV",
         evidenceConfidence: "MATCHED", selfContained: true, selfContainedOverride: false,
-        runtimePackRequirements: [], runtimePackSelections: [], runtimeValidation: null,
+        runtimePackRequirements: [], runtimePackSelections: [],
       },
     };
     const refreshedRpgReview = { ...rpgReview, version: 2 };
@@ -122,11 +122,11 @@ describe("ReviewActions metadata", () => {
     const user = userEvent.setup();
     render(<ReviewActions review={rpgReview} />);
 
-    expect(screen.getByRole("heading", { name: "RPG Maker 运行验证" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "RPG Maker 运行依赖" })).toBeInTheDocument();
     expect(screen.getByText("RPG Maker MV")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "运行游戏" })).toBeEnabled();
-    expect(screen.queryByText("第 5 秒运行截图")).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "通过并发布" })).toBeDisabled();
+    expect(screen.queryByText("高级验证详情")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "通过并发布" })).toBeEnabled();
 
     await user.clear(screen.getByLabelText("标题"));
     await user.type(screen.getByLabelText("标题"), "MV Project");
@@ -135,6 +135,46 @@ describe("ReviewActions metadata", () => {
     expect(JSON.parse(String(request.body))).toMatchObject({
       metadata: { title: "MV Project" }, runtimePackSelections: [], rpgSelfContainedOverride: false,
     });
+  });
+
+  it("restores an ordinary preview checkpoint without closing its original popup or creating a proof", async () => {
+    const replace = vi.fn();
+    const popup = {closed: false, document: {title: "", body: {style: {}, textContent: ""}}, location: {replace}, close: vi.fn()};
+    vi.spyOn(window, "open").mockReturnValue(popup as unknown as Window);
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      expect(init?.method).toBe("POST");
+      if (String(input).endsWith("/previews")) {
+        return Promise.resolve(jsonResponse({previewId: "preview-1", playUrl: "/admin/review-previews/preview-1"}, 201));
+      }
+      throw new Error("unexpected request");
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const user = userEvent.setup();
+    render(<ReviewActions review={review} />);
+    expect(screen.queryByRole("button", {name: "从试玩存档继续"})).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", {name: "运行游戏"}));
+    await waitFor(() => expect(replace).toHaveBeenCalledOnce());
+    for (const invalid of [
+      {origin: "https://untrusted.example", source: popup, previewId: "preview-1"},
+      {origin: window.location.origin, source: window, previewId: "preview-1"},
+      {origin: window.location.origin, source: popup, previewId: "another-preview"},
+    ]) {
+      await act(() => window.dispatchEvent(new MessageEvent("message", {
+        origin: invalid.origin, source: invalid.source as unknown as Window,
+        data: {type: "retrom-review-checkpoint", previewId: invalid.previewId},
+      })));
+      expect(screen.queryByRole("button", {name: "从试玩存档继续"})).not.toBeInTheDocument();
+      expect(fetchMock).toHaveBeenCalledOnce();
+    }
+    await act(() => window.dispatchEvent(new MessageEvent("message", {
+      origin: window.location.origin, source: popup as unknown as Window,
+      data: {type: "retrom-review-checkpoint", previewId: "preview-1"},
+    })));
+    await user.click(await screen.findByRole("button", {name: "从试玩存档继续"}));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    expect(JSON.parse(String(fetchMock.mock.calls[1]?.[1]?.body))).toMatchObject({restoreFromPreviewId: "preview-1"});
+    expect(popup.close).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", {name: "通过并发布"})).toBeEnabled();
   });
 
 });
@@ -331,7 +371,7 @@ describe("ReviewActions metadata continuation", () => {
     };
     const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
-      if (url.endsWith("/previews")) {return Promise.resolve(jsonResponse({ previewId: "preview-best-effort", playUrl: "/admin/review-previews/preview-best-effort", captureAllowed: true, captureAfterMs: 5000 }, 201));}
+      if (url.endsWith("/previews")) {return Promise.resolve(jsonResponse({ previewId: "preview-best-effort", playUrl: "/admin/review-previews/preview-best-effort" }, 201));}
       if (init?.method === "PATCH") {return Promise.resolve(jsonResponse({ error: { code: "INVALID_REQUEST" } }, 400));}
       throw new Error(`unexpected fetch ${url}`);
     });
@@ -347,14 +387,14 @@ describe("ReviewActions metadata continuation", () => {
     expect(screen.getByText("等待运行截图")).toBeVisible();
   });
 
-  it("shows the current five-second runtime screenshot", () => {
+  it("shows the current optional runtime screenshot", () => {
     render(<ReviewActions review={{ ...review, runtimeScreenshot: {
       screenshotId: "shot-1", validationId: "validation-1", providerId: "emulatorjs", targetId: "mgba",
-      widthPx: 640, heightPx: 480, capturedAfterMs: 5000, capturedAtMs: 123,
+      widthPx: 640, heightPx: 480, capturedAtMs: 123,
       url: "/api/v1/admin/review-assets/shot-1",
     } }} />);
 
-    expect(screen.getByAltText("Manual 的第 5 秒运行截图")).toHaveAttribute("src", expect.stringContaining("shot-1"));
+    expect(screen.getByAltText("Manual 的运行截图")).toHaveAttribute("src", expect.stringContaining("shot-1"));
     expect(screen.getByRole("button", { name: "运行游戏" })).toBeVisible();
   });
 });
@@ -368,13 +408,13 @@ describe("ReviewActions validation", () => {
       validation: { ...review.validation!, status: "BLOCKED", compatibilityCode: "LAUNCH_PARENT_MISSING" },
       runtimeScreenshot: {
         screenshotId: "shot-blocked", validationId: "validation-1", providerId: "emulatorjs", targetId: "mgba",
-        widthPx: 640, heightPx: 480, capturedAfterMs: 5000, capturedAtMs: 123,
+        widthPx: 640, heightPx: 480, capturedAtMs: 123,
         url: "/api/v1/admin/review-assets/shot-blocked",
       },
     }} />);
 
     expect(screen.getByText("已取得运行截图")).toBeVisible();
-    expect(screen.getByText("已取得第 5 秒运行截图，可由管理员确认后发布。")).toBeVisible();
+    expect(screen.getByText("已取得运行截图，可由管理员确认后发布。")).toBeVisible();
     expect(screen.getByRole("button", { name: "通过并发布" })).toBeEnabled();
   });
 

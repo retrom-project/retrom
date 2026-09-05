@@ -12,28 +12,25 @@ import (
 const maxStoredCheckpointBytes = int64(256 << 20)
 
 type launchSnapshot struct {
-	principalID, profileID, purpose, gameID, validationID string
-	providerID, targetID, checkpointFormat                string
-	dosEntry                                              sql.NullString
-	credentialHash                                        []byte
-	state                                                 string
-	hardExpiresAtMS, checkpointMaxBytes                   int64
-	contentFormat                                         string
-	discCount, initialDiscIndex                           int
-	originalValidationLaunch                              bool
+	principalID, profileID, purpose, gameID string
+	providerID, targetID, checkpointFormat  string
+	dosEntry                                sql.NullString
+	credentialHash                          []byte
+	state                                   string
+	hardExpiresAtMS, checkpointMaxBytes     int64
+	contentFormat                           string
+	discCount, initialDiscIndex             int
 }
 
 func (service *Service) launch(ctx context.Context, launchID, capability string) (launchSnapshot, error) {
 	var result launchSnapshot
-	var gameID, validationID sql.NullString
-	var validationLaunchID, writeFormat sql.NullString
+	var writeFormat sql.NullString
 	var checkpointMaxBytes sql.NullInt64
 	err := service.database.QueryRowContext(ctx, `
-SELECT COALESCE(user.id,launch.profile_id),launch.profile_id,launch.purpose,
- launch.game_id,launch.rpgmaker_runtime_validation_id,launch.provider_id,launch.target_id,
- launch.dos_entry_path,launch.credential_sha256,launch.state,
+SELECT COALESCE(user.id,launch.profile_id),launch.profile_id,'PRODUCT',launch.game_id,
+ launch.provider_id,launch.target_id,launch.dos_entry_path,launch.credential_sha256,launch.state,
  launch.hard_expires_at_ms,json_extract(target.checkpoint_json,'$.writeFormat'),
- json_extract(target.checkpoint_json,'$.maxBytes'),validation.launch_id,
+ json_extract(target.checkpoint_json,'$.maxBytes'),
  CASE WHEN EXISTS(SELECT 1 FROM launch_content_files file
        WHERE file.launch_session_id=launch.id AND file.format_version='RETROM_MULTIDISC_M3U_V1')
       THEN 'RETROM_MULTIDISC_M3U_V1'
@@ -44,20 +41,23 @@ SELECT COALESCE(user.id,launch.profile_id),launch.profile_id,launch.purpose,
  launch.initial_disc_index
 FROM launch_sessions launch
 JOIN runtime_targets target ON target.provider_id=launch.provider_id AND target.target_id=launch.target_id
-LEFT JOIN rpgmaker_runtime_validations validation
-  ON validation.id=launch.rpgmaker_runtime_validation_id
 LEFT JOIN users user ON user.profile_id=launch.profile_id
-WHERE launch.id=? AND (
- launch.purpose='PRODUCT' AND launch.game_id IS NOT NULL
- OR launch.purpose='RPG_RUNTIME_VALIDATION' AND validation.id IS NOT NULL
-   AND validation.provider_id=launch.provider_id AND validation.target_id=launch.target_id
-)
-`, launchID).Scan(
-		&result.principalID, &result.profileID, &result.purpose,
-		&gameID, &validationID, &result.providerID, &result.targetID, &result.dosEntry,
+WHERE launch.id=? AND launch.game_id IS NOT NULL
+UNION ALL
+SELECT actor.id,actor.profile_id,'REVIEW_PREVIEW','',
+ preview.provider_id,preview.target_id,preview.default_dos_entry,preview.credential_sha256,preview.state,
+ preview.hard_expires_at_ms,json_extract(target.checkpoint_json,'$.writeFormat'),
+ json_extract(target.checkpoint_json,'$.maxBytes'),preview.content_format,
+ (SELECT count(*) FROM review_preview_files file WHERE file.preview_session_id=preview.id AND file.role='DISC'),0
+FROM review_preview_sessions preview
+JOIN users actor ON actor.id=preview.actor_user_id
+JOIN runtime_targets target ON target.provider_id=preview.provider_id AND target.target_id=preview.target_id
+WHERE preview.id=?
+`, launchID, launchID).Scan(
+		&result.principalID, &result.profileID, &result.purpose, &result.gameID,
+		&result.providerID, &result.targetID, &result.dosEntry,
 		&result.credentialHash, &result.state, &result.hardExpiresAtMS, &writeFormat,
-		&checkpointMaxBytes, &validationLaunchID,
-		&result.contentFormat, &result.discCount, &result.initialDiscIndex,
+		&checkpointMaxBytes, &result.contentFormat, &result.discCount, &result.initialDiscIndex,
 	)
 	if !validLaunchAccess(err, capability, result, service.now().UnixMilli()) {
 		return launchSnapshot{}, ErrCredential
@@ -67,40 +67,15 @@ WHERE launch.id=? AND (
 	}
 	result.checkpointFormat = writeFormat.String
 	result.checkpointMaxBytes = min(checkpointMaxBytes.Int64, maxStoredCheckpointBytes)
-	result.gameID = gameID.String
-	result.validationID = validationID.String
-	if result.purpose == "PRODUCT" {
-		return bindProductLaunch(result, gameID)
+	if !validLaunchDiscShape(result) {
+		return launchSnapshot{}, ErrCredential
 	}
-	return bindValidationLaunch(result, validationID, validationLaunchID, launchID)
+	return result, nil
 }
 
 func validLaunchAccess(err error, capability string, launch launchSnapshot, now int64) bool {
 	return err == nil && retromruntime.MatchesCapability(capability, launch.credentialHash) &&
 		launch.state == "ACTIVE" && launch.hardExpiresAtMS > now
-}
-
-func bindProductLaunch(
-	result launchSnapshot,
-	gameID sql.NullString,
-) (launchSnapshot, error) {
-	if !gameID.Valid || !validLaunchDiscShape(result) {
-		return launchSnapshot{}, ErrCredential
-	}
-	return result, nil
-}
-
-func bindValidationLaunch(
-	result launchSnapshot,
-	validationID, originalLaunchID sql.NullString,
-	launchID string,
-) (launchSnapshot, error) {
-	if result.purpose != "RPG_RUNTIME_VALIDATION" || !validationID.Valid ||
-		!originalLaunchID.Valid {
-		return launchSnapshot{}, ErrCredential
-	}
-	result.originalValidationLaunch = originalLaunchID.String == launchID
-	return result, nil
 }
 
 func validLaunchDiscShape(result launchSnapshot) bool {
@@ -110,61 +85,37 @@ func validLaunchDiscShape(result launchSnapshot) bool {
 	return result.discCount >= 2 && result.initialDiscIndex >= 0 && result.initialDiscIndex < result.discCount
 }
 
-type restoreBinding struct {
-	gameID, validationID            sql.NullString
-	payloadDigest, checkpointFormat string
-	savedSize                       int64
-}
-
-func bindRestoreSnapshot(result launchSnapshot, binding restoreBinding) (launchSnapshot, error) {
-	result.gameID = binding.gameID.String
-	result.validationID = binding.validationID.String
-	result.checkpointFormat = binding.checkpointFormat
-	if binding.savedSize < 1 || binding.savedSize > result.checkpointMaxBytes {
-		return launchSnapshot{}, ErrCheckpointIncompatible
-	}
-	return result, nil
-}
-
 func loadLaunchForRestore(
 	ctx context.Context, database queryRower, launchID string,
 ) (launchSnapshot, string, int64, error) {
 	var result launchSnapshot
-	var binding restoreBinding
-	var targetMaximum int64
+	var digest string
+	var savedSize, targetMaximum int64
 	err := database.QueryRowContext(ctx, `
-SELECT launch.purpose,launch.profile_id,launch.game_id,launch.rpgmaker_runtime_validation_id,
- launch.provider_id,launch.target_id,json_extract(target.checkpoint_json,'$.maxBytes'),
- COALESCE(save.payload_sha256,checkpoint.payload_sha256),
- COALESCE(save.payload_size_bytes,checkpoint.size_bytes),
- COALESCE(save.checkpoint_format,checkpoint.checkpoint_format)
+SELECT launch.profile_id,launch.game_id,launch.provider_id,launch.target_id,
+ json_extract(target.checkpoint_json,'$.maxBytes'),blob.sha256,blob.size_bytes,save.checkpoint_format
 FROM launch_sessions launch
 JOIN runtime_targets target ON target.provider_id=launch.provider_id AND target.target_id=launch.target_id
- AND target.checkpoint_json IS NOT NULL
-LEFT JOIN rpgmaker_runtime_validations validation
-  ON validation.id=launch.rpgmaker_runtime_validation_id
-LEFT JOIN save_states save ON save.id=launch.save_state_id AND save.deleted_at_ms IS NULL
-LEFT JOIN blobs save_blob ON save_blob.id=save.payload_blob_id
-LEFT JOIN rpgmaker_runtime_validation_checkpoints checkpoint
-  ON checkpoint.validation_id=validation.id AND validation.restore_launch_id=launch.id
-LEFT JOIN blobs checkpoint_blob ON checkpoint_blob.id=checkpoint.payload_blob_id
-WHERE launch.id=? AND (
- launch.purpose='PRODUCT' AND save.id IS NOT NULL
-   AND save.profile_id=launch.profile_id AND save.game_id=launch.game_id
-   AND EXISTS(SELECT 1 FROM json_each(target.checkpoint_json,'$.readFormats') readable
-              WHERE readable.type='text' AND readable.value=save.checkpoint_format)
-   AND save_blob.sha256=save.payload_sha256 AND save_blob.size_bytes=save.payload_size_bytes
- OR launch.purpose='RPG_RUNTIME_VALIDATION' AND checkpoint.validation_id IS NOT NULL
-   AND validation.state IN ('CHECKPOINTED','RESTORED','AWAITING_DECISION')
-   AND validation.provider_id=launch.provider_id AND validation.target_id=launch.target_id
-   AND EXISTS(SELECT 1 FROM json_each(target.checkpoint_json,'$.readFormats') readable
-              WHERE readable.type='text' AND readable.value=checkpoint.checkpoint_format)
-   AND checkpoint_blob.sha256=checkpoint.payload_sha256 AND checkpoint_blob.size_bytes=checkpoint.size_bytes
-)
-	`, launchID).Scan(
-		&result.purpose, &result.profileID, &binding.gameID, &binding.validationID,
-		&result.providerID, &result.targetID, &targetMaximum, &binding.payloadDigest,
-		&binding.savedSize, &binding.checkpointFormat,
+JOIN save_states save ON save.id=launch.save_state_id AND save.deleted_at_ms IS NULL
+ AND save.profile_id=launch.profile_id AND save.game_id=launch.game_id
+JOIN blobs blob ON blob.id=save.payload_blob_id
+ AND blob.sha256=save.payload_sha256 AND blob.size_bytes=save.payload_size_bytes
+WHERE launch.id=? AND EXISTS(
+ SELECT 1 FROM json_each(target.checkpoint_json,'$.readFormats') readable
+ WHERE readable.type='text' AND readable.value=save.checkpoint_format)
+UNION ALL
+SELECT actor.profile_id,'',preview.provider_id,preview.target_id,
+ json_extract(target.checkpoint_json,'$.maxBytes'),blob.sha256,blob.size_bytes,preview.restore_checkpoint_format
+FROM review_preview_sessions preview
+JOIN users actor ON actor.id=preview.actor_user_id
+JOIN runtime_targets target ON target.provider_id=preview.provider_id AND target.target_id=preview.target_id
+JOIN blobs blob ON blob.id=preview.restore_payload_blob_id
+WHERE preview.id=? AND EXISTS(
+ SELECT 1 FROM json_each(target.checkpoint_json,'$.readFormats') readable
+ WHERE readable.type='text' AND readable.value=preview.restore_checkpoint_format)
+`, launchID, launchID).Scan(
+		&result.profileID, &result.gameID, &result.providerID, &result.targetID,
+		&targetMaximum, &digest, &savedSize, &result.checkpointFormat,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
 		return launchSnapshot{}, "", 0, ErrCheckpointIncompatible
@@ -173,9 +124,8 @@ WHERE launch.id=? AND (
 		return launchSnapshot{}, "", 0, fmt.Errorf("load restore launch: %w", err)
 	}
 	result.checkpointMaxBytes = min(targetMaximum, maxStoredCheckpointBytes)
-	result, err = bindRestoreSnapshot(result, binding)
-	if err != nil {
+	if savedSize < 1 || savedSize > result.checkpointMaxBytes {
 		return launchSnapshot{}, "", 0, ErrCheckpointIncompatible
 	}
-	return result, binding.payloadDigest, binding.savedSize, nil
+	return result, digest, savedSize, nil
 }

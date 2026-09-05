@@ -10,7 +10,6 @@ import (
 	"strings"
 
 	"retrom/internal/cleanup"
-	rpgvalidation "retrom/internal/rpgmaker/validation"
 	retromruntime "retrom/internal/runtime"
 	"retrom/internal/runtimebundle"
 	"retrom/internal/runtimecatalog"
@@ -69,12 +68,10 @@ type providerConfigSource struct {
 	platformName    string
 	returnTo        string
 	contentKind     string
-	generation      string
 	dependencyJSON  string
 	compatibility   string
 	saveID          sql.NullString
 	dosEntry        sql.NullString
-	validationID    sql.NullString
 	netplayID       sql.NullString
 	netplayPlayer   sql.NullInt64
 	netplayRoom     sql.NullString
@@ -87,9 +84,6 @@ type providerConfigSource struct {
 
 func (service *Service) Config(ctx context.Context, launchID, capability string) (Config, error) {
 	source, err := service.productConfigSource(ctx, launchID)
-	if err != nil {
-		source, err = service.validationConfigSource(ctx, launchID)
-	}
 	if err != nil || service.runtimeBuilder == nil ||
 		!retromruntime.MatchesCapability(capability, source.credentialHash) ||
 		!validConfigLifetime(source.state, source.bootstrapEnd, source.hardEnd, source.idleEnd, service.now().UnixMilli()) {
@@ -107,9 +101,9 @@ func (service *Service) productConfigSource(ctx context.Context, launchID string
 SELECT launch.credential_sha256,launch.state,launch.provider_id,launch.target_id,
  launch.bundle_sha256,
  launch.core_id,core.name,binding.detector_profile,binding.delivery_profile,
- launch.purpose,game.title,platform.name,launch.return_to,
+ 'PRODUCT',game.title,platform.name,launch.return_to,
  launch.content_kind,launch.dependency_snapshot_json,launch.compatibility_code,
- launch.save_state_id,launch.dos_entry_path,launch.rpgmaker_runtime_validation_id,
+ launch.save_state_id,launch.dos_entry_path,
  launch.netplay_session_id,launch.netplay_player_no,session.room_id,session.profile_json,
  launch.bootstrap_expires_at_ms,launch.hard_expires_at_ms,launch.idle_expires_at_ms,
  launch.initial_disc_index
@@ -120,50 +114,15 @@ JOIN platform_instances instance ON instance.id=game.platform_instance_id
 JOIN platforms platform ON platform.id=instance.platform_id
 JOIN runtime_target_bindings binding ON binding.provider_id=launch.provider_id AND binding.target_id=launch.target_id
 LEFT JOIN netplay_sessions session ON session.id=launch.netplay_session_id
-WHERE launch.id=? AND launch.purpose='PRODUCT'
+WHERE launch.id=?
 `, launchID).Scan(
 		&source.credentialHash, &source.state, &source.providerID, &source.targetID,
 		&source.bundleDigest, &source.coreID, &source.coreName,
 		&source.detectorProfile, &source.delivery, &source.purpose, &source.title, &source.platformName, &source.returnTo,
 		&source.contentKind, &source.dependencyJSON, &source.compatibility, &source.saveID,
-		&source.dosEntry, &source.validationID, &source.netplayID, &source.netplayPlayer,
+		&source.dosEntry, &source.netplayID, &source.netplayPlayer,
 		&source.netplayRoom, &source.netplayProfile, &source.bootstrapEnd, &source.hardEnd,
 		&source.idleEnd, &source.initialDisc,
-	)
-	if err != nil {
-		return providerConfigSource{}, ErrCredential
-	}
-	return source, nil
-}
-
-func (service *Service) validationConfigSource(ctx context.Context, launchID string) (providerConfigSource, error) {
-	var source providerConfigSource
-	err := service.database.QueryRowContext(ctx, `
-SELECT launch.credential_sha256,launch.state,launch.provider_id,launch.target_id,
- launch.bundle_sha256,
- launch.core_id,core.name,binding.detector_profile,binding.delivery_profile,
- launch.purpose,'RPG Maker runtime validation',instance.name,
- launch.return_to,launch.content_kind,launch.dependency_snapshot_json,launch.compatibility_code,
- NULL,NULL,launch.rpgmaker_runtime_validation_id,
- NULL,NULL,NULL,NULL,launch.bootstrap_expires_at_ms,launch.hard_expires_at_ms,
- launch.idle_expires_at_ms,launch.initial_disc_index,validation.generation
-FROM launch_sessions launch
-JOIN rpgmaker_runtime_validations validation ON validation.id=launch.rpgmaker_runtime_validation_id
-JOIN import_item_source_snapshots snapshot ON snapshot.id=validation.effective_source_snapshot_id
-JOIN review_drafts draft ON draft.import_item_id=validation.import_item_id
-JOIN platform_instances instance ON instance.id=draft.target_platform_instance_id
-JOIN runtime_target_bindings binding ON binding.provider_id=launch.provider_id AND binding.target_id=launch.target_id
-JOIN cores core ON core.id=launch.core_id
-WHERE launch.id=? AND launch.purpose='RPG_RUNTIME_VALIDATION'
- AND validation.provider_id=launch.provider_id AND validation.target_id=launch.target_id
-`, launchID).Scan(
-		&source.credentialHash, &source.state, &source.providerID, &source.targetID,
-		&source.bundleDigest, &source.coreID, &source.coreName,
-		&source.detectorProfile, &source.delivery, &source.purpose, &source.title, &source.platformName, &source.returnTo,
-		&source.contentKind, &source.dependencyJSON, &source.compatibility, &source.saveID,
-		&source.dosEntry, &source.validationID, &source.netplayID, &source.netplayPlayer,
-		&source.netplayRoom, &source.netplayProfile, &source.bootstrapEnd, &source.hardEnd,
-		&source.idleEnd, &source.initialDisc, &source.generation,
 	)
 	if err != nil {
 		return providerConfigSource{}, ErrCredential
@@ -193,29 +152,7 @@ func (service *Service) providerEnvelope(
 	if err != nil {
 		return Config{}, err
 	}
-	purpose := source.purpose
-	if purpose == "RPG_RUNTIME_VALIDATION" {
-		purpose = "RUNTIME_VALIDATION"
-	}
-	validation := any(nil)
-	var expectedRestorePosition *rpgvalidation.Position
-	if purpose == "RUNTIME_VALIDATION" {
-		resume, resumeErr := service.providerValidationResume(ctx, sessionID, source)
-		if resumeErr != nil {
-			return Config{}, resumeErr
-		}
-		position, restorePositionPresent, resumeErr := providerExpectedRestorePosition(sessionID, resume)
-		if resumeErr != nil {
-			return Config{}, resumeErr
-		}
-		if restorePositionPresent {
-			expectedRestorePosition = &position
-		}
-		validation = map[string]any{"probeId": "rpgmaker.position.v1", "input": map[string]any{
-			"generation": source.generation, "resume": resume,
-		}}
-	}
-	options, err := providerTargetOptions(target.TargetOptionsSchema, source, expectedRestorePosition)
+	options, err := providerTargetOptions(target.TargetOptionsSchema, source)
 	if err != nil {
 		return Config{}, err
 	}
@@ -225,75 +162,17 @@ func (service *Service) providerEnvelope(
 			CoreID: source.coreID, LaunchPolicy: "SUPPORTED",
 		},
 		Session: runtimelaunch.Session{
-			ID: sessionID, Purpose: purpose, Mode: mode, Title: source.title,
+			ID: sessionID, Purpose: source.purpose, Mode: mode, Title: source.title,
 			PlatformName: source.platformName, CoreName: source.coreName,
 			ReturnTo: source.returnTo, Warnings: providerWarnings(source),
 		},
 		Resources: resources, TargetOptions: options, Restore: restore,
-		Validation: validation, Netplay: netplay,
+		Netplay: netplay,
 	})
 	if err != nil {
 		return Config{}, fmt.Errorf("build Provider launch envelope: %w", err)
 	}
 	return Config{contents: contents}, nil
-}
-
-type providerValidationCheckpoint struct {
-	CheckpointFormat string `json:"checkpointFormat"`
-	SizeBytes        int64  `json:"sizeBytes"`
-	SHA256           string `json:"sha256"`
-}
-
-type providerValidationResume struct {
-	ValidationID              string                        `json:"validationId"`
-	State                     string                        `json:"state"`
-	OriginalLaunchID          string                        `json:"originalLaunchId"`
-	RestoreLaunchID           *string                       `json:"restoreLaunchId"`
-	LastGateSequence          int64                         `json:"lastGateSequence"`
-	MachineGates              []json.RawMessage             `json:"machineGates"`
-	CheckpointEvidence        *providerValidationCheckpoint `json:"checkpointEvidence"`
-	RestoreScreenshotUploaded bool                          `json:"restoreScreenshotUploaded"`
-}
-
-func (service *Service) providerValidationResume(
-	ctx context.Context,
-	launchID string,
-	source providerConfigSource,
-) (providerValidationResume, error) {
-	if !source.validationID.Valid {
-		return providerValidationResume{}, ErrCredential
-	}
-	var resume providerValidationResume
-	var restoreID, screenshotID, format, digest sql.NullString
-	var size sql.NullInt64
-	var machineJSON string
-	err := service.database.QueryRowContext(ctx, `
-SELECT validation.id,validation.state,validation.launch_id,validation.restore_launch_id,
- validation.last_gate_sequence,validation.machine_gates_json,validation.evidence_screenshot_blob_id,
- checkpoint.checkpoint_format,checkpoint.size_bytes,checkpoint.payload_sha256
-FROM rpgmaker_runtime_validations validation
-LEFT JOIN rpgmaker_runtime_validation_checkpoints checkpoint ON checkpoint.validation_id=validation.id
-WHERE validation.id=? AND (validation.launch_id=? OR validation.restore_launch_id=?)
-`, source.validationID.String, launchID, launchID).Scan(
-		&resume.ValidationID, &resume.State, &resume.OriginalLaunchID, &restoreID,
-		&resume.LastGateSequence, &machineJSON, &screenshotID, &format, &size, &digest,
-	)
-	if err != nil || resume.OriginalLaunchID == "" || json.Unmarshal([]byte(machineJSON), &resume.MachineGates) != nil ||
-		len(resume.MachineGates) != 14 {
-		return providerValidationResume{}, ErrCredential
-	}
-	if restoreID.Valid {
-		resume.RestoreLaunchID = &restoreID.String
-	}
-	resume.RestoreScreenshotUploaded = screenshotID.Valid
-	if format.Valid && size.Valid && digest.Valid {
-		resume.CheckpointEvidence = &providerValidationCheckpoint{
-			CheckpointFormat: format.String, SizeBytes: size.Int64, SHA256: digest.String,
-		}
-	} else if format.Valid || size.Valid || digest.Valid {
-		return providerValidationResume{}, ErrCredential
-	}
-	return resume, nil
 }
 
 func providerWarnings(source providerConfigSource) []string {
@@ -307,55 +186,9 @@ func providerWarnings(source providerConfigSource) []string {
 	return warnings
 }
 
-func providerExpectedRestorePosition(
-	launchID string,
-	resume providerValidationResume,
-) (rpgvalidation.Position, bool, error) {
-	if resume.RestoreLaunchID == nil || *resume.RestoreLaunchID != launchID {
-		return rpgvalidation.Position{}, false, nil
-	}
-	for _, encoded := range resume.MachineGates {
-		evidence, recorded := providerRecordedPositionEvidence(encoded)
-		if !recorded {
-			continue
-		}
-		position, err := providerPositionEvidence(evidence)
-		if err != nil {
-			return rpgvalidation.Position{}, false, err
-		}
-		return position, true, nil
-	}
-	return rpgvalidation.Position{}, false, ErrCredential
-}
-
-func providerRecordedPositionEvidence(encoded json.RawMessage) (json.RawMessage, bool) {
-	var gate struct {
-		Gate     string          `json:"gate"`
-		Status   string          `json:"status"`
-		Evidence json.RawMessage `json:"evidence"`
-	}
-	if json.Unmarshal(encoded, &gate) != nil || gate.Gate != "SAVE_POINT_RECORDED" || gate.Status != "PASSED" {
-		return nil, false
-	}
-	return gate.Evidence, true
-}
-
-func providerPositionEvidence(evidence json.RawMessage) (rpgvalidation.Position, error) {
-	var shape map[string]json.RawMessage
-	var position rpgvalidation.Position
-	if json.Unmarshal(evidence, &shape) != nil || len(shape) != 4 ||
-		shape["mapId"] == nil || shape["playerX"] == nil || shape["playerY"] == nil ||
-		shape["fixtureState"] == nil || json.Unmarshal(evidence, &position) != nil ||
-		position.MapID < 0 || position.PlayerX < 0 || position.PlayerY < 0 || position.FixtureState < 0 {
-		return rpgvalidation.Position{}, ErrCredential
-	}
-	return position, nil
-}
-
 func providerTargetOptions(
 	schema runtimebundle.TargetOptionsSchema,
 	source providerConfigSource,
-	expectedRestorePosition *rpgvalidation.Position,
 ) (map[string]any, error) {
 	selected, registered := runtimecatalog.Strategy(source.detectorProfile)
 	if !registered {
@@ -367,7 +200,7 @@ func providerTargetOptions(
 	}
 	options, err := runtimeoptions.Build(selected.Options, schema, runtimeoptions.Input{
 		DOSEntry: dos, ContentKind: source.contentKind, InitialDiscIndex: source.initialDisc,
-		DependencySnapshot: source.dependencyJSON, ExpectedRestorePosition: expectedRestorePosition,
+		DependencySnapshot: source.dependencyJSON,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("assemble Host launch options: %w", err)
@@ -422,7 +255,7 @@ SELECT file.logical_name,preview.content_format,blob.sha256,blob.size_bytes
 FROM review_preview_files file
 JOIN review_preview_sessions preview ON preview.id=file.preview_session_id
 JOIN blobs blob ON blob.id=file.blob_id
-WHERE file.preview_session_id=? AND file.role='PROJECT_FILE'
+WHERE file.preview_session_id=? AND file.role IN ('PROJECT_FILE','RUNTIME_FILE')
 ORDER BY 1
 `, launchID, launchID, launchID)
 	if err != nil {
@@ -737,8 +570,13 @@ func (service *Service) providerRuntimePackResources(
 SELECT file.logical_name,blob.sha256,blob.size_bytes FROM launch_content_files file
 JOIN blobs blob ON blob.id=file.blob_id
 WHERE file.launch_session_id=? AND file.logical_name GLOB '__retrom__/pack-?.zip'
-ORDER BY file.logical_name
-	`, launchID)
+UNION ALL
+SELECT file.logical_name,blob.sha256,blob.size_bytes FROM review_preview_files file
+JOIN blobs blob ON blob.id=file.blob_id
+WHERE file.preview_session_id=? AND file.role='RUNTIME_FILE'
+ AND file.logical_name GLOB '__retrom__/pack-?.zip'
+ORDER BY 1
+	`, launchID, launchID)
 	if err != nil {
 		return nil, fmt.Errorf("load Provider runtime packs: %w", err)
 	}
@@ -778,15 +616,14 @@ func (service *Service) providerRestore(
 	source providerConfigSource,
 	target runtimebundle.Target,
 ) (any, bool, error) {
-	if source.validationID.Valid {
+	if source.purpose == "REVIEW_PREVIEW" {
 		var format, digest string
 		var size int64
 		err := service.database.QueryRowContext(ctx, `
-SELECT checkpoint.checkpoint_format,checkpoint.payload_sha256,checkpoint.size_bytes
-FROM rpgmaker_runtime_validations validation
-JOIN rpgmaker_runtime_validation_checkpoints checkpoint ON checkpoint.validation_id=validation.id
-WHERE validation.id=? AND validation.restore_launch_id=?
-`, source.validationID.String, launchID).Scan(&format, &digest, &size)
+SELECT preview.restore_checkpoint_format,blob.sha256,blob.size_bytes
+FROM review_preview_sessions preview JOIN blobs blob ON blob.id=preview.restore_payload_blob_id
+WHERE preview.id=?
+`, launchID).Scan(&format, &digest, &size)
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, false, nil
 		}

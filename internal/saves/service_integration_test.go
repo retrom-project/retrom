@@ -233,11 +233,11 @@ func (fixture *saveFixture) createLaunchFromSave(t *testing.T, saveStateID *stri
 	now := fixture.now.UnixMilli()
 	_, err = fixture.database.SQL.ExecContext(fixture.ctx, `
 INSERT INTO launch_sessions(
- id,profile_id,purpose,game_id,core_id,provider_id,target_id,bundle_sha256,
+ id,profile_id,game_id,core_id,provider_id,target_id,bundle_sha256,
  content_kind,dependency_snapshot_json,compatibility_code,save_state_id,
  return_to,credential_sha256,state,bootstrap_expires_at_ms,
  idle_expires_at_ms,activated_at_ms,hard_expires_at_ms,created_at_ms,updated_at_ms)
-SELECT ?, 'local','PRODUCT',game.id,variant.core_id,variant.provider_id,variant.target_id,
+SELECT ?, 'local',game.id,variant.core_id,variant.provider_id,variant.target_id,
  provider.bundle_sha256,game.content_kind,variant.dependency_snapshot_json,
  variant.compatibility_code,?,?,?,'ACTIVE',?,?,?, ?,?,?
 FROM games game
@@ -408,8 +408,8 @@ func TestRPGCheckpointAllowsCompatibleProviderUpgrade(t *testing.T) {
 	fixture := newSaveFixture(t)
 	mustSaveSQL(t, fixture.database.SQL, `
 INSERT INTO rpgmaker_variant_profiles(
- game_variant_id,generation,dependency_snapshot_sha256,runtime_validation_id)
-SELECT id,'RPGMV',?,NULL FROM game_variants WHERE game_id=?
+ game_variant_id,generation,dependency_snapshot_sha256)
+SELECT id,'RPGMV',? FROM game_variants WHERE game_id=?
 `, strings.Repeat("d", 64), fixture.gameID)
 	created := fixture.createLaunch(t)
 	upgradeCurrentProviderBundle(t, fixture)
@@ -508,249 +508,13 @@ UPDATE save_states SET checkpoint_format='unreadable-checkpoint-v1' WHERE id=?
 	}
 }
 
-func TestValidationCheckpointIsTemporaryAndNeverCreatesProductSave(t *testing.T) {
+func TestCheckpointRejectsDuplicateMetadataKeys(t *testing.T) {
 	fixture := newSaveFixture(t)
-	created, validationID := fixture.createValidationLaunch(t)
-	payload := []byte("opaque-rpgmaker-provider-checkpoint")
-	expectedDigest := sha256.Sum256(payload)
-	expectedSHA256 := hex.EncodeToString(expectedDigest[:])
-	if _, _, err := fixture.saves.CreateManual(
-		fixture.ctx, created.LaunchID, created.Capability, uuid.NewString(),
-		validationRequestMetadata(t, `{"checkpointFormat":"test-checkpoint-v1","name":""}`, payload),
-	); !errors.Is(err, ErrInvalid) {
-		t.Fatalf("validation metadata with name error=%v", err)
-	}
-	if _, _, err := fixture.saves.CreateManual(
-		fixture.ctx, created.LaunchID, created.Capability, uuid.NewString(),
-		validationRequestMetadata(t,
-			`{"checkpointFormat":"test-checkpoint-v1","checkpointFormat":"test-checkpoint-v1"}`, payload),
-	); !errors.Is(err, ErrInvalid) {
-		t.Fatalf("duplicate metadata key error=%v", err)
-	}
-	checkpointKey := uuid.NewString()
-	result, replayed, err := fixture.saves.CreateManual(
-		fixture.ctx, created.LaunchID, created.Capability, checkpointKey, validationRequest(t, payload),
-	)
-	if err != nil || replayed || result.ResourceKind != "RPG_RUNTIME_VALIDATION_CHECKPOINT" ||
-		result.ValidationID != validationID || result.SaveStateID != "" ||
-		result.CheckpointFormat != "test-checkpoint-v1" ||
-		result.SizeBytes != int64(len(payload)) || result.PayloadSHA256 != expectedSHA256 {
-		t.Fatalf("validation checkpoint=%#v replayed=%v error=%v", result, replayed, err)
-	}
-	var checkpointCount, saveCount int
-	if err := fixture.database.SQL.QueryRowContext(fixture.ctx, `
-SELECT (SELECT count(*) FROM rpgmaker_runtime_validation_checkpoints WHERE validation_id=?),
-       (SELECT count(*) FROM save_states)
-`, validationID).Scan(&checkpointCount, &saveCount); err != nil {
-		t.Fatal(err)
-	}
-	if checkpointCount != 1 || saveCount != 0 {
-		t.Fatalf("checkpoint/save counts=%d/%d", checkpointCount, saveCount)
-	}
-	replayedResult, replayed, err := fixture.saves.CreateManual(
-		fixture.ctx, created.LaunchID, created.Capability, checkpointKey, validationRequest(t, payload),
-	)
-	if err != nil || !replayed || replayedResult.ValidationID != validationID ||
-		replayedResult.ResourceKind != "RPG_RUNTIME_VALIDATION_CHECKPOINT" ||
-		replayedResult.SizeBytes != int64(len(payload)) || replayedResult.PayloadSHA256 != expectedSHA256 {
-		t.Fatalf("validation replay=%#v replayed=%v error=%v", replayedResult, replayed, err)
-	}
-	status, err := fixture.saves.CheckpointStatus(fixture.ctx, created.LaunchID, created.Capability)
-	if err != nil || status.Availability.Available || status.Availability.Reason == nil ||
-		*status.Availability.Reason != "CHECKPOINT_ALREADY_CREATED" {
-		t.Fatalf("checkpoint status=%#v error=%v", status, err)
-	}
-	if _, _, err := fixture.saves.CreateManual(
-		fixture.ctx, created.LaunchID, created.Capability, uuid.NewString(), validationRequest(t, payload),
-	); !errors.Is(err, ErrCheckpointUnavailable) {
-		t.Fatalf("second checkpoint error=%v", err)
-	}
-	now := fixture.now.UnixMilli()
-	appendSaveValidationOriginalGates(t, fixture.database.SQL, validationID, created.LaunchID, now)
-	mustSaveSQL(t, fixture.database.SQL, `
-UPDATE rpgmaker_runtime_validations SET state='CHECKPOINTED',updated_at_ms=? WHERE id=?`, now, validationID)
-	mustSaveSQL(t, fixture.database.SQL, `
-UPDATE launch_sessions SET state='FINISHED',finished_at_ms=?,updated_at_ms=?,version=version+1 WHERE id=?`,
-		now, now, created.LaunchID)
-	restore := fixture.createValidationRestoreLaunch(t, validationID)
-	digest, err := fixture.saves.StateDigest(fixture.ctx, restore.LaunchID, restore.Capability)
-	if err != nil || restore.LaunchID == created.LaunchID || digest != hex.EncodeToString(expectedDigest[:]) {
-		t.Fatalf("validation restore launch=%s original=%s digest=%s error=%v",
-			restore.LaunchID, created.LaunchID, digest, err)
-	}
-}
-
-func appendSaveValidationOriginalGates(
-	t *testing.T,
-	database *sql.DB,
-	validationID, launchID string,
-	now int64,
-) {
-	t.Helper()
-	gates := []string{
-		"RUNTIME_READY", "ENGINE_PROFILE", "FRAMES_300", "INPUT", "AUDIO",
-		"INITIAL_POSITION_RECORDED", "SAVE_POINT_RECORDED", "CHECKPOINT_CREATED",
-		"POST_SAVE_STATE_DIVERGED", "ORIGINAL_LAUNCH_ENDED",
-	}
-	sequence := int64(1)
-	for _, gate := range gates {
-		for _, phase := range []string{"BEGIN", "PASS"} {
-			mustSaveSQL(t, database, `
-INSERT INTO rpgmaker_runtime_validation_gate_events(
- validation_id,sequence,event_id,launch_id,gate,phase,observed_at_ms,evidence_json,created_at_ms)
-VALUES(?,?,?,?,?,?,?,?,?)`, validationID, sequence, uuid.NewString(), launchID, gate, phase,
-				now+sequence, saveValidationGateEvidence(gate, phase), now+sequence)
-			mustSaveSQL(t, database, `
-UPDATE rpgmaker_runtime_validations SET last_gate_sequence=?,updated_at_ms=? WHERE id=?`,
-				sequence, now+sequence, validationID)
-			sequence++
-		}
-	}
-}
-
-func saveValidationGateEvidence(gate, phase string) string {
-	if phase != "PASS" {
-		return "{}"
-	}
-	switch gate {
-	case "INITIAL_POSITION_RECORDED":
-		return `{"mapId":1,"playerX":1,"playerY":1,"fixtureState":0}`
-	case "SAVE_POINT_RECORDED":
-		return `{"mapId":1,"playerX":2,"playerY":1,"fixtureState":1}`
-	case "POST_SAVE_STATE_DIVERGED":
-		return `{"mapId":1,"playerX":3,"playerY":1,"fixtureState":2}`
-	default:
-		return "{}"
-	}
-}
-
-func (fixture *saveFixture) createValidationLaunch(t *testing.T) (saveLaunch, string) {
-	t.Helper()
-	now := fixture.now.UnixMilli()
-	validationID := uuid.NewString()
-	launchID := uuid.NewString()
-	target, err := testsupport.LookupRuntimeTarget(fixture.ctx, fixture.database.SQL, "rpgmaker")
-	testassert.False(t, err != nil, err)
-	capabilityUUID := uuid.MustParse(launchID)
-	capability := fixture.credentials.Capability(capabilityUUID)
-	capabilityHash := retromruntime.HashCapability(capability)
-	userID := uuid.NewString()
-	ids := map[string]string{
-		"directory": uuid.NewString(), "upload": uuid.NewString(),
-		"import": uuid.NewString(), "item": uuid.NewString(), "snapshot": uuid.NewString(),
-		"review": uuid.NewString(), "validation": validationID,
-	}
-	mustSaveSQL(t, fixture.database.SQL, `
-INSERT INTO users(id,profile_id,username,display_name,role,status,created_at_ms,updated_at_ms)
-VALUES(?,'local',?,'Save Admin','ADMIN','ENABLED',?,?)`, userID, "save-admin-"+userID[:8], now, now)
-	mustSaveSQL(t, fixture.database.SQL, `
-INSERT INTO platform_instances(
- id,platform_id,default_core_id,name,slug,sort_order,enabled,version,created_at_ms,updated_at_ms,catalog_template_key)
-VALUES(?,'rpgmaker','rpgmaker','RPG Maker 2000 Save','rpg-maker-save-test',999,1,1,?,?,NULL)`,
-		ids["directory"], now, now)
-	mustSaveSQL(t, fixture.database.SQL, `
-INSERT INTO upload_sessions(
- id,purpose,state,source_type,total_files,total_bytes,manifest_digest,expires_at_ms,created_at_ms,updated_at_ms)
-VALUES(?,'PROJECT','COMPLETE','DIRECTORY',1,10,?,?,?,?)`, ids["upload"],
-		strings.Repeat("d", 64), now+1_000_000, now, now)
-	mustSaveSQL(t, fixture.database.SQL, `
-INSERT INTO import_jobs(
- id,upload_session_id,target_platform_instance_id,platform_instance_version,platform_id,default_core_id,
- provider_id,target_id,metadata_provider,config_snapshot_json,config_snapshot_digest,state,total_item_count,
- review_pending_item_count,created_at_ms,updated_at_ms)
-VALUES(?,?,?,1,'rpgmaker','rpgmaker',?,?,'NONE','{}',?,'REVIEW_PENDING',1,1,?,?)`,
-		ids["import"], ids["upload"], ids["directory"], target.ProviderID, target.TargetID,
-		strings.Repeat("e", 64), now, now)
-	mustSaveSQL(t, fixture.database.SQL, `
-INSERT INTO import_items(
- id,import_job_id,group_key,state,source_manifest_json,source_manifest_digest,search_text,created_at_ms,updated_at_ms)
-VALUES(?,?,?,'REVIEW_PENDING','{}',?,'save validation fixture',?,?)`, ids["item"], ids["import"],
-		strings.Repeat("1", 64), strings.Repeat("2", 64), now, now)
-	manifest := `{"schemaVersion":2,"contentKind":"RPG_MAKER_PROJECT","fileCount":1,"totalBytes":10,"filesDigest":"` +
-		strings.Repeat("3", 64) + `"}`
-	mustSaveSQL(t, fixture.database.SQL, `
-INSERT INTO import_item_source_snapshots(
- id,import_item_id,content_kind,source_manifest_json,source_manifest_digest,created_by,created_at_ms)
-VALUES(?,?,'RPG_MAKER_PROJECT',?,?,'IDENTIFICATION',?)`, ids["snapshot"], ids["item"], manifest,
-		strings.Repeat("4", 64), now)
-	mustSaveSQL(t, fixture.database.SQL, `
-INSERT INTO review_drafts(
- id,import_item_id,target_platform_instance_id,metadata_json,version,
- created_at_ms,updated_at_ms,effective_source_snapshot_id)
-VALUES(?,?,?,'{}',1,?,?,?)`, ids["review"], ids["item"], ids["directory"], now, now, ids["snapshot"])
-	mustSaveSQL(t, fixture.database.SQL, `
-INSERT INTO rpgmaker_review_profiles(
- review_draft_id,generation,evidence_family,evidence_generation,evidence_confidence,
- file_count,total_bytes,project_fingerprint,requirements_sha256,analysis_json,self_contained_override,
- provider_id,target_id,dependency_snapshot_sha256,
- created_at_ms,updated_at_ms)
-VALUES(?,'RPG2000','RPG2K','RPG2000','MATCHED',1,10,?,?,'{}',1,
- ?,?,?,?,?)`, ids["review"], strings.Repeat("5", 64), strings.Repeat("6", 64),
-		target.ProviderID, target.TargetID, strings.Repeat("7", 64), now, now)
-	mustSaveSQL(t, fixture.database.SQL, `
-INSERT INTO rpgmaker_runtime_validations(
- id,import_item_id,review_version_at_create,effective_source_snapshot_id,
- project_fingerprint,generation,evidence_generation,evidence_confidence,
- provider_id,target_id,
- dependency_snapshot_sha256,state,machine_gates_json,
- created_at_ms,updated_at_ms,expires_at_ms)
-VALUES(?,?,1,?,?,'RPG2000','RPG2000','MATCHED',
- ?,?,?,'CREATED','{}',?,?,?)`, validationID, ids["item"], ids["snapshot"],
-		strings.Repeat("5", 64), target.ProviderID, target.TargetID,
-		strings.Repeat("7", 64), now, now, now+900_000)
-	mustSaveSQL(t, fixture.database.SQL, `
-INSERT INTO launch_sessions(
- id,profile_id,purpose,core_id,provider_id,target_id,bundle_sha256,
- content_kind,dependency_snapshot_json,compatibility_code,effective_source_snapshot_id,
- rpgmaker_runtime_validation_id,return_to,credential_sha256,state,bootstrap_expires_at_ms,
- hard_expires_at_ms,created_at_ms,updated_at_ms)
-VALUES(?,'local','RPG_RUNTIME_VALIDATION','rpgmaker',?,?,?,
- 'RPG_MAKER_PROJECT','{}','RPG_RUNTIME_VALIDATION_REQUIRED',?,?,?,?,'CREATED',?,?,?,?)`,
-		launchID, target.ProviderID, target.TargetID, target.BundleSHA256, ids["snapshot"], validationID,
-		"/admin/reviews/"+ids["item"], capabilityHash[:],
-		now+60_000, now+900_000, now, now)
-	mustSaveSQL(t, fixture.database.SQL, `
-UPDATE rpgmaker_runtime_validations SET launch_id=?,state='STARTING',updated_at_ms=? WHERE id=?`,
-		launchID, now, validationID)
-	mustSaveSQL(t, fixture.database.SQL, `
-UPDATE rpgmaker_runtime_validations SET state='RUNNING',updated_at_ms=? WHERE id=?`, now, validationID)
-	mustSaveSQL(t, fixture.database.SQL, `
-UPDATE launch_sessions SET state='ACTIVE',activated_at_ms=?,idle_expires_at_ms=?,updated_at_ms=?,version=version+1
-WHERE id=?`, now, now+120_000, now, launchID)
-	return saveLaunch{
-		LaunchID: launchID, Capability: retromruntime.EncodeCapability(capability),
-	}, validationID
-}
-
-func (fixture *saveFixture) createValidationRestoreLaunch(t *testing.T, validationID string) saveLaunch {
-	t.Helper()
-	launchID := uuid.NewString()
-	launchUUID := uuid.MustParse(launchID)
-	capability := fixture.credentials.Capability(launchUUID)
-	capabilityHash := retromruntime.HashCapability(capability)
-	now := fixture.now.UnixMilli()
-	mustSaveSQL(t, fixture.database.SQL, `
-INSERT INTO launch_sessions(
- id,profile_id,purpose,core_id,provider_id,target_id,bundle_sha256,
- content_kind,dependency_snapshot_json,compatibility_code,effective_source_snapshot_id,
- rpgmaker_runtime_validation_id,return_to,credential_sha256,state,bootstrap_expires_at_ms,
- hard_expires_at_ms,created_at_ms,updated_at_ms)
-SELECT ?,'local','RPG_RUNTIME_VALIDATION','rpgmaker',validation.provider_id,validation.target_id,
- provider.bundle_sha256,'RPG_MAKER_PROJECT','{}','RPG_RUNTIME_VALIDATION_REQUIRED',
- validation.effective_source_snapshot_id,validation.id,
- '/admin/reviews/'||import_item_id,?,'CREATED',?,?,?,?
-FROM rpgmaker_runtime_validations validation
-JOIN runtime_providers provider ON provider.provider_id=validation.provider_id
-WHERE validation.id=?`, launchID, capabilityHash[:], now+60_000,
-		now+900_000, now, now, validationID)
-	mustSaveSQL(t, fixture.database.SQL, `
-UPDATE rpgmaker_runtime_validations SET restore_launch_id=?,updated_at_ms=? WHERE id=?`,
-		launchID, now, validationID)
-	mustSaveSQL(t, fixture.database.SQL, `
-UPDATE launch_sessions SET state='ACTIVE',activated_at_ms=?,idle_expires_at_ms=?,updated_at_ms=?,version=version+1
-WHERE id=?`, now, now+120_000, now, launchID)
-	return saveLaunch{
-		LaunchID: launchID, Capability: retromruntime.EncodeCapability(capability),
+	created := fixture.createLaunch(t)
+	_, _, err := fixture.saves.CreateManual(fixture.ctx, created.LaunchID, created.Capability, uuid.NewString(),
+		validationRequestMetadata(t, `{"checkpointFormat":"test-checkpoint-v1","checkpointFormat":"test-checkpoint-v1"}`, []byte("state")))
+	if !errors.Is(err, ErrInvalid) {
+		t.Fatalf("duplicate metadata key: %v", err)
 	}
 }
 

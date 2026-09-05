@@ -129,7 +129,7 @@ const fixtureManifest = `{
     "displayName":"Core",
     "targetOptionsSchema":{"type":"object","additionalProperties":false,"properties":{},"required":[]},
     "inputs":[{"role":"game","kind":"ROM_BLOB","cardinality":"ONE","optional":false}],
-    "capabilities":{"pause":true,"screenshot":true,"checkpoint":false,"standardGamepad":true,"frameCounter":false,"volume":true,"discSwitch":false,"nativeSettings":true,"inputFilter":true,"netplayPort":false,"videoModes":["original","pixel"],"requiresThreads":false,"frameMode":"SAME_ORIGIN_BLANK","validationProbes":[]},
+    "capabilities":{"pause":true,"screenshot":true,"checkpoint":false,"standardGamepad":true,"frameCounter":false,"volume":true,"discSwitch":false,"nativeSettings":true,"inputFilter":true,"netplayPort":false,"videoModes":["original","pixel"],"requiresThreads":false,"frameMode":"SAME_ORIGIN_BLANK"},
     "checkpoint":null,
     "assetPaths":["assets/core.wasm"]
   }]

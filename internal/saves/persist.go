@@ -27,9 +27,6 @@ func (service *Service) CreateManual(
 	if err != nil {
 		return ManualResult{}, false, err
 	}
-	if launch.purpose == "RPG_RUNTIME_VALIDATION" && !launch.originalValidationLaunch {
-		return ManualResult{}, false, ErrCheckpointUnavailable
-	}
 	parsed, err := service.parseManual(request, launch)
 	if err != nil {
 		return ManualResult{}, false, err
@@ -39,7 +36,9 @@ func (service *Service) CreateManual(
 	if parsed.screenshot != nil {
 		screenshotDigest = parsed.screenshot.SHA256
 	}
-	digest := sha256.Sum256([]byte(string(metadataDigest) + "\x00" + parsed.payload.SHA256 + "\x00" + screenshotDigest))
+	digest := sha256.Sum256([]byte(
+		launchID + "\x00" + string(metadataDigest) + "\x00" + parsed.payload.SHA256 + "\x00" + screenshotDigest,
+	))
 	return service.persistManualSave(
 		ctx, launchID, idempotencyKey, hex.EncodeToString(digest[:]), launch, parsed,
 	)
@@ -73,7 +72,7 @@ func (service *Service) persistManualSave(
 	if launch.purpose == "PRODUCT" {
 		result, err = service.insertProductSave(ctx, transaction, launchID, launch, parsed, payloadID, now)
 	} else {
-		result, err = service.insertValidationCheckpoint(ctx, transaction, launch, parsed, payloadID, now)
+		result, err = service.insertReviewCheckpoint(ctx, transaction, launchID, launch, payloadID, now)
 	}
 	if err != nil {
 		return ManualResult{}, false, err
@@ -104,21 +103,18 @@ func (service *Service) ensureWritable(
 WHERE launch.id=? AND launch.game_id=? AND launch.state='ACTIVE' AND game.status='PUBLISHED'`
 		arguments = []any{launchID, launch.gameID}
 	} else {
-		query = `SELECT count(*) FROM launch_sessions launch
-JOIN rpgmaker_runtime_validations validation ON validation.id=launch.rpgmaker_runtime_validation_id
-WHERE launch.id=? AND launch.id=validation.launch_id AND launch.state='ACTIVE'
- AND validation.id=? AND validation.state='RUNNING'
- AND NOT EXISTS(SELECT 1 FROM rpgmaker_runtime_validation_checkpoints checkpoint
-                WHERE checkpoint.validation_id=validation.id)`
-		arguments = []any{launchID, launch.validationID}
+		query = `SELECT count(*) FROM review_preview_sessions preview
+JOIN import_items item ON item.id=preview.import_item_id
+JOIN runtime_targets target ON target.provider_id=preview.provider_id AND target.target_id=preview.target_id
+WHERE preview.id=? AND preview.state='ACTIVE' AND preview.hard_expires_at_ms>?
+ AND item.state='REVIEW_PENDING' AND item.payload_state='RETAINED'
+ AND json_extract(target.checkpoint_json,'$.writeFormat')=?`
+		arguments = []any{launchID, service.now().UnixMilli(), launch.checkpointFormat}
 	}
 	if err := transaction.QueryRowContext(ctx, query, arguments...).Scan(&writable); err != nil {
 		return fmt.Errorf("saves/service: %w", err)
 	}
 	if writable != 1 {
-		if launch.purpose == "RPG_RUNTIME_VALIDATION" {
-			return ErrCheckpointUnavailable
-		}
 		return ErrCredential
 	}
 	return nil
@@ -173,22 +169,20 @@ VALUES(?,?,?,?,?,?,?,?,?,?,?,1,?,?,?,?)
 	return result, nil
 }
 
-func (service *Service) insertValidationCheckpoint(
-	ctx context.Context, transaction *sql.Tx, launch launchSnapshot,
-	parsed parsedManual, payloadID string, now int64,
+func (service *Service) insertReviewCheckpoint(
+	ctx context.Context, transaction *sql.Tx, previewID string, launch launchSnapshot,
+	payloadID string, now int64,
 ) (ManualResult, error) {
 	_, err := transaction.ExecContext(ctx, `
-INSERT INTO rpgmaker_runtime_validation_checkpoints(
- validation_id,payload_blob_id,checkpoint_format,payload_sha256,size_bytes,created_at_ms)
-VALUES(?,?,?,?,?,?)
-`, launch.validationID, payloadID, launch.checkpointFormat, parsed.payload.SHA256, parsed.payload.Size, now)
+UPDATE review_preview_sessions SET checkpoint_payload_blob_id=?,checkpoint_format=?,checkpoint_created_at_ms=?,
+ updated_at_ms=?,version=version+1 WHERE id=?
+`, payloadID, launch.checkpointFormat, now, now, previewID)
 	if err != nil {
-		return ManualResult{}, fmt.Errorf("saves/service: %w", err)
+		return ManualResult{}, fmt.Errorf("store review checkpoint: %w", err)
 	}
 	return ManualResult{
-		ResourceKind: "RPG_RUNTIME_VALIDATION_CHECKPOINT", ValidationID: launch.validationID,
-		CheckpointFormat: launch.checkpointFormat,
-		SizeBytes:        parsed.payload.Size, PayloadSHA256: parsed.payload.SHA256, CreatedAtMS: now,
+		ResourceKind: "REVIEW_PREVIEW_CHECKPOINT", PreviewID: previewID,
+		CheckpointFormat: launch.checkpointFormat, CreatedAtMS: now,
 	}, nil
 }
 

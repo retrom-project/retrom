@@ -34,7 +34,7 @@ func TestBindingSelectsStrategyWithoutRepeatingFixedFacts(t *testing.T) {
 	}
 	for _, binding := range catalog.Bindings {
 		strategy, ok := Strategy(binding.DetectorProfile)
-		if !ok || strategy.Delivery == "" || strategy.Review == "" || strategy.Options == "" {
+		if !ok || strategy.Delivery == "" || strategy.Options == "" {
 			t.Fatalf("incomplete strategy for %s: %#v", binding.ID, strategy)
 		}
 		encoded, err := json.Marshal(binding)

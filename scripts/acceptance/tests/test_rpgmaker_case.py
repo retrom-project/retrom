@@ -98,14 +98,14 @@ class EvidenceContractTests(unittest.TestCase):
         self.assertNotIn('request.urlKind === "external" && request.status === 0', source)
 
     def test_isolation_driver_focuses_runtime_canvas_and_surfaces_action_errors(self) -> None:
-        source = SECURITY_BROWSER_PATH.read_text()
+        source = (MODULE_PATH.parent / "rpgmaker_preview_actions.mjs").read_text()
         self.assertIn("element.tabIndex = 0;", source)
         self.assertIn("element.focus();", source)
-        self.assertIn("await canvas.press(key, { delay: 250 });", source)
+        self.assertIn("await canvas.press(key, {delay: 250});", source)
         self.assertIn("for (const key of keys)", source)
         self.assertIn("await page.waitForTimeout(800);", source)
         self.assertNotIn("await page.keyboard.press(key)", source)
-        self.assertIn("RPG_ACCEPTANCE_RUNTIME_ACTION_", source)
+        self.assertIn("RPG_PROVISION_RUNTIME_ACTION_UNAVAILABLE_", source)
 
     def test_security_driver_resolves_reserved_local_hosts_without_system_dns(self) -> None:
         source = SECURITY_BROWSER_PATH.read_text()
@@ -140,12 +140,12 @@ class EvidenceContractTests(unittest.TestCase):
         )
         self.assertNotIn('"acc-rpg-011-restore.png"', source)
 
-    def test_isolation_probes_wait_for_automatic_frame_gates(self) -> None:
+    def test_isolation_probes_wait_for_actual_frame_progress(self) -> None:
         source = SECURITY_BROWSER_PATH.read_text()
-        wait = "await waitForAutomaticValidationGates(launched.page);"
+        wait = "await observePreviewFrames(launched.page);"
         probe = "launched.bootstrap = await bootstrapChecks("
         resume = "await launched.page.bringToFront();"
-        validation = "await completeOriginalValidation(launched.page, launched.frame, input.generation);"
+        validation = "await capturePreviewCheckpoint(launched.page, launched.launchId);"
         self.assertIn(wait, source)
         self.assertIn(probe, source)
         self.assertIn(resume, source)
@@ -162,13 +162,13 @@ class EvidenceContractTests(unittest.TestCase):
         ):
             self.assertIn(required, source)
         self.assertIn(
-            'createValidationLaunch(context, client, opaqueReview, "acc-rpg-010-opaque-native.png", false)',
+            'createPreviewLaunch(context, client, opaqueReview, "acc-rpg-010-opaque-native.png", false)',
             source,
         )
         self.assertIn("await cleanupNativeProjection(opaqueLaunch.frame)", source)
         self.assertIn("await runtimeProjectStatus(opaqueLaunch.frame, name)", source)
         self.assertNotIn("`${opaqueLaunch.runtimeOrigin}/__retrom/project/", source)
-        self.assertIn("await finishOpenedValidationLaunch(opaqueLaunch.page, opaqueLaunch.launchId)", source)
+        self.assertIn("await finishPreview(opaqueLaunch.page, opaqueLaunch.launchId)", source)
         self.assertNotIn("await finishInspectionLaunch(client, opaqueLaunch.launchId)", source)
         self.assertIn('headers: { Origin: baseUrl, "Content-Type": "application/json" }', source)
 
@@ -228,7 +228,7 @@ class EvidenceContractTests(unittest.TestCase):
             Path(__file__).resolve().parents[1] / "rpgmaker_pack_provision.mjs"
         ).read_text()
         self.assertIn("if (!current.canApprove", source)
-        self.assertIn("if (review.canApprove ||", source)
+        self.assertIn("review.canApprove !== initiallyReady", source)
         self.assertNotIn('state !== "REVIEW_PENDING"', source)
 
     def test_pack_provision_preserves_a_title_wrapper_without_mutating_binding(self) -> None:
@@ -240,13 +240,13 @@ class EvidenceContractTests(unittest.TestCase):
     def test_pack_provision_uses_one_virtual_rpgmaker_platform_instance(self) -> None:
         source = PACK_PROVISION_PRODUCT_PATH.read_text()
         self.assertIn('item.defaultCoreId === "rpgmaker"', source)
-        self.assertIn("new Map(expectedCoreIds.map((coreId) => [coreId, platform.id]))", source)
+        self.assertIn("new Map(expectedTargetIds.map((targetId) => [targetId, platform.id]))", source)
         self.assertNotIn("expectedCoreIds.includes(item.defaultCoreId)", source)
 
     def test_pack_provision_reveals_save_by_current_player_pointer_contract(self) -> None:
         source = PACK_PROVISION_PRODUCT_PATH.read_text()
-        self.assertIn("await page.mouse.move(720, 1);", source)
-        self.assertIn('getByRole("button", { name: "创建存档", exact: true })', source)
+        self.assertIn("await revealPreviewToolbar(page)", source)
+        self.assertIn('getByRole("button", {name: "创建存档", exact: true})', source)
         self.assertNotIn('page.locator(".player-toolbar")', source)
 
     def test_pack_driver_initializes_role_contract_before_product_execution(self) -> None:
@@ -295,7 +295,7 @@ class EvidenceContractTests(unittest.TestCase):
         digest = "a" * 64
         payload = product_payload(spec, digest)
         rpgmaker.validate_generation_evidence(payload, spec, digest)
-        payload["validation"]["checkpointRoundTrip"]["restoredPosition"]["playerX"] = 99
+        payload["runtimeTrial"]["checkpointRoundTrip"]["restoredPosition"]["playerX"] = 99
         with self.assertRaisesRegex(rpgmaker.ContractError, "POSITION_ROUND_TRIP_INVALID"):
             rpgmaker.validate_generation_evidence(payload, spec, digest)
 
@@ -304,15 +304,11 @@ class EvidenceContractTests(unittest.TestCase):
             with self.subTest(generation=spec.generation):
                 rpgmaker.validate_generation_evidence(product_payload(spec, "a" * 64), spec, "a" * 64)
 
-    def test_generation_evidence_binds_machine_position_gates_to_round_trip(self) -> None:
+    def test_generation_evidence_binds_frozen_restore_bytes_to_the_saved_checkpoint(self) -> None:
         spec = rpgmaker.GENERATION_CASES["ACC-RPG-006"]
         payload = product_payload(spec, "a" * 64)
-        gate = next(
-            item for item in payload["validation"]["machineGates"]
-            if item["gate"] == "SAVE_POINT_RECORDED"
-        )
-        gate["evidence"]["playerX"] += 1
-        with self.assertRaisesRegex(rpgmaker.ContractError, "GATE_POSITION_EVIDENCE_INVALID"):
+        payload["runtimeTrial"]["checkpointRoundTrip"]["frozenRestoreSha256"] = "0" * 64
+        with self.assertRaisesRegex(rpgmaker.ContractError, "CHECKPOINT_FROZEN_PAYLOAD_INVALID"):
             rpgmaker.validate_generation_evidence(payload, spec, "a" * 64)
 
     def test_generation_evidence_binds_local_fixture_digest(self) -> None:
@@ -323,7 +319,7 @@ class EvidenceContractTests(unittest.TestCase):
     def test_generation_evidence_requires_fixture_variable_zero_one_two(self) -> None:
         spec = rpgmaker.GENERATION_CASES["ACC-RPG-005"]
         payload = product_payload(spec, "a" * 64)
-        round_trip = payload["validation"]["checkpointRoundTrip"]
+        round_trip = payload["runtimeTrial"]["checkpointRoundTrip"]
         for key in ("initialPosition", "savedPosition", "divergedPosition"):
             round_trip[key]["fixtureState"] = 0
         round_trip["restoredPosition"]["fixtureState"] = 0
@@ -378,7 +374,7 @@ class EvidenceContractTests(unittest.TestCase):
         for case_id in ("ACC-RPG-004", "ACC-RPG-005", "ACC-RPG-006"):
             spec = rpgmaker.GENERATION_CASES[case_id]
             payload = product_payload(spec, "a" * 64)
-            payload["validation"]["checkpointRoundTrip"]["sizeBytes"] = 268_435_456
+            payload["runtimeTrial"]["checkpointRoundTrip"]["sizeBytes"] = 268_435_456
             with self.subTest(generation=spec.generation), self.assertRaisesRegex(
                 rpgmaker.ContractError, "MKXP_RUNTIME_EVIDENCE_INVALID",
             ):
@@ -387,9 +383,9 @@ class EvidenceContractTests(unittest.TestCase):
     def test_generation_provision_collects_xp_trace_from_product_boundaries(self) -> None:
         source = GENERATION_PROVISION_PATH.read_text()
         for required in (
-            'review.version, "VALIDATION"', 'review.version, "RESTORE"',
+            'review.version, "PREVIEW"', 'review.version, "RESTORE"',
             'declaredContentLengthBytes: 283_115_521',
-            'request.url().includes("/save-states")',
+            'capturePreviewCheckpoint(original, created.previewId)',
             'writeFileSync(tracePath,', 'flag: "wx"', 'mode: 0o600',
             'launchCredentialIssued: false, projectPayloadRequestCount: 0',
             'while (remaining > 0 && !responseHasStarted())',
@@ -399,7 +395,7 @@ class EvidenceContractTests(unittest.TestCase):
         self.assertNotIn("sourcePath", source)
 
     def test_generation_provision_preserves_runtime_failure_diagnostics(self) -> None:
-        source = GENERATION_PROVISION_PATH.read_text()
+        source = GENERATION_PROVISION_PATH.read_text() + (MODULE_PATH.parent / "rpgmaker_preview_actions.mjs").read_text()
         self.assertIn("RPG_PROVISION_RUNTIME_ACTION_UNAVAILABLE_", source)
         self.assertIn("page.__retromPageErrors", source)
         self.assertIn('page.addInitScript(() => {', source)
@@ -445,7 +441,7 @@ class EvidenceContractTests(unittest.TestCase):
     def test_generation_provision_does_not_bind_an_unrequested_xp_trace(self) -> None:
         source = GENERATION_PROVISION_PATH.read_text()
         self.assertIn(
-            "checkpointUpload: tracePath ? bindCheckpointUpload(observedUpload, checkpointed.checkpointRoundTrip) : null",
+            "checkpointUpload: tracePath ? bindCheckpointUpload(checkpointB, checkpointB) : null",
             source,
         )
 
@@ -537,12 +533,11 @@ class EvidenceContractTests(unittest.TestCase):
         self.assertIn('item.defaultCoreId === "rpgmaker"', source)
         self.assertNotIn("item.defaultCoreId === config.coreId", source)
 
-    def test_generation_provision_can_resume_an_exact_review_after_a_terminal_validation(self) -> None:
+    def test_generation_provision_can_resume_an_exact_review_without_proof_state(self) -> None:
         source = GENERATION_PROVISION_PATH.read_text()
         self.assertIn('process.env.RETROM_RPG_PROVISION_RESUME_ITEM_ID', source)
-        self.assertIn('["FAILED", "EXPIRED"].includes(validation?.state)', source)
-        self.assertIn('review.rpgMaker?.runtimeValidationCurrent !== true', source)
-        self.assertIn('!validationCanBeReplaced', source)
+        self.assertNotIn("validationCanBeReplaced", source)
+        self.assertNotIn("runtimeValidationCurrent", source)
         self.assertIn('review.sourceManifest?.filesDigest !== expected.filesDigest', source)
         self.assertIn('.normalize("NFC")', source)
         self.assertIn('Buffer.compare(Buffer.from(left.logicalName), Buffer.from(right.logicalName))', source)
@@ -574,15 +569,15 @@ class EvidenceContractTests(unittest.TestCase):
         payload = product_payload(spec, "a" * 64)
         payload["inputProvenance"].pop("licenseUrl")
         payload["runtimeEnvironment"]["chromeVersion"] = ""
-        payload["runtimeEnvironment"]["gateDurationsMs"] = []
+        payload["runtimeEnvironment"]["trialDurationMs"] = None
         with self.assertRaisesRegex(rpgmaker.ContractError, "MZ_INPUT_PROVENANCE_INVALID"):
             rpgmaker.validate_generation_evidence(payload, spec, "a" * 64)
 
-    def test_mz_generation_evidence_rejects_missing_chrome_and_gate_durations(self) -> None:
+    def test_mz_generation_evidence_rejects_missing_chrome_and_trial_duration(self) -> None:
         spec = rpgmaker.GENERATION_CASES["ACC-RPG-008"]
         payload = product_payload(spec, "a" * 64)
         payload["runtimeEnvironment"]["chromeVersion"] = ""
-        payload["runtimeEnvironment"]["gateDurationsMs"] = []
+        payload["runtimeEnvironment"]["trialDurationMs"] = None
         with self.assertRaisesRegex(rpgmaker.ContractError, "RUNTIME_ENVIRONMENT_INVALID"):
             rpgmaker.validate_generation_evidence(payload, spec, "a" * 64)
 
@@ -826,6 +821,18 @@ class EvidenceContractTests(unittest.TestCase):
         with self.assertRaisesRegex(rpgmaker.ContractError, "SECRET_OR_PATH"):
             rpgmaker.validate_pack_evidence(payload)
 
+    def test_pack_evidence_requires_actual_readiness_not_trial_proof(self) -> None:
+        payload = pack_evidence_payload()
+        rpgmaker.validate_pack_evidence(payload)
+        selected = next(item for item in payload["reviews"]["matcherRejections"] if item["matcher"] == "SELECTED")
+        selected["publishReadiness"]["current"] = False
+        with self.assertRaisesRegex(rpgmaker.ContractError, "PUBLISH_READINESS"):
+            rpgmaker.validate_pack_evidence(payload)
+        payload = pack_evidence_payload()
+        payload["databaseEvidence"]["selectedReviews"][0]["validationStatus"] = "BLOCKED"
+        with self.assertRaisesRegex(rpgmaker.ContractError, "DATABASE_SELECTION"):
+            rpgmaker.validate_pack_evidence(payload)
+
     def test_pack_evidence_rejects_unreleased_consumption_and_fake_selection(self) -> None:
         payload = pack_evidence_payload()
         payload["databaseEvidence"]["uploads"]["zeroReference"]["consumptionReleasedAtMs"] = None
@@ -977,7 +984,7 @@ def pack_evidence_payload() -> dict:
     published = [
         {
             "role": role, "itemId": pack_uuid(120 + index), "gameId": pack_uuid(130 + index),
-            "validationId": pack_uuid(140 + index), "generation": "RPGXP", "status": 201,
+            "generation": "RPGXP", "status": 201,
         }
         for index, role in enumerate(published_roles)
     ]
@@ -996,10 +1003,11 @@ def pack_evidence_payload() -> dict:
             "installationId": installations[[
                 "rpg2000Rtp", "rpg2003Rtp", "rgss1Custom", "rgss2Custom", "rgss3Custom",
             ][index]]["installationId"],
-            "publish": {"status": 409, "code": "REVIEW_VALIDATION_STALE"},
+            "publishReadiness": {"canApprove": True, "current": True, "status": "READY"},
         }
         outcomes.append(item)
-        selected.append({key: item[key] for key in ("role", "itemId", "installationId")})
+        selected.append({**{key: item[key] for key in ("role", "itemId", "installationId")},
+                         "validationStatus": "READY", "dependencyInstallationId": item["installationId"]})
     for index, (role, upload_role) in enumerate((
         ("rpgxpStandardAmbiguous", "rgss1StandardV1"),
         ("rpgvxStandardAmbiguous", "rgss2StandardV1"),
@@ -1009,10 +1017,11 @@ def pack_evidence_payload() -> dict:
             "role": role, "itemId": pack_uuid(160 + index), "matcher": "AMBIGUOUS", "patchStatus": 200,
             "installationId": installations[upload_role]["installationId"],
             "rejectionStatus": 422, "rejectionCode": "REVIEW_DRAFT_INVALID",
-            "publish": {"status": 409, "code": "REVIEW_VALIDATION_STALE"},
+            "publishReadiness": {"canApprove": True, "current": True, "status": "READY"},
         }
         outcomes.append(item)
-        selected.append({key: item[key] for key in ("role", "itemId", "installationId")})
+        selected.append({**{key: item[key] for key in ("role", "itemId", "installationId")},
+                         "validationStatus": "READY", "dependencyInstallationId": item["installationId"]})
     protected_references = {
         "publishedVariant": {"installationId": pack_uuid(180), "gameId": pack_uuid(181)},
         "restorableCheckpoint": {
@@ -1033,8 +1042,11 @@ def pack_evidence_payload() -> dict:
     }
     zero_upload = database_uploads["zeroReference"]
     release_job = pack_job(190, "PAYLOAD_RELEASE", True)
+    population = {"before": {"games": [], "saves": [], "reviews": []},
+                  "after": {"games": [], "saves": [], "reviews": []}}
     return {
         "schemaVersion": 1, "caseId": "ACC-RPG-009", "status": "PASS",
+        "populationPreservation": population,
         "uploads": uploads, "installations": installations,
         "reviews": {"published": published, "matcherRejections": outcomes},
         "protectedReferences": protected_references,
@@ -1050,6 +1062,7 @@ def pack_evidence_payload() -> dict:
         ],
         "databaseEvidence": {
             "schemaVersion": 1, "uploads": database_uploads,
+            "provisioningEvidence": {"payload": {"populationPreservation": population}},
             "publishedReviews": [
                 {key: item[key] for key in ("role", "itemId", "gameId")} for item in published
             ],
@@ -1072,20 +1085,7 @@ def product_payload(spec, digest: str) -> dict:
     position_a = {"mapId": 1, "playerX": 1, "playerY": 1, "fixtureState": 0}
     position_b = {"mapId": 1, "playerX": 2, "playerY": 1, "fixtureState": 1}
     position_c = {"mapId": 1, "playerX": 3, "playerY": 1, "fixtureState": 2}
-    position_after = {"mapId": 1, "playerX": 4, "playerY": 1, "fixtureState": 1}
-    machine_gates = [
-        gate_evidence(gate, spec.generation, index) for index, gate in enumerate(rpgmaker.GATES)
-    ]
-    position_gates = {
-        "INITIAL_POSITION_RECORDED": position_a,
-        "SAVE_POINT_RECORDED": position_b,
-        "POST_SAVE_STATE_DIVERGED": position_c,
-        "RESTORE_POSITION_VERIFIED": position_b,
-        "RESTORE_INPUT": position_after,
-    }
-    for gate in machine_gates:
-        if gate["gate"] in position_gates:
-            gate["evidence"] = dict(position_gates[gate["gate"]])
+    position_after = {"mapId": 1, "playerX": 4, "playerY": 1, "fixtureState": 2}
     expected_marker, expected_rgb = rpgmaker.MARKERS[spec.generation]
     marker = (expected_marker, list(expected_rgb) if expected_rgb is not None else [34, 197, 94])
     import_id = "66666666-6666-4666-8666-666666666666"
@@ -1098,29 +1098,31 @@ def product_payload(spec, digest: str) -> dict:
             "rpgMaker": {
                 "selectedCoreId": spec.core_id, "generation": spec.generation,
                 "evidenceGeneration": spec.evidence_generation, "evidenceConfidence": spec.confidence,
-                "runtimeValidationCurrent": True,
+
             },
         },
-        "validation": {
+        "runtimeTrial": {
+            "schemaVersion": 1, "kind": "DEVELOPMENT_RUNTIME_TRIAL",
             "importItemId": "55555555-5555-4555-8555-555555555555",
-            "launchId": original, "restoreLaunchId": restore, "state": "PASSED",
-            "decision": {"decision": "PASS"},
+            "launchId": original, "restoreLaunchId": restore,
+            "startedAtMs": 1000, "finishedAtMs": 2000,
+            "frameProgress": {"original": {"beforeFrame": 60, "afterFrame": 361},
+                              "restored": {"beforeFrame": 60, "afterFrame": 361}},
+            "audio": {"contexts": 1, "observedSamples": 4096, "peakAbsoluteSample": 0.25},
+            "restoredScreenshot": {"fileName": "trial-restored.png", "sha256": "9" * 64, "sizeBytes": 1024},
             "routeEvidence": {
                 "effectiveSourceSnapshotId": "44444444-4444-4444-8444-444444444444",
                 "providerId": "retrom-runtime", "targetId": spec.target_id, "generation": spec.generation,
                 "evidenceGeneration": spec.evidence_generation, "evidenceConfidence": spec.confidence,
                 "projectFingerprint": digest, "dependencySnapshotSha256": "d" * 64,
             },
-            "machineGates": machine_gates,
             "checkpointRoundTrip": {
-                "created": True, "originalLaunchEnded": True, "restoreStarted": True,
-                "positionVerified": True, "restoreInputVerified": True,
+                "originalLaunchEnded": True, "frozenRestoreSha256": "e" * 64,
                 "originalLaunchId": original, "restoreLaunchId": restore,
                 "initialPosition": position_a, "savedPosition": position_b,
                 "divergedPosition": position_c, "restoredPosition": dict(position_b),
                 "restoreInputPosition": position_after, "sha256": "e" * 64,
-                "screenshotUrl": "/api/v1/admin/review-assets/screenshot",
-                "checkpointFormat": "mkxp-state-compact-v1" if spec.generation in {"RPGXP", "RPGVX", "RPGVXACE"}
+                "format": "mkxp-state-compact-v1" if spec.generation in {"RPGXP", "RPGVX", "RPGVXACE"}
                 else "provider-checkpoint-v1",
                 "sizeBytes": 1_048_576 if spec.generation in {"RPGXP", "RPGVX", "RPGVXACE"} else 4_096,
             },
@@ -1176,9 +1178,7 @@ def product_payload(spec, digest: str) -> dict:
             "chromeVersion": "Chrome/128.0.6613.84",
             "engineVersion": None,
             "engineProfile": rpgmaker.ENGINE_PROFILES[spec.generation],
-            "gateDurationsMs": [
-                {"gate": gate, "durationMs": 10} for gate in rpgmaker.GATES
-            ],
+            "trialDurationMs": 1000,
         },
         "loading": runtime_loading_evidence(spec.generation),
         "screenshots": [restore_screenshot, f"screenshots/{spec.core_id}-product-player.png"],
@@ -1321,7 +1321,7 @@ def content_security_evidence_payload() -> dict:
                     "postInspectionFilesDigest": f"{index + 100:064x}", "nestedEntryCount": 0,
                     "importJobId": pack_uuid(200 + index), "importItemId": pack_uuid(300 + index),
                     "contentIdentityDigest": f"{index + 200:064x}",
-                    "validationId": pack_uuid(400 + index), "launchId": pack_uuid(500 + index),
+                    "launchId": pack_uuid(500 + index),
                     "providerId": "retrom-runtime", "targetId": targets[generation],
                     "bundleSha256": f"{generation_index + 600:064x}",
                     "projection": {
@@ -1368,21 +1368,9 @@ def isolation_evidence_payload() -> dict:
         original = f"{index}1111111-1111-4111-8111-111111111111"
         restore = f"{index}2222222-2222-4222-8222-222222222222"
         checkpoint = checkpoint_payload(original, restore)
-        gates = [gate_evidence(gate, generation) for gate in rpgmaker.GATES]
-        positions = {
-            "INITIAL_POSITION_RECORDED": checkpoint["initialPosition"],
-            "SAVE_POINT_RECORDED": checkpoint["savedPosition"],
-            "POST_SAVE_STATE_DIVERGED": checkpoint["divergedPosition"],
-            "RESTORE_POSITION_VERIFIED": checkpoint["restoredPosition"],
-            "RESTORE_INPUT": checkpoint["restoreInputPosition"],
-        }
-        for gate in gates:
-            if gate["gate"] in positions:
-                gate["evidence"] = positions[gate["gate"]]
         harnesses.append({
             "generation": generation,
             "importItemId": f"{index}3333333-3333-4333-8333-333333333333",
-            "validationId": f"{index}4444444-4444-4444-8444-444444444444",
             "originalLaunchId": original, "restoreLaunchId": restore,
             "runtimeOrigin": f"https://{original}.rpg-runtime.example.test",
             "config": {
@@ -1404,7 +1392,11 @@ def isolation_evidence_payload() -> dict:
                 "appHostEntryStatus": 404, "runtimeApiStatus": 404,
                 "confusedHostStatus": 404, "inactiveBootstrapStatus": 410,
             },
-            "machineGates": gates, "checkpointRoundTrip": checkpoint,
+            "checkpointRoundTrip": checkpoint,
+            "frameProgress": {"original": {"beforeFrame": 60, "afterFrame": 361},
+                              "restored": {"beforeFrame": 60, "afterFrame": 361}},
+            "audio": {"contexts": 1, "observedSamples": 4096, "peakAbsoluteSample": 0.25},
+            "startedAtMs": 1000, "finishedAtMs": 2000,
         })
     return {
         "schemaVersion": 1, "caseId": "ACC-RPG-011", "status": "PASS", "harnesses": harnesses,
@@ -1419,27 +1411,14 @@ def checkpoint_payload(original: str, restore: str) -> dict:
     position_a = {"mapId": 1, "playerX": 1, "playerY": 1, "fixtureState": 0}
     position_b = {"mapId": 1, "playerX": 2, "playerY": 1, "fixtureState": 1}
     return {
-        "created": True, "originalLaunchEnded": True, "restoreStarted": True,
-        "positionVerified": True, "restoreInputVerified": True,
+        "originalLaunchEnded": True, "frozenRestoreSha256": "e" * 64,
         "originalLaunchId": original, "restoreLaunchId": restore,
         "initialPosition": position_a, "savedPosition": position_b,
         "divergedPosition": {"mapId": 1, "playerX": 3, "playerY": 1, "fixtureState": 2},
         "restoredPosition": dict(position_b),
-        "restoreInputPosition": {"mapId": 1, "playerX": 4, "playerY": 1, "fixtureState": 1},
-        "sha256": "e" * 64, "screenshotUrl": "/api/v1/admin/review-assets/screenshot",
+        "restoreInputPosition": {"mapId": 1, "playerX": 4, "playerY": 1, "fixtureState": 2},
+        "sha256": "e" * 64, "format": "rpgmv-save-v1", "sizeBytes": 4096,
     }
-def gate_evidence(gate: str, generation: str, index: int = 0) -> dict:
-    evidence = {}
-    if gate == "ENGINE_PROFILE":
-        evidence = {"generation": generation, "engineProfile": rpgmaker.ENGINE_PROFILES[generation]}
-    elif gate == "FRAMES_300":
-        evidence = {"continuousFrames": 300}
-    begun = 1_000 + index * 20
-    return {
-        "gate": gate, "status": "PASSED", "begunAtMs": begun,
-        "completedAtMs": begun + 10, "evidence": evidence, "failureCode": None,
-    }
-
 
 def xp_runtime_trace(checkpoint_sha256: str) -> dict:
     capabilities = {
@@ -1461,14 +1440,14 @@ def xp_runtime_trace(checkpoint_sha256: str) -> dict:
         "threadCapabilityRejections": [
             {
                 "attemptId": "88888888-8888-4888-8888-888888888888",
-                "phase": "VALIDATION", "capabilities": capabilities,
-                "responseStatus": 409, "errorCode": "RPG_RUNTIME_ROUTE_UNAVAILABLE",
+                "phase": "PREVIEW", "capabilities": capabilities,
+                "responseStatus": 422, "errorCode": "REVIEW_PREVIEW_CLIENT_UNSUPPORTED",
                 "launchCredentialIssued": False, "projectPayloadRequestCount": 0,
             },
             {
                 "attemptId": "99999999-9999-4999-8999-999999999999",
                 "phase": "RESTORE", "capabilities": capabilities,
-                "responseStatus": 409, "errorCode": "RPG_RUNTIME_ROUTE_UNAVAILABLE",
+                "responseStatus": 422, "errorCode": "REVIEW_PREVIEW_CLIENT_UNSUPPORTED",
                 "launchCredentialIssued": False, "projectPayloadRequestCount": 0,
             },
         ],

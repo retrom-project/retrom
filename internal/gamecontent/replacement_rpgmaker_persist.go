@@ -138,7 +138,7 @@ WHERE id=? AND game_id=?
 		return fmt.Errorf("update RPG replacement variant: %w", err)
 	}
 	if _, err := transaction.ExecContext(ctx, `
-UPDATE rpgmaker_variant_profiles SET generation=?,dependency_snapshot_sha256=?,runtime_validation_id=NULL
+UPDATE rpgmaker_variant_profiles SET generation=?,dependency_snapshot_sha256=?
 WHERE game_variant_id=?
 `, snapshot.RPGGeneration, snapshot.RPGDependencySHA256, variantID); err != nil {
 		return fmt.Errorf("update RPG replacement variant profile: %w", err)

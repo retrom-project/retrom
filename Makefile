@@ -188,6 +188,8 @@ web-e2e: prepare-go prepare-e2e-browser public-fixtures-check
 data-check:
 	@python3 scripts/test_local_user.py
 	@python3 scripts/test_pfb.py
+	@python3 -m unittest scripts.test_pfb_init
+	@python3 -m unittest scripts.test_pfb_data_reset
 	@python3 scripts/test_prepare_toolchains.py
 	@python3 scripts/test_makefile.py
 	@python3 scripts/test_workflows.py
@@ -302,7 +304,11 @@ pfb-provider-import: require-local-user
 	@test -n "$(PFB)" && test -n "$(SOURCE_ROOT)" && test -n "$(CONFIRM)" || { echo 'PFB, SOURCE_ROOT and CONFIRM are required' >&2; exit 2; }
 	@python3 -m scripts.pfb.cli provider-import --root "$(CURDIR)" --pfb "$(PFB)" --source-root "$(SOURCE_ROOT)" --confirm "$(CONFIRM)"
 
-pfb-migrate-storage pfb-data-reset pfb-remove pfb-destroy: require-local-user
+pfb-data-reset: require-local-user
+	@test -n "$(PFB)" && test -n "$(CONFIRM)" || { echo 'PFB and CONFIRM are required' >&2; exit 2; }
+	@python3 -m scripts.pfb.cli data-reset --root "$(CURDIR)" --pfb "$(PFB)" --confirm "$(CONFIRM)" $(if $(SOURCE_ROOT),--source-root "$(SOURCE_ROOT)")
+
+pfb-migrate-storage pfb-remove pfb-destroy: require-local-user
 	@test -n "$(PFB)" && test -n "$(CONFIRM)" || { echo 'PFB and CONFIRM are required' >&2; exit 2; }
 	@python3 -m scripts.pfb.cli "$(@:pfb-%=%)" --root "$(CURDIR)" --pfb "$(PFB)" --confirm "$(CONFIRM)"
 

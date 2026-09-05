@@ -5,6 +5,8 @@ import { join, resolve } from "node:path";
 
 import { chromium } from "../../web/node_modules/playwright/index.mjs";
 
+import {captureOptionalReviewScreenshot} from "./rpgmaker_preview_actions.mjs";
+
 import { assertKiriKiriProductEvidence, kirikiriProductStages } from "./kirikiri_product_contract.mjs";
 import { compareKiriKiriVisualSamples } from "./kirikiri_visual_match.mjs";
 import { localRpgAcceptanceProxy } from "./rpgmaker_local_proxy.mjs";
@@ -104,7 +106,8 @@ async function runProductCase(activeBrowser) {
       () => verifyGamepadCancel(previewCanvas), "KIRIKIRI_ACCEPTANCE_GAMEPAD_CANCEL_FAILED",
     );
     await withStableStage(() => advanceKag(previewCanvas), "KIRIKIRI_ACCEPTANCE_GAMEPAD_CONFIRM_FAILED");
-    await previewPage.getByText("第 5 秒运行截图已保存；可以继续试玩。").waitFor({ timeout: 120_000 });
+    await captureOptionalReviewScreenshot(previewPage, preview.previewId);
+    await focusRuntimeCanvas(previewCanvas);
     const previewFrame = await screenshotEvidence(previewCanvas, "preview.png");
     await previewPage.close();
 

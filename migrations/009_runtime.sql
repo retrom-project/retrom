@@ -12,15 +12,6 @@ CREATE TABLE "launch_content_files" (
   PRIMARY KEY(launch_session_id,logical_name)
 );
 
-CREATE TABLE rpgmaker_runtime_validation_checkpoints (
-  validation_id TEXT PRIMARY KEY REFERENCES rpgmaker_runtime_validations(id),
-  payload_blob_id TEXT NOT NULL REFERENCES blobs(id),
-  checkpoint_format TEXT NOT NULL CHECK(length(checkpoint_format) BETWEEN 1 AND 128),
-  payload_sha256 TEXT NOT NULL CHECK(length(payload_sha256)=64 AND payload_sha256=lower(payload_sha256)),
-  size_bytes INTEGER NOT NULL CHECK(size_bytes BETWEEN 1 AND 268435456),
-  created_at_ms INTEGER NOT NULL CHECK(created_at_ms>=0)
-);
-
 CREATE TABLE isolated_runtime_bootstrap_tickets (
   ticket_sha256 BLOB PRIMARY KEY CHECK(length(ticket_sha256)=32),
   launch_id TEXT UNIQUE REFERENCES launch_sessions(id),
@@ -136,8 +127,7 @@ CREATE TABLE netplay_events (
 CREATE TABLE "launch_sessions" (
   id TEXT PRIMARY KEY,
   profile_id TEXT NOT NULL REFERENCES profiles(id),
-  purpose TEXT NOT NULL DEFAULT 'PRODUCT' CHECK(purpose IN ('PRODUCT','RPG_RUNTIME_VALIDATION')),
-  game_id TEXT REFERENCES games(id),
+  game_id TEXT NOT NULL REFERENCES games(id),
   core_id TEXT NOT NULL REFERENCES cores(id),
   provider_id TEXT NOT NULL REFERENCES runtime_providers(provider_id),
   target_id TEXT NOT NULL,
@@ -145,8 +135,6 @@ CREATE TABLE "launch_sessions" (
   content_kind TEXT NOT NULL REFERENCES content_kinds(id),
   dependency_snapshot_json TEXT NOT NULL CHECK(json_valid(dependency_snapshot_json)),
   compatibility_code TEXT NOT NULL,
-  effective_source_snapshot_id TEXT REFERENCES import_item_source_snapshots(id),
-  rpgmaker_runtime_validation_id TEXT REFERENCES rpgmaker_runtime_validations(id),
   save_state_id TEXT REFERENCES save_states(id),
   dos_entry_path TEXT,
   return_to TEXT NOT NULL,
@@ -164,15 +152,7 @@ CREATE TABLE "launch_sessions" (
   FOREIGN KEY(provider_id,target_id) REFERENCES runtime_targets(provider_id,target_id),
   CHECK(hard_expires_at_ms >= bootstrap_expires_at_ms),
   CHECK(state != 'ACTIVE' OR activated_at_ms IS NOT NULL),
-  CHECK((state IN ('FINISHED','EXPIRED','REVOKED')) = (finished_at_ms IS NOT NULL)),
-  CHECK(
-    purpose='PRODUCT' AND game_id IS NOT NULL AND effective_source_snapshot_id IS NULL
-      AND rpgmaker_runtime_validation_id IS NULL
-    OR purpose='RPG_RUNTIME_VALIDATION' AND game_id IS NULL AND effective_source_snapshot_id IS NOT NULL
-      AND rpgmaker_runtime_validation_id IS NOT NULL AND save_state_id IS NULL
-      AND dos_entry_path IS NULL AND netplay_session_id IS NULL AND netplay_player_no IS NULL
-      AND save_access='NORMAL' AND initial_disc_index=0
-  )
+  CHECK((state IN ('FINISHED','EXPIRED','REVOKED')) = (finished_at_ms IS NOT NULL))
 );
 
 CREATE TABLE "launch_external_files" (

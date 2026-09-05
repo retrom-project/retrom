@@ -9,6 +9,8 @@ import (
 	"slices"
 	"strings"
 
+	"retrom/internal/contentprofile"
+
 	"retrom/internal/cleanup"
 	"retrom/internal/importing"
 	retromruntime "retrom/internal/runtime"
@@ -64,7 +66,7 @@ JOIN runtime_target_bindings binding
 WHERE launch.id=? AND binding.delivery_profile IN (
  'FILE_TREE_PROJECT','SEEKABLE_PROJECT_ARCHIVE','ISOLATED_WEB_PROJECT'
 )
- AND launch.purpose IN ('PRODUCT','RPG_RUNTIME_VALIDATION')
+
 `, launchID).Scan(&credentialHash, &state, &bootstrapExpires, &hardExpires, &idleExpires)
 	if err != nil || !validConfigLifetime(
 		state, bootstrapExpires, hardExpires, idleExpires, service.now().UnixMilli(),
@@ -77,10 +79,7 @@ SELECT content.logical_name,content.format_version,blob.sha256
 FROM launch_content_files content
 JOIN blobs blob ON blob.id=content.blob_id
 WHERE content.launch_session_id=?
- AND content.format_version IN (
-  'RPG_MAKER_PROJECT','ONS_PROJECT','KIRIKIRI_PROJECT','BUTTERSCOTCH_PROJECT',
-  'TYRANOSCRIPT_PROJECT'
- )
+
 ORDER BY content.logical_name
 `, launchID)
 	if err != nil {
@@ -104,9 +103,7 @@ func (service *Service) authorizedReviewProjectIdentityFiles(
 	err := service.database.QueryRowContext(ctx, `
 SELECT credential_sha256,state,hard_expires_at_ms
 FROM review_preview_sessions
-WHERE id=? AND content_kind IN (
- 'ONS_PROJECT','KIRIKIRI_PROJECT','BUTTERSCOTCH_PROJECT','TYRANOSCRIPT_PROJECT'
-)
+WHERE id=?
 `, previewID).Scan(&credentialHash, &state, &hardExpires)
 	if err != nil || !reviewPreviewCredential(
 		service.now().UnixMilli(), capability, credentialHash, state, hardExpires,
@@ -125,7 +122,7 @@ SELECT logical_name,format,digest FROM (
  FROM review_preview_files file
  JOIN review_preview_sessions session ON session.id=file.preview_session_id
  JOIN blobs blob ON blob.id=file.blob_id
- WHERE file.preview_session_id=? AND file.role='PROJECT_FILE'
+ WHERE file.preview_session_id=? AND file.role IN ('PROJECT_FILE','RUNTIME_FILE')
 ) ORDER BY sort_order,logical_name
 `, previewID, previewID)
 	if err != nil {
@@ -194,8 +191,7 @@ func deriveProjectContentIdentity(files []projectIdentityFile) (string, error) {
 }
 
 func validProjectContentFormat(value string) bool {
-	return value == rpgProjectFormat || value == onsProjectFormat || value == kirikiriProjectFormat ||
-		value == butterscotchProjectFormat || value == tyranoScriptProjectFormat
+	return contentprofile.IsProjectContentKind(contentprofile.ContentKind(value))
 }
 
 func RuntimeProjectContentRoot(identity string) (string, error) {

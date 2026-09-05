@@ -167,7 +167,7 @@ paths:
       security: []
       operationId: postRuntimeSaveState
       x-retrom-streaming-body: true
-      description: Creates either a product SaveState or the single temporary checkpoint of a runtime-validation Launch. The metadata is strict RuntimeCheckpointMetadata JSON; Provider identity, Target compatibility, checkpoint format and dependency bindings are validated against the immutable Launch snapshot. Total multipart input is capped at 270 MiB only on this route.
+      description: Creates either a product SaveState or replaces the temporary checkpoint of an ordinary review preview. The metadata is strict RuntimeCheckpointMetadata JSON; Provider identity, Target compatibility, checkpoint format and dependency bindings are validated against the immutable Launch snapshot. Total multipart input is capped at 270 MiB only on this route.
       parameters:
         - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey
       requestBody:
@@ -218,24 +218,6 @@ paths:
           $ref: '#/components/responses/CheckpointStatusResponse'
         '409':
           $ref: ../components/common.yaml#/components/responses/RpgConflictResponse
-  /runtime/launches/{launchId}/rpgmaker-gates/events:
-    parameters:
-      - $ref: '#/components/parameters/LaunchID'
-    post:
-      security: []
-      operationId: postRuntimeRpgMakerGateEvent
-      description: Accepts strictly ordered, event-idempotent gates only from an RPG_RUNTIME_VALIDATION Launch. Positional gates are compared server-side so restore must equal the saved map/coordinates/fixture state and differ from the post-save state.
-      requestBody:
-        $ref: '#/components/requestBodies/RpgMakerGateEvent'
-      responses:
-        '200':
-          $ref: '#/components/responses/RpgMakerGateEventResponse'
-        '408':
-          $ref: '#/components/responses/RpgTimeoutResponse'
-        '409':
-          $ref: ../components/common.yaml#/components/responses/RpgConflictResponse
-        '422':
-          $ref: ../components/common.yaml#/components/responses/RpgUnprocessableResponse
   /runtime/content/game/{contentIdentity}/{logicalName}:
     parameters:
       - $ref: '#/components/parameters/ContentIdentity'
@@ -420,23 +402,6 @@ components:
           maxItems: 8
           items:
             $ref: '#/components/schemas/DiscEntry'
-    ReviewPreviewConfig:
-      type: object
-      additionalProperties: false
-      required:
-        - importItemId
-        - captureAllowed
-        - captureAfterMs
-      properties:
-        importItemId:
-          type: string
-          format: uuid
-        captureAllowed:
-          type: boolean
-        captureAfterMs:
-          type: integer
-          minimum: 5000
-          maximum: 5000
     LaunchConfig:
       $ref: ../runtime-provider/v1/launch-envelope.schema.json
     CheckpointUnavailableReason:
@@ -463,104 +428,6 @@ components:
           nullable: true
           allOf:
             - $ref: '#/components/schemas/CheckpointUnavailableReason'
-    RpgRuntimeGatePhase:
-      type: string
-      enum:
-        - BEGIN
-        - PASS
-        - FAIL
-    RpgMakerGateEventRequest:
-      type: object
-      additionalProperties: false
-      required:
-        - sequence
-        - eventId
-        - gate
-        - phase
-        - observedAtMs
-        - evidence
-      properties:
-        sequence:
-          type: integer
-          format: int64
-          minimum: 1
-        eventId:
-          type: string
-          format: uuid
-        gate:
-          $ref: ../components/common.yaml#/components/schemas/RpgRuntimeGate
-        phase:
-          $ref: '#/components/schemas/RpgRuntimeGatePhase'
-        observedAtMs:
-          type: integer
-          format: int64
-          minimum: 0
-          maximum: 253402300799999
-        evidence:
-          $ref: ../components/common.yaml#/components/schemas/RpgRuntimeGateEvidence
-    RpgMakerGateEventAccepted:
-      type: object
-      additionalProperties: false
-      required:
-        - sequence
-        - eventId
-        - validationState
-        - idempotentReplay
-      properties:
-        sequence:
-          type: integer
-          format: int64
-          minimum: 1
-        eventId:
-          type: string
-          format: uuid
-        validationState:
-          $ref: ../components/common.yaml#/components/schemas/RpgRuntimeValidationState
-        idempotentReplay:
-          type: boolean
-    RpgRuntimeValidationResume:
-      type: object
-      additionalProperties: false
-      required:
-        - validationId
-        - state
-        - originalLaunchId
-        - restoreLaunchId
-        - lastGateSequence
-        - machineGates
-        - checkpointEvidence
-        - restoreScreenshotUploaded
-      properties:
-        validationId:
-          type: string
-          format: uuid
-        state:
-          $ref: ../components/common.yaml#/components/schemas/RpgRuntimeValidationState
-        originalLaunchId:
-          type: string
-          format: uuid
-        restoreLaunchId:
-          type: string
-          format: uuid
-          nullable: true
-        lastGateSequence:
-          type: integer
-          format: int64
-          minimum: 0
-          maximum: 28
-        machineGates:
-          type: array
-          minItems: 14
-          maxItems: 14
-          description: Ordered server-authoritative gate state used to resume a runtime-authorized page reload.
-          items:
-            $ref: ../components/common.yaml#/components/schemas/RpgRuntimeMachineGate
-        checkpointEvidence:
-          nullable: true
-          allOf:
-            - $ref: ../components/common.yaml#/components/schemas/RpgCheckpointGateEvidence
-        restoreScreenshotUploaded:
-          type: boolean
     ProductSaveStateCreated:
       type: object
       additionalProperties: false
@@ -588,34 +455,24 @@ components:
           type: integer
           format: int64
           minimum: 0
-    ValidationCheckpointCreated:
+    ReviewPreviewCheckpointCreated:
       type: object
       additionalProperties: false
       required:
         - resourceKind
-        - validationId
+        - previewId
         - checkpointFormat
-        - sizeBytes
-        - sha256
         - createdAtMs
       properties:
         resourceKind:
           type: string
           enum:
-            - RPG_RUNTIME_VALIDATION_CHECKPOINT
-        validationId:
+            - REVIEW_PREVIEW_CHECKPOINT
+        previewId:
           type: string
           format: uuid
         checkpointFormat:
           $ref: ../components/common.yaml#/components/schemas/CheckpointFormat
-        sizeBytes:
-          type: integer
-          format: int64
-          minimum: 1
-          maximum: 268435456
-        sha256:
-          type: string
-          pattern: ^[0-9a-f]{64}$
         createdAtMs:
           type: integer
           format: int64
@@ -623,12 +480,12 @@ components:
     RuntimeCheckpointCreated:
       oneOf:
         - $ref: '#/components/schemas/ProductSaveStateCreated'
-        - $ref: '#/components/schemas/ValidationCheckpointCreated'
+        - $ref: '#/components/schemas/ReviewPreviewCheckpointCreated'
       discriminator:
         propertyName: resourceKind
         mapping:
           SAVE_STATE: '#/components/schemas/ProductSaveStateCreated'
-          RPG_RUNTIME_VALIDATION_CHECKPOINT: '#/components/schemas/ValidationCheckpointCreated'
+          REVIEW_PREVIEW_CHECKPOINT: '#/components/schemas/ReviewPreviewCheckpointCreated'
     CheckpointStatus:
       type: object
       additionalProperties: false
@@ -710,12 +567,6 @@ components:
           maximum: 64
           nullable: true
   requestBodies:
-    RpgMakerGateEvent:
-      required: true
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/RpgMakerGateEventRequest'
     PlayEvent:
       required: true
       content:
@@ -730,7 +581,7 @@ components:
             $ref: '#/components/schemas/MultiDiscPlayerEventRequest'
   responses:
     RuntimeCheckpointCreateResponse:
-      description: Product save-state or temporary RPG runtime-validation checkpoint
+      description: Product save-state or temporary ordinary review-preview checkpoint
       content:
         application/json:
           schema:
@@ -741,18 +592,6 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/CheckpointStatus'
-    RpgMakerGateEventResponse:
-      description: Ordered validation gate accepted or replayed idempotently
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/RpgMakerGateEventAccepted'
-    RpgTimeoutResponse:
-      description: RPG_RUNTIME_TIMEOUT (408)
-      content:
-        application/json:
-          schema:
-            $ref: ../components/common.yaml#/components/schemas/RpgErrorEnvelope
     RequestTooLargeResponse:
       description: REQUEST_TOO_LARGE (413); this generic transport limit is not an RPG detector result
       content:

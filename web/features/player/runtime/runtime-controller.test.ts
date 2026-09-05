@@ -116,7 +116,6 @@ function fixtureRuntime() {
     mount: vi.fn(async () => undefined), pause: vi.fn(async () => undefined),
     openNativeSettings: vi.fn(async () => {throw new Error("unused");}),
     resume: vi.fn(async () => undefined), screenshot: vi.fn(async () => new Blob()),
-    runValidationProbe: vi.fn(async () => {throw new Error("unused");}),
     setInputFilter: vi.fn(async () => {throw new Error("unused");}),
     setVideoMode: vi.fn(async () => {throw new Error("unused");}),
     setVolume: vi.fn(async () => undefined),
@@ -134,7 +133,7 @@ function envelope(): LaunchEnvelopeV1 {
       bundleSha256: bundle, capabilities: {checkpoint: false, frameCounter: false, frameMode: "NONE",
         discSwitch: false, inputFilter: false, nativeSettings: false, netplayPort: false, pause: false,
         requiresThreads: false, screenshot: false, standardGamepad: false,
-        validationProbes: [], videoModes: [], volume: false}, checkpoint: null,
+        videoModes: [], volume: false}, checkpoint: null,
       moduleSha256: "a".repeat(64), moduleUrl: `/runtime/providers/fixture/${bundle}/client.mjs`,
       providerApiVersion: 1, providerId: "fixture", providerVersion: "1.0.0",
       runtimeBaseUrl: `/runtime/providers/fixture/${bundle}/`,
@@ -142,6 +141,6 @@ function envelope(): LaunchEnvelopeV1 {
     },
     session: {coreName: "Fixture Core", id: "018f0f31-26fe-7a31-9d61-4ec92f16d4c3", mode: "SINGLE", platformName: "Fixture",
       purpose: "PRODUCT", returnTo: "/games/fixture", title: "Fixture", warnings: []},
-    targetOptions: {}, validation: null,
+    targetOptions: {},
   };
 }

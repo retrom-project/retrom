@@ -47,7 +47,7 @@ func TestAcceptanceNP011RecoveryClosesRunningSessionRoomAndLaunch(t *testing.T) 
 		{`INSERT INTO netplay_sessions(id,room_id,session_no,state,game_id,game_variant_id,provider_id,target_id,bundle_sha256,netplay_profile_id,profile_json,profile_digest,player_count,occupied_seat_mask,version,created_at_ms,updated_at_ms) VALUES(?,?,1,'RUNNING',?,?,?,?,?,'fixture','{}',?,2,3,1,?,?)`, []any{sessionID, roomID, gameID, variantID, runtimeIdentity.ProviderID, runtimeIdentity.TargetID, runtimeIdentity.BundleSHA256, strings.Repeat("3", 64), now.UnixMilli(), now.UnixMilli()}},
 		{`UPDATE netplay_rooms SET state='RUNNING',current_session_id=? WHERE id=?`, []any{sessionID, roomID}},
 		{`INSERT INTO netplay_session_participants(netplay_session_id,profile_id,room_member_id,player_no,state,credential_generation,version,created_at_ms,updated_at_ms) VALUES(?,?,?,1,'LOCKED',0,1,?,?)`, []any{sessionID, profileID, memberID, now.UnixMilli(), now.UnixMilli()}},
-		{`INSERT INTO launch_sessions(id,profile_id,purpose,game_id,core_id,provider_id,target_id,bundle_sha256,content_kind,dependency_snapshot_json,compatibility_code,return_to,credential_sha256,state,bootstrap_expires_at_ms,activated_at_ms,hard_expires_at_ms,created_at_ms,updated_at_ms,netplay_session_id,netplay_player_no,save_access) VALUES(?,?,'PRODUCT',?,'fceumm',?,?,?,'SINGLE_FILE','{"schemaVersion":1,"kind":"STATIC","bios":[]}','READY','/netplay/rooms/'||?,zeroblob(32),'ACTIVE',?,?,?,?,?, ?,1,'NETPLAY_DISABLED')`, []any{launchID, profileID, gameID, runtimeIdentity.ProviderID, runtimeIdentity.TargetID, runtimeIdentity.BundleSHA256, roomID, now.Add(time.Minute).UnixMilli(), now.UnixMilli(), now.Add(time.Hour).UnixMilli(), now.UnixMilli(), now.UnixMilli(), sessionID}},
+		{`INSERT INTO launch_sessions(id,profile_id,game_id,core_id,provider_id,target_id,bundle_sha256,content_kind,dependency_snapshot_json,compatibility_code,return_to,credential_sha256,state,bootstrap_expires_at_ms,activated_at_ms,hard_expires_at_ms,created_at_ms,updated_at_ms,netplay_session_id,netplay_player_no,save_access) VALUES(?,?,?,'fceumm',?,?,?,'SINGLE_FILE','{"schemaVersion":1,"kind":"STATIC","bios":[]}','READY','/netplay/rooms/'||?,zeroblob(32),'ACTIVE',?,?,?,?,?, ?,1,'NETPLAY_DISABLED')`, []any{launchID, profileID, gameID, runtimeIdentity.ProviderID, runtimeIdentity.TargetID, runtimeIdentity.BundleSHA256, roomID, now.Add(time.Minute).UnixMilli(), now.UnixMilli(), now.Add(time.Hour).UnixMilli(), now.UnixMilli(), now.UnixMilli(), sessionID}},
 		{`INSERT INTO play_sessions(id,launch_session_id,profile_id,game_id,started_at_ms,last_heartbeat_at_ms,active_duration_ms,last_client_sequence,state,version,created_at_ms,updated_at_ms) VALUES(?,?,?,?,?,?,0,0,'ACTIVE',1,?,?)`, []any{playID, launchID, profileID, gameID, now.UnixMilli(), now.UnixMilli(), now.UnixMilli(), now.UnixMilli()}},
 		{`UPDATE netplay_session_participants SET state='CONNECTED',launch_session_id=?,credential_sha256=zeroblob(32),credential_generation=1 WHERE netplay_session_id=? AND profile_id=?`, []any{launchID, sessionID, profileID}},
 	}
@@ -102,10 +102,10 @@ VALUES(?,?,?,1,'LOCKED',0,1,?,?)
 		t.Fatal(err)
 	}
 	if _, err := tx.ExecContext(context.Background(), `
-INSERT INTO launch_sessions(id,profile_id,purpose,game_id,core_id,provider_id,target_id,bundle_sha256,
+INSERT INTO launch_sessions(id,profile_id,game_id,core_id,provider_id,target_id,bundle_sha256,
 content_kind,dependency_snapshot_json,compatibility_code,return_to,credential_sha256,state,bootstrap_expires_at_ms,activated_at_ms,
 hard_expires_at_ms,created_at_ms,updated_at_ms,netplay_session_id,netplay_player_no,save_access)
-VALUES(?,?,'PRODUCT',?,'fceumm',?,?,?,'SINGLE_FILE','{"schemaVersion":1,"kind":"STATIC","bios":[]}','READY','/netplay/rooms/'||?,randomblob(32),'ACTIVE',?,?,?,?,?,?,1,'NETPLAY_DISABLED')
+VALUES(?,?,?,'fceumm',?,?,?,'SINGLE_FILE','{"schemaVersion":1,"kind":"STATIC","bios":[]}','READY','/netplay/rooms/'||?,randomblob(32),'ACTIVE',?,?,?,?,?,?,1,'NETPLAY_DISABLED')
 `, finishedLaunchID, profileID, gameID, runtimeIdentity.ProviderID, runtimeIdentity.TargetID, runtimeIdentity.BundleSHA256, roomID, now.Add(time.Minute).UnixMilli(),
 		now.UnixMilli(), now.Add(time.Hour).UnixMilli(), now.UnixMilli(), now.UnixMilli(), finishedSessionID); err != nil {
 		t.Fatal(err)

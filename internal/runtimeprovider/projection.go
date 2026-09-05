@@ -184,11 +184,8 @@ func Reconcile(ctx context.Context, database *sql.DB, candidate Projection, now 
 		}
 	}()
 
-	if err := expireReviewCheckpointPayloads(ctx, transaction, now.UnixMilli()); err != nil {
-		return err
-	}
 	currentProviders, changedProviders, catalogChanged, err := prepareReconciliation(
-		ctx, transaction, candidate, now.UnixMilli(),
+		ctx, transaction, candidate,
 	)
 	if err != nil {
 		return err
@@ -239,14 +236,13 @@ func prepareReconciliation(
 	ctx context.Context,
 	transaction *sql.Tx,
 	candidate Projection,
-	now int64,
 ) (map[string]currentProvider, []string, bool, error) {
 	currentProviders, err := loadCurrentProviders(ctx, transaction)
 	if err != nil {
 		return nil, nil, false, err
 	}
 	changedProviders, err := validateProviderTransition(
-		ctx, transaction, currentProviders, candidate, now,
+		ctx, transaction, currentProviders, candidate,
 	)
 	if err != nil {
 		return nil, nil, false, err
@@ -313,7 +309,6 @@ func validateProviderTransition(
 	transaction *sql.Tx,
 	currentProviders map[string]currentProvider,
 	candidate Projection,
-	now int64,
 ) ([]string, error) {
 	candidateProviders := make(map[string]providerProjection, len(candidate.providers))
 	candidateTargets := make(map[string]targetProjection)
@@ -332,7 +327,7 @@ func validateProviderTransition(
 		for _, target := range provider.targets {
 			identity := providerID + "\x00" + target.target.ID
 			candidateTargets[identity] = target
-			if err := validateCheckpointFormats(ctx, transaction, providerID, target, now); err != nil {
+			if err := validateCheckpointFormats(ctx, transaction, providerID, target); err != nil {
 				return nil, err
 			}
 		}
@@ -440,7 +435,6 @@ func ensureTargetUnreferenced(ctx context.Context, transaction *sql.Tx, provider
 		{"import_jobs", "provider_id", "target_id"},
 		{"import_item_core_validations", "provider_id", "target_id"},
 		{"rpgmaker_review_profiles", "provider_id", "target_id"},
-		{"rpgmaker_runtime_validations", "provider_id", "target_id"},
 		{"review_preview_sessions", "provider_id", "target_id"},
 		{"review_runtime_screenshots", "provider_id", "target_id"},
 		{"game_variants", "provider_id", "target_id"},
@@ -691,10 +685,10 @@ func writeHostBinding(ctx context.Context, transaction *sql.Tx, binding runtimec
 	}
 	_, err := transaction.ExecContext(ctx, `
 INSERT INTO runtime_target_bindings(
- binding_id,core_id,provider_id,target_id,detector_profile,delivery_profile,launch_policy,review_policy
-) VALUES(?,?,?,?,?,?,?,?)
+ binding_id,core_id,provider_id,target_id,detector_profile,delivery_profile,launch_policy
+) VALUES(?,?,?,?,?,?,?)
 `, binding.ID, binding.CoreID, binding.ProviderID, binding.TargetID, binding.DetectorProfile,
-		strategy.Delivery, binding.LaunchPolicy, strategy.Review)
+		strategy.Delivery, binding.LaunchPolicy)
 	if err != nil {
 		return fmt.Errorf("reconcile runtime providers: write host binding: %w", err)
 	}

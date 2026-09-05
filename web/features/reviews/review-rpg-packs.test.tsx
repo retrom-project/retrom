@@ -5,10 +5,10 @@ import type { RPGMakerReview } from "./review-actions-model";
 import { RPGPackControls } from "./review-rpg-packs";
 
 const review: RPGMakerReview = {
-  selectedCoreId: "rpgmaker_xp", generation: "RPGXP", evidenceGeneration: "RPGXP",
+  selectedCoreId: "rpgmaker", generation: "RPGXP", evidenceGeneration: "RPGXP",
   evidenceConfidence: "MATCHED", selfContained: false, selfContainedOverride: false,
   runtimePackRequirements: [{ slot: 1, declaredName: "Standard", normalizedDeclaredName: "standard" }],
-  runtimePackSelections: [], runtimeValidation: null,
+  runtimePackSelections: [],
 };
 
 afterEach(() => {cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals();});
@@ -27,7 +27,6 @@ describe("RPGPackControls", () => {
     await user.selectOptions(select, installationId);
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({
       runtimePackSelections: [{ slot: 1, declaredName: "Standard", installationId }],
-      runtimeValidation: null,
     }));
   });
 

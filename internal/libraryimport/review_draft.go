@@ -157,7 +157,6 @@ type draftPatchRun struct {
 	beforeTags          []tagging.Reference
 	targetOrDOSChanged  bool
 	isRPG               bool
-	rpgBindingChanged   bool
 }
 
 func invalidDraftPatch(patch DraftPatch) bool {

@@ -39,7 +39,7 @@ func (service *Service) productKiriKiriProjectIndex(
 SELECT launch.credential_sha256,launch.state,launch.hard_expires_at_ms,
  launch.dependency_snapshot_json
 FROM launch_sessions launch
-WHERE launch.id=? AND launch.purpose='PRODUCT'
+WHERE launch.id=?
  AND EXISTS(SELECT 1 FROM launch_content_files file WHERE file.launch_session_id=launch.id
   AND file.format_version='KIRIKIRI_PROJECT')
 `, launchID).Scan(&credentialHash, &state, &hardExpires, &dependencyJSON)

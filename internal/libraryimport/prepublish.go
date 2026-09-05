@@ -164,5 +164,11 @@ func (service *Service) ReviewValidationCurrent(ctx context.Context, validationI
 	if !current {
 		return false, nil
 	}
-	return prepublishDigestMatches(value.inputDigest, input), nil
+	if !prepublishDigestMatches(value.inputDigest, input) {
+		return false, nil
+	}
+	if value.contentKind == "RPG_MAKER_PROJECT" {
+		return service.currentRPGReviewDependencies(ctx, validationID, value)
+	}
+	return true, nil
 }
