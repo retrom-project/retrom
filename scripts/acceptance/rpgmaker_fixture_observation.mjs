@@ -25,12 +25,13 @@ export function readEasyRpgPosition(checkpoint, engine) {
     const save = chunks(cursor.take(cursor.remaining()));
     const party = chunks(save.get(0x68));
     const system = chunks(save.get(0x65));
-    const variables = system.get(0x22);
+    const variables = system.get(0x22) ?? Buffer.alloc(0);
     const count = fieldInteger(system, 0x21, 0);
-    if (count < 1 || !variables || count * 4 !== variables.length) {invalid();}
+    if (count * 4 !== variables.length) {invalid();}
     const position = {
       mapId: fieldInteger(party, 0x0b, 0), playerX: fieldInteger(party, 0x0c, 0),
-      playerY: fieldInteger(party, 0x0d, 0), fixtureState: variables.readInt32LE(0),
+      // EasyRPG Game_Variables::Get returns zero beyond the saved vector.
+      playerY: fieldInteger(party, 0x0d, 0), fixtureState: count === 0 ? 0 : variables.readInt32LE(0),
     };
     if (!validPosition(position)) {invalid();}
     return position;
