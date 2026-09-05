@@ -1,7 +1,22 @@
 import assert from "node:assert/strict";
 import {createHash} from "node:crypto";
 import test from "node:test";
-import {advanceFixture, inspectPreviewCheckpoint, observeOwnedFixture, observePreviewFrames, waitForPreviewReady} from "./rpgmaker_preview_actions.mjs";
+import {advanceFixture, inspectPreviewCheckpoint, observeOwnedFixture, observePreviewFrames, resumePreview, waitForPreviewReady} from "./rpgmaker_preview_actions.mjs";
+
+test("resuming through ordinary UI waits for the core acknowledgement to hide the pause overlay", async () => {
+  const calls = [];
+  const resume = {
+    isVisible: async () => true,
+    click: async () => {calls.push("click");},
+    waitFor: async ({state}) => {calls.push(state);},
+  };
+  const page = {getByRole: () => resume};
+  await resumePreview(page);
+  assert.deepEqual(calls, ["click", "hidden"]);
+  resume.isVisible = async () => false;
+  await resumePreview(page);
+  assert.deepEqual(calls, ["click", "hidden"]);
+});
 
 test("owned RGSS state is read from the Provider diagnostic channel without adding game probes", async () => {
   let capture;

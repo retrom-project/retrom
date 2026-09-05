@@ -5,7 +5,7 @@ import { join, resolve } from "node:path";
 
 import { chromium } from "../../web/node_modules/playwright/index.mjs";
 
-import {captureOptionalReviewScreenshot} from "./rpgmaker_preview_actions.mjs";
+import {captureOptionalReviewScreenshot, resumePreview, revealPreviewToolbar} from "./rpgmaker_preview_actions.mjs";
 
 import {
   assertButterscotchProductEvidence,
@@ -38,6 +38,7 @@ mkdirSync(screenshotsDirectory, { recursive: true });
 const localProxy = await localRpgAcceptanceProxy(baseUrl);
 let browser;
 let observedEvidence = null;
+const runtimeDiagnostics = [];
 
 try {
   browser = await chromium.launch({ executablePath: process.env.RETROM_CHROME_EXECUTABLE, headless: true });
@@ -50,6 +51,7 @@ try {
   const errorCode = stableErrorCode(error);
   writeEvidence({
     schemaVersion: 1, caseId, status: "FAIL", errorCode,
+    runtimeDiagnostics,
     ...(observedEvidence ? { observedEvidence } : {}),
   });
   process.stderr.write(`${errorCode}\n`);
@@ -248,15 +250,21 @@ function trackProjectResponses(page) {
 
 async function runtimeCanvas(page) {
   const deadline = Date.now() + 120_000;
+  let lastObservation = {canvasVisible: false};
   while (Date.now() < deadline) {
     for (const frame of page.frames()) {
       const canvas = frame.locator('canvas[aria-label="Butterscotch game"]').first();
       if (!await canvas.isVisible().catch(() => false)) {continue;}
-      const layout = await canvasLayoutEvidence(canvas).catch(() => null);
+      const layout = await canvasLayoutEvidence(canvas).catch((error) => {
+        lastObservation = {canvasVisible: true, error: error.message};
+        return null;
+      });
+      if (layout !== null) {lastObservation = {canvasVisible: true, layout};}
       if (validCanvasLayout(layout)) {return canvas;}
     }
     await page.waitForTimeout(100);
   }
+  runtimeDiagnostics.push(lastObservation);
   throw new Error("BUTTERSCOTCH_ACCEPTANCE_CANVAS_LAYOUT_INVALID");
 }
 
@@ -275,18 +283,23 @@ async function sendGamepadInput(canvas) {
 }
 
 async function waitForCheckpoint(page) {
-  await page.mouse.move(720, 1);
+  await revealPreviewToolbar(page);
   const button = page.getByRole("button", { name: "创建存档", exact: true });
   await button.waitFor({ state: "visible", timeout: 120_000 });
   const deadline = Date.now() + 120_000;
   while (Date.now() < deadline) {
-    if (await button.isEnabled().catch(() => false)) {return;}
+    if (await button.isEnabled().catch(() => false)) {
+      await resumePreview(page);
+      await runtimeCanvas(page);
+      return;
+    }
     await page.waitForTimeout(100);
   }
   throw new Error("BUTTERSCOTCH_ACCEPTANCE_SAVE_UNAVAILABLE");
 }
 
 async function createCheckpoint(page, launchId) {
+  await revealPreviewToolbar(page);
   const button = page.getByRole("button", { name: "创建存档", exact: true });
   const responsePromise = page.waitForResponse((response) =>
     response.request().method() === "POST" && response.url().includes(`/runtime/launches/${launchId}/save-states`),
