@@ -8,6 +8,7 @@ import {
 import { gitProvenance } from "./rpgmaker_evidence_provenance.mjs";
 import { isLocalAcceptanceHostname } from "./rpgmaker_url.mjs";
 import { localRpgAcceptanceProxy } from "./rpgmaker_local_proxy.mjs";
+import {captureApprovedResume, loadResumeRequest} from "./rpgmaker_pack_resume.mjs";
 import {
   approveReview, capturePackBaseline, assertProvisionedState, createProductSave, importReview,
   installRuntimePack, rpgPlatformInstances, selectRuntimePack, trialReview,
@@ -15,9 +16,16 @@ import {
 
 const arguments_ = parseArguments(process.argv.slice(2));
 const inputs = loadGeneratorInputs(arguments_.inputs);
+const resumeRequest = arguments_.resume ? loadResumeRequest(arguments_.resume) : null;
 assertPlanTarget(arguments_.plan);
 assertPlanTarget(arguments_.evidence);
 if (arguments_.plan === arguments_.evidence) { throw new Error("RPG_009_PROVISION_OUTPUT_COLLISION"); }
+if (resumeRequest) {
+  assertPlanTarget(arguments_.resumeEvidence);
+  if ([arguments_.plan, arguments_.evidence].includes(arguments_.resumeEvidence)) {
+    throw new Error("RPG_009_PROVISION_OUTPUT_COLLISION");
+  }
+}
 const baseUrl = normalizedBase(required("RETROM_ACCEPTANCE_BASE_URL"));
 const localProxy = await localRpgAcceptanceProxy(baseUrl);
 const browser = await chromium.launch({ executablePath: required("RETROM_CHROME_EXECUTABLE"), headless: true });
@@ -33,18 +41,24 @@ try {
   const login = await loginResponse.json();
   if (!login.csrfToken) { throw new Error("RPG_009_PROVISION_CSRF_MISSING"); }
   const client = createProductClient(context, baseUrl, login.csrfToken);
-  const populationBefore = await capturePackBaseline(client);
+  const resumed = resumeRequest ? await captureApprovedResume(client, inputs, resumeRequest) : null;
+  const populationBefore = resumed?.populationBefore ?? await capturePackBaseline(client);
+  if (resumed) {
+    // Persist the newly observed protection boundary before any product write.
+    writeProvisionEvidence(arguments_.resumeEvidence, {resume: resumed.resume, populationBefore});
+  }
   const targetIds = [...new Set(Object.values(reviewRoles).map((item) => item[0]))];
   const instances = await rpgPlatformInstances(client, targetIds);
-  const installations = await installProtectedPacks(client, inputs);
+  const installations = resumed?.installations ?? await installProtectedPacks(client, inputs);
   const protectedReferences = await createProtectedReferences(
-    context, client, baseUrl, inputs, instances, installations,
+    context, client, baseUrl, inputs, instances, installations, resumed?.reviews,
   );
   const reviewIds = await createReviewMatrix(context, client, baseUrl, inputs, instances);
   const populationPreservation = await assertProvisionedState(client, protectedReferences, reviewIds, populationBefore);
   const plan = buildPlan(inputs, reviewIds, protectedReferences);
   writePlan(arguments_.plan, plan);
   const evidence = buildProvisionEvidence(inputs, plan, gitProvenance(), populationPreservation);
+  if (resumed) {evidence.resume = resumed.resume;}
   writeProvisionEvidence(arguments_.evidence, evidence);
   process.stdout.write(`${JSON.stringify(evidence, null, 2)}\n`);
 } finally {
@@ -64,10 +78,10 @@ async function installProtectedPacks(client, manifest) {
   return installations;
 }
 
-async function createProtectedReferences(context, client, base, manifest, instances, installations) {
+async function createProtectedReferences(context, client, base, manifest, instances, installations, existingReviews = {}) {
   const references = {};
   for (const [role, identity] of Object.entries(protectedRoles)) {
-    let review = await importReview(client, manifest.protectedProjects[role].sourcePath, instance(instances, identity[3]));
+    let review = existingReviews[role] ?? await importReview(client, manifest.protectedProjects[role].sourcePath, instance(instances, identity[3]));
     assertProtectedReview(role, review, identity);
     review = await selectRuntimePack(client, review, installations[role].installationId);
     await trialReview(context, client, base, review, identity[4]);
@@ -163,10 +177,11 @@ function instance(instances, targetId) {
 }
 
 function parseArguments(values) {
-  if (values.length !== 6 || values[0] !== "--inputs" || values[2] !== "--plan" || values[4] !== "--evidence") {
-    throw new Error("usage: rpgmaker_pack_provision.mjs --inputs <absolute-inputs.json> --plan <absolute-new-plan.json> --evidence <absolute-new-evidence.json>");
+  if (![6, 10].includes(values.length) || values[0] !== "--inputs" || values[2] !== "--plan" || values[4] !== "--evidence" ||
+      (values.length === 10 && (values[6] !== "--resume" || values[8] !== "--resume-evidence"))) {
+    throw new Error("usage: rpgmaker_pack_provision.mjs --inputs <absolute-inputs.json> --plan <absolute-new-plan.json> --evidence <absolute-new-evidence.json> [--resume <approved-identifiers.json> --resume-evidence <absolute-new-snapshot.json>]");
   }
-  return { inputs: values[1], plan: values[3], evidence: values[5] };
+  return { inputs: values[1], plan: values[3], evidence: values[5], resume: values[7], resumeEvidence: values[9] };
 }
 
 function normalizedBase(value) {

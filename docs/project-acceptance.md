@@ -1742,6 +1742,23 @@ Review 与普通预览会话。`negative-matrix/matrix.json` 必须精确声明 
   installation 或随机零引用 UUID；中途失败保留证据并定位原因，不能把部分结果记为 PROVISIONED。指定 PFB 最终重建后的有数据回归不得用再次清库重试绕过失败。
   任意预安装包或失败残留 installation 都报告精确前置不满足，不自动删除或静默复用。独立空实例仅可作为明确登记的
   隔离验收环境，不能冒充同一 PFB 的有数据顺序回归，也不取消七世代当次 PASS 门槛。
+- 显式失败续跑：只有操作者逐项授权复用两个 protected installation 和一个尚未发布的 XP protected Review，
+  且尚未建立任何 protected Game/Save 或 13 项 Review matrix 时，才允许在原命令尾部增加
+  `--resume <absolute-approved-identifiers.json> --resume-evidence <absolute-new-snapshot.json>`。
+  授权文件严格为 `{"schemaVersion":1,"installations":{"publishedVariant":"<XP installation UUID>",
+  "restorableCheckpoint":"<VX installation UUID>"},"reviewId":"<XP Review UUID>"}`，三项 ID 必须不同。
+  此模式不删除、重装包或重建数据库，也不自动发现、认领失败残留。任何其他阶段的部分结果仍需停止并重新取得明确指示。
+  在任何写入前，脚本只读校验 catalog 恰为两份指定 READY、零 Game/checkpoint 引用的包；从已校验生成器归档
+  重新计算两个固定单文件布局的 `RETROM_FILESET_V1`，逐项核对 definition、sourceNote、文件数、大小和 digest。
+  XP Review 必须存在于待审核列表、当前 READY、绑定指定 XP 包；全部来源文件的名称/大小/SHA-256 必须与
+  `protectedProjects.publishedVariant` 完全一致。任一不符即失败，不能仅凭名称或 ID 接受来源。
+  随后重新完整分页捕获本次续跑前的 Game/Save/Review 保护快照，只从保护集合中移除明确授权推进的这一条 Review，
+  将其原 ID/版本/来源 SHA 和原列表行 SHA 单独保留；绝不将新快照冒充首次失败前已遗失的快照。
+  在 `--resume-evidence` 以 `0600` create-exclusive 写入 `resume` 与 `populationBefore` 后才能开始产品操作。
+  续跑仅跳过这两次安装和一次导入，仍完整重做普通 Player 的 A/B/C、跨 Launch 恢复、发布、真实 Save 和其余 matrix。
+  最终 provision 的可选 `resume` 字段保存模式、取样时刻、三项 ID、来源/包摘要和被排除 Review 的原稳定行；
+  inspector 必须将其与生成器、plan、保护集合及最终 DB 中的包 digest 交叉核对。其他原记录保持全部不变；
+  数量断言相对于明确记录的续跑保护基线计算，不能声称本次从空包目录启动。
 - provision evidence 为 `0600`、create-exclusive JSON，只保存去除 `sourcePath` 后的 generator input identity、同样去除
   路径后的 plan identity、13 个 Review 与两个受保护引用的真实 ID、计数、
   `populationPreservation.before/after`（games/saves/reviews 的有序 ID/SHA-256 列表必须完全相等），以及 provision 时的 Git commit/dirty
