@@ -57,7 +57,9 @@ export async function focusPreviewCanvas(page) {
 export async function advanceFixture(page, keys) {
   const canvas = await focusPreviewCanvas(page);
   for (const key of keys) {
-    await canvas.press(key, {delay: 250});
+    // The owned LCF fixture crosses a tile in ~133 ms; longer holds repeat
+    // movement and can skip the distinct B checkpoint before reaching C.
+    await canvas.press(key, {delay: 80});
     await page.waitForTimeout(800);
   }
 }
