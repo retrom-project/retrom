@@ -1026,7 +1026,8 @@ make acceptance-case CASE=<case-id>
 - 执行：`make acceptance-case CASE=ACC-UI-001`。
 - 流程：从全新浏览器 context 分别访问 PENDING 实例、READY 实例的首页、带 query 的游戏库和管理后台；依次以 USER、ADMIN 登录并从游戏卡片进入详情，再访问认证页和退出。
 - 通过标准：PENDING 只进入 `/setup`；READY 匿名重定向 `/login?returnTo=...` 且登录后恢复站内 path/query；已登录访问认证页回首页。桌面用户侧显示首页、游戏库、我的存档、我的收藏、最近游玩以及按 feature flag 出现的联机游玩；手机底栏显示首页、游戏库、存档、收藏、更多，其余入口位于 More Sheet。只有 ADMIN 显示管理入口，USER 直达后台显示 403。游戏详情不作为一级入口且保持游戏库上下文；退出清除会话并回登录。移动细节由 `ACC-MOB-001`–`007` 覆盖。
-- 证据：导航可访问名称、route 序列和截图。
+- 导航回归：以真实链接从首页进入管理后台，再点击“返回用户侧”，随后执行浏览器后退/前进；文档 `performance.timeOrigin` 不变且没有非预期 `pageerror`，不得通过整页跳转绕过软导航。单独验证浏览器形状的匿名错误仍传播到后续 listener 且未被取消；该受控错误不计入正常导航场景，也不作为 Chrome 内置脚本的复现证明。
+- 证据：导航可访问名称、route 序列、截图、执行浏览器版本和页面错误列表；原始 DevTools 脚本的故障诊断按工程质量专题第 8.2 节独立记录。
 
 ### ACC-UI-002：游戏入库父子导航与顶层批次口径
 

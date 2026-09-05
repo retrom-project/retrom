@@ -63,7 +63,7 @@ Player Host 只消费 `PlayerRuntimeV1` 的标准能力和事件，不按 Provid
 
 除独立 origin 的 Web 项目外，会挂载 DOM/canvas 的运行时都在 Provider 创建的同源空白 frame 内执行。Provider 负责满尺寸 surface、原始宽高比最大内接、居中和 resize observer；Host 不给单个核心补 CSS。该边界同时防止核心全局变量、异常和样式污染 Next.js document，并保证普通与沉浸 Player 一致。
 
-浏览器开发工具注入的 Web Vitals 脚本不属于游戏运行时。应用 document 与运行 frame 都安装窄范围防护，只吞掉该已知脚本在延迟回调中读取缺失 `startTime` 的异常；其他同步错误、Promise rejection 和 Provider 错误仍正常上报。该防护不改变核心逻辑，也不依赖错误出现时序。
+浏览器开发工具注入的 Web Vitals 脚本不属于游戏运行时。应用 document、Provider 与运行 frame 不拦截或吞掉该脚本的异常，也不修改浏览器性能 API、DevTools 设置或其独立执行上下文。匿名脚本错误必须先按执行上下文、脚本字节与实际堆栈定位，不能因含有 `startTime` 就归因于 Player；诊断与回归边界见工程质量专题第 8.2 节。
 
 ## 5. 资源与项目运行时
 

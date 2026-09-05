@@ -296,6 +296,9 @@ if [[ "$case_id" == "ACC-UI-010" ]]; then
   playwright_grep="ACC-UI-008|ACC-UI-010"
 fi
 specifications=("$specification")
+if [[ "$case_id" == "ACC-UI-001" ]]; then
+  specifications+=("e2e/navigation-errors.spec.ts")
+fi
 if [[ "$case_id" == "ACC-MOB-007" ]]; then
   specifications=("e2e/mobile.spec.ts" "e2e/acceptance.spec.ts" "e2e/immersive.spec.ts")
   playwright_grep="ACC-MOB-007|ACC-UI-005|ACC-UI-006|ACC-UI-007|ACC-IMM-007"
