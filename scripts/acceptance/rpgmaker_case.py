@@ -18,6 +18,12 @@ from typing import Any
 from urllib.parse import urlparse
 
 
+if __name__ == "__main__":
+    from rpgmaker_pack_observed_resume import prepare_observed_resume, finish_inspection, validate_inspection_resume
+else:
+    from scripts.acceptance.rpgmaker_pack_observed_resume import prepare_observed_resume, finish_inspection, validate_inspection_resume
+
+
 ROOT = Path(__file__).resolve().parents[2]
 UUID = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$")
 SHA256 = re.compile(r"^[0-9a-f]{64}$")
@@ -1225,9 +1231,14 @@ def validate_pack_evidence(payload: dict[str, Any]) -> None:
         "protectedDeletes", "zeroReferenceDelete", "uploads", "screenshots", "databaseEvidence",
         "populationPreservation",
     }
-    if set(payload) != expected_keys or payload.get("schemaVersion") != 1 or \
+    if set(payload) not in (expected_keys, expected_keys | {"inspectionResume"}) or payload.get("schemaVersion") != 1 or \
             payload.get("caseId") != PACK_CASE or payload.get("status") != "PASS":
         raise ContractError("RPG_ACCEPTANCE_PACK_EVIDENCE_HEADER_INVALID")
+    if "inspectionResume" in payload:
+        validate_inspection_resume(payload["inspectionResume"])
+        if payload["inspectionResume"]["provisionSha256"] != payload.get("databaseEvidence", {}).get(
+                "provisioningEvidence", {}).get("documentSha256"):
+            raise ContractError("RPG_ACCEPTANCE_PACK_OBSERVED_RESUME_INVALID")
     validate_pack_upload_evidence(payload)
     validate_pack_review_evidence(payload)
     validate_pack_database_evidence(payload)
@@ -1585,8 +1596,9 @@ def run(case_id: str, case_dir: Path) -> int:
         "RETROM_RPG_CASE_DIR": str(case_dir),
         "RETROM_RPG_EXPECTED_PROJECT_DIGEST": expected_digest,
     })
+    inspection_resume = prepare_observed_resume(case_dir) if case_id == PACK_CASE else None
     browser_driver = {
-        PACK_CASE: "rpgmaker_pack.mjs",
+        PACK_CASE: "rpgmaker_pack_reinspect.mjs" if inspection_resume else "rpgmaker_pack.mjs",
         **{case: "rpgmaker_security.mjs" for case in SECURITY_CASES},
     }.get(case_id, "rpgmaker_browser.mjs")
     completed = subprocess.run(
@@ -1609,7 +1621,10 @@ def run(case_id: str, case_dir: Path) -> int:
             Path(os.environ["RETROM_ACC_RPG_009_DATABASE"]),
             evidence_path,
         )
+        if inspection_resume:
+            payload["inspectionResume"] = finish_inspection(inspection_resume)
         payload["status"] = "PASS"
+        validate_pack_evidence(payload)
         evidence_path.write_text(
             json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8",
         )
@@ -1644,8 +1659,6 @@ def run(case_id: str, case_dir: Path) -> int:
             json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8",
         )
         validate_generation_evidence(payload, spec, expected_digest)
-    elif case_id == PACK_CASE:
-        validate_pack_evidence(payload)
     elif case_id in SECURITY_CASES:
         validate_security_evidence(payload, case_id)
     elif payload.get("status") != "PASS":
