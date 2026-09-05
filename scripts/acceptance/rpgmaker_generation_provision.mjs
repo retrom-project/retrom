@@ -219,7 +219,9 @@ async function trialAndPublish(context, client, review) {
   const created = await create();
   await assertLaunchCookie(context, created.previewId);
   const original = await openPlayer(context, created.playUrl);
+  process.stderr.write("RPG_PROVISION_STAGE:original-opened\n");
   await waitForPreviewReady(original);
+  process.stderr.write("RPG_PROVISION_STAGE:original-ready\n");
   const originalFrames = await observePreviewFrames(original);
   const audio = await readAudioObservation(original).catch((error) => {
     throw new Error(error.message + ":" + JSON.stringify({
@@ -230,9 +232,11 @@ async function trialAndPublish(context, client, review) {
     }));
   });
   const checkpointA = await capturePreviewCheckpoint(original, created.previewId);
+  process.stderr.write("RPG_PROVISION_STAGE:checkpoint-a\n");
   const initialPosition = await observeFixturePosition(original, config.generation, original.__retromOwnedFixture, checkpointA);
   await advanceFixture(original, config.saveKeys);
   const checkpointB = await capturePreviewCheckpoint(original, created.previewId);
+  process.stderr.write("RPG_PROVISION_STAGE:checkpoint-b\n");
   const savedPosition = await observeFixturePosition(original, config.generation, original.__retromOwnedFixture, checkpointB);
   const oversizeRejection = tracePath ? await rejectDeclaredOversize(context, created.previewId) : null;
   if (tracePath) {
@@ -245,6 +249,7 @@ async function trialAndPublish(context, client, review) {
   if (restored.previewId === created.previewId) {throw new Error("RPG_PROVISION_RESTORE_LAUNCH_REUSED");}
   await advanceFixture(original, config.divergeKeys);
   const checkpointC = await capturePreviewCheckpoint(original, created.previewId);
+  process.stderr.write("RPG_PROVISION_STAGE:checkpoint-c\n");
   const divergedPosition = await observeFixturePosition(original, config.generation, original.__retromOwnedFixture, checkpointC);
   await captureOptionalReviewScreenshot(original, created.previewId);
   await finishPreview(original, created.previewId);
@@ -255,6 +260,7 @@ async function trialAndPublish(context, client, review) {
   if (envelope.restore?.sha256 !== checkpointB.sha256 || envelope.restore?.sizeBytes !== checkpointB.sizeBytes ||
       envelope.restore?.format !== checkpointB.format) {throw new Error("RPG_PROVISION_RESTORE_FROZEN_PAYLOAD_MISMATCH");}
   await waitForPreviewReady(restorePage);
+  process.stderr.write("RPG_PROVISION_STAGE:restored-ready\n");
   const restoredFrames = await observePreviewFrames(restorePage);
   const restoredCheckpoint = await capturePreviewCheckpoint(restorePage, restored.previewId);
   const restoredPosition = await observeFixturePosition(restorePage, config.generation, restorePage.__retromOwnedFixture, restoredCheckpoint);
@@ -571,6 +577,15 @@ async function collectRuntimeException(cdp, details) {
       objectId, ownProperties: true, accessorPropertiesOnly: false, generatePreview: true,
     }).catch(() => ({ result: [] }));
     ownProperties = result.result ?? [];
+    if (details.exception?.className === "ErrorEvent") {
+      const fields = await cdp.send("Runtime.callFunctionOn", {
+        objectId, returnByValue: true,
+        functionDeclaration: "function () { return {message: this.message, filename: this.filename, lineno: this.lineno, colno: this.colno}; }",
+      }).catch(() => null);
+      for (const [name, value] of Object.entries(fields?.result?.value ?? {})) {
+        ownProperties.push({name, value: {type: typeof value, value: name === "filename" ? safeStackUrl(value) : value}});
+      }
+    }
   }
   return safeRuntimeException(details, ownProperties);
 }
@@ -605,6 +620,7 @@ function safeRuntimeException(details, ownProperties = []) {
 function safeStackUrl(value) {
   try {
     const url = new URL(value);
+    if (url.protocol === "blob:") {return `blob:${safeStackUrl(url.pathname)}`;}
     return `${url.origin}${url.pathname}`;
   } catch {
     return "";
@@ -614,7 +630,12 @@ function safeStackUrl(value) {
 async function assertCleanPlayer(page, code) {
   await Promise.allSettled(page.__retromExceptionTasks ?? []);
   const errors = page.__retromPageErrors ?? [];
-  if (errors.length) {throw new Error(code + ":" + String(errors[0]).slice(0, 600));}
+  if (errors.length) {throw new Error(code + ":" + JSON.stringify({
+    errors: errors.slice(0, 5),
+    exceptions: page.__retromExceptionDiagnostics,
+    console: page.__retromConsoleDiagnostics,
+    runtime: page.__retromRuntimeDiagnostics,
+  }));}
 }
 
 function assertPositionSequence(roundTrip) {
