@@ -18,7 +18,7 @@ import { useReviewAttachments } from "./review-attachments";
 import { useReviewCommands } from "./review-commands";
 import { RPGValidationCard, useRPGReviewValidation } from "./review-rpg-validation";
 import {
-  activeAttachmentJobId, compareFields, initialDraftState, initialRuntimeState, reviewCoverPresentation,
+  activeAttachmentJobId, compareFields, initialDraftState, initialRuntimeState, reviewCoverPresentation, rpgReviewRuntimeStatus,
   reviewReadiness, saveStateLabel, scrapeResult, toPayload, withRPGMakerDraft,
   type Comparison, type CoverSelection, type DraftPayload, type MetadataForm, type PreviewAsset,
   type ReviewMultiDisc, type ReviewMultiDiscAttachment, type ReviewWorkspace,
@@ -112,6 +112,7 @@ export function ReviewActions({ review, activeTags = [], returnTo = "/admin/revi
         if (!response.ok) {throw new Error(await responseError(response, "实时保存失败：字段、来源或版本已经变化"));}
         const result = await response.json() as { version: number };
         versionRef.current = result.version;
+        await refreshReview();
         lastSavedKeyRef.current = key;
         if (latestKeyRef.current === key) {setSaveState("saved");}
         return true;
@@ -122,7 +123,7 @@ export function ReviewActions({ review, activeTags = [], returnTo = "/admin/revi
       }
     });
     return saveQueueRef.current;
-  }, [review.itemId, setSaveState, setToast]);
+  }, [refreshReview, review.itemId, setSaveState, setToast]);
 
   useEffect(() => {
     latestKeyRef.current = draftKey;
@@ -192,7 +193,7 @@ export function ReviewActions({ review, activeTags = [], returnTo = "/admin/revi
 
 function effectiveCanApprove(rpgMaker: ReviewWorkspace["rpgMaker"], serverCanApprove: boolean) {
   if (!rpgMaker) {return serverCanApprove;}
-  return Boolean(rpgMaker.runtimeValidation?.launchId);
+  return rpgReviewRuntimeStatus(rpgMaker).status === "READY";
 }
 
 type ReviewViewModel = {
