@@ -1575,6 +1575,11 @@ Launch ID、计数和 byte，不记录 content identity、项目路径或资源�
 观测来自普通 checkpoint 的 LCF 数据、自有 RGSS fixture 的真实状态日志或原生 MV/MZ 对象；
 同时记录实际连续帧及 Web Audio 非零采样，不把 AudioContext 存在冒充有声。恢复 B 的新预览在原预览
 尚未关闭时创建，再把原预览覆盖保存为 C，证明新预览的恢复 payload 仍被冻结为 B。
+普通存档上传取证只读观测实际 XHR 的原始 FormData，不修改请求 body、headers、发送时序或产品代码。
+Chrome/CDP 省略 multipart 文件 bytes 时，按同一 URL、method、Idempotency-Key 关联观测，逐 part 比较
+名称、顺序、filename、MIME 和可见 bytes，补齐的精确字节数必须与真实 Content-Length 闭合；
+缺失、重复、跨请求、部分截断或摘要不匹配均失败。观测只在单次存档操作期间安装并在 finally 撤销；
+其 payload SHA-256 继续与另一个预览冻结的 restore payload 比较，不能用成功响应替代字节证据。
 不得使用 ignored 临时 runner 或伪造生产证明记录。004 仅在执行 270 MiB 与禁线程扩展边界验证时传入新的绝对
 `RETROM_ACC_RPG_004_TRACE`；七核心最小闭环不要求该变量。008 还必须传入同次转换得到的 `RPG_MZ_SMOKE_ROOT`。provision 成功后，再把返回的
 两个 ID 和 trialEvidence 路径交给相同 Case 的统一 runner 生成正式 `result.json`。

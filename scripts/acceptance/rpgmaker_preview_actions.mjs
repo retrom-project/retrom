@@ -1,5 +1,6 @@
 import {createHash} from "node:crypto";
 import {readEasyRpgPosition, readRgssFixtureLine} from "./rpgmaker_fixture_observation.mjs";
+import {installCheckpointUploadObservation, readCheckpointMultipart} from "./rpgmaker_checkpoint_upload.mjs";
 
 // Browser automation of the same Player buttons used by a reviewer.
 export function observeOwnedFixture(page) {
@@ -75,6 +76,14 @@ export async function resumePreview(page) {
 
 export async function capturePreviewCheckpoint(page, previewId) {
   await revealPreviewToolbar(page);
+  await page.evaluate(installCheckpointUploadObservation, previewId);
+  try {return await captureObservedCheckpoint(page, previewId);}
+  finally {
+    if (!page.isClosed()) {await page.evaluate(() => globalThis.__retromCheckpointUploadObservation?.dispose());}
+  }
+}
+
+async function captureObservedCheckpoint(page, previewId) {
   const startedAtMs = Date.now();
   const requestTask = page.waitForRequest((request) => request.method() === "POST" &&
     new URL(request.url()).pathname === "/runtime/launches/" + previewId + "/save-states", {timeout: 300_000});
@@ -83,12 +92,13 @@ export async function capturePreviewCheckpoint(page, previewId) {
   const response = await request.response();
   if (!response) {throw new Error("RPG_PREVIEW_CHECKPOINT_RESPONSE_MISSING");}
   const receipt = await response.json();
-  const result = await inspectPreviewCheckpoint(request, response.status(), receipt, previewId);
+  const observed = await page.evaluate(() => globalThis.__retromCheckpointUploadObservation.take());
+  const result = await inspectPreviewCheckpoint(request, response.status(), receipt, previewId, observed);
   await resumePreview(page);
   return {...result, startedAtMs, finishedAtMs: Date.now()};
 }
 
-export async function inspectPreviewCheckpoint(request, status, receipt, previewId) {
+export async function inspectPreviewCheckpoint(request, status, receipt, previewId, observed) {
   if (status !== 201 || receipt?.resourceKind !== "REVIEW_PREVIEW_CHECKPOINT" ||
       receipt.previewId !== previewId || typeof receipt.checkpointFormat !== "string" ||
       !Number.isSafeInteger(receipt.createdAtMs) || receipt.createdAtMs < 0) {
@@ -96,13 +106,7 @@ export async function inspectPreviewCheckpoint(request, status, receipt, preview
       ? receipt.error.code : "UNKNOWN";
     throw new Error("RPG_PREVIEW_CHECKPOINT_RECEIPT_INVALID:HTTP_" + status + ":" + code);
   }
-  const headers = await request.allHeaders();
-  const body = request.postDataBuffer();
-  const length = Number(headers["content-length"]);
-  if (!body || !Number.isSafeInteger(length) || length !== body.length) {
-    throw new Error("RPG_PREVIEW_CHECKPOINT_REQUEST_INVALID");
-  }
-  const form = await new Response(body, {headers: {"Content-Type": headers["content-type"]}}).formData();
+  const {form, length} = await readCheckpointMultipart(request, observed);
   const payload = form.get("payload");
   const screenshot = form.get("screenshot");
   if (!(payload instanceof Blob) || !(screenshot instanceof Blob) || !payload.size || !screenshot.size) {
@@ -146,10 +150,24 @@ export async function observePreviewFrames(page) {
   await resumePreview(page);
   const beforeFrame = await page.evaluate(() => window.__RETROM_E2E_RUNTIME_V1__?.getFrameCount());
   if (!Number.isSafeInteger(beforeFrame) || beforeFrame < 0) {throw new Error("RPG_PREVIEW_FRAME_COUNT_MISSING");}
-  await page.waitForFunction((before) => {
-    const after = window.__RETROM_E2E_RUNTIME_V1__?.getFrameCount();
-    return Number.isSafeInteger(after) && after - before >= 300;
-  }, beforeFrame, {timeout: 30_000});
+  try {
+    await page.waitForFunction((before) => {
+      const after = window.__RETROM_E2E_RUNTIME_V1__?.getFrameCount();
+      return Number.isSafeInteger(after) && after - before >= 300;
+    }, beforeFrame, {timeout: 30_000});
+  } catch {
+    const trim = (value) => String(value).trim().slice(0, 600);
+    const diagnostics = {
+      beforeFrame,
+      afterFrame: await page.evaluate(() => window.__RETROM_E2E_RUNTIME_V1__?.getFrameCount()).catch(() => null),
+      alerts: (await page.getByRole("alert").allInnerTexts().catch(() => [])).map(trim).slice(0, 5),
+      statuses: (await page.getByRole("status").allInnerTexts().catch(() => [])).map(trim).slice(0, 10),
+      pageErrors: (page.__retromPageErrors ?? []).map(trim).slice(0, 5),
+      consoleDiagnostics: (page.__retromConsoleDiagnostics ?? []).slice(-30),
+      networkRequests: (page.__retromNetworkRequests ?? []).slice(-100),
+    };
+    throw new Error("RPG_PREVIEW_FRAMES_STALLED:" + JSON.stringify(diagnostics));
+  }
   const afterFrame = await page.evaluate(() => window.__RETROM_E2E_RUNTIME_V1__?.getFrameCount());
   return {beforeFrame, afterFrame};
 }
