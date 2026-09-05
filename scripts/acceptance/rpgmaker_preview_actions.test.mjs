@@ -75,6 +75,27 @@ test("owned RGSS state is read from the Provider diagnostic channel without addi
 
 const receipt = {resourceKind: "REVIEW_PREVIEW_CHECKPOINT", previewId: "preview-1",
   checkpointFormat: "fixture-v1", createdAtMs: 123};
+test("mount observes fatal Player status messages without waiting for the hard timeout", async () => {
+  const pending = new Promise(() => {});
+  const message = "RPG_NATIVE_BOOTSTRAP_TIMEOUT";
+  const page = {
+    getByRole: (role) => ({
+      allInnerTexts: async () => [], allTextContents: async () => role === "status" ? [message] : [],
+      filter: ({hasText}) => {
+        const failed = role === "status" && hasText instanceof RegExp && hasText.test(message);
+        const locator = {waitFor: () => failed ? Promise.resolve() : pending};
+        return {...locator, first: () => locator};
+      },
+    }),
+    locator: () => ({allTextContents: async () => [message]}),
+    waitForResponse: () => pending,
+  };
+  await assert.rejects(Promise.race([
+    waitForPreviewReady(page),
+    new Promise((_, reject) => setImmediate(() => reject(new Error("fatal status was not observed")))),
+  ]), /RPG_NATIVE_BOOTSTRAP_TIMEOUT/u);
+});
+
 test("a session finishing during mount reports diagnostics instead of waiting for the outer hard timeout", async () => {
   const pending = new Promise(() => {});
   const unavailable = async () => {throw new Error("Execution context was destroyed by navigation");};
