@@ -100,6 +100,7 @@ func assertNativeReviewIsolationRevoked(t *testing.T, server *Server, origin str
 		}
 	}
 }
+
 func newNativeReviewIsolationFixture(t *testing.T, engine string) (*Server, string) {
 	t.Helper()
 	server := newTestServer(t)
