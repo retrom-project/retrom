@@ -41,6 +41,8 @@
 
 `openapi-typescript 7.13.0` 的 Redocly 工具链间接依赖统一由 npm override 固定为 `js-yaml 4.3.1`，用于排除 4.3.0 的 `!!omap` 二次复杂度安全问题；`npm ci` 后完整 `npm audit` 必须为零。移除 override 前必须先证明上游依赖已采用不低于 4.3.1 的版本并更新锁文件，不能让同名的旧嵌套副本重新进入工具链。
 
+Provider 的 checkpoint 压缩依赖由 `retrom-runtime` 自己固定和审计；宿主不再安装未使用的 `fflate`。runtime 使用修复 CVE-2026-45820 的 0.8.3，并以有界子进程覆盖缺失 extra field 的畸形 ZIP64 拒绝，避免安全回归测试本身被同步死循环挂住；现有 gzip 存档格式保持不变。
+
 这些版本是一期起点，不是永不升级的承诺。若安全修复要求升级，必须在独立变更中更新版本文件/锁文件、兼容说明与完整门禁；Agent 不得在功能实现中自行改用 `latest`。
 
 ## 3. 统一命令契约

@@ -276,6 +276,13 @@ class MakefileDependencyTests(unittest.TestCase):
         package = json.loads((REPOSITORY_ROOT / "web" / "package.json").read_text(encoding="utf-8"))
         self.assertTrue(package["scripts"]["dev"].endswith("--webpack"))
 
+    def test_host_does_not_install_provider_checkpoint_compression(self) -> None:
+        web = REPOSITORY_ROOT / "web"
+        package = json.loads((web / "package.json").read_text(encoding="utf-8"))
+        lock = json.loads((web / "package-lock.json").read_text(encoding="utf-8"))
+        self.assertNotIn("fflate", package["dependencies"])
+        self.assertNotIn("node_modules/fflate", lock["packages"])
+
     def test_pfb_dev_reuses_the_image_toolchains(self) -> None:
         entrypoint = (REPOSITORY_ROOT / "scripts/pfb/entrypoint.sh").read_text(
             encoding="utf-8"
