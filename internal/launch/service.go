@@ -8,6 +8,8 @@ import (
 	"net/url"
 	"time"
 
+	"retrom/internal/contentcapability"
+
 	"github.com/google/uuid"
 
 	"retrom/internal/blobstore"
@@ -201,17 +203,7 @@ func (service *Service) prepareNetplayLaunch(
 SELECT variant.id,variant.core_id,session.provider_id,session.target_id,
  session.bundle_sha256,game.id,game.content_kind,
  binding.delivery_profile,
- json_object(
-   'schemaVersion',1,
-   'supportedContentKinds',json((SELECT json_group_array(content_kind) FROM (
-     SELECT content_kind FROM runtime_binding_content_kinds kinds
-     WHERE kinds.binding_id=binding.binding_id ORDER BY content_kind
-   ))),
-   'multiDisc',CASE WHEN EXISTS(
-     SELECT 1 FROM runtime_binding_content_kinds kinds
-     WHERE kinds.binding_id=binding.binding_id AND kinds.content_kind='MULTI_DISC'
-   ) THEN json_object('maxDiscs',8,'maxTotalBytes',1073741824,'delivery','EAGER_EXTERNAL_FILES') ELSE NULL END
- ),variant.dependency_snapshot_json,
+ `+contentcapability.BindingPolicySQL+`,variant.dependency_snapshot_json,
  COALESCE((SELECT file.logical_name FROM game_files file
   WHERE file.game_id=game.id AND file.role='CONTENT'
   ORDER BY file.sort_order,file.logical_name LIMIT 1),''),variant.dat_version_id
@@ -232,7 +224,7 @@ WHERE session.id=? AND session.room_id=? AND session.game_id=?
 		Scan(
 			&selection.variantID, &selection.selectedCore,
 			&selection.providerID, &selection.targetID, &selection.bundleSHA256, &selection.gameID,
-			&selection.contentKind, &selection.deliveryProfile, &selection.contentPolicyJSON,
+			&selection.contentKind, &selection.deliveryProfile, &selection.contentPolicy,
 			&selection.dependencySnapshotJSON, &selection.contentLogicalName, &selection.datID,
 		)
 	if err != nil || selection.contentKind != "SINGLE_FILE" {

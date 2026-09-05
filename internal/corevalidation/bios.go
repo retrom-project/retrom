@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"retrom/internal/cleanup"
+	"retrom/internal/contentcapability"
 )
 
 const SnapshotSchemaVersion = 1
@@ -24,7 +25,7 @@ const (
 const (
 	MultiDiscContentKind   = "MULTI_DISC"
 	MultiDiscParserVersion = "RETROM_MULTIDISC_M3U_V1"
-	MultiDiscDelivery      = "EAGER_EXTERNAL_FILES"
+	MultiDiscDelivery      = contentcapability.DeliveryEagerExternal
 )
 
 var ErrInvalidSnapshot = errors.New("CORE_VALIDATION_SNAPSHOT_INVALID")
@@ -355,11 +356,6 @@ type MultiDiscValidationInput struct {
 	BIOSDependencySHA256    string
 	OrderedDiscSHA256       []string
 	CanonicalPlaylistSHA256 string
-}
-
-func ContentPolicyDigest(raw string) string {
-	digest := sha256.Sum256([]byte(raw))
-	return hex.EncodeToString(digest[:])
 }
 
 func BIOSDependencyDigest(snapshot Snapshot) (string, error) {

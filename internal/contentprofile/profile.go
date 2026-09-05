@@ -76,44 +76,18 @@ var registry = map[string]Profile{
 	"mastersystem": single("mastersystem", ".sms"),
 	"nintendo3ds":  raw("nintendo3ds", ".3ds", ".cci"),
 	"wasm4":        single("wasm4", ".wasm"),
-	"rpgmaker": {
-		PlatformID: "rpgmaker", ArchivePolicy: ArchiveProject,
-		ArchiveFormats: []ArchiveFormat{ArchiveZIP, ArchiveSevenZip}, FormatCode: "RPG_MAKER_PROJECT",
-		ContentKinds: []ContentKind{ContentKindRPGMakerProject},
-	},
-	"ons": {
-		PlatformID: "ons", ArchivePolicy: ArchiveProject,
-		ArchiveFormats: []ArchiveFormat{ArchiveZIP, ArchiveSevenZip}, FormatCode: "ONS_PROJECT",
-		ContentKinds: []ContentKind{ContentKindONSProject},
-	},
-	"kirikiri": {
-		PlatformID: "kirikiri", ArchivePolicy: ArchiveProject,
-		ArchiveFormats: []ArchiveFormat{ArchiveZIP, ArchiveSevenZip}, FormatCode: "KIRIKIRI_PROJECT",
-		ContentKinds: []ContentKind{ContentKindKiriKiriProject},
-	},
-	"butterscotch": {
-		PlatformID: "butterscotch", ArchivePolicy: ArchiveProject,
-		ArchiveFormats: []ArchiveFormat{ArchiveZIP, ArchiveSevenZip}, FormatCode: "BUTTERSCOTCH_PROJECT",
-		ContentKinds: []ContentKind{ContentKindButterscotchProject},
-	},
-	"tyranoscript": {
-		PlatformID: "tyranoscript", ArchivePolicy: ArchiveProject,
-		ArchiveFormats: []ArchiveFormat{
-			ArchiveZIP, ArchiveSevenZip, ArchiveNWJSExecutable, ArchiveElectronASAR,
-		},
-		FormatCode:   "TYRANOSCRIPT_PROJECT",
-		ContentKinds: []ContentKind{ContentKindTyranoScriptProject},
-	},
+
+	"rpgmaker":     project("rpgmaker", ContentKindRPGMakerProject),
+	"ons":          project("ons", ContentKindONSProject),
+	"kirikiri":     project("kirikiri", ContentKindKiriKiriProject),
+	"butterscotch": project("butterscotch", ContentKindButterscotchProject),
+	"tyranoscript": project("tyranoscript", ContentKindTyranoScriptProject,
+		ArchiveNWJSExecutable, ArchiveElectronASAR),
 }
 
 var specialPlatformExtensions = map[string][]string{
-	"arcade":       {".zip"},
-	"dos":          {".exe", ".com", ".bat"},
-	"rpgmaker":     {".zip", ".7z"},
-	"ons":          {".zip", ".7z"},
-	"kirikiri":     {".zip", ".7z"},
-	"butterscotch": {".zip", ".7z"},
-	"tyranoscript": {".zip", ".7z", ".exe"},
+	"arcade": {".zip"},
+	"dos":    {".exe", ".com", ".bat"},
 }
 
 func single(platformID string, extensions ...string) Profile {
@@ -151,7 +125,10 @@ func ByPlatform(platformID string) (Profile, bool) {
 // Archive wrappers for single-ROM platforms are import transports and are not
 // included; Arcade ZIP and DOS executable entries are the payload themselves.
 func SupportedExtensions(platformID string) []string {
-	if profile, ok := registry[platformID]; ok && len(profile.Extensions) > 0 {
+	if profile, ok := registry[platformID]; ok {
+		if profile.ArchivePolicy == ArchiveProject {
+			return projectExtensions(profile.ArchiveFormats)
+		}
 		return append([]string(nil), profile.Extensions...)
 	}
 	return append([]string(nil), specialPlatformExtensions[platformID]...)
@@ -164,6 +141,21 @@ func AllowsContentKind(platformID string, kind ContentKind) bool {
 	}
 	for _, allowed := range profile.ContentKinds {
 		if kind == allowed {
+			return true
+		}
+	}
+	return false
+}
+
+// KnownContentKind describes supported payload semantics, independently of a
+// product binding's narrower admission policy. DOS is handled by its dedicated
+// bundle importer rather than a single-file/archive profile.
+func KnownContentKind(kind ContentKind) bool {
+	if kind == ContentKindDOSBundle {
+		return true
+	}
+	for platformID := range registry {
+		if AllowsContentKind(platformID, kind) {
 			return true
 		}
 	}

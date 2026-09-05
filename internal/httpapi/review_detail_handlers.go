@@ -22,17 +22,7 @@ d.version,
 d.updated_at_ms,
 pi.id,
 pi.name,
-json_object(
- 'schemaVersion',1,
- 'supportedContentKinds',json((SELECT json_group_array(content_kind) FROM (
-   SELECT content_kind FROM runtime_binding_content_kinds kinds
-   WHERE kinds.binding_id=current_binding.binding_id ORDER BY content_kind
- ))),
- 'multiDisc',CASE WHEN EXISTS(
-   SELECT 1 FROM runtime_binding_content_kinds kinds
-   WHERE kinds.binding_id=current_binding.binding_id AND kinds.content_kind='MULTI_DISC'
- ) THEN json_object('maxDiscs',8,'maxTotalBytes',1073741824,'delivery','EAGER_EXTERNAL_FILES') ELSE NULL END
-),
+` + contentcapability.BindingPolicySQL + `,
 v.id,
 v.status,
 v.compatibility_code,
@@ -66,9 +56,9 @@ JOIN runtime_targets current_target ON current_target.provider_id=COALESCE(rpg_p
   AND binding_kind.content_kind=source_snapshot.content_kind
  WHERE binding.core_id=pi.default_core_id AND binding.launch_policy<>'DISABLED' LIMIT 1
 ))
-JOIN runtime_target_bindings current_binding
- ON current_binding.provider_id=current_target.provider_id AND current_binding.target_id=current_target.target_id
- AND current_binding.launch_policy<>'DISABLED'
+JOIN runtime_target_bindings binding
+ ON binding.provider_id=current_target.provider_id AND binding.target_id=current_target.target_id
+ AND binding.launch_policy<>'DISABLED'
 LEFT JOIN import_item_core_validations v ON v.id=COALESCE(d.selected_validation_id,(
   SELECT candidate.id
 FROM import_item_core_validations candidate
@@ -98,7 +88,8 @@ AND NOT EXISTS(
 // Contract branches stay contiguous for a single auditable decision.
 func (server *Server) review(writer http.ResponseWriter, request *http.Request) {
 	var itemID, importJobID, metadata, platformID, platformName, sourceSnapshotID, sourceManifest string
-	var sourceContentKind, currentTargetManifest string
+	var sourceContentKind string
+	var contentPolicy contentcapability.Policy
 	var validationID, validationStatus, compatibilityCode, dependencySnapshot sql.NullString
 	var selectedValidationID sql.NullString
 	var selectedCandidateID, coverID, uploadedCoverID, backgroundID, defaultDOSEntry sql.NullString
@@ -114,7 +105,7 @@ func (server *Server) review(writer http.ResponseWriter, request *http.Request) 
 			&updatedAtMS,
 			&platformID,
 			&platformName,
-			&currentTargetManifest,
+			&contentPolicy,
 			&validationID,
 			&validationStatus,
 			&compatibilityCode,
@@ -143,7 +134,7 @@ func (server *Server) review(writer http.ResponseWriter, request *http.Request) 
 		validationID: validationID, validationStatus: validationStatus,
 		compatibilityCode: compatibilityCode, dependencyValue: dependencyValue,
 		selectedValidationID: selectedValidationID,
-		targetManifest:       currentTargetManifest, sourceContentKind: sourceContentKind,
+		contentPolicy:        contentPolicy, sourceContentKind: sourceContentKind,
 	})
 	if err != nil {
 		server.databaseError(writer, request, err)
@@ -418,7 +409,8 @@ FROM source
 type reviewValidationInput struct {
 	validationID, validationStatus, compatibilityCode, selectedValidationID sql.NullString
 	dependencyValue                                                         any
-	targetManifest, sourceContentKind                                       string
+	sourceContentKind                                                       string
+	contentPolicy                                                           contentcapability.Policy
 }
 
 type reviewValidationResult struct {
@@ -446,7 +438,7 @@ func (server *Server) reviewValidationProjection(
 		},
 		stale: !evidenceCurrent,
 		canApprove: input.selectedValidationID.Valid && evidenceCurrent && input.validationStatus.String == "READY" &&
-			contentcapability.SupportsContentKind(input.targetManifest, input.sourceContentKind),
+			input.contentPolicy.Supports(input.sourceContentKind),
 	}, nil
 }
 

@@ -108,7 +108,7 @@ FROM games game WHERE game.id=? AND game.status='PUBLISHED'
 	}
 	baseDigest, currentBIOSDigest, biosSnapshot, biosStatus, biosCode, err := service.currentValidationEvidence(
 		ctx, inputs.GameVariantID, inputs.GameID, contentLogicalName, contentKind,
-		inputs.ProviderID, inputs.TargetID, inputs.ContentPolicyJSON, datID,
+		inputs.ProviderID, inputs.TargetID, inputs.ContentPolicy, datID,
 	)
 	if err != nil {
 		return variantValidationOutcome{}, fmt.Errorf("load validation evidence: %w", err)

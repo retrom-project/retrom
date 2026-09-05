@@ -44,7 +44,7 @@ type approvalRun struct {
 	coreID                        string
 	providerID                    string
 	targetID                      string
-	contentPolicyJSON             string
+	contentPolicy                 contentcapability.Policy
 	draftVersion                  int64
 	datID                         sql.NullString
 	validationDOSEntry            sql.NullString
@@ -121,7 +121,7 @@ func (run *approvalRun) load() error {
 		&run.platformInstanceID, &run.validationID, &run.validationStatus, &run.metadataJSON,
 		&run.sourceSnapshotID, &run.sourceManifestJSON, &run.sourceManifestDigest,
 		&run.contentKind, &run.coreID, &run.providerID, &run.targetID,
-		&run.contentPolicyJSON,
+		&run.contentPolicy,
 		&run.datID, &run.validationDOSEntry, &run.draftDOSEntry,
 		&run.dependencySnapshotJSON, &run.approvalScreenshotID, &run.draftVersion,
 		&run.candidateID, &run.coverID, &run.uploadedCoverID, &run.backgroundID,
@@ -146,7 +146,7 @@ func (run *approvalRun) prepare() error {
 		return err
 	}
 	if run.platformID != "rpgmaker" &&
-		!contentcapability.SupportsContentKind(run.contentPolicyJSON, run.contentKind) {
+		!run.contentPolicy.Supports(run.contentKind) {
 		return ErrInvalid
 	}
 	if run.platformID == "rpgmaker" {
@@ -201,7 +201,7 @@ func (run *approvalRun) prepareValidationSnapshot() error {
 	if !run.screenshotOverride {
 		if err := run.service.validateCurrentApprovalDependencySnapshot(
 			run.ctx, run.transaction, run.sourceSnapshotID, run.validationID, run.platformID,
-			run.providerID, run.targetID, run.contentPolicyJSON,
+			run.providerID, run.targetID, run.contentPolicy,
 			run.contentKind, run.dependencySnapshotJSON,
 		); err != nil {
 			return err
@@ -258,17 +258,7 @@ SELECT d.id,i.state,i.import_job_id,j.config_snapshot_json,p.platform_id,
   d.target_platform_instance_id,v.id,v.status,d.metadata_json,source_snapshot.id,
   source_snapshot.source_manifest_json,source_snapshot.source_manifest_digest,
   source_snapshot.content_kind,v.core_id,v.provider_id,v.target_id,
-  json_object(
-    'schemaVersion',1,
-    'supportedContentKinds',json((SELECT json_group_array(content_kind) FROM (
-      SELECT content_kind FROM runtime_binding_content_kinds kinds
-      WHERE kinds.binding_id=binding.binding_id ORDER BY content_kind
-    ))),
-    'multiDisc',CASE WHEN EXISTS(
-      SELECT 1 FROM runtime_binding_content_kinds kinds
-      WHERE kinds.binding_id=binding.binding_id AND kinds.content_kind='MULTI_DISC'
-    ) THEN json_object('maxDiscs',8,'maxTotalBytes',1073741824,'delivery','EAGER_EXTERNAL_FILES') ELSE NULL END
-  ),
+  ` + contentcapability.BindingPolicySQL + `,
   v.dat_version_id,v.default_dos_entry,d.default_dos_entry,
   v.dependency_snapshot_json,
   (SELECT screenshot.id FROM review_runtime_screenshots screenshot

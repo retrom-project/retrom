@@ -46,7 +46,7 @@ func (run *creationRun) insertCoreValidation(record *groupRecord, dependencySnap
 		ContentKind:              record.contentKind,
 		TargetPlatformInstanceID: run.plan.request.TargetPlatformInstanceID,
 		ProviderID:               target.providerID, TargetID: target.targetID,
-		ContentPolicyDigest: validationPolicyDigest(target.contentPolicyJSON, record.contentKind),
+		ContentPolicyDigest: target.contentPolicy.DigestFor(record.contentKind),
 		DATVersionID:        nullStringPointer(run.plan.datID),
 		DefaultDOSEntry:     stringPointer(record.group.defaultDOSEntry),
 		DependencySnapshot:  json.RawMessage(dependencySnapshot),

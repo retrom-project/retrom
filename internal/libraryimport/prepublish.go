@@ -41,44 +41,6 @@ func prepublishDigestMatches(digest string, input prepublishDigestInput) bool {
 	return len(digest) == 64 && subtle.ConstantTimeCompare([]byte(digest), []byte(prepublishDigest(input))) == 1
 }
 
-func compatibilityConfigDigest(compatibility string) string {
-	var value any
-	if err := json.Unmarshal([]byte(compatibility), &value); err != nil {
-		return ""
-	}
-	canonical, err := json.Marshal(value)
-	if err != nil {
-		return ""
-	}
-	digest := sha256.Sum256(canonical)
-	return hex.EncodeToString(digest[:])
-}
-
-// Validation depends on the selected content policy, not unrelated accepted kinds.
-func validationPolicyDigest(compatibility, contentKind string) string {
-	if !contentcapability.SupportsContentKind(compatibility, contentKind) {
-		return ""
-	}
-	var policy struct {
-		MultiDisc any `json:"multiDisc"`
-	}
-	if err := json.Unmarshal([]byte(compatibility), &policy); err != nil {
-		return ""
-	}
-	if contentKind != contentcapability.ModeMultiDisc {
-		policy.MultiDisc = nil
-	}
-	canonical, err := json.Marshal(struct {
-		ContentKind string `json:"contentKind"`
-		MultiDisc   any    `json:"multiDisc"`
-	}{ContentKind: contentKind, MultiDisc: policy.MultiDisc})
-	if err != nil {
-		return ""
-	}
-	digest := sha256.Sum256(canonical)
-	return hex.EncodeToString(digest[:])
-}
-
 func nullStringPointer(value sql.NullString) *string {
 	if !value.Valid {
 		return nil
@@ -114,7 +76,8 @@ type reviewValidationEvidence struct {
 	dependencyJSON                                                     string
 	validationDAT, validationDOS, draftDOS, activeDAT                  sql.NullString
 	draftSnapshotID, draftPlatformInstanceID, snapshotManifestDigest   string
-	contentKind, contentPolicyJSON                                     string
+	contentKind                                                        string
+	contentPolicy                                                      contentcapability.Policy
 	currentCoreID                                                      string
 	currentPlatformVersion                                             int64
 }
@@ -135,17 +98,7 @@ validation.default_dos_entry,draft.default_dos_entry,
  WHERE active.provider_id=validation.provider_id AND active.target_id=validation.target_id AND active.is_active=1),
 draft.effective_source_snapshot_id,draft.target_platform_instance_id,
 snapshot.source_manifest_digest,snapshot.content_kind,platform.default_core_id,platform.version,
-json_object(
- 'schemaVersion',1,
- 'supportedContentKinds',json((SELECT json_group_array(content_kind) FROM (
-   SELECT content_kind FROM runtime_binding_content_kinds kinds
-   WHERE kinds.binding_id=binding.binding_id ORDER BY content_kind
- ))),
- 'multiDisc',CASE WHEN EXISTS(
-   SELECT 1 FROM runtime_binding_content_kinds kinds
-   WHERE kinds.binding_id=binding.binding_id AND kinds.content_kind='MULTI_DISC'
- ) THEN json_object('maxDiscs',8,'maxTotalBytes',1073741824,'delivery','EAGER_EXTERNAL_FILES') ELSE NULL END
-)
+`+contentcapability.BindingPolicySQL+`
 FROM import_item_core_validations validation
 JOIN import_items item ON item.id=validation.import_item_id AND item.state='REVIEW_PENDING'
 JOIN review_drafts draft ON draft.import_item_id=item.id
@@ -167,7 +120,7 @@ WHERE validation.id=?
 		&value.dependencyJSON, &value.validationDAT, &value.validationDOS, &value.draftDOS,
 		&value.activeDAT, &value.draftSnapshotID, &value.draftPlatformInstanceID,
 		&value.snapshotManifestDigest, &value.contentKind, &value.currentCoreID,
-		&value.currentPlatformVersion, &value.contentPolicyJSON,
+		&value.currentPlatformVersion, &value.contentPolicy,
 	)
 	if err != nil {
 		return reviewValidationEvidence{}, fmt.Errorf("libraryimport/review validation evidence: %w", err)
@@ -185,7 +138,7 @@ func (value reviewValidationEvidence) currentInput() (prepublishDigestInput, boo
 		value.coreID == value.currentCoreID && value.manifestDigest == value.snapshotManifestDigest &&
 		nullableStringsEqual(value.validationDAT, value.activeDAT) &&
 		nullableStringsEqual(value.validationDOS, value.draftDOS) &&
-		contentcapability.SupportsContentKind(value.contentPolicyJSON, value.contentKind)
+		value.contentPolicy.Supports(value.contentKind)
 	if !current {
 		return prepublishDigestInput{}, false
 	}
@@ -194,7 +147,7 @@ func (value reviewValidationEvidence) currentInput() (prepublishDigestInput, boo
 		SourceManifestDigest: value.manifestDigest, ContentKind: value.contentKind,
 		TargetPlatformInstanceID: value.platformInstanceID,
 		ProviderID:               value.providerID, TargetID: value.targetID,
-		ContentPolicyDigest: validationPolicyDigest(value.contentPolicyJSON, value.contentKind),
+		ContentPolicyDigest: value.contentPolicy.DigestFor(value.contentKind),
 		DATVersionID:        nullStringPointer(value.validationDAT),
 		DefaultDOSEntry:     nullStringPointer(value.validationDOS),
 		DependencySnapshot:  json.RawMessage(value.dependencyJSON), Status: value.status,

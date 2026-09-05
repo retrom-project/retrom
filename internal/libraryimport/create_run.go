@@ -191,13 +191,13 @@ func (run *creationRun) configSnapshot(biosCatalog []corevalidation.BIOSCatalogE
 		"platformInstanceVersion": target.instanceVersion, "platformId": target.platformID,
 		"defaultCoreId": target.defaultCoreID, "resolvedCoreId": target.coreID,
 		"providerId": target.providerID, "targetId": target.targetID,
-		"contentPolicyDigest": compatibilityConfigDigest(target.contentPolicyJSON),
+		"contentPolicyDigest": target.contentPolicy.Digest(),
 		"datVersionId":        nullable(run.plan.datID), "biosRequirements": biosCatalog,
 		"metadataProviderConfigVersion": 1, "tags": run.tagReferences,
 	}
 	if run.plan.contentMode == contentcapability.ModeMultiDisc {
 		capabilities := contentcapability.Resolve(
-			target.platformID, true, run.service.multiDiscImportEnabled, target.contentPolicyJSON,
+			target.platformID, true, run.service.multiDiscImportEnabled, target.contentPolicy,
 		)
 		config["multiDisc"] = capabilities.MultiDisc
 	}
