@@ -6,6 +6,7 @@ import io
 import json
 import os
 import struct
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -101,7 +102,7 @@ class EvidenceContractTests(unittest.TestCase):
         source = (MODULE_PATH.parent / "rpgmaker_preview_actions.mjs").read_text()
         self.assertIn("element.tabIndex = 0;", source)
         self.assertIn("element.focus();", source)
-        self.assertIn("await canvas.press(key, {delay: 250});", source)
+        self.assertIn("await canvas.press(key, {delay: 80});", source)
         self.assertIn("for (const key of keys)", source)
         self.assertIn("await page.waitForTimeout(800);", source)
         self.assertNotIn("await page.keyboard.press(key)", source)
@@ -343,7 +344,7 @@ class EvidenceContractTests(unittest.TestCase):
             marker_rgb = payload["inputProvenance"]["markerRgb"]
             screenshot.write_bytes(test_mz_overlay_only_png(640, 480, marker_rgb))
             logical_screenshot = payload["restoreVisualEvidence"]["screenshot"]
-            payload["restoreVisualEvidence"] = rpgmaker.png_visual_evidence(
+            payload["restoreVisualEvidence"] = rpgmaker.image_visual_evidence(
                 screenshot, logical_screenshot, "RETROM RPGMZ", marker_rgb,
                 rpgmaker.MZ_SCENE_EXCLUSION,
             )
@@ -660,7 +661,7 @@ class EvidenceContractTests(unittest.TestCase):
             root = Path(directory)
             visible = root / "visible.png"
             visible.write_bytes(test_png(320, 180, rgb))
-            evidence = rpgmaker.png_visual_evidence(
+            evidence = rpgmaker.image_visual_evidence(
                 visible, "screenshots/visible.png", marker, rgb,
             )
             rpgmaker.validate_restore_visual(evidence, marker, rgb)
@@ -668,16 +669,38 @@ class EvidenceContractTests(unittest.TestCase):
             undersized = root / "undersized.png"
             undersized.write_bytes(test_png(300, 150, rgb))
             with self.assertRaisesRegex(rpgmaker.ContractError, "RESTORE_SCREENSHOT_PNG_INVALID"):
-                rpgmaker.png_visual_evidence(
+                rpgmaker.image_visual_evidence(
                     undersized, "screenshots/undersized.png", marker, rgb,
                 )
             black = root / "black.png"
             black.write_bytes(test_png(320, 180, [0, 0, 0], solid=True))
-            black_evidence = rpgmaker.png_visual_evidence(
+            black_evidence = rpgmaker.image_visual_evidence(
                 black, "screenshots/black.png", marker, rgb,
             )
             with self.assertRaisesRegex(rpgmaker.ContractError, "RESTORE_VISUAL_INVALID"):
                 rpgmaker.validate_restore_visual(black_evidence, marker, rgb)
+
+    def test_visual_evidence_decodes_the_actual_jpeg_upload_and_keeps_its_original_digest(self) -> None:
+        # Encode only our deterministic, in-memory test image with Next's locked image library.
+        encoder = "import {createRequire} from 'node:module';" \
+            "const sharp=createRequire(new URL('./web/package.json',import.meta.url))('sharp');" \
+            "const chunks=[];for await(const chunk of process.stdin)chunks.push(chunk);" \
+            "process.stdout.write(await sharp(Buffer.concat(chunks)).jpeg().toBuffer());"
+        encoded = subprocess.run(
+            [str(rpgmaker.ROOT / ".cache/tools/node-v24.18.0-linux-x64/bin/node"),
+             "--input-type=module", "-e", encoder],
+            cwd=rpgmaker.ROOT, input=test_png(320, 180, [168, 85, 247]),
+            capture_output=True, check=True, timeout=20,
+        ).stdout
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "restored.jpg"
+            path.write_bytes(encoded)
+            evidence = rpgmaker.image_visual_evidence(
+                path, "screenshots/restored.jpg", "RETROM RPGVX", [168, 85, 247],
+            )
+            self.assertEqual(evidence["sha256"], hashlib.sha256(encoded).hexdigest())
+            self.assertEqual((evidence["width"], evidence["height"]), (320, 180))
+            rpgmaker.validate_restore_visual(evidence, "RETROM RPGVX", [168, 85, 247])
 
     def test_external_web_marker_must_exist_in_the_supplied_project(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

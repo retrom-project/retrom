@@ -358,7 +358,7 @@ def decode_png_pixels(contents: bytes) -> tuple[int, int, int, bytes]:
     return width, height, channels, bytes(pixels)
 
 
-def png_visual_evidence(
+def image_visual_evidence(
     path: Path,
     logical_path: str,
     marker: str,
@@ -368,7 +368,17 @@ def png_visual_evidence(
     if not path.is_file() or path.is_symlink() or path.stat().st_size > 16 * 1024 * 1024:
         raise ContractError("RPG_ACCEPTANCE_RESTORE_SCREENSHOT_PNG_INVALID")
     contents = path.read_bytes()
-    width, height, channels, pixels = decode_png_pixels(contents)
+    decoded = contents
+    if contents.startswith(b"\xff\xd8\xff"):
+        try:
+            decoded = subprocess.run(
+                [str(ROOT / ".cache/tools/node-v24.18.0-linux-x64/bin/node"),
+                 str(ROOT / "scripts/acceptance/rpgmaker_jpeg_pixels.mjs")],
+                input=contents, capture_output=True, check=True, timeout=20,
+            ).stdout
+        except (OSError, subprocess.SubprocessError) as error:
+            raise ContractError("RPG_ACCEPTANCE_RESTORE_SCREENSHOT_IMAGE_INVALID") from error
+    width, height, channels, pixels = decode_png_pixels(decoded)
     opaque, non_black, marker_pixels, scene_non_black = 0, 0, 0, 0
     buckets: set[tuple[int, int, int]] = set()
     scene_buckets: set[tuple[int, int, int]] = set()
@@ -585,7 +595,7 @@ def validate_restore_visual(value: Any, marker: str, rgb: list[int], require_sce
     width, height = value.get("width"), value.get("height")
     opaque, non_black = value.get("opaquePixels"), value.get("nonBlackPixels")
     if not isinstance(screenshot, str) or not screenshot.startswith("screenshots/") or \
-            screenshot.startswith(("/", "screenshots/../")) or not screenshot.endswith(".png") or \
+            screenshot.startswith(("/", "screenshots/../")) or not screenshot.endswith((".png", ".jpg")) or \
             not isinstance(width, int) or width < 320 or not isinstance(height, int) or height < 180 or \
             not isinstance(opaque, int) or opaque < width * height // 2 or \
             not isinstance(non_black, int) or non_black < width * height // 200 or \
@@ -1605,11 +1615,16 @@ def run(case_id: str, case_dir: Path) -> int:
         )
     if spec:
         assert input_provenance is not None
-        restored_logical = f"screenshots/{case_id.lower()}-restored-marker.png"
+        restored_logical = payload["screenshots"][0]
+        if restored_logical not in {
+            f"screenshots/{case_id.lower()}-restored-marker.png",
+            f"screenshots/{case_id.lower()}-restored-marker.jpg",
+        }:
+            raise ContractError("RPG_ACCEPTANCE_RESTORE_SCREENSHOT_MISSING")
         marker = str(input_provenance["marker"])
         marker_rgb = input_provenance["markerRgb"]
         payload["inputProvenance"] = input_provenance
-        payload["restoreVisualEvidence"] = png_visual_evidence(
+        payload["restoreVisualEvidence"] = image_visual_evidence(
             case_dir / restored_logical, restored_logical, marker, marker_rgb,
             MZ_SCENE_EXCLUSION if case_id == "ACC-RPG-008" else None,
         )

@@ -145,7 +145,9 @@ async function generationCase(context, writeHeaders) {
   if (createHash("sha256").update(restoreScreenshot).digest("hex") !== screenshot.sha256) {
     throw new Error("RPG_ACCEPTANCE_RESTORE_SCREENSHOT_DIGEST_MISMATCH");
   }
-  writeFileSync(join(screenshotDir, caseId.toLowerCase() + "-restored-marker.png"), restoreScreenshot);
+  const restoreExtension = restoreScreenshot.subarray(0, 3).equals(Buffer.from([0xff, 0xd8, 0xff])) ? "jpg" : "png";
+  const restoreImageName = caseId.toLowerCase() + "-restored-marker." + restoreExtension;
+  writeFileSync(join(screenshotDir, restoreImageName), restoreScreenshot);
   const game = await jsonRequest(context.request, "GET", `/api/v1/admin/games/${gameId}`);
   if (game.status !== "PUBLISHED") { throw new Error("RPG_ACCEPTANCE_GAME_NOT_PUBLISHED"); }
   const launch = await jsonRequest(context.request, "POST", "/api/v1/launches", {
@@ -348,7 +350,7 @@ async function generationCase(context, writeHeaders) {
       cacheLaunchVisible: cacheVisibleLoading.evidence,
     },
     screenshots: [
-      `screenshots/${caseId.toLowerCase()}-restored-marker.png`,
+      `screenshots/${restoreImageName}`,
       `screenshots/${caseId.toLowerCase()}-product-player.png`,
     ],
   };
