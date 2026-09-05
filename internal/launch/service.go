@@ -142,7 +142,9 @@ func (service *Service) SaveAccess(ctx context.Context, launchID, capability str
 	var hardExpires int64
 	if err := service.database.QueryRowContext(ctx, `
 SELECT credential_sha256,state,hard_expires_at_ms,save_access FROM launch_sessions WHERE id=?
-`, launchID).Scan(&credentialHash, &state, &hardExpires, &access); err != nil ||
+UNION ALL
+SELECT credential_sha256,state,hard_expires_at_ms,'NORMAL' FROM review_preview_sessions WHERE id=?
+`, launchID, launchID).Scan(&credentialHash, &state, &hardExpires, &access); err != nil ||
 		!retromruntime.MatchesCapability(capability, credentialHash) || hardExpires <= service.now().UnixMilli() ||
 		state == "FINISHED" || state == "EXPIRED" || state == "REVOKED" {
 		return "", ErrCredential

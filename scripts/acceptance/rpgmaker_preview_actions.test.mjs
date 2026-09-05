@@ -35,3 +35,16 @@ test("failed/cross-preview uploads cannot become checkpoint evidence", async () 
   await assert.rejects(inspectPreviewCheckpoint(await request(false), 201, receipt, "preview-1"),
     /RPG_PREVIEW_CHECKPOINT_PAYLOAD_MISSING/);
 });
+
+test("checkpoint failure reports HTTP status and only a bounded public error code", async () => {
+  for (const [body, code] of [
+    [{error: {code: "INVALID_REQUEST", message: "private response details"}}, "INVALID_REQUEST"],
+    [{error: {code: "credential=secret"}}, "UNKNOWN"],
+    [{error: {code: "A".repeat(129)}}, "UNKNOWN"],
+    [null, "UNKNOWN"],
+  ]) {
+    await assert.rejects(inspectPreviewCheckpoint(await request(), 400, body, "preview-1"), {
+      message: "RPG_PREVIEW_CHECKPOINT_RECEIPT_INVALID:HTTP_400:" + code,
+    });
+  }
+});
