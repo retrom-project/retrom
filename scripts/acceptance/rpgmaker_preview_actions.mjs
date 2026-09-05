@@ -3,11 +3,19 @@ import {readEasyRpgPosition, readRgssFixtureLine} from "./rpgmaker_fixture_obser
 import {observeCheckpointUpload, readCheckpointMultipart} from "./rpgmaker_checkpoint_upload.mjs";
 
 // Browser automation of the same Player buttons used by a reviewer.
-export function observeOwnedFixture(page) {
+export async function observeOwnedFixture(page) {
   const observations = {last: null};
-  page.on("console", (message) => {
-    const value = readRgssFixtureLine(message.text());
+  await page.exposeBinding("__retromObserveOwnedFixture", (_source, detail) => {
+    if (detail?.code !== "RETROM_RUNTIME_MKXP_Z" || typeof detail.message !== "string") {return;}
+    const value = readRgssFixtureLine(detail.message);
     if (value) {observations.last = {...value, receivedAtMs: Date.now()};}
+  });
+  await page.addInitScript(() => {
+    window.addEventListener("retrom:runtime-diagnostic", (event) => {
+      if (event instanceof CustomEvent && event.detail?.code === "RETROM_RUNTIME_MKXP_Z") {
+        void window.__retromObserveOwnedFixture?.(event.detail);
+      }
+    });
   });
   return observations;
 }

@@ -221,7 +221,14 @@ async function trialAndPublish(context, client, review) {
   const original = await openPlayer(context, created.playUrl);
   await waitForPreviewReady(original);
   const originalFrames = await observePreviewFrames(original);
-  const audio = await readAudioObservation(original);
+  const audio = await readAudioObservation(original).catch((error) => {
+    throw new Error(error.message + ":" + JSON.stringify({
+      runtimeDiagnostics: original.__retromRuntimeDiagnostics,
+      consoleDiagnostics: original.__retromConsoleDiagnostics,
+      projectRequests: original.__retromProjectRequests,
+      networkRequests: original.__retromNetworkRequests,
+    }));
+  });
   const checkpointA = await capturePreviewCheckpoint(original, created.previewId);
   const initialPosition = await observeFixturePosition(original, config.generation, original.__retromOwnedFixture, checkpointA);
   await advanceFixture(original, config.saveKeys);
@@ -438,7 +445,7 @@ async function assertSelectedRoute(client) {
 
 async function openPlayer(context, playerUrl) {
   const page = await context.newPage();
-  page.__retromOwnedFixture = observeOwnedFixture(page);
+  page.__retromOwnedFixture = await observeOwnedFixture(page);
   await page.addInitScript(installAudioObservation);
   const consoleDiagnostics = [];
   const errors = [];

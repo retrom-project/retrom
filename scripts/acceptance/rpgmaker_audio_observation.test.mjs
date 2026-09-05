@@ -13,6 +13,11 @@ test("audio evidence requires actual non-silent samples, not just an AudioContex
       /RPG_PREVIEW_AUDIO_NOT_OBSERVED/);
   }
 });
+test("failed audio evidence retains actual counters for diagnosis without accepting silence", async () => {
+  const value = {contexts: 1, observedSamples: 4096, peakAbsoluteSample: 0};
+  await assert.rejects(readAudioObservation({frames: () => [{evaluate: async () => value}]}),
+    (error) => error.message === "RPG_PREVIEW_AUDIO_NOT_OBSERVED:" + JSON.stringify(value));
+});
 test("owned isolation fixtures generate a real bounded tone, not an all-zero audio buffer", () => {
   const source = readFileSync(new URL("../../testdata/public-roms/rpgmaker-smoke/malicious-rpgmv/js/main.js", import.meta.url), "utf8");
   const functionSource = source.slice(source.indexOf("function sound()"), source.indexOf('global.addEventListener("keydown"'));
