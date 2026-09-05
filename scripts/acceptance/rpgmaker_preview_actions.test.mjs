@@ -1,7 +1,26 @@
 import assert from "node:assert/strict";
 import {createHash} from "node:crypto";
 import test from "node:test";
-import {advanceFixture, inspectPreviewCheckpoint, observePreviewFrames, waitForPreviewReady} from "./rpgmaker_preview_actions.mjs";
+import {advanceFixture, inspectPreviewCheckpoint, observeOwnedFixture, observePreviewFrames, waitForPreviewReady} from "./rpgmaker_preview_actions.mjs";
+
+test("owned RGSS state is read from the Provider diagnostic channel without adding game probes", async () => {
+  let capture;
+  let initialize;
+  const page = {
+    on() {},
+    exposeBinding: async (_name, callback) => {capture = callback;},
+    addInitScript: async (callback) => {initialize = callback;},
+  };
+  const observation = await observeOwnedFixture(page);
+  assert.equal(typeof initialize, "function");
+  capture({}, {code: "RETROM_RUNTIME_MKXP_Z", message: "RETROM_FIXTURE_STATE_V1:60:1:12:8:1"});
+  assert.deepEqual(observation.last.position, {mapId: 1, playerX: 12, playerY: 8, fixtureState: 1});
+  assert.ok(observation.last.receivedAtMs > 0);
+  const last = observation.last;
+  capture({}, {code: "UNRELATED", message: "RETROM_FIXTURE_STATE_V1:90:1:14:8:2"});
+  capture({}, {code: "RETROM_RUNTIME_MKXP_Z", message: "unrelated native log"});
+  assert.equal(observation.last, last);
+});
 
 const receipt = {resourceKind: "REVIEW_PREVIEW_CHECKPOINT", previewId: "preview-1",
   checkpointFormat: "fixture-v1", createdAtMs: 123};

@@ -44,6 +44,8 @@ export async function readAudioObservation(page) {
     result.peakAbsoluteSample = Math.max(result.peakAbsoluteSample, value.peakAbsoluteSample);
   }
   if (result.contexts < 1 || result.observedSamples < 2048 || result.peakAbsoluteSample <= 0.0001 ||
-      !Number.isFinite(result.peakAbsoluteSample)) {throw new Error("RPG_PREVIEW_AUDIO_NOT_OBSERVED");}
+      !Number.isFinite(result.peakAbsoluteSample)) {
+    throw new Error("RPG_PREVIEW_AUDIO_NOT_OBSERVED:" + JSON.stringify(result));
+  }
   return result;
 }

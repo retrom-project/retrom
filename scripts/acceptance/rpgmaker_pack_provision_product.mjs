@@ -257,7 +257,7 @@ async function productLaunch(client, gameId, saveStateId) {
 
 async function openPlayer(context, baseUrl, playerUrl) {
   const page = await context.newPage();
-  page.__retromOwnedFixture = observeOwnedFixture(page);
+  page.__retromOwnedFixture = await observeOwnedFixture(page);
   page.__retromPageErrors = [];
   page.__retromFatalError = new Promise((resolveError) => {
     page.on("pageerror", (error) => {
