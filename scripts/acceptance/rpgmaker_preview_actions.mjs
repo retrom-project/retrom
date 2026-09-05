@@ -77,7 +77,7 @@ export async function advanceFixture(page, keys) {
 
 export async function revealPreviewToolbar(page) {
   if (!await page.locator(".player-toolbar").evaluate((element) => element.classList.contains("is-visible"))) {
-    await page.locator(".player-hud-handle").click();
+    await page.locator(".player-hud-handle").hover();
   }
   await page.locator(".player-toolbar.is-visible").waitFor({state: "visible"});
 }

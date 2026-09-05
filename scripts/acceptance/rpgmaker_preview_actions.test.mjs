@@ -1,7 +1,20 @@
 import assert from "node:assert/strict";
 import {createHash} from "node:crypto";
 import test from "node:test";
-import {advanceFixture, capturePreviewCheckpoint, inspectPreviewCheckpoint, observeOwnedFixture, observePreviewFrames, resumePreview, waitForPreviewReady} from "./rpgmaker_preview_actions.mjs";
+import {advanceFixture, capturePreviewCheckpoint, inspectPreviewCheckpoint, observeOwnedFixture, observePreviewFrames, resumePreview, revealPreviewToolbar, waitForPreviewReady} from "./rpgmaker_preview_actions.mjs";
+
+test("revealing the toolbar uses hover without clicking its already-toggled handle", async () => {
+  const calls = [];
+  const page = {locator: (selector) => {
+    if (selector === ".player-hud-handle") {return {
+      hover: async () => {calls.push("hover");},
+      click: async () => {assert.fail("hover already reveals the toolbar; clicking toggles it closed");},
+    };}
+    return {evaluate: async () => false, waitFor: async () => {calls.push("visible");}};
+  }};
+  await revealPreviewToolbar(page);
+  assert.deepEqual(calls, ["hover", "visible"]);
+});
 
 test("checkpoint request rejection is observed before clicking so cleanup cannot hide the UI failure", async () => {
   let observedRejection = false;
