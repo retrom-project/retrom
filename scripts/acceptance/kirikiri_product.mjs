@@ -5,12 +5,15 @@ import { join, resolve } from "node:path";
 
 import { chromium } from "../../web/node_modules/playwright/index.mjs";
 
+import {captureOptionalReviewScreenshot, revealPreviewToolbar} from "./rpgmaker_preview_actions.mjs";
+
 import { assertKiriKiriProductEvidence, kirikiriProductStages } from "./kirikiri_product_contract.mjs";
 import { compareKiriKiriVisualSamples } from "./kirikiri_visual_match.mjs";
 import { localRpgAcceptanceProxy } from "./rpgmaker_local_proxy.mjs";
 import { createProductClient, singleFile } from "./rpgmaker_security_upload.mjs";
 import { isLocalAcceptanceHostname } from "./rpgmaker_url.mjs";
 import { trackRuntimeLoading } from "./runtime_loading_evidence.mjs";
+import {installVirtualStandardGamepad} from "./standard_gamepad.mjs";
 
 const caseId = "ACC-KIRIKIRI-001";
 const requiredEnvironment = [
@@ -71,13 +74,13 @@ async function runProductCase(activeBrowser) {
     const login = await loginResponse.json();
     const client = createProductClient(context, baseUrl, login.csrfToken);
     const platformInstanceId = await kirikiriPlatformInstance(client);
-    const uploadId = await client.upload(singleFile(process.env.RETROM_KIRIKIRI_SMOKE_ARCHIVE), "FILES", "KIRIKIRI_PROJECT");
+    const uploadId = await client.upload(singleFile(process.env.RETROM_KIRIKIRI_SMOKE_ARCHIVE), "FILES", "PROJECT");
     const importedResponse = await client.raw("POST", "/api/v1/admin/imports", {
       headers: client.writeHeaders(),
       timeout: 120_000,
       data: {
         uploadId, targetPlatformInstanceId: platformInstanceId, metadataProvider: "NONE",
-        contentMode: "KIRIKIRI_PROJECT_V1", tagIds: [],
+        contentMode: "KIRIKIRI_PROJECT", tagIds: [],
       },
     });
     if (importedResponse.status() !== 202) {
@@ -104,12 +107,13 @@ async function runProductCase(activeBrowser) {
       () => verifyGamepadCancel(previewCanvas), "KIRIKIRI_ACCEPTANCE_GAMEPAD_CANCEL_FAILED",
     );
     await withStableStage(() => advanceKag(previewCanvas), "KIRIKIRI_ACCEPTANCE_GAMEPAD_CONFIRM_FAILED");
-    await previewPage.getByText("第 5 秒运行截图已保存；可以继续试玩。").waitFor({ timeout: 120_000 });
+    await captureOptionalReviewScreenshot(previewPage, preview.previewId);
+    await focusRuntimeCanvas(previewCanvas);
     const previewFrame = await screenshotEvidence(previewCanvas, "preview.png");
     await previewPage.close();
 
     const approved = await approveReview(client, review.itemId);
-    const immersive = await createLaunch(client, approved.gameId, null);
+    const immersive = await createLaunch(client, approved.gameId, null, "immersive");
     const immersivePage = await trackedPage(context, browserErrors);
     const immersiveUrl = new URL(`${baseUrl}${immersive.playUrl}`);
     immersiveUrl.searchParams.set("experience", "immersive");
@@ -182,7 +186,7 @@ async function runProductCase(activeBrowser) {
         immersiveLaunchId: immersive.launchId, originalLaunchId: original.launchId, restoreLaunchId: restored.launchId,
       },
       immersiveMenu,
-      checkpoint: { payloadKind: saved.payloadKind, sizeBytes: payloadSize },
+      checkpoint: { format: saved.checkpointFormat, sizeBytes: payloadSize },
       restoreComparison: restoreMatch.comparison,
       loading: {
         schemaVersion: 1,
@@ -277,11 +281,12 @@ async function approveReview(client, itemId) {
   return response.json();
 }
 
-async function createLaunch(client, gameId, saveStateId) {
+async function createLaunch(client, gameId, saveStateId, experience = "standard") {
   return client.json("POST", "/api/v1/launches", {
     headers: client.writeHeaders(), expected: 201,
     data: {
-      gameId, coreId: null, saveStateId, dosEntry: null, returnTo: `/games/${gameId}`,
+      gameId, coreId: null, saveStateId, dosEntry: null,
+      returnTo: experience === "immersive" ? `/immersive/library/all?gameId=${gameId}` : `/games/${gameId}`,
       clientCapabilities: { secureContext: true, crossOriginIsolated: true, sharedArrayBuffer: true },
     },
   });
@@ -383,44 +388,17 @@ async function virtualGamepadCursorPosition(canvas) {
 }
 
 async function setVirtualGamepadAxis(canvas, x, y) {
-  await canvas.evaluate((element, input) => {
-    const controller = element.ownerDocument.defaultView?.__retromTestGamepad;
+  await Promise.all(canvas.page().frames().map((frame) => frame.evaluate((input) => {
+    const controller = globalThis.__retromTestGamepad;
     controller?.axis(0, input.x);
     controller?.axis(1, input.y);
-  }, { x, y });
+  }, { x, y })));
 }
 
 async function setVirtualGamepadButton(canvas, index, pressed) {
-  await canvas.evaluate((element, input) => {
-    element.ownerDocument.defaultView?.__retromTestGamepad?.button(input.index, input.pressed);
-  }, { index, pressed });
-}
-
-async function installVirtualStandardGamepad(context) {
-  await context.addInitScript(() => {
-    const state = {
-      axes: [0, 0, 0, 0],
-      buttons: Array.from({ length: 17 }, () => ({ pressed: false, touched: false, value: 0 })),
-    };
-    Object.defineProperty(navigator, "getGamepads", {
-      configurable: true,
-      value: () => [{
-        axes: state.axes,
-        buttons: state.buttons,
-        connected: true,
-        id: "Retrom acceptance standard gamepad",
-        index: 0,
-        mapping: "standard",
-        timestamp: performance.now(),
-      }],
-    });
-    globalThis.__retromTestGamepad = {
-      axis(index, value) {state.axes[index] = value;},
-      button(index, pressed) {
-        state.buttons[index] = { pressed, touched: pressed, value: pressed ? 1 : 0 };
-      },
-    };
-  });
+  await Promise.all(canvas.page().frames().map((frame) => frame.evaluate((input) => {
+    globalThis.__retromTestGamepad?.button(input.index, input.pressed);
+  }, { index, pressed })));
 }
 
 async function waitForKagStable(canvas) {
@@ -475,7 +453,7 @@ async function focusRuntimeCanvas(canvas) {
 }
 
 async function createCheckpoint(page, launchId) {
-  await page.mouse.move(720, 1);
+  await revealPreviewToolbar(page);
   const saveButton = page.getByRole("button", { name: "创建存档", exact: true });
   await saveButton.waitFor({ state: "visible", timeout: 120_000 });
   await waitForEnabled(saveButton, 120_000);
@@ -489,9 +467,9 @@ async function createCheckpoint(page, launchId) {
 }
 
 async function resumePlayerAfterCheckpoint(page) {
-  const paused = page.getByRole("button", { name: "已暂停，点击游戏画面继续", exact: true });
-  await paused.waitFor({ state: "visible", timeout: 120_000 });
-  await page.locator(".player-stage").dispatchEvent("click");
+  const paused = page.getByRole("button", { name: "继续游戏", exact: true });
+	await paused.waitFor({ state: "visible", timeout: 120_000 });
+  await paused.click();
   await paused.waitFor({ state: "hidden", timeout: 10_000 });
 }
 

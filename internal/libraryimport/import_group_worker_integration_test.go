@@ -40,7 +40,7 @@ func TestQueuedImportGroupReturnsBeforePreparationAndPublishesProgress(t *testin
 		UploadID: uploadID, TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(
 			t, database.SQL, "ons/onscripter_yuri",
 		),
-		MetadataProvider: "NONE", ContentMode: "ONS_PROJECT_V1", TagIDs: []string{},
+		MetadataProvider: "NONE", ContentMode: "ONS_PROJECT", TagIDs: []string{},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -111,7 +111,7 @@ func TestQueuedImportGroupReportsInvalidProjectAsTerminalFailure(t *testing.T) {
 		UploadID: uploadID, TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(
 			t, database.SQL, "ons/onscripter_yuri",
 		),
-		MetadataProvider: "NONE", ContentMode: "ONS_PROJECT_V1", TagIDs: []string{},
+		MetadataProvider: "NONE", ContentMode: "ONS_PROJECT", TagIDs: []string{},
 	})
 	if err != nil {
 		t.Fatalf("QueueCreate() error = %v", err)
@@ -204,17 +204,23 @@ WHERE import.id=?
 
 func TestQueuedKiriKiriAndRPGMakerProjectsResolveInBackground(t *testing.T) {
 	for _, test := range []struct {
-		name, purpose, catalogKey, contentMode, expectedState string
-		archive                                               func(*testing.T) []byte
+		name, purpose, catalogKey, contentMode, expectedState, expectedContentMode string
+		archive                                                                    func(*testing.T) []byte
 	}{
 		{
-			name: "KiriKiri", purpose: "KIRIKIRI_PROJECT", catalogKey: "kirikiri/kirikiri2",
-			contentMode: "KIRIKIRI_PROJECT_V1", expectedState: "REVIEW_PENDING", archive: kirikiriProjectArchive,
+			name: "KiriKiri", purpose: "PROJECT", catalogKey: "kirikiri/kirikiri2",
+			contentMode: "KIRIKIRI_PROJECT", expectedState: "REVIEW_PENDING",
+			expectedContentMode: "KIRIKIRI_PROJECT", archive: kirikiriProjectArchive,
 		},
 		{
-			name: "RPGMaker", purpose: "RPG_MAKER_PROJECT", catalogKey: "rpgmaker/rpgmaker",
-			contentMode: "RPG_MAKER_PROJECT_V1", expectedState: "REVIEW_PENDING",
-			archive: rpgMakerMVArchiveWithMToolSidecar,
+			name: "RPGMaker", purpose: "PROJECT", catalogKey: "rpgmaker/rpgmaker",
+			contentMode: "RPG_MAKER_PROJECT", expectedState: "REVIEW_PENDING",
+			expectedContentMode: "RPG_MAKER_PROJECT", archive: rpgMakerMVArchiveWithMToolSidecar,
+		},
+		{
+			name: "RPGMakerStandardFile", purpose: "GENERAL", catalogKey: "rpgmaker/rpgmaker",
+			contentMode: "STANDARD", expectedState: "REVIEW_PENDING",
+			expectedContentMode: "RPG_MAKER_PROJECT", archive: rpgMakerMVArchiveWithMToolSidecar,
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
@@ -233,14 +239,17 @@ func TestQueuedKiriKiriAndRPGMakerProjectsResolveInBackground(t *testing.T) {
 				t.Fatal(err)
 			}
 			waitForImportGroupTerminal(t, ctx, database.SQL, created.JobID, "SUCCEEDED")
-			var state string
+			var state, contentMode string
 			if err := database.SQL.QueryRowContext(ctx, `
-SELECT state FROM import_jobs WHERE id=?
-`, created.ImportJobID).Scan(&state); err != nil {
+SELECT state,json_extract(config_snapshot_json,'$.contentMode') FROM import_jobs WHERE id=?
+`, created.ImportJobID).Scan(&state, &contentMode); err != nil {
 				t.Fatal(err)
 			}
-			if state != test.expectedState {
-				t.Fatalf("background import state = %s, want %s", state, test.expectedState)
+			if state != test.expectedState || contentMode != test.expectedContentMode {
+				t.Fatalf(
+					"background import state/mode = %s/%s, want %s/%s",
+					state, contentMode, test.expectedState, test.expectedContentMode,
+				)
 			}
 		})
 	}
@@ -252,7 +261,7 @@ func onsImportGroupRequest(t *testing.T, database *sql.DB, uploadID string) Crea
 		UploadID: uploadID, TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(
 			t, database, "ons/onscripter_yuri",
 		),
-		MetadataProvider: "NONE", ContentMode: "ONS_PROJECT_V1", TagIDs: []string{},
+		MetadataProvider: "NONE", ContentMode: "ONS_PROJECT", TagIDs: []string{},
 	}
 }
 
@@ -291,7 +300,7 @@ func completeImportGroupUpload(
 	dataDir string,
 	archive []byte,
 ) string {
-	return completeProjectUpload(t, ctx, database, blobs, dataDir, "ONS_PROJECT", archive)
+	return completeProjectUpload(t, ctx, database, blobs, dataDir, "PROJECT", archive)
 }
 
 func completeProjectUpload(

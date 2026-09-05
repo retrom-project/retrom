@@ -7,36 +7,31 @@ import (
 	"retrom/internal/testassert"
 )
 
-const saturnCompatibility = `{
-  "schemaVersion":5,
-  "supportedContentKinds":["SINGLE_FILE","MULTI_DISC_M3U_V1"],
-  "multiDisc":{"maxDiscs":8,"maxTotalBytes":1073741824,"delivery":"EAGER_EXTERNAL_FILES"}
-}`
+var saturnTargetPolicy = NewPolicy("MULTI_DISC", "SINGLE_FILE")
 
 func TestResolveRequiresFeaturePlatformInstanceAndArtifactIntersection(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
-		name          string
-		platform      string
-		instance      bool
-		feature       bool
-		compatibility string
-		wantMulti     bool
+		name      string
+		platform  string
+		instance  bool
+		feature   bool
+		policy    Policy
+		wantMulti bool
 	}{
-		{name: "saturn intersection", platform: "saturn", instance: true, feature: true, compatibility: saturnCompatibility, wantMulti: true},
-		{name: "feature disabled", platform: "saturn", instance: true, compatibility: saturnCompatibility},
-		{name: "instance disabled", platform: "saturn", feature: true, compatibility: saturnCompatibility},
-		{name: "platform unsupported", platform: "psx", instance: true, feature: true, compatibility: saturnCompatibility},
-		{name: "obsolete compatibility", platform: "saturn", instance: true, feature: true, compatibility: `{"schemaVersion":4}`},
-		{name: "kind missing", platform: "saturn", instance: true, feature: true, compatibility: `{"schemaVersion":5,"supportedContentKinds":["SINGLE_FILE"],"multiDisc":{"maxDiscs":8,"maxTotalBytes":1073741824,"delivery":"EAGER_EXTERNAL_FILES"}}`},
-		{name: "limits invalid", platform: "saturn", instance: true, feature: true, compatibility: `{"schemaVersion":5,"supportedContentKinds":["MULTI_DISC_M3U_V1"],"multiDisc":{"maxDiscs":9,"maxTotalBytes":1073741824,"delivery":"EAGER_EXTERNAL_FILES"}}`},
+		{name: "saturn intersection", platform: "saturn", instance: true, feature: true, policy: saturnTargetPolicy, wantMulti: true},
+		{name: "feature disabled", platform: "saturn", instance: true, policy: saturnTargetPolicy},
+		{name: "instance disabled", platform: "saturn", feature: true, policy: saturnTargetPolicy},
+		{name: "platform unsupported", platform: "psx", instance: true, feature: true, policy: saturnTargetPolicy},
+		{name: "binding unavailable", platform: "saturn", instance: true, feature: true, policy: Policy{}},
+		{name: "kind missing", platform: "saturn", instance: true, feature: true, policy: NewPolicy("SINGLE_FILE")},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			got := Resolve(test.platform, test.instance, test.feature, test.compatibility)
+			got := Resolve(test.platform, test.instance, test.feature, test.policy)
 			if test.wantMulti {
-				testassert.Falsef(t, testassert.Any(func() bool { return !reflect.DeepEqual(got.ContentModes, []string{ModeStandard, ModeMultiDiscM3UV1}) }, func() bool { return got.MultiDisc == nil }, func() bool { return got.MultiDisc.MaxDiscs != 8 }, func() bool { return got.MultiDisc.MaxTotalBytes != MaximumMultiDiscBytes }), "Resolve() = %#v", got)
+				testassert.Falsef(t, testassert.Any(func() bool { return !reflect.DeepEqual(got.ContentModes, []string{ModeStandard, ModeMultiDisc}) }, func() bool { return got.MultiDisc == nil }, func() bool { return got.MultiDisc.MaxDiscs != 8 }, func() bool { return got.MultiDisc.MaxTotalBytes != MaximumMultiDiscBytes }), "Resolve() = %#v", got)
 				return
 			}
 			testassert.Falsef(t, testassert.Any(func() bool { return !reflect.DeepEqual(got.ContentModes, []string{ModeStandard}) }, func() bool { return got.MultiDisc != nil }), "Resolve() failed closed = %#v", got)
@@ -46,69 +41,72 @@ func TestResolveRequiresFeaturePlatformInstanceAndArtifactIntersection(t *testin
 
 func TestResolveRPGMakerUsesOnlyProjectMode(t *testing.T) {
 	t.Parallel()
-	got := Resolve("rpgmaker", true, false, `{}`)
+	got := Resolve("rpgmaker", true, false, Policy{})
 	testassert.Falsef(t, testassert.Any(
-		func() bool { return !reflect.DeepEqual(got.ContentModes, []string{ModeRPGMakerProjectV1}) },
+		func() bool { return !reflect.DeepEqual(got.ContentModes, []string{ModeRPGMakerProject}) },
 		func() bool { return got.MultiDisc != nil },
 	), "RPG Maker capabilities = %#v", got)
 
-	disabled := Resolve("rpgmaker", false, true, `{}`)
+	disabled := Resolve("rpgmaker", false, true, Policy{})
 	testassert.Falsef(t, !reflect.DeepEqual(disabled.ContentModes, []string{ModeStandard}), "disabled RPG Maker capabilities = %#v", disabled)
 }
 
 func TestResolveONSUsesOnlyProjectMode(t *testing.T) {
 	t.Parallel()
-	got := Resolve("ons", true, false, `{}`)
+	got := Resolve("ons", true, false, Policy{})
 	testassert.Falsef(t, testassert.Any(
-		func() bool { return !reflect.DeepEqual(got.ContentModes, []string{ModeONSProjectV1}) },
+		func() bool { return !reflect.DeepEqual(got.ContentModes, []string{ModeONSProject}) },
 		func() bool { return got.MultiDisc != nil },
 	), "ONS capabilities = %#v", got)
-	if !SupportsContentKind(`{"adapterAbi":"ons-save"}`, ModeONSProjectV1) ||
-		SupportsContentKind(`{"adapterAbi":"native-save"}`, ModeONSProjectV1) {
-		t.Fatal("ONS publication capability did not enforce ons-save ABI")
+	if !NewPolicy("ONS_PROJECT").Supports(ModeONSProject) ||
+		NewPolicy("SINGLE_FILE").Supports(ModeONSProject) {
+		t.Fatal("ONS publication capability did not enforce Host binding")
 	}
 }
 
 func TestResolveButterscotchUsesOnlyProjectMode(t *testing.T) {
 	t.Parallel()
-	got := Resolve("butterscotch", true, false, `{}`)
+	got := Resolve("butterscotch", true, false, Policy{})
 	testassert.Falsef(t, testassert.Any(
-		func() bool { return !reflect.DeepEqual(got.ContentModes, []string{ModeButterscotchProjectV1}) },
+		func() bool { return !reflect.DeepEqual(got.ContentModes, []string{ModeButterscotchProject}) },
 		func() bool { return got.MultiDisc != nil },
 	), "Butterscotch capabilities=%#v", got)
-	if !SupportsContentKind(`{"adapterAbi":"butterscotch-checkpoint-v2"}`, ModeButterscotchProjectV1) ||
-		SupportsContentKind(`{"adapterAbi":"butterscotch-checkpoint-v1"}`, ModeButterscotchProjectV1) ||
-		SupportsContentKind(`{"adapterAbi":"native-save"}`, ModeButterscotchProjectV1) {
-		t.Fatal("Butterscotch publication capability did not enforce its checkpoint ABI")
+	if !NewPolicy("BUTTERSCOTCH_PROJECT").Supports(ModeButterscotchProject) ||
+		NewPolicy("SINGLE_FILE").Supports(ModeButterscotchProject) {
+		t.Fatal("Butterscotch publication capability did not enforce Host binding")
 	}
 }
 
 func TestResolveTyranoScriptUsesOnlyProjectMode(t *testing.T) {
 	t.Parallel()
-	got := Resolve("tyranoscript", true, false, `{}`)
+	got := Resolve("tyranoscript", true, false, Policy{})
 	testassert.Falsef(t, testassert.Any(
-		func() bool { return !reflect.DeepEqual(got.ContentModes, []string{ModeTyranoScriptProjectV1}) },
+		func() bool { return !reflect.DeepEqual(got.ContentModes, []string{ModeTyranoScriptProject}) },
 		func() bool { return got.MultiDisc != nil },
 	), "TyranoScript capabilities=%#v", got)
-	if !SupportsContentKind(`{"adapterAbi":"tyranoscript-snapshot-v1"}`, ModeTyranoScriptProjectV1) ||
-		SupportsContentKind(`{"adapterAbi":"native-save"}`, ModeTyranoScriptProjectV1) {
-		t.Fatal("TyranoScript publication capability did not enforce its checkpoint ABI")
+	if !NewPolicy("TYRANOSCRIPT_PROJECT").Supports(ModeTyranoScriptProject) ||
+		NewPolicy("SINGLE_FILE").Supports(ModeTyranoScriptProject) {
+		t.Fatal("TyranoScript publication capability did not enforce Host binding")
 	}
 }
 
-func TestSupportsContentKindRequiresExplicitCompatibilityV3(t *testing.T) {
+func TestSupportsContentKindRequiresExplicitProviderInputs(t *testing.T) {
 	t.Parallel()
-	standard := `{"schemaVersion":5,"supportedContentKinds":["SINGLE_FILE"]}`
+	standard := NewPolicy("SINGLE_FILE")
 	testassert.False(t, testassert.Any(
-		func() bool { return !SupportsContentKind(standard, "SINGLE_FILE") },
-		func() bool { return SupportsContentKind(standard, "MULTI_DISC_M3U_V1") },
-		func() bool { return !SupportsContentKind(saturnCompatibility, "MULTI_DISC_M3U_V1") },
-		func() bool { return SupportsContentKind(`{"schemaVersion":2}`, "SINGLE_FILE") },
-		func() bool { return SupportsContentKind(saturnCompatibility, "UNKNOWN") },
-		func() bool { return !SupportsContentKind(`{"adapterAbi":"easyrpg-save"}`, ModeRPGMakerProjectV1) },
-		func() bool { return !SupportsContentKind(`{"adapterAbi":"mkxp-state-compact"}`, ModeRPGMakerProjectV1) },
-		func() bool { return !SupportsContentKind(`{"adapterAbi":"native-save"}`, ModeRPGMakerProjectV1) },
-		func() bool { return SupportsContentKind(`{"adapterAbi":"emulatorjs-state-v1"}`, ModeRPGMakerProjectV1) },
-		func() bool { return SupportsContentKind(`not-json`, ModeRPGMakerProjectV1) },
-	), "publication capability did not fail closed")
+		func() bool { return !standard.Supports("SINGLE_FILE") },
+		func() bool { return standard.Supports("MULTI_DISC") },
+		func() bool { return !saturnTargetPolicy.Supports("MULTI_DISC") },
+		func() bool {
+			return NewPolicy().Supports("SINGLE_FILE")
+		},
+		func() bool { return saturnTargetPolicy.Supports("UNKNOWN") },
+		func() bool {
+			return !NewPolicy("RPG_MAKER_PROJECT").Supports(ModeRPGMakerProject)
+		},
+		func() bool {
+			return standard.Supports(ModeRPGMakerProject)
+		},
+		func() bool { return (Policy{}).Supports(ModeRPGMakerProject) },
+	), "publication capability did not fail closed against the Host binding")
 }

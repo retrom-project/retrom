@@ -163,7 +163,7 @@ func publicHTTPRoute(request *http.Request) bool {
 		return true
 	}
 	return (request.Method == http.MethodGet || request.Method == http.MethodHead) &&
-		(strings.HasPrefix(path, "/runtime/emulatorjs/") || strings.HasPrefix(path, "/runtime/retrom-runtime/"))
+		strings.HasPrefix(path, "/runtime/providers/")
 }
 
 func launchHTTPRoute(path string) bool {
@@ -217,7 +217,7 @@ var exactQueryAllowlists = map[string][]string{
 	"GET /api/v1/admin/platform-instances":                 {"platformId", "enabled", "sort", "cursor", "limit"},
 	"GET /api/v1/admin/platform-instances/recommendations": {},
 	"GET /api/v1/admin/bios": {
-		"q", "platformId", "coreId", "coreArtifactId", "scope", "status", "quick", "cursor", "limit",
+		"q", "platformId", "coreId", "providerId", "targetId", "scope", "status", "quick", "cursor", "limit",
 	},
 	"GET /api/v1/admin/server-import-roots":      {},
 	"GET /api/v1/admin/server-imports":           {"kind", "state", "cursor", "limit"},
@@ -238,10 +238,6 @@ func reviewBulkQueryParameterNames(method, path string) []string {
 // The lexical query parser handles independent escaping and separator states.
 func queryParameterNames(request *http.Request) []string {
 	path := request.URL.Path
-	if (request.Method == http.MethodGet || request.Method == http.MethodHead) &&
-		strings.HasPrefix(path, "/runtime/emulatorjs/") {
-		return []string{"v"}
-	}
 	if (request.Method == http.MethodGet || request.Method == http.MethodHead) &&
 		strings.HasPrefix(path, "/api/v1/admin/review-assets/") {
 		return []string{"kind"}
@@ -396,14 +392,14 @@ func (server *Server) readinessReason(ctx context.Context) string {
 	var missing int64
 	err := database.QueryRowContext(ctx, `
 SELECT count(*)
-FROM core_artifacts a
-WHERE a.selected_for_new_bindings=1 AND a.available_for_launch=1
-AND a.core_id IN ('fbneo',
+FROM runtime_target_bindings binding
+WHERE binding.launch_policy<>'DISABLED'
+AND binding.core_id IN ('fbneo',
 'mame2003',
 'mame2003_plus')
 AND NOT EXISTS(SELECT 1
 FROM dat_versions d
-WHERE d.core_artifact_id=a.id
+WHERE d.provider_id=binding.provider_id AND d.target_id=binding.target_id
 AND d.is_active=1
 AND d.parse_status='READY')
 `).
@@ -417,19 +413,19 @@ AND d.parse_status='READY')
 	var failed int64
 	err = database.QueryRowContext(ctx, `
 SELECT count(*)
-FROM core_artifacts a
-WHERE a.selected_for_new_bindings=1 AND a.available_for_launch=1
-AND a.core_id IN ('fbneo',
+FROM runtime_target_bindings binding
+WHERE binding.launch_policy<>'DISABLED'
+AND binding.core_id IN ('fbneo',
 'mame2003',
 'mame2003_plus')
 AND NOT EXISTS(SELECT 1
 FROM dat_versions active
-WHERE active.core_artifact_id=a.id
+WHERE active.provider_id=binding.provider_id AND active.target_id=binding.target_id
 AND active.is_active=1
 AND active.parse_status='READY')
 AND EXISTS(SELECT 1
 FROM dat_versions failed
-WHERE failed.core_artifact_id=a.id
+WHERE failed.provider_id=binding.provider_id AND failed.target_id=binding.target_id
 AND failed.parse_status='FAILED')
 `).
 		Scan(&failed)

@@ -10,7 +10,7 @@ import (
 )
 
 func (run *approvalRun) persistGame() error {
-	if err := run.insertGameRevisions(); err != nil {
+	if err := run.insertGame(); err != nil {
 		return err
 	}
 	actor := reviewActor(run.ctx)
@@ -23,14 +23,14 @@ func (run *approvalRun) persistGame() error {
 	}
 	run.publishedTags = publishedTags
 	run.screenshotIDs, err = run.service.copyReviewAssets(
-		run.ctx, run.transaction, run.itemID, run.gameID, run.metadataID,
+		run.ctx, run.transaction, run.itemID, run.gameID,
 		run.coverID, run.uploadedCoverID, run.backgroundID, run.now,
 	)
 	if err != nil {
 		return err
 	}
 	if err := run.service.copyExternalAssets(
-		run.ctx, run.transaction, run.gameID, run.metadataID,
+		run.ctx, run.transaction, run.gameID,
 		run.input.decision.ExternalAssets, run.now,
 	); err != nil {
 		return err
@@ -46,14 +46,15 @@ func (run *approvalRun) copyRPGMakerContentProfile() error {
 		return nil
 	}
 	result, err := run.transaction.ExecContext(run.ctx, `
-INSERT INTO rpgmaker_content_profiles(
-  content_revision_id,evidence_family,evidence_generation,evidence_confidence,engine_version,
-  entry_html_path,file_count,total_bytes,project_fingerprint,requirements_sha256,analysis_json,created_at_ms
+INSERT INTO rpgmaker_game_profiles(
+  game_id,evidence_family,evidence_generation,evidence_confidence,engine_version,
+  entry_html_path,file_count,total_bytes,project_fingerprint,requirements_sha256,analysis_json,
+  created_at_ms,updated_at_ms
 )
 SELECT ?,evidence_family,evidence_generation,evidence_confidence,engine_version,entry_html_path,
-  file_count,total_bytes,project_fingerprint,requirements_sha256,analysis_json,?
+  file_count,total_bytes,project_fingerprint,requirements_sha256,analysis_json,?,?
 FROM rpgmaker_review_profiles WHERE review_draft_id=?
-`, run.contentID, run.now, run.draftID)
+`, run.gameID, run.now, run.now, run.draftID)
 	if err != nil {
 		return fmt.Errorf("libraryimport/rpgmaker content profile: %w", err)
 	}
@@ -63,37 +64,20 @@ FROM rpgmaker_review_profiles WHERE review_draft_id=?
 	return nil
 }
 
-func (run *approvalRun) insertGameRevisions() error {
+func (run *approvalRun) insertGame() error {
 	metadata := run.metadata
 	title := strings.TrimSpace(metadata.Title)
 	_, err := run.transaction.ExecContext(run.ctx, `
-INSERT INTO game_metadata_revisions(
-  id,game_id,title,title_initial,description,developer,publisher,genre,players,release_year,
-  source_kind,source_ref_id,created_at_ms
-) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)
-`, run.metadataID, run.gameID, title, gametitle.Initial(title), metadata.Description,
-		metadata.Developer, metadata.Publisher, metadata.Genre, metadata.Players, metadata.ReleaseYear,
-		run.input.metadataSourceKind, run.input.metadataSourceRefID, run.now)
-	if err != nil {
-		return fmt.Errorf("libraryimport/service: %w", err)
-	}
-	_, err = run.transaction.ExecContext(run.ctx, `
-INSERT INTO game_content_revisions(
-  id,game_id,content_kind,source_kind,source_ref_id,source_manifest_json,
-  source_manifest_digest,created_at_ms
-) VALUES(?,?,?,?,?,?,?,?)
-`, run.contentID, run.gameID, run.contentKind, run.input.metadataSourceKind,
-		run.input.metadataSourceRefID, run.sourceManifestJSON, run.sourceManifestDigest, run.now)
-	if err != nil {
-		return fmt.Errorf("libraryimport/service: %w", err)
-	}
-	_, err = run.transaction.ExecContext(run.ctx, `
 INSERT INTO games(
-  id,platform_instance_id,status,current_metadata_revision_id,current_content_revision_id,
-  search_text,version,created_at_ms,updated_at_ms
-) VALUES(?,?,'PUBLISHED',?,?,?,1,?,?)
-`, run.gameID, run.platformInstanceID, run.metadataID, run.contentID,
-		strings.ToLower(metadata.Title), run.now, run.now)
+  id,platform_instance_id,title,title_initial,description,developer,publisher,genre,players,release_year,
+  metadata_source_kind,metadata_source_ref_id,content_kind,content_source_kind,content_source_ref_id,
+  source_manifest_json,source_manifest_digest,status,search_text,version,created_at_ms,updated_at_ms
+) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'PUBLISHED',?,1,?,?)
+`, run.gameID, run.platformInstanceID, title, gametitle.Initial(title), metadata.Description,
+		metadata.Developer, metadata.Publisher, metadata.Genre, metadata.Players, metadata.ReleaseYear,
+		run.input.metadataSourceKind, run.input.metadataSourceRefID, run.contentKind,
+		run.input.metadataSourceKind, run.input.metadataSourceRefID,
+		run.sourceManifestJSON, run.sourceManifestDigest, strings.ToLower(title), run.now, run.now)
 	if err != nil {
 		return fmt.Errorf("libraryimport/service: %w", err)
 	}
@@ -133,11 +117,11 @@ func (run *approvalRun) copyContentFile(rows *sql.Rows) error {
 		return fmt.Errorf("libraryimport/service: %w", err)
 	}
 	_, err := run.transaction.ExecContext(run.ctx, `
-INSERT INTO game_content_files(
-  game_content_revision_id,role,logical_name,blob_id,source_archive_blob_id,
+INSERT INTO game_files(
+  game_id,role,logical_name,blob_id,source_archive_blob_id,
   source_archive_entry_ordinal,sort_order
 ) VALUES(?,?,?,?,?,?,?)
-`, run.contentID, role, logicalName, blobID, nullable(archiveID), nullableInt(archiveOrdinal), sortOrder)
+`, run.gameID, role, logicalName, blobID, nullable(archiveID), nullableInt(archiveOrdinal), sortOrder)
 	if err != nil {
 		return fmt.Errorf("libraryimport/service: %w", err)
 	}

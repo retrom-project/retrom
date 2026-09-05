@@ -34,8 +34,9 @@ type ClientMessage struct {
 	CredentialGeneration  int64   `json:"credentialGeneration,omitempty"`
 	LastCanonicalFrame    int64   `json:"lastCanonicalFrame,omitempty"`
 	LastServerSeq         uint64  `json:"lastServerSeq,omitempty"`
-	AdapterID             string  `json:"adapterId,omitempty"`
-	CoreArtifactID        string  `json:"coreArtifactId,omitempty"`
+	ProviderID            string  `json:"providerId,omitempty"`
+	TargetID              string  `json:"targetId,omitempty"`
+	BundleSHA256          string  `json:"bundleSha256,omitempty"`
 	Frame                 int64   `json:"frame,omitempty"`
 	Controls              []int16 `json:"controls,omitempty"`
 	CoreDigest            string  `json:"coreDigest,omitempty"`
@@ -78,7 +79,7 @@ func validClientMessageFields(contents []byte, messageType string) bool {
 			"protocolVersion", "profileDigest", "playerNo", "credentialGeneration",
 			"lastCanonicalFrame", "lastServerSeq",
 		},
-		"RUNTIME_READY":   {"adapterId", "coreArtifactId"},
+		"RUNTIME_READY":   {"providerId", "targetId", "bundleSha256"},
 		"INPUT":           {"frame", "playerNo", "controls"},
 		"HASH":            {"frame", "coreDigest"},
 		"PAUSED":          {},
@@ -174,33 +175,6 @@ func validateJSONArray(decoder *json.Decoder, depth, maxDepth int) error {
 	return nil
 }
 
-func CoreStatePayload(state []byte) ([]byte, error) {
-	if len(state) < 8 || string(state[:7]) != "RASTATE" || state[7] != 1 {
-		return nil, ErrProtocol
-	}
-	for offset := 8; offset+8 <= len(state); {
-		marker := string(state[offset : offset+4])
-		size := int(binary.LittleEndian.Uint32(state[offset+4 : offset+8]))
-		start := offset + 8
-		if size < 0 || start > len(state) || size > len(state)-start {
-			return nil, ErrProtocol
-		}
-		end := start + size
-		if marker == "MEM " {
-			return state[start:end], nil
-		}
-		if marker == "END " {
-			break
-		}
-		padded := (size + 7) &^ 7
-		if padded > len(state)-start {
-			return nil, ErrProtocol
-		}
-		offset = start + padded
-	}
-	return nil, ErrProtocol
-}
-
 type StateFrame struct {
 	SessionID uuid.UUID
 	Transfer  uuid.UUID
@@ -223,9 +197,6 @@ func ParseStateFrame(contents []byte) (StateFrame, error) {
 	}
 	payload := make([]byte, length)
 	copy(payload, contents[StateHeaderBytes:])
-	if _, err := CoreStatePayload(payload); err != nil {
-		return StateFrame{}, err
-	}
 	return StateFrame{
 		SessionID: sessionID, Transfer: transferID, Epoch: binary.BigEndian.Uint32(contents[36:40]),
 		NextFrame: binary.BigEndian.Uint64(contents[40:48]), Payload: payload,
@@ -233,10 +204,10 @@ func ParseStateFrame(contents []byte) (StateFrame, error) {
 }
 
 func StateDigests(state []byte) (string, string, error) {
-	core, err := CoreStatePayload(state)
-	if err != nil {
-		return "", "", err
+	if len(state) == 0 || len(state) > MaxStateBytes {
+		return "", "", ErrProtocol
 	}
-	fullDigest, coreDigest := sha256.Sum256(state), sha256.Sum256(core)
-	return hex.EncodeToString(fullDigest[:]), hex.EncodeToString(coreDigest[:]), nil
+	digest := sha256.Sum256(state)
+	encoded := hex.EncodeToString(digest[:])
+	return encoded, encoded, nil
 }

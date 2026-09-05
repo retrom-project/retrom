@@ -35,7 +35,7 @@ func (service *Service) prepareReviewItem(ctx context.Context, unit work, root R
 	}
 	mode := contentcapability.ModeStandard
 	if len(item.Files) > 1 {
-		mode = contentcapability.ModeMultiDiscM3UV1
+		mode = contentcapability.ModeMultiDisc
 	}
 	result, err := service.importer.CreateServerSource(
 		ctx, item.TargetPlatformID, mode, files, item.TagIDs, unit.CreatedByUserID,

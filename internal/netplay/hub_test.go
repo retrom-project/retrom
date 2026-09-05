@@ -86,7 +86,8 @@ func TestAcceptanceNP010InputRateLimitAllowsBurstAndRefillsAt120PerSecond(t *tes
 func TestReconnectDuringInitialTransferRestartsTheBarrier(t *testing.T) {
 	ctx := context.Background()
 	session := &realtimeSession{
-		service: &Service{}, sessionID: "session", profileDigest: "profile", coreArtifact: "core",
+		service: &Service{}, sessionID: "session", profileDigest: "profile",
+		providerID: "provider", targetID: "target", bundleSHA256: "bundle",
 		occupiedMask: 3, playerCount: 2, peers: map[int]*peer{
 			1: {
 				participant: SocketParticipant{PlayerNo: 1, ProfileID: "host"},
@@ -100,7 +101,8 @@ func TestReconnectDuringInitialTransferRestartsTheBarrier(t *testing.T) {
 	}
 	reconnected := &peer{
 		participant: SocketParticipant{
-			PlayerNo: 2, ProfileID: "guest", ProfileDigest: "profile", CoreArtifactID: "core",
+			PlayerNo: 2, ProfileID: "guest", ProfileDigest: "profile",
+			ProviderID: "provider", TargetID: "target", BundleSHA256: "bundle",
 		},
 		writes: make(chan outbound, 8),
 	}
@@ -127,18 +129,21 @@ func TestTransportLossDuringStateTransferStartsLeaseAndInvalidatesOldTransfer(t 
 	service := &Service{options: Options{ReconnectLease: time.Hour}}
 	authority := &peer{
 		participant: SocketParticipant{
-			PlayerNo: 1, ProfileID: "host", ProfileDigest: "profile", CoreArtifactID: "core",
+			PlayerNo: 1, ProfileID: "host", ProfileDigest: "profile",
+			ProviderID: "provider", TargetID: "target", BundleSHA256: "bundle",
 		},
 		writes: make(chan outbound, 8),
 	}
 	disconnected := &peer{
 		participant: SocketParticipant{
-			PlayerNo: 2, ProfileID: "guest", ProfileDigest: "profile", CoreArtifactID: "core",
+			PlayerNo: 2, ProfileID: "guest", ProfileDigest: "profile",
+			ProviderID: "provider", TargetID: "target", BundleSHA256: "bundle",
 		},
 		writes: make(chan outbound, 8),
 	}
 	session := &realtimeSession{
-		service: service, sessionID: "session", profileDigest: "profile", coreArtifact: "core",
+		service: service, sessionID: "session", profileDigest: "profile",
+		providerID: "provider", targetID: "target", bundleSHA256: "bundle",
 		occupiedMask: 3, playerCount: 2, peers: map[int]*peer{1: authority, 2: disconnected},
 		participants: map[string]int{"host": 1, "guest": 2}, leaseTimers: make(map[int]*time.Timer),
 		transfer: &stateTransfer{

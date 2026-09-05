@@ -18,14 +18,14 @@ import (
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
 	"retrom/internal/payloadrelease"
-	"retrom/internal/store"
+	"retrom/internal/testsupport"
 	"retrom/internal/uploads"
 )
 
 func TestRuntimePackUploadInstallListDeleteAndRelease(t *testing.T) {
 	ctx := context.Background()
 	dataDir := t.TempDir()
-	database, err := store.Open(ctx, filepath.Join(dataDir, "retrom.db"), time.Now)
+	database, err := testsupport.OpenDatabase(ctx, filepath.Join(dataDir, "retrom.db"), time.Now)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -45,7 +45,7 @@ func TestRuntimePackUploadInstallListDeleteAndRelease(t *testing.T) {
 	service := New(database.SQL, blobs, releases, time.Now)
 	sourceNote := "operator-owned integration fixture"
 	accepted, err := service.Install(ctx, InstallRequest{
-		UploadID: uploadID, Kind: "RPG2000_RTP", CreatorID: userID, SourceNote: &sourceNote,
+		UploadID: uploadID, DefinitionID: "rpg2000_rtp", CreatorID: userID, SourceNote: &sourceNote,
 	})
 	if err != nil {
 		t.Fatal(err)

@@ -11,41 +11,6 @@ import (
 
 const maximumButterscotchProjectFiles = 10_000
 
-func (service *Service) buildButterscotchProductContentPlan(
-	ctx context.Context,
-	selection launchSelection,
-) (launchContentPlan, error) {
-	return service.buildRuntimeProjectProductContentPlan(ctx, selection, runtimeProjectContentDefinition{
-		contentKind: butterscotchProjectFormat, runtimeFamily: "BUTTERSCOTCH",
-		adapterKind: "BUTTERSCOTCH_WEB", adapterID: "butterscotch-web",
-		maximumFiles: maximumButterscotchProjectFiles,
-		markerPath: func(raw string) (string, error) {
-			profile, err := detector.ParseSnapshot(raw)
-			if err != nil {
-				return "", fmt.Errorf("parse Butterscotch project profile: %w", err)
-			}
-			return profile.MarkerPath, nil
-		},
-		runtimeFilesValid: func(raw, runtimeVersion string) bool {
-			compatibility, err := parseButterscotchCompatibility(raw)
-			return err == nil && service.butterscotchRuntimeFilesAvailable(runtimeVersion, compatibility)
-		},
-	})
-}
-
-func (service *Service) validateButterscotchReviewPreviewSource(source reviewPreviewSource) error {
-	if _, err := detector.ParseSnapshot(source.DependencySnapshot); err != nil {
-		return ErrReviewPreviewUnavailable
-	}
-	compatibility, err := parseButterscotchCompatibility(source.CompatibilityJSON)
-	if err != nil || source.AdapterKind != "BUTTERSCOTCH_WEB" || source.AdapterID != "butterscotch-web" ||
-		source.CoreID != "butterscotch" || source.ContentKind != butterscotchProjectFormat ||
-		!service.butterscotchRuntimeFilesAvailable(source.RuntimeVersion, compatibility) {
-		return ErrReviewPreviewUnavailable
-	}
-	return nil
-}
-
 func (service *Service) reviewPreviewButterscotchContent(
 	ctx context.Context,
 	source reviewPreviewSource,
@@ -73,12 +38,11 @@ func (service *Service) productButterscotchProjectIndex(
 	var hardExpires int64
 	err := service.database.QueryRowContext(ctx, `
 SELECT launch.credential_sha256,launch.state,launch.hard_expires_at_ms,
- revision.dependency_snapshot_json
+ launch.dependency_snapshot_json
 FROM launch_sessions launch
-JOIN core_artifacts artifact ON artifact.id=launch.core_artifact_id
-JOIN game_variant_revisions revision ON revision.id=launch.game_variant_revision_id
-WHERE launch.id=? AND launch.purpose='PRODUCT' AND artifact.runtime_family='BUTTERSCOTCH'
- AND artifact.available_for_launch=1
+WHERE launch.id=?
+ AND EXISTS(SELECT 1 FROM launch_content_files file WHERE file.launch_session_id=launch.id
+  AND file.format_version='BUTTERSCOTCH_PROJECT')
 `, launchID).Scan(&credentialHash, &state, &hardExpires, &dependencyJSON)
 	if err != nil || !retromruntime.MatchesCapability(capability, credentialHash) ||
 		state != "ACTIVE" || hardExpires <= service.now().UnixMilli() {
@@ -95,7 +59,7 @@ WHERE launch.id=? AND launch.purpose='PRODUCT' AND artifact.runtime_family='BUTT
 	rows, err := service.database.QueryContext(ctx, `
 SELECT file.logical_name,blob.size_bytes FROM launch_content_files file
 JOIN blobs blob ON blob.id=file.blob_id
-WHERE file.launch_session_id=? AND file.format_version='BUTTERSCOTCH_PROJECT_V1'
+WHERE file.launch_session_id=? AND file.format_version='BUTTERSCOTCH_PROJECT'
 ORDER BY file.logical_name
 `, launchID)
 	if err != nil {
@@ -122,7 +86,7 @@ func (service *Service) reviewPreviewButterscotchProjectIndex(
 	err := service.database.QueryRowContext(ctx, `
 SELECT credential_sha256,state,hard_expires_at_ms,dependency_snapshot_json
 FROM review_preview_sessions
-WHERE id=? AND content_kind='BUTTERSCOTCH_PROJECT_V1' AND content_format='BUTTERSCOTCH_PROJECT_V1'
+WHERE id=? AND content_kind='BUTTERSCOTCH_PROJECT' AND content_format='BUTTERSCOTCH_PROJECT'
 `, previewID).Scan(&credentialHash, &state, &hardExpires, &dependencyJSON)
 	if err != nil || !reviewPreviewCredential(
 		service.now().UnixMilli(), capability, credentialHash, state, hardExpires,

@@ -48,7 +48,7 @@ created_at_ms,
 updated_at_ms) VALUES(?,
 'GAME_VARIANT',
 ?,
-'VARIANT_REVALIDATE',
+'VARIANT_VALIDATE',
 ?,
 1,
 '{}',
@@ -135,7 +135,7 @@ created_at_ms,
 updated_at_ms) VALUES(?,
 'GAME_VARIANT',
 ?,
-'VARIANT_REVALIDATE',
+'VARIANT_VALIDATE',
 ?,
 1,
 '{}',
@@ -275,6 +275,9 @@ VALUES('01980000-0000-7000-8000-000000009999','local','test-admin','Test Admin',
 	}
 	dependencySet, err := dependencies.Load(filepath.Join(repositoryRoot, "data"), versions, "4.2.3")
 	testassert.Falsef(t, err != nil, "load dependencies: %v", err)
+	if err := testsupport.SeedRuntimeProviders(context.Background(), database.SQL, dependencySet.RuntimeCatalog); err != nil {
+		t.Fatalf("seed runtime providers: %v", err)
+	}
 	origin, _ := url.Parse("http://localhost:3000")
 	dataDir := t.TempDir()
 	blobs, err := blobstore.Open(dataDir)
@@ -291,6 +294,12 @@ VALUES('01980000-0000-7000-8000-000000009999','local','test-admin','Test Admin',
 		nil,
 		time.Now,
 	).WithReadinessDatabase(database.ReadOnly)
+	runtimeBuilder, err := testsupport.NewRuntimeBuilder(context.Background(), database.SQL)
+	testassert.Falsef(t, err != nil, "build runtime Provider fixture: %v", err)
+	server.WithRuntimeProvider(dependencySet.RuntimeCatalog, runtimeBuilder, http.NotFoundHandler())
+	// General HTTP contract tests exercise handlers, not the asynchronous DAT
+	// readiness lifecycle. Readiness-specific tests explicitly clear this bit.
+	server.startupReady.Store(true)
 	t.Cleanup(server.Close)
 	return server
 }

@@ -322,7 +322,8 @@ func (server *Server) platformInstance(writer http.ResponseWriter, request *http
 }
 
 func (server *Server) readPlatformInstance(request *http.Request, id string) (map[string]any, error) {
-	var platformID, platformName, defaultCoreID, defaultCoreName, name, slug, description, compatibility string
+	var platformID, platformName, defaultCoreID, defaultCoreName, name, slug, description string
+	var contentPolicy contentcapability.Policy
 	var sortOrder, enabled, version, createdAtMS, updatedAtMS, gameCount int64
 	err := server.database.QueryRowContext(request.Context(), `
 SELECT pi.platform_id,
@@ -339,11 +340,12 @@ pi.created_at_ms,
 pi.updated_at_ms,
 (SELECT count(*) FROM games g WHERE g.platform_instance_id=pi.id)
 ,
-COALESCE((SELECT a.compatibility_json
- FROM core_artifacts a
- WHERE a.core_id=pi.default_core_id
- AND a.selected_for_new_bindings=1 AND a.available_for_launch=1
- LIMIT 1),'{}')
+COALESCE((SELECT `+contentcapability.BindingPolicySQL+`
+ FROM runtime_target_bindings binding
+ JOIN runtime_binding_platforms binding_platform ON binding_platform.binding_id=binding.binding_id
+  AND binding_platform.platform_id=pi.platform_id AND binding_platform.core_id=pi.default_core_id
+ WHERE binding.core_id=pi.default_core_id AND binding.launch_policy<>'DISABLED'
+ LIMIT 1),NULL)
 FROM platform_instances pi
 JOIN platforms p ON p.id=pi.platform_id
 JOIN cores c ON c.id=pi.default_core_id
@@ -364,7 +366,7 @@ AND pi.deleted_at_ms IS NULL
 			&createdAtMS,
 			&updatedAtMS,
 			&gameCount,
-			&compatibility,
+			&contentPolicy,
 		)
 	if err != nil {
 		return nil, fmt.Errorf("httpapi/platform_handlers: %w", err)
@@ -386,7 +388,7 @@ AND pi.deleted_at_ms IS NULL
 		"gameCount":           gameCount,
 		"supportedExtensions": contentprofile.SupportedExtensions(platformID),
 		"importCapabilities": contentcapability.Resolve(
-			platformID, enabled == 1, server.config.MultiDiscImportEnabled, compatibility,
+			platformID, enabled == 1, server.config.MultiDiscImportEnabled, contentPolicy,
 		),
 	}, nil
 }

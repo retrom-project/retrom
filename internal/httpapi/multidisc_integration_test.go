@@ -18,6 +18,7 @@ import (
 	"github.com/google/uuid"
 
 	"retrom/internal/blobstore"
+	"retrom/internal/cleanup"
 	"retrom/internal/launch"
 	"retrom/internal/libraryimport"
 	"retrom/internal/testassert"
@@ -114,7 +115,7 @@ func createMultiDiscHTTPLaunch(t *testing.T, server *Server) (launch.Created, st
 	})
 	createdImport, err := server.importer.Create(ctx, libraryimport.CreateRequest{
 		UploadID: uploadID, TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(t, server.database, "saturn/yabause"),
-		MetadataProvider: "NONE", ContentMode: "MULTI_DISC_M3U_V1",
+		MetadataProvider: "NONE", ContentMode: "MULTI_DISC",
 	})
 	testassert.False(t, err != nil, err)
 	var itemID string
@@ -143,16 +144,30 @@ func addParentBundleToLaunch(t *testing.T, server *Server, created launch.Create
 		t.Context(), server.database, metadata, "application/zip", time.Now().UnixMilli(),
 	)
 	testassert.False(t, err != nil, err)
-	var revisionID string
-	if err := server.database.QueryRowContext(t.Context(),
-		`SELECT game_variant_revision_id FROM launch_sessions WHERE id=?`, created.LaunchID,
-	).Scan(&revisionID); err != nil {
+	var variantID string
+	if err := server.database.QueryRowContext(t.Context(), `
+SELECT variant.id
+FROM launch_sessions launch
+JOIN game_variants variant ON variant.game_id=launch.game_id AND variant.core_id=launch.core_id
+WHERE launch.id=?`, created.LaunchID).Scan(&variantID); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := server.database.ExecContext(t.Context(), `
-INSERT INTO variant_files(game_variant_revision_id,role,logical_name,blob_id,sort_order)
+	transaction, err := server.database.BeginTx(t.Context(), nil)
+	testassert.False(t, err != nil, err)
+	defer cleanup.Rollback(transaction)
+	if _, err := transaction.ExecContext(t.Context(), `
+INSERT INTO variant_files(game_variant_id,role,logical_name,blob_id,sort_order)
 VALUES(?,'PARENT','parent.zip',?,0)
-`, revisionID, blobID); err != nil {
+`, variantID, blobID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := transaction.ExecContext(t.Context(), `
+INSERT INTO launch_external_files(launch_session_id,virtual_path,logical_name,blob_id,created_at_ms,kind)
+VALUES(?,'/__retrom__/parent/00/parent.zip','parent.zip',?,?,'PARENT')
+`, created.LaunchID, blobID, time.Now().UnixMilli()); err != nil {
+		t.Fatal(err)
+	}
+	if err := transaction.Commit(); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -200,8 +215,23 @@ func TestRuntimeContentIsPrivateImmutableRevalidatesAndRevokes(t *testing.T) {
 	})
 	configResponse := httptest.NewRecorder()
 	handler.ServeHTTP(configResponse, configRequest)
-	var configuration launch.Config
+	var configuration map[string]any
 	mustDecodeHTTPTest(t, configResponse.Body.Bytes(), &configuration)
+	envelope := testsupport.RuntimeEnvelope(t, configuration)
+	gameResource := testsupport.RuntimeEnvelopeResource(t, envelope, "game")
+	gameURL, gameURLOK := gameResource["url"].(string)
+	discResource := testsupport.RuntimeEnvelopeResource(t, envelope, "discs")
+	discEntries, discEntriesOK := discResource["entries"].([]any)
+	testassert.Falsef(t, !gameURLOK || !discEntriesOK || len(discEntries) != 2,
+		"runtime resources = game:%#v discs:%#v", gameResource, discResource)
+	firstDisc, firstDiscOK := discEntries[0].(map[string]any)
+	firstDiscURL, firstDiscURLOK := firstDisc["url"].(string)
+	testassert.Falsef(t, !firstDiscOK || !firstDiscURLOK, "first disc resource = %#v", firstDisc)
+	biosResource := testsupport.RuntimeEnvelopeResource(t, envelope, "bios")
+	biosFiles := testsupport.RuntimeResourceFiles(t, biosResource)
+	biosURL, biosOK := biosFiles[0]["url"].(string)
+	parentResource := testsupport.RuntimeEnvelopeResource(t, envelope, "parent")
+	parentURL, parentOK := parentResource["url"].(string)
 	var grant *http.Cookie
 	for _, candidate := range configResponse.Result().Cookies() {
 		if candidate.Name == runtimeContentGrantPrefix+created.LaunchID {
@@ -225,12 +255,12 @@ func TestRuntimeContentIsPrivateImmutableRevalidatesAndRevokes(t *testing.T) {
 	}
 	withoutGrant := httptest.NewRecorder()
 	handler.ServeHTTP(withoutGrant, httptest.NewRequestWithContext(
-		t.Context(), http.MethodGet, configuration.GameURL, nil,
+		t.Context(), http.MethodGet, gameURL, nil,
 	))
 	testassert.Falsef(t, withoutGrant.Code != http.StatusUnauthorized,
 		"runtime content without grant = %d %s", withoutGrant.Code, withoutGrant.Body.String())
 
-	game := requestContent(http.MethodGet, configuration.GameURL, nil)
+	game := requestContent(http.MethodGet, gameURL, nil)
 	gameETag := game.Header().Get("ETag")
 	testassert.Falsef(t, testassert.Any(
 		func() bool { return game.Code != http.StatusOK },
@@ -238,13 +268,12 @@ func TestRuntimeContentIsPrivateImmutableRevalidatesAndRevokes(t *testing.T) {
 		func() bool { return game.Header().Get("Cache-Control") != immutablePrivateContent },
 		func() bool { return game.Header().Get("Vary") != "" },
 	), "runtime game = %d headers=%v body=%q", game.Code, game.Header(), game.Body.String())
-	revalidated := requestContent(http.MethodGet, configuration.GameURL, func(request *http.Request) {
+	revalidated := requestContent(http.MethodGet, gameURL, func(request *http.Request) {
 		request.Header.Set("If-None-Match", gameETag)
 	})
 	testassert.Falsef(t, revalidated.Code != http.StatusNotModified || revalidated.Body.Len() != 0,
 		"runtime revalidation = %d headers=%v body=%q", revalidated.Code, revalidated.Header(), revalidated.Body.String())
 
-	firstDiscURL := configuration.ExternalFiles["/disc-001.chd"]
 	discRange := requestContent(http.MethodGet, firstDiscURL, func(request *http.Request) {
 		request.Header.Set("Range", "bytes=0-3")
 	})
@@ -256,9 +285,7 @@ func TestRuntimeContentIsPrivateImmutableRevalidatesAndRevokes(t *testing.T) {
 	discHead := requestContent(http.MethodHead, firstDiscURL, nil)
 	testassert.Falsef(t, discHead.Code != http.StatusOK || discHead.Body.Len() != 0,
 		"disc HEAD = %d headers=%v body=%q", discHead.Code, discHead.Header(), discHead.Body.String())
-	biosURL, biosOK := configuration.BIOSURL.(string)
-	parentURL, parentOK := configuration.ParentURL.(string)
-	testassert.Falsef(t, !biosOK || !parentOK, "dependency URLs = BIOS:%#v parent:%#v", configuration.BIOSURL, configuration.ParentURL)
+	testassert.Falsef(t, !biosOK || !parentOK, "dependency resources = BIOS:%#v parent:%#v", biosResource, parentResource)
 	if biosOK {
 		assertImmutableRuntimeGETAndHEAD(t, biosURL, requestContent)
 	}
@@ -274,12 +301,21 @@ func TestRuntimeContentIsPrivateImmutableRevalidatesAndRevokes(t *testing.T) {
 	})
 	testassert.False(t, err != nil, err)
 	secondConfiguration, err := server.launcher.Config(t.Context(), second.LaunchID, second.Capability)
+	secondEnvelope := testsupport.RuntimeEnvelope(t, secondConfiguration)
+	secondGameURL, _ := testsupport.RuntimeEnvelopeResource(t, secondEnvelope, "game")["url"].(string)
+	secondBIOSFiles := testsupport.RuntimeResourceFiles(t,
+		testsupport.RuntimeEnvelopeResource(t, secondEnvelope, "bios"))
+	secondBIOSURL, _ := secondBIOSFiles[0]["url"].(string)
+	secondParentURL, _ := testsupport.RuntimeEnvelopeResource(t, secondEnvelope, "parent")["url"].(string)
+	secondDiscEntries, _ := testsupport.RuntimeEnvelopeResource(t, secondEnvelope, "discs")["entries"].([]any)
+	secondFirstDisc, _ := secondDiscEntries[0].(map[string]any)
+	secondFirstDiscURL, _ := secondFirstDisc["url"].(string)
 	testassert.Falsef(t, testassert.Any(
 		func() bool { return err != nil },
-		func() bool { return secondConfiguration.GameURL != configuration.GameURL },
-		func() bool { return secondConfiguration.BIOSURL != configuration.BIOSURL },
-		func() bool { return secondConfiguration.ParentURL != configuration.ParentURL },
-		func() bool { return secondConfiguration.ExternalFiles["/disc-001.chd"] != firstDiscURL },
+		func() bool { return secondGameURL != gameURL },
+		func() bool { return secondBIOSURL != biosURL },
+		func() bool { return secondParentURL != parentURL },
+		func() bool { return secondFirstDiscURL != firstDiscURL },
 	), "cross-launch URLs = first:%#v second:%#v error=%v", configuration, secondConfiguration, err)
 
 	if _, err := server.database.ExecContext(t.Context(),
@@ -288,7 +324,7 @@ func TestRuntimeContentIsPrivateImmutableRevalidatesAndRevokes(t *testing.T) {
 	); err != nil {
 		t.Fatal(err)
 	}
-	revoked := requestContent(http.MethodGet, configuration.GameURL, func(request *http.Request) {
+	revoked := requestContent(http.MethodGet, gameURL, func(request *http.Request) {
 		request.Header.Set("Cache-Control", "no-cache")
 	})
 	testassert.Falsef(t, revoked.Code != http.StatusUnauthorized ||
@@ -296,7 +332,7 @@ func TestRuntimeContentIsPrivateImmutableRevalidatesAndRevokes(t *testing.T) {
 		"revoked content = %d headers=%v body=%s", revoked.Code, revoked.Header(), revoked.Body.String())
 }
 
-func TestMultiDiscAttachmentHTTPContractAndReviewProjection(t *testing.T) {
+func TestMultiDiscAttachmentHTTPContractAndProviderUpgradeProjection(t *testing.T) {
 	server := newTestServer(t)
 	ctx := context.Background()
 	if err := server.dependencies.Bootstrap(ctx, server.database, time.Now()); err != nil {
@@ -315,7 +351,7 @@ func TestMultiDiscAttachmentHTTPContractAndReviewProjection(t *testing.T) {
 	})
 	createdImport, err := server.importer.Create(ctx, libraryimport.CreateRequest{
 		UploadID: baseUploadID, TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(t, server.database, "saturn/yabause"),
-		MetadataProvider: "NONE", ContentMode: "MULTI_DISC_M3U_V1",
+		MetadataProvider: "NONE", ContentMode: "MULTI_DISC",
 	})
 	testassert.False(t, err != nil, err)
 	var itemID string
@@ -331,9 +367,9 @@ func TestMultiDiscAttachmentHTTPContractAndReviewProjection(t *testing.T) {
 	importDetail := httptest.NewRecorder()
 	server.importDetail(importDetail, importDetailRequest)
 	for _, expected := range []string{
-		`"contentMode":"MULTI_DISC_M3U_V1"`,
+		`"contentMode":"MULTI_DISC"`,
 		`"itemSummaries":[`,
-		`"contentKind":"MULTI_DISC_M3U_V1"`,
+		`"contentKind":"MULTI_DISC"`,
 		`"playlist":"game.m3u"`,
 		`"discCount":3`,
 		`"presentDiscCount":2`,
@@ -393,46 +429,21 @@ func TestMultiDiscAttachmentHTTPContractAndReviewProjection(t *testing.T) {
 		bytes.Contains(reviewProjection.MultiDisc, []byte(`"blobId"`)) {
 		t.Fatalf("accepted review = %d %s", review.Code, review.Body.String())
 	}
-	var previousArtifactID string
-	if err := server.database.QueryRowContext(ctx, `
-SELECT id FROM core_artifacts
-WHERE core_id='yabause' AND selected_for_new_bindings=1
-`).Scan(&previousArtifactID); err != nil {
-		t.Fatal(err)
-	}
-	transaction, err := server.database.BeginTx(ctx, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer func() { _ = transaction.Rollback() }()
-	if _, err := transaction.ExecContext(ctx, `
-UPDATE core_artifacts SET selected_for_new_bindings=0,version=version+1,updated_at_ms=? WHERE id=?
-`, time.Now().UnixMilli(), previousArtifactID); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := transaction.ExecContext(ctx, `
-INSERT INTO core_artifacts(
- id,core_id,route_key,runtime_family,runtime_adapter_kind,runtime_version,adapter_id,entry_path,
- size_bytes,sha256,manifest_sha256,artifact_set_sha256,requires_threads,save_payload_kind,
- save_max_bytes,provenance_json,compatibility_json,selected_for_new_bindings,available_for_launch,
- version,created_at_ms,updated_at_ms)
-SELECT ?,core_id,route_key,runtime_family,runtime_adapter_kind,runtime_version,adapter_id,entry_path,
- size_bytes,sha256,manifest_sha256,?,requires_threads,save_payload_kind,
- save_max_bytes,provenance_json,json_set(compatibility_json,'$.multiDisc.maxDiscs',7),1,1,
- 1,?,?
-FROM core_artifacts WHERE id=?
-`, uuid.NewString(), strings.Repeat("d", 64), time.Now().UnixMilli(), time.Now().UnixMilli(),
-		previousArtifactID); err != nil {
-		t.Fatal(err)
-	}
-	if err := transaction.Commit(); err != nil {
+	if _, err := server.database.ExecContext(ctx, `
+UPDATE runtime_providers
+SET provider_version='1.1.0',bundle_sha256=?,manifest_sha256=?,module_sha256=?,activated_at_ms=activated_at_ms+1
+WHERE provider_id=(
+ SELECT binding.provider_id FROM runtime_target_bindings binding
+ WHERE binding.core_id='yabause' LIMIT 1
+)
+`, strings.Repeat("d", 64), strings.Repeat("e", 64), strings.Repeat("f", 64)); err != nil {
 		t.Fatal(err)
 	}
 	staleRequest := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/admin/reviews/"+itemID, nil)
 	staleRequest.AddCookie(cookie)
 	stale := httptest.NewRecorder()
 	handler.ServeHTTP(stale, staleRequest)
-	testassert.Falsef(t, testassert.Any(func() bool { return stale.Code != http.StatusOK }, func() bool { return !strings.Contains(stale.Body.String(), `"validationStale":true`) }, func() bool { return !strings.Contains(stale.Body.String(), `"canApprove":false`) }), "compatibility-stale review = %d %s", stale.Code, stale.Body.String())
+	testassert.Falsef(t, testassert.Any(func() bool { return stale.Code != http.StatusOK }, func() bool { return strings.Contains(stale.Body.String(), `"validationStale":true`) }, func() bool { return !strings.Contains(stale.Body.String(), `"canApprove":true`) }), "provider-upgraded review = %d %s", stale.Code, stale.Body.String())
 }
 
 func TestMultiDiscPlayerEventHTTPContract(t *testing.T) {
@@ -453,7 +464,7 @@ func TestMultiDiscPlayerEventHTTPContract(t *testing.T) {
 	})
 	createdImport, err := server.importer.Create(ctx, libraryimport.CreateRequest{
 		UploadID: uploadID, TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(t, server.database, "saturn/yabause"),
-		MetadataProvider: "NONE", ContentMode: "MULTI_DISC_M3U_V1",
+		MetadataProvider: "NONE", ContentMode: "MULTI_DISC",
 	})
 	testassert.False(t, err != nil, err)
 	var itemID string

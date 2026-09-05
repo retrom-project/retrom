@@ -44,13 +44,13 @@ func (server *Server) tyranoScriptBootstrapPage(
 ) {
 	setRPGFrameDocumentPolicy(writer)
 	if authorized, err := server.authenticateRPGRuntime(request, access); err == nil &&
-		authorized.Family == "TYRANOSCRIPT" {
+		authorized.ContentFormat == "TYRANOSCRIPT_PROJECT" {
 		writer.Header().Set("Cache-Control", "private, no-store")
 		http.Redirect(writer, request, "/__retrom/tyranoscript/entry", http.StatusSeeOther)
 		return
 	}
 	inspected, err := server.rpgIsolation.InspectBootstrap(request.Context(), access.LaunchID, access.Origin)
-	if err != nil || inspected.Family != "TYRANOSCRIPT" {
+	if err != nil || inspected.ContentFormat != "TYRANOSCRIPT_PROJECT" {
 		http.NotFound(writer, request)
 		return
 	}
@@ -87,7 +87,7 @@ func (server *Server) tyranoScriptBootstrapConsume(
 	credential, consumed, err := server.rpgIsolation.ConsumeTicket(
 		request.Context(), access.LaunchID, access.Origin, body.Ticket,
 	)
-	if err != nil || consumed.Family != "TYRANOSCRIPT" {
+	if err != nil || consumed.ContentFormat != "TYRANOSCRIPT_PROJECT" {
 		http.NotFound(writer, request)
 		return
 	}
@@ -104,7 +104,7 @@ func (server *Server) tyranoScriptRuntimeEntry(
 ) {
 	setRPGFrameDocumentPolicy(writer)
 	authorized, err := server.authenticateRPGRuntime(request, access)
-	if err != nil || authorized.Family != "TYRANOSCRIPT" {
+	if err != nil || authorized.ContentFormat != "TYRANOSCRIPT_PROJECT" {
 		http.NotFound(writer, request)
 		return
 	}
@@ -143,27 +143,18 @@ func (server *Server) tyranoScriptRuntimeBridge(
 	access isolation.Access,
 ) {
 	authorized, err := server.authenticateRPGRuntime(request, access)
-	if err != nil || authorized.Family != "TYRANOSCRIPT" {
+	if err != nil || authorized.ContentFormat != "TYRANOSCRIPT_PROJECT" {
 		http.NotFound(writer, request)
 		return
 	}
-	runtimeVersion, bridgePath, err := server.launcher.TyranoScriptBridgeAuthorized(
-		request.Context(), access.LaunchID, authorized.Preview,
+	asset, err := server.launcher.ProviderAssetAuthorized(
+		request.Context(), access.LaunchID, authorized.Preview, "bridge.js",
 	)
 	if err != nil {
 		http.NotFound(writer, request)
 		return
 	}
-	runtimePath, declaration, ok := server.dependencies.RetromRuntimeFile(runtimeVersion, bridgePath)
-	if !ok {
-		writeError(writer, request, http.StatusServiceUnavailable,
-			"DEPENDENCY_INVALID", "TyranoScript bridge 不可用", map[string]any{})
-		return
-	}
-	server.serveRPGDependency(
-		writer, request, runtimePath, declaration.SizeBytes, declaration.SHA256,
-		"application/javascript; charset=utf-8",
-	)
+	server.serveProviderAsset(writer, request, asset)
 }
 
 func (server *Server) tyranoScriptRuntimeProject(
@@ -172,7 +163,7 @@ func (server *Server) tyranoScriptRuntimeProject(
 	access isolation.Access,
 ) {
 	authorized, err := server.authenticateRPGRuntime(request, access)
-	if err != nil || authorized.Family != "TYRANOSCRIPT" || isRPGServiceWorkerRequest(request) {
+	if err != nil || authorized.ContentFormat != "TYRANOSCRIPT_PROJECT" || isRPGServiceWorkerRequest(request) {
 		http.NotFound(writer, request)
 		return
 	}

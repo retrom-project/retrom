@@ -99,9 +99,11 @@ func NewService(
 	}
 }
 
-func (service *Service) SupportsPlatformCoreArtifact(platformID, coreID, emulatorVersion, artifactSHA string) bool {
-	return service != nil && service.registry.SupportsPlatformCoreArtifact(
-		platformID, coreID, emulatorVersion, artifactSHA,
+func (service *Service) SupportsPlatformTarget(
+	platformID, coreID, providerID, targetID string,
+) bool {
+	return service != nil && service.registry.SupportsPlatformTarget(
+		platformID, coreID, providerID, targetID,
 	)
 }
 

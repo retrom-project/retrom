@@ -218,14 +218,15 @@ func insertMachineContents(
 
 // Requirement upserts and stale-row deactivation must remain one auditable atomic synchronization.
 func SyncRequirements(ctx context.Context, transaction *sql.Tx, datID string, now time.Time) error {
-	var coreID, artifactID, datSHA256 string
+	var coreID, providerID, targetID, datSHA256 string
 	if err := transaction.QueryRowContext(ctx, `
 SELECT core_id,
-core_artifact_id,
+provider_id,
+target_id,
 sha256
 FROM dat_versions
 WHERE id=?
-`, datID).Scan(&coreID, &artifactID, &datSHA256); err != nil {
+`, datID).Scan(&coreID, &providerID, &targetID, &datSHA256); err != nil {
 		return fmt.Errorf(
 
 			// Dependency targets include unresolved romof names. They are preserved as
@@ -267,83 +268,11 @@ ORDER BY 1
 		return fmt.Errorf("datindex/replace: %w", err)
 	}
 	for _, machine := range machines {
-		entries, err := loadRequirementEntries(ctx, transaction, datID, machine)
-		if err != nil {
+		if err := syncRequirement(ctx, transaction, requirementSyncInput{
+			datID: datID, datSHA256: datSHA256, coreID: coreID,
+			providerID: providerID, targetID: targetID, machine: machine, now: now,
+		}); err != nil {
 			return err
-		}
-		canonical, _ := json.Marshal(
-			map[string]any{"datSha256": datSHA256, "entries": entries, "machineName": machine, "schemaVersion": 1},
-		)
-		digest := sha256.Sum256(canonical)
-		logicalName := machine + ".zip"
-		requirementID := uuid.NewSHA1(uuid.NameSpaceURL, []byte("retrom:bios:"+artifactID+":"+logicalName)).String()
-		_, err = transaction.ExecContext(
-			ctx,
-			`
-INSERT INTO bios_requirements(id,
-core_id,
-core_artifact_id,
-source_kind,
-dat_machine_name,
-logical_name,
-requirement_mode,
-condition_code,
-activation_options_json,
-catalog_digest,
-size_bytes,
-md5,
-sha1,
-sha256,
-source_url,
-source_version,
-enabled,
-version,
-created_at_ms,
-updated_at_ms) VALUES(?,
-?,
-?,
-'DAT_MACHINE',
-?,
-?,
-'REQUIRED',
-'ARCADE_DAT_DEPENDENCY',
-NULL,
-?,
-NULL,
-NULL,
-NULL,
-NULL,
-?,
-?,
-1,
-1,
-?,
-?) ON CONFLICT(core_artifact_id,
-logical_name)
-DO UPDATE SET dat_machine_name=excluded.dat_machine_name,
-requirement_mode=excluded.requirement_mode,
-condition_code=excluded.condition_code,
-catalog_digest=excluded.catalog_digest,
-source_url=excluded.source_url,
-source_version=excluded.source_version,
-enabled=1,
-version=CASE WHEN bios_requirements.catalog_digest!=excluded.catalog_digest
-OR bios_requirements.enabled=0 THEN bios_requirements.version+1 ELSE bios_requirements.version END,
-updated_at_ms=excluded.updated_at_ms
-`,
-			requirementID,
-			coreID,
-			artifactID,
-			machine,
-			logicalName,
-			hex.EncodeToString(digest[:]),
-			fmt.Sprintf("retrom:dat:%s#%s", datID, machine),
-			datID,
-			now.UnixMilli(),
-			now.UnixMilli(),
-		)
-		if err != nil {
-			return fmt.Errorf("datindex/replace: %w", err)
 		}
 	}
 	_, err = transaction.ExecContext(
@@ -353,17 +282,64 @@ UPDATE bios_requirements
 SET enabled=0,
 version=version+1,
 updated_at_ms=?
-WHERE core_artifact_id=?
+WHERE provider_id=? AND target_id=?
 AND source_kind='DAT_MACHINE'
 AND enabled=1
 AND source_version!=?
 `,
 		now.UnixMilli(),
-		artifactID,
+		providerID,
+		targetID,
 		datID,
 	)
 	if err != nil {
 		return fmt.Errorf("disable stale DAT BIOS requirements: %w", err)
+	}
+	return nil
+}
+
+type requirementSyncInput struct {
+	datID, datSHA256, coreID, providerID, targetID, machine string
+	now                                                     time.Time
+}
+
+func syncRequirement(ctx context.Context, transaction *sql.Tx, input requirementSyncInput) error {
+	entries, err := loadRequirementEntries(ctx, transaction, input.datID, input.machine)
+	if err != nil {
+		return err
+	}
+	canonical, err := json.Marshal(map[string]any{
+		"datSha256": input.datSHA256, "entries": entries,
+		"machineName": input.machine, "schemaVersion": 1,
+	})
+	if err != nil {
+		return fmt.Errorf("datindex/replace: encode requirement: %w", err)
+	}
+	digest := sha256.Sum256(canonical)
+	logicalName := input.machine + ".zip"
+	requirementID := uuid.NewSHA1(uuid.NameSpaceURL, []byte(
+		"retrom:bios:"+input.providerID+":"+input.targetID+":"+logicalName,
+	)).String()
+	_, err = transaction.ExecContext(ctx, `
+INSERT INTO bios_requirements(
+ id,core_id,provider_id,target_id,source_kind,dat_machine_name,
+ logical_name,requirement_mode,condition_code,activation_options_json,catalog_digest,
+ size_bytes,md5,sha1,sha256,source_url,source_version,enabled,version,created_at_ms,updated_at_ms
+) VALUES(?,?,?,?,'DAT_MACHINE',?,?,'REQUIRED','ARCADE_DAT_DEPENDENCY',NULL,?,
+ NULL,NULL,NULL,NULL,?,?,1,1,?,?)
+ON CONFLICT(provider_id,target_id,logical_name) DO UPDATE SET
+ dat_machine_name=excluded.dat_machine_name,requirement_mode=excluded.requirement_mode,
+ condition_code=excluded.condition_code,catalog_digest=excluded.catalog_digest,
+ source_url=excluded.source_url,source_version=excluded.source_version,enabled=1,
+ version=CASE WHEN bios_requirements.catalog_digest!=excluded.catalog_digest
+   OR bios_requirements.enabled=0 THEN bios_requirements.version+1 ELSE bios_requirements.version END,
+ updated_at_ms=excluded.updated_at_ms
+`, requirementID, input.coreID, input.providerID, input.targetID, input.machine,
+		logicalName, hex.EncodeToString(digest[:]),
+		fmt.Sprintf("retrom:dat:%s#%s", input.datID, input.machine), input.datID,
+		input.now.UnixMilli(), input.now.UnixMilli())
+	if err != nil {
+		return fmt.Errorf("datindex/replace: %w", err)
 	}
 	return nil
 }

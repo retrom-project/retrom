@@ -38,9 +38,7 @@ const backupGameID = "01980000-0000-7000-8000-00000000f501"
 func seedBackupFavorites(t *testing.T, database *sql.DB, profileID string) {
 	t.Helper()
 	const (
-		metadataID = "01980000-0000-7000-8000-00000000d501"
-		contentID  = "01980000-0000-7000-8000-00000000e501"
-		folderID   = "01980000-0000-7000-8000-00000000c501"
+		folderID = "01980000-0000-7000-8000-00000000c501"
 	)
 	transaction, err := database.BeginTx(context.Background(), nil)
 	testassert.False(t, err != nil, err)
@@ -49,26 +47,13 @@ func seedBackupFavorites(t *testing.T, database *sql.DB, profileID string) {
 		t.Fatal(err)
 	}
 	if _, err := transaction.ExecContext(context.Background(), `
-INSERT INTO game_metadata_revisions(
-  id,game_id,title,title_initial,description,developer,publisher,genre,players,release_year,
-  source_kind,source_ref_id,created_at_ms
-) VALUES(?,?,?,'B','','','','',NULL,1995,'ADMIN_EDIT',NULL,1000)
-`, metadataID, backupGameID, "Backup favorite"); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := transaction.ExecContext(context.Background(), `
-INSERT INTO game_content_revisions(
-  id,game_id,source_kind,source_ref_id,source_manifest_json,source_manifest_digest,created_at_ms
-) VALUES(?,?,'ADMIN_REPLACE','backup-favorite-test','[]',?,1000)
-`, contentID, backupGameID, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := transaction.ExecContext(context.Background(), `
 INSERT INTO games(
-  id,platform_instance_id,status,current_metadata_revision_id,current_content_revision_id,
-  search_text,version,created_at_ms,updated_at_ms
-) VALUES(?,(SELECT id FROM platform_instances WHERE catalog_template_key='gba/mgba'),'PUBLISHED',?,?,lower(?),1,1000,1000)
-`, backupGameID, metadataID, contentID, "Backup favorite"); err != nil {
+ id,platform_instance_id,title,title_initial,description,developer,publisher,genre,players,release_year,
+ metadata_source_kind,metadata_source_ref_id,content_kind,content_source_kind,content_source_ref_id,
+ source_manifest_json,source_manifest_digest,status,search_text,version,created_at_ms,updated_at_ms
+) VALUES(?,(SELECT id FROM platform_instances WHERE catalog_template_key='gba/mgba'),?,'B','','','','',NULL,1995,
+ 'ADMIN_EDIT',NULL,'SINGLE_FILE','ADMIN_REPLACE','backup-favorite-test','[]',?,'PUBLISHED',lower(?),1,1000,1000)
+`, backupGameID, "Backup favorite", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "Backup favorite"); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := transaction.ExecContext(context.Background(),
@@ -308,7 +293,7 @@ VALUES(?,'backup-root','Backup root','emulationstation',?,2026,'SCANNING','DISCO
 	bundle := filepath.Join(root, "bundle")
 	manifest, err := Backup(ctx, configuration, bundle, time.Now)
 	testassert.False(t, err != nil, err)
-	testassert.Falsef(t, testassert.Any(func() bool { return manifest.SchemaVersion != 2 }, func() bool { return manifest.DatabaseSchemaVersion != 14 }, func() bool { return len(manifest.MigrationLineageDigest) != 64 }, func() bool { return manifest.Counts.UploadPartCount != 1 }, func() bool { return manifest.Counts.DependencyVersionCount != 1 }), "backup manifest = %#v", manifest)
+	testassert.Falsef(t, testassert.Any(func() bool { return manifest.SchemaVersion != 2 }, func() bool { return manifest.DatabaseSchemaVersion != 10 }, func() bool { return len(manifest.MigrationLineageDigest) != 64 }, func() bool { return manifest.Counts.UploadPartCount != 1 }, func() bool { return manifest.Counts.DependencyVersionCount != 1 }), "backup manifest = %#v", manifest)
 	restored := filepath.Join(root, "restored")
 	if _, err := Restore(ctx, config.Maintenance{DependencyRoot: dependencyRoot, DependencyVersions: []string{"4.2.3"}, ActiveEJSVersion: "4.2.3"}, bundle, restored); err != nil {
 		t.Fatal(err)

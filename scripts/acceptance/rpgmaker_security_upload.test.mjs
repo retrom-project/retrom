@@ -4,9 +4,35 @@ import test from "node:test";
 import {
   createProductClient,
   jobWaitAttemptsForBytes,
+  reviewForImport,
   requireFreshImportReview,
   SecurityInputBlocked,
 } from "./rpgmaker_security_upload.mjs";
+
+test("review lookup tolerates a briefly empty import queue", async () => {
+  let queueReads = 0;
+  const client = {
+    json: async (_method, path) => {
+      if (path.startsWith("/api/v1/admin/reviews?")) {
+        queueReads += 1;
+        return queueReads === 1 ? { items: [] } : { items: [{ itemId: "review-one" }] };
+      }
+      if (path === "/api/v1/admin/imports/import-one") {
+        return { state: "RUNNING", alreadyImportedItemCount: 0 };
+      }
+      if (path === "/api/v1/admin/reviews/review-one") {
+        return { itemId: "review-one" };
+      }
+      throw new Error(`unexpected path: ${path}`);
+    },
+  };
+
+  assert.deepEqual(
+    await reviewForImport(client, "import-one", { attempts: 2, waitMs: 0 }),
+    { itemId: "review-one" },
+  );
+  assert.equal(queueReads, 2);
+});
 
 test("duplicate project import requires a fresh acceptance database", () => {
   assert.throws(

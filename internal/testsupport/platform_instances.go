@@ -6,6 +6,9 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 
@@ -13,6 +16,7 @@ import (
 
 	"retrom/internal/platformcatalog"
 	"retrom/internal/platforminstance"
+	"retrom/internal/runtimecatalog"
 	"retrom/internal/store"
 )
 
@@ -41,6 +45,9 @@ func OpenDatabase(ctx context.Context, path string, now func() time.Time) (*stor
 // BuildPlatformInstances creates the current recommendation catalog with fresh identities and returns
 // references keyed by catalog template key. Every invocation creates fresh UUIDv7 identities.
 func BuildPlatformInstances(ctx context.Context, database *sql.DB) (PlatformInstanceReferences, error) {
+	if err := SeedRuntimeProviders(ctx, database, currentRuntimeCatalog()); err != nil {
+		return nil, err
+	}
 	references := make(PlatformInstanceReferences, len(platformcatalog.Current().Templates))
 	for _, template := range platformcatalog.Current().Templates {
 		id, err := uuid.NewV7()
@@ -71,6 +78,25 @@ INSERT INTO platform_instances(
 func SeedPlatformInstances(ctx context.Context, database *sql.DB) error {
 	_, err := BuildPlatformInstances(ctx, database)
 	return err
+}
+
+func currentRuntimeCatalog() runtimecatalog.Catalog {
+	_, filename, _, ok := runtime.Caller(0)
+	if !ok {
+		panic("testsupport: locate runtime target catalog")
+	}
+	catalogPath := filepath.Join(
+		filepath.Dir(filename), "..", "..", "data", "runtime-target-bindings", "v1", "catalog.json",
+	)
+	contents, err := os.ReadFile(catalogPath)
+	if err != nil {
+		panic(fmt.Sprintf("testsupport: read runtime target catalog: %v", err))
+	}
+	catalog, err := runtimecatalog.ParseCatalog(contents)
+	if err != nil {
+		panic(fmt.Sprintf("testsupport: parse runtime target catalog: %v", err))
+	}
+	return catalog
 }
 
 func PlatformInstanceID(ctx context.Context, database *sql.DB, templateKey string) (string, error) {

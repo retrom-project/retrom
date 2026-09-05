@@ -6,7 +6,18 @@ temporary_root="$(mktemp -d "${TMPDIR:-/tmp}/retrom-quality-sentinels.XXXXXX")"
 trap 'rm -rf -- "$temporary_root"' EXIT
 
 worktree_hash() {
-  make --no-print-directory -C "$repository_root" release-input-digest
+  python3 - "$repository_root" <<'PY'
+import importlib.util
+import sys
+from pathlib import Path
+
+root = Path(sys.argv[1])
+sys.path.insert(0, str(root / "scripts"))
+spec = importlib.util.spec_from_file_location("source_digest", root / "scripts/release-input-digest.py")
+module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
+print(module.sha256(module.canonical(module.source_entries())))
+PY
 }
 
 expect_failure() {
@@ -65,7 +76,7 @@ expect_failure \
   bash -lc "cd '$sentinel_root/web' && ./node_modules/.bin/eslint qa-sentinel.ts --max-warnings=0"
 rm -f -- "$sentinel_root/web/qa-sentinel.ts"
 
-cat >"$sentinel_root/migrations/999_qa_sentinel.sql" <<'EOF'
+cat >"$sentinel_root/migrations/011_qa_sentinel.sql" <<'EOF'
 CREATE TABLE qa_sentinel_times (
     id INTEGER PRIMARY KEY,
     broken_at_ms TEXT NOT NULL
@@ -73,9 +84,9 @@ CREATE TABLE qa_sentinel_times (
 EOF
 expect_failure \
   migration-text-time \
-  'qa_sentinel_times\.broken_at_ms uses TEXT, want INTEGER|uses TEXT, want INTEGER' \
-  bash -lc "cd '$sentinel_root' && go test ./internal/store -run '^TestMigrationsCreateIntegerBusinessTimesAndSeedCatalog$' -count=1"
-rm -f -- "$sentinel_root/migrations/999_qa_sentinel.sql"
+  'qa_sentinel_times\.broken_at_ms type = TEXT' \
+  bash -lc "cd '$sentinel_root' && go test ./internal/store -run '^TestMigrationsCreateCurrentSchemaWithoutProductSeeds$' -count=1"
+rm -f -- "$sentinel_root/migrations/011_qa_sentinel.sql"
 
 cat >"$sentinel_root/internal/importing/qa_sentinel_test.go" <<'EOF'
 package importing
@@ -110,8 +121,8 @@ catalog = module.all_cases()
 missing_multidisc = [f"ACC-MDISC-{number:03d}" for number in range(1, 9) if f"ACC-MDISC-{number:03d}" not in catalog]
 if missing_multidisc:
     raise SystemExit(f"acceptance catalog omitted multi-disc cases: {missing_multidisc}")
-if len(catalog) != 137:
-    raise SystemExit(f"acceptance catalog size is {len(catalog)}, want 137")
+if len(catalog) != 185:
+    raise SystemExit(f"acceptance catalog size is {len(catalog)}, want 185")
 print(f"acceptance_catalog={len(catalog)}")
 PY
 

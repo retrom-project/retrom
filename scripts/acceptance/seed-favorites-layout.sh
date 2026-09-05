@@ -10,7 +10,6 @@ fi
 sqlite3 -bail "$database_path" <<'SQL'
 PRAGMA foreign_keys=ON;
 BEGIN IMMEDIATE;
-PRAGMA defer_foreign_keys=ON;
 
 CREATE TEMP TABLE favorite_owner AS
 SELECT profile_id FROM users WHERE username='test' AND status='ENABLED' LIMIT 1;
@@ -20,33 +19,17 @@ DELETE FROM favorite_folders WHERE profile_id=(SELECT profile_id FROM favorite_o
 DELETE FROM favorite_games WHERE profile_id=(SELECT profile_id FROM favorite_owner);
 
 WITH RECURSIVE generated(n) AS (SELECT 1 UNION ALL SELECT n+1 FROM generated WHERE n<50)
-INSERT OR IGNORE INTO game_metadata_revisions(
-  id,game_id,title,title_initial,description,developer,publisher,genre,players,release_year,
-  source_kind,source_ref_id,created_at_ms
-)
-SELECT printf('71000000-0000-7000-8000-%012d',n),
-       printf('70000000-0000-7000-8000-%012d',n),
-       printf('Favorite Layout Game %02d',n),'F','Layout acceptance','','','Fixture',NULL,1980+n,
-       'ADMIN_EDIT',NULL,1786001000000+n
-FROM generated;
-
-WITH RECURSIVE generated(n) AS (SELECT 1 UNION ALL SELECT n+1 FROM generated WHERE n<50)
-INSERT OR IGNORE INTO game_content_revisions(
-  id,game_id,source_kind,source_ref_id,source_manifest_json,source_manifest_digest,created_at_ms
-)
-SELECT printf('72000000-0000-7000-8000-%012d',n),
-       printf('70000000-0000-7000-8000-%012d',n),
-       'ADMIN_REPLACE','favorite-layout','[]',printf('%064x',n),1786001000000+n
-FROM generated;
-
-WITH RECURSIVE generated(n) AS (SELECT 1 UNION ALL SELECT n+1 FROM generated WHERE n<50)
 INSERT OR IGNORE INTO games(
-  id,platform_instance_id,status,current_metadata_revision_id,current_content_revision_id,
-  search_text,version,created_at_ms,updated_at_ms
+  id,platform_instance_id,title,title_initial,description,developer,publisher,genre,players,release_year,
+  metadata_source_kind,metadata_source_ref_id,content_kind,content_source_kind,content_source_ref_id,
+  source_manifest_json,source_manifest_digest,status,payload_state,search_text,version,created_at_ms,updated_at_ms
 )
-SELECT printf('70000000-0000-7000-8000-%012d',n),(SELECT id FROM platform_instances WHERE catalog_template_key='gba/mgba'),'PUBLISHED',
-       printf('71000000-0000-7000-8000-%012d',n),printf('72000000-0000-7000-8000-%012d',n),
-       lower(printf('Favorite Layout Game %02d',n)),1,1786001000000+n,1786001000000+n
+SELECT printf('70000000-0000-7000-8000-%012d',n),
+       (SELECT id FROM platform_instances WHERE catalog_template_key='gba/mgba'),
+       printf('Favorite Layout Game %02d',n),'F','Layout acceptance','','','Fixture',NULL,1980+n,
+       'ADMIN_EDIT',NULL,'SINGLE_FILE','ADMIN_REPLACE','favorite-layout','[]',printf('%064x',n),
+       'PUBLISHED','RETAINED',lower(printf('Favorite Layout Game %02d',n)),1,
+       1786001000000+n,1786001000000+n
 FROM generated;
 
 WITH RECURSIVE generated(n) AS (SELECT 1 UNION ALL SELECT n+1 FROM generated WHERE n<50)

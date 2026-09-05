@@ -5,6 +5,7 @@ import {
   zeroGamepad,
   type GamepadLike,
 } from "./immersive-controls";
+import type {RuntimeInputFilterPolicyV1} from "./runtime/contract";
 
 export type ImmersiveGamepadFilterOptions = {
   activeGamepadIndex: number | null;
@@ -17,6 +18,7 @@ export class ImmersiveGamepadFilter {
   private readonly detector = new ImmersiveChordDetector();
   private readonly observerDetector = new ImmersiveChordDetector();
   private onMenuGesture: () => void;
+  private readonly policyListeners = new Set<(policy: RuntimeInputFilterPolicyV1) => void>();
 
   constructor(options: ImmersiveGamepadFilterOptions) {
     this.activeGamepadIndex = options.activeGamepadIndex;
@@ -27,13 +29,25 @@ export class ImmersiveGamepadFilter {
     if (this.activeGamepadIndex === index) {return;}
     this.activeGamepadIndex = index;
     this.reset();
+    this.emitPolicy();
   }
 
   setOnMenuGesture(callback: () => void) {this.onMenuGesture = callback;}
 
   setBlocked(blocked: boolean) {
+    if (this.blocked === blocked) {return;}
     this.blocked = blocked;
     if (blocked) {this.reset();}
+    this.emitPolicy();
+  }
+
+  getPolicy(): RuntimeInputFilterPolicyV1 {
+    return {activeGamepadIndex: this.activeGamepadIndex, suppressInput: this.blocked};
+  }
+
+  subscribe(listener: (policy: RuntimeInputFilterPolicyV1) => void) {
+    this.policyListeners.add(listener);
+    return () => this.policyListeners.delete(listener);
   }
 
   reset() {
@@ -81,9 +95,12 @@ export class ImmersiveGamepadFilter {
   }
 
   private openMenu() {
-    this.blocked = true;
-    this.reset();
     this.onMenuGesture();
+  }
+
+  private emitPolicy() {
+    const policy = this.getPolicy();
+    for (const listener of this.policyListeners) {listener(policy);}
   }
 }
 

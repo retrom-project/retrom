@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { NetplayController, type NetplayLaunchConfig } from "./controller";
-import { coreStateBytes, type EJSNetplayFrameBridge } from "./ejs-netplay-4.2.3-v1";
+import {opaqueState, testNetplayPort} from "./netplay-port.test-helper";
 
 class FakeSocket extends EventTarget {
   static readonly OPEN = 1;
@@ -43,11 +43,10 @@ const launch: NetplayLaunchConfig = {
   playerNo: 2,
   runtimeSocketUrl: "/runtime/netplay/rooms/01980000-0000-7000-8000-000000000001/socket",
   netplayProfile: {
-    schemaVersion: 1, protocolVersion: "retrom-netplay-v2", profileId: "fceumm-423-v1", platformIds: ["nes"],
-    emulatorjsVersion: "4.2.3",
-    playerAdapterId: "ejs-4.2.3-v2", netplayAdapterId: "ejs-netplay-4.2.3-v1",
-    coreArtifactId: "01980000-0000-7000-8000-000000000003", gameVariantRevisionId: "01980000-0000-7000-8000-000000000004",
-    coreArtifactSha256: "1".repeat(64), sourceManifestDigest: "2".repeat(64), dependencySnapshotDigest: "3".repeat(64), defaultCoreOptions: {},
+    schemaVersion: 2, protocolVersion: "retrom-netplay-v2", profileId: "fceumm-v1", platformIds: ["nes"],
+    providerId: "emulatorjs", targetId: "fceumm", bundleSha256: "1".repeat(64),
+ coreId: "fceumm",
+    sourceManifestDigest: "2".repeat(64), dependencySnapshotDigest: "3".repeat(64),
     controlCount: 24, maxPlayers: 2, maxPredictionFrames: 8, maxRollbackFrames: 120,
     checkpointEveryFrames: 120, canonicalHistoryFrames: 600, maxStateBytes: 1_048_576,
   },
@@ -62,16 +61,6 @@ const fbneoLaunch: NetplayLaunchConfig = {
   },
 };
 
-function raState(core: number[]) {
-  const padded = (core.length + 7) & ~7;
-  const state = new Uint8Array(8 + 8 + padded + 8);
-  state.set(new TextEncoder().encode("RASTATE")); state[7] = 1;
-  state.set(new TextEncoder().encode("MEM "), 8);
-  new DataView(state.buffer).setUint32(12, core.length, true);
-  state.set(core, 16); state.set(new TextEncoder().encode("END "), 16 + padded);
-  return state;
-}
-
 afterEach(() => {
   vi.useRealTimers(); vi.restoreAllMocks(); vi.unstubAllGlobals(); FakeSocket.instances = []; HangingSocket.instances = [];
 });
@@ -80,10 +69,10 @@ describe("NetplayController reconnect lease", () => {
   it("reconnects a running player with HELLO seq zero and retained epoch history", async () => {
     vi.useFakeTimers();
     vi.stubGlobal("WebSocket", FakeSocket);
-    const bridge = {
+    const bridge = testNetplayPort({
       pauseAtBoundary: vi.fn().mockResolvedValue(undefined), resetLocalControls: vi.fn(), close: vi.fn(),
       captureState: vi.fn(() => new Uint8Array([1])), loadStateAndWait: vi.fn(), runNetplayFrame: vi.fn(), sampleLocalControls: vi.fn(() => Array(24).fill(0)),
-    } as unknown as EJSNetplayFrameBridge;
+    });
     const onRunning = vi.fn();
     const controller = new NetplayController(launch, "0".repeat(64), bridge, {
       onStatus: vi.fn(), onRunning, onPaused: vi.fn(), onEnded: vi.fn(),
@@ -92,7 +81,10 @@ describe("NetplayController reconnect lease", () => {
     expect(FakeSocket.instances).toHaveLength(1);
     const first = FakeSocket.instances[0]!;
     expect(JSON.parse(first.sent[0] as string)).toMatchObject({ type: "HELLO", seq: 0, lastCanonicalFrame: -1, lastServerSeq: 0 });
-    expect(JSON.parse(first.sent[1] as string)).toMatchObject({ type: "RUNTIME_READY", seq: 1 });
+    expect(JSON.parse(first.sent[1] as string)).toMatchObject({
+      type: "RUNTIME_READY", seq: 1, providerId: "emulatorjs", targetId: "fceumm",
+      bundleSha256: "1".repeat(64),
+    });
     first.message(JSON.stringify({ v: 1, type: "START_EPOCH", sessionId: launch.sessionId, epoch: 0, seq: 1, nextFrame: 0, occupiedSeatMask: 3 }));
     await Promise.resolve(); await Promise.resolve();
     expect(onRunning).toHaveBeenCalledOnce();
@@ -110,11 +102,11 @@ describe("NetplayController reconnect lease", () => {
     vi.stubGlobal("WebSocket", FakeSocket);
     const onEnded = vi.fn();
     const onConnect = vi.fn();
-    const bridge = {
+    const bridge = testNetplayPort({
       pauseAtBoundary: vi.fn().mockResolvedValue(undefined), resetLocalControls: vi.fn(), close: vi.fn(),
-      captureState: vi.fn(() => raState([0])), loadStateAndWait: vi.fn(), runNetplayFrame: vi.fn(),
+      captureState: vi.fn(() => opaqueState([0])), loadStateAndWait: vi.fn(), runNetplayFrame: vi.fn(),
       sampleLocalControls: vi.fn(() => Array(24).fill(0)),
-    } as unknown as EJSNetplayFrameBridge;
+    });
     const controller = new NetplayController(launch, "0".repeat(64), bridge, {
       onStatus: vi.fn(), onRunning: vi.fn(), onPaused: vi.fn(), onEnded,
     }, { onConnect });
@@ -140,11 +132,11 @@ describe("NetplayController reconnect lease", () => {
     vi.useFakeTimers();
     vi.stubGlobal("WebSocket", FakeSocket);
     const onEnded = vi.fn();
-    const bridge = {
+    const bridge = testNetplayPort({
       pauseAtBoundary: vi.fn().mockResolvedValue(undefined), resetLocalControls: vi.fn(), close: vi.fn(),
-      captureState: vi.fn(() => raState([0])), loadStateAndWait: vi.fn(), runNetplayFrame: vi.fn(),
+      captureState: vi.fn(() => opaqueState([0])), loadStateAndWait: vi.fn(), runNetplayFrame: vi.fn(),
       sampleLocalControls: vi.fn(() => Array(24).fill(0)),
-    } as unknown as EJSNetplayFrameBridge;
+    });
     const controller = new NetplayController(launch, "0".repeat(64), bridge, {
       onStatus: vi.fn(), onRunning: vi.fn(), onPaused: vi.fn(), onEnded,
     });
@@ -177,11 +169,11 @@ describe("NetplayController reconnect lease", () => {
 
   it.each([999, 60_001, 1_000.5])("rejects unsafe WELCOME leaseMs %s", async (leaseMs) => {
     vi.stubGlobal("WebSocket", FakeSocket);
-    const bridge = {
+    const bridge = testNetplayPort({
       pauseAtBoundary: vi.fn().mockResolvedValue(undefined), resetLocalControls: vi.fn(), close: vi.fn(),
-      captureState: vi.fn(() => raState([0])), loadStateAndWait: vi.fn(), runNetplayFrame: vi.fn(),
+      captureState: vi.fn(() => opaqueState([0])), loadStateAndWait: vi.fn(), runNetplayFrame: vi.fn(),
       sampleLocalControls: vi.fn(() => Array(24).fill(0)),
-    } as unknown as EJSNetplayFrameBridge;
+    });
     const controller = new NetplayController(launch, "0".repeat(64), bridge, {
       onStatus: vi.fn(), onRunning: vi.fn(), onPaused: vi.fn(), onEnded: vi.fn(),
     });
@@ -204,11 +196,11 @@ describe("NetplayController reconnect lease", () => {
     vi.useFakeTimers();
     vi.stubGlobal("WebSocket", HangingSocket);
     const onEnded = vi.fn();
-    const bridge = {
+    const bridge = testNetplayPort({
       pauseAtBoundary: vi.fn().mockResolvedValue(undefined), resetLocalControls: vi.fn(), close: vi.fn(),
-      captureState: vi.fn(() => raState([0])), loadStateAndWait: vi.fn(), runNetplayFrame: vi.fn(),
+      captureState: vi.fn(() => opaqueState([0])), loadStateAndWait: vi.fn(), runNetplayFrame: vi.fn(),
       sampleLocalControls: vi.fn(() => Array(24).fill(0)),
-    } as unknown as EJSNetplayFrameBridge;
+    });
     const initialController = new NetplayController(launch, "0".repeat(64), bridge, {
       onStatus: vi.fn(), onRunning: vi.fn(), onPaused: vi.fn(), onEnded,
     });
@@ -248,11 +240,11 @@ describe("NetplayController reconnect lease", () => {
     vi.useFakeTimers();
     vi.stubGlobal("WebSocket", FakeSocket);
     const onEnded = vi.fn();
-    const bridge = {
+    const bridge = testNetplayPort({
       pauseAtBoundary: vi.fn().mockResolvedValue(undefined), resetLocalControls: vi.fn(), close: vi.fn(),
-      captureState: vi.fn(() => raState([0])), loadStateAndWait: vi.fn(), runNetplayFrame: vi.fn().mockResolvedValue(undefined),
+      captureState: vi.fn(() => opaqueState([0])), loadStateAndWait: vi.fn(), runNetplayFrame: vi.fn().mockResolvedValue(undefined),
       sampleLocalControls: vi.fn(() => Array(24).fill(0)),
-    } as unknown as EJSNetplayFrameBridge;
+    });
     const controller = new NetplayController(launch, "0".repeat(64), bridge, {
       onStatus: vi.fn(), onRunning: vi.fn(), onPaused: vi.fn(), onEnded,
     });
@@ -290,11 +282,11 @@ describe("NetplayController lockstep", () => {
     const closeBridge = vi.fn();
     const onEnded = vi.fn();
     const onStatus = vi.fn();
-    const bridge = {
+    const bridge = testNetplayPort({
       pauseAtBoundary: vi.fn().mockResolvedValue(undefined), resetLocalControls: vi.fn(), close: closeBridge,
-      captureState: vi.fn(() => raState([0])), loadStateAndWait: vi.fn(), runNetplayFrame: vi.fn(),
+      captureState: vi.fn(() => opaqueState([0])), loadStateAndWait: vi.fn(), runNetplayFrame: vi.fn(),
       sampleLocalControls: vi.fn(() => Array(24).fill(0)),
-    } as unknown as EJSNetplayFrameBridge;
+    });
     const controller = new NetplayController(launch, "0".repeat(64), bridge, {
       onStatus, onRunning: vi.fn(), onPaused: vi.fn(), onEnded,
     });
@@ -324,11 +316,11 @@ describe("NetplayController lockstep", () => {
     vi.stubGlobal("WebSocket", FakeSocket);
     const runNetplayFrame = vi.fn().mockResolvedValue(undefined);
     const onRollback = vi.fn();
-    const bridge = {
+    const bridge = testNetplayPort({
       pauseAtBoundary: vi.fn().mockResolvedValue(undefined), resetLocalControls: vi.fn(), close: vi.fn(),
-      captureState: vi.fn(() => raState([0])), loadStateAndWait: vi.fn(), runNetplayFrame,
+      captureState: vi.fn(() => opaqueState([0])), loadStateAndWait: vi.fn(), runNetplayFrame,
       sampleLocalControls: vi.fn(() => Array(24).fill(0)),
-    } as unknown as EJSNetplayFrameBridge;
+    });
     const controller = new NetplayController(fbneoLaunch, "0".repeat(64), bridge, {
       onStatus: vi.fn(), onRunning: vi.fn(), onPaused: vi.fn(), onEnded: vi.fn(),
     }, { onRollback });
@@ -374,11 +366,11 @@ describe("NetplayController lockstep", () => {
     vi.stubGlobal("WebSocket", FakeSocket);
     let currentTimeMS = 1_000;
     vi.spyOn(performance, "now").mockImplementation(() => currentTimeMS);
-    const bridge = {
+    const bridge = testNetplayPort({
       pauseAtBoundary: vi.fn().mockResolvedValue(undefined), resetLocalControls: vi.fn(), close: vi.fn(),
-      captureState: vi.fn(() => raState([0])), loadStateAndWait: vi.fn(),
+      captureState: vi.fn(() => opaqueState([0])), loadStateAndWait: vi.fn(),
       runNetplayFrame: vi.fn().mockResolvedValue(undefined), sampleLocalControls: vi.fn(() => Array(24).fill(0)),
-    } as unknown as EJSNetplayFrameBridge;
+    });
     const controller = new NetplayController(fbneoLaunch, "0".repeat(64), bridge, {
       onStatus: vi.fn(), onRunning: vi.fn(), onPaused: vi.fn(), onEnded: vi.fn(),
     });
@@ -411,11 +403,11 @@ describe("NetplayController lockstep", () => {
     vi.spyOn(performance, "now").mockImplementation(() => currentTimeMS);
     const buffers: number[] = [];
     const runNetplayFrame = vi.fn().mockResolvedValue(undefined);
-    const bridge = {
+    const bridge = testNetplayPort({
       pauseAtBoundary: vi.fn().mockResolvedValue(undefined), resetLocalControls: vi.fn(), close: vi.fn(),
-      captureState: vi.fn(() => raState([0])), loadStateAndWait: vi.fn(), runNetplayFrame,
+      captureState: vi.fn(() => opaqueState([0])), loadStateAndWait: vi.fn(), runNetplayFrame,
       sampleLocalControls: vi.fn(() => Array(24).fill(0)),
-    } as unknown as EJSNetplayFrameBridge;
+    });
     const controller = new NetplayController(fbneoLaunch, "0".repeat(64), bridge, {
       onStatus: vi.fn(), onRunning: vi.fn(), onPaused: vi.fn(), onEnded: vi.fn(),
     }, { onLockstep: ({ inputBufferFrames }) => buffers.push(inputBufferFrames) });
@@ -457,11 +449,11 @@ describe("NetplayController lockstep", () => {
       .mockResolvedValue(undefined);
     const lockstep: Array<{ frame: number; inputBufferFrames: number; roundTripMS: number | null }> = [];
     const onRollback = vi.fn();
-    const bridge = {
+    const bridge = testNetplayPort({
       pauseAtBoundary: vi.fn().mockResolvedValue(undefined), resetLocalControls: vi.fn(), close: vi.fn(),
-      captureState: vi.fn(() => raState([0])), loadStateAndWait: vi.fn(), runNetplayFrame,
+      captureState: vi.fn(() => opaqueState([0])), loadStateAndWait: vi.fn(), runNetplayFrame,
       sampleLocalControls: vi.fn(() => Array(24).fill(0)),
-    } as unknown as EJSNetplayFrameBridge;
+    });
     const controller = new NetplayController(fbneoLaunch, "0".repeat(64), bridge, {
       onStatus: vi.fn(), onRunning: vi.fn(), onPaused: vi.fn(), onEnded: vi.fn(),
     }, { onLockstep: (sample) => lockstep.push(sample), onRollback });
@@ -500,11 +492,11 @@ describe("NetplayController lockstep", () => {
     vi.stubGlobal("WebSocket", FakeSocket);
     const onStatus = vi.fn();
     const runNetplayFrame = vi.fn().mockResolvedValue(undefined);
-    const bridge = {
+    const bridge = testNetplayPort({
       pauseAtBoundary: vi.fn().mockResolvedValue(undefined), resetLocalControls: vi.fn(), close: vi.fn(),
-      captureState: vi.fn(() => raState([0])), loadStateAndWait: vi.fn(), runNetplayFrame,
+      captureState: vi.fn(() => opaqueState([0])), loadStateAndWait: vi.fn(), runNetplayFrame,
       sampleLocalControls: vi.fn(() => Array(24).fill(0)),
-    } as unknown as EJSNetplayFrameBridge;
+    });
     const controller = new NetplayController(launch, "0".repeat(64), bridge, {
       onStatus, onRunning: vi.fn(), onPaused: vi.fn(), onEnded: vi.fn(),
     });
@@ -514,7 +506,7 @@ describe("NetplayController lockstep", () => {
       v: 1, type: "START_EPOCH", sessionId: launch.sessionId, epoch: 0, seq: 1,
       nextFrame: 0, occupiedSeatMask: 3,
     }));
-    for (let index = 0; index < 20; index += 1) {await Promise.resolve();}
+    for (let index = 0; index < 100; index += 1) {await Promise.resolve();}
     expect(runNetplayFrame).toHaveBeenCalledTimes(8);
     await vi.advanceTimersByTimeAsync(99);
     expect(onStatus.mock.calls.filter(([text]) => text === "等待其他玩家输入…")).toHaveLength(0);
@@ -550,11 +542,11 @@ describe("NetplayController rollback", () => {
       stateByte += 1;
       return Promise.resolve();
     });
-    const bridge = {
+    const bridge = testNetplayPort({
       pauseAtBoundary: vi.fn().mockResolvedValue(undefined), resetLocalControls: vi.fn(), close: vi.fn(),
-      captureState: vi.fn(() => raState([stateByte])), loadStateAndWait: vi.fn(), runNetplayFrame,
+      captureState: vi.fn(() => opaqueState([stateByte])), loadStateAndWait: vi.fn(), runNetplayFrame,
       sampleLocalControls: vi.fn(() => Array(24).fill(0)),
-    } as unknown as EJSNetplayFrameBridge;
+    });
     const onCanonical = vi.fn();
     const controller = new NetplayController(launch, "0".repeat(64), bridge, {
       onStatus: vi.fn(), onRunning: vi.fn(), onPaused: vi.fn(), onEnded: vi.fn(),
@@ -584,11 +576,11 @@ describe("NetplayController rollback", () => {
 
   it("reports a normalized protocol failure and finalizes only after the server terminal message", async () => {
     vi.stubGlobal("WebSocket", FakeSocket);
-    const bridge = {
+    const bridge = testNetplayPort({
       pauseAtBoundary: vi.fn().mockResolvedValue(undefined), resetLocalControls: vi.fn(), close: vi.fn(),
-      captureState: vi.fn(() => raState([0])), loadStateAndWait: vi.fn(), runNetplayFrame: vi.fn(),
+      captureState: vi.fn(() => opaqueState([0])), loadStateAndWait: vi.fn(), runNetplayFrame: vi.fn(),
       sampleLocalControls: vi.fn(() => Array(24).fill(0)),
-    } as unknown as EJSNetplayFrameBridge;
+    });
     const onEnded = vi.fn();
     const controller = new NetplayController(launch, "0".repeat(64), bridge, {
       onStatus: vi.fn(), onRunning: vi.fn(), onPaused: vi.fn(), onEnded,
@@ -619,11 +611,11 @@ describe("NetplayController rollback", () => {
     vi.useFakeTimers();
     vi.stubGlobal("WebSocket", FakeSocket);
     const resetLocalControls = vi.fn();
-    const bridge = {
+    const bridge = testNetplayPort({
       pauseAtBoundary: vi.fn().mockResolvedValue(undefined), resetLocalControls, close: vi.fn(),
-      captureState: vi.fn(() => raState([0])), loadStateAndWait: vi.fn(),
+      captureState: vi.fn(() => opaqueState([0])), loadStateAndWait: vi.fn(),
       runNetplayFrame: vi.fn().mockResolvedValue(undefined), sampleLocalControls: vi.fn(() => Array(24).fill(0)),
-    } as unknown as EJSNetplayFrameBridge;
+    });
     const controller = new NetplayController(launch, "0".repeat(64), bridge, {
       onStatus: vi.fn(), onRunning: vi.fn(), onPaused: vi.fn(), onEnded: vi.fn(),
     }, { delayForMessage: (type) => type === "INPUT" ? 100 : 0 });
@@ -644,11 +636,11 @@ describe("NetplayController rollback", () => {
   it("does not suspend a player that loses focus before the initial sync epoch starts", async () => {
     vi.stubGlobal("WebSocket", FakeSocket);
     const resetLocalControls = vi.fn();
-    const bridge = {
+    const bridge = testNetplayPort({
       pauseAtBoundary: vi.fn().mockResolvedValue(undefined), resetLocalControls, close: vi.fn(),
-      captureState: vi.fn(() => raState([0])), loadStateAndWait: vi.fn(), runNetplayFrame: vi.fn(),
+      captureState: vi.fn(() => opaqueState([0])), loadStateAndWait: vi.fn(), runNetplayFrame: vi.fn(),
       sampleLocalControls: vi.fn(() => Array(24).fill(0)),
-    } as unknown as EJSNetplayFrameBridge;
+    });
     const onEnded = vi.fn();
     const controller = new NetplayController(launch, "0".repeat(64), bridge, {
       onStatus: vi.fn(), onRunning: vi.fn(), onPaused: vi.fn(), onEnded,
@@ -684,11 +676,11 @@ describe("NetplayController rollback", () => {
     const loadStateAndWait = vi.fn(async () => {
       expect(frameRunning).toBe(false);
     });
-    const bridge = {
+    const bridge = testNetplayPort({
       pauseAtBoundary: vi.fn().mockResolvedValue(undefined), resetLocalControls: vi.fn(), close: vi.fn(),
-      captureState: vi.fn(() => raState([0])), loadStateAndWait, runNetplayFrame,
+      captureState: vi.fn(() => opaqueState([0])), loadStateAndWait, runNetplayFrame,
       sampleLocalControls: vi.fn(() => Array(24).fill(0)),
-    } as unknown as EJSNetplayFrameBridge;
+    });
     const controller = new NetplayController(launch, "0".repeat(64), bridge, {
       onStatus: vi.fn(), onRunning: vi.fn(), onPaused: vi.fn(), onEnded: vi.fn(),
     });
@@ -715,14 +707,14 @@ describe("NetplayController rollback", () => {
   it("replays the canonical pause boundary so speculative canvases visibly converge", async () => {
     vi.stubGlobal("WebSocket", FakeSocket);
     let currentState = 0;
-    const loadStateAndWait = vi.fn(async (state: Uint8Array) => { currentState = coreStateBytes(state)[0]!; });
+    const loadStateAndWait = vi.fn(async (state: Uint8Array) => {currentState = state[0]!;});
     const runNetplayFrame = vi.fn(async () => { currentState += 1; });
     const onPaused = vi.fn();
-    const bridge = {
+    const bridge = testNetplayPort({
       pauseAtBoundary: vi.fn().mockResolvedValue(undefined), resetLocalControls: vi.fn(), close: vi.fn(),
-      captureState: vi.fn(() => raState([currentState])), loadStateAndWait, runNetplayFrame,
+      captureState: vi.fn(() => opaqueState([currentState])), loadStateAndWait, runNetplayFrame,
       sampleLocalControls: vi.fn(() => Array(24).fill(0)),
-    } as unknown as EJSNetplayFrameBridge;
+    });
     const controller = new NetplayController(launch, "0".repeat(64), bridge, {
       onStatus: vi.fn(), onRunning: vi.fn(), onPaused, onEnded: vi.fn(),
     });
@@ -746,8 +738,8 @@ describe("NetplayController rollback", () => {
     }));
 
     await vi.waitFor(() => expect(onPaused).toHaveBeenCalledOnce());
-    expect(loadStateAndWait).toHaveBeenLastCalledWith(raState([0]));
-    expect(runNetplayFrame).toHaveBeenLastCalledWith(players);
+    expect(loadStateAndWait).toHaveBeenLastCalledWith(opaqueState([0]), 0);
+    expect(runNetplayFrame).toHaveBeenLastCalledWith(players, 0, false);
     expect(socket.sent.filter((value): value is string => typeof value === "string")
       .map((value) => (JSON.parse(value) as { type: string }).type)).toContain("PAUSED");
     controller.end();

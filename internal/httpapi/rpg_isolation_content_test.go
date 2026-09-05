@@ -154,8 +154,7 @@ func TestRPGRuntimeRouteServesTyranoScriptProjectHEAD(t *testing.T) {
 	t.Parallel()
 	database, isolationService, nowMS, launchID, origin, ticket := newBootstrapReloadFixture(t)
 	if _, err := database.ExecContext(t.Context(), `
-UPDATE core_artifacts
-SET runtime_family='TYRANOSCRIPT',runtime_adapter_kind='TYRANOSCRIPT_WEB'
+UPDATE launch_content_files SET format_version='TYRANOSCRIPT_PROJECT'
 `); err != nil {
 		t.Fatal(err)
 	}
@@ -351,14 +350,14 @@ func newBootstrapReloadFixture(
 	t.Cleanup(func() { _ = database.Close() })
 	ctx := context.Background()
 	if _, err := database.ExecContext(ctx, `
-CREATE TABLE core_artifacts(
- id TEXT PRIMARY KEY,runtime_family TEXT,runtime_adapter_kind TEXT,available_for_launch INTEGER
-);
 CREATE TABLE launch_sessions(
- id TEXT PRIMARY KEY,profile_id TEXT,core_artifact_id TEXT,state TEXT,hard_expires_at_ms INTEGER
+ id TEXT PRIMARY KEY,profile_id TEXT,state TEXT,hard_expires_at_ms INTEGER
+);
+CREATE TABLE launch_content_files(
+ launch_session_id TEXT,logical_name TEXT,format_version TEXT
 );
 CREATE TABLE review_preview_sessions(
- id TEXT PRIMARY KEY,core_artifact_id TEXT,state TEXT,hard_expires_at_ms INTEGER
+ id TEXT PRIMARY KEY,state TEXT,hard_expires_at_ms INTEGER,content_format TEXT
 );
 CREATE TABLE isolated_runtime_bootstrap_tickets(
  ticket_sha256 BLOB,launch_id TEXT,preview_id TEXT,profile_id TEXT,expected_origin TEXT,
@@ -380,8 +379,8 @@ CREATE TABLE isolated_runtime_capabilities(
 		query     string
 		arguments []any
 	}{
-		{`INSERT INTO core_artifacts VALUES('artifact','RPGMAKER','NATIVE_WEB',1)`, nil},
-		{`INSERT INTO launch_sessions VALUES(?,'profile','artifact','ACTIVE',?)`, []any{launchID, nowMS + 120_000}},
+		{`INSERT INTO launch_sessions VALUES(?,'profile','ACTIVE',?)`, []any{launchID, nowMS + 120_000}},
+		{`INSERT INTO launch_content_files VALUES(?,'index.html','RPG_MAKER_PROJECT')`, []any{launchID}},
 		{`INSERT INTO isolated_runtime_bootstrap_tickets VALUES(?,?,NULL,'profile',?,?,NULL)`, []any{ticketDigest[:], launchID, origin, nowMS + 60_000}},
 	} {
 		if _, err := database.ExecContext(ctx, statement.query, statement.arguments...); err != nil {

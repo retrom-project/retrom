@@ -17,7 +17,6 @@ const nextConfig: NextConfig = {
   },
   output: "standalone",
   poweredByHeader: false,
-  transpilePackages: ["@xxxsen/retrom-runtime"],
   async rewrites() {
     return [
       { source: "/api/:path*", destination: `${backend}/api/:path*` },

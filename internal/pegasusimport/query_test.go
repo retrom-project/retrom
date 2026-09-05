@@ -14,7 +14,7 @@ import (
 
 func TestProjectRuntimeCheckReturnsActionableArcadeDependencies(t *testing.T) {
 	t.Parallel()
-	snapshot := `{"schemaVersion":2,"machine":"1944j","missingEntries":["1944.zip"],"mismatchedEntries":[],"dependencies":[{"kind":"PARENT","machine":"1944","requiredBy":"1944j","expectedLogicalName":"1944.zip","state":"MISSING","requiredEntries":["nffe.03"]}]}`
+	snapshot := `{"schemaVersion":1,"kind":"ARCADE","machine":"1944j","missingEntries":["1944.zip"],"mismatchedEntries":[],"dependencies":[{"kind":"PARENT","machine":"1944","requiredBy":"1944j","expectedLogicalName":"1944.zip","state":"MISSING","requiredEntries":["nffe.03"]}]}`
 	result := projectRuntimeCheck(
 		sql.NullString{String: "BLOCKED", Valid: true},
 		sql.NullString{String: "LAUNCH_PARENT_MISSING", Valid: true},
@@ -89,7 +89,7 @@ INSERT INTO jobs VALUES('work',1,'SUCCEEDED','{}',1,1,1,1,NULL,NULL,2,NULL,NULL,
 
 func TestProjectRuntimeCheckReturnsMissingBIOSAndDiscs(t *testing.T) {
 	t.Parallel()
-	snapshot := `{"schemaVersion":1,"bios":[{"logicalName":"saturn_bios.bin","requirementMode":"REQUIRED","conditionCode":null,"installationStatus":null}],"multiDisc":{"missingEntries":[{"ordinal":2,"sourceReference":"Disc 2.chd"}]}}`
+	snapshot := `{"schemaVersion":1,"kind":"STATIC","bios":[{"logicalName":"saturn_bios.bin","requirementMode":"REQUIRED","conditionCode":null,"installationStatus":null}],"multiDisc":{"missingEntries":[{"ordinal":2,"sourceReference":"Disc 2.chd"}]}}`
 	result := projectRuntimeCheck(
 		sql.NullString{String: "BLOCKED", Valid: true},
 		sql.NullString{String: "LAUNCH_BIOS_MISSING", Valid: true},

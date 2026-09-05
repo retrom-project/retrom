@@ -137,28 +137,26 @@ func (service *Service) PatchDraft(
 }
 
 type draftPatchRun struct {
-	service                *Service
-	ctx                    context.Context
-	transaction            *sql.Tx
-	itemID                 string
-	expectedVersion        int64
-	patch                  DraftPatch
-	draftID                string
-	targetID               string
-	validationID           string
-	effectiveSnapshotID    string
-	metadataJSON           string
-	candidateID            sql.NullString
-	coverID                sql.NullString
-	uploadedCoverID        sql.NullString
-	backgroundID           sql.NullString
-	dosEntry               sql.NullString
-	metadata               map[string]any
-	beforeTags             []tagging.Reference
-	targetOrDOSChanged     bool
-	runtimeBindingRevision int64
-	isRPG                  bool
-	rpgBindingChanged      bool
+	service             *Service
+	ctx                 context.Context
+	transaction         *sql.Tx
+	itemID              string
+	expectedVersion     int64
+	patch               DraftPatch
+	draftID             string
+	targetID            string
+	validationID        string
+	effectiveSnapshotID string
+	metadataJSON        string
+	candidateID         sql.NullString
+	coverID             sql.NullString
+	uploadedCoverID     sql.NullString
+	backgroundID        sql.NullString
+	dosEntry            sql.NullString
+	metadata            map[string]any
+	beforeTags          []tagging.Reference
+	targetOrDOSChanged  bool
+	isRPG               bool
 }
 
 func invalidDraftPatch(patch DraftPatch) bool {
@@ -175,7 +173,7 @@ func (run *draftPatchRun) load() error {
 SELECT d.id,d.target_platform_instance_id,COALESCE(d.selected_validation_id,''),
   d.effective_source_snapshot_id,d.selected_candidate_id,d.cover_candidate_asset_id,
   d.cover_uploaded_asset_id,d.background_candidate_asset_id,d.default_dos_entry,
-  d.metadata_json,d.version,d.runtime_binding_revision,
+  d.metadata_json,d.version,
   EXISTS(SELECT 1 FROM rpgmaker_review_profiles profile WHERE profile.review_draft_id=d.id)
 FROM import_items i
 JOIN review_drafts d ON d.import_item_id=i.id
@@ -183,7 +181,7 @@ WHERE i.id=? AND i.state='REVIEW_PENDING'
 `, run.itemID).Scan(
 		&run.draftID, &run.targetID, &run.validationID, &run.effectiveSnapshotID,
 		&run.candidateID, &run.coverID, &run.uploadedCoverID, &run.backgroundID,
-		&run.dosEntry, &run.metadataJSON, &currentVersion, &run.runtimeBindingRevision, &run.isRPG,
+		&run.dosEntry, &run.metadataJSON, &currentVersion, &run.isRPG,
 	)
 	if err != nil {
 		return ErrInvalid
@@ -377,9 +375,6 @@ func (run *draftPatchRun) refreshValidation() error {
 	if run.patch.SelectedValidationID != nil {
 		return nil
 	}
-	if run.isRPG {
-		return nil
-	}
 	validationID, err := run.service.ensureCompatibleDraftValidation(
 		run.ctx, run.transaction, run.itemID, run.targetID, run.dosEntry,
 	)
@@ -522,11 +517,11 @@ UPDATE review_drafts
 SET target_platform_instance_id=?,selected_validation_id=NULLIF(?,''),
   selected_candidate_id=?,cover_candidate_asset_id=?,cover_uploaded_asset_id=?,
   background_candidate_asset_id=?,default_dos_entry=?,metadata_json=?,
-  version=version+1,runtime_binding_revision=runtime_binding_revision+?,updated_at_ms=?
+  version=version+1,updated_at_ms=?
 WHERE import_item_id=? AND version=?
 `, run.targetID, run.validationID, nullable(run.candidateID), nullable(run.coverID),
 		nullable(run.uploadedCoverID), nullable(run.backgroundID), nullable(run.dosEntry),
-		string(encoded), boolIncrement(run.rpgBindingChanged), now, run.itemID, run.expectedVersion)
+		string(encoded), now, run.itemID, run.expectedVersion)
 	if err != nil {
 		return fmt.Errorf("libraryimport/review: %w", err)
 	}

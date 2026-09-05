@@ -2,6 +2,21 @@ import { mkdirSync } from "node:fs";
 import path from "node:path";
 import { expect, type Locator, type Page, type TestInfo } from "@playwright/test";
 
+export async function retryOnceOnConnectionReset<T>(
+  operation: () => Promise<T>,
+  wait: (milliseconds: number) => Promise<void> = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds)),
+): Promise<T> {
+  try {
+    return await operation();
+  } catch (error) {
+    const code = typeof error === "object" && error !== null && "code" in error ? error.code : undefined;
+    const message = error instanceof Error ? error.message : String(error);
+    if (code !== "ECONNRESET" && !/\bECONNRESET\b/.test(message)) {throw error;}
+    await wait(100);
+    return operation();
+  }
+}
+
 export function evidencePath(testInfo: TestInfo, name: string) {
   const caseDirectory = process.env.RETROM_ACCEPTANCE_CASE_DIR;
   if (!caseDirectory) {return testInfo.outputPath(name);}

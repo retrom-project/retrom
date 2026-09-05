@@ -6,26 +6,29 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 
 	"retrom/internal/testassert"
+	"retrom/internal/testsupport"
 )
 
 func TestBIOSFullCatalogCursorTraverses286Items(t *testing.T) {
 	t.Parallel()
 	server := newTestServer(t)
-	seedHTTPTestCoreArtifact(t, server.database, "bios-page-artifact", "mgba", "data/paging.js", strings.Repeat("0", 64), "{}")
+	requireHTTPTestRuntimeTarget(t, server.database, "mgba")
+	target, err := testsupport.LookupRuntimeTarget(t.Context(), server.database, "mgba")
+	testassert.False(t, err != nil, err)
 	transaction, err := server.database.BeginTx(context.Background(), nil)
 	testassert.False(t, err != nil, err)
 	for index := 0; index < 286; index++ {
 		if _, err := transaction.ExecContext(context.Background(), `
-INSERT INTO bios_requirements(id,core_id,core_artifact_id,source_kind,dat_machine_name,logical_name,
+INSERT INTO bios_requirements(id,core_id,provider_id,target_id,source_kind,dat_machine_name,logical_name,
 requirement_mode,condition_code,activation_options_json,catalog_digest,size_bytes,md5,sha1,sha256,
 source_url,source_version,enabled,version,created_at_ms,updated_at_ms,delivery_kind,emulator_path)
-VALUES(?, 'mgba','bios-page-artifact','STATIC',NULL,?,'REQUIRED',NULL,NULL,lower(hex(zeroblob(32))),
+VALUES(?, 'mgba',?,?,'STATIC',NULL,?,'REQUIRED',NULL,NULL,lower(hex(zeroblob(32))),
 1,lower(hex(randomblob(16))),NULL,NULL,'https://example.invalid/bios','paging-v1',1,1,1,1,'BIOS_BUNDLE',NULL)
-`, fmt.Sprintf("paging-requirement-%03d", index), fmt.Sprintf("bios-%03d.bin", index)); err != nil {
+`, fmt.Sprintf("paging-requirement-%03d", index), target.ProviderID, target.TargetID,
+			fmt.Sprintf("bios-%03d.bin", index)); err != nil {
 			_ = transaction.Rollback()
 			t.Fatal(err)
 		}

@@ -10,32 +10,29 @@ func gameReferenceCount(ctx context.Context, transaction *sql.Tx, gameID, blobID
 	var count int64
 	err := transaction.QueryRowContext(ctx, `
 WITH game_import_items(id) AS (
- SELECT source_ref_id FROM game_content_revisions
- WHERE game_id=?1 AND source_kind='IMPORT_REVIEW'
- UNION SELECT source_ref_id FROM game_metadata_revisions
- WHERE game_id=?1 AND source_kind='IMPORT_REVIEW'
+ SELECT metadata_source_ref_id FROM games
+ WHERE id=?1 AND metadata_source_kind='IMPORT_REVIEW'
+ UNION SELECT content_source_ref_id FROM games
+ WHERE id=?1 AND content_source_kind='IMPORT_REVIEW'
 ), game_pegasus_items(id) AS (
- SELECT source_ref_id FROM game_content_revisions
- WHERE game_id=?1 AND source_kind='SERVER_PEGASUS_IMPORT'
- UNION SELECT source_ref_id FROM game_metadata_revisions
- WHERE game_id=?1 AND source_kind='SERVER_PEGASUS_IMPORT'
+ SELECT metadata_source_ref_id FROM games
+ WHERE id=?1 AND metadata_source_kind='SERVER_PEGASUS_IMPORT'
+ UNION SELECT content_source_ref_id FROM games
+ WHERE id=?1 AND content_source_kind='SERVER_PEGASUS_IMPORT'
 ), game_emulationstation_items(id) AS (
- SELECT source_ref_id FROM game_content_revisions
- WHERE game_id=?1 AND source_kind='SERVER_EMULATIONSTATION_IMPORT'
- UNION SELECT source_ref_id FROM game_metadata_revisions
- WHERE game_id=?1 AND source_kind='SERVER_EMULATIONSTATION_IMPORT'
+ SELECT metadata_source_ref_id FROM games
+ WHERE id=?1 AND metadata_source_kind='SERVER_EMULATIONSTATION_IMPORT'
+ UNION SELECT content_source_ref_id FROM games
+ WHERE id=?1 AND content_source_kind='SERVER_EMULATIONSTATION_IMPORT'
 )
 SELECT count(*) FROM (
  SELECT asset.id FROM game_assets asset WHERE asset.game_id=?1 AND asset.blob_id=?2
- UNION ALL SELECT file.rowid FROM game_content_files file
- JOIN game_content_revisions revision ON revision.id=file.game_content_revision_id
- WHERE revision.game_id=?1 AND file.blob_id=?2
- UNION ALL SELECT file.rowid FROM game_content_files file
- JOIN game_content_revisions revision ON revision.id=file.game_content_revision_id
- WHERE revision.game_id=?1 AND file.source_archive_blob_id=?2
+ UNION ALL SELECT file.rowid FROM game_files file
+ WHERE file.game_id=?1 AND file.blob_id=?2
+ UNION ALL SELECT file.rowid FROM game_files file
+ WHERE file.game_id=?1 AND file.source_archive_blob_id=?2
  UNION ALL SELECT file.rowid FROM variant_files file
- JOIN game_variant_revisions revision ON revision.id=file.game_variant_revision_id
- JOIN game_variants variant ON variant.id=revision.game_variant_id
+ JOIN game_variants variant ON variant.id=file.game_variant_id
  WHERE variant.game_id=?1 AND file.blob_id=?2
  UNION ALL SELECT save.id FROM save_states save
  WHERE save.game_id=?1 AND save.payload_blob_id=?2
@@ -78,7 +75,8 @@ SELECT count(*) FROM (
  UNION ALL SELECT attachment.id FROM review_arcade_parent_attachments attachment
  WHERE attachment.import_item_id IN (SELECT id FROM game_import_items) AND attachment.accepted_blob_id=?2
  UNION ALL SELECT preview.id FROM review_preview_sessions preview
- WHERE preview.import_item_id IN (SELECT id FROM game_import_items) AND preview.content_blob_id=?2
+ WHERE preview.import_item_id IN (SELECT id FROM game_import_items)
+ AND ?2 IN (preview.content_blob_id,preview.checkpoint_payload_blob_id,preview.restore_payload_blob_id)
  UNION ALL SELECT file.rowid FROM review_preview_files file
  JOIN review_preview_sessions preview ON preview.id=file.preview_session_id
  WHERE preview.import_item_id IN (SELECT id FROM game_import_items) AND file.blob_id=?2

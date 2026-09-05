@@ -44,6 +44,12 @@
 !/data/auth/**
 !/data/netplay/
 !/data/netplay/**
+!/data/runtime-target-bindings/
+!/data/runtime-target-bindings/**
+!/data/runtime-providers/
+!/data/runtime-providers/*.lock.json
+/data/runtime-providers/installed/
+/data/runtime-providers/candidate-active.json
 
 # Git stores DAT provenance, recipes and checksums, not the five XML payloads.
 /data/dat/emulatorjs/*/fbneo/

@@ -83,7 +83,7 @@ export async function waitForJobEvents(jobId: string, onProgress?: (eventType: s
   });
 }
 
-export async function uploadFiles(inputs: UploadFileInput[], onProgress?: (message: string) => void, purpose: "GENERAL" | "RPG_MAKER_PROJECT" | "ONS_PROJECT" | "KIRIKIRI_PROJECT" | "BUTTERSCOTCH_PROJECT" | "TYRANOSCRIPT_PROJECT" | "RUNTIME_ASSET_PACK" = "GENERAL"): Promise<{ uploadId: string; uploadFileIds: string[] }> {
+export async function uploadFiles(inputs: UploadFileInput[], onProgress?: (message: string) => void, purpose: "GENERAL" | "PROJECT" | "RUNTIME_ASSET_PACK" = "GENERAL"): Promise<{ uploadId: string; uploadFileIds: string[] }> {
   if (inputs.length === 0) {throw new Error("至少选择一个文件");}
   const files = inputs.map(normalizeUploadFile);
   onProgress?.("正在创建安全上传会话…");

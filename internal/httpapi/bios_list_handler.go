@@ -32,13 +32,14 @@ func (server *Server) bios(writer http.ResponseWriter, request *http.Request) {
 	conditions, arguments := biosFilters(values, scopeSQL, parsed.status, parsed.quick)
 	filterDigest := cursor.FilterDigest(
 		map[string]any{
-			"scope":          parsed.scope,
-			"q":              strings.TrimSpace(values.Get("q")),
-			"platformId":     values.Get("platformId"),
-			"coreId":         values.Get("coreId"),
-			"coreArtifactId": values.Get("coreArtifactId"),
-			"status":         parsed.status,
-			"quick":          parsed.quick,
+			"scope":      parsed.scope,
+			"q":          strings.TrimSpace(values.Get("q")),
+			"platformId": values.Get("platformId"),
+			"coreId":     values.Get("coreId"),
+			"providerId": values.Get("providerId"),
+			"targetId":   values.Get("targetId"),
+			"status":     parsed.status,
+			"quick":      parsed.quick,
 		},
 	)
 	if token := values.Get("cursor"); token != "" {
@@ -68,12 +69,12 @@ func (server *Server) bios(writer http.ResponseWriter, request *http.Request) {
 		return
 	}
 	query := `
-SELECT requirement.id,requirement.core_id,core.name,requirement.core_artifact_id,requirement.logical_name,
+SELECT requirement.id,requirement.core_id,core.name,requirement.provider_id,requirement.target_id,
+requirement.logical_name,
 requirement.source_kind,requirement.requirement_mode,requirement.condition_code,requirement.md5,requirement.enabled,
 requirement.version,` + biosStatusExpression + `,installation.id,installation.md5,installation.sha1,installation.sha256,
 installation.validated_requirement_version,installation.created_at_ms
 FROM bios_requirements requirement JOIN cores core ON core.id=requirement.core_id
-JOIN core_artifacts artifact ON artifact.id=requirement.core_artifact_id
 LEFT JOIN bios_installations installation ON installation.requirement_id=requirement.id AND installation.is_active=1
 WHERE ` + strings.Join(conditions, " AND ") + ` ORDER BY core.name COLLATE BINARY,
 requirement.logical_name COLLATE BINARY,requirement.id COLLATE BINARY LIMIT ?`
@@ -87,13 +88,15 @@ requirement.logical_name COLLATE BINARY,requirement.id COLLATE BINARY LIMIT ?`
 	items := make([]map[string]any, 0, parsed.limit+1)
 	sortNames := make([][3]string, 0, parsed.limit+1)
 	for rows.Next() {
-		var id, coreID, coreName, artifactID, logicalName, sourceKind, mode, itemStatus string
+		var id, coreID, coreName, providerID, targetID string
+		var logicalName, sourceKind, mode, itemStatus string
 		var condition, expectedMD5, installationID, installedMD5, installedSHA1, installedSHA256 sql.NullString
 		var validatedVersion, installedAt sql.NullInt64
 		var enabled int
 		var version int64
 		if err := rows.Scan(
-			&id, &coreID, &coreName, &artifactID, &logicalName, &sourceKind, &mode, &condition,
+			&id, &coreID, &coreName, &providerID, &targetID,
+			&logicalName, &sourceKind, &mode, &condition,
 			&expectedMD5, &enabled, &version, &itemStatus, &installationID, &installedMD5,
 			&installedSHA1, &installedSHA256, &validatedVersion, &installedAt,
 		); err != nil {
@@ -106,7 +109,8 @@ requirement.logical_name COLLATE BINARY,requirement.id COLLATE BINARY LIMIT ?`
 				"id":              id,
 				"coreId":          coreID,
 				"coreName":        coreName,
-				"coreArtifactId":  artifactID,
+				"providerId":      providerID,
+				"targetId":        targetID,
 				"logicalName":     logicalName,
 				"sourceKind":      sourceKind,
 				"requirementMode": mode,
@@ -209,7 +213,8 @@ func biosFilters(values url.Values, scopeSQL, status, quick string) ([]string, [
 	}
 	for _, filter := range []struct{ name, column string }{
 		{"coreId", "requirement.core_id"},
-		{"coreArtifactId", "requirement.core_artifact_id"},
+		{"providerId", "requirement.provider_id"},
+		{"targetId", "requirement.target_id"},
 	} {
 		if value := values.Get(filter.name); value != "" {
 			conditions = append(conditions, filter.column+"=?")
@@ -249,9 +254,9 @@ func biosScopeSQL(scope string) string {
 		return "1=1"
 	}
 	return `EXISTS(SELECT 1 FROM game_variants variant
-JOIN game_variant_revisions revision ON revision.id=variant.current_revision_id
 JOIN games game ON game.id=variant.game_id
-WHERE revision.core_artifact_id=requirement.core_artifact_id AND game.status='PUBLISHED')`
+WHERE variant.provider_id=requirement.provider_id AND variant.target_id=requirement.target_id
+ AND game.status='PUBLISHED')`
 }
 
 // Aggregate SQL expressions remain aligned with the status projection above.
@@ -279,7 +284,6 @@ COALESCE(sum(CASE WHEN (requirement.requirement_mode<>'OPTIONAL' AND `+biosStatu
 COALESCE(sum(CASE WHEN requirement.requirement_mode='REQUIRED' THEN 1 ELSE 0 END),0),
 COALESCE(sum(CASE WHEN requirement.requirement_mode='OPTIONAL' THEN 1 ELSE 0 END),0)
 FROM bios_requirements requirement JOIN cores core ON core.id=requirement.core_id
-JOIN core_artifacts artifact ON artifact.id=requirement.core_artifact_id
 LEFT JOIN bios_installations installation ON installation.requirement_id=requirement.id
  AND installation.is_active=1 WHERE requirement.enabled=1 AND `+scopeSQL).Scan(
 		&total, &blocking, &warning, &ready, &attention, &required, &optional,
@@ -301,7 +305,6 @@ LEFT JOIN bios_installations installation ON installation.requirement_id=require
 	var filtered int64
 	err := server.database.QueryRowContext(request.Context(), `
 SELECT count(*) FROM bios_requirements requirement JOIN cores core ON core.id=requirement.core_id
-JOIN core_artifacts artifact ON artifact.id=requirement.core_artifact_id
 LEFT JOIN bios_installations installation ON installation.requirement_id=requirement.id
 AND installation.is_active=1 WHERE `+strings.Join(conditions, " AND "), args...).
 		Scan(&filtered)

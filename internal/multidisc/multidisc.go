@@ -14,7 +14,7 @@ import (
 )
 
 const (
-	ContentKind       = "MULTI_DISC_M3U_V1"
+	ContentKind       = "MULTI_DISC"
 	MinDiscs          = 2
 	MaxDiscs          = 8
 	MaxPlaylistBytes  = 65_536

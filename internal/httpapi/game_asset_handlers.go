@@ -12,7 +12,6 @@ import (
 
 	"retrom/internal/authn"
 	"retrom/internal/cleanup"
-	"retrom/internal/gametitle"
 	"retrom/internal/hasheous"
 	"retrom/internal/payloadrelease"
 )
@@ -26,27 +25,6 @@ type gameAssetUpload struct {
 type preparedGameAsset struct {
 	uploadID, blobID, mediaType string
 	width, height               *int64
-}
-
-func insertAdminGameMetadataRevision(
-	ctx context.Context,
-	transaction *sql.Tx,
-	revisionID, gameID string,
-	metadata gameMetadata,
-	now int64,
-) error {
-	_, err := transaction.ExecContext(ctx, `
-INSERT INTO game_metadata_revisions(
- id,game_id,title,title_initial,description,developer,publisher,genre,players,release_year,
- source_kind,source_ref_id,created_at_ms
-) VALUES(?,?,?,?,?,?,?,?,?,?,'ADMIN_EDIT',NULL,?)
-`, revisionID, gameID, metadata.Title, gametitle.Initial(metadata.Title), metadata.Description,
-		metadata.Developer, metadata.Publisher, metadata.Genre, nullableInteger(metadata.Players),
-		nullableInteger(metadata.ReleaseYear), now)
-	if err != nil {
-		return fmt.Errorf("insert admin game metadata revision: %w", err)
-	}
-	return nil
 }
 
 func validGameAssetUpload(body gameAssetUpload) bool {
@@ -126,31 +104,18 @@ func (server *Server) createGameAsset(writer http.ResponseWriter, request *http.
 		return
 	}
 	defer cleanup.Rollback(transaction)
-	currentID, metadata, version, err := currentGameAssetMetadata(
+	version, err := currentGameAssetVersion(
 		request.Context(), transaction, request.PathValue("gameId"),
 	)
 	if err != nil || version != expected {
 		writeError(writer, request, http.StatusConflict, "VERSION_CONFLICT", "游戏已被修改", map[string]any{})
 		return
 	}
-	revisionID, _ := uuid.NewV7()
 	now := server.now().UnixMilli()
-	if err := insertAdminGameMetadataRevision(
-		request.Context(), transaction, revisionID.String(), request.PathValue("gameId"), metadata, now,
-	); err != nil {
-		server.databaseError(writer, request, err)
-		return
-	}
-	if err := copyAssetsExcept(
-		request,
-		transaction,
-		request.PathValue("gameId"),
-		currentID,
-		revisionID.String(),
-		body.Kind,
-		body.Ordinal,
-		now,
-	); err != nil {
+	replacedBlobIDs, err := removeGameAssetSlot(
+		request.Context(), transaction, request.PathValue("gameId"), body.Kind, body.Ordinal,
+	)
+	if err != nil {
 		server.databaseError(writer, request, err)
 		return
 	}
@@ -158,7 +123,6 @@ func (server *Server) createGameAsset(writer http.ResponseWriter, request *http.
 	if _, err := transaction.ExecContext(request.Context(), `
 INSERT INTO game_assets(id,
 game_id,
-metadata_revision_id,
 blob_id,
 kind,
 ordinal,
@@ -173,12 +137,10 @@ created_at_ms) VALUES(?,
 ?,
 ?,
 ?,
-?,
 ?)
 `,
 		assetID,
 		request.PathValue("gameId"),
-		revisionID.String(),
 		asset.blobID,
 		body.Kind,
 		body.Ordinal,
@@ -210,13 +172,11 @@ created_at_ms) VALUES(?,
 		request.Context(),
 		`
 UPDATE games
-SET current_metadata_revision_id=?,
-version=version+1,
+SET version=version+1,
 updated_at_ms=?
 WHERE id=?
 AND version=?
 `,
-		revisionID.String(),
 		now,
 		request.PathValue("gameId"),
 		expected,
@@ -229,9 +189,7 @@ AND version=?
 		writeError(writer, request, http.StatusConflict, "VERSION_CONFLICT", "游戏已被修改", map[string]any{})
 		return
 	}
-	if err := server.retireSupersededGameAssets(
-		request.Context(), transaction, request.PathValue("gameId"), revisionID.String(),
-	); err != nil {
+	if err := server.payloadReleases.StageCandidates(request.Context(), transaction, replacedBlobIDs); err != nil {
 		server.databaseError(writer, request, err)
 		return
 	}
@@ -247,7 +205,7 @@ AND version=?
 	}
 	server.payloadReleases.Signal()
 	writeCreatedGameAsset(
-		writer, request, asset, assetID, revisionID.String(), body.Kind, body.Ordinal, expected+1, now,
+		writer, request, asset, assetID, body.Kind, body.Ordinal, expected+1, now,
 	)
 }
 
@@ -255,7 +213,7 @@ func writeCreatedGameAsset(
 	writer http.ResponseWriter,
 	request *http.Request,
 	asset preparedGameAsset,
-	assetID, revisionID, kind string,
+	assetID, kind string,
 	ordinal int64,
 	version, createdAtMS int64,
 ) {
@@ -264,16 +222,15 @@ func writeCreatedGameAsset(
 		writer,
 		http.StatusCreated,
 		map[string]any{
-			"assetId":            assetID,
-			"gameId":             request.PathValue("gameId"),
-			"metadataRevisionId": revisionID,
-			"kind":               kind,
-			"ordinal":            ordinal,
-			"widthPx":            asset.width,
-			"heightPx":           asset.height,
-			"mediaType":          asset.mediaType,
-			"version":            version,
-			"createdAtMs":        createdAtMS,
+			"assetId":     assetID,
+			"gameId":      request.PathValue("gameId"),
+			"kind":        kind,
+			"ordinal":     ordinal,
+			"widthPx":     asset.width,
+			"heightPx":    asset.height,
+			"mediaType":   asset.mediaType,
+			"version":     version,
+			"createdAtMs": createdAtMS,
 		},
 	)
 }
@@ -298,35 +255,28 @@ func (server *Server) deleteGameAsset(writer http.ResponseWriter, request *http.
 		return
 	}
 	defer cleanup.Rollback(transaction)
-	currentID, metadata, version, err := currentGameAssetMetadata(
+	version, err := currentGameAssetVersion(
 		request.Context(), transaction, request.PathValue("gameId"),
 	)
 	if err != nil || version != expected {
 		writeError(writer, request, http.StatusConflict, "VERSION_CONFLICT", "游戏已被修改", map[string]any{})
 		return
 	}
-	if !gameAssetExists(request.Context(), transaction, request.PathValue("gameId"), currentID, kind) {
+	if !gameAssetExists(request.Context(), transaction, request.PathValue("gameId"), kind) {
 		writeError(writer, request, http.StatusNotFound, "ASSET_NOT_FOUND", "媒体不存在", map[string]any{})
 		return
 	}
-	revisionID := newUUIDString()
 	now := server.now().UnixMilli()
-	if err := insertAdminGameMetadataRevision(
-		request.Context(), transaction, revisionID, request.PathValue("gameId"), metadata, now,
-	); err != nil {
-		server.databaseError(writer, request, err)
-		return
-	}
-	if err := copyAssetsExcept(
-		request, transaction, request.PathValue("gameId"), currentID, revisionID, kind, 0, now,
-	); err != nil {
+	replacedBlobIDs, err := removeGameAssetSlot(
+		request.Context(), transaction, request.PathValue("gameId"), kind, 0,
+	)
+	if err != nil {
 		server.databaseError(writer, request, err)
 		return
 	}
 	result, err := transaction.ExecContext(
 		request.Context(),
-		`UPDATE games SET current_metadata_revision_id=?,version=version+1,updated_at_ms=? WHERE id=? AND version=?`,
-		revisionID,
+		`UPDATE games SET version=version+1,updated_at_ms=? WHERE id=? AND version=?`,
 		now,
 		request.PathValue("gameId"),
 		expected,
@@ -335,9 +285,7 @@ func (server *Server) deleteGameAsset(writer http.ResponseWriter, request *http.
 		writeError(writer, request, http.StatusConflict, "VERSION_CONFLICT", "游戏已被修改", map[string]any{})
 		return
 	}
-	if err := server.retireSupersededGameAssets(
-		request.Context(), transaction, request.PathValue("gameId"), revisionID,
-	); err != nil {
+	if err := server.payloadReleases.StageCandidates(request.Context(), transaction, replacedBlobIDs); err != nil {
 		server.databaseError(writer, request, err)
 		return
 	}
@@ -350,50 +298,67 @@ func (server *Server) deleteGameAsset(writer http.ResponseWriter, request *http.
 	writer.WriteHeader(http.StatusNoContent)
 }
 
-func currentGameAssetMetadata(
+func currentGameAssetVersion(
 	ctx context.Context,
 	transaction *sql.Tx,
 	gameID string,
-) (string, gameMetadata, int64, error) {
-	var currentID string
-	var metadata gameMetadata
+) (int64, error) {
 	var version int64
 	err := transaction.QueryRowContext(ctx, `
-SELECT g.current_metadata_revision_id,
-g.version,
-m.title,
-m.description,
-m.developer,
-m.publisher,
-m.genre,
-m.players,
-m.release_year
+SELECT g.version
 FROM games g
-JOIN game_metadata_revisions m ON m.id=g.current_metadata_revision_id
 WHERE g.id=?
-AND g.status='PUBLISHED'`, gameID).Scan(
-		&currentID, &version, &metadata.Title, &metadata.Description, &metadata.Developer, &metadata.Publisher,
-		&metadata.Genre, &metadata.Players, &metadata.ReleaseYear,
-	)
+AND g.status='PUBLISHED'`, gameID).Scan(&version)
 	if err != nil {
-		return "", gameMetadata{}, 0, fmt.Errorf("httpapi/load current game asset metadata: %w", err)
+		return 0, fmt.Errorf("httpapi/load current game asset version: %w", err)
 	}
-	return currentID, metadata, version, nil
+	return version, nil
 }
 
 func gameAssetExists(
 	ctx context.Context,
 	transaction *sql.Tx,
-	gameID, metadataID, kind string,
+	gameID, kind string,
 ) bool {
 	var exists int
 	return transaction.QueryRowContext(ctx, `
 SELECT 1
 FROM game_assets
 WHERE game_id=?
-AND metadata_revision_id=?
 AND kind=?
-AND ordinal=0`, gameID, metadataID, kind).Scan(&exists) == nil
+AND ordinal=0`, gameID, kind).Scan(&exists) == nil
+}
+
+func removeGameAssetSlot(
+	ctx context.Context,
+	transaction *sql.Tx,
+	gameID, kind string,
+	ordinal int64,
+) ([]string, error) {
+	rows, err := transaction.QueryContext(ctx, `
+SELECT blob_id FROM game_assets WHERE game_id=? AND kind=? AND ordinal=? ORDER BY id
+`, gameID, kind, ordinal)
+	if err != nil {
+		return nil, fmt.Errorf("httpapi/list replaced game assets: %w", err)
+	}
+	defer func() { cleanup.Error("close", rows.Close()) }()
+	blobIDs := make([]string, 0, 1)
+	for rows.Next() {
+		var blobID string
+		if err := rows.Scan(&blobID); err != nil {
+			return nil, fmt.Errorf("httpapi/scan replaced game asset: %w", err)
+		}
+		blobIDs = append(blobIDs, blobID)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("httpapi/iterate replaced game assets: %w", err)
+	}
+	if _, err := transaction.ExecContext(ctx, `
+DELETE FROM game_assets WHERE game_id=? AND kind=? AND ordinal=?
+`, gameID, kind, ordinal); err != nil {
+		return nil, fmt.Errorf("httpapi/delete replaced game asset: %w", err)
+	}
+	return blobIDs, nil
 }
 
 func rowsAffectedHTTP(result sql.Result) int64 {
@@ -575,76 +540,6 @@ func (server *Server) createReviewAsset(writer http.ResponseWriter, request *htt
 	})
 }
 
-func copyAssetsExcept(
-	request *http.Request,
-	transaction *sql.Tx,
-	gameID, currentID, revisionID, skipKind string,
-	skipOrdinal int64,
-	now int64,
-) error {
-	rows, err := transaction.QueryContext(
-		request.Context(),
-		`
-SELECT blob_id,
-kind,
-ordinal,
-width_px,
-height_px,
-media_type
-FROM game_assets
-WHERE game_id=?
-AND metadata_revision_id=?
-ORDER BY kind,
-ordinal
-`,
-		gameID,
-		currentID,
-	)
-	if err != nil {
-		return fmt.Errorf("httpapi/game_handlers: %w", err)
-	}
-	defer func() { cleanup.Error("close", rows.Close()) }()
-	for rows.Next() {
-		var blobID, kind, mediaType string
-		var ordinal int64
-		var width, height sql.NullInt64
-		if err := rows.Scan(&blobID, &kind, &ordinal, &width, &height, &mediaType); err != nil {
-			return fmt.Errorf("httpapi/game_handlers: %w", err)
-		}
-		if kind == skipKind && ordinal == skipOrdinal {
-			continue
-		}
-		if _, err := transaction.ExecContext(request.Context(), `
-INSERT INTO game_assets(id,
-game_id,
-metadata_revision_id,
-blob_id,
-kind,
-ordinal,
-width_px,
-height_px,
-media_type,
-created_at_ms) VALUES(?,
-?,
-?,
-?,
-?,
-?,
-?,
-?,
-?,
-?)
-	`, newUUIDString(), gameID, revisionID, blobID, kind, ordinal,
-			nullableInteger(width), nullableInteger(height), mediaType, now); err != nil {
-			return fmt.Errorf("httpapi/game_handlers: %w", err)
-		}
-	}
-	if err := rows.Err(); err != nil {
-		return fmt.Errorf("scan game media: %w", err)
-	}
-	return nil
-}
-
 func newUUIDString() string {
 	value, _ := uuid.NewV7()
 	return value.String()
@@ -660,7 +555,7 @@ JOIN blobs b ON b.id=a.blob_id
 JOIN games g ON g.id=a.game_id
 WHERE a.id=?
 AND g.status='PUBLISHED'
-AND a.metadata_revision_id=g.current_metadata_revision_id
+AND a.game_id=g.id
 `, request.PathValue("assetId")).
 		Scan(&digest, &mediaType)
 	if err != nil {

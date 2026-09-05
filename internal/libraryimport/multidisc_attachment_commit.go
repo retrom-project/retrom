@@ -26,12 +26,6 @@ func (service *Service) createAcceptedMultiDiscEvidence(
 	if err != nil {
 		return acceptedMultiDiscEvidence{}, multiDiscAttachmentStoreError("resolve validation", err)
 	}
-	var baseRevision int
-	if err := transaction.QueryRowContext(ctx, `
-SELECT revision_no FROM import_item_source_snapshots WHERE id=? AND import_item_id=?
-`, candidate.input.BaseSourceSnapshotID, candidate.input.ImportItemID).Scan(&baseRevision); err != nil {
-		return acceptedMultiDiscEvidence{}, multiDiscAttachmentStoreError("read base revision", err)
-	}
 	newSnapshotID, _ := uuid.NewV7()
 	validationID, _ := uuid.NewV7()
 	evidence := acceptedMultiDiscEvidence{
@@ -39,7 +33,7 @@ SELECT revision_no FROM import_item_source_snapshots WHERE id=? AND import_item_
 		now: service.now().UnixMilli(),
 	}
 	if err := insertMultiDiscSourceSnapshot(
-		ctx, transaction, *candidate, evidence.sourceSnapshotID, baseRevision+1, evidence.now,
+		ctx, transaction, *candidate, evidence.sourceSnapshotID, evidence.now,
 	); err != nil {
 		return acceptedMultiDiscEvidence{}, err
 	}

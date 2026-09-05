@@ -12,52 +12,33 @@ import (
 	"retrom/internal/contentcapability"
 )
 
-const prepublishGeneration = 4
-
-const (
-	validatorImportV4 = "import-source-validator-v4"
-	validatorReviewV4 = "review-compatible-v4"
-	validatorArcadeV4 = "arcade-source-validator-v4"
-	validatorMultiV4  = "multi-disc-source-validator-v4"
-)
-
 type prepublishDigestInput struct {
-	SchemaVersion             int             `json:"schemaVersion"`
-	ValidatorVersion          string          `json:"validatorVersion"`
-	SourceSnapshotID          string          `json:"sourceSnapshotId"`
-	SourceManifestDigest      string          `json:"sourceManifestDigest"`
-	ContentKind               string          `json:"contentKind"`
-	TargetPlatformInstanceID  string          `json:"targetPlatformInstanceId"`
-	PlatformInstanceVersion   int64           `json:"platformInstanceVersion"`
-	CoreArtifactID            string          `json:"coreArtifactId"`
-	CoreArtifactVersion       int64           `json:"coreArtifactVersion"`
-	CompatibilityConfigDigest string          `json:"compatibilityConfigDigest"`
-	DATVersionID              *string         `json:"datVersionId"`
-	DefaultDOSEntry           *string         `json:"defaultDosEntry"`
-	DependencySnapshot        json.RawMessage `json:"dependencySnapshot"`
-	Status                    string          `json:"status"`
-	CompatibilityCode         string          `json:"compatibilityCode"`
+	SchemaVersion            int             `json:"schemaVersion"`
+	SourceSnapshotID         string          `json:"sourceSnapshotId"`
+	SourceManifestDigest     string          `json:"sourceManifestDigest"`
+	ContentKind              string          `json:"contentKind"`
+	TargetPlatformInstanceID string          `json:"targetPlatformInstanceId"`
+	ProviderID               string          `json:"providerId"`
+	TargetID                 string          `json:"targetId"`
+	ContentPolicyDigest      string          `json:"contentPolicyDigest"`
+	DATVersionID             *string         `json:"datVersionId"`
+	DefaultDOSEntry          *string         `json:"defaultDosEntry"`
+	DependencySnapshot       json.RawMessage `json:"dependencySnapshot"`
+	Status                   string          `json:"status"`
+	CompatibilityCode        string          `json:"compatibilityCode"`
 }
 
 func prepublishDigest(input prepublishDigestInput) string {
-	canonical, _ := json.Marshal(input)
+	canonical, err := json.Marshal(input)
+	if err != nil {
+		return ""
+	}
 	digest := sha256.Sum256(canonical)
 	return hex.EncodeToString(digest[:])
 }
 
 func prepublishDigestMatches(digest string, input prepublishDigestInput) bool {
-	for _, version := range []string{validatorImportV4, validatorReviewV4, validatorArcadeV4, validatorMultiV4} {
-		input.ValidatorVersion = version
-		if subtle.ConstantTimeCompare([]byte(digest), []byte(prepublishDigest(input))) == 1 {
-			return true
-		}
-	}
-	return false
-}
-
-func compatibilityConfigDigest(compatibility string) string {
-	digest := sha256.Sum256([]byte(compatibility))
-	return hex.EncodeToString(digest[:])
+	return len(digest) == 64 && subtle.ConstantTimeCompare([]byte(digest), []byte(prepublishDigest(input))) == 1
 }
 
 func nullStringPointer(value sql.NullString) *string {
@@ -89,13 +70,16 @@ func preparedGroupContentKind(group preparedGroup) string {
 }
 
 type reviewValidationEvidence struct {
-	generation, platformVersion, artifactVersion                        int64
-	sourceSnapshotID, targetID, coreID, artifactID, manifestDigest      string
-	inputDigest, status, compatibilityCode, dependencyJSON              string
-	validationDAT, validationDOS, draftDOS, activeDAT                   sql.NullString
-	draftSnapshotID, draftTargetID, snapshotManifestDigest, contentKind string
-	currentCoreID, currentArtifactID, compatibilityConfig               string
-	currentPlatformVersion, currentArtifactVersion                      int64
+	platformVersion                                                    int64
+	sourceSnapshotID, platformInstanceID, coreID, providerID, targetID string
+	manifestDigest, inputDigest, status, compatibilityCode             string
+	dependencyJSON                                                     string
+	validationDAT, validationDOS, draftDOS, activeDAT                  sql.NullString
+	draftSnapshotID, draftPlatformInstanceID, snapshotManifestDigest   string
+	contentKind                                                        string
+	contentPolicy                                                      contentcapability.Policy
+	currentCoreID                                                      string
+	currentPlatformVersion                                             int64
 }
 
 func (service *Service) readReviewValidationEvidence(
@@ -104,18 +88,17 @@ func (service *Service) readReviewValidationEvidence(
 ) (reviewValidationEvidence, error) {
 	var value reviewValidationEvidence
 	err := service.database.QueryRowContext(ctx, `
-SELECT validation.prepublish_generation,validation.platform_instance_version,
-validation.core_artifact_version,validation.source_snapshot_id,
-validation.target_platform_instance_id,validation.core_id,validation.core_artifact_id,
+SELECT validation.platform_instance_version,
+validation.source_snapshot_id,
+validation.target_platform_instance_id,validation.core_id,validation.provider_id,validation.target_id,
 validation.source_manifest_digest,validation.prepublish_input_digest,validation.status,
 validation.compatibility_code,validation.dependency_snapshot_json,validation.dat_version_id,
 validation.default_dos_entry,draft.default_dos_entry,
 (SELECT active.id FROM dat_versions active
- WHERE active.core_artifact_id=artifact.id AND active.is_active=1),
+ WHERE active.provider_id=validation.provider_id AND active.target_id=validation.target_id AND active.is_active=1),
 draft.effective_source_snapshot_id,draft.target_platform_instance_id,
-snapshot.source_manifest_digest,snapshot.content_kind,
-CASE WHEN platform.platform_id='rpgmaker' THEN rpg_profile.selected_core_id ELSE platform.default_core_id END,
-artifact.id,artifact.compatibility_json,platform.version,artifact.version
+snapshot.source_manifest_digest,snapshot.content_kind,platform.default_core_id,platform.version,
+`+contentcapability.BindingPolicySQL+`
 FROM import_item_core_validations validation
 JOIN import_items item ON item.id=validation.import_item_id AND item.state='REVIEW_PENDING'
 JOIN review_drafts draft ON draft.import_item_id=item.id
@@ -123,21 +106,21 @@ JOIN import_item_source_snapshots snapshot ON snapshot.id=draft.effective_source
 JOIN platform_instances platform ON platform.id=draft.target_platform_instance_id
 AND platform.enabled=1 AND platform.deleted_at_ms IS NULL
 LEFT JOIN rpgmaker_review_profiles rpg_profile ON rpg_profile.review_draft_id=draft.id
-JOIN core_artifacts artifact ON artifact.id=CASE
- WHEN platform.platform_id='rpgmaker' THEN rpg_profile.artifact_id ELSE (
- SELECT selected.id FROM core_artifacts selected
- WHERE selected.core_id=platform.default_core_id AND selected.selected_for_new_bindings=1
-) END
+JOIN runtime_targets target ON target.provider_id=validation.provider_id AND target.target_id=validation.target_id
+JOIN runtime_target_bindings binding ON binding.provider_id=target.provider_id AND binding.target_id=target.target_id
+ AND binding.launch_policy!='DISABLED'
+JOIN runtime_binding_platforms binding_platform ON binding_platform.binding_id=binding.binding_id
+ AND binding_platform.platform_id=platform.platform_id
 WHERE validation.id=?
 `, validationID).Scan(
-		&value.generation, &value.platformVersion, &value.artifactVersion,
-		&value.sourceSnapshotID, &value.targetID, &value.coreID, &value.artifactID,
+		&value.platformVersion,
+		&value.sourceSnapshotID, &value.platformInstanceID, &value.coreID,
+		&value.providerID, &value.targetID,
 		&value.manifestDigest, &value.inputDigest, &value.status, &value.compatibilityCode,
 		&value.dependencyJSON, &value.validationDAT, &value.validationDOS, &value.draftDOS,
-		&value.activeDAT, &value.draftSnapshotID, &value.draftTargetID,
+		&value.activeDAT, &value.draftSnapshotID, &value.draftPlatformInstanceID,
 		&value.snapshotManifestDigest, &value.contentKind, &value.currentCoreID,
-		&value.currentArtifactID, &value.compatibilityConfig,
-		&value.currentPlatformVersion, &value.currentArtifactVersion,
+		&value.currentPlatformVersion, &value.contentPolicy,
 	)
 	if err != nil {
 		return reviewValidationEvidence{}, fmt.Errorf("libraryimport/review validation evidence: %w", err)
@@ -150,25 +133,24 @@ func nullableStringsEqual(left, right sql.NullString) bool {
 }
 
 func (value reviewValidationEvidence) currentInput() (prepublishDigestInput, bool) {
-	current := value.generation == prepublishGeneration && value.sourceSnapshotID == value.draftSnapshotID &&
-		value.targetID == value.draftTargetID && value.platformVersion == value.currentPlatformVersion &&
-		value.coreID == value.currentCoreID && value.artifactID == value.currentArtifactID &&
-		value.artifactVersion == value.currentArtifactVersion && value.manifestDigest == value.snapshotManifestDigest &&
+	current := value.sourceSnapshotID == value.draftSnapshotID &&
+		value.platformInstanceID == value.draftPlatformInstanceID &&
+		value.coreID == value.currentCoreID && value.manifestDigest == value.snapshotManifestDigest &&
 		nullableStringsEqual(value.validationDAT, value.activeDAT) &&
 		nullableStringsEqual(value.validationDOS, value.draftDOS) &&
-		contentcapability.SupportsContentKind(value.compatibilityConfig, value.contentKind)
+		value.contentPolicy.Supports(value.contentKind)
 	if !current {
 		return prepublishDigestInput{}, false
 	}
 	return prepublishDigestInput{
 		SchemaVersion: 1, SourceSnapshotID: value.sourceSnapshotID,
 		SourceManifestDigest: value.manifestDigest, ContentKind: value.contentKind,
-		TargetPlatformInstanceID: value.targetID, PlatformInstanceVersion: value.platformVersion,
-		CoreArtifactID: value.artifactID, CoreArtifactVersion: value.artifactVersion,
-		CompatibilityConfigDigest: compatibilityConfigDigest(value.compatibilityConfig),
-		DATVersionID:              nullStringPointer(value.validationDAT),
-		DefaultDOSEntry:           nullStringPointer(value.validationDOS),
-		DependencySnapshot:        json.RawMessage(value.dependencyJSON), Status: value.status,
+		TargetPlatformInstanceID: value.platformInstanceID,
+		ProviderID:               value.providerID, TargetID: value.targetID,
+		ContentPolicyDigest: value.contentPolicy.DigestFor(value.contentKind),
+		DATVersionID:        nullStringPointer(value.validationDAT),
+		DefaultDOSEntry:     nullStringPointer(value.validationDOS),
+		DependencySnapshot:  json.RawMessage(value.dependencyJSON), Status: value.status,
 		CompatibilityCode: value.compatibilityCode,
 	}, true
 }
@@ -182,5 +164,11 @@ func (service *Service) ReviewValidationCurrent(ctx context.Context, validationI
 	if !current {
 		return false, nil
 	}
-	return prepublishDigestMatches(value.inputDigest, input), nil
+	if !prepublishDigestMatches(value.inputDigest, input) {
+		return false, nil
+	}
+	if value.contentKind == "RPG_MAKER_PROJECT" {
+		return service.currentRPGReviewDependencies(ctx, validationID, value)
+	}
+	return true, nil
 }

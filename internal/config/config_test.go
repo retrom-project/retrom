@@ -77,30 +77,54 @@ func TestParseRPGRuntimeOriginTemplateRequiresUniqueLaunchLabelAndMatchingScheme
 }
 
 func TestPFBCandidateBoundaryRequiresTestModeAndMatchingLocalOrigin(t *testing.T) {
-	dependencyRoot := t.TempDir()
-	runtimeRoot := filepath.Join(dependencyRoot, "runtime", "rpgmaker", "v1")
-	if err := os.MkdirAll(runtimeRoot, 0o700); err != nil {
-		t.Fatal(err)
-	}
 	identifier := "feature-a1b2c3d4e5f6"
-	marker := `{"schemaVersion":1,"kind":"RETROM_PFB_CANDIDATE_V1","pfbId":"` + identifier + `","formalManifestSha256":"` + strings.Repeat("a", 64) + `","runtime":{},"cores":[],"runtimeFiles":[],"artifacts":[],"filesSha256":"` + strings.Repeat("b", 64) + `","overlaySha256":"` + strings.Repeat("c", 64) + `"}`
-	if err := os.WriteFile(filepath.Join(runtimeRoot, ".retrom-pfb-candidate.json"), []byte(marker), 0o600); err != nil {
-		t.Fatal(err)
-	}
 	origin, err := parsePublicOrigin("http://"+identifier+".localhost:3000", true)
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Setenv("RETROM_PFB_ID", identifier)
-	if err := validatePFBBoundary(ModeTest, dependencyRoot, origin); err != nil {
+	pfbID, err := validatePFBBoundary(ModeTest, origin)
+	if err != nil {
 		t.Fatalf("valid PFB boundary rejected: %v", err)
 	}
-	if err := validatePFBBoundary(ModeRelease, dependencyRoot, origin); err == nil {
+	if pfbID != identifier {
+		t.Fatalf("PFB ID = %q, want %q", pfbID, identifier)
+	}
+	if _, err := validatePFBBoundary(ModeRelease, origin); err == nil {
 		t.Fatal("release mode accepted PFB candidate")
 	}
 	t.Setenv("RETROM_PFB_ID", "different-aaaaaaaaaaaa")
-	if err := validatePFBBoundary(ModeTest, dependencyRoot, origin); err == nil {
+	if _, err := validatePFBBoundary(ModeTest, origin); err == nil {
 		t.Fatal("mismatched PFB ID accepted")
+	}
+	t.Setenv("RETROM_PFB_ID", "")
+	if pfbID, err := validatePFBBoundary(ModeRelease, origin); err != nil || pfbID != "" {
+		t.Fatalf("non-PFB release boundary = %q, %v", pfbID, err)
+	}
+}
+
+func TestPFBProviderDevBoundaryFailsClosedOutsideMatchingTestPFB(t *testing.T) {
+	root := t.TempDir()
+	identifier := "feature-a1b2c3d4e5f6"
+	if value, err := validateProviderDevBoundary(ModeTest, identifier, root); err != nil || value != root {
+		t.Fatalf("matching test PFB dev root = %q, %v", value, err)
+	}
+	for _, test := range []struct {
+		name string
+		mode Mode
+		pfb  string
+		root string
+	}{
+		{name: "release", mode: ModeRelease, pfb: identifier, root: root},
+		{name: "missing PFB id", mode: ModeTest, root: root},
+		{name: "missing dev root", mode: ModeTest, pfb: identifier},
+		{name: "relative dev root", mode: ModeTest, pfb: identifier, root: "relative"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			if _, err := validateProviderDevBoundary(test.mode, test.pfb, test.root); err == nil {
+				t.Fatal("loose provider boundary accepted invalid configuration")
+			}
+		})
 	}
 }
 

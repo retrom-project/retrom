@@ -34,6 +34,7 @@ func openEmulationStationSchemaFixture(t *testing.T) emulationStationSchemaFixtu
 	})
 	testassert.False(t, err != nil, err)
 	t.Cleanup(func() { cleanup.Error("close", database.Close()) })
+	seedSchemaProductDefinitions(t, database.SQL)
 	fixture := emulationStationSchemaFixture{
 		database: database,
 		importID: "00000000-0000-7000-8000-000000000001",
@@ -142,14 +143,19 @@ func (fixture emulationStationSchemaFixture) seedLibraryReview(t *testing.T) (st
 	jobID := "00000000-0000-7000-8000-000000000020"
 	itemID := "00000000-0000-7000-8000-000000000022"
 	_, err := fixture.database.SQL.ExecContext(t.Context(), `
-INSERT INTO core_artifacts(
- id,core_id,route_key,runtime_family,runtime_adapter_kind,runtime_version,adapter_id,entry_path,
- size_bytes,sha256,manifest_sha256,artifact_set_sha256,requires_threads,save_payload_kind,
- save_max_bytes,provenance_json,compatibility_json,selected_for_new_bindings,available_for_launch,
- version,created_at_ms,updated_at_ms
-) VALUES('artifact-schema','fceumm','DEFAULT','EMULATORJS','EMULATORJS','test','emulatorjs-v1',
- 'cores/schema.js',1,?,?,?,0,'RUNTIME_STATE',67108864,'{}','{}',1,1,1,1,1)
+INSERT INTO runtime_providers(
+ provider_id,provider_version,provider_api_version,bundle_sha256,manifest_sha256,module_sha256,
+ source,activated_at_ms
+) VALUES('emulatorjs','1.0.0',1,?,?,?,'candidate',1)
 `, testDigestA, testDigestB, testDigestC)
+	testassert.False(t, err != nil, err)
+	_, err = fixture.database.SQL.ExecContext(t.Context(), `
+INSERT INTO runtime_targets(
+ provider_id,target_id,display_name,target_options_schema_json,capabilities_json,checkpoint_json,manifest_fragment_json
+) VALUES('emulatorjs','fceumm','FCEUmm',
+ '{"type":"object","additionalProperties":false,"properties":{},"required":[]}','{}',
+ '{"writeFormat":"checkpoint-v1","readFormats":["checkpoint-v1"],"maxBytes":67108864}','{}')
+`)
 	testassert.False(t, err != nil, err)
 	_, err = fixture.database.SQL.ExecContext(t.Context(), `
 INSERT INTO platform_instances(
@@ -166,9 +172,9 @@ INSERT INTO upload_sessions(
 	_, err = fixture.database.SQL.ExecContext(t.Context(), `
 INSERT INTO import_jobs(
  id,upload_session_id,target_platform_instance_id,platform_instance_version,platform_id,default_core_id,
- core_artifact_id,metadata_provider,config_snapshot_json,config_snapshot_digest,state,total_item_count,
+ provider_id,target_id,metadata_provider,config_snapshot_json,config_snapshot_digest,state,total_item_count,
  review_pending_item_count,created_at_ms,updated_at_ms
-) VALUES(?,'upload-schema','platform-schema',1,'nes','fceumm','artifact-schema','NONE','{}',?,
+) VALUES(?,'upload-schema','platform-schema',1,'nes','fceumm','emulatorjs','fceumm','NONE','{}',?,
  'REVIEW_PENDING',1,1,1,1)
 `, jobID, testDigestC)
 	testassert.False(t, err != nil, err)

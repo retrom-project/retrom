@@ -23,11 +23,8 @@ import (
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
 	"retrom/internal/dependencies"
-	"retrom/internal/launch"
 	"retrom/internal/libraryimport"
 	"retrom/internal/payloadrelease"
-	"retrom/internal/rpgmaker/runtimevalidation"
-	retromruntime "retrom/internal/runtime"
 	"retrom/internal/testassert"
 	"retrom/internal/testsupport"
 	"retrom/internal/uploads"
@@ -57,31 +54,16 @@ func TestRPGMakerReplacementKeepsPublishedGeneration(t *testing.T) {
 		UploadID: initialUpload, TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(
 			t, database.SQL, "rpgmaker/rpgmaker",
 		),
-		MetadataProvider: "NONE", ContentMode: "RPG_MAKER_PROJECT_V1",
+		MetadataProvider: "NONE", ContentMode: "RPG_MAKER_PROJECT",
 	})
 	testassert.False(t, err != nil, err)
 	itemID := importItemID(t, ctx, database.SQL, created.ImportJobID)
-	validation, err := runtimevalidation.New(database.SQL, blobs, time.Now).Create(ctx, itemID, 1)
-	testassert.False(t, err != nil, err)
-	if _, err := database.SQL.ExecContext(ctx, `
-INSERT INTO profiles(id,display_name,created_at_ms) VALUES('rpg-replacement-profile','RPG replacement',0)
-`); err != nil {
-		t.Fatal(err)
-	}
-	credentials, err := retromruntime.LoadOrCreateCredentials(dataDir)
-	testassert.False(t, err != nil, err)
-	if _, err := launch.New(database.SQL, dependencySet, credentials, time.Now).CreateRPGValidation(
-		ctx, "rpg-replacement-profile", validation.ValidationID, "/admin/reviews/"+itemID,
-		launch.Capabilities{},
-	); err != nil {
-		t.Fatal(err)
-	}
 	published, err := importer.Approve(ctx, itemID, 1)
 	testassert.False(t, err != nil, err)
 	var originalContent string
 	var gameVersion int64
 	if err := database.SQL.QueryRowContext(ctx, `
-SELECT current_content_revision_id,version FROM games WHERE id=?
+SELECT id,version FROM games WHERE id=?
 `, published.GameID).Scan(&originalContent, &gameVersion); err != nil {
 		t.Fatal(err)
 	}
@@ -94,10 +76,10 @@ SELECT current_content_revision_id,version FROM games WHERE id=?
 	} else if binding.rpgGeneration != "RPG2000" {
 		t.Fatalf("RPG replacement binding = %#v", binding)
 	}
-	upgradedArtifactID := installRPGMakerRuntimeUpgrade(t, ctx, database.SQL, "rpgmaker_2000")
+	installRPGMakerRuntimeUpgrade(t, ctx, database.SQL)
 	if binding, bindingErr := loadReplacementBinding(ctx, database.SQL, published.GameID); bindingErr != nil {
 		t.Fatalf("load upgraded RPG replacement binding: %v", bindingErr)
-	} else if binding.artifactID != upgradedArtifactID || binding.rpgGeneration != "RPG2000" {
+	} else if binding.rpgGeneration != "RPG2000" {
 		t.Fatalf("upgraded RPG replacement binding = %#v", binding)
 	}
 
@@ -106,44 +88,42 @@ SELECT current_content_revision_id,version FROM games WHERE id=?
 	uploadValidationTx, err := database.SQL.BeginTx(ctx, nil)
 	testassert.False(t, err != nil, err)
 	if validationErr := validateReplacementUpload(
-		ctx, uploadValidationTx, sameGenerationUpload, "RPG_MAKER_PROJECT_V1", "rpgmaker",
+		ctx, uploadValidationTx, sameGenerationUpload, "RPG_MAKER_PROJECT", "rpgmaker",
 	); validationErr != nil {
 		t.Fatalf("validate RPG replacement upload: %v", validationErr)
 	}
 	cleanup.Rollback(uploadValidationTx)
 	sameGeneration, err := service.ScheduleMode(
-		ctx, published.GameID, sameGenerationUpload, "RPG_MAKER_PROJECT_V1", gameVersion,
+		ctx, published.GameID, sameGenerationUpload, "RPG_MAKER_PROJECT", gameVersion,
 	)
 	testassert.False(t, err != nil, err)
 	waitForJob(t, ctx, database.SQL, sameGeneration.JobID, "SUCCEEDED")
-	var replacementContent, generation, runtimeValidationID, replacementArtifactID string
+	var replacementContent, generation string
 	var replacementVersion int64
 	if err := database.SQL.QueryRowContext(ctx, `
-SELECT game.current_content_revision_id,game.version,content.evidence_generation,
-       COALESCE(profile.runtime_validation_id,''),revision.core_artifact_id
+SELECT game.id,game.version,content.evidence_generation
 FROM games game
-JOIN rpgmaker_content_profiles content ON content.content_revision_id=game.current_content_revision_id
+JOIN rpgmaker_game_profiles content ON content.game_id=game.id
 JOIN game_variants variant ON variant.game_id=game.id
-JOIN game_variant_revisions revision ON revision.id=variant.current_revision_id
-JOIN rpgmaker_variant_profiles profile ON profile.game_variant_revision_id=variant.current_revision_id
-WHERE game.id=? AND variant.core_id='rpgmaker_2000'
+JOIN rpgmaker_variant_profiles profile ON profile.game_variant_id=variant.id
+WHERE game.id=? AND variant.core_id='rpgmaker'
 `, published.GameID).Scan(
-		&replacementContent, &replacementVersion, &generation, &runtimeValidationID, &replacementArtifactID,
+		&replacementContent, &replacementVersion, &generation,
 	); err != nil {
 		t.Fatal(err)
 	}
-	if replacementContent == originalContent || replacementVersion != gameVersion+1 ||
-		generation != "RPG2000" || runtimeValidationID != "" || replacementArtifactID != upgradedArtifactID {
+	if replacementContent != originalContent || replacementVersion != gameVersion+1 ||
+		generation != "RPG2000" {
 		t.Fatalf(
-			"same-generation replacement = %s/%d/%s/%q/%s",
-			replacementContent, replacementVersion, generation, runtimeValidationID, replacementArtifactID,
+			"same-generation replacement = %s/%d/%s",
+			replacementContent, replacementVersion, generation,
 		)
 	}
 
 	rpg2003 := rpgMakerFixtureFiles(t, filepath.Join(repositoryRoot, "testdata/public-roms/rpgmaker-smoke/rpg2003"))
 	differentGenerationUpload := completeRPGMakerDirectoryUpload(t, ctx, database.SQL, uploadService, rpg2003)
 	differentGeneration, err := service.ScheduleMode(
-		ctx, published.GameID, differentGenerationUpload, "RPG_MAKER_PROJECT_V1", replacementVersion,
+		ctx, published.GameID, differentGenerationUpload, "RPG_MAKER_PROJECT", replacementVersion,
 	)
 	testassert.False(t, err != nil, err)
 	waitForJob(t, ctx, database.SQL, differentGeneration.JobID, "FAILED")
@@ -153,53 +133,24 @@ WHERE game.id=? AND variant.core_id='rpgmaker_2000'
 	)
 }
 
-func installRPGMakerRuntimeUpgrade(t *testing.T, ctx context.Context, database *sql.DB, coreID string) string {
+func installRPGMakerRuntimeUpgrade(t *testing.T, ctx context.Context, database *sql.DB) {
 	t.Helper()
 	transaction, err := database.BeginTx(ctx, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer cleanup.Rollback(transaction)
-	var previousID string
-	if err := transaction.QueryRowContext(ctx, `
-SELECT id FROM core_artifacts
-WHERE core_id=? AND runtime_family='RPGMAKER'
-  AND selected_for_new_bindings=1 AND available_for_launch=1
-`, coreID).Scan(&previousID); err != nil {
-		t.Fatal(err)
-	}
 	now := time.Now().UnixMilli()
+	bundle := sha256.Sum256([]byte("RPG Maker replacement forward Provider Bundle fixture"))
 	if _, err := transaction.ExecContext(ctx, `
-UPDATE core_artifacts
-SET selected_for_new_bindings=0,available_for_launch=0,version=version+1,updated_at_ms=?
-WHERE id=?
-`, now, previousID); err != nil {
-		t.Fatal(err)
-	}
-	upgradedID, err := uuid.NewV7()
-	if err != nil {
-		t.Fatal(err)
-	}
-	artifactSet := sha256.Sum256([]byte("RPG Maker replacement forward runtime fixture"))
-	if _, err := transaction.ExecContext(ctx, `
-INSERT INTO core_artifacts(
- id,core_id,route_key,runtime_family,runtime_adapter_kind,runtime_version,adapter_id,
- entry_path,size_bytes,sha256,manifest_sha256,artifact_set_sha256,requires_threads,
- save_payload_kind,save_max_bytes,provenance_json,compatibility_json,
- selected_for_new_bindings,available_for_launch,version,created_at_ms,updated_at_ms
-)
-SELECT ?,core_id,route_key,runtime_family,runtime_adapter_kind,'test-forward-runtime',adapter_id,
-       entry_path,size_bytes,sha256,manifest_sha256,?,requires_threads,
-       save_payload_kind,save_max_bytes,provenance_json,compatibility_json,
-       1,1,1,?,?
-FROM core_artifacts WHERE id=?
-`, upgradedID.String(), fmt.Sprintf("%x", artifactSet), now, now, previousID); err != nil {
+UPDATE runtime_providers SET provider_version='1.1.0',bundle_sha256=?,activated_at_ms=?
+WHERE provider_id='retrom-runtime'
+`, fmt.Sprintf("%x", bundle), now); err != nil {
 		t.Fatal(err)
 	}
 	if err := transaction.Commit(); err != nil {
 		t.Fatal(err)
 	}
-	return upgradedID.String()
 }
 
 func rpgMakerFixtureFiles(t *testing.T, root string) map[string][]byte {
@@ -248,7 +199,7 @@ func completeRPGMakerDirectoryUpload(
 		})
 	}
 	session, err := service.Create(ctx, uploads.CreateRequest{
-		Purpose: "RPG_MAKER_PROJECT", SourceType: "DIRECTORY", Files: declarations,
+		Purpose: "PROJECT", SourceType: "DIRECTORY", Files: declarations,
 	})
 	testassert.False(t, err != nil, err)
 	for index, name := range paths {
@@ -343,14 +294,13 @@ WHERE import_job_id=?
 	}
 	published, err := libraryimport.New(database.SQL, time.Now).Approve(ctx, itemID, 1)
 	testassert.False(t, err != nil, err)
-	var originalContent string
+	var originalContent, originalBlobID string
 	var initialVersion int64
 	if err := database.SQL.QueryRowContext(ctx, `
-SELECT current_content_revision_id,
-version
-FROM games
-WHERE id=?
-`, published.GameID).Scan(&originalContent, &initialVersion); err != nil {
+SELECT game.id,game.version,file.blob_id
+FROM games game JOIN game_files file ON file.game_id=game.id
+WHERE game.id=? ORDER BY file.sort_order LIMIT 1
+`, published.GameID).Scan(&originalContent, &initialVersion, &originalBlobID); err != nil {
 		t.Fatal(err)
 	}
 
@@ -401,30 +351,30 @@ WHERE id=?
 	var replacementContent string
 	var replacedVersion int64
 	if err := database.SQL.QueryRowContext(ctx, `
-SELECT current_content_revision_id,
+SELECT id,
 version
 FROM games
 WHERE id=?
 `, published.GameID).Scan(&replacementContent, &replacedVersion); err != nil {
 		t.Fatal(err)
 	}
-	testassert.Falsef(t, testassert.Any(func() bool { return replacementContent == originalContent }, func() bool { return replacedVersion != initialVersion+1 }), "content/version = %s/%d, wanted new/%d", replacementContent, replacedVersion, initialVersion+1)
+	testassert.Falsef(t, testassert.Any(func() bool { return replacementContent != originalContent }, func() bool { return replacedVersion != initialVersion+1 }), "content/version = %s/%d, wanted stable/%d", replacementContent, replacedVersion, initialVersion+1)
 	var sourceKind, sourceRef, variantContent string
 	if err := database.SQL.QueryRowContext(ctx, `
-SELECT c.source_kind,
-c.source_ref_id,
-r.game_content_revision_id
-FROM game_content_revisions c
-JOIN game_variant_revisions r ON r.game_content_revision_id=c.id
-JOIN game_variants v ON v.current_revision_id=r.id
+SELECT c.content_source_kind,
+c.content_source_ref_id,
+v.game_id
+FROM games c
+JOIN game_variants v ON v.game_id=c.id
 WHERE c.id=?
 `, replacementContent).Scan(&sourceKind, &sourceRef, &variantContent); err != nil {
 		t.Fatal(err)
 	}
-	testassert.Falsef(t, testassert.Any(func() bool { return sourceKind != "ADMIN_REPLACE" }, func() bool { return sourceRef != scheduled.JobID }, func() bool { return variantContent != replacementContent }), "published revision = %s/%s/%s", sourceKind, sourceRef, variantContent)
+	testassert.Falsef(t, testassert.Any(func() bool { return sourceKind != "ADMIN_REPLACE" }, func() bool { return sourceRef != scheduled.JobID }, func() bool { return variantContent != replacementContent }), "published content = %s/%s/%s", sourceKind, sourceRef, variantContent)
 	assertSupersededContentReleased(
 		t, ctx, database.SQL, published.GameID, originalContent, saveID, launchID, savePayloads,
 	)
+	assertBlobReferenceState(t, ctx, database.SQL, originalBlobID, false)
 	retainedSaveID, _, _ := seedReplacementSave(t, ctx, database.SQL, blobs, published.GameID)
 
 	if _, err := database.SQL.ExecContext(ctx, `
@@ -442,7 +392,7 @@ WHERE id=?
 	waitForJob(t, ctx, database.SQL, failed.JobID, "FAILED")
 	var afterFailure string
 	if err := database.SQL.QueryRowContext(ctx, `
-SELECT current_content_revision_id
+SELECT id
 FROM games
 WHERE id=?
 `, published.GameID).Scan(&afterFailure); err != nil {
@@ -455,18 +405,16 @@ WHERE id=?
 	).Scan(&retainedSaveCount); err != nil || retainedSaveCount != 1 {
 		t.Fatalf("failed replacement retained save count = %d, error=%v", retainedSaveCount, err)
 	}
-	var failedRevisionCount int
+	var failedReplacementCount int
 	if err := database.SQL.QueryRowContext(ctx, `
-SELECT count(*)
-FROM game_content_revisions
-WHERE source_ref_id=?
-`, failed.JobID).Scan(&failedRevisionCount); err != nil ||
-		failedRevisionCount != 0 {
-		t.Fatalf("failed revision count = %d, error=%v", failedRevisionCount, err)
+SELECT count(*) FROM games WHERE content_source_ref_id=?
+`, failed.JobID).Scan(&failedReplacementCount); err != nil ||
+		failedReplacementCount != 0 {
+		t.Fatalf("failed replacement count = %d, error=%v", failedReplacementCount, err)
 	}
 }
 
-func TestMultiDiscReplacementPublishesCompleteRevisionAndRejectsMissingDisc(t *testing.T) {
+func TestMultiDiscReplacementPublishesCompleteContentAndRejectsMissingDisc(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 	dataDir := t.TempDir()
@@ -499,11 +447,13 @@ func TestMultiDiscReplacementPublishesCompleteRevisionAndRejectsMissingDisc(t *t
 	}
 	published, err := importer.Approve(ctx, itemID, 1)
 	testassert.False(t, err != nil, err)
-	var originalContentID string
+	var originalContentID, originalBlobID string
 	var gameVersion int64
 	if err := database.SQL.QueryRowContext(ctx, `
-SELECT current_content_revision_id,version FROM games WHERE id=?
-`, published.GameID).Scan(&originalContentID, &gameVersion); err != nil {
+SELECT game.id,game.version,file.blob_id
+FROM games game JOIN game_files file ON file.game_id=game.id
+WHERE game.id=? ORDER BY file.sort_order LIMIT 1
+`, published.GameID).Scan(&originalContentID, &gameVersion, &originalBlobID); err != nil {
 		t.Fatal(err)
 	}
 	replacementUpload := completeDirectoryUpload(t, ctx, database.SQL, uploadService, map[string][]byte{
@@ -518,26 +468,26 @@ SELECT current_content_revision_id,version FROM games WHERE id=?
 	service := New(database.SQL, time.Now).WithBlobStore(blobs).
 		WithPayloadRelease(releaseService).WithMultiDiscImportEnabled(true)
 	scheduled, err := service.ScheduleMode(
-		ctx, published.GameID, replacementUpload, "MULTI_DISC_M3U_V1", gameVersion,
+		ctx, published.GameID, replacementUpload, "MULTI_DISC", gameVersion,
 	)
 	testassert.False(t, err != nil, err)
 	waitForJob(t, ctx, database.SQL, scheduled.JobID, "SUCCEEDED")
 	var currentContentID, contentKind string
 	var replacedVersion int64
 	if err := database.SQL.QueryRowContext(ctx, `
-SELECT game.current_content_revision_id,game.version,content.content_kind
-FROM games game JOIN game_content_revisions content ON content.id=game.current_content_revision_id
+SELECT game.id,game.version,content.content_kind
+FROM games game JOIN games content ON content.id=game.id
 WHERE game.id=?
 `, published.GameID).Scan(&currentContentID, &replacedVersion, &contentKind); err != nil {
 		t.Fatal(err)
 	}
-	testassert.Falsef(t, testassert.Any(func() bool { return currentContentID == originalContentID }, func() bool { return replacedVersion != gameVersion+1 }, func() bool { return contentKind != "MULTI_DISC_M3U_V1" }), "replacement = %s/%d/%s", currentContentID, replacedVersion, contentKind)
-	assertContentPayloadCount(t, ctx, database.SQL, originalContentID, 0)
+	testassert.Falsef(t, testassert.Any(func() bool { return currentContentID != originalContentID }, func() bool { return replacedVersion != gameVersion+1 }, func() bool { return contentKind != "MULTI_DISC" }), "replacement = %s/%d/%s", currentContentID, replacedVersion, contentKind)
+	assertBlobReferenceState(t, ctx, database.SQL, originalBlobID, false)
 	var discCount, playlistCount int
 	if err := database.SQL.QueryRowContext(ctx, `
-SELECT (SELECT count(*) FROM game_content_files WHERE game_content_revision_id=? AND role='DISC'),
+SELECT (SELECT count(*) FROM game_files WHERE game_id=? AND role='DISC'),
        (SELECT count(*) FROM game_variants variant
-        JOIN variant_files file ON file.game_variant_revision_id=variant.current_revision_id
+        JOIN variant_files file ON file.game_variant_id=variant.id
         WHERE variant.game_id=? AND file.role='MULTI_DISC_PLAYLIST')
 `, currentContentID, published.GameID).Scan(&discCount, &playlistCount); err != nil ||
 		discCount != 2 || playlistCount != 1 {
@@ -548,7 +498,7 @@ SELECT (SELECT count(*) FROM game_content_files WHERE game_content_revision_id=?
 		"broken/one.chd":  fakeReplacementCHD("one-new"),
 	})
 	failed, err := service.ScheduleMode(
-		ctx, published.GameID, missingUpload, "MULTI_DISC_M3U_V1", replacedVersion,
+		ctx, published.GameID, missingUpload, "MULTI_DISC", replacedVersion,
 	)
 	testassert.False(t, err != nil, err)
 	waitForJob(t, ctx, database.SQL, failed.JobID, "FAILED")
@@ -557,7 +507,7 @@ SELECT (SELECT count(*) FROM game_content_files WHERE game_content_revision_id=?
 		Scan(&errorCode); err != nil {
 		t.Fatal(err)
 	}
-	if err := database.SQL.QueryRowContext(ctx, `SELECT current_content_revision_id FROM games WHERE id=?`,
+	if err := database.SQL.QueryRowContext(ctx, `SELECT id FROM games WHERE id=?`,
 		published.GameID).Scan(&afterFailure); err != nil {
 		t.Fatal(err)
 	}
@@ -569,7 +519,7 @@ SELECT (SELECT count(*) FROM game_content_files WHERE game_content_revision_id=?
 		"same/two.chd":  fakeReplacementCHD("two"),
 	})
 	unchanged, err := service.ScheduleMode(
-		ctx, published.GameID, unchangedUpload, "MULTI_DISC_M3U_V1", replacedVersion,
+		ctx, published.GameID, unchangedUpload, "MULTI_DISC", replacedVersion,
 	)
 	testassert.False(t, err != nil, err)
 	waitForJob(t, ctx, database.SQL, unchanged.JobID, "FAILED")
@@ -581,9 +531,9 @@ SELECT (SELECT count(*) FROM game_content_files WHERE game_content_revision_id=?
 	var sharedDiscBlobID, retiredDiscBlobID string
 	if err := database.SQL.QueryRowContext(ctx, `
 SELECT
- (SELECT blob_id FROM game_content_files WHERE game_content_revision_id=? AND role='DISC'
+ (SELECT blob_id FROM game_files WHERE game_id=? AND role='DISC'
   ORDER BY sort_order LIMIT 1),
- (SELECT blob_id FROM game_content_files WHERE game_content_revision_id=? AND role='DISC'
+ (SELECT blob_id FROM game_files WHERE game_id=? AND role='DISC'
   ORDER BY sort_order LIMIT 1 OFFSET 1)
 `, currentContentID, currentContentID).Scan(&sharedDiscBlobID, &retiredDiscBlobID); err != nil {
 		t.Fatal(err)
@@ -594,16 +544,15 @@ SELECT
 		"next/two.chd":  fakeReplacementCHD("two-new"),
 	})
 	changed, err := service.ScheduleMode(
-		ctx, published.GameID, partialChangeUpload, "MULTI_DISC_M3U_V1", replacedVersion,
+		ctx, published.GameID, partialChangeUpload, "MULTI_DISC", replacedVersion,
 	)
 	testassert.False(t, err != nil, err)
 	waitForJob(t, ctx, database.SQL, changed.JobID, "SUCCEEDED")
 	var latestContentID string
-	if err := database.SQL.QueryRowContext(ctx, `SELECT current_content_revision_id FROM games WHERE id=?`,
+	if err := database.SQL.QueryRowContext(ctx, `SELECT id FROM games WHERE id=?`,
 		published.GameID).Scan(&latestContentID); err != nil {
 		t.Fatal(err)
 	}
-	assertContentPayloadCount(t, ctx, database.SQL, currentContentID, 0)
 	assertContentPayloadCount(t, ctx, database.SQL, latestContentID, 3)
 	assertBlobReferenceState(t, ctx, database.SQL, sharedDiscBlobID, true)
 	assertBlobReferenceState(t, ctx, database.SQL, retiredDiscBlobID, false)

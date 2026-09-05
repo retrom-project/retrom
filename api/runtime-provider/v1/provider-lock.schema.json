@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://retrom.dev/schema/runtime-provider/v1/provider-lock.schema.json",
+  "title": "Retrom Runtime Provider Lock V1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "providerId",
+    "providerVersion",
+    "repository",
+    "tag",
+    "commit",
+    "bundleUrl",
+    "bundleSha256",
+    "bundleSizeBytes",
+    "unpackedSizeBytes",
+    "fileCount",
+    "manifestSha256"
+  ],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "providerId": {
+      "type": "string",
+      "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$"
+    },
+    "providerVersion": {
+      "type": "string",
+      "pattern": "^(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)(?:-(?:0|[1-9][0-9]*|[0-9A-Za-z-]*[A-Za-z-][0-9A-Za-z-]*)(?:\\.(?:0|[1-9][0-9]*|[0-9A-Za-z-]*[A-Za-z-][0-9A-Za-z-]*))*)?$"
+    },
+    "repository": { "type": "string", "format": "uri", "pattern": "^https://" },
+    "tag": { "type": "string", "pattern": "^v[0-9]+\\.[0-9]+\\.[0-9]+$" },
+    "commit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "bundleUrl": { "type": "string", "format": "uri", "pattern": "^https://" },
+    "bundleSha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "bundleSizeBytes": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
+    "unpackedSizeBytes": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
+    "fileCount": { "type": "integer", "minimum": 3, "maximum": 100000 },
+    "manifestSha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+  }
+}

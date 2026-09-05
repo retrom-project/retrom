@@ -21,7 +21,7 @@ flowchart LR
     Artifact --> Source["Core source commit + 关联证据"]
     Source --> Dat["DAT bytes + SHA-256"]
     Dat --> Snapshot["解析器版本 + 依赖快照"]
-    Snapshot --> Variant["GameVariantRevision 锁定版本"]
+    Snapshot --> Variant["GameVariant 锁定版本"]
 ~~~
 
 只保存 `core_id + dat_version` 不足以复现运行环境；数据库中的 `dat_versions` 还必须关联 EmulatorJS version 和实际 core artifact hash。
@@ -104,7 +104,7 @@ manifest 为每个核心单独保存 `association_status`。FBNeo 与 MAME2003-P
 - 两份文件都是仓库生成器输出的 Logiqx `datafile/game`，声明名分别精确为 `fbalpha2012_cps1`、`fbalpha2012_cps2`，版本均为 `0.2.97.29`。
 - CPS-1 为 227 machines、5,355 ROM、1,554 merge、56 NODUMP、190 clone/romof；CPS-2 为 284 machines、5,047 ROM、3,275 merge、1 NODUMP、243 clone/romof。两者全部 ROM 都没有 SHA-1，非 NODUMP ROM 均有 CRC32。
 - 两份 DAT 都没有 explicit BIOS machine、biosset、ROM bios 属性或 base dependency target，因此不会生成 `DAT_MACHINE` BIOS Requirement；这不允许把空依赖结论推广到其他 FBA/FBNeo core。
-- 后端与前端使用同一封闭的五 family 集合。每份 FBA2012 DAT 只接受自己的声明名与目标 CoreArtifact；跨家族上传、导入或 Launch 必须拒绝，不能回退 FBNeo family。
+- 后端与前端使用同一封闭的五 family 集合。每份 FBA2012 DAT 只接受自己的声明名与目标 Provider Target；跨家族上传、导入或 Launch 必须拒绝，不能回退 FBNeo family。
 
 因此 BIOS 管理页面的数据模型固定使用统一的 `dependency_kind = BIOS_OR_BASE_ARCHIVE`，并保留 `classification_source = EXPLICIT_ISBIOS | ROMOF_INFERENCE`。UI 可以展示为 BIOS 依赖，但诊断详情必须能说明推导依据。
 
@@ -113,8 +113,8 @@ manifest 为每个核心单独保存 `association_status`。FBNeo 与 MAME2003-P
 1. Git 只跟踪 manifest/校验表；本地在 `make dev` 前执行 `make prepare-deps`，镜像在 dependency builder stage 执行同一固定来源配方。禁止浮动版本。
 2. 应用同步启动阶段只验证 manifest schema、DAT size 和 SHA-256，不联网；再创建或复用 `PENDING/READY` 的 `dat_versions` 及唯一 `DAT_PARSE` Job，绝不把未解析版本标为 active。
 3. 同时验证实际部署的 EmulatorJS version 及 core artifact SHA-256；未命中 manifest 的 core 不自动绑定内置 DAT。
-4. Worker 以 `core_artifact_id + dat_sha256 + parser_version` 复用解析结果；冷库在后台解析期间 live 但不 ready，成功发布索引后由启动引导激活 manifest 指定的精确版本，并停用同 artifact 的其他 BUILTIN 版本。原始 DAT 不在每次启动游戏时重新解析；确定性失败使当前 enabled artifact 保持 `DEPENDENCY_DAT_PARSE_FAILED`，不得用空索引进入 ready。
-5. `GameVariantRevision` 锁定 core artifact 和 DAT version；release manifest 的 DAT 选择变化只触发后续重校验/新 revision，不静默改写已有快照。
+4. Worker 以 `provider_id + target_id + bundle_sha256 + dat_sha256 + parser_version` 复用解析结果；冷库在后台解析期间 live 但不 ready，成功发布索引后由启动引导激活 manifest 指定的精确版本，并停用同 artifact 的其他 BUILTIN 版本。原始 DAT 不在每次启动游戏时重新解析；确定性失败使当前 enabled artifact 保持 `DEPENDENCY_DAT_PARSE_FAILED`，不得用空索引进入 ready。
+5. `GameVariant` 保存当前 core、稳定 Provider/Target 与 DAT 选择；release manifest 的 DAT 选择变化只触发受影响 Variant 重校验并原子更新当前态。已创建 Launch 继续使用创建时冻结的 Bundle、DAT/依赖摘要与物化资源，不被后台改写。
 6. 运行时只接受 manifest 固定并通过 SHA-256 校验的内置 DAT；没有用户上传、兼容性确认或候选版本分支。
 
 ## 7. 统一升级验收入口

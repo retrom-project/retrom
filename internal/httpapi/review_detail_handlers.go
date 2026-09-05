@@ -22,18 +22,15 @@ d.version,
 d.updated_at_ms,
 pi.id,
 pi.name,
-current_artifact.compatibility_json,
-current_artifact.runtime_version,
+` + contentcapability.BindingPolicySQL + `,
 v.id,
 v.status,
 v.compatibility_code,
 v.dependency_snapshot_json,
-validation_artifact.runtime_version,
 d.selected_validation_id,
 source_snapshot.id,
 source_snapshot.source_manifest_json,
 source_snapshot.content_kind,
-v.prepublish_generation,
 d.selected_candidate_id,
 d.cover_candidate_asset_id,
 d.cover_uploaded_asset_id,
@@ -44,12 +41,24 @@ JOIN review_drafts d ON d.import_item_id=i.id
 JOIN import_item_source_snapshots source_snapshot ON source_snapshot.id=d.effective_source_snapshot_id
 JOIN platform_instances pi ON pi.id=d.target_platform_instance_id
 LEFT JOIN rpgmaker_review_profiles rpg_profile ON rpg_profile.review_draft_id=d.id
-JOIN core_artifacts current_artifact ON current_artifact.id=CASE
- WHEN pi.platform_id='rpgmaker' THEN rpg_profile.artifact_id ELSE (
-   SELECT selected.id FROM core_artifacts selected
-   WHERE selected.core_id=pi.default_core_id
-     AND selected.selected_for_new_bindings=1 AND selected.available_for_launch=1
- ) END
+JOIN runtime_targets current_target ON current_target.provider_id=COALESCE(rpg_profile.provider_id,(
+ SELECT binding.provider_id FROM runtime_target_bindings binding
+ JOIN runtime_binding_platforms binding_platform ON binding_platform.binding_id=binding.binding_id
+  AND binding_platform.platform_id=pi.platform_id AND binding_platform.core_id=pi.default_core_id
+ JOIN runtime_binding_content_kinds binding_kind ON binding_kind.binding_id=binding.binding_id
+  AND binding_kind.content_kind=source_snapshot.content_kind
+ WHERE binding.core_id=pi.default_core_id AND binding.launch_policy<>'DISABLED' LIMIT 1
+)) AND current_target.target_id=COALESCE(rpg_profile.target_id,(
+ SELECT binding.target_id FROM runtime_target_bindings binding
+ JOIN runtime_binding_platforms binding_platform ON binding_platform.binding_id=binding.binding_id
+  AND binding_platform.platform_id=pi.platform_id AND binding_platform.core_id=pi.default_core_id
+ JOIN runtime_binding_content_kinds binding_kind ON binding_kind.binding_id=binding.binding_id
+  AND binding_kind.content_kind=source_snapshot.content_kind
+ WHERE binding.core_id=pi.default_core_id AND binding.launch_policy<>'DISABLED' LIMIT 1
+))
+JOIN runtime_target_bindings binding
+ ON binding.provider_id=current_target.provider_id AND binding.target_id=current_target.target_id
+ AND binding.launch_policy<>'DISABLED'
 LEFT JOIN import_item_core_validations v ON v.id=COALESCE(d.selected_validation_id,(
   SELECT candidate.id
 FROM import_item_core_validations candidate
@@ -58,7 +67,6 @@ AND candidate.source_snapshot_id=d.effective_source_snapshot_id
 AND candidate.target_platform_instance_id=d.target_platform_instance_id
 ORDER BY candidate.created_at_ms DESC,
 candidate.id DESC LIMIT 1))
-LEFT JOIN core_artifacts validation_artifact ON validation_artifact.id=v.core_artifact_id
 WHERE i.id=?
 AND i.state='REVIEW_PENDING'
 AND (i.review_handoff_kind='DIRECT' OR EXISTS(
@@ -80,10 +88,10 @@ AND NOT EXISTS(
 // Contract branches stay contiguous for a single auditable decision.
 func (server *Server) review(writer http.ResponseWriter, request *http.Request) {
 	var itemID, importJobID, metadata, platformID, platformName, sourceSnapshotID, sourceManifest string
-	var sourceContentKind, currentArtifactCompatibility, currentRuntimeVersion string
-	var validationID, validationStatus, compatibilityCode, dependencySnapshot, validationRuntimeVersion sql.NullString
+	var sourceContentKind string
+	var contentPolicy contentcapability.Policy
+	var validationID, validationStatus, compatibilityCode, dependencySnapshot sql.NullString
 	var selectedValidationID sql.NullString
-	var validationGeneration sql.NullInt64
 	var selectedCandidateID, coverID, uploadedCoverID, backgroundID, defaultDOSEntry sql.NullString
 	var version, updatedAtMS int64
 	err := server.database.QueryRowContext(
@@ -97,18 +105,15 @@ func (server *Server) review(writer http.ResponseWriter, request *http.Request) 
 			&updatedAtMS,
 			&platformID,
 			&platformName,
-			&currentArtifactCompatibility,
-			&currentRuntimeVersion,
+			&contentPolicy,
 			&validationID,
 			&validationStatus,
 			&compatibilityCode,
 			&dependencySnapshot,
-			&validationRuntimeVersion,
 			&selectedValidationID,
 			&sourceSnapshotID,
 			&sourceManifest,
 			&sourceContentKind,
-			&validationGeneration,
 			&selectedCandidateID,
 			&coverID,
 			&uploadedCoverID,
@@ -128,19 +133,19 @@ func (server *Server) review(writer http.ResponseWriter, request *http.Request) 
 	evidence, err := server.loadReviewEvidence(request, itemID, sourceSnapshotID, reviewValidationInput{
 		validationID: validationID, validationStatus: validationStatus,
 		compatibilityCode: compatibilityCode, dependencyValue: dependencyValue,
-		validationGeneration: validationGeneration, selectedValidationID: selectedValidationID,
-		artifactCompatibility: currentArtifactCompatibility, sourceContentKind: sourceContentKind,
+		selectedValidationID: selectedValidationID,
+		contentPolicy:        contentPolicy, sourceContentKind: sourceContentKind,
 	})
 	if err != nil {
 		server.databaseError(writer, request, err)
 		return
 	}
-	rpgMaker, hasRPGMaker, err := server.reviewRPGMaker(request.Context(), itemID)
+	rpgMaker, err := server.reviewRPGMaker(request.Context(), itemID)
 	if err != nil {
 		server.databaseError(writer, request, err)
 		return
 	}
-	canApprove := reviewApproval(&evidence, rpgMaker, hasRPGMaker)
+	canApprove := reviewApproval(&evidence)
 	reviewTags, err := server.activeReviewTags(request.Context(), itemID)
 	if err != nil {
 		server.databaseError(writer, request, err)
@@ -155,19 +160,12 @@ func (server *Server) review(writer http.ResponseWriter, request *http.Request) 
 			"name": platformName,
 		}, "metadata": metadataValue, "sourceManifest": sourceValue,
 		"validation": evidence.validation.value, "candidates": evidence.candidates,
-		"scrapeRuns":      evidence.scrapeRuns,
-		"validationStale": evidence.validation.stale,
-		"runtimeVersionChange": runtimeVersionChange(
-			evidence.validation.stale,
-			validationRuntimeVersion,
-			currentRuntimeVersion,
-		),
-		"selectedValidationGeneration": evidence.validation.selectedGeneration,
-		"canApprove":                   canApprove,
-		"uploadedAssets":               evidence.uploadedAssets, "sourceFiles": evidence.sourceFiles,
+		"scrapeRuns":     evidence.scrapeRuns,
+		"canApprove":     canApprove,
+		"uploadedAssets": evidence.uploadedAssets, "sourceFiles": evidence.sourceFiles,
 		"sourceMedia":       evidence.sourceMedia.value,
 		"runtimeScreenshot": evidence.runtimeScreenshot.value,
-		"rpgMaker":          rpgMaker,
+		"rpgMaker":          rpgMaker.value,
 		"duplicateGames":    evidence.duplicateGames, "contentIdentityDigest": evidence.contentIdentityDigest,
 		"arcadeDependencies":  evidence.arcadeDependencies,
 		"multiDisc":           evidence.multiDisc,
@@ -182,13 +180,6 @@ func (server *Server) review(writer http.ResponseWriter, request *http.Request) 
 	})
 }
 
-func runtimeVersionChange(stale bool, previous sql.NullString, current string) any {
-	if !stale || !previous.Valid || previous.String == current {
-		return nil
-	}
-	return map[string]string{"previous": previous.String, "current": current}
-}
-
 func reviewDocuments(metadata, sourceManifest string) (any, any) {
 	var metadataValue, sourceValue any
 	_ = json.Unmarshal([]byte(metadata), &metadataValue)
@@ -201,15 +192,9 @@ func reviewDocuments(metadata, sourceManifest string) (any, any) {
 
 func reviewApproval(
 	evidence *reviewEvidence,
-	rpgMaker *reviewRPGMakerProjection,
-	hasRPGMaker bool,
 ) bool {
 	gateReviewMultiDiscAttachment(evidence.multiDisc, evidence.validation.stale)
-	if !hasRPGMaker {
-		return evidence.validation.canApprove || evidence.runtimeScreenshot.value != nil
-	}
-	evidence.runtimeScreenshot = optionalReviewProjection{}
-	return rpgMaker.canApprove
+	return evidence.validation.canApprove || evidence.runtimeScreenshot.value != nil
 }
 
 type reviewEvidence struct {
@@ -292,15 +277,18 @@ func (server *Server) reviewRuntimeScreenshot(
 	if !validationCurrent || !validationID.Valid {
 		return optionalReviewProjection{}, nil
 	}
-	var id, coreArtifactID string
+	var id, providerID, targetID string
 	var width, height, capturedAtMS int64
 	err := server.database.QueryRowContext(ctx, `
-SELECT screenshot.id,screenshot.core_artifact_id,screenshot.width_px,screenshot.height_px,screenshot.captured_at_ms
+SELECT screenshot.id,screenshot.provider_id,screenshot.target_id,
+screenshot.width_px,screenshot.height_px,screenshot.captured_at_ms
 FROM review_runtime_screenshots screenshot
 JOIN review_drafts draft ON draft.import_item_id=screenshot.import_item_id
 WHERE screenshot.import_item_id=? AND screenshot.validation_id=?
 AND screenshot.source_snapshot_id=draft.effective_source_snapshot_id
-`, itemID, validationID.String).Scan(&id, &coreArtifactID, &width, &height, &capturedAtMS)
+`, itemID, validationID.String).Scan(
+		&id, &providerID, &targetID, &width, &height, &capturedAtMS,
+	)
 	if errors.Is(err, sql.ErrNoRows) {
 		return optionalReviewProjection{}, nil
 	}
@@ -308,8 +296,9 @@ AND screenshot.source_snapshot_id=draft.effective_source_snapshot_id
 		return optionalReviewProjection{}, fmt.Errorf("review runtime screenshot: %w", err)
 	}
 	return optionalReviewProjection{value: map[string]any{
-		"screenshotId": id, "validationId": validationID.String, "coreArtifactId": coreArtifactID,
-		"widthPx": width, "heightPx": height, "capturedAfterMs": int64(5_000),
+		"screenshotId": id, "validationId": validationID.String, "providerId": providerID,
+		"targetId": targetID,
+		"widthPx":  width, "heightPx": height,
 		"capturedAtMs": capturedAtMS, "url": "/api/v1/admin/review-assets/" + id,
 	}}, nil
 }
@@ -413,14 +402,14 @@ FROM source
 
 type reviewValidationInput struct {
 	validationID, validationStatus, compatibilityCode, selectedValidationID sql.NullString
-	validationGeneration                                                    sql.NullInt64
 	dependencyValue                                                         any
-	artifactCompatibility, sourceContentKind                                string
+	sourceContentKind                                                       string
+	contentPolicy                                                           contentcapability.Policy
 }
 
 type reviewValidationResult struct {
-	value, selectedGeneration any
-	stale, canApprove         bool
+	value             any
+	stale, canApprove bool
 }
 
 func (server *Server) reviewValidationProjection(
@@ -434,22 +423,16 @@ func (server *Server) reviewValidationProjection(
 	if err != nil {
 		return reviewValidationResult{}, fmt.Errorf("review validation projection: %w", err)
 	}
-	selectedGeneration := any(nil)
-	if input.selectedValidationID.Valid {
-		selectedGeneration = nullableInt64(input.validationGeneration)
-	}
 	return reviewValidationResult{
 		value: map[string]any{
 			"id": input.validationID.String, "status": input.validationStatus.String,
 			"current":            evidenceCurrent && input.validationStatus.String == "READY",
-			"generation":         nullableInt64(input.validationGeneration),
 			"compatibilityCode":  input.compatibilityCode.String,
 			"dependencySnapshot": input.dependencyValue,
 		},
-		selectedGeneration: selectedGeneration,
-		stale:              !evidenceCurrent,
+		stale: !evidenceCurrent,
 		canApprove: input.selectedValidationID.Valid && evidenceCurrent && input.validationStatus.String == "READY" &&
-			contentcapability.SupportsContentKind(input.artifactCompatibility, input.sourceContentKind),
+			input.contentPolicy.Supports(input.sourceContentKind),
 	}, nil
 }
 
@@ -674,7 +657,7 @@ ORDER BY min(s.sort_order),f.relative_path,f.id
 }
 
 func projectReviewArchiveFormat(sourceContentKind, sourceName string, storedFormat any) any {
-	if sourceContentKind == "TYRANOSCRIPT_PROJECT_V1" && storedFormat == "ZIP" &&
+	if sourceContentKind == "TYRANOSCRIPT_PROJECT" && storedFormat == "ZIP" &&
 		strings.EqualFold(path.Ext(sourceName), ".exe") {
 		return "NWJS_EXECUTABLE"
 	}

@@ -62,10 +62,10 @@ func (service *Service) prepareReplacement(
 	snapshot jobSnapshot,
 	files []uploadedFile,
 ) (preparedReplacement, error) {
-	if snapshot.ContentMode == contentcapability.ModeRPGMakerProjectV1 {
+	if snapshot.ContentMode == contentcapability.ModeRPGMakerProject {
 		return service.prepareRPGMakerReplacement(ctx, snapshot, files)
 	}
-	if snapshot.ContentMode != contentcapability.ModeMultiDiscM3UV1 {
+	if snapshot.ContentMode != contentcapability.ModeMultiDisc {
 		if len(files) == 0 || snapshot.PlatformID != "dos" && len(files) != 1 ||
 			snapshot.PlatformID == "arcade" && !strings.EqualFold(filepath.Ext(files[0].logicalName), ".zip") {
 			return preparedReplacement{}, &replacementValidationError{code: "GAME_CONTENT_GROUP_INVALID"}
@@ -319,7 +319,7 @@ FROM jobs WHERE id=? AND state='FAILED'
 	var consumptionID string
 	if err := transaction.QueryRowContext(ctx, `
 SELECT id FROM upload_consumptions
-WHERE consumer_type='GAME_FILE_REVISION_JOB' AND consumer_id=?
+WHERE consumer_type='GAME_CONTENT_REPLACE_JOB' AND consumer_id=?
 `, jobID).Scan(&consumptionID); err != nil {
 		return
 	}

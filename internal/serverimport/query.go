@@ -137,7 +137,8 @@ func (service *Service) Items(
 	}
 	arguments = append(arguments, limit)
 	rows, err := service.database.QueryContext(ctx, `
-SELECT item.requirement_id,item.core_id,item.core_name_snapshot,item.core_artifact_id,item.logical_name,
+SELECT item.requirement_id,item.core_id,item.core_name_snapshot,item.provider_id,item.target_id,
+item.logical_name,
 item.requirement_mode,
 item.source_kind,item.state,item.candidate_count,item.match_method,item.outcome_code,item.selection_details_json,
 selected.relative_path,previous.status,replacement.status,
@@ -161,7 +162,8 @@ WHERE `+strings.Join(conditions, " AND ")+`
 		var details sql.NullString
 		var replaced int
 		if err := rows.Scan(
-			&item.RequirementID, &item.CoreID, &item.CoreName, &item.CoreArtifactID, &item.LogicalName,
+			&item.RequirementID, &item.CoreID, &item.CoreName, &item.ProviderID, &item.TargetID,
+			&item.LogicalName,
 			&item.RequirementMode, &item.SourceKind, &item.State, &item.CandidateCount, &item.MatchMethod,
 			&item.OutcomeCode, &details, &item.SelectedRelativePath, &item.PreviousInstallationStatus,
 			&item.NewInstallationStatus, &replaced,

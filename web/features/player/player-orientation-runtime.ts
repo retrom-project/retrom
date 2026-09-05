@@ -1,16 +1,15 @@
 "use client";
 
-import { useCallback, useEffect, type Dispatch, type RefObject, type SetStateAction } from "react";
-import { setEmulatorPaused } from "./pause-control";
+import { useCallback, useEffect, type Dispatch, type SetStateAction } from "react";
 import { observeStableOrientation, portraitPlayerQuery, reducePlayerOrientation, requestFullscreenAndLandscape, type PlayerOrientationEffect, type PlayerOrientationState } from "./orientation";
-import type { EmulatorInstance, PlayerConfig } from "./adapters/ejs-4.2.3-v2";
+import type {PlayerRuntimeV1} from "./runtime/contract";
 import type { NetplayController } from "./netplay/controller";
 
 type Mutable<T> = { current: T };
 
 type OrientationParams = {
-  frameRef: RefObject<HTMLIFrameElement | null>; playerMode: Mutable<PlayerConfig["mode"]>; netplayController: Mutable<NetplayController | null>;
-  emulator: Mutable<EmulatorInstance | undefined>; pausedRef: Mutable<boolean>; netplayPausedRef: Mutable<boolean>;
+  playerMode: Mutable<"single" | "netplay">; netplayController: Mutable<NetplayController | null>;
+  runtime: Mutable<PlayerRuntimeV1 | null>; pausedRef: Mutable<boolean>; netplayPausedRef: Mutable<boolean>;
   orientationStateRef: Mutable<PlayerOrientationState>; setOrientationState: Dispatch<SetStateAction<PlayerOrientationState>>;
   setPaused: Dispatch<SetStateAction<boolean>>; setOrientationHelp: Dispatch<SetStateAction<string>>;
   requestNetplayPause: (action: "pause" | "resume") => Promise<boolean>; showControls: () => void; showToast: (message: string, timeout?: number) => void;
@@ -50,27 +49,28 @@ export function usePlayerOrientationRuntime(params: OrientationParams) {
 
 async function runOrientationEffect(effect: PlayerOrientationEffect | undefined, queue: PlayerOrientationEffect[], params: OrientationParams) {
   if (effect === "release-input") {releaseInput(params); return;}
-  if (effect === "pause-single") {pauseSingle(params); return;}
-  if (effect === "resume-single") {resumeSingle(params); return;}
+  if (effect === "pause-single") {await pauseSingle(params); return;}
+  if (effect === "resume-single") {await resumeSingle(params); return;}
   if (effect === "pause-netplay") {await pauseNetplay(queue, params); return;}
   if (effect === "resume-netplay") {if (!await params.requestNetplayPause("resume")) {params.showToast("无法自动恢复联机，请由房主手动继续。", 4_000);} return;}
   if (effect === "warn-netplay-p2") {params.showToast("本局仍在进行，请立即横屏。", 4_000);}
 }
 
 function releaseInput(params: OrientationParams) {
-  params.frameRef.current?.blur();
-  params.frameRef.current?.contentWindow?.dispatchEvent(new Event("blur"));
+  if (document.activeElement instanceof HTMLElement) {document.activeElement.blur();}
   if (params.playerMode.current === "netplay") {params.netplayController.current?.handleFocusLoss();}
 }
 
-function pauseSingle(params: OrientationParams) {
-  if (!setEmulatorPaused(params.emulator.current, true)) {return;}
+async function pauseSingle(params: OrientationParams) {
+  if (!params.runtime.current?.getCapabilities().pause) {return;}
+  await params.runtime.current.pause();
   params.pausedRef.current = true;
   params.setPaused(true);
 }
 
-function resumeSingle(params: OrientationParams) {
-  if (document.visibilityState !== "visible" || !setEmulatorPaused(params.emulator.current, false)) {return;}
+async function resumeSingle(params: OrientationParams) {
+  if (document.visibilityState !== "visible" || !params.runtime.current?.getCapabilities().pause) {return;}
+  await params.runtime.current.resume();
   params.pausedRef.current = false;
   params.setPaused(false);
   params.showControls();

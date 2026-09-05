@@ -18,10 +18,10 @@ INSERT INTO jobs(
 const insertImportJobSQL = `
 INSERT INTO import_jobs(
   id,upload_session_id,target_platform_instance_id,platform_instance_version,platform_id,
-  default_core_id,core_artifact_id,dat_version_id,metadata_provider,config_snapshot_json,
+  default_core_id,provider_id,target_id,dat_version_id,metadata_provider,config_snapshot_json,
   config_snapshot_digest,state,total_item_count,running_item_count,review_pending_item_count,
   ignored_file_count,rejected_file_count,version,created_at_ms,updated_at_ms,completed_at_ms
-) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,1,?,?,?)
+) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,1,?,?,?)
 `
 
 func (run *creationRun) insertJob(configJSON []byte, configDigest string) error {
@@ -56,7 +56,8 @@ func (run *creationRun) insertImport(configJSON []byte, configDigest string) err
 		run.ctx,
 		insertImportJobSQL,
 		run.importID, run.plan.request.UploadID, run.plan.request.TargetPlatformInstanceID,
-		target.instanceVersion, target.platformID, target.defaultCoreID, target.artifactID, nullable(run.plan.datID),
+		target.instanceVersion, target.platformID, target.defaultCoreID, target.providerID, target.targetID,
+		nullable(run.plan.datID),
 		run.plan.request.MetadataProvider, string(configJSON), configDigest, run.progress.state,
 		len(run.plan.groups), run.progress.runningItems, run.progress.reviewPendingItems,
 		ignored, rejected, run.now, run.now, run.completedAt,
@@ -143,13 +144,13 @@ func (run *creationRun) updateQueuedImport(configJSON []byte, configDigest strin
 	target := run.plan.target
 	result, err := run.transaction.ExecContext(run.ctx, `
 UPDATE import_jobs
-SET core_artifact_id=?,dat_version_id=?,config_snapshot_json=?,config_snapshot_digest=?,
+SET provider_id=?,target_id=?,dat_version_id=?,config_snapshot_json=?,config_snapshot_digest=?,
  state=?,total_item_count=?,queued_item_count=0,running_item_count=?,review_pending_item_count=?,
  published_item_count=0,discarded_item_count=0,failed_item_count=0,cancelled_item_count=0,
  ignored_file_count=?,rejected_file_count=?,last_error_code=NULL,version=version+1,
  updated_at_ms=?,completed_at_ms=?
 WHERE id=? AND state='RUNNING'
-`, target.artifactID, nullable(run.plan.datID), string(configJSON), configDigest,
+`, target.providerID, target.targetID, nullable(run.plan.datID), string(configJSON), configDigest,
 		run.progress.state, len(run.plan.groups), run.progress.runningItems, run.progress.reviewPendingItems,
 		ignored, rejected, run.now, run.completedAt, run.importID)
 	if err != nil {

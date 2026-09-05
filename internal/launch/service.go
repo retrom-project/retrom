@@ -5,7 +5,10 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"net/url"
 	"time"
+
+	"retrom/internal/contentcapability"
 
 	"github.com/google/uuid"
 
@@ -13,6 +16,8 @@ import (
 	"retrom/internal/cleanup"
 	"retrom/internal/dependencies"
 	retromruntime "retrom/internal/runtime"
+	"retrom/internal/runtimecatalog"
+	"retrom/internal/runtimelaunch"
 )
 
 var (
@@ -59,29 +64,14 @@ type NetplayCreateRequest struct {
 	ProfileID               string
 	PlayerNo                int
 	GameID                  string
-	GameVariantRevisionID   string
-	CoreArtifactID          string
+	GameVariantID           string
+	ProviderID              string
+	TargetID                string
+	BundleSHA256            string
 	ReturnTo                string
 	ClientCapabilities      Capabilities
 	CredentialGeneration    int64
 	NetplayCredentialSHA256 []byte
-}
-
-type artifactCompatibility struct {
-	SchemaVersion             int                          `json:"schemaVersion"`
-	RuntimeCoreID             string                       `json:"runtimeCoreId"`
-	AdapterABI                string                       `json:"adapterAbi"`
-	RequestedArtifactBasename string                       `json:"requestedArtifactBasename"`
-	CanvasResizePolicy        string                       `json:"canvasResizePolicy"`
-	DefaultOptions            map[string]string            `json:"defaultOptions"`
-	InputMode                 string                       `json:"inputMode"`
-	StartupActions            []dependencies.StartupAction `json:"startupActions"`
-	SupportedContentKinds     []string                     `json:"supportedContentKinds,omitempty"`
-	MultiDisc                 *struct {
-		MaxDiscs      int    `json:"maxDiscs"`
-		MaxTotalBytes int64  `json:"maxTotalBytes"`
-		Delivery      string `json:"delivery"`
-	} `json:"multiDisc,omitempty"`
 }
 
 type Service struct {
@@ -91,6 +81,18 @@ type Service struct {
 	blobs                    *blobstore.Store
 	rpgRuntimeOriginTemplate string
 	now                      func() time.Time
+	runtimeCatalog           runtimecatalog.Catalog
+	runtimeBuilder           *runtimelaunch.Builder
+	publicOrigin             string
+}
+
+func (service *Service) WithRuntimeProvider(
+	catalog runtimecatalog.Catalog,
+	builder *runtimelaunch.Builder,
+) *Service {
+	service.runtimeCatalog = catalog
+	service.runtimeBuilder = builder
+	return service
 }
 
 func New(
@@ -112,13 +114,37 @@ func (service *Service) WithRPGRuntimeOriginTemplate(template string) *Service {
 	return service
 }
 
+func (service *Service) WithPublicOrigin(origin string) *Service {
+	service.publicOrigin = origin
+	return service
+}
+
+func (service *Service) netplaySocketURL(roomID string) (string, error) {
+	origin, err := url.Parse(service.publicOrigin)
+	if err != nil || origin.Host == "" || origin.RawQuery != "" || origin.Fragment != "" || origin.Path != "" {
+		return "", ErrCredential
+	}
+	switch origin.Scheme {
+	case "http":
+		origin.Scheme = "ws"
+	case "https":
+		origin.Scheme = "wss"
+	default:
+		return "", ErrCredential
+	}
+	origin.Path = "/runtime/netplay/rooms/" + roomID + "/socket"
+	return origin.String(), nil
+}
+
 func (service *Service) SaveAccess(ctx context.Context, launchID, capability string) (string, error) {
 	var credentialHash []byte
 	var state, access string
 	var hardExpires int64
 	if err := service.database.QueryRowContext(ctx, `
 SELECT credential_sha256,state,hard_expires_at_ms,save_access FROM launch_sessions WHERE id=?
-`, launchID).Scan(&credentialHash, &state, &hardExpires, &access); err != nil ||
+UNION ALL
+SELECT credential_sha256,state,hard_expires_at_ms,'NORMAL' FROM review_preview_sessions WHERE id=?
+`, launchID, launchID).Scan(&credentialHash, &state, &hardExpires, &access); err != nil ||
 		!retromruntime.MatchesCapability(capability, credentialHash) || hardExpires <= service.now().UnixMilli() ||
 		state == "FINISHED" || state == "EXPIRED" || state == "REVOKED" {
 		return "", ErrCredential
@@ -133,7 +159,7 @@ func (service *Service) CreateNetplay(ctx context.Context, request NetplayCreate
 	if !validNetplayCreateRequest(request) {
 		return Created{}, ErrBlocked
 	}
-	contentPlan, err := service.prepareNetplayLaunch(ctx, request)
+	preparation, err := service.prepareNetplayLaunch(ctx, request)
 	if err != nil {
 		return Created{}, err
 	}
@@ -153,57 +179,73 @@ func (service *Service) CreateNetplay(ctx context.Context, request NetplayCreate
 	if binding.participantState != "LOCKED" || binding.generation != 0 || request.CredentialGeneration != 1 {
 		return Created{}, ErrBlocked
 	}
-	return service.insertNetplayLaunch(ctx, transaction, request, contentPlan, now)
+	return service.insertNetplayLaunch(ctx, transaction, request, preparation, now)
 }
 
 func validNetplayCreateRequest(request NetplayCreateRequest) bool {
 	return request.ProfileID != "" && request.PlayerNo >= 1 && request.PlayerNo <= 4 &&
+		request.ProviderID != "" && request.TargetID != "" && len(request.BundleSHA256) == 64 &&
 		request.CredentialGeneration >= 1 && len(request.NetplayCredentialSHA256) == 32 &&
 		request.ReturnTo == "/netplay/rooms/"+request.RoomID
 }
 
+type netplayLaunchPreparation struct {
+	selection launchSelection
+	content   launchContentPlan
+}
+
 func (service *Service) prepareNetplayLaunch(
 	ctx context.Context, request NetplayCreateRequest,
-) (launchContentPlan, error) {
-	var selectedCore, emulatorVersion, contentKind string
-	var requiresThreads int
+) (netplayLaunchPreparation, error) {
+	if service.runtimeBuilder == nil {
+		return netplayLaunchPreparation{}, ErrBlocked
+	}
+	var selection launchSelection
 	err := service.database.QueryRowContext(ctx, `
-SELECT artifact.core_id,artifact.runtime_version,artifact.requires_threads,content.content_kind
+SELECT variant.id,variant.core_id,session.provider_id,session.target_id,
+ session.bundle_sha256,game.id,game.content_kind,
+ binding.delivery_profile,
+ `+contentcapability.BindingPolicySQL+`,variant.dependency_snapshot_json,
+ COALESCE((SELECT file.logical_name FROM game_files file
+  WHERE file.game_id=game.id AND file.role='CONTENT'
+  ORDER BY file.sort_order,file.logical_name LIMIT 1),''),variant.dat_version_id
 FROM netplay_sessions session
-JOIN core_artifacts artifact ON artifact.id=session.core_artifact_id
-JOIN game_variant_revisions revision ON revision.id=session.game_variant_revision_id
-JOIN game_content_revisions content ON content.id=revision.game_content_revision_id
+JOIN game_variants variant ON variant.id=session.game_variant_id
+JOIN games game ON game.id=session.game_id AND game.id=variant.game_id
+JOIN runtime_targets target ON target.provider_id=session.provider_id AND target.target_id=session.target_id
+JOIN runtime_providers provider ON provider.provider_id=session.provider_id
+JOIN runtime_target_bindings binding ON binding.provider_id=session.provider_id AND binding.target_id=session.target_id
 WHERE session.id=? AND session.room_id=? AND session.game_id=?
-  AND session.game_variant_revision_id=? AND session.core_artifact_id=?
-  AND artifact.runtime_family='EMULATORJS' AND artifact.available_for_launch=1
+  AND session.game_variant_id=? AND session.provider_id=? AND session.target_id=?
+	AND session.bundle_sha256=?
+	AND variant.provider_id=session.provider_id AND variant.target_id=session.target_id
+	AND variant.status='READY' AND binding.core_id=variant.core_id AND binding.launch_policy!='DISABLED'
   AND session.state NOT IN ('FINISHED','FAILED')
-	`, request.SessionID, request.RoomID, request.GameID, request.GameVariantRevisionID, request.CoreArtifactID).
-		Scan(&selectedCore, &emulatorVersion, &requiresThreads, &contentKind)
-	if err != nil || contentKind != "SINGLE_FILE" || service.dependencies.Versions[emulatorVersion] == nil {
-		return launchContentPlan{}, ErrBlocked
+	`, request.SessionID, request.RoomID, request.GameID, request.GameVariantID,
+		request.ProviderID, request.TargetID, request.BundleSHA256).
+		Scan(
+			&selection.variantID, &selection.selectedCore,
+			&selection.providerID, &selection.targetID, &selection.bundleSHA256, &selection.gameID,
+			&selection.contentKind, &selection.deliveryProfile, &selection.contentPolicy,
+			&selection.dependencySnapshotJSON, &selection.contentLogicalName, &selection.datID,
+		)
+	if err != nil || selection.contentKind != "SINGLE_FILE" {
+		return netplayLaunchPreparation{}, ErrBlocked
 	}
-	if requiresThreads == 1 && (!request.ClientCapabilities.SecureContext ||
-		!request.ClientCapabilities.CrossOriginIsolated || !request.ClientCapabilities.SharedArrayBuffer) {
-		return launchContentPlan{}, ErrBlocked
+	target, exists := service.runtimeBuilder.Target(selection.providerID, selection.targetID)
+	if !exists || !target.Capabilities.NetplayPort || !validThreadCapabilities(
+		target.Capabilities.RequiresThreads, request.ClientCapabilities,
+	) {
+		return netplayLaunchPreparation{}, ErrBlocked
 	}
-	compatibility, err := service.loadArtifactCompatibility(ctx, request.CoreArtifactID)
-	if err != nil {
-		return launchContentPlan{}, ErrBlocked
-	}
-	contentPlan, err := service.buildLaunchContentPlan(ctx, request.GameVariantRevisionID, selectedCore, compatibility)
+	contentPlan, err := service.buildProviderContentPlan(ctx, selection)
 	if err != nil || contentPlan.ContentKind != "SINGLE_FILE" || len(contentPlan.Discs) != 0 {
-		return launchContentPlan{}, ErrBlocked
+		return netplayLaunchPreparation{}, ErrBlocked
 	}
-	primary, ok := contentPlan.singleFile()
-	if !ok {
-		return launchContentPlan{}, ErrBlocked
+	if _, ok := contentPlan.singleFile(); !ok {
+		return netplayLaunchPreparation{}, ErrBlocked
 	}
-	if err := service.validateLaunchLogicalNames(
-		ctx, request.GameVariantRevisionID, primary.LogicalName,
-	); err != nil {
-		return launchContentPlan{}, err
-	}
-	return contentPlan, nil
+	return netplayLaunchPreparation{selection: selection, content: contentPlan}, nil
 }
 
 type netplayParticipantBinding struct {
@@ -254,7 +296,7 @@ func (service *Service) insertNetplayLaunch(
 	ctx context.Context,
 	transaction *sql.Tx,
 	request NetplayCreateRequest,
-	contentPlan launchContentPlan,
+	preparation netplayLaunchPreparation,
 	now int64,
 ) (Created, error) {
 	launchID, err := uuid.NewV7()
@@ -267,23 +309,27 @@ func (service *Service) insertNetplayLaunch(
 	hardExpires := now + int64(8*time.Hour/time.Millisecond)
 	if _, err := transaction.ExecContext(ctx, `
 INSERT INTO launch_sessions(
-  id,profile_id,purpose,game_id,game_content_revision_id,game_variant_revision_id,
-  core_artifact_id,route_key,save_state_id,dos_entry_path,
+  id,profile_id,game_id,core_id,provider_id,target_id,bundle_sha256,
+  content_kind,dependency_snapshot_json,compatibility_code,
+  save_state_id,dos_entry_path,
   initial_disc_index,return_to,credential_sha256,state,
   bootstrap_expires_at_ms,hard_expires_at_ms,created_at_ms,updated_at_ms,
   netplay_session_id,netplay_player_no,save_access
-) SELECT ?,?,'PRODUCT',?,revision.game_content_revision_id,revision.id,
-artifact.id,revision.route_key,NULL,NULL,0,?,?,'CREATED',?,?,?,?,?,?,'NETPLAY_DISABLED'
-FROM game_variant_revisions revision
-JOIN core_artifacts artifact ON artifact.id=revision.core_artifact_id
-WHERE revision.id=? AND artifact.id=? AND artifact.runtime_family='EMULATORJS'
-  AND artifact.available_for_launch=1
-`, launchID.String(), request.ProfileID, request.GameID,
+) SELECT ?,?,?,?,?,?,?,?,?,?,
+NULL,NULL,0,?,?,'CREATED',?,?,?,?,?,?,'NETPLAY_DISABLED'
+FROM game_variants variant
+WHERE variant.id=? AND variant.game_id=? AND variant.provider_id=? AND variant.target_id=?
+  AND variant.status='READY'
+`, launchID.String(), request.ProfileID, request.GameID, preparation.selection.selectedCore,
+		preparation.selection.providerID, preparation.selection.targetID,
+		preparation.selection.bundleSHA256, preparation.selection.contentKind,
+		preparation.selection.dependencySnapshotJSON, preparation.selection.compatibilityCode,
 		request.ReturnTo, capabilityHash[:], bootstrapExpires, hardExpires, now, now,
-		request.SessionID, request.PlayerNo, request.GameVariantRevisionID, request.CoreArtifactID); err != nil {
+		request.SessionID, request.PlayerNo, request.GameVariantID, request.GameID,
+		request.ProviderID, request.TargetID); err != nil {
 		return Created{}, fmt.Errorf("create netplay launch: %w", err)
 	}
-	for _, file := range contentPlan.Files {
+	for _, file := range preparation.content.Files {
 		if _, err := transaction.ExecContext(ctx, `
 INSERT INTO launch_content_files(launch_session_id,logical_name,blob_id,format_version,created_at_ms)
 VALUES(?,?,?,?,?)
@@ -292,7 +338,12 @@ VALUES(?,?,?,?,?)
 		}
 	}
 	if err := service.lockExternalBIOS(
-		ctx, transaction, launchID.String(), request.GameVariantRevisionID, now, false,
+		ctx, transaction, launchID.String(), request.GameVariantID, now, false,
+	); err != nil {
+		return Created{}, err
+	}
+	if err := service.lockVariantBundleFiles(
+		ctx, transaction, launchID.String(), request.GameVariantID, now,
 	); err != nil {
 		return Created{}, err
 	}

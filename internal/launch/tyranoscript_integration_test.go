@@ -25,7 +25,6 @@ import (
 	"retrom/internal/rpgmaker/isolation"
 	retromruntime "retrom/internal/runtime"
 	"retrom/internal/testsupport"
-	tyranodetector "retrom/internal/tyranoscript/detector"
 	"retrom/internal/uploads"
 )
 
@@ -63,38 +62,34 @@ VALUES(?,'tyrano-preview-profile','tyrano-preview-admin','Tyrano Admin','ADMIN',
 	if err != nil {
 		t.Fatal(err)
 	}
+	runtimeBuilder, err := testsupport.NewRuntimeBuilder(ctx, database.SQL)
+	if err != nil {
+		t.Fatal(err)
+	}
 	service := New(database.SQL, dependencySet, credentials, time.Now).WithBlobStore(blobs).
-		WithRPGRuntimeOriginTemplate("https://{launchId}.rpg-runtime.example")
+		WithRPGRuntimeOriginTemplate("https://{launchId}.rpg-runtime.example").
+		WithRuntimeProvider(dependencySet.RuntimeCatalog, runtimeBuilder)
 	preview, err := service.CreateReviewPreview(ctx, ReviewPreviewRequest{
 		ImportItemID: itemID, ActorUserID: actorID, IdempotencyKey: "tyrano-preview-1",
 		ClientCapabilities: Capabilities{SecureContext: true},
 	})
-	if err != nil || !preview.CaptureAllowed {
+	if err != nil {
 		t.Fatalf("CreateReviewPreview(TyranoScript)=%#v, %v", preview, err)
 	}
-	source, err := service.reviewPreviewConfigSource(ctx, preview.PreviewID)
-	if err != nil {
-		t.Fatalf("reviewPreviewConfigSource(TyranoScript)=%#v, %v", source, err)
-	}
-	if _, err := parseTyranoScriptCompatibility(source.CompatibilityJSON); err != nil ||
-		!service.tyranoScriptBridgeAvailable(source.RuntimeVersion, "tyranoscript-bridge.js") {
-		t.Fatalf("TyranoScript runtime source=%#v compatibility=%v", source, err)
-	}
-	if _, err := tyranodetector.ParseSnapshot(source.DependencyJSON); err != nil ||
-		source.RuntimeFamily != "TYRANOSCRIPT" || source.AdapterKind != "TYRANOSCRIPT_WEB" ||
-		source.AdapterID != "tyranoscript-web" || source.CoreID != "tyranoscript" ||
-		source.ContentFormat != tyranoScriptProjectFormat || source.RelativePath != "tyranoscript-bridge.js" {
-		t.Fatalf("invalid TyranoScript review source=%#v snapshot=%v", source, err)
-	}
 	configuration, err := service.ReviewPreviewConfig(ctx, preview.PreviewID, preview.Capability)
-	if err != nil || configuration.TyranoScript == nil {
+	if err != nil {
 		t.Fatalf("ReviewPreviewConfig(TyranoScript)=%#v, %v", configuration, err)
 	}
-	tyrano := configuration.TyranoScript
-	if tyrano.Purpose != "REVIEW_PREVIEW" || tyrano.Adapter.AdapterKind != "TYRANOSCRIPT_WEB" ||
-		tyrano.Adapter.AdapterID != "tyranoscript-web" || tyrano.Adapter.BootstrapTicket == "" ||
-		tyrano.Adapter.EntryURL != tyrano.Adapter.UniqueOrigin+"/__retrom/tyranoscript/bootstrap" {
-		t.Fatalf("TyranoScript preview config=%#v", tyrano)
+	previewEnvelope := testsupport.RuntimeEnvelope(t, configuration)
+	previewSession := testsupport.RuntimeEnvelopeObject(t, previewEnvelope, "session")
+	previewRuntime := testsupport.RuntimeEnvelopeObject(t, previewEnvelope, "runtime")
+	previewGame := testsupport.RuntimeEnvelopeResource(t, previewEnvelope, "game")
+	previewOrigin, _ := previewGame["origin"].(string)
+	previewTicket, _ := previewGame["bootstrapTicket"].(string)
+	if previewSession["purpose"] != "REVIEW_PREVIEW" || previewRuntime["targetId"] != "tyranoscript" ||
+		previewTicket == "" || previewGame["entryUrl"] != previewOrigin+"/__retrom/tyranoscript/bootstrap" ||
+		previewGame["cleanupUrl"] != previewOrigin+"/__retrom/tyranoscript/cleanup" {
+		t.Fatalf("TyranoScript preview envelope=%#v", previewEnvelope)
 	}
 	if identity, err := service.ProjectContentIdentity(
 		ctx, preview.PreviewID, preview.Capability,
@@ -105,14 +100,14 @@ VALUES(?,'tyrano-preview-profile','tyrano-preview-admin','Tyrano Admin','ADMIN',
 		database.SQL, "https://{launchId}.rpg-runtime.example", time.Now,
 	)
 	previewCredential, previewAccess, err := isolationService.ConsumeTicket(
-		ctx, preview.PreviewID, tyrano.Adapter.UniqueOrigin, tyrano.Adapter.BootstrapTicket,
+		ctx, preview.PreviewID, previewOrigin, previewTicket,
 	)
-	if err != nil || !previewAccess.Preview || previewAccess.Family != "TYRANOSCRIPT" {
+	if err != nil || !previewAccess.Preview || previewAccess.ContentFormat != tyranoScriptProjectFormat {
 		t.Fatalf("consume TyranoScript preview ticket=%#v, %v", previewAccess, err)
 	}
 	if authorized, err := isolationService.Authenticate(
-		ctx, preview.PreviewID, tyrano.Adapter.UniqueOrigin, previewCredential,
-	); err != nil || !authorized.Preview || authorized.Family != "TYRANOSCRIPT" {
+		ctx, preview.PreviewID, previewOrigin, previewCredential,
+	); err != nil || !authorized.Preview || authorized.ContentFormat != tyranoScriptProjectFormat {
 		t.Fatalf("authenticate TyranoScript preview=%#v, %v", authorized, err)
 	}
 	var lockedPreviewID string
@@ -128,10 +123,6 @@ SELECT preview_id FROM isolated_runtime_bootstrap_tickets WHERE preview_id=?
 		if contentErr != nil || content.Format != tyranoScriptProjectFormat || content.Digest == "" {
 			t.Fatalf("preview content %q=%#v, %v", logicalName, content, contentErr)
 		}
-	}
-	version, bridgePath, err := service.TyranoScriptBridgeAuthorized(ctx, preview.PreviewID, true)
-	if err != nil || version != "v0.11.4" || bridgePath != "tyranoscript-bridge.js" {
-		t.Fatalf("preview bridge=%q/%q, %v", version, bridgePath, err)
 	}
 	canvas := image.NewRGBA(image.Rect(0, 0, 2, 2))
 	canvas.Set(0, 0, color.RGBA{R: 220, G: 70, B: 40, A: 255})
@@ -156,20 +147,26 @@ SELECT preview_id FROM isolated_runtime_bootstrap_tickets WHERE preview_id=?
 		t.Fatalf("Create(TyranoScript product)=%v", err)
 	}
 	product, err := service.Config(ctx, created.LaunchID, created.Capability)
-	if err != nil || product.TyranoScript == nil || product.TyranoScript.Purpose != "PRODUCT" ||
-		product.TyranoScript.Checkpoint != nil || product.TyranoScript.Adapter.BootstrapTicket == "" {
+	if err != nil {
 		t.Fatalf("Config(TyranoScript product)=%#v, %v", product, err)
 	}
+	productEnvelope := testsupport.RuntimeEnvelope(t, product)
+	productSession := testsupport.RuntimeEnvelopeObject(t, productEnvelope, "session")
+	productGame := testsupport.RuntimeEnvelopeResource(t, productEnvelope, "game")
+	productOrigin, _ := productGame["origin"].(string)
+	productTicket, _ := productGame["bootstrapTicket"].(string)
+	if productSession["purpose"] != "PRODUCT" || productEnvelope["restore"] != nil || productTicket == "" {
+		t.Fatalf("TyranoScript product envelope=%#v", productEnvelope)
+	}
 	productCredential, productAccess, err := isolationService.ConsumeTicket(
-		ctx, created.LaunchID, product.TyranoScript.Adapter.UniqueOrigin,
-		product.TyranoScript.Adapter.BootstrapTicket,
+		ctx, created.LaunchID, productOrigin, productTicket,
 	)
-	if err != nil || productAccess.Preview || productAccess.Family != "TYRANOSCRIPT" {
+	if err != nil || productAccess.Preview || productAccess.ContentFormat != tyranoScriptProjectFormat {
 		t.Fatalf("consume TyranoScript product ticket=%#v, %v", productAccess, err)
 	}
 	if authorized, err := isolationService.Authenticate(
-		ctx, created.LaunchID, product.TyranoScript.Adapter.UniqueOrigin, productCredential,
-	); err != nil || authorized.Preview || authorized.Family != "TYRANOSCRIPT" {
+		ctx, created.LaunchID, productOrigin, productCredential,
+	); err != nil || authorized.Preview || authorized.ContentFormat != tyranoScriptProjectFormat {
 		t.Fatalf("authenticate TyranoScript product=%#v, %v", authorized, err)
 	}
 	content, err := service.TyranoScriptProjectContentAuthorized(ctx, created.LaunchID, "index.html", false)
@@ -228,7 +225,7 @@ func createTyranoScriptReviewItem(
 	archive := tyranoScriptReviewArchive(t)
 	uploadService := uploads.New(database, blobs, dataDir, time.Now)
 	upload, err := uploadService.Create(ctx, uploads.CreateRequest{
-		Purpose: "TYRANOSCRIPT_PROJECT", SourceType: "FILES",
+		Purpose: "PROJECT", SourceType: "FILES",
 		Files: []uploads.FileDeclaration{{
 			ClientFileID: "tyrano", RelativePath: "tyrano-review.zip", SizeBytes: int64(len(archive)),
 		}},

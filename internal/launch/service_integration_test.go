@@ -8,7 +8,6 @@ import (
 	"crypto/sha256"
 	"database/sql"
 	"encoding/base64"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"path/filepath"
@@ -164,17 +163,17 @@ updated_at_ms) VALUES(?,
 	}
 	credentials, err := retromruntime.LoadOrCreateCredentials(dataDir)
 	testassert.False(t, err != nil, err)
-	service := New(database.SQL, dependencySet, credentials, time.Now)
-	var fceummArtifactID string
-	if err := database.SQL.QueryRowContext(ctx, `
-SELECT id
-FROM core_artifacts
-WHERE core_id='fceumm'
-AND selected_for_new_bindings=1
-`).Scan(&fceummArtifactID); err != nil {
+	runtimeBuilder, err := testsupport.NewRuntimeBuilder(ctx, database.SQL)
+	testassert.False(t, err != nil, err)
+	service := New(database.SQL, dependencySet, credentials, time.Now).
+		WithRuntimeProvider(dependencySet.RuntimeCatalog, runtimeBuilder)
+	fceummTarget, err := testsupport.LookupRuntimeTarget(ctx, database.SQL, "fceumm")
+	if err != nil {
 		t.Fatal(err)
 	}
-	if status, code := service.validateStaticBIOSForContent(ctx, fceummArtifactID, "Missing.fds"); status != "BLOCKED" || code != "LAUNCH_BIOS_MISSING" {
+	if status, code := service.validateStaticBIOSForContent(
+		ctx, fceummTarget.ProviderID, fceummTarget.TargetID, "Missing.fds",
+	); status != "BLOCKED" || code != "LAUNCH_BIOS_MISSING" {
 		t.Fatalf("missing required FDS BIOS validation = %s/%s", status, code)
 	}
 	assertMissingFDSValidationFinishes(t, ctx, database.SQL, service, approved.GameID)
@@ -219,77 +218,33 @@ SELECT state,error_code FROM jobs WHERE id=?
 	}
 	configuration, err := service.Config(ctx, createdLaunch.LaunchID, createdLaunch.Capability)
 	testassert.Falsef(t, err != nil, "config: %v", err)
-	testassert.Falsef(t, testassert.Any(func() bool { return configuration.Core != "mgba" }, func() bool { return configuration.EmulatorJSVersion != "4.2.3" }, func() bool { return configuration.GameURL == "" }, func() bool { return configuration.CoreName != "mGBA" }, func() bool { return configuration.GameTitle != "Launch" }, func() bool { return configuration.PlatformName != "Game Boy Advance" }, func() bool { return configuration.BIOSURL == nil }, func() bool { return configuration.DefaultCoreOptions["mgba_use_bios"] != "ON" }, func() bool { return configuration.StartupActions == nil }, func() bool { return len(configuration.Warnings) != 1 }, func() bool { return configuration.Warnings[0] != "BIOS_HASH_WARNING" }), "configuration = %#v", configuration)
+	envelope := testsupport.RuntimeEnvelope(t, configuration)
+	session := testsupport.RuntimeEnvelopeObject(t, envelope, "session")
+	runtimeIdentity := testsupport.RuntimeEnvelopeObject(t, envelope, "runtime")
+	gameResource := testsupport.RuntimeEnvelopeResource(t, envelope, "game")
+	biosResource := testsupport.RuntimeEnvelopeResource(t, envelope, "bios")
+	warnings, _ := session["warnings"].([]any)
+	testassert.Falsef(t, testassert.Any(
+		func() bool { return runtimeIdentity["targetId"] != "mgba" },
+		func() bool { return gameResource["url"] == "" },
+		func() bool { return session["title"] != "Launch" },
+		func() bool { return session["platformName"] != "Game Boy Advance" },
+		func() bool { return biosResource["kind"] != "BIOS_BUNDLE" },
+		func() bool { return len(warnings) != 1 || warnings[0] != "BIOS_HASH_WARNING" },
+	), "launch envelope = %#v", envelope)
 	bundle, err := service.BundleFiles(ctx, createdLaunch.LaunchID, createdLaunch.Capability, "BIOS_BUNDLE")
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return len(bundle) != 1 }, func() bool { return bundle[0].LogicalName != "gba_bios.bin" }, func() bool { return bundle[0].SHA256 != firmwareMetadata.SHA256 }), "BIOS bundle = %#v, error=%v", bundle, err)
 	contentDigest, err := service.ContentBlob(ctx, createdLaunch.LaunchID, createdLaunch.Capability, "Launch.gba")
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return contentDigest != base64DigestHex(digest) }), "content digest = %s, error = %v", contentDigest, err)
-	var lockedContentRevisionID, lockedVariantRevisionID, lockedArtifactID string
-	var lockedAdapterABI, lockedDependencyJSON string
-	if err := database.SQL.QueryRowContext(ctx, `
-SELECT launch.game_content_revision_id,launch.game_variant_revision_id,launch.core_artifact_id,
- json_extract(artifact.compatibility_json,'$.adapterAbi'),revision.dependency_snapshot_json
-FROM launch_sessions launch
-JOIN core_artifacts artifact ON artifact.id=launch.core_artifact_id
-JOIN game_variant_revisions revision ON revision.id=launch.game_variant_revision_id
-WHERE launch.id=?
-`, createdLaunch.LaunchID).Scan(
-		&lockedContentRevisionID, &lockedVariantRevisionID, &lockedArtifactID,
-		&lockedAdapterABI, &lockedDependencyJSON,
-	); err != nil {
-		t.Fatal(err)
-	}
-	lockedDependencyDigest := sha256.Sum256([]byte(lockedDependencyJSON))
 	saveID, _ := uuid.NewV7()
 	if _, err := database.SQL.ExecContext(ctx, `
-INSERT INTO save_states(id,
-profile_id,
-game_id,
-game_content_revision_id,
-game_variant_revision_id,
-core_artifact_id,
-adapter_abi,
-save_abi,
-dependency_snapshot_sha256,
-payload_blob_id,
-payload_kind,
-payload_sha256,
-payload_size_bytes,
-screenshot_blob_id,
-source_launch_session_id,
-name,
-active_duration_ms,
-version,
-created_at_ms,
-updated_at_ms) VALUES(?,
-'local',
-?,
-?,
-?,
-?,
-?,
-?,
-?,
-?,
-'RUNTIME_STATE',
-?,
-?,
-?,
-?,
-'Locked mGBA save',
-0,
-1,
-?,
-?)
+INSERT INTO save_states(
+id,profile_id,game_id,checkpoint_format,payload_blob_id,payload_sha256,payload_size_bytes,
+screenshot_blob_id,source_launch_session_id,name,active_duration_ms,version,created_at_ms,updated_at_ms)
+VALUES(?,'local',?,'test-checkpoint-v1',?,?,?,?,?,'Locked mGBA save',0,1,?,?)
 `,
 		saveID.String(),
 		approved.GameID,
-		lockedContentRevisionID,
-		lockedVariantRevisionID,
-		lockedArtifactID,
-		lockedAdapterABI,
-		lockedAdapterABI,
-		hex.EncodeToString(lockedDependencyDigest[:]),
 		firmwareBlobID,
 		firmwareMetadata.SHA256,
 		firmwareMetadata.Size,
@@ -357,15 +312,6 @@ WHERE launch_session_id=?
 		replayed.State != "FINISHED" {
 		t.Fatalf("replayed finish = %#v, error=%v", replayed, replayErr)
 	}
-	if _, err := database.SQL.ExecContext(ctx, `
-UPDATE games
-SET platform_instance_id=(SELECT id FROM platform_instances WHERE catalog_template_key='gbc/gambatte'),
-version=version+1,
-updated_at_ms=?
-WHERE id=?
-`, time.Now().UnixMilli(), approved.GameID); err != nil {
-		t.Fatal(err)
-	}
 	quickLaunch, err := service.Create(
 		ctx,
 		"local",
@@ -378,35 +324,38 @@ WHERE id=?
 	)
 	testassert.Falsef(t, err != nil, "locked save quick launch: %v", err)
 	quickConfig, err := service.Config(ctx, quickLaunch.LaunchID, quickLaunch.Capability)
-	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return quickConfig.Core != "mgba" }, func() bool { return quickConfig.StateURL == nil }), "locked save config = %#v, error=%v", quickConfig, err)
-	gbContentID := newUUID()
+	if err != nil {
+		source, sourceErr := service.productConfigSource(ctx, quickLaunch.LaunchID)
+		target, _ := service.runtimeBuilder.Target(source.providerID, source.targetID)
+		resources, resourcesErr := service.providerResources(
+			ctx, quickLaunch.LaunchID, quickLaunch.Capability, source, target,
+		)
+		options, optionsErr := providerTargetOptions(target.TargetOptionsSchema, source)
+		restore, _, restoreErr := service.providerRestore(ctx, quickLaunch.LaunchID, source, target)
+		t.Fatalf("quick launch config: %v; source=%#v/%v resources=%#v/%v options=%#v/%v restore=%#v/%v",
+			err, source, sourceErr, resources, resourcesErr, options, optionsErr, restore, restoreErr)
+	}
+	quickEnvelope := testsupport.RuntimeEnvelope(t, quickConfig)
+	quickRuntime := testsupport.RuntimeEnvelopeObject(t, quickEnvelope, "runtime")
+	testassert.Falsef(t, testassert.Any(
+		func() bool { return quickRuntime["targetId"] != "mgba" },
+		func() bool { return quickEnvelope["restore"] == nil },
+	), "locked save envelope = %#v", quickEnvelope)
 	contentTx, err := database.SQL.BeginTx(ctx, nil)
 	testassert.False(t, err != nil, err)
 	defer cleanup.Rollback(contentTx)
 	if _, err := contentTx.ExecContext(ctx, `
-INSERT INTO game_content_revisions(
-  id,game_id,source_kind,source_ref_id,source_manifest_json,source_manifest_digest,created_at_ms
-) VALUES(?,?, 'ADMIN_REPLACE','fixture','{}',?,?)
-`, gbContentID, approved.GameID, strings.Repeat("f", 64), time.Now().UnixMilli()); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := contentTx.ExecContext(ctx, `
-INSERT INTO game_content_files(
-  game_content_revision_id,role,logical_name,blob_id,source_archive_blob_id,source_archive_entry_ordinal,sort_order
-)
-SELECT ?,'CONTENT','Launch.gb',blob_id,source_archive_blob_id,source_archive_entry_ordinal,sort_order
-FROM game_content_files
-WHERE game_content_revision_id=(
-  SELECT game_content_revision_id FROM game_variant_revisions WHERE id=?
-) AND role='CONTENT'
-`, gbContentID, lockedVariantRevisionID); err != nil {
+	UPDATE game_files SET logical_name='Launch.gb' WHERE game_id=? AND role='CONTENT'
+`, approved.GameID); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := contentTx.ExecContext(ctx, `
 UPDATE games
-SET current_content_revision_id=?,version=version+1,updated_at_ms=?
+SET platform_instance_id=(SELECT id FROM platform_instances WHERE catalog_template_key='gbc/gambatte'),
+content_source_kind='ADMIN_REPLACE',content_source_ref_id='fixture',source_manifest_digest=?,
+version=version+1,updated_at_ms=?
 WHERE id=?
-`, gbContentID, time.Now().UnixMilli(), approved.GameID); err != nil {
+`, strings.Repeat("f", 64), time.Now().UnixMilli(), approved.GameID); err != nil {
 		t.Fatal(err)
 	}
 	if err := contentTx.Commit(); err != nil {
@@ -482,18 +431,16 @@ WHERE id=?
 		},
 	)
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return validatedLaunch.LaunchID == "" }, func() bool { return validatedLaunch.Status != "" }), "validated launch = %#v, error=%v", validatedLaunch, err)
-	var currentVariantRevisionID, contentBlobID string
+	var currentVariantID, contentBlobID string
 	if err := database.SQL.QueryRowContext(ctx, `
-SELECT game_variant_revision_id
-FROM launch_sessions
-WHERE id=?
-`, validatedLaunch.LaunchID).Scan(&currentVariantRevisionID); err != nil {
+SELECT id FROM game_variants WHERE game_id=? AND core_id='gambatte'
+`, approved.GameID).Scan(&currentVariantID); err != nil {
 		t.Fatal(err)
 	}
 	if err := database.SQL.QueryRowContext(ctx, `
 SELECT blob_id
-FROM game_content_files
-WHERE game_content_revision_id=(SELECT current_content_revision_id
+FROM game_files
+WHERE game_id=(SELECT id
 FROM games
 WHERE id=?)
 AND role='CONTENT' LIMIT 1
@@ -501,7 +448,7 @@ AND role='CONTENT' LIMIT 1
 		t.Fatal(err)
 	}
 	if _, err := database.SQL.ExecContext(ctx, `
-INSERT INTO variant_files(game_variant_revision_id,
+INSERT INTO variant_files(game_variant_id,
 role,
 logical_name,
 blob_id,
@@ -510,15 +457,18 @@ sort_order) VALUES(?,
 'launch.GB',
 ?,
 0)
-	`, currentVariantRevisionID, contentBlobID); err != nil {
+	`, currentVariantID, contentBlobID); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := service.Create(ctx, "local", CreateRequest{GameID: approved.GameID, CoreID: &gambatte, ReturnTo: "/", ClientCapabilities: Capabilities{SecureContext: true, CrossOriginIsolated: true, SharedArrayBuffer: true}}); !errors.Is(
-		err,
-		ErrBlocked,
-	) {
-		t.Fatalf("case-insensitive launch logical-name collision error = %v", err)
-	}
+	separateResources, err := service.Create(ctx, "local", CreateRequest{GameID: approved.GameID, CoreID: &gambatte, ReturnTo: "/", ClientCapabilities: Capabilities{SecureContext: true, CrossOriginIsolated: true, SharedArrayBuffer: true}})
+	testassert.False(t, err != nil, err)
+	separateConfig, err := service.Config(ctx, separateResources.LaunchID, separateResources.Capability)
+	testassert.False(t, err != nil, err)
+	separateEnvelope := testsupport.RuntimeEnvelope(t, separateConfig)
+	gameURL, _ := testsupport.RuntimeEnvelopeResource(t, separateEnvelope, "game")["url"].(string)
+	parentURL, _ := testsupport.RuntimeEnvelopeResource(t, separateEnvelope, "parent")["url"].(string)
+	testassert.Falsef(t, gameURL == "" || parentURL == "" || gameURL == parentURL,
+		"Provider resource lanes collided: game=%q parent=%q", gameURL, parentURL)
 }
 
 func assertMissingFDSValidationFinishes(
@@ -540,21 +490,21 @@ func assertMissingFDSValidationFinishes(
 		query string
 		args  []any
 	}{
-		{`INSERT INTO game_metadata_revisions(id,game_id,title,title_initial,description,developer,publisher,genre,players,release_year,source_kind,source_ref_id,created_at_ms)
-SELECT '60000000-0000-7000-8000-000000000002',?,
-'Acceptance Missing FDS BIOS','A',description,developer,publisher,genre,players,release_year,source_kind,source_ref_id,?
-FROM game_metadata_revisions WHERE game_id=?`, []any{gameID, time.Now().UnixMilli(), sourceGameID}},
-		{`INSERT INTO game_content_revisions(id,game_id,source_kind,source_ref_id,source_manifest_json,source_manifest_digest,created_at_ms)
-SELECT '60000000-0000-7000-8000-000000000003',?,source_kind,source_ref_id,source_manifest_json,source_manifest_digest,?
-FROM game_content_revisions WHERE game_id=?`, []any{gameID, time.Now().UnixMilli(), sourceGameID}},
-		{`INSERT INTO games(id,platform_instance_id,status,current_metadata_revision_id,current_content_revision_id,search_text,version,created_at_ms,updated_at_ms)
-SELECT ?,id,'PUBLISHED','60000000-0000-7000-8000-000000000002','60000000-0000-7000-8000-000000000003',
-'acceptance missing fds bios',1,?,? FROM platform_instances WHERE catalog_template_key='nes/fceumm'`, []any{gameID, time.Now().UnixMilli(), time.Now().UnixMilli()}},
-		{`INSERT INTO game_content_files(game_content_revision_id,role,logical_name,blob_id,source_archive_blob_id,source_archive_entry_ordinal,sort_order)
-SELECT '60000000-0000-7000-8000-000000000003',role,
+		{`INSERT INTO games(
+id,platform_instance_id,title,title_initial,description,developer,publisher,genre,players,release_year,
+metadata_source_kind,metadata_source_ref_id,content_kind,content_source_kind,content_source_ref_id,
+source_manifest_json,source_manifest_digest,status,search_text,version,created_at_ms,updated_at_ms)
+SELECT ?,target.id,'Acceptance Missing FDS BIOS','A',source.description,source.developer,
+source.publisher,source.genre,source.players,source.release_year,source.metadata_source_kind,
+source.metadata_source_ref_id,'SINGLE_FILE',source.content_source_kind,source.content_source_ref_id,
+source.source_manifest_json,source.source_manifest_digest,'PUBLISHED','acceptance missing fds bios',1,?,?
+FROM games source CROSS JOIN platform_instances target
+WHERE source.id=? AND target.catalog_template_key='nes/fceumm'`, []any{gameID, time.Now().UnixMilli(), time.Now().UnixMilli(), sourceGameID}},
+		{`INSERT INTO game_files(game_id,role,logical_name,blob_id,source_archive_blob_id,source_archive_entry_ordinal,sort_order)
+SELECT ?,role,
 CASE WHEN role='CONTENT' THEN 'Acceptance-Missing-BIOS.fds' ELSE logical_name END,
 blob_id,source_archive_blob_id,source_archive_entry_ordinal,sort_order
-FROM game_content_files WHERE game_content_revision_id=(SELECT current_content_revision_id FROM games WHERE id=?)`, []any{sourceGameID}},
+FROM game_files WHERE game_id=?`, []any{gameID, sourceGameID}},
 	}
 	for _, statement := range statements {
 		if _, err := transaction.ExecContext(ctx, statement.query, statement.args...); err != nil {

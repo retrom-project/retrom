@@ -77,7 +77,7 @@ error_code=?,error_retryable=1,version=version+1,updated_at_ms=? WHERE id=? AND 
 	if err := insertFinishEvent(ctx, transaction, job, "FAILED", data, now); err != nil {
 		return err
 	}
-	if err := markDomainFailedTx(ctx, transaction, job, code); err != nil {
+	if err := markDomainFailedTx(ctx, transaction, job, code, now); err != nil {
 		return err
 	}
 	if err := insertReleaseAudit(ctx, transaction, job, "PAYLOAD_RELEASE_FAILED", "FAILED", code, now); err != nil {
@@ -147,7 +147,7 @@ VALUES(?,?,?,?,?,?)
 	return nil
 }
 
-func markDomainFailedTx(ctx context.Context, transaction *sql.Tx, job claimedJob, code string) error {
+func markDomainFailedTx(ctx context.Context, transaction *sql.Tx, job claimedJob, code string, now int64) error {
 	table := map[ScopeType]string{
 		ScopeImportItem: "import_items", ScopeImportJob: "import_jobs",
 		ScopePegasusImportItem:          "pegasus_import_items",
@@ -157,9 +157,17 @@ func markDomainFailedTx(ctx context.Context, transaction *sql.Tx, job claimedJob
 	if table == "" {
 		return nil
 	}
-	_, err := transaction.ExecContext(ctx, `UPDATE `+table+`
+	update := `UPDATE ` + table + `
 SET payload_state='FAILED',payload_last_error_code=?
-WHERE id=? AND payload_release_job_id=?`, code, job.ScopeID, job.ID)
+WHERE id=? AND payload_release_job_id=?`
+	arguments := []any{code, job.ScopeID, job.ID}
+	if job.ScopeType == ScopeGame {
+		update = `UPDATE games
+SET payload_state='FAILED',payload_last_error_code=?,version=version+1,updated_at_ms=?
+WHERE id=? AND payload_release_job_id=?`
+		arguments = []any{code, now, job.ScopeID, job.ID}
+	}
+	_, err := transaction.ExecContext(ctx, update, arguments...)
 	if err != nil {
 		return fmt.Errorf("payloadrelease/mark domain failed: %w", err)
 	}

@@ -50,7 +50,7 @@ func (service *Service) prepareServerSource(
 	manifest, _ := json.Marshal(map[string]any{"schemaVersion": 1, "files": sorted})
 	digest := sha256.Sum256(manifest)
 	sourceType := "FILES"
-	if contentMode == contentcapability.ModeMultiDiscM3UV1 {
+	if contentMode == contentcapability.ModeMultiDisc {
 		sourceType = "DIRECTORY"
 	}
 	return preparedServerSource{

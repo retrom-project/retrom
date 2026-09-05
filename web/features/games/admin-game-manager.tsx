@@ -9,18 +9,29 @@ import { runtimePresentation } from "./admin-game-library";
 import { type TagReference } from "@/components/tag-picker";
 import { AdminGameManagerView } from "./admin-game-manager-view";
 
-export type Revision = { id: string; sourceKind: string; sourceRefId: string | null; current: boolean; createdAtMs: number };
-export type ContentRevision = Revision & { contentKind: string; files: Array<{ role: string; logicalName: string; sortOrder: number; sizeBytes: number; sha256: string }> };
-export type VariantRevision = { id: string; contentRevisionId: string; coreArtifactId: string; datVersionId: string | null; status: string; compatibilityCode: string; dependencySnapshot?: { multiDisc?: { canonicalPlaylistSha256?: string } }; current: boolean; createdAtMs: number };
-export type Variant = { id: string; coreId: string; coreName: string; currentRevisionId: string | null; version: number; revisions: VariantRevision[] };
+export type GameFile = { role: string; logicalName: string; sortOrder: number; sizeBytes: number; sha256: string };
+export type Variant = {
+  id: string;
+  coreId: string;
+  coreName: string;
+  providerId: string | null;
+  targetId: string | null;
+  datVersionId: string | null;
+  status: string;
+  compatibilityCode: string;
+  dependencySnapshot?: { multiDisc?: { canonicalPlaylistSha256?: string } };
+  version: number;
+  createdAtMs: number;
+  updatedAtMs: number;
+};
 export type Asset = { assetId: string; kind: string; ordinal: number; widthPx: number | null; heightPx: number | null; mediaType: string; url: string };
 
 export type AdminGame = {
   gameId: string; status: string; payloadState: "RETAINED" | "RELEASING" | "RELEASED" | "FAILED"; payloadReleaseJobId: string | null; payloadLastErrorCode?: string | null; title: string; description: string; developer: string; publisher: string; genre: string;
   players: number | null; releaseYear: number | null; platformId: string; platformInstance: { id: string; name: string };
-  currentContentRevisionId: string; currentMetadataRevisionId: string; version: number; createdAtMs: number; updatedAtMs: number; generatedAtMs: number;
+  contentKind: string; files: GameFile[]; version: number; createdAtMs: number; updatedAtMs: number; generatedAtMs: number;
   deleteImpact: { impactDigest: string; registeredBytes: string; exclusiveBytes: string; sharedBytes: string; blobCount: number; saveStateCount: number; assetCount: number; contentFileCount: number; activeLaunchCount: number; activeNetplayCount: number; reviewEventCount: number; sourceKinds: string[] };
-  metadataRevisions: Revision[]; assets: Asset[]; contentRevisions: ContentRevision[]; variants: Variant[];
+  assets: Asset[]; variants: Variant[];
   tags?: TagReference[];
 };
 
@@ -58,26 +69,22 @@ function metadataDraft(game: AdminGame): MetadataDraft {
 }
 
 function contentPresentation(game: AdminGame, instance: PlatformInstanceOption | undefined) {
-  const current = game.contentRevisions.find((revision) => revision.current) ?? game.contentRevisions[0];
-  const supportsMultiDisc = instance?.importCapabilities?.contentModes.includes("MULTI_DISC_M3U_V1") ?? false;
-  const discs = current?.contentKind === "MULTI_DISC_M3U_V1"
-    ? current.files.filter((file) => file.role === "DISC").sort((left, right) => left.sortOrder - right.sortOrder)
+  const supportsMultiDisc = instance?.importCapabilities?.contentModes.includes("MULTI_DISC") ?? false;
+  const discs = game.contentKind === "MULTI_DISC"
+    ? game.files.filter((file) => file.role === "DISC").sort((left, right) => left.sortOrder - right.sortOrder)
     : [];
   return {
-    current,
     discs,
-    file: current?.files[0]?.logicalName ?? "尚无游戏文件",
+    file: game.files[0]?.logicalName ?? "尚无游戏文件",
     replacementLimits: supportsMultiDisc ? instance?.importCapabilities?.multiDisc ?? null : null,
   };
 }
 
-function runtimeRevisionPresentation(game: AdminGame, instance: PlatformInstanceOption | undefined) {
+function runtimeVariantPresentation(game: AdminGame, instance: PlatformInstanceOption | undefined) {
   const variant = game.variants.find((item) => item.coreId === instance?.defaultCoreId) ?? game.variants[0];
-  const revision = variant?.revisions.find((item) => item.current) ?? variant?.revisions[0];
   return {
-    canonicalPlaylistSHA256: revision?.dependencySnapshot?.multiDisc?.canonicalPlaylistSha256 ?? "",
-    revision,
-    runtime: runtimePresentation(revision?.status ?? null, game.status),
+    canonicalPlaylistSHA256: variant?.dependencySnapshot?.multiDisc?.canonicalPlaylistSha256 ?? "",
+    runtime: runtimePresentation(variant?.status ?? null, game.status),
     variant,
   };
 }
@@ -113,13 +120,13 @@ export function AdminGameManager({ game, platformInstances, candidates, activeTa
   const [gameTags, setGameTags] = useState<TagReference[]>(game.tags ?? []);
   const [savedGameTags, setSavedGameTags] = useState<TagReference[]>(game.tags ?? []);
   const versionRef = useRef(game.version);
-  const metadataRevisionRef = useRef(game.currentMetadataRevisionId);
+  const gameVersionRef = useRef(game.version);
 
   useEffect(() => {
     versionRef.current = game.version;
-    if (metadataRevisionRef.current !== game.currentMetadataRevisionId) {
+    if (gameVersionRef.current !== game.version) {
       const current = metadataDraft(game);
-      metadataRevisionRef.current = game.currentMetadataRevisionId;
+      gameVersionRef.current = game.version;
       setDraft(current);
       setSavedDraft(current);
     }
@@ -151,10 +158,10 @@ export function AdminGameManager({ game, platformInstances, candidates, activeTa
       };
       const response = await fetch(`/api/v1/admin/games/${game.gameId}`, { method: "PATCH", credentials: "same-origin", headers: await versionedHeaders(), body: JSON.stringify(body) });
       if (!response.ok) {throw new Error(await responseError(response, "发布信息保存失败"));}
-      const result = await response.json() as { metadataRevisionId: string; version?: number };
+      const result = await response.json() as { gameId: string; version: number };
       if (result.version) {versionRef.current = result.version;}
       setSavedDraft(submitted);
-      return result.metadataRevisionId ? "发布信息已保存为新版本。" : "发布信息已保存。";
+      return "发布信息已保存。";
     });
   }
 
@@ -178,8 +185,9 @@ export function AdminGameManager({ game, platformInstances, candidates, activeTa
       const uploaded = await uploadOne(file, setNotice);
       const response = await fetch(`/api/v1/admin/games/${game.gameId}/assets`, { method: "POST", credentials: "same-origin", headers: { ...await versionedHeaders(), "Idempotency-Key": newUuid() }, body: JSON.stringify({ uploadFileId: uploaded.uploadFileId, kind, ordinal }) });
       if (!response.ok) {throw new Error(await responseError(response, "媒体替换失败"));}
-      const result = await response.json() as { assetId: string; metadataRevisionId: string };
-      return result.assetId && result.metadataRevisionId ? `${kind === "VIDEO" ? "视频" : "图片"}已更新，旧媒体已进入待回收。` : "媒体已更新。";
+      const result = await response.json() as { assetId: string; version?: number };
+      if (result.version) {versionRef.current = result.version;}
+      return result.assetId ? `${kind === "VIDEO" ? "视频" : "图片"}已更新，旧媒体已进入待回收。` : "媒体已更新。";
     });
   }
 
@@ -193,10 +201,10 @@ export function AdminGameManager({ game, platformInstances, candidates, activeTa
     });
   }
 
-  async function replaceContent(files: File[], mode: "STANDARD" | "MULTI_DISC_M3U_V1" | "RPG_MAKER_PROJECT_V1") {
+  async function replaceContent(files: File[], mode: "STANDARD" | "MULTI_DISC" | "RPG_MAKER_PROJECT") {
     return action("content", async () => {
       const uploaded = await uploadFiles(files, setNotice);
-      const response = await fetch(`/api/v1/admin/games/${game.gameId}/content-revisions`, { method: "POST", credentials: "same-origin", headers: { ...await versionedHeaders(), "Idempotency-Key": newUuid() }, body: JSON.stringify({ uploadId: uploaded.uploadId, contentMode: mode }) });
+      const response = await fetch(`/api/v1/admin/games/${game.gameId}/content-replacement`, { method: "POST", credentials: "same-origin", headers: { ...await versionedHeaders(), "Idempotency-Key": newUuid() }, body: JSON.stringify({ uploadId: uploaded.uploadId, contentMode: mode }) });
       if (!response.ok) {throw new Error(await responseError(response, "内容替换任务创建失败"));}
       const result = await response.json() as { jobId: string };
       setNotice("正在安全校验新游戏文件…");
@@ -214,7 +222,7 @@ export function AdminGameManager({ game, platformInstances, candidates, activeTa
         }
         throw error;
       }
-      return "游戏文件已更新，旧内容与关联存档已进入清理流程。";
+      return "游戏文件已更新，现有存档保持可用。";
     });
   }
 
@@ -244,10 +252,10 @@ export function AdminGameManager({ game, platformInstances, candidates, activeTa
       const candidateCover = candidate.assets.find((asset) => asset.kind === "COVER" && asset.status === "READY");
       const response = await fetch(`/api/v1/admin/games/${game.gameId}/scrape-candidates/${candidate.candidateId}/apply`, { method: "POST", credentials: "same-origin", headers: { ...await versionedHeaders(), "Idempotency-Key": newUuid() }, body: JSON.stringify({ fields, selectedAssets: { coverCandidateAssetId: candidateCover?.candidateAssetId ?? null, backgroundCandidateAssetId: null, screenshotCandidateAssetIds: [] } }) });
       if (!response.ok) {throw new Error(await responseError(response, "候选采用失败"));}
-      const result = await response.json() as { metadataRevisionId: string; version?: number };
+      const result = await response.json() as { gameId: string; version: number };
       if (result.version) {versionRef.current = result.version;}
       setComparison(null);
-      return result.metadataRevisionId ? "已采用候选并保存为新的信息版本。" : "已采用候选。";
+      return "已采用候选。";
     });
   }
 
@@ -283,7 +291,7 @@ export function AdminGameManager({ game, platformInstances, candidates, activeTa
       const commit = await fetch(`/api/v1/admin/games/${game.gameId}/move`, { method: "POST", credentials: "same-origin", headers: { ...await versionedHeaders(), "Idempotency-Key": newUuid() }, body: JSON.stringify({ targetPlatformInstanceId: current.targetPlatformInstanceId, impactDigest: current.result.impactDigest, confirmBlocked: blocked }) });
       if (!commit.ok) {throw new Error(await responseError(commit, "游戏移动失败"));}
       setPendingMove(null);
-      return "游戏已移动到目标目录；游戏文件、存档和历史版本均未改变。";
+      return "游戏已移动到目标目录；游戏文件和存档均未改变。";
     });
   }
 
@@ -309,7 +317,7 @@ export function AdminGameManager({ game, platformInstances, candidates, activeTa
 
   const currentInstance = platformInstances.find((item) => item.id === game.platformInstance.id);
   const content = contentPresentation(game, currentInstance);
-  const runtimeRevision = runtimeRevisionPresentation(game, currentInstance);
+  const runtimeVariant = runtimeVariantPresentation(game, currentInstance);
   const cover = game.assets.find((asset) => asset.kind === "COVER");
   const video = game.assets.find((asset) => asset.kind === "VIDEO");
   const metadataComplete = gameMetadataComplete(game);
@@ -324,10 +332,10 @@ export function AdminGameManager({ game, platformInstances, candidates, activeTa
   ];
 
   return <AdminGameManagerView
-    activeTags={activeTags} busy={busy} canonicalPlaylistSHA256={runtimeRevision.canonicalPlaylistSHA256} clientReady={clientReady}
+    activeTags={activeTags} busy={busy} canonicalPlaylistSHA256={runtimeVariant.canonicalPlaylistSHA256} clientReady={clientReady}
     comparison={comparison} comparisonCover={comparisonCover} comparisonFields={comparisonFields} cover={cover}
-    currentContent={content.current} currentDiscs={content.discs} currentFile={content.file} currentInstance={currentInstance}
-    currentRuntime={runtimeRevision.revision} currentVariant={runtimeRevision.variant} disabled={disabled} draft={draft} error={error}
+    currentDiscs={content.discs} currentFile={content.file} currentInstance={currentInstance}
+    currentVariant={runtimeVariant.variant} disabled={disabled} draft={draft} error={error}
     game={game} gameTags={gameTags} metadataComplete={metadataComplete} metadataDirty={metadataDirty}
     moveTarget={moveTarget} moveTargets={moveTargets} multiDiscReplacementLimits={content.replacementLimits} notice={notice}
     onApplyCandidate={(candidate) => void applyCandidate(candidate)} onCloseComparison={() => setComparison(null)}
@@ -339,7 +347,7 @@ export function AdminGameManager({ game, platformInstances, candidates, activeTa
     onRetryPayloadRelease={() => void retryPayloadRelease()}
     onRemoveVideo={() => void removeVideo()} onReplaceAsset={(file, kind, ordinal) => void replaceAsset(file, kind, ordinal)}
     onReplaceContent={replaceContent} onRescrape={() => void rescrape()} onSaveMetadata={(event) => void saveMetadata(event)}
-    onSaveTags={() => void saveTags()} pendingMove={pendingMove} runtime={runtimeRevision.runtime} scrapeCandidates={scrapeCandidates}
+    onSaveTags={() => void saveTags()} pendingMove={pendingMove} runtime={runtimeVariant.runtime} scrapeCandidates={scrapeCandidates}
     tagsDirty={tagsDirty} video={video}
   />;
 }

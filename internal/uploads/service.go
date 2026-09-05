@@ -212,9 +212,7 @@ func validateCreateRequest(request CreateRequest) (int64, error) {
 }
 
 func validUploadShape(request CreateRequest) bool {
-	validPurpose := request.Purpose == "GENERAL" || request.Purpose == "RPG_MAKER_PROJECT" ||
-		request.Purpose == "ONS_PROJECT" || request.Purpose == "KIRIKIRI_PROJECT" ||
-		request.Purpose == "BUTTERSCOTCH_PROJECT" || request.Purpose == "TYRANOSCRIPT_PROJECT" ||
+	validPurpose := request.Purpose == "GENERAL" || request.Purpose == "PROJECT" ||
 		request.Purpose == "RUNTIME_ASSET_PACK"
 	validSource := request.SourceType == "FILES" || request.SourceType == "DIRECTORY"
 	return validPurpose && validSource && len(request.Files) >= 1 && len(request.Files) <= 10_000
@@ -232,7 +230,7 @@ func validUploadFile(file FileDeclaration) bool {
 func isProjectUpload(purpose, relativePath string) bool {
 	extension := strings.ToLower(filepath.Ext(relativePath))
 	return extension == ".zip" || extension == ".7z" ||
-		purpose == "TYRANOSCRIPT_PROJECT" && extension == ".exe"
+		purpose == "PROJECT" && extension == ".exe"
 }
 
 func (service *Service) Get(ctx context.Context, uploadID string) (Session, error) {

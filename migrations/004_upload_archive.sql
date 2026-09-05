@@ -1,10 +1,9 @@
--- Clean pre-release baseline: upload_archive.
+-- Pre-release bootstrap: create the current domain model directly.
 
 CREATE TABLE upload_sessions (
   id TEXT PRIMARY KEY,
   purpose TEXT NOT NULL DEFAULT 'GENERAL' CHECK(purpose IN (
-    'GENERAL','RPG_MAKER_PROJECT','ONS_PROJECT','KIRIKIRI_PROJECT','BUTTERSCOTCH_PROJECT',
-    'TYRANOSCRIPT_PROJECT','RUNTIME_ASSET_PACK'
+    'GENERAL','PROJECT','RUNTIME_ASSET_PACK'
   )),
   state TEXT NOT NULL CHECK(state IN ('CREATED','UPLOADING','FINALIZING','COMPLETE','FAILED','CANCELLED','EXPIRED')),
   source_type TEXT NOT NULL CHECK(source_type IN ('FILES','DIRECTORY')),
@@ -59,8 +58,10 @@ CREATE TABLE archive_entries (
   original_relative_path TEXT NOT NULL,
   normalized_path TEXT NOT NULL,
   ascii_casefold_path TEXT NOT NULL,
-  archive_format TEXT NOT NULL CHECK(archive_format IN ('ZIP','SEVEN_Z')),
-  compression_profile TEXT NOT NULL CHECK(compression_profile IN ('STORE','DEFLATE','SEVEN_Z_DECODER_VALIDATED')),
+  archive_format TEXT NOT NULL CHECK(archive_format IN ('ZIP','SEVEN_Z','ELECTRON_ASAR')),
+  compression_profile TEXT NOT NULL CHECK(compression_profile IN (
+    'STORE','DEFLATE','SEVEN_Z_DECODER_VALIDATED','ELECTRON_ASAR_STORE','ELECTRON_ASAR_DEFLATE'
+  )),
   uncompressed_size_bytes INTEGER NOT NULL CHECK(uncompressed_size_bytes >= 0),
   crc32 TEXT NOT NULL CHECK(length(crc32) = 8),
   md5 TEXT NOT NULL CHECK(length(md5) = 32),
@@ -72,7 +73,8 @@ CREATE TABLE archive_entries (
   UNIQUE(archive_blob_id, normalized_path),
   UNIQUE(archive_blob_id, ascii_casefold_path),
   CHECK((archive_format='ZIP' AND compression_profile IN ('STORE','DEFLATE')) OR
-        (archive_format='SEVEN_Z' AND compression_profile='SEVEN_Z_DECODER_VALIDATED'))
+        (archive_format='SEVEN_Z' AND compression_profile='SEVEN_Z_DECODER_VALIDATED') OR
+        (archive_format='ELECTRON_ASAR' AND compression_profile IN ('ELECTRON_ASAR_STORE','ELECTRON_ASAR_DEFLATE')))
 );
 
 CREATE TABLE "upload_consumptions" (
@@ -80,7 +82,7 @@ CREATE TABLE "upload_consumptions" (
   upload_session_id TEXT NOT NULL REFERENCES upload_sessions(id),
   upload_file_id TEXT REFERENCES upload_files(id),
   consumer_type TEXT NOT NULL CHECK(consumer_type IN (
-    'IMPORT_JOB','GAME_FILE_REVISION_JOB','GAME_ASSET','REVIEW_ASSET','REVIEW_ARCADE_PARENT',
+    'IMPORT_JOB','GAME_CONTENT_REPLACE_JOB','GAME_ASSET','REVIEW_ASSET','REVIEW_ARCADE_PARENT',
     'REVIEW_MULTI_DISC','BIOS_INSTALLATION','RUNTIME_ASSET_PACK_INSTALLATION'
   )),
   consumer_id TEXT NOT NULL,

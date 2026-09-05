@@ -5,6 +5,9 @@ import { join, resolve } from "node:path";
 
 import { chromium } from "../../web/node_modules/playwright/index.mjs";
 
+import {captureOptionalReviewScreenshot, revealPreviewToolbar} from "./rpgmaker_preview_actions.mjs";
+import {waitForAvailableCheckpoint} from "./player_checkpoint_readiness.mjs";
+
 import {
   assertButterscotchProductEvidence,
   butterscotchProductStages,
@@ -12,6 +15,7 @@ import {
 import { localRpgAcceptanceProxy } from "./rpgmaker_local_proxy.mjs";
 import { createProductClient, singleFile } from "./rpgmaker_security_upload.mjs";
 import { isLocalAcceptanceHostname } from "./rpgmaker_url.mjs";
+import {installVirtualStandardGamepad, sendGamepadInput} from "./standard_gamepad.mjs";
 
 const caseId = "ACC-BUTTERSCOTCH-001";
 const requiredEnvironment = [
@@ -36,6 +40,7 @@ mkdirSync(screenshotsDirectory, { recursive: true });
 const localProxy = await localRpgAcceptanceProxy(baseUrl);
 let browser;
 let observedEvidence = null;
+const runtimeDiagnostics = [];
 
 try {
   browser = await chromium.launch({ executablePath: process.env.RETROM_CHROME_EXECUTABLE, headless: true });
@@ -48,6 +53,7 @@ try {
   const errorCode = stableErrorCode(error);
   writeEvidence({
     schemaVersion: 1, caseId, status: "FAIL", errorCode,
+    runtimeDiagnostics,
     ...(observedEvidence ? { observedEvidence } : {}),
   });
   process.stderr.write(`${errorCode}\n`);
@@ -75,13 +81,13 @@ async function runProductCase(activeBrowser) {
     const client = createProductClient(context, baseUrl, login.csrfToken);
     const platformInstanceId = await butterscotchPlatformInstance(client);
     const uploadId = await client.upload(
-      singleFile(process.env.RETROM_BUTTERSCOTCH_SMOKE_ARCHIVE), "FILES", "BUTTERSCOTCH_PROJECT",
+      singleFile(process.env.RETROM_BUTTERSCOTCH_SMOKE_ARCHIVE), "FILES", "PROJECT",
     );
     const importedResponse = await client.raw("POST", "/api/v1/admin/imports", {
       headers: client.writeHeaders(), timeout: 120_000,
       data: {
         uploadId, targetPlatformInstanceId: platformInstanceId, metadataProvider: "NONE",
-        contentMode: "BUTTERSCOTCH_PROJECT_V1", tagIds: [],
+        contentMode: "BUTTERSCOTCH_PROJECT", tagIds: [],
       },
     });
     requireStatus(importedResponse.status(), 202, "BUTTERSCOTCH_ACCEPTANCE_IMPORT_CREATE_FAILED");
@@ -94,7 +100,7 @@ async function runProductCase(activeBrowser) {
     const previewResponses = trackProjectResponses(previewPage);
     await previewPage.goto(`${baseUrl}${preview.playUrl}`, { waitUntil: "domcontentloaded", timeout: 120_000 });
     const previewCanvas = await runtimeCanvas(previewPage);
-    await previewPage.getByText("第 5 秒运行截图已保存；可以继续试玩。").waitFor({ timeout: 120_000 });
+    await captureOptionalReviewScreenshot(previewPage, preview.previewId);
     const previewFrame = await screenshotEvidence(previewCanvas, "preview.png");
     await previewPage.close();
 
@@ -145,7 +151,7 @@ async function runProductCase(activeBrowser) {
         importItemId: review.itemId, gameId: approved.gameId, saveStateId: saved.saveStateId,
         originalLaunchId: original.launchId, restoreLaunchId: restored.launchId,
       },
-      checkpoint: { payloadKind: saved.payloadKind, sizeBytes: Number(stateResponse.headers()["content-length"]) },
+      checkpoint: { format: saved.checkpointFormat, sizeBytes: Number(stateResponse.headers()["content-length"]) },
       cache: {
         contentDigest,
         firstDataWinResponseCount: countProjectFile(previewResponses.urls, "data.win"),
@@ -246,45 +252,31 @@ function trackProjectResponses(page) {
 
 async function runtimeCanvas(page) {
   const deadline = Date.now() + 120_000;
+  let lastObservation = {canvasVisible: false};
   while (Date.now() < deadline) {
     for (const frame of page.frames()) {
       const canvas = frame.locator('canvas[aria-label="Butterscotch game"]').first();
       if (!await canvas.isVisible().catch(() => false)) {continue;}
-      const layout = await canvasLayoutEvidence(canvas).catch(() => null);
+      const layout = await canvasLayoutEvidence(canvas).catch((error) => {
+        lastObservation = {canvasVisible: true, error: error.message};
+        return null;
+      });
+      if (layout !== null) {lastObservation = {canvasVisible: true, layout};}
       if (validCanvasLayout(layout)) {return canvas;}
     }
     await page.waitForTimeout(100);
   }
+  runtimeDiagnostics.push(lastObservation);
   throw new Error("BUTTERSCOTCH_ACCEPTANCE_CANVAS_LAYOUT_INVALID");
 }
 
-async function sendGamepadInput(canvas) {
-  await canvas.evaluate((element) => {element.tabIndex = 0; element.focus();});
-  for (const input of [
-    { axis: 1, value: 1 }, { axis: 1, value: 0 }, { button: 0, pressed: true }, { button: 0, pressed: false },
-  ]) {
-    await canvas.evaluate((element, next) => {
-      const gamepad = element.ownerDocument.defaultView?.__retromTestGamepad;
-      if ("axis" in next) {gamepad?.axis(next.axis, next.value);}
-      else {gamepad?.button(next.button, next.pressed);}
-    }, input);
-    await canvas.page().waitForTimeout(300);
-  }
-}
-
 async function waitForCheckpoint(page) {
-  await page.mouse.move(720, 1);
-  const button = page.getByRole("button", { name: "创建存档", exact: true });
-  await button.waitFor({ state: "visible", timeout: 120_000 });
-  const deadline = Date.now() + 120_000;
-  while (Date.now() < deadline) {
-    if (await button.isEnabled().catch(() => false)) {return;}
-    await page.waitForTimeout(100);
-  }
-  throw new Error("BUTTERSCOTCH_ACCEPTANCE_SAVE_UNAVAILABLE");
+  await waitForAvailableCheckpoint(page);
+  await runtimeCanvas(page);
 }
 
 async function createCheckpoint(page, launchId) {
+  await revealPreviewToolbar(page);
   const button = page.getByRole("button", { name: "创建存档", exact: true });
   const responsePromise = page.waitForResponse((response) =>
     response.request().method() === "POST" && response.url().includes(`/runtime/launches/${launchId}/save-states`),
@@ -339,6 +331,8 @@ async function canvasLayoutEvidence(canvas) {
       focused: element.ownerDocument.activeElement === element,
       displayWidth: canvasRect.width,
       displayHeight: canvasRect.height,
+      surfaceWidth: surfaceRect.width,
+      surfaceHeight: surfaceRect.height,
     };
   });
 }
@@ -347,28 +341,10 @@ function validCanvasLayout(layout) {
   return layout !== null && Number.isSafeInteger(layout.backingWidth) && layout.backingWidth >= 64 &&
     Number.isSafeInteger(layout.backingHeight) && layout.backingHeight >= 64 &&
     layout.displayWidth >= 64 && layout.displayHeight >= 64 &&
+    layout.surfaceWidth >= layout.displayWidth && layout.surfaceHeight >= layout.displayHeight &&
+    (layout.surfaceWidth - layout.displayWidth <= 1 || layout.surfaceHeight - layout.displayHeight <= 1) &&
     Math.abs(layout.backingWidth / layout.backingHeight - layout.displayWidth / layout.displayHeight) <= 0.01 &&
     layout.centerOffsetXPx <= 1 && layout.centerOffsetYPx <= 1 && layout.focused === true;
-}
-
-async function installVirtualStandardGamepad(context) {
-  await context.addInitScript(() => {
-    const state = {
-      axes: [0, 0, 0, 0],
-      buttons: Array.from({ length: 17 }, () => ({ pressed: false, touched: false, value: 0 })),
-    };
-    Object.defineProperty(navigator, "getGamepads", {
-      configurable: true,
-      value: () => [{
-        axes: state.axes, buttons: state.buttons, connected: true,
-        id: "Retrom acceptance standard gamepad", index: 0, mapping: "standard", timestamp: performance.now(),
-      }],
-    });
-    globalThis.__retromTestGamepad = {
-      axis(index, value) {state.axes[index] = value;},
-      button(index, pressed) {state.buttons[index] = { pressed, touched: pressed, value: pressed ? 1 : 0 };},
-    };
-  });
 }
 
 function projectIdentity(urls) {

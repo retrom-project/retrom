@@ -3,8 +3,8 @@ export type ImportListItem = {
   state: string;
   platformInstanceName: string;
   metadataProvider: string;
-  contentMode?: "STANDARD" | "MULTI_DISC_M3U_V1" | "RPG_MAKER_PROJECT_V1" | "ONS_PROJECT_V1" |
-    "KIRIKIRI_PROJECT_V1" | "BUTTERSCOTCH_PROJECT_V1" | "TYRANOSCRIPT_PROJECT_V1";
+  contentMode?: "STANDARD" | "MULTI_DISC" | "RPG_MAKER_PROJECT" | "ONS_PROJECT" |
+    "KIRIKIRI_PROJECT" | "BUTTERSCOTCH_PROJECT" | "TYRANOSCRIPT_PROJECT";
   totalItemCount: number;
   reviewPendingItemCount: number;
   failedItemCount: number;
@@ -41,8 +41,8 @@ export type ImportDetail = {
   errorCode?: string | null;
   metadataProvider: string;
   targetPlatformInstance: { id: string; name: string };
-  configSnapshot?: { contentMode?: "STANDARD" | "MULTI_DISC_M3U_V1" | "RPG_MAKER_PROJECT_V1" |
-    "ONS_PROJECT_V1" | "KIRIKIRI_PROJECT_V1" | "BUTTERSCOTCH_PROJECT_V1" | "TYRANOSCRIPT_PROJECT_V1";
+  configSnapshot?: { contentMode?: "STANDARD" | "MULTI_DISC" | "RPG_MAKER_PROJECT" |
+    "ONS_PROJECT" | "KIRIKIRI_PROJECT" | "BUTTERSCOTCH_PROJECT" | "TYRANOSCRIPT_PROJECT";
     tags?: Array<{ tagId: string; name: string }> };
   counts: {
     total: number;
@@ -57,7 +57,7 @@ export type ImportDetail = {
   itemSummaries?: Array<{
     itemId: string;
     state: string;
-    contentKind: "MULTI_DISC_M3U_V1";
+    contentKind: "MULTI_DISC";
     playlist: string;
     discCount: number;
     presentDiscCount: number;

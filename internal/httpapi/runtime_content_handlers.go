@@ -17,6 +17,8 @@ import (
 	"strings"
 	"time"
 
+	"retrom/internal/contentprofile"
+
 	"retrom/internal/cleanup"
 	"retrom/internal/dosbundle"
 	"retrom/internal/launch"
@@ -37,8 +39,8 @@ func (server *Server) launchGame(writer http.ResponseWriter, request *http.Reque
 	if err != nil {
 		if isMultiDisc {
 			logMultiDiscContentResponse(
-				request.Context(), authorizedLaunchID, content.PlatformKey, content.CoreID,
-				content.ArtifactVersion, content.DiscCount, "PLAYLIST", http.StatusServiceUnavailable, 0,
+				request.Context(), authorizedLaunchID, content.PlatformKey, content.TargetID,
+				content.BundleSHA256, content.DiscCount, "PLAYLIST", http.StatusServiceUnavailable, 0,
 				"CAS_UNAVAILABLE",
 			)
 		}
@@ -102,15 +104,8 @@ func (server *Server) launchProjectFile(writer http.ResponseWriter, request *htt
 		// generated index remains reserved internally, so uploads cannot replace it.
 		logicalName = "__retrom__/index.json"
 	}
-	content, err := server.launcher.Content(request.Context(), launchID, grant.Capability, logicalName)
-	if err != nil {
-		content, err = server.launcher.ReviewPreviewProjectContent(
-			request.Context(), launchID, grant.Capability, logicalName,
-		)
-	}
-	if err != nil || content.Format != "RPG_MAKER_PROJECT_V1" && content.Format != "ONS_PROJECT_V1" &&
-		content.Format != "KIRIKIRI_PROJECT_V1" && content.Format != "BUTTERSCOTCH_PROJECT_V1" &&
-		content.Format != "TYRANOSCRIPT_PROJECT_V1" {
+	content, err := server.projectContent(request, launchID, grant.Capability, logicalName)
+	if err != nil || !contentprofile.IsProjectContentKind(contentprofile.ContentKind(content.Format)) {
 		writeError(
 			writer, request, http.StatusUnauthorized, "LAUNCH_CREDENTIAL_INVALID",
 			"项目内容不可用", map[string]any{},
@@ -133,6 +128,32 @@ func (server *Server) launchProjectFile(writer http.ResponseWriter, request *htt
 	writer.Header().Set("Accept-Ranges", "bytes")
 	writer.Header().Set("X-Content-Type-Options", "nosniff")
 	http.ServeContent(writer, request, filepath.Base(logicalName), time.Unix(0, 0), file)
+}
+
+func (server *Server) projectContent(
+	request *http.Request,
+	launchID, capability, logicalName string,
+) (launch.ContentView, error) {
+	contentLogicalName := logicalName
+	if logicalName == "game.mkxpz" {
+		contentLogicalName = "__retrom__/game.mkxpz"
+	}
+	content, err := server.launcher.Content(request.Context(), launchID, capability, contentLogicalName)
+	if err != nil && contentLogicalName != logicalName {
+		content, err = server.launcher.Content(request.Context(), launchID, capability, logicalName)
+	}
+	if err == nil {
+		return content, nil
+	}
+	// Both session types freeze generated archives under the same reserved name.
+	content, err = server.launcher.ReviewPreviewProjectContent(request.Context(), launchID, capability, contentLogicalName)
+	if err != nil && contentLogicalName != logicalName {
+		content, err = server.launcher.ReviewPreviewProjectContent(request.Context(), launchID, capability, logicalName)
+	}
+	if err != nil {
+		return launch.ContentView{}, fmt.Errorf("load preview project content: %w", err)
+	}
+	return content, nil
 }
 
 func (server *Server) runtimeProjectContentGrant(
@@ -240,8 +261,8 @@ func (server *Server) recordMultiDiscContentResponse(
 		resultCode = "HTTP_ERROR"
 	}
 	logMultiDiscContentResponse(
-		request.Context(), authorizedLaunchID, content.PlatformKey, content.CoreID,
-		content.ArtifactVersion, content.DiscCount, "PLAYLIST", status, response.bytes, resultCode,
+		request.Context(), authorizedLaunchID, content.PlatformKey, content.TargetID,
+		content.BundleSHA256, content.DiscCount, "PLAYLIST", status, response.bytes, resultCode,
 	)
 }
 
@@ -337,8 +358,8 @@ func (server *Server) recordExternalContentResponse(
 		resultCode = "HTTP_ERROR"
 	}
 	logMultiDiscContentResponse(
-		request.Context(), authorizedLaunchID, content.PlatformKey, content.CoreKey,
-		content.ArtifactVersion, content.DiscCount, "DISC", status, response.bytes, resultCode,
+		request.Context(), authorizedLaunchID, content.PlatformKey, content.TargetID,
+		content.BundleSHA256, content.DiscCount, "DISC", status, response.bytes, resultCode,
 	)
 }
 

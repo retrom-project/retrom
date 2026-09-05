@@ -8,7 +8,7 @@
 - 只有 `ADMIN` 可以创建、重命名、删除和分配标签。任意已登录用户只能读取其可见游戏已经关联的活动 `TagReference`。
 - 标签必须先在 `/admin/tags` 创建。导入、Pegasus Collection 映射、审核和游戏维护只引用既有活动 Tag ID，不允许自由文本新建。
 - 一期 Tag 只有名称、状态、版本、actor 和时刻；不包含颜色、图标、说明、层级、别名、规则或手工顺序。外部 `tags:`、Hasheous Tags、genre、文件名和目录名都不会自动创建或匹配 Tag。
-- Tag 不进入 MetadataRevision、GameContentRevision、Variant、Launch、Player、存档、Core/DAT/BIOS 或内容 identity。
+- Tag 不进入 Game 当前元信息字段、GameFiles、Variant、Launch、Player、存档、Core/DAT/BIOS 或内容 identity。
 
 `TagReference` 固定为 `{tagId,name}`，只指向活动 Tag。Game、ReviewDraft 与 Pegasus Collection 均可关联 0–20 个活动 Tag；关系无顺序，读取按 `name_key,tag_id` 稳定排序。
 
@@ -27,7 +27,7 @@
 
 删除是不可恢复的软删除：管理员必须提供当前 Tag ETag 和逐 code point 等于当前显示名的 `confirmName`。删除事务保留 Tag 与全部关系作为历史证据，将 Tag 标为 `DELETED`，推进所有受影响 Game、待审核 ReviewDraft 和未完成 Pegasus aggregate 的版本并写审计。它立即退出选择器、当前投影、关键字和精确筛选；旧编辑器提交时必须因 owner ETag 过期而冲突。之后可用同一规范名称创建新 ID，但新 Tag 不继承旧关系。
 
-标签 create/rename/delete 和每个关系集合变化都会推进相关 Tag version。重命名只改变 Tag 本身；由于搜索和投影动态连接活动 Tag，名称会立即更新而不会重写 `games.search_text` 或创建 MetadataRevision。
+标签 create/rename/delete 和每个关系集合变化都会推进相关 Tag version。重命名只改变 Tag 本身；由于搜索和投影动态连接活动 Tag，名称会立即更新而不会重写 `games.search_text` 或创建 Game 当前元信息字段。
 
 标签页提供可重复执行的“添加常用标签”模板，固定包含：动作冒险、飞行射击、格斗对战、角色扮演、模拟经营、即时战略、体育竞技、益智解谜、光枪射击、生存恐怖。这些条目创建后仍是普通管理员标签，不增加系统标记、锁定或特殊删除规则。补齐操作按规范化 `name_key` 复用已有活动标签，只在一个事务内创建缺失项；容量不足时整批不写，重复执行不产生新标签。
 
@@ -35,7 +35,7 @@
 
 所有集合替换遵守同一过程：先验证数组长度、规范 UUIDv7、重复和全部 Tag 的活动状态；读取当前活动集合；完全相同则 no-op；否则删除不再选择的活动关系、插入新增关系，保留指向 DELETED tombstone 的历史行，推进 touched Tag 和 owner aggregate 的版本并记录领域事件或审计。数据库 trigger 再次保护活动状态、owner 状态和 20 个上限。
 
-- `PUT /admin/games/{gameId}/tags` 以 Game `If-Match` 原子替换 PUBLISHED 或 DELETED Game 的当前标签，推进 Game version 并写 `GAME_TAGS_REPLACED` 审计；它不创建 MetadataRevision。
+- `PUT /admin/games/{gameId}/tags` 以 Game `If-Match` 原子替换 PUBLISHED 或 DELETED Game 的当前标签，推进 Game version 并写 `GAME_TAGS_REPLACED` 审计；它不创建 Game 当前元信息字段。
 - Review 标签属于 ReviewDraft version。PATCH 自动保存的 `tagIds` 与标题、媒体、Validation 等草稿选择共同提交；Approve 在原发布事务内重新验证活动 Tag，并将当前 ReviewDraftTag 原子复制到 GameTag。任何失败都回滚整个发布。Discard 保留关系与最终 ReviewEvent 的名称快照。
 - Pegasus Collection 标签属于 mapping version。每个 `IMPORT` Collection 的映射保存关系及稳定 `{tagId,name}` snapshot；`SKIP` 必须是空数组。start 后映射冻结，retry 复用该映射；handoff 只把仍活动的选择复制到所创建的 ReviewDraft，且崩溃恢复不得重复写入。
 

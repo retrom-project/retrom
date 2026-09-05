@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"retrom/internal/contentcapability"
+
 	"github.com/google/uuid"
 
 	"retrom/internal/cleanup"
@@ -159,20 +161,13 @@ func (service *Service) insertParentCommitArtifacts(
 	snapshotUUID, _ := uuid.NewV7()
 	validationUUID, _ := uuid.NewV7()
 	snapshotID, validationID := snapshotUUID.String(), validationUUID.String()
-	var revision int
-	if err := transaction.QueryRowContext(ctx, `
-SELECT COALESCE(MAX(revision_no),0)+1
-FROM import_item_source_snapshots WHERE import_item_id=?
-`, candidate.itemID).Scan(&revision); err != nil {
-		return parentCommitArtifacts{}, parentStoreError("allocate source revision", err)
-	}
 	now := service.now().UnixMilli()
 	_, err := transaction.ExecContext(ctx, `
 INSERT INTO import_item_source_snapshots(
-  id,import_item_id,revision_no,source_manifest_json,source_manifest_digest,
+  id,import_item_id,source_manifest_json,source_manifest_digest,
   content_kind,created_by,created_at_ms
-) VALUES(?,?,?,?,?,?,'ARCADE_PARENT_ATTACHMENT',?)
-`, snapshotID, candidate.itemID, revision, manifestJSON, manifestDigest, target.contentKind, now)
+) VALUES(?,?,?,?,?,'ARCADE_PARENT_ATTACHMENT',?)
+`, snapshotID, candidate.itemID, manifestJSON, manifestDigest, target.contentKind, now)
 	if err != nil {
 		return parentCommitArtifacts{}, parentStoreError("insert source snapshot", err)
 	}
@@ -200,24 +195,25 @@ func insertParentCoreValidation(
 	now int64,
 ) error {
 	digest := prepublishDigest(prepublishDigestInput{
-		SchemaVersion: 1, ValidatorVersion: validatorArcadeV4, SourceSnapshotID: snapshotID,
+		SchemaVersion: 1, SourceSnapshotID: snapshotID,
 		SourceManifestDigest: manifestDigest, ContentKind: target.contentKind,
-		TargetPlatformInstanceID: target.targetID, PlatformInstanceVersion: target.platformVersion,
-		CoreArtifactID: target.artifactID, CoreArtifactVersion: target.artifactVersion,
-		CompatibilityConfigDigest: compatibilityConfigDigest(target.compatibilityConfig),
-		DATVersionID:              stringPointer(candidate.datID),
-		DependencySnapshot:        json.RawMessage(validation.dependencySnapshot),
-		Status:                    validation.validationStatus, CompatibilityCode: validation.compatibilityCode,
+		TargetPlatformInstanceID: target.targetID,
+		ProviderID:               target.providerID, TargetID: target.runtimeTargetID,
+		ContentPolicyDigest: target.contentPolicy.DigestFor(target.contentKind),
+		DATVersionID:        stringPointer(candidate.datID),
+		DependencySnapshot:  json.RawMessage(validation.dependencySnapshot),
+		Status:              validation.validationStatus, CompatibilityCode: validation.compatibilityCode,
 	})
 	_, err := transaction.ExecContext(ctx, `
 INSERT INTO import_item_core_validations(
   id,import_item_id,target_platform_instance_id,platform_instance_version,core_id,
-  core_artifact_id,dat_version_id,default_dos_entry,core_artifact_version,
-  prepublish_generation,source_manifest_digest,source_snapshot_id,prepublish_input_digest,
+  provider_id,target_id,
+  dat_version_id,default_dos_entry,
+  source_manifest_digest,source_snapshot_id,prepublish_input_digest,
   status,compatibility_code,dependency_snapshot_json,created_at_ms
-) VALUES(?,?,?,?,?,?,?,NULL,?,?,?,?,?,?,?,?,?)
+) VALUES(?,?,?,?,?,?,?,?,NULL,?,?,?,?,?,?,?)
 `, validationID, candidate.itemID, target.targetID, target.platformVersion, target.coreID,
-		target.artifactID, candidate.datID, target.artifactVersion, prepublishGeneration,
+		target.providerID, target.runtimeTargetID, candidate.datID,
 		manifestDigest, snapshotID, digest, validation.validationStatus,
 		validation.compatibilityCode, validation.dependencySnapshot, now)
 	if err != nil {
@@ -237,13 +233,13 @@ INSERT INTO import_item_validation_files(
 }
 
 type parentCommitTarget struct {
-	contentKind         string
-	targetID            string
-	coreID              string
-	artifactID          string
-	compatibilityConfig string
-	platformVersion     int64
-	artifactVersion     int64
+	contentKind     string
+	targetID        string
+	coreID          string
+	providerID      string
+	runtimeTargetID string
+	contentPolicy   contentcapability.Policy
+	platformVersion int64
 }
 
 func loadParentCommitTarget(
@@ -256,24 +252,31 @@ func loadParentCommitTarget(
 	var activeDATID sql.NullString
 	err := transaction.QueryRowContext(ctx, `
 SELECT item.state,draft.effective_source_snapshot_id,draft.target_platform_instance_id,
-source_snapshot.content_kind,platform.version,platform.default_core_id,artifact.id,
-artifact.version,artifact.compatibility_json,
-(SELECT dat.id FROM dat_versions dat WHERE dat.core_artifact_id=artifact.id AND dat.is_active=1)
+source_snapshot.content_kind,platform.version,platform.default_core_id,
+target.provider_id,target.target_id,
+`+contentcapability.BindingPolicySQL+`,
+(SELECT dat.id FROM dat_versions dat WHERE dat.provider_id=target.provider_id
+ AND dat.target_id=target.target_id AND dat.is_active=1)
 FROM import_items item
 JOIN review_drafts draft ON draft.id=? AND draft.import_item_id=item.id
 JOIN import_item_source_snapshots source_snapshot ON source_snapshot.id=draft.effective_source_snapshot_id
 JOIN platform_instances platform ON platform.id=draft.target_platform_instance_id
 AND platform.enabled=1 AND platform.deleted_at_ms IS NULL
-JOIN core_artifacts artifact ON artifact.core_id=platform.default_core_id AND artifact.selected_for_new_bindings=1
+JOIN runtime_target_bindings binding ON binding.core_id=platform.default_core_id
+  AND binding.launch_policy<>'DISABLED'
+JOIN runtime_binding_platforms platform_binding ON platform_binding.binding_id=binding.binding_id
+  AND platform_binding.platform_id=platform.platform_id
+JOIN runtime_targets target ON target.provider_id=binding.provider_id
+  AND target.target_id=binding.target_id
 WHERE item.id=?
 `, candidate.draftID, candidate.itemID).Scan(
 		&itemState, &currentSnapshotID, &target.targetID, &target.contentKind,
-		&target.platformVersion, &target.coreID, &target.artifactID,
-		&target.artifactVersion, &target.compatibilityConfig, &activeDATID,
+		&target.platformVersion, &target.coreID, &target.providerID, &target.runtimeTargetID,
+		&target.contentPolicy, &activeDATID,
 	)
 	valid := err == nil && itemState == "REVIEW_PENDING" && currentSnapshotID == candidate.baseSnapshotID &&
-		target.artifactID == candidate.artifactID && target.artifactVersion == candidate.artifactVersion &&
-		compatibilityConfigDigest(target.compatibilityConfig) == candidate.compatibilityDigest &&
+		target.providerID == candidate.providerID && target.runtimeTargetID == candidate.targetID &&
+		target.contentPolicy.DigestFor(target.contentKind) == candidate.contentPolicyDigest &&
 		activeDATID.Valid && activeDATID.String == candidate.datID
 	if !valid {
 		return parentCommitTarget{}, ErrInvalid

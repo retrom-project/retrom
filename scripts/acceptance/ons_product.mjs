@@ -5,6 +5,8 @@ import { join, resolve } from "node:path";
 
 import { chromium } from "../../web/node_modules/playwright/index.mjs";
 
+import {captureOptionalReviewScreenshot} from "./rpgmaker_preview_actions.mjs";
+
 import { assertOnsProductEvidence, onsProductStages } from "./ons_product_contract.mjs";
 import { localRpgAcceptanceProxy } from "./rpgmaker_local_proxy.mjs";
 import { createProductClient, singleFile } from "./rpgmaker_security_upload.mjs";
@@ -69,13 +71,13 @@ async function runProductCase(activeBrowser) {
     const login = await loginResponse.json();
     const client = createProductClient(context, baseUrl, login.csrfToken);
     const platformInstanceId = await onsPlatformInstance(client);
-    const uploadId = await client.upload(singleFile(process.env.RETROM_ONS_SMOKE_ARCHIVE), "FILES", "ONS_PROJECT");
+    const uploadId = await client.upload(singleFile(process.env.RETROM_ONS_SMOKE_ARCHIVE), "FILES", "PROJECT");
     const importedResponse = await client.raw("POST", "/api/v1/admin/imports", {
       headers: client.writeHeaders(),
       timeout: 120_000,
       data: {
         uploadId, targetPlatformInstanceId: platformInstanceId, metadataProvider: "NONE",
-        contentMode: "ONS_PROJECT_V1", tagIds: [],
+        contentMode: "ONS_PROJECT", tagIds: [],
       },
     });
     requireStatus(importedResponse.status(), 202, "ONS_ACCEPTANCE_IMPORT_CREATE_FAILED");
@@ -88,7 +90,7 @@ async function runProductCase(activeBrowser) {
     await previewPage.goto(`${baseUrl}${preview.playUrl}`, { waitUntil: "domcontentloaded", timeout: 120_000 });
     const previewCanvas = await runtimeCanvas(previewPage);
     await sendKeys(previewPage, previewCanvas, ["Enter", "ArrowDown", "Enter"]);
-    await previewPage.getByText("第 5 秒运行截图已保存；可以继续试玩。").waitFor({ timeout: 120_000 });
+    await captureOptionalReviewScreenshot(previewPage, preview.previewId);
     const previewFrame = await screenshotEvidence(previewCanvas, "preview.png");
     await previewPage.close();
 
@@ -137,7 +139,7 @@ async function runProductCase(activeBrowser) {
         importItemId: review.itemId, gameId: approved.gameId, saveStateId: saved.saveStateId,
         originalLaunchId: original.launchId, restoreLaunchId: restored.launchId,
       },
-      checkpoint: { payloadKind: saved.payloadKind, sizeBytes: payloadSize },
+      checkpoint: { format: saved.checkpointFormat, sizeBytes: payloadSize },
       loading: {
         schemaVersion: 1,
         sameProjectContentIdentity: firstVisibleLoading.projectContentIdentity !== null &&

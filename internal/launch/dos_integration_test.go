@@ -18,7 +18,7 @@ import (
 
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
-	"retrom/internal/corevalidation"
+	"retrom/internal/contentcapability"
 	"retrom/internal/dependencies"
 	"retrom/internal/libraryimport"
 	retromruntime "retrom/internal/runtime"
@@ -119,16 +119,12 @@ WHERE d.import_item_id=?
 	}
 	approved, err := importService.Approve(ctx, itemID, 2)
 	testassert.False(t, err != nil, err)
-	dependencySet, err = dependencies.Load(
-		filepath.Join(repositoryRoot, "data"), []string{"4.2.3", "4.3.0-pre"}, "4.2.3",
-	)
-	testassert.False(t, err != nil, err)
-	if err := dependencySet.Bootstrap(ctx, database.SQL, time.Now()); err != nil {
-		t.Fatal(err)
-	}
 	credentials, err := retromruntime.LoadOrCreateCredentials(dataDir)
 	testassert.False(t, err != nil, err)
-	service := New(database.SQL, dependencySet, credentials, time.Now)
+	runtimeBuilder, err := testsupport.NewRuntimeBuilder(ctx, database.SQL)
+	testassert.False(t, err != nil, err)
+	service := New(database.SQL, dependencySet, credentials, time.Now).
+		WithRuntimeProvider(dependencySet.RuntimeCatalog, runtimeBuilder)
 	selected := "DOOM/DOOM.EXE"
 	capabilities := Capabilities{SecureContext: true, CrossOriginIsolated: true, SharedArrayBuffer: true}
 	var blobCountBefore int
@@ -146,79 +142,18 @@ WHERE d.import_item_id=?
 		},
 	)
 	if err != nil {
-		var selectedArtifact, runtimeVersion, contentKind, contentID, variantID, logicalName string
-		var selectedCount int
-		diagnosticErr := database.SQL.QueryRowContext(ctx, `
-SELECT artifact.id,artifact.runtime_version,content.content_kind,content.id,variant.id,
-COALESCE((SELECT logical_name FROM game_content_files file
- WHERE file.game_content_revision_id=content.id AND file.role IN ('CONTENT','DISC') LIMIT 1),''),
-(SELECT count(*) FROM core_artifacts current
- WHERE current.core_id=artifact.core_id AND current.selected_for_new_bindings=1)
-FROM games game
-JOIN platform_instances instance ON instance.id=game.platform_instance_id
-JOIN game_content_revisions content ON content.id=game.current_content_revision_id
-JOIN core_artifacts artifact ON artifact.core_id=instance.default_core_id
-JOIN game_variants variant ON variant.game_id=game.id AND variant.core_id=artifact.core_id
-WHERE game.id=? AND artifact.selected_for_new_bindings=1
-`, approved.GameID).Scan(&selectedArtifact, &runtimeVersion, &contentKind, &contentID, &variantID,
-			&logicalName, &selectedCount)
-		diagnosticTx, beginErr := database.SQL.BeginTx(ctx, nil)
-		if beginErr != nil {
-			t.Fatal(beginErr)
-		}
-		defer cleanup.Rollback(diagnosticTx)
-		digest, biosDigest, digestErr := service.validationDigests(
-			ctx, diagnosticTx, variantID, contentID, logicalName, contentKind,
-			selectedArtifact, sql.NullString{},
-		)
-		t.Fatalf("create DOS validation launch: %v; artifact=%s runtime=%s kind=%s selected=%d diagnostic=%v digest=%s bios=%s digestErr=%v",
-			err, selectedArtifact, runtimeVersion, contentKind, selectedCount, diagnosticErr, digest, biosDigest, digestErr)
-	}
-	testassert.Falsef(t, testassert.Any(func() bool { return direct.Status != "VALIDATION_PENDING" }, func() bool { return direct.JobID == "" }), "DOS runtime upgrade validation = %#v", direct)
-	for deadline := time.Now().Add(3 * time.Second); ; {
-		var state string
-		var errorCode sql.NullString
-		if err := database.SQL.QueryRowContext(ctx, `SELECT state,error_code FROM jobs WHERE id=?`, direct.JobID).
-			Scan(&state, &errorCode); err != nil {
-			t.Fatal(err)
-		}
-		if state == "SUCCEEDED" {
-			break
-		}
-		testassert.Falsef(t, testassert.Any(func() bool { return state == "FAILED" }, func() bool { return time.Now().After(deadline) }), "DOS runtime upgrade validation = %s/%s", state, errorCode.String)
-		time.Sleep(10 * time.Millisecond)
-	}
-	direct, err = service.Create(
-		ctx,
-		"local",
-		CreateRequest{
-			GameID:             approved.GameID,
-			DOSEntry:           &selected,
-			ReturnTo:           "/games/" + approved.GameID,
-			ClientCapabilities: capabilities,
-		},
-	)
-	if err != nil {
-		var revisionID, artifactID, emulatorVersion, digest, contentID, logicalName string
-		var artifactEnabled int
-		diagnosticErr := database.SQL.QueryRowContext(ctx, `
-		SELECT v.current_revision_id,a.id,a.runtime_version,a.available_for_launch,r.validation_input_digest,r.game_content_revision_id,
-COALESCE((SELECT logical_name FROM game_content_files WHERE game_content_revision_id=r.game_content_revision_id AND role='CONTENT' LIMIT 1),'')
-FROM game_variants v
-JOIN game_variant_revisions r ON r.id=v.current_revision_id
-JOIN core_artifacts a ON a.id=r.core_artifact_id
-WHERE v.game_id=?
-`, approved.GameID).Scan(&revisionID, &artifactID, &emulatorVersion, &artifactEnabled, &digest, &contentID, &logicalName)
-		snapshot, biosStatus, biosCode, biosErr := corevalidation.ResolveBIOS(ctx, database.SQL, artifactID, logicalName)
-		expectedDigest, digestErr := corevalidation.ValidationInputDigest(artifactID, contentID, sql.NullString{}, snapshot)
-		compatibility, compatibilityErr := service.loadArtifactCompatibility(ctx, artifactID)
-		var directSafe int
-		directErr := database.SQL.QueryRowContext(ctx, `SELECT direct_launch_safe FROM dos_entries WHERE game_content_revision_id=? AND normalized_path=?`, contentID, selected).Scan(&directSafe)
-		t.Fatalf("DOS launch after runtime upgrade: %v; revision=%s artifact=%s runtime=%s enabled=%d digest=%s expected=%s content=%q diagnostic=%v bios=%s/%s/%v digestErr=%v compatibility=%#v/%v direct=%d/%v", err, revisionID, artifactID, emulatorVersion, artifactEnabled, digest, expectedDigest, logicalName, diagnosticErr, biosStatus, biosCode, biosErr, digestErr, compatibility, compatibilityErr, directSafe, directErr)
+		t.Fatalf("create DOS direct launch: %v", err)
 	}
 	configuration, err := service.Config(ctx, direct.LaunchID, direct.Capability)
 	testassert.False(t, err != nil, err)
-	testassert.Falsef(t, testassert.Any(func() bool { return configuration.EmulatorJSVersion != "4.3.0-pre" }, func() bool { return configuration.PlayerAdapterID != "ejs-4.3.0-pre-v2" }, func() bool { return configuration.DOSEntry != selected }, func() bool { return configuration.DefaultCoreOptions["dosbox_pure_conf"] != "" }, func() bool { return len(configuration.ExternalFiles) != 0 }), "DOS direct config = %#v", configuration)
+	directEnvelope := testsupport.RuntimeEnvelope(t, configuration)
+	directOptions := testsupport.RuntimeEnvelopeObject(t, directEnvelope, "targetOptions")
+	directGame := testsupport.RuntimeEnvelopeResource(t, directEnvelope, "game")
+	testassert.Falsef(t, testassert.Any(
+		func() bool { return directOptions["dosEntryPath"] != selected },
+		func() bool { return directGame["url"] == "" },
+		func() bool { return len(testsupport.RuntimeEnvelopeResources(t, directEnvelope, "external")) != 0 },
+	), "DOS direct envelope = %#v", directEnvelope)
 	var directFormat, directLogicalName, directBlobID string
 	var blobCountAfter int
 	if err := database.SQL.QueryRowContext(ctx, `
@@ -245,7 +180,15 @@ WHERE launch_session_id=?
 	testassert.False(t, err != nil, err)
 	menuConfig, err := service.Config(ctx, menu.LaunchID, menu.Capability)
 	testassert.False(t, err != nil, err)
-	testassert.Falsef(t, testassert.Any(func() bool { return menuConfig.DOSEntry != nil }, func() bool { return menuConfig.DefaultCoreOptions["dosbox_pure_conf"] != "" }, func() bool { return len(menuConfig.ExternalFiles) != 0 }, func() bool { return menuConfig.GameURL[len(menuConfig.GameURL)-len("game.zip"):] != "game.zip" }), "DOS menu config = %#v", menuConfig)
+	menuEnvelope := testsupport.RuntimeEnvelope(t, menuConfig)
+	menuOptions := testsupport.RuntimeEnvelopeObject(t, menuEnvelope, "targetOptions")
+	menuGame := testsupport.RuntimeEnvelopeResource(t, menuEnvelope, "game")
+	menuURL, _ := menuGame["url"].(string)
+	testassert.Falsef(t, testassert.Any(
+		func() bool { return menuOptions["dosEntryPath"] != nil },
+		func() bool { return len(testsupport.RuntimeEnvelopeResources(t, menuEnvelope, "external")) != 0 },
+		func() bool { return !strings.HasSuffix(menuURL, "game.zip") },
+	), "DOS menu envelope = %#v", menuEnvelope)
 	unsafe := "DOOM/SETUP%.BAT"
 	if _, err := service.Create(ctx, "local", CreateRequest{GameID: approved.GameID, DOSEntry: &unsafe, ReturnTo: "/", ClientCapabilities: capabilities}); !errors.Is(
 		err,
@@ -260,13 +203,13 @@ WHERE launch_session_id=?
 	) {
 		t.Fatalf("missing DOS entry error = %v", err)
 	}
-	var variantID, artifactID string
+	var variantID, providerID, targetID string
+	var gameVersion int64
 	if err := database.SQL.QueryRowContext(ctx, `
-SELECT v.id,r.core_artifact_id
-FROM game_variants v
-JOIN game_variant_revisions r ON r.id=v.current_revision_id
-WHERE v.game_id=?
-`, approved.GameID).Scan(&variantID, &artifactID); err != nil {
+SELECT variant.id,variant.provider_id,variant.target_id,game.version
+FROM game_variants variant JOIN games game ON game.id=variant.game_id
+WHERE variant.game_id=?
+`, approved.GameID).Scan(&variantID, &providerID, &targetID, &gameVersion); err != nil {
 		t.Fatal(err)
 	}
 	transaction, err := database.SQL.BeginTx(ctx, nil)
@@ -275,8 +218,12 @@ WHERE v.game_id=?
 		ctx,
 		transaction,
 		variantID,
-		"missing-content-revision",
-		artifactID,
+		"missing-game",
+		gameVersion,
+		strings.Repeat("a", 64),
+		providerID,
+		targetID,
+		contentcapability.NewPolicy("SINGLE_FILE"),
 		sql.NullString{},
 		strings.Repeat("0", 64),
 		strings.Repeat("0", 64),
@@ -302,8 +249,12 @@ WHERE v.game_id=?
 		ctx,
 		retryTx,
 		variantID,
-		"missing-content-revision",
-		artifactID,
+		"missing-game",
+		gameVersion,
+		strings.Repeat("a", 64),
+		providerID,
+		targetID,
+		contentcapability.NewPolicy("SINGLE_FILE"),
 		sql.NullString{},
 		strings.Repeat("0", 64),
 		strings.Repeat("0", 64),

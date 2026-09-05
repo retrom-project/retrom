@@ -42,12 +42,10 @@ type approvalRun struct {
 	contentKind                   string
 	dependencySnapshotJSON        string
 	coreID                        string
-	artifactID                    string
-	routeKey                      string
-	artifactCompatibility         string
-	runtimeFamily                 string
+	providerID                    string
+	targetID                      string
+	contentPolicy                 contentcapability.Policy
 	draftVersion                  int64
-	artifactVersion               int64
 	datID                         sql.NullString
 	validationDOSEntry            sql.NullString
 	draftDOSEntry                 sql.NullString
@@ -65,18 +63,11 @@ type approvalRun struct {
 	duplicateGames                []DuplicateGame
 	now                           int64
 	gameID                        string
-	metadataID                    string
-	contentID                     string
 	variantID                     string
-	variantRevisionID             string
 	eventID                       string
 	publishedTags                 []tagging.Reference
 	screenshotIDs                 []string
-	rpgValidationID               string
 	rpgGeneration                 string
-	rpgAdapterID                  string
-	rpgAdapterABI                 string
-	rpgArtifactSetSHA             string
 	rpgDependencySnapshotSHA      string
 }
 
@@ -128,16 +119,16 @@ func (run *approvalRun) load() error {
 		&run.draftID, &run.state, &run.importID, &run.configJSON, &run.platformID,
 		&run.platformInstanceID, &run.validationID, &run.validationStatus, &run.metadataJSON,
 		&run.sourceSnapshotID, &run.sourceManifestJSON, &run.sourceManifestDigest,
-		&run.contentKind, &run.coreID, &run.artifactID, &run.routeKey, &run.artifactCompatibility,
-		&run.runtimeFamily,
-		&run.artifactVersion, &run.datID, &run.validationDOSEntry, &run.draftDOSEntry,
+		&run.contentKind, &run.coreID, &run.providerID, &run.targetID,
+		&run.contentPolicy,
+		&run.datID, &run.validationDOSEntry, &run.draftDOSEntry,
 		&run.dependencySnapshotJSON, &run.approvalScreenshotID, &run.draftVersion,
 		&run.candidateID, &run.coverID, &run.uploadedCoverID, &run.backgroundID,
 	)
 	if err != nil || run.state != "REVIEW_PENDING" || run.draftVersion != run.expectedVersion {
 		return ErrInvalid
 	}
-	if run.options.strictReady && run.platformID != "rpgmaker" && run.validationStatus != "READY" {
+	if run.options.strictReady && run.validationStatus != "READY" {
 		return ErrInvalid
 	}
 	if run.options.expectedValidationID != "" && run.validationID != run.options.expectedValidationID {
@@ -153,12 +144,11 @@ func (run *approvalRun) prepare() error {
 	if err := run.resolveServerOrigin(); err != nil {
 		return err
 	}
-	if run.platformID != "rpgmaker" &&
-		!contentcapability.SupportsContentKind(run.artifactCompatibility, run.contentKind) {
+	if !run.contentPolicy.Supports(run.contentKind) {
 		return ErrInvalid
 	}
 	if run.platformID == "rpgmaker" {
-		if err := run.loadLaunchedRPGValidation(); err != nil {
+		if err := run.loadRPGProfile(); err != nil {
 			return err
 		}
 	}
@@ -197,9 +187,6 @@ func (run *approvalRun) resolveServerOrigin() error {
 
 func (run *approvalRun) prepareValidationSnapshot() error {
 	if run.platformID == "rpgmaker" {
-		if run.approvalScreenshotID.Valid || run.validationStatus == "READY" {
-			return ErrInvalid
-		}
 		run.runtimeDependencySnapshotJSON = run.dependencySnapshotJSON
 		return nil
 	}
@@ -209,7 +196,8 @@ func (run *approvalRun) prepareValidationSnapshot() error {
 	if !run.screenshotOverride {
 		if err := run.service.validateCurrentApprovalDependencySnapshot(
 			run.ctx, run.transaction, run.sourceSnapshotID, run.validationID, run.platformID,
-			run.artifactID, run.artifactCompatibility, run.contentKind, run.dependencySnapshotJSON,
+			run.providerID, run.targetID, run.contentPolicy,
+			run.contentKind, run.dependencySnapshotJSON,
 		); err != nil {
 			return err
 		}
@@ -254,14 +242,9 @@ func (run *approvalRun) prepareDuplicateDecision() error {
 
 func (run *approvalRun) allocateIDs() {
 	gameID, _ := uuid.NewV7()
-	metadataID, _ := uuid.NewV7()
-	contentID, _ := uuid.NewV7()
 	variantID, _ := uuid.NewV7()
-	variantRevisionID, _ := uuid.NewV7()
 	eventID, _ := uuid.NewV7()
-	run.gameID, run.metadataID, run.contentID = gameID.String(), metadataID.String(), contentID.String()
-	run.variantID = variantID.String()
-	run.variantRevisionID = variantRevisionID.String()
+	run.gameID, run.variantID = gameID.String(), variantID.String()
 	run.eventID = eventID.String()
 }
 
@@ -269,13 +252,14 @@ const approvalDraftQuery = `
 SELECT d.id,i.state,i.import_job_id,j.config_snapshot_json,p.platform_id,
   d.target_platform_instance_id,v.id,v.status,d.metadata_json,source_snapshot.id,
   source_snapshot.source_manifest_json,source_snapshot.source_manifest_digest,
-  source_snapshot.content_kind,v.core_id,v.core_artifact_id,a.route_key,a.compatibility_json,a.runtime_family,
-  v.core_artifact_version,v.dat_version_id,v.default_dos_entry,d.default_dos_entry,
+  source_snapshot.content_kind,v.core_id,v.provider_id,v.target_id,
+  ` + contentcapability.BindingPolicySQL + `,
+  v.dat_version_id,v.default_dos_entry,d.default_dos_entry,
   v.dependency_snapshot_json,
   (SELECT screenshot.id FROM review_runtime_screenshots screenshot
    WHERE screenshot.import_item_id=i.id AND screenshot.validation_id=v.id
      AND screenshot.source_snapshot_id=d.effective_source_snapshot_id
-     AND screenshot.core_artifact_id=v.core_artifact_id
+     AND screenshot.provider_id=v.provider_id AND screenshot.target_id=v.target_id
    ORDER BY screenshot.captured_at_ms DESC,screenshot.id DESC LIMIT 1),
   d.version,d.selected_candidate_id,d.cover_candidate_asset_id,d.cover_uploaded_asset_id,
   d.background_candidate_asset_id
@@ -285,85 +269,46 @@ JOIN review_drafts d ON d.import_item_id=i.id
 JOIN import_item_source_snapshots source_snapshot ON source_snapshot.id=d.effective_source_snapshot_id
 JOIN platform_instances p ON p.id=d.target_platform_instance_id
   AND p.enabled=1 AND p.deleted_at_ms IS NULL
-LEFT JOIN rpgmaker_review_profiles rpg_binding ON rpg_binding.review_draft_id=d.id
-JOIN core_artifacts a ON a.id=CASE WHEN p.platform_id='rpgmaker' THEN rpg_binding.artifact_id ELSE (
-  SELECT selected.id FROM core_artifacts selected
-  WHERE selected.core_id=p.default_core_id AND selected.selected_for_new_bindings=1
-) END
 JOIN import_item_core_validations v ON v.id=(
   SELECT candidate.id FROM import_item_core_validations candidate
   WHERE candidate.import_item_id=i.id
     AND candidate.source_snapshot_id=d.effective_source_snapshot_id
     AND candidate.target_platform_instance_id=d.target_platform_instance_id
-    AND candidate.core_artifact_id=a.id
   ORDER BY candidate.created_at_ms DESC,candidate.id DESC LIMIT 1
 )
 AND v.source_snapshot_id=d.effective_source_snapshot_id
 AND v.target_platform_instance_id=d.target_platform_instance_id
-AND v.core_artifact_id=a.id
-AND p.version=v.platform_instance_version
-AND a.version=v.core_artifact_version
+AND p.default_core_id=v.core_id
+JOIN runtime_targets target ON target.provider_id=v.provider_id AND target.target_id=v.target_id
+JOIN runtime_target_bindings binding ON binding.provider_id=v.provider_id AND binding.target_id=v.target_id
+ AND binding.core_id=v.core_id AND binding.launch_policy!='DISABLED'
+JOIN runtime_binding_platforms binding_platform ON binding_platform.binding_id=binding.binding_id
+ AND binding_platform.platform_id=p.platform_id
 WHERE i.id=?
 AND (i.review_handoff_kind='DIRECT' OR EXISTS(
   SELECT 1 FROM emulationstation_import_items reserved_source
   WHERE reserved_source.library_import_item_id=i.id
   AND reserved_source.execution_state='REVIEW_PENDING'
 ))
-AND (p.platform_id='rpgmaker' AND EXISTS(
-  SELECT 1 FROM rpgmaker_review_profiles rpg_profile
-  JOIN rpgmaker_runtime_validations runtime_validation
-    ON runtime_validation.import_item_id=i.id
-    AND runtime_validation.runtime_binding_revision=d.runtime_binding_revision
-    AND runtime_validation.effective_source_snapshot_id=d.effective_source_snapshot_id
-  WHERE rpg_profile.review_draft_id=d.id AND runtime_validation.launch_id IS NOT NULL
-    AND runtime_validation.core_id=rpg_profile.selected_core_id
-    AND runtime_validation.generation=rpg_profile.generation
-    AND runtime_validation.artifact_id=rpg_profile.artifact_id
-    AND runtime_validation.route_key=rpg_profile.route_key
-    AND runtime_validation.project_fingerprint=rpg_profile.project_fingerprint
-    AND runtime_validation.adapter_abi=rpg_profile.adapter_abi
-    AND runtime_validation.dependency_snapshot_sha256=rpg_profile.dependency_snapshot_sha256
-) OR p.platform_id<>'rpgmaker' AND (v.status='READY' OR EXISTS(
+AND (v.status='READY' OR EXISTS(
   SELECT 1 FROM review_runtime_screenshots screenshot
   WHERE screenshot.import_item_id=i.id AND screenshot.validation_id=v.id
     AND screenshot.source_snapshot_id=d.effective_source_snapshot_id
-    AND screenshot.core_artifact_id=v.core_artifact_id
-)))
-AND v.prepublish_generation=4
+    AND screenshot.provider_id=v.provider_id AND screenshot.target_id=v.target_id
+))
 AND v.default_dos_entry IS d.default_dos_entry
 AND v.dat_version_id IS (
   SELECT active.id FROM dat_versions active
-  WHERE active.core_artifact_id=a.id AND active.is_active=1
+  WHERE active.provider_id=v.provider_id AND active.target_id=v.target_id AND active.is_active=1
 )
 `
 
-func (run *approvalRun) loadLaunchedRPGValidation() error {
-	err := run.transaction.QueryRowContext(run.ctx, `
-SELECT validation.id,profile.generation,profile.adapter_id,profile.adapter_abi,
-profile.artifact_set_sha256,profile.dependency_snapshot_sha256
-FROM review_drafts draft
-JOIN rpgmaker_review_profiles profile ON profile.review_draft_id=draft.id
-JOIN rpgmaker_runtime_validations validation
-  ON validation.import_item_id=draft.import_item_id
-  AND validation.runtime_binding_revision=draft.runtime_binding_revision
-  AND validation.effective_source_snapshot_id=draft.effective_source_snapshot_id
-  AND validation.launch_id IS NOT NULL
-  AND validation.core_id=profile.selected_core_id
-  AND validation.generation=profile.generation
-  AND validation.route_key=profile.route_key
-  AND validation.artifact_id=profile.artifact_id
-  AND validation.artifact_set_sha256=profile.artifact_set_sha256
-  AND validation.adapter_id=profile.adapter_id
-  AND validation.adapter_abi=profile.adapter_abi
-  AND validation.dependency_snapshot_sha256=profile.dependency_snapshot_sha256
-  AND validation.project_fingerprint=profile.project_fingerprint
-WHERE draft.id=?
-`, run.draftID).Scan(
-		&run.rpgValidationID, &run.rpgGeneration, &run.rpgAdapterID, &run.rpgAdapterABI,
-		&run.rpgArtifactSetSHA, &run.rpgDependencySnapshotSHA,
-	)
-	if err != nil {
+func (run *approvalRun) loadRPGProfile() error {
+	profile, resolution, state, err := loadReviewRPGDependencies(run.ctx, run.transaction, run.draftID)
+	if err != nil || state.status != "READY" || state.snapshotJSON != run.dependencySnapshotJSON ||
+		profile.dependencySHA256 != resolution.DependencySHA256 {
 		return ErrInvalid
 	}
+	run.rpgGeneration, run.rpgDependencySnapshotSHA = profile.generation, resolution.DependencySHA256
 	return nil
 }

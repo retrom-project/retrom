@@ -22,7 +22,7 @@ type FileIdentity struct {
 
 type InstallRequest struct {
 	UploadID     string  `json:"uploadId"`
-	Kind         string  `json:"kind"`
+	DefinitionID string  `json:"definitionId,omitempty"`
 	Generation   *string `json:"generation,omitempty"`
 	DeclaredName *string `json:"declaredName,omitempty"`
 	SourceNote   *string `json:"sourceNote,omitempty"`
@@ -42,8 +42,8 @@ type Diagnostic struct {
 }
 
 type ReferenceCounts struct {
-	VariantRevisionCount int64 `json:"variantRevisionCount"`
-	CheckpointCount      int64 `json:"checkpointCount"`
+	GameCount       int64 `json:"gameCount"`
+	CheckpointCount int64 `json:"checkpointCount"`
 }
 
 type DefinitionView struct {

@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { evidencePath, expectNoTextArrowsInInteractiveControls, noPageOverflow, pageCanvasGaps, pngDimensions, type HorizontalGaps } from "./acceptance-support";
+import { evidencePath, expectNoTextArrowsInInteractiveControls, noPageOverflow, pageCanvasGaps, pngDimensions, retryOnceOnConnectionReset, type HorizontalGaps } from "./acceptance-support";
 import { registerRuntimeAcceptanceTests } from "./acceptance-runtime-cases";
 import { registerCoreExpansionAcceptanceTests } from "./acceptance-core-expansion-cases";
 import { verifyUserDesktopLayouts } from "./acceptance-user-layout";
@@ -8,7 +8,7 @@ test.beforeEach(async ({ page }, testInfo) => {
   const multiViewport = /^ACC-UI-00[56]\\b/.test(testInfo.title);
   test.skip(!multiViewport && testInfo.project.name !== "chrome-1280", "此状态型 Case 只消费一次共享验收夹具");
   const origin = process.env.RETROM_WEB_ORIGIN ?? "http://localhost:4000";
-  const response = await page.request.post("/api/v1/auth/login", { data: { username: "test", password: "test" }, headers: { Origin: origin } });
+  const response = await retryOnceOnConnectionReset(() => page.request.post("/api/v1/auth/login", { data: { username: "test", password: "test" }, headers: { Origin: origin } }));
   expect(response.ok()).toBe(true);
 });
 
@@ -340,7 +340,7 @@ test("ACC-UI-006 admin pages remain reachable at desktop breakpoints", async ({ 
       return body.bottom - Number.parseFloat(getComputedStyle(element).paddingBottom) - cover.bottom;
     });
     expect(Math.abs(coverBottomGap)).toBeLessThanOrEqual(1);
-    await expect(page.getByRole("button", { name: "保存新版本" })).toBeDisabled();
+    await expect(page.getByRole("button", { name: "保存发布信息" })).toBeDisabled();
     await noPageOverflow(page);
   }
   const adminLayoutScreenshot = await page.screenshot({
@@ -427,10 +427,8 @@ test("ACC-UI-008 large review queue preserves filters, pagination, draft safety,
   page.on("request", (request) => {
     if (request.url().endsWith(`/api/v1/admin/reviews/${itemId(57)}/previews`)) {reviewPreviewRequests.push(request.url());}
   });
-  const refreshedReview = page.waitForResponse((response) =>
-    response.request().method() === "GET" && response.url().endsWith(`/api/v1/admin/reviews/${itemId(57)}`));
-  await page.getByRole("button", { name: "重新运行检查" }).click();
-  await refreshedReview;
+  await expect(page.getByRole("button", { name: "重新运行检查" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "运行游戏" })).toBeEnabled();
   expect(reviewPopupCount).toBe(0);
   expect(reviewPreviewRequests).toEqual([]);
   expect(await page.locator(".review-workflow-columns").evaluate((element) => getComputedStyle(element).gridTemplateColumns.split(" ").length)).toBe(2);

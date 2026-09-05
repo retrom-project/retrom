@@ -1,6 +1,10 @@
-import { createHash } from "node:crypto";
+import {createHash} from "node:crypto";
 import { expect, test, type Page, type TestInfo } from "@playwright/test";
 import { currentEmulatorBrightRatio, evidencePath } from "./acceptance-support";
+import {
+  exitRuntimePlayer, runtimeCheckpoint, runtimeFrameCount, runtimeResource, runtimeResourceURLs,
+  type RuntimeEnvelope,
+} from "./runtime-provider-support";
 
 type ExpansionResult = {
   coreId: string;
@@ -10,33 +14,21 @@ type ExpansionResult = {
   platformInstanceId: string;
 };
 
-type RuntimeConfiguration = {
-  biosUrl: string | null;
-  core: string;
-  emulatorjsVersion: string;
-  gameUrl: string;
-  parentUrl: string | null;
-  playerAdapterId: string;
-  runtimeCore: string;
-  runtimePathOverrides: Record<string, string>;
-  stateUrl: string | null;
-};
-
 type ExpansionCase = {
-  artifact: string;
   caseId: string;
   coreId: string;
+  targetId: string;
   expectsBios: boolean;
   expectsParent: boolean;
   fixtureId: string;
 };
 
 const cases: ExpansionCase[] = [
-  { caseId: "ACC-RUN-008", fixtureId: "snes9x", coreId: "snes9x", artifact: "snes9x-wasm.data", expectsBios: false, expectsParent: false },
-  { caseId: "ACC-RUN-009", fixtureId: "nestopia", coreId: "nestopia", artifact: "nestopia-wasm.data", expectsBios: false, expectsParent: false },
-  { caseId: "ACC-RUN-010", fixtureId: "mame2003_plus", coreId: "mame2003_plus", artifact: "mame2003_plus-wasm.data", expectsBios: true, expectsParent: true },
-  { caseId: "ACC-RUN-011", fixtureId: "fbalpha2012_cps1", coreId: "fbalpha2012_cps1", artifact: "fbalpha2012_cps1-wasm.data", expectsBios: false, expectsParent: false },
-  { caseId: "ACC-RUN-012", fixtureId: "fbalpha2012_cps2", coreId: "fbalpha2012_cps2", artifact: "fbalpha2012_cps2-wasm.data", expectsBios: false, expectsParent: true },
+  { caseId: "ACC-RUN-008", fixtureId: "snes9x", coreId: "snes9x", targetId: "snes9x", expectsBios: false, expectsParent: false },
+  { caseId: "ACC-RUN-009", fixtureId: "nestopia", coreId: "nestopia", targetId: "nestopia", expectsBios: false, expectsParent: false },
+  { caseId: "ACC-RUN-010", fixtureId: "mame2003_plus", coreId: "mame2003_plus", targetId: "mame2003-plus", expectsBios: true, expectsParent: true },
+  { caseId: "ACC-RUN-011", fixtureId: "fbalpha2012_cps1", coreId: "fbalpha2012_cps1", targetId: "fbalpha2012-cps1", expectsBios: false, expectsParent: false },
+  { caseId: "ACC-RUN-012", fixtureId: "fbalpha2012_cps2", coreId: "fbalpha2012_cps2", targetId: "fbalpha2012-cps2", expectsBios: false, expectsParent: true },
 ];
 
 function expansionResults() {
@@ -51,23 +43,6 @@ function resultFor(expectation: ExpansionCase) {
   expect(result).toMatchObject({ coreId: expectation.coreId });
   expect(result?.fixtureSha256).toMatch(/^[0-9a-f]{64}$/);
   return result!;
-}
-
-function coreState(bytes: Uint8Array) {
-  expect(new TextDecoder().decode(bytes.subarray(0, 7))).toBe("RASTATE");
-  expect(bytes[7]).toBe(1);
-  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-  for (let offset = 8; offset + 8 <= bytes.byteLength;) {
-    const marker = new TextDecoder().decode(bytes.subarray(offset, offset + 4));
-    const size = view.getUint32(offset + 4, true);
-    const start = offset + 8;
-    const end = start + size;
-    expect(end).toBeLessThanOrEqual(bytes.byteLength);
-    if (marker === "MEM ") {return bytes.subarray(start, end);}
-    if (marker === "END ") {break;}
-    offset = start + ((size + 7) & ~7);
-  }
-  throw new Error("STATE_INVALID");
 }
 
 async function createLaunch(page: Page, csrfToken: string, gameId: string, coreId: string, saveStateId: string | null) {
@@ -90,44 +65,7 @@ async function createLaunch(page: Page, csrfToken: string, gameId: string, coreI
 }
 
 async function captureRuntimeState(page: Page) {
-  const frame = page.frames().find((candidate) => candidate !== page.mainFrame());
-  expect(frame, "EmulatorJS iframe").toBeTruthy();
-  return frame!.evaluate(async () => {
-    const manager = window.EJS_emulator?.gameManager;
-    if (!manager?.getState || !manager.getFrameNum) {throw new Error("STATE_INVALID");}
-    const bytes = new Uint8Array(manager.getState());
-    const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-    let core = new Uint8Array();
-    for (let offset = 8; offset + 8 <= bytes.byteLength;) {
-      const marker = new TextDecoder().decode(bytes.subarray(offset, offset + 4));
-      const size = view.getUint32(offset + 4, true);
-      const start = offset + 8;
-      const end = start + size;
-      if (end > bytes.byteLength) {throw new Error("STATE_INVALID");}
-      if (marker === "MEM ") {core = bytes.subarray(start, end); break;}
-      if (marker === "END ") {break;}
-      offset = start + ((size + 7) & ~7);
-    }
-    if (!core.byteLength) {throw new Error("STATE_INVALID");}
-    const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", core));
-    const includes = (needle: number[]) => {
-      outer: for (let offset = 0; offset <= core.byteLength - needle.length; offset += 1) {
-        for (let index = 0; index < needle.length; index += 1) {
-          if (core[offset + index] !== needle[index]) {continue outer;}
-        }
-        return true;
-      }
-      return false;
-    };
-    return {
-      coreBytes: core.byteLength,
-      coreDigest: Array.from(digest, (value) => value.toString(16).padStart(2, "0")).join(""),
-      frame: manager.getFrameNum(),
-      fixtureMarker: includes([0x52, 0x54, 0x52, 0x4d]) || includes([0x54, 0x52, 0x4d, 0x52]),
-      fixturePalette: includes(Array<number>(64).fill(0xff)) || includes(Array<number>(64).fill(0xf0)),
-      stateBytes: bytes.byteLength,
-    };
-  });
+  return {...await runtimeCheckpoint(page), frame: await runtimeFrameCount(page)};
 }
 
 async function waitForRuntime(page: Page) {
@@ -136,51 +74,10 @@ async function waitForRuntime(page: Page) {
   await expect(canvas).toBeVisible({ timeout: 15_000 });
   const frame = page.frames().find((candidate) => candidate !== page.mainFrame());
   expect(frame, "EmulatorJS iframe").toBeTruthy();
-  await expect.poll(() => frame!.evaluate(() => window.EJS_emulator?.gameManager?.getFrameNum?.() ?? 0), {
+  await expect.poll(() => runtimeFrameCount(page), {
     timeout: 30_000,
   }).toBeGreaterThan(30);
-  return { canvas, frame: frame! };
-}
-
-async function installRestoreEvidence(page: Page) {
-  await page.addInitScript(() => {
-    const target = window as typeof window & {
-      __RETROM_RESTORE_EVIDENCE__?: { coreBytes: number; coreDigest: string };
-    };
-    const timer = window.setInterval(() => {
-      const manager = window.EJS_emulator?.gameManager as NonNullable<typeof window.EJS_emulator>["gameManager"] & {
-        __retromRestoreWrapped?: boolean;
-      } | undefined;
-      const original = manager?.loadExplicitStateAndWait;
-      if (!manager || manager.__retromRestoreWrapped || typeof original !== "function" || !manager.getState) {return;}
-      manager.__retromRestoreWrapped = true;
-      manager.loadExplicitStateAndWait = async (state, timeoutMs) => {
-        await original.call(manager, state, timeoutMs);
-        const bytes = new Uint8Array(manager.getState!());
-        const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-        for (let offset = 8; offset + 8 <= bytes.byteLength;) {
-          const marker = new TextDecoder().decode(bytes.subarray(offset, offset + 4));
-          const size = view.getUint32(offset + 4, true);
-          const start = offset + 8;
-          const end = start + size;
-          if (end > bytes.byteLength) {throw new Error("STATE_INVALID");}
-          if (marker === "MEM ") {
-            const core = bytes.subarray(start, end);
-            const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", core));
-            target.__RETROM_RESTORE_EVIDENCE__ = {
-              coreBytes: core.byteLength,
-              coreDigest: Array.from(digest, (value) => value.toString(16).padStart(2, "0")).join(""),
-            };
-            return;
-          }
-          if (marker === "END ") {break;}
-          offset = start + ((size + 7) & ~7);
-        }
-        throw new Error("STATE_INVALID");
-      };
-      window.clearInterval(timer);
-    }, 0);
-  });
+  return {canvas};
 }
 
 async function verifyCore(page: Page, testInfo: TestInfo, expectation: ExpansionCase) {
@@ -211,32 +108,29 @@ async function verifyCore(page: Page, testInfo: TestInfo, expectation: Expansion
   const initialConfigResponse = page.waitForResponse((response) =>
     /\/runtime\/launches\/[^/]+\/config$/.test(response.url()) && response.status() === 200);
   await page.goto(initialLaunch.playUrl);
-  const initialConfiguration = await (await initialConfigResponse).json() as RuntimeConfiguration;
+  const initialConfiguration = await (await initialConfigResponse).json() as RuntimeEnvelope;
   expect(initialConfiguration).toMatchObject({
-    core: expectation.coreId,
-    emulatorjsVersion: "4.2.3",
-    playerAdapterId: "ejs-4.2.3-v3",
-    runtimeCore: expectation.coreId,
-    stateUrl: null,
+    schemaVersion: 1,
+    session: {purpose: "PRODUCT", mode: "SINGLE"},
+    runtime: {providerId: "emulatorjs", providerApiVersion: 1, targetId: expectation.targetId},
+    restore: null,
   });
-  expect(Boolean(initialConfiguration.parentUrl)).toBe(expectation.expectsParent);
-  expect(Boolean(initialConfiguration.biosUrl)).toBe(expectation.expectsBios);
-  expect(Object.keys(initialConfiguration.runtimePathOverrides)).toContain(expectation.artifact);
-  expect(initialConfiguration.runtimePathOverrides[expectation.artifact]).toMatch(new RegExp(`/${expectation.artifact.replace(".", "\\.")}$`));
+  const gameURLs = runtimeResourceURLs(runtimeResource(initialConfiguration, "game"));
+  expect(gameURLs).toHaveLength(1);
+  expect(runtimeResource(initialConfiguration, "parent") !== null).toBe(expectation.expectsParent);
+  expect(runtimeResource(initialConfiguration, "bios") !== null).toBe(expectation.expectsBios);
   const initialRuntime = await waitForRuntime(page);
   const initialState = await captureRuntimeState(page);
-  expect(initialState.stateBytes).toBeLessThanOrEqual(1024 * 1024);
-  expect(initialState.coreBytes).toBeGreaterThan(0);
-  if (expectation.coreId.startsWith("fbalpha2012_cps")) {
-    expect(initialState.fixtureMarker, "the project-owned 68000 program executed").toBe(true);
-    expect(initialState.fixturePalette, "the 68000 program initialized CPS palette RAM").toBe(true);
-  }
+  expect(initialState.sizeBytes).toBeGreaterThan(0);
+  expect(initialState.sizeBytes).toBeLessThanOrEqual(initialConfiguration.runtime.checkpoint!.maxBytes);
+  expect(initialState.format).toBe(initialConfiguration.runtime.checkpoint!.writeFormat);
+  expect(initialState.sha256).toMatch(/^[0-9a-f]{64}$/);
   const firstFrame = await initialRuntime.canvas.screenshot();
   await initialRuntime.canvas.click({ position: { x: 64, y: 64 } });
   await page.keyboard.down("a");
   await page.keyboard.down("ArrowLeft");
   try {
-    await expect.poll(() => initialRuntime.frame.evaluate(() => window.EJS_emulator?.gameManager?.getFrameNum?.() ?? 0), {
+    await expect.poll(() => runtimeFrameCount(page), {
       timeout: 15_000,
     }).toBeGreaterThan(initialState.frame + 30);
   } finally {
@@ -244,7 +138,7 @@ async function verifyCore(page: Page, testInfo: TestInfo, expectation: Expansion
     await page.keyboard.up("a");
   }
   const afterInputState = await captureRuntimeState(page);
-  expect(afterInputState.coreDigest).not.toBe(initialState.coreDigest);
+  expect(afterInputState.sha256).not.toBe(initialState.sha256);
   const secondFrame = await initialRuntime.canvas.screenshot();
   expect(firstFrame.equals(secondFrame)).toBe(false);
   // The NES fixture intentionally changes three 8x8 indicator tiles rather
@@ -255,7 +149,7 @@ async function verifyCore(page: Page, testInfo: TestInfo, expectation: Expansion
 
   await page.mouse.move(640, 1);
   const saveResponse = page.waitForResponse((response) =>
-    /\/runtime\/launches\/[^/]+\/save-states$/.test(response.url()) && response.request().method() === "POST");
+    /\/runtime\/launches\/[^/]+\/save-states$/.test(response.url()) && response.request().method() === "POST", {timeout: 30_000});
   await page.locator(".player-save-button").click();
   const savedResponse = await saveResponse;
   expect(savedResponse.status()).toBe(201);
@@ -263,44 +157,35 @@ async function verifyCore(page: Page, testInfo: TestInfo, expectation: Expansion
   const resumeLaunch = await createLaunch(page, csrfToken, result.gameId, expectation.coreId, saveStateId);
   const resumeConfigResponse = page.waitForResponse((response) =>
     /\/runtime\/launches\/[^/]+\/config$/.test(response.url()) && response.status() === 200);
-  await installRestoreEvidence(page);
+  await exitRuntimePlayer(page);
   await page.goto(resumeLaunch.playUrl);
-  const resumeConfiguration = await (await resumeConfigResponse).json() as RuntimeConfiguration;
-  expect(resumeConfiguration.stateUrl).toMatch(/\/state$/);
-  const savedStateResponse = await page.request.get(resumeConfiguration.stateUrl!);
+  const resumeConfiguration = await (await resumeConfigResponse).json() as RuntimeEnvelope;
+  expect(resumeConfiguration.restore?.url).toMatch(/\/state$/);
+  const savedStateResponse = await page.request.get(resumeConfiguration.restore!.url);
   expect(savedStateResponse.ok()).toBe(true);
   const savedState = new Uint8Array(await savedStateResponse.body());
-  expect(savedState.byteLength).toBeLessThanOrEqual(1024 * 1024);
-  const savedCore = coreState(savedState);
-  const savedCoreDigest = createHash("sha256").update(savedCore).digest("hex");
-  expect(savedCoreDigest).toMatch(/^[0-9a-f]{64}$/);
+  expect(savedState.byteLength).toBe(resumeConfiguration.restore!.sizeBytes);
+  expect(savedState.byteLength).toBeLessThanOrEqual(resumeConfiguration.runtime.checkpoint!.maxBytes);
+  const savedDigest = createHash("sha256").update(savedState).digest("hex");
+  expect(savedDigest).toBe(resumeConfiguration.restore!.sha256);
+  expect(resumeConfiguration.runtime.checkpoint!.readFormats).toContain(resumeConfiguration.restore!.format);
   await waitForRuntime(page);
-  await expect.poll(() => page.frames().find((candidate) => candidate !== page.mainFrame())?.evaluate(() =>
-    (window as typeof window & { __RETROM_RESTORE_EVIDENCE__?: { coreDigest: string } })
-      .__RETROM_RESTORE_EVIDENCE__?.coreDigest), { timeout: 15_000 }).toMatch(/^[0-9a-f]{64}$/);
-  const firstRestore = await page.frames().find((candidate) => candidate !== page.mainFrame())!.evaluate(() =>
-    (window as typeof window & { __RETROM_RESTORE_EVIDENCE__?: { coreBytes: number; coreDigest: string } })
-      .__RETROM_RESTORE_EVIDENCE__!);
-  expect(firstRestore.coreBytes).toBeGreaterThan(0);
-  expect(firstRestore.coreBytes).toBeLessThanOrEqual(1024 * 1024);
-  expect(firstRestore.coreDigest).toMatch(/^[0-9a-f]{64}$/);
+  expect((await runtimeCheckpoint(page)).format).toBe(resumeConfiguration.runtime.checkpoint!.writeFormat);
 
   const repeatedLaunch = await createLaunch(page, csrfToken, result.gameId, expectation.coreId, saveStateId);
   const repeatedConfigResponse = page.waitForResponse((response) =>
     /\/runtime\/launches\/[^/]+\/config$/.test(response.url()) && response.status() === 200);
-  await installRestoreEvidence(page);
+  await exitRuntimePlayer(page);
   await page.goto(repeatedLaunch.playUrl);
-  expect(((await repeatedConfigResponse).status())).toBe(200);
+  const repeatedConfiguration = await (await repeatedConfigResponse).json() as RuntimeEnvelope;
+  expect(repeatedConfiguration.restore).toMatchObject({
+    format: resumeConfiguration.restore!.format,
+    sha256: resumeConfiguration.restore!.sha256,
+    sizeBytes: resumeConfiguration.restore!.sizeBytes,
+  });
   await waitForRuntime(page);
-  await expect.poll(() => page.frames().find((candidate) => candidate !== page.mainFrame())?.evaluate(() =>
-    (window as typeof window & { __RETROM_RESTORE_EVIDENCE__?: { coreDigest: string } })
-      .__RETROM_RESTORE_EVIDENCE__?.coreDigest), { timeout: 15_000 }).toBe(firstRestore.coreDigest);
-  const repeatedRestore = await page.frames().find((candidate) => candidate !== page.mainFrame())!.evaluate(() =>
-    (window as typeof window & { __RETROM_RESTORE_EVIDENCE__?: { coreBytes: number; coreDigest: string } })
-      .__RETROM_RESTORE_EVIDENCE__!);
-  expect(repeatedRestore).toEqual(firstRestore);
-  expect(runtimeRequests.some((url) => url.endsWith(initialConfiguration.gameUrl))).toBe(true);
-  expect(runtimeRequests.some((url) => url.endsWith(initialConfiguration.runtimePathOverrides[expectation.artifact]!))).toBe(true);
+  expect(runtimeRequests.some((url) => url.endsWith(gameURLs[0]!))).toBe(true);
+  expect(runtimeRequests.some((url) => url.endsWith(initialConfiguration.runtime.moduleUrl))).toBe(true);
   expect(errors).toEqual([]);
   await page.screenshot({ path: evidencePath(testInfo, `${expectation.fixtureId}-core-expansion.png`), fullPage: true });
 }

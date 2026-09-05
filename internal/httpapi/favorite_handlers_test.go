@@ -69,10 +69,8 @@ VALUES(?,?,?,'Favorite player','USER','ENABLED',1,1,1000,1000)
 	}
 }
 
-func seedFavoriteHTTPGame(t *testing.T, server *Server, gameID, suffix, title string) {
+func seedFavoriteHTTPGame(t *testing.T, server *Server, gameID, _, title string) {
 	t.Helper()
-	metadataID := "01980000-0000-7000-8000-00000000d4" + suffix
-	contentID := "01980000-0000-7000-8000-00000000e4" + suffix
 	transaction, err := server.database.BeginTx(context.Background(), nil)
 	testassert.False(t, err != nil, err)
 	defer func() { _ = transaction.Rollback() }()
@@ -80,26 +78,13 @@ func seedFavoriteHTTPGame(t *testing.T, server *Server, gameID, suffix, title st
 		t.Fatal(err)
 	}
 	if _, err := transaction.ExecContext(context.Background(), `
-INSERT INTO game_metadata_revisions(
-  id,game_id,title,title_initial,description,developer,publisher,genre,players,release_year,
-  source_kind,source_ref_id,created_at_ms
-) VALUES(?,?,?,'F','','','','',NULL,1994,'ADMIN_EDIT',NULL,1000)
-`, metadataID, gameID, title); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := transaction.ExecContext(context.Background(), `
-INSERT INTO game_content_revisions(
-  id,game_id,source_kind,source_ref_id,source_manifest_json,source_manifest_digest,created_at_ms
-) VALUES(?,?,'ADMIN_REPLACE','favorite-http-test','[]',?,1000)
-`, contentID, gameID, strings.Repeat("a", 64)); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := transaction.ExecContext(context.Background(), `
 INSERT INTO games(
-  id,platform_instance_id,status,current_metadata_revision_id,current_content_revision_id,
-  search_text,version,created_at_ms,updated_at_ms
-) VALUES(?,(SELECT id FROM platform_instances WHERE catalog_template_key='gba/mgba'),'PUBLISHED',?,?,lower(?),1,1000,1000)
-`, gameID, metadataID, contentID, title); err != nil {
+  id,platform_instance_id,title,title_initial,description,developer,publisher,genre,players,release_year,
+  metadata_source_kind,content_kind,content_source_kind,content_source_ref_id,source_manifest_json,source_manifest_digest,
+  status,search_text,version,created_at_ms,updated_at_ms
+) VALUES(?,(SELECT id FROM platform_instances WHERE catalog_template_key='gba/mgba'),?,'F','','','','',NULL,1994,
+  'ADMIN_EDIT','SINGLE_FILE','ADMIN_REPLACE','favorite-http-test','[]',?,'PUBLISHED',lower(?),1,1000,1000)
+`, gameID, title, strings.Repeat("a", 64), title); err != nil {
 		t.Fatal(err)
 	}
 	if err := transaction.Commit(); err != nil {

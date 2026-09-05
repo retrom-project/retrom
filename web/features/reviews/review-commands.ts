@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type Dispatch, type SetStateAction } from "react";
+import { useEffect, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/features/auth/auth-provider";
 import { userStorageKey } from "@/features/auth/storage";
@@ -9,7 +9,7 @@ import { newUuid } from "@/lib/crypto";
 import { writeHeaders } from "@/lib/api/client";
 import { responseError, uploadOne, waitForJob } from "@/lib/upload";
 import {
-  candidateForm, readyCover, reviewReadyForPublish, sameDraftPayload, scrapeResult, workspaceDraftPayload,
+  candidateForm, readyCover, scrapeResult,
   type Comparison, type CoverSelection, type DraftPayload, type DuplicateGame, type MetadataForm,
   type ReviewCandidate, type ReviewWorkspace, type UploadedReviewAsset,
 } from "./review-actions-model";
@@ -19,7 +19,7 @@ type SaveDraft = (key: string, payload: DraftPayload, force?: boolean) => Promis
 
 type CommandParams = {
   review: ReviewWorkspace; returnTo: string; nextItemId: string | null;
-  versionRef: { current: number }; latestPayloadRef: { current: DraftPayload }; validationRefreshRequestedRef: { current: boolean };
+  versionRef: { current: number };
   draftKey: string; draftPayload: DraftPayload; form: MetadataForm; cover: CoverSelection;
   uploadedAssets: UploadedReviewAsset[]; comparison: Comparison | null;
   refreshReview: () => Promise<ReviewWorkspace>; flushDraft: () => Promise<boolean>; enqueueSave: SaveDraft; run: Runner;
@@ -34,6 +34,28 @@ export function useReviewCommands(params: CommandParams) {
   const router = useRouter();
   const { context } = useAuth();
   const [duplicateConfirmation, setDuplicateConfirmation] = useState<DuplicateGame[] | null>(null);
+
+  const previews = useRef(new Map<Window, {id: string; itemId: string}>());
+  const [checkpoint, setCheckpoint] = useState<{id: string; itemId: string} | null>(null);
+  const restorePreviewId = checkpoint?.itemId === params.review.itemId ? checkpoint.id : null;
+  useEffect(() => {
+    const receive = (event: MessageEvent<unknown>) => {
+      if (event.origin !== window.location.origin || !event.source || !event.data ||
+        typeof event.data !== "object") {return;}
+      const preview = previews.current.get(event.source as Window);
+      const message = event.data as {type?: string; previewId?: string; importItemId?: string};
+      if (!preview || preview.itemId !== params.review.itemId || message.previewId !== preview.id) {return;}
+      if (message.type === "retrom-review-checkpoint") {
+        setCheckpoint(preview);
+        params.setNotice("试玩存档已保存，可打开新的游戏窗口继续；临时存档到期或审核结束后释放。");
+      } else if (message.type === "retrom-review-screenshot" && message.importItemId === preview.itemId) {
+        void params.refreshReview().then(() => params.setToast({message: "已更新运行截图", tone: "good"}))
+          .catch(() => params.setToast({message: "截图已保存，但审核页刷新失败", tone: "warn"}));
+      }
+    };
+    window.addEventListener("message", receive);
+    return () => window.removeEventListener("message", receive);
+  }, [params]);
 
   async function rescrape(metadataProvider: "HASHEOUS" | "NONE") {
     const label = metadataProvider === "HASHEOUS" ? "重新查询 Hasheous" : "停用元信息源";
@@ -104,24 +126,15 @@ export function useReviewCommands(params: CommandParams) {
     await publish();
   }
 
-  async function launchPreview() {
+  async function launchPreview(restoreFromPreviewId?: string) {
     const popup = openPreviewWindow(params.setToast);
     if (!popup) {return;}
     const succeeded = await params.run("运行游戏", async () => {
       if (!await params.flushDraft()) {throw new Error("无法保存当前审核内容");}
-      await createPreview(params.review.itemId, popup);
+      const id = await createPreview(params.review.itemId, popup, restoreFromPreviewId);
+      previews.current.set(popup, {id, itemId: params.review.itemId});
     });
     if (!succeeded && !popup.closed) {popup.close();}
-  }
-
-  async function revalidate() {
-    return params.run("重新运行检查", async () => {
-      if (!await params.enqueueSave(params.draftKey, params.draftPayload, true)) {throw new Error("无法保存当前审核内容");}
-      params.validationRefreshRequestedRef.current = true;
-      const updated = await params.refreshReview();
-      const ready = updated.canApprove ?? (updated.validation?.current === true && updated.validation.status === "READY");
-      params.setNotice(ready ? "运行检查已通过，可以发布。" : "运行检查已更新，请按最新提示继续处理。");
-    });
   }
 
   async function confirmDuplicatePublish() {
@@ -140,7 +153,7 @@ export function useReviewCommands(params: CommandParams) {
     });
   }
 
-  return { duplicateConfirmation, setDuplicateConfirmation, rescrape, uploadCover, applyComparison, approve, launchPreview, revalidate, confirmDuplicatePublish, discard };
+  return { duplicateConfirmation, setDuplicateConfirmation, rescrape, uploadCover, applyComparison, approve, launchPreview, restorePreviewId, confirmDuplicatePublish, discard };
 }
 
 function handleScrapeResult(metadataProvider: "HASHEOUS" | "NONE", scrapeRunId: string, updated: ReviewWorkspace, params: CommandParams) {
@@ -158,17 +171,12 @@ function handleScrapeResult(metadataProvider: "HASHEOUS" | "NONE", scrapeRunId: 
 }
 
 async function publishUntilTerminal(body: object, params: CommandParams, setDuplicateConfirmation: Dispatch<SetStateAction<DuplicateGame[] | null>>) {
-  let staleRetryAvailable = true;
-  for (;;) {
-    const response = await fetch(`/api/v1/admin/reviews/${params.review.itemId}/approve`, { method: "POST", credentials: "same-origin", headers: await writeHeaders({ "Content-Type": "application/json", "If-Match": `"v${params.versionRef.current}"`, "Idempotency-Key": newUuid() }), body: JSON.stringify(body) });
-    if (response.ok) {setDuplicateConfirmation(null); return true;}
-    const payload = await response.json().catch(() => null) as ApprovalErrorPayload;
-    const duplicates = duplicateGamesFrom(payload);
-    if (duplicates) {setDuplicateConfirmation(duplicates); return false;}
-    if (payload?.error?.code !== "REVIEW_VALIDATION_STALE" || !staleRetryAvailable) {throw new Error(payload?.error?.message ?? "发布失败：请确认实时保存和运行检查均已完成");}
-    staleRetryAvailable = false;
-    await verifyStaleReview(params);
-  }
+  const response = await fetch(`/api/v1/admin/reviews/${params.review.itemId}/approve`, { method: "POST", credentials: "same-origin", headers: await writeHeaders({ "Content-Type": "application/json", "If-Match": `"v${params.versionRef.current}"`, "Idempotency-Key": newUuid() }), body: JSON.stringify(body) });
+  if (response.ok) {setDuplicateConfirmation(null); return true;}
+  const payload = await response.json().catch(() => null) as ApprovalErrorPayload;
+  const duplicates = duplicateGamesFrom(payload);
+  if (duplicates) {setDuplicateConfirmation(duplicates); return false;}
+  throw new Error(payload?.error?.message ?? "发布失败：请确认实时保存和运行检查均已完成");
 }
 
 type ApprovalErrorPayload = { error?: { code?: string; message?: string; details?: { games?: DuplicateGame[] } } } | null;
@@ -176,13 +184,6 @@ type ApprovalErrorPayload = { error?: { code?: string; message?: string; details
 function duplicateGamesFrom(payload: ApprovalErrorPayload) {
   if (payload?.error?.code !== "DUPLICATE_GAME_CONFIRMATION_REQUIRED") {return null;}
   return payload.error.details?.games?.length ? payload.error.details.games : null;
-}
-
-async function verifyStaleReview(params: CommandParams) {
-  const updated = await params.refreshReview();
-  const targetChanged = Boolean(params.review.platformInstance && updated.platformInstance && params.review.platformInstance.id !== updated.platformInstance.id);
-  if (targetChanged || !sameDraftPayload(workspaceDraftPayload(updated), params.latestPayloadRef.current)) {throw new Error("审核发布信息已在其他位置发生变化，请刷新页面核对后重试");}
-  if (!reviewReadyForPublish(updated)) {throw new Error("审核状态已更新，请等待补传校验完成或按最新运行检查继续处理");}
 }
 
 function openPreviewWindow(setToast: Dispatch<SetStateAction<ToastMessage | null>>) {
@@ -194,10 +195,12 @@ function openPreviewWindow(setToast: Dispatch<SetStateAction<ToastMessage | null
   return popup;
 }
 
-async function createPreview(reviewId: string, popup: Window) {
-  const response = await fetch(`/api/v1/admin/reviews/${reviewId}/previews`, { method: "POST", credentials: "same-origin", headers: await writeHeaders({ "Content-Type": "application/json", "Idempotency-Key": newUuid() }), body: JSON.stringify({ clientCapabilities: { secureContext: window.isSecureContext, crossOriginIsolated: window.crossOriginIsolated, sharedArrayBuffer: typeof SharedArrayBuffer !== "undefined" } }) });
+async function createPreview(reviewId: string, popup: Window, restoreFromPreviewId?: string) {
+  const response = await fetch(`/api/v1/admin/reviews/${reviewId}/previews`, { method: "POST", credentials: "same-origin", headers: await writeHeaders({ "Content-Type": "application/json", "Idempotency-Key": newUuid() }), body: JSON.stringify({ ...(restoreFromPreviewId ? {restoreFromPreviewId} : {}), clientCapabilities: { secureContext: window.isSecureContext, crossOriginIsolated: window.crossOriginIsolated, sharedArrayBuffer: typeof SharedArrayBuffer !== "undefined" } }) });
   if (!response.ok) {throw new Error(await responseError(response, "当前审核来源无法组成游戏预览"));}
-  const result = await response.json() as { playUrl: string };
+  const result = await response.json() as { previewId: string; playUrl: string };
   if (popup.closed) {throw new Error("游戏子窗体已关闭");}
+  if (!result.previewId || !result.playUrl.startsWith("/admin/review-previews/")) {throw new Error("审核预览响应无效");}
   popup.location.replace(result.playUrl);
+  return result.previewId;
 }

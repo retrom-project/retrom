@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"mime"
 	"net/http"
 	"strings"
@@ -18,7 +19,6 @@ import (
 	"retrom/internal/cleanup"
 	"retrom/internal/launch"
 	"retrom/internal/mediaasset"
-	"retrom/internal/rpgmaker/runtimevalidation"
 	retromruntime "retrom/internal/runtime"
 	"retrom/internal/saves"
 )
@@ -164,7 +164,13 @@ func (server *Server) setLaunchCookie(writer http.ResponseWriter, launchID strin
 		return
 	}
 	capability := server.credentials.Capability(parsed)
-	encodedCapability := retromruntime.EncodeCapability(capability)
+	server.setLaunchCookieValue(writer, launchID, retromruntime.EncodeCapability(capability))
+}
+
+func (server *Server) setLaunchCookieValue(
+	writer http.ResponseWriter,
+	launchID, encodedCapability string,
+) {
 	http.SetCookie(
 		writer,
 		&http.Cookie{
@@ -187,7 +193,8 @@ func (server *Server) createReviewPreview(writer http.ResponseWriter, request *h
 		return
 	}
 	var body struct {
-		ClientCapabilities launch.Capabilities `json:"clientCapabilities"`
+		ClientCapabilities   launch.Capabilities `json:"clientCapabilities"`
+		RestoreFromPreviewID *string             `json:"restoreFromPreviewId"`
 	}
 	if err := decodeJSON(writer, request, &body, 16<<10); err != nil {
 		writeError(writer, request, http.StatusBadRequest, "INVALID_REQUEST", "审核预览请求无效", map[string]any{})
@@ -196,7 +203,7 @@ func (server *Server) createReviewPreview(writer http.ResponseWriter, request *h
 	principal, _ := authn.PrincipalFromContext(request.Context())
 	created, err := server.launcher.CreateReviewPreview(request.Context(), launch.ReviewPreviewRequest{
 		ImportItemID: request.PathValue("importItemId"), ActorUserID: principal.UserID,
-		IdempotencyKey: key, ClientCapabilities: body.ClientCapabilities,
+		IdempotencyKey: key, ClientCapabilities: body.ClientCapabilities, RestoreFromPreviewID: body.RestoreFromPreviewID,
 	})
 	if err != nil {
 		code, message := "REVIEW_PREVIEW_UNAVAILABLE", "当前审核来源无法组成可运行预览"
@@ -229,19 +236,6 @@ func (server *Server) storeReviewScreenshot(writer http.ResponseWriter, request 
 		)
 		return
 	}
-	if handled, rpgErr := server.storeRPGRuntimeScreenshot(writer, request); handled {
-		if rpgErr != nil {
-			if errors.Is(rpgErr, runtimevalidation.ErrImageInvalid) {
-				writeError(
-					writer, request, http.StatusUnprocessableEntity, "RPG_RUNTIME_SCREENSHOT_INVALID",
-					"恢复截图无效或超过大小限制", map[string]any{},
-				)
-				return
-			}
-			server.writeRPGValidationError(writer, request, rpgErr)
-		}
-		return
-	}
 	body := http.MaxBytesReader(writer, request.Body, mediaasset.MaxImageBytes+1)
 	result, err := server.launcher.StoreReviewScreenshot(
 		request.Context(), request.PathValue("launchId"), server.launchCapability(request), body,
@@ -249,13 +243,6 @@ func (server *Server) storeReviewScreenshot(writer http.ResponseWriter, request 
 	if err != nil {
 		if errors.Is(err, launch.ErrCredential) {
 			writeError(writer, request, http.StatusUnauthorized, "LAUNCH_CREDENTIAL_INVALID", "审核预览会话不可用", map[string]any{})
-			return
-		}
-		if errors.Is(err, launch.ErrReviewCaptureNotAllowed) {
-			writeError(
-				writer, request, http.StatusConflict, "REVIEW_CAPTURE_NOT_ALLOWED",
-				"只有运行检查通过的条目才能保存五秒截图", map[string]any{},
-			)
 			return
 		}
 		if errors.Is(err, launch.ErrReviewScreenshotInvalid) {
@@ -266,14 +253,11 @@ func (server *Server) storeReviewScreenshot(writer http.ResponseWriter, request 
 		return
 	}
 	writeJSON(writer, http.StatusCreated, map[string]any{
-		"screenshotId":   result.ID,
-		"importItemId":   result.ImportItemID,
-		"validationId":   result.ValidationID,
-		"coreArtifactId": result.CoreArtifactID,
-		"widthPx":        result.WidthPX,
-		"heightPx":       result.HeightPX,
-		"capturedAtMs":   result.CapturedAtMS,
-		"url":            "/api/v1/admin/review-assets/" + result.ID,
+		"screenshotId": result.ID, "importItemId": result.ImportItemID,
+		"validationId": result.ValidationID, "providerId": result.ProviderID,
+		"targetId": result.TargetID,
+		"widthPx":  result.WidthPX, "heightPx": result.HeightPX,
+		"capturedAtMs": result.CapturedAtMS, "url": "/api/v1/admin/review-assets/" + result.ID,
 	})
 }
 
@@ -284,25 +268,30 @@ func (server *Server) launchConfig(writer http.ResponseWriter, request *http.Req
 		request.PathValue("launchId"),
 		capability,
 	)
-	if err != nil {
+	productErr := err
+	if errors.Is(err, launch.ErrCredential) {
 		configuration, err = server.launcher.ReviewPreviewConfig(
 			request.Context(), request.PathValue("launchId"), capability,
 		)
 	}
 	if err != nil {
+		slog.WarnContext(request.Context(), "launch configuration unavailable",
+			"launchId", request.PathValue("launchId"), "productError", productErr, "previewError", err)
+		if !errors.Is(err, launch.ErrCredential) {
+			server.databaseError(writer, request, err)
+			return
+		}
 		writeError(writer, request, http.StatusUnauthorized, "LAUNCH_CREDENTIAL_INVALID", "启动会话不可用", map[string]any{})
 		return
 	}
-	if configuration.DiscSet != nil {
-		if dimensions, dimensionErr := server.launcher.MultiDiscTelemetryDimensions(
-			request.Context(), request.PathValue("launchId"), capability,
-		); dimensionErr == nil {
-			logMultiDiscRuntime(
-				request.Context(), request.PathValue("launchId"), dimensions.PlatformKey,
-				dimensions.CoreKey, dimensions.ArtifactVersion, dimensions.DiscCount,
-				"kind", "launch", "resultCode", "OK",
-			)
-		}
+	if dimensions, dimensionErr := server.launcher.MultiDiscTelemetryDimensions(
+		request.Context(), request.PathValue("launchId"), capability,
+	); dimensionErr == nil {
+		logMultiDiscRuntime(
+			request.Context(), request.PathValue("launchId"), dimensions.PlatformKey,
+			dimensions.TargetKey, dimensions.BundleDigest, dimensions.DiscCount,
+			"kind", "launch", "resultCode", "OK",
+		)
 	}
 	server.setLaunchContentGrant(
 		writer, request.PathValue("launchId"), capability, 86400,

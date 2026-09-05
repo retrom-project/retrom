@@ -18,11 +18,10 @@ var (
 )
 
 type DuplicateGame struct {
-	GameID                   string `json:"gameId"`
-	Title                    string `json:"title"`
-	PlatformInstanceID       string `json:"platformInstanceId"`
-	PlatformInstanceName     string `json:"platformInstanceName"`
-	CurrentContentRevisionID string `json:"-"`
+	GameID               string `json:"gameId"`
+	Title                string `json:"title"`
+	PlatformInstanceID   string `json:"platformInstanceId"`
+	PlatformInstanceName string `json:"platformInstanceName"`
 }
 
 type DuplicateConflict struct {
@@ -51,7 +50,7 @@ FROM import_item_source_snapshots snapshot
 WHERE snapshot.id=COALESCE(
   (SELECT draft.effective_source_snapshot_id FROM review_drafts draft WHERE draft.import_item_id=?),
   (SELECT initial.id FROM import_item_source_snapshots initial
-   WHERE initial.import_item_id=? AND initial.revision_no=1)
+   WHERE initial.import_item_id=? AND initial.created_by='IDENTIFICATION')
 )
 `, itemID, itemID).Scan(&snapshotID, &contentKind); err != nil {
 		return "", ErrInvalid
@@ -68,7 +67,7 @@ JOIN blobs blob ON blob.id=source.blob_id
 WHERE source.source_snapshot_id=COALESCE(
   (SELECT draft.effective_source_snapshot_id FROM review_drafts draft WHERE draft.import_item_id=?),
   (SELECT snapshot.id FROM import_item_source_snapshots snapshot
-   WHERE snapshot.import_item_id=? AND snapshot.revision_no=1)
+   WHERE snapshot.import_item_id=? AND snapshot.created_by='IDENTIFICATION')
 )
 GROUP BY source.role,blob.sha256
 ORDER BY source.role,blob.sha256
@@ -148,7 +147,7 @@ FROM import_item_source_snapshots snapshot
 WHERE snapshot.id=COALESCE(
   (SELECT draft.effective_source_snapshot_id FROM review_drafts draft WHERE draft.import_item_id=?),
   (SELECT initial.id FROM import_item_source_snapshots initial
-   WHERE initial.import_item_id=? AND initial.revision_no=1)
+   WHERE initial.import_item_id=? AND initial.created_by='IDENTIFICATION')
 )
 `, itemID, itemID).Scan(&contentKind); err != nil {
 		return nil, ErrInvalid
@@ -166,20 +165,18 @@ func findUnorderedDuplicates(
 ) ([]DuplicateGame, error) {
 	return queryDuplicateGames(ctx, queryer, `
 SELECT game.id,
-metadata.title,
+game.title,
 instance.id,
-instance.name,
-game.current_content_revision_id
+instance.name
 FROM games game
 JOIN platform_instances instance ON instance.id=game.platform_instance_id
-JOIN game_metadata_revisions metadata ON metadata.id=game.current_metadata_revision_id
 WHERE game.status='PUBLISHED'
 AND instance.platform_id=?
 AND NOT EXISTS (
   SELECT 1 FROM (
     SELECT existing.role,existing.blob_id,count(*) AS file_count
-    FROM game_content_files existing
-    WHERE existing.game_content_revision_id=game.current_content_revision_id
+    FROM game_files existing
+    WHERE existing.game_id=game.id
     GROUP BY existing.role,existing.blob_id
     EXCEPT
     SELECT incoming.role,incoming.blob_id,count(*) AS file_count
@@ -187,7 +184,7 @@ AND NOT EXISTS (
     WHERE incoming.source_snapshot_id=COALESCE(
       (SELECT draft.effective_source_snapshot_id FROM review_drafts draft WHERE draft.import_item_id=?),
       (SELECT snapshot.id FROM import_item_source_snapshots snapshot
-       WHERE snapshot.import_item_id=? AND snapshot.revision_no=1)
+       WHERE snapshot.import_item_id=? AND snapshot.created_by='IDENTIFICATION')
     )
     GROUP BY incoming.role,incoming.blob_id
   ) existing_difference
@@ -199,13 +196,13 @@ AND NOT EXISTS (
     WHERE incoming.source_snapshot_id=COALESCE(
       (SELECT draft.effective_source_snapshot_id FROM review_drafts draft WHERE draft.import_item_id=?),
       (SELECT snapshot.id FROM import_item_source_snapshots snapshot
-       WHERE snapshot.import_item_id=? AND snapshot.revision_no=1)
+       WHERE snapshot.import_item_id=? AND snapshot.created_by='IDENTIFICATION')
     )
     GROUP BY incoming.role,incoming.blob_id
     EXCEPT
     SELECT existing.role,existing.blob_id,count(*) AS file_count
-    FROM game_content_files existing
-    WHERE existing.game_content_revision_id=game.current_content_revision_id
+    FROM game_files existing
+    WHERE existing.game_id=game.id
     GROUP BY existing.role,existing.blob_id
   ) incoming_difference
 )
@@ -219,35 +216,33 @@ func findOrderedMultiDiscDuplicates(
 	itemID, platformID string,
 ) ([]DuplicateGame, error) {
 	return queryDuplicateGames(ctx, queryer, `
-SELECT game.id,metadata.title,instance.id,instance.name,game.current_content_revision_id
+SELECT game.id,game.title,instance.id,instance.name
 FROM games game
 JOIN platform_instances instance ON instance.id=game.platform_instance_id
-JOIN game_metadata_revisions metadata ON metadata.id=game.current_metadata_revision_id
-JOIN game_content_revisions revision ON revision.id=game.current_content_revision_id
 WHERE game.status='PUBLISHED' AND instance.platform_id=?
-AND revision.content_kind='MULTI_DISC_M3U_V1'
+AND game.content_kind='MULTI_DISC'
 AND NOT EXISTS(
   SELECT incoming.sort_order,incoming.blob_id
   FROM import_item_source_snapshot_files incoming
   WHERE incoming.source_snapshot_id=COALESCE(
     (SELECT draft.effective_source_snapshot_id FROM review_drafts draft WHERE draft.import_item_id=?),
     (SELECT initial.id FROM import_item_source_snapshots initial
-     WHERE initial.import_item_id=? AND initial.revision_no=1)
+     WHERE initial.import_item_id=? AND initial.created_by='IDENTIFICATION')
   ) AND incoming.role='DISC'
   EXCEPT
-  SELECT existing.sort_order,existing.blob_id FROM game_content_files existing
-  WHERE existing.game_content_revision_id=revision.id AND existing.role='DISC'
+  SELECT existing.sort_order,existing.blob_id FROM game_files existing
+  WHERE existing.game_id=game.id AND existing.role='DISC'
 )
 AND NOT EXISTS(
-  SELECT existing.sort_order,existing.blob_id FROM game_content_files existing
-  WHERE existing.game_content_revision_id=revision.id AND existing.role='DISC'
+  SELECT existing.sort_order,existing.blob_id FROM game_files existing
+  WHERE existing.game_id=game.id AND existing.role='DISC'
   EXCEPT
   SELECT incoming.sort_order,incoming.blob_id
   FROM import_item_source_snapshot_files incoming
   WHERE incoming.source_snapshot_id=COALESCE(
     (SELECT draft.effective_source_snapshot_id FROM review_drafts draft WHERE draft.import_item_id=?),
     (SELECT initial.id FROM import_item_source_snapshots initial
-     WHERE initial.import_item_id=? AND initial.revision_no=1)
+     WHERE initial.import_item_id=? AND initial.created_by='IDENTIFICATION')
   ) AND incoming.role='DISC'
 )
 ORDER BY game.created_at_ms,game.id
@@ -273,7 +268,6 @@ func queryDuplicateGames(
 			&game.Title,
 			&game.PlatformInstanceID,
 			&game.PlatformInstanceName,
-			&game.CurrentContentRevisionID,
 		); err != nil {
 			return nil, fmt.Errorf("libraryimport/duplicate: %w", err)
 		}

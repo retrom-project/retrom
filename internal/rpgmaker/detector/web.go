@@ -76,7 +76,7 @@ func detectWeb(files *catalog) ([]evidence, error) {
 	}
 	return []evidence{{
 		generation: generation, family: family, markers: markers, engineVersion: engineVersion,
-		requirements: []Requirement{RequirementNativeWebIsolation, RequirementRuntimeValidation},
+		requirements: []Requirement{RequirementNativeWebIsolation},
 	}}, nil
 }
 

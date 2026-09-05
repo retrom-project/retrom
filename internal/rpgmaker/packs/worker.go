@@ -94,14 +94,14 @@ func (service *Service) validateInstallation(
 	ctx context.Context,
 	jobID string,
 ) (Diagnostic, error) {
-	var installationID, kind, generation, status string
+	var installationID, layout, generation, status string
 	err := service.database.QueryRowContext(ctx, `
-SELECT installation.id,definition.kind,definition.generation,installation.status
+SELECT installation.id,definition.required_layout_version,definition.generation,installation.status
 FROM jobs job
 JOIN runtime_asset_pack_installations installation ON installation.id=job.scope_id
 JOIN runtime_asset_pack_definitions definition ON definition.id=installation.definition_id
 WHERE job.id=? AND job.kind='RUNTIME_ASSET_PACK_VALIDATE'
-`, jobID).Scan(&installationID, &kind, &generation, &status)
+`, jobID).Scan(&installationID, &layout, &generation, &status)
 	if err != nil || status != "VALIDATING" {
 		return Diagnostic{}, fmt.Errorf("runtime pack validation snapshot: %w", err)
 	}
@@ -109,7 +109,10 @@ WHERE job.id=? AND job.kind='RUNTIME_ASSET_PACK_VALIDATE'
 	if err != nil {
 		return Diagnostic{}, err
 	}
-	if kind == "RPG2000_RTP" || kind == "RPG2003_RTP" {
+	if layout != "easy-rtp-layout-v1" && layout != "mkxpz-v1" {
+		return Diagnostic{Code: "RPG_RUNTIME_PACK_LAYOUT_INVALID", Level: "ERROR", Message: "未注册的运行包布局"}, ErrInvalid
+	}
+	if layout == "easy-rtp-layout-v1" {
 		if err := ValidateEasyRTPLayout(generation, files); err != nil {
 			message := "运行包目录、扩展名或已登记 RTP 资源不符合当前 EasyRPG 布局"
 			var violation *layoutViolation

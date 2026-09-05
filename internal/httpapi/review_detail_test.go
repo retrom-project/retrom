@@ -18,6 +18,7 @@ import (
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
 	"retrom/internal/testassert"
+	"retrom/internal/testsupport"
 )
 
 func TestProjectReviewArchiveFormatRequiresValidatedTyranoScriptExecutableContext(t *testing.T) {
@@ -26,13 +27,13 @@ func TestProjectReviewArchiveFormatRequiresValidatedTyranoScriptExecutableContex
 		contentKind, name string
 		stored, expected  any
 	}{
-		{"TYRANOSCRIPT_PROJECT_V1", "game.exe", "ZIP", "NWJS_EXECUTABLE"},
-		{"TYRANOSCRIPT_PROJECT_V1", "GAME.EXE", "ZIP", "NWJS_EXECUTABLE"},
-		{"TYRANOSCRIPT_PROJECT_V1", "game.zip", "ZIP", "ZIP"},
+		{"TYRANOSCRIPT_PROJECT", "game.exe", "ZIP", "NWJS_EXECUTABLE"},
+		{"TYRANOSCRIPT_PROJECT", "GAME.EXE", "ZIP", "NWJS_EXECUTABLE"},
+		{"TYRANOSCRIPT_PROJECT", "game.zip", "ZIP", "ZIP"},
 		{"SINGLE_FILE", "game.exe", "ZIP", "ZIP"},
-		{"TYRANOSCRIPT_PROJECT_V1", "game.exe", "SEVEN_Z", "SEVEN_Z"},
-		{"TYRANOSCRIPT_PROJECT_V1", "game.zip", "ELECTRON_ASAR", "ELECTRON_ASAR"},
-		{"TYRANOSCRIPT_PROJECT_V1", "game.exe", nil, nil},
+		{"TYRANOSCRIPT_PROJECT", "game.exe", "SEVEN_Z", "SEVEN_Z"},
+		{"TYRANOSCRIPT_PROJECT", "game.zip", "ELECTRON_ASAR", "ELECTRON_ASAR"},
+		{"TYRANOSCRIPT_PROJECT", "game.exe", nil, nil},
 	} {
 		if actual := projectReviewArchiveFormat(test.contentKind, test.name, test.stored); actual != test.expected {
 			t.Fatalf("projectReviewArchiveFormat(%q,%q,%v)=%v, want %v",
@@ -58,13 +59,8 @@ func TestBlockedReviewDetailRemainsVisibleWithoutSelectedValidation(t *testing.T
 	if err := server.dependencies.Bootstrap(context.Background(), server.database, now); err != nil {
 		t.Fatal(err)
 	}
-	var artifactID, artifactRuntimeVersion string
-	if err := server.database.QueryRowContext(context.Background(), `
-SELECT id,runtime_version
-FROM core_artifacts
-WHERE core_id='mgba'
-AND selected_for_new_bindings=1
-`).Scan(&artifactID, &artifactRuntimeVersion); err != nil {
+	target, err := testsupport.LookupRuntimeTarget(t.Context(), server.database, "mgba")
+	if err != nil {
 		t.Fatal(err)
 	}
 	itemID := "01980000-0000-7000-8000-000000000121"
@@ -93,8 +89,8 @@ AND selected_for_new_bindings=1
 	testassert.False(t, err != nil, err)
 	defer cleanup.Rollback(transaction)
 	manifest := `{"files":[{"logicalName":"blocked.gba","role":"CONTENT"}]}`
-	seedReviewSources(t, transaction, uploadID, digest, importID, artifactID, itemID, sourceBlobID, coverBlobID, uploadFileID, coverUploadFileID, sourceSnapshotID, manifest, timestamp, coverMetadata)
-	seedReviewValidation(t, transaction, validationID, itemID, artifactID, digest, sourceSnapshotID, draftID, scrapeJobID, timestamp)
+	seedReviewSources(t, transaction, uploadID, digest, importID, target, itemID, sourceBlobID, coverBlobID, uploadFileID, coverUploadFileID, sourceSnapshotID, manifest, timestamp, coverMetadata)
+	seedReviewValidation(t, transaction, validationID, itemID, target, digest, sourceSnapshotID, draftID, scrapeJobID, timestamp)
 	seedReviewMetadataEvidence(t, transaction, scrapeRunID, itemID, scrapeJobID, providerResponseID, candidateID, candidateAssetID, readyCoverAssetID, coverBlobID, digest, timestamp)
 	recorder := httptest.NewRecorder()
 	request := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/admin/reviews/"+itemID, nil)
@@ -107,36 +103,19 @@ AND selected_for_new_bindings=1
 	}, func() bool {
 		return !strings.Contains(recorder.Body.String(), `"scrapeRuns":[{"attemptCount":0,"candidateCount":1,"completedAtMs":`)
 	}, func() bool { return !strings.Contains(recorder.Body.String(), `"provider":"HASHEOUS"`) }, func() bool {
-		return !strings.Contains(recorder.Body.String(), `"runtimeVersionChange":null`)
+		return strings.Contains(recorder.Body.String(), `"validationStale"`)
 	}), "blocked review detail = %d %s", recorder.Code, recorder.Body.String())
-	replacementArtifactID := "01980000-0000-7000-8000-000000000138"
 	mustExecHTTPTest(t, server.database, `
-UPDATE core_artifacts
-SET selected_for_new_bindings=0,version=version+1,updated_at_ms=?
-WHERE id=?
-`, timestamp+1, artifactID)
-	mustExecHTTPTest(t, server.database, `
-INSERT INTO core_artifacts(
- id,core_id,route_key,runtime_family,runtime_adapter_kind,runtime_version,adapter_id,
- entry_path,size_bytes,sha256,manifest_sha256,artifact_set_sha256,requires_threads,
- save_payload_kind,save_max_bytes,provenance_json,compatibility_json,
- selected_for_new_bindings,available_for_launch,version,created_at_ms,updated_at_ms,retired_at_ms)
-SELECT ?,core_id,route_key,runtime_family,runtime_adapter_kind,runtime_version||'-next',adapter_id,
- entry_path,size_bytes,sha256,manifest_sha256,?,requires_threads,
- save_payload_kind,save_max_bytes,provenance_json,compatibility_json,
- 1,1,1,?,?,NULL
-FROM core_artifacts WHERE id=?
-`, replacementArtifactID, strings.Repeat("9", 64), timestamp+1, timestamp+1, artifactID)
-	staleRuntime := httptest.NewRecorder()
-	server.review(staleRuntime, request)
+UPDATE runtime_providers SET provider_version='1.0.1'
+WHERE provider_id=?
+`, target.ProviderID)
+	upgradedRuntime := httptest.NewRecorder()
+	server.review(upgradedRuntime, request)
 	testassert.Falsef(t, testassert.Any(
-		func() bool { return staleRuntime.Code != http.StatusOK },
-		func() bool { return !strings.Contains(staleRuntime.Body.String(), `"validationStale":true`) },
-		func() bool { return !strings.Contains(staleRuntime.Body.String(), `"id":"`+validationID+`"`) },
-		func() bool {
-			return !strings.Contains(staleRuntime.Body.String(), `"runtimeVersionChange":{"current":"`+artifactRuntimeVersion+`-next","previous":"`+artifactRuntimeVersion+`"}`)
-		},
-	), "runtime-stale review detail = %d %s", staleRuntime.Code, staleRuntime.Body.String())
+		func() bool { return upgradedRuntime.Code != http.StatusOK },
+		func() bool { return !strings.Contains(upgradedRuntime.Body.String(), `"id":"`+validationID+`"`) },
+		func() bool { return strings.Contains(upgradedRuntime.Body.String(), `"validationStale"`) },
+	), "runtime upgrade review detail = %d %s", upgradedRuntime.Code, upgradedRuntime.Body.String())
 	uploadedCover := httptest.NewRecorder()
 	invalidCoverRequest := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/v1/admin/reviews/"+itemID+"/assets", strings.NewReader(`{"uploadFileId":"`+coverUploadFileID+`","kind":"BACKGROUND"}`))
 	invalidCoverRequest.SetPathValue("importItemId", itemID)
@@ -156,7 +135,7 @@ FROM core_artifacts WHERE id=?
 	server.patchReview(patch, patchRequest)
 	testassert.Falsef(t, anyTrue(patch.Code != http.StatusOK, !strings.Contains(patch.Body.String(), `"version":2`)),
 		"select review cover = %d %s", patch.Code, patch.Body.String())
-	assertRuntimeValidationRefreshed(t, server, request, itemID, replacementArtifactID)
+	assertRuntimeValidationCurrent(t, server, request, itemID, target.ProviderID, target.TargetID)
 	staleCover := httptest.NewRecorder()
 	staleCoverRequest := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/v1/admin/reviews/"+itemID+"/assets", strings.NewReader(`{"uploadFileId":"`+coverUploadFileID+`","kind":"COVER"}`))
 	staleCoverRequest.SetPathValue("importItemId", itemID)
@@ -185,35 +164,34 @@ UPDATE review_drafts SET cover_candidate_asset_id=? WHERE import_item_id=?
 		!strings.Contains(filteredList.Body.String(), `"itemId":"`+itemID+`"`)),
 		"review queue import filter = %d %s", filteredList.Code, filteredList.Body.String())
 	assertPegasusReviewSources(
-		t, server, itemID, importID, artifactID, coverBlobID,
+		t, server, itemID, importID, target, coverBlobID,
 		manifest, digest, timestamp, coverMetadata,
 	)
 }
 
-func assertRuntimeValidationRefreshed(
+func assertRuntimeValidationCurrent(
 	t *testing.T,
 	server *Server,
 	request *http.Request,
-	itemID, replacementArtifactID string,
+	itemID, providerID, targetID string,
 ) {
 	t.Helper()
 	var validationID, status string
 	if err := server.database.QueryRowContext(context.Background(), `
 SELECT id,status FROM import_item_core_validations
-WHERE import_item_id=? AND core_artifact_id=?
+WHERE import_item_id=? AND provider_id=? AND target_id=?
 ORDER BY created_at_ms DESC,id DESC LIMIT 1
-`, itemID, replacementArtifactID).Scan(&validationID, &status); err != nil {
-		t.Fatalf("read refreshed runtime validation: %v", err)
+`, itemID, providerID, targetID).Scan(&validationID, &status); err != nil {
+		t.Fatalf("read current runtime validation: %v", err)
 	}
 	response := httptest.NewRecorder()
 	server.review(response, request)
 	testassert.Falsef(t, testassert.Any(
 		func() bool { return response.Code != http.StatusOK },
-		func() bool { return strings.Contains(response.Body.String(), `"validationStale":true`) },
-		func() bool { return !strings.Contains(response.Body.String(), `"runtimeVersionChange":null`) },
+		func() bool { return strings.Contains(response.Body.String(), `"validationStale"`) },
 		func() bool { return !strings.Contains(response.Body.String(), `"id":"`+validationID+`"`) },
 		func() bool { return status != "BLOCKED" },
-	), "refreshed runtime review detail = %d %s", response.Code, response.Body.String())
+	), "current runtime review detail = %d %s", response.Code, response.Body.String())
 }
 
 func createReviewCoverFixture(t *testing.T, server *Server, itemID, uploadFileID string) string {
@@ -240,7 +218,7 @@ func createReviewCoverFixture(t *testing.T, server *Server, itemID, uploadFileID
 func assertPegasusReviewSources(
 	t *testing.T,
 	server *Server,
-	itemID, importID, artifactID, coverBlobID string,
+	itemID, importID string, target testsupport.RuntimeTargetIdentity, coverBlobID string,
 	manifest, digest string,
 	timestamp int64,
 	coverMetadata blobstore.Metadata,
@@ -277,10 +255,11 @@ INSERT INTO pegasus_imports(
 INSERT INTO pegasus_import_collections(
  id,import_id,metadata_relative_path,segment_ordinal,name,game_count,mapping_action,
  target_platform_instance_id,target_platform_instance_version,target_platform_id,target_default_core_id,
- target_core_artifact_id,target_core_artifact_version,created_at_ms,updated_at_ms
+ target_provider_id,target_id,created_at_ms,updated_at_ms
 ) VALUES(?,?,'FC/metadata.pegasus.txt',0,'FC',1,'IMPORT',
- (SELECT id FROM platform_instances WHERE catalog_template_key='gba/mgba'),1,'gba','mgba',?,1,?,?)
-`, pegasusCollectionID, pegasusImportID, artifactID, timestamp, timestamp)
+ (SELECT id FROM platform_instances WHERE catalog_template_key='gba/mgba'),1,'gba','mgba',?,?,?,?)
+`, pegasusCollectionID, pegasusImportID, target.ProviderID, target.TargetID,
+		timestamp, timestamp)
 	mustExecHTTPTest(t, server.database, `
 INSERT INTO pegasus_import_items(
  id,import_id,collection_id,metadata_relative_path,game_ordinal,source_key,title,discovery_state,
@@ -388,7 +367,8 @@ VALUES('01980000-0000-7000-8000-000000000135',?,'APPROVED','SYSTEM',NULL,'releas
 
 func seedReviewSources(
 	t *testing.T, transaction *sql.Tx,
-	uploadID, digest, importID, artifactID, itemID, sourceBlobID, coverBlobID string,
+	uploadID, digest, importID string, target testsupport.RuntimeTargetIdentity,
+	itemID, sourceBlobID, coverBlobID string,
 	uploadFileID, coverUploadFileID, sourceSnapshotID, manifest string,
 	timestamp int64, coverMetadata blobstore.Metadata,
 ) {
@@ -420,7 +400,8 @@ target_platform_instance_id,
 platform_instance_version,
 platform_id,
 default_core_id,
-core_artifact_id,
+provider_id,
+target_id,
 metadata_provider,
 config_snapshot_json,
 config_snapshot_digest,
@@ -436,6 +417,7 @@ updated_at_ms) VALUES(?,
 'gba',
 'mgba',
 ?,
+?,
 'HASHEOUS',
 '{}',
 ?,
@@ -445,7 +427,7 @@ updated_at_ms) VALUES(?,
 1,
 ?,
 ?)
-`, importID, uploadID, artifactID, digest, timestamp, timestamp)
+`, importID, uploadID, target.ProviderID, target.TargetID, digest, timestamp, timestamp)
 	mustExecHTTPTest(t, transaction, `
 INSERT INTO import_items(id,
 import_job_id,
@@ -489,9 +471,9 @@ INSERT INTO import_item_source_files(import_item_id,role,logical_name,upload_fil
 VALUES(?,'CONTENT','blocked.zip',?,?,NULL,NULL,0,?)
 	`, itemID, uploadFileID, sourceBlobID, timestamp)
 	mustExecHTTPTest(t, transaction, `
-INSERT INTO import_item_source_snapshots(id,import_item_id,revision_no,source_manifest_json,
+INSERT INTO import_item_source_snapshots(id,import_item_id,source_manifest_json,
 source_manifest_digest,created_by,created_at_ms)
-VALUES(?,?,1,?,?,'IDENTIFICATION',?)
+VALUES(?,?,?,?,'IDENTIFICATION',?)
 	`, sourceSnapshotID, itemID, manifest, digest, timestamp)
 	mustExecHTTPTest(t, transaction, `
 INSERT INTO import_item_source_snapshot_files(source_snapshot_id,role,logical_name,upload_file_id,
@@ -502,7 +484,8 @@ VALUES(?,'CONTENT','blocked.zip',?,?,NULL,NULL,0,?)
 
 func seedReviewValidation(
 	t *testing.T, transaction *sql.Tx,
-	validationID, itemID, artifactID, digest, sourceSnapshotID, draftID, scrapeJobID string,
+	validationID, itemID string, target testsupport.RuntimeTargetIdentity,
+	digest, sourceSnapshotID, draftID, scrapeJobID string,
 	timestamp int64,
 ) {
 	mustExecHTTPTest(t, transaction, `
@@ -511,7 +494,8 @@ import_item_id,
 target_platform_instance_id,
 platform_instance_version,
 core_id,
-core_artifact_id,
+provider_id,
+target_id,
 source_manifest_digest,
 source_snapshot_id,
 prepublish_input_digest,
@@ -527,11 +511,12 @@ created_at_ms) VALUES(?,
 ?,
 ?,
 ?,
+?,
 'BLOCKED',
 'DEPENDENCY_MISSING',
 '{"dependencies":[]}',
 ?)
-`, validationID, itemID, artifactID, digest, sourceSnapshotID, digest, timestamp)
+`, validationID, itemID, target.ProviderID, target.TargetID, digest, sourceSnapshotID, digest, timestamp)
 	mustExecHTTPTest(t, transaction, `
 INSERT INTO review_drafts(id,
 import_item_id,

@@ -14,7 +14,6 @@ import (
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
 	"retrom/internal/contentcapability"
-	"retrom/internal/corevalidation"
 	"retrom/internal/payloadrelease"
 )
 
@@ -39,31 +38,28 @@ type Service struct {
 }
 
 type jobSnapshot struct {
-	ExecutionID               string  `json:"executionId"`
-	GameID                    string  `json:"gameId"`
-	GameVersion               int64   `json:"gameVersion"`
-	BaseContentRevisionID     string  `json:"baseContentRevisionId"`
-	UploadSessionID           string  `json:"uploadSessionId"`
-	PlatformID                string  `json:"platformId"`
-	PlatformInstanceID        string  `json:"platformInstanceId"`
-	PlatformInstanceVersion   int64   `json:"platformInstanceVersion"`
-	CoreID                    string  `json:"coreId"`
-	CoreArtifactID            string  `json:"coreArtifactId"`
-	CoreArtifactRouteKey      string  `json:"coreArtifactRouteKey"`
-	CoreArtifactVersion       int64   `json:"coreArtifactVersion"`
-	CompatibilityConfigDigest string  `json:"compatibilityConfigDigest"`
-	ContentMode               string  `json:"contentMode"`
-	MaxDiscs                  int     `json:"maxDiscs,omitempty"`
-	MaxTotalBytes             int64   `json:"maxTotalBytes,omitempty"`
-	DATVersionID              *string `json:"datVersionId"`
-	ConfigSnapshotDigest      string  `json:"configSnapshotDigest"`
-	BaseVariantRevisionID     string  `json:"baseVariantRevisionId,omitempty"`
-	RPGGeneration             string  `json:"rpgGeneration,omitempty"`
-	RPGAdapterID              string  `json:"rpgAdapterId,omitempty"`
-	RPGAdapterABI             string  `json:"rpgAdapterAbi,omitempty"`
-	RPGArtifactSetSHA256      string  `json:"rpgArtifactSetSha256,omitempty"`
-	RPGDependencySHA256       string  `json:"rpgDependencySha256,omitempty"`
-	RPGRequirementsSHA256     string  `json:"rpgRequirementsSha256,omitempty"`
+	ExecutionID             string                   `json:"executionId"`
+	GameID                  string                   `json:"gameId"`
+	GameVersion             int64                    `json:"gameVersion"`
+	BaseManifestDigest      string                   `json:"baseManifestDigest"`
+	UploadSessionID         string                   `json:"uploadSessionId"`
+	PlatformID              string                   `json:"platformId"`
+	PlatformInstanceID      string                   `json:"platformInstanceId"`
+	PlatformInstanceVersion int64                    `json:"platformInstanceVersion"`
+	CoreID                  string                   `json:"coreId"`
+	ProviderID              string                   `json:"providerId"`
+	TargetID                string                   `json:"targetId"`
+	ContentPolicy           contentcapability.Policy `json:"contentPolicy"`
+	TargetPolicyDigest      string                   `json:"targetPolicyDigest"`
+	ContentMode             string                   `json:"contentMode"`
+	MaxDiscs                int                      `json:"maxDiscs,omitempty"`
+	MaxTotalBytes           int64                    `json:"maxTotalBytes,omitempty"`
+	DATVersionID            *string                  `json:"datVersionId"`
+	ConfigSnapshotDigest    string                   `json:"configSnapshotDigest"`
+	VariantID               string                   `json:"variantId,omitempty"`
+	RPGGeneration           string                   `json:"rpgGeneration,omitempty"`
+	RPGDependencySHA256     string                   `json:"rpgDependencySha256,omitempty"`
+	RPGRequirementsSHA256   string                   `json:"rpgRequirementsSha256,omitempty"`
 }
 
 type uploadedFile struct {
@@ -176,8 +172,8 @@ func (service *Service) schedule(
 	if contentMode == "" {
 		contentMode = contentcapability.ModeStandard
 	}
-	if contentMode != contentcapability.ModeStandard && contentMode != contentcapability.ModeMultiDiscM3UV1 &&
-		contentMode != contentcapability.ModeRPGMakerProjectV1 {
+	if contentMode != contentcapability.ModeStandard && contentMode != contentcapability.ModeMultiDisc &&
+		contentMode != contentcapability.ModeRPGMakerProject {
 		return Scheduled{}, false, ErrInvalid
 	}
 	transaction, err := service.database.BeginTx(ctx, nil)
@@ -219,57 +215,53 @@ func (service *Service) scheduleFresh(
 	if err != nil || binding.version != expectedVersion {
 		return Scheduled{}, ErrInvalid
 	}
-	contentID, instanceID, platformID := binding.contentID, binding.instanceID, binding.platformID
-	coreID, artifactID, routeKey := binding.coreID, binding.artifactID, binding.routeKey
-	artifactVersion, compatibilityJSON := binding.artifactVersion, binding.compatibilityJSON
+	instanceID, platformID := binding.instanceID, binding.platformID
+	coreID, contentPolicy := binding.coreID, binding.contentPolicy
 	platformVersion, datID := binding.platformVersion, binding.datID
-	if platformID == "rpgmaker" && contentMode != contentcapability.ModeRPGMakerProjectV1 ||
-		platformID != "rpgmaker" && contentMode == contentcapability.ModeRPGMakerProjectV1 {
+	if platformID == "rpgmaker" && contentMode != contentcapability.ModeRPGMakerProject ||
+		platformID != "rpgmaker" && contentMode == contentcapability.ModeRPGMakerProject {
 		return Scheduled{}, ErrInvalid
 	}
 	capabilities := contentcapability.Resolve(
-		platformID, true, service.multiDiscImportEnabled, compatibilityJSON,
+		platformID, true, service.multiDiscImportEnabled, contentPolicy,
 	)
-	if contentMode == contentcapability.ModeMultiDiscM3UV1 && capabilities.MultiDisc == nil {
+	if contentMode == contentcapability.ModeMultiDisc && capabilities.MultiDisc == nil {
 		return Scheduled{}, ErrInvalid
 	}
 	if err := validateReplacementUpload(ctx, transaction, uploadID, contentMode, platformID); err != nil {
 		return Scheduled{}, err
 	}
 	jobID, consumptionID, executionID := newID(), newID(), newID()
-	compatibilityDigest := corevalidation.CompatibilityConfigDigest(compatibilityJSON)
+	targetPolicyDigest := contentPolicy.Digest()
 	configInput := fmt.Sprintf(
-		"%s\x00%d\x00%s\x00%s\x00%d\x00%s\x00%s\x00%s",
-		instanceID, platformVersion, artifactID, routeKey, artifactVersion, compatibilityDigest,
+		"%s\x00%d\x00%s\x00%s\x00%s\x00%s\x00%s",
+		instanceID, platformVersion, binding.providerID, binding.targetID, targetPolicyDigest,
 		contentMode, nullableText(datID),
 	)
 	configDigest := sha256.Sum256([]byte(configInput))
 	snapshot := jobSnapshot{
-		ExecutionID:               executionID,
-		GameID:                    gameID,
-		GameVersion:               expectedVersion,
-		BaseContentRevisionID:     contentID,
-		UploadSessionID:           uploadID,
-		PlatformID:                platformID,
-		PlatformInstanceID:        instanceID,
-		PlatformInstanceVersion:   platformVersion,
-		CoreID:                    coreID,
-		CoreArtifactID:            artifactID,
-		CoreArtifactRouteKey:      routeKey,
-		CoreArtifactVersion:       artifactVersion,
-		CompatibilityConfigDigest: compatibilityDigest,
-		ContentMode:               contentMode,
-		DATVersionID:              nullablePointer(datID),
-		ConfigSnapshotDigest:      hex.EncodeToString(configDigest[:]),
-		BaseVariantRevisionID:     binding.variantRevisionID,
-		RPGGeneration:             binding.rpgGeneration,
-		RPGAdapterID:              binding.rpgAdapterID,
-		RPGAdapterABI:             binding.rpgAdapterABI,
-		RPGArtifactSetSHA256:      binding.rpgArtifactSetSHA256,
-		RPGDependencySHA256:       binding.rpgDependencySHA256,
-		RPGRequirementsSHA256:     binding.rpgRequirementsSHA256,
+		ExecutionID:             executionID,
+		GameID:                  gameID,
+		GameVersion:             expectedVersion,
+		BaseManifestDigest:      binding.manifestDigest,
+		UploadSessionID:         uploadID,
+		PlatformID:              platformID,
+		PlatformInstanceID:      instanceID,
+		PlatformInstanceVersion: platformVersion,
+		CoreID:                  coreID,
+		ProviderID:              binding.providerID,
+		TargetID:                binding.targetID,
+		ContentPolicy:           contentPolicy,
+		TargetPolicyDigest:      targetPolicyDigest,
+		ContentMode:             contentMode,
+		DATVersionID:            nullablePointer(datID),
+		ConfigSnapshotDigest:    hex.EncodeToString(configDigest[:]),
+		VariantID:               binding.variantID,
+		RPGGeneration:           binding.rpgGeneration,
+		RPGDependencySHA256:     binding.rpgDependencySHA256,
+		RPGRequirementsSHA256:   binding.rpgRequirementsSHA256,
 	}
-	if capabilities.MultiDisc != nil && contentMode == contentcapability.ModeMultiDiscM3UV1 {
+	if capabilities.MultiDisc != nil && contentMode == contentcapability.ModeMultiDisc {
 		snapshot.MaxDiscs = capabilities.MultiDisc.MaxDiscs
 		snapshot.MaxTotalBytes = capabilities.MultiDisc.MaxTotalBytes
 	}
@@ -291,14 +283,14 @@ func (service *Service) persistFreshSchedule(
 	executionID := snapshot.ExecutionID
 	envelope := inputEnvelope{
 		SchemaVersion: 1,
-		Kind:          "GAME_FILE_REVISION",
+		Kind:          "GAME_CONTENT_REPLACE",
 		Scope:         map[string]any{"type": "GAME", "id": gameID},
 		ExecutionID:   executionID,
 		Inputs:        snapshot,
 	}
 	inputJSON, _ := json.Marshal(envelope)
 	dedupeInput, _ := json.Marshal(map[string]any{"executionId": executionID, "gameId": gameID})
-	dedupe := sha256.Sum256(append([]byte("retrom-job-dedupe-v1\x00GAME_FILE_REVISION\x00"), dedupeInput...))
+	dedupe := sha256.Sum256(append([]byte("retrom-job-dedupe-v1\x00GAME_CONTENT_REPLACE\x00"), dedupeInput...))
 	if _, err := transaction.ExecContext(ctx, `
 INSERT INTO jobs(id,
 scope_type,
@@ -316,7 +308,7 @@ created_at_ms,
 updated_at_ms) VALUES(?,
 'GAME',
 ?,
-'GAME_FILE_REVISION',
+'GAME_CONTENT_REPLACE',
 ?,
 1,
 '{"schemaVersion":1,"inputExecutionNo":1}',
@@ -339,7 +331,7 @@ consumer_id,
 created_at_ms) VALUES(?,
 ?,
 NULL,
-'GAME_FILE_REVISION_JOB',
+'GAME_CONTENT_REPLACE_JOB',
 ?,
 ?)
 	`, consumptionID, uploadID, jobID, now); err != nil {
@@ -393,7 +385,7 @@ response_headers_json,
 response_body,
 created_at_ms,
 expires_at_ms) VALUES(?,
-'postAdminGameContentRevision',
+'postAdminGameContentReplacement',
 ?,
 ?,
 202,
@@ -429,7 +421,7 @@ func loadScheduledReplay(
 	if _, err := transaction.ExecContext(ctx, `
 DELETE
 FROM idempotency_records
-WHERE operation_id='postAdminGameContentRevision'
+WHERE operation_id='postAdminGameContentReplacement'
 AND key=?
 AND principal_id=?
 AND expires_at_ms<=?
@@ -442,7 +434,7 @@ AND expires_at_ms<=?
 SELECT request_digest,
 response_body
 FROM idempotency_records
-WHERE operation_id='postAdminGameContentRevision'
+WHERE operation_id='postAdminGameContentReplacement'
 AND key=?
 AND principal_id=?
 `, key, principalID).
@@ -482,8 +474,8 @@ WHERE id=?
 		uploadState != "COMPLETE" ||
 		fileCount == 0 ||
 		contentMode == contentcapability.ModeStandard && platformID != "dos" && fileCount != 1 ||
-		contentMode == contentcapability.ModeMultiDiscM3UV1 && sourceType != "DIRECTORY" ||
-		contentMode == contentcapability.ModeRPGMakerProjectV1 && sourceType != "DIRECTORY" {
+		contentMode == contentcapability.ModeMultiDisc && sourceType != "DIRECTORY" ||
+		contentMode == contentcapability.ModeRPGMakerProject && sourceType != "DIRECTORY" {
 		return ErrInvalid
 	}
 	var consumed int

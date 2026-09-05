@@ -8,7 +8,6 @@ import (
 	"io"
 	"os"
 	"path"
-	"slices"
 	"strings"
 	"time"
 
@@ -16,45 +15,38 @@ import (
 
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
+	"retrom/internal/contentprofile"
 	"retrom/internal/corevalidation"
-	"retrom/internal/dependencies"
 	"retrom/internal/importing"
 	"retrom/internal/mediaasset"
 	retromruntime "retrom/internal/runtime"
 )
 
-const reviewCaptureAfterMS int64 = 5_000
-
 var (
 	ErrReviewPreviewUnavailable = errors.New("REVIEW_PREVIEW_UNAVAILABLE")
-	ErrReviewCaptureNotAllowed  = errors.New("REVIEW_CAPTURE_NOT_ALLOWED")
 	ErrReviewScreenshotInvalid  = errors.New("REVIEW_SCREENSHOT_INVALID")
 )
 
 type ReviewPreviewRequest struct {
-	ImportItemID       string
-	ActorUserID        string
-	IdempotencyKey     string
-	ClientCapabilities Capabilities
+	ImportItemID         string
+	ActorUserID          string
+	IdempotencyKey       string
+	ClientCapabilities   Capabilities
+	RestoreFromPreviewID *string
 }
 
 type ReviewPreviewCreated struct {
-	PreviewID      string `json:"previewId"`
-	PlayURL        string `json:"playUrl"`
-	CaptureAllowed bool   `json:"captureAllowed"`
-	CaptureAfterMS int64  `json:"captureAfterMs"`
-	Capability     string `json:"-"`
+	PreviewID  string `json:"previewId"`
+	PlayURL    string `json:"playUrl"`
+	Capability string `json:"-"`
 }
 
 type reviewPreviewSource struct {
-	SourceSnapshotID, TargetID, PlatformName, PlatformKey                  string
-	ArtifactID, RuntimeFamily, AdapterKind, RuntimeVersion, AdapterID      string
-	CoreID, CoreName, CompatibilityJSON                                    string
+	SourceSnapshotID, PlatformInstanceID, PlatformName, PlatformKey        string
+	ProviderID, TargetID, BundleSHA256, CoreID, DeliveryProfile            string
 	Title, ContentKind, ValidationID, ValidationStatus, DependencySnapshot string
-	DefaultDOSEntry                                                        sql.NullString
-	SelectedValidationID                                                   sql.NullString
-	DATVersionID                                                           sql.NullString
-	RequiresThreads                                                        int
+	DefaultDOSEntry, SelectedValidationID, DATVersionID                    sql.NullString
+	RequiresThreads                                                        bool
 }
 
 type reviewPreviewFile struct {
@@ -101,15 +93,13 @@ func (service *Service) CreateReviewPreview(
 	}
 	capability := service.credentials.Capability(previewID)
 	capabilityHash := retromruntime.HashCapability(capability)
-	captureAllowed := true
 	if err := service.persistReviewPreview(
-		ctx, request, source, content, previewID.String(), capabilityHash[:], captureAllowed,
+		ctx, request, source, content, previewID.String(), capabilityHash[:],
 	); err != nil {
 		return ReviewPreviewCreated{}, fmt.Errorf("persist review preview: %w", err)
 	}
 	return ReviewPreviewCreated{
 		PreviewID: previewID.String(), PlayURL: "/admin/review-previews/" + previewID.String(),
-		CaptureAllowed: captureAllowed, CaptureAfterMS: reviewCaptureAfterMS,
 		Capability: retromruntime.EncodeCapability(capability),
 	}, nil
 }
@@ -119,38 +109,24 @@ func validReviewPreviewRequest(request ReviewPreviewRequest) bool {
 }
 
 func (service *Service) validateReviewPreviewSource(
-	ctx context.Context,
+	_ context.Context,
 	source reviewPreviewSource,
 	capabilities Capabilities,
 ) error {
-	if source.RequiresThreads == 1 && (!capabilities.SecureContext ||
-		!capabilities.CrossOriginIsolated || !capabilities.SharedArrayBuffer) {
+	target, exists := service.runtimeBuilder.Target(source.ProviderID, source.TargetID)
+	bundleSHA256, bundleExists := service.runtimeBuilder.BundleSHA256(source.ProviderID, source.TargetID)
+	if !exists || !bundleExists || bundleSHA256 != source.BundleSHA256 {
+		return ErrReviewPreviewUnavailable
+	}
+	if source.RequiresThreads && (!capabilities.SecureContext || !capabilities.CrossOriginIsolated ||
+		!capabilities.SharedArrayBuffer) {
 		return ErrBlocked
 	}
-	if source.RuntimeFamily == "ONS" {
-		return service.validateONSReviewPreviewSource(source)
+	declared := false
+	for _, input := range target.Inputs {
+		declared = declared || input.Role == "game"
 	}
-	if source.RuntimeFamily == "KIRIKIRI" {
-		return service.validateKiriKiriReviewPreviewSource(source)
-	}
-	if source.RuntimeFamily == "BUTTERSCOTCH" {
-		return service.validateButterscotchReviewPreviewSource(source)
-	}
-	if source.RuntimeFamily == "TYRANOSCRIPT" {
-		return service.validateTyranoScriptReviewPreviewSource(source)
-	}
-	if source.RuntimeFamily == "WASM4" {
-		return service.validateWASM4ReviewPreviewSource(source)
-	}
-	if source.RuntimeFamily != "EMULATORJS" || service.dependencies.Versions[source.RuntimeVersion] == nil {
-		return ErrReviewPreviewUnavailable
-	}
-	compatibility, err := service.loadArtifactCompatibility(ctx, source.ArtifactID)
-	if err != nil {
-		return ErrReviewPreviewUnavailable
-	}
-	supported := slices.Contains(compatibility.SupportedContentKinds, source.ContentKind)
-	if !supported {
+	if !declared {
 		return ErrReviewPreviewUnavailable
 	}
 	return nil
@@ -163,7 +139,6 @@ func (service *Service) persistReviewPreview(
 	content reviewPreviewContentSet,
 	previewID string,
 	capabilityHash []byte,
-	captureAllowed bool,
 ) error {
 	now := service.now().UnixMilli()
 	bootstrapExpires := now + int64(5*time.Minute/time.Millisecond)
@@ -177,21 +152,30 @@ func (service *Service) persistReviewPreview(
 		return fmt.Errorf("launch/review preview: %w", err)
 	}
 	var emulatorGameID any
-	if source.RuntimeFamily == "EMULATORJS" {
+	if source.DeliveryProfile == "EMULATORJS_CONTENT" || source.DeliveryProfile == "ROM_BLOB" {
 		emulatorGameID = max(now, 1)
 	}
 	defer cleanup.Rollback(transaction)
+	restore, err := loadReviewPreviewRestore(ctx, transaction, request, source, content, now)
+	if err != nil {
+		return err
+	}
 	_, err = transaction.ExecContext(ctx, `
 INSERT INTO review_preview_sessions(id,import_item_id,source_snapshot_id,validation_id,
-target_platform_instance_id,core_artifact_id,actor_user_id,idempotency_key,title,content_kind,
+	target_platform_instance_id,provider_id,target_id,bundle_sha256,
+actor_user_id,idempotency_key,title,content_kind,
 content_blob_id,content_logical_name,content_format,dependency_snapshot_json,default_dos_entry,
-emulator_game_id,capture_allowed,credential_sha256,state,bootstrap_expires_at_ms,hard_expires_at_ms,
+restore_from_preview_id,restore_payload_blob_id,restore_checkpoint_format,
+emulator_game_id,credential_sha256,state,bootstrap_expires_at_ms,hard_expires_at_ms,
 created_at_ms,updated_at_ms)
-VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'CREATED',?,?,?,?)
+VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'CREATED',?,?,?,?)
 `, previewID, request.ImportItemID, source.SourceSnapshotID, nullableText(source.ValidationID),
-		source.TargetID, source.ArtifactID, request.ActorUserID, request.IdempotencyKey, title, source.ContentKind,
+		source.PlatformInstanceID, source.ProviderID, source.TargetID,
+		source.BundleSHA256, request.ActorUserID,
+		request.IdempotencyKey, title, source.ContentKind,
 		content.BlobID, content.LogicalName, content.Format, source.DependencySnapshot,
-		nullableSQLString(source.DefaultDOSEntry), emulatorGameID, captureAllowed, capabilityHash,
+		nullableSQLString(source.DefaultDOSEntry), nullableTextPointer(request.RestoreFromPreviewID),
+		nullableSQLString(restore.blobID), nullableSQLString(restore.format), emulatorGameID, capabilityHash,
 		bootstrapExpires, hardExpires, now, now)
 	if err != nil {
 		return fmt.Errorf("create review preview: %w", err)
@@ -205,10 +189,12 @@ VALUES(?,?,?,?,?,?,?)
 			return fmt.Errorf("lock review preview dependency: %w", err)
 		}
 	}
-	if err := service.lockIsolatedPreviewBootstrapTicket(
-		ctx, transaction, previewID, request.ActorUserID, source.ArtifactID, now,
-	); err != nil {
-		return err
+	if source.DeliveryProfile == "ISOLATED_WEB_PROJECT" {
+		if err := service.lockIsolatedPreviewBootstrapTicket(
+			ctx, transaction, previewID, request.ActorUserID, now,
+		); err != nil {
+			return err
+		}
 	}
 	if err := transaction.Commit(); err != nil {
 		return fmt.Errorf("commit review preview: %w", err)
@@ -221,19 +207,20 @@ func (service *Service) replayReviewPreview(
 	request ReviewPreviewRequest,
 ) (ReviewPreviewCreated, bool, error) {
 	var id, itemID string
-	var captureAllowed int
+	var restoredFrom sql.NullString
 	err := service.database.QueryRowContext(ctx, `
-SELECT id,import_item_id,capture_allowed
+SELECT id,import_item_id,restore_from_preview_id
 FROM review_preview_sessions
 WHERE actor_user_id=? AND idempotency_key=?
-`, request.ActorUserID, request.IdempotencyKey).Scan(&id, &itemID, &captureAllowed)
+`, request.ActorUserID, request.IdempotencyKey).Scan(&id, &itemID, &restoredFrom)
 	if errors.Is(err, sql.ErrNoRows) {
 		return ReviewPreviewCreated{}, false, nil
 	}
 	if err != nil {
 		return ReviewPreviewCreated{}, false, fmt.Errorf("replay review preview: %w", err)
 	}
-	if itemID != request.ImportItemID {
+	if itemID != request.ImportItemID || restoredFrom.Valid != (request.RestoreFromPreviewID != nil) ||
+		restoredFrom.Valid && restoredFrom.String != *request.RestoreFromPreviewID {
 		return ReviewPreviewCreated{}, true, ErrReviewPreviewUnavailable
 	}
 	parsed, err := uuid.Parse(id)
@@ -242,7 +229,6 @@ WHERE actor_user_id=? AND idempotency_key=?
 	}
 	return ReviewPreviewCreated{
 		PreviewID: id, PlayURL: "/admin/review-previews/" + id,
-		CaptureAllowed: captureAllowed == 1, CaptureAfterMS: reviewCaptureAfterMS,
 		Capability: retromruntime.EncodeCapability(service.credentials.Capability(parsed)),
 	}, true, nil
 }
@@ -252,8 +238,7 @@ func (service *Service) reviewPreviewSource(ctx context.Context, itemID string) 
 	var validationID, validationStatus, dependencySnapshot sql.NullString
 	err := service.database.QueryRowContext(ctx, `
 SELECT draft.effective_source_snapshot_id,draft.target_platform_instance_id,instance.name,platform.id,
-artifact.id,artifact.runtime_family,artifact.runtime_adapter_kind,artifact.runtime_version,artifact.adapter_id,
-core.id,core.name,artifact.compatibility_json,artifact.requires_threads,
+	validation.provider_id,validation.target_id,provider.bundle_sha256,validation.core_id,binding.delivery_profile,
 COALESCE(json_extract(draft.metadata_json,'$.title'),''),snapshot.content_kind,
 validation.id,validation.status,validation.dependency_snapshot_json,draft.default_dos_entry,
 draft.selected_validation_id,validation.dat_version_id
@@ -263,24 +248,22 @@ JOIN import_item_source_snapshots snapshot ON snapshot.id=draft.effective_source
 JOIN platform_instances instance ON instance.id=draft.target_platform_instance_id
  AND instance.enabled=1 AND instance.deleted_at_ms IS NULL
 JOIN platforms platform ON platform.id=instance.platform_id
-JOIN core_artifacts artifact ON artifact.core_id=instance.default_core_id
- AND artifact.runtime_family IN ('EMULATORJS','ONS','KIRIKIRI','BUTTERSCOTCH','TYRANOSCRIPT','WASM4')
- AND artifact.selected_for_new_bindings=1
-JOIN cores core ON core.id=artifact.core_id
-LEFT JOIN import_item_core_validations validation ON validation.id=(
+JOIN import_item_core_validations validation ON validation.id=(
  SELECT candidate.id FROM import_item_core_validations candidate
  WHERE candidate.import_item_id=item.id
  AND candidate.source_snapshot_id=draft.effective_source_snapshot_id
  AND candidate.target_platform_instance_id=draft.target_platform_instance_id
- AND candidate.core_artifact_id=artifact.id
+ AND candidate.core_id=instance.default_core_id
  ORDER BY candidate.created_at_ms DESC,candidate.id DESC LIMIT 1
 )
+JOIN runtime_targets target ON target.provider_id=validation.provider_id AND target.target_id=validation.target_id
+JOIN runtime_providers provider ON provider.provider_id=target.provider_id
+JOIN runtime_target_bindings binding ON binding.provider_id=target.provider_id AND binding.target_id=target.target_id
 WHERE item.id=? AND item.state='REVIEW_PENDING'
 `, itemID).Scan(
-		&value.SourceSnapshotID, &value.TargetID, &value.PlatformName, &value.PlatformKey,
-		&value.ArtifactID, &value.RuntimeFamily, &value.AdapterKind, &value.RuntimeVersion, &value.AdapterID,
-		&value.CoreID, &value.CoreName,
-		&value.CompatibilityJSON, &value.RequiresThreads, &value.Title, &value.ContentKind,
+		&value.SourceSnapshotID, &value.PlatformInstanceID, &value.PlatformName, &value.PlatformKey,
+		&value.ProviderID, &value.TargetID, &value.BundleSHA256, &value.CoreID,
+		&value.DeliveryProfile, &value.Title, &value.ContentKind,
 		&validationID, &validationStatus, &dependencySnapshot, &value.DefaultDOSEntry,
 		&value.SelectedValidationID, &value.DATVersionID,
 	)
@@ -290,6 +273,11 @@ WHERE item.id=? AND item.state='REVIEW_PENDING'
 	value.ValidationID = validationID.String
 	value.ValidationStatus = validationStatus.String
 	value.DependencySnapshot = dependencySnapshot.String
+	target, exists := service.runtimeBuilder.Target(value.ProviderID, value.TargetID)
+	if !exists {
+		return reviewPreviewSource{}, ErrReviewPreviewUnavailable
+	}
+	value.RequiresThreads = target.Capabilities.RequiresThreads
 	return value, nil
 }
 
@@ -301,8 +289,7 @@ func (service *Service) reviewPreviewContent(
 	if err != nil {
 		return reviewPreviewContentSet{}, fmt.Errorf("load primary review content: %w", err)
 	}
-	if source.ContentKind == onsProjectFormat || source.ContentKind == kirikiriProjectFormat ||
-		source.ContentKind == butterscotchProjectFormat || source.ContentKind == tyranoScriptProjectFormat {
+	if contentprofile.IsProjectContentKind(contentprofile.ContentKind(source.ContentKind)) {
 		if !validPreviewFileSet(content.LogicalName, content.Files) {
 			return reviewPreviewContentSet{}, fmt.Errorf("validate review project names: %w", ErrReviewPreviewUnavailable)
 		}
@@ -362,6 +349,8 @@ WHERE import_item_core_validation_id=? AND role='MULTI_DISC_PLAYLIST' AND logica
 			return reviewPreviewContentSet{}, err
 		}
 		content.Files = files
+	case rpgProjectFormat:
+		return service.reviewPreviewRPGContent(ctx, source)
 	case onsProjectFormat:
 		return service.reviewPreviewONSContent(ctx, source)
 	case kirikiriProjectFormat:
@@ -478,7 +467,7 @@ func validPreviewFileSet(contentName string, files []reviewPreviewFile) bool {
 	seenNames := map[string]struct{}{importing.ASCIICaseFold(contentName): {}}
 	seenPaths := make(map[string]struct{})
 	for _, file := range files {
-		if file.Role == "PROJECT_FILE" {
+		if file.Role == "PROJECT_FILE" || file.Role == "RUNTIME_FILE" {
 			if _, err := importing.ValidateLogicalPath(file.LogicalName); err != nil || file.VirtualPath != nil {
 				return false
 			}
@@ -500,314 +489,59 @@ func validPreviewFileSet(contentName string, files []reviewPreviewFile) bool {
 	return true
 }
 
-type ReviewPreviewConfig struct {
-	ImportItemID   string `json:"importItemId"`
-	CaptureAllowed bool   `json:"captureAllowed"`
-	CaptureAfterMS int64  `json:"captureAfterMs"`
-}
-
-type reviewPreviewConfigSource struct {
-	CredentialHash                                            []byte
-	State, ItemID, ArtifactID, RuntimeFamily, AdapterKind     string
-	RuntimeVersion, AdapterID, RelativePath                   string
-	CompatibilityJSON, CoreID, CoreName, Title, PlatformName  string
-	LogicalName, ContentFormat, ContentDigest, DependencyJSON string
-	ContentSizeBytes                                          int64
-	BootstrapExpires, HardExpires                             int64
-	EmulatorGameID                                            sql.NullInt64
-	RequiresThreads, CaptureAllowed                           int
-	DOSEntry                                                  sql.NullString
-}
-
-type reviewPreviewRuntimeFiles struct {
-	BIOSFiles, ParentFiles []BundleFile
-	ExternalFiles          map[string]string
-	DiscEntries            []DiscEntry
-}
-
-type optionalReviewPreviewDiscSet struct {
-	Value *DiscSet
-}
-
 func (service *Service) ReviewPreviewConfig(ctx context.Context, previewID, capability string) (Config, error) {
-	source, err := service.reviewPreviewConfigSource(ctx, previewID)
-	if err != nil {
-		return Config{}, err
-	}
-	if err := service.activateReviewPreview(ctx, previewID, capability, source); err != nil {
-		return Config{}, err
-	}
-	if config, handled, err := service.independentReviewPreviewConfig(
-		ctx, previewID, capability, source,
-	); handled {
-		return config, err
-	}
-	version := service.dependencies.Versions[source.RuntimeVersion]
-	if version == nil {
-		return Config{}, ErrCredential
-	}
-	compatibility, err := service.loadArtifactCompatibility(ctx, source.ArtifactID)
-	if err != nil || source.CompatibilityJSON == "" {
-		return Config{}, ErrCredential
-	}
-	coreOptions, err := reviewPreviewCoreOptions(compatibility.DefaultOptions, source.DependencyJSON)
-	if err != nil {
-		return Config{}, err
-	}
-	runtimeFiles, err := service.reviewPreviewRuntimeFiles(ctx, previewID)
-	if err != nil {
-		return Config{}, err
-	}
-	discSet, err := reviewPreviewDiscSet(source.ContentFormat, runtimeFiles.DiscEntries)
-	if err != nil {
-		return Config{}, err
-	}
-	startupActions := make([]dependencies.StartupAction, len(compatibility.StartupActions))
-	copy(startupActions, compatibility.StartupActions)
-	base := "/runtime/emulatorjs/" + source.RuntimeVersion + "/"
-	gameIdentity, err := ContentIdentity(ContentView{
-		Digest: source.ContentDigest, Format: source.ContentFormat, CoreID: source.CoreID,
-		DOSEntry: nullableStringPointer(source.DOSEntry),
-	})
-	if err != nil {
-		return Config{}, err
-	}
-	gameURL, err := RuntimeContentURL("game", gameIdentity, source.LogicalName)
-	if err != nil {
-		return Config{}, err
-	}
-	biosURL, err := reviewPreviewBundleURL("bios", runtimeFiles.BIOSFiles)
-	if err != nil {
-		return Config{}, err
-	}
-	parentURL, err := reviewPreviewBundleURL("parent", runtimeFiles.ParentFiles)
-	if err != nil {
-		return Config{}, err
-	}
-	return Config{
-		RuntimeFamily: "EMULATORJS", Mode: "single", LaunchID: previewID,
-		EmulatorJSVersion: source.RuntimeVersion,
-		PlayerAdapterID:   version.Manifest.EmulatorJS.PlayerAdapter.ID,
-		Core:              source.CoreID, RuntimeCore: compatibility.RuntimeCoreID, CoreName: source.CoreName,
-		CoreArtifactID: source.ArtifactID, EmulatorGameID: source.EmulatorGameID.Int64,
-		GameName: "retrom-review-" + previewID, GameTitle: source.Title, PlatformName: source.PlatformName,
-		RuntimeBaseURL:       base + strings.TrimSuffix(version.Manifest.EmulatorJS.PlayerAdapter.RuntimeBasePath, "/") + "/",
-		LoaderURL:            base + version.Manifest.EmulatorJS.PlayerAdapter.LoaderPath,
-		GameURL:              gameURL,
-		BIOSURL:              optionalRuntimeURL(biosURL),
-		ParentURL:            optionalRuntimeURL(parentURL),
-		StateURL:             nil,
-		InputMode:            compatibility.InputMode,
-		StartupActions:       startupActions,
-		RequiresThreads:      source.RequiresThreads == 1,
-		RuntimePathOverrides: map[string]string{compatibility.RequestedArtifactBasename: base + source.RelativePath},
-		DefaultCoreOptions:   coreOptions, ExternalFiles: runtimeFiles.ExternalFiles, DiscSet: discSet.Value,
-		DOSEntry: nullableString(source.DOSEntry), Warnings: []string{"REVIEW_PREVIEW_BEST_EFFORT"},
-		ReturnTo: "/admin/reviews/" + source.ItemID,
-		ReviewPreview: &ReviewPreviewConfig{
-			ImportItemID: source.ItemID, CaptureAllowed: source.CaptureAllowed == 1,
-			CaptureAfterMS: reviewCaptureAfterMS,
-		},
-	}, nil
-}
-
-func (service *Service) independentReviewPreviewConfig(
-	ctx context.Context,
-	previewID, capability string,
-	source reviewPreviewConfigSource,
-) (Config, bool, error) {
-	switch source.RuntimeFamily {
-	case "ONS":
-		config, err := service.buildONSReviewConfig(ctx, previewID, capability, source)
-		return config, true, err
-	case "KIRIKIRI":
-		config, err := service.buildKiriKiriReviewConfig(ctx, previewID, capability, source)
-		return config, true, err
-	case "BUTTERSCOTCH":
-		config, err := service.buildButterscotchReviewConfig(ctx, previewID, capability, source)
-		return config, true, err
-	case "TYRANOSCRIPT":
-		config, err := service.buildTyranoScriptReviewConfig(ctx, previewID, capability, source)
-		return config, true, err
-	case "WASM4":
-		config, err := service.buildWASM4ReviewConfig(previewID, source)
-		return config, true, err
-	default:
-		return Config{}, false, nil
-	}
-}
-
-func (service *Service) reviewPreviewConfigSource(
-	ctx context.Context,
-	previewID string,
-) (reviewPreviewConfigSource, error) {
-	var source reviewPreviewConfigSource
+	var source providerConfigSource
 	err := service.database.QueryRowContext(ctx, `
-SELECT preview.credential_sha256,preview.state,preview.bootstrap_expires_at_ms,preview.hard_expires_at_ms,
-preview.import_item_id,artifact.id,artifact.runtime_family,artifact.runtime_adapter_kind,
-artifact.runtime_version,artifact.adapter_id,artifact.entry_path,
-artifact.compatibility_json,core.id,core.name,preview.title,instance.name,
-preview.content_logical_name,preview.content_format,preview.dependency_snapshot_json,
-content_blob.sha256,content_blob.size_bytes,preview.emulator_game_id,artifact.requires_threads,
-preview.capture_allowed,preview.default_dos_entry
+SELECT preview.credential_sha256,preview.state,preview.provider_id,preview.target_id,
+	 preview.bundle_sha256,
+ binding.core_id,core.name,binding.detector_profile,binding.delivery_profile,
+ 'REVIEW_PREVIEW',preview.title,instance.name,
+ '/admin/reviews/' || preview.import_item_id,preview.content_kind,preview.dependency_snapshot_json,'',
+	 NULL,preview.default_dos_entry,NULL,NULL,NULL,NULL,
+ preview.bootstrap_expires_at_ms,preview.hard_expires_at_ms,NULL,0
 FROM review_preview_sessions preview
-JOIN blobs content_blob ON content_blob.id=preview.content_blob_id
-JOIN core_artifacts artifact ON artifact.id=preview.core_artifact_id
- AND artifact.runtime_family IN ('EMULATORJS','ONS','KIRIKIRI','BUTTERSCOTCH','TYRANOSCRIPT','WASM4')
- AND artifact.available_for_launch=1
-JOIN cores core ON core.id=artifact.core_id
 JOIN platform_instances instance ON instance.id=preview.target_platform_instance_id
+JOIN runtime_target_bindings binding ON binding.provider_id=preview.provider_id AND binding.target_id=preview.target_id
+JOIN cores core ON core.id=binding.core_id
 WHERE preview.id=?
-	`, previewID).Scan(
-		&source.CredentialHash, &source.State, &source.BootstrapExpires, &source.HardExpires,
-		&source.ItemID, &source.ArtifactID, &source.RuntimeFamily, &source.AdapterKind,
-		&source.RuntimeVersion, &source.AdapterID, &source.RelativePath,
-		&source.CompatibilityJSON, &source.CoreID, &source.CoreName, &source.Title,
-		&source.PlatformName, &source.LogicalName, &source.ContentFormat, &source.DependencyJSON,
-		&source.ContentDigest, &source.ContentSizeBytes,
-		&source.EmulatorGameID, &source.RequiresThreads, &source.CaptureAllowed, &source.DOSEntry,
+`, previewID).Scan(
+		&source.credentialHash, &source.state, &source.providerID, &source.targetID,
+		&source.bundleDigest, &source.coreID, &source.coreName,
+		&source.detectorProfile, &source.delivery, &source.purpose, &source.title, &source.platformName, &source.returnTo,
+		&source.contentKind, &source.dependencyJSON, &source.compatibility, &source.saveID,
+		&source.dosEntry, &source.netplayID, &source.netplayPlayer,
+		&source.netplayRoom, &source.netplayProfile, &source.bootstrapEnd, &source.hardEnd, &source.idleEnd,
+		&source.initialDisc,
 	)
-	if err != nil {
-		return reviewPreviewConfigSource{}, ErrCredential
+	if err != nil || service.runtimeBuilder == nil ||
+		!retromruntime.MatchesCapability(capability, source.credentialHash) ||
+		!validConfigLifetime(source.state, source.bootstrapEnd, source.hardEnd, source.idleEnd, service.now().UnixMilli()) {
+		return Config{}, ErrCredential
 	}
-	return source, nil
+	if err := service.activateReviewPreview(ctx, previewID, source.state); err != nil {
+		return Config{}, err
+	}
+	return service.providerEnvelope(ctx, previewID, capability, source)
 }
 
-func (service *Service) activateReviewPreview(
-	ctx context.Context,
-	previewID, capability string,
-	source reviewPreviewConfigSource,
-) error {
-	now := service.now().UnixMilli()
-	if !retromruntime.MatchesCapability(capability, source.CredentialHash) || source.HardExpires <= now ||
-		source.State == "CREATED" && source.BootstrapExpires <= now ||
-		source.State == "EXPIRED" || source.State == "REVOKED" {
-		return ErrCredential
+func (service *Service) activateReviewPreview(ctx context.Context, previewID, state string) error {
+	if state != "CREATED" {
+		return nil
 	}
-	if source.State == "CREATED" {
-		if _, err := service.database.ExecContext(ctx, `
+	now := service.now().UnixMilli()
+	if _, err := service.database.ExecContext(ctx, `
 UPDATE review_preview_sessions SET state='ACTIVE',activated_at_ms=?,updated_at_ms=?,version=version+1
 WHERE id=? AND state='CREATED'
-	`, now, now, previewID); err != nil {
-			return fmt.Errorf("activate review preview: %w", err)
-		}
+`, now, now, previewID); err != nil {
+		return fmt.Errorf("activate review preview: %w", err)
 	}
 	return nil
 }
 
-func reviewPreviewCoreOptions(defaults map[string]string, dependencyJSON string) (map[string]string, error) {
-	coreOptions := make(map[string]string, len(defaults)+4)
-	for name, value := range defaults {
-		coreOptions[name] = value
-	}
-	if existing, ok := coreOptions["webgl2Enabled"]; ok && existing != "enabled" {
-		return nil, ErrBlocked
-	}
-	coreOptions["webgl2Enabled"] = "enabled"
-	if snapshot, parseErr := corevalidation.ParseSnapshot(dependencyJSON); parseErr == nil {
-		for _, dependency := range snapshot.BIOS {
-			if dependency.BlobID == nil || dependency.InstallationStatus == nil {
-				continue
-			}
-			for name, value := range dependency.ActivationOptions {
-				if existing, ok := coreOptions[name]; ok && existing != value {
-					return nil, ErrBlocked
-				}
-				coreOptions[name] = value
-			}
-		}
-	}
-	return coreOptions, nil
-}
-
-func (service *Service) reviewPreviewRuntimeFiles(
-	ctx context.Context,
-	previewID string,
-) (reviewPreviewRuntimeFiles, error) {
-	result := reviewPreviewRuntimeFiles{
-		ExternalFiles: make(map[string]string),
-		DiscEntries:   make([]DiscEntry, 0, 8),
-	}
-	rows, err := service.database.QueryContext(ctx, `
-SELECT file.role,file.logical_name,file.virtual_path,blob.sha256 FROM review_preview_files file
-JOIN blobs blob ON blob.id=file.blob_id
-WHERE file.preview_session_id=? ORDER BY file.role,file.sort_order,file.logical_name
-	`, previewID)
-	if err != nil {
-		return reviewPreviewRuntimeFiles{}, fmt.Errorf("review preview config: %w", err)
-	}
-	defer func() { cleanup.Error("close", rows.Close()) }()
-	for rows.Next() {
-		var role, name, digest string
-		var virtualPath sql.NullString
-		if err := rows.Scan(&role, &name, &virtualPath, &digest); err != nil {
-			return reviewPreviewRuntimeFiles{}, fmt.Errorf("review preview config: %w", err)
-		}
-		switch role {
-		case "BIOS_BUNDLE":
-			result.BIOSFiles = append(result.BIOSFiles, BundleFile{LogicalName: name, SHA256: digest})
-		case "PARENT":
-			result.ParentFiles = append(result.ParentFiles, BundleFile{LogicalName: name, SHA256: digest})
-		case "EXTERNAL_FILE", "DISC":
-			if !virtualPath.Valid {
-				return reviewPreviewRuntimeFiles{}, ErrBlocked
-			}
-			externalIdentity, identityErr := ExternalContentIdentity(digest)
-			if identityErr != nil {
-				return reviewPreviewRuntimeFiles{}, identityErr
-			}
-			externalURL, urlErr := RuntimeContentURL("external", externalIdentity, name)
-			if urlErr != nil {
-				return reviewPreviewRuntimeFiles{}, urlErr
-			}
-			result.ExternalFiles[virtualPath.String] = externalURL
-			if role == "DISC" {
-				result.DiscEntries = append(result.DiscEntries, DiscEntry{
-					Index: len(result.DiscEntries), Label: fmt.Sprintf("光盘 %d", len(result.DiscEntries)+1),
-					VirtualPath: virtualPath.String,
-				})
-			}
-		default:
-			return reviewPreviewRuntimeFiles{}, ErrBlocked
-		}
-	}
-	if err := rows.Err(); err != nil {
-		return reviewPreviewRuntimeFiles{}, fmt.Errorf("review preview config: %w", err)
-	}
-	return result, nil
-}
-
-func reviewPreviewDiscSet(
-	contentFormat string,
-	entries []DiscEntry,
-) (optionalReviewPreviewDiscSet, error) {
-	if contentFormat != "RETROM_MULTIDISC_M3U_V1" {
-		return optionalReviewPreviewDiscSet{}, nil
-	}
-	if len(entries) < 2 {
-		return optionalReviewPreviewDiscSet{}, ErrBlocked
-	}
-	return optionalReviewPreviewDiscSet{Value: &DiscSet{
-		ContentKind: corevalidation.MultiDiscContentKind, Count: len(entries),
-		InitialDiscIndex: 0, Entries: entries,
-	}}, nil
-}
-
-func reviewPreviewBundleURL(kind string, files []BundleFile) (string, error) {
-	if len(files) == 0 {
-		return "", nil
-	}
-	identity, err := BundleIdentity(files)
-	if err != nil {
-		return "", err
-	}
-	contentURL, err := RuntimeContentURL(kind, identity, "bundle.zip")
-	return contentURL, err
-}
-
 type ReviewScreenshot struct {
-	ID, ImportItemID, ValidationID, CoreArtifactID string
-	WidthPX, HeightPX, CapturedAtMS                int64
+	ID, ImportItemID, ValidationID  string
+	ProviderID, TargetID            string
+	WidthPX, HeightPX, CapturedAtMS int64
 }
 
 type reviewScreenshotImage struct {
@@ -816,7 +550,8 @@ type reviewScreenshotImage struct {
 }
 
 type reviewScreenshotTarget struct {
-	ItemID, SourceSnapshotID, ValidationID, ArtifactID string
+	ItemID, SourceSnapshotID, ValidationID string
+	ProviderID, TargetID                   string
 }
 
 func (service *Service) StoreReviewScreenshot(
@@ -887,7 +622,8 @@ func (service *Service) persistReviewScreenshot(
 	}
 	return ReviewScreenshot{
 		ID: screenshotID.String(), ImportItemID: target.ItemID, ValidationID: target.ValidationID,
-		CoreArtifactID: target.ArtifactID, WidthPX: image.Image.WidthPX, HeightPX: image.Image.HeightPX,
+		ProviderID: target.ProviderID, TargetID: target.TargetID,
+		WidthPX: image.Image.WidthPX, HeightPX: image.Image.HeightPX,
 		CapturedAtMS: now,
 	}, nil
 }
@@ -901,10 +637,9 @@ func (service *Service) reviewScreenshotTarget(
 	var credentialHash []byte
 	var state string
 	var hardExpires int64
-	var captureAllowed int
 	err := transaction.QueryRowContext(ctx, `
 SELECT preview.credential_sha256,preview.state,preview.hard_expires_at_ms,preview.import_item_id,
-preview.source_snapshot_id,preview.validation_id,preview.core_artifact_id,preview.capture_allowed
+	preview.source_snapshot_id,preview.validation_id,preview.provider_id,preview.target_id
 FROM review_preview_sessions preview
 JOIN import_items item ON item.id=preview.import_item_id AND item.state='REVIEW_PENDING'
 JOIN review_drafts draft ON draft.import_item_id=item.id
@@ -914,25 +649,22 @@ JOIN import_item_core_validations validation ON validation.id=preview.validation
  AND validation.import_item_id=preview.import_item_id
  AND validation.source_snapshot_id=preview.source_snapshot_id
  AND validation.target_platform_instance_id=preview.target_platform_instance_id
- AND validation.core_artifact_id=preview.core_artifact_id
+	 AND validation.provider_id=preview.provider_id AND validation.target_id=preview.target_id
  AND validation.id=(
   SELECT candidate.id FROM import_item_core_validations candidate
   WHERE candidate.import_item_id=preview.import_item_id
    AND candidate.source_snapshot_id=preview.source_snapshot_id
    AND candidate.target_platform_instance_id=preview.target_platform_instance_id
-   AND candidate.core_artifact_id=preview.core_artifact_id
+	   AND candidate.provider_id=preview.provider_id AND candidate.target_id=preview.target_id
   ORDER BY candidate.created_at_ms DESC,candidate.id DESC LIMIT 1
  )
 WHERE preview.id=?
 	`, previewID).Scan(
 		&credentialHash, &state, &hardExpires, &target.ItemID, &target.SourceSnapshotID,
-		&target.ValidationID, &target.ArtifactID, &captureAllowed,
+		&target.ValidationID, &target.ProviderID, &target.TargetID,
 	)
 	if err != nil || !reviewPreviewCredential(service.now().UnixMilli(), capability, credentialHash, state, hardExpires) {
 		return reviewScreenshotTarget{}, ErrCredential
-	}
-	if captureAllowed != 1 {
-		return reviewScreenshotTarget{}, ErrReviewCaptureNotAllowed
 	}
 	return target, nil
 }
@@ -948,15 +680,17 @@ func insertReviewScreenshot(
 ) error {
 	_, err := transaction.ExecContext(ctx, `
 INSERT INTO review_runtime_screenshots(id,import_item_id,preview_session_id,source_snapshot_id,
-validation_id,core_artifact_id,blob_id,media_type,width_px,height_px,captured_after_ms,
+	validation_id,provider_id,target_id,blob_id,media_type,width_px,height_px,
 captured_at_ms,created_at_ms,updated_at_ms)
-VALUES(?,?,?,?,?,?,?,?,?,?,5000,?,?,?)
+VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)
 ON CONFLICT(import_item_id,validation_id) DO UPDATE SET
 id=excluded.id,preview_session_id=excluded.preview_session_id,source_snapshot_id=excluded.source_snapshot_id,
-core_artifact_id=excluded.core_artifact_id,blob_id=excluded.blob_id,media_type=excluded.media_type,
-width_px=excluded.width_px,height_px=excluded.height_px,captured_after_ms=excluded.captured_after_ms,
+provider_id=excluded.provider_id,target_id=excluded.target_id,
+	blob_id=excluded.blob_id,media_type=excluded.media_type,
+width_px=excluded.width_px,height_px=excluded.height_px,
 captured_at_ms=excluded.captured_at_ms,updated_at_ms=excluded.updated_at_ms
-	`, screenshotID, target.ItemID, previewID, target.SourceSnapshotID, target.ValidationID, target.ArtifactID, blobID,
+	`, screenshotID, target.ItemID, previewID, target.SourceSnapshotID, target.ValidationID,
+		target.ProviderID, target.TargetID, blobID,
 		image.MediaType, image.WidthPX, image.HeightPX, now, now, now)
 	if err != nil {
 		return fmt.Errorf("store review screenshot: %w", err)
@@ -968,16 +702,12 @@ func (service *Service) authorizeReviewScreenshot(ctx context.Context, previewID
 	var credentialHash []byte
 	var state string
 	var hardExpires int64
-	var captureAllowed int
 	err := service.database.QueryRowContext(ctx, `
-SELECT credential_sha256,state,hard_expires_at_ms,capture_allowed
+SELECT credential_sha256,state,hard_expires_at_ms
 FROM review_preview_sessions WHERE id=?
-`, previewID).Scan(&credentialHash, &state, &hardExpires, &captureAllowed)
+`, previewID).Scan(&credentialHash, &state, &hardExpires)
 	if err != nil || !reviewPreviewCredential(service.now().UnixMilli(), capability, credentialHash, state, hardExpires) {
 		return ErrCredential
-	}
-	if captureAllowed != 1 {
-		return ErrReviewCaptureNotAllowed
 	}
 	return nil
 }

@@ -100,7 +100,7 @@ def input_row(
     identifier: str,
     source: Path,
     source_type: str,
-    kind: str,
+    definition_id: str | None,
     generation: str | None = None,
     declared_name: str | None = None,
 ) -> dict[str, object]:
@@ -112,7 +112,7 @@ def input_row(
         "id": identifier,
         "sourcePath": str(source.resolve()),
         "sourceType": source_type,
-        "kind": kind,
+        "definitionId": definition_id,
         "generation": generation,
         "declaredName": declared_name,
         "sourceNote": SOURCE_NOTE,
@@ -135,6 +135,7 @@ def prepare_review_project(
         if contents.count(before) != 1:
             raise ValueError(f"review fixture source drift: {source_name}/{ini_name}")
         contents = contents.replace(before, after)
+    contents += f"; Retrom acceptance scenario: ACC-RPG-009/{destination.name}\n"
     ini.write_text(contents, encoding="utf-8", newline="\n")
 
 
@@ -272,25 +273,25 @@ def generate(output: Path, seven_zip: str) -> dict[str, object]:
     }, seven_zip)
 
     rows = [
-        input_row("rpg2000Rtp", easy_2000, "DIRECTORY", "RPG2000_RTP"),
-        input_row("rpg2003Rtp", easy_2003, "FILES", "RPG2003_RTP"),
-        input_row("rgss1StandardV1", rgss_1_v1, "FILES", "RGSS1_RTP_STANDARD"),
-        input_row("rgss1StandardV2", rgss_1_v2, "FILES", "RGSS1_RTP_STANDARD"),
-        input_row("rgss1Custom", custom_xp, "FILES", "RGSS_CUSTOM_RTP", "RPGXP", "RetromCustomXP"),
-        input_row("rgss2StandardV1", rgss_2, "FILES", "RGSS2_RTP_RPGVX"),
-        input_row("rgss2StandardV2", rgss_2_v2, "FILES", "RGSS2_RTP_RPGVX"),
-        input_row("rgss2Custom", custom_vx, "FILES", "RGSS_CUSTOM_RTP", "RPGVX", "RetromCustomVX"),
-        input_row("rgss3StandardV1", rgss_3, "FILES", "RGSS3_RTP_RPGVXAce"),
-        input_row("rgss3StandardV2", rgss_3_v2, "FILES", "RGSS3_RTP_RPGVXAce"),
-        input_row("rgss3Custom", custom_vxace, "FILES", "RGSS_CUSTOM_RTP", "RPGVXACE", "RetromCustomVXAce"),
-        input_row("zeroReference", zero_reference, "FILES", "RGSS_CUSTOM_RTP", "RPGXP", "RetromZeroReference"),
+        input_row("rpg2000Rtp", easy_2000, "DIRECTORY", "rpg2000_rtp"),
+        input_row("rpg2003Rtp", easy_2003, "FILES", "rpg2003_rtp"),
+        input_row("rgss1StandardV1", rgss_1_v1, "FILES", "rgss1_standard"),
+        input_row("rgss1StandardV2", rgss_1_v2, "FILES", "rgss1_standard"),
+        input_row("rgss1Custom", custom_xp, "FILES", None, "RPGXP", "RetromCustomXP"),
+        input_row("rgss2StandardV1", rgss_2, "FILES", "rgss2_rpgvx"),
+        input_row("rgss2StandardV2", rgss_2_v2, "FILES", "rgss2_rpgvx"),
+        input_row("rgss2Custom", custom_vx, "FILES", None, "RPGVX", "RetromCustomVX"),
+        input_row("rgss3StandardV1", rgss_3, "FILES", "rgss3_rpgvxace"),
+        input_row("rgss3StandardV2", rgss_3_v2, "FILES", "rgss3_rpgvxace"),
+        input_row("rgss3Custom", custom_vxace, "FILES", None, "RPGVXACE", "RetromCustomVXAce"),
+        input_row("zeroReference", zero_reference, "FILES", None, "RPGXP", "RetromZeroReference"),
     ]
     protected_rows = {
         "publishedVariant": input_row(
-            "protectedPublishedVariant", protected_xp, "FILES", "RGSS1_RTP_STANDARD",
+            "protectedPublishedVariant", protected_xp, "FILES", "rgss1_standard",
         ),
         "restorableCheckpoint": input_row(
-            "protectedRestorableCheckpoint", protected_vx, "FILES", "RGSS2_RTP_RPGVX",
+            "protectedRestorableCheckpoint", protected_vx, "FILES", "rgss2_rpgvx",
         ),
     }
     result = {

@@ -42,20 +42,16 @@ func TestArcadeGroupingBuildsCoreScopedParentAndBIOSClosure(t *testing.T) {
 	testassert.False(t, err != nil, err)
 	dummy, err := blobs.Put(bytes.NewReader([]byte("synthetic dat")))
 	testassert.False(t, err != nil, err)
-	var artifactID string
-	if err := database.SQL.QueryRowContext(ctx, `
-SELECT id
-FROM core_artifacts
-WHERE core_id='fbneo'
-AND selected_for_new_bindings=1
-`).Scan(&artifactID); err != nil {
+	target, err := testsupport.LookupRuntimeTarget(ctx, database.SQL, "fbneo")
+	if err != nil {
 		t.Fatal(err)
 	}
 	datID := "01980000-0000-7000-8000-000000000201"
 	if _, err := database.SQL.ExecContext(ctx, `
 INSERT INTO dat_versions(id,
 core_id,
-core_artifact_id,
+provider_id,
+target_id,
 builtin_relative_path,
 sha256,
 parser_version,
@@ -73,9 +69,10 @@ version,
 created_at_ms,
 updated_at_ms,
 parsed_at_ms) VALUES(?,
-'fbneo',
-?,
-'testdata/grouping.dat',
+	'fbneo',
+	?,
+	?,
+	'testdata/grouping.dat',
 ?,
 'test',
 'READY',
@@ -94,7 +91,8 @@ parsed_at_ms) VALUES(?,
 ?)
 `,
 		datID,
-		artifactID,
+		target.ProviderID,
+		target.TargetID,
 		dummy.SHA256,
 		time.Now().UnixMilli(),
 		time.Now().UnixMilli(),

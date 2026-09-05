@@ -42,6 +42,7 @@ func newLifecycleFixture(t *testing.T) lifecycleFixture {
 	repositoryRoot := filepath.Clean(filepath.Join(filepath.Dir(filename), "..", ".."))
 	dependencySet, err := dependencies.Load(filepath.Join(repositoryRoot, "data"), []string{"4.2.3"}, "4.2.3")
 	testassert.False(t, err != nil, err)
+	testassert.False(t, testsupport.SeedRuntimeProviders(t.Context(), database.SQL, dependencySet.RuntimeCatalog) != nil, "seed runtime providers")
 	testassert.False(t, dependencySet.Bootstrap(t.Context(), database.SQL, time.Now()) != nil, "bootstrap dependencies")
 	const userID = "01980000-0000-7000-8000-000000000841"
 	mustExecEmulationStationTest(t, database.SQL, `

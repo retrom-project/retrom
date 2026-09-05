@@ -108,35 +108,35 @@ func TestCreateEnforcesProjectUploadPurposeShape(t *testing.T) {
 	service := New(database.SQL, blobs, dataDir, time.Now)
 
 	valid, err := service.Create(context.Background(), CreateRequest{
-		Purpose: "RPG_MAKER_PROJECT", SourceType: "FILES",
+		Purpose: "PROJECT", SourceType: "FILES",
 		Files: []FileDeclaration{{ClientFileID: "project", RelativePath: "game.ZIP", SizeBytes: 1}},
 	})
 	testassert.Falsef(t, err != nil, "create RPG archive: %v", err)
-	if valid.Purpose != "RPG_MAKER_PROJECT" {
+	if valid.Purpose != "PROJECT" {
 		t.Fatalf("created purpose = %q", valid.Purpose)
 	}
 	loaded, err := service.Get(context.Background(), valid.ID)
 	testassert.Falsef(t, err != nil, "get RPG upload: %v", err)
-	if loaded.Purpose != "RPG_MAKER_PROJECT" {
+	if loaded.Purpose != "PROJECT" {
 		t.Fatalf("loaded purpose = %q", loaded.Purpose)
 	}
 	ons, err := service.Create(context.Background(), CreateRequest{
-		Purpose: "ONS_PROJECT", SourceType: "DIRECTORY",
+		Purpose: "PROJECT", SourceType: "DIRECTORY",
 		Files: []FileDeclaration{
 			{ClientFileID: "script", RelativePath: "game/0.txt", SizeBytes: 1},
 			{ClientFileID: "font", RelativePath: "game/default.ttf", SizeBytes: 1},
 		},
 	})
 	testassert.Falsef(t, err != nil, "create ONS directory: %v", err)
-	if ons.Purpose != "ONS_PROJECT" {
+	if ons.Purpose != "PROJECT" {
 		t.Fatalf("ONS purpose = %q", ons.Purpose)
 	}
 	tyranoScript, err := service.Create(context.Background(), CreateRequest{
-		Purpose: "TYRANOSCRIPT_PROJECT", SourceType: "FILES",
+		Purpose: "PROJECT", SourceType: "FILES",
 		Files: []FileDeclaration{{ClientFileID: "project", RelativePath: "game.EXE", SizeBytes: 1}},
 	})
 	testassert.Falsef(t, err != nil, "create TyranoScript NW.js executable: %v", err)
-	if tyranoScript.Purpose != "TYRANOSCRIPT_PROJECT" {
+	if tyranoScript.Purpose != "PROJECT" {
 		t.Fatalf("TyranoScript purpose = %q", tyranoScript.Purpose)
 	}
 
@@ -145,7 +145,7 @@ func TestCreateEnforcesProjectUploadPurposeShape(t *testing.T) {
 			{ClientFileID: "project", RelativePath: "game/Game.ini", SizeBytes: 1},
 		}},
 		{Purpose: "RPG_MAKER_PROJECT", SourceType: "FILES", Files: []FileDeclaration{{ClientFileID: "project", RelativePath: "game.exe", SizeBytes: 1}}},
-		{Purpose: "ONS_PROJECT", SourceType: "FILES", Files: []FileDeclaration{{ClientFileID: "project", RelativePath: "game.dat", SizeBytes: 1}}},
+		{Purpose: "PROJECT", SourceType: "FILES", Files: []FileDeclaration{{ClientFileID: "project", RelativePath: "game.dat", SizeBytes: 1}}},
 		{Purpose: "RUNTIME_ASSET_PACK", SourceType: "FILES", Files: []FileDeclaration{
 			{ClientFileID: "a", RelativePath: "a.zip", SizeBytes: 1},
 			{ClientFileID: "b", RelativePath: "b.zip", SizeBytes: 1},

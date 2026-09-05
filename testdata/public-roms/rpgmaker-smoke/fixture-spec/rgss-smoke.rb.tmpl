@@ -46,4 +46,9 @@ loop do
   cursor.x = $game_player.x * 24 + 8
   cursor.y = $game_player.y * 24 + 104
   Graphics.update
+  # Acceptance observes the authored game's real state, not a Provider probe.
+  # Periodic output also emits the restored VM state without modifying it.
+  if Graphics.frame_count % 30 == 0
+    puts "RETROM_FIXTURE_STATE_V1:#{Graphics.frame_count}:#{$game_map.map_id}:#{$game_player.x}:#{$game_player.y}:#{$game_variables[1]}"
+  end
 end

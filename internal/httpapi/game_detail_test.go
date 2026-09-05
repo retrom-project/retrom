@@ -22,6 +22,7 @@ import (
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
 	"retrom/internal/testassert"
+	"retrom/internal/testsupport"
 )
 
 func anyTrue(values ...bool) bool {
@@ -35,6 +36,7 @@ func anyTrue(values ...bool) bool {
 
 type httpTestSQLExecer interface {
 	ExecContext(context.Context, string, ...any) (sql.Result, error)
+	QueryRowContext(context.Context, string, ...any) *sql.Row
 }
 
 func mustExecHTTPTest(t *testing.T, execer httpTestSQLExecer, query string, arguments ...any) {
@@ -43,32 +45,15 @@ func mustExecHTTPTest(t *testing.T, execer httpTestSQLExecer, query string, argu
 	testassert.False(t, err != nil, err)
 }
 
-func seedHTTPTestCoreArtifact(
+func requireHTTPTestRuntimeTarget(
 	t *testing.T,
 	execer httpTestSQLExecer,
-	id, coreID, entryPath, entrySHA256, compatibility string,
+	coreID string,
 ) {
 	t.Helper()
-	var compatibilityValue map[string]any
-	if err := json.Unmarshal([]byte(compatibility), &compatibilityValue); err != nil {
-		t.Fatalf("decode test artifact compatibility: %v", err)
+	if _, err := testsupport.LookupRuntimeTarget(context.Background(), execer, coreID); err != nil {
+		t.Fatal(err)
 	}
-	compatibilityValue["adapterAbi"] = "emulatorjs-state-v1"
-	compatibilityBytes, err := json.Marshal(compatibilityValue)
-	if err != nil {
-		t.Fatalf("encode test artifact compatibility: %v", err)
-	}
-	setDigest := sha256.Sum256([]byte(id))
-	mustExecHTTPTest(t, execer, `
-INSERT OR IGNORE INTO core_artifacts(
- id,core_id,route_key,runtime_family,runtime_adapter_kind,runtime_version,adapter_id,entry_path,
- size_bytes,sha256,manifest_sha256,artifact_set_sha256,requires_threads,save_payload_kind,
- save_max_bytes,provenance_json,compatibility_json,selected_for_new_bindings,available_for_launch,
- version,created_at_ms,updated_at_ms)
-VALUES(?,?,'DEFAULT','EMULATORJS','EMULATORJS','4.2.3','ejs-4.2.3-v2',?,1,?,
- ?,?,0,'RUNTIME_STATE',67108864,'{}',?,1,1,1,0,0)
-`, id, coreID, entryPath, entrySHA256, strings.Repeat("f", 64),
-		hex.EncodeToString(setDigest[:]), string(compatibilityBytes))
 }
 
 func mustDecodeHTTPTest(t *testing.T, contents []byte, destination any) {
@@ -100,16 +85,14 @@ func TestGameDetailReturnsCoreValidationChoicesAndDOSPrograms(t *testing.T) {
 	coverAssetID := "01980000-0000-7000-8000-000000000105"
 	videoAssetID := "01980000-0000-7000-8000-000000000110"
 	variantID := "01980000-0000-7000-8000-000000000106"
-	variantRevisionID := "01980000-0000-7000-8000-000000000107"
 	saveStateID := "01980000-0000-7000-8000-000000000108"
-	coreArtifactID := "01980000-0000-7000-8000-000000000109"
 	transaction, err := server.database.BeginTx(context.Background(), nil)
 	testassert.False(t, err != nil, err)
 	defer cleanup.Rollback(transaction)
 	now := time.Now().UnixMilli()
 	fixture := gameDetailSeed{now: now}
 	seedGameDetailMedia(t, server, transaction, gameID, metadataID, contentID, coverBlobID, coverAssetID, videoAssetID, &fixture)
-	seedGameDetailRuntime(t, server, transaction, gameID, contentID, variantID, variantRevisionID, saveStateID, coreArtifactID, &fixture)
+	seedGameDetailRuntime(t, server, transaction, gameID, variantID, saveStateID, &fixture)
 	videoPayload, screenshot := fixture.videoPayload, fixture.screenshot
 	videoMetadata := fixture.videoMetadata
 	latestLaunchID, videoBlobID, screenshotBlobID := fixture.latestLaunchID, fixture.videoBlobID, fixture.screenshotBlobID
@@ -186,7 +169,7 @@ func TestGameDetailReturnsCoreValidationChoicesAndDOSPrograms(t *testing.T) {
 	missingGameSaves := httptest.NewRecorder()
 	server.Handler().ServeHTTP(missingGameSaves, httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/saves?gameId="+uuid.NewString(), nil))
 	testassert.Falsef(t, testassert.Any(func() bool { return missingGameSaves.Code != http.StatusOK }, func() bool { return !strings.Contains(missingGameSaves.Body.String(), `"items":[]`) }), "save missing game filter = %d: %s", missingGameSaves.Code, missingGameSaves.Body.String())
-	assertGameHomeAndActivity(t, server, gameID, variantRevisionID, coreArtifactID, screenshotBlobID, latestLaunchID, now, expectedCoverURL, saveStateID, screenshot)
+	assertGameHomeAndActivity(t, server, gameID, screenshotBlobID, latestLaunchID, now, expectedCoverURL, saveStateID, screenshot)
 	assertScreenshotlessSaveProjections(t, server, gameID)
 	assertGameProfileIsolation(t, server, gameID, saveStateID, now)
 	assertGameAdminMutations(t, server, gameID, contentID, coverBlobID, now, videoPayload, videoMetadata, videoBlobID)
@@ -212,7 +195,7 @@ func assertScreenshotlessSaveProjections(t *testing.T, server *Server, gameID st
 
 func assertGameHomeAndActivity(
 	t *testing.T, server *Server,
-	gameID, variantRevisionID, coreArtifactID, screenshotBlobID, latestLaunchID string,
+	gameID, screenshotBlobID, latestLaunchID string,
 	now int64, expectedCoverURL, saveStateID string, screenshot []byte,
 ) {
 	home := httptest.NewRecorder()
@@ -242,16 +225,12 @@ func assertGameHomeAndActivity(
 	sessionSaveID := uuid.NewString()
 	payloadDigest := sha256.Sum256(screenshot)
 	mustExecHTTPTest(t, server.database, `
-INSERT INTO save_states(id,profile_id,game_id,game_content_revision_id,game_variant_revision_id,core_artifact_id,
-adapter_abi,save_abi,dependency_snapshot_sha256,dat_version_id,dos_entry_path,payload_blob_id,payload_kind,
-payload_sha256,payload_size_bytes,screenshot_blob_id,source_launch_session_id,name,active_duration_ms,version,
-created_at_ms,updated_at_ms,deleted_at_ms)
-SELECT ?,'local',?,revision.game_content_revision_id,?,?,
-       'emulatorjs-state-v1','emulatorjs-state-v1',?,NULL,NULL,?,'RUNTIME_STATE',?,?,?,?,'本次游玩存档',240000,1,?,?,NULL
-FROM game_variant_revisions revision WHERE revision.id=?
-`, sessionSaveID, gameID, variantRevisionID, coreArtifactID, strings.Repeat("d", 64), screenshotBlobID,
-		hex.EncodeToString(payloadDigest[:]), len(screenshot), screenshotBlobID, latestLaunchID, now+20, now+20,
-		variantRevisionID)
+INSERT INTO save_states(
+ id,profile_id,game_id,checkpoint_format,payload_blob_id,payload_sha256,payload_size_bytes,
+ screenshot_blob_id,source_launch_session_id,name,active_duration_ms,version,created_at_ms,updated_at_ms,deleted_at_ms
+) VALUES(?,'local',?,'test-checkpoint-v1',?,?,?,?,?,'本次游玩存档',240000,1,?,?,NULL)
+`, sessionSaveID, gameID, screenshotBlobID, hex.EncodeToString(payloadDigest[:]), len(screenshot),
+		screenshotBlobID, latestLaunchID, now+20, now+20)
 	var alternateLaunchID string
 	if err := server.database.QueryRowContext(
 		context.Background(),
@@ -272,7 +251,7 @@ FROM game_variant_revisions revision WHERE revision.id=?
 	testassert.Falsef(t, homeWithSessionSave.Code != http.StatusOK, "home with session save = %d: %s", homeWithSessionSave.Code, homeWithSessionSave.Body.String())
 	mustDecodeHTTPTest(t, homeWithSessionSave.Body.Bytes(), &homeResponse)
 	testassert.Falsef(t, testassert.Any(func() bool { return homeResponse.FeaturedGame == nil }, func() bool { return homeResponse.FeaturedGame.LastSessionSave == nil }, func() bool { return homeResponse.FeaturedGame.LastSessionSave.SaveStateID != sessionSaveID }), "featured session save = %#v", homeResponse.FeaturedGame)
-	seedRecentGameHistory(t, server.database, coreArtifactID, now, 55)
+	seedRecentGameHistory(t, server.database, now, 55)
 	latest := httptest.NewRecorder()
 	server.Handler().ServeHTTP(latest, httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/home", nil))
 	testassert.Falsef(t, latest.Code != http.StatusOK, "home latest games = %d: %s", latest.Code, latest.Body.String())
@@ -429,8 +408,8 @@ SELECT
 	mustScanHTTPTest(t, server.database.QueryRowContext(context.Background(), `
 SELECT m.title,m.title_initial,count(a.id)
 FROM games g
-JOIN game_metadata_revisions m ON m.id=g.current_metadata_revision_id
-LEFT JOIN game_assets a ON a.game_id=g.id AND a.metadata_revision_id=m.id
+JOIN games m ON m.id=g.id
+LEFT JOIN game_assets a ON a.game_id=g.id AND a.game_id=m.id
 WHERE g.id=?
 GROUP BY m.title,m.title_initial
 `, gameID), &appliedTitle, &appliedTitleInitial, &preservedAssets)
@@ -439,8 +418,14 @@ GROUP BY m.title,m.title_initial
 		func() bool { return appliedTitleInitial != "D" },
 		func() bool { return preservedAssets != 2 },
 	), "applied title/initial/assets = %q/%s/%d", appliedTitle, appliedTitleInitial, preservedAssets)
-	assertRetiredGameAssetUnavailable(t, server, originalCoverAssetID)
-	assertRetiredGameAssetUnavailable(t, server, originalVideoAssetID)
+	var preservedCoverID, preservedVideoID string
+	mustScanHTTPTest(t, server.database.QueryRowContext(context.Background(), `
+SELECT
+ (SELECT id FROM game_assets WHERE game_id=? AND kind='COVER'),
+ (SELECT id FROM game_assets WHERE game_id=? AND kind='VIDEO')
+`, gameID, gameID), &preservedCoverID, &preservedVideoID)
+	testassert.Falsef(t, preservedCoverID != originalCoverAssetID || preservedVideoID != originalVideoAssetID,
+		"unselected candidate media changed: cover=%s video=%s", preservedCoverID, preservedVideoID)
 	videoUploadID := "01980000-0000-7000-8000-000000000111"
 	videoUploadFileID := "01980000-0000-7000-8000-000000000112"
 	mustExecHTTPTest(t, server.database, `
@@ -468,11 +453,11 @@ VALUES(?,?,'preview.mp4',?,?,?,'COMPLETE',?,?)
 	var currentTitleInitial string
 	if err := server.database.QueryRowContext(context.Background(), `
 SELECT
-(SELECT count(*) FROM game_assets asset JOIN games game ON game.current_metadata_revision_id=asset.metadata_revision_id WHERE game.id=? AND asset.kind='VIDEO'),
+(SELECT count(*) FROM game_assets asset JOIN games game ON game.id=asset.game_id WHERE game.id=? AND asset.kind='VIDEO'),
 (SELECT count(*) FROM game_assets asset JOIN games game ON game.id=asset.game_id
- WHERE game.id=? AND asset.metadata_revision_id<>game.current_metadata_revision_id),
+ WHERE game.id=? AND asset.game_id<>game.id),
 (SELECT metadata.title_initial FROM games game
- JOIN game_metadata_revisions metadata ON metadata.id=game.current_metadata_revision_id WHERE game.id=?)
+ JOIN games metadata ON metadata.id=game.id WHERE game.id=?)
 `, gameID, gameID, gameID).Scan(&currentVideos, &retiredAssets, &currentTitleInitial); err != nil {
 		t.Fatal(err)
 	}
@@ -498,25 +483,17 @@ func TestGameListUsesFilteredCursorPagesAndReturnsFacetsOnlyOnFirstPage(t *testi
 		"01980000-0000-7000-8000-000000001003",
 	}
 	for index, gameID := range gameIDs {
-		metadataID := fmt.Sprintf("01980000-0000-7000-8000-%012d", 1101+index)
-		contentID := fmt.Sprintf("01980000-0000-7000-8000-%012d", 1201+index)
 		title := fmt.Sprintf("DOS Game %d", index+1)
 		createdAt := baseTime + int64(index)*1000
 		mustExecHTTPTest(t, transaction, `
-INSERT INTO game_metadata_revisions(
- id,game_id,title,title_initial,description,developer,publisher,genre,players,release_year,source_kind,source_ref_id,created_at_ms
-) VALUES(?,?,?,'D','','','','',NULL,NULL,'IMPORT_REVIEW','pagination-fixture',?)
-`, metadataID, gameID, title, createdAt)
-		mustExecHTTPTest(t, transaction, `
-INSERT INTO game_content_revisions(
- id,game_id,source_kind,source_ref_id,source_manifest_json,source_manifest_digest,created_at_ms
-) VALUES(?,?,'IMPORT_REVIEW','pagination-fixture','{}',?,?)
-`, contentID, gameID, strings.Repeat(strconv.Itoa(index+1), 64), createdAt)
-		mustExecHTTPTest(t, transaction, `
 INSERT INTO games(
- id,platform_instance_id,status,current_metadata_revision_id,current_content_revision_id,search_text,version,created_at_ms,updated_at_ms
-) VALUES(?,(SELECT id FROM platform_instances WHERE catalog_template_key='dos/dosbox_pure'),'PUBLISHED',?,?,?,1,?,?)
-`, gameID, metadataID, contentID, strings.ToLower(title), createdAt, createdAt)
+ id,platform_instance_id,title,title_initial,description,developer,publisher,genre,players,release_year,
+ metadata_source_kind,metadata_source_ref_id,content_kind,content_source_kind,content_source_ref_id,
+ source_manifest_json,source_manifest_digest,status,search_text,version,created_at_ms,updated_at_ms
+) VALUES(?,(SELECT id FROM platform_instances WHERE catalog_template_key='dos/dosbox_pure'),?,'D','','','','',NULL,NULL,
+ 'IMPORT_REVIEW','pagination-fixture','SINGLE_FILE','IMPORT_REVIEW','pagination-fixture','{}',?,
+ 'PUBLISHED',?,1,?,?)
+`, gameID, title, strings.Repeat(strconv.Itoa(index+1), 64), strings.ToLower(title), createdAt, createdAt)
 	}
 	if err := transaction.Commit(); err != nil {
 		t.Fatal(err)
@@ -560,7 +537,7 @@ INSERT INTO games(
 func seedCompletedGameScrape(
 	t *testing.T,
 	database *sql.DB,
-	gameID, contentID, coverBlobID string,
+	gameID, _ string, coverBlobID string,
 	now int64,
 ) (string, string) {
 	t.Helper()
@@ -581,10 +558,10 @@ VALUES(?,'HASHEOUS',?,200,'HIT',NULL,'NONE',?,?)
 		t.Fatal(err)
 	}
 	if _, err := database.ExecContext(context.Background(), `
-INSERT INTO metadata_scrape_runs(id,import_item_id,game_id,game_content_revision_id,job_id,provider,
+INSERT INTO metadata_scrape_runs(id,import_item_id,game_id,job_id,provider,
 provider_config_version,state,version,created_at_ms,updated_at_ms,completed_at_ms,error_code)
-VALUES(?,NULL,?,?,?,'HASHEOUS',1,'COMPLETED',1,?,?,?,NULL)
-`, runID, gameID, contentID, jobID, now, now, now); err != nil {
+VALUES(?,NULL,?,?,'HASHEOUS',1,'COMPLETED',1,?,?,?,NULL)
+`, runID, gameID, jobID, now, now, now); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := database.ExecContext(context.Background(), `
@@ -604,55 +581,46 @@ VALUES(?,?,?,'cover','COVER',0,'/cover','READY',?,600,800,'image/png',NULL,?,1,?
 	return candidateID, candidateAssetID
 }
 
-func seedRecentGameHistory(t *testing.T, database *sql.DB, coreArtifactID string, now int64, count int) {
+func seedRecentGameHistory(t *testing.T, database *sql.DB, now int64, count int) {
 	t.Helper()
+	target, err := testsupport.LookupRuntimeTarget(t.Context(), database, "dosbox_pure")
+	testassert.False(t, err != nil, err)
 	transaction, err := database.BeginTx(context.Background(), nil)
 	testassert.False(t, err != nil, err)
 	defer cleanup.Rollback(transaction)
 	mustExecHTTPTest(t, transaction, "PRAGMA defer_foreign_keys=ON")
 	for index := 0; index < count; index++ {
 		gameID := uuid.NewString()
-		metadataID := uuid.NewString()
-		contentID := uuid.NewString()
 		variantID := uuid.NewString()
-		variantRevisionID := uuid.NewString()
 		launchID := uuid.NewString()
 		playID := uuid.NewString()
 		mustExecHTTPTest(t, transaction, `
-INSERT INTO game_metadata_revisions(id,game_id,title,title_initial,description,developer,publisher,genre,players,release_year,
-source_kind,source_ref_id,created_at_ms)
-VALUES(?,?,?,'R','','','','',NULL,NULL,'ADMIN_EDIT',NULL,?)
-`, metadataID, gameID, fmt.Sprintf("Recent fixture %02d", index), now)
+INSERT INTO games(
+ id,platform_instance_id,title,title_initial,description,developer,publisher,genre,players,release_year,
+ metadata_source_kind,content_kind,content_source_kind,content_source_ref_id,source_manifest_json,source_manifest_digest,
+ status,search_text,version,created_at_ms,updated_at_ms
+) VALUES(?,(SELECT id FROM platform_instances WHERE catalog_template_key='dos/dosbox_pure'),?,'R','','','','',NULL,NULL,
+ 'ADMIN_EDIT','SINGLE_FILE','ADMIN_REPLACE',?,'{}',?,'PUBLISHED',?,1,?,?)
+`, gameID, fmt.Sprintf("Recent fixture %02d", index), fmt.Sprintf("recent-%d", index), strings.Repeat("7", 64),
+			fmt.Sprintf("recent fixture %02d", index), now+int64(index), now+int64(index))
 		mustExecHTTPTest(t, transaction, `
-INSERT INTO game_content_revisions(id,game_id,source_kind,source_ref_id,source_manifest_json,source_manifest_digest,created_at_ms)
-VALUES(?,?,'ADMIN_REPLACE',?,'{}',?,?)
-`, contentID, gameID, fmt.Sprintf("recent-%d", index), strings.Repeat("7", 64), now)
+INSERT INTO game_variants(
+ id,game_id,core_id,provider_id,target_id,emulator_game_id,status,compatibility_code,
+ dependency_snapshot_json,version,created_at_ms,updated_at_ms
+) VALUES(?,?,'dosbox_pure',?,?,?,'READY','READY','{}',1,?,?)
+`, variantID, gameID, target.ProviderID, target.TargetID, 10_000+index, now, now)
 		mustExecHTTPTest(t, transaction, `
-INSERT INTO games(id,platform_instance_id,status,current_metadata_revision_id,current_content_revision_id,search_text,
-version,created_at_ms,updated_at_ms)
-VALUES(?,(SELECT id FROM platform_instances WHERE catalog_template_key='dos/dosbox_pure'),'PUBLISHED',?,?,?,1,?,?)
-`, gameID, metadataID, contentID, fmt.Sprintf("recent fixture %02d", index), now+int64(index), now+int64(index))
-		mustExecHTTPTest(t, transaction, `
-INSERT INTO game_variants(id,game_id,core_id,current_revision_id,version,created_at_ms,updated_at_ms)
-VALUES(?,?,'dosbox_pure',NULL,1,?,?)
-`, variantID, gameID, now, now)
-		mustExecHTTPTest(t, transaction, `
-INSERT INTO game_variant_revisions(id,game_variant_id,game_content_revision_id,core_artifact_id,dat_version_id,
-route_key,validation_input_digest,emulator_game_id,status,compatibility_code,dependency_snapshot_json,default_dos_entry,created_at_ms)
-VALUES(?,?,?,?,NULL,'DEFAULT',?,?,'READY','READY','{}',NULL,?)
-`, variantRevisionID, variantID, contentID, coreArtifactID, strings.Repeat("8", 64), 10_000+index, now)
-		mustExecHTTPTest(t, transaction, "UPDATE game_variants SET current_revision_id=? WHERE id=?", variantRevisionID, variantID)
-		mustExecHTTPTest(t, transaction, `
-INSERT INTO launch_sessions(id,profile_id,purpose,game_id,game_content_revision_id,game_variant_revision_id,
-core_artifact_id,route_key,return_to,credential_sha256,
+INSERT INTO launch_sessions(id,profile_id,game_id,core_id,provider_id,target_id,bundle_sha256,
+content_kind,dependency_snapshot_json,compatibility_code,return_to,credential_sha256,
 state,bootstrap_expires_at_ms,finished_at_ms,hard_expires_at_ms,created_at_ms,updated_at_ms,version)
-VALUES(?,'local','PRODUCT',?,?,?,?, 'DEFAULT','/recent',zeroblob(32),'FINISHED',?,?,?,?,?,1)
-`, launchID, gameID, contentID, variantRevisionID, coreArtifactID, now+60_000, now, now+120_000, now, now)
+VALUES(?,'local',?,'dosbox_pure',?,?,?,'SINGLE_FILE','{}','READY','/recent',zeroblob(32),'FINISHED',?,?,?,?,?,1)
+`, launchID, gameID, target.ProviderID, target.TargetID, target.BundleSHA256,
+			now+60_000, now, now+120_000, now, now)
 		mustExecHTTPTest(t, transaction, `
-INSERT INTO play_sessions(id,launch_session_id,profile_id,game_id,game_variant_revision_id,started_at_ms,
+INSERT INTO play_sessions(id,launch_session_id,profile_id,game_id,started_at_ms,
 last_heartbeat_at_ms,ended_at_ms,active_duration_ms,last_client_sequence,state,version,created_at_ms,updated_at_ms)
-VALUES(?,?,'local',?,?,?,?,?,60000,1,'FINISHED',1,?,?)
-`, playID, launchID, gameID, variantRevisionID, now-int64(index+1)*1_000, now, now, now, now)
+VALUES(?,?,'local',?,?,?,?,60000,1,'FINISHED',1,?,?)
+`, playID, launchID, gameID, now-int64(index+1)*1_000, now, now, now, now)
 	}
 	if err := transaction.Commit(); err != nil {
 		t.Fatal(err)
@@ -668,7 +636,7 @@ type gameDetailSeed struct {
 
 func seedGameDetailMedia(
 	t *testing.T, server *Server, transaction *sql.Tx,
-	gameID, metadataID, contentID, coverBlobID, coverAssetID, videoAssetID string,
+	gameID, _, _, coverBlobID, coverAssetID, videoAssetID string,
 	fixture *gameDetailSeed,
 ) {
 	now := fixture.now
@@ -677,66 +645,16 @@ func seedGameDetailMedia(
 PRAGMA defer_foreign_keys=ON
 `)
 	mustExecHTTPTest(t, transaction, `
-INSERT INTO game_metadata_revisions(id,
-game_id,
-title,
-title_initial,
-description,
-developer,
-publisher,
-genre,
-players,
-release_year,
-source_kind,
-source_ref_id,
-created_at_ms) VALUES(?,
-?,
-'Doom',
-'D',
-'',
-'',
-'',
-'',
-1,
-1993,
-'IMPORT_REVIEW',
-'review',
-?)
-`, metadataID, gameID, now)
-	mustExecHTTPTest(t, transaction, `
-INSERT INTO game_content_revisions(id,
-game_id,
-source_kind,
-source_ref_id,
-source_manifest_json,
-source_manifest_digest,
-created_at_ms) VALUES(?,
-?,
-'IMPORT_REVIEW',
-'review',
-'{}',
-?,
-?)
-`, contentID, gameID, strings.Repeat("0", 64), now)
-	mustExecHTTPTest(t, transaction, `
-INSERT INTO games(id,
-platform_instance_id,
-status,
-current_metadata_revision_id,
-current_content_revision_id,
-search_text,
-version,
-created_at_ms,
-updated_at_ms) VALUES(?,
-(SELECT id FROM platform_instances WHERE catalog_template_key='dos/dosbox_pure'),
-'PUBLISHED',
-?,
-?,
-'doom',
-1,
-?,
-?)
-`, gameID, metadataID, contentID, now, now)
+INSERT INTO games(
+ id,platform_instance_id,title,title_initial,description,developer,publisher,genre,players,release_year,
+ metadata_source_kind,metadata_source_ref_id,content_kind,content_source_kind,content_source_ref_id,
+ source_manifest_json,source_manifest_digest,status,search_text,version,created_at_ms,updated_at_ms
+) VALUES(
+ ?,(SELECT id FROM platform_instances WHERE catalog_template_key='dos/dosbox_pure'),
+ 'Doom','D','','','','',1,1993,'IMPORT_REVIEW','review','SINGLE_FILE','IMPORT_REVIEW','review',
+ '{}',?,'PUBLISHED','doom',1,?,?
+)
+`, gameID, strings.Repeat("0", 64), now, now)
 	mustExecHTTPTest(t, transaction, `
 INSERT INTO blobs(id,
 sha256,
@@ -758,7 +676,6 @@ created_at_ms) VALUES(?,
 	mustExecHTTPTest(t, transaction, `
 INSERT INTO game_assets(id,
 game_id,
-metadata_revision_id,
 blob_id,
 kind,
 ordinal,
@@ -768,33 +685,32 @@ media_type,
 created_at_ms) VALUES(?,
 ?,
 ?,
-?,
 'COVER',
 0,
 600,
 800,
 'image/png',
 ?)
-`, coverAssetID, gameID, metadataID, coverBlobID, now)
+`, coverAssetID, gameID, coverBlobID, now)
 	fixture.videoPayload = []byte{0, 0, 0, 24, 'f', 't', 'y', 'p', 'i', 's', 'o', 'm', 0, 0, 0, 0, 'i', 's', 'o', 'm', 'm', 'p', '4', '2'}
 	fixture.videoMetadata, err = server.blobs.Put(bytes.NewReader(fixture.videoPayload))
 	testassert.False(t, err != nil, err)
 	fixture.videoBlobID, err = blobstore.EnsureRecord(t.Context(), transaction, fixture.videoMetadata, "video/mp4", now)
 	testassert.False(t, err != nil, err)
 	mustExecHTTPTest(t, transaction, `
-INSERT INTO game_assets(id,game_id,metadata_revision_id,blob_id,kind,ordinal,width_px,height_px,media_type,created_at_ms)
-VALUES(?,?,?,?,'VIDEO',0,NULL,NULL,'video/mp4',?)
-`, videoAssetID, gameID, metadataID, fixture.videoBlobID, now)
+INSERT INTO game_assets(id,game_id,blob_id,kind,ordinal,width_px,height_px,media_type,created_at_ms)
+VALUES(?,?,?,'VIDEO',0,NULL,NULL,'video/mp4',?)
+`, videoAssetID, gameID, fixture.videoBlobID, now)
 }
 
 func seedGameDetailRuntime(
 	t *testing.T, server *Server, transaction *sql.Tx,
-	gameID, contentID, variantID, variantRevisionID, saveStateID, coreArtifactID string,
+	gameID, variantID, saveStateID string,
 	fixture *gameDetailSeed,
 ) {
 	now := fixture.now
 	mustExecHTTPTest(t, transaction, `
-INSERT INTO dos_entries(game_content_revision_id,
+INSERT INTO dos_entries(game_id,
 normalized_path,
 original_relative_path,
 kind,
@@ -814,18 +730,16 @@ direct_launch_safe) VALUES(?,
 1,
 1,
 0)
-`, contentID, contentID)
-	seedHTTPTestCoreArtifact(t, transaction, coreArtifactID, "dosbox_pure", "cores/dosbox_pure.js", strings.Repeat("6", 64), "{}")
+`, gameID, gameID)
+	requireHTTPTestRuntimeTarget(t, transaction, "dosbox_pure")
+	target, err := testsupport.LookupRuntimeTarget(t.Context(), transaction, "dosbox_pure")
+	testassert.False(t, err != nil, err)
 	mustExecHTTPTest(t, transaction, `
-INSERT INTO game_variants(id,game_id,core_id,current_revision_id,version,created_at_ms,updated_at_ms)
-VALUES(?,?,?,NULL,1,?,?)
-`, variantID, gameID, "dosbox_pure", now, now)
-	mustExecHTTPTest(t, transaction, `
-INSERT INTO game_variant_revisions(id,game_variant_id,game_content_revision_id,core_artifact_id,dat_version_id,
-route_key,validation_input_digest,emulator_game_id,status,compatibility_code,dependency_snapshot_json,default_dos_entry,created_at_ms)
-VALUES(?,?,?,?,NULL,'DEFAULT',?,9001,'READY','READY','{}',NULL,?)
-`, variantRevisionID, variantID, contentID, coreArtifactID, strings.Repeat("5", 64), now)
-	mustExecHTTPTest(t, transaction, "UPDATE game_variants SET current_revision_id=? WHERE id=?", variantRevisionID, variantID)
+INSERT INTO game_variants(
+ id,game_id,core_id,provider_id,target_id,dat_version_id,emulator_game_id,status,
+ compatibility_code,dependency_snapshot_json,default_dos_entry,version,created_at_ms,updated_at_ms
+) VALUES(?,?,?, ?,?,NULL,9001,'READY','READY','{}',NULL,1,?,?)
+`, variantID, gameID, "dosbox_pure", target.ProviderID, target.TargetID, now, now)
 	fixture.screenshot = []byte("retrom-save-fixture.screenshot")
 	screenshotMetadata, err := server.blobs.Put(bytes.NewReader(fixture.screenshot))
 	testassert.False(t, err != nil, err)
@@ -833,31 +747,27 @@ VALUES(?,?,?,?,NULL,'DEFAULT',?,9001,'READY','READY','{}',NULL,?)
 	testassert.False(t, err != nil, err)
 	sourceLaunchID := uuid.NewString()
 	mustExecHTTPTest(t, transaction, `
-INSERT INTO launch_sessions(id,profile_id,purpose,game_id,game_content_revision_id,game_variant_revision_id,
-core_artifact_id,route_key,return_to,
+INSERT INTO launch_sessions(id,profile_id,game_id,core_id,
+provider_id,target_id,bundle_sha256,content_kind,dependency_snapshot_json,compatibility_code,return_to,
 credential_sha256,state,bootstrap_expires_at_ms,finished_at_ms,hard_expires_at_ms,created_at_ms,updated_at_ms,version)
-VALUES(?,'local','PRODUCT',?,?,?,?, 'DEFAULT','/',zeroblob(32),'FINISHED',?,?,?, ?,?,1)
-`, sourceLaunchID, gameID, contentID, variantRevisionID, coreArtifactID,
+VALUES(?,'local',?,'dosbox_pure',?,?,?,'SINGLE_FILE','{}','READY','/',zeroblob(32),'FINISHED',?,?,?, ?,?,1)
+`, sourceLaunchID, gameID, target.ProviderID, target.TargetID, target.BundleSHA256,
 		now+60_000, now, now+120_000, now, now)
 	payloadDigest := sha256.Sum256(fixture.screenshot)
 	mustExecHTTPTest(t, transaction, `
-INSERT INTO save_states(id,profile_id,game_id,game_content_revision_id,game_variant_revision_id,core_artifact_id,
-adapter_abi,save_abi,dependency_snapshot_sha256,dat_version_id,dos_entry_path,payload_blob_id,payload_kind,
-payload_sha256,payload_size_bytes,screenshot_blob_id,source_launch_session_id,name,active_duration_ms,version,
-created_at_ms,updated_at_ms,deleted_at_ms)
-VALUES(?,'local',?,?,?,?,'emulatorjs-state-v1','emulatorjs-state-v1',?,NULL,NULL,?,'RUNTIME_STATE',?,?,?,?,'入口存档',180000,1,?,?,NULL)
-`, saveStateID, gameID, contentID, variantRevisionID, coreArtifactID, strings.Repeat("d", 64),
-		fixture.screenshotBlobID, hex.EncodeToString(payloadDigest[:]), len(fixture.screenshot),
+INSERT INTO save_states(
+ id,profile_id,game_id,checkpoint_format,payload_blob_id,payload_sha256,payload_size_bytes,
+ screenshot_blob_id,source_launch_session_id,name,active_duration_ms,version,created_at_ms,updated_at_ms,deleted_at_ms
+) VALUES(?,'local',?,'test-checkpoint-v1',?,?,?,?,?,'入口存档',180000,1,?,?,NULL)
+`, saveStateID, gameID, fixture.screenshotBlobID, hex.EncodeToString(payloadDigest[:]), len(fixture.screenshot),
 		fixture.screenshotBlobID, sourceLaunchID, now, now)
 	for index := 0; index < 8; index++ {
 		mustExecHTTPTest(t, transaction, `
-INSERT INTO save_states(id,profile_id,game_id,game_content_revision_id,game_variant_revision_id,core_artifact_id,
-adapter_abi,save_abi,dependency_snapshot_sha256,dat_version_id,dos_entry_path,payload_blob_id,payload_kind,
-payload_sha256,payload_size_bytes,screenshot_blob_id,source_launch_session_id,name,active_duration_ms,version,
-created_at_ms,updated_at_ms,deleted_at_ms)
-VALUES(?,'local',?,?,?,?,'emulatorjs-state-v1','emulatorjs-state-v1',?,NULL,NULL,?,'RUNTIME_STATE',?,?,?, ?,?,60000,1,?,?,NULL)
-`, uuid.NewString(), gameID, contentID, variantRevisionID, coreArtifactID, strings.Repeat("d", 64),
-			fixture.screenshotBlobID, hex.EncodeToString(payloadDigest[:]), len(fixture.screenshot),
+INSERT INTO save_states(
+ id,profile_id,game_id,checkpoint_format,payload_blob_id,payload_sha256,payload_size_bytes,
+ screenshot_blob_id,source_launch_session_id,name,active_duration_ms,version,created_at_ms,updated_at_ms,deleted_at_ms
+) VALUES(?,'local',?,'test-checkpoint-v1',?,?,?,?,?,?,60000,1,?,?,NULL)
+`, uuid.NewString(), gameID, fixture.screenshotBlobID, hex.EncodeToString(payloadDigest[:]), len(fixture.screenshot),
 			fixture.screenshotBlobID, sourceLaunchID, fmt.Sprintf("额外存档 %d", index+1),
 			now+int64(index+1), now+int64(index+1))
 	}
@@ -865,17 +775,17 @@ VALUES(?,'local',?,?,?,?,'emulatorjs-state-v1','emulatorjs-state-v1',?,NULL,NULL
 		launchID, playID := uuid.NewString(), uuid.NewString()
 		fixture.latestLaunchID = launchID
 		mustExecHTTPTest(t, transaction, `
-INSERT INTO launch_sessions(id,profile_id,purpose,game_id,game_content_revision_id,game_variant_revision_id,
-core_artifact_id,route_key,return_to,
+INSERT INTO launch_sessions(id,profile_id,game_id,core_id,
+provider_id,target_id,bundle_sha256,content_kind,dependency_snapshot_json,compatibility_code,return_to,
 credential_sha256,state,bootstrap_expires_at_ms,finished_at_ms,hard_expires_at_ms,created_at_ms,updated_at_ms,version)
-VALUES(?,'local','PRODUCT',?,?,?,?, 'DEFAULT','/',zeroblob(32),'FINISHED',?,?,?, ?,?,1)
-`, launchID, gameID, contentID, variantRevisionID, coreArtifactID,
+VALUES(?,'local',?,'dosbox_pure',?,?,?,'SINGLE_FILE','{}','READY','/',zeroblob(32),'FINISHED',?,?,?, ?,?,1)
+`, launchID, gameID, target.ProviderID, target.TargetID, target.BundleSHA256,
 			now+60_000, now+int64(index), now+120_000, now, now+int64(index))
 		mustExecHTTPTest(t, transaction, `
-INSERT INTO play_sessions(id,launch_session_id,profile_id,game_id,game_variant_revision_id,started_at_ms,
+INSERT INTO play_sessions(id,launch_session_id,profile_id,game_id,started_at_ms,
 last_heartbeat_at_ms,ended_at_ms,active_duration_ms,last_client_sequence,state,version,created_at_ms,updated_at_ms)
-VALUES(?,?,'local',?,?, ?,?,?,?,1,'FINISHED',1,?,?)
-`, playID, launchID, gameID, variantRevisionID, now-20_000+int64(index)*10_000, now, now, duration,
+VALUES(?,?,'local',?,?,?,?,?,1,'FINISHED',1,?,?)
+`, playID, launchID, gameID, now-20_000+int64(index)*10_000, now, now, duration,
 			now, now+int64(10-index))
 	}
 	mustCommitHTTPTest(t, transaction)

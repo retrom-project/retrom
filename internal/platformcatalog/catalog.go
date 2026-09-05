@@ -164,20 +164,11 @@ func validateTemplate(
 	}
 	// Directory-style runtimes accept project folders in addition to archives;
 	// their importer validates the full project shape.
-	if !isDirectoryProjectPlatform(template.PlatformID) &&
+	if _, project := contentprofile.ProjectKind(template.PlatformID); !project &&
 		!validExtensions(contentprofile.SupportedExtensions(template.PlatformID)) {
 		return fmt.Errorf("%w: extensions for %q", ErrInvalid, template.PlatformID)
 	}
 	return nil
-}
-
-func isDirectoryProjectPlatform(platformID string) bool {
-	switch platformID {
-	case "rpgmaker", "ons", "kirikiri", "butterscotch", "tyranoscript":
-		return true
-	default:
-		return false
-	}
 }
 
 func validText(value string, minimum, maximum int) bool {

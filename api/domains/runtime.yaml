@@ -4,7 +4,7 @@ paths:
       - $ref: '#/components/parameters/AssetID'
     get:
       operationId: getContentAsset
-      description: Serves only an asset owned by the published game's current metadata revision; retired asset IDs return 404.
+      description: Serves only an asset owned by the current published game; replaced asset IDs return 404.
       responses:
         '200':
           $ref: '#/components/responses/BinaryResponse'
@@ -43,43 +43,21 @@ paths:
       responses:
         '200':
           $ref: '#/components/responses/BinaryResponse'
-  /runtime/emulatorjs/{configuredVersion}/{runtimePath}:
-    x-retrom-router-template: /runtime/emulatorjs/{configuredVersion}/{runtimePath:.+}
+  /runtime/providers/{providerId}/{bundleSha256}/{runtimePath}:
+    x-retrom-router-template: /runtime/providers/{providerId}/{bundleSha256}/{runtimePath:.+}
     parameters:
-      - $ref: '#/components/parameters/ConfiguredVersion'
-      - name: runtimePath
+      - name: providerId
         in: path
         required: true
         schema:
           type: string
-      - name: v
-        in: query
-        required: false
-        description: EmulatorJS cache-buster; ignored for allowlist and file selection.
-        schema:
-          type: string
-          maxLength: 128
-    get:
-      security: []
-      operationId: getRuntimeEmulatorJS
-      responses:
-        '200':
-          $ref: '#/components/responses/BinaryResponse'
-    head:
-      security: []
-      operationId: headRuntimeEmulatorJS
-      responses:
-        '200':
-          $ref: '#/components/responses/BinaryResponse'
-  /runtime/retrom-runtime/{runtimeVersion}/{runtimePath}:
-    x-retrom-router-template: /runtime/retrom-runtime/{runtimeVersion}/{runtimePath:.+}
-    parameters:
-      - name: runtimeVersion
+          pattern: ^[a-z0-9]+(?:-[a-z0-9]+)*$
+      - name: bundleSha256
         in: path
         required: true
         schema:
           type: string
-          pattern: ^[0-9A-Za-z][0-9A-Za-z._-]{0,63}$
+          pattern: ^[0-9a-f]{64}$
       - name: runtimePath
         in: path
         required: true
@@ -87,17 +65,25 @@ paths:
           type: string
     get:
       security: []
-      operationId: getRetromRuntimeArtifact
-      description: Serves only a declared retrom-runtime Release asset from the dependency manifest allowlist.
+      operationId: getRuntimeProviderResource
+      description: Serves only a manifest/integrity allowlisted file from the active content-addressed Provider Bundle.
       responses:
         '200':
           $ref: '#/components/responses/BinaryResponse'
+        '404':
+          $ref: ../components/common.yaml#/components/responses/JSONResponse
+        '416':
+          $ref: ../components/common.yaml#/components/responses/JSONResponse
     head:
       security: []
-      operationId: headRetromRuntimeArtifact
+      operationId: headRuntimeProviderResource
       responses:
         '200':
           $ref: '#/components/responses/BinaryResponse'
+        '404':
+          $ref: ../components/common.yaml#/components/responses/JSONResponse
+        '416':
+          $ref: ../components/common.yaml#/components/responses/JSONResponse
   /runtime/content/project/{contentIdentity}/{projectPath}:
     x-retrom-router-template: /runtime/content/project/{contentIdentity}/{projectPath:.+}
     parameters:
@@ -181,7 +167,7 @@ paths:
       security: []
       operationId: postRuntimeSaveState
       x-retrom-streaming-body: true
-      description: Creates either a product SaveState or the single temporary checkpoint of an RPG_RUNTIME_VALIDATION Launch. The metadata part is strict RuntimeCheckpointMetadata JSON; authoritative artifact, user, content revision, adapter ABI, save ABI and dependency bindings always come from the Launch. Total multipart input is capped at 270 MiB only on this route.
+      description: Creates either a product SaveState or replaces the temporary checkpoint of an ordinary review preview. The metadata is strict RuntimeCheckpointMetadata JSON; Provider identity, Target compatibility, checkpoint format and dependency bindings are validated against the immutable Launch snapshot. Total multipart input is capped at 270 MiB only on this route.
       parameters:
         - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey
       requestBody:
@@ -226,30 +212,12 @@ paths:
     get:
       security: []
       operationId: getRuntimeCheckpointStatus
-      description: Returns the frozen payload kind and the most recent ordered adapter availability projection; immediate Player state remains driven by adapter events.
+      description: Returns the frozen checkpoint format and the most recent ordered Provider availability projection; immediate Player state remains driven by Provider events.
       responses:
         '200':
           $ref: '#/components/responses/CheckpointStatusResponse'
         '409':
           $ref: ../components/common.yaml#/components/responses/RpgConflictResponse
-  /runtime/launches/{launchId}/rpgmaker-gates/events:
-    parameters:
-      - $ref: '#/components/parameters/LaunchID'
-    post:
-      security: []
-      operationId: postRuntimeRpgMakerGateEvent
-      description: Accepts strictly ordered, event-idempotent gates only from an RPG_RUNTIME_VALIDATION Launch. Positional gates are compared server-side so restore must equal the saved map/coordinates/fixture state and differ from the post-save state.
-      requestBody:
-        $ref: '#/components/requestBodies/RpgMakerGateEvent'
-      responses:
-        '200':
-          $ref: '#/components/responses/RpgMakerGateEventResponse'
-        '408':
-          $ref: '#/components/responses/RpgTimeoutResponse'
-        '409':
-          $ref: ../components/common.yaml#/components/responses/RpgConflictResponse
-        '422':
-          $ref: ../components/common.yaml#/components/responses/RpgUnprocessableResponse
   /runtime/content/game/{contentIdentity}/{logicalName}:
     parameters:
       - $ref: '#/components/parameters/ContentIdentity'
@@ -419,7 +387,7 @@ components:
         contentKind:
           type: string
           enum:
-            - MULTI_DISC_M3U_V1
+            - MULTI_DISC
         count:
           type: integer
           minimum: 2
@@ -434,1336 +402,39 @@ components:
           maxItems: 8
           items:
             $ref: '#/components/schemas/DiscEntry'
-    ReviewPreviewConfig:
-      type: object
-      additionalProperties: false
-      required:
-        - importItemId
-        - captureAllowed
-        - captureAfterMs
-      properties:
-        importItemId:
-          type: string
-          format: uuid
-        captureAllowed:
-          type: boolean
-        captureAfterMs:
-          type: integer
-          minimum: 5000
-          maximum: 5000
     LaunchConfig:
-      oneOf:
-        - $ref: '#/components/schemas/EmulatorJSLaunchConfig'
-        - $ref: '#/components/schemas/RpgMakerLaunchConfig'
-        - $ref: '#/components/schemas/OnsLaunchConfig'
-        - $ref: '#/components/schemas/KiriKiriLaunchConfig'
-        - $ref: '#/components/schemas/ButterscotchLaunchConfig'
-        - $ref: '#/components/schemas/TyranoScriptLaunchConfig'
-        - $ref: '#/components/schemas/WASM4LaunchConfig'
-      discriminator:
-        propertyName: runtimeFamily
-        mapping:
-          EMULATORJS: '#/components/schemas/EmulatorJSLaunchConfig'
-          RPGMAKER: '#/components/schemas/RpgMakerLaunchConfig'
-          ONS: '#/components/schemas/OnsLaunchConfig'
-          KIRIKIRI: '#/components/schemas/KiriKiriLaunchConfig'
-          BUTTERSCOTCH: '#/components/schemas/ButterscotchLaunchConfig'
-          TYRANOSCRIPT: '#/components/schemas/TyranoScriptLaunchConfig'
-          WASM4: '#/components/schemas/WASM4LaunchConfig'
-    EmulatorJSLaunchConfig:
-      type: object
-      additionalProperties: false
-      required:
-        - runtimeFamily
-        - mode
-        - launchId
-        - emulatorjsVersion
-        - playerAdapterId
-        - core
-        - runtimeCore
-        - coreName
-        - coreArtifactId
-        - emulatorGameId
-        - gameName
-        - gameTitle
-        - platformName
-        - runtimeBaseUrl
-        - loaderUrl
-        - gameUrl
-        - biosUrl
-        - parentUrl
-        - stateUrl
-        - inputMode
-        - startupActions
-        - requiresThreads
-        - runtimePathOverrides
-        - defaultCoreOptions
-        - externalFiles
-        - discSet
-        - dosEntry
-        - warnings
-        - returnTo
-        - netplay
-      properties:
-        runtimeFamily:
-          type: string
-          enum:
-            - EMULATORJS
-        mode:
-          type: string
-          enum:
-            - single
-            - netplay
-        launchId:
-          type: string
-          format: uuid
-        emulatorjsVersion:
-          type: string
-        playerAdapterId:
-          type: string
-          enum:
-            - ejs-4.2.3-v2
-            - ejs-4.2.3-v3
-            - ejs-4.3.0-pre-v2
-        core:
-          type: string
-        runtimeCore:
-          type: string
-          pattern: ^[a-z0-9_]{1,64}$
-        coreName:
-          type: string
-        coreArtifactId:
-          type: string
-          format: uuid
-        emulatorGameId:
-          type: integer
-          format: int64
-          minimum: 1
-          maximum: 9007199254740991
-        gameName:
-          type: string
-        gameTitle:
-          type: string
-        platformName:
-          type: string
-        runtimeBaseUrl:
-          type: string
-        loaderUrl:
-          type: string
-        gameUrl:
-          type: string
-          pattern: ^/runtime/content/game/[0-9a-f]{64}/[^/?#]+$
-        biosUrl:
-          type: string
-          nullable: true
-          pattern: ^/runtime/content/bios/[0-9a-f]{64}/bundle\.zip$
-        parentUrl:
-          type: string
-          nullable: true
-          pattern: ^/runtime/content/parent/[0-9a-f]{64}/bundle\.zip$
-        stateUrl:
-          type: string
-          nullable: true
-        inputMode:
-          type: string
-          enum:
-            - STANDARD
-            - POINTER
-        startupActions:
-          type: array
-          maxItems: 4
-          items:
-            $ref: '#/components/schemas/StartupAction'
-        requiresThreads:
-          type: boolean
-        runtimePathOverrides:
-          type: object
-          maxProperties: 8
-          additionalProperties:
-            type: string
-        defaultCoreOptions:
-          type: object
-          maxProperties: 32
-          additionalProperties:
-            type: string
-        externalFiles:
-          type: object
-          maxProperties: 16
-          additionalProperties:
-            type: string
-            minLength: 1
-            maxLength: 1024
-            pattern: ^/runtime/content/external/[0-9a-f]{64}/[^/?#]+$
-        discSet:
-          $ref: '#/components/schemas/DiscSet'
-        dosEntry:
-          type: string
-          nullable: true
-        warnings:
-          type: array
-          items:
-            type: string
-        returnTo:
-          type: string
-        reviewPreview:
-          $ref: '#/components/schemas/ReviewPreviewConfig'
-        netplay:
-          nullable: true
-          allOf:
-            - $ref: '#/components/schemas/NetplayLaunchConfig'
-    NativeCheckpointProfile:
-      type: string
-      enum:
-        - EASYRPG_V1
-        - RPGMV_V1
-        - RPGMZ_V1
+      $ref: ../runtime-provider/v1/launch-envelope.schema.json
     CheckpointUnavailableReason:
       type: string
       enum:
-        - NOT_ON_MAP
-        - SAVE_DISABLED
-        - MESSAGE_ACTIVE
-        - EVENT_ACTIVE
-        - BUSY
-        - RUNTIME_NOT_READY
-        - RUNTIME_FAILED
-        - CHECKPOINT_ALREADY_CREATED
-        - NETPLAY_UNSUPPORTED
+        - CORE_REPORTED_UNAVAILABLE
+        - STARTUP_NOT_READY
+        - SESSION_TERMINAL
     CheckpointAvailability:
       type: object
       additionalProperties: false
       required:
         - available
+        - sequence
         - reason
       properties:
         available:
           type: boolean
+        sequence:
+          type: integer
+          format: int64
+          minimum: 0
         reason:
           nullable: true
           allOf:
             - $ref: '#/components/schemas/CheckpointUnavailableReason'
-      description: reason is null exactly when available is true and is required to be a stable enum when available is false.
-    RpgCheckpointRestore:
-      type: object
-      additionalProperties: false
-      required:
-        - payloadKind
-        - payloadUrl
-      properties:
-        payloadKind:
-          $ref: ../components/common.yaml#/components/schemas/CheckpointPayloadKind
-        payloadUrl:
-          type: string
-          pattern: ^/runtime/launches/[0-9a-f-]{36}/state$
-    FileTreeSource:
-      type: object
-      additionalProperties: false
-      required:
-        - kind
-        - indexUrl
-      properties:
-        kind:
-          type: string
-          enum:
-            - FILE_TREE_V1
-        indexUrl:
-          type: string
-          minLength: 1
-          maxLength: 2048
-    EasyRpgAdapterConfig:
-      type: object
-      additionalProperties: false
-      required:
-        - adapterKind
-        - adapterId
-        - engineMode
-        - runtimeBaseUrl
-        - projectRootUrl
-        - projectIndexUrl
-        - rtpSource
-        - checkpointSlot
-      properties:
-        adapterKind:
-          type: string
-          enum:
-            - EASYRPG_WEB
-        adapterId:
-          type: string
-          enum:
-            - easyrpg-web
-        engineMode:
-          type: string
-          enum:
-            - rpg2k
-            - rpg2k3
-        runtimeBaseUrl:
-          type: string
-          minLength: 1
-          maxLength: 2048
-        projectRootUrl:
-          type: string
-          pattern: ^/runtime/content/project/[0-9a-f]{64}/$
-        projectIndexUrl:
-          type: string
-          pattern: ^/runtime/content/project/[0-9a-f]{64}/index\.json$
-        rtpSource:
-          nullable: true
-          allOf:
-            - $ref: '#/components/schemas/FileTreeSource'
-        checkpointSlot:
-          type: integer
-          enum:
-            - 100
-    MkxpCoreArtifact:
-      type: object
-      additionalProperties: false
-      required:
-        - jsUrl
-        - jsSizeBytes
-        - jsSha256
-        - wasmUrl
-        - wasmSizeBytes
-        - wasmSha256
-        - artifactSetSha256
-      properties:
-        jsUrl:
-          type: string
-          minLength: 1
-          maxLength: 2048
-        jsSizeBytes:
-          type: integer
-          format: int64
-          minimum: 1
-          maximum: 1048576
-        jsSha256:
-          type: string
-          pattern: ^[0-9a-f]{64}$
-        wasmUrl:
-          type: string
-          minLength: 1
-          maxLength: 2048
-        wasmSizeBytes:
-          type: integer
-          format: int64
-          minimum: 1
-          maximum: 67108864
-        wasmSha256:
-          type: string
-          pattern: ^[0-9a-f]{64}$
-        artifactSetSha256:
-          type: string
-          pattern: ^[0-9a-f]{64}$
-    SeekableBlobSource:
-      type: object
-      additionalProperties: false
-      required:
-        - kind
-        - rangeRequired
-        - url
-        - sha256
-        - sizeBytes
-      properties:
-        kind:
-          type: string
-          enum:
-            - SEEKABLE_BLOB_V1
-        rangeRequired:
-          type: boolean
-          enum:
-            - true
-        url:
-          type: string
-          minLength: 1
-          maxLength: 2048
-        sha256:
-          type: string
-          pattern: ^[0-9a-f]{64}$
-        sizeBytes:
-          type: integer
-          format: int64
-          minimum: 0
-          maximum: 2147483647
-    MkxpRtpArchive:
-      type: object
-      additionalProperties: false
-      required:
-        - declaredName
-        - kind
-        - rangeRequired
-        - url
-        - sha256
-        - sizeBytes
-      properties:
-        declaredName:
-          type: string
-          minLength: 1
-          maxLength: 255
-        kind:
-          type: string
-          enum:
-            - SEEKABLE_BLOB_V1
-        rangeRequired:
-          type: boolean
-          enum:
-            - true
-        url:
-          type: string
-          minLength: 1
-          maxLength: 2048
-        sha256:
-          type: string
-          pattern: ^[0-9a-f]{64}$
-        sizeBytes:
-          type: integer
-          format: int64
-          minimum: 0
-          maximum: 2147483647
-    MkxpAdapterConfig:
-      type: object
-      additionalProperties: false
-      required:
-        - adapterKind
-        - adapterId
-        - core
-        - runtimeBaseUrl
-        - projectArchive
-        - rtpArchives
-        - rgssVersion
-        - stateBufferBytes
-      properties:
-        adapterKind:
-          type: string
-          enum:
-            - MKXP_LIBRETRO_WEB
-        adapterId:
-          type: string
-          enum:
-            - mkxp-libretro-web
-        core:
-          $ref: '#/components/schemas/MkxpCoreArtifact'
-        runtimeBaseUrl:
-          type: string
-          minLength: 1
-          maxLength: 2048
-        projectArchive:
-          $ref: '#/components/schemas/SeekableBlobSource'
-        rtpArchives:
-          type: array
-          maxItems: 3
-          items:
-            $ref: '#/components/schemas/MkxpRtpArchive'
-        rgssVersion:
-          type: integer
-          enum:
-            - 1
-            - 2
-            - 3
-        stateBufferBytes:
-          type: integer
-          enum:
-            - 268435456
-    NativeWebAdapterConfig:
-      type: object
-      additionalProperties: false
-      required:
-        - adapterKind
-        - adapterId
-        - bridgeProfile
-        - uniqueOrigin
-        - bootstrapUrl
-        - bootstrapTicket
-      properties:
-        adapterKind:
-          type: string
-          enum:
-            - NATIVE_WEB
-        adapterId:
-          type: string
-          enum:
-            - native-web
-        bridgeProfile:
-          type: string
-          enum:
-            - RPGMV
-            - RPGMZ
-        uniqueOrigin:
-          type: string
-          format: uri
-          pattern: ^https?://[^/?#]+$
-        bootstrapUrl:
-          type: string
-          format: uri
-          pattern: ^https?://[^/?#]+/__retrom/bootstrap$
-        bootstrapTicket:
-          type: string
-          minLength: 43
-          maxLength: 128
-          pattern: ^[A-Za-z0-9_-]+$
-    RpgAdapterConfig:
-      oneOf:
-        - $ref: '#/components/schemas/EasyRpgAdapterConfig'
-        - $ref: '#/components/schemas/MkxpAdapterConfig'
-        - $ref: '#/components/schemas/NativeWebAdapterConfig'
-      discriminator:
-        propertyName: adapterKind
-        mapping:
-          EASYRPG_WEB: '#/components/schemas/EasyRpgAdapterConfig'
-          MKXP_LIBRETRO_WEB: '#/components/schemas/MkxpAdapterConfig'
-          NATIVE_WEB: '#/components/schemas/NativeWebAdapterConfig'
-    RpgMakerLaunchConfig:
-      type: object
-      additionalProperties: false
-      required:
-        - runtimeFamily
-        - protocolVersion
-        - mode
-        - purpose
-        - launchId
-        - coreId
-        - coreName
-        - gameTitle
-        - platformName
-        - returnTo
-        - warnings
-        - generation
-        - routeKey
-        - artifactId
-        - checkpoint
-        - checkpointAvailability
-        - runtimeValidation
-        - adapter
-      properties:
-        runtimeFamily:
-          type: string
-          enum:
-            - RPGMAKER
-        protocolVersion:
-          type: integer
-          enum:
-            - 1
-        mode:
-          type: string
-          enum:
-            - single
-        purpose:
-          type: string
-          enum:
-            - PRODUCT
-            - RPG_RUNTIME_VALIDATION
-        launchId:
-          type: string
-          format: uuid
-        coreId:
-          $ref: ../components/common.yaml#/components/schemas/RpgCoreID
-        coreName:
-          type: string
-          minLength: 1
-          maxLength: 200
-        gameTitle:
-          type: string
-          minLength: 1
-          maxLength: 200
-        platformName:
-          type: string
-          enum:
-            - RPG Maker
-        returnTo:
-          type: string
-          minLength: 1
-          maxLength: 2048
-        warnings:
-          type: array
-          maxItems: 32
-          items:
-            type: string
-            maxLength: 500
-        generation:
-          $ref: ../components/common.yaml#/components/schemas/RpgGeneration
-        routeKey:
-          type: string
-          pattern: ^RPG[A-Z0-9_]{1,95}$
-        artifactId:
-          type: string
-          format: uuid
-        checkpoint:
-          nullable: true
-          allOf:
-            - $ref: '#/components/schemas/RpgCheckpointRestore'
-        checkpointAvailability:
-          $ref: '#/components/schemas/CheckpointAvailability'
-        runtimeValidation:
-          nullable: true
-          allOf:
-            - $ref: '#/components/schemas/RpgRuntimeValidationResume'
-        adapter:
-          $ref: '#/components/schemas/RpgAdapterConfig'
-    OnsAdapterConfig:
-      type: object
-      additionalProperties: false
-      required:
-        - adapterKind
-        - adapterId
-        - runtimeBaseUrl
-        - projectIndexUrl
-        - scriptEncoding
-        - checkpointSlot
-      properties:
-        adapterKind:
-          type: string
-          enum:
-            - ONS_YURI_WEB
-        adapterId:
-          type: string
-          enum:
-            - ons-yuri-web
-        runtimeBaseUrl:
-          type: string
-          pattern: ^/runtime/retrom-runtime/[^/?#]+/$
-        projectIndexUrl:
-          type: string
-          pattern: ^/runtime/content/project/[0-9a-f]{64}/index\.json$
-        scriptEncoding:
-          type: string
-          enum:
-            - gbk
-            - sjis
-            - utf8
-        checkpointSlot:
-          type: integer
-          enum:
-            - 999
-    OnsCheckpointRestore:
-      type: object
-      additionalProperties: false
-      required:
-        - payloadKind
-        - payloadUrl
-      properties:
-        payloadKind:
-          type: string
-          enum:
-            - ONS_SAVE_BUNDLE_V1
-        payloadUrl:
-          type: string
-          pattern: ^/runtime/launches/[0-9a-f-]{36}/state$
-    OnsLaunchConfig:
-      type: object
-      additionalProperties: false
-      required:
-        - runtimeFamily
-        - protocolVersion
-        - mode
-        - purpose
-        - launchId
-        - sessionId
-        - coreId
-        - coreName
-        - gameTitle
-        - platformName
-        - runtimeVersion
-        - artifactId
-        - returnTo
-        - warnings
-        - adapter
-        - checkpoint
-      properties:
-        runtimeFamily:
-          type: string
-          enum:
-            - ONS
-        protocolVersion:
-          type: integer
-          enum:
-            - 1
-        mode:
-          type: string
-          enum:
-            - single
-        purpose:
-          type: string
-          enum:
-            - PRODUCT
-            - REVIEW_PREVIEW
-        launchId:
-          type: string
-          format: uuid
-        sessionId:
-          type: string
-          format: uuid
-        coreId:
-          type: string
-          enum:
-            - onscripter_yuri
-        coreName:
-          type: string
-          minLength: 1
-          maxLength: 200
-        gameTitle:
-          type: string
-          minLength: 1
-          maxLength: 500
-        platformName:
-          type: string
-          enum:
-            - ONScripter
-        runtimeVersion:
-          type: string
-          minLength: 1
-          maxLength: 160
-        artifactId:
-          type: string
-          format: uuid
-        returnTo:
-          type: string
-          minLength: 1
-          maxLength: 2048
-        warnings:
-          type: array
-          maxItems: 16
-          items:
-            type: string
-            maxLength: 200
-        adapter:
-          $ref: '#/components/schemas/OnsAdapterConfig'
-        checkpoint:
-          nullable: true
-          allOf:
-            - $ref: '#/components/schemas/OnsCheckpointRestore'
-        reviewPreview:
-          $ref: '#/components/schemas/ReviewPreviewConfig'
-    KiriKiriAdapterConfig:
-      type: object
-      additionalProperties: false
-      required:
-        - adapterKind
-        - adapterId
-        - runtimeBaseUrl
-        - projectIndexUrl
-        - startupXp3Path
-        - checkpointSlot
-      properties:
-        adapterKind:
-          type: string
-          enum:
-            - KIRIKIRI2_WEB
-        adapterId:
-          type: string
-          enum:
-            - kirikiri2-web
-        runtimeBaseUrl:
-          type: string
-          pattern: ^/runtime/retrom-runtime/[^/?#]+/$
-        projectIndexUrl:
-          type: string
-          pattern: ^/runtime/content/project/[0-9a-f]{64}/index\.json$
-        startupXp3Path:
-          type: string
-          nullable: true
-          minLength: 1
-          maxLength: 1024
-        checkpointSlot:
-          type: integer
-          enum:
-            - 1999
-    KiriKiriCheckpointRestore:
-      type: object
-      additionalProperties: false
-      required:
-        - payloadKind
-        - payloadUrl
-      properties:
-        payloadKind:
-          type: string
-          enum:
-            - KIRIKIRI_SAVE_BUNDLE_V1
-        payloadUrl:
-          type: string
-          pattern: ^/runtime/launches/[0-9a-f-]{36}/state$
-    KiriKiriLaunchConfig:
-      type: object
-      additionalProperties: false
-      required:
-        - runtimeFamily
-        - protocolVersion
-        - mode
-        - purpose
-        - launchId
-        - sessionId
-        - coreId
-        - coreName
-        - gameTitle
-        - platformName
-        - runtimeVersion
-        - artifactId
-        - returnTo
-        - warnings
-        - adapter
-        - checkpoint
-      properties:
-        runtimeFamily:
-          type: string
-          enum:
-            - KIRIKIRI
-        protocolVersion:
-          type: integer
-          enum:
-            - 1
-        mode:
-          type: string
-          enum:
-            - single
-        purpose:
-          type: string
-          enum:
-            - PRODUCT
-            - REVIEW_PREVIEW
-        launchId:
-          type: string
-          format: uuid
-        sessionId:
-          type: string
-          format: uuid
-        coreId:
-          type: string
-          enum:
-            - kirikiri2
-        coreName:
-          type: string
-          minLength: 1
-          maxLength: 200
-        gameTitle:
-          type: string
-          minLength: 1
-          maxLength: 500
-        platformName:
-          type: string
-          enum:
-            - KiriKiri
-        runtimeVersion:
-          type: string
-          minLength: 1
-          maxLength: 160
-        artifactId:
-          type: string
-          format: uuid
-        returnTo:
-          type: string
-          minLength: 1
-          maxLength: 2048
-        warnings:
-          type: array
-          maxItems: 16
-          items:
-            type: string
-            maxLength: 200
-        adapter:
-          $ref: '#/components/schemas/KiriKiriAdapterConfig'
-        checkpoint:
-          nullable: true
-          allOf:
-            - $ref: '#/components/schemas/KiriKiriCheckpointRestore'
-        reviewPreview:
-          $ref: '#/components/schemas/ReviewPreviewConfig'
-    ButterscotchAdapterConfig:
-      type: object
-      additionalProperties: false
-      required:
-        - adapterKind
-        - adapterId
-        - runtimeBaseUrl
-        - projectIndexUrl
-      properties:
-        adapterKind:
-          type: string
-          enum:
-            - BUTTERSCOTCH_WEB
-        adapterId:
-          type: string
-          enum:
-            - butterscotch-web
-        runtimeBaseUrl:
-          type: string
-          pattern: ^/runtime/retrom-runtime/[^/?#]+/$
-        projectIndexUrl:
-          type: string
-          pattern: ^/runtime/content/project/[0-9a-f]{64}/index\.json$
-    ButterscotchCheckpointRestore:
-      type: object
-      additionalProperties: false
-      required:
-        - payloadKind
-        - payloadUrl
-      properties:
-        payloadKind:
-          type: string
-          enum:
-            - RUNTIME_STATE
-        payloadUrl:
-          type: string
-          pattern: ^/runtime/launches/[0-9a-f-]{36}/state$
-    ButterscotchLaunchConfig:
-      type: object
-      additionalProperties: false
-      required:
-        - runtimeFamily
-        - protocolVersion
-        - mode
-        - purpose
-        - launchId
-        - sessionId
-        - coreId
-        - coreName
-        - gameTitle
-        - platformName
-        - runtimeVersion
-        - artifactId
-        - contentDigest
-        - returnTo
-        - warnings
-        - adapter
-        - checkpoint
-      properties:
-        runtimeFamily:
-          type: string
-          enum:
-            - BUTTERSCOTCH
-        protocolVersion:
-          type: integer
-          enum:
-            - 1
-        mode:
-          type: string
-          enum:
-            - single
-        purpose:
-          type: string
-          enum:
-            - PRODUCT
-            - REVIEW_PREVIEW
-        launchId:
-          type: string
-          format: uuid
-        sessionId:
-          type: string
-          format: uuid
-        coreId:
-          type: string
-          enum:
-            - butterscotch
-        coreName:
-          type: string
-          minLength: 1
-          maxLength: 200
-        gameTitle:
-          type: string
-          minLength: 1
-          maxLength: 500
-        platformName:
-          type: string
-          enum:
-            - GameMaker
-        runtimeVersion:
-          type: string
-          minLength: 1
-          maxLength: 160
-        artifactId:
-          type: string
-          format: uuid
-        contentDigest:
-          type: string
-          pattern: ^[0-9a-f]{64}$
-        returnTo:
-          type: string
-          minLength: 1
-          maxLength: 2048
-        warnings:
-          type: array
-          maxItems: 16
-          items:
-            type: string
-            maxLength: 200
-        adapter:
-          $ref: '#/components/schemas/ButterscotchAdapterConfig'
-        checkpoint:
-          nullable: true
-          allOf:
-            - $ref: '#/components/schemas/ButterscotchCheckpointRestore'
-        reviewPreview:
-          $ref: '#/components/schemas/ReviewPreviewConfig'
-    TyranoScriptAdapterConfig:
-      type: object
-      additionalProperties: false
-      required:
-        - adapterKind
-        - adapterId
-        - bootstrapTicket
-        - cleanupUrl
-        - entryUrl
-        - uniqueOrigin
-      properties:
-        adapterKind:
-          type: string
-          enum:
-            - TYRANOSCRIPT_WEB
-        adapterId:
-          type: string
-          enum:
-            - tyranoscript-web
-        bootstrapTicket:
-          type: string
-          pattern: ^[A-Za-z0-9_-]{43,128}$
-        cleanupUrl:
-          type: string
-          nullable: true
-          format: uri
-        entryUrl:
-          type: string
-          format: uri
-        uniqueOrigin:
-          type: string
-          format: uri
-    TyranoScriptCheckpointRestore:
-      type: object
-      additionalProperties: false
-      required:
-        - payloadKind
-        - payloadUrl
-      properties:
-        payloadKind:
-          type: string
-          enum:
-            - RUNTIME_STATE
-        payloadUrl:
-          type: string
-          pattern: ^/runtime/launches/[0-9a-f-]{36}/state$
-    TyranoScriptLaunchConfig:
-      type: object
-      additionalProperties: false
-      required:
-        - runtimeFamily
-        - protocolVersion
-        - mode
-        - purpose
-        - launchId
-        - sessionId
-        - coreId
-        - coreName
-        - gameTitle
-        - platformName
-        - runtimeVersion
-        - artifactId
-        - contentDigest
-        - returnTo
-        - warnings
-        - adapter
-        - checkpoint
-      properties:
-        runtimeFamily:
-          type: string
-          enum:
-            - TYRANOSCRIPT
-        protocolVersion:
-          type: integer
-          enum:
-            - 1
-        mode:
-          type: string
-          enum:
-            - single
-        purpose:
-          type: string
-          enum:
-            - PRODUCT
-            - REVIEW_PREVIEW
-        launchId:
-          type: string
-          format: uuid
-        sessionId:
-          type: string
-          format: uuid
-        coreId:
-          type: string
-          enum:
-            - tyranoscript
-        coreName:
-          type: string
-          minLength: 1
-          maxLength: 200
-        gameTitle:
-          type: string
-          minLength: 1
-          maxLength: 500
-        platformName:
-          type: string
-          enum:
-            - TyranoScript
-        runtimeVersion:
-          type: string
-          minLength: 1
-          maxLength: 160
-        artifactId:
-          type: string
-          format: uuid
-        contentDigest:
-          type: string
-          pattern: ^[0-9a-f]{64}$
-        returnTo:
-          type: string
-          minLength: 1
-          maxLength: 2048
-        warnings:
-          type: array
-          maxItems: 16
-          items:
-            type: string
-            maxLength: 200
-        adapter:
-          $ref: '#/components/schemas/TyranoScriptAdapterConfig'
-        checkpoint:
-          nullable: true
-          allOf:
-            - $ref: '#/components/schemas/TyranoScriptCheckpointRestore'
-        reviewPreview:
-          $ref: '#/components/schemas/ReviewPreviewConfig'
-    WASM4AdapterConfig:
-      type: object
-      additionalProperties: false
-      required:
-        - adapterKind
-        - adapterId
-        - cartUrl
-        - runtimeBaseUrl
-      properties:
-        adapterKind:
-          type: string
-          enum:
-            - WASM4_WEB
-        adapterId:
-          type: string
-          enum:
-            - wasm4-web
-        cartUrl:
-          type: string
-          pattern: ^/runtime/content/game/[0-9a-f]{64}/[^/?#]+$
-        runtimeBaseUrl:
-          type: string
-          pattern: ^/runtime/retrom-runtime/[^/?#]+/$
-    WASM4CheckpointRestore:
-      type: object
-      additionalProperties: false
-      required:
-        - payloadKind
-        - payloadUrl
-      properties:
-        payloadKind:
-          type: string
-          enum:
-            - RUNTIME_STATE
-        payloadUrl:
-          type: string
-          pattern: ^/runtime/launches/[0-9a-f-]{36}/state$
-    WASM4LaunchConfig:
-      type: object
-      additionalProperties: false
-      required:
-        - runtimeFamily
-        - protocolVersion
-        - mode
-        - purpose
-        - launchId
-        - sessionId
-        - coreId
-        - coreName
-        - gameTitle
-        - platformName
-        - runtimeVersion
-        - artifactId
-        - contentDigest
-        - cartSizeBytes
-        - returnTo
-        - warnings
-        - adapter
-        - checkpoint
-      properties:
-        runtimeFamily:
-          type: string
-          enum:
-            - WASM4
-        protocolVersion:
-          type: integer
-          enum:
-            - 1
-        mode:
-          type: string
-          enum:
-            - single
-        purpose:
-          type: string
-          enum:
-            - PRODUCT
-            - REVIEW_PREVIEW
-        launchId:
-          type: string
-          format: uuid
-        sessionId:
-          type: string
-          format: uuid
-        coreId:
-          type: string
-          enum:
-            - wasm4
-        coreName:
-          type: string
-          minLength: 1
-          maxLength: 200
-        gameTitle:
-          type: string
-          minLength: 1
-          maxLength: 500
-        platformName:
-          type: string
-          enum:
-            - WASM-4
-        runtimeVersion:
-          type: string
-          minLength: 1
-          maxLength: 160
-        artifactId:
-          type: string
-          format: uuid
-        contentDigest:
-          type: string
-          pattern: ^[0-9a-f]{64}$
-        cartSizeBytes:
-          type: integer
-          format: int64
-          minimum: 1
-          maximum: 65536
-        returnTo:
-          type: string
-          minLength: 1
-          maxLength: 2048
-        warnings:
-          type: array
-          maxItems: 16
-          items:
-            type: string
-            maxLength: 200
-        adapter:
-          $ref: '#/components/schemas/WASM4AdapterConfig'
-        checkpoint:
-          nullable: true
-          allOf:
-            - $ref: '#/components/schemas/WASM4CheckpointRestore'
-        reviewPreview:
-          $ref: '#/components/schemas/ReviewPreviewConfig'
-    RpgRuntimeGatePhase:
-      type: string
-      enum:
-        - BEGIN
-        - PASS
-        - FAIL
-    RpgMakerGateEventRequest:
-      type: object
-      additionalProperties: false
-      required:
-        - sequence
-        - eventId
-        - gate
-        - phase
-        - observedAtMs
-        - evidence
-      properties:
-        sequence:
-          type: integer
-          format: int64
-          minimum: 1
-        eventId:
-          type: string
-          format: uuid
-        gate:
-          $ref: ../components/common.yaml#/components/schemas/RpgRuntimeGate
-        phase:
-          $ref: '#/components/schemas/RpgRuntimeGatePhase'
-        observedAtMs:
-          type: integer
-          format: int64
-          minimum: 0
-          maximum: 253402300799999
-        evidence:
-          $ref: ../components/common.yaml#/components/schemas/RpgRuntimeGateEvidence
-    RpgMakerGateEventAccepted:
-      type: object
-      additionalProperties: false
-      required:
-        - sequence
-        - eventId
-        - validationState
-        - idempotentReplay
-      properties:
-        sequence:
-          type: integer
-          format: int64
-          minimum: 1
-        eventId:
-          type: string
-          format: uuid
-        validationState:
-          $ref: ../components/common.yaml#/components/schemas/RpgRuntimeValidationState
-        idempotentReplay:
-          type: boolean
-    RpgRuntimeValidationResume:
-      type: object
-      additionalProperties: false
-      required:
-        - validationId
-        - state
-        - originalLaunchId
-        - restoreLaunchId
-        - lastGateSequence
-        - machineGates
-        - checkpointEvidence
-        - restoreScreenshotUploaded
-      properties:
-        validationId:
-          type: string
-          format: uuid
-        state:
-          $ref: ../components/common.yaml#/components/schemas/RpgRuntimeValidationState
-        originalLaunchId:
-          type: string
-          format: uuid
-        restoreLaunchId:
-          type: string
-          format: uuid
-          nullable: true
-        lastGateSequence:
-          type: integer
-          format: int64
-          minimum: 0
-          maximum: 28
-        machineGates:
-          type: array
-          minItems: 14
-          maxItems: 14
-          description: Ordered server-authoritative gate state used to resume a runtime-authorized page reload.
-          items:
-            $ref: ../components/common.yaml#/components/schemas/RpgRuntimeMachineGate
-        checkpointEvidence:
-          nullable: true
-          allOf:
-            - $ref: ../components/common.yaml#/components/schemas/RpgCheckpointGateEvidence
-        restoreScreenshotUploaded:
-          type: boolean
     ProductSaveStateCreated:
       type: object
       additionalProperties: false
       required:
         - resourceKind
         - saveStateId
-        - payloadKind
-        - nativeProfile
-        - resumeSlot
+        - checkpointFormat
         - screenshotUrl
         - createdAtMs
       properties:
@@ -1774,18 +445,8 @@ components:
         saveStateId:
           type: string
           format: uuid
-        payloadKind:
-          $ref: ../components/common.yaml#/components/schemas/CheckpointPayloadKind
-        nativeProfile:
-          nullable: true
-          allOf:
-            - $ref: '#/components/schemas/NativeCheckpointProfile'
-        resumeSlot:
-          type: integer
-          format: int64
-          minimum: 1
-          maximum: 2147483647
-          nullable: true
+        checkpointFormat:
+          $ref: ../components/common.yaml#/components/schemas/CheckpointFormat
         screenshotUrl:
           type: string
           nullable: true
@@ -1794,46 +455,24 @@ components:
           type: integer
           format: int64
           minimum: 0
-    ValidationCheckpointCreated:
+    ReviewPreviewCheckpointCreated:
       type: object
       additionalProperties: false
       required:
         - resourceKind
-        - validationId
-        - payloadKind
-        - nativeProfile
-        - resumeSlot
-        - sizeBytes
-        - sha256
+        - previewId
+        - checkpointFormat
         - createdAtMs
       properties:
         resourceKind:
           type: string
           enum:
-            - RPG_RUNTIME_VALIDATION_CHECKPOINT
-        validationId:
+            - REVIEW_PREVIEW_CHECKPOINT
+        previewId:
           type: string
           format: uuid
-        payloadKind:
-          $ref: ../components/common.yaml#/components/schemas/CheckpointPayloadKind
-        nativeProfile:
-          nullable: true
-          allOf:
-            - $ref: '#/components/schemas/NativeCheckpointProfile'
-        resumeSlot:
-          type: integer
-          format: int64
-          minimum: 1
-          maximum: 2147483647
-          nullable: true
-        sizeBytes:
-          type: integer
-          format: int64
-          minimum: 1
-          maximum: 268435456
-        sha256:
-          type: string
-          pattern: ^[0-9a-f]{64}$
+        checkpointFormat:
+          $ref: ../components/common.yaml#/components/schemas/CheckpointFormat
         createdAtMs:
           type: integer
           format: int64
@@ -1841,143 +480,23 @@ components:
     RuntimeCheckpointCreated:
       oneOf:
         - $ref: '#/components/schemas/ProductSaveStateCreated'
-        - $ref: '#/components/schemas/ValidationCheckpointCreated'
+        - $ref: '#/components/schemas/ReviewPreviewCheckpointCreated'
       discriminator:
         propertyName: resourceKind
         mapping:
           SAVE_STATE: '#/components/schemas/ProductSaveStateCreated'
-          RPG_RUNTIME_VALIDATION_CHECKPOINT: '#/components/schemas/ValidationCheckpointCreated'
+          REVIEW_PREVIEW_CHECKPOINT: '#/components/schemas/ReviewPreviewCheckpointCreated'
     CheckpointStatus:
       type: object
       additionalProperties: false
       required:
-        - payloadKind
+        - checkpointFormat
         - availability
       properties:
-        payloadKind:
-          $ref: ../components/common.yaml#/components/schemas/CheckpointPayloadKind
+        checkpointFormat:
+          $ref: ../components/common.yaml#/components/schemas/CheckpointFormat
         availability:
           $ref: '#/components/schemas/CheckpointAvailability'
-    NetplayLaunchConfig:
-      type: object
-      additionalProperties: false
-      required:
-        - roomId
-        - sessionId
-        - playerNo
-        - netplayProfile
-        - runtimeSocketUrl
-      properties:
-        roomId:
-          type: string
-          format: uuid
-        sessionId:
-          type: string
-          format: uuid
-        playerNo:
-          type: integer
-          minimum: 1
-          maximum: 4
-        netplayProfile:
-          $ref: '#/components/schemas/NetplayCanonicalProfile'
-        runtimeSocketUrl:
-          type: string
-          pattern: ^/runtime/netplay/rooms/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/socket$
-    NetplayCanonicalProfile:
-      type: object
-      additionalProperties: false
-      required:
-        - schemaVersion
-        - protocolVersion
-        - profileId
-        - emulatorjsVersion
-        - playerAdapterId
-        - netplayAdapterId
-        - coreArtifactId
-        - coreArtifactSha256
-        - gameVariantRevisionId
-        - sourceManifestDigest
-        - dependencySnapshotDigest
-        - defaultCoreOptions
-        - controlCount
-        - maxPlayers
-        - maxPredictionFrames
-        - maxRollbackFrames
-        - checkpointEveryFrames
-        - canonicalHistoryFrames
-        - maxStateBytes
-      properties:
-        schemaVersion:
-          type: integer
-          enum:
-            - 1
-        protocolVersion:
-          type: string
-          enum:
-            - retrom-netplay-v2
-        profileId:
-          type: string
-          pattern: ^[a-z0-9-]{1,64}$
-        emulatorjsVersion:
-          type: string
-          enum:
-            - 4.2.3
-        playerAdapterId:
-          type: string
-          enum:
-            - ejs-4.2.3-v2
-        netplayAdapterId:
-          type: string
-          enum:
-            - ejs-netplay-4.2.3-v1
-        coreArtifactId:
-          type: string
-          format: uuid
-        coreArtifactSha256:
-          type: string
-          pattern: ^[0-9a-f]{64}$
-        gameVariantRevisionId:
-          type: string
-          format: uuid
-        sourceManifestDigest:
-          type: string
-          pattern: ^[0-9a-f]{64}$
-        dependencySnapshotDigest:
-          type: string
-          pattern: ^[0-9a-f]{64}$
-        defaultCoreOptions:
-          type: object
-          maxProperties: 32
-          additionalProperties:
-            type: string
-        controlCount:
-          type: integer
-          enum:
-            - 24
-        maxPlayers:
-          type: integer
-          minimum: 2
-          maximum: 4
-        maxPredictionFrames:
-          type: integer
-          minimum: 0
-          maximum: 8
-        maxRollbackFrames:
-          type: integer
-          enum:
-            - 120
-        checkpointEveryFrames:
-          type: integer
-          enum:
-            - 120
-        canonicalHistoryFrames:
-          type: integer
-          enum:
-            - 600
-        maxStateBytes:
-          type: integer
-          enum:
-            - 1048576
     PlayEventRequest:
       type: object
       additionalProperties: false
@@ -2048,12 +567,6 @@ components:
           maximum: 64
           nullable: true
   requestBodies:
-    RpgMakerGateEvent:
-      required: true
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/RpgMakerGateEventRequest'
     PlayEvent:
       required: true
       content:
@@ -2068,7 +581,7 @@ components:
             $ref: '#/components/schemas/MultiDiscPlayerEventRequest'
   responses:
     RuntimeCheckpointCreateResponse:
-      description: Product save-state or temporary RPG runtime-validation checkpoint
+      description: Product save-state or temporary ordinary review-preview checkpoint
       content:
         application/json:
           schema:
@@ -2079,18 +592,6 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/CheckpointStatus'
-    RpgMakerGateEventResponse:
-      description: Ordered validation gate accepted or replayed idempotently
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/RpgMakerGateEventAccepted'
-    RpgTimeoutResponse:
-      description: RPG_RUNTIME_TIMEOUT (408)
-      content:
-        application/json:
-          schema:
-            $ref: ../components/common.yaml#/components/schemas/RpgErrorEnvelope
     RequestTooLargeResponse:
       description: REQUEST_TOO_LARGE (413); this generic transport limit is not an RPG detector result
       content:
@@ -2098,7 +599,7 @@ components:
           schema:
             $ref: ../components/common.yaml#/components/schemas/ErrorEnvelope
     LaunchConfigResponse:
-      description: Immutable launch configuration derived from the locked core artifact and dependencies
+      description: Exact Launch Envelope V1 derived from an immutable Provider Target and authorized resources
       content:
         application/json:
           schema:

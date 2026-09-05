@@ -55,7 +55,7 @@ export function ReviewValidationGuidance({ status, compatibilityCode, snapshot }
   }
 
   if (compatibilityCode === "ARCADE_DAT_UNAVAILABLE") {
-    return <FeedbackBanner tone="bad" marker={false}><div className="review-validation-guidance"><strong>{title}</strong><p>当前核心固定的内置 Arcade DAT 尚未准备完成。请检查服务的依赖准备和 Ready 状态；恢复后返回本页重新运行检查。</p><code>make prepare-deps</code></div></FeedbackBanner>;
+    return <FeedbackBanner tone="bad" marker={false}><div className="review-validation-guidance"><strong>{title}</strong><p>当前核心固定的内置 Arcade DAT 尚未准备完成。请检查服务的依赖准备和 Ready 状态；恢复后刷新本页查看当前检查结果。</p><code>make prepare-deps</code></div></FeedbackBanner>;
   }
 
   const scrollable = missingEntries.length + mismatchedEntries.length > 8;
@@ -78,7 +78,7 @@ function MissingBIOSGuidance({ compatibilityCode, missingArcadeArchives, missing
   const query = logicalNames[0];
   const suffix = query ? `&q=${encodeURIComponent(query)}` : "";
   const href = `/admin/bios?scope=FULL_CATALOG&status=MISSING${suffix}`;
-  return <FeedbackBanner tone="bad" marker={false}><div className="review-validation-guidance" tabIndex={scrollable ? 0 : undefined} role={scrollable ? "region" : undefined} aria-label={scrollable ? "运行检查错误详情，可滚动查看" : undefined}><strong>{title}</strong><p>发布已暂停。安装下面准确列出的必需文件或街机依赖包后返回本页，点击“重新运行检查”，无需重新导入游戏。</p>{logicalNames.length ? <ul>{logicalNames.map((logicalName) => <li key={logicalName}><code>{logicalName}</code></li>)}</ul> : <code>{compatibilityCode}</code>}<Link className="button secondary compact" href={href}>安装所需 BIOS 文件</Link></div></FeedbackBanner>;
+  return <FeedbackBanner tone="bad" marker={false}><div className="review-validation-guidance" tabIndex={scrollable ? 0 : undefined} role={scrollable ? "region" : undefined} aria-label={scrollable ? "运行检查错误详情，可滚动查看" : undefined}><strong>{title}</strong><p>发布已暂停。安装下面准确列出的必需文件或街机依赖包后返回并刷新本页，无需重新导入游戏。</p>{logicalNames.length ? <ul>{logicalNames.map((logicalName) => <li key={logicalName}><code>{logicalName}</code></li>)}</ul> : <code>{compatibilityCode}</code>}<Link className="button secondary compact" href={href}>安装所需 BIOS 文件</Link></div></FeedbackBanner>;
 }
 
 function DependencyGuidance({ compatibilityCode, mismatchedEntries, missingEntries, scrollable, status, title }: {
@@ -91,5 +91,5 @@ function DependencyGuidance({ compatibilityCode, mismatchedEntries, missingEntri
 }) {
   const pending = status === "PENDING" || compatibilityCode === "NEEDS_VALIDATION";
   const hasEntries = missingEntries.length > 0 || mismatchedEntries.length > 0;
-  return <FeedbackBanner tone="bad" marker={false}><div className="review-validation-guidance" tabIndex={scrollable ? 0 : undefined} role={scrollable ? "region" : undefined} aria-label={scrollable ? "运行检查错误详情，可滚动查看" : undefined}><strong>{title}</strong><p>{pending ? "点击“重新运行检查”获取最新结论。" : "发布已暂停。修正下列运行依赖后重新运行检查；如果目录选择错误，也可以返回任务进度重新配置。"}</p>{hasEntries ? <ul>{missingEntries.map((entry) => <li key={`missing-${entry}`}><code>{entry}</code> 缺失</li>)}{mismatchedEntries.map((entry) => <li key={`mismatch-${entry}`}><code>{entry}</code> 不匹配</li>)}</ul> : <code>{compatibilityCode || status}</code>}</div></FeedbackBanner>;
+  return <FeedbackBanner tone="bad" marker={false}><div className="review-validation-guidance" tabIndex={scrollable ? 0 : undefined} role={scrollable ? "region" : undefined} aria-label={scrollable ? "运行检查错误详情，可滚动查看" : undefined}><strong>{title}</strong><p>{pending ? "刷新页面获取当前检查结论。" : "发布已暂停。修正下列运行依赖后刷新页面；如果目录选择错误，也可以返回任务进度重新配置。"}</p>{hasEntries ? <ul>{missingEntries.map((entry) => <li key={`missing-${entry}`}><code>{entry}</code> 缺失</li>)}{mismatchedEntries.map((entry) => <li key={`mismatch-${entry}`}><code>{entry}</code> 不匹配</li>)}</ul> : <code>{compatibilityCode || status}</code>}</div></FeedbackBanner>;
 }

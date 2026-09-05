@@ -39,9 +39,12 @@ test("same-origin proxy applies fresh nonce and isolation headers", async ({ pag
     expect(first.csp).toContain("'unsafe-eval'");
   }
 
+  const providerDigest = process.env.RETROM_E2E_EMULATORJS_BUNDLE_SHA256 ?? "";
+  expect(providerDigest).toMatch(/^[0-9a-f]{64}$/);
+  const providerModule = `/runtime/providers/emulatorjs/${providerDigest}/client.mjs`;
   for (const path of [
     "/api/v1/auth/context",
-    "/runtime/emulatorjs/4.2.3/data/loader.js",
+    providerModule,
   ]) {
     const response = await request.get(path);
     expect(response.ok()).toBe(true);
@@ -50,7 +53,7 @@ test("same-origin proxy applies fresh nonce and isolation headers", async ({ pag
     expect(response.headers()["x-content-type-options"]).toBe("nosniff");
     expect(response.headers()["referrer-policy"]).toBe("no-referrer");
   }
-  const runtime = await request.get("/runtime/emulatorjs/4.2.3/data/loader.js");
+  const runtime = await request.get(providerModule);
   expect(runtime.headers()["cross-origin-resource-policy"]).toBe("same-origin");
 
   const internalOrigin = process.env.RETROM_E2E_INTERNAL_ORIGIN;

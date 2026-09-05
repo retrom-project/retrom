@@ -79,18 +79,18 @@ func seedProviderRunningScrape(
 		args  []any
 	}{
 		{`PRAGMA defer_foreign_keys=ON`, nil},
-		{`INSERT INTO game_metadata_revisions(id,game_id,title,title_initial,description,developer,publisher,genre,source_kind,created_at_ms)
-VALUES('provider-meta','provider-game','Provider game','P','','','','','ADMIN_EDIT',?)`, []any{now.UnixMilli()}},
-		{`INSERT INTO game_content_revisions(id,game_id,content_kind,source_kind,source_ref_id,source_manifest_json,source_manifest_digest,created_at_ms)
-VALUES('provider-content','provider-game','SINGLE_FILE','ADMIN_REPLACE','provider-source','{}',?,?)`, []any{digest64("1"), now.UnixMilli()}},
-		{`INSERT INTO games(id,platform_instance_id,status,current_metadata_revision_id,current_content_revision_id,search_text,version,created_at_ms,updated_at_ms)
-VALUES('provider-game',?,'PUBLISHED','provider-meta','provider-content','provider game',1,?,?)`, []any{instanceID, now.UnixMilli(), now.UnixMilli()}},
+		{`INSERT INTO games(
+id,platform_instance_id,title,title_initial,description,developer,publisher,genre,
+metadata_source_kind,content_kind,content_source_kind,content_source_ref_id,source_manifest_json,
+source_manifest_digest,status,search_text,version,created_at_ms,updated_at_ms)
+VALUES('provider-game',?,'Provider game','P','','','','','ADMIN_EDIT','SINGLE_FILE','ADMIN_REPLACE',
+'provider-source','{}',?,'PUBLISHED','provider game',1,?,?)`, []any{instanceID, digest64("1"), now.UnixMilli(), now.UnixMilli()}},
 		{`INSERT INTO jobs(id,scope_type,scope_id,kind,dedupe_key,execution_no,payload_json,cancellable,state,attempt_count,max_attempts,version,available_at_ms,execution_started_at_ms,execution_deadline_at_ms,leased_until_ms,heartbeat_at_ms,worker_id,created_at_ms,updated_at_ms)
 VALUES('provider-job','GAME','provider-game','METADATA_SCRAPE',?,1,'{}',1,'RUNNING',1,4,1,?,?,?,?,?,'fixture',?,?)`, []any{digest64("2"), now.UnixMilli(), now.UnixMilli(), now.Add(time.Minute).UnixMilli(), now.Add(time.Minute).UnixMilli(), now.UnixMilli(), now.UnixMilli(), now.UnixMilli()}},
-		{`INSERT INTO metadata_scrape_runs(id,game_id,game_content_revision_id,job_id,provider,provider_config_version,state,version,created_at_ms,updated_at_ms)
-VALUES('provider-run','provider-game','provider-content','provider-job','HASHEOUS',1,'RUNNING',1,?,?)`, []any{now.UnixMilli(), now.UnixMilli()}},
+		{`INSERT INTO metadata_scrape_runs(id,game_id,job_id,provider,provider_config_version,state,version,created_at_ms,updated_at_ms)
+VALUES('provider-run','provider-game','provider-job','HASHEOUS',1,'RUNNING',1,?,?)`, []any{now.UnixMilli(), now.UnixMilli()}},
 		{`INSERT INTO content_hash_evidence(id,scrape_run_id,profile,blob_id,sha256,query_order,created_at_ms)
-VALUES('provider-evidence','provider-run','RAW_FILE_V1','provider-busy',?,0,?)`, []any{busy.SHA256, now.UnixMilli()}},
+VALUES('provider-evidence','provider-run','RAW_FILE','provider-busy',?,0,?)`, []any{busy.SHA256, now.UnixMilli()}},
 		{`INSERT INTO metadata_provider_responses(id,provider,request_digest,http_status,outcome,raw_response_blob_id,raw_payload_state,fetched_at_ms,expires_at_ms)
 VALUES('response-free','HASHEOUS',?,200,'HIT','provider-free','RETAINED',?,?)`, []any{free.SHA256, now.Add(-time.Hour).UnixMilli(), now.Add(-time.Minute).UnixMilli()}},
 		{`INSERT INTO metadata_provider_responses(id,provider,request_digest,http_status,outcome,raw_response_blob_id,raw_payload_state,fetched_at_ms,expires_at_ms)

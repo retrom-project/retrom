@@ -285,7 +285,7 @@ sha256,
 query_order,
 created_at_ms) VALUES(?,
 ?,
-'SINGLE_ARCHIVE_MEMBER_V1',
+'SINGLE_ARCHIVE_MEMBER',
 NULL,
 ?,
 ?,
@@ -322,7 +322,7 @@ sha256,
 query_order,
 created_at_ms) VALUES(?,
 ?,
-'RAW_FILE_V1',
+'RAW_FILE',
 ?,
 ?,
 ?,
@@ -423,17 +423,15 @@ func (service *Service) scheduleGameArcadeEvidence(
 ) error {
 	var datID, dependencySnapshot string
 	err := transaction.QueryRowContext(ctx, `
-SELECT r.dat_version_id,
-r.dependency_snapshot_json
+SELECT v.dat_version_id,
+v.dependency_snapshot_json
 FROM games g
 JOIN platform_instances p ON p.id=g.platform_instance_id
 JOIN game_variants v ON v.game_id=g.id
 AND v.core_id=p.default_core_id
-JOIN game_variant_revisions r ON r.id=v.current_revision_id
-AND r.game_content_revision_id=?
 WHERE g.id=?
-AND r.dat_version_id IS NOT NULL
-`, contentID, gameID).Scan(&datID, &dependencySnapshot)
+AND v.dat_version_id IS NOT NULL
+`, gameID).Scan(&datID, &dependencySnapshot)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil
 	}
@@ -453,12 +451,12 @@ d.name,
 d.size_bytes,
 d.crc32,
 d.sha1
-FROM game_content_files f
+FROM game_files f
 JOIN archive_entries e ON e.archive_blob_id=f.blob_id
 JOIN dat_rom_entries d ON d.dat_version_id=?
 AND d.machine_name=?
 AND d.name=e.normalized_path
-WHERE f.game_content_revision_id=?
+WHERE f.game_id=?
 AND f.role='CONTENT'
 AND COALESCE(d.status,
 'GOOD')!='NODUMP'
@@ -540,7 +538,7 @@ sha256,
 query_order,
 created_at_ms) VALUES(?,
 ?,
-'ARCADE_DAT_ENTRIES_V1',
+'ARCADE_DAT_ENTRIES',
 NULL,
 ?,
 ?,

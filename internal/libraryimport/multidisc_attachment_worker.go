@@ -155,7 +155,8 @@ func validMultiDiscAttachmentInput(input multiDiscAttachmentInput) bool {
 	return input.SchemaVersion == 1 && input.AttachmentID != "" && input.ImportItemID != "" &&
 		input.RequestedByUserID != "" && input.MaxDiscs >= multidisc.MinDiscs &&
 		input.MaxDiscs <= multidisc.MaxDiscs && input.MaxTotalBytes >= 1 &&
-		len(input.CompatibilityDigest) == sha256.Size*2
+		input.ProviderID != "" && input.TargetID != "" &&
+		len(input.ContentPolicyDigest) == sha256.Size*2
 }
 
 func (service *Service) readAttachedMultiDiscBase(

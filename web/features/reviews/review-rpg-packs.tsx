@@ -54,14 +54,12 @@ export function RPGPackControls({ value, disabled, onChange }: {
     onChange({
       ...value,
       runtimePackSelections: next.sort((left, right) => left.slot - right.slot),
-      runtimeValidationCurrent: false,
     });
   };
   const setOverride = (override: boolean) => onChange({
     ...value,
     selfContainedOverride: override,
     runtimePackSelections: override ? [] : value.runtimePackSelections,
-    runtimeValidationCurrent: false,
   });
   if (!supportsOverride && !needsCatalog) {return null;}
   return <section className="review-rpg-pack-controls" aria-labelledby="review-rpg-packs-title">

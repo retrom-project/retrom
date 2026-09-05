@@ -1,27 +1,25 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://retrom.invalid/schemas/netplay-manifest-v4.json",
-  "title": "Retrom netplay core profile allowlist manifest v4",
+  "$id": "https://retrom.invalid/schemas/netplay-manifest-v5.json",
+  "title": "Retrom Provider Target netplay profile manifest v5",
   "type": "object",
   "additionalProperties": false,
   "required": ["schemaVersion", "protocol", "profiles"],
   "properties": {
-    "schemaVersion": { "const": 4 },
+    "schemaVersion": {"const": 5},
     "protocol": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["version", "playerAdapterId", "netplayAdapterId", "controlCount", "checkpointEveryFrames", "maxPredictionFrames", "maxRollbackFrames", "canonicalHistoryFrames", "maxStateBytes", "allowedContentKinds"],
+      "required": ["version", "controlCount", "checkpointEveryFrames", "maxPredictionFrames", "maxRollbackFrames", "canonicalHistoryFrames", "maxStateBytes", "allowedContentKinds"],
       "properties": {
-        "version": { "const": "retrom-netplay-v2" },
-        "playerAdapterId": { "const": "ejs-4.2.3-v2" },
-        "netplayAdapterId": { "const": "ejs-netplay-4.2.3-v1" },
-        "controlCount": { "const": 24 },
-        "checkpointEveryFrames": { "const": 120 },
-        "maxPredictionFrames": { "const": 8 },
-        "maxRollbackFrames": { "const": 120 },
-        "canonicalHistoryFrames": { "const": 600 },
-        "maxStateBytes": { "const": 1048576 },
-        "allowedContentKinds": { "const": ["SINGLE_FILE"] }
+        "version": {"const": "retrom-netplay-v2"},
+        "controlCount": {"const": 24},
+        "checkpointEveryFrames": {"const": 120},
+        "maxPredictionFrames": {"const": 8},
+        "maxRollbackFrames": {"const": 120},
+        "canonicalHistoryFrames": {"const": 600},
+        "maxStateBytes": {"const": 1048576},
+        "allowedContentKinds": {"const": ["SINGLE_FILE"]}
       }
     },
     "profiles": {
@@ -30,21 +28,15 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["id", "emulatorjsVersion", "coreId", "platformIds", "coreArtifactSha256", "maxPlayers", "maxPredictionFrames"],
+        "required": ["id", "providerId", "targetId", "coreId", "platformIds", "maxPlayers", "maxPredictionFrames"],
         "properties": {
-          "id": { "type": "string", "pattern": "^[a-z0-9-]{1,64}$" },
-          "emulatorjsVersion": { "const": "4.2.3" },
-          "coreId": { "enum": ["fceumm", "fbneo", "snes9x", "mame2003", "mame2003_plus", "fbalpha2012_cps1", "fbalpha2012_cps2", "nestopia"] },
-          "platformIds": {
-            "type": "array",
-            "minItems": 1,
-            "maxItems": 8,
-            "uniqueItems": true,
-            "items": { "type": "string", "pattern": "^[a-z0-9-]{1,64}$" }
-          },
-          "coreArtifactSha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
-          "maxPlayers": { "type": "integer", "minimum": 2, "maximum": 4 },
-          "maxPredictionFrames": { "type": "integer", "minimum": 0, "maximum": 8 }
+          "id": {"type": "string", "pattern": "^[a-z0-9-]{1,64}$"},
+          "providerId": {"const": "emulatorjs"},
+          "targetId": {"type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"},
+          "coreId": {"type": "string", "pattern": "^[a-z0-9_]{1,64}$"},
+          "platformIds": {"type": "array", "minItems": 1, "maxItems": 8, "uniqueItems": true, "items": {"type": "string", "pattern": "^[a-z0-9-]{1,64}$"}},
+          "maxPlayers": {"type": "integer", "minimum": 2, "maximum": 4},
+          "maxPredictionFrames": {"type": "integer", "minimum": 0, "maximum": 8}
         }
       }
     }

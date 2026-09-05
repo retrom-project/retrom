@@ -1,6 +1,7 @@
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { initialPlayerOrientationState } from "./orientation";
+import type {LaunchEnvelopeV1} from "./runtime/contract";
 import {
   createSaveForm,
   usePlayerSession,
@@ -10,10 +11,30 @@ import {
 
 afterEach(() => {
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
   vi.useRealTimers();
 });
 
 describe("Player page exit protection", () => {
+  it("finishes a review preview through ordinary events after queued saves, then closes its popup", async () => {
+    const order: string[] = [];
+    let saved!: () => void;
+    vi.stubGlobal("opener", {});
+    vi.spyOn(window, "close").mockImplementation(() => {order.push("close"); vi.stubGlobal("closed", true);});
+    vi.spyOn(globalThis, "fetch").mockImplementation(async () => {order.push("finish"); return new Response("{}");});
+    const params = sessionParams();
+    params.envelope.current = {session: {purpose: "REVIEW_PREVIEW"}} as LaunchEnvelopeV1;
+    params.started.current = true;
+    params.saveUploadQueue.current = new Promise<void>((resolve) => {saved = resolve;});
+    const {result} = renderHook(() => usePlayerSession(params));
+    const exiting = result.current.exit();
+    await Promise.resolve();
+    expect(order).toEqual([]);
+    saved();
+    await act(() => exiting);
+    expect(order).toEqual(["finish", "close"]);
+    expect(params.finishing.current).toBe(true);
+  });
   it("blocks accidental unload only while a started session remains active", () => {
     const params = sessionParams();
     const { unmount } = renderHook(() => usePlayerSession(params));
@@ -114,10 +135,8 @@ describe("manual save multipart", () => {
   it("keeps a valid checkpoint when its best-effort screenshot exceeds the server limit", () => {
     const form = createSaveForm({
       screenshot: new Blob([new Uint8Array(10 * 1024 * 1024 + 1)], { type: "image/png" }),
-      format: "png",
-      state: Uint8Array.of(1, 2, 3),
-      payloadKind: "KIRIKIRI_SAVE_BUNDLE_V1",
-    }, undefined);
+      checkpoint: {format: "fixture-v1", bytes: Uint8Array.of(1, 2, 3), metadata: null},
+    }, {screenshot: new Blob([new Uint8Array(10 * 1024 * 1024 + 1)], {type: "image/png"}), format: "png"}, undefined);
 
     expect(form.get("payload")).toBeInstanceOf(Blob);
     expect(form.get("screenshot")).toBeNull();
@@ -131,7 +150,8 @@ function dispatchBeforeUnload() {
 function sessionParams(): PlayerSessionParams {
   return {
     launchId: "launch-1",
-    emulator: { current: undefined },
+    runtime: {current: null},
+    envelope: {current: null},
     playerMode: { current: "single" },
     sequence: { current: 0 },
     started: { current: false },
@@ -139,7 +159,6 @@ function sessionParams(): PlayerSessionParams {
     heartbeat: { current: null },
     playEventQueue: { current: Promise.resolve() },
     saveUploadQueue: { current: Promise.resolve() },
-    discSetRef: { current: null },
     orientationStateRef: { current: initialPlayerOrientationState },
     returnTo: { current: "/library" },
     netplayController: { current: null },

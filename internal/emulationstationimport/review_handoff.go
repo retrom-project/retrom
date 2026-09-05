@@ -37,8 +37,8 @@ func (service *Service) prepareReviewItem(ctx context.Context, unit work, root R
 		return
 	}
 	mode := contentcapability.ModeStandard
-	if item.ContentKind == contentcapability.ModeMultiDiscM3UV1 {
-		mode = contentcapability.ModeMultiDiscM3UV1
+	if item.ContentKind == contentcapability.ModeMultiDisc {
+		mode = contentcapability.ModeMultiDisc
 	}
 	result, err := service.importer.CreateServerSourceOnce(
 		ctx,

@@ -103,14 +103,15 @@ func run(ctx context.Context, databasePath, fixtureID string) error {
 		return err
 	}
 	defer func() { cleanup.Error("close acceptance database", database.Close()) }()
-	artifactID, datID, err := installSmokeDAT(ctx, database, fixture.CoreID, datPath, digestHex, catalog)
+	providerID, targetID, datID, err := installSmokeDAT(ctx, database, fixture.CoreID, datPath, digestHex, catalog)
 	if err != nil {
 		return err
 	}
 	if err := json.NewEncoder(os.Stdout).Encode(map[string]any{
-		"artifactId":   artifactID,
 		"coreId":       fixture.CoreID,
 		"datVersionId": datID,
+		"providerId":   providerID,
+		"targetId":     targetID,
 		"sha256":       digestHex,
 		"source":       "BUILTIN",
 		"testOnly":     true,
@@ -196,59 +197,57 @@ func installSmokeDAT(
 	database *sql.DB,
 	coreID, datPath, digestHex string,
 	catalog arcadedat.Catalog,
-) (string, string, error) {
-	var artifactID string
+) (string, string, string, error) {
+	var providerID, targetID string
 	if err := database.QueryRowContext(ctx, `
-SELECT id FROM core_artifacts WHERE core_id=? AND selected_for_new_bindings=1
-`, coreID).Scan(&artifactID); err != nil {
-		return "", "", fmt.Errorf("find selected core artifact: %w", err)
+SELECT binding.provider_id,binding.target_id
+FROM runtime_target_bindings binding
+WHERE binding.core_id=? AND binding.launch_policy!='DISABLED'
+`, coreID).Scan(&providerID, &targetID); err != nil {
+		return "", "", "", fmt.Errorf("find selected runtime target: %w", err)
 	}
 	transaction, err := database.BeginTx(ctx, nil)
 	if err != nil {
-		return "", "", fmt.Errorf("begin transaction: %w", err)
+		return "", "", "", fmt.Errorf("begin transaction: %w", err)
 	}
 	defer cleanup.Rollback(transaction)
-	datID := uuid.NewSHA1(uuid.NameSpaceURL, []byte("retrom:acceptance:arcade-dat:"+artifactID+":"+digestHex)).String()
+	datID := uuid.NewSHA1(uuid.NameSpaceURL, []byte("retrom:acceptance:arcade-dat:"+providerID+":"+targetID+":"+digestHex)).String()
 	nowMS := time.Now().UTC().UnixMilli()
 	stats := catalog.Stats
 	if _, err := transaction.ExecContext(ctx, `
-INSERT INTO dat_versions(id,core_id,core_artifact_id,builtin_relative_path,sha256,
+INSERT INTO dat_versions(id,core_id,provider_id,target_id,builtin_relative_path,sha256,
 parser_version,parse_status,is_active,machine_count,rom_entry_count,disk_entry_count,
 bios_set_count,default_bios_set_count,explicit_bios_machine_count,base_dependency_target_count,
 unresolved_relation_count,version,created_at_ms,updated_at_ms,parsed_at_ms,activated_at_ms)
-VALUES(?,?,?,?,?,'retrom-dat-v1','READY',0,?,?,?,?,?,?,?,?,1,?,?,?,NULL)
-`, datID, coreID, artifactID, "acceptance/"+coreID+"/"+filepath.Base(datPath), digestHex,
+VALUES(?,?,?,?,?,?,'retrom-dat-v1','READY',0,?,?,?,?,?,?,?,?,1,?,?,?,NULL)
+`, datID, coreID, providerID, targetID,
+		"acceptance/"+coreID+"/"+filepath.Base(datPath), digestHex,
 		stats.MachineCount, stats.ROMEntryCount, stats.DiskEntryCount, stats.BIOSSetCount,
 		stats.DefaultBIOSSetCount, stats.ExplicitBIOSMachineCount, stats.BaseDependencyTargetCount,
 		stats.UnresolvedCloneofTargetCount+stats.UnresolvedRomofTargetCount, nowMS, nowMS, nowMS); err != nil {
-		return "", "", fmt.Errorf("insert test-only built-in DAT: %w", err)
+		return "", "", "", fmt.Errorf("insert test-only built-in DAT: %w", err)
 	}
 	if err := datindex.Replace(ctx, transaction, datID, catalog); err != nil {
-		return "", "", fmt.Errorf("index test-only built-in DAT: %w", err)
+		return "", "", "", fmt.Errorf("index test-only built-in DAT: %w", err)
 	}
 	if _, err := transaction.ExecContext(ctx, `
 UPDATE dat_versions SET is_active=0,version=version+1,updated_at_ms=?
-WHERE core_artifact_id=? AND is_active=1
-`, nowMS, artifactID); err != nil {
-		return "", "", fmt.Errorf("deactivate release DAT for test fixture: %w", err)
+WHERE provider_id=? AND target_id=? AND is_active=1
+`, nowMS, providerID, targetID); err != nil {
+		return "", "", "", fmt.Errorf("deactivate release DAT for test fixture: %w", err)
 	}
 	if _, err := transaction.ExecContext(ctx, `
 UPDATE dat_versions SET is_active=1,activated_at_ms=?,updated_at_ms=?,version=version+1 WHERE id=?
 `, nowMS, nowMS, datID); err != nil {
-		return "", "", fmt.Errorf("activate test-only built-in DAT: %w", err)
+		return "", "", "", fmt.Errorf("activate test-only built-in DAT: %w", err)
 	}
 	if err := datindex.SyncRequirements(ctx, transaction, datID, time.UnixMilli(nowMS)); err != nil {
-		return "", "", fmt.Errorf("sync test-only built-in DAT requirements: %w", err)
-	}
-	if _, err := transaction.ExecContext(ctx, `
-UPDATE core_artifacts SET version=version+1,updated_at_ms=? WHERE id=?
-`, nowMS, artifactID); err != nil {
-		return "", "", fmt.Errorf("advance smoke core artifact: %w", err)
+		return "", "", "", fmt.Errorf("sync test-only built-in DAT requirements: %w", err)
 	}
 	if err := transaction.Commit(); err != nil {
-		return "", "", fmt.Errorf("commit test-only built-in DAT: %w", err)
+		return "", "", "", fmt.Errorf("commit test-only built-in DAT: %w", err)
 	}
-	return artifactID, datID, nil
+	return providerID, targetID, datID, nil
 }
 
 func fatalf(format string, arguments ...any) {

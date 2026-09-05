@@ -51,7 +51,7 @@ class ButterscotchProductAcceptanceTests(unittest.TestCase):
         contents = DRIVER_PATH.read_text(encoding="utf-8") + contract_path.read_text(encoding="utf-8")
         self.assertNotIn("/data/game", contents)
         for contract in (
-            "RETROM_BUTTERSCOTCH_SMOKE_ARCHIVE", "BUTTERSCOTCH_PROJECT_V1",
+            "RETROM_BUTTERSCOTCH_SMOKE_ARCHIVE", "BUTTERSCOTCH_PROJECT",
             "data-butterscotch-runtime-surface", "installVirtualStandardGamepad",
             "BUTTERSCOTCH_ACCEPTANCE_GAMEPAD_INPUT_UNOBSERVED", "restoreDataWinResponseCount",
             "BUTTERSCOTCH_ACCEPTANCE_CONTENT_IDENTITY_CHANGED", "different-launch-restored",

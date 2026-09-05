@@ -7,7 +7,6 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/base64"
-	"encoding/json"
 	"fmt"
 	"path/filepath"
 	"runtime"
@@ -110,14 +109,14 @@ FROM review_drafts draft WHERE draft.import_item_id=?
 		t.Fatal(err)
 	}
 	arcadeValidationID := newUUID()
-	arcadeSnapshot := fmt.Sprintf(`{"schemaVersion":2,"machine":"review-child","datVersionId":%q,"closure":[],"dependencies":[{"kind":"PARENT","machine":"review-parent","state":"SATISFIED_EXTERNAL","requiredEntries":[]}],"missingEntries":[],"mismatchedEntries":[],"warnings":[]}`, datVersionID)
+	arcadeSnapshot := fmt.Sprintf(`{"schemaVersion":1,"kind":"ARCADE","machine":"review-child","datVersionId":%q,"closure":[],"dependencies":[{"kind":"PARENT","machine":"review-parent","state":"SATISFIED_EXTERNAL","requiredEntries":[]}],"missingEntries":[],"mismatchedEntries":[],"warnings":[]}`, datVersionID)
 	if _, err := database.SQL.ExecContext(ctx, `
 INSERT INTO import_item_core_validations(id,import_item_id,target_platform_instance_id,
-platform_instance_version,core_id,core_artifact_id,core_artifact_version,prepublish_generation,
+platform_instance_version,core_id,provider_id,target_id,
 dat_version_id,default_dos_entry,source_manifest_digest,source_snapshot_id,prepublish_input_digest,
 status,compatibility_code,dependency_snapshot_json,created_at_ms)
-SELECT ?,import_item_id,target_platform_instance_id,platform_instance_version,core_id,core_artifact_id,
-core_artifact_version,prepublish_generation,?,default_dos_entry,source_manifest_digest,source_snapshot_id,
+SELECT ?,import_item_id,target_platform_instance_id,platform_instance_version,core_id,provider_id,target_id,
+?,default_dos_entry,source_manifest_digest,source_snapshot_id,
 ?,status,compatibility_code,?,created_at_ms+1
 FROM import_item_core_validations WHERE id=?
 `, arcadeValidationID, datVersionID, strings.Repeat("a", 64), arcadeSnapshot, baseValidationID); err != nil {
@@ -137,22 +136,30 @@ WHERE import_item_id=? AND effective_source_snapshot_id=?
 	}
 	credentials, err := retromruntime.LoadOrCreateCredentials(dataDir)
 	testassert.False(t, err != nil, err)
-	service := New(database.SQL, dependencySet, credentials, time.Now).WithBlobStore(blobs)
+	runtimeBuilder, err := testsupport.NewRuntimeBuilder(ctx, database.SQL)
+	testassert.False(t, err != nil, err)
+	service := New(database.SQL, dependencySet, credentials, time.Now).WithBlobStore(blobs).
+		WithRuntimeProvider(dependencySet.RuntimeCatalog, runtimeBuilder)
 	capabilities := Capabilities{SecureContext: true, CrossOriginIsolated: true, SharedArrayBuffer: true}
 	ready, err := service.CreateReviewPreview(ctx, ReviewPreviewRequest{
 		ImportItemID: readyItemID, ActorUserID: actorID, IdempotencyKey: "ready-preview-1",
 		ClientCapabilities: capabilities,
 	})
-	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return !ready.CaptureAllowed }, func() bool { return ready.CaptureAfterMS != 5_000 }), "ready review preview = %#v, error=%v", ready, err)
+	testassert.Falsef(t, err != nil, "ready review preview = %#v, error=%v", ready, err)
 	replayed, err := service.CreateReviewPreview(ctx, ReviewPreviewRequest{
 		ImportItemID: readyItemID, ActorUserID: actorID, IdempotencyKey: "ready-preview-1",
 		ClientCapabilities: capabilities,
 	})
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return replayed.PreviewID != ready.PreviewID }, func() bool { return replayed.Capability != ready.Capability }), "replayed review preview = %#v, error=%v", replayed, err)
 	configuration, err := service.ReviewPreviewConfig(ctx, ready.PreviewID, ready.Capability)
-	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return configuration.ReviewPreview == nil }, func() bool { return !configuration.ReviewPreview.CaptureAllowed }, func() bool { return configuration.ReviewPreview.ImportItemID != readyItemID }, func() bool { return configuration.ParentURL == nil }, func() bool { return configuration.StartupActions == nil }), "ready review config = %#v, error=%v", configuration, err)
-	encodedConfiguration, err := json.Marshal(configuration)
-	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return !bytes.Contains(encodedConfiguration, []byte(`"startupActions":[]`)) }), "ready review config JSON = %s, error=%v", encodedConfiguration, err)
+	testassert.False(t, err != nil, err)
+	readyEnvelope := testsupport.RuntimeEnvelope(t, configuration)
+	readySession := testsupport.RuntimeEnvelopeObject(t, readyEnvelope, "session")
+	parentResource := testsupport.RuntimeEnvelopeResource(t, readyEnvelope, "parent")
+	testassert.Falsef(t, testassert.Any(
+		func() bool { return readySession["purpose"] != "REVIEW_PREVIEW" },
+		func() bool { return parentResource["url"] == "" },
+	), "ready review envelope = %#v", readyEnvelope)
 	content, err := service.ReviewPreviewContent(ctx, ready.PreviewID, ready.Capability, "ready.gba")
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return content.Digest == "" }, func() bool { return content.Format != "SOURCE_V1" }), "ready review content = %#v, error=%v", content, err)
 	pngBody, err := base64.StdEncoding.DecodeString("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=")
@@ -164,9 +171,15 @@ WHERE import_item_id=? AND effective_source_snapshot_id=?
 		ImportItemID: blockedItemID, ActorUserID: actorID, IdempotencyKey: "blocked-preview-1",
 		ClientCapabilities: capabilities,
 	})
-	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return !blocked.CaptureAllowed }), "blocked best-effort preview = %#v, error=%v", blocked, err)
+	testassert.Falsef(t, err != nil, "blocked best-effort preview = %#v, error=%v", blocked, err)
 	blockedConfig, err := service.ReviewPreviewConfig(ctx, blocked.PreviewID, blocked.Capability)
-	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return blockedConfig.ReviewPreview == nil }, func() bool { return !blockedConfig.ReviewPreview.CaptureAllowed }, func() bool { return blockedConfig.GameURL == "" }, func() bool { return blockedConfig.BIOSURL != nil }), "blocked best-effort config = %#v, error=%v", blockedConfig, err)
+	testassert.False(t, err != nil, err)
+	blockedEnvelope := testsupport.RuntimeEnvelope(t, blockedConfig)
+	blockedGame := testsupport.RuntimeEnvelopeResource(t, blockedEnvelope, "game")
+	testassert.Falsef(t, testassert.Any(
+		func() bool { return blockedGame["url"] == "" },
+		func() bool { return len(testsupport.RuntimeEnvelopeResources(t, blockedEnvelope, "bios")) != 0 },
+	), "blocked best-effort envelope = %#v", blockedEnvelope)
 	blockedScreenshot, err := service.StoreReviewScreenshot(
 		ctx, blocked.PreviewID, blocked.Capability, bytes.NewReader(pngBody),
 	)
@@ -175,42 +188,29 @@ WHERE import_item_id=? AND effective_source_snapshot_id=?
 	testassert.Falsef(t, err != nil, "approve blocked screenshot override: %v", err)
 	var compatibilityCode string
 	if err := database.SQL.QueryRowContext(ctx, `
-SELECT revision.compatibility_code
+SELECT variant.compatibility_code
 FROM games game
 JOIN game_variants variant ON variant.game_id=game.id
-JOIN game_variant_revisions revision ON revision.id=variant.current_revision_id
 WHERE game.id=?
 `, approved.GameID).Scan(&compatibilityCode); err != nil || compatibilityCode != "REVIEW_SCREENSHOT_OVERRIDE" {
 		t.Fatalf("screenshot override compatibility = %q, error=%v", compatibilityCode, err)
 	}
-	arcadeOverrideRevisionID := newUUID()
+	var arcadeOverrideVariantID string
 	arcadeOverrideSnapshot := fmt.Sprintf(
-		`{"schemaVersion":2,"machine":"review-blocked","datVersionId":%q,"closure":[],"dependencies":[{"kind":"BIOS_OR_BASE","machine":"review-bios","state":"SATISFIED_EXTERNAL","requiredEntries":[]}],"missingEntries":[],"mismatchedEntries":[],"warnings":[]}`,
+		`{"schemaVersion":1,"kind":"ARCADE","machine":"review-blocked","datVersionId":%q,"closure":[],"dependencies":[{"kind":"BIOS_OR_BASE","machine":"review-bios","state":"SATISFIED_EXTERNAL","requiredEntries":[]}],"missingEntries":[],"mismatchedEntries":[],"warnings":[]}`,
 		datVersionID,
 	)
-	if _, err := database.SQL.ExecContext(ctx, `
-INSERT INTO game_variant_revisions(id,game_variant_id,game_content_revision_id,core_artifact_id,
-route_key,dat_version_id,validation_input_digest,emulator_game_id,status,compatibility_code,
-dependency_snapshot_json,default_dos_entry,created_at_ms)
-SELECT ?,variant.id,current.game_content_revision_id,current.core_artifact_id,current.route_key,?, ?,current.emulator_game_id+100000,
-'READY','REVIEW_SCREENSHOT_OVERRIDE',?,current.default_dos_entry,current.created_at_ms+1
-FROM game_variants variant
-JOIN game_variant_revisions current ON current.id=variant.current_revision_id
-WHERE variant.game_id=?
-`, arcadeOverrideRevisionID, datVersionID, strings.Repeat("b", 64), arcadeOverrideSnapshot,
-		approved.GameID); err != nil {
+	if err := database.SQL.QueryRowContext(ctx, `
+UPDATE game_variants SET dat_version_id=?,status='READY',compatibility_code='REVIEW_SCREENSHOT_OVERRIDE',
+dependency_snapshot_json=?,version=version+1,updated_at_ms=updated_at_ms+1
+WHERE game_id=? RETURNING id
+`, datVersionID, arcadeOverrideSnapshot, approved.GameID).Scan(&arcadeOverrideVariantID); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := database.SQL.ExecContext(ctx, `
-UPDATE game_variants SET current_revision_id=?,version=version+1,updated_at_ms=updated_at_ms+1
-WHERE game_id=?
-`, arcadeOverrideRevisionID, approved.GameID); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := database.SQL.ExecContext(ctx, `
-INSERT INTO variant_files(game_variant_revision_id,role,logical_name,blob_id,sort_order)
+INSERT INTO variant_files(game_variant_id,role,logical_name,blob_id,sort_order)
 VALUES(?,'BIOS_BUNDLE','review-bios.zip',?,0)
-`, arcadeOverrideRevisionID, parentBlobID); err != nil {
+`, arcadeOverrideVariantID, parentBlobID); err != nil {
 		t.Fatal(err)
 	}
 	createdLaunch, err := service.Create(ctx, "review-preview-profile", CreateRequest{
@@ -218,7 +218,14 @@ VALUES(?,'BIOS_BUNDLE','review-bios.zip',?,0)
 	})
 	testassert.Falsef(t, err != nil, "launch screenshot-approved game: %v", err)
 	publishedConfig, err := service.Config(ctx, createdLaunch.LaunchID, createdLaunch.Capability)
-	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return !slices.Contains(publishedConfig.Warnings, "REVIEW_SCREENSHOT_OVERRIDE") }, func() bool { return publishedConfig.BIOSURL == nil }), "screenshot-approved config = %#v, error=%v", publishedConfig, err)
+	testassert.False(t, err != nil, err)
+	publishedEnvelope := testsupport.RuntimeEnvelope(t, publishedConfig)
+	publishedSession := testsupport.RuntimeEnvelopeObject(t, publishedEnvelope, "session")
+	warnings, _ := publishedSession["warnings"].([]any)
+	testassert.Falsef(t, testassert.Any(
+		func() bool { return !slices.Contains(warnings, any("REVIEW_SCREENSHOT_OVERRIDE")) },
+		func() bool { return len(testsupport.RuntimeEnvelopeResources(t, publishedEnvelope, "bios")) != 1 },
+	), "screenshot-approved envelope = %#v", publishedEnvelope)
 	publishedBIOS, err := service.BundleFiles(
 		ctx, createdLaunch.LaunchID, createdLaunch.Capability, "BIOS_BUNDLE",
 	)

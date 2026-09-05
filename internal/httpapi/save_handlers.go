@@ -37,7 +37,7 @@ func parseSaveListFilters(values url.Values, principal authn.Principal) (saveLis
 		{"gameId", "s.game_id"},
 		{"platformId", "pi.platform_id"},
 		{"platformInstanceId", "pi.id"},
-		{"coreId", "a.core_id"},
+		{"coreId", "source_launch.core_id"},
 	} {
 		if value := values.Get(filter.queryName); value != "" {
 			filters.Conditions = append(filters.Conditions, filter.column+"=?")
@@ -173,7 +173,7 @@ s.version,
 s.created_at_ms,
 s.active_duration_ms,
 s.payload_size_bytes,
-a.core_id,
+source_launch.core_id,
 c.name,
 g.status,
 p.id,
@@ -187,9 +187,9 @@ FROM save_states s
 JOIN save_state_runtime_compatibility runtime_compatibility
   ON runtime_compatibility.save_state_id=s.id
 JOIN games g ON g.id=s.game_id
-JOIN game_metadata_revisions m ON m.id=g.current_metadata_revision_id
-JOIN core_artifacts a ON a.id=s.core_artifact_id
-JOIN cores c ON c.id=a.core_id
+JOIN games m ON m.id=g.id
+JOIN launch_sessions source_launch ON source_launch.id=s.source_launch_session_id
+JOIN cores c ON c.id=source_launch.core_id
 JOIN platform_instances pi ON pi.id=g.platform_instance_id
 JOIN platforms p ON p.id=pi.platform_id
 `,

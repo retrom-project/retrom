@@ -1,0 +1,71 @@
+{
+  "netplay": {
+    "playerNo": 1,
+    "profile": {
+      "bundleSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "canonicalHistoryFrames": 600,
+      "checkpointEveryFrames": 120,
+      "controlCount": 24,
+      "coreId": "fixture_core",
+      "dependencySnapshotDigest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "maxPlayers": 4,
+      "maxPredictionFrames": 8,
+      "maxRollbackFrames": 120,
+      "maxStateBytes": 1048576,
+      "platformIds": ["fixture"],
+      "profileId": "fixture-profile",
+      "protocolVersion": "retrom-netplay-v2",
+      "providerId": "fixture",
+      "schemaVersion": 2,
+      "sourceManifestDigest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "targetId": "fixture"
+    },
+    "roomId": "fixture-room",
+    "sessionId": "018f0f31-26fe-7a31-9d61-4ec92f16d4c4",
+    "socketUrl": "wss://runtime.example.test/netplay"
+  },
+  "resources": [],
+  "restore": null,
+  "runtime": {
+    "bundleSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "capabilities": {
+      "checkpoint": true,
+      "discSwitch": false,
+      "frameCounter": true,
+      "frameMode": "SAME_ORIGIN_BLANK",
+      "inputFilter": true,
+      "nativeSettings": true,
+      "netplayPort": true,
+      "pause": true,
+      "requiresThreads": false,
+      "screenshot": true,
+      "standardGamepad": true,
+      "videoModes": ["original"],
+      "volume": true
+    },
+    "checkpoint": {
+      "maxBytes": 1024,
+      "readFormats": ["fixture-state-v1"],
+      "writeFormat": "fixture-state-v1"
+    },
+    "moduleSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "moduleUrl": "/runtime/providers/fixture/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/client.mjs",
+    "providerApiVersion": 1,
+    "providerId": "fixture",
+    "providerVersion": "1.0.0",
+    "runtimeBaseUrl": "/runtime/providers/fixture/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/",
+    "targetId": "fixture"
+  },
+  "schemaVersion": 1,
+  "session": {
+    "coreName": "Fixture Core",
+    "id": "018f0f31-26fe-7a31-9d61-4ec92f16d4c3",
+    "mode": "NETPLAY",
+    "platformName": "Fixture",
+    "purpose": "PRODUCT",
+    "returnTo": "/games/fixture",
+    "title": "Netplay fixture",
+    "warnings": []
+  },
+  "targetOptions": {}
+}

@@ -2,6 +2,9 @@ import { mkdirSync } from "node:fs";
 import path from "node:path";
 import axe from "axe-core";
 import { expect, test, type Page, type TestInfo } from "@playwright/test";
+import {
+  runtimeFrameCount, runtimeResource, runtimeResourceURL, type RuntimeEnvelope,
+} from "./runtime-provider-support";
 
 test.beforeEach(async ({ page }, testInfo) => {
   if (testInfo.title.startsWith("ACC-BIOS-007") && testInfo.project.name !== "chrome-1280") {
@@ -334,13 +337,13 @@ test("ACC-PEG-006 project-owned Pegasus GBA source publishes and advances real e
   const configResponse = page.waitForResponse((response) => /\/runtime\/launches\/[^/]+\/config$/.test(response.url()) && response.status() === 200);
   await page.getByRole("button", { name: "开始游戏" }).click();
   await expect(page).toHaveURL(/\/play\/[0-9a-f-]+$/, { timeout: 10_000 });
-  const configuration = await (await configResponse).json() as { gameTitle: string; core: string; coreName: string; playerAdapterId: string; emulatorjsVersion: string; gameUrl: string };
-  expect(configuration.gameTitle).toBe(title);
-  expect(configuration.core).toBe("mgba");
-  expect(configuration.coreName).toBe("mGBA");
-  expect(configuration.playerAdapterId).toBe("ejs-4.2.3-v3");
-  expect(configuration.emulatorjsVersion).toBe("4.2.3");
-  expect(configuration.gameUrl).toMatch(
+  const configuration = await (await configResponse).json() as RuntimeEnvelope;
+  expect(configuration).toMatchObject({
+    schemaVersion: 1,
+    session: {title, purpose: "PRODUCT", mode: "SINGLE"},
+    runtime: {providerId: "emulatorjs", providerApiVersion: 1, targetId: "mgba"},
+  });
+  expect(runtimeResourceURL(runtimeResource(configuration, "game"))).toMatch(
     /\/runtime\/content\/game\/[0-9a-f]{64}\/pegasus-smoke\.gba$/,
   );
 
@@ -348,9 +351,9 @@ test("ACC-PEG-006 project-owned Pegasus GBA source publishes and advances real e
   await expect(player.locator("canvas.ejs_canvas")).toBeVisible({ timeout: 60_000 });
   const playerFrame = page.frames().find((frame) => frame !== page.mainFrame());
   expect(playerFrame).toBeTruthy();
-  const initialFrame = await playerFrame!.evaluate(() => window.EJS_emulator?.gameManager?.getFrameNum?.() ?? 0);
+  const initialFrame = await runtimeFrameCount(page);
   await expect.poll(
-    async () => playerFrame!.evaluate(() => window.EJS_emulator?.gameManager?.getFrameNum?.() ?? 0),
+    () => runtimeFrameCount(page),
     { timeout: 30_000 },
   ).toBeGreaterThan(initialFrame + 30);
   await page.mouse.move(20, 20);

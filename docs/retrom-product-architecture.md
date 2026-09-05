@@ -25,7 +25,7 @@
 | [运行时、启动与游玩数据](./runtime-and-play-data.md) | 一键启动、默认全屏、预检、EmulatorJS、DOS、存档与游玩时长 |
 | [核心运行时验证基线](./core-runtime-validation.md) | 35 核真实夹具、Chrome 启动画面证据、可重复验证链路、PSP ISO/CSO 和兼容覆盖 |
 | [存储与数据库](./storage-and-database.md) | SQLite 时间戳规则、表目录、CAS、归档安全、GC 和备份 |
-| [一期数据库实体与不变量](./data-model.md) | 表字段、枚举、revision、外键、索引与数据库级保护 |
+| [一期数据库实体与不变量](./data-model.md) | 表字段、枚举、当前态、外键、索引与数据库级保护 |
 | [HTTP API、上传与启动凭据契约](./http-api-contract.md) | JSON/错误协议、认证/CSRF、上传分块、launch cookie、内容缓存和路由 |
 | [第三方运行时与 DAT 依赖管理](./dependency-management.md) | 小型 manifest、构建前物化、完整性校验、镜像纳入与升级规则 |
 | [后端、API 与运行维护](./backend-api-and-operations.md) | Go 模块、API、任务队列、文件端点、安全、日志和部署 |
@@ -46,14 +46,14 @@ Retrom 是供用户与可信朋友共享的自托管复古游戏 Web 平台。�
 - 支持管理员从受信服务器目录扫描 Pegasus 或 EmulationStation 元数据，显式映射到游戏目录后复用同一审核、发布和删除释放链路。
 - 使用 Hasheous 的免登录哈希查询作为一期元信息候选源；不集成 ScreenScraper。
 - 使用与具体 EmulatorJS/core artifact 绑定的 DAT 识别 Arcade machine、parent ROM 和 BIOS 依赖；DAT 不承担元信息刮削。
-- 支持游戏元信息、文件 revision、游戏目录和 BIOS 管理；Arcade DAT 只使用 core release 固定的内置版本。
+- 支持游戏元信息、文件替换、游戏目录和 BIOS 管理；Arcade DAT 只使用 core release 固定的内置版本。
 - 支持标准手柄从普通首页显式进入独立沉浸模式，只用手柄完成选择资料库入口或平台、浏览收藏夹与存档、
   选择游戏、普通单机游玩、创建存档与返回；沉浸模式不扩展到联机、搜索、管理或普通 PC/移动页面导航。
 - 支持安全初始化、邀请注册、账户密码轮换以及管理员维护账号角色与状态。
 - 所有私有游玩、存档和启动数据按账号 Profile 隔离；管理员没有读取他人私有数据的旁路。
 - 可选启用两人异地联机房间；manifest 精确锁定 EmulatorJS 4.2.3 的 FCEUmm、FBNeo、SNES9x、Nestopia、MAME2003、MAME2003 Plus 与 FBA2012 CPS1/CPS2 core profile，覆盖其全部合格 READY 游戏；FCEUmm 使用 prediction/rollback，其余使用严格 lockstep，均只由服务端中继输入和状态，不传输画面或音频。
 - 正式支持 35 个逐一验证的 EmulatorJS core；完整平台映射、默认目录与核心清单见第 6 节，画面证据见核心运行时验证基线。
-- 正式提供一个 `rpgmaker` 平台和一个用户可见虚拟核心 `rpgmaker`。服务端根据项目的确定性 marker/格式证据选择 2000、2003、XP、VX、VX Ace、MV 或 MZ 内部 route，再经第一方 `RetromRpgRuntime` 路由到 EasyRPG Web、mkxp-z libretro Web 或隔离原生 Web；用户不需要理解世代或底层实现。
+- 正式提供一个 `rpgmaker` 平台和一个用户可见虚拟 Core `rpgmaker`。服务端根据项目的确定性 marker/格式证据选择 2000、2003、XP、VX、VX Ace、MV 或 MZ Provider Target，再由 `retrom-runtime` Provider 执行其私有实现；用户不需要理解 Target 或底层 adapter/core。
 
 一期不包含：
 
@@ -78,10 +78,9 @@ flowchart LR
     P -->|关联 N 个| C["Core 核心"]
     PI -->|选择 1 个| DC["默认核心"]
     PI -->|唯一持有| G["Game 游戏"]
-    G -->|指向当前| CR["GameContentRevision 用户内容版本"]
-    G -->|每核心 1 个稳定槽| V["GameVariant"]
-    V -->|指向当前| VR["GameVariantRevision 不可变"]
-    CR -->|被验证为| VR
+    G -->|直接拥有| GF["GameFiles 当前内容"]
+    G -->|每核心 1 个稳定槽| V["GameVariant 当前验证态"]
+    GF -->|被验证为| V
     C --> V
 ~~~
 
@@ -90,8 +89,8 @@ flowchart LR
 - PlatformInstance 在 UI 统一称为“游戏目录”；它从 Platform 创建，并从该平台的启用核心中选择一个默认核心。
 - release 只在代码 catalog 中维护推荐的 Platform/Core 组合；全新数据库不预置目录，由管理员显式一键补齐缺失项。模板状态不覆盖用户重命名、换核心、停用或软删除的选择。
 - Game 只能且必须由一个 PlatformInstance 持有，基础平台由此间接推导。
-- Game 另以非空 current pointer 持有一个不可变 GameContentRevision，唯一决定普通启动的当前用户文件；改变游戏目录默认核心不能改变内容版本。
-- GameVariant 是 Game + Core 的稳定逻辑槽；某个 GameContentRevision 在具体 core artifact 上的兼容性、派生文件和依赖快照保存在不可变 GameVariantRevision。稳定槽有 READY 结果时只指向当前 READY revision；从未验证成功的备用核心槽允许 current 为空并保留失败诊断。
+- Game 直接保存当前内容来源和规范 manifest，`game_files` 直接归属稳定 Game ID；改变游戏目录默认核心不能改变这些文件。
+- GameVariant 是 Game + Core 的稳定当前态；它直接保存 Provider/Target、DAT、兼容状态、派生文件和依赖快照，并通过 `version` 实施乐观并发。
 - 详情页在没有浏览器本地偏好时选择游戏目录的默认核心，同时保留该基础平台其他核心供用户显式切换；浏览器可按游戏记住非默认选择，选回推荐核心即清除。偏好不修改服务端游戏目录，也不做失败后的静默回退。
 
 因此 Arcade 可创建“FBNeo 游戏列表 → FBNeo”“MAME 游戏列表 → MAME 2003”“FBNeo 飞行游戏 → FBNeo”。用户导入时选择游戏目录，而不是直接选择基础平台。
@@ -102,7 +101,7 @@ flowchart LR
 - DAT 只负责 ROM entry、machine、clone/parent、BIOS 依赖及核心兼容性诊断。
 - Hasheous 只根据内容哈希提供标题、厂商、描述、封面等展示元信息候选。
 - 两者独立保存原始证据、版本和审核结果；一方未命中不能覆盖另一方的结论。
-- 每个 DAT-capable core 只使用随其 release artifact 在依赖 manifest 中固定的真实 DAT；管理员和普通用户都不能上传、切换或回滚 DAT。DatVersion 仍作为审核、内容 revision 与 Launch 的不可变证据身份保留。
+- 每个 DAT-capable Core 只使用由稳定 Provider Target 和 Retrom DAT manifest 共同锁定的真实 DAT；管理员和普通用户都不能上传或切换 DAT。DatVersion 作为审核、GameVariant 与 Launch 的证据身份保留，升级只前进到新版本，不提供降级路径。
 
 ### 3.3 时间统一为整数时间戳
 
@@ -117,21 +116,21 @@ flowchart LR
 1. 原始点击事件立即请求浏览器全屏。
 2. 同一 Player Shell 显示预检/加载状态，不出现第二个 Start/Play 按钮。
 3. 后端完成启动预检；已 READY 时返回可记录的非秘密 `launchId` 并以限定路径的 HttpOnly cookie 下发短时 capability。若用户所选备用 Core 尚需物化依赖，同一加载壳先等待可观察验证 Job，完成后自动重调创建 Launch；不要求用户再点开始。秘密不进入 URL 或 JSON。
-4. 前端导航到 `/play/:launchId`，用 cookie 读取该会话的运行配置，再以 `EJS_startOnLoaded = true` 配置 EmulatorJS，资源就绪后自动运行。
+4. 前端导航到 `/play/:launchId`，用 cookie 读取严格的 Launch Envelope；唯一 Provider dispatcher 按 `providerId` 加载已激活 Provider Module，将 Envelope 交给对应 Provider，并在资源就绪后自动运行。
 5. 若存在阻断项，退出全屏并在来源上下文展示可修复错误；普通警告不增加确认步骤。
 
-存档快速启动锁定创建该存档时的 CoreArtifact 和 GameVariantRevision，不让目录默认核心覆盖它。同一浏览器携带 launch cookie 刷新深链时因缺少用户激活而无法自动进入全屏，允许显示一次“进入全屏”恢复控件但仍自动运行；把 URL 复制到没有 cookie 的 context 只能显示“启动会话不可用”。
+存档快速启动锁定 Game 和 checkpoint format；恢复使用当前 READY GameVariant，并要求其 Target 明确声明可读取该格式，不让目录默认 Core 静默回退到不兼容实现。同一浏览器携带 launch cookie 刷新深链时因缺少用户激活而无法自动进入全屏，允许显示一次“进入全屏”恢复控件但仍自动运行；把 URL 复制到没有 cookie 的 context 只能显示“启动会话不可用”。
 
 ### 3.5 原始内容不可变并用 SHA-256 去重
 
 - 上传内容流式计算 SHA-256，写入本地内容寻址存储；相同内容只保存一个 Blob。
-- Blob 发布后不原地修改。替换游戏文件只在规范化内容与 current 不同时创建新的 GameContentRevision，并在默认核心验证 READY 后创建对应 GameVariantRevision、原子切换两个 current pointer；完全相同的单 ROM 或盘序/Disc hash 相同的多盘输入被拒绝。
-- 目录默认核心或 DAT 的变化不改写存档锁定的 revision；EmulatorJS 存档继续精确绑定历史 CoreArtifact。RPG Maker、ONS、KiriKiri 与 Butterscotch 游戏绑定稳定的逻辑游戏兼容线，`retrom-runtime` 升级后普通 Launch 使用该线的当前构件；存档另记录 save ABI，只有当前构件声明可读该 ABI 时才允许恢复。不兼容旧存档保留为不可恢复记录，用户仍可启动游戏并创建新存档。管理员显式成功替换 ROM/多盘内容仍是破坏性边界，会删除旧内容绑定存档及运行 payload，再把失去最后引用的旧 Blob 交给宽限期 GC。替换失败不触碰 current 或存档。
+- Blob 发布后不原地修改。替换游戏文件只在规范化内容确实变化且默认核心验证 READY 后，原子更新 Game、`game_files` 和默认 GameVariant 当前态；完全相同的单 ROM 或盘序/Disc hash 相同的多盘输入被拒绝。
+- 目录默认 Core 或 DAT 的变化不改写存档。所有存档只记录 Game 和 Provider 中立的 checkpoint format；恢复使用当前 READY Target，且只有其 `readFormats` 明确包含该格式时才允许恢复。不兼容旧存档保留为不可恢复记录，用户仍可启动游戏并创建新存档；系统不保留旧 Bundle 作为恢复旁路，也不提供 Provider 降级。管理员显式成功替换 ROM/多盘内容仍是破坏性边界，会删除旧内容绑定存档及运行 payload，再把失去最后引用的旧 Blob 交给宽限期 GC。替换失败不触碰 current 或存档。
 - 数据库保存逻辑关系、哈希、大小、MIME 和引用，不保存宿主机任意路径供浏览器使用。
 
 ### 3.6 模块化后端、双镜像与单一数据目录
 
-一期的后端仍是单个 Go 模块化单体，负责 API、进程内持久任务队列、EmulatorJS 运行时、受控内容端点、SQLite 与本地 CAS；前端作为独立 Next.js 进程提供 UI 与 Player Shell。构建分别产出后端镜像 `retrom` 和前端镜像 `retrom-web`，前后端分镜像不等于把后端领域拆成微服务。
+一期的后端仍是单个 Go 模块化单体，负责 API、进程内持久任务队列、Provider Bundle 服务、受控内容端点、SQLite 与本地 CAS；前端作为独立 Next.js 进程提供 UI、Provider dispatcher 与 Player Shell。构建分别产出后端镜像 `retrom` 和前端镜像 `retrom-web`，前后端分镜像不等于把后端领域拆成微服务。
 
 生产环境由已有 NG（Nginx/网关/反向代理）对外暴露同一个 HTTPS origin，再通过明文 HTTP 路由至两个应用。Retrom 不加载证书、不监听 HTTPS，也不负责 TLS 跳转或 HSTS。开发环境的 `make dev` 直接启动宿主机 Go 与 Next.js 进程，不使用 Docker。
 
@@ -145,9 +144,9 @@ SQLite 使用 WAL；所有用户文件写入一个明确的数据目录。Next.j
 - 数据库只接受当前 clean migration 集合的精确有序前缀或完整 lineage；名称、checksum、缺口、未知或未来记录都在执行 DDL/DML 前以 `DATABASE_REBUILD_REQUIRED` 拒绝。当前项目未发布，开发期旧 lineage 和旧备份必须使用全新空数据根重建，不做数据转换。
 - Session、Invitation、PasswordReset 和 Launch 都是服务端可撤销能力。停用/删除账号和恢复安全围栏会同步撤销相应凭据；密码变化撤销 AuthSession，但不扩大 Launch 权限。
 
-### 3.8 多盘内容是一个不可拆分 revision
+### 3.8 多盘内容是一个不可拆分当前态
 
-Saturn/yabause 的 `MULTI_DISC_M3U_V1` 内容由同一物理目录中的一个来源 M3U 与按其顺序引用的 2–8 个 CHD 组成。ImportItem、SourceSnapshot、GameContentRevision、GameVariantRevision、Launch 和 SaveState 都以整组盘序为边界；缺盘只形成审核依赖，不创建占位 Blob。发布后运行时仅暴露服务端规范化的 `playlist.m3u` 与 `disc-NNN.chd`，不暴露原始路径。该能力由 feature flag、Platform content profile 与当前 `selected_for_new_bindings` CoreArtifact compatibility 三者取交集，首发只有 Saturn/yabause 可用；关闭新导入能力不破坏已发布多盘内容的运行和存档。
+Saturn/yabause 的 `MULTI_DISC` 内容由同一物理目录中的一个来源 M3U 与按其顺序引用的 2–8 个 CHD 组成。ImportItem、SourceSnapshot、Game/GameFiles、GameVariant、Launch 和 SaveState 都以整组盘序为边界；缺盘只形成审核依赖，不创建占位 Blob。发布后运行时仅暴露服务端规范化的 `playlist.m3u` 与 `disc-NNN.chd`，不暴露原始路径。该能力由 feature flag、Platform content profile 与当前 active Provider Target 声明的内容能力三者取交集，首发只有 Saturn/yabause 可用；关闭新导入能力不破坏已发布多盘内容的运行和存档。
 
 ### 3.9 收藏是 Profile 私有的独立多对多能力
 
@@ -155,15 +154,15 @@ Saturn/yabause 的 `MULTI_DISC_M3U_V1` 内容由同一物理目录中的一个�
 
 ### 3.10 联机是版本锁定的非串流 rollback 能力
 
-联机不是所有核心自动获得的通用能力。`data/netplay/v2/manifest.json` 同时锁定 EmulatorJS、普通 Player adapter、联机 adapter、八个已发布 profile 的 core artifact SHA-256、适用基础平台、允许的内容类型、24 个控制值和 prediction/rollback/state 上限；不按 ROM 名称、大小或 hash 决定资格。当前平台标记为 FCEUmm/Nestopia→NES、SNES9x→SNES、五个 Arcade profile→Arcade；房间目录只枚举平台、artifact、内容类型与依赖快照同时合格的游戏。游戏仍须有引用该 artifact 与当前 ContentRevision 的 READY VariantRevision，依赖快照必须有效；房间和 Session 再锁定该不可变 revision，确保每位参与者运行同一内容。Go `internal/netplay` 只持久化房间控制面并在有界内存中排序输入、比较 checkpoint hash、转发不超过 1 MiB 的 savestate 和保留 10 秒断线租约。WebSocket 凭据使用独立 netplay key 与 HttpOnly room cookie，不复用 Launch capability。未知版本、profile/平台漂移、state 不一致或协议越界全部 fail closed；进程重启结束活动联机，不尝试跨进程恢复实时帧。
+联机不是所有 Core 自动获得的通用能力。`data/netplay/v2/manifest.json` 锁定八个已发布 profile 的 Provider/Target、Bundle、适用基础平台、允许的内容类型、24 个控制值和 prediction/rollback/state 上限；Provider 内部使用的普通运行与联机 adapter 不进入 Retrom 契约。当前平台标记为 FCEUmm/Nestopia→NES、SNES9x→SNES、五个 Arcade profile→Arcade；房间目录只枚举平台、Target、内容类型与依赖快照同时合格的游戏。游戏仍须有对应 READY GameVariant；Netplay session 冻结 Bundle、Variant、内容与依赖摘要，确保每位参与者运行同一输入。Go `internal/netplay` 只持久化房间控制面并在有界内存中排序输入、比较 checkpoint hash、转发不超过 1 MiB 的 checkpoint 和保留 10 秒断线租约。WebSocket 凭据使用独立 netplay key 与 HttpOnly room cookie，不复用 Launch capability。未知版本、profile/平台漂移、state 不一致或协议越界全部 fail closed；进程重启结束活动联机，不尝试跨进程恢复实时帧。
 
 ### 3.11 标签是实例共享、管理员维护的分类
 
-Tag 必须先由管理员建立，再以稳定 ID 关联 Game、导入 ReviewDraft、Pegasus Collection 或 EmulationStation Collection；普通用户只能看到可见游戏已关联的活动标签。它与 Profile 私有 FavoriteFolder、单归属 PlatformInstance、metadata genre 和外部来源 tags 都是不同概念。重命名通过动态关系投影立即生效；删除还会推进受影响 owner version，使旧写入稳定冲突。两者都不改写游戏元信息/内容 revision，也不进入 Launch、Player 或存档。完整边界见 [游戏标签](./game-tags.md)。
+Tag 必须先由管理员建立，再以稳定 ID 关联 Game、导入 ReviewDraft、Pegasus Collection 或 EmulationStation Collection；普通用户只能看到可见游戏已关联的活动标签。它与 Profile 私有 FavoriteFolder、单归属 PlatformInstance、metadata genre 和外部来源 tags 都是不同概念。重命名通过动态关系投影立即生效；删除还会推进受影响 owner version，使旧写入稳定冲突。两者都不改写游戏元信息或内容，也不进入 Launch、Player 或存档。完整边界见 [游戏标签](./game-tags.md)。
 
 ### 3.12 流程 payload 短期保留，Game 删除保留墓碑
 
-导入、审核、Pegasus 与 EmulationStation 流程只在可重试/待决期间保留 ROM、媒体、运行预览、provider raw response 等 CAS payload。发布、丢弃、最终失败或取消进入真终态后，持久 PayloadRelease Job 解除流程引用；ReviewEvent v2 长期只保存文字和结构化审计，不保存封面、视频或 CAS 定位信息。Game 永久删除保留原标题、不可变 revision 摘要、审核/操作/游玩/收藏/联机关系作为墓碑，同时异步释放 Game 内容、媒体、存档和运行 payload。Blob 物理删除统一经过共享引用保护和宽限期 GC，浏览器上传、Pegasus 与 EmulationStation 三条导入路径遵循同一 ownership registry。
+导入、审核、Pegasus 与 EmulationStation 流程只在可重试/待决期间保留 ROM、媒体、运行预览、provider raw response 等 CAS payload。发布、丢弃、最终失败或取消进入真终态后，持久 PayloadRelease Job 解除流程引用；ReviewEvent v2 长期只保存文字和结构化审计，不保存封面、视频或 CAS 定位信息。Game 永久删除保留原标题、内容摘要、审核/操作/游玩/收藏/联机关系作为墓碑，同时异步释放 Game 内容、媒体、存档和运行 payload。Blob 物理删除统一经过共享引用保护和宽限期 GC，浏览器上传、Pegasus 与 EmulationStation 三条导入路径遵循同一 ownership registry。
 
 ### 3.13 沉浸模式是独立电视交互面
 
@@ -173,9 +172,9 @@ Tag 必须先由管理员建立，再以稳定 ID 关联 Game、导入 ReviewDra
 不先渲染普通侧栏、App Bar、底栏或游戏卡再通过 CSS 隐藏。
 
 沉浸模式不建立专用服务端会话或偏好模型，而是复用认证、Profile 私有 Favorite/Folder/SaveState、已发布
-Game/MetadataRevision、内容授权、LaunchSession 与 Player Core stage。首页先固定展示“全部游戏、最近游玩、
+Game 当前字段和媒体、内容授权、LaunchSession 与 Player Core stage。首页先固定展示“全部游戏、最近游玩、
 收藏游戏、我的存档”，再按基础平台展示入口；收藏范围可进入既有收藏夹，游戏列表以 Y 切换未分类的默认
-收藏，存档范围可选择具体 SaveState 启动。非最近范围按 MetadataRevision 的 `title_initial/title/game_id`
+收藏，存档范围可选择具体 SaveState 启动。非最近范围按 Game 的 `title_initial/title/id`
 排序，最近范围按本 Profile 最近游玩倒序。浏览 Shell 循环播放站内 BGM，Select 打开背景音乐/游戏音量、
 静音、全屏和退出系统菜单；这些声音偏好只保存在浏览器 localStorage。
 
@@ -185,21 +184,23 @@ Game/MetadataRevision、内容授权、LaunchSession 与 Player Core stage。首
 SaveState 链路，取消与退出都不会自动存档。其余输入仍交给 Core。普通 Player 与联机 Player 不识别该组合，
 也不继承沉浸输入过滤。完整页面、输入和验收契约分别见 UI、运行时、HTTP、依赖与统一验收文档。
 
-### 3.14 RPG Maker 虚拟核心与内部世代绑定
+### 3.14 Runtime Provider 与 RPG Maker 虚拟 Core
 
-RPG Maker 对用户是一个虚拟核心。导入时服务端只依据项目 bytes 的完整 marker 和格式证据判定 generation，再一次性冻结内部 core、route、逻辑游戏兼容线与当次 artifact/adapter ABI 证据；多世代完整 marker、未知格式或无法裁决的证据直接拒绝，不提供猜测性 fallback。内部 `rpgmaker_2000` 等七个 ID 只用于运行绑定与管理员诊断，不进入目录选择器或普通 Player。
+浏览器运行实现只由两个不可变 Provider Bundle 提供：`emulatorjs` 声明 35 个 Target，`retrom-runtime` 声明 12 个 Target。Provider manifest 是 Target 能力、资源输入、checkpoint 格式和 module 资产的公开唯一声明；Provider 内部可以使用私有 adapter/core，但 Retrom 数据库、Go、OpenAPI、Web 与验收不得复制或依赖该映射。Host 只维护 Product Core 到稳定 `(providerId,targetId)` 的 binding；Launch、Preview 和 Netplay session 才冻结当次 `bundleSha256`。
 
-Player 顶层按 `EMULATORJS|RPGMAKER|ONS|KIRIKIRI|BUTTERSCOTCH` 分派。`RPGMAKER` 统一进入 `RetromRpgRuntime`，其内部再按已冻结 route 创建 `EASYRPG_WEB|MKXP_LIBRETRO_WEB|NATIVE_WEB` adapter；Player Shell 不包含 EasyRPG/mkxp/MV/MZ/GameMaker 版本分支；RPG Maker、ONS、KiriKiri 与 Butterscotch 都经同一个 `GameRuntime` 生命周期接入，只有 RPG Maker 验收读取版本化位置 probe。发布把内容、版本 core、generation、route、逻辑游戏兼容线、当时构件、adapter ABI、save ABI、运行包快照和管理员主动创建的运行验证 Launch 绑定为不可变 VariantRevision。普通 Launch 不重探测项目、不跨 core/route 回退；四类独立 runtime 在同一逻辑游戏兼容线内使用当前 selected 构件，EmulatorJS 仍使用精确历史构件。
+所有运行入口共享 `Launch Envelope V1`。Envelope 只包含 session、Provider/Target/Bundle 身份、capabilities、checkpoint declaration、授权 resources、target options、restore、validation 与 netplay；不暴露 Provider 私有实现。每个 Target 在 Provider declaration 中内联闭合 `targetOptionsSchema`；Host 签发前和 Provider Module mount 前分别精确校验，Web dispatcher 只保留 JSON-safe、深度和大小等通用门禁，不维护 `optionsKind` 或 Target 私有字段。Web 的唯一装载入口是共享 Provider dispatcher：它校验 module URL、SHA-256、Provider 身份和 API version，再调用 `createRuntime` 并只向 Player 暴露 `PlayerRuntimeV1`。Player Shell 不按 RPG 世代、引擎或 Target 分支，也不从项目内容重选实现。
 
-RPG Maker 的存档与既有模拟器状态统一建模为运行时检查点。恢复完成的定义不是 payload 成功下载或引擎 load API 返回成功，而是：记录初始状态 A，在明确移动/改变变量后的 B 创建检查点，继续到可区分的 C，结束原 Launch，再由不同 Launch 恢复，并逐字段证明地图、坐标和 fixture 变量等于 B 且不等于 A/C，同时保留恢复后截图；随后还必须继续真实输入，并持久化与恢复位置 B 不同的四字段状态，证明恢复后的游戏仍可操作。七个版本核心都必须满足该闭环。
+RPG Maker 对用户仍是一个 `rpgmaker` Core。服务端依据项目 bytes 的封闭证据判定 generation，并绑定七个 Target 之一：`rpgmaker-2000`、`rpgmaker-2003`、`rpgmaker-xp`、`rpgmaker-vx`、`rpgmaker-vx-ace`、`rpgmaker-mv` 或 `rpgmaker-mz`。多世代、未知或歧义证据 fail closed。发布保存内容、稳定 Provider/Target、依赖快照与运行验证；Launch 不重探测、不 fallback。RPG Maker 检查点与其他运行时统一为 opaque bytes + format，Host 只校验声明格式、大小和摘要。自动化验收仍以 A→B 存档→C→不同 Launch 恢复到 B→继续输入证明真实可恢复性。
+
+Provider 激活只向前：允许更高版本在稳定 Target 仍存在且 checkpoint 可读集合满足现有存档时替换 active Bundle；降级、同版换 bytes、删除仍受引用 Target 或不可读 checkpoint 均拒绝启动。不设计应用内回滚路径。
 
 ### 3.15 本机开发与 PFB 联调边界
 
 普通开发入口 `make dev` 继续只启动宿主 Go 与 Next 进程，默认从 `http://localhost:4000` 访问，两个进程分别只监听 `127.0.0.1:8080` 与 `127.0.0.1:4000`。本机开发不依赖外部 DNS、TLS 证书或远程反向代理；生产同源 HTTPS 与 TLS 终结边界不变。普通开发与 PFB 命令都拒绝 root/sudo，全部长期运行进程或容器显式沿用发起命令的普通用户 UID/GID。
 
-需要并行验证多个功能分支时使用独立 PFB 命令族。每个 PFB 对应独立 Git worktree、应用容器、数据代际、CAS、secret、候选依赖和构建 cache，所有 PFB 共享唯一绑定 `127.0.0.1:3000` 的本机开发网关。规范应用 origin 是 `http://<pfb-id>.localhost:3000`，每 Launch runtime origin 是 `http://<launch-id>.rpg.<pfb-id>.localhost:3000`；两者共享同一 schemeful site 以携带严格 runtime capability cookie，但仍保持逐 Launch 独立 origin。裸 localhost只重定向到显式选中的 PFB。网关根据严格 Host映射 Docker 网络别名，不接收分支原文，不提供未知 Host fallback，也不向局域网发布端口。
+需要并行验证多个功能分支时使用独立 PFB 命令族。每个 PFB 对应同一棵Git worktree、应用容器和worktree本地`.pfb/workspace`，其中隔离数据库/CAS/secret、Provider开发层与构建cache；所有PFB共享唯一绑定`127.0.0.1:3000`的本机开发网关。规范应用origin是`http://<pfb-id>.localhost:3000`，每Launch runtime origin是`http://<launch-id>.rpg.<pfb-id>.localhost:3000`；两者共享同一schemeful site以携带严格runtime capability cookie，但仍保持逐Launch独立origin。裸localhost只重定向到显式选中的PFB。网关根据严格Host映射Docker网络别名，不接收分支原文，不提供unknown Host fallback，也不向局域网发布端口。
 
-PFB candidate 只用于 test 模式的发布前产品联调。分支 core 仍由各 fork 构建，`retrom-runtime` 聚合，Retrom 只消费聚合候选；候选锁记录 source/output 摘要并参与数据代际，不能进入正式 manifest、release-input digest、生产镜像或 tag workflow。正式晋升仍按 core Release、runtime Release、Retrom 正式 pin 的顺序进行，并以解除 candidate 后重跑同一产品 Case 为准。
+PFB只用于test模式的发布前产品联调，不承担候选归档。Retrom/runtime源码直接bind mount；runtime watcher只生成按字节摘要验证的loose模块/本地adapter资源，core只由显式命令构建。loose开发层不能进入正式manifest、release-input digest、生产镜像或tag workflow。正式晋升仍按core Release、runtime Release、Retrom production pin顺序进行，并以从正式Provider安装重跑同一产品Case为准。
 
 ## 4. 系统上下文
 
@@ -208,17 +209,17 @@ flowchart LR
     U["Chrome · Phone / Tablet / Desktop"] -->|HTTPS| N["前置 NG / TLS 终结"]
     N -->|HTTP：页面 / _next| W["retrom-web / Next.js + Player Shell"]
     N -->|HTTP：API / content / runtime| S["retrom / Go 模块化单体"]
-    W --> R["浏览器内锁定版本 EmulatorJS"]
-    W --> RR["RetromRpgRuntime"]
-    RR --> RW["EasyRPG / mkxp-z / 隔离原生 Web"]
+    W --> PD["Provider dispatcher"]
+    PD --> EP["EmulatorJS Provider · 35 Targets"]
+    PD --> RP["retrom-runtime Provider · 12 Targets"]
     S --> D["SQLite WAL"]
     S --> B["本地 SHA-256 CAS"]
     S --> J["SQLite 队列 + 进程内 Worker"]
     J --> A["Arcade DAT 解析器"]
     J --> H["Hasheous 哈希元信息查询"]
-    R -->|同源启动资源 / 存档 / 心跳| N
-    RW -->|受授权项目内容 / 检查点 / gate| N
-    R -->|同源 WSS：输入 / hash / state| S
+    EP -->|受授权资源 / 检查点 / 心跳| N
+    RP -->|受授权项目内容 / 检查点 / gate| N
+    EP -->|同源 WSS：输入 / hash / state| S
 ~~~
 
 部署与安全边界：
@@ -244,23 +245,23 @@ erDiagram
     CORE ||--o{ PLATFORM_CORE : belongs
     PLATFORM_INSTANCE }o--|| CORE : defaults_to
     PLATFORM_INSTANCE ||--o{ GAME : owns
-    GAME ||--o{ GAME_CONTENT_REVISION : content_versions
+    GAME ||--o{ GAME_FILE : contains
     GAME ||--o{ GAME_VARIANT : has
     CORE ||--o{ GAME_VARIANT : runs_with
-    GAME_VARIANT ||--o{ GAME_VARIANT_REVISION : revisions
-    GAME_CONTENT_REVISION ||--o{ GAME_VARIANT_REVISION : validated_by
-    GAME_CONTENT_REVISION ||--o{ GAME_CONTENT_FILE : contains
-    CORE_ARTIFACT ||--o{ GAME_VARIANT_REVISION : executes
-    GAME_VARIANT_REVISION ||--o{ VARIANT_FILE : contains
-    BLOB ||--o{ GAME_CONTENT_FILE : stores
+    GAME_VARIANT ||--o{ VARIANT_FILE : contains
+    RUNTIME_PROVIDER ||--o{ RUNTIME_TARGET : declares
+    CORE ||--o{ RUNTIME_TARGET_BINDING : binds
+    RUNTIME_TARGET ||--o{ RUNTIME_TARGET_BINDING : selected_by
+    RUNTIME_TARGET ||--o{ GAME_VARIANT : executes
+    BLOB ||--o{ GAME_FILE : stores
     BLOB ||--o{ VARIANT_FILE : stores
-    CORE_ARTIFACT ||--o{ BIOS_REQUIREMENT : declares
+    RUNTIME_TARGET ||--o{ BIOS_REQUIREMENT : declares
     BIOS_REQUIREMENT ||--o{ BIOS_INSTALLATION : fulfilled_by
-    CORE_ARTIFACT ||--o{ DAT_VERSION : validates_with
+    RUNTIME_TARGET ||--o{ DAT_VERSION : validates_with
     PROFILE ||--o{ SAVE_STATE : owns
-    GAME_VARIANT_REVISION ||--o{ SAVE_STATE : creates
+    GAME ||--o{ SAVE_STATE : owns
     PROFILE ||--o{ PLAY_SESSION : owns
-    GAME_VARIANT_REVISION ||--o{ PLAY_SESSION : runs
+    GAME ||--o{ PLAY_SESSION : runs
     PROFILE ||--o{ FAVORITE_GAME : owns
     GAME ||--o{ FAVORITE_GAME : is_saved_as
     PROFILE ||--o{ FAVORITE_FOLDER : owns
@@ -274,13 +275,13 @@ erDiagram
 
 - PlatformInstance 的默认核心必须是其基础平台已关联且启用的 Core。
 - Game 不保存可为空的 `platform_id` 作为另一条归属路径，只保存非空 `platform_instance_id`。
-- Game 的 `current_content_revision_id` 唯一决定普通启动内容；目录默认核心、CoreArtifact 或 DAT 变化不得反向改写它。
-- 存档同时绑定 GameVariantRevision 与 CoreArtifact；不匹配时不得静默加载。
-- BIOS 要求和 DAT 活动版本按 CoreArtifact 隔离；同一个 Blob 可以去重，但 Installation/校验状态不可跨 artifact 或核心串用。
-- ImportJob/ImportItem 记录创建时的游戏目录、默认核心、core artifact、DAT 和刮削证据快照；在途结果不因后续配置变化而漂移。
-- 审核发布、游戏目录移动、DAT 启用和文件 revision 切换必须可审计。
+- Game 的当前字段和 `game_files` 唯一决定普通启动内容；目录默认核心、Provider Target 或 DAT 变化不得反向改写它。
+- GameVariant 引用稳定 Provider/Target，Launch 冻结 Bundle 和资源，SaveState 引用 Game 与 checkpoint format；恢复只由当前 Target 的 `readFormats` 判定。
+- BIOS 要求和 DAT 活动版本按 Provider Target 隔离；同一个 Blob 可以去重，但 Installation/校验状态不可跨 Target 串用。
+- ImportJob/ImportItem 记录创建时的游戏目录、默认 Core、Provider Target、DAT 和刮削证据快照；在途结果不因后续 catalog 变化而漂移。
+- 审核发布、游戏目录移动、DAT 启用和文件当前态切换必须可审计。
 - Favorite 与 FavoriteFolder 都由认证 Profile 私有拥有；FolderMembership 必须同时引用同一 Profile 的 Favorite 与 Folder。收藏关系不改变 Game 的 PlatformInstance 唯一归属，管理员也没有跨 Profile 查询旁路。
-- Tag 是实例级共享实体，只有管理员维护；GameTag 不属于 Profile，不改变目录归属，也不进入游戏运行 revision。
+- Tag 是实例级共享实体，只有管理员维护；GameTag 不属于 Profile，不改变目录归属，也不进入游戏运行态。
 
 ## 6. 平台、核心与推荐游戏目录
 
@@ -313,7 +314,7 @@ erDiagram
 | WonderSwan / Color (`wonderswan`) | `mednafen_wswan` | WonderSwan 游戏 → `mednafen_wswan` | `.ws` / `.wsc` 单文件 |
 | Master System (`mastersystem`) | `smsplus` | Master System 游戏 → `smsplus` | `.sms`；本期只建立 Master System 映射 |
 | Nintendo 3DS (`nintendo3ds`) | `azahar` | Nintendo 3DS 游戏 → `azahar` | `.3ds` / `.cci`；4.3.0-pre thread、pointer、WebGL2 |
-| RPG Maker (`rpgmaker`) | 用户核心 `rpgmaker`；七个内部世代 core | RPG Maker 项目 → 服务端检测世代 → 对应内部 route | 一个推荐目录；歧义或未知世代拒绝，不暴露底层 adapter |
+| RPG Maker (`rpgmaker`) | 用户 Core `rpgmaker`；七个世代 Provider Target | RPG Maker 项目 → 服务端检测世代 → 当前 binding 中对应 Target | 一个推荐目录；歧义或未知世代拒绝，不暴露底层 adapter/core |
 | WASM-4 (`wasm4`) | `wasm4` | WASM-4 游戏 → `wasm4` | raw `.wasm` cart，1–65,536 bytes；独立 `WASM4_WEB` runtime，不接受 archive wrapper |
 
 平台和核心是代码种子/版本化配置；推荐目录是 release 代码 catalog，真正的游戏目录仍是管理员创建、重命名和调整默认核心的业务实体。catalog key 只记录模板接管/抑制状态，不把目录变成不可编辑 seed。游戏目录不是标签或多对多收藏集。
@@ -387,9 +388,9 @@ flowchart LR
 
 ### 8.2 BIOS 与 DAT
 
-服务器导入是一期管理能力：部署者用 `RETROM_SERVER_IMPORT_ROOTS` 建立只读宿主目录信任边界，浏览器只提交 root ID 与规范相对目录。BIOS 任务冻结全部 `selected_for_new_bindings` CoreArtifact 的完整 catalog，先完整发现和评估，再逐 Requirement 短事务安装；Pegasus 与 EmulationStation 任务都分为受限 metadata/facts 扫描、管理员逐 Collection 显式映射、逐游戏复制/运行检查/审核交接三阶段，不执行来源命令，也不按名称、扩展名或外部系统配置猜测目标游戏目录。EmulationStation 递归发现精确小写 `gamelist.xml`，每份有效文件形成一个 Collection，因此既支持所选目录下多个子目录各有一份清单，也支持单目录一份清单配多份游戏文件。
+服务器导入是一期管理能力：部署者用 `RETROM_SERVER_IMPORT_ROOTS` 建立只读宿主目录信任边界，浏览器只提交 root ID 与规范相对目录。BIOS 任务冻结当前产品 Core binding 闭包内全部 Provider Target 的完整 catalog，先完整发现和评估，再逐 Requirement 短事务安装；Pegasus 与 EmulationStation 任务都分为受限 metadata/facts 扫描、管理员逐 Collection 显式映射、逐游戏复制/运行检查/审核交接三阶段，不执行来源命令，也不按名称、扩展名或外部系统配置猜测目标游戏目录。EmulationStation 递归发现精确小写 `gamelist.xml`，每份有效文件形成一个 Collection，因此既支持所选目录下多个子目录各有一份清单，也支持单目录一份清单配多份游戏文件。
 
-两类游戏目录 Worker 都只生成普通 `REVIEW_PENDING` 事项，不创建 Game；管理员可在统一审核工作台修复或逐项决定，也可对当前筛选范围启动一次快速审批。快速审批只冻结并处理严格 `READY`、无内容重复、无活动补传且所有当前发布输入一致的条目；截图人工放行、重复内容和任何已漂移条目都不自动发布。每个成功项仍独占一个短发布事务，复用普通 Approve 的 Game/Revision/ReviewEvent 与来源聚合规则，并与批次结果原子记账。管理员可在审核详情用独立子窗体尽最大可能运行当前来源：现有 Parent/BIOS 会被锁定交付，缺失依赖被省略；READY 与阻断 Validation 都在核心真实启动后第 5 秒写入截图。当前阻断截图与来源、目标、CoreArtifact 和 validation generation 一致时，可作为管理员逐项放行证据；发布的单机 Variant 保留 override 标记并继续最佳努力交付，Netplay 仍执行严格依赖门禁。外部 source 与原始 metadata 不属于 Retrom 数据根、CAS 或 backup；交接审核后的 ROM、封面和 VIDEO 已进入 CAS/backup，恢复时所有仍依赖外部 source 的任务必须失败收口。历史 Launch/VariantRevision 继续引用既有不可变快照。详细领域、协议和页面契约分别见 [`bios-and-arcade.md`](./bios-and-arcade.md)、[`import-and-review.md`](./import-and-review.md)、[`http-api-contract.md`](./http-api-contract.md) 与 [`ui-specification.md`](./ui-specification.md)。
+两类游戏目录 Worker 都只生成普通 `REVIEW_PENDING` 事项，不创建 Game；管理员可在统一审核工作台修复或逐项决定，也可对当前筛选范围启动一次快速审批。快速审批只冻结并处理严格 `READY`、无内容重复、无活动补传且所有当前发布输入一致的条目；截图人工放行、重复内容和任何已漂移条目都不自动发布。每个成功项仍独占一个短发布事务，复用普通 Approve 的 Game/GameFiles/GameVariant/ReviewEvent 与来源聚合规则，并与批次结果原子记账。管理员可在审核详情用独立子窗体尽最大可能运行当前来源：现有 Parent/BIOS 会被锁定交付，缺失依赖被省略；READY 与阻断 Validation 都在通过普通 Player 按需写入截图。当前阻断截图与来源、目标、Provider Target 和 当前校验输入 一致时，可作为管理员逐项放行证据；发布的单机 Variant 保留 override 标记并继续最佳努力交付，Netplay 仍执行严格依赖门禁。外部 source 与原始 metadata 不属于 Retrom 数据根、CAS 或 backup；交接审核后的 ROM、封面和 VIDEO 已进入 CAS/backup，恢复时所有仍依赖外部 source 的任务必须失败收口。已创建的 Launch/Netplay 会话继续引用创建时物化的不可变资源与 Bundle；Game/GameVariant 只表达当前状态。详细领域、协议和页面契约分别见 [`bios-and-arcade.md`](./bios-and-arcade.md)、[`import-and-review.md`](./import-and-review.md)、[`http-api-contract.md`](./http-api-contract.md) 与 [`ui-specification.md`](./ui-specification.md)。
 
 游戏详情是唯一允许请求 VIDEO 的用户页面。详情先用 COVER 保持稳定的 3:4 识别位，媒体区在前台与 viewport 内累计可见满两秒后才尝试 `muted + playsInline + loop`；收到 `playing` 前不隐藏封面，播放拒绝、解码/停滞、隐藏标签页与减少动态效果均有确定性封面回退或手动入口。首页、游戏库、收藏、最近、存档和搜索的 DTO/查询保持 cover-only。
 
@@ -403,7 +404,7 @@ flowchart LR
 
 手动状态存档必须包含非空可恢复 payload；截图是同次创建中的可选最佳努力输入，缺失时仍保存并在 API/UI 明确表示无预览。有效游玩时长通过 PlaySession 心跳累计；页面后台、模拟器暂停和长时间失联不计入有效时长。
 
-RPG Maker 项目从浏览器目录或单个 ZIP/7z 导入。发布前管理员必须主动创建一次与正式 Player 相同的 runtime-validation Launch；成功取得当前绑定的原始 `launchId` 后即可确认发布。帧/输入/音频 gate、A→B 保存→C、不同 restore Launch 精确恢复到 B、恢复截图与 `RESTORE_INPUT` 保留为可选高级验证以及七核心自动化验收的严格证据，不再作为人工审核发布门槛。非 RPG 审核继续使用既有五秒截图 preview/override；RPG Maker 不得使用它代替真实 Launch，旧 preview endpoint 对 RPG core 必须失败关闭。
+所有项目类型（包括 RPG Maker）共用审核 Preview 与普通 Player：点击“运行游戏”同步打开子窗口，服务端校验当前来源、目标、文件、依赖及浏览器能力后签发会话；Player 使用普通 config/start/heartbeat/finish、Provider dispatcher 和退出清理，不创建假 Game，也没有专用机器证明、额外验证决定或人工重检流程。管理员可按需保存运行截图、重复创建会话级临时 checkpoint，并从已有 checkpoint 创建新的 Preview 恢复，不要求先结束原 Preview。临时内容在会话到期或审核结束时释放；正式发布仍由当前来源与实际依赖检查决定。 跨会话精确恢复保留在研发验收中：通过普通 Player 记录真实可见初始状态 A，实际输入到 B 并创建普通 checkpoint，再继续到不同状态 C；使用同一 checkpoint 创建不同会话，读取真实运行状态，逐字段证明 mapId/playerX/playerY/fixtureState 恢复为 B 且不是 A/C，再真实输入并证明状态继续变化。验收同时检查连续帧、实际音频、截图 marker、文件完整性、checkpoint 格式/大小与授权边界；只有 HTTP 成功、Blob/hash 一致、同会话回读或截图相似都不足以 PASS。这些观测与断言属于开发 harness/自有公开 fixture，不进入生产 API、数据表、Provider 契约或审核 UI。
 
 ### 8.4 联机房间与 rollback
 
@@ -411,13 +412,13 @@ RPG Maker 项目从浏览器目录或单个 ZIP/7z 导入。发布前管理员�
 
 ## 9. 数据与版本基线
 
-- EmulatorJS 基础运行时锁定 `4.2.3`，`dosbox_pure`、`genesis_plus_gx_wide`、`azahar` 定向使用 `4.3.0-pre`；core 和 DAT 必须记录实际 artifact 标识与 SHA-256。`mame2003` 暂用已验证的官方 4.2.1 core bundle 覆盖，精确边界见[核心运行时验证基线](./core-runtime-validation.md)，不得概括成“所有 core 都来自同一版本”。
+- EmulatorJS Provider Bundle 锁定 35 个 Target 的运行资产；各 Target 的具体 EmulatorJS/core 版本与 DAT 绑定由 Provider manifest 和 DAT provenance 共同声明，Host 不再维护第二份 core→asset 映射。精确边界见[核心运行时验证基线](./core-runtime-validation.md)。
 - 真实 Arcade DAT 在开发、验收和镜像构建前物化到 `data/dat/emulatorjs/4.2.3/`；Git 只保存机器可读 manifest、`SHA256SUMS` 与物化脚本，不提交 50+ MiB payload。同步启动阶段只校验本地依赖并登记解析任务，Worker 可建立数据库索引，但任何启动阶段都不联网下载。
 - SQLite schema 中业务时刻全部为 Unix 毫秒 `INTEGER`；禁止后续 migration 引入 TEXT 时刻字段。
 - 用户上传内容、下载媒体、存档和截图进入运行时 CAS，不提交到代码仓库。
-- 预置 DAT 不可变且是唯一可创建、激活的 DatVersion 来源；release manifest 变化时先撤销旧选择并保持服务 not ready，待新版本索引成功后由启动引导原子激活。历史 DatVersion 只为旧 revision/Launch 提供可追溯引用。
+- 预置 DAT 不可变且是唯一可创建、激活的 DatVersion 来源；release manifest 变化时先撤销旧选择并保持服务 not ready，待新版本索引成功后由启动引导原子激活。旧 DatVersion 只为已创建 Launch 的冻结证据和审计提供可追溯引用。
 - DAT 更新不静默改写已发布 GameVariant 的不可变兼容性快照；重校验产生新结果并可追踪来源。
-- 联机 allowlist 是独立于普通兼容性的收紧层；只有基础平台出现在 profile `platformIds` 且 READY revision 使用 exact manifest core profile 的游戏可进入房间选择，但同一 profile 不再逐 ROM 限制名称、大小或 hash。
+- 联机 allowlist 是独立于普通兼容性的收紧层；只有基础平台出现在 profile `platformIds` 且 READY Variant 使用 exact manifest core profile 的游戏可进入房间选择，但同一 profile 不再逐 ROM 限制名称、大小或 hash。
 
 ## 10. 一期实施阶段
 
@@ -425,7 +426,7 @@ RPG Maker 项目从浏览器目录或单个 ZIP/7z 导入。发布前管理员�
 
 ### Phase 0：兼容性闸门
 
-- 锁定基础 EmulatorJS 4.2.3、定向 4.3.0-pre 与三十五个当前 `selected_for_new_bindings` core artifact（包括版本化覆盖），每个核心启动至少一个用户合法提供的测试游戏；固定兼容基线、线程产物、辅助资产与格式矩阵见[核心运行时验证基线](./core-runtime-validation.md)。
+- 锁定 EmulatorJS Provider 的 35 个 Target（包含基础 4.2.3 与定向 4.3.0-pre 实现），每个产品 Core 经其唯一 binding 启动至少一个用户合法提供的测试游戏；固定兼容基线、线程产物、辅助资产与格式矩阵见[核心运行时验证基线](./core-runtime-validation.md)。
 - 验证直接启动、默认全屏、仅用户显式状态存档/截图、指定存档恢复与有效时长心跳。
 - 验证 FBNeo/MAME/FBA2012 Split 与 Full Non-Merged 的 parent/BIOS 加载，及五个独立 DAT。
 - 已确认 Hasheous 的 `POST /api/v1/Lookup/ByHash` 无凭证契约；自动测试使用 fake，上线前只做一次有界 smoke，不能依赖实时命中内容或把限流阈值写死。
@@ -443,7 +444,7 @@ Phase 0 未通过时，不进入大规模业务实现。
 ### Phase 2：导入与管理
 
 - 文件/目录导入、任务恢复、Hasheous 适配器、DAT 解析和审核历史。
-- 游戏目录、游戏 revision 与 BIOS 管理。
+- 游戏目录、游戏内容维护 与 BIOS 管理。
 - 内置 DAT 索引、release 版本切换和受影响 Variant 的可观察重校验。
 
 ### Phase 3：用户侧与运行时
@@ -476,11 +477,11 @@ Phase 0 未通过时，不进入大规模业务实现。
 - 管理 CRUD、普通导入与服务器 Collection 默认值、审核原子发布、游戏维护、动态 `q` 与精确 `tagId` 搜索、全站活动标签投影。
 - 以 `ACC-TAG-001`–`005`、API/后端/前端/集成/Chrome E2E 和 `make ci` 为退出门禁；不进入 core smoke。
 
-### Phase 8：RPG Maker 七版本核心垂直切片
+### Phase 8：Runtime Provider 原子切换
 
-- 先完成 clean schema、OpenAPI、通用 artifact、Player runtime factory 和既有 EmulatorJS 回归，再完成 RPG 项目导入、内容证据、运行包与 runtime validation。
-- 依次接通 EasyRPG 2000/2003、mkxp-z XP/VX/VX Ace、MV/MZ unique-origin native host，所有路线共享显式检查点、权限、错误、截图和清理契约。
-- 以 `ACC-RPG-001`–`012`、全量共享 Player/依赖/镜像门禁以及每世代 A→B→C→不同 Launch 恢复到 B、恢复后 `RESTORE_INPUT` 为退出条件；MZ 还必须使用操作者合法 Web deployment 完成当次产品 smoke。
+- 以 001–010 直接建库 schema、Provider Bundle/Target catalog、Launch Envelope V1 和共享 dispatcher 同时替换 Host 的旧运行选择路径。
+- EmulatorJS 35 个 Target 与 retrom-runtime 12 个 Target 共享 `PlayerRuntimeV1` 生命周期；RPG MV/MZ 等需要隔离的 Target 仍由 Provider resource 声明 unique origin。
+- 以 `ACC-PROVIDER-001`–`008`、全部直接受影响产品 Case、全量代码/依赖/镜像门禁为退出条件；MZ 合法商业样本继续作为条件性外部产品证据。
 
 ## 11. 统一验收入口
 

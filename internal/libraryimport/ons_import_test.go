@@ -45,7 +45,7 @@ func TestPrepareONSDirectoryNormalizesWrapperAndRequiresRuntimeTrial(t *testing.
 
 func assertONSPreparedGroup(t *testing.T, group preparedGroup, dispositions []preparedDisposition) {
 	t.Helper()
-	if group.contentKind != "ONS_PROJECT_V1" || group.validationStatus != "BLOCKED" ||
+	if group.contentKind != "ONS_PROJECT" || group.validationStatus != "BLOCKED" ||
 		group.compatibilityCode != "ONS_RUNTIME_TRIAL_REQUIRED" || group.titleSource != "Fixture" ||
 		len(group.sources) != 3 || countIgnoredDispositions(dispositions) != 1 {
 		t.Fatalf("group=%#v dispositions=%#v", group, dispositions)

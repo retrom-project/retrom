@@ -75,8 +75,7 @@ func TestRPGRTINIFullPackageFlagProducesSelfContainedProfile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Detect() error = %v", err)
 	}
-	if !profile.SelfContained || len(profile.Requirements) != 1 ||
-		profile.Requirements[0] != RequirementRuntimeValidation {
+	if !profile.SelfContained || len(profile.Requirements) != 0 {
 		t.Fatalf("self-contained profile = %#v", profile)
 	}
 }

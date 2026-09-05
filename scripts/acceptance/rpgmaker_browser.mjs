@@ -1,7 +1,7 @@
 #!/usr/bin/env node
-import { randomUUID } from "node:crypto";
-import { mkdirSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { createHash, randomUUID } from "node:crypto";
+import { lstatSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { basename, dirname, isAbsolute, join } from "node:path";
 import { chromium } from "../../web/node_modules/playwright/index.mjs";
 import { localRpgAcceptanceProxy } from "./rpgmaker_local_proxy.mjs";
 import { normalizedBase } from "./rpgmaker_url.mjs";
@@ -43,9 +43,9 @@ try {
 
 async function catalogCase(context, writeHeaders) {
   const coreIds = ["rpgmaker"];
-  const internalCoreIds = [
-    "rpgmaker_2000", "rpgmaker_2003", "rpgmaker_xp", "rpgmaker_vx",
-    "rpgmaker_vx_ace", "rpgmaker_mv", "rpgmaker_mz",
+  const targetIds = [
+    "rpgmaker-2000", "rpgmaker-2003", "rpgmaker-xp", "rpgmaker-vx",
+    "rpgmaker-vx-ace", "rpgmaker-mv", "rpgmaker-mz",
   ];
   const templateKeys = ["rpgmaker/rpgmaker"];
   const platforms = await jsonRequest(context.request, "GET", "/api/v1/admin/platforms");
@@ -76,11 +76,11 @@ async function catalogCase(context, writeHeaders) {
   if (apply) {
     exact(enabledInstances.map((item) => item.defaultCoreId).sort(), [...coreIds], "RPG_ACCEPTANCE_DIRECTORY_CORE_BINDINGS");
   }
-  const artifacts = await allArtifacts(context.request);
-  const selected = artifacts.filter((item) => internalCoreIds.includes(item.coreId) && item.selectedForNewBindings && item.availableForLaunch);
-  exact(selected.map((item) => item.coreId).sort(), [...internalCoreIds].sort(), "RPG_ACCEPTANCE_SELECTED_ARTIFACTS");
-  if (selected.some((item) => !item.id || !item.routeKey || item.runtimeFamily !== "RPGMAKER")) {
-    throw new Error("RPG_ACCEPTANCE_ARTIFACT_DIAGNOSTIC_INCOMPLETE");
+  const targets = await allRuntimeTargets(context.request);
+  const selected = targets.filter((item) => item.providerId === "retrom-runtime" && targetIds.includes(item.targetId));
+  exact(selected.map((item) => item.targetId).sort(), [...targetIds].sort(), "RPG_ACCEPTANCE_SELECTED_TARGETS");
+  if (selected.some((item) => !/^[0-9a-f]{64}$/.test(item.bundleSha256 ?? ""))) {
+    throw new Error("RPG_ACCEPTANCE_TARGET_DIAGNOSTIC_INCOMPLETE");
   }
   const page = await context.newPage();
   await page.goto(`${baseUrl}/admin/platform-instances`, { waitUntil: "domcontentloaded", timeout: 120_000 });
@@ -91,24 +91,24 @@ async function catalogCase(context, writeHeaders) {
   }
   await page.goto(`${baseUrl}/admin/bios?tab=rpgmaker`, { waitUntil: "domcontentloaded", timeout: 120_000 });
   await page.waitForFunction(
-    (routes) => routes.every((route) => document.body.innerText.includes(route)),
-    selected.map((item) => item.routeKey),
+    (identifiers) => identifiers.every((identifier) => document.body.innerText.includes(identifier)),
+    selected.map((item) => item.targetId),
     { timeout: 120_000 },
   );
   await page.screenshot({ path: join(screenshotDir, "rpgmaker-runtime-diagnostics.png"), fullPage: true });
   const diagnosticText = await page.locator("body").innerText();
   for (const item of selected) {
-    if (!diagnosticText.includes(item.routeKey) || !diagnosticText.includes(item.id)) {
-      throw new Error("RPG_ACCEPTANCE_ARTIFACT_DIAGNOSTIC_NOT_VISIBLE");
+    if (!diagnosticText.includes(item.targetId) || !diagnosticText.includes(item.providerVersion)) {
+      throw new Error("RPG_ACCEPTANCE_TARGET_DIAGNOSTIC_NOT_VISIBLE");
     }
   }
   await page.close();
   return {
     schemaVersion: 1, caseId, status: apply ? "PASS" : "BLOCKED",
     reason: apply ? null : "只读 preflight 完成；fresh DB 必须显式设置 RETROM_ACC_RPG_001_MODE=APPLY 才执行推荐目录事务",
-    catalog: { platformId: "rpgmaker", coreIds, internalCoreIds, templateKeys },
+    catalog: { platformId: "rpgmaker", coreIds, targetIds, templateKeys },
     recommendationStates: covered.map((item) => ({ templateKey: item.templateKey, state: item.state })),
-    artifacts: selected.map(safeArtifact),
+    targets: selected.map(safeTarget),
     screenshots: ["screenshots/rpgmaker-directories.png", "screenshots/rpgmaker-runtime-diagnostics.png"],
   };
 }
@@ -116,39 +116,44 @@ async function catalogCase(context, writeHeaders) {
 async function generationCase(context, writeHeaders) {
   const prefix = `RETROM_${caseId.replaceAll("-", "_")}`;
   const itemId = required(`${prefix}_IMPORT_ITEM_ID`);
-  const validationId = required(`${prefix}_VALIDATION_ID`);
-  const gameId = required(`${prefix}_GAME_ID`);
+  const trialPath = required(prefix + "_TRIAL_EVIDENCE");
+  const gameId = required(prefix + "_GAME_ID");
   const expectedDigest = required("RETROM_RPG_EXPECTED_PROJECT_DIGEST");
-  const validation = await jsonRequest(
-    context.request, "GET", `/api/v1/admin/reviews/${itemId}/runtime-validations/${validationId}`,
-  );
-  if (validation.importItemId !== itemId || validation.validationId !== validationId) {
-    throw new Error("RPG_ACCEPTANCE_VALIDATION_RELATION_INVALID");
+  if (!isAbsolute(trialPath) || !lstatSync(trialPath).isFile() || lstatSync(trialPath).isSymbolicLink() ||
+      lstatSync(trialPath).size > 1_048_576) {throw new Error("RPG_ACCEPTANCE_TRIAL_FILE_INVALID");}
+  const runtimeTrial = JSON.parse(readFileSync(trialPath, "utf8"));
+  if (runtimeTrial.kind !== "DEVELOPMENT_RUNTIME_TRIAL" || runtimeTrial.schemaVersion !== 1 ||
+      runtimeTrial.importItemId !== itemId || runtimeTrial.caseId !== caseId || runtimeTrial.gameId !== gameId) {
+    throw new Error("RPG_ACCEPTANCE_TRIAL_RELATION_INVALID");
   }
-  if (validation.routeEvidence?.projectFingerprint !== expectedDigest) {
+  if (runtimeTrial.routeEvidence?.projectFingerprint !== expectedDigest) {
     throw new Error("RPG_ACCEPTANCE_FIXTURE_DIGEST_MISMATCH");
   }
   const approved = await approvedReview(context.request, itemId, gameId);
   const review = approved.event;
   const inputTranscript = await readInputTranscript(context.request, approved.importJobId);
-  const restoreScreenshotUrl = validation.checkpointRoundTrip?.screenshotUrl;
-  if (!restoreScreenshotUrl?.startsWith("/api/v1/admin/review-assets/")) {
+  const screenshot = runtimeTrial.restoredScreenshot;
+  if (screenshot?.fileName !== basename(trialPath) + "-restored.png") {
     throw new Error("RPG_ACCEPTANCE_RESTORE_SCREENSHOT_MISSING");
   }
-  const restoreScreenshot = await context.request.get(`${baseUrl}${restoreScreenshotUrl}`, { failOnStatusCode: false });
-  if (restoreScreenshot.status() !== 200 || !restoreScreenshot.headers()["content-type"]?.startsWith("image/")) {
+  const imagePath = join(dirname(trialPath), screenshot.fileName);
+  const stat = lstatSync(imagePath);
+  if (!stat.isFile() || stat.isSymbolicLink() || stat.size !== screenshot.sizeBytes || stat.size > 64 * 1024 * 1024) {
     throw new Error("RPG_ACCEPTANCE_RESTORE_SCREENSHOT_UNAVAILABLE");
   }
-  writeFileSync(
-    join(screenshotDir, `${caseId.toLowerCase()}-restored-marker.png`),
-    await restoreScreenshot.body(),
-  );
+  const restoreScreenshot = readFileSync(imagePath);
+  if (createHash("sha256").update(restoreScreenshot).digest("hex") !== screenshot.sha256) {
+    throw new Error("RPG_ACCEPTANCE_RESTORE_SCREENSHOT_DIGEST_MISMATCH");
+  }
+  const restoreExtension = restoreScreenshot.subarray(0, 3).equals(Buffer.from([0xff, 0xd8, 0xff])) ? "jpg" : "png";
+  const restoreImageName = caseId.toLowerCase() + "-restored-marker." + restoreExtension;
+  writeFileSync(join(screenshotDir, restoreImageName), restoreScreenshot);
   const game = await jsonRequest(context.request, "GET", `/api/v1/admin/games/${gameId}`);
   if (game.status !== "PUBLISHED") { throw new Error("RPG_ACCEPTANCE_GAME_NOT_PUBLISHED"); }
   const launch = await jsonRequest(context.request, "POST", "/api/v1/launches", {
     headers: writeHeaders(), expected: 201,
     data: {
-      gameId, coreId: validation.routeEvidence.coreId, saveStateId: null, dosEntry: null,
+      gameId, coreId: "rpgmaker", saveStateId: null, dosEntry: null,
       returnTo: `/games/${gameId}`,
       clientCapabilities: { secureContext: true, crossOriginIsolated: true, sharedArrayBuffer: true },
     },
@@ -157,34 +162,50 @@ async function generationCase(context, writeHeaders) {
   if (!/^\/play\/[0-9a-f-]{36}$/.test(launch.playUrl ?? "")) {
     throw new Error("RPG_ACCEPTANCE_PRODUCT_PLAY_URL_INVALID");
   }
-  const projectDeclarations = projectLoadingDeclarations(config.adapter);
+  const projectDeclarations = projectLoadingDeclarations(config);
   const loadingProbeOptions = {
-    collectRuntimeTimings: config.adapter?.adapterKind !== "NATIVE_WEB",
+    collectRuntimeTimings: !["rpgmaker-mv", "rpgmaker-mz"].includes(config.runtime.targetId),
   };
   const page = await context.newPage();
   const loadingProbe = trackRuntimeLoading(page, projectDeclarations, loadingProbeOptions);
   const pageErrors = [];
   const runtimeExceptions = [];
+  const runtimeExceptionTasks = [];
   const dialogs = [];
-  const observedResponses = [];
+  const networkResponses = [];
+  const consoleDiagnostics = [];
+  const failedResponses = [];
   let responseInventoryOverflow = false;
   const cdp = await context.newCDPSession(page);
   await cdp.send("Runtime.enable");
   cdp.on("Runtime.exceptionThrown", ({ exceptionDetails }) => {
-    runtimeExceptions.push(safeRuntimeException(exceptionDetails));
+    const task = collectRuntimeException(cdp, exceptionDetails)
+      .then((diagnostic) => runtimeExceptions.push(diagnostic));
+    runtimeExceptionTasks.push(task);
   });
   page.on("pageerror", (error) => pageErrors.push(error.stack || error.message));
+  page.on("console", (message) => {
+    if (message.text().trim()) {
+      consoleDiagnostics.push(`${message.type()}:${message.text()}`.slice(0, 800));
+    }
+  });
   page.on("dialog", async (dialog) => {
     dialogs.push(dialog.message().slice(0, 400));
     await dialog.dismiss();
   });
   page.on("response", (response) => {
-    if (observedResponses.length >= 20_000) {
+    if (networkResponses.length >= 20_000) {
       responseInventoryOverflow = true;
       return;
     }
     const request = response.request();
-    observedResponses.push({ url: response.url(), resourceType: request.resourceType() });
+    networkResponses.push({
+      method: request.method(), url: safeStackUrl(response.url()),
+      resourceType: request.resourceType(), status: response.status(),
+    });
+    if (response.status() >= 400) {
+      failedResponses.push(`${response.status()}:${response.url()}`.slice(0, 800));
+    }
   });
   progress("first-launch-navigation");
   await page.goto(`${baseUrl}${launch.playUrl}`, { waitUntil: "domcontentloaded" });
@@ -193,7 +214,7 @@ async function generationCase(context, writeHeaders) {
   await waitForProductSaveAvailability(page, pageErrors, runtimeExceptions, dialogs, caseId);
   progress("first-launch-ready");
   const firstVisibleLoading = applyEasyProjectDeclaration(
-    await loadingProbe.snapshot(), config.adapter, inputTranscript.upload,
+    await loadingProbe.snapshot(), config, inputTranscript.upload,
   );
   progress("first-launch-loading-snapshot");
   loadingProbe.stop();
@@ -205,34 +226,76 @@ async function generationCase(context, writeHeaders) {
   const diagnostics = page.getByRole("complementary", { name: "运行调试信息" });
   await diagnostics.waitFor({ state: "visible" });
   const diagnosticText = await diagnostics.innerText();
-  if (!diagnosticText.includes(config.coreName) || !diagnosticText.includes("RPG Maker")) {
+  if (!diagnosticText.includes("RPG Maker")) {
     throw new Error("RPG_ACCEPTANCE_PLAYER_DIAGNOSTIC_BINDING_MISMATCH");
   }
-  const internalValues = [config.routeKey, config.artifactId, config.adapter?.adapterId].filter(Boolean);
+  const internalValues = [config.runtime.providerId, config.runtime.targetId];
   if (internalValues.some((value) => diagnosticText.includes(value))) {
     throw new Error("RPG_ACCEPTANCE_PLAYER_DIAGNOSTIC_IMPLEMENTATION_LEAK");
   }
   await page.getByRole("button", { name: "关闭调试信息面板" }).click();
   await diagnostics.waitFor({ state: "hidden" });
+  await page.getByRole("button", { name: "继续游戏" }).click();
   await page.waitForTimeout(500);
   await page.screenshot({ path: join(screenshotDir, `${caseId.toLowerCase()}-product-player.png`), fullPage: true });
   progress("first-launch-screenshot");
   if (responseInventoryOverflow) { throw new Error("RPG_ACCEPTANCE_ORIGIN_INVENTORY_OVERFLOW"); }
-  const originInventory = config.adapter?.adapterKind === "NATIVE_WEB"
-    ? await collectOriginInventory(page, config.adapter.uniqueOrigin, observedResponses)
+  const isolatedTarget = ["rpgmaker-mv", "rpgmaker-mz"].includes(config.runtime.targetId);
+  const runtimeFrameURL = isolatedTarget ? await page.locator("iframe.player-frame").getAttribute("src") : null;
+  const originInventory = runtimeFrameURL
+    ? await collectOriginInventory(page, new URL(runtimeFrameURL, baseUrl).origin, networkResponses)
     : null;
   progress("first-launch-origin-inventory");
+  await assertNoPlayerErrors(
+    pageErrors, runtimeExceptions, consoleDiagnostics, failedResponses,
+    networkResponses, runtimeExceptionTasks,
+  );
+  const firstRuntimeProgress = await assertRuntimeProgress(page);
+  await assertNoPlayerErrors(
+    pageErrors, runtimeExceptions, consoleDiagnostics, failedResponses,
+    networkResponses, runtimeExceptionTasks,
+  );
   await page.close();
+  pageErrors.length = 0;
+  runtimeExceptions.length = 0;
+  runtimeExceptionTasks.length = 0;
+  networkResponses.length = 0;
+  consoleDiagnostics.length = 0;
+  failedResponses.length = 0;
   const cacheLaunch = await jsonRequest(context.request, "POST", "/api/v1/launches", {
     headers: writeHeaders(), expected: 201,
     data: {
-      gameId, coreId: validation.routeEvidence.coreId, saveStateId: null, dosEntry: null,
+      gameId, coreId: "rpgmaker", saveStateId: null, dosEntry: null,
       returnTo: `/games/${gameId}`,
       clientCapabilities: { secureContext: true, crossOriginIsolated: true, sharedArrayBuffer: true },
     },
   });
   const cachePage = await context.newPage();
+  const cacheCdp = await context.newCDPSession(cachePage);
+  await cacheCdp.send("Runtime.enable");
+  cacheCdp.on("Runtime.exceptionThrown", ({ exceptionDetails }) => {
+    const task = collectRuntimeException(cacheCdp, exceptionDetails)
+      .then((diagnostic) => runtimeExceptions.push(diagnostic));
+    runtimeExceptionTasks.push(task);
+  });
   cachePage.on("pageerror", (error) => pageErrors.push(error.stack || error.message));
+  cachePage.on("console", (message) => {
+    if (message.text().trim()) {
+      consoleDiagnostics.push(`${message.type()}:${message.text()}`.slice(0, 800));
+    }
+  });
+  cachePage.on("response", (response) => {
+    if (networkResponses.length < 20_000) {
+      const request = response.request();
+      networkResponses.push({
+        method: request.method(), url: safeStackUrl(response.url()),
+        resourceType: request.resourceType(), status: response.status(),
+      });
+    }
+    if (response.status() >= 400) {
+      failedResponses.push(`${response.status()}:${response.url()}`.slice(0, 800));
+    }
+  });
   cachePage.on("dialog", async (dialog) => {
     dialogs.push(dialog.message().slice(0, 400));
     await dialog.dismiss();
@@ -243,18 +306,20 @@ async function generationCase(context, writeHeaders) {
   await waitForProductSaveAvailability(cachePage, pageErrors, runtimeExceptions, dialogs, caseId);
   progress("cache-launch-ready");
   const cacheVisibleLoading = applyEasyProjectDeclaration(
-    await cacheLoadingProbe.snapshot(), config.adapter, inputTranscript.upload,
+    await cacheLoadingProbe.snapshot(), config, inputTranscript.upload,
   );
   progress("cache-launch-loading-snapshot");
   cacheLoadingProbe.stop();
+  await assertNoPlayerErrors(
+    pageErrors, runtimeExceptions, consoleDiagnostics, failedResponses,
+    networkResponses, runtimeExceptionTasks,
+  );
+  const cacheRuntimeProgress = await assertRuntimeProgress(cachePage);
+  await assertNoPlayerErrors(
+    pageErrors, runtimeExceptions, consoleDiagnostics, failedResponses,
+    networkResponses, runtimeExceptionTasks,
+  );
   await cachePage.close();
-  if (pageErrors.length) {
-    const details = [
-      ...pageErrors.slice(0, 5),
-      ...runtimeExceptions.slice(0, 5).map((value) => JSON.stringify(value)),
-    ].map((value) => value.slice(0, 1_200)).join(" | ");
-    throw new Error(`RPG_ACCEPTANCE_PLAYER_PAGE_ERROR:${details}`);
-  }
   const sameProjectContentIdentity = firstVisibleLoading.projectContentIdentity === null &&
       cacheVisibleLoading.projectContentIdentity === null
     ? null
@@ -262,17 +327,18 @@ async function generationCase(context, writeHeaders) {
       firstVisibleLoading.projectContentIdentity === cacheVisibleLoading.projectContentIdentity;
   return {
     schemaVersion: 1, caseId, status: "PASS",
-    review: safeReview(review, validation), validation: safeValidation(validation),
+    review: safeReview(review, runtimeTrial), runtimeTrial,
     inputTranscript,
     runtimeEnvironment: { chromeVersion },
     productLaunch: {
       launchId: launch.launchId, playerRunning: true,
+      runtimeProgress: { firstLaunch: firstRuntimeProgress, cacheLaunch: cacheRuntimeProgress },
       config: {
-        runtimeFamily: config.runtimeFamily, purpose: config.purpose, coreId: config.coreId,
-        generation: config.generation, routeKey: config.routeKey, artifactId: config.artifactId,
-        adapterId: config.adapter?.adapterId, adapterKind: config.adapter?.adapterKind,
-        stateBufferBytes: config.adapter?.stateBufferBytes,
-        bridgeProfile: config.adapter?.bridgeProfile,
+        purpose: config.session.purpose, providerId: config.runtime.providerId,
+        providerVersion: config.runtime.providerVersion, targetId: config.runtime.targetId,
+        bundleSha256: config.runtime.bundleSha256,
+        checkpointFormat: config.runtime.checkpoint?.writeFormat ?? null,
+        checkpointMaxBytes: config.runtime.checkpoint?.maxBytes ?? null,
       },
     },
     ...(originInventory ? { originInventory } : {}),
@@ -284,17 +350,56 @@ async function generationCase(context, writeHeaders) {
       cacheLaunchVisible: cacheVisibleLoading.evidence,
     },
     screenshots: [
-      `screenshots/${caseId.toLowerCase()}-restored-marker.png`,
+      `screenshots/${restoreImageName}`,
       `screenshots/${caseId.toLowerCase()}-product-player.png`,
     ],
   };
 }
 
-function projectLoadingDeclarations(adapter) {
-  if (adapter?.adapterKind !== "MKXP_LIBRETRO_WEB") {return [];}
-  const sources = [adapter.projectArchive, ...array(adapter.rtpArchives)];
+async function assertNoPlayerErrors(
+  pageErrors, runtimeExceptions, consoleDiagnostics, failedResponses,
+  networkResponses, runtimeExceptionTasks,
+) {
+  await Promise.allSettled(runtimeExceptionTasks);
+  if (!pageErrors.length && !runtimeExceptions.length) {return;}
+  const details = [
+    ...pageErrors.slice(0, 5).map((value) => value.slice(0, 1_200)),
+    ...runtimeExceptions.slice(0, 5).map((value) => JSON.stringify(value).slice(0, 6_000)),
+    ...consoleDiagnostics.slice(-10).map((value) => value.slice(0, 1_200)),
+    ...failedResponses.slice(-10).map((value) => value.slice(0, 1_200)),
+    ...networkResponses.slice(-100).map((value) => JSON.stringify(value).slice(0, 1_200)),
+  ].join(" | ");
+  throw new Error(`RPG_ACCEPTANCE_PLAYER_PAGE_ERROR:${details}`);
+}
+
+async function assertRuntimeProgress(page) {
+  const frameCount = () => window.__RETROM_E2E_RUNTIME_V1__?.getFrameCount() ?? null;
+  const beforeFrame = await page.evaluate(frameCount);
+  if (!Number.isSafeInteger(beforeFrame) || beforeFrame < 0) {
+    throw new Error("RPG_ACCEPTANCE_PRODUCT_RUNTIME_PROGRESS_UNAVAILABLE");
+  }
+  try {
+    await page.waitForFunction(
+      (before) => {
+        const after = window.__RETROM_E2E_RUNTIME_V1__?.getFrameCount();
+        return Number.isSafeInteger(after) && after > before;
+      },
+      beforeFrame,
+      { timeout: 10_000 },
+    );
+  } catch {
+    const afterFrame = await page.evaluate(frameCount);
+    throw new Error(`RPG_ACCEPTANCE_PRODUCT_RUNTIME_STALLED:${beforeFrame}:${afterFrame}`);
+  }
+  const afterFrame = await page.evaluate(frameCount);
+  return { beforeFrame, afterFrame };
+}
+
+function projectLoadingDeclarations(config) {
+  if (!["rpgmaker-xp", "rpgmaker-vx", "rpgmaker-vx-ace"].includes(config?.runtime?.targetId)) {return [];}
+  const sources = array(config.resources).filter((source) => source.kind === "SEEKABLE_BLOB");
   return sources.map((source) => {
-    if (source?.kind !== "SEEKABLE_BLOB_V1" || source.rangeRequired !== true ||
+    if (source?.kind !== "SEEKABLE_BLOB" || source.rangeRequired !== true ||
       !Number.isSafeInteger(source.sizeBytes) || source.sizeBytes < 1 || typeof source.url !== "string") {
       throw new Error("RPG_ACCEPTANCE_RUNTIME_LOADING_CONFIG_INVALID");
     }
@@ -302,8 +407,8 @@ function projectLoadingDeclarations(adapter) {
   });
 }
 
-function applyEasyProjectDeclaration(snapshot, adapter, upload) {
-  if (adapter?.adapterKind !== "EASYRPG_WEB") {return snapshot;}
+function applyEasyProjectDeclaration(snapshot, config, upload) {
+  if (!["rpgmaker-2000", "rpgmaker-2003"].includes(config?.runtime?.targetId)) {return snapshot;}
   const fileCount = Number(upload?.fileCount);
   const totalBytes = Number(upload?.totalBytes);
   const evidence = snapshot?.evidence;
@@ -355,11 +460,47 @@ async function revealProductToolbar(page) {
   await page.locator(".player-toolbar.is-visible").waitFor({ state: "visible" });
 }
 
-function safeRuntimeException(details) {
+async function collectRuntimeException(cdp, details) {
+  const objectId = details.exception?.objectId;
+  let ownProperties = [];
+  let runtimeStack = "";
+  if (objectId) {
+    const [properties, stack] = await Promise.all([
+      cdp.send("Runtime.getProperties", {
+        objectId, ownProperties: true, accessorPropertiesOnly: false, generatePreview: true,
+      }).catch(() => ({ result: [] })),
+      cdp.send("Runtime.callFunctionOn", {
+        objectId,
+        functionDeclaration: "function () { return typeof this.stack === 'string' ? this.stack : ''; }",
+        returnByValue: true,
+        silent: true,
+      }).catch(() => ({ result: { value: "" } })),
+    ]);
+    ownProperties = properties.result ?? [];
+    runtimeStack = stack.result?.value ?? "";
+  }
+  return safeRuntimeException(details, ownProperties, runtimeStack);
+}
+
+function safeRuntimeException(details, ownProperties = [], runtimeStack = "") {
   const frames = details.stackTrace?.callFrames ?? [];
+  const properties = [
+    ...(details.exception?.preview?.properties ?? []),
+    ...ownProperties.map((property) => ({
+      name: property.name,
+      type: property.value?.type,
+      value: property.value?.value ?? property.value?.description,
+    })),
+  ];
   return {
     text: String(details.text ?? "").slice(0, 240),
     description: String(details.exception?.description ?? "").slice(0, 600),
+    stack: String(runtimeStack ?? "").slice(0, 2_400),
+    properties: properties.slice(0, 16).map((property) => ({
+      name: String(property.name ?? "").slice(0, 80),
+      type: String(property.type ?? "").slice(0, 40),
+      value: String(property.value ?? "").slice(0, 240),
+    })),
     frames: frames.slice(0, 8).map((frame) => ({
       functionName: String(frame.functionName ?? "").slice(0, 160),
       url: safeStackUrl(frame.url),
@@ -409,7 +550,8 @@ async function readInputTranscript(request, importJobId) {
     import: {
       importJobId: imported.importJobId, uploadId: imported.uploadId, state: imported.state,
       payloadState: imported.payloadState, platformId: imported.platformId,
-      defaultCoreId: imported.defaultCoreId, coreArtifactId: imported.coreArtifactId,
+      defaultCoreId: imported.defaultCoreId, providerId: imported.providerId,
+      targetId: imported.targetId,
       counts: {
         total: counts.total, queued: counts.queued, running: counts.running,
         reviewPending: counts.reviewPending, published: counts.published,
@@ -474,12 +616,12 @@ function projectResourcePath(pathname) {
     || /^\/(?:js|data|audio|img|effects|fonts)\//.test(pathname);
 }
 
-async function allArtifacts(request) {
+async function allRuntimeTargets(request) {
   const items = [];
   let cursor = "";
   do {
     const query = cursor ? `?cursor=${encodeURIComponent(cursor)}` : "";
-    const response = await jsonRequest(request, "GET", `/api/v1/admin/core-artifacts${query}`);
+    const response = await jsonRequest(request, "GET", `/api/v1/admin/runtime-targets${query}`);
     items.push(...array(response.items));
     cursor = response.nextCursor ?? "";
   } while (cursor);
@@ -497,37 +639,23 @@ async function jsonRequest(request, method, path, options = {}) {
   return response.json();
 }
 
-function safeReview(review, validation) {
-  const route = validation.routeEvidence;
+function safeReview(review, runtimeTrial) {
+  const route = runtimeTrial.routeEvidence;
   return {
     itemId: review.importItemId, reviewEventId: review.reviewEventId, decision: review.eventType,
     version: null, contentIdentityDigest: route.projectFingerprint,
     rpgMaker: {
-      selectedCoreId: route.coreId, generation: route.generation,
+      selectedCoreId: "rpgmaker", generation: route.generation,
       evidenceGeneration: route.evidenceGeneration, evidenceConfidence: route.evidenceConfidence,
-      runtimeBindingRevision: validation.runtimeBindingRevision, runtimeValidationCurrent: true,
     },
   };
 }
 
-function safeValidation(value) {
+function safeTarget(item) {
   return {
-    validationId: value.validationId, importItemId: value.importItemId,
-    reviewVersionAtCreate: value.reviewVersionAtCreate, runtimeBindingRevision: value.runtimeBindingRevision,
-    launchId: value.launchId, restoreLaunchId: value.restoreLaunchId, state: value.state,
-    lastGateSequence: value.lastGateSequence, routeEvidence: value.routeEvidence,
-    machineGates: value.machineGates, checkpointRoundTrip: value.checkpointRoundTrip,
-    failureCode: value.failureCode, decision: value.decision,
-    createdAtMs: value.createdAtMs, updatedAtMs: value.updatedAtMs, expiresAtMs: value.expiresAtMs,
-  };
-}
-
-function safeArtifact(item) {
-  return {
-    id: item.id, coreId: item.coreId, coreName: item.coreName, routeKey: item.routeKey,
-    runtimeFamily: item.runtimeFamily, adapterId: item.adapterId,
-    selectedForNewBindings: item.selectedForNewBindings, availableForLaunch: item.availableForLaunch,
-    version: item.version, sizeBytes: item.sizeBytes,
+    providerId: item.providerId, providerVersion: item.providerVersion, targetId: item.targetId,
+    bundleSha256: item.bundleSha256,
+    coreId: item.coreId, coreName: item.coreName,
   };
 }
 

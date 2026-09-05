@@ -131,24 +131,13 @@ func TestGamePageBoundsInitialCatalogWorkAndUsesStableCursor(t *testing.T) {
 	}
 	for index := 0; index < 205; index++ {
 		gameID := fmt.Sprintf("01980000-0000-7000-8100-%012x", index)
-		metadataID := fmt.Sprintf("01980000-0000-7000-8200-%012x", index)
-		contentID := fmt.Sprintf("01980000-0000-7000-8300-%012x", index)
 		if _, err := transaction.ExecContext(context.Background(), `
-INSERT INTO game_metadata_revisions(id,game_id,title,title_initial,description,developer,publisher,genre,players,release_year,source_kind,created_at_ms)
-VALUES(?,?,?,'G','','','','',NULL,NULL,'ADMIN_EDIT',?)
-`, metadataID, gameID, fmt.Sprintf("Game %03d", index), now.UnixMilli()); err != nil {
-			t.Fatal(err)
-		}
-		if _, err := transaction.ExecContext(context.Background(), `
-INSERT INTO game_content_revisions(id,game_id,source_kind,source_ref_id,source_manifest_json,source_manifest_digest,created_at_ms)
-VALUES(?,?,'ADMIN_REPLACE',?,'{}',?,?)
-`, contentID, gameID, gameID, strings.Repeat("7", 64), now.UnixMilli()); err != nil {
-			t.Fatal(err)
-		}
-		if _, err := transaction.ExecContext(context.Background(), `
-INSERT INTO games(id,platform_instance_id,status,current_metadata_revision_id,current_content_revision_id,search_text,version,created_at_ms,updated_at_ms)
-VALUES(?,(SELECT id FROM platform_instances WHERE catalog_template_key='dos/dosbox_pure'),'PUBLISHED',?,?,?,1,?,?)
-`, gameID, metadataID, contentID, fmt.Sprintf("game %03d", index), now.UnixMilli(), now.UnixMilli()); err != nil {
+INSERT INTO games(id,platform_instance_id,title,title_initial,description,developer,publisher,genre,players,release_year,
+ metadata_source_kind,content_kind,content_source_kind,content_source_ref_id,source_manifest_json,source_manifest_digest,
+ status,search_text,version,created_at_ms,updated_at_ms)
+VALUES(?,(SELECT id FROM platform_instances WHERE catalog_template_key='dos/dosbox_pure'),?,'G','','','','',NULL,NULL,
+ 'ADMIN_EDIT','SINGLE_FILE','ADMIN_REPLACE',?,'{}',?,'PUBLISHED',?,1,?,?)
+`, gameID, fmt.Sprintf("Game %03d", index), gameID, strings.Repeat("7", 64), fmt.Sprintf("game %03d", index), now.UnixMilli(), now.UnixMilli()); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -227,31 +216,35 @@ func TestCoreProfilesIgnorePerGameContentIdentity(t *testing.T) {
 			t.Parallel()
 			profile, ok := registry.Profile(test.profileID)
 			testassert.Truef(t, ok, "profile %q missing", test.profileID)
-			contentAllowed, artifactMatches := service.matchesCoreProfile(eligibilityRow{
-				platformID: test.platformID, coreID: test.coreID, emulatorVersion: "4.2.3", artifactSHA: test.artifactSHA,
-				artifactEnabled: 1, contentKind: "SINGLE_FILE", logicalName: test.logicalName,
+			contentAllowed, targetMatches := service.matchesTargetProfile(eligibilityRow{
+				platformID: test.platformID, coreID: test.coreID, providerID: profile.ProviderID,
+				targetID:    profile.TargetID,
+				contentKind: "SINGLE_FILE", logicalName: test.logicalName,
 			}, profile)
-			testassert.Falsef(t, testassert.Any(func() bool { return !contentAllowed }, func() bool { return !artifactMatches }), "arbitrary %s content did not match core profile", test.coreID)
-			contentAllowed, artifactMatches = service.matchesCoreProfile(eligibilityRow{
-				platformID: test.platformID, coreID: test.coreID, emulatorVersion: "4.2.3", artifactSHA: test.artifactSHA,
-				artifactEnabled: 1, contentKind: "MULTI_DISC_M3U_V1",
+			testassert.Falsef(t, testassert.Any(func() bool { return !contentAllowed }, func() bool { return !targetMatches }), "arbitrary %s content did not match Target profile", test.coreID)
+			contentAllowed, targetMatches = service.matchesTargetProfile(eligibilityRow{
+				platformID: test.platformID, coreID: test.coreID, providerID: profile.ProviderID,
+				targetID:    profile.TargetID,
+				contentKind: "MULTI_DISC",
 			}, profile)
-			testassert.Falsef(t, testassert.Any(func() bool { return contentAllowed }, func() bool { return artifactMatches }), "unsupported %s content kind matched core profile", test.coreID)
-			contentAllowed, artifactMatches = service.matchesCoreProfile(eligibilityRow{
-				platformID: test.platformID, coreID: test.coreID, emulatorVersion: "4.2.3", artifactSHA: strings.Repeat("f", 64),
-				artifactEnabled: 1, contentKind: "SINGLE_FILE",
+			testassert.Falsef(t, testassert.Any(func() bool { return contentAllowed }, func() bool { return targetMatches }), "unsupported %s content kind matched Target profile", test.coreID)
+			contentAllowed, targetMatches = service.matchesTargetProfile(eligibilityRow{
+				platformID: test.platformID, coreID: test.coreID, providerID: profile.ProviderID,
+				targetID:    "drifted-target",
+				contentKind: "SINGLE_FILE",
 			}, profile)
-			testassert.Falsef(t, testassert.Any(func() bool { return !contentAllowed }, func() bool { return artifactMatches }), "drifted %s artifact matched core profile", test.coreID)
-			contentAllowed, artifactMatches = service.matchesCoreProfile(eligibilityRow{
-				platformID: "unverified-platform", coreID: test.coreID, emulatorVersion: "4.2.3",
-				artifactSHA: test.artifactSHA, artifactEnabled: 1, contentKind: "SINGLE_FILE",
+			testassert.Falsef(t, testassert.Any(func() bool { return !contentAllowed }, func() bool { return targetMatches }), "drifted %s Target matched profile", test.coreID)
+			contentAllowed, targetMatches = service.matchesTargetProfile(eligibilityRow{
+				platformID: "unverified-platform", coreID: test.coreID, providerID: profile.ProviderID,
+				targetID:    profile.TargetID,
+				contentKind: "SINGLE_FILE",
 			}, profile)
-			testassert.Falsef(t, testassert.Any(func() bool { return !contentAllowed }, func() bool { return artifactMatches }), "unverified %s platform matched core profile", test.coreID)
+			testassert.Falsef(t, testassert.Any(func() bool { return !contentAllowed }, func() bool { return targetMatches }), "unverified %s platform matched Target profile", test.coreID)
 		})
 	}
 }
 
-func TestArcadeV2EligibilityRequiresTheLockedDependencyBundle(t *testing.T) {
+func TestArcadeEligibilityRequiresTheLockedDependencyBundle(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 	now := time.UnixMilli(1_786_000_000_000).UTC()
@@ -259,16 +252,14 @@ func TestArcadeV2EligibilityRequiresTheLockedDependencyBundle(t *testing.T) {
 	defer func() { cleanup.Error("close", database.Close()) }()
 	const (
 		gameID      = "01980000-0000-7000-8400-000000000001"
-		metadataID  = "01980000-0000-7000-8400-000000000002"
-		contentID   = "01980000-0000-7000-8400-000000000003"
 		variantID   = "01980000-0000-7000-8400-000000000004"
-		revisionID  = "01980000-0000-7000-8400-000000000005"
-		artifactID  = "01980000-0000-7000-8400-000000000006"
 		datID       = "01980000-0000-7000-8400-000000000007"
 		contentBlob = "01980000-0000-7000-8400-000000000008"
 		biosBlob    = "01980000-0000-7000-8400-000000000009"
 	)
-	snapshot := fmt.Sprintf(`{"schemaVersion":2,"machine":"child","datVersionId":%q,"closure":[{"machine":"child","kind":"CONTENT","requiredBy":null,"depth":0},{"machine":"bios","kind":"BIOS_OR_BASE","requiredBy":"child","depth":1}],"dependencies":[{"kind":"BIOS_OR_BASE","machine":"bios","requiredBy":"child","depth":1,"expectedLogicalName":"bios.zip","state":"SATISFIED_EXTERNAL","requiredEntryCount":1,"requiredEntries":["bios.bin"]}],"missingEntries":[],"mismatchedEntries":[],"warnings":[]}`, datID)
+	runtimeIdentity, err := testsupport.LookupRuntimeTarget(ctx, database.SQL, "fbneo")
+	testassert.False(t, err != nil, err)
+	snapshot := fmt.Sprintf(`{"schemaVersion":1,"kind":"ARCADE","machine":"child","datVersionId":%q,"closure":[{"machine":"child","kind":"CONTENT","requiredBy":null,"depth":0},{"machine":"bios","kind":"BIOS_OR_BASE","requiredBy":"child","depth":1}],"dependencies":[{"kind":"BIOS_OR_BASE","machine":"bios","requiredBy":"child","depth":1,"expectedLogicalName":"bios.zip","state":"SATISFIED_EXTERNAL","requiredEntryCount":1,"requiredEntries":["bios.bin"]}],"missingEntries":[],"mismatchedEntries":[],"warnings":[]}`, datID)
 	tx, err := database.SQL.BeginTx(ctx, nil)
 	testassert.False(t, err != nil, err)
 	defer cleanup.Rollback(tx)
@@ -279,24 +270,14 @@ func TestArcadeV2EligibilityRequiresTheLockedDependencyBundle(t *testing.T) {
 		query string
 		args  []any
 	}{
-		{`INSERT INTO game_metadata_revisions(id,game_id,title,title_initial,description,developer,publisher,genre,players,source_kind,created_at_ms) VALUES(?,?,'Arcade fixture','A','','','','',2,'ADMIN_EDIT',?)`, []any{metadataID, gameID, now.UnixMilli()}},
-		{`INSERT INTO game_content_revisions(id,game_id,source_kind,source_ref_id,source_manifest_json,source_manifest_digest,created_at_ms) VALUES(?,?,'ADMIN_REPLACE','arcade-fixture','{}',?,?)`, []any{contentID, gameID, strings.Repeat("1", 64), now.UnixMilli()}},
-		{`INSERT INTO games(id,platform_instance_id,status,current_metadata_revision_id,current_content_revision_id,search_text,version,created_at_ms,updated_at_ms) VALUES(?,(SELECT id FROM platform_instances WHERE catalog_template_key='arcade/fbneo'),'PUBLISHED',?,?,'arcade fixture',1,?,?)`, []any{gameID, metadataID, contentID, now.UnixMilli(), now.UnixMilli()}},
+		{`INSERT INTO games(id,platform_instance_id,title,title_initial,description,developer,publisher,genre,players,metadata_source_kind,content_kind,content_source_kind,content_source_ref_id,source_manifest_json,source_manifest_digest,status,search_text,version,created_at_ms,updated_at_ms) VALUES(?,(SELECT id FROM platform_instances WHERE catalog_template_key='arcade/fbneo'),'Arcade fixture','A','','','','',2,'ADMIN_EDIT','SINGLE_FILE','ADMIN_REPLACE','arcade-fixture','{}',?,'PUBLISHED','arcade fixture',1,?,?)`, []any{gameID, strings.Repeat("1", 64), now.UnixMilli(), now.UnixMilli()}},
 		{`INSERT INTO blobs(id,sha256,size_bytes,md5,sha1,crc32,media_type,created_at_ms) VALUES(?,?,1,?,?,?,'application/octet-stream',?)`, []any{contentBlob, strings.Repeat("2", 64), strings.Repeat("3", 32), strings.Repeat("4", 40), strings.Repeat("5", 8), now.UnixMilli()}},
 		{`INSERT INTO blobs(id,sha256,size_bytes,md5,sha1,crc32,media_type,created_at_ms) VALUES(?,?,1,?,?,?,'application/octet-stream',?)`, []any{biosBlob, strings.Repeat("6", 64), strings.Repeat("7", 32), strings.Repeat("8", 40), strings.Repeat("9", 8), now.UnixMilli()}},
-		{`INSERT INTO game_content_files(game_content_revision_id,role,logical_name,blob_id,sort_order) VALUES(?,'CONTENT','child.zip',?,0)`, []any{contentID, contentBlob}},
-		{`INSERT INTO core_artifacts(
-id,core_id,route_key,runtime_family,runtime_adapter_kind,runtime_version,adapter_id,entry_path,
-size_bytes,sha256,manifest_sha256,artifact_set_sha256,requires_threads,save_payload_kind,save_max_bytes,
-provenance_json,compatibility_json,selected_for_new_bindings,available_for_launch,version,created_at_ms,updated_at_ms)
-VALUES(?,'fbneo','DEFAULT','EMULATORJS','EMULATORJS','4.2.3','ejs-4.2.3-v3','cores/fbneo.data',
-1,?,?,?,0,'RUNTIME_STATE',67108864,'{}','{"adapterAbi":"emulatorjs-state-v1","defaultOptions":{}}',1,1,1,?,?)`, []any{artifactID, strings.Repeat("a", 64), strings.Repeat("d", 64), strings.Repeat("e", 64), now.UnixMilli(), now.UnixMilli()}},
-		{`INSERT INTO dat_versions(id,core_id,core_artifact_id,builtin_relative_path,sha256,parser_version,parse_status,is_active,version,created_at_ms,updated_at_ms,parsed_at_ms,activated_at_ms) VALUES(?,'fbneo',?,'data/dat/fbneo.xml',?,'1','READY',1,1,?,?,?,?)`, []any{datID, artifactID, strings.Repeat("b", 64), now.UnixMilli(), now.UnixMilli(), now.UnixMilli(), now.UnixMilli()}},
-		{`INSERT INTO game_variants(id,game_id,core_id,current_revision_id,version,created_at_ms,updated_at_ms) VALUES(?,?,'fbneo',NULL,1,?,?)`, []any{variantID, gameID, now.UnixMilli(), now.UnixMilli()}},
-		{`INSERT INTO game_variant_revisions(id,game_variant_id,game_content_revision_id,core_artifact_id,route_key,dat_version_id,validation_input_digest,emulator_game_id,status,compatibility_code,dependency_snapshot_json,created_at_ms) VALUES(?,?,?,?, 'DEFAULT',?,?,1,'READY','READY',?,?)`, []any{revisionID, variantID, contentID, artifactID, datID, strings.Repeat("c", 64), snapshot, now.UnixMilli()}},
-		{`UPDATE game_variants SET current_revision_id=? WHERE id=?`, []any{revisionID, variantID}},
-		{`INSERT INTO variant_dependencies(game_variant_revision_id,kind,logical_archive,dat_version_id,source_machine_name,required_entries_json,state,created_at_ms) VALUES(?,'BIOS_OR_BASE','bios.zip',?,'bios','["bios.bin"]','SATISFIED_EXTERNAL',?)`, []any{revisionID, datID, now.UnixMilli()}},
-		{`INSERT INTO variant_files(game_variant_revision_id,role,logical_name,blob_id,sort_order) VALUES(?,'BIOS_BUNDLE','bios.zip',?,0)`, []any{revisionID, biosBlob}},
+		{`INSERT INTO game_files(game_id,role,logical_name,blob_id,sort_order) VALUES(?,'CONTENT','child.zip',?,0)`, []any{gameID, contentBlob}},
+		{`INSERT INTO dat_versions(id,core_id,provider_id,target_id,builtin_relative_path,sha256,parser_version,parse_status,is_active,version,created_at_ms,updated_at_ms,parsed_at_ms,activated_at_ms) VALUES(?,'fbneo',?,?,'data/dat/fbneo.xml',?,'1','READY',1,1,?,?,?,?)`, []any{datID, runtimeIdentity.ProviderID, runtimeIdentity.TargetID, strings.Repeat("b", 64), now.UnixMilli(), now.UnixMilli(), now.UnixMilli(), now.UnixMilli()}},
+		{`INSERT INTO game_variants(id,game_id,core_id,provider_id,target_id,dat_version_id,emulator_game_id,status,compatibility_code,dependency_snapshot_json,version,created_at_ms,updated_at_ms) VALUES(?,?,'fbneo',?,?,?,1,'READY','READY',?,1,?,?)`, []any{variantID, gameID, runtimeIdentity.ProviderID, runtimeIdentity.TargetID, datID, snapshot, now.UnixMilli(), now.UnixMilli()}},
+		{`INSERT INTO variant_dependencies(game_variant_id,kind,logical_archive,dat_version_id,source_machine_name,required_entries_json,state,created_at_ms) VALUES(?,'BIOS_OR_BASE','bios.zip',?,'bios','["bios.bin"]','SATISFIED_EXTERNAL',?)`, []any{variantID, datID, now.UnixMilli()}},
+		{`INSERT INTO variant_files(game_variant_id,role,logical_name,blob_id,sort_order) VALUES(?,'BIOS_BUNDLE','bios.zip',?,0)`, []any{variantID, biosBlob}},
 	}
 	for _, statement := range statements {
 		if _, err := tx.ExecContext(context.Background(), statement.query, statement.args...); err != nil {
@@ -308,11 +289,11 @@ VALUES(?,'fbneo','DEFAULT','EMULATORJS','EMULATORJS','4.2.3','ejs-4.2.3-v3','cor
 	}
 	service := NewService(database.SQL, nil, nil, Options{}, func() time.Time { return now })
 	row := eligibilityRow{
-		revisionID: revisionID, logicalName: "child.zip", dependencyJSON: snapshot,
+		variantID: variantID, logicalName: "child.zip", dependencyJSON: snapshot,
 		datVersionID: sql.NullString{String: datID, Valid: true},
 	}
 	runnable, err := service.arcadeDependencySnapshotRunnable(ctx, row)
-	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return !runnable }), "schema-v2 Arcade revision runnable=%t error=%v", runnable, err)
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return !runnable }), "typed Arcade Arcade variant runnable=%t error=%v", runnable, err)
 }
 
 func TestHostCannotClaimGuestSeatThroughTheService(t *testing.T) {
@@ -380,16 +361,14 @@ func TestPrepareFailureReturnsRoomToWaitingAndClearsReady(t *testing.T) {
 	room, err := service.CreateRoom(ctx, hostID)
 	testassert.False(t, err != nil, err)
 	const (
-		gameID            = "01980000-0000-7000-8000-000000000010"
-		metadataID        = "01980000-0000-7000-8000-000000000011"
-		contentID         = "01980000-0000-7000-8000-000000000012"
-		artifactID        = "01980000-0000-7000-8000-000000000013"
-		variantID         = "01980000-0000-7000-8000-000000000014"
-		variantRevisionID = "01980000-0000-7000-8000-000000000015"
-		guestMemberID     = "01980000-0000-7000-8000-000000000016"
-		sessionID         = "01980000-0000-7000-8000-000000000017"
-		contentBlobID     = "01980000-0000-7000-8000-000000000018"
+		gameID        = "01980000-0000-7000-8000-000000000010"
+		variantID     = "01980000-0000-7000-8000-000000000014"
+		guestMemberID = "01980000-0000-7000-8000-000000000016"
+		sessionID     = "01980000-0000-7000-8000-000000000017"
+		contentBlobID = "01980000-0000-7000-8000-000000000018"
 	)
+	runtimeIdentity, err := testsupport.LookupRuntimeTarget(ctx, database.SQL, "fceumm")
+	testassert.False(t, err != nil, err)
 	transaction, err := database.SQL.BeginTx(ctx, nil)
 	testassert.False(t, err != nil, err)
 	defer cleanup.Rollback(transaction)
@@ -400,26 +379,13 @@ func TestPrepareFailureReturnsRoomToWaitingAndClearsReady(t *testing.T) {
 		query string
 		args  []any
 	}{
-		{`INSERT INTO game_metadata_revisions(id,game_id,title,title_initial,description,developer,publisher,genre,players,release_year,source_kind,created_at_ms)
-VALUES(?,?,'Prepare fixture','P','','','','',2,NULL,'ADMIN_EDIT',?)`, []any{metadataID, gameID, now.UnixMilli()}},
-		{`INSERT INTO game_content_revisions(id,game_id,source_kind,source_ref_id,source_manifest_json,source_manifest_digest,created_at_ms)
-VALUES(?,?,'ADMIN_REPLACE','prepare-fixture','{}',?,?)`, []any{contentID, gameID, strings.Repeat("1", 64), now.UnixMilli()}},
-		{`INSERT INTO games(id,platform_instance_id,status,current_metadata_revision_id,current_content_revision_id,search_text,version,created_at_ms,updated_at_ms)
-VALUES(?,(SELECT id FROM platform_instances WHERE catalog_template_key='nes/fceumm'),'PUBLISHED',?,?,'prepare fixture',1,?,?)`, []any{gameID, metadataID, contentID, now.UnixMilli(), now.UnixMilli()}},
+		{`INSERT INTO games(id,platform_instance_id,title,title_initial,description,developer,publisher,genre,players,release_year,metadata_source_kind,content_kind,content_source_kind,content_source_ref_id,source_manifest_json,source_manifest_digest,status,search_text,version,created_at_ms,updated_at_ms)
+VALUES(?,(SELECT id FROM platform_instances WHERE catalog_template_key='nes/fceumm'),'Prepare fixture','P','','','','',2,NULL,'ADMIN_EDIT','SINGLE_FILE','ADMIN_REPLACE','prepare-fixture','{}',?,'PUBLISHED','prepare fixture',1,?,?)`, []any{gameID, strings.Repeat("1", 64), now.UnixMilli(), now.UnixMilli()}},
 		{`INSERT INTO blobs(id,sha256,size_bytes,md5,sha1,crc32,media_type,created_at_ms) VALUES(?,?,32768,?,?,?,'application/octet-stream',?)`, []any{contentBlobID, strings.Repeat("9", 64), strings.Repeat("5", 32), strings.Repeat("6", 40), strings.Repeat("7", 8), now.UnixMilli()}},
-		{`INSERT INTO game_content_files(game_content_revision_id,role,logical_name,blob_id,sort_order) VALUES(?,'CONTENT','another-game.nes',?,0)`, []any{contentID, contentBlobID}},
-		{`INSERT INTO core_artifacts(
-id,core_id,route_key,runtime_family,runtime_adapter_kind,runtime_version,adapter_id,entry_path,
-size_bytes,sha256,manifest_sha256,artifact_set_sha256,requires_threads,save_payload_kind,save_max_bytes,
-provenance_json,compatibility_json,selected_for_new_bindings,available_for_launch,version,created_at_ms,updated_at_ms)
-VALUES(?,'fceumm','DEFAULT','EMULATORJS','EMULATORJS','4.2.3','ejs-4.2.3-v3','cores/test.data',
-1,?,?,?,0,'RUNTIME_STATE',67108864,'{}','{"adapterAbi":"emulatorjs-state-v1","defaultOptions":{}}',1,1,1,?,?)`, []any{artifactID, "8c449fd5c36646fb0769423ed6ffa9efbdfc21fbfdc9bac7952b559d34d5b493", strings.Repeat("a", 64), strings.Repeat("b", 64), now.UnixMilli(), now.UnixMilli()}},
-		{`INSERT INTO game_variants(id,game_id,core_id,current_revision_id,version,created_at_ms,updated_at_ms)
-VALUES(?,?,'fceumm',NULL,1,?,?)`, []any{variantID, gameID, now.UnixMilli(), now.UnixMilli()}},
-		{`INSERT INTO game_variant_revisions(id,game_variant_id,game_content_revision_id,core_artifact_id,route_key,validation_input_digest,emulator_game_id,status,compatibility_code,dependency_snapshot_json,created_at_ms)
-VALUES(?,?,?,?, 'DEFAULT',?,9001,'READY','READY','{"schemaVersion":1,"bios":[]}',?)`, []any{variantRevisionID, variantID, contentID, artifactID, strings.Repeat("3", 64), now.UnixMilli()}},
-		{`UPDATE game_variants SET current_revision_id=? WHERE id=?`, []any{variantRevisionID, variantID}},
-		{`UPDATE netplay_rooms SET state='WAITING',selected_game_id=?,selected_game_variant_revision_id=?,netplay_profile_id='fixture',profile_digest=?,max_players=2 WHERE id=?`, []any{gameID, variantRevisionID, strings.Repeat("4", 64), room.RoomID}},
+		{`INSERT INTO game_files(game_id,role,logical_name,blob_id,sort_order) VALUES(?,'CONTENT','another-game.nes',?,0)`, []any{gameID, contentBlobID}},
+		{`INSERT INTO game_variants(id,game_id,core_id,provider_id,target_id,emulator_game_id,status,compatibility_code,dependency_snapshot_json,version,created_at_ms,updated_at_ms)
+VALUES(?,?,'fceumm',?,?,9001,'READY','READY','{"schemaVersion":1,"kind":"STATIC","bios":[]}',1,?,?)`, []any{variantID, gameID, runtimeIdentity.ProviderID, runtimeIdentity.TargetID, now.UnixMilli(), now.UnixMilli()}},
+		{`UPDATE netplay_rooms SET state='WAITING',selected_game_id=?,selected_game_variant_id=?,netplay_profile_id='fixture',profile_digest=?,max_players=2 WHERE id=?`, []any{gameID, variantID, strings.Repeat("4", 64), room.RoomID}},
 	}
 	for _, statement := range statements {
 		if _, err := transaction.ExecContext(context.Background(), statement.query, statement.args...); err != nil {
@@ -436,10 +402,10 @@ VALUES(?,?,?,'GUEST',2,1,1,?,?)
 		t.Fatal(err)
 	}
 	if _, err := transaction.ExecContext(context.Background(), `
-INSERT INTO netplay_sessions(id,room_id,session_no,state,game_id,game_variant_revision_id,core_artifact_id,
+INSERT INTO netplay_sessions(id,room_id,session_no,state,game_id,game_variant_id,provider_id,target_id,bundle_sha256,
 netplay_profile_id,profile_json,profile_digest,player_count,occupied_seat_mask,authority_player_no,resync_count,version,created_at_ms,updated_at_ms)
-VALUES(?,?,1,'PREPARING',?,?,?,'fixture','{}',?,2,3,1,0,1,?,?)
-`, sessionID, room.RoomID, gameID, variantRevisionID, artifactID, strings.Repeat("4", 64), now.UnixMilli(), now.UnixMilli()); err != nil {
+VALUES(?,?,1,'PREPARING',?,?,?,?,?,'fixture','{}',?,2,3,1,0,1,?,?)
+`, sessionID, room.RoomID, gameID, variantID, runtimeIdentity.ProviderID, runtimeIdentity.TargetID, runtimeIdentity.BundleSHA256, strings.Repeat("4", 64), now.UnixMilli(), now.UnixMilli()); err != nil {
 		t.Fatal(err)
 	}
 	for _, participant := range []struct {
@@ -488,10 +454,10 @@ VALUES(?,?,?,?,'LOCKED',0,1,?,?)
 	eligible, err := service.eligibleProfiles(ctx, gameID)
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return len(eligible) != 1 }), "eligible profile for retry = %#v, %v", eligible, err)
 	_, retryDigest, err := service.registry.CanonicalProfile(CanonicalProfileInput{
-		ManifestProfile: eligible[0].Manifest, CoreArtifactID: eligible[0].CoreArtifactID,
-		GameVariantRevisionID:  eligible[0].VariantRevisionID,
+		ManifestProfile:        eligible[0].Manifest,
+		BundleSHA256:           eligible[0].BundleSHA256,
+		SourceManifestDigest:   eligible[0].SourceManifestDigest,
 		DependencySnapshotJSON: eligible[0].DependencySnapshotJSON,
-		DefaultCoreOptions:     eligible[0].DefaultCoreOptions,
 	})
 	testassert.False(t, err != nil, err)
 	if _, err := database.SQL.ExecContext(context.Background(), `

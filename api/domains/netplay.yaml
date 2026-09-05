@@ -261,7 +261,9 @@ components:
         - id
         - coreId
         - coreName
-        - emulatorjsVersion
+        - providerId
+        - targetId
+        - bundleSha256
         - maxPlayers
       properties:
         id:
@@ -271,8 +273,15 @@ components:
           type: string
         coreName:
           type: string
-        emulatorjsVersion:
+        providerId:
           type: string
+          pattern: ^[a-z0-9-]{1,64}$
+        targetId:
+          type: string
+          pattern: ^[a-z0-9-]{1,64}$
+        bundleSha256:
+          type: string
+          pattern: ^[0-9a-f]{64}$
         maxPlayers:
           type: integer
           minimum: 2
@@ -410,7 +419,8 @@ components:
         - platformName
         - profileId
         - coreName
-        - emulatorjsVersion
+        - providerId
+        - targetId
         - maxPlayers
       properties:
         gameId:
@@ -434,8 +444,12 @@ components:
           type: string
         coreName:
           type: string
-        emulatorjsVersion:
+        providerId:
           type: string
+          pattern: ^[a-z0-9-]{1,64}$
+        targetId:
+          type: string
+          pattern: ^[a-z0-9-]{1,64}$
         maxPlayers:
           type: integer
           minimum: 2

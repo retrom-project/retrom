@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://retrom.dev/schema/runtime-provider/v1/provider-integrity.schema.json",
+  "title": "Retrom Runtime Provider Bundle Integrity V1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "files"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "files": {
+      "type": "array",
+      "minItems": 3,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/file" }
+    }
+  },
+  "$defs": {
+    "file": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sizeBytes", "sha256", "mediaType"],
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 240,
+          "pattern": "^(?!/)(?!.*(?:^|/)\\.{1,2}(?:/|$))(?!.*//)(?!.*[\\\\?#])[A-Za-z0-9._/-]+$"
+        },
+        "sizeBytes": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+        "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "mediaType": {
+          "enum": [
+            "text/javascript; charset=utf-8",
+            "text/css; charset=utf-8",
+            "text/plain; charset=utf-8",
+            "application/json; charset=utf-8",
+            "application/wasm",
+            "application/octet-stream",
+            "application/zip",
+            "application/x-7z-compressed",
+            "image/png",
+            "image/jpeg",
+            "image/gif",
+            "image/webp",
+            "image/svg+xml",
+            "image/x-icon",
+            "audio/ogg",
+            "audio/mpeg",
+            "audio/wav",
+            "font/woff",
+            "font/woff2"
+          ]
+        }
+      }
+    }
+  }
+}
