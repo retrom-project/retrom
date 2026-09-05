@@ -15,6 +15,13 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 
 
 class MakefileDependencyTests(unittest.TestCase):
+    def test_ui_acceptance_scopes_short_tmpdir_to_chrome_launch(self) -> None:
+        script = (REPOSITORY_ROOT / "scripts/acceptance/ui-case.sh").read_text(encoding="utf-8")
+        browser = script.split("(cd web &&", 1)[1].split('"${playwright_args[@]}")', 1)[0]
+        self.assertIn("TMPDIR=/tmp \\\n", browser)
+        self.assertIn('${TMPDIR:-/tmp}/retrom-ui-acceptance.XXXXXX', script)
+        self.assertNotIn("export TMPDIR=", script)
+
     def test_data_check_covers_preserving_pfb_identity_when_adding_a_core(self) -> None:
         self.assertIn("python3 -m unittest scripts.test_pfb_init", self.dry_run("data-check"))
         self.assertIn("python3 -m unittest scripts.test_pfb_data_reset", self.dry_run("data-check"))

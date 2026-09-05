@@ -319,7 +319,11 @@ netplay_expansion_results='[]'
 if [[ -f "$netplay_expansion_result" ]]; then
   netplay_expansion_results="$(jq -sc '.' "$netplay_expansion_result")"
 fi
+# Chrome's Unix SingletonSocket must fit sockaddr_un even when build/data
+# TMPDIR points into a deep PFB worktree. Only browser temporaries use /tmp;
+# the Case data root and server processes retain the caller's chosen TMPDIR.
 (cd web && \
+  TMPDIR=/tmp \
   RETROM_WEB_ORIGIN="$web_origin" \
   RETROM_E2E_DATABASE="$temporary_root/data/retrom.db" \
   RETROM_NETPLAY_NES_GAME_ID="$(jq -r '.gameId // empty' "$netplay_nes_result" 2>/dev/null || true)" \
