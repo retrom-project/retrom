@@ -113,7 +113,7 @@ async function runProductCase(activeBrowser) {
     await previewPage.close();
 
     const approved = await approveReview(client, review.itemId);
-    const immersive = await createLaunch(client, approved.gameId, null);
+    const immersive = await createLaunch(client, approved.gameId, null, "immersive");
     const immersivePage = await trackedPage(context, browserErrors);
     const immersiveUrl = new URL(`${baseUrl}${immersive.playUrl}`);
     immersiveUrl.searchParams.set("experience", "immersive");
@@ -281,11 +281,12 @@ async function approveReview(client, itemId) {
   return response.json();
 }
 
-async function createLaunch(client, gameId, saveStateId) {
+async function createLaunch(client, gameId, saveStateId, experience = "standard") {
   return client.json("POST", "/api/v1/launches", {
     headers: client.writeHeaders(), expected: 201,
     data: {
-      gameId, coreId: null, saveStateId, dosEntry: null, returnTo: `/games/${gameId}`,
+      gameId, coreId: null, saveStateId, dosEntry: null,
+      returnTo: experience === "immersive" ? `/immersive/library/all?gameId=${gameId}` : `/games/${gameId}`,
       clientCapabilities: { secureContext: true, crossOriginIsolated: true, sharedArrayBuffer: true },
     },
   });
@@ -387,17 +388,17 @@ async function virtualGamepadCursorPosition(canvas) {
 }
 
 async function setVirtualGamepadAxis(canvas, x, y) {
-  await canvas.evaluate((element, input) => {
-    const controller = element.ownerDocument.defaultView?.__retromTestGamepad;
+  await Promise.all(canvas.page().frames().map((frame) => frame.evaluate((input) => {
+    const controller = globalThis.__retromTestGamepad;
     controller?.axis(0, input.x);
     controller?.axis(1, input.y);
-  }, { x, y });
+  }, { x, y })));
 }
 
 async function setVirtualGamepadButton(canvas, index, pressed) {
-  await canvas.evaluate((element, input) => {
-    element.ownerDocument.defaultView?.__retromTestGamepad?.button(input.index, input.pressed);
-  }, { index, pressed });
+  await Promise.all(canvas.page().frames().map((frame) => frame.evaluate((input) => {
+    globalThis.__retromTestGamepad?.button(input.index, input.pressed);
+  }, { index, pressed })));
 }
 
 async function waitForKagStable(canvas) {
