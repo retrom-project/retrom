@@ -150,7 +150,7 @@ func (service *Service) persistPreparedReplacement(
 	}
 	currentBinding, err := loadReplacementBinding(ctx, transaction, gameID)
 	if err != nil || !replacementBindingMatchesSnapshot(currentBinding, snapshot) ||
-		corevalidation.ContentPolicyDigest(currentBinding.contentPolicyJSON) != snapshot.TargetPolicyDigest ||
+		currentBinding.contentPolicy.Digest() != snapshot.TargetPolicyDigest ||
 		nullableText(currentBinding.datID) != pointerText(snapshot.DATVersionID) {
 		cleanup.Rollback(transaction)
 		service.failTerminal(ctx, jobID, "GAME_CONTENT_CHANGED")

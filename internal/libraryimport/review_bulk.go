@@ -111,7 +111,8 @@ type reviewBulkCandidate struct {
 	itemID, sourceSnapshotID, platformInstanceID, platformName, platformID string
 	title, contentKind                                                     string
 	reviewVersion, platformVersion                                         int64
-	providerID, targetID, contentPolicyJSON                                sql.NullString
+	providerID, targetID                                                   sql.NullString
+	contentPolicy                                                          contentcapability.Policy
 	validationID, validationStatus, dependencySnapshot                     sql.NullString
 	validationPlatformVersion                                              sql.NullInt64
 	validationDAT, currentDAT, validationDOSEntry, draftDOSEntry           sql.NullString
@@ -170,17 +171,7 @@ func reviewBulkCandidatesQuery(scope ReviewBulkScope) (string, []any) {
 SELECT item.id,draft.version,draft.effective_source_snapshot_id,
        json_extract(draft.metadata_json,'$.title'),instance.id,instance.name,instance.platform_id,instance.version,
        validation.provider_id,validation.target_id,
-       CASE WHEN binding.binding_id IS NULL THEN NULL ELSE json_object(
-         'schemaVersion',1,
-         'supportedContentKinds',json((SELECT json_group_array(content_kind) FROM (
-           SELECT content_kind FROM runtime_binding_content_kinds kinds
-           WHERE kinds.binding_id=binding.binding_id ORDER BY content_kind
-         ))),
-         'multiDisc',CASE WHEN EXISTS(
-           SELECT 1 FROM runtime_binding_content_kinds kinds
-           WHERE kinds.binding_id=binding.binding_id AND kinds.content_kind='MULTI_DISC'
-         ) THEN json_object('maxDiscs',8,'maxTotalBytes',1073741824,'delivery','EAGER_EXTERNAL_FILES') ELSE NULL END
-       ) END,
+       CASE WHEN binding.binding_id IS NULL THEN NULL ELSE ` + contentcapability.BindingPolicySQL + ` END,
        validation.id,validation.status,
        validation.platform_instance_version,
        validation.dat_version_id,
@@ -279,7 +270,7 @@ func scanReviewBulkCandidates(
 			&candidate.itemID, &candidate.reviewVersion, &candidate.sourceSnapshotID,
 			&candidate.title, &candidate.platformInstanceID, &candidate.platformName, &candidate.platformID,
 			&candidate.platformVersion,
-			&candidate.providerID, &candidate.targetID, &candidate.contentPolicyJSON,
+			&candidate.providerID, &candidate.targetID, &candidate.contentPolicy,
 			&candidate.validationID, &candidate.validationStatus,
 			&candidate.validationPlatformVersion,
 			&candidate.validationDAT, &candidate.currentDAT, &candidate.validationDOSEntry,
@@ -301,12 +292,12 @@ func preliminaryQuickApprovalReady(candidate reviewBulkCandidate) bool {
 	return quickApprovalArtifactReady(candidate) && quickApprovalValidationCurrent(candidate) &&
 		nullStringsEqual(candidate.validationDAT, candidate.currentDAT) &&
 		nullStringsEqual(candidate.validationDOSEntry, candidate.draftDOSEntry) &&
-		contentcapability.SupportsContentKind(candidate.contentPolicyJSON.String, candidate.contentKind) &&
+		candidate.contentPolicy.Supports(candidate.contentKind) &&
 		title != "" && validField(title, 200, false)
 }
 
 func quickApprovalArtifactReady(candidate reviewBulkCandidate) bool {
-	return candidate.providerID.Valid && candidate.targetID.Valid && candidate.contentPolicyJSON.Valid
+	return candidate.providerID.Valid && candidate.targetID.Valid && len(candidate.contentPolicy.SupportedContentKinds) > 0
 }
 
 func quickApprovalValidationCurrent(candidate reviewBulkCandidate) bool {
@@ -335,7 +326,7 @@ func (service *Service) classifyReviewBulkCandidates(
 		err := service.validateCurrentApprovalDependencySnapshot(
 			ctx, transaction, candidate.sourceSnapshotID, candidate.validationID.String,
 			candidate.platformID, candidate.providerID.String, candidate.targetID.String,
-			candidate.contentPolicyJSON.String,
+			candidate.contentPolicy,
 			candidate.contentKind, candidate.dependencySnapshot.String,
 		)
 		if errors.Is(err, ErrInvalid) {

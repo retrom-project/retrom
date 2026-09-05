@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 
+	"retrom/internal/contentprofile"
 	"retrom/internal/rpgmaker/fileset"
 )
 
@@ -17,7 +18,7 @@ type File = fileset.File
 // Build emits the compact canonical V2 manifest and its digest. Exact files stay
 // in normalized file tables; the manifest commits to them through FilesDigest.
 func Build(contentKind string, files []File) ([]byte, string, error) {
-	if !validContentKind(contentKind) {
+	if !contentprofile.KnownContentKind(contentprofile.ContentKind(contentKind)) {
 		return nil, "", ErrInvalid
 	}
 	filesDigest, totalBytes, err := FilesDigest(files)
@@ -47,14 +48,4 @@ func FilesDigest(files []File) (string, int64, error) {
 		return "", 0, ErrInvalid
 	}
 	return digest, totalBytes, nil
-}
-
-func validContentKind(value string) bool {
-	switch value {
-	case "SINGLE_FILE", "DOS_BUNDLE", "MULTI_DISC", "RPG_MAKER_PROJECT", "ONS_PROJECT",
-		"KIRIKIRI_PROJECT", "BUTTERSCOTCH_PROJECT", "TYRANOSCRIPT_PROJECT":
-		return true
-	default:
-		return false
-	}
 }

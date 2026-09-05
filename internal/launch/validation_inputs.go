@@ -10,21 +10,23 @@ import (
 	"path/filepath"
 	"strings"
 
+	"retrom/internal/contentcapability"
+
 	"retrom/internal/cleanup"
 	"retrom/internal/corevalidation"
 )
 
 type validationInputs struct {
-	GameID                string `json:"gameId"`
-	GameVariantID         string `json:"gameVariantId"`
-	GameVersion           int64  `json:"gameVersion"`
-	SourceManifestDigest  string `json:"sourceManifestDigest"`
-	ProviderID            string `json:"providerId"`
-	TargetID              string `json:"targetId"`
-	ContentPolicyJSON     string `json:"contentPolicyJson"`
-	DATVersionID          any    `json:"datVersionId"`
-	ValidationInputDigest string `json:"validationInputDigest"`
-	BIOSDependencyDigest  string `json:"biosDependencyDigest"`
+	GameID                string                   `json:"gameId"`
+	GameVariantID         string                   `json:"gameVariantId"`
+	GameVersion           int64                    `json:"gameVersion"`
+	SourceManifestDigest  string                   `json:"sourceManifestDigest"`
+	ProviderID            string                   `json:"providerId"`
+	TargetID              string                   `json:"targetId"`
+	ContentPolicy         contentcapability.Policy `json:"contentPolicy"`
+	DATVersionID          any                      `json:"datVersionId"`
+	ValidationInputDigest string                   `json:"validationInputDigest"`
+	BIOSDependencyDigest  string                   `json:"biosDependencyDigest"`
 }
 
 type validationSnapshot struct {
@@ -212,8 +214,8 @@ ORDER BY dependency.logical_archive
 func (service *Service) validationDigests(
 	ctx context.Context,
 	transaction *sql.Tx,
-	variantID, contentID, contentLogicalName, contentKind,
-	providerID, targetID, contentPolicyJSON string,
+	variantID, contentID, contentLogicalName, contentKind, providerID, targetID string,
+	contentPolicy contentcapability.Policy,
 	datID sql.NullString,
 ) (string, string, error) {
 	biosSnapshot, _, _, err := service.resolveVariantBIOS(
@@ -225,7 +227,7 @@ func (service *Service) validationDigests(
 	if contentKind == corevalidation.MultiDiscContentKind {
 		digest, biosDigest, _, digestErr := service.multiDiscRevalidationInputs(
 			ctx, transaction, variantID, contentID, providerID, targetID,
-			contentPolicyJSON, datID, biosSnapshot,
+			contentPolicy, datID, biosSnapshot,
 		)
 		return digest, biosDigest, digestErr
 	}
@@ -245,8 +247,8 @@ func (service *Service) validationDigests(
 
 func (service *Service) currentValidationEvidence(
 	ctx context.Context,
-	variantID, contentID, contentLogicalName, contentKind,
-	providerID, targetID, contentPolicyJSON string,
+	variantID, contentID, contentLogicalName, contentKind, providerID, targetID string,
+	contentPolicy contentcapability.Policy,
 	datID sql.NullString,
 ) (string, string, corevalidation.Snapshot, string, string, error) {
 	biosSnapshot, biosStatus, biosCode, err := service.resolveVariantBIOS(
@@ -258,7 +260,7 @@ func (service *Service) currentValidationEvidence(
 	if contentKind == corevalidation.MultiDiscContentKind {
 		digest, biosDigest, snapshot, digestErr := service.multiDiscRevalidationInputs(
 			ctx, service.database, variantID, contentID, providerID, targetID,
-			contentPolicyJSON, datID, biosSnapshot,
+			contentPolicy, datID, biosSnapshot,
 		)
 		return digest, biosDigest, snapshot, biosStatus, biosCode, digestErr
 	}

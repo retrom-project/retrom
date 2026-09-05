@@ -5,6 +5,8 @@ import (
 	"errors"
 	"testing"
 
+	"retrom/internal/contentcapability"
+
 	"retrom/internal/testassert"
 )
 
@@ -12,12 +14,9 @@ func TestPreliminaryQuickApprovalReadyRequiresStrictCurrentReadyEvidence(t *test
 	t.Parallel()
 	ready := reviewBulkCandidate{
 		title: "Strict Ready", contentKind: "SINGLE_FILE", platformVersion: 3,
-		providerID: sql.NullString{String: "emulatorjs", Valid: true},
-		targetID:   sql.NullString{String: "fceumm", Valid: true},
-		contentPolicyJSON: sql.NullString{
-			String: `{"schemaVersion":1,"supportedContentKinds":["SINGLE_FILE"]}`,
-			Valid:  true,
-		},
+		providerID:                sql.NullString{String: "emulatorjs", Valid: true},
+		targetID:                  sql.NullString{String: "fceumm", Valid: true},
+		contentPolicy:             contentcapability.NewPolicy("SINGLE_FILE"),
 		validationID:              sql.NullString{String: "validation", Valid: true},
 		validationStatus:          sql.NullString{String: "READY", Valid: true},
 		validationPlatformVersion: sql.NullInt64{Int64: 3, Valid: true},

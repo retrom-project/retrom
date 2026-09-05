@@ -286,10 +286,11 @@ FROM import_item_source_snapshot_files WHERE source_snapshot_id=?
 func validateMultiDiscApproval(
 	ctx context.Context,
 	transaction *sql.Tx,
-	sourceSnapshotID, validationID, platformID, compatibility string,
+	sourceSnapshotID, validationID, platformID string,
+	contentPolicy contentcapability.Policy,
 	snapshot corevalidation.Snapshot,
 ) error {
-	capabilities := contentcapability.Resolve(platformID, true, true, compatibility)
+	capabilities := contentcapability.Resolve(platformID, true, true, contentPolicy)
 	if capabilities.MultiDisc == nil || snapshot.MultiDisc == nil ||
 		len(snapshot.MultiDisc.MissingEntries) != 0 {
 		return ErrInvalid
@@ -318,7 +319,9 @@ WHERE import_item_core_validation_id=? AND role='MULTI_DISC_PLAYLIST'
 func validateCurrentApprovalSnapshot(
 	ctx context.Context,
 	transaction *sql.Tx,
-	sourceSnapshotID, validationID, platformID, providerID, targetID, compatibility, contentKind string,
+	sourceSnapshotID, validationID, platformID, providerID, targetID string,
+	contentPolicy contentcapability.Policy,
+	contentKind string,
 	validationSnapshot corevalidation.Snapshot,
 	frozenJSON string,
 ) error {
@@ -341,7 +344,7 @@ func validateCurrentApprovalSnapshot(
 		return nil
 	}
 	return validateMultiDiscApproval(
-		ctx, transaction, sourceSnapshotID, validationID, platformID, compatibility, validationSnapshot,
+		ctx, transaction, sourceSnapshotID, validationID, platformID, contentPolicy, validationSnapshot,
 	)
 }
 
@@ -467,7 +470,9 @@ func projectedClosureDependencies(raw json.RawMessage) []arcadeClosureNode {
 func (service *Service) validateCurrentApprovalDependencySnapshot(
 	ctx context.Context,
 	transaction *sql.Tx,
-	sourceSnapshotID, validationID, platformID, providerID, targetID, contentPolicy, contentKind, frozenJSON string,
+	sourceSnapshotID, validationID, platformID, providerID, targetID string,
+	contentPolicy contentcapability.Policy,
+	contentKind, frozenJSON string,
 ) error {
 	snapshot, err := corevalidation.ParseSnapshot(frozenJSON)
 	if err == nil {
@@ -502,7 +507,7 @@ func screenshotOverrideRuntimeSnapshot(snapshot corevalidation.Snapshot) coreval
 
 type approvalValidationDigestInput struct {
 	VariantID, ContentID, ContentKind, ProviderID, TargetID string
-	ContentPolicyJSON                                       string
+	ContentPolicy                                           contentcapability.Policy
 	DATID                                                   sql.NullString
 	ValidationID                                            string
 	Snapshot                                                corevalidation.Snapshot
@@ -539,7 +544,7 @@ func approvalValidationInputDigest(input approvalValidationDigestInput) (string,
 	digest, err := corevalidation.MultiDiscValidationInputDigest(corevalidation.MultiDiscValidationInput{
 		GameVariantID: input.VariantID, GameID: input.ContentID,
 		ContentKind: input.ContentKind, ProviderID: input.ProviderID, TargetID: input.TargetID,
-		ContentPolicySHA256: corevalidation.ContentPolicyDigest(input.ContentPolicyJSON),
+		ContentPolicySHA256: input.ContentPolicy.Digest(),
 		DATVersionID:        input.DATID, BIOSDependencySHA256: biosDigest,
 		OrderedDiscSHA256:       input.Snapshot.MultiDisc.OrderedDiscSHA256,
 		CanonicalPlaylistSHA256: input.Snapshot.MultiDisc.CanonicalPlaylistSHA256,

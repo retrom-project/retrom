@@ -14,6 +14,8 @@ import (
 	"strings"
 	"time"
 
+	"retrom/internal/contentcapability"
+
 	"github.com/google/uuid"
 
 	"retrom/internal/cleanup"
@@ -160,7 +162,7 @@ type parentAttachmentSetup struct {
 	coreID              string
 	providerID          string
 	runtimeTargetID     string
-	contentPolicyJSON   string
+	contentPolicy       contentcapability.Policy
 	activeDATID         sql.NullString
 	platformVersion     int64
 	dependency          arcadeDraftDependency
@@ -191,34 +193,24 @@ func (setup *parentAttachmentSetup) loadDraft() error {
 SELECT draft.id,item.state,draft.version,draft.target_platform_instance_id,
   draft.effective_source_snapshot_id,platform.platform_id,platform.version,
   platform.default_core_id,target.provider_id,target.target_id,
-  json_object(
-    'schemaVersion',1,
-    'supportedContentKinds',json((SELECT json_group_array(content_kind) FROM (
-      SELECT content_kind FROM runtime_binding_content_kinds kinds
-      WHERE kinds.binding_id=runtime_binding.binding_id ORDER BY content_kind
-    ))),
-    'multiDisc',CASE WHEN EXISTS(
-      SELECT 1 FROM runtime_binding_content_kinds kinds
-      WHERE kinds.binding_id=runtime_binding.binding_id AND kinds.content_kind='MULTI_DISC'
-    ) THEN json_object('maxDiscs',8,'maxTotalBytes',1073741824,'delivery','EAGER_EXTERNAL_FILES') ELSE NULL END
-  ),
+  `+contentcapability.BindingPolicySQL+`,
   (SELECT dat.id FROM dat_versions dat
    WHERE dat.provider_id=target.provider_id AND dat.target_id=target.target_id AND dat.is_active=1)
 FROM import_items item
 JOIN review_drafts draft ON draft.import_item_id=item.id
 JOIN platform_instances platform ON platform.id=draft.target_platform_instance_id
   AND platform.enabled=1 AND platform.deleted_at_ms IS NULL
-JOIN runtime_target_bindings runtime_binding ON runtime_binding.core_id=platform.default_core_id
-  AND runtime_binding.launch_policy<>'DISABLED'
-JOIN runtime_binding_platforms platform_binding ON platform_binding.binding_id=runtime_binding.binding_id
+JOIN runtime_target_bindings binding ON binding.core_id=platform.default_core_id
+  AND binding.launch_policy<>'DISABLED'
+JOIN runtime_binding_platforms platform_binding ON platform_binding.binding_id=binding.binding_id
   AND platform_binding.platform_id=platform.platform_id
-JOIN runtime_targets target ON target.provider_id=runtime_binding.provider_id
-  AND target.target_id=runtime_binding.target_id
+JOIN runtime_targets target ON target.provider_id=binding.provider_id
+  AND target.target_id=binding.target_id
 WHERE item.id=?
 `, setup.itemID).Scan(
 		&setup.draftID, &itemState, &draftVersion, &setup.targetID, &setup.effectiveSnapshotID,
 		&setup.platformID, &setup.platformVersion, &setup.coreID, &setup.providerID, &setup.runtimeTargetID,
-		&setup.contentPolicyJSON, &setup.activeDATID,
+		&setup.contentPolicy, &setup.activeDATID,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
 		return parentError(ParentErrorNotFound, err)
@@ -362,7 +354,7 @@ func (setup *parentAttachmentSetup) input(attachmentID string) parentAttachmentI
 		SchemaVersion: 1, AttachmentID: attachmentID, ImportItemID: setup.itemID,
 		ReviewDraftID: setup.draftID, BaseSourceSnapshotID: setup.effectiveSnapshotID,
 		DependencyMachine: setup.dependency.Machine, ProviderID: setup.providerID,
-		TargetID: setup.runtimeTargetID, ContentPolicyDigest: validationPolicyDigest(setup.contentPolicyJSON, "SINGLE_FILE"),
+		TargetID: setup.runtimeTargetID, ContentPolicyDigest: setup.contentPolicy.DigestFor("SINGLE_FILE"),
 		DATVersionID: setup.activeDATID.String, UploadFileID: setup.request.UploadFileID,
 	}
 }

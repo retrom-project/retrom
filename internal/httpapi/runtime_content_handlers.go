@@ -17,6 +17,8 @@ import (
 	"strings"
 	"time"
 
+	"retrom/internal/contentprofile"
+
 	"retrom/internal/cleanup"
 	"retrom/internal/dosbundle"
 	"retrom/internal/launch"
@@ -103,7 +105,7 @@ func (server *Server) launchProjectFile(writer http.ResponseWriter, request *htt
 		logicalName = "__retrom__/index.json"
 	}
 	content, err := server.projectContent(request, launchID, grant.Capability, logicalName)
-	if err != nil || !supportedProjectFormat(content.Format) {
+	if err != nil || !contentprofile.IsProjectContentKind(contentprofile.ContentKind(content.Format)) {
 		writeError(
 			writer, request, http.StatusUnauthorized, "LAUNCH_CREDENTIAL_INVALID",
 			"项目内容不可用", map[string]any{},
@@ -148,16 +150,6 @@ func (server *Server) projectContent(
 		return launch.ContentView{}, fmt.Errorf("load preview project content: %w", err)
 	}
 	return content, nil
-}
-
-func supportedProjectFormat(format string) bool {
-	switch format {
-	case "RPG_MAKER_PROJECT", "ONS_PROJECT", "KIRIKIRI_PROJECT",
-		"BUTTERSCOTCH_PROJECT", "TYRANOSCRIPT_PROJECT":
-		return true
-	default:
-		return false
-	}
 }
 
 func (server *Server) runtimeProjectContentGrant(

@@ -18,6 +18,7 @@ import (
 
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
+	"retrom/internal/contentcapability"
 	"retrom/internal/dependencies"
 	"retrom/internal/libraryimport"
 	retromruntime "retrom/internal/runtime"
@@ -222,7 +223,7 @@ WHERE variant.game_id=?
 		strings.Repeat("a", 64),
 		providerID,
 		targetID,
-		`{"schemaVersion":1,"supportedContentKinds":["SINGLE_FILE"],"multiDisc":null}`,
+		contentcapability.NewPolicy("SINGLE_FILE"),
 		sql.NullString{},
 		strings.Repeat("0", 64),
 		strings.Repeat("0", 64),
@@ -253,7 +254,7 @@ WHERE variant.game_id=?
 		strings.Repeat("a", 64),
 		providerID,
 		targetID,
-		`{"schemaVersion":1,"supportedContentKinds":["SINGLE_FILE"],"multiDisc":null}`,
+		contentcapability.NewPolicy("SINGLE_FILE"),
 		sql.NullString{},
 		strings.Repeat("0", 64),
 		strings.Repeat("0", 64),

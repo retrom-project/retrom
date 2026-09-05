@@ -118,7 +118,7 @@ func (service *Service) admitImportGroup(
 		return importGroupAdmission{}, err
 	}
 	capabilities := contentcapability.Resolve(
-		target.platformID, true, service.multiDiscImportEnabled, target.contentPolicyJSON,
+		target.platformID, true, service.multiDiscImportEnabled, target.contentPolicy,
 	)
 	if contentMode == contentcapability.ModeMultiDisc && capabilities.MultiDisc == nil {
 		return importGroupAdmission{}, ErrMultiDiscModeUnavailable

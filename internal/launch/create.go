@@ -10,6 +10,8 @@ import (
 	"strings"
 	"time"
 
+	"retrom/internal/contentcapability"
+
 	"github.com/google/uuid"
 
 	"retrom/internal/cleanup"
@@ -52,14 +54,15 @@ type launchPreparation struct {
 }
 
 type launchSelection struct {
-	variantID, selectedCore                                      string
-	providerID, targetID, bundleSHA256                           string
-	gameID, contentLogicalName, contentKind                      string
-	platformID, platformName, gameTitle, deliveryProfile         string
-	contentPolicyJSON, dependencySnapshotJSON, compatibilityCode string
-	datID                                                        sql.NullString
-	savedDOSEntry                                                sql.NullString
-	savedDiscIndex                                               sql.NullInt64
+	variantID, selectedCore                              string
+	providerID, targetID, bundleSHA256                   string
+	gameID, contentLogicalName, contentKind              string
+	platformID, platformName, gameTitle, deliveryProfile string
+	dependencySnapshotJSON, compatibilityCode            string
+	contentPolicy                                        contentcapability.Policy
+	datID                                                sql.NullString
+	savedDOSEntry                                        sql.NullString
+	savedDiscIndex                                       sql.NullInt64
 }
 
 type launchSelectionResult struct {
@@ -198,17 +201,7 @@ const launchSelectionColumns = `
 variant.id,variant.core_id,variant.provider_id,variant.target_id,
 provider.bundle_sha256,game.id,game.content_kind,
 platform.id,platform.name,game.title,binding.delivery_profile,
-json_object(
-  'schemaVersion',1,
-  'supportedContentKinds',json((SELECT json_group_array(content_kind) FROM (
-    SELECT content_kind FROM runtime_binding_content_kinds kinds
-    WHERE kinds.binding_id=binding.binding_id ORDER BY content_kind
-  ))),
-  'multiDisc',CASE WHEN EXISTS(
-    SELECT 1 FROM runtime_binding_content_kinds kinds
-    WHERE kinds.binding_id=binding.binding_id AND kinds.content_kind='MULTI_DISC'
-  ) THEN json_object('maxDiscs',8,'maxTotalBytes',1073741824,'delivery','EAGER_EXTERNAL_FILES') ELSE NULL END
-),
+` + contentcapability.BindingPolicySQL + `,
 variant.dependency_snapshot_json,
 variant.compatibility_code,variant.dat_version_id,
 COALESCE((SELECT file.logical_name FROM game_files file
@@ -222,7 +215,7 @@ func scanLaunchSelection(row *sql.Row, selection *launchSelection) error {
 		&selection.variantID, &selection.selectedCore,
 		&selection.providerID, &selection.targetID, &selection.bundleSHA256, &selection.gameID,
 		&selection.contentKind, &selection.platformID, &selection.platformName, &selection.gameTitle,
-		&selection.deliveryProfile, &selection.contentPolicyJSON, &selection.dependencySnapshotJSON,
+		&selection.deliveryProfile, &selection.contentPolicy, &selection.dependencySnapshotJSON,
 		&selection.compatibilityCode, &selection.datID, &selection.contentLogicalName,
 	}
 	if err := row.Scan(destinations...); err != nil {
@@ -263,7 +256,7 @@ WHERE save.id=? AND save.game_id=? AND save.profile_id=? AND save.deleted_at_ms 
 		&selection.variantID, &selection.selectedCore,
 		&selection.providerID, &selection.targetID, &selection.bundleSHA256, &selection.gameID,
 		&selection.contentKind, &selection.platformID, &selection.platformName, &selection.gameTitle,
-		&selection.deliveryProfile, &selection.contentPolicyJSON, &selection.dependencySnapshotJSON,
+		&selection.deliveryProfile, &selection.contentPolicy, &selection.dependencySnapshotJSON,
 		&selection.compatibilityCode, &selection.datID, &selection.contentLogicalName,
 		&selection.savedDOSEntry, &selection.savedDiscIndex,
 	}

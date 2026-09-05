@@ -14,7 +14,6 @@ import (
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
 	"retrom/internal/contentcapability"
-	"retrom/internal/corevalidation"
 	"retrom/internal/payloadrelease"
 )
 
@@ -39,28 +38,28 @@ type Service struct {
 }
 
 type jobSnapshot struct {
-	ExecutionID             string  `json:"executionId"`
-	GameID                  string  `json:"gameId"`
-	GameVersion             int64   `json:"gameVersion"`
-	BaseManifestDigest      string  `json:"baseManifestDigest"`
-	UploadSessionID         string  `json:"uploadSessionId"`
-	PlatformID              string  `json:"platformId"`
-	PlatformInstanceID      string  `json:"platformInstanceId"`
-	PlatformInstanceVersion int64   `json:"platformInstanceVersion"`
-	CoreID                  string  `json:"coreId"`
-	ProviderID              string  `json:"providerId"`
-	TargetID                string  `json:"targetId"`
-	ContentPolicyJSON       string  `json:"contentPolicyJson"`
-	TargetPolicyDigest      string  `json:"targetPolicyDigest"`
-	ContentMode             string  `json:"contentMode"`
-	MaxDiscs                int     `json:"maxDiscs,omitempty"`
-	MaxTotalBytes           int64   `json:"maxTotalBytes,omitempty"`
-	DATVersionID            *string `json:"datVersionId"`
-	ConfigSnapshotDigest    string  `json:"configSnapshotDigest"`
-	VariantID               string  `json:"variantId,omitempty"`
-	RPGGeneration           string  `json:"rpgGeneration,omitempty"`
-	RPGDependencySHA256     string  `json:"rpgDependencySha256,omitempty"`
-	RPGRequirementsSHA256   string  `json:"rpgRequirementsSha256,omitempty"`
+	ExecutionID             string                   `json:"executionId"`
+	GameID                  string                   `json:"gameId"`
+	GameVersion             int64                    `json:"gameVersion"`
+	BaseManifestDigest      string                   `json:"baseManifestDigest"`
+	UploadSessionID         string                   `json:"uploadSessionId"`
+	PlatformID              string                   `json:"platformId"`
+	PlatformInstanceID      string                   `json:"platformInstanceId"`
+	PlatformInstanceVersion int64                    `json:"platformInstanceVersion"`
+	CoreID                  string                   `json:"coreId"`
+	ProviderID              string                   `json:"providerId"`
+	TargetID                string                   `json:"targetId"`
+	ContentPolicy           contentcapability.Policy `json:"contentPolicy"`
+	TargetPolicyDigest      string                   `json:"targetPolicyDigest"`
+	ContentMode             string                   `json:"contentMode"`
+	MaxDiscs                int                      `json:"maxDiscs,omitempty"`
+	MaxTotalBytes           int64                    `json:"maxTotalBytes,omitempty"`
+	DATVersionID            *string                  `json:"datVersionId"`
+	ConfigSnapshotDigest    string                   `json:"configSnapshotDigest"`
+	VariantID               string                   `json:"variantId,omitempty"`
+	RPGGeneration           string                   `json:"rpgGeneration,omitempty"`
+	RPGDependencySHA256     string                   `json:"rpgDependencySha256,omitempty"`
+	RPGRequirementsSHA256   string                   `json:"rpgRequirementsSha256,omitempty"`
 }
 
 type uploadedFile struct {
@@ -217,14 +216,14 @@ func (service *Service) scheduleFresh(
 		return Scheduled{}, ErrInvalid
 	}
 	instanceID, platformID := binding.instanceID, binding.platformID
-	coreID, contentPolicyJSON := binding.coreID, binding.contentPolicyJSON
+	coreID, contentPolicy := binding.coreID, binding.contentPolicy
 	platformVersion, datID := binding.platformVersion, binding.datID
 	if platformID == "rpgmaker" && contentMode != contentcapability.ModeRPGMakerProject ||
 		platformID != "rpgmaker" && contentMode == contentcapability.ModeRPGMakerProject {
 		return Scheduled{}, ErrInvalid
 	}
 	capabilities := contentcapability.Resolve(
-		platformID, true, service.multiDiscImportEnabled, contentPolicyJSON,
+		platformID, true, service.multiDiscImportEnabled, contentPolicy,
 	)
 	if contentMode == contentcapability.ModeMultiDisc && capabilities.MultiDisc == nil {
 		return Scheduled{}, ErrInvalid
@@ -233,7 +232,7 @@ func (service *Service) scheduleFresh(
 		return Scheduled{}, err
 	}
 	jobID, consumptionID, executionID := newID(), newID(), newID()
-	targetPolicyDigest := corevalidation.ContentPolicyDigest(contentPolicyJSON)
+	targetPolicyDigest := contentPolicy.Digest()
 	configInput := fmt.Sprintf(
 		"%s\x00%d\x00%s\x00%s\x00%s\x00%s\x00%s",
 		instanceID, platformVersion, binding.providerID, binding.targetID, targetPolicyDigest,
@@ -252,7 +251,7 @@ func (service *Service) scheduleFresh(
 		CoreID:                  coreID,
 		ProviderID:              binding.providerID,
 		TargetID:                binding.targetID,
-		ContentPolicyJSON:       contentPolicyJSON,
+		ContentPolicy:           contentPolicy,
 		TargetPolicyDigest:      targetPolicyDigest,
 		ContentMode:             contentMode,
 		DATVersionID:            nullablePointer(datID),

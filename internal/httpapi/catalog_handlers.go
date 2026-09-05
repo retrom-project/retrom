@@ -202,22 +202,12 @@ pi.version,
 pi.updated_at_ms,
 (SELECT count(*) FROM games g WHERE g.platform_instance_id=pi.id)
 ,
-COALESCE((SELECT json_object(
-  'schemaVersion',1,
-  'supportedContentKinds',json((SELECT json_group_array(content_kind) FROM (
-    SELECT content_kind FROM runtime_binding_content_kinds kinds
-    WHERE kinds.binding_id=binding.binding_id ORDER BY content_kind
-  ))),
-  'multiDisc',CASE WHEN EXISTS(
-    SELECT 1 FROM runtime_binding_content_kinds kinds
-    WHERE kinds.binding_id=binding.binding_id AND kinds.content_kind='MULTI_DISC'
-  ) THEN json_object('maxDiscs',8,'maxTotalBytes',1073741824,'delivery','EAGER_EXTERNAL_FILES') ELSE NULL END
- )
+COALESCE((SELECT `+contentcapability.BindingPolicySQL+`
  FROM runtime_target_bindings binding
  JOIN runtime_binding_platforms binding_platform ON binding_platform.binding_id=binding.binding_id
   AND binding_platform.platform_id=pi.platform_id AND binding_platform.core_id=pi.default_core_id
  WHERE binding.core_id=pi.default_core_id AND binding.launch_policy<>'DISABLED'
- LIMIT 1),'{}')
+ LIMIT 1),NULL)
 FROM platform_instances pi
 JOIN platforms p ON p.id=pi.platform_id
 JOIN cores c ON c.id=pi.default_core_id
@@ -233,7 +223,8 @@ JOIN cores c ON c.id=pi.default_core_id
 	defer func() { cleanup.Error("close", rows.Close()) }()
 	items := make([]map[string]any, 0)
 	for rows.Next() {
-		var id, platformID, platformName, coreID, coreName, name, slug, description, compatibility string
+		var id, platformID, platformName, coreID, coreName, name, slug, description string
+		var contentPolicy contentcapability.Policy
 		var sortOrder, enabled int
 		var version, updatedAtMS, gameCount int64
 		if err := rows.Scan(
@@ -250,7 +241,7 @@ JOIN cores c ON c.id=pi.default_core_id
 			&version,
 			&updatedAtMS,
 			&gameCount,
-			&compatibility,
+			&contentPolicy,
 		); err != nil {
 			server.databaseError(writer, request, err)
 			return
@@ -261,7 +252,7 @@ JOIN cores c ON c.id=pi.default_core_id
 			"sortOrder": sortOrder, "enabled": enabled == 1, "version": version, "updatedAtMs": updatedAtMS,
 			"gameCount": gameCount, "supportedExtensions": contentprofile.SupportedExtensions(platformID),
 			"importCapabilities": contentcapability.Resolve(
-				platformID, enabled == 1, server.config.MultiDiscImportEnabled, compatibility,
+				platformID, enabled == 1, server.config.MultiDiscImportEnabled, contentPolicy,
 			),
 		})
 	}

@@ -3,7 +3,6 @@ package libraryimport
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"fmt"
 
 	"retrom/internal/cleanup"
@@ -13,15 +12,15 @@ import (
 )
 
 type creationTarget struct {
-	platformID        string
-	defaultCoreID     string
-	coreID            string
-	bindingID         string
-	providerID        string
-	targetID          string
-	deliveryProfile   string
-	contentPolicyJSON string
-	instanceVersion   int64
+	platformID      string
+	defaultCoreID   string
+	coreID          string
+	bindingID       string
+	providerID      string
+	targetID        string
+	deliveryProfile string
+	contentPolicy   contentcapability.Policy
+	instanceVersion int64
 }
 
 type creationPlan struct {
@@ -57,33 +56,15 @@ func normalizeCreateRequest(request CreateRequest) (CreateRequest, string, error
 	if request.MetadataProvider != "NONE" && request.MetadataProvider != "HASHEOUS" {
 		return CreateRequest{}, "", ErrInvalid
 	}
-	if projectCreateContentMode(contentMode) {
+	if contentcapability.IsProjectMode(contentMode) {
 		request.MetadataProvider = "NONE"
 	}
 	return request, contentMode, nil
 }
 
 func validCreateContentMode(contentMode string) bool {
-	switch contentMode {
-	case contentcapability.ModeStandard, contentcapability.ModeMultiDisc,
-		contentcapability.ModeRPGMakerProject, contentcapability.ModeONSProject,
-		contentcapability.ModeKiriKiriProject, contentcapability.ModeButterscotchProject,
-		contentcapability.ModeTyranoScriptProject:
-		return true
-	default:
-		return false
-	}
-}
-
-func projectCreateContentMode(contentMode string) bool {
-	switch contentMode {
-	case contentcapability.ModeRPGMakerProject, contentcapability.ModeONSProject,
-		contentcapability.ModeKiriKiriProject, contentcapability.ModeButterscotchProject,
-		contentcapability.ModeTyranoScriptProject:
-		return true
-	default:
-		return false
-	}
+	return contentMode == contentcapability.ModeStandard || contentMode == contentcapability.ModeMultiDisc ||
+		contentcapability.IsProjectMode(contentMode)
 }
 
 func (service *Service) prepareCreation(ctx context.Context, rawRequest CreateRequest) (creationPlan, error) {
@@ -116,7 +97,7 @@ func (service *Service) prepareCreation(ctx context.Context, rawRequest CreateRe
 		return creationPlan{}, err
 	}
 	capabilities := contentcapability.Resolve(
-		target.platformID, true, service.multiDiscImportEnabled, target.contentPolicyJSON,
+		target.platformID, true, service.multiDiscImportEnabled, target.contentPolicy,
 	)
 	if contentMode == contentcapability.ModeMultiDisc && capabilities.MultiDisc == nil {
 		return creationPlan{}, ErrMultiDiscModeUnavailable
@@ -306,7 +287,7 @@ func (service *Service) loadBoundTarget(
 ) error {
 	query := `
 SELECT binding.binding_id,binding.core_id,binding.provider_id,binding.target_id,
- binding.delivery_profile
+ binding.delivery_profile,` + contentcapability.BindingPolicySQL + `
 FROM runtime_target_bindings binding
 JOIN runtime_binding_platforms platform ON platform.binding_id=binding.binding_id AND platform.platform_id=?
 JOIN runtime_targets target ON target.provider_id=binding.provider_id AND target.target_id=binding.target_id
@@ -318,44 +299,14 @@ WHERE binding.core_id=? AND binding.launch_policy!='DISABLED'`
 	}
 	err := service.database.QueryRowContext(ctx, query, arguments...).Scan(
 		&target.bindingID, &target.coreID, &target.providerID, &target.targetID,
-		&target.deliveryProfile,
+		&target.deliveryProfile, &target.contentPolicy,
 	)
 	if err != nil {
 		return ErrInvalid
 	}
-	rows, err := service.database.QueryContext(ctx, `
-SELECT content_kind FROM runtime_binding_content_kinds WHERE binding_id=? ORDER BY content_kind
-`, target.bindingID)
-	if err != nil {
+	if len(target.contentPolicy.SupportedContentKinds) == 0 {
 		return ErrInvalid
 	}
-	defer func() { cleanup.Error("close", rows.Close()) }()
-	contentKinds := make([]string, 0, 2)
-	for rows.Next() {
-		var contentKind string
-		if rows.Scan(&contentKind) != nil {
-			return ErrInvalid
-		}
-		contentKinds = append(contentKinds, contentKind)
-	}
-	if rows.Err() != nil || len(contentKinds) == 0 {
-		return ErrInvalid
-	}
-	policy := map[string]any{"schemaVersion": 1, "supportedContentKinds": contentKinds, "multiDisc": nil}
-	for _, contentKind := range contentKinds {
-		if contentKind == contentcapability.ModeMultiDisc {
-			policy["multiDisc"] = map[string]any{
-				"maxDiscs":      contentcapability.MaximumMultiDiscCount,
-				"maxTotalBytes": contentcapability.MaximumMultiDiscBytes,
-				"delivery":      contentcapability.DeliveryEagerExternal,
-			}
-		}
-	}
-	contents, err := json.Marshal(policy)
-	if err != nil {
-		return ErrInvalid
-	}
-	target.contentPolicyJSON = string(contents)
 	return nil
 }
 

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
+	"retrom/internal/contentcapability"
 	"retrom/internal/testassert"
 )
 
@@ -15,8 +16,8 @@ func TestReviewValidityIgnoresPlatformPresentationChangesButNotActualInputs(t *t
 		platformInstanceID: "folder", draftPlatformInstanceID: "folder",
 		coreID: "gambatte", currentCoreID: "gambatte", providerID: "emulatorjs", targetID: "gambatte",
 		manifestDigest: "content", snapshotManifestDigest: "content", contentKind: "SINGLE_FILE",
-		contentPolicyJSON: `{"schemaVersion":1,"supportedContentKinds":["SINGLE_FILE"],"multiDisc":null}`,
-		dependencyJSON:    `{"schemaVersion":1,"dependencies":[]}`, status: "READY", compatibilityCode: "READY",
+		contentPolicy:  contentcapability.NewPolicy("SINGLE_FILE"),
+		dependencyJSON: `{"schemaVersion":1,"dependencies":[]}`, status: "READY", compatibilityCode: "READY",
 	}
 	if _, current := evidence.currentInput(); !current {
 		t.Fatal("a folder presentation edit invalidated validation")
@@ -64,12 +65,24 @@ func TestPrepublishDigestGoldenAndSemanticInputs(t *testing.T) {
 	testassert.False(t, testassert.Any(func() bool { return prepublishDigest(base) == prepublishDigest(changedTarget) }, func() bool { return prepublishDigest(base) == prepublishDigest(changedCompatibility) }, func() bool { return prepublishDigest(base) == prepublishDigest(changedKind) }), "prepublish digest ignored a semantic validation input")
 }
 
-func TestCompatibilityConfigDigestIgnoresJSONObjectKeyOrder(t *testing.T) {
+func TestContentPolicyDigestSurvivesSnapshotJSONKeyOrder(t *testing.T) {
 	t.Parallel()
-	importOrder := `{"schemaVersion":1,"multiDisc":null,"supportedContentKinds":["SINGLE_FILE"]}`
-	reviewOrder := `{"supportedContentKinds":["SINGLE_FILE"],"schemaVersion":1,"multiDisc":null}`
-	if compatibilityConfigDigest(importOrder) != compatibilityConfigDigest(reviewOrder) {
-		t.Fatal("semantically identical content policies produced different digests")
+	original := contentcapability.NewPolicy("SINGLE_FILE")
+	var restored contentcapability.Policy
+	if err := json.Unmarshal([]byte(`{"multiDisc":null,"supportedContentKinds":["SINGLE_FILE"]}`), &restored); err != nil {
+		t.Fatal(err)
+	}
+	if original.Digest() != restored.Digest() {
+		t.Fatal("snapshot round-trip changed the content policy digest")
+	}
+}
+
+func TestContentPolicyDigestTreatsAcceptedKindsAsASet(t *testing.T) {
+	t.Parallel()
+	first := contentcapability.NewPolicy("MULTI_DISC", "SINGLE_FILE")
+	second := contentcapability.NewPolicy("SINGLE_FILE", "MULTI_DISC")
+	if first.Digest() != second.Digest() {
+		t.Fatal("accepted-kind order changed the policy digest")
 	}
 }
 
@@ -98,16 +111,17 @@ func TestPrepublishDigestOnlyMatchesCurrentInputs(t *testing.T) {
 
 func TestValidationPolicyDigestIgnoresUnrelatedCapabilities(t *testing.T) {
 	t.Parallel()
-	single := `{"schemaVersion":1,"supportedContentKinds":["SINGLE_FILE"]}`
-	expanded := `{"schemaVersion":1,"supportedContentKinds":["SINGLE_FILE","MULTI_DISC"],"multiDisc":{"maxDiscs":8}}`
-	if validationPolicyDigest(single, "SINGLE_FILE") != validationPolicyDigest(expanded, "SINGLE_FILE") {
+	single := contentcapability.NewPolicy("SINGLE_FILE")
+	expanded := contentcapability.NewPolicy("SINGLE_FILE", "MULTI_DISC")
+	if single.DigestFor("SINGLE_FILE") != expanded.DigestFor("SINGLE_FILE") {
 		t.Fatal("unrelated content capability invalidated existing content")
 	}
-	changed := `{"schemaVersion":1,"supportedContentKinds":["MULTI_DISC"],"multiDisc":{"maxDiscs":4}}`
-	if validationPolicyDigest(expanded, "MULTI_DISC") == validationPolicyDigest(changed, "MULTI_DISC") {
+	changed := contentcapability.NewPolicy("MULTI_DISC")
+	changed.MultiDisc.MaxDiscs = 4
+	if expanded.DigestFor("MULTI_DISC") == changed.DigestFor("MULTI_DISC") {
 		t.Fatal("selected content policy change was ignored")
 	}
-	if validationPolicyDigest(single, "MULTI_DISC") != "" || compatibilityConfigDigest("{") != "" {
+	if single.DigestFor("MULTI_DISC") != "" || (contentcapability.Policy{}).Digest() != "" {
 		t.Fatal("unsupported or invalid policy was accepted")
 	}
 }

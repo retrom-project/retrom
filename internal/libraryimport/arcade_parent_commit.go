@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"retrom/internal/contentcapability"
+
 	"github.com/google/uuid"
 
 	"retrom/internal/cleanup"
@@ -197,7 +199,7 @@ func insertParentCoreValidation(
 		SourceManifestDigest: manifestDigest, ContentKind: target.contentKind,
 		TargetPlatformInstanceID: target.targetID,
 		ProviderID:               target.providerID, TargetID: target.runtimeTargetID,
-		ContentPolicyDigest: validationPolicyDigest(target.contentPolicyJSON, target.contentKind),
+		ContentPolicyDigest: target.contentPolicy.DigestFor(target.contentKind),
 		DATVersionID:        stringPointer(candidate.datID),
 		DependencySnapshot:  json.RawMessage(validation.dependencySnapshot),
 		Status:              validation.validationStatus, CompatibilityCode: validation.compatibilityCode,
@@ -231,13 +233,13 @@ INSERT INTO import_item_validation_files(
 }
 
 type parentCommitTarget struct {
-	contentKind       string
-	targetID          string
-	coreID            string
-	providerID        string
-	runtimeTargetID   string
-	contentPolicyJSON string
-	platformVersion   int64
+	contentKind     string
+	targetID        string
+	coreID          string
+	providerID      string
+	runtimeTargetID string
+	contentPolicy   contentcapability.Policy
+	platformVersion int64
 }
 
 func loadParentCommitTarget(
@@ -252,17 +254,7 @@ func loadParentCommitTarget(
 SELECT item.state,draft.effective_source_snapshot_id,draft.target_platform_instance_id,
 source_snapshot.content_kind,platform.version,platform.default_core_id,
 target.provider_id,target.target_id,
-json_object(
-  'schemaVersion',1,
-  'supportedContentKinds',json((SELECT json_group_array(content_kind) FROM (
-    SELECT content_kind FROM runtime_binding_content_kinds kinds
-    WHERE kinds.binding_id=runtime_binding.binding_id ORDER BY content_kind
-  ))),
-  'multiDisc',CASE WHEN EXISTS(
-    SELECT 1 FROM runtime_binding_content_kinds kinds
-    WHERE kinds.binding_id=runtime_binding.binding_id AND kinds.content_kind='MULTI_DISC'
-  ) THEN json_object('maxDiscs',8,'maxTotalBytes',1073741824,'delivery','EAGER_EXTERNAL_FILES') ELSE NULL END
-),
+`+contentcapability.BindingPolicySQL+`,
 (SELECT dat.id FROM dat_versions dat WHERE dat.provider_id=target.provider_id
  AND dat.target_id=target.target_id AND dat.is_active=1)
 FROM import_items item
@@ -270,21 +262,21 @@ JOIN review_drafts draft ON draft.id=? AND draft.import_item_id=item.id
 JOIN import_item_source_snapshots source_snapshot ON source_snapshot.id=draft.effective_source_snapshot_id
 JOIN platform_instances platform ON platform.id=draft.target_platform_instance_id
 AND platform.enabled=1 AND platform.deleted_at_ms IS NULL
-JOIN runtime_target_bindings runtime_binding ON runtime_binding.core_id=platform.default_core_id
-  AND runtime_binding.launch_policy<>'DISABLED'
-JOIN runtime_binding_platforms platform_binding ON platform_binding.binding_id=runtime_binding.binding_id
+JOIN runtime_target_bindings binding ON binding.core_id=platform.default_core_id
+  AND binding.launch_policy<>'DISABLED'
+JOIN runtime_binding_platforms platform_binding ON platform_binding.binding_id=binding.binding_id
   AND platform_binding.platform_id=platform.platform_id
-JOIN runtime_targets target ON target.provider_id=runtime_binding.provider_id
-  AND target.target_id=runtime_binding.target_id
+JOIN runtime_targets target ON target.provider_id=binding.provider_id
+  AND target.target_id=binding.target_id
 WHERE item.id=?
 `, candidate.draftID, candidate.itemID).Scan(
 		&itemState, &currentSnapshotID, &target.targetID, &target.contentKind,
 		&target.platformVersion, &target.coreID, &target.providerID, &target.runtimeTargetID,
-		&target.contentPolicyJSON, &activeDATID,
+		&target.contentPolicy, &activeDATID,
 	)
 	valid := err == nil && itemState == "REVIEW_PENDING" && currentSnapshotID == candidate.baseSnapshotID &&
 		target.providerID == candidate.providerID && target.runtimeTargetID == candidate.targetID &&
-		validationPolicyDigest(target.contentPolicyJSON, target.contentKind) == candidate.contentPolicyDigest &&
+		target.contentPolicy.DigestFor(target.contentKind) == candidate.contentPolicyDigest &&
 		activeDATID.Valid && activeDATID.String == candidate.datID
 	if !valid {
 		return parentCommitTarget{}, ErrInvalid

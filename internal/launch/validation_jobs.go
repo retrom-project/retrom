@@ -10,6 +10,8 @@ import (
 	"fmt"
 	"time"
 
+	"retrom/internal/contentcapability"
+
 	"retrom/internal/cleanup"
 )
 
@@ -27,7 +29,8 @@ func (service *Service) ensureVariant(
 	defer cleanup.Rollback(transaction)
 
 	var gameID, contentLogicalName, contentKind, coreID string
-	var providerID, targetID, contentPolicyJSON, sourceManifestDigest string
+	var providerID, targetID, sourceManifestDigest string
+	var contentPolicy contentcapability.Policy
 	var gameVersion int64
 	var datID sql.NullString
 	err = transaction.QueryRowContext(ctx, `
@@ -37,17 +40,7 @@ game.content_kind,
 core.id,
 binding.provider_id,
 binding.target_id,
-json_object(
-  'schemaVersion',1,
-  'supportedContentKinds',json((SELECT json_group_array(content_kind) FROM (
-    SELECT content_kind FROM runtime_binding_content_kinds kinds
-    WHERE kinds.binding_id=binding.binding_id ORDER BY content_kind
-  ))),
-  'multiDisc',CASE WHEN EXISTS(
-    SELECT 1 FROM runtime_binding_content_kinds kinds
-    WHERE kinds.binding_id=binding.binding_id AND kinds.content_kind='MULTI_DISC'
-  ) THEN json_object('maxDiscs',8,'maxTotalBytes',1073741824,'delivery','EAGER_EXTERNAL_FILES') ELSE NULL END
-),
+`+contentcapability.BindingPolicySQL+`,
 (SELECT id FROM dat_versions
  WHERE provider_id=binding.provider_id AND target_id=binding.target_id AND is_active=1),
 game.version,
@@ -69,7 +62,7 @@ ORDER BY CASE file.role WHEN 'CONTENT' THEN 0 ELSE 1 END,file.sort_order,file.lo
 LIMIT 1
 `, request.GameID, requestedCore, requestedCore).Scan(
 		&gameID, &contentLogicalName, &contentKind, &coreID, &providerID, &targetID,
-		&contentPolicyJSON, &datID, &gameVersion, &sourceManifestDigest,
+		&contentPolicy, &datID, &gameVersion, &sourceManifestDigest,
 	)
 	target, targetExists := service.runtimeBuilder.Target(providerID, targetID)
 	if err != nil || !targetExists ||
@@ -84,7 +77,7 @@ LIMIT 1
 	}
 	baseDigest, biosDependencyDigest, err := service.validationDigests(
 		ctx, transaction, variantID, gameID, contentLogicalName, contentKind,
-		providerID, targetID, contentPolicyJSON, datID,
+		providerID, targetID, contentPolicy, datID,
 	)
 	if err != nil {
 		return Created{}, ErrBlocked
@@ -92,7 +85,7 @@ LIMIT 1
 	digest := bindCurrentGameStateDigest(baseDigest, gameVersion, sourceManifestDigest)
 	jobID, queued, err := service.queueValidationJob(
 		ctx, transaction, variantID, gameID, gameVersion, sourceManifestDigest,
-		providerID, targetID, contentPolicyJSON, datID, digest, biosDependencyDigest,
+		providerID, targetID, contentPolicy, datID, digest, biosDependencyDigest,
 	)
 	if err != nil {
 		return Created{}, err
@@ -186,7 +179,8 @@ func (service *Service) queueValidationJob(
 	transaction *sql.Tx,
 	variantID, gameID string,
 	gameVersion int64,
-	sourceManifestDigest, providerID, targetID, contentPolicyJSON string,
+	sourceManifestDigest, providerID, targetID string,
+	contentPolicy contentcapability.Policy,
 	datID sql.NullString,
 	digest, biosDependencyDigest string,
 ) (string, bool, error) {
@@ -218,7 +212,7 @@ FROM jobs WHERE kind='VARIANT_VALIDATE' AND dedupe_key=?
 		Inputs: validationInputs{
 			GameID: gameID, GameVariantID: variantID, GameVersion: gameVersion,
 			SourceManifestDigest: sourceManifestDigest,
-			ProviderID:           providerID, TargetID: targetID, ContentPolicyJSON: contentPolicyJSON,
+			ProviderID:           providerID, TargetID: targetID, ContentPolicy: contentPolicy,
 			DATVersionID: nullableSQL(datID), ValidationInputDigest: digest,
 			BIOSDependencyDigest: biosDependencyDigest,
 		},
@@ -375,37 +369,28 @@ func (service *Service) queueDATValidationTarget(
 	targetDAT sql.NullString,
 	item datValidationTarget,
 ) (bool, error) {
-	var logicalName, contentKind, sourceManifestDigest, contentPolicyJSON string
+	var logicalName, contentKind, sourceManifestDigest string
+	var contentPolicy contentcapability.Policy
 	var gameVersion int64
 	if err := transaction.QueryRowContext(ctx, `
 SELECT COALESCE((SELECT logical_name FROM game_files
  WHERE game_id=game.id AND role IN ('CONTENT','DISC')
  ORDER BY CASE role WHEN 'CONTENT' THEN 0 ELSE 1 END,sort_order,logical_name LIMIT 1),''),
 game.content_kind,game.version,game.source_manifest_digest,
-json_object(
- 'schemaVersion',1,
- 'supportedContentKinds',json((SELECT json_group_array(content_kind) FROM (
-   SELECT content_kind FROM runtime_binding_content_kinds kinds
-   WHERE kinds.binding_id=binding.binding_id ORDER BY content_kind
- ))),
- 'multiDisc',CASE WHEN EXISTS(
-   SELECT 1 FROM runtime_binding_content_kinds kinds
-   WHERE kinds.binding_id=binding.binding_id AND kinds.content_kind='MULTI_DISC'
- ) THEN json_object('maxDiscs',8,'maxTotalBytes',1073741824,'delivery','EAGER_EXTERNAL_FILES') ELSE NULL END
-)
+`+contentcapability.BindingPolicySQL+`
 FROM games game
 JOIN game_variants variant ON variant.id=? AND variant.game_id=game.id
 JOIN runtime_target_bindings binding ON binding.core_id=variant.core_id
  AND binding.provider_id=? AND binding.target_id=? AND binding.launch_policy!='DISABLED'
 LIMIT 1
 `, item.variantID, providerID, targetID).Scan(
-		&logicalName, &contentKind, &gameVersion, &sourceManifestDigest, &contentPolicyJSON,
+		&logicalName, &contentKind, &gameVersion, &sourceManifestDigest, &contentPolicy,
 	); err != nil {
 		return false, fmt.Errorf("launch/ensure_variant: %w", err)
 	}
 	baseDigest, biosDigest, err := service.validationDigests(
 		ctx, transaction, item.variantID, item.gameID, logicalName, contentKind,
-		providerID, targetID, contentPolicyJSON, targetDAT,
+		providerID, targetID, contentPolicy, targetDAT,
 	)
 	if err != nil {
 		return false, fmt.Errorf("launch/ensure_variant: %w", err)
@@ -413,7 +398,7 @@ LIMIT 1
 	digest := bindCurrentGameStateDigest(baseDigest, gameVersion, sourceManifestDigest)
 	_, created, err := service.queueValidationJob(
 		ctx, transaction, item.variantID, item.gameID, gameVersion, sourceManifestDigest,
-		providerID, targetID, contentPolicyJSON, targetDAT, digest, biosDigest,
+		providerID, targetID, contentPolicy, targetDAT, digest, biosDigest,
 	)
 	if err != nil {
 		return false, err

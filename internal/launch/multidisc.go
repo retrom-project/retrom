@@ -9,6 +9,8 @@ import (
 	"fmt"
 	"io"
 
+	"retrom/internal/contentcapability"
+
 	"retrom/internal/cleanup"
 	"retrom/internal/corevalidation"
 	"retrom/internal/multidisc"
@@ -55,7 +57,8 @@ var (
 func (service *Service) multiDiscRevalidationInputs(
 	ctx context.Context,
 	database multiDiscQueryer,
-	variantID, gameID, providerID, targetID, contentPolicyJSON string,
+	variantID, gameID, providerID, targetID string,
+	contentPolicy contentcapability.Policy,
 	datID sql.NullString,
 	biosSnapshot corevalidation.Snapshot,
 ) (string, string, corevalidation.Snapshot, error) {
@@ -76,7 +79,7 @@ func (service *Service) multiDiscRevalidationInputs(
 	digest, err := corevalidation.MultiDiscValidationInputDigest(corevalidation.MultiDiscValidationInput{
 		GameVariantID: variantID, GameID: gameID,
 		ContentKind: corevalidation.MultiDiscContentKind, ProviderID: providerID, TargetID: targetID,
-		ContentPolicySHA256: corevalidation.ContentPolicyDigest(contentPolicyJSON),
+		ContentPolicySHA256: contentPolicy.Digest(),
 		DATVersionID:        datID, BIOSDependencySHA256: biosDigest,
 		OrderedDiscSHA256: ordered, CanonicalPlaylistSHA256: canonicalDigest,
 	})
