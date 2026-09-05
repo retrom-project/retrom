@@ -84,7 +84,10 @@ export async function revealPreviewToolbar(page) {
 
 export async function resumePreview(page) {
   const resume = page.getByRole("button", {name: "继续游戏", exact: true});
-  if (await resume.isVisible().catch(() => false)) {await resume.click();}
+  if (await resume.isVisible().catch(() => false)) {
+    await resume.click();
+    await resume.waitFor({state: "hidden", timeout: 30_000});
+  }
 }
 
 export async function capturePreviewCheckpoint(page, previewId) {
