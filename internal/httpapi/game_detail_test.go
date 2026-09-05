@@ -85,7 +85,6 @@ func TestGameDetailReturnsCoreValidationChoicesAndDOSPrograms(t *testing.T) {
 	coverAssetID := "01980000-0000-7000-8000-000000000105"
 	videoAssetID := "01980000-0000-7000-8000-000000000110"
 	variantID := "01980000-0000-7000-8000-000000000106"
-	variantRevisionID := "01980000-0000-7000-8000-000000000107"
 	saveStateID := "01980000-0000-7000-8000-000000000108"
 	transaction, err := server.database.BeginTx(context.Background(), nil)
 	testassert.False(t, err != nil, err)
@@ -93,7 +92,7 @@ func TestGameDetailReturnsCoreValidationChoicesAndDOSPrograms(t *testing.T) {
 	now := time.Now().UnixMilli()
 	fixture := gameDetailSeed{now: now}
 	seedGameDetailMedia(t, server, transaction, gameID, metadataID, contentID, coverBlobID, coverAssetID, videoAssetID, &fixture)
-	seedGameDetailRuntime(t, server, transaction, gameID, contentID, variantID, variantRevisionID, saveStateID, &fixture)
+	seedGameDetailRuntime(t, server, transaction, gameID, variantID, saveStateID, &fixture)
 	videoPayload, screenshot := fixture.videoPayload, fixture.screenshot
 	videoMetadata := fixture.videoMetadata
 	latestLaunchID, videoBlobID, screenshotBlobID := fixture.latestLaunchID, fixture.videoBlobID, fixture.screenshotBlobID
@@ -706,7 +705,7 @@ VALUES(?,?,?,'VIDEO',0,NULL,NULL,'video/mp4',?)
 
 func seedGameDetailRuntime(
 	t *testing.T, server *Server, transaction *sql.Tx,
-	gameID, _, variantID, _ string, saveStateID string,
+	gameID, variantID, saveStateID string,
 	fixture *gameDetailSeed,
 ) {
 	now := fixture.now

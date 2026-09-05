@@ -10,13 +10,12 @@ import (
 	"strings"
 
 	"retrom/internal/cleanup"
-	"retrom/internal/kirikiri/detector"
-	onsdetection "retrom/internal/ons/detector"
 	rpgvalidation "retrom/internal/rpgmaker/validation"
 	retromruntime "retrom/internal/runtime"
 	"retrom/internal/runtimebundle"
 	"retrom/internal/runtimecatalog"
 	"retrom/internal/runtimelaunch"
+	"retrom/internal/runtimeoptions"
 )
 
 // Config is an already closed-validated Launch Envelope. Keeping the encoded
@@ -56,33 +55,34 @@ type DiscEntry struct {
 }
 
 type providerConfigSource struct {
-	credentialHash []byte
-	state          string
-	providerID     string
-	targetID       string
-	bundleDigest   string
-	coreID         string
-	coreName       string
-	delivery       string
-	purpose        string
-	title          string
-	platformName   string
-	returnTo       string
-	contentKind    string
-	generation     string
-	dependencyJSON string
-	compatibility  string
-	saveID         sql.NullString
-	dosEntry       sql.NullString
-	validationID   sql.NullString
-	netplayID      sql.NullString
-	netplayPlayer  sql.NullInt64
-	netplayRoom    sql.NullString
-	netplayProfile sql.NullString
-	bootstrapEnd   int64
-	hardEnd        int64
-	idleEnd        sql.NullInt64
-	initialDisc    int64
+	credentialHash  []byte
+	state           string
+	providerID      string
+	targetID        string
+	bundleDigest    string
+	coreID          string
+	coreName        string
+	detectorProfile string
+	delivery        string
+	purpose         string
+	title           string
+	platformName    string
+	returnTo        string
+	contentKind     string
+	generation      string
+	dependencyJSON  string
+	compatibility   string
+	saveID          sql.NullString
+	dosEntry        sql.NullString
+	validationID    sql.NullString
+	netplayID       sql.NullString
+	netplayPlayer   sql.NullInt64
+	netplayRoom     sql.NullString
+	netplayProfile  sql.NullString
+	bootstrapEnd    int64
+	hardEnd         int64
+	idleEnd         sql.NullInt64
+	initialDisc     int64
 }
 
 func (service *Service) Config(ctx context.Context, launchID, capability string) (Config, error) {
@@ -106,7 +106,8 @@ func (service *Service) productConfigSource(ctx context.Context, launchID string
 	err := service.database.QueryRowContext(ctx, `
 SELECT launch.credential_sha256,launch.state,launch.provider_id,launch.target_id,
  launch.bundle_sha256,
- launch.core_id,core.name,binding.delivery_profile,launch.purpose,game.title,platform.name,launch.return_to,
+ launch.core_id,core.name,binding.detector_profile,binding.delivery_profile,
+ launch.purpose,game.title,platform.name,launch.return_to,
  launch.content_kind,launch.dependency_snapshot_json,launch.compatibility_code,
  launch.save_state_id,launch.dos_entry_path,launch.rpgmaker_runtime_validation_id,
  launch.netplay_session_id,launch.netplay_player_no,session.room_id,session.profile_json,
@@ -123,7 +124,7 @@ WHERE launch.id=? AND launch.purpose='PRODUCT'
 `, launchID).Scan(
 		&source.credentialHash, &source.state, &source.providerID, &source.targetID,
 		&source.bundleDigest, &source.coreID, &source.coreName,
-		&source.delivery, &source.purpose, &source.title, &source.platformName, &source.returnTo,
+		&source.detectorProfile, &source.delivery, &source.purpose, &source.title, &source.platformName, &source.returnTo,
 		&source.contentKind, &source.dependencyJSON, &source.compatibility, &source.saveID,
 		&source.dosEntry, &source.validationID, &source.netplayID, &source.netplayPlayer,
 		&source.netplayRoom, &source.netplayProfile, &source.bootstrapEnd, &source.hardEnd,
@@ -140,7 +141,8 @@ func (service *Service) validationConfigSource(ctx context.Context, launchID str
 	err := service.database.QueryRowContext(ctx, `
 SELECT launch.credential_sha256,launch.state,launch.provider_id,launch.target_id,
  launch.bundle_sha256,
- launch.core_id,core.name,binding.delivery_profile,launch.purpose,'RPG Maker runtime validation',instance.name,
+ launch.core_id,core.name,binding.detector_profile,binding.delivery_profile,
+ launch.purpose,'RPG Maker runtime validation',instance.name,
  launch.return_to,launch.content_kind,launch.dependency_snapshot_json,launch.compatibility_code,
  NULL,NULL,launch.rpgmaker_runtime_validation_id,
  NULL,NULL,NULL,NULL,launch.bootstrap_expires_at_ms,launch.hard_expires_at_ms,
@@ -157,7 +159,7 @@ WHERE launch.id=? AND launch.purpose='RPG_RUNTIME_VALIDATION'
 `, launchID).Scan(
 		&source.credentialHash, &source.state, &source.providerID, &source.targetID,
 		&source.bundleDigest, &source.coreID, &source.coreName,
-		&source.delivery, &source.purpose, &source.title, &source.platformName, &source.returnTo,
+		&source.detectorProfile, &source.delivery, &source.purpose, &source.title, &source.platformName, &source.returnTo,
 		&source.contentKind, &source.dependencyJSON, &source.compatibility, &source.saveID,
 		&source.dosEntry, &source.validationID, &source.netplayID, &source.netplayPlayer,
 		&source.netplayRoom, &source.netplayProfile, &source.bootstrapEnd, &source.hardEnd,
@@ -355,58 +357,22 @@ func providerTargetOptions(
 	source providerConfigSource,
 	expectedRestorePosition *rpgvalidation.Position,
 ) (map[string]any, error) {
-	properties, ok := schema["properties"].(map[string]any)
-	if !ok {
-		return nil, ErrCredential
+	selected, registered := runtimecatalog.Strategy(source.detectorProfile)
+	if !registered {
+		return nil, runtimeoptions.ErrUnsupported
 	}
-	result := make(map[string]any, len(properties))
-	for property := range properties {
-		switch property {
-		case "dosEntryPath":
-			var dos any
-			if source.dosEntry.Valid {
-				dos = source.dosEntry.String
-			}
-			result[property] = dos
-		case "initialDiscIndex":
-			var disc any
-			if source.contentKind == "MULTI_DISC" {
-				disc = source.initialDisc
-			}
-			result[property] = disc
-		case "expectedRestorePosition":
-			var expected any
-			if expectedRestorePosition != nil {
-				expected = map[string]any{
-					"mapId": expectedRestorePosition.MapID, "playerX": expectedRestorePosition.PlayerX,
-					"playerY": expectedRestorePosition.PlayerY, "fixtureState": expectedRestorePosition.FixtureState,
-				}
-			}
-			result[property] = expected
-		case "scriptEncoding":
-			profile, err := onsdetection.ParseSnapshot(source.dependencyJSON)
-			if err != nil {
-				return nil, ErrCredential
-			}
-			result[property] = profile.ScriptEncoding
-		case "startupXp3Path":
-			profile, err := detector.ParseSnapshot(source.dependencyJSON)
-			if err != nil {
-				return nil, ErrCredential
-			}
-			var startup any
-			if profile.StartupXP3Path != nil {
-				startup = *profile.StartupXP3Path
-			}
-			result[property] = startup
-		default:
-			return nil, ErrCredential
-		}
+	var dos *string
+	if source.dosEntry.Valid {
+		dos = &source.dosEntry.String
 	}
-	if !runtimebundle.ValidateTargetOptions(schema, result) {
-		return nil, ErrCredential
+	options, err := runtimeoptions.Build(selected.Options, schema, runtimeoptions.Input{
+		DOSEntry: dos, ContentKind: source.contentKind, InitialDiscIndex: source.initialDisc,
+		DependencySnapshot: source.dependencyJSON, ExpectedRestorePosition: expectedRestorePosition,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("assemble Host launch options: %w", err)
 	}
-	return result, nil
+	return options, nil
 }
 
 type lockedProviderFile struct {

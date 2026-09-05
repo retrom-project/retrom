@@ -1,33 +1,4 @@
--- Clean pre-release baseline: dependencies.
-
-CREATE TABLE bios_requirements (
-  id TEXT PRIMARY KEY,
-  core_id TEXT NOT NULL REFERENCES cores(id),
-  provider_id TEXT NOT NULL,
-  target_id TEXT NOT NULL,
-  target_contract_sha256 TEXT NOT NULL CHECK(length(target_contract_sha256)=64),
-  source_kind TEXT NOT NULL CHECK(source_kind IN ('STATIC','DAT_MACHINE')),
-  dat_machine_name TEXT,
-  logical_name TEXT NOT NULL,
-  requirement_mode TEXT NOT NULL CHECK(requirement_mode IN ('REQUIRED','OPTIONAL','CONDITIONAL')),
-  condition_code TEXT,
-  activation_options_json TEXT,
-  catalog_digest TEXT NOT NULL CHECK(length(catalog_digest) = 64),
-  size_bytes INTEGER CHECK(size_bytes IS NULL OR size_bytes >= 0),
-  md5 TEXT,
-  sha1 TEXT,
-  sha256 TEXT,
-  source_url TEXT NOT NULL,
-  source_version TEXT NOT NULL,
-  enabled INTEGER NOT NULL CHECK(enabled IN (0,1)),
-  version INTEGER NOT NULL DEFAULT 1 CHECK(version >= 1),
-  created_at_ms INTEGER NOT NULL,
-  updated_at_ms INTEGER NOT NULL, delivery_kind TEXT NOT NULL DEFAULT 'BIOS_BUNDLE'
-CHECK(delivery_kind IN ('BIOS_BUNDLE','EXTERNAL_FILE')), emulator_path TEXT,
-  UNIQUE(provider_id,target_id,logical_name),
-  FOREIGN KEY(provider_id,target_id) REFERENCES runtime_targets(provider_id,target_id),
-  CHECK((source_kind = 'STATIC' AND dat_machine_name IS NULL) OR (source_kind = 'DAT_MACHINE' AND dat_machine_name IS NOT NULL))
-);
+-- Pre-release bootstrap: create the current domain model directly.
 
 CREATE TABLE bios_installations (
   id TEXT PRIMARY KEY,
@@ -50,37 +21,6 @@ CHECK(source_kind IN ('BROWSER_UPLOAD','SERVER_DIRECTORY')), server_import_candi
   CHECK(NOT (status = 'INVALID' AND is_active = 1)),
   CHECK(is_active=0 OR blob_id IS NOT NULL),
   CHECK((blob_id IS NULL)=(payload_released_at_ms IS NOT NULL))
-);
-
-CREATE TABLE dat_versions (
-  id TEXT PRIMARY KEY,
-  core_id TEXT NOT NULL REFERENCES cores(id),
-  provider_id TEXT NOT NULL,
-  target_id TEXT NOT NULL,
-  target_contract_sha256 TEXT NOT NULL CHECK(length(target_contract_sha256)=64),
-  builtin_relative_path TEXT NOT NULL,
-  sha256 TEXT NOT NULL CHECK(length(sha256) = 64),
-  parser_version TEXT NOT NULL,
-  parse_status TEXT NOT NULL CHECK(parse_status IN ('PENDING','PARSING','READY','FAILED','CANCELLED')),
-  is_active INTEGER NOT NULL CHECK(is_active IN (0,1)),
-  machine_count INTEGER,
-  rom_entry_count INTEGER,
-  disk_entry_count INTEGER,
-  bios_set_count INTEGER,
-  default_bios_set_count INTEGER,
-  explicit_bios_machine_count INTEGER,
-  base_dependency_target_count INTEGER,
-  unresolved_relation_count INTEGER,
-  version INTEGER NOT NULL DEFAULT 1,
-  created_at_ms INTEGER NOT NULL,
-  updated_at_ms INTEGER NOT NULL,
-  parsed_at_ms INTEGER,
-  activated_at_ms INTEGER,
-  UNIQUE(id,provider_id,target_id),
-  UNIQUE(provider_id,target_id,sha256,parser_version),
-  FOREIGN KEY(provider_id,target_id) REFERENCES runtime_targets(provider_id,target_id),
-  CHECK((parse_status = 'READY') = (parsed_at_ms IS NOT NULL)),
-  CHECK(is_active = 0 OR parse_status = 'READY')
 );
 
 CREATE TABLE dat_machines (
@@ -213,59 +153,13 @@ CREATE TABLE server_bios_import_candidates (
   FOREIGN KEY(server_import_id,requirement_id) REFERENCES server_bios_import_items(server_import_id,requirement_id)
 );
 
-CREATE TABLE server_bios_import_items (
-  server_import_id TEXT NOT NULL REFERENCES server_imports(id),
-  requirement_id TEXT NOT NULL REFERENCES bios_requirements(id),
-  requirement_version INTEGER NOT NULL CHECK(requirement_version>=1),
-  core_id TEXT NOT NULL REFERENCES cores(id),
-  core_name_snapshot TEXT NOT NULL,
-  provider_id TEXT NOT NULL,
-  target_id TEXT NOT NULL,
-  target_contract_sha256 TEXT NOT NULL CHECK(length(target_contract_sha256)=64),
-  source_kind TEXT NOT NULL CHECK(source_kind IN ('STATIC','DAT_MACHINE')),
-  logical_name TEXT NOT NULL,
-  requirement_mode TEXT NOT NULL CHECK(requirement_mode IN ('REQUIRED','OPTIONAL','CONDITIONAL')),
-  condition_code TEXT,
-  activation_options_json TEXT,
-  delivery_kind TEXT NOT NULL CHECK(delivery_kind IN ('BIOS_BUNDLE','EXTERNAL_FILE')),
-  emulator_path TEXT,
-  source_version TEXT NOT NULL,
-  catalog_digest TEXT NOT NULL CHECK(length(catalog_digest)=64 AND catalog_digest=lower(catalog_digest)),
-  dat_version_id TEXT REFERENCES dat_versions(id),
-  dat_machine_name TEXT,
-  expected_size_bytes INTEGER CHECK(expected_size_bytes IS NULL OR expected_size_bytes>=0),
-  expected_md5 TEXT,
-  expected_sha1 TEXT,
-  expected_sha256 TEXT,
-  active_installation_id_snapshot TEXT REFERENCES bios_installations(id),
-  active_installation_version_snapshot INTEGER,
-  active_blob_sha256_snapshot TEXT,
-  active_status_snapshot TEXT,
-  active_validated_requirement_version_snapshot INTEGER,
-  state TEXT NOT NULL CHECK(state IN ('PENDING','EVALUATING','IMPORTED_MATCHED','IMPORTED_WARNING','IMPORTED_MISSING_ENTRY','NOT_FOUND','SKIPPED_EXISTING','SKIPPED_NOT_BETTER','ALREADY_SAME_BYTES','SOURCE_CHANGED','CATALOG_CHANGED','READ_FAILED','COMMIT_FAILED','CANCELLED')),
-  candidate_count INTEGER NOT NULL DEFAULT 0 CHECK(candidate_count>=0),
-  match_method TEXT CHECK(match_method IS NULL OR match_method IN ('EXACT_HASH','EXPECTED_SIZE_FALLBACK','LARGEST_SIZE_FALLBACK','DAT_ENTRY_MATCH','DAT_ENTRY_WARNING','DAT_PARTIAL_FALLBACK')),
-  selection_details_json TEXT,
-  previous_installation_id TEXT REFERENCES bios_installations(id),
-  new_installation_id TEXT REFERENCES bios_installations(id),
-  outcome_code TEXT,
-  created_at_ms INTEGER NOT NULL CHECK(created_at_ms>=0),
-  updated_at_ms INTEGER NOT NULL CHECK(updated_at_ms>=created_at_ms),
-  completed_at_ms INTEGER,
-  PRIMARY KEY(server_import_id,requirement_id),
-  CHECK((source_kind='STATIC' AND dat_version_id IS NULL AND dat_machine_name IS NULL) OR
-        (source_kind='DAT_MACHINE' AND dat_version_id IS NOT NULL AND dat_machine_name IS NOT NULL)),
-  CHECK((state IN ('PENDING','EVALUATING'))=(completed_at_ms IS NULL)),
-  FOREIGN KEY(provider_id,target_id) REFERENCES runtime_targets(provider_id,target_id)
-);
-
 CREATE TABLE runtime_asset_pack_definitions (
   id TEXT PRIMARY KEY,
-  kind TEXT NOT NULL CHECK(kind IN (
-    'RPG2000_RTP','RPG2003_RTP','RGSS1_RTP_STANDARD','RGSS2_RTP_RPGVX',
-    'RGSS3_RTP_RPGVXAce','RGSS_CUSTOM_RTP'
-  )),
-  generation TEXT NOT NULL CHECK(generation IN ('RPG2000','RPG2003','RPGXP','RPGVX','RPGVXACE')),
+  kind TEXT NOT NULL CHECK(length(kind) BETWEEN 2 AND 64 AND kind NOT GLOB '*[^A-Za-z0-9_]*'),
+  generation TEXT NOT NULL CHECK(
+    length(generation) BETWEEN 2 AND 64 AND generation=upper(generation)
+    AND generation NOT GLOB '*[^A-Z0-9_]*'
+  ),
   declared_name TEXT NOT NULL CHECK(
     length(CAST(declared_name AS BLOB)) BETWEEN 1 AND 512 AND instr(declared_name,char(0))=0
   ),
@@ -281,26 +175,8 @@ CREATE TABLE runtime_asset_pack_definitions (
   created_at_ms INTEGER NOT NULL CHECK(created_at_ms>=0),
   UNIQUE(generation,normalized_declared_name),
   UNIQUE(id,generation),
-  CHECK(
-    kind='RPG2000_RTP' AND generation='RPG2000' AND origin='BUILTIN' AND id='rpg2000_rtp'
-    OR kind='RPG2003_RTP' AND generation='RPG2003' AND origin='BUILTIN' AND id='rpg2003_rtp'
-    OR kind='RGSS1_RTP_STANDARD' AND generation='RPGXP' AND origin='BUILTIN' AND id='rgss1_standard'
-    OR kind='RGSS2_RTP_RPGVX' AND generation='RPGVX' AND origin='BUILTIN' AND id='rgss2_rpgvx'
-    OR kind='RGSS3_RTP_RPGVXAce' AND generation='RPGVXACE' AND origin='BUILTIN' AND id='rgss3_rpgvxace'
-    OR kind='RGSS_CUSTOM_RTP' AND generation IN ('RPGXP','RPGVX','RPGVXACE') AND origin='CUSTOM'
-  ),
   CHECK((origin='BUILTIN' AND created_by_user_id IS NULL) OR (origin='CUSTOM' AND created_by_user_id IS NOT NULL))
 );
-
-INSERT INTO runtime_asset_pack_definitions(
-  id,kind,generation,declared_name,normalized_declared_name,display_name,
-  required_layout_version,origin,enabled,created_by_user_id,created_at_ms
-) VALUES
-  ('rpg2000_rtp','RPG2000_RTP','RPG2000','RPG2000_RTP','rpg2000_rtp','RPG Maker 2000 RTP','easy-rtp-layout-v1','BUILTIN',1,NULL,0),
-  ('rpg2003_rtp','RPG2003_RTP','RPG2003','RPG2003_RTP','rpg2003_rtp','RPG Maker 2003 RTP','easy-rtp-layout-v1','BUILTIN',1,NULL,0),
-  ('rgss1_standard','RGSS1_RTP_STANDARD','RPGXP','Standard','standard','RPG Maker XP RTP','mkxpz-v1','BUILTIN',1,NULL,0),
-  ('rgss2_rpgvx','RGSS2_RTP_RPGVX','RPGVX','RPGVX','rpgvx','RPG Maker VX RTP','mkxpz-v1','BUILTIN',1,NULL,0),
-  ('rgss3_rpgvxace','RGSS3_RTP_RPGVXAce','RPGVXACE','RPGVXAce','rpgvxace','RPG Maker VX Ace RTP','mkxpz-v1','BUILTIN',1,NULL,0);
 
 CREATE TABLE runtime_asset_pack_installations (
   id TEXT PRIMARY KEY,
@@ -349,14 +225,117 @@ CREATE TABLE runtime_asset_pack_files (
   UNIQUE(installation_id,ordinal)
 );
 
-CREATE TABLE game_variant_revision_runtime_packs (
-  game_variant_revision_id TEXT NOT NULL REFERENCES game_variant_revisions(id),
+CREATE TABLE "bios_requirements" (
+  id TEXT PRIMARY KEY,
+  core_id TEXT NOT NULL REFERENCES cores(id),
+  provider_id TEXT NOT NULL,
+  target_id TEXT NOT NULL,
+  source_kind TEXT NOT NULL CHECK(source_kind IN ('STATIC','DAT_MACHINE')),
+  dat_machine_name TEXT,
+  logical_name TEXT NOT NULL,
+  requirement_mode TEXT NOT NULL CHECK(requirement_mode IN ('REQUIRED','OPTIONAL','CONDITIONAL')),
+  condition_code TEXT,
+  activation_options_json TEXT,
+  catalog_digest TEXT NOT NULL CHECK(length(catalog_digest) = 64),
+  size_bytes INTEGER CHECK(size_bytes IS NULL OR size_bytes >= 0),
+  md5 TEXT,
+  sha1 TEXT,
+  sha256 TEXT,
+  source_url TEXT NOT NULL,
+  source_version TEXT NOT NULL,
+  enabled INTEGER NOT NULL CHECK(enabled IN (0,1)),
+  version INTEGER NOT NULL DEFAULT 1 CHECK(version >= 1),
+  created_at_ms INTEGER NOT NULL,
+  updated_at_ms INTEGER NOT NULL, delivery_kind TEXT NOT NULL DEFAULT 'BIOS_BUNDLE'
+CHECK(delivery_kind IN ('BIOS_BUNDLE','EXTERNAL_FILE')), emulator_path TEXT,
+  UNIQUE(provider_id,target_id,logical_name),
+  FOREIGN KEY(provider_id,target_id) REFERENCES runtime_targets(provider_id,target_id),
+  CHECK((source_kind = 'STATIC' AND dat_machine_name IS NULL) OR (source_kind = 'DAT_MACHINE' AND dat_machine_name IS NOT NULL))
+);
+
+CREATE TABLE "dat_versions" (
+  id TEXT PRIMARY KEY,
+  core_id TEXT NOT NULL REFERENCES cores(id),
+  provider_id TEXT NOT NULL,
+  target_id TEXT NOT NULL,
+  builtin_relative_path TEXT NOT NULL,
+  sha256 TEXT NOT NULL CHECK(length(sha256) = 64),
+  parser_version TEXT NOT NULL,
+  parse_status TEXT NOT NULL CHECK(parse_status IN ('PENDING','PARSING','READY','FAILED','CANCELLED')),
+  is_active INTEGER NOT NULL CHECK(is_active IN (0,1)),
+  machine_count INTEGER,
+  rom_entry_count INTEGER,
+  disk_entry_count INTEGER,
+  bios_set_count INTEGER,
+  default_bios_set_count INTEGER,
+  explicit_bios_machine_count INTEGER,
+  base_dependency_target_count INTEGER,
+  unresolved_relation_count INTEGER,
+  version INTEGER NOT NULL DEFAULT 1,
+  created_at_ms INTEGER NOT NULL,
+  updated_at_ms INTEGER NOT NULL,
+  parsed_at_ms INTEGER,
+  activated_at_ms INTEGER,
+  UNIQUE(id,provider_id,target_id),
+  UNIQUE(provider_id,target_id,sha256,parser_version),
+  FOREIGN KEY(provider_id,target_id) REFERENCES runtime_targets(provider_id,target_id),
+  CHECK((parse_status = 'READY') = (parsed_at_ms IS NOT NULL)),
+  CHECK(is_active = 0 OR parse_status = 'READY')
+);
+
+CREATE TABLE "server_bios_import_items" (
+  server_import_id TEXT NOT NULL REFERENCES server_imports(id),
+  requirement_id TEXT NOT NULL REFERENCES bios_requirements(id),
+  requirement_version INTEGER NOT NULL CHECK(requirement_version>=1),
+  core_id TEXT NOT NULL REFERENCES cores(id),
+  core_name_snapshot TEXT NOT NULL,
+  provider_id TEXT NOT NULL,
+  target_id TEXT NOT NULL,
+  source_kind TEXT NOT NULL CHECK(source_kind IN ('STATIC','DAT_MACHINE')),
+  logical_name TEXT NOT NULL,
+  requirement_mode TEXT NOT NULL CHECK(requirement_mode IN ('REQUIRED','OPTIONAL','CONDITIONAL')),
+  condition_code TEXT,
+  activation_options_json TEXT,
+  delivery_kind TEXT NOT NULL CHECK(delivery_kind IN ('BIOS_BUNDLE','EXTERNAL_FILE')),
+  emulator_path TEXT,
+  source_version TEXT NOT NULL,
+  catalog_digest TEXT NOT NULL CHECK(length(catalog_digest)=64 AND catalog_digest=lower(catalog_digest)),
+  dat_version_id TEXT REFERENCES dat_versions(id),
+  dat_machine_name TEXT,
+  expected_size_bytes INTEGER CHECK(expected_size_bytes IS NULL OR expected_size_bytes>=0),
+  expected_md5 TEXT,
+  expected_sha1 TEXT,
+  expected_sha256 TEXT,
+  active_installation_id_snapshot TEXT REFERENCES bios_installations(id),
+  active_installation_version_snapshot INTEGER,
+  active_blob_sha256_snapshot TEXT,
+  active_status_snapshot TEXT,
+  active_validated_requirement_version_snapshot INTEGER,
+  state TEXT NOT NULL CHECK(state IN ('PENDING','EVALUATING','IMPORTED_MATCHED','IMPORTED_WARNING','IMPORTED_MISSING_ENTRY','NOT_FOUND','SKIPPED_EXISTING','SKIPPED_NOT_BETTER','ALREADY_SAME_BYTES','SOURCE_CHANGED','CATALOG_CHANGED','READ_FAILED','COMMIT_FAILED','CANCELLED')),
+  candidate_count INTEGER NOT NULL DEFAULT 0 CHECK(candidate_count>=0),
+  match_method TEXT CHECK(match_method IS NULL OR match_method IN ('EXACT_HASH','EXPECTED_SIZE_FALLBACK','LARGEST_SIZE_FALLBACK','DAT_ENTRY_MATCH','DAT_ENTRY_WARNING','DAT_PARTIAL_FALLBACK')),
+  selection_details_json TEXT,
+  previous_installation_id TEXT REFERENCES bios_installations(id),
+  new_installation_id TEXT REFERENCES bios_installations(id),
+  outcome_code TEXT,
+  created_at_ms INTEGER NOT NULL CHECK(created_at_ms>=0),
+  updated_at_ms INTEGER NOT NULL CHECK(updated_at_ms>=created_at_ms),
+  completed_at_ms INTEGER,
+  PRIMARY KEY(server_import_id,requirement_id),
+  CHECK((source_kind='STATIC' AND dat_version_id IS NULL AND dat_machine_name IS NULL) OR
+        (source_kind='DAT_MACHINE' AND dat_version_id IS NOT NULL AND dat_machine_name IS NOT NULL)),
+  CHECK((state IN ('PENDING','EVALUATING'))=(completed_at_ms IS NULL)),
+  FOREIGN KEY(provider_id,target_id) REFERENCES runtime_targets(provider_id,target_id)
+);
+
+CREATE TABLE "game_variant_runtime_packs" (
+  game_variant_id TEXT NOT NULL REFERENCES game_variants(id),
   slot INTEGER NOT NULL CHECK(slot BETWEEN 0 AND 3),
   declared_name TEXT NOT NULL CHECK(length(CAST(declared_name AS BLOB)) BETWEEN 1 AND 512),
   normalized_declared_name TEXT NOT NULL CHECK(length(CAST(normalized_declared_name AS BLOB)) BETWEEN 1 AND 512),
   definition_id TEXT NOT NULL REFERENCES runtime_asset_pack_definitions(id),
   installation_id TEXT NOT NULL,
-  PRIMARY KEY(game_variant_revision_id,slot),
+  PRIMARY KEY(game_variant_id,slot),
   FOREIGN KEY(installation_id,definition_id)
     REFERENCES runtime_asset_pack_installations(id,definition_id)
 );

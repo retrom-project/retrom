@@ -41,7 +41,7 @@ func TestPegasusArcadeParentAttachmentPublishesTheEffectiveReviewSnapshot(t *tes
 	testArcadeParentAttachmentsAdvanceImmutableSnapshotsUntilReadyAndPublish(t, true)
 }
 
-func TestReviewBulkApprovalPublishesCurrentArcadeSnapshotV2(t *testing.T) {
+func TestReviewBulkApprovalPublishesCurrentTypedArcadeSnapshot(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 	dataDir := t.TempDir()
@@ -85,7 +85,7 @@ SELECT status,dependency_snapshot_json FROM import_item_core_validations WHERE i
 `, validationID).Scan(&validationStatus, &dependencySnapshot); err != nil {
 		t.Fatal(err)
 	}
-	testassert.Falsef(t, testassert.Any(func() bool { return validationStatus != "READY" }, func() bool { return !strings.Contains(dependencySnapshot, `"schemaVersion":2`) }), "arcade validation = %s %s", validationStatus, dependencySnapshot)
+	testassert.Falsef(t, testassert.Any(func() bool { return validationStatus != "READY" }, func() bool { return !strings.Contains(dependencySnapshot, `"kind":"ARCADE"`) }), "arcade validation = %s %s", validationStatus, dependencySnapshot)
 	preview, err := importer.PreviewReviewBulk(ctx, ReviewBulkScope{ImportJobID: created.ImportJobID})
 	testassert.False(t, err != nil, err)
 	testassert.Falsef(t, testassert.Any(func() bool { return preview.Counts.Matched != 1 }, func() bool { return preview.Counts.StrictReady != 1 }, func() bool { return preview.Counts.NotReadyOrStale != 0 }), "arcade bulk preview = %#v", preview.Counts)
@@ -162,18 +162,18 @@ func testArcadeParentAttachmentsAdvanceImmutableSnapshotsUntilReadyAndPublish(t 
 	waitParentJob(t, database.SQL, acceptedB.JobID, "SUCCEEDED")
 	itemID, version, snapshotID, validationID = reviewAttachmentInputs(t, database.SQL, created.ImportJobID)
 	testassert.Falsef(t, version != 3, "draft version after b = %d", version)
-	var revision, snapshotCount int
-	var validationStatus, validationCode string
+	var snapshotCount int
+	var validationStatus, validationCode, snapshotSource string
 	if err := database.SQL.QueryRowContext(ctx, `
-SELECT snapshot.revision_no,validation.status,validation.compatibility_code,
+SELECT snapshot.created_by,validation.status,validation.compatibility_code,
 (SELECT count(*) FROM import_item_source_snapshots WHERE import_item_id=snapshot.import_item_id)
 FROM import_item_source_snapshots snapshot
 JOIN import_item_core_validations validation ON validation.source_snapshot_id=snapshot.id
 WHERE snapshot.id=? ORDER BY validation.created_at_ms DESC LIMIT 1
-`, snapshotID).Scan(&revision, &validationStatus, &validationCode, &snapshotCount); err != nil {
+`, snapshotID).Scan(&snapshotSource, &validationStatus, &validationCode, &snapshotCount); err != nil {
 		t.Fatal(err)
 	}
-	testassert.Falsef(t, testassert.Any(func() bool { return revision != 2 }, func() bool { return snapshotCount != 2 }, func() bool { return validationStatus != "BLOCKED" }, func() bool { return validationCode != "LAUNCH_PARENT_MISSING" }), "after b = revision:%d count:%d validation:%s/%s", revision, snapshotCount, validationStatus, validationCode)
+	testassert.Falsef(t, testassert.Any(func() bool { return snapshotSource != "ARCADE_PARENT_ATTACHMENT" }, func() bool { return snapshotCount != 2 }, func() bool { return validationStatus != "BLOCKED" }, func() bool { return validationCode != "LAUNCH_PARENT_MISSING" }), "after b = source:%s count:%d validation:%s/%s", snapshotSource, snapshotCount, validationStatus, validationCode)
 	wrong := uploadCompleteFile(t, ctx, database.SQL, uploadService, "c.zip", wrongZIP)
 	rejectedC, err := importer.CreateArcadeParentAttachment(ctx, itemID, version, ParentAttachmentRequest{
 		ValidationID: validationID, BaseSourceSnapshotID: snapshotID, DependencyMachine: "c",
@@ -202,9 +202,9 @@ WHERE attachment.id=?
 	itemID, version, snapshotID, validationID = reviewAttachmentInputs(t, database.SQL, created.ImportJobID)
 	testassert.Falsef(t, version != 6, "draft version after c = %d", version)
 	if err := database.SQL.QueryRowContext(ctx, `
-SELECT revision_no FROM import_item_source_snapshots WHERE id=?
-`, snapshotID).Scan(&revision); err != nil || revision != 3 {
-		t.Fatalf("final snapshot revision = %d, error=%v", revision, err)
+SELECT count(*) FROM import_item_source_snapshots WHERE import_item_id=?
+`, itemID).Scan(&snapshotCount); err != nil || snapshotCount != 3 {
+		t.Fatalf("source evidence count = %d, error=%v", snapshotCount, err)
 	}
 	if err := database.SQL.QueryRowContext(ctx, `
 SELECT status,compatibility_code FROM import_item_core_validations WHERE id=?

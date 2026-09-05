@@ -15,6 +15,12 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 
 
 class MakefileDependencyTests(unittest.TestCase):
+    def test_quality_sentinels_hash_source_without_requiring_a_provider_release(self) -> None:
+        script = (REPOSITORY_ROOT / "scripts/acceptance/quality-sentinels.sh").read_text(encoding="utf-8")
+        self.assertNotIn("make --no-print-directory -C", script)
+        self.assertIn("module.source_entries()", script)
+        self.assertIn("module.sha256(module.canonical", script)
+
     def dry_run(self, target: str) -> str:
         return subprocess.run(
             ["make", "--no-print-directory", "--dry-run", target],
@@ -175,11 +181,13 @@ class MakefileDependencyTests(unittest.TestCase):
         self.assertNotIn("currentRevisionId", script)
         self.assertNotIn(".revisions[]", script)
 
-    def test_arcade_schema_v2_seeder_preserves_provider_identity(self) -> None:
+    def test_arcade_current_seeder_preserves_provider_identity(self) -> None:
         script = (
-            REPOSITORY_ROOT / "scripts" / "acceptance" / "seed-arcade-schema-v2-launch.py"
+            REPOSITORY_ROOT / "scripts" / "acceptance" / "seed-arcade-current-launch.py"
         ).read_text(encoding="utf-8")
         self.assertIn("variant.provider_id", script)
+        self.assertIn("\'$.kind\')=\'ARCADE\'", script)
+        self.assertIn("\'$.schemaVersion\')=1", script)
         self.assertIn("provider_id,target_id", script)
         self.assertNotIn("target_contract_sha256", script)
         self.assertIn('connection.execute("PRAGMA busy_timeout=30000")', script)

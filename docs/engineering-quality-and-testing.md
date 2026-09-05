@@ -81,11 +81,11 @@
 | `make release-input-digest` | 离线计算依赖专题规定的源码/依赖发布输入指纹，stdout 只输出 64 位小写 SHA-256 | 否 |
 | `make ci` | `quality-structure-check + api-check + backend-check + web-check + integration-test + data-check` | 仅依赖/构建产物与被忽略的 Go 生成物 |
 | `make dev` | 先生成被忽略的 Go API 文件并执行 `prepare-deps + web-install`；设置绝对路径 `RETROM_RUNTIME_DEV_ROOT` 时再应用显式本地 runtime link，随后在宿主机启动 Go/Next.js 并统一处理退出信号；不使用 Docker | 会写本地依赖/开发数据缓存与被忽略的 Go 生成物 |
-| `make pfb-init/validate/status` | 确定性建立或只读检查 PFB ID、严格 spec、registry、worktree、工具链、Chrome、workspace 与 dev provider revision；不操作 Git、不启动容器 | `init` 写被忽略的 `.pfb/` 与 owner-only全局 registry，其余只读 |
+| `make pfb-init/validate/status` | 确定性建立或只读检查 PFB ID、严格 spec、registry、worktree、工具链、Chrome、workspace 与 开发 provider 模块摘要；不操作 Git、不启动容器 | `init` 写被忽略的 `.pfb/` 与 owner-only全局 registry，其余只读 |
 | `make pfb-build` | 仅在工具链或 package/API 生成输入变化时准备开发镜像、Node/Go依赖与生成代码；不构建 core、Provider archive、candidate tar或生产镜像 | 写 `.pfb/workspace` 中的可复用开发cache；相同输入幂等复用 |
 | `make pfb-up/use/restart/down/status/logs` | `up` 只执行 Compose `--no-build`，`restart` 只重启 app；管理共享 loopback网关、选择和状态，不运行 `npm ci` 或切换数据 | 写 PFB状态/日志并管理开发容器；workspace、旧卷、URL均保留 |
 | `make pfb-core-build` | 只构建 `CORE=<id>` 精确指定的 core worktree；绝不由 init/build/up/restart 隐式调用 | 写该 PFB workspace 的 core build输出 |
-| `make pfb-verify` | 执行 `ACC-PFB-*` 基础设施及受影响产品 Case，把网络、workspace、provider revision和结果写入当前 PFB证据目录 | 只写 `.pfb/evidence/` 与验收临时状态 |
+| `make pfb-verify` | 执行 `ACC-PFB-*` 基础设施及受影响产品 Case，把网络、workspace、provider 开发文件和结果写入当前 PFB证据目录 | 只写 `.pfb/evidence/` 与验收临时状态 |
 | `make pfb-migrate-storage/data-reset/remove/destroy` | 只在停止态和 exact `CONFIRM=<pfb-id>` 下迁移旧卷、归档重置数据、移除注册或销毁 `.pfb/`；迁移保留源卷，remove保留workspace | 是，范围由spec/registry/确认值共同限制 |
 | `make build-backend-image` | 只构建 `retrom:${IMAGE_TAG}`，前后复核并标记 release-input digest | 只写本地镜像缓存 |
 | `make build-web-image` | 只构建 `retrom-web:${IMAGE_TAG}`，前后复核并标记同一 digest | 只写本地镜像缓存 |
@@ -255,7 +255,7 @@ flat config 必须设置 `linterOptions.noInlineConfig=true` 且 unused disable 
 | 产品运行时 E2E | 真实 Retrom 导入/Launch/内容端点/Player 是否能驱动 EmulatorJS 核心 | `web/e2e/` + `testdata/public-roms/` 项目自有 ROM | 按影响范围/发布门禁 |
 | RPG Maker 产品 E2E | 七版本项目导入、Provider/Target、三 adapter、unique-origin、A→B→C→不同 Launch 恢复到 B 与恢复后 `RESTORE_INPUT` | `web/e2e/` + 合法确定性 fixture/操作者 MZ deployment | 发布门禁 |
 | 联机协议与回归 | 房间/协议边界、安全拒绝、feature flag、容量、单机路径，以及八个精确 profile 的双浏览器核心与生命周期 | 聚焦 Go/Web 测试 + `ACC-NP-010`–`022` | 按影响范围/发布门禁 |
-| PFB 基础设施 | ID/spec/registry、严格 Host、共享网关、双PFB隔离、持久workspace、loose provider revision、无隐式build、显式core、旧卷迁移、release拒绝与销毁确认 | Python/Node/Go单测 + Docker/Chrome `ACC-PFB-001`–`012` | PFB实现、runtime开发层或存储边界变更 |
+| PFB 基础设施 | ID/spec/registry、严格 Host、共享网关、双PFB隔离、持久workspace、loose provider 开发文件、无隐式build、显式core、旧卷迁移、release拒绝与销毁确认 | Python/Node/Go单测 + Docker/Chrome `ACC-PFB-001`–`012` | PFB实现、runtime开发层或存储边界变更 |
 
 命名要求：
 
@@ -292,7 +292,7 @@ flat config 必须设置 `linterOptions.noInlineConfig=true` 且 unused disable 
 | 存档与恢复 | 非空 checkpoint payload 必需、PRODUCT 截图可选且缺失时 API/UI 明确返回空预览；存档按 Profile+Game 归属并记录 checkpoint format，恢复时由该 Game 当前 READY Target 的 `readFormats` 判定兼容，不匹配时保留存档并明确拒绝；Launch 已物化 payload 由自身引用保护，不依赖业务版本表；Provider 只向前升级时普通启动使用当前 Bundle，旧存档只要格式可读即可恢复；RPG runtime validation 的恢复证据截图仍是发布 gate 必需项 |
 | RPG Maker 项目与运行时 | selected-core×signature outcome（含 RPG2K family-only）、LCF/INI/HTML/JSON/parser fuzz、路径/gencache 冲突、V2 fileset、pack match/ref protection、route uniqueness、validation 状态机、bootstrap ticket 一次消费、native bundle codec、checkpoint compatibility；恢复必须断言 A→B 保存→C→不同 Launch 的 map/坐标/变量回到 B |
 | 游玩时长 | 心跳幂等、页面不可见/暂停不累计、失联上限、重复 finish、异常时钟、整数毫秒持久化 |
-| SQLite migration | 空库 001–012 建表、既有 001–011 数据单向升级、当前有序前缀续跑、名称/checksum/gap/unknown/future 拒绝、重复启动、事务回滚、外键/索引、所有业务时刻列为 `INTEGER` |
+| SQLite migration | 空库 001–010 直接建最终模型、旧开发 lineage 只读拒绝并要求归档重建、当前有序前缀续跑、名称/checksum/gap/unknown/future 拒绝、重复启动、事务回滚、外键/索引、所有业务时刻列为 `INTEGER` |
 | Blob GC/备份恢复 | 引用扫描、竞态保护、孤儿回收、仍被存档/任务引用的 Blob 保留、恢复后数据库与内容引用一致 |
 | 已登记 CAS 容量分析 | registry 每条 `PROTECTIVE` 边与容量语义双向覆盖；保护集与 GC 共用；Archive 用途单向传播；长期用途优先/跨长期用途共享；同大小不同 Blob 不误去重；九类含零值且总量恒等；int64 溢出失败；存档/候选引用视图不与分类相加；ADMIN/USER/匿名、未知 query、脱敏、空库与读库失败 |
 
@@ -465,7 +465,7 @@ RPG Maker fixture 必须遵守同一再分发规则：生成源、许可、固�
 
 - 配置/路径：封闭 JSON、数量/字符/重叠/受保护根、root 不可用、逐段 no-follow、symlink/special/traversal/cursor 绑定和零绝对路径泄漏。
 - 领域/存储：当前 clean schema 与 lineage 拒绝；STATIC/DAT exact、fallback、同名/重命名、多 Requirement CAS 去重；overwrite off/on、同分/更差、同 bytes、版本漂移与并发安装均证明不降级。
-- Worker：完整发现前零安装、扫描门禁、2 hash/1 archive 并发、8 MiB cancel、lease/heartbeat/deadline、崩溃后不重复 revision、瞬时 root 退避与 attempt 耗尽、restore fence。
+- Worker：完整发现前零安装、扫描门禁、2 hash/1 archive 并发、8 MiB cancel、lease/heartbeat/deadline、崩溃后不重复 installation、瞬时 root 退避与 attempt 耗尽、restore fence。
 - HTTP：ADMIN/USER/匿名与 CSRF 矩阵，严格 body/Idempotency/ETag/active conflict，root/directory/list/item/candidate cursor 和 allowlist 投影；BIOS 286 fixture 为 100/100/86，无重复遗漏且全集汇总恒为 286。
 - React/Chrome：无配置/不可用/空历史、Drawer 键盘、SSE/cancel/retry、完成/部分失败/候选解释；FULL_CATALOG abort/乱序/重复触发/追加失败/键盘 fallback。分别验证 1280×800、2560×1440、物理 4K 150% scale、无页面横向溢出及零 serious/critical axe 结果。
 
@@ -480,7 +480,7 @@ RPG Maker fixture 必须遵守同一再分发规则：生成源、许可、固�
 - HTTP/UI：ADMIN/USER/匿名/CSRF、strict body、Idempotency、ETag、cursor/filter/SSE；`pegasusImportId` 精确队列筛选、来源媒体 GET/HEAD 与 COVER/VIDEO kind；审核 best-effort preview 锁定现有依赖，READY/阻断均在 `EJS_onGameStart + 5000ms` 优先读取核心最后一帧并上传 PNG，核心截图有界失败时回退 canvas，使静态 ROM/BIOS 错误画面不退化成黑帧；当前阻断截图启用人工发布 override，过期 Validation 拒绝、弹窗失败提示和四个等宽决策按钮。快速审批 UI 覆盖当前筛选的服务端影响预览、零候选/active/stale、进度恢复、取消/retry、终态缓存清理、结果链接与 390/1280/物理 4K 150% scale 的键盘/reduced-motion。三张服务器导入能力卡中 Pegasus 的三步 Drawer、无默认映射、关闭恢复、同计划轮询重渲染不重置映射/焦点/滚动、详情审核行动区和逐行审核入口保持不变。
 - 产品运行：独立的项目自有 `pegasus-smoke.gba` 必须从临时服务器 root 经 Chrome 完成目录选择、真实扫描、显式 GBA 映射、Worker、待审核、逐项发布、Game 详情、Launch config、受限内容端点与 mGBA 帧推进；不得复用普通上传已经发布的相同内容、直接写库、mock Pegasus API 或只检查 canvas 元素。
 - 总览聚合：一个包含多个游戏的 PegasusImport 只能贡献一个最近任务和一个顶层批次；其逐游戏内部 ImportJob 不进入普通任务分页。进行中/完成/异常批次、处理中条目、异常条目和实际待审核 Item 分别按正式口径断言，主动取消不误报为异常，最近三条不能反向决定流水线数字。
-- VIDEO：MP4/WebM magic 与限额、nullable dimensions、Range/HEAD/MIME、不可变 revision、元信息编辑保留、删除保留历史；详情 2 秒累计可见自动播放、后台页不计时、5 秒/拒绝/错误回退、用户暂停和 reduced-motion 手动模式，以及列表零视频请求。
+- VIDEO：MP4/WebM magic 与限额、nullable dimensions、Range/HEAD/MIME、当前资产原子替换、元信息编辑保留、删除释放字节并保留审计；详情 2 秒累计可见自动播放、后台页不计时、5 秒/拒绝/错误回退、用户暂停和 reduced-motion 手动模式，以及列表零视频请求。
 
 该切片除聚焦用例外必须运行 `make api-check`、后端四门禁、`make integration-test`、前端五门禁、`make web-e2e`、`ACC-PEG-001`–`006`、`ACC-MEDIA-001` 与 `make ci`。使用操作者授权的真实 Pegasus 目录时只记录相对统计和结果，不把 ROM、完整宿主路径或媒体内容写入报告。
 
@@ -488,7 +488,7 @@ RPG Maker fixture 必须遵守同一再分发规则：生成源、许可、固�
 
 - parser：严格 UTF-8/BOM、无 namespace `gameList`、game/folder、字段缺省/重复/尺寸边界、title fallback、players/date、hidden/adult/kidgame；DTD/实体/PI/namespace/非 UTF-8/深度/attribute/token/总 token 全部 fail closed。`command/emulator/core/provider` 值必须有负向存储/API/日志泄漏断言，warning 只能包含封闭结构。
 - 路径与扫描：`./`、普通路径、Windows 分隔符规范化；空白/control、`..`、absolute/tilde/drive/UNC/URI、大小写错误的清单名、symlink/special、rename/source/root 漂移、64/250k/2m/1000/8MiB/64MiB/100k/2TiB 上限和确定性 source key/snapshot。分别建立“所选父目录含多个子目录且每个子目录有 `gamelist.xml`”与“无子目录、只有一份 `gamelist.xml` 和多个游戏文件”集成 fixture，断言 Collection 边界、独立映射与错误隔离。
-- mapping/HTTP/store：ADMIN/USER/匿名、strict JSON/query、CSRF/Origin、Idempotency、If-Match/ETag、cursor/filter、create/get/list/delete/start/cancel/retry；无默认 mapping、IMPORT/SKIP/Tag union、目标/Tag 删除漂移、来源重验。fresh/前缀/非法 lineage、Job kind/scope、不可变发现 snapshot、Pegasus/EmulationStation 普通 ImportItem owner XOR、source revision/ref 与 Blob registry 均有非法 SQL 测试。
+- mapping/HTTP/store：ADMIN/USER/匿名、strict JSON/query、CSRF/Origin、Idempotency、If-Match/ETag、cursor/filter、create/get/list/delete/start/cancel/retry；无默认 mapping、IMPORT/SKIP/Tag union、目标/Tag 删除漂移、来源重验。fresh/前缀/非法 lineage、Job kind/scope、不可变发现 snapshot、Pegasus/EmulationStation 普通 ImportItem owner XOR、source snapshot/ref 与 Blob registry 均有非法 SQL 测试。
 - library handoff：单 ROM、M3U 同目录 2–8 CHD、Arcade 同 execution/target/DAT companion、COVER/VIDEO 优先级与媒体 warning；普通内容身份、CoreValidation/DAT/BIOS/重复、Parent/多盘后继快照。Worker 只能形成 `REVIEW_PENDING`，Approve 前零 Game；逐项 Approve/Discard 与严格 READY 快速审批原子推进两组聚合，hidden/adult 固定进入 `sourceFlagged` 且只允许逐项发布。崩溃恢复复用既有内部 ImportItem，未交接项不可见。
 - Worker/恢复/释放：共享 2-reader、单 active execution、20 waiting/7 天过期、lease60/heartbeat15、1/5/30/120 退避、4 attempts、8 小时 deadline、每 8 MiB cancel 检查；cancel/retry/delete/restore fence。发布、丢弃、已存在、确定性阻断、取消和不可重试失败分别验证 PayloadRelease；Game 发布后先证明 Launch/Player，再永久删除并以 fake clock 推进宽限 GC，断言流程/Game payload 释放、共享 Blob 保留、新引用撤销候选及墓碑不可启动。
 - React/Chrome：三张等权卡、EmulationStation 卡文案、760px 三步 Drawer、关闭/恢复/焦点/滚动、每 Gamelist 一行的 mapping、folder/flag/扩展/issues、批量与逐项 Tag、确认警告、详情 action、`emulationStationImportId` 固定审核筛选、source media/flag、快速审批排除桶、RELEASED 状态。固定 390×844、1280×800、2560×1440 和物理 4K 150% scale，键盘、reduced-motion、document 零横向溢出与 axe serious/critical 为零。
@@ -515,7 +515,7 @@ RPG Maker fixture 必须遵守同一再分发规则：生成源、许可、固�
   回退 `#`；所有 Game 当前元信息字段 生产 writer 和改名事务都断言同一字段与数据库值域，不能只测沉浸查询；
 - HTTP 集成测试覆盖 destinations 固定四卡顺序、Profile 隔离、平台可见性、收藏夹 ownership、存档投影、
   `titleInitial/title/gameId` 分页与 recent 时序例外、媒体/描述当前态、签名 cursor 的范围绑定、
-  未知 query、非法 folderId、隐藏平台 404 和媒体 revision 退役；
+  未知 query、非法 folderId、隐藏平台 404 和媒体资产替换和释放；
 - React 测试使用可控 Gamepad source 覆盖首页显式/手柄两种入口、焦点保持、同帧方向+A、destination 左右
   环绕和定向动画、资料库/平台游戏浏览、收藏夹、Y 默认收藏及红色右侧爱心、存档横向大/小框选择与非黑屏截图、长简介无滚动条自动滚动及 reduced-motion 静止、媒体等高、700ms
   视频延迟、路由/隐藏时手柄认领保持、真实断连去抖、SSR 稳定时钟、错误/空状态和 B 返回；普通 PC/移动

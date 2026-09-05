@@ -67,7 +67,6 @@ def source_entries() -> list[dict[str, object]]:
 def provider_lock_entries() -> list[dict[str, object]]:
     root = ROOT / "data/runtime-providers"
     if any((ROOT / relative).exists() for relative in (
-        ".pfb/candidates/runtime/providers",
         "data/runtime-providers/active.json",
         "data/runtime-providers/candidate-active.json",
         "data/runtime-providers/installed",

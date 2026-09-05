@@ -288,6 +288,7 @@ type netplayArcadeDependency struct {
 
 type netplayArcadeSnapshot struct {
 	SchemaVersion     int                        `json:"schemaVersion"`
+	Kind              string                     `json:"kind"`
 	Machine           string                     `json:"machine"`
 	DATVersionID      string                     `json:"datVersionId"`
 	Closure           []netplayArcadeClosureNode `json:"closure"`
@@ -336,7 +337,8 @@ func parseNetplayArcadeSnapshot(row eligibilityRow) (netplayArcadeSnapshot, bool
 	var snapshot netplayArcadeSnapshot
 	decoder := json.NewDecoder(strings.NewReader(row.dependencyJSON))
 	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&snapshot); err != nil || snapshot.SchemaVersion != 2 ||
+	if err := decoder.Decode(&snapshot); err != nil || snapshot.SchemaVersion != corevalidation.SnapshotSchemaVersion ||
+		snapshot.Kind != corevalidation.SnapshotKindArcade ||
 		snapshot.DATVersionID != row.datVersionID.String || snapshot.Closure == nil || snapshot.Dependencies == nil ||
 		snapshot.MissingEntries == nil || len(snapshot.MissingEntries) != 0 || snapshot.MismatchedEntries == nil ||
 		len(snapshot.MismatchedEntries) != 0 || snapshot.Warnings == nil ||

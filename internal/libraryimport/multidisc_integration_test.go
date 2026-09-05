@@ -209,7 +209,7 @@ WHERE job_id=? AND scope_type='IMPORT_GROUP' AND event_type='SUCCEEDED'
 		t.Fatalf("multi-disc import event = %q, error=%v", importEventData, err)
 	}
 	items := queryAttachmentStrings(t, database.SQL, `
-SELECT item.id||':'||snapshot.content_kind||':'||validation.prepublish_generation
+SELECT item.id||':'||snapshot.content_kind||':'||validation.status
 FROM import_items item
 JOIN review_drafts draft ON draft.import_item_id=item.id
 JOIN import_item_source_snapshots snapshot ON snapshot.id=draft.effective_source_snapshot_id
@@ -263,10 +263,9 @@ AND disposition='IGNORED' AND reason_code='NOT_REFERENCED_BY_PLAYLIST'
 	approved, err := importer.Approve(ctx, firstItemID, 1)
 	testassert.False(t, err != nil, err)
 	published := queryAttachmentStrings(t, database.SQL, `
-SELECT revision.content_kind||':'||file.role||':'||printf('%d',file.sort_order)
+SELECT game.content_kind||':'||file.role||':'||printf('%d',file.sort_order)
 FROM games game
-JOIN games revision ON revision.id=game.id
-JOIN game_files file ON file.game_id=revision.id
+JOIN game_files file ON file.game_id=game.id
 WHERE game.id=? ORDER BY file.role,file.sort_order
 `, approved.GameID)
 	testassert.Falsef(t, len(published) != 3, "published content = %v", published)

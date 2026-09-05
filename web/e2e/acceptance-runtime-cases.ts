@@ -224,8 +224,8 @@ type PublicArcadeSmokeExpectation = {
   core: string;
   coreName: string;
   screenshotName: string;
-  schemaV2Title: string;
-  schemaV2ScreenshotName: string;
+  currentSnapshotTitle: string;
+  currentSnapshotScreenshotName: string;
 };
 
 async function verifyPublicArcadeSmoke(
@@ -311,13 +311,13 @@ async function verifyPublicArcadeSmoke(
   await exitRuntimePlayer(page);
 }
 
-async function verifyPersistedArcadeSchemaV2Launch(
+async function verifyPersistedArcadeCurrentSnapshotLaunch(
   page: Page,
   testInfo: TestInfo,
   expectation: PublicArcadeSmokeExpectation,
 ) {
-  await page.goto(`/library?platformInstanceId=${expectation.platformInstanceId}&q=${encodeURIComponent(expectation.schemaV2Title)}`);
-  const game = page.locator(".library-game-card").filter({ hasText: expectation.schemaV2Title });
+  await page.goto(`/library?platformInstanceId=${expectation.platformInstanceId}&q=${encodeURIComponent(expectation.currentSnapshotTitle)}`);
+  const game = page.locator(".library-game-card").filter({ hasText: expectation.currentSnapshotTitle });
   await expect(game).toHaveCount(1);
   await game.getByRole("link").first().click();
   await expect(page).toHaveURL(/\/games\/[0-9a-f-]+$/);
@@ -349,7 +349,8 @@ async function verifyPersistedArcadeSchemaV2Launch(
   const variant = admin.variants.find((item) => item.coreId === expectation.core);
   expect(variant?.datVersionId).toBe(coreOption?.datVersionId);
   expect(variant?.dependencySnapshot).toMatchObject({
-    schemaVersion: 2,
+    schemaVersion: 1,
+    kind: "ARCADE",
     datVersionId: coreOption?.datVersionId,
     dependencies: expect.arrayContaining([
       expect.objectContaining({ kind: "PARENT", machine: "puckman", state: "SATISFIED_EXTERNAL" }),
@@ -373,7 +374,7 @@ async function verifyPersistedArcadeSchemaV2Launch(
   expect(configuration.session.warnings).toContain("REVIEW_SCREENSHOT_OVERRIDE");
   await expect(page.locator(".player-loading")).toBeHidden({ timeout: 60_000 });
   await expect(page.frameLocator("iframe.player-frame").locator("canvas")).toBeVisible({ timeout: 10_000 });
-  await page.screenshot({ path: evidencePath(testInfo, expectation.schemaV2ScreenshotName), fullPage: true });
+  await page.screenshot({ path: evidencePath(testInfo, expectation.currentSnapshotScreenshotName), fullPage: true });
 }
 
 function registerRun006(): void {
@@ -386,11 +387,11 @@ function registerRun006(): void {
       core: "mame2003",
       coreName: "MAME 2003",
       screenshotName: "mame2003-public-smoke-running.png",
-      schemaV2Title: "MAME 2003 Schema V2 Regression",
-      schemaV2ScreenshotName: "mame2003-schema-v2-direct-launch.png",
+      currentSnapshotTitle: "MAME 2003 Current Snapshot Regression",
+      currentSnapshotScreenshotName: "mame2003-current-snapshot-direct-launch.png",
     };
     await verifyPublicArcadeSmoke(page, testInfo, expectation);
-    await verifyPersistedArcadeSchemaV2Launch(page, testInfo, expectation);
+    await verifyPersistedArcadeCurrentSnapshotLaunch(page, testInfo, expectation);
   });
 }
 
@@ -404,11 +405,11 @@ function registerRun007(): void {
       core: "fbneo",
       coreName: "FinalBurn Neo",
       screenshotName: "fbneo-public-smoke-running.png",
-      schemaV2Title: "FBNeo Schema V2 Regression",
-      schemaV2ScreenshotName: "fbneo-schema-v2-direct-launch.png",
+      currentSnapshotTitle: "FBNeo Current Snapshot Regression",
+      currentSnapshotScreenshotName: "fbneo-current-snapshot-direct-launch.png",
     };
     await verifyPublicArcadeSmoke(page, testInfo, expectation);
-    await verifyPersistedArcadeSchemaV2Launch(page, testInfo, expectation);
+    await verifyPersistedArcadeCurrentSnapshotLaunch(page, testInfo, expectation);
   });
 }
 

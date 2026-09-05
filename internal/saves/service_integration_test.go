@@ -651,7 +651,7 @@ VALUES(?,'rpgmaker','rpgmaker','RPG Maker 2000 Save','rpg-maker-save-test',999,1
 	mustSaveSQL(t, fixture.database.SQL, `
 INSERT INTO upload_sessions(
  id,purpose,state,source_type,total_files,total_bytes,manifest_digest,expires_at_ms,created_at_ms,updated_at_ms)
-VALUES(?,'RPG_MAKER_PROJECT','COMPLETE','DIRECTORY',1,10,?,?,?,?)`, ids["upload"],
+VALUES(?,'PROJECT','COMPLETE','DIRECTORY',1,10,?,?,?,?)`, ids["upload"],
 		strings.Repeat("d", 64), now+1_000_000, now, now)
 	mustSaveSQL(t, fixture.database.SQL, `
 INSERT INTO import_jobs(
@@ -670,8 +670,8 @@ VALUES(?,?,?,'REVIEW_PENDING','{}',?,'save validation fixture',?,?)`, ids["item"
 		strings.Repeat("3", 64) + `"}`
 	mustSaveSQL(t, fixture.database.SQL, `
 INSERT INTO import_item_source_snapshots(
- id,import_item_id,revision_no,content_kind,source_manifest_json,source_manifest_digest,created_by,created_at_ms)
-VALUES(?,?,1,'RPG_MAKER_PROJECT',?,?,'IDENTIFICATION',?)`, ids["snapshot"], ids["item"], manifest,
+ id,import_item_id,content_kind,source_manifest_json,source_manifest_digest,created_by,created_at_ms)
+VALUES(?,?,'RPG_MAKER_PROJECT',?,?,'IDENTIFICATION',?)`, ids["snapshot"], ids["item"], manifest,
 		strings.Repeat("4", 64), now)
 	mustSaveSQL(t, fixture.database.SQL, `
 INSERT INTO review_drafts(

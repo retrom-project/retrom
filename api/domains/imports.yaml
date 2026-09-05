@@ -309,13 +309,8 @@ components:
           description: Failed or blocked items plus unresolved rejected files in user-visible attention batches.
     RuntimeAssetPackKind:
       type: string
-      enum:
-        - RPG2000_RTP
-        - RPG2003_RTP
-        - RGSS1_RTP_STANDARD
-        - RGSS2_RTP_RPGVX
-        - RGSS3_RTP_RPGVXAce
-        - RGSS_CUSTOM_RTP
+      pattern: '^[A-Za-z0-9_]{2,64}$'
+      description: Product-defined classification; installation selects a stable definitionId, not this label.
     RuntimeAssetPackDefinition:
       type: object
       additionalProperties: false
@@ -494,14 +489,24 @@ components:
       additionalProperties: false
       required:
         - uploadId
-        - kind
-      description: generation and declaredName are both required exactly for RGSS_CUSTOM_RTP and must both be omitted for built-in kinds; sourceNote is optional and may be empty.
+      oneOf:
+        - required: [definitionId]
+          not:
+            anyOf:
+              - required: [generation]
+              - required: [declaredName]
+        - required: [generation, declaredName]
+          not:
+            required: [definitionId]
+      description: Select an enabled definitionId, or create a custom RGSS definition with generation and declaredName. The two forms are mutually exclusive. No engine-specific pack kind is accepted.
       properties:
         uploadId:
           type: string
           format: uuid
-        kind:
-          $ref: '#/components/schemas/RuntimeAssetPackKind'
+        definitionId:
+          type: string
+          minLength: 1
+          maxLength: 128
         generation:
           $ref: ../components/common.yaml#/components/schemas/RpgGeneration
         declaredName:
@@ -541,14 +546,10 @@ components:
           type: string
           enum:
             - GENERAL
-            - RPG_MAKER_PROJECT
-            - ONS_PROJECT
-            - KIRIKIRI_PROJECT
-            - BUTTERSCOTCH_PROJECT
-            - TYRANOSCRIPT_PROJECT
+            - PROJECT
             - RUNTIME_ASSET_PACK
           default: GENERAL
-          description: GENERAL preserves ordinary uploads; project and runtime-pack purposes are consumed only by their matching operation.
+          description: GENERAL is an ordinary import, PROJECT is an engine-independent project input, and RUNTIME_ASSET_PACK is reserved for pack installation. Engine and archive validation occurs in the selected import strategy, not the upload transport.
         sourceType:
           type: string
           enum:

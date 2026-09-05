@@ -221,7 +221,7 @@ func completeRPGMakerDirectoryUpload(
 		})
 	}
 	session, err := service.Create(ctx, uploads.CreateRequest{
-		Purpose: "RPG_MAKER_PROJECT", SourceType: "DIRECTORY", Files: declarations,
+		Purpose: "PROJECT", SourceType: "DIRECTORY", Files: declarations,
 	})
 	testassert.False(t, err != nil, err)
 	for index, name := range paths {
@@ -392,7 +392,7 @@ WHERE c.id=?
 `, replacementContent).Scan(&sourceKind, &sourceRef, &variantContent); err != nil {
 		t.Fatal(err)
 	}
-	testassert.Falsef(t, testassert.Any(func() bool { return sourceKind != "ADMIN_REPLACE" }, func() bool { return sourceRef != scheduled.JobID }, func() bool { return variantContent != replacementContent }), "published revision = %s/%s/%s", sourceKind, sourceRef, variantContent)
+	testassert.Falsef(t, testassert.Any(func() bool { return sourceKind != "ADMIN_REPLACE" }, func() bool { return sourceRef != scheduled.JobID }, func() bool { return variantContent != replacementContent }), "published content = %s/%s/%s", sourceKind, sourceRef, variantContent)
 	assertSupersededContentReleased(
 		t, ctx, database.SQL, published.GameID, originalContent, saveID, launchID, savePayloads,
 	)
@@ -427,16 +427,16 @@ WHERE id=?
 	).Scan(&retainedSaveCount); err != nil || retainedSaveCount != 1 {
 		t.Fatalf("failed replacement retained save count = %d, error=%v", retainedSaveCount, err)
 	}
-	var failedRevisionCount int
+	var failedReplacementCount int
 	if err := database.SQL.QueryRowContext(ctx, `
 SELECT count(*) FROM games WHERE content_source_ref_id=?
-`, failed.JobID).Scan(&failedRevisionCount); err != nil ||
-		failedRevisionCount != 0 {
-		t.Fatalf("failed revision count = %d, error=%v", failedRevisionCount, err)
+`, failed.JobID).Scan(&failedReplacementCount); err != nil ||
+		failedReplacementCount != 0 {
+		t.Fatalf("failed replacement count = %d, error=%v", failedReplacementCount, err)
 	}
 }
 
-func TestMultiDiscReplacementPublishesCompleteRevisionAndRejectsMissingDisc(t *testing.T) {
+func TestMultiDiscReplacementPublishesCompleteContentAndRejectsMissingDisc(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 	dataDir := t.TempDir()

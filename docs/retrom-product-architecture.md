@@ -25,7 +25,7 @@
 | [运行时、启动与游玩数据](./runtime-and-play-data.md) | 一键启动、默认全屏、预检、EmulatorJS、DOS、存档与游玩时长 |
 | [核心运行时验证基线](./core-runtime-validation.md) | 35 核真实夹具、Chrome 启动画面证据、可重复验证链路、PSP ISO/CSO 和兼容覆盖 |
 | [存储与数据库](./storage-and-database.md) | SQLite 时间戳规则、表目录、CAS、归档安全、GC 和备份 |
-| [一期数据库实体与不变量](./data-model.md) | 表字段、枚举、revision、外键、索引与数据库级保护 |
+| [一期数据库实体与不变量](./data-model.md) | 表字段、枚举、当前态、外键、索引与数据库级保护 |
 | [HTTP API、上传与启动凭据契约](./http-api-contract.md) | JSON/错误协议、认证/CSRF、上传分块、launch cookie、内容缓存和路由 |
 | [第三方运行时与 DAT 依赖管理](./dependency-management.md) | 小型 manifest、构建前物化、完整性校验、镜像纳入与升级规则 |
 | [后端、API 与运行维护](./backend-api-and-operations.md) | Go 模块、API、任务队列、文件端点、安全、日志和部署 |
@@ -46,7 +46,7 @@ Retrom 是供用户与可信朋友共享的自托管复古游戏 Web 平台。�
 - 支持管理员从受信服务器目录扫描 Pegasus 或 EmulationStation 元数据，显式映射到游戏目录后复用同一审核、发布和删除释放链路。
 - 使用 Hasheous 的免登录哈希查询作为一期元信息候选源；不集成 ScreenScraper。
 - 使用与具体 EmulatorJS/core artifact 绑定的 DAT 识别 Arcade machine、parent ROM 和 BIOS 依赖；DAT 不承担元信息刮削。
-- 支持游戏元信息、文件 revision、游戏目录和 BIOS 管理；Arcade DAT 只使用 core release 固定的内置版本。
+- 支持游戏元信息、文件替换、游戏目录和 BIOS 管理；Arcade DAT 只使用 core release 固定的内置版本。
 - 支持标准手柄从普通首页显式进入独立沉浸模式，只用手柄完成选择资料库入口或平台、浏览收藏夹与存档、
   选择游戏、普通单机游玩、创建存档与返回；沉浸模式不扩展到联机、搜索、管理或普通 PC/移动页面导航。
 - 支持安全初始化、邀请注册、账户密码轮换以及管理员维护账号角色与状态。
@@ -200,7 +200,7 @@ Provider 激活只向前：允许更高版本在稳定 Target 仍存在且 check
 
 需要并行验证多个功能分支时使用独立 PFB 命令族。每个 PFB 对应同一棵Git worktree、应用容器和worktree本地`.pfb/workspace`，其中隔离数据库/CAS/secret、Provider开发层与构建cache；所有PFB共享唯一绑定`127.0.0.1:3000`的本机开发网关。规范应用origin是`http://<pfb-id>.localhost:3000`，每Launch runtime origin是`http://<launch-id>.rpg.<pfb-id>.localhost:3000`；两者共享同一schemeful site以携带严格runtime capability cookie，但仍保持逐Launch独立origin。裸localhost只重定向到显式选中的PFB。网关根据严格Host映射Docker网络别名，不接收分支原文，不提供unknown Host fallback，也不向局域网发布端口。
 
-PFB只用于test模式的发布前产品联调，不承担候选归档。Retrom/runtime源码直接bind mount；runtime watcher只生成按revision验证的loose模块/本地adapter资源，core只由显式命令构建。loose开发层不能进入正式manifest、release-input digest、生产镜像或tag workflow。正式晋升仍按core Release、runtime Release、Retrom production pin顺序进行，并以从正式Provider安装重跑同一产品Case为准。
+PFB只用于test模式的发布前产品联调，不承担候选归档。Retrom/runtime源码直接bind mount；runtime watcher只生成按字节摘要验证的loose模块/本地adapter资源，core只由显式命令构建。loose开发层不能进入正式manifest、release-input digest、生产镜像或tag workflow。正式晋升仍按core Release、runtime Release、Retrom production pin顺序进行，并以从正式Provider安装重跑同一产品Case为准。
 
 ## 4. 系统上下文
 
@@ -418,7 +418,7 @@ RPG Maker 项目从浏览器目录或单个 ZIP/7z 导入。发布前管理员�
 - 用户上传内容、下载媒体、存档和截图进入运行时 CAS，不提交到代码仓库。
 - 预置 DAT 不可变且是唯一可创建、激活的 DatVersion 来源；release manifest 变化时先撤销旧选择并保持服务 not ready，待新版本索引成功后由启动引导原子激活。旧 DatVersion 只为已创建 Launch 的冻结证据和审计提供可追溯引用。
 - DAT 更新不静默改写已发布 GameVariant 的不可变兼容性快照；重校验产生新结果并可追踪来源。
-- 联机 allowlist 是独立于普通兼容性的收紧层；只有基础平台出现在 profile `platformIds` 且 READY revision 使用 exact manifest core profile 的游戏可进入房间选择，但同一 profile 不再逐 ROM 限制名称、大小或 hash。
+- 联机 allowlist 是独立于普通兼容性的收紧层；只有基础平台出现在 profile `platformIds` 且 READY Variant 使用 exact manifest core profile 的游戏可进入房间选择，但同一 profile 不再逐 ROM 限制名称、大小或 hash。
 
 ## 10. 一期实施阶段
 
@@ -444,7 +444,7 @@ Phase 0 未通过时，不进入大规模业务实现。
 ### Phase 2：导入与管理
 
 - 文件/目录导入、任务恢复、Hasheous 适配器、DAT 解析和审核历史。
-- 游戏目录、游戏 revision 与 BIOS 管理。
+- 游戏目录、游戏内容维护 与 BIOS 管理。
 - 内置 DAT 索引、release 版本切换和受影响 Variant 的可观察重校验。
 
 ### Phase 3：用户侧与运行时
@@ -479,7 +479,7 @@ Phase 0 未通过时，不进入大规模业务实现。
 
 ### Phase 8：Runtime Provider 原子切换
 
-- 以 001–012 单向 schema、Provider Bundle/Target catalog、Launch Envelope V1 和共享 dispatcher 同时替换 Host 的旧运行选择路径。
+- 以 001–010 直接建库 schema、Provider Bundle/Target catalog、Launch Envelope V1 和共享 dispatcher 同时替换 Host 的旧运行选择路径。
 - EmulatorJS 35 个 Target 与 retrom-runtime 12 个 Target 共享 `PlayerRuntimeV1` 生命周期；RPG MV/MZ 等需要隔离的 Target 仍由 Provider resource 声明 unique origin。
 - 以 `ACC-PROVIDER-001`–`008`、全部直接受影响产品 Case、全量代码/依赖/镜像门禁为退出条件；MZ 合法商业样本继续作为条件性外部产品证据。
 

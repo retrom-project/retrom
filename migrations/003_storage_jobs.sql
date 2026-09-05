@@ -1,4 +1,4 @@
--- Clean pre-release baseline: storage_jobs.
+-- Pre-release bootstrap: create the current domain model directly.
 
 CREATE TABLE blobs (
   id TEXT PRIMARY KEY,
@@ -9,56 +9,6 @@ CREATE TABLE blobs (
   crc32 TEXT NOT NULL CHECK(length(crc32) = 8 AND crc32 = lower(crc32)),
   media_type TEXT NOT NULL,
   created_at_ms INTEGER NOT NULL CHECK(created_at_ms >= 0)
-);
-
-CREATE TABLE "jobs" (
-  id TEXT PRIMARY KEY,
-  scope_type TEXT NOT NULL,
-  scope_id TEXT NOT NULL,
-  kind TEXT NOT NULL CHECK(kind IN (
-    'UPLOAD_FINALIZE','IMPORT_GROUP','IMPORT_ITEM_PIPELINE','DAT_PARSE','VARIANT_REVALIDATE',
-    'METADATA_SCRAPE','MEDIA_FETCH','GAME_FILE_REVISION','BLOB_GC','UPLOAD_CLEANUP',
-    'REVIEW_ARCADE_PARENT_VALIDATE','REVIEW_MULTI_DISC_VALIDATE','SERVER_BIOS_IMPORT',
-    'SERVER_PEGASUS_SCAN','SERVER_PEGASUS_IMPORT','SERVER_EMULATIONSTATION_SCAN',
-      'SERVER_EMULATIONSTATION_IMPORT','REVIEW_BULK_APPROVE','PAYLOAD_RELEASE',
-      'RUNTIME_ASSET_PACK_VALIDATE'
-  )),
-  dedupe_key TEXT NOT NULL CHECK(length(dedupe_key)=64),
-  execution_no INTEGER NOT NULL CHECK(execution_no>=1),
-  payload_json TEXT NOT NULL,
-  cancellable INTEGER NOT NULL CHECK(cancellable IN (0,1)),
-  state TEXT NOT NULL CHECK(state IN ('QUEUED','RUNNING','CANCEL_REQUESTED','SUCCEEDED','FAILED','CANCELLED')),
-  attempt_count INTEGER NOT NULL CHECK(attempt_count>=0),
-  max_attempts INTEGER NOT NULL CHECK(max_attempts BETWEEN 1 AND 4),
-  version INTEGER NOT NULL DEFAULT 1 CHECK(version>=1),
-  available_at_ms INTEGER NOT NULL CHECK(available_at_ms>=0),
-  execution_started_at_ms INTEGER,
-  execution_deadline_at_ms INTEGER,
-  leased_until_ms INTEGER,
-  heartbeat_at_ms INTEGER,
-  finished_at_ms INTEGER,
-  worker_id TEXT,
-  error_code TEXT,
-  error_retryable INTEGER CHECK(error_retryable IS NULL OR error_retryable IN (0,1)),
-  cancel_requested_at_ms INTEGER,
-  cancel_reason TEXT,
-  created_at_ms INTEGER NOT NULL CHECK(created_at_ms>=0),
-  updated_at_ms INTEGER NOT NULL CHECK(updated_at_ms>=created_at_ms),
-  UNIQUE(kind,dedupe_key),
-  CHECK((state IN ('SUCCEEDED','FAILED','CANCELLED'))=(finished_at_ms IS NOT NULL)),
-  CHECK((state IN ('CANCEL_REQUESTED','CANCELLED'))=(cancel_requested_at_ms IS NOT NULL)),
-  CHECK(kind NOT IN ('REVIEW_ARCADE_PARENT_VALIDATE','REVIEW_MULTI_DISC_VALIDATE') OR scope_type='IMPORT_ITEM'),
-  CHECK(kind<>'SERVER_BIOS_IMPORT' OR scope_type='SERVER_IMPORT'),
-  CHECK(kind NOT IN ('SERVER_PEGASUS_SCAN','SERVER_PEGASUS_IMPORT') OR scope_type='PEGASUS_IMPORT'),
-  CHECK((scope_type='EMULATIONSTATION_IMPORT')=(kind IN ('SERVER_EMULATIONSTATION_SCAN','SERVER_EMULATIONSTATION_IMPORT'))),
-  CHECK(kind<>'REVIEW_BULK_APPROVE' OR scope_type='REVIEW_BULK_APPROVAL')
-  ,CHECK(kind<>'RUNTIME_ASSET_PACK_VALIDATE' OR scope_type='RUNTIME_ASSET_PACK_INSTALLATION')
-  ,CHECK(kind<>'PAYLOAD_RELEASE' OR scope_type IN (
-    'IMPORT_ITEM','IMPORT_JOB','PEGASUS_IMPORT_ITEM','EMULATIONSTATION_IMPORT_ITEM','UPLOAD_CONSUMPTION','GAME'
-  ))
-  ,CHECK(scope_type<>'EMULATIONSTATION_IMPORT_ITEM' OR kind='PAYLOAD_RELEASE')
-  ,CHECK(kind<>'PAYLOAD_RELEASE' OR (cancellable=0 AND max_attempts=4))
-  ,CHECK(kind<>'BLOB_GC' OR (scope_type='BLOB' AND cancellable=0 AND max_attempts=4))
 );
 
 CREATE TABLE blob_gc_candidates (
@@ -129,4 +79,54 @@ CREATE TABLE "audit_events" (
     actor_kind='USER' AND actor_user_id IS NOT NULL AND actor_label IS NULL OR
     actor_kind='SYSTEM' AND actor_user_id IS NULL AND actor_label IS NOT NULL
   )
+);
+
+CREATE TABLE "jobs" (
+  id TEXT PRIMARY KEY,
+  scope_type TEXT NOT NULL,
+  scope_id TEXT NOT NULL,
+  kind TEXT NOT NULL CHECK(kind IN (
+    'UPLOAD_FINALIZE','IMPORT_GROUP','IMPORT_ITEM_PIPELINE','DAT_PARSE','VARIANT_VALIDATE',
+    'METADATA_SCRAPE','MEDIA_FETCH','GAME_CONTENT_REPLACE','BLOB_GC','UPLOAD_CLEANUP',
+    'REVIEW_ARCADE_PARENT_VALIDATE','REVIEW_MULTI_DISC_VALIDATE','SERVER_BIOS_IMPORT',
+    'SERVER_PEGASUS_SCAN','SERVER_PEGASUS_IMPORT','SERVER_EMULATIONSTATION_SCAN',
+      'SERVER_EMULATIONSTATION_IMPORT','REVIEW_BULK_APPROVE','PAYLOAD_RELEASE',
+      'RUNTIME_ASSET_PACK_VALIDATE'
+  )),
+  dedupe_key TEXT NOT NULL CHECK(length(dedupe_key)=64),
+  execution_no INTEGER NOT NULL CHECK(execution_no>=1),
+  payload_json TEXT NOT NULL,
+  cancellable INTEGER NOT NULL CHECK(cancellable IN (0,1)),
+  state TEXT NOT NULL CHECK(state IN ('QUEUED','RUNNING','CANCEL_REQUESTED','SUCCEEDED','FAILED','CANCELLED')),
+  attempt_count INTEGER NOT NULL CHECK(attempt_count>=0),
+  max_attempts INTEGER NOT NULL CHECK(max_attempts BETWEEN 1 AND 4),
+  version INTEGER NOT NULL DEFAULT 1 CHECK(version>=1),
+  available_at_ms INTEGER NOT NULL CHECK(available_at_ms>=0),
+  execution_started_at_ms INTEGER,
+  execution_deadline_at_ms INTEGER,
+  leased_until_ms INTEGER,
+  heartbeat_at_ms INTEGER,
+  finished_at_ms INTEGER,
+  worker_id TEXT,
+  error_code TEXT,
+  error_retryable INTEGER CHECK(error_retryable IS NULL OR error_retryable IN (0,1)),
+  cancel_requested_at_ms INTEGER,
+  cancel_reason TEXT,
+  created_at_ms INTEGER NOT NULL CHECK(created_at_ms>=0),
+  updated_at_ms INTEGER NOT NULL CHECK(updated_at_ms>=created_at_ms),
+  UNIQUE(kind,dedupe_key),
+  CHECK((state IN ('SUCCEEDED','FAILED','CANCELLED'))=(finished_at_ms IS NOT NULL)),
+  CHECK((state IN ('CANCEL_REQUESTED','CANCELLED'))=(cancel_requested_at_ms IS NOT NULL)),
+  CHECK(kind NOT IN ('REVIEW_ARCADE_PARENT_VALIDATE','REVIEW_MULTI_DISC_VALIDATE') OR scope_type='IMPORT_ITEM'),
+  CHECK(kind<>'SERVER_BIOS_IMPORT' OR scope_type='SERVER_IMPORT'),
+  CHECK(kind NOT IN ('SERVER_PEGASUS_SCAN','SERVER_PEGASUS_IMPORT') OR scope_type='PEGASUS_IMPORT'),
+  CHECK((scope_type='EMULATIONSTATION_IMPORT')=(kind IN ('SERVER_EMULATIONSTATION_SCAN','SERVER_EMULATIONSTATION_IMPORT'))),
+  CHECK(kind<>'REVIEW_BULK_APPROVE' OR scope_type='REVIEW_BULK_APPROVAL')
+  ,CHECK(kind<>'RUNTIME_ASSET_PACK_VALIDATE' OR scope_type='RUNTIME_ASSET_PACK_INSTALLATION')
+  ,CHECK(kind<>'PAYLOAD_RELEASE' OR scope_type IN (
+    'IMPORT_ITEM','IMPORT_JOB','PEGASUS_IMPORT_ITEM','EMULATIONSTATION_IMPORT_ITEM','UPLOAD_CONSUMPTION','GAME'
+  ))
+  ,CHECK(scope_type<>'EMULATIONSTATION_IMPORT_ITEM' OR kind='PAYLOAD_RELEASE')
+  ,CHECK(kind<>'PAYLOAD_RELEASE' OR (cancellable=0 AND max_attempts=4))
+  ,CHECK(kind<>'BLOB_GC' OR (scope_type='BLOB' AND cancellable=0 AND max_attempts=4))
 );

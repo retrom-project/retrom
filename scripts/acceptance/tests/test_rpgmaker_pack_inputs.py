@@ -32,10 +32,10 @@ class RPGMakerPackInputTests(unittest.TestCase):
             self.assertEqual(12, len(first_rows))
             self.assertEqual(
                 {
-                    "RPG2000_RTP", "RPG2003_RTP", "RGSS1_RTP_STANDARD",
-                    "RGSS2_RTP_RPGVX", "RGSS3_RTP_RPGVXAce", "RGSS_CUSTOM_RTP",
+                    "rpg2000_rtp", "rpg2003_rtp", "rgss1_standard",
+                    "rgss2_rpgvx", "rgss3_rpgvxace", None,
                 },
-                {row["kind"] for row in first_rows.values()},
+                {row["definitionId"] for row in first_rows.values()},
             )
             self.assertEqual({"DIRECTORY", "FILES"}, {row["sourceType"] for row in first_rows.values()})
             self.assertTrue({".zip", ".7z"} <= {
@@ -54,8 +54,8 @@ class RPGMakerPackInputTests(unittest.TestCase):
             self.assertEqual({"publishedVariant", "restorableCheckpoint"}, set(first["protectedPackInputs"]))
             self.assertEqual({"publishedVariant", "restorableCheckpoint"}, set(first["protectedProjects"]))
             self.assertEqual(
-                {"RGSS1_RTP_STANDARD", "RGSS2_RTP_RPGVX"},
-                {row["kind"] for row in first["protectedPackInputs"].values()},
+                {"rgss1_standard", "rgss2_rpgvx"},
+                {row["definitionId"] for row in first["protectedPackInputs"].values()},
             )
             for role in first["protectedPackInputs"]:
                 first_row = first["protectedPackInputs"][role]

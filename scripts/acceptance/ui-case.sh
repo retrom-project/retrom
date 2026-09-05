@@ -152,7 +152,7 @@ if [[ "$case_id" == "ACC-RUN-006" ]]; then
   RETROM_ACCEPTANCE_BACKEND="$backend_origin" \
   RETROM_ACCEPTANCE_RESULT_FILE="$temporary_root/mame2003.json" \
     scripts/acceptance/arcade-flow.sh mame2003
-  python3 scripts/acceptance/seed-arcade-schema-v2-launch.py "$temporary_root/data/retrom.db" mame2003
+  python3 scripts/acceptance/seed-arcade-current-launch.py "$temporary_root/data/retrom.db" mame2003
 fi
 
 if [[ "$case_id" == "ACC-IMM-002" ]]; then
@@ -199,7 +199,7 @@ if [[ "$case_id" == "ACC-RUN-007" ]]; then
   RETROM_ACCEPTANCE_BACKEND="$backend_origin" \
   RETROM_ACCEPTANCE_RESULT_FILE="$temporary_root/fbneo.json" \
     scripts/acceptance/arcade-flow.sh fbneo
-  python3 scripts/acceptance/seed-arcade-schema-v2-launch.py "$temporary_root/data/retrom.db" fbneo
+  python3 scripts/acceptance/seed-arcade-current-launch.py "$temporary_root/data/retrom.db" fbneo
 fi
 
 netplay_nes_result="$temporary_root/netplay-nes.json"

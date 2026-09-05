@@ -179,7 +179,7 @@ type multiDiscAttachmentAdmission struct {
 	draftID, itemState, effectiveSnapshotID, platformID, platformInstanceID, coreID string
 	providerID, targetID                                                            string
 	contentPolicyJSON, validationID, validationStatus, compatibilityCode            string
-	draftVersion, platformVersion, generation                                       int64
+	draftVersion, platformVersion                                                   int64
 	validationPlatformVersion                                                       int64
 	validationCoreID, validationProviderID, validationTargetID                      string
 }
@@ -202,7 +202,7 @@ json_object(
   ))),
   'multiDisc',json_object('maxDiscs',8,'maxTotalBytes',1073741824,'delivery','EAGER_EXTERNAL_FILES')
 ),
-validation.id,validation.prepublish_generation,validation.status,validation.compatibility_code,
+validation.id,validation.status,validation.compatibility_code,
 validation.platform_instance_version,validation.core_id,validation.provider_id,validation.target_id
 FROM import_items item
 JOIN review_drafts draft ON draft.import_item_id=item.id
@@ -226,7 +226,7 @@ ORDER BY validation.created_at_ms DESC,validation.id DESC LIMIT 1
 		&admission.effectiveSnapshotID, &admission.platformID, &admission.platformInstanceID,
 		&admission.platformVersion, &admission.coreID, &admission.providerID, &admission.targetID,
 		&admission.contentPolicyJSON,
-		&admission.validationID, &admission.generation,
+		&admission.validationID,
 		&admission.validationStatus, &admission.compatibilityCode,
 		&admission.validationPlatformVersion, &admission.validationCoreID,
 		&admission.validationProviderID, &admission.validationTargetID,
@@ -409,9 +409,8 @@ func validateMultiDiscAttachmentAdmission(
 	if admission.draftVersion != expectedVersion {
 		return multiDiscAttachmentError(MultiDiscAttachmentErrorVersion, ErrInvalid)
 	}
-	current := admission.generation == prepublishGeneration && admission.validationStatus == "BLOCKED" &&
+	current := admission.validationStatus == "BLOCKED" &&
 		admission.compatibilityCode == "MULTI_DISC_FILE_MISSING" &&
-		admission.validationPlatformVersion == admission.platformVersion &&
 		admission.validationCoreID == admission.coreID && admission.validationProviderID == admission.providerID &&
 		admission.validationTargetID == admission.targetID
 	if !current {
@@ -485,7 +484,7 @@ func (service *Service) prepareMultiDiscAttachmentInput(
 		TargetPlatformID: admission.platformID, PlatformInstanceID: admission.platformInstanceID,
 		PlatformVersion: admission.platformVersion, CoreID: admission.coreID,
 		ProviderID: admission.providerID, TargetID: admission.targetID,
-		ContentPolicyDigest: compatibilityConfigDigest(admission.contentPolicyJSON),
+		ContentPolicyDigest: validationPolicyDigest(admission.contentPolicyJSON, "MULTI_DISC"),
 		MaxDiscs:            capabilities.MultiDisc.MaxDiscs, MaxTotalBytes: capabilities.MultiDisc.MaxTotalBytes,
 	}, nil
 }

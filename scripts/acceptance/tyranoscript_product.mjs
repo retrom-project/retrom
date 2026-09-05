@@ -67,7 +67,7 @@ async function runProductCase(activeBrowser) {
     const client = await authenticatedClient(context);
     const platformInstanceId = await tyranoScriptPlatformInstance(client);
     const uploadId = await client.upload(
-      singleFile(process.env.RETROM_TYRANOSCRIPT_SMOKE_ARCHIVE), "FILES", "TYRANOSCRIPT_PROJECT",
+      singleFile(process.env.RETROM_TYRANOSCRIPT_SMOKE_ARCHIVE), "FILES", "PROJECT",
     );
     const imported = await client.json("POST", "/api/v1/admin/imports", {
       headers: client.writeHeaders(), expected: 202, timeout: 120_000,

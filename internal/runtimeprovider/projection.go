@@ -25,18 +25,16 @@ var (
 	ErrProviderVersionRebuilt       = errors.New("RUNTIME_PROVIDER_VERSION_REBUILT")
 	ErrProviderTargetReferenced     = errors.New("RUNTIME_PROVIDER_TARGET_REFERENCED")
 	ErrProviderCheckpointUnreadable = errors.New("RUNTIME_PROVIDER_CHECKPOINT_FORMAT_UNREADABLE")
-	ErrCatalogDowngrade             = errors.New("RUNTIME_TARGET_CATALOG_DOWNGRADE_FORBIDDEN")
-	ErrCatalogVersionRebuilt        = errors.New("RUNTIME_TARGET_CATALOG_VERSION_REBUILT")
 )
 
 // Projection is a fully validated, immutable startup candidate. Filesystem and
 // network validation happen before this value is created; Reconcile performs
 // only bounded database reads and one SQLite transaction.
 type Projection struct {
-	providers      []providerProjection
-	bindings       []runtimecatalog.Binding
-	catalogVersion int
-	catalogSHA256  string
+	providers     []providerProjection
+	bindings      []runtimecatalog.Binding
+	definitions   runtimecatalog.Definitions
+	catalogSHA256 string
 }
 
 type providerProjection struct {
@@ -64,9 +62,17 @@ func NewProjection(
 	manifests map[string]runtimebundle.Manifest,
 	catalog runtimecatalog.Catalog,
 ) (Projection, error) {
-	if catalog.SchemaVersion != 1 || catalog.CatalogVersion < 1 || len(active.Providers) == 0 ||
+	if catalog.SchemaVersion != 1 || len(active.Providers) == 0 ||
 		len(active.Providers) != len(manifests) {
 		return Projection{}, ErrProjectionInvalid
+	}
+	catalogContents, err := json.Marshal(catalog)
+	if err != nil {
+		return Projection{}, projectionInvalid(err)
+	}
+	catalog, err = runtimecatalog.ParseCatalog(catalogContents)
+	if err != nil {
+		return Projection{}, projectionInvalid(err)
 	}
 	targetExists := make(map[string]bool)
 	providers := make([]providerProjection, 0, len(active.Providers))
@@ -86,14 +92,13 @@ func NewProjection(
 	}); err != nil {
 		return Projection{}, projectionInvalid(err)
 	}
-	catalogContents, err := json.Marshal(catalog)
-	if err != nil {
-		return Projection{}, projectionInvalid(err)
+	if err := validateHostOptionStrategies(catalog, providers); err != nil {
+		return Projection{}, err
 	}
 	return Projection{
 		providers: providers, bindings: append([]runtimecatalog.Binding(nil), catalog.Bindings...),
-		catalogVersion: catalog.CatalogVersion,
-		catalogSHA256:  projectionDigest(catalogContents),
+		definitions:   catalog.Definitions,
+		catalogSHA256: projectionDigest(catalogContents),
 	}, nil
 }
 
@@ -151,18 +156,22 @@ func projectTarget(target runtimebundle.Target) (targetProjection, error) {
 	if err != nil {
 		return targetProjection{}, projectionInvalid(err)
 	}
+	var frozen runtimebundle.Target
+	if err := json.Unmarshal(fragment, &frozen); err != nil {
+		return targetProjection{}, projectionInvalid(err)
+	}
 	optionsSchema, err := json.Marshal(target.TargetOptionsSchema)
 	if err != nil {
 		return targetProjection{}, projectionInvalid(err)
 	}
 	return targetProjection{
-		target: target, capabilitiesJSON: string(capabilities), checkpointJSON: checkpointJSON,
+		target: frozen, capabilitiesJSON: string(capabilities), checkpointJSON: checkpointJSON,
 		targetOptionsJSON: string(optionsSchema), manifestFragment: string(fragment),
 	}, nil
 }
 
 func Reconcile(ctx context.Context, database *sql.DB, candidate Projection, now time.Time) error {
-	if database == nil || candidate.catalogVersion < 1 || len(candidate.providers) == 0 || now.UnixMilli() < 0 {
+	if database == nil || len(candidate.catalogSHA256) != 64 || len(candidate.providers) == 0 || now.UnixMilli() < 0 {
 		return ErrProjectionInvalid
 	}
 	transaction, err := database.BeginTx(ctx, nil)
@@ -175,8 +184,11 @@ func Reconcile(ctx context.Context, database *sql.DB, candidate Projection, now 
 		}
 	}()
 
+	if err := expireReviewCheckpointPayloads(ctx, transaction, now.UnixMilli()); err != nil {
+		return err
+	}
 	currentProviders, changedProviders, catalogChanged, err := prepareReconciliation(
-		ctx, transaction, candidate,
+		ctx, transaction, candidate, now.UnixMilli(),
 	)
 	if err != nil {
 		return err
@@ -227,13 +239,14 @@ func prepareReconciliation(
 	ctx context.Context,
 	transaction *sql.Tx,
 	candidate Projection,
+	now int64,
 ) (map[string]currentProvider, []string, bool, error) {
 	currentProviders, err := loadCurrentProviders(ctx, transaction)
 	if err != nil {
 		return nil, nil, false, err
 	}
 	changedProviders, err := validateProviderTransition(
-		ctx, transaction, currentProviders, candidate,
+		ctx, transaction, currentProviders, candidate, now,
 	)
 	if err != nil {
 		return nil, nil, false, err
@@ -257,9 +270,8 @@ func writeReconciliationAudit(
 		return fmt.Errorf("reconcile runtime providers: create audit id: %w", err)
 	}
 	diff, err := json.Marshal(map[string]any{
-		"catalogSha256":  candidate.catalogSHA256,
-		"catalogVersion": candidate.catalogVersion,
-		"providers":      changedProviders,
+		"catalogSha256": candidate.catalogSHA256,
+		"providers":     changedProviders,
 	})
 	if err != nil {
 		return projectionInvalid(err)
@@ -301,6 +313,7 @@ func validateProviderTransition(
 	transaction *sql.Tx,
 	currentProviders map[string]currentProvider,
 	candidate Projection,
+	now int64,
 ) ([]string, error) {
 	candidateProviders := make(map[string]providerProjection, len(candidate.providers))
 	candidateTargets := make(map[string]targetProjection)
@@ -319,7 +332,7 @@ func validateProviderTransition(
 		for _, target := range provider.targets {
 			identity := providerID + "\x00" + target.target.ID
 			candidateTargets[identity] = target
-			if err := validateTargetTransition(ctx, transaction, providerID, target); err != nil {
+			if err := validateCheckpointFormats(ctx, transaction, providerID, target, now); err != nil {
 				return nil, err
 			}
 		}
@@ -372,15 +385,6 @@ func validateProviderVersion(
 	return comparison > 0 || candidate.BundleSHA256 != current.bundleSHA256, nil
 }
 
-func validateTargetTransition(
-	ctx context.Context,
-	transaction *sql.Tx,
-	providerID string,
-	target targetProjection,
-) error {
-	return validateCheckpointFormats(ctx, transaction, providerID, target)
-}
-
 func validateRemovedProviders(
 	ctx context.Context,
 	transaction *sql.Tx,
@@ -401,81 +405,17 @@ func validateRemovedProviders(
 }
 
 func validateCatalogTransition(ctx context.Context, transaction *sql.Tx, candidate Projection) (bool, error) {
-	var version int
 	var digest string
 	err := transaction.QueryRowContext(ctx, `
-SELECT catalog_version,catalog_sha256 FROM runtime_catalog_state WHERE singleton=1
-`).Scan(&version, &digest)
+SELECT catalog_sha256 FROM runtime_catalog_state WHERE singleton=1
+`).Scan(&digest)
 	if errors.Is(err, sql.ErrNoRows) {
 		return true, nil
 	}
 	if err != nil {
 		return false, fmt.Errorf("reconcile runtime providers: read catalog state: %w", err)
 	}
-	if candidate.catalogVersion < version {
-		return false, ErrCatalogDowngrade
-	}
-	if candidate.catalogVersion == version && candidate.catalogSHA256 != digest {
-		return false, ErrCatalogVersionRebuilt
-	}
-	return candidate.catalogVersion > version, nil
-}
-
-func validateCheckpointFormats(
-	ctx context.Context,
-	transaction *sql.Tx,
-	providerID string,
-	target targetProjection,
-) error {
-	formats := make(map[string]bool)
-	if target.target.Checkpoint != nil {
-		for _, format := range target.target.Checkpoint.ReadFormats {
-			formats[format] = true
-		}
-	}
-	queries := []string{
-		`SELECT DISTINCT save.checkpoint_format FROM save_states save
-JOIN game_variants variant ON variant.game_id=save.game_id
-WHERE variant.provider_id=? AND variant.target_id=? AND save.deleted_at_ms IS NULL`,
-		`SELECT DISTINCT checkpoint.checkpoint_format
-FROM rpgmaker_runtime_validation_checkpoints checkpoint
-JOIN rpgmaker_runtime_validations validation ON validation.id=checkpoint.validation_id
-WHERE validation.provider_id=? AND validation.target_id=?`,
-	}
-	for _, query := range queries {
-		if err := validateCheckpointQuery(
-			ctx, transaction, query, providerID, target.target.ID, formats,
-		); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func validateCheckpointQuery(
-	ctx context.Context,
-	transaction *sql.Tx,
-	query, providerID, targetID string,
-	formats map[string]bool,
-) error {
-	rows, err := transaction.QueryContext(ctx, query, providerID, targetID)
-	if err != nil {
-		return fmt.Errorf("reconcile runtime providers: read checkpoint formats: %w", err)
-	}
-	defer func() { cleanup.Error("close checkpoint formats", rows.Close()) }()
-	for rows.Next() {
-		var format string
-		if err := rows.Scan(&format); err != nil {
-			return fmt.Errorf("reconcile runtime providers: scan checkpoint format: %w", err)
-		}
-		if !formats[format] {
-			return fmt.Errorf("%w: %s/%s %s", ErrProviderCheckpointUnreadable, providerID, targetID, format)
-		}
-	}
-	if err := rows.Err(); err != nil {
-		return fmt.Errorf("reconcile runtime providers: checkpoint formats: %w", err)
-	}
-	return nil
+	return candidate.catalogSHA256 != digest, nil
 }
 
 func ensureProviderUnreferenced(ctx context.Context, transaction *sql.Tx, providerID string) error {
@@ -553,6 +493,11 @@ func writeProjection(
 ) error {
 	if err := clearHostBindings(ctx, transaction); err != nil {
 		return err
+	}
+	if err := runtimecatalog.SynchronizeDefinitions(ctx, transaction, runtimecatalog.Catalog{
+		SchemaVersion: 1, Definitions: candidate.definitions, Bindings: candidate.bindings,
+	}, now); err != nil {
+		return fmt.Errorf("project Host definitions: %w", err)
 	}
 	candidateProviders, candidateTargets, err := writeProvidersAndTargets(ctx, transaction, candidate, now)
 	if err != nil {
@@ -768,11 +713,11 @@ INSERT INTO runtime_binding_content_kinds(binding_id,content_kind) VALUES(?,?)
 
 func writeCatalogState(ctx context.Context, transaction *sql.Tx, candidate Projection, now int64) error {
 	_, err := transaction.ExecContext(ctx, `
-INSERT INTO runtime_catalog_state(singleton,catalog_version,catalog_sha256,activated_at_ms)
-VALUES(1,?,?,?)
-ON CONFLICT(singleton) DO UPDATE SET catalog_version=excluded.catalog_version,
+INSERT INTO runtime_catalog_state(singleton,catalog_sha256,activated_at_ms)
+VALUES(1,?,?)
+ON CONFLICT(singleton) DO UPDATE SET
   catalog_sha256=excluded.catalog_sha256,activated_at_ms=excluded.activated_at_ms
-`, candidate.catalogVersion, candidate.catalogSHA256, now)
+`, candidate.catalogSHA256, now)
 	if err != nil {
 		return fmt.Errorf("reconcile runtime providers: write catalog state: %w", err)
 	}

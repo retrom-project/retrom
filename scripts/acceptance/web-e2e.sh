@@ -152,8 +152,8 @@ for fixture_id in mame2003_plus fbalpha2012_cps1 fbalpha2012_cps2; do
   RETROM_ACCEPTANCE_RESULT_FILE="$temporary_root/netplay-$fixture_id.json" \
     scripts/acceptance/arcade-flow.sh "$fixture_id"
 done
-python3 scripts/acceptance/seed-arcade-schema-v2-launch.py "$temporary_root/data/retrom.db" mame2003
-python3 scripts/acceptance/seed-arcade-schema-v2-launch.py "$temporary_root/data/retrom.db" fbneo
+python3 scripts/acceptance/seed-arcade-current-launch.py "$temporary_root/data/retrom.db" mame2003
+python3 scripts/acceptance/seed-arcade-current-launch.py "$temporary_root/data/retrom.db" fbneo
 scripts/acceptance/seed-review-queue.sh "$temporary_root/data/retrom.db"
 scripts/acceptance/seed-run-blocker.sh "$temporary_root/data/retrom.db"
 python3 scripts/acceptance/seed-bios-catalog.py "$temporary_root/data/retrom.db" 286

@@ -45,7 +45,7 @@ func TestCreateKiriKiriArchiveReachesTrialRequiredReview(t *testing.T) {
 	archive := kirikiriProjectArchive(t)
 	uploadService := uploads.New(database.SQL, blobs, dataDir, time.Now)
 	upload, err := uploadService.Create(ctx, uploads.CreateRequest{
-		Purpose: "KIRIKIRI_PROJECT", SourceType: "FILES",
+		Purpose: "PROJECT", SourceType: "FILES",
 		Files: []uploads.FileDeclaration{{
 			ClientFileID: "kirikiri", RelativePath: "fixture.zip", SizeBytes: int64(len(archive)),
 		}},

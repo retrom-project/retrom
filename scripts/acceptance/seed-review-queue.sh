@@ -106,9 +106,9 @@ SELECT i.id,'CONTENT',
 FROM import_items i
 WHERE i.id LIKE '30000000-%';
 
-INSERT INTO import_item_source_snapshots(id,import_item_id,revision_no,source_manifest_json,source_manifest_digest,created_by,created_at_ms)
+INSERT INTO import_item_source_snapshots(id,import_item_id,source_manifest_json,source_manifest_digest,created_by,created_at_ms)
 SELECT printf('35000000-0000-7000-80%02d-%012d',CASE WHEN i.import_job_id LIKE '%1' THEN 1 ELSE 2 END,CAST(substr(i.id,-12) AS INTEGER)),
-       i.id,1,i.source_manifest_json,i.source_manifest_digest,'IDENTIFICATION',i.created_at_ms
+       i.id,i.source_manifest_json,i.source_manifest_digest,'IDENTIFICATION',i.created_at_ms
 FROM import_items i
 WHERE i.id LIKE '30000000-%';
 
@@ -120,10 +120,10 @@ JOIN import_item_source_files s ON s.import_item_id=i.id
 WHERE i.id LIKE '30000000-%';
 
 -- The copied digest intentionally belongs to another source snapshot. This seeds
--- stale generation-4 evidence and verifies that draft save rebuilds it instead
+-- stale source evidence and verifies that draft save rebuilds it instead
 -- of trusting only the structurally matching validation columns.
-INSERT INTO import_item_core_validations(id,import_item_id,target_platform_instance_id,platform_instance_version,core_id,provider_id,target_id,prepublish_generation,dat_version_id,default_dos_entry,source_manifest_digest,source_snapshot_id,prepublish_input_digest,status,compatibility_code,dependency_snapshot_json,created_at_ms)
-SELECT printf('40000000-0000-7000-80%02d-%012d',CASE WHEN i.import_job_id LIKE '%1' THEN 1 ELSE 2 END,CAST(substr(i.id,-12) AS INTEGER)),i.id,v.target_platform_instance_id,v.platform_instance_version,v.core_id,v.provider_id,v.target_id,4,v.dat_version_id,v.default_dos_entry,i.source_manifest_digest,
+INSERT INTO import_item_core_validations(id,import_item_id,target_platform_instance_id,platform_instance_version,core_id,provider_id,target_id,dat_version_id,default_dos_entry,source_manifest_digest,source_snapshot_id,prepublish_input_digest,status,compatibility_code,dependency_snapshot_json,created_at_ms)
+SELECT printf('40000000-0000-7000-80%02d-%012d',CASE WHEN i.import_job_id LIKE '%1' THEN 1 ELSE 2 END,CAST(substr(i.id,-12) AS INTEGER)),i.id,v.target_platform_instance_id,v.platform_instance_version,v.core_id,v.provider_id,v.target_id,v.dat_version_id,v.default_dos_entry,i.source_manifest_digest,
        printf('35000000-0000-7000-80%02d-%012d',CASE WHEN i.import_job_id LIKE '%1' THEN 1 ELSE 2 END,CAST(substr(i.id,-12) AS INTEGER)),
        v.prepublish_input_digest,'READY','READY',v.dependency_snapshot_json,i.created_at_ms
 FROM import_items i

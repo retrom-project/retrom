@@ -79,6 +79,7 @@ func TestCurrentGameCanMoveBetweenPlatformInstances(t *testing.T) {
 	testassert.False(t, err != nil, err)
 	defer func() { cleanup.Error("close", database.Close()) }()
 
+	seedSchemaProductDefinitions(t, database.SQL)
 	for _, statement := range []string{
 		`INSERT INTO platform_instances(
  id,platform_id,default_core_id,name,slug,sort_order,enabled,version,created_at_ms,updated_at_ms
@@ -193,6 +194,7 @@ INSERT INTO netplay_sessions(
 
 func seedCurrentRuntimeGraph(t *testing.T, database *sql.DB) {
 	t.Helper()
+	seedSchemaProductDefinitions(t, database)
 	statements := []string{
 		`INSERT INTO profiles(id,display_name,created_at_ms) VALUES('current-profile','Current profile',1)`,
 		`INSERT INTO runtime_providers(

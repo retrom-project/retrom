@@ -104,7 +104,7 @@ describe("UploadPicker", () => {
     expect(submit).toBeEnabled();
   });
 
-  it("uses the explicit RPG Maker core directory and RPG project upload purpose", async () => {
+  it("uses the RPG Maker directory with the generic project upload purpose", async () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ importJobId: "rpg-import" }), { status: 202, headers: { "Content-Type": "application/json" } }));
     vi.stubGlobal("fetch", fetchMock);
     const user = userEvent.setup();
@@ -129,13 +129,13 @@ describe("UploadPicker", () => {
     await user.click(screen.getByRole("button", { name: "下一步" }));
 
     await user.click(screen.getByRole("button", { name: "上传并验证 RPG Maker 项目" }));
-    expect(upload.uploadFiles).toHaveBeenCalledWith(expect.any(Array), expect.any(Function), "RPG_MAKER_PROJECT");
+    expect(upload.uploadFiles).toHaveBeenCalledWith(expect.any(Array), expect.any(Function), "PROJECT");
     expect(fetchMock).toHaveBeenCalledWith("/api/v1/admin/imports", expect.objectContaining({
       body: JSON.stringify({ uploadId: "rpg-upload", targetPlatformInstanceId: "rpg-mv", metadataProvider: "NONE", contentMode: "RPG_MAKER_PROJECT", tagIds: [] }),
     }));
   });
 
-  it("uses the ONS project upload purpose and disables metadata scraping", async () => {
+  it("uses the generic project purpose for ONS and disables metadata scraping", async () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ importJobId: "ons-import" }), { status: 202, headers: { "Content-Type": "application/json" } }));
     vi.stubGlobal("fetch", fetchMock);
     const user = userEvent.setup();
@@ -154,13 +154,13 @@ describe("UploadPicker", () => {
     expect(screen.getByLabelText("元信息来源")).toBeDisabled();
 
     await user.click(screen.getByRole("button", { name: "上传并试运行 ONS 项目" }));
-    expect(upload.uploadFiles).toHaveBeenCalledWith(expect.any(Array), expect.any(Function), "ONS_PROJECT");
+    expect(upload.uploadFiles).toHaveBeenCalledWith(expect.any(Array), expect.any(Function), "PROJECT");
     expect(fetchMock).toHaveBeenCalledWith("/api/v1/admin/imports", expect.objectContaining({
       body: JSON.stringify({ uploadId: "rpg-upload", targetPlatformInstanceId: "ons", metadataProvider: "NONE", contentMode: "ONS_PROJECT", tagIds: [] }),
     }));
   });
 
-  it("uses the KiriKiri project upload purpose and only requires a successful trial run", async () => {
+  it("uses the generic project purpose for KiriKiri and only requires a successful trial run", async () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ importJobId: "kirikiri-import" }), { status: 202, headers: { "Content-Type": "application/json" } }));
     vi.stubGlobal("fetch", fetchMock);
     const user = userEvent.setup();
@@ -179,13 +179,13 @@ describe("UploadPicker", () => {
     expect(screen.getByLabelText("元信息来源")).toBeDisabled();
 
     await user.click(screen.getByRole("button", { name: "上传并试运行 KiriKiri 项目" }));
-    expect(upload.uploadFiles).toHaveBeenCalledWith(expect.any(Array), expect.any(Function), "KIRIKIRI_PROJECT");
+    expect(upload.uploadFiles).toHaveBeenCalledWith(expect.any(Array), expect.any(Function), "PROJECT");
     expect(fetchMock).toHaveBeenCalledWith("/api/v1/admin/imports", expect.objectContaining({
       body: JSON.stringify({ uploadId: "rpg-upload", targetPlatformInstanceId: "kirikiri", metadataProvider: "NONE", contentMode: "KIRIKIRI_PROJECT", tagIds: [] }),
     }));
   });
 
-  it("uses the GameMaker project upload purpose and exposes the trial runtime", async () => {
+  it("uses the generic project purpose for GameMaker and exposes the trial runtime", async () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ importJobId: "butterscotch-import" }), { status: 202, headers: { "Content-Type": "application/json" } }));
     vi.stubGlobal("fetch", fetchMock);
     const user = userEvent.setup();
@@ -202,13 +202,13 @@ describe("UploadPicker", () => {
     expect(screen.getByLabelText("元信息来源")).toHaveValue("不刮削（GameMaker 项目）");
 
     await user.click(screen.getByRole("button", { name: "上传并试运行 GameMaker 项目" }));
-    expect(upload.uploadFiles).toHaveBeenCalledWith(expect.any(Array), expect.any(Function), "BUTTERSCOTCH_PROJECT");
+    expect(upload.uploadFiles).toHaveBeenCalledWith(expect.any(Array), expect.any(Function), "PROJECT");
     expect(fetchMock).toHaveBeenCalledWith("/api/v1/admin/imports", expect.objectContaining({
       body: JSON.stringify({ uploadId: "rpg-upload", targetPlatformInstanceId: "butterscotch", metadataProvider: "NONE", contentMode: "BUTTERSCOTCH_PROJECT", tagIds: [] }),
     }));
   });
 
-  it("uses the TyranoScript project upload purpose and trial workflow", async () => {
+  it("uses the generic project purpose for TyranoScript and trial workflow", async () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({importJobId: "tyrano-import"}), {
       status: 202, headers: {"Content-Type": "application/json"},
     }));
@@ -228,7 +228,7 @@ describe("UploadPicker", () => {
     expect(screen.getByLabelText("元信息来源")).toHaveValue("不刮削（TyranoScript 项目）");
 
     await user.click(screen.getByRole("button", {name: "上传并试运行 TyranoScript 项目"}));
-    expect(upload.uploadFiles).toHaveBeenCalledWith(expect.any(Array), expect.any(Function), "TYRANOSCRIPT_PROJECT");
+    expect(upload.uploadFiles).toHaveBeenCalledWith(expect.any(Array), expect.any(Function), "PROJECT");
     expect(fetchMock).toHaveBeenCalledWith("/api/v1/admin/imports", expect.objectContaining({
       body: JSON.stringify({
         uploadId: "rpg-upload", targetPlatformInstanceId: "tyranoscript", metadataProvider: "NONE",

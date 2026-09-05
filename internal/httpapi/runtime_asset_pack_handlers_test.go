@@ -44,7 +44,7 @@ func TestRuntimeAssetPackRoutesListAndMapProductErrors(t *testing.T) {
 
 	installRequest := httptest.NewRequestWithContext(
 		context.Background(), http.MethodPost, "/api/v1/admin/runtime-asset-packs/installations",
-		strings.NewReader(`{"uploadId":"01980000-0000-7000-8000-000000009997","kind":"RPG2000_RTP"}`),
+		strings.NewReader(`{"uploadId":"01980000-0000-7000-8000-000000009997","definitionId":"rpg2000_rtp"}`),
 	)
 	installRequest.Header.Set("Content-Type", "application/json")
 	installRequest.Header.Set("Idempotency-Key", uuid.NewString())
@@ -92,7 +92,7 @@ func TestRuntimeAssetPackInstallAndDeleteRoutesCompleteProductTransaction(t *tes
 	install := runtimePackWriteRequest(
 		t, handler, cookie, csrf, http.MethodPost,
 		"/api/v1/admin/runtime-asset-packs/installations", uuid.NewString(), "",
-		fmt.Sprintf(`{"uploadId":%q,"kind":"RPG2000_RTP"}`, uploadID),
+		fmt.Sprintf(`{"uploadId":%q,"definitionId":"rpg2000_rtp"}`, uploadID),
 	)
 	if install.Code != http.StatusAccepted {
 		t.Fatalf("POST runtime pack = %d %s", install.Code, install.Body.String())

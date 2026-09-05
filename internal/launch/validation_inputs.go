@@ -278,6 +278,7 @@ func (service *Service) currentValidationEvidence(
 
 type arcadeSnapshotIdentity struct {
 	SchemaVersion int    `json:"schemaVersion"`
+	Kind          string `json:"kind"`
 	Machine       string `json:"machine"`
 	DATVersionID  string `json:"datVersionId"`
 }
@@ -288,7 +289,9 @@ func validateLockedArcadeSnapshot(raw, contentLogicalName, datID string) error {
 		return corevalidation.ErrInvalidSnapshot
 	}
 	machine := strings.TrimSuffix(filepath.Base(contentLogicalName), filepath.Ext(contentLogicalName))
-	if identity.SchemaVersion != 2 || identity.Machine != machine || identity.DATVersionID != datID {
+	if identity.SchemaVersion != corevalidation.SnapshotSchemaVersion ||
+		identity.Kind != corevalidation.SnapshotKindArcade ||
+		identity.Machine != machine || identity.DATVersionID != datID {
 		return corevalidation.ErrInvalidSnapshot
 	}
 	if _, err := corevalidation.ParseRuntimeBIOSDependencies(raw); err != nil {
@@ -303,9 +306,9 @@ func (service *Service) lockedArcadeDependencySnapshot(
 ) (string, error) {
 	var raw string
 	if err := service.database.QueryRowContext(ctx, `
-SELECT revision.dependency_snapshot_json
-FROM game_variants revision
-WHERE revision.id=? AND revision.game_id=? AND revision.dat_version_id=?
+SELECT variant.dependency_snapshot_json
+FROM game_variants variant
+WHERE variant.id=? AND variant.game_id=? AND variant.dat_version_id=?
 `, variantID, contentID, datID).Scan(&raw); err != nil {
 		return "", fmt.Errorf("load locked Arcade dependency snapshot: %w", err)
 	}

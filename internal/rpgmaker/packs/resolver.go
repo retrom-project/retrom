@@ -6,13 +6,11 @@ import (
 	"encoding/json"
 	"errors"
 	"sort"
-	"strings"
 
 	"github.com/google/uuid"
-	"golang.org/x/text/cases"
-	"golang.org/x/text/unicode/norm"
 
 	"retrom/internal/rpgmaker/detector"
+	"retrom/internal/runtimecatalog"
 )
 
 var (
@@ -246,7 +244,7 @@ func validateSelections(generation detector.Generation, selections []Selection) 
 }
 
 func NormalizeDeclaredName(value string) string {
-	return cases.Fold().String(norm.NFKC.String(strings.TrimSpace(value)))
+	return runtimecatalog.NormalizePackName(value)
 }
 
 func validUUID(value string) bool {

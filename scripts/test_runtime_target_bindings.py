@@ -13,7 +13,7 @@ class RuntimeTargetBindingsTest(unittest.TestCase):
         catalog = load_runtime_target_bindings(
             ROOT / "data/runtime-target-bindings/v1/catalog.json"
         )
-        self.assertEqual(catalog["catalogVersion"], 2)
+        self.assertNotIn("catalogVersion", catalog)
         self.assertEqual(len(catalog["bindings"]), 47)
         self.assertEqual(
             {item["providerId"] for item in catalog["bindings"]},

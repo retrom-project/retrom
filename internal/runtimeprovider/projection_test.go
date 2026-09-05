@@ -16,7 +16,7 @@ import (
 
 func TestReconcileProjectsProviderTargetsAndCatalogAtomically(t *testing.T) {
 	database := openProjectionDatabase(t)
-	candidate := projectionFixture("1.0.0", "a", 1, []string{"state-v1"})
+	candidate := projectionFixture("1.0.0", "a", []string{"state-v1"})
 
 	if err := Reconcile(t.Context(), database.SQL, candidate, time.UnixMilli(1234)); err != nil {
 		t.Fatal(err)
@@ -39,7 +39,7 @@ SELECT provider_version,bundle_sha256 FROM runtime_providers WHERE provider_id='
 
 func assertProjectionCounts(t *testing.T, database *sql.DB) {
 	t.Helper()
-	var targetCount, catalogVersion, auditCount int
+	var targetCount, catalogCount, auditCount int
 	if err := database.QueryRowContext(t.Context(), `SELECT count(*) FROM runtime_targets`).Scan(&targetCount); err != nil {
 		t.Fatal(err)
 	}
@@ -53,7 +53,7 @@ func assertProjectionCounts(t *testing.T, database *sql.DB) {
 	if err := database.QueryRowContext(t.Context(), `SELECT count(*) FROM runtime_binding_content_kinds`).Scan(&contentKindCount); err != nil {
 		t.Fatal(err)
 	}
-	if err := database.QueryRowContext(t.Context(), `SELECT catalog_version FROM runtime_catalog_state WHERE singleton=1`).Scan(&catalogVersion); err != nil {
+	if err := database.QueryRowContext(t.Context(), `SELECT count(*) FROM runtime_catalog_state WHERE singleton=1`).Scan(&catalogCount); err != nil {
 		t.Fatal(err)
 	}
 	if err := database.QueryRowContext(t.Context(), `
@@ -61,28 +61,24 @@ SELECT count(*) FROM audit_events WHERE action='RUNTIME_PROVIDER_RECONCILED'
 `).Scan(&auditCount); err != nil {
 		t.Fatal(err)
 	}
-	if targetCount != 1 || bindingCount != 1 || platformCount != 1 || contentKindCount != 1 || catalogVersion != 1 || auditCount != 1 {
+	if targetCount != 1 || bindingCount != 1 || platformCount != 1 || contentKindCount != 1 || catalogCount != 1 || auditCount != 1 {
 		t.Fatalf("projection target/binding/platform/content/catalog/audit = %d/%d/%d/%d/%d/%d",
-			targetCount, bindingCount, platformCount, contentKindCount, catalogVersion, auditCount)
+			targetCount, bindingCount, platformCount, contentKindCount, catalogCount, auditCount)
 	}
 }
 
-func TestReconcileRejectsNonForwardProviderAndCatalogChanges(t *testing.T) {
-	sameCatalogRebuilt := projectionFixture("1.1.0", "b", 2, []string{"state-v1"})
-	sameCatalogRebuilt.catalogSHA256 = strings.Repeat("c", 64)
+func TestReconcileRejectsNonForwardProviderChanges(t *testing.T) {
 	for _, test := range []struct {
 		name      string
 		candidate Projection
 		expected  error
 	}{
-		{"provider downgrade", projectionFixture("0.9.0", "b", 2, []string{"state-v1"}), ErrProviderDowngrade},
-		{"same provider version rebuilt", projectionFixture("1.0.0", "b", 3, []string{"state-v1"}), ErrProviderVersionRebuilt},
-		{"catalog downgrade", projectionFixture("1.1.0", "b", 1, []string{"state-v1"}), ErrCatalogDowngrade},
-		{"same catalog version rebuilt", sameCatalogRebuilt, ErrCatalogVersionRebuilt},
+		{"provider downgrade", projectionFixture("0.9.0", "b", []string{"state-v1"}), ErrProviderDowngrade},
+		{"same provider version rebuilt", projectionFixture("1.0.0", "b", []string{"state-v1"}), ErrProviderVersionRebuilt},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			database := openProjectionDatabase(t)
-			if err := Reconcile(t.Context(), database.SQL, projectionFixture("1.0.0", "a", 2, []string{"state-v1"}), time.UnixMilli(1)); err != nil {
+			if err := Reconcile(t.Context(), database.SQL, projectionFixture("1.0.0", "a", []string{"state-v1"}), time.UnixMilli(1)); err != nil {
 				t.Fatal(err)
 			}
 			if err := Reconcile(t.Context(), database.SQL, test.candidate, time.UnixMilli(2)); !errors.Is(err, test.expected) {
@@ -94,10 +90,10 @@ func TestReconcileRejectsNonForwardProviderAndCatalogChanges(t *testing.T) {
 
 func TestReconcileAllowsOnlyForwardCompatibleProviderUpgrade(t *testing.T) {
 	database := openProjectionDatabase(t)
-	if err := Reconcile(t.Context(), database.SQL, projectionFixture("1.0.0", "a", 1, []string{"state-v1"}), time.UnixMilli(1)); err != nil {
+	if err := Reconcile(t.Context(), database.SQL, projectionFixture("1.0.0", "a", []string{"state-v1"}), time.UnixMilli(1)); err != nil {
 		t.Fatal(err)
 	}
-	upgrade := projectionFixture("1.1.0", "b", 2, []string{"state-v1", "state-v2"})
+	upgrade := projectionFixture("1.1.0", "b", []string{"state-v1", "state-v2"})
 	if err := Reconcile(t.Context(), database.SQL, upgrade, time.UnixMilli(2)); err != nil {
 		t.Fatal(err)
 	}
@@ -113,9 +109,22 @@ FROM runtime_providers provider JOIN runtime_targets target ON target.provider_i
 	}
 }
 
+func TestCatalogContentChangeNeedsNoIndependentVersionCounter(t *testing.T) {
+	database := openProjectionDatabase(t)
+	initial := projectionFixture("1.0.0", "a", []string{"state-v1"})
+	if err := Reconcile(t.Context(), database.SQL, initial, time.UnixMilli(1)); err != nil {
+		t.Fatal(err)
+	}
+	changed := initial
+	changed.catalogSHA256 = strings.Repeat("b", 64)
+	if err := Reconcile(t.Context(), database.SQL, changed, time.UnixMilli(2)); err != nil {
+		t.Fatalf("current catalog change required an unrelated version counter: %v", err)
+	}
+}
+
 func TestReconcileRejectsReferencedTargetRemoval(t *testing.T) {
 	database := openProjectionDatabase(t)
-	initial := projectionFixtureForTarget("target", "1.0.0", "a", 1, []string{"state-v1"})
+	initial := projectionFixtureForTarget("target", "1.0.0", "a", []string{"state-v1"})
 	if err := Reconcile(t.Context(), database.SQL, initial, time.UnixMilli(1)); err != nil {
 		t.Fatal(err)
 	}
@@ -128,7 +137,7 @@ INSERT INTO bios_requirements(
 `, strings.Repeat("d", 64)); err != nil {
 		t.Fatal(err)
 	}
-	candidate := projectionFixtureForTarget("replacement", "1.1.0", "b", 2, []string{"state-v1"})
+	candidate := projectionFixtureForTarget("replacement", "1.1.0", "b", []string{"state-v1"})
 	if err := Reconcile(t.Context(), database.SQL, candidate, time.UnixMilli(2)); !errors.Is(err, ErrProviderTargetReferenced) {
 		t.Fatalf("error = %v", err)
 	}
@@ -143,7 +152,7 @@ func TestReconcileRejectsUnreadableStoredCheckpointFormat(t *testing.T) {
 	if _, err := database.ExecContext(t.Context(), `
 CREATE TABLE save_states(game_id TEXT,checkpoint_format TEXT,deleted_at_ms INTEGER);
 CREATE TABLE game_variants(game_id TEXT,provider_id TEXT,target_id TEXT);
-CREATE TABLE rpgmaker_runtime_validations(id TEXT,provider_id TEXT,target_id TEXT);
+CREATE TABLE rpgmaker_runtime_validations(id TEXT,provider_id TEXT,target_id TEXT,state TEXT,expires_at_ms INTEGER);
 CREATE TABLE rpgmaker_runtime_validation_checkpoints(validation_id TEXT,checkpoint_format TEXT);
 INSERT INTO game_variants(game_id,provider_id,target_id) VALUES('game','fixture','target');
 INSERT INTO save_states(game_id,checkpoint_format) VALUES('game','state-v1');
@@ -154,8 +163,8 @@ INSERT INTO save_states(game_id,checkpoint_format) VALUES('game','state-v1');
 	if err != nil {
 		t.Fatal(err)
 	}
-	upgrade := projectionFixture("1.1.0", "b", 2, []string{"state-v2"})
-	if err := validateCheckpointFormats(t.Context(), transaction, "fixture", upgrade.providers[0].targets[0]); !errors.Is(err, ErrProviderCheckpointUnreadable) {
+	upgrade := projectionFixture("1.1.0", "b", []string{"state-v2"})
+	if err := validateCheckpointFormats(t.Context(), transaction, "fixture", upgrade.providers[0].targets[0], 100); !errors.Is(err, ErrProviderCheckpointUnreadable) {
 		t.Fatalf("error = %v", err)
 	}
 }
@@ -170,18 +179,21 @@ func openProjectionDatabase(t *testing.T) *store.DB {
 	return database
 }
 
-func projectionFixture(version, digestByte string, catalogVersion int, readFormats []string) Projection {
-	return projectionFixtureForTarget("target", version, digestByte, catalogVersion, readFormats)
+func projectionFixture(version, digestByte string, readFormats []string) Projection {
+	return projectionFixtureForTarget("target", version, digestByte, readFormats)
 }
 
-func projectionFixtureForTarget(targetID, version, digestByte string, catalogVersion int, readFormats []string) Projection {
+func projectionFixtureForTarget(targetID, version, digestByte string, readFormats []string) Projection {
 	digest := strings.Repeat(digestByte, 64)
 	checkpoint := &runtimebundle.Checkpoint{WriteFormat: readFormats[len(readFormats)-1], ReadFormats: readFormats, MaxBytes: 1024}
 	target := runtimebundle.Target{
 		ID: targetID, DisplayName: "Fixture",
 		TargetOptionsSchema: runtimebundle.TargetOptionsSchema{
 			"type": "object", "additionalProperties": false,
-			"properties": map[string]any{}, "required": []any{},
+			"properties": map[string]any{
+				"dosEntryPath":     map[string]any{"type": []any{"string", "null"}},
+				"initialDiscIndex": map[string]any{"type": []any{"integer", "null"}, "minimum": 0},
+			}, "required": []any{"dosEntryPath", "initialDiscIndex"},
 		},
 		Inputs:       []runtimebundle.Input{{Role: "game", Kind: "ROM_BLOB", Cardinality: "ONE"}},
 		Capabilities: runtimebundle.Capabilities{Checkpoint: true, FrameMode: "NONE", VideoModes: []string{}, ValidationProbes: []string{}},
@@ -195,11 +207,16 @@ func projectionFixtureForTarget(targetID, version, digestByte string, catalogVer
 			ID: target.ID, Checkpoint: checkpoint,
 		}},
 	}}}
-	catalog := runtimecatalog.Catalog{SchemaVersion: 1, CatalogVersion: catalogVersion, Bindings: []runtimecatalog.Binding{{
+	catalog := runtimecatalog.Catalog{SchemaVersion: 1, Bindings: []runtimecatalog.Binding{{
 		ID: "fixture-" + targetID, CoreID: "gambatte", ProviderID: "fixture", TargetID: targetID,
 		PlatformIDs: []string{"gbc"}, AcceptedContentKinds: []string{"SINGLE_FILE"},
-		DetectorProfile: "ROM_FILE", DeliveryProfile: "ROM_BLOB", LaunchPolicy: "SUPPORTED", ReviewPolicy: "NONE",
+		DetectorProfile: "EMULATORJS_SINGLE_FILE", DeliveryProfile: "EMULATORJS_CONTENT", LaunchPolicy: "SUPPORTED", ReviewPolicy: "NONE",
 	}}}
+	catalog.Definitions = runtimecatalog.Definitions{
+		Platforms:    []runtimecatalog.PlatformDefinition{{ID: "gbc", Name: "Game Boy / Color", SortOrder: 40, Enabled: true}},
+		Cores:        []runtimecatalog.CoreDefinition{{ID: "gambatte", Name: "Gambatte", Enabled: true}},
+		ContentKinds: []string{"SINGLE_FILE"}, AssetPacks: []runtimecatalog.AssetPackDefinition{},
+	}
 	projection, err := NewProjection(active, map[string]runtimebundle.Manifest{"fixture": {
 		SchemaVersion: 1, ProviderID: "fixture", ProviderVersion: version, ProviderAPI: 1,
 		ClientModulePath: "client.mjs", Targets: []runtimebundle.Target{target},
@@ -208,4 +225,20 @@ func projectionFixtureForTarget(targetID, version, digestByte string, catalogVer
 		panic(err)
 	}
 	return projection
+}
+
+func TestProjectionRejectsOptionsOutsideRegisteredAccessStrategy(t *testing.T) {
+	initial := projectionFixture("1.0.0", "a", []string{"state-v1"})
+	provider := initial.providers[0].active
+	target := initial.providers[0].targets[0].target
+	target.TargetOptionsSchema = runtimebundle.TargetOptionsSchema{
+		"type": "object", "additionalProperties": false,
+		"properties": map[string]any{"unknownProperty": map[string]any{"type": "string"}}, "required": []any{"unknownProperty"},
+	}
+	_, err := NewProjection(runtimebundle.ActiveDescriptor{SchemaVersion: 1, Source: "candidate", Providers: []runtimebundle.ActiveProvider{provider}},
+		map[string]runtimebundle.Manifest{"fixture": {SchemaVersion: 1, ProviderID: "fixture", ProviderVersion: "1.0.0", ProviderAPI: 1, ClientModulePath: "client.mjs", Targets: []runtimebundle.Target{target}}},
+		runtimecatalog.Catalog{SchemaVersion: 1, Definitions: initial.definitions, Bindings: initial.bindings})
+	if err == nil {
+		t.Fatal("unsupported Host option access was accepted until launch time")
+	}
 }

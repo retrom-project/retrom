@@ -123,7 +123,7 @@ VALUES('01990000-0000-7000-8000-000000000102',?,?,?, ?,?,?,?,1,'MATCHED','{}',1,
 		time.Now().UnixMilli(), time.Now().UnixMilli()); err != nil {
 		t.Fatal(err)
 	}
-	previous := `{"schemaVersion":2,"machine":"child","datVersionId":"dat-test","closure":["child","bios"],"dependencies":[{"kind":"BIOS_OR_BASE","machine":"bios","state":"MISSING","requiredEntries":["b.bin"]}],"missingEntries":["bios.zip"],"mismatchedEntries":[],"warnings":[]}`
+	previous := `{"schemaVersion":1,"kind":"ARCADE","machine":"child","datVersionId":"dat-test","closure":["child","bios"],"dependencies":[{"kind":"BIOS_OR_BASE","machine":"bios","state":"MISSING","requiredEntries":["b.bin"]}],"missingEntries":["bios.zip"],"mismatchedEntries":[],"warnings":[]}`
 	transaction, err := database.SQL.BeginTx(ctx, nil)
 	testassert.False(t, err != nil, err)
 	t.Cleanup(func() { cleanup.Rollback(transaction) })
@@ -375,9 +375,10 @@ WHERE variant.game_id=? AND variant.core_id='fbneo'
 		t.Fatal(err)
 	}
 	var refreshedEnvelope struct {
-		SchemaVersion int `json:"schemaVersion"`
+		SchemaVersion int    `json:"schemaVersion"`
+		Kind          string `json:"kind"`
 	}
-	if err := json.Unmarshal([]byte(refreshedSnapshot), &refreshedEnvelope); err != nil || refreshedEnvelope.SchemaVersion != 2 {
+	if err := json.Unmarshal([]byte(refreshedSnapshot), &refreshedEnvelope); err != nil || refreshedEnvelope.SchemaVersion != 1 || refreshedEnvelope.Kind != "ARCADE" {
 		t.Fatalf("refreshed Arcade dependency snapshot = %s, error=%v", refreshedSnapshot, err)
 	}
 	createdLaunch, err := launcher.Create(ctx, "local", launch.CreateRequest{

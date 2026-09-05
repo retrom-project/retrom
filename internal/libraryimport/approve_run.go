@@ -294,7 +294,7 @@ JOIN import_item_core_validations v ON v.id=(
 )
 AND v.source_snapshot_id=d.effective_source_snapshot_id
 AND v.target_platform_instance_id=d.target_platform_instance_id
-AND p.version=v.platform_instance_version
+AND p.default_core_id=v.core_id
 JOIN runtime_targets target ON target.provider_id=v.provider_id AND target.target_id=v.target_id
 JOIN runtime_target_bindings binding ON binding.provider_id=v.provider_id AND binding.target_id=v.target_id
  AND binding.core_id=v.core_id AND binding.launch_policy!='DISABLED'
@@ -323,7 +323,6 @@ AND (p.platform_id='rpgmaker' AND EXISTS(
     AND screenshot.source_snapshot_id=d.effective_source_snapshot_id
     AND screenshot.provider_id=v.provider_id AND screenshot.target_id=v.target_id
 )))
-AND v.prepublish_generation=4
 AND v.default_dos_entry IS d.default_dos_entry
 AND v.dat_version_id IS (
   SELECT active.id FROM dat_versions active

@@ -45,7 +45,7 @@ func TestCreateONSArchiveReachesTrialRequiredReview(t *testing.T) {
 	archive := onsProjectArchive(t)
 	uploadService := uploads.New(database.SQL, blobs, dataDir, time.Now)
 	upload, err := uploadService.Create(ctx, uploads.CreateRequest{
-		Purpose: "ONS_PROJECT", SourceType: "FILES",
+		Purpose: "PROJECT", SourceType: "FILES",
 		Files: []uploads.FileDeclaration{{
 			ClientFileID: "ons", RelativePath: "fixture.zip", SizeBytes: int64(len(archive)),
 		}},

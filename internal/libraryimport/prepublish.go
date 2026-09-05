@@ -12,23 +12,12 @@ import (
 	"retrom/internal/contentcapability"
 )
 
-const prepublishGeneration = 4
-
-const (
-	validatorImportV4 = "import-source-validator-v4"
-	validatorReviewV4 = "review-compatible-v4"
-	validatorArcadeV4 = "arcade-source-validator-v4"
-	validatorMultiV4  = "multi-disc-source-validator-v4"
-)
-
 type prepublishDigestInput struct {
 	SchemaVersion            int             `json:"schemaVersion"`
-	ValidatorVersion         string          `json:"validatorVersion"`
 	SourceSnapshotID         string          `json:"sourceSnapshotId"`
 	SourceManifestDigest     string          `json:"sourceManifestDigest"`
 	ContentKind              string          `json:"contentKind"`
 	TargetPlatformInstanceID string          `json:"targetPlatformInstanceId"`
-	PlatformInstanceVersion  int64           `json:"platformInstanceVersion"`
 	ProviderID               string          `json:"providerId"`
 	TargetID                 string          `json:"targetId"`
 	ContentPolicyDigest      string          `json:"contentPolicyDigest"`
@@ -40,45 +29,53 @@ type prepublishDigestInput struct {
 }
 
 func prepublishDigest(input prepublishDigestInput) string {
-	canonical, _ := json.Marshal(input)
+	canonical, err := json.Marshal(input)
+	if err != nil {
+		return ""
+	}
 	digest := sha256.Sum256(canonical)
 	return hex.EncodeToString(digest[:])
 }
 
-func prepublishDigestMatches(digest string, input prepublishDigestInput, legacyContentPolicies ...string) bool {
-	inputs := []prepublishDigestInput{input}
-	for _, policy := range legacyContentPolicies {
-		legacy := input
-		legacy.ContentPolicyDigest = legacyCompatibilityConfigDigest(policy)
-		if legacy.ContentPolicyDigest != input.ContentPolicyDigest {
-			inputs = append(inputs, legacy)
-		}
-	}
-	for _, candidate := range inputs {
-		for _, version := range []string{validatorImportV4, validatorReviewV4, validatorArcadeV4, validatorMultiV4} {
-			candidate.ValidatorVersion = version
-			if subtle.ConstantTimeCompare([]byte(digest), []byte(prepublishDigest(candidate))) == 1 {
-				return true
-			}
-		}
-	}
-	return false
+func prepublishDigestMatches(digest string, input prepublishDigestInput) bool {
+	return len(digest) == 64 && subtle.ConstantTimeCompare([]byte(digest), []byte(prepublishDigest(input))) == 1
 }
 
 func compatibilityConfigDigest(compatibility string) string {
 	var value any
 	if err := json.Unmarshal([]byte(compatibility), &value); err != nil {
-		return legacyCompatibilityConfigDigest(compatibility)
+		return ""
 	}
 	canonical, err := json.Marshal(value)
 	if err != nil {
-		return legacyCompatibilityConfigDigest(compatibility)
+		return ""
 	}
-	return legacyCompatibilityConfigDigest(string(canonical))
+	digest := sha256.Sum256(canonical)
+	return hex.EncodeToString(digest[:])
 }
 
-func legacyCompatibilityConfigDigest(compatibility string) string {
-	digest := sha256.Sum256([]byte(compatibility))
+// Validation depends on the selected content policy, not unrelated accepted kinds.
+func validationPolicyDigest(compatibility, contentKind string) string {
+	if !contentcapability.SupportsContentKind(compatibility, contentKind) {
+		return ""
+	}
+	var policy struct {
+		MultiDisc any `json:"multiDisc"`
+	}
+	if err := json.Unmarshal([]byte(compatibility), &policy); err != nil {
+		return ""
+	}
+	if contentKind != contentcapability.ModeMultiDisc {
+		policy.MultiDisc = nil
+	}
+	canonical, err := json.Marshal(struct {
+		ContentKind string `json:"contentKind"`
+		MultiDisc   any    `json:"multiDisc"`
+	}{ContentKind: contentKind, MultiDisc: policy.MultiDisc})
+	if err != nil {
+		return ""
+	}
+	digest := sha256.Sum256(canonical)
 	return hex.EncodeToString(digest[:])
 }
 
@@ -111,7 +108,7 @@ func preparedGroupContentKind(group preparedGroup) string {
 }
 
 type reviewValidationEvidence struct {
-	generation, platformVersion                                        int64
+	platformVersion                                                    int64
 	sourceSnapshotID, platformInstanceID, coreID, providerID, targetID string
 	manifestDigest, inputDigest, status, compatibilityCode             string
 	dependencyJSON                                                     string
@@ -128,7 +125,7 @@ func (service *Service) readReviewValidationEvidence(
 ) (reviewValidationEvidence, error) {
 	var value reviewValidationEvidence
 	err := service.database.QueryRowContext(ctx, `
-SELECT validation.prepublish_generation,validation.platform_instance_version,
+SELECT validation.platform_instance_version,
 validation.source_snapshot_id,
 validation.target_platform_instance_id,validation.core_id,validation.provider_id,validation.target_id,
 validation.source_manifest_digest,validation.prepublish_input_digest,validation.status,
@@ -137,7 +134,7 @@ validation.default_dos_entry,draft.default_dos_entry,
 (SELECT active.id FROM dat_versions active
  WHERE active.provider_id=validation.provider_id AND active.target_id=validation.target_id AND active.is_active=1),
 draft.effective_source_snapshot_id,draft.target_platform_instance_id,
-snapshot.source_manifest_digest,snapshot.content_kind,binding.core_id,platform.version,
+snapshot.source_manifest_digest,snapshot.content_kind,platform.default_core_id,platform.version,
 json_object(
  'schemaVersion',1,
  'supportedContentKinds',json((SELECT json_group_array(content_kind) FROM (
@@ -163,7 +160,7 @@ JOIN runtime_binding_platforms binding_platform ON binding_platform.binding_id=b
  AND binding_platform.platform_id=platform.platform_id
 WHERE validation.id=?
 `, validationID).Scan(
-		&value.generation, &value.platformVersion,
+		&value.platformVersion,
 		&value.sourceSnapshotID, &value.platformInstanceID, &value.coreID,
 		&value.providerID, &value.targetID,
 		&value.manifestDigest, &value.inputDigest, &value.status, &value.compatibilityCode,
@@ -183,8 +180,8 @@ func nullableStringsEqual(left, right sql.NullString) bool {
 }
 
 func (value reviewValidationEvidence) currentInput() (prepublishDigestInput, bool) {
-	current := value.generation == prepublishGeneration && value.sourceSnapshotID == value.draftSnapshotID &&
-		value.platformInstanceID == value.draftPlatformInstanceID && value.platformVersion == value.currentPlatformVersion &&
+	current := value.sourceSnapshotID == value.draftSnapshotID &&
+		value.platformInstanceID == value.draftPlatformInstanceID &&
 		value.coreID == value.currentCoreID && value.manifestDigest == value.snapshotManifestDigest &&
 		nullableStringsEqual(value.validationDAT, value.activeDAT) &&
 		nullableStringsEqual(value.validationDOS, value.draftDOS) &&
@@ -195,9 +192,9 @@ func (value reviewValidationEvidence) currentInput() (prepublishDigestInput, boo
 	return prepublishDigestInput{
 		SchemaVersion: 1, SourceSnapshotID: value.sourceSnapshotID,
 		SourceManifestDigest: value.manifestDigest, ContentKind: value.contentKind,
-		TargetPlatformInstanceID: value.platformInstanceID, PlatformInstanceVersion: value.platformVersion,
-		ProviderID: value.providerID, TargetID: value.targetID,
-		ContentPolicyDigest: compatibilityConfigDigest(value.contentPolicyJSON),
+		TargetPlatformInstanceID: value.platformInstanceID,
+		ProviderID:               value.providerID, TargetID: value.targetID,
+		ContentPolicyDigest: validationPolicyDigest(value.contentPolicyJSON, value.contentKind),
 		DATVersionID:        nullStringPointer(value.validationDAT),
 		DefaultDOSEntry:     nullStringPointer(value.validationDOS),
 		DependencySnapshot:  json.RawMessage(value.dependencyJSON), Status: value.status,
@@ -214,5 +211,5 @@ func (service *Service) ReviewValidationCurrent(ctx context.Context, validationI
 	if !current {
 		return false, nil
 	}
-	return prepublishDigestMatches(value.inputDigest, input, value.contentPolicyJSON), nil
+	return prepublishDigestMatches(value.inputDigest, input), nil
 }

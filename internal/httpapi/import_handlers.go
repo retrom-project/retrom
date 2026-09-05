@@ -172,10 +172,11 @@ func (server *Server) importMultiDiscItemSummaries(
 SELECT item.id,item.state,snapshot.content_kind,playlist.logical_name,upload.relative_path,
 count(entry.ordinal),coalesce(sum(entry.state='PRESENT'),0),coalesce(sum(entry.state='MISSING'),0)
 FROM import_items item
-JOIN import_item_source_snapshots snapshot ON snapshot.import_item_id=item.id
-AND snapshot.revision_no=(
-  SELECT max(candidate.revision_no) FROM import_item_source_snapshots candidate
-  WHERE candidate.import_item_id=item.id
+LEFT JOIN review_drafts draft ON draft.import_item_id=item.id
+JOIN import_item_source_snapshots snapshot ON snapshot.id=COALESCE(
+  draft.effective_source_snapshot_id,
+  (SELECT initial.id FROM import_item_source_snapshots initial
+   WHERE initial.import_item_id=item.id AND initial.created_by='IDENTIFICATION')
 )
 JOIN import_item_source_snapshot_files playlist ON playlist.source_snapshot_id=snapshot.id
 AND playlist.role='PLAYLIST_SOURCE'

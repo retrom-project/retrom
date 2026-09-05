@@ -20,7 +20,7 @@ func TestParseCatalogAndRejectImplementationFacts(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if catalog.SchemaVersion != 1 || catalog.CatalogVersion != 2 || len(catalog.Bindings) != 47 {
+	if catalog.SchemaVersion != 1 || len(catalog.Bindings) != 47 {
 		t.Fatalf("catalog = %#v", catalog)
 	}
 	for _, binding := range catalog.Bindings {
@@ -31,11 +31,31 @@ func TestParseCatalogAndRejectImplementationFacts(t *testing.T) {
 			t.Fatalf("RPG generation leaked as Product Core: %#v", binding)
 		}
 	}
-	changed := strings.Replace(string(contents), `"catalogVersion": 2`,
-		`"catalogVersion": 2, "adapterId": "leaked"`, 1)
+	changed := strings.Replace(string(contents), `"schemaVersion": 1`,
+		`"schemaVersion": 1, "adapterId": "leaked"`, 1)
 	_, err = ParseCatalog([]byte(changed))
 	if !errors.Is(err, ErrCatalogInvalid) {
 		t.Fatalf("unknown field error = %v", err)
+	}
+}
+
+func TestCatalogRejectsUnregisteredHostStrategies(t *testing.T) {
+	contents, err := os.ReadFile(filepath.Join("..", "..", "data", "runtime-target-bindings", "v1", "catalog.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, replacement := range []struct{ from, to string }{
+		{`"detectorProfile": "EMULATORJS_SINGLE_FILE"`, `"detectorProfile": "UNKNOWN_DETECTOR"`},
+		{`"deliveryProfile": "EMULATORJS_CONTENT"`, `"deliveryProfile": "UNKNOWN_DELIVERY"`},
+		{`"requiredLayoutVersion": "mkxpz-v1"`, `"requiredLayoutVersion": "unknown-layout"`},
+	} {
+		changed := strings.Replace(string(contents), replacement.from, replacement.to, 1)
+		if changed == string(contents) {
+			t.Fatal("fixture replacement missed")
+		}
+		if _, err := ParseCatalog([]byte(changed)); err == nil {
+			t.Errorf("unregistered strategy accepted: %s", replacement.to)
+		}
 	}
 }
 

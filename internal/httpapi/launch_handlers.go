@@ -289,7 +289,7 @@ func (server *Server) launchConfig(writer http.ResponseWriter, request *http.Req
 		capability,
 	)
 	productErr := err
-	if err != nil {
+	if errors.Is(err, launch.ErrCredential) {
 		configuration, err = server.launcher.ReviewPreviewConfig(
 			request.Context(), request.PathValue("launchId"), capability,
 		)
@@ -297,6 +297,10 @@ func (server *Server) launchConfig(writer http.ResponseWriter, request *http.Req
 	if err != nil {
 		slog.WarnContext(request.Context(), "launch configuration unavailable",
 			"launchId", request.PathValue("launchId"), "productError", productErr, "previewError", err)
+		if !errors.Is(err, launch.ErrCredential) {
+			server.databaseError(writer, request, err)
+			return
+		}
 		writeError(writer, request, http.StatusUnauthorized, "LAUNCH_CREDENTIAL_INVALID", "启动会话不可用", map[string]any{})
 		return
 	}

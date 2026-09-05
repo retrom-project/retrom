@@ -458,17 +458,19 @@ func validateObservedEvidence(contents json.RawMessage) (json.RawMessage, *rpgva
 	return canonical, nil, nil
 }
 
+type checkpointEvidence struct {
+	CheckpointFormat string `json:"checkpointFormat"`
+	SizeBytes        int64  `json:"sizeBytes"`
+	SHA256           string `json:"sha256"`
+}
+
 func (service *Service) validateCheckpointEvidence(
 	ctx context.Context,
 	transaction *sql.Tx,
 	validationID string,
 	contents json.RawMessage,
 ) (json.RawMessage, *rpgvalidation.Position, error) {
-	var evidence struct {
-		CheckpointFormat string `json:"checkpointFormat"`
-		SizeBytes        int64  `json:"sizeBytes"`
-		SHA256           string `json:"sha256"`
-	}
+	var evidence checkpointEvidence
 	canonical, err := canonicalEvidence(contents, &evidence)
 	if err != nil {
 		return nil, nil, ErrProtocol

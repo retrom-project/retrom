@@ -16,7 +16,6 @@ from runtime_provider_bundle import (
 )
 from runtime_providers import (
     check_active_providers,
-    check_active_providers_for_upgrade,
     pin_provider_release,
     prepare_candidate_providers,
     prepare_production_providers,
@@ -174,25 +173,18 @@ class RuntimeProviderInstallerTest(unittest.TestCase):
             [{"format": "state-v1", "providerId": "fixture", "targetId": "fixture"}],
         )
 
-    def test_legacy_active_base_is_fully_verified_only_as_an_upgrade_source(self):
+    def test_retired_manifest_is_rejected_even_when_preparing_an_upgrade(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             active_path, installed_root, legacy = legacy_active_fixture(root)
 
             with self.assertRaises(ValueError):
                 check_active_providers(active_path, installed_root, "candidate")
-            current = check_active_providers_for_upgrade(active_path, installed_root, "candidate")
-            self.assertEqual(current, legacy)
-            verify_provider_upgrade(
-                current,
-                active_fixture(version="1.1.0", bundle="b", read_formats=["state-v1"]),
-                [],
-            )
 
             installed = installed_root / legacy["providers"][0]["installationPath"]
             (installed / "client.mjs").write_text("tampered\n", encoding="utf-8")
             with self.assertRaisesRegex(ValueError, "PROVIDER_INTEGRITY_INVALID"):
-                check_active_providers_for_upgrade(active_path, installed_root, "candidate")
+                check_active_providers(active_path, installed_root, "candidate")
 
     def test_pins_release_then_prepares_from_a_verified_offline_cache(self):
         with tempfile.TemporaryDirectory() as temporary:

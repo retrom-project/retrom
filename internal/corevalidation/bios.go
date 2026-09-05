@@ -17,6 +17,11 @@ import (
 const SnapshotSchemaVersion = 1
 
 const (
+	SnapshotKindStatic = "STATIC"
+	SnapshotKindArcade = "ARCADE"
+)
+
+const (
 	MultiDiscContentKind   = "MULTI_DISC"
 	MultiDiscParserVersion = "RETROM_MULTIDISC_M3U_V1"
 	MultiDiscDelivery      = "EAGER_EXTERNAL_FILES"
@@ -66,12 +71,14 @@ type MultiDiscSnapshot struct {
 
 type Snapshot struct {
 	SchemaVersion int                `json:"schemaVersion"`
+	Kind          string             `json:"kind"`
 	BIOS          []BIOSDependency   `json:"bios"`
 	MultiDisc     *MultiDiscSnapshot `json:"multiDisc,omitempty"`
 }
 
 type arcadeRuntimeSnapshot struct {
 	SchemaVersion     int               `json:"schemaVersion"`
+	Kind              string            `json:"kind"`
 	Machine           string            `json:"machine"`
 	DATVersionID      string            `json:"datVersionId"`
 	Closure           []json.RawMessage `json:"closure"`
@@ -119,7 +126,7 @@ ORDER BY logical_name,id
 }
 
 // ResolveBIOS returns the exact applicable static BIOS dependency set. Its
-// ordered JSON is suitable for immutable revision evidence and digest input.
+// ordered JSON is suitable for immutable validation evidence and digest input.
 func ResolveBIOS(
 	ctx context.Context,
 	database Queryer,
@@ -141,7 +148,7 @@ ORDER BY q.logical_name,q.id
 		return Snapshot{}, "BLOCKED", "LAUNCH_CORE_VALIDATION_UNAVAILABLE", fmt.Errorf("corevalidation/bios: %w", err)
 	}
 	defer func() { cleanup.Error("close", rows.Close()) }()
-	snapshot := Snapshot{SchemaVersion: SnapshotSchemaVersion, BIOS: make([]BIOSDependency, 0)}
+	snapshot := Snapshot{SchemaVersion: SnapshotSchemaVersion, Kind: SnapshotKindStatic, BIOS: make([]BIOSDependency, 0)}
 	status, code := "READY", "READY"
 	for rows.Next() {
 		dependency, applies, validInstallation, scanErr := scanBIOSDependency(rows, contentLogicalName)
@@ -220,26 +227,24 @@ func ParseSnapshot(raw string) (Snapshot, error) {
 	return snapshot, nil
 }
 
-// ParseRuntimeBIOSDependencies accepts both dependency snapshot families that
-// can back a published variant. Static BIOS and multi-disc revisions use the
-// schema-v1 snapshot. Arcade revisions use a schema-v2 DAT closure whose
-// parent and BIOS files are already frozen as variant files, so it contributes
-// no external static BIOS dependencies at launch time.
+// ParseRuntimeBIOSDependencies dispatches current snapshots by semantic kind.
+// Arcade closure files are frozen in the variant, not external static BIOS.
 func ParseRuntimeBIOSDependencies(raw string) ([]BIOSDependency, error) {
 	var envelope struct {
-		SchemaVersion int `json:"schemaVersion"`
+		SchemaVersion int    `json:"schemaVersion"`
+		Kind          string `json:"kind"`
 	}
-	if err := json.Unmarshal([]byte(raw), &envelope); err != nil {
+	if err := json.Unmarshal([]byte(raw), &envelope); err != nil || envelope.SchemaVersion != SnapshotSchemaVersion {
 		return nil, ErrInvalidSnapshot
 	}
-	switch envelope.SchemaVersion {
-	case SnapshotSchemaVersion:
+	switch envelope.Kind {
+	case SnapshotKindStatic:
 		snapshot, err := ParseSnapshot(raw)
 		if err != nil {
 			return nil, err
 		}
 		return snapshot.BIOS, nil
-	case 2:
+	case SnapshotKindArcade:
 		var snapshot arcadeRuntimeSnapshot
 		decoder := json.NewDecoder(strings.NewReader(raw))
 		decoder.DisallowUnknownFields()
@@ -253,13 +258,14 @@ func ParseRuntimeBIOSDependencies(raw string) ([]BIOSDependency, error) {
 }
 
 func validArcadeRuntimeSnapshot(snapshot arcadeRuntimeSnapshot) bool {
-	return snapshot.SchemaVersion == 2 && snapshot.Machine != "" && snapshot.DATVersionID != "" &&
+	return snapshot.SchemaVersion == SnapshotSchemaVersion && snapshot.Kind == SnapshotKindArcade &&
+		snapshot.Machine != "" && snapshot.DATVersionID != "" &&
 		snapshot.Closure != nil && snapshot.Dependencies != nil && snapshot.MissingEntries != nil &&
 		snapshot.MismatchedEntries != nil && snapshot.Warnings != nil
 }
 
 func validSnapshot(snapshot Snapshot) bool {
-	if snapshot.SchemaVersion != SnapshotSchemaVersion || snapshot.BIOS == nil {
+	if snapshot.SchemaVersion != SnapshotSchemaVersion || snapshot.Kind != SnapshotKindStatic || snapshot.BIOS == nil {
 		return false
 	}
 	if snapshot.MultiDisc == nil {
@@ -327,7 +333,7 @@ func ProviderValidationInputDigest(
 		"targetId":             targetID,
 		"datVersionId":         nullableSQLString(datID),
 		"gameId":               gameID,
-		"schemaVersion":        4,
+		"schemaVersion":        1,
 	})
 	if err != nil {
 		return "", fmt.Errorf("corevalidation/digest input: %w", err)
@@ -336,7 +342,7 @@ func ProviderValidationInputDigest(
 	return hex.EncodeToString(digest[:]), nil
 }
 
-const MultiDiscValidationSchema = "RETROM_VARIANT_VALIDATION_INPUT_V4"
+const MultiDiscValidationSchema = 1
 
 type MultiDiscValidationInput struct {
 	GameVariantID           string
@@ -357,7 +363,9 @@ func ContentPolicyDigest(raw string) string {
 }
 
 func BIOSDependencyDigest(snapshot Snapshot) (string, error) {
-	encoded, err := json.Marshal(Snapshot{SchemaVersion: SnapshotSchemaVersion, BIOS: snapshot.BIOS})
+	encoded, err := json.Marshal(Snapshot{
+		SchemaVersion: SnapshotSchemaVersion, Kind: SnapshotKindStatic, BIOS: snapshot.BIOS,
+	})
 	if err != nil {
 		return "", fmt.Errorf("corevalidation/bios digest: %w", err)
 	}
@@ -372,7 +380,7 @@ func MultiDiscValidationInputDigest(input MultiDiscValidationInput) (string, err
 	ordered := make([]string, len(input.OrderedDiscSHA256))
 	copy(ordered, input.OrderedDiscSHA256)
 	canonical, err := json.Marshal(struct {
-		SchemaVersion           string   `json:"schemaVersion"`
+		SchemaVersion           int      `json:"schemaVersion"`
 		GameVariantID           string   `json:"gameVariantId"`
 		GameID                  string   `json:"gameId"`
 		ContentKind             string   `json:"contentKind"`

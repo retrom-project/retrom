@@ -109,7 +109,7 @@ func completeRPGMakerHTTPUpload(
 		})
 	}
 	upload, err := server.uploads.Create(ctx, uploads.CreateRequest{
-		Purpose: "RPG_MAKER_PROJECT", SourceType: "DIRECTORY", Files: declarations,
+		Purpose: "PROJECT", SourceType: "DIRECTORY", Files: declarations,
 	})
 	testassert.False(t, err != nil, err)
 	for index, file := range files {

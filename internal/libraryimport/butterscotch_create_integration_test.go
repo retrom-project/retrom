@@ -46,7 +46,7 @@ func TestCreateButterscotchArchiveReachesTrialRequiredReview(t *testing.T) {
 	archive := butterscotchProjectArchive(t)
 	uploadService := uploads.New(database.SQL, blobs, dataDir, time.Now)
 	upload, err := uploadService.Create(ctx, uploads.CreateRequest{
-		Purpose: "BUTTERSCOTCH_PROJECT", SourceType: "FILES",
+		Purpose: "PROJECT", SourceType: "FILES",
 		Files: []uploads.FileDeclaration{{
 			ClientFileID: "butterscotch", RelativePath: "fixture.zip", SizeBytes: int64(len(archive)),
 		}},

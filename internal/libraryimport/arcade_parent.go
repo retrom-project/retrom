@@ -242,24 +242,22 @@ WHERE item.id=?
 func (setup *parentAttachmentSetup) validateSelectedValidation() error {
 	var targetID, snapshotID, coreID, providerID, runtimeTargetID string
 	var datID sql.NullString
-	var platformVersion, generation int64
 	var dependencyJSON string
 	err := setup.transaction.QueryRowContext(setup.ctx, `
-SELECT target_platform_instance_id,platform_instance_version,core_id,provider_id,target_id,
-  prepublish_generation,dat_version_id,source_snapshot_id,
+SELECT target_platform_instance_id,core_id,provider_id,target_id,
+  dat_version_id,source_snapshot_id,
   dependency_snapshot_json
 FROM import_item_core_validations
 WHERE id=? AND import_item_id=?
 `, setup.request.ValidationID, setup.itemID).Scan(
-		&targetID, &platformVersion, &coreID, &providerID, &runtimeTargetID,
-		&generation, &datID, &snapshotID, &dependencyJSON,
+		&targetID, &coreID, &providerID, &runtimeTargetID,
+		&datID, &snapshotID, &dependencyJSON,
 	)
 	if err != nil {
 		return parentError(ParentErrorInputStale, err)
 	}
 	if !setup.validationMatches(
 		targetID, snapshotID, coreID, providerID, runtimeTargetID, datID,
-		platformVersion, generation,
 	) {
 		return parentError(ParentErrorInputStale, ErrInvalid)
 	}
@@ -284,12 +282,11 @@ WHERE id=? AND import_item_id=?
 func (setup *parentAttachmentSetup) validationMatches(
 	targetID, snapshotID, coreID, providerID, runtimeTargetID string,
 	datID sql.NullString,
-	platformVersion, generation int64,
 ) bool {
-	return targetID == setup.targetID && platformVersion == setup.platformVersion &&
+	return targetID == setup.targetID &&
 		coreID == setup.coreID && providerID == setup.providerID && runtimeTargetID == setup.runtimeTargetID &&
 		snapshotID == setup.effectiveSnapshotID &&
-		generation == prepublishGeneration && datID.Valid && datID.String == setup.activeDATID.String
+		datID.Valid && datID.String == setup.activeDATID.String
 }
 
 func (setup *parentAttachmentSetup) loadUpload() error {
@@ -365,7 +362,7 @@ func (setup *parentAttachmentSetup) input(attachmentID string) parentAttachmentI
 		SchemaVersion: 1, AttachmentID: attachmentID, ImportItemID: setup.itemID,
 		ReviewDraftID: setup.draftID, BaseSourceSnapshotID: setup.effectiveSnapshotID,
 		DependencyMachine: setup.dependency.Machine, ProviderID: setup.providerID,
-		TargetID: setup.runtimeTargetID, ContentPolicyDigest: compatibilityConfigDigest(setup.contentPolicyJSON),
+		TargetID: setup.runtimeTargetID, ContentPolicyDigest: validationPolicyDigest(setup.contentPolicyJSON, "SINGLE_FILE"),
 		DATVersionID: setup.activeDATID.String, UploadFileID: setup.request.UploadFileID,
 	}
 }

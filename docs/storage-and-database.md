@@ -117,9 +117,9 @@ PRAGMA busy_timeout = 5000;
 
 ### 3.1 clean migration lineage
 
-当前基线包含 `001_identity.sql` 至 `012_runtime_provider_current_state.sql`。`011` 以前向方式修正 EmulationStation 条目状态机；`012` 是发布前唯一允许的结构性单向升级，把完整 001–011 的 metadata/content/Variant revision 树与 Target contract hash 原子折叠为 current-state Game/File/Variant 和 Provider-owned Target declaration。升级使用受 migration runner 管理的外键关闭窗口、单事务 copy/swap、`foreign_key_check` 与 checksum 记录；成功后不提供降级或旧表双读。`store.Open` 在任何 schema 写入前只读检查 `schema_migrations`，只接受不存在/真正空的数据库、与当前文件逐项同名同 checksum 的有序前缀，以及完整当前 lineage。前缀用于同一 bootstrap 在进程中断后继续，也用于当前二进制将完整旧前缀单向升级到最新版本；已应用 migration 不得改写。名称或 checksum 漂移、空洞、未知/future 记录、没有 migration 记录却已有业务表统一只读拒绝，不执行运行时修补或迁移文件之外的数据回填。
+当前未发布基线包含 `001_identity.sql` 至 `010_cross_domain_invariants.sql`，直接创建 current-state Game/File/Variant 和 Provider-owned Target declaration，以及最终的 EmulationStation 状态机、索引与约束。不存在旧 revision 表、转换迁移或外键关闭窗口；每步建表/索引/trigger 与 checksum 记录同事务提交，外键始终开启。`store.Open` 在任何 schema 写入前只读检查 `schema_migrations`，只接受不存在/真正空的数据库、与当前文件逐项同名同 checksum 的有序前缀，以及完整当前 lineage。前缀只用于当前 bootstrap 中断后的续跑，不代表旧开发 schema 的升级兼容。名称或 checksum 漂移、空洞、未知/future 记录、没有 migration 记录却已有业务表统一只读拒绝，不执行运行时修补或迁移文件之外的数据回填。
 
-项目首次发布前如发现非当前 lineage 的开发数据库，操作者必须为当前版本配置全新空数据根；程序不提供转换器、双写或隐式导入页面。仓库 `make dev` 的默认根为 `.dev-data/data`；测试与每个验收 Case 使用独立临时 data root 并在结束时删除。首次公开发布后，已发布 migration 才进入只追加纪律。
+项目首次发布前遇到不兼容开发数据库，必须停机归档旧数据并使用全新空数据根；PFB 使用 exact ID 的 `pfb-data-reset`，归档整个旧 `data/`，保留 Provider/依赖/构建缓存、ID 和 URL。程序不提供转换器、双写或隐式导入页面，也不得把旧 DB/CAS 拆开混入新库。仓库 `make dev` 的默认根为 `.dev-data/data`；测试与每个验收 Case 使用独立临时 data root 并在结束时删除。首次公开发布后，已发布 migration 才进入只追加纪律。
 
 ## 4. 表目录
 

@@ -75,6 +75,21 @@ VALUES('pack','Music/b.wav',1,'pack-blob',10,?)`, strings.Repeat("b", 64))
 		"READY pack accepted new file: %v", err)
 }
 
+func TestTerminalReviewReleasesTemporaryCheckpointButKeepsBlobEvidence(t *testing.T) {
+	database := openRPGMakerSchemaDatabase(t)
+	t.Cleanup(func() { _ = database.Close() })
+	preparePositionValidation(t, database)
+	insertValidationCheckpoint(t, database)
+	mustExecRPGSchema(t, database, `UPDATE rpgmaker_runtime_validations SET state='FAILED',failure_code='TEST_ABORT',updated_at_ms=3 WHERE id=?1`, rpgSchemaValidation)
+	var checkpoints, blobs int
+	if err := database.QueryRowContext(t.Context(), `SELECT (SELECT count(*) FROM rpgmaker_runtime_validation_checkpoints),(SELECT count(*) FROM blobs WHERE id='checkpoint-blob')`).Scan(&checkpoints, &blobs); err != nil {
+		t.Fatal(err)
+	}
+	if checkpoints != 0 || blobs != 1 {
+		t.Fatalf("temporary references=%d CAS evidence=%d", checkpoints, blobs)
+	}
+}
+
 func TestRuntimeValidationEnforcesInitialSaveRestoreAndPostRestoreInputPositions(t *testing.T) {
 	t.Parallel()
 	database := openRPGMakerSchemaDatabase(t)
@@ -142,6 +157,7 @@ func openRPGMakerSchemaDatabase(t *testing.T) *sql.DB {
 	database, err := Open(t.Context(), filepath.Join(t.TempDir(), "retrom.db"), time.Now)
 	testassert.Falsef(t, err != nil, "Open() error = %v", err)
 	testassert.False(t, database.ReadOnly.Close() != nil, "close schema fixture read pool")
+	seedSchemaProductDefinitions(t, database.SQL)
 	return database.SQL
 }
 
@@ -175,7 +191,7 @@ INSERT INTO platform_instances(
 	mustExecRPGSchema(t, database, `
 INSERT INTO upload_sessions(
  id,purpose,state,source_type,total_files,total_bytes,manifest_digest,expires_at_ms,created_at_ms,updated_at_ms
-) VALUES('upload','RPG_MAKER_PROJECT','COMPLETE','DIRECTORY',1,10,?1,1000000,1,1)`, strings.Repeat("1", 64))
+) VALUES('upload','PROJECT','COMPLETE','DIRECTORY',1,10,?1,1000000,1,1)`, strings.Repeat("1", 64))
 	mustExecRPGSchema(t, database, `
 INSERT INTO import_jobs(
  id,upload_session_id,target_platform_instance_id,platform_instance_version,platform_id,default_core_id,
@@ -192,8 +208,8 @@ INSERT INTO import_items(
 		strings.Repeat("5", 64) + `"}`
 	mustExecRPGSchema(t, database, `
 INSERT INTO import_item_source_snapshots(
- id,import_item_id,revision_no,content_kind,source_manifest_json,source_manifest_digest,created_by,created_at_ms
-) VALUES('snapshot','item',1,'RPG_MAKER_PROJECT',?1,?2,'IDENTIFICATION',1)`,
+ id,import_item_id,content_kind,source_manifest_json,source_manifest_digest,created_by,created_at_ms
+) VALUES('snapshot','item','RPG_MAKER_PROJECT',?1,?2,'IDENTIFICATION',1)`,
 		manifest, strings.Repeat("6", 64))
 	mustExecRPGSchema(t, database, `
 INSERT INTO review_drafts(

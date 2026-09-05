@@ -34,6 +34,7 @@ func openEmulationStationSchemaFixture(t *testing.T) emulationStationSchemaFixtu
 	})
 	testassert.False(t, err != nil, err)
 	t.Cleanup(func() { cleanup.Error("close", database.Close()) })
+	seedSchemaProductDefinitions(t, database.SQL)
 	fixture := emulationStationSchemaFixture{
 		database: database,
 		importID: "00000000-0000-7000-8000-000000000001",

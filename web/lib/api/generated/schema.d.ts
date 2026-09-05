@@ -3772,8 +3772,8 @@ export interface components {
             sequence: number;
             reason: components["schemas"]["CheckpointUnavailableReason"] | null;
         };
-        /** @enum {string} */
-        RuntimeAssetPackKind: "RPG2000_RTP" | "RPG2003_RTP" | "RGSS1_RTP_STANDARD" | "RGSS2_RTP_RPGVX" | "RGSS3_RTP_RPGVXAce" | "RGSS_CUSTOM_RTP";
+        /** @description Product-defined classification; installation selects a stable definitionId, not this label. */
+        RuntimeAssetPackKind: string;
         RuntimeTargetAdminItem: {
             providerId: string;
             providerVersion: string;
@@ -3843,16 +3843,16 @@ export interface components {
             definitions: components["schemas"]["RuntimeAssetPackDefinition"][];
             installations: components["schemas"]["RuntimeAssetPackInstallation"][];
         };
-        /** @description generation and declaredName are both required exactly for RGSS_CUSTOM_RTP and must both be omitted for built-in kinds; sourceNote is optional and may be empty. */
+        /** @description Select an enabled definitionId, or create a custom RGSS definition with generation and declaredName. The two forms are mutually exclusive. No engine-specific pack kind is accepted. */
         InstallRuntimeAssetPackRequest: {
             /** Format: uuid */
             uploadId: string;
-            kind: components["schemas"]["RuntimeAssetPackKind"];
+            definitionId?: string;
             generation?: components["schemas"]["RpgGeneration"];
             declaredName?: string;
             /** @description The server also enforces NFC, at most 2,000 UTF-8 bytes, Unicode-whitespace trim and the validation-note control-character denylist; an empty value is allowed. */
             sourceNote?: string;
-        };
+        } & (unknown | unknown);
         RuntimeAssetPackInstallAccepted: {
             /** Format: uuid */
             installationId: string;
@@ -4076,11 +4076,11 @@ export interface components {
         };
         CreateUploadRequest: {
             /**
-             * @description GENERAL preserves ordinary uploads; project and runtime-pack purposes are consumed only by their matching operation.
+             * @description GENERAL is an ordinary import, PROJECT is an engine-independent project input, and RUNTIME_ASSET_PACK is reserved for pack installation. Engine and archive validation occurs in the selected import strategy, not the upload transport.
              * @default GENERAL
              * @enum {string}
              */
-            purpose: "GENERAL" | "RPG_MAKER_PROJECT" | "ONS_PROJECT" | "KIRIKIRI_PROJECT" | "BUTTERSCOTCH_PROJECT" | "TYRANOSCRIPT_PROJECT" | "RUNTIME_ASSET_PACK";
+            purpose: "GENERAL" | "PROJECT" | "RUNTIME_ASSET_PACK";
             /** @enum {string} */
             sourceType: "FILES" | "DIRECTORY";
             files: {
@@ -5564,7 +5564,6 @@ export interface components {
             selectedAssets?: unknown;
             selectedCandidateId?: unknown;
             selectedValidationId?: unknown;
-            selectedValidationGeneration?: unknown;
             sequence?: unknown;
             sha1?: unknown;
             sha256?: unknown;

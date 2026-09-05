@@ -65,17 +65,6 @@ func (service *Service) closeItemWithFailure(
 			encodedFailure = string(encoded)
 		}
 	}
-	setExisting := any(nil)
-	var revision any
-	if existingGameID != "" {
-		setExisting = existingGameID
-		var value string
-		if err := service.database.QueryRowContext(
-			ctx, `SELECT id FROM games WHERE id=?`, existingGameID,
-		).Scan(&value); err == nil {
-			revision = value
-		}
-	}
 	transaction, err := service.database.BeginTx(ctx, nil)
 	if err != nil {
 		return
@@ -87,15 +76,13 @@ func (service *Service) closeItemWithFailure(
 SET execution_state=?,error_code=?,retryable=?,
 error_details_json=?,
 existing_game_id=COALESCE(?,existing_game_id),
-existing_game_id=COALESCE(?,existing_game_id),
 completed_at_ms=?,version=version+1,updated_at_ms=?
 WHERE id=? AND execution_state IN ('COPYING','VALIDATING')`,
 		state,
 		nullIfEmpty(code),
 		boolInt(retryable),
 		encodedFailure,
-		setExisting,
-		revision,
+		nullIfEmpty(existingGameID),
 		now,
 		now,
 		itemID,

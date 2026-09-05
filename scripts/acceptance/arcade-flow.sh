@@ -223,7 +223,7 @@ if [[ "$dependency_mode" == "mame" ]]; then
     .validation
     | select(.status == "READY" and .current == true)
     | .dependencySnapshot
-    | select(.schemaVersion == 2 and .datVersionId == $datVersionId and (has("bios") | not))
+    | select(.schemaVersion == 1 and .kind == "ARCADE" and .datVersionId == $datVersionId and (has("bios") | not))
     | ([.dependencies[] | select(.kind == "PARENT" and .machine == "puckman" and .state == "SATISFIED_EXTERNAL")] | length == 1)
       and ([.dependencies[] | select(.kind == "BIOS_OR_BASE" and .machine == "retrombios" and .state == "SATISFIED_EXTERNAL")] | length == 1)
   ' <<<"$review_detail" >/dev/null
@@ -232,7 +232,7 @@ elif [[ "$dependency_mode" == "cps2-parent" ]]; then
     .validation
     | select(.status == "READY" and .current == true)
     | .dependencySnapshot
-    | select(.schemaVersion == 2 and .datVersionId == $datVersionId and (has("bios") | not))
+    | select(.schemaVersion == 1 and .kind == "ARCADE" and .datVersionId == $datVersionId and (has("bios") | not))
     | ([.dependencies[] | select(.kind == "PARENT" and .machine == "spf2t" and .state == "SATISFIED_EXTERNAL")] | length == 1)
       and ([.dependencies[] | select(.kind == "BIOS_OR_BASE")] | length == 0)
   ' <<<"$review_detail" >/dev/null
@@ -241,7 +241,7 @@ else
     .validation
     | select(.status == "READY" and .current == true)
     | .dependencySnapshot
-    | select(.schemaVersion == 2 and .datVersionId == $datVersionId and (has("bios") | not))
+    | select(.schemaVersion == 1 and .kind == "ARCADE" and .datVersionId == $datVersionId and (has("bios") | not))
     | select(.dependencies | length == 0)
   ' <<<"$review_detail" >/dev/null
 fi
@@ -295,7 +295,7 @@ assert_game_detail_uses_arcade_snapshot() {
       .variants[]
       | select(.coreId == $coreId and .status == "READY" and .datVersionId == $datVersionId)
       | .dependencySnapshot
-      | select(.schemaVersion == 2 and .datVersionId == $datVersionId and (has("bios") | not))
+      | select(.schemaVersion == 1 and .kind == "ARCADE" and .datVersionId == $datVersionId and (has("bios") | not))
       | ([.dependencies[] | select(.kind == "PARENT" and .machine == "puckman" and .state == "SATISFIED_EXTERNAL")] | length == 1)
         and ([.dependencies[] | select(.kind == "BIOS_OR_BASE" and .machine == "retrombios" and .state == "SATISFIED_EXTERNAL")] | length == 1)
     ' <<<"$admin_game" >/dev/null
@@ -306,7 +306,7 @@ assert_game_detail_uses_arcade_snapshot() {
       .variants[]
       | select(.coreId == $coreId and .status == "READY" and .datVersionId == $datVersionId)
       | .dependencySnapshot
-      | select(.schemaVersion == 2 and .datVersionId == $datVersionId and (has("bios") | not))
+      | select(.schemaVersion == 1 and .kind == "ARCADE" and .datVersionId == $datVersionId and (has("bios") | not))
       | ([.dependencies[] | select(.kind == "PARENT" and .machine == "spf2t" and .state == "SATISFIED_EXTERNAL")] | length == 1)
         and ([.dependencies[] | select(.kind == "BIOS_OR_BASE")] | length == 0)
     ' <<<"$admin_game" >/dev/null
@@ -316,7 +316,7 @@ assert_game_detail_uses_arcade_snapshot() {
     .variants[]
     | select(.coreId == $coreId and .status == "READY" and .datVersionId == $datVersionId)
     | .dependencySnapshot
-    | select(.schemaVersion == 2 and .datVersionId == $datVersionId and (has("bios") | not))
+    | select(.schemaVersion == 1 and .kind == "ARCADE" and .datVersionId == $datVersionId and (has("bios") | not))
     | select(.dependencies | length == 0)
   ' <<<"$admin_game" >/dev/null
 }
@@ -376,7 +376,7 @@ result="$(jq -nc \
   --arg status "PASSED" --arg fixtureId "$fixture_id" --arg coreId "$core_id" --arg initialLaunchStatus "$initial_launch_status" \
   --arg datVersionId "$dat_version_id" --arg importJobId "$import_id" --arg platformInstanceId "$platform_instance_id" \
   --arg gameId "$game_id" --arg launchId "$launch_id" --arg fixtureSha256 "$fixture_sha256" --arg evidenceDirectory "$evidence" \
-  '{status:$status,fixtureId:$fixtureId,coreId:$coreId,reviewDependencySnapshotSchemaVersion:2,initialLaunchStatus:$initialLaunchStatus,datVersionId:$datVersionId,importJobId:$importJobId,platformInstanceId:$platformInstanceId,gameId:$gameId,launchId:$launchId,fixtureSha256:$fixtureSha256,evidenceDirectory:$evidenceDirectory}' \
+  '{status:$status,fixtureId:$fixtureId,coreId:$coreId,reviewDependencySnapshotSchemaVersion:1,reviewDependencySnapshotKind:"ARCADE",initialLaunchStatus:$initialLaunchStatus,datVersionId:$datVersionId,importJobId:$importJobId,platformInstanceId:$platformInstanceId,gameId:$gameId,launchId:$launchId,fixtureSha256:$fixtureSha256,evidenceDirectory:$evidenceDirectory}' \
 )"
 printf '%s\n' "$result" | tee "$evidence/result.json"
 if [[ -n "${RETROM_ACCEPTANCE_RESULT_FILE:-}" ]]; then

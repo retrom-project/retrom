@@ -167,7 +167,7 @@ func seedFirmwareReplacementLifecycle(
 	screenshotBlobID := ensureFirmwareBlob(t, ctx, database, blobs, []byte("firmware-save-screenshot"))
 	now := time.Now().UnixMilli()
 	snapshot := fmt.Sprintf(
-		`{"schemaVersion":1,"bios":[{"installationId":%q,"blobId":%q}]}`,
+		`{"schemaVersion":1,"kind":"STATIC","bios":[{"installationId":%q,"blobId":%q}]}`,
 		installationID, biosBlobID,
 	)
 	statePayload := []byte("firmware-save-state")

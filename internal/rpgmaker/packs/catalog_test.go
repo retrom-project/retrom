@@ -61,14 +61,14 @@ func TestNormalizeCustomDefinitionRequestUsesNFCAndRejectsControls(t *testing.T)
 	generation := "RPGXP"
 	name := "  Cafe\u0301  "
 	request, err := normalizeCustomDefinitionRequest(InstallRequest{
-		Kind: "RGSS_CUSTOM_RTP", Generation: &generation, DeclaredName: &name,
+		Generation: &generation, DeclaredName: &name,
 	})
 	if err != nil || *request.DeclaredName != "Café" {
 		t.Fatalf("normalized custom name = %#v, error=%v", request.DeclaredName, err)
 	}
 	invalid := "bad\u0007name"
 	if _, err := normalizeCustomDefinitionRequest(InstallRequest{
-		Kind: "RGSS_CUSTOM_RTP", Generation: &generation, DeclaredName: &invalid,
+		Generation: &generation, DeclaredName: &invalid,
 	}); !errors.Is(err, ErrInvalid) {
 		t.Fatalf("control custom name error = %v", err)
 	}

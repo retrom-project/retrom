@@ -75,7 +75,7 @@ async function runProductCase(activeBrowser) {
     const client = createProductClient(context, baseUrl, login.csrfToken);
     const platformInstanceId = await butterscotchPlatformInstance(client);
     const uploadId = await client.upload(
-      singleFile(process.env.RETROM_BUTTERSCOTCH_SMOKE_ARCHIVE), "FILES", "BUTTERSCOTCH_PROJECT",
+      singleFile(process.env.RETROM_BUTTERSCOTCH_SMOKE_ARCHIVE), "FILES", "PROJECT",
     );
     const importedResponse = await client.raw("POST", "/api/v1/admin/imports", {
       headers: client.writeHeaders(), timeout: 120_000,

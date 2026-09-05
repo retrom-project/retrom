@@ -246,32 +246,8 @@ func validateCreationUpload(contentMode, sourceType, purpose string) error {
 	if contentMode == contentcapability.ModeMultiDisc && sourceType != "DIRECTORY" {
 		return ErrMultiDiscModeUnavailable
 	}
-	if contentMode == contentcapability.ModeRPGMakerProject {
-		if purpose != "RPG_MAKER_PROJECT" && purpose != "GENERAL" {
-			return ErrInvalid
-		}
-		return nil
-	}
-	if contentMode == contentcapability.ModeONSProject {
-		if purpose != "ONS_PROJECT" {
-			return ErrInvalid
-		}
-		return nil
-	}
-	if contentMode == contentcapability.ModeKiriKiriProject {
-		if purpose != "KIRIKIRI_PROJECT" {
-			return ErrInvalid
-		}
-		return nil
-	}
-	if contentMode == contentcapability.ModeButterscotchProject {
-		if purpose != "BUTTERSCOTCH_PROJECT" {
-			return ErrInvalid
-		}
-		return nil
-	}
-	if contentMode == contentcapability.ModeTyranoScriptProject {
-		if purpose != "TYRANOSCRIPT_PROJECT" {
+	if contentcapability.IsProjectMode(contentMode) {
+		if purpose != "PROJECT" && purpose != "GENERAL" {
 			return ErrInvalid
 		}
 		return nil

@@ -2,8 +2,8 @@
 
 | 属性 | 内容 |
 | --- | --- |
-| 文档状态 | 已实施 / 权威基线 |
-| 版本 | 3.0 |
+| 文档状态 | 当前态简化实施中 / 已确认目标契约 |
+| 版本 | 4.0 |
 | 日期 | 2026-09-05 |
 | 机器事实源 | `api/runtime-provider/v1/`、已激活 Provider Bundle、`data/runtime-target-bindings/v1/catalog.json` |
 
@@ -11,7 +11,25 @@
 
 具体引擎的入口、静态资产、Target 能力、输入资源、Target options 和 checkpoint 格式只由 Provider Bundle 的 manifest 声明。Retrom Host 负责验证并激活 Bundle、把产品 Core 绑定到稳定的 `(providerId,targetId)`、准备授权资源并签发 Launch；Host 不保存或推导 Provider 私有 adapter、core、入口文件和资产映射。Web Player 不维护按引擎分支的 registry，只通过共享 dispatcher 加载 Provider Module V1。
 
-当前可部署 Provider 是 `emulatorjs` 与 `retrom-runtime`。`runtime-target-bindings` 只描述产品 Core、平台、内容类型与稳定 Target 的关系，不复制 Target declaration。Provider 安装采用只向前升级：版本必须递增，同版本换字节和降级都被拒绝；没有旧 Bundle fallback 或运行时回滚路径。
+当前可部署 Provider 是 `emulatorjs` 与 `retrom-runtime`。Host 目录描述产品身份和接入策略，不复制 Target declaration。Provider 安装采用只向前升级：版本必须递增，同版本换字节和降级都被拒绝；没有旧 manifest reader、Bundle fallback 或运行时回滚路径。
+
+### 1.1 产品目录与数据库解耦
+
+复用 `data/runtime-target-bindings/v1/catalog.json` 与 `internal/runtimecatalog`，将平台、核心、平台/核心关系、可接收内容分类、内置资源包定义及产品 binding 汇入同一 Host 声明目录。Provider manifest 仍独占 Target 能力、私有 options schema、当前 checkpoint 格式与实现资产；推荐目录模板只负责用户目录的创建建议，不另立核心接入注册中心。
+
+目录只保留当前 `schemaVersion` 和内容摘要，不设独立 `catalogVersion`、revision 或算法代际。新增现有平台的核心/Target、采用已注册存储/检测/交付策略的接入、采用现有布局策略的资源包，只修改声明及对应 Provider 产物，不修改 SQL 或清库。新增真正的持久化业务结构才需要 migration。
+
+启动必须先完成全部声明、Provider 字节、引用闭包以及 detector/delivery/review/pack-layout 策略注册验证；未知策略直接拒绝。之后在同一事务内按依赖顺序同步产品定义 → Provider/Target → binding/资源包关联 → 当前目录摘要和审计，事务提交后才提供 HTTP。不得在失败后留下部分目录，也不得用宽泛异常捕获尝试旧 manifest。
+
+声明式同步只更新系统拥有的定义，用户目录名称、排序、默认核心、启用选择和已安装资源包不被 seed 覆盖。稳定 ID 不随实现发布而变化；移除被引用定义必须明确拒绝，不能级联删除用户游戏或从旧证据恢复历史运行选项。完全未被引用的移除由同一事务完成。
+
+### 1.2 最终模型与接入策略
+
+`platforms`、`cores`、`platform_cores`、`content_kinds`、`runtime_asset_pack_definitions` 是当前声明的关系投影，不在 migrations 写入具体引擎/RTP seed。SQL 只维护外键、owner、唯一性、生命周期、路径、大小与结构边界；引擎名单、布局映射和识别规则由受限策略处理。
+
+上传用途统一描述普通导入、项目导入或资源包安装，不用每个引擎名称扩展 DDL。文件、目录与压缩包事实保持明确；普通 ZIP 和目录归一化后进入同一检测与导入链路。策略是显式注册的普通代码，不建立动态插件执行或万能 JSON/EAV 数据库。
+
+Launch options 按声明绑定的明确接入策略一次组装，再接受 Provider 的闭合 schema 校验；不得在多个无关入口逐一猜测未知属性，更不能把不支持的配置伪装成认证错误。依赖快照中的静态 BIOS/多盘与 Arcade 是不同业务类型，使用明确 discriminator，不以 v1/v2 伪装历史兼容链。
 
 ## 2. 当前态与冻结态
 
@@ -58,6 +76,10 @@ Checkpoint 对 Host 是不透明字节。Target declaration 的 `writeFormat`、
 普通与沉浸模式使用相同的受保护存档 HTTP 端点和 capability cookie；iframe/frame 内的请求通过明确的 credential 策略发送，不能依赖应用页 Cookie 偶然透传。
 
 ## 7. 审核与 RPG Runtime Validation
+
+审核只运行当前算法，不保存 `prepublish_generation` 或历史算法选择。有效性取决于当前来源、稳定运行选择、DAT/依赖闭包和与该内容有关的校验规则；目录展示字段、无关核心及单独的 Provider 发布变化不使正常审核失效。需要重算的算法修复通过明确限定范围的当前态重新校验完成，不增加 schema 代际。
+
+审核 checkpoint 只保护确实仍可恢复、未到期的验证会话；已结束、已过期或不再具有恢复用途的临时 payload 按工作流生命周期释放，不能阻塞 Provider 更新。用户有效存档始终单独保护，正常核心升级不得借开发库重建规则丢弃它们。格式声明只列当前实现真实能读取的格式，不保留空 reader 或历史实现。
 
 非 RPG 审核 preview 和正式 Launch 复用相同 Provider Module 与 envelope。RPG Maker 审核保存 generation、项目 fingerprint、来源快照、Provider/Target 与依赖摘要；创建正式 `RPG_RUNTIME_VALIDATION` Launch 后可发布。A→B checkpoint→C→独立 restore Launch 的 14 个 gate 是可选高级验证及自动化验收基线。
 

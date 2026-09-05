@@ -15,6 +15,7 @@ import (
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
 	"retrom/internal/rpgmaker/validation"
+	"retrom/internal/runtimecatalog"
 )
 
 type definitionIdentity struct {
@@ -29,10 +30,20 @@ func (service *Service) Install(
 	if err != nil {
 		return InstallAccepted{}, err
 	}
-	prepared, err := service.prepare(ctx, normalized)
+	layout, err := service.prepareDefinition(ctx, normalized)
 	if err != nil {
 		return InstallAccepted{}, err
 	}
+	prepared, err := service.prepare(ctx, normalized, layout)
+	if err != nil {
+		return InstallAccepted{}, err
+	}
+	return service.commitInstallation(ctx, normalized, layout, prepared)
+}
+
+func (service *Service) commitInstallation(
+	ctx context.Context, normalized InstallRequest, layout definitionIdentity, prepared preparedInstallation,
+) (InstallAccepted, error) {
 	installationID, _ := uuid.NewV7()
 	jobID, _ := uuid.NewV7()
 	transaction, err := service.database.BeginTx(ctx, nil)
@@ -43,6 +54,9 @@ func (service *Service) Install(
 	definition, err := service.resolveDefinition(ctx, transaction, normalized)
 	if err != nil {
 		return InstallAccepted{}, err
+	}
+	if !samePackPreparationIdentity(definition, layout) {
+		return InstallAccepted{}, ErrConflict
 	}
 	if err := ensureUnusedUpload(ctx, transaction, normalized.UploadID); err != nil {
 		return InstallAccepted{}, err
@@ -85,6 +99,11 @@ func (service *Service) Install(
 	}, nil
 }
 
+func samePackPreparationIdentity(left, right definitionIdentity) bool {
+	return left.LayoutVersion == right.LayoutVersion && left.Generation == right.Generation &&
+		left.Kind == right.Kind && left.NormalizedName == right.NormalizedName
+}
+
 func normalizeInstallRequest(request InstallRequest) (InstallRequest, error) {
 	if _, err := uuid.Parse(request.UploadID); err != nil {
 		return InstallRequest{}, ErrInvalid
@@ -101,10 +120,10 @@ func normalizeInstallRequest(request InstallRequest) (InstallRequest, error) {
 		}
 		request.SourceNote = &note
 	}
-	if request.Kind == "RGSS_CUSTOM_RTP" {
+	if request.DefinitionID == "" {
 		return normalizeCustomDefinitionRequest(request)
 	}
-	if request.Generation != nil || request.DeclaredName != nil || !builtinPackKind(request.Kind) {
+	if request.Generation != nil || request.DeclaredName != nil {
 		return InstallRequest{}, ErrInvalid
 	}
 	return request, nil
@@ -132,13 +151,14 @@ func normalizeCustomDefinitionRequest(request InstallRequest) (InstallRequest, e
 	return request, nil
 }
 
-func builtinPackKind(kind string) bool {
-	switch kind {
-	case "RPG2000_RTP", "RPG2003_RTP", "RGSS1_RTP_STANDARD", "RGSS2_RTP_RPGVX", "RGSS3_RTP_RPGVXAce":
-		return true
-	default:
-		return false
+func (service *Service) prepareDefinition(ctx context.Context, request InstallRequest) (definitionIdentity, error) {
+	if request.DefinitionID != "" {
+		return readEnabledDefinition(ctx, service.database, request.DefinitionID)
 	}
+	return definitionIdentity{
+		Kind: "RGSS_CUSTOM_RTP", Generation: *request.Generation,
+		NormalizedName: NormalizeDeclaredName(*request.DeclaredName), LayoutVersion: "mkxpz-v1",
+	}, nil
 }
 
 func (service *Service) resolveDefinition(
@@ -146,8 +166,8 @@ func (service *Service) resolveDefinition(
 	transaction *sql.Tx,
 	request InstallRequest,
 ) (definitionIdentity, error) {
-	if request.Kind != "RGSS_CUSTOM_RTP" {
-		return readBuiltinDefinition(ctx, transaction, request.Kind)
+	if request.DefinitionID != "" {
+		return readEnabledDefinition(ctx, transaction, request.DefinitionID)
 	}
 	normalizedName := NormalizeDeclaredName(*request.DeclaredName)
 	definition, found, err := readDefinitionByName(ctx, transaction, *request.Generation, normalizedName)
@@ -155,14 +175,14 @@ func (service *Service) resolveDefinition(
 		return definitionIdentity{}, err
 	}
 	if found {
-		if definition.Kind != request.Kind {
+		if definition.Kind != "RGSS_CUSTOM_RTP" {
 			return definitionIdentity{}, ErrConflict
 		}
 		return definition, nil
 	}
 	id, _ := uuid.NewV7()
 	definition = definitionIdentity{
-		ID: "custom_" + strings.ReplaceAll(id.String(), "-", ""), Kind: request.Kind,
+		ID: "custom_" + strings.ReplaceAll(id.String(), "-", ""), Kind: "RGSS_CUSTOM_RTP",
 		Generation: *request.Generation, DeclaredName: *request.DeclaredName,
 		NormalizedName: normalizedName, LayoutVersion: "mkxpz-v1",
 	}
@@ -180,18 +200,26 @@ INSERT INTO runtime_asset_pack_definitions(
 	return definition, nil
 }
 
-func readBuiltinDefinition(
+func readEnabledDefinition(
 	ctx context.Context,
-	transaction *sql.Tx,
-	kind string,
+	database interface {
+		QueryRowContext(context.Context, string, ...any) *sql.Row
+	},
+	definitionID string,
 ) (definitionIdentity, error) {
 	var result definitionIdentity
-	err := transaction.QueryRowContext(ctx, `
+	err := database.QueryRowContext(ctx, `
 SELECT id,kind,generation,declared_name,normalized_declared_name,required_layout_version
-FROM runtime_asset_pack_definitions WHERE kind=? AND origin='BUILTIN' AND enabled=1
-`, kind).Scan(&result.ID, &result.Kind, &result.Generation, &result.DeclaredName,
+FROM runtime_asset_pack_definitions WHERE id=? AND enabled=1
+`, definitionID).Scan(&result.ID, &result.Kind, &result.Generation, &result.DeclaredName,
 		&result.NormalizedName, &result.LayoutVersion)
+	if errors.Is(err, sql.ErrNoRows) {
+		return definitionIdentity{}, ErrInvalid
+	}
 	if err != nil {
+		return definitionIdentity{}, fmt.Errorf("runtime pack definition lookup: %w", err)
+	}
+	if !runtimecatalog.ValidPackLayout(result.LayoutVersion, result.Generation) {
 		return definitionIdentity{}, ErrInvalid
 	}
 	return result, nil

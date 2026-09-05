@@ -46,7 +46,7 @@ func TestCreateRPGMakerMVArchiveReachesReviewPending(t *testing.T) {
 	archive := rpgMakerMVArchiveWithMToolSidecar(t)
 	uploadService := uploads.New(database.SQL, blobs, dataDir, time.Now)
 	upload, err := uploadService.Create(ctx, uploads.CreateRequest{
-		Purpose: "RPG_MAKER_PROJECT", SourceType: "FILES",
+		Purpose: "PROJECT", SourceType: "FILES",
 		Files: []uploads.FileDeclaration{{
 			ClientFileID: "rpg-mv", RelativePath: "fixture.zip", SizeBytes: int64(len(archive)),
 		}},
