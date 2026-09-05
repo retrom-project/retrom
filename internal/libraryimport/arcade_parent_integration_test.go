@@ -41,7 +41,7 @@ func TestPegasusArcadeParentAttachmentPublishesTheEffectiveReviewSnapshot(t *tes
 	testArcadeParentAttachmentsAdvanceImmutableSnapshotsUntilReadyAndPublish(t, true)
 }
 
-func TestReviewBulkApprovalPublishesCurrentArcadeSnapshotV2(t *testing.T) {
+func TestReviewBulkApprovalPublishesCurrentTypedArcadeSnapshot(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 	dataDir := t.TempDir()
@@ -85,7 +85,7 @@ SELECT status,dependency_snapshot_json FROM import_item_core_validations WHERE i
 `, validationID).Scan(&validationStatus, &dependencySnapshot); err != nil {
 		t.Fatal(err)
 	}
-	testassert.Falsef(t, testassert.Any(func() bool { return validationStatus != "READY" }, func() bool { return !strings.Contains(dependencySnapshot, `"schemaVersion":2`) }), "arcade validation = %s %s", validationStatus, dependencySnapshot)
+	testassert.Falsef(t, testassert.Any(func() bool { return validationStatus != "READY" }, func() bool { return !strings.Contains(dependencySnapshot, `"kind":"ARCADE"`) }), "arcade validation = %s %s", validationStatus, dependencySnapshot)
 	preview, err := importer.PreviewReviewBulk(ctx, ReviewBulkScope{ImportJobID: created.ImportJobID})
 	testassert.False(t, err != nil, err)
 	testassert.Falsef(t, testassert.Any(func() bool { return preview.Counts.Matched != 1 }, func() bool { return preview.Counts.StrictReady != 1 }, func() bool { return preview.Counts.NotReadyOrStale != 0 }), "arcade bulk preview = %#v", preview.Counts)
@@ -162,18 +162,18 @@ func testArcadeParentAttachmentsAdvanceImmutableSnapshotsUntilReadyAndPublish(t 
 	waitParentJob(t, database.SQL, acceptedB.JobID, "SUCCEEDED")
 	itemID, version, snapshotID, validationID = reviewAttachmentInputs(t, database.SQL, created.ImportJobID)
 	testassert.Falsef(t, version != 3, "draft version after b = %d", version)
-	var revision, snapshotCount int
-	var validationStatus, validationCode string
+	var snapshotCount int
+	var validationStatus, validationCode, snapshotSource string
 	if err := database.SQL.QueryRowContext(ctx, `
-SELECT snapshot.revision_no,validation.status,validation.compatibility_code,
+SELECT snapshot.created_by,validation.status,validation.compatibility_code,
 (SELECT count(*) FROM import_item_source_snapshots WHERE import_item_id=snapshot.import_item_id)
 FROM import_item_source_snapshots snapshot
 JOIN import_item_core_validations validation ON validation.source_snapshot_id=snapshot.id
 WHERE snapshot.id=? ORDER BY validation.created_at_ms DESC LIMIT 1
-`, snapshotID).Scan(&revision, &validationStatus, &validationCode, &snapshotCount); err != nil {
+`, snapshotID).Scan(&snapshotSource, &validationStatus, &validationCode, &snapshotCount); err != nil {
 		t.Fatal(err)
 	}
-	testassert.Falsef(t, testassert.Any(func() bool { return revision != 2 }, func() bool { return snapshotCount != 2 }, func() bool { return validationStatus != "BLOCKED" }, func() bool { return validationCode != "LAUNCH_PARENT_MISSING" }), "after b = revision:%d count:%d validation:%s/%s", revision, snapshotCount, validationStatus, validationCode)
+	testassert.Falsef(t, testassert.Any(func() bool { return snapshotSource != "ARCADE_PARENT_ATTACHMENT" }, func() bool { return snapshotCount != 2 }, func() bool { return validationStatus != "BLOCKED" }, func() bool { return validationCode != "LAUNCH_PARENT_MISSING" }), "after b = source:%s count:%d validation:%s/%s", snapshotSource, snapshotCount, validationStatus, validationCode)
 	wrong := uploadCompleteFile(t, ctx, database.SQL, uploadService, "c.zip", wrongZIP)
 	rejectedC, err := importer.CreateArcadeParentAttachment(ctx, itemID, version, ParentAttachmentRequest{
 		ValidationID: validationID, BaseSourceSnapshotID: snapshotID, DependencyMachine: "c",
@@ -202,9 +202,9 @@ WHERE attachment.id=?
 	itemID, version, snapshotID, validationID = reviewAttachmentInputs(t, database.SQL, created.ImportJobID)
 	testassert.Falsef(t, version != 6, "draft version after c = %d", version)
 	if err := database.SQL.QueryRowContext(ctx, `
-SELECT revision_no FROM import_item_source_snapshots WHERE id=?
-`, snapshotID).Scan(&revision); err != nil || revision != 3 {
-		t.Fatalf("final snapshot revision = %d, error=%v", revision, err)
+SELECT count(*) FROM import_item_source_snapshots WHERE import_item_id=?
+`, itemID).Scan(&snapshotCount); err != nil || snapshotCount != 3 {
+		t.Fatalf("source evidence count = %d, error=%v", snapshotCount, err)
 	}
 	if err := database.SQL.QueryRowContext(ctx, `
 SELECT status,compatibility_code FROM import_item_core_validations WHERE id=?
@@ -228,9 +228,8 @@ SELECT diagnostics_json FROM review_arcade_parent_attachments WHERE id=?
 	if pegasus {
 		var contentSource, pegasusState string
 		if err := database.SQL.QueryRowContext(ctx, `
-SELECT content.source_kind,item.execution_state
+SELECT game.content_source_kind,item.execution_state
 FROM games game
-JOIN game_content_revisions content ON content.id=game.current_content_revision_id
 JOIN pegasus_import_items item ON item.published_game_id=game.id
 WHERE game.id=?
 `, approved.GameID).Scan(&contentSource, &pegasusState); err != nil ||
@@ -240,14 +239,14 @@ WHERE game.id=?
 	}
 	contentNames := queryAttachmentStrings(t, database.SQL, `
 SELECT file.role||':'||file.logical_name
-FROM games game JOIN game_content_files file ON file.game_content_revision_id=game.current_content_revision_id
+FROM games game JOIN game_files file ON file.game_id=game.id
 WHERE game.id=? ORDER BY file.role,file.logical_name
 `, approved.GameID)
 	testassert.Falsef(t, fmt.Sprint(contentNames) != "[COMPANION:b.zip COMPANION:c.zip CONTENT:a.zip]", "published content = %v", contentNames)
 	variantNames := queryAttachmentStrings(t, database.SQL, `
 SELECT file.role||':'||file.logical_name
 FROM games game JOIN game_variants variant ON variant.game_id=game.id
-JOIN variant_files file ON file.game_variant_revision_id=variant.current_revision_id
+JOIN variant_files file ON file.game_variant_id=variant.id
 WHERE game.id=? ORDER BY file.role,file.logical_name
 `, approved.GameID)
 	testassert.Falsef(t, fmt.Sprint(variantNames) != "[PARENT:b.zip PARENT:c.zip]", "published variant files = %v", variantNames)
@@ -257,31 +256,31 @@ WHERE game.id=? ORDER BY file.role,file.logical_name
 	testassert.False(t, err != nil, err)
 	credentials, err := retromruntime.LoadOrCreateCredentials(dataDir)
 	testassert.False(t, err != nil, err)
-	launcher := launch.New(database.SQL, dependencySet, credentials, time.Now)
+	runtimeBuilder, err := testsupport.NewRuntimeBuilder(ctx, database.SQL)
+	testassert.False(t, err != nil, err)
+	launcher := launch.New(database.SQL, dependencySet, credentials, time.Now).
+		WithRuntimeProvider(dependencySet.RuntimeCatalog, runtimeBuilder)
 	coreID := "fbneo"
 	capabilities := launch.Capabilities{SecureContext: true, CrossOriginIsolated: true, SharedArrayBuffer: true}
-	pending, err := launcher.Create(ctx, "local", launch.CreateRequest{
-		GameID: approved.GameID, CoreID: &coreID, ReturnTo: "/games/" + approved.GameID,
-		ClientCapabilities: capabilities,
-	})
-	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return pending.Status != "VALIDATION_PENDING" }, func() bool { return pending.JobID == "" }), "first launch revalidation = %#v, error=%v", pending, err)
-	waitParentJob(t, database.SQL, pending.JobID, "SUCCEEDED")
 	createdLaunch, err := launcher.Create(ctx, "local", launch.CreateRequest{
 		GameID: approved.GameID, CoreID: &coreID, ReturnTo: "/games/" + approved.GameID,
 		ClientCapabilities: capabilities,
 	})
-	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return createdLaunch.LaunchID == "" }), "launch after revalidation = %#v, error=%v", createdLaunch, err)
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return createdLaunch.LaunchID == "" }), "launch current published variant = %#v, error=%v", createdLaunch, err)
 	configuration, err := launcher.Config(ctx, createdLaunch.LaunchID, createdLaunch.Capability)
-	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return configuration.ParentURL == nil }), "launch parent config = %#v, error=%v", configuration.ParentURL, err)
+	testassert.False(t, err != nil, err)
+	envelope := testsupport.RuntimeEnvelope(t, configuration)
+	parentResource := testsupport.RuntimeEnvelopeResource(t, envelope, "parent")
+	testassert.Falsef(t, parentResource["kind"] != "PARENT_ARCHIVE", "launch parent resource = %#v", parentResource)
 	parentBundle, err := launcher.BundleFiles(ctx, createdLaunch.LaunchID, createdLaunch.Capability, "PARENT")
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return fmt.Sprint(parentBundle) == "[]" }, func() bool { return len(parentBundle) != 2 }, func() bool { return parentBundle[0].LogicalName != "b.zip" }, func() bool { return parentBundle[1].LogicalName != "c.zip" }), "launch parent bundle = %#v, error=%v", parentBundle, err)
 	revalidatedDependencies := queryAttachmentStrings(t, database.SQL, `
 SELECT dependency.kind||':'||dependency.logical_archive
 FROM game_variants variant
-JOIN variant_dependencies dependency ON dependency.game_variant_revision_id=variant.current_revision_id
+JOIN variant_dependencies dependency ON dependency.game_variant_id=variant.id
 WHERE variant.game_id=? ORDER BY dependency.kind,dependency.logical_archive
 `, approved.GameID)
-	testassert.Falsef(t, fmt.Sprint(revalidatedDependencies) != "[PARENT:b.zip PARENT:c.zip]", "revalidated dependencies = %v", revalidatedDependencies)
+	testassert.Falsef(t, fmt.Sprint(revalidatedDependencies) != "[PARENT:b.zip PARENT:c.zip]", "published dependencies = %v", revalidatedDependencies)
 }
 
 func linkReviewToPegasusOrigin(
@@ -367,27 +366,19 @@ func uploadCompleteFile(
 
 func insertArcadeParentCatalog(t *testing.T, database *sql.DB) {
 	t.Helper()
+	ctx := context.Background()
+	target, err := testsupport.LookupRuntimeTarget(ctx, database, "fbneo")
+	if err != nil {
+		t.Fatal(err)
+	}
 	now := time.Now().UnixMilli()
-	if _, err := database.ExecContext(context.Background(), `
-INSERT INTO core_artifacts(
- id,core_id,route_key,runtime_family,runtime_adapter_kind,runtime_version,adapter_id,entry_path,
- size_bytes,sha256,manifest_sha256,artifact_set_sha256,requires_threads,save_payload_kind,
- save_max_bytes,provenance_json,compatibility_json,selected_for_new_bindings,available_for_launch,
- version,created_at_ms,updated_at_ms)
-VALUES('attachment-artifact','fbneo','DEFAULT','EMULATORJS','EMULATORJS','4.2.3',
-'ejs-4.2.3-v3','data/cores/attachment.data',1,
-'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
-'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
-'cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc',
-0,'RUNTIME_STATE',67108864,'{}',
-'{"schemaVersion":5,"adapterAbi":"emulatorjs-state-v1","runtimeCoreId":"fbneo","requestedArtifactBasename":"fbneo-wasm.data","canvasResizePolicy":"NONE","defaultOptions":{},"inputMode":"STANDARD","startupActions":[],"supportedContentKinds":["SINGLE_FILE"],"multiDisc":null}',
-1,1,1,?,?);
-INSERT INTO dat_versions(id,core_id,core_artifact_id,builtin_relative_path,sha256,parser_version,
+	if _, err := database.ExecContext(ctx, `
+INSERT INTO dat_versions(id,core_id,provider_id,target_id,builtin_relative_path,sha256,parser_version,
 parse_status,is_active,version,created_at_ms,updated_at_ms,parsed_at_ms,activated_at_ms)
-VALUES('attachment-dat','fbneo','attachment-artifact','data/dat/attachment.xml',
+VALUES('attachment-dat','fbneo',?,?,'data/dat/attachment.xml',
 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb','fixture',
 'READY',1,1,?,?,?,?);
-`, now, now, now, now, now, now); err != nil {
+`, target.ProviderID, target.TargetID, now, now, now, now); err != nil {
 		t.Fatal(err)
 	}
 	relations := []struct{ machine, clone string }{{"a", "b"}, {"b", "c"}, {"c", ""}}

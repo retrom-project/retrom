@@ -29,7 +29,7 @@ func TestPrepareTyranoScriptDirectoryNormalizesWrapperAndRequiresRuntimeTrial(t 
 		t.Fatalf("groups=%#v archives=%#v dispositions=%#v", groups, archives, dispositions)
 	}
 	group := groups[0]
-	if group.contentKind != "TYRANOSCRIPT_PROJECT_V1" || group.validationStatus != "BLOCKED" ||
+	if group.contentKind != "TYRANOSCRIPT_PROJECT" || group.validationStatus != "BLOCKED" ||
 		group.compatibilityCode != "TYRANOSCRIPT_RUNTIME_TRIAL_REQUIRED" || group.titleSource != "Fixture" ||
 		countIgnoredDispositions(dispositions) != 1 {
 		t.Fatalf("group=%#v dispositions=%#v", group, dispositions)

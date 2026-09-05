@@ -27,76 +27,102 @@ func (set *Set) Bootstrap(ctx context.Context, database *sql.DB, now time.Time) 
 		return fmt.Errorf("begin dependency bootstrap: %w", err)
 	}
 	defer cleanup.Rollback(transaction)
-	preferredVersions := make(map[string]string)
-	for _, versionName := range set.Order {
-		for _, core := range set.Versions[versionName].Manifest.EmulatorJS.SelectedCores {
-			preferredVersions[core.CoreID] = versionName
-		}
-	}
+	preferredVersions := set.preferredCoreVersions()
 	for _, versionName := range set.Order {
 		version := set.Versions[versionName]
-		licenseComponents := make(map[string]struct {
-			Repository, SourceCommit, Association string
-		}, len(version.Manifest.Licenses.Components))
-		for _, component := range version.Manifest.Licenses.Components {
-			licenseComponents[component.ComponentID] = struct {
-				Repository, SourceCommit, Association string
-			}{component.Repository, component.SourceCommit, component.BinaryAssociationStatus}
-		}
-		selectedArtifacts := make(map[string]string, len(version.Manifest.EmulatorJS.SelectedCores))
-		for index, core := range version.Manifest.EmulatorJS.SelectedCores {
-			artifactID, bootstrapErr := bootstrapCore(
-				ctx,
-				transaction,
-				versionName,
-				version,
-				preferredVersions[core.CoreID] == versionName,
-				index,
-				core,
-				licenseComponents[core.SourceComponentID],
-				now,
-			)
-			if bootstrapErr != nil {
-				return bootstrapErr
-			}
-			selectedArtifacts[core.CoreID] = artifactID
-		}
-		if err := bootstrapStaticBIOS(ctx, transaction, versionName, selectedArtifacts, now); err != nil {
+		selectedTargets, err := set.staticBIOSTargets(ctx, transaction)
+		if err != nil {
 			return err
 		}
-		for _, core := range version.Manifest.Cores {
-			if core.DAT == nil {
-				continue
-			}
-			if err := bootstrapDAT(
-				ctx,
-				transaction,
-				selectedArtifacts[core.CoreID],
-				core.CoreID,
-				core.DAT.LocalPath,
-				core.DAT.SHA256,
-				core.ParseStats.MachineCount,
-				core.ParseStats.ROMEntryCount,
-				core.ParseStats.DiskEntryCount,
-				core.ParseStats.BIOSSetCount,
-				core.ParseStats.DefaultBIOSSetCount,
-				core.ParseStats.ExplicitBIOSMachineCount,
-				core.ParseStats.BaseDependencyTargetCount,
-				core.ParseStats.UnresolvedCloneofCount+core.ParseStats.UnresolvedRomofCount,
-				preferredVersions[core.CoreID] == versionName,
-				now,
-			); err != nil {
-				return err
-			}
+		if err := bootstrapStaticBIOS(ctx, transaction, versionName, selectedTargets, now); err != nil {
+			return err
 		}
-	}
-	if err := bootstrapRPGMaker(ctx, transaction, set.RPGMaker, now); err != nil {
-		return err
+		if err := set.bootstrapVersionDATs(
+			ctx, transaction, versionName, version, selectedTargets, preferredVersions, now,
+		); err != nil {
+			return err
+		}
 	}
 	if err := transaction.Commit(); err != nil {
 		return fmt.Errorf("commit dependency bootstrap: %w", err)
 	}
 	return nil
+}
+
+func (set *Set) preferredCoreVersions() map[string]string {
+	result := make(map[string]string)
+	for _, versionName := range set.Order {
+		for _, core := range set.Versions[versionName].Manifest.Cores {
+			result[core.CoreID] = versionName
+		}
+	}
+	return result
+}
+
+func (set *Set) staticBIOSTargets(
+	ctx context.Context,
+	transaction *sql.Tx,
+) (map[string]runtimeTarget, error) {
+	result := make(map[string]runtimeTarget, len(staticBIOSCatalog))
+	for _, requirement := range staticBIOSCatalog {
+		if _, exists := result[requirement.coreID]; exists {
+			continue
+		}
+		target, err := set.targetForCore(ctx, transaction, requirement.coreID)
+		if err != nil {
+			return nil, err
+		}
+		result[requirement.coreID] = target
+	}
+	return result, nil
+}
+
+func (set *Set) bootstrapVersionDATs(
+	ctx context.Context,
+	transaction *sql.Tx,
+	versionName string,
+	version *Version,
+	selectedTargets map[string]runtimeTarget,
+	preferredVersions map[string]string,
+	now time.Time,
+) error {
+	for _, core := range version.Manifest.Cores {
+		if core.DAT == nil {
+			continue
+		}
+		target, err := set.cachedRuntimeTarget(ctx, transaction, selectedTargets, core.CoreID)
+		if err != nil {
+			return err
+		}
+		if err := bootstrapDAT(
+			ctx, transaction, target, core.CoreID, core.DAT.LocalPath, core.DAT.SHA256,
+			core.ParseStats.MachineCount, core.ParseStats.ROMEntryCount, core.ParseStats.DiskEntryCount,
+			core.ParseStats.BIOSSetCount, core.ParseStats.DefaultBIOSSetCount,
+			core.ParseStats.ExplicitBIOSMachineCount, core.ParseStats.BaseDependencyTargetCount,
+			core.ParseStats.UnresolvedCloneofCount+core.ParseStats.UnresolvedRomofCount,
+			preferredVersions[core.CoreID] == versionName, now,
+		); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (set *Set) cachedRuntimeTarget(
+	ctx context.Context,
+	transaction *sql.Tx,
+	targets map[string]runtimeTarget,
+	coreID string,
+) (runtimeTarget, error) {
+	if target, exists := targets[coreID]; exists {
+		return target, nil
+	}
+	target, err := set.targetForCore(ctx, transaction, coreID)
+	if err != nil {
+		return runtimeTarget{}, err
+	}
+	targets[coreID] = target
+	return target, nil
 }
 
 // BootstrapCatalogs materializes the byte-verified built-in DAT indexes. It is
@@ -105,7 +131,7 @@ func (set *Set) Bootstrap(ctx context.Context, database *sql.DB, now time.Time) 
 //
 // Contract branches stay contiguous for a single auditable decision.
 func (set *Set) BootstrapCatalogs(ctx context.Context, database *sql.DB, now time.Time) error {
-	bootstrap := catalogBootstrap{ctx: ctx, database: database, now: now}
+	bootstrap := catalogBootstrap{ctx: ctx, database: database, set: set, now: now}
 	versionNames := make([]string, 0, len(set.Versions))
 	for versionName := range set.Versions {
 		versionNames = append(versionNames, versionName)
@@ -117,7 +143,7 @@ func (set *Set) BootstrapCatalogs(ctx context.Context, database *sql.DB, now tim
 			if core.DAT == nil {
 				continue
 			}
-			bootstrap.runCore(versionName, version, index)
+			bootstrap.runCore(version, index)
 		}
 	}
 	return bootstrap.firstFailure
@@ -126,6 +152,7 @@ func (set *Set) BootstrapCatalogs(ctx context.Context, database *sql.DB, now tim
 type catalogBootstrap struct {
 	ctx          context.Context
 	database     *sql.DB
+	set          *Set
 	now          time.Time
 	firstFailure error
 }
@@ -148,7 +175,7 @@ type catalogStats struct {
 	unresolvedRomofCount      int64
 }
 
-func (bootstrap *catalogBootstrap) runCore(versionName string, version *Version, index int) {
+func (bootstrap *catalogBootstrap) runCore(version *Version, index int) {
 	core := version.Manifest.Cores[index]
 	expected := catalogStats{
 		machineCount:              core.ParseStats.MachineCount,
@@ -161,18 +188,12 @@ func (bootstrap *catalogBootstrap) runCore(versionName string, version *Version,
 		unresolvedCloneofCount:    core.ParseStats.UnresolvedCloneofCount,
 		unresolvedRomofCount:      core.ParseStats.UnresolvedRomofCount,
 	}
-	artifactSetSHA := ""
-	for _, selectedCore := range version.Manifest.EmulatorJS.SelectedCores {
-		if selectedCore.CoreID == core.CoreID {
-			artifactSetSHA = selectedCore.ArtifactSetSHA256
-			break
-		}
-	}
-	if artifactSetSHA == "" {
-		bootstrap.fail(fmt.Errorf("%w: DAT core artifact declaration missing", ErrInvalid))
+	target, err := bootstrap.set.targetForCore(bootstrap.ctx, bootstrap.database, core.CoreID)
+	if err != nil {
+		bootstrap.fail(err)
 		return
 	}
-	state, err := bootstrap.findDAT(versionName, core.CoreID, artifactSetSHA, core.DAT.SHA256)
+	state, err := bootstrap.findDAT(core.CoreID, target, core.DAT.SHA256)
 	if err != nil {
 		bootstrap.fail(fmt.Errorf("find built-in DAT index: %w", err))
 		return
@@ -214,7 +235,7 @@ func (bootstrap *catalogBootstrap) runCore(versionName string, version *Version,
 }
 
 func (bootstrap *catalogBootstrap) findDAT(
-	versionName, coreID, artifactSetSHA, datSHA string,
+	coreID string, target runtimeTarget, datSHA string,
 ) (builtInDATState, error) {
 	var state builtInDATState
 	err := bootstrap.database.QueryRowContext(bootstrap.ctx, `
@@ -224,14 +245,12 @@ d.parse_status,
 FROM dat_machines m
 WHERE m.dat_version_id=d.id)
 FROM dat_versions d
-JOIN core_artifacts a ON a.id=d.core_artifact_id
 WHERE d.sha256=?
 AND d.parser_version='retrom-dat-v1'
-AND a.core_id=?
-AND a.runtime_family='EMULATORJS'
-AND a.runtime_version=?
-AND a.artifact_set_sha256=?
-`, datSHA, coreID, versionName, artifactSetSHA).
+AND d.core_id=?
+AND d.provider_id=?
+AND d.target_id=?
+`, datSHA, coreID, target.providerID, target.targetID).
 		Scan(&state.id, &state.parseStatus, &state.indexed)
 	if err != nil {
 		return state, fmt.Errorf("query built-in DAT index: %w", err)
@@ -380,14 +399,6 @@ func publishBuiltInDATCatalog(
 	}
 	stats := catalog.Stats
 	finishedAtMS := now.UnixMilli()
-	var artifactID string
-	if err := transaction.QueryRowContext(ctx, `
-SELECT core_artifact_id
-FROM dat_versions
-WHERE id=?
-`, datID).Scan(&artifactID); err != nil {
-		return fmt.Errorf("find built-in DAT artifact: %w", err)
-	}
 	_, err = transaction.ExecContext(ctx, `
 UPDATE dat_versions
 SET parse_status='READY',
@@ -484,18 +495,15 @@ func activateBuiltInDAT(
 	datID string,
 	now time.Time,
 ) error {
-	var artifactID, parseStatus string
-	var artifactSelected, alreadyActive int
+	var providerID, targetID, parseStatus string
+	var alreadyActive int
 	if err := transaction.QueryRowContext(ctx, `
-SELECT d.core_artifact_id,a.selected_for_new_bindings,d.parse_status,d.is_active
+SELECT d.provider_id,d.target_id,d.parse_status,d.is_active
 FROM dat_versions d
-JOIN core_artifacts a ON a.id=d.core_artifact_id
+JOIN runtime_targets target ON target.provider_id=d.provider_id AND target.target_id=d.target_id
 WHERE d.id=?
-`, datID).Scan(&artifactID, &artifactSelected, &parseStatus, &alreadyActive); err != nil {
+`, datID).Scan(&providerID, &targetID, &parseStatus, &alreadyActive); err != nil {
 		return fmt.Errorf("inspect selected built-in DAT: %w", err)
-	}
-	if artifactSelected == 0 {
-		return nil
 	}
 	if parseStatus != "READY" {
 		return fmt.Errorf("%w: selected DAT is not a ready built-in version", ErrInvalid)
@@ -506,23 +514,18 @@ WHERE d.id=?
 	deactivated, err := transaction.ExecContext(ctx, `
 UPDATE dat_versions
 SET is_active=0,version=version+1,updated_at_ms=?
-WHERE core_artifact_id=? AND is_active=1 AND id<>?
-`, now.UnixMilli(), artifactID, datID)
+WHERE provider_id=? AND target_id=? AND is_active=1 AND id<>?
+`, now.UnixMilli(), providerID, targetID, datID)
 	if err != nil {
 		return fmt.Errorf("deactivate superseded built-in DAT: %w", err)
 	}
-	if changed, _ := deactivated.RowsAffected(); changed > 0 {
-		if _, err := transaction.ExecContext(ctx, `
-UPDATE core_artifacts SET version=version+1,updated_at_ms=? WHERE id=?
-`, now.UnixMilli(), artifactID); err != nil {
-			return fmt.Errorf("advance artifact DAT selection: %w", err)
-		}
-	}
+	_, _ = deactivated.RowsAffected()
 	if _, err := transaction.ExecContext(ctx, `
 UPDATE dat_versions
 SET is_active=1,activated_at_ms=?,version=version+1,updated_at_ms=?
-WHERE id=? AND parse_status='READY' AND is_active=0
-`, now.UnixMilli(), now.UnixMilli(), datID); err != nil {
+WHERE id=? AND provider_id=? AND target_id=?
+  AND parse_status='READY' AND is_active=0
+`, now.UnixMilli(), now.UnixMilli(), datID, providerID, targetID); err != nil {
 		return fmt.Errorf("activate selected built-in DAT: %w", err)
 	}
 	if err := datindex.SyncRequirements(ctx, transaction, datID, now); err != nil {

@@ -1,4 +1,4 @@
-import type { EJSNetplayFrameBridge } from "./ejs-netplay-4.2.3-v1";
+import type {NetplayRuntimePort} from "../runtime/netplay-port-adapter";
 import { prepareAuthorityTransfer } from "./authority-state";
 import { decodeServerMessage, encodeStateFrame, type ServerMessage } from "./protocol";
 import { RollbackTimeline, predictInputs, type CanonicalInput } from "./rollback";
@@ -7,7 +7,6 @@ import { NetplayCheckpointQueue } from "./checkpoint-queue";
 import { OrderedSocketSender } from "./ordered-socket-sender";
 import { applyTransferredState, pendingStateFromMessage, type PendingState } from "./state-transfer";
 import { NetplayStatusPublisher } from "./status-publisher";
-
 export type { NetplayDiagnostics, NetplayLaunchConfig, NetplayProfile };
 
 // Strict lockstep may submit controls ahead to cover network RTT, but never
@@ -65,7 +64,7 @@ export class NetplayController {
   constructor(
     private readonly config: NetplayLaunchConfig,
     private profileDigest: string,
-    private readonly bridge: EJSNetplayFrameBridge,
+    private readonly bridge: NetplayRuntimePort,
     private readonly callbacks: {
       onStatus: (text: string, tone: "synced" | "busy" | "warning") => void;
       onRunning: () => void;
@@ -188,8 +187,9 @@ export class NetplayController {
       this.send("END_REQUEST", { reason: this.terminalReason });
     } else if (!this.hasRun) {
       this.send("RUNTIME_READY", {
-        adapterId: this.config.netplayProfile.netplayAdapterId,
-        coreArtifactId: this.config.netplayProfile.coreArtifactId,
+        providerId: this.config.netplayProfile.providerId,
+        targetId: this.config.netplayProfile.targetId,
+        bundleSha256: this.config.netplayProfile.bundleSha256,
       });
     }
   }
@@ -392,7 +392,7 @@ export class NetplayController {
     try {
       while (!this.stopped && this.epochRunning && this.socket?.readyState === WebSocket.OPEN && this.timeline.canPredict(this.nextFrame)) {
         const frame = this.nextFrame;
-        const state = this.bridge.captureState();
+        const state = await this.bridge.captureState(frame);
         this.timeline.recordOwnedStateBefore(frame, state);
         const local = this.bridge.sampleLocalControls();
         const input = predictInputs(this.lastInput, this.config.playerNo, local);
@@ -435,7 +435,7 @@ export class NetplayController {
       this.status.publish("stable", "网络稳定", "synced");
     }
     if (advancesFrame && (frame + 1) % this.config.netplayProfile.checkpointEveryFrames === 0) {
-      this.checkpoints.queueLockstep(frame, this.epoch);
+      await this.checkpoints.queueLockstep(frame, this.epoch);
     }
     this.requestAdvance();
   }
@@ -447,9 +447,9 @@ export class NetplayController {
 		if (rollback >= this.nextFrame) {throw new Error("NETPLAY_FRAME_STEP_TIMEOUT");}
       const through = this.nextFrame - 1; const plan = this.timeline.rollbackPlan(rollback, through);
 		this.diagnostics?.onRollback?.({ frame: rollback, through, depth: through - rollback + 1 });
-      await this.bridge.loadStateAndWait(plan.state);
+      await this.bridge.loadStateAndWait(plan.state, rollback);
       for (const item of plan.frames) {
-        this.timeline.recordOwnedStateBefore(item.frame, this.bridge.captureState());
+        this.timeline.recordOwnedStateBefore(item.frame, await this.bridge.captureState(item.frame));
         await this.runFrame(item.input, true, item.frame);
       }
       this.lastInput = plan.frames.at(-1)?.input ?? this.lastInput;
@@ -468,7 +468,7 @@ export class NetplayController {
 
   private async runFrame(input: CanonicalInput, suppressOutput: boolean, frame: number) {
     this.diagnostics?.onFrameStep?.({ frame, phase: "STARTED" });
-    await this.bridge.runNetplayFrame(input, suppressOutput);
+    await this.bridge.runFrame(input, frame, suppressOutput);
     this.diagnostics?.onFrameStep?.({ frame, phase: "COMPLETED" });
   }
 
@@ -504,7 +504,7 @@ export class NetplayController {
     if (atFrame === -1) {
       const initialState = this.timeline.stateAt(0);
       if (!initialState) {throw new Error("ROLLBACK_WINDOW_EXCEEDED");}
-      await this.bridge.loadStateAndWait(initialState);
+      await this.bridge.loadStateAndWait(initialState, 0);
     } else {
       const stateBefore = this.timeline.stateAt(atFrame!);
       const canonical = this.timeline.canonicalAt(atFrame!);
@@ -512,8 +512,8 @@ export class NetplayController {
       // Native state load restores the core framebuffer but EmulatorJS does not
       // repaint its HTML canvas. Replaying this exact canonical frame restores
       // both the logical boundary and the visible paused frame on every peer.
-      await this.bridge.loadStateAndWait(stateBefore);
-      await this.bridge.runNetplayFrame(canonical);
+      await this.bridge.loadStateAndWait(stateBefore, atFrame!);
+      await this.bridge.runFrame(canonical, atFrame!, false);
     }
     this.nextFrame = targetNextFrame;
   }
@@ -572,7 +572,7 @@ export class NetplayController {
     this.socketGeneration += 1;
     this.socket?.close(1000, reason);
     this.socket = null;
-    this.bridge.close();
+    void this.bridge.close().catch(() => undefined);
     if (notify) {
       this.diagnostics?.onEnded?.(reason);
       this.callbacks.onEnded(reason);
@@ -581,7 +581,7 @@ export class NetplayController {
 
   private handleFailure(error: unknown) {
     if (this.stopped) {return;}
-    const message = error instanceof Error ? error.message : "INTERNAL_ERROR";
+    const message = error instanceof Error ? error.message : "INTERNAL_ERROR"; this.diagnostics?.onFailure?.(message);
     if (message === "NETPLAY_SOCKET_UNAVAILABLE") {
       this.handleTransportLoss();
       return;

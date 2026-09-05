@@ -13,10 +13,13 @@ IMAGE_TAG ?= latest
 RETROM_DEV_CONFIG ?= $(abspath .dev-data/dev.mk)
 -include $(RETROM_DEV_CONFIG)
 
-RETROM_RUNTIME_DEV_ROOT ?=
-RETROM_RUNTIME_DEV_INCLUDE_ASSETS ?= false
-RETROM_RUNTIME_MATERIALIZATION_ROOT ?= $(RETROM_DEPENDENCY_ROOT)/runtime/rpgmaker/v1
-RETROM_RUNTIME_PFB_CANDIDATE_ROOT ?=
+RETROM_PROVIDER_CANDIDATE_AUTO_ROOT ?= $(abspath .pfb/candidates/runtime)
+RETROM_PROVIDER_CANDIDATE_ROOT ?= $(if $(wildcard $(RETROM_PROVIDER_CANDIDATE_AUTO_ROOT)/providers/provider-build.json),$(RETROM_PROVIDER_CANDIDATE_AUTO_ROOT),)
+RETROM_PROVIDER_LOCK_ROOT ?= $(abspath data/runtime-providers)
+RETROM_PROVIDER_CACHE_ROOT ?= $(abspath .cache/runtime-providers)
+RETROM_PROVIDER_INSTALLED_ROOT ?= $(abspath $(RETROM_DEV_STATE_DIR)/runtime-providers/installed)
+RETROM_PROVIDER_ACTIVE_PATH ?= $(abspath $(RETROM_DEV_STATE_DIR)/runtime-providers/active.json)
+RETROM_PROVIDER_SOURCE ?= $(if $(strip $(RETROM_PROVIDER_CANDIDATE_ROOT)),candidate,production)
 RETROM_DEPENDENCY_VERSIONS ?= 4.2.3,4.3.0-pre
 RETROM_ACTIVE_EMULATORJS_VERSION ?= 4.2.3
 RETROM_DEPENDENCY_ROOT ?= $(abspath data)
@@ -33,7 +36,7 @@ RETROM_NETPLAY_MAX_ACTIVE_ROOMS ?= 16
 NEXT_DEV_HOST ?= 127.0.0.1
 NEXT_DEV_PORT ?= 4000
 NEXT_BACKEND_ORIGIN ?= http://$(RETROM_HTTP_ADDR)
-NEXT_DEV_DIST_DIR ?= $(if $(strip $(RETROM_RUNTIME_DEV_ROOT)),.next-runtime-dev,.next)
+NEXT_DEV_DIST_DIR ?= .next
 NODE_HOME ?= $(abspath .cache/tools/node-v24.18.0-linux-x64)
 NODE_PREPARE_MODE ?= repository
 NPM := PATH="$(NODE_HOME)/bin:$$PATH" npm
@@ -49,7 +52,8 @@ export PLAYWRIGHT_BROWSERS_PATH
 export RETROM_CHROME_EXECUTABLE
 
 GO_PACKAGES := ./cmd/... ./internal/... ./migrations/...
-API_OPENAPI_SOURCES := api/openapi.yaml $(sort $(wildcard api/domains/*.yaml api/components/*.yaml))
+API_OPENAPI_SOURCES := api/openapi.yaml api/runtime-provider/v1/launch-envelope.schema.json \
+	$(sort $(wildcard api/domains/*.yaml api/components/*.yaml))
 API_CODEGEN_CONFIGS := $(sort $(wildcard api/codegen/*.yaml))
 API_BUNDLE := .cache/generated/openapi.bundle.yaml
 API_GO_GENERATED := internal/httpapi/generated/models.gen.go internal/httpapi/generated/server.gen.go internal/httpapi/generated/spec.gen.go
@@ -57,8 +61,11 @@ API_GO_GENERATED := internal/httpapi/generated/models.gen.go internal/httpapi/ge
 .PHONY: fmt fmt-check quality-structure-check install-deps install-go-formatters install-golangci-lint prepare-go prepare-node prepare-e2e-browser \
 	build test lint-go backend-check web-install web-lint web-typecheck web-test web-build web-check integration-test api-bundle api-generate-go api-generate api-check \
 	public-fixtures-generate public-fixtures-check web-e2e data-check prepare-deps deps-check release-input-digest ci dev build-backend-image \
-	build-web-image build-images acceptance-prepare acceptance-case acceptance-report retrom-runtime-dev-link retrom-runtime-dev-unlink \
-	require-local-user pfb-init pfb-validate pfb-build pfb-up pfb-use pfb-restart pfb-down pfb-status pfb-logs pfb-verify pfb-prune pfb-destroy pfb-gateway-up pfb-gateway-down
+	build-web-image build-images acceptance-prepare acceptance-case acceptance-report \
+	runtime-provider-prepare runtime-provider-prepare-candidate runtime-provider-check runtime-provider-pin-release runtime-provider-verify-upgrade \
+	runtime-provider-prepare-auto \
+	require-local-user pfb-init pfb-validate pfb-build pfb-up pfb-use pfb-restart pfb-down pfb-status pfb-logs pfb-verify \
+	pfb-core-build pfb-provider-import pfb-migrate-storage pfb-data-reset pfb-remove pfb-destroy pfb-gateway-up pfb-gateway-down
 
 .NOTPARALLEL: dev
 
@@ -181,45 +188,52 @@ web-e2e: prepare-go prepare-e2e-browser public-fixtures-check
 data-check:
 	@python3 scripts/test_local_user.py
 	@python3 scripts/test_pfb.py
+	@python3 -m unittest scripts.test_pfb_init
+	@python3 -m unittest scripts.test_pfb_data_reset
 	@python3 scripts/test_prepare_toolchains.py
 	@python3 scripts/test_makefile.py
 	@python3 scripts/test_workflows.py
 	@python3 scripts/test_design_assets.py
 	@python3 scripts/test_public_fixtures.py
 	@python3 scripts/test_dependencies.py
-	@python3 scripts/test_rpgmaker_release_assets.py
 	@python3 scripts/test_fbalpha2012_dat.py
+	@python3 scripts/test_runtime_provider_contract.py
+	@python3 scripts/test_runtime_providers.py
+	@python3 scripts/test_release_input_digest.py
+	@python3 scripts/test_runtime_target_bindings.py
 	@python3 scripts/dependencies.py data-check --versions "$(RETROM_DEPENDENCY_VERSIONS)"
 
+runtime-provider-prepare:
+	@python3 scripts/runtime_providers.py prepare --lock-root "$(RETROM_PROVIDER_LOCK_ROOT)" --cache-root "$(RETROM_PROVIDER_CACHE_ROOT)" --installed-root "$(RETROM_PROVIDER_INSTALLED_ROOT)" --active-path "$(RETROM_PROVIDER_ACTIVE_PATH)"
+
+runtime-provider-prepare-candidate:
+	@test -n "$(RETROM_PROVIDER_CANDIDATE_ROOT)" || { echo 'RETROM_PROVIDER_CANDIDATE_ROOT is required' >&2; exit 2; }
+	@python3 scripts/runtime_providers.py prepare-candidate --candidate-root "$(RETROM_PROVIDER_CANDIDATE_ROOT)" --installed-root "$(RETROM_PROVIDER_INSTALLED_ROOT)" --active-path "$(RETROM_PROVIDER_ACTIVE_PATH)"
+
+runtime-provider-prepare-auto:
+	@if [[ -n "$(RETROM_PROVIDER_CANDIDATE_ROOT)" ]]; then \
+		$(MAKE) runtime-provider-prepare-candidate; \
+	else \
+		$(MAKE) runtime-provider-prepare; \
+	fi
+	@$(MAKE) runtime-provider-check
+
+runtime-provider-check:
+	@python3 scripts/runtime_providers.py check --active-path "$(RETROM_PROVIDER_ACTIVE_PATH)" --installed-root "$(RETROM_PROVIDER_INSTALLED_ROOT)" --source "$(RETROM_PROVIDER_SOURCE)"
+
+runtime-provider-pin-release:
+	@test -n "$(RETROM_PROVIDER_RELEASE_ROOT)" || { echo 'RETROM_PROVIDER_RELEASE_ROOT is required' >&2; exit 2; }
+	@python3 scripts/runtime_providers.py pin-release --release-root "$(RETROM_PROVIDER_RELEASE_ROOT)" --lock-root "$(RETROM_PROVIDER_LOCK_ROOT)"
+
+runtime-provider-verify-upgrade:
+	@test -n "$(RETROM_PROVIDER_CURRENT)" -a -n "$(RETROM_PROVIDER_CANDIDATE)" -a -n "$(RETROM_PROVIDER_CHECKPOINT_REFERENCES)" || { echo 'RETROM_PROVIDER_CURRENT, RETROM_PROVIDER_CANDIDATE and RETROM_PROVIDER_CHECKPOINT_REFERENCES are required' >&2; exit 2; }
+	@python3 scripts/runtime_providers.py verify-upgrade --current "$(RETROM_PROVIDER_CURRENT)" --candidate "$(RETROM_PROVIDER_CANDIDATE)" --checkpoint-references "$(RETROM_PROVIDER_CHECKPOINT_REFERENCES)"
+
 prepare-deps:
-	@RETROM_MODE="$(RETROM_MODE)" RETROM_RUNTIME_DEV_ROOT="$(RETROM_RUNTIME_DEV_ROOT)" python3 scripts/dependencies.py prepare --versions "$(RETROM_DEPENDENCY_VERSIONS)"
+	@python3 scripts/dependencies.py prepare --versions "$(RETROM_DEPENDENCY_VERSIONS)"
 
 deps-check:
-	@RETROM_MODE="$(RETROM_MODE)" RETROM_RUNTIME_DEV_ROOT="$(RETROM_RUNTIME_DEV_ROOT)" python3 scripts/dependencies.py deps-check --versions "$(RETROM_DEPENDENCY_VERSIONS)"
-
-retrom-runtime-dev-link: prepare-node
-	@test -n "$(RETROM_RUNTIME_DEV_ROOT)" || { echo 'RETROM_RUNTIME_DEV_ROOT is required' >&2; exit 2; }
-	@test "$(RETROM_RUNTIME_DEV_INCLUDE_ASSETS)" = "false" || test "$(RETROM_RUNTIME_DEV_INCLUDE_ASSETS)" = "true" || { echo 'RETROM_RUNTIME_DEV_INCLUDE_ASSETS must be true or false' >&2; exit 2; }
-	@if [[ -n "$(RETROM_RUNTIME_PFB_CANDIDATE_ROOT)" ]]; then \
-		test "$(RETROM_RUNTIME_DEV_INCLUDE_ASSETS)" = "true"; \
-	elif [[ "$(RETROM_RUNTIME_DEV_INCLUDE_ASSETS)" = "true" ]]; then \
-		cd "$(RETROM_RUNTIME_DEV_ROOT)" && PATH="$(NODE_HOME)/bin:$$PATH" npm run release:build && PATH="$(NODE_HOME)/bin:$$PATH" npm run package:check; \
-	else \
-		cd "$(RETROM_RUNTIME_DEV_ROOT)" && PATH="$(NODE_HOME)/bin:$$PATH" npm run build && PATH="$(NODE_HOME)/bin:$$PATH" npm run package:check; \
-	fi
-	@args=(); if [[ "$(RETROM_RUNTIME_DEV_INCLUDE_ASSETS)" = "true" ]]; then args+=(--include-runtime-assets); fi; if [[ -n "$(RETROM_RUNTIME_PFB_CANDIDATE_ROOT)" ]]; then args+=(--candidate-root "$(RETROM_RUNTIME_PFB_CANDIDATE_ROOT)"); fi; python3 scripts/retrom_runtime_dev.py activate \
-		--source "$(RETROM_RUNTIME_DEV_ROOT)" \
-		--runtime-root "$(abspath $(RETROM_RUNTIME_MATERIALIZATION_ROOT))" \
-		--web-package "$(abspath web/node_modules/@xxxsen/retrom-runtime)" \
-		--manifest "$(abspath data/dat/rpgmaker/v1/manifest.json)" "$${args[@]}"
-
-retrom-runtime-dev-unlink:
-	@python3 scripts/retrom_runtime_dev.py deactivate \
-		--runtime-root "$(abspath $(RETROM_RUNTIME_MATERIALIZATION_ROOT))" \
-		--web-package "$(abspath web/node_modules/@xxxsen/retrom-runtime)" \
-		--manifest "$(abspath data/dat/rpgmaker/v1/manifest.json)"
-	@RETROM_RUNTIME_DEV_ROOT= python3 data/dat/rpgmaker/v1/build.py prepare
-	@$(MAKE) web-install RETROM_RUNTIME_DEV_ROOT=
+	@python3 scripts/dependencies.py deps-check --versions "$(RETROM_DEPENDENCY_VERSIONS)"
 
 release-input-digest:
 	@python3 scripts/release-input-digest.py --versions "$(RETROM_DEPENDENCY_VERSIONS)" --active "$(RETROM_ACTIVE_EMULATORJS_VERSION)"
@@ -229,9 +243,8 @@ ci: quality-structure-check api-check backend-check web-check integration-test d
 require-local-user:
 	@python3 scripts/local_user.py
 
-dev: require-local-user prepare-go api-generate-go web-install
-	@if [[ -n "$(RETROM_RUNTIME_DEV_ROOT)" ]]; then $(MAKE) retrom-runtime-dev-link RETROM_RUNTIME_DEV_ROOT="$(RETROM_RUNTIME_DEV_ROOT)" RETROM_RUNTIME_DEV_INCLUDE_ASSETS="$(RETROM_RUNTIME_DEV_INCLUDE_ASSETS)" RETROM_RUNTIME_PFB_CANDIDATE_ROOT="$(RETROM_RUNTIME_PFB_CANDIDATE_ROOT)"; fi
-	@$(MAKE) prepare-deps RETROM_RUNTIME_DEV_ROOT="$(RETROM_RUNTIME_DEV_ROOT)"
+dev: require-local-user prepare-go api-generate-go web-install runtime-provider-prepare-auto
+	@$(MAKE) prepare-deps
 	@RETROM_DEV_STATE_DIR="$(RETROM_DEV_STATE_DIR)" \
 	 RETROM_HTTP_ADDR="$(RETROM_HTTP_ADDR)" \
 	 RETROM_PUBLIC_ORIGIN="$(RETROM_PUBLIC_ORIGIN)" \
@@ -245,11 +258,19 @@ dev: require-local-user prepare-go api-generate-go web-install
 	 RETROM_DEPENDENCY_ROOT="$(RETROM_DEPENDENCY_ROOT)" \
 	 RETROM_DEPENDENCY_VERSIONS="$(RETROM_DEPENDENCY_VERSIONS)" \
 	 RETROM_ACTIVE_EMULATORJS_VERSION="$(RETROM_ACTIVE_EMULATORJS_VERSION)" \
+	 RETROM_PROVIDER_ACTIVE_PATH="$(RETROM_PROVIDER_ACTIVE_PATH)" \
+	 RETROM_PROVIDER_INSTALLED_ROOT="$(RETROM_PROVIDER_INSTALLED_ROOT)" \
 	 NEXT_DEV_HOST="$(NEXT_DEV_HOST)" \
 	 NEXT_DEV_PORT="$(NEXT_DEV_PORT)" \
 	 NEXT_BACKEND_ORIGIN="$(NEXT_BACKEND_ORIGIN)" \
 	 NEXT_DIST_DIR="$(NEXT_DEV_DIST_DIR)" \
-	 PATH="$(NODE_HOME)/bin:$$PATH" env -u RETROM_DEV_CONFIG -u RETROM_RUNTIME_DEV_ROOT -u RETROM_RUNTIME_DEV_INCLUDE_ASSETS -u RETROM_RUNTIME_DEV_RELEASE_OVERRIDES -u RETROM_RUNTIME_MATERIALIZATION_ROOT -u RETROM_RUNTIME_PFB_CANDIDATE_ROOT scripts/dev.sh
+	 PATH="$(NODE_HOME)/bin:$$PATH" env \
+	 -u RETROM_DEV_CONFIG \
+	 -u RETROM_PROVIDER_CANDIDATE_ROOT \
+	 -u RETROM_PROVIDER_LOCK_ROOT \
+	 -u RETROM_PROVIDER_CACHE_ROOT \
+	 -u RETROM_PROVIDER_SOURCE \
+	 scripts/dev.sh
 
 pfb-init: require-local-user
 	@test -n "$(PFB)" || { echo 'PFB is required' >&2; exit 2; }
@@ -275,13 +296,21 @@ pfb-logs: require-local-user
 	@test -n "$(PFB)" || { echo 'PFB is required' >&2; exit 2; }
 	@python3 -m scripts.pfb.cli logs --root "$(CURDIR)" --pfb "$(PFB)" --service "$(or $(SERVICE),all)"
 
-pfb-prune: require-local-user
-	@test -n "$(PFB)" && test -n "$(KEEP)" && test -n "$(CONFIRM)" || { echo 'PFB, KEEP and CONFIRM are required' >&2; exit 2; }
-	@python3 -m scripts.pfb.cli prune --root "$(CURDIR)" --pfb "$(PFB)" --keep "$(KEEP)" --confirm "$(CONFIRM)"
+pfb-core-build: require-local-user
+	@test -n "$(PFB)" && test -n "$(CORE)" || { echo 'PFB and CORE is required' >&2; exit 2; }
+	@python3 -m scripts.pfb.cli core-build --root "$(CURDIR)" --pfb "$(PFB)" --core "$(CORE)"
 
-pfb-destroy: require-local-user
+pfb-provider-import: require-local-user
+	@test -n "$(PFB)" && test -n "$(SOURCE_ROOT)" && test -n "$(CONFIRM)" || { echo 'PFB, SOURCE_ROOT and CONFIRM are required' >&2; exit 2; }
+	@python3 -m scripts.pfb.cli provider-import --root "$(CURDIR)" --pfb "$(PFB)" --source-root "$(SOURCE_ROOT)" --confirm "$(CONFIRM)"
+
+pfb-data-reset: require-local-user
 	@test -n "$(PFB)" && test -n "$(CONFIRM)" || { echo 'PFB and CONFIRM are required' >&2; exit 2; }
-	@python3 -m scripts.pfb.cli destroy --root "$(CURDIR)" --pfb "$(PFB)" --confirm "$(CONFIRM)"
+	@python3 -m scripts.pfb.cli data-reset --root "$(CURDIR)" --pfb "$(PFB)" --confirm "$(CONFIRM)" $(if $(SOURCE_ROOT),--source-root "$(SOURCE_ROOT)")
+
+pfb-migrate-storage pfb-remove pfb-destroy: require-local-user
+	@test -n "$(PFB)" && test -n "$(CONFIRM)" || { echo 'PFB and CONFIRM are required' >&2; exit 2; }
+	@python3 -m scripts.pfb.cli "$(@:pfb-%=%)" --root "$(CURDIR)" --pfb "$(PFB)" --confirm "$(CONFIRM)"
 
 pfb-gateway-up pfb-gateway-down: require-local-user
 	@python3 -m scripts.pfb.cli "$(@:pfb-%=%)" --root "$(CURDIR)"

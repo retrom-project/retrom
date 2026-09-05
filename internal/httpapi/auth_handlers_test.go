@@ -44,6 +44,9 @@ func newAuthHTTPServer(t *testing.T, mode config.Mode) (*Server, *retromruntime.
 	repositoryRoot, _ := filepath.Abs(filepath.Join("..", ".."))
 	dependencySet, err := dependencies.Load(filepath.Join(repositoryRoot, "data"), []string{"4.2.3"}, "4.2.3")
 	testassert.False(t, err != nil, err)
+	if err := testsupport.SeedRuntimeProviders(context.Background(), database.SQL, dependencySet.RuntimeCatalog); err != nil {
+		t.Fatal(err)
+	}
 	blobs, err := blobstore.Open(root)
 	testassert.False(t, err != nil, err)
 	origin, _ := url.Parse("http://localhost:3000")
@@ -53,6 +56,7 @@ func newAuthHTTPServer(t *testing.T, mode config.Mode) (*Server, *retromruntime.
 		},
 		database.SQL, dependencySet, blobs, credentials, accountService, accountService, now,
 	)
+	server.startupReady.Store(true)
 	return server, credentials
 }
 

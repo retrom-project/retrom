@@ -1,60 +1,38 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
-import type { EmulatorInstance } from "./adapters/ejs-4.2.3-v2";
+import {afterEach, describe, expect, it, vi} from "vitest";
+import type {PlayerRuntimeV1, RuntimeVideoModeV1} from "./runtime/contract";
 import {
-  applyVideoRenderingMode,
-  readVideoRenderingMode,
-  subscribeVideoRenderingMode,
-  videoRenderingModeOptions,
-  writeVideoRenderingMode,
+  applyVideoRenderingMode, readVideoRenderingMode, subscribeVideoRenderingMode,
+  videoRenderingModeOptions, writeVideoRenderingMode,
 } from "./video-rendering";
 
 afterEach(() => window.localStorage.clear());
 
 describe("Player video rendering modes", () => {
-  it("defaults to sharp pixels and keeps the selectable modes stable", () => {
+  it("defaults to sharp pixels and exposes only contract modes", () => {
     expect(readVideoRenderingMode("user-1")).toBe("pixel");
     expect(videoRenderingModeOptions.map((option) => option.value)).toEqual([
-      "clear", "pixel", "sharpen", "smooth", "original",
+      "sharp-bilinear", "pixel", "adaptive-sharpen", "smooth", "original",
     ]);
   });
 
-  it("stores the preference in the authenticated user namespace", () => {
-    writeVideoRenderingMode("user-1", "pixel");
-    expect(window.localStorage.getItem("retrom:v2:user:user-1:player:video-rendering-mode")).toBe("pixel");
-    expect(readVideoRenderingMode("user-1")).toBe("pixel");
-    window.localStorage.setItem("retrom:v2:user:user-1:player:video-rendering-mode", "unknown");
-    expect(readVideoRenderingMode("user-1")).toBe("pixel");
-  });
-
-  it("notifies same-page consumers when the preference changes", () => {
+  it("stores and publishes authenticated-user preference changes", () => {
     const listener = vi.fn();
     const unsubscribe = subscribeVideoRenderingMode(listener);
-    writeVideoRenderingMode("user-1", "sharpen");
+    writeVideoRenderingMode("user-1", "adaptive-sharpen");
+    expect(window.localStorage.getItem("retrom:v2:user:user-1:player:video-rendering-mode")).toBe("adaptive-sharpen");
+    expect(readVideoRenderingMode("user-1")).toBe("adaptive-sharpen");
     expect(listener).toHaveBeenCalledOnce();
     unsubscribe();
-    writeVideoRenderingMode("user-1", "clear");
-    expect(listener).toHaveBeenCalledOnce();
   });
 
-  it.each([
-    ["clear", "retrom-sharp-bilinear", "pixelated"],
-    ["pixel", "disabled", "pixelated"],
-    ["sharpen", "retrom-adaptive-sharpen", "auto"],
-    ["smooth", "sabr", "auto"],
-    ["original", "disabled", "auto"],
-  ] as const)("applies %s to both the runtime shader and browser compositor", (mode, shader, imageRendering) => {
-    const canvas = document.createElement("canvas");
-    const changeSettingOption = vi.fn();
-    const emulator: EmulatorInstance = { on: () => undefined, canvas, changeSettingOption };
-    expect(applyVideoRenderingMode(emulator, canvas, mode)).toBe(true);
-    expect(changeSettingOption).toHaveBeenCalledWith("shader", shader);
-    expect(canvas.style.getPropertyValue("image-rendering")).toBe(imageRendering);
-    expect(canvas.style.getPropertyPriority("image-rendering")).toBe("important");
-  });
-
-  it("still sharpens browser scaling while the runtime is not ready", () => {
-    const canvas = document.createElement("canvas");
-    expect(applyVideoRenderingMode(undefined, canvas, "clear")).toBe(false);
-    expect(canvas.style.imageRendering).toBe("pixelated");
+  it("delegates supported modes to PlayerRuntimeV1", () => {
+    const setVideoMode = vi.fn(async () => undefined);
+    const runtime = {
+      getCapabilities: () => ({videoModes: ["pixel", "smooth"] as RuntimeVideoModeV1[]}), setVideoMode,
+    } as unknown as PlayerRuntimeV1;
+    expect(applyVideoRenderingMode(runtime, "smooth")).toBe(true);
+    expect(setVideoMode).toHaveBeenCalledWith("smooth");
+    expect(applyVideoRenderingMode(runtime, "original")).toBe(false);
+    expect(setVideoMode).toHaveBeenCalledOnce();
   });
 });

@@ -14,6 +14,10 @@ import {
 import { normalizedBase } from "./rpgmaker_url.mjs";
 import { localRpgAcceptanceProxy } from "./rpgmaker_local_proxy.mjs";
 
+import {advanceFixture, capturePreviewCheckpoint, finishPreview, observeFixturePosition,
+  observePreviewFrames, waitForPreviewReady} from "./rpgmaker_preview_actions.mjs";
+import {installAudioObservation, readAudioObservation} from "./rpgmaker_audio_observation.mjs";
+
 const caseId = required("RETROM_RPG_CASE_ID");
 const caseDir = required("RETROM_RPG_CASE_DIR");
 const baseUrl = normalizedBase(required("RETROM_ACCEPTANCE_BASE_URL"));
@@ -69,7 +73,7 @@ async function contentSafetyCase(context, client, instances) {
     unsafe.push({ name: test.name, accepted: test.accepted, status: outcome.status, code: outcome.body.error?.code ?? null });
   }
   if (!opaqueReview) { throw new Error("RPG_ACCEPTANCE_OPAQUE_NATIVE_REVIEW_MISSING"); }
-  const opaqueLaunch = await createValidationLaunch(context, client, opaqueReview, "acc-rpg-010-opaque-native.png", false);
+  const opaqueLaunch = await createPreviewLaunch(context, client, opaqueReview, "acc-rpg-010-opaque-native.png", false);
   const opaqueNames = ["Game.exe", "nw.dll", "plugin.node", "launcher.bat"];
   const opaqueSourceFiles = opaqueNames.map((name) => {
     const source = opaqueReview.sourceFiles.find((file) => file.name === name);
@@ -83,7 +87,7 @@ async function contentSafetyCase(context, client, instances) {
     opaqueRuntime.push({ name, status });
   }
   await cleanupNativeProjection(opaqueLaunch.frame);
-  await finishOpenedValidationLaunch(opaqueLaunch.page, opaqueLaunch.launchId);
+  await finishPreview(opaqueLaunch.page, opaqueLaunch.launchId);
   await opaqueLaunch.page.close();
 
   const nestedArchives = [];
@@ -114,9 +118,10 @@ async function contentSafetyCase(context, client, instances) {
       nestedEntryCount: sidecar.archiveEntries.length,
       importJobId: outcome.body.importJobId, importItemId: review.itemId,
       contentIdentityDigest: review.contentIdentityDigest,
-      validationId: inspected.validationId, launchId: inspected.launchId,
-      routeKey: inspected.config.routeKey, artifactId: inspected.config.artifactId,
-      adapterKind: inspected.config.adapter.adapterKind,
+      launchId: inspected.launchId,
+      providerId: inspected.config.runtime.providerId,
+      targetId: inspected.config.runtime.targetId,
+      bundleSha256: inspected.config.runtime.bundleSha256,
       projection: inspected.projection, launchFinished: inspected.launchFinished,
     });
   }
@@ -145,35 +150,53 @@ async function isolationCase(context, client, instances) {
     const review = await reviewForImport(client, outcome.body.importJobId);
     const originalScreenshot = `screenshots/acc-rpg-011-${input.generation.toLowerCase()}.png`;
     const restoreScreenshot = `screenshots/acc-rpg-011-${input.generation.toLowerCase()}-restore.png`;
-    const launched = await createValidationLaunch(
+    const launched = await createPreviewLaunch(
       context, client, review, basename(originalScreenshot), true,
     );
-    await waitForAutomaticValidationGates(launched.page);
+    const startedAtMs = Date.now();
+    await waitForPreviewReady(launched.page);
+    const originalFrames = await observePreviewFrames(launched.page);
     launched.bootstrap = await bootstrapChecks(
       context, launched.frame, launched.config, launched.runtimeOrigin,
     );
     await launched.page.bringToFront();
-    await completeOriginalValidation(launched.page, launched.frame, input.generation);
-    const checkpointed = await waitForValidation(client, review.itemId, launched.validationId, "CHECKPOINTED");
-    launched.bootstrap.inactiveBootstrapStatus = await browserNavigationStatus(
-      context, launched.config.adapter.bootstrapUrl,
-    );
-    const restored = await createRestoreLaunch(
-      context, client, review, checkpointed, basename(restoreScreenshot),
-    );
-    await completeRestoreValidation(restored.page, restored.frame, input.generation);
-    const validation = await waitForValidation(client, review.itemId, launched.validationId, "AWAITING_DECISION");
+    await advanceFixture(launched.page, ["ArrowLeft"]);
+    const audio = await readAudioObservation(launched.page);
+    const initialPosition = await observeFixturePosition(launched.page, input.generation);
+    await advanceFixture(launched.page, ["ArrowRight", "Enter"]);
+    const saved = await capturePreviewCheckpoint(launched.page, launched.launchId);
+    const savedPosition = await observeFixturePosition(launched.page, input.generation);
+    const frozen = await createRestorePreview(client, review, launched.launchId);
+    await advanceFixture(launched.page, ["ArrowRight", "Enter"]);
+    await capturePreviewCheckpoint(launched.page, launched.launchId);
+    const divergedPosition = await observeFixturePosition(launched.page, input.generation);
+    await finishPreview(launched.page, launched.launchId);
+    const launchedResource = providerResource(launched.config, "NATIVE_WEB");
+    launched.bootstrap.inactiveBootstrapStatus = await browserNavigationStatus(context, launchedResource.entryUrl);
+    const restored = await openPreviewPlayer(context, client, frozen, null, false);
+    await waitForPreviewReady(restored.page);
+    if (restored.config.restore?.sha256 !== saved.sha256 || restored.config.restore?.sizeBytes !== saved.sizeBytes) {
+      throw new Error("RPG_ACCEPTANCE_ISOLATION_FROZEN_CHECKPOINT_MISMATCH");
+    }
+    const restoredFrames = await observePreviewFrames(restored.page);
+    const restoredPosition = await observeFixturePosition(restored.page, input.generation);
+    await restored.page.screenshot({path: join(caseDir, restoreScreenshot), fullPage: true});
+    await advanceFixture(restored.page, ["ArrowRight", "Enter"]);
+    const restoreInputPosition = await observeFixturePosition(restored.page, input.generation);
+    await finishPreview(restored.page, restored.launchId);
     harnesses.push({
       generation: input.generation, importItemId: review.itemId,
-      validationId: launched.validationId, originalLaunchId: launched.launchId,
-      restoreLaunchId: restored.launchId, runtimeOrigin: launched.runtimeOrigin,
+      originalLaunchId: launched.launchId, restoreLaunchId: restored.launchId, runtimeOrigin: launched.runtimeOrigin,
       config: safeConfig(launched.config), originalScreenshot, restoreScreenshot,
-      csp: launched.csp, probes: launched.probes, securityRequests: launched.securityRequests,
-      bootstrap: launched.bootstrap, machineGates: validation.machineGates,
-      checkpointRoundTrip: validation.checkpointRoundTrip,
+      csp: launched.csp, probes: launched.probes, securityRequests: launched.securityRequests, bootstrap: launched.bootstrap,
+      frameProgress: {original: originalFrames, restored: restoredFrames}, audio, startedAtMs, finishedAtMs: Date.now(),
+      checkpointRoundTrip: {
+        originalLaunchId: launched.launchId, restoreLaunchId: restored.launchId, originalLaunchEnded: launched.page.isClosed(),
+        initialPosition, savedPosition, divergedPosition, restoredPosition, restoreInputPosition,
+        sha256: saved.sha256, frozenRestoreSha256: restored.config.restore.sha256, sizeBytes: saved.sizeBytes, format: saved.format,
+      },
     });
-    await launched.page.close();
-    await restored.page.close();
+
   }
   return {
     schemaVersion: 1, caseId, status: "PASS", harnesses,
@@ -182,18 +205,23 @@ async function isolationCase(context, client, instances) {
   };
 }
 
-async function createValidationLaunch(context, client, review, screenshotName, inspectIsolation = false) {
-  const response = await client.raw("POST", `/api/v1/admin/reviews/${review.itemId}/runtime-validations`, {
+async function createPreviewLaunch(context, client, review, screenshotName, inspectIsolation = false) {
+  const response = await client.raw("POST", `/api/v1/admin/reviews/${review.itemId}/previews`, {
     headers: { ...client.writeHeaders(), "Content-Type": "application/json", "If-Match": `"v${review.version}"` },
     data: { clientCapabilities: { secureContext: true, crossOriginIsolated: true, sharedArrayBuffer: true } },
   });
-  if (response.status() !== 201) { throw new Error(`RPG_ACCEPTANCE_VALIDATION_CREATE_${response.status()}`); }
+  if (response.status() !== 201) { throw new Error(`RPG_ACCEPTANCE_PREVIEW_CREATE_${response.status()}`); }
   const created = await response.json();
-  return openValidationPlayer(context, client, created, screenshotName, inspectIsolation);
+  return openPreviewPlayer(context, client, created, screenshotName, inspectIsolation);
 }
 
-async function openValidationPlayer(context, client, created, screenshotName, inspectIsolation) {
+async function openPreviewPlayer(context, client, created, screenshotName, inspectIsolation) {
   const page = await context.newPage();
+  await page.addInitScript(installAudioObservation);
+  page.__retromPageErrors = [];
+  page.__retromFatalError = new Promise((resolve) => {
+    page.on("pageerror", (error) => {page.__retromPageErrors.push(error.message); resolve(error);});
+  });
   const securityRequests = [];
   let config = null;
   let csp = null;
@@ -207,19 +235,21 @@ async function openValidationPlayer(context, client, created, screenshotName, in
     if (request.url().includes("example.invalid")) { securityRequests.push({ urlKind: "external", status: 0 }); }
   });
   const configResponse = page.waitForResponse(
-    (response) => response.url().includes(`/runtime/launches/${created.launchId}/config`) && response.status() === 200,
+    (response) => response.url().includes(`/runtime/launches/${created.previewId}/config`) && response.status() === 200,
     { timeout: 120_000 },
   );
-  await page.goto(`${baseUrl}${created.playerUrl}`, { waitUntil: "domcontentloaded" });
+  await page.goto(`${baseUrl}${created.playUrl}`, { waitUntil: "domcontentloaded" });
   config = await (await configResponse).json();
-  requireLocalRuntimeSite(baseUrl, config.adapter?.uniqueOrigin);
+  exact(config.session.purpose, "REVIEW_PREVIEW", "RPG_ACCEPTANCE_PREVIEW_PURPOSE");
+  const nativeResource = providerResource(config, "NATIVE_WEB", false);
+  requireLocalRuntimeSite(baseUrl, nativeResource?.origin);
   await page.waitForFunction(() => document.querySelector("iframe") !== null, null, { timeout: 120_000 });
-  const frame = await waitForHarnessFrame(page, inspectIsolation, config.adapter?.uniqueOrigin);
+  const frame = await waitForHarnessFrame(page, inspectIsolation, nativeResource?.origin);
   if (screenshotName) {
     await page.screenshot({ path: join(caseDir, "screenshots", screenshotName), fullPage: true });
   }
   const runtimeOrigin = new URL(frame.url()).origin;
-  const nativeOrigin = config.adapter?.adapterKind === "NATIVE_WEB" ? config.adapter.uniqueOrigin : null;
+  const nativeOrigin = nativeResource?.origin ?? null;
   if (inspectIsolation && (runtimeOrigin === baseUrl || nativeOrigin !== runtimeOrigin)) {
     throw new Error("RPG_ACCEPTANCE_ISOLATION_ORIGIN_INVALID");
   }
@@ -227,21 +257,18 @@ async function openValidationPlayer(context, client, created, screenshotName, in
   if (inspectIsolation) { validateIsolation(csp, probes, securityRequests); }
   return {
     page, frame, config, csp, probes, securityRequests, bootstrap: null,
-    validationId: created.validationId, launchId: created.launchId, runtimeOrigin,
+    launchId: created.previewId, runtimeOrigin,
   };
 }
 
-async function createRestoreLaunch(context, client, review, validation, screenshotName) {
-  const response = await client.raw(
-    "POST", `/api/v1/admin/reviews/${review.itemId}/runtime-validations/${validation.validationId}/restore-launch`,
-    { headers: { ...client.writeHeaders(), "Content-Type": "application/json", "If-Match": `"v${review.version}"` },
-      data: { clientCapabilities: { secureContext: true, crossOriginIsolated: true, sharedArrayBuffer: true } } },
-  );
-  if (response.status() !== 201) { throw new Error(`RPG_ACCEPTANCE_RESTORE_CREATE_${response.status()}`); }
-  const created = await response.json();
-  return openValidationPlayer(context, client, created, screenshotName, false);
+async function createRestorePreview(client, review, restoreFromPreviewId) {
+  const response = await client.raw("POST", "/api/v1/admin/reviews/" + review.itemId + "/previews", {
+    headers: {...client.writeHeaders(), "Content-Type": "application/json"},
+    data: {restoreFromPreviewId, clientCapabilities: {secureContext: true, crossOriginIsolated: true, sharedArrayBuffer: true}},
+  });
+  if (response.status() !== 201) {throw new Error("RPG_ACCEPTANCE_RESTORE_CREATE_" + response.status());}
+  return response.json();
 }
-
 async function waitForHarnessFrame(page, requireProbes, runtimeOrigin) {
   if (requireProbes && (typeof runtimeOrigin !== "string" || !runtimeOrigin)) {
     throw new Error("RPG_ACCEPTANCE_RUNTIME_ORIGIN_MISSING");
@@ -262,64 +289,6 @@ async function waitForHarnessFrame(page, requireProbes, runtimeOrigin) {
   throw new Error("RPG_ACCEPTANCE_ISOLATION_FRAME_TIMEOUT");
 }
 
-async function waitForAutomaticValidationGates(page) {
-  await page.getByRole("button", { name: "输入已经生效", exact: true }).waitFor({
-    state: "visible", timeout: 120_000,
-  });
-}
-
-async function completeOriginalValidation(page, frame, generation) {
-  const sequence = validationSequence(generation);
-  await clickRuntimeAction(page, frame, "输入已经生效", sequence.input);
-  await clickRuntimeAction(page, frame, "已听到游戏音频", []);
-  await clickRuntimeAction(page, frame, "记录 B 并创建检查点", sequence.save);
-  await clickRuntimeAction(page, frame, "记录 C 并结束原运行", sequence.diverge);
-}
-
-async function completeRestoreValidation(page, frame, generation) {
-  await clickRuntimeAction(page, frame, "恢复后输入已经生效", validationSequence(generation).restore);
-}
-
-function validationSequence(generation) {
-  return ["RPG2000", "RPG2003"].includes(generation)
-    ? { input: ["ArrowLeft"], save: ["ArrowRight", "ArrowRight"],
-      diverge: ["ArrowRight", "ArrowRight"],
-      restore: ["ArrowRight", "ArrowRight", "ArrowRight", "ArrowRight", "ArrowRight"] }
-    : { input: ["ArrowLeft"], save: ["ArrowRight", "Enter"],
-      diverge: ["ArrowRight", "Enter"], restore: ["ArrowRight"] };
-}
-
-async function clickRuntimeAction(page, frame, label, keys) {
-  const button = page.getByRole("button", { name: label, exact: true });
-  await button.waitFor({ state: "visible", timeout: 120_000 });
-  const canvas = frame.locator("canvas").first();
-  await canvas.evaluate((element) => {
-    element.tabIndex = 0;
-    element.focus();
-  });
-  for (const key of keys) {
-    await canvas.press(key, { delay: 250 });
-    await page.waitForTimeout(800);
-  }
-  await button.click();
-  await page.waitForTimeout(500);
-  const alerts = await page.getByRole("alert").allInnerTexts();
-  const message = alerts.map((value) => value.trim()).find(Boolean);
-  if (message) { throw new Error(`RPG_ACCEPTANCE_RUNTIME_ACTION_${label}_${message}`); }
-}
-
-async function waitForValidation(client, itemId, validationId, expectedState) {
-  for (let attempt = 0; attempt < 600; attempt += 1) {
-    const validation = await client.json("GET", `/api/v1/admin/reviews/${itemId}/runtime-validations/${validationId}`);
-    if (validation.state === expectedState) { return validation; }
-    if (["FAILED", "EXPIRED", "PASSED"].includes(validation.state)) {
-      throw new Error(`RPG_ACCEPTANCE_VALIDATION_${validation.state}_${validation.failureCode ?? "UNKNOWN"}`);
-    }
-    await new Promise((resolvePromise) => setTimeout(resolvePromise, 100));
-  }
-  throw new Error(`RPG_ACCEPTANCE_VALIDATION_${expectedState}_TIMEOUT`);
-}
-
 async function inspectNestedProject(context, client, review, sidecar) {
   const created = await createInspectionLaunch(client, review);
   if (["RPGMV", "RPGMZ"].includes(review.rpgMaker?.generation)) {
@@ -329,22 +298,26 @@ async function inspectNestedProject(context, client, review, sidecar) {
   let launchActive = false;
   let projection;
   try {
-    const response = await client.raw("GET", `/runtime/launches/${created.launchId}/config`);
+    const response = await client.raw("GET", `/runtime/launches/${created.previewId}/config`);
     exact(response.status(), 200, "RPG_ACCEPTANCE_NESTED_CONFIG_STATUS");
     launchActive = true;
     config = await response.json();
-    if (config.adapter?.adapterKind === "EASYRPG_WEB") {
-      projection = await inspectEasyRPGProjection(client, config.adapter, sidecar);
-    } else if (config.adapter?.adapterKind === "MKXP_LIBRETRO_WEB") {
-      projection = await inspectMKXPProjection(client, config.adapter, sidecar);
+    if (["rpgmaker-2000", "rpgmaker-2003"].includes(config.runtime?.targetId)) {
+      projection = await inspectEasyRPGProjection(
+        client, providerResource(config, "FILE_TREE"), sidecar,
+      );
+    } else if (["rpgmaker-xp", "rpgmaker-vx", "rpgmaker-vx-ace"].includes(config.runtime?.targetId)) {
+      projection = await inspectMKXPProjection(
+        client, providerResource(config, "SEEKABLE_BLOB"), sidecar,
+      );
     } else {
-      throw new Error("RPG_ACCEPTANCE_NESTED_ADAPTER_INVALID");
+      throw new Error("RPG_ACCEPTANCE_NESTED_TARGET_INVALID");
     }
   } finally {
-    if (launchActive) { await finishInspectionLaunch(client, created.launchId); }
+    if (launchActive) { await finishInspectionLaunch(client, created.previewId); }
   }
   return {
-    validationId: created.validationId, launchId: created.launchId,
+    launchId: created.previewId,
     config, projection, launchFinished: true,
   };
 }
@@ -354,35 +327,35 @@ async function inspectNativeNestedProject(context, client, created, sidecar) {
   let launchActive = true;
   let runtimeActive = false;
   try {
-    launched = await openValidationPlayer(context, client, created, null, false);
+    launched = await openPreviewPlayer(context, client, created, null, false);
     runtimeActive = true;
     const projection = await inspectNativeProjection(launched.frame, sidecar);
     await cleanupNativeProjection(launched.frame);
     runtimeActive = false;
-    await finishOpenedValidationLaunch(launched.page, launched.launchId);
+    await finishPreview(launched.page, launched.launchId);
     launchActive = false;
     return {
-      validationId: created.validationId, launchId: created.launchId,
+      launchId: created.previewId,
       config: launched.config, projection, launchFinished: true,
     };
   } finally {
     try {
       if (runtimeActive) { await cleanupNativeProjection(launched.frame); }
     } finally {
-      if (launchActive) { await finishInspectionLaunch(client, created.launchId); }
+      if (launchActive) { await finishInspectionLaunch(client, created.previewId); }
       await launched?.page.close();
     }
   }
 }
 
 async function createInspectionLaunch(client, review) {
-  const response = await client.raw("POST", `/api/v1/admin/reviews/${review.itemId}/runtime-validations`, {
+  const response = await client.raw("POST", `/api/v1/admin/reviews/${review.itemId}/previews`, {
     headers: {
       ...client.writeHeaders(), "Content-Type": "application/json", "If-Match": `"v${review.version}"`,
     },
     data: { clientCapabilities: { secureContext: true, crossOriginIsolated: true, sharedArrayBuffer: true } },
   });
-  exact(response.status(), 201, "RPG_ACCEPTANCE_NESTED_VALIDATION_CREATE");
+  exact(response.status(), 201, "RPG_ACCEPTANCE_NESTED_PREVIEW_CREATE");
   return response.json();
 }
 
@@ -396,27 +369,19 @@ async function finishInspectionLaunch(client, launchId) {
   exact(result.state, "FINISHED", "RPG_ACCEPTANCE_NESTED_LAUNCH_FINISH_STATE");
 }
 
-async function finishOpenedValidationLaunch(page, launchId) {
-  const result = await page.evaluate(async (id) => {
-    const response = await fetch(`/runtime/launches/${id}/finish`, {
-      method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ clientSequence: 0, clientObservedAtMs: Date.now(), previousInterval: null }),
-    });
-    return { status: response.status, body: await response.json().catch(() => null) };
-  }, launchId);
-  exact(result.status, 200, "RPG_ACCEPTANCE_OPAQUE_LAUNCH_FINISH_STATUS");
-  exact(result.body?.state, "FINISHED", "RPG_ACCEPTANCE_OPAQUE_LAUNCH_FINISH_STATE");
-}
-
-async function inspectEasyRPGProjection(client, adapter, sidecar) {
-  const indexResponse = await client.raw("GET", adapter.projectIndexUrl);
+async function inspectEasyRPGProjection(client, resource, sidecar) {
+  const indexResponse = await client.raw("GET", resource.indexUrl);
   exact(indexResponse.status(), 200, "RPG_ACCEPTANCE_NESTED_EASY_INDEX_STATUS");
   const indexBytes = Buffer.from(await indexResponse.body());
   const index = JSON.parse(indexBytes.toString("utf8"));
   if (!easyRPGIndexPaths(index.cache).includes(sidecar.name)) {
     throw new Error("RPG_ACCEPTANCE_NESTED_EASY_INDEX_MEMBER_MISSING");
   }
-  const response = await client.raw("GET", `${adapter.projectRootUrl}${encodedLogicalPath(sidecar.name)}`);
+  if (!resource.indexUrl.endsWith("/index.json")) {
+    throw new Error("RPG_ACCEPTANCE_NESTED_EASY_INDEX_URL_INVALID");
+  }
+  const projectRootUrl = resource.indexUrl.slice(0, -"index.json".length);
+  const response = await client.raw("GET", `${projectRootUrl}${encodedLogicalPath(sidecar.name)}`);
   exact(response.status(), 200, "RPG_ACCEPTANCE_NESTED_EASY_CONTENT_STATUS");
   const contents = Buffer.from(await response.body());
   exactBytes(contents, sidecar, "RPG_ACCEPTANCE_NESTED_EASY_CONTENT");
@@ -443,18 +408,18 @@ function easyRPGIndexPaths(cache, prefix = []) {
   return paths;
 }
 
-async function inspectMKXPProjection(client, adapter, sidecar) {
-  const response = await client.raw("GET", adapter.projectArchive.url);
+async function inspectMKXPProjection(client, resource, sidecar) {
+  const response = await client.raw("GET", resource.url);
   exact(response.status(), 200, "RPG_ACCEPTANCE_NESTED_MKXP_ARCHIVE_STATUS");
   const archive = Buffer.from(await response.body());
-  exact(archive.length, adapter.projectArchive.sizeBytes, "RPG_ACCEPTANCE_NESTED_MKXP_ARCHIVE_SIZE");
-  exact(sha256(archive), adapter.projectArchive.sha256, "RPG_ACCEPTANCE_NESTED_MKXP_ARCHIVE_SHA");
+  exact(archive.length, resource.sizeBytes, "RPG_ACCEPTANCE_NESTED_MKXP_ARCHIVE_SIZE");
+  exact(sha256(archive), resource.sha256, "RPG_ACCEPTANCE_NESTED_MKXP_ARCHIVE_SHA");
   const contents = storedZIPMember(archive, sidecar.name);
   exactBytes(contents, sidecar, "RPG_ACCEPTANCE_NESTED_MKXP_MEMBER");
   return {
     kind: "MKXP_ARCHIVE_MEMBER", status: response.status(), logicalName: sidecar.name,
     sha256: sha256(contents), sizeBytes: contents.length,
-    containerSha256: adapter.projectArchive.sha256, exactMember: true,
+    containerSha256: resource.sha256, exactMember: true,
   };
 }
 
@@ -557,9 +522,9 @@ function sha256(contents) {
 }
 
 async function bootstrapChecks(context, frame, config, runtimeOrigin) {
-  const isolated = config.adapter?.adapterKind === "NATIVE_WEB" ? config.adapter : null;
-  if (!isolated?.bootstrapUrl || !isolated.bootstrapTicket) { throw new Error("RPG_ACCEPTANCE_BOOTSTRAP_CONFIG_MISSING"); }
-  const authenticatedReloadStatus = await browserNavigationStatus(context, isolated.bootstrapUrl);
+  const isolated = providerResource(config, "NATIVE_WEB");
+  if (!isolated.entryUrl || !isolated.bootstrapTicket) { throw new Error("RPG_ACCEPTANCE_BOOTSTRAP_CONFIG_MISSING"); }
+  const authenticatedReloadStatus = await browserNavigationStatus(context, isolated.entryUrl);
   const replayStatus = await runtimeBootstrapReplayStatus(frame, isolated.bootstrapTicket);
   const appHostEntry = await context.request.get(`${baseUrl}/__retrom/entry`, { failOnStatusCode: false });
   const runtimeApiStatus = await runtimeRequestStatus(frame, "/api/v1/admin/reviews", "GET");
@@ -640,9 +605,18 @@ function assertRejected(outcome, expectedCode) {
 
 function safeConfig(config) {
   return {
-    runtimeFamily: config.runtimeFamily, generation: config.generation, coreId: config.coreId,
-    routeKey: config.routeKey, artifactId: config.artifactId, adapterId: config.adapter?.adapterId,
+    providerId: config.runtime.providerId, targetId: config.runtime.targetId,
+    bundleSha256: config.runtime.bundleSha256,
   };
+}
+
+function providerResource(config, kind, requiredResource = true) {
+  const matches = Array.isArray(config?.resources)
+    ? config.resources.filter((resource) => resource?.role === "game" && resource?.kind === kind)
+    : [];
+  if (matches.length === 1) { return matches[0]; }
+  if (!requiredResource && matches.length === 0) { return null; }
+  throw new Error(`RPG_ACCEPTANCE_PROVIDER_RESOURCE_${kind}_INVALID`);
 }
 
 function required(name) {

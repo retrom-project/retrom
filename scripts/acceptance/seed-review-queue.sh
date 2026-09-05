@@ -31,7 +31,7 @@ WITH base_job AS (
   SELECT file.blob_id,blob.size_bytes
   FROM games game
   JOIN platform_instances platform ON platform.id=game.platform_instance_id
-  JOIN game_content_files file ON file.game_content_revision_id=game.current_content_revision_id
+  JOIN game_files file ON file.game_id=game.id
   JOIN blobs blob ON blob.id=file.blob_id
   WHERE game.status='PUBLISHED' AND platform.platform_id='gba'
   ORDER BY game.updated_at_ms DESC,game.id DESC,file.sort_order,file.logical_name
@@ -72,11 +72,11 @@ SELECT '11000000-0000-7000-8000-000000000002','10000000-0000-7000-8000-000000000
        'shared/Game.gba',size_bytes,size_bytes,blob_id,'COMPLETE',NULL,NULL,1786000200000,1786000200000
 FROM acceptance_base;
 
-INSERT INTO import_jobs(id,upload_session_id,target_platform_instance_id,platform_instance_version,platform_id,default_core_id,core_artifact_id,dat_version_id,metadata_provider,config_snapshot_json,config_snapshot_digest,state,total_item_count,queued_item_count,running_item_count,review_pending_item_count,published_item_count,discarded_item_count,failed_item_count,cancelled_item_count,ignored_file_count,rejected_file_count,last_error_code,cancel_requested_at_ms,cancel_reason,version,created_at_ms,updated_at_ms,completed_at_ms)
-SELECT '20000000-0000-7000-8000-000000000001','10000000-0000-7000-8000-000000000001',target_platform_instance_id,platform_instance_version,platform_id,default_core_id,core_artifact_id,dat_version_id,'NONE',config_snapshot_json,config_snapshot_digest,'REVIEW_PENDING',60,0,0,60,0,0,0,0,0,0,NULL,NULL,NULL,1,1786000100000,1786000100000,NULL
+INSERT INTO import_jobs(id,upload_session_id,target_platform_instance_id,platform_instance_version,platform_id,default_core_id,provider_id,target_id,dat_version_id,metadata_provider,config_snapshot_json,config_snapshot_digest,state,total_item_count,queued_item_count,running_item_count,review_pending_item_count,published_item_count,discarded_item_count,failed_item_count,cancelled_item_count,ignored_file_count,rejected_file_count,last_error_code,cancel_requested_at_ms,cancel_reason,version,created_at_ms,updated_at_ms,completed_at_ms)
+SELECT '20000000-0000-7000-8000-000000000001','10000000-0000-7000-8000-000000000001',target_platform_instance_id,platform_instance_version,platform_id,default_core_id,provider_id,target_id,dat_version_id,'NONE',config_snapshot_json,config_snapshot_digest,'REVIEW_PENDING',60,0,0,60,0,0,0,0,0,0,NULL,NULL,NULL,1,1786000100000,1786000100000,NULL
 FROM import_jobs WHERE id=(SELECT job_id FROM acceptance_base);
-INSERT INTO import_jobs(id,upload_session_id,target_platform_instance_id,platform_instance_version,platform_id,default_core_id,core_artifact_id,dat_version_id,metadata_provider,config_snapshot_json,config_snapshot_digest,state,total_item_count,queued_item_count,running_item_count,review_pending_item_count,published_item_count,discarded_item_count,failed_item_count,cancelled_item_count,ignored_file_count,rejected_file_count,last_error_code,cancel_requested_at_ms,cancel_reason,version,created_at_ms,updated_at_ms,completed_at_ms)
-SELECT '20000000-0000-7000-8000-000000000002','10000000-0000-7000-8000-000000000002',target_platform_instance_id,platform_instance_version,platform_id,default_core_id,core_artifact_id,dat_version_id,'NONE',config_snapshot_json,config_snapshot_digest,'REVIEW_PENDING',3,0,0,3,0,0,0,0,0,0,NULL,NULL,NULL,1,1786000200000,1786000200000,NULL
+INSERT INTO import_jobs(id,upload_session_id,target_platform_instance_id,platform_instance_version,platform_id,default_core_id,provider_id,target_id,dat_version_id,metadata_provider,config_snapshot_json,config_snapshot_digest,state,total_item_count,queued_item_count,running_item_count,review_pending_item_count,published_item_count,discarded_item_count,failed_item_count,cancelled_item_count,ignored_file_count,rejected_file_count,last_error_code,cancel_requested_at_ms,cancel_reason,version,created_at_ms,updated_at_ms,completed_at_ms)
+SELECT '20000000-0000-7000-8000-000000000002','10000000-0000-7000-8000-000000000002',target_platform_instance_id,platform_instance_version,platform_id,default_core_id,provider_id,target_id,dat_version_id,'NONE',config_snapshot_json,config_snapshot_digest,'REVIEW_PENDING',3,0,0,3,0,0,0,0,0,0,NULL,NULL,NULL,1,1786000200000,1786000200000,NULL
 FROM import_jobs WHERE id=(SELECT job_id FROM acceptance_base);
 
 WITH RECURSIVE generated(batch,n,max_n,job_id) AS (
@@ -106,9 +106,9 @@ SELECT i.id,'CONTENT',
 FROM import_items i
 WHERE i.id LIKE '30000000-%';
 
-INSERT INTO import_item_source_snapshots(id,import_item_id,revision_no,source_manifest_json,source_manifest_digest,created_by,created_at_ms)
+INSERT INTO import_item_source_snapshots(id,import_item_id,source_manifest_json,source_manifest_digest,created_by,created_at_ms)
 SELECT printf('35000000-0000-7000-80%02d-%012d',CASE WHEN i.import_job_id LIKE '%1' THEN 1 ELSE 2 END,CAST(substr(i.id,-12) AS INTEGER)),
-       i.id,1,i.source_manifest_json,i.source_manifest_digest,'IDENTIFICATION',i.created_at_ms
+       i.id,i.source_manifest_json,i.source_manifest_digest,'IDENTIFICATION',i.created_at_ms
 FROM import_items i
 WHERE i.id LIKE '30000000-%';
 
@@ -120,10 +120,10 @@ JOIN import_item_source_files s ON s.import_item_id=i.id
 WHERE i.id LIKE '30000000-%';
 
 -- The copied digest intentionally belongs to another source snapshot. This seeds
--- stale generation-4 evidence and verifies that draft save rebuilds it instead
+-- stale source evidence and verifies that draft save rebuilds it instead
 -- of trusting only the structurally matching validation columns.
-INSERT INTO import_item_core_validations(id,import_item_id,target_platform_instance_id,platform_instance_version,core_id,core_artifact_id,core_artifact_version,prepublish_generation,dat_version_id,default_dos_entry,source_manifest_digest,source_snapshot_id,prepublish_input_digest,status,compatibility_code,dependency_snapshot_json,created_at_ms)
-SELECT printf('40000000-0000-7000-80%02d-%012d',CASE WHEN i.import_job_id LIKE '%1' THEN 1 ELSE 2 END,CAST(substr(i.id,-12) AS INTEGER)),i.id,v.target_platform_instance_id,v.platform_instance_version,v.core_id,v.core_artifact_id,v.core_artifact_version,4,v.dat_version_id,v.default_dos_entry,i.source_manifest_digest,
+INSERT INTO import_item_core_validations(id,import_item_id,target_platform_instance_id,platform_instance_version,core_id,provider_id,target_id,dat_version_id,default_dos_entry,source_manifest_digest,source_snapshot_id,prepublish_input_digest,status,compatibility_code,dependency_snapshot_json,created_at_ms)
+SELECT printf('40000000-0000-7000-80%02d-%012d',CASE WHEN i.import_job_id LIKE '%1' THEN 1 ELSE 2 END,CAST(substr(i.id,-12) AS INTEGER)),i.id,v.target_platform_instance_id,v.platform_instance_version,v.core_id,v.provider_id,v.target_id,v.dat_version_id,v.default_dos_entry,i.source_manifest_digest,
        printf('35000000-0000-7000-80%02d-%012d',CASE WHEN i.import_job_id LIKE '%1' THEN 1 ELSE 2 END,CAST(substr(i.id,-12) AS INTEGER)),
        v.prepublish_input_digest,'READY','READY',v.dependency_snapshot_json,i.created_at_ms
 FROM import_items i

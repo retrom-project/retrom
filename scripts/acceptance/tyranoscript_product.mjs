@@ -5,6 +5,9 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 
 import { chromium } from "../../web/node_modules/playwright/index.mjs";
+
+import {captureOptionalReviewScreenshot, revealPreviewToolbar} from "./rpgmaker_preview_actions.mjs";
+import {installVirtualStandardGamepad} from "./standard_gamepad.mjs";
 import sharp from "../../web/node_modules/sharp/dist/index.mjs";
 
 import {
@@ -61,19 +64,21 @@ try {
 async function runProductCase(activeBrowser) {
   const context = await activeBrowser.newContext({viewport: {width: 1440, height: 1000}, ...localProxy.contextOptions});
   await installVirtualStandardGamepad(context);
+  await context.addInitScript((enabled) => {globalThis.__retromRuntimeDebug = enabled;},
+    process.env.RETROM_ACCEPTANCE_DEBUG === "1");
   const browserEvidence = {pageErrorCount: 0, consoleErrorCount: 0, dialogCount: 0, ignoredSandboxAlertCount: 0};
   const resources = {engineAsset200Count: 0, failedResponseCount: 0};
   try {
     const client = await authenticatedClient(context);
     const platformInstanceId = await tyranoScriptPlatformInstance(client);
     const uploadId = await client.upload(
-      singleFile(process.env.RETROM_TYRANOSCRIPT_SMOKE_ARCHIVE), "FILES", "TYRANOSCRIPT_PROJECT",
+      singleFile(process.env.RETROM_TYRANOSCRIPT_SMOKE_ARCHIVE), "FILES", "PROJECT",
     );
     const imported = await client.json("POST", "/api/v1/admin/imports", {
       headers: client.writeHeaders(), expected: 202, timeout: 120_000,
       data: {
         uploadId, targetPlatformInstanceId: platformInstanceId, metadataProvider: "NONE",
-        contentMode: "TYRANOSCRIPT_PROJECT_V1", tagIds: [],
+        contentMode: "TYRANOSCRIPT_PROJECT", tagIds: [],
       },
     });
     await waitForImport(client, imported.importJobId);
@@ -85,7 +90,7 @@ async function runProductCase(activeBrowser) {
     await previewPage.goto(`${baseUrl}${preview.playUrl}`, {waitUntil: "domcontentloaded", timeout: 120_000});
     requireTyranoScriptRuntimeSite(await previewConfigPromise);
     try {
-      await waitForPreviewCapture(client, review.itemId, previewPage);
+      await waitForPreviewCapture(client, review.itemId, previewPage, preview.previewId);
     } catch (error) {
       debugAcceptance(`page:closed=${previewPage.isClosed()}:url=${previewPage.url()}`);
       debugAcceptance(`preview:${await previewPage.locator("body").innerText().catch((reason) =>
@@ -101,7 +106,7 @@ async function runProductCase(activeBrowser) {
     const originalPage = await trackedPage(context, browserEvidence, resources);
     const configPromise = waitForConfig(originalPage, original.launchId);
     await originalPage.goto(`${baseUrl}${original.playUrl}`, {waitUntil: "domcontentloaded", timeout: 120_000});
-    const contentDigest = (await configPromise).contentDigest;
+    const contentDigest = requireTyranoScriptRuntimeSite(await configPromise).contentDigest;
     await waitForCheckpoint(originalPage);
     const originalSurface = await tyranoSurface(originalPage);
     await originalSurface.evaluate(() => {window.TYRANO.kag.stat.f.__retrom_checkpoint_marker = "B";});
@@ -135,7 +140,7 @@ async function runProductCase(activeBrowser) {
         importItemId: review.itemId, gameId: approved.gameId, saveStateId: saved.saveStateId,
         originalLaunchId: original.launchId, restoreLaunchId: restored.launchId,
       },
-      checkpoint: {payloadKind: saved.payloadKind, sizeBytes: Number(stateResponse.headers()["content-length"])},
+      checkpoint: {format: saved.checkpointFormat, sizeBytes: Number(stateResponse.headers()["content-length"])},
       state: {b: stateB, c: stateC, restoredB: restoredState},
       resources: {...resources, contentDigest},
       screenshots: {preview: previewScreenshot, product: productScreenshot, restored: restoredScreenshot},
@@ -195,18 +200,11 @@ async function createPreview(client, itemId) {
   });
 }
 
-async function waitForPreviewCapture(client, itemId, page) {
-  // TyranoScript 4.x can starve its renderer when Playwright continuously polls the page or its
-  // browser-bound request context during startup. Give the fixed five-second capture one quiet
-  // settle window, then verify the persisted evidence and UI exactly once.
-  await page.waitForTimeout(20_000);
+async function waitForPreviewCapture(client, itemId, page, previewId) {
+  await captureOptionalReviewScreenshot(page, previewId);
   const review = await client.json("GET", `/api/v1/admin/reviews/${itemId}`);
   if (!review.runtimeScreenshot) {
-    throw new Error("TYRANOSCRIPT_ACCEPTANCE_PREVIEW_CAPTURE_TIMEOUT");
-  }
-  const text = await page.locator("body").innerText({timeout: 10_000});
-  if (!text.includes("第 5 秒运行截图已保存；可以继续试玩。")) {
-    throw new Error("TYRANOSCRIPT_ACCEPTANCE_PREVIEW_CAPTURE_UI_MISSING");
+    throw new Error("TYRANOSCRIPT_ACCEPTANCE_PREVIEW_CAPTURE_MISSING");
   }
 }
 
@@ -340,10 +338,11 @@ async function advanceTyranoToStableWait(surface) {
 }
 
 async function createCheckpoint(page, launchId) {
+  await revealPreviewToolbar(page);
   const responsePromise = page.waitForResponse((response) =>
     response.request().method() === "POST" && response.url().includes(`/runtime/launches/${launchId}/save-states`),
   {timeout: 120_000});
-  await page.getByRole("button", {name: "创建存档", exact: true}).click({force: true});
+  await page.getByRole("button", {name: "创建存档", exact: true}).click();
   const response = await responsePromise;
   requireStatus(response.status(), 201, "TYRANOSCRIPT_ACCEPTANCE_SAVE_FAILED");
   return response.json();
@@ -351,11 +350,9 @@ async function createCheckpoint(page, launchId) {
 
 async function resumeAfterCheckpoint(page) {
   const resumeButton = page.getByRole("button", {name: "继续游戏", exact: true});
-  if (!await resumeButton.isVisible().catch(() => false)) {
-    throw new Error("TYRANOSCRIPT_ACCEPTANCE_RESUME_UNAVAILABLE");
-  }
-  await resumeButton.click({force: true});
-  await page.waitForTimeout(250);
+  await resumeButton.waitFor({state: "visible"});
+  await resumeButton.click();
+  await resumeButton.waitFor({state: "hidden"});
 }
 
 async function waitForConfig(page, launchId) {
@@ -368,7 +365,15 @@ async function waitForConfig(page, launchId) {
 
 function requireTyranoScriptRuntimeSite(config) {
   try {
-    requireLocalRuntimeSite(baseUrl, config.adapter?.uniqueOrigin);
+    const games = config.resources?.filter((resource) => resource.role === "game");
+    const game = games?.[0];
+    if (games?.length !== 1 || game.kind !== "ISOLATED_WEB" ||
+      typeof game.origin !== "string" || !game.origin ||
+      typeof game.contentDigest !== "string" || !/^[a-f0-9]{64}$/u.test(game.contentDigest)) {
+      throw new Error("invalid isolated game resource");
+    }
+    requireLocalRuntimeSite(baseUrl, game.origin);
+    return game;
   } catch {
     throw new Error("TYRANOSCRIPT_ACCEPTANCE_RUNTIME_ORIGIN_INVALID");
   }
@@ -424,26 +429,6 @@ async function screenshotEvidence(surface, stem) {
     height: decoded.info.height, nonBlackPixels,
     pngSha256: createHash("sha256").update(pngBytes).digest("hex"), width: decoded.info.width,
   };
-}
-
-async function installVirtualStandardGamepad(context) {
-  await context.addInitScript((runtimeDebug) => {
-    globalThis.__retromRuntimeDebug = runtimeDebug;
-    const state = {
-      axes: [0, 0, 0, 0],
-      buttons: Array.from({length: 17}, () => ({pressed: false, touched: false, value: 0})),
-    };
-    Object.defineProperty(navigator, "getGamepads", {
-      configurable: true,
-      value: () => [{
-        axes: state.axes, buttons: state.buttons, connected: true,
-        id: "Retrom acceptance standard gamepad", index: 0, mapping: "standard", timestamp: performance.now(),
-      }],
-    });
-    globalThis.__retromTestGamepad = {
-      button(index, pressed) {state.buttons[index] = {pressed, touched: pressed, value: pressed ? 1 : 0};},
-    };
-  }, process.env.RETROM_ACCEPTANCE_DEBUG === "1");
 }
 
 function requireGamepadB(value) {

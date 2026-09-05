@@ -22,14 +22,16 @@ p.enabled,
 pc.core_id,
 c.name,
 pc.enabled,
-a.runtime_family,
-a.runtime_version,
-a.sha256
+binding.provider_id,
+binding.target_id
 FROM platforms p
 LEFT JOIN platform_cores pc ON pc.platform_id=p.id
 LEFT JOIN cores c ON c.id=pc.core_id
-LEFT JOIN core_artifacts a ON a.core_id=pc.core_id
- AND a.selected_for_new_bindings=1 AND a.available_for_launch=1
+LEFT JOIN runtime_binding_platforms binding_platform
+ ON binding_platform.platform_id=p.id AND binding_platform.core_id=pc.core_id
+LEFT JOIN runtime_target_bindings binding ON binding.binding_id=binding_platform.binding_id
+ AND binding.launch_policy!='DISABLED'
+LEFT JOIN runtime_targets target ON target.provider_id=binding.provider_id AND target.target_id=binding.target_id
 ORDER BY p.sort_order,
 pc.core_id
 `,
@@ -41,14 +43,15 @@ pc.core_id
 	defer func() { cleanup.Error("close", rows.Close()) }()
 	items := make([]map[string]any, 0)
 	byID := make(map[string]map[string]any)
+	coresByPlatformID := make(map[string]map[string]map[string]any)
 	for rows.Next() {
 		var id, name string
 		var sortOrder, enabled int
-		var coreID, coreName, runtimeFamily, runtimeVersion, artifactSHA sql.NullString
+		var coreID, coreName, providerID, targetID sql.NullString
 		var coreEnabled sql.NullInt64
 		if err := rows.Scan(
 			&id, &name, &sortOrder, &enabled, &coreID, &coreName, &coreEnabled,
-			&runtimeFamily, &runtimeVersion, &artifactSHA,
+			&providerID, &targetID,
 		); err != nil {
 			server.databaseError(writer, request, err)
 			return
@@ -63,33 +66,40 @@ pc.core_id
 				"cores":     []map[string]any{},
 			}
 			byID[id] = item
+			coresByPlatformID[id] = make(map[string]map[string]any)
 			items = append(items, item)
 		}
-		if coreID.Valid {
-			cores, ok := item["cores"].([]map[string]any)
-			if !ok {
-				writeError(
-					writer,
-					request,
-					http.StatusInternalServerError,
-					"INTERNAL_ERROR",
-					"平台核心投影无效",
-					map[string]any{},
-				)
-				return
-			}
-			netplaySupported := runtimeFamily.String == "EMULATORJS" && runtimeVersion.Valid && artifactSHA.Valid &&
-				server.netplay.SupportsPlatformCoreArtifact(
-					id, coreID.String, runtimeVersion.String, artifactSHA.String,
-				)
-			item["cores"] = append(
-				cores,
-				map[string]any{
-					"id": coreID.String, "name": coreName.String, "enabled": coreEnabled.Int64 == 1,
-					"netplaySupported": netplaySupported,
-				},
-			)
+		if !coreID.Valid {
+			continue
 		}
+		cores, ok := item["cores"].([]map[string]any)
+		if !ok {
+			writeError(
+				writer,
+				request,
+				http.StatusInternalServerError,
+				"INTERNAL_ERROR",
+				"平台核心投影无效",
+				map[string]any{},
+			)
+			return
+		}
+		netplaySupported := providerID.Valid && targetID.Valid &&
+			server.netplay.SupportsPlatformTarget(
+				id, coreID.String, providerID.String, targetID.String,
+			)
+		if core := coresByPlatformID[id][coreID.String]; core != nil {
+			if netplaySupported {
+				core["netplaySupported"] = true
+			}
+			continue
+		}
+		core := map[string]any{
+			"id": coreID.String, "name": coreName.String, "enabled": coreEnabled.Int64 == 1,
+			"netplaySupported": netplaySupported,
+		}
+		coresByPlatformID[id][coreID.String] = core
+		item["cores"] = append(cores, core)
 	}
 	if err := rows.Err(); err != nil {
 		server.databaseError(writer, request, err)
@@ -98,27 +108,24 @@ pc.core_id
 	writeJSON(writer, http.StatusOK, map[string]any{"items": items, "nextCursor": nil})
 }
 
-func (server *Server) coreArtifacts(writer http.ResponseWriter, request *http.Request) {
+func (server *Server) runtimeTargets(writer http.ResponseWriter, request *http.Request) {
 	rows, err := server.database.QueryContext(
 		request.Context(),
 		`
-SELECT a.id,
-a.core_id,
+SELECT provider.provider_id,
+provider.provider_version,
+provider.provider_api_version,
+provider.bundle_sha256,
+target.target_id,
+target.display_name,
+binding.core_id,
 c.name,
-a.route_key,
-a.runtime_family,
-a.runtime_adapter_kind,
-a.runtime_version,
-a.adapter_id,
-a.selected_for_new_bindings,
-a.available_for_launch,
-a.version,
-a.size_bytes
-FROM core_artifacts a
-JOIN cores c ON c.id=a.core_id
-ORDER BY c.name,
-a.runtime_version,
-a.id
+binding.launch_policy
+FROM runtime_providers provider
+JOIN runtime_targets target ON target.provider_id=provider.provider_id
+JOIN runtime_target_bindings binding ON binding.provider_id=target.provider_id AND binding.target_id=target.target_id
+JOIN cores c ON c.id=binding.core_id
+ORDER BY provider.provider_id,target.target_id
 `,
 	)
 	if err != nil {
@@ -128,22 +135,12 @@ a.id
 	defer func() { cleanup.Error("close", rows.Close()) }()
 	items := make([]map[string]any, 0)
 	for rows.Next() {
-		var id, coreID, coreName, routeKey, runtimeFamily, adapterKind, runtimeVersion, adapterID string
-		var selected, available int
-		var version, size int64
+		var providerID, providerVersion, bundleSHA256, targetID, displayName string
+		var coreID, coreName, launchPolicy string
+		var providerAPIVersion int
 		if err := rows.Scan(
-			&id,
-			&coreID,
-			&coreName,
-			&routeKey,
-			&runtimeFamily,
-			&adapterKind,
-			&runtimeVersion,
-			&adapterID,
-			&selected,
-			&available,
-			&version,
-			&size,
+			&providerID, &providerVersion, &providerAPIVersion, &bundleSHA256,
+			&targetID, &displayName, &coreID, &coreName, &launchPolicy,
 		); err != nil {
 			server.databaseError(writer, request, err)
 			return
@@ -151,18 +148,10 @@ a.id
 		items = append(
 			items,
 			map[string]any{
-				"id":                     id,
-				"coreId":                 coreID,
-				"coreName":               coreName,
-				"routeKey":               routeKey,
-				"runtimeFamily":          runtimeFamily,
-				"runtimeAdapterKind":     adapterKind,
-				"runtimeVersion":         runtimeVersion,
-				"adapterId":              adapterID,
-				"selectedForNewBindings": selected == 1,
-				"availableForLaunch":     available == 1,
-				"version":                version,
-				"sizeBytes":              size,
+				"providerId": providerID, "providerVersion": providerVersion,
+				"providerApiVersion": providerAPIVersion, "bundleSha256": bundleSHA256,
+				"targetId": targetID, "displayName": displayName,
+				"coreId": coreID, "coreName": coreName, "launchPolicy": launchPolicy,
 			},
 		)
 	}
@@ -213,11 +202,12 @@ pi.version,
 pi.updated_at_ms,
 (SELECT count(*) FROM games g WHERE g.platform_instance_id=pi.id)
 ,
-COALESCE((SELECT a.compatibility_json
- FROM core_artifacts a
- WHERE a.core_id=pi.default_core_id
- AND a.selected_for_new_bindings=1 AND a.available_for_launch=1
- LIMIT 1),'{}')
+COALESCE((SELECT `+contentcapability.BindingPolicySQL+`
+ FROM runtime_target_bindings binding
+ JOIN runtime_binding_platforms binding_platform ON binding_platform.binding_id=binding.binding_id
+  AND binding_platform.platform_id=pi.platform_id AND binding_platform.core_id=pi.default_core_id
+ WHERE binding.core_id=pi.default_core_id AND binding.launch_policy<>'DISABLED'
+ LIMIT 1),NULL)
 FROM platform_instances pi
 JOIN platforms p ON p.id=pi.platform_id
 JOIN cores c ON c.id=pi.default_core_id
@@ -233,7 +223,8 @@ JOIN cores c ON c.id=pi.default_core_id
 	defer func() { cleanup.Error("close", rows.Close()) }()
 	items := make([]map[string]any, 0)
 	for rows.Next() {
-		var id, platformID, platformName, coreID, coreName, name, slug, description, compatibility string
+		var id, platformID, platformName, coreID, coreName, name, slug, description string
+		var contentPolicy contentcapability.Policy
 		var sortOrder, enabled int
 		var version, updatedAtMS, gameCount int64
 		if err := rows.Scan(
@@ -250,7 +241,7 @@ JOIN cores c ON c.id=pi.default_core_id
 			&version,
 			&updatedAtMS,
 			&gameCount,
-			&compatibility,
+			&contentPolicy,
 		); err != nil {
 			server.databaseError(writer, request, err)
 			return
@@ -261,7 +252,7 @@ JOIN cores c ON c.id=pi.default_core_id
 			"sortOrder": sortOrder, "enabled": enabled == 1, "version": version, "updatedAtMs": updatedAtMS,
 			"gameCount": gameCount, "supportedExtensions": contentprofile.SupportedExtensions(platformID),
 			"importCapabilities": contentcapability.Resolve(
-				platformID, enabled == 1, server.config.MultiDiscImportEnabled, compatibility,
+				platformID, enabled == 1, server.config.MultiDiscImportEnabled, contentPolicy,
 			),
 		})
 	}

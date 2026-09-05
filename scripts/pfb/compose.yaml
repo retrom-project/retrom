@@ -1,10 +1,5 @@
 services:
   app:
-    build:
-      context: ../..
-      dockerfile: scripts/pfb/Dockerfile
-      args:
-        PFB_TOOLCHAIN_DIGEST: ${PFB_TOOLCHAIN_DIGEST:?}
     image: retrom-pfb-dev:${PFB_TOOLCHAIN_DIGEST:?}
     user: "${PFB_UID:?}:${PFB_GID:?}"
     init: true
@@ -12,12 +7,11 @@ services:
     working_dir: /workspace/retrom
     environment:
       PFB_ID: ${PFB_ID:?}
-      PFB_RUNTIME_MODE: ${PFB_RUNTIME_MODE:?}
       PFB_GATEWAY_IP: ${PFB_GATEWAY_IP:?}
-      HOME: /pfb-data/home
-      GOCACHE: /go-cache/build
-      GOMODCACHE: /go-cache/mod
-      npm_config_cache: /workspace/retrom/web/node_modules/.npm-cache
+      HOME: /pfb-workspace/home
+      GOCACHE: /pfb-workspace/go-cache/build
+      GOMODCACHE: /pfb-workspace/go-cache/mod
+      npm_config_cache: /pfb-workspace/npm-cache
     volumes:
       - type: bind
         source: ${PFB_RETROM_ROOT:?}
@@ -39,31 +33,18 @@ services:
       - type: bind
         source: ${PFB_TSCONFIG_FILE:?}
         target: /workspace/retrom/web/tsconfig.json
-      - type: volume
-        source: pfb-data
-        target: /pfb-data
-        volume:
-          nocopy: true
-      - type: volume
-        source: pfb-node
+      - type: bind
+        source: ${PFB_WORKSPACE_ROOT:?}
+        target: /pfb-workspace
+      - type: bind
+        source: ${PFB_WORKSPACE_ROOT:?}/web-node
         target: /workspace/retrom/web/node_modules
-        volume:
-          nocopy: true
-      - type: volume
-        source: pfb-runtime-node
+      - type: bind
+        source: ${PFB_WORKSPACE_ROOT:?}/runtime-node
         target: /workspace/runtime/node_modules
-        volume:
-          nocopy: true
-      - type: volume
-        source: pfb-next
+      - type: bind
+        source: ${PFB_WORKSPACE_ROOT:?}/next
         target: /workspace/retrom/web/.next-pfb-${PFB_ID:?}
-        volume:
-          nocopy: true
-      - type: volume
-        source: pfb-go
-        target: /go-cache
-        volume:
-          nocopy: true
     healthcheck:
       test: ["CMD", "curl", "--fail", "--silent", "http://127.0.0.1:8080/health/live"]
       interval: 5s
@@ -74,18 +55,6 @@ services:
       pfb-gateway:
         aliases:
           - retrom-pfb-${PFB_ID:?}
-
-volumes:
-  pfb-data:
-    name: ${PFB_DATA_VOLUME:?}
-  pfb-node:
-    name: ${PFB_NODE_VOLUME:?}
-  pfb-runtime-node:
-    name: ${PFB_RUNTIME_NODE_VOLUME:?}
-  pfb-next:
-    name: ${PFB_NEXT_VOLUME:?}
-  pfb-go:
-    name: ${PFB_GO_VOLUME:?}
 
 networks:
   pfb-gateway:

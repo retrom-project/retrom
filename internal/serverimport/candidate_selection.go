@@ -38,7 +38,7 @@ func selectedStatus(candidate *evaluatedCandidate) (string, string) {
 // Catalog snapshot projection intentionally mirrors the frozen import-item schema.
 func (service *Service) loadItems(ctx context.Context, importID string) ([]catalogItem, error) {
 	rows, err := service.database.QueryContext(ctx, `
-SELECT requirement_id,requirement_version,core_id,core_name_snapshot,core_artifact_id,core_artifact_version,
+SELECT requirement_id,requirement_version,core_id,core_name_snapshot,provider_id,target_id,
 source_kind,logical_name,requirement_mode,condition_code,delivery_kind,emulator_path,catalog_digest,
 	activation_options_json,source_version,dat_version_id,dat_machine_name,expected_size_bytes,
 	expected_md5,expected_sha1,expected_sha256,
@@ -54,7 +54,7 @@ FROM server_bios_import_items WHERE server_import_id=? ORDER BY requirement_id C
 		var item catalogItem
 		if err := rows.Scan(
 			&item.RequirementID, &item.RequirementVersion, &item.CoreID, &item.CoreName,
-			&item.CoreArtifactID, &item.CoreArtifactVersion, &item.SourceKind, &item.LogicalName,
+			&item.ProviderID, &item.TargetID, &item.SourceKind, &item.LogicalName,
 			&item.RequirementMode, &item.ConditionCode, &item.DeliveryKind, &item.EmulatorPath,
 			&item.CatalogDigest, &item.ActivationOptionsJSON, &item.SourceVersion, &item.DATVersionID,
 			&item.DATMachineName, &item.ExpectedSize, &item.ExpectedMD5, &item.ExpectedSHA1,

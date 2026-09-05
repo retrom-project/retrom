@@ -208,8 +208,7 @@ type ItemMedia struct {
 }
 
 type ExistingMatch struct {
-	GameID            string `json:"gameId"`
-	ContentRevisionID string `json:"contentRevisionId"`
+	GameID string `json:"gameId"`
 }
 
 type Service struct {

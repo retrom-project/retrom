@@ -42,7 +42,8 @@ func (session *realtimeSession) handleRuntimeReady(
 	client *peer,
 	message ClientMessage,
 ) error {
-	if message.AdapterID != NetplayAdapterID || message.CoreArtifactID != session.coreArtifact {
+	if message.ProviderID != session.providerID || message.TargetID != session.targetID ||
+		message.BundleSHA256 != session.bundleSHA256 {
 		return ErrProtocol
 	}
 	allReady, err := session.service.MarkRuntimeReady(ctx, client.participant)

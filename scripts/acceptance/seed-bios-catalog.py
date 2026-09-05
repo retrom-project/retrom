@@ -18,18 +18,14 @@ def main() -> int:
     connection.row_factory = sqlite3.Row
     try:
         current = connection.execute(
-            """SELECT count(*) FROM bios_requirements requirement
-               JOIN core_artifacts artifact ON artifact.id=requirement.core_artifact_id
-               WHERE requirement.enabled=1 AND artifact.selected_for_new_bindings=1"""
+            "SELECT count(*) FROM bios_requirements WHERE enabled=1"
         ).fetchone()[0]
         if current > target_count:
             raise RuntimeError(f"enabled BIOS catalog already exceeds target: {current} > {target_count}")
         template = connection.execute(
-            """SELECT requirement.* FROM bios_requirements requirement
-               JOIN core_artifacts artifact ON artifact.id=requirement.core_artifact_id
-               WHERE requirement.enabled=1 AND artifact.selected_for_new_bindings=1
-                 AND requirement.source_kind='STATIC' AND requirement.core_id='yabause'
-               ORDER BY requirement.id LIMIT 1"""
+            """SELECT * FROM bios_requirements
+               WHERE enabled=1 AND source_kind='STATIC' AND core_id='yabause'
+               ORDER BY id LIMIT 1"""
         ).fetchone()
         if template is None:
             raise RuntimeError("the dedicated Yabause BIOS seed template is unavailable")
@@ -63,9 +59,7 @@ def main() -> int:
             connection.execute(insert, [values[column] for column in columns])
         connection.commit()
         final = connection.execute(
-            """SELECT count(*) FROM bios_requirements requirement
-               JOIN core_artifacts artifact ON artifact.id=requirement.core_artifact_id
-               WHERE requirement.enabled=1 AND artifact.selected_for_new_bindings=1"""
+            "SELECT count(*) FROM bios_requirements WHERE enabled=1"
         ).fetchone()[0]
         if final != target_count:
             raise RuntimeError(f"seeded BIOS catalog has {final} entries, expected {target_count}")

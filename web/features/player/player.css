@@ -66,6 +66,7 @@
 .player-disc-menu button[aria-checked="true"] { background: #2a3350; color: #dcd7ff; }
 .player-disc-menu button:disabled { cursor: wait; opacity: .65; }
 .player-stage { position: absolute; inset: 0; min-width: 0; min-height: 0; display: grid; place-items: center; overflow: hidden; background: #000; }
+.player-runtime-mount { grid-area: 1 / 1; width: 100%; height: 100%; min-width: 0; min-height: 0; overflow: hidden; }
 .player-frame { grid-area: 1 / 1; width: 100%; height: 100%; border: 0; background: #000; }
 .player-pause-overlay { position: absolute; z-index: 14; inset: 0; padding: 0; display: grid; place-items: center; color: inherit; border: 0; background: rgb(0 0 0 / 22%); opacity: 0; pointer-events: none; transition: opacity 150ms ease; }
 .player-pause-overlay.is-visible { opacity: 1; pointer-events: auto; cursor: pointer; }
@@ -101,32 +102,6 @@
 .player-loading-progress-track { height: 7px; overflow: hidden; border-radius: 999px; background: #343c4b; }
 .player-loading-progress-track > span { height: 100%; display: block; border-radius: inherit; background: linear-gradient(90deg, #7464da, #a99cff); transition: width 140ms ease-out; }
 .player-loading-progress small { color: #b7c0ce; font-size: 11px; font-variant-numeric: tabular-nums; }
-.rpg-validation-overlay { position: absolute; z-index: 27; inset: 70px 14px 14px auto; width: min(390px, calc(100vw - 28px)); pointer-events: none; }
-.rpg-validation-panel { max-height: 100%; padding: 15px; overflow-y: auto; display: grid; gap: 11px; color: #e9edf4; border: 1px solid #484166; border-radius: 14px; background: rgb(14 18 27 / 95%); box-shadow: 0 22px 62px rgb(0 0 0 / 48%); pointer-events: auto; backdrop-filter: blur(14px); }
-.rpg-validation-panel > header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.rpg-validation-panel > header small { color: #9d8fee; font-size: 9px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
-.rpg-validation-panel > header h2 { margin: 3px 0 0; color: #fff; font-size: 17px; }
-.rpg-validation-panel > header > strong { min-width: 54px; color: #b9adff; font-variant-numeric: tabular-nums; text-align: right; }
-.rpg-validation-panel > p { margin: 0; color: #abb4c3; font-size: 11px; line-height: 1.55; }
-.rpg-validation-panel > .rpg-validation-error { padding: 8px 9px; color: #ffc2c8; border: 1px solid #70414a; border-radius: 8px; background: #321e24; }
-.rpg-validation-gates { margin: 0; padding: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 4px 8px; list-style: none; }
-.rpg-validation-gates li { min-width: 0; min-height: 27px; padding: 4px 6px; display: grid; grid-template-columns: 8px minmax(0, 1fr) auto; align-items: center; gap: 6px; border-radius: 6px; background: rgb(255 255 255 / 3%); }
-.rpg-validation-gates i { width: 7px; height: 7px; border-radius: 50%; background: #4c5565; }
-.rpg-validation-gates span { overflow: hidden; color: #aeb7c5; text-overflow: ellipsis; white-space: nowrap; font-size: 10px; }
-.rpg-validation-gates small { color: #707a8b; font-size: 8px; }
-.rpg-validation-gates li[data-status="IN_PROGRESS"] i { background: #9b87e7; box-shadow: 0 0 0 3px rgb(155 135 231 / 14%); }
-.rpg-validation-gates li[data-status="PASSED"] i { background: var(--player-green); }
-.rpg-validation-gates li[data-status="PASSED"] small { color: #8fd3b4; }
-.rpg-validation-gates li[data-status="FAILED"] i { background: var(--player-red); }
-.rpg-validation-gates li[data-status="FAILED"] small { color: #f49aa4; }
-.rpg-validation-positions { margin: 0; padding: 8px 9px; display: grid; gap: 4px; border: 1px solid #333d4d; border-radius: 8px; background: #111722; }
-.rpg-validation-positions > div { display: grid; grid-template-columns: 54px minmax(0, 1fr); gap: 8px; font-size: 9px; }
-.rpg-validation-positions dt { color: #a99cff; font-weight: 800; }
-.rpg-validation-positions dd { margin: 0; overflow: hidden; color: #b8c0cd; text-overflow: ellipsis; white-space: nowrap; font-family: var(--font-mono, ui-monospace, monospace); }
-.rpg-validation-panel > button { min-height: 39px; padding: 0 12px; color: #fff; border: 1px solid #7869d5; border-radius: 9px; background: #6655cc; cursor: pointer; font-size: 11px; font-weight: 800; }
-.rpg-validation-panel > button:hover:not(:disabled) { background: #7564db; }
-.rpg-validation-panel > button:focus-visible { outline: 3px solid rgb(169 156 255 / 55%); outline-offset: 2px; }
-.rpg-validation-panel > button:disabled { cursor: wait; opacity: .65; }
 .immersive-player-overlay { position: absolute; z-index: 90; inset: 0; padding: 32px; display: grid; place-items: center; background: rgb(0 0 0 / 68%); }
 .immersive-player-panel { width: min(620px, calc(100vw - 48px)); padding: 40px; display: grid; justify-items: center; gap: 14px; border: 1px solid rgb(255 255 255 / 15%); border-radius: 22px; background: rgb(14 18 27 / 96%); box-shadow: 0 28px 90px rgb(0 0 0 / 62%); text-align: center; }
 .immersive-player-panel h1, .immersive-player-panel p { margin: 0; }

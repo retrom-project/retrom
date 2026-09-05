@@ -32,10 +32,11 @@ flowchart LR
     I --> G["Game / Metadata / Variant"]
     B --> G
     G --> L["目录、详情与 Launch"]
-    L --> R["Player runtime factory"]
-    R --> E["EmulatorJS"]
-    R --> RR["RetromRpgRuntime"]
-    R --> P["存档、时长、恢复"]
+    L --> R["Launch Envelope V1"]
+    R --> D["Provider dispatcher"]
+    D --> E["emulatorjs Provider"]
+    D --> RR["retrom-runtime Provider"]
+    D --> P["checkpoint、时长、恢复"]
     P --> A["完整验收与镜像"]
 ```
 
@@ -45,28 +46,27 @@ flowchart LR
 - 新增或改变 HTTP 行为时先改对应 `api/domains/*.yaml`，同步入口的 path/component 闭集，再运行统一 bundle 与生成器，最后实现 strict handler 和前端调用；禁止先手写 DTO/URL 再补 schema。
 - 后端状态机和错误码完成并有测试后，前端才能实现对应成功、空、警告和阻断状态；不得以页面本地假状态代替服务端不变量。
 - 上传 bytes 必须先安全落入临时区/CAS，随后任务只引用 Blob/ArchiveEntry；worker 不接收浏览器路径或内存中的大文件对象。
-- Arcade 识别必须在目标 CoreArtifact 的 DAT 可用后进行；Hasheous 只生成展示候选，不能替代 DAT 或阻断无候选的审核。
-- Launch 只能引用已提交的 READY VariantRevision 和依赖快照；Player 不自行选择 core、DAT、BIOS、ROM 或 URL。
-- RPG Maker 发布前必须先冻结用户选择的虚拟 core、服务端检测世代、内部 core/route、逻辑游戏兼容线、当次 artifact/adapter ABI、运行包和 `runtime_binding_revision`，并由管理员主动创建一次真实 runtime-validation Launch；详细 gate 与跨 Launch 恢复是可选审核能力，但仍是七世代自动化验收门禁。发布后 Launch 不重新探测、不跨 core/route fallback；它在冻结兼容线内使用当前唯一构件，存档恢复再由显式 save ABI 可读声明裁决。
+- Arcade 识别必须在目标 Provider Target 的 DAT 可用后进行；Hasheous 只生成展示候选，不能替代 DAT 或阻断无候选的审核。
+- Launch 只能引用已提交的 READY GameVariant、Provider Target declaration 和依赖快照；Player 不自行选择 Core、Target、DAT、BIOS、内容或 URL。
+- RPG Maker 发布前检查虚拟 Core、检测世代、稳定 Provider Target、项目 fingerprint、来源快照和真实依赖；管理员按需使用普通 Player 试运行，发布不要求额外证明记录。发布后 Launch 不重探测、不 fallback；checkpoint 是否可恢复只由当前 Target 的 `readFormats` 与存档 format 裁决。
 - 依赖准备发生在 `make dev`/镜像 builder 前置阶段；同步启动只校验依赖字节并登记缺失的 DAT_PARSE Job，Worker 可从已校验的只读本地 payload 建索引，但任何进程都不能为方便实现而加入运行期下载。
 
 ## 3. Clean migration 落地顺序
 
-项目首次发布前的唯一基线是下面的 current-schema 创建链；每张业务表只创建一次，不包含 ALTER/rename-copy-drop、业务回填或旧版本转换。首次公开发布后，已发布 migration 文件才进入不可改写的只追加纪律：
+当前项目未发布，下面 001–010 是直接创建最终结构的 bootstrap。领域变化直接整合到对应建表文件；不兼容开发数据停机归档后重建，不追加旧表转换、兼容回填或 DROP/ALTER 请求。首次正式发布后才开始不可改写、只追加的向前升级纪律：
 
 1. `001_identity.sql`：账号、凭据、session、account link 与实例状态；
-2. `002_catalog.sql`：Platform/Core/reference relation（含 `rpgmaker` 与七版本 core）与零实例目录的 PlatformInstance；
+2. `002_catalog.sql`：Platform/Core、RuntimeProvider/RuntimeTarget、Core binding 与零实例目录的 PlatformInstance；
 3. `003_storage_jobs.sql`：Blob、Job/Event/Input、幂等、审计与 GC；
 4. `004_upload_archive.sql`：上传、归档与当前 consumer 闭集；
-5. `005_dependencies.sql`：通用 runtime artifact、BIOS、release-managed DAT 与 RPG runtime asset pack；
-6. `006_import_review.sql`：导入、来源快照、验证、审核、非 RPG preview、RPG runtime validation 与快速审批；
-7. `007_library.sql`：Game/revision/content/variant、RPG 内容/绑定 profile、media/tag/favorite；
+5. `005_dependencies.sql`：按 Provider Target 绑定的 BIOS、release-managed DAT 与 RPG runtime asset pack；
+6. `006_import_review.sql`：导入、Provider Target 来源快照、验证、审核、Preview/临时 checkpoint 与快速审批；
+7. `007_library.sql`：Game/GameFiles/GameVariant 当前态、Provider Target binding、RPG 内容 profile、media/tag/favorite；
 8. `008_server_import.sql`：Pegasus 与 EmulationStation 当前 review-handoff 模型；
-9. `009_runtime.sql`：PRODUCT/RPG_RUNTIME_VALIDATION Launch、PlaySession、通用显式 checkpoint、隔离 runtime ticket/capability 与 Netplay；
-10. `010_cross_domain_invariants.sql`：只能在全部 owner table 存在后建立的 profile/route/artifact/pack/checkpoint/Launch 索引和 trigger。
-11. `011_emulatorjs_failed_revision_runtime.sql`：在不改写已应用 migration 的前提下更新 variant revision runtime trigger；失败态 EmulatorJS revision 可保留缺少 `emulator_game_id` 的诊断记录，`READY` 仍强制绑定实际游戏内容。
+9. `009_runtime.sql`：PRODUCT Launch、PlaySession、opaque checkpoint、隔离 runtime ticket/capability 与 Netplay；
+10. `010_cross_domain_invariants.sql`：只能在全部 owner table 存在后建立的 Provider/Target/profile/pack/checkpoint/Launch 索引和 trigger。
 
-循环 current pointer 使用数据模型规定的 deferred FK；clean migration 全程保持 `foreign_keys=ON`，每条在事务中应用并记录 name/checksum，最终执行 `foreign_key_check` 与 schema introspection。运行时代码不按 migration 数字分支，不关闭外键，不回填业务数据，也不动态修补 schema。
+循环 current state 使用数据模型规定的 deferred FK；所有 migration 始终保持 `foreign_keys=ON`，建库后执行 `foreign_key_check` 与 schema introspection。每条 migration 都在事务中应用并记录 name/checksum；运行时代码不按 migration 数字分支，不在业务请求中关闭外键、回填数据或动态修补 schema。
 
 推荐游戏平台目录由 `internal/platformcatalog` 的当前 catalog 和“应用推荐目录”服务创建，fresh DB 初始目录数为零。测试的低层 current-schema builder 创建 UUIDv7 并返回按 `catalog_template_key` 索引的引用；API/E2E 使用推荐目录产品路径，任何测试都不得复活历史 seed UUID 或 slug。
 
@@ -106,13 +106,13 @@ flowchart LR
 
 ### M4：目录与游戏聚合
 
-范围：PlatformInstance 生命周期与默认 core 影响预览；Game/MetadataRevision/Asset、GameContentRevision/ContentFiles、Variant/VariantRevision；审核原子发布、异步游戏内容替换 Job/重试、游戏编辑/移动、带标题/影响摘要确认和幂等重放的墓碑式永久删除、搜索与 cursor。Game current content 是唯一普通启动来源；失败兼容验证按 `validation_input_digest` 去重，Variant current 只指 READY。
+范围：PlatformInstance 生命周期与默认 core 影响预览；Game current metadata/content、Asset、Files 与每 Core 当前 Variant；审核原子发布、异步游戏内容替换 Job/重试、游戏编辑/移动、带标题/影响摘要确认和幂等重放的墓碑式永久删除、搜索与 cursor。Game current content 是唯一普通启动来源；待验证 Variant 按稳定 `(game,core)` 复用 Job，READY 后原位更新。
 
-退出门禁：完整执行 `ACC-IMP-002`、`ACC-IMP-004`、`ACC-IMP-006`、`ACC-IMP-007`、`ACC-PLAT-001`、`ACC-PLAT-002`、`ACC-PLAT-005` 与 `ACC-GAME-001`；Game store/审核发布/搜索/不可变 revision 的聚焦测试全通过。依赖普通 Launch 的 `ACC-PLAT-003/004`、`ACC-GAME-002/003` 留到 M5。完成后禁止任何页面继续读取硬编码游戏卡片。
+退出门禁：完整执行 `ACC-IMP-002`、`ACC-IMP-004`、`ACC-IMP-006`、`ACC-IMP-007`、`ACC-PLAT-001`、`ACC-PLAT-002`、`ACC-PLAT-005` 与 `ACC-GAME-001`；Game store/审核发布/搜索/当前态原子替换 的聚焦测试全通过。依赖普通 Launch 的 `ACC-PLAT-003/004`、`ACC-GAME-002/003` 留到 M5。完成后禁止任何页面继续读取硬编码游戏卡片。
 
 ### M5：用户目录与一键启动
 
-范围：首页、游戏库、详情、存档列表空壳的真实 API；LaunchSession/HMAC capability、全部受限内容端点、Core option 状态、`EnsureVariant` 的 202/SSE/自动二次 POST 协议、BIOS/parent bundle、DOS 锁定原 bundle 加 seekable 虚拟 ZIP 引导；Player Shell 通过显式 `playerAdapterId` 设置锁定版本 globals/callback/external files 与 artifact override，未知/错配 adapter 在加载 loader 前阻断。基础 adapter 对应 v4.2.3，DOS whole-archive adapter 对应 v4.3.0-pre。
+范围：首页、游戏库、详情、存档列表的真实 API；Launch capability、全部受限内容端点、Core option 状态、`EnsureVariant` 的 202/SSE/自动二次 POST 协议、BIOS/parent bundle、DOS 锁定原 bundle 加 seekable 虚拟 ZIP 引导；Player Shell 只消费 Launch Envelope，并经共享 dispatcher 加载 hash/identity 均匹配的 Provider module。
 
 退出门禁：完整执行 `ACC-API-001`、`ACC-SEC-002`、`ACC-PLAT-003/004`、`ACC-GAME-002/003`、`ACC-DAT-002/004`、`ACC-BIOS-002`、`ACC-RUN-001`–`012` 与 `make web-e2e`；若依赖版本、core artifact 或内置 DAT 发生变化另执行 `ACC-DAT-006`。真实核心运行必须经过 Retrom 的导入、Launch、内容端点和 Player；当前公开 mGBA、FCEUmm、Nestopia、SNES9x、MAME 2003/Plus、FBNeo 与 FBA2012 CPS1/CPS2 产品链路使用项目自有的确定性测试 ROM。其他核心尚无合法公开产品 E2E 时必须明确报告，不能用 mock、私有 ROM、独立 EmulatorJS 页面或历史截图判为通过。
 
@@ -130,7 +130,7 @@ flowchart LR
 
 ### M8：Saturn 多盘垂直切片
 
-范围：当前 manifest V7/compatibility V5、普通 `ejs-4.2.3-v3`、有界 M3U 解析、递归目录分组、缺盘审核补传、generation 4 验证、规范 playlist/Disc Launch 锁定、Player 换盘、带盘号状态存档与完整目录内容替换。启用门禁为 `ACC-MDISC-001`–`008`；PSX、3DO、PC-FX 在没有独立真实兼容证据前保持 fail closed。
+范围：当前 EmulatorJS Provider Target declaration、有界 M3U 解析、递归目录分组、缺盘审核补传、generation 4 验证、规范 playlist/Disc Launch resource 锁定、Provider `discSwitch`、带盘号 checkpoint 与完整目录内容替换。启用门禁为 `ACC-MDISC-001`–`008`；PSX、3DO、PC-FX 在没有独立真实兼容证据前保持 fail closed。
 
 ### M9：收藏与收藏夹垂直切片
 
@@ -140,19 +140,19 @@ flowchart LR
 
 ### M10：服务器 BIOS 导入垂直切片
 
-范围：先同步正式契约与 OpenAPI，再实现 root 配置和 no-follow 浏览、`ServerImport` 聚合、`SERVER_BIOS_IMPORT` Worker、STATIC/DAT 候选排序与防降级安装；最后接通 `/admin/imports/server`、任务详情、候选解释和 BIOS FULL_CATALOG cursor 分页。发现阶段必须完整闭合且命中扫描门禁时零安装；逐项 Installation、Item 结果和 JobEvent 同事务提交；重启恢复不得重复 revision，restore 必须终止外部 source 任务。
+范围：先同步正式契约与 OpenAPI，再实现 root 配置和 no-follow 浏览、`ServerImport` 聚合、`SERVER_BIOS_IMPORT` Worker、STATIC/DAT 候选排序与防降级安装；最后接通 `/admin/imports/server`、任务详情、候选解释和 BIOS FULL_CATALOG cursor 分页。发现阶段必须完整闭合且命中扫描门禁时零安装；逐项 Installation、Item 结果和 JobEvent 同事务提交；重启恢复不得重复 installation，restore 必须终止外部 source 任务。
 
 退出门禁：`ACC-BIOS-003`–`007`，并回归 `ACC-BIOS-001/002`、`ACC-SEC-001`、`ACC-BKP-001`；运行 `make api-check`、`make ci`、`make web-e2e`、全量核心 smoke。当前 clean schema、lineage 拒绝与业务回归必须通过；正式 UI 源、导出 HTML 和 1280/2560/4K 当次本地视觉复核闭环后才可删除临时设计目录，本地图片不得提交。
 
 ### M11：Pegasus 游戏目录与视频垂直切片
 
-范围：先同步正式契约与 OpenAPI，再实现 Pegasus 文本 parser、外部目录安全 scanner、显式 Collection→游戏平台目录映射、异步 scan/import Worker、既有 library import/validation/review/publish 复用、重复内容投影、M3U+CHD 与 Arcade companion 装配。Worker 只复制、验证并生成普通审核事项；Game 只由后续普通 Approve 事务创建，Discard 保留审计。前端在服务器导入页接通等权能力卡、三步 Drawer、可恢复进度、批次限定审核入口和详情筛选；游戏媒体增加 MP4/WebM VIDEO revision，详情 Hero 使用受可见性、页面前台、播放失败、用户暂停与 reduced-motion 约束的渐进播放。统一待审核页可把其中严格 READY 的无重复项交给快速审批，但不改变 Pegasus Worker 的零 Game 边界。
+范围：先同步正式契约与 OpenAPI，再实现 Pegasus 文本 parser、外部目录安全 scanner、显式 Collection→游戏平台目录映射、异步 scan/import Worker、既有 library import/validation/review/publish 复用、重复内容投影、M3U+CHD 与 Arcade companion 装配。Worker 只复制、验证并生成普通审核事项；Game 只由后续普通 Approve 事务创建，Discard 保留审计。前端在服务器导入页接通等权能力卡、三步 Drawer、可恢复进度、批次限定审核入口和详情筛选；游戏媒体增加 MP4/WebM VIDEO 资产，详情 Hero 使用受可见性、页面前台、播放失败、用户暂停与 reduced-motion 约束的渐进播放。统一待审核页可把其中严格 READY 的无重复项交给快速审批，但不改变 Pegasus Worker 的零 Game 边界。
 
 退出门禁：完整执行 `ACC-PEG-001`–`006`、`ACC-MEDIA-001`，并回归 `ACC-IMP-001/003/007/008`、`ACC-MDISC-001/004`、`ACC-BIOS-003/006`、`ACC-BKP-001`、`ACC-CAS-002` 和 `ACC-GAME-001/003`；运行 `make api-check`、`make ci`、`make web-e2e`。当前 clean schema 必须证明审核前零 Game、Approve/Discard 原子联动、Pegasus Parent 后继快照可发布及交接崩溃恢复不重复内部 ImportItem；项目自有 GBA Pegasus fixture 必须完成真实目录扫描到 Chrome 核心帧执行，使用授权本地 Pegasus 样例时另完成隔离服务实测。正式 UI 源、导出 HTML 和 1280/2560/4K 当次本地视觉复核闭环后才可删除临时设计目录，本地图片不得提交。
 
 ### M12：受限异地联机垂直切片
 
-范围：锁定 `data/netplay/v2` schema/manifest、4.2.3 Player/netplay adapter 映射与八个精确 core profile；实现独立 credential key、房间/成员/Session/Participant/Event service、启动 recovery、REST/SSE/同源 WebSocket hub；接通 `/netplay`、房间 UI 与 Player 的 discriminated netplay mode。profile 按精确 EmulatorJS/core artifact 放开合格 READY 游戏，不建立逐 ROM 产品白名单。实时路径只在单进程有界内存保存 input/history/state transfer，服务端不模拟游戏、不传输画面；普通 Launch、存档和未启用 flag 的路由必须回归不变。项目自有 NES/SNES/Arcade fixture 经过真实导入、Launch、内容端点与双浏览器 Player，作为八个 profile 的回归基线；FCEUmm 使用 prediction/rollback，其余七个使用严格 lockstep。
+范围：锁定 `data/netplay/v2` schema/manifest 与八个精确 Provider Target profile；实现独立 credential key、房间/成员/Session/Participant/Event service、启动 recovery、REST/SSE/同源 WebSocket hub；接通 `/netplay`、房间 UI 与标准 `RuntimeNetplayPort`。profile 按精确 Target declaration 与 netplay profile digest 放开合格 READY 游戏，不建立逐 ROM产品白名单。实时路径只在单进程有界内存保存 input/history/state transfer，服务端不模拟游戏、不传输画面。
 
 退出门禁：完整执行 `ACC-NP-010`–`022`，并回归 `ACC-AUTH-003`、`ACC-ISO-002/003`、`ACC-SEC-002/003`、`ACC-BKP-001`、`ACC-RUN-001/002/006`–`012`、`ACC-SAVE-001/003`、`ACC-UI-001/004/005/007`。必须运行 `make data-check`、`make prepare-deps`、`make deps-check`、`make api-check`、`make ci`、`make web-e2e` 和 `make build-images`；当前 clean schema、正式 UI 源、导出 HTML 与当次本地视觉复核全部闭环后才可删除临时设计目录，本地图片不得提交。双浏览器结果只证明锁定的八个 profile 与项目自有 fixture，不扩大内容或 core allowlist。
 
@@ -176,7 +176,7 @@ flowchart LR
 
 ### M16：Payload 生命周期与 Game 永久删除
 
-范围：先更新 OpenAPI 和 001–010 clean migration，建立 Blob/ownership registry 双向门禁、ReviewEvent v2 和各领域 payload state；随后实现持久 PayloadRelease/Provider TTL/BLOB_GC dispatcher，并把普通上传、Pegasus、文件/媒体替换的全部终态入口接通。最后实现 Game 影响摘要、墓碑式永久删除、共享引用保护、公共内容阻断、最近/收藏/联机历史墓碑和管理端进度/重试。
+范围：在 001–010 最终基线中同步更新 OpenAPI 与对应领域建表文件，建立 Blob/ownership registry 双向门禁、ReviewEvent v2 和各领域 payload state；随后实现持久 PayloadRelease/Provider TTL/BLOB_GC dispatcher，并把普通上传、Pegasus、文件/媒体替换的全部终态入口接通。最后实现 Game 影响摘要、墓碑式永久删除、共享引用保护、公共内容阻断、最近/收藏/联机历史墓碑和管理端进度/重试。
 
 退出门禁：完整执行 `ACC-GAME-003`、`ACC-IMP-007/008`、`ACC-PEG-004`、`ACC-CAS-002`、`ACC-STOR-001`、`ACC-UI-008`，并运行 API、后端、集成、前端、`make web-e2e` 与 `make ci` 全门禁。全新数据库和开发实例必须重建；普通上传与 Pegasus 发布/丢弃、共享 Blob、进程中断、provider TTL、Game 删除和 GC 宽限均需确定性证据。正式文档与统一 UI 源/导出 HTML 闭环后删除临时方案目录。
 
@@ -189,7 +189,7 @@ flowchart LR
 ### M18：标准手柄沉浸模式垂直切片
 
 范围：先同步架构、HTTP、UI、运行时、依赖、质量、验收契约与 OpenAPI；在 clean migration lineage 的不可变
-MetadataRevision 增加受约束 `title_initial` 并闭合导入、管理改名与重刮削写入。增加 Profile 隔离的
+Game current metadata 增加受约束 `title_initial` 并闭合导入、管理改名与重刮削写入。增加 Profile 隔离的
 destinations、资料库/收藏夹、平台游戏 cursor 与存档投影。普通首页同时提供显式入口和标准手柄确认；普通
 App Shell 之外的 `/immersive` 独立电视 UI 固定先展示全部/最近/收藏/存档，再展示平台，并完成标题排序、
 收藏夹、Y 默认收藏、SaveState 浏览/启动、COVER/VIDEO/description、BGM 和 Select 系统菜单。BGM/游戏两组
@@ -209,21 +209,33 @@ OpenAPI、后端、集成、前端、结构、公开 fixture、data/dependency�
 2560×1440 与物理 4K 150% 视觉复核闭环后才可删除临时设计目录。实体 standard-mapping 手柄 smoke 是
 发布条件；环境没有实体设备时结果必须明确为 `BLOCKED`，自动注入不能冒充实体通过。
 
-### M19：RPG Maker 七版本核心垂直切片
+### M19：Runtime Provider 原子切换
 
-实施顺序固定为七个可独立验证的阶段，前一阶段门禁通过后才进入下一阶段：
+该里程碑以红—绿 TDD 完成，不允许旧、新运行链并存：
 
-1. 合并正式契约和统一设计，修改 clean `002/004/005/006/007/009/010` migration 与 OpenAPI/生成 client；旧开发 lineage checksum 必须拒绝，开发数据由操作者在服务外归档或删除后重建，应用不得自动清理。
-2. 通用化 `core_artifacts` 和 LaunchConfig discriminated union；Player 顶层增加 `EMULATORJS|RPGMAKER` factory，既有 EJS 全部保持原行为，`RetromRpgRuntime` 先建立 contract、状态机和 fail-closed registry。
-3. 实现 `RPG_MAKER_PROJECT_V1` 目录/单归档规范化、V2 fileset、selected-core 内容校验、RTP/runtime pack、不可变 route binding 和 runtime validation 状态机；RPG server import 固定拒绝。
-4. 物化固定 EasyRPG 构件并接通 2000/2003；两者共用 bytes 但必须分别强制 `rpg2k/rpg2k3` engine profile、route 和 artifact row。
-5. 物化 threaded mkxp-z libretro 构件并接通 XP/VX/VX Ace；分别强制 RGSS1/2/3，OPFS/Web Locks/COOP/COEP 任一缺失即在下载前失败。
-6. 接通 MV/MZ 每 Launch unique-origin host、一次性 bootstrap、host-only HttpOnly capability、严格 CSP/MessageChannel、native bridge 与 storage bundle；游戏 JavaScript 永不进入应用 origin。
-7. 完成导入/审核/运行依赖/Player UI，执行全产品验证并把稳定设计合回正式契约与统一设计源，删除临时方案目录。
+1. 冻结 Provider contract、canonical JSON、Bundle layout、Target declarations 和 Product Core bindings；EmulatorJS 35 个 Target 与 retrom-runtime 12 个 Target 只有各 Provider declaration 一份映射事实源。
+2. 建立确定性 candidate/release Bundle、安装器、active descriptor 与只向前升级验证；candidate 与 production 目录、锁和镜像输入完全分离。
+3. 将最终 Provider/Target current-state schema 直接整合到 001–010，并同步 OpenAPI、Go catalog/launch/save/netplay 和全部领域引用；旧开发数据归档重建，不实现转换、降级、回滚或双读路径。
+4. 所有运行入口只返回 Launch Envelope V1；Web 只经共享 dispatcher 加载 Provider module 并操作 `PlayerRuntimeV1`，不保留第二个 registry 或 family factory。
+5. 将 EmulatorJS、RPG Maker、ONS、KiriKiri、Butterscotch、TyranoScript、WASM-4、单机、多盘、沉浸、Validation 与 netplay 行为全部迁移到 Provider 生命周期。
+6. 更新生产/PFB边界：PFB改为bind-mount轻量开发容器，loose provider只在合法test PFB中使用并按路径、大小和字节摘要校验；release input digest、生产镜像与正式active identity不读取`.pfb/`。
+7. 把稳定契约按职责写入正式文档，删除临时方案；运行 `ACC-PROVIDER-001`–`008`、全部直接受影响产品 Case 和完整工程门禁。
 
-每个世代退出门禁都必须经过浏览器上传、审核、PRODUCT 或验证 Launch、受授权内容端点和真实 Player；存档证据必须是 A→移动/改变变量到 B→创建检查点→继续到不同 C→结束原 Launch→创建不同 restore Launch→恢复后的地图/坐标/变量逐项等于 B 且不等于 A/C，生成恢复后截图，再继续真实输入并记录与 B 不同的 `RESTORE_INPUT`。只证明保存 API 成功、payload 可下载、同一进程 load 成功或画面看似相近均不合格。
+每个 checkpoint 产品 Case 必须证明真实跨 Launch 恢复，而不是只证明 bytes 可下载。RPG 世代继续使用 A→B 保存→C→不同 Launch 恢复到 B→继续输入；MZ 合法商业样本仍是条件性外部发布证据，不阻塞 Provider 架构的仓库内确定性门禁。
 
-最终退出门禁：`ACC-RPG-001`–`012` 全部当次 PASS；依次运行 `make quality-structure-check`、后端/前端/集成/API/依赖/公开 fixture 门禁、`make web-e2e`、`make build-images`、`make ci`。MZ 必须另以操作者依法持有的 Web deployment 运行 `make acceptance-case CASE=ACC-RPG-008 RPG_MZ_SMOKE_ROOT=<licensed-web-deployment-directory>`；缺少该物料时只能报告 MZ 发布门禁未满足，不能以 shape harness 替代。
+### M19 当前态简化收口（2026-09-05 已确认，实施中）
+
+1. 删除旧 manifest reader、归一化 fallback、revision 目录和审核算法代际；只保留当前公开 schema、内容摘要、真实业务版本及会话冻结证据。
+2. 将平台、核心、内容分类与资源包定义从 migrations 移入现有 Host catalog；启动先验证全部声明和受限策略，再用一个事务同步产品定义、Provider/Target、关联、摘要与审计。禁止覆盖用户目录配置或级联删除被引用产品定义。
+3. 上传目的采用 `GENERAL/PROJECT/RUNTIME_ASSET_PACK`，文件/目录/压缩包统一归一化；资源包安装按声明身份选择已有布局策略，不以新增引擎枚举扩展 DDL。
+4. 审核有效性只比较来源、Core/Target、DAT、依赖和相关规则；普通展示编辑及无关 Provider 变化不失效。静态/Arcade 依赖使用明确类型，Launch options 使用有界策略；审核临时 checkpoint 按会话期限或 payload 生命周期释放，不参与升级门槛，升级只保护持久用户存档。
+5. 红—绿测试先证明上述旧行为，再实现；最终 schema 确定后只重建指定 PFB 的数据根。随后在同一份已含游戏、审核、配置和存档的数据库上验证核心/Target、接入及资源包扩展，记录 schema/migration 指纹、原 ID/数据与外键检查，不再通过清库绕过失败。
+6. 执行真实 ZIP/目录、Pegasus/gamelist 导入及各核心生命周期回归，明确区分用户样本、公开 fixture 与未覆盖项。工程检查通过后可保留功能/修复开发提交，使真实验收绑定精确源码；完整自验后再推送功能分支，保持最终 PFB 运行供二次验收；不提前创建 PR、合入 master 或打 tag。
+7. Provider Module 是唯一公开运行入口，直接组织核心私有参数和 adapter；删除原 RuntimeConfig/GameRuntime API、通用转换/工厂和内层 controller。只保留一套核心生命周期状态、操作队列、事件和退出清理；Host 的页面、iframe、会话职责保持独立。通过启动取消、暂停恢复、存档中退出、核心主动退出和失败清理证明行为，而非只检索命名。
+8. Provider 创建入口验证外部 Envelope/Host，内部使用明确类型，不反复验证同一对象，不新增可信标记协议；移除无实际用途的独立预检入口并同步唯一 ABI 的真实消费者。下载文件、归档、跨 origin 消息等信任边界继续校验。
+9. Host binding 只选择接入策略及产品允许子集；delivery/review/options 等固定事实从现有策略派生。内容格式、项目分类和相同能力判断各保留唯一来源，调用方直接复用；保留各自独立的产品策略，不引入反射、动态 DSL 或额外注册中心。现有数据库投影可保留派生字段，不为声明去重重新清库。
+10. 用统一 Go 内容策略类型及明确查询/构造函数替代多处 SQL 拼 JSON、Go 再拆 JSON；事务中一致读取，只有快照、API 和摘要边界序列化，不新增缓存、版本或第二套持久化权威。主动不兼容变更（如 checkpoint maxBytes 下调）暂不增加升级预检。
+11. 产品审核只保留“运行游戏 → 现有 Player 试运行 → 返回审核 → 管理员通过/拒绝”。删除 14 gate、BEGIN/PASS/FAIL 序列、A/B/C/fixtureState、帧/音频证明及其专用 API、表、触发器和面板；这些严格断言移到研发验收，不保留测试专用生产接口。试运行复用普通 Provider/Player 和必要的审核来源授权，不创建假 Game；按需使用截图及最小会话级临时 checkpoint，支持重复试运行和普通机制恢复，无额外证明状态机。保留真正的初始化、文件/目标/依赖检查、错误、过期和清理；临时 checkpoint 不参与升级门槛。全部持久化修改确定后才按标准 PFB 命令进行一次最终归档重建，再做有数据的扩展和回归验收。
 
 ## 5. 垂直切片提交规则
 

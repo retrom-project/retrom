@@ -13,10 +13,9 @@ import { useBrowserTimeZone } from "@/lib/use-browser-time-zone";
 import { responseError, uploadFiles, waitForJob } from "@/lib/upload";
 
 export type RuntimeAssetPackList = components["schemas"]["RuntimeAssetPackList"];
-export type CoreArtifactList = components["schemas"]["CoreArtifactList"];
+export type RuntimeTargetList = components["schemas"]["RuntimeTargetList"];
 type PackDefinition = components["schemas"]["RuntimeAssetPackDefinition"];
 type PackInstallation = components["schemas"]["RuntimeAssetPackInstallation"];
-type PackKind = components["schemas"]["RuntimeAssetPackKind"];
 type Generation = components["schemas"]["RpgGeneration"];
 
 const generations: Array<{ id: Generation; label: string }> = [
@@ -27,9 +26,9 @@ const generations: Array<{ id: Generation; label: string }> = [
   { id: "RPGVXACE", label: "VX Ace" },
 ];
 
-const rpgCoreOrder = [
-  "rpgmaker_2000", "rpgmaker_2003", "rpgmaker_xp", "rpgmaker_vx",
-  "rpgmaker_vx_ace", "rpgmaker_mv", "rpgmaker_mz",
+const rpgTargetOrder = [
+  "rpgmaker-2000", "rpgmaker-2003", "rpgmaker-xp", "rpgmaker-vx",
+  "rpgmaker-vx-ace", "rpgmaker-mv", "rpgmaker-mz",
 ];
 
 const stateLabels: Record<string, string> = {
@@ -55,7 +54,7 @@ function RuntimePackInstallationRow({ installation, busy, onDelete }: {
   onDelete: (installation: PackInstallation) => void;
 }) {
   const timeZone = useBrowserTimeZone();
-  const references = installation.references.variantRevisionCount + installation.references.checkpointCount;
+  const references = installation.references.gameCount + installation.references.checkpointCount;
   const deletable = references === 0 && (installation.status === "READY" || installation.status === "FAILED");
   return <article className="runtime-pack-installation">
     <div>
@@ -65,9 +64,9 @@ function RuntimePackInstallationRow({ installation, busy, onDelete }: {
     </div>
     <div className="runtime-pack-reference">
       <strong>{references}</strong><small>引用</small>
-      <span>{installation.references.variantRevisionCount} 个游戏版本 · {installation.references.checkpointCount} 个存档</span>
+      <span>{installation.references.gameCount} 款游戏 · {installation.references.checkpointCount} 个存档</span>
     </div>
-    <button type="button" className="runtime-delete-button" disabled={busy || !deletable} title={references ? "仍被游戏版本或存档引用，不能删除" : undefined} onClick={() => onDelete(installation)}>删除</button>
+    <button type="button" className="runtime-delete-button" disabled={busy || !deletable} title={references ? "仍被游戏或存档引用，不能删除" : undefined} onClick={() => onDelete(installation)}>删除</button>
     {installation.diagnostics.map((diagnostic) => <p className="runtime-pack-diagnostic" key={`${diagnostic.code}-${diagnostic.message}`}>{diagnostic.code} · {diagnostic.message}</p>)}
   </article>;
 }
@@ -89,21 +88,21 @@ function RuntimePackDefinitionCard({ definition, installations, busy, onInstall,
   </article>;
 }
 
-function RuntimeCoreDiagnostics({ catalog }: { catalog: CoreArtifactList }) {
-  const artifacts = new Map(catalog.items.filter((item) => item.selectedForNewBindings).map((item) => [item.coreId, item]));
+function RuntimeTargetDiagnostics({catalog}: {catalog: RuntimeTargetList}) {
+  const targets = new Map(catalog.items.map((item) => [item.targetId, item]));
   return <section className="runtime-core-diagnostics" aria-labelledby="runtime-core-diagnostics-title">
-    <header><div><span>管理员诊断</span><h2 id="runtime-core-diagnostics-title">版本核心 route / artifact</h2></div><p>内部路线只用于管理审计，不会作为用户核心选项。</p></header>
-    <div className="runtime-core-diagnostic-grid">{rpgCoreOrder.map((coreId) => {
-      const artifact = artifacts.get(coreId);
-      return <article key={coreId}><div><strong>{artifact?.coreName ?? coreId}</strong><small>{coreId}</small></div>
-        {artifact ? <><code>{artifact.routeKey}</code><small title={artifact.id}>artifact {artifact.id} · {artifact.runtimeAdapterKind} / {artifact.adapterId}</small><StatusBadge tone={artifact.availableForLaunch ? "good" : "bad"}>{artifact.availableForLaunch ? "可启动" : "构件不可用"}</StatusBadge></> : <StatusBadge tone="bad">未登记</StatusBadge>}
+    <header><div><span>管理员诊断</span><h2 id="runtime-core-diagnostics-title">Runtime Provider / Target</h2></div><p>这里展示 Product Core 当前绑定的逻辑 Runtime Target。</p></header>
+    <div className="runtime-core-diagnostic-grid">{rpgTargetOrder.map((targetId) => {
+      const target = targets.get(targetId);
+      return <article key={targetId}><div><strong>{target?.displayName ?? targetId}</strong><small>{target?.coreName ?? "RPG Maker"}</small></div>
+        {target ? <><code>{target.providerId}/{target.targetId}</code><small>Provider v{target.providerVersion}</small><StatusBadge tone={target.launchPolicy === "SUPPORTED" ? "good" : target.launchPolicy === "EXPERIMENTAL" ? "warn" : "bad"}>{target.launchPolicy === "SUPPORTED" ? "可启动" : target.launchPolicy === "EXPERIMENTAL" ? "实验性" : "已禁用"}</StatusBadge></> : <StatusBadge tone="bad">未登记</StatusBadge>}
       </article>;
     })}</div>
   </section>;
 }
 
 type InstallDraft = {
-  kind: PackKind;
+  definitionId: string;
   generation: "RPG2000" | "RPG2003" | "RPGXP" | "RPGVX" | "RPGVXACE";
   declaredName: string;
   sourceNote: string;
@@ -114,9 +113,9 @@ type InstallDraft = {
 function installDraft(definition?: PackDefinition): InstallDraft {
   const generation = definition && definition.generation !== "RPGMV" && definition.generation !== "RPGMZ"
     ? definition.generation
-    : "RPG2000";
+    : "RPGXP";
   return {
-    kind: definition?.kind ?? "RPG2000_RTP",
+    definitionId: definition?.definitionId ?? "",
     generation,
     declaredName: definition?.origin === "CUSTOM" ? definition.declaredName : "",
     sourceNote: "", files: [], sourceType: "ARCHIVE",
@@ -139,7 +138,7 @@ function RuntimePackInstallDrawer({ definitions, draft, busy, progress, onChange
   useEffect(() => {if (draft) {closeButton.current?.focus();}}, [draft]);
   if (!draft) {return null;}
   const customGeneration = draft.generation === "RPGXP" || draft.generation === "RPGVX" || draft.generation === "RPGVXACE";
-  const selectedDefinition = definitions.find((definition) => definition.kind === draft.kind && definition.generation === draft.generation);
+  const selectedDefinition = definitions.find((definition) => definition.definitionId === draft.definitionId);
   const trapFocus = (event: KeyboardEvent<HTMLElement>) => {
     if (event.key === "Escape" && !busy) {onClose(); return;}
     if (event.key !== "Tab") {return;}
@@ -152,7 +151,7 @@ function RuntimePackInstallDrawer({ definitions, draft, busy, progress, onChange
   const setFiles = (files: FileList | null) => onChange({ ...draft, files: files ? [...files] : [] });
   const selectGeneration = (generation: InstallDraft["generation"]) => {
     const standard = definitions.find((definition) => definition.generation === generation && definition.origin === "BUILTIN");
-    onChange({ ...draft, generation, kind: standard?.kind ?? "RGSS_CUSTOM_RTP", declaredName: "", files: [] });
+    onChange({ ...draft, generation, definitionId: standard?.definitionId ?? "", declaredName: "", files: [] });
   };
   const selectedBytes = draft.files.reduce((total, file) => total + file.size, 0);
   const selectedPaths = draft.files.slice(0, 4).map((file) => file.webkitRelativePath || file.name);
@@ -165,11 +164,11 @@ function RuntimePackInstallDrawer({ definitions, draft, busy, progress, onChange
           <label>世代<select className="select" value={draft.generation} disabled={busy} onChange={(event) => selectGeneration(event.target.value as InstallDraft["generation"])}>
             {generations.map((generation) => <option value={generation.id} key={generation.id}>{generation.label}</option>)}
           </select></label>
-          <label>运行包类型<select className="select" value={draft.kind} disabled={busy} onChange={(event) => onChange({ ...draft, kind: event.target.value as PackKind, declaredName: "", files: [] })}>
-            {definitions.filter((definition) => definition.origin === "BUILTIN" && definition.generation === draft.generation).map((definition) => <option value={definition.kind} key={definition.definitionId}>{definition.displayName}</option>)}
-            {customGeneration ? <option value="RGSS_CUSTOM_RTP">自定义 RGSS RTP</option> : null}
+          <label>运行包类型<select className="select" value={draft.definitionId} disabled={busy} onChange={(event) => onChange({ ...draft, definitionId: event.target.value, declaredName: "", files: [] })}>
+            {definitions.filter((definition) => definition.enabled && definition.generation === draft.generation).map((definition) => <option value={definition.definitionId} key={definition.definitionId}>{definition.displayName}</option>)}
+            {customGeneration ? <option value="">自定义 RGSS RTP</option> : null}
           </select></label>
-          {draft.kind === "RGSS_CUSTOM_RTP"
+          {draft.definitionId === ""
             ? <label>声明名称<input value={draft.declaredName} maxLength={512} required disabled={busy} onChange={(event) => onChange({ ...draft, declaredName: event.target.value })} /><small>NFKC 输入预览：{draft.declaredName.trim().normalize("NFKC") || "—"}；最终匹配键由服务端完整大小写折叠生成。</small></label>
             : <label>声明名称<input className="runtime-file-name" value={selectedDefinition?.declaredName ?? ""} readOnly /></label>}
           <label>来源说明（可选）<textarea value={draft.sourceNote} maxLength={500} disabled={busy} onChange={(event) => onChange({ ...draft, sourceNote: event.target.value })} /></label>
@@ -191,9 +190,9 @@ function RuntimePackInstallDrawer({ definitions, draft, busy, progress, onChange
   </>;
 }
 
-export function RuntimeAssetPackManager({ initialList, initialCoreArtifacts }: {
+export function RuntimeAssetPackManager({initialList, initialRuntimeTargets}: {
   initialList: RuntimeAssetPackList;
-  initialCoreArtifacts: CoreArtifactList;
+  initialRuntimeTargets: RuntimeTargetList;
 }) {
   const trigger = useRef<HTMLButtonElement | null>(null);
   const [catalog, setCatalog] = useState(initialList);
@@ -230,7 +229,7 @@ export function RuntimeAssetPackManager({ initialList, initialCoreArtifacts }: {
   };
   const open = (definition?: PackDefinition, target?: HTMLButtonElement) => {
     trigger.current = target ?? document.activeElement as HTMLButtonElement;
-    setDraft(installDraft(definition)); setProgress(""); setError("");
+    setDraft(installDraft(definition ?? catalog.definitions.find((item) => item.enabled))); setProgress(""); setError("");
   };
   const close = () => {if (!busy) {setDraft(null); trigger.current?.focus();}};
   const submit = async (event: FormEvent) => {
@@ -239,9 +238,9 @@ export function RuntimeAssetPackManager({ initialList, initialCoreArtifacts }: {
     try {
       const uploaded = await uploadFiles(draft.files, setProgress, "RUNTIME_ASSET_PACK");
       setProgress("正在建立不可变安装并验证布局…");
-      const body = draft.kind === "RGSS_CUSTOM_RTP"
-        ? { uploadId: uploaded.uploadId, kind: draft.kind, generation: draft.generation, declaredName: draft.declaredName.trim(), sourceNote: draft.sourceNote }
-        : { uploadId: uploaded.uploadId, kind: draft.kind, sourceNote: draft.sourceNote };
+      const body = draft.definitionId === ""
+        ? { uploadId: uploaded.uploadId, generation: draft.generation, declaredName: draft.declaredName.trim(), sourceNote: draft.sourceNote }
+        : { uploadId: uploaded.uploadId, definitionId: draft.definitionId, sourceNote: draft.sourceNote };
       const response = await fetch("/api/v1/admin/runtime-asset-packs/installations", { method: "POST", headers: await writeHeaders({ "Content-Type": "application/json", "Idempotency-Key": newUuid() }), body: JSON.stringify(body) });
       if (!response.ok) {throw new Error(await responseError(response, "运行包安装失败"));}
       const accepted = await response.json() as { jobId: string };
@@ -267,7 +266,7 @@ export function RuntimeAssetPackManager({ initialList, initialCoreArtifacts }: {
     : null;
   return <section className="runtime-pack-manager">
     <div className="runtime-pack-intro"><div><h2>RPG Maker 运行包</h2><p>仅上传你有权使用的运行包。Retrom 不会自动下载或随镜像分发 RTP；审核会冻结具体安装。</p></div><button className="button" type="button" disabled={busy} onClick={(event) => open(undefined, event.currentTarget)}><AppIcon name="plus" />安装运行包</button></div>
-    <RuntimeCoreDiagnostics catalog={initialCoreArtifacts} />
+    <RuntimeTargetDiagnostics catalog={initialRuntimeTargets} />
     {generations.map((generation) => <section className="runtime-pack-generation" key={generation.id}><header><div><span>RPG Maker</span><h2>{generation.label}</h2></div><p>{generation.id === "RPG2000" || generation.id === "RPG2003" ? "EasyRPG RTP 布局" : "mkxp-z RGSS 运行依赖"}</p></header><div className="runtime-pack-definition-grid">{catalog.definitions.filter((definition) => definition.generation === generation.id).map((definition) => <RuntimePackDefinitionCard key={definition.definitionId} definition={definition} installations={byDefinition.get(definition.definitionId) ?? []} busy={busy} onInstall={(selected) => open(selected)} onDelete={setDeleting} />)}</div></section>)}
     <section className="runtime-pack-native"><div><span>RPG Maker</span><h2>MV / MZ</h2><p>Web 项目固定自包含，不接受 RTP 安装或运行包绑定。</p></div><StatusBadge tone="good">无需运行包</StatusBadge></section>
     <RuntimePackInstallDrawer definitions={catalog.definitions} draft={draft} busy={busy} progress={progress} onChange={setDraft} onClose={close} onSubmit={(event) => void submit(event)} />

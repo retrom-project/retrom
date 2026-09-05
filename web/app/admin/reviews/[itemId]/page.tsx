@@ -81,6 +81,7 @@ type ReviewDetailSummary = {
   dependencyIssueCount: number;
   dependencySnapshot: DependencySnapshot | undefined;
   sourceDisplayName: string;
+  suppressGenericGuidance: boolean;
   validationStatus: string;
 };
 
@@ -117,6 +118,7 @@ function summarizeReview(review: Review): ReviewDetailSummary {
     dependencyIssueCount: dependencyIssueCount(dependencySnapshot),
     dependencySnapshot,
     sourceDisplayName: reviewSourceDisplayName(review),
+    suppressGenericGuidance: false,
     validationStatus,
   };
 }
@@ -134,7 +136,7 @@ function ReviewCapability({ review, summary }: { review: Review; summary: Review
   return <section className="panel review-workflow-capability">
     <div className="panel-head"><div><h2>① 能不能发布？</h2><p>直接展示文件、运行方式和依赖检查结论。</p></div><StatusBadge tone={statusTone(summary.compatibilityCode)}>{summary.compatibilityLabel}</StatusBadge></div>
     <div className="panel-body review-capability-list">
-      <ReviewValidationGuidance status={summary.validationStatus} compatibilityCode={summary.compatibilityCode} snapshot={summary.dependencySnapshot} />
+      {summary.suppressGenericGuidance ? null : <ReviewValidationGuidance status={summary.validationStatus} compatibilityCode={summary.compatibilityCode} snapshot={summary.dependencySnapshot} />}
       <div><strong>游戏文件</strong><span>{summary.sourceDisplayName} · {sourceSize}</span></div>
       <div><strong>运行检查</strong><span>{runtimeCheck}</span></div>
       <div><strong>依赖检查</strong><span>{dependencyCheck}</span></div>

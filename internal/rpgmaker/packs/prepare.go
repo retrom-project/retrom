@@ -35,6 +35,7 @@ type preparedInstallation struct {
 func (service *Service) prepare(
 	ctx context.Context,
 	request InstallRequest,
+	definition definitionIdentity,
 ) (preparedInstallation, error) {
 	source, err := service.loadUploadSource(ctx, request.UploadID)
 	if err != nil {
@@ -50,7 +51,7 @@ func (service *Service) prepare(
 	if err != nil {
 		return preparedInstallation{}, err
 	}
-	files, err = normalizePackRoot(files, source, request.Kind)
+	files, err = normalizePackRoot(files, source, definition)
 	if err != nil {
 		return preparedInstallation{}, err
 	}
@@ -258,14 +259,14 @@ func (service *Service) createBundle(files []FileIdentity) (blobstore.Metadata, 
 func normalizePackRoot(
 	files []FileIdentity,
 	source uploadSource,
-	kind string,
+	definition definitionIdentity,
 ) ([]FileIdentity, error) {
 	if len(files) == 0 || len(files) > maxPackFiles {
 		return nil, ErrInvalid
 	}
 	strip := source.SourceType == "DIRECTORY"
 	root, shared := sharedFirstComponent(files)
-	if source.SourceType == "FILES" && shared && shouldStripArchiveRoot(root, kind) {
+	if source.SourceType == "FILES" && shared && shouldStripArchiveRoot(root, definition) {
 		strip = true
 	}
 	if strip && !shared {
@@ -300,15 +301,14 @@ func sharedFirstComponent(files []FileIdentity) (string, bool) {
 	return root, root != ""
 }
 
-func shouldStripArchiveRoot(root, kind string) bool {
+func shouldStripArchiveRoot(root string, definition definitionIdentity) bool {
 	folded := foldLayoutKey(root)
-	if kind == "RPG2000_RTP" || kind == "RPG2003_RTP" {
+	if definition.LayoutVersion == "easy-rtp-layout-v1" {
 		layout, err := loadEasyRTPLayout()
 		if err != nil {
 			return false
 		}
-		generation := map[string]string{"RPG2000_RTP": "RPG2000", "RPG2003_RTP": "RPG2003"}[kind]
-		_, known := foldedSet(layout.Generations[generation].Categories)[folded]
+		_, known := foldedSet(layout.Generations[definition.Generation].Categories)[folded]
 		return !known
 	}
 	for _, known := range []string{"audio", "fonts", "graphics"} {

@@ -405,17 +405,13 @@ JOIN platform_cores pc ON pc.platform_id=p.id AND pc.core_id=? AND pc.enabled=1
 JOIN cores c ON c.id=pc.core_id AND c.enabled=1
 WHERE p.id=? AND p.enabled=1
 AND (
-  c.id='rpgmaker' AND 7=(
-    SELECT count(*) FROM rpgmaker_core_generations generation
-    JOIN core_artifacts artifact ON artifact.core_id=generation.core_id
-      AND artifact.selected_for_new_bindings=1 AND artifact.available_for_launch=1
-  )
-  OR c.id<>'rpgmaker' AND EXISTS(
-    SELECT 1 FROM core_artifacts artifact
-    WHERE artifact.core_id=c.id
-      AND artifact.selected_for_new_bindings=1 AND artifact.available_for_launch=1
-  )
-)
+  SELECT count(*)
+  FROM runtime_target_bindings binding
+  JOIN runtime_binding_platforms binding_platform
+    ON binding_platform.binding_id=binding.binding_id
+   AND binding_platform.platform_id=p.id AND binding_platform.core_id=c.id
+  WHERE binding.core_id=c.id AND binding.launch_policy<>'DISABLED'
+) = CASE WHEN c.id='rpgmaker' THEN 7 ELSE 1 END
 `, template.DefaultCoreID, template.PlatformID).
 			Scan(&reference.PlatformName, &reference.CoreName)
 		if errors.Is(err, sql.ErrNoRows) {

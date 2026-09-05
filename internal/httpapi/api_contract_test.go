@@ -11,138 +11,8 @@ import (
 	"testing"
 
 	"retrom/internal/httpapi/generated"
-	"retrom/internal/rpgmaker/detector"
-	"retrom/internal/rpgmaker/routing"
 	"retrom/internal/testassert"
 )
-
-func TestOpenAPIValidationAllowsNestedRuntimePath(t *testing.T) {
-	t.Parallel()
-	server := newTestServer(t)
-	recorder := httptest.NewRecorder()
-	server.Handler().
-		ServeHTTP(recorder, httptest.NewRequestWithContext(context.Background(), http.MethodHead, "/runtime/emulatorjs/4.2.3/data/loader.js", nil))
-	testassert.Falsef(t, recorder.Code != http.StatusOK, "nested runtime path status = %d, body=%s", recorder.Code, recorder.Body.String())
-	cacheBusted := httptest.NewRecorder()
-	server.Handler().ServeHTTP(
-		cacheBusted,
-		httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/runtime/emulatorjs/4.2.3/data/loader.js?v=496182", nil),
-	)
-	testassert.Falsef(t, cacheBusted.Code != http.StatusOK, "runtime cache-buster status = %d, body=%s", cacheBusted.Code, cacheBusted.Body.String())
-}
-
-func TestOpenAPIValidationAllowsPrereleaseRuntimeVersion(t *testing.T) {
-	t.Parallel()
-	server := newTestServer(t)
-	recorder := httptest.NewRecorder()
-	server.Handler().ServeHTTP(
-		recorder,
-		httptest.NewRequestWithContext(context.Background(), http.MethodHead, "/runtime/emulatorjs/4.3.0-pre/data/loader.js", nil),
-	)
-	testassert.Falsef(t, recorder.Code != http.StatusNotFound, "unconfigured prerelease runtime status = %d, body=%s", recorder.Code, recorder.Body.String())
-}
-
-func TestOpenAPIValidationAllowsRetromRuntimeAndProjectFiles(t *testing.T) {
-	t.Parallel()
-	server := newTestServer(t)
-	handler := server.Handler()
-	current, err := routing.Current("rpgmaker_2000", detector.RPG2000)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, exists := server.dependencies.RPGMaker.Allowlist[current.RuntimeVersion+"/butterscotch-worker.mjs"]; !exists {
-		t.Fatal("Butterscotch worker missing from loaded runtime allowlist")
-	}
-
-	runtimeResponse := httptest.NewRecorder()
-	handler.ServeHTTP(
-		runtimeResponse,
-		httptest.NewRequestWithContext(
-			context.Background(), http.MethodGet,
-			"/runtime/retrom-runtime/"+current.RuntimeVersion+"/easyrpg-player.js", nil,
-		),
-	)
-	testassert.Falsef(
-		t,
-		testassert.Any(
-			func() bool { return runtimeResponse.Code != http.StatusOK },
-			func() bool {
-				return runtimeResponse.Header().Get("Content-Type") != "application/javascript; charset=utf-8"
-			},
-			func() bool { return !strings.HasPrefix(runtimeResponse.Header().Get("ETag"), `"sha256-`) },
-			func() bool { return runtimeResponse.Body.Len() == 0 },
-		),
-		"retrom-runtime response = %d headers=%v bytes=%d body-prefix=%q",
-		runtimeResponse.Code,
-		runtimeResponse.Header(),
-		runtimeResponse.Body.Len(),
-		runtimeResponse.Body.String()[:min(runtimeResponse.Body.Len(), 80)],
-	)
-	workerResponse := httptest.NewRecorder()
-	handler.ServeHTTP(
-		workerResponse,
-		httptest.NewRequestWithContext(
-			context.Background(), http.MethodGet,
-			"/runtime/retrom-runtime/"+current.RuntimeVersion+"/butterscotch-worker.mjs", nil,
-		),
-	)
-	testassert.Falsef(
-		t,
-		testassert.Any(
-			func() bool { return workerResponse.Code != http.StatusOK },
-			func() bool {
-				return workerResponse.Header().Get("Content-Type") != "application/javascript; charset=utf-8"
-			},
-			func() bool { return workerResponse.Body.Len() == 0 },
-		),
-		"Butterscotch worker response = %d headers=%v bytes=%d",
-		workerResponse.Code,
-		workerResponse.Header(),
-		workerResponse.Body.Len(),
-	)
-
-	assetResponse := httptest.NewRecorder()
-	handler.ServeHTTP(
-		assetResponse,
-		httptest.NewRequestWithContext(
-			context.Background(), http.MethodGet,
-			"/runtime/retrom-runtime/"+current.RuntimeVersion+"/assets.zip", nil,
-		),
-	)
-	testassert.Falsef(
-		t,
-		testassert.Any(
-			func() bool { return assetResponse.Code != http.StatusOK },
-			func() bool { return assetResponse.Header().Get("Content-Type") != "application/zip" },
-			func() bool { return assetResponse.Body.Len() == 0 },
-		),
-		"retrom-runtime ZIP response = %d headers=%v bytes=%d",
-		assetResponse.Code,
-		assetResponse.Header(),
-		assetResponse.Body.Len(),
-	)
-
-	projectResponse := httptest.NewRecorder()
-	handler.ServeHTTP(
-		projectResponse,
-		httptest.NewRequestWithContext(
-			context.Background(), http.MethodGet,
-			"/runtime/content/project/"+strings.Repeat("a", 64)+"/Data/Actors.json", nil,
-		),
-	)
-	testassert.Falsef(
-		t,
-		testassert.Any(
-			func() bool { return projectResponse.Code != http.StatusUnauthorized },
-			func() bool {
-				return !strings.Contains(projectResponse.Body.String(), `"code":"LAUNCH_CREDENTIAL_INVALID"`)
-			},
-		),
-		"runtime project response = %d body=%s",
-		projectResponse.Code,
-		projectResponse.Body.String(),
-	)
-}
 
 func TestOpenAPIValidationRejectsUnknownJSONAndMapsMissingPrecondition(t *testing.T) {
 	t.Parallel()
@@ -175,60 +45,19 @@ func TestOpenAPIValidationRejectsUnknownJSONAndMapsMissingPrecondition(t *testin
 	testassert.Falsef(t, testassert.Any(func() bool { return recorder.Code != http.StatusPreconditionRequired }, func() bool { return !strings.Contains(recorder.Body.String(), `"code":"PRECONDITION_REQUIRED"`) }), "missing If-Match response = %d %s", recorder.Code, recorder.Body.String())
 }
 
-func TestRPGGateHTTPContractAcceptsNewPositionGatesAndRejectsUnknownGate(t *testing.T) {
+func TestRetiredRuntimeProofEndpointsAreAbsent(t *testing.T) {
 	t.Parallel()
 	server := newTestServer(t)
-	handler := server.Handler()
-	launchID := "01980000-0000-7000-8000-000000000091"
-	for _, test := range []struct{ gate, eventID string }{
-		{gate: "INITIAL_POSITION_RECORDED", eventID: "01980000-0000-7000-8000-000000000092"},
-		{gate: "RESTORE_INPUT", eventID: "01980000-0000-7000-8000-000000000093"},
+	for _, endpoint := range []string{
+		"/runtime/launches/01980000-0000-7000-8000-000000000091/rpgmaker-gates/events",
+		"/admin/reviews/01980000-0000-7000-8000-000000000092/runtime-validations",
 	} {
-		body := `{"sequence":1,"eventId":"` + test.eventID + `","gate":"` + test.gate +
-			`","phase":"PASS","observedAtMs":1,"evidence":{"mapId":1,"playerX":2,"playerY":3,"fixtureState":4}}`
-		request := httptest.NewRequestWithContext(
-			context.Background(), http.MethodPost,
-			"/runtime/launches/"+launchID+"/rpgmaker-gates/events", strings.NewReader(body),
-		)
-		request.Header.Set("Content-Type", "application/json")
-		response := httptest.NewRecorder()
-		handler.ServeHTTP(response, request)
-		if response.Code != http.StatusUnauthorized ||
-			!strings.Contains(response.Body.String(), `"code":"LAUNCH_CREDENTIAL_INVALID"`) {
-			t.Fatalf("%s gate response = %d %s", test.gate, response.Code, response.Body.String())
-		}
-	}
-	unknown := httptest.NewRequestWithContext(
-		context.Background(), http.MethodPost,
-		"/runtime/launches/"+launchID+"/rpgmaker-gates/events",
-		strings.NewReader(`{"sequence":1,"eventId":"01980000-0000-7000-8000-000000000099","gate":"UNKNOWN","phase":"BEGIN","observedAtMs":1,"evidence":{}}`),
-	)
-	unknown.Header.Set("Content-Type", "application/json")
-	response := httptest.NewRecorder()
-	handler.ServeHTTP(response, unknown)
-	if response.Code != http.StatusBadRequest || !strings.Contains(response.Body.String(), `"code":"INVALID_REQUEST"`) {
-		t.Fatalf("unknown RPG gate response = %d %s", response.Code, response.Body.String())
-	}
-}
-
-func TestRPGGateHTTPContractAcceptsNativeWebAdapterEvidence(t *testing.T) {
-	t.Parallel()
-	for _, body := range []string{
-		`{"sequence":1,"eventId":"01980000-0000-7000-8000-000000000092","gate":"ENGINE_PROFILE","phase":"PASS","observedAtMs":1,"evidence":{"generation":"RPGMV","adapterId":"native-web","engineProfile":"RPGMV"}}`,
-		`{"sequence":1,"eventId":"01980000-0000-7000-8000-000000000093","gate":"ENGINE_PROFILE","phase":"PASS","observedAtMs":1,"evidence":{"generation":"RPGMZ","adapterId":"native-web","engineProfile":"RPGMZ"}}`,
-	} {
-		server := newTestServer(t)
-		request := httptest.NewRequestWithContext(
-			context.Background(), http.MethodPost,
-			"/runtime/launches/01980000-0000-7000-8000-000000000091/rpgmaker-gates/events",
-			strings.NewReader(body),
-		)
+		request := httptest.NewRequestWithContext(t.Context(), http.MethodPost, endpoint, strings.NewReader("{}"))
 		request.Header.Set("Content-Type", "application/json")
 		response := httptest.NewRecorder()
 		server.Handler().ServeHTTP(response, request)
-		if response.Code != http.StatusUnauthorized ||
-			!strings.Contains(response.Body.String(), `"code":"LAUNCH_CREDENTIAL_INVALID"`) {
-			t.Fatalf("native Web gate response = %d %s", response.Code, response.Body.String())
+		if response.Code != http.StatusNotFound {
+			t.Fatalf("retired proof endpoint %s returned %d", endpoint, response.Code)
 		}
 	}
 }

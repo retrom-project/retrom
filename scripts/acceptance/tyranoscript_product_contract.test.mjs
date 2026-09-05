@@ -20,7 +20,7 @@ function evidence() {
       originalLaunchId: "01a05123-1234-7123-8123-423456789abc",
       restoreLaunchId: "01a05123-1234-7123-8123-523456789abc",
     },
-    checkpoint: {payloadKind: "RUNTIME_STATE", sizeBytes: 1024},
+    checkpoint: {format: "tyranoscript-snapshot-v1", sizeBytes: 1024},
     state: {b: state("B"), c: state("C"), restoredB: state("B")},
     resources: {contentDigest: "b".repeat(64), engineAsset200Count: 1, failedResponseCount: 0},
     screenshots: {preview: screenshot, product: screenshot, restored: screenshot},
@@ -31,7 +31,7 @@ function evidence() {
 test("accepts the complete TyranoScript product chain", () => {
   assert.doesNotThrow(() => assertTyranoScriptProductEvidence(evidence()));
   assert.doesNotThrow(() => assertTyranoScriptProductEvidence({
-    ...evidence(), checkpoint: {payloadKind: "RUNTIME_STATE", sizeBytes: 32 * 1024 * 1024},
+    ...evidence(), checkpoint: {format: "tyranoscript-snapshot-v1", sizeBytes: 32 * 1024 * 1024},
   }));
 });
 
@@ -41,7 +41,7 @@ test("rejects restore, resource, screenshot and browser regressions", () => {
     {...evidence(), resources: {...evidence().resources, engineAsset200Count: 0}},
     {...evidence(), screenshots: {...evidence().screenshots, restored: {...screenshot, nonBlackPixels: 0}}},
     {...evidence(), browser: {...evidence().browser, consoleErrorCount: 1}},
-    {...evidence(), checkpoint: {payloadKind: "RUNTIME_STATE", sizeBytes: 32 * 1024 * 1024 + 1}},
+    {...evidence(), checkpoint: {format: "tyranoscript-snapshot-v1", sizeBytes: 32 * 1024 * 1024 + 1}},
   ];
   for (const value of invalid) {
     assert.throws(() => assertTyranoScriptProductEvidence(value), /TYRANOSCRIPT_ACCEPTANCE_/u);

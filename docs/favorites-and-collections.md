@@ -18,7 +18,7 @@
 - 同一 Game 可以被多个 Profile 分别收藏；任何角色都没有跨 Profile 查看、搜索或维护收藏数据的旁路。
 - 一项 Favorite 可以进入零到多个 FavoriteFolder。加入 Folder 会自动收藏；从最后一个 Folder 移除后 Favorite 保留并进入“未分类”。
 - 删除 Folder 只删除该 Folder 及其 Membership，不取消 Favorite；取消 Favorite 才在同一事务删除其全部 Membership。
-- 收藏不改变 Game、PlatformInstance、GameContentRevision、GameVariantRevision、Launch 或 SaveState 的归属和运行行为。
+- 收藏不改变 Game、PlatformInstance、GameFiles、GameVariant、Launch 或 SaveState 的归属和运行行为。
 - Game 永久删除后保留收藏关系，但固定投影无封面的 `DELETED` 文字墓碑且只允许移出收藏；PlatformInstance 停用或 User 停用只隐藏用户投影、不删除收藏关系，恢复可见后原关系自然恢复。
 - 本能力不引入公开/分享/协作收藏夹、嵌套、描述、封面、图标、手工排序、智能规则、推荐、统计榜或管理员审计事件。
 - 本能力不引入后台 Job、Blob、外网请求、浏览器持久副本、Core/DAT/BIOS/Player 变化或新的第三方依赖。

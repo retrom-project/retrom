@@ -16,8 +16,8 @@ import { DirectoryPickerDialog } from "./directory-picker-dialog";
 import { directoryPickerAvailable, droppedDirectory, pickDirectory, type PickedDirectory, type PickedDirectoryFile } from "@/lib/directory-access";
 
 type ChosenFile = { id: string; file: File; name: string; size: number; path: string };
-type ContentMode = "STANDARD" | "MULTI_DISC_M3U_V1" | "RPG_MAKER_PROJECT_V1" | "ONS_PROJECT_V1" |
-  "KIRIKIRI_PROJECT_V1" | "BUTTERSCOTCH_PROJECT_V1" | "TYRANOSCRIPT_PROJECT_V1";
+type ContentMode = "STANDARD" | "MULTI_DISC" | "RPG_MAKER_PROJECT" | "ONS_PROJECT" |
+  "KIRIKIRI_PROJECT" | "BUTTERSCOTCH_PROJECT" | "TYRANOSCRIPT_PROJECT";
 type Directory = {
   id: string; name: string; platformName: string; coreName: string;
   importCapabilities?: { contentModes: string[]; multiDisc: { maxDiscs: number; maxTotalBytes: number } | null };
@@ -76,11 +76,11 @@ type SourceStepProps = {
 };
 
 function SourceDropZone({ contentMode, onDrop, onPickDirectory, onPickFiles }: Pick<SourceStepProps, "contentMode" | "onDrop" | "onPickDirectory" | "onPickFiles">) {
-  const rpgMaker = contentMode === "RPG_MAKER_PROJECT_V1";
-  const ons = contentMode === "ONS_PROJECT_V1";
-  const kirikiri = contentMode === "KIRIKIRI_PROJECT_V1";
-  const butterscotch = contentMode === "BUTTERSCOTCH_PROJECT_V1";
-  const tyranoScript = contentMode === "TYRANOSCRIPT_PROJECT_V1";
+  const rpgMaker = contentMode === "RPG_MAKER_PROJECT";
+  const ons = contentMode === "ONS_PROJECT";
+  const kirikiri = contentMode === "KIRIKIRI_PROJECT";
+  const butterscotch = contentMode === "BUTTERSCOTCH_PROJECT";
+  const tyranoScript = contentMode === "TYRANOSCRIPT_PROJECT";
   const project = rpgMaker || ons || kirikiri || butterscotch || tyranoScript;
   const projectName = rpgMaker ? "RPG Maker" : ons ? "ONS" : kirikiri ? "KiriKiri"
     : butterscotch ? "GameMaker" : "TyranoScript";
@@ -131,7 +131,7 @@ type ConfigStepProps = {
 };
 
 function MultiDiscConfiguration(props: Pick<ConfigStepProps, "contentMode" | "multiDiscLimits" | "multiDiscSupported" | "onContentMode" | "preflight" | "reconfiguring" | "visibleCapabilityNotice"> & { sourceIsDirectory: boolean }) {
-  const multiDisc = props.contentMode === "MULTI_DISC_M3U_V1";
+  const multiDisc = props.contentMode === "MULTI_DISC";
   return <>
     {!props.reconfiguring && props.sourceIsDirectory && props.multiDiscSupported ? <MultiDiscModeField selected={multiDisc} detectedGroupCount={props.preflight?.detected ? props.preflight.processableGroupCount : 0} maxDiscs={props.multiDiscLimits.maxDiscs} maxTotalBytes={props.multiDiscLimits.maxTotalBytes} onChange={props.onContentMode} /> : null}
     {props.visibleCapabilityNotice ? <div className="feedback warn" role="alert">{props.visibleCapabilityNotice}</div> : null}
@@ -141,19 +141,19 @@ function MultiDiscConfiguration(props: Pick<ConfigStepProps, "contentMode" | "mu
 }
 
 function ProjectConfiguration({ contentMode }: Pick<ConfigStepProps, "contentMode">) {
-  if (contentMode === "RPG_MAKER_PROJECT_V1") {
+  if (contentMode === "RPG_MAKER_PROJECT") {
     return <div className="feedback info" role="status">整个 RPG Maker 目录或单个 ZIP/7z 会作为一个项目导入；服务端会识别项目版本并选择底层核心。</div>;
   }
-  if (contentMode === "ONS_PROJECT_V1") {
+  if (contentMode === "ONS_PROJECT") {
     return <div className="feedback info" role="status">整个 ONS 目录或单个 ZIP/7z 会作为一个项目导入；审核时需要先成功试运行一次。</div>;
   }
-  if (contentMode === "KIRIKIRI_PROJECT_V1") {
+  if (contentMode === "KIRIKIRI_PROJECT") {
     return <div className="feedback info" role="status">整个 KiriKiri 目录或单个 ZIP/7z 会作为一个项目导入；审核时需要先成功试运行一次。</div>;
   }
-  if (contentMode === "BUTTERSCOTCH_PROJECT_V1") {
+  if (contentMode === "BUTTERSCOTCH_PROJECT") {
     return <div className="feedback info" role="status">整个 GameMaker 目录或单个 ZIP/7z 会作为一个项目导入；当前原型支持带 data.win 的项目，审核时需要先成功试运行一次。</div>;
   }
-  if (contentMode === "TYRANOSCRIPT_PROJECT_V1") {
+  if (contentMode === "TYRANOSCRIPT_PROJECT") {
     return <div className="feedback info" role="status">整个 TyranoScript 目录、单个 ZIP/7z、包含 resources/app.asar 的 Electron ASAR 分发 ZIP，或带追加 package.nw 的 NW.js EXE 会作为一个项目导入；桌面程序只用于识别包装，服务端不会执行，审核时需要先成功试运行一次。</div>;
   }
   return null;
@@ -173,7 +173,7 @@ function ImportConfigurationFields(props: Pick<ConfigStepProps, "contentMode" | 
 function ConfigStep(props: ConfigStepProps & { sourceIsDirectory: boolean }) {
   const submitLabel = props.reconfiguring
     ? "按新配置重新识别"
-    : props.contentMode === "MULTI_DISC_M3U_V1" ? props.multiDiscSubmitLabel
+    : props.contentMode === "MULTI_DISC" ? props.multiDiscSubmitLabel
       : projectSubmitLabel(props.contentMode);
   return <section className="panel import-config-panel">
     <div className="panel-head"><div><h2>确认导入配置</h2><p>目标目录决定基础平台和推荐运行方式；配置会冻结到本次任务快照。</p></div><span className="status info"><i />步骤 2 / 3</span></div>
@@ -182,7 +182,7 @@ function ConfigStep(props: ConfigStepProps & { sourceIsDirectory: boolean }) {
       <div className="import-tag-config"><TagPicker label="批次默认标签" options={props.activeTags} selected={props.tags} onChange={props.onTags} disabled={props.busy} description="这些标签会冻结到任务配置，并作为每个待审核游戏的初始选择；审核时仍可逐项调整。" /></div>
       <MultiDiscConfiguration contentMode={props.contentMode} multiDiscLimits={props.multiDiscLimits} multiDiscSupported={props.multiDiscSupported} onContentMode={props.onContentMode} preflight={props.preflight} reconfiguring={props.reconfiguring} sourceIsDirectory={props.sourceIsDirectory} visibleCapabilityNotice={props.visibleCapabilityNotice} />
       <ProjectConfiguration contentMode={props.contentMode} />
-      {props.projectInvalid ? <div className="feedback bad" role="alert">{props.contentMode === "TYRANOSCRIPT_PROJECT_V1" ? "项目必须选择一个完整目录，或只选择一个 ZIP/7z/Electron ASAR/NW.js EXE 项目包。" : "项目必须选择一个完整目录，或只选择一个 ZIP/7z 归档。"}</div> : null}
+      {props.projectInvalid ? <div className="feedback bad" role="alert">{props.contentMode === "TYRANOSCRIPT_PROJECT" ? "项目必须选择一个完整目录，或只选择一个 ZIP/7z/Electron ASAR/NW.js EXE 项目包。" : "项目必须选择一个完整目录，或只选择一个 ZIP/7z 归档。"}</div> : null}
       <div className="import-config-summary"><div><small>内容</small><strong>{props.fileCount} 个文件</strong></div><div><small>数据量</small><strong>{formatBytes(props.totalBytes)}</strong></div><div><small>目标</small><strong>{props.selectedDirectory?.name ?? "尚未选择"}</strong></div><div><small>布局</small><strong>{contentModeLabel(props.contentMode)}</strong></div></div>
       {props.tags.length ? <div className="import-tag-summary"><small>将应用到待审核游戏</small><TagChips tags={props.tags} /></div> : null}
       <div className="import-stage-actions"><button className="button secondary" type="button" onClick={props.onBack}>上一步</button><button className="button" type="button" disabled={props.busy || props.preflighting || !props.target || props.multiDiscInvalid || props.projectInvalid} onClick={props.onSubmit}>{submitLabel}</button></div>
@@ -192,11 +192,11 @@ function ConfigStep(props: ConfigStepProps & { sourceIsDirectory: boolean }) {
 
 function projectSubmitLabel(contentMode: ContentMode) {
   const labels: Partial<Record<ContentMode, string>> = {
-    RPG_MAKER_PROJECT_V1: "上传并验证 RPG Maker 项目",
-    ONS_PROJECT_V1: "上传并试运行 ONS 项目",
-    KIRIKIRI_PROJECT_V1: "上传并试运行 KiriKiri 项目",
-    BUTTERSCOTCH_PROJECT_V1: "上传并试运行 GameMaker 项目",
-    TYRANOSCRIPT_PROJECT_V1: "上传并试运行 TyranoScript 项目",
+    RPG_MAKER_PROJECT: "上传并验证 RPG Maker 项目",
+    ONS_PROJECT: "上传并试运行 ONS 项目",
+    KIRIKIRI_PROJECT: "上传并试运行 KiriKiri 项目",
+    BUTTERSCOTCH_PROJECT: "上传并试运行 GameMaker 项目",
+    TYRANOSCRIPT_PROJECT: "上传并试运行 TyranoScript 项目",
   };
   return labels[contentMode] ?? "开始上传并验证";
 }
@@ -258,31 +258,31 @@ function uploadProgressPercent(completedJobId: string, progress: string, busy: b
 }
 
 function invalidMultiDiscSelection(contentMode: string, sourceType: string, preflight: MultiDiscPreflight | null, supported: boolean) {
-  if (contentMode !== "MULTI_DISC_M3U_V1") {return false;}
+  if (contentMode !== "MULTI_DISC") {return false;}
   return sourceType !== "DIRECTORY" || !preflight?.detected || !supported || preflight.processableGroupCount === 0;
 }
 
 function isProjectContentMode(contentMode: ContentMode) {
-  return contentMode === "RPG_MAKER_PROJECT_V1" || contentMode === "ONS_PROJECT_V1" ||
-    contentMode === "KIRIKIRI_PROJECT_V1" || contentMode === "BUTTERSCOTCH_PROJECT_V1" ||
-    contentMode === "TYRANOSCRIPT_PROJECT_V1";
+  return contentMode === "RPG_MAKER_PROJECT" || contentMode === "ONS_PROJECT" ||
+    contentMode === "KIRIKIRI_PROJECT" || contentMode === "BUTTERSCOTCH_PROJECT" ||
+    contentMode === "TYRANOSCRIPT_PROJECT";
 }
 
 function invalidProjectSelection(contentMode: ContentMode, sourceType: string, files: ChosenFile[]) {
   if (!isProjectContentMode(contentMode) || sourceType === "DIRECTORY") {return false;}
   if (files.length !== 1) {return true;}
   const name = files[0].name.toLocaleLowerCase();
-  const tyranoScriptExecutable = contentMode === "TYRANOSCRIPT_PROJECT_V1" && name.endsWith(".exe");
+  const tyranoScriptExecutable = contentMode === "TYRANOSCRIPT_PROJECT" && name.endsWith(".exe");
   return !name.endsWith(".zip") && !name.endsWith(".7z") && !tyranoScriptExecutable;
 }
 
 function contentModeLabel(contentMode: ContentMode) {
-  if (contentMode === "MULTI_DISC_M3U_V1") {return "多盘 M3U";}
-  if (contentMode === "RPG_MAKER_PROJECT_V1") {return "RPG Maker 项目";}
-  if (contentMode === "ONS_PROJECT_V1") {return "ONS 项目";}
-  if (contentMode === "KIRIKIRI_PROJECT_V1") {return "KiriKiri 项目";}
-  if (contentMode === "BUTTERSCOTCH_PROJECT_V1") {return "GameMaker 项目";}
-  if (contentMode === "TYRANOSCRIPT_PROJECT_V1") {return "TyranoScript 项目";}
+  if (contentMode === "MULTI_DISC") {return "多盘 M3U";}
+  if (contentMode === "RPG_MAKER_PROJECT") {return "RPG Maker 项目";}
+  if (contentMode === "ONS_PROJECT") {return "ONS 项目";}
+  if (contentMode === "KIRIKIRI_PROJECT") {return "KiriKiri 项目";}
+  if (contentMode === "BUTTERSCOTCH_PROJECT") {return "GameMaker 项目";}
+  if (contentMode === "TYRANOSCRIPT_PROJECT") {return "TyranoScript 项目";}
   return "普通内容";
 }
 
@@ -324,16 +324,16 @@ function directoryCapabilities(directories: Directory[], target: string) {
     limits: selected?.importCapabilities?.multiDisc ?? MULTI_DISC_DEFAULT_LIMITS,
     projectMode,
     selected,
-    supported: contentModes.includes("MULTI_DISC_M3U_V1"),
+    supported: contentModes.includes("MULTI_DISC"),
   };
 }
 
 function projectContentMode(contentModes: string[]): ContentMode {
-  if (contentModes.includes("RPG_MAKER_PROJECT_V1")) {return "RPG_MAKER_PROJECT_V1";}
-  if (contentModes.includes("ONS_PROJECT_V1")) {return "ONS_PROJECT_V1";}
-  if (contentModes.includes("KIRIKIRI_PROJECT_V1")) {return "KIRIKIRI_PROJECT_V1";}
-  if (contentModes.includes("BUTTERSCOTCH_PROJECT_V1")) {return "BUTTERSCOTCH_PROJECT_V1";}
-  if (contentModes.includes("TYRANOSCRIPT_PROJECT_V1")) {return "TYRANOSCRIPT_PROJECT_V1";}
+  if (contentModes.includes("RPG_MAKER_PROJECT")) {return "RPG_MAKER_PROJECT";}
+  if (contentModes.includes("ONS_PROJECT")) {return "ONS_PROJECT";}
+  if (contentModes.includes("KIRIKIRI_PROJECT")) {return "KIRIKIRI_PROJECT";}
+  if (contentModes.includes("BUTTERSCOTCH_PROJECT")) {return "BUTTERSCOTCH_PROJECT";}
+  if (contentModes.includes("TYRANOSCRIPT_PROJECT")) {return "TYRANOSCRIPT_PROJECT";}
   return "STANDARD";
 }
 
@@ -403,7 +403,7 @@ export function UploadPicker({ directories, activeTags = [], reconfigureSource =
     void preflightMultiDisc(files, multiDiscSupported ? multiDiscLimits : MULTI_DISC_DEFAULT_LIMITS).then((result) => {
       if (run !== preflightRunRef.current) {return;}
       setPreflight(result);
-      if (result.detected && multiDiscSupported && !multiDiscOptedOutRef.current) {setContentMode("MULTI_DISC_M3U_V1");}
+      if (result.detected && multiDiscSupported && !multiDiscOptedOutRef.current) {setContentMode("MULTI_DISC");}
       else if (!result.detected || !multiDiscSupported) {setContentMode("STANDARD");}
     }).catch(() => {
       if (run === preflightRunRef.current) {setPreflight(null);}
@@ -415,13 +415,13 @@ export function UploadPicker({ directories, activeTags = [], reconfigureSource =
   function changeTarget(nextTarget: string) {
     const nextDirectory = directories.find((directory) => directory.id === nextTarget);
     const nextContentModes = nextDirectory?.importCapabilities?.contentModes ?? [];
-    const nextSupportsMultiDisc = nextContentModes.includes("MULTI_DISC_M3U_V1");
+    const nextSupportsMultiDisc = nextContentModes.includes("MULTI_DISC");
     const nextProjectMode = projectContentMode(nextContentModes);
     setTarget(nextTarget);
     if (files.length && sourceType === "DIRECTORY") {setPreflighting(true);}
     if (isProjectContentMode(nextProjectMode)) {preflightRunRef.current++; setPreflight(null); setContentMode(nextProjectMode); setPreflighting(false);}
     else if (!nextSupportsMultiDisc) {setContentMode("STANDARD");}
-    else if (preflight?.detected && !multiDiscOptedOutRef.current) {setContentMode("MULTI_DISC_M3U_V1");}
+    else if (preflight?.detected && !multiDiscOptedOutRef.current) {setContentMode("MULTI_DISC");}
   }
 
   async function submitImport() {
@@ -439,11 +439,7 @@ export function UploadPicker({ directories, activeTags = [], reconfigureSource =
           body: JSON.stringify({ targetPlatformInstanceId: target, metadataProvider: selectedProvider, tagIds: tags.map((tag) => tag.tagId) }),
         });
       } else {
-        const purpose = contentMode === "RPG_MAKER_PROJECT_V1" ? "RPG_MAKER_PROJECT"
-          : contentMode === "ONS_PROJECT_V1" ? "ONS_PROJECT"
-            : contentMode === "KIRIKIRI_PROJECT_V1" ? "KIRIKIRI_PROJECT"
-              : contentMode === "BUTTERSCOTCH_PROJECT_V1" ? "BUTTERSCOTCH_PROJECT" : "GENERAL";
-        const uploadPurpose = contentMode === "TYRANOSCRIPT_PROJECT_V1" ? "TYRANOSCRIPT_PROJECT" : purpose;
+        const uploadPurpose = contentMode === "STANDARD" || contentMode === "MULTI_DISC" ? "GENERAL" : "PROJECT";
         const uploaded = await uploadFiles(files.map((chosen) => ({ file: chosen.file, relativePath: chosen.path })), setProgress, uploadPurpose);
         setProgress("正在创建导入任务…");
         imported = await fetch("/api/v1/admin/imports", { method: "POST", credentials: "same-origin", headers: await writeHeaders({ "Content-Type": "application/json", "Idempotency-Key": newUuid() }), body: JSON.stringify({ uploadId: uploaded.uploadId, targetPlatformInstanceId: target, metadataProvider: selectedProvider, contentMode, tagIds: tags.map((tag) => tag.tagId) }) });
@@ -521,7 +517,7 @@ export function UploadPicker({ directories, activeTags = [], reconfigureSource =
     <input ref={directoryInput} id="import-directory" aria-label="选择导入目录" hidden type="file" multiple onChange={(event) => receiveLegacyDirectory(event.target.files)} {...{ webkitdirectory: "" }} />
     {step === 1 ? <SourceStep contentMode={contentMode} files={files} onDrop={chooseDroppedFiles} onNext={() => setStep(2)} onPickDirectory={() => {setPendingDirectory(null); setDirectoryBrowseError(""); setDirectoryDialogOpen(true);}} onPickFiles={() => fileInput.current?.click()} onReset={resetFiles} onToggleFiles={() => setShowFiles((current) => !current)} preflight={preflight} preflighting={preflighting} reconfigureSource={reconfigureSource} reusableFiles={reusableFiles} showFiles={showFiles} totalBytes={totalBytes} /> : null}
     <DirectoryPickerDialog browsing={directoryBrowsing} directory={pendingDirectory} error={directoryBrowseError} open={directoryDialogOpen} onBrowse={() => void browseDirectory()} onCancel={closeDirectoryDialog} onConfirm={confirmDirectory} onDrop={(dropped) => {setDirectoryBrowseError(""); setPendingDirectory(droppedDirectory(Array.from(dropped)));}} />
-    {step === 2 ? <ConfigStep activeTags={activeTags} busy={busy} contentMode={contentMode} directories={directories} fileCount={fileCount} multiDiscInvalid={multiDiscInvalid} projectInvalid={projectInvalid} multiDiscLimits={multiDiscLimits} multiDiscSubmitLabel={submitLabel} multiDiscSupported={multiDiscSupported} onBack={() => setStep(1)} onContentMode={(selected) => { setContentMode(selected ? "MULTI_DISC_M3U_V1" : "STANDARD"); multiDiscOptedOutRef.current = !selected; }} onProvider={setProvider} onSubmit={() => void submitImport()} onTags={setTags} onTarget={changeTarget} preflight={preflight} preflighting={preflighting} provider={provider} reconfiguring={Boolean(reconfigureSource)} selectedDirectory={selectedDirectory} sourceIsDirectory={sourceType === "DIRECTORY"} tags={tags} target={target} totalBytes={totalBytes} visibleCapabilityNotice={visibleCapabilityNotice} /> : null}
+    {step === 2 ? <ConfigStep activeTags={activeTags} busy={busy} contentMode={contentMode} directories={directories} fileCount={fileCount} multiDiscInvalid={multiDiscInvalid} projectInvalid={projectInvalid} multiDiscLimits={multiDiscLimits} multiDiscSubmitLabel={submitLabel} multiDiscSupported={multiDiscSupported} onBack={() => setStep(1)} onContentMode={(selected) => { setContentMode(selected ? "MULTI_DISC" : "STANDARD"); multiDiscOptedOutRef.current = !selected; }} onProvider={setProvider} onSubmit={() => void submitImport()} onTags={setTags} onTarget={changeTarget} preflight={preflight} preflighting={preflighting} provider={provider} reconfiguring={Boolean(reconfigureSource)} selectedDirectory={selectedDirectory} sourceIsDirectory={sourceType === "DIRECTORY"} tags={tags} target={target} totalBytes={totalBytes} visibleCapabilityNotice={visibleCapabilityNotice} /> : null}
     {step === 3 ? <ProgressStep busy={busy} completedJobId={completedJobId} error={error} onBack={() => setStep(2)} onComplete={() => { router.push("/admin/imports/tasks"); router.refresh(); }} progress={progress} reconfiguring={Boolean(reconfigureSource)} uploadPercent={uploadPercent} /> : null}
   </div>;
 }

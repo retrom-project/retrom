@@ -9,43 +9,34 @@ fi
 
 sqlite3 -bail "$database_path" <<'SQL'
 PRAGMA foreign_keys=ON;
-PRAGMA defer_foreign_keys=ON;
 BEGIN IMMEDIATE;
 CREATE TEMP TABLE acceptance_game AS
-SELECT g.id AS game_id,
-       g.current_metadata_revision_id AS metadata_id,
-       g.current_content_revision_id AS content_id
-FROM games g
+SELECT g.* FROM games g
 WHERE g.status='PUBLISHED'
 ORDER BY g.updated_at_ms DESC,g.id DESC
 LIMIT 1;
 
-INSERT INTO game_metadata_revisions(id,game_id,title,title_initial,description,developer,publisher,genre,players,release_year,source_kind,source_ref_id,created_at_ms)
-SELECT '60000000-0000-7000-8000-000000000002',
-       '60000000-0000-7000-8000-000000000001',
-       'Acceptance Missing FDS BIOS','A',description,developer,publisher,genre,players,release_year,source_kind,source_ref_id,1786000300000
-FROM game_metadata_revisions
-WHERE id=(SELECT metadata_id FROM acceptance_game);
+INSERT INTO games(
+ id,platform_instance_id,title,title_initial,description,developer,publisher,genre,players,release_year,
+ metadata_source_kind,metadata_source_ref_id,content_kind,content_source_kind,content_source_ref_id,
+ source_manifest_json,source_manifest_digest,status,payload_state,search_text,version,created_at_ms,updated_at_ms
+)
+SELECT '60000000-0000-7000-8000-000000000001',
+       (SELECT id FROM platform_instances WHERE catalog_template_key='nes/fceumm'),
+       'Acceptance Missing FDS BIOS','A',description,developer,publisher,genre,players,release_year,
+       'ADMIN_EDIT',NULL,content_kind,'ADMIN_REPLACE','acceptance-missing-fds-bios',
+       source_manifest_json,source_manifest_digest,'PUBLISHED','RETAINED',
+       'acceptance missing fds bios',1,1786000300000,1786000300000
+FROM acceptance_game;
 
-INSERT INTO game_content_revisions(id,game_id,source_kind,source_ref_id,source_manifest_json,source_manifest_digest,created_at_ms)
-SELECT '60000000-0000-7000-8000-000000000003',
-       '60000000-0000-7000-8000-000000000001',source_kind,source_ref_id,source_manifest_json,source_manifest_digest,1786000300000
-FROM game_content_revisions
-WHERE id=(SELECT content_id FROM acceptance_game);
-
-INSERT INTO games(id,platform_instance_id,status,current_metadata_revision_id,current_content_revision_id,search_text,version,created_at_ms,updated_at_ms,deleted_at_ms)
-SELECT '60000000-0000-7000-8000-000000000001',id,'PUBLISHED',
-       '60000000-0000-7000-8000-000000000002','60000000-0000-7000-8000-000000000003',
-       'acceptance missing fds bios',1,1786000300000,1786000300000,NULL
-FROM platform_instances
-WHERE catalog_template_key='nes/fceumm';
-
-INSERT INTO game_content_files(game_content_revision_id,role,logical_name,blob_id,source_archive_blob_id,source_archive_entry_ordinal,sort_order)
-SELECT '60000000-0000-7000-8000-000000000003',role,
+INSERT INTO game_files(
+ game_id,role,logical_name,blob_id,source_archive_blob_id,source_archive_entry_ordinal,sort_order
+)
+SELECT '60000000-0000-7000-8000-000000000001',role,
        CASE WHEN role='CONTENT' THEN 'Acceptance-Missing-BIOS.fds' ELSE logical_name END,
        blob_id,source_archive_blob_id,source_archive_entry_ordinal,sort_order
-FROM game_content_files
-WHERE game_content_revision_id=(SELECT content_id FROM acceptance_game);
+FROM game_files
+WHERE game_id=(SELECT id FROM acceptance_game);
 
 DROP TABLE acceptance_game;
 COMMIT;

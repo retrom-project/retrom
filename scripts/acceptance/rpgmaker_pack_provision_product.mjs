@@ -1,32 +1,22 @@
 import { directoryFiles, reviewForImport, singleFile } from "./rpgmaker_security_upload.mjs";
 import { basename } from "node:path";
+import {preservedPopulation, readPopulation} from "./rpgmaker_pack_population.mjs";
+import {
+  advanceFixture, captureOptionalReviewScreenshot, capturePreviewCheckpoint, finishPreview,
+  observeFixturePosition, observeOwnedFixture, observePreviewFrames, revealPreviewToolbar, waitForPreviewReady,
+} from "./rpgmaker_preview_actions.mjs";
 
-const gates = [
-  "RUNTIME_READY", "ENGINE_PROFILE", "FRAMES_300", "INPUT", "AUDIO",
-  "INITIAL_POSITION_RECORDED", "SAVE_POINT_RECORDED", "CHECKPOINT_CREATED",
-  "POST_SAVE_STATE_DIVERGED", "ORIGINAL_LAUNCH_ENDED", "RESTORE_STARTED",
-  "RESTORE_POSITION_VERIFIED", "RESTORE_SCREENSHOT", "RESTORE_INPUT",
-];
 const capabilities = { secureContext: true, crossOriginIsolated: true, sharedArrayBuffer: true };
 
-export async function assertFreshInstance(client) {
-  const [catalog, games, saves, reviews, imports] = await Promise.all([
-    client.json("GET", "/api/v1/admin/runtime-asset-packs"),
-    client.json("GET", "/api/v1/admin/games?limit=1"),
-    client.json("GET", "/api/v1/saves?limit=1"),
-    client.json("GET", "/api/v1/admin/reviews?limit=1"),
-    client.json("GET", "/api/v1/admin/imports/summary"),
-  ]);
-  const importCounts = [
-    "completed", "failed", "issueItems", "processingItems", "publishedItems", "reviewPending", "running",
-  ];
-  if (catalog.installations?.length || games.items?.length || saves.items?.length || reviews.items?.length
-      || importCounts.some((key) => imports[key] !== 0)) {
-    throw new Error("RPG_009_PROVISION_DATABASE_NOT_FRESH");
+export async function capturePackBaseline(client) {
+  const catalog = await client.json("GET", "/api/v1/admin/runtime-asset-packs");
+  if (!Array.isArray(catalog.installations) || catalog.installations.length) {
+    throw new Error("RPG_009_PROVISION_PACK_CATALOG_NOT_EMPTY");
   }
+  return readPopulation(client);
 }
 
-export async function rpgPlatformInstances(client, expectedCoreIds) {
+export async function rpgPlatformInstances(client, expectedTargetIds) {
   await client.json("POST", "/api/v1/admin/platform-instances/recommendations/apply", {
     headers: client.writeHeaders(), data: {}, expected: 200,
   });
@@ -36,31 +26,20 @@ export async function rpgPlatformInstances(client, expectedCoreIds) {
   );
   if (platforms.length !== 1) { throw new Error("RPG_009_PROVISION_PLATFORM_MISSING"); }
   const platform = platforms[0];
-  const artifacts = await allCoreArtifacts(client);
-  for (const coreId of expectedCoreIds) {
+  const artifacts = (await client.json("GET", "/api/v1/admin/runtime-targets")).items ?? [];
+  for (const targetId of expectedTargetIds) {
     const current = artifacts.filter((item) =>
-      item.coreId === coreId && item.selectedForNewBindings && item.availableForLaunch);
-    if (current.length !== 1) { throw new Error(`RPG_009_PROVISION_RUNTIME_UNAVAILABLE_${coreId}`); }
+      item.coreId === "rpgmaker" && item.targetId === targetId && item.providerId === "retrom-runtime" && /^[0-9a-f]{64}$/.test(item.bundleSha256));
+    if (current.length !== 1) { throw new Error(`RPG_009_PROVISION_RUNTIME_UNAVAILABLE_${targetId}`); }
   }
-  return new Map(expectedCoreIds.map((coreId) => [coreId, platform.id]));
-}
-
-async function allCoreArtifacts(client) {
-  const result = [];
-  let cursor = "";
-  do {
-    const suffix = cursor ? `?cursor=${encodeURIComponent(cursor)}` : "";
-    const page = await client.json("GET", `/api/v1/admin/core-artifacts${suffix}`);
-    result.push(...(page.items ?? []));
-    cursor = page.nextCursor ?? "";
-  } while (cursor);
-  return result;
+  return new Map(expectedTargetIds.map((targetId) => [targetId, platform.id]));
 }
 
 export async function installRuntimePack(client, input, expectedDefinitionId) {
   const files = input.sourceType === "DIRECTORY" ? directoryFiles(input.sourcePath) : singleFile(input.sourcePath);
   const uploadId = await client.upload(files, input.sourceType, "RUNTIME_ASSET_PACK");
-  const body = { uploadId, kind: input.kind };
+  const body = { uploadId };
+  if (input.definitionId !== null) { body.definitionId = input.definitionId; }
   if (input.generation !== null) { body.generation = input.generation; }
   if (input.declaredName !== null) { body.declaredName = input.declaredName; }
   if (input.sourceNote !== null) { body.sourceNote = input.sourceNote; }
@@ -102,11 +81,12 @@ export async function importReview(client, sourcePath, platformInstanceId) {
 
 export async function selectRuntimePack(client, review, installationId) {
   const requirements = review.rpgMaker?.runtimePackRequirements ?? [];
-  if (requirements.length !== 1 || review.rpgMaker.runtimePackSelections.length !== 0) {
+  if (requirements.length !== 1 || review.rpgMaker.runtimePackSelections.length !== 1
+      || review.rpgMaker.runtimePackSelections[0].installationId !== installationId) {
     throw new Error("RPG_009_PROVISION_PROTECTED_REQUIREMENT_INVALID");
   }
   const patched = await client.json("PATCH", `/api/v1/admin/reviews/${review.itemId}`, {
-    headers: validationHeaders(client, review.version), expected: 200,
+    headers: writeVersionHeaders(client, review.version), expected: 200,
     data: {
       tagIds: (review.tags ?? []).map((tag) => tag.tagId),
       runtimePackSelections: [{ slot: requirements[0].slot, installationId }],
@@ -124,50 +104,57 @@ export async function selectRuntimePack(client, review, installationId) {
   return current;
 }
 
-export async function validateReview(context, client, baseUrl, review, generation) {
-  const createdResponse = await client.raw(
-    "POST", `/api/v1/admin/reviews/${review.itemId}/runtime-validations`,
-    { headers: validationHeaders(client, review.version), data: { clientCapabilities: capabilities } },
-  );
-  exact(createdResponse.status(), 201, "RPG_009_PROVISION_VALIDATION_CREATE_FAILED");
-  const created = await createdResponse.json();
-  const sequence = validationSequence(generation);
-  const original = await openPlayer(context, baseUrl, created.playerUrl);
-  await runtimeAction(original, "输入已经生效", sequence.input);
-  await runtimeAction(original, "已听到游戏音频", []);
-  await runtimeAction(original, "记录 B 并创建检查点", sequence.save);
-  await runtimeAction(original, "记录 C 并结束原运行", sequence.diverge);
-  await waitForValidation(client, review.itemId, created.validationId, "CHECKPOINTED");
-  await closeCleanPlayer(original, "RPG_009_PROVISION_ORIGINAL_PLAYER_ERROR");
-  const restoreResponse = await client.raw(
-    "POST", `/api/v1/admin/reviews/${review.itemId}/runtime-validations/${created.validationId}/restore-launch`,
-    { headers: validationHeaders(client, review.version), data: { clientCapabilities: capabilities } },
-  );
-  exact(restoreResponse.status(), 201, "RPG_009_PROVISION_RESTORE_CREATE_FAILED");
-  const restored = await restoreResponse.json();
-  if (restored.launchId === created.launchId) { throw new Error("RPG_009_PROVISION_RESTORE_LAUNCH_REUSED"); }
-  const restorePage = await openPlayer(context, baseUrl, restored.playerUrl);
-  await runtimeAction(restorePage, "恢复后输入已经生效", sequence.restore);
-  await waitForValidation(client, review.itemId, created.validationId, "AWAITING_DECISION");
-  await closeCleanPlayer(restorePage, "RPG_009_PROVISION_RESTORE_PLAYER_ERROR");
-  const decision = await client.json(
-    "POST", `/api/v1/admin/reviews/${review.itemId}/runtime-validations/${created.validationId}/decision`,
-    {
-      headers: validationHeaders(client, review.version), expected: 200,
-      data: { decision: "PASS", note: "ACC-RPG-009 deterministic provisioning" },
+export async function trialReview(context, client, baseUrl, review, generation) {
+  const create = (restoreFromPreviewId) => client.json(
+    "POST", "/api/v1/admin/reviews/" + review.itemId + "/previews", {
+      headers: writeVersionHeaders(client, review.version), expected: 201,
+      data: {clientCapabilities: capabilities, ...(restoreFromPreviewId ? {restoreFromPreviewId} : {})},
     },
   );
-  assertPassedValidation(decision, review.itemId, generation);
-  return decision;
+  const sequence = fixtureSequence(generation);
+  const created = await create();
+  const original = await openPlayer(context, baseUrl, created.playUrl);
+  await waitForPreviewReady(original);
+  await observePreviewFrames(original);
+  const checkpointA = await capturePreviewCheckpoint(original, created.previewId);
+  const initialPosition = await observeFixturePosition(original, generation, original.__retromOwnedFixture, checkpointA);
+  await advanceFixture(original, sequence.save);
+  const checkpointB = await capturePreviewCheckpoint(original, created.previewId);
+  const savedPosition = await observeFixturePosition(original, generation, original.__retromOwnedFixture, checkpointB);
+  const restored = await create(created.previewId);
+  if (restored.previewId === created.previewId) {throw new Error("RPG_009_PROVISION_RESTORE_LAUNCH_REUSED");}
+  await advanceFixture(original, sequence.diverge);
+  const checkpointC = await capturePreviewCheckpoint(original, created.previewId);
+  const divergedPosition = await observeFixturePosition(original, generation, original.__retromOwnedFixture, checkpointC);
+  await captureOptionalReviewScreenshot(original, created.previewId);
+  await finishPreview(original, created.previewId);
+  assertCleanPlayer(original);
+  const restorePage = await openPlayer(context, baseUrl, restored.playUrl);
+  const envelope = restorePage.__retromEnvelope;
+  if (envelope.restore?.sha256 !== checkpointB.sha256 || envelope.restore?.sizeBytes !== checkpointB.sizeBytes ||
+      envelope.restore?.format !== checkpointB.format) {
+    throw new Error("RPG_009_PROVISION_RESTORE_FROZEN_PAYLOAD_MISMATCH");
+  }
+  await waitForPreviewReady(restorePage);
+  await observePreviewFrames(restorePage);
+  const restoredCheckpoint = await capturePreviewCheckpoint(restorePage, restored.previewId);
+  const restoredPosition = await observeFixturePosition(restorePage, generation, restorePage.__retromOwnedFixture, restoredCheckpoint);
+  await advanceFixture(restorePage, sequence.restore);
+  const afterRestore = await capturePreviewCheckpoint(restorePage, restored.previewId);
+  const restoreInputPosition = await observeFixturePosition(restorePage, generation, restorePage.__retromOwnedFixture, afterRestore);
+  assertRoundTrip([initialPosition, savedPosition, divergedPosition, restoredPosition, restoreInputPosition]);
+  await captureOptionalReviewScreenshot(restorePage, restored.previewId);
+  await finishPreview(restorePage, restored.previewId);
+  assertCleanPlayer(restorePage);
 }
 
 export async function approveReview(client, itemId) {
   const review = await client.json("GET", `/api/v1/admin/reviews/${itemId}`);
-  if (!review.rpgMaker?.runtimeValidationCurrent || review.rpgMaker.runtimeValidation?.state !== "PASSED") {
+  if (!review.canApprove || !review.validation?.current || review.validation.status !== "READY") {
     throw new Error("RPG_009_PROVISION_APPROVAL_VALIDATION_INVALID");
   }
   const response = await client.raw("POST", `/api/v1/admin/reviews/${itemId}/approve`, {
-    headers: validationHeaders(client, review.version), data: {},
+    headers: writeVersionHeaders(client, review.version), data: {},
   });
   const body = await response.json();
   if (response.status() !== 201 || !body.gameId) {
@@ -178,158 +165,118 @@ export async function approveReview(client, itemId) {
   return body.gameId;
 }
 
-export async function createProductSave(context, client, baseUrl, gameId, coreId) {
-  const launch = await productLaunch(client, gameId, coreId, null);
+export async function createProductSave(context, client, baseUrl, gameId, targetId) {
+  const launch = await productLaunch(client, gameId, null);
   const page = await openPlayer(context, baseUrl, launch.playUrl);
-  await page.getByRole("status").filter({ hasText: "可创建存档" }).waitFor({ state: "attached", timeout: 120_000 });
-  const canvas = await focusRuntimeCanvas(page);
-  await canvas.press("ArrowRight", { delay: 250 });
-  await page.waitForTimeout(800);
-  const saveButton = await revealProductSaveAction(page);
+  exact(page.__retromEnvelope.runtime.targetId, targetId, "RPG_009_PROVISION_PRODUCT_TARGET_MISMATCH");
+  await waitForPreviewReady(page);
+  await advanceFixture(page, ["ArrowRight", "KeyX"]);
+  const savedPosition = await observeFixturePosition(page, "RPGVX", page.__retromOwnedFixture);
+  if (savedPosition.fixtureState !== 1) {throw new Error("RPG_009_PROVISION_PRODUCT_SAVE_POSITION_INVALID");}
+  await revealPreviewToolbar(page);
   const saveResponse = page.waitForResponse((response) =>
     response.request().method() === "POST"
-      && response.url().includes(`/runtime/launches/${launch.launchId}/save-states`),
-  { timeout: 120_000 });
-  await saveButton.click();
+      && new URL(response.url()).pathname === "/runtime/launches/" + launch.launchId + "/save-states",
+  {timeout: 120_000});
+  await page.getByRole("button", {name: "创建存档", exact: true}).click();
   const response = await saveResponse;
   exact(response.status(), 201, "RPG_009_PROVISION_PRODUCT_SAVE_FAILED");
-  // Chromium can evict a response body from the inspector cache after this
-  // request uploads the exact 256 MiB mkxp checkpoint. The API projection is
-  // the authoritative post-commit receipt and does not depend on CDP storage.
-  const saves = await client.json("GET", `/api/v1/saves?gameId=${encodeURIComponent(gameId)}&limit=100`);
-  const receipts = (saves.items ?? []).filter((item) =>
-    item.availability?.status === "AVAILABLE" && item.screenshotUrl);
+  // Read the committed product projection, independently of Chromium's bounded response cache.
+  const saves = await client.json("GET", "/api/v1/saves?gameId=" + encodeURIComponent(gameId) + "&limit=100");
+  const receipts = (saves.items ?? []).filter((item) => item.availability?.status === "AVAILABLE" && item.screenshotUrl);
   if (receipts.length !== 1 || !receipts[0].saveStateId) {
     throw new Error("RPG_009_PROVISION_SAVE_NOT_AVAILABLE");
   }
   const receipt = receipts[0];
-  await closeCleanPlayer(page, "RPG_009_PROVISION_PRODUCT_PLAYER_ERROR");
-  const restore = await productLaunch(client, gameId, coreId, receipt.saveStateId);
-  if (restore.launchId === launch.launchId) { throw new Error("RPG_009_PROVISION_PRODUCT_RESTORE_REUSED"); }
+  await finishPreview(page, launch.launchId);
+  assertCleanPlayer(page);
+  const restore = await productLaunch(client, gameId, receipt.saveStateId);
+  if (restore.launchId === launch.launchId) {throw new Error("RPG_009_PROVISION_PRODUCT_RESTORE_REUSED");}
   const restoredPage = await openPlayer(context, baseUrl, restore.playUrl);
-  await restoredPage.getByRole("status").filter({ hasText: "可创建存档" })
-    .waitFor({ state: "attached", timeout: 120_000 });
-  await focusRuntimeCanvas(restoredPage);
-  await closeCleanPlayer(restoredPage, "RPG_009_PROVISION_PRODUCT_RESTORE_ERROR");
+  await waitForPreviewReady(restoredPage);
+  await observePreviewFrames(restoredPage);
+  const restoredPosition = await observeFixturePosition(restoredPage, "RPGVX", restoredPage.__retromOwnedFixture);
+  if (!same(savedPosition, restoredPosition)) {throw new Error("RPG_009_PROVISION_PRODUCT_RESTORE_POSITION_INVALID");}
+  await advanceFixture(restoredPage, ["ArrowRight", "KeyX"]);
+  const continued = await observeFixturePosition(restoredPage, "RPGVX", restoredPage.__retromOwnedFixture);
+  if (continued.fixtureState !== 2 || same(continued, restoredPosition)) {
+    throw new Error("RPG_009_PROVISION_PRODUCT_RESTORE_INPUT_INVALID");
+  }
+  await finishPreview(restoredPage, restore.launchId);
+  assertCleanPlayer(restoredPage);
   return receipt.saveStateId;
 }
 
-export async function assertProvisionedState(client, protectedReferences, reviewIds) {
-  const [catalog, games, saves, queue] = await Promise.all([
+export async function assertProvisionedState(client, protectedReferences, reviewIds, baseline) {
+  const [catalog, population] = await Promise.all([
     client.json("GET", "/api/v1/admin/runtime-asset-packs"),
-    client.json("GET", "/api/v1/admin/games?limit=100"),
-    client.json("GET", "/api/v1/saves?limit=100"),
-    client.json("GET", "/api/v1/admin/reviews?limit=20"),
+    readPopulation(client),
   ]);
-  assertFinalCardinality(catalog, games, saves, queue, reviewIds);
-  for (const reference of Object.values(protectedReferences)) { assertFinalReference(catalog, reference); }
-}
-
-function assertFinalCardinality(catalog, games, saves, queue, reviewIds) {
-  if (catalog.installations?.length !== 2 || games.items?.length !== 2 || saves.items?.length !== 1
-      || queue.items?.length !== 13 || new Set(queue.items.map((item) => item.itemId)).size !== 13
-      || Object.values(reviewIds).some((itemId) => !queue.items.some((item) => item.itemId === itemId))) {
+  if (catalog.installations?.length !== 2 || Object.keys(reviewIds).length !== 13) {
     throw new Error("RPG_009_PROVISION_FINAL_CARDINALITY_INVALID");
   }
+  for (const reference of Object.values(protectedReferences)) { assertFinalReference(catalog, reference); }
+  return preservedPopulation(baseline, population, {
+    games: Object.values(protectedReferences).map((reference) => reference.gameId),
+    saves: [protectedReferences.restorableCheckpoint.saveStateId],
+    reviews: Object.values(reviewIds),
+  });
 }
 
 function assertFinalReference(catalog, reference) {
   const row = catalog.installations.find((item) => item.installationId === reference.installationId);
-  if (!row || row.status !== "READY" || row.references?.variantRevisionCount < 1) {
+  if (!row || row.status !== "READY" || !Number.isSafeInteger(row.references?.gameCount) || row.references.gameCount < 1) {
     throw new Error("RPG_009_PROVISION_PROTECTED_REFERENCE_INVALID");
   }
-  if (reference.saveStateId && row.references.checkpointCount < 1) {
+  if (reference.saveStateId && (!Number.isSafeInteger(row.references.checkpointCount) || row.references.checkpointCount < 1)) {
     throw new Error("RPG_009_PROVISION_CHECKPOINT_REFERENCE_INVALID");
   }
 }
 
-function validationSequence(generation) {
+function fixtureSequence(generation) {
   return ["RPG2000", "RPG2003"].includes(generation)
-    ? { input: ["ArrowLeft"], save: ["ArrowRight", "ArrowRight"], diverge: ["ArrowRight", "ArrowRight"],
-      restore: ["ArrowRight", "ArrowRight", "ArrowRight", "ArrowRight", "ArrowRight"] }
-    : { input: ["ArrowLeft"], save: ["ArrowRight", "Enter"], diverge: ["ArrowRight", "Enter"],
-      restore: ["ArrowRight"] };
+    ? {save: ["ArrowRight", "ArrowRight"], diverge: ["ArrowRight", "ArrowRight"],
+      restore: ["ArrowRight", "ArrowRight", "ArrowRight", "ArrowRight", "ArrowRight"]}
+    : {save: ["ArrowRight", "KeyX"], diverge: ["ArrowRight", "KeyX"], restore: ["ArrowRight", "KeyX"]};
 }
 
-function assertPassedValidation(validation, itemId, generation) {
-  if (validation.importItemId !== itemId || validation.state !== "PASSED"
-      || validation.decision?.decision !== "PASS" || validation.routeEvidence?.generation !== generation
-      || validation.machineGates?.map((gate) => gate.gate).join("|") !== gates.join("|")
-      || validation.machineGates.some((gate) => gate.status !== "PASSED")) {
-    throw new Error("RPG_009_PROVISION_VALIDATION_INCOMPLETE");
-  }
-  assertRoundTrip(validation.checkpointRoundTrip);
-}
-
-function assertRoundTrip(roundTrip) {
-  if (!roundTrip?.created || !roundTrip.originalLaunchEnded || !roundTrip.restoreStarted
-      || !roundTrip.positionVerified || !roundTrip.restoreInputVerified
-      || same(roundTrip.initialPosition, roundTrip.savedPosition)
-      || same(roundTrip.savedPosition, roundTrip.divergedPosition)
-      || !same(roundTrip.savedPosition, roundTrip.restoredPosition)
-      || same(roundTrip.restoredPosition, roundTrip.restoreInputPosition)) {
+function assertRoundTrip(positions) {
+  if (JSON.stringify(positions.map((value) => value?.fixtureState)) !== "[0,1,2,1,2]" ||
+      same(positions[0], positions[1]) || same(positions[1], positions[2]) ||
+      !same(positions[1], positions[3]) || same(positions[3], positions[4])) {
     throw new Error("RPG_009_PROVISION_RESTORE_EVIDENCE_INVALID");
   }
 }
 
-async function productLaunch(client, gameId, coreId, saveStateId) {
+async function productLaunch(client, gameId, saveStateId) {
   return client.json("POST", "/api/v1/launches", {
     headers: client.writeHeaders(), expected: 201,
-    data: { gameId, coreId, saveStateId, dosEntry: null, returnTo: `/games/${gameId}`, clientCapabilities: capabilities },
+    data: { gameId, coreId: "rpgmaker", saveStateId, dosEntry: null, returnTo: `/games/${gameId}`, clientCapabilities: capabilities },
   });
 }
 
 async function openPlayer(context, baseUrl, playerUrl) {
   const page = await context.newPage();
-  const errors = [];
-  page.on("pageerror", (error) => errors.push(error.stack || error.message));
-  page.__retromPageErrors = errors;
-  await page.goto(`${baseUrl}${playerUrl}`, { waitUntil: "domcontentloaded", timeout: 120_000 });
+  page.__retromOwnedFixture = await observeOwnedFixture(page);
+  page.__retromPageErrors = [];
+  page.__retromFatalError = new Promise((resolveError) => {
+    page.on("pageerror", (error) => {
+      page.__retromPageErrors.push(error.stack || error.message);
+      resolveError();
+    });
+  });
+  const configTask = page.waitForResponse((response) =>
+    new URL(response.url()).pathname.match(/^\/runtime\/launches\/[^/]+\/config$/));
+  await page.goto(new URL(playerUrl, baseUrl).href, {waitUntil: "domcontentloaded", timeout: 120_000});
+  const response = await configTask;
+  exact(response.status(), 200, "RPG_009_PROVISION_RUNTIME_CONFIG_FAILED");
+  page.__retromEnvelope = await response.json();
   return page;
 }
 
-async function runtimeAction(page, label, keys) {
-  const button = page.getByRole("button", { name: label, exact: true });
-  await button.waitFor({ state: "visible", timeout: 120_000 });
-  const canvas = await focusRuntimeCanvas(page);
-  for (const key of keys) { await canvas.press(key, { delay: 250 }); await page.waitForTimeout(800); }
-  await button.click();
-  await page.waitForTimeout(500);
-  const alert = (await page.getByRole("alert").allInnerTexts()).map((value) => value.trim()).find(Boolean);
-  if (alert) { throw new Error(`RPG_009_PROVISION_RUNTIME_ACTION_${label}_${alert}`); }
-}
-
-async function focusRuntimeCanvas(page) {
-  const deadline = Date.now() + 120_000;
-  while (Date.now() < deadline) {
-    for (const frame of page.frames()) {
-      const canvas = frame.locator("canvas").first();
-      if (await canvas.isVisible().catch(() => false)) {
-        await canvas.evaluate((element) => { element.tabIndex = 0; element.focus(); });
-        return canvas;
-      }
-    }
-    await delay(100);
-  }
-  throw new Error("RPG_009_PROVISION_RUNTIME_CANVAS_MISSING");
-}
-
-async function closeCleanPlayer(page, code) {
+function assertCleanPlayer(page) {
   const errors = page.__retromPageErrors ?? [];
-  await page.close();
-  if (errors.length) { throw new Error(`${code}:${String(errors[0]).slice(0, 600)}`); }
-}
-
-async function waitForValidation(client, itemId, validationId, expectedState) {
-  for (let attempt = 0; attempt < 600; attempt += 1) {
-    const validation = await client.json("GET", `/api/v1/admin/reviews/${itemId}/runtime-validations/${validationId}`);
-    if (validation.state === expectedState) { return validation; }
-    if (["FAILED", "EXPIRED", "PASSED"].includes(validation.state)) {
-      throw new Error(`RPG_009_PROVISION_VALIDATION_${validation.state}_${validation.failureCode ?? "UNKNOWN"}`);
-    }
-    await delay(250);
-  }
-  throw new Error(`RPG_009_PROVISION_VALIDATION_${expectedState}_TIMEOUT`);
+  if (errors.length) {throw new Error("RPG_009_PROVISION_PLAYER_ERROR:" + String(errors[0]).slice(0, 600));}
 }
 
 async function waitForJob(client, jobId, expectedKind) {
@@ -347,15 +294,7 @@ async function waitForJob(client, jobId, expectedKind) {
   throw new Error("RPG_009_PROVISION_JOB_TIMEOUT");
 }
 
-async function revealProductSaveAction(page) {
-  await page.mouse.move(720, 1);
-  const saveButton = page.getByRole("button", { name: "创建存档", exact: true });
-  await saveButton.waitFor({ state: "visible", timeout: 30_000 });
-  if (!await saveButton.isEnabled()) { throw new Error("RPG_009_PROVISION_SAVE_UNAVAILABLE"); }
-  return saveButton;
-}
-
-function validationHeaders(client, version) {
+function writeVersionHeaders(client, version) {
   return { ...client.writeHeaders(), "Content-Type": "application/json", "If-Match": `"v${version}"` };
 }
 

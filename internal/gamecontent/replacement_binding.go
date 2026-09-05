@@ -4,6 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+
+	"retrom/internal/contentcapability"
 )
 
 type replacementQueryRower interface {
@@ -11,12 +13,13 @@ type replacementQueryRower interface {
 }
 
 type replacementBinding struct {
-	contentID, instanceID, platformID, coreID, artifactID, routeKey, compatibilityJSON string
-	variantRevisionID, rpgGeneration, rpgAdapterID, rpgAdapterABI                      string
-	rpgArtifactSetSHA256, rpgDependencySHA256, rpgRequirementsSHA256                   string
-	dependencySnapshotJSON                                                             string
-	version, platformVersion, artifactVersion                                          int64
-	datID                                                                              sql.NullString
+	manifestDigest, instanceID, platformID, coreID string
+	providerID, targetID                           string
+	contentPolicy                                  contentcapability.Policy
+	variantID, rpgGeneration, rpgDependencySHA256  string
+	rpgRequirementsSHA256, dependencySnapshotJSON  string
+	version, platformVersion                       int64
+	datID                                          sql.NullString
 }
 
 func loadReplacementBinding(
@@ -27,13 +30,13 @@ func loadReplacementBinding(
 	var binding replacementBinding
 	var defaultCoreID string
 	err := database.QueryRowContext(ctx, `
-SELECT game.current_content_revision_id,game.platform_instance_id,instance.platform_id,
+SELECT game.source_manifest_digest,game.platform_instance_id,instance.platform_id,
        instance.default_core_id,game.version,instance.version
 FROM games game
 JOIN platform_instances instance ON instance.id=game.platform_instance_id
 WHERE game.id=? AND game.status='PUBLISHED'
 `, gameID).Scan(
-		&binding.contentID, &binding.instanceID, &binding.platformID,
+		&binding.manifestDigest, &binding.instanceID, &binding.platformID,
 		&defaultCoreID, &binding.version, &binding.platformVersion,
 	)
 	if err != nil {
@@ -43,18 +46,23 @@ WHERE game.id=? AND game.status='PUBLISHED'
 		return loadRPGMakerReplacementBinding(ctx, database, gameID, binding)
 	}
 	err = database.QueryRowContext(ctx, `
-SELECT artifact.core_id,artifact.id,artifact.route_key,artifact.version,artifact.compatibility_json,
-       (SELECT id FROM dat_versions WHERE core_artifact_id=artifact.id AND is_active=1),
-       COALESCE(variant.current_revision_id,'')
-FROM core_artifacts artifact
-LEFT JOIN game_variants variant ON variant.game_id=? AND variant.core_id=artifact.core_id
-WHERE artifact.core_id=? AND artifact.selected_for_new_bindings=1 AND artifact.available_for_launch=1
-`, gameID, defaultCoreID).Scan(
-		&binding.coreID, &binding.artifactID, &binding.routeKey, &binding.artifactVersion,
-		&binding.compatibilityJSON, &binding.datID, &binding.variantRevisionID,
+SELECT binding.core_id,target.provider_id,target.target_id,`+contentcapability.BindingPolicySQL+`,
+       (SELECT id FROM dat_versions dat
+        WHERE dat.provider_id=target.provider_id AND dat.target_id=target.target_id AND dat.is_active=1),
+       COALESCE(variant.id,'')
+FROM runtime_target_bindings binding
+JOIN runtime_binding_platforms platform_binding
+  ON platform_binding.binding_id=binding.binding_id AND platform_binding.platform_id=?
+JOIN runtime_targets target
+  ON target.provider_id=binding.provider_id AND target.target_id=binding.target_id
+LEFT JOIN game_variants variant ON variant.game_id=? AND variant.core_id=binding.core_id
+WHERE binding.core_id=? AND binding.launch_policy<>'DISABLED'
+`, binding.platformID, gameID, defaultCoreID).Scan(
+		&binding.coreID, &binding.providerID, &binding.targetID,
+		&binding.contentPolicy, &binding.datID, &binding.variantID,
 	)
 	if err != nil {
-		return replacementBinding{}, fmt.Errorf("load replacement artifact: %w", err)
+		return replacementBinding{}, fmt.Errorf("load replacement target: %w", err)
 	}
 	return binding, nil
 }
@@ -66,28 +74,22 @@ func loadRPGMakerReplacementBinding(
 	binding replacementBinding,
 ) (replacementBinding, error) {
 	err := database.QueryRowContext(ctx, `
-SELECT variant.core_id,revision.id,current.id,current.route_key,current.version,
-       current.compatibility_json,profile.generation,current.adapter_id,
-       json_extract(current.compatibility_json,'$.adapterAbi'),
-       current.artifact_set_sha256,profile.dependency_snapshot_sha256,
-       content.requirements_sha256,revision.dependency_snapshot_json
+SELECT variant.core_id,variant.id,target.provider_id,target.target_id,`+contentcapability.BindingPolicySQL+`,
+       profile.generation,profile.dependency_snapshot_sha256,content.requirements_sha256,
+       variant.dependency_snapshot_json
 FROM game_variants variant
-JOIN game_variant_revisions revision ON revision.id=variant.current_revision_id
-JOIN core_artifacts bound ON bound.id=revision.core_artifact_id
-  AND bound.runtime_family='RPGMAKER'
-JOIN core_artifacts current ON current.core_id=bound.core_id
-  AND current.route_key=bound.route_key AND current.runtime_family=bound.runtime_family
-  AND current.selected_for_new_bindings=1 AND current.available_for_launch=1
-  AND json_extract(current.compatibility_json,'$.gameCompatibilityLine')=
-      json_extract(bound.compatibility_json,'$.gameCompatibilityLine')
-JOIN rpgmaker_variant_profiles profile ON profile.game_variant_revision_id=revision.id
-JOIN rpgmaker_content_profiles content ON content.content_revision_id=revision.game_content_revision_id
-WHERE variant.game_id=? AND revision.game_content_revision_id=?
-`, gameID, binding.contentID).Scan(
-		&binding.coreID, &binding.variantRevisionID, &binding.artifactID, &binding.routeKey,
-		&binding.artifactVersion, &binding.compatibilityJSON, &binding.rpgGeneration,
-		&binding.rpgAdapterID, &binding.rpgAdapterABI, &binding.rpgArtifactSetSHA256,
-		&binding.rpgDependencySHA256, &binding.rpgRequirementsSHA256,
+JOIN runtime_targets target
+  ON target.provider_id=variant.provider_id AND target.target_id=variant.target_id
+JOIN runtime_target_bindings binding
+  ON binding.provider_id=target.provider_id AND binding.target_id=target.target_id
+  AND binding.core_id=variant.core_id AND binding.launch_policy<>'DISABLED'
+JOIN rpgmaker_variant_profiles profile ON profile.game_variant_id=variant.id
+JOIN rpgmaker_game_profiles content ON content.game_id=variant.game_id
+WHERE variant.game_id=?
+	`, gameID).Scan(
+		&binding.coreID, &binding.variantID, &binding.providerID, &binding.targetID,
+		&binding.contentPolicy,
+		&binding.rpgGeneration, &binding.rpgDependencySHA256, &binding.rpgRequirementsSHA256,
 		&binding.dependencySnapshotJSON,
 	)
 	if err != nil {
@@ -101,35 +103,34 @@ func replacementBindingMatchesSnapshot(binding replacementBinding, snapshot jobS
 }
 
 type replacementBindingIdentity struct {
-	contentID, instanceID, platformID, coreID, artifactID, routeKey string
-	variantRevisionID, generation, adapterID, adapterABI            string
-	artifactSetSHA256, dependencySHA256, requirementsSHA256         string
-	version, platformVersion, artifactVersion                       int64
+	manifestDigest, instanceID, platformID, coreID string
+	providerID, targetID                           string
+	contentPolicyDigest                            string
+	variantID, generation, dependencySHA256        string
+	requirementsSHA256                             string
+	version, platformVersion                       int64
 }
 
 func (binding replacementBinding) identity() replacementBindingIdentity {
 	return replacementBindingIdentity{
-		contentID: binding.contentID, instanceID: binding.instanceID, platformID: binding.platformID,
-		coreID: binding.coreID, artifactID: binding.artifactID, routeKey: binding.routeKey,
-		variantRevisionID: binding.variantRevisionID, generation: binding.rpgGeneration,
-		adapterID: binding.rpgAdapterID, adapterABI: binding.rpgAdapterABI,
-		artifactSetSHA256: binding.rpgArtifactSetSHA256,
-		dependencySHA256:  binding.rpgDependencySHA256, requirementsSHA256: binding.rpgRequirementsSHA256,
+		manifestDigest: binding.manifestDigest, instanceID: binding.instanceID, platformID: binding.platformID,
+		coreID: binding.coreID, providerID: binding.providerID, targetID: binding.targetID,
+		contentPolicyDigest: binding.contentPolicy.Digest(),
+		variantID:           binding.variantID, generation: binding.rpgGeneration,
+		dependencySHA256: binding.rpgDependencySHA256, requirementsSHA256: binding.rpgRequirementsSHA256,
 		version: binding.version, platformVersion: binding.platformVersion,
-		artifactVersion: binding.artifactVersion,
 	}
 }
 
 func (snapshot jobSnapshot) bindingIdentity() replacementBindingIdentity {
 	return replacementBindingIdentity{
-		contentID: snapshot.BaseContentRevisionID, instanceID: snapshot.PlatformInstanceID,
-		platformID: snapshot.PlatformID, coreID: snapshot.CoreID, artifactID: snapshot.CoreArtifactID,
-		routeKey: snapshot.CoreArtifactRouteKey, variantRevisionID: snapshot.BaseVariantRevisionID,
-		generation: snapshot.RPGGeneration, adapterID: snapshot.RPGAdapterID,
-		adapterABI: snapshot.RPGAdapterABI, artifactSetSHA256: snapshot.RPGArtifactSetSHA256,
+		manifestDigest: snapshot.BaseManifestDigest, instanceID: snapshot.PlatformInstanceID,
+		platformID: snapshot.PlatformID, coreID: snapshot.CoreID,
+		providerID: snapshot.ProviderID, targetID: snapshot.TargetID,
+		contentPolicyDigest: snapshot.ContentPolicy.Digest(),
+		variantID:           snapshot.VariantID, generation: snapshot.RPGGeneration,
 		dependencySHA256:   snapshot.RPGDependencySHA256,
 		requirementsSHA256: snapshot.RPGRequirementsSHA256,
 		version:            snapshot.GameVersion, platformVersion: snapshot.PlatformInstanceVersion,
-		artifactVersion: snapshot.CoreArtifactVersion,
 	}
 }

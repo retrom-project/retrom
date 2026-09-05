@@ -1,27 +1,19 @@
 import { userStorageKey } from "@/features/auth/storage";
-import type { EmulatorInstance } from "./adapters/ejs-4.2.3-v2";
+import type {PlayerRuntimeV1, RuntimeVideoModeV1} from "./runtime/contract";
 
 export const videoRenderingModeOptions = [
-  { value: "clear", label: "清晰增强" },
+  { value: "sharp-bilinear", label: "清晰增强" },
   { value: "pixel", label: "锐利像素" },
-  { value: "sharpen", label: "增强锐化" },
+  { value: "adaptive-sharpen", label: "增强锐化" },
   { value: "smooth", label: "平滑增强" },
   { value: "original", label: "原始画面" },
 ] as const;
 
-export type VideoRenderingMode = typeof videoRenderingModeOptions[number]["value"];
+export type VideoRenderingMode = RuntimeVideoModeV1;
 
 const modeValues = new Set<VideoRenderingMode>(videoRenderingModeOptions.map((option) => option.value));
 const defaultMode: VideoRenderingMode = "pixel";
 const preferenceChangedEvent = "retrom:video-rendering-mode-changed";
-
-const modeConfiguration: Record<VideoRenderingMode, { shader: string; imageRendering: "auto" | "pixelated" }> = {
-  clear: { shader: "retrom-sharp-bilinear", imageRendering: "pixelated" },
-  pixel: { shader: "disabled", imageRendering: "pixelated" },
-  sharpen: { shader: "retrom-adaptive-sharpen", imageRendering: "auto" },
-  smooth: { shader: "sabr", imageRendering: "auto" },
-  original: { shader: "disabled", imageRendering: "auto" },
-};
 
 function preferenceKey(userId: string | null | undefined) {
   return userStorageKey(userId, "player", "video-rendering-mode");
@@ -63,19 +55,10 @@ export function subscribeVideoRenderingMode(onStoreChange: () => void) {
 }
 
 export function applyVideoRenderingMode(
-  emulator: EmulatorInstance | undefined,
-  canvas: HTMLCanvasElement | null,
+  runtime: PlayerRuntimeV1 | null,
   mode: VideoRenderingMode,
 ) {
-  const configuration = modeConfiguration[mode];
-  canvas?.style.setProperty("image-rendering", configuration.imageRendering, "important");
-  if (emulator?.changeSettingOption) {
-    emulator.changeSettingOption("shader", configuration.shader);
-    return true;
-  }
-  if (emulator?.enableShader) {
-    emulator.enableShader(configuration.shader);
-    return true;
-  }
-  return false;
+  if (!runtime?.getCapabilities().videoModes.includes(mode)) {return false;}
+  void runtime.setVideoMode(mode);
+  return true;
 }

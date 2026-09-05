@@ -60,7 +60,7 @@ func TestBootstrapTicketIsSingleUseAndCapabilityRevocationIsTerminal(t *testing.
 		context.Background(), fixture.launchID, fixture.origin, fixture.ticket,
 	)
 	if err != nil || access.LaunchID != fixture.launchID || access.Origin != fixture.origin ||
-		access.Family != "RPGMAKER" || access.Preview {
+		access.ContentFormat != "RPG_MAKER_PROJECT" || access.Preview {
 		t.Fatalf("consume ticket = (%q,%#v,%v)", credential, access, err)
 	}
 	if _, err := fixture.service.InspectBootstrap(
@@ -119,19 +119,19 @@ func TestTyranoScriptPreviewTicketCreatesPreviewScopedCapability(t *testing.T) {
 	access, err := fixture.service.InspectBootstrap(
 		context.Background(), fixture.launchID, fixture.origin,
 	)
-	if err != nil || access.Family != "TYRANOSCRIPT" || !access.Preview {
+	if err != nil || access.ContentFormat != "TYRANOSCRIPT_PROJECT" || !access.Preview {
 		t.Fatalf("inspect preview bootstrap = (%#v,%v)", access, err)
 	}
 	credential, consumed, err := fixture.service.ConsumeTicket(
 		context.Background(), fixture.launchID, fixture.origin, fixture.ticket,
 	)
-	if err != nil || consumed.Family != "TYRANOSCRIPT" || !consumed.Preview {
+	if err != nil || consumed.ContentFormat != "TYRANOSCRIPT_PROJECT" || !consumed.Preview {
 		t.Fatalf("consume preview bootstrap = (%q,%#v,%v)", credential, consumed, err)
 	}
 	authorized, err := fixture.service.Authenticate(
 		context.Background(), fixture.launchID, fixture.origin, credential,
 	)
-	if err != nil || authorized.Profile != "profile" || authorized.Family != "TYRANOSCRIPT" ||
+	if err != nil || authorized.Profile != "profile" || authorized.ContentFormat != "TYRANOSCRIPT_PROJECT" ||
 		!authorized.Preview {
 		t.Fatalf("authenticate preview capability = (%#v,%v)", authorized, err)
 	}
@@ -204,14 +204,14 @@ func newIsolationFixtureForSession(t *testing.T, preview bool) isolationFixture 
 	t.Cleanup(func() { _ = database.Close() })
 	ctx := context.Background()
 	if _, err := database.ExecContext(ctx, `
-CREATE TABLE core_artifacts(
- id TEXT PRIMARY KEY,runtime_family TEXT,runtime_adapter_kind TEXT,available_for_launch INTEGER
-);
 CREATE TABLE launch_sessions(
- id TEXT PRIMARY KEY,profile_id TEXT,core_artifact_id TEXT,state TEXT,hard_expires_at_ms INTEGER
+ id TEXT PRIMARY KEY,profile_id TEXT,state TEXT,hard_expires_at_ms INTEGER
+);
+CREATE TABLE launch_content_files(
+ launch_session_id TEXT,logical_name TEXT,format_version TEXT
 );
 CREATE TABLE review_preview_sessions(
- id TEXT PRIMARY KEY,core_artifact_id TEXT,state TEXT,hard_expires_at_ms INTEGER
+ id TEXT PRIMARY KEY,state TEXT,hard_expires_at_ms INTEGER,content_format TEXT
 );
 CREATE TABLE isolated_runtime_bootstrap_tickets(
  ticket_sha256 BLOB,launch_id TEXT,preview_id TEXT,profile_id TEXT,expected_origin TEXT,
@@ -233,8 +233,8 @@ CREATE TABLE isolated_runtime_capabilities(
 		query     string
 		arguments []any
 	}{
-		{`INSERT INTO core_artifacts VALUES('artifact','RPGMAKER','NATIVE_WEB',1)`, nil},
-		{`INSERT INTO launch_sessions VALUES(?,'profile','artifact','ACTIVE',?)`, []any{launchID, nowMS + 120_000}},
+		{`INSERT INTO launch_sessions VALUES(?,'profile','ACTIVE',?)`, []any{launchID, nowMS + 120_000}},
+		{`INSERT INTO launch_content_files VALUES(?,'index.html','RPG_MAKER_PROJECT')`, []any{launchID}},
 		{`INSERT INTO isolated_runtime_bootstrap_tickets VALUES(?,?,NULL,'profile',?,?,NULL)`, []any{ticketDigest[:], launchID, origin, nowMS + 60_000}},
 	}
 	if preview {
@@ -242,8 +242,7 @@ CREATE TABLE isolated_runtime_capabilities(
 			query     string
 			arguments []any
 		}{
-			{`INSERT INTO core_artifacts VALUES('artifact','TYRANOSCRIPT','TYRANOSCRIPT_WEB',1)`, nil},
-			{`INSERT INTO review_preview_sessions VALUES(?,'artifact','ACTIVE',?)`, []any{launchID, nowMS + 120_000}},
+			{`INSERT INTO review_preview_sessions VALUES(?,'ACTIVE',?,'TYRANOSCRIPT_PROJECT')`, []any{launchID, nowMS + 120_000}},
 			{`INSERT INTO isolated_runtime_bootstrap_tickets VALUES(?,NULL,?,'profile',?,?,NULL)`, []any{ticketDigest[:], launchID, origin, nowMS + 60_000}},
 		}
 	}

@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://retrom.dev/schema/runtime-provider/v1/common.schema.json",
+  "title": "Retrom Runtime Provider Common V1",
+  "type": "object",
+  "additionalProperties": false,
+  "$defs": {
+    "identity": { "type": "string", "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$" },
+    "token": { "type": "string", "pattern": "^[a-z0-9](?:[a-z0-9.-]{0,62}[a-z0-9])?$" },
+    "digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "semver": {
+      "type": "string",
+      "pattern": "^(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)(?:-(?:0|[1-9][0-9]*|[0-9A-Za-z-]*[A-Za-z-][0-9A-Za-z-]*)(?:\\.(?:0|[1-9][0-9]*|[0-9A-Za-z-]*[A-Za-z-][0-9A-Za-z-]*))*)?$"
+    },
+    "positiveSafeInteger": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
+    "nonNegativeSafeInteger": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+    "safePath": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 240,
+      "pattern": "^(?!/)(?!.*(?:^|/)\\.{1,2}(?:/|$))(?!.*//)(?!.*[\\\\?#])[A-Za-z0-9._/-]+$"
+    },
+    "relativeUrl": { "type": "string", "minLength": 1, "maxLength": 2048, "pattern": "^/(?!/)(?!.*[\\\\#])[ -~]*$" },
+    "httpOrigin": { "type": "string", "minLength": 8, "maxLength": 2048, "pattern": "^https?://[^/#]+(?::[0-9]+)?$" },
+    "httpUrl": { "type": "string", "minLength": 8, "maxLength": 2048, "pattern": "^https?://[^#]+$" },
+    "webSocketUrl": { "type": "string", "minLength": 7, "maxLength": 2048, "pattern": "^wss?://[^#]+$" },
+    "uuid": { "type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" },
+    "jsonValue": {
+      "oneOf": [
+        { "type": "null" },
+        { "type": "boolean" },
+        { "type": "string" },
+        { "type": "integer", "minimum": -9007199254740991, "maximum": 9007199254740991 },
+        { "type": "array", "maxItems": 256, "items": { "$ref": "#/$defs/jsonValue" } },
+        { "$ref": "#/$defs/jsonObject" }
+      ]
+    },
+    "jsonObject": {
+      "type": "object",
+      "maxProperties": 64,
+      "additionalProperties": { "$ref": "#/$defs/jsonValue" }
+    }
+  }
+}

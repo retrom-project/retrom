@@ -13,7 +13,7 @@ import (
 func copyCandidateReviewAsset(
 	ctx context.Context,
 	transaction *sql.Tx,
-	itemID, gameID, metadataID, assetID, kind string,
+	itemID, gameID, assetID, kind string,
 	ordinal int,
 	now int64,
 ) error {
@@ -38,9 +38,9 @@ AND r.state='COMPLETED'
 	assetUUID, _ := uuid.NewV7()
 	if _, err := transaction.ExecContext(ctx, `
 INSERT INTO game_assets(
-id,game_id,metadata_revision_id,blob_id,kind,ordinal,width_px,height_px,media_type,created_at_ms
-) VALUES(?,?,?,?,?,?,?,?,?,?)
-`, assetUUID.String(), gameID, metadataID, blobID, kind, ordinal, width, height, mediaType, now); err != nil {
+id,game_id,blob_id,kind,ordinal,width_px,height_px,media_type,created_at_ms
+) VALUES(?,?,?,?,?,?,?,?,?)
+`, assetUUID.String(), gameID, blobID, kind, ordinal, width, height, mediaType, now); err != nil {
 		return fmt.Errorf("copy approved review asset: %w", err)
 	}
 	return nil
@@ -49,7 +49,7 @@ id,game_id,metadata_revision_id,blob_id,kind,ordinal,width_px,height_px,media_ty
 func copyUploadedReviewCover(
 	ctx context.Context,
 	transaction *sql.Tx,
-	itemID, gameID, metadataID, assetID string,
+	itemID, gameID, assetID string,
 	now int64,
 ) error {
 	var blobID, mediaType string
@@ -64,9 +64,9 @@ WHERE id=? AND import_item_id=? AND kind='COVER'
 	assetUUID, _ := uuid.NewV7()
 	if _, err := transaction.ExecContext(ctx, `
 INSERT INTO game_assets(
-id,game_id,metadata_revision_id,blob_id,kind,ordinal,width_px,height_px,media_type,created_at_ms
-) VALUES(?,?,?,?, 'COVER',0,?,?,?,?)
-`, assetUUID.String(), gameID, metadataID, blobID, width, height, mediaType, now); err != nil {
+id,game_id,blob_id,kind,ordinal,width_px,height_px,media_type,created_at_ms
+) VALUES(?,?,?, 'COVER',0,?,?,?,?)
+`, assetUUID.String(), gameID, blobID, width, height, mediaType, now); err != nil {
 		return fmt.Errorf("copy uploaded review cover: %w", err)
 	}
 	return nil
@@ -75,27 +75,27 @@ id,game_id,metadata_revision_id,blob_id,kind,ordinal,width_px,height_px,media_ty
 func (service *Service) copyReviewAssets(
 	ctx context.Context,
 	transaction *sql.Tx,
-	itemID, gameID, metadataID string,
+	itemID, gameID string,
 	coverID, uploadedCoverID, backgroundID sql.NullString,
 	now int64,
 ) ([]string, error) {
 	if coverID.Valid {
 		if err := copyCandidateReviewAsset(
-			ctx, transaction, itemID, gameID, metadataID, coverID.String, "COVER", 0, now,
+			ctx, transaction, itemID, gameID, coverID.String, "COVER", 0, now,
 		); err != nil {
 			return nil, err
 		}
 	}
 	if uploadedCoverID.Valid {
 		if err := copyUploadedReviewCover(
-			ctx, transaction, itemID, gameID, metadataID, uploadedCoverID.String, now,
+			ctx, transaction, itemID, gameID, uploadedCoverID.String, now,
 		); err != nil {
 			return nil, err
 		}
 	}
 	if backgroundID.Valid {
 		if err := copyCandidateReviewAsset(
-			ctx, transaction, itemID, gameID, metadataID, backgroundID.String, "BACKGROUND", 0, now,
+			ctx, transaction, itemID, gameID, backgroundID.String, "BACKGROUND", 0, now,
 		); err != nil {
 			return nil, err
 		}
@@ -128,7 +128,7 @@ ORDER BY s.ordinal
 	}
 	for ordinal, assetID := range screenshotIDs {
 		if err := copyCandidateReviewAsset(
-			ctx, transaction, itemID, gameID, metadataID, assetID, "SCREENSHOT", ordinal, now,
+			ctx, transaction, itemID, gameID, assetID, "SCREENSHOT", ordinal, now,
 		); err != nil {
 			return nil, err
 		}

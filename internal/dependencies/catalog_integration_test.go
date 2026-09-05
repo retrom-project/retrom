@@ -13,6 +13,7 @@ import (
 	"retrom/internal/cleanup"
 	"retrom/internal/store"
 	"retrom/internal/testassert"
+	"retrom/internal/testsupport"
 )
 
 func TestBootstrapCatalogsMaterializesPinnedDATsIdempotently(t *testing.T) {
@@ -24,6 +25,9 @@ func TestBootstrapCatalogsMaterializesPinnedDATsIdempotently(t *testing.T) {
 	database, err := store.Open(ctx, filepath.Join(t.TempDir(), "retrom.db"), time.Now)
 	testassert.False(t, err != nil, err)
 	t.Cleanup(func() { cleanup.Error("close", database.Close()) })
+	if err := testsupport.SeedPlatformInstances(ctx, database.SQL); err != nil {
+		t.Fatal(err)
+	}
 	if err := set.Bootstrap(ctx, database.SQL, time.Now()); err != nil {
 		t.Fatal(err)
 	}
@@ -82,14 +86,12 @@ AND core_id IN ('fbalpha2012_cps1','fbalpha2012_cps2')
 	if err := set.BootstrapCatalogs(ctx, database.SQL, time.Now()); err != nil {
 		t.Fatalf("idempotent bootstrap: %v", err)
 	}
-	var artifactID, selectedDATID string
-	var artifactVersion int64
+	var providerID, targetID, selectedDATID string
 	if err := database.SQL.QueryRowContext(ctx, `
-SELECT a.id,a.version,d.id
-FROM core_artifacts a
-JOIN dat_versions d ON d.core_artifact_id=a.id AND d.is_active=1
-WHERE a.core_id='fbneo' AND a.selected_for_new_bindings=1
-`).Scan(&artifactID, &artifactVersion, &selectedDATID); err != nil {
+SELECT d.provider_id,d.target_id,d.id
+FROM dat_versions d
+WHERE d.core_id='fbneo' AND d.is_active=1
+`).Scan(&providerID, &targetID, &selectedDATID); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := database.SQL.ExecContext(ctx, `UPDATE dat_versions SET is_active=0 WHERE id=?`, selectedDATID); err != nil {
@@ -97,13 +99,13 @@ WHERE a.core_id='fbneo' AND a.selected_for_new_bindings=1
 	}
 	const supersededID = "01990000-0000-7000-8000-000000000038"
 	if _, err := database.SQL.ExecContext(ctx, `
-INSERT INTO dat_versions(id,core_id,core_artifact_id,builtin_relative_path,sha256,parser_version,
+INSERT INTO dat_versions(id,core_id,provider_id,target_id,builtin_relative_path,sha256,parser_version,
 parse_status,is_active,machine_count,rom_entry_count,disk_entry_count,bios_set_count,
 default_bios_set_count,explicit_bios_machine_count,base_dependency_target_count,unresolved_relation_count,
 version,created_at_ms,updated_at_ms,parsed_at_ms,activated_at_ms)
-VALUES(?,'fbneo',?,'legacy/fbneo.dat',?,'legacy-parser','READY',1,
+VALUES(?,'fbneo',?,?,'legacy/fbneo.dat',?,'legacy-parser','READY',1,
 0,0,0,0,0,0,0,0,1,1,1,1,1)
-`, supersededID, artifactID, strings.Repeat("e", 64)); err != nil {
+`, supersededID, providerID, targetID, strings.Repeat("e", 64)); err != nil {
 		t.Fatal(err)
 	}
 	selectionTime := time.Now().Add(time.Second)
@@ -111,23 +113,21 @@ VALUES(?,'fbneo',?,'legacy/fbneo.dat',?,'legacy-parser','READY',1,
 		t.Fatal(err)
 	}
 	var activeAfterSelection, supersededActive int
-	var advancedVersion int64
 	if err := database.SQL.QueryRowContext(ctx, `
-SELECT (SELECT count(*) FROM dat_versions WHERE core_artifact_id=? AND is_active=1),
-       (SELECT is_active FROM dat_versions WHERE id=?),
-       (SELECT version FROM core_artifacts WHERE id=?)
-`, artifactID, supersededID, artifactID).Scan(&activeAfterSelection, &supersededActive, &advancedVersion); err != nil {
+SELECT (SELECT count(*) FROM dat_versions WHERE provider_id=? AND target_id=? AND is_active=1),
+       (SELECT is_active FROM dat_versions WHERE id=?)
+`, providerID, targetID, supersededID).Scan(&activeAfterSelection, &supersededActive); err != nil {
 		t.Fatal(err)
 	}
-	testassert.Falsef(t, testassert.Any(func() bool { return activeAfterSelection != 0 }, func() bool { return supersededActive != 0 }, func() bool { return advancedVersion != artifactVersion+1 }), "manifest selection = active:%d superseded:%d artifactVersion:%d", activeAfterSelection, supersededActive, advancedVersion)
+	testassert.Falsef(t, testassert.Any(func() bool { return activeAfterSelection != 0 }, func() bool { return supersededActive != 0 }), "manifest selection = active:%d superseded:%d", activeAfterSelection, supersededActive)
 	if err := set.BootstrapCatalogs(ctx, database.SQL, selectionTime); err != nil {
 		t.Fatal(err)
 	}
 	var selectedActive, selectedRequirements int
 	if err := database.SQL.QueryRowContext(ctx, `
 SELECT (SELECT is_active FROM dat_versions WHERE id=?),
-       (SELECT count(*) FROM bios_requirements WHERE core_artifact_id=? AND source_kind='DAT_MACHINE' AND enabled=1 AND source_version=?)
-`, selectedDATID, artifactID, selectedDATID).Scan(&selectedActive, &selectedRequirements); err != nil {
+       (SELECT count(*) FROM bios_requirements WHERE provider_id=? AND target_id=? AND source_kind='DAT_MACHINE' AND enabled=1 AND source_version=?)
+`, selectedDATID, providerID, targetID, selectedDATID).Scan(&selectedActive, &selectedRequirements); err != nil {
 		t.Fatal(err)
 	}
 	testassert.Falsef(t, testassert.Any(func() bool { return selectedActive != 1 }, func() bool { return selectedRequirements == 0 }), "selected built-in DAT = active:%d requirements:%d", selectedActive, selectedRequirements)

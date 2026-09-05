@@ -11,41 +11,6 @@ import (
 
 const maximumKiriKiriProjectFiles = 10_000
 
-func (service *Service) buildKiriKiriProductContentPlan(
-	ctx context.Context,
-	selection launchSelection,
-) (launchContentPlan, error) {
-	return service.buildRuntimeProjectProductContentPlan(ctx, selection, runtimeProjectContentDefinition{
-		contentKind: kirikiriProjectFormat, runtimeFamily: "KIRIKIRI",
-		adapterKind: "KIRIKIRI2_WEB", adapterID: "kirikiri2-web",
-		maximumFiles: maximumKiriKiriProjectFiles,
-		markerPath: func(raw string) (string, error) {
-			profile, err := detector.ParseSnapshot(raw)
-			if err != nil {
-				return "", fmt.Errorf("parse KiriKiri project profile: %w", err)
-			}
-			return profile.MarkerPath, nil
-		},
-		runtimeFilesValid: func(raw, runtimeVersion string) bool {
-			compatibility, err := parseKiriKiriCompatibility(raw)
-			return err == nil && service.kiriKiriRuntimeFilesAvailable(runtimeVersion, compatibility)
-		},
-	})
-}
-
-func (service *Service) validateKiriKiriReviewPreviewSource(source reviewPreviewSource) error {
-	if _, err := detector.ParseSnapshot(source.DependencySnapshot); err != nil {
-		return ErrReviewPreviewUnavailable
-	}
-	compatibility, err := parseKiriKiriCompatibility(source.CompatibilityJSON)
-	if err != nil || source.AdapterKind != "KIRIKIRI2_WEB" || source.AdapterID != "kirikiri2-web" ||
-		source.CoreID != "kirikiri2" || source.ContentKind != kirikiriProjectFormat ||
-		!service.kiriKiriRuntimeFilesAvailable(source.RuntimeVersion, compatibility) {
-		return ErrReviewPreviewUnavailable
-	}
-	return nil
-}
-
 func (service *Service) reviewPreviewKiriKiriContent(
 	ctx context.Context,
 	source reviewPreviewSource,
@@ -72,12 +37,11 @@ func (service *Service) productKiriKiriProjectIndex(
 	var hardExpires int64
 	err := service.database.QueryRowContext(ctx, `
 SELECT launch.credential_sha256,launch.state,launch.hard_expires_at_ms,
- revision.dependency_snapshot_json
+ launch.dependency_snapshot_json
 FROM launch_sessions launch
-JOIN core_artifacts artifact ON artifact.id=launch.core_artifact_id
-JOIN game_variant_revisions revision ON revision.id=launch.game_variant_revision_id
-WHERE launch.id=? AND launch.purpose='PRODUCT' AND artifact.runtime_family='KIRIKIRI'
- AND artifact.available_for_launch=1
+WHERE launch.id=?
+ AND EXISTS(SELECT 1 FROM launch_content_files file WHERE file.launch_session_id=launch.id
+  AND file.format_version='KIRIKIRI_PROJECT')
 `, launchID).Scan(&credentialHash, &state, &hardExpires, &dependencyJSON)
 	if err != nil || !retromruntime.MatchesCapability(capability, credentialHash) ||
 		state != "ACTIVE" || hardExpires <= service.now().UnixMilli() {
@@ -98,7 +62,7 @@ WHERE launch.id=? AND launch.purpose='PRODUCT' AND artifact.runtime_family='KIRI
 	rows, err := service.database.QueryContext(ctx, `
 SELECT file.logical_name,blob.size_bytes FROM launch_content_files file
 JOIN blobs blob ON blob.id=file.blob_id
-WHERE file.launch_session_id=? AND file.format_version='KIRIKIRI_PROJECT_V1'
+WHERE file.launch_session_id=? AND file.format_version='KIRIKIRI_PROJECT'
 ORDER BY file.logical_name
 `, launchID)
 	if err != nil {
@@ -130,7 +94,7 @@ func (service *Service) reviewPreviewKiriKiriProjectIndex(
 	err := service.database.QueryRowContext(ctx, `
 SELECT credential_sha256,state,hard_expires_at_ms,dependency_snapshot_json
 FROM review_preview_sessions
-WHERE id=? AND content_kind='KIRIKIRI_PROJECT_V1' AND content_format='KIRIKIRI_PROJECT_V1'
+WHERE id=? AND content_kind='KIRIKIRI_PROJECT' AND content_format='KIRIKIRI_PROJECT'
 `, previewID).Scan(&credentialHash, &state, &hardExpires, &dependencyJSON)
 	if err != nil || !reviewPreviewCredential(
 		service.now().UnixMilli(), capability, credentialHash, state, hardExpires,

@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"retrom/internal/cleanup"
+	"retrom/internal/corevalidation"
 	"retrom/internal/importing"
 )
 
@@ -537,7 +538,8 @@ func (builder *arcadeGroupBuilder) result() preparedGroup {
 	sort.Strings(builder.warnings)
 	sortArcadeDependencies(builder.dependencies)
 	snapshot, _ := json.Marshal(map[string]any{
-		"schemaVersion": 2, "machine": builder.primary.machine, "datVersionId": builder.datID,
+		"schemaVersion": corevalidation.SnapshotSchemaVersion, "kind": corevalidation.SnapshotKindArcade,
+		"machine": builder.primary.machine, "datVersionId": builder.datID,
 		"closure": builder.closure, "dependencies": builder.dependencies,
 		"missingEntries": builder.missing, "mismatchedEntries": builder.mismatched,
 		"warnings": builder.warnings,

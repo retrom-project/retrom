@@ -14,7 +14,11 @@ from .identity import compose_project, pfb_id, validate_pfb_id
 
 
 REGISTRY_VERSION = 1
-PFB_STATUSES = {"INITIALIZED", "BUILT", "RUNNING", "STALE", "BUILD_FAILED", "STOPPED"}
+PFB_STATUSES = {
+    "INITIALIZED", "READY", "RUNNING", "STOPPED", "ERROR",
+    # Accepted while owner-local v1 registries are migrated in place.
+    "BUILT", "STALE", "BUILD_FAILED", "VALIDATED",
+}
 
 
 def state_root() -> Path:

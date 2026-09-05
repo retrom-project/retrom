@@ -142,7 +142,7 @@ WHERE i.import_job_id=?
 	if err := database.SQL.QueryRowContext(ctx, `
 SELECT file.blob_id,file.source_archive_blob_id,file.source_archive_entry_ordinal
 FROM games game
-JOIN game_content_files file ON file.game_content_revision_id=game.current_content_revision_id
+JOIN game_files file ON file.game_id=game.id
 WHERE game.id=? AND file.role='CONTENT'
 `, approved.GameID).Scan(&publishedBlobID, &publishedArchiveID, &publishedOrdinal); err != nil {
 		t.Fatal(err)
@@ -315,8 +315,8 @@ WHERE catalog_template_key='gba/mgba'
 `); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := importer.Approve(ctx, itemID, 3); !errors.Is(err, ErrInvalid) {
-		t.Fatalf("stale selected validation approval error = %v", err)
+	if current, err := importer.ReviewValidationCurrent(ctx, oldValidationID); err != nil || !current {
+		t.Fatalf("folder presentation change invalidated review: current=%v, error=%v", current, err)
 	}
 	if err := json.Unmarshal([]byte(`{"metadata":{"title":"Sudoku"},"tagIds":[]}`), &metadataPatch); err != nil {
 		t.Fatal(err)
@@ -332,7 +332,7 @@ FROM review_drafts d
 JOIN import_item_core_validations v ON v.id=d.selected_validation_id
 WHERE d.import_item_id=?
 	`, itemID).Scan(&refreshedValidationID, &refreshedPlatformVersion); err != nil ||
-		refreshedValidationID == oldValidationID || refreshedPlatformVersion != 2 ||
+		refreshedValidationID != oldValidationID || refreshedPlatformVersion != 1 ||
 		!strings.Contains(importConfigSnapshot, `"platformInstanceVersion":1`) {
 		t.Fatalf("old/new validation snapshot = %s/%s v%d config=%s error=%v", oldValidationID, refreshedValidationID, refreshedPlatformVersion, importConfigSnapshot, err)
 	}
@@ -398,14 +398,12 @@ VALUES(?,?,?,?,'COVER',600,900,'image/png',?)
 	testassert.Falsef(t, err != nil, "approve: %v", err)
 	var title, titleInitial, variantStatus, publishedCoverBlobID string
 	if err := database.SQL.QueryRowContext(ctx, `
-SELECT m.title,
-m.title_initial,
-r.status,
-(SELECT blob_id FROM game_assets WHERE game_id=g.id AND metadata_revision_id=g.current_metadata_revision_id AND kind='COVER')
+SELECT g.title,
+g.title_initial,
+v.status,
+(SELECT blob_id FROM game_assets WHERE game_id=g.id AND kind='COVER')
 FROM games g
-JOIN game_metadata_revisions m ON m.id=g.current_metadata_revision_id
 JOIN game_variants v ON v.game_id=g.id
-JOIN game_variant_revisions r ON r.id=v.current_revision_id
 WHERE g.id=?
 `, approved.GameID).Scan(&title, &titleInitial, &variantStatus, &publishedCoverBlobID); err != nil {
 		t.Fatal(err)
@@ -466,7 +464,7 @@ SELECT
  (SELECT count(*) FROM upload_files WHERE upload_session_id=? AND state='PURGED' AND final_blob_id IS NULL),
  (SELECT count(*) FROM import_item_source_files WHERE import_item_id IN (?,?)),
  (SELECT count(*) FROM review_uploaded_assets WHERE import_item_id IN (?,?)),
- (SELECT count(*) FROM game_content_files file JOIN game_content_revisions revision ON revision.id=file.game_content_revision_id WHERE revision.game_id=?)+
+ (SELECT count(*) FROM game_files file WHERE file.game_id=?)+
  (SELECT count(*) FROM game_assets WHERE game_id=?)
 `, created.ImportJobID, created.ImportJobID, upload.ID, itemID, discardItemID, itemID, discardItemID,
 		approved.GameID, approved.GameID).Scan(
@@ -486,8 +484,7 @@ SELECT
 	if err := database.SQL.QueryRowContext(ctx, `
 SELECT (SELECT count(*)
 FROM games g
-JOIN game_metadata_revisions m ON m.id=g.current_metadata_revision_id
-WHERE m.title='Discarded'),
+WHERE g.title='Discarded'),
 (SELECT count(*) FROM blobs WHERE id=?),
 before_json,
 config_evidence_json,

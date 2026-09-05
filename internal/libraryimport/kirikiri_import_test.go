@@ -58,7 +58,7 @@ func assertKiriKiriPreparedDirectory(
 		t.Fatalf("groups=%#v archives=%#v dispositions=%#v", groups, archives, dispositions)
 	}
 	group := groups[0]
-	if group.contentKind != "KIRIKIRI_PROJECT_V1" || group.validationStatus != "BLOCKED" {
+	if group.contentKind != "KIRIKIRI_PROJECT" || group.validationStatus != "BLOCKED" {
 		t.Fatalf("group=%#v", group)
 	}
 	if group.compatibilityCode != "KIRIKIRI_RUNTIME_TRIAL_REQUIRED" || len(group.sources) != 2 {

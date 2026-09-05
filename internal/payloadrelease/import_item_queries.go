@@ -24,6 +24,8 @@ UNION ALL SELECT file.blob_id FROM import_item_validation_files file
 UNION ALL SELECT blob_id FROM review_uploaded_assets WHERE import_item_id=?
 UNION ALL SELECT accepted_blob_id FROM review_arcade_parent_attachments WHERE import_item_id=?
 UNION ALL SELECT content_blob_id FROM review_preview_sessions WHERE import_item_id=?
+UNION ALL SELECT checkpoint_payload_blob_id FROM review_preview_sessions WHERE import_item_id=?
+UNION ALL SELECT restore_payload_blob_id FROM review_preview_sessions WHERE import_item_id=?
 UNION ALL SELECT file.blob_id FROM review_preview_files file
  JOIN review_preview_sessions preview ON preview.id=file.preview_session_id WHERE preview.import_item_id=?
 UNION ALL SELECT blob_id FROM review_runtime_screenshots WHERE import_item_id=?
@@ -47,7 +49,7 @@ UNION ALL SELECT file.source_archive_blob_id FROM emulationstation_import_item_f
 UNION ALL SELECT asset.blob_id FROM emulationstation_import_item_assets asset
  JOIN emulationstation_import_items item ON item.id=asset.item_id WHERE item.library_import_item_id=?
 `, itemID, itemID, itemID, itemID, itemID, itemID, itemID, itemID, itemID, itemID, itemID,
-		itemID, itemID, itemID, itemID, itemID, itemID, itemID, itemID, itemID)
+		itemID, itemID, itemID, itemID, itemID, itemID, itemID, itemID, itemID, itemID, itemID)
 }
 
 func importItemConsumptionSessions(ctx context.Context, transaction *sql.Tx, itemID string) ([]string, error) {

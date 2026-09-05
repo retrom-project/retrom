@@ -33,7 +33,7 @@ paths:
       - $ref: ../components/common.yaml#/components/parameters/GameID
     get:
       operationId: getGame
-      description: Published game detail from an enabled platform directory; coverUrl and videoUrl are nullable logical URLs of the current metadata revision's ordinal-zero COVER and VIDEO assets. No ordinary game list DTO exposes videoUrl; the dedicated immersive platform projection is the only additional user read model. saveStateCount is the total non-deleted save count, and saveStates contains at most the eight newest owner-filtered entries with nullable discIndex/discLabel.
+      description: Published game detail from an enabled platform directory; coverUrl and videoUrl are nullable logical URLs of the current game's ordinal-zero COVER and VIDEO assets. No ordinary game list DTO exposes videoUrl; the dedicated immersive platform projection is the only additional user read model. saveStateCount is the total non-deleted save count, and saveStates contains at most the eight newest owner-filtered entries with nullable discIndex/discLabel.
       responses:
         '200':
           $ref: ../components/common.yaml#/components/responses/JSONResponse
@@ -49,7 +49,7 @@ paths:
       - $ref: '#/components/parameters/PlatformID'
     get:
       operationId: getImmersivePlatformGames
-      description: Returns one visible platform and its title-ordered immersive game page. Text, COVER and VIDEO are projected only from each game's current metadata revision, and play history is isolated to the authenticated Profile.
+      description: Returns one visible platform and its title-ordered immersive game page. Text, COVER and VIDEO are projected from each game's current state, and play history is isolated to the authenticated Profile.
       parameters:
         - $ref: ../components/common.yaml#/components/parameters/Cursor
         - $ref: ../components/common.yaml#/components/parameters/Limit50

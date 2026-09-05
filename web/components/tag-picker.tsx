@@ -58,6 +58,10 @@ function TagPickerContent({ label, options, selected, onChange, disabled, descri
   const [activeIndex, setActiveIndex] = useState(0);
   const [listPosition, setListPosition] = useState<ListPosition | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const blurTimer = useRef<number | null>(null);
+  useEffect(() => () => {
+    if (blurTimer.current !== null) {window.clearTimeout(blurTimer.current);}
+  }, []);
   const selectedIDs = useMemo(() => new Set(selected.map((tag) => tag.tagId)), [selected]);
   const filtered = useMemo(() => {
     const normalized = query.trim().toLocaleLowerCase();
@@ -107,13 +111,25 @@ function TagPickerContent({ label, options, selected, onChange, disabled, descri
   }, [open, updateListPosition]);
 
   function openList() {
+    cancelBlur();
     updateListPosition();
     setOpen(true);
   }
 
   function closeList() {
+    cancelBlur();
     setOpen(false);
     setListPosition(null);
+  }
+
+  function cancelBlur() {
+    if (blurTimer.current !== null) {window.clearTimeout(blurTimer.current);}
+    blurTimer.current = null;
+  }
+
+  function deferClose() {
+    cancelBlur();
+    blurTimer.current = window.setTimeout(closeList, 120);
   }
 
   function choose(tag: TagReference) {
@@ -149,7 +165,7 @@ function TagPickerContent({ label, options, selected, onChange, disabled, descri
         disabled={disabled || atLimit}
         placeholder={atLimit ? "已达到 20 个标签上限" : "搜索并添加标签"}
         value={query}
-        onBlur={() => window.setTimeout(closeList, 120)}
+        onBlur={deferClose}
         onFocus={openList}
         onChange={(event) => { setQuery(event.target.value); setActiveIndex(0); openList(); }}
         onKeyDown={(event) => {

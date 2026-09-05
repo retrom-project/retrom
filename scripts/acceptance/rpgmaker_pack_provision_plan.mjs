@@ -3,46 +3,47 @@ import {
   existsSync, lstatSync, readFileSync, readdirSync, realpathSync, statSync, writeFileSync,
 } from "node:fs";
 import { dirname, isAbsolute, relative, resolve, sep } from "node:path";
+import {checkedPopulationPreservation} from "./rpgmaker_pack_population.mjs";
 
 export const uploadRoles = {
-  rpg2000Rtp: ["RPG2000_RTP", null, null],
-  rpg2003Rtp: ["RPG2003_RTP", null, null],
-  rgss1StandardV1: ["RGSS1_RTP_STANDARD", null, null],
-  rgss1StandardV2: ["RGSS1_RTP_STANDARD", null, null],
-  rgss1Custom: ["RGSS_CUSTOM_RTP", "RPGXP", "RetromCustomXP"],
-  rgss2StandardV1: ["RGSS2_RTP_RPGVX", null, null],
-  rgss2StandardV2: ["RGSS2_RTP_RPGVX", null, null],
-  rgss2Custom: ["RGSS_CUSTOM_RTP", "RPGVX", "RetromCustomVX"],
-  rgss3StandardV1: ["RGSS3_RTP_RPGVXAce", null, null],
-  rgss3StandardV2: ["RGSS3_RTP_RPGVXAce", null, null],
-  rgss3Custom: ["RGSS_CUSTOM_RTP", "RPGVXACE", "RetromCustomVXAce"],
-  zeroReference: ["RGSS_CUSTOM_RTP", "RPGXP", "RetromZeroReference"],
+  rpg2000Rtp: ["rpg2000_rtp", null, null],
+  rpg2003Rtp: ["rpg2003_rtp", null, null],
+  rgss1StandardV1: ["rgss1_standard", null, null],
+  rgss1StandardV2: ["rgss1_standard", null, null],
+  rgss1Custom: [null, "RPGXP", "RetromCustomXP"],
+  rgss2StandardV1: ["rgss2_rpgvx", null, null],
+  rgss2StandardV2: ["rgss2_rpgvx", null, null],
+  rgss2Custom: [null, "RPGVX", "RetromCustomVX"],
+  rgss3StandardV1: ["rgss3_rpgvxace", null, null],
+  rgss3StandardV2: ["rgss3_rpgvxace", null, null],
+  rgss3Custom: [null, "RPGVXACE", "RetromCustomVXAce"],
+  zeroReference: [null, "RPGXP", "RetromZeroReference"],
 };
 
 export const reviewRoles = {
-  rpg2000SelfContained: ["rpgmaker_2000", "RPG2000", "ready"],
-  rpg2000Missing: ["rpgmaker_2000", "RPG2000", "missing"],
-  rpg2003SelfContained: ["rpgmaker_2003", "RPG2003", "ready"],
-  rpg2003Missing: ["rpgmaker_2003", "RPG2003", "missing"],
-  rpgxpNoRtp: ["rpgmaker_xp", "RPGXP", "ready"],
-  rpgxpStandardAmbiguous: ["rpgmaker_xp", "RPGXP", "unselected"],
-  rpgxpCustom: ["rpgmaker_xp", "RPGXP", "missing"],
-  rpgvxNoRtp: ["rpgmaker_vx", "RPGVX", "ready"],
-  rpgvxStandardAmbiguous: ["rpgmaker_vx", "RPGVX", "unselected"],
-  rpgvxCustom: ["rpgmaker_vx", "RPGVX", "missing"],
-  rpgvxaceNoRtp: ["rpgmaker_vx_ace", "RPGVXACE", "ready"],
-  rpgvxaceStandardAmbiguous: ["rpgmaker_vx_ace", "RPGVXACE", "unselected"],
-  rpgvxaceCustom: ["rpgmaker_vx_ace", "RPGVXACE", "missing"],
+  rpg2000SelfContained: ["rpgmaker-2000", "RPG2000", "ready"],
+  rpg2000Missing: ["rpgmaker-2000", "RPG2000", "missing"],
+  rpg2003SelfContained: ["rpgmaker-2003", "RPG2003", "ready"],
+  rpg2003Missing: ["rpgmaker-2003", "RPG2003", "missing"],
+  rpgxpNoRtp: ["rpgmaker-xp", "RPGXP", "ready"],
+  rpgxpStandardAmbiguous: ["rpgmaker-xp", "RPGXP", "unselected"],
+  rpgxpCustom: ["rpgmaker-xp", "RPGXP", "missing"],
+  rpgvxNoRtp: ["rpgmaker-vx", "RPGVX", "ready"],
+  rpgvxStandardAmbiguous: ["rpgmaker-vx", "RPGVX", "unselected"],
+  rpgvxCustom: ["rpgmaker-vx", "RPGVX", "missing"],
+  rpgvxaceNoRtp: ["rpgmaker-vx-ace", "RPGVXACE", "ready"],
+  rpgvxaceStandardAmbiguous: ["rpgmaker-vx-ace", "RPGVXACE", "unselected"],
+  rpgvxaceCustom: ["rpgmaker-vx-ace", "RPGVXACE", "missing"],
 };
 
 export const protectedRoles = {
-  publishedVariant: ["RGSS1_RTP_STANDARD", null, null, "rpgmaker_xp", "RPGXP", "rgss1_standard"],
-  restorableCheckpoint: ["RGSS2_RTP_RPGVX", null, null, "rpgmaker_vx", "RPGVX", "rgss2_rpgvx"],
+  publishedVariant: ["rgss1_standard", null, null, "rpgmaker-xp", "RPGXP", "rgss1_standard"],
+  restorableCheckpoint: ["rgss2_rpgvx", null, null, "rpgmaker-vx", "RPGVX", "rgss2_rpgvx"],
 };
 
 const sourceNote = "Retrom-owned ACC-RPG-009 deterministic fixture; no vendor RTP bytes";
 const inputKeys = new Set([
-  "sourcePath", "sourceType", "kind", "generation", "declaredName", "sourceNote",
+  "sourcePath", "sourceType", "definitionId", "generation", "declaredName", "sourceNote",
   "sourceFileCount", "sourceSizeBytes", "sourceSha256",
 ]);
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
@@ -91,7 +92,7 @@ export function writePlan(path, plan) {
   writeFileSync(path, `${JSON.stringify(plan, null, 2)}\n`, { encoding: "utf8", flag: "wx", mode: 0o600 });
 }
 
-export function buildProvisionEvidence(inputs, plan, provenance) {
+export function buildProvisionEvidence(inputs, plan, provenance, populationPreservation) {
   return {
     schemaVersion: 1, caseId: "ACC-RPG-009", status: "PROVISIONED",
     generatorInputIdentity: {
@@ -114,9 +115,10 @@ export function buildProvisionEvidence(inputs, plan, provenance) {
       protectedInstallationCount: 2,
       protectedGameCount: 2,
       reviewItemCount: Object.keys(plan.reviewIds).length,
-      readyUnapprovedReviewCount: Object.values(reviewRoles).filter((item) => item[2] === "ready").length,
+      selfContainedOrNoRtpReviewCount: Object.values(reviewRoles).filter((item) => item[2] === "ready").length,
     },
     repository: provenance,
+    populationPreservation: checkedPopulationPreservation(populationPreservation),
   };
 }
 
@@ -149,7 +151,7 @@ function validateRows(rows, roles, root) {
     const row = rows[role];
     exactKeys(row, [...inputKeys], "RPG_009_PROVISION_INPUT_ROW_INVALID");
     if (row.sourceNote !== sourceNote || row.sourceType !== (role === "rpg2000Rtp" ? "DIRECTORY" : "FILES")
-        || JSON.stringify([row.kind, row.generation, row.declaredName]) !== JSON.stringify(identity)) {
+        || JSON.stringify([row.definitionId, row.generation, row.declaredName]) !== JSON.stringify(identity)) {
       throw new Error("RPG_009_PROVISION_INPUT_ROLE_INVALID");
     }
     const source = exactSource(row.sourcePath, row.sourceType, root);

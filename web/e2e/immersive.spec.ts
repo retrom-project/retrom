@@ -1,4 +1,4 @@
-import { expect, test, type Frame, type Page, type TestInfo } from "@playwright/test";
+import { expect, test, type Page, type TestInfo } from "@playwright/test";
 import axe from "axe-core";
 import { currentEmulatorBrightRatio, evidencePath, noPageOverflow } from "./acceptance-support";
 import {
@@ -8,6 +8,7 @@ import {
   setGamepadConnected,
   standardButton,
 } from "./immersive-gamepad";
+import {runtimeFrameCount, runtimeState, type RuntimeEnvelope} from "./runtime-provider-support";
 
 type DestinationItem = {
   featuredGames: Array<{
@@ -148,7 +149,7 @@ async function selectGameByTitle(page: Page, title: string) {
   await page.waitForTimeout(180);
 }
 
-async function launchSelectedGame(page: Page) {
+async function launchSelectedGame(page: Page, targetId = "mgba") {
   const configResponse = page.waitForResponse((response) =>
     /\/runtime\/launches\/[^/]+\/config$/.test(response.url()) && response.status() === 200);
   const launchResponse = page.waitForResponse((response) =>
@@ -162,13 +163,13 @@ async function launchSelectedGame(page: Page) {
     throw new Error(`IMMERSIVE_LAUNCH_FAILED:${response.status()}:${await response.text()}`);
   }
   await expect(page).toHaveURL(/\/play\/[0-9a-f-]+\?experience=immersive$/);
-  const configuration = await (await configResponse).json() as {
-    mode: string;
-    playerAdapterId: string;
-    returnTo: string;
-    stateUrl: string | null;
-  };
-  expect(configuration).toMatchObject({ mode: "single", playerAdapterId: "ejs-4.2.3-v3", stateUrl: null });
+  const configuration = await (await configResponse).json() as RuntimeEnvelope;
+  expect(configuration).toMatchObject({
+    schemaVersion: 1,
+    session: {mode: "SINGLE", purpose: "PRODUCT"},
+    runtime: {providerId: "emulatorjs", providerApiVersion: 1, targetId},
+    restore: null,
+  });
   await expect(page.locator(".player-toolbar")).toHaveCount(0);
   const canvas = page.frameLocator("iframe.player-frame").locator("canvas.ejs_canvas");
   await expect(canvas).toBeVisible({ timeout: 60_000 });
@@ -183,25 +184,41 @@ async function emulatorFrame(page: Page) {
   return frame;
 }
 
-function frameNumber(frame: Frame) {
-  return frame.evaluate(() => window.EJS_emulator?.gameManager?.getFrameNum?.() ?? 0);
-}
-
 async function openPlayerMenu(page: Page) {
-  await pressGamepad(page, [standardButton.select, standardButton.start], 0, 80, 100);
+  // A full-page WebGL screenshot can briefly blur the top document. Restore
+  // focus and satisfy the product's neutral-input recovery gate first.
+  await page.bringToFront();
+  await expect.poll(() => page.evaluate(() => document.hasFocus())).toBe(true);
+  await page.waitForTimeout(160);
+  await pressMenuChord(page, 100);
   await expect(page.getByRole("dialog", { name: "游戏菜单" })).toHaveCount(0);
-  await pressGamepad(page, [standardButton.select, standardButton.start], 0, 80, 180);
   const menu = page.getByRole("dialog", { name: "游戏菜单" });
+  for (let attempt = 0; attempt < 3 && await menu.count() === 0; attempt += 1) {
+    await pressMenuChord(page, 180);
+  }
   await expect(menu).toBeVisible();
   await expect(menu.getByRole("button", { name: "取消" })).toHaveAttribute("aria-current", "true");
   return menu;
 }
 
+async function pressMenuChord(page: Page, releaseMs: number) {
+  // Inject both edges in one browser task. Splitting them across two
+  // Playwright calls lets a loaded CI host stretch the intended 40ms gap past
+  // the product's 100ms chord window, turning valid input into test flakiness.
+  await setGamepadButtons(page, 0, [standardButton.select, standardButton.start]);
+  await page.waitForTimeout(100);
+  await setGamepadButtons(page, 0, []);
+  await page.waitForTimeout(releaseMs);
+}
+
 async function exitFromPlayerMenu(page: Page) {
   const finished = page.waitForResponse((response) =>
     /\/runtime\/launches\/[^/]+\/finish$/.test(response.url()) && response.request().method() === "POST");
-  await pressGamepad(page, standardButton.right);
-  await pressGamepad(page, standardButton.right);
+  const exit = page.getByRole("dialog", { name: "游戏菜单" }).getByRole("button", { name: "退出游戏" });
+  for (let attempt = 0; attempt < 2 && await exit.getAttribute("aria-current") !== "true"; attempt += 1) {
+    await pressGamepad(page, standardButton.right);
+  }
+  await expect(exit).toHaveAttribute("aria-current", "true");
   await pressGamepad(page, standardButton.a);
   expect((await finished).ok()).toBe(true);
   await expect(page).toHaveURL(/\/immersive\/platforms\/[a-z0-9-]+\?gameId=[0-9a-f-]+$/);
@@ -389,9 +406,9 @@ test("ACC-IMM-004 real GBA launch advances frames and returns to the selected ga
   test.setTimeout(180_000);
   await openPlatform(page, "Game Boy Advance");
   await selectGameByTitle(page, "Sudoku");
-  const { frame } = await launchSelectedGame(page);
-  const initialFrame = await frameNumber(frame);
-  await expect.poll(() => frameNumber(frame), { timeout: 10_000 }).toBeGreaterThan(initialFrame + 30);
+  await launchSelectedGame(page);
+  const initialFrame = await runtimeFrameCount(page);
+  await expect.poll(() => runtimeFrameCount(page), { timeout: 10_000 }).toBeGreaterThan(initialFrame + 30);
   await expect.poll(() => currentEmulatorBrightRatio(page), { timeout: 10_000 }).toBeGreaterThan(0.01);
   await page.screenshot({ path: evidencePath(testInfo, "immersive-gba-running.png"), fullPage: true });
   await openPlayerMenu(page);
@@ -417,11 +434,11 @@ test("ACC-IMM-005 reserved chord pauses, continues, creates a save and exits", a
   await page.waitForTimeout(180);
 
   const menu = await openPlayerMenu(page);
-  expect(await frame.evaluate(() => window.EJS_emulator?.paused)).toBe(true);
+  expect(await runtimeState(page)).toBe("PAUSED");
   await pressGamepad(page, standardButton.b);
   await expect(menu).toBeHidden();
-  const resumedAt = await frameNumber(frame);
-  await expect.poll(() => frameNumber(frame), { timeout: 10_000 }).toBeGreaterThan(resumedAt + 10);
+  const resumedAt = await runtimeFrameCount(page);
+  await expect.poll(() => runtimeFrameCount(page), { timeout: 10_000 }).toBeGreaterThan(resumedAt + 10);
 
   const saveResponse = page.waitForResponse((response) =>
     response.request().method() === "POST" && /\/runtime\/launches\/[^/]+\/save-states$/.test(response.url()));
@@ -443,7 +460,7 @@ test("ACC-IMM-006 Arcade keeps P2 input and gives menu ownership only to the act
   test.setTimeout(180_000);
   await openPlatform(page, "Arcade");
   const selectedGame = await selectGameForCore(page, "mame2003");
-  const { frame } = await launchSelectedGame(page);
+  const { frame } = await launchSelectedGame(page, "mame2003");
   await expect.poll(() => currentEmulatorBrightRatio(page), { timeout: 10_000 }).toBeGreaterThan(0.001);
 
   await setGamepadButtons(page, 1, [standardButton.a]);
@@ -511,8 +528,11 @@ test("ACC-IMM-008 ordinary Player and navigation remain outside immersive mode",
     /\/runtime\/launches\/[^/]+\/config$/.test(response.url()) && response.status() === 200);
   await page.getByRole("button", { name: "开始游戏" }).click();
   await expect(page).toHaveURL(/\/play\/[0-9a-f-]+$/);
-  const config = await (await configResponse).json() as { playerAdapterId: string };
-  expect(config.playerAdapterId).toBe("ejs-4.2.3-v3");
+  const config = await (await configResponse).json() as RuntimeEnvelope;
+  expect(config).toMatchObject({
+    session: {purpose: "PRODUCT", mode: "SINGLE"},
+    runtime: {providerId: "emulatorjs", providerApiVersion: 1, targetId: "mgba"},
+  });
   await expect(page.locator(".player-toolbar")).toBeVisible();
   await expect(page.getByRole("dialog", { name: "游戏菜单" })).toHaveCount(0);
   await page.screenshot({ path: evidencePath(testInfo, "standard-player-regression.png"), fullPage: true });

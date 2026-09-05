@@ -32,7 +32,7 @@ func TestPrepareRPGMakerDirectoryKeepsOneNormalizedProject(t *testing.T) {
 
 func assertPreparedMVProject(t *testing.T, groups []preparedGroup, archives []preparedArchive) {
 	t.Helper()
-	if len(groups) != 1 || len(archives) != 0 || groups[0].contentKind != "RPG_MAKER_PROJECT_V1" ||
+	if len(groups) != 1 || len(archives) != 0 || groups[0].contentKind != "RPG_MAKER_PROJECT" ||
 		groups[0].rpgProfile == nil || groups[0].rpgProfile.ExpectedGeneration != detector.RPGMV ||
 		groups[0].rpgProjectRoot != "www" || groups[0].titleSource != "Export" ||
 		len(groups[0].sources) != 10 {
@@ -214,15 +214,15 @@ func TestPrepareRPGMakerArchiveMaterializesNestedEntryWithoutExpandingIt(t *test
 func TestPrepareStaticBIOSDependenciesLeavesRPGMakerValidationToRuntimePacks(t *testing.T) {
 	t.Parallel()
 	groups := []preparedGroup{{
-		validationStatus: "BLOCKED", compatibilityCode: "RPG_RUNTIME_VALIDATION_REQUIRED",
+		validationStatus: "BLOCKED", compatibilityCode: "RPG_RUNTIME_PACK_MISSING",
 		dependencySnapshot: `{"bindings":[],"schemaVersion":1}`,
 	}}
 	if err := prepareStaticBIOSDependencies(
-		context.Background(), nil, "rpg-artifact", "rpgmaker", groups,
+		context.Background(), nil, "retrom-runtime", "rpgmaker-2000", "rpgmaker", groups,
 	); err != nil {
 		t.Fatalf("prepareStaticBIOSDependencies() error = %v", err)
 	}
-	if groups[0].compatibilityCode != "RPG_RUNTIME_VALIDATION_REQUIRED" {
+	if groups[0].compatibilityCode != "RPG_RUNTIME_PACK_MISSING" {
 		t.Fatalf("RPG validation was overwritten: %#v", groups[0])
 	}
 }

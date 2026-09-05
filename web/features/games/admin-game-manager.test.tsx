@@ -25,8 +25,8 @@ const game: AdminGame = {
   releaseYear: 1987,
   platformId: "arcade",
   platformInstance: { id: "fbneo-games", name: "FBNeo 游戏" },
-  currentContentRevisionId: "content-1",
-  currentMetadataRevisionId: "metadata-1",
+  contentKind: "SINGLE",
+  files: [{ role: "CONTENT", logicalName: "1943.zip", sortOrder: 0, sizeBytes: 4, sha256: "a".repeat(64) }],
   version: 3,
   createdAtMs: 100,
   updatedAtMs: 200,
@@ -37,10 +37,8 @@ const game: AdminGame = {
     contentFileCount: 1, activeLaunchCount: 0, activeNetplayCount: 1,
     reviewEventCount: 2, sourceKinds: ["USER_UPLOAD"],
   },
-  metadataRevisions: [{ id: "metadata-1", sourceKind: "MANUAL", sourceRefId: null, current: true, createdAtMs: 200 }],
   assets: [],
-  contentRevisions: [{ id: "content-1", sourceKind: "IMPORT", sourceRefId: "upload-1", contentKind: "SINGLE", current: true, createdAtMs: 150, files: [{ role: "CONTENT", logicalName: "1943.zip", sortOrder: 0, sizeBytes: 4, sha256: "a".repeat(64) }] }],
-  variants: [{ id: "variant-1", coreId: "fbneo", coreName: "FinalBurn Neo", currentRevisionId: "variant-revision-1", version: 1, revisions: [{ id: "variant-revision-1", contentRevisionId: "content-1", coreArtifactId: "artifact-1", datVersionId: null, status: "READY", compatibilityCode: "READY", current: true, createdAtMs: 180 }] }],
+  variants: [{ id: "variant-1", coreId: "fbneo", coreName: "FinalBurn Neo", providerId: "libretro", targetId: "fbneo", datVersionId: null, status: "READY", compatibilityCode: "READY", version: 1, createdAtMs: 180, updatedAtMs: 180 }],
 };
 
 const directories: PlatformInstanceOption[] = [
@@ -76,7 +74,7 @@ describe("AdminGameManager", () => {
     expect(screen.getByRole("heading", { name: "视频预览" })).toBeVisible();
     expect(screen.queryByRole("heading", { name: "背景图" })).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "游戏截图" })).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "保存新版本" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "保存发布信息" })).toBeDisabled();
   });
 
   it("bounds project file details instead of hydrating a multi-megabyte path list", () => {
@@ -89,7 +87,7 @@ describe("AdminGameManager", () => {
     }));
     render(<AdminGameManager game={{
       ...game,
-      contentRevisions: [{ ...game.contentRevisions[0]!, files }],
+      files,
     }} platformInstances={directories} candidates={[]} />);
 
     expect(screen.getByText(/file-0\.ks、.*file-4\.ks 等 7 个文件/)).toBeInTheDocument();
@@ -129,13 +127,13 @@ describe("AdminGameManager", () => {
   it("enables metadata save only for an unsaved change and disables it after success", async () => {
     const user = userEvent.setup();
     const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
-      metadataRevisionId: "metadata-2",
+      gameId: game.gameId,
       version: 4,
       updatedAtMs: 600,
     }), { status: 200, headers: { "Content-Type": "application/json" } }));
     vi.stubGlobal("fetch", fetchMock);
     render(<AdminGameManager game={game} platformInstances={directories} candidates={[]} />);
-    const save = screen.getByRole("button", { name: "保存新版本" });
+    const save = screen.getByRole("button", { name: "保存发布信息" });
     const title = screen.getByRole("textbox", { name: "标题" });
 
     expect(save).toBeDisabled();
@@ -211,10 +209,10 @@ describe("AdminGameManager", () => {
     const dialog = screen.getByRole("alertdialog", { name: "替换游戏内容" });
     expect(within(dialog).queryByRole("checkbox", { name: /多盘游戏/ })).not.toBeInTheDocument();
     expect(within(dialog).getByText(/当前游戏目录只允许替换普通内容/)).toBeVisible();
-	expect(within(dialog).getByText(/44 份存档会永久失效/)).toBeVisible();
+	expect(within(dialog).getByText(/44 份存档会继续保留/)).toBeVisible();
   });
 
-  it("previews video only on demand and removes it through an immutable media revision", async () => {
+  it("previews video only on demand and removes the current video", async () => {
     const user = userEvent.setup();
     const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 204, headers: { ETag: '"v4"' } }));
     vi.stubGlobal("fetch", fetchMock);
@@ -236,7 +234,7 @@ describe("AdminGameManager", () => {
   it("preflights one complete multi-disc directory before creating a replacement job", async () => {
     const capableDirectories: PlatformInstanceOption[] = directories.map((directory) => directory.id === "fbneo-games" ? {
       ...directory,
-      importCapabilities: { contentModes: ["STANDARD", "MULTI_DISC_M3U_V1"], multiDisc: { maxDiscs: 8, maxTotalBytes: 1024 } },
+      importCapabilities: { contentModes: ["STANDARD", "MULTI_DISC"], multiDisc: { maxDiscs: 8, maxTotalBytes: 1024 } },
     } : directory);
     upload.uploadFiles.mockResolvedValue({ uploadId: "upload-multi", uploadFileIds: ["playlist", "one", "two"] });
     const fetchMock = vi.fn<(input: RequestInfo | URL, init?: RequestInit) => Promise<Response>>(() => Promise.resolve(new Response(JSON.stringify({ jobId: "job-content" }), { status: 202, headers: { "Content-Type": "application/json" } })));
@@ -260,8 +258,8 @@ describe("AdminGameManager", () => {
     await user.click(confirm);
 
     await waitFor(() => expect(upload.uploadFiles).toHaveBeenCalledWith(files, expect.any(Function)));
-    const request = fetchMock.mock.calls.find(([url]) => String(url).endsWith("/content-revisions"));
-    expect(JSON.parse(String(request?.[1]?.body))).toEqual({ uploadId: "upload-multi", contentMode: "MULTI_DISC_M3U_V1" });
+    const request = fetchMock.mock.calls.find(([url]) => String(url).endsWith("/content-replacement"));
+    expect(JSON.parse(String(request?.[1]?.body))).toEqual({ uploadId: "upload-multi", contentMode: "MULTI_DISC" });
     expect(upload.waitForJob).toHaveBeenCalledWith("job-content", expect.any(Function));
     await waitFor(() => expect(screen.queryByRole("alertdialog", { name: "替换游戏内容" })).not.toBeInTheDocument());
   });
@@ -269,7 +267,7 @@ describe("AdminGameManager", () => {
   it("does not allow a missing-disc directory to replace published content", async () => {
     const capableDirectories: PlatformInstanceOption[] = directories.map((directory) => directory.id === "fbneo-games" ? {
       ...directory,
-      importCapabilities: { contentModes: ["STANDARD", "MULTI_DISC_M3U_V1"], multiDisc: { maxDiscs: 8, maxTotalBytes: 1024 } },
+      importCapabilities: { contentModes: ["STANDARD", "MULTI_DISC"], multiDisc: { maxDiscs: 8, maxTotalBytes: 1024 } },
     } : directory);
     const user = userEvent.setup();
     render(<AdminGameManager game={game} platformInstances={capableDirectories} candidates={[]} />);
@@ -292,25 +290,18 @@ describe("AdminGameManager", () => {
     const rpgDirectory: PlatformInstanceOption = {
       id: "rpgmaker-games", platformId: "rpgmaker", platformName: "RPG Maker",
       name: "RPG Maker 游戏", defaultCoreId: "rpgmaker", defaultCoreName: "RPG Maker",
-      enabled: true, importCapabilities: { contentModes: ["RPG_MAKER_PROJECT_V1"], multiDisc: null },
+      enabled: true, importCapabilities: { contentModes: ["RPG_MAKER_PROJECT"], multiDisc: null },
     };
     const rpgGame: AdminGame = {
       ...game,
       platformId: "rpgmaker",
       platformInstance: { id: rpgDirectory.id, name: rpgDirectory.name },
-      currentContentRevisionId: "rpg-content",
-      contentRevisions: [{
-        id: "rpg-content", sourceKind: "IMPORT", sourceRefId: "rpg-import",
-        contentKind: "RPG_MAKER_PROJECT_V1", current: true, createdAtMs: 150,
-        files: [{ role: "PROJECT_FILE", logicalName: "RPG_RT.ldb", sortOrder: 0, sizeBytes: 4, sha256: "b".repeat(64) }],
-      }],
+      contentKind: "RPG_MAKER_PROJECT",
+      files: [{ role: "PROJECT_FILE", logicalName: "RPG_RT.ldb", sortOrder: 0, sizeBytes: 4, sha256: "b".repeat(64) }],
       variants: [{
         id: "rpg-variant", coreId: "rpgmaker_2000", coreName: "RPG Maker 2000",
-        currentRevisionId: "rpg-revision", version: 1,
-        revisions: [{
-          id: "rpg-revision", contentRevisionId: "rpg-content", coreArtifactId: "rpg-artifact",
-          datVersionId: null, status: "READY", compatibilityCode: "READY", current: true, createdAtMs: 180,
-        }],
+        providerId: "rpgmaker", targetId: "rpgmaker-2000", datVersionId: null,
+        status: "READY", compatibilityCode: "READY", version: 1, createdAtMs: 180, updatedAtMs: 180,
       }],
     };
     const files = [
@@ -334,9 +325,9 @@ describe("AdminGameManager", () => {
     await user.click(within(dialog).getByRole("button", { name: "上传并替换内容" }));
 
     await waitFor(() => expect(upload.uploadFiles).toHaveBeenCalledWith(files, expect.any(Function)));
-    const request = fetchMock.mock.calls.find(([url]) => String(url).endsWith("/content-revisions"));
+    const request = fetchMock.mock.calls.find(([url]) => String(url).endsWith("/content-replacement"));
     expect(JSON.parse(String(request?.[1]?.body))).toEqual({
-      uploadId: "rpg-upload", contentMode: "RPG_MAKER_PROJECT_V1",
+      uploadId: "rpg-upload", contentMode: "RPG_MAKER_PROJECT",
     });
     expect(await screen.findByText("替换项目属于另一个 RPG Maker 世代，当前游戏内容与存档未变更。")).toBeVisible();
   });

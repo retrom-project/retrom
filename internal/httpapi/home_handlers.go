@@ -260,7 +260,7 @@ FROM save_states s
 JOIN save_state_runtime_compatibility runtime_compatibility
   ON runtime_compatibility.save_state_id=s.id AND runtime_compatibility.status='AVAILABLE'
 JOIN games g ON g.id=s.game_id
-JOIN game_metadata_revisions m ON m.id=g.current_metadata_revision_id
+JOIN games m ON m.id=g.id
 JOIN platform_instances pi ON pi.id=g.platform_instance_id
 WHERE s.deleted_at_ms IS NULL
 AND s.profile_id=?
@@ -326,13 +326,13 @@ g.status,
 (SELECT a.id
  FROM game_assets a
  WHERE a.game_id=g.id
- AND a.metadata_revision_id=g.current_metadata_revision_id
+ AND a.game_id=g.id
  AND a.kind='COVER'
  ORDER BY a.ordinal,a.id
  LIMIT 1)
 FROM play_sessions ps
 JOIN games g ON g.id=ps.game_id
-JOIN game_metadata_revisions m ON m.id=g.current_metadata_revision_id
+JOIN games m ON m.id=g.id
 JOIN platform_instances pi ON pi.id=g.platform_instance_id
 JOIN platforms p ON p.id=pi.platform_id
 WHERE g.status='PUBLISHED'
@@ -375,12 +375,12 @@ g.created_at_ms,
 (SELECT a.id
  FROM game_assets a
  WHERE a.game_id=g.id
- AND a.metadata_revision_id=g.current_metadata_revision_id
+ AND a.game_id=g.id
  AND a.kind='COVER'
  ORDER BY a.ordinal,a.id
  LIMIT 1)
 FROM games g
-JOIN game_metadata_revisions m ON m.id=g.current_metadata_revision_id
+JOIN games m ON m.id=g.id
 JOIN platform_instances pi ON pi.id=g.platform_instance_id
 JOIN platforms p ON p.id=pi.platform_id
 WHERE g.status='PUBLISHED'
@@ -495,13 +495,13 @@ ps.started_at_ms,
 (SELECT a.id
  FROM game_assets a
  WHERE a.game_id=g.id
- AND a.metadata_revision_id=g.current_metadata_revision_id
+ AND a.game_id=g.id
  AND a.kind='COVER'
  ORDER BY a.ordinal,a.id
  LIMIT 1)
 FROM play_sessions ps
 JOIN games g ON g.id=ps.game_id
-JOIN game_metadata_revisions m ON m.id=g.current_metadata_revision_id
+JOIN games m ON m.id=g.id
 JOIN platform_instances pi ON pi.id=g.platform_instance_id
 JOIN platforms p ON p.id=pi.platform_id
 WHERE g.status='PUBLISHED'
@@ -614,13 +614,13 @@ g.status,
 (SELECT a.id
  FROM game_assets a
  WHERE a.game_id=g.id
- AND a.metadata_revision_id=g.current_metadata_revision_id
+ AND a.game_id=g.id
  AND a.kind='COVER'
  ORDER BY a.ordinal,a.id
  LIMIT 1)
 FROM play_sessions ps
 JOIN games g ON g.id=ps.game_id
-JOIN game_metadata_revisions m ON m.id=g.current_metadata_revision_id
+JOIN games m ON m.id=g.id
 JOIN platform_instances pi ON pi.id=g.platform_instance_id
 JOIN platforms p ON p.id=pi.platform_id
 WHERE g.status IN ('PUBLISHED','DELETED')

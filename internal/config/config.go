@@ -27,6 +27,8 @@ var knownVariables = map[string]struct{}{
 	"RETROM_RPG_RUNTIME_ORIGIN_TEMPLATE":  {},
 	"RETROM_DB_PATH":                      {}, "RETROM_DEPENDENCY_ROOT": {}, "RETROM_DEPENDENCY_VERSIONS": {},
 	"RETROM_ACTIVE_EMULATORJS_VERSION": {}, "RETROM_TRUSTED_PROXIES": {},
+	"RETROM_PROVIDER_ACTIVE_PATH": {}, "RETROM_PROVIDER_INSTALLED_ROOT": {},
+	"RETROM_PROVIDER_DEV_ROOT":     {},
 	"RETROM_STARTUP_CHECK_TIMEOUT": {}, "RETROM_LOG_LEVEL": {},
 	"RETROM_MULTI_DISC_IMPORT_ENABLED":    {},
 	"RETROM_PFB_ID":                       {},
@@ -52,6 +54,10 @@ type Config struct {
 	DependencyRoot           string
 	DependencyVersions       []string
 	ActiveEJSVersion         string
+	ProviderActivePath       string
+	ProviderInstalledRoot    string
+	ProviderDevRoot          string
+	RuntimeTargetCatalogPath string
 	TrustedProxies           []netip.Prefix
 	StartupCheckTimeout      time.Duration
 	LogLevel                 string
@@ -62,6 +68,7 @@ type Config struct {
 	NetplayRoomIdleDraft     time.Duration
 	NetplayRoomIdleWaiting   time.Duration
 	NetplayReconnectLease    time.Duration
+	PFBID                    string
 }
 
 type ServerImportRoot struct {
@@ -152,7 +159,8 @@ func Load(mode Mode) (Config, error) {
 	if err != nil {
 		return Config{}, err
 	}
-	if err := validatePFBBoundary(mode, base.dependencyRoot, network.publicOrigin); err != nil {
+	pfbID, err := validatePFBBoundary(mode, network.publicOrigin)
+	if err != nil {
 		return Config{}, err
 	}
 	runtimeOptions, err := loadRuntimeOptions(base.dataDir, base.dependencyRoot)
@@ -163,64 +171,61 @@ func Load(mode Mode) (Config, error) {
 	if err != nil {
 		return Config{}, err
 	}
+	providerActivePath, err := checkedAbsolutePath(
+		"RETROM_PROVIDER_ACTIVE_PATH", os.Getenv("RETROM_PROVIDER_ACTIVE_PATH"),
+	)
+	if err != nil {
+		return Config{}, err
+	}
+	providerInstalledRoot, err := checkedExistingDir(
+		"RETROM_PROVIDER_INSTALLED_ROOT", os.Getenv("RETROM_PROVIDER_INSTALLED_ROOT"),
+	)
+	if err != nil {
+		return Config{}, err
+	}
+	providerDevRoot, err := validateProviderDevBoundary(mode, pfbID, os.Getenv("RETROM_PROVIDER_DEV_ROOT"))
+	if err != nil {
+		return Config{}, err
+	}
 	return Config{
 		Mode: mode, HTTPAddr: network.httpAddr, PublicOrigin: network.publicOrigin,
 		RPGRuntimeOriginTemplate: network.rpgRuntimeOriginTemplate,
 		DataDir:                  base.dataDir, DBPath: base.dbPath, DependencyRoot: base.dependencyRoot,
 		DependencyVersions: base.versions, ActiveEJSVersion: base.active,
-		TrustedProxies: network.proxies, StartupCheckTimeout: runtimeOptions.startupTimeout,
+		ProviderActivePath: providerActivePath, ProviderInstalledRoot: providerInstalledRoot,
+		ProviderDevRoot:          providerDevRoot,
+		RuntimeTargetCatalogPath: filepath.Join(base.dependencyRoot, "runtime-target-bindings", "v1", "catalog.json"),
+		TrustedProxies:           network.proxies, StartupCheckTimeout: runtimeOptions.startupTimeout,
 		LogLevel: runtimeOptions.logLevel, MultiDiscImportEnabled: runtimeOptions.multiDiscImportEnabled,
 		ServerImportRoots: runtimeOptions.serverImportRoots,
 		NetplayEnabled:    netplay.enabled, NetplayMaxActiveRooms: netplay.maxActiveRooms,
 		NetplayRoomIdleDraft:   netplay.roomIdleDraft,
 		NetplayRoomIdleWaiting: netplay.roomIdleWaiting,
 		NetplayReconnectLease:  netplay.reconnectLease,
+		PFBID:                  pfbID,
 	}, nil
 }
 
-func validatePFBBoundary(mode Mode, dependencyRoot string, publicOrigin *url.URL) error {
-	identifier := os.Getenv("RETROM_PFB_ID")
-	markerPath := filepath.Join(dependencyRoot, "runtime", "rpgmaker", "v1", ".retrom-pfb-candidate.json")
-	contents, readErr := os.ReadFile(markerPath)
-	markerPresent := readErr == nil
-	if readErr != nil && !errors.Is(readErr, os.ErrNotExist) {
-		return fmt.Errorf("%w: PFB_CANDIDATE_FORBIDDEN", errInvalidConfig)
+func validateProviderDevBoundary(mode Mode, pfbID, raw string) (string, error) {
+	if raw == "" && pfbID == "" {
+		return "", nil
 	}
+	if mode != ModeTest || pfbID == "" || raw == "" {
+		return "", fmt.Errorf("%w: RETROM_PROVIDER_DEV_ROOT", errInvalidConfig)
+	}
+	return checkedExistingDir("RETROM_PROVIDER_DEV_ROOT", raw)
+}
+
+func validatePFBBoundary(mode Mode, publicOrigin *url.URL) (string, error) {
+	identifier := os.Getenv("RETROM_PFB_ID")
 	if identifier == "" {
-		if markerPresent {
-			return fmt.Errorf("%w: PFB_CANDIDATE_FORBIDDEN", errInvalidConfig)
-		}
-		return nil
+		return "", nil
 	}
 	publicPFBID, validOrigin := pfbIDFromLocalOrigin(publicOrigin)
 	if mode != ModeTest || !validOrigin || publicPFBID != identifier {
-		return fmt.Errorf("%w: RETROM_PFB_ID", errInvalidConfig)
+		return "", fmt.Errorf("%w: RETROM_PFB_ID", errInvalidConfig)
 	}
-	if !markerPresent {
-		return nil
-	}
-	if !validPFBCandidateMarker(contents, identifier) {
-		return fmt.Errorf("%w: PFB_CANDIDATE_FORBIDDEN", errInvalidConfig)
-	}
-	return nil
-}
-
-func validPFBCandidateMarker(contents []byte, identifier string) bool {
-	var marker map[string]any
-	if json.Unmarshal(contents, &marker) != nil || len(marker) != 10 ||
-		marker["schemaVersion"] != float64(1) || marker["kind"] != "RETROM_PFB_CANDIDATE_V1" ||
-		marker["pfbId"] != identifier {
-		return false
-	}
-	for _, field := range []string{
-		"formalManifestSha256", "runtime", "cores", "runtimeFiles", "artifacts",
-		"filesSha256", "overlaySha256",
-	} {
-		if _, exists := marker[field]; !exists {
-			return false
-		}
-	}
-	return true
+	return identifier, nil
 }
 
 type baseConfig struct {
@@ -639,6 +644,13 @@ func checkedExistingDir(name, raw string) (string, error) {
 	// raw passed the same absolute/clean/non-root boundary above and must already exist.
 	info, err := os.Lstat(raw)
 	if err != nil || !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
+		return "", fmt.Errorf("%w: %s", errInvalidConfig, name)
+	}
+	return raw, nil
+}
+
+func checkedAbsolutePath(name, raw string) (string, error) {
+	if raw == "" || !filepath.IsAbs(raw) || filepath.Clean(raw) != raw || raw == string(filepath.Separator) {
 		return "", fmt.Errorf("%w: %s", errInvalidConfig, name)
 	}
 	return raw, nil

@@ -19,10 +19,8 @@ import (
 type coreImpactGame struct {
 	GameID                  string `json:"gameId"`
 	GameVersion             int64  `json:"gameVersion"`
-	MetadataRevisionID      string `json:"metadataRevisionId"`
-	ContentRevisionID       string `json:"contentRevisionId"`
-	TargetVariantRevisionID any    `json:"targetVariantRevisionId"`
-	TargetVariantStatus     any    `json:"targetVariantStatus"`
+	VariantID               any    `json:"variantId"`
+	VariantStatus           any    `json:"variantStatus"`
 	TargetCompatibilityCode any    `json:"targetCompatibilityCode"`
 }
 
@@ -31,7 +29,9 @@ type coreImpact struct {
 	PlatformInstanceID      string           `json:"platformInstanceId"`
 	PlatformInstanceVersion int64            `json:"platformInstanceVersion"`
 	CoreID                  string           `json:"coreId"`
-	CoreArtifactID          string           `json:"coreArtifactId"`
+	ProviderID              string           `json:"providerId"`
+	TargetID                string           `json:"targetId"`
+	BundleSHA256            string           `json:"bundleSha256"`
 	DATVersionID            any              `json:"datVersionId"`
 	Games                   []coreImpactGame `json:"games"`
 }
@@ -72,19 +72,23 @@ AND enabled=1
 		allowed != 1 {
 		return coreImpact{}, nil, nil, errInvalidCore
 	}
-	var artifactID string
+	var providerID, targetID, bundleSHA256 string
 	var datVersionID sql.NullString
 	if err := server.database.QueryRowContext(request.Context(), `
-SELECT a.id,
+SELECT binding.provider_id,binding.target_id,provider.bundle_sha256,
 (SELECT id
 FROM dat_versions
-WHERE core_artifact_id=a.id
+WHERE provider_id=binding.provider_id AND target_id=binding.target_id
 AND is_active=1)
-FROM core_artifacts a
-WHERE a.core_id=?
-AND a.runtime_version=?
-AND a.selected_for_new_bindings=1 AND a.available_for_launch=1
-`, coreID, server.config.ActiveEJSVersion).Scan(&artifactID, &datVersionID); err != nil {
+FROM runtime_target_bindings binding
+JOIN runtime_binding_platforms binding_platform ON binding_platform.binding_id=binding.binding_id
+ AND binding_platform.platform_id=? AND binding_platform.core_id=?
+JOIN runtime_targets target ON target.provider_id=binding.provider_id AND target.target_id=binding.target_id
+JOIN runtime_providers provider ON provider.provider_id=target.provider_id
+WHERE binding.core_id=? AND binding.launch_policy<>'DISABLED'
+`, platformID, coreID, coreID).Scan(
+		&providerID, &targetID, &bundleSHA256, &datVersionID,
+	); err != nil {
 		return coreImpact{}, nil, nil, errInvalidCore
 	}
 	rows, err := server.database.QueryContext(
@@ -92,16 +96,11 @@ AND a.selected_for_new_bindings=1 AND a.available_for_launch=1
 		`
 SELECT g.id,
 g.version,
-g.current_metadata_revision_id,
-g.current_content_revision_id,
-r.id,
-r.status,
-r.compatibility_code
+variant.id,
+variant.status,
+variant.compatibility_code
 FROM games g
-LEFT JOIN game_variants v ON v.game_id=g.id
-AND v.core_id=?
-LEFT JOIN game_variant_revisions r ON r.id=v.current_revision_id
-AND r.game_content_revision_id=g.current_content_revision_id
+LEFT JOIN game_variants variant ON variant.game_id=g.id AND variant.core_id=?
 WHERE g.platform_instance_id=?
 AND g.status='PUBLISHED'
 ORDER BY g.id
@@ -118,20 +117,18 @@ ORDER BY g.id
 	games := make([]coreImpactGame, 0)
 	for rows.Next() {
 		var game coreImpactGame
-		var revisionID, status, code sql.NullString
+		var variantID, status, code sql.NullString
 		if err := rows.Scan(
 			&game.GameID,
 			&game.GameVersion,
-			&game.MetadataRevisionID,
-			&game.ContentRevisionID,
-			&revisionID,
+			&variantID,
 			&status,
 			&code,
 		); err != nil {
 			return coreImpact{}, nil, nil, fmt.Errorf("httpapi/platform_handlers: %w", err)
 		}
-		game.TargetVariantRevisionID = nullableString(revisionID)
-		game.TargetVariantStatus = nullableString(status)
+		game.VariantID = nullableString(variantID)
+		game.VariantStatus = nullableString(status)
 		game.TargetCompatibilityCode = nullableString(code)
 		projected := "NEEDS_VALIDATION"
 		switch {
@@ -155,7 +152,9 @@ ORDER BY g.id
 		PlatformInstanceID:      instanceID,
 		PlatformInstanceVersion: version,
 		CoreID:                  coreID,
-		CoreArtifactID:          artifactID,
+		ProviderID:              providerID,
+		TargetID:                targetID,
+		BundleSHA256:            bundleSHA256,
 		DATVersionID:            nullableString(datVersionID),
 		Games:                   games,
 	}

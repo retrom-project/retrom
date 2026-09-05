@@ -157,14 +157,6 @@ paths:
     $ref: ./domains/reviews.yaml#/paths/~1api~1v1~1admin~1review-bulk-approvals~1{bulkApprovalId}~1retry
   /api/v1/admin/reviews/{importItemId}:
     $ref: ./domains/reviews.yaml#/paths/~1api~1v1~1admin~1reviews~1{importItemId}
-  /api/v1/admin/reviews/{importItemId}/runtime-validations:
-    $ref: ./domains/reviews.yaml#/paths/~1api~1v1~1admin~1reviews~1{importItemId}~1runtime-validations
-  /api/v1/admin/reviews/{importItemId}/runtime-validations/{validationId}:
-    $ref: ./domains/reviews.yaml#/paths/~1api~1v1~1admin~1reviews~1{importItemId}~1runtime-validations~1{validationId}
-  /api/v1/admin/reviews/{importItemId}/runtime-validations/{validationId}/restore-launch:
-    $ref: ./domains/reviews.yaml#/paths/~1api~1v1~1admin~1reviews~1{importItemId}~1runtime-validations~1{validationId}~1restore-launch
-  /api/v1/admin/reviews/{importItemId}/runtime-validations/{validationId}/decision:
-    $ref: ./domains/reviews.yaml#/paths/~1api~1v1~1admin~1reviews~1{importItemId}~1runtime-validations~1{validationId}~1decision
   /api/v1/admin/reviews/{importItemId}/scrape-candidates:
     $ref: ./domains/reviews.yaml#/paths/~1api~1v1~1admin~1reviews~1{importItemId}~1scrape-candidates
   /api/v1/admin/reviews/{importItemId}/assets:
@@ -199,8 +191,8 @@ paths:
     $ref: ./domains/catalog.yaml#/paths/~1api~1v1~1admin~1games~1{gameId}~1assets
   /api/v1/admin/games/{gameId}/assets/{assetKind}:
     $ref: ./domains/catalog.yaml#/paths/~1api~1v1~1admin~1games~1{gameId}~1assets~1{assetKind}
-  /api/v1/admin/games/{gameId}/content-revisions:
-    $ref: ./domains/catalog.yaml#/paths/~1api~1v1~1admin~1games~1{gameId}~1content-revisions
+  /api/v1/admin/games/{gameId}/content-replacement:
+    $ref: ./domains/catalog.yaml#/paths/~1api~1v1~1admin~1games~1{gameId}~1content-replacement
   /api/v1/admin/games/{gameId}/scrape-candidates:
     $ref: ./domains/catalog.yaml#/paths/~1api~1v1~1admin~1games~1{gameId}~1scrape-candidates
   /api/v1/admin/games/{gameId}/scrape-candidates/{candidateId}/apply:
@@ -211,8 +203,8 @@ paths:
     $ref: ./domains/catalog.yaml#/paths/~1api~1v1~1admin~1games~1{gameId}~1move
   /api/v1/admin/platforms:
     $ref: ./domains/catalog.yaml#/paths/~1api~1v1~1admin~1platforms
-  /api/v1/admin/core-artifacts:
-    $ref: ./domains/catalog.yaml#/paths/~1api~1v1~1admin~1core-artifacts
+  /api/v1/admin/runtime-targets:
+    $ref: ./domains/catalog.yaml#/paths/~1api~1v1~1admin~1runtime-targets
   /api/v1/admin/platform-instances:
     $ref: ./domains/catalog.yaml#/paths/~1api~1v1~1admin~1platform-instances
   /api/v1/admin/platform-instances/recommendations:
@@ -293,10 +285,8 @@ paths:
     $ref: ./domains/runtime.yaml#/paths/~1content~1save-states~1{saveStateId}~1screenshot
   /api/v1/admin/review-assets/{assetId}:
     $ref: ./domains/runtime.yaml#/paths/~1api~1v1~1admin~1review-assets~1{assetId}
-  /runtime/emulatorjs/{configuredVersion}/{runtimePath}:
-    $ref: ./domains/runtime.yaml#/paths/~1runtime~1emulatorjs~1{configuredVersion}~1{runtimePath}
-  /runtime/retrom-runtime/{runtimeVersion}/{runtimePath}:
-    $ref: ./domains/runtime.yaml#/paths/~1runtime~1retrom-runtime~1{runtimeVersion}~1{runtimePath}
+  /runtime/providers/{providerId}/{bundleSha256}/{runtimePath}:
+    $ref: ./domains/runtime.yaml#/paths/~1runtime~1providers~1{providerId}~1{bundleSha256}~1{runtimePath}
   /runtime/content/project/{contentIdentity}/{projectPath}:
     $ref: ./domains/runtime.yaml#/paths/~1runtime~1content~1project~1{contentIdentity}~1{projectPath}
   /runtime/launches/{launchId}/config:
@@ -313,8 +303,6 @@ paths:
     $ref: ./domains/runtime.yaml#/paths/~1runtime~1launches~1{launchId}~1save-states
   /runtime/launches/{launchId}/checkpoint-status:
     $ref: ./domains/runtime.yaml#/paths/~1runtime~1launches~1{launchId}~1checkpoint-status
-  /runtime/launches/{launchId}/rpgmaker-gates/events:
-    $ref: ./domains/runtime.yaml#/paths/~1runtime~1launches~1{launchId}~1rpgmaker-gates~1events
   /runtime/content/game/{contentIdentity}/{logicalName}:
     $ref: ./domains/runtime.yaml#/paths/~1runtime~1content~1game~1{contentIdentity}~1{logicalName}
   /runtime/content/external/{contentIdentity}/{logicalName}:
@@ -332,6 +320,20 @@ components:
     sessionCookie:
       $ref: ./components/common.yaml#/components/securitySchemes/sessionCookie
   schemas:
+    DiagnosticsSnapshot:
+      $ref: ./domains/operations.yaml#/components/schemas/DiagnosticsSnapshot
+    DiagnosticsRuntimeProvider:
+      $ref: ./domains/operations.yaml#/components/schemas/DiagnosticsRuntimeProvider
+    DiagnosticsCounts:
+      $ref: ./domains/operations.yaml#/components/schemas/DiagnosticsCounts
+    DiagnosticsLifecycleCounts:
+      $ref: ./domains/operations.yaml#/components/schemas/DiagnosticsLifecycleCounts
+    DiagnosticsGameCounts:
+      $ref: ./domains/operations.yaml#/components/schemas/DiagnosticsGameCounts
+    DiagnosticsJobCounts:
+      $ref: ./domains/operations.yaml#/components/schemas/DiagnosticsJobCounts
+    DiagnosticsDATCounts:
+      $ref: ./domains/operations.yaml#/components/schemas/DiagnosticsDATCounts
     StorageAnalysis:
       $ref: ./domains/operations.yaml#/components/schemas/StorageAnalysis
     StorageAnalysisTotals:
@@ -404,6 +406,18 @@ components:
       $ref: ./domains/catalog.yaml#/components/schemas/ReplaceGameTagsRequest
     GameTagsResult:
       $ref: ./domains/catalog.yaml#/components/schemas/GameTagsResult
+    GameMutationResult:
+      $ref: ./domains/catalog.yaml#/components/schemas/GameMutationResult
+    AdminGameFile:
+      $ref: ./domains/catalog.yaml#/components/schemas/AdminGameFile
+    AdminGameAsset:
+      $ref: ./domains/catalog.yaml#/components/schemas/AdminGameAsset
+    AdminGameVariant:
+      $ref: ./domains/catalog.yaml#/components/schemas/AdminGameVariant
+    AdminGameDeleteImpact:
+      $ref: ./domains/catalog.yaml#/components/schemas/AdminGameDeleteImpact
+    AdminGameDetail:
+      $ref: ./domains/catalog.yaml#/components/schemas/AdminGameDetail
     FavoriteReference:
       $ref: ./domains/library.yaml#/components/schemas/FavoriteReference
     FavoriteState:
@@ -490,80 +504,24 @@ components:
       $ref: ./domains/runtime.yaml#/components/schemas/DiscEntry
     DiscSet:
       $ref: ./domains/runtime.yaml#/components/schemas/DiscSet
-    ReviewPreviewConfig:
-      $ref: ./domains/runtime.yaml#/components/schemas/ReviewPreviewConfig
     LaunchConfig:
       $ref: ./domains/runtime.yaml#/components/schemas/LaunchConfig
-    EmulatorJSLaunchConfig:
-      $ref: ./domains/runtime.yaml#/components/schemas/EmulatorJSLaunchConfig
     RpgGeneration:
       $ref: ./components/common.yaml#/components/schemas/RpgGeneration
     RpgCoreID:
       $ref: ./components/common.yaml#/components/schemas/RpgCoreID
-    CheckpointPayloadKind:
-      $ref: ./components/common.yaml#/components/schemas/CheckpointPayloadKind
-    NativeCheckpointProfile:
-      $ref: ./domains/runtime.yaml#/components/schemas/NativeCheckpointProfile
+    CheckpointFormat:
+      $ref: ./components/common.yaml#/components/schemas/CheckpointFormat
     CheckpointUnavailableReason:
       $ref: ./domains/runtime.yaml#/components/schemas/CheckpointUnavailableReason
     CheckpointAvailability:
       $ref: ./domains/runtime.yaml#/components/schemas/CheckpointAvailability
-    RpgCheckpointRestore:
-      $ref: ./domains/runtime.yaml#/components/schemas/RpgCheckpointRestore
-    FileTreeSource:
-      $ref: ./domains/runtime.yaml#/components/schemas/FileTreeSource
-    EasyRpgAdapterConfig:
-      $ref: ./domains/runtime.yaml#/components/schemas/EasyRpgAdapterConfig
-    MkxpCoreArtifact:
-      $ref: ./domains/runtime.yaml#/components/schemas/MkxpCoreArtifact
-    SeekableBlobSource:
-      $ref: ./domains/runtime.yaml#/components/schemas/SeekableBlobSource
-    MkxpRtpArchive:
-      $ref: ./domains/runtime.yaml#/components/schemas/MkxpRtpArchive
-    MkxpAdapterConfig:
-      $ref: ./domains/runtime.yaml#/components/schemas/MkxpAdapterConfig
-    NativeWebAdapterConfig:
-      $ref: ./domains/runtime.yaml#/components/schemas/NativeWebAdapterConfig
-    RpgAdapterConfig:
-      $ref: ./domains/runtime.yaml#/components/schemas/RpgAdapterConfig
-    RpgMakerLaunchConfig:
-      $ref: ./domains/runtime.yaml#/components/schemas/RpgMakerLaunchConfig
-    OnsAdapterConfig:
-      $ref: ./domains/runtime.yaml#/components/schemas/OnsAdapterConfig
-    OnsCheckpointRestore:
-      $ref: ./domains/runtime.yaml#/components/schemas/OnsCheckpointRestore
-    OnsLaunchConfig:
-      $ref: ./domains/runtime.yaml#/components/schemas/OnsLaunchConfig
-    KiriKiriAdapterConfig:
-      $ref: ./domains/runtime.yaml#/components/schemas/KiriKiriAdapterConfig
-    KiriKiriCheckpointRestore:
-      $ref: ./domains/runtime.yaml#/components/schemas/KiriKiriCheckpointRestore
-    KiriKiriLaunchConfig:
-      $ref: ./domains/runtime.yaml#/components/schemas/KiriKiriLaunchConfig
-    ButterscotchAdapterConfig:
-      $ref: ./domains/runtime.yaml#/components/schemas/ButterscotchAdapterConfig
-    ButterscotchCheckpointRestore:
-      $ref: ./domains/runtime.yaml#/components/schemas/ButterscotchCheckpointRestore
-    ButterscotchLaunchConfig:
-      $ref: ./domains/runtime.yaml#/components/schemas/ButterscotchLaunchConfig
-    TyranoScriptAdapterConfig:
-      $ref: ./domains/runtime.yaml#/components/schemas/TyranoScriptAdapterConfig
-    TyranoScriptCheckpointRestore:
-      $ref: ./domains/runtime.yaml#/components/schemas/TyranoScriptCheckpointRestore
-    TyranoScriptLaunchConfig:
-      $ref: ./domains/runtime.yaml#/components/schemas/TyranoScriptLaunchConfig
-    WASM4AdapterConfig:
-      $ref: ./domains/runtime.yaml#/components/schemas/WASM4AdapterConfig
-    WASM4CheckpointRestore:
-      $ref: ./domains/runtime.yaml#/components/schemas/WASM4CheckpointRestore
-    WASM4LaunchConfig:
-      $ref: ./domains/runtime.yaml#/components/schemas/WASM4LaunchConfig
     RuntimeAssetPackKind:
       $ref: ./domains/imports.yaml#/components/schemas/RuntimeAssetPackKind
-    CoreArtifactAdminItem:
-      $ref: ./domains/catalog.yaml#/components/schemas/CoreArtifactAdminItem
-    CoreArtifactList:
-      $ref: ./domains/catalog.yaml#/components/schemas/CoreArtifactList
+    RuntimeTargetAdminItem:
+      $ref: ./domains/catalog.yaml#/components/schemas/RuntimeTargetAdminItem
+    RuntimeTargetList:
+      $ref: ./domains/catalog.yaml#/components/schemas/RuntimeTargetList
     RuntimeAssetPackDefinition:
       $ref: ./domains/imports.yaml#/components/schemas/RuntimeAssetPackDefinition
     RuntimeAssetPackReferenceCounts:
@@ -580,60 +538,16 @@ components:
       $ref: ./domains/imports.yaml#/components/schemas/RuntimeAssetPackInstallAccepted
     RpgRuntimePackSelectionRequest:
       $ref: ./domains/reviews.yaml#/components/schemas/RpgRuntimePackSelectionRequest
-    RpgRuntimeValidationState:
-      $ref: ./components/common.yaml#/components/schemas/RpgRuntimeValidationState
-    RpgRuntimeGate:
-      $ref: ./components/common.yaml#/components/schemas/RpgRuntimeGate
-    RpgRuntimeGatePhase:
-      $ref: ./domains/runtime.yaml#/components/schemas/RpgRuntimeGatePhase
-    EmptyGateEvidence:
-      $ref: ./components/common.yaml#/components/schemas/EmptyGateEvidence
-    RpgPositionEvidence:
-      $ref: ./components/common.yaml#/components/schemas/RpgPositionEvidence
-    RpgEngineProfileEvidence:
-      $ref: ./components/common.yaml#/components/schemas/RpgEngineProfileEvidence
-    RpgFrameEvidence:
-      $ref: ./components/common.yaml#/components/schemas/RpgFrameEvidence
-    RpgBooleanGateEvidence:
-      $ref: ./components/common.yaml#/components/schemas/RpgBooleanGateEvidence
-    RpgCheckpointGateEvidence:
-      $ref: ./components/common.yaml#/components/schemas/RpgCheckpointGateEvidence
-    RpgRuntimeGateEvidence:
-      $ref: ./components/common.yaml#/components/schemas/RpgRuntimeGateEvidence
-    RpgMakerGateEventRequest:
-      $ref: ./domains/runtime.yaml#/components/schemas/RpgMakerGateEventRequest
-    RpgMakerGateEventAccepted:
-      $ref: ./domains/runtime.yaml#/components/schemas/RpgMakerGateEventAccepted
-    RpgRuntimeMachineGate:
-      $ref: ./components/common.yaml#/components/schemas/RpgRuntimeMachineGate
-    RpgRuntimeValidationResume:
-      $ref: ./domains/runtime.yaml#/components/schemas/RpgRuntimeValidationResume
-    RpgRuntimeRouteEvidence:
-      $ref: ./domains/reviews.yaml#/components/schemas/RpgRuntimeRouteEvidence
-    RpgCheckpointRoundTrip:
-      $ref: ./domains/reviews.yaml#/components/schemas/RpgCheckpointRoundTrip
-    RpgRuntimeReviewerDecision:
-      $ref: ./domains/reviews.yaml#/components/schemas/RpgRuntimeReviewerDecision
-    RpgRuntimeValidation:
-      $ref: ./domains/reviews.yaml#/components/schemas/RpgRuntimeValidation
-    RpgRuntimeValidationLaunch:
-      $ref: ./domains/reviews.yaml#/components/schemas/RpgRuntimeValidationLaunch
-    RpgRuntimeValidationDecisionRequest:
-      $ref: ./domains/reviews.yaml#/components/schemas/RpgRuntimeValidationDecisionRequest
     RuntimeCheckpointMetadata:
       $ref: ./components/common.yaml#/components/schemas/RuntimeCheckpointMetadata
     ProductSaveStateCreated:
       $ref: ./domains/runtime.yaml#/components/schemas/ProductSaveStateCreated
-    ValidationCheckpointCreated:
-      $ref: ./domains/runtime.yaml#/components/schemas/ValidationCheckpointCreated
+    ReviewPreviewCheckpointCreated:
+      $ref: ./domains/runtime.yaml#/components/schemas/ReviewPreviewCheckpointCreated
     RuntimeCheckpointCreated:
       $ref: ./domains/runtime.yaml#/components/schemas/RuntimeCheckpointCreated
     CheckpointStatus:
       $ref: ./domains/runtime.yaml#/components/schemas/CheckpointStatus
-    NetplayLaunchConfig:
-      $ref: ./domains/runtime.yaml#/components/schemas/NetplayLaunchConfig
-    NetplayCanonicalProfile:
-      $ref: ./domains/runtime.yaml#/components/schemas/NetplayCanonicalProfile
     CreateUploadRequest:
       $ref: ./domains/imports.yaml#/components/schemas/CreateUploadRequest
     CreateImportRequest:
@@ -678,8 +592,6 @@ components:
       $ref: ./domains/reviews.yaml#/components/schemas/ReviewMultiDiscAttachmentRequest
     ReviewPreviewRequest:
       $ref: ./domains/reviews.yaml#/components/schemas/ReviewPreviewRequest
-    RpgRuntimeValidationLaunchRequest:
-      $ref: ./domains/reviews.yaml#/components/schemas/RpgRuntimeValidationLaunchRequest
     UploadReferenceRequest:
       $ref: ./domains/catalog.yaml#/components/schemas/UploadReferenceRequest
     ApplyCandidateRequest:
@@ -929,12 +841,6 @@ components:
       $ref: ./domains/reviews.yaml#/components/requestBodies/ReviewDraft
     InstallRuntimeAssetPack:
       $ref: ./domains/imports.yaml#/components/requestBodies/InstallRuntimeAssetPack
-    RpgRuntimeValidationDecision:
-      $ref: ./domains/reviews.yaml#/components/requestBodies/RpgRuntimeValidationDecision
-    RpgRuntimeValidationLaunchBody:
-      $ref: ./domains/reviews.yaml#/components/requestBodies/RpgRuntimeValidationLaunchBody
-    RpgMakerGateEvent:
-      $ref: ./domains/runtime.yaml#/components/requestBodies/RpgMakerGateEvent
     MetadataProvider:
       $ref: ./components/common.yaml#/components/requestBodies/MetadataProvider
     MetadataFields:
@@ -996,24 +902,16 @@ components:
       $ref: ./domains/imports.yaml#/components/responses/PreconditionRequiredResponse
     RuntimeAssetPackListResponse:
       $ref: ./domains/imports.yaml#/components/responses/RuntimeAssetPackListResponse
-    CoreArtifactListResponse:
-      $ref: ./domains/catalog.yaml#/components/responses/CoreArtifactListResponse
+    RuntimeTargetListResponse:
+      $ref: ./domains/catalog.yaml#/components/responses/RuntimeTargetListResponse
     RuntimeAssetPackInstallResponse:
       $ref: ./domains/imports.yaml#/components/responses/RuntimeAssetPackInstallResponse
-    RpgRuntimeValidationLaunchResponse:
-      $ref: ./domains/reviews.yaml#/components/responses/RpgRuntimeValidationLaunchResponse
-    RpgRuntimeValidationResponse:
-      $ref: ./domains/reviews.yaml#/components/responses/RpgRuntimeValidationResponse
     RuntimeCheckpointCreateResponse:
       $ref: ./domains/runtime.yaml#/components/responses/RuntimeCheckpointCreateResponse
     CheckpointStatusResponse:
       $ref: ./domains/runtime.yaml#/components/responses/CheckpointStatusResponse
-    RpgMakerGateEventResponse:
-      $ref: ./domains/runtime.yaml#/components/responses/RpgMakerGateEventResponse
     RpgBadRequestResponse:
       $ref: ./components/common.yaml#/components/responses/RpgBadRequestResponse
-    RpgTimeoutResponse:
-      $ref: ./domains/runtime.yaml#/components/responses/RpgTimeoutResponse
     RpgGoneResponse:
       $ref: ./components/common.yaml#/components/responses/RpgGoneResponse
     RpgNotFoundResponse:
@@ -1030,6 +928,8 @@ components:
       $ref: ./components/common.yaml#/components/responses/RpgUnprocessableResponse
     RpgServiceUnavailableResponse:
       $ref: ./domains/imports.yaml#/components/responses/RpgServiceUnavailableResponse
+    DiagnosticsResponse:
+      $ref: ./domains/operations.yaml#/components/responses/DiagnosticsResponse
     StorageAnalysisResponse:
       $ref: ./domains/operations.yaml#/components/responses/StorageAnalysisResponse
     StorageCleanupResponse:
@@ -1050,6 +950,10 @@ components:
       $ref: ./domains/catalog.yaml#/components/responses/CommonTagsApplyResponse
     GameTagsResponse:
       $ref: ./domains/catalog.yaml#/components/responses/GameTagsResponse
+    GameMutationResponse:
+      $ref: ./domains/catalog.yaml#/components/responses/GameMutationResponse
+    AdminGameDetailResponse:
+      $ref: ./domains/catalog.yaml#/components/responses/AdminGameDetailResponse
     BIOSListResponse:
       $ref: ./domains/catalog.yaml#/components/responses/BIOSListResponse
     ServerImportRootListResponse:
@@ -1163,8 +1067,10 @@ components:
       $ref: ./components/common.yaml#/components/parameters/PlatformInstanceIDQuery
     CoreIDQuery:
       $ref: ./components/common.yaml#/components/parameters/CoreIDQuery
-    CoreArtifactIDQuery:
-      $ref: ./domains/catalog.yaml#/components/parameters/CoreArtifactIDQuery
+    ProviderIDQuery:
+      $ref: ./domains/catalog.yaml#/components/parameters/ProviderIDQuery
+    TargetIDQuery:
+      $ref: ./domains/catalog.yaml#/components/parameters/TargetIDQuery
     ImportJobIDQuery:
       $ref: ./domains/reviews.yaml#/components/parameters/ImportJobIDQuery
     PegasusImportIDQuery:
@@ -1273,8 +1179,6 @@ components:
       $ref: ./domains/imports.yaml#/components/parameters/ImportJobID
     ImportItemID:
       $ref: ./components/common.yaml#/components/parameters/ImportItemID
-    RpgRuntimeValidationID:
-      $ref: ./domains/reviews.yaml#/components/parameters/RpgRuntimeValidationID
     RuntimeAssetPackInstallationID:
       $ref: ./domains/imports.yaml#/components/parameters/RuntimeAssetPackInstallationID
     BulkApprovalID:
@@ -1315,7 +1219,5 @@ components:
       $ref: ./domains/identity.yaml#/components/parameters/UserID
     AccountLinkID:
       $ref: ./domains/identity.yaml#/components/parameters/AccountLinkID
-    ConfiguredVersion:
-      $ref: ./domains/runtime.yaml#/components/parameters/ConfiguredVersion
     LogicalName:
       $ref: ./domains/runtime.yaml#/components/parameters/LogicalName

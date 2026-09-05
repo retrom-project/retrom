@@ -152,8 +152,8 @@ for fixture_id in mame2003_plus fbalpha2012_cps1 fbalpha2012_cps2; do
   RETROM_ACCEPTANCE_RESULT_FILE="$temporary_root/netplay-$fixture_id.json" \
     scripts/acceptance/arcade-flow.sh "$fixture_id"
 done
-python3 scripts/acceptance/seed-arcade-schema-v2-launch.py "$temporary_root/data/retrom.db" mame2003
-python3 scripts/acceptance/seed-arcade-schema-v2-launch.py "$temporary_root/data/retrom.db" fbneo
+python3 scripts/acceptance/seed-arcade-current-launch.py "$temporary_root/data/retrom.db" mame2003
+python3 scripts/acceptance/seed-arcade-current-launch.py "$temporary_root/data/retrom.db" fbneo
 scripts/acceptance/seed-review-queue.sh "$temporary_root/data/retrom.db"
 scripts/acceptance/seed-run-blocker.sh "$temporary_root/data/retrom.db"
 python3 scripts/acceptance/seed-bios-catalog.py "$temporary_root/data/retrom.db" 286
@@ -177,9 +177,13 @@ if [[ -n "$e2e_grep" ]]; then
   playwright_command+=(-- --grep "$e2e_grep")
 fi
 
+emulatorjs_bundle_sha256="$(jq -er '.providers[] | select(.providerId == "emulatorjs") | .bundleSha256' \
+  "$dev_state/runtime-providers/active.json")"
+
 (cd web && \
   RETROM_WEB_ORIGIN="$web_origin" \
   RETROM_E2E_DATABASE="$temporary_root/data/retrom.db" \
+  RETROM_E2E_EMULATORJS_BUNDLE_SHA256="$emulatorjs_bundle_sha256" \
   RETROM_NETPLAY_NES_GAME_ID="$(jq -r .gameId "$temporary_root/netplay-fceumm.json")" \
   RETROM_NETPLAY_NES_FIXTURE_SHA256="$(jq -r .fixtureSha256 "$temporary_root/netplay-fceumm.json")" \
   RETROM_NETPLAY_FBNEO_GAME_ID="$(jq -r .gameId "$temporary_root/netplay-fbneo.json")" \

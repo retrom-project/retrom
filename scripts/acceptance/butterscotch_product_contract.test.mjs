@@ -9,7 +9,7 @@ import {
 const screenshot = {
   backingHeight: 480, backingWidth: 640, centerOffsetXPx: 0, centerOffsetYPx: 0,
   displayHeight: 480, displayWidth: 640, focused: true, height: 480,
-  nonBlackPixels: 10_000, rgbaSha256: "a".repeat(64), width: 640,
+  nonBlackPixels: 10_000, rgbaSha256: "a".repeat(64), surfaceHeight: 480, surfaceWidth: 640, width: 640,
 };
 
 function evidence() {
@@ -25,7 +25,7 @@ function evidence() {
       originalLaunchId: "01a05123-1234-7123-8123-423456789abc",
       restoreLaunchId: "01a05123-1234-7123-8123-523456789abc",
     },
-    checkpoint: { payloadKind: "RUNTIME_STATE", sizeBytes: 128 },
+    checkpoint: { format: "butterscotch-checkpoint-v2", sizeBytes: 128 },
     cache: {
       contentDigest: "b".repeat(64), firstDataWinResponseCount: 1,
       restoreDataWinResponseCount: 0, restoreIndexResponseCount: 1,
@@ -48,11 +48,18 @@ test("accepts the complete Butterscotch product chain", () => {
 test("rejects cache, input, checkpoint and browser regressions", () => {
   const invalid = [
     { ...evidence(), cache: { ...evidence().cache, restoreDataWinResponseCount: 1 } },
-    { ...evidence(), checkpoint: { payloadKind: "RUNTIME_STATE", sizeBytes: 17 * 1024 * 1024 } },
+    { ...evidence(), checkpoint: { format: "butterscotch-checkpoint-v2", sizeBytes: 17 * 1024 * 1024 } },
     { ...evidence(), browser: { pageErrorCount: 1, consoleErrorCount: 0, dialogCount: 0 } },
     {
       ...evidence(),
       screenshots: { ...evidence().screenshots, productAfterInput: evidence().screenshots.productBeforeInput },
+    },
+    {
+      ...evidence(),
+      screenshots: {
+        ...evidence().screenshots,
+        preview: { ...screenshot, surfaceHeight: 1_000, surfaceWidth: 1_440 },
+      },
     },
   ];
   for (const value of invalid) {

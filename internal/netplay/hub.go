@@ -80,7 +80,9 @@ type realtimeSession struct {
 	roomID        string
 	sessionID     string
 	profileDigest string
-	coreArtifact  string
+	providerID    string
+	targetID      string
+	bundleSHA256  string
 	occupiedMask  int
 	playerCount   int
 	peers         map[int]*peer
@@ -126,7 +128,8 @@ func (hub *Hub) session(participant SocketParticipant) (*realtimeSession, error)
 	}
 	current = &realtimeSession{
 		hub: hub, service: hub.service, roomID: participant.RoomID, sessionID: participant.SessionID,
-		profileDigest: participant.ProfileDigest, coreArtifact: participant.CoreArtifactID,
+		profileDigest: participant.ProfileDigest, providerID: participant.ProviderID,
+		targetID: participant.TargetID, bundleSHA256: participant.BundleSHA256,
 		occupiedMask: participant.OccupiedSeatMask, playerCount: participant.PlayerCount,
 		peers: make(map[int]*peer), participants: make(map[string]int), inputs: make(map[int64]map[int][24]int16),
 		hashes: make(map[int64]map[int]string), leaseTimers: make(map[int]*time.Timer),
@@ -415,7 +418,8 @@ func (session *realtimeSession) restartTransferLocked(ctx context.Context) {
 func (session *realtimeSession) peerAllowedLocked(client *peer) bool {
 	participant := client.participant
 	return !session.ended && participant.ProfileDigest == session.profileDigest &&
-		participant.CoreArtifactID == session.coreArtifact &&
+		participant.ProviderID == session.providerID && participant.TargetID == session.targetID &&
+		participant.BundleSHA256 == session.bundleSHA256 &&
 		session.occupiedMask&(1<<(participant.PlayerNo-1)) != 0
 }
 
@@ -465,6 +469,9 @@ func (session *realtimeSession) sendPeerHistoryLocked(
 
 func (session *realtimeSession) prepareResync(ctx context.Context) {
 	if err := session.service.PrepareReconnectResync(ctx, session.roomID, session.sessionID); err != nil {
+		slog.ErrorContext(ctx, "netplay reconnect resync preparation failed",
+			"roomId", session.roomID, "sessionId", session.sessionID, "error", err,
+		)
 		session.fail(ctx, "INTERNAL_ERROR", "")
 		return
 	}

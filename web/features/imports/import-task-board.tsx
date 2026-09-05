@@ -191,7 +191,7 @@ function ImportTaskEntry({ detail, expanded, item, onToggle, timeZone }: { detai
   const stageIndex = importStageIndex(item);
   const attention = item.state === "PARTIAL_FAILURE" || item.state === "FAILED";
   const issueCount = importTaskIssueCount(item);
-  const isMultiDisc = item.contentMode === "MULTI_DISC_M3U_V1";
+  const isMultiDisc = item.contentMode === "MULTI_DISC";
   const importedNote = item.alreadyImportedItemCount ? ` · 已跳过 ${item.alreadyImportedItemCount} 个已导入条目` : "";
   return <div className="import-task-entry">
     <article className={`import-task-card${attention ? " has-error" : ""}`}>
@@ -287,7 +287,7 @@ export function ImportTaskBoard({ initial, initialQuery = "", initialState = "" 
       return;
     }
     setExpandedId(item.id);
-    const isMultiDisc = item.contentMode === "MULTI_DISC_M3U_V1";
+    const isMultiDisc = item.contentMode === "MULTI_DISC";
     if ((!(item.unresolvedRejectedFileCount ?? item.rejectedFileCount) && !item.alreadyImportedItemCount && !isMultiDisc) || details[item.id]) {return;}
     setDetails((current) => ({ ...current, [item.id]: { status: "loading" } }));
     try {

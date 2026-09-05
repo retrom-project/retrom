@@ -25,29 +25,28 @@ func (server *Server) game(writer http.ResponseWriter, request *http.Request) {
 	principal, _ := authn.PrincipalFromContext(request.Context())
 	gameID := request.PathValue("gameId")
 	var title, description, developer, publisher, genre string
-	var platformID, platformName, instanceID, instanceName, contentRevisionID string
+	var platformID, platformName, instanceID, instanceName string
 	var players, releaseYear sql.NullInt64
 	var coverAssetID, videoAssetID sql.NullString
 	var version, updatedAtMS, activeDurationMS int64
 	err := server.database.QueryRowContext(request.Context(), `
-SELECT m.title,
-m.description,
-m.developer,
-m.publisher,
-m.genre,
-m.players,
-m.release_year,
+SELECT g.title,
+g.description,
+g.developer,
+g.publisher,
+g.genre,
+g.players,
+g.release_year,
 p.id,
 p.name,
 pi.id,
 pi.name,
-g.current_content_revision_id,
 g.version,
 g.updated_at_ms,
 (SELECT a.id
 FROM game_assets a
 WHERE a.game_id=g.id
-AND a.metadata_revision_id=g.current_metadata_revision_id
+AND a.game_id=g.id
 AND a.kind='COVER'
 ORDER BY a.ordinal,
 a.id
@@ -55,7 +54,7 @@ LIMIT 1),
 (SELECT a.id
 FROM game_assets a
 WHERE a.game_id=g.id
-AND a.metadata_revision_id=g.current_metadata_revision_id
+AND a.game_id=g.id
 AND a.kind='VIDEO'
 AND a.ordinal=0
 ORDER BY a.id
@@ -66,7 +65,6 @@ WHERE ps.game_id=g.id
 AND ps.profile_id=?),
 0)
 FROM games g
-JOIN game_metadata_revisions m ON m.id=g.current_metadata_revision_id
 JOIN platform_instances pi ON pi.id=g.platform_instance_id
 JOIN platforms p ON p.id=pi.platform_id
 WHERE g.id=?
@@ -74,7 +72,7 @@ AND g.status='PUBLISHED'
 AND pi.enabled=1
 `, principal.ProfileID, gameID).
 		Scan(&title, &description, &developer, &publisher, &genre, &players, &releaseYear,
-			&platformID, &platformName, &instanceID, &instanceName, &contentRevisionID,
+			&platformID, &platformName, &instanceID, &instanceName,
 			&version, &updatedAtMS, &coverAssetID, &videoAssetID, &activeDurationMS,
 		)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -101,11 +99,11 @@ rank,
 enabled,
 direct_launch_safe
 FROM dos_entries
-WHERE game_content_revision_id=?
+WHERE game_id=?
 ORDER BY rank,
 normalized_path
 `,
-		contentRevisionID,
+		gameID,
 	)
 	if err != nil {
 		server.databaseError(writer, request, err)
@@ -160,9 +158,9 @@ AND save.deleted_at_ms IS NULL
 	writeJSON(writer, http.StatusOK, map[string]any{
 		"gameId": gameID, "title": title, "description": description, "developer": developer, "publisher": publisher,
 		"genre": genre, "players": nullableInteger(players), "releaseYear": nullableInteger(releaseYear),
-		"platform":                 map[string]any{"id": platformID, "name": platformName},
-		"platformInstance":         map[string]any{"id": instanceID, "name": instanceName},
-		"currentContentRevisionId": contentRevisionID, "version": version, "updatedAtMs": updatedAtMS,
+		"platform":         map[string]any{"id": platformID, "name": platformName},
+		"platformInstance": map[string]any{"id": instanceID, "name": instanceName},
+		"version":          version, "updatedAtMs": updatedAtMS,
 		"coverUrl": gameCoverURL(
 			coverAssetID,
 		), "videoUrl": gameCoverURL(videoAssetID), "activeDurationMs": activeDurationMS, "coreOptions": coreOptions,
@@ -180,13 +178,13 @@ func (server *Server) gameRecentSaveStates(
 SELECT s.id,
 s.name,
 s.created_at_ms,
-a.core_id,
+source_launch.core_id,
 c.name,
 s.disc_index,
 s.screenshot_blob_id IS NOT NULL
 FROM save_states s
-JOIN core_artifacts a ON a.id=s.core_artifact_id
-JOIN cores c ON c.id=a.core_id
+JOIN launch_sessions source_launch ON source_launch.id=s.source_launch_session_id
+JOIN cores c ON c.id=source_launch.core_id
 JOIN save_state_runtime_compatibility compatibility
   ON compatibility.save_state_id=s.id AND compatibility.status='AVAILABLE'
 WHERE s.game_id=?
@@ -227,13 +225,9 @@ LIMIT 8
 func (server *Server) gameDefaultDOSEntry(ctx context.Context, gameID string) (sql.NullString, error) {
 	var entry sql.NullString
 	err := server.database.QueryRowContext(ctx, `
-SELECT r.default_dos_entry
-FROM games g
-JOIN game_variants v ON v.game_id=g.id
-AND v.core_id='dosbox_pure'
-JOIN game_variant_revisions r ON r.id=v.current_revision_id
-AND r.game_content_revision_id=g.current_content_revision_id
-WHERE g.id=?
+SELECT variant.default_dos_entry
+FROM game_variants variant
+WHERE variant.game_id=? AND variant.core_id='dosbox_pure'
 `, gameID).Scan(&entry)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return sql.NullString{}, fmt.Errorf("query default DOS entry: %w", err)
@@ -245,14 +239,21 @@ func (server *Server) gameCoreOptions(ctx context.Context, gameID string) ([]map
 	rows, err := server.database.QueryContext(ctx, `
 SELECT c.id,
 c.name,
-COALESCE(bound_artifact.requires_threads,selected_artifact.requires_threads,0),
+COALESCE(json_extract(bound_target.capabilities_json,'$.requiresThreads'),
+ (SELECT max(json_extract(candidate_target.capabilities_json,'$.requiresThreads'))
+  FROM runtime_target_bindings candidate
+  JOIN runtime_binding_platforms candidate_platform ON candidate_platform.binding_id=candidate.binding_id
+   AND candidate_platform.platform_id=pi.platform_id AND candidate_platform.core_id=c.id
+  JOIN runtime_targets candidate_target ON candidate_target.provider_id=candidate.provider_id
+   AND candidate_target.target_id=candidate.target_id
+  WHERE candidate.core_id=c.id AND candidate.launch_policy<>'DISABLED'),0),
 pi.default_core_id,
-v.current_revision_id,
-r.id,
-r.core_artifact_id,
-r.dat_version_id,
-r.status,
-r.compatibility_code
+v.id,
+v.provider_id,
+v.target_id,
+v.dat_version_id,
+v.status,
+v.compatibility_code
 FROM games g
 JOIN platform_instances pi ON pi.id=g.platform_instance_id
 JOIN platform_cores pc ON pc.platform_id=pi.platform_id
@@ -261,12 +262,7 @@ JOIN cores c ON c.id=pc.core_id
 AND c.enabled=1
 LEFT JOIN game_variants v ON v.game_id=g.id
 AND (v.core_id=c.id OR pi.platform_id='rpgmaker')
-LEFT
-JOIN game_variant_revisions r ON r.id=v.current_revision_id
-AND r.game_content_revision_id=g.current_content_revision_id
-LEFT JOIN core_artifacts bound_artifact ON bound_artifact.id=r.core_artifact_id
-LEFT JOIN core_artifacts selected_artifact ON selected_artifact.core_id=c.id
-AND selected_artifact.selected_for_new_bindings=1
+LEFT JOIN runtime_targets bound_target ON bound_target.provider_id=v.provider_id AND bound_target.target_id=v.target_id
 WHERE g.id=?
 ORDER BY c.name,
 c.id
@@ -281,15 +277,16 @@ c.id
 	for rows.Next() {
 		var coreID, coreName, defaultCoreID string
 		var requiresThreads int
-		var currentRevision, revisionID, artifactID, datVersionID, status, compatibility sql.NullString
+		var variantID, providerID, targetID sql.NullString
+		var datVersionID, status, compatibility sql.NullString
 		if err := rows.Scan(
 			&coreID,
 			&coreName,
 			&requiresThreads,
 			&defaultCoreID,
-			&currentRevision,
-			&revisionID,
-			&artifactID,
+			&variantID,
+			&providerID,
+			&targetID,
 			&datVersionID,
 			&status,
 			&compatibility,
@@ -299,13 +296,13 @@ c.id
 		projectedStatus := "NEEDS_VALIDATION"
 		var reasons []map[string]any
 		switch {
-		case revisionID.Valid && status.String == "READY":
+		case variantID.Valid && status.String == "READY":
 			projectedStatus = "READY"
 			reasons = []map[string]any{}
-		case revisionID.Valid && status.String == "BLOCKED":
+		case variantID.Valid && status.String == "BLOCKED":
 			projectedStatus = "DEPENDENCY_MISSING"
 			reasons = []map[string]any{{"code": compatibility.String, "level": "BLOCKING"}}
-		case revisionID.Valid:
+		case variantID.Valid:
 			projectedStatus = "INCOMPATIBLE"
 			reasons = []map[string]any{{"code": compatibility.String, "level": "BLOCKING"}}
 		default:
@@ -313,10 +310,9 @@ c.id
 		}
 		coreOptions = append(coreOptions, map[string]any{
 			"coreId": coreID, "name": coreName, "isDefault": coreID == defaultCoreID, "status": projectedStatus,
-			"revalidationStatus": "NOT_REQUIRED", "currentVariantRevisionId": nullableString(currentRevision),
-			"coreArtifactId": nullableString(
-				artifactID,
-			), "datVersionId": nullableString(datVersionID), "revalidationJobId": nil,
+			"revalidationStatus": "NOT_REQUIRED", "variantId": nullableString(variantID),
+			"providerId": nullableString(providerID), "targetId": nullableString(targetID),
+			"datVersionId": nullableString(datVersionID), "revalidationJobId": nil,
 			"requiresThreads": requiresThreads == 1, "reasons": reasons,
 		})
 	}
@@ -397,7 +393,6 @@ func queryGameListFacets(
 ) (int64, gameListFacets, error) {
 	baseFrom := `
 FROM games g
-JOIN game_metadata_revisions m ON m.id=g.current_metadata_revision_id
 JOIN platform_instances pi ON pi.id=g.platform_instance_id
 JOIN platforms p ON p.id=pi.platform_id
 `
@@ -617,7 +612,7 @@ func appendGameListTitleCursor(payload cursor.Payload, conditions *[]string, arg
 	if len(payload.SortValues) != 1 {
 		return errInvalidCursorPayload
 	}
-	*conditions = append(*conditions, "(m.title>? OR (m.title=? AND g.id>?))")
+	*conditions = append(*conditions, "(g.title>? OR (g.title=? AND g.id>?))")
 	*arguments = append(*arguments, payload.SortValues[0], payload.SortValues[0], payload.ID)
 	return nil
 }
@@ -636,7 +631,7 @@ func appendGameListTimestampCursor(
 		return errInvalidCursorPayload
 	}
 	*conditions = append(*conditions, fmt.Sprintf(
-		"(%s<? OR (%s=? AND (m.title>? OR (m.title=? AND g.id>?))))", column, column,
+		"(%s<? OR (%s=? AND (g.title>? OR (g.title=? AND g.id>?))))", column, column,
 	))
 	*arguments = append(*arguments, timestamp, timestamp, payload.SortValues[1], payload.SortValues[1], payload.ID)
 	return nil
@@ -659,7 +654,7 @@ func appendGameListRecentCursor(
 	lastPlayedExpression := `COALESCE((SELECT max(ps_cursor.started_at_ms)
 FROM play_sessions ps_cursor WHERE ps_cursor.game_id=g.id AND ps_cursor.profile_id=?),-1)`
 	*conditions = append(*conditions, fmt.Sprintf(
-		`(%s<? OR (%s=? AND (g.created_at_ms<? OR (g.created_at_ms=? AND (m.title>? OR (m.title=? AND g.id>?))))))`,
+		`(%s<? OR (%s=? AND (g.created_at_ms<? OR (g.created_at_ms=? AND (g.title>? OR (g.title=? AND g.id>?))))))`,
 		lastPlayedExpression, lastPlayedExpression,
 	))
 	*arguments = append(*arguments,
@@ -750,7 +745,7 @@ func (server *Server) gameList(writer http.ResponseWriter, request *http.Request
 	principal, _ := authn.PrincipalFromContext(request.Context())
 	query := `
 SELECT g.id,
- m.title,
+ g.title,
  p.id,
  p.name,
  pi.id,
@@ -762,29 +757,26 @@ SELECT g.id,
  g.created_at_ms,
  g.updated_at_ms,
  (SELECT max(ps.started_at_ms) FROM play_sessions ps WHERE ps.game_id=g.id AND ps.profile_id=?) AS last_played_at_ms,
- m.release_year,
- CASE WHEN trim(m.description)<>''
- AND trim(m.developer)<>''
- AND trim(m.publisher)<>''
- AND trim(m.genre)<>''
- AND m.players IS NOT NULL
- AND m.release_year IS NOT NULL THEN 1 ELSE 0 END,
- (SELECT vr.status
- FROM game_variants v
- JOIN game_variant_revisions vr ON vr.id=v.current_revision_id
- WHERE v.game_id=g.id
- AND v.core_id=pi.default_core_id
+ g.release_year,
+ CASE WHEN trim(g.description)<>''
+ AND trim(g.developer)<>''
+ AND trim(g.publisher)<>''
+ AND trim(g.genre)<>''
+ AND g.players IS NOT NULL
+ AND g.release_year IS NOT NULL THEN 1 ELSE 0 END,
+ (SELECT variant.status
+ FROM game_variants variant
+ WHERE variant.game_id=g.id
+ AND variant.core_id=pi.default_core_id
  LIMIT 1),
  (SELECT a.id
  FROM game_assets a
  WHERE a.game_id=g.id
- AND a.metadata_revision_id=g.current_metadata_revision_id
  AND a.kind='COVER'
  ORDER BY a.ordinal,
  a.id
  LIMIT 1)
 FROM games g
-JOIN game_metadata_revisions m ON m.id=g.current_metadata_revision_id
 JOIN platform_instances pi ON pi.id=g.platform_instance_id
 JOIN platforms p ON p.id=pi.platform_id
 JOIN cores dc ON dc.id=pi.default_core_id
@@ -827,14 +819,14 @@ JOIN cores dc ON dc.id=pi.default_core_id
 	if raw := values.Get("limit"); raw != "" {
 		limit, _ = strconv.Atoi(raw)
 	}
-	order := " ORDER BY m.title ASC,g.id ASC LIMIT ?"
+	order := " ORDER BY g.title ASC,g.id ASC LIMIT ?"
 	switch sortCode {
 	case "RECENT_DESC":
-		order = " ORDER BY last_played_at_ms DESC,g.created_at_ms DESC,m.title ASC,g.id ASC LIMIT ?"
+		order = " ORDER BY last_played_at_ms DESC,g.created_at_ms DESC,g.title ASC,g.id ASC LIMIT ?"
 	case "ADDED_DESC":
-		order = " ORDER BY g.created_at_ms DESC,m.title ASC,g.id ASC LIMIT ?"
+		order = " ORDER BY g.created_at_ms DESC,g.title ASC,g.id ASC LIMIT ?"
 	case "UPDATED_DESC":
-		order = " ORDER BY g.updated_at_ms DESC,m.title ASC,g.id ASC LIMIT ?"
+		order = " ORDER BY g.updated_at_ms DESC,g.title ASC,g.id ASC LIMIT ?"
 	}
 	query = queryWithConditions(query, conditions, order)
 	arguments = append(arguments, limit+1)

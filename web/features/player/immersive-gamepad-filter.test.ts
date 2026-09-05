@@ -32,6 +32,18 @@ describe("immersive EmulatorJS gamepad filter", () => {
     expect(onMenuGesture).toHaveBeenCalledOnce();
   });
 
+  it("remains available when the host rejects a menu gesture before it is running", () => {
+    const onMenuGesture = vi.fn();
+    const filter = new ImmersiveGamepadFilter({ activeGamepadIndex: 0, onMenuGesture });
+
+    filterSequence(filter, [0, 40, 50]);
+    filterSequence(filter, [110, 150, 160]);
+    filterSequence(filter, [300, 340, 350]);
+    filterSequence(filter, [410, 450, 460]);
+
+    expect(onMenuGesture).toHaveBeenCalledTimes(2);
+  });
+
   it("delays only the active pad reserved buttons and leaves other pads untouched", () => {
     const other = gamepad(1, true, true);
     const filter = new ImmersiveGamepadFilter({ activeGamepadIndex: 0, onMenuGesture: vi.fn() });

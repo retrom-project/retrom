@@ -45,7 +45,7 @@ func TestCreateONSArchiveReachesTrialRequiredReview(t *testing.T) {
 	archive := onsProjectArchive(t)
 	uploadService := uploads.New(database.SQL, blobs, dataDir, time.Now)
 	upload, err := uploadService.Create(ctx, uploads.CreateRequest{
-		Purpose: "ONS_PROJECT", SourceType: "FILES",
+		Purpose: "PROJECT", SourceType: "FILES",
 		Files: []uploads.FileDeclaration{{
 			ClientFileID: "ons", RelativePath: "fixture.zip", SizeBytes: int64(len(archive)),
 		}},
@@ -74,7 +74,7 @@ func TestCreateONSArchiveReachesTrialRequiredReview(t *testing.T) {
 		UploadID: upload.ID, TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(
 			t, database.SQL, "ons/onscripter_yuri",
 		),
-		MetadataProvider: "HASHEOUS", ContentMode: "ONS_PROJECT_V1", TagIDs: []string{},
+		MetadataProvider: "HASHEOUS", ContentMode: "ONS_PROJECT", TagIDs: []string{},
 	})
 	if err != nil {
 		t.Fatalf("Create(ONS) error = %v", err)
@@ -82,29 +82,28 @@ func TestCreateONSArchiveReachesTrialRequiredReview(t *testing.T) {
 	if created.ItemCount != 1 || created.State != "REVIEW_PENDING" {
 		t.Fatalf("Create(ONS) = %#v", created)
 	}
-	var state, code, contentKind, metadataProvider, runtimeFamily, adapterKind string
+	var state, code, contentKind, metadataProvider, providerID, targetID string
 	var selectedValidation any
 	if err := database.SQL.QueryRowContext(ctx, `
 SELECT item.state,validation.compatibility_code,snapshot.content_kind,job.metadata_provider,
-       artifact.runtime_family,artifact.runtime_adapter_kind,draft.selected_validation_id
+	   validation.provider_id,validation.target_id,draft.selected_validation_id
 FROM import_items item
 JOIN import_jobs job ON job.id=item.import_job_id
 JOIN import_item_core_validations validation ON validation.import_item_id=item.id
 JOIN import_item_source_snapshots snapshot ON snapshot.id=validation.source_snapshot_id
-JOIN core_artifacts artifact ON artifact.id=validation.core_artifact_id
 JOIN review_drafts draft ON draft.import_item_id=item.id
 WHERE item.import_job_id=?
 `, created.ImportJobID).Scan(
-		&state, &code, &contentKind, &metadataProvider, &runtimeFamily, &adapterKind, &selectedValidation,
+		&state, &code, &contentKind, &metadataProvider, &providerID, &targetID, &selectedValidation,
 	); err != nil {
 		t.Fatal(err)
 	}
 	if state != "REVIEW_PENDING" || code != "ONS_RUNTIME_TRIAL_REQUIRED" ||
-		contentKind != "ONS_PROJECT_V1" || metadataProvider != "NONE" || runtimeFamily != "ONS" ||
-		adapterKind != "ONS_YURI_WEB" || selectedValidation != nil {
+		contentKind != "ONS_PROJECT" || metadataProvider != "NONE" || providerID != "retrom-runtime" ||
+		targetID != "onscripter-yuri" || selectedValidation != nil {
 		t.Fatalf(
 			"ONS review = %s/%s/%s/%s/%s/%s selected=%v",
-			state, code, contentKind, metadataProvider, runtimeFamily, adapterKind, selectedValidation,
+			state, code, contentKind, metadataProvider, providerID, targetID, selectedValidation,
 		)
 	}
 }

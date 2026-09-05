@@ -24,18 +24,23 @@ func seedReplacementSave(
 	gameID string,
 ) (string, string, []string) {
 	t.Helper()
-	var revisionID, contentID, artifactID, routeKey, dependencySnapshot, logicalName, contentBlobID string
+	var variantID, providerID, targetID, coreID, compatibilityCode, contentKind string
+	var bundleSHA256, checkpointFormat, dependencySnapshot, logicalName, contentBlobID string
 	if err := database.QueryRowContext(ctx, `
-SELECT variant.current_revision_id,revision.game_content_revision_id,revision.core_artifact_id,
-       revision.route_key,revision.dependency_snapshot_json,file.logical_name,file.blob_id
+SELECT variant.id,variant.provider_id,variant.target_id,variant.core_id,
+       variant.compatibility_code,game.content_kind,
+       provider.bundle_sha256,json_extract(target.checkpoint_json,'$.writeFormat'),
+       variant.dependency_snapshot_json,file.logical_name,file.blob_id
 FROM games game
 JOIN game_variants variant ON variant.game_id=game.id
-JOIN game_variant_revisions revision ON revision.id=variant.current_revision_id
-JOIN game_content_files file ON file.game_content_revision_id=revision.game_content_revision_id
-WHERE game.id=? AND revision.game_content_revision_id=game.current_content_revision_id
+JOIN runtime_providers provider ON provider.provider_id=variant.provider_id
+JOIN runtime_targets target ON target.provider_id=variant.provider_id AND target.target_id=variant.target_id
+JOIN game_files file ON file.game_id=game.id
+WHERE game.id=?
 ORDER BY file.sort_order,file.logical_name LIMIT 1
 `, gameID).Scan(
-		&revisionID, &contentID, &artifactID, &routeKey, &dependencySnapshot, &logicalName, &contentBlobID,
+		&variantID, &providerID, &targetID, &coreID, &compatibilityCode, &contentKind,
+		&bundleSHA256, &checkpointFormat, &dependencySnapshot, &logicalName, &contentBlobID,
 	); err != nil {
 		t.Fatal(err)
 	}
@@ -48,11 +53,12 @@ ORDER BY file.sort_order,file.logical_name LIMIT 1
 		t.Fatal(err)
 	}
 	if _, err := database.ExecContext(ctx, `
-INSERT INTO launch_sessions(id,profile_id,purpose,game_id,game_content_revision_id,game_variant_revision_id,
-core_artifact_id,route_key,return_to,credential_sha256,state,bootstrap_expires_at_ms,hard_expires_at_ms,
-created_at_ms,updated_at_ms)
-VALUES(?,?,'PRODUCT',?,?,?,?,?,'/',?,'CREATED',?,?,?,?)
-`, launchID, profileID, gameID, contentID, revisionID, artifactID, routeKey, make([]byte, 32), now+60_000,
+INSERT INTO launch_sessions(id,profile_id,game_id,core_id,provider_id,target_id,
+bundle_sha256,content_kind,dependency_snapshot_json,compatibility_code,
+return_to,credential_sha256,state,bootstrap_expires_at_ms,hard_expires_at_ms,created_at_ms,updated_at_ms)
+VALUES(?,?,?,?,?,?,?,?,?,?,'/',?,'CREATED',?,?,?,?)
+`, launchID, profileID, gameID, coreID, providerID, targetID, bundleSHA256, contentKind,
+		dependencySnapshot, compatibilityCode, make([]byte, 32), now+60_000,
 		now+120_000, now, now); err != nil {
 		t.Fatal(err)
 	}
@@ -66,14 +72,12 @@ VALUES(?,?,?,'SOURCE_V1',?)
 	stateBlobID := ensureReplacementBlob(t, ctx, database, blobs, statePayload)
 	screenshotBlobID := ensureReplacementBlob(t, ctx, database, blobs, []byte("screenshot-"+saveID))
 	stateDigest := sha256.Sum256(statePayload)
-	dependencyDigest := sha256.Sum256([]byte(dependencySnapshot))
 	if _, err := database.ExecContext(ctx, `
-INSERT INTO save_states(id,profile_id,game_id,game_content_revision_id,game_variant_revision_id,
-core_artifact_id,adapter_abi,save_abi,dependency_snapshot_sha256,payload_blob_id,payload_kind,payload_sha256,
+INSERT INTO save_states(id,profile_id,game_id,checkpoint_format,payload_blob_id,payload_sha256,
 payload_size_bytes,screenshot_blob_id,name,active_duration_ms,created_at_ms,updated_at_ms,source_launch_session_id)
-VALUES(?,?,?,?,?,?,'emulatorjs-state-v1','emulatorjs-state-v1',?,?,'RUNTIME_STATE',?,?,?,'Before replacement',1000,?,?,?)
-`, saveID, profileID, gameID, contentID, revisionID, artifactID,
-		fmt.Sprintf("%x", dependencyDigest), stateBlobID, fmt.Sprintf("%x", stateDigest), len(statePayload),
+VALUES(?,?,?,?,?,?,?,?,'Before replacement',1000,?,?,?)
+`, saveID, profileID, gameID, checkpointFormat,
+		stateBlobID, fmt.Sprintf("%x", stateDigest), len(statePayload),
 		screenshotBlobID, now, now, launchID); err != nil {
 		t.Fatal(err)
 	}
@@ -114,7 +118,7 @@ func assertReplacementFailure(
 		jobID).Scan(&code, &retryable); err != nil {
 		t.Fatal(err)
 	}
-	if err := database.QueryRowContext(ctx, `SELECT current_content_revision_id FROM games WHERE id=?`,
+	if err := database.QueryRowContext(ctx, `SELECT id FROM games WHERE id=?`,
 		gameID).Scan(&contentID); err != nil {
 		t.Fatal(err)
 	}
@@ -140,7 +144,9 @@ func assertSupersededContentReleased(
 	savePayloads []string,
 ) {
 	t.Helper()
-	assertContentPayloadCount(t, ctx, database, oldContentID, 0)
+	if oldContentID != gameID {
+		t.Fatalf("current-state replacement changed game identity: %s != %s", oldContentID, gameID)
+	}
 	var saves, launchFiles int
 	var launchState string
 	if err := database.QueryRowContext(ctx, `
@@ -162,12 +168,6 @@ SELECT
 			t.Fatalf("save payload %s GC candidates = %d, error=%v", blobID, candidates, err)
 		}
 	}
-	var auditRows int
-	if err := database.QueryRowContext(
-		ctx, `SELECT count(*) FROM game_content_revisions WHERE id=? AND game_id=?`, oldContentID, gameID,
-	).Scan(&auditRows); err != nil || auditRows != 1 {
-		t.Fatalf("old content audit rows = %d, error=%v", auditRows, err)
-	}
 }
 
 func assertContentPayloadCount(
@@ -180,7 +180,7 @@ func assertContentPayloadCount(
 	t.Helper()
 	var count int
 	if err := database.QueryRowContext(
-		ctx, `SELECT count(*) FROM game_content_files WHERE game_content_revision_id=?`, contentID,
+		ctx, `SELECT count(*) FROM game_files WHERE game_id=?`, contentID,
 	).Scan(&count); err != nil || count != wanted {
 		t.Fatalf("content %s payload count = %d, want %d, error=%v", contentID, count, wanted, err)
 	}
@@ -196,10 +196,7 @@ func assertBlobReferenceState(
 	t.Helper()
 	var currentReferences int
 	if err := database.QueryRowContext(ctx, `
-SELECT count(*) FROM game_content_files file
-JOIN game_content_revisions revision ON revision.id=file.game_content_revision_id
-JOIN games game ON game.current_content_revision_id=revision.id
-WHERE file.blob_id=?
+SELECT count(*) FROM game_files WHERE blob_id=?
 `, blobID).Scan(&currentReferences); err != nil {
 		t.Fatal(err)
 	}

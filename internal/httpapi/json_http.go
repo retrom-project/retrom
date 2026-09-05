@@ -11,12 +11,8 @@ import (
 	"log/slog"
 	"mime"
 	"net/http"
-	"os"
-	"path/filepath"
-	"sort"
 	"strconv"
 	"strings"
-	"time"
 	"unicode/utf8"
 
 	"retrom/internal/cleanup"
@@ -208,18 +204,8 @@ SELECT digest,media_type FROM (
   AND (i.state='REVIEW_PENDING' OR EXISTS (
     SELECT 1 FROM review_events e WHERE e.import_item_id=i.id AND e.event_type IN ('APPROVED','DISCARDED')
   ))
-  UNION ALL
-  SELECT b.sha256 AS digest,'image/png' AS media_type
-  FROM rpgmaker_runtime_validations validation
-  JOIN blobs b ON b.id=validation.evidence_screenshot_blob_id
-  JOIN import_items i ON i.id=validation.import_item_id
-  WHERE validation.id=?
-  AND (i.state='REVIEW_PENDING' OR EXISTS (
-    SELECT 1 FROM review_events e WHERE e.import_item_id=i.id AND e.event_type IN ('APPROVED','DISCARDED')
-  ))
 ) LIMIT 1
-`, request.PathValue("assetId"), request.PathValue("assetId"), request.PathValue("assetId"),
-		request.PathValue("assetId")).Scan(&digest, &mediaType)
+`, request.PathValue("assetId"), request.PathValue("assetId"), request.PathValue("assetId")).Scan(&digest, &mediaType)
 	if errors.Is(err, sql.ErrNoRows) {
 		kind := request.URL.Query().Get("kind")
 		if kind == "" {
@@ -340,23 +326,41 @@ WHERE parse_status='CANCELLED')
 		server.databaseError(writer, request, err)
 		return
 	}
+	providerRows, err := transaction.QueryContext(request.Context(), `
+SELECT provider_id,provider_version,bundle_sha256,source
+FROM runtime_providers ORDER BY provider_id
+`)
+	if err != nil {
+		server.databaseError(writer, request, err)
+		return
+	}
+	defer func() { cleanup.Error("close provider rows", providerRows.Close()) }()
+	runtimeProviders := make([]map[string]any, 0, 2)
+	for providerRows.Next() {
+		var providerID, providerVersion, bundleSHA256, source string
+		if err := providerRows.Scan(&providerID, &providerVersion, &bundleSHA256, &source); err != nil {
+			server.databaseError(writer, request, err)
+			return
+		}
+		runtimeProviders = append(runtimeProviders, map[string]any{
+			"providerId": providerID, "providerVersion": providerVersion,
+			"bundleSha256": bundleSHA256, "source": source,
+		})
+	}
+	providerErr := providerRows.Err()
+	if providerErr != nil {
+		server.databaseError(writer, request, providerErr)
+		return
+	}
 	if err := transaction.Commit(); err != nil {
 		server.databaseError(writer, request, err)
 		return
 	}
-	versions := make([]string, 0, len(server.dependencies.Versions))
-	for version := range server.dependencies.Versions {
-		versions = append(versions, version)
-	}
-	sort.Slice(versions, func(left, right int) bool { return semverLess(versions[left], versions[right]) })
 	writer.Header().Set("Cache-Control", "private, no-store")
 	writer.Header().Set("Content-Disposition", `attachment; filename="retrom-diagnostics.json"`)
 	writeJSON(writer, http.StatusOK, map[string]any{
-		"schemaVersion": 1, "generatedAtMs": server.now().UnixMilli(), "databaseSchemaVersion": schemaVersion,
-		"dependencies": map[string]any{
-			"configuredEmulatorjsVersions": versions,
-			"activeEmulatorjsVersion":      server.config.ActiveEJSVersion,
-		},
+		"schemaVersion": 2, "generatedAtMs": server.now().UnixMilli(), "databaseSchemaVersion": schemaVersion,
+		"runtimeProviders": runtimeProviders,
 		"counts": map[string]any{
 			"games":      map[string]any{"published": publishedGames, "deleted": deletedGames},
 			"saveStates": map[string]any{"active": activeSaves, "deleted": deletedSaves},
@@ -378,97 +382,6 @@ WHERE parse_status='CANCELLED')
 			},
 		},
 	})
-}
-
-func semverLess(left, right string) bool {
-	leftParts, rightParts := strings.Split(left, "."), strings.Split(right, ".")
-	for index := 0; index < 3; index++ {
-		var leftPart, rightPart int64
-		if index < len(leftParts) {
-			leftPart, _ = strconv.ParseInt(strings.SplitN(leftParts[index], "-", 2)[0], 10, 64)
-		}
-		if index < len(rightParts) {
-			rightPart, _ = strconv.ParseInt(strings.SplitN(rightParts[index], "-", 2)[0], 10, 64)
-		}
-		if leftPart != rightPart {
-			return leftPart < rightPart
-		}
-	}
-	return left < right
-}
-
-func (server *Server) runtimeFile(writer http.ResponseWriter, request *http.Request) {
-	versionName := request.PathValue("configuredVersion")
-	runtimePath := request.PathValue("runtimePath")
-	version := server.dependencies.Versions[versionName]
-	if version == nil {
-		server.notFound(writer, request)
-		return
-	}
-	declaration, ok := version.Allowlist[runtimePath]
-	if !ok {
-		server.notFound(writer, request)
-		return
-	}
-	path := filepath.Join(version.RuntimeRoot, filepath.FromSlash(runtimePath))
-	file, err := os.Open(path)
-	if err != nil {
-		server.notFound(writer, request)
-		return
-	}
-	defer func() { cleanup.Error("close", file.Close()) }()
-	info, err := file.Stat()
-	if err != nil || !info.Mode().IsRegular() || info.Size() != declaration.SizeBytes {
-		writeError(writer, request, http.StatusServiceUnavailable, "DEPENDENCY_INVALID", "运行时依赖不可用", map[string]any{})
-		return
-	}
-	mediaType := mime.TypeByExtension(filepath.Ext(runtimePath))
-	if mediaType == "" {
-		mediaType = "application/octet-stream"
-	}
-	writer.Header().Set("Content-Type", mediaType)
-	writer.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
-	writer.Header().Set("Cross-Origin-Resource-Policy", "same-origin")
-	writer.Header().Set("ETag", `"sha256-`+declaration.SHA256+`"`)
-	http.ServeContent(writer, request, filepath.Base(runtimePath), time.Unix(0, 0), file)
-}
-
-func (server *Server) retromRuntimeFile(writer http.ResponseWriter, request *http.Request) {
-	runtimePath, declaration, ok := server.dependencies.RetromRuntimeFile(
-		request.PathValue("runtimeVersion"), request.PathValue("runtimePath"),
-	)
-	if !ok {
-		server.notFound(writer, request)
-		return
-	}
-	file, err := os.Open(runtimePath)
-	if err != nil {
-		server.notFound(writer, request)
-		return
-	}
-	defer func() { cleanup.Error("close", file.Close()) }()
-	info, err := file.Stat()
-	if err != nil || !info.Mode().IsRegular() || info.Size() != declaration.SizeBytes {
-		writeError(
-			writer, request, http.StatusServiceUnavailable, "DEPENDENCY_INVALID",
-			"浏览器运行时依赖不可用", map[string]any{},
-		)
-		return
-	}
-	mediaType := map[string]string{
-		".js": "application/javascript; charset=utf-8", ".mjs": "application/javascript; charset=utf-8",
-		".wasm": "application/wasm", ".rb": "text/plain; charset=utf-8",
-		".zip": "application/zip",
-	}[strings.ToLower(filepath.Ext(request.PathValue("runtimePath")))]
-	if mediaType == "" {
-		server.notFound(writer, request)
-		return
-	}
-	writer.Header().Set("Content-Type", mediaType)
-	writer.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
-	writer.Header().Set("Cross-Origin-Resource-Policy", "same-origin")
-	writer.Header().Set("ETag", `"sha256-`+declaration.SHA256+`"`)
-	http.ServeContent(writer, request, filepath.Base(runtimePath), time.Unix(0, 0), file)
 }
 
 func (server *Server) notFound(writer http.ResponseWriter, request *http.Request) {

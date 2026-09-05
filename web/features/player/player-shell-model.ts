@@ -30,6 +30,15 @@ export function reportsNativeExit(mode: "single" | "netplay", finishing = false)
   return mode === "single" && !finishing;
 }
 
+export function canResumeFromGameSurface(input: {
+  mode: "single" | "netplay";
+  running: boolean;
+  paused: boolean;
+  chromePinned: boolean;
+}) {
+  return input.mode === "single" && input.running && input.paused && !input.chromePinned;
+}
+
 export function formatPlayerBytes(bytes: number) {
   if (bytes < 1024 * 1024) {return `${(bytes / 1024).toFixed(1)} KiB`;}
   return `${(bytes / (1024 * 1024)).toFixed(1)} MiB`;

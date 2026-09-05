@@ -143,13 +143,13 @@ attach_game_asset \
 launch_body="$(jq -nc --arg game "$game_id" '{gameId:$game,coreId:null,saveStateId:null,dosEntry:null,returnTo:("/games/"+$game),clientCapabilities:{secureContext:true,crossOriginIsolated:true,sharedArrayBuffer:true}}')"
 launch="$(curl --fail --silent --show-error "${common[@]}" "${write[@]}" -H "Content-Type: application/json" -H "Idempotency-Key: $(new_id)" -d "$launch_body" "$backend/api/v1/launches")"
 launch_id="$(jq -r .launchId <<<"$launch")"
-configuration="$(curl --fail --silent --show-error -b "$evidence/cookies" "$backend/runtime/launches/$launch_id/config")"
-game_url="$(jq -r .gameUrl <<<"$configuration")"
+configuration="$(curl --fail --silent --show-error -b "$evidence/cookies" -c "$evidence/cookies" "$backend/runtime/launches/$launch_id/config")"
+game_url="$(jq -er '.resources[] | select(.role=="game" and .ordinal==0) | .url' <<<"$configuration")"
 curl --fail --silent --show-error -b "$evidence/cookies" -H "Range: bytes=0-31" -D "$evidence/range-headers" "$backend$game_url" -o "$evidence/range.bin"
 [[ "$(stat -c %s "$evidence/range.bin")" == "32" ]]
 
 jq -n \
   --arg uploadId "$upload_id" --arg importJobId "$import_id" --arg gameId "$game_id" --arg launchId "$launch_id" \
-  --arg core "$(jq -r .core <<<"$configuration")" --arg adapter "$(jq -r .playerAdapterId <<<"$configuration")" \
+  --arg provider "$(jq -r .runtime.providerId <<<"$configuration")" --arg target "$(jq -r .runtime.targetId <<<"$configuration")" \
   --arg rangeStatus "$(head -1 "$evidence/range-headers" | tr -d '\r')" --arg evidence "$evidence" \
-  '{status:"PASSED",uploadId:$uploadId,importJobId:$importJobId,gameId:$gameId,launchId:$launchId,core:$core,playerAdapterId:$adapter,rangeStatus:$rangeStatus,evidenceDirectory:$evidence}' | tee "$evidence/result.json"
+  '{status:"PASSED",uploadId:$uploadId,importJobId:$importJobId,gameId:$gameId,launchId:$launchId,providerId:$provider,targetId:$target,rangeStatus:$rangeStatus,evidenceDirectory:$evidence}' | tee "$evidence/result.json"

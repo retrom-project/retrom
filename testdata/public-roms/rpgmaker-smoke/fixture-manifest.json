@@ -17,8 +17,8 @@
     {
       "path": "malicious-rpgmv/js/main.js",
       "generation": "RPGMV",
-      "sizeBytes": 6396,
-      "sha256": "4d5e732f715a4cec6acd5531d9d4f03e89d9d37f84e4c24ae95758f6aec44f53"
+      "sizeBytes": 6679,
+      "sha256": "e9d57b7390a85ae753ad4210a40ab0dc365ff6577e35a30bc38f46fb94dc8024"
     },
     {
       "path": "malicious-rpgmv/js/plugins.js",
@@ -89,8 +89,8 @@
     {
       "path": "malicious-rpgmz/js/main.js",
       "generation": "RPGMZ",
-      "sizeBytes": 6396,
-      "sha256": "4d5e732f715a4cec6acd5531d9d4f03e89d9d37f84e4c24ae95758f6aec44f53"
+      "sizeBytes": 6679,
+      "sha256": "e9d57b7390a85ae753ad4210a40ab0dc365ff6577e35a30bc38f46fb94dc8024"
     },
     {
       "path": "malicious-rpgmz/js/plugins.js",
@@ -803,8 +803,8 @@
     {
       "path": "rpgvx/Data/Scripts.rvdata",
       "generation": "RPGVX",
-      "sizeBytes": 1545,
-      "sha256": "fb32db8cc114aeaa57aed317e3f8da18e11936d4e051267fb93dd0bacf2b51ca"
+      "sizeBytes": 1877,
+      "sha256": "4d9fadd5c1d22c8de156152472979547e589150fd7335b968a9c08f855b4970e"
     },
     {
       "path": "rpgvx/Game.ini",
@@ -833,8 +833,8 @@
     {
       "path": "rpgvxace/Data/Scripts.rvdata2",
       "generation": "RPGVXACE",
-      "sizeBytes": 1547,
-      "sha256": "5580a79859dad8cc8c88205ff9ef2e836b66de4672885076b254f85692365f51"
+      "sizeBytes": 1879,
+      "sha256": "42fb5ce5816482da99f9c968ae99a5671c03d6bf4ec852b1cb1fdb274899f8d5"
     },
     {
       "path": "rpgvxace/Game.ini",
@@ -863,8 +863,8 @@
     {
       "path": "rpgxp/Data/Scripts.rxdata",
       "generation": "RPGXP",
-      "sizeBytes": 1545,
-      "sha256": "14f219e901a27b7cc77804ecf547a3dc394718ec7ef2508a694b74220229b5c6"
+      "sizeBytes": 1877,
+      "sha256": "545b38a390d332358d231c5f988eceb0bdae3001eaf7e64455fb03ff3c002fc1"
     },
     {
       "path": "rpgxp/Game.ini",

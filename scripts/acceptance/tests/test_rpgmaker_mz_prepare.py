@@ -21,8 +21,8 @@ class RPGMakerMZPrepareTests(unittest.TestCase):
             provenance = prepare.prepare_archive(
                 source, output, hashlib.sha256(contents).hexdigest(), len(contents),
             )
-            self.assertEqual("RETROM_MZ_MINIMAL_V3", provenance["transformation"]["recipe"])
-            self.assertTrue(provenance["sourceVersion"].endswith("+retrom-minimal-v3"))
+            self.assertEqual("RETROM_MZ_MINIMAL_V4", provenance["transformation"]["recipe"])
+            self.assertTrue(provenance["sourceVersion"].endswith("+retrom-minimal-v4"))
             self.assertEqual(2, len(provenance["transformation"]["injectedFiles"]))
             self.assertEqual(10, len(provenance["transformation"]["removedEntries"]))
             self.assertFalse((output / "save").exists())

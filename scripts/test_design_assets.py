@@ -37,6 +37,25 @@ DESIGN_IMAGE_REFERENCE = re.compile(
 
 
 class DesignAssetBoundaryTests(unittest.TestCase):
+    def test_review_design_uses_ordinary_player_without_runtime_proof_panels(self) -> None:
+        source = (DESIGN_ROOT / "retrom-ui-review.fragment.html").read_text(encoding="utf-8")
+        for removed in ("lastGateSequence", "machine gate", "高级验证", "rt-rpg-player-panel", "第 5 秒"):
+            self.assertFalse(removed in source, removed)
+        self.assertIn("保存审核截图", source)
+        self.assertIn("从检查点恢复试运行", source)
+        self.assertIn("依赖已就绪", source)
+
+    def test_review_screenshot_belongs_to_single_player_not_netplay(self) -> None:
+        source = (DESIGN_ROOT / "retrom-ui-review.fragment.html").read_text(encoding="utf-8")
+        player = source.split('<section class="rt-page" data-page="play">', 1)[1].split(
+            '<section class="rt-page"', 1,
+        )[0]
+        netplay = source.split('data-page="netplay-player"', 1)[1].split(
+            '<section class="rt-page"', 1,
+        )[0]
+        self.assertIn("保存审核截图", player)
+        self.assertNotIn("保存审核截图", netplay)
+
     def test_design_images_are_not_present_as_tracked_files(self) -> None:
         tracked = subprocess.run(
             ["git", "ls-files", "docs/design"],

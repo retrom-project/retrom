@@ -11,7 +11,8 @@ export type BIOSRequirement = {
   id: string;
   coreId: string;
   coreName: string;
-  coreArtifactId: string;
+  providerId: string;
+  targetId: string;
   logicalName: string;
   sourceKind: string;
   requirementMode: string;

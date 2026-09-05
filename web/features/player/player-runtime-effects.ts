@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, type Dispatch, type RefObject, type SetStateAction } from "react";
-import type { EmulatorInstance, PlayerConfig } from "./adapters/ejs-4.2.3-v2";
+import type {PlayerRuntimeV1} from "./runtime/contract";
 import { samplePlayerDebugMetrics, type PlayerDebugMetrics, type PlayerDebugSample } from "./player-debug";
 import type { NetplayController } from "./netplay/controller";
 import { shouldAutoHidePlayerControls } from "./player-controls-visibility";
@@ -10,9 +10,9 @@ type Mutable<T> = { current: T };
 
 type RuntimeEffectParams = {
   state: "loading" | "running" | "error"; debugOpen: boolean; orientationBlocked: boolean;
-  emulator: Mutable<EmulatorInstance | undefined>; frameRef: RefObject<HTMLIFrameElement | null>; orientationButtonRef: RefObject<HTMLButtonElement | null>;
+  runtime: Mutable<PlayerRuntimeV1 | null>; orientationButtonRef: RefObject<HTMLButtonElement | null>;
   running: Mutable<boolean>; pausedRef: Mutable<boolean>; chromePinned: Mutable<boolean>; controlsTimer: Mutable<number | null>;
-  playerMode: Mutable<PlayerConfig["mode"]>; netplayController: Mutable<NetplayController | null>;
+  playerMode: Mutable<"single" | "netplay">; netplayController: Mutable<NetplayController | null>;
   clearControlsTimer: () => void; setControlsVisible: Dispatch<SetStateAction<boolean>>; setFullscreen: Dispatch<SetStateAction<boolean>>;
   setDebugOpen: Dispatch<SetStateAction<boolean>>; setDebugMetrics: Dispatch<SetStateAction<PlayerDebugMetrics | null>>;
 };
@@ -40,8 +40,8 @@ export function usePlayerRuntimeEffects(params: RuntimeEffectParams) {
     if (!params.debugOpen) {return;}
     let previous: PlayerDebugSample | null = null;
     const sample = () => {
-      const canvas = params.emulator.current?.canvas ?? params.frameRef.current?.contentDocument?.querySelector("canvas") ?? null;
-      const result = samplePlayerDebugMetrics(params.emulator.current, canvas, previous, performance.now(), { width: window.innerWidth, height: window.innerHeight, devicePixelRatio: window.devicePixelRatio });
+      const canvas = params.runtime.current?.getCanvas() ?? null;
+      const result = samplePlayerDebugMetrics(params.runtime.current, canvas, previous, performance.now(), { width: window.innerWidth, height: window.innerHeight, devicePixelRatio: window.devicePixelRatio });
       previous = result.sample;
       params.setDebugMetrics(result.metrics);
     };

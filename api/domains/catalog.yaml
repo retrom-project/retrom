@@ -85,10 +85,10 @@ paths:
       - $ref: ../components/common.yaml#/components/parameters/GameID
     get:
       operationId: getAdminGame
-      description: Returns the complete management workbench projection and a generatedAtMs timestamp for deterministic relative-time presentation.
+      description: Returns the current management workbench projection and a generatedAtMs timestamp for deterministic relative-time presentation.
       responses:
         '200':
-          $ref: ../components/common.yaml#/components/responses/JSONResponse
+          $ref: '#/components/responses/AdminGameDetailResponse'
     patch:
       operationId: patchAdminGame
       parameters:
@@ -97,7 +97,7 @@ paths:
         $ref: '#/components/requestBodies/MetadataFields'
       responses:
         '200':
-          $ref: ../components/common.yaml#/components/responses/JSONResponse
+          $ref: '#/components/responses/GameMutationResponse'
     delete:
       operationId: deleteAdminGame
       description: Permanently releases every game-owned and game-runtime payload while retaining a textual tombstone and relationship/history records. The impact digest must match the current management projection.
@@ -129,7 +129,7 @@ paths:
       - $ref: ../components/common.yaml#/components/parameters/GameID
     post:
       operationId: postAdminGameAsset
-      description: Creates a complete current media revision, retires all prior GameAsset leaves, and stages newly unreferenced payload for retention-aware GC.
+      description: Replaces the selected current media slot and stages newly unreferenced payload for retention-aware GC.
       parameters:
         - $ref: ../components/common.yaml#/components/parameters/IfMatch
         - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey
@@ -144,19 +144,19 @@ paths:
       - $ref: '#/components/parameters/GameAssetKind'
     delete:
       operationId: deleteAdminGameAsset
-      description: Removes the selected media kind by creating a new immutable metadata revision with the remaining complete media set, then retires prior GameAsset leaves.
+      description: Removes the selected media kind from the game's current media set and stages newly unreferenced payload for retention-aware GC.
       parameters:
         - $ref: ../components/common.yaml#/components/parameters/IfMatch
         - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey
       responses:
         '204':
           description: Asset kind removed
-  /api/v1/admin/games/{gameId}/content-revisions:
+  /api/v1/admin/games/{gameId}/content-replacement:
     parameters:
       - $ref: ../components/common.yaml#/components/parameters/GameID
     post:
-      operationId: postAdminGameContentRevision
-      description: Schedules a destructive complete content replacement. Byte-identical single-ROM content or the same ordered multi-disc hashes fail terminally with GAME_CONTENT_UNCHANGED. A successful switch retires old content/runtime payload and deletes saves bound to superseded revisions; a failed replacement changes none of them. contentMode defaults strictly to STANDARD; MULTI_DISC_M3U_V1 requires a complete DIRECTORY upload and never uses review attachment repair.
+      operationId: postAdminGameContentReplacement
+      description: Schedules an atomic complete content replacement. Byte-identical single-ROM content or the same ordered multi-disc hashes fail terminally with GAME_CONTENT_UNCHANGED. A successful switch updates current game files and the current variant together while preserving saves; a failed replacement changes neither. contentMode defaults strictly to STANDARD; MULTI_DISC requires a complete DIRECTORY upload and never uses review attachment repair.
       parameters:
         - $ref: ../components/common.yaml#/components/parameters/IfMatch
         - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey
@@ -170,7 +170,7 @@ paths:
       - $ref: ../components/common.yaml#/components/parameters/GameID
     get:
       operationId: getAdminGameScrapeCandidates
-      description: Returns the latest candidate metadata, evidence, hit counts, and candidate media assets for the current content revision.
+      description: Returns the latest candidate metadata, evidence, hit counts, and candidate media assets for the game's current content.
       responses:
         '200':
           $ref: ../components/common.yaml#/components/responses/JSONResponse
@@ -229,16 +229,16 @@ paths:
   /api/v1/admin/platforms:
     get:
       operationId: getAdminPlatforms
-      description: The platform/core catalog. Each core projects netplaySupported from the exact platform, enabled CoreArtifact version and SHA-256 recorded in the current netplay manifest; it is a core capability marker, not per-game eligibility.
+      description: The platform/core catalog. Each core projects netplaySupported from its active Provider Target and current netplay profile; it is a core capability marker, not per-game eligibility.
       responses:
         '200':
           $ref: ../components/common.yaml#/components/responses/JSONResponse
-  /api/v1/admin/core-artifacts:
+  /api/v1/admin/runtime-targets:
     get:
-      operationId: getAdminCoreArtifacts
+      operationId: getAdminRuntimeTargets
       responses:
         '200':
-          $ref: '#/components/responses/CoreArtifactListResponse'
+          $ref: '#/components/responses/RuntimeTargetListResponse'
   /api/v1/admin/platform-instances:
     get:
       operationId: getAdminPlatformInstances
@@ -345,7 +345,8 @@ paths:
         - $ref: ../components/common.yaml#/components/parameters/Q
         - $ref: ../components/common.yaml#/components/parameters/PlatformIDQuery
         - $ref: ../components/common.yaml#/components/parameters/CoreIDQuery
-        - $ref: '#/components/parameters/CoreArtifactIDQuery'
+        - $ref: '#/components/parameters/ProviderIDQuery'
+        - $ref: '#/components/parameters/TargetIDQuery'
         - $ref: '#/components/parameters/Scope'
         - $ref: ../components/common.yaml#/components/parameters/Status
         - $ref: '#/components/parameters/BIOSQuick'
@@ -550,26 +551,337 @@ components:
           maxItems: 20
           items:
             $ref: ../components/common.yaml#/components/schemas/TagReference
-    CoreArtifactAdminItem:
+    GameMutationResult:
+      type: object
+      additionalProperties: false
+      required:
+        - gameId
+        - version
+      properties:
+        gameId:
+          type: string
+          format: uuid
+        version:
+          type: integer
+          format: int64
+          minimum: 1
+    AdminGameFile:
+      type: object
+      additionalProperties: false
+      required:
+        - role
+        - logicalName
+        - sortOrder
+        - sizeBytes
+        - sha256
+      properties:
+        role:
+          type: string
+        logicalName:
+          type: string
+        sortOrder:
+          type: integer
+          minimum: 0
+        sizeBytes:
+          type: integer
+          format: int64
+          minimum: 0
+        sha256:
+          type: string
+          pattern: ^[0-9a-f]{64}$
+    AdminGameAsset:
+      type: object
+      additionalProperties: false
+      required:
+        - assetId
+        - kind
+        - ordinal
+        - widthPx
+        - heightPx
+        - mediaType
+        - url
+      properties:
+        assetId:
+          type: string
+          format: uuid
+        kind:
+          type: string
+        ordinal:
+          type: integer
+          minimum: 0
+        widthPx:
+          type: integer
+          nullable: true
+          minimum: 1
+        heightPx:
+          type: integer
+          nullable: true
+          minimum: 1
+        mediaType:
+          type: string
+        url:
+          type: string
+    AdminGameVariant:
       type: object
       additionalProperties: false
       required:
         - id
         - coreId
         - coreName
-        - routeKey
-        - runtimeFamily
-        - runtimeAdapterKind
-        - runtimeVersion
-        - adapterId
-        - selectedForNewBindings
-        - availableForLaunch
+        - providerId
+        - targetId
+        - datVersionId
+        - status
+        - compatibilityCode
+        - dependencySnapshot
         - version
-        - sizeBytes
+        - createdAtMs
+        - updatedAtMs
       properties:
         id:
           type: string
           format: uuid
+        coreId:
+          type: string
+        coreName:
+          type: string
+        providerId:
+          type: string
+          nullable: true
+        targetId:
+          type: string
+          nullable: true
+        datVersionId:
+          type: string
+          nullable: true
+        status:
+          type: string
+        compatibilityCode:
+          type: string
+        dependencySnapshot:
+          type: object
+          additionalProperties: true
+        version:
+          type: integer
+          format: int64
+          minimum: 1
+        createdAtMs:
+          type: integer
+          format: int64
+          minimum: 0
+        updatedAtMs:
+          type: integer
+          format: int64
+          minimum: 0
+    AdminGameDeleteImpact:
+      type: object
+      additionalProperties: false
+      required:
+        - impactDigest
+        - registeredBytes
+        - exclusiveBytes
+        - sharedBytes
+        - blobCount
+        - saveStateCount
+        - assetCount
+        - contentFileCount
+        - activeLaunchCount
+        - activeNetplayCount
+        - reviewEventCount
+        - sourceKinds
+      properties:
+        impactDigest:
+          type: string
+          pattern: ^[0-9a-f]{64}$
+        registeredBytes:
+          type: string
+          pattern: ^[0-9]+$
+        exclusiveBytes:
+          type: string
+          pattern: ^[0-9]+$
+        sharedBytes:
+          type: string
+          pattern: ^[0-9]+$
+        blobCount:
+          type: integer
+          minimum: 0
+        saveStateCount:
+          type: integer
+          minimum: 0
+        assetCount:
+          type: integer
+          minimum: 0
+        contentFileCount:
+          type: integer
+          minimum: 0
+        activeLaunchCount:
+          type: integer
+          minimum: 0
+        activeNetplayCount:
+          type: integer
+          minimum: 0
+        reviewEventCount:
+          type: integer
+          minimum: 0
+        sourceKinds:
+          type: array
+          items:
+            type: string
+    AdminGameDetail:
+      type: object
+      additionalProperties: false
+      required:
+        - gameId
+        - status
+        - payloadState
+        - payloadReleaseJobId
+        - payloadLastErrorCode
+        - title
+        - description
+        - developer
+        - publisher
+        - genre
+        - players
+        - releaseYear
+        - platformId
+        - platformInstance
+        - contentKind
+        - files
+        - version
+        - createdAtMs
+        - updatedAtMs
+        - generatedAtMs
+        - deletedAtMs
+        - deleteImpact
+        - assets
+        - variants
+        - tags
+      properties:
+        gameId:
+          type: string
+          format: uuid
+        status:
+          type: string
+        payloadState:
+          type: string
+          enum:
+            - RETAINED
+            - RELEASING
+            - RELEASED
+            - FAILED
+        payloadReleaseJobId:
+          type: string
+          format: uuid
+          nullable: true
+        payloadLastErrorCode:
+          type: string
+          nullable: true
+        title:
+          type: string
+        description:
+          type: string
+        developer:
+          type: string
+        publisher:
+          type: string
+        genre:
+          type: string
+        players:
+          type: integer
+          nullable: true
+          minimum: 1
+        releaseYear:
+          type: integer
+          nullable: true
+        platformId:
+          type: string
+        platformInstance:
+          type: object
+          additionalProperties: false
+          required:
+            - id
+            - name
+          properties:
+            id:
+              type: string
+              format: uuid
+            name:
+              type: string
+        contentKind:
+          type: string
+        files:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdminGameFile'
+        version:
+          type: integer
+          format: int64
+          minimum: 1
+        createdAtMs:
+          type: integer
+          format: int64
+          minimum: 0
+        updatedAtMs:
+          type: integer
+          format: int64
+          minimum: 0
+        generatedAtMs:
+          type: integer
+          format: int64
+          minimum: 0
+        deletedAtMs:
+          type: integer
+          format: int64
+          nullable: true
+          minimum: 0
+        deleteImpact:
+          $ref: '#/components/schemas/AdminGameDeleteImpact'
+        assets:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdminGameAsset'
+        variants:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdminGameVariant'
+        tags:
+          type: array
+          maxItems: 20
+          items:
+            $ref: ../components/common.yaml#/components/schemas/TagReference
+    RuntimeTargetAdminItem:
+      type: object
+      additionalProperties: false
+      required:
+        - providerId
+        - providerVersion
+        - providerApiVersion
+        - bundleSha256
+        - targetId
+        - displayName
+        - coreId
+        - coreName
+        - launchPolicy
+      properties:
+        providerId:
+          type: string
+          pattern: ^[a-z0-9]+(?:-[a-z0-9]+)*$
+        providerVersion:
+          type: string
+        providerApiVersion:
+          type: integer
+          enum:
+            - 1
+        bundleSha256:
+          type: string
+          pattern: ^[0-9a-f]{64}$
+        targetId:
+          type: string
+          pattern: ^[a-z0-9]+(?:-[a-z0-9]+)*$
+        displayName:
+          type: string
+          minLength: 1
+          maxLength: 120
         coreId:
           type: string
           pattern: ^[a-z0-9_]{1,64}$
@@ -577,38 +889,13 @@ components:
           type: string
           minLength: 1
           maxLength: 200
-        routeKey:
+        launchPolicy:
           type: string
-          pattern: ^[A-Z][A-Z0-9_]{0,159}$
-        runtimeFamily:
-          type: string
-          minLength: 1
-          maxLength: 64
-        runtimeAdapterKind:
-          type: string
-          minLength: 1
-          maxLength: 64
-        runtimeVersion:
-          type: string
-          minLength: 1
-          maxLength: 160
-        adapterId:
-          type: string
-          minLength: 1
-          maxLength: 160
-        selectedForNewBindings:
-          type: boolean
-        availableForLaunch:
-          type: boolean
-        version:
-          type: integer
-          format: int64
-          minimum: 1
-        sizeBytes:
-          type: integer
-          format: int64
-          minimum: 0
-    CoreArtifactList:
+          enum:
+            - SUPPORTED
+            - EXPERIMENTAL
+            - DISABLED
+    RuntimeTargetList:
       type: object
       additionalProperties: false
       required:
@@ -618,7 +905,7 @@ components:
         items:
           type: array
           items:
-            $ref: '#/components/schemas/CoreArtifactAdminItem'
+            $ref: '#/components/schemas/RuntimeTargetAdminItem'
         nextCursor:
           type: string
           nullable: true
@@ -694,12 +981,12 @@ components:
           type: string
           enum:
             - STANDARD
-            - MULTI_DISC_M3U_V1
-            - RPG_MAKER_PROJECT_V1
-            - ONS_PROJECT_V1
-            - KIRIKIRI_PROJECT_V1
-            - BUTTERSCOTCH_PROJECT_V1
-            - TYRANOSCRIPT_PROJECT_V1
+            - MULTI_DISC
+            - RPG_MAKER_PROJECT
+            - ONS_PROJECT
+            - KIRIKIRI_PROJECT
+            - BUTTERSCOTCH_PROJECT
+            - TYRANOSCRIPT_PROJECT
           default: STANDARD
     ApplyCandidateRequest:
       type: object
@@ -1100,7 +1387,8 @@ components:
         - id
         - coreId
         - coreName
-        - coreArtifactId
+        - providerId
+        - targetId
         - logicalName
         - sourceKind
         - requirementMode
@@ -1117,8 +1405,12 @@ components:
           type: string
         coreName:
           type: string
-        coreArtifactId:
+        providerId:
           type: string
+          pattern: ^[a-z0-9]+(?:-[a-z0-9]+)*$
+        targetId:
+          type: string
+          pattern: ^[a-z0-9]+(?:-[a-z0-9]+)*$
         logicalName:
           type: string
         sourceKind:
@@ -1343,12 +1635,22 @@ components:
           schema:
             $ref: '#/components/schemas/DefaultCoreRequest'
   responses:
-    CoreArtifactListResponse:
-      description: Administrative immutable runtime artifact catalog
+    AdminGameDetailResponse:
+      description: Current game management projection
+      headers:
+        ETag:
+          schema:
+            type: string
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/CoreArtifactList'
+            $ref: '#/components/schemas/AdminGameDetail'
+    RuntimeTargetListResponse:
+      description: Administrative immutable Runtime Target catalog
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/RuntimeTargetList'
     PlatformInstanceRecommendationsResponse:
       description: Recommended platform/core directory catalog and current coverage
       content:
@@ -1393,6 +1695,16 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/GameTagsResult'
+    GameMutationResponse:
+      description: Current game state after a successful mutation
+      headers:
+        ETag:
+          schema:
+            type: string
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/GameMutationResult'
     BIOSListResponse:
       description: Cursor-paged BIOS catalog with scope-wide aggregates
       content:
@@ -1419,12 +1731,18 @@ components:
           - NAME_ASC
           - UPDATED_DESC
         default: NAME_ASC
-    CoreArtifactIDQuery:
-      name: coreArtifactId
+    ProviderIDQuery:
+      name: providerId
       in: query
       schema:
         type: string
-        format: uuid
+        pattern: ^[a-z0-9]+(?:-[a-z0-9]+)*$
+    TargetIDQuery:
+      name: targetId
+      in: query
+      schema:
+        type: string
+        pattern: ^[a-z0-9]+(?:-[a-z0-9]+)*$
     Enabled:
       name: enabled
       in: query

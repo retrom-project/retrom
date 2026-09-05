@@ -5,7 +5,6 @@ package launch
 import (
 	"bytes"
 	"context"
-	"database/sql"
 	"errors"
 	"path/filepath"
 	"runtime"
@@ -43,10 +42,11 @@ func TestMelonDSExternalBIOSIsLockedPerLaunch(t *testing.T) {
 	testassert.False(t, err != nil, err)
 	credentials, err := retromruntime.LoadOrCreateCredentials(dataDir)
 	testassert.False(t, err != nil, err)
-	var artifactID, platformInstanceID string
-	if err := database.SQL.QueryRowContext(ctx, `SELECT id FROM core_artifacts WHERE core_id='melonds' AND selected_for_new_bindings=1`).Scan(&artifactID); err != nil {
+	target, err := testsupport.LookupRuntimeTarget(ctx, database.SQL, "melonds")
+	if err != nil {
 		t.Fatal(err)
 	}
+	var platformInstanceID string
 	if err := database.SQL.QueryRowContext(ctx, `SELECT id FROM platform_instances WHERE platform_id='nds' AND enabled=1`).Scan(&platformInstanceID); err != nil {
 		t.Fatal(err)
 	}
@@ -54,9 +54,9 @@ func TestMelonDSExternalBIOSIsLockedPerLaunch(t *testing.T) {
 	rows, err := database.SQL.QueryContext(ctx, `
 SELECT id,logical_name,emulator_path,version
 FROM bios_requirements
-WHERE core_artifact_id=? AND delivery_kind='EXTERNAL_FILE' AND enabled=1
+WHERE provider_id=? AND target_id=? AND delivery_kind='EXTERNAL_FILE' AND enabled=1
 ORDER BY logical_name
-`, artifactID)
+`, target.ProviderID, target.TargetID)
 	testassert.False(t, err != nil, err)
 	for rows.Next() {
 		var item melondsRequirement
@@ -99,11 +99,11 @@ VALUES(?,?,?,?,?,?,?,?,?,'HASH_WARNING','{}',?,1,?,?)
 	testassert.False(t, err != nil, err)
 	gameBlobID, err := blobstore.EnsureRecord(ctx, database.SQL, gameMetadata, "application/octet-stream", time.Now().UnixMilli())
 	testassert.False(t, err != nil, err)
-	snapshot, status, _, err := corevalidation.ResolveBIOS(ctx, database.SQL, artifactID, "game.nds")
+	snapshot, status, _, err := corevalidation.ResolveBIOS(
+		ctx, database.SQL, target.ProviderID, target.TargetID, "game.nds",
+	)
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return status != "READY" }), "MelonDS BIOS snapshot = %#v/%s, error=%v", snapshot, status, err)
-	contentID, gameID, metadataID, variantID, revisionID := newUUID(), newUUID(), newUUID(), newUUID(), newUUID()
-	digest, err := corevalidation.ValidationInputDigest(artifactID, contentID, sql.NullString{}, snapshot)
-	testassert.False(t, err != nil, err)
+	gameID, variantID := newUUID(), newUUID()
 	snapshotJSON, err := snapshot.JSON()
 	testassert.False(t, err != nil, err)
 	now := time.Now().UnixMilli()
@@ -114,18 +114,17 @@ VALUES(?,?,?,?,?,?,?,?,?,'HASH_WARNING','{}',?,1,?,?)
 		query string
 		args  []any
 	}{
-		{`PRAGMA defer_foreign_keys=ON`, nil},
-		{`INSERT INTO game_metadata_revisions(id,game_id,title,title_initial,description,developer,publisher,genre,players,release_year,source_kind,source_ref_id,created_at_ms)
-VALUES(?,?,'MelonDS fixture','M','','','','',NULL,NULL,'IMPORT_REVIEW','fixture',?)`, []any{metadataID, gameID, now}},
-		{`INSERT INTO game_content_revisions(id,game_id,source_kind,source_ref_id,source_manifest_json,source_manifest_digest,created_at_ms)
-VALUES(?,?,'IMPORT_REVIEW','fixture','{}',?,?)`, []any{contentID, gameID, strings.Repeat("a", 64), now}},
-		{`INSERT INTO games(id,platform_instance_id,status,current_metadata_revision_id,current_content_revision_id,search_text,version,created_at_ms,updated_at_ms)
-VALUES(?,?,'PUBLISHED',?,?,'melonds fixture',1,?,?)`, []any{gameID, platformInstanceID, metadataID, contentID, now, now}},
-		{`INSERT INTO game_content_files(game_content_revision_id,role,logical_name,blob_id,sort_order) VALUES(?,'CONTENT','game.nds',?,0)`, []any{contentID, gameBlobID}},
-		{`INSERT INTO game_variants(id,game_id,core_id,current_revision_id,version,created_at_ms,updated_at_ms) VALUES(?,?,'melonds',NULL,1,?,?)`, []any{variantID, gameID, now, now}},
-		{`INSERT INTO game_variant_revisions(id,game_variant_id,game_content_revision_id,core_artifact_id,route_key,dat_version_id,validation_input_digest,emulator_game_id,status,compatibility_code,dependency_snapshot_json,created_at_ms)
-VALUES(?,?,?,?,'DEFAULT',NULL,?,8100,'READY','READY',?,?)`, []any{revisionID, variantID, contentID, artifactID, digest, string(snapshotJSON), now}},
-		{`UPDATE game_variants SET current_revision_id=? WHERE id=?`, []any{revisionID, variantID}},
+		{`INSERT INTO games(
+id,platform_instance_id,title,title_initial,description,developer,publisher,genre,players,release_year,
+metadata_source_kind,metadata_source_ref_id,content_kind,content_source_kind,content_source_ref_id,
+source_manifest_json,source_manifest_digest,status,search_text,version,created_at_ms,updated_at_ms)
+VALUES(?,?,'MelonDS fixture','M','','','','',NULL,NULL,'IMPORT_REVIEW','fixture','SINGLE_FILE',
+'IMPORT_REVIEW','fixture','{}',?,'PUBLISHED','melonds fixture',1,?,?)`, []any{gameID, platformInstanceID, strings.Repeat("a", 64), now, now}},
+		{`INSERT INTO game_files(game_id,role,logical_name,blob_id,sort_order) VALUES(?,'CONTENT','game.nds',?,0)`, []any{gameID, gameBlobID}},
+		{`INSERT INTO game_variants(
+id,game_id,core_id,provider_id,target_id,dat_version_id,emulator_game_id,status,compatibility_code,
+dependency_snapshot_json,version,created_at_ms,updated_at_ms)
+VALUES(?,?,'melonds',?,?,NULL,8100,'READY','READY',?,1,?,?)`, []any{variantID, gameID, target.ProviderID, target.TargetID, string(snapshotJSON), now, now}},
 	}
 	for _, statement := range statements {
 		if _, err := transaction.ExecContext(ctx, statement.query, statement.args...); err != nil {
@@ -135,7 +134,10 @@ VALUES(?,?,?,?,'DEFAULT',NULL,?,8100,'READY','READY',?,?)`, []any{revisionID, va
 	if err := transaction.Commit(); err != nil {
 		t.Fatal(err)
 	}
-	service := New(database.SQL, dependencySet, credentials, time.Now)
+	runtimeBuilder, err := testsupport.NewRuntimeBuilder(ctx, database.SQL)
+	testassert.False(t, err != nil, err)
+	service := New(database.SQL, dependencySet, credentials, time.Now).
+		WithRuntimeProvider(dependencySet.RuntimeCatalog, runtimeBuilder)
 	capabilities := Capabilities{SecureContext: true, CrossOriginIsolated: true, SharedArrayBuffer: true}
 	melonds := "melonds"
 	oldLaunch, err := service.Create(ctx, "local", CreateRequest{GameID: gameID, CoreID: &melonds, ReturnTo: "/games/" + gameID, ClientCapabilities: capabilities})
@@ -179,7 +181,21 @@ func assertMelonDSLaunch(
 ) {
 	t.Helper()
 	configuration, err := service.Config(ctx, launch.LaunchID, launch.Capability)
-	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return configuration.Core != "melonds" }, func() bool { return configuration.RuntimeCore != "melonds" }, func() bool { return configuration.InputMode != "POINTER" }, func() bool { return len(configuration.ExternalFiles) != 3 }), "MelonDS config = %#v, error=%v", configuration, err)
+	testassert.False(t, err != nil, err)
+	envelope := testsupport.RuntimeEnvelope(t, configuration)
+	runtimeIdentity := testsupport.RuntimeEnvelopeObject(t, envelope, "runtime")
+	external := testsupport.RuntimeEnvelopeResource(t, envelope, "external")
+	externalFiles := testsupport.RuntimeResourceFiles(t, external)
+	testassert.Falsef(t, testassert.Any(
+		func() bool { return runtimeIdentity["targetId"] != "melonds" },
+		func() bool { return len(externalFiles) != 3 },
+	), "MelonDS envelope = %#v", envelope)
+	byVirtualPath := make(map[string]string, len(externalFiles))
+	for _, file := range externalFiles {
+		virtualPath, _ := file["virtualPath"].(string)
+		url, _ := file["url"].(string)
+		byVirtualPath[virtualPath] = url
+	}
 	for _, item := range requirements {
 		digest, blobErr := service.ExternalBlob(ctx, launch.LaunchID, launch.Capability, item.logicalName)
 		expectedDigest := item.oldDigest
@@ -191,8 +207,8 @@ func assertMelonDSLaunch(
 		testassert.CheckFalsef(t, testassert.Any(
 			func() bool { return identityErr != nil },
 			func() bool { return urlErr != nil },
-			func() bool { return configuration.ExternalFiles[item.virtualPath] != expectedURL },
-		), "external mapping %s = %q", item.virtualPath, configuration.ExternalFiles[item.virtualPath])
+			func() bool { return byVirtualPath[strings.TrimPrefix(item.virtualPath, "/")] != expectedURL },
+		), "external mapping %s = %q", item.virtualPath, byVirtualPath[strings.TrimPrefix(item.virtualPath, "/")])
 		testassert.CheckFalsef(t, testassert.Any(func() bool { return blobErr != nil }, func() bool { return digest != expectedDigest }), "external %s = %s, error=%v", item.logicalName, digest, blobErr)
 	}
 	bundle, err := service.BundleFiles(ctx, launch.LaunchID, launch.Capability, "BIOS_BUNDLE")

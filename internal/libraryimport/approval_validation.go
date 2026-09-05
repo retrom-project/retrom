@@ -108,7 +108,7 @@ WHERE id=?
 func prepareStaticBIOSDependencies(
 	ctx context.Context,
 	transaction *sql.Tx,
-	artifactID, platformID string,
+	providerID, targetID, platformID string,
 	groups []preparedGroup,
 ) error {
 	if skipsStaticBIOS(platformID) {
@@ -122,10 +122,18 @@ func prepareStaticBIOSDependencies(
 				break
 			}
 		}
-		if logicalName == "" && platformID != "dos" {
+		// DOS imports consist exclusively of DOS_SOURCE entries. The selected
+		// default program is the stable content identity used for conditional
+		// dependency evaluation, just as CONTENT/DISC is for other platforms.
+		if logicalName == "" && platformID == "dos" {
+			logicalName = groups[index].defaultDOSEntry
+		}
+		if logicalName == "" {
 			return ErrInvalid
 		}
-		snapshot, status, code, err := corevalidation.ResolveBIOS(ctx, transaction, artifactID, logicalName)
+		snapshot, status, code, err := corevalidation.ResolveBIOS(
+			ctx, transaction, providerID, targetID, logicalName,
+		)
 		if err != nil {
 			return fmt.Errorf("libraryimport/service: %w", err)
 		}
@@ -278,10 +286,11 @@ FROM import_item_source_snapshot_files WHERE source_snapshot_id=?
 func validateMultiDiscApproval(
 	ctx context.Context,
 	transaction *sql.Tx,
-	sourceSnapshotID, validationID, platformID, compatibility string,
+	sourceSnapshotID, validationID, platformID string,
+	contentPolicy contentcapability.Policy,
 	snapshot corevalidation.Snapshot,
 ) error {
-	capabilities := contentcapability.Resolve(platformID, true, true, compatibility)
+	capabilities := contentcapability.Resolve(platformID, true, true, contentPolicy)
 	if capabilities.MultiDisc == nil || snapshot.MultiDisc == nil ||
 		len(snapshot.MultiDisc.MissingEntries) != 0 {
 		return ErrInvalid
@@ -310,24 +319,18 @@ WHERE import_item_core_validation_id=? AND role='MULTI_DISC_PLAYLIST'
 func validateCurrentApprovalSnapshot(
 	ctx context.Context,
 	transaction *sql.Tx,
-	sourceSnapshotID, validationID, platformID, artifactID, compatibility, contentKind string,
+	sourceSnapshotID, validationID, platformID, providerID, targetID string,
+	contentPolicy contentcapability.Policy,
+	contentKind string,
 	validationSnapshot corevalidation.Snapshot,
 	frozenJSON string,
 ) error {
-	var contentLogicalName string
-	if err := transaction.QueryRowContext(ctx, `
-SELECT COALESCE(
-  MAX(CASE WHEN role='CONTENT' THEN logical_name END),
-  MAX(CASE WHEN role='DISC' AND sort_order=0 THEN logical_name END),
-  ''
-)
-FROM import_item_source_snapshot_files
-WHERE source_snapshot_id=?
-`, sourceSnapshotID).Scan(&contentLogicalName); err != nil {
-		return fmt.Errorf("libraryimport/service: %w", err)
+	contentLogicalName, err := snapshotContentLogicalName(ctx, transaction, sourceSnapshotID)
+	if err != nil {
+		return err
 	}
 	currentSnapshot, validationStatus, _, err := corevalidation.ResolveBIOS(
-		ctx, transaction, artifactID, contentLogicalName,
+		ctx, transaction, providerID, targetID, contentLogicalName,
 	)
 	if err != nil || validationStatus != "READY" {
 		return ErrInvalid
@@ -341,7 +344,7 @@ WHERE source_snapshot_id=?
 		return nil
 	}
 	return validateMultiDiscApproval(
-		ctx, transaction, sourceSnapshotID, validationID, platformID, compatibility, validationSnapshot,
+		ctx, transaction, sourceSnapshotID, validationID, platformID, contentPolicy, validationSnapshot,
 	)
 }
 
@@ -421,7 +424,7 @@ func (service *Service) validateCurrentArcadeApprovalSnapshot(
 	validationID, frozenJSON string,
 ) error {
 	frozen, valid := parseArcadeDraftSnapshot(frozenJSON)
-	if !valid || frozen.SchemaVersion != 2 || len(frozen.MissingEntries) != 0 ||
+	if !valid || len(frozen.MissingEntries) != 0 ||
 		len(frozen.MismatchedEntries) != 0 {
 		return ErrInvalid
 	}
@@ -467,13 +470,15 @@ func projectedClosureDependencies(raw json.RawMessage) []arcadeClosureNode {
 func (service *Service) validateCurrentApprovalDependencySnapshot(
 	ctx context.Context,
 	transaction *sql.Tx,
-	sourceSnapshotID, validationID, platformID, artifactID, compatibility, contentKind, frozenJSON string,
+	sourceSnapshotID, validationID, platformID, providerID, targetID string,
+	contentPolicy contentcapability.Policy,
+	contentKind, frozenJSON string,
 ) error {
 	snapshot, err := corevalidation.ParseSnapshot(frozenJSON)
 	if err == nil {
 		return validateCurrentApprovalSnapshot(
-			ctx, transaction, sourceSnapshotID, validationID, platformID, artifactID,
-			compatibility, contentKind, snapshot, frozenJSON,
+			ctx, transaction, sourceSnapshotID, validationID, platformID, providerID, targetID,
+			contentPolicy, contentKind, snapshot, frozenJSON,
 		)
 	}
 	if platformID != "arcade" || contentKind != "SINGLE_FILE" {
@@ -501,22 +506,28 @@ func screenshotOverrideRuntimeSnapshot(snapshot corevalidation.Snapshot) coreval
 }
 
 type approvalValidationDigestInput struct {
-	VariantID, ContentID, ContentKind, ArtifactID, ArtifactCompatibility string
-	ArtifactVersion                                                      int64
-	DATID                                                                sql.NullString
-	ValidationID                                                         string
-	Snapshot                                                             corevalidation.Snapshot
-	SnapshotValid                                                        bool
+	VariantID, ContentID, ContentKind, ProviderID, TargetID string
+	ContentPolicy                                           contentcapability.Policy
+	DATID                                                   sql.NullString
+	ValidationID                                            string
+	Snapshot                                                corevalidation.Snapshot
+	SnapshotValid                                           bool
 }
 
 func approvalValidationInputDigest(input approvalValidationDigestInput) (string, error) {
 	if !input.SnapshotValid {
-		validationDigest := sha256.Sum256([]byte(input.ValidationID))
-		return hex.EncodeToString(validationDigest[:]), nil
+		if input.ContentKind != contentcapability.ModeRPGMakerProject {
+			validationDigest := sha256.Sum256([]byte(input.ValidationID))
+			return hex.EncodeToString(validationDigest[:]), nil
+		}
+		input.Snapshot = corevalidation.Snapshot{
+			SchemaVersion: corevalidation.SnapshotSchemaVersion, Kind: corevalidation.SnapshotKindStatic,
+			BIOS: []corevalidation.BIOSDependency{},
+		}
 	}
 	if input.ContentKind != multidisc.ContentKind {
-		digest, err := corevalidation.ValidationInputDigest(
-			input.ArtifactID, input.ContentID, input.DATID, input.Snapshot,
+		digest, err := corevalidation.ProviderValidationInputDigest(
+			input.ProviderID, input.TargetID, input.ContentID, input.DATID, input.Snapshot,
 		)
 		if err != nil {
 			return "", fmt.Errorf("libraryimport/service: %w", err)
@@ -531,11 +542,10 @@ func approvalValidationInputDigest(input approvalValidationDigestInput) (string,
 		return "", ErrInvalid
 	}
 	digest, err := corevalidation.MultiDiscValidationInputDigest(corevalidation.MultiDiscValidationInput{
-		GameVariantID: input.VariantID, GameContentRevisionID: input.ContentID,
-		ContentKind: input.ContentKind, CoreArtifactID: input.ArtifactID,
-		CoreArtifactVersion:       input.ArtifactVersion,
-		CompatibilityConfigSHA256: corevalidation.CompatibilityConfigDigest(input.ArtifactCompatibility),
-		DATVersionID:              input.DATID, BIOSDependencySHA256: biosDigest,
+		GameVariantID: input.VariantID, GameID: input.ContentID,
+		ContentKind: input.ContentKind, ProviderID: input.ProviderID, TargetID: input.TargetID,
+		ContentPolicySHA256: input.ContentPolicy.Digest(),
+		DATVersionID:        input.DATID, BIOSDependencySHA256: biosDigest,
 		OrderedDiscSHA256:       input.Snapshot.MultiDisc.OrderedDiscSHA256,
 		CanonicalPlaylistSHA256: input.Snapshot.MultiDisc.CanonicalPlaylistSHA256,
 	})

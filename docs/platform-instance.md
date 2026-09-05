@@ -19,7 +19,7 @@
 
 “游戏目录”表达的是一层可浏览的游戏目录，而不是服务器文件系统目录。涉及上传时，界面应使用“选择文件目录”或“上传目录”与其区分。
 
-Pegasus source Collection 与游戏目录没有名称绑定关系。管理员必须逐 Collection 显式选择一个当前 enabled PlatformInstance 或明确跳过；`shortname`、Collection 名称、`extensions` 与 `launch` 只能作为非绑定展示/忽略字段，不能选择 Platform、Core 或 artifact。映射时冻结 PlatformInstance version、platform、默认 Core 对应的 `selected_for_new_bindings=1,available_for_launch=1` CoreArtifact version 与 active DAT；start 后这些字段不可改，后续配置漂移不能偷换本次运行目标。
+Pegasus source Collection 与游戏目录没有名称绑定关系。管理员必须逐 Collection 显式选择一个当前 enabled PlatformInstance 或明确跳过；`shortname`、Collection 名称、`extensions` 与 `launch` 只能作为非绑定展示/忽略字段，不能选择 Platform、Core 或 Provider Target。映射时冻结 PlatformInstance version、platform、默认 Core 当前 binding 的 `providerId/targetId` 与 active DAT；start 后这些字段不可改，后续配置漂移不能偷换本次运行目标。
 
 ## 2. 解决的问题
 
@@ -41,23 +41,22 @@ erDiagram
     CORE ||--o{ PLATFORM_CORE : belongs
     PLATFORM_INSTANCE }o--|| CORE : defaults_to
     PLATFORM_INSTANCE ||--o{ GAME : owns
-    GAME ||--o{ GAME_CONTENT_REVISION : versions_content
+    GAME ||--o{ GAME_FILE : owns_current_content
     GAME ||--o{ GAME_VARIANT : has
-    GAME_VARIANT ||--o{ GAME_VARIANT_REVISION : versions
-    GAME_CONTENT_REVISION ||--o{ GAME_VARIANT_REVISION : validated_by
+    GAME_FILE }o--|| GAME_VARIANT : validated_by
     CORE ||--o{ GAME_VARIANT : validates_with
-    GAME_VARIANT_REVISION ||--o{ VARIANT_FILE : contains
-    GAME_VARIANT_REVISION ||--o{ SAVE_STATE : creates
+    GAME_VARIANT ||--o{ VARIANT_FILE : contains
+    GAME ||--o{ SAVE_STATE : owns
 ~~~
 
 关键不变量：
 
 - <code>Game.platform_instance_id</code> 必填；<code>Game</code> 不再保存 <code>platform_id</code>。
-- <code>Game.current_content_revision_id</code> 必填并唯一决定普通启动使用的用户内容；改变目录默认 core 不改变该指针。
+- Game 当前字段与 `game_files` 唯一决定普通启动使用的用户内容；改变目录默认 core 不改变它们。
 - 一个游戏同一时刻只能属于一个游戏目录。
 - <code>PlatformInstance.default_core_id</code> 必须出现在其基础平台的 <code>platform_cores</code> 中。
-- <code>GameVariant.core_id</code> 也必须属于游戏基础平台的启用核心集合；可执行文件和依赖属于不可变 <code>GameVariantRevision</code>。
-- 游戏目录不持有 BIOS 或 DAT 副本。BIOS/DAT 仍按核心及核心 artifact 版本管理，多个游戏目录共享解析结果。
+- <code>GameVariant.core_id</code> 也必须属于游戏基础平台的启用核心集合；派生文件和依赖属于稳定 <code>GameVariant</code> 当前态。
+- 游戏目录不持有 BIOS 或 DAT 副本。BIOS/DAT 按稳定 Provider Target 管理，多个游戏目录共享解析结果。
 - 核心若仍是任一游戏目录的默认核心，不允许从该平台解除关联或被禁用。
 
 ## 4. 字段与数据库约束
@@ -133,7 +132,7 @@ SQLite 无法仅靠上述外键验证 `platform_cores.enabled = 1` 或“GameVar
 
 启动核心选择优先级固定为：
 
-1. 用户从某个存档继续：锁定该存档的 <code>GameVariantRevision</code> 与 CoreArtifact，游戏目录默认核心不参与覆盖。
+1. 用户从某个存档继续：锁定该存档的 Game 和 checkpoint format，选择一个当前 READY 且可读取该格式的 Target；游戏目录默认核心不得触发不兼容回退。
 2. 普通进入游戏详情：当前浏览器若为该游戏保存了显式核心偏好则优先选择它，否则选择当前游戏目录的 <code>default_core_id</code>。
 3. 默认核心不可运行：不静默回退到其他核心；说明 ROM、parent、BIOS、DAT 或线程环境中的具体阻断原因，并让用户主动选择其他核心。
 
@@ -141,7 +140,7 @@ SQLite 无法仅靠上述外键验证 `platform_cores.enabled = 1` 或“GameVar
 
 - “目录默认”：游戏目录的默认核心，且已通过当前游戏验证。
 - “兼容”：已有有效 GameVariant，可直接选择。
-- “需验证”：尚未针对当前文件 revision 建立兼容性结果；选择后执行预检并创建 GameVariant 或新的不可变 GameVariantRevision。
+- “需验证”：尚未针对当前文件建立兼容性结果；选择后执行预检并创建或更新稳定 GameVariant。
 - “缺少依赖”：变体可识别但 BIOS/parent/base 之一未满足；保留可见，禁止启动，并用 reason 显示精确类型/逻辑文件名。
 - “不兼容”：核心 DAT 或文件规则明确不匹配；保留可见并禁用，附原因。
 
@@ -149,17 +148,17 @@ SQLite 无法仅靠上述外键验证 `platform_cores.enabled = 1` 或“GameVar
 
 ### 5.1 “需验证”核心的确定性物化
 
-普通启动的 canonical source 是 `Game.current_content_revision_id` 指向的不可变 GameContentRevision，不从目录默认核心或任一 Variant current 反向猜测。详情 API 对每个启用核心查找直接引用该 ContentRevision 且可部署的 READY VariantRevision：没有时返回 `NEEDS_VALIDATION`，不能仅因该 core 曾对旧内容或相同 bytes 的另一 ContentRevision 通过就显示兼容。已有 READY 结果即锁定并继续使用它自己的 DAT/依赖快照；活动 DAT 后来变化不会把它降成不可运行，而是另以 `revalidationStatus=PENDING|FAILED` 提示后台重校验。新 DAT 校验成功并原子切换该 core 槽后才成为新的 current，但不会改变 Game current content。
+普通启动的 canonical source 是 Game 当前 `source_manifest_json` 与 `game_files`，不从目录默认核心或旧 Launch 反向猜测。详情 API 对每个启用核心读取唯一稳定 GameVariant；不存在或其输入已漂移时返回 `NEEDS_VALIDATION`。已有 READY 结果继续使用其 DAT/依赖快照；活动 DAT 后来变化只通过 `revalidationStatus=PENDING|FAILED` 提示后台重校验，成功后原位更新 GameVariant，不改变 Game 文件。
 
 详情 API 只返回只读兼容状态，不提供另一个“预热”写接口。用户选择“需验证”核心并点击开始时，`POST /launches` 使用同一个幂等 `EnsureVariant` 领域流程；这不增加第二个开始按钮，但允许需要生成大依赖 bundle 的验证通过可观察 Worker 完成，而不占住 HTTP/SQLite：
 
-1. 只读取已持久化的 Game current ContentRevision/source manifest、Blob/hash、ArchiveEntry、活动 CoreArtifact/DAT 和 BIOS 状态；禁止调用 Hasheous、下载 payload、重新扫大文件或试跑另一个 core。
-2. 已有直接引用该 ContentRevision 的 READY revision 时直接复用其锁定快照；同一 input 已有 BLOCKED/INCOMPATIBLE 结果时直接返回稳定 Blocker。
+1. 只读取已持久化的 Game source manifest、`game_files`、Blob/hash、ArchiveEntry、活动 Provider Target/DAT 和 BIOS 状态；禁止调用 Hasheous、下载 payload、重新扫大文件或试跑另一个 core。
+2. 当前 GameVariant 为 READY 且验证输入没有漂移时直接复用；同一 input 已是 BLOCKED/INCOMPATIBLE 时直接返回稳定 Blocker。
 3. 否则仅从已入库证据计算 `validation_input_digest`，在一个短事务创建/复用 dedupe key=`gameVariantId + validationInputDigest` 的 `VARIANT_REVALIDATE` Job，返回 `202 VALIDATION_PENDING`，不创建 LaunchSession 或 credential。并发请求都得到同一 jobId。
-4. Worker 复用 `CONTENT` GameContentFile；Arcade 只以该 ContentRevision 的 CONTENT/COMPANION 和目标 core 自己的活动 DAT 匹配 machine/entry/parent/BIOS（不得扫描无归属全局 Blob），并在事务外流式生成确定性 bundle；Host console 无依赖时只做索引判定。完成后短事务创建直接引用 ContentRevision 的 VariantRevision；READY 才切换 current，BLOCKED/INCOMPATIBLE 不成为 current。
+4. Worker 复用 `CONTENT` GameFile；Arcade 只以该 Game 的 CONTENT/COMPANION 和目标 core 自己的活动 DAT 匹配 machine/entry/parent/BIOS（不得扫描无归属全局 Blob），并在事务外流式生成确定性 bundle；完成后在短事务中原位更新 GameVariant 与派生文件。
 5. Player overlay 订阅 Job；SUCCEEDED 时以相同 body 和新 Idempotency-Key 自动再调用 `POST /launches`，此次取得 `201`/cookie 并继续同一次点击流程。没有确认页或人工第二次开始。FAILED/CANCELLED 则退出全屏并显示 Job 的稳定 Blocker。证据缺失使用 `LAUNCH_CORE_VALIDATION_UNAVAILABLE`；有界 Job 超时使用 `LAUNCH_CORE_VALIDATION_TIMEOUT`，不写半成品、不静默回退。
 
-按需创建的 revision 与导入预验证创建的 revision 使用同一领域服务、同一依赖快照和测试向量。管理侧替换游戏文件只有在新 GameContentRevision 对目录当前默认 core 验证 READY 时才原子提升 Game current content；其他 core 自动回到 `NEEDS_VALIDATION`。成功切换会保留旧 ContentRevision/VariantRevision 的文字和结构化审计，但删除其 ContentFile/VariantFile、运行快照及绑定存档；失败不改变 current 或存档。单 ROM bytes 相同，或多盘的规范盘序与全部 Disc hash 相同，必须以 `GAME_CONTENT_UNCHANGED` 拒绝而不创建 revision。
+按需验证与导入预验证使用同一领域服务、同一依赖快照和测试向量。管理侧替换游戏文件只有在新内容对目录当前默认 core 验证 READY 时才原子切换 Game/GameFiles/默认 GameVariant；其他 core 回到 `NEEDS_VALIDATION`。成功切换删除旧文件、派生物、运行快照及存档并保留结构化审计；失败不改变当前态或存档。单 ROM bytes 相同，或多盘的规范盘序与全部 Disc hash 相同，必须以 `GAME_CONTENT_UNCHANGED` 拒绝。
 
 ## 6. 导入、识别与审核
 
@@ -177,7 +176,7 @@ SQLite 无法仅靠上述外键验证 `platform_cores.enabled = 1` 或“GameVar
 - <code>target_platform_instance_id</code>。
 - <code>platform_id_snapshot</code>。
 - <code>default_core_id_snapshot</code>。
-- 核心 artifact / EmulatorJS 版本快照。
+- 默认 Core 当前 binding 的稳定 `providerId/targetId` 快照；Bundle 只在实际 Launch/Preview/Netplay 创建时冻结。
 - Arcade 使用的 <code>dat_version_id_snapshot</code>。
 
 这样可以避免任务执行期间游戏目录或活动 DAT 发生变化而静默改变识别结果。
@@ -223,21 +222,21 @@ SQLite 无法仅靠上述外键验证 `platform_cores.enabled = 1` 或“GameVar
 
 “一键创建推荐目录”只创建 `MISSING` 项。它在一个 `BEGIN IMMEDIATE` 短事务内重新读取状态，把新目录按 catalog 顺序追加到当前最大 `sort_order` 之后，并把目录、逐项 AuditEvent 和 domain idempotency response 一起提交；任一项失败即整体回滚。它不会覆盖自定义名称/核心、恢复停用或已删除目录、重排已有目录，也不会因同一基础平台已有别的核心目录而跳过。并发调用和相同 Idempotency-Key 重放只产生一组结果。
 
-当前 catalog 含 27 项。FDS 不再是独立目录，`.fds` 由 NES/FCEUmm 模板所属平台规则接收；MAME 2003 不再是独立模板，Arcade 保留 FBNeo、MAME 2003 Plus 与 FBA CPS1/CPS2 四个推荐目录。启动时必须验证每个模板引用的 Platform、Core、启用 PlatformCore 和已登记 CoreArtifact；release catalog 与依赖不一致时快速失败，不能在补齐时静默跳过。
+当前 catalog 含 27 项。FDS 不再是独立目录，`.fds` 由 NES/FCEUmm 模板所属平台规则接收；MAME 2003 不再是独立模板，Arcade 保留 FBNeo、MAME 2003 Plus 与 FBA CPS1/CPS2 四个推荐目录。启动时必须验证每个模板引用的 Platform、Core、启用 PlatformCore 和已登记 Provider Target；release catalog 与依赖不一致时快速失败，不能在补齐时静默跳过。
 
 ### 修改默认核心
 
-1. 前端以 `{"coreId":"...","cursor":null,"limit":100}` 请求首页影响预览；服务端以当前目录 `version`、目标 core 和目录内全部 Game/current revision 集合计算一份 `impactDigest`，返回全量兼容/需验证/Blocker 计数、本页 items、`nextCursor` 和同一 digest。后续页使用相同 core/`If-Match` 并传回 cursor；任一影响输入变化就返回 `409 IMPACT_PREVIEW_STALE`，不拼接新旧快照。精确 schema、排序与签名见 HTTP 契约。
+1. 前端以 `{"coreId":"...","cursor":null,"limit":100}` 请求首页影响预览；服务端以当前目录 `version`、目标 core 和目录内全部 Game/GameVariant 当前态集合计算一份 `impactDigest`，返回全量兼容/需验证/Blocker 计数、本页 items、`nextCursor` 和同一 digest。后续页使用相同 core/`If-Match` 并传回 cursor；任一影响输入变化就返回 `409 IMPACT_PREVIEW_STALE`，不拼接新旧快照。精确 schema、排序与签名见 HTTP 契约。
 2. 提交修改必须携带 `If-Match`、同一个 `impactDigest` 和 `confirmBlocked`。目录版本或影响集合变化返回 `409 IMPACT_PREVIEW_STALE`，要求重新预览。
 3. 有 Blocker 且 `confirmBlocked=false` 时拒绝；显式 `true` 才允许改变。变更后这些游戏显示“目录默认核心受阻”，绝不静默回退。
-4. 变更只影响以后普通启动，不重写存档、GameVariantRevision 或历史 LaunchSession；操作与影响摘要写 AuditEvent。
+4. 变更只影响以后普通启动，不重写存档、GameVariant 或历史 LaunchSession；操作与影响摘要写 AuditEvent。
 
 ### 移动游戏
 
 - 同一基础平台内允许移动到另一游戏目录。
-- 若目标目录默认核心不同，移动 preview 必须针对 Game current ContentRevision 和目标目录当前 CoreArtifact/DAT/BIOS 输入查询兼容结果。缺少结果时创建/复用共享 `VARIANT_REVALIDATE` Job 并返回 `202`；客户端等待任务终态后用新 Idempotency-Key 重新 preview，不能在后台校验尚未完成时先移动。
+- 若目标目录默认核心不同，移动 preview 必须针对 Game 当前文件 和目标目录当前 Provider Target/DAT/BIOS 输入查询兼容结果。缺少结果时创建/复用共享 `VARIANT_REVALIDATE` Job 并返回 `202`；客户端等待任务终态后用新 Idempotency-Key 重新 preview，不能在后台校验尚未完成时先移动。
 - 完成的 preview 返回目标目录/default core、READY 或 blocker 诊断、Game/目录版本和 `impactDigest`。提交重新计算全部输入；漂移返回 `IMPACT_PREVIEW_STALE`。有 blocker 时必须显式 `confirmBlocked=true`，移动后普通启动明确阻断，不能回退到旧目录默认 core。
-- 移动只改变 Game 的 `platform_instance_id/version` 并写 AuditEvent；GameVariant、GameVariantRevision、GameContentRevision、存档和文件 revision 不被删除或改写。目标默认 core 已有与当前内容匹配的 READY revision 时复用该结果。
+- 移动只改变 Game 的 `platform_instance_id/version` 并写 AuditEvent；GameVariant、GameFiles 和存档 不被删除或改写。目标默认 core 已有与当前内容匹配的 READY GameVariant 时复用该结果。
 - 不允许用简单移动跨基础平台。跨平台需要重新走识别与审核流程，避免错误复用 hash profile 和平台规则。
 
 ### 停用与删除
@@ -256,15 +255,15 @@ SQLite 无法仅靠上述外键验证 `platform_cores.enabled = 1` 或“GameVar
 
 - 左侧导航不增加游戏目录入口，仍只有“游戏库”。
 - 游戏库先按基础平台、再按游戏目录筛选；游戏卡片展示目录名称。
-- 停用目录后，其游戏不进入首页统计/最近记录、游戏库、详情、存档列表或新 Launch；重新启用后使用原有 Game/存档/revision 恢复展示，不复制或改写业务记录。
+- 停用目录后，其游戏不进入首页统计/最近记录、游戏库、详情、存档列表或新 Launch；重新启用后使用原有 Game、Variant 与存档 恢复展示，不复制或改写业务记录。
 - 游戏详情面包屑/元信息显示“基础平台 / 游戏目录”；没有浏览器偏好时运行方式对话框默认标记“目录默认”，存在偏好时明确显示红色“未采用默认核心”。
-- 存档的“继续”不进入详情，直接使用存档锁定的 CoreArtifact 和 GameVariantRevision 启动；只有“游戏详情/兼容性”等次要入口进入详情。
+- 存档的“继续”不进入详情，直接使用存档锁定的 Provider Target 和 GameVariant 启动；只有“游戏详情/兼容性”等次要入口进入详情。
 
 ### 管理后台
 
 管理后台新增“游戏目录”页面，用于维护 PlatformInstance，包含：
 
-- 目录名称、基础平台、默认核心、游戏数量、联机核心能力和兼容性摘要。联机能力按平台、默认核心及当前启用 CoreArtifact 精确匹配联机 manifest，不按核心名称硬编码，也不代表目录内每款游戏已经通过联机资格检查。
+- 目录名称、基础平台、默认核心、游戏数量、联机核心能力和兼容性摘要。联机能力按平台、默认核心及当前启用 Provider Target 精确匹配联机 manifest，不按核心名称硬编码，也不代表目录内每款游戏已经通过联机资格检查。
 - 名称与用户说明通过各自铅笔在行内编辑；说明编辑器保持单行紧凑高度；默认核心以“推荐运行方式”下拉框呈现，启用状态以 checkbox 呈现。
 - 拖拽/键盘排序和启停不显示会推动表格的成功提示条，失败才显示错误；非空目录可启停，但红色删除 X 禁用并显示原因，空目录才可删除。
 - 下拉切换默认核心后自动进入影响预览，确认前不提交。

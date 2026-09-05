@@ -7,7 +7,7 @@ export type ReviewCandidate = { candidateId: string; scrapeRunId: string; provid
 export type ReviewScrapeRun = { scrapeRunId: string; jobId: string; provider: "HASHEOUS" | "NONE"; state: string; jobState: string; createdAtMs: number; completedAtMs: number | null; errorCode: string | null; evidenceCount: number; attemptCount: number; candidateCount: number; outcomes: { hit: number; miss: number; rateLimited: number; timeout: number; invalidResponse: number; networkError: number } };
 export type ReviewMultiDiscAttachment = { attachmentId: string; state: string; errorCode: string | null; diagnostics?: unknown; jobId: string; jobState: string; version?: number; jobVersion?: number; canRetry?: boolean };
 export type ReviewMultiDisc = {
-  contentKind: "MULTI_DISC_M3U_V1"; playlist: { name: string; sizeBytes: number; sha256: string };
+  contentKind: "MULTI_DISC"; playlist: { name: string; sizeBytes: number; sha256: string };
   discCount: number; presentDiscCount: number; missingDiscCount: number; totalPresentBytes: number; maxDiscs?: number; maxTotalBytes?: number;
   entries: Array<{ index: number; discIndex: number; label: string; sourceReference: string; canonicalName: string; state: "PRESENT" | "MISSING"; logicalName: string | null; sizeBytes: number | null; sha256: string | null }>;
   missingReferences: string[]; canAttachMissingDiscs: boolean; latestAttachment: ReviewMultiDiscAttachment | null; activeAttachment: ReviewMultiDiscAttachment | null;
@@ -18,33 +18,21 @@ export type ReviewSourceMedia = ReviewSourceMediaBase & (
   | { sourceKind: "PEGASUS"; pegasusImportId: string; emulationStationImportId?: never }
   | { sourceKind: "EMULATIONSTATION"; emulationStationImportId: string; pegasusImportId?: never }
 );
-export type RPGPosition = { mapId: number; playerX: number; playerY: number; fixtureState: number };
-export type RPGMachineGate = { gate: string; status: "NOT_STARTED" | "IN_PROGRESS" | "PASSED" | "FAILED"; begunAtMs: number | null; completedAtMs: number | null; evidence: unknown; failureCode: string | null };
-export type RPGRuntimeValidation = {
-  validationId: string; importItemId: string; reviewVersionAtCreate: number; runtimeBindingRevision: number;
-  launchId: string | null; restoreLaunchId: string | null; state: "CREATED" | "STARTING" | "RUNNING" | "CHECKPOINTED" | "RESTORED" | "AWAITING_DECISION" | "PASSED" | "FAILED" | "EXPIRED";
-  lastGateSequence: number; machineGates: RPGMachineGate[]; failureCode: string | null; expiresAtMs: number;
-  routeEvidence: { coreId: string; generation: string; evidenceGeneration: string | null; evidenceConfidence: "MATCHED" | "FAMILY_ONLY"; routeKey: string; adapterId: string; adapterAbi: string };
-  checkpointRoundTrip: { created: boolean; payloadKind: string | null; resumeSlot: number | null; sizeBytes: number | null; sha256: string | null; originalLaunchId: string | null; initialPosition: RPGPosition | null; savedPosition: RPGPosition | null; divergedPosition: RPGPosition | null; originalLaunchEnded: boolean; restoreLaunchId: string | null; restoreStarted: boolean; restoredPosition: RPGPosition | null; positionVerified: boolean; screenshotUrl: string | null; restoreInputPosition: RPGPosition | null; restoreInputVerified: boolean };
-  decision: { decision: "PASS" | "FAIL"; note: string; decidedAtMs: number } | null;
-};
 export type RPGMakerReview = {
   selectedCoreId: string; generation: string; evidenceGeneration: string | null; evidenceConfidence: "MATCHED" | "FAMILY_ONLY";
-  selfContained: boolean; selfContainedOverride: boolean; runtimeBindingRevision: number;
+  selfContained: boolean; selfContainedOverride: boolean;
   runtimePackRequirements: Array<{ slot: number; declaredName: string; normalizedDeclaredName: string }>;
   runtimePackSelections: Array<{ slot: number; declaredName: string; installationId: string }>;
-  runtimeValidation: RPGRuntimeValidation | null; runtimeValidationCurrent: boolean;
 };
 export type ReviewWorkspace = {
-  itemId: string; version: number; platformInstance?: { id: string; name: string }; effectiveSourceSnapshotId?: string; canApprove?: boolean; validationStale?: boolean;
-  runtimeVersionChange?: { previous: string; current: string } | null;
+  itemId: string; version: number; platformInstance?: { id: string; name: string }; effectiveSourceSnapshotId?: string; canApprove?: boolean;
   arcadeDependencies?: ArcadeDependencies | null; multiDisc?: ReviewMultiDisc | null;
   metadata: { title: string; description: string; developer: string; publisher: string; genre: string; players: number | null; releaseYear: number | null };
-  validation: { id: string; status: string; current: boolean; compatibilityCode: string } | null;
+  validation: { id: string; status: string; compatibilityCode: string } | null;
   candidates: ReviewCandidate[]; uploadedAssets?: UploadedReviewAsset[];
   sourceMedia?: ReviewSourceMedia | null;
   rpgMaker?: RPGMakerReview | null;
-  runtimeScreenshot?: { screenshotId: string; validationId: string; coreArtifactId: string; widthPx: number; heightPx: number; capturedAfterMs: 5000; capturedAtMs: number; url: string } | null;
+  runtimeScreenshot?: { screenshotId: string; validationId: string; providerId: string; targetId: string; widthPx: number; heightPx: number; capturedAtMs: number; url: string } | null;
   scrapeRuns?: ReviewScrapeRun[]; selectedCandidateId: string | null;
   selectedAssets: { coverCandidateAssetId: string | null; coverUploadedAssetId?: string | null; backgroundCandidateAssetId: string | null; screenshotCandidateAssetIds: string[] };
   defaultDosEntry: string | null; dosEntries: Array<{ path: string; originalPath: string; kind: string; enabled: boolean; directLaunchSafe: boolean }>;
@@ -99,7 +87,7 @@ export function reviewReadyForPublish(review: ReviewWorkspace) {
   const parentActive = review.arcadeDependencies?.activeAttachment?.state;
   const multiDiscActive = review.multiDisc?.activeAttachment?.state;
   const attachmentActive = [parentActive, multiDiscActive].some((state) => state === "QUEUED" || state === "RUNNING");
-  return (review.canApprove ?? (review.validation?.current === true && review.validation.status === "READY")) && !attachmentActive;
+  return (review.canApprove ?? review.validation?.status === "READY") && !attachmentActive;
 }
 
 export function previewAsset(candidates: ReviewCandidate[], uploaded: UploadedReviewAsset[], cover: CoverSelection): PreviewAsset | null {
@@ -142,16 +130,12 @@ export function initialDraftState(review: ReviewWorkspace) {
 }
 
 export function initialRuntimeState(review: ReviewWorkspace) {
-  const validationWasCurrent = review.validation?.current ?? false;
   return {
-    validationWasCurrent,
-    validationStale: review.validationStale ?? false,
-    runtimeVersionChange: review.runtimeVersionChange ?? null,
     validation: review.validation,
     effectiveSourceSnapshotId: review.effectiveSourceSnapshotId ?? "",
     arcadeDependencies: review.arcadeDependencies ?? null,
     multiDisc: review.multiDisc ?? null,
-    canApprove: review.canApprove ?? (validationWasCurrent && review.validation?.status === "READY"),
+    canApprove: review.canApprove ?? review.validation?.status === "READY",
     runtimeScreenshot: review.runtimeScreenshot ?? null,
   };
 }
@@ -178,11 +162,11 @@ export function saveStateLabel(state: "saved" | "pending" | "saving" | "error") 
   return "已实时保存";
 }
 
-export function reviewReadiness(validationStatus: string | null, validationCurrent: boolean, runtimeScreenshot: ReviewWorkspace["runtimeScreenshot"], serverCanApprove: boolean, parentState: string | undefined, multiDiscState: string | undefined, rpgMaker = false) {
+export function reviewReadiness(validationStatus: string | null, runtimeScreenshot: ReviewWorkspace["runtimeScreenshot"], serverCanApprove: boolean, parentState: string | undefined, multiDiscState: string | undefined, rpgMaker = false) {
   const active = (state: string | undefined) => state === "QUEUED" || state === "RUNNING";
   const parentAttachmentActive = active(parentState);
   const multiDiscAttachmentActive = active(multiDiscState);
-  const validationReady = validationStatus === "READY" && validationCurrent;
+  const validationReady = validationStatus === "READY";
   return {
     parentAttachmentActive,
     multiDiscAttachmentActive,

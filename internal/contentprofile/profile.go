@@ -24,17 +24,17 @@ const (
 	ArchiveSinglePrimary ArchivePolicy = "SINGLE_PRIMARY"
 	ArchiveProject       ArchivePolicy = "PROJECT"
 
-	RawFileFormat             = "RAW_FILE_V1"
-	SingleArchiveMemberFormat = "SINGLE_ARCHIVE_MEMBER_V1"
+	RawFileFormat             = "RAW_FILE"
+	SingleArchiveMemberFormat = "SINGLE_ARCHIVE_MEMBER"
 
 	ContentKindSingleFile          ContentKind = "SINGLE_FILE"
 	ContentKindDOSBundle           ContentKind = "DOS_BUNDLE"
-	ContentKindMultiDiscM3UV1      ContentKind = "MULTI_DISC_M3U_V1"
-	ContentKindRPGMakerProject     ContentKind = "RPG_MAKER_PROJECT_V1"
-	ContentKindONSProject          ContentKind = "ONS_PROJECT_V1"
-	ContentKindKiriKiriProject     ContentKind = "KIRIKIRI_PROJECT_V1"
-	ContentKindButterscotchProject ContentKind = "BUTTERSCOTCH_PROJECT_V1"
-	ContentKindTyranoScriptProject ContentKind = "TYRANOSCRIPT_PROJECT_V1"
+	ContentKindMultiDisc           ContentKind = "MULTI_DISC"
+	ContentKindRPGMakerProject     ContentKind = "RPG_MAKER_PROJECT"
+	ContentKindONSProject          ContentKind = "ONS_PROJECT"
+	ContentKindKiriKiriProject     ContentKind = "KIRIKIRI_PROJECT"
+	ContentKindButterscotchProject ContentKind = "BUTTERSCOTCH_PROJECT"
+	ContentKindTyranoScriptProject ContentKind = "TYRANOSCRIPT_PROJECT"
 )
 
 var (
@@ -61,7 +61,7 @@ var registry = map[string]Profile{
 	"atari5200":    single("atari5200", ".a52"),
 	"psx":          raw("psx", ".chd"),
 	"lynx":         single("lynx", ".lnx"),
-	"saturn":       withContentKinds(raw("saturn", ".chd"), ContentKindSingleFile, ContentKindMultiDiscM3UV1),
+	"saturn":       withContentKinds(raw("saturn", ".chd"), ContentKindSingleFile, ContentKindMultiDisc),
 	"megadrive":    single("megadrive", ".md"),
 	"n64":          single("n64", ".z64"),
 	"3do":          raw("3do", ".chd"),
@@ -76,44 +76,18 @@ var registry = map[string]Profile{
 	"mastersystem": single("mastersystem", ".sms"),
 	"nintendo3ds":  raw("nintendo3ds", ".3ds", ".cci"),
 	"wasm4":        single("wasm4", ".wasm"),
-	"rpgmaker": {
-		PlatformID: "rpgmaker", ArchivePolicy: ArchiveProject,
-		ArchiveFormats: []ArchiveFormat{ArchiveZIP, ArchiveSevenZip}, FormatCode: "RPG_MAKER_PROJECT_V1",
-		ContentKinds: []ContentKind{ContentKindRPGMakerProject},
-	},
-	"ons": {
-		PlatformID: "ons", ArchivePolicy: ArchiveProject,
-		ArchiveFormats: []ArchiveFormat{ArchiveZIP, ArchiveSevenZip}, FormatCode: "ONS_PROJECT_V1",
-		ContentKinds: []ContentKind{ContentKindONSProject},
-	},
-	"kirikiri": {
-		PlatformID: "kirikiri", ArchivePolicy: ArchiveProject,
-		ArchiveFormats: []ArchiveFormat{ArchiveZIP, ArchiveSevenZip}, FormatCode: "KIRIKIRI_PROJECT_V1",
-		ContentKinds: []ContentKind{ContentKindKiriKiriProject},
-	},
-	"butterscotch": {
-		PlatformID: "butterscotch", ArchivePolicy: ArchiveProject,
-		ArchiveFormats: []ArchiveFormat{ArchiveZIP, ArchiveSevenZip}, FormatCode: "BUTTERSCOTCH_PROJECT_V1",
-		ContentKinds: []ContentKind{ContentKindButterscotchProject},
-	},
-	"tyranoscript": {
-		PlatformID: "tyranoscript", ArchivePolicy: ArchiveProject,
-		ArchiveFormats: []ArchiveFormat{
-			ArchiveZIP, ArchiveSevenZip, ArchiveNWJSExecutable, ArchiveElectronASAR,
-		},
-		FormatCode:   "TYRANOSCRIPT_PROJECT_V1",
-		ContentKinds: []ContentKind{ContentKindTyranoScriptProject},
-	},
+
+	"rpgmaker":     project("rpgmaker", ContentKindRPGMakerProject),
+	"ons":          project("ons", ContentKindONSProject),
+	"kirikiri":     project("kirikiri", ContentKindKiriKiriProject),
+	"butterscotch": project("butterscotch", ContentKindButterscotchProject),
+	"tyranoscript": project("tyranoscript", ContentKindTyranoScriptProject,
+		ArchiveNWJSExecutable, ArchiveElectronASAR),
 }
 
 var specialPlatformExtensions = map[string][]string{
-	"arcade":       {".zip"},
-	"dos":          {".exe", ".com", ".bat"},
-	"rpgmaker":     {".zip", ".7z"},
-	"ons":          {".zip", ".7z"},
-	"kirikiri":     {".zip", ".7z"},
-	"butterscotch": {".zip", ".7z"},
-	"tyranoscript": {".zip", ".7z", ".exe"},
+	"arcade": {".zip"},
+	"dos":    {".exe", ".com", ".bat"},
 }
 
 func single(platformID string, extensions ...string) Profile {
@@ -151,7 +125,10 @@ func ByPlatform(platformID string) (Profile, bool) {
 // Archive wrappers for single-ROM platforms are import transports and are not
 // included; Arcade ZIP and DOS executable entries are the payload themselves.
 func SupportedExtensions(platformID string) []string {
-	if profile, ok := registry[platformID]; ok && len(profile.Extensions) > 0 {
+	if profile, ok := registry[platformID]; ok {
+		if profile.ArchivePolicy == ArchiveProject {
+			return projectExtensions(profile.ArchiveFormats)
+		}
 		return append([]string(nil), profile.Extensions...)
 	}
 	return append([]string(nil), specialPlatformExtensions[platformID]...)
@@ -164,6 +141,21 @@ func AllowsContentKind(platformID string, kind ContentKind) bool {
 	}
 	for _, allowed := range profile.ContentKinds {
 		if kind == allowed {
+			return true
+		}
+	}
+	return false
+}
+
+// KnownContentKind describes supported payload semantics, independently of a
+// product binding's narrower admission policy. DOS is handled by its dedicated
+// bundle importer rather than a single-file/archive profile.
+func KnownContentKind(kind ContentKind) bool {
+	if kind == ContentKindDOSBundle {
+		return true
+	}
+	for platformID := range registry {
+		if AllowsContentKind(platformID, kind) {
 			return true
 		}
 	}

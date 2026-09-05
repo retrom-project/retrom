@@ -93,7 +93,8 @@ type Item struct {
 	RequirementID              string         `json:"requirementId"`
 	CoreID                     string         `json:"coreId"`
 	CoreName                   string         `json:"coreName"`
-	CoreArtifactID             string         `json:"coreArtifactId"`
+	ProviderID                 string         `json:"providerId"`
+	TargetID                   string         `json:"targetId"`
 	LogicalName                string         `json:"logicalName"`
 	RequirementMode            string         `json:"requirementMode"`
 	SourceKind                 string         `json:"sourceKind"`
@@ -227,8 +228,8 @@ type catalogItem struct {
 	RequirementVersion        int64   `json:"requirementVersion"`
 	CoreID                    string  `json:"coreId"`
 	CoreName                  string  `json:"coreName"`
-	CoreArtifactID            string  `json:"coreArtifactId"`
-	CoreArtifactVersion       int64   `json:"coreArtifactVersion"`
+	ProviderID                string  `json:"providerId"`
+	TargetID                  string  `json:"targetId"`
 	SourceKind                string  `json:"sourceKind"`
 	LogicalName               string  `json:"logicalName"`
 	RequirementMode           string  `json:"requirementMode"`
@@ -410,8 +411,9 @@ func boolInteger(value bool) int {
 // Catalog validation keeps source readiness predicates together for auditability.
 func (service *Service) freezeCatalog(ctx context.Context) ([]catalogItem, error) {
 	rows, err := service.database.QueryContext(ctx, `
-SELECT requirement.id,requirement.version,requirement.core_id,core.name,requirement.core_artifact_id,
-artifact.version,requirement.source_kind,requirement.logical_name,requirement.requirement_mode,
+SELECT requirement.id,requirement.version,requirement.core_id,core.name,requirement.provider_id,
+requirement.target_id,requirement.source_kind,
+requirement.logical_name,requirement.requirement_mode,
 requirement.condition_code,requirement.activation_options_json,requirement.delivery_kind,requirement.emulator_path,
 requirement.source_version,requirement.catalog_digest,
 CASE WHEN requirement.source_kind='DAT_MACHINE' THEN dat.id END,requirement.dat_machine_name,
@@ -420,8 +422,9 @@ installation.id,installation.version,blob.sha256,installation.status,installatio
 dat.parse_status,dat.is_active
 FROM bios_requirements requirement
 JOIN cores core ON core.id=requirement.core_id
-JOIN core_artifacts artifact ON artifact.id=requirement.core_artifact_id AND artifact.available_for_launch=1
-LEFT JOIN dat_versions dat ON dat.id=requirement.source_version AND dat.core_artifact_id=requirement.core_artifact_id
+JOIN runtime_targets target ON target.provider_id=requirement.provider_id AND target.target_id=requirement.target_id
+LEFT JOIN dat_versions dat ON dat.id=requirement.source_version AND dat.provider_id=requirement.provider_id
+ AND dat.target_id=requirement.target_id
 LEFT JOIN bios_installations installation ON installation.requirement_id=requirement.id
  AND installation.is_active=1
 LEFT JOIN blobs blob ON blob.id=installation.blob_id
@@ -438,8 +441,8 @@ ORDER BY requirement.id COLLATE BINARY
 		var datStatus sql.NullString
 		var datActive sql.NullInt64
 		if err := rows.Scan(
-			&item.RequirementID, &item.RequirementVersion, &item.CoreID, &item.CoreName, &item.CoreArtifactID,
-			&item.CoreArtifactVersion, &item.SourceKind, &item.LogicalName, &item.RequirementMode,
+			&item.RequirementID, &item.RequirementVersion, &item.CoreID, &item.CoreName, &item.ProviderID,
+			&item.TargetID, &item.SourceKind, &item.LogicalName, &item.RequirementMode,
 			&item.ConditionCode, &item.ActivationOptionsJSON, &item.DeliveryKind, &item.EmulatorPath,
 			&item.SourceVersion, &item.CatalogDigest, &item.DATVersionID,
 			&item.DATMachineName, &item.ExpectedSize, &item.ExpectedMD5, &item.ExpectedSHA1, &item.ExpectedSHA256,
@@ -470,8 +473,8 @@ func insertCatalogItem(ctx context.Context, transaction *sql.Tx, importID string
 		ctx,
 		`
 INSERT INTO server_bios_import_items(
-server_import_id,requirement_id,requirement_version,core_id,core_name_snapshot,core_artifact_id,
-core_artifact_version,source_kind,logical_name,requirement_mode,condition_code,delivery_kind,emulator_path,
+server_import_id,requirement_id,requirement_version,core_id,core_name_snapshot,provider_id,target_id,
+source_kind,logical_name,requirement_mode,condition_code,delivery_kind,emulator_path,
 activation_options_json,source_version,catalog_digest,dat_version_id,dat_machine_name,expected_size_bytes,
 expected_md5,expected_sha1,expected_sha256,
 active_installation_id_snapshot,active_installation_version_snapshot,active_blob_sha256_snapshot,
@@ -483,8 +486,8 @@ VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'PENDING',?,?)
 		item.RequirementVersion,
 		item.CoreID,
 		item.CoreName,
-		item.CoreArtifactID,
-		item.CoreArtifactVersion,
+		item.ProviderID,
+		item.TargetID,
 		item.SourceKind,
 		item.LogicalName,
 		item.RequirementMode,

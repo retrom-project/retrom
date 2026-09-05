@@ -41,7 +41,7 @@ SELECT id FROM platform_instances WHERE catalog_template_key='rpgmaker/rpgmaker'
 		ctx,
 		libraryimport.CreateRequest{
 			UploadID: uploadID, TargetPlatformInstanceID: platformInstanceID,
-			MetadataProvider: "NONE", ContentMode: "RPG_MAKER_PROJECT_V1",
+			MetadataProvider: "NONE", ContentMode: "RPG_MAKER_PROJECT",
 		},
 	)
 	testassert.False(t, err != nil, err)
@@ -57,7 +57,7 @@ SELECT id FROM import_items WHERE import_job_id=?
 	server.review(recorder, request)
 	testassert.Falsef(t, testassert.Any(
 		func() bool { return recorder.Code != http.StatusOK },
-		func() bool { return !strings.Contains(recorder.Body.String(), `"selectedCoreId":"rpgmaker_2000"`) },
+		func() bool { return !strings.Contains(recorder.Body.String(), `"selectedCoreId":"rpgmaker"`) },
 	), "RPG Maker virtual review detail = %d %s", recorder.Code, recorder.Body.String())
 }
 
@@ -109,18 +109,21 @@ func completeRPGMakerHTTPUpload(
 		})
 	}
 	upload, err := server.uploads.Create(ctx, uploads.CreateRequest{
-		Purpose: "RPG_MAKER_PROJECT", SourceType: "DIRECTORY", Files: declarations,
+		Purpose: "PROJECT", SourceType: "DIRECTORY", Files: declarations,
 	})
 	testassert.False(t, err != nil, err)
 	for index, file := range files {
-		digest := sha256.Sum256(file.contents)
-		if err := server.uploads.PutPart(
-			ctx, upload.ID, upload.Files[index].ID, 0,
-			fmt.Sprintf("bytes 0-%d/%d", len(file.contents)-1, len(file.contents)),
-			"sha-256=:"+base64.StdEncoding.EncodeToString(digest[:])+":",
-			bytes.NewReader(file.contents),
-		); err != nil {
-			t.Fatal(err)
+		for start, part := 0, 0; start < len(file.contents); start, part = start+int(uploads.PartSize), part+1 {
+			end := min(start+int(uploads.PartSize), len(file.contents))
+			digest := sha256.Sum256(file.contents[start:end])
+			if err := server.uploads.PutPart(
+				ctx, upload.ID, upload.Files[index].ID, part,
+				fmt.Sprintf("bytes %d-%d/%d", start, end-1, len(file.contents)),
+				"sha-256=:"+base64.StdEncoding.EncodeToString(digest[:])+":",
+				bytes.NewReader(file.contents[start:end]),
+			); err != nil {
+				t.Fatal(err)
+			}
 		}
 	}
 	current, err := server.uploads.Get(ctx, upload.ID)

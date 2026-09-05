@@ -1,0 +1,1126 @@
+{
+  "schemaVersion": 1,
+  "bindings": [
+    {
+      "id": "emulatorjs-a5200",
+      "coreId": "a5200",
+      "providerId": "emulatorjs",
+      "targetId": "a5200",
+      "platformIds": [
+        "atari5200"
+      ],
+      "acceptedContentKinds": [
+        "SINGLE_FILE"
+      ],
+      "detectorProfile": "EMULATORJS_SINGLE_FILE",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
+      "id": "emulatorjs-azahar",
+      "coreId": "azahar",
+      "providerId": "emulatorjs",
+      "targetId": "azahar",
+      "platformIds": [
+        "nintendo3ds"
+      ],
+      "acceptedContentKinds": [
+        "SINGLE_FILE"
+      ],
+      "detectorProfile": "EMULATORJS_SINGLE_FILE",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
+      "id": "emulatorjs-beetle-vb",
+      "coreId": "beetle_vb",
+      "providerId": "emulatorjs",
+      "targetId": "beetle-vb",
+      "platformIds": [
+        "virtualboy"
+      ],
+      "acceptedContentKinds": [
+        "SINGLE_FILE"
+      ],
+      "detectorProfile": "EMULATORJS_SINGLE_FILE",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
+      "id": "emulatorjs-desmume",
+      "coreId": "desmume",
+      "providerId": "emulatorjs",
+      "targetId": "desmume",
+      "platformIds": [
+        "nds"
+      ],
+      "acceptedContentKinds": [
+        "SINGLE_FILE"
+      ],
+      "detectorProfile": "EMULATORJS_SINGLE_FILE",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
+      "id": "emulatorjs-desmume2015",
+      "coreId": "desmume2015",
+      "providerId": "emulatorjs",
+      "targetId": "desmume2015",
+      "platformIds": [
+        "nds"
+      ],
+      "acceptedContentKinds": [
+        "SINGLE_FILE"
+      ],
+      "detectorProfile": "EMULATORJS_SINGLE_FILE",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
+      "id": "emulatorjs-dosbox-pure",
+      "coreId": "dosbox_pure",
+      "providerId": "emulatorjs",
+      "targetId": "dosbox-pure",
+      "platformIds": [
+        "dos"
+      ],
+      "acceptedContentKinds": [
+        "DOS_BUNDLE"
+      ],
+      "detectorProfile": "DOS_BUNDLE",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
+      "id": "emulatorjs-fbalpha2012-cps1",
+      "coreId": "fbalpha2012_cps1",
+      "providerId": "emulatorjs",
+      "targetId": "fbalpha2012-cps1",
+      "platformIds": [
+        "arcade"
+      ],
+      "acceptedContentKinds": [
+        "SINGLE_FILE"
+      ],
+      "detectorProfile": "ARCADE_ROM_SET",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
+      "id": "emulatorjs-fbalpha2012-cps2",
+      "coreId": "fbalpha2012_cps2",
+      "providerId": "emulatorjs",
+      "targetId": "fbalpha2012-cps2",
+      "platformIds": [
+        "arcade"
+      ],
+      "acceptedContentKinds": [
+        "SINGLE_FILE"
+      ],
+      "detectorProfile": "ARCADE_ROM_SET",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
+      "id": "emulatorjs-fbneo",
+      "coreId": "fbneo",
+      "providerId": "emulatorjs",
+      "targetId": "fbneo",
+      "platformIds": [
+        "arcade"
+      ],
+      "acceptedContentKinds": [
+        "SINGLE_FILE"
+      ],
+      "detectorProfile": "ARCADE_ROM_SET",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
+      "id": "emulatorjs-fceumm",
+      "coreId": "fceumm",
+      "providerId": "emulatorjs",
+      "targetId": "fceumm",
+      "platformIds": [
+        "fds",
+        "nes"
+      ],
+      "acceptedContentKinds": [
+        "SINGLE_FILE"
+      ],
+      "detectorProfile": "EMULATORJS_SINGLE_FILE",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
+      "id": "emulatorjs-gambatte",
+      "coreId": "gambatte",
+      "providerId": "emulatorjs",
+      "targetId": "gambatte",
+      "platformIds": [
+        "gbc"
+      ],
+      "acceptedContentKinds": [
+        "SINGLE_FILE"
+      ],
+      "detectorProfile": "EMULATORJS_SINGLE_FILE",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
+      "id": "emulatorjs-genesis-plus-gx",
+      "coreId": "genesis_plus_gx",
+      "providerId": "emulatorjs",
+      "targetId": "genesis-plus-gx",
+      "platformIds": [
+        "megadrive"
+      ],
+      "acceptedContentKinds": [
+        "SINGLE_FILE"
+      ],
+      "detectorProfile": "EMULATORJS_SINGLE_FILE",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
+      "id": "emulatorjs-genesis-plus-gx-wide",
+      "coreId": "genesis_plus_gx_wide",
+      "providerId": "emulatorjs",
+      "targetId": "genesis-plus-gx-wide",
+      "platformIds": [
+        "megadrive"
+      ],
+      "acceptedContentKinds": [
+        "SINGLE_FILE"
+      ],
+      "detectorProfile": "EMULATORJS_SINGLE_FILE",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
+      "id": "emulatorjs-handy",
+      "coreId": "handy",
+      "providerId": "emulatorjs",
+      "targetId": "handy",
+      "platformIds": [
+        "lynx"
+      ],
+      "acceptedContentKinds": [
+        "SINGLE_FILE"
+      ],
+      "detectorProfile": "EMULATORJS_SINGLE_FILE",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
+      "id": "emulatorjs-mame2003",
+      "coreId": "mame2003",
+      "providerId": "emulatorjs",
+      "targetId": "mame2003",
+      "platformIds": [
+        "arcade"
+      ],
+      "acceptedContentKinds": [
+        "SINGLE_FILE"
+      ],
+      "detectorProfile": "ARCADE_ROM_SET",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
+      "id": "emulatorjs-mame2003-plus",
+      "coreId": "mame2003_plus",
+      "providerId": "emulatorjs",
+      "targetId": "mame2003-plus",
+      "platformIds": [
+        "arcade"
+      ],
+      "acceptedContentKinds": [
+        "SINGLE_FILE"
+      ],
+      "detectorProfile": "ARCADE_ROM_SET",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
+      "id": "emulatorjs-mednafen-ngp",
+      "coreId": "mednafen_ngp",
+      "providerId": "emulatorjs",
+      "targetId": "mednafen-ngp",
+      "platformIds": [
+        "ngpc"
+      ],
+      "acceptedContentKinds": [
+        "SINGLE_FILE"
+      ],
+      "detectorProfile": "EMULATORJS_SINGLE_FILE",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
+      "id": "emulatorjs-mednafen-pce",
+      "coreId": "mednafen_pce",
+      "providerId": "emulatorjs",
+      "targetId": "mednafen-pce",
+      "platformIds": [
+        "pce"
+      ],
+      "acceptedContentKinds": [
+        "SINGLE_FILE"
+      ],
+      "detectorProfile": "EMULATORJS_SINGLE_FILE",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
+      "id": "emulatorjs-mednafen-pcfx",
+      "coreId": "mednafen_pcfx",
+      "providerId": "emulatorjs",
+      "targetId": "mednafen-pcfx",
+      "platformIds": [
+        "pcfx"
+      ],
+      "acceptedContentKinds": [
+        "SINGLE_FILE"
+      ],
+      "detectorProfile": "EMULATORJS_SINGLE_FILE",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
+      "id": "emulatorjs-mednafen-psx-hw",
+      "coreId": "mednafen_psx_hw",
+      "providerId": "emulatorjs",
+      "targetId": "mednafen-psx-hw",
+      "platformIds": [
+        "psx"
+      ],
+      "acceptedContentKinds": [
+        "SINGLE_FILE"
+      ],
+      "detectorProfile": "EMULATORJS_SINGLE_FILE",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
+      "id": "emulatorjs-mednafen-wswan",
+      "coreId": "mednafen_wswan",
+      "providerId": "emulatorjs",
+      "targetId": "mednafen-wswan",
+      "platformIds": [
+        "wonderswan"
+      ],
+      "acceptedContentKinds": [
+        "SINGLE_FILE"
+      ],
+      "detectorProfile": "EMULATORJS_SINGLE_FILE",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
+      "id": "emulatorjs-melonds",
+      "coreId": "melonds",
+      "providerId": "emulatorjs",
+      "targetId": "melonds",
+      "platformIds": [
+        "nds"
+      ],
+      "acceptedContentKinds": [
+        "SINGLE_FILE"
+      ],
+      "detectorProfile": "EMULATORJS_SINGLE_FILE",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
+      "id": "emulatorjs-mgba",
+      "coreId": "mgba",
+      "providerId": "emulatorjs",
+      "targetId": "mgba",
+      "platformIds": [
+        "gba",
+        "gbc"
+      ],
+      "acceptedContentKinds": [
+        "SINGLE_FILE"
+      ],
+      "detectorProfile": "EMULATORJS_SINGLE_FILE",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
+      "id": "emulatorjs-mupen64plus-next",
+      "coreId": "mupen64plus_next",
+      "providerId": "emulatorjs",
+      "targetId": "mupen64plus-next",
+      "platformIds": [
+        "n64"
+      ],
+      "acceptedContentKinds": [
+        "SINGLE_FILE"
+      ],
+      "detectorProfile": "EMULATORJS_SINGLE_FILE",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
+      "id": "emulatorjs-nestopia",
+      "coreId": "nestopia",
+      "providerId": "emulatorjs",
+      "targetId": "nestopia",
+      "platformIds": [
+        "fds",
+        "nes"
+      ],
+      "acceptedContentKinds": [
+        "SINGLE_FILE"
+      ],
+      "detectorProfile": "EMULATORJS_SINGLE_FILE",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
+      "id": "emulatorjs-opera",
+      "coreId": "opera",
+      "providerId": "emulatorjs",
+      "targetId": "opera",
+      "platformIds": [
+        "3do"
+      ],
+      "acceptedContentKinds": [
+        "SINGLE_FILE"
+      ],
+      "detectorProfile": "EMULATORJS_SINGLE_FILE",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
+      "id": "emulatorjs-parallel-n64",
+      "coreId": "parallel_n64",
+      "providerId": "emulatorjs",
+      "targetId": "parallel-n64",
+      "platformIds": [
+        "n64"
+      ],
+      "acceptedContentKinds": [
+        "SINGLE_FILE"
+      ],
+      "detectorProfile": "EMULATORJS_SINGLE_FILE",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
+      "id": "emulatorjs-pcsx-rearmed",
+      "coreId": "pcsx_rearmed",
+      "providerId": "emulatorjs",
+      "targetId": "pcsx-rearmed",
+      "platformIds": [
+        "psx"
+      ],
+      "acceptedContentKinds": [
+        "SINGLE_FILE"
+      ],
+      "detectorProfile": "EMULATORJS_SINGLE_FILE",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
+      "id": "emulatorjs-picodrive",
+      "coreId": "picodrive",
+      "providerId": "emulatorjs",
+      "targetId": "picodrive",
+      "platformIds": [
+        "megadrive"
+      ],
+      "acceptedContentKinds": [
+        "SINGLE_FILE"
+      ],
+      "detectorProfile": "EMULATORJS_SINGLE_FILE",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
+      "id": "emulatorjs-ppsspp",
+      "coreId": "ppsspp",
+      "providerId": "emulatorjs",
+      "targetId": "ppsspp",
+      "platformIds": [
+        "psp"
+      ],
+      "acceptedContentKinds": [
+        "SINGLE_FILE"
+      ],
+      "detectorProfile": "EMULATORJS_SINGLE_FILE",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
+      "id": "emulatorjs-prosystem",
+      "coreId": "prosystem",
+      "providerId": "emulatorjs",
+      "targetId": "prosystem",
+      "platformIds": [
+        "atari7800"
+      ],
+      "acceptedContentKinds": [
+        "SINGLE_FILE"
+      ],
+      "detectorProfile": "EMULATORJS_SINGLE_FILE",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
+      "id": "emulatorjs-smsplus",
+      "coreId": "smsplus",
+      "providerId": "emulatorjs",
+      "targetId": "smsplus",
+      "platformIds": [
+        "mastersystem"
+      ],
+      "acceptedContentKinds": [
+        "SINGLE_FILE"
+      ],
+      "detectorProfile": "EMULATORJS_SINGLE_FILE",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
+      "id": "emulatorjs-snes9x",
+      "coreId": "snes9x",
+      "providerId": "emulatorjs",
+      "targetId": "snes9x",
+      "platformIds": [
+        "snes"
+      ],
+      "acceptedContentKinds": [
+        "SINGLE_FILE"
+      ],
+      "detectorProfile": "EMULATORJS_SINGLE_FILE",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
+      "id": "emulatorjs-stella2014",
+      "coreId": "stella2014",
+      "providerId": "emulatorjs",
+      "targetId": "stella2014",
+      "platformIds": [
+        "atari2600"
+      ],
+      "acceptedContentKinds": [
+        "SINGLE_FILE"
+      ],
+      "detectorProfile": "EMULATORJS_SINGLE_FILE",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
+      "id": "emulatorjs-yabause",
+      "coreId": "yabause",
+      "providerId": "emulatorjs",
+      "targetId": "yabause",
+      "platformIds": [
+        "saturn"
+      ],
+      "acceptedContentKinds": [
+        "MULTI_DISC",
+        "SINGLE_FILE"
+      ],
+      "detectorProfile": "EMULATORJS_DISC_CONTENT",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
+      "id": "retrom-runtime-butterscotch-gamemaker",
+      "coreId": "butterscotch",
+      "providerId": "retrom-runtime",
+      "targetId": "butterscotch-gamemaker",
+      "platformIds": [
+        "butterscotch"
+      ],
+      "acceptedContentKinds": [
+        "BUTTERSCOTCH_PROJECT"
+      ],
+      "detectorProfile": "BUTTERSCOTCH_PROJECT",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
+      "id": "retrom-runtime-kirikiri2-kag",
+      "coreId": "kirikiri2",
+      "providerId": "retrom-runtime",
+      "targetId": "kirikiri2-kag",
+      "platformIds": [
+        "kirikiri"
+      ],
+      "acceptedContentKinds": [
+        "KIRIKIRI_PROJECT"
+      ],
+      "detectorProfile": "KIRIKIRI_PROJECT",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
+      "id": "retrom-runtime-onscripter-yuri",
+      "coreId": "onscripter_yuri",
+      "providerId": "retrom-runtime",
+      "targetId": "onscripter-yuri",
+      "platformIds": [
+        "ons"
+      ],
+      "acceptedContentKinds": [
+        "ONS_PROJECT"
+      ],
+      "detectorProfile": "ONS_PROJECT",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
+      "id": "retrom-runtime-rpgmaker-2000",
+      "coreId": "rpgmaker",
+      "providerId": "retrom-runtime",
+      "targetId": "rpgmaker-2000",
+      "platformIds": [
+        "rpgmaker"
+      ],
+      "acceptedContentKinds": [
+        "RPG_MAKER_PROJECT"
+      ],
+      "detectorProfile": "RPG2000",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
+      "id": "retrom-runtime-rpgmaker-2003",
+      "coreId": "rpgmaker",
+      "providerId": "retrom-runtime",
+      "targetId": "rpgmaker-2003",
+      "platformIds": [
+        "rpgmaker"
+      ],
+      "acceptedContentKinds": [
+        "RPG_MAKER_PROJECT"
+      ],
+      "detectorProfile": "RPG2003",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
+      "id": "retrom-runtime-rpgmaker-mv",
+      "coreId": "rpgmaker",
+      "providerId": "retrom-runtime",
+      "targetId": "rpgmaker-mv",
+      "platformIds": [
+        "rpgmaker"
+      ],
+      "acceptedContentKinds": [
+        "RPG_MAKER_PROJECT"
+      ],
+      "detectorProfile": "RPGMV",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
+      "id": "retrom-runtime-rpgmaker-mz",
+      "coreId": "rpgmaker",
+      "providerId": "retrom-runtime",
+      "targetId": "rpgmaker-mz",
+      "platformIds": [
+        "rpgmaker"
+      ],
+      "acceptedContentKinds": [
+        "RPG_MAKER_PROJECT"
+      ],
+      "detectorProfile": "RPGMZ",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
+      "id": "retrom-runtime-rpgmaker-vx",
+      "coreId": "rpgmaker",
+      "providerId": "retrom-runtime",
+      "targetId": "rpgmaker-vx",
+      "platformIds": [
+        "rpgmaker"
+      ],
+      "acceptedContentKinds": [
+        "RPG_MAKER_PROJECT"
+      ],
+      "detectorProfile": "RPGVX",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
+      "id": "retrom-runtime-rpgmaker-vx-ace",
+      "coreId": "rpgmaker",
+      "providerId": "retrom-runtime",
+      "targetId": "rpgmaker-vx-ace",
+      "platformIds": [
+        "rpgmaker"
+      ],
+      "acceptedContentKinds": [
+        "RPG_MAKER_PROJECT"
+      ],
+      "detectorProfile": "RPGVXACE",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
+      "id": "retrom-runtime-rpgmaker-xp",
+      "coreId": "rpgmaker",
+      "providerId": "retrom-runtime",
+      "targetId": "rpgmaker-xp",
+      "platformIds": [
+        "rpgmaker"
+      ],
+      "acceptedContentKinds": [
+        "RPG_MAKER_PROJECT"
+      ],
+      "detectorProfile": "RPGXP",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
+      "id": "retrom-runtime-tyranoscript",
+      "coreId": "tyranoscript",
+      "providerId": "retrom-runtime",
+      "targetId": "tyranoscript",
+      "platformIds": [
+        "tyranoscript"
+      ],
+      "acceptedContentKinds": [
+        "TYRANOSCRIPT_PROJECT"
+      ],
+      "detectorProfile": "TYRANOSCRIPT_PROJECT",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
+      "id": "retrom-runtime-wasm4",
+      "coreId": "wasm4",
+      "providerId": "retrom-runtime",
+      "targetId": "wasm4",
+      "platformIds": [
+        "wasm4"
+      ],
+      "acceptedContentKinds": [
+        "SINGLE_FILE"
+      ],
+      "detectorProfile": "WASM4_CART",
+      "launchPolicy": "SUPPORTED"
+    }
+  ],
+  "definitions": {
+    "platforms": [
+      {
+        "id": "3do",
+        "name": "3DO",
+        "sortOrder": 200,
+        "enabled": true
+      },
+      {
+        "id": "arcade",
+        "name": "Arcade",
+        "sortOrder": 60,
+        "enabled": true
+      },
+      {
+        "id": "atari2600",
+        "name": "Atari 2600",
+        "sortOrder": 90,
+        "enabled": true
+      },
+      {
+        "id": "atari5200",
+        "name": "Atari 5200",
+        "sortOrder": 100,
+        "enabled": true
+      },
+      {
+        "id": "atari7800",
+        "name": "Atari 7800",
+        "sortOrder": 110,
+        "enabled": true
+      },
+      {
+        "id": "butterscotch",
+        "name": "GameMaker",
+        "sortOrder": 78,
+        "enabled": true
+      },
+      {
+        "id": "dos",
+        "name": "MS-DOS",
+        "sortOrder": 70,
+        "enabled": true
+      },
+      {
+        "id": "fds",
+        "name": "Famicom Disk System",
+        "sortOrder": 20,
+        "enabled": true
+      },
+      {
+        "id": "gba",
+        "name": "Game Boy Advance",
+        "sortOrder": 50,
+        "enabled": true
+      },
+      {
+        "id": "gbc",
+        "name": "Game Boy / Color",
+        "sortOrder": 40,
+        "enabled": true
+      },
+      {
+        "id": "kirikiri",
+        "name": "KiriKiri",
+        "sortOrder": 77,
+        "enabled": true
+      },
+      {
+        "id": "lynx",
+        "name": "Atari Lynx",
+        "sortOrder": 120,
+        "enabled": true
+      },
+      {
+        "id": "mastersystem",
+        "name": "Master System",
+        "sortOrder": 240,
+        "enabled": true
+      },
+      {
+        "id": "megadrive",
+        "name": "Mega Drive / Genesis",
+        "sortOrder": 130,
+        "enabled": true
+      },
+      {
+        "id": "n64",
+        "name": "Nintendo 64",
+        "sortOrder": 160,
+        "enabled": true
+      },
+      {
+        "id": "nds",
+        "name": "Nintendo DS",
+        "sortOrder": 80,
+        "enabled": true
+      },
+      {
+        "id": "nes",
+        "name": "NES / Famicom",
+        "sortOrder": 10,
+        "enabled": true
+      },
+      {
+        "id": "ngpc",
+        "name": "Neo Geo Pocket / Color",
+        "sortOrder": 150,
+        "enabled": true
+      },
+      {
+        "id": "nintendo3ds",
+        "name": "Nintendo 3DS",
+        "sortOrder": 250,
+        "enabled": true
+      },
+      {
+        "id": "ons",
+        "name": "ONScripter",
+        "sortOrder": 76,
+        "enabled": true
+      },
+      {
+        "id": "pce",
+        "name": "PC Engine",
+        "sortOrder": 140,
+        "enabled": true
+      },
+      {
+        "id": "pcfx",
+        "name": "PC-FX",
+        "sortOrder": 190,
+        "enabled": true
+      },
+      {
+        "id": "psp",
+        "name": "PlayStation Portable",
+        "sortOrder": 210,
+        "enabled": true
+      },
+      {
+        "id": "psx",
+        "name": "PlayStation",
+        "sortOrder": 170,
+        "enabled": true
+      },
+      {
+        "id": "rpgmaker",
+        "name": "RPG Maker",
+        "sortOrder": 75,
+        "enabled": true
+      },
+      {
+        "id": "saturn",
+        "name": "Sega Saturn",
+        "sortOrder": 180,
+        "enabled": true
+      },
+      {
+        "id": "snes",
+        "name": "SNES",
+        "sortOrder": 30,
+        "enabled": true
+      },
+      {
+        "id": "tyranoscript",
+        "name": "TyranoScript",
+        "sortOrder": 79,
+        "enabled": true
+      },
+      {
+        "id": "virtualboy",
+        "name": "Virtual Boy",
+        "sortOrder": 220,
+        "enabled": true
+      },
+      {
+        "id": "wasm4",
+        "name": "WASM-4",
+        "sortOrder": 81,
+        "enabled": true
+      },
+      {
+        "id": "wonderswan",
+        "name": "WonderSwan / Color",
+        "sortOrder": 230,
+        "enabled": true
+      }
+    ],
+    "cores": [
+      {
+        "id": "a5200",
+        "name": "Atari800 5200",
+        "enabled": true
+      },
+      {
+        "id": "azahar",
+        "name": "Azahar",
+        "enabled": true
+      },
+      {
+        "id": "beetle_vb",
+        "name": "Beetle VB",
+        "enabled": true
+      },
+      {
+        "id": "butterscotch",
+        "name": "Butterscotch",
+        "enabled": true
+      },
+      {
+        "id": "desmume",
+        "name": "DeSmuME",
+        "enabled": true
+      },
+      {
+        "id": "desmume2015",
+        "name": "DeSmuME 2015",
+        "enabled": true
+      },
+      {
+        "id": "dosbox_pure",
+        "name": "DOSBox Pure",
+        "enabled": true
+      },
+      {
+        "id": "fbalpha2012_cps1",
+        "name": "FB Alpha 2012 CPS-1",
+        "enabled": true
+      },
+      {
+        "id": "fbalpha2012_cps2",
+        "name": "FB Alpha 2012 CPS-2",
+        "enabled": true
+      },
+      {
+        "id": "fbneo",
+        "name": "FinalBurn Neo",
+        "enabled": true
+      },
+      {
+        "id": "fceumm",
+        "name": "FCEUmm",
+        "enabled": true
+      },
+      {
+        "id": "gambatte",
+        "name": "Gambatte",
+        "enabled": true
+      },
+      {
+        "id": "genesis_plus_gx",
+        "name": "Genesis Plus GX",
+        "enabled": true
+      },
+      {
+        "id": "genesis_plus_gx_wide",
+        "name": "Genesis Plus GX Wide",
+        "enabled": true
+      },
+      {
+        "id": "handy",
+        "name": "Handy",
+        "enabled": true
+      },
+      {
+        "id": "kirikiri2",
+        "name": "KiriKiri2",
+        "enabled": true
+      },
+      {
+        "id": "mame2003",
+        "name": "MAME 2003",
+        "enabled": true
+      },
+      {
+        "id": "mame2003_plus",
+        "name": "MAME 2003 Plus",
+        "enabled": true
+      },
+      {
+        "id": "mednafen_ngp",
+        "name": "Beetle NeoPop",
+        "enabled": true
+      },
+      {
+        "id": "mednafen_pce",
+        "name": "Beetle PCE",
+        "enabled": true
+      },
+      {
+        "id": "mednafen_pcfx",
+        "name": "Beetle PC-FX",
+        "enabled": true
+      },
+      {
+        "id": "mednafen_psx_hw",
+        "name": "Beetle PSX HW",
+        "enabled": true
+      },
+      {
+        "id": "mednafen_wswan",
+        "name": "Beetle WonderSwan",
+        "enabled": true
+      },
+      {
+        "id": "melonds",
+        "name": "melonDS",
+        "enabled": true
+      },
+      {
+        "id": "mgba",
+        "name": "mGBA",
+        "enabled": true
+      },
+      {
+        "id": "mupen64plus_next",
+        "name": "Mupen64Plus-Next",
+        "enabled": true
+      },
+      {
+        "id": "nestopia",
+        "name": "Nestopia UE",
+        "enabled": true
+      },
+      {
+        "id": "onscripter_yuri",
+        "name": "ONScripter Yuri",
+        "enabled": true
+      },
+      {
+        "id": "opera",
+        "name": "Opera",
+        "enabled": true
+      },
+      {
+        "id": "parallel_n64",
+        "name": "ParaLLEl N64",
+        "enabled": true
+      },
+      {
+        "id": "pcsx_rearmed",
+        "name": "PCSX-ReARMed",
+        "enabled": true
+      },
+      {
+        "id": "picodrive",
+        "name": "PicoDrive",
+        "enabled": true
+      },
+      {
+        "id": "ppsspp",
+        "name": "PPSSPP",
+        "enabled": true
+      },
+      {
+        "id": "prosystem",
+        "name": "ProSystem",
+        "enabled": true
+      },
+      {
+        "id": "rpgmaker",
+        "name": "RPG Maker",
+        "enabled": true
+      },
+      {
+        "id": "smsplus",
+        "name": "SMS Plus GX",
+        "enabled": true
+      },
+      {
+        "id": "snes9x",
+        "name": "Snes9x",
+        "enabled": true
+      },
+      {
+        "id": "stella2014",
+        "name": "Stella 2014",
+        "enabled": true
+      },
+      {
+        "id": "tyranoscript",
+        "name": "TyranoScript",
+        "enabled": true
+      },
+      {
+        "id": "wasm4",
+        "name": "WASM-4",
+        "enabled": true
+      },
+      {
+        "id": "yabause",
+        "name": "Yabause",
+        "enabled": true
+      }
+    ],
+    "contentKinds": [
+      "BUTTERSCOTCH_PROJECT",
+      "DOS_BUNDLE",
+      "KIRIKIRI_PROJECT",
+      "MULTI_DISC",
+      "ONS_PROJECT",
+      "RPG_MAKER_PROJECT",
+      "SINGLE_FILE",
+      "TYRANOSCRIPT_PROJECT"
+    ],
+    "assetPacks": [
+      {
+        "id": "rgss1_standard",
+        "kind": "RGSS1_RTP_STANDARD",
+        "generation": "RPGXP",
+        "declaredName": "Standard",
+        "normalizedDeclaredName": "standard",
+        "displayName": "RPG Maker XP RTP",
+        "requiredLayoutVersion": "mkxpz-v1",
+        "enabled": true
+      },
+      {
+        "id": "rgss2_rpgvx",
+        "kind": "RGSS2_RTP_RPGVX",
+        "generation": "RPGVX",
+        "declaredName": "RPGVX",
+        "normalizedDeclaredName": "rpgvx",
+        "displayName": "RPG Maker VX RTP",
+        "requiredLayoutVersion": "mkxpz-v1",
+        "enabled": true
+      },
+      {
+        "id": "rgss3_rpgvxace",
+        "kind": "RGSS3_RTP_RPGVXAce",
+        "generation": "RPGVXACE",
+        "declaredName": "RPGVXAce",
+        "normalizedDeclaredName": "rpgvxace",
+        "displayName": "RPG Maker VX Ace RTP",
+        "requiredLayoutVersion": "mkxpz-v1",
+        "enabled": true
+      },
+      {
+        "id": "rpg2000_rtp",
+        "kind": "RPG2000_RTP",
+        "generation": "RPG2000",
+        "declaredName": "RPG2000_RTP",
+        "normalizedDeclaredName": "rpg2000_rtp",
+        "displayName": "RPG Maker 2000 RTP",
+        "requiredLayoutVersion": "easy-rtp-layout-v1",
+        "enabled": true
+      },
+      {
+        "id": "rpg2003_rtp",
+        "kind": "RPG2003_RTP",
+        "generation": "RPG2003",
+        "declaredName": "RPG2003_RTP",
+        "normalizedDeclaredName": "rpg2003_rtp",
+        "displayName": "RPG Maker 2003 RTP",
+        "requiredLayoutVersion": "easy-rtp-layout-v1",
+        "enabled": true
+      }
+    ]
+  }
+}

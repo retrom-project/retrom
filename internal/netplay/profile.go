@@ -13,14 +13,11 @@ import (
 	"strings"
 
 	"retrom/internal/dependencies"
-	retromruntime "retrom/internal/runtime"
 )
 
 const (
 	ProtocolVersion        = "retrom-netplay-v2"
 	WebSocketSubprotocol   = "retrom.netplay.v1"
-	PlayerAdapterID        = retromruntime.NetplayPlayerAdapterID
-	NetplayAdapterID       = "ejs-netplay-4.2.3-v1"
 	ControlCount           = 24
 	CheckpointEveryFrames  = 120
 	MaxPredictionFrames    = 8
@@ -35,8 +32,6 @@ var ErrManifestInvalid = errors.New("NETPLAY_MANIFEST_INVALID")
 
 type Protocol struct {
 	Version                string   `json:"version"`
-	PlayerAdapterID        string   `json:"playerAdapterId"`
-	NetplayAdapterID       string   `json:"netplayAdapterId"`
 	ControlCount           int      `json:"controlCount"`
 	CheckpointEveryFrames  int      `json:"checkpointEveryFrames"`
 	MaxPredictionFrames    int      `json:"maxPredictionFrames"`
@@ -48,10 +43,10 @@ type Protocol struct {
 
 type ManifestProfile struct {
 	ID                  string   `json:"id"`
-	EmulatorJSVersion   string   `json:"emulatorjsVersion"`
+	ProviderID          string   `json:"providerId"`
+	TargetID            string   `json:"targetId"`
 	CoreID              string   `json:"coreId"`
 	PlatformIDs         []string `json:"platformIds"`
-	CoreArtifactSHA256  string   `json:"coreArtifactSha256"`
 	MaxPlayers          int      `json:"maxPlayers"`
 	MaxPredictionFrames int      `json:"maxPredictionFrames"`
 }
@@ -69,8 +64,7 @@ type Registry struct {
 }
 
 func LoadRegistry(dependencyRoot string, dependencySet *dependencies.Set) (*Registry, error) {
-	manifestPath := filepath.Join(dependencyRoot, ManifestRelativePath)
-	contents, err := os.ReadFile(manifestPath)
+	contents, err := os.ReadFile(filepath.Join(dependencyRoot, ManifestRelativePath))
 	if err != nil {
 		return nil, fmt.Errorf("%w: manifest unavailable", ErrManifestInvalid)
 	}
@@ -94,21 +88,12 @@ func parseRegistry(contents []byte, dependencySet *dependencies.Set) (*Registry,
 	if err := decoder.Decode(&trailing); !errors.Is(err, io.EOF) {
 		return nil, fmt.Errorf("%w: trailing data", ErrManifestInvalid)
 	}
-	if manifest.SchemaVersion != 4 || !validProtocol(manifest.Protocol) || len(manifest.Profiles) == 0 {
+	if manifest.SchemaVersion != 5 || !validProtocol(manifest.Protocol) || len(manifest.Profiles) == 0 {
 		return nil, fmt.Errorf("%w: protocol", ErrManifestInvalid)
-	}
-	version := dependencySet.Versions["4.2.3"]
-	if version == nil || version.Manifest.EmulatorJS.PlayerAdapter.ID != retromruntime.SinglePlayerAdapter423ID {
-		return nil, fmt.Errorf("%w: player adapter", ErrManifestInvalid)
-	}
-	cores := make(map[string]dependencies.SelectedCore, len(version.Manifest.EmulatorJS.SelectedCores))
-	for _, core := range version.Manifest.EmulatorJS.SelectedCores {
-		cores[core.CoreID] = core
 	}
 	profiles := make(map[string]ManifestProfile, len(manifest.Profiles))
 	for _, profile := range manifest.Profiles {
-		core, exists := cores[profile.CoreID]
-		if !exists || !validManifestProfile(profile, core) {
+		if !validManifestProfile(profile, dependencySet) {
 			return nil, fmt.Errorf("%w: profile", ErrManifestInvalid)
 		}
 		if _, duplicate := profiles[profile.ID]; duplicate {
@@ -117,28 +102,43 @@ func parseRegistry(contents []byte, dependencySet *dependencies.Set) (*Registry,
 		profiles[profile.ID] = profile
 	}
 	digest := sha256.Sum256(contents)
-	return &Registry{
-		Manifest: manifest, ManifestDigest: hex.EncodeToString(digest[:]), profiles: profiles,
-	}, nil
+	return &Registry{Manifest: manifest, ManifestDigest: hex.EncodeToString(digest[:]), profiles: profiles}, nil
 }
 
 func validProtocol(protocol Protocol) bool {
-	return protocol.Version == ProtocolVersion && protocol.PlayerAdapterID == PlayerAdapterID &&
-		protocol.NetplayAdapterID == NetplayAdapterID && protocol.ControlCount == ControlCount &&
+	return protocol.Version == ProtocolVersion && protocol.ControlCount == ControlCount &&
 		protocol.CheckpointEveryFrames == CheckpointEveryFrames &&
-		protocol.MaxPredictionFrames == MaxPredictionFrames &&
-		protocol.MaxRollbackFrames == MaxRollbackFrames &&
+		protocol.MaxPredictionFrames == MaxPredictionFrames && protocol.MaxRollbackFrames == MaxRollbackFrames &&
 		protocol.CanonicalHistoryFrames == CanonicalHistoryFrames && protocol.MaxStateBytes == MaxStateBytes &&
 		slices.Equal(protocol.AllowedContentKinds, []string{"SINGLE_FILE"})
 }
 
-func validManifestProfile(profile ManifestProfile, core dependencies.SelectedCore) bool {
+func validManifestProfile(profile ManifestProfile, dependencySet *dependencies.Set) bool {
+	if !validManifestProfileShape(profile) {
+		return false
+	}
+	for _, binding := range dependencySet.RuntimeCatalog.Bindings {
+		if binding.ProviderID == profile.ProviderID && binding.TargetID == profile.TargetID &&
+			binding.CoreID == profile.CoreID && binding.LaunchPolicy != "DISABLED" &&
+			slices.Contains(binding.AcceptedContentKinds, "SINGLE_FILE") {
+			return profilePlatformsBound(profile.PlatformIDs, binding.PlatformIDs)
+		}
+	}
+	return false
+}
+
+func validManifestProfileShape(profile ManifestProfile) bool {
 	return profile.ID != "" && profile.ID == strings.ToLower(profile.ID) && len(profile.ID) <= 64 &&
+		profile.ProviderID != "" && profile.TargetID != "" && profile.CoreID != "" &&
 		validPlatformIDs(profile.PlatformIDs) &&
-		profile.EmulatorJSVersion == "4.2.3" && profile.CoreArtifactSHA256 == core.SHA256 &&
-		profile.MaxPlayers >= 2 && profile.MaxPlayers <= 4 &&
-		profile.MaxPredictionFrames >= 0 && profile.MaxPredictionFrames <= MaxPredictionFrames &&
-		slices.Contains(core.SupportedContentKinds, "SINGLE_FILE")
+		profile.MaxPlayers >= 2 && profile.MaxPlayers <= 4 && profile.MaxPredictionFrames >= 0 &&
+		profile.MaxPredictionFrames <= MaxPredictionFrames
+}
+
+func profilePlatformsBound(profilePlatforms, bindingPlatforms []string) bool {
+	return !slices.ContainsFunc(profilePlatforms, func(platformID string) bool {
+		return !slices.Contains(bindingPlatforms, platformID)
+	})
 }
 
 func validPlatformIDs(platformIDs []string) bool {
@@ -174,17 +174,16 @@ func (registry *Registry) Profiles() []ManifestProfile {
 	return result
 }
 
-func (registry *Registry) SupportsPlatformCoreArtifact(platformID, coreID, emulatorVersion, artifactSHA string) bool {
+func (registry *Registry) SupportsPlatformTarget(
+	platformID, coreID, providerID, targetID string,
+) bool {
 	if registry == nil {
 		return false
 	}
-	for _, profile := range registry.Manifest.Profiles {
-		if profile.CoreID == coreID && profile.EmulatorJSVersion == emulatorVersion &&
-			profile.CoreArtifactSHA256 == artifactSHA && slices.Contains(profile.PlatformIDs, platformID) {
-			return true
-		}
-	}
-	return false
+	return slices.ContainsFunc(registry.Manifest.Profiles, func(profile ManifestProfile) bool {
+		return profile.CoreID == coreID && profile.ProviderID == providerID && profile.TargetID == targetID &&
+			slices.Contains(profile.PlatformIDs, platformID)
+	})
 }
 
 func validDigest(value string) bool {
@@ -197,30 +196,27 @@ func validDigest(value string) bool {
 
 type CanonicalProfileInput struct {
 	ManifestProfile
-	CoreArtifactID         string
-	GameVariantRevisionID  string
+	BundleSHA256           string
+	SourceManifestDigest   string
 	DependencySnapshotJSON string
-	DefaultCoreOptions     map[string]string
 }
 
 func (registry *Registry) CanonicalProfile(input CanonicalProfileInput) ([]byte, string, error) {
-	if _, ok := registry.Profile(input.ID); !ok || input.CoreArtifactID == "" ||
-		input.GameVariantRevisionID == "" || input.DefaultCoreOptions == nil {
+	if _, ok := registry.Profile(input.ID); !ok || !validDigest(input.BundleSHA256) ||
+		!validDigest(input.SourceManifestDigest) {
 		return nil, "", ErrManifestInvalid
 	}
 	dependencyDigest := sha256.Sum256([]byte(input.DependencySnapshotJSON))
 	value := map[string]any{
-		"schemaVersion": 1, "protocolVersion": ProtocolVersion, "profileId": input.ID,
-		"emulatorjsVersion": input.EmulatorJSVersion, "playerAdapterId": PlayerAdapterID,
-		"platformIds":      input.PlatformIDs,
-		"netplayAdapterId": NetplayAdapterID, "coreArtifactId": input.CoreArtifactID,
-		"coreArtifactSha256":       input.CoreArtifactSHA256,
-		"gameVariantRevisionId":    input.GameVariantRevisionID,
-		"sourceManifestDigest":     registry.ManifestDigest,
+		"schemaVersion": 2, "protocolVersion": ProtocolVersion, "profileId": input.ID,
+		"coreId": input.CoreID, "platformIds": input.PlatformIDs,
+		"providerId": input.ProviderID, "targetId": input.TargetID,
+		"bundleSha256":             input.BundleSHA256,
+		"sourceManifestDigest":     input.SourceManifestDigest,
 		"dependencySnapshotDigest": hex.EncodeToString(dependencyDigest[:]),
-		"defaultCoreOptions":       input.DefaultCoreOptions, "controlCount": ControlCount,
-		"maxPlayers": input.MaxPlayers, "maxPredictionFrames": input.MaxPredictionFrames,
-		"maxRollbackFrames": MaxRollbackFrames, "checkpointEveryFrames": CheckpointEveryFrames,
+		"controlCount":             ControlCount, "maxPlayers": input.MaxPlayers,
+		"maxPredictionFrames": input.MaxPredictionFrames, "maxRollbackFrames": MaxRollbackFrames,
+		"checkpointEveryFrames":  CheckpointEveryFrames,
 		"canonicalHistoryFrames": CanonicalHistoryFrames, "maxStateBytes": MaxStateBytes,
 	}
 	canonical, err := json.Marshal(value)

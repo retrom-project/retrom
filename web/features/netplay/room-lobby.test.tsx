@@ -61,8 +61,8 @@ function game(): NetplayGame {
     availability: "SUPPORTED",
     blockerCode: null,
     netplayProfiles: [
-      { id: "fceumm-423-v1", coreId: "fceumm", coreName: "FCEUmm", emulatorjsVersion: "4.2.3", maxPlayers: 2 },
-      { id: "fceumm-423-alt", coreId: "fceumm", coreName: "FCEUmm 严格", emulatorjsVersion: "4.2.3", maxPlayers: 2 },
+      { id: "fceumm-423-v1", coreId: "fceumm", coreName: "FCEUmm", providerId: "emulatorjs", targetId: "fceumm", bundleSha256: "1".repeat(64), maxPlayers: 2 },
+      { id: "fceumm-423-alt", coreId: "fceumm", coreName: "FCEUmm 严格", providerId: "emulatorjs", targetId: "fceumm", bundleSha256: "1".repeat(64), maxPlayers: 2 },
     ],
   };
 }
@@ -76,7 +76,7 @@ function room(state: NetplayRoom["state"] = "DRAFT"): NetplayRoom {
     game: state === "DRAFT" ? null : {
       gameId: selected.gameId, title: selected.title, platformName: selected.platformName,
       status: "PUBLISHED", availability: "PUBLISHED",
-      profileId: selected.netplayProfiles[0]!.id, coreName: "FCEUmm", emulatorjsVersion: "4.2.3", maxPlayers: 2,
+      profileId: selected.netplayProfiles[0]!.id, coreName: "FCEUmm", providerId: "emulatorjs", targetId: "fceumm", maxPlayers: 2,
     },
     members: [{ memberId: hostMemberId, playerNo: 1, role: "HOST", displayName: "Host", avatarRef: null, ready: false, connectionState: "NOT_CONNECTED" }],
     currentSession: null,
@@ -126,7 +126,7 @@ describe("NetplayRoomLobby", () => {
     const trigger = screen.getByRole("button", { name: "选择" });
     await user.click(trigger);
     const dialog = screen.getByRole("dialog", { name: "选择 F1 Race 的联机配置" });
-    const firstProfile = within(dialog).getByRole("button", { name: /FCEUmmEmulatorJS/ });
+    const firstProfile = within(dialog).getByRole("button", { name: /FCEUmmemulatorjs\/fceumm/ });
     expect(firstProfile).toHaveFocus();
     await user.keyboard("{Shift>}{Tab}{/Shift}");
     expect(within(dialog).getByRole("button", { name: "取消" })).toHaveFocus();

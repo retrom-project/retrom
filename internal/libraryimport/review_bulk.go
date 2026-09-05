@@ -108,15 +108,15 @@ type ReviewBulkItemResult struct {
 }
 
 type reviewBulkCandidate struct {
-	itemID, sourceSnapshotID, platformInstanceID, platformName, platformID     string
-	title, contentKind                                                         string
-	reviewVersion, platformVersion                                             int64
-	artifactID, artifactCompatibility                                          sql.NullString
-	artifactVersion                                                            sql.NullInt64
-	validationID, validationStatus, dependencySnapshot                         sql.NullString
-	validationGeneration, validationPlatformVersion, validationArtifactVersion sql.NullInt64
-	validationDAT, currentDAT, validationDOSEntry, draftDOSEntry               sql.NullString
-	screenshotCurrent, attachmentActive, sourceFlagged                         bool
+	itemID, sourceSnapshotID, platformInstanceID, platformName, platformID string
+	title, contentKind                                                     string
+	reviewVersion, platformVersion                                         int64
+	providerID, targetID                                                   sql.NullString
+	contentPolicy                                                          contentcapability.Policy
+	validationID, validationStatus, dependencySnapshot                     sql.NullString
+	validationPlatformVersion                                              sql.NullInt64
+	validationDAT, currentDAT, validationDOSEntry, draftDOSEntry           sql.NullString
+	screenshotCurrent, attachmentActive, sourceFlagged                     bool
 }
 
 func normalizeReviewBulkScope(scope ReviewBulkScope) (ReviewBulkScope, error) {
@@ -170,17 +170,19 @@ func reviewBulkCandidatesQuery(scope ReviewBulkScope) (string, []any) {
 	query := `
 SELECT item.id,draft.version,draft.effective_source_snapshot_id,
        json_extract(draft.metadata_json,'$.title'),instance.id,instance.name,instance.platform_id,instance.version,
-       artifact.id,artifact.compatibility_json,artifact.version,
-       validation.id,validation.status,validation.prepublish_generation,
-       validation.platform_instance_version,validation.core_artifact_version,
+       validation.provider_id,validation.target_id,
+       CASE WHEN binding.binding_id IS NULL THEN NULL ELSE ` + contentcapability.BindingPolicySQL + ` END,
+       validation.id,validation.status,
+       validation.platform_instance_version,
        validation.dat_version_id,
-       (SELECT active.id FROM dat_versions active WHERE active.core_artifact_id=artifact.id AND active.is_active=1),
+       (SELECT active.id FROM dat_versions active WHERE active.provider_id=validation.provider_id
+         AND active.target_id=validation.target_id AND active.is_active=1),
        validation.default_dos_entry,draft.default_dos_entry,validation.dependency_snapshot_json,
        source.content_kind,
        EXISTS(SELECT 1 FROM review_runtime_screenshots screenshot
          WHERE screenshot.import_item_id=item.id AND screenshot.validation_id=validation.id
          AND screenshot.source_snapshot_id=draft.effective_source_snapshot_id
-         AND screenshot.core_artifact_id=validation.core_artifact_id),
+         AND screenshot.provider_id=validation.provider_id AND screenshot.target_id=validation.target_id),
        EXISTS(SELECT 1 FROM review_arcade_parent_attachments attachment
          WHERE attachment.import_item_id=item.id AND attachment.state IN ('QUEUED','RUNNING')) OR
        EXISTS(SELECT 1 FROM review_multidisc_attachments attachment
@@ -192,19 +194,19 @@ JOIN review_drafts draft ON draft.import_item_id=item.id
 JOIN import_item_source_snapshots source ON source.id=draft.effective_source_snapshot_id
 JOIN platform_instances instance ON instance.id=draft.target_platform_instance_id
 LEFT JOIN rpgmaker_review_profiles rpg_profile ON rpg_profile.review_draft_id=draft.id
-LEFT JOIN core_artifacts artifact ON artifact.id=CASE
- WHEN instance.platform_id='rpgmaker' THEN rpg_profile.artifact_id ELSE (
- SELECT selected.id FROM core_artifacts selected
- WHERE selected.core_id=instance.default_core_id AND selected.selected_for_new_bindings=1
-) END
 LEFT JOIN import_item_core_validations validation ON validation.id=(
   SELECT candidate.id FROM import_item_core_validations candidate
   WHERE candidate.import_item_id=item.id
   AND candidate.source_snapshot_id=draft.effective_source_snapshot_id
   AND candidate.target_platform_instance_id=draft.target_platform_instance_id
-  AND candidate.core_artifact_id=artifact.id
   ORDER BY candidate.created_at_ms DESC,candidate.id DESC LIMIT 1
 )
+LEFT JOIN runtime_targets target ON target.provider_id=validation.provider_id AND target.target_id=validation.target_id
+LEFT JOIN runtime_target_bindings binding
+  ON binding.provider_id=target.provider_id AND binding.target_id=target.target_id
+ AND binding.core_id=validation.core_id AND binding.launch_policy!='DISABLED'
+LEFT JOIN runtime_binding_platforms binding_platform ON binding_platform.binding_id=binding.binding_id
+ AND binding_platform.platform_id=instance.platform_id
 LEFT JOIN pegasus_import_items pegasus ON pegasus.library_import_item_id=item.id
 LEFT JOIN emulationstation_import_items emulationstation
  ON emulationstation.library_import_item_id=item.id
@@ -268,9 +270,9 @@ func scanReviewBulkCandidates(
 			&candidate.itemID, &candidate.reviewVersion, &candidate.sourceSnapshotID,
 			&candidate.title, &candidate.platformInstanceID, &candidate.platformName, &candidate.platformID,
 			&candidate.platformVersion,
-			&candidate.artifactID, &candidate.artifactCompatibility, &candidate.artifactVersion,
-			&candidate.validationID, &candidate.validationStatus, &candidate.validationGeneration,
-			&candidate.validationPlatformVersion, &candidate.validationArtifactVersion,
+			&candidate.providerID, &candidate.targetID, &candidate.contentPolicy,
+			&candidate.validationID, &candidate.validationStatus,
+			&candidate.validationPlatformVersion,
 			&candidate.validationDAT, &candidate.currentDAT, &candidate.validationDOSEntry,
 			&candidate.draftDOSEntry, &candidate.dependencySnapshot, &candidate.contentKind,
 			&candidate.screenshotCurrent, &candidate.attachmentActive, &candidate.sourceFlagged,
@@ -290,20 +292,16 @@ func preliminaryQuickApprovalReady(candidate reviewBulkCandidate) bool {
 	return quickApprovalArtifactReady(candidate) && quickApprovalValidationCurrent(candidate) &&
 		nullStringsEqual(candidate.validationDAT, candidate.currentDAT) &&
 		nullStringsEqual(candidate.validationDOSEntry, candidate.draftDOSEntry) &&
-		contentcapability.SupportsContentKind(candidate.artifactCompatibility.String, candidate.contentKind) &&
+		candidate.contentPolicy.Supports(candidate.contentKind) &&
 		title != "" && validField(title, 200, false)
 }
 
 func quickApprovalArtifactReady(candidate reviewBulkCandidate) bool {
-	return candidate.artifactID.Valid && candidate.artifactCompatibility.Valid && candidate.artifactVersion.Valid
+	return candidate.providerID.Valid && candidate.targetID.Valid && len(candidate.contentPolicy.SupportedContentKinds) > 0
 }
 
 func quickApprovalValidationCurrent(candidate reviewBulkCandidate) bool {
-	return candidate.validationID.Valid && candidate.validationStatus.String == "READY" &&
-		candidate.validationGeneration.Valid && candidate.validationGeneration.Int64 == prepublishGeneration &&
-		candidate.validationPlatformVersion.Valid && candidate.validationArtifactVersion.Valid &&
-		candidate.validationPlatformVersion.Int64 == candidate.platformVersion &&
-		candidate.validationArtifactVersion.Int64 == candidate.artifactVersion.Int64
+	return candidate.validationID.Valid && candidate.validationStatus.String == "READY"
 }
 
 func (service *Service) classifyReviewBulkCandidates(
@@ -327,7 +325,8 @@ func (service *Service) classifyReviewBulkCandidates(
 		}
 		err := service.validateCurrentApprovalDependencySnapshot(
 			ctx, transaction, candidate.sourceSnapshotID, candidate.validationID.String,
-			candidate.platformID, candidate.artifactID.String, candidate.artifactCompatibility.String,
+			candidate.platformID, candidate.providerID.String, candidate.targetID.String,
+			candidate.contentPolicy,
 			candidate.contentKind, candidate.dependencySnapshot.String,
 		)
 		if errors.Is(err, ErrInvalid) {

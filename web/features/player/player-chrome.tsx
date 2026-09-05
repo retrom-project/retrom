@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, type Dispatch, type KeyboardEvent as React
 import { AppIcon } from "@/components/app-icon";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import type { EmulatorSettingsPanel } from "./emulator-settings";
-import type { DiscSet, DiscState } from "./adapters/ejs-4.2.3-v2";
+import type {RuntimeDiscStateV1} from "./runtime/contract";
 import { playerActionPriority } from "./player-actions";
 import type { PlayerDebugMetrics } from "./player-debug";
 import { videoRenderingModeOptions, type VideoRenderingMode } from "./video-rendering";
@@ -13,23 +13,23 @@ type SyncTone = "synced" | "busy" | "warning";
 type ExitSaveState = "idle" | "saving" | "saved" | "error";
 
 export type PlayerDebugRuntime = {
-  runtimeFamily: "" | "EMULATORJS" | "RPGMAKER" | "ONS" | "KIRIKIRI" | "BUTTERSCOTCH" | "TYRANOSCRIPT" | "WASM4";
-  coreId: string;
-  coreArtifactId: string;
-  emulatorJSVersion: string;
-  playerAdapterId: string;
-  inputMode: string;
+  providerId: string;
+  providerVersion: string;
+  targetId: string;
   crossOriginIsolated: boolean;
   sharedArrayBuffer: boolean;
 };
+
+export type PlayerDiscSet = {count: number; entries: Array<{index: number; label: string}>};
 
 export type PlayerChromeProps = {
   controlsVisible: boolean; running: boolean; paused: boolean; fullscreen: boolean;
   gameTitle: string; coreName: string; platformName: string; syncText: string; syncTone: SyncTone;
   saveUploadProgress: number | null; saveAvailable: boolean; dosProgramMenu: boolean; toast: string; warnings: string[];
   emulatorToolbarOpen: boolean; emulatorVolume: number; emulatorMuted: boolean; videoRenderingMode: VideoRenderingMode;
-  discSet: DiscSet | null; discState: DiscState | null; netplayPlayerNo: number | null; netplayPaused: boolean;
+  discSet: PlayerDiscSet | null; discState: RuntimeDiscStateV1 | null; netplayPlayerNo: number | null; netplayPaused: boolean;
   debugOpen: boolean; debugMetrics: PlayerDebugMetrics | null; debugRuntime: PlayerDebugRuntime; runtimeState: "loading" | "running" | "error";
+  onScreenshot?: () => void;
   onHoldControls: () => void; onReleaseControls: () => void; onToggleControls: () => void; onSave: () => Promise<boolean>;
   onPauseForToolbarInteraction: () => void; onToggleFullscreen: () => void; onOpenEmulatorSettings: () => void;
   onCloseEmulatorSettings: () => void; onOpenEmulatorPanel: (panel: EmulatorSettingsPanel) => void;
@@ -94,6 +94,7 @@ export function PlayerChrome({
   onReleaseControls,
   onToggleControls,
   onSave,
+  onScreenshot,
   onPauseForToolbarInteraction,
   onToggleFullscreen,
   onOpenEmulatorSettings,
@@ -234,7 +235,7 @@ export function PlayerChrome({
   return <>
     <SaveUploadProgress value={saveUploadProgress} />
     <button className="player-hud-handle" type="button" aria-label={controlsVisible ? "隐藏 Player 控制栏" : "显示 Player 控制栏"} aria-pressed={controlsVisible} onPointerEnter={() => {if (!controlsVisible) {onToggleControls();}}} onClick={onToggleControls}><span aria-hidden="true" /></button>
-    <PlayerToolbar controlsVisible={controlsVisible} paused={paused} running={running} fullscreen={fullscreen} gameTitle={gameTitle} coreName={coreName} platformName={platformName} syncText={syncText} syncTone={syncTone} warnings={warnings} warningCopy={warningCopy} netplay={isNetplay} playerNo={netplayPlayerNo} netplayPaused={netplayPaused} saveAvailable={saveAvailable} dosProgramMenu={dosProgramMenu} actionLayout={actionLayout} debugOpen={debugOpen} discSet={discSet} discState={discState} discBusy={discBusy} discMenuOpen={discMenuOpen} menuOpen={menuOpen} blockingOverlay={exitOpen || emulatorToolbarOpen || debugOpen} onPause={onPauseForToolbarInteraction} onHold={onHoldControls} onRelease={onReleaseControls} onHover={(hovered) => {toolbarHovered.current = hovered;}} onFocus={(focused) => {toolbarFocused.current = focused;}} onExit={requestExit} onWarning={setLocalToast} onDebug={onToggleDebug} onSave={() => void onSave()} onToggleFullscreen={onToggleFullscreen} onToggleNetplayPause={onToggleNetplayPause} onChooseDisc={(index) => void chooseDisc(index)} onDiscMenu={setDiscMenuOpen} onDiscKey={moveDiscMenuFocus} onMenu={setMenuOpen} onEmulatorSettings={onOpenEmulatorSettings} />
+    <PlayerToolbar controlsVisible={controlsVisible} paused={paused} running={running} fullscreen={fullscreen} gameTitle={gameTitle} coreName={coreName} platformName={platformName} syncText={syncText} syncTone={syncTone} warnings={warnings} warningCopy={warningCopy} netplay={isNetplay} playerNo={netplayPlayerNo} netplayPaused={netplayPaused} saveAvailable={saveAvailable} dosProgramMenu={dosProgramMenu} actionLayout={actionLayout} debugOpen={debugOpen} discSet={discSet} discState={discState} discBusy={discBusy} discMenuOpen={discMenuOpen} menuOpen={menuOpen} blockingOverlay={exitOpen || emulatorToolbarOpen || debugOpen} onPause={onPauseForToolbarInteraction} onHold={onHoldControls} onRelease={onReleaseControls} onHover={(hovered) => {toolbarHovered.current = hovered;}} onFocus={(focused) => {toolbarFocused.current = focused;}} onExit={requestExit} onWarning={setLocalToast} onDebug={onToggleDebug} onSave={() => void onSave()} onScreenshot={onScreenshot} onToggleFullscreen={onToggleFullscreen} onToggleNetplayPause={onToggleNetplayPause} onChooseDisc={(index) => void chooseDisc(index)} onDiscMenu={setDiscMenuOpen} onDiscKey={moveDiscMenuFocus} onMenu={setMenuOpen} onEmulatorSettings={onOpenEmulatorSettings} />
 
     <PlayerDebugPanel open={debugOpen} metrics={debugMetrics} runtime={debugRuntime} runtimeState={runtimeState} paused={paused} netplayPaused={netplayPaused} coreName={coreName} playerNo={netplayPlayerNo} discSet={discSet} discState={discState} onClose={onToggleDebug} />
 
@@ -261,8 +262,9 @@ function SaveUploadProgress({ value }: { value: number | null }) {
 type ToolbarProps = {
   controlsVisible: boolean; paused: boolean; running: boolean; fullscreen: boolean; gameTitle: string; coreName: string; platformName: string;
   syncText: string; syncTone: SyncTone; warnings: string[]; warningCopy: string; netplay: boolean; playerNo: number | null; netplayPaused: boolean;
-  saveAvailable: boolean; dosProgramMenu: boolean; actionLayout: ReturnType<typeof playerActionPriority>; debugOpen: boolean; discSet: DiscSet | null; discState: DiscState | null;
+  saveAvailable: boolean; dosProgramMenu: boolean; actionLayout: ReturnType<typeof playerActionPriority>; debugOpen: boolean; discSet: PlayerDiscSet | null; discState: RuntimeDiscStateV1 | null;
   discBusy: boolean; discMenuOpen: boolean; menuOpen: boolean; blockingOverlay: boolean;
+  onScreenshot?: () => void;
   onHover: (hovered: boolean) => void; onFocus: (focused: boolean) => void;
   onPause: () => void; onHold: () => void; onRelease: () => void; onExit: () => void; onWarning: (message: string) => void; onDebug: () => void; onSave: () => void;
   onToggleFullscreen: () => void; onToggleNetplayPause: () => void; onChooseDisc: (index: number) => void; onDiscMenu: Dispatch<SetStateAction<boolean>>;
@@ -279,7 +281,7 @@ function MoreActions({ props }: { props: ToolbarProps }) {
 }
 
 function ToolbarActions({ props }: { props: ToolbarProps }) {
-  return <div className="player-actions"><button className="player-control player-debug-control player-mobile-overflow" type="button" aria-expanded={props.debugOpen} aria-controls="player-debug-panel" aria-pressed={props.debugOpen} onClick={props.onDebug}><AppIcon name="chip" />调试信息</button><DiscControl props={props} /><PlayerContextActions props={props} /><button className="player-control is-icon player-mobile-overflow" type="button" aria-label={props.fullscreen ? "退出全屏" : "全屏"} title={props.fullscreen ? "退出全屏" : "全屏"} onClick={props.onToggleFullscreen}><AppIcon name={props.fullscreen ? "minimize" : "maximize"} /></button><MoreActions props={props} /></div>;
+  return <div className="player-actions">{props.onScreenshot ? <button type="button" className="player-control" disabled={!props.running} onClick={props.onScreenshot}>保存审核截图</button> : null}<button className="player-control player-debug-control player-mobile-overflow" type="button" aria-expanded={props.debugOpen} aria-controls="player-debug-panel" aria-pressed={props.debugOpen} onClick={props.onDebug}><AppIcon name="chip" />调试信息</button><DiscControl props={props} /><PlayerContextActions props={props} /><button className="player-control is-icon player-mobile-overflow" type="button" aria-label={props.fullscreen ? "退出全屏" : "全屏"} title={props.fullscreen ? "退出全屏" : "全屏"} onClick={props.onToggleFullscreen}><AppIcon name={props.fullscreen ? "minimize" : "maximize"} /></button><MoreActions props={props} /></div>;
 }
 
 function PlayerContextActions({ props }: { props: ToolbarProps }) {
@@ -295,36 +297,24 @@ function PlayerToolbar(props: ToolbarProps) {
   return <header className={`player-toolbar${props.controlsVisible || props.paused ? " is-visible" : ""}`} onClickCapture={(event) => {if (!(event.target instanceof Element && event.target.closest(".player-back,.player-disc-wrap,.player-debug-control"))) {props.onPause();}}} onBlurCapture={(event) => {if (!(event.relatedTarget instanceof Node && event.currentTarget.contains(event.relatedTarget))) {props.onFocus(false); releaseIfClear();}}} onFocusCapture={() => {props.onFocus(true); props.onHold();}} onPointerEnter={() => {props.onHover(true); props.onHold();}} onPointerLeave={() => {props.onHover(false); releaseIfClear();}} onPointerMove={(event) => event.stopPropagation()}><button className="player-back" type="button" aria-label="返回并退出游戏" title="返回并退出游戏" onClick={props.onExit}><AppIcon name="arrow-left" /></button><div className="player-game-meta"><strong>{props.gameTitle}</strong><span>{[props.coreName, props.platformName, props.netplay ? `联机 · P${props.playerNo}` : ""].filter(Boolean).join(" · ")}</span></div><div className={`player-sync-status is-${props.syncTone}`} role="status" aria-live="polite"><i aria-hidden="true" /><span>{props.syncText}</span>{props.warnings.length ? <button className="player-warning-dot" type="button" aria-label="查看运行提醒" title="查看运行提醒" onClick={() => props.onWarning(props.warningCopy)} /> : null}</div><ToolbarActions props={props} /></header>;
 }
 
-function PlayerDebugPanel({ open, metrics, runtime, runtimeState, paused, netplayPaused, coreName, playerNo, discSet, discState, onClose }: { open: boolean; metrics: PlayerDebugMetrics | null; runtime: PlayerDebugRuntime; runtimeState: "loading" | "running" | "error"; paused: boolean; netplayPaused: boolean; coreName: string; playerNo: number | null; discSet: DiscSet | null; discState: DiscState | null; onClose: () => void }) {
+function PlayerDebugPanel({ open, metrics, runtime, runtimeState, paused, netplayPaused, coreName, playerNo, discSet, discState, onClose }: { open: boolean; metrics: PlayerDebugMetrics | null; runtime: PlayerDebugRuntime; runtimeState: "loading" | "running" | "error"; paused: boolean; netplayPaused: boolean; coreName: string; playerNo: number | null; discSet: PlayerDiscSet | null; discState: RuntimeDiscStateV1 | null; onClose: () => void }) {
   const runningLabel = runtimeState === "running" ? paused || netplayPaused ? "暂停" : "运行中" : runtimeState === "loading" ? "加载中" : "错误";
-  const artifactFooter = runtime.runtimeFamily === "RPGMAKER" ? null : <footer title={runtime.coreArtifactId}>Artifact · {runtime.coreArtifactId || "等待配置"}</footer>;
-  return <aside id="player-debug-panel" className={`player-debug-panel${open ? " is-open" : ""}`} aria-label="运行调试信息" aria-hidden={!open}><header><div><span>实时运行诊断</span><h2>调试信息</h2></div><button type="button" className="player-debug-close" aria-label="关闭调试信息面板" disabled={!open} onClick={onClose}><AppIcon name="x" /></button></header><LiveDebug metrics={metrics} runningLabel={runningLabel} /><RuntimeDebug runtime={runtime} coreName={coreName} playerNo={playerNo} /><DisplayDebug metrics={metrics} discSet={discSet} discState={discState} />{artifactFooter}</aside>;
+  const ordinaryRpgMaker = coreName === "RPG Maker" || coreName.startsWith("RPG Maker ");
+  return <aside id="player-debug-panel" className={`player-debug-panel${open ? " is-open" : ""}`} aria-label="运行调试信息" aria-hidden={!open}><header><div><span>实时运行诊断</span><h2>调试信息</h2></div><button type="button" className="player-debug-close" aria-label="关闭调试信息面板" disabled={!open} onClick={onClose}><AppIcon name="x" /></button></header><LiveDebug metrics={metrics} runningLabel={runningLabel} /><RuntimeDebug runtime={runtime} coreName={coreName} playerNo={playerNo} ordinaryRpgMaker={ordinaryRpgMaker} /><DisplayDebug metrics={metrics} discSet={discSet} discState={discState} /></aside>;
 }
 
 function LiveDebug({ metrics, runningLabel }: { metrics: PlayerDebugMetrics | null; runningLabel: string }) {
   return <section><h3>实时</h3><dl><div><dt>帧率</dt><dd>{metrics?.fps === null || metrics?.fps === undefined ? "采样中…" : `${metrics.fps.toFixed(1)} FPS`}</dd></div><div><dt>核心帧计数</dt><dd>{metrics?.frameCount === null || metrics?.frameCount === undefined ? "不可用" : metrics.frameCount.toLocaleString("en-US")}</dd></div><div><dt>运行状态</dt><dd>{runningLabel}</dd></div><div><dt>游戏分辨率</dt><dd>{metrics?.canvasWidth && metrics.canvasHeight ? `${metrics.canvasWidth} × ${metrics.canvasHeight}` : "等待画面"}</dd></div></dl></section>;
 }
 
-function RuntimeDebug({ runtime, coreName, playerNo }: { runtime: PlayerDebugRuntime; coreName: string; playerNo: number | null }) {
-  const implementation = runtimeImplementation(runtime);
-  return <section><h3>运行环境</h3><dl><div><dt>Core</dt><dd title={runtime.coreId}>{coreName || runtime.coreId || "—"}</dd></div>{implementation}<div><dt>输入模式</dt><dd>{runtime.inputMode || "—"}</dd></div><div><dt>隔离能力</dt><dd>{runtime.crossOriginIsolated && runtime.sharedArrayBuffer ? "COOP/COEP + SAB" : "未完整启用"}</dd></div><div><dt>Player 模式</dt><dd>{playerNo === null ? "单机" : `联机 · P${playerNo}`}</dd></div></dl></section>;
+function RuntimeDebug({ runtime, coreName, playerNo, ordinaryRpgMaker }: { runtime: PlayerDebugRuntime; coreName: string; playerNo: number | null; ordinaryRpgMaker: boolean }) {
+  const identity = ordinaryRpgMaker
+    ? <><div><dt>运行核心</dt><dd>{coreName || "RPG Maker"}</dd></div><div><dt>运行类型</dt><dd>浏览器运行</dd></div></>
+    : <><div><dt>Target</dt><dd title={runtime.targetId}>{coreName || runtime.targetId || "—"}</dd></div><div><dt>Provider</dt><dd>{runtime.providerId || "—"}</dd></div><div><dt>版本</dt><dd>{runtime.providerVersion || "—"}</dd></div></>;
+  return <section><h3>运行环境</h3><dl>{identity}<div><dt>隔离能力</dt><dd>{runtime.crossOriginIsolated && runtime.sharedArrayBuffer ? "COOP/COEP + SAB" : "未完整启用"}</dd></div><div><dt>Player 模式</dt><dd>{playerNo === null ? "单机" : `联机 · P${playerNo}`}</dd></div></dl></section>;
 }
 
-function runtimeImplementation(runtime: PlayerDebugRuntime) {
-  if (runtime.runtimeFamily === "RPGMAKER") {
-    return <div><dt>运行类型</dt><dd>RPG Maker</dd></div>;
-  }
-  if (runtime.runtimeFamily === "ONS" || runtime.runtimeFamily === "KIRIKIRI" || runtime.runtimeFamily === "BUTTERSCOTCH" || runtime.runtimeFamily === "TYRANOSCRIPT" || runtime.runtimeFamily === "WASM4") {
-    const label = runtime.runtimeFamily === "ONS" ? "ONScripter" :
-      runtime.runtimeFamily === "KIRIKIRI" ? "KiriKiri" :
-        runtime.runtimeFamily === "TYRANOSCRIPT" ? "TyranoScript" :
-          runtime.runtimeFamily === "WASM4" ? "WASM-4" : "GameMaker";
-    return <><div><dt>运行类型</dt><dd>{label}</dd></div><div><dt>Runtime</dt><dd>{runtime.emulatorJSVersion || "—"}</dd></div><div><dt>Player adapter</dt><dd title={runtime.playerAdapterId}>{runtime.playerAdapterId || "—"}</dd></div></>;
-  }
-  return <><div><dt>EmulatorJS</dt><dd>{runtime.emulatorJSVersion || "—"}</dd></div><div><dt>Player adapter</dt><dd title={runtime.playerAdapterId}>{runtime.playerAdapterId || "—"}</dd></div></>;
-}
-
-function DisplayDebug({ metrics, discSet, discState }: { metrics: PlayerDebugMetrics | null; discSet: DiscSet | null; discState: DiscState | null }) {
+function DisplayDebug({ metrics, discSet, discState }: { metrics: PlayerDebugMetrics | null; discSet: PlayerDiscSet | null; discState: RuntimeDiscStateV1 | null }) {
   return <section><h3>显示</h3><dl><div><dt>视口</dt><dd>{metrics ? `${metrics.viewportWidth} × ${metrics.viewportHeight}` : "—"}</dd></div><div><dt>像素比</dt><dd>{metrics ? metrics.devicePixelRatio.toFixed(2) : "—"}</dd></div>{discSet && discState ? <div><dt>光盘</dt><dd>{discState.currentIndex + 1} / {discSet.count}</dd></div> : null}</dl></section>;
 }
 

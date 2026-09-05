@@ -172,16 +172,17 @@ func (server *Server) importMultiDiscItemSummaries(
 SELECT item.id,item.state,snapshot.content_kind,playlist.logical_name,upload.relative_path,
 count(entry.ordinal),coalesce(sum(entry.state='PRESENT'),0),coalesce(sum(entry.state='MISSING'),0)
 FROM import_items item
-JOIN import_item_source_snapshots snapshot ON snapshot.import_item_id=item.id
-AND snapshot.revision_no=(
-  SELECT max(candidate.revision_no) FROM import_item_source_snapshots candidate
-  WHERE candidate.import_item_id=item.id
+LEFT JOIN review_drafts draft ON draft.import_item_id=item.id
+JOIN import_item_source_snapshots snapshot ON snapshot.id=COALESCE(
+  draft.effective_source_snapshot_id,
+  (SELECT initial.id FROM import_item_source_snapshots initial
+   WHERE initial.import_item_id=item.id AND initial.created_by='IDENTIFICATION')
 )
 JOIN import_item_source_snapshot_files playlist ON playlist.source_snapshot_id=snapshot.id
 AND playlist.role='PLAYLIST_SOURCE'
 JOIN upload_files upload ON upload.id=playlist.upload_file_id
 LEFT JOIN import_item_multidisc_entries entry ON entry.source_snapshot_id=snapshot.id
-WHERE item.import_job_id=? AND snapshot.content_kind='MULTI_DISC_M3U_V1'
+WHERE item.import_job_id=? AND snapshot.content_kind='MULTI_DISC'
 GROUP BY item.id,item.state,snapshot.content_kind,playlist.logical_name,upload.relative_path
 ORDER BY upload.relative_path,item.id
 `, importJobID)
@@ -246,7 +247,8 @@ ORDER BY upload.relative_path,upload.id
 
 // Aggregate and item projections are read together to preserve one import snapshot response.
 func (server *Server) importDetail(writer http.ResponseWriter, request *http.Request) {
-	var id, uploadID, targetID, targetName, platformID, coreID, artifactID, provider, state, configJSON string
+	var id, uploadID, targetID, targetName, platformID, coreID, runtimeProviderID, runtimeTargetID string
+	var metadataProvider, state, configJSON string
 	var payloadState string
 	var datID, errorCode, cancelReason, reconfiguredFrom, payloadReleaseJobID sql.NullString
 	var version, total, queued, running, pending, published, discarded int64
@@ -259,7 +261,8 @@ i.target_platform_instance_id,
 p.name,
 i.platform_id,
 i.default_core_id,
-i.core_artifact_id,
+i.provider_id,
+i.target_id,
 i.dat_version_id,
 i.metadata_provider,
 i.config_snapshot_json,
@@ -296,9 +299,10 @@ WHERE i.id=?
 			&targetName,
 			&platformID,
 			&coreID,
-			&artifactID,
+			&runtimeProviderID,
+			&runtimeTargetID,
 			&datID,
-			&provider,
+			&metadataProvider,
 			&configJSON,
 			&state,
 			&payloadState,
@@ -333,10 +337,6 @@ WHERE i.id=?
 	}
 	var configValue any
 	_ = json.Unmarshal([]byte(configJSON), &configValue)
-	artifactValue := any(artifactID)
-	if config, ok := configValue.(map[string]any); ok && config["bindingState"] == "PENDING" {
-		artifactValue = nil
-	}
 	fileOutcomes, err := server.importFileOutcomes(request.Context(), id)
 	if err != nil {
 		server.databaseError(writer, request, err)
@@ -358,9 +358,10 @@ WHERE i.id=?
 		"targetPlatformInstance":      map[string]any{"id": targetID, "name": targetName},
 		"platformId":                  platformID,
 		"defaultCoreId":               coreID,
-		"coreArtifactId":              artifactValue,
+		"providerId":                  runtimeProviderID,
+		"targetId":                    runtimeTargetID,
 		"datVersionId":                nullableString(datID),
-		"metadataProvider":            provider,
+		"metadataProvider":            metadataProvider,
 		"reconfiguredFromImportJobId": nullableString(reconfiguredFrom),
 		"configSnapshot":              configValue,
 		"fileOutcomes":                fileOutcomes,
@@ -496,7 +497,7 @@ instance.name
 FROM import_item_duplicate_matches match
 JOIN import_items item ON item.id=match.import_item_id
 JOIN games game ON game.id=match.existing_game_id
-JOIN game_metadata_revisions metadata ON metadata.id=game.current_metadata_revision_id
+JOIN games metadata ON metadata.id=game.id
 JOIN platform_instances instance ON instance.id=game.platform_instance_id
 WHERE item.import_job_id=?
 ORDER BY item.created_at_ms,item.id,game.created_at_ms,game.id

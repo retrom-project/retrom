@@ -113,8 +113,8 @@ func gameImpactBlobIDs(ctx context.Context, transaction *sql.Tx, gameID string) 
 		return nil, err
 	}
 	importItems, err := collectIDs(ctx, transaction, `
-SELECT source_ref_id FROM game_content_revisions WHERE game_id=? AND source_kind='IMPORT_REVIEW'
-UNION SELECT source_ref_id FROM game_metadata_revisions WHERE game_id=? AND source_kind='IMPORT_REVIEW'
+SELECT metadata_source_ref_id FROM games WHERE id=? AND metadata_source_kind='IMPORT_REVIEW'
+UNION SELECT content_source_ref_id FROM games WHERE id=? AND content_source_kind='IMPORT_REVIEW'
 `, gameID, gameID)
 	if err != nil {
 		return nil, err
@@ -127,8 +127,8 @@ UNION SELECT source_ref_id FROM game_metadata_revisions WHERE game_id=? AND sour
 		ids = append(ids, itemIDs...)
 	}
 	pegasusIDs, err := collectIDs(ctx, transaction, `
-SELECT source_ref_id FROM game_content_revisions WHERE game_id=? AND source_kind='SERVER_PEGASUS_IMPORT'
-UNION SELECT source_ref_id FROM game_metadata_revisions WHERE game_id=? AND source_kind='SERVER_PEGASUS_IMPORT'
+SELECT metadata_source_ref_id FROM games WHERE id=? AND metadata_source_kind='SERVER_PEGASUS_IMPORT'
+UNION SELECT content_source_ref_id FROM games WHERE id=? AND content_source_kind='SERVER_PEGASUS_IMPORT'
 `, gameID, gameID)
 	if err != nil {
 		return nil, err
@@ -145,10 +145,10 @@ UNION ALL SELECT blob_id FROM pegasus_import_item_assets WHERE item_id=?
 		ids = append(ids, values...)
 	}
 	emulationStationIDs, err := collectIDs(ctx, transaction, `
-SELECT source_ref_id FROM game_content_revisions
- WHERE game_id=? AND source_kind='SERVER_EMULATIONSTATION_IMPORT'
-UNION SELECT source_ref_id FROM game_metadata_revisions
- WHERE game_id=? AND source_kind='SERVER_EMULATIONSTATION_IMPORT'
+SELECT metadata_source_ref_id FROM games
+ WHERE id=? AND metadata_source_kind='SERVER_EMULATIONSTATION_IMPORT'
+UNION SELECT content_source_ref_id FROM games
+ WHERE id=? AND content_source_kind='SERVER_EMULATIONSTATION_IMPORT'
 `, gameID, gameID)
 	if err != nil {
 		return nil, err
@@ -217,9 +217,8 @@ func impactCounts(ctx context.Context, transaction *sql.Tx, gameID string, resul
 SELECT
  (SELECT count(*) FROM save_states WHERE game_id=?),
  (SELECT count(*) FROM game_assets WHERE game_id=?),
- (SELECT count(*) FROM game_content_files file
-  JOIN game_content_revisions revision ON revision.id=file.game_content_revision_id
-  WHERE revision.game_id=?),
+ (SELECT count(*) FROM game_files file
+  WHERE file.game_id=?),
  (SELECT count(*) FROM launch_sessions WHERE game_id=? AND state IN ('CREATED','ACTIVE')),
  (SELECT count(*) FROM netplay_sessions WHERE game_id=? AND state NOT IN ('FINISHED','FAILED')),
  (SELECT count(*) FROM review_events WHERE json_extract(after_json,'$.gameId')=?)
@@ -235,9 +234,9 @@ SELECT
 
 func impactSourceKinds(ctx context.Context, transaction *sql.Tx, gameID string) ([]string, error) {
 	rows, err := transaction.QueryContext(ctx, `
-SELECT source_kind FROM game_content_revisions WHERE game_id=?
-UNION SELECT source_kind FROM game_metadata_revisions WHERE game_id=?
-ORDER BY source_kind
+SELECT metadata_source_kind FROM games WHERE id=?
+UNION SELECT content_source_kind FROM games WHERE id=?
+ORDER BY 1
 `, gameID, gameID)
 	if err != nil {
 		return nil, fmt.Errorf("payloadrelease/impact source kinds: %w", err)

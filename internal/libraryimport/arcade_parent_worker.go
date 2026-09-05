@@ -176,9 +176,10 @@ func (service *Service) parentAttachmentRootMachine(
 	if err := service.database.QueryRowContext(ctx, `
 SELECT dependency_snapshot_json
 FROM import_item_core_validations
-WHERE import_item_id=? AND source_snapshot_id=? AND core_artifact_id=? AND dat_version_id=?
+WHERE import_item_id=? AND source_snapshot_id=? AND provider_id=? AND target_id=? AND dat_version_id=?
 ORDER BY created_at_ms DESC,id DESC LIMIT 1
-	`, candidate.itemID, candidate.baseSnapshotID, candidate.artifactID, candidate.datID).Scan(&raw); err != nil {
+	`, candidate.itemID, candidate.baseSnapshotID, candidate.providerID,
+		candidate.targetID, candidate.datID).Scan(&raw); err != nil {
 		return "", parentStoreError("read root validation", err)
 	}
 	snapshot, valid := parseArcadeDraftSnapshot(raw)
@@ -229,7 +230,8 @@ SELECT id,scope_type,scope_id,'STARTED','{}',? FROM jobs WHERE id=?
 	if err := transaction.QueryRowContext(ctx, `
 SELECT attachment.id,attachment.import_item_id,attachment.review_draft_id,
 attachment.base_source_snapshot_id,attachment.dependency_machine,attachment.required_by_machine,
-attachment.depth,attachment.core_artifact_id,attachment.dat_version_id,attachment.upload_file_id,
+attachment.depth,attachment.provider_id,attachment.target_id,
+attachment.dat_version_id,attachment.upload_file_id,
 file.upload_session_id,attachment.original_filename,file.final_blob_id,blob.sha256,blob.size_bytes
 FROM review_arcade_parent_attachments attachment
 JOIN upload_files file ON file.id=attachment.upload_file_id
@@ -237,7 +239,8 @@ JOIN blobs blob ON blob.id=file.final_blob_id
 WHERE attachment.job_id=? AND attachment.state='RUNNING'
 `, jobID).Scan(
 		&candidate.attachmentID, &candidate.itemID, &candidate.draftID, &candidate.baseSnapshotID,
-		&candidate.machine, &candidate.requiredBy, &candidate.depth, &candidate.artifactID, &candidate.datID,
+		&candidate.machine, &candidate.requiredBy, &candidate.depth, &candidate.providerID, &candidate.targetID,
+		&candidate.datID,
 		&candidate.uploadFileID, &candidate.uploadSessionID, &candidate.originalName, &candidate.blobID,
 		&candidate.blobSHA, &candidate.blobSize,
 	); err != nil {
@@ -254,12 +257,11 @@ WHERE input.job_id=?
 	}
 	var frozenInput parentAttachmentInput
 	if err := json.Unmarshal([]byte(frozenInputJSON), &frozenInput); err != nil ||
-		frozenInput.CoreArtifactID != candidate.artifactID || frozenInput.CoreArtifactVersion < 1 ||
-		len(frozenInput.CompatibilityDigest) != 64 {
+		frozenInput.ProviderID != candidate.providerID || frozenInput.TargetID != candidate.targetID ||
+		len(frozenInput.ContentPolicyDigest) != 64 {
 		return parentAttachmentCandidate{}, "", ErrInvalid
 	}
-	candidate.artifactVersion = frozenInput.CoreArtifactVersion
-	candidate.compatibilityDigest = frozenInput.CompatibilityDigest
+	candidate.contentPolicyDigest = frozenInput.ContentPolicyDigest
 	if err := transaction.Commit(); err != nil {
 		return parentAttachmentCandidate{}, "", parentStoreError("commit claim", err)
 	}
