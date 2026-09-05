@@ -1,10 +1,26 @@
 import assert from "node:assert/strict";
 import {createHash} from "node:crypto";
 import test from "node:test";
-import {inspectPreviewCheckpoint, observePreviewFrames} from "./rpgmaker_preview_actions.mjs";
+import {advanceFixture, inspectPreviewCheckpoint, observePreviewFrames} from "./rpgmaker_preview_actions.mjs";
 
 const receipt = {resourceKind: "REVIEW_PREVIEW_CHECKPOINT", previewId: "preview-1",
   checkpointFormat: "fixture-v1", createdAtMs: 123};
+test("owned fixture movement uses taps shorter than one tile traversal instead of repeat-producing holds", async () => {
+  const presses = [];
+  const waits = [];
+  const canvas = {
+    isVisible: async () => true, evaluate: async () => {},
+    press: async (key, options) => {presses.push({key, ...options});},
+  };
+  const page = {
+    getByRole: () => ({isVisible: async () => false}),
+    frames: () => [{locator: () => ({first: () => canvas})}],
+    waitForTimeout: async (milliseconds) => {waits.push(milliseconds);},
+  };
+  await advanceFixture(page, ["ArrowRight", "ArrowRight"]);
+  assert.deepEqual(presses, [{key: "ArrowRight", delay: 80}, {key: "ArrowRight", delay: 80}]);
+  assert.deepEqual(waits, [800, 800]);
+});
 async function request(includeScreenshot = true) {
   const form = new FormData();
   form.append("metadata", new Blob(["{}"], {type: "application/json"}));
