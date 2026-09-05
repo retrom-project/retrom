@@ -17,6 +17,17 @@ test("revealing the toolbar holds its real hover region before observing or clic
   assert.deepEqual(calls, ["hover", "visible", "hold"]);
 });
 
+test("an already-visible toolbar still refreshes its nearly expired idle deadline", async () => {
+  const calls = [];
+  const page = {locator: (selector) => ({
+    evaluate: async () => true,
+    waitFor: async () => {calls.push("visible");},
+    hover: async () => {calls.push(selector);},
+  })};
+  await revealPreviewToolbar(page);
+  assert.deepEqual(calls, [".player-hud-handle", "visible", ".player-game-meta"]);
+});
+
 test("checkpoint request rejection is observed before clicking so cleanup cannot hide the UI failure", async () => {
   let observedRejection = false;
   let detached = false;

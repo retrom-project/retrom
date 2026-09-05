@@ -78,9 +78,9 @@ export async function advanceFixture(page, keys) {
 }
 
 export async function revealPreviewToolbar(page) {
-  if (!await page.locator(".player-toolbar").evaluate((element) => element.classList.contains("is-visible"))) {
-    await page.locator(".player-hud-handle").hover();
-  }
+  // Always refresh the top-edge interaction, even while the toolbar is still
+  // visible: its idle deadline may expire before the next pointer action.
+  await page.locator(".player-hud-handle").hover();
   await page.locator(".player-toolbar.is-visible").waitFor({state: "visible"});
   // The reveal handle starts a two-second idle timer; entering the toolbar is
   // the product's normal hold interaction. Keep it open during CDP setup too.
