@@ -421,7 +421,7 @@ func (service *Service) validateCurrentArcadeApprovalSnapshot(
 	validationID, frozenJSON string,
 ) error {
 	frozen, valid := parseArcadeDraftSnapshot(frozenJSON)
-	if !valid || frozen.SchemaVersion != 2 || len(frozen.MissingEntries) != 0 ||
+	if !valid || len(frozen.MissingEntries) != 0 ||
 		len(frozen.MismatchedEntries) != 0 {
 		return ErrInvalid
 	}
@@ -516,8 +516,8 @@ func approvalValidationInputDigest(input approvalValidationDigestInput) (string,
 			return hex.EncodeToString(validationDigest[:]), nil
 		}
 		input.Snapshot = corevalidation.Snapshot{
-			SchemaVersion: corevalidation.SnapshotSchemaVersion,
-			BIOS:          []corevalidation.BIOSDependency{},
+			SchemaVersion: corevalidation.SnapshotSchemaVersion, Kind: corevalidation.SnapshotKindStatic,
+			BIOS: []corevalidation.BIOSDependency{},
 		}
 	}
 	if input.ContentKind != multidisc.ContentKind {

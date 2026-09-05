@@ -1,4 +1,4 @@
--- Clean pre-release baseline: identity.
+-- Pre-release bootstrap: create the current domain model directly.
 
 CREATE TABLE profiles (
   id TEXT PRIMARY KEY,
@@ -116,7 +116,4 @@ CREATE TABLE auth_rate_limits (
   PRIMARY KEY(scope,subject_hash)
 );
 
-INSERT INTO instance_state(
-  id,state,bootstrap_kind,initial_admin_user_id,test_default_password_active,
-  version,created_at_ms,updated_at_ms,initialized_at_ms
-) VALUES(1,'PENDING',NULL,NULL,0,1,0,0,NULL);
+INSERT INTO instance_state(id,state,bootstrap_kind,initial_admin_user_id,test_default_password_active,version,created_at_ms,updated_at_ms,initialized_at_ms) VALUES(1,'PENDING',NULL,NULL,0,1,0,0,NULL);

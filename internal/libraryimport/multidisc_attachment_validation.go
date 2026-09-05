@@ -241,7 +241,7 @@ func (current currentMultiDiscInput) matches(expected multiDiscAttachmentInput) 
 		current.platformInstanceID == expected.PlatformInstanceID &&
 		current.platformVersion == expected.PlatformVersion && current.coreID == expected.CoreID &&
 		current.providerID == expected.ProviderID && current.targetID == expected.TargetID &&
-		compatibilityConfigDigest(current.contentPolicy) == expected.ContentPolicyDigest
+		validationPolicyDigest(current.contentPolicy, "MULTI_DISC") == expected.ContentPolicyDigest
 }
 
 func verifyMultiDiscAttachmentOwnership(
@@ -279,14 +279,13 @@ func insertMultiDiscSourceSnapshot(
 	transaction *sql.Tx,
 	candidate multiDiscAttachmentCandidate,
 	snapshotID string,
-	revision int,
 	now int64,
 ) error {
 	if _, err := transaction.ExecContext(ctx, `
-INSERT INTO import_item_source_snapshots(id,import_item_id,revision_no,content_kind,
+INSERT INTO import_item_source_snapshots(id,import_item_id,content_kind,
 source_manifest_json,source_manifest_digest,created_by,created_at_ms)
-VALUES(?,?,?,'MULTI_DISC',?,?,'MULTI_DISC_ATTACHMENT',?)
-`, snapshotID, candidate.input.ImportItemID, revision,
+VALUES(?,?,'MULTI_DISC',?,?,'MULTI_DISC_ATTACHMENT',?)
+`, snapshotID, candidate.input.ImportItemID,
 		candidate.resultManifestJSON, candidate.resultManifestDigest, now); err != nil {
 		return multiDiscAttachmentStoreError("insert source snapshot", err)
 	}
@@ -327,21 +326,19 @@ func insertMultiDiscValidation(
 		return multiDiscAttachmentStoreError("register canonical playlist", err)
 	}
 	inputDigest := prepublishDigest(prepublishDigestInput{
-		SchemaVersion: 1, ValidatorVersion: validatorMultiV4,
-		SourceSnapshotID: snapshotID, SourceManifestDigest: candidate.resultManifestDigest,
+		SchemaVersion: 1, SourceSnapshotID: snapshotID, SourceManifestDigest: candidate.resultManifestDigest,
 		ContentKind: multidisc.ContentKind, TargetPlatformInstanceID: candidate.input.PlatformInstanceID,
-		PlatformInstanceVersion: candidate.input.PlatformVersion,
-		ProviderID:              candidate.input.ProviderID, TargetID: candidate.input.TargetID,
+		ProviderID: candidate.input.ProviderID, TargetID: candidate.input.TargetID,
 		ContentPolicyDigest: candidate.input.ContentPolicyDigest,
 		DependencySnapshot:  json.RawMessage(dependencyJSON), Status: candidate.validationStatus,
 		CompatibilityCode: candidate.compatibilityCode,
 	})
 	if _, err := transaction.ExecContext(ctx, `
 INSERT INTO import_item_core_validations(id,import_item_id,target_platform_instance_id,
-platform_instance_version,core_id,provider_id,target_id,prepublish_generation,
+platform_instance_version,core_id,provider_id,target_id,
 dat_version_id,default_dos_entry,source_manifest_digest,source_snapshot_id,prepublish_input_digest,
 status,compatibility_code,dependency_snapshot_json,created_at_ms)
-VALUES(?,?,?,?,?,?,?,4,NULL,NULL,?,?,?,?,?,?,?)
+VALUES(?,?,?,?,?,?,?,NULL,NULL,?,?,?,?,?,?,?)
 `, validationID, candidate.input.ImportItemID, candidate.input.PlatformInstanceID,
 		candidate.input.PlatformVersion, candidate.input.CoreID, candidate.input.ProviderID,
 		candidate.input.TargetID,

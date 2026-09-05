@@ -61,7 +61,7 @@ Provider 升级必须在同一数据库上顺序启动旧版与更高版本，�
 - 新普通 Launch 和新 Save 都绑定新 Bundle/Target declaration；
 - 不再从旧 Bundle 静态端点或旧模块 fallback。
 
-PFB只能证明当前worktree、基座Provider与loose revision组合的产品行为；正式Release授权后必须使用production lock重跑相同Case，才可成为发布证据。
+PFB只能证明当前worktree、基座Provider与当前开发模块组合的产品行为；正式Release授权后必须使用production lock重跑相同Case，才可成为发布证据。
 
 ## 7. 必跑门禁
 

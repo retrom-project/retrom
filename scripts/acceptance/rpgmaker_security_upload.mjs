@@ -24,7 +24,7 @@ export function createProductClient(context, baseUrl, csrfToken) {
     });
   }
 
-  async function upload(files, sourceType, purpose = "RPG_MAKER_PROJECT") {
+  async function upload(files, sourceType, purpose = "PROJECT") {
     const totalSizeBytes = files.reduce((total, file) => total + file.sizeBytes, 0);
     const created = await json("POST", "/api/v1/admin/uploads", {
       headers: writeHeaders(), expected: 201,

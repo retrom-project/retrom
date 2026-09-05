@@ -250,12 +250,28 @@ func TestCheckpointRoundTripProjectsInitialRestoreAndPostRestoreInputEvidence(t 
 		{Gate: "RESTORE_POSITION_VERIFIED", Position: saved},
 		{Gate: "RESTORE_INPUT", Position: input},
 	} {
-		applyCheckpointEvent(&result, event, row)
+		if err := applyCheckpointEvent(&result, event, row); err != nil {
+			t.Fatal(err)
+		}
 	}
 	if !result.PositionVerified || !result.RestoreInputVerified || result.InitialPosition == nil ||
 		result.RestoreInputPosition == nil || *result.OriginalLaunchID != original ||
 		*result.RestoreLaunchID != restore {
 		t.Fatalf("round trip = %#v", result)
+	}
+}
+
+func TestReleasedCheckpointKeepsItsVerifiedAuditEvidence(t *testing.T) {
+	result := CheckpointRoundTrip{}
+	if err := applyCheckpointEvent(&result, storedEvent{
+		Gate: "CHECKPOINT_CREATED", Phase: "PASS",
+		Evidence: []byte(`{"checkpointFormat":"easyrpg-state-v1","sizeBytes":123,"sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}`),
+	}, viewRow{}); err != nil {
+		t.Fatal(err)
+	}
+	if !result.Created || result.CheckpointFormat == nil || *result.CheckpointFormat != "easyrpg-state-v1" ||
+		result.SizeBytes == nil || *result.SizeBytes != 123 || result.SHA256 == nil {
+		t.Fatalf("released payload erased completed checkpoint audit: %#v", result)
 	}
 }
 

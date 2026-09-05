@@ -1,48 +1,4 @@
--- Clean pre-release baseline: runtime.
-
-CREATE TABLE launch_sessions (
-  id TEXT PRIMARY KEY,
-  profile_id TEXT NOT NULL REFERENCES profiles(id),
-  purpose TEXT NOT NULL DEFAULT 'PRODUCT' CHECK(purpose IN ('PRODUCT','RPG_RUNTIME_VALIDATION')),
-  game_id TEXT REFERENCES games(id),
-  game_content_revision_id TEXT REFERENCES game_content_revisions(id),
-  game_variant_revision_id TEXT REFERENCES game_variant_revisions(id),
-  provider_id TEXT NOT NULL REFERENCES runtime_providers(provider_id),
-  target_id TEXT NOT NULL,
-  target_contract_sha256 TEXT NOT NULL CHECK(length(target_contract_sha256)=64),
-  game_compatibility_line TEXT NOT NULL CHECK(length(game_compatibility_line) BETWEEN 1 AND 64),
-  bundle_sha256 TEXT NOT NULL CHECK(length(bundle_sha256)=64 AND bundle_sha256=lower(bundle_sha256)),
-  effective_source_snapshot_id TEXT REFERENCES import_item_source_snapshots(id),
-  rpgmaker_runtime_validation_id TEXT REFERENCES rpgmaker_runtime_validations(id),
-  save_state_id TEXT REFERENCES save_states(id),
-  dos_entry_path TEXT,
-  return_to TEXT NOT NULL,
-  credential_sha256 BLOB NOT NULL CHECK(length(credential_sha256) = 32),
-  state TEXT NOT NULL CHECK(state IN ('CREATED','ACTIVE','FINISHED','EXPIRED','REVOKED')),
-  bootstrap_expires_at_ms INTEGER NOT NULL,
-  idle_expires_at_ms INTEGER,
-  activated_at_ms INTEGER,
-  finished_at_ms INTEGER,
-  hard_expires_at_ms INTEGER NOT NULL,
-  created_at_ms INTEGER NOT NULL,
-  updated_at_ms INTEGER NOT NULL,
-  version INTEGER NOT NULL DEFAULT 1, initial_disc_index INTEGER NOT NULL DEFAULT 0 CHECK(initial_disc_index BETWEEN 0 AND 7), netplay_session_id TEXT REFERENCES netplay_sessions(id), netplay_player_no INTEGER CHECK(netplay_player_no IS NULL OR netplay_player_no BETWEEN 1 AND 4), save_access TEXT NOT NULL DEFAULT 'NORMAL'
-  CHECK(save_access IN ('NORMAL','NETPLAY_DISABLED')),
-  FOREIGN KEY(provider_id,target_id) REFERENCES runtime_targets(provider_id,target_id),
-  CHECK(hard_expires_at_ms >= bootstrap_expires_at_ms),
-  CHECK(state != 'ACTIVE' OR activated_at_ms IS NOT NULL),
-  CHECK((state IN ('FINISHED','EXPIRED','REVOKED')) = (finished_at_ms IS NOT NULL)),
-  CHECK(
-    purpose='PRODUCT' AND game_id IS NOT NULL AND game_content_revision_id IS NOT NULL
-      AND game_variant_revision_id IS NOT NULL AND effective_source_snapshot_id IS NULL
-      AND rpgmaker_runtime_validation_id IS NULL
-    OR purpose='RPG_RUNTIME_VALIDATION' AND game_id IS NULL AND game_content_revision_id IS NULL
-      AND game_variant_revision_id IS NULL AND effective_source_snapshot_id IS NOT NULL
-      AND rpgmaker_runtime_validation_id IS NOT NULL AND save_state_id IS NULL
-      AND dos_entry_path IS NULL AND netplay_session_id IS NULL AND netplay_player_no IS NULL
-      AND save_access='NORMAL' AND initial_disc_index=0
-  )
-);
+-- Pre-release bootstrap: create the current domain model directly.
 
 CREATE TABLE "launch_content_files" (
   launch_session_id TEXT NOT NULL REFERENCES launch_sessions(id),
@@ -54,61 +10,6 @@ CREATE TABLE "launch_content_files" (
   ),
   created_at_ms INTEGER NOT NULL CHECK(created_at_ms>=0),
   PRIMARY KEY(launch_session_id,logical_name)
-);
-
-CREATE TABLE launch_external_files (
-  launch_session_id TEXT NOT NULL REFERENCES launch_sessions(id),
-  virtual_path TEXT NOT NULL CHECK(length(virtual_path) BETWEEN 1 AND 512),
-  logical_name TEXT NOT NULL CHECK(length(logical_name) BETWEEN 1 AND 255),
-  blob_id TEXT NOT NULL REFERENCES blobs(id),
-  created_at_ms INTEGER NOT NULL CHECK(created_at_ms >= 0), kind TEXT NOT NULL DEFAULT 'BIOS' CHECK(kind IN ('BIOS','DISC')),
-  PRIMARY KEY(launch_session_id, virtual_path),
-  UNIQUE(launch_session_id, logical_name),
-  CHECK(substr(virtual_path,1,1)='/' AND
-        virtual_path NOT LIKE '%\%' AND
-        virtual_path NOT LIKE '%?%' AND
-        virtual_path NOT LIKE '%#%' AND
-        instr(virtual_path,char(0))=0 AND
-        virtual_path NOT LIKE '%//%' AND
-        virtual_path NOT LIKE '%/./%' AND
-        virtual_path NOT LIKE '%/../%' AND
-        virtual_path NOT LIKE '%/.' AND
-        virtual_path NOT LIKE '%/..'),
-  CHECK(logical_name NOT LIKE '%/%' AND
-        logical_name NOT LIKE '%\%' AND
-        logical_name NOT IN ('','.','..') AND
-        instr(logical_name,char(0))=0)
-);
-
-CREATE TABLE save_states (
-  id TEXT PRIMARY KEY,
-  profile_id TEXT NOT NULL REFERENCES profiles(id),
-  game_id TEXT NOT NULL REFERENCES games(id),
-  game_content_revision_id TEXT NOT NULL REFERENCES game_content_revisions(id),
-  game_variant_revision_id TEXT NOT NULL REFERENCES game_variant_revisions(id),
-  provider_id TEXT NOT NULL REFERENCES runtime_providers(provider_id),
-  target_id TEXT NOT NULL,
-  target_contract_sha256 TEXT NOT NULL CHECK(length(target_contract_sha256)=64),
-  game_compatibility_line TEXT NOT NULL CHECK(length(game_compatibility_line) BETWEEN 1 AND 64),
-  checkpoint_format TEXT NOT NULL CHECK(length(checkpoint_format) BETWEEN 1 AND 128),
-  dependency_snapshot_sha256 TEXT NOT NULL CHECK(
-    length(dependency_snapshot_sha256)=64 AND dependency_snapshot_sha256=lower(dependency_snapshot_sha256)
-  ),
-  dat_version_id TEXT REFERENCES dat_versions(id),
-  dos_entry_path TEXT,
-  payload_blob_id TEXT NOT NULL REFERENCES blobs(id),
-  payload_sha256 TEXT NOT NULL CHECK(length(payload_sha256)=64 AND payload_sha256=lower(payload_sha256)),
-  payload_size_bytes INTEGER NOT NULL CHECK(payload_size_bytes BETWEEN 1 AND 268435456),
-  screenshot_blob_id TEXT REFERENCES blobs(id),
-  name TEXT NOT NULL,
-  active_duration_ms INTEGER NOT NULL CHECK(active_duration_ms >= 0),
-  version INTEGER NOT NULL DEFAULT 1,
-  created_at_ms INTEGER NOT NULL,
-  updated_at_ms INTEGER NOT NULL,
-  deleted_at_ms INTEGER,
-  source_launch_session_id TEXT NOT NULL REFERENCES launch_sessions(id),
-  disc_index INTEGER CHECK(disc_index BETWEEN 0 AND 7),
-  FOREIGN KEY(provider_id,target_id) REFERENCES runtime_targets(provider_id,target_id)
 );
 
 CREATE TABLE rpgmaker_runtime_validation_checkpoints (
@@ -147,24 +48,6 @@ CREATE TABLE isolated_runtime_capabilities (
   CHECK((launch_id IS NULL) <> (preview_id IS NULL))
 );
 
-CREATE TABLE play_sessions (
-  id TEXT PRIMARY KEY,
-  launch_session_id TEXT NOT NULL UNIQUE REFERENCES launch_sessions(id),
-  profile_id TEXT NOT NULL REFERENCES profiles(id),
-  game_id TEXT NOT NULL REFERENCES games(id),
-  game_variant_revision_id TEXT NOT NULL REFERENCES game_variant_revisions(id),
-  started_at_ms INTEGER NOT NULL,
-  last_heartbeat_at_ms INTEGER NOT NULL,
-  ended_at_ms INTEGER,
-  active_duration_ms INTEGER NOT NULL DEFAULT 0 CHECK(active_duration_ms >= 0),
-  last_client_sequence INTEGER NOT NULL DEFAULT 0 CHECK(last_client_sequence >= 0),
-  state TEXT NOT NULL CHECK(state IN ('ACTIVE','FINISHED','ABANDONED')),
-  version INTEGER NOT NULL DEFAULT 1,
-  created_at_ms INTEGER NOT NULL,
-  updated_at_ms INTEGER NOT NULL,
-  CHECK((state = 'ACTIVE') = (ended_at_ms IS NULL))
-);
-
 CREATE TABLE play_session_events (
   play_session_id TEXT NOT NULL REFERENCES play_sessions(id),
   client_sequence INTEGER NOT NULL CHECK(client_sequence >= 0),
@@ -179,42 +62,6 @@ CREATE TABLE play_session_events (
   PRIMARY KEY(play_session_id, client_sequence),
   CHECK((event_kind = 'START') = (client_sequence = 0)),
   CHECK(event_kind != 'START' OR accepted_duration_ms = 0)
-);
-
-CREATE TABLE netplay_rooms (
-  id TEXT PRIMARY KEY CHECK(id=lower(id)),
-  host_profile_id TEXT NOT NULL REFERENCES profiles(id),
-  state TEXT NOT NULL CHECK(state IN ('DRAFT','WAITING','STARTING','RUNNING','ENDED','EXPIRED')),
-  selected_game_id TEXT REFERENCES games(id),
-  selected_game_variant_revision_id TEXT REFERENCES game_variant_revisions(id),
-  netplay_profile_id TEXT,
-  profile_digest TEXT CHECK(profile_digest IS NULL OR profile_digest GLOB '[0-9a-f]*' AND length(profile_digest)=64),
-  max_players INTEGER CHECK(max_players IS NULL OR max_players BETWEEN 2 AND 4),
-  current_session_id TEXT,
-  version INTEGER NOT NULL DEFAULT 1 CHECK(version>=1),
-  expires_at_ms INTEGER NOT NULL CHECK(expires_at_ms>=0),
-  created_at_ms INTEGER NOT NULL CHECK(created_at_ms>=0),
-  updated_at_ms INTEGER NOT NULL CHECK(updated_at_ms>=created_at_ms),
-  ended_at_ms INTEGER,
-  end_reason TEXT CHECK(end_reason IS NULL OR end_reason IN (
-    'NORMAL','USER_EXIT','HOST_CLOSED','HOST_LOST','PEER_TIMEOUT','AUTH_REVOKED','START_TIMEOUT',
-    'PREPARE_FAILED','PROFILE_REVOKED','SERVER_RESTARTED','RESTORE','HARD_EXPIRED',
-    'ROLLBACK_WINDOW_EXCEEDED','STATE_RING_CAPACITY_EXCEEDED','STATE_TRANSFER_TIMEOUT',
-    'STATE_INVALID','NETPLAY_UNSTABLE','PEER_TOO_SLOW','PROTOCOL_VIOLATION','INTERNAL_ERROR','GAME_DELETED',
-    'GAME_CONTENT_REPLACED','BIOS_REPLACED'
-  )),
-  CHECK(
-    selected_game_id IS NULL AND selected_game_variant_revision_id IS NULL AND netplay_profile_id IS NULL
-      AND profile_digest IS NULL AND max_players IS NULL OR
-    selected_game_id IS NOT NULL AND selected_game_variant_revision_id IS NOT NULL AND netplay_profile_id IS NOT NULL
-      AND profile_digest IS NOT NULL AND max_players IS NOT NULL
-  ),
-  CHECK(state!='DRAFT' OR selected_game_id IS NULL),
-  CHECK(state NOT IN ('WAITING','STARTING','RUNNING') OR selected_game_id IS NOT NULL),
-  CHECK((state IN ('STARTING','RUNNING'))=(current_session_id IS NOT NULL)),
-  CHECK((state IN ('ENDED','EXPIRED'))=(ended_at_ms IS NOT NULL)),
-  CHECK((ended_at_ms IS NULL)=(end_reason IS NULL)),
-  CHECK(ended_at_ms IS NULL OR ended_at_ms>=created_at_ms)
 );
 
 CREATE TABLE netplay_room_members (
@@ -234,46 +81,6 @@ CREATE TABLE netplay_room_members (
   CHECK((left_at_ms IS NULL)=(leave_reason IS NULL)),
   CHECK(left_at_ms IS NULL OR left_at_ms>=joined_at_ms),
   CHECK(left_at_ms IS NULL OR ready=0)
-);
-
-CREATE TABLE netplay_sessions (
-  id TEXT PRIMARY KEY CHECK(id=lower(id)),
-  room_id TEXT NOT NULL REFERENCES netplay_rooms(id),
-  session_no INTEGER NOT NULL CHECK(session_no>=1),
-  state TEXT NOT NULL CHECK(state IN (
-    'PREPARING','LOADING','SYNCHRONIZING','RUNNING','PAUSED_RECONNECT','RESYNCHRONIZING','FINISHED','FAILED'
-  )),
-  game_id TEXT NOT NULL REFERENCES games(id),
-  game_variant_revision_id TEXT NOT NULL REFERENCES game_variant_revisions(id),
-  provider_id TEXT NOT NULL REFERENCES runtime_providers(provider_id),
-  target_id TEXT NOT NULL,
-  target_contract_sha256 TEXT NOT NULL CHECK(length(target_contract_sha256)=64),
-  netplay_compatibility_line TEXT NOT NULL CHECK(length(netplay_compatibility_line) BETWEEN 1 AND 64),
-  netplay_profile_id TEXT NOT NULL,
-  profile_json TEXT NOT NULL CHECK(json_valid(profile_json) AND json_type(profile_json)='object'),
-  profile_digest TEXT NOT NULL CHECK(profile_digest GLOB '[0-9a-f]*' AND length(profile_digest)=64),
-  player_count INTEGER NOT NULL CHECK(player_count BETWEEN 2 AND 4),
-  occupied_seat_mask INTEGER NOT NULL CHECK(occupied_seat_mask BETWEEN 3 AND 15 AND (occupied_seat_mask & 1)=1),
-  authority_player_no INTEGER NOT NULL DEFAULT 1 CHECK(authority_player_no=1),
-  resync_count INTEGER NOT NULL DEFAULT 0 CHECK(resync_count>=0),
-  version INTEGER NOT NULL DEFAULT 1 CHECK(version>=1),
-  created_at_ms INTEGER NOT NULL CHECK(created_at_ms>=0),
-  updated_at_ms INTEGER NOT NULL CHECK(updated_at_ms>=created_at_ms),
-  started_at_ms INTEGER,
-  finished_at_ms INTEGER,
-  end_reason TEXT CHECK(end_reason IS NULL OR end_reason IN (
-    'NORMAL','USER_EXIT','HOST_CLOSED','HOST_LOST','PEER_TIMEOUT','AUTH_REVOKED','START_TIMEOUT',
-    'PREPARE_FAILED','PROFILE_REVOKED','SERVER_RESTARTED','RESTORE','HARD_EXPIRED',
-    'ROLLBACK_WINDOW_EXCEEDED','STATE_RING_CAPACITY_EXCEEDED','STATE_TRANSFER_TIMEOUT',
-    'STATE_INVALID','NETPLAY_UNSTABLE','PEER_TOO_SLOW','PROTOCOL_VIOLATION','INTERNAL_ERROR','GAME_DELETED',
-    'GAME_CONTENT_REPLACED','BIOS_REPLACED'
-  )),
-  UNIQUE(room_id,session_no),
-  FOREIGN KEY(provider_id,target_id) REFERENCES runtime_targets(provider_id,target_id),
-  CHECK((state IN ('FINISHED','FAILED'))=(finished_at_ms IS NOT NULL)),
-  CHECK((finished_at_ms IS NULL)=(end_reason IS NULL)),
-  CHECK(started_at_ms IS NULL OR started_at_ms>=created_at_ms),
-  CHECK(finished_at_ms IS NULL OR finished_at_ms>=created_at_ms)
 );
 
 CREATE TABLE netplay_session_participants (
@@ -324,4 +131,182 @@ CREATE TABLE netplay_events (
   result_code TEXT CHECK(result_code IS NULL OR length(CAST(result_code AS BLOB)) BETWEEN 1 AND 64),
   data_json TEXT NOT NULL CHECK(json_valid(data_json) AND json_type(data_json)='object'),
   created_at_ms INTEGER NOT NULL CHECK(created_at_ms>=0)
+);
+
+CREATE TABLE "launch_sessions" (
+  id TEXT PRIMARY KEY,
+  profile_id TEXT NOT NULL REFERENCES profiles(id),
+  purpose TEXT NOT NULL DEFAULT 'PRODUCT' CHECK(purpose IN ('PRODUCT','RPG_RUNTIME_VALIDATION')),
+  game_id TEXT REFERENCES games(id),
+  core_id TEXT NOT NULL REFERENCES cores(id),
+  provider_id TEXT NOT NULL REFERENCES runtime_providers(provider_id),
+  target_id TEXT NOT NULL,
+  bundle_sha256 TEXT NOT NULL CHECK(length(bundle_sha256)=64 AND bundle_sha256=lower(bundle_sha256)),
+  content_kind TEXT NOT NULL REFERENCES content_kinds(id),
+  dependency_snapshot_json TEXT NOT NULL CHECK(json_valid(dependency_snapshot_json)),
+  compatibility_code TEXT NOT NULL,
+  effective_source_snapshot_id TEXT REFERENCES import_item_source_snapshots(id),
+  rpgmaker_runtime_validation_id TEXT REFERENCES rpgmaker_runtime_validations(id),
+  save_state_id TEXT REFERENCES save_states(id),
+  dos_entry_path TEXT,
+  return_to TEXT NOT NULL,
+  credential_sha256 BLOB NOT NULL CHECK(length(credential_sha256) = 32),
+  state TEXT NOT NULL CHECK(state IN ('CREATED','ACTIVE','FINISHED','EXPIRED','REVOKED')),
+  bootstrap_expires_at_ms INTEGER NOT NULL,
+  idle_expires_at_ms INTEGER,
+  activated_at_ms INTEGER,
+  finished_at_ms INTEGER,
+  hard_expires_at_ms INTEGER NOT NULL,
+  created_at_ms INTEGER NOT NULL,
+  updated_at_ms INTEGER NOT NULL,
+  version INTEGER NOT NULL DEFAULT 1, initial_disc_index INTEGER NOT NULL DEFAULT 0 CHECK(initial_disc_index BETWEEN 0 AND 7), netplay_session_id TEXT REFERENCES netplay_sessions(id), netplay_player_no INTEGER CHECK(netplay_player_no IS NULL OR netplay_player_no BETWEEN 1 AND 4), save_access TEXT NOT NULL DEFAULT 'NORMAL'
+  CHECK(save_access IN ('NORMAL','NETPLAY_DISABLED')),
+  FOREIGN KEY(provider_id,target_id) REFERENCES runtime_targets(provider_id,target_id),
+  CHECK(hard_expires_at_ms >= bootstrap_expires_at_ms),
+  CHECK(state != 'ACTIVE' OR activated_at_ms IS NOT NULL),
+  CHECK((state IN ('FINISHED','EXPIRED','REVOKED')) = (finished_at_ms IS NOT NULL)),
+  CHECK(
+    purpose='PRODUCT' AND game_id IS NOT NULL AND effective_source_snapshot_id IS NULL
+      AND rpgmaker_runtime_validation_id IS NULL
+    OR purpose='RPG_RUNTIME_VALIDATION' AND game_id IS NULL AND effective_source_snapshot_id IS NOT NULL
+      AND rpgmaker_runtime_validation_id IS NOT NULL AND save_state_id IS NULL
+      AND dos_entry_path IS NULL AND netplay_session_id IS NULL AND netplay_player_no IS NULL
+      AND save_access='NORMAL' AND initial_disc_index=0
+  )
+);
+
+CREATE TABLE "launch_external_files" (
+  launch_session_id TEXT NOT NULL REFERENCES launch_sessions(id),
+  virtual_path TEXT NOT NULL CHECK(length(virtual_path) BETWEEN 1 AND 512),
+  logical_name TEXT NOT NULL CHECK(length(logical_name) BETWEEN 1 AND 255),
+  blob_id TEXT NOT NULL REFERENCES blobs(id),
+  created_at_ms INTEGER NOT NULL CHECK(created_at_ms >= 0), kind TEXT NOT NULL DEFAULT 'BIOS' CHECK(kind IN ('BIOS','BIOS_BUNDLE','PARENT','DISC')),
+  PRIMARY KEY(launch_session_id, virtual_path),
+  UNIQUE(launch_session_id, logical_name),
+  CHECK(substr(virtual_path,1,1)='/' AND
+        virtual_path NOT LIKE '%\%' AND
+        virtual_path NOT LIKE '%?%' AND
+        virtual_path NOT LIKE '%#%' AND
+        instr(virtual_path,char(0))=0 AND
+        virtual_path NOT LIKE '%//%' AND
+        virtual_path NOT LIKE '%/./%' AND
+        virtual_path NOT LIKE '%/../%' AND
+        virtual_path NOT LIKE '%/.' AND
+        virtual_path NOT LIKE '%/..'),
+  CHECK(logical_name NOT LIKE '%/%' AND
+        logical_name NOT LIKE '%\%' AND
+        logical_name NOT IN ('','.','..') AND
+        instr(logical_name,char(0))=0)
+);
+
+CREATE TABLE "save_states" (
+  id TEXT PRIMARY KEY,
+  profile_id TEXT NOT NULL REFERENCES profiles(id),
+  game_id TEXT NOT NULL REFERENCES games(id),
+  checkpoint_format TEXT NOT NULL CHECK(length(checkpoint_format) BETWEEN 1 AND 128),
+  payload_blob_id TEXT NOT NULL REFERENCES blobs(id),
+  payload_sha256 TEXT NOT NULL CHECK(length(payload_sha256)=64 AND payload_sha256=lower(payload_sha256)),
+  payload_size_bytes INTEGER NOT NULL CHECK(payload_size_bytes BETWEEN 1 AND 268435456),
+  screenshot_blob_id TEXT REFERENCES blobs(id),
+  name TEXT NOT NULL,
+  active_duration_ms INTEGER NOT NULL CHECK(active_duration_ms >= 0),
+  dos_entry_path TEXT,
+  version INTEGER NOT NULL DEFAULT 1,
+  created_at_ms INTEGER NOT NULL,
+  updated_at_ms INTEGER NOT NULL,
+  deleted_at_ms INTEGER,
+  source_launch_session_id TEXT NOT NULL REFERENCES launch_sessions(id),
+  disc_index INTEGER CHECK(disc_index BETWEEN 0 AND 7)
+);
+
+CREATE TABLE "play_sessions" (
+  id TEXT PRIMARY KEY,
+  launch_session_id TEXT NOT NULL UNIQUE REFERENCES launch_sessions(id),
+  profile_id TEXT NOT NULL REFERENCES profiles(id),
+  game_id TEXT NOT NULL REFERENCES games(id),
+  started_at_ms INTEGER NOT NULL,
+  last_heartbeat_at_ms INTEGER NOT NULL,
+  ended_at_ms INTEGER,
+  active_duration_ms INTEGER NOT NULL DEFAULT 0 CHECK(active_duration_ms >= 0),
+  last_client_sequence INTEGER NOT NULL DEFAULT 0 CHECK(last_client_sequence >= 0),
+  state TEXT NOT NULL CHECK(state IN ('ACTIVE','FINISHED','ABANDONED')),
+  version INTEGER NOT NULL DEFAULT 1,
+  created_at_ms INTEGER NOT NULL,
+  updated_at_ms INTEGER NOT NULL,
+  CHECK((state = 'ACTIVE') = (ended_at_ms IS NULL))
+);
+
+CREATE TABLE "netplay_rooms" (
+  id TEXT PRIMARY KEY CHECK(id=lower(id)),
+  host_profile_id TEXT NOT NULL REFERENCES profiles(id),
+  state TEXT NOT NULL CHECK(state IN ('DRAFT','WAITING','STARTING','RUNNING','ENDED','EXPIRED')),
+  selected_game_id TEXT REFERENCES games(id),
+  selected_game_variant_id TEXT REFERENCES game_variants(id),
+  netplay_profile_id TEXT,
+  profile_digest TEXT CHECK(profile_digest IS NULL OR profile_digest GLOB '[0-9a-f]*' AND length(profile_digest)=64),
+  max_players INTEGER CHECK(max_players IS NULL OR max_players BETWEEN 2 AND 4),
+  current_session_id TEXT,
+  version INTEGER NOT NULL DEFAULT 1 CHECK(version>=1),
+  expires_at_ms INTEGER NOT NULL CHECK(expires_at_ms>=0),
+  created_at_ms INTEGER NOT NULL CHECK(created_at_ms>=0),
+  updated_at_ms INTEGER NOT NULL CHECK(updated_at_ms>=created_at_ms),
+  ended_at_ms INTEGER,
+  end_reason TEXT CHECK(end_reason IS NULL OR end_reason IN (
+    'NORMAL','USER_EXIT','HOST_CLOSED','HOST_LOST','PEER_TIMEOUT','AUTH_REVOKED','START_TIMEOUT',
+    'PREPARE_FAILED','PROFILE_REVOKED','SERVER_RESTARTED','RESTORE','HARD_EXPIRED',
+    'ROLLBACK_WINDOW_EXCEEDED','STATE_RING_CAPACITY_EXCEEDED','STATE_TRANSFER_TIMEOUT',
+    'STATE_INVALID','NETPLAY_UNSTABLE','PEER_TOO_SLOW','PROTOCOL_VIOLATION','INTERNAL_ERROR','GAME_DELETED',
+    'GAME_CONTENT_REPLACED','BIOS_REPLACED'
+  )),
+  CHECK(
+    selected_game_id IS NULL AND selected_game_variant_id IS NULL AND netplay_profile_id IS NULL
+      AND profile_digest IS NULL AND max_players IS NULL OR
+    selected_game_id IS NOT NULL AND selected_game_variant_id IS NOT NULL AND netplay_profile_id IS NOT NULL
+      AND profile_digest IS NOT NULL AND max_players IS NOT NULL
+  ),
+  CHECK(state!='DRAFT' OR selected_game_id IS NULL),
+  CHECK(state NOT IN ('WAITING','STARTING','RUNNING') OR selected_game_id IS NOT NULL),
+  CHECK((state IN ('STARTING','RUNNING'))=(current_session_id IS NOT NULL)),
+  CHECK((state IN ('ENDED','EXPIRED'))=(ended_at_ms IS NOT NULL)),
+  CHECK((ended_at_ms IS NULL)=(end_reason IS NULL)),
+  CHECK(ended_at_ms IS NULL OR ended_at_ms>=created_at_ms)
+);
+
+CREATE TABLE "netplay_sessions" (
+  id TEXT PRIMARY KEY CHECK(id=lower(id)),
+  room_id TEXT NOT NULL REFERENCES netplay_rooms(id),
+  session_no INTEGER NOT NULL CHECK(session_no>=1),
+  state TEXT NOT NULL CHECK(state IN (
+    'PREPARING','LOADING','SYNCHRONIZING','RUNNING','PAUSED_RECONNECT','RESYNCHRONIZING','FINISHED','FAILED'
+  )),
+  game_id TEXT NOT NULL REFERENCES games(id),
+  game_variant_id TEXT NOT NULL REFERENCES game_variants(id),
+  provider_id TEXT NOT NULL REFERENCES runtime_providers(provider_id),
+  target_id TEXT NOT NULL,
+  bundle_sha256 TEXT NOT NULL CHECK(length(bundle_sha256)=64 AND bundle_sha256=lower(bundle_sha256)),
+  netplay_profile_id TEXT NOT NULL,
+  profile_json TEXT NOT NULL CHECK(json_valid(profile_json) AND json_type(profile_json)='object'),
+  profile_digest TEXT NOT NULL CHECK(profile_digest GLOB '[0-9a-f]*' AND length(profile_digest)=64),
+  player_count INTEGER NOT NULL CHECK(player_count BETWEEN 2 AND 4),
+  occupied_seat_mask INTEGER NOT NULL CHECK(occupied_seat_mask BETWEEN 3 AND 15 AND (occupied_seat_mask & 1)=1),
+  authority_player_no INTEGER NOT NULL DEFAULT 1 CHECK(authority_player_no=1),
+  resync_count INTEGER NOT NULL DEFAULT 0 CHECK(resync_count>=0),
+  version INTEGER NOT NULL DEFAULT 1 CHECK(version>=1),
+  created_at_ms INTEGER NOT NULL CHECK(created_at_ms>=0),
+  updated_at_ms INTEGER NOT NULL CHECK(updated_at_ms>=created_at_ms),
+  started_at_ms INTEGER,
+  finished_at_ms INTEGER,
+  end_reason TEXT CHECK(end_reason IS NULL OR end_reason IN (
+    'NORMAL','USER_EXIT','HOST_CLOSED','HOST_LOST','PEER_TIMEOUT','AUTH_REVOKED','START_TIMEOUT',
+    'PREPARE_FAILED','PROFILE_REVOKED','SERVER_RESTARTED','RESTORE','HARD_EXPIRED',
+    'ROLLBACK_WINDOW_EXCEEDED','STATE_RING_CAPACITY_EXCEEDED','STATE_TRANSFER_TIMEOUT',
+    'STATE_INVALID','NETPLAY_UNSTABLE','PEER_TOO_SLOW','PROTOCOL_VIOLATION','INTERNAL_ERROR','GAME_DELETED',
+    'GAME_CONTENT_REPLACED','BIOS_REPLACED'
+  )),
+  UNIQUE(room_id,session_no),
+  FOREIGN KEY(provider_id,target_id) REFERENCES runtime_targets(provider_id,target_id),
+  CHECK((state IN ('FINISHED','FAILED'))=(finished_at_ms IS NOT NULL)),
+  CHECK((finished_at_ms IS NULL)=(end_reason IS NULL)),
+  CHECK(started_at_ms IS NULL OR started_at_ms>=created_at_ms),
+  CHECK(finished_at_ms IS NULL OR finished_at_ms>=created_at_ms)
 );

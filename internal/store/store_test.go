@@ -16,7 +16,7 @@ import (
 	"retrom/internal/testassert"
 )
 
-func TestMigrationsCreateCurrentSchemaAndReferenceCatalog(t *testing.T) {
+func TestMigrationsCreateCurrentSchemaWithoutProductSeeds(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 	database, err := Open(ctx, filepath.Join(t.TempDir(), "retrom.db"), func() time.Time {
@@ -27,7 +27,6 @@ func TestMigrationsCreateCurrentSchemaAndReferenceCatalog(t *testing.T) {
 	testassert.Falsef(t, database.IntegrityCheck(ctx) != nil, "fresh database integrity failed")
 
 	tables := queryStrings(t, database.SQL, "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name")
-	testassert.Falsef(t, len(tables) != 125, "fresh schema table count = %d", len(tables))
 	assertColumns(t, database.SQL, "import_group_requests",
 		"import_job_id", "request_digest", "actor_user_id", "upload_version",
 		"upload_manifest_digest", "target_snapshot_digest")
@@ -39,6 +38,7 @@ WHERE type='trigger' AND name LIKE 'import_group_requests_immutable_%' ORDER BY 
 	for _, table := range tables {
 		assertIntegerTimeColumns(t, database.SQL, table)
 	}
+	testassert.Falsef(t, len(tables) != 125, "fresh schema table count = %d", len(tables))
 	assertColumns(t, database.SQL, "review_preview_sessions",
 		"import_item_id", "source_snapshot_id", "validation_id", "capture_allowed", "credential_sha256",
 		"bootstrap_expires_at_ms", "hard_expires_at_ms")
@@ -86,9 +86,9 @@ SELECT (SELECT count(*) FROM platforms),
 		t.Fatal(err)
 	}
 	testassert.Falsef(t, testassert.Any(
-		func() bool { return platformCount != 31 },
-		func() bool { return coreCount != 41 },
-		func() bool { return relationCount != 44 },
+		func() bool { return platformCount != 0 },
+		func() bool { return coreCount != 0 },
+		func() bool { return relationCount != 0 },
 		func() bool { return directoryCount != 0 },
 	), "seed counts = %d/%d/%d/%d", platformCount, coreCount, relationCount, directoryCount)
 	assertColumns(t, database.SQL, "platform_instances", "catalog_template_key")
@@ -106,21 +106,6 @@ SELECT (SELECT count(*) FROM profiles),(SELECT count(*) FROM users),state FROM i
 		func() bool { return instanceState != "PENDING" },
 	), "pending auth state = profiles:%d users:%d state:%s", profileCount, userCount, instanceState)
 
-	wantPlatforms := []string{
-		"3do", "arcade", "atari2600", "atari5200", "atari7800", "butterscotch", "dos", "fds", "gba", "gbc", "kirikiri", "lynx", "mastersystem",
-		"megadrive", "n64", "nds", "nes", "ngpc", "nintendo3ds", "ons", "pce", "pcfx", "psp", "psx", "rpgmaker", "saturn", "snes",
-		"tyranoscript", "virtualboy", "wasm4", "wonderswan",
-	}
-	testassert.Truef(t, slices.Equal(queryStrings(t, database.SQL, "SELECT id FROM platforms ORDER BY id"), wantPlatforms), "platform catalog drifted")
-	wantCores := []string{
-		"a5200", "azahar", "beetle_vb", "butterscotch", "desmume", "desmume2015", "dosbox_pure", "fbalpha2012_cps1", "fbalpha2012_cps2",
-		"fbneo", "fceumm", "gambatte", "genesis_plus_gx", "genesis_plus_gx_wide", "handy", "kirikiri2", "mame2003", "mame2003_plus",
-		"mednafen_ngp", "mednafen_pce", "mednafen_pcfx", "mednafen_psx_hw", "mednafen_wswan", "melonds", "mgba",
-		"mupen64plus_next", "nestopia", "onscripter_yuri", "opera", "parallel_n64", "pcsx_rearmed", "picodrive", "ppsspp", "prosystem",
-		"rpgmaker", "smsplus",
-		"snes9x", "stella2014", "tyranoscript", "wasm4", "yabause",
-	}
-	testassert.Truef(t, slices.Equal(queryStrings(t, database.SQL, "SELECT id FROM cores ORDER BY id"), wantCores), "core catalog drifted")
 	testassert.Falsef(t, tableColumns(t, database.SQL, "cores")["requires_threads"], "thread capability remained on cores")
 	assertCurrentClosedEnums(t, database.SQL)
 }
@@ -238,7 +223,7 @@ func TestCurrentMigrationLineageResumeAndReopen(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "retrom.db")
 	sources, err := migrationSources()
 	testassert.False(t, err != nil, err)
-	testassert.Falsef(t, len(sources) != 12, "migration count = %d", len(sources))
+	testassert.Falsef(t, len(sources) != 10, "migration count = %d", len(sources))
 	database := openMigrationTestDatabase(t, path)
 	for _, source := range sources[:len(sources)-1] {
 		if err := runMigration(ctx, database, source, time.Now); err != nil {
@@ -289,99 +274,6 @@ SELECT count(*) FROM archive_entries WHERE archive_blob_id='archive'
 	reopened, err := Open(ctx, path, time.Now)
 	testassert.Falsef(t, err != nil, "idempotent reopen: %v", err)
 	testassert.False(t, reopened.Close() != nil, "close reopened database")
-}
-
-func TestRuntimeProviderCurrentStateMigrationPreservesPublishedGame(t *testing.T) {
-	t.Parallel()
-	ctx := context.Background()
-	path := filepath.Join(t.TempDir(), "retrom.db")
-	database := openMigrationTestDatabase(t, path)
-	defer func() { cleanup.Error("close", database.Close()) }()
-	sources, err := migrationSources()
-	testassert.False(t, err != nil, err)
-	for _, source := range sources[:11] {
-		if err := runMigration(ctx, database, source, time.Now); err != nil {
-			t.Fatal(err)
-		}
-	}
-
-	transaction, err := database.BeginTx(ctx, nil)
-	testassert.False(t, err != nil, err)
-	if _, err := transaction.ExecContext(ctx, "PRAGMA defer_foreign_keys=ON"); err != nil {
-		t.Fatal(err)
-	}
-	digest := strings.Repeat("a", 64)
-	statements := []string{
-		`INSERT INTO platform_instances(
-id,platform_id,default_core_id,name,slug,description,sort_order,enabled,created_at_ms,updated_at_ms
-) VALUES('instance','rpgmaker','rpgmaker','RPG Maker','rpg-maker','',0,1,1,1)`,
-		`INSERT INTO runtime_providers(
-provider_id,provider_version,provider_api_version,bundle_sha256,manifest_sha256,module_sha256,source,activated_at_ms
-) VALUES('fixture','1.0.0',1,'` + digest + `','` + digest + `','` + digest + `','candidate',1)`,
-		`INSERT INTO runtime_targets(
-provider_id,target_id,display_name,game_compatibility_line,target_options_schema_json,
-capabilities_json,checkpoint_json,manifest_fragment_json,target_contract_sha256
-) VALUES('fixture','fixture','Fixture','fixture-v1','{}','{}',NULL,'{}','` + digest + `')`,
-		`INSERT INTO game_metadata_revisions(
-id,game_id,title,title_initial,description,developer,publisher,genre,source_kind,created_at_ms
-) VALUES('metadata','game','Fixture','F','','','','','ADMIN_EDIT',1)`,
-		`INSERT INTO game_content_revisions(
-id,game_id,content_kind,source_kind,source_ref_id,source_manifest_json,source_manifest_digest,created_at_ms
-) VALUES('content','game','SINGLE_FILE','ADMIN_REPLACE','fixture','{}','` + digest + `',1)`,
-		`INSERT INTO games(
-id,platform_instance_id,status,current_metadata_revision_id,current_content_revision_id,
-search_text,created_at_ms,updated_at_ms
-) VALUES('game','instance','PUBLISHED','metadata','content','fixture',1,1)`,
-		`INSERT INTO blobs(id,sha256,size_bytes,md5,sha1,crc32,media_type,created_at_ms)
-VALUES('blob','` + digest + `',1,'` + strings.Repeat("b", 32) + `','` + strings.Repeat("c", 40) +
-			`','` + strings.Repeat("d", 8) + `','application/octet-stream',1)`,
-		`INSERT INTO game_content_files(game_content_revision_id,role,logical_name,blob_id,sort_order)
-VALUES('content','CONTENT','fixture.bin','blob',0)`,
-		`INSERT INTO game_variant_revisions(
-id,game_variant_id,game_content_revision_id,provider_id,target_id,target_contract_sha256,
-game_compatibility_line,validation_input_digest,status,compatibility_code,dependency_snapshot_json,created_at_ms
-) VALUES('variant-state','variant','content','fixture','fixture','` + digest + `',
-'fixture-v1','` + digest + `','READY','READY','{}',1)`,
-		`INSERT INTO game_variants(id,game_id,core_id,current_revision_id,created_at_ms,updated_at_ms)
-VALUES('variant','game','rpgmaker','variant-state',1,1)`,
-	}
-	for _, statement := range statements {
-		if _, err := transaction.ExecContext(ctx, statement); err != nil {
-			cleanup.Error("rollback", transaction.Rollback())
-			t.Fatal(err)
-		}
-	}
-	if err := transaction.Commit(); err != nil {
-		t.Fatal(err)
-	}
-	if err := runMigration(ctx, database, sources[11], time.Now); err != nil {
-		t.Fatal(err)
-	}
-
-	var title, logicalName, providerID, compatibility string
-	if err := database.QueryRowContext(ctx, `
-SELECT game.title,file.logical_name,variant.provider_id,variant.compatibility_code
-FROM games game
-JOIN game_files file ON file.game_id=game.id
-JOIN game_variants variant ON variant.game_id=game.id
-WHERE game.id='game'
-`).Scan(&title, &logicalName, &providerID, &compatibility); err != nil {
-		t.Fatal(err)
-	}
-	testassert.Falsef(t, title != "Fixture" || logicalName != "fixture.bin" ||
-		providerID != "fixture" || compatibility != "READY",
-		"migrated game = %q/%q/%q/%q", title, logicalName, providerID, compatibility)
-	var legacyTableCount, foreignKeys int
-	if err := database.QueryRowContext(ctx, `
-SELECT (SELECT count(*) FROM sqlite_schema WHERE type='table' AND name IN (
-  'game_metadata_revisions','game_content_revisions','game_variant_revisions'
-)),(SELECT foreign_keys FROM pragma_foreign_keys)
-`).Scan(&legacyTableCount, &foreignKeys); err != nil {
-		t.Fatal(err)
-	}
-	testassert.Falsef(t, legacyTableCount != 0 || foreignKeys != 1,
-		"legacy tables or foreign-key mode remain: %d/%d", legacyTableCount, foreignKeys)
-	testassert.False(t, verifyMigrationForeignKeys(ctx, database) != nil, "migrated foreign keys failed")
 }
 
 func TestFreshSchemaUsesProviderTargetProjectionWithoutLegacyRuntimeSemantics(t *testing.T) {

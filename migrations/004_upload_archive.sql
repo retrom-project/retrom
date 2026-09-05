@@ -1,10 +1,9 @@
--- Clean pre-release baseline: upload_archive.
+-- Pre-release bootstrap: create the current domain model directly.
 
 CREATE TABLE upload_sessions (
   id TEXT PRIMARY KEY,
   purpose TEXT NOT NULL DEFAULT 'GENERAL' CHECK(purpose IN (
-    'GENERAL','RPG_MAKER_PROJECT','ONS_PROJECT','KIRIKIRI_PROJECT','BUTTERSCOTCH_PROJECT',
-    'TYRANOSCRIPT_PROJECT','RUNTIME_ASSET_PACK'
+    'GENERAL','PROJECT','RUNTIME_ASSET_PACK'
   )),
   state TEXT NOT NULL CHECK(state IN ('CREATED','UPLOADING','FINALIZING','COMPLETE','FAILED','CANCELLED','EXPIRED')),
   source_type TEXT NOT NULL CHECK(source_type IN ('FILES','DIRECTORY')),
@@ -83,7 +82,7 @@ CREATE TABLE "upload_consumptions" (
   upload_session_id TEXT NOT NULL REFERENCES upload_sessions(id),
   upload_file_id TEXT REFERENCES upload_files(id),
   consumer_type TEXT NOT NULL CHECK(consumer_type IN (
-    'IMPORT_JOB','GAME_FILE_REVISION_JOB','GAME_ASSET','REVIEW_ASSET','REVIEW_ARCADE_PARENT',
+    'IMPORT_JOB','GAME_CONTENT_REPLACE_JOB','GAME_ASSET','REVIEW_ASSET','REVIEW_ARCADE_PARENT',
     'REVIEW_MULTI_DISC','BIOS_INSTALLATION','RUNTIME_ASSET_PACK_INSTALLATION'
   )),
   consumer_id TEXT NOT NULL,

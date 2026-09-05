@@ -69,7 +69,7 @@ async function runProductCase(activeBrowser) {
     const login = await loginResponse.json();
     const client = createProductClient(context, baseUrl, login.csrfToken);
     const platformInstanceId = await onsPlatformInstance(client);
-    const uploadId = await client.upload(singleFile(process.env.RETROM_ONS_SMOKE_ARCHIVE), "FILES", "ONS_PROJECT");
+    const uploadId = await client.upload(singleFile(process.env.RETROM_ONS_SMOKE_ARCHIVE), "FILES", "PROJECT");
     const importedResponse = await client.raw("POST", "/api/v1/admin/imports", {
       headers: client.writeHeaders(),
       timeout: 120_000,

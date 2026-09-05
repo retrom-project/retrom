@@ -4,7 +4,7 @@ Retrom 的规划文档按“总览 + 统一验收 + 领域专题 + 可执行数�
 
 ## 实施就绪结论
 
-当前数据库由 `001_identity.sql`–`012_runtime_provider_current_state.sql` 的单向 migration lineage 建立最终模型；完整 001–011 数据库由 012 原子升级，只支持继续向前升级，不提供降级、回滚或双读分支。Game、文件、metadata、媒体与 Variant 使用稳定 ID 的 current-state 模型，业务历史进入 audit/event/evidence。运行时以 Provider Bundle 为唯一部署单元：EmulatorJS Provider 声明 35 个 Target，retrom-runtime Provider 声明 12 个 Target；Retrom 只保存当前 Provider/Target 投影、Provider 自带的闭合 options schema和产品 Core binding，不保存或推导 Provider 私有 adapter/core 映射。Bundle digest 只在 Launch、Preview 与 Netplay 中冻结实际执行字节。所有运行入口都返回同一 `Launch Envelope V1`；Web 只通过共享 Provider dispatcher 装载 module，Provider Module 复核精确 schema 后取得 `PlayerRuntimeV1`。
+当前未发布数据库由 `001_identity.sql`–`010_cross_domain_invariants.sql` 直接创建最终模型；不兼容开发库停机归档后重建，不提供旧表转换、兼容回填或双读分支。首次正式发布后才追加向前升级。Game、文件、metadata、媒体与 Variant 使用稳定 ID 的 current-state 模型，业务历史进入 audit/event/evidence。运行时以 Provider Bundle 为唯一部署单元：EmulatorJS Provider 声明 35 个 Target，retrom-runtime Provider 声明 12 个 Target；Retrom 只保存当前 Provider/Target 投影、Provider 自带的闭合 options schema和产品 Core binding，不保存或推导 Provider 私有 adapter/core 映射。Bundle digest 只在 Launch、Preview 与 Netplay 中冻结实际执行字节。所有运行入口都返回同一 `Launch Envelope V1`；Web 只通过共享 Provider dispatcher 装载 module，Provider Module 复核精确 schema 后取得 `PlayerRuntimeV1`。
 
 全新数据库只 seed Platform/Core/关系等 reference catalog，PlatformInstance 初始为零；管理员在游戏目录页一键补齐推荐模板。RPG Maker 对用户仍是唯一 `rpgmaker` Core，服务端按项目证据绑定 `rpgmaker-2000` 至 `rpgmaker-mz` 七个 Provider Target；这些 Target 只用于不可变运行绑定和管理诊断，不进入用户 Core 选择器。FDS 归入 NES/FCEUmm，扩展名只由平台内容 profile 提供。Pegasus/EmulationStation、标签、收藏、Payload 生命周期与受限异地联机继续使用各自领域契约；八个联机 profile 绑定精确 Provider Target 和 `netplay profile digest`，不按单个 ROM 建产品白名单。
 
@@ -39,7 +39,7 @@ HTTP、运行时、依赖及统一验收专题维护。
 
 ## 从这里开始
 
-全新 checkout 先执行 `make install-deps`，再用 `make prepare-deps && make deps-check` 物化并离线校验生产 Provider lock、DAT 与许可输入。普通开发执行 `make dev` 并访问 `http://localhost:4000`；并行跨仓联调使用命名 PFB，每个 PFB 拥有 worktree 本地 `.pfb/workspace`、loose dev provider revision 和稳定 `.localhost` origin，共享网关只绑定 `127.0.0.1:3000`。PFB 直接 bind mount Go/Next/runtime 源码，日常 up/restart 不构建镜像、Provider archive或core。正式镜像只接收 production active descriptor；PFB开发层不能进入production lock、release input或正式镜像。Provider基座的manifest/module/assets仍逐字节校验，loose override只在合法test PFB中按路径/size/hash/revision失败关闭。
+全新 checkout 先执行 `make install-deps`，再用 `make prepare-deps && make deps-check` 物化并离线校验生产 Provider lock、DAT 与许可输入。普通开发执行 `make dev` 并访问 `http://localhost:4000`；并行跨仓联调使用命名 PFB，每个 PFB 拥有 worktree 本地 `.pfb/workspace`、单份原子发布的开发 provider 和稳定 `.localhost` origin，共享网关只绑定 `127.0.0.1:3000`。PFB 直接 bind mount Go/Next/runtime 源码，日常 up/restart 不构建镜像、Provider archive或core。正式镜像只接收 production active descriptor；PFB开发层不能进入production lock、release input或正式镜像。Provider基座的manifest/module/assets仍逐字节校验，loose override只在合法test PFB中按路径/size/hash失败关闭。
 
 - [`../AGENTS.md`](../AGENTS.md)：项目级 Agent 实施铁律；任何代码、测试、迁移或正式文档变更都必须先遵守。
 - [`retrom-product-architecture.md`](./retrom-product-architecture.md)：一期范围、关键决策、系统关系、业务流程和阶段计划。

@@ -315,8 +315,8 @@ WHERE catalog_template_key='gba/mgba'
 `); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := importer.Approve(ctx, itemID, 3); !errors.Is(err, ErrInvalid) {
-		t.Fatalf("stale selected validation approval error = %v", err)
+	if current, err := importer.ReviewValidationCurrent(ctx, oldValidationID); err != nil || !current {
+		t.Fatalf("folder presentation change invalidated review: current=%v, error=%v", current, err)
 	}
 	if err := json.Unmarshal([]byte(`{"metadata":{"title":"Sudoku"},"tagIds":[]}`), &metadataPatch); err != nil {
 		t.Fatal(err)
@@ -332,7 +332,7 @@ FROM review_drafts d
 JOIN import_item_core_validations v ON v.id=d.selected_validation_id
 WHERE d.import_item_id=?
 	`, itemID).Scan(&refreshedValidationID, &refreshedPlatformVersion); err != nil ||
-		refreshedValidationID == oldValidationID || refreshedPlatformVersion != 2 ||
+		refreshedValidationID != oldValidationID || refreshedPlatformVersion != 1 ||
 		!strings.Contains(importConfigSnapshot, `"platformInstanceVersion":1`) {
 		t.Fatalf("old/new validation snapshot = %s/%s v%d config=%s error=%v", oldValidationID, refreshedValidationID, refreshedPlatformVersion, importConfigSnapshot, err)
 	}

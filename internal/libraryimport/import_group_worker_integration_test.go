@@ -208,12 +208,12 @@ func TestQueuedKiriKiriAndRPGMakerProjectsResolveInBackground(t *testing.T) {
 		archive                                                                    func(*testing.T) []byte
 	}{
 		{
-			name: "KiriKiri", purpose: "KIRIKIRI_PROJECT", catalogKey: "kirikiri/kirikiri2",
+			name: "KiriKiri", purpose: "PROJECT", catalogKey: "kirikiri/kirikiri2",
 			contentMode: "KIRIKIRI_PROJECT", expectedState: "REVIEW_PENDING",
 			expectedContentMode: "KIRIKIRI_PROJECT", archive: kirikiriProjectArchive,
 		},
 		{
-			name: "RPGMaker", purpose: "RPG_MAKER_PROJECT", catalogKey: "rpgmaker/rpgmaker",
+			name: "RPGMaker", purpose: "PROJECT", catalogKey: "rpgmaker/rpgmaker",
 			contentMode: "RPG_MAKER_PROJECT", expectedState: "REVIEW_PENDING",
 			expectedContentMode: "RPG_MAKER_PROJECT", archive: rpgMakerMVArchiveWithMToolSidecar,
 		},
@@ -300,7 +300,7 @@ func completeImportGroupUpload(
 	dataDir string,
 	archive []byte,
 ) string {
-	return completeProjectUpload(t, ctx, database, blobs, dataDir, "ONS_PROJECT", archive)
+	return completeProjectUpload(t, ctx, database, blobs, dataDir, "PROJECT", archive)
 }
 
 func completeProjectUpload(

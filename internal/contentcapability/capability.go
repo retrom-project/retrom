@@ -84,6 +84,15 @@ func projectImportCapabilities(platformID string, enabled bool) (ImportCapabilit
 // SupportsContentKind is the publication-time capability check. Unlike import
 // admission it intentionally does not consult the feature flag, so a frozen
 // in-flight review can be completed after admission is closed.
+func IsProjectMode(mode string) bool {
+	switch mode {
+	case ModeRPGMakerProject, ModeONSProject, ModeKiriKiriProject, ModeButterscotchProject, ModeTyranoScriptProject:
+		return true
+	default:
+		return false
+	}
+}
+
 func SupportsContentKind(compatibilityJSON, contentKind string) bool {
 	var policy targetPolicy
 	if json.Unmarshal([]byte(compatibilityJSON), &policy) != nil {

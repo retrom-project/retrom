@@ -184,7 +184,9 @@ def command_status(root: Path, args: argparse.Namespace) -> int:
         "health": app_container_health(compose_project(spec["id"])), "url": app_origin(spec["id"]),
         "runtimeOriginTemplate": runtime_origin_template(spec["id"]),
         "workspace": str(workspace_paths(root)["root"]),
-        "providerDevRevision": development.get("revision") if isinstance(development, dict) else None,
+        "providerDevModuleSha256": next((file.get("sha256") for file in development.get("files", [])
+                                        if file.get("path") == "client.mjs"), None)
+        if isinstance(development, dict) else None,
         "git": {"branch": git_text(root, ["symbolic-ref", "--short", "HEAD"], "PFB_WORKTREE_INVALID"),
                 "commit": git_text(root, ["rev-parse", "HEAD"], "PFB_WORKTREE_INVALID"),
                 "dirty": bool(git_text(root, ["status", "--porcelain=v1", "--untracked-files=all"],
@@ -256,7 +258,6 @@ def command_core_build(root: Path, args: argparse.Namespace) -> int:
 def command_provider_import(root: Path, args: argparse.Namespace) -> int:
     from scripts.runtime_providers import (
         check_active_providers,
-        check_active_providers_for_upgrade,
         verify_provider_upgrade,
     )
 
@@ -276,7 +277,7 @@ def command_provider_import(root: Path, args: argparse.Namespace) -> int:
         source = value.get("source") if isinstance(value, dict) else None
         if source not in {"candidate", "production"}:
             raise PFBError("PFB_PROVIDER_BASE_INVALID", "source")
-        return check_active_providers_for_upgrade(active_path, installed_root, source)
+        return check_active_providers(active_path, installed_root, source)
 
     result = import_provider_base(
         root,

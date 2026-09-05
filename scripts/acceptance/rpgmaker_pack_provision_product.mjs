@@ -60,7 +60,8 @@ async function allCoreArtifacts(client) {
 export async function installRuntimePack(client, input, expectedDefinitionId) {
   const files = input.sourceType === "DIRECTORY" ? directoryFiles(input.sourcePath) : singleFile(input.sourcePath);
   const uploadId = await client.upload(files, input.sourceType, "RUNTIME_ASSET_PACK");
-  const body = { uploadId, kind: input.kind };
+  const body = { uploadId };
+  if (input.definitionId !== null) { body.definitionId = input.definitionId; }
   if (input.generation !== null) { body.generation = input.generation; }
   if (input.declaredName !== null) { body.declaredName = input.declaredName; }
   if (input.sourceNote !== null) { body.sourceNote = input.sourceNote; }
@@ -235,7 +236,7 @@ function assertFinalCardinality(catalog, games, saves, queue, reviewIds) {
 
 function assertFinalReference(catalog, reference) {
   const row = catalog.installations.find((item) => item.installationId === reference.installationId);
-  if (!row || row.status !== "READY" || row.references?.variantRevisionCount < 1) {
+  if (!row || row.status !== "READY" || row.references?.variantCount < 1) {
     throw new Error("RPG_009_PROVISION_PROTECTED_REFERENCE_INVALID");
   }
   if (reference.saveStateId && row.references.checkpointCount < 1) {

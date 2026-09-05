@@ -416,7 +416,7 @@ UPDATE games SET title=?,title_initial=?,description=?,developer='New Studio',pu
 	mustCommitHTTPTest(t, transaction)
 }
 
-func TestImmersiveMediaAlwaysUsesCurrentRevisionAndRemovedAssetsDisappear(t *testing.T) {
+func TestImmersiveMediaAlwaysUsesCurrentAssetsAndRemovedAssetsDisappear(t *testing.T) {
 	server := newTestServer(t)
 	original := immersiveGameSeed{
 		GameID: "01980000-0000-7000-8000-00000000ac01", MetadataID: "01980000-0000-7000-8000-00000000bc01",

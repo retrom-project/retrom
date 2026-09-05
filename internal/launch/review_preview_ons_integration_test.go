@@ -321,7 +321,7 @@ func createONSReviewItem(
 	archive := onsReviewArchive(t)
 	uploadService := uploads.New(database, blobs, dataDir, time.Now)
 	upload, err := uploadService.Create(ctx, uploads.CreateRequest{
-		Purpose: "ONS_PROJECT", SourceType: "FILES",
+		Purpose: "PROJECT", SourceType: "FILES",
 		Files: []uploads.FileDeclaration{{
 			ClientFileID: "ons", RelativePath: "ons-review.zip", SizeBytes: int64(len(archive)),
 		}},

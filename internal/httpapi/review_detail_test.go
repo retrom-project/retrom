@@ -471,9 +471,9 @@ INSERT INTO import_item_source_files(import_item_id,role,logical_name,upload_fil
 VALUES(?,'CONTENT','blocked.zip',?,?,NULL,NULL,0,?)
 	`, itemID, uploadFileID, sourceBlobID, timestamp)
 	mustExecHTTPTest(t, transaction, `
-INSERT INTO import_item_source_snapshots(id,import_item_id,revision_no,source_manifest_json,
+INSERT INTO import_item_source_snapshots(id,import_item_id,source_manifest_json,
 source_manifest_digest,created_by,created_at_ms)
-VALUES(?,?,1,?,?,'IDENTIFICATION',?)
+VALUES(?,?,?,?,'IDENTIFICATION',?)
 	`, sourceSnapshotID, itemID, manifest, digest, timestamp)
 	mustExecHTTPTest(t, transaction, `
 INSERT INTO import_item_source_snapshot_files(source_snapshot_id,role,logical_name,upload_file_id,

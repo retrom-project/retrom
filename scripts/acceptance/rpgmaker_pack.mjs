@@ -57,7 +57,7 @@ try {
       || protectedRows.restorableCheckpoint.definitionId !== "rgss2_rpgvx") {
     throw new Error("RPG_ACCEPTANCE_PACK_PROTECTED_DEFINITION_INVALID");
   }
-  if (protectedRows.publishedVariant.references.variantRevisionCount < 1
+  if (protectedRows.publishedVariant.references.gameCount < 1
       || protectedRows.restorableCheckpoint.references.checkpointCount < 1) {
     throw new Error("RPG_ACCEPTANCE_PACK_REFERENCE_COVERAGE_INCOMPLETE");
   }
@@ -137,7 +137,7 @@ try {
     protectedDeletes.push({ role, installationId: row.installationId, status: 409, code: body.error.code });
   }
   const zero = installedRows.zeroReference;
-  if (zero.references.variantRevisionCount !== 0 || zero.references.checkpointCount !== 0 || zero.status !== "READY") {
+  if (zero.references.gameCount !== 0 || zero.references.checkpointCount !== 0 || zero.status !== "READY") {
     throw new Error("RPG_ACCEPTANCE_PACK_ZERO_REFERENCE_PRECONDITION_INVALID");
   }
   await rawRequest(context.request, "DELETE", `/api/v1/admin/runtime-asset-packs/installations/${zero.installationId}`, {
@@ -149,7 +149,7 @@ try {
   const after = await packCatalog(context.request);
   const deleted = installation(after, zero.installationId);
   if (deleted.status !== "DELETED" || deleted.deletedAtMs === null
-      || deleted.references.variantRevisionCount !== 0 || deleted.references.checkpointCount !== 0) {
+      || deleted.references.gameCount !== 0 || deleted.references.checkpointCount !== 0) {
     throw new Error("RPG_ACCEPTANCE_PACK_DELETE_PROJECTION_INVALID");
   }
   for (const prior of Object.values(protectedRows)) {
@@ -203,7 +203,8 @@ async function uploadAndInstall(request, writeHeaders, role, input) {
     headers: { ...writeHeaders(), "If-Match": etag }, expected: 202,
   });
   const finalizeJob = await waitForJob(request, completed.jobId);
-  const installBody = { uploadId: upload.uploadId, kind: input.kind };
+  const installBody = { uploadId: upload.uploadId };
+  if (input.definitionId !== null) { installBody.definitionId = input.definitionId; }
   if (input.generation !== null) { installBody.generation = input.generation; }
   if (input.declaredName !== null) { installBody.declaredName = input.declaredName; }
   if (input.sourceNote !== null) { installBody.sourceNote = input.sourceNote; }
@@ -211,7 +212,7 @@ async function uploadAndInstall(request, writeHeaders, role, input) {
   const validationJob = await waitForJob(request, accepted.jobId);
   return {
     role, uploadId: upload.uploadId, installationId: accepted.installationId,
-    jobId: accepted.jobId, kind: input.kind, finalizeJob, validationJob,
+    jobId: accepted.jobId, definitionId: input.definitionId, finalizeJob, validationJob,
   };
 }
 

@@ -30,6 +30,22 @@ type RuntimeTargetIdentity struct {
 // deterministic database projection. Integration tests use it to exercise the
 // same Envelope boundary as production without installing filesystem bundles.
 func NewRuntimeBuilder(ctx context.Context, database *sql.DB) (*runtimelaunch.Builder, error) {
+	active, manifests, err := RuntimeProviderInputs(ctx, database)
+	if err != nil {
+		return nil, err
+	}
+	builder, err := runtimelaunch.NewBuilder(active, manifests)
+	if err != nil {
+		return nil, fmt.Errorf("testsupport: build runtime envelope builder: %w", err)
+	}
+	return builder, nil
+}
+
+// RuntimeProviderInputs reads the deterministic integration fixture projection.
+// It is not a filesystem bundle reader and cannot be used as release evidence.
+func RuntimeProviderInputs(ctx context.Context, database *sql.DB) (
+	runtimebundle.ActiveDescriptor, map[string]runtimebundle.Manifest, error,
+) {
 	rows, err := database.QueryContext(ctx, `
 SELECT provider.provider_id,provider.provider_version,provider.provider_api_version,
        provider.bundle_sha256,provider.manifest_sha256,provider.module_sha256,
@@ -39,7 +55,7 @@ LEFT JOIN runtime_targets target ON target.provider_id=provider.provider_id
 ORDER BY provider.provider_id,target.target_id
 `)
 	if err != nil {
-		return nil, fmt.Errorf("testsupport: read runtime providers: %w", err)
+		return runtimebundle.ActiveDescriptor{}, nil, fmt.Errorf("testsupport: read runtime providers: %w", err)
 	}
 	defer func() { cleanup.Error("close", rows.Close()) }()
 	active := runtimebundle.ActiveDescriptor{SchemaVersion: 1, Source: "candidate"}
@@ -51,7 +67,7 @@ ORDER BY provider.provider_id,target.target_id
 		if err := rows.Scan(&provider.ProviderID, &provider.ProviderVersion, &provider.ProviderAPI,
 			&provider.BundleSHA256, &provider.ManifestSHA256, &provider.ModuleSHA256,
 			&fragment); err != nil {
-			return nil, fmt.Errorf("testsupport: scan runtime provider: %w", err)
+			return runtimebundle.ActiveDescriptor{}, nil, fmt.Errorf("testsupport: scan runtime provider: %w", err)
 		}
 		providerIndex, exists := providerIndexes[provider.ProviderID]
 		if !exists {
@@ -69,7 +85,7 @@ ORDER BY provider.provider_id,target.target_id
 		}
 		var target runtimebundle.Target
 		if err := json.Unmarshal([]byte(fragment.String), &target); err != nil {
-			return nil, fmt.Errorf("testsupport: decode runtime target: %w", err)
+			return runtimebundle.ActiveDescriptor{}, nil, fmt.Errorf("testsupport: decode runtime target: %w", err)
 		}
 		manifest := manifests[provider.ProviderID]
 		manifest.Targets = append(manifest.Targets, target)
@@ -78,13 +94,9 @@ ORDER BY provider.provider_id,target.target_id
 			runtimebundle.ActiveTarget{ID: target.ID, Checkpoint: target.Checkpoint})
 	}
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("testsupport: runtime providers: %w", err)
+		return runtimebundle.ActiveDescriptor{}, nil, fmt.Errorf("testsupport: runtime providers: %w", err)
 	}
-	builder, err := runtimelaunch.NewBuilder(active, manifests)
-	if err != nil {
-		return nil, fmt.Errorf("testsupport: build runtime envelope builder: %w", err)
-	}
-	return builder, nil
+	return active, manifests, nil
 }
 
 // LookupRuntimeTarget resolves the active Provider Target bound to a Product
@@ -134,6 +146,9 @@ func SeedRuntimeProviders(ctx context.Context, database *sql.DB, catalog runtime
 		return fmt.Errorf("testsupport: begin provider projection: %w", err)
 	}
 	defer func() { cleanup.Error("rollback", transaction.Rollback()) }()
+	if err := runtimecatalog.SynchronizeDefinitions(ctx, transaction, catalog, 0); err != nil {
+		return fmt.Errorf("testsupport: project Host definitions: %w", err)
+	}
 	targets, providerIDs := runtimeProjectionFixtures(catalog)
 	if err := insertFixtureProviders(ctx, transaction, providerIDs); err != nil {
 		return err
@@ -144,7 +159,7 @@ func SeedRuntimeProviders(ctx context.Context, database *sql.DB, catalog runtime
 	if err := insertFixtureBindings(ctx, transaction, catalog.Bindings); err != nil {
 		return err
 	}
-	if err := insertFixtureCatalogState(ctx, transaction, catalog.CatalogVersion); err != nil {
+	if err := insertFixtureCatalogState(ctx, transaction); err != nil {
 		return err
 	}
 	if err := transaction.Commit(); err != nil {
@@ -266,11 +281,11 @@ INSERT INTO runtime_binding_content_kinds(binding_id,content_kind) VALUES(?,?)
 	return nil
 }
 
-func insertFixtureCatalogState(ctx context.Context, transaction *sql.Tx, catalogVersion int) error {
+func insertFixtureCatalogState(ctx context.Context, transaction *sql.Tx) error {
 	if _, err := transaction.ExecContext(ctx, `
-INSERT INTO runtime_catalog_state(singleton,catalog_version,catalog_sha256,activated_at_ms)
-VALUES(1,?, ?,0)
-`, catalogVersion, fixtureDigest("catalog")); err != nil {
+INSERT INTO runtime_catalog_state(singleton,catalog_sha256,activated_at_ms)
+VALUES(1,?,0)
+`, fixtureDigest("catalog")); err != nil {
 		return fmt.Errorf("testsupport: insert runtime catalog: %w", err)
 	}
 	return nil

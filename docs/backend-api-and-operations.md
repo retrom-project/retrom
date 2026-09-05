@@ -158,7 +158,7 @@ handler 只能发布依赖 manifest allowlist，不能把物理目录直接挂�
 
 ## 6. 后台任务
 
-任务至少覆盖：Upload 终结组装与 Blob 哈希落库、Import 安全扫描/分组与逐 Item pipeline、Pegasus/EmulationStation scan 与 review handoff、Archive 检查、DAT 解析/索引、Arcade 依赖识别、Hasheous 查询与图片获取、严格 READY 快速审批、游戏内容 revision/兼容重校验、业务 payload 引用释放和 Blob 宽限回收。`internal/payloadrelease` 统一执行 ImportItem/ImportJob/PegasusItem/EmulationStationItem/UploadConsumption/Game ownership 释放、provider TTL 和 BLOB_GC；领域终态只创建持久 Job，不自行删 CAS。精确 Job kind/scope 映射以数据模型为准，不另起同义名称。联机不增加 Job kind；Room 到期由 30 秒维护 ticker 执行短事务，frame/input/hash/state/reconnect 只存在于有界 Hub 内存。
+任务至少覆盖：Upload 终结组装与 Blob 哈希落库、Import 安全扫描/分组与逐 Item pipeline、Pegasus/EmulationStation scan 与 review handoff、Archive 检查、DAT 解析/索引、Arcade 依赖识别、Hasheous 查询与图片获取、严格 READY 快速审批、游戏内容替换/兼容重校验、业务 payload 引用释放和 Blob 宽限回收。`internal/payloadrelease` 统一执行 ImportItem/ImportJob/PegasusItem/EmulationStationItem/UploadConsumption/Game ownership 释放、provider TTL 和 BLOB_GC；领域终态只创建持久 Job，不自行删 CAS。精确 Job kind/scope 映射以数据模型为准，不另起同义名称。联机不增加 Job kind；Room 到期由 30 秒维护 ticker 执行短事务，frame/input/hash/state/reconnect 只存在于有界 Hub 内存。
 
 SQLite 队列表和 worker 必须实现 [数据模型第 7 节](./data-model.md#7-通用任务事件与审计) 的字段、领取索引、60 秒 lease、15 秒 heartbeat、并发上限和四次 attempt 退避。领取任务必须在短事务内完成，租约到期后可恢复；任务处理必须幂等。网络任务尊重上游 `Retry-After`，但等待上限 15 分钟。
 
@@ -246,7 +246,7 @@ PFB ID 从调用者给出的逻辑名称确定性派生为短 slug 加 SHA-256 �
 
 PFB 命令闭集为 `pfb-init/validate/build/up/use/restart/down/status/logs/verify/core-build/migrate-storage/data-reset/remove/destroy` 和 `pfb-gateway-up/down`。参数错误返回 2，工具链或运行失败返回 1；所有命令失败关闭，不自动操作 Git、不自动删除迁移前旧卷，也不把 Docker socket 挂入应用容器。`pfb-build` 只准备摘要变化的工具链/package依赖/生成代码；`up` 固定 `--no-build`，`restart` 只重启 app，core 只由显式 `core-build CORE=<id>` 触发。源码与 Provider digest 不参与数据兼容性：兼容 migration 原地前进，只有明确的数据语义不兼容才由 exact ID 的 `data-reset` 归档旧数据并新建空根。
 
-运行中的 Retrom/runtime 源码直接 bind mount。Next HMR 消费 Web 变化，Go 源码在轻量 restart 后由 `go run` 重编译；runtime watcher 只重建 PFB loose `client.mjs` 和本地 adapter 资源。基座 Provider 的 bundle/manifest/Target declaration 与大体积静态资产仍逐字节验证；开发文件采用独立 SHA-256 revision、`no-store` 响应并只覆盖基座公开路径。详细布局、迁移和命令语义见 [PFB 轻量开发容器](./pfb-development.md)。
+运行中的 Retrom/runtime 源码直接 bind mount。Next HMR 消费 Web 变化，Go 源码在轻量 restart 后由 `go run` 重编译；runtime watcher 只重建 PFB loose `client.mjs` 和本地 adapter 资源。基座 Provider 的 bundle/manifest/Target declaration 与大体积静态资产仍逐字节验证；开发文件以一份内含字节的 `dev-provider.json` 原子发布，Go 启动时校验路径/大小/摘要后保存在内存，只覆盖基座公开路径并使用 `no-store` 响应；不保留历史产物目录。详细布局、迁移和命令语义见 [PFB 轻量开发容器](./pfb-development.md)。
 
 开发拓扑仍只有一个标准 Go 进程和一个标准 `next dev` 进程。`scripts/dev.sh` 只给 Next 子进程预加载仓库内的 upgrade hook；该 hook 仅匹配精确的 `/runtime/netplay/rooms/{roomId}/socket` 路径，把 method、Origin、Cookie、Fetch Metadata、Upgrade 与 `Sec-WebSocket-Protocol` 原样转发到 `NEXT_BACKEND_ORIGIN`，并逐字节桥接升级后的 socket。其他 upgrade（包括 HMR）继续由 Next 自己处理，普通 HTTP 仍走既有 rewrite。验收必须证明未认证的合法联机 upgrade 经前端端口到达 Go 并返回 `401 AUTHENTICATION_REQUIRED`，而不是由 Next 返回自己的 403；生产不加载此开发 hook，仍由上一节 NG 路由负责。
 
@@ -361,7 +361,7 @@ SQLite 基线：启用外键、WAL 和合理的 `busy_timeout`；仅通过版本
 
 精确命令、原子发布、引用 registry、目标必须不存在和恢复校验见[存储与数据库第 8 节](./storage-and-database.md#8-备份与恢复)。恢复发布前还要在单一事务撤销全部旧 AuthSession、ACTIVE AccountLink和非终态 Launch，把遗留联机 Session/Room 以 `RESTORE` 收口，并写 SYSTEM安全围栏审计；因此恢复后的旧 cookie/capability/WebSocket 全部无效，实时 history 不尝试恢复。命令本身不启动服务、不覆盖旧目录。
 
-当前未发布基线只接受 001–012 lineage 的精确有序前缀或完整集合；完整 001–011 数据库由 012 单向升级到 current-state 模型。未知 lineage、旧 manifest schema、部分备份和名称/checksum 漂移都在写入前拒绝。备份恢复只允许由同版本或更高版本二进制读取与验证完整数据根，不得混合数据库、CAS 或密钥，也不支持二进制、schema 或 Provider 降级、回滚。恢复服务开放 HTTP 前把所有依赖外部 source 的非终态 BIOS/Pegasus/EmulationStation Job 与 aggregate 以 `SERVER_IMPORT_SOURCE_NOT_RESTORED` 失败收口；普通待审和已发布 CAS bytes 保留。首次正式发布后只追加升级，不预留降级或双读转换分支。
+当前未发布基线只接受 001–010 bootstrap 的精确有序前缀或完整集合；旧开发数据库停机归档并重建，不进行兼容升级。未知 lineage、旧 manifest schema、部分备份和名称/checksum 漂移都在写入前拒绝。备份恢复只允许由同版本或更高版本二进制读取与验证完整数据根，不得混合数据库、CAS 或密钥，也不支持二进制、schema 或 Provider 降级、回滚。恢复服务开放 HTTP 前把所有依赖外部 source 的非终态 BIOS/Pegasus/EmulationStation Job 与 aggregate 以 `SERVER_IMPORT_SOURCE_NOT_RESTORED` 失败收口；普通待审和已发布 CAS bytes 保留。首次正式发布后只追加升级，不预留降级或双读转换分支。
 
 ## 12. 统一验收入口
 

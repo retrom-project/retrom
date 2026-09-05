@@ -169,8 +169,8 @@ INSERT INTO import_item_source_files(
 func (run *creationRun) persistSourceSnapshot(record *groupRecord) error {
 	_, err := run.transaction.ExecContext(run.ctx, `
 INSERT INTO import_item_source_snapshots(
-  id,import_item_id,revision_no,content_kind,source_manifest_json,source_manifest_digest,created_by,created_at_ms
-) VALUES(?,?,1,?,?,?,'IDENTIFICATION',?)
+  id,import_item_id,content_kind,source_manifest_json,source_manifest_digest,created_by,created_at_ms
+) VALUES(?,?,?,?,?,'IDENTIFICATION',?)
 `, record.sourceSnapshotID, record.itemID, record.contentKind,
 		string(record.manifestJSON), record.manifestDigest, run.now)
 	if err != nil {

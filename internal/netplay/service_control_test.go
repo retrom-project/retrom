@@ -244,7 +244,7 @@ func TestCoreProfilesIgnorePerGameContentIdentity(t *testing.T) {
 	}
 }
 
-func TestArcadeV2EligibilityRequiresTheLockedDependencyBundle(t *testing.T) {
+func TestArcadeEligibilityRequiresTheLockedDependencyBundle(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 	now := time.UnixMilli(1_786_000_000_000).UTC()
@@ -259,7 +259,7 @@ func TestArcadeV2EligibilityRequiresTheLockedDependencyBundle(t *testing.T) {
 	)
 	runtimeIdentity, err := testsupport.LookupRuntimeTarget(ctx, database.SQL, "fbneo")
 	testassert.False(t, err != nil, err)
-	snapshot := fmt.Sprintf(`{"schemaVersion":2,"machine":"child","datVersionId":%q,"closure":[{"machine":"child","kind":"CONTENT","requiredBy":null,"depth":0},{"machine":"bios","kind":"BIOS_OR_BASE","requiredBy":"child","depth":1}],"dependencies":[{"kind":"BIOS_OR_BASE","machine":"bios","requiredBy":"child","depth":1,"expectedLogicalName":"bios.zip","state":"SATISFIED_EXTERNAL","requiredEntryCount":1,"requiredEntries":["bios.bin"]}],"missingEntries":[],"mismatchedEntries":[],"warnings":[]}`, datID)
+	snapshot := fmt.Sprintf(`{"schemaVersion":1,"kind":"ARCADE","machine":"child","datVersionId":%q,"closure":[{"machine":"child","kind":"CONTENT","requiredBy":null,"depth":0},{"machine":"bios","kind":"BIOS_OR_BASE","requiredBy":"child","depth":1}],"dependencies":[{"kind":"BIOS_OR_BASE","machine":"bios","requiredBy":"child","depth":1,"expectedLogicalName":"bios.zip","state":"SATISFIED_EXTERNAL","requiredEntryCount":1,"requiredEntries":["bios.bin"]}],"missingEntries":[],"mismatchedEntries":[],"warnings":[]}`, datID)
 	tx, err := database.SQL.BeginTx(ctx, nil)
 	testassert.False(t, err != nil, err)
 	defer cleanup.Rollback(tx)
@@ -293,7 +293,7 @@ func TestArcadeV2EligibilityRequiresTheLockedDependencyBundle(t *testing.T) {
 		datVersionID: sql.NullString{String: datID, Valid: true},
 	}
 	runnable, err := service.arcadeDependencySnapshotRunnable(ctx, row)
-	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return !runnable }), "schema-v2 Arcade revision runnable=%t error=%v", runnable, err)
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return !runnable }), "typed Arcade Arcade variant runnable=%t error=%v", runnable, err)
 }
 
 func TestHostCannotClaimGuestSeatThroughTheService(t *testing.T) {
@@ -384,7 +384,7 @@ VALUES(?,(SELECT id FROM platform_instances WHERE catalog_template_key='nes/fceu
 		{`INSERT INTO blobs(id,sha256,size_bytes,md5,sha1,crc32,media_type,created_at_ms) VALUES(?,?,32768,?,?,?,'application/octet-stream',?)`, []any{contentBlobID, strings.Repeat("9", 64), strings.Repeat("5", 32), strings.Repeat("6", 40), strings.Repeat("7", 8), now.UnixMilli()}},
 		{`INSERT INTO game_files(game_id,role,logical_name,blob_id,sort_order) VALUES(?,'CONTENT','another-game.nes',?,0)`, []any{gameID, contentBlobID}},
 		{`INSERT INTO game_variants(id,game_id,core_id,provider_id,target_id,emulator_game_id,status,compatibility_code,dependency_snapshot_json,version,created_at_ms,updated_at_ms)
-VALUES(?,?,'fceumm',?,?,9001,'READY','READY','{"schemaVersion":1,"bios":[]}',1,?,?)`, []any{variantID, gameID, runtimeIdentity.ProviderID, runtimeIdentity.TargetID, now.UnixMilli(), now.UnixMilli()}},
+VALUES(?,?,'fceumm',?,?,9001,'READY','READY','{"schemaVersion":1,"kind":"STATIC","bios":[]}',1,?,?)`, []any{variantID, gameID, runtimeIdentity.ProviderID, runtimeIdentity.TargetID, now.UnixMilli(), now.UnixMilli()}},
 		{`UPDATE netplay_rooms SET state='WAITING',selected_game_id=?,selected_game_variant_id=?,netplay_profile_id='fixture',profile_digest=?,max_players=2 WHERE id=?`, []any{gameID, variantID, strings.Repeat("4", 64), room.RoomID}},
 	}
 	for _, statement := range statements {

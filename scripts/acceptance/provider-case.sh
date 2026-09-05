@@ -37,6 +37,7 @@ case "$CASE_ID" in
       src/providers/retrom-runtime/module-config.test.ts tests/repository-boundary.test.ts
     ;;
   ACC-PROVIDER-003)
+    (cd "$ROOT" && "$GO" test ./internal/runtimeoptions -count=1)
     (cd "$ROOT" && "$GO" test ./internal/runtimebundle ./internal/runtimelaunch ./internal/httpapi \
       -run 'Provider|LaunchEnvelope|RuntimeStatic|RuntimeAsset' -count=1)
     web_test features/player/runtime/envelope-fixtures.test.ts \
@@ -51,6 +52,9 @@ case "$CASE_ID" in
     ;;
   ACC-PROVIDER-005)
     (cd "$ROOT" && "$GO" test ./internal/runtimeprovider -count=1)
+    (cd "$ROOT" && "$GO" test -tags=integration ./internal/rpgmaker/packs -count=1)
+    (cd "$ROOT" && "$GO" test -tags=integration ./internal/saves -run 'TestCatalogExtensionPreservesInitializedGamesReviewsSettingsAndSaves' -count=1)
+    (cd "$ROOT" && "$GO" test ./internal/store -run 'TestTerminalReviewReleasesTemporaryCheckpointButKeepsBlobEvidence' -count=1)
     python_test scripts/test_runtime_providers.py
     ;;
   ACC-PROVIDER-006)

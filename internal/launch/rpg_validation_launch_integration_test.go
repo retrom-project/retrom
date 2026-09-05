@@ -22,7 +22,7 @@ import (
 )
 
 func rpgValidationRuntimeCatalog() runtimecatalog.Catalog {
-	return runtimecatalog.Catalog{SchemaVersion: 1, CatalogVersion: 1, Bindings: []runtimecatalog.Binding{{
+	return runtimecatalog.Catalog{SchemaVersion: 1, Bindings: []runtimecatalog.Binding{{
 		ID: "retrom-runtime-rpgmaker-2000", CoreID: "rpgmaker", ProviderID: "retrom-runtime",
 		TargetID: "rpgmaker-2000", PlatformIDs: []string{"rpgmaker"},
 		AcceptedContentKinds: []string{"RPG_MAKER_PROJECT"}, DetectorProfile: "RPG2000",
@@ -377,7 +377,7 @@ VALUES('rpg-platform','rpgmaker','rpgmaker','RPG Maker validation','rpg-validati
 	mustRPGLaunchSQL(t, database, `
 INSERT INTO upload_sessions(id,purpose,state,source_type,total_files,total_bytes,manifest_digest,
  expires_at_ms,created_at_ms,updated_at_ms)
-VALUES('rpg-upload','RPG_MAKER_PROJECT','COMPLETE','DIRECTORY',2,20,?,?,?,?)`,
+VALUES('rpg-upload','PROJECT','COMPLETE','DIRECTORY',2,20,?,?,?,?)`,
 		strings.Repeat("8", 64), now+1_000_000, now, now)
 	for index, file := range []struct{ id, path, blob string }{
 		{"rpg-upload-a", "RPG_RT.ldb", fixture.projectBlobID},
@@ -403,9 +403,9 @@ VALUES(?,'rpg-import',?,'REVIEW_PENDING','{}',?,'rpg fixture',?,?)`, fixture.ite
 	manifest := `{"schemaVersion":2,"contentKind":"RPG_MAKER_PROJECT","fileCount":2,"totalBytes":20,"filesDigest":"` +
 		strings.Repeat("c", 64) + `"}`
 	mustRPGLaunchSQL(t, database, `
-INSERT INTO import_item_source_snapshots(id,import_item_id,revision_no,content_kind,
+INSERT INTO import_item_source_snapshots(id,import_item_id,content_kind,
  source_manifest_json,source_manifest_digest,created_by,created_at_ms)
-VALUES('rpg-snapshot',?,1,'RPG_MAKER_PROJECT',?,?,'IDENTIFICATION',?)`, fixture.itemID,
+VALUES('rpg-snapshot',?,'RPG_MAKER_PROJECT',?,?,'IDENTIFICATION',?)`, fixture.itemID,
 		manifest, strings.Repeat("d", 64), now)
 	for index, file := range []struct{ upload, logical, blob string }{
 		{"rpg-upload-a", "RPG_RT.ldb", fixture.projectBlobID},
@@ -422,10 +422,10 @@ INSERT INTO review_drafts(id,import_item_id,target_platform_instance_id,metadata
 VALUES('01980000-0000-7000-8000-000000000901',?,'rpg-platform','{}',1,?,?,'rpg-snapshot')`, fixture.itemID, now, now)
 	mustRPGLaunchSQL(t, database, `
 INSERT INTO import_item_core_validations(id,import_item_id,target_platform_instance_id,
- platform_instance_version,core_id,provider_id,target_id,prepublish_generation,
+ platform_instance_version,core_id,provider_id,target_id,
  source_manifest_digest,source_snapshot_id,prepublish_input_digest,status,compatibility_code,
  dependency_snapshot_json,created_at_ms)
-VALUES('rpg-core-validation',?,'rpg-platform',1,'rpgmaker',?,?,4,?,
+VALUES('rpg-core-validation',?,'rpg-platform',1,'rpgmaker',?,?,?,
  'rpg-snapshot',?,'BLOCKED','RPG_RUNTIME_VALIDATION_REQUIRED','{}',?)`, fixture.itemID,
 		target.ProviderID, target.TargetID,
 		strings.Repeat("d", 64), strings.Repeat("e", 64), now)

@@ -439,11 +439,7 @@ export function UploadPicker({ directories, activeTags = [], reconfigureSource =
           body: JSON.stringify({ targetPlatformInstanceId: target, metadataProvider: selectedProvider, tagIds: tags.map((tag) => tag.tagId) }),
         });
       } else {
-        const purpose = contentMode === "RPG_MAKER_PROJECT" ? "RPG_MAKER_PROJECT"
-          : contentMode === "ONS_PROJECT" ? "ONS_PROJECT"
-            : contentMode === "KIRIKIRI_PROJECT" ? "KIRIKIRI_PROJECT"
-              : contentMode === "BUTTERSCOTCH_PROJECT" ? "BUTTERSCOTCH_PROJECT" : "GENERAL";
-        const uploadPurpose = contentMode === "TYRANOSCRIPT_PROJECT" ? "TYRANOSCRIPT_PROJECT" : purpose;
+        const uploadPurpose = contentMode === "STANDARD" || contentMode === "MULTI_DISC" ? "GENERAL" : "PROJECT";
         const uploaded = await uploadFiles(files.map((chosen) => ({ file: chosen.file, relativePath: chosen.path })), setProgress, uploadPurpose);
         setProgress("正在创建导入任务…");
         imported = await fetch("/api/v1/admin/imports", { method: "POST", credentials: "same-origin", headers: await writeHeaders({ "Content-Type": "application/json", "Idempotency-Key": newUuid() }), body: JSON.stringify({ uploadId: uploaded.uploadId, targetPlatformInstanceId: target, metadataProvider: selectedProvider, contentMode, tagIds: tags.map((tag) => tag.tagId) }) });

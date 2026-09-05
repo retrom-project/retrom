@@ -31,9 +31,9 @@ type ResolveRequest struct {
 }
 
 type Catalog struct {
-	SchemaVersion  int       `json:"schemaVersion"`
-	CatalogVersion int       `json:"catalogVersion"`
-	Bindings       []Binding `json:"bindings"`
+	SchemaVersion int         `json:"schemaVersion"`
+	Definitions   Definitions `json:"definitions"`
+	Bindings      []Binding   `json:"bindings"`
 }
 
 type Binding struct {
@@ -59,7 +59,7 @@ func ParseCatalog(contents []byte) (Catalog, error) {
 	if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
 		return Catalog{}, invalidCatalog(errTrailingJSON)
 	}
-	if result.SchemaVersion != 1 || result.CatalogVersion < 1 || len(result.Bindings) == 0 {
+	if result.SchemaVersion != 1 || len(result.Bindings) == 0 {
 		return Catalog{}, ErrCatalogInvalid
 	}
 	identities := make(map[string]bool, len(result.Bindings))
@@ -74,6 +74,9 @@ func ParseCatalog(contents []byte) (Catalog, error) {
 		bindingIDs[binding.ID] = true
 		identities[identity] = true
 		previous = identity
+	}
+	if err := ValidateDefinitions(result); err != nil {
+		return Catalog{}, err
 	}
 	return result, nil
 }
@@ -162,7 +165,7 @@ func validBinding(value Binding) bool {
 	if !validBindingIdentity(value) || !validBindingSemantics(value) {
 		return false
 	}
-	return validLaunchPolicy(value.LaunchPolicy) && validReviewPolicy(value.ReviewPolicy)
+	return validLaunchPolicy(value.LaunchPolicy) && validReviewPolicy(value.ReviewPolicy) && validStrategy(value)
 }
 
 func validBindingIdentity(value Binding) bool {

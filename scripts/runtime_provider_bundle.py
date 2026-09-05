@@ -39,11 +39,9 @@ SEMVER = re.compile(r"^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-[0-9
 LOWER_DIGEST = re.compile(r"^[0-9a-f]{64}$")
 LOWER_COMMIT = re.compile(r"^[0-9a-f]{40}$")
 PROVIDER_ID = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$")
-COMPATIBILITY_TOKEN = re.compile(r"^[a-z0-9](?:[a-z0-9.-]{0,62}[a-z0-9])?$")
 RELEASE_TAG = re.compile(r"^v[0-9]+\.[0-9]+\.[0-9]+$")
 MAX_SAFE_INTEGER = 9_007_199_254_740_991
 SUPPORTED_PROVIDER_API_VERSION = 1
-LEGACY_TARGET_FIELDS = {"gameCompatibilityLine", "netplayCompatibilityLine"}
 
 
 def validate_provider_lock(value: Any) -> dict[str, Any]:
@@ -156,51 +154,6 @@ def describe_installed_provider(lock_value: Any, installed_root: Path) -> dict[s
     }
 
 
-def describe_legacy_installed_provider(lock_value: Any, installed_root: Path) -> dict[str, Any]:
-    """Revalidate a pre-migration bundle for use only as a forward-upgrade source."""
-    lock = _validate_install_record(lock_value)
-    destination = installed_root.resolve() / lock["providerId"] / lock["bundleSha256"]
-    _verify_existing(destination, lock)
-    _verify_extracted(destination, lock, allow_proof=True, legacy_manifest=True)
-    manifest_bytes = (destination / "provider.json").read_bytes()
-    integrity = json.loads((destination / "integrity.json").read_text(encoding="utf-8"))
-    manifest = json.loads(manifest_bytes)
-    integrity_by_path = {entry["path"]: entry for entry in integrity["files"]}
-    targets = []
-    for target in manifest["targets"]:
-        assets = [{
-            "path": path,
-            "sha256": integrity_by_path[path]["sha256"],
-            "sizeBytes": integrity_by_path[path]["sizeBytes"],
-        } for path in target["assetPaths"]]
-        targets.append({
-            "checkpoint": target["checkpoint"],
-            "gameCompatibilityLine": target["gameCompatibilityLine"],
-            "id": target["id"],
-            "netplayCompatibilityLine": target["netplayCompatibilityLine"],
-            "targetContractSha256": _digest(_canonical_json({
-                "assets": assets,
-                "schemaVersion": 1,
-                "target": target,
-            })),
-        })
-    module_path = manifest["clientModulePath"]
-    return {
-        "bundleSha256": lock["bundleSha256"],
-        "bundleSizeBytes": lock["bundleSizeBytes"],
-        "clientModulePath": module_path,
-        "fileCount": lock["fileCount"],
-        "installationPath": f'{lock["providerId"]}/{lock["bundleSha256"]}',
-        "manifestSha256": lock["manifestSha256"],
-        "moduleSha256": integrity_by_path[module_path]["sha256"],
-        "providerApiVersion": manifest["providerApiVersion"],
-        "providerId": lock["providerId"],
-        "providerVersion": lock["providerVersion"],
-        "targets": targets,
-        "unpackedSizeBytes": lock["unpackedSizeBytes"],
-    }
-
-
 def _extract_closed_archive(archive: Path, staging: Path, lock: dict[str, Any]) -> None:
     count = 0
     size = 0
@@ -236,8 +189,6 @@ def _verify_extracted(
     root: Path,
     lock: dict[str, Any],
     allow_proof: bool = False,
-    *,
-    legacy_manifest: bool = False,
 ) -> None:
     files = _collect_files(root, allow_proof)
     integrity_bytes = files.get("integrity.json")
@@ -274,10 +225,7 @@ def _verify_extracted(
     actual_paths = sorted((path for path in files if path != "integrity.json"), key=lambda item: item.encode())
     if expected_paths != actual_paths:
         _integrity_invalid()
-    if legacy_manifest:
-        _validate_legacy_provider_manifest(manifest_value)
-    else:
-        validate_provider_manifest(manifest_value)
+    validate_provider_manifest(manifest_value)
     if manifest_value["providerApiVersion"] != SUPPORTED_PROVIDER_API_VERSION:
         raise ValueError("RUNTIME_PROVIDER_API_UNSUPPORTED")
     declared_assets = {
@@ -302,25 +250,6 @@ def _verify_extracted(
         raise ValueError("PROVIDER_MANIFEST_IDENTITY_INVALID")
     if _digest(manifest_bytes) != lock["manifestSha256"]:
         raise ValueError("PROVIDER_MANIFEST_DIGEST_INVALID")
-
-
-def _validate_legacy_provider_manifest(value: Any) -> None:
-    if not isinstance(value, dict) or not isinstance(value.get("targets"), list):
-        raise ValueError("PROVIDER_LEGACY_MANIFEST_INVALID")
-    normalized_targets = []
-    for target in value["targets"]:
-        if not isinstance(target, dict) or not LEGACY_TARGET_FIELDS.issubset(target):
-            raise ValueError("PROVIDER_LEGACY_MANIFEST_INVALID")
-        game_line = target["gameCompatibilityLine"]
-        netplay_line = target["netplayCompatibilityLine"]
-        if not _match(COMPATIBILITY_TOKEN, game_line) or \
-                netplay_line is not None and not _match(COMPATIBILITY_TOKEN, netplay_line):
-            raise ValueError("PROVIDER_LEGACY_MANIFEST_INVALID")
-        normalized = {key: item for key, item in target.items() if key not in LEGACY_TARGET_FIELDS}
-        if len(normalized) != len(target) - len(LEGACY_TARGET_FIELDS):
-            raise ValueError("PROVIDER_LEGACY_MANIFEST_INVALID")
-        normalized_targets.append(normalized)
-    validate_provider_manifest({**value, "targets": normalized_targets})
 
 
 def _collect_files(root: Path, allow_proof: bool) -> dict[str, bytes]:
@@ -439,25 +368,6 @@ def _write_json(path: Path, value: Any) -> None:
 
 def _digest(value: bytes) -> str:
     return hashlib.sha256(value).hexdigest()
-
-
-def _canonical_json(value: Any) -> bytes:
-    def encode(item: Any) -> str:
-        if item is None:
-            return "null"
-        if isinstance(item, bool):
-            return "true" if item else "false"
-        if isinstance(item, str):
-            return json.dumps(item, ensure_ascii=False, separators=(",", ":"))
-        if isinstance(item, int) and not isinstance(item, bool) and abs(item) <= MAX_SAFE_INTEGER:
-            return str(item)
-        if isinstance(item, list):
-            return "[" + ",".join(encode(entry) for entry in item) + "]"
-        if isinstance(item, dict):
-            keys = sorted(item, key=lambda key: key.encode("utf-16-be", "surrogatepass"))
-            return "{" + ",".join(f"{encode(key)}:{encode(item[key])}" for key in keys) + "}"
-        raise ValueError("PROVIDER_CANONICAL_JSON_INVALID")
-    return encode(value).encode("utf-8")
 
 
 def _lock_invalid() -> None:

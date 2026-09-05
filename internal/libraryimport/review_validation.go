@@ -145,11 +145,10 @@ SELECT id,source_manifest_digest,prepublish_input_digest,status,
   compatibility_code,dependency_snapshot_json
 FROM import_item_core_validations
 WHERE import_item_id=? AND source_snapshot_id=? AND target_platform_instance_id=?
-  AND platform_instance_version=? AND core_id=? AND provider_id=? AND target_id=?
-  AND prepublish_generation=4
+  AND core_id=? AND provider_id=? AND target_id=?
   AND dat_version_id IS ? AND default_dos_entry IS ?
 ORDER BY created_at_ms DESC,id DESC LIMIT 1
-	`, state.itemID, state.effectiveSnapshotID, state.targetID, state.platformVersion,
+	`, state.itemID, state.effectiveSnapshotID, state.targetID,
 		state.coreID, state.providerID, state.runtimeTargetID,
 		nullable(state.datID), nullable(state.dosEntry)).Scan(
 		&state.sourceID, &state.sourceManifestDigest, &state.sourceInputDigest,
@@ -190,13 +189,13 @@ func (state *draftValidationRefresh) exactValidationCurrent() bool {
 	return prepublishDigestMatches(state.sourceInputDigest, prepublishDigestInput{
 		SchemaVersion: 1, SourceSnapshotID: state.effectiveSnapshotID,
 		SourceManifestDigest: state.sourceManifestDigest, ContentKind: state.contentKind,
-		TargetPlatformInstanceID: state.targetID, PlatformInstanceVersion: state.platformVersion,
-		ProviderID: state.providerID, TargetID: state.runtimeTargetID,
-		ContentPolicyDigest: compatibilityConfigDigest(state.contentPolicyJSON),
+		TargetPlatformInstanceID: state.targetID,
+		ProviderID:               state.providerID, TargetID: state.runtimeTargetID,
+		ContentPolicyDigest: validationPolicyDigest(state.contentPolicyJSON, state.contentKind),
 		DATVersionID:        nullStringPointer(state.datID), DefaultDOSEntry: nullStringPointer(state.dosEntry),
 		DependencySnapshot: json.RawMessage(state.dependencySnapshot), Status: state.sourceStatus,
 		CompatibilityCode: state.compatibilityCode,
-	}, state.contentPolicyJSON)
+	})
 }
 
 func (state *draftValidationRefresh) loadFallbackValidation() error {
@@ -249,12 +248,12 @@ func (state *draftValidationRefresh) insertValidation() (string, error) {
 	_, err := state.transaction.ExecContext(state.ctx, `
 INSERT INTO import_item_core_validations(
   id,import_item_id,target_platform_instance_id,platform_instance_version,core_id,
-  provider_id,target_id,prepublish_generation,dat_version_id,
+  provider_id,target_id,dat_version_id,
   default_dos_entry,source_manifest_digest,source_snapshot_id,prepublish_input_digest,
   status,compatibility_code,dependency_snapshot_json,created_at_ms
-) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
 `, createdID.String(), state.itemID, state.targetID, state.platformVersion, state.coreID,
-		state.providerID, state.runtimeTargetID, prepublishGeneration, nullable(state.datID),
+		state.providerID, state.runtimeTargetID, nullable(state.datID),
 		nullable(state.dosEntry), state.effectiveManifestDigest, state.effectiveSnapshotID,
 		digest, state.sourceStatus, state.compatibilityCode, state.dependencySnapshot, now)
 	if err != nil {
@@ -271,12 +270,11 @@ INSERT INTO import_item_core_validations(
 
 func (state *draftValidationRefresh) digestInput() prepublishDigestInput {
 	return prepublishDigestInput{
-		SchemaVersion: 1, ValidatorVersion: validatorReviewV4,
-		SourceSnapshotID:     state.effectiveSnapshotID,
+		SchemaVersion: 1, SourceSnapshotID: state.effectiveSnapshotID,
 		SourceManifestDigest: state.effectiveManifestDigest, ContentKind: state.contentKind,
-		TargetPlatformInstanceID: state.targetID, PlatformInstanceVersion: state.platformVersion,
-		ProviderID: state.providerID, TargetID: state.runtimeTargetID,
-		ContentPolicyDigest: compatibilityConfigDigest(state.contentPolicyJSON),
+		TargetPlatformInstanceID: state.targetID,
+		ProviderID:               state.providerID, TargetID: state.runtimeTargetID,
+		ContentPolicyDigest: validationPolicyDigest(state.contentPolicyJSON, state.contentKind),
 		DATVersionID:        nullStringPointer(state.datID), DefaultDOSEntry: nullStringPointer(state.dosEntry),
 		DependencySnapshot: json.RawMessage(state.dependencySnapshot), Status: state.sourceStatus,
 		CompatibilityCode: state.compatibilityCode,
@@ -405,6 +403,7 @@ type arcadeDraftDependency struct {
 
 type arcadeDraftSnapshot struct {
 	SchemaVersion     int                     `json:"schemaVersion"`
+	Kind              string                  `json:"kind"`
 	Machine           string                  `json:"machine"`
 	DatVersionID      string                  `json:"datVersionId"`
 	Closure           json.RawMessage         `json:"closure"`
@@ -474,7 +473,9 @@ func resolveArcadeDraftBIOSState(
 func parseArcadeDraftSnapshot(raw string) (arcadeDraftSnapshot, bool) {
 	var snapshot arcadeDraftSnapshot
 	if json.Unmarshal([]byte(raw), &snapshot) != nil ||
-		snapshot.SchemaVersion != 2 || snapshot.Machine == "" ||
+		snapshot.SchemaVersion != corevalidation.SnapshotSchemaVersion ||
+		snapshot.Kind != corevalidation.SnapshotKindArcade ||
+		snapshot.Machine == "" ||
 		snapshot.DatVersionID == "" || snapshot.Dependencies == nil {
 		return arcadeDraftSnapshot{}, false
 	}

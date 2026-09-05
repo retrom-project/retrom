@@ -159,20 +159,13 @@ func (service *Service) insertParentCommitArtifacts(
 	snapshotUUID, _ := uuid.NewV7()
 	validationUUID, _ := uuid.NewV7()
 	snapshotID, validationID := snapshotUUID.String(), validationUUID.String()
-	var revision int
-	if err := transaction.QueryRowContext(ctx, `
-SELECT COALESCE(MAX(revision_no),0)+1
-FROM import_item_source_snapshots WHERE import_item_id=?
-`, candidate.itemID).Scan(&revision); err != nil {
-		return parentCommitArtifacts{}, parentStoreError("allocate source revision", err)
-	}
 	now := service.now().UnixMilli()
 	_, err := transaction.ExecContext(ctx, `
 INSERT INTO import_item_source_snapshots(
-  id,import_item_id,revision_no,source_manifest_json,source_manifest_digest,
+  id,import_item_id,source_manifest_json,source_manifest_digest,
   content_kind,created_by,created_at_ms
-) VALUES(?,?,?,?,?,?,'ARCADE_PARENT_ATTACHMENT',?)
-`, snapshotID, candidate.itemID, revision, manifestJSON, manifestDigest, target.contentKind, now)
+) VALUES(?,?,?,?,?,'ARCADE_PARENT_ATTACHMENT',?)
+`, snapshotID, candidate.itemID, manifestJSON, manifestDigest, target.contentKind, now)
 	if err != nil {
 		return parentCommitArtifacts{}, parentStoreError("insert source snapshot", err)
 	}
@@ -200,11 +193,11 @@ func insertParentCoreValidation(
 	now int64,
 ) error {
 	digest := prepublishDigest(prepublishDigestInput{
-		SchemaVersion: 1, ValidatorVersion: validatorArcadeV4, SourceSnapshotID: snapshotID,
+		SchemaVersion: 1, SourceSnapshotID: snapshotID,
 		SourceManifestDigest: manifestDigest, ContentKind: target.contentKind,
-		TargetPlatformInstanceID: target.targetID, PlatformInstanceVersion: target.platformVersion,
-		ProviderID: target.providerID, TargetID: target.runtimeTargetID,
-		ContentPolicyDigest: compatibilityConfigDigest(target.contentPolicyJSON),
+		TargetPlatformInstanceID: target.targetID,
+		ProviderID:               target.providerID, TargetID: target.runtimeTargetID,
+		ContentPolicyDigest: validationPolicyDigest(target.contentPolicyJSON, target.contentKind),
 		DATVersionID:        stringPointer(candidate.datID),
 		DependencySnapshot:  json.RawMessage(validation.dependencySnapshot),
 		Status:              validation.validationStatus, CompatibilityCode: validation.compatibilityCode,
@@ -214,11 +207,11 @@ INSERT INTO import_item_core_validations(
   id,import_item_id,target_platform_instance_id,platform_instance_version,core_id,
   provider_id,target_id,
   dat_version_id,default_dos_entry,
-  prepublish_generation,source_manifest_digest,source_snapshot_id,prepublish_input_digest,
+  source_manifest_digest,source_snapshot_id,prepublish_input_digest,
   status,compatibility_code,dependency_snapshot_json,created_at_ms
-) VALUES(?,?,?,?,?,?,?,?,NULL,?,?,?,?,?,?,?,?)
+) VALUES(?,?,?,?,?,?,?,?,NULL,?,?,?,?,?,?,?)
 `, validationID, candidate.itemID, target.targetID, target.platformVersion, target.coreID,
-		target.providerID, target.runtimeTargetID, candidate.datID, prepublishGeneration,
+		target.providerID, target.runtimeTargetID, candidate.datID,
 		manifestDigest, snapshotID, digest, validation.validationStatus,
 		validation.compatibilityCode, validation.dependencySnapshot, now)
 	if err != nil {
@@ -291,7 +284,7 @@ WHERE item.id=?
 	)
 	valid := err == nil && itemState == "REVIEW_PENDING" && currentSnapshotID == candidate.baseSnapshotID &&
 		target.providerID == candidate.providerID && target.runtimeTargetID == candidate.targetID &&
-		compatibilityConfigDigest(target.contentPolicyJSON) == candidate.contentPolicyDigest &&
+		validationPolicyDigest(target.contentPolicyJSON, target.contentKind) == candidate.contentPolicyDigest &&
 		activeDATID.Valid && activeDATID.String == candidate.datID
 	if !valid {
 		return parentCommitTarget{}, ErrInvalid

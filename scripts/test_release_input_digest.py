@@ -52,6 +52,10 @@ class ProviderInputTests(unittest.TestCase):
                 ), encoding="utf-8")
             with mock.patch.object(release_input, "ROOT", root):
                 entries = release_input.provider_lock_entries()
+                candidate = root / ".pfb/candidates/runtime/providers"
+                candidate.mkdir(parents=True)
+                (candidate / "provider.json").write_text("private dev state", encoding="utf-8")
+                self.assertEqual(entries, release_input.provider_lock_entries())
             self.assertEqual([entry["providerId"] for entry in entries], ["emulatorjs", "retrom-runtime"])
             self.assertTrue(all(len(entry["lockSha256"]) == 64 for entry in entries))
 

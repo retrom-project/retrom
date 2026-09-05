@@ -2,12 +2,24 @@ package launch
 
 import (
 	"encoding/json"
+	"errors"
 	"reflect"
 	"strings"
 	"testing"
 
 	"retrom/internal/runtimebundle"
 )
+
+func TestUnsupportedTargetOptionsAreNotReportedAsInvalidCredentials(t *testing.T) {
+	_, err := providerTargetOptions(runtimebundle.TargetOptionsSchema{
+		"type": "object", "additionalProperties": false,
+		"properties": map[string]any{"unknownProperty": map[string]any{"type": "string"}},
+		"required":   []any{"unknownProperty"},
+	}, providerConfigSource{}, nil)
+	if err == nil || errors.Is(err, ErrCredential) {
+		t.Fatalf("unsupported options misclassified as authentication: %v", err)
+	}
+}
 
 func TestProviderBlobResourcePublishesMaterializedMKXPArchive(t *testing.T) {
 	t.Parallel()
@@ -53,7 +65,7 @@ func TestProviderTargetOptionsIncludesValidationRestorePosition(t *testing.T) {
 				"playerY":      map[string]any{"type": "integer", "minimum": int64(0)},
 			}, "required": []any{"fixtureState", "mapId", "playerX", "playerY"},
 		}}, "required": []any{"expectedRestorePosition"},
-	}, providerConfigSource{}, &position)
+	}, providerConfigSource{detectorProfile: "RPG2000"}, &position)
 	if err != nil {
 		t.Fatalf("RPG Maker target options: %v", err)
 	}

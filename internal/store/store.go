@@ -1,7 +1,6 @@
 package store
 
 import (
-	"bytes"
 	"context"
 	"crypto/sha256"
 	"database/sql"
@@ -39,7 +38,6 @@ var (
 	ErrSchemaInvalid     = errors.New("DATABASE_SCHEMA_INVALID")
 	errIntegrityCheck    = errors.New("sqlite integrity check failed")
 	errForeignKeyCheck   = errors.New("sqlite foreign key check failed")
-	errForeignKeysOff    = errors.New("migration foreign keys remain disabled")
 	errDatabaseFilename  = errors.New("invalid database filename")
 	errMigrationFilename = errors.New("invalid migration name")
 )
@@ -434,15 +432,6 @@ func runMigration(
 		return fmt.Errorf("get migration connection: %w", err)
 	}
 	defer func() { cleanup.Error("close", connection.Close()) }()
-	foreignKeysDisabled := bytes.HasPrefix(source.contents, []byte("-- retrom:foreign-keys-off\n"))
-	if foreignKeysDisabled {
-		if _, err := connection.ExecContext(ctx, "PRAGMA foreign_keys = OFF"); err != nil {
-			return fmt.Errorf("disable migration foreign keys: %w", err)
-		}
-		defer func() {
-			_, _ = connection.ExecContext(context.WithoutCancel(ctx), "PRAGMA foreign_keys = ON")
-		}()
-	}
 	if _, err := connection.ExecContext(ctx, "BEGIN IMMEDIATE"); err != nil {
 		return fmt.Errorf("begin migration %s: %w", source.name, err)
 	}
@@ -455,11 +444,6 @@ func runMigration(
 	if _, err := connection.ExecContext(ctx, string(source.contents)); err != nil {
 		return fmt.Errorf("apply migration %s: %w", source.name, err)
 	}
-	if foreignKeysDisabled {
-		if err := verifyMigrationForeignKeys(ctx, connection); err != nil {
-			return fmt.Errorf("verify migration %s foreign keys: %w", source.name, err)
-		}
-	}
 	if _, err := connection.ExecContext(ctx,
 		"INSERT INTO schema_migrations(version, name, checksum, applied_at_ms) VALUES(?,?,?,?)",
 		source.version, source.name, source.checksum, now().UTC().UnixMilli()); err != nil {
@@ -469,18 +453,6 @@ func runMigration(
 		return fmt.Errorf("commit migration %s: %w", source.name, err)
 	}
 	committed = true
-	if foreignKeysDisabled {
-		if _, err := connection.ExecContext(ctx, "PRAGMA foreign_keys = ON"); err != nil {
-			return fmt.Errorf("restore migration foreign keys: %w", err)
-		}
-		var enabled int
-		if err := connection.QueryRowContext(ctx, "PRAGMA foreign_keys").Scan(&enabled); err != nil {
-			return fmt.Errorf("read restored migration foreign keys: %w", err)
-		}
-		if enabled != 1 {
-			return fmt.Errorf("restore migration foreign keys: %w: enabled=%d", errForeignKeysOff, enabled)
-		}
-	}
 	return nil
 }
 

@@ -21,7 +21,7 @@ func TestRPGMakerApprovalUsesProviderValidationInputDigest(t *testing.T) {
 	}
 	want, err := corevalidation.ProviderValidationInputDigest(
 		input.ProviderID, input.TargetID, input.ContentID, input.DATID,
-		corevalidation.Snapshot{SchemaVersion: corevalidation.SnapshotSchemaVersion, BIOS: []corevalidation.BIOSDependency{}},
+		corevalidation.Snapshot{SchemaVersion: corevalidation.SnapshotSchemaVersion, Kind: corevalidation.SnapshotKindStatic, BIOS: []corevalidation.BIOSDependency{}},
 	)
 	if err != nil {
 		t.Fatal(err)

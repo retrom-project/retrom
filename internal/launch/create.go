@@ -356,7 +356,7 @@ func (service *Service) currentBIOSMatchesDependencySnapshot(
 		return true, nil
 	}
 	// DAT-backed variants are invalidated by the transactional DAT/BIOS
-	// replacement flows; their schema-v2 closure is not a static BIOS snapshot.
+	// replacement flows; their typed Arcade closure is not a static BIOS snapshot.
 	if selection.datID.Valid {
 		return service.currentDATBIOSMatchesLockedFiles(ctx, selection)
 	}
@@ -377,8 +377,8 @@ func (service *Service) currentBIOSMatchesDependencySnapshot(
 	}
 	current.BIOS = append([]corevalidation.BIOSDependency(nil), current.BIOS...)
 	lockedSnapshot := corevalidation.Snapshot{
-		SchemaVersion: corevalidation.SnapshotSchemaVersion,
-		BIOS:          append([]corevalidation.BIOSDependency(nil), locked...),
+		SchemaVersion: corevalidation.SnapshotSchemaVersion, Kind: corevalidation.SnapshotKindStatic,
+		BIOS: append([]corevalidation.BIOSDependency(nil), locked...),
 	}
 	currentDigest, err := corevalidation.BIOSDependencyDigest(current)
 	if err != nil {
@@ -442,9 +442,9 @@ func (service *Service) validateDOSEntry(
 	var directLaunchSafe int
 	err := service.database.QueryRowContext(ctx, `
 SELECT entry.direct_launch_safe
-FROM game_variants revision
-JOIN dos_entries entry ON entry.game_id=revision.game_id
-WHERE revision.id=? AND entry.normalized_path=? AND entry.enabled=1
+FROM game_variants variant
+JOIN dos_entries entry ON entry.game_id=variant.game_id
+WHERE variant.id=? AND entry.normalized_path=? AND entry.enabled=1
 `, variantID, *selectedDOSEntry).Scan(&directLaunchSafe)
 	if errors.Is(err, sql.ErrNoRows) {
 		return ErrDOSEntryMissing
@@ -600,10 +600,10 @@ func (service *Service) lockExternalBIOS(
 ) error {
 	var snapshotJSON, contentLogicalName string
 	if err := transaction.QueryRowContext(ctx, `
-SELECT revision.dependency_snapshot_json,content.logical_name
-FROM game_variants revision
+SELECT variant.dependency_snapshot_json,content.logical_name
+FROM game_variants variant
 JOIN launch_content_files content ON content.launch_session_id=?
-WHERE revision.id=? ORDER BY content.logical_name LIMIT 1
+WHERE variant.id=? ORDER BY content.logical_name LIMIT 1
 `, launchID, variantID).Scan(&snapshotJSON, &contentLogicalName); err != nil {
 		return ErrBlocked
 	}

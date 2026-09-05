@@ -22,7 +22,7 @@ PFB 的稳定状态根固定为当前 Retrom worktree 的：
 ├── providers/
 │   ├── active.json       # 已完整验证的基座 Provider identity
 │   ├── installed/        # 基座 manifest 与大体积静态资源
-│   └── dev/              # current descriptor + 不可变 revisions
+│   └── dev/              # 单份原子发布的 dev-provider.json
 ├── web-node/
 ├── runtime-node/
 ├── next/
@@ -37,9 +37,9 @@ PFB ID 从逻辑名称确定性派生，因此同一 spec 的稳定 URL 始终�
 
 ## Loose dev provider
 
-PFB 启动前，`retrom-runtime/scripts/pfb-provider-watch.mjs --once` 从当前基座 active descriptor 与 integrity 文件读取 asset index/Target declaration，使用 esbuild 只生成自包含 `client.mjs`，并复制 `provider-sources.json` 声明的本地 adapter 资源。文件摘要列表决定 `revision`；文件先在 staging 完成，再原子 rename 到 `dev/revisions/<revision>/` 的不可变目录，最后才原子切换 `dev-provider.json`。旧 Go 进程始终读取启动时绑定的旧 revision，新进程重启后才读取新 revision，因此 watcher 与 restart 之间也不会出现 module SHA/ETag/响应字节错配。常驻 watcher 监听 `src/`、`assets/`、package 与 provider source 声明。
+PFB 启动前，`retrom-runtime/scripts/pfb-provider-watch.mjs --once` 从当前基座 active descriptor 与 integrity 文件读取 asset index/Target declaration，使用 esbuild 只生成自包含 `client.mjs`，并读取 `provider-sources.json` 声明的本地 adapter 资源。所有开发文件的路径、大小、摘要、MIME 与 base64 字节组成一份 `dev-provider.json`；构建完成后原子替换此文件，不保留历史目录。失败构建不改变已发布文件。Go 启动时一次加载并校验完整文件到内存，旧进程继续使用启动时的字节，新进程重启后读取新文件，因此 watcher 与 restart 之间不会出现 module SHA/ETag/响应字节错配。常驻 watcher 监听 `src/`、`assets/`、package 与 provider source 声明。
 
-Go 在启动时验证：descriptor 严格字段、provider/base bundle 身份、路径闭合、排序、size/SHA-256/media type、revision 和所有 override 都属于基座公开文件。开发文件沿原 `/runtime/providers/<provider>/<base-bundle>/...` 路径返回，使用 `Cache-Control: no-store` 与开发 ETag；Launch Envelope 保留基座 bundle/Target declaration，但 `moduleSha256` 使用开发模块摘要。当前阶段 watcher 更新后执行一次 `pfb-restart`，让 Go 重新加载新 revision；无需 `pfb-build`。
+Go 在启动时验证：descriptor 严格字段、provider/base bundle 身份、路径闭合、排序、size/SHA-256/media type 和内含字节 和所有 override 都属于基座公开文件。开发文件沿原 `/runtime/providers/<provider>/<base-bundle>/...` 路径返回，使用 `Cache-Control: no-store` 与开发 ETag；Launch Envelope 保留基座 bundle/Target declaration，但 `moduleSha256` 使用开发模块摘要。当前阶段 watcher 更新后执行一次 `pfb-restart`，让 Go 重新加载开发文件；无需 `pfb-build`。
 
 `RETROM_PROVIDER_DEV_ROOT` 是失败关闭边界：只有 `RETROM_MODE=test`、非空合法 `RETROM_PFB_ID` 与匹配的本地 PFB origin 同时成立时才接受；普通 `make dev` 两者都不设置，release 模式对任何 loose root 无条件拒绝。生产 active descriptor、Provider archive、release digest、双镜像和 CI 不读取 `.pfb/`。
 
@@ -75,11 +75,11 @@ make runtime-provider-prepare \
 
 - Web：保存文件后等待 HMR，不执行 PFB 命令；
 - Go：保存文件后执行 `make pfb-restart PFB=feat-example`；
-- runtime adapter：等待 status 中 `providerDevRevision` 改变，再执行一次 `pfb-restart`；
+- runtime adapter：等待 watcher 成功发布；模块变化可在 status 的 `providerDevModuleSha256` 中核对，再执行一次 `pfb-restart`；
 - package lock、Go module、API 生成输入或工具链定义变化：停止 app，显式执行一次 `pfb-build`，再 up；
 - core 源码：只有确实需要新 core 字节时显式执行 `pfb-core-build CORE=<id>`，然后按对应 runtime adapter 的消费方式联调。
 
-`pfb-status` 是只读状态：报告容器/health、稳定 URL、workspace 和 provider revision，不计算整棵源码 digest，也不存在 `STALE`。`pfb-verify` 在运行实例上执行 PFB contract，并把 evidence 写到 `.pfb/evidence/`。
+`pfb-status` 是只读状态：报告容器/health、稳定 URL、workspace 和 开发 provider 模块摘要，不计算整棵源码 digest，也不存在 `STALE`。`pfb-verify` 在运行实例上执行 PFB contract，并把 evidence 写到 `.pfb/evidence/`。
 
 ## 旧存储迁移与数据操作
 
@@ -106,11 +106,11 @@ make pfb-data-reset PFB=<name> CONFIRM=<actual-pfb-id>
 实现或修改 PFB 时至少证明：
 
 - init/build/up/restart 中没有 Provider tar、all-provider/core builder、每次 `npm ci` 或 Compose `--build`；
-- runtime adapter 修改只改变 dev revision，轻量 restart 后实际 Launch 的模块 SHA/响应字节同步；
+- runtime adapter 修改只改变 开发文件，轻量 restart 后实际 Launch 的模块 SHA/响应字节同步；
 - Web HMR、Go restart、数据/URL 跨 down/up/restart 保持；
 - release 模式拒绝 loose root，release/CI 命令不读取 `.pfb/`；
 - 新 PFB 可从正式准备输出或另一已验证基座无歧义导入，重复导入幂等，降级与同版本重构建均被拒绝；
 - core build 只由带精确 ID 的显式命令触发；
-- 两个 PFB 的可写路径、Host、Cookie、Launch 与 provider dev revision 互不影响；
+- 两个 PFB 的可写路径、Host、Cookie、Launch 与 provider 开发文件 互不影响；
 - legacy migration 幂等且保留源卷，reset 有可恢复归档，remove/destroy 都需要 exact ID；
 - 真实游戏链完成登录、详情、Launch、Provider dispatcher、画面、输入和需要的 checkpoint/恢复。对于 Butterscotch，canvas 必须保持 640×480 backing，并成为 runtime surface 内最大居中的 4:3 矩形。

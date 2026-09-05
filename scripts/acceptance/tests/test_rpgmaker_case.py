@@ -780,7 +780,7 @@ class EvidenceContractTests(unittest.TestCase):
                     role: {
                         "sourcePath": str(sources[role]),
                         "sourceType": "DIRECTORY" if sources[role].is_dir() else "FILES",
-                        "kind": identity[0], "generation": identity[1], "declaredName": identity[2],
+                        "definitionId": identity[0], "generation": identity[1], "declaredName": identity[2],
                         "sourceNote": rpgmaker.PACK_SOURCE_NOTE,
                         "sourceFileCount": rpgmaker.pack_source_identity(
                             sources[role], "DIRECTORY" if sources[role].is_dir() else "FILES",
@@ -958,7 +958,7 @@ def pack_evidence_payload() -> dict:
         validation = pack_job(index + 60, "RUNTIME_ASSET_PACK_VALIDATE", True)
         uploads[role] = {
             "role": role, "uploadId": upload_id, "installationId": installation_id,
-            "jobId": validation["jobId"], "kind": rpgmaker.PACK_UPLOAD_ROLES[role][0],
+            "jobId": validation["jobId"], "definitionId": rpgmaker.PACK_UPLOAD_ROLES[role][0],
             "finalizeJob": finalize, "validationJob": validation,
         }
         installations[role] = {
@@ -1140,7 +1140,7 @@ def product_payload(spec, digest: str) -> dict:
         "inputTranscript": {
             "transportScheme": "HTTPS",
             "upload": {
-                "uploadId": upload_id, "state": "COMPLETE", "purpose": "RPG_MAKER_PROJECT",
+                "uploadId": upload_id, "state": "COMPLETE", "purpose": "PROJECT",
                 "sourceType": "DIRECTORY", "fileCount": 10, "totalBytes": 1024,
                 "receivedBytes": 1024, "finalizationNo": 1,
             },

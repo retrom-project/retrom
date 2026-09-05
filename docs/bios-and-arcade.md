@@ -94,7 +94,7 @@ EmulatorJS 4.2.3 manifest 另声明下列 12 个静态 Requirement；精确 size
 | `prosystem` | `7800 BIOS (U).rom` | `REQUIRED` | `BIOS_BUNDLE` |
 | `mednafen_pcfx` | `pcfx.rom` | `REQUIRED` | `BIOS_BUNDLE` |
 
-MelonDS 三项必须全部存在才能得到 READY。它们不进入根 BIOS bundle：Variant dependency snapshot 锁定 installation/version/blob/delivery/path，Launch 创建事务复制到 `launch_external_files`，配置只生成三个受 capability 保护的同源 URL。同一 Requirement 切换 active installation 是显式破坏性边界：事务撤销依赖旧 Installation 的 Launch/Play/Netplay，删除其运行 payload 与存档，再释放旧 Installation Blob；新 Launch 必须先以新 BIOS 生成 READY revision。外部文件不得在仍运行的 Launch 内静默漂移。
+MelonDS 三项必须全部存在才能得到 READY。它们不进入根 BIOS bundle：Variant dependency snapshot 锁定 installation/version/blob/delivery/path，Launch 创建事务复制到 `launch_external_files`，配置只生成三个受 capability 保护的同源 URL。同一 Requirement 切换 active installation 是显式破坏性边界：事务撤销依赖旧 Installation 的 Launch/Play/Netplay，删除其运行 payload 与存档，再释放旧 Installation Blob；新 Launch 必须先以新 BIOS 重验为 READY Variant。外部文件不得在仍运行的 Launch 内静默漂移。
 
 ### 3.6 Arcade Core
 
@@ -261,7 +261,7 @@ CPS1 测试 DAT 把 `1941` 表示为无 parent/BIOS 的完整根集合。锁定�
 | 方法 | 路径 | 用途 |
 | --- | --- | --- |
 | GET | `/api/v1/admin/bios` | BIOS 状态与筛选 |
-| POST | `/api/v1/admin/bios/{requirementId}/installations` | 上传新的 BIOS installation revision |
+| POST | `/api/v1/admin/bios/{requirementId}/installations` | 上传新的 BIOS installation |
 
 Arcade DAT 没有管理员 HTTP API；运行时只通过审核、GameVariant、Launch 和 BIOS 内容接口投影锁定的 DatVersion。
 

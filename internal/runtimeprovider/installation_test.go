@@ -3,6 +3,7 @@ package runtimeprovider
 import (
 	"context"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"net/http"
@@ -91,32 +92,8 @@ func TestLoadInstallationRejectsDescriptorManifestAndInstalledByteDrift(t *testi
 func TestLoadInstallationOverlaysPFBDevModuleWithoutChangingBaseBundle(t *testing.T) {
 	root := t.TempDir()
 	paths := writeInstallationFixture(t, root)
-	devRoot := filepath.Join(root, "dev-provider")
-	if err := os.MkdirAll(devRoot, 0o755); err != nil {
-		t.Fatal(err)
-	}
 	module := []byte("export const dev=true")
-	devFiles := []devFileDescriptor{{
-		Path: "client.mjs", SizeBytes: int64(len(module)), SHA256: sha256Hex(module),
-		MediaType: "text/javascript; charset=utf-8",
-	}}
-	revision := developmentRevision("fixture", paths.bundleSHA256, devFiles)
-	revisionRoot := filepath.Join(devRoot, "revisions", revision)
-	if err := os.MkdirAll(revisionRoot, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	writeFile(t, filepath.Join(revisionRoot, "client.mjs"), string(module))
-	writeJSON(t, filepath.Join(devRoot, "dev-provider.json"), map[string]any{
-		"schemaVersion":    1,
-		"providerId":       "fixture",
-		"baseBundleSha256": paths.bundleSHA256,
-		"revision":         revision,
-		"files": []map[string]any{{
-			"path": "client.mjs", "sizeBytes": len(module), "sha256": sha256Hex(module),
-			"mediaType": "text/javascript; charset=utf-8",
-		}},
-	})
-	paths.DevRoot = devRoot
+	publishDevModule(t, &paths, module)
 	installation, err := LoadInstallation(paths.Paths)
 	if err != nil {
 		t.Fatal(err)
@@ -155,6 +132,61 @@ func TestLoadInstallationOverlaysPFBDevModuleWithoutChangingBaseBundle(t *testin
 		runtimeValue["moduleUrl"] != "/runtime/providers/fixture/"+paths.bundleSHA256+"/client.mjs" {
 		t.Fatalf("dev launch runtime = %#v", runtimeValue)
 	}
+}
+
+func TestDevProviderReplacementPreservesLoadedBytesAndRejectsCorruption(t *testing.T) {
+	paths := writeInstallationFixture(t, t.TempDir())
+	module := []byte("export const dev=true")
+	publishDevModule(t, &paths, module)
+	installation, err := LoadInstallation(paths.Paths)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Replacing the single payload does not mutate an already loaded installation.
+	nextModule := []byte("export const dev=2")
+	publishDevModule(t, &paths, nextModule)
+	response := httptest.NewRecorder()
+	installation.Handler.ServeHTTP(response, httptest.NewRequestWithContext(t.Context(), http.MethodGet,
+		"/runtime/providers/fixture/"+paths.bundleSHA256+"/client.mjs", nil))
+	if response.Body.String() != string(module) || response.Header().Get("ETag") != `"`+sha256Hex(module)+`"` {
+		t.Fatalf("running installation changed without reload: %v %s", response.Header(), response.Body)
+	}
+	reloaded, err := LoadInstallation(paths.Paths)
+	if err != nil {
+		t.Fatal(err)
+	}
+	response = httptest.NewRecorder()
+	reloaded.Handler.ServeHTTP(response, httptest.NewRequestWithContext(t.Context(), http.MethodGet,
+		"/runtime/providers/fixture/"+paths.bundleSHA256+"/client.mjs", nil))
+	if response.Body.String() != string(nextModule) || response.Header().Get("ETag") != `"`+sha256Hex(nextModule)+`"` {
+		t.Fatalf("reloaded installation did not use new bytes: %v %s", response.Header(), response.Body)
+	}
+	// Byte drift fails closed even when the descriptor remains valid JSON.
+	data, err := os.ReadFile(filepath.Join(paths.DevRoot, "dev-provider.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, filepath.Join(paths.DevRoot, "dev-provider.json"), strings.ReplaceAll(string(data),
+		base64.StdEncoding.EncodeToString(nextModule), base64.StdEncoding.EncodeToString(module)))
+	if _, err := LoadInstallation(paths.Paths); err == nil {
+		t.Fatal("corrupted dev bytes accepted")
+	}
+}
+
+func publishDevModule(t *testing.T, paths *installationFixture, contents []byte) {
+	t.Helper()
+	paths.DevRoot = filepath.Join(filepath.Dir(paths.activePath), "dev-provider")
+	if err := os.MkdirAll(paths.DevRoot, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writeJSON(t, filepath.Join(paths.DevRoot, "dev-provider.json"), map[string]any{
+		"schemaVersion": 1, "providerId": "fixture", "baseBundleSha256": paths.bundleSHA256,
+		"files": []map[string]any{{
+			"path": "client.mjs", "sizeBytes": len(contents), "sha256": sha256Hex(contents),
+			"mediaType":     "text/javascript; charset=utf-8",
+			"contentBase64": base64.StdEncoding.EncodeToString(contents),
+		}},
+	})
 }
 
 type installationFixture struct {
@@ -219,11 +251,16 @@ func writeInstallationFixture(t *testing.T, root string) installationFixture {
 	})
 	catalogPath := filepath.Join(root, "catalog.json")
 	writeJSON(t, catalogPath, map[string]any{
-		"schemaVersion": 1, "catalogVersion": 1,
+		"schemaVersion": 1,
+		"definitions": runtimecatalog.Definitions{
+			Platforms:    []runtimecatalog.PlatformDefinition{{ID: "fixture", Name: "Fixture", Enabled: true}},
+			Cores:        []runtimecatalog.CoreDefinition{{ID: "fixture", Name: "Fixture", Enabled: true}},
+			ContentKinds: []string{"SINGLE_FILE"}, AssetPacks: []runtimecatalog.AssetPackDefinition{},
+		},
 		"bindings": []map[string]any{{
 			"id": "fixture", "coreId": "fixture", "providerId": "fixture", "targetId": "fixture",
 			"platformIds": []string{"fixture"}, "acceptedContentKinds": []string{"SINGLE_FILE"},
-			"detectorProfile": "FIXTURE", "deliveryProfile": "ROM_BLOB",
+			"detectorProfile": "WASM4_CART", "deliveryProfile": "ROM_BLOB",
 			"launchPolicy": "SUPPORTED", "reviewPolicy": "NONE",
 		}},
 	})

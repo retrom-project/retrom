@@ -36,6 +36,17 @@ beforeEach(() => window.history.replaceState({}, "", "/admin/bios"));
 afterEach(() => {cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals();});
 
 describe("RuntimeAssetPackManager", () => {
+  it("selects declared identities independently of a shared pack kind", async () => {
+    const user = userEvent.setup();
+    const extra = { ...definition, definitionId: "extra-assets", declaredName: "Extra Assets", displayName: "Extra assets" };
+    render(<RuntimeAssetPackManager initialList={{ definitions: [definition, extra], installations: [] }} initialRuntimeTargets={runtimeTargets} />);
+    await user.click(screen.getByRole("button", { name: /安装运行包$/ }));
+    const selector = screen.getByLabelText("运行包类型");
+    expect(screen.getByRole("option", { name: "Extra assets" })).toHaveValue("extra-assets");
+    await user.selectOptions(selector, "extra-assets");
+    expect(screen.getByLabelText("声明名称")).toHaveValue("Extra Assets");
+  });
+
   it("keeps referenced immutable installations visible and blocks deletion", () => {
     render(<RuntimeAssetPackManager initialList={{ definitions: [definition], installations: [referenced] }} initialRuntimeTargets={runtimeTargets} />);
     expect(screen.getByText("RPG Maker 2000 RTP")).toBeVisible();

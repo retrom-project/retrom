@@ -48,7 +48,7 @@ func TestMultiDiscValidationInputDigestIsOrderedAndIncludesSemanticInputs(t *tes
 
 func TestValidationDigestsUseStableProviderTargetIdentity(t *testing.T) {
 	t.Parallel()
-	snapshot := Snapshot{SchemaVersion: SnapshotSchemaVersion, BIOS: []BIOSDependency{}}
+	snapshot := Snapshot{SchemaVersion: SnapshotSchemaVersion, Kind: SnapshotKindStatic, BIOS: []BIOSDependency{}}
 	first, err := ProviderValidationInputDigest(
 		"retrom-runtime", "rpgmaker-mv", "content", sql.NullString{}, snapshot,
 	)
@@ -84,8 +84,8 @@ func strings64(value string) string {
 func TestMultiDiscSnapshotRoundTripsAndRejectsInvalidEvidence(t *testing.T) {
 	t.Parallel()
 	snapshot := Snapshot{
-		SchemaVersion: SnapshotSchemaVersion,
-		BIOS:          []BIOSDependency{},
+		SchemaVersion: SnapshotSchemaVersion, Kind: SnapshotKindStatic,
+		BIOS: []BIOSDependency{},
 		MultiDisc: &MultiDiscSnapshot{
 			DiscCount: 3,
 			MissingEntries: []MultiDiscMissingEntry{{
@@ -98,9 +98,9 @@ func TestMultiDiscSnapshotRoundTripsAndRejectsInvalidEvidence(t *testing.T) {
 	parsed, err := ParseSnapshot(string(encoded))
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return parsed.MultiDisc == nil }, func() bool { return parsed.MultiDisc.DiscCount != 3 }, func() bool { return len(parsed.MultiDisc.MissingEntries) != 1 }), "ParseSnapshot() = %#v, error=%v", parsed, err)
 	for _, raw := range []string{
-		`{"schemaVersion":1,"bios":[],"multiDisc":{"discCount":1,"missingEntries":[]}}`,
-		`{"schemaVersion":1,"bios":[],"multiDisc":{"discCount":2,"missingEntries":[{"ordinal":2,"sourceReference":"x","normalizedReference":"x"}]}}`,
-		`{"schemaVersion":1,"bios":[],"multiDisc":{"discCount":2,"missingEntries":null}}`,
+		`{"schemaVersion":1,"kind":"STATIC","bios":[],"multiDisc":{"discCount":1,"missingEntries":[]}}`,
+		`{"schemaVersion":1,"kind":"STATIC","bios":[],"multiDisc":{"discCount":2,"missingEntries":[{"ordinal":2,"sourceReference":"x","normalizedReference":"x"}]}}`,
+		`{"schemaVersion":1,"kind":"STATIC","bios":[],"multiDisc":{"discCount":2,"missingEntries":null}}`,
 	} {
 		if _, err := ParseSnapshot(raw); !errors.Is(err, ErrInvalidSnapshot) {
 			t.Errorf("ParseSnapshot(%s) error = %v", raw, err)
@@ -110,11 +110,11 @@ func TestMultiDiscSnapshotRoundTripsAndRejectsInvalidEvidence(t *testing.T) {
 
 func TestParseRuntimeBIOSDependenciesAcceptsStaticAndArcadeSnapshots(t *testing.T) {
 	t.Parallel()
-	static := `{"schemaVersion":1,"bios":[{"requirementId":"bios","requirementVersion":1,"catalogDigest":"digest","logicalName":"bios.bin","requirementMode":"REQUIRED","conditionCode":null,"deliveryKind":"EXTERNAL_FILE","emulatorPath":"/bios.bin","activationOptions":{},"installationId":"installation","installationVersion":1,"blobId":"blob","installationStatus":"MATCHED"}]}`
+	static := `{"schemaVersion":1,"kind":"STATIC","bios":[{"requirementId":"bios","requirementVersion":1,"catalogDigest":"digest","logicalName":"bios.bin","requirementMode":"REQUIRED","conditionCode":null,"deliveryKind":"EXTERNAL_FILE","emulatorPath":"/bios.bin","activationOptions":{},"installationId":"installation","installationVersion":1,"blobId":"blob","installationStatus":"MATCHED"}]}`
 	dependencies, err := ParseRuntimeBIOSDependencies(static)
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return len(dependencies) != 1 }, func() bool { return dependencies[0].LogicalName != "bios.bin" }), "ParseRuntimeBIOSDependencies(static) = %#v, error=%v", dependencies, err)
 
-	arcade := `{"schemaVersion":2,"machine":"nbbatman","datVersionId":"dat-version","closure":[],"dependencies":[{"kind":"BIOS_OR_BASE","machine":"deco32","state":"SATISFIED_EXTERNAL","requiredEntries":["mb7124h.16r"]}],"missingEntries":[],"mismatchedEntries":[],"warnings":[]}`
+	arcade := `{"schemaVersion":1,"kind":"ARCADE","machine":"nbbatman","datVersionId":"dat-version","closure":[],"dependencies":[{"kind":"BIOS_OR_BASE","machine":"deco32","state":"SATISFIED_EXTERNAL","requiredEntries":["mb7124h.16r"]}],"missingEntries":[],"mismatchedEntries":[],"warnings":[]}`
 	dependencies, err = ParseRuntimeBIOSDependencies(arcade)
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return len(dependencies) != 0 }), "ParseRuntimeBIOSDependencies(arcade) = %#v, error=%v", dependencies, err)
 }
@@ -122,12 +122,33 @@ func TestParseRuntimeBIOSDependenciesAcceptsStaticAndArcadeSnapshots(t *testing.
 func TestParseRuntimeBIOSDependenciesRejectsMalformedSnapshots(t *testing.T) {
 	t.Parallel()
 	for _, raw := range []string{
-		`{"schemaVersion":2,"machine":"nbbatman","datVersionId":"dat-version","closure":null,"dependencies":[],"missingEntries":[],"mismatchedEntries":[],"warnings":[]}`,
-		`{"schemaVersion":2,"machine":"nbbatman","datVersionId":"dat-version","closure":[],"dependencies":[],"missingEntries":[],"mismatchedEntries":[],"warnings":[],"unknown":true}`,
+		`{"schemaVersion":1,"kind":"ARCADE","machine":"nbbatman","datVersionId":"dat-version","closure":null,"dependencies":[],"missingEntries":[],"mismatchedEntries":[],"warnings":[]}`,
+		`{"schemaVersion":1,"kind":"ARCADE","machine":"nbbatman","datVersionId":"dat-version","closure":[],"dependencies":[],"missingEntries":[],"mismatchedEntries":[],"warnings":[],"unknown":true}`,
 		`{"schemaVersion":3,"bios":[]}`,
 	} {
 		if _, err := ParseRuntimeBIOSDependencies(raw); !errors.Is(err, ErrInvalidSnapshot) {
 			t.Errorf("ParseRuntimeBIOSDependencies(%s) error = %v", raw, err)
+		}
+	}
+}
+
+func TestDependencySnapshotDispatchUsesExplicitKindNotHistoricalVersion(t *testing.T) {
+	t.Parallel()
+	for _, raw := range []string{
+		`{"schemaVersion":1,"kind":"STATIC","bios":[]}`,
+		`{"schemaVersion":1,"kind":"ARCADE","machine":"game","datVersionId":"dat","closure":[],"dependencies":[],"missingEntries":[],"mismatchedEntries":[],"warnings":[]}`,
+	} {
+		if _, err := ParseRuntimeBIOSDependencies(raw); err != nil {
+			t.Errorf("current typed snapshot rejected: %v", err)
+		}
+	}
+	for _, raw := range []string{
+		`{"schemaVersion":1,"bios":[]}`,
+		`{"schemaVersion":2,"machine":"game","datVersionId":"dat","closure":[],"dependencies":[],"missingEntries":[],"mismatchedEntries":[],"warnings":[]}`,
+		`{"schemaVersion":1,"kind":"UNKNOWN","bios":[]}`,
+	} {
+		if _, err := ParseRuntimeBIOSDependencies(raw); err == nil {
+			t.Error("untyped, historical or unknown snapshot accepted")
 		}
 	}
 }

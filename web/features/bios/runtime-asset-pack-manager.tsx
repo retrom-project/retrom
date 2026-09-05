@@ -16,7 +16,6 @@ export type RuntimeAssetPackList = components["schemas"]["RuntimeAssetPackList"]
 export type RuntimeTargetList = components["schemas"]["RuntimeTargetList"];
 type PackDefinition = components["schemas"]["RuntimeAssetPackDefinition"];
 type PackInstallation = components["schemas"]["RuntimeAssetPackInstallation"];
-type PackKind = components["schemas"]["RuntimeAssetPackKind"];
 type Generation = components["schemas"]["RpgGeneration"];
 
 const generations: Array<{ id: Generation; label: string }> = [
@@ -103,7 +102,7 @@ function RuntimeTargetDiagnostics({catalog}: {catalog: RuntimeTargetList}) {
 }
 
 type InstallDraft = {
-  kind: PackKind;
+  definitionId: string;
   generation: "RPG2000" | "RPG2003" | "RPGXP" | "RPGVX" | "RPGVXACE";
   declaredName: string;
   sourceNote: string;
@@ -114,9 +113,9 @@ type InstallDraft = {
 function installDraft(definition?: PackDefinition): InstallDraft {
   const generation = definition && definition.generation !== "RPGMV" && definition.generation !== "RPGMZ"
     ? definition.generation
-    : "RPG2000";
+    : "RPGXP";
   return {
-    kind: definition?.kind ?? "RPG2000_RTP",
+    definitionId: definition?.definitionId ?? "",
     generation,
     declaredName: definition?.origin === "CUSTOM" ? definition.declaredName : "",
     sourceNote: "", files: [], sourceType: "ARCHIVE",
@@ -139,7 +138,7 @@ function RuntimePackInstallDrawer({ definitions, draft, busy, progress, onChange
   useEffect(() => {if (draft) {closeButton.current?.focus();}}, [draft]);
   if (!draft) {return null;}
   const customGeneration = draft.generation === "RPGXP" || draft.generation === "RPGVX" || draft.generation === "RPGVXACE";
-  const selectedDefinition = definitions.find((definition) => definition.kind === draft.kind && definition.generation === draft.generation);
+  const selectedDefinition = definitions.find((definition) => definition.definitionId === draft.definitionId);
   const trapFocus = (event: KeyboardEvent<HTMLElement>) => {
     if (event.key === "Escape" && !busy) {onClose(); return;}
     if (event.key !== "Tab") {return;}
@@ -152,7 +151,7 @@ function RuntimePackInstallDrawer({ definitions, draft, busy, progress, onChange
   const setFiles = (files: FileList | null) => onChange({ ...draft, files: files ? [...files] : [] });
   const selectGeneration = (generation: InstallDraft["generation"]) => {
     const standard = definitions.find((definition) => definition.generation === generation && definition.origin === "BUILTIN");
-    onChange({ ...draft, generation, kind: standard?.kind ?? "RGSS_CUSTOM_RTP", declaredName: "", files: [] });
+    onChange({ ...draft, generation, definitionId: standard?.definitionId ?? "", declaredName: "", files: [] });
   };
   const selectedBytes = draft.files.reduce((total, file) => total + file.size, 0);
   const selectedPaths = draft.files.slice(0, 4).map((file) => file.webkitRelativePath || file.name);
@@ -165,11 +164,11 @@ function RuntimePackInstallDrawer({ definitions, draft, busy, progress, onChange
           <label>世代<select className="select" value={draft.generation} disabled={busy} onChange={(event) => selectGeneration(event.target.value as InstallDraft["generation"])}>
             {generations.map((generation) => <option value={generation.id} key={generation.id}>{generation.label}</option>)}
           </select></label>
-          <label>运行包类型<select className="select" value={draft.kind} disabled={busy} onChange={(event) => onChange({ ...draft, kind: event.target.value as PackKind, declaredName: "", files: [] })}>
-            {definitions.filter((definition) => definition.origin === "BUILTIN" && definition.generation === draft.generation).map((definition) => <option value={definition.kind} key={definition.definitionId}>{definition.displayName}</option>)}
-            {customGeneration ? <option value="RGSS_CUSTOM_RTP">自定义 RGSS RTP</option> : null}
+          <label>运行包类型<select className="select" value={draft.definitionId} disabled={busy} onChange={(event) => onChange({ ...draft, definitionId: event.target.value, declaredName: "", files: [] })}>
+            {definitions.filter((definition) => definition.enabled && definition.generation === draft.generation).map((definition) => <option value={definition.definitionId} key={definition.definitionId}>{definition.displayName}</option>)}
+            {customGeneration ? <option value="">自定义 RGSS RTP</option> : null}
           </select></label>
-          {draft.kind === "RGSS_CUSTOM_RTP"
+          {draft.definitionId === ""
             ? <label>声明名称<input value={draft.declaredName} maxLength={512} required disabled={busy} onChange={(event) => onChange({ ...draft, declaredName: event.target.value })} /><small>NFKC 输入预览：{draft.declaredName.trim().normalize("NFKC") || "—"}；最终匹配键由服务端完整大小写折叠生成。</small></label>
             : <label>声明名称<input className="runtime-file-name" value={selectedDefinition?.declaredName ?? ""} readOnly /></label>}
           <label>来源说明（可选）<textarea value={draft.sourceNote} maxLength={500} disabled={busy} onChange={(event) => onChange({ ...draft, sourceNote: event.target.value })} /></label>
@@ -230,7 +229,7 @@ export function RuntimeAssetPackManager({initialList, initialRuntimeTargets}: {
   };
   const open = (definition?: PackDefinition, target?: HTMLButtonElement) => {
     trigger.current = target ?? document.activeElement as HTMLButtonElement;
-    setDraft(installDraft(definition)); setProgress(""); setError("");
+    setDraft(installDraft(definition ?? catalog.definitions.find((item) => item.enabled))); setProgress(""); setError("");
   };
   const close = () => {if (!busy) {setDraft(null); trigger.current?.focus();}};
   const submit = async (event: FormEvent) => {
@@ -239,9 +238,9 @@ export function RuntimeAssetPackManager({initialList, initialRuntimeTargets}: {
     try {
       const uploaded = await uploadFiles(draft.files, setProgress, "RUNTIME_ASSET_PACK");
       setProgress("正在建立不可变安装并验证布局…");
-      const body = draft.kind === "RGSS_CUSTOM_RTP"
-        ? { uploadId: uploaded.uploadId, kind: draft.kind, generation: draft.generation, declaredName: draft.declaredName.trim(), sourceNote: draft.sourceNote }
-        : { uploadId: uploaded.uploadId, kind: draft.kind, sourceNote: draft.sourceNote };
+      const body = draft.definitionId === ""
+        ? { uploadId: uploaded.uploadId, generation: draft.generation, declaredName: draft.declaredName.trim(), sourceNote: draft.sourceNote }
+        : { uploadId: uploaded.uploadId, definitionId: draft.definitionId, sourceNote: draft.sourceNote };
       const response = await fetch("/api/v1/admin/runtime-asset-packs/installations", { method: "POST", headers: await writeHeaders({ "Content-Type": "application/json", "Idempotency-Key": newUuid() }), body: JSON.stringify(body) });
       if (!response.ok) {throw new Error(await responseError(response, "运行包安装失败"));}
       const accepted = await response.json() as { jobId: string };

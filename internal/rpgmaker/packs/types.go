@@ -22,7 +22,7 @@ type FileIdentity struct {
 
 type InstallRequest struct {
 	UploadID     string  `json:"uploadId"`
-	Kind         string  `json:"kind"`
+	DefinitionID string  `json:"definitionId,omitempty"`
 	Generation   *string `json:"generation,omitempty"`
 	DeclaredName *string `json:"declaredName,omitempty"`
 	SourceNote   *string `json:"sourceNote,omitempty"`

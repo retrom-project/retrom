@@ -45,6 +45,9 @@ func OpenDatabase(ctx context.Context, path string, now func() time.Time) (*stor
 // BuildPlatformInstances creates the current recommendation catalog with fresh identities and returns
 // references keyed by catalog template key. Every invocation creates fresh UUIDv7 identities.
 func BuildPlatformInstances(ctx context.Context, database *sql.DB) (PlatformInstanceReferences, error) {
+	if err := SeedRuntimeProviders(ctx, database, currentRuntimeCatalog()); err != nil {
+		return nil, err
+	}
 	references := make(PlatformInstanceReferences, len(platformcatalog.Current().Templates))
 	for _, template := range platformcatalog.Current().Templates {
 		id, err := uuid.NewV7()
@@ -67,9 +70,6 @@ INSERT INTO platform_instances(
 		references[template.Key] = PlatformInstanceReference{
 			ID: id.String(), Slug: slug, TemplateKey: template.Key,
 		}
-	}
-	if err := SeedRuntimeProviders(ctx, database, currentRuntimeCatalog()); err != nil {
-		return nil, err
 	}
 	return references, nil
 }

@@ -494,7 +494,8 @@ func (service *Service) ReviewPreviewConfig(ctx context.Context, previewID, capa
 	err := service.database.QueryRowContext(ctx, `
 SELECT preview.credential_sha256,preview.state,preview.provider_id,preview.target_id,
 	 preview.bundle_sha256,
- binding.core_id,core.name,binding.delivery_profile,'REVIEW_PREVIEW',preview.title,instance.name,
+ binding.core_id,core.name,binding.detector_profile,binding.delivery_profile,
+ 'REVIEW_PREVIEW',preview.title,instance.name,
  '/admin/reviews/' || preview.import_item_id,preview.content_kind,preview.dependency_snapshot_json,'',
 	 NULL,preview.default_dos_entry,NULL,NULL,NULL,NULL,
  preview.bootstrap_expires_at_ms,preview.hard_expires_at_ms,NULL,0,preview.capture_allowed
@@ -506,7 +507,7 @@ WHERE preview.id=?
 `, previewID).Scan(
 		&source.credentialHash, &source.state, &source.providerID, &source.targetID,
 		&source.bundleDigest, &source.coreID, &source.coreName,
-		&source.delivery, &source.purpose, &source.title, &source.platformName, &source.returnTo,
+		&source.detectorProfile, &source.delivery, &source.purpose, &source.title, &source.platformName, &source.returnTo,
 		&source.contentKind, &source.dependencyJSON, &source.compatibility, &source.saveID,
 		&source.dosEntry, &source.validationID, &source.netplayID, &source.netplayPlayer,
 		&source.netplayRoom, &source.bootstrapEnd, &source.hardEnd, &source.idleEnd,

@@ -7,26 +7,51 @@ import (
 	"retrom/internal/testassert"
 )
 
-func TestPrepublishDigestV4GoldenAndSemanticInputs(t *testing.T) {
+func TestReviewValidityIgnoresPlatformPresentationChangesButNotActualInputs(t *testing.T) {
+	t.Parallel()
+	evidence := reviewValidationEvidence{
+		platformVersion: 1, currentPlatformVersion: 2,
+		sourceSnapshotID: "source", draftSnapshotID: "source",
+		platformInstanceID: "folder", draftPlatformInstanceID: "folder",
+		coreID: "gambatte", currentCoreID: "gambatte", providerID: "emulatorjs", targetID: "gambatte",
+		manifestDigest: "content", snapshotManifestDigest: "content", contentKind: "SINGLE_FILE",
+		contentPolicyJSON: `{"schemaVersion":1,"supportedContentKinds":["SINGLE_FILE"],"multiDisc":null}`,
+		dependencyJSON:    `{"schemaVersion":1,"dependencies":[]}`, status: "READY", compatibilityCode: "READY",
+	}
+	if _, current := evidence.currentInput(); !current {
+		t.Fatal("a folder presentation edit invalidated validation")
+	}
+	for _, change := range []func(*reviewValidationEvidence){
+		func(value *reviewValidationEvidence) { value.currentCoreID = "other-core" },
+		func(value *reviewValidationEvidence) { value.draftSnapshotID = "replacement-source" },
+		func(value *reviewValidationEvidence) { value.snapshotManifestDigest = "replacement-bytes" },
+	} {
+		changed := evidence
+		change(&changed)
+		if _, current := changed.currentInput(); current {
+			t.Fatal("a real input change was ignored")
+		}
+	}
+}
+
+func TestPrepublishDigestGoldenAndSemanticInputs(t *testing.T) {
 	t.Parallel()
 	datID := "dat-1"
 	base := prepublishDigestInput{
 		SchemaVersion:            1,
-		ValidatorVersion:         validatorReviewV4,
 		SourceSnapshotID:         "snapshot-1",
 		SourceManifestDigest:     "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 		ContentKind:              "SINGLE_FILE",
 		TargetPlatformInstanceID: "platform-instance-1",
-		PlatformInstanceVersion:  7,
 		ProviderID:               "emulatorjs",
 		TargetID:                 "fbneo",
 		ContentPolicyDigest:      "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
 		DATVersionID:             &datID,
-		DependencySnapshot:       json.RawMessage(`{"schemaVersion":2,"dependencies":[]}`),
+		DependencySnapshot:       json.RawMessage(`{"schemaVersion":1,"kind":"ARCADE","machine":"pacman","datVersionId":"dat-1","closure":[],"dependencies":[],"missingEntries":[],"mismatchedEntries":[],"warnings":[]}`),
 		Status:                   "READY",
 		CompatibilityCode:        "READY",
 	}
-	const expected = "3d601c0757f378bedbe3ea4b6fde04a5bb6a6138c2af15a1da2f7ea83e925227"
+	const expected = "8fa29e4d0a2967907893757e0937abfdf665671f880a4de252e57f773dc40529"
 	if got := prepublishDigest(base); got != expected {
 		t.Fatalf("prepublish golden = %s", got)
 	}
@@ -48,22 +73,42 @@ func TestCompatibilityConfigDigestIgnoresJSONObjectKeyOrder(t *testing.T) {
 	}
 }
 
-func TestPrepublishDigestMatchesLegacyRawContentPolicy(t *testing.T) {
+func TestPrepublishDigestOnlyMatchesCurrentInputs(t *testing.T) {
 	t.Parallel()
-	legacyPolicy := `{"schemaVersion":1,"supportedContentKinds":["SINGLE_FILE"],"multiDisc":null}`
 	current := prepublishDigestInput{
-		SchemaVersion: 1, ValidatorVersion: validatorReviewV4,
-		SourceSnapshotID: "snapshot-1", SourceManifestDigest: "a",
-		ContentKind: "SINGLE_FILE", TargetPlatformInstanceID: "platform-1",
-		PlatformInstanceVersion: 1, ProviderID: "onscripter", TargetID: "onscripter-yuri",
-		ContentPolicyDigest: compatibilityConfigDigest(legacyPolicy),
-		DependencySnapshot:  json.RawMessage(`{"schemaVersion":2,"dependencies":[]}`),
-		Status:              "BLOCKED", CompatibilityCode: "ONS_RUNTIME_TRIAL_REQUIRED",
+		SchemaVersion: 1, SourceSnapshotID: "snapshot", ContentKind: "SINGLE_FILE",
+		DependencySnapshot: json.RawMessage(`{"schemaVersion":1,"dependencies":[]}`),
 	}
-	legacy := current
-	legacy.ContentPolicyDigest = legacyCompatibilityConfigDigest(legacyPolicy)
-	if !prepublishDigestMatches(prepublishDigest(legacy), current, legacyPolicy) {
-		t.Fatal("legacy validation using the raw content-policy digest became stale")
+	digest := prepublishDigest(current)
+	if !prepublishDigestMatches(digest, current) {
+		t.Fatal("current input did not match")
+	}
+	changed := current
+	changed.SourceSnapshotID = "other-source"
+	for _, candidate := range []string{"", "not-a-digest", prepublishDigest(changed)} {
+		if prepublishDigestMatches(candidate, current) {
+			t.Fatal("invalid or different input matched")
+		}
+	}
+	current.DependencySnapshot = json.RawMessage("{")
+	if prepublishDigest(current) != "" {
+		t.Fatal("invalid input was hashed")
+	}
+}
+
+func TestValidationPolicyDigestIgnoresUnrelatedCapabilities(t *testing.T) {
+	t.Parallel()
+	single := `{"schemaVersion":1,"supportedContentKinds":["SINGLE_FILE"]}`
+	expanded := `{"schemaVersion":1,"supportedContentKinds":["SINGLE_FILE","MULTI_DISC"],"multiDisc":{"maxDiscs":8}}`
+	if validationPolicyDigest(single, "SINGLE_FILE") != validationPolicyDigest(expanded, "SINGLE_FILE") {
+		t.Fatal("unrelated content capability invalidated existing content")
+	}
+	changed := `{"schemaVersion":1,"supportedContentKinds":["MULTI_DISC"],"multiDisc":{"maxDiscs":4}}`
+	if validationPolicyDigest(expanded, "MULTI_DISC") == validationPolicyDigest(changed, "MULTI_DISC") {
+		t.Fatal("selected content policy change was ignored")
+	}
+	if validationPolicyDigest(single, "MULTI_DISC") != "" || compatibilityConfigDigest("{") != "" {
+		t.Fatal("unsupported or invalid policy was accepted")
 	}
 }
 

@@ -108,18 +108,18 @@ SECURITY_UNSAFE = {
 }
 PACK_SOURCE_NOTE = "Retrom-owned ACC-RPG-009 deterministic fixture; no vendor RTP bytes"
 PACK_UPLOAD_ROLES = {
-    "rpg2000Rtp": ("RPG2000_RTP", None, None),
-    "rpg2003Rtp": ("RPG2003_RTP", None, None),
-    "rgss1StandardV1": ("RGSS1_RTP_STANDARD", None, None),
-    "rgss1StandardV2": ("RGSS1_RTP_STANDARD", None, None),
-    "rgss1Custom": ("RGSS_CUSTOM_RTP", "RPGXP", "RetromCustomXP"),
-    "rgss2StandardV1": ("RGSS2_RTP_RPGVX", None, None),
-    "rgss2StandardV2": ("RGSS2_RTP_RPGVX", None, None),
-    "rgss2Custom": ("RGSS_CUSTOM_RTP", "RPGVX", "RetromCustomVX"),
-    "rgss3StandardV1": ("RGSS3_RTP_RPGVXAce", None, None),
-    "rgss3StandardV2": ("RGSS3_RTP_RPGVXAce", None, None),
-    "rgss3Custom": ("RGSS_CUSTOM_RTP", "RPGVXACE", "RetromCustomVXAce"),
-    "zeroReference": ("RGSS_CUSTOM_RTP", "RPGXP", "RetromZeroReference"),
+    "rpg2000Rtp": ("rpg2000_rtp", None, None),
+    "rpg2003Rtp": ("rpg2003_rtp", None, None),
+    "rgss1StandardV1": ("rgss1_standard", None, None),
+    "rgss1StandardV2": ("rgss1_standard", None, None),
+    "rgss1Custom": (None, "RPGXP", "RetromCustomXP"),
+    "rgss2StandardV1": ("rgss2_rpgvx", None, None),
+    "rgss2StandardV2": ("rgss2_rpgvx", None, None),
+    "rgss2Custom": (None, "RPGVX", "RetromCustomVX"),
+    "rgss3StandardV1": ("rgss3_rpgvxace", None, None),
+    "rgss3StandardV2": ("rgss3_rpgvxace", None, None),
+    "rgss3Custom": (None, "RPGVXACE", "RetromCustomVXAce"),
+    "zeroReference": (None, "RPGXP", "RetromZeroReference"),
 }
 PACK_REVIEW_ROLES = {
     "rpg2000SelfContained", "rpg2000Missing", "rpg2003SelfContained", "rpg2003Missing",
@@ -471,7 +471,7 @@ def validate_input_transcript(value: Any, spec: GenerationCase) -> None:
             not isinstance(imported, dict) or set(imported) != import_keys:
         raise ContractError("RPG_ACCEPTANCE_INPUT_TRANSCRIPT_INVALID")
     if not UUID.fullmatch(str(upload.get("uploadId"))) or upload.get("state") != "COMPLETE" or \
-            upload.get("purpose") != "RPG_MAKER_PROJECT" or upload.get("sourceType") != "DIRECTORY" or \
+            upload.get("purpose") != "PROJECT" or upload.get("sourceType") != "DIRECTORY" or \
             not isinstance(upload.get("fileCount"), int) or upload["fileCount"] < 1 or \
             not isinstance(upload.get("totalBytes"), int) or upload["totalBytes"] < 1 or \
             upload.get("receivedBytes") != upload["totalBytes"] or \
@@ -986,7 +986,7 @@ def pack_plan(path: Path) -> dict[str, Any]:
         raise ContractError("RPG_ACCEPTANCE_PACK_UPLOAD_MATRIX_INCOMPLETE")
     source_types, suffixes = set(), set()
     upload_keys = {
-        "sourcePath", "sourceType", "kind", "generation", "declaredName", "sourceNote",
+        "sourcePath", "sourceType", "definitionId", "generation", "declaredName", "sourceNote",
         "sourceFileCount", "sourceSizeBytes", "sourceSha256",
     }
     for role, expected_identity in PACK_UPLOAD_ROLES.items():
@@ -1001,7 +1001,7 @@ def pack_plan(path: Path) -> dict[str, Any]:
         if upload["sourceType"] == "DIRECTORY" and not source.is_dir() or \
                 upload["sourceType"] == "FILES" and not source.is_file():
             raise ContractError("RPG_ACCEPTANCE_PACK_SOURCE_TYPE_INVALID")
-        if (upload["kind"], upload["generation"], upload["declaredName"]) != expected_identity:
+        if (upload["definitionId"], upload["generation"], upload["declaredName"]) != expected_identity:
             raise ContractError("RPG_ACCEPTANCE_PACK_UPLOAD_ROLE_INVALID")
         note = upload["sourceNote"]
         if note != PACK_SOURCE_NOTE:

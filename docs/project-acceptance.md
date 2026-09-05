@@ -315,11 +315,11 @@ make acceptance-case CASE=<case-id>
 - 执行：`make acceptance-case CASE=ACC-PFB-007`。
 - 通过标准：`<launch>.rpg.<pfb>.localhost:3000` exact origin成功且只服务 `/__retrom/*`，与 `<pfb>.localhost:3000` 同 site 但不同 origin；跨PFB Host/cookie/ticket/capability、错误UUID/port/path均拒绝，应用origin不执行用户项目脚本。
 
-### ACC-PFB-008：runtime watcher 与 cache revision
+### ACC-PFB-008：runtime watcher 与 原子开发产物
 
 - 上限：900 秒。
 - 执行：`make acceptance-case CASE=ACC-PFB-008`。
-- 通过标准：修改已纳入bundle的runtime adapter后，只重建loose `client.mjs`/本地adapter资源并原子改变revision；不运行`npm ci`、Provider tar、all-provider/core builder或镜像build。轻量restart后Launch使用新module SHA，静态响应`no-store`，真实导入、审核预览、发布、Launch、输入、checkpoint/恢复产品链通过。
+- 通过标准：修改已纳入bundle的runtime adapter后，只重建loose `client.mjs`/本地adapter资源并原子替换单份 `dev-provider.json`；失败构建保持旧文件，运行进程保持已校验的内存字节，不生成历史目录；不运行`npm ci`、Provider tar、all-provider/core builder或镜像build。轻量restart后Launch使用新module SHA，静态响应`no-store`，真实导入、审核预览、发布、Launch、输入、checkpoint/恢复产品链通过。
 
 ### ACC-PFB-009：显式 core build 闭集
 
@@ -331,19 +331,19 @@ make acceptance-case CASE=<case-id>
 
 - 上限：240 秒。
 - 执行：`make acceptance-case CASE=ACC-PFB-010`。
-- 通过标准：数据库/CAS/上传/secret/provider/cache固定在当前worktree `.pfb/workspace`，源码和provider revision变化不切换数据；down/up/restart后账号、Game、Save、ID和URL保持。旧命名卷只读复制到同FS staging、内容指纹一致后原子发布，重复迁移幂等且源卷保留；data-reset先归档，remove保留workspace，destroy只在exact ID下删除`.pfb/`且不删除Git worktree/branch/旧卷。
+- 通过标准：数据库/CAS/上传/secret/provider/cache固定在当前worktree `.pfb/workspace`，源码和开发 provider 变化不切换数据；down/up/restart后账号、Game、Save、ID和URL保持。旧命名卷只读复制到同FS staging、内容指纹一致后原子发布，重复迁移幂等且源卷保留；data-reset先归档，remove保留workspace，destroy只在exact ID下删除`.pfb/`且不删除Git worktree/branch/旧卷。
 
 ### ACC-PFB-011：loose provider 与正式路径隔离
 
 - 上限：900 秒。
 - 执行：`make acceptance-case CASE=ACC-PFB-011`。
-- 通过标准：loose root只在`RETROM_MODE=test`、合法匹配PFB ID/origin时接受；release、缺PFB ID、错误origin、unknown/base mismatch、路径/size/hash/revision漂移全部失败关闭。`data-check`、`deps-check`、release-input digest、双镜像和tag/release流程不读取`.pfb/`；正式镜像、metadata和notice不包含PFB路径或loose字节。
+- 通过标准：loose root只在`RETROM_MODE=test`、合法匹配PFB ID/origin时接受；release、缺PFB ID、错误origin、unknown/base mismatch、路径/size/hash/内含字节漂移全部失败关闭。`data-check`、`deps-check`、release-input digest、双镜像和tag/release流程不读取`.pfb/`；正式镜像、metadata和notice不包含PFB路径或loose字节。
 
 ### ACC-PFB-012：轻量开发循环与发布流程独立
 
 - 上限：1800 秒。
 - 执行：`make acceptance-case CASE=ACC-PFB-012`。
-- 通过标准：`pfb-up`使用`--no-build`，`pfb-restart`只restart；Web变化由HMR可见，Go变化在restart后可见，runtime adapter变化只改变dev revision，纯文档变化不触发runtime/toolchain构建。两个PFB可并行且互不影响。正式core/runtime不可移动tag与Retrom production pin继续走原有独立归档、许可、确定性、全新依赖根和双镜像验证；PFB开发层不进入正式Git输入、digest或镜像。
+- 通过标准：`pfb-up`使用`--no-build`，`pfb-restart`只restart；Web变化由HMR可见，Go变化在restart后可见，runtime adapter变化只替换开发文件，纯文档变化不触发runtime/toolchain构建。两个PFB可并行且互不影响。正式core/runtime不可移动tag与Retrom production pin继续走原有独立归档、许可、确定性、全新依赖根和双镜像验证；PFB开发层不进入正式Git输入、digest或镜像。
 
 ## 6. 数据库、CAS、安全、API 与运维
 
@@ -352,7 +352,7 @@ make acceptance-case CASE=<case-id>
 - 上限：120 秒。
 - 执行：`make acceptance-case CASE=ACC-DB-001`。
 - 流程：在空临时目录运行真实 migration；枚举全部表、列、外键、索引和 trigger；在一个事务创建 Game、GameFiles、三个 Core 的 GameVariant 与对应 VariantFiles；尝试跨 Game 文件/Variant 引用、重复 Game+Core Variant、非法 Provider/Target、重复 active BIOS/DAT、冲突 whole/file Upload consumption、无效平台/core 关系和负数 duration；读取一条 API JSON 与 SQLite typeof()。
-- 通过标准：所有业务时刻以 *_at_ms INTEGER 存储并通过 API 输出 JSON integer；时长为有单位的整数；不存在业务时刻 TEXT、CURRENT_TIMESTAMP 主存储或单位不明字段。schema 不含 game_content_revisions、game_metadata_revisions、game_variant_revisions 及其 current pointer；Game/GameFiles/GameVariant 约束、partial unique index、外键索引和 append-only 审计 trigger 均存在，全部负向约束在数据库层拒绝，合法当前态事务可提交。
+- 通过标准：所有业务时刻以 *_at_ms INTEGER 存储并通过 API 输出 JSON integer；时长为有单位的整数；不存在业务时刻 TEXT、CURRENT_TIMESTAMP 主存储或单位不明字段；bootstrap 不含 DROP/ALTER 转换或外键关闭标记；来源证据无 revision_no，初始来源唯一、当前来源由草稿明确选择。schema 不含 game_content_revisions、game_metadata_revisions、game_variant_revisions 及其 current pointer；Game/GameFiles/GameVariant 约束、partial unique index、外键索引和 append-only 审计 trigger 均存在，全部负向约束在数据库层拒绝，合法当前态事务可提交。
 - 证据：完整 schema 摘要、合法事务、每个负向 SQL 结果和 API 响应。
 
 ### ACC-DB-002：干净迁移链与 lineage 保护
@@ -1168,10 +1168,10 @@ make acceptance-case CASE=<case-id>
 
 ## 17. 收藏与收藏夹
 
-### ACC-FAV-001：Migration、关系不变量与备份保留
+### ACC-FAV-001：当前 schema、关系不变量与备份保留
 
 - 上限：120 秒。执行：`make acceptance-case CASE=ACC-FAV-001`。
-- 流程：空库、023 fixture、024 fixture 升级到 025；两个 Profile 对同 Game 建独立关系；执行跨 owner、未收藏 Membership、重名、非法 UPDATE/version 负向 SQL；隐藏 Game/目录后备份恢复。
+- 流程：由当前 bootstrap 创建空库并同步声明；两个 Profile 对同 Game 建独立关系；执行跨 owner、未收藏 Membership、重名、非法 UPDATE/version 负向 SQL；隐藏 Game/目录后备份恢复。不读取历史版本 fixture。
 - 通过：schema/checksum/FK/index/trigger 正确，负向 SQL 全部拒绝，隐藏关系保留而投影为零，恢复逐项一致且认证安全围栏仍生效。
 - 证据：起止版本、schema 摘要、负向矩阵、owner 行数与恢复前后 hash。
 
@@ -1198,11 +1198,11 @@ make acceptance-case CASE=<case-id>
 
 ## 18. 游戏标签
 
-### ACC-TAG-001：Migration、名称、生命周期与备份
+### ACC-TAG-001：当前 schema、名称、生命周期与备份
 
 - 上限：120 秒。执行：`make acceptance-case CASE=ACC-TAG-001`。
-- 流程：从 033 fixture 升级和创建新库；覆盖 NFC、Unicode 空白/case-fold/control、40/41 code point、160/161 byte、活动同名、20/21 owner 与 1,000/1,001 实例上限；关联后软删除，再用同名创建新 ID，并完成带 Tag/关系/tombstone/审计的离线 backup/restore。
-- 通过：034 表/列/partial unique/index/trigger、INTEGER 时刻、FK 与完整性正确；DELETED 不可恢复/改名/硬删，立即退出当前投影但历史关系和审计保留；同名新 ID 不继承旧关系；恢复前后标签快照逐项一致且 restore 安全围栏不退化。
+- 流程：由当前 bootstrap 创建新库；覆盖 NFC、Unicode 空白/case-fold/control、40/41 code point、160/161 byte、活动同名、20/21 owner 与 1,000/1,001 实例上限；关联后软删除，再用同名创建新 ID，并完成带 Tag/关系/tombstone/审计的离线 backup/restore。
+- 通过：当前表/列/partial unique/index/trigger、INTEGER 时刻、FK 与完整性正确；DELETED 不可恢复/改名/硬删，立即退出当前投影但历史关系和审计保留；同名新 ID 不继承旧关系；恢复前后标签快照逐项一致且 restore 安全围栏不退化。
 - 证据：起止 migration/schema 摘要、名称/容量负向矩阵、删除前后 owner/version/关系、恢复前后 canonical hash 与完整性结果。
 
 ### ACC-TAG-002：API、权限、并发与游戏维护
@@ -1522,7 +1522,8 @@ ID。没有实体设备时自动化 Case 可以 PASS，但沉浸模式发布验�
 
 ### ACC-PROVIDER-005：只前进激活
 
-- 上限：900 秒。证明 Provider 只向前激活：升级后所有普通 Launch 使用当前 Bundle；已有 `REVIEW_SCREENSHOT_OVERRIDE` GameVariant 和已发布 RPG Profile 继续按稳定 Provider/Target 启动，旧 SaveState 仅在当前 Target `readFormats` 包含其 `checkpointFormat` 时恢复。降级、同版换 bytes、删除既有 Target、不可读 checkpoint format、非法 manifest 或 catalog 漂移均拒绝启动；不选择旧 Bundle 兜底。
+- 上限：900 秒。证明 Provider 只向前激活：升级后所有普通 Launch 使用当前 Bundle；已有 `REVIEW_SCREENSHOT_OVERRIDE` GameVariant 和已发布 RPG Profile 继续按稳定 Provider/Target 启动。活跃用户存档、未过期且仍可恢复的审核 checkpoint 必须可被当前 Target 读取；终态/过期审核临时 payload 释放，但验证事件中的审计信息仍可展示。降级、同版换 bytes、删除被引用 Target、破坏上述有效 checkpoint 或非法 manifest/策略均拒绝启动；不选择旧 Bundle 兜底。
+- Host catalog 按当前内容摘要原子、幂等同步，不使用独立 catalogVersion。已初始化数据库允许声明新增 Core/Target、复用现有接入策略、复用已有布局新增资源包；schema/migration 指纹和用户目录名称、默认核心、设置、游戏、审核、存档 ID/内容保持不变。已安装资源包身份/布局变更或被引用定义删除必须整笔回滚，展示信息更新及相同声明重复同步应成功。最终 PFB 数据重建后，扩展证明不得再次清库；公开机制 fixture 与真实核心产品证据分开记录。
 
 ### ACC-PROVIDER-006：Candidate、镜像与发布边界
 

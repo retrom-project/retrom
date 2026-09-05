@@ -2,11 +2,12 @@ from __future__ import annotations
 
 import json
 import re
+import unicodedata
 from pathlib import Path
 from typing import Any
 
 
-ROOT_KEYS = {"schemaVersion", "catalogVersion", "bindings"}
+ROOT_KEYS = {"schemaVersion", "bindings", "definitions"}
 BINDING_KEYS = {
     "id", "coreId", "providerId", "targetId", "platformIds", "acceptedContentKinds",
     "detectorProfile", "deliveryProfile", "launchPolicy", "reviewPolicy",
@@ -31,7 +32,7 @@ def load_runtime_target_bindings(path: Path) -> dict[str, Any]:
 def validate_runtime_target_bindings(value: Any) -> None:
     if not isinstance(value, dict) or set(value) != ROOT_KEYS:
         _invalid()
-    if value["schemaVersion"] != 1 or not _positive_integer(value["catalogVersion"]):
+    if value["schemaVersion"] != 1:
         _invalid()
     bindings = value["bindings"]
     if not isinstance(bindings, list) or not bindings:
@@ -64,6 +65,65 @@ def validate_runtime_target_bindings(value: Any) -> None:
         _invalid()
     if len(set(identities)) != len(identities):
         _invalid()
+    _validate_definitions(value["definitions"], bindings)
+
+
+def _validate_definitions(value: Any, bindings: list[dict[str, Any]]) -> None:
+    if not isinstance(value, dict) or set(value) != {"platforms", "cores", "contentKinds", "assetPacks"}:
+        _invalid()
+    platforms = _definition_rows(value["platforms"], {"id", "name", "sortOrder", "enabled"})
+    cores = _definition_rows(value["cores"], {"id", "name", "enabled"})
+    kinds = _string_set(value["contentKinds"], PROFILE)
+    for binding in bindings:
+        if binding["coreId"] not in cores or not set(binding["platformIds"]).issubset(platforms):
+            _invalid()
+        if not set(binding["acceptedContentKinds"]).issubset(kinds):
+            _invalid()
+    packs = value["assetPacks"]
+    if not isinstance(packs, list):
+        _invalid()
+    keys = {"id", "kind", "generation", "declaredName", "normalizedDeclaredName", "displayName", "requiredLayoutVersion", "enabled"}
+    previous = ""
+    identities = set()
+    for pack in packs:
+        if not isinstance(pack, dict) or set(pack) != keys:
+            _invalid()
+        pack_id = _matched(pack["id"], IDENTIFIER)
+        _matched(pack["generation"], PROFILE)
+        _matched(pack["requiredLayoutVersion"], IDENTIFIER)
+        if not isinstance(pack["kind"], str) or not re.fullmatch(r"[A-Za-z0-9_]{2,64}", pack["kind"]):
+            _invalid()
+        if not _name(pack["displayName"], 200) or not _name(pack["declaredName"], 512):
+            _invalid()
+        normalized = unicodedata.normalize("NFKC", pack["declaredName"].strip()).casefold()
+        if pack["normalizedDeclaredName"] != normalized or type(pack["enabled"]) is not bool:
+            _invalid()
+        identity = (pack["generation"], pack["normalizedDeclaredName"])
+        if pack_id <= previous or identity in identities:
+            _invalid()
+        identities.add(identity)
+        previous = pack_id
+
+
+def _definition_rows(value: Any, keys: set[str]) -> set[str]:
+    if not isinstance(value, list) or not value:
+        _invalid()
+    ids = []
+    for row in value:
+        if not isinstance(row, dict) or set(row) != keys:
+            _invalid()
+        ids.append(_matched(row["id"], IDENTIFIER))
+        if not _name(row["name"], 200) or type(row["enabled"]) is not bool:
+            _invalid()
+        if "sortOrder" in keys and (type(row["sortOrder"]) is not int or row["sortOrder"] < 0):
+            _invalid()
+    if ids != sorted(ids) or len(ids) != len(set(ids)):
+        _invalid()
+    return set(ids)
+
+
+def _name(value: Any, maximum: int) -> bool:
+    return isinstance(value, str) and 1 <= len(value.encode()) <= maximum and value == value.strip() and "\0" not in value
 
 
 def _string_set(value: Any, pattern: re.Pattern[str]) -> list[str]:

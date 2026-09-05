@@ -1,10 +1,10 @@
 # Retrom 数据模型
 
-字段、CHECK、FK、索引与 trigger 的逐字节事实源是 `migrations/001_identity.sql` 至 `migrations/012_runtime_provider_current_state.sql`；本文只描述稳定领域关系。HTTP 字段以 `api/openapi.yaml` 的统一 bundle 为准。
+字段、CHECK、FK、索引与 trigger 的逐字节事实源是 `migrations/001_identity.sql` 至 `migrations/010_cross_domain_invariants.sql`；本文只描述稳定领域关系。HTTP 字段以 `api/openapi.yaml` 的统一 bundle 为准。
 
 ## 1. 基线
 
-- 项目尚未发布，数据库使用 001–012 单向 lineage；012 原子把完整 001–011 结构升级为 current-state 模型，之后只支持向前升级，不提供降级、回滚、双写或运行时 schema 修补。
+- 项目尚未发布，001–010 直接创建最终 current-state 模型；不兼容的开发库必须停机归档并使用空数据根重建，不执行旧表转换、兼容回填或 DROP/ALTER 迁移。首次正式发布后才采用只追加的向前升级，不提供降级、回滚、双写或运行时 schema 修补。
 - 业务主键使用 UUIDv7，摘要使用 64 位小写 SHA-256，时刻使用 Unix 毫秒 `INTEGER`。
 - 当前业务状态原位更新并推进 `version`；需要追踪的历史进入 audit、event、job input、来源快照和验证证据，不为 metadata、content、Variant 建平行业务版本树。
 - 数据库不保存 Launch 明文 capability、Cookie、CSRF token、用户主机绝对路径或 Provider 私有实现映射。
@@ -26,6 +26,8 @@ RuntimeProvider
 
 `runtime_target_bindings` 把产品 `core_id` 绑定到一个稳定 Target，并通过 platform/content-kind 关系收紧适用范围。数据库不保存 adapter、引擎 core、入口或资产映射。
 
+平台、核心、内容分类和内置资源包的产品数据来自 `data/runtime-target-bindings/v1/catalog.json`，而非 migration seed。当前目录只有内容摘要；`schemaVersion` 描述序列化格式，不另设目录递增计数器。系统同步复用 `internal/runtimecatalog`，与 Provider/Target 和 binding 在同一事务发布；新增使用已有存储/交付/布局策略的产品不修改 schema。稳定定义被用户引用时不可删除，目录名称、默认核心及已安装资源的用户选择不被声明同步覆盖。
+
 ## 3. Game current state
 
 `games` 是用户可见游戏及其当前 metadata/content 根：它直接保存 PlatformInstance、标题字段、metadata 来源、content kind/来源、规范 manifest、状态、payload 生命周期、搜索文本和 `version`。
@@ -40,9 +42,15 @@ metadata 编辑和媒体替换原位推进 Game；内容替换在后台准备完
 
 依赖 snapshot 是规范 JSON，包含所选 BIOS、parent/base、多盘或 runtime pack 的实际闭包。Variant 保存当前 snapshot，Launch 创建时复制 snapshot 并锁定实际 Blob 边。
 
+静态 BIOS/多盘和 Arcade 依赖均采用当前 `schemaVersion:1`，分别以 `kind:STATIC/ARCADE` 区分实际类型，不根据历史版本号选择解析器。
+
 ## 5. 导入、审核与刮削
 
 Upload、Archive、ImportJob、ImportItem、来源快照、Validation、ReviewDraft/Event、ScrapeRun 与服务器导入维持各自 owner、版本、幂等和 payload release 边界。运行选择只保存稳定 `provider_id/target_id`；ReviewDraft 只选择与当前来源、目录 Core、Target、DAT、依赖和内容策略完全匹配的 Validation，写事务发现输入变化时直接创建或切换当前选择。历史校验不进入当前 HTTP 投影，Provider Bundle 单独升级不使审核结果失效。
+
+来源快照是不可变的输入证据，不是业务版本树：不分配 revision 序号；每个 Item 最多一份 `created_by=IDENTIFICATION` 初始来源，当前来源只由 `ReviewDraft.effective_source_snapshot_id` 选择，不按创建时间或最大序号猜测。
+
+Upload 的业务用途只区分 `GENERAL/PROJECT/RUNTIME_ASSET_PACK`，并独立记录文件/目录形态；项目引擎由归一化后的真实内容检测。审核不存储算法 generation；目录展示变化和不相关能力变化不参与有效性摘要。
 
 发布事务将审核 metadata、媒体、内容文件与默认 Variant 一次写入 Game current state。重新刮削以稳定 `game_id` 为 owner 创建候选；显式应用候选才更新当前 metadata/assets，不能因为旧内容版本表已经删除而丢失 Game 关联。
 
@@ -59,6 +67,8 @@ Review Preview 使用相同冻结原则；Provider 静态资源由 Provider/Bund
 `save_states` 保存 Profile、Game、checkpoint format、payload Blob/SHA-256/size、可选截图、DOS 路径/disc index 和来源 Launch。它不复制 Provider、Target、Bundle 或 Variant 身份。
 
 写入必须来自同一 Profile/Game 的有效 PRODUCT Launch，且格式位于 Target `readFormats`、大小不超过 `maxBytes`。恢复使用当前 READY Variant；只要当前 Target 声明可读该 checkpoint format 即可。不可读存档保留为 BLOCKED 投影，不加载旧 Provider、不 fallback，也不阻止无存档启动。
+
+Provider 激活前必须保证现有未删除用户存档仍可读；未过期、非终态审核的实际 checkpoint 同样受保护。已终态审核通过生命周期 trigger 移除临时 payload 引用；超时审核先结束会话，再释放引用，实际 CAS 删除仍由 Blob GC 按剩余 owner 与宽限期执行。
 
 ## 8. Play、隔离与联机
 

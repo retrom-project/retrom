@@ -113,7 +113,7 @@ type reviewBulkCandidate struct {
 	reviewVersion, platformVersion                                         int64
 	providerID, targetID, contentPolicyJSON                                sql.NullString
 	validationID, validationStatus, dependencySnapshot                     sql.NullString
-	validationGeneration, validationPlatformVersion                        sql.NullInt64
+	validationPlatformVersion                                              sql.NullInt64
 	validationDAT, currentDAT, validationDOSEntry, draftDOSEntry           sql.NullString
 	screenshotCurrent, attachmentActive, sourceFlagged                     bool
 }
@@ -181,7 +181,7 @@ SELECT item.id,draft.version,draft.effective_source_snapshot_id,
            WHERE kinds.binding_id=binding.binding_id AND kinds.content_kind='MULTI_DISC'
          ) THEN json_object('maxDiscs',8,'maxTotalBytes',1073741824,'delivery','EAGER_EXTERNAL_FILES') ELSE NULL END
        ) END,
-       validation.id,validation.status,validation.prepublish_generation,
+       validation.id,validation.status,
        validation.platform_instance_version,
        validation.dat_version_id,
        (SELECT active.id FROM dat_versions active WHERE active.provider_id=validation.provider_id
@@ -280,7 +280,7 @@ func scanReviewBulkCandidates(
 			&candidate.title, &candidate.platformInstanceID, &candidate.platformName, &candidate.platformID,
 			&candidate.platformVersion,
 			&candidate.providerID, &candidate.targetID, &candidate.contentPolicyJSON,
-			&candidate.validationID, &candidate.validationStatus, &candidate.validationGeneration,
+			&candidate.validationID, &candidate.validationStatus,
 			&candidate.validationPlatformVersion,
 			&candidate.validationDAT, &candidate.currentDAT, &candidate.validationDOSEntry,
 			&candidate.draftDOSEntry, &candidate.dependencySnapshot, &candidate.contentKind,
@@ -310,10 +310,7 @@ func quickApprovalArtifactReady(candidate reviewBulkCandidate) bool {
 }
 
 func quickApprovalValidationCurrent(candidate reviewBulkCandidate) bool {
-	return candidate.validationID.Valid && candidate.validationStatus.String == "READY" &&
-		candidate.validationGeneration.Valid && candidate.validationGeneration.Int64 == prepublishGeneration &&
-		candidate.validationPlatformVersion.Valid &&
-		candidate.validationPlatformVersion.Int64 == candidate.platformVersion
+	return candidate.validationID.Valid && candidate.validationStatus.String == "READY"
 }
 
 func (service *Service) classifyReviewBulkCandidates(

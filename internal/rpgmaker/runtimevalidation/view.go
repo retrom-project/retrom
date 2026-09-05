@@ -128,7 +128,9 @@ FROM rpgmaker_runtime_validation_checkpoints WHERE validation_id=?
 		if event.Phase != rpgvalidation.PhasePass {
 			continue
 		}
-		applyCheckpointEvent(&result, event, row)
+		if err := applyCheckpointEvent(&result, event, row); err != nil {
+			return CheckpointRoundTrip{}, err
+		}
 	}
 	if row.screenshotBlobID.Valid {
 		url := "/api/v1/admin/review-assets/" + row.ValidationID
@@ -137,9 +139,11 @@ FROM rpgmaker_runtime_validation_checkpoints WHERE validation_id=?
 	return result, nil
 }
 
-func applyCheckpointEvent(result *CheckpointRoundTrip, event storedEvent, row viewRow) {
+func applyCheckpointEvent(result *CheckpointRoundTrip, event storedEvent, row viewRow) error {
 	position := projectPosition(event.Position)
 	switch event.Gate {
+	case rpgvalidation.GateCheckpointCreated:
+		return applyCreatedCheckpointEvidence(result, event.Evidence)
 	case rpgvalidation.GateInitialPosition:
 		result.InitialPosition = position
 	case rpgvalidation.GateSavePointRecorded:
@@ -161,10 +165,23 @@ func applyCheckpointEvent(result *CheckpointRoundTrip, event storedEvent, row vi
 		result.RestoreInputVerified = result.PositionVerified &&
 			!samePosition(result.RestoredPosition, position)
 	case rpgvalidation.GateRuntimeReady, rpgvalidation.GateEngineProfile, rpgvalidation.GateFrames300,
-		rpgvalidation.GateInput, rpgvalidation.GateAudio, rpgvalidation.GateCheckpointCreated,
+		rpgvalidation.GateInput, rpgvalidation.GateAudio,
 		rpgvalidation.GateRestoreScreenshot:
-		return
+		return nil
 	}
+	return nil
+}
+
+func applyCreatedCheckpointEvidence(result *CheckpointRoundTrip, raw json.RawMessage) error {
+	// Completed checks retain verified metadata, not a restorable payload.
+	var evidence checkpointEvidence
+	if err := strictEvidence(raw, &evidence); err != nil {
+		return ErrProtocol
+	}
+	result.Created = true
+	result.CheckpointFormat = &evidence.CheckpointFormat
+	result.SizeBytes, result.SHA256 = &evidence.SizeBytes, &evidence.SHA256
+	return nil
 }
 
 func (service *Service) Decide(

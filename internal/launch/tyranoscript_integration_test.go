@@ -225,7 +225,7 @@ func createTyranoScriptReviewItem(
 	archive := tyranoScriptReviewArchive(t)
 	uploadService := uploads.New(database, blobs, dataDir, time.Now)
 	upload, err := uploadService.Create(ctx, uploads.CreateRequest{
-		Purpose: "TYRANOSCRIPT_PROJECT", SourceType: "FILES",
+		Purpose: "PROJECT", SourceType: "FILES",
 		Files: []uploads.FileDeclaration{{
 			ClientFileID: "tyrano", RelativePath: "tyrano-review.zip", SizeBytes: int64(len(archive)),
 		}},

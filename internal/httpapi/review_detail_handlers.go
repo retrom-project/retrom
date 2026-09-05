@@ -41,7 +41,6 @@ d.selected_validation_id,
 source_snapshot.id,
 source_snapshot.source_manifest_json,
 source_snapshot.content_kind,
-v.prepublish_generation,
 d.selected_candidate_id,
 d.cover_candidate_asset_id,
 d.cover_uploaded_asset_id,
@@ -102,7 +101,6 @@ func (server *Server) review(writer http.ResponseWriter, request *http.Request) 
 	var sourceContentKind, currentTargetManifest string
 	var validationID, validationStatus, compatibilityCode, dependencySnapshot sql.NullString
 	var selectedValidationID sql.NullString
-	var validationGeneration sql.NullInt64
 	var selectedCandidateID, coverID, uploadedCoverID, backgroundID, defaultDOSEntry sql.NullString
 	var version, updatedAtMS int64
 	err := server.database.QueryRowContext(
@@ -125,7 +123,6 @@ func (server *Server) review(writer http.ResponseWriter, request *http.Request) 
 			&sourceSnapshotID,
 			&sourceManifest,
 			&sourceContentKind,
-			&validationGeneration,
 			&selectedCandidateID,
 			&coverID,
 			&uploadedCoverID,
@@ -145,8 +142,8 @@ func (server *Server) review(writer http.ResponseWriter, request *http.Request) 
 	evidence, err := server.loadReviewEvidence(request, itemID, sourceSnapshotID, reviewValidationInput{
 		validationID: validationID, validationStatus: validationStatus,
 		compatibilityCode: compatibilityCode, dependencyValue: dependencyValue,
-		validationGeneration: validationGeneration, selectedValidationID: selectedValidationID,
-		targetManifest: currentTargetManifest, sourceContentKind: sourceContentKind,
+		selectedValidationID: selectedValidationID,
+		targetManifest:       currentTargetManifest, sourceContentKind: sourceContentKind,
 	})
 	if err != nil {
 		server.databaseError(writer, request, err)
@@ -172,10 +169,9 @@ func (server *Server) review(writer http.ResponseWriter, request *http.Request) 
 			"name": platformName,
 		}, "metadata": metadataValue, "sourceManifest": sourceValue,
 		"validation": evidence.validation.value, "candidates": evidence.candidates,
-		"scrapeRuns":                   evidence.scrapeRuns,
-		"selectedValidationGeneration": evidence.validation.selectedGeneration,
-		"canApprove":                   canApprove,
-		"uploadedAssets":               evidence.uploadedAssets, "sourceFiles": evidence.sourceFiles,
+		"scrapeRuns":     evidence.scrapeRuns,
+		"canApprove":     canApprove,
+		"uploadedAssets": evidence.uploadedAssets, "sourceFiles": evidence.sourceFiles,
 		"sourceMedia":       evidence.sourceMedia.value,
 		"runtimeScreenshot": evidence.runtimeScreenshot.value,
 		"rpgMaker":          rpgMaker,
@@ -421,14 +417,13 @@ FROM source
 
 type reviewValidationInput struct {
 	validationID, validationStatus, compatibilityCode, selectedValidationID sql.NullString
-	validationGeneration                                                    sql.NullInt64
 	dependencyValue                                                         any
 	targetManifest, sourceContentKind                                       string
 }
 
 type reviewValidationResult struct {
-	value, selectedGeneration any
-	stale, canApprove         bool
+	value             any
+	stale, canApprove bool
 }
 
 func (server *Server) reviewValidationProjection(
@@ -442,20 +437,14 @@ func (server *Server) reviewValidationProjection(
 	if err != nil {
 		return reviewValidationResult{}, fmt.Errorf("review validation projection: %w", err)
 	}
-	selectedGeneration := any(nil)
-	if input.selectedValidationID.Valid {
-		selectedGeneration = nullableInt64(input.validationGeneration)
-	}
 	return reviewValidationResult{
 		value: map[string]any{
 			"id": input.validationID.String, "status": input.validationStatus.String,
 			"current":            evidenceCurrent && input.validationStatus.String == "READY",
-			"generation":         nullableInt64(input.validationGeneration),
 			"compatibilityCode":  input.compatibilityCode.String,
 			"dependencySnapshot": input.dependencyValue,
 		},
-		selectedGeneration: selectedGeneration,
-		stale:              !evidenceCurrent,
+		stale: !evidenceCurrent,
 		canApprove: input.selectedValidationID.Valid && evidenceCurrent && input.validationStatus.String == "READY" &&
 			contentcapability.SupportsContentKind(input.targetManifest, input.sourceContentKind),
 	}, nil

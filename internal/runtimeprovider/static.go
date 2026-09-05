@@ -2,6 +2,7 @@
 package runtimeprovider
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
@@ -70,6 +71,7 @@ type staticHandler struct {
 
 type staticFile struct {
 	path      string
+	contents  []byte
 	sizeBytes int64
 	sha256    string
 	mediaType string
@@ -207,10 +209,10 @@ func (handler *staticHandler) ServeHTTP(writer http.ResponseWriter, request *htt
 	}
 	key := providerID + "\x00" + bundleDigest + "\x00" + path
 	file, development := handler.devFiles[key]
+	exists := development
 	if !development {
-		file = handler.files[key]
+		file, exists = handler.files[key]
 	}
-	exists := file.path != ""
 	if !exists {
 		http.NotFound(writer, request)
 		return
@@ -221,12 +223,6 @@ func (handler *staticHandler) ServeHTTP(writer http.ResponseWriter, request *htt
 		writer.WriteHeader(http.StatusRequestedRangeNotSatisfiable)
 		return
 	}
-	body, err := os.Open(file.path)
-	if err != nil {
-		http.NotFound(writer, request)
-		return
-	}
-	defer func() { cleanup.Error("close provider body", body.Close()) }()
 	if development {
 		writer.Header().Set("Cache-Control", "no-store")
 	} else {
@@ -239,7 +235,17 @@ func (handler *staticHandler) ServeHTTP(writer http.ResponseWriter, request *htt
 	if rangeMediaTypes[file.mediaType] {
 		writer.Header().Set("Accept-Ranges", "bytes")
 	}
-	http.ServeContent(writer, request, filepath.Base(file.path), time.Unix(0, 0), body)
+	if development {
+		http.ServeContent(writer, request, filepath.Base(path), time.Unix(0, 0), bytes.NewReader(file.contents))
+		return
+	}
+	body, err := os.Open(file.path)
+	if err != nil {
+		http.NotFound(writer, request)
+		return
+	}
+	defer func() { cleanup.Error("close provider body", body.Close()) }()
+	http.ServeContent(writer, request, filepath.Base(path), time.Unix(0, 0), body)
 }
 
 func splitProviderPath(path string) (string, string, string, bool) {

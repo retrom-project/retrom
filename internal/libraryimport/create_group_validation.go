@@ -42,13 +42,11 @@ func (run *creationRun) persistGroupValidation(record *groupRecord) error {
 func (run *creationRun) insertCoreValidation(record *groupRecord, dependencySnapshot string) error {
 	target := run.plan.target
 	inputDigest := prepublishDigest(prepublishDigestInput{
-		SchemaVersion: 1, ValidatorVersion: validatorImportV4,
-		SourceSnapshotID: record.sourceSnapshotID, SourceManifestDigest: record.manifestDigest,
+		SchemaVersion: 1, SourceSnapshotID: record.sourceSnapshotID, SourceManifestDigest: record.manifestDigest,
 		ContentKind:              record.contentKind,
 		TargetPlatformInstanceID: run.plan.request.TargetPlatformInstanceID,
-		PlatformInstanceVersion:  target.instanceVersion,
 		ProviderID:               target.providerID, TargetID: target.targetID,
-		ContentPolicyDigest: compatibilityConfigDigest(target.contentPolicyJSON),
+		ContentPolicyDigest: validationPolicyDigest(target.contentPolicyJSON, record.contentKind),
 		DATVersionID:        nullStringPointer(run.plan.datID),
 		DefaultDOSEntry:     stringPointer(record.group.defaultDOSEntry),
 		DependencySnapshot:  json.RawMessage(dependencySnapshot),
@@ -57,13 +55,13 @@ func (run *creationRun) insertCoreValidation(record *groupRecord, dependencySnap
 	_, err := run.transaction.ExecContext(run.ctx, `
 INSERT INTO import_item_core_validations(
   id,import_item_id,target_platform_instance_id,platform_instance_version,core_id,
-  provider_id,target_id,prepublish_generation,dat_version_id,
+  provider_id,target_id,dat_version_id,
   default_dos_entry,source_manifest_digest,source_snapshot_id,prepublish_input_digest,
   status,compatibility_code,dependency_snapshot_json,created_at_ms
-) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
 `, record.validationID, record.itemID, run.plan.request.TargetPlatformInstanceID,
 		target.instanceVersion, target.coreID, target.providerID, target.targetID,
-		prepublishGeneration, nullable(run.plan.datID), nullableText(record.group.defaultDOSEntry),
+		nullable(run.plan.datID), nullableText(record.group.defaultDOSEntry),
 		record.manifestDigest, record.sourceSnapshotID, inputDigest, record.validationStatus,
 		record.compatibilityCode, dependencySnapshot, run.now)
 	if err != nil {

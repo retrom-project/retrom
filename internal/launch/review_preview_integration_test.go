@@ -109,14 +109,14 @@ FROM review_drafts draft WHERE draft.import_item_id=?
 		t.Fatal(err)
 	}
 	arcadeValidationID := newUUID()
-	arcadeSnapshot := fmt.Sprintf(`{"schemaVersion":2,"machine":"review-child","datVersionId":%q,"closure":[],"dependencies":[{"kind":"PARENT","machine":"review-parent","state":"SATISFIED_EXTERNAL","requiredEntries":[]}],"missingEntries":[],"mismatchedEntries":[],"warnings":[]}`, datVersionID)
+	arcadeSnapshot := fmt.Sprintf(`{"schemaVersion":1,"kind":"ARCADE","machine":"review-child","datVersionId":%q,"closure":[],"dependencies":[{"kind":"PARENT","machine":"review-parent","state":"SATISFIED_EXTERNAL","requiredEntries":[]}],"missingEntries":[],"mismatchedEntries":[],"warnings":[]}`, datVersionID)
 	if _, err := database.SQL.ExecContext(ctx, `
 INSERT INTO import_item_core_validations(id,import_item_id,target_platform_instance_id,
-platform_instance_version,core_id,provider_id,target_id,prepublish_generation,
+platform_instance_version,core_id,provider_id,target_id,
 dat_version_id,default_dos_entry,source_manifest_digest,source_snapshot_id,prepublish_input_digest,
 status,compatibility_code,dependency_snapshot_json,created_at_ms)
 SELECT ?,import_item_id,target_platform_instance_id,platform_instance_version,core_id,provider_id,target_id,
-prepublish_generation,?,default_dos_entry,source_manifest_digest,source_snapshot_id,
+?,default_dos_entry,source_manifest_digest,source_snapshot_id,
 ?,status,compatibility_code,?,created_at_ms+1
 FROM import_item_core_validations WHERE id=?
 `, arcadeValidationID, datVersionID, strings.Repeat("a", 64), arcadeSnapshot, baseValidationID); err != nil {
@@ -197,7 +197,7 @@ WHERE game.id=?
 	}
 	var arcadeOverrideVariantID string
 	arcadeOverrideSnapshot := fmt.Sprintf(
-		`{"schemaVersion":2,"machine":"review-blocked","datVersionId":%q,"closure":[],"dependencies":[{"kind":"BIOS_OR_BASE","machine":"review-bios","state":"SATISFIED_EXTERNAL","requiredEntries":[]}],"missingEntries":[],"mismatchedEntries":[],"warnings":[]}`,
+		`{"schemaVersion":1,"kind":"ARCADE","machine":"review-blocked","datVersionId":%q,"closure":[],"dependencies":[{"kind":"BIOS_OR_BASE","machine":"review-bios","state":"SATISFIED_EXTERNAL","requiredEntries":[]}],"missingEntries":[],"mismatchedEntries":[],"warnings":[]}`,
 		datVersionID,
 	)
 	if err := database.SQL.QueryRowContext(ctx, `

@@ -861,7 +861,6 @@ components:
         selectedAssets: {}
         selectedCandidateId: {}
         selectedValidationId: {}
-        selectedValidationGeneration: {}
         sequence: {}
         sha1: {}
         sha256: {}

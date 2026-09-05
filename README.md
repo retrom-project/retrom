@@ -93,11 +93,11 @@ make pfb-build PFB=feat-ons-save
 make pfb-up PFB=feat-ons-save
 ```
 
-`pfb-build` 只在首次使用或 package/toolchain 定义变化时准备开发镜像、Node/Go 依赖与生成代码；它不构建 Provider archive、core 或 release candidate。新环境通过显式、upgrade-only 的 `pfb-provider-import` 复用已验证 Provider 基座，旧命名卷则通过一次 `pfb-migrate-storage` 保留数据迁移。日常修改直接由 bind mount 生效：Web 使用 Next HMR，Go 修改后执行 `pfb-restart`，`retrom-runtime` adapter 由轻量 watcher 只重建开发 `client.mjs` 和本地 adapter 资源，随后执行一次 `pfb-restart` 让 Go 重新装载 revision。`pfb-up` 固定使用 Compose `--no-build`，`pfb-restart` 只重启已有容器。
+`pfb-build` 只在首次使用或 package/toolchain 定义变化时准备开发镜像、Node/Go 依赖与生成代码；它不构建 Provider archive、core 或 release candidate。新环境通过显式、upgrade-only 的 `pfb-provider-import` 复用已验证 Provider 基座，旧命名卷则通过一次 `pfb-migrate-storage` 保留数据迁移。日常修改直接由 bind mount 生效：Web 使用 Next HMR，Go 修改后执行 `pfb-restart`，`retrom-runtime` adapter 由轻量 watcher 只重建开发 `client.mjs` 和本地 adapter 资源，随后执行一次 `pfb-restart` 让 Go 重新装载开发模块与资源。`pfb-up` 固定使用 Compose `--no-build`，`pfb-restart` 只重启已有容器。
 
 持久数据库、CAS、上传、provider 基座与依赖/cache 位于当前 Retrom worktree 的 `.pfb/workspace/`，因此同一 PFB 的 ID、URL 和数据不会因 down/up/restart 改变。旧命名卷实例先停止，再用 `make pfb-migrate-storage PFB=<name> CONFIRM=<pfb-id>` 一次性原子迁移；源卷保留。只有真正不兼容的开发数据变化才使用 `pfb-data-reset`，它会先归档旧数据。core 永远只由显式 `make pfb-core-build PFB=<name> CORE=<id>` 构建。完整操作与安全边界见 [PFB 轻量开发容器](docs/pfb-development.md)。
 
-使用 `make pfb-status PFB=<name>` 查看容器、健康、workspace、开发 provider revision 与 URL；`make pfb-verify PFB=<name>` 保存隔离检查证据。`pfb-down` 保留 workspace，`pfb-remove` 保留 workspace 但移除容器/注册，`pfb-destroy PFB=<name> CONFIRM=<pfb-id>` 才删除该 worktree 的 `.pfb/` 状态。严格前置为 Linux x86-64（含 WSL2）、默认本机 Docker context、Compose v2 和仓库锁定的 Chrome；不支持的平台由 `pfb-validate` 明确拒绝。
+使用 `make pfb-status PFB=<name>` 查看容器、健康、workspace、开发 provider 模块摘要 与 URL；`make pfb-verify PFB=<name>` 保存隔离检查证据。`pfb-down` 保留 workspace，`pfb-remove` 保留 workspace 但移除容器/注册，`pfb-destroy PFB=<name> CONFIRM=<pfb-id>` 才删除该 worktree 的 `.pfb/` 状态。严格前置为 Linux x86-64（含 WSL2）、默认本机 Docker context、Compose v2 和仓库锁定的 Chrome；不支持的平台由 `pfb-validate` 明确拒绝。
 
 ## 添加自己的游戏
 

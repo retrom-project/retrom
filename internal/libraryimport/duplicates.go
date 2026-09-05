@@ -50,7 +50,7 @@ FROM import_item_source_snapshots snapshot
 WHERE snapshot.id=COALESCE(
   (SELECT draft.effective_source_snapshot_id FROM review_drafts draft WHERE draft.import_item_id=?),
   (SELECT initial.id FROM import_item_source_snapshots initial
-   WHERE initial.import_item_id=? AND initial.revision_no=1)
+   WHERE initial.import_item_id=? AND initial.created_by='IDENTIFICATION')
 )
 `, itemID, itemID).Scan(&snapshotID, &contentKind); err != nil {
 		return "", ErrInvalid
@@ -67,7 +67,7 @@ JOIN blobs blob ON blob.id=source.blob_id
 WHERE source.source_snapshot_id=COALESCE(
   (SELECT draft.effective_source_snapshot_id FROM review_drafts draft WHERE draft.import_item_id=?),
   (SELECT snapshot.id FROM import_item_source_snapshots snapshot
-   WHERE snapshot.import_item_id=? AND snapshot.revision_no=1)
+   WHERE snapshot.import_item_id=? AND snapshot.created_by='IDENTIFICATION')
 )
 GROUP BY source.role,blob.sha256
 ORDER BY source.role,blob.sha256
@@ -147,7 +147,7 @@ FROM import_item_source_snapshots snapshot
 WHERE snapshot.id=COALESCE(
   (SELECT draft.effective_source_snapshot_id FROM review_drafts draft WHERE draft.import_item_id=?),
   (SELECT initial.id FROM import_item_source_snapshots initial
-   WHERE initial.import_item_id=? AND initial.revision_no=1)
+   WHERE initial.import_item_id=? AND initial.created_by='IDENTIFICATION')
 )
 `, itemID, itemID).Scan(&contentKind); err != nil {
 		return nil, ErrInvalid
@@ -184,7 +184,7 @@ AND NOT EXISTS (
     WHERE incoming.source_snapshot_id=COALESCE(
       (SELECT draft.effective_source_snapshot_id FROM review_drafts draft WHERE draft.import_item_id=?),
       (SELECT snapshot.id FROM import_item_source_snapshots snapshot
-       WHERE snapshot.import_item_id=? AND snapshot.revision_no=1)
+       WHERE snapshot.import_item_id=? AND snapshot.created_by='IDENTIFICATION')
     )
     GROUP BY incoming.role,incoming.blob_id
   ) existing_difference
@@ -196,7 +196,7 @@ AND NOT EXISTS (
     WHERE incoming.source_snapshot_id=COALESCE(
       (SELECT draft.effective_source_snapshot_id FROM review_drafts draft WHERE draft.import_item_id=?),
       (SELECT snapshot.id FROM import_item_source_snapshots snapshot
-       WHERE snapshot.import_item_id=? AND snapshot.revision_no=1)
+       WHERE snapshot.import_item_id=? AND snapshot.created_by='IDENTIFICATION')
     )
     GROUP BY incoming.role,incoming.blob_id
     EXCEPT
@@ -227,7 +227,7 @@ AND NOT EXISTS(
   WHERE incoming.source_snapshot_id=COALESCE(
     (SELECT draft.effective_source_snapshot_id FROM review_drafts draft WHERE draft.import_item_id=?),
     (SELECT initial.id FROM import_item_source_snapshots initial
-     WHERE initial.import_item_id=? AND initial.revision_no=1)
+     WHERE initial.import_item_id=? AND initial.created_by='IDENTIFICATION')
   ) AND incoming.role='DISC'
   EXCEPT
   SELECT existing.sort_order,existing.blob_id FROM game_files existing
@@ -242,7 +242,7 @@ AND NOT EXISTS(
   WHERE incoming.source_snapshot_id=COALESCE(
     (SELECT draft.effective_source_snapshot_id FROM review_drafts draft WHERE draft.import_item_id=?),
     (SELECT initial.id FROM import_item_source_snapshots initial
-     WHERE initial.import_item_id=? AND initial.revision_no=1)
+     WHERE initial.import_item_id=? AND initial.created_by='IDENTIFICATION')
   ) AND incoming.role='DISC'
 )
 ORDER BY game.created_at_ms,game.id
