@@ -545,7 +545,7 @@ def validate_mz_transformation(value: Any, digest: str, file_count: int, total_b
         "outputProjectFingerprint", "outputFileCount", "outputTotalBytes",
     }
     if not isinstance(value, dict) or set(value) != keys or value.get("schemaVersion") != 1 or \
-            value.get("recipe") != "RETROM_MZ_MINIMAL_V3" or \
+            value.get("recipe") != "RETROM_MZ_MINIMAL_V4" or \
             value.get("tool") != "scripts/acceptance/rpgmaker_mz_prepare.py" or \
             value.get("sourceSizeBytes") != MZ_SOURCE_SIZE_BYTES or \
             value.get("outputProjectFingerprint") != digest or value.get("outputFileCount") != file_count or \

@@ -14,7 +14,7 @@ from pathlib import Path, PurePosixPath
 
 SOURCE_SIZE_BYTES = 98_413_632
 SOURCE_SHA256 = "48c5ec13b6a136e7ce1b6f0f9d19d493ed28599b9fea899fa0a78ab356cbf49b"
-SOURCE_VERSION = "nannnimo.zip@S3-pdevmVYtsEjgmApT19h4U2RsKDZtjXwl+retrom-minimal-v3"
+SOURCE_VERSION = "nannnimo.zip@S3-pdevmVYtsEjgmApT19h4U2RsKDZtjXwl+retrom-minimal-v4"
 SOURCE_URL = "https://cdn.tkool.jp/updata/nannnimo.zip"
 LICENSE_URL = "https://rpgmakerofficial.com/product/mz/download/dlc/dl_04.html"
 WRAPPER = "nannnimo"
@@ -80,6 +80,7 @@ PLUGIN_JS = b'''/*:
             const nextX = width > 1 ? ($gamePlayer.x + 1) % width : $gamePlayer.x;
             $gamePlayer.locate(nextX, $gamePlayer.y);
             $gameVariables.setValue(1, current === 0 ? 1 : current === 1 ? 2 : 1);
+            SoundManager.playOk();
         }
     };
 })();
@@ -203,7 +204,7 @@ def prepare_archive(
         "licenseUrl": LICENSE_URL, "sourceUrl": SOURCE_URL,
         "sourceVersion": SOURCE_VERSION, "sourceSha256": expected_sha256,
         "transformation": {
-            "schemaVersion": 1, "recipe": "RETROM_MZ_MINIMAL_V3",
+            "schemaVersion": 1, "recipe": "RETROM_MZ_MINIMAL_V4",
             "tool": "scripts/acceptance/rpgmaker_mz_prepare.py",
             "sourceSizeBytes": expected_size_bytes,
             "removedEntries": sorted(removed, key=lambda item: str(item["logicalName"])),
