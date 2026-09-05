@@ -1,4 +1,4 @@
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { useState } from "react";
@@ -6,6 +6,7 @@ import { TagChips, TagPicker, type TagReference } from "./tag-picker";
 
 afterEach(() => {
   cleanup();
+  vi.useRealTimers();
   vi.restoreAllMocks();
 });
 
@@ -21,6 +22,21 @@ function PickerHarness({ initial = [] }: { initial?: TagReference[] }) {
 }
 
 describe("TagPicker", () => {
+  it("cancels delayed blur on refocus and on unmount", async () => {
+    vi.useFakeTimers();
+    const view = render(<PickerHarness />);
+    const input = screen.getByRole("combobox", { name: "游戏标签" });
+    fireEvent.focus(input);
+    fireEvent.blur(input);
+    fireEvent.focus(input);
+    await act(() => vi.advanceTimersByTime(120));
+    expect(screen.getByRole("listbox")).toBeVisible();
+    fireEvent.blur(input);
+    expect(vi.getTimerCount()).toBeGreaterThan(0);
+    view.unmount();
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
   it("searches, selects and removes an existing tag with the keyboard", async () => {
     const user = userEvent.setup();
     render(<PickerHarness />);
