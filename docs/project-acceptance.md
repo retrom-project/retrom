@@ -55,6 +55,7 @@
 ### 3.1 必需环境
 
 - Linux 开发/CI 环境，仓库根目录为当前目录；
+- 启动或切换隔离验收实例后，先从实际 `RETROM_ACCEPTANCE_BASE_URL` 请求 `GET /health/ready`，确认 `200` 和 `status=ready` 后再开始产品 Case；监听端口或 Next 页面可访问不能替代 DAT/Provider 初始化完成。未就绪不应开始登录、导入或消耗 Case 输入；实例启动前置失败须保留原记录，不重置 PFB 数据。
 - 仓库锁定的 Go、Node.js/npm、golangci-lint 和依赖；
 - 由仓库锁定 Playwright 物化的官方 Chrome for Testing；只验收 Chrome，不承诺其他浏览器，手机/平板使用 Chrome 的固定 CSS viewport 和 coarse-pointer 仿真，并在可用时补充真实移动 Chrome 复核；
 - 构建镜像 Case 需要 Docker daemon，但不授权启动容器；
