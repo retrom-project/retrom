@@ -5,7 +5,8 @@ import { join, resolve } from "node:path";
 
 import { chromium } from "../../web/node_modules/playwright/index.mjs";
 
-import {captureOptionalReviewScreenshot, resumePreview, revealPreviewToolbar} from "./rpgmaker_preview_actions.mjs";
+import {captureOptionalReviewScreenshot, revealPreviewToolbar} from "./rpgmaker_preview_actions.mjs";
+import {waitForAvailableCheckpoint} from "./player_checkpoint_readiness.mjs";
 
 import {
   assertButterscotchProductEvidence,
@@ -270,19 +271,8 @@ async function runtimeCanvas(page) {
 }
 
 async function waitForCheckpoint(page) {
-  await revealPreviewToolbar(page);
-  const button = page.getByRole("button", { name: "创建存档", exact: true });
-  await button.waitFor({ state: "visible", timeout: 120_000 });
-  const deadline = Date.now() + 120_000;
-  while (Date.now() < deadline) {
-    if (await button.isEnabled().catch(() => false)) {
-      await resumePreview(page);
-      await runtimeCanvas(page);
-      return;
-    }
-    await page.waitForTimeout(100);
-  }
-  throw new Error("BUTTERSCOTCH_ACCEPTANCE_SAVE_UNAVAILABLE");
+  await waitForAvailableCheckpoint(page);
+  await runtimeCanvas(page);
 }
 
 async function createCheckpoint(page, launchId) {
