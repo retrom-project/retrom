@@ -38,6 +38,40 @@ afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
 describe("ReviewActions metadata", () => {
 
+  it("reconciles the current validation projection after autosave", async () => {
+    const refreshed: ReviewWorkspace = {
+      ...review,
+      version: 2,
+      canApprove: true,
+      metadata: { ...review.metadata, title: "Current title" },
+    };
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.endsWith("/reviews/item-1") && init?.method === "PATCH") {
+        return Promise.resolve(jsonResponse({ version: 2 }));
+      }
+      if (url.endsWith("/reviews/item-1") && !init?.method) {
+        return Promise.resolve(jsonResponse(refreshed));
+      }
+      throw new Error(`unexpected fetch ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const user = userEvent.setup();
+    render(<ReviewActions review={{ ...review, canApprove: false }} />);
+
+    expect(screen.getByRole("button", { name: "通过并发布" })).toBeDisabled();
+    await user.clear(screen.getByLabelText("标题"));
+    await user.type(screen.getByLabelText("标题"), "Current title");
+
+    await waitFor(() => expect(screen.getByRole("button", { name: "通过并发布" })).toBeEnabled(), {
+      timeout: 2_000,
+    });
+    expect(fetchMock.mock.calls.map(([input]) => String(input))).toEqual([
+      "/api/v1/admin/reviews/item-1",
+      "/api/v1/admin/reviews/item-1",
+    ]);
+  });
+
   it("keeps an automatic scrape failure diagnosis visible on the review", () => {
     render(<ReviewActions review={{
       ...review,
@@ -80,7 +114,10 @@ describe("ReviewActions metadata", () => {
         runtimePackRequirements: [], runtimePackSelections: [], runtimeValidation: null,
       },
     };
-    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ version: 2 }));
+    const refreshedRpgReview = { ...rpgReview, version: 2 };
+    const fetchMock = vi.fn((_input: RequestInfo | URL, init?: RequestInit) => Promise.resolve(
+      init?.method === "PATCH" ? jsonResponse({ version: 2 }) : jsonResponse(refreshedRpgReview),
+    ));
     vi.stubGlobal("fetch", fetchMock);
     const user = userEvent.setup();
     render(<ReviewActions review={rpgReview} />);
@@ -105,7 +142,7 @@ describe("ReviewActions metadata", () => {
 describe("ReviewActions metadata continuation", () => {
   it("opens one comparison dialog and autosaves the applied result", async () => {
     const candidate = { candidateId: "candidate-1", scrapeRunId: "run-1", providerGameId: "50192", metadata: { title: "1941: Counter Attack", description: "Long provider description", publisher: "Capcom" }, evidence: {}, assets: [{ candidateAssetId: "cover-1", kind: "COVER" as const, ordinal: 0, status: "READY", widthPx: 320, heightPx: 480, mediaType: "image/png", errorCode: null }] };
-    const updated: ReviewWorkspace = { ...review, version: 2, candidates: [candidate], scrapeRuns: [{ scrapeRunId: "run-1", jobId: "job-1", provider: "HASHEOUS", state: "COMPLETED", jobState: "SUCCEEDED", createdAtMs: 1, completedAtMs: 2, errorCode: null, evidenceCount: 1, attemptCount: 1, candidateCount: 1, outcomes: { hit: 1, miss: 0, rateLimited: 0, timeout: 0, invalidResponse: 0, networkError: 0 } }] };
+    const updated: ReviewWorkspace = { ...review, version: 3, candidates: [candidate], scrapeRuns: [{ scrapeRunId: "run-1", jobId: "job-1", provider: "HASHEOUS", state: "COMPLETED", jobState: "SUCCEEDED", createdAtMs: 1, completedAtMs: 2, errorCode: null, evidenceCount: 1, attemptCount: 1, candidateCount: 1, outcomes: { hit: 1, miss: 0, rateLimited: 0, timeout: 0, invalidResponse: 0, networkError: 0 } }] };
     const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
       if (url.endsWith("/scrape-candidates")) {return Promise.resolve(jsonResponse({ version: 2, state: "QUEUED", scrapeRunId: "run-1", jobId: "job-1" }, 202));}
@@ -135,9 +172,13 @@ describe("ReviewActions metadata continuation", () => {
   });
 
   it("autosaves the first successful candidate instead of creating an unsaved draft", async () => {
-    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ version: 2 }));
+    const candidate = { candidateId: "candidate-first", scrapeRunId: "run-first", providerGameId: "42", metadata: { title: "Scraped title", publisher: "Publisher" }, evidence: {}, assets: [] };
+    const candidateReview: ReviewWorkspace = { ...review, candidates: [candidate] };
+    const fetchMock = vi.fn((_input: RequestInfo | URL, init?: RequestInit) => Promise.resolve(
+      init?.method === "PATCH" ? jsonResponse({ version: 2 }) : jsonResponse({ ...candidateReview, version: 2 }),
+    ));
     vi.stubGlobal("fetch", fetchMock);
-    render(<ReviewActions review={{ ...review, candidates: [{ candidateId: "candidate-first", scrapeRunId: "run-first", providerGameId: "42", metadata: { title: "Scraped title", publisher: "Publisher" }, evidence: {}, assets: [] }] }} />);
+    render(<ReviewActions review={candidateReview} />);
 
     expect(screen.getByLabelText("标题")).toHaveValue("Scraped title");
     expect(screen.getByText(/系统会实时保存/)).toBeInTheDocument();
@@ -147,12 +188,15 @@ describe("ReviewActions metadata continuation", () => {
   });
 
   it("autosaves selected existing tags with the complete review draft", async () => {
-    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ version: 2 }));
-    vi.stubGlobal("fetch", fetchMock);
-    const user = userEvent.setup();
     const actionTag = { tagId: "tag-action", name: "动作" };
     const coopTag = { tagId: "tag-coop", name: "双人合作" };
-    render(<ReviewActions review={{ ...review, tags: [actionTag] }} activeTags={[actionTag, coopTag]} />);
+    const taggedReview: ReviewWorkspace = { ...review, tags: [actionTag] };
+    const fetchMock = vi.fn((_input: RequestInfo | URL, init?: RequestInit) => Promise.resolve(
+      init?.method === "PATCH" ? jsonResponse({ version: 2 }) : jsonResponse({ ...taggedReview, version: 2, tags: [actionTag, coopTag] }),
+    ));
+    vi.stubGlobal("fetch", fetchMock);
+    const user = userEvent.setup();
+    render(<ReviewActions review={taggedReview} activeTags={[actionTag, coopTag]} />);
 
     await user.type(screen.getByRole("combobox", { name: "游戏标签" }), "合作");
     await user.keyboard("{Enter}");
@@ -228,7 +272,9 @@ describe("ReviewActions metadata continuation", () => {
   });
 
   it("flushes a pending edit when the review page unmounts", async () => {
-    const fetchMock = vi.fn(() => Promise.resolve(jsonResponse({ version: 2 })));
+    const fetchMock = vi.fn((_input: RequestInfo | URL, init?: RequestInit) => Promise.resolve(
+      init?.method === "PATCH" ? jsonResponse({ version: 2 }) : jsonResponse({ ...review, version: 2 }),
+    ));
     vi.stubGlobal("fetch", fetchMock);
     const user = userEvent.setup();
     const { unmount } = render(<ReviewActions review={review} />);
@@ -246,6 +292,7 @@ describe("ReviewActions metadata continuation", () => {
       const url = String(input);
       if (url.endsWith("/assets")) {return Promise.resolve(jsonResponse({ assetId: "asset-1", kind: "COVER", widthPx: 600, heightPx: 900, mediaType: "image/png", url: "/api/v1/admin/review-assets/asset-1", createdAtMs: 1 }, 201));}
       if (url.endsWith("/reviews/item-1") && init?.method === "PATCH") {return Promise.resolve(jsonResponse({ version: 2 }));}
+      if (url.endsWith("/reviews/item-1") && !init?.method) {return Promise.resolve(jsonResponse({ ...review, version: 2, uploadedAssets: [{ assetId: "asset-1", kind: "COVER", widthPx: 600, heightPx: 900, mediaType: "image/png", url: "/api/v1/admin/review-assets/asset-1", createdAtMs: 1 }] }));}
       throw new Error(`unexpected fetch ${url}`);
     });
     vi.stubGlobal("fetch", fetchMock);
