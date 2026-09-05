@@ -1581,6 +1581,9 @@ Playwright 未提供 multipart 文件 bytes 时，通过 Chrome `Network.getRequ
 精确字节数必须与真实 Content-Length 闭合，缺失、重复、跨请求、部分截断或摘要不匹配均失败。
 调试会话只在单次存档操作期间连接并在 finally 释放；
 其 payload SHA-256 继续与另一个预览冻结的 restore payload 比较，不能用成功响应替代字节证据。
+存档截图遵循普通 Player 的 JPEG/PNG 契约，按文件 magic 解码而非假定扩展名；正式 Case 按真实格式保存，
+以原始上传 bytes 计算摘要并与 trial 关联。JPEG 的像素读取复用 Web 锁定的图像解码器，限制原图
+16 MiB、320×180 至 4096×4096 和 20 秒解码时间，不修改源图、不缩放、不替换画面。
 不得使用 ignored 临时 runner 或伪造生产证明记录。004 仅在执行 270 MiB 与禁线程扩展边界验证时传入新的绝对
 `RETROM_ACC_RPG_004_TRACE`；七核心最小闭环不要求该变量。008 还必须传入同次转换得到的 `RPG_MZ_SMOKE_ROOT`。provision 成功后，再把返回的
 两个 ID 和 trialEvidence 路径交给相同 Case 的统一 runner 生成正式 `result.json`。
