@@ -9,12 +9,12 @@ function integer(value) {
   return Buffer.from(bytes);
 }
 function chunk(id, bytes) {return Buffer.concat([integer(id), integer(bytes.length), bytes]);}
-function save({mapId = 1, playerX = 300, playerY = 8, fixtureState = 1} = {}) {
+function save({mapId = 1, playerX = 300, playerY = 8, fixtureState = 1, system = null} = {}) {
   const variables = Buffer.alloc(8);
   variables.writeInt32LE(fixtureState);
   return Buffer.concat([
     Buffer.from("\x0bLcfSaveData"),
-    chunk(0x65, Buffer.concat([chunk(0x21, integer(2)), chunk(0x22, variables), integer(0)])),
+    chunk(0x65, system ?? Buffer.concat([chunk(0x21, integer(2)), chunk(0x22, variables), integer(0)])),
     chunk(0x68, Buffer.concat([
       chunk(0x0b, integer(mapId)), chunk(0x0c, integer(playerX)), chunk(0x0d, integer(playerY)), integer(0),
     ])),
@@ -44,6 +44,29 @@ test("rejects truncated, wrong-engine and corrupted save observations rather tha
     checkpoint(save(), "RPG2000", "0".repeat(64)), checkpoint(Buffer.from("not a save")),
     checkpoint(Buffer.concat([save(), Buffer.from([0, 1])]))]) {
     assert.throws(() => readEasyRpgPosition(bytes, "RPG2000"), /RPG_FIXTURE_SAVE_INVALID/);
+  }
+});
+test("reads an uninitialized EasyRPG variable as zero with omitted or explicit empty vector fields", () => {
+  for (const engine of ["RPG2000", "RPG2003"]) {
+    for (const fields of [[], [chunk(0x22, Buffer.alloc(0))],
+      [chunk(0x21, integer(0)), chunk(0x22, Buffer.alloc(0))]]) {
+      const system = Buffer.concat([...fields, integer(0)]);
+      assert.deepEqual(readEasyRpgPosition(checkpoint(save({system}), engine), engine), {
+        mapId: 1, playerX: 300, playerY: 8, fixtureState: 0,
+      });
+    }
+  }
+});
+test("rejects inconsistent variable counts even when the first variable would be zero", () => {
+  for (const fields of [
+    [chunk(0x21, integer(1))],
+    [chunk(0x21, integer(1)), chunk(0x22, Buffer.alloc(0))],
+    [chunk(0x21, integer(2)), chunk(0x22, Buffer.alloc(4))],
+    [chunk(0x21, integer(0)), chunk(0x22, Buffer.alloc(4))],
+    [chunk(0x22, Buffer.alloc(4))],
+  ]) {
+    const system = Buffer.concat([...fields, integer(0)]);
+    assert.throws(() => readEasyRpgPosition(checkpoint(save({system})), "RPG2000"), /RPG_FIXTURE_SAVE_INVALID/);
   }
 });
 test("reads only bounded state emitted by the owned Ruby fixture", () => {
