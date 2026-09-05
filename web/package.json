@@ -16,7 +16,6 @@
     "api:generate": "openapi-typescript ../.cache/generated/openapi.bundle.yaml -o lib/api/generated/schema.d.ts"
   },
   "dependencies": {
-    "fflate": "0.8.2",
     "next": "16.3.0",
     "nostalgist": "0.20.2",
     "openapi-fetch": "0.17.0",
