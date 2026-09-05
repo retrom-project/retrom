@@ -53,7 +53,7 @@ flowchart LR
 
 ## 3. Clean migration 落地顺序
 
-当前唯一基线是下面的单向 current-schema 迁移链；每张业务表只创建一次，后续 migration 可以替换 trigger/index，但不使用 ALTER/rename-copy-drop 重建业务表，不做业务回填、旧版本双读或降级转换。迁移文件一旦被应用就进入不可改写的只追加纪律：
+当前唯一基线是下面的单向迁移链。001–011 建立发布前基座；012 以一次原子 copy/swap 把旧 revision 结构升级为 current-state 模型。升级成功后不保留旧表双读、降级或回滚路径；迁移文件一旦被应用就进入不可改写的只追加纪律：
 
 1. `001_identity.sql`：账号、凭据、session、account link 与实例状态；
 2. `002_catalog.sql`：Platform/Core、RuntimeProvider/RuntimeTarget、Core binding 与零实例目录的 PlatformInstance；
@@ -65,9 +65,10 @@ flowchart LR
 8. `008_server_import.sql`：Pegasus 与 EmulationStation 当前 review-handoff 模型；
 9. `009_runtime.sql`：PRODUCT/RPG_RUNTIME_VALIDATION Launch、PlaySession、opaque checkpoint、隔离 runtime ticket/capability 与 Netplay；
 10. `010_cross_domain_invariants.sql`：只能在全部 owner table 存在后建立的 Provider/Target/profile/pack/checkpoint/Launch 索引和 trigger。
-11. `011_emulationstation_import_liveness.sql`：前向修正 EmulationStation 内容拒绝路径的条目状态迁移；worker 另以处理后工作态检查保证终态写入失败不会形成忙循环。
+11. `011_emulationstation_import_liveness.sql`：前向修正 EmulationStation 内容拒绝路径的条目状态迁移；worker 另以处理后工作态检查保证终态写入失败不会形成忙循环；
+12. `012_runtime_provider_current_state.sql`：单事务移除 metadata/content/Variant revision 树与 Target contract hash，将业务投影切换为 Game/File/Variant current state 和 Provider-owned Target declaration，并迁移既有 001–011 数据。
 
-循环 current state 使用数据模型规定的 deferred FK；clean migration 全程保持 `foreign_keys=ON`，每条在事务中应用并记录 name/checksum，最终执行 `foreign_key_check` 与 schema introspection。运行时代码不按 migration 数字分支，不关闭外键，不回填业务数据，也不动态修补 schema。
+循环 current state 使用数据模型规定的 deferred FK；普通 migration 保持 `foreign_keys=ON`，只有带 `retrom:foreign-keys-off` 标记的 012 由 runner 在独占升级事务前关闭、完成后立即恢复，并执行 `foreign_key_check` 与 schema introspection。每条 migration 都在事务中应用并记录 name/checksum；运行时代码不按 migration 数字分支，不在业务请求中关闭外键、回填数据或动态修补 schema。
 
 推荐游戏平台目录由 `internal/platformcatalog` 的当前 catalog 和“应用推荐目录”服务创建，fresh DB 初始目录数为零。测试的低层 current-schema builder 创建 UUIDv7 并返回按 `catalog_template_key` 索引的引用；API/E2E 使用推荐目录产品路径，任何测试都不得复活历史 seed UUID 或 slug。
 
@@ -177,7 +178,7 @@ flowchart LR
 
 ### M16：Payload 生命周期与 Game 永久删除
 
-范围：先更新 OpenAPI 和 001–011 clean migration，建立 Blob/ownership registry 双向门禁、ReviewEvent v2 和各领域 payload state；随后实现持久 PayloadRelease/Provider TTL/BLOB_GC dispatcher，并把普通上传、Pegasus、文件/媒体替换的全部终态入口接通。最后实现 Game 影响摘要、墓碑式永久删除、共享引用保护、公共内容阻断、最近/收藏/联机历史墓碑和管理端进度/重试。
+范围：在当时的 001–011 基座中同步更新 OpenAPI 与 migration，建立 Blob/ownership registry 双向门禁、ReviewEvent v2 和各领域 payload state；随后实现持久 PayloadRelease/Provider TTL/BLOB_GC dispatcher，并把普通上传、Pegasus、文件/媒体替换的全部终态入口接通。最后实现 Game 影响摘要、墓碑式永久删除、共享引用保护、公共内容阻断、最近/收藏/联机历史墓碑和管理端进度/重试；最终结构由后续 012 单向迁移承接。
 
 退出门禁：完整执行 `ACC-GAME-003`、`ACC-IMP-007/008`、`ACC-PEG-004`、`ACC-CAS-002`、`ACC-STOR-001`、`ACC-UI-008`，并运行 API、后端、集成、前端、`make web-e2e` 与 `make ci` 全门禁。全新数据库和开发实例必须重建；普通上传与 Pegasus 发布/丢弃、共享 Blob、进程中断、provider TTL、Game 删除和 GC 宽限均需确定性证据。正式文档与统一 UI 源/导出 HTML 闭环后删除临时方案目录。
 
@@ -216,7 +217,7 @@ OpenAPI、后端、集成、前端、结构、公开 fixture、data/dependency�
 
 1. 冻结 Provider contract、canonical JSON、Bundle layout、Target declarations 和 Product Core bindings；EmulatorJS 35 个 Target 与 retrom-runtime 12 个 Target 只有各 Provider declaration 一份映射事实源。
 2. 建立确定性 candidate/release Bundle、安装器、active descriptor 与只向前升级验证；candidate 与 production 目录、锁和镜像输入完全分离。
-3. 将 clean 001–011 migration、OpenAPI、Go catalog/launch/save/netplay 和全部领域引用原子切换为 Provider/Target/manifest digest；旧开发数据库拒绝并重建，不做降级或转换。
+3. 追加 012 单向 migration，将完整 001–011 数据、OpenAPI、Go catalog/launch/save/netplay 和全部领域引用原子切换为 Provider/Target current state；升级后不保留降级、回滚或双读路径。
 4. 所有运行入口只返回 Launch Envelope V1；Web 只经共享 dispatcher 加载 Provider module 并操作 `PlayerRuntimeV1`，不保留第二个 registry 或 family factory。
 5. 将 EmulatorJS、RPG Maker、ONS、KiriKiri、Butterscotch、TyranoScript、WASM-4、单机、多盘、沉浸、Validation 与 netplay 行为全部迁移到 Provider 生命周期。
 6. 更新生产/PFB边界：PFB改为bind-mount轻量开发容器，loose provider只在合法test PFB中使用并按revision校验；release input digest、生产镜像与正式active identity不读取`.pfb/`。

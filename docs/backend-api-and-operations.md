@@ -124,7 +124,7 @@ web/components/           无业务状态的通用组件
 - 用户读取：home、game library/detail、save list。
 - 用户写入：创建 LaunchSession、heartbeat/finish、手动通用 checkpoint，以及从 checkpoint 创建新 restore Launch。
 - 联机用户：列出精确支持的游戏、创建/查看房间、选座/准备/开始/结束；房间状态使用 SSE，运行输入和 state transfer 使用同源 WebSocket。
-- 管理写入：upload、import、受信服务器 BIOS/Pegasus/EmulationStation scan、review（含 RPG 版本核心/资源包/绑定 revision）、RPG runtime validation/判定、game revision、platform instance、BIOS installation、Arcade DAT installation 和 RPG pack installation。
+- 管理写入：upload、import、受信服务器 BIOS/Pegasus/EmulationStation scan、review（含 RPG 世代、资源包与当前 Provider/Target 输入）、RPG runtime validation/判定、Game 当前态、platform instance、BIOS installation、Arcade DAT installation 和 RPG pack installation。
 - 管理读取：入库总览/任务/SSE、服务器扫描计划与映射、待审核/历史、游戏管理、BIOS/DAT/RPG 运行依赖、RPG validation gates、审计事件和脱敏诊断摘要。
 
 详情页和存档快速启动都调用同一 `POST /api/v1/launches`；区别只在是否携带 `saveStateId`。所有普通 API 必须先完成账户认证，管理 API 还要求 `ADMIN`；所有已认证写请求同时执行 Origin、Fetch Metadata、CSRF、乐观并发与幂等校验。浏览器目录上传只传相对路径；服务器扫描只接受已配置 capability 的 root ID 与规范相对路径，不提供任意宿主路径入口。
@@ -361,7 +361,7 @@ SQLite 基线：启用外键、WAL 和合理的 `busy_timeout`；仅通过版本
 
 精确命令、原子发布、引用 registry、目标必须不存在和恢复校验见[存储与数据库第 8 节](./storage-and-database.md#8-备份与恢复)。恢复发布前还要在单一事务撤销全部旧 AuthSession、ACTIVE AccountLink和非终态 Launch，把遗留联机 Session/Room 以 `RESTORE` 收口，并写 SYSTEM安全围栏审计；因此恢复后的旧 cookie/capability/WebSocket 全部无效，实时 history 不尝试恢复。命令本身不启动服务、不覆盖旧目录。
 
-当前未发布基线只接受 001–011 clean lineage 的精确有序前缀或完整集合；旧开发 lineage、旧 manifest schema、部分备份和名称/checksum 漂移都在写入前拒绝。部署本次改造时归档或删除标准开发数据库并以空根初始化。备份恢复只允许由同版本或更高版本二进制读取与验证完整数据根，不得混合数据库、CAS 或密钥，也不支持二进制、schema 或 Provider 降级。恢复服务开放 HTTP 前把所有依赖外部 source 的非终态 BIOS/Pegasus/EmulationStation Job 与 aggregate 以 `SERVER_IMPORT_SOURCE_NOT_RESTORED` 失败收口；普通待审和已发布 CAS bytes 保留。首次正式发布后只追加升级，不预留降级或双读转换分支。
+当前未发布基线只接受 001–012 lineage 的精确有序前缀或完整集合；完整 001–011 数据库由 012 单向升级到 current-state 模型。未知 lineage、旧 manifest schema、部分备份和名称/checksum 漂移都在写入前拒绝。备份恢复只允许由同版本或更高版本二进制读取与验证完整数据根，不得混合数据库、CAS 或密钥，也不支持二进制、schema 或 Provider 降级、回滚。恢复服务开放 HTTP 前把所有依赖外部 source 的非终态 BIOS/Pegasus/EmulationStation Job 与 aggregate 以 `SERVER_IMPORT_SOURCE_NOT_RESTORED` 失败收口；普通待审和已发布 CAS bytes 保留。首次正式发布后只追加升级，不预留降级或双读转换分支。
 
 ## 12. 统一验收入口
 

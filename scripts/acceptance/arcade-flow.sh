@@ -293,10 +293,7 @@ assert_game_detail_uses_arcade_snapshot() {
   if [[ "$snapshot_family" == "ARCADE_V2" && "$dependency_mode" == "mame" ]]; then
     jq -e --arg coreId "$core_id" --arg datVersionId "$dat_version_id" '
       .variants[]
-      | select(.coreId == $coreId)
-      | .currentRevisionId as $current
-      | .revisions[]
-      | select(.id == $current and .status == "READY" and .datVersionId == $datVersionId)
+      | select(.coreId == $coreId and .status == "READY" and .datVersionId == $datVersionId)
       | .dependencySnapshot
       | select(.schemaVersion == 2 and .datVersionId == $datVersionId and (has("bios") | not))
       | ([.dependencies[] | select(.kind == "PARENT" and .machine == "puckman" and .state == "SATISFIED_EXTERNAL")] | length == 1)
@@ -307,10 +304,7 @@ assert_game_detail_uses_arcade_snapshot() {
   if [[ "$snapshot_family" == "ARCADE_V2" && "$dependency_mode" == "cps2-parent" ]]; then
     jq -e --arg coreId "$core_id" --arg datVersionId "$dat_version_id" '
       .variants[]
-      | select(.coreId == $coreId)
-      | .currentRevisionId as $current
-      | .revisions[]
-      | select(.id == $current and .status == "READY" and .datVersionId == $datVersionId)
+      | select(.coreId == $coreId and .status == "READY" and .datVersionId == $datVersionId)
       | .dependencySnapshot
       | select(.schemaVersion == 2 and .datVersionId == $datVersionId and (has("bios") | not))
       | ([.dependencies[] | select(.kind == "PARENT" and .machine == "spf2t" and .state == "SATISFIED_EXTERNAL")] | length == 1)
@@ -320,10 +314,7 @@ assert_game_detail_uses_arcade_snapshot() {
   fi
   jq -e --arg coreId "$core_id" --arg datVersionId "$dat_version_id" '
     .variants[]
-    | select(.coreId == $coreId)
-    | .currentRevisionId as $current
-    | .revisions[]
-    | select(.id == $current and .status == "READY" and .datVersionId == $datVersionId)
+    | select(.coreId == $coreId and .status == "READY" and .datVersionId == $datVersionId)
     | .dependencySnapshot
     | select(.schemaVersion == 2 and .datVersionId == $datVersionId and (has("bios") | not))
     | select(.dependencies | length == 0)

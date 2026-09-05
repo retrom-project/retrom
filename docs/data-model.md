@@ -4,7 +4,7 @@
 
 ## 1. 基线
 
-- 项目尚未发布，数据库使用 clean 001–011 lineage，只支持向前升级；不提供降级、旧表转换、双写或运行时 schema 修补。
+- 项目尚未发布，数据库使用 001–012 单向 lineage；012 原子把完整 001–011 结构升级为 current-state 模型，之后只支持向前升级，不提供降级、回滚、双写或运行时 schema 修补。
 - 业务主键使用 UUIDv7，摘要使用 64 位小写 SHA-256，时刻使用 Unix 毫秒 `INTEGER`。
 - 当前业务状态原位更新并推进 `version`；需要追踪的历史进入 audit、event、job input、来源快照和验证证据，不为 metadata、content、Variant 建平行业务版本树。
 - 数据库不保存 Launch 明文 capability、Cookie、CSRF token、用户主机绝对路径或 Provider 私有实现映射。
@@ -42,7 +42,7 @@ metadata 编辑和媒体替换原位推进 Game；内容替换在后台准备完
 
 ## 5. 导入、审核与刮削
 
-Upload、Archive、ImportJob、ImportItem、来源快照、Validation、ReviewDraft/Event、ScrapeRun 与服务器导入维持各自 owner、版本、幂等和 payload release 边界。运行选择只保存稳定 `provider_id/target_id`；是否 stale 由当前来源、目录 Core、Target、DAT、依赖和内容策略等真实输入比较决定，Provider Bundle 单独升级不使审核结果失效。
+Upload、Archive、ImportJob、ImportItem、来源快照、Validation、ReviewDraft/Event、ScrapeRun 与服务器导入维持各自 owner、版本、幂等和 payload release 边界。运行选择只保存稳定 `provider_id/target_id`；ReviewDraft 只选择与当前来源、目录 Core、Target、DAT、依赖和内容策略完全匹配的 Validation，写事务发现输入变化时直接创建或切换当前选择。历史校验不进入当前 HTTP 投影，Provider Bundle 单独升级不使审核结果失效。
 
 发布事务将审核 metadata、媒体、内容文件与默认 Variant 一次写入 Game current state。重新刮削以稳定 `game_id` 为 owner 创建候选；显式应用候选才更新当前 metadata/assets，不能因为旧内容版本表已经删除而丢失 Game 关联。
 

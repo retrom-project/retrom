@@ -1080,8 +1080,8 @@ make acceptance-case CASE=<case-id>
 
 - 上限：180 秒。
 - 执行：`make acceptance-case CASE=ACC-UI-008`。
-- 流程：创建两个 ImportJob，其中一个含 60 个 REVIEW_PENDING Item、另一个含 3 个；从任务页进入前者的待审核，以长短不同的 Validation/Blocker 文案检查目录和信息来源列对齐，加载第二页后选择第 57 项，点击一次“重新运行检查”并记录 popup 与 Preview 请求，再修改标题并等待实时保存，切换到第 3 项并返回。修改第 3 项草稿并等待实时保存，选择第 58 项后用浏览器前进/后退；Approve 第 3 项后再次直达它的旧详情 URL，再 Discard 第 58 项。随后打开纯文字审核历史，并从游戏管理对带共享/独占 payload 的游戏执行永久删除 Dialog，观察 `正在清理数据/清理完成/清理失败`；再在最近游玩、收藏与 Netplay 查看删除墓碑。分别在 1280×800 和补充的 3840×2160 CSS ultra-wide viewport 执行，并用键盘完成一次筛选和非顺序选中；该 ultra-wide 截图不得标记成物理 4K 150% 证据。
-- 通过标准：既有队列范围、列对齐、cursor/预加载、3840 详情布局、四按钮、Preview、路由恢复、实时保存、决策与快速审批标准全部保持。审核历史响应与 DOM 不含图片、视频、媒体 URL或封面占位，只显示 ReviewEvent v2 的文字/结构化决定。永久删除 Dialog 展示精确影响计数、独占/共享容量、来源类型，要求完整标题且影响摘要变化时刷新确认；202 后详情不可再编辑/启动并显示清理进度，失败态显示固定错误码和重试，完成态没有恢复入口。最近游玩、收藏和 Netplay 的已删除游戏统一显示无封面墓碑，收藏仅保留移除操作，键盘焦点与屏幕阅读器可辨认状态且不依赖颜色。
+- 流程：创建两个 ImportJob，其中一个含 60 个 REVIEW_PENDING Item、另一个含 3 个；从任务页进入前者的待审核，以长短不同的 Validation/Blocker 文案检查目录和信息来源列对齐，加载第二页后选择第 57 项，确认审核决定区没有“重新运行检查”、当前“运行游戏”可用且页面没有自行创建 popup/Preview 请求，再修改标题并等待实时保存，切换到第 3 项并返回。修改第 3 项草稿并等待实时保存，选择第 58 项后用浏览器前进/后退；Approve 第 3 项后再次直达它的旧详情 URL，再 Discard 第 58 项。随后打开纯文字审核历史，并从游戏管理对带共享/独占 payload 的游戏执行永久删除 Dialog，观察 `正在清理数据/清理完成/清理失败`；再在最近游玩、收藏与 Netplay 查看删除墓碑。分别在 1280×800 和补充的 3840×2160 CSS ultra-wide viewport 执行，并用键盘完成一次筛选和非顺序选中；该 ultra-wide 截图不得标记成物理 4K 150% 证据。
+- 通过标准：既有队列范围、列对齐、cursor/预加载、3840 详情布局、三项审核操作、Preview 准入、路由恢复、实时保存、决策与快速审批标准全部保持；Review GET 不含 `validationStale` 或运行时修订字段。审核历史响应与 DOM 不含图片、视频、媒体 URL或封面占位，只显示 ReviewEvent v2 的文字/结构化决定。永久删除 Dialog 展示精确影响计数、独占/共享容量、来源类型，要求完整标题且影响摘要变化时刷新确认；202 后详情不可再编辑/启动并显示清理进度，失败态显示固定错误码和重试，完成态没有恢复入口。最近游玩、收藏和 Netplay 的已删除游戏统一显示无封面墓碑，收藏仅保留移除操作，键盘焦点与屏幕阅读器可辨认状态且不依赖颜色。
 - 证据：API query/cursor、route 序列、键盘 trace、决策前后队列 DOM、纯文字历史 DOM、永久删除 Dialog/进度/失败重试与关系墓碑 DOM，以及两个 viewport 的当前截图。
 
 ### ACC-UI-009：账户与用户管理全流程
@@ -1736,7 +1736,7 @@ Review 与所需 validation Launch。`negative-matrix/matrix.json` 必须精确�
   执行空 selection PATCH，要求 `422 REVIEW_DRAFT_INVALID`，并要求 approve 返回
   `409 REVIEW_VALIDATION_STALE`；安装两份标准版本后，三个 Standard review 的空 selection 同样必须 422，随后
   对全部五个 missing/custom 与三个 ambiguous review 执行携带具体 slot/installation 的真实 PATCH，重新 GET
-  必须看到 selection 改变且 validation 已 stale，approve 必须 409。五个已经 PASSED 的 SelfContained/NoRtp
+  必须看到 selection 改变、`runtimeValidationCurrent=false` 且不存在 `validationStale` 字段，approve 必须 409；页面要求重新“运行游戏”创建匹配当前输入的 Launch，而不是提供“重新运行检查”。五个已经 PASSED 的 SelfContained/NoRtp
   review 则必须由 Case 真实 approve 为五个 PUBLISHED game，不能以 GET 或同值 PATCH代替发布。
 - 引用与删除：XP/VX 的两个 V1/V2 新 installation 必须与对应受保护 definition 相同、彼此及旧 files digest 不同；
   Case 对受保护 installation 删除必须得到 `409 RPG_RUNTIME_PACK_IN_USE`，且前后 files digest、状态与引用计数完全
@@ -1746,10 +1746,10 @@ Review 与所需 validation Launch。`negative-matrix/matrix.json` 必须精确�
   `released_at_ms/UPLOAD_CONSUMED`、全部 upload file PURGED、完成 audit，以及原 bundle Blob 已进入尚未执行删除的
   retention GC candidate。任一步失败时浏览器只留下 `status=OBSERVED`，只有只读 DB 关系检查全部通过后 runner 才
   写 `status=PASS`。
-- 通过标准：上传只消费 COMPLETE 且未消费的 `RUNTIME_ASSET_PACK` session，目录/归档经同一 10,000 文件、512 MiB、安全路径与确定性 files digest 门禁；Job 只从 VALIDATING 到 READY/FAILED，列表展示文件数、字节、来源说明、诊断与 Variant/checkpoint 两类引用数。只有 generation/name/version/files digest 精确唯一匹配才可 PASS；缺失/多义阻断发布；审核完整替换 slot selection 或仅对 2000/2003启用 self-contained override。被引用 installation 删除返回 `409 RPG_RUNTIME_PACK_IN_USE` 且行、文件与 Blob 引用不变；新版本只供新 binding 选择，不改写旧 variant/checkpoint 的 pack digest。零引用删除使用当前 ETag 返回 204、旧 ETag 返回 412，installation 保留 DELETED 审计形态，upload consumption 由既有 PayloadRelease 释放并进入保留期 GC。
+- 通过标准：上传只消费 COMPLETE 且未消费的 `RUNTIME_ASSET_PACK` session，目录/归档经同一 10,000 文件、512 MiB、安全路径与确定性 files digest 门禁；Job 只从 VALIDATING 到 READY/FAILED，列表展示文件数、字节、来源说明、诊断与 Variant/checkpoint 两类引用数。只有 generation/name/version/files digest 精确唯一匹配才可 PASS；缺失/多义阻断发布；审核完整替换 slot selection 或仅对 2000/2003启用 self-contained override。被引用 installation 删除返回 `409 RPG_RUNTIME_PACK_IN_USE` 且行、文件与 Blob 引用不变；新版本只供新的 ReviewDraft 当前选择使用，不改写已发布 Variant 或既有 checkpoint 的 pack digest。零引用删除使用当前 ETag 返回 204、旧 ETag 返回 412，installation 保留 DELETED 审计形态，upload consumption 由既有 PayloadRelease 释放并进入保留期 GC。
 - 证据：`rpgmaker-product.json` 只记录具名 role 的 upload/session/consumption ID、Job input digest/events/终态、
   definition/installation/files digest、真实 PATCH/approve/rejection、管理 UI 与审核 slot 截图、published variant 与
-  restorable checkpoint 关系、409/412/204、PayloadRelease/audit/GC candidate、新旧 binding，以及上述去敏
+  restorable checkpoint 关系、409/412/204、PayloadRelease/audit/GC candidate、新旧 pack 当前选择，以及上述去敏
   generator/plan/provision identity；不记录原 plan、资源绝对路径、资源 bytes、口令、CSRF、cookie 或 capability。
 
 ### ACC-RPG-010：版本选择与内容安全
@@ -1766,17 +1766,17 @@ Review 与所需 validation Launch。`negative-matrix/matrix.json` 必须精确�
   快速结束。若任一本次应接受的固定 fixture
   已被该实例导入，产品会返回 `alreadyImportedItemCount>0` 且不会创建新 Review；driver 必须在尝试
   Review/validation 前以 `BLOCKED` 和 `RPG_ACCEPTANCE_SECURITY_FRESH_DATABASE_REQUIRED` 结束，不能把零
-  Review 降级为产品失败或复用旧 Review。七个合法 fixture 都只提交到 `rpgmaker` 虚拟核心，并逐项断言服务端检测出的 generation、内部 core 与 route；42 个跨世代内部 core mismatch 由 detector 的确定性矩阵覆盖，不再暴露成用户可选择的产品流程。随后提交 `.`/`www` 双根、多世代、RGSS 冲突、LCF 截断、case/NFKC/gencache 冲突、穿越、symlink、archive bomb、外链、确凿 Node/native 运行依赖，以及只携带但不被 Web 路径引用的 `.exe/.dll/.node/.bat`。
+  Review 降级为产品失败或复用旧 Review。七个合法 fixture 都只提交到 `rpgmaker` 虚拟核心，并逐项断言服务端检测出的 generation 与稳定 Provider/Target；42 个跨世代检测 mismatch 由 detector 的确定性矩阵覆盖，不再暴露成用户可选择的产品流程。随后提交 `.`/`www` 双根、多世代、RGSS 冲突、LCF 截断、case/NFKC/gencache 冲突、穿越、symlink、archive bomb、外链、确凿 Node/native 运行依赖，以及只携带但不被 Web 路径引用的 `.exe/.dll/.node/.bat`。
 - 内层归档验证：矩阵在 2000/2003、XP/VX/VX Ace、MV/MZ 项目根分别加入有扩展与仅 magic 可识别的 ZIP/7z/RAR/TAR/gzip，共 70 项。每项必须经 Upload、Import、Review 和真实 runtime validation Launch；为避免 70 次重型 Player 启动，driver 使用 validation 创建响应设置的正式 capability cookie读取 Launch config，随后只读实际内容端点，并以 `clientSequence=0/previousInterval=null` 的正式 `finish` 事件安全结束 ACTIVE validation Launch。EasyRPG 必须同时从派生 `index.json` 找到逻辑成员并从 project endpoint 取回与 source SHA/size 精确相同的 bytes；RGSS 必须从 config 冻结的 `projectArchive` 内容端点下载派生 MKXPZ，先核验 archive SHA/size，再证明其中唯一 stored member 的名称与 bytes 精确匹配；Native Web 必须一次消费 bootstrap、从 unique-origin project endpoint 得到 404、调用 cleanup 撤销 capability，再结束 Launch。每项结束后重新 GET Review，要求 source `filesDigest` 不变；不得从本机 fixture 路径直接读取运行投影、绕过 content endpoint 或把创建 validation 当成运行证据。
-- 通过标准：七个合法项目均由虚拟核心选择唯一正确的内部 generation/core/route；多世代或未知项目在创建 ImportJob 前拒绝。每个项目根内层归档只物化自身精确 bytes，`nestedEntryCount=0`，从未递归打开其中的 marker、路径或压缩内容，也不让这些内容参与世代/项目根判断。EasyRPG 原始项目端点或 RGSS 派生 bundle 携带该精确成员；Native Web 遵守最小 Web MIME 投影，非 Web archive 后缀和无扩展 magic sidecar 在 `/__retrom/project/*` 返回 404。未被 Web 路径引用的 native executable 文件仍逐 byte保留为 PROJECT_FILE 并进入 filesDigest，但 runtime endpoint 固定 404；只有确凿运行依赖以 `RPG_NATIVE_DEPENDENCY_UNSUPPORTED` 阻止导入。
-- 证据：七条 virtual-core detection/binding 结果、42 个内部 mismatch 单元矩阵；70 项记录 generation/format/detection、source SHA/size/filesDigest、Import/Review/Validation/Launch/artifact/route ID、adapter kind、真实 content projection、派生容器 SHA、Launch FINISHED 及复查后的 filesDigest；另记录 opaque native 文件 SHA/filesDigest/404 矩阵和 13 项外层安全结果。机器证据不得包含本机 fixture 路径、bootstrap ticket、cookie/capability 或资源 bytes，只记录清单相对名、内容摘要和产品 ID。
+- 通过标准：七个合法项目均由虚拟核心选择唯一正确的 generation 与 Provider Target；多世代或未知项目在创建 ImportJob 前拒绝。每个项目根内层归档只物化自身精确 bytes，`nestedEntryCount=0`，从未递归打开其中的 marker、路径或压缩内容，也不让这些内容参与世代/项目根判断。EasyRPG 原始项目端点或 RGSS 派生 bundle 携带该精确成员；Native Web 遵守最小 Web MIME 投影，非 Web archive 后缀和无扩展 magic sidecar 在 `/__retrom/project/*` 返回 404。未被 Web 路径引用的 native executable 文件仍逐 byte保留为 PROJECT_FILE 并进入 filesDigest，但 runtime endpoint 固定 404；只有确凿运行依赖以 `RPG_NATIVE_DEPENDENCY_UNSUPPORTED` 阻止导入。
+- 证据：七条 virtual-core detection/binding 结果、42 个检测 mismatch 单元矩阵；70 项记录 generation/format/detection、source SHA/size/filesDigest、Import/Review/Validation/Launch、Provider/Target/Bundle、真实 content projection、派生容器 SHA、Launch FINISHED 及复查后的 filesDigest；另记录 opaque native 文件 SHA/filesDigest/404 矩阵和 13 项外层安全结果。机器证据不得包含 Provider 私有 route/adapter、本机 fixture 路径、bootstrap ticket、cookie/capability 或资源 bytes，只记录清单相对名、内容摘要和产品 ID。
 
 ### ACC-RPG-011：原生 Web 独立运行源隔离
 
 - 上限：300 秒。执行：`make acceptance-case CASE=ACC-RPG-011`。
 - 流程：分别运行项目自有 MV/MZ malicious harness，尝试 parent DOM/app cookie、top navigation、popup、form、external fetch、service worker、非 allowlist API、ticket replay/过期和 Host confusion；同时执行合法 render、MessageChannel、截图和 checkpoint。
 - 通过标准：越权操作均被 browser/NG/Go 组合边界阻止，runtime Host 不接受 app session/API/HTML fallback，bootstrap GET 是唯一无凭据 GET 且 ticket 一次消费，CSP 含 `base-uri 'self'`；合法 bridge/render/save 仍成功。
-- 证据：必须恰有一份 MV 与一份 MZ harness；两个 origin 的 CSP/cookie/Host/network/navigation/service-worker 记录、同 ticket 重放 410、已认证 capability reload 303→entry、MV/MZ 各自冻结的 Provider/Target/adapter、14 gate、不同 Launch checkpoint 与独立 original/restore 截图；四个 original/restore Launch ID 必须全局不同，两个世代的截图文件名不得复用或互相覆盖。不得记录 bootstrap ticket 或 runtime capability。缺少 Chrome 输入时 runner 必须在启动浏览器前以 `BLOCKED` 结束。
+- 证据：必须恰有一份 MV 与一份 MZ harness；两个 origin 的 CSP/cookie/Host/network/navigation/service-worker 记录、同 ticket 重放 410、已认证 capability reload 303→entry、MV/MZ 各自冻结的 Provider/Target/Bundle、14 gate、不同 Launch checkpoint 与独立 original/restore 截图；四个 original/restore Launch ID 必须全局不同，两个世代的截图文件名不得复用或互相覆盖。不得记录 Provider 私有 adapter、bootstrap ticket 或 runtime capability。缺少 Chrome 输入时 runner 必须在启动浏览器前以 `BLOCKED` 结束。
 
 ### ACC-RPG-012：前向运行时升级与存档兼容
 

@@ -117,7 +117,7 @@ PRAGMA busy_timeout = 5000;
 
 ### 3.1 clean migration lineage
 
-当前基线包含 `001_identity.sql` 至 `011_emulationstation_import_liveness.sql`。`011` 以前向方式修正 EmulationStation 条目状态机，允许内容识别在尚未建立 library review 时从 `COPYING` 进入 `BLOCKED_CONTENT`；worker 在处理后仍发现条目停留于工作态时必须停止当前执行并进入有退避的失败重试，禁止重复领取同一条目。`store.Open` 在任何 schema 写入前只读检查 `schema_migrations`，只接受不存在/真正空的数据库、与当前文件逐项同名同 checksum 的有序前缀，以及完整当前 lineage。前缀用于同一 clean bootstrap 在进程中断后继续，也用于当前二进制将完整旧前缀单向升级到最新版本；已应用 migration 不得改写。名称或 checksum 漂移、空洞、未知/future 记录、没有 migration 记录却已有业务表统一只读拒绝，不按旧版本号特判，也不执行运行时修补、数据回填或关闭外键的表重建。
+当前基线包含 `001_identity.sql` 至 `012_runtime_provider_current_state.sql`。`011` 以前向方式修正 EmulationStation 条目状态机；`012` 是发布前唯一允许的结构性单向升级，把完整 001–011 的 metadata/content/Variant revision 树与 Target contract hash 原子折叠为 current-state Game/File/Variant 和 Provider-owned Target declaration。升级使用受 migration runner 管理的外键关闭窗口、单事务 copy/swap、`foreign_key_check` 与 checksum 记录；成功后不提供降级或旧表双读。`store.Open` 在任何 schema 写入前只读检查 `schema_migrations`，只接受不存在/真正空的数据库、与当前文件逐项同名同 checksum 的有序前缀，以及完整当前 lineage。前缀用于同一 bootstrap 在进程中断后继续，也用于当前二进制将完整旧前缀单向升级到最新版本；已应用 migration 不得改写。名称或 checksum 漂移、空洞、未知/future 记录、没有 migration 记录却已有业务表统一只读拒绝，不执行运行时修补或迁移文件之外的数据回填。
 
 项目首次发布前如发现非当前 lineage 的开发数据库，操作者必须为当前版本配置全新空数据根；程序不提供转换器、双写或隐式导入页面。仓库 `make dev` 的默认根为 `.dev-data/data`；测试与每个验收 Case 使用独立临时 data root 并在结束时删除。首次公开发布后，已发布 migration 才进入只追加纪律。
 
