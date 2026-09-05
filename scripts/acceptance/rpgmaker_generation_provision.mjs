@@ -223,6 +223,12 @@ async function trialAndPublish(context, client, review) {
   await waitForPreviewReady(original);
   process.stderr.write("RPG_PROVISION_STAGE:original-ready\n");
   const originalFrames = await observePreviewFrames(original);
+  const checkpointA = await capturePreviewCheckpoint(original, created.previewId);
+  process.stderr.write("RPG_PROVISION_STAGE:checkpoint-a\n");
+  const initialPosition = await observeFixturePosition(original, config.generation, original.__retromOwnedFixture, checkpointA);
+  await advanceFixture(original, config.saveKeys);
+  const checkpointB = await capturePreviewCheckpoint(original, created.previewId);
+  process.stderr.write("RPG_PROVISION_STAGE:checkpoint-b\n");
   const audio = await readAudioObservation(original).catch((error) => {
     throw new Error(error.message + ":" + JSON.stringify({
       runtimeDiagnostics: original.__retromRuntimeDiagnostics,
@@ -231,12 +237,6 @@ async function trialAndPublish(context, client, review) {
       networkRequests: original.__retromNetworkRequests,
     }));
   });
-  const checkpointA = await capturePreviewCheckpoint(original, created.previewId);
-  process.stderr.write("RPG_PROVISION_STAGE:checkpoint-a\n");
-  const initialPosition = await observeFixturePosition(original, config.generation, original.__retromOwnedFixture, checkpointA);
-  await advanceFixture(original, config.saveKeys);
-  const checkpointB = await capturePreviewCheckpoint(original, created.previewId);
-  process.stderr.write("RPG_PROVISION_STAGE:checkpoint-b\n");
   const savedPosition = await observeFixturePosition(original, config.generation, original.__retromOwnedFixture, checkpointB);
   const oversizeRejection = tracePath ? await rejectDeclaredOversize(context, created.previewId) : null;
   if (tracePath) {

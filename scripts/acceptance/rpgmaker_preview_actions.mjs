@@ -23,10 +23,12 @@ export async function observeOwnedFixture(page) {
 export async function waitForPreviewReady(page) {
   const fatalError = page.__retromFatalError ?? new Promise(() => {});
   const runtimeFailure = page.getByRole("alert").filter({hasText: /\b(?:RPG|RUNTIME)_[A-Z0-9_]+\b/u}).first();
+  const statusFailure = page.getByRole("status").filter({hasText: /\b(?:RPG|RUNTIME|PLAYER)_[A-Z0-9_]+\b/u}).first();
   try {
     await Promise.race([
       page.getByRole("status").filter({hasText: "可创建存档"}).waitFor({state: "attached", timeout: 300_000}),
       runtimeFailure.waitFor({state: "visible", timeout: 300_000}).then(() => {throw new Error("runtime failed");}),
+      statusFailure.waitFor({state: "visible", timeout: 300_000}).then(() => {throw new Error("runtime failed");}),
       fatalError.then(() => {throw new Error("page error");}),
       page.waitForResponse((response) => response.request().method() === "POST" &&
         /^\/runtime\/launches\/[^/]+\/finish$/.test(new URL(response.url()).pathname), {timeout: 300_000})
