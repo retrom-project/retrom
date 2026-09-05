@@ -44,9 +44,7 @@ type Binding struct {
 	PlatformIDs          []string `json:"platformIds"`
 	AcceptedContentKinds []string `json:"acceptedContentKinds"`
 	DetectorProfile      string   `json:"detectorProfile"`
-	DeliveryProfile      string   `json:"deliveryProfile"`
 	LaunchPolicy         string   `json:"launchPolicy"`
-	ReviewPolicy         string   `json:"reviewPolicy"`
 }
 
 func ParseCatalog(contents []byte) (Catalog, error) {
@@ -165,14 +163,14 @@ func validBinding(value Binding) bool {
 	if !validBindingIdentity(value) || !validBindingSemantics(value) {
 		return false
 	}
-	return validLaunchPolicy(value.LaunchPolicy) && validReviewPolicy(value.ReviewPolicy) && validStrategy(value)
+	return validLaunchPolicy(value.LaunchPolicy) && validStrategy(value)
 }
 
 func validBindingIdentity(value Binding) bool {
 	if !kebabPattern.MatchString(value.ID) || !identifierPattern.MatchString(value.CoreID) ||
 		!kebabPattern.MatchString(value.ProviderID) || !identifierPattern.MatchString(value.TargetID) ||
 		!profilePattern.MatchString(value.DetectorProfile) ||
-		!profilePattern.MatchString(value.DeliveryProfile) || !sortedMatches(value.PlatformIDs, identifierPattern) ||
+		!sortedMatches(value.PlatformIDs, identifierPattern) ||
 		!sortedMatches(value.AcceptedContentKinds, profilePattern) {
 		return false
 	}
@@ -181,7 +179,7 @@ func validBindingIdentity(value Binding) bool {
 
 func validBindingSemantics(value Binding) bool {
 	semanticValues := append([]string{
-		value.DetectorProfile, value.DeliveryProfile, value.LaunchPolicy, value.ReviewPolicy,
+		value.DetectorProfile, value.LaunchPolicy,
 	},
 		value.AcceptedContentKinds...)
 	for _, semanticValue := range semanticValues {
@@ -194,10 +192,6 @@ func validBindingSemantics(value Binding) bool {
 
 func validLaunchPolicy(value string) bool {
 	return value == "SUPPORTED" || value == "EXPERIMENTAL" || value == "DISABLED"
-}
-
-func validReviewPolicy(value string) bool {
-	return value == "NONE" || value == "RPG_RUNTIME_VALIDATION"
 }
 
 func sortedMatches(values []string, pattern *regexp.Regexp) bool {

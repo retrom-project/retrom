@@ -81,7 +81,7 @@ func extensionDeclarations(t *testing.T) runtimecatalog.Catalog {
 	catalog.Bindings = append(catalog.Bindings, runtimecatalog.Binding{
 		ID: "extension-core", CoreID: "extension-core", ProviderID: "emulatorjs", TargetID: "extension-target",
 		PlatformIDs: []string{"gba"}, AcceptedContentKinds: []string{"SINGLE_FILE"},
-		DetectorProfile: "EMULATORJS_SINGLE_FILE", DeliveryProfile: "EMULATORJS_CONTENT", ReviewPolicy: "NONE", LaunchPolicy: "SUPPORTED",
+		DetectorProfile: "EMULATORJS_SINGLE_FILE", LaunchPolicy: "SUPPORTED",
 	})
 	slices.SortFunc(catalog.Definitions.Cores, func(a, b runtimecatalog.CoreDefinition) int { return strings.Compare(a.ID, b.ID) })
 	slices.SortFunc(catalog.Definitions.AssetPacks, func(a, b runtimecatalog.AssetPackDefinition) int { return strings.Compare(a.ID, b.ID) })

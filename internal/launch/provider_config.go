@@ -222,7 +222,7 @@ func (service *Service) providerEnvelope(
 	contents, err := service.runtimeBuilder.Build(runtimelaunch.Input{
 		Binding: runtimecatalog.Binding{
 			ProviderID: source.providerID, TargetID: source.targetID,
-			CoreID: source.coreID, DeliveryProfile: source.delivery, LaunchPolicy: "SUPPORTED",
+			CoreID: source.coreID, LaunchPolicy: "SUPPORTED",
 		},
 		Session: runtimelaunch.Session{
 			ID: sessionID, Purpose: purpose, Mode: mode, Title: source.title,

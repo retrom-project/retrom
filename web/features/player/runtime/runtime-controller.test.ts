@@ -86,7 +86,7 @@ describe("provider runtime controller", () => {
 function fixtureModule(runtime: PlayerRuntimeV1) {
   return {
     createRuntime: vi.fn(async () => runtime), providerApiVersion: 1, providerId: "fixture",
-    providerVersion: "1.0.0", validateLaunchRequest: vi.fn((value) => value),
+    providerVersion: "1.0.0",
   };
 }
 

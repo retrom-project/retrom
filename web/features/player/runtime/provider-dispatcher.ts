@@ -37,8 +37,6 @@ export async function loadProviderRuntime(
     dispatcher.revokeModuleUrl(moduleUrl);
   }
   const provider = validateProviderModule(imported, envelope);
-  const validated = provider.validateLaunchRequest(envelope);
-  if (validated !== envelope) {throw invalidModule();}
   const runtime = await provider.createRuntime(envelope, host);
   validatePlayerRuntime(runtime, envelope);
   return runtime;
@@ -115,11 +113,11 @@ async function digestSha256(bytes: Uint8Array) {
 
 function validateProviderModule(value: unknown, envelope: LaunchEnvelopeV1): ProviderModuleV1 {
   if (!record(value) || !exactKeys(value, [
-    "createRuntime", "providerApiVersion", "providerId", "providerVersion", "validateLaunchRequest",
+    "createRuntime", "providerApiVersion", "providerId", "providerVersion",
   ]) || value.providerId !== envelope.runtime.providerId ||
     value.providerVersion !== envelope.runtime.providerVersion ||
     value.providerApiVersion !== envelope.runtime.providerApiVersion ||
-    typeof value.validateLaunchRequest !== "function" || typeof value.createRuntime !== "function") {
+    typeof value.createRuntime !== "function") {
     throw invalidModule();
   }
   return value as unknown as ProviderModuleV1;

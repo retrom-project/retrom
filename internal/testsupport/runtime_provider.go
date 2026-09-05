@@ -255,12 +255,16 @@ func insertFixtureBindings(
 	bindings []runtimecatalog.Binding,
 ) error {
 	for _, binding := range bindings {
+		strategy, registered := runtimecatalog.Strategy(binding.DetectorProfile)
+		if !registered {
+			return runtimecatalog.ErrCatalogInvalid
+		}
 		if _, err := transaction.ExecContext(ctx, `
 INSERT INTO runtime_target_bindings(
  binding_id,core_id,provider_id,target_id,detector_profile,delivery_profile,launch_policy,review_policy
 ) VALUES(?,?,?,?,?,?,?,?)
 `, binding.ID, binding.CoreID, binding.ProviderID, binding.TargetID, binding.DetectorProfile,
-			binding.DeliveryProfile, binding.LaunchPolicy, binding.ReviewPolicy); err != nil {
+			strategy.Delivery, binding.LaunchPolicy, strategy.Review); err != nil {
 			return fmt.Errorf("testsupport: insert runtime binding %s: %w", binding.ID, err)
 		}
 		for _, platformID := range binding.PlatformIDs {

@@ -35,6 +35,15 @@ SELECT provider_version,bundle_sha256 FROM runtime_providers WHERE provider_id='
 		t.Fatalf("provider projection = %q %q", providerVersion, bundleDigest)
 	}
 	assertProjectionCounts(t, database.SQL)
+	var delivery, review, launch string
+	if err := database.SQL.QueryRowContext(t.Context(), `
+SELECT delivery_profile,review_policy,launch_policy FROM runtime_target_bindings WHERE binding_id='fixture-target'
+`).Scan(&delivery, &review, &launch); err != nil {
+		t.Fatal(err)
+	}
+	if delivery != "EMULATORJS_CONTENT" || review != "NONE" || launch != "SUPPORTED" {
+		t.Fatalf("strategy-derived binding projection = %s/%s/%s", delivery, review, launch)
+	}
 }
 
 func assertProjectionCounts(t *testing.T, database *sql.DB) {
@@ -210,7 +219,7 @@ func projectionFixtureForTarget(targetID, version, digestByte string, readFormat
 	catalog := runtimecatalog.Catalog{SchemaVersion: 1, Bindings: []runtimecatalog.Binding{{
 		ID: "fixture-" + targetID, CoreID: "gambatte", ProviderID: "fixture", TargetID: targetID,
 		PlatformIDs: []string{"gbc"}, AcceptedContentKinds: []string{"SINGLE_FILE"},
-		DetectorProfile: "EMULATORJS_SINGLE_FILE", DeliveryProfile: "EMULATORJS_CONTENT", LaunchPolicy: "SUPPORTED", ReviewPolicy: "NONE",
+		DetectorProfile: "EMULATORJS_SINGLE_FILE", LaunchPolicy: "SUPPORTED",
 	}}}
 	catalog.Definitions = runtimecatalog.Definitions{
 		Platforms:    []runtimecatalog.PlatformDefinition{{ID: "gbc", Name: "Game Boy / Color", SortOrder: 40, Enabled: true}},

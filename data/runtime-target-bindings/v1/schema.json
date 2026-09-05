@@ -37,9 +37,7 @@
         "platformIds",
         "acceptedContentKinds",
         "detectorProfile",
-        "deliveryProfile",
-        "launchPolicy",
-        "reviewPolicy"
+        "launchPolicy"
       ],
       "properties": {
         "id": {
@@ -80,21 +78,11 @@
           "type": "string",
           "pattern": "^(?!.*_V[0-9]+$)[A-Z][A-Z0-9_]{1,63}$"
         },
-        "deliveryProfile": {
-          "type": "string",
-          "pattern": "^(?!.*_V[0-9]+$)[A-Z][A-Z0-9_]{1,63}$"
-        },
         "launchPolicy": {
           "enum": [
             "SUPPORTED",
             "EXPERIMENTAL",
             "DISABLED"
-          ]
-        },
-        "reviewPolicy": {
-          "enum": [
-            "NONE",
-            "RPG_RUNTIME_VALIDATION"
           ]
         }
       }

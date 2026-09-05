@@ -38,10 +38,10 @@ VALUES('custom','gbc','gambatte','My custom folder','custom','Keep my settings',
 },
 "bindings":[{"id":"fixture-extra","coreId":"new-core","providerId":"fixture","targetId":"extra",
 "platformIds":["gbc"],"acceptedContentKinds":["SINGLE_FILE"],"detectorProfile":"EMULATORJS_SINGLE_FILE",
-"deliveryProfile":"EMULATORJS_CONTENT","launchPolicy":"SUPPORTED","reviewPolicy":"NONE"},
+"launchPolicy":"SUPPORTED"},
 {"id":"fixture-target","coreId":"gambatte","providerId":"fixture","targetId":"target",
 "platformIds":["gbc"],"acceptedContentKinds":["SINGLE_FILE"],"detectorProfile":"EMULATORJS_SINGLE_FILE",
-"deliveryProfile":"EMULATORJS_CONTENT","launchPolicy":"SUPPORTED","reviewPolicy":"NONE"}]
+"launchPolicy":"SUPPORTED"}]
 }`)
 	catalog, err := runtimecatalog.ParseCatalog(contents)
 	if err != nil {

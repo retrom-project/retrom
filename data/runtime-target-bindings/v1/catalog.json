@@ -13,9 +13,7 @@
         "SINGLE_FILE"
       ],
       "detectorProfile": "EMULATORJS_SINGLE_FILE",
-      "deliveryProfile": "EMULATORJS_CONTENT",
-      "launchPolicy": "SUPPORTED",
-      "reviewPolicy": "NONE"
+      "launchPolicy": "SUPPORTED"
     },
     {
       "id": "emulatorjs-azahar",
@@ -29,9 +27,7 @@
         "SINGLE_FILE"
       ],
       "detectorProfile": "EMULATORJS_SINGLE_FILE",
-      "deliveryProfile": "EMULATORJS_CONTENT",
-      "launchPolicy": "SUPPORTED",
-      "reviewPolicy": "NONE"
+      "launchPolicy": "SUPPORTED"
     },
     {
       "id": "emulatorjs-beetle-vb",
@@ -45,9 +41,7 @@
         "SINGLE_FILE"
       ],
       "detectorProfile": "EMULATORJS_SINGLE_FILE",
-      "deliveryProfile": "EMULATORJS_CONTENT",
-      "launchPolicy": "SUPPORTED",
-      "reviewPolicy": "NONE"
+      "launchPolicy": "SUPPORTED"
     },
     {
       "id": "emulatorjs-desmume",
@@ -61,9 +55,7 @@
         "SINGLE_FILE"
       ],
       "detectorProfile": "EMULATORJS_SINGLE_FILE",
-      "deliveryProfile": "EMULATORJS_CONTENT",
-      "launchPolicy": "SUPPORTED",
-      "reviewPolicy": "NONE"
+      "launchPolicy": "SUPPORTED"
     },
     {
       "id": "emulatorjs-desmume2015",
@@ -77,9 +69,7 @@
         "SINGLE_FILE"
       ],
       "detectorProfile": "EMULATORJS_SINGLE_FILE",
-      "deliveryProfile": "EMULATORJS_CONTENT",
-      "launchPolicy": "SUPPORTED",
-      "reviewPolicy": "NONE"
+      "launchPolicy": "SUPPORTED"
     },
     {
       "id": "emulatorjs-dosbox-pure",
@@ -93,9 +83,7 @@
         "DOS_BUNDLE"
       ],
       "detectorProfile": "DOS_BUNDLE",
-      "deliveryProfile": "EMULATORJS_CONTENT",
-      "launchPolicy": "SUPPORTED",
-      "reviewPolicy": "NONE"
+      "launchPolicy": "SUPPORTED"
     },
     {
       "id": "emulatorjs-fbalpha2012-cps1",
@@ -109,9 +97,7 @@
         "SINGLE_FILE"
       ],
       "detectorProfile": "ARCADE_ROM_SET",
-      "deliveryProfile": "EMULATORJS_CONTENT",
-      "launchPolicy": "SUPPORTED",
-      "reviewPolicy": "NONE"
+      "launchPolicy": "SUPPORTED"
     },
     {
       "id": "emulatorjs-fbalpha2012-cps2",
@@ -125,9 +111,7 @@
         "SINGLE_FILE"
       ],
       "detectorProfile": "ARCADE_ROM_SET",
-      "deliveryProfile": "EMULATORJS_CONTENT",
-      "launchPolicy": "SUPPORTED",
-      "reviewPolicy": "NONE"
+      "launchPolicy": "SUPPORTED"
     },
     {
       "id": "emulatorjs-fbneo",
@@ -141,9 +125,7 @@
         "SINGLE_FILE"
       ],
       "detectorProfile": "ARCADE_ROM_SET",
-      "deliveryProfile": "EMULATORJS_CONTENT",
-      "launchPolicy": "SUPPORTED",
-      "reviewPolicy": "NONE"
+      "launchPolicy": "SUPPORTED"
     },
     {
       "id": "emulatorjs-fceumm",
@@ -158,9 +140,7 @@
         "SINGLE_FILE"
       ],
       "detectorProfile": "EMULATORJS_SINGLE_FILE",
-      "deliveryProfile": "EMULATORJS_CONTENT",
-      "launchPolicy": "SUPPORTED",
-      "reviewPolicy": "NONE"
+      "launchPolicy": "SUPPORTED"
     },
     {
       "id": "emulatorjs-gambatte",
@@ -174,9 +154,7 @@
         "SINGLE_FILE"
       ],
       "detectorProfile": "EMULATORJS_SINGLE_FILE",
-      "deliveryProfile": "EMULATORJS_CONTENT",
-      "launchPolicy": "SUPPORTED",
-      "reviewPolicy": "NONE"
+      "launchPolicy": "SUPPORTED"
     },
     {
       "id": "emulatorjs-genesis-plus-gx",
@@ -190,9 +168,7 @@
         "SINGLE_FILE"
       ],
       "detectorProfile": "EMULATORJS_SINGLE_FILE",
-      "deliveryProfile": "EMULATORJS_CONTENT",
-      "launchPolicy": "SUPPORTED",
-      "reviewPolicy": "NONE"
+      "launchPolicy": "SUPPORTED"
     },
     {
       "id": "emulatorjs-genesis-plus-gx-wide",
@@ -206,9 +182,7 @@
         "SINGLE_FILE"
       ],
       "detectorProfile": "EMULATORJS_SINGLE_FILE",
-      "deliveryProfile": "EMULATORJS_CONTENT",
-      "launchPolicy": "SUPPORTED",
-      "reviewPolicy": "NONE"
+      "launchPolicy": "SUPPORTED"
     },
     {
       "id": "emulatorjs-handy",
@@ -222,9 +196,7 @@
         "SINGLE_FILE"
       ],
       "detectorProfile": "EMULATORJS_SINGLE_FILE",
-      "deliveryProfile": "EMULATORJS_CONTENT",
-      "launchPolicy": "SUPPORTED",
-      "reviewPolicy": "NONE"
+      "launchPolicy": "SUPPORTED"
     },
     {
       "id": "emulatorjs-mame2003",
@@ -238,9 +210,7 @@
         "SINGLE_FILE"
       ],
       "detectorProfile": "ARCADE_ROM_SET",
-      "deliveryProfile": "EMULATORJS_CONTENT",
-      "launchPolicy": "SUPPORTED",
-      "reviewPolicy": "NONE"
+      "launchPolicy": "SUPPORTED"
     },
     {
       "id": "emulatorjs-mame2003-plus",
@@ -254,9 +224,7 @@
         "SINGLE_FILE"
       ],
       "detectorProfile": "ARCADE_ROM_SET",
-      "deliveryProfile": "EMULATORJS_CONTENT",
-      "launchPolicy": "SUPPORTED",
-      "reviewPolicy": "NONE"
+      "launchPolicy": "SUPPORTED"
     },
     {
       "id": "emulatorjs-mednafen-ngp",
@@ -270,9 +238,7 @@
         "SINGLE_FILE"
       ],
       "detectorProfile": "EMULATORJS_SINGLE_FILE",
-      "deliveryProfile": "EMULATORJS_CONTENT",
-      "launchPolicy": "SUPPORTED",
-      "reviewPolicy": "NONE"
+      "launchPolicy": "SUPPORTED"
     },
     {
       "id": "emulatorjs-mednafen-pce",
@@ -286,9 +252,7 @@
         "SINGLE_FILE"
       ],
       "detectorProfile": "EMULATORJS_SINGLE_FILE",
-      "deliveryProfile": "EMULATORJS_CONTENT",
-      "launchPolicy": "SUPPORTED",
-      "reviewPolicy": "NONE"
+      "launchPolicy": "SUPPORTED"
     },
     {
       "id": "emulatorjs-mednafen-pcfx",
@@ -302,9 +266,7 @@
         "SINGLE_FILE"
       ],
       "detectorProfile": "EMULATORJS_SINGLE_FILE",
-      "deliveryProfile": "EMULATORJS_CONTENT",
-      "launchPolicy": "SUPPORTED",
-      "reviewPolicy": "NONE"
+      "launchPolicy": "SUPPORTED"
     },
     {
       "id": "emulatorjs-mednafen-psx-hw",
@@ -318,9 +280,7 @@
         "SINGLE_FILE"
       ],
       "detectorProfile": "EMULATORJS_SINGLE_FILE",
-      "deliveryProfile": "EMULATORJS_CONTENT",
-      "launchPolicy": "SUPPORTED",
-      "reviewPolicy": "NONE"
+      "launchPolicy": "SUPPORTED"
     },
     {
       "id": "emulatorjs-mednafen-wswan",
@@ -334,9 +294,7 @@
         "SINGLE_FILE"
       ],
       "detectorProfile": "EMULATORJS_SINGLE_FILE",
-      "deliveryProfile": "EMULATORJS_CONTENT",
-      "launchPolicy": "SUPPORTED",
-      "reviewPolicy": "NONE"
+      "launchPolicy": "SUPPORTED"
     },
     {
       "id": "emulatorjs-melonds",
@@ -350,9 +308,7 @@
         "SINGLE_FILE"
       ],
       "detectorProfile": "EMULATORJS_SINGLE_FILE",
-      "deliveryProfile": "EMULATORJS_CONTENT",
-      "launchPolicy": "SUPPORTED",
-      "reviewPolicy": "NONE"
+      "launchPolicy": "SUPPORTED"
     },
     {
       "id": "emulatorjs-mgba",
@@ -367,9 +323,7 @@
         "SINGLE_FILE"
       ],
       "detectorProfile": "EMULATORJS_SINGLE_FILE",
-      "deliveryProfile": "EMULATORJS_CONTENT",
-      "launchPolicy": "SUPPORTED",
-      "reviewPolicy": "NONE"
+      "launchPolicy": "SUPPORTED"
     },
     {
       "id": "emulatorjs-mupen64plus-next",
@@ -383,9 +337,7 @@
         "SINGLE_FILE"
       ],
       "detectorProfile": "EMULATORJS_SINGLE_FILE",
-      "deliveryProfile": "EMULATORJS_CONTENT",
-      "launchPolicy": "SUPPORTED",
-      "reviewPolicy": "NONE"
+      "launchPolicy": "SUPPORTED"
     },
     {
       "id": "emulatorjs-nestopia",
@@ -400,9 +352,7 @@
         "SINGLE_FILE"
       ],
       "detectorProfile": "EMULATORJS_SINGLE_FILE",
-      "deliveryProfile": "EMULATORJS_CONTENT",
-      "launchPolicy": "SUPPORTED",
-      "reviewPolicy": "NONE"
+      "launchPolicy": "SUPPORTED"
     },
     {
       "id": "emulatorjs-opera",
@@ -416,9 +366,7 @@
         "SINGLE_FILE"
       ],
       "detectorProfile": "EMULATORJS_SINGLE_FILE",
-      "deliveryProfile": "EMULATORJS_CONTENT",
-      "launchPolicy": "SUPPORTED",
-      "reviewPolicy": "NONE"
+      "launchPolicy": "SUPPORTED"
     },
     {
       "id": "emulatorjs-parallel-n64",
@@ -432,9 +380,7 @@
         "SINGLE_FILE"
       ],
       "detectorProfile": "EMULATORJS_SINGLE_FILE",
-      "deliveryProfile": "EMULATORJS_CONTENT",
-      "launchPolicy": "SUPPORTED",
-      "reviewPolicy": "NONE"
+      "launchPolicy": "SUPPORTED"
     },
     {
       "id": "emulatorjs-pcsx-rearmed",
@@ -448,9 +394,7 @@
         "SINGLE_FILE"
       ],
       "detectorProfile": "EMULATORJS_SINGLE_FILE",
-      "deliveryProfile": "EMULATORJS_CONTENT",
-      "launchPolicy": "SUPPORTED",
-      "reviewPolicy": "NONE"
+      "launchPolicy": "SUPPORTED"
     },
     {
       "id": "emulatorjs-picodrive",
@@ -464,9 +408,7 @@
         "SINGLE_FILE"
       ],
       "detectorProfile": "EMULATORJS_SINGLE_FILE",
-      "deliveryProfile": "EMULATORJS_CONTENT",
-      "launchPolicy": "SUPPORTED",
-      "reviewPolicy": "NONE"
+      "launchPolicy": "SUPPORTED"
     },
     {
       "id": "emulatorjs-ppsspp",
@@ -480,9 +422,7 @@
         "SINGLE_FILE"
       ],
       "detectorProfile": "EMULATORJS_SINGLE_FILE",
-      "deliveryProfile": "EMULATORJS_CONTENT",
-      "launchPolicy": "SUPPORTED",
-      "reviewPolicy": "NONE"
+      "launchPolicy": "SUPPORTED"
     },
     {
       "id": "emulatorjs-prosystem",
@@ -496,9 +436,7 @@
         "SINGLE_FILE"
       ],
       "detectorProfile": "EMULATORJS_SINGLE_FILE",
-      "deliveryProfile": "EMULATORJS_CONTENT",
-      "launchPolicy": "SUPPORTED",
-      "reviewPolicy": "NONE"
+      "launchPolicy": "SUPPORTED"
     },
     {
       "id": "emulatorjs-smsplus",
@@ -512,9 +450,7 @@
         "SINGLE_FILE"
       ],
       "detectorProfile": "EMULATORJS_SINGLE_FILE",
-      "deliveryProfile": "EMULATORJS_CONTENT",
-      "launchPolicy": "SUPPORTED",
-      "reviewPolicy": "NONE"
+      "launchPolicy": "SUPPORTED"
     },
     {
       "id": "emulatorjs-snes9x",
@@ -528,9 +464,7 @@
         "SINGLE_FILE"
       ],
       "detectorProfile": "EMULATORJS_SINGLE_FILE",
-      "deliveryProfile": "EMULATORJS_CONTENT",
-      "launchPolicy": "SUPPORTED",
-      "reviewPolicy": "NONE"
+      "launchPolicy": "SUPPORTED"
     },
     {
       "id": "emulatorjs-stella2014",
@@ -544,9 +478,7 @@
         "SINGLE_FILE"
       ],
       "detectorProfile": "EMULATORJS_SINGLE_FILE",
-      "deliveryProfile": "EMULATORJS_CONTENT",
-      "launchPolicy": "SUPPORTED",
-      "reviewPolicy": "NONE"
+      "launchPolicy": "SUPPORTED"
     },
     {
       "id": "emulatorjs-yabause",
@@ -561,9 +493,7 @@
         "SINGLE_FILE"
       ],
       "detectorProfile": "EMULATORJS_DISC_CONTENT",
-      "deliveryProfile": "EMULATORJS_CONTENT",
-      "launchPolicy": "SUPPORTED",
-      "reviewPolicy": "NONE"
+      "launchPolicy": "SUPPORTED"
     },
     {
       "id": "retrom-runtime-butterscotch-gamemaker",
@@ -577,9 +507,7 @@
         "BUTTERSCOTCH_PROJECT"
       ],
       "detectorProfile": "BUTTERSCOTCH_PROJECT",
-      "deliveryProfile": "FILE_TREE_PROJECT",
-      "launchPolicy": "SUPPORTED",
-      "reviewPolicy": "NONE"
+      "launchPolicy": "SUPPORTED"
     },
     {
       "id": "retrom-runtime-kirikiri2-kag",
@@ -593,9 +521,7 @@
         "KIRIKIRI_PROJECT"
       ],
       "detectorProfile": "KIRIKIRI_PROJECT",
-      "deliveryProfile": "FILE_TREE_PROJECT",
-      "launchPolicy": "SUPPORTED",
-      "reviewPolicy": "NONE"
+      "launchPolicy": "SUPPORTED"
     },
     {
       "id": "retrom-runtime-onscripter-yuri",
@@ -609,9 +535,7 @@
         "ONS_PROJECT"
       ],
       "detectorProfile": "ONS_PROJECT",
-      "deliveryProfile": "FILE_TREE_PROJECT",
-      "launchPolicy": "SUPPORTED",
-      "reviewPolicy": "NONE"
+      "launchPolicy": "SUPPORTED"
     },
     {
       "id": "retrom-runtime-rpgmaker-2000",
@@ -625,9 +549,7 @@
         "RPG_MAKER_PROJECT"
       ],
       "detectorProfile": "RPG2000",
-      "deliveryProfile": "FILE_TREE_PROJECT",
-      "launchPolicy": "SUPPORTED",
-      "reviewPolicy": "RPG_RUNTIME_VALIDATION"
+      "launchPolicy": "SUPPORTED"
     },
     {
       "id": "retrom-runtime-rpgmaker-2003",
@@ -641,9 +563,7 @@
         "RPG_MAKER_PROJECT"
       ],
       "detectorProfile": "RPG2003",
-      "deliveryProfile": "FILE_TREE_PROJECT",
-      "launchPolicy": "SUPPORTED",
-      "reviewPolicy": "RPG_RUNTIME_VALIDATION"
+      "launchPolicy": "SUPPORTED"
     },
     {
       "id": "retrom-runtime-rpgmaker-mv",
@@ -657,9 +577,7 @@
         "RPG_MAKER_PROJECT"
       ],
       "detectorProfile": "RPGMV",
-      "deliveryProfile": "ISOLATED_WEB_PROJECT",
-      "launchPolicy": "SUPPORTED",
-      "reviewPolicy": "RPG_RUNTIME_VALIDATION"
+      "launchPolicy": "SUPPORTED"
     },
     {
       "id": "retrom-runtime-rpgmaker-mz",
@@ -673,9 +591,7 @@
         "RPG_MAKER_PROJECT"
       ],
       "detectorProfile": "RPGMZ",
-      "deliveryProfile": "ISOLATED_WEB_PROJECT",
-      "launchPolicy": "SUPPORTED",
-      "reviewPolicy": "RPG_RUNTIME_VALIDATION"
+      "launchPolicy": "SUPPORTED"
     },
     {
       "id": "retrom-runtime-rpgmaker-vx",
@@ -689,9 +605,7 @@
         "RPG_MAKER_PROJECT"
       ],
       "detectorProfile": "RPGVX",
-      "deliveryProfile": "SEEKABLE_PROJECT_ARCHIVE",
-      "launchPolicy": "SUPPORTED",
-      "reviewPolicy": "RPG_RUNTIME_VALIDATION"
+      "launchPolicy": "SUPPORTED"
     },
     {
       "id": "retrom-runtime-rpgmaker-vx-ace",
@@ -705,9 +619,7 @@
         "RPG_MAKER_PROJECT"
       ],
       "detectorProfile": "RPGVXACE",
-      "deliveryProfile": "SEEKABLE_PROJECT_ARCHIVE",
-      "launchPolicy": "SUPPORTED",
-      "reviewPolicy": "RPG_RUNTIME_VALIDATION"
+      "launchPolicy": "SUPPORTED"
     },
     {
       "id": "retrom-runtime-rpgmaker-xp",
@@ -721,9 +633,7 @@
         "RPG_MAKER_PROJECT"
       ],
       "detectorProfile": "RPGXP",
-      "deliveryProfile": "SEEKABLE_PROJECT_ARCHIVE",
-      "launchPolicy": "SUPPORTED",
-      "reviewPolicy": "RPG_RUNTIME_VALIDATION"
+      "launchPolicy": "SUPPORTED"
     },
     {
       "id": "retrom-runtime-tyranoscript",
@@ -737,9 +647,7 @@
         "TYRANOSCRIPT_PROJECT"
       ],
       "detectorProfile": "TYRANOSCRIPT_PROJECT",
-      "deliveryProfile": "ISOLATED_WEB_PROJECT",
-      "launchPolicy": "SUPPORTED",
-      "reviewPolicy": "NONE"
+      "launchPolicy": "SUPPORTED"
     },
     {
       "id": "retrom-runtime-wasm4",
@@ -753,9 +661,7 @@
         "SINGLE_FILE"
       ],
       "detectorProfile": "WASM4_CART",
-      "deliveryProfile": "ROM_BLOB",
-      "launchPolicy": "SUPPORTED",
-      "reviewPolicy": "NONE"
+      "launchPolicy": "SUPPORTED"
     }
   ],
   "definitions": {

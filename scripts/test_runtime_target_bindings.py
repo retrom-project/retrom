@@ -24,8 +24,7 @@ class RuntimeTargetBindingsTest(unittest.TestCase):
                 set(binding),
                 {
                     "id", "coreId", "providerId", "targetId", "platformIds",
-                    "acceptedContentKinds", "detectorProfile", "deliveryProfile",
-                    "launchPolicy", "reviewPolicy",
+                    "acceptedContentKinds", "detectorProfile", "launchPolicy",
                 },
             )
         by_target = {(item["providerId"], item["targetId"]): item for item in catalog["bindings"]}
@@ -42,7 +41,7 @@ class RuntimeTargetBindingsTest(unittest.TestCase):
         for forbidden in (
             "providerVersion", "adapterId", "adapterKind", "adapterAbi", "capabilities",
             "optionsKind", "targetOptionsSchema", "checkpoint", "assetPaths", "runtimeBaseUrl",
-            "selectedForNewBindings", "priority",
+            "selectedForNewBindings", "priority", "deliveryProfile", "reviewPolicy",
         ):
             self.assertNotIn(forbidden, source)
         self.assertEqual(value["schemaVersion"], 1)

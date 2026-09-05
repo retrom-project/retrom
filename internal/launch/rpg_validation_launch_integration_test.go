@@ -26,8 +26,7 @@ func rpgValidationRuntimeCatalog() runtimecatalog.Catalog {
 		ID: "retrom-runtime-rpgmaker-2000", CoreID: "rpgmaker", ProviderID: "retrom-runtime",
 		TargetID: "rpgmaker-2000", PlatformIDs: []string{"rpgmaker"},
 		AcceptedContentKinds: []string{"RPG_MAKER_PROJECT"}, DetectorProfile: "RPG2000",
-		DeliveryProfile: "FILE_TREE_PROJECT", LaunchPolicy: "SUPPORTED",
-		ReviewPolicy: "RPG_RUNTIME_VALIDATION",
+		LaunchPolicy: "SUPPORTED",
 	}}}
 }
 
