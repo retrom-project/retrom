@@ -1,10 +1,24 @@
 import assert from "node:assert/strict";
 import {createHash} from "node:crypto";
 import test from "node:test";
-import {advanceFixture, inspectPreviewCheckpoint, observePreviewFrames} from "./rpgmaker_preview_actions.mjs";
+import {advanceFixture, inspectPreviewCheckpoint, observePreviewFrames, waitForPreviewReady} from "./rpgmaker_preview_actions.mjs";
 
 const receipt = {resourceKind: "REVIEW_PREVIEW_CHECKPOINT", previewId: "preview-1",
   checkpointFormat: "fixture-v1", createdAtMs: 123};
+test("a session finishing during mount reports diagnostics instead of waiting for the outer hard timeout", async () => {
+  const pending = new Promise(() => {});
+  const locator = {waitFor: () => pending, allInnerTexts: async () => [], allTextContents: async () => []};
+  const page = {
+    getByRole: () => ({...locator, filter: () => ({...locator, first: () => locator})}),
+    locator: () => locator,
+    waitForResponse: async (predicate) => {
+      assert.equal(predicate({request: () => ({method: () => "POST"}), url: () => "http://example.test/runtime/launches/session/finish"}), true);
+      return {};
+    },
+    __retromConsoleDiagnostics: [{type: "error", message: "core initialization failed"}],
+  };
+  await assert.rejects(waitForPreviewReady(page), /core initialization failed/);
+});
 test("owned fixture movement uses taps shorter than one tile traversal instead of repeat-producing holds", async () => {
   const presses = [];
   const waits = [];
