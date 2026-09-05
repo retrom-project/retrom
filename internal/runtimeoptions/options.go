@@ -8,7 +8,6 @@ import (
 
 	"retrom/internal/kirikiri/detector"
 	onsdetection "retrom/internal/ons/detector"
-	rpgvalidation "retrom/internal/rpgmaker/validation"
 	"retrom/internal/runtimebundle"
 	"retrom/internal/runtimecatalog"
 )
@@ -19,11 +18,10 @@ var (
 )
 
 type Input struct {
-	DOSEntry                *string
-	ContentKind             string
-	InitialDiscIndex        int64
-	DependencySnapshot      string
-	ExpectedRestorePosition *rpgvalidation.Position
+	DOSEntry           *string
+	ContentKind        string
+	InitialDiscIndex   int64
+	DependencySnapshot string
 }
 
 type strategy struct {
@@ -32,11 +30,10 @@ type strategy struct {
 }
 
 var strategies = map[string]strategy{
-	runtimecatalog.OptionsNone:       {[]string{}, emptyOptions},
-	runtimecatalog.OptionsEmulator:   {[]string{"dosEntryPath", "initialDiscIndex"}, emulatorOptions},
-	runtimecatalog.OptionsRPGRestore: {[]string{"expectedRestorePosition"}, restoreOptions},
-	runtimecatalog.OptionsONS:        {[]string{"scriptEncoding"}, onsOptions},
-	runtimecatalog.OptionsKiriKiri:   {[]string{"startupXp3Path"}, kirikiriOptions},
+	runtimecatalog.OptionsNone:     {[]string{}, emptyOptions},
+	runtimecatalog.OptionsEmulator: {[]string{"dosEntryPath", "initialDiscIndex"}, emulatorOptions},
+	runtimecatalog.OptionsONS:      {[]string{"scriptEncoding"}, onsOptions},
+	runtimecatalog.OptionsKiriKiri: {[]string{"startupXp3Path"}, kirikiriOptions},
 }
 
 // ValidateSchema rejects unsupported Host access before startup publishes HTTP.
@@ -80,17 +77,6 @@ func emulatorOptions(input Input) (map[string]any, error) {
 		disc = input.InitialDiscIndex
 	}
 	return map[string]any{"dosEntryPath": dos, "initialDiscIndex": disc}, nil
-}
-
-func restoreOptions(input Input) (map[string]any, error) {
-	var expected any
-	if position := input.ExpectedRestorePosition; position != nil {
-		expected = map[string]any{
-			"mapId": position.MapID, "playerX": position.PlayerX,
-			"playerY": position.PlayerY, "fixtureState": position.FixtureState,
-		}
-	}
-	return map[string]any{"expectedRestorePosition": expected}, nil
 }
 
 func onsOptions(input Input) (map[string]any, error) {

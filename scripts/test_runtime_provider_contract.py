@@ -54,7 +54,6 @@ def valid_manifest() -> dict[str, object]:
                     "videoModes": ["original", "pixel"],
                     "requiresThreads": False,
                     "frameMode": "NONE",
-                    "validationProbes": [],
                 },
                 "inputs": [
                     {
@@ -205,7 +204,7 @@ class RuntimeProviderAuthorityTests(unittest.TestCase):
         source = (ROOT / "api/runtime-provider/v1/provider-module-v1.d.ts").read_text(encoding="utf-8")
         for operation in (
             "setVideoMode(", "openNativeSettings(", "closeNativeSettings(", "getDiscState(",
-            "switchDisc(", "setInputFilter(", "getNetplayPort(", "runValidationProbe(",
+            "switchDisc(", "setInputFilter(", "getNetplayPort(",
         ):
             self.assertIn(operation, source)
         for operation in (
@@ -319,7 +318,7 @@ class RuntimeProviderAuthorityTests(unittest.TestCase):
                     "fixtures/invalid/unknown-top-level.json",
                     "fixtures/invalid/unsafe-integer-json-input.json",
                     "fixtures/target-options/schema-validation.json",
-                    "fixtures/valid/checkpoint-validation.json",
+                    "fixtures/valid/checkpoint-restore.json",
                     "fixtures/valid/netplay.json",
                     "fixtures/valid/single-minimal.json",
                     "launch-envelope.schema.json",

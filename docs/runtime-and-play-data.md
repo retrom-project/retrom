@@ -51,7 +51,7 @@ Launch options 按声明绑定的明确接入策略一次组装，再接受 Prov
 - `runtime` 保存 Provider 版本、冻结 Bundle、稳定 Target、模块 URL/SHA-256、能力与 checkpoint declaration；
 - `resources[]` 保存带 role、kind、大小、摘要和访问 URL 的授权输入；
 - `targetOptions` 是由当前 Target 的闭合 `targetOptionsSchema` 校验后的 Provider 私有配置；
-- `restore`、`validation`、`netplay` 分别是可空的标准恢复、验证和联机输入。
+- `restore`、`netplay` 分别是可空的标准恢复和联机输入；生产 Envelope 不携带研发验证脚本或位置证明。
 
 Go 在签发前验证 envelope 和 Target options；dispatcher 验证 JSON 边界、模块 URL、模块摘要、Provider 身份与 API 版本，然后只调用 `createRuntime(envelope, host)`。Provider 创建入口按自身声明验证外部 Envelope 与 Host，直接构造核心私有的最小类型参数，不再提供单独预检，也不在内部重复验证相同 Envelope 或转换后的通用 config。下载文件、解码 checkpoint、跨 origin 消息仍在各自信任边界校验；任一身份、摘要、schema、资源或能力不一致都 fail closed。
 
@@ -81,13 +81,15 @@ Checkpoint 对 Host 是不透明字节。Target declaration 的 `writeFormat`、
 
 普通与沉浸模式使用相同的受保护存档 HTTP 端点和 capability cookie；iframe/frame 内的请求通过明确的 credential 策略发送，不能依赖应用页 Cookie 偶然透传。
 
-## 7. 审核与 RPG Runtime Validation
+## 7. 审核试运行
 
 审核只运行当前算法，不保存 `prepublish_generation` 或历史算法选择。有效性取决于当前来源、稳定运行选择、DAT/依赖闭包和与该内容有关的校验规则；目录展示字段、无关核心及单独的 Provider 发布变化不使正常审核失效。需要重算的算法修复通过明确限定范围的当前态重新校验完成，不增加 schema 代际。
 
-审核 checkpoint 只保护确实仍可恢复、未到期的验证会话；已结束、已过期或不再具有恢复用途的临时 payload 按工作流生命周期释放，不能阻塞 Provider 更新。用户有效存档始终单独保护，正常核心升级不得借开发库重建规则丢弃它们。格式声明只列当前实现真实能读取的格式，不保留空 reader 或历史实现。
+所有内容类型均使用普通审核 preview 和同一 Player，流程为“运行游戏 → 试玩 → 返回审核 → 管理员通过/拒绝”。RPG Maker 的 generation、项目 fingerprint、来源、Provider/Target 和依赖摘要仍用于真实检测及资源装配，但不创建另一套运行验证或人工证明状态机。试运行不创建 Game 或 Variant，不计入已发布游戏的游玩记录。
 
-非 RPG 审核 preview 和正式 Launch 复用相同 Provider Module 与 envelope。RPG Maker 审核保存 generation、项目 fingerprint、来源快照、Provider/Target 与依赖摘要；创建正式 `RPG_RUNTIME_VALIDATION` Launch 后可发布。A→B checkpoint→C→独立 restore Launch 的 14 个 gate 是可选高级验证及自动化验收基线。
+试运行可使用标准截图与 checkpoint。临时 checkpoint 只归属创建它的审核会话和操作者；恢复创建普通的新 preview，要求当前审核来源、目标与 checkpoint 可读格式匹配，不要求特定原会话/恢复会话事件顺序。临时数据在过期或审核 payload 释放时清理，不进入用户存档列表，也不参与 Provider 升级预检。已存在的持久用户存档继续受到 `readFormats` 升级门槛保护。
+
+退出、关闭、失败和加载取消都走相同 Player/Provider 清理并撤销试运行授权；可重复试运行，不维护 gate、序列、机器证明或独立 PASS/FAIL 决定。精确帧、输入、画面及跨会话位置恢复断言仅存在于研发验收，不能为测试保留生产探针 API、fixtureState 或 A/B/C 证明协议。
 
 草稿 PATCH、来源替换和依赖处理按当前真实输入更新或创建 validation，并原子切换 ReviewDraft 的当前选择；审核页没有 `validationStale` 或人工“重新运行检查”状态。Provider Bundle 前移不会改变稳定 Provider/Target，也不会要求用户在上传后无故重检；来源、Target、DAT、依赖或项目证据改变时，对应写事务直接生成新的当前校验。当前 validation 即使为 BLOCKED，仍允许尽最大可能启动诊断 Player。
 

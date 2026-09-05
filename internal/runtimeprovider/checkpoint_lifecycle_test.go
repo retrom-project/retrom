@@ -6,18 +6,17 @@ import (
 	"testing"
 )
 
-func TestCheckpointGuardProtectsOnlyDurableSavesAndLiveReviewPayloads(t *testing.T) {
+func TestCheckpointGuardProtectsOnlyDurableSaves(t *testing.T) {
 	for _, test := range []struct {
-		name, state string
-		expires     int64
-		blocked     bool
+		name, provider, target, format string
+		deleted                        any
+		blocked                        bool
 	}{
-		{"pending restore", "CHECKPOINTED", 200, true},
-		{"restore running", "RESTORED", 200, true},
-		{"passed", "PASSED", 200, false},
-		{"failed", "FAILED", 200, false},
-		{"expired state", "EXPIRED", 200, false},
-		{"elapsed lifetime", "CHECKPOINTED", 100, false},
+		{"durable unreadable", "fixture", "target", "state-v1", nil, true},
+		{"durable readable", "fixture", "target", "state-v2", nil, false},
+		{"deleted save", "fixture", "target", "state-v1", 1, false},
+		{"another target", "fixture", "other", "state-v1", nil, false},
+		{"another provider", "other", "target", "state-v1", nil, false},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			database, err := sql.Open("sqlite", ":memory:")
@@ -25,17 +24,18 @@ func TestCheckpointGuardProtectsOnlyDurableSavesAndLiveReviewPayloads(t *testing
 				t.Fatal(err)
 			}
 			t.Cleanup(func() { _ = database.Close() })
+			// No review tables exist here: ephemeral trial state is not an upgrade guard.
 			_, err = database.ExecContext(t.Context(), `
 CREATE TABLE save_states(game_id TEXT,checkpoint_format TEXT,deleted_at_ms INTEGER);
 CREATE TABLE game_variants(game_id TEXT,provider_id TEXT,target_id TEXT);
-CREATE TABLE rpgmaker_runtime_validations(id TEXT,provider_id TEXT,target_id TEXT,state TEXT,expires_at_ms INTEGER);
-CREATE TABLE rpgmaker_runtime_validation_checkpoints(validation_id TEXT,checkpoint_format TEXT);
-INSERT INTO rpgmaker_runtime_validation_checkpoints VALUES('review','state-v1');
 `)
 			if err != nil {
 				t.Fatal(err)
 			}
-			if _, err := database.ExecContext(t.Context(), `INSERT INTO rpgmaker_runtime_validations VALUES('review','fixture','target',?,?)`, test.state, test.expires); err != nil {
+			if _, err := database.ExecContext(t.Context(), `INSERT INTO game_variants VALUES('game',?,?)`, test.provider, test.target); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := database.ExecContext(t.Context(), `INSERT INTO save_states VALUES('game',?,?)`, test.format, test.deleted); err != nil {
 				t.Fatal(err)
 			}
 			transaction, err := database.BeginTx(t.Context(), nil)
@@ -44,7 +44,7 @@ INSERT INTO rpgmaker_runtime_validation_checkpoints VALUES('review','state-v1');
 			}
 			defer func() { _ = transaction.Rollback() }()
 			upgrade := projectionFixture("1.1.0", "b", []string{"state-v2"})
-			err = validateCheckpointFormats(t.Context(), transaction, "fixture", upgrade.providers[0].targets[0], 100)
+			err = validateCheckpointFormats(t.Context(), transaction, "fixture", upgrade.providers[0].targets[0])
 			if errors.Is(err, ErrProviderCheckpointUnreadable) != test.blocked {
 				t.Fatalf("blocked=%v error=%v", test.blocked, err)
 			}

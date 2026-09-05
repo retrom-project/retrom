@@ -69,20 +69,19 @@ type Input struct {
 }
 
 type Capabilities struct {
-	Pause            bool     `json:"pause"`
-	Screenshot       bool     `json:"screenshot"`
-	Checkpoint       bool     `json:"checkpoint"`
-	StandardGamepad  bool     `json:"standardGamepad"`
-	FrameCounter     bool     `json:"frameCounter"`
-	Volume           bool     `json:"volume"`
-	DiscSwitch       bool     `json:"discSwitch"`
-	NativeSettings   bool     `json:"nativeSettings"`
-	InputFilter      bool     `json:"inputFilter"`
-	NetplayPort      bool     `json:"netplayPort"`
-	VideoModes       []string `json:"videoModes"`
-	RequiresThreads  bool     `json:"requiresThreads"`
-	FrameMode        string   `json:"frameMode"`
-	ValidationProbes []string `json:"validationProbes"`
+	Pause           bool     `json:"pause"`
+	Screenshot      bool     `json:"screenshot"`
+	Checkpoint      bool     `json:"checkpoint"`
+	StandardGamepad bool     `json:"standardGamepad"`
+	FrameCounter    bool     `json:"frameCounter"`
+	Volume          bool     `json:"volume"`
+	DiscSwitch      bool     `json:"discSwitch"`
+	NativeSettings  bool     `json:"nativeSettings"`
+	InputFilter     bool     `json:"inputFilter"`
+	NetplayPort     bool     `json:"netplayPort"`
+	VideoModes      []string `json:"videoModes"`
+	RequiresThreads bool     `json:"requiresThreads"`
+	FrameMode       string   `json:"frameMode"`
 }
 
 type Checkpoint struct {
@@ -236,8 +235,7 @@ func validManifestRawTarget(value any) bool {
 	capabilities, ok := target["capabilities"].(map[string]any)
 	if !ok || !exactMap(capabilities,
 		"pause", "screenshot", "checkpoint", "standardGamepad", "frameCounter", "volume", "discSwitch",
-		"nativeSettings", "inputFilter", "netplayPort", "videoModes", "requiresThreads", "frameMode",
-		"validationProbes") {
+		"nativeSettings", "inputFilter", "netplayPort", "videoModes", "requiresThreads", "frameMode") {
 		return false
 	}
 	inputs, ok := target["inputs"].([]any)
@@ -276,7 +274,7 @@ func validCapabilities(value Capabilities) bool {
 		value.FrameMode != "SAME_ORIGIN_RESOURCE" && value.FrameMode != "ISOLATED_ORIGIN_RESOURCE" {
 		return false
 	}
-	return sortedTokens(value.ValidationProbes, true) && sortedEnum(value.VideoModes, videoModes)
+	return sortedEnum(value.VideoModes, videoModes)
 }
 
 func BindTargetIntegrity(manifest Manifest, files []IntegrityFile) (Manifest, error) {

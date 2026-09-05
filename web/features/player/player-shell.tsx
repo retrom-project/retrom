@@ -20,8 +20,6 @@ import {useRuntimeExitHandler} from "./player-runtime-exit";
 import {ImmersivePlayerMenu} from "./immersive-player-menu";
 import {useImmersivePlayer} from "./use-immersive-player";
 import {usePlayerKeyboardPause} from "./use-player-keyboard-pause";
-import {RpgRuntimeValidationPanel} from "./rpg-runtime-validation-panel";
-import type {RpgRuntimeValidationDriver} from "./rpg-runtime-validation";
 import {PlayerLoading, type PlayerLoadProgress} from "./player-loading";
 import type {LaunchEnvelopeV1, PlayerRuntimeV1, RuntimeDiscStateV1} from "./runtime/contract";
 import type {RuntimeController} from "./runtime/runtime-controller";
@@ -54,7 +52,7 @@ export function PlayerShell({launchId, experience = "standard"}: {launchId: stri
   const runtimeController = useRef<RuntimeController | null>(null);
   const envelope = useRef<LaunchEnvelopeV1 | null>(null);
   const [state, setState] = useState<ShellState>("loading");
-  const [immersiveReturnTo, setImmersiveReturnTo] = useState("/immersive");
+  const [playerReturnTo, setPlayerReturnTo] = useState(experience === "immersive" ? "/immersive" : "/library");
   const [message, setMessage] = useState("正在验证 Provider 启动信息…");
   const [loadProgress, setLoadProgress] = useState<PlayerLoadProgress | null>(null);
   const [warnings, setWarnings] = useState<string[]>([]);
@@ -62,6 +60,7 @@ export function PlayerShell({launchId, experience = "standard"}: {launchId: stri
   const [syncText, setSyncText] = useState("正在连接…");
   const [syncTone, setSyncTone] = useState<"synced" | "busy" | "warning">("busy");
   const [saveUploadProgress, setSaveUploadProgress] = useState<number | null>(null);
+  const [reviewScreenshotAvailable, setReviewScreenshotAvailable] = useState(false);
   const [manualSaveAvailable, setManualSaveAvailable] = useState(true);
   const [dosProgramMenu, setDosProgramMenu] = useState(false);
   const [gameTitle, setGameTitle] = useState("正在运行的游戏");
@@ -82,7 +81,6 @@ export function PlayerShell({launchId, experience = "standard"}: {launchId: stri
   const [netplayPlayerNo, setNetplayPlayerNo] = useState<number | null>(null);
   const [netplayPaused, setNetplayPaused] = useState(false);
   const [debugOpen, setDebugOpen] = useState(false);
-  const [rpgValidationDriver, setRpgValidationDriver] = useState<RpgRuntimeValidationDriver | null>(null);
   const [orientationState, setOrientationState] = useState<PlayerOrientationState>(initialPlayerOrientationState);
   const [orientationHelp, setOrientationHelp] = useState("若浏览器不能自动锁定方向，请手动旋转设备。");
   const [debugMetrics, setDebugMetrics] = useState<PlayerDebugMetrics | null>(null);
@@ -190,11 +188,11 @@ export function PlayerShell({launchId, experience = "standard"}: {launchId: stri
     }).catch(() => showToast("无法继续游戏", 3_000));
   }, [showControls, showToast]);
   const sessionParams = useMemo(() => ({
-    launchId, runtime, playerMode, sequence, started, finishing, heartbeat, playEventQueue, saveUploadQueue,
+    launchId, runtime, envelope, playerMode, sequence, started, finishing, heartbeat, playEventQueue, saveUploadQueue,
     orientationStateRef, returnTo, netplayController, setOrientationState, setSaveUploadProgress,
     setSyncText, setSyncTone, showToast, replaceImmersiveRoute,
   }), [launchId, replaceImmersiveRoute, showToast]);
-  const {sendEvent, uploadManualState, uploadValidationCheckpoint, exit, exitStrict, exitImmersiveAfterRuntimeExit} = usePlayerSession(sessionParams);
+  const {sendEvent, uploadManualState, captureReviewScreenshot, exit, exitStrict, exitImmersiveAfterRuntimeExit} = usePlayerSession(sessionParams);
 
   const exitRuntime = useCallback(async () => {
     await runtimeController.current?.exit().catch(() => undefined);
@@ -230,13 +228,12 @@ export function PlayerShell({launchId, experience = "standard"}: {launchId: stri
     setMessage, setLoadProgress, setState, setManualSaveAvailable, setDosProgramMenu, setNetplayPlayerNo,
     setWarnings, setGameTitle, setCoreName, setPlatformName, setDebugRuntime, setDiscState, setOrientationState,
     setSyncText, setSyncTone, setEmulatorVolume, setEmulatorMuted, setPaused, setNetplayPaused,
-    setImmersiveReturnTo, setRpgValidationDriver, reportPlayerEvent,
+    setPlayerReturnTo, setReviewScreenshotAvailable, reportPlayerEvent,
     onKeyboardPause: () => keyboardPauseAction.current(), onImmersiveMenuShortcut: immersive.requestMenu,
     onRevealControls: revealControlsAtTopEdge, onShowControls: showControls, onGameSurface: handleGameSurfaceInteraction,
-    onExitRequested: handleRuntimeExitRequested, sendEvent, uploadValidationCheckpoint,
+    onExitRequested: handleRuntimeExitRequested, sendEvent,
   }), [experience, handleGameSurfaceInteraction, handleRuntimeExitRequested, immersive.filter,
-    immersive.requestMenu, launchId, reportPlayerEvent, revealControlsAtTopEdge, sendEvent, showControls,
-    uploadValidationCheckpoint]);
+    immersive.requestMenu, launchId, reportPlayerEvent, revealControlsAtTopEdge, sendEvent, showControls]);
   usePlayerBootstrap(bootstrapParams);
   const runtimeEffectParams = useMemo(() => ({
     state, debugOpen, orientationBlocked: orientationState.phase === "orientation-blocked", runtime,
@@ -278,6 +275,7 @@ export function PlayerShell({launchId, experience = "standard"}: {launchId: stri
     emulatorToolbarOpen, emulatorVolume, emulatorMuted, videoRenderingMode, discSet, discState,
     netplayPlayerNo, netplayPaused, debugOpen, debugMetrics, debugRuntime, runtimeState: state,
     onHoldControls: holdControls, onReleaseControls: releaseControls, onToggleControls: toggleControls,
+    onScreenshot: reviewScreenshotAvailable ? () => void captureReviewScreenshot() : undefined,
     onSave: actions.saveManualState, onPauseForToolbarInteraction: pauseForToolbarInteraction,
     onToggleFullscreen: () => void actions.toggleFullscreen(), onOpenEmulatorSettings: actions.openEmulatorSettings,
     onCloseEmulatorSettings: actions.closeEmulatorSettings, onOpenEmulatorPanel: actions.openEmulatorPanel,
@@ -288,21 +286,21 @@ export function PlayerShell({launchId, experience = "standard"}: {launchId: stri
   };
   return <PlayerShellView experience={experience} immersive={immersive} paused={paused} orientationState={orientationState}
     chromeProps={chromeProps} stage={stage} state={state} message={message} loadProgress={loadProgress}
-    returnTo={experience === "immersive" ? immersiveReturnTo : "/library"} gameTitle={gameTitle}
+    returnTo={playerReturnTo} gameTitle={gameTitle}
     orientationHelp={orientationHelp} orientationButtonRef={orientationButtonRef}
-    rpgValidationDriver={rpgValidationDriver} onShowControls={showControls}
+    onShowControls={showControls}
     onRevealControls={revealControlsAtTopEdge} onSurface={handleGameSurfaceInteraction}
     onRetryLandscape={() => void retryLandscape()} />;
 }
 
 type ImmersiveController = ReturnType<typeof useImmersivePlayer>;
 
-function PlayerShellView({experience, immersive, paused, orientationState, chromeProps, stage, state, message, loadProgress, returnTo, gameTitle, orientationHelp, orientationButtonRef, rpgValidationDriver, onShowControls, onRevealControls, onSurface, onRetryLandscape}: {
+function PlayerShellView({experience, immersive, paused, orientationState, chromeProps, stage, state, message, loadProgress, returnTo, gameTitle, orientationHelp, orientationButtonRef, onShowControls, onRevealControls, onSurface, onRetryLandscape}: {
   experience: "standard" | "immersive"; immersive: ImmersiveController; paused: boolean;
   orientationState: PlayerOrientationState; chromeProps: PlayerChromeProps; stage: RefObject<HTMLDivElement | null>;
   state: ShellState; message: string; loadProgress: PlayerLoadProgress | null; returnTo: string; gameTitle: string;
   orientationHelp: string; orientationButtonRef: RefObject<HTMLButtonElement | null>;
-  rpgValidationDriver: RpgRuntimeValidationDriver | null; onShowControls: () => void;
+  onShowControls: () => void;
   onRevealControls: (clientY: number) => void; onSurface: () => void; onRetryLandscape: () => void;
 }) {
   const blocked = orientationState.phase === "orientation-blocked";
@@ -313,7 +311,6 @@ function PlayerShellView({experience, immersive, paused, orientationState, chrom
     {!blocked && !isImmersive ? <PlayerChrome {...chromeProps} /> : null}
     <PlayerStage blocked={blocked} stage={stage} state={state} message={message} loadProgress={loadProgress}
       returnTo={returnTo} immersive={isImmersive} onSurface={isImmersive ? () => undefined : onSurface} />
-    {!blocked && rpgValidationDriver ? <RpgRuntimeValidationPanel driver={rpgValidationDriver} /> : null}
     {!blocked && isImmersive ? <ImmersivePlayerMenu overlay={immersive.overlay} saveAvailable={immersive.saveAvailable}
       onCancel={immersive.menuCancel} onSelect={immersive.menuSelect} onConfirm={immersive.runSelectedMenuAction} /> : null}
     {blocked ? <OrientationGate state={orientationState} gameTitle={gameTitle} help={orientationHelp}

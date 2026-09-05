@@ -5,6 +5,8 @@ import { join, resolve } from "node:path";
 
 import { chromium } from "../../web/node_modules/playwright/index.mjs";
 
+import {captureOptionalReviewScreenshot} from "./rpgmaker_preview_actions.mjs";
+
 import { assertOnsProductEvidence, onsProductStages } from "./ons_product_contract.mjs";
 import { localRpgAcceptanceProxy } from "./rpgmaker_local_proxy.mjs";
 import { createProductClient, singleFile } from "./rpgmaker_security_upload.mjs";
@@ -88,7 +90,7 @@ async function runProductCase(activeBrowser) {
     await previewPage.goto(`${baseUrl}${preview.playUrl}`, { waitUntil: "domcontentloaded", timeout: 120_000 });
     const previewCanvas = await runtimeCanvas(previewPage);
     await sendKeys(previewPage, previewCanvas, ["Enter", "ArrowDown", "Enter"]);
-    await previewPage.getByText("第 5 秒运行截图已保存；可以继续试玩。").waitFor({ timeout: 120_000 });
+    await captureOptionalReviewScreenshot(previewPage, preview.previewId);
     const previewFrame = await screenshotEvidence(previewCanvas, "preview.png");
     await previewPage.close();
 

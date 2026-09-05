@@ -9,6 +9,8 @@ import (
 	"net/url"
 	"strings"
 
+	"retrom/internal/contentprofile"
+
 	"retrom/internal/cleanup"
 	"retrom/internal/importing"
 	"retrom/internal/ons/detector"
@@ -69,7 +71,7 @@ SELECT launch.credential_sha256,launch.state,launch.hard_expires_at_ms,
  game.title,launch.dependency_snapshot_json
 FROM launch_sessions launch
 JOIN games game ON game.id=launch.game_id
-WHERE launch.id=? AND launch.purpose='PRODUCT'
+WHERE launch.id=?
  AND EXISTS(SELECT 1 FROM launch_content_files file WHERE file.launch_session_id=launch.id
   AND file.format_version='ONS_PROJECT')
 `, launchID).Scan(&credentialHash, &state, &hardExpires, &title, &dependencyJSON)
@@ -240,7 +242,7 @@ SELECT logical_name,size_bytes FROM (
  SELECT file.logical_name,blob.size_bytes,file.sort_order+1
  FROM review_preview_files file
  JOIN blobs blob ON blob.id=file.blob_id
- WHERE file.preview_session_id=? AND file.role='PROJECT_FILE'
+ WHERE file.preview_session_id=? AND file.role IN ('PROJECT_FILE','RUNTIME_FILE')
 ) ORDER BY sort_order,logical_name
 `, previewID, previewID)
 	if err != nil {
@@ -276,13 +278,20 @@ func (service *Service) ReviewPreviewProjectContent(
 	previewID, capability, logicalName string,
 ) (ContentView, error) {
 	normalized, err := importing.ValidateLogicalPath(logicalName)
-	if err != nil || normalized == "index.json" {
+	if err != nil || normalized != logicalName {
 		return ContentView{}, ErrCredential
 	}
 	var credentialHash []byte
 	var digest, state, format, coreID, providerID, targetID, bundleSHA256, platformKey string
 	var hardExpires int64
 	err = service.database.QueryRowContext(ctx, `
+WITH preview_files AS (
+ SELECT id AS preview_session_id,content_logical_name AS logical_name,content_blob_id AS blob_id
+ FROM review_preview_sessions WHERE id=?
+ UNION ALL
+ SELECT preview_session_id,logical_name,blob_id FROM review_preview_files
+ WHERE preview_session_id=? AND role IN ('PROJECT_FILE','RUNTIME_FILE')
+)
 SELECT preview.credential_sha256,preview.state,preview.hard_expires_at_ms,blob.sha256,
 preview.content_format,binding.core_id,preview.provider_id,preview.target_id,
 preview.bundle_sha256,platform.id
@@ -290,23 +299,19 @@ FROM review_preview_sessions preview
 JOIN runtime_target_bindings binding ON binding.provider_id=preview.provider_id AND binding.target_id=preview.target_id
 JOIN platform_instances instance ON instance.id=preview.target_platform_instance_id
 JOIN platforms platform ON platform.id=instance.platform_id
-JOIN (
- SELECT id AS preview_session_id,content_logical_name AS logical_name,content_blob_id AS blob_id
- FROM review_preview_sessions
- UNION ALL
- SELECT preview_session_id,logical_name,blob_id FROM review_preview_files WHERE role='PROJECT_FILE'
-) file ON file.preview_session_id=preview.id AND file.logical_name=?
+JOIN preview_files file ON file.preview_session_id=preview.id AND (
+ file.logical_name=? OR preview.content_format='RPG_MAKER_PROJECT' AND lower(file.logical_name)=lower(?)
+ AND NOT EXISTS(SELECT 1 FROM preview_files exact WHERE exact.logical_name=?)
+ AND (SELECT count(*) FROM preview_files folded WHERE lower(folded.logical_name)=lower(?))=1
+)
 JOIN blobs blob ON blob.id=file.blob_id
 WHERE preview.id=?
- AND preview.content_kind IN (
-  'ONS_PROJECT','KIRIKIRI_PROJECT','BUTTERSCOTCH_PROJECT','TYRANOSCRIPT_PROJECT'
- )
-`, normalized, previewID).Scan(
+
+`, previewID, previewID, normalized, normalized, normalized, normalized, previewID).Scan(
 		&credentialHash, &state, &hardExpires, &digest, &format, &coreID,
 		&providerID, &targetID, &bundleSHA256, &platformKey,
 	)
-	if err != nil || format != onsProjectFormat && format != kirikiriProjectFormat &&
-		format != butterscotchProjectFormat && format != tyranoScriptProjectFormat ||
+	if err != nil || !contentprofile.IsProjectContentKind(contentprofile.ContentKind(format)) ||
 		!reviewPreviewCredential(service.now().UnixMilli(), capability, credentialHash, state, hardExpires) {
 		return ContentView{}, ErrCredential
 	}

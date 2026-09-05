@@ -52,23 +52,27 @@ Upload、Archive、ImportJob、ImportItem、来源快照、Validation、ReviewDr
 
 Upload 的业务用途只区分 `GENERAL/PROJECT/RUNTIME_ASSET_PACK`，并独立记录文件/目录形态；项目引擎由归一化后的真实内容检测。审核不存储算法 generation；目录展示变化和不相关能力变化不参与有效性摘要。
 
+检查摘要不设跨历史记录的唯一约束：依赖从缺失变为可用、再变回缺失，是新的检查结果，即使输入摘要与较早记录相同也必须能正常保存。未变化的重复检查复用当前结果，不新增记录。RPG 的导入、重新检查和发布共用现有 pack resolver；可用 RTP 的选择随校验冻结，发布事务重新核对真实依赖，不以是否打开过 Player 作为就绪条件。
+
 发布事务将审核 metadata、媒体、内容文件与默认 Variant 一次写入 Game current state。重新刮削以稳定 `game_id` 为 owner 创建候选；显式应用候选才更新当前 metadata/assets，不能因为旧内容版本表已经删除而丢失 Game 关联。
 
-RPG Maker validation 保存来源快照、项目 fingerprint、generation、Provider/Target 和依赖摘要。原 Launch 与 restore Launch 必须不同，gate event 连续且 append-only；临时 checkpoint 在工作流终态后释放，不进入用户存档列表。
+RPG Maker profile 保存实际检测得到的项目 fingerprint、generation、Provider/Target 和依赖摘要，不保存运行 gate、位置证明或独立验证决定。所有审核通过 `review_preview_sessions` 试运行，来源文件与校验产物分开锁定；`RUNTIME_FILE` 只能引用该审核所选校验的产物或已选运行资源包，不能借试运行读取其他来源的 Blob。
+
+审核临时 checkpoint 使用会话级存储，一份 preview 保留当前临时 payload，格式及 Blob 关系明确。恢复 preview 冻结自己的恢复输入，不跟随原 preview 后续覆盖。已关闭会话的临时 checkpoint 可在审核未结束且未到期时用于恢复；过期或审核 payload 释放时清理。临时存档不是审批/升级门槛，不引入原会话、恢复会话或人工确认的附加状态机。
 
 ## 6. Launch 与资源冻结
 
-`launch_sessions` 保存用途、Game/Core、稳定 Provider/Target、冻结 `bundle_sha256`、内容类型、依赖 snapshot、兼容状态、可选 save/validation/netplay owner、凭据摘要和生命周期。`launch_content_files` 与 `launch_external_files` 锁定本次内容、BIOS、parent 和 disc Blob；创建后 Game、Variant、DAT、BIOS 或 Provider 当前态变化都不能改写既有 Launch。
+`launch_sessions` 保存 Game/Core、稳定 Provider/Target、冻结 `bundle_sha256`、内容类型、依赖 snapshot、兼容状态、可选 save/netplay owner、凭据摘要和生命周期。`launch_content_files` 与 `launch_external_files` 锁定本次内容、BIOS、parent 和 disc Blob；创建后 Game、Variant、DAT、BIOS 或 Provider 当前态变化都不能改写既有 Launch。
 
-Review Preview 使用相同冻结原则；Provider 静态资源由 Provider/Bundle/path 三元组读取并逐请求校验 allowlist 与摘要。
+Review Preview 使用相同冻结原则和 Player，但保留审核来源 owner，不创建假 Game。启动、心跳和退出只推进会话授权状态，不写入已发布游戏的游玩统计。Provider 静态资源由 Provider/Bundle/path 三元组读取并逐请求校验 allowlist 与摘要。
 
 ## 7. SaveState
 
 `save_states` 保存 Profile、Game、checkpoint format、payload Blob/SHA-256/size、可选截图、DOS 路径/disc index 和来源 Launch。它不复制 Provider、Target、Bundle 或 Variant 身份。
 
-写入必须来自同一 Profile/Game 的有效 PRODUCT Launch，且格式位于 Target `readFormats`、大小不超过 `maxBytes`。恢复使用当前 READY Variant；只要当前 Target 声明可读该 checkpoint format 即可。不可读存档保留为 BLOCKED 投影，不加载旧 Provider、不 fallback，也不阻止无存档启动。
+写入必须来自同一 Profile/Game 的有效 PRODUCT Launch，且格式等于 Target 当前 `writeFormat`、大小不超过 `maxBytes`。恢复使用当前 READY Variant；只要当前 Target 声明可读该 checkpoint format 即可。不可读存档保留为 BLOCKED 投影，不加载旧 Provider、不 fallback，也不阻止无存档启动。
 
-Provider 激活前必须保证现有未删除用户存档仍可读；未过期、非终态审核的实际 checkpoint 同样受保护。已终态审核通过生命周期 trigger 移除临时 payload 引用；超时审核先结束会话，再释放引用，实际 CAS 删除仍由 Blob GC 按剩余 owner 与宽限期执行。
+Provider 激活前必须保证现有未删除的持久用户存档格式仍在 `readFormats` 中；审核临时 checkpoint 不参与升级门槛，也不以 `maxBytes` 减少阻塞升级。审核结束由既有 payload release 清除临时引用；普通 GC 周期释放过期 preview 的 checkpoint/restore 引用。实际 CAS 删除仍按剩余 owner 与宽限期执行。
 
 ## 8. Play、隔离与联机
 

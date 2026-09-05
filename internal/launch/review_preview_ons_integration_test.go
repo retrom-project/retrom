@@ -74,7 +74,7 @@ VALUES(?,'ons-preview-profile','ons-preview-admin','ONS Admin','ADMIN','ENABLED'
 		ImportItemID: itemID, ActorUserID: actorID, IdempotencyKey: "ons-preview-1",
 		ClientCapabilities: Capabilities{SecureContext: true},
 	})
-	if err != nil || !preview.CaptureAllowed || preview.CaptureAfterMS != 5_000 {
+	if err != nil {
 		t.Fatalf("CreateReviewPreview(ONS) = %#v, %v", preview, err)
 	}
 	configuration, err := service.ReviewPreviewConfig(ctx, preview.PreviewID, preview.Capability)

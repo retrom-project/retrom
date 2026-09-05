@@ -5,13 +5,17 @@ import {
 } from "node:fs";
 import { request as httpRequest } from "node:http";
 import { request as httpsRequest } from "node:https";
-import { dirname, isAbsolute, resolve } from "node:path";
+import { basename, dirname, isAbsolute, resolve } from "node:path";
 import { chromium } from "../../web/node_modules/playwright/index.mjs";
 import {
   createProductClient, directoryFiles, reviewForImport,
 } from "./rpgmaker_security_upload.mjs";
 import { localRpgAcceptanceProxy } from "./rpgmaker_local_proxy.mjs";
 import { isLocalAcceptanceHostname } from "./rpgmaker_url.mjs";
+
+import {advanceFixture, captureOptionalReviewScreenshot, capturePreviewCheckpoint, finishPreview,
+  observeFixturePosition, observeOwnedFixture, observePreviewFrames, waitForPreviewReady} from "./rpgmaker_preview_actions.mjs";
+import {installAudioObservation, readAudioObservation} from "./rpgmaker_audio_observation.mjs";
 
 const cases = {
   "ACC-RPG-002": {
@@ -72,6 +76,8 @@ const baseUrl = normalizedBase(required("RETROM_ACCEPTANCE_BASE_URL"));
 const tracePath = caseId === "ACC-RPG-004"
   ? optionalTracePath(process.env.RETROM_ACC_RPG_004_TRACE)
   : null;
+const trialPath = checkedTracePath(required("RETROM_RPG_PROVISION_EVIDENCE"));
+const restoredImagePath = checkedTracePath(trialPath + "-restored.png");
 const sourceFiles = directoryFiles(config.source(), config.prefix);
 if (caseId === "ACC-RPG-008") {
   validateMZProvenance(sourceFiles, required("RPG_MZ_SMOKE_PROVENANCE"));
@@ -102,14 +108,15 @@ try {
   const review = await provisionReview(client, sourceFiles, platformInstanceId);
   exact(review.rpgMaker?.selectedCoreId, config.coreId, "RPG_PROVISION_CORE_MISMATCH");
   exact(review.rpgMaker?.generation, config.generation, "RPG_PROVISION_GENERATION_MISMATCH");
-  const published = await validateAndPublish(context, client, review);
+  const published = await trialAndPublish(context, client, review);
+  writeFileSync(trialPath, JSON.stringify(published.runtimeTrial, null, 2) + "\n", {flag: "wx", mode: 0o600});
   if (tracePath) {
     const trace = xpTrace(published);
     writeFileSync(tracePath, `${JSON.stringify(trace, null, 2)}\n`, { flag: "wx", mode: 0o600 });
   }
   process.stdout.write(`${JSON.stringify({
     schemaVersion: 1, caseId, importItemId: review.itemId,
-    validationId: published.validation.validationId, gameId: published.gameId,
+    trialEvidence: trialPath, gameId: published.gameId,
     providerId: "retrom-runtime", targetId: config.targetId, xpTraceWritten: Boolean(tracePath),
   }, null, 2)}\n`);
 } finally {
@@ -129,11 +136,7 @@ async function provisionReview(client, sourceFiles, platformInstanceId) {
   }
   const review = await client.json("GET", `/api/v1/admin/reviews/${resumeItemId}`);
   const expected = projectManifest(sourceFiles, config.prefix);
-  const validation = review.rpgMaker?.runtimeValidation;
-  const validationCanBeReplaced = validation === null
-    || review.rpgMaker?.runtimeValidationCurrent !== true
-    || ["FAILED", "EXPIRED"].includes(validation?.state);
-  if (review.itemId !== resumeItemId || !validationCanBeReplaced
+  if (review.itemId !== resumeItemId
       || review.rpgMaker?.selectedCoreId !== config.coreId
       || review.rpgMaker?.generation !== config.generation
       || review.sourceManifest?.contentKind !== "RPG_MAKER_PROJECT"
@@ -200,124 +203,117 @@ function fileSHA256(file) {
   return hasher.digest();
 }
 
-async function validateAndPublish(context, client, review) {
+async function trialAndPublish(context, client, review) {
+  const startedAtMs = Date.now();
   const threadRejections = [];
+  const path = "/api/v1/admin/reviews/" + review.itemId + "/previews";
+  if (tracePath) {threadRejections.push(await expectThreadRejection(client, path, review.version, "PREVIEW"));}
+  const create = async (restoreFromPreviewId) => {
+    const response = await client.raw("POST", path, {
+      headers: writeVersionHeaders(client, review.version),
+      data: {clientCapabilities: trueCapabilities, ...(restoreFromPreviewId ? {restoreFromPreviewId} : {})},
+    });
+    exact(response.status(), 201, "RPG_PROVISION_PREVIEW_CREATE_FAILED");
+    return response.json();
+  };
+  const created = await create();
+  await assertLaunchCookie(context, created.previewId);
+  const original = await openPlayer(context, created.playUrl);
+  await waitForPreviewReady(original);
+  const originalFrames = await observePreviewFrames(original);
+  const audio = await readAudioObservation(original);
+  const checkpointA = await capturePreviewCheckpoint(original, created.previewId);
+  const initialPosition = await observeFixturePosition(original, config.generation, original.__retromOwnedFixture, checkpointA);
+  await advanceFixture(original, config.saveKeys);
+  const checkpointB = await capturePreviewCheckpoint(original, created.previewId);
+  const savedPosition = await observeFixturePosition(original, config.generation, original.__retromOwnedFixture, checkpointB);
+  const oversizeRejection = tracePath ? await rejectDeclaredOversize(context, created.previewId) : null;
   if (tracePath) {
     threadRejections.push(await expectThreadRejection(
-      client, `/api/v1/admin/reviews/${review.itemId}/runtime-validations`, review.version, "VALIDATION",
+      client, path, review.version, "RESTORE", {restoreFromPreviewId: created.previewId},
     ));
   }
-  const createdResponse = await client.raw(
-    "POST", `/api/v1/admin/reviews/${review.itemId}/runtime-validations`, {
-      headers: validationHeaders(client, review.version), data: { clientCapabilities: trueCapabilities },
+  // Freeze B while the source is still running; saving C must not retarget its restore payload.
+  const restored = await create(created.previewId);
+  if (restored.previewId === created.previewId) {throw new Error("RPG_PROVISION_RESTORE_LAUNCH_REUSED");}
+  await advanceFixture(original, config.divergeKeys);
+  const checkpointC = await capturePreviewCheckpoint(original, created.previewId);
+  const divergedPosition = await observeFixturePosition(original, config.generation, original.__retromOwnedFixture, checkpointC);
+  await captureOptionalReviewScreenshot(original, created.previewId);
+  await finishPreview(original, created.previewId);
+  await assertCleanPlayer(original, "RPG_PROVISION_ORIGINAL_PLAYER_ERROR");
+  await assertLaunchCookie(context, restored.previewId);
+  const restorePage = await openPlayer(context, restored.playUrl);
+  const envelope = restorePage.__retromEnvelope;
+  if (envelope.restore?.sha256 !== checkpointB.sha256 || envelope.restore?.sizeBytes !== checkpointB.sizeBytes ||
+      envelope.restore?.format !== checkpointB.format) {throw new Error("RPG_PROVISION_RESTORE_FROZEN_PAYLOAD_MISMATCH");}
+  await waitForPreviewReady(restorePage);
+  const restoredFrames = await observePreviewFrames(restorePage);
+  const restoredCheckpoint = await capturePreviewCheckpoint(restorePage, restored.previewId);
+  const restoredPosition = await observeFixturePosition(restorePage, config.generation, restorePage.__retromOwnedFixture, restoredCheckpoint);
+  const screenshotSha256 = createHash("sha256").update(restoredCheckpoint.screenshot).digest("hex");
+  writeFileSync(restoredImagePath, restoredCheckpoint.screenshot, {flag: "wx", mode: 0o600});
+  await advanceFixture(restorePage, config.restoreKeys);
+  const afterRestore = await capturePreviewCheckpoint(restorePage, restored.previewId);
+  const restoreInputPosition = await observeFixturePosition(restorePage, config.generation, restorePage.__retromOwnedFixture, afterRestore);
+  const checkpointRoundTrip = {
+    originalLaunchId: created.previewId, restoreLaunchId: restored.previewId,
+    initialPosition, savedPosition, divergedPosition, restoredPosition, restoreInputPosition,
+    sha256: checkpointB.sha256, sizeBytes: checkpointB.sizeBytes, format: checkpointB.format,
+    frozenRestoreSha256: envelope.restore.sha256, originalLaunchEnded: original.isClosed(),
+  };
+  assertPositionSequence(checkpointRoundTrip);
+  await captureOptionalReviewScreenshot(restorePage, restored.previewId);
+  await finishPreview(restorePage, restored.previewId);
+  await assertCleanPlayer(restorePage, "RPG_PROVISION_RESTORE_PLAYER_ERROR");
+  const currentReview = await client.json("GET", "/api/v1/admin/reviews/" + review.itemId);
+  exact(currentReview.canApprove, true, "RPG_PROVISION_REVIEW_NOT_READY");
+  exact(currentReview.sourceManifest.filesDigest, review.sourceManifest.filesDigest, "RPG_PROVISION_SOURCE_MUTATED");
+  const runtime = original.__retromEnvelope.runtime;
+  exact(runtime.providerId, "retrom-runtime", "RPG_PROVISION_PROVIDER_MISMATCH");
+  exact(runtime.targetId, config.targetId, "RPG_PROVISION_TARGET_MISMATCH");
+  const runtimeTrial = {
+    schemaVersion: 1, kind: "DEVELOPMENT_RUNTIME_TRIAL", caseId, importItemId: review.itemId,
+    launchId: created.previewId, restoreLaunchId: restored.previewId,
+    routeEvidence: {
+      providerId: runtime.providerId, targetId: runtime.targetId, bundleSha256: runtime.bundleSha256,
+      generation: review.rpgMaker.generation, evidenceGeneration: review.rpgMaker.evidenceGeneration,
+      evidenceConfidence: review.rpgMaker.evidenceConfidence,
+      effectiveSourceSnapshotId: review.effectiveSourceSnapshotId, projectFingerprint: review.sourceManifest.filesDigest,
+      dependencySnapshotSha256: createHash("sha256").update(JSON.stringify(review.validation.dependencySnapshot)).digest("hex"),
     },
-  );
-  exact(createdResponse.status(), 201, "RPG_PROVISION_VALIDATION_CREATE_FAILED");
-  const created = await createdResponse.json();
-  await assertLaunchCookie(context, created.launchId);
-  const original = await openPlayer(context, created.playerUrl);
-  const checkpointUpload = tracePath ? observeCheckpointUpload(original) : null;
-  await runtimeAction(original, "输入已经生效", ["ArrowLeft"]);
-  await runtimeAction(original, "已听到游戏音频", []);
-  await runtimeAction(original, "记录 B 并创建检查点", config.saveKeys, 300_000);
-  const observedUpload = checkpointUpload ? await checkpointUpload() : null;
-  const oversizeRejection = tracePath
-    ? await rejectDeclaredOversize(context, created.launchId)
-    : null;
-  await runtimeAction(original, "记录 C 并结束原运行", config.divergeKeys);
-  const checkpointed = await waitForValidation(client, review.itemId, created.validationId, "CHECKPOINTED");
-  await closeCleanPlayer(original, "RPG_PROVISION_ORIGINAL_PLAYER_ERROR");
-  if (tracePath) {
-    threadRejections.push(await expectThreadRejection(
-      client,
-      `/api/v1/admin/reviews/${review.itemId}/runtime-validations/${created.validationId}/restore-launch`,
-      review.version, "RESTORE",
-    ));
-  }
-  const restoreResponse = await client.raw(
-    "POST", `/api/v1/admin/reviews/${review.itemId}/runtime-validations/${created.validationId}/restore-launch`, {
-      headers: validationHeaders(client, review.version), data: { clientCapabilities: trueCapabilities },
-    },
-  );
-  exact(restoreResponse.status(), 201, "RPG_PROVISION_RESTORE_CREATE_FAILED");
-  const restored = await restoreResponse.json();
-  if (restored.launchId === created.launchId) { throw new Error("RPG_PROVISION_RESTORE_LAUNCH_REUSED"); }
-  await assertLaunchCookie(context, restored.launchId);
-  const restorePage = await openPlayer(context, restored.playerUrl);
-  await runtimeAction(restorePage, "恢复后输入已经生效", config.restoreKeys, 300_000);
-  const awaiting = await waitForValidation(client, review.itemId, created.validationId, "AWAITING_DECISION");
-  assertPositionSequence(awaiting.checkpointRoundTrip);
-  await closeCleanPlayer(restorePage, "RPG_PROVISION_RESTORE_PLAYER_ERROR");
-  const decision = await client.raw(
-    "POST", `/api/v1/admin/reviews/${review.itemId}/runtime-validations/${created.validationId}/decision`, {
-      headers: validationHeaders(client, review.version),
-      data: { decision: "PASS", note: `${caseId} strict generation provision` },
-    },
-  );
-  exact(decision.status(), 200, "RPG_PROVISION_DECISION_FAILED");
-  const validation = await decision.json();
-  exact(validation.state, "PASSED", "RPG_PROVISION_VALIDATION_NOT_PASSED");
-  exact(validation.routeEvidence?.providerId, "retrom-runtime", "RPG_PROVISION_PROVIDER_MISMATCH");
-  exact(validation.routeEvidence?.targetId, config.targetId, "RPG_PROVISION_TARGET_MISMATCH");
-  const currentReview = await client.json("GET", `/api/v1/admin/reviews/${review.itemId}`);
-  const approvalResponse = await client.raw("POST", `/api/v1/admin/reviews/${review.itemId}/approve`, {
-    headers: validationHeaders(client, currentReview.version), data: {},
+    checkpointRoundTrip, frameProgress: {original: originalFrames, restored: restoredFrames}, audio,
+    startedAtMs, finishedAtMs: Date.now(),
+    restoredScreenshot: {fileName: basename(restoredImagePath), sha256: screenshotSha256,
+      sizeBytes: restoredCheckpoint.screenshot.length},
+  };
+  const approvalResponse = await client.raw("POST", "/api/v1/admin/reviews/" + review.itemId + "/approve", {
+    headers: writeVersionHeaders(client, currentReview.version), data: {},
   });
   exact(approvalResponse.status(), 201, "RPG_PROVISION_APPROVAL_FAILED");
   const approval = await approvalResponse.json();
-  if (!approval.gameId) { throw new Error("RPG_PROVISION_GAME_ID_MISSING"); }
-  return {
-    gameId: approval.gameId, validation,
-    checkpointUpload: tracePath ? bindCheckpointUpload(observedUpload, checkpointed.checkpointRoundTrip) : null,
-    oversizeRejection, threadRejections,
-  };
+  if (!approval.gameId) {throw new Error("RPG_PROVISION_GAME_ID_MISSING");}
+  runtimeTrial.gameId = approval.gameId;
+  return {gameId: approval.gameId, runtimeTrial,
+    checkpointUpload: tracePath ? bindCheckpointUpload(checkpointB, checkpointB) : null,
+    oversizeRejection, threadRejections};
 }
 
-async function expectThreadRejection(client, path, reviewVersion, phase) {
+async function expectThreadRejection(client, path, reviewVersion, phase, extra = {}) {
   const attemptId = randomUUID();
   const response = await client.raw("POST", path, {
-    headers: { ...validationHeaders(client, reviewVersion), "Idempotency-Key": attemptId },
-    data: { clientCapabilities: falseCapabilities },
+    headers: { ...writeVersionHeaders(client, reviewVersion), "Idempotency-Key": attemptId },
+    data: { clientCapabilities: falseCapabilities, ...extra },
   });
   const body = await response.json();
-  if (response.status() !== 409 || body.error?.code !== "RPG_RUNTIME_ROUTE_UNAVAILABLE"
-      || body.launchId || body.playerUrl) {
+  if (response.status() !== 422 || body.error?.code !== "REVIEW_PREVIEW_CLIENT_UNSUPPORTED"
+      || body.previewId || body.playUrl) {
     throw new Error(`RPG_PROVISION_THREAD_REJECTION_${phase}_INVALID`);
   }
   return {
     attemptId, phase, capabilities: falseCapabilities,
     responseStatus: response.status(), errorCode: body.error.code,
     launchCredentialIssued: false, projectPayloadRequestCount: 0,
-  };
-}
-
-function observeCheckpointUpload(page) {
-  const observation = { request: null, response: null };
-  page.on("request", (request) => {
-    if (request.method() !== "POST" || !request.url().includes("/save-states")) { return; }
-    observation.request = { startedAtMs: Date.now(), headers: request.allHeaders() };
-  });
-  page.on("response", (response) => {
-    if (response.request().method() !== "POST" || !response.url().includes("/save-states")) { return; }
-    observation.response = { responseStatus: response.status(), finishedAtMs: Date.now() };
-  });
-  return async () => {
-    for (let attempt = 0; attempt < 600 && (!observation.request || !observation.response); attempt += 1) {
-      await page.waitForTimeout(100);
-    }
-    if (!observation.request || !observation.response) {
-      throw new Error("RPG_PROVISION_CHECKPOINT_UPLOAD_TRACE_MISSING");
-    }
-    const headers = await observation.request.headers;
-    const contentLength = Number(headers["content-length"]);
-    if (!Number.isSafeInteger(contentLength)) {
-      throw new Error("RPG_PROVISION_CHECKPOINT_CONTENT_LENGTH_MISSING");
-    }
-    return {
-      requestContentLengthBytes: contentLength,
-      startedAtMs: observation.request.startedAtMs,
-      ...observation.response,
-    };
   };
 }
 
@@ -442,6 +438,8 @@ async function assertSelectedRoute(client) {
 
 async function openPlayer(context, playerUrl) {
   const page = await context.newPage();
+  page.__retromOwnedFixture = observeOwnedFixture(page);
+  await page.addInitScript(installAudioObservation);
   const consoleDiagnostics = [];
   const errors = [];
   const exceptionDiagnostics = [];
@@ -539,6 +537,8 @@ async function openPlayer(context, playerUrl) {
   if (config.status() !== 200) {
     throw new Error(`RPG_PROVISION_LAUNCH_CONFIG_${config.status()}`);
   }
+  page.__retromEnvelope = await config.json();
+  exact(page.__retromEnvelope.session.purpose, "REVIEW_PREVIEW", "RPG_PROVISION_PURPOSE_MISMATCH");
   return page;
 }
 
@@ -550,48 +550,6 @@ async function assertLaunchCookie(context, launchId) {
       && cookie.httpOnly && cookie.sameSite === "Strict",
   );
   if (matches.length !== 1) { throw new Error("RPG_PROVISION_LAUNCH_COOKIE_MISSING"); }
-}
-
-async function runtimeAction(page, label, keys, timeout = 120_000) {
-  const button = page.getByRole("button", { name: label, exact: true });
-  const fatalError = page.__retromFatalError;
-  const runtimeFailure = page.getByRole("alert")
-    .filter({ hasText: /\b(?:RPG|RUNTIME)_[A-Z0-9_]+\b/u }).first();
-  try {
-    await Promise.race([
-      button.waitFor({ state: "visible", timeout }),
-      runtimeFailure.waitFor({ state: "visible", timeout }).then(() => {
-        throw new Error("RPG_PROVISION_RUNTIME_FAILED");
-      }),
-      fatalError.then(() => { throw new Error("RPG_PROVISION_PAGE_ERROR"); }),
-    ]);
-  } catch {
-    await Promise.allSettled(page.__retromExceptionTasks ?? []);
-    const runtimeDiagnostics = (page.__retromRuntimeDiagnostics ?? []).slice(-20);
-    const diagnostics = {
-      alerts: (await page.getByRole("alert").allInnerTexts()).map(trimDiagnostic).slice(0, 5),
-      consoleDiagnostics: (page.__retromConsoleDiagnostics ?? []).slice(-30),
-      exceptionDiagnostics: (page.__retromExceptionDiagnostics ?? []).slice(-20),
-      loading: (await page.locator(".player-loading").allInnerTexts()).map(trimDiagnostic).slice(0, 3),
-      networkRequests: (page.__retromNetworkRequests ?? []).slice(-100),
-      pageErrors: (page.__retromPageErrors ?? []).map(trimDiagnostic).slice(0, 5),
-      projectRequests: (page.__retromProjectRequests ?? []).slice(-30),
-      runtimeDiagnostics: runtimeDiagnostics.map((value) => ({
-        code: trimDiagnostic(value.code).slice(0, 128), message: trimDiagnostic(value.message),
-      })),
-      statuses: (await page.getByRole("status").allInnerTexts()).map(trimDiagnostic).slice(0, 10),
-    };
-    throw new Error(`RPG_PROVISION_RUNTIME_ACTION_UNAVAILABLE_${label}:${JSON.stringify(diagnostics)}`);
-  }
-  const canvas = await focusRuntimeCanvas(page);
-  for (const key of keys) {
-    await canvas.press(key, { delay: 250 });
-    await page.waitForTimeout(800);
-  }
-  await button.click();
-  await page.waitForTimeout(500);
-  const alerts = (await page.getByRole("alert").allInnerTexts()).map((value) => value.trim()).filter(Boolean);
-  if (alerts.length) { throw new Error(`RPG_PROVISION_RUNTIME_ACTION_${label}:${alerts[0]}`); }
 }
 
 function trimDiagnostic(value) {
@@ -646,37 +604,10 @@ function safeStackUrl(value) {
   }
 }
 
-async function focusRuntimeCanvas(page) {
-  const deadline = Date.now() + 120_000;
-  while (Date.now() < deadline) {
-    for (const frame of page.frames()) {
-      const canvas = frame.locator("canvas").first();
-      if (await canvas.isVisible().catch(() => false)) {
-        await canvas.evaluate((element) => { element.tabIndex = 0; element.focus(); });
-        return canvas;
-      }
-    }
-    await page.waitForTimeout(100);
-  }
-  throw new Error("RPG_PROVISION_RUNTIME_CANVAS_MISSING");
-}
-
-async function closeCleanPlayer(page, code) {
+async function assertCleanPlayer(page, code) {
+  await Promise.allSettled(page.__retromExceptionTasks ?? []);
   const errors = page.__retromPageErrors ?? [];
-  await page.close();
-  if (errors.length) { throw new Error(`${code}:${String(errors[0]).slice(0, 600)}`); }
-}
-
-async function waitForValidation(client, itemId, validationId, expectedState) {
-  for (let attempt = 0; attempt < 1_200; attempt += 1) {
-    const value = await client.json("GET", `/api/v1/admin/reviews/${itemId}/runtime-validations/${validationId}`);
-    if (value.state === expectedState) { return value; }
-    if (["FAILED", "EXPIRED", "PASSED"].includes(value.state)) {
-      throw new Error(`RPG_PROVISION_VALIDATION_${value.state}_${value.failureCode ?? "UNKNOWN"}`);
-    }
-    await new Promise((resolvePromise) => setTimeout(resolvePromise, 250));
-  }
-  throw new Error(`RPG_PROVISION_VALIDATION_${expectedState}_TIMEOUT`);
+  if (errors.length) {throw new Error(code + ":" + String(errors[0]).slice(0, 600));}
 }
 
 function assertPositionSequence(roundTrip) {
@@ -697,7 +628,7 @@ function samePosition(left, right) {
     && left?.playerY === right?.playerY && left?.fixtureState === right?.fixtureState;
 }
 
-function validationHeaders(client, version) {
+function writeVersionHeaders(client, version) {
   return { ...client.writeHeaders(), "Content-Type": "application/json", "If-Match": `"v${version}"` };
 }
 

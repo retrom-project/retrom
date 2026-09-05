@@ -4,7 +4,7 @@
   "title": "Retrom Launch Envelope V1",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schemaVersion", "session", "runtime", "resources", "targetOptions", "restore", "validation", "netplay"],
+  "required": ["schemaVersion", "session", "runtime", "resources", "targetOptions", "restore", "netplay"],
   "properties": {
     "schemaVersion": { "const": 1 },
     "session": { "$ref": "#/$defs/session" },
@@ -16,7 +16,6 @@
     },
     "targetOptions": { "$ref": "runtime-resource.schema.json#/$defs/targetOptions" },
     "restore": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/restore" }] },
-    "validation": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/validation" }] },
     "netplay": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/netplay" }] }
   },
   "allOf": [
@@ -71,7 +70,7 @@
       "required": ["id", "purpose", "mode", "title", "platformName", "coreName", "returnTo", "warnings"],
       "properties": {
         "id": { "$ref": "common.schema.json#/$defs/uuid" },
-        "purpose": { "enum": ["PRODUCT", "REVIEW_PREVIEW", "RUNTIME_VALIDATION"] },
+        "purpose": { "enum": ["PRODUCT", "REVIEW_PREVIEW"] },
         "mode": { "enum": ["SINGLE", "NETPLAY"] },
         "title": { "type": "string", "minLength": 1, "maxLength": 500 },
         "platformName": { "type": "string", "minLength": 1, "maxLength": 200 },
@@ -109,15 +108,6 @@
         "format": { "$ref": "common.schema.json#/$defs/token" },
         "sha256": { "$ref": "common.schema.json#/$defs/digest" },
         "sizeBytes": { "$ref": "common.schema.json#/$defs/positiveSafeInteger" }
-      }
-    },
-    "validation": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["probeId", "input"],
-      "properties": {
-        "probeId": { "$ref": "common.schema.json#/$defs/token" },
-        "input": { "$ref": "common.schema.json#/$defs/jsonObject" }
       }
     },
     "netplayProfile": {

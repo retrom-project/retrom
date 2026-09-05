@@ -54,7 +54,7 @@ func detectRPG2K(files *catalog) ([]evidence, error) {
 	if err != nil {
 		return nil, err
 	}
-	requirements := []Requirement{RequirementRuntimeValidation}
+	requirements := []Requirement{}
 	if !selfContained {
 		requirements = append(requirements, RequirementRPG2KRTP)
 	}

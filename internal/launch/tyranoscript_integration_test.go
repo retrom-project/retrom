@@ -73,7 +73,7 @@ VALUES(?,'tyrano-preview-profile','tyrano-preview-admin','Tyrano Admin','ADMIN',
 		ImportItemID: itemID, ActorUserID: actorID, IdempotencyKey: "tyrano-preview-1",
 		ClientCapabilities: Capabilities{SecureContext: true},
 	})
-	if err != nil || !preview.CaptureAllowed {
+	if err != nil {
 		t.Fatalf("CreateReviewPreview(TyranoScript)=%#v, %v", preview, err)
 	}
 	configuration, err := service.ReviewPreviewConfig(ctx, preview.PreviewID, preview.Capability)

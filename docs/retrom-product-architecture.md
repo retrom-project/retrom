@@ -390,7 +390,7 @@ flowchart LR
 
 服务器导入是一期管理能力：部署者用 `RETROM_SERVER_IMPORT_ROOTS` 建立只读宿主目录信任边界，浏览器只提交 root ID 与规范相对目录。BIOS 任务冻结当前产品 Core binding 闭包内全部 Provider Target 的完整 catalog，先完整发现和评估，再逐 Requirement 短事务安装；Pegasus 与 EmulationStation 任务都分为受限 metadata/facts 扫描、管理员逐 Collection 显式映射、逐游戏复制/运行检查/审核交接三阶段，不执行来源命令，也不按名称、扩展名或外部系统配置猜测目标游戏目录。EmulationStation 递归发现精确小写 `gamelist.xml`，每份有效文件形成一个 Collection，因此既支持所选目录下多个子目录各有一份清单，也支持单目录一份清单配多份游戏文件。
 
-两类游戏目录 Worker 都只生成普通 `REVIEW_PENDING` 事项，不创建 Game；管理员可在统一审核工作台修复或逐项决定，也可对当前筛选范围启动一次快速审批。快速审批只冻结并处理严格 `READY`、无内容重复、无活动补传且所有当前发布输入一致的条目；截图人工放行、重复内容和任何已漂移条目都不自动发布。每个成功项仍独占一个短发布事务，复用普通 Approve 的 Game/GameFiles/GameVariant/ReviewEvent 与来源聚合规则，并与批次结果原子记账。管理员可在审核详情用独立子窗体尽最大可能运行当前来源：现有 Parent/BIOS 会被锁定交付，缺失依赖被省略；READY 与阻断 Validation 都在核心真实启动后第 5 秒写入截图。当前阻断截图与来源、目标、Provider Target 和 validation generation 一致时，可作为管理员逐项放行证据；发布的单机 Variant 保留 override 标记并继续最佳努力交付，Netplay 仍执行严格依赖门禁。外部 source 与原始 metadata 不属于 Retrom 数据根、CAS 或 backup；交接审核后的 ROM、封面和 VIDEO 已进入 CAS/backup，恢复时所有仍依赖外部 source 的任务必须失败收口。已创建的 Launch/Netplay 会话继续引用创建时物化的不可变资源与 Bundle；Game/GameVariant 只表达当前状态。详细领域、协议和页面契约分别见 [`bios-and-arcade.md`](./bios-and-arcade.md)、[`import-and-review.md`](./import-and-review.md)、[`http-api-contract.md`](./http-api-contract.md) 与 [`ui-specification.md`](./ui-specification.md)。
+两类游戏目录 Worker 都只生成普通 `REVIEW_PENDING` 事项，不创建 Game；管理员可在统一审核工作台修复或逐项决定，也可对当前筛选范围启动一次快速审批。快速审批只冻结并处理严格 `READY`、无内容重复、无活动补传且所有当前发布输入一致的条目；截图人工放行、重复内容和任何已漂移条目都不自动发布。每个成功项仍独占一个短发布事务，复用普通 Approve 的 Game/GameFiles/GameVariant/ReviewEvent 与来源聚合规则，并与批次结果原子记账。管理员可在审核详情用独立子窗体尽最大可能运行当前来源：现有 Parent/BIOS 会被锁定交付，缺失依赖被省略；READY 与阻断 Validation 都在通过普通 Player 按需写入截图。当前阻断截图与来源、目标、Provider Target 和 当前校验输入 一致时，可作为管理员逐项放行证据；发布的单机 Variant 保留 override 标记并继续最佳努力交付，Netplay 仍执行严格依赖门禁。外部 source 与原始 metadata 不属于 Retrom 数据根、CAS 或 backup；交接审核后的 ROM、封面和 VIDEO 已进入 CAS/backup，恢复时所有仍依赖外部 source 的任务必须失败收口。已创建的 Launch/Netplay 会话继续引用创建时物化的不可变资源与 Bundle；Game/GameVariant 只表达当前状态。详细领域、协议和页面契约分别见 [`bios-and-arcade.md`](./bios-and-arcade.md)、[`import-and-review.md`](./import-and-review.md)、[`http-api-contract.md`](./http-api-contract.md) 与 [`ui-specification.md`](./ui-specification.md)。
 
 游戏详情是唯一允许请求 VIDEO 的用户页面。详情先用 COVER 保持稳定的 3:4 识别位，媒体区在前台与 viewport 内累计可见满两秒后才尝试 `muted + playsInline + loop`；收到 `playing` 前不隐藏封面，播放拒绝、解码/停滞、隐藏标签页与减少动态效果均有确定性封面回退或手动入口。首页、游戏库、收藏、最近、存档和搜索的 DTO/查询保持 cover-only。
 
@@ -404,7 +404,7 @@ flowchart LR
 
 手动状态存档必须包含非空可恢复 payload；截图是同次创建中的可选最佳努力输入，缺失时仍保存并在 API/UI 明确表示无预览。有效游玩时长通过 PlaySession 心跳累计；页面后台、模拟器暂停和长时间失联不计入有效时长。
 
-RPG Maker 项目从浏览器目录或单个 ZIP/7z 导入。发布前管理员必须主动创建一次与正式 Player 相同的 runtime-validation Launch；成功取得当前绑定的原始 `launchId` 后即可确认发布。帧/输入/音频 gate、A→B 保存→C、不同 restore Launch 精确恢复到 B、恢复截图与 `RESTORE_INPUT` 保留为可选高级验证以及七核心自动化验收的严格证据，不再作为人工审核发布门槛。非 RPG 审核继续使用既有五秒截图 preview/override；RPG Maker 不得使用它代替真实 Launch，旧 preview endpoint 对 RPG core 必须失败关闭。
+所有项目类型（包括 RPG Maker）共用审核 Preview 与普通 Player：点击“运行游戏”同步打开子窗口，服务端校验当前来源、目标、文件、依赖及浏览器能力后签发会话；Player 使用普通 config/start/heartbeat/finish、Provider dispatcher 和退出清理，不创建假 Game，也没有专用机器证明、额外验证决定或人工重检流程。管理员可按需保存运行截图、重复创建会话级临时 checkpoint，并从已有 checkpoint 创建新的 Preview 恢复，不要求先结束原 Preview。临时内容在会话到期或审核结束时释放；正式发布仍由当前来源与实际依赖检查决定。 跨会话精确恢复保留在研发验收中：通过普通 Player 记录真实可见初始状态 A，实际输入到 B 并创建普通 checkpoint，再继续到不同状态 C；使用同一 checkpoint 创建不同会话，读取真实运行状态，逐字段证明 mapId/playerX/playerY/fixtureState 恢复为 B 且不是 A/C，再真实输入并证明状态继续变化。验收同时检查连续帧、实际音频、截图 marker、文件完整性、checkpoint 格式/大小与授权边界；只有 HTTP 成功、Blob/hash 一致、同会话回读或截图相似都不足以 PASS。这些观测与断言属于开发 harness/自有公开 fixture，不进入生产 API、数据表、Provider 契约或审核 UI。
 
 ### 8.4 联机房间与 rollback
 

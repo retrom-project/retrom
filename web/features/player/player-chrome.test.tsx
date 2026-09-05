@@ -58,6 +58,14 @@ function props(overrides: Partial<Parameters<typeof PlayerChrome>[0]> = {}): Par
 }
 
 describe("PlayerChrome", () => {
+  it("offers an optional review screenshot through ordinary controls", async () => {
+    const onScreenshot = vi.fn();
+    const {rerender} = render(<PlayerChrome {...props({onScreenshot})} />);
+    await userEvent.setup().click(screen.getByRole("button", {name: "保存审核截图"}));
+    expect(onScreenshot).toHaveBeenCalledOnce();
+    rerender(<PlayerChrome {...props()} />);
+    expect(screen.queryByRole("button", {name: "保存审核截图"})).not.toBeInTheDocument();
+  });
   it("keeps the running toolbar hidden until the reveal state is active", () => {
     const values = props({ controlsVisible: false });
     const { container, rerender } = render(<PlayerChrome {...values} />);

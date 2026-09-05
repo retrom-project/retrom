@@ -145,7 +145,7 @@ WHERE import_item_id=? AND effective_source_snapshot_id=?
 		ImportItemID: readyItemID, ActorUserID: actorID, IdempotencyKey: "ready-preview-1",
 		ClientCapabilities: capabilities,
 	})
-	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return !ready.CaptureAllowed }, func() bool { return ready.CaptureAfterMS != 5_000 }), "ready review preview = %#v, error=%v", ready, err)
+	testassert.Falsef(t, err != nil, "ready review preview = %#v, error=%v", ready, err)
 	replayed, err := service.CreateReviewPreview(ctx, ReviewPreviewRequest{
 		ImportItemID: readyItemID, ActorUserID: actorID, IdempotencyKey: "ready-preview-1",
 		ClientCapabilities: capabilities,
@@ -171,7 +171,7 @@ WHERE import_item_id=? AND effective_source_snapshot_id=?
 		ImportItemID: blockedItemID, ActorUserID: actorID, IdempotencyKey: "blocked-preview-1",
 		ClientCapabilities: capabilities,
 	})
-	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return !blocked.CaptureAllowed }), "blocked best-effort preview = %#v, error=%v", blocked, err)
+	testassert.Falsef(t, err != nil, "blocked best-effort preview = %#v, error=%v", blocked, err)
 	blockedConfig, err := service.ReviewPreviewConfig(ctx, blocked.PreviewID, blocked.Capability)
 	testassert.False(t, err != nil, err)
 	blockedEnvelope := testsupport.RuntimeEnvelope(t, blockedConfig)

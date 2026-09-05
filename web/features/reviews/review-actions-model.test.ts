@@ -1,44 +1,19 @@
 import {describe, expect, it} from "vitest";
+import {reviewReadiness, reviewReadyForPublish, type ReviewWorkspace} from "./review-actions-model";
 
-import {rpgReviewRuntimeStatus, type RPGMakerReview} from "./review-actions-model";
-
-function rpgMaker(state: "EXPIRED" | "STARTING", launchId: string | null): RPGMakerReview {
-  return {
-    selectedCoreId: "rpgmaker_2003", generation: "RPG2003", evidenceGeneration: "RPG2003",
-    evidenceConfidence: "MATCHED", selfContained: true, selfContainedOverride: false,
-    runtimePackRequirements: [], runtimePackSelections: [], runtimeValidationCurrent: true,
-    runtimeValidation: {
-      validationId: "validation-1", importItemId: "item-1", reviewVersionAtCreate: 1,
-      launchId, restoreLaunchId: null, state, lastGateSequence: 0, machineGates: [], failureCode: null,
-      expiresAtMs: Date.now() + 60_000,
-      routeEvidence: {
-        effectiveSourceSnapshotId: "10000000-0000-4000-8000-000000000001",
-        generation: "RPG2003", evidenceGeneration: "RPG2003", evidenceConfidence: "MATCHED",
-        providerId: "retrom-runtime", targetId: "rpgmaker-2003",
-        dependencySnapshotSha256: "c".repeat(64), projectFingerprint: "d".repeat(64),
-      },
-      checkpointRoundTrip: {
-        created: false, checkpointFormat: null, sizeBytes: null, sha256: null,
-        originalLaunchId: launchId, initialPosition: null, savedPosition: null, divergedPosition: null,
-        originalLaunchEnded: false, restoreLaunchId: null, restoreStarted: false,
-        restoredPosition: null, positionVerified: false, screenshotUrl: null,
-        restoreInputPosition: null, restoreInputVerified: false,
-      },
-      createdAtMs: 0, updatedAtMs: 0, decision: null,
-    },
-  };
-}
-
-describe("RPG Maker review runtime status", () => {
-  it("treats an expired optional evidence window with a current Launch as publishable", () => {
-    expect(rpgReviewRuntimeStatus(rpgMaker("EXPIRED", "launch-1"))).toEqual({
-      compatibilityCode: "READY", compatibilityLabel: "已启动游戏，可发布", status: "READY",
-    });
+describe("review readiness", () => {
+  it("keeps current server dependency checks authoritative for every engine", () => {
+    expect(reviewReadiness("READY", null, true, undefined, undefined, true).publishReady).toBe(true);
+    expect(reviewReadiness("READY", null, false, undefined, undefined, true).publishReady).toBe(false);
+    expect(reviewReadiness("BLOCKED", null, false, undefined, undefined, true).publishReady).toBe(false);
   });
-
-  it("does not accept a Launch bound to superseded runtime inputs", () => {
-    expect(rpgReviewRuntimeStatus({...rpgMaker("STARTING", "launch-1"), runtimeValidationCurrent: false})).toEqual({
-      compatibilityCode: "NEEDS_VALIDATION", compatibilityLabel: "等待启动游戏", status: "PENDING",
+  it("does not let screenshots bypass missing RPG dependencies or active attachment work", () => {
+    const screenshot = {} as NonNullable<ReviewWorkspace["runtimeScreenshot"]>;
+    expect(reviewReadiness("BLOCKED", screenshot, false, undefined, undefined, true)).toMatchObject({
+      publishReady: false, screenshotOverride: false,
     });
+    expect(reviewReadyForPublish({
+      canApprove: true, arcadeDependencies: {activeAttachment: {state: "RUNNING"}},
+    } as ReviewWorkspace)).toBe(false);
   });
 });

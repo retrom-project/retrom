@@ -2,13 +2,14 @@
 
 import { useCallback, useEffect, type Dispatch, type SetStateAction } from "react";
 import { newUuid } from "@/lib/crypto";
-import type {PlayerRuntimeV1} from "./runtime/contract";
+import type {LaunchEnvelopeV1, PlayerRuntimeV1} from "./runtime/contract";
 import type {RuntimeSavePayload} from "./runtime/runtime-actions";
 import { uploadWithProgress, type SaveUploadProgress } from "./upload-with-progress";
 import { maximumManualSaveScreenshotBytes, prepareManualSaveScreenshot } from "./manual-save-screenshot";
 import { reducePlayerOrientation, unlockLandscape, type PlayerOrientationState } from "./orientation";
 import type { NetplayController } from "./netplay/controller";
-import { parseValidationCheckpointReceipt, type ValidationCheckpointReceipt } from "./rpg-validation-checkpoint-response";
+import {saveReviewScreenshot} from "./review-preview-screenshot";
+import {notifyReviewCheckpoint} from "./review-preview-receipt";
 
 const SAVE_UPLOAD_PRESENTATION_MS = 400;
 const SAVE_UPLOAD_TIMEOUT_MS = 300_000;
@@ -17,6 +18,7 @@ type SyncTone = "synced" | "busy" | "warning";
 
 export type PlayerSessionParams = {
   launchId: string; runtime: Mutable<PlayerRuntimeV1 | null>; playerMode: Mutable<"single" | "netplay">;
+  envelope: Mutable<LaunchEnvelopeV1 | null>;
   sequence: Mutable<number>; started: Mutable<boolean>; finishing: Mutable<boolean>;
   heartbeat: Mutable<number | null>; playEventQueue: Mutable<Promise<void>>; saveUploadQueue: Mutable<Promise<void>>;
   orientationStateRef: Mutable<PlayerOrientationState>; returnTo: Mutable<string>;
@@ -36,12 +38,9 @@ export function usePlayerSession(params: PlayerSessionParams) {
     params.setSyncTone("busy");
   }, [params]);
 
-  const uploadManualState = useCallback(async (payload: RuntimeSavePayload) => Boolean(await queueStateUpload(payload, false, params, reportProgress)), [params, reportProgress]);
-  const uploadValidationCheckpoint = useCallback(async (payload: RuntimeSavePayload) => {
-    const result = await queueStateUpload(payload, true, params, reportProgress);
-    if (!result || result === true) {throw new Error("RPG_CHECKPOINT_UPLOAD_FAILED");}
-    return result;
-  }, [params, reportProgress]);
+  const uploadManualState = useCallback(async (payload: RuntimeSavePayload) => Boolean(await queueStateUpload(payload, params, reportProgress)), [params, reportProgress]);
+
+  const captureReviewScreenshot = useCallback(() => queueReviewScreenshot(params), [params]);
 
   const exit = useCallback(() => exitPlayer(params, sendEvent), [params, sendEvent]);
   const exitStrict = useCallback(() => exitImmersivePlayer(params, sendEvent), [params, sendEvent]);
@@ -52,7 +51,18 @@ export function usePlayerSession(params: PlayerSessionParams) {
 
   usePageHideFinish(params);
   usePageExitProtection(params);
-  return { sendEvent, uploadManualState, uploadValidationCheckpoint, exit, exitStrict, exitImmersiveAfterRuntimeExit };
+  return { sendEvent, uploadManualState, captureReviewScreenshot, exit, exitStrict, exitImmersiveAfterRuntimeExit };
+}
+
+async function queueReviewScreenshot(params: PlayerSessionParams) {
+    if (params.envelope.current?.session.purpose !== "REVIEW_PREVIEW" || params.finishing.current) {return;}
+    const result = params.saveUploadQueue.current.then(async () => {
+      if (!params.runtime.current) {throw new Error("PLAYER_RUNTIME_UNAVAILABLE");}
+      await saveReviewScreenshot(params.runtime.current, params.launchId);
+      params.showToast("审核截图已保存");
+    });
+    params.saveUploadQueue.current = result.catch(() => {params.showToast("审核截图保存失败，请重试", 4_000);});
+    await params.saveUploadQueue.current;
 }
 
 function queuePlayerEvent(kind: "start" | "heartbeat" | "finish", params: PlayerSessionParams) {
@@ -85,8 +95,8 @@ function beginPlayerFinish(params: PlayerSessionParams) {
   }
 }
 
-function queueStateUpload(payload: RuntimeSavePayload, validation: boolean, params: PlayerSessionParams, reportProgress: (progress: SaveUploadProgress) => void) {
-  const result = params.saveUploadQueue.current.then(() => uploadState(payload, validation, params, reportProgress));
+function queueStateUpload(payload: RuntimeSavePayload, params: PlayerSessionParams, reportProgress: (progress: SaveUploadProgress) => void) {
+  const result = params.saveUploadQueue.current.then(() => uploadState(payload, params, reportProgress));
   params.saveUploadQueue.current = result.then(() => undefined, () => undefined);
   return result.catch(() => {
     params.setSaveUploadProgress(null); params.setSyncText("保存失败"); params.setSyncTone("warning");
@@ -108,6 +118,10 @@ async function exitPlayer(params: PlayerSessionParams, sendEvent: (kind: "start"
     await sendEvent("finish");
   } catch { /* expiry is already a terminal server state */ }
   if (document.fullscreenElement) {await document.exitFullscreen().catch(() => undefined);}
+  if (params.envelope.current?.session.purpose === "REVIEW_PREVIEW" && window.opener) {
+    window.close();
+    if (window.closed) {return;}
+  }
   window.location.replace(params.returnTo.current);
 }
 
@@ -129,7 +143,7 @@ async function exitImmersivePlayer(
   params.replaceImmersiveRoute(params.returnTo.current);
 }
 
-async function uploadState(payload: RuntimeSavePayload, validation: boolean, params: PlayerSessionParams, reportProgress: (progress: SaveUploadProgress) => void) {
+async function uploadState(payload: RuntimeSavePayload, params: PlayerSessionParams, reportProgress: (progress: SaveUploadProgress) => void) {
   if (!payload.checkpoint.bytes.byteLength) {return rejectSave(params, "状态为空，未创建存档。");}
   const discIndex = await currentDiscIndex(params);
   if (discIndex === "unavailable") {return rejectSave(params, "无法读取当前光盘，未创建存档。");}
@@ -141,7 +155,7 @@ async function uploadState(payload: RuntimeSavePayload, validation: boolean, par
     screenshot: preparedScreenshot?.screenshot ?? new Blob(),
     format: preparedScreenshot?.format ?? "png",
   };
-  const form = createSaveForm(payload, uploadPayload, discIndex, validation);
+  const form = createSaveForm(payload, uploadPayload, discIndex);
   const startedAt = performance.now();
   params.setSaveUploadProgress(0);
   await waitForSaveUploadPresentationTurn();
@@ -158,13 +172,12 @@ async function uploadState(payload: RuntimeSavePayload, validation: boolean, par
     params.setSaveUploadProgress(null);
   }
   if (!response.ok) {return rejectSave(params, "手动存档失败，服务器未创建不完整记录");}
+  if (params.envelope.current?.session.purpose === "REVIEW_PREVIEW") {
+    notifyReviewCheckpoint(response.body, params.launchId);
+  }
   params.setSyncText("已同步"); params.setSyncTone("synced");
   params.showToast(uploadPayload.screenshot.size ? "手动存档和截图已保存" : "手动存档已保存，未附带截图");
-  return uploadResult(validation, response.body);
-}
-
-function uploadResult(validation: boolean, responseBody: string): true | ValidationCheckpointReceipt {
-  return validation ? parseValidationCheckpointReceipt(responseBody) : true;
+  return true;
 }
 
 async function currentDiscIndex(params: PlayerSessionParams): Promise<number | undefined | "unavailable"> {
@@ -179,12 +192,11 @@ export function createSaveForm(
   payload: RuntimeSavePayload,
   screenshot: {screenshot: Blob; format: string},
   discIndex: number | undefined,
-  validation = false,
 ) {
   const form = new FormData();
   const metadata = {
     checkpointFormat: payload.checkpoint.format,
-    ...(validation ? {} : { name: `手动存档 ${new Date().toLocaleString("zh-CN")}` }),
+    name: `手动存档 ${new Date().toLocaleString("zh-CN")}`,
     ...(discIndex === undefined ? {} : { discIndex }),
   };
   form.append("metadata", new Blob([JSON.stringify(metadata)], { type: "application/json" }));

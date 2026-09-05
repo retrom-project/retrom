@@ -16,9 +16,9 @@ import { MultiDiscAttachmentDrawer } from "./multi-disc-attachment-drawer";
 import { TagChips, TagPicker, type TagReference } from "@/components/tag-picker";
 import { useReviewAttachments } from "./review-attachments";
 import { useReviewCommands } from "./review-commands";
-import { RPGValidationCard, useRPGReviewValidation } from "./review-rpg-validation";
+import {RPGDependenciesCard} from "./review-rpg-dependencies";
 import {
-  activeAttachmentJobId, compareFields, initialDraftState, initialRuntimeState, reviewCoverPresentation, rpgReviewRuntimeStatus,
+  activeAttachmentJobId, compareFields, initialDraftState, initialRuntimeState, reviewCoverPresentation,
   reviewReadiness, saveStateLabel, scrapeResult, toPayload, withRPGMakerDraft,
   type Comparison, type CoverSelection, type DraftPayload, type MetadataForm, type PreviewAsset,
   type ReviewMultiDisc, type ReviewMultiDiscAttachment, type ReviewWorkspace,
@@ -88,21 +88,6 @@ export function ReviewActions({ review, activeTags = [], returnTo = "/admin/revi
     return updated;
   }, [applyRefreshedReview, review.itemId]);
 
-  useEffect(() => {
-    const onPreviewMessage = (event: MessageEvent<unknown>) => {
-      if (event.origin !== window.location.origin || !event.data || typeof event.data !== "object") {return;}
-      const message = event.data as { type?: string; importItemId?: string };
-      if (message.type !== "retrom-review-screenshot" || message.importItemId !== review.itemId) {return;}
-      void refreshReview().then(() => {
-        setToast({ message: "已更新第 5 秒运行截图", tone: "good" });
-      }).catch((error: unknown) => {
-        setToast({ message: error instanceof Error ? error.message : "截图已生成，但审核页刷新失败", tone: "warn" });
-      });
-    };
-    window.addEventListener("message", onPreviewMessage);
-    return () => window.removeEventListener("message", onPreviewMessage);
-  }, [refreshReview, review.itemId]);
-
   const enqueueSave = useCallback((key: string, payload: DraftPayload, force = false) => {
     saveQueueRef.current = saveQueueRef.current.catch(() => false).then(async () => {
       if (!force && lastSavedKeyRef.current === key) {return true;}
@@ -160,10 +145,6 @@ export function ReviewActions({ review, activeTags = [], returnTo = "/admin/revi
     return enqueueSave(draftKey, draftPayload);
   }
 
-  const rpgValidation = useRPGReviewValidation({
-    reviewId: review.itemId, versionRef, rpgMaker, setRPGMaker, flushDraft, run, setNotice, setToast,
-  });
-
   const attachments = useReviewAttachments({
     reviewId: review.itemId,
     versionRef,
@@ -186,14 +167,9 @@ export function ReviewActions({ review, activeTags = [], returnTo = "/admin/revi
   });
 
   const covers = reviewCoverPresentation(review, candidates, uploadedAssets, cover, comparison);
-  const readiness = reviewReadiness(validationStatus, runtimeScreenshot, effectiveCanApprove(rpgMaker, serverCanApprove), arcadeDependencies?.activeAttachment?.state, multiDisc?.activeAttachment?.state, Boolean(rpgMaker));
+  const readiness = reviewReadiness(validationStatus, runtimeScreenshot, serverCanApprove, arcadeDependencies?.activeAttachment?.state, multiDisc?.activeAttachment?.state, Boolean(rpgMaker));
 
-  return <ReviewActionsView model={{ review, activeTags, sourceDisplayName, platformInstanceName, children, form, updateField, candidateId, cover, setCover, defaultDosEntry, setDefaultDosEntry, tags, setTags, busy, saveState, notice, jobProgress, validationStatus, runtimeScreenshot, rpgMaker, setRPGMaker, rpgValidation, sourceCover: covers.source, selectedCover: covers.selected, currentCompareCover: covers.currentComparison, nextCompareCover: covers.nextComparison, comparison, setComparison, arcadeDependencies, multiDisc, ...readiness, saveLabel: saveStateLabel(saveState), attachments, commands, toast, setToast }} />;
-}
-
-function effectiveCanApprove(rpgMaker: ReviewWorkspace["rpgMaker"], serverCanApprove: boolean) {
-  if (!rpgMaker) {return serverCanApprove;}
-  return rpgReviewRuntimeStatus(rpgMaker).status === "READY";
+  return <ReviewActionsView model={{ review, activeTags, sourceDisplayName, platformInstanceName, children, form, updateField, candidateId, cover, setCover, defaultDosEntry, setDefaultDosEntry, tags, setTags, busy, saveState, notice, jobProgress, validationStatus, runtimeScreenshot, rpgMaker, setRPGMaker, sourceCover: covers.source, selectedCover: covers.selected, currentCompareCover: covers.currentComparison, nextCompareCover: covers.nextComparison, comparison, setComparison, arcadeDependencies, multiDisc, ...readiness, saveLabel: saveStateLabel(saveState), attachments, commands, toast, setToast }} />;
 }
 
 type ReviewViewModel = {
@@ -202,7 +178,7 @@ type ReviewViewModel = {
   cover: CoverSelection; setCover: Dispatch<SetStateAction<CoverSelection>>; defaultDosEntry: string | null; setDefaultDosEntry: Dispatch<SetStateAction<string | null>>;
   tags: TagReference[]; setTags: Dispatch<SetStateAction<TagReference[]>>; busy: string | null; saveState: "saved" | "pending" | "saving" | "error";
   notice: string; jobProgress: string; validationStatus: string | null; runtimeScreenshot: ReviewWorkspace["runtimeScreenshot"];
-  rpgMaker: NonNullable<ReviewWorkspace["rpgMaker"]> | null; setRPGMaker: Dispatch<SetStateAction<NonNullable<ReviewWorkspace["rpgMaker"]> | null>>; rpgValidation: ReturnType<typeof useRPGReviewValidation>;
+  rpgMaker: NonNullable<ReviewWorkspace["rpgMaker"]> | null; setRPGMaker: Dispatch<SetStateAction<NonNullable<ReviewWorkspace["rpgMaker"]> | null>>;
   sourceCover: PreviewAsset | null; selectedCover: PreviewAsset | null; currentCompareCover: PreviewAsset | null; nextCompareCover: PreviewAsset | null;
   comparison: Comparison | null; setComparison: Dispatch<SetStateAction<Comparison | null>>; arcadeDependencies: ArcadeDependencies | null; multiDisc: ReviewMultiDisc | null;
   parentAttachmentActive: boolean; multiDiscAttachmentActive: boolean; validationReady: boolean; screenshotOverride: boolean; publishReady: boolean; saveLabel: string;
@@ -256,51 +232,25 @@ function ReviewSummary({ model }: { model: ReviewViewModel }) {
 }
 
 function reviewValidationLabel(model: ReviewViewModel) {
-  if (model.rpgMaker) {return effectiveCanApprove(model.rpgMaker, false) ? "已启动游戏，可发布" : "等待启动游戏";}
   if (model.validationReady) {return "运行检查通过";}
   if (model.screenshotOverride) {return "已取得运行截图";}
   return model.validationStatus === "READY" ? "运行检查更新中" : "运行检查未通过";
 }
 
 function RuntimeScreenshot({ model }: { model: ReviewViewModel }) {
-  if (model.rpgMaker) {
-    const evidence = model.rpgMaker.runtimeValidation?.checkpointRoundTrip;
-    if (!evidence?.screenshotUrl) {return <aside className="review-runtime-screenshot" aria-label="恢复位置证据截图"><span>恢复位置证据</span><div><strong>等待不同 Launch 恢复</strong><small>截图不能代替地图、坐标和状态的逐字段核对</small></div></aside>;}
-    return <aside className="review-runtime-screenshot" aria-label="恢复位置证据截图"><span>恢复位置证据</span><Image src={evidence.screenshotUrl} alt={`${model.form.title || model.sourceDisplayName} 恢复到保存位置 B 的证据`} width={640} height={480} unoptimized /></aside>;
-  }
-  if (!model.runtimeScreenshot) {return <aside className="review-runtime-screenshot" aria-label="第 5 秒运行截图"><span>第 5 秒运行截图</span><div><strong>{model.validationReady ? "等待生成" : "等待运行截图"}</strong><small>运行游戏后在第 5 秒自动截取，可作为管理员放行依据</small></div></aside>;}
-  return <aside className="review-runtime-screenshot" aria-label="第 5 秒运行截图"><span>第 5 秒运行截图</span><Image src={model.runtimeScreenshot.url} alt={`${model.form.title || model.sourceDisplayName} 的第 5 秒运行截图`} width={model.runtimeScreenshot.widthPx} height={model.runtimeScreenshot.heightPx} unoptimized /></aside>;
+  if (!model.runtimeScreenshot) {return <aside className="review-runtime-screenshot" aria-label="运行截图"><span>运行截图</span><div><strong>{model.validationReady ? "等待生成" : "等待运行截图"}</strong><small>可在游戏控制栏按需保存截图</small></div></aside>;}
+  return <aside className="review-runtime-screenshot" aria-label="运行截图"><span>运行截图</span><Image src={model.runtimeScreenshot.url} alt={`${model.form.title || model.sourceDisplayName} 的运行截图`} width={model.runtimeScreenshot.widthPx} height={model.runtimeScreenshot.heightPx} unoptimized /></aside>;
 }
 
 function ReviewDecision({ model }: { model: ReviewViewModel }) {
-  if (model.rpgMaker) {return <RPGReviewDecision model={model} />;}
   const message = reviewDecisionMessage(model);
-  return <aside id="review-step-decision" className="review-workflow-decision"><h2>审核决定</h2><p>{message}</p><div className="review-workflow-save"><span>实时保存</span><strong className={`autosave-state ${model.saveState}`}><i aria-hidden="true" /><span>{model.saveLabel}</span></strong></div><div className="review-workflow-preview-actions"><button type="button" className="button secondary review-launch-preview" aria-busy={model.busy === "运行游戏"} disabled={model.busy !== null || model.saveState === "error"} onClick={() => void model.commands.launchPreview()}>{model.busy === "运行游戏" ? "正在准备…" : "运行游戏"}</button></div><div className="review-workflow-decision-actions"><button type="button" className="button secondary" disabled={model.busy !== null} onClick={() => void model.commands.discard()}>{model.busy === "丢弃" ? "正在丢弃…" : "丢弃条目"}</button><button type="button" className="button" aria-busy={model.busy === "发布"} disabled={model.busy !== null || !model.publishReady || model.saveState === "error"} onClick={() => void model.commands.approve()}>{model.busy === "发布" ? <><i className="button-spinner" aria-hidden="true" />正在发布…</> : "通过并发布"}</button></div></aside>;
+  return <aside id="review-step-decision" className="review-workflow-decision"><h2>审核决定</h2><p>{message}</p><div className="review-workflow-save"><span>实时保存</span><strong className={`autosave-state ${model.saveState}`}><i aria-hidden="true" /><span>{model.saveLabel}</span></strong></div><div className="review-workflow-preview-actions">{model.commands.restorePreviewId ? <button type="button" className="button secondary" disabled={model.busy !== null || model.saveState === "error"} onClick={() => void model.commands.launchPreview(model.commands.restorePreviewId!)}>从试玩存档继续</button> : null}<button type="button" className="button secondary review-launch-preview" aria-busy={model.busy === "运行游戏"} disabled={model.busy !== null || model.saveState === "error"} onClick={() => void model.commands.launchPreview()}>{model.busy === "运行游戏" ? "正在准备…" : "运行游戏"}</button></div><div className="review-workflow-decision-actions"><button type="button" className="button secondary" disabled={model.busy !== null} onClick={() => void model.commands.discard()}>{model.busy === "丢弃" ? "正在丢弃…" : "丢弃条目"}</button><button type="button" className="button" aria-busy={model.busy === "发布"} disabled={model.busy !== null || !model.publishReady || model.saveState === "error"} onClick={() => void model.commands.approve()}>{model.busy === "发布" ? <><i className="button-spinner" aria-hidden="true" />正在发布…</> : "通过并发布"}</button></div></aside>;
 }
 
 function reviewDecisionMessage(model: ReviewViewModel) {
   if (model.validationReady) {return "运行检查已经通过，可以发布。";}
-  if (model.screenshotOverride) {return "已取得第 5 秒运行截图，可由管理员确认后发布。";}
-  return "可先运行游戏；取得第 5 秒截图后允许人工放行。";
-}
-
-function RPGReviewDecision({ model }: { model: ReviewViewModel }) {
-  const validation = model.rpgValidation.validation;
-  const message = rpgDecisionMessage(model, validation);
-  return <aside id="review-step-decision" className="review-workflow-decision"><h2>审核决定</h2><p>{message}</p><div className="review-workflow-save"><span>实时保存</span><strong className={`autosave-state ${model.saveState}`}><i aria-hidden="true" /><span>{model.saveLabel}</span></strong></div><RPGValidationActions model={model} /><div className="review-workflow-decision-actions"><button type="button" className="button secondary" disabled={model.busy !== null} onClick={() => void model.commands.discard()}>{model.busy === "丢弃" ? "正在丢弃…" : "丢弃条目"}</button><button type="button" className="button" disabled={model.busy !== null || !model.publishReady || model.saveState === "error"} onClick={() => void model.commands.approve()}>{model.busy === "发布" ? "正在发布…" : "通过并发布"}</button></div></aside>;
-}
-
-function rpgDecisionMessage(model: ReviewViewModel, validation: ReviewViewModel["rpgValidation"]["validation"]) {
-  if (validation?.launchId) {return "游戏 Launch 已创建；确认可运行后即可发布，高级恢复验证为可选。";}
-  return "请先运行一次游戏，随后即可通过并发布。";
-}
-
-function RPGValidationActions({ model }: { model: ReviewViewModel }) {
-  return <div className="review-workflow-preview-actions">
-    {model.rpgValidation.canRestore ? <button type="button" className="button secondary review-launch-preview" disabled={model.busy !== null} onClick={() => void model.rpgValidation.restore()}>验证恢复</button> : null}
-    <button type="button" className="button secondary review-launch-preview" title={model.rpgValidation.canCreate ? undefined : "请先关闭当前游戏窗口或完成当前验证"} disabled={!model.rpgValidation.canCreate || model.busy !== null || model.saveState === "error"} onClick={() => void model.rpgValidation.create()}>运行游戏</button>
-    {model.rpgValidation.canDecide ? <><button type="button" className="button secondary" disabled={model.busy !== null} onClick={() => void model.rpgValidation.decide("FAIL")}>判定失败</button><button type="button" className="button" disabled={model.busy !== null} onClick={() => void model.rpgValidation.decide("PASS")}>确认验证通过</button></> : null}
-  </div>;
+  if (model.screenshotOverride) {return "已取得运行截图，可由管理员确认后发布。";}
+  return "可先运行游戏；游戏初始化、文件和依赖必须有效；试玩不会代替这些检查。";
 }
 
 function ReviewFeedback({ model }: { model: ReviewViewModel }) {
@@ -312,7 +262,7 @@ function ReviewColumns({ model }: { model: ReviewViewModel }) {
 }
 
 function RuntimeDependencies({ model }: { model: ReviewViewModel }) {
-  return <div id="review-step-runtime" className="review-workflow-left">{model.rpgMaker ? <RPGValidationCard value={model.rpgMaker} disabled={model.busy !== null} onChange={(next) => model.setRPGMaker(next)} /> : null}{model.children}{model.multiDisc ? <MultiDiscReviewCard value={model.multiDisc} disabled={model.busy !== null || model.multiDiscAttachmentActive} progress={model.attachments.multiDiscProgress} onAttach={model.attachments.attachMissingDiscs} onRetry={model.attachments.retryMultiDisc} /> : null}{model.arcadeDependencies ? <ArcadeDependencyCard value={model.arcadeDependencies} disabled={model.busy !== null || model.parentAttachmentActive} progress={model.attachments.parentProgress} onAttach={model.attachments.attachParent} onRetry={model.attachments.retryParent} /> : null}</div>;
+  return <div id="review-step-runtime" className="review-workflow-left">{model.rpgMaker ? <RPGDependenciesCard value={model.rpgMaker} disabled={model.busy !== null} onChange={(next) => model.setRPGMaker(next)} /> : null}{model.children}{model.multiDisc ? <MultiDiscReviewCard value={model.multiDisc} disabled={model.busy !== null || model.multiDiscAttachmentActive} progress={model.attachments.multiDiscProgress} onAttach={model.attachments.attachMissingDiscs} onRetry={model.attachments.retryMultiDisc} /> : null}{model.arcadeDependencies ? <ArcadeDependencyCard value={model.arcadeDependencies} disabled={model.busy !== null || model.parentAttachmentActive} progress={model.attachments.parentProgress} onAttach={model.attachments.attachParent} onRetry={model.attachments.retryParent} /> : null}</div>;
 }
 
 function MetadataEditor({ model }: { model: ReviewViewModel }) {

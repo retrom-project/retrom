@@ -5,6 +5,8 @@ import { join, resolve } from "node:path";
 
 import { chromium } from "../../web/node_modules/playwright/index.mjs";
 
+import {captureOptionalReviewScreenshot} from "./rpgmaker_preview_actions.mjs";
+
 import {
   assertButterscotchProductEvidence,
   butterscotchProductStages,
@@ -94,7 +96,7 @@ async function runProductCase(activeBrowser) {
     const previewResponses = trackProjectResponses(previewPage);
     await previewPage.goto(`${baseUrl}${preview.playUrl}`, { waitUntil: "domcontentloaded", timeout: 120_000 });
     const previewCanvas = await runtimeCanvas(previewPage);
-    await previewPage.getByText("第 5 秒运行截图已保存；可以继续试玩。").waitFor({ timeout: 120_000 });
+    await captureOptionalReviewScreenshot(previewPage, preview.previewId);
     const previewFrame = await screenshotEvidence(previewCanvas, "preview.png");
     await previewPage.close();
 

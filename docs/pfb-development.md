@@ -47,6 +47,11 @@ Go 在启动时验证：descriptor 严格字段、provider/base bundle 身份、
 
 首次初始化必须显式给出同一 PFB 树中的 runtime worktree；有 core 时再给出 `CORE_ROOTS`：
 
+现有 PFB 后续需要修改另一个 core 时，先停止该 app，再以完整 `CORE_ROOTS` 重跑 `pfb-init`。
+只允许追加 core；既有 Retrom/runtime/core 的路径与分支、ID、名称和 Host 模式不可改变。追加不构建、
+不启动、不清理数据库或缓存，也不切换 URL；随后单独执行目标 core 的显式构建。运行中追加、
+删除既有 core 或替换来源均失败关闭。
+
 ```bash
 make pfb-init \
   PFB=feat-example \
@@ -97,7 +102,20 @@ make pfb-migrate-storage PFB=<name> CONFIRM=<actual-pfb-id>
 make pfb-data-reset PFB=<name> CONFIRM=<actual-pfb-id>
 ```
 
-旧 `data/` 会移动到 `workspace/reset-backups/<UTC>/`，随后建立空数据根；provider、Node、Next、Go cache、ID 和 URL 保留。
+旧 `data/` 会移动到 `workspace/reset-backups/<UTC>/data/`，随后建立空数据根；默认保留 Provider 和全部依赖/cache、ID、URL。
+
+若这次开发期重建同时删除了旧 Provider manifest 契约，明确传入已完整验证的新基座：
+
+```bash
+make pfb-data-reset PFB=<name> CONFIRM=<actual-pfb-id> \
+  SOURCE_ROOT=/absolute/path/to/verified-provider-base
+```
+
+此选项先完整验证新基座，才把旧 `data/`、`providers/active.json` 和 `providers/dev/` 按相对路径归档到同一
+backup；然后通过正式 staging/import 校验安装新基座。它不解析旧 manifest，不转换旧库，也不改变常规
+`pfb-provider-import` 的升级规则。复制、immutable 冲突或最终校验失败时恢复旧数据及活动选择；已有
+`providers/installed/`、core、Node、Next、Go 和 home cache 均保留，不重新下载。只允许停止态和 exact PFB ID；
+不允许把 `.pfb/` 内部状态作为来源或跟随工作区状态路径的符号链接。该操作不是生产升级或回滚机制。
 
 `pfb-down` 只停止并保留全部状态。`pfb-remove ... CONFIRM=<id>` 移除 app 容器和 owner-local registry entry但保留 `.pfb/workspace`，可重新 init 注册。`pfb-destroy ... CONFIRM=<id>` 删除该 Retrom worktree 的整个 `.pfb/`；Git worktree/分支和迁移前旧命名卷仍不删除。根工作区的交互式 `make pfb-remove PFB=<name>` 另负责 clean preflight 后移除 Git worktree。
 
@@ -109,6 +127,10 @@ make pfb-data-reset PFB=<name> CONFIRM=<actual-pfb-id>
 开发服务器的完整页面重载会结束原 Launch，原凭据随后被拒绝是正常的生命周期保护，不能通过放宽
 认证或重用旧 Launch 绕过。发生此类中断时保留失败证据，停止变更后重新创建 Launch 重跑；含审核
 状态的用例只可使用其显式 resume 前置或重新创建验收夹具，不直接写数据库把状态改成通过。
+
+当任务明确要求未发布 schema 的最终归档重建时，全部持久化改动确定后只执行该次重建；随后在同一
+PFB 上顺序验证已含业务数据的扩展。不因验收夹具前置或失败残留再次清库，不用独立空实例冒充有数据回归。
+各 Case 的隔离要求逐项以统一验收为准；`ACC-RPG-009` 保留七世代前置，并按具名增量及原记录保护执行。
 
 实现或修改 PFB 时至少证明：
 

@@ -14,7 +14,7 @@ export function parseLaunchEnvelopeJSON(source: string): LaunchEnvelopeV1 {
 
 export function validateLaunchEnvelopeBoundary(value: unknown): LaunchEnvelopeV1 {
   if (!record(value) || !exactKeys(value, [
-    "netplay", "resources", "restore", "runtime", "schemaVersion", "session", "targetOptions", "validation",
+    "netplay", "resources", "restore", "runtime", "schemaVersion", "session", "targetOptions",
   ]) || value.schemaVersion !== 1 || !validSession(value.session)) {invalid();}
   const runtime = launchRuntime(value.runtime);
   if (!runtime || !validEnvelopeBody(value, runtime)) {invalid();}
@@ -43,14 +43,14 @@ function validEnvelopeBody(value: Record<string, unknown>, runtime: LaunchEnvelo
   const base = `/runtime/providers/${runtime.providerId}/${runtime.bundleSha256}/`;
   return runtime.runtimeBaseUrl === base && runtime.moduleUrl === `${base}client.mjs` &&
     validResources(value.resources) && validTargetOptions(value.targetOptions) &&
-    validRestore(value.restore, runtime.checkpoint) && validValidation(value.validation, runtime.capabilities) &&
+    validRestore(value.restore, runtime.checkpoint) &&
     validNetplay(value.netplay, runtime.capabilities.netplayPort, value.session);
 }
 
 function validSession(value: unknown) {
   return record(value) && exactKeys(value, [
     "coreName", "id", "mode", "platformName", "purpose", "returnTo", "title", "warnings",
-  ]) && uuid(value.id) && ["PRODUCT", "REVIEW_PREVIEW", "RUNTIME_VALIDATION"].includes(String(value.purpose)) &&
+  ]) && uuid(value.id) && ["PRODUCT", "REVIEW_PREVIEW"].includes(String(value.purpose)) &&
     ["SINGLE", "NETPLAY"].includes(String(value.mode)) && bounded(value.title, 1, 500) &&
     bounded(value.platformName, 1, 200) && bounded(value.coreName, 1, 200) &&
     relativeURL(value.returnTo) && Array.isArray(value.warnings) &&
@@ -60,15 +60,14 @@ function validSession(value: unknown) {
 function validCapabilities(value: unknown): value is RuntimeCapabilitiesV1 {
   if (!record(value) || !exactKeys(value, [
     "checkpoint", "discSwitch", "frameCounter", "frameMode", "inputFilter", "nativeSettings", "netplayPort",
-    "pause", "requiresThreads", "screenshot", "standardGamepad", "validationProbes", "videoModes", "volume",
+    "pause", "requiresThreads", "screenshot", "standardGamepad", "videoModes", "volume",
   ])) {return false;}
   for (const key of [
     "checkpoint", "discSwitch", "frameCounter", "inputFilter", "nativeSettings", "netplayPort", "pause",
     "requiresThreads", "screenshot", "standardGamepad", "volume",
   ]) {if (typeof value[key] !== "boolean") {return false;}}
   return ["NONE", "SAME_ORIGIN_BLANK", "SAME_ORIGIN_RESOURCE", "ISOLATED_ORIGIN_RESOURCE"]
-    .includes(String(value.frameMode)) && Array.isArray(value.validationProbes) &&
-    sortedUnique(value.validationProbes) && value.validationProbes.every(validToken) &&
+    .includes(String(value.frameMode)) &&
     Array.isArray(value.videoModes) && sortedUnique(value.videoModes) &&
     value.videoModes.every((mode) => ["original", "pixel", "smooth", "sharp-bilinear", "adaptive-sharpen"].includes(mode));
 }
@@ -159,13 +158,6 @@ function validRestore(value: unknown, checkpoint: unknown) {
     Array.isArray(checkpoint.readFormats) && checkpoint.readFormats.includes(value.format) &&
     validDigest(value.sha256) && positiveInteger(value.sizeBytes) &&
     typeof checkpoint.maxBytes === "number" && value.sizeBytes <= checkpoint.maxBytes && relativeURL(value.url);
-}
-
-function validValidation(value: unknown, capabilities: RuntimeCapabilitiesV1) {
-  if (value === null) {return true;}
-  return record(value) && exactKeys(value, ["input", "probeId"]) &&
-    typeof value.probeId === "string" && capabilities.validationProbes.includes(value.probeId) &&
-    jsonRecord(value.input);
 }
 
 function validNetplay(value: unknown, supported: boolean, session: unknown) {

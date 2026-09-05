@@ -3,6 +3,7 @@ import {
   existsSync, lstatSync, readFileSync, readdirSync, realpathSync, statSync, writeFileSync,
 } from "node:fs";
 import { dirname, isAbsolute, relative, resolve, sep } from "node:path";
+import {checkedPopulationPreservation} from "./rpgmaker_pack_population.mjs";
 
 export const uploadRoles = {
   rpg2000Rtp: ["rpg2000_rtp", null, null],
@@ -20,24 +21,24 @@ export const uploadRoles = {
 };
 
 export const reviewRoles = {
-  rpg2000SelfContained: ["rpgmaker_2000", "RPG2000", "ready"],
-  rpg2000Missing: ["rpgmaker_2000", "RPG2000", "missing"],
-  rpg2003SelfContained: ["rpgmaker_2003", "RPG2003", "ready"],
-  rpg2003Missing: ["rpgmaker_2003", "RPG2003", "missing"],
-  rpgxpNoRtp: ["rpgmaker_xp", "RPGXP", "ready"],
-  rpgxpStandardAmbiguous: ["rpgmaker_xp", "RPGXP", "unselected"],
-  rpgxpCustom: ["rpgmaker_xp", "RPGXP", "missing"],
-  rpgvxNoRtp: ["rpgmaker_vx", "RPGVX", "ready"],
-  rpgvxStandardAmbiguous: ["rpgmaker_vx", "RPGVX", "unselected"],
-  rpgvxCustom: ["rpgmaker_vx", "RPGVX", "missing"],
-  rpgvxaceNoRtp: ["rpgmaker_vx_ace", "RPGVXACE", "ready"],
-  rpgvxaceStandardAmbiguous: ["rpgmaker_vx_ace", "RPGVXACE", "unselected"],
-  rpgvxaceCustom: ["rpgmaker_vx_ace", "RPGVXACE", "missing"],
+  rpg2000SelfContained: ["rpgmaker-2000", "RPG2000", "ready"],
+  rpg2000Missing: ["rpgmaker-2000", "RPG2000", "missing"],
+  rpg2003SelfContained: ["rpgmaker-2003", "RPG2003", "ready"],
+  rpg2003Missing: ["rpgmaker-2003", "RPG2003", "missing"],
+  rpgxpNoRtp: ["rpgmaker-xp", "RPGXP", "ready"],
+  rpgxpStandardAmbiguous: ["rpgmaker-xp", "RPGXP", "unselected"],
+  rpgxpCustom: ["rpgmaker-xp", "RPGXP", "missing"],
+  rpgvxNoRtp: ["rpgmaker-vx", "RPGVX", "ready"],
+  rpgvxStandardAmbiguous: ["rpgmaker-vx", "RPGVX", "unselected"],
+  rpgvxCustom: ["rpgmaker-vx", "RPGVX", "missing"],
+  rpgvxaceNoRtp: ["rpgmaker-vx-ace", "RPGVXACE", "ready"],
+  rpgvxaceStandardAmbiguous: ["rpgmaker-vx-ace", "RPGVXACE", "unselected"],
+  rpgvxaceCustom: ["rpgmaker-vx-ace", "RPGVXACE", "missing"],
 };
 
 export const protectedRoles = {
-  publishedVariant: ["rgss1_standard", null, null, "rpgmaker_xp", "RPGXP", "rgss1_standard"],
-  restorableCheckpoint: ["rgss2_rpgvx", null, null, "rpgmaker_vx", "RPGVX", "rgss2_rpgvx"],
+  publishedVariant: ["rgss1_standard", null, null, "rpgmaker-xp", "RPGXP", "rgss1_standard"],
+  restorableCheckpoint: ["rgss2_rpgvx", null, null, "rpgmaker-vx", "RPGVX", "rgss2_rpgvx"],
 };
 
 const sourceNote = "Retrom-owned ACC-RPG-009 deterministic fixture; no vendor RTP bytes";
@@ -91,7 +92,7 @@ export function writePlan(path, plan) {
   writeFileSync(path, `${JSON.stringify(plan, null, 2)}\n`, { encoding: "utf8", flag: "wx", mode: 0o600 });
 }
 
-export function buildProvisionEvidence(inputs, plan, provenance) {
+export function buildProvisionEvidence(inputs, plan, provenance, populationPreservation) {
   return {
     schemaVersion: 1, caseId: "ACC-RPG-009", status: "PROVISIONED",
     generatorInputIdentity: {
@@ -114,9 +115,10 @@ export function buildProvisionEvidence(inputs, plan, provenance) {
       protectedInstallationCount: 2,
       protectedGameCount: 2,
       reviewItemCount: Object.keys(plan.reviewIds).length,
-      readyUnapprovedReviewCount: Object.values(reviewRoles).filter((item) => item[2] === "ready").length,
+      selfContainedOrNoRtpReviewCount: Object.values(reviewRoles).filter((item) => item[2] === "ready").length,
     },
     repository: provenance,
+    populationPreservation: checkedPopulationPreservation(populationPreservation),
   };
 }
 

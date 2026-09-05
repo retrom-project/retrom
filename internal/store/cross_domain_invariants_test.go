@@ -163,11 +163,11 @@ INSERT INTO netplay_rooms(
 
 const currentLaunchInsertSQL = `
 INSERT INTO launch_sessions(
- id,profile_id,purpose,game_id,core_id,provider_id,target_id,bundle_sha256,content_kind,
+ id,profile_id,game_id,core_id,provider_id,target_id,bundle_sha256,content_kind,
  dependency_snapshot_json,compatibility_code,return_to,credential_sha256,state,
  bootstrap_expires_at_ms,hard_expires_at_ms,created_at_ms,updated_at_ms
 ) VALUES(
- ?,'current-profile','PRODUCT',?,'fceumm','current-provider',?,
+ ?,'current-profile',?,'fceumm','current-provider',?,
  'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa','SINGLE_FILE',
  '{}','READY','/',zeroblob(32),'CREATED',10,20,1,1
 )`
@@ -213,8 +213,8 @@ func seedCurrentRuntimeGraph(t *testing.T, database *sql.DB) {
  ('current-provider','target-b','Target B','{"type":"object"}','{"netplayPort":true}',
   '{"writeFormat":"state-v1","readFormats":["state-v1"],"maxBytes":1024}','{}')`,
 		`INSERT INTO runtime_target_bindings(
- binding_id,core_id,provider_id,target_id,detector_profile,delivery_profile,launch_policy,review_policy
-) VALUES('current-binding','fceumm','current-provider','target-a','CURRENT','CURRENT','ENABLED','ENABLED')`,
+ binding_id,core_id,provider_id,target_id,detector_profile,delivery_profile,launch_policy
+) VALUES('current-binding','fceumm','current-provider','target-a','CURRENT','CURRENT','ENABLED')`,
 		`INSERT INTO platform_instances(
  id,platform_id,default_core_id,name,slug,sort_order,enabled,version,created_at_ms,updated_at_ms
 ) VALUES('current-platform','nes','fceumm','Current platform','current-platform',1,1,1,1,1)`,

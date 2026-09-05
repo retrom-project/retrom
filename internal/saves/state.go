@@ -3,7 +3,6 @@ package saves
 import (
 	"context"
 	"crypto/sha256"
-	"database/sql"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -64,40 +63,8 @@ func (service *Service) CheckpointStatus(
 	if err != nil {
 		return CheckpointStatus{}, err
 	}
-	status := CheckpointStatus{
+	return CheckpointStatus{
 		CheckpointFormat: launch.checkpointFormat,
 		Availability:     CheckpointAvailability{Available: true},
-	}
-	if launch.purpose == "PRODUCT" {
-		return status, nil
-	}
-	var validationState string
-	var checkpointCount int
-	err = service.database.QueryRowContext(ctx, `
-SELECT validation.state,
- (SELECT count(*) FROM rpgmaker_runtime_validation_checkpoints checkpoint
-  WHERE checkpoint.validation_id=validation.id)
-FROM rpgmaker_runtime_validations validation
-WHERE validation.id=?
-`, launch.validationID).Scan(&validationState, &checkpointCount)
-	if errors.Is(err, sql.ErrNoRows) {
-		return CheckpointStatus{}, ErrCredential
-	}
-	if err != nil {
-		return CheckpointStatus{}, fmt.Errorf("saves/service: %w", err)
-	}
-	var reason string
-	switch {
-	case checkpointCount > 0:
-		reason = "CHECKPOINT_ALREADY_CREATED"
-	case validationState == "FAILED" || validationState == "EXPIRED":
-		reason = "RUNTIME_FAILED"
-	case validationState != "RUNNING":
-		reason = "RUNTIME_NOT_READY"
-	}
-	if reason != "" {
-		status.Availability.Available = false
-		status.Availability.Reason = &reason
-	}
-	return status, nil
+	}, nil
 }

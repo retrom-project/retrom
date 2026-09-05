@@ -8,5 +8,6 @@ describe("Player Provider bootstrap authority", () => {
     expect(source).not.toMatch(/from "\.\/(?:adapters\/|rpg-runtime\/|player-bootstrap-retrom-runtime)/u);
     expect(source).not.toMatch(/is(?:Ons|KiriKiri|Butterscotch|TyranoScript|WASM4|RetromRpg)LaunchConfig/u);
     expect(source.match(/mountProviderRuntime\(/gu)).toHaveLength(1);
+    expect(source).not.toMatch(/RUNTIME_VALIDATION|ValidationDriver|ValidationCheckpoint|validating/u);
   });
 });

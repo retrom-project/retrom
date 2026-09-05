@@ -33,7 +33,7 @@ _TARGET_KEYS = {
 _CAPABILITY_KEYS = {
     "pause", "screenshot", "checkpoint", "standardGamepad", "frameCounter",
     "volume", "discSwitch", "nativeSettings", "inputFilter", "netplayPort",
-    "videoModes", "requiresThreads", "frameMode", "validationProbes",
+    "videoModes", "requiresThreads", "frameMode",
 }
 _INPUT_KEYS = {"role", "kind", "cardinality", "optional"}
 _CHECKPOINT_KEYS = {"writeFormat", "readFormats", "maxBytes"}
@@ -66,7 +66,7 @@ _AUTHORITY_FILES = (
     "fixtures/invalid/unknown-top-level.json",
     "fixtures/invalid/unsafe-integer-json-input.json",
     "fixtures/target-options/schema-validation.json",
-    "fixtures/valid/checkpoint-validation.json",
+    "fixtures/valid/checkpoint-restore.json",
     "fixtures/valid/netplay.json",
     "fixtures/valid/single-minimal.json",
 )
@@ -138,7 +138,7 @@ def parse_launch_envelope(contents: bytes) -> dict[str, object]:
 def validate_launch_envelope(value: object) -> None:
     envelope = _launch_record(value, "envelope")
     _launch_keys(envelope, {
-        "netplay", "resources", "restore", "runtime", "schemaVersion", "session", "targetOptions", "validation",
+        "netplay", "resources", "restore", "runtime", "schemaVersion", "session", "targetOptions",
     }, "envelope")
     if envelope["schemaVersion"] != 1:
         _fail("envelope.schemaVersion must be 1")
@@ -147,7 +147,6 @@ def validate_launch_envelope(value: object) -> None:
     _validate_launch_resources(envelope["resources"])
     _validate_launch_options(envelope["targetOptions"])
     _validate_launch_restore(envelope["restore"], runtime["checkpoint"])
-    _validate_launch_validation(envelope["validation"], runtime["capabilities"])
     _validate_launch_netplay(envelope["netplay"], runtime["capabilities"], session)
 
 
@@ -156,7 +155,7 @@ def _validate_launch_session(value: object) -> Mapping[str, object]:
     _launch_keys(session, {"coreName", "id", "mode", "platformName", "purpose", "returnTo", "title", "warnings"}, "session")
     if not isinstance(session["id"], str) or not re.fullmatch(
         r"[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}", session["id"]
-    ) or session["purpose"] not in {"PRODUCT", "REVIEW_PREVIEW", "RUNTIME_VALIDATION"} or \
+    ) or session["purpose"] not in {"PRODUCT", "REVIEW_PREVIEW"} or \
             session["mode"] not in {"SINGLE", "NETPLAY"}:
         _fail("session identity, purpose, or mode is invalid")
     _launch_text(session["title"], 1, 500, "session.title")
@@ -203,19 +202,16 @@ def _validate_launch_capabilities(value: object) -> Mapping[str, object]:
     capabilities = _launch_record(value, "runtime.capabilities")
     keys = {
         "checkpoint", "discSwitch", "frameCounter", "frameMode", "inputFilter", "nativeSettings", "netplayPort",
-        "pause", "requiresThreads", "screenshot", "standardGamepad", "validationProbes", "videoModes", "volume",
+        "pause", "requiresThreads", "screenshot", "standardGamepad", "videoModes", "volume",
     }
     _launch_keys(capabilities, keys, "runtime.capabilities")
-    for key in keys - {"frameMode", "validationProbes", "videoModes"}:
+    for key in keys - {"frameMode", "videoModes"}:
         if not isinstance(capabilities[key], bool):
             _fail(f"runtime.capabilities.{key} must be boolean")
     if capabilities["frameMode"] not in {
         "NONE", "SAME_ORIGIN_BLANK", "SAME_ORIGIN_RESOURCE", "ISOLATED_ORIGIN_RESOURCE",
     }:
         _fail("runtime.capabilities.frameMode is invalid")
-    probes = _launch_string_set(capabilities["validationProbes"], "runtime.capabilities.validationProbes")
-    if any(not _TOKEN.fullmatch(probe) for probe in probes):
-        _fail("runtime validation probe is invalid")
     modes = _launch_string_set(capabilities["videoModes"], "runtime.capabilities.videoModes")
     if any(mode not in _VIDEO_MODES for mode in modes):
         _fail("runtime video mode is invalid")
@@ -326,19 +322,6 @@ def _validate_launch_restore(value: object, checkpoint_value: object) -> None:
     if restore["sizeBytes"] > checkpoint["maxBytes"]:
         _fail("restore exceeds checkpoint maxBytes")
     _launch_relative_url(restore["url"], "restore.url")
-
-
-def _validate_launch_validation(value: object, capabilities_value: object) -> None:
-    if value is None:
-        return
-    validation = _launch_record(value, "validation")
-    capabilities = _launch_record(capabilities_value, "runtime.capabilities")
-    _launch_keys(validation, {"input", "probeId"}, "validation")
-    if validation["probeId"] not in capabilities["validationProbes"]:
-        _fail("validation.probeId is unsupported")
-    _validate_launch_json(validation["input"], 0)
-    if not isinstance(validation["input"], Mapping):
-        _fail("validation.input must be an object")
 
 
 def _validate_launch_netplay(value: object, capabilities_value: object, session: Mapping[str, object]) -> None:
@@ -683,15 +666,11 @@ def _non_negative_safe_integer(value: object, label: str) -> int:
 def _validate_capabilities(capabilities: Mapping[str, object], target_label: str) -> None:
     label = f"{target_label}.capabilities"
     _exact_keys(capabilities, _CAPABILITY_KEYS, label)
-    for key in _CAPABILITY_KEYS - {"frameMode", "validationProbes", "videoModes"}:
+    for key in _CAPABILITY_KEYS - {"frameMode", "videoModes"}:
         if not isinstance(capabilities[key], bool):
             _fail(f"{label}.{key} must be a boolean")
     if capabilities["frameMode"] not in _FRAME_MODES:
         _fail(f"{label}.frameMode is unsupported")
-    probes = _string_array(capabilities["validationProbes"], f"{label}.validationProbes")
-    _sorted_unique(probes, f"{label}.validationProbes")
-    for index, probe in enumerate(probes):
-        _token(probe, f"{label}.validationProbes[{index}]")
     video_modes = _string_array(capabilities["videoModes"], f"{label}.videoModes")
     _sorted_unique(video_modes, f"{label}.videoModes")
     if any(mode not in _VIDEO_MODES for mode in video_modes):

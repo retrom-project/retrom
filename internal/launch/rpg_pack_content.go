@@ -139,7 +139,10 @@ func (service *Service) authorizeRuntimePack(ctx context.Context, launchID, capa
 	err := service.database.QueryRowContext(ctx, `
 SELECT credential_sha256,provider_id,target_id,state,hard_expires_at_ms
 FROM launch_sessions WHERE id=?
-`, launchID).Scan(&credential, &providerID, &targetID, &state, &hardExpires)
+UNION ALL
+SELECT credential_sha256,provider_id,target_id,state,hard_expires_at_ms
+FROM review_preview_sessions WHERE id=?
+`, launchID, launchID).Scan(&credential, &providerID, &targetID, &state, &hardExpires)
 	if err != nil || !retromruntime.MatchesCapability(capability, credential) ||
 		state != "ACTIVE" || hardExpires <= service.now().UnixMilli() {
 		return ErrCredential
@@ -168,9 +171,15 @@ JOIN launch_content_files locked ON locked.launch_session_id=launch.id
  AND locked.logical_name=?
 JOIN runtime_asset_pack_installations installation
  ON installation.bundle_blob_id=locked.blob_id AND installation.status='READY'
-WHERE launch.id=? AND launch.purpose IN ('PRODUCT','RPG_RUNTIME_VALIDATION')
-ORDER BY installation.id
-`, fmt.Sprintf("__retrom__/pack-%d.zip", slot), launchID)
+WHERE launch.id=?
+UNION ALL
+SELECT installation.id
+FROM review_preview_files locked
+JOIN runtime_asset_pack_installations installation
+ ON installation.bundle_blob_id=locked.blob_id AND installation.status='READY'
+WHERE locked.preview_session_id=? AND locked.role='RUNTIME_FILE' AND locked.logical_name=?
+ORDER BY 1
+`, fmt.Sprintf("__retrom__/pack-%d.zip", slot), launchID, launchID, fmt.Sprintf("__retrom__/pack-%d.zip", slot))
 	if err != nil {
 		return "", fmt.Errorf("load runtime pack selection: %w", err)
 	}

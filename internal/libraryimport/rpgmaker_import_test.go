@@ -214,7 +214,7 @@ func TestPrepareRPGMakerArchiveMaterializesNestedEntryWithoutExpandingIt(t *test
 func TestPrepareStaticBIOSDependenciesLeavesRPGMakerValidationToRuntimePacks(t *testing.T) {
 	t.Parallel()
 	groups := []preparedGroup{{
-		validationStatus: "BLOCKED", compatibilityCode: "RPG_RUNTIME_VALIDATION_REQUIRED",
+		validationStatus: "BLOCKED", compatibilityCode: "RPG_RUNTIME_PACK_MISSING",
 		dependencySnapshot: `{"bindings":[],"schemaVersion":1}`,
 	}}
 	if err := prepareStaticBIOSDependencies(
@@ -222,7 +222,7 @@ func TestPrepareStaticBIOSDependenciesLeavesRPGMakerValidationToRuntimePacks(t *
 	); err != nil {
 		t.Fatalf("prepareStaticBIOSDependencies() error = %v", err)
 	}
-	if groups[0].compatibilityCode != "RPG_RUNTIME_VALIDATION_REQUIRED" {
+	if groups[0].compatibilityCode != "RPG_RUNTIME_PACK_MISSING" {
 		t.Fatalf("RPG validation was overwritten: %#v", groups[0])
 	}
 }

@@ -45,60 +45,19 @@ func TestOpenAPIValidationRejectsUnknownJSONAndMapsMissingPrecondition(t *testin
 	testassert.Falsef(t, testassert.Any(func() bool { return recorder.Code != http.StatusPreconditionRequired }, func() bool { return !strings.Contains(recorder.Body.String(), `"code":"PRECONDITION_REQUIRED"`) }), "missing If-Match response = %d %s", recorder.Code, recorder.Body.String())
 }
 
-func TestRPGGateHTTPContractAcceptsNewPositionGatesAndRejectsUnknownGate(t *testing.T) {
+func TestRetiredRuntimeProofEndpointsAreAbsent(t *testing.T) {
 	t.Parallel()
 	server := newTestServer(t)
-	handler := server.Handler()
-	launchID := "01980000-0000-7000-8000-000000000091"
-	for _, test := range []struct{ gate, eventID string }{
-		{gate: "INITIAL_POSITION_RECORDED", eventID: "01980000-0000-7000-8000-000000000092"},
-		{gate: "RESTORE_INPUT", eventID: "01980000-0000-7000-8000-000000000093"},
+	for _, endpoint := range []string{
+		"/runtime/launches/01980000-0000-7000-8000-000000000091/rpgmaker-gates/events",
+		"/admin/reviews/01980000-0000-7000-8000-000000000092/runtime-validations",
 	} {
-		body := `{"sequence":1,"eventId":"` + test.eventID + `","gate":"` + test.gate +
-			`","phase":"PASS","observedAtMs":1,"evidence":{"mapId":1,"playerX":2,"playerY":3,"fixtureState":4}}`
-		request := httptest.NewRequestWithContext(
-			context.Background(), http.MethodPost,
-			"/runtime/launches/"+launchID+"/rpgmaker-gates/events", strings.NewReader(body),
-		)
-		request.Header.Set("Content-Type", "application/json")
-		response := httptest.NewRecorder()
-		handler.ServeHTTP(response, request)
-		if response.Code != http.StatusUnauthorized ||
-			!strings.Contains(response.Body.String(), `"code":"LAUNCH_CREDENTIAL_INVALID"`) {
-			t.Fatalf("%s gate response = %d %s", test.gate, response.Code, response.Body.String())
-		}
-	}
-	unknown := httptest.NewRequestWithContext(
-		context.Background(), http.MethodPost,
-		"/runtime/launches/"+launchID+"/rpgmaker-gates/events",
-		strings.NewReader(`{"sequence":1,"eventId":"01980000-0000-7000-8000-000000000099","gate":"UNKNOWN","phase":"BEGIN","observedAtMs":1,"evidence":{}}`),
-	)
-	unknown.Header.Set("Content-Type", "application/json")
-	response := httptest.NewRecorder()
-	handler.ServeHTTP(response, unknown)
-	if response.Code != http.StatusBadRequest || !strings.Contains(response.Body.String(), `"code":"INVALID_REQUEST"`) {
-		t.Fatalf("unknown RPG gate response = %d %s", response.Code, response.Body.String())
-	}
-}
-
-func TestRPGGateHTTPContractAcceptsProviderEngineProfileEvidence(t *testing.T) {
-	t.Parallel()
-	for _, body := range []string{
-		`{"sequence":1,"eventId":"01980000-0000-7000-8000-000000000092","gate":"ENGINE_PROFILE","phase":"PASS","observedAtMs":1,"evidence":{"generation":"RPGMV","engineProfile":"RPGMV"}}`,
-		`{"sequence":1,"eventId":"01980000-0000-7000-8000-000000000093","gate":"ENGINE_PROFILE","phase":"PASS","observedAtMs":1,"evidence":{"generation":"RPGMZ","engineProfile":"RPGMZ"}}`,
-	} {
-		server := newTestServer(t)
-		request := httptest.NewRequestWithContext(
-			context.Background(), http.MethodPost,
-			"/runtime/launches/01980000-0000-7000-8000-000000000091/rpgmaker-gates/events",
-			strings.NewReader(body),
-		)
+		request := httptest.NewRequestWithContext(t.Context(), http.MethodPost, endpoint, strings.NewReader("{}"))
 		request.Header.Set("Content-Type", "application/json")
 		response := httptest.NewRecorder()
 		server.Handler().ServeHTTP(response, request)
-		if response.Code != http.StatusUnauthorized ||
-			!strings.Contains(response.Body.String(), `"code":"LAUNCH_CREDENTIAL_INVALID"`) {
-			t.Fatalf("provider engine profile gate response = %d %s", response.Code, response.Body.String())
+		if response.Code != http.StatusNotFound {
+			t.Fatalf("retired proof endpoint %s returned %d", endpoint, response.Code)
 		}
 	}
 }

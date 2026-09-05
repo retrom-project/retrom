@@ -125,7 +125,7 @@ web/components/           无业务状态的通用组件
 - 用户写入：创建 LaunchSession、heartbeat/finish、手动通用 checkpoint，以及从 checkpoint 创建新 restore Launch。
 - 联机用户：列出精确支持的游戏、创建/查看房间、选座/准备/开始/结束；房间状态使用 SSE，运行输入和 state transfer 使用同源 WebSocket。
 - 管理写入：upload、import、受信服务器 BIOS/Pegasus/EmulationStation scan、review（含 RPG 世代、资源包与当前 Provider/Target 输入）、RPG runtime validation/判定、Game 当前态、platform instance、BIOS installation、Arcade DAT installation 和 RPG pack installation。
-- 管理读取：入库总览/任务/SSE、服务器扫描计划与映射、待审核/历史、游戏管理、BIOS/DAT/RPG 运行依赖、RPG validation gates、审计事件和脱敏诊断摘要。
+- 管理读取：入库总览/任务/SSE、服务器扫描计划与映射、待审核/历史、游戏管理、BIOS/DAT/RPG 运行依赖、审核试运行、审计事件和脱敏诊断摘要。
 
 详情页和存档快速启动都调用同一 `POST /api/v1/launches`；区别只在是否携带 `saveStateId`。所有普通 API 必须先完成账户认证，管理 API 还要求 `ADMIN`；所有已认证写请求同时执行 Origin、Fetch Metadata、CSRF、乐观并发与幂等校验。浏览器目录上传只传相对路径；服务器扫描只接受已配置 capability 的 root ID 与规范相对路径，不提供任意宿主路径入口。
 

@@ -44,7 +44,7 @@ func ParseLaunchEnvelope(contents []byte) (map[string]any, error) {
 func validLaunchEnvelope(value map[string]any) bool {
 	if !exactMap(
 		value,
-		"netplay", "resources", "restore", "runtime", "schemaVersion", "session", "targetOptions", "validation",
+		"netplay", "resources", "restore", "runtime", "schemaVersion", "session", "targetOptions",
 	) ||
 		value["schemaVersion"] != int64(1) {
 		return false
@@ -61,14 +61,13 @@ func validLaunchEnvelope(value map[string]any) bool {
 	capabilities, _ := launchObject(runtime["capabilities"])
 	checkpoint := runtime["checkpoint"]
 	return validLaunchRestore(value["restore"], checkpoint) &&
-		validLaunchValidation(value["validation"], capabilities) &&
 		validLaunchNetplay(value["netplay"], capabilities, session)
 }
 
 func validLaunchSession(value map[string]any) bool {
 	if !exactMap(value, "coreName", "id", "mode", "platformName", "purpose", "returnTo", "title", "warnings") ||
 		!uuidPattern.MatchString(stringValue(value["id"])) ||
-		!oneOf(stringValue(value["purpose"]), "PRODUCT", "REVIEW_PREVIEW", "RUNTIME_VALIDATION") ||
+		!oneOf(stringValue(value["purpose"]), "PRODUCT", "REVIEW_PREVIEW") ||
 		!oneOf(stringValue(value["mode"]), "SINGLE", "NETPLAY") ||
 		!boundedString(value["title"], 500) || !boundedString(value["platformName"], 200) ||
 		!boundedString(value["coreName"], 200) ||
@@ -119,7 +118,7 @@ func validLaunchCapabilities(value map[string]any) bool {
 	if !exactMap(
 		value,
 		"checkpoint", "discSwitch", "frameCounter", "frameMode", "inputFilter", "nativeSettings", "netplayPort",
-		"pause", "requiresThreads", "screenshot", "standardGamepad", "validationProbes", "videoModes", "volume") {
+		"pause", "requiresThreads", "screenshot", "standardGamepad", "videoModes", "volume") {
 		return false
 	}
 	for _, key := range []string{
@@ -133,15 +132,6 @@ func validLaunchCapabilities(value map[string]any) bool {
 	if !oneOf(stringValue(value["frameMode"]),
 		"NONE", "SAME_ORIGIN_BLANK", "SAME_ORIGIN_RESOURCE", "ISOLATED_ORIGIN_RESOURCE") {
 		return false
-	}
-	probes, ok := launchStringSet(value["validationProbes"], true)
-	if !ok {
-		return false
-	}
-	for _, probe := range probes {
-		if !tokenPattern.MatchString(probe) {
-			return false
-		}
 	}
 	modes, ok := launchStringSet(value["videoModes"], true)
 	if !ok {
@@ -312,16 +302,6 @@ func validLaunchRestore(value, checkpointValue any) bool {
 	size, _ := restore["sizeBytes"].(int64)
 	maximum, _ := checkpoint["maxBytes"].(int64)
 	return ok && contains(formats, stringValue(restore["format"])) && size <= maximum
-}
-
-func validLaunchValidation(value any, capabilities map[string]any) bool {
-	if value == nil {
-		return true
-	}
-	validation, ok := launchObject(value)
-	probes, probesOK := launchStringSet(capabilities["validationProbes"], true)
-	return ok && probesOK && exactMap(validation, "input", "probeId") &&
-		contains(probes, stringValue(validation["probeId"])) && validJSONValue(validation["input"], 0, true)
 }
 
 func validLaunchNetplay(value any, capabilities, session map[string]any) bool {

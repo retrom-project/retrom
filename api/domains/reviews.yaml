@@ -117,80 +117,6 @@ paths:
       responses:
         '200':
           $ref: ../components/common.yaml#/components/responses/JSONResponse
-  /api/v1/admin/reviews/{importItemId}/runtime-validations:
-    parameters:
-      - $ref: ../components/common.yaml#/components/parameters/ImportItemID
-    post:
-      operationId: postAdminReviewRuntimeValidation
-      description: Freezes the current RPG Maker source and selected runtime packs into a fifteen-minute validation Launch using the active Provider Target.
-      parameters:
-        - $ref: ../components/common.yaml#/components/parameters/IfMatch
-        - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey
-      requestBody:
-        $ref: '#/components/requestBodies/RpgRuntimeValidationLaunchBody'
-      responses:
-        '201':
-          $ref: '#/components/responses/RpgRuntimeValidationLaunchResponse'
-        '404':
-          $ref: ../components/common.yaml#/components/responses/RpgNotFoundResponse
-        '409':
-          $ref: ../components/common.yaml#/components/responses/RpgConflictResponse
-        '422':
-          $ref: ../components/common.yaml#/components/responses/RpgUnprocessableResponse
-  /api/v1/admin/reviews/{importItemId}/runtime-validations/{validationId}:
-    parameters:
-      - $ref: ../components/common.yaml#/components/parameters/ImportItemID
-      - $ref: '#/components/parameters/RpgRuntimeValidationID'
-    get:
-      operationId: getAdminReviewRuntimeValidation
-      description: Returns frozen route evidence, ordered machine gates, the cross-Launch checkpoint round trip and the immutable reviewer decision without returning credentials.
-      responses:
-        '200':
-          $ref: '#/components/responses/RpgRuntimeValidationResponse'
-        '404':
-          $ref: ../components/common.yaml#/components/responses/RpgNotFoundResponse
-  /api/v1/admin/reviews/{importItemId}/runtime-validations/{validationId}/restore-launch:
-    parameters:
-      - $ref: ../components/common.yaml#/components/parameters/ImportItemID
-      - $ref: '#/components/parameters/RpgRuntimeValidationID'
-    post:
-      operationId: postAdminReviewRuntimeValidationRestoreLaunch
-      description: Creates exactly one restore Launch after the original validation Launch ended and its temporary checkpoint was fully persisted; idempotent replay returns that same distinct Launch.
-      parameters:
-        - $ref: ../components/common.yaml#/components/parameters/IfMatch
-        - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey
-      requestBody:
-        $ref: '#/components/requestBodies/RpgRuntimeValidationLaunchBody'
-      responses:
-        '201':
-          $ref: '#/components/responses/RpgRuntimeValidationLaunchResponse'
-        '404':
-          $ref: ../components/common.yaml#/components/responses/RpgNotFoundResponse
-        '409':
-          $ref: ../components/common.yaml#/components/responses/RpgConflictResponse
-        '422':
-          $ref: ../components/common.yaml#/components/responses/RpgUnprocessableResponse
-  /api/v1/admin/reviews/{importItemId}/runtime-validations/{validationId}/decision:
-    parameters:
-      - $ref: ../components/common.yaml#/components/parameters/ImportItemID
-      - $ref: '#/components/parameters/RpgRuntimeValidationID'
-    post:
-      operationId: postAdminReviewRuntimeValidationDecision
-      description: Records PASS only after every required machine gate proves a new-Launch restore at the saved in-game position; any binding drift or failed gate is non-overridable.
-      parameters:
-        - $ref: ../components/common.yaml#/components/parameters/IfMatch
-        - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey
-      requestBody:
-        $ref: '#/components/requestBodies/RpgRuntimeValidationDecision'
-      responses:
-        '200':
-          $ref: '#/components/responses/RpgRuntimeValidationResponse'
-        '404':
-          $ref: ../components/common.yaml#/components/responses/RpgNotFoundResponse
-        '409':
-          $ref: ../components/common.yaml#/components/responses/RpgConflictResponse
-        '422':
-          $ref: ../components/common.yaml#/components/responses/RpgUnprocessableResponse
   /api/v1/admin/reviews/{importItemId}/scrape-candidates:
     parameters:
       - $ref: ../components/common.yaml#/components/parameters/ImportItemID
@@ -330,256 +256,6 @@ components:
         installationId:
           type: string
           format: uuid
-    RpgRuntimeTargetEvidence:
-      type: object
-      additionalProperties: false
-      required:
-        - effectiveSourceSnapshotId
-        - generation
-        - evidenceGeneration
-        - evidenceConfidence
-        - providerId
-        - targetId
-        - dependencySnapshotSha256
-        - projectFingerprint
-      properties:
-        effectiveSourceSnapshotId:
-          type: string
-          format: uuid
-        generation:
-          $ref: ../components/common.yaml#/components/schemas/RpgGeneration
-        evidenceGeneration:
-          nullable: true
-          allOf:
-            - $ref: ../components/common.yaml#/components/schemas/RpgGeneration
-        evidenceConfidence:
-          type: string
-          enum:
-            - MATCHED
-            - FAMILY_ONLY
-        providerId:
-          type: string
-          pattern: ^[a-z0-9]+(?:-[a-z0-9]+)*$
-        targetId:
-          type: string
-          pattern: ^[a-z0-9]+(?:-[a-z0-9]+)*$
-        dependencySnapshotSha256:
-          type: string
-          pattern: ^[0-9a-f]{64}$
-        projectFingerprint:
-          type: string
-          pattern: ^[0-9a-f]{64}$
-    RpgCheckpointRoundTrip:
-      type: object
-      additionalProperties: false
-      required:
-        - created
-        - checkpointFormat
-        - sizeBytes
-        - sha256
-        - originalLaunchId
-        - initialPosition
-        - savedPosition
-        - divergedPosition
-        - originalLaunchEnded
-        - restoreLaunchId
-        - restoreStarted
-        - restoredPosition
-        - positionVerified
-        - screenshotUrl
-        - restoreInputPosition
-        - restoreInputVerified
-      properties:
-        created:
-          type: boolean
-        checkpointFormat:
-          nullable: true
-          allOf:
-            - $ref: ../components/common.yaml#/components/schemas/CheckpointFormat
-        sizeBytes:
-          type: integer
-          format: int64
-          minimum: 1
-          maximum: 268435456
-          nullable: true
-        sha256:
-          type: string
-          nullable: true
-          pattern: ^[0-9a-f]{64}$
-        originalLaunchId:
-          type: string
-          format: uuid
-          nullable: true
-        initialPosition:
-          nullable: true
-          allOf:
-            - $ref: ../components/common.yaml#/components/schemas/RpgPositionEvidence
-        savedPosition:
-          nullable: true
-          allOf:
-            - $ref: ../components/common.yaml#/components/schemas/RpgPositionEvidence
-        divergedPosition:
-          nullable: true
-          allOf:
-            - $ref: ../components/common.yaml#/components/schemas/RpgPositionEvidence
-        originalLaunchEnded:
-          type: boolean
-        restoreLaunchId:
-          type: string
-          format: uuid
-          nullable: true
-        restoreStarted:
-          type: boolean
-        restoredPosition:
-          nullable: true
-          allOf:
-            - $ref: ../components/common.yaml#/components/schemas/RpgPositionEvidence
-        positionVerified:
-          type: boolean
-        screenshotUrl:
-          type: string
-          nullable: true
-          pattern: ^/api/v1/admin/review-assets/
-        restoreInputPosition:
-          nullable: true
-          allOf:
-            - $ref: ../components/common.yaml#/components/schemas/RpgPositionEvidence
-        restoreInputVerified:
-          type: boolean
-      description: positionVerified is true only when restoreLaunchId differs from originalLaunchId, restoredPosition equals savedPosition field-for-field, and savedPosition differs from initialPosition and divergedPosition. restoreInputVerified additionally requires post-screenshot input to produce a position different from restoredPosition; screenshotUrl must represent the restored saved marker.
-    RpgRuntimeReviewerDecision:
-      type: object
-      nullable: true
-      additionalProperties: false
-      required:
-        - decision
-        - note
-        - decidedAtMs
-      properties:
-        decision:
-          type: string
-          enum:
-            - PASS
-            - FAIL
-        note:
-          type: string
-          maxLength: 500
-        decidedAtMs:
-          type: integer
-          format: int64
-          minimum: 0
-    RpgRuntimeValidation:
-      type: object
-      additionalProperties: false
-      required:
-        - validationId
-        - importItemId
-        - reviewVersionAtCreate
-        - launchId
-        - restoreLaunchId
-        - state
-        - lastGateSequence
-        - routeEvidence
-        - machineGates
-        - checkpointRoundTrip
-        - failureCode
-        - decision
-        - createdAtMs
-        - updatedAtMs
-        - expiresAtMs
-      properties:
-        validationId:
-          type: string
-          format: uuid
-        importItemId:
-          type: string
-          format: uuid
-        reviewVersionAtCreate:
-          type: integer
-          format: int64
-          minimum: 1
-        launchId:
-          type: string
-          format: uuid
-          nullable: true
-          description: Null only when validation reached FAILED before its initial Launch was issued.
-        restoreLaunchId:
-          type: string
-          format: uuid
-          nullable: true
-        state:
-          $ref: ../components/common.yaml#/components/schemas/RpgRuntimeValidationState
-        lastGateSequence:
-          type: integer
-          format: int64
-          minimum: 0
-        routeEvidence:
-          $ref: '#/components/schemas/RpgRuntimeTargetEvidence'
-        machineGates:
-          type: array
-          minItems: 14
-          maxItems: 14
-          description: Exactly one entry for every RpgRuntimeGate in enum order.
-          items:
-            $ref: ../components/common.yaml#/components/schemas/RpgRuntimeMachineGate
-        checkpointRoundTrip:
-          $ref: '#/components/schemas/RpgCheckpointRoundTrip'
-        failureCode:
-          nullable: true
-          allOf:
-            - $ref: ../components/common.yaml#/components/schemas/RpgErrorCode
-        decision:
-          $ref: '#/components/schemas/RpgRuntimeReviewerDecision'
-        createdAtMs:
-          type: integer
-          format: int64
-          minimum: 0
-        updatedAtMs:
-          type: integer
-          format: int64
-          minimum: 0
-        expiresAtMs:
-          type: integer
-          format: int64
-          minimum: 0
-    RpgRuntimeValidationLaunch:
-      type: object
-      additionalProperties: false
-      required:
-        - validationId
-        - launchId
-        - playerUrl
-        - expiresAtMs
-      properties:
-        validationId:
-          type: string
-          format: uuid
-        launchId:
-          type: string
-          format: uuid
-        playerUrl:
-          type: string
-          pattern: ^/play/[0-9a-f-]{36}$
-        expiresAtMs:
-          type: integer
-          format: int64
-          minimum: 0
-    RpgRuntimeValidationDecisionRequest:
-      type: object
-      additionalProperties: false
-      required:
-        - decision
-        - note
-      properties:
-        decision:
-          type: string
-          enum:
-            - PASS
-            - FAIL
-        note:
-          type: string
-          maxLength: 500
-          description: FAIL requires a non-empty normalized value. Both decisions enforce LF normalization, NFC, Unicode-whitespace trim, at most 500 Unicode scalars and 2,000 UTF-8 bytes, and reject the documented control-character set.
     ApprovalReasonRequest:
       type: object
       additionalProperties: false
@@ -886,14 +562,11 @@ components:
       properties:
         clientCapabilities:
           $ref: ../components/common.yaml#/components/schemas/ClientCapabilities
-    RpgRuntimeValidationLaunchRequest:
-      type: object
-      additionalProperties: false
-      required:
-        - clientCapabilities
-      properties:
-        clientCapabilities:
-          $ref: ../components/common.yaml#/components/schemas/ClientCapabilities
+        restoreFromPreviewId:
+          type: string
+          format: uuid
+          nullable: true
+          description: Optionally freeze this actor's unexpired trial checkpoint into a new preview of the same current source and Target.
   requestBodies:
     ApprovalReason:
       required: true
@@ -919,18 +592,6 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/ReviewDraftRequest'
-    RpgRuntimeValidationDecision:
-      required: true
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/RpgRuntimeValidationDecisionRequest'
-    RpgRuntimeValidationLaunchBody:
-      required: true
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/RpgRuntimeValidationLaunchRequest'
     ReviewAsset:
       required: true
       content:
@@ -956,29 +617,6 @@ components:
           schema:
             $ref: '#/components/schemas/ReviewPreviewRequest'
   responses:
-    RpgRuntimeValidationLaunchResponse:
-      description: Frozen RPG Maker validation or restore Launch
-      headers:
-        Location:
-          schema:
-            type: string
-        ETag:
-          schema:
-            type: string
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/RpgRuntimeValidationLaunch'
-    RpgRuntimeValidationResponse:
-      description: RPG Maker runtime validation evidence and decision
-      headers:
-        ETag:
-          schema:
-            type: string
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/RpgRuntimeValidation'
     ReviewQueueListResponse:
       description: Cursor-paged pending review summaries
       content:
@@ -1028,13 +666,6 @@ components:
         type: integer
         format: int64
         minimum: 0
-    RpgRuntimeValidationID:
-      name: validationId
-      in: path
-      required: true
-      schema:
-        type: string
-        format: uuid
     BulkApprovalID:
       name: bulkApprovalId
       in: path

@@ -129,7 +129,7 @@ function validatePlayerRuntime(value: unknown, envelope: LaunchEnvelopeV1): asse
     "mount", "pause", "resume", "checkpoint", "screenshot", "exit", "getState", "getCapabilities",
     "getCheckpointAvailability", "getCanvas", "getFrameCount", "setVolume", "setVideoMode",
     "openNativeSettings", "closeNativeSettings", "getDiscState", "switchDisc", "setInputFilter",
-    "getNetplayPort", "runValidationProbe", "subscribe",
+    "getNetplayPort", "subscribe",
   ]) {
     if (typeof value[method] !== "function") {throw invalidModule();}
   }
@@ -144,14 +144,13 @@ function capabilitiesEqual(
 ) {
   if (!record(actual) || !exactKeys(actual, [
     "checkpoint", "discSwitch", "frameCounter", "frameMode", "inputFilter", "nativeSettings", "netplayPort",
-    "pause", "requiresThreads", "screenshot", "standardGamepad", "validationProbes", "videoModes", "volume",
+    "pause", "requiresThreads", "screenshot", "standardGamepad", "videoModes", "volume",
   ])) {return false;}
   const scalarKeys = [
     "checkpoint", "discSwitch", "frameCounter", "frameMode", "inputFilter", "nativeSettings", "netplayPort",
     "pause", "requiresThreads", "screenshot", "standardGamepad", "volume",
   ] as const;
   return scalarKeys.every((key) => actual[key] === expected[key]) &&
-    stringArraysEqual(actual.validationProbes, expected.validationProbes) &&
     stringArraysEqual(actual.videoModes, expected.videoModes);
 }
 

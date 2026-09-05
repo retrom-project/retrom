@@ -35,14 +35,14 @@ SELECT provider_version,bundle_sha256 FROM runtime_providers WHERE provider_id='
 		t.Fatalf("provider projection = %q %q", providerVersion, bundleDigest)
 	}
 	assertProjectionCounts(t, database.SQL)
-	var delivery, review, launch string
+	var delivery, launch string
 	if err := database.SQL.QueryRowContext(t.Context(), `
-SELECT delivery_profile,review_policy,launch_policy FROM runtime_target_bindings WHERE binding_id='fixture-target'
-`).Scan(&delivery, &review, &launch); err != nil {
+SELECT delivery_profile,launch_policy FROM runtime_target_bindings WHERE binding_id='fixture-target'
+`).Scan(&delivery, &launch); err != nil {
 		t.Fatal(err)
 	}
-	if delivery != "EMULATORJS_CONTENT" || review != "NONE" || launch != "SUPPORTED" {
-		t.Fatalf("strategy-derived binding projection = %s/%s/%s", delivery, review, launch)
+	if delivery != "EMULATORJS_CONTENT" || launch != "SUPPORTED" {
+		t.Fatalf("strategy-derived binding projection = %s/%s", delivery, launch)
 	}
 }
 
@@ -161,8 +161,6 @@ func TestReconcileRejectsUnreadableStoredCheckpointFormat(t *testing.T) {
 	if _, err := database.ExecContext(t.Context(), `
 CREATE TABLE save_states(game_id TEXT,checkpoint_format TEXT,deleted_at_ms INTEGER);
 CREATE TABLE game_variants(game_id TEXT,provider_id TEXT,target_id TEXT);
-CREATE TABLE rpgmaker_runtime_validations(id TEXT,provider_id TEXT,target_id TEXT,state TEXT,expires_at_ms INTEGER);
-CREATE TABLE rpgmaker_runtime_validation_checkpoints(validation_id TEXT,checkpoint_format TEXT);
 INSERT INTO game_variants(game_id,provider_id,target_id) VALUES('game','fixture','target');
 INSERT INTO save_states(game_id,checkpoint_format) VALUES('game','state-v1');
 `); err != nil {
@@ -173,7 +171,7 @@ INSERT INTO save_states(game_id,checkpoint_format) VALUES('game','state-v1');
 		t.Fatal(err)
 	}
 	upgrade := projectionFixture("1.1.0", "b", []string{"state-v2"})
-	if err := validateCheckpointFormats(t.Context(), transaction, "fixture", upgrade.providers[0].targets[0], 100); !errors.Is(err, ErrProviderCheckpointUnreadable) {
+	if err := validateCheckpointFormats(t.Context(), transaction, "fixture", upgrade.providers[0].targets[0]); !errors.Is(err, ErrProviderCheckpointUnreadable) {
 		t.Fatalf("error = %v", err)
 	}
 }
@@ -205,7 +203,7 @@ func projectionFixtureForTarget(targetID, version, digestByte string, readFormat
 			}, "required": []any{"dosEntryPath", "initialDiscIndex"},
 		},
 		Inputs:       []runtimebundle.Input{{Role: "game", Kind: "ROM_BLOB", Cardinality: "ONE"}},
-		Capabilities: runtimebundle.Capabilities{Checkpoint: true, FrameMode: "NONE", VideoModes: []string{}, ValidationProbes: []string{}},
+		Capabilities: runtimebundle.Capabilities{Checkpoint: true, FrameMode: "NONE", VideoModes: []string{}},
 		Checkpoint:   checkpoint, AssetPaths: []string{"client.mjs"},
 	}
 	active := runtimebundle.ActiveDescriptor{SchemaVersion: 1, Source: "candidate", SourceTreeSHA256: &digest, Providers: []runtimebundle.ActiveProvider{{

@@ -98,9 +98,6 @@ CREATE INDEX fk_launch_external_files_blob ON launch_external_files(blob_id);
 
 CREATE INDEX fk_launch_game ON launch_sessions(game_id);
 
-CREATE INDEX fk_launch_validation
-ON launch_sessions(rpgmaker_runtime_validation_id,purpose,state);
-
 CREATE INDEX fk_platform_instances_default_core ON platform_instances(default_core_id);
 
 CREATE INDEX fk_runtime_asset_pack_files_blob ON runtime_asset_pack_files(blob_id);
@@ -245,13 +242,6 @@ CREATE INDEX review_runtime_screenshots_source ON review_runtime_screenshots(sou
 CREATE INDEX review_runtime_screenshots_validation ON review_runtime_screenshots(validation_id);
 
 CREATE INDEX review_uploaded_assets_item ON review_uploaded_assets(import_item_id, created_at_ms, id);
-
-CREATE INDEX rpgmaker_validation_gate_launch
-ON rpgmaker_runtime_validation_gate_events(launch_id,sequence);
-
-CREATE UNIQUE INDEX rpgmaker_validation_gate_terminal
-ON rpgmaker_runtime_validation_gate_events(validation_id,gate)
-WHERE phase IN ('PASS','FAIL');
 
 CREATE INDEX save_states_library ON save_states(profile_id, game_id, created_at_ms DESC, id DESC);
 
@@ -1349,11 +1339,7 @@ BEFORE UPDATE ON launch_content_files BEGIN SELECT RAISE(ABORT,'immutable'); END
 CREATE TRIGGER launch_content_files_published_insert BEFORE INSERT ON launch_content_files
 WHEN NOT EXISTS(
   SELECT 1 FROM launch_sessions launch LEFT JOIN games game ON game.id=launch.game_id
-  WHERE launch.id=NEW.launch_session_id AND (
-    launch.purpose='PRODUCT' AND game.status='PUBLISHED'
-    OR launch.purpose='RPG_RUNTIME_VALIDATION'
-      AND launch.effective_source_snapshot_id IS NOT NULL
-  )
+  WHERE launch.id=NEW.launch_session_id AND game.status='PUBLISHED'
 )
 BEGIN SELECT RAISE(ABORT,'launch content owner is invalid'); END;
 
@@ -1380,11 +1366,7 @@ BEGIN SELECT RAISE(ABORT,'disc external file requires multi-disc launch content'
 CREATE TRIGGER launch_external_files_published_insert BEFORE INSERT ON launch_external_files
 WHEN NOT EXISTS(
   SELECT 1 FROM launch_sessions launch LEFT JOIN games game ON game.id=launch.game_id
-  WHERE launch.id=NEW.launch_session_id AND (
-    launch.purpose='PRODUCT' AND game.status='PUBLISHED'
-    OR launch.purpose='RPG_RUNTIME_VALIDATION'
-      AND launch.effective_source_snapshot_id IS NOT NULL
-  )
+  WHERE launch.id=NEW.launch_session_id AND game.status='PUBLISHED'
 )
 BEGIN SELECT RAISE(ABORT,'launch external owner is invalid'); END;
 
@@ -1413,18 +1395,12 @@ WHEN NOT EXISTS(
   WHERE target.provider_id=NEW.provider_id AND target.target_id=NEW.target_id
     AND provider.bundle_sha256=NEW.bundle_sha256
 )
-OR NEW.purpose='PRODUCT' AND NOT EXISTS(
+OR NOT EXISTS(
   SELECT 1 FROM games game
   JOIN game_variants variant ON variant.game_id=game.id
   WHERE game.id=NEW.game_id AND game.status='PUBLISHED'
     AND variant.core_id=NEW.core_id AND variant.provider_id=NEW.provider_id
     AND variant.target_id=NEW.target_id AND variant.status='READY'
-)
-OR NEW.purpose='RPG_RUNTIME_VALIDATION' AND NOT EXISTS(
-  SELECT 1 FROM rpgmaker_runtime_validations validation
-  WHERE validation.id=NEW.rpgmaker_runtime_validation_id
-    AND validation.effective_source_snapshot_id=NEW.effective_source_snapshot_id
-    AND validation.provider_id=NEW.provider_id AND validation.target_id=NEW.target_id
 )
 BEGIN SELECT RAISE(ABORT,'invalid runtime target snapshot'); END;
 
@@ -2056,13 +2032,59 @@ WHEN NEW.role='PROJECT_FILE' AND NOT EXISTS (
 )
 BEGIN SELECT RAISE(ABORT,'invalid review preview project file'); END;
 
+CREATE TRIGGER review_preview_runtime_files_validate_insert
+BEFORE INSERT ON review_preview_files
+WHEN NEW.role='RUNTIME_FILE' AND NOT EXISTS (
+  SELECT 1 FROM review_preview_sessions preview
+  WHERE preview.id=NEW.preview_session_id AND (
+    EXISTS(SELECT 1 FROM import_item_validation_files file
+      WHERE file.import_item_core_validation_id=preview.validation_id AND file.blob_id=NEW.blob_id)
+    OR EXISTS(SELECT 1 FROM review_drafts draft
+      JOIN review_draft_runtime_pack_selections selection ON selection.review_draft_id=draft.id
+      JOIN runtime_asset_pack_installations installation ON installation.id=selection.installation_id
+      WHERE draft.import_item_id=preview.import_item_id
+        AND draft.effective_source_snapshot_id=preview.source_snapshot_id
+        AND installation.status='READY' AND installation.bundle_blob_id=NEW.blob_id)
+  )
+)
+BEGIN SELECT RAISE(ABORT,'invalid review preview runtime file'); END;
+
 CREATE TRIGGER review_preview_sessions_revoke_isolated_runtime
 AFTER UPDATE OF state ON review_preview_sessions
-WHEN NEW.state IN ('EXPIRED','REVOKED') AND OLD.state<>NEW.state
+WHEN NEW.state IN ('FINISHED','EXPIRED','REVOKED') AND OLD.state<>NEW.state
 BEGIN
   UPDATE isolated_runtime_capabilities SET revoked_at_ms=NEW.finished_at_ms
   WHERE preview_id=NEW.id AND revoked_at_ms IS NULL;
 END;
+
+CREATE TRIGGER review_preview_checkpoint_update
+BEFORE UPDATE OF checkpoint_payload_blob_id,checkpoint_format,checkpoint_created_at_ms ON review_preview_sessions
+WHEN NEW.checkpoint_payload_blob_id IS NOT NULL AND NEW.state<>'ACTIVE'
+ OR NEW.checkpoint_payload_blob_id IS NULL AND OLD.checkpoint_payload_blob_id IS NOT NULL
+    AND NEW.state NOT IN ('EXPIRED','REVOKED')
+BEGIN SELECT RAISE(ABORT,'invalid review checkpoint update'); END;
+
+CREATE TRIGGER review_preview_restore_insert
+BEFORE INSERT ON review_preview_sessions
+WHEN NEW.restore_from_preview_id IS NOT NULL AND NOT EXISTS(
+ SELECT 1 FROM review_preview_sessions source
+ WHERE source.id=NEW.restore_from_preview_id AND source.actor_user_id=NEW.actor_user_id
+ AND source.import_item_id=NEW.import_item_id AND source.source_snapshot_id=NEW.source_snapshot_id
+ AND source.provider_id=NEW.provider_id AND source.target_id=NEW.target_id
+ AND source.checkpoint_payload_blob_id=NEW.restore_payload_blob_id
+ AND source.checkpoint_format=NEW.restore_checkpoint_format
+ AND source.state IN ('ACTIVE','FINISHED') AND source.hard_expires_at_ms>NEW.created_at_ms
+)
+BEGIN SELECT RAISE(ABORT,'invalid review restore source'); END;
+
+CREATE TRIGGER review_preview_restore_immutable
+BEFORE UPDATE OF restore_from_preview_id,restore_payload_blob_id,restore_checkpoint_format ON review_preview_sessions
+WHEN NEW.restore_from_preview_id IS NOT OLD.restore_from_preview_id
+ OR (NEW.restore_payload_blob_id IS NOT OLD.restore_payload_blob_id
+    OR NEW.restore_checkpoint_format IS NOT OLD.restore_checkpoint_format)
+    AND NOT (NEW.state IN ('EXPIRED','REVOKED') AND NEW.restore_payload_blob_id IS NULL
+      AND NEW.restore_checkpoint_format IS NULL)
+BEGIN SELECT RAISE(ABORT,'immutable review restore'); END;
 
 CREATE TRIGGER review_preview_sessions_runtime_target_insert
 BEFORE INSERT ON review_preview_sessions
@@ -2074,9 +2096,15 @@ WHEN NOT EXISTS(
 )
 OR NOT EXISTS(
   SELECT 1 FROM import_item_core_validations validation
+  JOIN review_drafts draft ON draft.import_item_id=validation.import_item_id
+  JOIN import_items item ON item.id=draft.import_item_id
   WHERE validation.id=NEW.validation_id AND validation.import_item_id=NEW.import_item_id
     AND validation.source_snapshot_id=NEW.source_snapshot_id
     AND validation.provider_id=NEW.provider_id AND validation.target_id=NEW.target_id
+    AND draft.effective_source_snapshot_id=NEW.source_snapshot_id
+    AND draft.target_platform_instance_id=NEW.target_platform_instance_id
+    AND validation.target_platform_instance_id=NEW.target_platform_instance_id
+    AND item.state='REVIEW_PENDING' AND item.payload_state='RETAINED'
 )
 BEGIN SELECT RAISE(ABORT,'invalid runtime target snapshot'); END;
 
@@ -2124,260 +2152,6 @@ WHEN NOT EXISTS(
   WHERE target.provider_id=NEW.provider_id AND target.target_id=NEW.target_id
 )
 BEGIN SELECT RAISE(ABORT,'invalid runtime target snapshot'); END;
-
-CREATE TRIGGER rpgmaker_runtime_validation_checkpoints_format_insert
-BEFORE INSERT ON rpgmaker_runtime_validation_checkpoints
-WHEN NOT EXISTS(
-  SELECT 1 FROM rpgmaker_runtime_validations validation
-  JOIN runtime_targets target
-    ON target.provider_id=validation.provider_id AND target.target_id=validation.target_id
-  WHERE validation.id=NEW.validation_id AND target.checkpoint_json IS NOT NULL
-    AND EXISTS(
-      SELECT 1 FROM json_each(target.checkpoint_json,'$.readFormats') readable
-      WHERE readable.type='text' AND readable.value=NEW.checkpoint_format
-    )
-)
-BEGIN SELECT RAISE(ABORT,'invalid runtime checkpoint format'); END;
-
-CREATE TRIGGER rpgmaker_runtime_validation_checkpoints_guarded_delete
-BEFORE DELETE ON rpgmaker_runtime_validation_checkpoints
-WHEN NOT EXISTS(SELECT 1 FROM rpgmaker_runtime_validations validation
-  WHERE validation.id=OLD.validation_id AND validation.state IN ('PASSED','FAILED','EXPIRED'))
-BEGIN SELECT RAISE(ABORT,'active runtime validation checkpoint is immutable'); END;
-
-CREATE TRIGGER rpgmaker_runtime_validation_checkpoints_immutable_update
-BEFORE UPDATE ON rpgmaker_runtime_validation_checkpoints
-BEGIN SELECT RAISE(ABORT,'runtime validation checkpoint is immutable'); END;
-
-CREATE TRIGGER rpgmaker_runtime_validations_release_terminal_checkpoint
-AFTER UPDATE OF state ON rpgmaker_runtime_validations
-WHEN NEW.state IN ('PASSED','FAILED','EXPIRED')
-BEGIN
-  DELETE FROM rpgmaker_runtime_validation_checkpoints WHERE validation_id=NEW.id;
-END;
-
-CREATE TRIGGER rpgmaker_runtime_validation_gate_events_immutable_delete
-BEFORE DELETE ON rpgmaker_runtime_validation_gate_events
-BEGIN SELECT RAISE(ABORT,'runtime validation gate evidence is immutable'); END;
-
-CREATE TRIGGER rpgmaker_runtime_validation_gate_events_immutable_update
-BEFORE UPDATE ON rpgmaker_runtime_validation_gate_events
-BEGIN SELECT RAISE(ABORT,'runtime validation gate evidence is immutable'); END;
-
-CREATE TRIGGER rpgmaker_runtime_validation_gate_events_insert
-BEFORE INSERT ON rpgmaker_runtime_validation_gate_events
-WHEN NOT EXISTS(
-  SELECT 1 FROM rpgmaker_runtime_validations validation
-  WHERE validation.id=NEW.validation_id
-    AND validation.state NOT IN ('PASSED','FAILED','EXPIRED')
-    AND NEW.sequence=validation.last_gate_sequence+1
-    AND (
-      NEW.gate IN (
-        'RUNTIME_READY','ENGINE_PROFILE','FRAMES_300','INPUT','AUDIO','INITIAL_POSITION_RECORDED',
-        'SAVE_POINT_RECORDED',
-        'CHECKPOINT_CREATED','POST_SAVE_STATE_DIVERGED','ORIGINAL_LAUNCH_ENDED'
-      ) AND NEW.launch_id=validation.launch_id
-      OR NEW.gate IN ('RESTORE_STARTED','RESTORE_POSITION_VERIFIED','RESTORE_SCREENSHOT','RESTORE_INPUT')
-        AND NEW.launch_id=validation.restore_launch_id
-    )
-)
-OR NEW.phase='BEGIN' AND (
-  EXISTS(SELECT 1 FROM rpgmaker_runtime_validation_gate_events current
-    WHERE current.validation_id=NEW.validation_id AND current.gate=NEW.gate)
-  OR NOT CASE NEW.gate
-    WHEN 'RUNTIME_READY' THEN NOT EXISTS(
-      SELECT 1 FROM rpgmaker_runtime_validation_gate_events prior
-      WHERE prior.validation_id=NEW.validation_id)
-    WHEN 'ENGINE_PROFILE' THEN EXISTS(SELECT 1 FROM rpgmaker_runtime_validation_gate_events prior
-      WHERE prior.validation_id=NEW.validation_id AND prior.gate='RUNTIME_READY' AND prior.phase='PASS')
-    WHEN 'FRAMES_300' THEN EXISTS(SELECT 1 FROM rpgmaker_runtime_validation_gate_events prior
-      WHERE prior.validation_id=NEW.validation_id AND prior.gate='ENGINE_PROFILE' AND prior.phase='PASS')
-    WHEN 'INPUT' THEN EXISTS(SELECT 1 FROM rpgmaker_runtime_validation_gate_events prior
-      WHERE prior.validation_id=NEW.validation_id AND prior.gate='FRAMES_300' AND prior.phase='PASS')
-    WHEN 'AUDIO' THEN EXISTS(SELECT 1 FROM rpgmaker_runtime_validation_gate_events prior
-      WHERE prior.validation_id=NEW.validation_id AND prior.gate='INPUT' AND prior.phase='PASS')
-    WHEN 'INITIAL_POSITION_RECORDED' THEN EXISTS(SELECT 1 FROM rpgmaker_runtime_validation_gate_events prior
-      WHERE prior.validation_id=NEW.validation_id AND prior.gate='AUDIO' AND prior.phase='PASS')
-    WHEN 'SAVE_POINT_RECORDED' THEN EXISTS(SELECT 1 FROM rpgmaker_runtime_validation_gate_events prior
-      WHERE prior.validation_id=NEW.validation_id AND prior.gate='INITIAL_POSITION_RECORDED' AND prior.phase='PASS')
-    WHEN 'CHECKPOINT_CREATED' THEN EXISTS(SELECT 1 FROM rpgmaker_runtime_validation_gate_events prior
-      WHERE prior.validation_id=NEW.validation_id AND prior.gate='SAVE_POINT_RECORDED' AND prior.phase='PASS')
-    WHEN 'POST_SAVE_STATE_DIVERGED' THEN EXISTS(SELECT 1 FROM rpgmaker_runtime_validation_gate_events prior
-      WHERE prior.validation_id=NEW.validation_id AND prior.gate='CHECKPOINT_CREATED' AND prior.phase='PASS')
-    WHEN 'ORIGINAL_LAUNCH_ENDED' THEN EXISTS(SELECT 1 FROM rpgmaker_runtime_validation_gate_events prior
-      WHERE prior.validation_id=NEW.validation_id AND prior.gate='POST_SAVE_STATE_DIVERGED' AND prior.phase='PASS')
-    WHEN 'RESTORE_STARTED' THEN EXISTS(SELECT 1 FROM rpgmaker_runtime_validation_gate_events prior
-      WHERE prior.validation_id=NEW.validation_id AND prior.gate='ORIGINAL_LAUNCH_ENDED' AND prior.phase='PASS')
-    WHEN 'RESTORE_POSITION_VERIFIED' THEN EXISTS(SELECT 1 FROM rpgmaker_runtime_validation_gate_events prior
-      WHERE prior.validation_id=NEW.validation_id AND prior.gate='RESTORE_STARTED' AND prior.phase='PASS')
-    WHEN 'RESTORE_SCREENSHOT' THEN EXISTS(SELECT 1 FROM rpgmaker_runtime_validation_gate_events prior
-      WHERE prior.validation_id=NEW.validation_id AND prior.gate='RESTORE_POSITION_VERIFIED' AND prior.phase='PASS')
-    WHEN 'RESTORE_INPUT' THEN EXISTS(SELECT 1 FROM rpgmaker_runtime_validation_gate_events prior
-      WHERE prior.validation_id=NEW.validation_id AND prior.gate='RESTORE_SCREENSHOT' AND prior.phase='PASS')
-    ELSE 0
-  END
-)
-OR NEW.phase IN ('PASS','FAIL') AND NOT EXISTS(
-  SELECT 1 FROM rpgmaker_runtime_validation_gate_events begun
-  WHERE begun.validation_id=NEW.validation_id AND begun.gate=NEW.gate AND begun.phase='BEGIN'
-    AND NOT EXISTS(SELECT 1 FROM rpgmaker_runtime_validation_gate_events terminal
-      WHERE terminal.validation_id=NEW.validation_id AND terminal.gate=NEW.gate
-        AND terminal.phase IN ('PASS','FAIL'))
-)
-OR NEW.gate IN (
-    'INITIAL_POSITION_RECORDED','SAVE_POINT_RECORDED','POST_SAVE_STATE_DIVERGED',
-    'RESTORE_POSITION_VERIFIED','RESTORE_INPUT'
-  )
-  AND NEW.phase='PASS' AND NOT (
-    json_type(NEW.evidence_json)='object'
-    AND (SELECT count(*) FROM json_each(NEW.evidence_json))=4
-    AND json_type(NEW.evidence_json,'$.mapId')='integer'
-    AND json_type(NEW.evidence_json,'$.playerX')='integer'
-    AND json_type(NEW.evidence_json,'$.playerY')='integer'
-    AND json_type(NEW.evidence_json,'$.fixtureState')='integer'
-    AND json_extract(NEW.evidence_json,'$.mapId') BETWEEN 1 AND 2147483647
-    AND json_extract(NEW.evidence_json,'$.playerX') BETWEEN 0 AND 2147483647
-    AND json_extract(NEW.evidence_json,'$.playerY') BETWEEN 0 AND 2147483647
-    AND json_extract(NEW.evidence_json,'$.fixtureState') BETWEEN -2147483648 AND 2147483647
-  )
-OR NEW.gate='SAVE_POINT_RECORDED' AND NEW.phase='PASS' AND NOT EXISTS(
-  SELECT 1 FROM rpgmaker_runtime_validation_gate_events initial
-  WHERE initial.validation_id=NEW.validation_id
-    AND initial.gate='INITIAL_POSITION_RECORDED' AND initial.phase='PASS'
-    AND NOT (
-      json_extract(initial.evidence_json,'$.mapId')=json_extract(NEW.evidence_json,'$.mapId')
-      AND json_extract(initial.evidence_json,'$.playerX')=json_extract(NEW.evidence_json,'$.playerX')
-      AND json_extract(initial.evidence_json,'$.playerY')=json_extract(NEW.evidence_json,'$.playerY')
-      AND json_extract(initial.evidence_json,'$.fixtureState')=json_extract(NEW.evidence_json,'$.fixtureState')
-    )
-)
-OR NEW.gate='POST_SAVE_STATE_DIVERGED' AND NEW.phase='PASS' AND NOT EXISTS(
-  SELECT 1 FROM rpgmaker_runtime_validation_gate_events saved
-  WHERE saved.validation_id=NEW.validation_id AND saved.gate='SAVE_POINT_RECORDED' AND saved.phase='PASS'
-    AND NOT (
-      json_extract(saved.evidence_json,'$.mapId')=json_extract(NEW.evidence_json,'$.mapId')
-      AND json_extract(saved.evidence_json,'$.playerX')=json_extract(NEW.evidence_json,'$.playerX')
-      AND json_extract(saved.evidence_json,'$.playerY')=json_extract(NEW.evidence_json,'$.playerY')
-      AND json_extract(saved.evidence_json,'$.fixtureState')=json_extract(NEW.evidence_json,'$.fixtureState')
-    )
-)
-OR NEW.gate='RESTORE_POSITION_VERIFIED' AND NEW.phase='PASS' AND NOT EXISTS(
-  SELECT 1 FROM rpgmaker_runtime_validation_gate_events initial
-  JOIN rpgmaker_runtime_validation_gate_events saved
-    ON saved.validation_id=initial.validation_id
-    AND saved.gate='SAVE_POINT_RECORDED' AND saved.phase='PASS'
-  JOIN rpgmaker_runtime_validation_gate_events diverged
-    ON diverged.validation_id=saved.validation_id
-    AND diverged.gate='POST_SAVE_STATE_DIVERGED' AND diverged.phase='PASS'
-  WHERE initial.validation_id=NEW.validation_id
-    AND initial.gate='INITIAL_POSITION_RECORDED' AND initial.phase='PASS'
-    AND json_extract(saved.evidence_json,'$.mapId')=json_extract(NEW.evidence_json,'$.mapId')
-    AND json_extract(saved.evidence_json,'$.playerX')=json_extract(NEW.evidence_json,'$.playerX')
-    AND json_extract(saved.evidence_json,'$.playerY')=json_extract(NEW.evidence_json,'$.playerY')
-    AND json_extract(saved.evidence_json,'$.fixtureState')=json_extract(NEW.evidence_json,'$.fixtureState')
-    AND NOT (
-      json_extract(diverged.evidence_json,'$.mapId')=json_extract(NEW.evidence_json,'$.mapId')
-      AND json_extract(diverged.evidence_json,'$.playerX')=json_extract(NEW.evidence_json,'$.playerX')
-      AND json_extract(diverged.evidence_json,'$.playerY')=json_extract(NEW.evidence_json,'$.playerY')
-      AND json_extract(diverged.evidence_json,'$.fixtureState')=json_extract(NEW.evidence_json,'$.fixtureState')
-    )
-    AND NOT (
-      json_extract(initial.evidence_json,'$.mapId')=json_extract(NEW.evidence_json,'$.mapId')
-      AND json_extract(initial.evidence_json,'$.playerX')=json_extract(NEW.evidence_json,'$.playerX')
-      AND json_extract(initial.evidence_json,'$.playerY')=json_extract(NEW.evidence_json,'$.playerY')
-      AND json_extract(initial.evidence_json,'$.fixtureState')=json_extract(NEW.evidence_json,'$.fixtureState')
-    )
-)
-OR NEW.gate='RESTORE_INPUT' AND NEW.phase='PASS' AND NOT EXISTS(
-  SELECT 1 FROM rpgmaker_runtime_validation_gate_events restored
-  WHERE restored.validation_id=NEW.validation_id
-    AND restored.gate='RESTORE_POSITION_VERIFIED' AND restored.phase='PASS'
-    AND NOT (
-      json_extract(restored.evidence_json,'$.mapId')=json_extract(NEW.evidence_json,'$.mapId')
-      AND json_extract(restored.evidence_json,'$.playerX')=json_extract(NEW.evidence_json,'$.playerX')
-      AND json_extract(restored.evidence_json,'$.playerY')=json_extract(NEW.evidence_json,'$.playerY')
-      AND json_extract(restored.evidence_json,'$.fixtureState')=json_extract(NEW.evidence_json,'$.fixtureState')
-    )
-)
-BEGIN SELECT RAISE(ABORT,'invalid runtime validation gate event'); END;
-
-CREATE TRIGGER rpgmaker_runtime_validations_gate_sequence_update
-BEFORE UPDATE OF last_gate_sequence ON rpgmaker_runtime_validations
-WHEN NEW.last_gate_sequence<>OLD.last_gate_sequence AND (
-  NEW.last_gate_sequence<>OLD.last_gate_sequence+1
-  OR NOT EXISTS(SELECT 1 FROM rpgmaker_runtime_validation_gate_events event
-    WHERE event.validation_id=NEW.id AND event.sequence=NEW.last_gate_sequence)
-)
-BEGIN SELECT RAISE(ABORT,'runtime validation gate sequence mismatch'); END;
-
-CREATE TRIGGER rpgmaker_runtime_validations_pass
-BEFORE UPDATE OF state ON rpgmaker_runtime_validations
-WHEN NEW.state='PASSED'
-BEGIN
-  SELECT CASE WHEN NEW.restore_launch_id IS NULL OR NEW.restore_launch_id=NEW.launch_id
-    OR NEW.evidence_screenshot_blob_id IS NULL
-    OR EXISTS(
-      SELECT required.gate FROM (
-        SELECT 'RUNTIME_READY' AS gate UNION ALL SELECT 'ENGINE_PROFILE'
-        UNION ALL SELECT 'FRAMES_300' UNION ALL SELECT 'INPUT' UNION ALL SELECT 'AUDIO'
-        UNION ALL SELECT 'INITIAL_POSITION_RECORDED'
-        UNION ALL SELECT 'SAVE_POINT_RECORDED' UNION ALL SELECT 'CHECKPOINT_CREATED'
-        UNION ALL SELECT 'POST_SAVE_STATE_DIVERGED' UNION ALL SELECT 'ORIGINAL_LAUNCH_ENDED'
-        UNION ALL SELECT 'RESTORE_STARTED' UNION ALL SELECT 'RESTORE_POSITION_VERIFIED'
-        UNION ALL SELECT 'RESTORE_SCREENSHOT' UNION ALL SELECT 'RESTORE_INPUT'
-      ) required
-      WHERE NOT EXISTS(SELECT 1 FROM rpgmaker_runtime_validation_gate_events event
-        WHERE event.validation_id=NEW.id AND event.gate=required.gate AND event.phase='PASS')
-    )
-  THEN RAISE(ABORT,'runtime validation gates are incomplete') END;
-END;
-
-CREATE TRIGGER rpgmaker_runtime_validations_runtime_target_insert
-BEFORE INSERT ON rpgmaker_runtime_validations
-WHEN NOT EXISTS(
-  SELECT 1 FROM runtime_targets target
-  WHERE target.provider_id=NEW.provider_id AND target.target_id=NEW.target_id
-)
-BEGIN SELECT RAISE(ABORT,'invalid runtime target snapshot'); END;
-
-CREATE TRIGGER rpgmaker_runtime_validations_terminal_immutable
-BEFORE UPDATE ON rpgmaker_runtime_validations
-WHEN OLD.state IN ('PASSED','FAILED','EXPIRED')
-BEGIN SELECT RAISE(ABORT,'terminal runtime validation is immutable'); END;
-
-CREATE TRIGGER rpgmaker_runtime_validations_transition
-BEFORE UPDATE OF state ON rpgmaker_runtime_validations
-WHEN NEW.state<>OLD.state AND NOT (
-  OLD.state='CREATED' AND NEW.state IN ('STARTING','FAILED','EXPIRED')
-  OR OLD.state='STARTING' AND NEW.state IN ('RUNNING','FAILED','EXPIRED')
-  OR OLD.state='RUNNING' AND NEW.state IN ('CHECKPOINTED','FAILED','EXPIRED')
-  OR OLD.state='CHECKPOINTED' AND NEW.state IN ('RESTORED','FAILED','EXPIRED')
-  OR OLD.state='RESTORED' AND NEW.state IN ('AWAITING_DECISION','FAILED','EXPIRED')
-  OR OLD.state='AWAITING_DECISION' AND NEW.state IN ('PASSED','FAILED','EXPIRED')
-)
-BEGIN SELECT RAISE(ABORT,'invalid runtime validation transition'); END;
-
-CREATE TRIGGER rpgmaker_runtime_validations_transition_evidence
-BEFORE UPDATE OF state ON rpgmaker_runtime_validations
-WHEN NEW.state='CHECKPOINTED' AND (
-  NOT EXISTS(SELECT 1 FROM rpgmaker_runtime_validation_checkpoints checkpoint
-    WHERE checkpoint.validation_id=NEW.id)
-  OR NOT EXISTS(SELECT 1 FROM rpgmaker_runtime_validation_gate_events event
-    WHERE event.validation_id=NEW.id AND event.gate='CHECKPOINT_CREATED' AND event.phase='PASS')
-)
-OR NEW.state='RESTORED' AND (
-  NEW.restore_launch_id IS NULL
-  OR NOT EXISTS(SELECT 1 FROM rpgmaker_runtime_validation_gate_events event
-    WHERE event.validation_id=NEW.id AND event.gate='RESTORE_POSITION_VERIFIED' AND event.phase='PASS')
-)
-OR NEW.state='AWAITING_DECISION' AND (
-  NEW.evidence_screenshot_blob_id IS NULL
-  OR NOT EXISTS(SELECT 1 FROM rpgmaker_runtime_validation_gate_events event
-    WHERE event.validation_id=NEW.id AND event.gate='RESTORE_SCREENSHOT' AND event.phase='PASS')
-  OR NOT EXISTS(SELECT 1 FROM rpgmaker_runtime_validation_gate_events event
-    WHERE event.validation_id=NEW.id AND event.gate='RESTORE_INPUT' AND event.phase='PASS')
-)
-BEGIN SELECT RAISE(ABORT,'runtime validation transition evidence is incomplete'); END;
 
 CREATE TRIGGER runtime_asset_pack_definitions_guarded_update
 BEFORE UPDATE ON runtime_asset_pack_definitions
@@ -2528,7 +2302,7 @@ BEFORE INSERT ON save_states
 WHEN NOT EXISTS(
   SELECT 1 FROM launch_sessions launch
   JOIN runtime_targets target ON target.provider_id=launch.provider_id AND target.target_id=launch.target_id
-  WHERE launch.id=NEW.source_launch_session_id AND launch.purpose='PRODUCT'
+  WHERE launch.id=NEW.source_launch_session_id
     AND launch.game_id=NEW.game_id AND launch.profile_id=NEW.profile_id
     AND launch.save_access='NORMAL'
     AND target.checkpoint_json IS NOT NULL

@@ -59,171 +59,6 @@ components:
     CheckpointFormat:
       type: string
       pattern: ^[a-z0-9](?:[a-z0-9.-]{0,62}[a-z0-9])?$
-    RpgRuntimeValidationState:
-      type: string
-      enum:
-        - CREATED
-        - STARTING
-        - RUNNING
-        - CHECKPOINTED
-        - RESTORED
-        - AWAITING_DECISION
-        - PASSED
-        - FAILED
-        - EXPIRED
-    RpgRuntimeGate:
-      type: string
-      enum:
-        - RUNTIME_READY
-        - ENGINE_PROFILE
-        - FRAMES_300
-        - INPUT
-        - AUDIO
-        - INITIAL_POSITION_RECORDED
-        - SAVE_POINT_RECORDED
-        - CHECKPOINT_CREATED
-        - POST_SAVE_STATE_DIVERGED
-        - ORIGINAL_LAUNCH_ENDED
-        - RESTORE_STARTED
-        - RESTORE_POSITION_VERIFIED
-        - RESTORE_SCREENSHOT
-        - RESTORE_INPUT
-    EmptyGateEvidence:
-      type: object
-      additionalProperties: false
-    RpgPositionEvidence:
-      type: object
-      additionalProperties: false
-      required:
-        - mapId
-        - playerX
-        - playerY
-        - fixtureState
-      properties:
-        mapId:
-          type: integer
-          format: int64
-          minimum: 1
-          maximum: 2147483647
-        playerX:
-          type: integer
-          format: int64
-          minimum: 0
-          maximum: 2147483647
-        playerY:
-          type: integer
-          format: int64
-          minimum: 0
-          maximum: 2147483647
-        fixtureState:
-          type: integer
-          format: int64
-          minimum: -2147483648
-          maximum: 2147483647
-    RpgEngineProfileEvidence:
-      type: object
-      additionalProperties: false
-      required:
-        - generation
-        - engineProfile
-      properties:
-        generation:
-          $ref: '#/components/schemas/RpgGeneration'
-        engineProfile:
-          type: string
-          enum:
-            - rpg2k
-            - rpg2k3
-            - rgss1
-            - rgss2
-            - rgss3
-            - RPGMV
-            - RPGMZ
-    RpgFrameEvidence:
-      type: object
-      additionalProperties: false
-      required:
-        - continuousFrames
-      properties:
-        continuousFrames:
-          type: integer
-          minimum: 300
-          maximum: 36000
-    RpgBooleanGateEvidence:
-      type: object
-      additionalProperties: false
-      required:
-        - observed
-      properties:
-        observed:
-          type: boolean
-          enum:
-            - true
-    RpgCheckpointGateEvidence:
-      type: object
-      additionalProperties: false
-      required:
-        - checkpointFormat
-        - sizeBytes
-        - sha256
-      properties:
-        checkpointFormat:
-          $ref: '#/components/schemas/CheckpointFormat'
-        sizeBytes:
-          type: integer
-          format: int64
-          minimum: 1
-          maximum: 268435456
-        sha256:
-          type: string
-          pattern: ^[0-9a-f]{64}$
-    RpgRuntimeGateEvidence:
-      oneOf:
-        - $ref: '#/components/schemas/EmptyGateEvidence'
-        - $ref: '#/components/schemas/RpgPositionEvidence'
-        - $ref: '#/components/schemas/RpgEngineProfileEvidence'
-        - $ref: '#/components/schemas/RpgFrameEvidence'
-        - $ref: '#/components/schemas/RpgBooleanGateEvidence'
-        - $ref: '#/components/schemas/RpgCheckpointGateEvidence'
-      description: BEGIN and screenshot association use the empty object. The registry requires position evidence for INITIAL_POSITION_RECORDED, SAVE_POINT_RECORDED, POST_SAVE_STATE_DIVERGED, RESTORE_POSITION_VERIFIED and RESTORE_INPUT and compares those values server-side; other PASS/FAIL evidence is gate-specific. Blob IDs are never accepted.
-    RpgRuntimeMachineGate:
-      type: object
-      additionalProperties: false
-      required:
-        - gate
-        - status
-        - begunAtMs
-        - completedAtMs
-        - evidence
-        - failureCode
-      properties:
-        gate:
-          $ref: '#/components/schemas/RpgRuntimeGate'
-        status:
-          type: string
-          enum:
-            - NOT_STARTED
-            - IN_PROGRESS
-            - PASSED
-            - FAILED
-        begunAtMs:
-          type: integer
-          format: int64
-          minimum: 0
-          nullable: true
-        completedAtMs:
-          type: integer
-          format: int64
-          minimum: 0
-          nullable: true
-        evidence:
-          nullable: true
-          allOf:
-            - $ref: '#/components/schemas/RpgRuntimeGateEvidence'
-        failureCode:
-          nullable: true
-          allOf:
-            - $ref: '#/components/schemas/RpgErrorCode'
     RuntimeCheckpointMetadata:
       type: object
       additionalProperties: false
@@ -582,7 +417,7 @@ components:
         chunkSizeBytes: {}
         class: {}
         canApprove:
-          description: For RPG Maker, true after a current runtime-validation Launch has been created; advanced machine gates remain optional for the review decision.
+          description: True when the current source, target and actual dependencies allow approval. RPG Maker does not require a preview, checkpoint or screenshot proof before publication.
         canAttachMissingDiscs: {}
         canRetry: {}
         clientCapabilities: {}
@@ -964,11 +799,11 @@ components:
         - RPG_RUNTIME_THREADS_UNAVAILABLE
         - RPG_RUNTIME_OPFS_UNAVAILABLE
         - RPG_NATIVE_BRIDGE_UNSUPPORTED
-        - RPG_RUNTIME_VALIDATION_REQUIRED
-        - RPG_RUNTIME_VALIDATION_NOT_FOUND
-        - RPG_RUNTIME_VALIDATION_VERSION_CONFLICT
-        - RPG_RUNTIME_VALIDATION_DECISION_INVALID
-        - RPG_RUNTIME_VALIDATION_WINDOW_CLOSED
+
+
+
+
+
         - RPG_RUNTIME_INVALID_STATE
         - RPG_RUNTIME_PROTOCOL_VIOLATION
         - RPG_RUNTIME_TIMEOUT

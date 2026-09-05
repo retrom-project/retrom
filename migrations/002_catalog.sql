@@ -73,10 +73,6 @@ CREATE TABLE runtime_target_bindings (
     length(launch_policy) BETWEEN 2 AND 64 AND launch_policy=upper(launch_policy)
     AND launch_policy NOT GLOB '*[^A-Z0-9_]*'
   ),
-  review_policy TEXT NOT NULL CHECK(
-    length(review_policy) BETWEEN 2 AND 64 AND review_policy=upper(review_policy)
-    AND review_policy NOT GLOB '*[^A-Z0-9_]*'
-  ),
   UNIQUE(provider_id,target_id),
   FOREIGN KEY(provider_id,target_id) REFERENCES runtime_targets(provider_id,target_id) ON DELETE CASCADE
 );

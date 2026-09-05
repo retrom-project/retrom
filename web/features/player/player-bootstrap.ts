@@ -12,13 +12,10 @@ import {useSerializedPlayerBootstrap} from "./player-bootstrap-lifecycle";
 import {productCheckpointPresentation} from "./player-checkpoint-availability";
 import type {PlayerDebugRuntime} from "./player-chrome";
 import type {PlayerLoadProgress} from "./player-loading";
-import {RpgRuntimeValidationDriver} from "./rpg-runtime-validation";
-import type {ValidationCheckpointReceipt} from "./rpg-validation-checkpoint-response";
 import type {LaunchEnvelopeV1, PlayerRuntimeV1, RuntimeDiscStateV1, RuntimeEventV1, RuntimeVideoModeV1} from "./runtime/contract";
 import {parseLaunchEnvelopeJSON} from "./runtime/envelope";
 import {RuntimeNetplayPortAdapter} from "./runtime/netplay-port-adapter";
 import {mountProviderRuntime, type RuntimeController} from "./runtime/runtime-controller";
-import type {RuntimeSavePayload} from "./runtime/runtime-actions";
 import {installRuntimeE2EDiagnostics} from "./runtime/e2e-diagnostics";
 import {installRuntimeSurfaceControls} from "./runtime/surface-controls";
 
@@ -66,8 +63,8 @@ export type PlayerBootstrapParams = {
   setEmulatorMuted: Dispatch<SetStateAction<boolean>>;
   setPaused: Dispatch<SetStateAction<boolean>>;
   setNetplayPaused: Dispatch<SetStateAction<boolean>>;
-  setImmersiveReturnTo: Dispatch<SetStateAction<string>>;
-  setRpgValidationDriver: Dispatch<SetStateAction<RpgRuntimeValidationDriver | null>>;
+  setReviewScreenshotAvailable: Dispatch<SetStateAction<boolean>>;
+  setPlayerReturnTo: Dispatch<SetStateAction<string>>;
   reportPlayerEvent: (event: MultiDiscPlayerEvent) => void;
   onKeyboardPause: () => void;
   onImmersiveMenuShortcut: () => void;
@@ -76,14 +73,12 @@ export type PlayerBootstrapParams = {
   onGameSurface: () => void;
   onExitRequested: () => void;
   sendEvent: (kind: "start" | "heartbeat" | "finish") => Promise<void>;
-  uploadValidationCheckpoint: (payload: RuntimeSavePayload) => Promise<ValidationCheckpointReceipt>;
 };
 
 type BootstrapResources = {
   controller?: RuntimeController;
   surfaceControlsCleanup?: () => void;
   inputSubscription?: () => void;
-  validationDriver?: RpgRuntimeValidationDriver;
   netplayController?: NetplayController;
   e2eDiagnosticsCleanup?: () => void;
 };
@@ -109,17 +104,10 @@ async function bootstrapPlayer(params: PlayerBootstrapParams, resources: Bootstr
   await prepareOrientation(params, envelope, abort.signal);
   if (!params.stage.current) {throw new Error("PLAYER_RUNTIME_FRAME_INVALID");}
 
-  const validation = createValidationDriver(params, envelope, abort.signal);
-  if (validation) {
-    resources.validationDriver = validation;
-    params.setRpgValidationDriver(validation);
-    await validation.prepare();
-  }
   const mounted = await mountProviderRuntime(envelope, params.stage.current, {
     signal: abort.signal,
     onExitRequested: params.onExitRequested,
     onFatalError: (code) => {
-      void validation?.reportRuntimeFailure(new Error(code));
       params.setMessage(code);
       params.setState("error");
     },
@@ -139,18 +127,13 @@ async function bootstrapPlayer(params: PlayerBootstrapParams, resources: Bootstr
     onSurface: params.onGameSurface,
   });
   await configureMountedRuntime(params, resources, envelope, mounted.runtime);
-  if (validation) {
-    void validation.attachRuntime(mounted.runtime).catch((error: unknown) => {
-      params.setMessage(error instanceof Error ? error.message : "RPG_RUNTIME_VALIDATION_FAILED");
-      params.setState("error");
-    });
-  }
 }
 
 function applyEnvelope(params: PlayerBootstrapParams, envelope: LaunchEnvelopeV1) {
   params.envelope.current = envelope;
   params.returnTo.current = envelope.session.returnTo;
-  if (params.experience === "immersive") {params.setImmersiveReturnTo(envelope.session.returnTo);}
+  params.setPlayerReturnTo(envelope.session.returnTo);
+  params.setReviewScreenshotAvailable(envelope.session.purpose === "REVIEW_PREVIEW" && envelope.runtime.capabilities.screenshot);
   params.playerMode.current = envelope.session.mode === "NETPLAY" ? "netplay" : "single";
   params.setNetplayPlayerNo(envelope.netplay?.playerNo ?? null);
   params.setWarnings(envelope.session.warnings);
@@ -204,20 +187,20 @@ async function configureMountedRuntime(
     await startNetplay(params, resources, envelope, runtime);
     return;
   }
-  await completeSingleStart(params, envelope.session.purpose === "RUNTIME_VALIDATION");
+  await completeSingleStart(params);
 }
 
-async function completeSingleStart(params: PlayerBootstrapParams, validating: boolean) {
+async function completeSingleStart(params: PlayerBootstrapParams) {
   params.pausedRef.current = false;
   params.setPaused(false);
   applyStartedOrientation(params);
   await params.sendEvent("start");
   params.setState("running");
   const availability = params.runtime.current?.getCheckpointAvailability() ?? {available: false, reason: "UNSUPPORTED"};
-  const canSave = !validating && availability.available;
+  const canSave = availability.available;
   updateCheckpointAvailability(params, canSave);
-  params.setSyncText(validating ? "运行验证进行中" : canSave ? "可创建存档" : "当前场景暂不可存档");
-  params.setSyncTone(validating ? "busy" : canSave ? "synced" : "warning");
+  params.setSyncText(canSave ? "可创建存档" : "当前场景暂不可存档");
+  params.setSyncTone(canSave ? "synced" : "warning");
   params.heartbeat.current = window.setInterval(() => {void params.sendEvent("heartbeat");}, 30_000);
 }
 
@@ -273,8 +256,7 @@ function handleRuntimeEvent(event: RuntimeEventV1, params: PlayerBootstrapParams
     });
     return;
   }
-  if (event.type === "CHECKPOINT_AVAILABILITY_CHANGED" &&
-    params.envelope.current?.session.purpose !== "RUNTIME_VALIDATION") {
+  if (event.type === "CHECKPOINT_AVAILABILITY_CHANGED") {
     updateCheckpointAvailability(params, event.availability.available);
     return;
   }
@@ -289,25 +271,11 @@ function handleRuntimeEvent(event: RuntimeEventV1, params: PlayerBootstrapParams
 function updateCheckpointAvailability(params: PlayerBootstrapParams, available: boolean) {
   params.manualSaveAvailableRef.current = available;
   params.setManualSaveAvailable(available);
-  if (params.envelope.current?.session.purpose === "PRODUCT") {
+  if (params.playerMode.current === "single") {
     const presentation = productCheckpointPresentation(available);
     params.setSyncText(presentation.text);
     params.setSyncTone(presentation.tone);
   }
-}
-
-function createValidationDriver(params: PlayerBootstrapParams, envelope: LaunchEnvelopeV1, signal: AbortSignal) {
-  if (envelope.session.purpose !== "RUNTIME_VALIDATION") {return null;}
-  return new RpgRuntimeValidationDriver({
-    envelope, signal, uploadCheckpoint: params.uploadValidationCheckpoint,
-    finishOriginalLaunch: async () => {
-      if (params.heartbeat.current !== null) {
-        window.clearInterval(params.heartbeat.current);
-        params.heartbeat.current = null;
-      }
-      await params.sendEvent("finish");
-    },
-  });
 }
 
 async function prepareOrientation(params: PlayerBootstrapParams, envelope: LaunchEnvelopeV1, signal: AbortSignal) {
@@ -369,9 +337,6 @@ async function cleanupBootstrap(params: PlayerBootstrapParams, resources: Bootst
   if (params.netplayController.current === resources.netplayController) {params.netplayController.current = null;}
   if (params.heartbeat.current !== null) {window.clearInterval(params.heartbeat.current); params.heartbeat.current = null;}
   if (params.toastTimer.current !== null) {window.clearTimeout(params.toastTimer.current); params.toastTimer.current = null;}
-  if (resources.validationDriver) {
-    params.setRpgValidationDriver((current) => current === resources.validationDriver ? null : current);
-  }
   await resources.controller?.exit().catch(() => undefined);
   if (params.runtimeController.current === resources.controller) {params.runtimeController.current = null;}
   if (params.runtime.current === resources.controller?.runtime) {params.runtime.current = null;}

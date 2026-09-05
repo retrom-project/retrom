@@ -1,6 +1,7 @@
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { initialPlayerOrientationState } from "./orientation";
+import type {LaunchEnvelopeV1} from "./runtime/contract";
 import {
   createSaveForm,
   usePlayerSession,
@@ -10,10 +11,30 @@ import {
 
 afterEach(() => {
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
   vi.useRealTimers();
 });
 
 describe("Player page exit protection", () => {
+  it("finishes a review preview through ordinary events after queued saves, then closes its popup", async () => {
+    const order: string[] = [];
+    let saved!: () => void;
+    vi.stubGlobal("opener", {});
+    vi.spyOn(window, "close").mockImplementation(() => {order.push("close"); vi.stubGlobal("closed", true);});
+    vi.spyOn(globalThis, "fetch").mockImplementation(async () => {order.push("finish"); return new Response("{}");});
+    const params = sessionParams();
+    params.envelope.current = {session: {purpose: "REVIEW_PREVIEW"}} as LaunchEnvelopeV1;
+    params.started.current = true;
+    params.saveUploadQueue.current = new Promise<void>((resolve) => {saved = resolve;});
+    const {result} = renderHook(() => usePlayerSession(params));
+    const exiting = result.current.exit();
+    await Promise.resolve();
+    expect(order).toEqual([]);
+    saved();
+    await act(() => exiting);
+    expect(order).toEqual(["finish", "close"]);
+    expect(params.finishing.current).toBe(true);
+  });
   it("blocks accidental unload only while a started session remains active", () => {
     const params = sessionParams();
     const { unmount } = renderHook(() => usePlayerSession(params));
@@ -130,6 +151,7 @@ function sessionParams(): PlayerSessionParams {
   return {
     launchId: "launch-1",
     runtime: {current: null},
+    envelope: {current: null},
     playerMode: { current: "single" },
     sequence: { current: 0 },
     started: { current: false },

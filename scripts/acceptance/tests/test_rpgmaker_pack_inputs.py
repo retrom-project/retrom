@@ -17,6 +17,22 @@ SPEC.loader.exec_module(pack_inputs)
 
 
 class RPGMakerPackInputTests(unittest.TestCase):
+    def test_derived_reviews_do_not_deduplicate_prior_generation_cases(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            for generation, ini_name in (("rpg2000", "RPG_RT.ini"), ("rpg2003", "RPG_RT.ini"),
+                                         ("rpgxp", "Game.ini"), ("rpgvx", "Game.ini"), ("rpgvxace", "Game.ini")):
+                with self.subTest(generation=generation):
+                    destination = Path(directory) / generation
+                    source = pack_inputs.PROJECT_FIXTURES / generation
+                    pack_inputs.prepare_review_project(destination, generation, ini_name, {})
+                    before = (source / ini_name).read_text()
+                    after = (destination / ini_name).read_text()
+                    self.assertNotEqual(before, after)
+                    self.assertEqual(before, after.split("; Retrom acceptance scenario:", 1)[0])
+                    for path in source.rglob("*"):
+                        if path.is_file() and path.name != ini_name:
+                            self.assertEqual(path.read_bytes(), (destination / path.relative_to(source)).read_bytes())
+
     def test_generation_is_repeatable_and_covers_the_formal_matrix(self) -> None:
         seven_zip = shutil.which("7z") or shutil.which("7zz")
         self.assertIsNotNone(seven_zip)
@@ -93,7 +109,9 @@ class RPGMakerPackInputTests(unittest.TestCase):
               const repository = {{gitCommit: "1".repeat(40), gitDirty: false,
                 gitDirtySummary: {{fileCount: 0, sha256: "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945", entries: []}}}};
               writePlan({json.dumps(str(plan_path))}, plan);
-              writeProvisionEvidence({json.dumps(str(evidence_path))}, buildProvisionEvidence(inputs, plan, repository));
+              const population = {{games: [], saves: [], reviews: []}};
+              writeProvisionEvidence({json.dumps(str(evidence_path))}, buildProvisionEvidence(
+                inputs, plan, repository, {{before: population, after: population}}));
             """
             completed = subprocess.run(
                 ["node", "--input-type=module", "-e", script], cwd=ROOT,

@@ -75,7 +75,8 @@ SELECT count(*) FROM (
  UNION ALL SELECT attachment.id FROM review_arcade_parent_attachments attachment
  WHERE attachment.import_item_id IN (SELECT id FROM game_import_items) AND attachment.accepted_blob_id=?2
  UNION ALL SELECT preview.id FROM review_preview_sessions preview
- WHERE preview.import_item_id IN (SELECT id FROM game_import_items) AND preview.content_blob_id=?2
+ WHERE preview.import_item_id IN (SELECT id FROM game_import_items)
+ AND ?2 IN (preview.content_blob_id,preview.checkpoint_payload_blob_id,preview.restore_payload_blob_id)
  UNION ALL SELECT file.rowid FROM review_preview_files file
  JOIN review_preview_sessions preview ON preview.id=file.preview_session_id
  WHERE preview.import_item_id IN (SELECT id FROM game_import_items) AND file.blob_id=?2

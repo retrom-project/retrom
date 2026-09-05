@@ -77,6 +77,7 @@ def provisioning_evidence(plan: dict[str, Any]) -> dict[str, Any]:
     evidence = load_json(evidence_path, "PROVISION_EVIDENCE")
     expected_keys = {
         "schemaVersion", "caseId", "status", "generatorInputIdentity", "planIdentity", "counts", "repository",
+        "populationPreservation",
     }
     if set(evidence) != expected_keys or evidence.get("schemaVersion") != 1 or \
             evidence.get("caseId") != "ACC-RPG-009" or evidence.get("status") != "PROVISIONED":
@@ -105,10 +106,11 @@ def provisioning_evidence(plan: dict[str, Any]) -> dict[str, Any]:
     counts = evidence.get("counts")
     if counts != {
         "protectedInstallationCount": 2, "protectedGameCount": 2,
-        "reviewItemCount": 13, "readyUnapprovedReviewCount": 5,
+        "reviewItemCount": 13, "selfContainedOrNoRtpReviewCount": 5,
     }:
         raise InspectError("RPG_ACCEPTANCE_PACK_PROVISION_COUNTS_INVALID")
     validate_repository_provenance(evidence.get("repository"))
+    validate_population_preservation(evidence.get("populationPreservation"))
     stack = [evidence]
     while stack:
         item = stack.pop()
@@ -122,6 +124,26 @@ def provisioning_evidence(plan: dict[str, Any]) -> dict[str, Any]:
         "documentSha256": hashlib.sha256(evidence_path.read_bytes()).hexdigest(),
         "payload": evidence,
     }
+
+
+def validate_population_preservation(value: Any) -> None:
+    invalid = "RPG_ACCEPTANCE_PACK_POPULATION_PRESERVATION_INVALID"
+    if not isinstance(value, dict) or set(value) != {"before", "after"} or value["before"] != value["after"]:
+        raise InspectError(invalid)
+    before = value["before"]
+    if not isinstance(before, dict) or set(before) != {"games", "saves", "reviews"}:
+        raise InspectError(invalid)
+    for rows in before.values():
+        if not isinstance(rows, list) or len(rows) > 10_000:
+            raise InspectError(invalid)
+        identifiers = []
+        for row in rows:
+            if not isinstance(row, dict) or set(row) != {"id", "sha256"} or \
+                    not UUID.fullmatch(str(row.get("id"))) or not SHA256.fullmatch(str(row.get("sha256"))):
+                raise InspectError(invalid)
+            identifiers.append(row["id"])
+        if identifiers != sorted(set(identifiers)):
+            raise InspectError(invalid)
 
 
 def open_read_only(path: Path) -> sqlite3.Connection:
@@ -290,7 +312,7 @@ SELECT variant.id AS variant_id,game.status AS game_status,
  variant.status AS variant_status,variant.provider_id,variant.target_id,provider.bundle_sha256,
  source.provider_id AS source_provider_id,source.target_id AS source_target_id,
  source.bundle_sha256 AS source_bundle_sha256,pack.definition_id,
- pack.installation_id,installation.files_digest,source.purpose AS source_purpose,
+ pack.installation_id,installation.files_digest,
  save.payload_sha256,save.payload_size_bytes,save.checkpoint_format,target.checkpoint_json
 FROM save_states save
 JOIN games game ON game.id=save.game_id
@@ -308,7 +330,7 @@ WHERE save.id=? AND save.game_id=? AND save.deleted_at_ms IS NULL AND pack.insta
     if row["game_status"] != "PUBLISHED" or row["variant_status"] != "READY" or \
             row["provider_id"] != "retrom-runtime" or row["target_id"] != "rpgmaker-vx" or \
             not SHA256.fullmatch(row["bundle_sha256"]) or row["definition_id"] != "rgss2_rpgvx" or \
-            row["source_purpose"] != "PRODUCT" or not SHA256.fullmatch(row["payload_sha256"]) or \
+            row["payload_size_bytes"] <= 0 or not SHA256.fullmatch(row["payload_sha256"]) or \
             row["source_provider_id"] != row["provider_id"] or row["source_target_id"] != row["target_id"] or \
             not SHA256.fullmatch(row["source_bundle_sha256"]) or not isinstance(checkpoint, dict) or \
             row["checkpoint_format"] not in checkpoint.get("readFormats", []):
@@ -319,7 +341,7 @@ WHERE save.id=? AND save.game_id=? AND save.deleted_at_ms IS NULL AND pack.insta
         "definitionId": row["definition_id"], "filesDigest": row["files_digest"],
         "payloadSha256": row["payload_sha256"], "payloadSizeBytes": row["payload_size_bytes"],
         "gameStatus": row["game_status"], "variantStatus": row["variant_status"],
-        "availableForLaunch": True, "sourceLaunchPurpose": row["source_purpose"],
+        "availableForLaunch": True,
         "providerId": row["provider_id"], "targetId": row["target_id"],
         "bundleSha256": row["bundle_sha256"],
     }
@@ -352,23 +374,29 @@ def selected_reviews(connection: sqlite3.Connection, observed: dict[str, Any]) -
             continue
         row = one(connection, """
 SELECT selection.slot,selection.installation_id,draft.version AS review_version,
- validation.review_version_at_create AS validation_review_version
+ validation.status AS validation_status,validation.dependency_snapshot_json,
+ validation.source_snapshot_id,draft.effective_source_snapshot_id
 FROM review_drafts draft
 JOIN review_draft_runtime_pack_selections selection ON selection.review_draft_id=draft.id
-LEFT JOIN rpgmaker_runtime_validations validation ON validation.id=(
- SELECT current.id FROM rpgmaker_runtime_validations current
- WHERE current.import_item_id=draft.import_item_id
- ORDER BY current.created_at_ms DESC,current.id DESC LIMIT 1)
+JOIN import_item_core_validations validation ON validation.id=draft.selected_validation_id
+ AND validation.import_item_id=draft.import_item_id
 WHERE draft.import_item_id=?
 """, (item.get("itemId"),), "REVIEW_SELECTION")
+        dependency = json.loads(row["dependency_snapshot_json"])
+        bindings = dependency.get("bindings") if isinstance(dependency, dict) else None
         if row["installation_id"] != item.get("installationId") or \
-                row["review_version"] == row["validation_review_version"]:
+                row["validation_status"] != "READY" or \
+                row["source_snapshot_id"] != row["effective_source_snapshot_id"] or \
+                not isinstance(bindings, list) or len(bindings) != 1 or \
+                not isinstance(bindings[0], dict) or bindings[0].get("slot") != row["slot"] or \
+                bindings[0].get("installationId") != row["installation_id"]:
             raise InspectError("RPG_ACCEPTANCE_PACK_REVIEW_SELECTION_INVALID")
         result.append({
             "role": item.get("role"), "itemId": item.get("itemId"),
             "slot": row["slot"], "installationId": row["installation_id"],
             "reviewVersion": row["review_version"],
-            "validationReviewVersion": row["validation_review_version"],
+            "validationStatus": row["validation_status"],
+            "dependencyInstallationId": bindings[0]["installationId"],
         })
     return result
 
@@ -471,12 +499,16 @@ def inspect(database: Path, plan: dict[str, Any], observed: dict[str, Any], time
         )
         upload_evidence["zeroReference"]["consumptionReleasedAtMs"] = zero["releasedAtMs"]
         upload_evidence["zeroReference"]["consumptionReleaseReason"] = zero["releaseReason"]
+        provision = provisioning_evidence(plan)
+        validate_population_preservation(observed.get("populationPreservation"))
+        if observed["populationPreservation"] != provision["payload"]["populationPreservation"]:
+            raise InspectError("RPG_ACCEPTANCE_PACK_POPULATION_PRESERVATION_INVALID")
         return {
             "schemaVersion": 1, "uploads": upload_evidence,
             "publishedReviews": published_reviews(connection, observed),
             "selectedReviews": selected_reviews(connection, observed),
             "protectedReferences": protected, "zeroReferenceRelease": zero,
-            "provisioningEvidence": provisioning_evidence(plan),
+            "provisioningEvidence": provision,
         }
     finally:
         connection.close()

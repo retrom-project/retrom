@@ -5,21 +5,18 @@ import (
 	"testing"
 )
 
-func TestValidationCheckpointResultJSONUsesOpaqueProviderFormat(t *testing.T) {
-	digest := "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+func TestReviewCheckpointResultJSONUsesOpaqueProviderFormat(t *testing.T) {
 	result := ManualResult{
-		ResourceKind:     "RPG_RUNTIME_VALIDATION_CHECKPOINT",
-		ValidationID:     "01980000-0000-7000-8000-000000000001",
+		ResourceKind:     "REVIEW_PREVIEW_CHECKPOINT",
+		PreviewID:        "01980000-0000-7000-8000-000000000001",
 		CheckpointFormat: "provider-checkpoint-v1",
-		SizeBytes:        42,
-		PayloadSHA256:    digest,
 		CreatedAtMS:      1_800_000_000_000,
 	}
 	contents, err := json.Marshal(result)
 	if err != nil {
 		t.Fatal(err)
 	}
-	wanted := `{"resourceKind":"RPG_RUNTIME_VALIDATION_CHECKPOINT","validationId":"01980000-0000-7000-8000-000000000001","checkpointFormat":"provider-checkpoint-v1","sizeBytes":42,"sha256":"` + digest + `","createdAtMs":1800000000000}`
+	wanted := `{"resourceKind":"REVIEW_PREVIEW_CHECKPOINT","previewId":"01980000-0000-7000-8000-000000000001","checkpointFormat":"provider-checkpoint-v1","createdAtMs":1800000000000}`
 	if string(contents) != wanted {
 		t.Fatalf("validation checkpoint JSON=%s", contents)
 	}
@@ -27,8 +24,7 @@ func TestValidationCheckpointResultJSONUsesOpaqueProviderFormat(t *testing.T) {
 	if err := json.Unmarshal(contents, &replayed); err != nil {
 		t.Fatal(err)
 	}
-	if replayed.CheckpointFormat != result.CheckpointFormat || replayed.PayloadSHA256 != digest ||
-		replayed.SizeBytes != result.SizeBytes {
+	if replayed.CheckpointFormat != result.CheckpointFormat || replayed.PreviewID != result.PreviewID || replayed.ResourceKind != result.ResourceKind {
 		t.Fatalf("validation checkpoint replay=%#v", replayed)
 	}
 }

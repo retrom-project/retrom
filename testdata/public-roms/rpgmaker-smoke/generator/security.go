@@ -88,7 +88,13 @@ const shapeRuntime = `(function (global) {
   function sound() {
     try {
       var audio = new AudioContext(); var source = audio.createBufferSource();
-      source.buffer = audio.createBuffer(1, 128, audio.sampleRate); source.connect(audio.destination); source.start();
+      source.buffer = audio.createBuffer(1, Math.floor(audio.sampleRate / 4), audio.sampleRate);
+      var samples = source.buffer.getChannelData(0);
+      for (var i = 0; i < samples.length; i += 1) {
+        samples[i] = Math.sin(2 * Math.PI * 440 * i / audio.sampleRate) * 0.15;
+      }
+      source.onended = function () { audio.close(); };
+      source.connect(audio.destination); source.start();
     } catch (_) {}
   }
   global.addEventListener("keydown", function (event) {

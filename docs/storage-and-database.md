@@ -198,7 +198,7 @@ PlatformInstance 的复合外键、游戏唯一归属和迁移规则见 [游戏�
 | `review_drafts` | 待审核条目的可编辑草稿与 version |
 | `review_draft_screenshot_assets` | 草稿截图选择的规范顺序与外键 |
 | `review_preview_sessions` / `review_preview_files` | 审核子窗体的短时不可变运行快照与实际可交付依赖 |
-| `review_runtime_screenshots` | 当前 READY 或阻断 Validation 在核心启动后第 5 秒生成的审核截图与人工放行证据 |
+| `review_runtime_screenshots` | 当前 READY 或阻断 Validation 在普通 Player 中按需生成的审核截图与人工放行证据 |
 | `review_events` | 追加式审核历史 |
 | `review_draft_tags` | 待审核草稿的当前活动标签选择；决定后保留历史关系 |
 | `pegasus_collection_tags` | Pegasus Collection 的管理员标签映射；名称证据另冻结在 Collection snapshot |
@@ -473,9 +473,9 @@ EmulationStation 递归发现只匹配精确小写 `gamelist.xml`；每个 XML �
 
 ## 12. 审核运行预览的存储边界
 
-当前 clean schema 直接创建 `review_preview_sessions`、`review_preview_files` 与 `review_runtime_screenshots`。预览行保留创建时的不可变来源、Validation、Provider Target 和短时 capability hash；运行内容仍引用既有 CAS Blob，不复制 ROM/BIOS。第 5 秒截图允许 READY 或阻断 Validation 写入，同时用 Item、来源、目标平台、Provider Target 和 prepublish generation 的 trigger 约束人工放行证据。预览不是正式 Launch 或 PlaySession，因此 restore 安全围栏无需把它转换为业务游玩历史；capability 的硬过期时间使过期子窗体不可继续读取内容。
+当前 clean schema 直接创建 review_preview_sessions、review_preview_files 与 review_runtime_screenshots。Preview 冻结来源、当前 Validation、Provider/Target 与实际 Bundle 字节身份；运行内容引用既有 CAS，不复制成假 Game 或用户游玩历史。普通 Player 事件使状态从 CREATED 到 ACTIVE，再到 FINISHED/EXPIRED/REVOKED；终态撤销内容授权。checkpoint 仅有最新 payload/format/time 以及新会话冻结的 restore payload；没有独立 proof 表。bootstrap 有 5 分钟期限，运行授权最长 2 小时；有界 GC 和审核终态 PayloadRelease 清除临时引用。
 
-预览内容、现有依赖和运行截图三类 Blob 边均登记为 protective reference。截图只对仍匹配草稿当前来源、目标平台、Provider Target 和 prepublish generation 的 Validation 投影；该 Validation 可以是 READY 或阻断状态，后者的当前截图会启用管理员人工放行。重新运行同一 Validation 会原子替换当前截图的 Blob 引用，旧 Blob 随统一 GC 规则回收，不在 HTTP、日志或清单中暴露 Blob ID/hash。完整字段和 trigger 见 [`data-model.md`](./data-model.md)。
+预览内容、现有依赖、运行截图及临时 checkpoint/restore Blob 边均登记为 protective reference。截图只对仍匹配草稿当前来源、目标平台、Provider Target 和 prepublish input digest 的 Validation 投影；该 Validation 可以是 READY 或阻断状态，后者的当前截图会启用管理员人工放行。重新运行同一 Validation 会原子替换当前截图的 Blob 引用，旧 Blob 随统一 GC 规则回收，不在 HTTP、日志或清单中暴露 Blob ID/hash。完整字段和 trigger 见 [`data-model.md`](./data-model.md)。
 
 ## 13. 联机持久化与恢复边界
 

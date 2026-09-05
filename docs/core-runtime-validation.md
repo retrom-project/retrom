@@ -47,7 +47,7 @@ EmulatorJS Provider declaration 是 35 个 Target 的唯一行为 registry。`ma
 
 RPG 世代检测只选择 `retrom-runtime` Provider 内的 Target；用户仍只看到一个 RPG Maker Core。EasyRPG、mkxp、Native Web、ONS、KiriKiri、Butterscotch、TyranoScript 和 WASM-4 的文件策略、bridge、OPFS/Range、输入和 checkpoint codec 都属于 Provider 私有实现。
 
-Native Web 必须使用每 Launch unique origin，拒绝应用 cookie、普通 API、跨 Launch 项目和 ticket 重放。RPG Runtime Validation 复用相同 Provider Module，14 个 gate 证明帧、输入、音频、A/B/C、checkpoint、不同 restore Launch、截图和恢复后输入。
+Native Web 必须使用每 Launch unique origin，拒绝应用 cookie、普通 API、跨 Launch 项目和 ticket 重放。审核试运行复用普通 Preview/Player 与同一 Provider Module，不包含专用证明协议或发布前置。严格的帧、输入、音频、A/B/C、checkpoint、跨会话恢复与截图断言只由研发验收驱动普通产品操作并从自有 fixture/普通存档读取，规则见项目验收专题。
 
 ## 6. 升级验证
 
@@ -57,7 +57,7 @@ Provider 升级必须在同一数据库上顺序启动旧版与更高版本，�
 - 同版本不同 bytes、降级和 Target 删除均拒绝 readiness；
 - 稳定 `providerId/targetId` 保持一致；
 - 兼容升级的 `readFormats` 包含旧 checkpoint format，旧 Save 可由新 Bundle 恢复；
-- 不兼容格式仍保留 Save 记录但创建恢复 Launch 返回 `LAUNCH_SAVE_INCOMPATIBLE`；
+- 若新 Target 不再读取未删除的持久用户存档格式，升级拒绝 readiness，原 Save 记录与字节不变；审核临时 checkpoint 不参与此门槛；
 - 新普通 Launch 和新 Save 都绑定新 Bundle/Target declaration；
 - 不再从旧 Bundle 静态端点或旧模块 fallback。
 

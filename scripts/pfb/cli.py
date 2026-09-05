@@ -18,6 +18,7 @@ from typing import Any
 from scripts.local_user import LocalUserError, require_local_user
 
 from .common import atomic_json, canonical_bytes, load_json
+from .data_reset import reset_workspace_data
 from .docker import (
     app_container_health, app_container_running, app_down, app_logs, app_restart, app_up,
     build_toolchain, ensure_workspace, gateway_down, gateway_preflight, gateway_up,
@@ -60,6 +61,8 @@ def parser() -> argparse.ArgumentParser:
             child.add_argument("--core", required=True)
         if command == "provider-import":
             child.add_argument("--source-root", required=True, type=Path)
+        if command == "data-reset":
+            child.add_argument("--source-root", type=Path)
         if command in {"provider-import", "migrate-storage", "data-reset", "remove", "destroy"}:
             child.add_argument("--confirm", required=True)
     for command in ("gateway-up", "gateway-down"):
@@ -93,7 +96,8 @@ def command_init(root: Path, args: argparse.Namespace) -> int:
     spec = create_spec(args.pfb, root, _absolute_optional(args.runtime_root), args.core_roots)
     existing = root / ".pfb/spec.json"
     if existing.exists() and canonical_bytes(load_json(existing)) != canonical_bytes(spec):
-        raise PFBError("PFB_SPEC_INVALID", "already-initialized")
+        if not _adds_cores_only(load_json(existing), spec) or app_container_running(compose_project(spec["id"])):
+            raise PFBError("PFB_SPEC_INVALID", "already-initialized")
     save_spec(root, spec)
     write_state(root, spec["id"], "INITIALIZED")
     with locked_registry() as (registry, path):
@@ -101,6 +105,15 @@ def command_init(root: Path, args: argparse.Namespace) -> int:
         save_registry(path, registry)
     _result({"id": spec["id"], "url": app_origin(spec["id"]), "status": "INITIALIZED"})
     return 0
+
+
+def _adds_cores_only(previous: Any, current: dict[str, Any]) -> bool:
+    if not isinstance(previous, dict) or set(previous) != set(current):
+        return False
+    old_cores = previous.get("cores")
+    return isinstance(old_cores, list) and len(current["cores"]) > len(old_cores) and \
+        all(core in current["cores"] for core in old_cores) and \
+        all(previous[key] == current[key] for key in current if key != "cores")
 
 
 def command_validate(root: Path, args: argparse.Namespace) -> int:
@@ -256,38 +269,30 @@ def command_core_build(root: Path, args: argparse.Namespace) -> int:
 
 
 def command_provider_import(root: Path, args: argparse.Namespace) -> int:
-    from scripts.runtime_providers import (
-        check_active_providers,
-        verify_provider_upgrade,
-    )
+    from scripts.runtime_providers import verify_provider_upgrade
 
     spec = _confirmed_spec(root, args.pfb, args.confirm)
     if app_container_running(compose_project(spec["id"])):
         raise PFBError("PFB_PROVIDER_BASE_INVALID", "running")
 
-    def validate(active_path: Path, installed_root: Path) -> dict[str, Any]:
-        value = load_json(active_path, "PFB_PROVIDER_BASE_INVALID")
-        source = value.get("source") if isinstance(value, dict) else None
-        if source not in {"candidate", "production"}:
-            raise PFBError("PFB_PROVIDER_BASE_INVALID", "source")
-        return check_active_providers(active_path, installed_root, source)
-
-    def validate_current(active_path: Path, installed_root: Path) -> dict[str, Any]:
-        value = load_json(active_path, "PFB_PROVIDER_BASE_INVALID")
-        source = value.get("source") if isinstance(value, dict) else None
-        if source not in {"candidate", "production"}:
-            raise PFBError("PFB_PROVIDER_BASE_INVALID", "source")
-        return check_active_providers(active_path, installed_root, source)
-
     result = import_provider_base(
         root,
         args.source_root,
-        validate,
+        _validate_provider_base,
         lambda current, incoming: verify_provider_upgrade(current, incoming, []),
-        validate_current=validate_current,
     )
     _result({"id": spec["id"], "status": "IMPORTED", **result})
     return 0
+
+
+def _validate_provider_base(active_path: Path, installed_root: Path) -> dict[str, Any]:
+    from scripts.runtime_providers import check_active_providers
+
+    value = load_json(active_path, "PFB_PROVIDER_BASE_INVALID")
+    source = value.get("source") if isinstance(value, dict) else None
+    if source not in {"candidate", "production"}:
+        raise PFBError("PFB_PROVIDER_BASE_INVALID", "source")
+    return check_active_providers(active_path, installed_root, source)
 
 
 def command_migrate_storage(root: Path, args: argparse.Namespace) -> int:
@@ -306,13 +311,11 @@ def command_data_reset(root: Path, args: argparse.Namespace) -> int:
     spec = _confirmed_spec(root, args.pfb, args.confirm)
     if app_container_running(compose_project(spec["id"])):
         raise PFBError("PFB_DATA_RESET_INVALID", "running")
-    paths = ensure_workspace(root)
-    backup = paths["root"] / "reset-backups" / datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-    backup.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
-    if paths["data"].exists():
-        paths["data"].rename(backup)
-    paths["data"].mkdir(mode=0o700)
-    _result({"id": spec["id"], "status": "RESET", "backup": str(backup)})
+    result = reset_workspace_data(
+        root, datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ"),
+        args.source_root, _validate_provider_base,
+    )
+    _result({"id": spec["id"], "status": "RESET", **result})
     return 0
 
 

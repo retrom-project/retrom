@@ -106,7 +106,7 @@ AND (
   )
  )
 )
-AND l.purpose IN ('PRODUCT','RPG_RUNTIME_VALIDATION')
+
 `, launchID, folded, logicalName, folded, logicalName, logicalName).Scan(
 		&credentialHash, &state, &hardExpires, &digest, &format, &coreID,
 		&providerID, &targetID, &bundleSHA256, &platformKey, &dosEntry, &discCount,

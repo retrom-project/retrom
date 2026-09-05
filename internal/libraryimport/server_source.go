@@ -120,6 +120,11 @@ func (service *Service) createServerSource(
 	if err != nil {
 		return ServerImportResult{}, err
 	}
+	target, err := service.loadCreationTarget(ctx, targetPlatformInstanceID)
+	if err != nil {
+		return ServerImportResult{}, err
+	}
+	prepared.contentMode = normalizeTargetContentMode(target.platformID, prepared.contentMode)
 	created, found, err := service.ensureServerSourceUpload(ctx, prepared, targetPlatformInstanceID)
 	if err != nil {
 		return ServerImportResult{}, err

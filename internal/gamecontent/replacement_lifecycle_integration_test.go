@@ -53,10 +53,10 @@ ORDER BY file.sort_order,file.logical_name LIMIT 1
 		t.Fatal(err)
 	}
 	if _, err := database.ExecContext(ctx, `
-INSERT INTO launch_sessions(id,profile_id,purpose,game_id,core_id,provider_id,target_id,
+INSERT INTO launch_sessions(id,profile_id,game_id,core_id,provider_id,target_id,
 bundle_sha256,content_kind,dependency_snapshot_json,compatibility_code,
 return_to,credential_sha256,state,bootstrap_expires_at_ms,hard_expires_at_ms,created_at_ms,updated_at_ms)
-VALUES(?,?,'PRODUCT',?,?,?,?,?,?,?,?,'/',?,'CREATED',?,?,?,?)
+VALUES(?,?,?,?,?,?,?,?,?,?,'/',?,'CREATED',?,?,?,?)
 `, launchID, profileID, gameID, coreID, providerID, targetID, bundleSHA256, contentKind,
 		dependencySnapshot, compatibilityCode, make([]byte, 32), now+60_000,
 		now+120_000, now, now); err != nil {

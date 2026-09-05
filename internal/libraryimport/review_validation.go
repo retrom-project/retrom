@@ -39,7 +39,7 @@ func (service *Service) ensureCompatibleDraftValidation(
 	if state.sourceID == "" {
 		return "", nil
 	}
-	if err := state.resolveBIOSState(); err != nil {
+	if err := state.resolveDependencies(); err != nil {
 		return "", err
 	}
 	return state.insertValidation()
@@ -67,7 +67,7 @@ type draftValidationRefresh struct {
 	sourceStatus            string
 	compatibilityCode       string
 	dependencySnapshot      string
-	biosState               draftBIOSState
+	dependencyState         draftDependencyState
 }
 
 func (state *draftValidationRefresh) loadInputs() error {
@@ -154,22 +154,19 @@ ORDER BY created_at_ms DESC,id DESC LIMIT 1
 	if err != nil {
 		return "", false, fmt.Errorf("libraryimport/review: %w", err)
 	}
-	biosState, err := resolveDraftBIOSState(
-		state.ctx, state.transaction, state.effectiveSnapshotID, state.providerID, state.runtimeTargetID,
-		state.dependencySnapshot, state.sourceStatus, state.compatibilityCode,
-	)
+	dependencyState, err := state.resolveDependencyState()
 	if err != nil {
 		return "", false, err
 	}
-	state.biosState = biosState
+	state.dependencyState = dependencyState
 	if !state.exactValidationCurrent() {
 		return "", false, nil
 	}
-	if !biosState.tracked && state.sourceStatus == "READY" {
+	if !dependencyState.tracked && state.sourceStatus == "READY" {
 		return state.sourceID, true, nil
 	}
-	biosUnchanged := biosState.tracked && biosState.snapshotJSON == state.dependencySnapshot &&
-		biosState.status == state.sourceStatus && biosState.code == state.compatibilityCode
+	biosUnchanged := dependencyState.tracked && dependencyState.snapshotJSON == state.dependencySnapshot &&
+		dependencyState.status == state.sourceStatus && dependencyState.code == state.compatibilityCode
 	if !biosUnchanged {
 		return "", false, nil
 	}
@@ -193,7 +190,7 @@ func (state *draftValidationRefresh) exactValidationCurrent() bool {
 }
 
 func (state *draftValidationRefresh) loadFallbackValidation() error {
-	if state.sourceID != "" && (state.sourceStatus == "READY" || state.biosState.tracked) {
+	if state.sourceID != "" && (state.sourceStatus == "READY" || state.dependencyState.tracked) {
 		return nil
 	}
 	err := state.transaction.QueryRowContext(state.ctx, `
@@ -218,19 +215,24 @@ ORDER BY validation.created_at_ms DESC,validation.id DESC LIMIT 1
 	return nil
 }
 
-func (state *draftValidationRefresh) resolveBIOSState() error {
-	biosState, err := resolveDraftBIOSState(
-		state.ctx, state.transaction, state.effectiveSnapshotID, state.providerID, state.runtimeTargetID,
-		state.dependencySnapshot, state.sourceStatus, state.compatibilityCode,
-	)
+func (state *draftValidationRefresh) resolveDependencyState() (draftDependencyState, error) {
+	if state.contentKind == "RPG_MAKER_PROJECT" {
+		return state.resolveRPGDependencies()
+	}
+	return resolveDraftBIOSState(state.ctx, state.transaction, state.effectiveSnapshotID, state.providerID,
+		state.runtimeTargetID, state.dependencySnapshot, state.sourceStatus, state.compatibilityCode)
+}
+
+func (state *draftValidationRefresh) resolveDependencies() error {
+	dependencyState, err := state.resolveDependencyState()
 	if err != nil {
 		return err
 	}
-	state.biosState = biosState
-	if biosState.tracked {
-		state.sourceStatus = biosState.status
-		state.compatibilityCode = biosState.code
-		state.dependencySnapshot = biosState.snapshotJSON
+	state.dependencyState = dependencyState
+	if dependencyState.tracked {
+		state.sourceStatus = dependencyState.status
+		state.compatibilityCode = dependencyState.code
+		state.dependencySnapshot = dependencyState.snapshotJSON
 	}
 	return nil
 }
@@ -283,11 +285,11 @@ INSERT INTO import_item_validation_files(
 SELECT ?,role,logical_name,blob_id,sort_order,?
 FROM import_item_validation_files
 WHERE import_item_core_validation_id=? AND (?=0 OR role<>'BIOS_BUNDLE')
-`, createdID, now, state.sourceID, state.biosState.replaceBundle)
+`, createdID, now, state.sourceID, state.dependencyState.replaceBundle)
 	if err != nil {
 		return fmt.Errorf("libraryimport/review: %w", err)
 	}
-	if !state.biosState.tracked {
+	if !state.dependencyState.tracked {
 		return nil
 	}
 	return state.insertBIOSValidationFiles(createdID, now)
@@ -303,7 +305,7 @@ WHERE import_item_core_validation_id=?
 	if err != nil {
 		return fmt.Errorf("libraryimport/review: %w", err)
 	}
-	for _, dependency := range state.biosState.dependencies {
+	for _, dependency := range state.dependencyState.dependencies {
 		if dependency.DeliveryKind != "BIOS_BUNDLE" || dependency.BlobID == nil {
 			continue
 		}
@@ -320,7 +322,7 @@ INSERT INTO import_item_validation_files(
 	return nil
 }
 
-type draftBIOSState struct {
+type draftDependencyState struct {
 	tracked       bool
 	replaceBundle bool
 	snapshotJSON  string
@@ -333,7 +335,7 @@ func resolveDraftBIOSState(
 	ctx context.Context,
 	transaction *sql.Tx,
 	sourceSnapshotID, providerID, targetID, previousSnapshot, previousStatus, previousCode string,
-) (draftBIOSState, error) {
+) (draftDependencyState, error) {
 	if !isStaticBIOSSnapshot(previousSnapshot) {
 		return resolveArcadeDraftBIOSState(
 			ctx, transaction, providerID, targetID, previousSnapshot, previousStatus, previousCode,
@@ -341,17 +343,17 @@ func resolveDraftBIOSState(
 	}
 	logicalName, err := snapshotContentLogicalName(ctx, transaction, sourceSnapshotID)
 	if err != nil {
-		return draftBIOSState{}, err
+		return draftDependencyState{}, err
 	}
 	snapshot, status, code, err := corevalidation.ResolveBIOS(ctx, transaction, providerID, targetID, logicalName)
 	if err != nil {
-		return draftBIOSState{}, fmt.Errorf("libraryimport/review: %w", err)
+		return draftDependencyState{}, fmt.Errorf("libraryimport/review: %w", err)
 	}
 	encoded, err := snapshot.JSON()
 	if err != nil {
-		return draftBIOSState{}, fmt.Errorf("libraryimport/review: %w", err)
+		return draftDependencyState{}, fmt.Errorf("libraryimport/review: %w", err)
 	}
-	return draftBIOSState{
+	return draftDependencyState{
 		tracked:       true,
 		replaceBundle: true,
 		snapshotJSON:  string(encoded),
@@ -411,12 +413,12 @@ func resolveArcadeDraftBIOSState(
 	ctx context.Context,
 	transaction *sql.Tx,
 	providerID, targetID, previousSnapshot, previousStatus, previousCode string,
-) (draftBIOSState, error) {
+) (draftDependencyState, error) {
 	snapshot, valid := parseArcadeDraftSnapshot(previousSnapshot)
 	if !valid {
-		return draftBIOSState{}, nil
+		return draftDependencyState{}, nil
 	}
-	state := draftBIOSState{
+	state := draftDependencyState{
 		tracked: true, replaceBundle: false, snapshotJSON: previousSnapshot, status: previousStatus, code: previousCode,
 		dependencies: make([]corevalidation.BIOSDependency, 0),
 	}
@@ -430,7 +432,7 @@ func resolveArcadeDraftBIOSState(
 			ctx, transaction, providerID, targetID, dependency.Machine+".zip",
 		)
 		if err != nil {
-			return draftBIOSState{}, err
+			return draftDependencyState{}, err
 		}
 		if resolved == nil {
 			continue
@@ -458,7 +460,7 @@ func resolveArcadeDraftBIOSState(
 	}
 	encoded, err := json.Marshal(snapshot)
 	if err != nil {
-		return draftBIOSState{}, fmt.Errorf("libraryimport/review: encode arcade BIOS snapshot: %w", err)
+		return draftDependencyState{}, fmt.Errorf("libraryimport/review: encode arcade BIOS snapshot: %w", err)
 	}
 	state.snapshotJSON = string(encoded)
 	return state, nil

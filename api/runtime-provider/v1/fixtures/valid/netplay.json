@@ -40,7 +40,6 @@
       "requiresThreads": false,
       "screenshot": true,
       "standardGamepad": true,
-      "validationProbes": [],
       "videoModes": ["original"],
       "volume": true
     },
@@ -68,6 +67,5 @@
     "title": "Netplay fixture",
     "warnings": []
   },
-  "targetOptions": {},
-  "validation": null
+  "targetOptions": {}
 }

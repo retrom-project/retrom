@@ -493,11 +493,11 @@ func (service *Service) persistLaunch(
 	defer cleanup.Rollback(transaction)
 	if _, err = transaction.ExecContext(ctx, `
 INSERT INTO launch_sessions(
- id,profile_id,purpose,game_id,core_id,provider_id,target_id,bundle_sha256,
+ id,profile_id,game_id,core_id,provider_id,target_id,bundle_sha256,
  content_kind,dependency_snapshot_json,compatibility_code,
  save_state_id,dos_entry_path,initial_disc_index,return_to,credential_sha256,state,
  bootstrap_expires_at_ms,hard_expires_at_ms,created_at_ms,updated_at_ms)
-VALUES(?,?,'PRODUCT',?,?,?,?,?,?,?,?,?,?,?,?,?,'CREATED',?,?,?,?)
+VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'CREATED',?,?,?,?)
 `, launchID.String(), profileID, request.GameID, selection.selectedCore,
 		selection.providerID, selection.targetID, selection.bundleSHA256,
 		selection.contentKind, selection.dependencySnapshotJSON, selection.compatibilityCode,

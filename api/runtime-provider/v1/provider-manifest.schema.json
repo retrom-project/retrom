@@ -96,8 +96,7 @@
         "netplayPort",
         "videoModes",
         "requiresThreads",
-        "frameMode",
-        "validationProbes"
+        "frameMode"
       ],
       "properties": {
         "pause": { "type": "boolean" },
@@ -123,11 +122,6 @@
             "SAME_ORIGIN_RESOURCE",
             "ISOLATED_ORIGIN_RESOURCE"
           ]
-        },
-        "validationProbes": {
-          "type": "array",
-          "uniqueItems": true,
-          "items": { "$ref": "#/$defs/token" }
         }
       }
     },

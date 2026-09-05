@@ -168,24 +168,6 @@ CREATE TABLE review_draft_runtime_pack_selections (
     REFERENCES runtime_asset_pack_installations(id,definition_id)
 );
 
-CREATE TABLE rpgmaker_runtime_validation_gate_events (
-  validation_id TEXT NOT NULL REFERENCES rpgmaker_runtime_validations(id),
-  sequence INTEGER NOT NULL CHECK(sequence>=1),
-  event_id TEXT NOT NULL UNIQUE,
-  launch_id TEXT NOT NULL REFERENCES launch_sessions(id),
-  gate TEXT NOT NULL CHECK(gate IN (
-    'RUNTIME_READY','ENGINE_PROFILE','FRAMES_300','INPUT','AUDIO','INITIAL_POSITION_RECORDED',
-    'SAVE_POINT_RECORDED',
-    'CHECKPOINT_CREATED','POST_SAVE_STATE_DIVERGED','ORIGINAL_LAUNCH_ENDED','RESTORE_STARTED',
-    'RESTORE_POSITION_VERIFIED','RESTORE_SCREENSHOT','RESTORE_INPUT'
-  )),
-  phase TEXT NOT NULL CHECK(phase IN ('BEGIN','PASS','FAIL')),
-  observed_at_ms INTEGER NOT NULL CHECK(observed_at_ms>=0),
-  evidence_json TEXT NOT NULL CHECK(json_valid(evidence_json) AND length(CAST(evidence_json AS BLOB))<=65536),
-  created_at_ms INTEGER NOT NULL CHECK(created_at_ms>=0),
-  PRIMARY KEY(validation_id,sequence)
-);
-
 CREATE TABLE "review_events" (
   id TEXT PRIMARY KEY,
   import_item_id TEXT NOT NULL REFERENCES import_items(id),
@@ -254,12 +236,12 @@ CREATE TABLE review_multidisc_attachments (
 
 CREATE TABLE review_preview_files (
   preview_session_id TEXT NOT NULL REFERENCES review_preview_sessions(id),
-  role TEXT NOT NULL CHECK(role IN ('PARENT','BIOS_BUNDLE','EXTERNAL_FILE','DISC','PROJECT_FILE')),
+  role TEXT NOT NULL CHECK(role IN ('PARENT','BIOS_BUNDLE','EXTERNAL_FILE','DISC','PROJECT_FILE','RUNTIME_FILE')),
   logical_name TEXT NOT NULL CHECK(
     length(CAST(logical_name AS BLOB)) BETWEEN 1 AND 1024 AND
     logical_name NOT LIKE '%\%' AND logical_name NOT IN ('.','..') AND
     instr(logical_name,char(0))=0 AND
-    (role='PROJECT_FILE' OR logical_name NOT LIKE '%/%')
+    (role IN ('PROJECT_FILE','RUNTIME_FILE') OR logical_name NOT LIKE '%/%')
   ),
   virtual_path TEXT,
   blob_id TEXT NOT NULL REFERENCES blobs(id),
@@ -269,7 +251,7 @@ CREATE TABLE review_preview_files (
   UNIQUE(preview_session_id,virtual_path),
   CHECK(
     (role IN ('PARENT','BIOS_BUNDLE') AND virtual_path IS NULL) OR
-    (role='PROJECT_FILE' AND virtual_path IS NULL) OR
+    (role IN ('PROJECT_FILE','RUNTIME_FILE') AND virtual_path IS NULL) OR
     (role IN ('EXTERNAL_FILE','DISC') AND virtual_path IS NOT NULL AND
       substr(virtual_path,1,1)='/' AND virtual_path NOT LIKE '%\%' AND
       virtual_path NOT LIKE '%?%' AND virtual_path NOT LIKE '%#%' AND
@@ -558,7 +540,6 @@ CREATE TABLE "import_item_core_validations" (
   dependency_snapshot_json TEXT NOT NULL,
   created_at_ms INTEGER NOT NULL CHECK(created_at_ms>=0),
   source_snapshot_id TEXT NOT NULL REFERENCES import_item_source_snapshots(id),
-  UNIQUE(import_item_id,prepublish_input_digest),
   FOREIGN KEY(provider_id,target_id) REFERENCES runtime_targets(provider_id,target_id)
 );
 
@@ -629,60 +610,6 @@ CREATE TABLE "rpgmaker_review_profiles" (
   )
 );
 
-CREATE TABLE "rpgmaker_runtime_validations" (
-  id TEXT PRIMARY KEY,
-  import_item_id TEXT NOT NULL REFERENCES import_items(id),
-  review_version_at_create INTEGER NOT NULL CHECK(review_version_at_create>=1),
-  effective_source_snapshot_id TEXT NOT NULL REFERENCES import_item_source_snapshots(id),
-  project_fingerprint TEXT NOT NULL CHECK(length(project_fingerprint)=64 AND project_fingerprint=lower(project_fingerprint)),
-  generation TEXT NOT NULL CHECK(generation IN (
-    'RPG2000','RPG2003','RPGXP','RPGVX','RPGVXACE','RPGMV','RPGMZ'
-  )),
-  evidence_generation TEXT CHECK(evidence_generation IS NULL OR evidence_generation IN (
-    'RPG2000','RPG2003','RPGXP','RPGVX','RPGVXACE','RPGMV','RPGMZ'
-  )),
-  evidence_confidence TEXT NOT NULL CHECK(evidence_confidence IN ('MATCHED','FAMILY_ONLY')),
-  provider_id TEXT NOT NULL REFERENCES runtime_providers(provider_id),
-  target_id TEXT NOT NULL,
-  dependency_snapshot_sha256 TEXT NOT NULL CHECK(
-    length(dependency_snapshot_sha256)=64 AND dependency_snapshot_sha256=lower(dependency_snapshot_sha256)
-  ),
-  launch_id TEXT UNIQUE REFERENCES launch_sessions(id),
-  restore_launch_id TEXT UNIQUE REFERENCES launch_sessions(id),
-  state TEXT NOT NULL CHECK(state IN (
-    'CREATED','STARTING','RUNNING','CHECKPOINTED','RESTORED','AWAITING_DECISION','PASSED','FAILED','EXPIRED'
-  )),
-  last_gate_sequence INTEGER NOT NULL DEFAULT 0 CHECK(last_gate_sequence>=0),
-  machine_gates_json TEXT NOT NULL CHECK(json_valid(machine_gates_json) AND length(CAST(machine_gates_json AS BLOB))<=262144),
-  evidence_screenshot_blob_id TEXT REFERENCES blobs(id),
-  failure_code TEXT,
-  decision_note TEXT CHECK(
-    decision_note IS NULL OR length(decision_note)<=500 AND length(CAST(decision_note AS BLOB))<=2000
-    AND instr(decision_note,char(0))=0
-  ),
-  decided_by_user_id TEXT REFERENCES users(id),
-  created_at_ms INTEGER NOT NULL CHECK(created_at_ms>=0),
-  updated_at_ms INTEGER NOT NULL CHECK(updated_at_ms>=created_at_ms),
-  expires_at_ms INTEGER NOT NULL,
-  decided_at_ms INTEGER,
-  FOREIGN KEY(provider_id,target_id) REFERENCES runtime_targets(provider_id,target_id),
-  CHECK(expires_at_ms=created_at_ms+900000),
-  CHECK((evidence_confidence='FAMILY_ONLY')=(evidence_generation IS NULL)),
-  CHECK(evidence_generation IS NULL OR evidence_generation=generation),
-  CHECK(launch_id IS NULL OR restore_launch_id IS NULL OR launch_id<>restore_launch_id),
-  CHECK((decision_note IS NULL)=(decided_by_user_id IS NULL) AND (decided_by_user_id IS NULL)=(decided_at_ms IS NULL)),
-  CHECK(decided_by_user_id IS NULL OR state IN ('PASSED','FAILED')),
-  CHECK((state IN ('FAILED','EXPIRED'))=(failure_code IS NOT NULL)),
-  CHECK(state<>'CREATED' OR launch_id IS NULL AND restore_launch_id IS NULL
-    AND last_gate_sequence=0 AND evidence_screenshot_blob_id IS NULL),
-  CHECK(state NOT IN ('STARTING','RUNNING','CHECKPOINTED','RESTORED','AWAITING_DECISION','PASSED')
-    OR launch_id IS NOT NULL),
-  CHECK(state NOT IN ('RESTORED','AWAITING_DECISION','PASSED') OR restore_launch_id IS NOT NULL),
-  CHECK(state<>'PASSED' OR restore_launch_id IS NOT NULL AND evidence_screenshot_blob_id IS NOT NULL
-    AND decided_by_user_id IS NOT NULL AND failure_code IS NULL),
-  CHECK(state<>'FAILED' OR decided_by_user_id IS NULL OR decision_note IS NOT NULL AND length(decision_note)>0)
-);
-
 CREATE TABLE "review_arcade_parent_attachments" (
   id TEXT PRIMARY KEY,
   import_item_id TEXT NOT NULL REFERENCES import_items(id),
@@ -741,10 +668,15 @@ CREATE TABLE "review_preview_sessions" (
   ),
   dependency_snapshot_json TEXT NOT NULL,
   default_dos_entry TEXT,
+  checkpoint_payload_blob_id TEXT REFERENCES blobs(id),
+  checkpoint_format TEXT CHECK(length(checkpoint_format) BETWEEN 1 AND 128),
+  checkpoint_created_at_ms INTEGER CHECK(checkpoint_created_at_ms>=0),
+  restore_from_preview_id TEXT,
+  restore_payload_blob_id TEXT REFERENCES blobs(id),
+  restore_checkpoint_format TEXT CHECK(length(restore_checkpoint_format) BETWEEN 1 AND 128),
   emulator_game_id INTEGER CHECK(emulator_game_id IS NULL OR emulator_game_id>0),
-  capture_allowed INTEGER NOT NULL CHECK(capture_allowed IN (0,1)),
   credential_sha256 BLOB NOT NULL CHECK(length(credential_sha256)=32),
-  state TEXT NOT NULL CHECK(state IN ('CREATED','ACTIVE','EXPIRED','REVOKED')),
+  state TEXT NOT NULL CHECK(state IN ('CREATED','ACTIVE','FINISHED','EXPIRED','REVOKED')),
   bootstrap_expires_at_ms INTEGER NOT NULL CHECK(bootstrap_expires_at_ms>=0),
   hard_expires_at_ms INTEGER NOT NULL CHECK(hard_expires_at_ms>=bootstrap_expires_at_ms),
   activated_at_ms INTEGER,
@@ -755,7 +687,11 @@ CREATE TABLE "review_preview_sessions" (
   UNIQUE(actor_user_id,idempotency_key),
   FOREIGN KEY(provider_id,target_id) REFERENCES runtime_targets(provider_id,target_id),
   CHECK(state!='ACTIVE' OR activated_at_ms IS NOT NULL),
-  CHECK((state IN ('EXPIRED','REVOKED'))=(finished_at_ms IS NOT NULL))
+  CHECK((state IN ('FINISHED','EXPIRED','REVOKED'))=(finished_at_ms IS NOT NULL)),
+  CHECK((checkpoint_payload_blob_id IS NULL)=(checkpoint_format IS NULL)),
+  CHECK((checkpoint_payload_blob_id IS NULL)=(checkpoint_created_at_ms IS NULL)),
+  CHECK((restore_payload_blob_id IS NULL)=(restore_checkpoint_format IS NULL)),
+  CHECK(restore_payload_blob_id IS NULL OR restore_from_preview_id IS NOT NULL)
 );
 
 CREATE TABLE "review_runtime_screenshots" (
@@ -770,7 +706,6 @@ CREATE TABLE "review_runtime_screenshots" (
   media_type TEXT NOT NULL CHECK(media_type IN ('image/png','image/jpeg')),
   width_px INTEGER NOT NULL CHECK(width_px BETWEEN 1 AND 40000000),
   height_px INTEGER NOT NULL CHECK(height_px BETWEEN 1 AND 40000000),
-  captured_after_ms INTEGER NOT NULL CHECK(captured_after_ms=5000),
   captured_at_ms INTEGER NOT NULL CHECK(captured_at_ms>=0),
   created_at_ms INTEGER NOT NULL CHECK(created_at_ms>=0),
   updated_at_ms INTEGER NOT NULL CHECK(updated_at_ms>=0),

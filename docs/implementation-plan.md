@@ -48,7 +48,7 @@ flowchart LR
 - 上传 bytes 必须先安全落入临时区/CAS，随后任务只引用 Blob/ArchiveEntry；worker 不接收浏览器路径或内存中的大文件对象。
 - Arcade 识别必须在目标 Provider Target 的 DAT 可用后进行；Hasheous 只生成展示候选，不能替代 DAT 或阻断无候选的审核。
 - Launch 只能引用已提交的 READY GameVariant、Provider Target declaration 和依赖快照；Player 不自行选择 Core、Target、DAT、BIOS、内容或 URL。
-- RPG Maker 发布前必须冻结虚拟 Core、检测世代、稳定 Provider Target、项目 fingerprint、来源快照和依赖摘要，并由管理员主动创建真实 runtime-validation Launch。发布后 Launch 不重探测、不 fallback；checkpoint 是否可恢复只由当前 Target 的 `readFormats` 与存档 format 裁决。
+- RPG Maker 发布前检查虚拟 Core、检测世代、稳定 Provider Target、项目 fingerprint、来源快照和真实依赖；管理员按需使用普通 Player 试运行，发布不要求额外证明记录。发布后 Launch 不重探测、不 fallback；checkpoint 是否可恢复只由当前 Target 的 `readFormats` 与存档 format 裁决。
 - 依赖准备发生在 `make dev`/镜像 builder 前置阶段；同步启动只校验依赖字节并登记缺失的 DAT_PARSE Job，Worker 可从已校验的只读本地 payload 建索引，但任何进程都不能为方便实现而加入运行期下载。
 
 ## 3. Clean migration 落地顺序
@@ -60,10 +60,10 @@ flowchart LR
 3. `003_storage_jobs.sql`：Blob、Job/Event/Input、幂等、审计与 GC；
 4. `004_upload_archive.sql`：上传、归档与当前 consumer 闭集；
 5. `005_dependencies.sql`：按 Provider Target 绑定的 BIOS、release-managed DAT 与 RPG runtime asset pack；
-6. `006_import_review.sql`：导入、Provider Target 来源快照、验证、审核、Preview、RPG runtime validation 与快速审批；
+6. `006_import_review.sql`：导入、Provider Target 来源快照、验证、审核、Preview/临时 checkpoint 与快速审批；
 7. `007_library.sql`：Game/GameFiles/GameVariant 当前态、Provider Target binding、RPG 内容 profile、media/tag/favorite；
 8. `008_server_import.sql`：Pegasus 与 EmulationStation 当前 review-handoff 模型；
-9. `009_runtime.sql`：PRODUCT/RPG_RUNTIME_VALIDATION Launch、PlaySession、opaque checkpoint、隔离 runtime ticket/capability 与 Netplay；
+9. `009_runtime.sql`：PRODUCT Launch、PlaySession、opaque checkpoint、隔离 runtime ticket/capability 与 Netplay；
 10. `010_cross_domain_invariants.sql`：只能在全部 owner table 存在后建立的 Provider/Target/profile/pack/checkpoint/Launch 索引和 trigger。
 
 循环 current state 使用数据模型规定的 deferred FK；所有 migration 始终保持 `foreign_keys=ON`，建库后执行 `foreign_key_check` 与 schema introspection。每条 migration 都在事务中应用并记录 name/checksum；运行时代码不按 migration 数字分支，不在业务请求中关闭外键、回填数据或动态修补 schema。
@@ -228,9 +228,9 @@ OpenAPI、后端、集成、前端、结构、公开 fixture、data/dependency�
 1. 删除旧 manifest reader、归一化 fallback、revision 目录和审核算法代际；只保留当前公开 schema、内容摘要、真实业务版本及会话冻结证据。
 2. 将平台、核心、内容分类与资源包定义从 migrations 移入现有 Host catalog；启动先验证全部声明和受限策略，再用一个事务同步产品定义、Provider/Target、关联、摘要与审计。禁止覆盖用户目录配置或级联删除被引用产品定义。
 3. 上传目的采用 `GENERAL/PROJECT/RUNTIME_ASSET_PACK`，文件/目录/压缩包统一归一化；资源包安装按声明身份选择已有布局策略，不以新增引擎枚举扩展 DDL。
-4. 审核有效性只比较来源、Core/Target、DAT、依赖和相关规则；普通展示编辑及无关 Provider 变化不失效。静态/Arcade 依赖使用明确类型，Launch options 使用有界策略；终态审核释放临时 checkpoint，升级保护用户存档及仍可恢复的审核。
+4. 审核有效性只比较来源、Core/Target、DAT、依赖和相关规则；普通展示编辑及无关 Provider 变化不失效。静态/Arcade 依赖使用明确类型，Launch options 使用有界策略；审核临时 checkpoint 按会话期限或 payload 生命周期释放，不参与升级门槛，升级只保护持久用户存档。
 5. 红—绿测试先证明上述旧行为，再实现；最终 schema 确定后只重建指定 PFB 的数据根。随后在同一份已含游戏、审核、配置和存档的数据库上验证核心/Target、接入及资源包扩展，记录 schema/migration 指纹、原 ID/数据与外键检查，不再通过清库绕过失败。
-6. 执行真实 ZIP/目录、Pegasus/gamelist 导入及各核心生命周期回归，明确区分用户样本、公开 fixture 与未覆盖项。完整自验后才提交并推送功能分支，保持最终 PFB 运行供二次验收；不提前创建 PR、合入 master 或打 tag。
+6. 执行真实 ZIP/目录、Pegasus/gamelist 导入及各核心生命周期回归，明确区分用户样本、公开 fixture 与未覆盖项。工程检查通过后可保留功能/修复开发提交，使真实验收绑定精确源码；完整自验后再推送功能分支，保持最终 PFB 运行供二次验收；不提前创建 PR、合入 master 或打 tag。
 7. Provider Module 是唯一公开运行入口，直接组织核心私有参数和 adapter；删除原 RuntimeConfig/GameRuntime API、通用转换/工厂和内层 controller。只保留一套核心生命周期状态、操作队列、事件和退出清理；Host 的页面、iframe、会话职责保持独立。通过启动取消、暂停恢复、存档中退出、核心主动退出和失败清理证明行为，而非只检索命名。
 8. Provider 创建入口验证外部 Envelope/Host，内部使用明确类型，不反复验证同一对象，不新增可信标记协议；移除无实际用途的独立预检入口并同步唯一 ABI 的真实消费者。下载文件、归档、跨 origin 消息等信任边界继续校验。
 9. Host binding 只选择接入策略及产品允许子集；delivery/review/options 等固定事实从现有策略派生。内容格式、项目分类和相同能力判断各保留唯一来源，调用方直接复用；保留各自独立的产品策略，不引入反射、动态 DSL 或额外注册中心。现有数据库投影可保留派生字段，不为声明去重重新清库。

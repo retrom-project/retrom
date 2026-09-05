@@ -117,7 +117,7 @@ function envelope(): LaunchEnvelopeV1 {
       bundleSha256: "b".repeat(64), capabilities: {
         checkpoint: true, frameCounter: false, frameMode: "SAME_ORIGIN_BLANK", pause: true,
         discSwitch: false, inputFilter: false, nativeSettings: false, netplayPort: false,
-        requiresThreads: false, screenshot: true, standardGamepad: true, validationProbes: [],
+        requiresThreads: false, screenshot: true, standardGamepad: true,
         videoModes: [], volume: true,
       }, checkpoint: {maxBytes: 1024, readFormats: ["fixture-v1"], writeFormat: "fixture-v1"},
       moduleSha256: "a".repeat(64), moduleUrl: `/runtime/providers/fixture/${"b".repeat(64)}/client.mjs`,
@@ -127,6 +127,6 @@ function envelope(): LaunchEnvelopeV1 {
     },
     session: {coreName: "Fixture Core", id: "018f0f31-26fe-7a31-9d61-4ec92f16d4c3", mode: "SINGLE", platformName: "Fixture",
       purpose: "PRODUCT", returnTo: "/games/fixture", title: "Fixture", warnings: []},
-    targetOptions: {}, validation: null,
+    targetOptions: {},
   };
 }

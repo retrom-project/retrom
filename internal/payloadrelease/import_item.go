@@ -123,7 +123,7 @@ WHERE released_at_ms IS NULL AND (
 	}
 	if _, err := transaction.ExecContext(ctx, `
 UPDATE review_preview_sessions SET state='REVOKED',finished_at_ms=COALESCE(finished_at_ms,?),
-updated_at_ms=?,version=version+1 WHERE import_item_id=? AND state IN ('CREATED','ACTIVE')
+updated_at_ms=?,version=version+1 WHERE import_item_id=? AND state IN ('CREATED','ACTIVE','FINISHED')
 `, now, now, itemID); err != nil {
 		return fmt.Errorf("payloadrelease/revoke review preview: %w", err)
 	}

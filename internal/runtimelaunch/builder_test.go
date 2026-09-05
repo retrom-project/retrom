@@ -90,7 +90,7 @@ func fixtureBuilder(t *testing.T) (*Builder, runtimecatalog.Binding) {
 			"properties": map[string]any{}, "required": []any{},
 		},
 		Inputs:       []runtimebundle.Input{{Role: "game", Kind: "ROM_BLOB", Cardinality: "ONE"}},
-		Capabilities: runtimebundle.Capabilities{Checkpoint: true, FrameMode: "NONE", VideoModes: []string{}, ValidationProbes: []string{}},
+		Capabilities: runtimebundle.Capabilities{Checkpoint: true, FrameMode: "NONE", VideoModes: []string{}},
 		Checkpoint:   checkpoint, AssetPaths: []string{"client.mjs"},
 	}
 	manifest := runtimebundle.Manifest{
