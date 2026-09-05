@@ -20,6 +20,9 @@ export async function waitForPreviewReady(page) {
       page.getByRole("status").filter({hasText: "可创建存档"}).waitFor({state: "attached", timeout: 300_000}),
       runtimeFailure.waitFor({state: "visible", timeout: 300_000}).then(() => {throw new Error("runtime failed");}),
       fatalError.then(() => {throw new Error("page error");}),
+      page.waitForResponse((response) => response.request().method() === "POST" &&
+        /^\/runtime\/launches\/[^/]+\/finish$/.test(new URL(response.url()).pathname), {timeout: 300_000})
+        .then(() => {throw new Error("session finished during mount");}),
     ]);
   } catch {
     await Promise.allSettled(page.__retromExceptionTasks ?? []);
