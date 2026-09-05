@@ -79,7 +79,7 @@ def provisioning_evidence(plan: dict[str, Any]) -> dict[str, Any]:
         "schemaVersion", "caseId", "status", "generatorInputIdentity", "planIdentity", "counts", "repository",
         "populationPreservation",
     }
-    if set(evidence) != expected_keys or evidence.get("schemaVersion") != 1 or \
+    if set(evidence) not in (expected_keys, expected_keys | {"resume"}) or evidence.get("schemaVersion") != 1 or \
             evidence.get("caseId") != "ACC-RPG-009" or evidence.get("status") != "PROVISIONED":
         raise InspectError("RPG_ACCEPTANCE_PACK_PROVISION_EVIDENCE_INVALID")
     plan_identity = evidence.get("planIdentity")
@@ -111,6 +111,9 @@ def provisioning_evidence(plan: dict[str, Any]) -> dict[str, Any]:
         raise InspectError("RPG_ACCEPTANCE_PACK_PROVISION_COUNTS_INVALID")
     validate_repository_provenance(evidence.get("repository"))
     validate_population_preservation(evidence.get("populationPreservation"))
+    if "resume" in evidence:
+        validate_resume_evidence(evidence["resume"], inputs, plan["protectedReferences"], plan["reviewIds"],
+                                 evidence["populationPreservation"]["before"])
     stack = [evidence]
     while stack:
         item = stack.pop()
@@ -144,6 +147,38 @@ def validate_population_preservation(value: Any) -> None:
             identifiers.append(row["id"])
         if identifiers != sorted(set(identifiers)):
             raise InspectError(invalid)
+
+
+def validate_resume_evidence(resume: Any, inputs: dict, references: dict, review_ids: dict, baseline: dict) -> None:
+    invalid = "RPG_ACCEPTANCE_PACK_RESUME_EVIDENCE_INVALID"
+    roles = {"publishedVariant", "restorableCheckpoint"}
+    if not isinstance(resume, dict) or set(resume) != {
+        "schemaVersion", "mode", "capturedAtMs", "installations", "review",
+    } or resume["schemaVersion"] != 1 or resume["mode"] != "EXPLICIT_PROTECTED_PREVIEW" or \
+            type(resume["capturedAtMs"]) is not int or resume["capturedAtMs"] <= 0 or \
+            not isinstance(resume["installations"], dict) or set(resume["installations"]) != roles:
+        raise InspectError(invalid)
+    identifiers = []
+    for role in sorted(roles):
+        row = resume["installations"][role]
+        if not isinstance(row, dict) or set(row) != {"installationId", "filesDigest", "sourceSha256"} or \
+                row["installationId"] != references[role]["installationId"] or \
+                not UUID.fullmatch(str(row["installationId"])) or not SHA256.fullmatch(str(row["filesDigest"])) or \
+                row["sourceSha256"] != inputs["protectedPackInputs"][role].get("sourceSha256"):
+            raise InspectError(invalid)
+        identifiers.append(row["installationId"])
+    review = resume["review"]
+    if not isinstance(review, dict) or set(review) != {"itemId", "version", "sourceSha256", "populationRow"} or \
+            type(review["version"]) is not int or review["version"] < 1 or \
+            not UUID.fullmatch(str(review["itemId"])) or \
+            review["sourceSha256"] != inputs["protectedProjects"]["publishedVariant"].get("sourceSha256") or \
+            review["itemId"] in review_ids.values() or \
+            any(review["itemId"] == row["id"] for rows in baseline.values() for row in rows):
+        raise InspectError(invalid)
+    row = review["populationRow"]
+    if not isinstance(row, dict) or set(row) != {"id", "sha256"} or row["id"] != review["itemId"] or \
+            not SHA256.fullmatch(str(row["sha256"])) or len(set(identifiers + [review["itemId"]])) != 3:
+        raise InspectError(invalid)
 
 
 def open_read_only(path: Path) -> sqlite3.Connection:
@@ -500,6 +535,10 @@ def inspect(database: Path, plan: dict[str, Any], observed: dict[str, Any], time
         upload_evidence["zeroReference"]["consumptionReleasedAtMs"] = zero["releasedAtMs"]
         upload_evidence["zeroReference"]["consumptionReleaseReason"] = zero["releaseReason"]
         provision = provisioning_evidence(plan)
+        if "resume" in provision["payload"]:
+            for role, row in provision["payload"]["resume"]["installations"].items():
+                if row["filesDigest"] != protected[role]["filesDigest"]:
+                    raise InspectError("RPG_ACCEPTANCE_PACK_RESUME_EVIDENCE_INVALID")
         validate_population_preservation(observed.get("populationPreservation"))
         if observed["populationPreservation"] != provision["payload"]["populationPreservation"]:
             raise InspectError("RPG_ACCEPTANCE_PACK_POPULATION_PRESERVATION_INVALID")

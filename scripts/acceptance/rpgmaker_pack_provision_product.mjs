@@ -225,10 +225,10 @@ export async function assertProvisionedState(client, protectedReferences, review
 
 function assertFinalReference(catalog, reference) {
   const row = catalog.installations.find((item) => item.installationId === reference.installationId);
-  if (!row || row.status !== "READY" || row.references?.variantCount < 1) {
+  if (!row || row.status !== "READY" || !Number.isSafeInteger(row.references?.gameCount) || row.references.gameCount < 1) {
     throw new Error("RPG_009_PROVISION_PROTECTED_REFERENCE_INVALID");
   }
-  if (reference.saveStateId && row.references.checkpointCount < 1) {
+  if (reference.saveStateId && (!Number.isSafeInteger(row.references.checkpointCount) || row.references.checkpointCount < 1)) {
     throw new Error("RPG_009_PROVISION_CHECKPOINT_REFERENCE_INVALID");
   }
 }

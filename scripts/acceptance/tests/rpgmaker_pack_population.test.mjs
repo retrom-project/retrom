@@ -25,7 +25,7 @@ function fixture() {
     rows.saves.push({saveStateId: "new-save"});
     rows.reviews.push(...Object.values(reviews).map((itemId) => ({itemId, reviewVersion: 1})));
     rows.installations.push(...["pack-xp", "pack-vx"].map((installationId) =>
-      ({installationId, status: "READY", references: {variantCount: 1, checkpointCount: 1}})));
+      ({installationId, status: "READY", references: {gameCount: 1, checkpointCount: 1}})));
   }
   return {rows, client, references, reviews, append};
 }

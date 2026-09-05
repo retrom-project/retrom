@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import {approveReview, rpgPlatformInstances} from "../rpgmaker_pack_provision_product.mjs";
+import {approveReview, assertProvisionedState, rpgPlatformInstances} from "../rpgmaker_pack_provision_product.mjs";
 import {reviewRoles} from "../rpgmaker_pack_provision_plan.mjs";
 
 const targetIds = [...new Set(Object.values(reviewRoles).map((identity) => identity[0]))];
@@ -34,5 +34,25 @@ test("blocked or stale dependency never reaches publication", async () => {
   for (const validation of [{current: false, status: "READY"}, {current: true, status: "BLOCKED"}]) {
     const client = {async json() {return {canApprove: true, validation};}, raw() {assert.fail("must not publish");}};
     await assert.rejects(approveReview(client, "review"), /APPROVAL_VALIDATION_INVALID/);
+  }
+});
+
+test("protected pack evidence requires the actual gameCount and checkpointCount fields", async () => {
+  const references = {publishedVariant: {installationId: "xp", gameId: "game-xp"},
+    restorableCheckpoint: {installationId: "vx", gameId: "game-vx", saveStateId: "save-vx"}};
+  const reviewIds = Object.fromEntries(Array.from({length: 13}, (_, index) => [`role-${index}`, `review-${index}`]));
+  const baseline = {games: [], saves: [], reviews: []};
+  const client = (gameCount, checkpointCount) => ({async json(_method, route) {
+    if (route.includes("runtime-asset-packs")) {
+      return {installations: ["xp", "vx"].map((installationId) => ({installationId, status: "READY",
+        references: {gameCount, checkpointCount}}))};
+    }
+    if (route.includes("/games?")) {return {items: ["game-xp", "game-vx"].map((gameId) => ({gameId})), nextCursor: null};}
+    if (route.includes("/saves?")) {return {items: [{saveStateId: "save-vx"}], nextCursor: null};}
+    return {items: Object.values(reviewIds).map((itemId) => ({itemId})), nextCursor: null};
+  }});
+  await assertProvisionedState(client(1, 1), references, reviewIds, baseline);
+  for (const [games, checkpoints] of [[0, 1], [undefined, 1], [1, undefined], [1, 0]]) {
+    await assert.rejects(assertProvisionedState(client(games, checkpoints), references, reviewIds, baseline), /REFERENCE_INVALID/);
   }
 });

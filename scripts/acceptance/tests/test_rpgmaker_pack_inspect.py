@@ -20,6 +20,29 @@ inspector = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(inspector)
 
 
+class PackResumeEvidenceTests(unittest.TestCase):
+    def test_resume_links_only_approved_inputs_and_excludes_only_the_owned_review(self) -> None:
+        roles = ["publishedVariant", "restorableCheckpoint"]
+        references = {role: {"installationId": pack_uuid(index + 1)} for index, role in enumerate(roles)}
+        inputs = {"protectedPackInputs": {role: {"sourceSha256": "a" * 64} for role in roles},
+                  "protectedProjects": {"publishedVariant": {"sourceSha256": "b" * 64}}}
+        resume = {"schemaVersion": 1, "mode": "EXPLICIT_PROTECTED_PREVIEW", "capturedAtMs": 1788610000000,
+                  "installations": {role: {**references[role], "filesDigest": "c" * 64,
+                                           "sourceSha256": "a" * 64} for role in roles},
+                  "review": {"itemId": pack_uuid(3), "version": 2, "sourceSha256": "b" * 64,
+                             "populationRow": {"id": pack_uuid(3), "sha256": "d" * 64}}}
+        baseline = {"games": [], "saves": [], "reviews": []}
+        inspector.validate_resume_evidence(resume, inputs, references, {}, baseline)
+        for field, changed in [("sourceSha256", "e" * 64), ("itemId", pack_uuid(1)), ("version", 0)]:
+            mutated = json.loads(json.dumps(resume))
+            mutated["review"][field] = changed
+            with self.assertRaisesRegex(inspector.InspectError, "RESUME_EVIDENCE_INVALID"):
+                inspector.validate_resume_evidence(mutated, inputs, references, {}, baseline)
+        baseline["reviews"] = [resume["review"]["populationRow"]]
+        with self.assertRaisesRegex(inspector.InspectError, "RESUME_EVIDENCE_INVALID"):
+            inspector.validate_resume_evidence(resume, inputs, references, {}, baseline)
+
+
 SCHEMA = """
 CREATE TABLE upload_sessions(id TEXT,purpose TEXT,state TEXT,source_type TEXT,total_files INTEGER,total_bytes INTEGER,finalize_job_id TEXT);
 CREATE TABLE upload_consumptions(id TEXT,upload_session_id TEXT,consumer_type TEXT,consumer_id TEXT,released_at_ms INTEGER,release_reason TEXT);
