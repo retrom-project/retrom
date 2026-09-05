@@ -29,6 +29,8 @@
 
 上传用途统一描述普通导入、项目导入或资源包安装，不用每个引擎名称扩展 DDL。文件、目录与压缩包事实保持明确；普通 ZIP 和目录归一化后进入同一检测与导入链路。策略是显式注册的普通代码，不建立动态插件执行或万能 JSON/EAV 数据库。
 
+Binding 只选择接入策略、产品允许的内容子集和独立的启用策略；固定 delivery、review 和 options 行为从 `runtimecatalog` 的同一策略派生，不能在 JSON binding 中重复声明后再比较是否相等。现有数据库列是派生投影，不是第二份声明权威。
+
 Launch options 按声明绑定的明确接入策略一次组装，再接受 Provider 的闭合 schema 校验；不得在多个无关入口逐一猜测未知属性，更不能把不支持的配置伪装成认证错误。依赖快照中的静态 BIOS/多盘与 Arcade 是不同业务类型，使用明确 discriminator，不以 v1/v2 伪装历史兼容链。
 
 ## 2. 当前态与冻结态
@@ -49,7 +51,9 @@ Launch options 按声明绑定的明确接入策略一次组装，再接受 Prov
 - `targetOptions` 是由当前 Target 的闭合 `targetOptionsSchema` 校验后的 Provider 私有配置；
 - `restore`、`validation`、`netplay` 分别是可空的标准恢复、验证和联机输入。
 
-Go 在签发前验证 envelope 和 Target options；dispatcher 验证 JSON 边界、模块 URL、模块摘要、Provider 身份与 API 版本；Provider Module 再按自身 manifest 校验 Target options 后执行 `mount(envelope)`。任一身份、摘要、schema、资源或能力不一致都 fail closed。
+Go 在签发前验证 envelope 和 Target options；dispatcher 验证 JSON 边界、模块 URL、模块摘要、Provider 身份与 API 版本，然后只调用 `createRuntime(envelope, host)`。Provider 创建入口按自身声明验证外部 Envelope 与 Host，直接构造核心私有的最小类型参数，不再提供单独预检，也不在内部重复验证相同 Envelope 或转换后的通用 config。下载文件、解码 checkpoint、跨 origin 消息仍在各自信任边界校验；任一身份、摘要、schema、资源或能力不一致都 fail closed。
+
+Provider 是核心生命周期的唯一所有者，不包装第二个 controller。公开状态为 `CREATED/MOUNTING/RUNNING/PAUSED/CHECKPOINTING/EXITING/EXITED/FAILED`；暂停、恢复、checkpoint 和控制操作共用一个队列，退出可抢占排队及进行中的操作。启动在 restore、frame 和 core 等异步边界后检查取消，晚到的核心只清理、不重新进入 RUNNING。核心主动退出只发出一次公共退出事件；失败保持 FAILED 终态，退出清理幂等。Host 继续独立负责页面导航、iframe 与授权会话，不承担核心内部状态转换。
 
 ## 4. Provider dispatcher 与渲染隔离
 

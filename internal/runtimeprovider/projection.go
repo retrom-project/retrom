@@ -685,12 +685,16 @@ func writeHostBindings(
 }
 
 func writeHostBinding(ctx context.Context, transaction *sql.Tx, binding runtimecatalog.Binding) error {
+	strategy, registered := runtimecatalog.Strategy(binding.DetectorProfile)
+	if !registered {
+		return runtimecatalog.ErrCatalogInvalid
+	}
 	_, err := transaction.ExecContext(ctx, `
 INSERT INTO runtime_target_bindings(
  binding_id,core_id,provider_id,target_id,detector_profile,delivery_profile,launch_policy,review_policy
 ) VALUES(?,?,?,?,?,?,?,?)
 `, binding.ID, binding.CoreID, binding.ProviderID, binding.TargetID, binding.DetectorProfile,
-		binding.DeliveryProfile, binding.LaunchPolicy, binding.ReviewPolicy)
+		strategy.Delivery, binding.LaunchPolicy, strategy.Review)
 	if err != nil {
 		return fmt.Errorf("reconcile runtime providers: write host binding: %w", err)
 	}

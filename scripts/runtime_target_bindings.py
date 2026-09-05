@@ -10,14 +10,13 @@ from typing import Any
 ROOT_KEYS = {"schemaVersion", "bindings", "definitions"}
 BINDING_KEYS = {
     "id", "coreId", "providerId", "targetId", "platformIds", "acceptedContentKinds",
-    "detectorProfile", "deliveryProfile", "launchPolicy", "reviewPolicy",
+    "detectorProfile", "launchPolicy",
 }
 KEBAB = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 IDENTIFIER = re.compile(r"^[a-z0-9]+(?:[_-][a-z0-9]+)*$")
 PROFILE = re.compile(r"^[A-Z][A-Z0-9_]{1,63}$")
 VERSIONED_SEMANTIC = re.compile(r"_V[0-9]+$")
 LAUNCH_POLICIES = {"SUPPORTED", "EXPERIMENTAL", "DISABLED"}
-REVIEW_POLICIES = {"NONE", "RPG_RUNTIME_VALIDATION"}
 
 
 def load_runtime_target_bindings(path: Path) -> dict[str, Any]:
@@ -52,12 +51,10 @@ def validate_runtime_target_bindings(value: Any) -> None:
         platform_ids = _string_set(binding["platformIds"], IDENTIFIER)
         content_kinds = _string_set(binding["acceptedContentKinds"], PROFILE)
         detector_profile = _matched(binding["detectorProfile"], PROFILE)
-        delivery_profile = _matched(binding["deliveryProfile"], PROFILE)
-        if binding["launchPolicy"] not in LAUNCH_POLICIES or binding["reviewPolicy"] not in REVIEW_POLICIES:
+        if binding["launchPolicy"] not in LAUNCH_POLICIES:
             _invalid()
         if any(VERSIONED_SEMANTIC.search(item) for item in (
-            *content_kinds, detector_profile, delivery_profile,
-            binding["launchPolicy"], binding["reviewPolicy"],
+            *content_kinds, detector_profile, binding["launchPolicy"],
         )):
             _invalid()
         identities.append((provider_id, target_id))

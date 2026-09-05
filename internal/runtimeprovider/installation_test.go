@@ -260,8 +260,8 @@ func writeInstallationFixture(t *testing.T, root string) installationFixture {
 		"bindings": []map[string]any{{
 			"id": "fixture", "coreId": "fixture", "providerId": "fixture", "targetId": "fixture",
 			"platformIds": []string{"fixture"}, "acceptedContentKinds": []string{"SINGLE_FILE"},
-			"detectorProfile": "WASM4_CART", "deliveryProfile": "ROM_BLOB",
-			"launchPolicy": "SUPPORTED", "reviewPolicy": "NONE",
+			"detectorProfile": "WASM4_CART",
+			"launchPolicy":    "SUPPORTED",
 		}},
 	})
 	return installationFixture{

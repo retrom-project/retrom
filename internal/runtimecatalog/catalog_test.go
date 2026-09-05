@@ -46,7 +46,7 @@ func TestCatalogRejectsUnregisteredHostStrategies(t *testing.T) {
 	}
 	for _, replacement := range []struct{ from, to string }{
 		{`"detectorProfile": "EMULATORJS_SINGLE_FILE"`, `"detectorProfile": "UNKNOWN_DETECTOR"`},
-		{`"deliveryProfile": "EMULATORJS_CONTENT"`, `"deliveryProfile": "UNKNOWN_DELIVERY"`},
+		{`"detectorProfile": "EMULATORJS_SINGLE_FILE"`, `"detectorProfile": "EMULATORJS_SINGLE_FILE", "deliveryProfile": "EMULATORJS_CONTENT"`},
 		{`"requiredLayoutVersion": "mkxpz-v1"`, `"requiredLayoutVersion": "unknown-layout"`},
 	} {
 		changed := strings.Replace(string(contents), replacement.from, replacement.to, 1)

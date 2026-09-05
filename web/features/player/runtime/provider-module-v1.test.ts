@@ -7,14 +7,12 @@ describe("Provider Module V1 dispatcher", () => {
   it("loads only the exact module URL and verifies exported identity before creation", async () => {
     const envelope = fixtureEnvelope();
     const runtime = fixtureRuntime();
-    const validateLaunchRequest = vi.fn((value) => value);
     const createRuntime = vi.fn(async () => runtime);
     const importer = vi.fn(async () => ({
       createRuntime,
       providerApiVersion: 1,
       providerId: "fixture",
       providerVersion: "1.0.0",
-      validateLaunchRequest,
     }));
     const host = fixtureHost();
     const environment = verifiedEnvironment(envelope);
@@ -24,7 +22,7 @@ describe("Provider Module V1 dispatcher", () => {
     });
     expect(importer).toHaveBeenCalledWith("blob:retrom-provider");
     expect(environment.revokeModuleUrl).toHaveBeenCalledWith("blob:retrom-provider");
-    expect(validateLaunchRequest).toHaveBeenCalledWith(envelope);
+    expect(createRuntime).toHaveBeenCalledOnce();
     expect(createRuntime).toHaveBeenCalledWith(envelope, host);
   });
 
@@ -45,7 +43,6 @@ describe("Provider Module V1 dispatcher", () => {
         providerApiVersion: 1,
         providerId: "fixture",
         providerVersion: "1.0.0",
-        validateLaunchRequest: vi.fn((value) => value),
       }), {
         createModuleUrl: vi.fn(() => "blob:retrom-provider"),
         crossOriginIsolated: true,
@@ -65,7 +62,6 @@ describe("Provider Module V1 dispatcher", () => {
       providerApiVersion: 1,
       providerId: "other",
       providerVersion: "1.0.0",
-      validateLaunchRequest: vi.fn((value) => value),
     };
     await expect(loadProviderRuntime(envelope, fixtureHost(), async () => base, verifiedEnvironment(envelope)))
       .rejects.toThrow("PLAYER_PROVIDER_MODULE_INVALID");
@@ -89,7 +85,7 @@ describe("Provider Module V1 dispatcher", () => {
     const envelope = fixtureEnvelope();
     const providerModule = (runtime: PlayerRuntimeV1) => ({
       createRuntime: vi.fn(async () => runtime), providerApiVersion: 1 as const, providerId: "fixture",
-      providerVersion: "1.0.0", validateLaunchRequest: vi.fn(() => envelope),
+      providerVersion: "1.0.0",
     });
     const wrongState = fixtureRuntime();
     wrongState.getState = () => "RUNNING";
@@ -129,15 +125,15 @@ describe("Provider Module V1 dispatcher", () => {
   it("leaves exact targetOptions validation to the Provider module", async () => {
     const envelope = fixtureEnvelope();
     Object.assign(envelope.targetOptions, {providerOwnedOption: true});
-    const validateLaunchRequest = vi.fn(() => {throw new Error("PROVIDER_LAUNCH_REQUEST_INVALID");});
+    const createRuntime = vi.fn(async () => {throw new Error("PROVIDER_LAUNCH_REQUEST_INVALID");});
     const importer = vi.fn(async () => ({
-      createRuntime: vi.fn(), providerApiVersion: 1, providerId: "fixture",
-      providerVersion: "1.0.0", validateLaunchRequest,
+      createRuntime, providerApiVersion: 1, providerId: "fixture",
+      providerVersion: "1.0.0",
     }));
     await expect(loadProviderRuntime(envelope, fixtureHost(), importer, verifiedEnvironment(envelope)))
       .rejects.toThrow("PROVIDER_LAUNCH_REQUEST_INVALID");
     expect(importer).toHaveBeenCalledOnce();
-    expect(validateLaunchRequest).toHaveBeenCalledWith(envelope);
+    expect(createRuntime).toHaveBeenCalledWith(envelope, expect.any(Object));
   });
 
   it("rejects oversized, mislabeled and digest-mismatched module bytes before import", async () => {

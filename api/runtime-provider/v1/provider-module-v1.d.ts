@@ -2,7 +2,8 @@ export type ProviderApiVersionV1 = 1;
 
 export type RuntimePurposeV1 = "PRODUCT" | "REVIEW_PREVIEW" | "RUNTIME_VALIDATION";
 export type RuntimeModeV1 = "SINGLE" | "NETPLAY";
-export type RuntimeStateV1 = "CREATED" | "MOUNTING" | "RUNNING" | "PAUSED" | "EXITED" | "FAILED";
+export type RuntimeStateV1 = "CREATED" | "MOUNTING" | "RUNNING" | "PAUSED" |
+  "CHECKPOINTING" | "EXITING" | "EXITED" | "FAILED";
 export type RuntimeFrameModeV1 =
   | "NONE"
   | "SAME_ORIGIN_BLANK"
@@ -215,6 +216,5 @@ export interface ProviderModuleV1 {
   providerId: string;
   providerVersion: string;
   providerApiVersion: 1;
-  validateLaunchRequest(value: unknown): ProviderLaunchRequestV1;
-  createRuntime(request: ProviderLaunchRequestV1, host: RuntimeHostV1): Promise<PlayerRuntimeV1>;
+  createRuntime(request: unknown, host: RuntimeHostV1): Promise<PlayerRuntimeV1>;
 }

@@ -44,7 +44,7 @@ func Strategy(detector string) (HostStrategy, bool) {
 
 func validStrategy(binding Binding) bool {
 	strategy, registered := Strategy(binding.DetectorProfile)
-	if !registered || strategy.Delivery != binding.DeliveryProfile || strategy.Review != binding.ReviewPolicy {
+	if !registered {
 		return false
 	}
 	for _, kind := range binding.AcceptedContentKinds {
