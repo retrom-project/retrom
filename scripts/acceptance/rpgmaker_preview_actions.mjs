@@ -100,9 +100,12 @@ export async function capturePreviewCheckpoint(page, previewId) {
 async function captureObservedCheckpoint(page, previewId, observation) {
   const startedAtMs = Date.now();
   const requestTask = page.waitForRequest((request) => request.method() === "POST" &&
-    new URL(request.url()).pathname === "/runtime/launches/" + previewId + "/save-states", {timeout: 300_000});
+    new URL(request.url()).pathname === "/runtime/launches/" + previewId + "/save-states", {timeout: 300_000})
+    .then((request) => ({request}), (error) => ({error}));
   await page.getByRole("button", {name: "创建存档", exact: true}).click();
-  const request = await requestTask;
+  const observedRequest = await requestTask;
+  if (observedRequest.error) {throw observedRequest.error;}
+  const {request} = observedRequest;
   const response = await request.response();
   if (!response) {throw new Error("RPG_PREVIEW_CHECKPOINT_RESPONSE_MISSING");}
   const receipt = await response.json();

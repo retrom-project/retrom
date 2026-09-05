@@ -1,7 +1,30 @@
 import assert from "node:assert/strict";
 import {createHash} from "node:crypto";
 import test from "node:test";
-import {advanceFixture, inspectPreviewCheckpoint, observeOwnedFixture, observePreviewFrames, resumePreview, waitForPreviewReady} from "./rpgmaker_preview_actions.mjs";
+import {advanceFixture, capturePreviewCheckpoint, inspectPreviewCheckpoint, observeOwnedFixture, observePreviewFrames, resumePreview, waitForPreviewReady} from "./rpgmaker_preview_actions.mjs";
+
+test("checkpoint request rejection is observed before clicking so cleanup cannot hide the UI failure", async () => {
+  let observedRejection = false;
+  let detached = false;
+  const session = {on() {}, send: async () => {}, detach: async () => {detached = true;}};
+  const page = {
+    context: () => ({newCDPSession: async () => session}),
+    url: () => "http://example.test/play/preview-1",
+    locator: () => ({evaluate: async () => true, waitFor: async () => {}}),
+    waitForRequest: () => ({
+      then(_success, failure) {
+        observedRejection = typeof failure === "function";
+        return new Promise(() => {});
+      },
+    }),
+    getByRole: () => ({click: async () => {
+      assert.equal(observedRejection, true, "the pending request must already have a rejection handler");
+      throw new Error("original UI failure");
+    }}),
+  };
+  await assert.rejects(capturePreviewCheckpoint(page, "preview-1"), /original UI failure/);
+  assert.equal(detached, true);
+});
 
 test("resuming through ordinary UI waits for the core acknowledgement to hide the pause overlay", async () => {
   const calls = [];
