@@ -14,6 +14,7 @@ import {
 import { localRpgAcceptanceProxy } from "./rpgmaker_local_proxy.mjs";
 import { createProductClient, singleFile } from "./rpgmaker_security_upload.mjs";
 import { isLocalAcceptanceHostname } from "./rpgmaker_url.mjs";
+import {installVirtualStandardGamepad, sendGamepadInput} from "./standard_gamepad.mjs";
 
 const caseId = "ACC-BUTTERSCOTCH-001";
 const requiredEnvironment = [
@@ -268,20 +269,6 @@ async function runtimeCanvas(page) {
   throw new Error("BUTTERSCOTCH_ACCEPTANCE_CANVAS_LAYOUT_INVALID");
 }
 
-async function sendGamepadInput(canvas) {
-  await canvas.evaluate((element) => {element.tabIndex = 0; element.focus();});
-  for (const input of [
-    { axis: 1, value: 1 }, { axis: 1, value: 0 }, { button: 0, pressed: true }, { button: 0, pressed: false },
-  ]) {
-    await canvas.evaluate((element, next) => {
-      const gamepad = element.ownerDocument.defaultView?.__retromTestGamepad;
-      if ("axis" in next) {gamepad?.axis(next.axis, next.value);}
-      else {gamepad?.button(next.button, next.pressed);}
-    }, input);
-    await canvas.page().waitForTimeout(300);
-  }
-}
-
 async function waitForCheckpoint(page) {
   await revealPreviewToolbar(page);
   const button = page.getByRole("button", { name: "创建存档", exact: true });
@@ -368,26 +355,6 @@ function validCanvasLayout(layout) {
     (layout.surfaceWidth - layout.displayWidth <= 1 || layout.surfaceHeight - layout.displayHeight <= 1) &&
     Math.abs(layout.backingWidth / layout.backingHeight - layout.displayWidth / layout.displayHeight) <= 0.01 &&
     layout.centerOffsetXPx <= 1 && layout.centerOffsetYPx <= 1 && layout.focused === true;
-}
-
-async function installVirtualStandardGamepad(context) {
-  await context.addInitScript(() => {
-    const state = {
-      axes: [0, 0, 0, 0],
-      buttons: Array.from({ length: 17 }, () => ({ pressed: false, touched: false, value: 0 })),
-    };
-    Object.defineProperty(navigator, "getGamepads", {
-      configurable: true,
-      value: () => [{
-        axes: state.axes, buttons: state.buttons, connected: true,
-        id: "Retrom acceptance standard gamepad", index: 0, mapping: "standard", timestamp: performance.now(),
-      }],
-    });
-    globalThis.__retromTestGamepad = {
-      axis(index, value) {state.axes[index] = value;},
-      button(index, pressed) {state.buttons[index] = { pressed, touched: pressed, value: pressed ? 1 : 0 };},
-    };
-  });
 }
 
 function projectIdentity(urls) {
