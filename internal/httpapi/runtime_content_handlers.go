@@ -145,7 +145,11 @@ func (server *Server) projectContent(
 	if err == nil {
 		return content, nil
 	}
-	content, err = server.launcher.ReviewPreviewProjectContent(request.Context(), launchID, capability, logicalName)
+	// Both session types freeze generated archives under the same reserved name.
+	content, err = server.launcher.ReviewPreviewProjectContent(request.Context(), launchID, capability, contentLogicalName)
+	if err != nil && contentLogicalName != logicalName {
+		content, err = server.launcher.ReviewPreviewProjectContent(request.Context(), launchID, capability, logicalName)
+	}
 	if err != nil {
 		return launch.ContentView{}, fmt.Errorf("load preview project content: %w", err)
 	}

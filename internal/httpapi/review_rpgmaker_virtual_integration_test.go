@@ -113,14 +113,17 @@ func completeRPGMakerHTTPUpload(
 	})
 	testassert.False(t, err != nil, err)
 	for index, file := range files {
-		digest := sha256.Sum256(file.contents)
-		if err := server.uploads.PutPart(
-			ctx, upload.ID, upload.Files[index].ID, 0,
-			fmt.Sprintf("bytes 0-%d/%d", len(file.contents)-1, len(file.contents)),
-			"sha-256=:"+base64.StdEncoding.EncodeToString(digest[:])+":",
-			bytes.NewReader(file.contents),
-		); err != nil {
-			t.Fatal(err)
+		for start, part := 0, 0; start < len(file.contents); start, part = start+int(uploads.PartSize), part+1 {
+			end := min(start+int(uploads.PartSize), len(file.contents))
+			digest := sha256.Sum256(file.contents[start:end])
+			if err := server.uploads.PutPart(
+				ctx, upload.ID, upload.Files[index].ID, part,
+				fmt.Sprintf("bytes %d-%d/%d", start, end-1, len(file.contents)),
+				"sha-256=:"+base64.StdEncoding.EncodeToString(digest[:])+":",
+				bytes.NewReader(file.contents[start:end]),
+			); err != nil {
+				t.Fatal(err)
+			}
 		}
 	}
 	current, err := server.uploads.Get(ctx, upload.ID)
