@@ -103,6 +103,13 @@ make pfb-data-reset PFB=<name> CONFIRM=<actual-pfb-id>
 
 ## 验证基线
 
+真实浏览器验收必须放在源码/依赖/构建门禁之后：先完成 `make ci`、runtime 构建及需要的
+`pfb-build/restart`，确认实例 healthy、模块内容摘要稳定，再创建新的 Launch 开始验收。
+同一 PFB 的浏览器验收期间，不得并行修改源码、运行会改写 Web 依赖/生成文件的构建或重启服务。
+开发服务器的完整页面重载会结束原 Launch，原凭据随后被拒绝是正常的生命周期保护，不能通过放宽
+认证或重用旧 Launch 绕过。发生此类中断时保留失败证据，停止变更后重新创建 Launch 重跑；含审核
+状态的用例只可使用其显式 resume 前置或重新创建验收夹具，不直接写数据库把状态改成通过。
+
 实现或修改 PFB 时至少证明：
 
 - init/build/up/restart 中没有 Provider tar、all-provider/core builder、每次 `npm ci` 或 Compose `--build`；
