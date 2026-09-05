@@ -592,7 +592,7 @@ class EvidenceContractTests(unittest.TestCase):
     def test_mz_generation_evidence_accepts_only_the_visible_map_v3_recipe(self) -> None:
         spec = rpgmaker.GENERATION_CASES["ACC-RPG-008"]
         payload = product_payload(spec, "a" * 64)
-        payload["inputProvenance"]["transformation"]["recipe"] = "RETROM_MZ_MINIMAL_V3"
+        payload["inputProvenance"]["transformation"]["recipe"] = "RETROM_MZ_MINIMAL_V4"
         rpgmaker.validate_generation_evidence(payload, spec, "a" * 64)
         payload["inputProvenance"]["transformation"]["recipe"] = "RETROM_MZ_MINIMAL_V2"
         with self.assertRaisesRegex(rpgmaker.ContractError, "MZ_TRANSFORMATION_INVALID"):
@@ -1281,7 +1281,7 @@ def mz_transformation(digest: str, file_count: int, total_bytes: int) -> dict:
         *(f"save/file{index}.rmmzsave" for index in range(7)),
     ]
     return {
-        "schemaVersion": 1, "recipe": "RETROM_MZ_MINIMAL_V3",
+        "schemaVersion": 1, "recipe": "RETROM_MZ_MINIMAL_V4",
         "tool": "scripts/acceptance/rpgmaker_mz_prepare.py",
         "sourceSizeBytes": rpgmaker.MZ_SOURCE_SIZE_BYTES,
         "removedEntries": [
