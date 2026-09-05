@@ -92,7 +92,9 @@ export async function inspectPreviewCheckpoint(request, status, receipt, preview
   if (status !== 201 || receipt?.resourceKind !== "REVIEW_PREVIEW_CHECKPOINT" ||
       receipt.previewId !== previewId || typeof receipt.checkpointFormat !== "string" ||
       !Number.isSafeInteger(receipt.createdAtMs) || receipt.createdAtMs < 0) {
-    throw new Error("RPG_PREVIEW_CHECKPOINT_RECEIPT_INVALID");
+    const code = typeof receipt?.error?.code === "string" && /^[A-Z][A-Z0-9_]{0,127}$/.test(receipt.error.code)
+      ? receipt.error.code : "UNKNOWN";
+    throw new Error("RPG_PREVIEW_CHECKPOINT_RECEIPT_INVALID:HTTP_" + status + ":" + code);
   }
   const headers = await request.allHeaders();
   const body = request.postDataBuffer();

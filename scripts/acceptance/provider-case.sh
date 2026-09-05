@@ -34,7 +34,7 @@ case "$CASE_ID" in
     python_test scripts/test_runtime_target_bindings.py
     (cd "$ROOT" && "$GO" test ./internal/runtimecatalog -count=1)
     runtime_test src/provider/declarations.test.ts src/providers/emulatorjs/catalog.test.ts \
-      src/providers/retrom-runtime/module-config.test.ts tests/repository-boundary.test.ts
+      src/providers/retrom-runtime/target-adapter.test.ts tests/repository-boundary.test.ts
     ;;
   ACC-PROVIDER-003)
     (cd "$ROOT" && "$GO" test ./internal/runtimeoptions -count=1)
@@ -45,16 +45,20 @@ case "$CASE_ID" in
       features/player/runtime/runtime-host.test.ts
     ;;
   ACC-PROVIDER-004)
-    (cd "$ROOT" && "$GO" test ./internal/saves ./internal/rpgmaker/runtimevalidation -count=1)
+    (cd "$ROOT" && "$GO" test -tags=integration ./internal/saves ./internal/launch -count=1)
+    (cd "$ROOT" && "$GO" test -tags=integration ./internal/httpapi \
+      -run 'OrdinaryReviewCheckpointHTTP' -count=1)
     runtime_test src/providers/emulatorjs/state-restore.test.ts src/providers/retrom-runtime/module.test.ts
     web_test features/player/runtime/runtime-actions.test.ts features/player/runtime/runtime-host.test.ts \
-      features/player/player-session.test.tsx features/player/rpg-runtime-validation.test.ts
+      features/player/player-session.test.tsx features/player/review-preview-receipt.test.ts \
+      features/player/player-checkpoint-availability.test.ts
     ;;
   ACC-PROVIDER-005)
     (cd "$ROOT" && "$GO" test ./internal/runtimeprovider -count=1)
     (cd "$ROOT" && "$GO" test -tags=integration ./internal/rpgmaker/packs -count=1)
     (cd "$ROOT" && "$GO" test -tags=integration ./internal/saves -run 'TestCatalogExtensionPreservesInitializedGamesReviewsSettingsAndSaves' -count=1)
-    (cd "$ROOT" && "$GO" test ./internal/store -run 'TestTerminalReviewReleasesTemporaryCheckpointButKeepsBlobEvidence' -count=1)
+    (cd "$ROOT" && "$GO" test -tags=integration ./internal/launch \
+      -run 'TestReviewCheckpointIsScopedExpiringAndReleasedByOrdinaryGC|TestPublishingReviewReleasesAllTemporaryPreviewOwners' -count=1)
     python_test scripts/test_runtime_providers.py
     ;;
   ACC-PROVIDER-006)
@@ -71,11 +75,11 @@ case "$CASE_ID" in
     ;;
   ACC-PROVIDER-008)
     runtime_test src/providers/retrom-runtime tests/repository-boundary.test.ts
-    (cd "$ROOT" && "$GO" test ./internal/rpgmaker/runtimevalidation ./internal/httpapi \
+    (cd "$ROOT" && "$GO" test -tags=integration ./internal/launch ./internal/httpapi \
       -run 'RPG|Review|Provider|UniqueOrigin|Isolation' -count=1)
     web_test features/reviews/review-preview-provider-authority.test.ts \
-      features/reviews/review-rpg-actions.test.tsx features/reviews/review-rpg-validation.test.tsx \
-      features/player/rpg-runtime-validation.test.ts
+      features/reviews/review-rpg-actions.test.tsx features/reviews/review-rpg-packs.test.tsx \
+      features/player/review-preview-receipt.test.ts features/player/review-preview-screenshot.test.ts
     ;;
   *)
     echo "usage: provider-case.sh ACC-PROVIDER-001..008" >&2
