@@ -22,6 +22,7 @@ var (
 	ErrCredential             = errors.New("LAUNCH_CREDENTIAL_INVALID")
 	ErrInvalid                = errors.New("SAVE_INVALID")
 	ErrTooLarge               = errors.New("SAVE_TOO_LARGE")
+	ErrSyncConflict           = errors.New("SAVE_SYNC_CONFLICT")
 	ErrSequenceReused         = errors.New("SAVE_SEQUENCE_REUSED")
 	ErrCheckpointInvalid      = errors.New("RPG_CHECKPOINT_INVALID")
 	ErrCheckpointIncompatible = errors.New("RPG_CHECKPOINT_INCOMPATIBLE")

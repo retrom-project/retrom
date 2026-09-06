@@ -43,12 +43,13 @@ func immersiveGameProjection(game immersive.Game) map[string]any {
 	saveStates := make([]map[string]any, 0, len(game.SaveStates))
 	for _, saveState := range game.SaveStates {
 		saveStates = append(saveStates, map[string]any{
-			"saveStateId":   saveState.ID,
-			"name":          saveState.Name,
-			"createdAtMs":   saveState.CreatedAtMS,
-			"sizeBytes":     saveState.SizeBytes,
-			"discIndex":     saveState.DiscIndex,
-			"screenshotUrl": optionalSaveScreenshotURL(saveState.ID, saveState.HasScreenshot),
+			"saveStateId":    saveState.ID,
+			"name":           saveState.Name,
+			"createdAtMs":    saveState.CreatedAtMS,
+			"lastSyncedAtMs": saveState.LastSyncedAtMS,
+			"sizeBytes":      saveState.SizeBytes,
+			"discIndex":      saveState.DiscIndex,
+			"screenshotUrl":  optionalSaveScreenshotURL(saveState.ID, saveState.HasScreenshot),
 		})
 	}
 	return map[string]any{

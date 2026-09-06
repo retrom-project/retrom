@@ -134,6 +134,9 @@ function validatePlayerRuntime(value: unknown, envelope: LaunchEnvelopeV1): asse
     if (typeof value[method] !== "function") {throw invalidModule();}
   }
   const runtime = value as unknown as PlayerRuntimeV1;
+  if (envelope.runtime.checkpoint?.semantics === "GAME_SAVE" && typeof runtime.acknowledgeCheckpoint !== "function") {
+    throw invalidModule();
+  }
   if (runtime.getState() !== "CREATED" ||
     !capabilitiesEqual(runtime.getCapabilities(), envelope.runtime.capabilities)) {throw invalidModule();}
 }

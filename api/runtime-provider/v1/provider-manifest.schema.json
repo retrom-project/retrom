@@ -154,6 +154,10 @@
       "additionalProperties": false,
       "required": ["writeFormat", "readFormats", "maxBytes"],
       "properties": {
+        "semantics": {
+          "enum": ["INSTANT", "GAME_SAVE"],
+          "description": "Omission means INSTANT. GAME_SAVE preserves native game save data and may require in-game save/load menus."
+        },
         "writeFormat": { "$ref": "#/$defs/token" },
         "readFormats": {
           "type": "array",

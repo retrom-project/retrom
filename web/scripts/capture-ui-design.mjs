@@ -5,7 +5,6 @@ import path from "node:path";
 
 const webRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const designRoot = path.resolve(webRoot, "..", "docs", "design");
-const readmeAssetRoot = path.resolve(webRoot, "..", "docs", "readme-assets");
 const documentURL = pathToFileURL(path.join(designRoot, "retrom-ui-review.html"));
 const chromeExecutablePath = process.env.RETROM_CHROME_EXECUTABLE
   ?? path.resolve(webRoot, "..", ".cache", "tools", "retrom-chrome-for-testing");
@@ -90,43 +89,31 @@ const designCaptures = [
   ["retrom-ui-rpg-packs-mobile.png", "rpg-packs", 390, 844],
   ["retrom-ui-rpg-saves-mobile.png", "rpg-saves", 390, 844],
   ["retrom-ui-home-mobile.png", "home", 390, 844],
+  ["retrom-ui-me-mobile.png", "me", 390, 844],
   ["retrom-ui-library-mobile.png", "library", 390, 844],
   ["retrom-ui-game-detail-mobile.png", "detail", 390, 844],
+  ["retrom-ui-launch-options-mobile.png", "detail", 390, 844, "phone-launch-options"],
   ["retrom-ui-saves-mobile.png", "saves", 390, 844],
   ["retrom-ui-favorites-mobile.png", "favorites", 390, 844],
   ["retrom-ui-netplay-room-mobile.png", "netplay-room", 390, 844],
   ["retrom-ui-admin-review-mobile.png", "admin-review", 390, 844],
-  ["retrom-ui-admin-review-detail-mobile.png", "admin-review", 390, 844, "review-detail"],
   ["retrom-ui-play-portrait-mobile.png", "play", 390, 844, "mobile-portrait"],
   ["retrom-ui-play-landscape-mobile.png", "play", 844, 390]
 ];
 
-const readmeCaptures = [
-  ["home-4k-150.png", "home", 3840, 2160, undefined, readmeAssetRoot],
-  ["player-4k-150.png", "play", 3840, 2160, undefined, readmeAssetRoot],
-];
-
-const captureArguments = process.argv.slice(2);
-const readmeCaptureRequested = captureArguments.includes("--readme");
-const requestedNames = new Set(captureArguments.filter((argument) => argument !== "--readme"));
-if (readmeCaptureRequested && requestedNames.size) {
-  throw new Error("--readme cannot be combined with individual capture names");
-}
-const allCaptures = [...designCaptures, ...readmeCaptures];
-const selectedCaptures = readmeCaptureRequested
-  ? readmeCaptures
-  : requestedNames.size
-    ? allCaptures.filter(([filename]) => requestedNames.has(filename))
-    : designCaptures;
+const requestedNames = new Set(process.argv.slice(2));
+const selectedCaptures = requestedNames.size
+  ? designCaptures.filter(([filename]) => requestedNames.has(filename))
+  : designCaptures;
 if (requestedNames.size && selectedCaptures.length !== requestedNames.size) {
-  const knownNames = new Set(allCaptures.map(([filename]) => filename));
+  const knownNames = new Set(designCaptures.map(([filename]) => filename));
   const unknownNames = [...requestedNames].filter((filename) => !knownNames.has(filename));
   throw new Error(`unknown design capture: ${unknownNames.join(", ")}`);
 }
 
 const browser = await chromium.launch({ executablePath: chromeExecutablePath, headless: true });
 try {
-  for (const [filename, view, width, height, variant, outputRoot = designRoot] of selectedCaptures) {
+  for (const [filename, view, width, height, variant] of selectedCaptures) {
     const isPhysical4K = width === physical4K.width && height === physical4K.height;
     const viewport = isPhysical4K
       ? { width: width / physical4K.scale, height: height / physical4K.scale }
@@ -165,8 +152,13 @@ try {
     }
     if (view.startsWith("immersive-")) {
       // The review-scene control above activates this independent TV shell.
+    } else if (view === "me") {
+      await frame.locator('[data-mobile-page="me"]').click();
     } else if (view === "account") {
       await frame.locator('[data-review-scene="account"]').click();
+    } else if (width < 768 && ["saves", "favorites", "recent", "netplay"].includes(view)) {
+      await frame.locator('[data-mobile-page="me"]').click();
+      await frame.locator(`.rt-phone-profile [data-page-link="${view}"]`).click();
     } else if (view === "detail") {
       await clickVisible('[data-open-game="metal"]');
     } else if (view === "play") {
@@ -188,13 +180,15 @@ try {
       if (view.startsWith("admin-")) {await activate(`[data-page-target="${view}"], [data-page-link="${view}"]`);}
       else {await clickVisible(`[data-page-target="${view}"], [data-page-link="${view}"]`);}
     }
-    const viewSelector = view.startsWith("immersive-")
+    const phoneAdmin = width < 768 && (view.startsWith("admin-") || rpgViewPages[view]?.startsWith("admin-"));
+    const viewSelector = phoneAdmin ? ".rt-phone-admin" : view.startsWith("immersive-")
       ? `[data-immersive-page="${view}"]`
       : ["setup", "login", "register", "reset"].includes(view)
         ? `[data-auth-page="${view}"]`
         : `[data-page="${rpgViewPages[view] ?? view}"]`;
     await frame.locator(viewSelector).waitFor({ state: "visible" });
     await frame.locator(".rt-review-scenes").evaluate((element) => { element.hidden = true; });
+    if (variant === "phone-launch-options") {await frame.locator("[data-phone-options]").click();}
     if (variant === "bios-entries") {await frame.locator("[data-open-bios-entries]").click();}
     if (variant === "rpg-pack-drawer") {await frame.locator("[data-open-rpg-pack-drawer]").first().click();}
     if (variant === "server-import-drawer") {await frame.locator("[data-open-server-import-drawer]").click();}
@@ -241,8 +235,8 @@ try {
       await frame.locator("#rt-player-core").evaluate((element) => { element.textContent = "Yabause · Saturn"; });
     }
     await frame.locator("[data-lucide]").first().waitFor({ state: "attached" });
-    await mkdir(outputRoot, { recursive: true });
-    const screenshot = await page.screenshot({ path: path.join(outputRoot, filename) });
+    await mkdir(designRoot, { recursive: true });
+    const screenshot = await page.screenshot({ path: path.join(designRoot, filename) });
     if (isPhysical4K) {
       const actual = { width: screenshot.readUInt32BE(16), height: screenshot.readUInt32BE(20) };
       if (actual.width !== physical4K.width || actual.height !== physical4K.height) {

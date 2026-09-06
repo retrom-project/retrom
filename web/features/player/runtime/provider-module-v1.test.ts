@@ -4,6 +4,19 @@ import type {LaunchEnvelopeV1, PlayerRuntimeV1, RuntimeHostV1} from "./contract"
 import {loadProviderRuntime} from "./provider-dispatcher";
 
 describe("Provider Module V1 dispatcher", () => {
+  it("requires persistence acknowledgment for native saves while accepting the complete contract", async () => {
+    const envelope = fixtureEnvelope();
+    envelope.runtime.capabilities.checkpoint = true;
+    envelope.runtime.checkpoint = {semantics: "GAME_SAVE", maxBytes: 64, readFormats: ["native-v1"], writeFormat: "native-v1"};
+    const runtime = fixtureRuntime();
+    runtime.getCapabilities = () => envelope.runtime.capabilities;
+    const importer = async () => ({createRuntime: async () => runtime,
+      providerApiVersion: 1, providerId: "fixture", providerVersion: "1.0.0"});
+    await expect(loadProviderRuntime(envelope, fixtureHost(), importer, verifiedEnvironment(envelope)))
+      .rejects.toThrow("PLAYER_PROVIDER_MODULE_INVALID");
+    runtime.acknowledgeCheckpoint = vi.fn(async () => undefined);
+    await expect(loadProviderRuntime(envelope, fixtureHost(), importer, verifiedEnvironment(envelope))).resolves.toBe(runtime);
+  });
   it("loads only the exact module URL and verifies exported identity before creation", async () => {
     const envelope = fixtureEnvelope();
     const runtime = fixtureRuntime();

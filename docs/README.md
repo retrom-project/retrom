@@ -1,5 +1,7 @@
 # Retrom 文档索引
 
+手机端以找游戏、继续存档和游玩为主，采用“首页、游戏库、我的”三项导航；导入、审核等管理操作在电脑上完成。PC、平板与沉浸模式保留各自既有交互，具体范围见 [UI 规范](./ui-specification.md#4-响应式桌面与-4k) 和 [移动验收](./project-acceptance.md#20-移动端与横屏-player)。
+
 Retrom 的规划文档按“总览 + 统一验收 + 领域专题 + 可执行数据基线”维护。总览只保留跨领域决策；字段与流程在对应专题维护一次，全部验收 Case 只在统一验收文档维护。
 
 ## 实施就绪结论
@@ -12,7 +14,7 @@ Retrom 的规划文档按“总览 + 统一验收 + 领域专题 + 可执行数�
 
 所有项目类型（包括 RPG Maker）共用审核 Preview 与普通 Player：点击“运行游戏”同步打开子窗口，服务端校验当前来源、目标、文件、依赖及浏览器能力后签发会话；Player 使用普通 config/start/heartbeat/finish、Provider dispatcher 和退出清理，不创建假 Game，也没有专用机器证明、额外验证决定或人工重检流程。管理员可按需保存运行截图、重复创建会话级临时 checkpoint，并从已有 checkpoint 创建新的 Preview 恢复，不要求先结束原 Preview。临时内容在会话到期或审核结束时释放；正式发布仍由当前来源与实际依赖检查决定。
 
-标准手柄沉浸模式是独立于普通 PC/移动界面的电视交互面：普通首页既提供显式入口，也可由任意标准手柄
+标准手柄沉浸模式是独立于普通 PC/移动界面的电视交互面：PC 与平板首页在符合沉浸视口条件时提供显式入口，手机首页隐藏按钮；各端首页仍可由任意标准手柄
 按键打开确认层。进入后先按“全部游戏、最近游玩、收藏游戏、我的存档”固定顺序展示 Profile 私有入口，
 再列可见平台；用户可浏览收藏夹、从存档启动，并以 Y 快速切换默认收藏。浏览阶段循环播放内置 BGM，
 Select 打开声音、全屏与退出系统菜单；单机 Player 中双击 Select+Start 打开“取消、创建存档、退出游戏”
@@ -79,7 +81,6 @@ HTTP、运行时、依赖及统一验收专题维护。
 - 字段、状态机、API 和页面细节只在负责该领域的专题维护，总览仅链接和摘要。
 - 所有项目验收流程和通过标准只在 `project-acceptance.md` 维护；专题文档只按 Case ID 回链，不得复制验收清单。
 - `design/retrom-ui-review.fragment.html` 是 UI 源稿；`design/retrom-ui-review.html` 只从该源稿重新导出，禁止只改导出文件造成评审稿漂移。本地生成的图片只用于即时评审，由 `docs/design/.gitignore` 忽略且不得被正式文档引用。
-- 根目录 `README.md` 的项目展示图是上述本地评审快照规则之外的文档资产：只允许由同一 UI 源稿先运行 `node web/scripts/export-ui-review.mjs`，再运行 `node web/scripts/capture-ui-design.mjs --readme` 生成到 `docs/readme-assets/`，固定使用 `2560×1440` CSS viewport 与 `deviceScaleFactor=1.5` 输出物理 `3840×2160` PNG。图中标题、封面、数量和状态必须明确属于演示样例，不得作为生产 seed、测试 fixture、正式验收证据或产品数据事实源；`scripts/test_design_assets.py` 校验允许清单、README 引用和像素尺寸。
 - active `emulatorjs` Provider Bundle 的 declaration 是 35 个 EJS Target、运行文件、能力和 checkpoint 格式的唯一机器事实源；`data/dat/emulatorjs/<version>/manifest.json` 只维护对应真实 DAT 的来源、稳定 Provider/Target、SHA-256 和统计。前端不维护 adapter registry；所有运行入口只经 Launch Envelope V1 与共享 dispatcher。五份 DAT 与许可 payload/notice 由 `make prepare-deps` 物化并被 Git 忽略。
 - `data/auth/password-blocklists/v1/manifest.json` 是 release 密码阻断列表及许可的机器事实源；10,000 行 payload 与许可原文由 `make prepare-deps` 校验物化并被 Git 忽略。
 - `make install-deps` 是全仓初始化入口；Playwright 精确版本绑定的 Chrome for Testing 由 `make prepare-e2e-browser` 物化到 `.cache/tools/ms-playwright/`，稳定可执行入口为 `.cache/tools/retrom-chrome-for-testing`。这些测试工具不属于应用发布依赖，不进入镜像。
