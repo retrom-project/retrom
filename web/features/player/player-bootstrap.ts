@@ -1,5 +1,7 @@
 "use client";
 
+import type {CheckpointSemantics} from "./checkpoint-semantics";
+
 import type {Dispatch, RefObject, SetStateAction} from "react";
 import {getImmersiveAudioPreferences} from "@/features/immersive/immersive-audio-preferences";
 import {sha256} from "@/lib/crypto";
@@ -52,6 +54,7 @@ export type PlayerBootstrapParams = {
   setNetplayPlayerNo: Dispatch<SetStateAction<number | null>>;
   setWarnings: Dispatch<SetStateAction<string[]>>;
   setGameTitle: Dispatch<SetStateAction<string>>;
+  setCheckpointSemantics?: Dispatch<SetStateAction<CheckpointSemantics>>;
   setCoreName: Dispatch<SetStateAction<string>>;
   setPlatformName: Dispatch<SetStateAction<string>>;
   setDebugRuntime: Dispatch<SetStateAction<PlayerDebugRuntime>>;
@@ -139,6 +142,12 @@ function applyEnvelope(params: PlayerBootstrapParams, envelope: LaunchEnvelopeV1
   params.setWarnings(envelope.session.warnings);
   params.setGameTitle(envelope.session.title);
   params.setCoreName(envelope.session.coreName);
+  params.setCheckpointSemantics?.(envelope.runtime.checkpoint?.semantics ?? "INSTANT");
+  if (envelope.runtime.checkpoint?.semantics === "GAME_SAVE") {
+    params.manualSaveAvailableRef.current = false;
+    params.setManualSaveAvailable(false);
+    params.setSyncText("请在游戏内保存");
+  }
   params.setPlatformName(envelope.session.platformName);
   params.setDebugRuntime({
     providerId: envelope.runtime.providerId,
@@ -199,8 +208,6 @@ async function completeSingleStart(params: PlayerBootstrapParams) {
   const availability = params.runtime.current?.getCheckpointAvailability() ?? {available: false, reason: "UNSUPPORTED"};
   const canSave = availability.available;
   updateCheckpointAvailability(params, canSave);
-  params.setSyncText(canSave ? "可创建存档" : "当前场景暂不可存档");
-  params.setSyncTone(canSave ? "synced" : "warning");
   params.heartbeat.current = window.setInterval(() => {void params.sendEvent("heartbeat");}, 30_000);
 }
 
@@ -269,6 +276,7 @@ function handleRuntimeEvent(event: RuntimeEventV1, params: PlayerBootstrapParams
 }
 
 function updateCheckpointAvailability(params: PlayerBootstrapParams, available: boolean) {
+  if (params.envelope.current?.runtime.checkpoint?.semantics === "GAME_SAVE") {return;}
   params.manualSaveAvailableRef.current = available;
   params.setManualSaveAvailable(available);
   if (params.playerMode.current === "single") {

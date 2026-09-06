@@ -67,6 +67,8 @@ flowchart LR
 10. `010_cross_domain_invariants.sql`：只能在全部 owner table 存在后建立的 Provider/Target/profile/pack/checkpoint/Launch 索引和 trigger。
 11. `011_import_batch_discard.sql`：兼容增加批次当前处置、内部上传归属与停止后发布/重试围栏；数据释放复用现有 PayloadRelease/GC。
 
+12. `012_game_save_sync.sql`：原生游戏数据的可覆盖存档、会话绑定、数据版本、最近同步时间与冻结恢复输入；兼容升级保留既有存档。
+
 循环 current state 使用数据模型规定的 deferred FK；所有 migration 始终保持 `foreign_keys=ON`，建库后执行 `foreign_key_check` 与 schema introspection。每条 migration 都在事务中应用并记录 name/checksum；运行时代码不按 migration 数字分支，不在业务请求中关闭外键、回填数据或动态修补 schema。
 
 推荐游戏平台目录由 `internal/platformcatalog` 的当前 catalog 和“应用推荐目录”服务创建，fresh DB 初始目录数为零。测试的低层 current-schema builder 创建 UUIDv7 并返回按 `catalog_template_key` 索引的引用；API/E2E 使用推荐目录产品路径，任何测试都不得复活历史 seed UUID 或 slug。

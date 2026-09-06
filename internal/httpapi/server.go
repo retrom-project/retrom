@@ -291,6 +291,7 @@ func (server *Server) registerPublicRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("PATCH /api/v1/favorite-folders/{folderId}", server.patchFavoriteFolder)
 	mux.HandleFunc("DELETE /api/v1/favorite-folders/{folderId}", server.deleteFavoriteFolder)
 	mux.HandleFunc("GET /api/v1/saves", server.saves)
+	mux.HandleFunc("POST /api/v1/launches/{launchId}/local-save", server.createLocalGameSave)
 	mux.HandleFunc("PATCH /api/v1/saves/{saveStateId}", server.patchSave)
 	mux.HandleFunc("DELETE /api/v1/saves/{saveStateId}", server.deleteSave)
 	mux.HandleFunc("POST /api/v1/launches", server.createLaunch)

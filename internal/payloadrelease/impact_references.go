@@ -34,6 +34,9 @@ SELECT count(*) FROM (
  UNION ALL SELECT file.rowid FROM variant_files file
  JOIN game_variants variant ON variant.id=file.game_variant_id
  WHERE variant.game_id=?1 AND file.blob_id=?2
+ UNION ALL SELECT binding.launch_session_id FROM launch_game_save_bindings binding
+ JOIN launch_sessions launch ON launch.id=binding.launch_session_id
+ WHERE launch.game_id=?1 AND binding.restore_payload_blob_id=?2
  UNION ALL SELECT save.id FROM save_states save
  WHERE save.game_id=?1 AND save.payload_blob_id=?2
  UNION ALL SELECT save.id FROM save_states save

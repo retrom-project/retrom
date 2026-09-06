@@ -1,5 +1,7 @@
 "use client";
 
+import {saveDisplayTime} from "@/features/saves/save-library";
+
 import Image from "next/image";
 import { useEffect, useRef } from "react";
 import { formatSaveSize } from "@/features/saves/save-library";
@@ -35,7 +37,7 @@ export function ImmersiveSaveCarousel({ gameTitle, onSelect, saves, selectedInde
     <div className={styles.saveRail} role="list" aria-label={`${gameTitle} 的存档`}>
       {saves.map((save, index) => {
         const selected = index === selectedIndex;
-        const time = formatSaveTime(save.createdAtMs, timeZone);
+        const time = formatSaveTime(saveDisplayTime(save), timeZone);
         const size = formatSaveSize(save.sizeBytes);
         return <button
           ref={selected ? selectedRef : undefined}
@@ -63,7 +65,7 @@ export function ImmersiveSaveCarousel({ gameTitle, onSelect, saves, selectedInde
               title={`${save.sizeBytes.toLocaleString("zh-CN")} bytes`}
             >{size}</span>
           </span>
-          <time dateTime={new Date(save.createdAtMs).toISOString()}>{time}</time>
+          <time dateTime={new Date(saveDisplayTime(save)).toISOString()}>{time}</time>
         </button>;
       })}
     </div>

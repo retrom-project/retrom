@@ -15,6 +15,15 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 
 
 class MakefileDependencyTests(unittest.TestCase):
+    def test_provider_manifest_change_regenerates_openapi_bundle(self) -> None:
+        with tempfile.NamedTemporaryFile(suffix=".yaml") as bundle:
+            output = subprocess.run(
+                ["make", "--no-print-directory", "--dry-run", "--what-if=api/runtime-provider/v1/provider-manifest.schema.json",
+                 f"API_BUNDLE={bundle.name}", "api-bundle"],
+                cwd=REPOSITORY_ROOT, check=True, text=True, capture_output=True,
+            ).stdout
+        self.assertIn("go run ./scripts/openapi-bundle", output)
+
     def test_ui_acceptance_scopes_short_tmpdir_to_chrome_launch(self) -> None:
         script = (REPOSITORY_ROOT / "scripts/acceptance/ui-case.sh").read_text(encoding="utf-8")
         browser = script.split("(cd web &&", 1)[1].split('"${playwright_args[@]}")', 1)[0]

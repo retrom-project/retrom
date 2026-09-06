@@ -147,7 +147,7 @@ func validLaunchCapabilities(value map[string]any) bool {
 
 func validLaunchCheckpoint(value any) bool {
 	checkpoint, ok := launchObject(value)
-	if !ok || !exactMap(checkpoint, "maxBytes", "readFormats", "writeFormat") ||
+	if !ok || !validCheckpointShape(checkpoint) ||
 		!positiveLaunchInteger(checkpoint["maxBytes"]) || !tokenPattern.MatchString(stringValue(checkpoint["writeFormat"])) {
 		return false
 	}

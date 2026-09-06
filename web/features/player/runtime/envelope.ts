@@ -74,7 +74,12 @@ function validCapabilities(value: unknown): value is RuntimeCapabilitiesV1 {
 
 function validCheckpoint(value: unknown, enabled: boolean) {
   if (!enabled) {return value === null;}
-  return record(value) && exactKeys(value, ["maxBytes", "readFormats", "writeFormat"]) &&
+  if (!record(value)) {return false;}
+  const hasSemantics = Object.hasOwn(value, "semantics");
+  if (hasSemantics && value.semantics !== "INSTANT" && value.semantics !== "GAME_SAVE") {return false;}
+  const keys = hasSemantics ? ["maxBytes", "readFormats", "semantics", "writeFormat"]
+    : ["maxBytes", "readFormats", "writeFormat"];
+  return exactKeys(value, keys) &&
     positiveInteger(value.maxBytes) && validToken(value.writeFormat) && Array.isArray(value.readFormats) &&
     sortedUnique(value.readFormats) && value.readFormats.every(validToken) && value.readFormats.includes(value.writeFormat);
 }
