@@ -11,8 +11,9 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/serversource"
+
 	"retrom/internal/blobstore"
-	"retrom/internal/config"
 	"retrom/internal/firmware"
 	"retrom/internal/legacychecksum"
 	retromruntime "retrom/internal/runtime"
@@ -66,7 +67,7 @@ VALUES('fixture-requirement','mgba',?,?,'STATIC',NULL,'bios.bin','REQUIRED',NULL
 		t.Fatal(err)
 	}
 	service := New(database.SQL, blobs, firmware.New(database.SQL, time.Now).WithBlobStore(blobs), credentials,
-		[]config.ServerImportRoot{{ID: "bios-root", Label: "BIOS Root", Path: rootDir, CanonicalPath: rootDir}}, time.Now)
+		[]serversource.Root{{ID: "bios-root", Label: "BIOS Root", Path: rootDir}}, time.Now)
 	created, err := service.Create(ctx, CreateRequest{Kind: "BIOS_DIRECTORY", RootID: "bios-root"}, "01980000-0000-7000-8000-00000000b001")
 	testassert.False(t, err != nil, err)
 	unit, ok, err := service.claim(ctx)

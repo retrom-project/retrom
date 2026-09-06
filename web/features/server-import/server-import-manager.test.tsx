@@ -90,13 +90,13 @@ describe("ServerImportManager", () => {
     expect(screen.getByText(/不执行 command、emulator 或 core/)).toBeVisible();
   });
 
-  it("does not offer an import when every configured root is unavailable", () => {
+  it("does not offer an import when the server filesystem is unavailable", () => {
     render(<ServerImportManager initialRoots={[{ ...availableRoot, status: "UNAVAILABLE" }]} initialImports={imports()} />);
     expect(screen.getByRole("button", { name: "选择目录并开始" })).toBeDisabled();
     expect(screen.getByText("不可用")).toBeVisible();
   });
 
-  it("paginates the root browser without exposing an absolute host path", async () => {
+  it("paginates the server filesystem browser", async () => {
     const user = userEvent.setup();
     const fetchMock = vi.fn()
       .mockResolvedValueOnce(jsonResponse({ rootId: "pegasus", path: "", items: [{ name: "BIOS", relativePath: "BIOS" }], nextCursor: "next-directories" }))

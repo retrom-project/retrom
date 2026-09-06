@@ -1,5 +1,5 @@
 // Package serversource provides the fail-closed filesystem capability shared
-// by all imports from deployment-configured read-only roots.
+// by all administrator imports from the server filesystem.
 package serversource
 
 import (

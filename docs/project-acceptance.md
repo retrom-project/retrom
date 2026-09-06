@@ -253,8 +253,8 @@ make acceptance-case CASE=<case-id>
 - 上限：180 秒。
 - 执行：`make acceptance-case CASE=ACC-DEV-001`。
 - 前置：验收准备已完成，`make deps-check` 离线通过。
-- 流程：把会记录调用并退出 99 的 `docker` 哨兵放在临时 `PATH` 首位，以显式 `RETROM_MODE=test` 启动未覆盖 `RETROM_PUBLIC_ORIGIN`、`RETROM_RPG_RUNTIME_ORIGIN_TEMPLATE`、`NEXT_DEV_HOST` 和 `RETROM_SERVER_IMPORT_ROOTS` 的 `make dev`；确认实际默认值为裸 localhost、依赖离线命中、后端收到 `--mode=test` 且环境中不残留未知的 `RETROM_MODE`。等待两端 ready 后用 `test/test` 登录，通过前端 origin 请求 `/api/v1/home`，并读取本地扫描 roots 投影。再经前端端口发送字段完整但未认证的联机 WebSocket upgrade，并保持 HMR upgrade。随后执行 supervisor 正常接管、`SIGKILL` 后孤儿 process group 接管和伪造登记身份矩阵，最后安全停止。
-- 通过标准：Next 与 Go 只监听 `127.0.0.1:4000/8080`，浏览器地址栏保持 `http://localhost:4000`，runtime 模板为 `http://{launchId}.rpg.localhost:8080`；root real/effective UID 与任一 sudo 标记都在依赖准备前以 `LOCAL_DEVELOPMENT_ROOT_FORBIDDEN` 拒绝；test 空库只创建一个 `test` ADMIN/Profile，登录页有测试警告，认证后的 rewrite 同源成功；联机 upgrade 到达 Go 并返回 `401 AUTHENTICATION_REQUIRED`，HMR 仍为 101；标准开发配置文件、数据根与启动状态分别固定到被忽略的 `.dev-data/dev.mk`、`.dev-data/data` 和 `.dev-data/dev-state`，隔离 Case 通过命令行覆盖为临时目录；仓库 `.dev-data/bios` 与 `.dev-data/roms` 已幂等创建，API 分别只投影 `local-bios`/“本地 BIOS”和 `local-roms`/“本地 ROM”两个状态为 `AVAILABLE` 的 root，且不暴露绝对路径；其余进程接管、Docker 哨兵、身份保护和退出约束全部满足。默认 release 不创建测试账号，由 `ACC-AUTH-002` 独立证明。
+- 流程：把会记录调用并退出 99 的 `docker` 哨兵放在临时 `PATH` 首位，以显式 `RETROM_MODE=test` 启动未覆盖 `RETROM_PUBLIC_ORIGIN`、`RETROM_RPG_RUNTIME_ORIGIN_TEMPLATE`、`NEXT_DEV_HOST` 的 `make dev`；确认实际默认值为裸 localhost、依赖离线命中、后端收到 `--mode=test` 且环境中不残留未知的 `RETROM_MODE`。等待两端 ready 后用 `test/test` 登录，通过前端 origin 请求 `/api/v1/home`，并读取默认服务器文件系统投影。再经前端端口发送字段完整但未认证的联机 WebSocket upgrade，并保持 HMR upgrade。随后执行 supervisor 正常接管、`SIGKILL` 后孤儿 process group 接管和伪造登记身份矩阵，最后安全停止。
+- 通过标准：Next 与 Go 只监听 `127.0.0.1:4000/8080`，浏览器地址栏保持 `http://localhost:4000`，runtime 模板为 `http://{launchId}.rpg.localhost:8080`；root real/effective UID 与任一 sudo 标记都在依赖准备前以 `LOCAL_DEVELOPMENT_ROOT_FORBIDDEN` 拒绝；test 空库只创建一个 `test` ADMIN/Profile，登录页有测试警告，认证后的 rewrite 同源成功；联机 upgrade 到达 Go 并返回 `401 AUTHENTICATION_REQUIRED`，HMR 仍为 101；标准开发配置文件、数据根与启动状态分别固定到被忽略的 `.dev-data/dev.mk`、`.dev-data/data` 和 `.dev-data/dev-state`，隔离 Case 通过命令行覆盖为临时目录；API 无需配置即返回 `filesystem`（服务器文件系统）且状态为 `AVAILABLE`，管理员可以浏览可读取的服务端目录；其余进程接管、Docker 哨兵、身份保护和退出约束全部满足。默认 release 不创建测试账号，由 `ACC-AUTH-002` 独立证明。
 - 证据：进程树、健康/登录/首页/root HTTP 结果、HMR 与联机 upgrade status 和退出后的 PID 检查。
 
 ### ACC-NET-001：应用侧代理契约与同源隔离
@@ -713,9 +713,9 @@ Mega Drive 导入回归另用测试内生成的非游戏 payload，经服务器�
 
 - 上限：120 秒。
 - 执行：`make acceptance-case CASE=ACC-BIOS-003`。
-- 流程：配置两个只读 root，覆盖封闭 JSON、上限、ID/label、受保护目录与 root 重叠负向；ADMIN 浏览根和多页直接子目录，并提交绝对、`..`、反斜杠、跨目录 cursor、途中/末端 symlink、special file 和暂时卸载 root。匿名与 USER 执行相同 route 矩阵；create 覆盖严格 body、幂等重放/异 body、同时活动冲突和 queued cancel。
-- 通过标准：浏览器和 API 只见 root ID/label/status 与规范相对路径；未知/不可用/越界均不泄漏宿主存在性。非法配置启动失败且只记录变量名；匿名 401、USER 403、ADMIN 成功，目录 cursor 绑定 root/path，幂等与 ETag 语义稳定。
-- 证据：配置矩阵、HTTP 响应、cursor 负向和 API/log 脱敏扫描。
+- 流程：不配置目录白名单，ADMIN 从 `filesystem` 浏览根和任意可读取的临时目录，验证 BIOS、Pegasus 与 EmulationStation 均可创建任务；覆盖多页直接子目录，并提交绝对、`..`、反斜杠、跨目录 cursor、途中/末端 symlink、special file 和暂时卸载 root。匿名与 USER 执行相同 route 矩阵；create 覆盖严格 body、幂等重放/异 body、同时活动冲突和 queued cancel。
+- 通过标准：浏览器和 API 只见 root ID/label/status 与规范相对路径；路径基于服务进程的 `/`，不受应用目录白名单限制；未知/不可用/非法路径返回稳定错误；匿名 401、USER 403、ADMIN 成功，目录 cursor 绑定 root/path，幂等与 ETag 语义稳定。
+- 证据：无需配置的浏览与三类任务创建、HTTP 授权响应、cursor 负向和 API/log 脱敏扫描。
 
 ### ACC-BIOS-004：STATIC、DAT 候选与隔离排序
 
@@ -796,7 +796,7 @@ Mega Drive 导入回归另用测试内生成的非游戏 payload，经服务器�
 
 - 上限：180 秒。
 - 执行：`make acceptance-case CASE=ACC-PEG-002`。
-- 流程：从配置 root 浏览直接子目录并创建扫描；尝试绝对路径、`..`、symlink、special file、未知 root、USER/匿名、无 CSRF、未知 JSON 字段和错误 ETag；在映射前替换已扫描来源。
+- 流程：无需目录配置，从服务器根目录浏览可读取的直接子目录并创建扫描；尝试绝对路径、`..`、symlink、special file、未知 root、USER/匿名、无 CSRF、未知 JSON 字段和错误 ETag；在映射前替换已扫描来源。
 - 通过标准：客户端只看到 root label/相对路径；逐段 no-follow 阻止越界且响应/日志不泄露完整宿主路径；权限和严格协议按 OpenAPI 拒绝；来源漂移终止计划且不会创建 Game、GameFiles、GameVariant 或 Blob 引用。
 - 证据：路径和 HTTP 聚焦测试输出、稳定错误码摘要。
 

@@ -1902,6 +1902,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /** @description 管理员无需配置即可浏览服务进程可访问的文件系统；固定返回 filesystem（/）。 */
         get: operations["getAdminServerImportRoots"];
         put?: never;
         post?: never;
@@ -1920,6 +1921,7 @@ export interface paths {
             };
             cookie?: never;
         };
+        /** @description 从服务器文件系统根目录 / 浏览可读取的直接子目录，path 使用不带前导斜杠的规范相对路径。 */
         get: operations["getAdminServerImportRootDirectories"];
         put?: never;
         post?: never;

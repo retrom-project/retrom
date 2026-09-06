@@ -13,8 +13,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"retrom/internal/config"
 	"retrom/internal/pegasusimport"
+	"retrom/internal/serversource"
 	"retrom/internal/testassert"
 )
 
@@ -34,7 +34,7 @@ func TestPegasusImportHTTPScanMappingAndSourceDrift(t *testing.T) {
 	}
 	server.pegasusImports = pegasusimport.New(
 		server.database, server.blobs, server.importer, server.credentials,
-		[]config.ServerImportRoot{{ID: "games", Label: "Game Library", Path: root, CanonicalPath: root}}, time.Now,
+		[]serversource.Root{{ID: "games", Label: "Game Library", Path: root}}, time.Now,
 	)
 	server.pegasusImports.Start()
 	requireHTTPTestRuntimeTarget(t, server.database, "fceumm")

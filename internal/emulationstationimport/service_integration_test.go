@@ -14,11 +14,11 @@ import (
 	"retrom/internal/authn"
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
-	"retrom/internal/config"
 	"retrom/internal/dependencies"
 	"retrom/internal/libraryimport"
 	"retrom/internal/payloadrelease"
 	retromruntime "retrom/internal/runtime"
+	"retrom/internal/serversource"
 	"retrom/internal/store"
 	"retrom/internal/testassert"
 	"retrom/internal/testsupport"
@@ -84,7 +84,7 @@ VALUES(?,'emulationstation-profile','es-test','ES Test','ADMIN','ENABLED',1,1)`,
 		blobs,
 		importer,
 		credentials,
-		[]config.ServerImportRoot{{ID: "games", Label: "Games", Path: sourceRoot, CanonicalPath: sourceRoot}},
+		[]serversource.Root{{ID: "games", Label: "Games", Path: sourceRoot}},
 		time.Now,
 	)
 	created, err := service.Create(ctx, CreateRequest{RootID: "games", SourceRelativePath: ""}, userID)

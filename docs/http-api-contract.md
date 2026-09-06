@@ -610,11 +610,11 @@ Cursor 只保证稳定 tuple 与筛选绑定，不提供跨请求快照隔离。
 
 ## 11. 服务器 BIOS 导入 API
 
-所有下列 route 都要求 ADMIN；匿名返回 401，USER 返回 403。写请求继续执行 Origin/Fetch Metadata/CSRF、Idempotency-Key 与 `If-Match` 规则。DTO 永不包含宿主绝对路径、root digest、CAS path 或 source inode。
+所有下列 route 都要求 ADMIN；匿名返回 401，USER 返回 403。写请求继续执行 Origin/Fetch Metadata/CSRF、Idempotency-Key 与 `If-Match` 规则。目录路径相对服务器 `/`，管理员可据此浏览完整可读文件系统；DTO 不包含 root digest、CAS path 或 source inode。
 
 | Route | 契约 |
 | --- | --- |
-| `GET /api/v1/admin/server-import-roots` | 返回配置 root 的 `id/label/status`。 |
+| `GET /api/v1/admin/server-import-roots` | 无需配置，返回服务器文件系统 `id=filesystem`、`label=服务器文件系统` 与 `status`。 |
 | `GET /api/v1/admin/server-import-roots/{rootId}/directories` | `path` 为规范相对目录，`limit<=100`；cursor 绑定 root/path/operation，仅列直接子目录。 |
 | `POST /api/v1/admin/server-imports` | 封闭 body：`kind=BIOS_DIRECTORY`、`rootId`、`sourceRelativePath`、`replaceIfBetter`；成功 201/Location/ETag，重放同 body 返回同资源。 |
 | `GET /api/v1/admin/server-imports` | 按 `createdAtMs DESC,id DESC` cursor 分页，`limit<=20`。 |
@@ -622,7 +622,7 @@ Cursor 只保证稳定 tuple 与筛选绑定，不提供跨请求快照隔离。
 | `GET .../{id}/bios-items/{requirementId}/candidates` | 按 rank/id cursor 分页，`limit<=50`，返回证据与未选原因。 |
 | `POST .../{id}/cancel` / `retry` | 使用 ETag；cancel 保留已提交 Item，retry 只允许明确 retryable 的领域失败且重验 root/catalog digest。 |
 
-稳定错误至少包括配置/root/path/cursor/active-conflict/source-or-catalog-change/scan-limit/retry-not-allowed 等 OpenAPI 枚举；详细字段和 response 是以 [`../api/openapi.yaml`](../api/openapi.yaml) 为入口的 OpenAPI 文件集所定义的唯一机器契约。
+稳定错误至少包括 root/path/cursor/active-conflict/source-or-catalog-change/scan-limit/retry-not-allowed 等 OpenAPI 枚举；详细字段和 response 是以 [`../api/openapi.yaml`](../api/openapi.yaml) 为入口的 OpenAPI 文件集所定义的唯一机器契约。
 
 `GET /api/v1/admin/bios` 的 FULL_CATALOG 以及所有服务端筛选固定 `limit<=100`、cursor 绑定 scope 与完整 query。每页 items 不影响 `scopeCounts/summary/filteredCount`，这些值始终基于服务端全集；客户端不得把首批 100 条当成完整目录。
 
