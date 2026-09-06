@@ -47,14 +47,14 @@ function MenuActions({checkpointSemantics, overlay, saveAvailable, onCancel, onS
       <div className="immersive-player-actions">
         <button type="button" disabled={overlay.pending} className={overlay.selected === 0 ? "is-selected" : ""} aria-current={overlay.selected === 0} onFocus={() => onSelect(0)} onClick={onCancel}>取消</button>
         <button type="button" disabled={checkpointSemantics === "GAME_SAVE" || overlay.pending || !saveAvailable} className={checkpointSemantics !== "GAME_SAVE" && overlay.selected === 1 ? "is-selected" : ""} aria-current={checkpointSemantics !== "GAME_SAVE" && overlay.selected === 1} aria-describedby={checkpointSemantics === "GAME_SAVE" || !saveAvailable ? "immersive-save-unavailable" : undefined} onFocus={() => onSelect(1)} onClick={() => confirmMenuItem(1, onSelect, onConfirm)}>创建存档</button>
-        {checkpointSemantics === "GAME_SAVE" && saveAvailable ? <button type="button" disabled={overlay.pending} className={overlay.selected === 1 ? "is-selected" : ""} aria-current={overlay.selected === 1} onFocus={() => onSelect(1)} onClick={() => confirmMenuItem(1, onSelect, onConfirm)}>重试同步</button> : null}
+        {checkpointSemantics === "GAME_SAVE" && saveAvailable ? <button type="button" disabled={overlay.pending} className={overlay.selected === 1 ? "is-selected" : ""} aria-current={overlay.selected === 1} onFocus={() => onSelect(1)} onClick={() => confirmMenuItem(1, onSelect, onConfirm)}>重试暂存</button> : null}
         <button type="button" disabled={overlay.pending} className={overlay.selected === 2 ? "is-selected" : ""} aria-current={overlay.selected === 2} onFocus={() => onSelect(2)} onClick={() => confirmMenuItem(2, onSelect, onConfirm)}>退出游戏</button>
       </div>
   );
 }
 
 function unavailableSaveText(semantics: CheckpointSemantics | undefined, status: string | undefined) {
-  return semantics === "GAME_SAVE" ? status ?? "游戏数据变化后会自动同步。" : "当前运行方式无法创建可恢复存档。";
+  return semantics === "GAME_SAVE" ? status ?? "游戏数据变化后会暂存在此浏览器。" : "当前运行方式无法创建可恢复存档。";
 }
 
 function confirmMenuItem(selected: ImmersiveMenuSelection, onSelect: Props["onSelect"], onConfirm: Props["onConfirm"]) {

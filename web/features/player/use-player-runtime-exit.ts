@@ -11,20 +11,24 @@ export function usePlayerRuntimeExit(
   exitStrict: () => Promise<void>,
   exitAfterRuntime: () => Promise<void>,
   showToast: (message: string, timeout?: number) => void,
+  decide: (native: GameSaveSync) => Promise<boolean>,
 ) {
   const exitRuntime = useCallback(async () => {
-    try {await flushNativeSave(nativeSave);}
-    catch {showToast("游戏数据尚未同步，退出已取消。请重试同步后退出。", 5000); return;}
+    try {
+      if (!await prepareNativeExit(controller, nativeSave, decide)) {
+        await controller.current?.runtime.resume(); return;
+      }
+    } catch {showToast("退出准备失败，游戏数据仍保留，请重试。", 5000); return;}
     await nativeSave.current?.stop();
     await controller.current?.exit().catch(() => undefined);
     await exit();
-  }, [controller, nativeSave, exit, showToast]);
+  }, [controller, nativeSave, exit, showToast, decide]);
   const exitImmersiveRuntimeStrict = useCallback(async () => {
-    await flushNativeSave(nativeSave);
+    if (!await prepareNativeExit(controller, nativeSave, decide)) {return false;}
     await nativeSave.current?.stop();
     await controller.current?.exit();
     await exitStrict();
-  }, [controller, nativeSave, exitStrict]);
+  }, [controller, nativeSave, exitStrict, decide]);
   const exitAfterProviderExit = useCallback(async () => {
     await nativeSave.current?.stop();
     await controller.current?.exit().catch(() => undefined);
@@ -38,7 +42,12 @@ export function usePlayerRuntimeExit(
   return {exitRuntime, exitImmersiveRuntimeStrict, exitImmersiveAfterProviderExit, exitAfterProviderExit};
 }
 
-async function flushNativeSave(nativeSave: {current: GameSaveSync | null}) {
-  if (!nativeSave.current) {return;}
-  await nativeSave.current.flush();
+async function prepareNativeExit(controller: {current: RuntimeController | null}, nativeSave: {current: GameSaveSync | null},
+  decide: (native: GameSaveSync) => Promise<boolean>,
+) {
+  const native = nativeSave.current;
+  if (!native) {return true;}
+  await controller.current?.runtime.pause();
+  try {await native.flush();} catch { /* The dialog allows retry, discard, or continuing. */ }
+  return decide(native);
 }

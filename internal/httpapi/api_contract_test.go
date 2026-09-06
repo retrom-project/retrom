@@ -75,7 +75,7 @@ func TestOpenAPIHasExactlyFourStreamingOperations(t *testing.T) {
 		}
 	}
 	slices.Sort(operationIDs)
-	wanted := []string{"PostRuntimeReviewScreenshot", "PostRuntimeSaveState", "PutAdminUploadPart"}
+	wanted := []string{"PostLocalGameSave", "PostRuntimeReviewScreenshot", "PostRuntimeSaveState", "PutAdminUploadPart"}
 	testassert.Truef(t, slices.Equal(operationIDs, wanted), "streaming operations = %v", operationIDs)
 }
 

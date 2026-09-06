@@ -900,3 +900,11 @@ RPG 错误沿用全局 error envelope，`code` 与 HTTP 状态固定分组如下
 普通即时存档与 Review Preview 的语义、授权及格式校验不变。
 列表和详情的存档项增加可空 `lastSyncedAtMs`；RMS 存档按最近同步时间展示和分页，普通存档回退创建时间。
 截图内容 URL 保持逻辑地址并使用 private/no-store，覆盖后返回新截图。
+
+### 本地原生存档草稿提交
+
+`POST /api/v1/launches/{launchId}/local-save` 接受与 runtime save-states 相同的严格 multipart 元数据、payload 与截图，
+上限同为 270 MiB，要求当前账号认证、CSRF 和固定 Idempotency-Key。仅允许该账号/Profile 所属的 GAME_SAVE Product Launch，
+状态为 ACTIVE、FINISHED 或 EXPIRED；拒绝 REVOKED、Review、即时快照以及其他账号会话。它不需要已失效的运行时 capability。
+目标存档和预期数据版本取自服务端原 Launch 绑定，不能由客户端指定或替换。完整性、幂等、防并发覆盖、删除冲突和名称保留规则复用
+save-states；成功返回 201。此端点只在用户明确选择保存本地草稿时调用，不构成服务端草稿或自动上传流程。

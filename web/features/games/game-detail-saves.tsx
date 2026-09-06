@@ -90,7 +90,7 @@ export function GameDetailSaves({ gameId, gameTitle, saves, nowMs, threadCoreIds
           <div className="game-detail-save-body">
             <div className="game-detail-save-title-line">
               <div><strong><time dateTime={new Date(saveDisplayTime(save)).toISOString()}>{formatTime(saveDisplayTime(save), nowMs)}</time></strong><small>{save.name || "手动存档"}</small></div>
-              <span className={index === 0 ? "is-latest" : undefined}>{index === 0 ? "最近存档" : save.lastSyncedAtMs ? "自动同步" : "手动"}</span>
+              <span className={index === 0 ? "is-latest" : undefined}>{index === 0 ? "最近存档" : save.lastSyncedAtMs ? "游戏内存档" : "手动"}</span>
             </div>
             <div className="game-detail-save-fact-row">
               <span><small>保存位置</small><b>{save.discLabel ?? (save.discIndex ? `光盘 ${save.discIndex}` : "主内容")}</b></span>

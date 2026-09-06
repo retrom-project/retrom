@@ -237,3 +237,5 @@
 }
 
 .player-native-save-help button { pointer-events: auto; }
+
+.player-native-exit .dialog-backdrop { z-index: 140; }

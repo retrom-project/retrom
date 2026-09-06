@@ -10,6 +10,7 @@ export type RuntimeSavePayload = {
   screenshot: Blob;
   source?: "GAME_SAVE";
   requestId?: string;
+  name?: string;
 };
 
 export async function captureRuntimeSave(runtime: Pick<PlayerRuntimeV1, "checkpoint" | "screenshot">): Promise<RuntimeSavePayload> {
