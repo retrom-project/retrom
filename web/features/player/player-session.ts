@@ -9,6 +9,7 @@ import { maximumManualSaveScreenshotBytes, prepareManualSaveScreenshot } from ".
 import { reducePlayerOrientation, unlockLandscape, type PlayerOrientationState } from "./orientation";
 import type { NetplayController } from "./netplay/controller";
 import {saveReviewScreenshot} from "./review-preview-screenshot";
+import {GameSaveConflict, isGameSaveConflict} from "./game-save-upload-error";
 import {notifyReviewCheckpoint} from "./review-preview-receipt";
 
 const SAVE_UPLOAD_PRESENTATION_MS = 400;
@@ -98,9 +99,11 @@ function beginPlayerFinish(params: PlayerSessionParams) {
 function queueStateUpload(payload: RuntimeSavePayload, params: PlayerSessionParams, reportProgress: (progress: SaveUploadProgress) => void) {
   const result = params.saveUploadQueue.current.then(() => uploadState(payload, params, reportProgress));
   params.saveUploadQueue.current = result.then(() => undefined, () => undefined);
-  return result.catch(() => {
+  return result.catch((error: unknown) => {
+    if (error instanceof GameSaveConflict) {throw error;}
     params.setSaveUploadProgress(null); params.setSyncText("保存失败"); params.setSyncTone("warning");
-    params.showToast("手动存档上传失败，服务器未创建不完整记录", 4_000);
+    params.showToast(payload.source === "GAME_SAVE" ? "游戏数据保存失败，本地草稿已保留" :
+      "手动存档上传失败，服务器未创建不完整记录", 4_000);
     return false;
   });
 }
@@ -163,7 +166,7 @@ async function uploadState(payload: RuntimeSavePayload, params: PlayerSessionPar
   try {
     response = await uploadWithProgress({
       url: `/runtime/launches/${params.launchId}/save-states`, method: "POST",
-      headers: { "Idempotency-Key": newUuid() }, body: form,
+      headers: { "Idempotency-Key": payload.requestId ?? newUuid() }, body: form,
       totalBytes: payload.checkpoint.bytes.byteLength + uploadPayload.screenshot.size,
       timeoutMs: SAVE_UPLOAD_TIMEOUT_MS, onProgress: reportProgress,
     });
@@ -171,12 +174,24 @@ async function uploadState(payload: RuntimeSavePayload, params: PlayerSessionPar
     await waitForSaveUploadPresentation(startedAt);
     params.setSaveUploadProgress(null);
   }
-  if (!response.ok) {return rejectSave(params, "手动存档失败，服务器未创建不完整记录");}
+  return finishStateUpload(response, payload, uploadPayload.screenshot.size, params);
+}
+
+function finishStateUpload(
+  response: Awaited<ReturnType<typeof uploadWithProgress>>,
+  payload: RuntimeSavePayload,
+  screenshotSize: number,
+  params: PlayerSessionParams,
+) {
+  if (payload.source === "GAME_SAVE" && response.status === 409 && isGameSaveConflict(response.body)) {throw new GameSaveConflict();}
+  if (!response.ok) {return rejectSave(params, payload.source === "GAME_SAVE"
+    ? "游戏数据保存失败，本地草稿已保留" : "手动存档失败，服务器未创建不完整记录");}
   if (params.envelope.current?.session.purpose === "REVIEW_PREVIEW") {
     notifyReviewCheckpoint(response.body, params.launchId, params.returnTo.current);
   }
   params.setSyncText("已同步"); params.setSyncTone("synced");
-  params.showToast(uploadPayload.screenshot.size ? "手动存档和截图已保存" : "手动存档已保存，未附带截图");
+  params.showToast(payload.source === "GAME_SAVE" ? "游戏数据已保存" :
+    screenshotSize ? "手动存档和截图已保存" : "手动存档已保存，未附带截图");
   return true;
 }
 
@@ -196,7 +211,7 @@ export function createSaveForm(
   const form = new FormData();
   const metadata = {
     checkpointFormat: payload.checkpoint.format,
-    name: `手动存档 ${new Date().toLocaleString("zh-CN")}`,
+    name: payload.source === "GAME_SAVE" ? payload.name ?? "游戏内存档" : `手动存档 ${new Date().toLocaleString("zh-CN")}`,
     ...(discIndex === undefined ? {} : { discIndex }),
   };
   form.append("metadata", new Blob([JSON.stringify(metadata)], { type: "application/json" }));

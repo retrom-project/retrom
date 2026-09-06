@@ -52,6 +52,7 @@ var ownershipRegistry = []OwnershipEdge{
 	{"import_item_multidisc_entries", "blob_id", ImportItemOwned},
 	{"import_item_validation_files", "blob_id", ImportItemOwned},
 	{"review_arcade_parent_attachments", "accepted_blob_id", ImportItemOwned},
+	{"launch_game_save_bindings", "restore_payload_blob_id", GameRuntimeOwned},
 	{"launch_content_files", "blob_id", GameRuntimeOwned},
 	{"launch_external_files", "blob_id", GameRuntimeOwned},
 	{"metadata_provider_responses", "raw_response_blob_id", GlobalTTL},

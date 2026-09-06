@@ -897,3 +897,20 @@ RPG 错误沿用全局 error envelope，`code` 与 HTTP 状态固定分组如下
 ## 17. 统一验收入口
 
 通用协议由 `ACC-API-001` 覆盖；认证/账户隔离由 `ACC-AUTH-*` 与 `ACC-ISO-*` 覆盖；同源 CSRF、launch cookie、受限缓存和媒体 SSRF 由 `ACC-SEC-002`–`ACC-SEC-004` 覆盖；上传协议由 `ACC-IMP-001`、`ACC-IMP-002` 和 `ACC-IMP-008` 覆盖；Pegasus/VIDEO 由 `ACC-PEG-001`–`006` 与 `ACC-MEDIA-001` 覆盖；EmulationStation 协议、扫描/映射、审核扩展与释放由 `ACC-ES-001`–`006` 覆盖；标签由 `ACC-TAG-002`–`005` 覆盖；多盘协议由 `ACC-MDISC-001`–`004`、`007`–`008` 覆盖；一次点击启动由 `ACC-RUN-*` 覆盖；联机协议、transport/auth/SSE 错误边界和双浏览器生命周期由 `ACC-NP-010`–`016` 覆盖；RPG 项目、pack、普通审核试运行、unique-origin bootstrap 与 checkpoint API 由 `ACC-RPG-001`–`012` 覆盖。
+
+### GAME_SAVE 同步语义
+
+`POST /runtime/launches/{launchId}/save-states` 对 `GAME_SAVE` Product Launch 创建或更新其绑定的唯一存档，两者均返回 201 和相同响应结构。
+该分支必须同时提交完整 payload 与非空截图，提交失败保持原记录完整。第一次成功创建后，后续请求复用目标 ID；选档 Launch 从首次请求起更新所选 ID。
+`Idempotency-Key` 重放返回原结果，不重新应用旧数据。相同 payload 不生成新数据版本；预期版本过期或目标已删除返回 409 `SAVE_SYNC_CONFLICT`。
+普通即时存档与 Review Preview 的语义、授权及格式校验不变。
+列表和详情的存档项增加可空 `lastSyncedAtMs`；RMS 存档按最近同步时间展示和分页，普通存档回退创建时间。
+截图内容 URL 保持逻辑地址并使用 private/no-store，覆盖后返回新截图。
+
+### 本地原生存档草稿提交
+
+`POST /api/v1/launches/{launchId}/local-save` 接受与 runtime save-states 相同的严格 multipart 元数据、payload 与截图，
+上限同为 270 MiB，要求当前账号认证、CSRF 和固定 Idempotency-Key。仅允许该账号/Profile 所属的 GAME_SAVE Product Launch，
+状态为 ACTIVE、FINISHED 或 EXPIRED；拒绝 REVOKED、Review、即时快照以及其他账号会话。它不需要已失效的运行时 capability。
+目标存档和预期数据版本取自服务端原 Launch 绑定，不能由客户端指定或替换。完整性、幂等、防并发覆盖、删除冲突和名称保留规则复用
+save-states；成功返回 201。此端点只在用户明确选择保存本地草稿时调用，不构成服务端草稿或自动上传流程。

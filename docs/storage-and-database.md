@@ -117,7 +117,7 @@ PRAGMA busy_timeout = 5000;
 
 ### 3.1 clean migration lineage
 
-冻结的 bootstrap 包含 `001_identity.sql` 至 `010_cross_domain_invariants.sql`，直接创建 current-state Game/File/Variant 和 Provider-owned Target declaration，以及最终的 EmulationStation 状态机、索引与约束。不存在旧 revision 表、转换迁移或外键关闭窗口；每步建表/索引/trigger 与 checksum 记录同事务提交，外键始终开启。`store.Open` 在任何 schema 写入前只读检查 `schema_migrations`，只接受不存在/真正空的数据库、与当前文件逐项同名同 checksum 的有序前缀，以及完整当前 lineage。匹配前缀用于 bootstrap 续跑和明确支持的兼容升级；011 批次丢弃扩展新增身份/处置表并在事务中替换 trigger，可保留现有 001–010 数据。其他旧开发 schema 不因此获得升级兼容。名称或 checksum 漂移、空洞、未知/future 记录、没有 migration 记录却已有业务表统一只读拒绝，不执行运行时修补或迁移文件之外的数据回填。
+冻结的 bootstrap 包含 `001_identity.sql` 至 `010_cross_domain_invariants.sql`，直接创建 current-state Game/File/Variant 和 Provider-owned Target declaration，以及最终的 EmulationStation 状态机、索引与约束。不存在旧 revision 表、转换迁移或外键关闭窗口；每步建表/索引/trigger 与 checksum 记录同事务提交，外键始终开启。`store.Open` 在任何 schema 写入前只读检查 `schema_migrations`，只接受不存在/真正空的数据库、与当前文件逐项同名同 checksum 的有序前缀，以及完整当前 lineage。匹配前缀用于 bootstrap 续跑和明确支持的兼容升级；011 批次丢弃扩展新增身份/处置表并在事务中替换 trigger，可保留现有 001–010 数据。012 原生存档扩展追加 `game_save_versions` 和 `launch_game_save_bindings`，保留既有存档表与数据，支持从已发布 001–011 前缀升级。其他旧开发 schema 不因此获得升级兼容。名称或 checksum 漂移、空洞、未知/future 记录、没有 migration 记录却已有业务表统一只读拒绝，不执行运行时修补或迁移文件之外的数据回填。
 
 项目首次发布前遇到不兼容开发数据库，必须停机归档旧数据并使用全新空数据根；PFB 使用 exact ID 的 `pfb-data-reset`，归档整个旧 `data/`，保留 Provider/依赖/构建缓存、ID 和 URL。程序不提供转换器、双写或隐式导入页面，也不得把旧 DB/CAS 拆开混入新库。仓库 `make dev` 的默认根为 `.dev-data/data`；测试与每个验收 Case 使用独立临时 data root 并在结束时删除。001–010 已冻结；兼容扩展从 011 起只追加，不改写旧 checksum。
 

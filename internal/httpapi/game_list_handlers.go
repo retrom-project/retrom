@@ -136,6 +136,7 @@ normalized_path
 	if err := server.database.QueryRowContext(request.Context(), `
 SELECT count(*)
 FROM save_states save
+LEFT JOIN game_save_versions native ON native.save_state_id=save.id
 JOIN save_state_runtime_compatibility compatibility
   ON compatibility.save_state_id=save.id AND compatibility.status='AVAILABLE'
 WHERE save.game_id=?
@@ -178,11 +179,13 @@ func (server *Server) gameRecentSaveStates(
 SELECT s.id,
 s.name,
 s.created_at_ms,
+native.last_synced_at_ms,
 source_launch.core_id,
 c.name,
 s.disc_index,
 s.screenshot_blob_id IS NOT NULL
 FROM save_states s
+LEFT JOIN game_save_versions native ON native.save_state_id=s.id
 JOIN launch_sessions source_launch ON source_launch.id=s.source_launch_session_id
 JOIN cores c ON c.id=source_launch.core_id
 JOIN save_state_runtime_compatibility compatibility
@@ -190,7 +193,7 @@ JOIN save_state_runtime_compatibility compatibility
 WHERE s.game_id=?
 AND s.profile_id=?
 AND s.deleted_at_ms IS NULL
-ORDER BY s.created_at_ms DESC,
+ORDER BY COALESCE(native.last_synced_at_ms,s.created_at_ms) DESC,
 s.id DESC
 LIMIT 8
 `, gameID, profileID)
@@ -201,16 +204,17 @@ LIMIT 8
 	saveStates := make([]map[string]any, 0)
 	for saveRows.Next() {
 		var saveID, saveName, coreID, coreName string
+		var lastSynced sql.NullInt64
 		var createdAtMS int64
 		var discIndex sql.NullInt64
 		var hasScreenshot bool
 		if err := saveRows.Scan(
-			&saveID, &saveName, &createdAtMS, &coreID, &coreName, &discIndex, &hasScreenshot,
+			&saveID, &saveName, &createdAtMS, &lastSynced, &coreID, &coreName, &discIndex, &hasScreenshot,
 		); err != nil {
 			return nil, fmt.Errorf("scan recent game save: %w", err)
 		}
 		saveStates = append(saveStates, map[string]any{
-			"saveStateId": saveID, "name": saveName, "createdAtMs": createdAtMS,
+			"saveStateId": saveID, "name": saveName, "createdAtMs": createdAtMS, "lastSyncedAtMs": nullableInteger(lastSynced),
 			"discIndex": nullableInteger(discIndex), "discLabel": discLabel(discIndex),
 			"screenshotUrl": optionalSaveScreenshotURL(saveID, hasScreenshot),
 			"core":          map[string]any{"id": coreID, "name": coreName},
