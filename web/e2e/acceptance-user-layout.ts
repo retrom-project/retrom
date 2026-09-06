@@ -44,33 +44,24 @@ export async function verifyCompactFeaturedHome(page: Page, testInfo: TestInfo) 
 
 export async function verifyMobileSavedFeaturedHome(page: Page, testInfo: TestInfo) {
   await page.setViewportSize({ width: 390, height: 844 });
-  await expect(page.locator(".home-featured-media.has-session-save")).toBeVisible();
+  await expect(page.locator(".phone-continue-card")).toBeVisible();
   const layout = await page.evaluate(() => {
-    const rectangle = (selector: string) => document.querySelector<HTMLElement>(selector)?.getBoundingClientRect() ?? null;
-    const media = rectangle(".home-featured-media");
-    const cover = rectangle(".home-featured-cover");
-    const copy = rectangle(".home-featured-copy");
-    const actions = rectangle(".home-featured-actions");
-    const preview = rectangle(".home-featured-save-preview");
-    if (!media || !cover || !copy || !actions || !preview) {return null;}
-    return {
-      media: { top: media.top, right: media.right, bottom: media.bottom },
-      cover: { top: cover.top, right: cover.right, bottom: cover.bottom },
-      copy: { top: copy.top, left: copy.left, right: copy.right, bottom: copy.bottom },
-      actions: { right: actions.right, bottom: actions.bottom },
-      preview: { top: preview.top, right: preview.right, bottom: preview.bottom },
-    };
+    const rectangle = (selector: string) => document.querySelector<HTMLElement>(selector)?.getBoundingClientRect();
+    const card = rectangle(".phone-continue-card");
+    const cover = rectangle(".phone-continue-card .phone-game-poster");
+    const copy = rectangle(".phone-continue-copy");
+    const action = rectangle(".phone-continue-copy .button");
+    if (!card || !cover || !copy || !action) {return null;}
+    return { cardRight: card.right, coverRight: cover.right, copyLeft: copy.left,
+      actionRight: action.right, actionHeight: action.height, coverRatio: cover.width / cover.height };
   });
   expect(layout).not.toBeNull();
   if (!layout) {throw new Error("ACCEPTANCE_MOBILE_SAVED_FEATURED_LAYOUT_UNAVAILABLE");}
-  expect(layout.cover.top).toBeGreaterThanOrEqual(layout.media.top);
-  expect(layout.copy.top).toBeGreaterThanOrEqual(layout.media.top);
-  expect(layout.cover.right).toBeLessThanOrEqual(layout.copy.left);
-  expect(layout.copy.right).toBeLessThanOrEqual(layout.media.right + 1);
-  expect(layout.actions.right).toBeLessThanOrEqual(layout.media.right + 1);
-  expect(layout.actions.bottom).toBeLessThanOrEqual(layout.preview.top - 8);
-  expect(layout.preview.right).toBeLessThanOrEqual(layout.media.right + 1);
-  expect(layout.preview.bottom).toBeLessThanOrEqual(layout.media.bottom + 1);
+  expect(layout.coverRight).toBeLessThanOrEqual(layout.copyLeft);
+  expect(layout.actionRight).toBeLessThanOrEqual(layout.cardRight + 1);
+  expect(layout.actionHeight).toBeGreaterThanOrEqual(44);
+  expect(layout.coverRatio).toBeCloseTo(5 / 7, 2);
+  await expect(page.getByRole("button", { name: "从存档继续", exact: true })).toBeVisible();
   await noPageOverflow(page);
   await page.screenshot({ path: evidencePath(testInfo, "home-mobile-saved-featured.png"), fullPage: true });
 }

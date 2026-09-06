@@ -5,6 +5,7 @@ import { AppIcon } from "@/components/app-icon";
 import { ResponsiveSheet } from "@/components/responsive-sheet";
 import { PageHeader } from "@/components/ui";
 import { useAuth } from "@/features/auth/auth-provider";
+import { LibraryFilterTrigger } from "./library-filter-trigger";
 import { GameGrid } from "./game-grid";
 import {
   gamePageQuery,
@@ -195,7 +196,7 @@ export function LibraryBrowser({ initialPage, initialFilters }: { initialPage: G
         <label className="library-desktop-filter"><span className="sr-only">游戏集合</span><select aria-label="游戏集合" value={platformInstanceId} onChange={(event) => { setNextCursor(null); setPlatformInstanceId(event.target.value); }}><option value="">所有游戏集合</option>{platformInstances.map((instance) => <option value={instance.id} key={instance.id}>{instance.name}</option>)}</select></label>
         <label className="library-desktop-filter"><span className="sr-only">标签</span><select aria-label="标签" value={tagId} onChange={(event) => { setNextCursor(null); setTagId(event.target.value); }}><option value="">所有标签</option>{facets.tags.map((tag) => <option value={tag.id} key={tag.id}>{tag.name} · {tag.count}</option>)}</select></label>
         <label className="library-desktop-filter"><span className="sr-only">排列顺序</span><select aria-label="排列顺序" value={sort} onChange={(event) => { setNextCursor(null); setSort(event.target.value as LibraryFilters["sort"]); }}><option value="RECENT_DESC">最近游玩</option><option value="ADDED_DESC">最近加入</option><option value="TITLE_ASC">名称 A–Z</option></select></label>
-        <button ref={filterButtonRef} className="button secondary library-mobile-filter-trigger" type="button" aria-expanded={filterOpen} onClick={openFilters}><AppIcon name="settings" />筛选与排序{mobileFilterCount ? ` · ${mobileFilterCount}` : ""}</button>
+        <LibraryFilterTrigger buttonRef={filterButtonRef} count={mobileFilterCount} expanded={filterOpen} onOpen={openFilters} />
       </div>
       <div className="library-platform-row">
         <span className="library-platform-label">游戏平台</span>

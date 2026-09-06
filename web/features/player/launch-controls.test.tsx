@@ -176,7 +176,39 @@ describe("LaunchControls", () => {
     />);
 
     expect(screen.getByRole("img", { name: "最近存档无预览图" })).toBeInTheDocument();
-    expect(screen.getAllByRole("button", { name: "从存档继续" })).toHaveLength(2);
+    expect(screen.getAllByRole("button", { name: "从存档继续" })).toHaveLength(1);
     expect(screen.queryByAltText("最近存档")).not.toBeInTheDocument();
   });
+  it("keeps phone save recovery primary and offers a separate fresh launch with usable settings", async () => {
+    vi.stubGlobal("matchMedia", vi.fn(() => ({ matches: true, addEventListener: vi.fn(), removeEventListener: vi.fn() })));
+    const user = userEvent.setup();
+    render(<LaunchControls gameId="phone-game" coreOptions={cores} dosEntries={[]} defaultDosEntry={null} latestSave={{ saveStateId: "phone-save", coreId: "mgba", coreName: "mGBA", screenshotUrl: null, sizeBytes: 512, createdAtMs: 1000 }} />);
+    expect(screen.queryByRole("complementary", { name: "启动游戏" })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "从存档继续" }));
+    await waitFor(() => expect(requests).toHaveLength(1));
+    expect(JSON.parse(requests[0])).toMatchObject({ gameId: "phone-game", saveStateId: "phone-save" });
+    const trigger = screen.getByRole("button", { name: "启动选项" });
+    await user.click(trigger);
+    const sheet = screen.getByRole("dialog", { name: "启动选项" });
+    await user.selectOptions(within(sheet).getByRole("combobox", { name: "运行方式" }), "gambatte");
+    await user.click(within(sheet).getByRole("button", { name: "从头开始" }));
+    await waitFor(() => expect(requests).toHaveLength(2));
+    expect(JSON.parse(requests[1])).toMatchObject({ gameId: "phone-game", coreId: "gambatte", saveStateId: null });
+    await user.keyboard("{Escape}");
+    expect(trigger).toHaveFocus();
+  });
+
+  it("keeps DOS program selection reachable on a phone", async () => {
+    vi.stubGlobal("matchMedia", vi.fn(() => ({ matches: true, addEventListener: vi.fn(), removeEventListener: vi.fn() })));
+    const user = userEvent.setup();
+    render(<LaunchControls gameId="phone-dos" coreOptions={[{ coreId: "dosbox_pure", name: "DOSBox Pure", isDefault: true, status: "READY", reasons: [] }]} dosEntries={dosEntries} defaultDosEntry="GAMES/DOOM.EXE" />);
+    await user.click(screen.getByRole("button", { name: "启动选项" }));
+    const sheet = screen.getByRole("dialog", { name: "启动选项" });
+    expect(within(sheet).getByRole("combobox", { name: "启动程序" })).toHaveValue("GAMES/DOOM.EXE");
+    await user.selectOptions(within(sheet).getByRole("combobox", { name: "启动程序" }), "");
+    await user.click(within(sheet).getByRole("button", { name: "开始游戏" }));
+    await waitFor(() => expect(requests).toHaveLength(1));
+    expect(JSON.parse(requests[0])).toMatchObject({ gameId: "phone-dos", coreId: "dosbox_pure", dosEntry: null });
+  });
+
 });
