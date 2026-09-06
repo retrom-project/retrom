@@ -45,6 +45,10 @@ Mega Drive 的 Genesis Plus GX、GX Wide 与 PicoDrive 由 Provider 在输入表
 
 EmulatorJS 构造期间已检测到的手柄，在控制表就绪时补齐空闲玩家分配，保留已有分配且不重复绑定；后续插拔继续使用 EmulatorJS 原有事件。不能要求启动前已连接的手柄重新插拔才能操作。
 
+PSP 优化的定向验证应使用操作者提供的合法样本，通过真实 Review Preview、Product Launch、新建 checkpoint、不同 Launch 恢复和恢复后输入检查。4K、150% 缩放使用 `2560×1440` CSS 视口与 `deviceScaleFactor=1.5`；必须同时检查窗口变化、全屏、设置面板、完整画面与边缘内容。帧率对照应记录相同游戏场景、核心配置与 GPU renderer，软件渲染结果不能推断为实体显卡性能。压缩收益以该次存档压缩前后完整字节数计算，不以不同场景的两份存档相除。
+
+Provider 私有的 PSP 存档读取必须等待原生异步序列化结束，期间不得恢复主循环造成 Asyncify 重入；只释放原生数据 allocation，不释放借用的描述符。压缩格式、画布上限和固定核心版本由 Provider 自己声明，Host 不增加 PSP 分支。
+
 指定存档不能在首帧盲目自动加载；Provider 必须等待目标核心可序列化，再执行原生 load 并以明确失败 fail closed。普通开始必须清理浏览器遗留的隐式目录存档，只有用户点击“创建存档”才上传显式 checkpoint。
 
 ## 5. retrom-runtime 特殊边界
