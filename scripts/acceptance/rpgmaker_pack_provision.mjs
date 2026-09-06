@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import {assertReviewRole} from "./rpgmaker_pack_review_state.mjs";
 import { chromium } from "../../web/node_modules/playwright/index.mjs";
 import { createProductClient } from "./rpgmaker_security_upload.mjs";
 import {
@@ -9,6 +10,8 @@ import { gitProvenance } from "./rpgmaker_evidence_provenance.mjs";
 import { isLocalAcceptanceHostname } from "./rpgmaker_url.mjs";
 import { localRpgAcceptanceProxy } from "./rpgmaker_local_proxy.mjs";
 import {captureApprovedResume, loadResumeRequest} from "./rpgmaker_pack_resume.mjs";
+import {preservedPopulation, readPopulation} from "./rpgmaker_pack_population.mjs";
+import {trialProtectedReferences} from "./rpgmaker_pack_continuation_product.mjs";
 import {
   approveReview, capturePackBaseline, assertProvisionedState, createProductSave, importReview,
   installRuntimePack, rpgPlatformInstances, selectRuntimePack, trialReview,
@@ -50,10 +53,20 @@ try {
   const targetIds = [...new Set(Object.values(reviewRoles).map((item) => item[0]))];
   const instances = await rpgPlatformInstances(client, targetIds);
   const installations = resumed?.installations ?? await installProtectedPacks(client, inputs);
-  const protectedReferences = await createProtectedReferences(
+  const protectedReferences = resumed?.protectedReferences ?? await createProtectedReferences(
     context, client, baseUrl, inputs, instances, installations, resumed?.reviews,
   );
-  const reviewIds = await createReviewMatrix(context, client, baseUrl, inputs, instances);
+  let reviewIds;
+  if (resumed?.protectedReferences) {
+    const protectedTrials = await trialProtectedReferences(context, client, baseUrl, protectedReferences);
+    const reviewTrials = await validateReadyReviews(context, client, baseUrl, resumed.reviews);
+    await assertReviewMatrixUnmodified(client, resumed.reviews);
+    preservedPopulation(resumed.protectedPopulation, await readPopulation(client), {games: [], saves: [], reviews: []});
+    resumed.resume.trials = {protectedReferences: protectedTrials, reviews: reviewTrials};
+    reviewIds = resumed.reviewIds;
+  } else {
+    reviewIds = await createReviewMatrix(context, client, baseUrl, inputs, instances);
+  }
   const populationPreservation = await assertProvisionedState(client, protectedReferences, reviewIds, populationBefore);
   const plan = buildPlan(inputs, reviewIds, protectedReferences);
   writePlan(arguments_.plan, plan);
@@ -107,15 +120,17 @@ async function createReviewMatrix(context, client, base, manifest, instances) {
 }
 
 async function validateReadyReviews(context, client, base, reviews) {
+  const trials = {};
   for (const [role, review] of Object.entries(reviews)) {
     const identity = reviewRoles[role];
     if (identity[2] !== "ready") { continue; }
-    await trialReview(context, client, base, review, identity[1]);
+    trials[role] = await trialReview(context, client, base, review, identity[1]);
     const current = await client.json("GET", `/api/v1/admin/reviews/${review.itemId}`);
     if (!current.canApprove || !current.validation?.current || current.validation.status !== "READY") {
       throw new Error("RPG_009_PROVISION_READY_REVIEW_INVALID");
     }
   }
+  return trials;
 }
 
 async function assertReviewMatrixUnmodified(client, reviews) {
@@ -138,37 +153,6 @@ function assertProtectedReview(role, review, identity) {
   }
 }
 
-function assertReviewRole(role, review, identity) {
-  const rpg = review.rpgMaker;
-  const initiallyReady = identity[2] === "ready" || ["rpgxpStandardAmbiguous", "rpgvxStandardAmbiguous"].includes(role);
-  if (review.canApprove !== initiallyReady || rpg?.selectedCoreId !== "rpgmaker"
-      || rpg.generation !== identity[1] || rpg.runtimePackSelections?.length !==
-      (["rpgxpStandardAmbiguous", "rpgvxStandardAmbiguous"].includes(role) ? 1 : 0)
-      || rpg.selfContainedOverride) {
-    throw new Error(`RPG_009_PROVISION_REVIEW_ROLE_INVALID_${role}`);
-  }
-  assertReviewRequirements(role, rpg);
-}
-
-function assertReviewRequirements(role, rpg) {
-  const requirements = rpg.runtimePackRequirements ?? [];
-  if (role.endsWith("SelfContained")) {
-    if (!rpg.selfContained || requirements.length) { throw new Error("RPG_009_PROVISION_SELF_CONTAINED_INVALID"); }
-  } else if (role.endsWith("NoRtp")) {
-    if (rpg.selfContained || requirements.length) { throw new Error("RPG_009_PROVISION_NO_RTP_INVALID"); }
-  } else if (requirements.length !== 1 || requirements[0].declaredName !== declaredName(role)) {
-    throw new Error("RPG_009_PROVISION_REQUIREMENT_INVALID");
-  }
-}
-
-function declaredName(role) {
-  return {
-    rpg2000Missing: "RPG2000_RTP", rpg2003Missing: "RPG2003_RTP",
-    rpgxpStandardAmbiguous: "Standard", rpgxpCustom: "RetromCustomXP",
-    rpgvxStandardAmbiguous: "RPGVX", rpgvxCustom: "RetromCustomVX",
-    rpgvxaceStandardAmbiguous: "RPGVXAce", rpgvxaceCustom: "RetromCustomVXAce",
-  }[role];
-}
 
 function instance(instances, targetId) {
   const identifier = instances.get(targetId);
