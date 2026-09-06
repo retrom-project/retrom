@@ -3035,7 +3035,7 @@
       &lt;/section&gt;
 
       &lt;section class=&quot;rt-page&quot; data-page=&quot;admin-review&quot;&gt;
-        &lt;div class=&quot;rt-page-head&quot;&gt;&lt;div&gt;&lt;h1 data-review-page-title&gt;待审核&lt;/h1&gt;&lt;p class=&quot;rt-subtitle&quot;&gt;&lt;span data-review-position&gt;已加载 5 条&lt;/span&gt; · 可任意选择审核顺序&lt;/p&gt;&lt;/div&gt;&lt;div class=&quot;rt-page-head-actions&quot;&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button&quot; data-review-return data-page-link=&quot;admin-pegasus-import-detail&quot;&gt;← 返回 Pegasus 任务&lt;/button&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button&quot; data-open-review-bulk&gt;&lt;i data-lucide=&quot;list-checks&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;快速审批&lt;/button&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button&quot; data-page-link=&quot;admin-review-history&quot;&gt;&lt;i data-lucide=&quot;history&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;审核历史&lt;/button&gt;&lt;/div&gt;&lt;/div&gt;
+        &lt;div class=&quot;rt-page-head&quot;&gt;&lt;div&gt;&lt;h1 data-review-page-title&gt;待审核&lt;/h1&gt;&lt;p class=&quot;rt-subtitle&quot;&gt;&lt;span data-review-position&gt;已加载 5 条&lt;/span&gt; · 可任意选择审核顺序&lt;/p&gt;&lt;/div&gt;&lt;div class=&quot;rt-page-head-actions&quot;&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button&quot; data-review-return data-page-link=&quot;admin-pegasus-import-detail&quot;&gt;← 返回 Pegasus 任务&lt;/button&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button&quot; data-review-deduplicate title=&quot;自动丢弃当前筛选范围内与已发布游戏内容相同的待审核条目&quot;&gt;快速去重&lt;/button&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button&quot; data-open-review-bulk&gt;&lt;i data-lucide=&quot;list-checks&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;快速审批&lt;/button&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button&quot; data-page-link=&quot;admin-review-history&quot;&gt;&lt;i data-lucide=&quot;history&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;审核历史&lt;/button&gt;&lt;/div&gt;&lt;/div&gt;
         &lt;section class=&quot;rt-panel rt-review-bulk-status&quot; data-review-bulk-status aria-live=&quot;polite&quot; hidden&gt;
           &lt;div class=&quot;rt-review-bulk-status-head&quot;&gt;&lt;div&gt;&lt;h2&gt;正在快速审批&lt;/h2&gt;&lt;p class=&quot;rt-subtitle&quot; data-review-bulk-scope&gt;Pegasus 批次的全部分页结果 · 已处理 11 / 19&lt;/p&gt;&lt;/div&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button&quot; data-stop-review-bulk&gt;停止未处理项目&lt;/button&gt;&lt;/div&gt;
           &lt;div class=&quot;rt-review-bulk-meter&quot; aria-label=&quot;快速审批进度 11 / 19&quot;&gt;&lt;i&gt;&lt;/i&gt;&lt;/div&gt;
@@ -3522,6 +3522,19 @@
         const input = root.querySelector('[data-rpg-save-name]');
         root.querySelector('[data-rpg-save-title]').textContent = input.value.trim() || '未命名存档';
         root.querySelector('[data-rpg-save-rename]').textContent = '已保存';
+      });
+      root.querySelector('[data-review-deduplicate]').addEventListener('click', (event) =&gt; {
+        const button = event.currentTarget;
+        button.disabled = true;
+        button.textContent = '正在去重…';
+        window.setTimeout(() =&gt; {
+          button.disabled = false;
+          button.textContent = '快速去重';
+          const toast = root.querySelector('[data-review-disc-toast]');
+          toast.textContent = '去重完成，已丢弃 3 个与已发布游戏重复的条目。';
+          toast.hidden = false;
+          window.setTimeout(() =&gt; { toast.hidden = true; }, 2000);
+        }, 600);
       });
       const importDirectoryDialog = root.querySelector('[data-import-directory-dialog]');
       root.querySelector('[data-open-import-directory]').addEventListener('click', () =&gt; { importDirectoryDialog.hidden = false; });

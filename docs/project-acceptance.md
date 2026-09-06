@@ -682,6 +682,14 @@ Mega Drive 导入回归另用测试内生成的非游戏 payload，经服务器�
 - 通过标准：预览计数互斥覆盖 matched，candidate 只含当前输入严格 READY、当前来源/目录/Provider Target/DAT/BIOS/DOS/dependency、合法标题、无重复和 active Attachment 的 Item；截图 override 永远排除。Arcade `kind=ARCADE/schemaVersion=1` READY 必须按当前 active DAT 重投影 closure、逐 machine 核对 required entries，并确认外部依赖各有唯一冻结 ValidationFile 后进入 candidate 与成功发布；STATIC/Arcade 使用各自明确类型与同一内容策略，不经通用 JSON 拆装或按 schema 代际猜测。范围枚举不受列表 limit/cursor/已加载 DOM 影响，scope/candidate digest 漂移返回 `REVIEW_BULK_PREVIEW_STALE`，零项/10,001/第二个 active batch 使用稳定错误且不创建半个 Job。每个 PUBLISHED 的 Game/GameFiles/GameVariant/ReviewEvent、普通与对应服务器来源聚合和 batch item/counter 同事务提交，故障时全部回滚；事件含 `QUICK_STRICT_READY/bulkApprovalId`。处理前 duplicate/changed/not-ready 分别 skip，意外项 final failure 不阻断后续项；取消只收口未提交项，已发布不回滚。重启只恢复未提交项且不重复 Game/GameFiles/GameVariant/Event，通用 Job retry 被拒绝、worker-only 领域 retry 增加 execution；restore 把遗留 Item 取消、aggregate/Job 置 `FAILED/RESTORE_INTERRUPTED` 并保留已发布项。fresh schema 的 foreign key/integrity 检查无结果。
 - 证据：preview/create HTTP 摘要、当前 schema/store 约束、故障注入事务行、JobEvent/ReviewEvent、取消/重启/retry/restore 状态序列及最终 Game 数。
 
+### ACC-IMP-010：快速去重丢弃已发布重复内容
+
+- 上限：180 秒。
+- 执行：`make acceptance-case CASE=ACC-IMP-010`。
+- 流程：创建已发布来源与 52 个重复待审项，以及同名不同内容、筛选范围外重复、仅待审之间重复的对照项。按完整批次筛选连续分页去重并重试；注入丢弃事务失败。校验 HTTP 管理员权限、CSRF、严格 body、幂等重放；组件覆盖连续分页、跳过补传提示、请求失败后保留已提交计数和运行中重复点击。
+- 通过标准：仅匹配已发布完整内容的范围内条目被丢弃，发布游戏不变，ReviewEvent 与聚合计数一致；单页失败全部回滚，重试不重复丢弃。按钮结束后清除审核快照并自动刷新实际队列，保留 URL 筛选；既有运行中补传不会被去重中断。
+- 证据：SQLite 集成断言、HTTP 响应与组件测试；PFB 物理 4K 150% 页面截图单独保存为本地验收证据。
+
 ## 11. BIOS 与 Arcade DAT
 
 ### ACC-DAT-001：真实 DAT 基线完整性
@@ -1971,7 +1979,7 @@ AI Agent 的最终交付摘要必须列出：总结果、失败/阻塞 Case ID�
 | SQLite、CAS、容量、备份、安全、API、运维 | `ACC-DB-001`–`002`、`ACC-CAS-001`–`002`、`ACC-STOR-001`–`002`、`ACC-BKP-001`、`ACC-SEC-001`–`004`、`ACC-API-001`、`ACC-OPS-001` |
 | 游戏目录 | `ACC-PLAT-001`–`005` |
 | 游戏管理 | `ACC-GAME-001`–`003` |
-| 导入、Hasheous、审核、任务恢复 | `ACC-IMP-001`–`009` |
+| 导入、Hasheous、审核、任务恢复 | `ACC-IMP-001`–`010` |
 | 多盘导入、运行、回归与隔离 | `ACC-MDISC-001`–`008` |
 | BIOS、服务器导入与 Arcade DAT | `ACC-DAT-001`–`006`、`ACC-BIOS-001`–`007` |
 | Pegasus 目录导入与游戏视频 | `ACC-PEG-001`–`006`、`ACC-MEDIA-001` |

@@ -1212,6 +1212,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/reviews/deduplicate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Discards pending reviews matching published content within the filtered scope, at most 50 scanned items per request. Continue with the returned cursor and upper bound until nextAfterItemId is null. Active attachments are skipped; published games are preserved. */
+        post: operations["postAdminReviewDeduplicate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/review-bulk-approval-preview": {
         parameters: {
             query?: never;
@@ -3928,6 +3945,22 @@ export interface components {
             /** Format: uuid */
             platformInstanceId?: string;
             blockerCode?: string;
+        };
+        ReviewDeduplicateRequest: {
+            scope: components["schemas"]["ReviewBulkApprovalScope"];
+            /** Format: uuid */
+            afterItemId?: string;
+            /** Format: uuid */
+            throughItemId?: string;
+        };
+        ReviewDeduplicateResult: {
+            scannedCount: number;
+            discardedCount: number;
+            attachmentActiveCount: number;
+            /** Format: uuid */
+            nextAfterItemId: string | null;
+            /** Format: uuid */
+            throughItemId: string | null;
         };
         ReviewBulkApprovalRequest: {
             scope: components["schemas"]["ReviewBulkApprovalScope"];
@@ -7896,6 +7929,32 @@ export interface operations {
         requestBody?: never;
         responses: {
             200: components["responses"]["ReviewQueueListResponse"];
+        };
+    };
+    postAdminReviewDeduplicate: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReviewDeduplicateRequest"];
+            };
+        };
+        responses: {
+            /** @description Committed page counts and continuation bounds. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReviewDeduplicateResult"];
+                };
+            };
         };
     };
     getAdminReviewBulkApprovalPreview: {
