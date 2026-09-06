@@ -1,5 +1,7 @@
 "use client";
 
+import { PhoneDisclosure } from "@/features/mobile/phone-layout";
+
 import Link from "next/link";
 import type { FormEvent} from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -240,10 +242,10 @@ export function SaveManager({ saves, nowMs, initialFilters }: { saves: SaveItem[
 
     <section className="save-library-toolbar" aria-label="筛选存档">
       <label className="save-library-search"><span>搜索</span><span><AppIcon name="search" /><input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索游戏或存档名称" /></span></label>
-      <label><span>游戏</span><select value={gameId} onChange={(event) => setGameId(event.target.value)}><option value="">所有游戏</option>{games.map((game) => <option value={game.id} key={game.id}>{game.title}</option>)}</select></label>
+      <PhoneDisclosure title="筛选存档"><label><span>游戏</span><select value={gameId} onChange={(event) => setGameId(event.target.value)}><option value="">所有游戏</option>{games.map((game) => <option value={game.id} key={game.id}>{game.title}</option>)}</select></label>
       <label><span>存档状态</span><select value={availability} onChange={(event) => setAvailability(event.target.value as SaveFilters["availability"])}><option value="AVAILABLE">可以继续</option><option value="ALL">全部存档</option><option value="BLOCKED">当前不可用</option></select></label>
       <label><span>排列</span><select value={sort} onChange={(event) => setSort(event.target.value as SaveFilters["sort"])}><option value="CREATED_DESC">最近保存优先</option><option value="CREATED_ASC">最早保存优先</option></select></label>
-      <p>当前显示 <strong>{filtered.length}</strong> 份</p>
+      </PhoneDisclosure><p>当前显示 <strong>{filtered.length}</strong> 份</p>
     </section>
 
     <SaveGroups {...{

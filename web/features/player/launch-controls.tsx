@@ -1,6 +1,9 @@
 "use client";
 
-import { useState, useSyncExternalStore } from "react";
+import { useRef, useState, useSyncExternalStore } from "react";
+import { AppIcon } from "@/components/app-icon";
+import { ResponsiveSheet } from "@/components/responsive-sheet";
+import { usePhoneLayout } from "@/features/mobile/phone-layout";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { StatusBadge } from "@/components/ui";
 import { SaveScreenshot } from "@/features/saves/save-screenshot";
@@ -106,6 +109,7 @@ type LaunchViewProps = {
   onAdvancedClose: () => void;
   onAdvancedOpen: () => void;
   onCoreApply: () => void;
+  onCoreSelect: (value: string) => void;
   onDOSChange: (value: string | null) => void;
   onLaunchCreated: (() => void) | undefined;
   onStagedCoreChange: (value: string) => void;
@@ -130,15 +134,28 @@ function DesktopLaunchPanel(props: LaunchViewProps) {
 }
 
 function MobileLaunchDock(props: LaunchViewProps) {
-  const formatTime = useSaveTimeFormatter();
-  const label = props.latestSave ? "最近存档" : props.blocked ? "当前不可启动" : "推荐运行方式";
-  const detail = props.latestSave ? formatTime(props.latestSave.createdAtMs, props.nowMs ?? props.latestSave.createdAtMs) : props.selectedCore?.name ?? "尚未配置";
-  return <div className="mobile-launch-dock" aria-label="快速启动">
-    <div><small>{label}</small><strong>{detail}</strong></div>
-    {props.latestSave
-      ? <LaunchButton gameId={props.gameId} saveStateId={props.latestSave.saveStateId} requiresThreads={props.latestSaveRequiresThreads} label="从存档继续" />
-      : <LaunchButton gameId={props.gameId} coreId={props.coreId || null} dosEntry={props.isDOS ? props.dosEntry : null} requiresThreads={props.selectedCore?.requiresThreads} disabled={props.blocked} onLaunchCreated={props.onLaunchCreated} />}
-  </div>;
+  const [open, setOpen] = useState(false);
+  const trigger = useRef<HTMLButtonElement>(null);
+  return <>
+    <div className="mobile-launch-dock" aria-label="快速启动">
+      <button ref={trigger} type="button" className="phone-launch-options-trigger" aria-expanded={open} aria-haspopup="dialog" onClick={() => setOpen(true)}><AppIcon name="settings" /><span>启动选项</span></button>
+      {props.latestSave
+        ? <LaunchButton gameId={props.gameId} saveStateId={props.latestSave.saveStateId} requiresThreads={props.latestSaveRequiresThreads} label="从存档继续" />
+        : <LaunchButton gameId={props.gameId} coreId={props.coreId || null} dosEntry={props.isDOS ? props.dosEntry : null} requiresThreads={props.selectedCore?.requiresThreads} disabled={props.blocked} onLaunchCreated={props.onLaunchCreated} />}
+      {props.blocked && !props.latestSave ? <RuntimeStatus blocked selectedCore={props.selectedCore} /> : null}
+    </div>
+    <ResponsiveSheet open={open} title="启动选项" placement="bottom" onClose={() => setOpen(false)} returnFocusRef={trigger} className="phone-launch-options">
+      <div className="phone-launch-fields">
+        <label><span>运行方式</span><select aria-label="运行方式" value={props.coreId} onChange={(event) => props.onCoreSelect(event.target.value)}>
+          {props.coreOptions.map((core) => <option key={core.coreId} value={core.coreId} disabled={core.status === "DEPENDENCY_MISSING" || core.status === "INCOMPATIBLE"}>{core.name}{core.isDefault ? " · 推荐" : ""} · {coreStatusLabels[core.status]}</option>)}
+        </select></label>
+        <RuntimeStatus blocked={props.blocked} selectedCore={props.selectedCore} />
+        {props.isDOS ? <DOSProgramPicker defaultDosEntry={props.defaultDosEntry} dosEntries={props.dosEntries} onChange={props.onDOSChange} value={props.dosEntry} /> : null}
+        {props.latestSave ? <p>从头开始不会删除已有存档。</p> : null}
+        <LaunchButton gameId={props.gameId} coreId={props.coreId || null} dosEntry={props.isDOS ? props.dosEntry : null} requiresThreads={props.selectedCore?.requiresThreads} disabled={props.blocked} label={props.latestSave ? "从头开始" : "开始游戏"} onLaunchCreated={props.onLaunchCreated} />
+      </div>
+    </ResponsiveSheet>
+  </>;
 }
 
 export function LaunchControls({ gameId, coreOptions, dosEntries, defaultDosEntry, latestSave, nowMs }: {
@@ -149,6 +166,7 @@ export function LaunchControls({ gameId, coreOptions, dosEntries, defaultDosEntr
   latestSave?: LatestSave | null;
   nowMs?: number;
 }) {
+  const phone = usePhoneLayout();
   const { context } = useAuth();
   const userId = context.user?.userId;
   const preferredCoreId = useSyncExternalStore(subscribePreferredCores, () => readPreferredCore(userId, gameId), () => null);
@@ -182,10 +200,11 @@ export function LaunchControls({ gameId, coreOptions, dosEntries, defaultDosEntr
     advancedOpen, blocked, coreId, coreOptions, defaultDosEntry, dosEntries, dosEntry, gameId, isDOS,
     latestSave, latestSaveRequiresThreads, nowMs,
     onAdvancedClose: () => setAdvancedOpen(false), onAdvancedOpen: openCorePicker,
+    onCoreSelect: selectCore,
     onCoreApply: () => { selectCore(stagedCoreId); setAdvancedOpen(false); },
     onDOSChange: (value) => setDosSelection({ gameId, value }),
     onLaunchCreated: isDOS ? () => writePreferredDOSEntry(userId, gameId, dosEntry) : undefined,
     onStagedCoreChange: setStagedCoreId, selectedCore, stagedCoreId, usesOverride,
   };
-  return <><DesktopLaunchPanel {...view} /><MobileLaunchDock {...view} /></>;
+  return phone ? <MobileLaunchDock {...view} /> : <DesktopLaunchPanel {...view} />;
 }

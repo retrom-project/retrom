@@ -2440,6 +2440,119 @@
     #retrom-ui-review .rt-app[data-rpg-scene=&quot;player&quot;] .rt-player-screen { background:radial-gradient(circle at 47% 38%,#9daec1 0 2%,transparent 3%),linear-gradient(#b8d0df 0 46%,#71824e 47% 58%,#283d2b 59% 72%,#11151c 73%); }
     @media(max-width:1100px){#retrom-ui-review .rt-rpg-import-design,#retrom-ui-review .rt-rpg-review-top,#retrom-ui-review .rt-rpg-review-columns{grid-template-columns:1fr}#retrom-ui-review .rt-rpg-core-grid{grid-template-columns:repeat(2,minmax(0,1fr))} }
     @media(max-width:760px){#retrom-ui-review .rt-rpg-binding,#retrom-ui-review .rt-rpg-pack-summary,#retrom-ui-review .rt-rpg-core-grid{grid-template-columns:1fr}#retrom-ui-review .rt-rpg-pack-row{grid-template-columns:1fr}#retrom-ui-review .rt-rpg-target-head,#retrom-ui-review .rt-rpg-save-naming,#retrom-ui-review .rt-rpg-save-edit{align-items:stretch;flex-direction:column;display:flex}#retrom-ui-review .rt-rpg-save-edit .rt-input{width:100%} }
+
+    /* Phone play layout. Desktop, tablet and immersive scenes keep their own rules. */
+    #retrom-ui-review .rt-phone-appbar, #retrom-ui-review .rt-phone-home,
+    #retrom-ui-review .rt-phone-admin, #retrom-ui-review .rt-phone-launch,
+    #retrom-ui-review .rt-phone-filter { display: none; }
+    @media (max-width: 767px), (pointer: coarse) and (max-width: 1023px) and (max-height: 767px) {
+      #retrom-ui-review .rt-app { display: block; min-height: 100dvh; background: #f5f3ef; border: 0; border-radius: 0; }
+      #retrom-ui-review .rt-sidebar, #retrom-ui-review .rt-mobile-appbar { display: none; }
+      #retrom-ui-review .rt-phone-appbar { min-height: 56px; padding: 0 16px; display: flex; align-items: center; justify-content: space-between; }
+      #retrom-ui-review .rt-phone-appbar button { min-height: 44px; min-width: 44px; border: 0; color: var(--retrom-text); background: transparent; font-size: 19px; font-weight: 800; }
+      #retrom-ui-review .rt-phone-appbar button:last-child { border-radius: 50%; color: #5742ba; background: #eee9ff; font-size: 17px; }
+      #retrom-ui-review .rt-main { min-height: 0; padding: 0 0 calc(88px + env(safe-area-inset-bottom)); }
+      #retrom-ui-review .rt-page { padding: 12px 16px; }
+      #retrom-ui-review .rt-mobile-bottom-nav, #retrom-ui-review .rt-app[data-mode=&quot;admin&quot;] .rt-mobile-bottom-nav { display: grid; position: fixed; z-index: 39; inset: auto 0 0; min-height: calc(64px + env(safe-area-inset-bottom)); padding: 4px 12px env(safe-area-inset-bottom); grid-template-columns: repeat(3,minmax(0,1fr)); background: white; border-top: 1px solid var(--retrom-line); box-shadow: none; }
+      #retrom-ui-review .rt-mobile-bottom-nav button { min-height: 56px; font-size: 12px; gap: 4px; color: var(--retrom-muted); }
+      #retrom-ui-review .rt-mobile-bottom-nav button svg { width: 23px; height: 23px; }
+      #retrom-ui-review .rt-mobile-bottom-nav button.is-active { color: #5742ba; background: transparent; }
+      #retrom-ui-review .rt-app.is-playing .rt-phone-appbar { display: none; }
+      #retrom-ui-review .rt-app[data-mode=&quot;admin&quot;] .rt-page { display: none !important; }
+      #retrom-ui-review .rt-app[data-mode=&quot;admin&quot;] .rt-phone-admin { display: grid; gap: 12px; padding: 12vh 24px 32px; }
+      #retrom-ui-review .rt-phone-admin p { font-size: 15px; color: var(--retrom-muted); line-height: 1.7; }
+      #retrom-ui-review .rt-phone-admin .rt-button { justify-self: start; }
+      #retrom-ui-review [data-page=&quot;home&quot;] &gt; .rt-home-layer { display: none; }
+      #retrom-ui-review .rt-phone-home { display: grid; gap: 26px; }
+      #retrom-ui-review .rt-phone-home h1 { font-size: 24px; margin: 0 0 14px; }
+      #retrom-ui-review .rt-phone-search { display: flex; gap: 8px; padding: 4px 5px 4px 14px; border: 1px solid var(--retrom-line); border-radius: 14px; background: white; }
+      #retrom-ui-review .rt-phone-search input { min-width: 0; width: 100%; min-height: 44px; border: 0; background: transparent; font-size: 16px; }
+      #retrom-ui-review .rt-phone-search button { min-width: 48px; border: 0; border-radius: 10px; background: #eee9ff; color: #5742ba; font-weight: 700; }
+      #retrom-ui-review .rt-phone-continue { display: grid; grid-template-columns: 31% minmax(0,1fr); gap: 16px; align-items: start; }
+      #retrom-ui-review .rt-phone-poster { width: 100%; aspect-ratio: 5/7; height: auto; min-height: 0; border: 0; border-radius: 12px; }
+      #retrom-ui-review .rt-phone-continue-copy, #retrom-ui-review .rt-phone-continue-info, #retrom-ui-review .rt-phone-continue-actions { min-width: 0; }
+      #retrom-ui-review .rt-phone-continue h2 { margin: 0 0 6px; font-size: 19px; }
+      #retrom-ui-review .rt-phone-continue p { color: var(--retrom-muted); margin: 0 0 8px; font-size: 13px; }
+      #retrom-ui-review .rt-phone-continue .rt-button { width: 100%; margin-top: 14px; min-height: 48px; }
+      #retrom-ui-review .rt-phone-section-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+      #retrom-ui-review .rt-phone-section-head h2 { font-size: 19px; }
+      #retrom-ui-review .rt-phone-games { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 20px 14px; }
+      #retrom-ui-review .rt-phone-games &gt; button { min-width: 0; padding: 0; border: 0; background: transparent; text-align: left; }
+      #retrom-ui-review .rt-phone-games strong { display: block; margin-top: 9px; font-size: 14px; }
+      #retrom-ui-review .rt-phone-games small { display: block; margin-top: 3px; color: var(--retrom-muted); }
+      #retrom-ui-review .rt-page-head .rt-subtitle, #retrom-ui-review .rt-library-section-head,
+      #retrom-ui-review .rt-library-meta, #retrom-ui-review .rt-library-played, #retrom-ui-review .rt-library-body &gt; .rt-tag-list,
+      #retrom-ui-review .rt-library-platform-tag, #retrom-ui-review .rt-library-platforms &gt; span,
+      #retrom-ui-review .rt-library-tool-row &gt; select { display: none; }
+      #retrom-ui-review .rt-library-tools { padding: 0; border: 0; background: transparent; box-shadow: none; }
+      #retrom-ui-review .rt-library-tool-row { display: flex; gap: 8px; }
+      #retrom-ui-review .rt-library-search { flex: 1; min-width: 0; height: 48px; background: white; border-radius: 12px; }
+      #retrom-ui-review .rt-phone-filter { display: inline-flex; flex: 0 0 48px; width: 48px; height: 48px; min-height: 48px; min-width: 48px; padding: 0; gap: 0; align-items: center; justify-content: center; border-radius: 12px; background: white; }
+      #retrom-ui-review .rt-phone-filter svg { width: 20px; height: 20px; }
+      #retrom-ui-review .rt-library-platforms { overflow-x: auto; flex-wrap: nowrap; border: 0; }
+      #retrom-ui-review .rt-library-chip { min-height: 44px; flex-shrink: 0; }
+      #retrom-ui-review .rt-library-grid { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 20px 14px; }
+      #retrom-ui-review .rt-library-card { min-width: 0; border: 0; box-shadow: none; background: transparent; }
+      #retrom-ui-review .rt-library-cover { border-radius: 12px; }
+      #retrom-ui-review .rt-library-body { padding: 8px 0; }
+      #retrom-ui-review .rt-library-title &gt; button { min-height: 44px; white-space: normal; }
+      #retrom-ui-review .rt-detail-breadcrumb, #retrom-ui-review .rt-detail-meta, #retrom-ui-review .rt-detail-copy &gt; .rt-tag-list,
+      #retrom-ui-review .rt-detail-playtime, #retrom-ui-review .rt-detail-poster-caption, #retrom-ui-review .rt-launch-panel { display: none; }
+      #retrom-ui-review .rt-detail-hero { grid-template-columns: 34% minmax(0,1fr); padding: 0; gap: 16px; border: 0; background: transparent; box-shadow: none; }
+      #retrom-ui-review .rt-detail-poster-shell { width: 100%; min-width: 0; }
+      #retrom-ui-review .rt-detail-cover { width: 100%; height: auto; aspect-ratio: 3 / 4; }
+      #retrom-ui-review .rt-video-preview-chip { display: none; }
+      #retrom-ui-review .rt-detail-copy { display: flex; flex-direction: column; }
+      #retrom-ui-review .rt-detail-copy &gt; .rt-phone-disclosure { order: 5; }
+      #retrom-ui-review .rt-detail-title { font-size: 24px; }
+      #retrom-ui-review .rt-detail-kicker { font-size: 12px; }
+      #retrom-ui-review .rt-phone-disclosure { border-block: 1px solid var(--retrom-line); margin-block: 16px; }
+      #retrom-ui-review .rt-phone-disclosure summary { min-height: 48px; padding-block: 12px; cursor: pointer; font-size: 14px; font-weight: 700; }
+      #retrom-ui-review .rt-phone-disclosure .rt-detail-info-strip { grid-template-columns: repeat(2,minmax(0,1fr)); }
+      #retrom-ui-review .rt-detail-saves { border: 0; margin-top: 24px; background: transparent; }
+      #retrom-ui-review .rt-detail-saves-head { padding: 0; }
+      #retrom-ui-review .rt-detail-saves-head p, #retrom-ui-review .rt-detail-save-facts, #retrom-ui-review .rt-detail-save-kind { display: none; }
+      #retrom-ui-review .rt-detail-save-grid { padding: 12px 0; grid-template-columns: 1fr; }
+      #retrom-ui-review .rt-detail-save-card { display: grid; grid-template-columns: 35% minmax(0,1fr); align-items: center; }
+      #retrom-ui-review [data-page=&quot;detail&quot;] { padding-bottom: 96px; }
+      #retrom-ui-review .rt-phone-launch { position: fixed; z-index: 40; inset: auto 0 calc(64px + env(safe-area-inset-bottom)); min-height: 76px; padding: 8px 16px; display: flex; gap: 8px; background: white; border-top: 1px solid var(--retrom-line); }
+      #retrom-ui-review .rt-phone-launch &gt; button:first-child { display: grid; place-items: center; gap: 2px; border: 0; background: transparent; color: var(--retrom-muted); font-size: 11px; }
+      #retrom-ui-review .rt-phone-launch &gt; .rt-button { flex: 1; min-height: 48px; }
+      #retrom-ui-review .rt-phone-option-dialog { position: fixed; inset: auto 0 0; margin: 0; width: 100%; max-width: none; max-height: 90dvh; padding: 24px 16px calc(24px + env(safe-area-inset-bottom)); border: 0; border-radius: 20px 20px 0 0; color: var(--retrom-text); background: white; }
+      #retrom-ui-review .rt-phone-option-dialog::backdrop { background: rgb(0 0 0 / 40%); }
+      #retrom-ui-review .rt-phone-option-dialog h2 { margin-bottom: 20px; }
+      #retrom-ui-review .rt-phone-option-dialog .rt-select { width: 100%; min-height: 48px; margin-bottom: 16px; }
+      #retrom-ui-review .rt-phone-option-dialog p { margin: 12px 0; color: var(--retrom-muted); }
+      #retrom-ui-review .rt-phone-profile { display: grid; gap: 22px; }
+      #retrom-ui-review .rt-phone-identity { display: flex; align-items: center; gap: 14px; }
+      #retrom-ui-review .rt-phone-identity &gt; span { width: 52px; height: 52px; border-radius: 50%; display: grid; place-items: center; background: #eee9ff; color: #5742ba; font-size: 22px; }
+      #retrom-ui-review .rt-phone-links { overflow: hidden; display: grid; border: 1px solid var(--retrom-line); border-radius: 14px; background: white; }
+      #retrom-ui-review .rt-phone-links button { display: flex; align-items: center; gap: 14px; min-height: 60px; padding: 12px 16px; border: 0; border-bottom: 1px solid var(--retrom-line); color: var(--retrom-text); background: transparent; font-size: 15px; text-align: left; }
+      #retrom-ui-review .rt-phone-links button:last-child { border-bottom: 0; }
+    }
+    @media (min-width: 480px) and (max-width: 767px), (pointer: coarse) and (min-width: 480px) and (max-width: 1023px) and (max-height: 767px) {
+      #retrom-ui-review .rt-phone-games, #retrom-ui-review .rt-library-grid { grid-template-columns: repeat(3,minmax(0,1fr)); }
+      #retrom-ui-review .rt-phone-continue { grid-template-columns: 80px minmax(0,1fr); align-items: center; }
+      #retrom-ui-review .rt-phone-continue-copy { display: grid; grid-template-columns: minmax(0,1fr) 144px; align-items: center; align-self: stretch; gap: 16px; }
+      #retrom-ui-review .rt-phone-continue-copy .rt-button { margin-top: 0; }
+    }
+
+    @media (max-width: 767px), (pointer: coarse) and (max-width: 1023px) and (max-height: 767px) {
+      #retrom-ui-review .rt-favorite-layout { grid-template-columns: minmax(0,1fr); }
+      #retrom-ui-review .rt-favorite-view-head &gt; div, #retrom-ui-review .rt-favorite-rail-head,
+      #retrom-ui-review .rt-favorite-result, #retrom-ui-review .rt-recent-stats,
+      #retrom-ui-review .rt-favorite-rail-label { display: none; }
+      #retrom-ui-review .rt-favorite-view-head { min-height: 0; margin: 0; }
+      #retrom-ui-review .rt-favorite-rail { display: flex; position: static; align-items: center; gap: 8px; border: 0; background: transparent; }
+      #retrom-ui-review .rt-favorite-rail-list { display: flex; flex: 1; min-width: 0; overflow-x: auto; gap: 8px; padding: 0; }
+      #retrom-ui-review .rt-favorite-scope { min-height: 44px; flex-shrink: 0; }
+      #retrom-ui-review .rt-favorite-new-folder { width: 44px; min-width: 44px; min-height: 44px; margin: 0; font-size: 0; }
+      #retrom-ui-review .rt-favorite-new-folder::after { content: '+'; font-size: 22px; }
+      #retrom-ui-review .rt-favorite-tools, #retrom-ui-review .rt-save-toolbar, #retrom-ui-review .rt-recent-filters { display: grid; grid-template-columns: minmax(0,1fr); gap: 8px; padding: 0; border: 0; background: transparent; box-shadow: none; }
+      #retrom-ui-review .rt-phone-filter-fields &gt; div { display: grid; gap: 12px; padding-bottom: 12px; }
+      #retrom-ui-review .rt-phone-filter-fields { margin: 0; }
+      #retrom-ui-review .rt-favorite-grid { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 20px 14px; }
+    }
   &lt;/style&gt;
 
   &lt;details class=&quot;rt-review-scenes&quot; open&gt;
@@ -2599,6 +2712,7 @@
   &lt;/section&gt;
 
   &lt;div class=&quot;rt-app&quot; data-mode=&quot;user&quot;&gt;
+    &lt;header class=&quot;rt-phone-appbar&quot;&gt;&lt;button type=&quot;button&quot; data-page-link=&quot;home&quot;&gt;R　Retrom&lt;/button&gt;&lt;button type=&quot;button&quot; data-page-link=&quot;me&quot; aria-label=&quot;打开我的&quot;&gt;T&lt;/button&gt;&lt;/header&gt;
     &lt;header class=&quot;rt-mobile-appbar&quot;&gt;
       &lt;div class=&quot;rt-mobile-brand&quot;&gt;&lt;span class=&quot;rt-brand-mark&quot; aria-hidden=&quot;true&quot;&gt;&lt;span&gt;&lt;/span&gt;&lt;span&gt;&lt;/span&gt;&lt;span&gt;&lt;/span&gt;&lt;span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span&gt;RETROM&lt;/span&gt;&lt;/div&gt;
       &lt;span class=&quot;rt-mobile-title&quot; data-mobile-title&gt;首页&lt;/span&gt;
@@ -2653,6 +2767,15 @@
 
     &lt;main class=&quot;rt-main&quot;&gt;
       &lt;section class=&quot;rt-page is-active&quot; data-page=&quot;home&quot;&gt;
+        &lt;div class=&quot;rt-phone-home&quot;&gt;
+          &lt;form class=&quot;rt-phone-search&quot; data-phone-search&gt;&lt;input type=&quot;search&quot; aria-label=&quot;搜索游戏&quot; placeholder=&quot;想玩什么？搜一下&quot;&gt;&lt;button type=&quot;submit&quot;&gt;搜索&lt;/button&gt;&lt;/form&gt;
+          &lt;section&gt;&lt;h1&gt;继续游玩&lt;/h1&gt;&lt;div class=&quot;rt-phone-continue&quot;&gt;&lt;button type=&quot;button&quot; class=&quot;rt-cover rt-cover-b rt-phone-poster&quot; data-open-game=&quot;metal&quot;&gt;&lt;span class=&quot;rt-cover-title&quot;&gt;METAL SLUG&lt;/span&gt;&lt;/button&gt;&lt;div class=&quot;rt-phone-continue-copy&quot;&gt;&lt;div class=&quot;rt-phone-continue-info&quot;&gt;&lt;h2&gt;Metal Slug&lt;/h2&gt;&lt;p&gt;Arcade&lt;/p&gt;&lt;p&gt;存档 · 今天 22:14&lt;/p&gt;&lt;/div&gt;&lt;div class=&quot;rt-phone-continue-actions&quot;&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button rt-button-primary&quot; data-quick-start=&quot;metal&quot; data-save-start=&quot;上次游玩存档&quot;&gt;从存档继续&lt;/button&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;&lt;/section&gt;
+          &lt;section&gt;&lt;div class=&quot;rt-phone-section-head&quot;&gt;&lt;h2&gt;发现游戏&lt;/h2&gt;&lt;button type=&quot;button&quot; class=&quot;rt-text-link&quot; data-page-link=&quot;library&quot;&gt;查看全部&lt;/button&gt;&lt;/div&gt;&lt;div class=&quot;rt-phone-games&quot;&gt;
+            &lt;button type=&quot;button&quot; data-open-game=&quot;doom&quot;&gt;&lt;span class=&quot;rt-cover rt-cover-c rt-phone-poster&quot;&gt;&lt;span class=&quot;rt-cover-title&quot;&gt;DOOM&lt;/span&gt;&lt;/span&gt;&lt;strong&gt;DOOM&lt;/strong&gt;&lt;small&gt;DOS&lt;/small&gt;&lt;/button&gt;
+            &lt;button type=&quot;button&quot; data-open-game=&quot;zelda&quot;&gt;&lt;span class=&quot;rt-cover rt-cover-a rt-phone-poster&quot;&gt;&lt;span class=&quot;rt-cover-title&quot;&gt;ZELDA&lt;/span&gt;&lt;/span&gt;&lt;strong&gt;The Legend of Zelda&lt;/strong&gt;&lt;small&gt;SNES&lt;/small&gt;&lt;/button&gt;
+          &lt;/div&gt;&lt;/section&gt;
+        &lt;/div&gt;
+
         &lt;section class=&quot;rt-home-layer rt-home-hero-layer&quot;&gt;
           &lt;div class=&quot;rt-page-head&quot;&gt;
             &lt;div&gt;&lt;h1&gt;今天想玩什么？&lt;/h1&gt;&lt;p class=&quot;rt-subtitle&quot;&gt;从最近的进度继续，或重新发现资料库里的经典游戏&lt;/p&gt;&lt;/div&gt;
@@ -2685,7 +2808,7 @@
 
       &lt;section class=&quot;rt-page&quot; data-page=&quot;library&quot;&gt;
         &lt;div class=&quot;rt-page-head&quot;&gt;&lt;div&gt;&lt;div class=&quot;rt-eyebrow&quot;&gt;我的游戏&lt;/div&gt;&lt;h1&gt;游戏库&lt;/h1&gt;&lt;p class=&quot;rt-subtitle&quot;&gt;找到想玩的经典游戏，打开详情后即可使用推荐配置开始游玩。&lt;/p&gt;&lt;/div&gt;&lt;/div&gt;
-        &lt;section class=&quot;rt-library-tools&quot; aria-label=&quot;游戏筛选&quot;&gt;&lt;div class=&quot;rt-library-tool-row&quot;&gt;&lt;label class=&quot;rt-library-search&quot;&gt;&lt;i data-lucide=&quot;search&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;&lt;input type=&quot;search&quot; placeholder=&quot;搜索游戏、平台或标签&quot; aria-label=&quot;搜索游戏、平台或标签&quot; data-library-search&gt;&lt;/label&gt;&lt;select class=&quot;rt-select&quot; aria-label=&quot;游戏集合&quot;&gt;&lt;option&gt;所有游戏集合&lt;/option&gt;&lt;option&gt;FBNeo 游戏&lt;/option&gt;&lt;/select&gt;&lt;select class=&quot;rt-select&quot; aria-label=&quot;标签&quot;&gt;&lt;option&gt;所有标签&lt;/option&gt;&lt;option&gt;双人（2）&lt;/option&gt;&lt;option&gt;清版动作（1）&lt;/option&gt;&lt;/select&gt;&lt;select class=&quot;rt-select&quot; aria-label=&quot;排列顺序&quot; data-library-sort&gt;&lt;option value=&quot;recent&quot;&gt;最近游玩&lt;/option&gt;&lt;option value=&quot;added&quot;&gt;最近加入&lt;/option&gt;&lt;option value=&quot;title&quot;&gt;名称 A–Z&lt;/option&gt;&lt;/select&gt;&lt;/div&gt;&lt;div class=&quot;rt-library-platforms&quot;&gt;&lt;span&gt;游戏平台&lt;/span&gt;&lt;button type=&quot;button&quot; class=&quot;rt-library-chip is-active&quot; data-library-platform=&quot;&quot;&gt;全部 &lt;strong&gt;3&lt;/strong&gt;&lt;/button&gt;&lt;button type=&quot;button&quot; class=&quot;rt-library-chip&quot; data-library-platform=&quot;Arcade&quot;&gt;Arcade &lt;strong&gt;3&lt;/strong&gt;&lt;/button&gt;&lt;span class=&quot;rt-library-result&quot;&gt;当前显示 &lt;strong data-library-count&gt;3&lt;/strong&gt; 款游戏&lt;/span&gt;&lt;/div&gt;&lt;/section&gt;
+        &lt;section class=&quot;rt-library-tools&quot; aria-label=&quot;游戏筛选&quot;&gt;&lt;div class=&quot;rt-library-tool-row&quot;&gt;&lt;label class=&quot;rt-library-search&quot;&gt;&lt;i data-lucide=&quot;search&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;&lt;input type=&quot;search&quot; placeholder=&quot;搜索游戏、平台或标签&quot; aria-label=&quot;搜索游戏、平台或标签&quot; data-library-search&gt;&lt;/label&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button rt-phone-filter&quot; data-phone-filter aria-label=&quot;筛选与排序&quot;&gt;&lt;i data-lucide=&quot;list-filter&quot;&gt;&lt;/i&gt;&lt;/button&gt;&lt;select class=&quot;rt-select&quot; aria-label=&quot;游戏集合&quot;&gt;&lt;option&gt;所有游戏集合&lt;/option&gt;&lt;option&gt;FBNeo 游戏&lt;/option&gt;&lt;/select&gt;&lt;select class=&quot;rt-select&quot; aria-label=&quot;标签&quot;&gt;&lt;option&gt;所有标签&lt;/option&gt;&lt;option&gt;双人（2）&lt;/option&gt;&lt;option&gt;清版动作（1）&lt;/option&gt;&lt;/select&gt;&lt;select class=&quot;rt-select&quot; aria-label=&quot;排列顺序&quot; data-library-sort&gt;&lt;option value=&quot;recent&quot;&gt;最近游玩&lt;/option&gt;&lt;option value=&quot;added&quot;&gt;最近加入&lt;/option&gt;&lt;option value=&quot;title&quot;&gt;名称 A–Z&lt;/option&gt;&lt;/select&gt;&lt;/div&gt;&lt;div class=&quot;rt-library-platforms&quot;&gt;&lt;span&gt;游戏平台&lt;/span&gt;&lt;button type=&quot;button&quot; class=&quot;rt-library-chip is-active&quot; data-library-platform=&quot;&quot;&gt;全部 &lt;strong&gt;3&lt;/strong&gt;&lt;/button&gt;&lt;button type=&quot;button&quot; class=&quot;rt-library-chip&quot; data-library-platform=&quot;Arcade&quot;&gt;Arcade &lt;strong&gt;3&lt;/strong&gt;&lt;/button&gt;&lt;span class=&quot;rt-library-result&quot;&gt;当前显示 &lt;strong data-library-count&gt;3&lt;/strong&gt; 款游戏&lt;/span&gt;&lt;/div&gt;&lt;/section&gt;
         &lt;div class=&quot;rt-library-section-head&quot;&gt;&lt;div&gt;&lt;h2&gt;所有游戏&lt;/h2&gt;&lt;p&gt;封面是识别入口；没有封面的游戏也保留清晰的标题与平台信息。&lt;/p&gt;&lt;/div&gt;&lt;span class=&quot;rt-library-view-hint&quot;&gt;卡片视图 · &lt;kbd&gt;/&lt;/kbd&gt; 搜索&lt;/span&gt;&lt;/div&gt;
         &lt;div class=&quot;rt-library-grid&quot;&gt;
           &lt;article class=&quot;rt-library-card&quot; data-library-card data-library-title=&quot;1941&quot; data-library-platform-name=&quot;Arcade&quot; data-library-recent=&quot;2&quot; data-library-added=&quot;3&quot;&gt;&lt;button type=&quot;button&quot; class=&quot;rt-library-cover&quot; style=&quot;background:radial-gradient(circle at 78% 17%,rgb(67 208 218 / .34),transparent 19%),linear-gradient(150deg,#36415f,#111829)&quot; data-open-game=&quot;doom&quot; aria-label=&quot;查看 1941 详情&quot;&gt;&lt;span class=&quot;rt-library-platform-tag&quot;&gt;ARCADE&lt;/span&gt;&lt;span class=&quot;rt-library-poster&quot;&gt;&lt;small&gt;RETROM CLASSICS&lt;/small&gt;&lt;strong&gt;1941&lt;/strong&gt;&lt;span&gt;FINALBURN NEO&lt;/span&gt;&lt;/span&gt;&lt;span class=&quot;rt-library-hover&quot;&gt;&lt;span&gt;查看游戏详情&lt;/span&gt;&lt;/span&gt;&lt;/button&gt;&lt;button type=&quot;button&quot; class=&quot;rt-library-favorite&quot; data-library-favorite aria-label=&quot;取消收藏 1941&quot; aria-pressed=&quot;true&quot;&gt;&lt;i data-lucide=&quot;heart&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;&lt;/button&gt;&lt;span class=&quot;rt-library-body&quot;&gt;&lt;span class=&quot;rt-library-title&quot;&gt;&lt;button type=&quot;button&quot; data-open-game=&quot;doom&quot;&gt;1941&lt;/button&gt;&lt;button type=&quot;button&quot; class=&quot;rt-library-more&quot; data-open-shared-favorite-manager=&quot;1941&quot; aria-label=&quot;管理 1941 的收藏夹&quot;&gt;•••&lt;/button&gt;&lt;/span&gt;&lt;span class=&quot;rt-library-meta&quot;&gt;Arcade · FBNeo 游戏&lt;/span&gt;&lt;span class=&quot;rt-library-played&quot;&gt;&lt;span&gt;最近游玩&lt;/span&gt;&lt;strong&gt;昨天 21:10&lt;/strong&gt;&lt;/span&gt;&lt;/span&gt;&lt;/article&gt;
@@ -2804,6 +2927,8 @@
       &lt;/section&gt;
 
       &lt;section class=&quot;rt-page&quot; data-page=&quot;detail&quot;&gt;
+        &lt;div class=&quot;rt-phone-launch&quot;&gt;&lt;button type=&quot;button&quot; data-phone-options&gt;&lt;i data-lucide=&quot;settings&quot;&gt;&lt;/i&gt;&lt;span&gt;启动选项&lt;/span&gt;&lt;/button&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button rt-button-primary&quot; data-start-current-save&gt;从存档继续&lt;/button&gt;&lt;/div&gt;
+        &lt;dialog class=&quot;rt-phone-option-dialog&quot; data-phone-option-dialog aria-label=&quot;启动选项&quot;&gt;&lt;h2&gt;启动选项&lt;/h2&gt;&lt;label&gt;运行方式&lt;select class=&quot;rt-select&quot; data-phone-core&gt;&lt;option&gt;FBNeo · 推荐&lt;/option&gt;&lt;option&gt;MAME 2003 Plus · 可选&lt;/option&gt;&lt;option&gt;MAME 2003 · 开始时检查&lt;/option&gt;&lt;/select&gt;&lt;/label&gt;&lt;p&gt;从头开始不会删除已有存档。&lt;/p&gt;&lt;div class=&quot;rt-dialog-actions&quot;&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button&quot; data-phone-close-options&gt;关闭&lt;/button&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button rt-button-primary&quot; data-start-game&gt;从头开始&lt;/button&gt;&lt;/div&gt;&lt;/dialog&gt;
         &lt;button type=&quot;button&quot; class=&quot;rt-detail-breadcrumb&quot; data-page-link=&quot;library&quot;&gt;← 游戏库&lt;/button&gt;
         &lt;div class=&quot;rt-detail-hero&quot;&gt;
           &lt;div class=&quot;rt-detail-poster-shell&quot;&gt;&lt;div class=&quot;rt-cover rt-cover-b rt-detail-cover&quot; id=&quot;rt-detail-cover&quot;&gt;&lt;span class=&quot;rt-cover-title&quot; id=&quot;rt-detail-cover-title&quot;&gt;METAL SLUG&lt;/span&gt;&lt;span class=&quot;rt-video-preview-chip&quot;&gt;&lt;i data-lucide=&quot;play&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;视频将在可见 2 秒后静音播放&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;rt-detail-poster-caption&quot;&gt;&lt;span&gt;Arcade&lt;/span&gt;&lt;span&gt;1996&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;
@@ -3298,13 +3423,13 @@
         &lt;div class=&quot;rt-storage-details&quot;&gt;&lt;article class=&quot;rt-storage-detail&quot;&gt;&lt;span&gt;存档引用视图&lt;/span&gt;&lt;strong&gt;67 份有效 · 4 份软删除&lt;/strong&gt;&lt;small&gt;状态文件 1.1 GiB · 截图文件 420 MiB；两个引用视图不与用途分类相加。&lt;/small&gt;&lt;/article&gt;&lt;article class=&quot;rt-storage-detail&quot;&gt;&lt;span&gt;清理候选视图&lt;/span&gt;&lt;strong&gt;31 个 Blob · 760 MiB&lt;/strong&gt;&lt;small&gt;候选默认保留 7 天；管理员确认后可立即推进回收，删除前仍会复核引用。&lt;/small&gt;&lt;/article&gt;&lt;/div&gt;
         &lt;div class=&quot;rt-storage-scope&quot;&gt;&lt;strong&gt;仅计算已登记 CAS payload&lt;/strong&gt; · REGISTERED_CAS_PAYLOAD_V1&lt;br&gt;不包含 SQLite/WAL/SHM、上传分片、任务临时文件、依赖根、文件系统开销、未登记孤立文件和卷剩余空间。&lt;/div&gt;
       &lt;/section&gt;
+      &lt;section class=&quot;rt-page&quot; data-page=&quot;me&quot;&gt;&lt;div class=&quot;rt-phone-profile&quot;&gt;&lt;h1&gt;我的&lt;/h1&gt;&lt;div class=&quot;rt-phone-identity&quot;&gt;&lt;span&gt;T&lt;/span&gt;&lt;div&gt;&lt;strong&gt;Test&lt;/strong&gt;&lt;p&gt;@test&lt;/p&gt;&lt;/div&gt;&lt;/div&gt;&lt;nav class=&quot;rt-phone-links&quot; aria-label=&quot;个人游戏资料&quot;&gt;&lt;button type=&quot;button&quot; data-page-link=&quot;favorites&quot;&gt;&lt;i data-lucide=&quot;heart&quot;&gt;&lt;/i&gt;我的收藏&lt;/button&gt;&lt;button type=&quot;button&quot; data-page-link=&quot;saves&quot;&gt;&lt;i data-lucide=&quot;save&quot;&gt;&lt;/i&gt;我的存档&lt;/button&gt;&lt;button type=&quot;button&quot; data-page-link=&quot;recent&quot;&gt;&lt;i data-lucide=&quot;history&quot;&gt;&lt;/i&gt;最近游玩&lt;/button&gt;&lt;button type=&quot;button&quot; data-page-link=&quot;netplay&quot;&gt;&lt;i data-lucide=&quot;gamepad-2&quot;&gt;&lt;/i&gt;联机游玩&lt;/button&gt;&lt;/nav&gt;&lt;div class=&quot;rt-phone-links&quot;&gt;&lt;button type=&quot;button&quot; data-page-link=&quot;account&quot;&gt;&lt;i data-lucide=&quot;settings&quot;&gt;&lt;/i&gt;账户设置&lt;/button&gt;&lt;button type=&quot;button&quot; data-phone-logout&gt;&lt;i data-lucide=&quot;log-out&quot;&gt;&lt;/i&gt;退出登录&lt;/button&gt;&lt;/div&gt;&lt;/div&gt;&lt;/section&gt;
+      &lt;section class=&quot;rt-phone-admin&quot;&gt;&lt;h1&gt;请在电脑上管理游戏库&lt;/h1&gt;&lt;p&gt;导入、审核和维护适合在大屏幕上完成。现在可以先挑一款游戏来玩。&lt;/p&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button rt-button-primary&quot; data-phone-return&gt;返回游戏库&lt;/button&gt;&lt;/section&gt;
     &lt;/main&gt;
     &lt;nav class=&quot;rt-mobile-bottom-nav&quot; aria-label=&quot;移动主导航&quot;&gt;
       &lt;button type=&quot;button&quot; class=&quot;is-active&quot; data-mobile-page=&quot;home&quot; data-page-link=&quot;home&quot;&gt;&lt;i data-lucide=&quot;house&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;&lt;span&gt;首页&lt;/span&gt;&lt;/button&gt;
       &lt;button type=&quot;button&quot; data-mobile-page=&quot;library&quot; data-page-link=&quot;library&quot;&gt;&lt;i data-lucide=&quot;library&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;&lt;span&gt;游戏库&lt;/span&gt;&lt;/button&gt;
-      &lt;button type=&quot;button&quot; data-mobile-page=&quot;saves&quot; data-page-link=&quot;saves&quot;&gt;&lt;i data-lucide=&quot;camera&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;&lt;span&gt;存档&lt;/span&gt;&lt;/button&gt;
-      &lt;button type=&quot;button&quot; data-mobile-page=&quot;favorites&quot; data-page-link=&quot;favorites&quot;&gt;&lt;i data-lucide=&quot;heart&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;&lt;span&gt;收藏&lt;/span&gt;&lt;/button&gt;
-      &lt;button type=&quot;button&quot; data-mobile-page=&quot;more&quot;&gt;&lt;i data-lucide=&quot;ellipsis&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;&lt;span&gt;更多&lt;/span&gt;&lt;/button&gt;
+      &lt;button type=&quot;button&quot; data-mobile-page=&quot;me&quot; data-page-link=&quot;me&quot;&gt;&lt;i data-lucide=&quot;user-round&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;&lt;span&gt;我的&lt;/span&gt;&lt;/button&gt;
     &lt;/nav&gt;
   &lt;/div&gt;
 
@@ -3387,8 +3512,56 @@
       root.querySelectorAll('[data-page=&quot;library&quot;] .rt-library-meta').forEach((meta, index) =&gt; meta.insertAdjacentHTML('afterend', `&lt;span class=&quot;rt-tag-list&quot; aria-label=&quot;游戏标签&quot;&gt;${reviewTagSets[index].map((tag) =&gt; `&lt;span class=&quot;rt-tag-pill&quot;&gt;${tag}&lt;/span&gt;`).join('')}&lt;/span&gt;`));
       root.querySelectorAll('[data-page=&quot;admin-games&quot;] .rt-management-title').forEach((title, index) =&gt; title.insertAdjacentHTML('afterend', `&lt;span class=&quot;rt-tag-list&quot; aria-label=&quot;游戏标签&quot;&gt;${reviewTagSets[index % reviewTagSets.length].slice(0, 3).map((tag) =&gt; `&lt;span class=&quot;rt-tag-pill&quot;&gt;${tag}&lt;/span&gt;`).join('')}&lt;/span&gt;`));
 
+
+      const phoneQuery = matchMedia('(max-width: 767px), (pointer: coarse) and (max-width: 1023px) and (max-height: 767px)');
+      const disclosed = [['.rt-detail-description', '游戏简介'], ['.rt-detail-info-strip', '游戏信息']].map(([selector, title]) =&gt; {
+        const node = root.querySelector(selector); const marker = document.createComment(title); node.before(marker);
+        const disclosure = document.createElement('details'); disclosure.className = 'rt-phone-disclosure';
+        const summary = document.createElement('summary'); summary.textContent = title; disclosure.append(summary);
+        return { node, marker, disclosure };
+      });
+      const projectPhoneInformation = () =&gt; disclosed.forEach(({node, marker, disclosure}) =&gt; {
+        if (phoneQuery.matches) { marker.after(disclosure); disclosure.append(node); }
+        else { marker.after(node); disclosure.remove(); }
+      });
+      phoneQuery.addEventListener('change', projectPhoneInformation); projectPhoneInformation();
+      root.querySelector('[data-phone-search]').addEventListener('submit', (event) =&gt; {
+        event.preventDefault(); showPage('library'); const search = root.querySelector('[data-library-search]');
+        search.value = event.currentTarget.querySelector('input').value; search.dispatchEvent(new Event('input', {bubbles:true}));
+      });
+      root.querySelector('[data-phone-return]').addEventListener('click', () =&gt; { app.dataset.mode = 'user'; showPage('library'); });
+      root.querySelector('[data-phone-logout]').addEventListener('click', () =&gt; showAuthPage('login'));
+      const phoneOptions = root.querySelector('[data-phone-option-dialog]');
+      root.querySelector('[data-phone-options]').addEventListener('click', () =&gt; phoneOptions.showModal());
+      root.querySelector('[data-phone-close-options]').addEventListener('click', () =&gt; phoneOptions.close());
+      phoneOptions.querySelector('[data-start-game]').addEventListener('click', () =&gt; phoneOptions.close());
+      root.querySelector('[data-phone-core]').addEventListener('change', (event) =&gt; {
+        const select = root.querySelector('#rt-core-select'); select.selectedIndex = event.target.selectedIndex;
+        root.querySelector('[data-apply-detail-runtime]').click();
+      });
+      const phoneFilters = document.createElement('dialog'); phoneFilters.className = 'rt-phone-option-dialog';
+      phoneFilters.innerHTML = '&lt;h2&gt;筛选与排序&lt;/h2&gt;&lt;form method=&quot;dialog&quot;&gt;&lt;label&gt;排列顺序&lt;select class=&quot;rt-select&quot;&gt;&lt;option value=&quot;recent&quot;&gt;最近游玩&lt;/option&gt;&lt;option value=&quot;added&quot;&gt;最近加入&lt;/option&gt;&lt;option value=&quot;title&quot;&gt;名称 A–Z&lt;/option&gt;&lt;/select&gt;&lt;/label&gt;&lt;div class=&quot;rt-dialog-actions&quot;&gt;&lt;button class=&quot;rt-button&quot; value=&quot;cancel&quot;&gt;取消&lt;/button&gt;&lt;button class=&quot;rt-button rt-button-primary&quot; value=&quot;apply&quot;&gt;应用&lt;/button&gt;&lt;/div&gt;&lt;/form&gt;';
+      root.append(phoneFilters);
+      root.querySelector('[data-phone-filter]').addEventListener('click', () =&gt; { phoneFilters.querySelector('select').value = root.querySelector('[data-library-sort]').value; phoneFilters.showModal(); });
+      phoneFilters.addEventListener('close', () =&gt; { if (phoneFilters.returnValue !== 'apply') return; const select = root.querySelector('[data-library-sort]'); select.value = phoneFilters.querySelector('select').value; select.dispatchEvent(new Event('change', {bubbles:true})); });
+
+
+      const personalDisclosures = [['.rt-favorite-tools', '整理与排序'], ['.rt-save-toolbar', '筛选存档'], ['.rt-recent-filters', '筛选与排序']].map(([selector, title]) =&gt; {
+        const parent = root.querySelector(selector); const nodes = [...parent.children].slice(1).filter(node =&gt; node.tagName !== 'P');
+        const marker = document.createComment(title); nodes[0].before(marker);
+        const disclosure = document.createElement('details'); disclosure.className = 'rt-phone-disclosure rt-phone-filter-fields';
+        const summary = document.createElement('summary'); summary.textContent = title;
+        const body = document.createElement('div'); disclosure.append(summary, body);
+        return { nodes, marker, disclosure, body };
+      });
+      const projectPersonalFilters = () =&gt; personalDisclosures.forEach(({nodes, marker, disclosure, body}) =&gt; {
+        if (phoneQuery.matches) { marker.after(disclosure); body.append(...nodes); }
+        else { marker.before(...nodes); disclosure.remove(); }
+      });
+      phoneQuery.addEventListener('change', projectPersonalFilters); projectPersonalFilters();
+
       const pageNames = {
-        home: '首页', library: '游戏库', saves: '我的存档', favorites: '我的收藏', recent: '最近游玩', netplay: '联机游玩', 'netplay-room': '联机房间', 'netplay-player': '联机 Player', account: '账户设置', detail: '游戏详情', play: '游玩',
+        home: '首页', me: '我的', library: '游戏库', saves: '我的存档', favorites: '我的收藏', recent: '最近游玩', netplay: '联机游玩', 'netplay-room': '联机房间', 'netplay-player': '联机 Player', account: '账户设置', detail: '游戏详情', play: '游玩',
         'admin-import': '游戏入库', 'admin-import-new': '导入游戏', 'admin-import-tasks': '任务进度',
         'admin-server-import': '本地扫描', 'admin-server-import-detail': 'BIOS 导入详情', 'admin-pegasus-import-detail': 'Pegasus 导入详情', 'admin-emulationstation-import-detail': 'EmulationStation 导入详情',
         'admin-review': '待审核', 'admin-review-history': '审核历史', 'admin-games': '游戏管理', 'admin-game-detail': '游戏管理详情', 'admin-tags': '标签管理', 'admin-platform-instances': '游戏目录', 'admin-users': '用户管理', 'admin-bios': '运行依赖', 'admin-storage': '容量分析'
@@ -3484,7 +3657,7 @@
         root.querySelectorAll('.rt-page').forEach((element) =&gt; element.classList.toggle('is-active', element.dataset.page === page));
         root.querySelectorAll('.rt-nav-button').forEach((button) =&gt; button.classList.toggle('is-active', button.dataset.pageTarget === activeNavigationTarget));
         root.querySelector('[data-mobile-title]').textContent = pageNames[page] || 'Retrom';
-        root.querySelectorAll('[data-mobile-page]').forEach((button) =&gt; button.classList.toggle('is-active', button.dataset.mobilePage === activeNavigationTarget || (button.dataset.mobilePage === 'more' &amp;&amp; !['home', 'library', 'saves', 'favorites'].includes(activeNavigationTarget))));
+        root.querySelectorAll('[data-mobile-page]').forEach((button) =&gt; button.classList.toggle('is-active', button.dataset.mobilePage === activeNavigationTarget || (button.dataset.mobilePage === 'me' &amp;&amp; !['home', 'library'].includes(activeNavigationTarget))));
         selectReviewScene(page);
         root.querySelector('[data-ingest-parent]').classList.toggle('is-context', ['admin-import-new', 'admin-import-tasks', 'admin-server-import', ...serverImportDetails, 'admin-review', 'admin-review-history'].includes(page));
         if (page === 'admin-review') {

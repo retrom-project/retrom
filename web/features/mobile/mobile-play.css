@@ -1,0 +1,178 @@
+/* This shell mounts only for phones. Shared desktop and TV selectors stay untouched. */
+.phone-app-frame { min-height: 100dvh; color: var(--ink); background: #f5f3ef; }
+.phone-app-header { min-height: calc(56px + env(safe-area-inset-top)); padding: env(safe-area-inset-top) max(16px, env(safe-area-inset-right)) 0 max(16px, env(safe-area-inset-left)); display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.phone-brand, .phone-back { min-height: 44px; display: flex; align-items: center; gap: 10px; }
+.phone-brand strong { font-size: 19px; letter-spacing: -.5px; }
+.phone-brand .brand-mark { width: 28px; height: 28px; font-size: 18px; border-radius: 8px; }
+.phone-back { font-size: 15px; font-weight: 700; }
+.phone-back svg { width: 22px; height: 22px; }
+.phone-avatar { min-width: 44px; min-height: 44px; display: grid; place-items: center; }
+.phone-avatar span { width: 32px; height: 32px; display: grid; place-items: center; border-radius: 50%; color: var(--purple-dark); background: var(--purple-soft); font-weight: 800; }
+.phone-content { min-width: 0; padding: 12px max(16px, env(safe-area-inset-right)) calc(88px + env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left)); }
+.phone-content > .page-layout { width: 100%; max-width: none; margin: 0; }
+.phone-bottom-nav { position: fixed; z-index: 85; inset: auto 0 0; min-height: calc(64px + env(safe-area-inset-bottom)); padding: 4px max(12px, env(safe-area-inset-right)) env(safe-area-inset-bottom) max(12px, env(safe-area-inset-left)); display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border-top: 1px solid var(--line); background: rgb(255 255 255 / 97%); }
+.phone-bottom-nav a { min-height: 56px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; color: var(--muted); font-size: 12px; font-weight: 650; }
+.phone-bottom-nav svg { width: 23px; height: 23px; }
+.phone-bottom-nav a[aria-current="page"] { color: var(--purple-dark); }
+.phone-bottom-nav a[aria-current="page"] svg { background: var(--purple-soft); outline: 5px solid var(--purple-soft); border-radius: 6px; }
+.phone-app-frame .page-header { margin: 0 0 16px; min-height: 0; }
+.phone-app-frame .page-header h1, .phone-home h1, .phone-profile h1 { margin: 0; font-size: 24px; line-height: 1.35; }
+.phone-app-frame .page-header .eyebrow, .phone-app-frame .page-header p { display: none; }
+.phone-app-frame .button { min-height: 48px; }
+.phone-app-frame input:not([type="checkbox"]):not([type="radio"]), .phone-app-frame select { min-height: 48px; font-size: 16px; }
+
+/* Home has three tasks: search, continue, and choose a recent game. */
+.phone-home { display: grid; gap: 26px; }
+.phone-home-search { min-width: 0; min-height: 50px; padding: 0 5px 0 14px; display: flex; align-items: center; gap: 8px; border: 1px solid var(--line); border-radius: 14px; background: white; }
+.phone-home-search > svg { width: 20px; height: 20px; flex-shrink: 0; color: var(--muted); }
+.phone-home-search input { width: 100%; min-width: 0; padding: 8px 0; border: 0; background: transparent; }
+.phone-home-search button { min-width: 48px; min-height: 44px; border: 0; border-radius: 10px; color: var(--purple-dark); background: var(--purple-soft); font-weight: 750; }
+.phone-continue h1 { margin-bottom: 14px; }
+.phone-continue-card { display: grid; grid-template-columns: minmax(76px, 31%) minmax(0, 1fr); align-items: start; gap: 16px; }
+.phone-game-poster { position: relative; width: 100%; aspect-ratio: 5 / 7; overflow: hidden; display: grid; place-items: center; border-radius: 12px; background: #222c43; color: #eef1f7; }
+.phone-game-poster > span { padding: 12px; text-align: center; overflow-wrap: anywhere; font-size: 16px; font-weight: 750; }
+.phone-game-poster img { object-fit: cover; object-position: center; }
+.phone-continue-copy, .phone-continue-info, .phone-continue-actions { min-width: 0; }
+.phone-continue-copy h2 { margin: 0 0 6px; font-size: 19px; line-height: 1.3; overflow-wrap: anywhere; }
+.phone-continue-copy p { margin: 0 0 8px; color: var(--muted); font-size: 13px; }
+.phone-continue-copy small { display: block; color: var(--muted); font-size: 12px; line-height: 1.5; }
+.phone-continue-copy .button { width: 100%; margin-top: 14px; padding-inline: 8px; }
+.phone-continue-copy .status { max-width: 100%; margin-top: 8px; white-space: normal; }
+.phone-section-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
+.phone-section-head h2 { margin: 0; font-size: 19px; }
+.phone-section-head a { min-height: 44px; min-width: 44px; display: flex; align-items: center; color: var(--purple-dark); font-size: 13px; }
+.phone-game-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px 14px; }
+.phone-game-card { min-width: 0; display: flex; flex-direction: column; }
+.phone-game-card > strong { margin-top: 9px; font-size: 14px; line-height: 1.4; overflow-wrap: anywhere; }
+.phone-game-card > small { margin-top: 3px; color: var(--muted); font-size: 12px; }
+.phone-welcome { padding: 12px 0 8px; }
+.phone-welcome p { color: var(--muted); font-size: 14px; line-height: 1.7; }
+.phone-welcome .button { margin-top: 6px; }
+
+/* Search remains visible; metadata stays in the game detail. */
+.phone-app-frame .library-toolbar { padding: 0; border: 0; background: transparent; box-shadow: none; }
+.phone-app-frame .library-tool-row { display: flex; flex-wrap: nowrap; gap: 8px; }
+.phone-app-frame .library-search { flex: 1; min-width: 0; height: 48px; background: white; border-radius: 12px; }
+.phone-app-frame .library-desktop-filter { display: none; }
+.phone-app-frame .library-mobile-filter-trigger { display: inline-flex; flex: 0 0 48px; width: 48px; height: 48px; min-width: 48px; padding: 0; gap: 0; align-items: center; justify-content: center; border-radius: 12px; box-shadow: none; }
+.phone-app-frame .library-mobile-filter-trigger svg { width: 20px; height: 20px; }
+.phone-app-frame .library-platform-row { margin-top: 12px; padding: 0 0 6px; flex-wrap: nowrap; overflow-x: auto; border: 0; }
+.phone-app-frame .library-platform-row > button { min-height: 44px; flex-shrink: 0; white-space: nowrap; }
+.phone-app-frame .library-platform-label, .phone-app-frame .library-result-count, .phone-app-frame .library-section-head { display: none; }
+.phone-app-frame .library-game-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px 14px; margin-top: 16px; }
+.phone-app-frame .library-game-card { min-width: 0; width: auto; overflow: visible; border: 0; background: transparent; box-shadow: none; }
+.phone-app-frame .library-game-cover { overflow: hidden; border-radius: 12px; }
+.phone-app-frame .library-game-body { min-height: 0; padding: 8px 0 0; }
+.phone-app-frame .library-game-title-row { min-height: 44px; align-items: flex-start; }
+.phone-app-frame .library-game-title-row > a { flex: 1; min-width: 0; min-height: 44px; display: flex; align-items: center; }
+.phone-app-frame .library-game-title-row h2 { font-size: 14px; line-height: 1.4; white-space: normal; }
+.phone-app-frame .library-game-title-row > button { min-width: 44px; min-height: 44px; margin: 0 -8px 0 0; }
+.phone-app-frame .library-game-body > p, .phone-app-frame .library-game-body > .tag-chips, .phone-app-frame .library-game-played { display: none; }
+.phone-app-frame .library-game-body > p.phone-disambiguation { display: block; margin-top: 0; font-size: 12px; color: var(--muted); }
+.phone-app-frame .library-game-menu { position: fixed; z-index: 230; inset: auto 16px calc(80px + env(safe-area-inset-bottom)); }
+.phone-app-frame .library-game-menu > a, .phone-app-frame .library-game-menu > button { min-height: 48px; }
+.phone-app-frame .library-pagination { flex-wrap: wrap; gap: 8px; margin-top: 16px; font-size: 12px; }
+
+/* Detail keeps launch and saves close; optional information is disclosed. */
+.phone-app-frame .game-detail-page { padding-bottom: 96px; }
+.phone-app-frame .game-detail-breadcrumb, .phone-app-frame .game-detail-poster-caption, .phone-app-frame .game-detail-playtime, .phone-app-frame .game-detail-meta, .phone-app-frame .game-detail-main > .tag-chips { display: none; }
+.phone-app-frame .game-detail-hero { padding: 0; display: grid; grid-template-columns: minmax(88px, 34%) minmax(0, 1fr); gap: 16px; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+.phone-app-frame .game-detail-main { min-width: 0; }
+.phone-app-frame .game-detail-main h1 { margin: 0 0 8px; font-size: 24px; line-height: 1.3; overflow-wrap: anywhere; }
+.phone-app-frame .game-detail-eyebrow { margin: 0 0 6px; color: var(--muted); font-size: 12px; }
+.phone-app-frame .game-detail-main .phone-disclosure { margin-top: 12px; }
+.phone-disclosure { min-width: 0; margin-block: 16px; border-block: 1px solid var(--line); }
+.phone-disclosure summary { min-height: 48px; padding: 12px 0; cursor: pointer; font-size: 14px; font-weight: 700; }
+.phone-disclosure > div { padding-bottom: 12px; }
+.phone-app-frame .game-detail-info-strip { margin: 0; padding: 0; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.phone-app-frame .game-detail-saves { margin-top: 24px; border: 0; background: transparent; }
+.phone-app-frame .game-detail-saves-head { min-height: 48px; padding: 0; align-items: center; }
+.phone-app-frame .game-detail-saves-head p { display: none; }
+.phone-app-frame .game-detail-saves-head h2 { font-size: 19px; }
+.phone-app-frame .game-detail-saves-actions { gap: 0; }
+.phone-app-frame .game-detail-save-grid { padding: 12px 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
+.phone-app-frame .game-detail-save-card { display: grid; grid-template-columns: minmax(90px, 35%) minmax(0, 1fr); align-items: center; }
+.phone-app-frame .game-detail-save-body { padding: 10px; }
+.phone-app-frame .game-detail-save-title-line { min-height: 0; }
+.phone-app-frame .game-detail-save-title-line > span, .phone-app-frame .game-detail-save-fact-row { display: none; }
+.phone-app-frame .game-detail-save-body .button { width: 100%; margin-top: 10px; font-size: 13px; }
+.phone-app-frame .mobile-launch-dock { position: fixed; z-index: 86; inset: auto 0 calc(64px + env(safe-area-inset-bottom)); min-height: 76px; padding: 8px max(16px, env(safe-area-inset-right)) 8px max(16px, env(safe-area-inset-left)); display: flex; align-items: center; flex-wrap: wrap; gap: 8px; border-top: 1px solid var(--line); background: white; box-shadow: none; }
+.phone-app-frame .mobile-launch-dock > .button { flex: 1; min-width: 150px; }
+.phone-app-frame .mobile-launch-dock > .status { width: 100%; white-space: normal; }
+.phone-launch-options-trigger { min-width: 64px; min-height: 48px; padding: 4px 8px; display: grid; justify-items: center; gap: 2px; border: 0; color: var(--muted); background: transparent; font-size: 11px; }
+.phone-launch-options-trigger svg { width: 22px; height: 22px; }
+.phone-launch-options .launch-panel { width: 100%; padding: 0; border: 0; background: transparent; box-shadow: none; }
+.phone-launch-options .launch-panel > .button, .phone-launch-options .launch-quick-save .button { display: inline-flex; min-height: 48px; }
+.phone-launch-options .launch-runtime-row button { min-width: 48px; min-height: 44px; }
+.phone-launch-options .launch-panel h2 { font-size: 20px; }
+
+/* Personal pages stay task-oriented; no administration navigation. */
+.phone-profile { display: grid; gap: 22px; }
+.phone-profile-identity { display: flex; align-items: center; gap: 14px; }
+.phone-profile-identity > span { width: 52px; height: 52px; display: grid; place-items: center; border-radius: 50%; color: var(--purple-dark); background: var(--purple-soft); font-size: 22px; font-weight: 800; }
+.phone-profile-identity strong { font-size: 18px; overflow-wrap: anywhere; }
+.phone-profile-identity p { margin: 3px 0 0; color: var(--muted); font-size: 13px; }
+.phone-profile-links { display: grid; overflow: hidden; border: 1px solid var(--line); border-radius: 14px; background: white; }
+.phone-profile-links > a, .phone-profile-links > button { min-height: 60px; padding: 12px 16px; display: flex; align-items: center; gap: 14px; border: 0; border-bottom: 1px solid var(--line); background: transparent; color: var(--ink); font-size: 15px; text-align: left; }
+.phone-profile-links > :last-child { border-bottom: 0; }
+.phone-profile-links svg { width: 22px; height: 22px; color: var(--purple-dark); }
+.phone-app-frame .save-head-summary, .phone-app-frame .recent-summary-grid, .phone-app-frame .favorite-summary { display: none; }
+.phone-admin-notice { padding: 12vh 8px 24px; display: grid; justify-items: start; gap: 12px; }
+.phone-admin-notice > svg { width: 40px; height: 40px; color: var(--purple); }
+.phone-admin-notice h1 { margin: 0; font-size: 24px; line-height: 1.4; }
+.phone-admin-notice p { margin: 0; color: var(--muted); font-size: 15px; line-height: 1.7; }
+.phone-admin-notice .button { margin-top: 8px; }
+
+@media (min-width: 480px) {
+  .phone-game-grid, .phone-app-frame .library-game-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .phone-continue-card { grid-template-columns: 80px minmax(0, 1fr); align-items: center; }
+  .phone-continue-copy { display: grid; grid-template-columns: minmax(0, 1fr) 144px; align-items: center; align-self: stretch; gap: 16px; }
+  .phone-continue-copy .button { margin-top: 0; }
+}
+
+@media (max-width: 767px), (pointer: coarse) and (max-width: 1023px) and (max-height: 767px) {
+  /* The server cannot know the viewport. Hide the desktop frame until hydration chooses the phone shell. */
+  .app-frame { visibility: hidden; }
+}
+
+.phone-launch-fields { display: grid; gap: 16px; }
+.phone-launch-fields label { display: grid; gap: 8px; font-size: 14px; }
+.phone-launch-fields select { width: 100%; min-height: 48px; font-size: 16px; }
+.phone-launch-fields p { margin: 0; color: var(--muted); font-size: 14px; }
+.phone-launch-fields .button { min-height: 48px; }
+
+.phone-app-frame .library-platform-tag, .phone-app-frame .game-detail-media-status { display: none; }
+.phone-app-frame .library-pagination > span:last-child:not(:first-child) { display: none; }
+.phone-app-frame .library-mobile-filter-trigger { position: relative; }
+.phone-app-frame .library-mobile-filter-trigger[data-filter-count]::after { content: attr(data-filter-count); position: absolute; inset: -5px -5px auto auto; min-width: 19px; height: 19px; padding-inline: 3px; display: grid; place-items: center; border-radius: 12px; background: var(--purple-dark); color: white; font-size: 11px; }
+
+.phone-app-frame .favorite-head-summary, .phone-app-frame .favorite-view-head > div,
+.phone-app-frame .favorite-result-count, .phone-app-frame .favorite-organize-uncategorized { display: none; }
+.phone-app-frame .favorite-rail { display: flex; align-items: center; gap: 8px; }
+.phone-app-frame .favorite-rail > nav { flex: 1; min-width: 0; flex-wrap: nowrap; overflow-x: auto; }
+.phone-app-frame .favorite-rail > nav > button { min-height: 44px; flex-shrink: 0; }
+.phone-app-frame .favorite-new-folder { width: 44px; min-width: 44px; min-height: 44px; margin: 0; font-size: 0; }
+.phone-app-frame .favorite-new-folder::after { content: "+"; font-size: 22px; }
+.phone-app-frame .favorite-toolbar, .phone-app-frame .save-library-toolbar, .phone-app-frame .recent-filter-panel { padding: 0; border: 0; background: transparent; box-shadow: none; display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
+.phone-app-frame :is(.favorite-toolbar, .save-library-toolbar, .recent-filter-panel) > .phone-disclosure { margin: 0; }
+.phone-app-frame :is(.favorite-toolbar, .save-library-toolbar, .recent-filter-panel) .phone-disclosure > div { display: grid; gap: 12px; }
+.phone-app-frame .favorite-platforms { flex-wrap: nowrap; overflow-x: auto; }
+.phone-app-frame .favorite-platforms > button { min-height: 44px; flex-shrink: 0; }
+.phone-app-frame .favorite-view-head:has(> div:only-child) { margin: 0; }
+.phone-app-frame .save-library-empty-slot, .phone-app-frame .save-library-group-meta > span,
+.phone-app-frame .save-library-group-main .tag-chips, .phone-app-frame .recent-history-fact:not(:first-child) { display: none; }
+.phone-app-frame .recent-history-facts { grid-template-columns: minmax(0,1fr); }
+.phone-app-frame .favorite-layout { grid-template-columns: minmax(0,1fr); }
+.phone-app-frame .favorite-rail > header, .phone-app-frame .favorite-rail-label,
+.phone-app-frame .favorite-game-cover > a > span:last-child:not(.favorite-poster),
+.phone-app-frame .favorite-game-body > .tag-chips, .phone-app-frame .favorite-game-body > p > span:last-child,
+.phone-app-frame .save-latest-section { display: none; }
+.phone-app-frame .favorite-game-grid { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 20px 14px; }
+.phone-app-frame .favorite-game-card { border: 0; background: transparent; box-shadow: none; }
+.phone-app-frame .favorite-game-cover { border-radius: 12px; }
+.phone-app-frame .favorite-game-body { padding: 8px 0; }
+.phone-app-frame .favorite-game-body h3 { font-size: 14px; line-height: 1.4; }
+.phone-app-frame .favorite-batch, .phone-app-frame .favorite-toast { bottom: calc(76px + env(safe-area-inset-bottom)); }
+@media (min-width: 480px) {
+  .phone-app-frame .favorite-game-grid { grid-template-columns: repeat(3,minmax(0,1fr)); }
+}

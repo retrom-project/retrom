@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { usePhoneLayout } from "@/features/mobile/phone-layout";
 import { useEffect, useRef, useState } from "react";
 import { AppIcon } from "@/components/app-icon";
 import { ButtonLink, EmptyState } from "@/components/ui";
@@ -19,6 +20,9 @@ function GamePoster({ game }: { game: GameSummary }) {
 
 export function GameGrid({ games, nowMs, filtered = false }: { games: GameSummary[]; nowMs: number; filtered?: boolean }) {
   const timeZone = useBrowserTimeZone();
+  const phone = usePhoneLayout();
+  const titleCounts = new Map<string, number>();
+  for (const game of games) {titleCounts.set(game.title, (titleCounts.get(game.title) ?? 0) + 1);}
   const [menuId, setMenuId] = useState<string | null>(null);
   const favoriteManagers = useRef(new Map<string, FavoriteActionsHandle>());
   const moreButtons = useRef(new Map<string, HTMLButtonElement>());
@@ -38,7 +42,7 @@ export function GameGrid({ games, nowMs, filtered = false }: { games: GameSummar
   }, [menuId]);
 
   if (games.length === 0 && filtered) {return <EmptyState title="没有找到游戏" description="当前搜索、平台、游戏目录或标签没有匹配项，请调整条件后重试。" action={<ButtonLink href="/library" secondary>清除筛选</ButtonLink>} />;}
-  if (games.length === 0) {return <EmptyState title="游戏库还是空的" description="从管理后台选择游戏文件或目录，完成验证与审核后即可在这里游玩。" />;}
+  if (games.length === 0) {return <EmptyState title="游戏库还是空的" description={phone ? "游戏添加好后就会出现在这里，请在电脑上添加游戏。" : "从管理后台选择游戏文件或目录，完成验证与审核后即可在这里游玩。"} />;}
   return <div className="library-game-grid">
     {games.map((game) => <article className="library-game-card" data-library-game={game.gameId} key={game.gameId}>
       <div className="library-game-cover">
@@ -57,7 +61,7 @@ export function GameGrid({ games, nowMs, filtered = false }: { games: GameSummar
       </div>
       <div className="library-game-body">
         <div className="library-game-title-row"><Link href={`/games/${game.gameId}`}><h2>{game.title}</h2></Link><button ref={(button) => { if (button) {moreButtons.current.set(game.gameId, button);} else {moreButtons.current.delete(game.gameId);} }} type="button" aria-label={`游戏“${game.title}”的更多操作`} aria-haspopup="menu" aria-expanded={menuId === game.gameId} onClick={() => setMenuId((current) => current === game.gameId ? null : game.gameId)}>•••</button>{menuId === game.gameId ? <div className="library-game-menu" role="menu"><Link role="menuitem" href={`/games/${game.gameId}`}>查看游戏详情</Link><Link role="menuitem" href={`/saves?gameId=${encodeURIComponent(game.gameId)}`}>查看相关存档</Link><button role="menuitem" type="button" aria-haspopup="dialog" onClick={() => { const anchor = moreButtons.current.get(game.gameId); if (anchor) {favoriteManagers.current.get(game.gameId)?.openFolderPicker(anchor, () => moreButtons.current.get(game.gameId) ?? null);} setMenuId(null); }}>管理收藏夹</button></div> : null}</div>
-        <p><span>{game.platform.name}</span><span>{game.platformInstance.name}</span></p>
+        <p className={(titleCounts.get(game.title) ?? 0) > 1 ? "phone-disambiguation" : undefined}><span>{game.platform.name}</span><span>{game.platformInstance.name}</span></p>
         <TagChips tags={game.tags ?? []} limit={2} label={`${game.title} 的标签`} />
         <div className="library-game-played"><span>最近游玩</span><strong>{formatLibraryPlayedAt(game.lastPlayedAtMs, nowMs, timeZone)}</strong></div>
       </div>

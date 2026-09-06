@@ -90,13 +90,14 @@ const designCaptures = [
   ["retrom-ui-rpg-packs-mobile.png", "rpg-packs", 390, 844],
   ["retrom-ui-rpg-saves-mobile.png", "rpg-saves", 390, 844],
   ["retrom-ui-home-mobile.png", "home", 390, 844],
+  ["retrom-ui-me-mobile.png", "me", 390, 844],
   ["retrom-ui-library-mobile.png", "library", 390, 844],
   ["retrom-ui-game-detail-mobile.png", "detail", 390, 844],
+  ["retrom-ui-launch-options-mobile.png", "detail", 390, 844, "phone-launch-options"],
   ["retrom-ui-saves-mobile.png", "saves", 390, 844],
   ["retrom-ui-favorites-mobile.png", "favorites", 390, 844],
   ["retrom-ui-netplay-room-mobile.png", "netplay-room", 390, 844],
   ["retrom-ui-admin-review-mobile.png", "admin-review", 390, 844],
-  ["retrom-ui-admin-review-detail-mobile.png", "admin-review", 390, 844, "review-detail"],
   ["retrom-ui-play-portrait-mobile.png", "play", 390, 844, "mobile-portrait"],
   ["retrom-ui-play-landscape-mobile.png", "play", 844, 390]
 ];
@@ -165,8 +166,13 @@ try {
     }
     if (view.startsWith("immersive-")) {
       // The review-scene control above activates this independent TV shell.
+    } else if (view === "me") {
+      await frame.locator('[data-mobile-page="me"]').click();
     } else if (view === "account") {
       await frame.locator('[data-review-scene="account"]').click();
+    } else if (width < 768 && ["saves", "favorites", "recent", "netplay"].includes(view)) {
+      await frame.locator('[data-mobile-page="me"]').click();
+      await frame.locator(`.rt-phone-profile [data-page-link="${view}"]`).click();
     } else if (view === "detail") {
       await clickVisible('[data-open-game="metal"]');
     } else if (view === "play") {
@@ -188,13 +194,15 @@ try {
       if (view.startsWith("admin-")) {await activate(`[data-page-target="${view}"], [data-page-link="${view}"]`);}
       else {await clickVisible(`[data-page-target="${view}"], [data-page-link="${view}"]`);}
     }
-    const viewSelector = view.startsWith("immersive-")
+    const phoneAdmin = width < 768 && (view.startsWith("admin-") || rpgViewPages[view]?.startsWith("admin-"));
+    const viewSelector = phoneAdmin ? ".rt-phone-admin" : view.startsWith("immersive-")
       ? `[data-immersive-page="${view}"]`
       : ["setup", "login", "register", "reset"].includes(view)
         ? `[data-auth-page="${view}"]`
         : `[data-page="${rpgViewPages[view] ?? view}"]`;
     await frame.locator(viewSelector).waitFor({ state: "visible" });
     await frame.locator(".rt-review-scenes").evaluate((element) => { element.hidden = true; });
+    if (variant === "phone-launch-options") {await frame.locator("[data-phone-options]").click();}
     if (variant === "bios-entries") {await frame.locator("[data-open-bios-entries]").click();}
     if (variant === "rpg-pack-drawer") {await frame.locator("[data-open-rpg-pack-drawer]").first().click();}
     if (variant === "server-import-drawer") {await frame.locator("[data-open-server-import-drawer]").click();}
