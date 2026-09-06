@@ -6,6 +6,7 @@ import { ResponsiveSheet } from "@/components/responsive-sheet";
 import { PageHeader } from "@/components/ui";
 import { useAuth } from "@/features/auth/auth-provider";
 import { LibraryFilterTrigger } from "./library-filter-trigger";
+import { usePhoneScrollActivity } from "@/features/mobile/use-phone-scroll-activity";
 import { GameGrid } from "./game-grid";
 import {
   gamePageQuery,
@@ -22,6 +23,7 @@ function mergeGames(current: GamePage["items"], incoming: GamePage["items"]) {
 }
 
 export function LibraryBrowser({ initialPage, initialFilters }: { initialPage: GamePage; initialFilters: LibraryFilters }) {
+  const platformScroll = usePhoneScrollActivity();
   const { authenticatedFetch } = useAuth();
   const [query, setQuery] = useState(initialFilters.query);
   const [platformId, setPlatformId] = useState(initialFilters.platformId);
@@ -198,11 +200,14 @@ export function LibraryBrowser({ initialPage, initialFilters }: { initialPage: G
         <label className="library-desktop-filter"><span className="sr-only">排列顺序</span><select aria-label="排列顺序" value={sort} onChange={(event) => { setNextCursor(null); setSort(event.target.value as LibraryFilters["sort"]); }}><option value="RECENT_DESC">最近游玩</option><option value="ADDED_DESC">最近加入</option><option value="TITLE_ASC">名称 A–Z</option></select></label>
         <LibraryFilterTrigger buttonRef={filterButtonRef} count={mobileFilterCount} expanded={filterOpen} onOpen={openFilters} />
       </div>
-      <div className="library-platform-row">
+      <div className="library-platform-row" onScroll={(event) => platformScroll.onScroll(event.currentTarget)}>
         <span className="library-platform-label">游戏平台</span>
         <button className={!platformId ? "is-active" : ""} type="button" aria-pressed={!platformId} onClick={() => selectPlatform("")}>全部 <strong>{facets.totalCount}</strong></button>
         {facets.platforms.map((platform) => <button className={platform.id === platformId ? "is-active" : ""} type="button" aria-pressed={platform.id === platformId} onClick={() => selectPlatform(platform.id)} key={platform.id}>{platform.name} <strong>{platform.count}</strong></button>)}
         <span className="library-result-count" aria-live="polite">已加载 <strong>{games.length}</strong> / {filteredCount} 款游戏</span>
+      </div>
+      <div className="phone-platform-scrollbar" aria-hidden="true" data-visible={platformScroll.scrolling}>
+        <span style={{ width: `${platformScroll.thumb.width}%`, left: `${platformScroll.thumb.left}%` }} />
       </div>
     </section>
 
