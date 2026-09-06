@@ -556,7 +556,7 @@ Arcade DAT 不在 Web 后台暴露列表、上传、差异、启用或回滚入�
 
 ### 7.7 服务器 BIOS、Pegasus 与 EmulationStation 导入
 
-“游戏入库”子菜单固定为“导入游戏、本地扫描、任务进度、待审核、审核历史”。“本地扫描”只命名该导航入口，页面领域标题仍使用“服务器导入”。`/admin/imports/server` 并列显示“扫描并导入 BIOS”“扫描并准备 Pegasus 审核事项”“扫描并准备 EmulationStation 审核事项”三张等宽、等高、等视觉权重能力卡，共用一段只读 root 说明；无 root 时三张卡均禁用并显示部署说明，不提供绝对路径输入。Pegasus 卡片说明“不会自动发布”；EmulationStation 卡片说明“读取 `gamelist.xml`；不会执行启动命令，也不会自动发布”，并分别显示待配置计划和待逐项审核总数。三类任务在同页历史区明确标记类型且各自分页，不把不同状态机拼成一张假统一表。`/admin/bios` 的“从服务器目录批量导入”跳到 `?action=bios` 并只打开 BIOS Drawer；`?action=pegasus` 与 `?action=emulationstation` 只打开对应 Drawer。
+“游戏入库”子菜单固定为“导入游戏、本地扫描、任务进度、待审核、审核历史”。“本地扫描”只命名该导航入口，页面领域标题仍使用“服务器导入”。`/admin/imports/server` 并列显示“扫描并导入 BIOS”“扫描并准备 Pegasus 审核事项”“扫描并准备 EmulationStation 审核事项”三张等宽、等高、等视觉权重能力卡，共用服务器文件系统说明，无需部署者配置目录；从根目录 `/` 浏览服务进程可读取的普通目录。文件系统暂不可用时禁用三张卡并提示检查读取权限。Pegasus 卡片说明“不会自动发布”；EmulationStation 卡片说明“读取 `gamelist.xml`；不会执行启动命令，也不会自动发布”，并分别显示待配置计划和待逐项审核总数。三类任务在同页历史区明确标记类型且各自分页，不把不同状态机拼成一张假统一表。`/admin/bios` 的“从服务器目录批量导入”跳到 `?action=bios` 并只打开 BIOS Drawer；`?action=pegasus` 与 `?action=emulationstation` 只打开对应 Drawer。
 
 创建 Drawer 使用 root radio、面包屑和直接子目录分页浏览，展示 `<root label> / <relative path>` 与完整 catalog 范围；“允许使用更优候选替换”默认关闭并说明同分/更差不会替换。pending 时锁定选择；Drawer 有 focus trap、Escape 和关闭后焦点恢复。
 

@@ -197,7 +197,7 @@ func (credentials *Credentials) CursorKey() [32]byte {
 	return result
 }
 
-// ServerImportRootDigest binds a configured ID to a canonical host path while
+// ServerImportRootDigest binds a source ID to a canonical host path while
 // keeping both the launch key and host path out of persisted task input.
 func (credentials *Credentials) ServerImportRootDigest(rootID, canonicalPath string) [32]byte {
 	key := credentials.derive(serverImportDomain)

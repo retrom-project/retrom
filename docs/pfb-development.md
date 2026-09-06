@@ -143,3 +143,5 @@ PFB 上顺序验证已含业务数据的扩展。不因验收夹具前置或失�
 - 两个 PFB 的可写路径、Host、Cookie、Launch 与 provider 开发文件 互不影响；
 - legacy migration 幂等且保留源卷，reset 有可恢复归档，remove/destroy 都需要 exact ID；
 - 真实游戏链完成登录、详情、Launch、Provider dispatcher、画面、输入和需要的 checkpoint/恢复。对于 Butterscotch，canvas 必须保持 640×480 backing，并成为 runtime surface 内最大居中的 4:3 矩形。
+
+服务器导入无需配置目录白名单。PFB 将管理工作区 `retrom-project/.dev-data` 只读挂载到 `/server-data`；独立 Retrom checkout 使用自身 `.dev-data`。此目录用于操作者放置 BIOS、Pegasus/gamelist 来源，与每个 PFB 独立的数据库/CAS 分开。来源不进入镜像，也不随 PFB 停止或重建删除。管理员还可浏览容器内其他可读取的普通目录。

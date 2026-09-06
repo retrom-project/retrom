@@ -13,8 +13,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"retrom/internal/config"
 	"retrom/internal/emulationstationimport"
+	"retrom/internal/serversource"
 	"retrom/internal/testassert"
 )
 
@@ -36,8 +36,8 @@ func TestEmulationStationImportHTTPScanMappingSourceDriftAndDelete(t *testing.T)
 		server.blobs,
 		server.importer,
 		server.credentials,
-		[]config.ServerImportRoot{{
-			ID: "games", Label: "Game Library", Path: root, CanonicalPath: root,
+		[]serversource.Root{{
+			ID: "games", Label: "Game Library", Path: root,
 		}},
 		time.Now,
 	)

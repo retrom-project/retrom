@@ -257,7 +257,7 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
     ),
     "ACC-BIOS-003": (
         120,
-        "go test ./internal/config ./internal/serverimport ./internal/httpapi -run 'TestParseServerImportRootsStrictSchemaAndOverlap|TestRelativePathAndNoFollowDirectoryBoundary|TestServerImportHTTPRootBoundaryAuthorizationAndIdempotency' -count=1",
+        "go test ./internal/config ./internal/serverimport ./internal/httpapi -run 'TestServerFilesystemImportWithoutConfiguration|TestRelativePathAndNoFollowDirectoryBoundary|TestServerImportHTTPRootBoundaryAuthorizationAndIdempotency' -count=1",
     ),
     "ACC-BIOS-004": (
         180,

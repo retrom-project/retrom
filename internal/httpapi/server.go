@@ -35,6 +35,7 @@ import (
 	"retrom/internal/runtimelaunch"
 	"retrom/internal/saves"
 	"retrom/internal/serverimport"
+	"retrom/internal/serversource"
 	"retrom/internal/storageanalysis"
 	"retrom/internal/tagging"
 	"retrom/internal/uploads"
@@ -182,14 +183,14 @@ func New(
 		blobs,
 		firmwareService,
 		credentials,
-		config.ServerImportRoots,
+		serversource.FilesystemRoots(),
 		now,
 	)
 	serverImportService.Start()
-	pegasusImportService := pegasusimport.New(database, blobs, importer, credentials, config.ServerImportRoots, now)
+	pegasusImportService := pegasusimport.New(database, blobs, importer, credentials, serversource.FilesystemRoots(), now)
 	pegasusImportService.Start()
 	emulationStationImportService := emulationstationimport.New(
-		database, blobs, importer, credentials, config.ServerImportRoots, now,
+		database, blobs, importer, credentials, serversource.FilesystemRoots(), now,
 	)
 	emulationStationImportService.Start()
 	server := &Server{
