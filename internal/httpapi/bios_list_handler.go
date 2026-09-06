@@ -237,8 +237,8 @@ func appendBIOSQuickFilter(conditions []string, quick string) []string {
 	switch quick {
 	case "ATTENTION":
 		return append(conditions, "((requirement.requirement_mode<>'OPTIONAL' AND "+
-			biosStatusExpression+" IN ('MISSING','MISSING_ENTRY','INVALID')) OR "+
-			biosStatusExpression+"='HASH_WARNING')")
+			biosStatusExpression+" IN ('MISSING','INVALID')) OR "+
+			biosStatusExpression+" IN ('HASH_WARNING','MISSING_ENTRY'))")
 	case "REQUIRED":
 		return append(conditions, "requirement.requirement_mode='REQUIRED'")
 	case "OPTIONAL":
@@ -276,11 +276,11 @@ FROM bios_requirements requirement WHERE requirement.enabled=1
 	if err := server.database.QueryRowContext(request.Context(), `
 SELECT count(*),
 COALESCE(sum(CASE WHEN requirement.requirement_mode<>'OPTIONAL' AND `+biosStatusExpression+`
- IN ('MISSING','MISSING_ENTRY','INVALID') THEN 1 ELSE 0 END),0),
-COALESCE(sum(CASE WHEN `+biosStatusExpression+`='HASH_WARNING' THEN 1 ELSE 0 END),0),
+ IN ('MISSING','INVALID') THEN 1 ELSE 0 END),0),
+COALESCE(sum(CASE WHEN `+biosStatusExpression+` IN ('HASH_WARNING','MISSING_ENTRY') THEN 1 ELSE 0 END),0),
 COALESCE(sum(CASE WHEN `+biosStatusExpression+`='MATCHED' THEN 1 ELSE 0 END),0),
 COALESCE(sum(CASE WHEN (requirement.requirement_mode<>'OPTIONAL' AND `+biosStatusExpression+`
- IN ('MISSING','MISSING_ENTRY','INVALID')) OR `+biosStatusExpression+`='HASH_WARNING' THEN 1 ELSE 0 END),0),
+ IN ('MISSING','INVALID')) OR `+biosStatusExpression+` IN ('HASH_WARNING','MISSING_ENTRY') THEN 1 ELSE 0 END),0),
 COALESCE(sum(CASE WHEN requirement.requirement_mode='REQUIRED' THEN 1 ELSE 0 END),0),
 COALESCE(sum(CASE WHEN requirement.requirement_mode='OPTIONAL' THEN 1 ELSE 0 END),0)
 FROM bios_requirements requirement JOIN cores core ON core.id=requirement.core_id

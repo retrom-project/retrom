@@ -253,11 +253,12 @@ s.game_id,
 m.title,
 s.name,
 s.created_at_ms,
-s.last_synced_at_ms,
+native.last_synced_at_ms,
 s.active_duration_ms,
 s.disc_index,
 s.screenshot_blob_id IS NOT NULL
 FROM save_states s
+LEFT JOIN game_save_versions native ON native.save_state_id=s.id
 JOIN save_state_runtime_compatibility runtime_compatibility
   ON runtime_compatibility.save_state_id=s.id AND runtime_compatibility.status='AVAILABLE'
 JOIN games g ON g.id=s.game_id
@@ -267,7 +268,7 @@ WHERE s.deleted_at_ms IS NULL
 AND s.profile_id=?
 AND g.status='PUBLISHED'
 AND pi.enabled=1
-ORDER BY COALESCE(s.last_synced_at_ms,s.created_at_ms) DESC,
+ORDER BY COALESCE(native.last_synced_at_ms,s.created_at_ms) DESC,
 s.id DESC LIMIT 3
 `, profileID)
 	if err != nil {
@@ -431,9 +432,10 @@ func (server *Server) featuredSessionSave(
 SELECT save.id,save.created_at_ms,save.active_duration_ms,save.disc_index,
        save.screenshot_blob_id IS NOT NULL
 FROM save_states save
+LEFT JOIN game_save_versions native ON native.save_state_id=save.id
 JOIN save_state_runtime_compatibility compatibility
   ON compatibility.save_state_id=save.id AND compatibility.status='AVAILABLE'
-WHERE COALESCE(save.last_writer_launch_session_id,save.source_launch_session_id)=?
+WHERE COALESCE(native.last_writer_launch_session_id,save.source_launch_session_id)=?
  AND save.profile_id=? AND save.deleted_at_ms IS NULL
 ORDER BY save.created_at_ms DESC,save.id DESC
 LIMIT 1

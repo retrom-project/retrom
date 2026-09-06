@@ -16,8 +16,8 @@ import (
 
 	"retrom/internal/accounts"
 	"retrom/internal/authn"
-	"retrom/internal/config"
 	"retrom/internal/serverimport"
+	"retrom/internal/serversource"
 	"retrom/internal/testassert"
 	"retrom/internal/testsupport"
 )
@@ -47,7 +47,7 @@ func TestServerImportHTTPRootBoundaryAuthorizationAndIdempotency(t *testing.T) {
 	}
 	server.serverImports = serverimport.New(
 		server.database, server.blobs, server.firmware, server.credentials,
-		[]config.ServerImportRoot{{ID: "bios-root", Label: "BIOS Root", Path: root, CanonicalPath: root}},
+		[]serversource.Root{{ID: "bios-root", Label: "BIOS Root", Path: root}},
 		time.Now,
 	)
 	t.Cleanup(server.serverImports.Close)

@@ -17,6 +17,25 @@ paths:
       responses:
         '200':
           $ref: '#/components/responses/ReviewQueueListResponse'
+  /api/v1/admin/reviews/deduplicate:
+    post:
+      operationId: postAdminReviewDeduplicate
+      description: Discards pending reviews matching published content within the filtered scope, at most 50 scanned items per request. Continue with the returned cursor and upper bound until nextAfterItemId is null. Active attachments are skipped; published games are preserved.
+      parameters:
+        - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReviewDeduplicateRequest'
+      responses:
+        '200':
+          description: Committed page counts and continuation bounds.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReviewDeduplicateResult'
   /api/v1/admin/review-bulk-approval-preview:
     get:
       operationId: getAdminReviewBulkApprovalPreview
@@ -425,6 +444,44 @@ components:
         blockerCode:
           type: string
           maxLength: 120
+    ReviewDeduplicateRequest:
+      type: object
+      additionalProperties: false
+      required: [scope]
+      properties:
+        scope:
+          $ref: '#/components/schemas/ReviewBulkApprovalScope'
+        afterItemId:
+          type: string
+          format: uuid
+        throughItemId:
+          type: string
+          format: uuid
+    ReviewDeduplicateResult:
+      type: object
+      additionalProperties: false
+      required: [scannedCount, discardedCount, attachmentActiveCount, nextAfterItemId, throughItemId]
+      properties:
+        scannedCount:
+          type: integer
+          minimum: 0
+          maximum: 50
+        discardedCount:
+          type: integer
+          minimum: 0
+          maximum: 50
+        attachmentActiveCount:
+          type: integer
+          minimum: 0
+          maximum: 50
+        nextAfterItemId:
+          type: string
+          format: uuid
+          nullable: true
+        throughItemId:
+          type: string
+          format: uuid
+          nullable: true
     ReviewBulkApprovalRequest:
       type: object
       additionalProperties: false

@@ -375,6 +375,7 @@ func TestPlatformImportCapabilitiesUseFeaturePlatformAndArtifactIntersection(t *
 	items := read()
 	assertUniquePlatformExtensions(t, items)
 	wantExtensions := map[string][]string{
+		"megadrive":  {".md", ".smd", ".bin"},
 		"virtualboy": {".vb"}, "wonderswan": {".ws", ".wsc"},
 		"mastersystem": {".sms"}, "nintendo3ds": {".3ds", ".cci"},
 		"arcade": {".zip"}, "dos": {".exe", ".com", ".bat"},

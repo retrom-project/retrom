@@ -229,6 +229,8 @@ class EvidenceContractTests(unittest.TestCase):
             Path(__file__).resolve().parents[1] / "rpgmaker_pack_provision.mjs"
         ).read_text()
         self.assertIn("if (!current.canApprove", source)
+        self.assertIn('import {assertReviewRole} from "./rpgmaker_pack_review_state.mjs";', source)
+        source += (Path(__file__).resolve().parents[1] / "rpgmaker_pack_review_state.mjs").read_text()
         self.assertIn("review.canApprove !== initiallyReady", source)
         self.assertNotIn('state !== "REVIEW_PENDING"', source)
 

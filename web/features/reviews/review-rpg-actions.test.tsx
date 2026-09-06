@@ -62,6 +62,7 @@ describe("ordinary RPG review", () => {
       document: {title: "", body: {style: {}, textContent: ""}}} as unknown as Window;
     vi.spyOn(window, "open").mockReturnValue(popup);
     const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      if (!init?.method) {return Promise.resolve(jsonResponse(review));}
       expect(String(input)).toBe("/api/v1/admin/reviews/item-1/previews");
       expect(init?.method).toBe("POST");
       return Promise.resolve(jsonResponse({previewId: "preview-1", playUrl: "/admin/review-previews/preview-1"}, 201));
@@ -74,6 +75,6 @@ describe("ordinary RPG review", () => {
     expect(screen.getByRole("button", {name: "运行游戏"})).toBeEnabled();
     expect(screen.getByRole("button", {name: "通过并发布"})).toBeDisabled();
     await user.click(screen.getByRole("button", {name: "运行游戏"}));
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(4));
   });
 });

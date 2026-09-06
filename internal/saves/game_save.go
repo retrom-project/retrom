@@ -37,8 +37,8 @@ FROM launch_game_save_bindings WHERE launch_session_id=?`, launchID).Scan(&bindi
 		}
 		result, err = service.insertProductSave(ctx, tx, launchID, launch, parsed, payloadID, now)
 		if err == nil {
-			_, err = tx.ExecContext(ctx, `UPDATE save_states SET last_synced_at_ms=?,last_writer_launch_session_id=?
-WHERE id=?`, now, launchID, result.SaveStateID)
+			_, err = tx.ExecContext(ctx, `UPDATE game_save_versions SET last_synced_at_ms=?,last_writer_launch_session_id=?
+WHERE save_state_id=?`, now, launchID, result.SaveStateID)
 		}
 	} else {
 		result, err = service.updateGameSave(ctx, tx, launchID, launch, parsed, payloadID, binding, now)
@@ -47,7 +47,7 @@ WHERE id=?`, now, launchID, result.SaveStateID)
 		return ManualResult{}, err
 	}
 	_, err = tx.ExecContext(ctx, `UPDATE launch_game_save_bindings
-SET save_state_id=?,expected_data_version=(SELECT data_version FROM save_states WHERE id=?)
+SET save_state_id=?,expected_data_version=(SELECT data_version FROM game_save_versions WHERE save_state_id=?)
 WHERE launch_session_id=?`, result.SaveStateID, result.SaveStateID, launchID)
 	if err != nil {
 		return ManualResult{}, fmt.Errorf("bind native save: %w", err)
@@ -63,9 +63,10 @@ func (service *Service) updateGameSave(
 	var digest string
 	var dataVersion int64
 	var screenshotID sql.NullString
-	err := tx.QueryRowContext(ctx, `SELECT id,name,created_at_ms,version,active_duration_ms,
-payload_sha256,data_version,screenshot_blob_id FROM save_states
-WHERE id=? AND profile_id=? AND game_id=? AND checkpoint_format=? AND deleted_at_ms IS NULL`,
+	err := tx.QueryRowContext(ctx, `SELECT save.id,name,created_at_ms,version,active_duration_ms,
+payload_sha256,native.data_version,screenshot_blob_id FROM save_states save
+JOIN game_save_versions native ON native.save_state_id=save.id
+WHERE save.id=? AND profile_id=? AND game_id=? AND checkpoint_format=? AND deleted_at_ms IS NULL`,
 		binding.id.String, launch.profileID, launch.gameID, launch.checkpointFormat).Scan(
 		&result.SaveStateID, &result.Name, &result.CreatedAtMS, &result.Version, &result.ActiveDurationMS,
 		&digest, &dataVersion, &screenshotID)
@@ -88,14 +89,9 @@ WHERE id=? AND profile_id=? AND game_id=? AND checkpoint_format=? AND deleted_at
 	if err != nil {
 		return ManualResult{}, fmt.Errorf("store native save image: %w", err)
 	}
-	updated, err := tx.ExecContext(ctx, `UPDATE save_states SET payload_blob_id=?,payload_sha256=?,payload_size_bytes=?,
-screenshot_blob_id=?,updated_at_ms=?,last_synced_at_ms=?,last_writer_launch_session_id=?,
-active_duration_ms=(SELECT binding.initial_active_duration_ms+COALESCE(play.active_duration_ms,0)
- FROM launch_game_save_bindings binding LEFT JOIN play_sessions play ON play.launch_session_id=binding.launch_session_id
- WHERE binding.launch_session_id=?),version=version+1,data_version=data_version+1
-WHERE id=? AND data_version=? AND deleted_at_ms IS NULL`,
-		payloadID, parsed.payload.SHA256, parsed.payload.Size, imageID, now, now, launchID, launchID,
-		result.SaveStateID, binding.expected)
+	updated, err := tx.ExecContext(ctx, `UPDATE game_save_versions
+SET last_synced_at_ms=?,last_writer_launch_session_id=?,data_version=data_version+1
+WHERE save_state_id=? AND data_version=?`, now, launchID, result.SaveStateID, binding.expected)
 	if err != nil {
 		return ManualResult{}, fmt.Errorf("update native save: %w", err)
 	}
@@ -105,6 +101,15 @@ WHERE id=? AND data_version=? AND deleted_at_ms IS NULL`,
 	}
 	if affected != 1 {
 		return ManualResult{}, ErrSyncConflict
+	}
+	_, err = tx.ExecContext(ctx, `UPDATE save_states SET payload_blob_id=?,payload_sha256=?,payload_size_bytes=?,
+screenshot_blob_id=?,updated_at_ms=?,
+active_duration_ms=(SELECT binding.initial_active_duration_ms+COALESCE(play.active_duration_ms,0)
+ FROM launch_game_save_bindings binding LEFT JOIN play_sessions play ON play.launch_session_id=binding.launch_session_id
+ WHERE binding.launch_session_id=?),version=version+1 WHERE id=? AND deleted_at_ms IS NULL`,
+		payloadID, parsed.payload.SHA256, parsed.payload.Size, imageID, now, launchID, result.SaveStateID)
+	if err != nil {
+		return ManualResult{}, fmt.Errorf("write native save payload: %w", err)
 	}
 	if err := tx.QueryRowContext(ctx, `SELECT active_duration_ms FROM save_states WHERE id=?`, result.SaveStateID).
 		Scan(&result.ActiveDurationMS); err != nil {

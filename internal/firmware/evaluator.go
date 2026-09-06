@@ -142,7 +142,7 @@ func EvaluateDAT(
 		result.MissingCount++
 	}
 	result.ExtraCount = len(actual) - len(used)
-	result.Launchable = len(expected) > 0 && result.MissingCount == 0
+	result.Launchable = true
 	switch {
 	case result.MissingCount > 0:
 		result.Status, result.Method = "MISSING_ENTRY", "DAT_PARTIAL_FALLBACK"
@@ -174,7 +174,7 @@ func CompareDAT(left, right DATEvaluation) int {
 func CompareDATQuality(left, right DATEvaluation) int {
 	for _, comparison := range []int{
 		compareTrueFirst(left.SafeArchive, right.SafeArchive),
-		compareTrueFirst(left.Launchable, right.Launchable),
+		compareTrueFirst(left.MissingCount == 0, right.MissingCount == 0),
 		cmp.Compare(right.MatchedCount+right.AliasedCount, left.MatchedCount+left.AliasedCount),
 		cmp.Compare(right.MatchedCount, left.MatchedCount),
 		cmp.Compare(left.MismatchedCount, right.MismatchedCount),

@@ -25,6 +25,15 @@ WHERE id=? AND version=? AND payload_state='RETAINED'`,
 }
 
 func ScheduleTerminalImportJob(ctx context.Context, transaction *sql.Tx, importID string, now int64) (string, error) {
+	var pending int
+	if err := transaction.QueryRowContext(ctx, `SELECT count(*) FROM import_items
+WHERE import_job_id=? AND state NOT IN ('PUBLISHED','DISCARDED','FAILED_FINAL','CANCELLED')`, importID).
+		Scan(&pending); err != nil {
+		return "", fmt.Errorf("payloadrelease/check import children: %w", err)
+	}
+	if pending > 0 {
+		return "", nil
+	}
 	return scheduleTerminalOwner(ctx, transaction, terminalOwnerRequest{
 		id: importID, scope: ScopeImportJob, reason: ReasonImportTerminal, now: now,
 		readQuery: `SELECT state,version,payload_state,payload_release_job_id FROM import_jobs WHERE id=?`,

@@ -4,6 +4,7 @@ import {readFileSync, lstatSync, realpathSync} from "node:fs";
 import {basename, isAbsolute} from "node:path";
 import {directoryFiles} from "./rpgmaker_security_upload.mjs";
 import {readPopulation} from "./rpgmaker_pack_population.mjs";
+import {capturePartialResume, validatePartialRequest, validatePartialState} from "./rpgmaker_pack_continuation.mjs";
 
 const roles = ["publishedVariant", "restorableCheckpoint"];
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
@@ -16,6 +17,10 @@ export function loadResumeRequest(path) {
 }
 
 export function validateResumeRequest(value) {
+  if (value?.schemaVersion === 2) {
+    try {return validatePartialRequest(value);}
+    catch {throw new Error("RPG_009_RESUME_REQUEST_INVALID");}
+  }
   const identifiers = [...Object.values(value?.installations ?? {}), value?.reviewId];
   if (!keys(value, ["schemaVersion", "installations", "reviewId"]) || value.schemaVersion !== 1 ||
       !keys(value.installations, roles) || identifiers.some((id) => !uuid.test(id)) || new Set(identifiers).size !== 3) {
@@ -26,6 +31,7 @@ export function validateResumeRequest(value) {
 
 export async function captureApprovedResume(client, inputs, request) {
   validateResumeRequest(request);
+  if (request.schemaVersion === 2) {return capturePartialResume(client, inputs, request);}
   const expected = expectedResumeInputs(inputs);
   const [catalog, review, population] = await Promise.all([
     client.json("GET", "/api/v1/admin/runtime-asset-packs"),
@@ -45,8 +51,10 @@ export async function captureApprovedResume(client, inputs, request) {
   return {...result, reviews: {publishedVariant: review}, resume};
 }
 
-export function validateResumeState({request, expected, catalog, review, population}) {
+export function validateResumeState(state) {
+  const {request, expected, catalog, review, population} = state;
   validateResumeRequest(request);
+  if (request.schemaVersion === 2) {return validatePartialState(state);}
   const invalid = () => {throw new Error("RPG_009_RESUME_STATE_INVALID");};
   if (!Array.isArray(catalog?.installations) || catalog.installations.length !== 2) {invalid();}
   const installations = {};

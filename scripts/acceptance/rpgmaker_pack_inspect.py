@@ -150,6 +150,14 @@ def validate_population_preservation(value: Any) -> None:
 
 
 def validate_resume_evidence(resume: Any, inputs: dict, references: dict, review_ids: dict, baseline: dict) -> None:
+    if isinstance(resume, dict) and resume.get("schemaVersion") == 2:
+        if __name__ == "__main__":
+            from rpgmaker_pack_continuation_inspect import validate_partial_resume
+        else:
+            from scripts.acceptance.rpgmaker_pack_continuation_inspect import validate_partial_resume
+        validate_partial_resume(resume, inputs, references, review_ids, baseline,
+                                validate_resume_evidence, validate_population_preservation, InspectError)
+        return
     invalid = "RPG_ACCEPTANCE_PACK_RESUME_EVIDENCE_INVALID"
     roles = {"publishedVariant", "restorableCheckpoint"}
     if not isinstance(resume, dict) or set(resume) != {
@@ -386,14 +394,19 @@ def published_reviews(connection: sqlite3.Connection, observed: dict[str, Any]) 
     result = []
     for item in observed.get("reviews", {}).get("published", []):
         row = one(connection, """
-SELECT game.status,game.content_source_ref_id,profile.generation
+SELECT game.status,game.content_source_ref_id,profile.evidence_generation AS generation,
+ variant.provider_id,variant.target_id,variant.status AS variant_status
 FROM games game
 JOIN game_variants variant ON variant.game_id=game.id
 JOIN rpgmaker_game_profiles profile ON profile.game_id=game.id
 WHERE game.id=?
 """, (item.get("gameId"),), "PUBLISHED_REVIEW")
         if row["status"] != "PUBLISHED" or row["content_source_ref_id"] != item.get("itemId") or \
-                row["generation"] != item.get("generation"):
+                row["generation"] != item.get("generation") or row["provider_id"] != "retrom-runtime" or \
+                row["variant_status"] != "READY" or row["target_id"] != {
+                    "RPG2000": "rpgmaker-2000", "RPG2003": "rpgmaker-2003", "RPGXP": "rpgmaker-xp",
+                    "RPGVX": "rpgmaker-vx", "RPGVXACE": "rpgmaker-vx-ace",
+                }.get(row["generation"]):
             raise InspectError("RPG_ACCEPTANCE_PACK_PUBLISHED_REVIEW_INVALID")
         result.append({
             "role": item.get("role"), "itemId": item.get("itemId"), "gameId": item.get("gameId"),

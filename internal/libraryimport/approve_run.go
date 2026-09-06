@@ -285,6 +285,7 @@ JOIN runtime_target_bindings binding ON binding.provider_id=v.provider_id AND bi
 JOIN runtime_binding_platforms binding_platform ON binding_platform.binding_id=binding.binding_id
  AND binding_platform.platform_id=p.platform_id
 WHERE i.id=?
+AND NOT EXISTS(SELECT 1 FROM discarded_import_jobs WHERE import_id=i.import_job_id)
 AND (i.review_handoff_kind='DIRECT' OR EXISTS(
   SELECT 1 FROM emulationstation_import_items reserved_source
   WHERE reserved_source.library_import_item_id=i.id

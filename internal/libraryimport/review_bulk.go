@@ -258,6 +258,12 @@ func scanReviewBulkCandidates(
 	scope ReviewBulkScope,
 ) ([]reviewBulkCandidate, error) {
 	query, arguments := reviewBulkCandidatesQuery(scope)
+	return scanReviewBulkCandidateQuery(ctx, transaction, query, arguments)
+}
+
+func scanReviewBulkCandidateQuery(
+	ctx context.Context, transaction *sql.Tx, query string, arguments []any,
+) ([]reviewBulkCandidate, error) {
 	rows, err := transaction.QueryContext(ctx, query, arguments...)
 	if err != nil {
 		return nil, fmt.Errorf("libraryimport/review bulk candidates: %w", err)

@@ -53,7 +53,7 @@ flowchart LR
 
 ## 3. Clean migration 落地顺序
 
-下面 001–010 是已验证的 current-state bootstrap 基线。RMS 自动同步从 011 开始采用只追加的兼容向前升级，以保留现有游戏、配置和存档；不重写已应用的 bootstrap 文件。不兼容开发数据仍须单独停机归档后重建。
+下面 001–010 是已冻结、直接创建 current-state 结构的 bootstrap。兼容领域扩展从 011 起追加 migration，允许新增表与原子替换 trigger，必须验证已有数据和外键保留；不改写旧 checksum、不转换或删除 payload 表。不兼容开发数据仍停机归档后重建，不提供旧模型转换或双写层：
 
 1. `001_identity.sql`：账号、凭据、session、account link 与实例状态；
 2. `002_catalog.sql`：Platform/Core、RuntimeProvider/RuntimeTarget、Core binding 与零实例目录的 PlatformInstance；
@@ -65,8 +65,9 @@ flowchart LR
 8. `008_server_import.sql`：Pegasus 与 EmulationStation 当前 review-handoff 模型；
 9. `009_runtime.sql`：PRODUCT Launch、PlaySession、opaque checkpoint、隔离 runtime ticket/capability 与 Netplay；
 10. `010_cross_domain_invariants.sql`：只能在全部 owner table 存在后建立的 Provider/Target/profile/pack/checkpoint/Launch 索引和 trigger。
+11. `011_import_batch_discard.sql`：兼容增加批次当前处置、内部上传归属与停止后发布/重试围栏；数据释放复用现有 PayloadRelease/GC。
 
-11. `011_game_save_sync.sql`：原生游戏数据的可覆盖存档、会话绑定、数据版本、最近同步时间与冻结恢复输入；兼容升级保留既有存档。
+12. `012_game_save_sync.sql`：原生游戏数据的可覆盖存档、会话绑定、数据版本、最近同步时间与冻结恢复输入；兼容升级保留既有存档。
 
 循环 current state 使用数据模型规定的 deferred FK；所有 migration 始终保持 `foreign_keys=ON`，建库后执行 `foreign_key_check` 与 schema introspection。每条 migration 都在事务中应用并记录 name/checksum；运行时代码不按 migration 数字分支，不在业务请求中关闭外键、回填数据或动态修补 schema。
 

@@ -250,9 +250,9 @@ PFB 命令闭集为 `pfb-init/validate/build/up/use/restart/down/status/logs/ver
 
 开发拓扑仍只有一个标准 Go 进程和一个标准 `next dev` 进程。`scripts/dev.sh` 只给 Next 子进程预加载仓库内的 upgrade hook；该 hook 仅匹配精确的 `/runtime/netplay/rooms/{roomId}/socket` 路径，把 method、Origin、Cookie、Fetch Metadata、Upgrade 与 `Sec-WebSocket-Protocol` 原样转发到 `NEXT_BACKEND_ORIGIN`，并逐字节桥接升级后的 socket。其他 upgrade（包括 HMR）继续由 Next 自己处理，普通 HTTP 仍走既有 rewrite。验收必须证明未认证的合法联机 upgrade 经前端端口到达 Go 并返回 `401 AUTHENTICATION_REQUIRED`，而不是由 Next 返回自己的 403；生产不加载此开发 hook，仍由上一节 NG 路由负责。
 
-未显式设置 `RETROM_SERVER_IMPORT_ROOTS` 时，`make dev` 在真正启动进程前幂等创建两个被 Git 忽略的仓库目录：`.dev-data/bios` 作为 ID `local-bios`、标签“本地 BIOS”的默认只读扫描 root，`.dev-data/roms` 作为 ID `local-roms`、标签“本地 ROM”的默认只读扫描 root。前者用于放置开发 BIOS，后者用于放置含 `metadata.pegasus.txt` 或 `gamelist.xml`、ROM 与媒体的 Pegasus/EmulationStation 测试目录；其中内容均不得提交。调用者可以显式提供 JSON 数组整体替换这两个默认值，也可以传 `[]` 关闭本地扫描；`scripts/dev.sh --stop` 不创建目录。两个扫描目录与 `.dev-data/data`、`.dev-data/dev-state` 相互隔离，都不属于依赖物化目录或镜像输入。
+管理员的服务器导入无需环境变量配置，直接从服务进程可读取的文件系统根目录 `/` 选择 BIOS、Pegasus 或 EmulationStation 来源。`make dev` 使用宿主进程的文件系统；PFB 使用容器文件系统，并将管理工作区 `retrom-project/.dev-data` 只读挂载为 `/server-data`（独立 Retrom checkout 使用自身 `.dev-data`）。数据由操作者放入，不属于测试 fixture、依赖物化或镜像输入。
 
-同一 root 配置同时服务 BIOS、Pegasus 与 EmulationStation 导入。客户端只能提交 `rootId` 与相对路径；后端逐段无跟随打开并拒绝 symlink、special file、路径穿越、根替换和扫描中的来源漂移。三类任务共用全局 2 个内容读取槽，避免各自达到上限后叠加压满磁盘；数据库写事务只提交已完成的有界结果，不覆盖文件读取、XML/哈希、媒体探测或归档扫描。
+同一服务器文件系统入口同时服务 BIOS、Pegasus 与 EmulationStation 导入。客户端只能提交 `rootId` 与相对路径；后端逐段无跟随打开并拒绝 symlink、special file、路径穿越、根替换和扫描中的来源漂移。三类任务共用全局 2 个内容读取槽，避免各自达到上限后叠加压满磁盘；数据库写事务只提交已完成的有界结果，不覆盖文件读取、XML/哈希、媒体探测或归档扫描。
 
 ### 7.4 TLS 只在 NG 终结
 
@@ -316,7 +316,6 @@ RETROM_DATA_DIR/
 | `RETROM_ACTIVE_EMULATORJS_VERSION` | 必填且必须属于上列；当前为 `4.2.3`。该变量只选择 DAT 等非 Provider 依赖基线；运行 Target 选择来自 active Provider 与 binding catalog。 |
 | `RETROM_RPG_RUNTIME_ORIGIN_TEMPLATE` | Go 与 Next 两个进程都必填且值相同，只含一个 `{launchId}`，无 userinfo/path/query/fragment/trailing slash。release 形式固定为 `https://{launchId}.<configured-runtime-domain>`；普通 test 形式为 `http://{launchId}.rpg.localhost:<backend-port>`；PFB test 形式为 `http://{launchId}.rpg.<pfb-id>.localhost:3000`。PFB 形状只在 test、insecure opt-in 和匹配 PFB ID 同时成立时接受。`launchId` 是规范小写 UUID且独占完整最左 Host label，静态 suffix/端口不得从请求推导或覆盖。Next 从模板生成唯一受控 family `frame-src`，实际 iframe、Go Host、ticket 与 capability 仍逐 Launch 精确校验。 |
 | `RETROM_MULTI_DISC_IMPORT_ENABLED` | 严格 `true|false`；服务配置缺省为 `false`，仓库 `make dev` 的测试服务器基线显式传入 `true`；控制新建多盘 Import、capability 投影和多盘内容替换。非法值启动失败，生产启用必须显式设为 `true`。 |
-| `RETROM_SERVER_IMPORT_ROOTS` | 服务配置缺省为 `[]`；仓库 `make dev` 在变量完全未设置时注入 `.dev-data/bios` 与 `.dev-data/roms` 对应的两项 JSON 数组，显式值（包括 `[]`）优先。生产只能显式配置已挂载的只读目录。 |
 | `RETROM_NETPLAY_ENABLED` | 严格 `true|false`，服务默认 `false`；`make dev` 测试基线为 `true`。关闭时不注册联机 API/runtime route且认证上下文令前端隐藏入口，不删除历史表。 |
 | `RETROM_NETPLAY_MAX_ACTIVE_ROOMS` | 默认 `16`，封闭范围 `1..128`；只限制 `DRAFT/WAITING/STARTING/RUNNING` 房间，新建超限返回 429，不驱逐既有房间。 |
 | `RETROM_NETPLAY_ROOM_IDLE_DRAFT_MS` | 固定 `900000`（15 分钟）；若显式提供其他值则启动失败。 |
@@ -369,7 +368,7 @@ SQLite 基线：启用外键、WAL 和合理的 `busy_timeout`；仅通过版本
 
 ## 13. 服务器导入运维
 
-`RETROM_SERVER_IMPORT_ROOTS` 缺省或 `[]` 时能力为空但服务正常；非空值必须是最多 8 项的封闭 JSON 数组，每项为 `id/label/path`。ID、label 必须唯一且满足长度/字符约束；path 必须是已存在的 clean absolute 普通目录且 root 本身不是 symlink。拒绝 `/`、home、Retrom data root、dependency root、这些目录任一方向的重叠，以及各配置 root 的相同/祖先关系。非法值启动失败，只记录变量名。生产部署仅以只读 volume 映射 source，不改变双镜像或 TLS 契约。
+服务器目录浏览与导入只对 ADMIN 开放，不配置应用目录白名单。固定 source ID 为 `filesystem`、路径 `/`，可浏览和选择服务进程有权限读取的普通目录；容器部署须将来源目录挂载进容器。导入只读取来源，仍不跟随符号链接、不读取设备文件，也不执行来源命令。旧部署须移除已废弃的 `RETROM_SERVER_IMPORT_ROOTS` 设置；未知环境变量仍按启动配置规则拒绝。旧任务保留历史摘要，使用旧 root ID 的未完成任务需从新路径重新扫描。
 
 服务从现有 credential root key 目的分离派生 HMAC，任务保存 `rootId + canonical real path` 的不可逆 digest；同 ID 被重定向后 retry 以 `SERVER_IMPORT_ROOT_CHANGED` 失败。共享 reader semaphore 固定为 2，hash worker 固定 2、archive scanner 固定 1；数据库/HTTP 不能按格式再建立一套磁盘并发额度。
 

@@ -15,11 +15,11 @@ import (
 	"retrom/internal/authn"
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
-	"retrom/internal/config"
 	"retrom/internal/dependencies"
 	"retrom/internal/libraryimport"
 	"retrom/internal/payloadrelease"
 	retromruntime "retrom/internal/runtime"
+	"retrom/internal/serversource"
 	"retrom/internal/store"
 	"retrom/internal/tagging"
 	"retrom/internal/testassert"
@@ -99,7 +99,7 @@ VALUES('01980000-0000-7000-8000-000000000800','pegasus-profile','pegasus-test','
 		blobs,
 		importer,
 		credentials,
-		[]config.ServerImportRoot{{ID: "games", Label: "Games", Path: root, CanonicalPath: root}},
+		[]serversource.Root{{ID: "games", Label: "Games", Path: root}},
 		time.Now,
 	)
 	created, err := service.Create(

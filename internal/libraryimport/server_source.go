@@ -208,6 +208,7 @@ func (service *Service) insertServerUpload(
 	files []reusableUploadFile,
 	digest string,
 	now, totalBytes int64,
+	ownerKind, ownerItemID string,
 ) error {
 	transaction, err := service.database.BeginTx(ctx, nil)
 	if err != nil {
@@ -216,6 +217,13 @@ func (service *Service) insertServerUpload(
 	defer cleanup.Rollback(transaction)
 	if err := insertClonedUpload(ctx, transaction, uploadID, sourceType, files, digest, now, totalBytes); err != nil {
 		return err
+	}
+	if ownerKind != "" {
+		if _, err := transaction.ExecContext(ctx, `
+INSERT INTO server_import_upload_owners(upload_session_id,kind,source_item_id)
+VALUES(?,?,?)`, uploadID, ownerKind, ownerItemID); err != nil {
+			return fmt.Errorf("libraryimport/server source owner: %w", err)
+		}
 	}
 	if err := transaction.Commit(); err != nil {
 		return fmt.Errorf("libraryimport/server source: %w", err)
@@ -613,8 +621,9 @@ func transitionServerReviewOwner(
 	result, err := transaction.ExecContext(ctx, `
 UPDATE `+table+`
 SET execution_state=?,published_game_id=?,version=version+1,updated_at_ms=?
-WHERE library_import_item_id=? AND execution_state='REVIEW_PENDING'
-`, state, gameID, now, importItemID)
+WHERE library_import_item_id=? AND (execution_state='REVIEW_PENDING'
+ OR ?='REVIEW_DISCARDED' AND execution_state NOT IN ('PUBLISHED','SKIPPED_EXISTING','REVIEW_DISCARDED'))
+`, state, gameID, now, importItemID, state)
 	if err != nil {
 		return 0, fmt.Errorf("libraryimport/server review transition: %w", err)
 	}

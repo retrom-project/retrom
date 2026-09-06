@@ -1,9 +1,23 @@
--- Native game data is a mutable slot, with one optimistic writer binding per launch.
-ALTER TABLE save_states ADD COLUMN data_version INTEGER NOT NULL DEFAULT 1 CHECK(data_version>=1);
+-- Append native-save metadata without altering or rebuilding the published save table.
+CREATE TABLE game_save_versions (
+  save_state_id TEXT PRIMARY KEY REFERENCES save_states(id) ON DELETE CASCADE,
+  data_version INTEGER NOT NULL DEFAULT 1 CHECK(data_version>=1),
+  last_synced_at_ms INTEGER CHECK(last_synced_at_ms>=0),
+  last_writer_launch_session_id TEXT REFERENCES launch_sessions(id) ON DELETE SET NULL
+);
 
-ALTER TABLE save_states ADD COLUMN last_synced_at_ms INTEGER CHECK(last_synced_at_ms>=created_at_ms);
+INSERT INTO game_save_versions(save_state_id) SELECT id FROM save_states;
 
-ALTER TABLE save_states ADD COLUMN last_writer_launch_session_id TEXT REFERENCES launch_sessions(id) ON DELETE SET NULL;
+CREATE TRIGGER game_save_version_seed AFTER INSERT ON save_states
+BEGIN
+  INSERT INTO game_save_versions(save_state_id) VALUES(NEW.id);
+END;
+
+CREATE TRIGGER game_save_sync_time BEFORE UPDATE OF last_synced_at_ms ON game_save_versions
+WHEN NEW.last_synced_at_ms<(SELECT created_at_ms FROM save_states WHERE id=NEW.save_state_id)
+BEGIN
+  SELECT RAISE(ABORT,'game save sync predates creation');
+END;
 
 CREATE TABLE launch_game_save_bindings (
   launch_session_id TEXT PRIMARY KEY REFERENCES launch_sessions(id) ON DELETE CASCADE,
@@ -25,19 +39,21 @@ WHEN NEW.game_id IS NOT NULL AND EXISTS(
 BEGIN
   INSERT INTO launch_game_save_bindings(
     launch_session_id,save_state_id,expected_data_version,restore_payload_blob_id,restore_checkpoint_format,initial_active_duration_ms)
-  SELECT NEW.id,save.id,COALESCE(save.data_version,0),save.payload_blob_id,save.checkpoint_format,COALESCE(save.active_duration_ms,0)
+  SELECT NEW.id,save.id,COALESCE(native.data_version,0),save.payload_blob_id,save.checkpoint_format,COALESCE(save.active_duration_ms,0)
   FROM (SELECT 1) LEFT JOIN save_states save ON save.id=NEW.save_state_id
-    AND save.profile_id=NEW.profile_id AND save.game_id=NEW.game_id AND save.deleted_at_ms IS NULL;
+    AND save.profile_id=NEW.profile_id AND save.game_id=NEW.game_id AND save.deleted_at_ms IS NULL
+  LEFT JOIN game_save_versions native ON native.save_state_id=save.id;
 END;
 
 -- Preserve existing saves; running native launches adopt the same rule on upgrade.
 INSERT INTO launch_game_save_bindings(
   launch_session_id,save_state_id,expected_data_version,restore_payload_blob_id,restore_checkpoint_format,initial_active_duration_ms)
-SELECT launch.id,save.id,COALESCE(save.data_version,0),save.payload_blob_id,save.checkpoint_format,COALESCE(save.active_duration_ms,0)
+SELECT launch.id,save.id,COALESCE(native.data_version,0),save.payload_blob_id,save.checkpoint_format,COALESCE(save.active_duration_ms,0)
 FROM launch_sessions launch
 JOIN runtime_targets target ON target.provider_id=launch.provider_id AND target.target_id=launch.target_id
 LEFT JOIN save_states save ON save.id=launch.save_state_id
  AND save.profile_id=launch.profile_id AND save.game_id=launch.game_id AND save.deleted_at_ms IS NULL
+LEFT JOIN game_save_versions native ON native.save_state_id=save.id
 WHERE launch.game_id IS NOT NULL AND launch.state IN ('CREATED','ACTIVE')
  AND json_extract(target.checkpoint_json,'$.semantics')='GAME_SAVE';
 

@@ -162,12 +162,12 @@ ORDER BY created_at_ms DESC,id DESC LIMIT 1
 	if !state.exactValidationCurrent() {
 		return "", false, nil
 	}
-	if !dependencyState.tracked && state.sourceStatus == "READY" {
-		return state.sourceID, true, nil
-	}
-	biosUnchanged := dependencyState.tracked && dependencyState.snapshotJSON == state.dependencySnapshot &&
-		dependencyState.status == state.sourceStatus && dependencyState.code == state.compatibilityCode
-	if !biosUnchanged {
+	// Trial-required projects are current even though their status is BLOCKED.
+	// Reusing that validation keeps the existing screenshot and approval decision.
+	dependenciesUnchanged := !dependencyState.tracked ||
+		(dependencyState.snapshotJSON == state.dependencySnapshot &&
+			dependencyState.status == state.sourceStatus && dependencyState.code == state.compatibilityCode)
+	if !dependenciesUnchanged {
 		return "", false, nil
 	}
 	if state.sourceStatus == "READY" {
@@ -439,7 +439,7 @@ func resolveArcadeDraftBIOSState(
 		}
 		dependency.State = dependencyState
 		if dependencyState == "HASH_WARNING" {
-			snapshot.Warnings = append(snapshot.Warnings, dependency.Machine+".zip:HASH_WARNING")
+			snapshot.Warnings = append(snapshot.Warnings, dependency.Machine+".zip:"+*resolved.InstallationStatus)
 		}
 		resolvedNames[dependency.Machine+".zip"] = struct{}{}
 		state.dependencies = append(state.dependencies, *resolved)
@@ -503,7 +503,7 @@ FROM bios_requirements q
 JOIN bios_installations i ON i.requirement_id=q.id
 AND i.is_active=1
 AND i.validated_requirement_version=q.version
-AND i.status IN ('MATCHED','HASH_WARNING')
+AND i.status IN ('MATCHED','HASH_WARNING','MISSING_ENTRY')
 WHERE q.provider_id=? AND q.target_id=?
 AND q.source_kind='DAT_MACHINE'
 AND q.enabled=1
@@ -535,7 +535,7 @@ AND q.logical_name=?
 	resolved.InstallationVersion = nullableInt64Pointer(installationVersion)
 	resolved.BlobID = nullableStringPointer(blobID)
 	resolved.InstallationStatus = nullableStringPointer(installationStatus)
-	if installationStatus.String == "HASH_WARNING" {
+	if installationStatus.String != "MATCHED" {
 		return &resolved, "HASH_WARNING", nil
 	}
 	return &resolved, "SATISFIED_EXTERNAL", nil

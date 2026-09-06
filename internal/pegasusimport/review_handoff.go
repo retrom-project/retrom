@@ -37,8 +37,8 @@ func (service *Service) prepareReviewItem(ctx context.Context, unit work, root R
 	if len(item.Files) > 1 {
 		mode = contentcapability.ModeMultiDisc
 	}
-	result, err := service.importer.CreateServerSource(
-		ctx, item.TargetPlatformID, mode, files, item.TagIDs, unit.CreatedByUserID,
+	result, err := service.importer.CreateServerSourceOnce(
+		ctx, "SERVER_PEGASUS_IMPORT:"+item.ID, item.TargetPlatformID, mode, files, item.TagIDs, unit.CreatedByUserID,
 	)
 	if err != nil {
 		service.closeItemWithFailure(

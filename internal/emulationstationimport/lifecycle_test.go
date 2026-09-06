@@ -12,11 +12,11 @@ import (
 	"retrom/internal/authn"
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
-	"retrom/internal/config"
 	"retrom/internal/dependencies"
 	"retrom/internal/emulationstationmeta"
 	"retrom/internal/libraryimport"
 	retromruntime "retrom/internal/runtime"
+	"retrom/internal/serversource"
 	"retrom/internal/store"
 	"retrom/internal/testassert"
 	"retrom/internal/testsupport"
@@ -64,7 +64,7 @@ VALUES(?,'emulationstation-lifecycle-profile','es-lifecycle','Lifecycle','ADMIN'
 		blobs,
 		libraryimport.New(database.SQL, clock).WithBlobStore(blobs),
 		credentials,
-		[]config.ServerImportRoot{{ID: "games", Label: "Games", Path: sourceRoot, CanonicalPath: sourceRoot}},
+		[]serversource.Root{{ID: "games", Label: "Games", Path: sourceRoot}},
 		clock,
 	)
 	return lifecycleFixture{
