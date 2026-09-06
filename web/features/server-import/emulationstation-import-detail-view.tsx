@@ -145,7 +145,7 @@ function ItemDiagnostics({ item }: { item: EmulationStationItem }) {
 function ItemAction({ item, reviewURL }: { item: EmulationStationItem; reviewURL: string }) {
   if (item.reviewItemId && item.executionState === "REVIEW_PENDING") {
     const href = `/admin/reviews/${item.reviewItemId}?returnTo=${encodeURIComponent(reviewURL)}`;
-    return <Link className="button compact" href={href}>
+    return <Link className="button compact pegasus-review-action" href={href}>
       {item.runtimeCheck?.status === "READY" ? "审核并决定" : "处理运行问题"}
     </Link>;
   }
