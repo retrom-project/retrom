@@ -1,5 +1,7 @@
 "use client";
 
+import {saveDisplayTime} from "@/features/saves/save-library";
+
 import { useEffect, useRef, useState } from "react";
 import { AppIcon } from "@/components/app-icon";
 import { LaunchButton } from "@/features/player/launch-button";
@@ -72,7 +74,7 @@ export function GameDetailSaves({ gameId, gameTitle, saves, nowMs, threadCoreIds
       <header className="game-detail-saves-head">
         <div>
           <h2 id="game-detail-saves-title">游戏存档</h2>
-          <p>最近 3 份可直接恢复；截图保持完整比例。</p>
+          <p>最近 3 份游戏数据；原生存档恢复后请在游戏内读档。</p>
         </div>
         <div className="game-detail-saves-actions">
           <span>共 {saves.length} 份</span>
@@ -81,14 +83,14 @@ export function GameDetailSaves({ gameId, gameTitle, saves, nowMs, threadCoreIds
       </header>
       {recentSaves.length ? <div className="game-detail-save-grid">
         {recentSaves.map((save, index) => <article className="game-detail-save-card" key={save.saveStateId}>
-          <button className="game-detail-save-media" type="button" aria-label={save.screenshotUrl ? `预览 ${formatTime(save.createdAtMs, nowMs)} 的存档截图` : `${formatTime(save.createdAtMs, nowMs)} 的存档没有截图`} disabled={!save.screenshotUrl} onClick={() => openPreview(save)}>
+          <button className="game-detail-save-media" type="button" aria-label={save.screenshotUrl ? `预览 ${formatTime(saveDisplayTime(save), nowMs)} 的存档截图` : `${formatTime(saveDisplayTime(save), nowMs)} 的存档没有截图`} disabled={!save.screenshotUrl} onClick={() => openPreview(save)}>
             {!saveAvailable(save) ? <span className="game-detail-save-blocked">当前不可用</span> : null}
             <SaveScreenshot screenshotUrl={save.screenshotUrl} alt="存档截图" sizes="(min-width: 1800px) 32vw, (min-width: 1600px) 290px, 220px" />
           </button>
           <div className="game-detail-save-body">
             <div className="game-detail-save-title-line">
-              <div><strong><time dateTime={new Date(save.createdAtMs).toISOString()}>{formatTime(save.createdAtMs, nowMs)}</time></strong><small>{save.name || "手动存档"}</small></div>
-              <span className={index === 0 ? "is-latest" : undefined}>{index === 0 ? "最近存档" : "手动"}</span>
+              <div><strong><time dateTime={new Date(saveDisplayTime(save)).toISOString()}>{formatTime(saveDisplayTime(save), nowMs)}</time></strong><small>{save.name || "手动存档"}</small></div>
+              <span className={index === 0 ? "is-latest" : undefined}>{index === 0 ? "最近存档" : save.lastSyncedAtMs ? "自动同步" : "手动"}</span>
             </div>
             <div className="game-detail-save-fact-row">
               <span><small>保存位置</small><b>{save.discLabel ?? (save.discIndex ? `光盘 ${save.discIndex}` : "主内容")}</b></span>
@@ -126,10 +128,10 @@ export function GameDetailSaves({ gameId, gameTitle, saves, nowMs, threadCoreIds
       </header>
       <div className="game-detail-drawer-body">
         {saves.map((save, index) => <article className="game-detail-drawer-row" key={save.saveStateId}>
-          <button className="game-detail-drawer-shot" type="button" aria-label={save.screenshotUrl ? `预览 ${formatTime(save.createdAtMs, nowMs)} 的存档截图` : `${formatTime(save.createdAtMs, nowMs)} 的存档没有截图`} disabled={!save.screenshotUrl} onClick={() => openPreview(save)}>
+          <button className="game-detail-drawer-shot" type="button" aria-label={save.screenshotUrl ? `预览 ${formatTime(saveDisplayTime(save), nowMs)} 的存档截图` : `${formatTime(saveDisplayTime(save), nowMs)} 的存档没有截图`} disabled={!save.screenshotUrl} onClick={() => openPreview(save)}>
             <SaveScreenshot screenshotUrl={save.screenshotUrl} alt="存档截图" sizes="192px" />
           </button>
-          <div><time dateTime={new Date(save.createdAtMs).toISOString()}>{formatTime(save.createdAtMs, nowMs)}</time><small>{save.core.name}{save.discLabel ? ` · ${save.discLabel}` : ""}{index === 0 ? " · 最近" : ""}</small></div>
+          <div><time dateTime={new Date(saveDisplayTime(save)).toISOString()}>{formatTime(saveDisplayTime(save), nowMs)}</time><small>{save.core.name}{save.discLabel ? ` · ${save.discLabel}` : ""}{index === 0 ? " · 最近" : ""}</small></div>
           <SaveResume gameId={gameId} save={save} requiresThreads={threadCoreIds.includes(save.core.id)} label="▶ 继续" />
         </article>)}
       </div>

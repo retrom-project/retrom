@@ -220,7 +220,7 @@ def _validate_launch_capabilities(value: object) -> Mapping[str, object]:
 
 def _validate_launch_checkpoint(value: object) -> None:
     checkpoint = _launch_record(value, "runtime.checkpoint")
-    _launch_keys(checkpoint, {"maxBytes", "readFormats", "writeFormat"}, "runtime.checkpoint")
+    _launch_keys(checkpoint, _checkpoint_keys(checkpoint, "runtime.checkpoint"), "runtime.checkpoint")
     _launch_positive_integer(checkpoint["maxBytes"], "runtime.checkpoint.maxBytes")
     if not isinstance(checkpoint["writeFormat"], str) or not _TOKEN.fullmatch(checkpoint["writeFormat"]):
         _fail("runtime.checkpoint.writeFormat is invalid")
@@ -699,7 +699,7 @@ def _validate_inputs(inputs: Sequence[object], target_label: str) -> None:
 
 def _validate_checkpoint(checkpoint: Mapping[str, object], target_label: str) -> None:
     label = f"{target_label}.checkpoint"
-    _exact_keys(checkpoint, _CHECKPOINT_KEYS, label)
+    _exact_keys(checkpoint, _checkpoint_keys(checkpoint, label), label)
     write_format = _token(checkpoint["writeFormat"], f"{label}.writeFormat")
     read_formats = _string_array(checkpoint["readFormats"], f"{label}.readFormats", allow_empty=False)
     _sorted_unique(read_formats, f"{label}.readFormats")
@@ -708,6 +708,14 @@ def _validate_checkpoint(checkpoint: Mapping[str, object], target_label: str) ->
     if write_format not in read_formats:
         _fail(f"{label}.readFormats must contain writeFormat")
     _positive_integer(checkpoint["maxBytes"], f"{label}.maxBytes")
+
+
+def _checkpoint_keys(checkpoint: Mapping[str, object], label: str) -> set[str]:
+    if "semantics" not in checkpoint:
+        return _CHECKPOINT_KEYS
+    if checkpoint["semantics"] not in ("INSTANT", "GAME_SAVE"):
+        _fail(f"{label}.semantics is invalid")
+    return _CHECKPOINT_KEYS | {"semantics"}
 
 
 def _canonical(value: object) -> str:

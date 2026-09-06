@@ -13,6 +13,10 @@ import {initialPlayerOrientationState, type PlayerOrientationState} from "./orie
 import type {NetplayController} from "./netplay/controller";
 import {usePlayerBootstrap} from "./player-bootstrap";
 import {usePlayerSession} from "./player-session";
+import {NativeSaveToast} from "./checkpoint-help";
+import {useGameSaveSync} from "./use-game-save-sync";
+import type {GameSavePresentation} from "./game-save-sync";
+import {usePlayerRuntimeExit} from "./use-player-runtime-exit";
 import {usePlayerRuntimeActions} from "./player-runtime-actions";
 import {usePlayerOrientationRuntime} from "./player-orientation-runtime";
 import {usePlayerRuntimeEffects} from "./player-runtime-effects";
@@ -61,9 +65,11 @@ export function PlayerShell({launchId, experience = "standard"}: {launchId: stri
   const [syncTone, setSyncTone] = useState<"synced" | "busy" | "warning">("busy");
   const [saveUploadProgress, setSaveUploadProgress] = useState<number | null>(null);
   const [reviewScreenshotAvailable, setReviewScreenshotAvailable] = useState(false);
+  const [nativeRetryAvailable, setNativeRetryAvailable] = useState(false);
   const [manualSaveAvailable, setManualSaveAvailable] = useState(true);
   const [dosProgramMenu, setDosProgramMenu] = useState(false);
   const [gameTitle, setGameTitle] = useState("正在运行的游戏");
+  const [checkpointSemantics, setCheckpointSemantics] = useState<"INSTANT" | "GAME_SAVE">("INSTANT");
   const [coreName, setCoreName] = useState("");
   const [platformName, setPlatformName] = useState("");
   const [controlsVisible, setControlsVisible] = useState(true);
@@ -194,31 +200,29 @@ export function PlayerShell({launchId, experience = "standard"}: {launchId: stri
   }), [launchId, replaceImmersiveRoute, showToast]);
   const {sendEvent, uploadManualState, captureReviewScreenshot, exit, exitStrict, exitImmersiveAfterRuntimeExit} = usePlayerSession(sessionParams);
 
-  const exitRuntime = useCallback(async () => {
-    await runtimeController.current?.exit().catch(() => undefined);
-    await exit();
-  }, [exit]);
-  const exitImmersiveRuntimeStrict = useCallback(async () => {
-    await runtimeController.current?.exit();
-    await exitStrict();
-  }, [exitStrict]);
-  const exitImmersiveAfterProviderExit = useCallback(async () => {
-    await runtimeController.current?.exit().catch(() => undefined);
-    await exitImmersiveAfterRuntimeExit();
-  }, [exitImmersiveAfterRuntimeExit]);
+  const presentGameSave = useCallback((value: GameSavePresentation) => {
+    manualSaveAvailableRef.current = value.available;
+    setManualSaveAvailable(false); setNativeRetryAvailable(value.retryAvailable); setSyncText(value.text); setSyncTone(value.tone);
+  }, []);
+  const gameSaveSync = useGameSaveSync(checkpointSemantics === "GAME_SAVE" && state === "running",
+    runtime, uploadManualState, presentGameSave);
+  const {exitRuntime, exitImmersiveRuntimeStrict, exitImmersiveAfterProviderExit, exitAfterProviderExit} = usePlayerRuntimeExit(
+    runtimeController, gameSaveSync, exit, exitStrict, exitImmersiveAfterRuntimeExit, showToast);
   const handleRuntimeExitRequested = useRuntimeExitHandler(
     manualSaveAvailableRef, setManualSaveAvailable, setSyncText, setSyncTone,
-    experience, exitRuntime, exitImmersiveAfterProviderExit,
+    experience, exitAfterProviderExit, exitImmersiveAfterProviderExit,
   );
   const handleImmersiveFatal = useCallback((error: string) => {setMessage(error); setState("error");}, []);
   const saveImmersiveGame = useCallback(async () => {
+    if (gameSaveSync.current) {return gameSaveSync.current.save();}
     const active = runtime.current;
     if (!active || !manualSaveAvailableRef.current) {return false;}
     return uploadManualState(await captureRuntimeSave(active));
-  }, [uploadManualState]);
+  }, [gameSaveSync, uploadManualState]);
   const immersive = useImmersivePlayer({
     enabled: experience === "immersive", runtime, pausedRef, running: state === "running", setPaused,
-    exitStrict: exitImmersiveRuntimeStrict, saveAvailable: manualSaveAvailable,
+    exitStrict: exitImmersiveRuntimeStrict, saveAvailable: checkpointSemantics === "GAME_SAVE" ? nativeRetryAvailable : manualSaveAvailable,
+    nativeSync: checkpointSemantics === "GAME_SAVE",
     saveGame: saveImmersiveGame, beforeMenuPause: () => undefined, onFatalError: handleImmersiveFatal,
   });
   const bootstrapParams = useMemo(() => ({
@@ -226,7 +230,7 @@ export function PlayerShell({launchId, experience = "standard"}: {launchId: stri
     returnTo, playerMode, manualSaveAvailableRef, dosProgramMenuRef, orientationStateRef, videoRenderingModeRef,
     pausedRef, started, finishing, heartbeat, toastTimer, netplayController, netplayPausedRef,
     setMessage, setLoadProgress, setState, setManualSaveAvailable, setDosProgramMenu, setNetplayPlayerNo,
-    setWarnings, setGameTitle, setCoreName, setPlatformName, setDebugRuntime, setDiscState, setOrientationState,
+    setWarnings, setGameTitle, setCheckpointSemantics, setCoreName, setPlatformName, setDebugRuntime, setDiscState, setOrientationState,
     setSyncText, setSyncTone, setEmulatorVolume, setEmulatorMuted, setPaused, setNetplayPaused,
     setPlayerReturnTo, setReviewScreenshotAvailable, reportPlayerEvent,
     onKeyboardPause: () => keyboardPauseAction.current(), onImmersiveMenuShortcut: immersive.requestMenu,
@@ -243,12 +247,12 @@ export function PlayerShell({launchId, experience = "standard"}: {launchId: stri
   const {toggleDebug} = usePlayerRuntimeEffects(runtimeEffectParams);
 
   const runtimeActionParams = useMemo(() => ({
-    userId, state, runtime, envelope, manualSaveAvailableRef, dosProgramMenuRef, uploadManualState,
+    userId, state, runtime, envelope, manualSaveAvailableRef, dosProgramMenuRef, uploadManualState, gameSaveSync,
     discState, setDiscState, reportPlayerEvent, showToast, setSyncText, setSyncTone,
     setEmulatorToolbarOpen, holdControls, releaseControls, lastAudibleVolume, emulatorVolume,
     emulatorMuted, setEmulatorVolume, setEmulatorMuted, videoRenderingModeRef,
     netplayPaused, netplayPausedRef, setNetplayPaused,
-  }), [discState, emulatorMuted, emulatorVolume, holdControls, netplayPaused, releaseControls, reportPlayerEvent, showToast, state, uploadManualState, userId]);
+  }), [discState, emulatorMuted, emulatorVolume, gameSaveSync, holdControls, netplayPaused, releaseControls, reportPlayerEvent, showToast, state, uploadManualState, userId]);
   const actions = usePlayerRuntimeActions(runtimeActionParams);
 
   usePlayerKeyboardPause({
@@ -264,12 +268,10 @@ export function PlayerShell({launchId, experience = "standard"}: {launchId: stri
   }), [actions.requestNetplayPause, showControls, showToast]);
   const {retryLandscape} = usePlayerOrientationRuntime(orientationParams);
 
-  useEffect(() => {
-    videoRenderingModeRef.current = videoRenderingMode;
-    applyVideoRenderingMode(runtime.current, videoRenderingMode);
-  }, [videoRenderingMode]);
+  usePlayerVideoMode(runtime, videoRenderingModeRef, videoRenderingMode);
 
   const chromeProps: PlayerChromeProps = {
+    checkpointSemantics, nativeRetryAvailable, onRetrySync: () => {void gameSaveSync.current?.save();},
     controlsVisible, running: state === "running", paused, fullscreen, gameTitle, coreName, platformName,
     syncText, syncTone, saveUploadProgress, saveAvailable: manualSaveAvailable, dosProgramMenu, toast, warnings,
     emulatorToolbarOpen, emulatorVolume, emulatorMuted, videoRenderingMode, discSet, discState,
@@ -311,7 +313,9 @@ function PlayerShellView({experience, immersive, paused, orientationState, chrom
     {!blocked && !isImmersive ? <PlayerChrome {...chromeProps} /> : null}
     <PlayerStage blocked={blocked} stage={stage} state={state} message={message} loadProgress={loadProgress}
       returnTo={returnTo} immersive={isImmersive} onSurface={isImmersive ? () => undefined : onSurface} />
-    {!blocked && isImmersive ? <ImmersivePlayerMenu overlay={immersive.overlay} saveAvailable={immersive.saveAvailable}
+    <NativeSaveToast visible={!blocked && isImmersive} semantics={chromeProps.checkpointSemantics}
+      toast={chromeProps.toast} text={chromeProps.syncText} tone={chromeProps.syncTone} />
+    {!blocked && isImmersive ? <ImmersivePlayerMenu checkpointSemantics={chromeProps.checkpointSemantics} saveStatus={chromeProps.syncText} overlay={immersive.overlay} saveAvailable={immersive.saveAvailable}
       onCancel={immersive.menuCancel} onSelect={immersive.menuSelect} onConfirm={immersive.runSelectedMenuAction} /> : null}
     {blocked ? <OrientationGate state={orientationState} gameTitle={gameTitle} help={orientationHelp}
       buttonRef={orientationButtonRef} onRetry={onRetryLandscape} /> : null}
@@ -341,4 +345,13 @@ function OrientationGate({state, gameTitle, help, buttonRef, onRetry}: {
     <small>{activeP2 ? "你是 P2，不能暂停全局联机；本地输入已清空。" : help}</small>
     <button ref={buttonRef} className="button" type="button" onClick={onRetry}>尝试进入全屏并横屏</button>
   </section>;
+}
+
+function usePlayerVideoMode(
+  runtimeRef: RefObject<PlayerRuntimeV1 | null>, currentModeRef: RefObject<VideoRenderingMode>, mode: VideoRenderingMode,
+) {
+  useEffect(() => {
+    currentModeRef.current = mode;
+    applyVideoRenderingMode(runtimeRef.current, mode);
+  }, [currentModeRef, mode, runtimeRef]);
 }

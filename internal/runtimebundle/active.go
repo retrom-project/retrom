@@ -115,7 +115,7 @@ func validActiveRawTarget(value any) bool {
 		return true
 	}
 	checkpoint, ok := target["checkpoint"].(map[string]any)
-	return ok && exactMap(checkpoint, "writeFormat", "readFormats", "maxBytes")
+	return ok && validCheckpointShape(checkpoint)
 }
 
 func validActive(value ActiveDescriptor) bool {

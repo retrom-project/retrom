@@ -319,6 +319,8 @@ URL 状态为：
 
 正常启动后页面已经在运行或加载所选 runtime，不显示二次 Start/Play Now。Player Shell 只通过 Provider dispatcher 取得统一 `PlayerRuntimeV1`，并对全部 Provider 共用同一全屏、暂停、音量、截图、存档、退出、loading/error/focus 外壳；Provider 私有实现只在管理员诊断中可见。运行时提供准确总字节时，loading 卡片在现有固定宽度内显示单行进度条、已加载/总 MiB 与整数百分比，并说明首次加载会写入本地缓存；总量未知时只显示旋转状态，不伪造百分比。进度内容不得改变 Player stage、工具栏或游戏画面的布局尺寸。
 
+声明 GAME_SAVE 的运行时在任何原生数据变化后自动同步到本次游玩的一个存档；再次从该存档启动会继续更新它，直接开始游戏则建立独立存档。“创建存档”始终禁用并附游戏内保存/恢复说明，失败另提供“重试同步”。普通 Player、退出对话框与沉浸模式行为一致；沉浸手柄跳过禁用创建按钮，仅在可重试时选择重试入口。状态区显示等待写入、同步中、已同步、失败或冲突。正常退出等待同步，失败取消退出。存档列表按最近同步时间（普通即时存档为创建时间）排序并显示对应时间，自动同步卡片明确标注。截图是最近同步画面，恢复后的实际位置由游戏内保存与读档决定。
+
 RPG Maker 的“创建存档”按钮使用 Provider checkpoint availability 事件的精确禁用原因（不在地图、保存被禁用、消息/事件活动、忙碌等）；不允许在不可保存场景仍上传空 payload。恢复启动不先展示标题页或新游戏画面冒充成功；只有 Provider 完成自动恢复后进入运行态。调试信息对普通用户只显示选定的版本核心名，Provider/Target/checkpoint format 置于 ADMIN-only“内部诊断”分组。
 
 所有项目类型（包括 RPG Maker）共用审核 Preview 与普通 Player：点击“运行游戏”同步打开子窗口，服务端校验当前来源、目标、文件、依赖及浏览器能力后签发会话；Player 使用普通 config/start/heartbeat/finish、Provider dispatcher 和退出清理，不创建假 Game，也没有专用机器证明、额外验证决定或人工重检流程。管理员可按需保存运行截图、重复创建会话级临时 checkpoint，并从已有 checkpoint 创建新的 Preview 恢复，不要求先结束原 Preview。临时内容在会话到期或审核结束时释放；正式发布仍由当前来源与实际依赖检查决定。

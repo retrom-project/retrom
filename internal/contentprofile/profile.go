@@ -75,6 +75,7 @@ var registry = map[string]Profile{
 	"wonderswan":   single("wonderswan", ".ws", ".wsc"),
 	"mastersystem": single("mastersystem", ".sms"),
 	"nintendo3ds":  raw("nintendo3ds", ".3ds", ".cci"),
+	"j2me":         raw("j2me", ".jar"),
 	"wasm4":        single("wasm4", ".wasm"),
 
 	"rpgmaker":     project("rpgmaker", ContentKindRPGMakerProject),

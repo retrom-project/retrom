@@ -5,6 +5,7 @@ export type SaveItem = {
   name: string;
   version: number;
   createdAtMs: number;
+  lastSyncedAtMs?: number | null;
   activeDurationMs: number;
   sizeBytes: number;
   discIndex?: number | null;
@@ -69,7 +70,7 @@ export function filterSaveItems(saves: SaveItem[], filters: SaveFilters) {
       .some((value) => value.toLocaleLowerCase("zh-CN").includes(query));
   }).sort((left, right) => {
     const direction = filters.sort === "CREATED_ASC" ? 1 : -1;
-    return direction * (left.createdAtMs - right.createdAtMs || left.saveStateId.localeCompare(right.saveStateId));
+    return direction * (saveDisplayTime(left) - saveDisplayTime(right) || left.saveStateId.localeCompare(right.saveStateId));
   });
 }
 
@@ -79,7 +80,7 @@ export function groupSaveItems(saves: SaveItem[]) {
     const group = groups.get(save.gameId);
     if (group) {
       group.saves.push(save);
-      group.latestCreatedAtMs = Math.max(group.latestCreatedAtMs, save.createdAtMs);
+      group.latestCreatedAtMs = Math.max(group.latestCreatedAtMs, saveDisplayTime(save));
       if (!group.coreNames.includes(save.core.name)) {group.coreNames.push(save.core.name);}
       continue;
     }
@@ -88,7 +89,7 @@ export function groupSaveItems(saves: SaveItem[]) {
       gameTitle: save.gameTitle,
       platform: save.platform,
       coreNames: [save.core.name],
-      latestCreatedAtMs: save.createdAtMs,
+      latestCreatedAtMs: saveDisplayTime(save),
       saves: [save],
     });
   }
@@ -101,7 +102,7 @@ export function saveLibraryStats(saves: SaveItem[]) {
 
 export function latestAvailableSave(saves: SaveItem[]) {
   return saves.filter(saveAvailable).sort((left, right) =>
-    right.createdAtMs - left.createdAtMs || right.saveStateId.localeCompare(left.saveStateId))[0] ?? null;
+    saveDisplayTime(right) - saveDisplayTime(left) || right.saveStateId.localeCompare(left.saveStateId))[0] ?? null;
 }
 
 export function formatSaveDuration(value: number) {
@@ -169,4 +170,8 @@ export function formatSaveTime(value: number, nowMs: number, includeSeconds = tr
 export function customSaveName(name: string) {
   const normalized = name.trim();
   return /^(手动存档|manual save)(?:\s|$)/i.test(normalized) ? null : normalized;
+}
+
+export function saveDisplayTime(save: {createdAtMs: number; lastSyncedAtMs?: number | null}) {
+  return save.lastSyncedAtMs ?? save.createdAtMs;
 }

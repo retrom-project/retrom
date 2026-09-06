@@ -70,7 +70,7 @@ func (service *Service) persistManualSave(
 	}
 	var result ManualResult
 	if launch.purpose == "PRODUCT" {
-		result, err = service.insertProductSave(ctx, transaction, launchID, launch, parsed, payloadID, now)
+		result, err = service.persistProductCheckpoint(ctx, transaction, launchID, launch, parsed, payloadID, now)
 	} else {
 		result, err = service.insertReviewCheckpoint(ctx, transaction, launchID, launch, payloadID, now)
 	}

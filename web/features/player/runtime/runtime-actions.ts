@@ -8,9 +8,11 @@ import type {
 export type RuntimeSavePayload = {
   checkpoint: RuntimeCheckpointV1;
   screenshot: Blob;
+  source?: "GAME_SAVE";
+  requestId?: string;
 };
 
-export async function captureRuntimeSave(runtime: PlayerRuntimeV1): Promise<RuntimeSavePayload> {
+export async function captureRuntimeSave(runtime: Pick<PlayerRuntimeV1, "checkpoint" | "screenshot">): Promise<RuntimeSavePayload> {
   const checkpoint = await runtime.checkpoint();
   const screenshot = await runtime.screenshot();
   if (!(checkpoint.bytes instanceof Uint8Array) || checkpoint.bytes.byteLength < 1 ||

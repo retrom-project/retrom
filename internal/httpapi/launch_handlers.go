@@ -392,6 +392,8 @@ func (server *Server) createSaveState(writer http.ResponseWriter, request *http.
 			"存档内容超过限制",
 			map[string]any{},
 		)
+	case errors.Is(err, saves.ErrSyncConflict):
+		writeError(writer, request, http.StatusConflict, "SAVE_SYNC_CONFLICT", "存档已被其他会话更新或删除，请重新从存档启动", map[string]any{})
 	case errors.Is(err, saves.ErrSequenceReused):
 		writeError(writer, request, http.StatusConflict, "IDEMPOTENCY_KEY_REUSED", "幂等键已用于另一请求", map[string]any{})
 	case errors.Is(err, saves.ErrCheckpointUnavailable):
