@@ -1747,7 +1747,7 @@ Review 与普通预览会话。`negative-matrix/matrix.json` 必须精确声明 
   `--resume <absolute-approved-identifiers.json> --resume-evidence <absolute-new-snapshot.json>`。
   授权文件严格为 `{"schemaVersion":1,"installations":{"publishedVariant":"<XP installation UUID>",
   "restorableCheckpoint":"<VX installation UUID>"},"reviewId":"<XP Review UUID>"}`，三项 ID 必须不同。
-  此模式不删除、重装包或重建数据库，也不自动发现、认领失败残留。任何其他阶段的部分结果仍需停止并重新取得明确指示。
+  此模式不删除、重装包或重建数据库，也不自动发现、认领失败残留。已建立完整具名引用及 Review matrix 的阶段只能使用下述显式部分前置续跑；其他阶段仍需停止并取得明确指示。
   在任何写入前，脚本只读校验 catalog 恰为两份指定 READY、零 Game/checkpoint 引用的包；从已校验生成器归档
   重新计算两个固定单文件布局的 `RETROM_FILESET_V1`，逐项核对 definition、sourceNote、文件数、大小和 digest。
   XP Review 必须存在于待审核列表、当前 READY、绑定指定 XP 包；全部来源文件的名称/大小/SHA-256 必须与
@@ -1759,6 +1759,24 @@ Review 与普通预览会话。`negative-matrix/matrix.json` 必须精确声明 
   最终 provision 的可选 `resume` 字段保存模式、取样时刻、三项 ID、来源/包摘要和被排除 Review 的原稳定行；
   inspector 必须将其与生成器、plan、保护集合及最终 DB 中的包 digest 交叉核对。其他原记录保持全部不变；
   数量断言相对于明确记录的续跑保护基线计算，不能声称本次从空包目录启动。
+- 显式部分前置续跑：若前次已建立两个 protected Game、一个 VX Save 和完整 13 项 pending Review，
+  操作者可以逐项指定复用这些对象，继续使用相同的 `--resume` / `--resume-evidence` 入口。授权文件严格包含
+  `schemaVersion=2`、`installations`、`protectedReferences`、`reviewIds`、`previousEvidence`；前三个具名映射的
+  role、ID 与 plan 相同，`previousEvidence` 必须原样包含上一阶段实际保存的 `resume`（schema 1）和
+  `populationBefore`，不能以当前列表重建或替换历史保护边界。缺少历史证据、任一具名对象或完整 matrix 均拒绝。
+  写入前只读验证 catalog 恰为指定两包 READY，分别仅被指定 XP/VX Game 引用，checkpoint 引用分别为 0/1；
+  重新核对包归档和全部 protected/review 项目的来源文件名称、大小、SHA-256，以及 definition、sourceNote、
+  files digest、已发布 Variant 的具体 binding、VX Save 的所属游戏和可用性。原 XP Review 的唯一 APPROVED
+  历史必须指向指定 XP Game；13 项 Review 必须保留各自 generation、依赖就绪性与预期 selection。
+  完整分页核对历史保护行未变，新增集合恰为这些具名对象，随后在任何产品写入前独占保存两层保护边界。
+  此模式复用已经完成的安装、导入、发布与持久存档，不把这些历史动作记作本次重做。当前仍必须用普通 Player
+  分别 fresh launch 两个 protected Game，验证 A→B→C 输入，并在不同 PRODUCT Launch 恢复既有 VX Save 到 B、
+  继续输入到 C；五个 SelfContained/NoRtp Review 必须完整重做 A→B 保存→C→不同预览精确恢复 B→继续输入 C。
+  每个会话均观察至少 300 帧并正常退出，不新增游戏、持久存档或 Review；最后再次核对整个当前保护集合未变。
+  最终 `resume` 记录 `EXPLICIT_PARTIAL_PROVISION`、两层保护边界、原审批事件、全部来源 identity，以及当前
+  13 个不同会话的 ID、开始/结束时刻、帧计数、位置和 checkpoint/restore 摘要。inspector 必须拒绝缺失、
+  重放、重复会话或与来源/引用断开的证据。只有这些检查与正常 provision 的最终状态断言全部通过，才生成
+  plan/provision evidence；后续正式 Case 的资源包矩阵、五项发布、八项 selection 和删除断言完整保留。
 - provision evidence 为 `0600`、create-exclusive JSON，只保存去除 `sourcePath` 后的 generator input identity、同样去除
   路径后的 plan identity、13 个 Review 与两个受保护引用的真实 ID、计数、
   `populationPreservation.before/after`（games/saves/reviews 的有序 ID/SHA-256 列表必须完全相等），以及 provision 时的 Git commit/dirty
@@ -1801,6 +1819,19 @@ Review 与普通预览会话。`negative-matrix/matrix.json` 必须精确声明 
   `released_at_ms/UPLOAD_CONSUMED`、全部 upload file PURGED、完成 audit，以及原 bundle Blob 已进入尚未执行删除的
   retention GC candidate。任一步失败时浏览器只留下 `status=OBSERVED`，只有只读 DB 关系检查全部通过后 runner 才
   写 `status=PASS`。
+- 完整观察后的只读续检：若浏览器已完成上述全部操作并写出完整 `OBSERVED`，仅后续 DB inspector 失败，
+  不能重跑上传/发布/删除矩阵或清理现有对象。先定位失败并完成 red/green 修复、登记统一缺陷台账；正式
+  `make acceptance-case CASE=ACC-RPG-009` 可显式增加
+  `RETROM_ACC_RPG_009_OBSERVED_RESUME=<absolute-request-json>`。请求严格为 `schemaVersion=1`、三位数
+  `attempt`、`resultSha256`、`observationSha256`、`provisionSha256` 与 `screenshots`（相对路径到 SHA-256 的映射）。
+  来源只能是同一 run/Case 的已归档 FAIL，必须非超时、产品证据精确等于原 `OBSERVED`，且失败日志明确为
+  `RPG_ACCEPTANCE_PACK_DATABASE_INSPECT_FAILED`；原截图和 provision 逐字节匹配。浏览器 driver、共享输入依赖
+  和锁文件必须与原结果 commit 相同，且不在原 dirty 清单内。缺少完整观察或任何 hash 不匹配均拒绝。
+  续检仅复制已锁定的观察和截图至本次 Case，经只读 HTTP 重新完整分页核对原保护集合、具名新增集合及
+  完成后的 installation catalog，再执行全部只读 DB 关系、Job/PayloadRelease/audit/GC 检查和最终 evidence schema。
+  不重新声称当前执行了原浏览器动作。最终 `inspectionResume` 明确保留源 FAIL 路径/hash、原观察/provision/截图
+  hash、原操作与当前检查的独立时刻；两段实际执行时长之和仍不得超过 300 秒。原 FAIL、OBSERVED 与截图
+  由统一 runner 归档，修复 commit、red/green 命令和续检理由由既有缺陷台账连接。全部断言通过后才写 PASS。
 - 通过标准：上传只消费 COMPLETE 且未消费的 `RUNTIME_ASSET_PACK` session，目录/归档经同一 10,000 文件、512 MiB、安全路径与确定性 files digest 门禁；Job 只从 VALIDATING 到 READY/FAILED，列表展示文件数、字节、来源说明、诊断与 Variant/checkpoint 两类引用数。只有 generation/name/version/files digest 精确唯一匹配才可 PASS；缺失/多义阻断发布；审核完整替换 slot selection 或仅对 2000/2003启用 self-contained override。被引用 installation 删除返回 `409 RPG_RUNTIME_PACK_IN_USE` 且行、文件与 Blob 引用不变；新版本只供新的 ReviewDraft 当前选择使用，不改写已发布 Variant 或既有 checkpoint 的 pack digest。零引用删除使用当前 ETag 返回 204、旧 ETag 返回 412，installation 保留 DELETED 审计形态，upload consumption 由既有 PayloadRelease 释放并进入保留期 GC。
 - 证据：`rpgmaker-product.json` 只记录具名 role 的 upload/session/consumption ID、Job input digest/events/终态、
   definition/installation/files digest、真实 PATCH/approve/rejection、管理 UI 与审核 slot 截图、published variant 与

@@ -105,6 +105,7 @@ export async function selectRuntimePack(client, review, installationId) {
 }
 
 export async function trialReview(context, client, baseUrl, review, generation) {
+  const startedAtMs = Date.now();
   const create = (restoreFromPreviewId) => client.json(
     "POST", "/api/v1/admin/reviews/" + review.itemId + "/previews", {
       headers: writeVersionHeaders(client, review.version), expected: 201,
@@ -115,7 +116,7 @@ export async function trialReview(context, client, baseUrl, review, generation) 
   const created = await create();
   const original = await openPlayer(context, baseUrl, created.playUrl);
   await waitForPreviewReady(original);
-  await observePreviewFrames(original);
+  const originalFrames = await observePreviewFrames(original);
   const checkpointA = await capturePreviewCheckpoint(original, created.previewId);
   const initialPosition = await observeFixturePosition(original, generation, original.__retromOwnedFixture, checkpointA);
   await advanceFixture(original, sequence.save);
@@ -136,7 +137,7 @@ export async function trialReview(context, client, baseUrl, review, generation) 
     throw new Error("RPG_009_PROVISION_RESTORE_FROZEN_PAYLOAD_MISMATCH");
   }
   await waitForPreviewReady(restorePage);
-  await observePreviewFrames(restorePage);
+  const restoredFrames = await observePreviewFrames(restorePage);
   const restoredCheckpoint = await capturePreviewCheckpoint(restorePage, restored.previewId);
   const restoredPosition = await observeFixturePosition(restorePage, generation, restorePage.__retromOwnedFixture, restoredCheckpoint);
   await advanceFixture(restorePage, sequence.restore);
@@ -146,6 +147,10 @@ export async function trialReview(context, client, baseUrl, review, generation) 
   await captureOptionalReviewScreenshot(restorePage, restored.previewId);
   await finishPreview(restorePage, restored.previewId);
   assertCleanPlayer(restorePage);
+  return {itemId: review.itemId, generation, startedAtMs, finishedAtMs: Date.now(),
+    previewId: created.previewId, restoredPreviewId: restored.previewId,
+    originalFrames, restoredFrames, checkpoint: {sha256: checkpointB.sha256, sizeBytes: checkpointB.sizeBytes, format: checkpointB.format},
+    positions: [initialPosition, savedPosition, divergedPosition, restoredPosition, restoreInputPosition]};
 }
 
 export async function approveReview(client, itemId) {
@@ -248,14 +253,14 @@ function assertRoundTrip(positions) {
   }
 }
 
-async function productLaunch(client, gameId, saveStateId) {
+export async function productLaunch(client, gameId, saveStateId) {
   return client.json("POST", "/api/v1/launches", {
     headers: client.writeHeaders(), expected: 201,
     data: { gameId, coreId: "rpgmaker", saveStateId, dosEntry: null, returnTo: `/games/${gameId}`, clientCapabilities: capabilities },
   });
 }
 
-async function openPlayer(context, baseUrl, playerUrl) {
+export async function openPlayer(context, baseUrl, playerUrl) {
   const page = await context.newPage();
   page.__retromOwnedFixture = await observeOwnedFixture(page);
   page.__retromPageErrors = [];
@@ -274,7 +279,7 @@ async function openPlayer(context, baseUrl, playerUrl) {
   return page;
 }
 
-function assertCleanPlayer(page) {
+export function assertCleanPlayer(page) {
   const errors = page.__retromPageErrors ?? [];
   if (errors.length) {throw new Error("RPG_009_PROVISION_PLAYER_ERROR:" + String(errors[0]).slice(0, 600));}
 }
