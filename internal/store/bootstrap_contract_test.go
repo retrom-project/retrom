@@ -17,7 +17,15 @@ func TestBootstrapCreatesFinalSchemaWithoutLegacyConversion(t *testing.T) {
 		t.Fatal(err)
 	}
 	forbidden := regexp.MustCompile(`(?im)\b(DROP|ALTER)\s+(TABLE|TRIGGER|VIEW|INDEX)\b|__new_|revision_no|retrom:foreign-keys-off|game_(content|metadata|variant)_revisions|INSERT\s+INTO\s+(platforms|cores|platform_cores|content_kinds|runtime_asset_pack_definitions)\b`)
+	// Compatible extensions may replace triggers, but never convert or drop payload tables.
+	extensionForbidden := regexp.MustCompile(`(?im)\b(DROP|ALTER)\s+(TABLE|VIEW|INDEX)\b|__new_|revision_no|retrom:foreign-keys-off|game_(content|metadata|variant)_revisions`)
 	for _, source := range sources {
+		if match := extensionForbidden.Find(source.contents); match != nil {
+			t.Errorf("migration %s contains destructive conversion %q", source.name, match)
+		}
+	}
+	// 001–010 are the frozen clean bootstrap. Later migrations upgrade existing databases.
+	for _, source := range sources[:10] {
 		if match := forbidden.Find(source.contents); match != nil {
 			t.Errorf("bootstrap %s contains legacy conversion %q", source.name, match)
 		}

@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/google/uuid"
 
@@ -19,10 +20,12 @@ type preparedServerSource struct {
 	files                                             []reusableUploadFile
 	totalBytes                                        int64
 	idempotent                                        bool
+	handoffKind                                       string
+	ownerKind, ownerItemID                            string
 }
 
 func (prepared preparedServerSource) reviewHandoffKind() string {
-	if prepared.idempotent {
+	if prepared.handoffKind == reviewHandoffEmulationStation {
 		return reviewHandoffEmulationStation
 	}
 	return reviewHandoffDirect
@@ -43,6 +46,16 @@ func (service *Service) prepareServerSource(
 	if err != nil {
 		return preparedServerSource{}, err
 	}
+	ownerKind, ownerItemID, _ := strings.Cut(idempotencyKey, ":")
+	ownerKind = strings.TrimPrefix(ownerKind, "SERVER_")
+	ownerKind = strings.TrimSuffix(ownerKind, "_IMPORT")
+	if ownerKind != "PEGASUS" && ownerKind != "EMULATIONSTATION" {
+		ownerKind, ownerItemID = "", ""
+	}
+	handoffKind := reviewHandoffDirect
+	if strings.HasPrefix(idempotencyKey, "SERVER_EMULATIONSTATION_IMPORT:") {
+		handoffKind = reviewHandoffEmulationStation
+	}
 	uploadID, _ := uuid.NewV7()
 	if idempotencyKey != "" {
 		uploadID = uuid.NewSHA1(uuid.NameSpaceOID, []byte("retrom:server-source:v1\x00"+idempotencyKey))
@@ -57,6 +70,7 @@ func (service *Service) prepareServerSource(
 		uploadID: uploadID.String(), sourceType: sourceType,
 		manifestDigest: hex.EncodeToString(digest[:]), contentMode: contentMode,
 		files: reusable, totalBytes: totalBytes, idempotent: idempotencyKey != "",
+		handoffKind: handoffKind, ownerKind: ownerKind, ownerItemID: ownerItemID,
 	}, nil
 }
 
@@ -104,6 +118,7 @@ func (service *Service) insertPreparedServerUpload(
 		prepared.manifestDigest,
 		service.now().UnixMilli(),
 		prepared.totalBytes,
+		prepared.ownerKind, prepared.ownerItemID,
 	)
 }
 

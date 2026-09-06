@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { ImportBatchDiscard } from "@/features/imports/import-batch-discard";
 import type { ReactNode } from "react";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { Toast } from "@/components/flash-toast";
@@ -47,6 +48,7 @@ export type EmulationStationDetailViewProps = {
   onMappingOpen: (open: boolean) => void;
   onLoadMore: () => void;
   onDismissError: () => void;
+  onDiscarded?: () => void;
 };
 
 function outcomeTone(item: EmulationStationItem): "good" | "warn" | "bad" | "info" {
@@ -207,6 +209,7 @@ function DetailHeaderActions({ props, reviewURL }: { props: EmulationStationDeta
     {props.summary.counts.reviewPending ? <Link href={reviewURL} className="button">
       逐项审核 {props.summary.counts.reviewPending} 个游戏
     </Link> : null}
+    {props.summary.importJobId ? <ImportBatchDiscard kind="EMULATIONSTATION" importId={props.summary.id} version={props.summary.version} onCompleted={props.onDiscarded} /> : null}
     {props.summary.state === "AWAITING_MAPPING" ? <button
       type="button"
       className="button"

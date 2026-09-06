@@ -135,7 +135,7 @@
 .import-workflow-chips .is-active { color: var(--purple-dark); border-color: #c9bff4; background: var(--purple-soft); }
 .import-task-list, .review-workflow-list, .review-history-list { overflow-x: auto; display: grid; gap: 10px; }
 .import-task-entry { min-width: 1120px; overflow: hidden; border: 1px solid var(--line); border-radius: 13px; background: white; }
-.import-task-card { min-height: 92px; padding: 14px 16px; display: grid; grid-template-columns: minmax(260px, 1.4fr) 92px minmax(230px, .95fr) minmax(160px, .65fr) 144px; align-items: center; gap: 18px; }
+.import-task-card { min-height: 92px; padding: 14px 16px; display: grid; grid-template-columns: minmax(220px, 1.4fr) 92px minmax(180px, .95fr) minmax(130px, .65fr) 264px; align-items: center; gap: 18px; }
 .import-task-card.has-error { box-shadow: inset 4px 0 #d75562; }
 .import-task-card > .status { justify-self: center; }
 .import-task-main { min-width: 0; }
@@ -153,8 +153,8 @@
 .import-task-next { min-width: 0; display: grid; gap: 3px; }
 .import-task-next strong { font-size: 11px; }
 .import-task-next small { color: var(--muted); overflow-wrap: anywhere; }
-.import-task-actions { min-width: 0; display: flex; justify-content: flex-end; gap: 8px; }
-.import-task-actions .button { min-width: 112px; }
+.import-task-actions { min-width: 0; display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
+.import-task-actions > .button { width: 144px; min-width: 144px; flex: 0 0 144px; white-space: nowrap; }
 .import-task-detail { padding: 14px 16px 16px; border-top: 1px solid var(--line); background: #fbfaf8; }
 .import-task-stages { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; }
 .import-task-stages > div { padding: 9px 10px; display: grid; gap: 2px; border-radius: 8px; background: #eef0f4; }
@@ -682,3 +682,7 @@
 .save-card.compact time { display: block; margin-top: 3px; color: var(--muted); font-size: 11px; }
 .save-card.compact .save-card-body { padding: 14px; }
 td select, td input:not([type="checkbox"]), td button { min-height: 42px; }
+
+.import-batch-discard { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; min-width: 0; }
+.import-batch-discard > .button { min-width: 88px; white-space: nowrap; flex: 0 0 auto; }
+.import-batch-discard > small { color: var(--danger); }

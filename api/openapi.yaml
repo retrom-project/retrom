@@ -7,6 +7,8 @@ servers:
 security:
   - sessionCookie: []
 paths:
+  /api/v1/admin/import-batches/{kind}/{importId}/discard:
+    $ref: ./domains/imports.yaml#/paths/~1api~1v1~1admin~1import-batches~1{kind}~1{importId}~1discard
   /health/live:
     $ref: ./domains/identity.yaml#/paths/~1health~1live
   /health/ready:
@@ -320,6 +322,8 @@ components:
     sessionCookie:
       $ref: ./components/common.yaml#/components/securitySchemes/sessionCookie
   schemas:
+    ImportBatchDiscard:
+      $ref: ./domains/imports.yaml#/components/schemas/ImportBatchDiscard
     DiagnosticsSnapshot:
       $ref: ./domains/operations.yaml#/components/schemas/DiagnosticsSnapshot
     DiagnosticsRuntimeProvider:

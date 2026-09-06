@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { ImportBatchDiscard } from "@/features/imports/import-batch-discard";
 import { useEffect, useRef, type KeyboardEvent, type ReactNode } from "react";
 import { AppIcon } from "@/components/app-icon";
 import { ConfirmDialog } from "@/components/confirm-dialog";
@@ -176,7 +177,7 @@ function ItemAction({ item, reviewURL }: { item: PegasusItem; reviewURL: string 
   if (reviewHref && item.executionState === "REVIEW_PENDING") {return <Link className="button compact pegasus-review-action" href={reviewHref}>{item.runtimeCheck?.status === "READY" ? "审核并决定" : "处理运行问题"}</Link>;}
   if (item.publishedGameId) {return <Link href={`/games/${item.publishedGameId}`}>查看游戏</Link>;}
   if (item.existingGameId) {return <Link href={`/games/${item.existingGameId}`}>已有游戏</Link>;}
-  if (item.executionState === "REVIEW_DISCARDED") {return <small>管理员已在审核队列中丢弃</small>;}
+  if (item.executionState === "REVIEW_DISCARDED") {return <small>管理员已丢弃</small>;}
   if (item.discoveryCode === "PEGASUS_MULTIPLE_LAUNCH_FILES_UNSUPPORTED") {return <small>Pegasus 把多个文件视为可选启动项；请整理为单文件或受支持的 Saturn M3U。</small>;}
   return <span>—</span>;
 }
@@ -188,10 +189,11 @@ function ResultRow({ item, reviewURL }: { item: PegasusItem; reviewURL: string }
   return <article role="row"><div role="cell"><h3>{item.title}</h3><TagChips tags={item.tags} limit={2} ariaLabel={`${item.title} 的标签`} /><p>{item.collectionName ?? "无有效 Collection"} → {item.targetPlatformInstanceName ?? "未映射"}</p><small>{item.metadataRelativePath} · {item.contentKind ?? "内容类型待定"}</small></div><div role="cell" className="pegasus-result-media">{item.payloadState === "RELEASED" ? <StatusBadge tone="good">源文件已清理</StatusBadge> : <><StatusBadge tone={mediaTone(item.media.cover)}>封面 {item.media.cover}</StatusBadge><StatusBadge tone={mediaTone(item.media.video)}>视频 {item.media.video}</StatusBadge></>}</div><div role="cell"><StatusBadge tone={outcomeTone(item)}>{pegasusOutcomeLabels[item.executionState]}</StatusBadge><small>{result}</small></div><div role="cell"><ItemAction item={item} reviewURL={reviewURL} /></div><div role="cell" className="pegasus-runtime-diagnostic-cell"><RuntimeCheckDetails item={item} /></div></article>;
 }
 
-type DetailViewProps = { summary: PegasusImportSummary; items: PegasusItem[]; nextCursor: string | null; draft: DetailFilters; collections: PegasusCollection[]; busy: boolean; error: string; cancelOpen: boolean; mappingOpen: boolean; mappingDrawer: ReactNode; onDraft: (draft: DetailFilters) => void; onApplyFilters: () => void; onCancelOpen: (open: boolean) => void; onCancel: () => void; onRetry: () => void; onMappingOpen: (open: boolean) => void; onLoadMore: () => void; onDismissError: () => void };
+type DetailViewProps = { onDiscarded?: () => void; summary: PegasusImportSummary; items: PegasusItem[]; nextCursor: string | null; draft: DetailFilters; collections: PegasusCollection[]; busy: boolean; error: string; cancelOpen: boolean; mappingOpen: boolean; mappingDrawer: ReactNode; onDraft: (draft: DetailFilters) => void; onApplyFilters: () => void; onCancelOpen: (open: boolean) => void; onCancel: () => void; onRetry: () => void; onMappingOpen: (open: boolean) => void; onLoadMore: () => void; onDismissError: () => void };
 
 function DetailHeader({ props, reviewURL, phase }: { props: DetailViewProps; reviewURL: string; phase: string }) {
-  return <section className="server-import-detail-head panel"><div><StatusBadge tone={pegasusStateTone(props.summary.state)}>{pegasusStateLabels[props.summary.state]}</StatusBadge><h2>{props.summary.root.label} / {props.summary.sourceRelativePath || "根目录"}</h2><p aria-live="polite">{phase}</p></div><div>{["SCANNING", "QUEUED", "RUNNING"].includes(props.summary.state) ? <button type="button" className="button secondary" disabled={props.busy} onClick={() => props.onCancelOpen(true)}>取消任务</button> : null}{props.summary.retryable ? <button type="button" className="button secondary" disabled={props.busy} onClick={props.onRetry}>重试失败条目</button> : null}{props.summary.counts.reviewPending ? <Link href={reviewURL} className="button">逐项审核 {props.summary.counts.reviewPending} 个游戏</Link> : null}{props.summary.state === "AWAITING_MAPPING" ? <button type="button" className="button" disabled={props.busy} onClick={() => props.onMappingOpen(true)}>继续映射</button> : <Link href="/admin/imports/server?action=pegasus" className="button secondary">新建 Pegasus 导入</Link>}</div></section>;
+  return <section className="server-import-detail-head panel"><div><StatusBadge tone={pegasusStateTone(props.summary.state)}>{pegasusStateLabels[props.summary.state]}</StatusBadge><h2>{props.summary.root.label} / {props.summary.sourceRelativePath || "根目录"}</h2><p aria-live="polite">{phase}</p></div><div>{["SCANNING", "QUEUED", "RUNNING"].includes(props.summary.state) ? <button type="button" className="button secondary" disabled={props.busy} onClick={() => props.onCancelOpen(true)}>取消任务</button> : null}{props.summary.retryable ? <button type="button" className="button secondary" disabled={props.busy} onClick={props.onRetry}>重试失败条目</button> : null}{props.summary.counts.reviewPending ? <Link href={reviewURL} className="button">逐项审核 {props.summary.counts.reviewPending} 个游戏</Link> : null}{props.summary.importJobId ? <ImportBatchDiscard kind="PEGASUS" importId={props.summary.id} version={props.summary.version} onCompleted={props.onDiscarded} /> : null}
+    {props.summary.state === "AWAITING_MAPPING" ? <button type="button" className="button" disabled={props.busy} onClick={() => props.onMappingOpen(true)}>继续映射</button> : <Link href="/admin/imports/server?action=pegasus" className="button secondary">新建 Pegasus 导入</Link>}</div></section>;
 }
 
 function DetailSummary({ summary }: { summary: PegasusImportSummary }) {

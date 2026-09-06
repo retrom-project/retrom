@@ -804,7 +804,8 @@
     #retrom-ui-review .rt-job-progress.is-danger span { background: var(--retrom-red); }
     #retrom-ui-review .rt-job-footer { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; margin-top: 10px; }
     #retrom-ui-review .rt-job-counts { display: flex; flex-wrap: wrap; gap: 6px 13px; color: var(--retrom-muted); font-size: 10px; }
-    #retrom-ui-review .rt-job-actions { display: flex; flex-wrap: wrap; gap: 7px; }
+    #retrom-ui-review .rt-job-actions { display: flex; align-items: center; gap: 8px; }
+    #retrom-ui-review .rt-job-actions > .rt-button:not([data-open-batch-discard]) { width: 144px; white-space: nowrap; }
     #retrom-ui-review .rt-task-detail { align-self: start; padding: 16px; }
     #retrom-ui-review .rt-timeline { display: grid; gap: 0; margin-top: 14px; }
     #retrom-ui-review .rt-timeline-item { position: relative; display: grid; grid-template-columns: 16px minmax(0, 1fr); gap: 9px; padding-bottom: 13px; color: var(--retrom-muted); font-size: 10px; }
@@ -2931,7 +2932,7 @@
       </section>
 
       <section class="rt-page" data-page="admin-pegasus-import-detail">
-        <section class="rt-panel rt-server-detail-head"><div><span class="rt-badge rt-badge-green">审核事项已生成</span><h1>服务器文件系统 / Games</h1><p class="rt-subtitle">准备任务已结束 · 游戏仍需管理员逐项决定</p></div><div class="rt-page-head-actions"><button type="button" class="rt-button" data-page-link="admin-server-import">返回历史</button><button type="button" class="rt-button">重新运行检查</button></div></section>
+        <section class="rt-panel rt-server-detail-head"><div><span class="rt-badge rt-badge-green">审核事项已生成</span><h1>服务器文件系统 / Games</h1><p class="rt-subtitle">准备任务已结束 · 游戏仍需管理员逐项决定</p></div><div class="rt-page-head-actions"><button type="button" class="rt-button" data-page-link="admin-server-import">返回历史</button><button type="button" class="rt-button rt-button-primary" data-page-link="admin-review">逐项审核 42 个游戏</button><button type="button" class="rt-button" data-open-batch-discard>丢弃</button></div></section>
         <section class="rt-panel rt-pegasus-review-callout"><div><span class="rt-badge rt-badge-purple">下一步 · 人工审核</span><h2>42 个游戏已准备好，但尚未进入游戏库</h2><p>来源内容、Pegasus 元信息、封面、视频和运行检查均已保留。进入统一审核页后，可快速审批严格就绪的项目。</p></div><button type="button" class="rt-button rt-button-primary" data-page-link="admin-review">审核 42 个游戏</button></section>
         <div class="rt-server-kpis"><div><span>扫描范围</span><strong>184</strong></div><div><span>等待审核</span><strong>42</strong></div><div><span>已发布 / 丢弃 / 已存在</span><strong>126 / 8 / 1</strong></div><div><span>源阻断 / 任务失败</span><strong>6 / 1</strong></div></div>
         <div class="rt-section-head" style="margin-top:22px"><div><h2>准备与审核结果</h2><p class="rt-subtitle">后台只准备审核事项；最终决定在统一审核页完成。</p></div><span class="rt-badge">50 / 184 项</span></div>
@@ -2959,7 +2960,7 @@
       </section>
 
       <section class="rt-page" data-page="admin-emulationstation-import-detail">
-        <section class="rt-panel rt-server-detail-head"><div><span class="rt-badge rt-badge-green">审核事项已生成</span><h1>服务器文件系统 / Batocera</h1><p class="rt-subtitle">已准备 23 个待审核游戏 · 游戏尚未自动发布</p></div><div class="rt-page-head-actions"><button type="button" class="rt-button" data-page-link="admin-server-import">返回历史</button><button type="button" class="rt-button rt-button-primary" data-open-emulationstation-review>逐项审核 23 个游戏</button></div></section>
+        <section class="rt-panel rt-server-detail-head"><div><span class="rt-badge rt-badge-green">审核事项已生成</span><h1>服务器文件系统 / Batocera</h1><p class="rt-subtitle">已准备 23 个待审核游戏 · 游戏尚未自动发布</p></div><div class="rt-page-head-actions"><button type="button" class="rt-button" data-page-link="admin-server-import">返回历史</button><button type="button" class="rt-button rt-button-primary" data-open-emulationstation-review>逐项审核 23 个游戏</button><button type="button" class="rt-button" data-open-batch-discard>丢弃</button></div></section>
         <section class="rt-panel rt-pegasus-review-callout"><div><span class="rt-badge rt-badge-purple">下一步 · 人工审核</span><h2>清单内容已准备好，但尚未进入游戏库</h2><p>逐条核对运行检查、标题、媒体和来源 flag；hidden/adult 项不会进入快速审批，只有管理员明确通过才会发布。</p></div><button type="button" class="rt-button rt-button-primary" data-open-emulationstation-review>打开这批审核队列</button></section>
         <div class="rt-server-kpis"><div><span>Gamelist / 无效</span><strong>3 / 1</strong></div><div><span>等待审核</span><strong>23</strong></div><div><span>已发布 / 丢弃 / 已存在</span><strong>2 / 1 / 0</strong></div><div><span>阻断 / 失败</span><strong>2 / 0</strong></div></div>
         <details class="rt-emulationstation-gamelists" open><summary>查看 3 份 Gamelist 扫描结果</summary><p><code>nes/gamelist.xml</code><span class="rt-badge rt-badge-green">23 个游戏 · folder 2</span></p><p><code>arcade/gamelist.xml</code><span class="rt-badge rt-badge-green">5 个游戏</span></p><p><code>broken/gamelist.xml</code><span class="rt-badge rt-badge-red">EMULATIONSTATION_XML_INVALID</span></p></details>
@@ -2982,19 +2983,24 @@
           <select class="rt-select rt-filter-select" aria-label="目标目录"><option>所有目录</option><option>FBNeo 游戏</option><option>DOS 经典游戏</option><option>NES 游戏</option></select>
           <select class="rt-select rt-filter-select" aria-label="任务状态"><option>所有状态</option><option>运行中</option><option>排队中</option><option>需要处理</option><option>等待审核</option><option>已完成</option></select>
         </div>
-        <div class="rt-workflow-chips"><button type="button" class="is-active">全部 3</button><button type="button">运行中 1</button><button type="button">需要处理 1</button><button type="button">等待审核 1</button><button type="button">已完成 0</button></div>
+        <div class="rt-workflow-chips"><button type="button" class="is-active">全部 4</button><button type="button">运行中 1</button><button type="button">需要处理 1</button><button type="button">等待审核 1</button><button type="button">已完成 1</button></div>
         <div class="rt-task-layout">
           <div class="rt-panel rt-job-list">
             <article class="rt-job-row is-selected">
               <div class="rt-job-head"><div><div class="rt-job-title"><i data-lucide="file-archive" aria-hidden="true"></i><div><div class="rt-table-title">今天 22:41 · FBNeo 游戏</div><div class="rt-table-sub">12 个条目 · Hasheous 哈希查询 · 更新于刚刚</div></div></div></div><span class="rt-badge rt-badge-cyan">运行中</span></div>
               <div class="rt-job-progress"><span style="width:67%"></span></div>
-              <div class="rt-job-footer"><div class="rt-job-counts"><span>获取游戏信息 · 67%</span><span>0 待审核</span><span>0 异常</span><span>下一步：后台继续处理</span></div><div class="rt-job-actions"><button type="button" class="rt-button">收起详情</button></div></div>
+              <div class="rt-job-footer"><div class="rt-job-counts"><span>获取游戏信息 · 67%</span><span>0 待审核</span><span>0 异常</span><span>下一步：后台继续处理</span></div><div class="rt-job-actions"><button type="button" class="rt-button">收起详情</button><button type="button" class="rt-button" data-open-batch-discard>丢弃</button></div></div>
               <div class="rt-stage-strip"><span class="is-done">上传 ✓</span><span class="is-done">识别 ✓</span><span class="is-done">运行检查 ✓</span><span class="is-active">游戏信息 · 处理中</span><span>人工审核 · 等待</span><span>发布 · 等待</span></div>
             </article>
             <article class="rt-job-row">
               <div class="rt-job-head"><div><div class="rt-job-title"><i data-lucide="folder" aria-hidden="true"></i><div><div class="rt-table-title">今天 22:18 · DOS 经典游戏</div><div class="rt-table-sub">4 个条目 · Hasheous 哈希查询 · 更新于 6 分钟前</div></div></div></div><span class="rt-badge rt-badge-amber">等待审核</span></div>
               <div class="rt-job-progress"><span style="width:100%"></span></div>
-              <div class="rt-job-footer"><div class="rt-job-counts"><span>人工审核 · 100%</span><span>4 待审核</span><span>0 异常</span></div><div class="rt-job-actions"><button type="button" class="rt-button" data-page-link="admin-review">审核 4 个条目</button></div></div>
+              <div class="rt-job-footer"><div class="rt-job-counts"><span>人工审核 · 100%</span><span>4 待审核</span><span>0 异常</span></div><div class="rt-job-actions"><button type="button" class="rt-button" data-page-link="admin-review">审核 4 个条目</button><button type="button" class="rt-button" data-open-batch-discard>丢弃</button></div></div>
+            </article>
+            <article class="rt-job-row">
+              <div class="rt-job-head"><div class="rt-table-title">昨天 23:30 · NES 游戏</div><span class="rt-badge rt-badge-green">已完成</span></div>
+              <div class="rt-job-progress"><span style="width:100%"></span></div>
+              <div class="rt-job-footer"><div class="rt-job-counts"><span>全部已发布或丢弃</span><span>0 待审核</span></div><div class="rt-job-actions"><button type="button" class="rt-button" data-page-link="admin-review-history">查看结果</button><button type="button" class="rt-button" data-open-batch-discard disabled title="本批次没有待丢弃内容">丢弃</button></div></div>
             </article>
             <article class="rt-job-row">
               <div class="rt-job-head"><div><div class="rt-job-title"><i data-lucide="folder" aria-hidden="true"></i><div><div class="rt-table-title">昨天 23:18 · NES 游戏</div><div class="rt-table-sub">28 个条目 · 不刮削 · 更新于昨天 23:18</div></div></div></div><span class="rt-badge rt-badge-red">部分失败</span></div>
@@ -3278,6 +3284,7 @@
     </nav>
   </div>
 
+  <div class="rt-dialog-backdrop" data-batch-discard-dialog hidden><section class="rt-dialog" role="alertdialog" aria-modal="true" aria-labelledby="rt-batch-discard-title"><div class="rt-dialog-head"><span class="rt-dialog-mark" aria-hidden="true">!</span><div><h2 id="rt-batch-discard-title">丢弃本批次未发布内容？</h2><p class="rt-dialog-copy">本批次所有待审核和导入失败的内容都会丢弃，无法继续审核或重试导入。已发布游戏和服务器原始文件保留；无引用文件按现有 GC 保留期回收。</p></div></div><div class="rt-dialog-actions"><button type="button" class="rt-button" data-close-batch-discard>取消</button><button type="button" class="rt-button rt-button-danger" data-confirm-batch-discard>确认丢弃</button></div></section></div>
   <div class="rt-dialog-backdrop" data-storage-cleanup-dialog hidden><section class="rt-dialog" role="alertdialog" aria-modal="true" aria-labelledby="rt-storage-cleanup-title"><div class="rt-dialog-head"><span class="rt-dialog-mark" aria-hidden="true">!</span><div><h2 id="rt-storage-cleanup-title">立即清理未引用数据？</h2><p class="rt-dialog-copy">这会跳过默认保留期并立即安排回收，操作不可撤销；每个 Blob 删除前仍会重新检查是否已被引用。</p></div></div><div class="rt-dialog-impact">当前快照中有 <strong>53 个 Blob</strong>、<strong>1.3 GiB</strong> 未被引用。实际回收量以后台复核结果为准。</div><div class="rt-dialog-actions"><button type="button" class="rt-button" data-close-storage-cleanup>取消</button><button type="button" class="rt-button rt-button-danger" data-close-storage-cleanup>立即清理</button></div></section></div>
 
   <div class="rt-dialog-backdrop rt-player-exit-backdrop" data-player-exit-dialog hidden><section class="rt-dialog rt-player-exit-dialog" role="alertdialog" aria-modal="true" aria-labelledby="rt-player-exit-title"><div class="rt-dialog-head"><span class="rt-dialog-mark" aria-hidden="true">!</span><div><h2 id="rt-player-exit-title">退出游戏？</h2><p class="rt-dialog-copy" data-player-exit-copy>直接退出不会创建存档；如需保留当前位置，请先创建存档。</p></div></div><div class="rt-dialog-impact">只有点击“创建存档”才会保存当前位置；直接退出只结束本次游玩记录并返回启动前的页面。</div><div class="rt-dialog-actions"><button type="button" class="rt-button rt-player-exit-save" data-save-before-player-exit><i data-lucide="save" aria-hidden="true"></i>创建存档</button><button type="button" class="rt-button" data-cancel-player-exit>取消</button><button type="button" class="rt-button rt-button-danger" data-confirm-player-exit>退出游戏</button></div></section></div>
@@ -4239,6 +4246,18 @@
       const gameDeleteDialog = root.querySelector('[data-game-delete-dialog]');
       root.querySelector('[data-open-game-delete]').addEventListener('click', () => { gameDeleteDialog.hidden = false; });
       root.querySelectorAll('[data-close-game-delete]').forEach((button) => button.addEventListener('click', () => { gameDeleteDialog.hidden = true; }));
+      const batchDiscardDialog = root.querySelector('[data-batch-discard-dialog]');
+      let batchDiscardTrigger = null;
+      root.querySelectorAll('[data-open-batch-discard]').forEach((button) => button.addEventListener('click', () => {
+        batchDiscardTrigger = button; batchDiscardDialog.hidden = false;
+      }));
+      root.querySelector('[data-close-batch-discard]').addEventListener('click', () => {
+        batchDiscardDialog.hidden = true; batchDiscardTrigger?.focus();
+      });
+      root.querySelector('[data-confirm-batch-discard]').addEventListener('click', () => {
+        batchDiscardDialog.hidden = true;
+        if (batchDiscardTrigger) { batchDiscardTrigger.disabled = true; batchDiscardTrigger.textContent = '未发布内容已丢弃'; }
+      });
       const storageCleanupDialog = root.querySelector('[data-storage-cleanup-dialog]');
       root.querySelector('[data-open-storage-cleanup]').addEventListener('click', () => { storageCleanupDialog.hidden = false; });
       root.querySelectorAll('[data-close-storage-cleanup]').forEach((button) => button.addEventListener('click', () => { storageCleanupDialog.hidden = true; }));
