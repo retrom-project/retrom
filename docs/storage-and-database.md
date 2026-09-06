@@ -475,7 +475,9 @@ EmulationStation 递归发现只匹配精确小写 `gamelist.xml`；每个 XML �
 
 当前 clean schema 直接创建 review_preview_sessions、review_preview_files 与 review_runtime_screenshots。Preview 冻结来源、当前 Validation、Provider/Target 与实际 Bundle 字节身份；运行内容引用既有 CAS，不复制成假 Game 或用户游玩历史。普通 Player 事件使状态从 CREATED 到 ACTIVE，再到 FINISHED/EXPIRED/REVOKED；终态撤销内容授权。checkpoint 仅有最新 payload/format/time 以及新会话冻结的 restore payload；没有独立 proof 表。bootstrap 有 5 分钟期限，运行授权最长 2 小时；有界 GC 和审核终态 PayloadRelease 清除临时引用。
 
-预览内容、现有依赖、运行截图及临时 checkpoint/restore Blob 边均登记为 protective reference。截图只对仍匹配草稿当前来源、目标平台、Provider Target 和 prepublish input digest 的 Validation 投影；该 Validation 可以是 READY 或阻断状态，后者的当前截图会启用管理员人工放行。重新运行同一 Validation 会原子替换当前截图的 Blob 引用，旧 Blob 随统一 GC 规则回收，不在 HTTP、日志或清单中暴露 Blob ID/hash。完整字段和 trigger 见 [`data-model.md`](./data-model.md)。
+重复试玩相同输入必须复用已有当前 Validation，包括需要人工试玩的 BLOCKED 结果，不因新建运行窗口追加校验记录。审核截图只维护条目的当前结果：成功保存时，在同一事务中清除该条目其他 Validation 的旧截图并覆盖当前截图；新截图校验或保存失败时保留原结果。截图不是不可变历史记录；被替换图片解除引用后由既有 CAS GC 回收。
+
+预览内容、现有依赖、运行截图及临时 checkpoint/restore Blob 边均登记为 protective reference。截图只对仍匹配草稿当前来源、目标平台、Provider Target 和 prepublish input digest 的 Validation 投影；该 Validation 可以是 READY 或阻断状态，后者的当前截图会启用管理员人工放行。在同一 Validation 下再次保存截图会原子替换当前截图的 Blob 引用，旧 Blob 随统一 GC 规则回收，不在 HTTP、日志或清单中暴露 Blob ID/hash。完整字段和 trigger 见 [`data-model.md`](./data-model.md)。
 
 ## 13. 联机持久化与恢复边界
 

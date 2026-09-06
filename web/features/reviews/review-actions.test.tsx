@@ -139,9 +139,10 @@ describe("ReviewActions metadata", () => {
 
   it("restores an ordinary preview checkpoint without closing its original popup or creating a proof", async () => {
     const replace = vi.fn();
-    const popup = {closed: false, document: {title: "", body: {style: {}, textContent: ""}}, location: {replace}, close: vi.fn()};
+    const popup = {closed: false, opener: window, document: {title: "", body: {style: {}, textContent: ""}}, location: {replace, origin: window.location.origin, pathname: "/admin/review-previews/preview-1"}, close: vi.fn()};
     vi.spyOn(window, "open").mockReturnValue(popup as unknown as Window);
     const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      if (!init?.method) {return Promise.resolve(jsonResponse(review));}
       expect(init?.method).toBe("POST");
       if (String(input).endsWith("/previews")) {
         return Promise.resolve(jsonResponse({previewId: "preview-1", playUrl: "/admin/review-previews/preview-1"}, 201));
@@ -151,7 +152,9 @@ describe("ReviewActions metadata", () => {
     vi.stubGlobal("fetch", fetchMock);
     const user = userEvent.setup();
     render(<ReviewActions review={review} />);
-    expect(screen.queryByRole("button", {name: "从试玩存档继续"})).not.toBeInTheDocument();
+    expect(screen.getByRole("button", {name: "从试玩存档继续"})).toBeDisabled();
+    await user.click(screen.getByRole("button", {name: "从试玩存档继续"}));
+    expect(fetchMock).not.toHaveBeenCalled();
     await user.click(screen.getByRole("button", {name: "运行游戏"}));
     await waitFor(() => expect(replace).toHaveBeenCalledOnce());
     for (const invalid of [
@@ -161,18 +164,19 @@ describe("ReviewActions metadata", () => {
     ]) {
       await act(() => window.dispatchEvent(new MessageEvent("message", {
         origin: invalid.origin, source: invalid.source as unknown as Window,
-        data: {type: "retrom-review-checkpoint", previewId: invalid.previewId},
+        data: {type: "retrom-review-checkpoint", previewId: invalid.previewId, importItemId: "item-1"},
       })));
-      expect(screen.queryByRole("button", {name: "从试玩存档继续"})).not.toBeInTheDocument();
-      expect(fetchMock).toHaveBeenCalledOnce();
+      expect(screen.getByRole("button", {name: "从试玩存档继续"})).toBeDisabled();
+      expect(fetchMock).toHaveBeenCalledTimes(2);
     }
     await act(() => window.dispatchEvent(new MessageEvent("message", {
       origin: window.location.origin, source: popup as unknown as Window,
-      data: {type: "retrom-review-checkpoint", previewId: "preview-1"},
+      data: {type: "retrom-review-checkpoint", previewId: "preview-1", importItemId: "item-1"},
     })));
-    await user.click(await screen.findByRole("button", {name: "从试玩存档继续"}));
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
-    expect(JSON.parse(String(fetchMock.mock.calls[1]?.[1]?.body))).toMatchObject({restoreFromPreviewId: "preview-1"});
+    expect(screen.getByRole("button", {name: "从试玩存档继续"})).toBeEnabled();
+    await user.click(screen.getByRole("button", {name: "从试玩存档继续"}));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(4));
+    expect(JSON.parse(String(fetchMock.mock.calls[2]?.[1]?.body))).toMatchObject({restoreFromPreviewId: "preview-1"});
     expect(popup.close).not.toHaveBeenCalled();
     expect(screen.getByRole("button", {name: "通过并发布"})).toBeEnabled();
   });

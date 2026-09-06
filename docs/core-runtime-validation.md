@@ -41,6 +41,10 @@
 
 EmulatorJS Provider declaration 是 35 个 Target 的唯一行为 registry。`mame2003` 的 4.2.1 core 覆盖、DOSBox Pure 的 state 修复、线程 core、shader、启动动作、多盘和八个 netplay profile 都封装在该 Provider 中。Retrom 只看 Target declaration 与标准能力，不按 core 名在 Go 或前端复制规则。
 
+Mega Drive 的 Genesis Plus GX、GX Wide 与 PicoDrive 由 Provider 在输入表建立前明确选择 Mega Drive 手柄布局，保留 Start、方向与 A/B/C/X/Y/Z；不能采用多平台核心自动推断出的 Master System 布局。键盘与标准手柄使用同一控制表，原始 `.md`/`.smd` 与归档内成员行为一致。固定 EmulatorJS 4.2.3 的六键布局使用等价的 `segaCD` 输入别名，4.3.0-pre 使用 `segaMD`；这只选择输入布局，不切换运行核心或内容类型。
+
+EmulatorJS 构造期间已检测到的手柄，在控制表就绪时补齐空闲玩家分配，保留已有分配且不重复绑定；后续插拔继续使用 EmulatorJS 原有事件。不能要求启动前已连接的手柄重新插拔才能操作。
+
 指定存档不能在首帧盲目自动加载；Provider 必须等待目标核心可序列化，再执行原生 load 并以明确失败 fail closed。普通开始必须清理浏览器遗留的隐式目录存档，只有用户点击“创建存档”才上传显式 checkpoint。
 
 ## 5. retrom-runtime 特殊边界
@@ -66,3 +70,5 @@ PFB只能证明当前worktree、基座Provider与当前开发模块组合的产�
 ## 7. 必跑门禁
 
 共享运行层改变时至少运行 `ACC-PROVIDER-001..008`、`make web-e2e`、全部已有受影响产品 Case、Provider 仓库全量 lint/typecheck/test/build/package 检查，以及 Retrom 的 API、Go、Web、集成、数据和镜像/PFB 验证。真实硬件兼容结论仍需 Chrome `mapping=standard` 的实体手柄 smoke；自动注入不能替代硬件验收。
+
+EmulatorJS 4.2.3 的恢复就绪以 native serializer 成功返回非空状态为准，不依赖仅供诊断的 frame counter 大于零；写入恢复状态后仍必须等待 native 读档完成信号，不能把超时视为成功。

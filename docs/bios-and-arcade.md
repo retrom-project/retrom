@@ -33,7 +33,7 @@ MD5/CRC 只用于身份识别，不作为安全机制。
 - 流式写入 CAS 并计算全部支持 hash。
 - 保存原始文件名用于审计，挂载时使用 Requirement 的逻辑文件名。
 - 文件存在但 hash 与期望不同：保存并显示 Warning，不强制拒绝。
-- Archive 完全缺少必需 entry：属于 Blocker；entry 名存在但 size/hash 与 DAT 不同则归为 `HASH_WARNING`，仍保存、装入并允许启动，不能把“哈希不一致仅提醒”误实现成强制校验。
+- Archive 内部缺少目录列出的 entry：保留 `MISSING_ENTRY` 警告；entry 名存在但 size/hash 与 DAT 不同则为 `HASH_WARNING`。两者均保存、装入并允许启动，目录校验只提示用户可能存在问题。
 
 ## 3. 静态 BIOS 目录
 
@@ -131,14 +131,14 @@ Provider Target 升级会建立新的 Requirement 槽，不把旧 Target 的 act
 
 primary content 指 GameFiles 中唯一 `CONTENT` 文件；host-console 原 ZIP 已在验证阶段物化成保留真实后缀的唯一可运行 member，因此不能用上传 archive 的 `.zip` 后缀判断。逻辑名按 ASCII lower-case 比较最后一个后缀，不读标题或刮削平台猜类型。FDS/GB/GBC/GBA 按表中后缀判定；一期对 BS-X/Sufami 没有足够可靠的独立 classifier，所以这两项“已安装则对全部 Snes9x Variant 装入并进入 digest、未安装则只在完整目录显示且不产生逐游戏 Warning”，由 core 决定是否实际读取。`GAME_GENIE_ADDON_MODE/MGBA_SGB_MODEL` 一期恒不适用。其余 STATIC requirement 的适用集合与 active installation/status/options 一并进入 `validation_input_digest/dependency_snapshot_json`；不适用项不装入本次 bundle，也不触发本游戏重校验。
 
-适用的 REQUIRED/CONDITIONAL 项缺失时阻断；适用 OPTIONAL 缺失时仅 Warning 且不加 activation option。存在 `MATCHED` 或 `HASH_WARNING` active installation 时按逻辑名装入 BIOS bundle并合并其 activation options；对 DAT_MACHINE，全部必需 entry 名存在但 size/hash 有差异也属于 `HASH_WARNING`。错误 hash 始终遵循“提示但允许”的产品要求；只有缺少必需 entry 的 `MISSING_ENTRY` 与不可读的 `INVALID` 不装入。每次 EmulatorJS 实例都是新配置，所以无需发送反向的 `disabled/OFF`，也不能让浏览器上一次设置成为事实源。上游依据分别是 [Gambatte BIOS/core option](https://docs.libretro.com/library/gambatte/) 与 [mGBA BIOS/core option](https://docs.libretro.com/library/mgba/)。
+适用的 REQUIRED/CONDITIONAL 项缺失时阻断；适用 OPTIONAL 缺失时仅 Warning 且不加 activation option。存在 `MATCHED`、`HASH_WARNING` 或 `MISSING_ENTRY` active installation 时按逻辑名装入 BIOS bundle并合并其 activation options；对 DAT_MACHINE，全部必需 entry 名存在但 size/hash 有差异也属于 `HASH_WARNING`。错误 hash 和内部缺项都遵循“提示但允许”的产品要求；不可读的 `INVALID` 不装入。每次 EmulatorJS 实例都是新配置，所以无需发送反向的 `disabled/OFF`，也不能让浏览器上一次设置成为事实源。上游依据分别是 [Gambatte BIOS/core option](https://docs.libretro.com/library/gambatte/) 与 [mGBA BIOS/core option](https://docs.libretro.com/library/mgba/)。
 
 ## 4. BIOS 状态
 
 | 条件 | 状态 | 可启动 |
 | --- | --- | --- |
 | 必需逻辑文件不存在 | `MISSING` | 否 |
-| 必需 archive entry 缺失 | `MISSING_ENTRY` | 否 |
+| 已上传 archive 内部 entry 缺失 | `MISSING_ENTRY` | 是，带 Warning |
 | 文件/全部必需 entry 与期望 size/hash 匹配 | `MATCHED` | 是 |
 | 文件或已存在的必需 entry 的 size/hash 不同 | `HASH_WARNING` | 是，带 Warning |
 | 可选文件不存在 | `OPTIONAL_MISSING` | 是 |
@@ -147,9 +147,9 @@ primary content 指 GameFiles 中唯一 `CONTENT` 文件；host-console 原 ZIP 
 
 BIOS 页面默认只统计当前游戏库各 GameVariant 当前 GameVariant 实际引用的 Requirement；核心完整目录中的未使用项标记“未使用”，不进入红色缺失计数。
 
-`MISSING_ENTRY` installation 可以作为用户已上传文件保留并维持 active，方便展示实际缺项和直接替换，但绝不能装入 READY Variant 或 Launch bundle；`INVALID`（损坏、不安全或不可读 archive）在上传时保留审计记录但不能成为 active。DAT_MACHINE 安装必须在数据库写事务外按统一 ZIP 安全限制扫描归档，并把条目 hash 目录持久化；校验范围只含普通条目与默认 BIOS set 的非 NODUMP 条目。文件名不同时，仅当 size 与 DAT SHA-1（缺失时为 CRC32）一致才视为历史别名并记录 Warning；同名但内容不同为 `HASH_WARNING`，内容不存在才是 `MISSING_ENTRY`。静态文件 hash 不匹配也统一为 `HASH_WARNING` 并可进入 Launch bundle。每次状态都记录 `validated_requirement_version`，页面若发现版本不一致显示“待重验证”，不能继续使用旧 MATCHED 标签。
+`MISSING_ENTRY` installation 可以作为用户已上传文件保留并维持 active，方便展示实际缺项和直接替换，并可装入 Review Preview、READY Variant 和 Launch bundle；`INVALID`（损坏、不安全或不可读 archive）在上传时保留审计记录但不能成为 active。DAT_MACHINE 安装必须在数据库写事务外按统一 ZIP 安全限制扫描归档，并把条目 hash 目录持久化；校验范围只含普通条目与默认 BIOS set 的非 NODUMP 条目。文件名不同时，仅当 size 与 DAT SHA-1（缺失时为 CRC32）一致才视为历史别名并记录 Warning；同名但内容不同为 `HASH_WARNING`，内容不存在才是 `MISSING_ENTRY`。静态文件 hash 不匹配也统一为 `HASH_WARNING` 并可进入 Launch bundle。每次状态都记录 `validated_requirement_version`，页面若发现版本不一致显示“待重验证”，不能继续使用旧 MATCHED 标签。
 
-生成初始待审核条目，以及草稿 PATCH、依赖附件或 DAT/BIOS 处理触发当前 Validation 切换时，都必须刷新两类 BIOS 快照：STATIC requirement 重新按当前安装集合求值；Arcade `DAT_MACHINE` 的 `BIOS_OR_BASE` 依赖按快照中的 machine 精确查找同 Provider Target 的 `<machine>.zip` active installation。命中 `MATCHED/HASH_WARNING` 后更新依赖状态、从 `missingEntries` 移除该 archive，并把实际 Blob 加入新的不可变 `BIOS_BUNDLE` ValidationFile；只在原阻断确为 `LAUNCH_BIOS_MISSING` 且全部缺项解除时转为 READY。已经在当前校验开始前安装的 BIOS 不得先误报为缺失；已安装无关 BIOS 不能解除阻断，也不能要求用户重新导入游戏。
+生成初始待审核条目，以及试玩 POST、草稿 PATCH、依赖附件或 DAT/BIOS 处理触发当前 Validation 切换时，都必须刷新两类 BIOS 快照：STATIC requirement 重新按当前安装集合求值；Arcade `DAT_MACHINE` 的 `BIOS_OR_BASE` 依赖按快照中的 machine 精确查找同 Provider Target 的 `<machine>.zip` active installation。命中 `MATCHED/HASH_WARNING/MISSING_ENTRY` 后更新依赖状态、从 `missingEntries` 移除该 archive，并把实际 Blob 加入新的不可变 `BIOS_BUNDLE` ValidationFile；只在原阻断确为 `LAUNCH_BIOS_MISSING` 且全部缺项解除时转为 READY。已经在当前校验开始前安装的 BIOS 不得先误报为缺失；已安装无关 BIOS 不能解除阻断，也不能要求用户重新导入游戏。试玩 POST 只刷新运行依赖和选择新的不可变 Validation，不重写或重新提交元数据；依赖改变时更新草稿版本，客户端随后刷新审核页。
 
 ## 5. 真实 DAT 基线
 
@@ -212,7 +212,7 @@ scanner 与 XML decoder 必须从无文件系统/网络 callback 的 `io.Limited
 1. 顶层 ROMset ZIP 的 basename 去掉最后一个 `.zip` 后按 ASCII case-insensitive 与 machine name 精确匹配；不做前缀/模糊猜测。每个 Arcade archive 内只接受安全的 flat file entry；目录或 `machine/rom.bin` 结构按 Merged 证据处理而不是拍平成普通 ROMset。
 2. 读取 ZIP central directory，不默认解压全部内容；entry logical name 按 ASCII case-insensitive 唯一，碰撞阻断。实际 bytes 的 size 必须匹配；DAT 有 CRC32 时校验 CRC32，有 SHA-1 时物化/流式读取该 entry 并校验 SHA-1，两者都有时两者都必须命中。非 NODUMP 条目至少有一个可校验 hash；不能仅凭 hash 接受错误逻辑文件名。
 3. 从目标 machine 沿 `cloneof` 构造无环 parent 链，并把 `romof != cloneof` 的目标加入 BIOS/base archive；每个 archive 名必须来自该 GameFiles 的 CONTENT/COMPANION，不得扫描全局无归属 Blob。NODUMP entry 排除；有 bios name 时只保留机器 default bios option。
-4. 对 machine 自有非 merge entry，要求在其逻辑 archive 中以 DAT `name` 存在；对 `merge` entry，Split 可由声明 parent archive 中的 `merge_name` 满足。Full Non-Merged 允许目标 CONTENT archive 自身满足整个 parent/BIOS 闭包。主 machine 与 parent 的 entry 必须 name/size/hash 匹配，否则阻断；BIOS/base archive 只要必需 entry 名齐全即可装入，size/hash 全部匹配记 `SATISFIED_BY_CONTENT`/`SATISFIED_EXTERNAL`，存在差异则记 `HASH_WARNING` 并允许 READY/Launch，同时把期望值与实际值带入 Warning。任何外部 archive 仍按其逻辑 machine 名核对。
+4. 对 machine 自有非 merge entry，要求在其逻辑 archive 中以 DAT `name` 存在；对 `merge` entry，Split 可由声明 parent archive 中的 `merge_name` 满足。Full Non-Merged 允许目标 CONTENT archive 自身满足整个 parent/BIOS 闭包。主 machine 与 parent 的 entry 必须 name/size/hash 匹配，否则阻断；安全上传的 BIOS/base archive 即可装入，必需 entry 名及 size/hash 全部匹配记 `SATISFIED_BY_CONTENT`/`SATISFIED_EXTERNAL`，内部缺项或存在差异则记 `HASH_WARNING` 并允许 READY/Launch，同时把期望值与实际值带入 Warning。任何外部 archive 仍按其逻辑 machine 名核对。
 5. 若 clone 特有 entry 只出现在 parent archive 的子目录/合并结构、所选 machine 没有独立 CONTENT archive，或必须依赖 DAT 闭包之外的同 ZIP 子目录，则确定为 `UNSUPPORTED_MERGED_ROMSET`。如果闭包存在但某个独立 archive/entry 缺失，则是可修复的 `MISSING`，不能误报为 Merged。
 6. 为指定 Core 创建/复用稳定 GameVariant，并生成直接引用目标 GameFiles 的不可变 GameVariant；保存 DAT version、逐 archive/entry 依赖与诊断快照，不写入 Game 展示字段。
 

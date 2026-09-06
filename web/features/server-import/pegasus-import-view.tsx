@@ -161,7 +161,7 @@ export function PegasusImportDrawerView(props: DrawerViewProps) {
     closeButton.current?.focus({ preventScroll: true });
     return () => {root.style.overflow = rootOverflow; body.style.overflow = bodyOverflow; body.style.paddingRight = bodyPadding; if (previous?.isConnected) {previous.focus({ preventScroll: true });}};
   }, []);
-  return <><button type="button" className="runtime-drawer-backdrop" aria-label="关闭 Pegasus 导入" disabled={props.busy} onClick={props.onClose} /><aside ref={drawer} className="runtime-drawer server-import-drawer pegasus-import-drawer" role="dialog" aria-modal="true" aria-labelledby="pegasus-import-title" onKeyDown={(event) => trapFocus(drawer.current, event, props.busy, props.onClose)}><header><div><StatusBadge tone="info">Pegasus ROM</StatusBadge><h2 id="pegasus-import-title">从 Pegasus 目录准备审核事项</h2><p>只显示允许 root 内的相对目录；扫描不会复制 ROM 或创建游戏。</p></div><button ref={closeButton} type="button" className="runtime-drawer-close" aria-label="关闭" disabled={props.busy} onClick={props.onClose}><AppIcon name="x" /></button></header><DrawerSteps step={props.step} /><div className="runtime-drawer-body"><DrawerBody props={props} /></div><DrawerFooter props={props} /></aside><Toast toast={props.error ? { message: props.error, tone: "bad" } : null} onDismiss={props.onDismissError} /></>;
+  return <><button type="button" className="runtime-drawer-backdrop" aria-label="关闭 Pegasus 导入" disabled={props.busy} onClick={props.onClose} /><aside ref={drawer} className="runtime-drawer server-import-drawer pegasus-import-drawer" role="dialog" aria-modal="true" aria-labelledby="pegasus-import-title" onKeyDown={(event) => trapFocus(drawer.current, event, props.busy, props.onClose)}><header><div><StatusBadge tone="info">Pegasus ROM</StatusBadge><h2 id="pegasus-import-title">从 Pegasus 目录准备审核事项</h2><p>从服务器根目录选择来源；扫描不会复制 ROM 或创建游戏。</p></div><button ref={closeButton} type="button" className="runtime-drawer-close" aria-label="关闭" disabled={props.busy} onClick={props.onClose}><AppIcon name="x" /></button></header><DrawerSteps step={props.step} /><div className="runtime-drawer-body"><DrawerBody props={props} /></div><DrawerFooter props={props} /></aside><Toast toast={props.error ? { message: props.error, tone: "bad" } : null} onDismiss={props.onDismissError} /></>;
 }
 
 function outcomeTone(item: PegasusItem): "good" | "warn" | "bad" | "info" {
@@ -173,7 +173,7 @@ function outcomeTone(item: PegasusItem): "good" | "warn" | "bad" | "info" {
 
 function ItemAction({ item, reviewURL }: { item: PegasusItem; reviewURL: string }) {
   const reviewHref = item.reviewItemId ? `/admin/reviews/${item.reviewItemId}?returnTo=${encodeURIComponent(reviewURL)}` : null;
-  if (reviewHref && item.executionState === "REVIEW_PENDING") {return <Link className="button compact" href={reviewHref}>{item.runtimeCheck?.status === "READY" ? "审核并决定" : "处理运行问题"}</Link>;}
+  if (reviewHref && item.executionState === "REVIEW_PENDING") {return <Link className="button compact pegasus-review-action" href={reviewHref}>{item.runtimeCheck?.status === "READY" ? "审核并决定" : "处理运行问题"}</Link>;}
   if (item.publishedGameId) {return <Link href={`/games/${item.publishedGameId}`}>查看游戏</Link>;}
   if (item.existingGameId) {return <Link href={`/games/${item.existingGameId}`}>已有游戏</Link>;}
   if (item.executionState === "REVIEW_DISCARDED") {return <small>管理员已在审核队列中丢弃</small>;}

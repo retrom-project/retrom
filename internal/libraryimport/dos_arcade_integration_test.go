@@ -141,6 +141,12 @@ VALUES('01990000-0000-7000-8000-000000000102',?,?,?, ?,?,?,?,1,'MATCHED','{}',1,
 
 func TestArcadeImportUsesInstalledBIOSBeforeCreatingReview(t *testing.T) {
 	t.Parallel()
+	for _, status := range []string{"MATCHED", "HASH_WARNING", "MISSING_ENTRY"} {
+		t.Run(status, func(t *testing.T) { testArcadeImportUsesInstalledBIOS(t, status) })
+	}
+}
+
+func testArcadeImportUsesInstalledBIOS(t *testing.T, installationStatus string) {
 	ctx := context.Background()
 	dataDir := t.TempDir()
 	database, err := testsupport.OpenDatabase(ctx, filepath.Join(dataDir, "retrom.db"), time.Now)
@@ -227,9 +233,9 @@ VALUES(?,'fbneo',?,?,'DAT_MACHINE','codexbios','codexbios.zip','REQUIRED',
 	if _, err := database.SQL.ExecContext(ctx, `
 INSERT INTO bios_installations(id,requirement_id,blob_id,original_filename,size_bytes,md5,sha1,sha256,
 validated_requirement_version,status,validation_details_json,is_active,version,created_at_ms,updated_at_ms)
-VALUES('01990000-0000-7000-8000-000000000203',?,?,?, ?,?,?,?,1,'MATCHED','{}',1,1,?,?)
+VALUES('01990000-0000-7000-8000-000000000203',?,?,?, ?,?,?,?,1,?,'{}',1,1,?,?)
 `, requirementID, biosBlobID, "codexbios.zip", biosMetadata.Size, biosMetadata.MD5, biosMetadata.SHA1,
-		biosMetadata.SHA256, now, now); err != nil {
+		biosMetadata.SHA256, installationStatus, now, now); err != nil {
 		t.Fatal(err)
 	}
 	uploadService := uploads.New(database.SQL, blobs, dataDir, time.Now)
@@ -289,7 +295,7 @@ WHERE item.import_job_id=?
 	testassert.Falsef(t, testassert.Any(func() bool { return status != "READY" }, func() bool { return code != "READY" }), "initial validation = %s/%s", status, code)
 	var snapshot arcadeDraftSnapshot
 	if err := json.Unmarshal([]byte(snapshotJSON), &snapshot); err != nil || len(snapshot.MissingEntries) != 0 ||
-		len(snapshot.Dependencies) != 1 || snapshot.Dependencies[0].State != "SATISFIED_EXTERNAL" {
+		len(snapshot.Dependencies) != 1 || snapshot.Dependencies[0].State != installedBIOSDependencyState(installationStatus) {
 		t.Fatalf("initial snapshot = %#v, error=%v", snapshot, err)
 	}
 	var validationBlobID string
@@ -309,6 +315,9 @@ JOIN review_drafts draft ON draft.import_item_id=item.id
 WHERE item.import_job_id=?
 	`, created.ImportJobID).Scan(&itemID, &draftVersion); err != nil {
 		t.Fatal(err)
+	}
+	if installationStatus == "MISSING_ENTRY" {
+		draftVersion = assertPreviewRefreshesLegacyBIOS(t, database.SQL, importService, itemID, biosBlobID)
 	}
 	approved, err := importService.Approve(ctx, itemID, draftVersion)
 	testassert.False(t, err != nil, err)
@@ -393,4 +402,11 @@ WHERE variant.game_id=? AND variant.core_id='fbneo'
 	testassert.Falsef(t, bios["kind"] != "BIOS_BUNDLE", "Arcade BIOS launch resource = %#v", bios)
 	bundle, err := launcher.BundleFiles(ctx, createdLaunch.LaunchID, createdLaunch.Capability, "BIOS_BUNDLE")
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return len(bundle) != 1 }, func() bool { return bundle[0].LogicalName != "codexbios.zip" }, func() bool { return bundle[0].SHA256 != replacementMetadata.SHA256 }), "Arcade BIOS launch bundle = %#v, error=%v", bundle, err)
+}
+
+func installedBIOSDependencyState(status string) string {
+	if status == "MATCHED" {
+		return "SATISFIED_EXTERNAL"
+	}
+	return "HASH_WARNING"
 }

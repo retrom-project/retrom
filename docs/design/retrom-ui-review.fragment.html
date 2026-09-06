@@ -930,13 +930,13 @@
     #retrom-ui-review .rt-review-context-item { display: grid; gap: 3px; width: 100%; padding: 9px; border: 1px solid var(--retrom-line); border-radius: 8px; color: var(--retrom-text); background: var(--retrom-panel); text-align: left; }
     #retrom-ui-review .rt-review-context-item span { color: var(--retrom-muted); font-size: 9px; }
     #retrom-ui-review .rt-review-context-item.is-active { border-color: var(--retrom-purple); background: var(--retrom-purple-soft); }
-    #retrom-ui-review .rt-review-detail-top { display: grid; grid-template-columns: minmax(0, 1fr) 390px; align-items: start; gap: 12px; }
+    #retrom-ui-review .rt-review-detail-top { display: grid; grid-template-columns: minmax(0, 1fr) 390px; align-items: stretch; gap: 12px; }
     #retrom-ui-review .rt-review-summary, #retrom-ui-review .rt-review-decision { min-height: 178px; padding: 15px; }
-    #retrom-ui-review .rt-review-summary { min-width: 0; height: 178px; overflow: hidden; display: grid; grid-template-columns: minmax(0, 1fr) 125px; grid-template-rows: minmax(0, 1fr); align-items: stretch; gap: 14px; }
+    #retrom-ui-review .rt-review-summary { min-width: 0; min-height: 178px; overflow: hidden; display: grid; grid-template-columns: minmax(0, 1fr) 125px; grid-template-rows: minmax(0, 1fr); align-items: stretch; gap: 14px; }
     #retrom-ui-review .rt-review-summary-copy { min-width: 0; align-self: center; }
     #retrom-ui-review .rt-review-summary h2, #retrom-ui-review .rt-review-decision h2 { margin: 8px 0 3px; }
     #retrom-ui-review .rt-review-summary-status { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 13px; }
-    #retrom-ui-review .rt-review-runtime-shot { min-width: 0; min-height: 0; overflow: hidden; align-self: stretch; display: grid; grid-template-rows: auto minmax(0, 1fr); border: 1px solid var(--retrom-line); border-radius: 9px; background: #0a0d14; }
+    #retrom-ui-review .rt-review-runtime-shot { min-width: 0; min-height: 0; contain: size; overflow: hidden; align-self: stretch; display: grid; grid-template-rows: auto minmax(0, 1fr); border: 1px solid var(--retrom-line); border-radius: 9px; background: #0a0d14; }
     #retrom-ui-review .rt-review-runtime-shot > span { padding: 7px 9px; color: var(--retrom-muted); background: var(--retrom-panel-raised); font-size: 9px; font-weight: 750; }
     #retrom-ui-review .rt-review-runtime-shot > div { min-height: 0; height: 100%; padding: 12px; display: grid; place-content: center; gap: 4px; color: #dce2ee; background: radial-gradient(circle at 50% 30%, #2c3344, #0a0d14 72%); text-align: center; }
     #retrom-ui-review .rt-review-runtime-shot > div.is-ready { background: linear-gradient(145deg, #171a2c, #313759 48%, #0a0d14); }
@@ -1832,6 +1832,7 @@
     #retrom-ui-review .rt-emulationstation-gamelists p { margin: 8px 0 0; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
     #retrom-ui-review .rt-emulationstation-flags { display: inline-flex; gap: 4px; margin-top: 5px; }
     #retrom-ui-review .rt-emulationstation-flags small { padding: 2px 6px; color: var(--retrom-amber); border-radius: 999px; background: var(--retrom-amber-soft); font-weight: 760; }
+    #retrom-ui-review .rt-pegasus-review-action { font-size: 14px; }
     #retrom-ui-review .rt-pegasus-result-row { grid-template-columns: minmax(260px, 1fr) 210px 180px 120px; }
     #retrom-ui-review .rt-pegasus-diagnostic { grid-column: 1 / -1; border: 1px solid #ead7da; border-radius: 9px; background: #fffafb; }
     #retrom-ui-review .rt-pegasus-diagnostic > summary { min-height: 34px; padding: 0 10px; display: flex; align-items: center; color: #8f3c47; cursor: pointer; font-size: 10px; font-weight: 780; }
@@ -2947,8 +2948,8 @@
               </div>
             </details>
           </article>
-          <article class="rt-server-result-row rt-pegasus-result-row"><div><strong>19YY 警长射击</strong><small>飞机街机 → FBNeo 游戏</small><small>metadata.pegasus.txt · SINGLE_FILE</small></div><div><span class="rt-badge rt-badge-green">封面 READY</span> <span class="rt-badge">视频 MISSING</span></div><div><span class="rt-badge rt-badge-amber">等待审核</span><small>缺少 BIOS / 基础 ROM</small></div><button type="button" class="rt-button">处理运行问题</button></article>
-          <article class="rt-server-result-row rt-pegasus-result-row"><div><strong>P-47 战机</strong><small>飞机街机 → FBNeo 游戏</small><small>metadata.pegasus.txt · SINGLE_FILE</small></div><div><span class="rt-badge rt-badge-green">封面 READY</span> <span class="rt-badge rt-badge-green">视频 READY</span></div><div><span class="rt-badge rt-badge-cyan">等待审核</span><small>运行检查 READY</small></div><button type="button" class="rt-button rt-button-primary">审核并决定</button></article>
+          <article class="rt-server-result-row rt-pegasus-result-row"><div><strong>19YY 警长射击</strong><small>飞机街机 → FBNeo 游戏</small><small>metadata.pegasus.txt · SINGLE_FILE</small></div><div><span class="rt-badge rt-badge-green">封面 READY</span> <span class="rt-badge">视频 MISSING</span></div><div><span class="rt-badge rt-badge-amber">等待审核</span><small>缺少 BIOS / 基础 ROM</small></div><button type="button" class="rt-button rt-pegasus-review-action">处理运行问题</button></article>
+          <article class="rt-server-result-row rt-pegasus-result-row"><div><strong>P-47 战机</strong><small>飞机街机 → FBNeo 游戏</small><small>metadata.pegasus.txt · SINGLE_FILE</small></div><div><span class="rt-badge rt-badge-green">封面 READY</span> <span class="rt-badge rt-badge-green">视频 READY</span></div><div><span class="rt-badge rt-badge-cyan">等待审核</span><small>运行检查 READY</small></div><button type="button" class="rt-button rt-button-primary rt-pegasus-review-action">审核并决定</button></article>
         </div>
       </section>
 
@@ -2960,7 +2961,7 @@
         <div class="rt-section-head" style="margin-top:22px"><div><h2>准备与审核结果</h2><p class="rt-subtitle">来源 flag 是核对提示，不代表权限或兼容性结论；终态 payload 会显示释放状态。</p></div><span class="rt-badge">3 / 28 项</span></div>
         <form class="rt-panel rt-server-result-filter"><label>搜索标题<input class="rt-input" value=""></label><label>结果<select class="rt-select"><option>全部结果</option><option>等待审核</option></select></label><label>媒体或来源提示<input class="rt-input" value="EMULATIONSTATION_MEDIA_MISSING"></label><button type="button" class="rt-button">应用筛选</button></form>
         <div class="rt-panel rt-server-result-table">
-          <article class="rt-server-result-row rt-pegasus-result-row"><div><strong>Flagged Adventure</strong><span class="rt-emulationstation-flags"><small>hidden</small><small>kidgame</small></span><small>NES 清单 → NES 游戏</small><small>nes/gamelist.xml · SINGLE_FILE</small></div><div><span class="rt-badge rt-badge-green">封面 READY</span> <span class="rt-badge">视频 MISSING</span></div><div><span class="rt-badge rt-badge-cyan">等待审核</span><small>EMULATIONSTATION_MEDIA_MISSING</small></div><button type="button" class="rt-button rt-button-primary" data-open-emulationstation-review>审核并决定</button></article>
+          <article class="rt-server-result-row rt-pegasus-result-row"><div><strong>Flagged Adventure</strong><span class="rt-emulationstation-flags"><small>hidden</small><small>kidgame</small></span><small>NES 清单 → NES 游戏</small><small>nes/gamelist.xml · SINGLE_FILE</small></div><div><span class="rt-badge rt-badge-green">封面 READY</span> <span class="rt-badge">视频 MISSING</span></div><div><span class="rt-badge rt-badge-cyan">等待审核</span><small>EMULATIONSTATION_MEDIA_MISSING</small></div><button type="button" class="rt-button rt-button-primary rt-pegasus-review-action" data-open-emulationstation-review>审核并决定</button></article>
           <article class="rt-server-result-row rt-pegasus-result-row"><div><strong>Published Racer</strong><small>NES 清单 → NES 游戏</small><small>nes/gamelist.xml · SINGLE_FILE</small></div><div><span class="rt-badge rt-badge-green">源文件已清理</span></div><div><span class="rt-badge rt-badge-green">已发布</span><small>payload RELEASED</small></div><button type="button" class="rt-button">查看游戏</button></article>
           <article class="rt-server-result-row rt-pegasus-result-row"><div><strong>Skipped Arcade Set</strong><small>Arcade 清单 → 未映射</small><small>arcade/gamelist.xml</small></div><div><span class="rt-badge">没有复制 payload</span></div><div><span class="rt-badge rt-badge-amber">清单已跳过</span><small>SKIPPED_MAPPING</small></div><span>—</span></article>
         </div>

@@ -166,6 +166,7 @@ WHERE import_item_id=? AND effective_source_snapshot_id=?
 	testassert.False(t, err != nil, err)
 	screenshot, err := service.StoreReviewScreenshot(ctx, ready.PreviewID, ready.Capability, bytes.NewReader(pngBody))
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return screenshot.ImportItemID != readyItemID }, func() bool { return screenshot.WidthPX != 1 }, func() bool { return screenshot.HeightPX != 1 }), "stored review screenshot = %#v, error=%v", screenshot, err)
+	assertRepeatedPreviewKeepsScreenshot(t, database.SQL, service, importService, actorID, screenshot, pngBody)
 
 	blocked, err := service.CreateReviewPreview(ctx, ReviewPreviewRequest{
 		ImportItemID: blockedItemID, ActorUserID: actorID, IdempotencyKey: "blocked-preview-1",
@@ -184,6 +185,7 @@ WHERE import_item_id=? AND effective_source_snapshot_id=?
 		ctx, blocked.PreviewID, blocked.Capability, bytes.NewReader(pngBody),
 	)
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return blockedScreenshot.ImportItemID != blockedItemID }), "blocked screenshot = %#v, error=%v", blockedScreenshot, err)
+	assertRepeatedPreviewKeepsScreenshot(t, database.SQL, service, importService, actorID, blockedScreenshot, pngBody)
 	approved, err := importService.Approve(ctx, blockedItemID, 1)
 	testassert.Falsef(t, err != nil, "approve blocked screenshot override: %v", err)
 	var compatibilityCode string
