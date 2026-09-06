@@ -54,6 +54,7 @@
 .player-debug-close svg { width: 16px; height: 16px; }
 .player-debug-panel > section { padding: 13px 14px; border-bottom: 1px solid #293241; }
 .player-debug-panel h3 { margin: 0 0 8px; color: #8e98aa; font-size: 10px; letter-spacing: .06em; text-transform: uppercase; }
+.player-debug-note { margin: 10px 0 0; color: #929cad; font-size: 11px; line-height: 1.6; }
 .player-debug-panel dl { margin: 0; display: grid; gap: 1px; }
 .player-debug-panel dl > div { min-width: 0; min-height: 31px; display: grid; grid-template-columns: minmax(110px, .8fr) minmax(0, 1.2fr); align-items: center; gap: 12px; border-bottom: 1px solid rgb(54 64 81 / 48%); }
 .player-debug-panel dl > div:last-child { border-bottom: 0; }
@@ -218,3 +219,23 @@
   .player-sync-status.is-busy > i { animation: none; }
 }
 @keyframes spin { to { transform: rotate(360deg); } }
+
+.player-native-save-help {
+  position: absolute;
+  z-index: 30;
+  bottom: 4rem;
+  left: 50%;
+  width: min(90vw, 38rem);
+  transform: translateX(-50%);
+  margin: 0;
+  padding: 0.6rem 1rem;
+  border-radius: 0.5rem;
+  background: rgb(0 0 0 / 80%);
+  color: white;
+  text-align: center;
+  pointer-events: none;
+}
+
+.player-native-save-help button { pointer-events: auto; }
+
+.player-native-exit .dialog-backdrop { z-index: 140; }

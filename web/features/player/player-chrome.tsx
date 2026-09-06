@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState, type Dispatch, type KeyboardEvent as ReactKeyboardEvent, type SetStateAction } from "react";
+import {CheckpointHelp} from "./checkpoint-help";
+import {checkpointSyncText, gameSaveInstructions, type CheckpointSemantics} from "./checkpoint-semantics";
 import { AppIcon } from "@/components/app-icon";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import type { EmulatorSettingsPanel } from "./emulator-settings";
@@ -23,6 +25,9 @@ export type PlayerDebugRuntime = {
 export type PlayerDiscSet = {count: number; entries: Array<{index: number; label: string}>};
 
 export type PlayerChromeProps = {
+  checkpointSemantics?: CheckpointSemantics;
+  nativeRetryAvailable?: boolean;
+  onRetrySync?: () => void;
   controlsVisible: boolean; running: boolean; paused: boolean; fullscreen: boolean;
   gameTitle: string; coreName: string; platformName: string; syncText: string; syncTone: SyncTone;
   saveUploadProgress: number | null; saveAvailable: boolean; dosProgramMenu: boolean; toast: string; warnings: string[];
@@ -38,8 +43,9 @@ export type PlayerChromeProps = {
   onToggleNetplayPause: () => void; onToggleDebug: () => void; onGameSurface: () => void; onExit: () => void;
 };
 
-function exitDescriptionFor(netplay: boolean, saveAvailable: boolean, dosProgramMenu: boolean, state: ExitSaveState) {
+function exitDescriptionFor(netplay: boolean, saveAvailable: boolean, dosProgramMenu: boolean, state: ExitSaveState, semantics: CheckpointSemantics) {
   if (netplay) {return "退出会结束所有参与者的本局联机，并返回房间。联机模式不会读取或写入个人存档。";}
+  if (semantics === "GAME_SAVE") {return "请先在游戏内保存，再确认保存并退出；平台不保存当前画面的即时进度。";}
   if (!saveAvailable) {return dosProgramMenu
     ? "当前从 DOS 程序菜单启动，无法创建可恢复存档；直接退出不会保存当前位置。"
     : "当前场景暂时无法创建可恢复存档；直接退出不会保存当前位置。";}
@@ -65,6 +71,7 @@ function PauseOverlay({ isNetplay, netplayPaused, paused, onGameSurface }: {
 }
 
 export function PlayerChrome({
+  checkpointSemantics = "INSTANT", nativeRetryAvailable = false, onRetrySync,
   controlsVisible,
   running,
   paused,
@@ -182,8 +189,9 @@ export function PlayerChrome({
   const warningCopy = warningCopyFor(warnings);
 
   function requestExit() {
-    onPauseForToolbarInteraction();
     setMenuOpen(false);
+    if (checkpointSemantics === "GAME_SAVE") {onExit(); return;}
+    onPauseForToolbarInteraction();
     exitSavePending.current = false;
     setExitSaveState("idle");
     setExitOpen(true);
@@ -231,15 +239,16 @@ export function PlayerChrome({
     items[target]?.focus();
   }
 
-  const exitDescription = exitDescriptionFor(isNetplay, saveAvailable, dosProgramMenu, exitSaveState);
+  const exitDescription = exitDescriptionFor(isNetplay, saveAvailable, dosProgramMenu, exitSaveState, checkpointSemantics);
 
   return <>
     <SaveUploadProgress value={saveUploadProgress} />
     <button className="player-hud-handle" type="button" aria-label={controlsVisible ? "隐藏 Player 控制栏" : "显示 Player 控制栏"} aria-pressed={controlsVisible} onPointerEnter={(event) => {if (event.pointerType !== "touch" && !controlsVisible) {onToggleControls();}}} onClick={onToggleControls}><span aria-hidden="true" /></button>
-    <PlayerToolbar controlsVisible={controlsVisible} paused={paused} running={running} fullscreen={fullscreen} gameTitle={gameTitle} coreName={coreName} platformName={platformName} syncText={syncText} syncTone={syncTone} warnings={warnings} warningCopy={warningCopy} netplay={isNetplay} playerNo={netplayPlayerNo} netplayPaused={netplayPaused} saveAvailable={saveAvailable} dosProgramMenu={dosProgramMenu} actionLayout={actionLayout} debugOpen={debugOpen} discSet={discSet} discState={discState} discBusy={discBusy} discMenuOpen={discMenuOpen} menuOpen={menuOpen} blockingOverlay={exitOpen || emulatorToolbarOpen || debugOpen} onPause={onPauseForToolbarInteraction} onHold={onHoldControls} onRelease={onReleaseControls} onHover={(hovered) => {toolbarHovered.current = hovered;}} onFocus={(focused) => {toolbarFocused.current = focused;}} onExit={requestExit} onWarning={setLocalToast} onDebug={onToggleDebug} onSave={() => void onSave()} onScreenshot={onScreenshot} onToggleFullscreen={onToggleFullscreen} onToggleNetplayPause={onToggleNetplayPause} onChooseDisc={(index) => void chooseDisc(index)} onDiscMenu={setDiscMenuOpen} onDiscKey={moveDiscMenuFocus} onMenu={setMenuOpen} onEmulatorSettings={onOpenEmulatorSettings} />
+    <PlayerToolbar checkpointSemantics={checkpointSemantics} controlsVisible={controlsVisible} paused={paused} running={running} fullscreen={fullscreen} gameTitle={gameTitle} coreName={coreName} platformName={platformName} syncText={checkpointSyncText(checkpointSemantics, syncTone, syncText)} syncTone={syncTone} warnings={warnings} warningCopy={warningCopy} netplay={isNetplay} playerNo={netplayPlayerNo} netplayPaused={netplayPaused} saveAvailable={saveAvailable} dosProgramMenu={dosProgramMenu} actionLayout={actionLayout} debugOpen={debugOpen} discSet={discSet} discState={discState} discBusy={discBusy} discMenuOpen={discMenuOpen} menuOpen={menuOpen} blockingOverlay={exitOpen || emulatorToolbarOpen || debugOpen} onPause={onPauseForToolbarInteraction} onHold={onHoldControls} onRelease={onReleaseControls} onHover={(hovered) => {toolbarHovered.current = hovered;}} onFocus={(focused) => {toolbarFocused.current = focused;}} onExit={requestExit} onWarning={setLocalToast} onDebug={onToggleDebug} onSave={() => void onSave()} onScreenshot={onScreenshot} onToggleFullscreen={onToggleFullscreen} onToggleNetplayPause={onToggleNetplayPause} onChooseDisc={(index) => void chooseDisc(index)} onDiscMenu={setDiscMenuOpen} onDiscKey={moveDiscMenuFocus} onMenu={setMenuOpen} onEmulatorSettings={onOpenEmulatorSettings} />
 
     <PlayerDebugPanel open={debugOpen} metrics={debugMetrics} runtime={debugRuntime} runtimeState={runtimeState} paused={paused} netplayPaused={netplayPaused} coreName={coreName} playerNo={netplayPlayerNo} discSet={discSet} discState={discState} onClose={onToggleDebug} />
 
+    <CheckpointHelp semantics={checkpointSemantics} visible={controlsVisible} retryAvailable={nativeRetryAvailable} onRetry={onRetrySync} />
     <PauseOverlay isNetplay={isNetplay} netplayPaused={netplayPaused} paused={paused} onGameSurface={onGameSurface} />
 
     {!isNetplay ? <EmulatorToolbar open={emulatorToolbarOpen} volume={emulatorVolume} muted={emulatorMuted} renderingMode={videoRenderingMode} onHold={onHoldControls} onOpenPanel={onOpenEmulatorPanel} onVolume={onChangeEmulatorVolume} onRenderingMode={onChangeVideoRenderingMode} onMute={onToggleEmulatorMute} onClose={onCloseEmulatorSettings} /> : null}
@@ -247,7 +256,7 @@ export function PlayerChrome({
     <div className={`player-toast${visibleToast ? " is-visible" : ""}`} role="status" aria-live="polite">{visibleToast}</div>
     <div className={`player-controls-hint${controlsVisible ? " is-hidden" : ""}`}>移到屏幕顶部显示 Retrom 控制</div>
 
-    <ExitGameDialog open={exitOpen} description={exitDescription} netplay={isNetplay} running={running} saveAvailable={saveAvailable} dosProgramMenu={dosProgramMenu} saveState={exitSaveState} onSave={() => void createExitSave()} onCancel={() => setExitOpen(false)} onConfirm={() => {setExitOpen(false); onExit();}} />
+    <ExitGameDialog checkpointSemantics={checkpointSemantics} open={exitOpen} description={exitDescription} netplay={isNetplay} running={running} saveAvailable={saveAvailable} dosProgramMenu={dosProgramMenu} saveState={exitSaveState} onSave={() => void createExitSave()} onCancel={() => setExitOpen(false)} onConfirm={() => {setExitOpen(false); onExit();}} />
   </>;
 }
 
@@ -261,6 +270,7 @@ function SaveUploadProgress({ value }: { value: number | null }) {
 }
 
 type ToolbarProps = {
+  checkpointSemantics: CheckpointSemantics;
   controlsVisible: boolean; paused: boolean; running: boolean; fullscreen: boolean; gameTitle: string; coreName: string; platformName: string;
   syncText: string; syncTone: SyncTone; warnings: string[]; warningCopy: string; netplay: boolean; playerNo: number | null; netplayPaused: boolean;
   saveAvailable: boolean; dosProgramMenu: boolean; actionLayout: ReturnType<typeof playerActionPriority>; debugOpen: boolean; discSet: PlayerDiscSet | null; discState: RuntimeDiscStateV1 | null;
@@ -286,7 +296,7 @@ function ToolbarActions({ props }: { props: ToolbarProps }) {
 }
 
 function PlayerContextActions({ props }: { props: ToolbarProps }) {
-  if (!props.netplay) {return <><button className={`player-control player-save-button player-context-action${props.actionLayout.primary === "save" ? " is-primary" : ""}`} type="button" disabled={!props.running || !props.saveAvailable} title={!props.saveAvailable ? props.dosProgramMenu ? "请退出后从游戏详情选择具体 DOS 程序再开始" : "当前场景暂时无法创建存档，请继续游戏后重试" : undefined} onClick={props.onSave}><AppIcon name="save" />创建存档</button><button className="player-control is-icon" type="button" aria-label={props.paused ? "已暂停，点击游戏画面继续" : "暂停"} title={props.paused ? "点击游戏画面继续" : "暂停"} aria-pressed={props.paused} disabled={!props.running}><AppIcon name="pause" /></button></>;}
+  if (!props.netplay) {return <><button className={`player-control player-save-button player-context-action${props.actionLayout.primary === "save" ? " is-primary" : ""}`} type="button" disabled={props.checkpointSemantics === "GAME_SAVE" || !props.running || !props.saveAvailable} title={!props.saveAvailable ? props.checkpointSemantics === "GAME_SAVE" ? gameSaveInstructions : props.dosProgramMenu ? "请退出后从游戏详情选择具体 DOS 程序再开始" : "当前场景暂时无法创建存档，请继续游戏后重试" : undefined} onClick={props.onSave}><AppIcon name="save" />创建存档</button><button className="player-control is-icon" type="button" aria-label={props.paused ? "已暂停，点击游戏画面继续" : "暂停"} title={props.paused ? "点击游戏画面继续" : "暂停"} aria-pressed={props.paused} disabled={!props.running}><AppIcon name="pause" /></button></>;}
   if (props.playerNo === 1) {return <button className="player-control player-context-action is-primary" type="button" disabled={!props.running} aria-pressed={props.netplayPaused} onClick={props.onToggleNetplayPause}><AppIcon name={props.netplayPaused ? "play" : "pause"} />{props.netplayPaused ? "继续联机" : "全局暂停"}</button>;}
   return <span className="player-seat-context player-context-action is-primary">联机 · P{props.playerNo}</span>;
 }
@@ -305,7 +315,7 @@ function PlayerDebugPanel({ open, metrics, runtime, runtimeState, paused, netpla
 }
 
 function LiveDebug({ metrics, runningLabel }: { metrics: PlayerDebugMetrics | null; runningLabel: string }) {
-  return <section><h3>实时</h3><dl><div><dt>帧率</dt><dd>{metrics?.fps === null || metrics?.fps === undefined ? "采样中…" : `${metrics.fps.toFixed(1)} FPS`}</dd></div><div><dt>核心帧计数</dt><dd>{metrics?.frameCount === null || metrics?.frameCount === undefined ? "不可用" : metrics.frameCount.toLocaleString("en-US")}</dd></div><div><dt>运行状态</dt><dd>{runningLabel}</dd></div><div><dt>游戏分辨率</dt><dd>{metrics?.canvasWidth && metrics.canvasHeight ? `${metrics.canvasWidth} × ${metrics.canvasHeight}` : "等待画面"}</dd></div></dl></section>;
+  return <section><h3>实时</h3><dl><div><dt>画面呈现率</dt><dd>{metrics?.fps === null || metrics?.fps === undefined ? "采样中…" : `${metrics.fps.toFixed(1)} FPS`}</dd></div><div><dt>核心帧计数</dt><dd>{metrics?.frameCount === null || metrics?.frameCount === undefined ? "不可用" : metrics.frameCount.toLocaleString("en-US")}</dd></div><div><dt>运行状态</dt><dd>{runningLabel}</dd></div><div><dt>游戏分辨率</dt><dd>{metrics?.canvasWidth && metrics.canvasHeight ? `${metrics.canvasWidth} × ${metrics.canvasHeight}` : "等待画面"}</dd></div></dl><p className="player-debug-note">按核心提交的画面计算；静止或按需重绘时数值可能较低，不代表游戏运行速度。</p></section>;
 }
 
 function RuntimeDebug({ runtime, coreName, playerNo, ordinaryRpgMaker }: { runtime: PlayerDebugRuntime; coreName: string; playerNo: number | null; ordinaryRpgMaker: boolean }) {
@@ -324,7 +334,7 @@ function EmulatorToolbar({ open, volume, muted, renderingMode, onHold, onOpenPan
   return <section className={`player-emulator-toolbar${open ? " is-open" : ""}`} aria-label="模拟器设置工具栏" aria-hidden={!open} onFocusCapture={onHold} onPointerEnter={onHold}><div className="player-emulator-group"><span className="player-emulator-label">模拟器</span><button type="button" disabled={!open} onClick={() => onOpenPanel("controls")}><AppIcon name="gamepad" />控制</button><button type="button" disabled={!open} onClick={() => onOpenPanel("display")}><span aria-hidden="true">▤</span>显示</button><button type="button" disabled={!open} onClick={() => onOpenPanel("core")}><span aria-hidden="true">⚙</span>Core 设置</button></div><label className="player-emulator-rendering"><span className="player-emulator-label">画面</span><select aria-label="画面模式" disabled={!open} value={renderingMode} onChange={(event) => onRenderingMode(event.currentTarget.value as VideoRenderingMode)}>{videoRenderingModeOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label><div className="player-emulator-group"><label className="player-emulator-volume"><span className="player-emulator-label">音量</span><input type="range" min="0" max="100" step="1" value={volumePercent} aria-label="模拟器音量" aria-valuetext={muted ? `已静音，音量 ${volumePercent}%` : `${volumePercent}%`} disabled={!open} onChange={(event) => onVolume(Number(event.currentTarget.value) / 100)} /></label><button type="button" disabled={!open} aria-label={muted ? "取消静音" : "静音"} aria-pressed={muted} onClick={onMute}><span aria-hidden="true">{muted ? "🔇" : "🔊"}</span></button><button type="button" disabled={!open} onClick={onClose}>收起</button></div></section>;
 }
 
-function ExitGameDialog({ open, description, netplay, running, saveAvailable, dosProgramMenu, saveState, onSave, onCancel, onConfirm }: { open: boolean; description: string; netplay: boolean; running: boolean; saveAvailable: boolean; dosProgramMenu: boolean; saveState: ExitSaveState; onSave: () => void; onCancel: () => void; onConfirm: () => void }) {
+function ExitGameDialog({ checkpointSemantics, open, description, netplay, running, saveAvailable, dosProgramMenu, saveState, onSave, onCancel, onConfirm }: { checkpointSemantics: CheckpointSemantics; open: boolean; description: string; netplay: boolean; running: boolean; saveAvailable: boolean; dosProgramMenu: boolean; saveState: ExitSaveState; onSave: () => void; onCancel: () => void; onConfirm: () => void }) {
   const leadingLabel = saveState === "saved" ? "已创建存档" : saveState === "error" ? "重试创建存档" : "创建存档";
-  return <ConfirmDialog open={open} title="退出游戏？" description={description} leadingLabel={netplay ? undefined : leadingLabel} leadingBusy={saveState === "saving"} leadingBusyLabel="正在创建…" leadingDisabled={netplay || !running || !saveAvailable || saveState === "saved"} confirmLabel="退出游戏" tone="danger" onLeading={onSave} onCancel={onCancel} onConfirm={onConfirm}>{netplay ? <span>本局从头开始，退出后不会产生状态存档。</span> : saveAvailable ? <span>只有点击“创建存档”才会保存当前位置；直接退出只结束本次游玩记录。</span> : dosProgramMenu ? <span>请退出后从游戏详情选择一个具体 DOS 程序再开始，届时即可创建并恢复存档。</span> : <span>请继续游戏，等待当前场景允许创建存档后再重试。</span>}</ConfirmDialog>;
+  return <ConfirmDialog open={open} title="退出游戏？" description={description} leadingLabel={netplay ? undefined : leadingLabel} leadingBusy={saveState === "saving"} leadingBusyLabel="正在创建…" leadingDisabled={checkpointSemantics === "GAME_SAVE" || netplay || !running || !saveAvailable || saveState === "saved"} confirmLabel="退出游戏" tone="danger" onLeading={onSave} onCancel={onCancel} onConfirm={onConfirm}>{netplay ? <span>本局从头开始，退出后不会产生状态存档。</span> : checkpointSemantics === "GAME_SAVE" ? <span>{gameSaveInstructions}</span> : saveAvailable ? <span>只有点击“创建存档”才会保存当前位置；直接退出只结束本次游玩记录。</span> : dosProgramMenu ? <span>请退出后从游戏详情选择一个具体 DOS 程序再开始，届时即可创建并恢复存档。</span> : <span>请继续游戏，等待当前场景允许创建存档后再重试。</span>}</ConfirmDialog>;
 }

@@ -2,6 +2,7 @@
 
 import { MobileAppFrame } from "@/features/mobile/mobile-app-frame";
 import { usePhoneLayout } from "@/features/mobile/phone-layout";
+import {LocalGameSaveNotice} from "@/features/player/local-game-save-notice";
 import Link, { useLinkStatus } from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
@@ -153,8 +154,8 @@ function usesStandaloneShell(pathname: string) {
 
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
-  if (usesStandaloneShell(pathname)) {return <>{children}</>;}
-  return <StandardAppShell pathname={pathname}>{children}</StandardAppShell>;
+  if (usesStandaloneShell(pathname)) {return <><LocalGameSaveNotice pathname={pathname} />{children}</>;}
+  return <><LocalGameSaveNotice pathname={pathname} /><StandardAppShell pathname={pathname}>{children}</StandardAppShell></>;
 }
 
 function StandardAppShell({ children, pathname }: { children: ReactNode; pathname: string }) {

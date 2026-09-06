@@ -66,6 +66,9 @@ UNION ALL
 SELECT file.blob_id FROM variant_files file
 JOIN game_variants variant ON variant.id=file.game_variant_id WHERE variant.game_id=?
 UNION ALL
+SELECT binding.restore_payload_blob_id FROM launch_game_save_bindings binding
+JOIN launch_sessions launch ON launch.id=binding.launch_session_id WHERE launch.game_id=?
+UNION ALL
 SELECT save.payload_blob_id FROM save_states save WHERE save.game_id=?
 UNION ALL
 SELECT save.screenshot_blob_id FROM save_states save WHERE save.game_id=?
@@ -75,7 +78,7 @@ JOIN launch_sessions launch ON launch.id=file.launch_session_id WHERE launch.gam
 UNION ALL
 SELECT file.blob_id FROM launch_external_files file
 JOIN launch_sessions launch ON launch.id=file.launch_session_id WHERE launch.game_id=?
-`, gameID, gameID, gameID, gameID, gameID, gameID, gameID)
+`, gameID, gameID, gameID, gameID, gameID, gameID, gameID, gameID)
 }
 
 func stopCurrentGameRuntime(

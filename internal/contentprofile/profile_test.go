@@ -19,7 +19,7 @@ func TestProfilesAcceptExactCaseInsensitiveExtensions(t *testing.T) {
 		"pce": {"game.pce"}, "pcfx": {"game.chd"}, "ngpc": {"game.ngp"},
 		"psp": {"game.iso", "game.CSO"}, "virtualboy": {"game.vb"},
 		"wonderswan": {"game.ws", "game.WSC"}, "mastersystem": {"game.sms"},
-		"nintendo3ds": {"game.3ds", "game.CCI"}, "wasm4": {"game.wasm", "game.WASM"},
+		"j2me": {"game.jar", "game.JAR"}, "nintendo3ds": {"game.3ds", "game.CCI"}, "wasm4": {"game.wasm", "game.WASM"},
 	}
 	for platformID, names := range tests {
 		for _, name := range names {
@@ -49,6 +49,7 @@ func TestSupportedExtensionsCoverEverySeededPlatformWithoutExposingWrappers(t *t
 		"rpgmaker":     {".zip", ".7z"},
 		"tyranoscript": {".zip", ".7z", ".exe"},
 		"nes":          {".nes", ".unf", ".unif", ".fds"},
+		"j2me":         {".jar"},
 		"wasm4":        {".wasm"},
 		"megadrive":    {".md", ".smd", ".bin"},
 	}
@@ -94,7 +95,7 @@ func TestArchivePoliciesAreExplicitAndReturnedByValue(t *testing.T) {
 	profile.ArchiveFormats[0] = "CHANGED"
 	profile.ContentKinds[0] = "CHANGED"
 	testassert.False(t, testassert.Any(func() bool { return !AcceptsRaw("nds", "game.nds") }, func() bool { return !AcceptsArchive("nds", ArchiveZIP) }), "ByPlatform exposed mutable registry storage")
-	for _, platformID := range []string{"psx", "saturn", "3do", "pcfx", "psp"} {
+	for _, platformID := range []string{"psx", "saturn", "3do", "pcfx", "psp", "j2me"} {
 		profile, ok := ByPlatform(platformID)
 		testassert.CheckFalsef(t, testassert.Any(func() bool { return !ok }, func() bool { return profile.ArchivePolicy != ArchiveNone }, func() bool { return AcceptsArchive(platformID, ArchiveZIP) }, func() bool { return AcceptsArchive(platformID, ArchiveSevenZip) }), "raw-only profile %q = %#v", platformID, profile)
 	}

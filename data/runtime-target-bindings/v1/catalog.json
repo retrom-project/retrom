@@ -510,6 +510,20 @@
       "launchPolicy": "SUPPORTED"
     },
     {
+      "id": "retrom-runtime-j2me",
+      "coreId": "j2me",
+      "providerId": "retrom-runtime",
+      "targetId": "j2me",
+      "platformIds": [
+        "j2me"
+      ],
+      "acceptedContentKinds": [
+        "SINGLE_FILE"
+      ],
+      "detectorProfile": "J2ME_JAR",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
       "id": "retrom-runtime-kirikiri2-kag",
       "coreId": "kirikiri2",
       "providerId": "retrom-runtime",
@@ -727,6 +741,12 @@
         "enabled": true
       },
       {
+        "id": "j2me",
+        "name": "Java ME",
+        "sortOrder": 82,
+        "enabled": true
+      },
+      {
         "id": "kirikiri",
         "name": "KiriKiri",
         "sortOrder": 77,
@@ -927,6 +947,11 @@
       {
         "id": "handy",
         "name": "Handy",
+        "enabled": true
+      },
+      {
+        "id": "j2me",
+        "name": "J2ME miniJVM",
         "enabled": true
       },
       {
