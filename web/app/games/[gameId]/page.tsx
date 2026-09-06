@@ -1,3 +1,4 @@
+import { PhoneDisclosure } from "@/features/mobile/phone-layout";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { FavoriteActions } from "@/features/favorites/favorite-actions";
@@ -65,7 +66,7 @@ export default async function GamePage({ params }: { params: Promise<{ gameId: s
           <TagChips tags={game.tags ?? []} linked />
           <FavoriteActions gameId={game.gameId} title={game.title} initialFavorite={game.favorite} variant="detail" />
           <div className="game-detail-meta">{game.releaseYear ? <span>{game.releaseYear}</span> : null}{game.publisher ? <span>{game.publisher}</span> : null}{game.genre ? <span>{game.genre}</span> : null}</div>
-          <p className="game-detail-description">{game.description || "尚未填写游戏简介。"}</p>
+          <PhoneDisclosure title="游戏简介"><p className="game-detail-description">{game.description || "尚未填写游戏简介。"}</p></PhoneDisclosure>
           <div className="game-detail-playtime"><strong>累计游玩</strong><span>{formatPlayTime(game.activeDurationMs)}</span></div>
         </div>
         <LaunchControls
@@ -77,7 +78,7 @@ export default async function GamePage({ params }: { params: Promise<{ gameId: s
           nowMs={saves.generatedAtMs}
         />
       </section>
-      <section className="game-detail-info-strip" aria-label="游戏信息">
+      <PhoneDisclosure title="游戏信息"><section className="game-detail-info-strip" aria-label="游戏信息">
         {fact("游戏平台", game.platform.name)}
         {fact("游戏目录", game.platformInstance.name)}
         {fact("发行年份", game.releaseYear)}
@@ -85,7 +86,7 @@ export default async function GamePage({ params }: { params: Promise<{ gameId: s
         {fact("发行商", game.publisher)}
         {fact("类型", game.genre)}
         {fact("玩家数", game.players)}
-      </section>
+      </section></PhoneDisclosure>
       <GameDetailSaves gameId={game.gameId} gameTitle={game.title} saves={saves.items} nowMs={saves.generatedAtMs} threadCoreIds={game.coreOptions.filter((core) => core.requiresThreads).map((core) => core.coreId)} />
     </div>
   );

@@ -1,61 +1,20 @@
+import { PhoneLayout } from "@/features/mobile/phone-layout";
+import { MobileHome } from "@/features/mobile/mobile-home";
+import type { FeaturedGame, Home } from "@/features/home/home-data";
 import Image from "next/image";
 import Link from "next/link";
 import { AppIcon } from "@/components/app-icon";
 import { EmptyState, PageHeader } from "@/components/ui";
-import { HorizontalRail, PlatformRail, type HomePlatform } from "@/features/home/home-rails";
+import { HorizontalRail, PlatformRail } from "@/features/home/home-rails";
 import { ImmersiveHomeEntry } from "@/features/home/immersive-home-entry";
 import { LaunchButton } from "@/features/player/launch-button";
 import { formatTime } from "@/lib/backend";
 import { backendJSON } from "@/lib/server-backend";
-import { TagChips, type TagReference } from "@/components/tag-picker";
+import { TagChips } from "@/components/tag-picker";
 import { ImmersiveEntryDialog } from "@/features/immersive/entry-dialog";
 import { SaveScreenshot } from "@/features/saves/save-screenshot";
 
 export const metadata = { title: "首页" };
-
-type RecentGame = {
-  gameId: string;
-  title: string;
-  platform: { id: string; name: string };
-  platformInstance: { id: string; name: string };
-  lastPlayedAtMs: number;
-  activeDurationMs: number;
-  sessionCount: number;
-  coverUrl: string | null;
-  tags: TagReference[];
-};
-
-type FeaturedGame = RecentGame & {
-  hasSaveStates: boolean;
-  lastSessionSave: null | {
-    saveStateId: string;
-    createdAtMs: number;
-    activeDurationMs: number;
-    screenshotUrl: string | null;
-    discIndex: number | null;
-    discLabel: string | null;
-  };
-};
-
-type LatestGame = {
-  gameId: string;
-  title: string;
-  platform: { id: string; name: string };
-  platformInstance: { id: string; name: string };
-  createdAtMs: number;
-  coverUrl: string | null;
-  tags: TagReference[];
-};
-
-type Home = {
-  library: { gameCount: number; saveStateCount: number };
-  play: { activeDurationMs: number };
-  featuredGame: FeaturedGame | null;
-  recentGames: RecentGame[];
-  latestGames: LatestGame[];
-  platforms: HomePlatform[];
-  quickPlatforms: HomePlatform[];
-};
 
 function duration(value: number) {
   if (value < 60_000) {return "少于 1 分钟";}
@@ -113,7 +72,7 @@ function QuickStart({ home }: { home: Home }) {
 
 export default async function HomePage() {
   const home = await backendJSON<Home>("/api/v1/home");
-  return <><ImmersiveEntryDialog /><div className="page-layout page-layout-home home-page">
+  return <><ImmersiveEntryDialog /><PhoneLayout phone={<MobileHome home={home} />}><div className="page-layout page-layout-home home-page">
     <section className="home-layer home-hero-layer" data-home-layer="1" aria-label="今天玩什么">
       <PageHeader eyebrow="我的游戏" title="今天想玩什么？" description="回到最近玩的游戏，或者从资料库里找点经典游戏。" actions={<ImmersiveHomeEntry />} />
       <div className="home-first-layer" aria-label="最近游玩与快速开始">
@@ -150,5 +109,5 @@ export default async function HomePage() {
     <section className="home-layer home-summary" data-home-layer="5" aria-label="我的资料库">
       <strong>我的资料库</strong><span><b>{home.library.gameCount}</b> 款游戏</span><span><b>{home.library.saveStateCount}</b> 份存档</span><span><b>{duration(home.play.activeDurationMs)}</b> 累计游玩</span>
     </section>
-  </div></>;
+  </div></PhoneLayout></>;
 }

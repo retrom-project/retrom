@@ -2417,6 +2417,125 @@
     #retrom-ui-review .rt-app[data-rpg-scene="player"] .rt-player-screen { background:radial-gradient(circle at 47% 38%,#9daec1 0 2%,transparent 3%),linear-gradient(#b8d0df 0 46%,#71824e 47% 58%,#283d2b 59% 72%,#11151c 73%); }
     @media(max-width:1100px){#retrom-ui-review .rt-rpg-import-design,#retrom-ui-review .rt-rpg-review-top,#retrom-ui-review .rt-rpg-review-columns{grid-template-columns:1fr}#retrom-ui-review .rt-rpg-core-grid{grid-template-columns:repeat(2,minmax(0,1fr))} }
     @media(max-width:760px){#retrom-ui-review .rt-rpg-binding,#retrom-ui-review .rt-rpg-pack-summary,#retrom-ui-review .rt-rpg-core-grid{grid-template-columns:1fr}#retrom-ui-review .rt-rpg-pack-row{grid-template-columns:1fr}#retrom-ui-review .rt-rpg-target-head,#retrom-ui-review .rt-rpg-save-naming,#retrom-ui-review .rt-rpg-save-edit{align-items:stretch;flex-direction:column;display:flex}#retrom-ui-review .rt-rpg-save-edit .rt-input{width:100%} }
+
+    /* Phone play layout. Desktop, tablet and immersive scenes keep their own rules. */
+    #retrom-ui-review .rt-phone-platform-scrollbar { display: none; }
+    #retrom-ui-review .rt-phone-appbar, #retrom-ui-review .rt-phone-home,
+    #retrom-ui-review .rt-phone-admin, #retrom-ui-review .rt-phone-launch,
+    #retrom-ui-review .rt-phone-filter { display: none; }
+    @media (max-width: 767px), (pointer: coarse) and (max-width: 1023px) and (max-height: 767px) {
+      #retrom-ui-review .rt-app { display: block; min-height: 100dvh; background: #f5f3ef; border: 0; border-radius: 0; }
+      #retrom-ui-review .rt-sidebar, #retrom-ui-review .rt-mobile-appbar { display: none; }
+      #retrom-ui-review .rt-phone-appbar { min-height: 56px; padding: 0 16px; display: flex; align-items: center; justify-content: space-between; }
+      #retrom-ui-review .rt-phone-appbar button { min-height: 44px; min-width: 44px; border: 0; color: var(--retrom-text); background: transparent; font-size: 19px; font-weight: 800; }
+      #retrom-ui-review .rt-phone-appbar button:last-child { border-radius: 50%; color: #5742ba; background: #eee9ff; font-size: 17px; }
+      #retrom-ui-review .rt-main { min-height: 0; padding: 0 0 calc(88px + env(safe-area-inset-bottom)); }
+      #retrom-ui-review .rt-page { padding: 12px 16px; }
+      #retrom-ui-review .rt-mobile-bottom-nav, #retrom-ui-review .rt-app[data-mode="admin"] .rt-mobile-bottom-nav { display: grid; position: fixed; z-index: 39; inset: auto 0 0; min-height: calc(64px + env(safe-area-inset-bottom)); padding: 4px 12px env(safe-area-inset-bottom); grid-template-columns: repeat(3,minmax(0,1fr)); background: white; border-top: 1px solid var(--retrom-line); box-shadow: none; }
+      #retrom-ui-review .rt-mobile-bottom-nav button { min-height: 56px; font-size: 12px; gap: 4px; color: var(--retrom-muted); }
+      #retrom-ui-review .rt-mobile-bottom-nav button svg { width: 23px; height: 23px; }
+      #retrom-ui-review .rt-mobile-bottom-nav button.is-active { color: #5742ba; background: transparent; }
+      #retrom-ui-review .rt-app.is-playing .rt-phone-appbar { display: none; }
+      #retrom-ui-review .rt-app[data-mode="admin"] .rt-page { display: none !important; }
+      #retrom-ui-review .rt-app[data-mode="admin"] .rt-phone-admin { display: grid; gap: 12px; padding: 12vh 24px 32px; }
+      #retrom-ui-review .rt-phone-admin p { font-size: 15px; color: var(--retrom-muted); line-height: 1.7; }
+      #retrom-ui-review .rt-phone-admin .rt-button { justify-self: start; }
+      #retrom-ui-review [data-page="home"] > .rt-home-layer { display: none; }
+      #retrom-ui-review .rt-phone-home { display: grid; gap: 26px; }
+      #retrom-ui-review .rt-phone-home h1 { font-size: 24px; margin: 0 0 14px; }
+      #retrom-ui-review .rt-phone-search { display: flex; gap: 8px; padding: 4px 5px 4px 14px; border: 1px solid var(--retrom-line); border-radius: 14px; background: white; }
+      #retrom-ui-review .rt-phone-search input { min-width: 0; width: 100%; min-height: 44px; border: 0; outline: 0; background: transparent; font-size: 16px; }
+      #retrom-ui-review .rt-phone-search:focus-within, #retrom-ui-review .rt-library-search:focus-within { border-color: var(--retrom-purple); box-shadow: 0 0 0 3px rgb(98 80 210 / 12%); }
+      #retrom-ui-review .rt-phone-search button { min-width: 48px; border: 0; border-radius: 10px; background: #eee9ff; color: #5742ba; font-weight: 700; }
+      #retrom-ui-review .rt-phone-continue { display: grid; grid-template-columns: 31% minmax(0,1fr); gap: 16px; align-items: start; }
+      #retrom-ui-review .rt-phone-poster { width: 100%; aspect-ratio: 5/7; height: auto; min-height: 0; border: 0; border-radius: 12px; }
+      #retrom-ui-review .rt-phone-continue-copy, #retrom-ui-review .rt-phone-continue-info, #retrom-ui-review .rt-phone-continue-actions { min-width: 0; }
+      #retrom-ui-review .rt-phone-continue h2 { margin: 0 0 6px; font-size: 19px; }
+      #retrom-ui-review .rt-phone-continue p { color: var(--retrom-muted); margin: 0 0 8px; font-size: 13px; }
+      #retrom-ui-review .rt-phone-continue .rt-button { width: 100%; margin-top: 14px; min-height: 48px; }
+      #retrom-ui-review .rt-phone-section-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+      #retrom-ui-review .rt-phone-section-head h2 { font-size: 19px; }
+      #retrom-ui-review .rt-phone-games { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 20px 14px; }
+      #retrom-ui-review .rt-phone-games > button { min-width: 0; padding: 0; border: 0; background: transparent; text-align: left; }
+      #retrom-ui-review .rt-phone-games strong { display: block; margin-top: 9px; font-size: 14px; }
+      #retrom-ui-review .rt-phone-games small { display: block; margin-top: 3px; color: var(--retrom-muted); }
+      #retrom-ui-review .rt-page-head .rt-subtitle, #retrom-ui-review .rt-library-section-head,
+      #retrom-ui-review .rt-library-meta, #retrom-ui-review .rt-library-played, #retrom-ui-review .rt-library-body > .rt-tag-list,
+      #retrom-ui-review .rt-library-platform-tag, #retrom-ui-review .rt-library-platforms > span,
+      #retrom-ui-review .rt-library-tool-row > select { display: none; }
+      #retrom-ui-review .rt-library-tools { position: relative; padding: 0; overflow: visible; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+      #retrom-ui-review .rt-library-tool-row { display: flex; gap: 8px; }
+      #retrom-ui-review .rt-library-platforms { scrollbar-width: none; }
+      #retrom-ui-review .rt-phone-platform-scrollbar { display: block; position: absolute; bottom: 0; left: 0; right: 0; height: 3px; opacity: 0; pointer-events: none; }
+      #retrom-ui-review .rt-phone-platform-scrollbar[data-visible="true"] { opacity: 1; }
+      #retrom-ui-review .rt-phone-platform-scrollbar > span { position: absolute; height: 100%; border-radius: 3px; background: #c5bfd8; }
+      #retrom-ui-review .rt-library-search { flex: 1; min-width: 0; height: 48px; background: white; border-radius: 12px; }
+      #retrom-ui-review .rt-phone-filter { display: inline-flex; flex: 0 0 48px; width: 48px; height: 48px; min-height: 48px; min-width: 48px; padding: 0; gap: 0; align-items: center; justify-content: center; border-radius: 12px; background: white; }
+      #retrom-ui-review .rt-phone-filter svg { width: 20px; height: 20px; }
+      #retrom-ui-review .rt-library-platforms { overflow-x: auto; flex-wrap: nowrap; border: 0; }
+      #retrom-ui-review .rt-library-chip { min-height: 44px; flex-shrink: 0; }
+      #retrom-ui-review .rt-library-grid { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 20px 14px; }
+      #retrom-ui-review .rt-library-card { min-width: 0; border: 0; box-shadow: none; background: transparent; }
+      #retrom-ui-review .rt-library-cover { border-radius: 12px; }
+      #retrom-ui-review .rt-library-body { padding: 8px 0; }
+      #retrom-ui-review .rt-library-title > button { min-height: 44px; white-space: normal; }
+      #retrom-ui-review .rt-detail-breadcrumb, #retrom-ui-review .rt-detail-meta, #retrom-ui-review .rt-detail-copy > .rt-tag-list,
+      #retrom-ui-review .rt-detail-playtime, #retrom-ui-review .rt-detail-poster-caption, #retrom-ui-review .rt-launch-panel { display: none; }
+      #retrom-ui-review .rt-detail-hero { grid-template-columns: 34% minmax(0,1fr); padding: 0; gap: 16px; border: 0; background: transparent; box-shadow: none; }
+      #retrom-ui-review .rt-detail-poster-shell { width: 100%; min-width: 0; }
+      #retrom-ui-review .rt-detail-cover { width: 100%; height: auto; aspect-ratio: 3 / 4; }
+      #retrom-ui-review .rt-video-preview-chip { display: none; }
+      #retrom-ui-review .rt-detail-copy { display: flex; flex-direction: column; }
+      #retrom-ui-review .rt-detail-copy > .rt-phone-disclosure { order: 5; }
+      #retrom-ui-review .rt-detail-title { font-size: 24px; }
+      #retrom-ui-review .rt-detail-kicker { font-size: 12px; }
+      #retrom-ui-review .rt-phone-disclosure { border-block: 1px solid var(--retrom-line); margin-block: 16px; }
+      #retrom-ui-review .rt-phone-disclosure summary { min-height: 48px; padding-block: 12px; cursor: pointer; font-size: 14px; font-weight: 700; }
+      #retrom-ui-review .rt-phone-disclosure .rt-detail-info-strip { grid-template-columns: repeat(2,minmax(0,1fr)); }
+      #retrom-ui-review .rt-detail-saves { border: 0; margin-top: 24px; background: transparent; }
+      #retrom-ui-review .rt-detail-saves-head { padding: 0; }
+      #retrom-ui-review .rt-detail-saves-head p, #retrom-ui-review .rt-detail-save-facts, #retrom-ui-review .rt-detail-save-kind { display: none; }
+      #retrom-ui-review .rt-detail-save-grid { padding: 12px 0; grid-template-columns: 1fr; }
+      #retrom-ui-review .rt-detail-save-card { display: grid; grid-template-columns: 35% minmax(0,1fr); align-items: center; }
+      #retrom-ui-review [data-page="detail"] { padding-bottom: 96px; }
+      #retrom-ui-review .rt-phone-launch { position: fixed; z-index: 40; inset: auto 0 calc(64px + env(safe-area-inset-bottom)); min-height: 76px; padding: 8px 16px; display: flex; gap: 8px; background: white; border-top: 1px solid var(--retrom-line); }
+      #retrom-ui-review .rt-phone-launch > button:first-child { display: grid; place-items: center; gap: 2px; border: 0; background: transparent; color: var(--retrom-muted); font-size: 11px; }
+      #retrom-ui-review .rt-phone-launch > .rt-button { flex: 1; min-height: 48px; }
+      #retrom-ui-review .rt-phone-option-dialog { position: fixed; inset: auto 0 0; margin: 0; width: 100%; max-width: none; max-height: 90dvh; padding: 24px 16px calc(24px + env(safe-area-inset-bottom)); border: 0; border-radius: 20px 20px 0 0; color: var(--retrom-text); background: white; }
+      #retrom-ui-review .rt-phone-option-dialog::backdrop { background: rgb(0 0 0 / 40%); }
+      #retrom-ui-review .rt-phone-option-dialog h2 { margin-bottom: 20px; }
+      #retrom-ui-review .rt-phone-option-dialog .rt-select { width: 100%; min-height: 48px; margin-bottom: 16px; }
+      #retrom-ui-review .rt-phone-option-dialog p { margin: 12px 0; color: var(--retrom-muted); }
+      #retrom-ui-review .rt-phone-profile { display: grid; gap: 22px; }
+      #retrom-ui-review .rt-phone-identity { display: flex; align-items: center; gap: 14px; }
+      #retrom-ui-review .rt-phone-identity > span { width: 52px; height: 52px; border-radius: 50%; display: grid; place-items: center; background: #eee9ff; color: #5742ba; font-size: 22px; }
+      #retrom-ui-review .rt-phone-links { overflow: hidden; display: grid; border: 1px solid var(--retrom-line); border-radius: 14px; background: white; }
+      #retrom-ui-review .rt-phone-links button { display: flex; align-items: center; gap: 14px; min-height: 60px; padding: 12px 16px; border: 0; border-bottom: 1px solid var(--retrom-line); color: var(--retrom-text); background: transparent; font-size: 15px; text-align: left; }
+      #retrom-ui-review .rt-phone-links button:last-child { border-bottom: 0; }
+    }
+    @media (min-width: 480px) and (max-width: 767px), (pointer: coarse) and (min-width: 480px) and (max-width: 1023px) and (max-height: 767px) {
+      #retrom-ui-review .rt-phone-games, #retrom-ui-review .rt-library-grid { grid-template-columns: repeat(3,minmax(0,1fr)); }
+      #retrom-ui-review .rt-phone-continue { grid-template-columns: 80px minmax(0,1fr); align-items: center; }
+      #retrom-ui-review .rt-phone-continue-copy { display: grid; grid-template-columns: minmax(0,1fr) 144px; align-items: center; align-self: stretch; gap: 16px; }
+      #retrom-ui-review .rt-phone-continue-copy .rt-button { margin-top: 0; }
+    }
+
+    @media (max-width: 767px), (pointer: coarse) and (max-width: 1023px) and (max-height: 767px) {
+      #retrom-ui-review .rt-favorite-layout { grid-template-columns: minmax(0,1fr); }
+      #retrom-ui-review .rt-favorite-view-head > div, #retrom-ui-review .rt-favorite-rail-head,
+      #retrom-ui-review .rt-favorite-result, #retrom-ui-review .rt-recent-stats,
+      #retrom-ui-review .rt-favorite-rail-label { display: none; }
+      #retrom-ui-review .rt-favorite-view-head { min-height: 0; margin: 0; }
+      #retrom-ui-review .rt-favorite-rail { display: flex; position: static; align-items: center; gap: 8px; border: 0; background: transparent; }
+      #retrom-ui-review .rt-favorite-rail-list { display: flex; flex: 1; min-width: 0; overflow-x: auto; gap: 8px; padding: 0; }
+      #retrom-ui-review .rt-favorite-scope { min-height: 44px; flex-shrink: 0; }
+      #retrom-ui-review .rt-favorite-new-folder { width: 44px; min-width: 44px; min-height: 44px; margin: 0; font-size: 0; }
+      #retrom-ui-review .rt-favorite-new-folder::after { content: '+'; font-size: 22px; }
+      #retrom-ui-review .rt-favorite-tools, #retrom-ui-review .rt-save-toolbar, #retrom-ui-review .rt-recent-filters { display: grid; grid-template-columns: minmax(0,1fr); gap: 8px; padding: 0; border: 0; background: transparent; box-shadow: none; }
+      #retrom-ui-review .rt-phone-filter-fields > div { display: grid; gap: 12px; padding-bottom: 12px; }
+      #retrom-ui-review .rt-phone-filter-fields { margin: 0; }
+      #retrom-ui-review .rt-favorite-grid { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 20px 14px; }
+    }
   </style>
 
   <details class="rt-review-scenes" open>
@@ -2576,6 +2695,7 @@
   </section>
 
   <div class="rt-app" data-mode="user">
+    <header class="rt-phone-appbar"><button type="button" data-page-link="home">R　Retrom</button><button type="button" data-page-link="me" aria-label="打开我的">T</button></header>
     <header class="rt-mobile-appbar">
       <div class="rt-mobile-brand"><span class="rt-brand-mark" aria-hidden="true"><span></span><span></span><span></span><span></span></span><span>RETROM</span></div>
       <span class="rt-mobile-title" data-mobile-title>首页</span>
@@ -2630,6 +2750,15 @@
 
     <main class="rt-main">
       <section class="rt-page is-active" data-page="home">
+        <div class="rt-phone-home">
+          <form class="rt-phone-search" data-phone-search><input type="search" aria-label="搜索游戏" placeholder="想玩什么？搜一下"><button type="submit">搜索</button></form>
+          <section><h1>继续游玩</h1><div class="rt-phone-continue"><button type="button" class="rt-cover rt-cover-b rt-phone-poster" data-open-game="metal"><span class="rt-cover-title">METAL SLUG</span></button><div class="rt-phone-continue-copy"><div class="rt-phone-continue-info"><h2>Metal Slug</h2><p>Arcade</p><p>存档 · 今天 22:14</p></div><div class="rt-phone-continue-actions"><button type="button" class="rt-button rt-button-primary" data-quick-start="metal" data-save-start="上次游玩存档">从存档继续</button></div></div></div></section>
+          <section><div class="rt-phone-section-head"><h2>发现游戏</h2><button type="button" class="rt-text-link" data-page-link="library">查看全部</button></div><div class="rt-phone-games">
+            <button type="button" data-open-game="doom"><span class="rt-cover rt-cover-c rt-phone-poster"><span class="rt-cover-title">DOOM</span></span><strong>DOOM</strong><small>DOS</small></button>
+            <button type="button" data-open-game="zelda"><span class="rt-cover rt-cover-a rt-phone-poster"><span class="rt-cover-title">ZELDA</span></span><strong>The Legend of Zelda</strong><small>SNES</small></button>
+          </div></section>
+        </div>
+
         <section class="rt-home-layer rt-home-hero-layer">
           <div class="rt-page-head">
             <div><h1>今天想玩什么？</h1><p class="rt-subtitle">从最近的进度继续，或重新发现资料库里的经典游戏</p></div>
@@ -2662,7 +2791,7 @@
 
       <section class="rt-page" data-page="library">
         <div class="rt-page-head"><div><div class="rt-eyebrow">我的游戏</div><h1>游戏库</h1><p class="rt-subtitle">找到想玩的经典游戏，打开详情后即可使用推荐配置开始游玩。</p></div></div>
-        <section class="rt-library-tools" aria-label="游戏筛选"><div class="rt-library-tool-row"><label class="rt-library-search"><i data-lucide="search" aria-hidden="true"></i><input type="search" placeholder="搜索游戏、平台或标签" aria-label="搜索游戏、平台或标签" data-library-search></label><select class="rt-select" aria-label="游戏集合"><option>所有游戏集合</option><option>FBNeo 游戏</option></select><select class="rt-select" aria-label="标签"><option>所有标签</option><option>双人（2）</option><option>清版动作（1）</option></select><select class="rt-select" aria-label="排列顺序" data-library-sort><option value="recent">最近游玩</option><option value="added">最近加入</option><option value="title">名称 A–Z</option></select></div><div class="rt-library-platforms"><span>游戏平台</span><button type="button" class="rt-library-chip is-active" data-library-platform="">全部 <strong>3</strong></button><button type="button" class="rt-library-chip" data-library-platform="Arcade">Arcade <strong>3</strong></button><span class="rt-library-result">当前显示 <strong data-library-count>3</strong> 款游戏</span></div></section>
+        <section class="rt-library-tools" aria-label="游戏筛选"><div class="rt-library-tool-row"><label class="rt-library-search"><i data-lucide="search" aria-hidden="true"></i><input type="search" placeholder="搜索游戏、平台或标签" aria-label="搜索游戏、平台或标签" data-library-search></label><button type="button" class="rt-button rt-phone-filter" data-phone-filter aria-label="筛选与排序"><i data-lucide="list-filter"></i></button><select class="rt-select" aria-label="游戏集合"><option>所有游戏集合</option><option>FBNeo 游戏</option></select><select class="rt-select" aria-label="标签"><option>所有标签</option><option>双人（2）</option><option>清版动作（1）</option></select><select class="rt-select" aria-label="排列顺序" data-library-sort><option value="recent">最近游玩</option><option value="added">最近加入</option><option value="title">名称 A–Z</option></select></div><div class="rt-library-platforms"><span>游戏平台</span><button type="button" class="rt-library-chip is-active" data-library-platform="">全部 <strong>3</strong></button><button type="button" class="rt-library-chip" data-library-platform="Arcade">Arcade <strong>3</strong></button><span class="rt-library-result">当前显示 <strong data-library-count>3</strong> 款游戏</span></div><div class="rt-phone-platform-scrollbar" aria-hidden="true"><span></span></div></section>
         <div class="rt-library-section-head"><div><h2>所有游戏</h2><p>封面是识别入口；没有封面的游戏也保留清晰的标题与平台信息。</p></div><span class="rt-library-view-hint">卡片视图 · <kbd>/</kbd> 搜索</span></div>
         <div class="rt-library-grid">
           <article class="rt-library-card" data-library-card data-library-title="1941" data-library-platform-name="Arcade" data-library-recent="2" data-library-added="3"><button type="button" class="rt-library-cover" style="background:radial-gradient(circle at 78% 17%,rgb(67 208 218 / .34),transparent 19%),linear-gradient(150deg,#36415f,#111829)" data-open-game="doom" aria-label="查看 1941 详情"><span class="rt-library-platform-tag">ARCADE</span><span class="rt-library-poster"><small>RETROM CLASSICS</small><strong>1941</strong><span>FINALBURN NEO</span></span><span class="rt-library-hover"><span>查看游戏详情</span></span></button><button type="button" class="rt-library-favorite" data-library-favorite aria-label="取消收藏 1941" aria-pressed="true"><i data-lucide="heart" aria-hidden="true"></i></button><span class="rt-library-body"><span class="rt-library-title"><button type="button" data-open-game="doom">1941</button><button type="button" class="rt-library-more" data-open-shared-favorite-manager="1941" aria-label="管理 1941 的收藏夹">•••</button></span><span class="rt-library-meta">Arcade · FBNeo 游戏</span><span class="rt-library-played"><span>最近游玩</span><strong>昨天 21:10</strong></span></span></article>
@@ -2781,6 +2910,8 @@
       </section>
 
       <section class="rt-page" data-page="detail">
+        <div class="rt-phone-launch"><button type="button" data-phone-options><i data-lucide="settings"></i><span>启动选项</span></button><button type="button" class="rt-button rt-button-primary" data-start-current-save>从存档继续</button></div>
+        <dialog class="rt-phone-option-dialog" data-phone-option-dialog aria-label="启动选项"><h2>启动选项</h2><label>运行方式<select class="rt-select" data-phone-core><option>FBNeo · 推荐</option><option>MAME 2003 Plus · 可选</option><option>MAME 2003 · 开始时检查</option></select></label><p>从头开始不会删除已有存档。</p><div class="rt-dialog-actions"><button type="button" class="rt-button" data-phone-close-options>关闭</button><button type="button" class="rt-button rt-button-primary" data-start-game>从头开始</button></div></dialog>
         <button type="button" class="rt-detail-breadcrumb" data-page-link="library">← 游戏库</button>
         <div class="rt-detail-hero">
           <div class="rt-detail-poster-shell"><div class="rt-cover rt-cover-b rt-detail-cover" id="rt-detail-cover"><span class="rt-cover-title" id="rt-detail-cover-title">METAL SLUG</span><span class="rt-video-preview-chip"><i data-lucide="play" aria-hidden="true"></i>视频将在可见 2 秒后静音播放</span></div><div class="rt-detail-poster-caption"><span>Arcade</span><span>1996</span></div></div>
@@ -2822,7 +2953,7 @@
           <button type="button" class="rt-button" disabled>创建存档</button>
           <p>游玩期间仅暂存到当前浏览器；无存档启动为空，旧存档和本地草稿均不会自动载入。恢复需从游戏菜单读档。</p>
           <fieldset><legend>退出时：游戏存档数据存在变更</legend><p>保存将更新启动时选择的存档。如果误选了“开始新游戏”，请选择不保存。</p><button class="rt-button">保存并退出</button><button class="rt-button">继续游戏</button><button class="rt-button rt-button-danger">不保存并退出</button></fieldset>
-          <p>上传成功才清理草稿；失败保留并允许重试。异常关闭后显示本地草稿处理入口，不自动恢复或覆盖。</p>
+          <p>上传成功才清理草稿；失败保留并允许重试。异常关闭后显示本地草稿处理入口，不自动恢复或覆盖。手机横竖屏中提示位于三项底栏上方 16px，计入底部安全区，处理按钮至少 44px 高。</p>
         </details>
         <div class="rt-player-shell">
           <div class="rt-player-orientation-gate" role="dialog" aria-modal="true" aria-labelledby="rt-orientation-title"><div class="rt-player-orientation-card"><i data-lucide="rotate-cw" aria-hidden="true"></i><h2 id="rt-orientation-title">请横屏继续游戏</h2><p>配置已经检查完成。横屏稳定后才会加载游戏内容并开始本次游玩。</p><button type="button" class="rt-player-control">重试全屏与横屏</button></div></div>
@@ -3283,13 +3414,13 @@
         <div class="rt-storage-details"><article class="rt-storage-detail"><span>存档引用视图</span><strong>67 份有效 · 4 份软删除</strong><small>状态文件 1.1 GiB · 截图文件 420 MiB；两个引用视图不与用途分类相加。</small></article><article class="rt-storage-detail"><span>清理候选视图</span><strong>31 个 Blob · 760 MiB</strong><small>候选默认保留 7 天；管理员确认后可立即推进回收，删除前仍会复核引用。</small></article></div>
         <div class="rt-storage-scope"><strong>仅计算已登记 CAS payload</strong> · REGISTERED_CAS_PAYLOAD_V1<br>不包含 SQLite/WAL/SHM、上传分片、任务临时文件、依赖根、文件系统开销、未登记孤立文件和卷剩余空间。</div>
       </section>
+      <section class="rt-page" data-page="me"><div class="rt-phone-profile"><h1>我的</h1><div class="rt-phone-identity"><span>T</span><div><strong>Test</strong><p>@test</p></div></div><nav class="rt-phone-links" aria-label="个人游戏资料"><button type="button" data-page-link="favorites"><i data-lucide="heart"></i>我的收藏</button><button type="button" data-page-link="saves"><i data-lucide="save"></i>我的存档</button><button type="button" data-page-link="recent"><i data-lucide="history"></i>最近游玩</button><button type="button" data-page-link="netplay"><i data-lucide="gamepad-2"></i>联机游玩</button></nav><div class="rt-phone-links"><button type="button" data-page-link="account"><i data-lucide="settings"></i>账户设置</button><button type="button" data-phone-logout><i data-lucide="log-out"></i>退出登录</button></div></div></section>
+      <section class="rt-phone-admin"><h1>请在电脑上管理游戏库</h1><p>导入、审核和维护适合在大屏幕上完成。现在可以先挑一款游戏来玩。</p><button type="button" class="rt-button rt-button-primary" data-phone-return>返回游戏库</button></section>
     </main>
     <nav class="rt-mobile-bottom-nav" aria-label="移动主导航">
       <button type="button" class="is-active" data-mobile-page="home" data-page-link="home"><i data-lucide="house" aria-hidden="true"></i><span>首页</span></button>
       <button type="button" data-mobile-page="library" data-page-link="library"><i data-lucide="library" aria-hidden="true"></i><span>游戏库</span></button>
-      <button type="button" data-mobile-page="saves" data-page-link="saves"><i data-lucide="camera" aria-hidden="true"></i><span>存档</span></button>
-      <button type="button" data-mobile-page="favorites" data-page-link="favorites"><i data-lucide="heart" aria-hidden="true"></i><span>收藏</span></button>
-      <button type="button" data-mobile-page="more"><i data-lucide="ellipsis" aria-hidden="true"></i><span>更多</span></button>
+      <button type="button" data-mobile-page="me" data-page-link="me"><i data-lucide="user-round" aria-hidden="true"></i><span>我的</span></button>
     </nav>
   </div>
 
@@ -3372,8 +3503,56 @@
       root.querySelectorAll('[data-page="library"] .rt-library-meta').forEach((meta, index) => meta.insertAdjacentHTML('afterend', `<span class="rt-tag-list" aria-label="游戏标签">${reviewTagSets[index].map((tag) => `<span class="rt-tag-pill">${tag}</span>`).join('')}</span>`));
       root.querySelectorAll('[data-page="admin-games"] .rt-management-title').forEach((title, index) => title.insertAdjacentHTML('afterend', `<span class="rt-tag-list" aria-label="游戏标签">${reviewTagSets[index % reviewTagSets.length].slice(0, 3).map((tag) => `<span class="rt-tag-pill">${tag}</span>`).join('')}</span>`));
 
+
+      const phoneQuery = matchMedia('(max-width: 767px), (pointer: coarse) and (max-width: 1023px) and (max-height: 767px)');
+      const disclosed = [['.rt-detail-description', '游戏简介'], ['.rt-detail-info-strip', '游戏信息']].map(([selector, title]) => {
+        const node = root.querySelector(selector); const marker = document.createComment(title); node.before(marker);
+        const disclosure = document.createElement('details'); disclosure.className = 'rt-phone-disclosure';
+        const summary = document.createElement('summary'); summary.textContent = title; disclosure.append(summary);
+        return { node, marker, disclosure };
+      });
+      const projectPhoneInformation = () => disclosed.forEach(({node, marker, disclosure}) => {
+        if (phoneQuery.matches) { marker.after(disclosure); disclosure.append(node); }
+        else { marker.after(node); disclosure.remove(); }
+      });
+      phoneQuery.addEventListener('change', projectPhoneInformation); projectPhoneInformation();
+      root.querySelector('[data-phone-search]').addEventListener('submit', (event) => {
+        event.preventDefault(); showPage('library'); const search = root.querySelector('[data-library-search]');
+        search.value = event.currentTarget.querySelector('input').value; search.dispatchEvent(new Event('input', {bubbles:true}));
+      });
+      root.querySelector('[data-phone-return]').addEventListener('click', () => { app.dataset.mode = 'user'; showPage('library'); });
+      root.querySelector('[data-phone-logout]').addEventListener('click', () => showAuthPage('login'));
+      const phoneOptions = root.querySelector('[data-phone-option-dialog]');
+      root.querySelector('[data-phone-options]').addEventListener('click', () => phoneOptions.showModal());
+      root.querySelector('[data-phone-close-options]').addEventListener('click', () => phoneOptions.close());
+      phoneOptions.querySelector('[data-start-game]').addEventListener('click', () => phoneOptions.close());
+      root.querySelector('[data-phone-core]').addEventListener('change', (event) => {
+        const select = root.querySelector('#rt-core-select'); select.selectedIndex = event.target.selectedIndex;
+        root.querySelector('[data-apply-detail-runtime]').click();
+      });
+      const phoneFilters = document.createElement('dialog'); phoneFilters.className = 'rt-phone-option-dialog';
+      phoneFilters.innerHTML = '<h2>筛选与排序</h2><form method="dialog"><label>排列顺序<select class="rt-select"><option value="recent">最近游玩</option><option value="added">最近加入</option><option value="title">名称 A–Z</option></select></label><div class="rt-dialog-actions"><button class="rt-button" value="cancel">取消</button><button class="rt-button rt-button-primary" value="apply">应用</button></div></form>';
+      root.append(phoneFilters);
+      root.querySelector('[data-phone-filter]').addEventListener('click', () => { phoneFilters.querySelector('select').value = root.querySelector('[data-library-sort]').value; phoneFilters.showModal(); });
+      phoneFilters.addEventListener('close', () => { if (phoneFilters.returnValue !== 'apply') return; const select = root.querySelector('[data-library-sort]'); select.value = phoneFilters.querySelector('select').value; select.dispatchEvent(new Event('change', {bubbles:true})); });
+
+
+      const personalDisclosures = [['.rt-favorite-tools', '整理与排序'], ['.rt-save-toolbar', '筛选存档'], ['.rt-recent-filters', '筛选与排序']].map(([selector, title]) => {
+        const parent = root.querySelector(selector); const nodes = [...parent.children].slice(1).filter(node => node.tagName !== 'P');
+        const marker = document.createComment(title); nodes[0].before(marker);
+        const disclosure = document.createElement('details'); disclosure.className = 'rt-phone-disclosure rt-phone-filter-fields';
+        const summary = document.createElement('summary'); summary.textContent = title;
+        const body = document.createElement('div'); disclosure.append(summary, body);
+        return { nodes, marker, disclosure, body };
+      });
+      const projectPersonalFilters = () => personalDisclosures.forEach(({nodes, marker, disclosure, body}) => {
+        if (phoneQuery.matches) { marker.after(disclosure); body.append(...nodes); }
+        else { marker.before(...nodes); disclosure.remove(); }
+      });
+      phoneQuery.addEventListener('change', projectPersonalFilters); projectPersonalFilters();
+
       const pageNames = {
-        home: '首页', library: '游戏库', saves: '我的存档', favorites: '我的收藏', recent: '最近游玩', netplay: '联机游玩', 'netplay-room': '联机房间', 'netplay-player': '联机 Player', account: '账户设置', detail: '游戏详情', play: '游玩',
+        home: '首页', me: '我的', library: '游戏库', saves: '我的存档', favorites: '我的收藏', recent: '最近游玩', netplay: '联机游玩', 'netplay-room': '联机房间', 'netplay-player': '联机 Player', account: '账户设置', detail: '游戏详情', play: '游玩',
         'admin-import': '游戏入库', 'admin-import-new': '导入游戏', 'admin-import-tasks': '任务进度',
         'admin-server-import': '本地扫描', 'admin-server-import-detail': 'BIOS 导入详情', 'admin-pegasus-import-detail': 'Pegasus 导入详情', 'admin-emulationstation-import-detail': 'EmulationStation 导入详情',
         'admin-review': '待审核', 'admin-review-history': '审核历史', 'admin-games': '游戏管理', 'admin-game-detail': '游戏管理详情', 'admin-tags': '标签管理', 'admin-platform-instances': '游戏目录', 'admin-users': '用户管理', 'admin-bios': '运行依赖', 'admin-storage': '容量分析'
@@ -3469,7 +3648,7 @@
         root.querySelectorAll('.rt-page').forEach((element) => element.classList.toggle('is-active', element.dataset.page === page));
         root.querySelectorAll('.rt-nav-button').forEach((button) => button.classList.toggle('is-active', button.dataset.pageTarget === activeNavigationTarget));
         root.querySelector('[data-mobile-title]').textContent = pageNames[page] || 'Retrom';
-        root.querySelectorAll('[data-mobile-page]').forEach((button) => button.classList.toggle('is-active', button.dataset.mobilePage === activeNavigationTarget || (button.dataset.mobilePage === 'more' && !['home', 'library', 'saves', 'favorites'].includes(activeNavigationTarget))));
+        root.querySelectorAll('[data-mobile-page]').forEach((button) => button.classList.toggle('is-active', button.dataset.mobilePage === activeNavigationTarget || (button.dataset.mobilePage === 'me' && !['home', 'library'].includes(activeNavigationTarget))));
         selectReviewScene(page);
         root.querySelector('[data-ingest-parent]').classList.toggle('is-context', ['admin-import-new', 'admin-import-tasks', 'admin-server-import', ...serverImportDetails, 'admin-review', 'admin-review-history'].includes(page));
         if (page === 'admin-review') {
@@ -3596,6 +3775,20 @@
         else if (scene === 'admin-users') { setMode('admin'); showPage(scene); }
         else { setMode('user'); showPage(scene); }
       }));
+      const phonePlatformRail = root.querySelector('.rt-library-platforms');
+      const phoneScrollIndicator = root.querySelector('.rt-phone-platform-scrollbar');
+      let phoneScrollTimeout;
+      phonePlatformRail.addEventListener('scroll', () => {
+        if (!window.matchMedia('(max-width: 767px), (pointer: coarse) and (max-width: 1023px) and (max-height: 767px)').matches) return;
+        const { clientWidth, scrollWidth, scrollLeft } = phonePlatformRail;
+        if (scrollWidth <= clientWidth) return;
+        const width = clientWidth / scrollWidth * 100;
+        phoneScrollIndicator.firstElementChild.style.width = width + '%';
+        phoneScrollIndicator.firstElementChild.style.left = Math.max(0, Math.min(100 - width, scrollLeft / scrollWidth * 100)) + '%';
+        phoneScrollIndicator.dataset.visible = 'true';
+        clearTimeout(phoneScrollTimeout);
+        phoneScrollTimeout = setTimeout(() => { phoneScrollIndicator.dataset.visible = 'false'; }, 900);
+      });
       root.querySelector('[data-open-immersive-entry]').addEventListener('click', () => showImmersivePage('immersive-entry'));
 
       const userDrawer = root.querySelector('[data-user-drawer]');

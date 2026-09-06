@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import axe from "axe-core";
-import { evidencePath, expectHomeCoverRatios, expectNoTextArrowsInInteractiveControls } from "./acceptance-support";
+import { expectMobileLocalDraftNotice } from "./mobile-local-draft";
+import { evidencePath, expectNoTextArrowsInInteractiveControls } from "./acceptance-support";
 
 declare global {
   interface Window {
@@ -44,6 +45,67 @@ async function expectMinimumTargets(page: Page, selector: string) {
   expect(undersized).toEqual([]);
 }
 
+async function expectLibraryFilterAlignment(page: Page) {
+  const button = page.getByRole("button", { name: /筛选与排序/ });
+  const bounds = await button.boundingBox();
+  const icon = await button.locator("svg").boundingBox();
+  const search = await page.locator(".library-search").boundingBox();
+  expect(bounds).not.toBeNull();
+  expect(icon).not.toBeNull();
+  expect(search).not.toBeNull();
+  expect(bounds!.width).toBe(bounds!.height);
+  expect(bounds!.height).toBe(search!.height);
+  expect(Math.abs(icon!.x + icon!.width / 2 - bounds!.x - bounds!.width / 2)).toBeLessThan(1);
+  expect(Math.abs(icon!.y + icon!.height / 2 - bounds!.y - bounds!.height / 2)).toBeLessThan(1);
+}
+
+async function expectSearchFocus(page: Page, selector: string) {
+  const field = page.locator(selector);
+  const input = field.getByRole("searchbox");
+  await input.focus();
+  await expect(input).toBeFocused();
+  const focus = await field.evaluate((element) => {
+    const input = element.querySelector("input")!;
+    const style = getComputedStyle(element);
+    const bounds = element.getBoundingClientRect();
+    const clips = [];
+    for (let parent = element.parentElement; parent; parent = parent.parentElement) {
+      const parentStyle = getComputedStyle(parent);
+      const parentBounds = parent.getBoundingClientRect();
+      if (parentStyle.overflowX === "hidden" && (bounds.left - 3 < parentBounds.left || bounds.right + 3 > parentBounds.right)) { clips.push(parent.className); }
+      if (parentStyle.overflowY === "hidden" && (bounds.top - 3 < parentBounds.top || bounds.bottom + 3 > parentBounds.bottom)) { clips.push(parent.className); }
+    }
+    return { inputOutline: getComputedStyle(input).outlineStyle, shadow: style.boxShadow, clips };
+  });
+  expect(focus.inputOutline).toBe("none");
+  expect(focus.shadow).not.toBe("none");
+  expect(focus.clips).toEqual([]);
+  await input.blur();
+}
+
+async function expectHomeLaunchPlacement(page: Page) {
+  for (const width of [390, 480, 600, 844]) {
+    await page.setViewportSize({ width, height: width === 844 ? 390 : 844 });
+    const card = page.locator(".phone-continue-card");
+    const bounds = await card.boundingBox();
+    const title = await card.locator("h2").boundingBox();
+    const action = await card.getByRole("button").boundingBox();
+    expect(bounds).not.toBeNull();
+    expect(title).not.toBeNull();
+    expect(action).not.toBeNull();
+    expect(Math.abs(action!.x + action!.width - bounds!.x - bounds!.width)).toBeLessThan(1);
+    expect(action!.height).toBeGreaterThanOrEqual(48);
+    if (width >= 480) {
+      expect(action!.x).toBeGreaterThanOrEqual(title!.x + title!.width + 12);
+      expect(Math.abs(action!.y + action!.height / 2 - bounds!.y - bounds!.height / 2)).toBeLessThan(1);
+    } else {
+      expect(action!.y).toBeGreaterThan(title!.y + title!.height);
+    }
+    await expectNoDocumentOverflow(page);
+  }
+  await page.setViewportSize({ width: 390, height: 844 });
+}
+
 test.beforeEach(async ({ page }) => { await login(page); });
 
 test("ACC-MOB-001 exact phone and tablet shell baselines have no page overflow", async ({ page }) => {
@@ -52,19 +114,23 @@ test("ACC-MOB-001 exact phone and tablet shell baselines have no page overflow",
     { width: 360, height: 800 },
     { width: 390, height: 844 },
     { width: 412, height: 915 },
+    { width: 844, height: 390 },
     { width: 768, height: 1024 },
     { width: 1024, height: 768 },
   ];
   for (const viewport of viewports) {
+    const phone = viewport.width < 768 || (viewport.width < 1024 && viewport.height < 768);
     await page.setViewportSize(viewport);
     await page.goto("/library");
-    await expect(page.getByRole("heading", { name: "游戏库", exact: true })).toBeVisible();
+    await expect(page.getByRole("navigation", { name: phone ? "手机主导航" : "主要导航" }).or(page.getByRole("button", { name: "打开主要导航" })).first()).toBeVisible();
     await expectNoDocumentOverflow(page);
-    if (viewport.width < 768) {
+    if (phone) {
       const bottom = page.getByRole("navigation", { name: "手机主导航" });
       await expect(bottom).toBeVisible();
       await expect(bottom.getByRole("link", { name: "游戏库" })).toHaveAttribute("aria-current", "page");
-      await expectMinimumTargets(page, ".mobile-bottom-nav > a, .mobile-bottom-nav > button");
+      await expect(bottom.getByRole("link")).toHaveCount(3);
+      await expectMinimumTargets(page, ".phone-bottom-nav > a, .phone-app-header > a");
+      await expectLibraryFilterAlignment(page);
       const grid = page.locator(".library-game-grid");
       if (await grid.count()) {
         const columns = await grid.evaluate((element) => getComputedStyle(element).gridTemplateColumns.split(" ").length);
@@ -80,13 +146,52 @@ test("ACC-MOB-001 exact phone and tablet shell baselines have no page overflow",
 
 test("ACC-MOB-002 user routes, filter sheet, active navigation and accessibility remain usable", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  const routes = ["/", "/library", "/saves", "/favorites", "/recent", "/netplay", "/account"];
+  const routes = ["/", "/library", "/me", "/saves", "/favorites", "/recent", "/netplay", "/account"];
   for (const route of routes) {
     await page.goto(route);
     await expect(page.locator("main").first()).toBeVisible();
     await expectNoDocumentOverflow(page);
     await expectNoTextArrowsInInteractiveControls(page);
-    if (route === "/") {await expectHomeCoverRatios(page);}
+    if (route === "/" || route === "/library") {
+      await expectSearchFocus(page, route === "/" ? ".phone-home-search" : ".library-search");
+    }
+    if (route === "/library") {
+      const rail = page.locator(".library-platform-row");
+      const indicator = page.locator(".phone-platform-scrollbar");
+      await expect(indicator).toHaveCSS("opacity", "0");
+      if (await rail.evaluate((element) => element.scrollWidth > element.clientWidth)) {
+        await rail.evaluate((element) => element.scrollBy(120, 0));
+        await expect(indicator).toHaveCSS("opacity", "1");
+        await expect(indicator).toHaveCSS("opacity", "0");
+      }
+    }
+    const personalOptions = route === "/favorites" ? "整理与排序" : route === "/saves" ? "筛选存档" : route === "/recent" ? "筛选与排序" : null;
+    if (personalOptions) {
+      const disclosure = page.locator(".phone-disclosure");
+      if (route === "/recent") {
+        const empty = page.getByRole("heading", { name: "还没有游玩记录" });
+        await expect(disclosure.or(empty)).toBeVisible();
+        if (await empty.isVisible()) {
+          await expect(disclosure).toHaveCount(0);
+          continue;
+        }
+      }
+      await expect(disclosure).not.toHaveAttribute("open", "");
+      await disclosure.getByText(personalOptions, { exact: true }).click();
+      await expect(disclosure.getByRole("combobox").first()).toBeVisible();
+      await expectNoDocumentOverflow(page);
+      await disclosure.getByText(personalOptions, { exact: true }).click();
+    }
+    if (route === "/") {
+      await expect(page.getByRole("button", { name: "进入沉浸模式" })).toHaveCount(0);
+      await page.setViewportSize({ width: 844, height: 390 });
+      await expect(page.getByRole("button", { name: "进入沉浸模式" })).toHaveCount(0);
+      await page.setViewportSize({ width: 390, height: 844 });
+      for (const poster of await page.locator(".phone-game-poster").all()) {
+        const bounds = await poster.boundingBox();
+        expect(bounds!.width / bounds!.height).toBeCloseTo(5 / 7, 2);
+      }
+    }
   }
 
   await page.goto("/library");
@@ -99,12 +204,12 @@ test("ACC-MOB-002 user routes, filter sheet, active navigation and accessibility
   await expect(filterTrigger).toBeFocused();
   await expect(page).not.toHaveURL(/sort=/);
 
-  const more = page.getByRole("button", { name: "更多导航" });
-  await more.click();
-  const moreSheet = page.getByRole("dialog", { name: "更多" });
-  await expect(moreSheet.getByRole("link", { name: /最近游玩/ })).toBeVisible();
-  await page.keyboard.press("Escape");
-  await expect(more).toBeFocused();
+  await page.getByRole("navigation", { name: "手机主导航" }).getByRole("link", { name: "我的" }).click();
+  await expect(page).toHaveURL(/\/me$/);
+  await expect(page.getByRole("link", { name: /最近游玩/ })).toBeVisible();
+  await expect(page.locator('a[href^="/admin"]')).toHaveCount(0);
+  await expectMinimumTargets(page, ".phone-profile-links > a, .phone-profile-links > button");
+  await expectMobileLocalDraftNotice(page);
 
   await page.evaluate(axe.source);
   const serious = await page.evaluate(async () => {
@@ -114,7 +219,83 @@ test("ACC-MOB-002 user routes, filter sheet, active navigation and accessibility
   expect(serious).toEqual([]);
 });
 
-test("ACC-MOB-004 administrator list and workflow routes use cards or full-width controls", async ({ page }) => {
+test("ACC-MOB-003 search, favorite, launch, save and home continue use the real product path", async ({ page }, testInfo) => {
+  test.setTimeout(180_000);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/");
+  await page.getByRole("searchbox", { name: "搜索游戏" }).fill("Sudoku");
+  await page.getByRole("button", { name: "搜索", exact: true }).click();
+  await expect(page).toHaveURL(/\/library\?q=Sudoku/);
+  const card = page.locator(".library-game-card").filter({ hasText: "Sudoku" }).first();
+  await expect(card).toBeVisible();
+  const favorite = card.getByRole("button", { name: /^收藏“/ });
+  if (await favorite.count()) {await favorite.click();}
+  await expect(card.getByRole("button", { name: /^取消收藏“/ })).toHaveAttribute("aria-pressed", "true");
+  await page.getByRole("button", { name: /筛选与排序/ }).click();
+  const filters = page.getByRole("dialog", { name: "筛选与排序" });
+  await filters.getByRole("combobox", { name: "排列顺序" }).selectOption("TITLE_ASC");
+  await filters.getByRole("button", { name: "应用", exact: true }).click();
+  await expect(page).toHaveURL(/sort=TITLE_ASC/);
+  await expectLibraryFilterAlignment(page);
+  await page.reload();
+  await expect(page.getByRole("searchbox", { name: "搜索游戏" })).toHaveValue("Sudoku");
+  await card.getByRole("link").first().click();
+  await expect(page).toHaveURL(/\/games\/[0-9a-f-]+$/);
+  const detailURL = page.url();
+  await expect(page.locator(".phone-disclosure").first()).not.toHaveAttribute("open", "");
+  await page.getByText("游戏简介", { exact: true }).click();
+  await expect(page.locator(".game-detail-description")).toBeVisible();
+  await page.evaluate(axe.source);
+  const detailViolations = await page.evaluate(async () => {
+    const result = await window.axe.run(document, { runOnly: { type: "tag", values: ["wcag2a", "wcag2aa"] } });
+    return result.violations.filter((violation) => violation.impact === "serious" || violation.impact === "critical");
+  });
+  expect(detailViolations).toEqual([]);
+  await page.getByRole("button", { name: "启动选项" }).click();
+  const options = page.getByRole("dialog", { name: "启动选项" });
+  await expect(options.getByRole("combobox", { name: "运行方式" })).toBeVisible();
+  await expectNoDocumentOverflow(page);
+  await page.screenshot({ path: evidencePath(testInfo, "phone-launch-options.png") });
+  const launchRequest = page.waitForRequest((request) => request.method() === "POST" && /\/api\/v1\/launches$/.test(request.url()));
+  await options.getByRole("button", { name: /^(开始游戏|从头开始)$/ }).click();
+  expect((await launchRequest).postDataJSON()).toMatchObject({ saveStateId: null });
+  await expect(page.getByRole("dialog", { name: "请横向握持设备开始游戏" })).toBeVisible();
+  await page.setViewportSize({ width: 844, height: 390 });
+  await expect(page.frameLocator("iframe.player-frame").locator("canvas.ejs_canvas")).toBeVisible({ timeout: 60_000 });
+  const handle = page.getByRole("button", { name: /Player 控制栏/ });
+  if (await handle.getAttribute("aria-pressed") !== "true") {await handle.tap();}
+  await expect(handle).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("button", { name: "返回并退出游戏" })).toBeInViewport();
+  await page.getByRole("button", { name: "返回并退出游戏" }).tap();
+  const exit = page.getByRole("alertdialog", { name: "退出游戏？" });
+  const saveResponse = page.waitForResponse((response) => response.request().method() === "POST" && /\/runtime\/launches\/[^/]+\/save-states$/.test(response.url()));
+  await exit.getByRole("button", { name: "创建存档", exact: true }).click();
+  const saved = await saveResponse;
+  expect(saved.status()).toBe(201);
+  const save = await saved.json() as { saveStateId: string };
+  expect(save.saveStateId).toBeTruthy();
+  await expect(exit.getByRole("button", { name: "已创建存档" })).toBeDisabled();
+  await exit.getByRole("button", { name: "退出游戏", exact: true }).click();
+  await expect(page).toHaveURL(detailURL);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.getByRole("navigation", { name: "手机主导航" }).getByRole("link", { name: "首页" }).click();
+  await expect(page.getByRole("heading", { name: "继续游玩", exact: true })).toBeVisible();
+  await expectHomeLaunchPlacement(page);
+  await page.screenshot({ path: evidencePath(testInfo, "phone-home-continue.png"), fullPage: true });
+  const resume = page.waitForRequest((request) => request.method() === "POST" && /\/api\/v1\/launches$/.test(request.url()));
+  await page.getByRole("button", { name: "从存档继续", exact: true }).click();
+  expect((await resume).postDataJSON()).toMatchObject({ saveStateId: save.saveStateId, returnTo: "/" });
+  await page.setViewportSize({ width: 844, height: 390 });
+  await expect(page.frameLocator("iframe.player-frame").locator("canvas.ejs_canvas")).toBeVisible({ timeout: 60_000 });
+  if (await handle.getAttribute("aria-pressed") !== "true") {await handle.tap();}
+  await expect(handle).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("button", { name: "返回并退出游戏" })).toBeInViewport();
+  await page.getByRole("button", { name: "返回并退出游戏" }).tap();
+  await page.getByRole("alertdialog", { name: "退出游戏？" }).getByRole("button", { name: "退出游戏", exact: true }).click();
+  await expect(page).toHaveURL(/\/$/);
+});
+
+test("ACC-MOB-004 phone administration links lead back to play without mounting management controls", async ({ page }) => {
   test.setTimeout(240_000);
   await page.setViewportSize({ width: 390, height: 844 });
   const routes = [
@@ -127,21 +308,19 @@ test("ACC-MOB-004 administrator list and workflow routes use cards or full-width
     await expect(page.locator("main").first()).toBeVisible();
     await expectNoDocumentOverflow(page);
     await expectNoTextArrowsInInteractiveControls(page);
-    await expect(page.getByRole("button", { name: "打开主要导航" })).toBeVisible();
-    await expect(page.getByRole("navigation", { name: "手机主导航" })).toHaveCount(0);
+    await expect(page.getByRole("heading", { name: "请在电脑上管理游戏库" })).toBeVisible();
+    await expect(page.getByRole("navigation", { name: "手机主导航" })).toBeVisible();
+    await expect(page.locator("main form, main input, main table")).toHaveCount(0);
   }
 
-  await page.goto("/admin/reviews");
-  const firstReview = page.locator(".review-workflow-row").first();
-  if (await firstReview.count()) {
-    await expect(firstReview).toHaveCSS("min-width", "0px");
-    await firstReview.getByRole("link", { name: /审核条目|处理条目/ }).click();
-    await expect(page).toHaveURL(/\/admin\/reviews\/[0-9a-f-]+/);
-    const steps = page.getByRole("navigation", { name: "审核步骤" });
-    await expect(steps).toBeVisible();
-    await expect(steps.getByRole("link")).toHaveCount(4);
-    await expectNoDocumentOverflow(page);
-  }
+  await page.getByRole("link", { name: "返回游戏库", exact: true }).click();
+  await expect(page).toHaveURL(/\/library$/);
+  await page.setViewportSize({ width: 844, height: 390 });
+  await page.goto("/admin/imports");
+  await expect(page.getByRole("heading", { name: "请在电脑上管理游戏库" })).toBeVisible();
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await expect(page.locator(".app-frame")).toBeVisible();
+  await expect(page.locator(".phone-admin-notice")).toHaveCount(0);
 });
 
 test("ACC-MOB-005 portrait Player validates config before it creates a frame or requests large runtime bytes", async ({ page }) => {
@@ -297,8 +476,9 @@ test("ACC-MOB-007 current mobile, desktop and accessibility baselines remain exp
           return result.violations.filter((violation) => violation.impact === "serious" || violation.impact === "critical");
         });
         expect(serious).toEqual([]);
+        await page.locator("header a").first().focus();
         await page.keyboard.press("Tab");
-        await expect(page.locator(":focus")).toBeVisible();
+        await expect(page.locator(":focus").last()).toBeVisible();
       }
       await page.screenshot({
         path: evidencePath(testInfo, `responsive-${viewport.width}x${viewport.height}.png`),
