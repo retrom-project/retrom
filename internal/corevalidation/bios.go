@@ -203,7 +203,7 @@ func scanBIOSDependency(
 	dependency.BlobID = nullableString(blobID)
 	dependency.InstallationStatus = nullableString(installationStatus)
 	validInstallation := installationStatus.Valid && blobID.Valid &&
-		(installationStatus.String == "MATCHED" || installationStatus.String == "HASH_WARNING")
+		BIOSInstallationUsable(installationStatus.String)
 	return dependency, true, validInstallation, nil
 }
 
@@ -466,4 +466,9 @@ func nullableSQLString(value sql.NullString) any {
 		return value.String
 	}
 	return nil
+}
+
+// BIOSInstallationUsable keeps catalog findings advisory after a safe upload.
+func BIOSInstallationUsable(status string) bool {
+	return status == "MATCHED" || status == "HASH_WARNING" || status == "MISSING_ENTRY"
 }

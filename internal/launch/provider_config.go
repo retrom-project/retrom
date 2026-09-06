@@ -180,6 +180,10 @@ func providerWarnings(source providerConfigSource) []string {
 	if strings.Contains(source.dependencyJSON, `"installationStatus":"HASH_WARNING"`) {
 		warnings = append(warnings, "BIOS_HASH_WARNING")
 	}
+	if strings.Contains(source.dependencyJSON, `"installationStatus":"MISSING_ENTRY"`) ||
+		strings.Contains(source.dependencyJSON, `.zip:MISSING_ENTRY"`) {
+		warnings = append(warnings, "BIOS_MISSING_ENTRY_WARNING")
+	}
 	if source.compatibility == "REVIEW_SCREENSHOT_OVERRIDE" {
 		warnings = append(warnings, "REVIEW_SCREENSHOT_OVERRIDE")
 	}

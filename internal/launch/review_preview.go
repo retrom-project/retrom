@@ -455,7 +455,7 @@ func availableReviewPreviewExternal(dependency corevalidation.BIOSDependency) bo
 		dependency.InstallationStatus == nil {
 		return false
 	}
-	return *dependency.InstallationStatus == "MATCHED" || *dependency.InstallationStatus == "HASH_WARNING"
+	return corevalidation.BIOSInstallationUsable(*dependency.InstallationStatus)
 }
 
 func validPreviewLogicalName(value string) bool {
@@ -678,6 +678,12 @@ func insertReviewScreenshot(
 	image mediaasset.Image,
 	now int64,
 ) error {
+	// A review owns one current trial result, including when older validations exist.
+	if _, err := transaction.ExecContext(ctx, `
+DELETE FROM review_runtime_screenshots WHERE import_item_id=? AND validation_id<>?
+`, target.ItemID, target.ValidationID); err != nil {
+		return fmt.Errorf("replace prior review screenshot: %w", err)
+	}
 	_, err := transaction.ExecContext(ctx, `
 INSERT INTO review_runtime_screenshots(id,import_item_id,preview_session_id,source_snapshot_id,
 	validation_id,provider_id,target_id,blob_id,media_type,width_px,height_px,

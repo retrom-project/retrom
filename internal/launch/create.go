@@ -643,7 +643,7 @@ VALUES(?,?,?,?,?,'BIOS')
 
 func availableExternalBIOS(dependency corevalidation.BIOSDependency) bool {
 	return dependency.EmulatorPath != nil && dependency.BlobID != nil && dependency.InstallationStatus != nil &&
-		(*dependency.InstallationStatus == "MATCHED" || *dependency.InstallationStatus == "HASH_WARNING")
+		corevalidation.BIOSInstallationUsable(*dependency.InstallationStatus)
 }
 
 func lockedExternalNames(
