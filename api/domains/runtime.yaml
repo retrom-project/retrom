@@ -160,6 +160,51 @@ paths:
       responses:
         '204':
           description: Event accepted
+  /api/v1/launches/{launchId}/local-save:
+    parameters:
+      - $ref: '#/components/parameters/LaunchID'
+    post:
+      operationId: postLocalGameSave
+      x-retrom-streaming-body: true
+      description: Explicitly submits a browser-local GAME_SAVE draft for an owned Product launch. Requires current account authentication and CSRF; ACTIVE, FINISHED and EXPIRED launches are accepted, while revoked, foreign, review and non-native launches are rejected. The server derives the original save binding and expected data version from the launch, never from client metadata. No payload is stored until this request. Existing checkpoint validation, multipart limits, idempotency and stale/deleted-save conflict checks apply.
+      parameters:
+        - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                metadata:
+                  type: string
+                  description: UTF-8 JSON serialized from RuntimeCheckpointMetadata; duplicate or unknown JSON fields are rejected.
+                payload:
+                  type: string
+                  format: binary
+                screenshot:
+                  type: string
+                  format: binary
+              required:
+                - metadata
+                - payload
+            encoding:
+              metadata:
+                contentType: application/json
+              payload:
+                contentType: application/octet-stream
+              screenshot:
+                contentType: image/png, image/jpeg, image/webp
+      responses:
+        '201':
+          $ref: '#/components/responses/RuntimeCheckpointCreateResponse'
+        '409':
+          $ref: ../components/common.yaml#/components/responses/RpgConflictResponse
+        '413':
+          $ref: '#/components/responses/RequestTooLargeResponse'
+        '422':
+          $ref: ../components/common.yaml#/components/responses/RpgUnprocessableResponse
   /runtime/launches/{launchId}/save-states:
     parameters:
       - $ref: '#/components/parameters/LaunchID'
@@ -167,7 +212,7 @@ paths:
       security: []
       operationId: postRuntimeSaveState
       x-retrom-streaming-body: true
-      description: Creates either a product SaveState or replaces the temporary checkpoint of an ordinary review preview. The metadata is strict RuntimeCheckpointMetadata JSON; Provider identity, Target compatibility, checkpoint format and dependency bindings are validated against the immutable Launch snapshot. Total multipart input is capped at 270 MiB only on this route.
+      description: Creates a product SaveState for INSTANT checkpoints, synchronizes the launch-bound mutable slot for GAME_SAVE, or replaces a review preview checkpoint. GAME_SAVE creates at most one slot for a fresh launch and updates the selected slot for restored launches; screenshot is required, identical payloads are deduplicated, and stale/deleted targets return SAVE_SYNC_CONFLICT (409). The successful response remains 201 for both creation and synchronization. The metadata is strict RuntimeCheckpointMetadata JSON; Provider identity, Target compatibility, checkpoint format and dependency bindings are validated against the immutable Launch snapshot. Total multipart input is capped at 270 MiB only on this route.
       parameters:
         - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey
       requestBody:

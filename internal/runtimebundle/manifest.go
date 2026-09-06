@@ -88,6 +88,7 @@ type Checkpoint struct {
 	WriteFormat string   `json:"writeFormat"`
 	ReadFormats []string `json:"readFormats"`
 	MaxBytes    int64    `json:"maxBytes"`
+	Semantics   string   `json:"semantics,omitempty"`
 }
 
 type IntegrityFile struct {
@@ -246,7 +247,7 @@ func validManifestRawTarget(value any) bool {
 		return true
 	}
 	checkpoint, ok := target["checkpoint"].(map[string]any)
-	return ok && exactMap(checkpoint, "writeFormat", "readFormats", "maxBytes")
+	return ok && validCheckpointShape(checkpoint)
 }
 
 func validManifestRawInputs(inputs []any) bool {
@@ -333,7 +334,7 @@ func validInputs(values []Input) bool {
 
 func validCheckpoint(value Checkpoint) bool {
 	if value.MaxBytes <= 0 || !tokenPattern.MatchString(value.WriteFormat) ||
-		!sortedTokens(value.ReadFormats, false) {
+		!sortedTokens(value.ReadFormats, false) || !validCheckpointSemantics(value.Semantics) {
 		return false
 	}
 	for _, format := range value.ReadFormats {

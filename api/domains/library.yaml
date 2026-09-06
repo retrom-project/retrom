@@ -189,7 +189,7 @@ paths:
   /api/v1/saves:
     get:
       operationId: getSaves
-      description: Save states whose games belong to enabled platform directories. Each owner-filtered item includes its base platform, platform directory, locked core, payload sizeBytes, availability, screenshot URL and nullable discIndex/discLabel; generatedAtMs gives grouped save views a stable response clock.
+      description: Save states whose games belong to enabled platform directories. Each owner-filtered item includes its base platform, platform directory, locked core, payload sizeBytes, availability, screenshot URL and nullable discIndex/discLabel; generatedAtMs gives grouped save views a stable response clock. Native data slots include nullable lastSyncedAtMs; ordering and cursor times use lastSyncedAtMs when present, otherwise createdAtMs.
       parameters:
         - $ref: ../components/common.yaml#/components/parameters/Q
         - $ref: '#/components/parameters/GameIDQuery'
@@ -786,6 +786,11 @@ components:
         createdAtMs:
           type: integer
           format: int64
+          minimum: 0
+        lastSyncedAtMs:
+          type: integer
+          format: int64
+          nullable: true
           minimum: 0
         sizeBytes:
           type: integer

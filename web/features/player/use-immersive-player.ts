@@ -29,8 +29,9 @@ type Params = {
   pausedRef: MutableRefObject<boolean>;
   running: boolean;
   setPaused: Dispatch<SetStateAction<boolean>>;
-  exitStrict: () => Promise<void>;
+  exitStrict: () => Promise<void | boolean>;
   saveAvailable: boolean;
+  nativeSync?: boolean;
   saveGame: () => Promise<boolean>;
   beforeMenuPause: () => void;
   onFatalError: (message: string) => void;
@@ -105,20 +106,20 @@ export function useImmersivePlayer(params: Params) {
       updateOverlay({ ...current, error: "当前游戏无法创建可恢复存档。", notice: "" });
       return;
     }
-    updateOverlay({ ...current, error: "", notice: "正在创建存档…", pending: true });
+    updateOverlay({ ...current, error: "", notice: params.nativeSync ? "正在重试本地暂存…" : "正在创建存档…", pending: true });
     void saveGame().then((saved) => {
       const latest = overlayRef.current;
       if (latest.kind !== "menu") {return;}
       updateOverlay(saved
-        ? { ...latest, error: "", notice: "存档已创建。", pending: false }
-        : { ...latest, error: "创建存档失败，请重试。", notice: "", pending: false });
+        ? { ...latest, error: "", notice: params.nativeSync ? "游戏数据已暂存在此浏览器。" : "存档已创建。", pending: false }
+        : { ...latest, error: params.nativeSync ? "本地暂存失败，请重试。" : "创建存档失败，请重试。", notice: "", pending: false });
     }).catch(() => {
       const latest = overlayRef.current;
       if (latest.kind === "menu") {
-        updateOverlay({ ...latest, error: "创建存档失败，请重试。", notice: "", pending: false });
+        updateOverlay({ ...latest, error: params.nativeSync ? "本地暂存失败，请重试。" : "创建存档失败，请重试。", notice: "", pending: false });
       }
     });
-  }, [saveAvailable, saveGame, updateOverlay]);
+  }, [params.nativeSync, saveAvailable, saveGame, updateOverlay]);
 
   const runSelectedMenuAction = useCallback(() => {
     const current = overlayRef.current;
@@ -126,7 +127,9 @@ export function useImmersivePlayer(params: Params) {
     if (current.selected === 0) {beginClose("menu"); return;}
     if (current.selected === 1) {saveFromMenu(current); return;}
     updateOverlay({ ...current, error: "", notice: "正在退出游戏…", pending: true });
-    void exitStrictRef.current().catch(() => {
+    void exitStrictRef.current().then((exited) => {
+      if (exited === false) {beginClose("menu");}
+    }).catch(() => {
       const failed = overlayRef.current;
       if (failed.kind === "menu") {
         updateOverlay({ ...failed, error: "退出失败。按 A 重试，或按 B 继续游戏。", notice: "", pending: false });

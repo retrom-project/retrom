@@ -1,5 +1,7 @@
 /* This shell mounts only for phones. Shared desktop and TV selectors stay untouched. */
 .phone-app-frame { min-height: 100dvh; color: var(--ink); background: #f5f3ef; }
+.local-game-save-notice:has(~ .phone-app-frame) { bottom: calc(80px + env(safe-area-inset-bottom)); }
+.local-game-save-notice:has(~ .phone-app-frame) > .button { min-height: 44px; }
 .phone-app-header { min-height: calc(56px + env(safe-area-inset-top)); padding: env(safe-area-inset-top) max(16px, env(safe-area-inset-right)) 0 max(16px, env(safe-area-inset-left)); display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .phone-brand, .phone-back { min-height: 44px; display: flex; align-items: center; gap: 10px; }
 .phone-brand strong { font-size: 19px; letter-spacing: -.5px; }

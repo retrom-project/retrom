@@ -556,7 +556,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description Save states whose games belong to enabled platform directories. Each owner-filtered item includes its base platform, platform directory, locked core, payload sizeBytes, availability, screenshot URL and nullable discIndex/discLabel; generatedAtMs gives grouped save views a stable response clock. */
+        /** @description Save states whose games belong to enabled platform directories. Each owner-filtered item includes its base platform, platform directory, locked core, payload sizeBytes, availability, screenshot URL and nullable discIndex/discLabel; generatedAtMs gives grouped save views a stable response clock. Native data slots include nullable lastSyncedAtMs; ordering and cursor times use lastSyncedAtMs when present, otherwise createdAtMs. */
         get: operations["getSaves"];
         put?: never;
         post?: never;
@@ -582,6 +582,25 @@ export interface paths {
         options?: never;
         head?: never;
         patch: operations["patchSave"];
+        trace?: never;
+    };
+    "/api/v1/launches/{launchId}/local-save": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                launchId: components["parameters"]["LaunchID"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Explicitly submits a browser-local GAME_SAVE draft for an owned Product launch. Requires current account authentication and CSRF; ACTIVE, FINISHED and EXPIRED launches are accepted, while revoked, foreign, review and non-native launches are rejected. The server derives the original save binding and expected data version from the launch, never from client metadata. No payload is stored until this request. Existing checkpoint validation, multipart limits, idempotency and stale/deleted-save conflict checks apply. */
+        post: operations["postLocalGameSave"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/v1/launches": {
@@ -2645,7 +2664,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Creates either a product SaveState or replaces the temporary checkpoint of an ordinary review preview. The metadata is strict RuntimeCheckpointMetadata JSON; Provider identity, Target compatibility, checkpoint format and dependency bindings are validated against the immutable Launch snapshot. Total multipart input is capped at 270 MiB only on this route. */
+        /** @description Creates a product SaveState for INSTANT checkpoints, synchronizes the launch-bound mutable slot for GAME_SAVE, or replaces a review preview checkpoint. GAME_SAVE creates at most one slot for a fresh launch and updates the selected slot for restored launches; screenshot is required, identical payloads are deduplicated, and stale/deleted targets return SAVE_SYNC_CONFLICT (409). The successful response remains 201 for both creation and synchronization. The metadata is strict RuntimeCheckpointMetadata JSON; Provider identity, Target compatibility, checkpoint format and dependency bindings are validated against the immutable Launch snapshot. Total multipart input is capped at 270 MiB only on this route. */
         post: operations["postRuntimeSaveState"];
         delete?: never;
         options?: never;
@@ -3339,6 +3358,8 @@ export interface components {
             /** Format: int64 */
             createdAtMs: number;
             /** Format: int64 */
+            lastSyncedAtMs?: number | null;
+            /** Format: int64 */
             sizeBytes: number;
             discIndex: number | null;
             screenshotUrl: string | null;
@@ -3594,6 +3615,11 @@ export interface components {
                     frameMode: "NONE" | "SAME_ORIGIN_BLANK" | "SAME_ORIGIN_RESOURCE" | "ISOLATED_ORIGIN_RESOURCE";
                 };
                 checkpoint: {
+                    /**
+                     * @description Omission means INSTANT. GAME_SAVE preserves native game save data and may require in-game save/load menus.
+                     * @enum {unknown}
+                     */
+                    semantics?: "INSTANT" | "GAME_SAVE";
                     writeFormat: string;
                     readFormats: string[];
                     maxBytes: number;
@@ -5414,7 +5440,7 @@ export interface components {
             year?: unknown;
         };
         /** @enum {string} */
-        RpgErrorCode: "RPG_CORE_UNSUPPORTED" | "RPG_PROJECT_NOT_FOUND" | "RPG_PROJECT_ROOT_AMBIGUOUS" | "RPG_GENERATION_AMBIGUOUS" | "RPG_GENERATION_UNSUPPORTED" | "RPG_SELECTED_CORE_MISMATCH" | "RPG_SERVER_IMPORT_UNSUPPORTED" | "RPG_LCF_INVALID" | "RPG_LCF_GENERATION_UNKNOWN" | "RPG_LMT_INVALID" | "RPG_INI_INVALID" | "RPG_INI_ENCODING_UNSUPPORTED" | "RPG_RGSS_GENERATION_CONFLICT" | "RPG_WEB_FORMAT_INVALID" | "RPG_RGSS_CONTENT_TOO_LARGE" | "RPG_PATH_COLLISION" | "RPG_NATIVE_DEPENDENCY_UNSUPPORTED" | "RPG_RUNTIME_PACK_MISSING" | "RPG_RUNTIME_PACK_AMBIGUOUS" | "RPG_RUNTIME_PACK_IN_USE" | "RPG_RUNTIME_PACK_INVALID" | "RPG_RUNTIME_PACK_CONFLICT" | "RPG_RUNTIME_PACK_NOT_FOUND" | "RPG_RUNTIME_PACK_TOO_LARGE" | "RPG_RUNTIME_PACK_UNAVAILABLE" | "RPG_RUNTIME_PACK_VERSION_CONFLICT" | "RPG_RUNTIME_ROUTE_UNAVAILABLE" | "RPG_RUNTIME_THREADS_UNAVAILABLE" | "RPG_RUNTIME_OPFS_UNAVAILABLE" | "RPG_NATIVE_BRIDGE_UNSUPPORTED" | "RPG_RUNTIME_INVALID_STATE" | "RPG_RUNTIME_PROTOCOL_VIOLATION" | "RPG_RUNTIME_TIMEOUT" | "RPG_RUNTIME_CONTENT_MISMATCH" | "RPG_CHECKPOINT_UNAVAILABLE" | "RPG_CHECKPOINT_INVALID" | "RPG_CHECKPOINT_INCOMPATIBLE" | "RPG_CHECKPOINT_RESTORE_FAILED" | "RPG_RUNTIME_BOOTSTRAP_EXPIRED" | "RPG_RUNTIME_SCREENSHOT_INVALID";
+        RpgErrorCode: "RPG_CORE_UNSUPPORTED" | "RPG_PROJECT_NOT_FOUND" | "RPG_PROJECT_ROOT_AMBIGUOUS" | "RPG_GENERATION_AMBIGUOUS" | "RPG_GENERATION_UNSUPPORTED" | "RPG_SELECTED_CORE_MISMATCH" | "RPG_SERVER_IMPORT_UNSUPPORTED" | "RPG_LCF_INVALID" | "RPG_LCF_GENERATION_UNKNOWN" | "RPG_LMT_INVALID" | "RPG_INI_INVALID" | "RPG_INI_ENCODING_UNSUPPORTED" | "RPG_RGSS_GENERATION_CONFLICT" | "RPG_WEB_FORMAT_INVALID" | "RPG_RGSS_CONTENT_TOO_LARGE" | "RPG_PATH_COLLISION" | "RPG_NATIVE_DEPENDENCY_UNSUPPORTED" | "RPG_RUNTIME_PACK_MISSING" | "RPG_RUNTIME_PACK_AMBIGUOUS" | "RPG_RUNTIME_PACK_IN_USE" | "RPG_RUNTIME_PACK_INVALID" | "RPG_RUNTIME_PACK_CONFLICT" | "RPG_RUNTIME_PACK_NOT_FOUND" | "RPG_RUNTIME_PACK_TOO_LARGE" | "RPG_RUNTIME_PACK_UNAVAILABLE" | "RPG_RUNTIME_PACK_VERSION_CONFLICT" | "RPG_RUNTIME_ROUTE_UNAVAILABLE" | "RPG_RUNTIME_THREADS_UNAVAILABLE" | "RPG_RUNTIME_OPFS_UNAVAILABLE" | "RPG_NATIVE_BRIDGE_UNSUPPORTED" | "RPG_RUNTIME_INVALID_STATE" | "RPG_RUNTIME_PROTOCOL_VIOLATION" | "RPG_RUNTIME_TIMEOUT" | "RPG_RUNTIME_CONTENT_MISMATCH" | "SAVE_SYNC_CONFLICT" | "RPG_CHECKPOINT_UNAVAILABLE" | "RPG_CHECKPOINT_INVALID" | "RPG_CHECKPOINT_INCOMPATIBLE" | "RPG_CHECKPOINT_RESTORE_FAILED" | "RPG_RUNTIME_BOOTSTRAP_EXPIRED" | "RPG_RUNTIME_SCREENSHOT_INVALID";
         RpgError: {
             code: components["schemas"]["RpgErrorCode"];
             message: string;
@@ -7212,6 +7238,36 @@ export interface operations {
         requestBody: components["requestBodies"]["RenameSave"];
         responses: {
             200: components["responses"]["JSONResponse"];
+        };
+    };
+    postLocalGameSave: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                launchId: components["parameters"]["LaunchID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /** @description UTF-8 JSON serialized from RuntimeCheckpointMetadata; duplicate or unknown JSON fields are rejected. */
+                    metadata: string;
+                    /** Format: binary */
+                    payload: string;
+                    /** Format: binary */
+                    screenshot?: string;
+                };
+            };
+        };
+        responses: {
+            201: components["responses"]["RuntimeCheckpointCreateResponse"];
+            409: components["responses"]["RpgConflictResponse"];
+            413: components["responses"]["RequestTooLargeResponse"];
+            422: components["responses"]["RpgUnprocessableResponse"];
         };
     };
     postLaunch: {

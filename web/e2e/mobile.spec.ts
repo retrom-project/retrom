@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import axe from "axe-core";
+import { expectMobileLocalDraftNotice } from "./mobile-local-draft";
 import { evidencePath, expectNoTextArrowsInInteractiveControls } from "./acceptance-support";
 
 declare global {
@@ -167,6 +168,14 @@ test("ACC-MOB-002 user routes, filter sheet, active navigation and accessibility
     const personalOptions = route === "/favorites" ? "整理与排序" : route === "/saves" ? "筛选存档" : route === "/recent" ? "筛选与排序" : null;
     if (personalOptions) {
       const disclosure = page.locator(".phone-disclosure");
+      if (route === "/recent") {
+        const empty = page.getByRole("heading", { name: "还没有游玩记录" });
+        await expect(disclosure.or(empty)).toBeVisible();
+        if (await empty.isVisible()) {
+          await expect(disclosure).toHaveCount(0);
+          continue;
+        }
+      }
       await expect(disclosure).not.toHaveAttribute("open", "");
       await disclosure.getByText(personalOptions, { exact: true }).click();
       await expect(disclosure.getByRole("combobox").first()).toBeVisible();
@@ -200,6 +209,7 @@ test("ACC-MOB-002 user routes, filter sheet, active navigation and accessibility
   await expect(page.getByRole("link", { name: /最近游玩/ })).toBeVisible();
   await expect(page.locator('a[href^="/admin"]')).toHaveCount(0);
   await expectMinimumTargets(page, ".phone-profile-links > a, .phone-profile-links > button");
+  await expectMobileLocalDraftNotice(page);
 
   await page.evaluate(axe.source);
   const serious = await page.evaluate(async () => {

@@ -3,6 +3,7 @@
 package launch
 
 import (
+	"archive/zip"
 	"bytes"
 	"context"
 	"crypto/sha256"
@@ -24,10 +25,25 @@ import (
 	"retrom/internal/uploads"
 )
 
-func TestWASM4SingleCartReviewPublishesProductLaunch(t *testing.T) {
-	if os.Getenv("RETROM_PFB_ID") == "" {
-		t.Skip("WASM-4 is a PFB candidate until its first formal runtime release")
+type singleBlobCase struct {
+	platform string
+	target   string
+	kind     string
+	filename string
+	bytes    []byte
+}
+
+func TestSingleBlobReviewPublishesProductLaunch(t *testing.T) {
+	cases := []singleBlobCase{
+		{"wasm4", "wasm4", "WASM4_CART", "Pong.wasm", []byte{0, 0x61, 0x73, 0x6d, 1, 0, 0, 0}},
+		{"j2me", "j2me", "ROM_BLOB", "Sample.jar", j2meImportFixture(t)},
 	}
+	for _, input := range cases {
+		t.Run(input.platform, func(t *testing.T) { verifySingleBlobReview(t, input) })
+	}
+}
+
+func verifySingleBlobReview(t *testing.T, input singleBlobCase) {
 	ctx := context.Background()
 	dataDir := t.TempDir()
 	database, err := testsupport.OpenDatabase(ctx, filepath.Join(dataDir, "retrom.db"), time.Now)
@@ -56,10 +72,9 @@ VALUES(?,'wasm4-profile','wasm4-admin','WASM-4 Admin','ADMIN','ENABLED',0,0);
 	if err != nil {
 		t.Fatal(err)
 	}
-	// The deterministic fallback exercises the HTTP/domain pipeline. An opt-in
-	// acceptance run may point at one of the separately licensed real cartridges.
-	cart := []byte{0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00}
-	if cartPath := os.Getenv("RETROM_WASM4_TEST_CART"); cartPath != "" {
+	// These owned byte fixtures verify the domain pipeline; browser acceptance uses executable games.
+	cart := input.bytes
+	if cartPath := os.Getenv("RETROM_WASM4_TEST_CART"); input.platform == "wasm4" && cartPath != "" {
 		cart, err = os.ReadFile(cartPath)
 		if err != nil {
 			t.Fatal(err)
@@ -68,7 +83,7 @@ VALUES(?,'wasm4-profile','wasm4-admin','WASM-4 Admin','ADMIN','ENABLED',0,0);
 	uploadService := uploads.New(database.SQL, blobs, dataDir, time.Now)
 	upload, err := uploadService.Create(ctx, uploads.CreateRequest{
 		SourceType: "FILES", Files: []uploads.FileDeclaration{{
-			ClientFileID: "pong", RelativePath: "Pong.wasm", SizeBytes: int64(len(cart)),
+			ClientFileID: "pong", RelativePath: input.filename, SizeBytes: int64(len(cart)),
 		}},
 	})
 	if err != nil {
@@ -95,7 +110,7 @@ VALUES(?,'wasm4-profile','wasm4-admin','WASM-4 Admin','ADMIN','ENABLED',0,0);
 	importService := libraryimport.New(database.SQL, time.Now)
 	createdImport, err := importService.Create(ctx, libraryimport.CreateRequest{
 		UploadID:                 upload.ID,
-		TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(t, database.SQL, "wasm4/wasm4"),
+		TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(t, database.SQL, input.platform+"/"+input.platform),
 		MetadataProvider:         "NONE",
 	})
 	if err != nil {
@@ -120,7 +135,7 @@ VALUES(?,'wasm4-profile','wasm4-admin','WASM-4 Admin','ADMIN','ENABLED',0,0);
 		WithRuntimeProvider(dependencySet.RuntimeCatalog, runtimeBuilder)
 	preview, err := service.CreateReviewPreview(ctx, ReviewPreviewRequest{
 		ImportItemID: itemID, ActorUserID: actorID, IdempotencyKey: "wasm4-preview-1",
-		ClientCapabilities: Capabilities{SecureContext: true},
+		ClientCapabilities: Capabilities{SecureContext: true, CrossOriginIsolated: true, SharedArrayBuffer: true},
 	})
 	if err != nil {
 		t.Fatalf("CreateReviewPreview(WASM-4)=%#v, %v", preview, err)
@@ -133,12 +148,12 @@ VALUES(?,'wasm4-profile','wasm4-admin','WASM-4 Admin','ADMIN','ENABLED',0,0);
 	previewSession := testsupport.RuntimeEnvelopeObject(t, previewEnvelope, "session")
 	previewRuntime := testsupport.RuntimeEnvelopeObject(t, previewEnvelope, "runtime")
 	previewCart := testsupport.RuntimeEnvelopeResource(t, previewEnvelope, "game")
-	if previewSession["purpose"] != "REVIEW_PREVIEW" || previewRuntime["targetId"] != "wasm4" ||
-		previewCart["kind"] != "WASM4_CART" || previewCart["sizeBytes"] != int64(len(cart)) {
+	if previewSession["purpose"] != "REVIEW_PREVIEW" || previewRuntime["targetId"] != input.target ||
+		previewCart["kind"] != input.kind || previewCart["sizeBytes"] != int64(len(cart)) {
 		t.Fatalf("WASM-4 preview envelope=%#v", previewEnvelope)
 	}
 	previewContent, err := service.ReviewPreviewContent(
-		ctx, preview.PreviewID, preview.Capability, "Pong.wasm",
+		ctx, preview.PreviewID, preview.Capability, input.filename,
 	)
 	if err != nil || previewContent.Digest != base64DigestHex(digest) || previewContent.Format != "SOURCE_V1" {
 		t.Fatalf("ReviewPreviewContent(WASM-4)=%#v, %v", previewContent, err)
@@ -161,7 +176,7 @@ VALUES(?,'wasm4-profile','wasm4-admin','WASM-4 Admin','ADMIN','ENABLED',0,0);
 	}
 	created, err := service.Create(ctx, "wasm4-profile", CreateRequest{
 		GameID: approved.GameID, ReturnTo: "/games/" + approved.GameID,
-		ClientCapabilities: Capabilities{SecureContext: true},
+		ClientCapabilities: Capabilities{SecureContext: true, CrossOriginIsolated: true, SharedArrayBuffer: true},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -174,12 +189,12 @@ VALUES(?,'wasm4-profile','wasm4-admin','WASM-4 Admin','ADMIN','ENABLED',0,0);
 	productSession := testsupport.RuntimeEnvelopeObject(t, productEnvelope, "session")
 	productRuntime := testsupport.RuntimeEnvelopeObject(t, productEnvelope, "runtime")
 	productCart := testsupport.RuntimeEnvelopeResource(t, productEnvelope, "game")
-	if productSession["purpose"] != "PRODUCT" || productRuntime["targetId"] != "wasm4" ||
+	if productSession["purpose"] != "PRODUCT" || productRuntime["targetId"] != input.target ||
 		productCart["sha256"] != base64DigestHex(digest) || productCart["sizeBytes"] != int64(len(cart)) ||
 		productCart["url"] == "" || productEnvelope["restore"] != nil {
 		t.Fatalf("WASM-4 product envelope=%#v", productEnvelope)
 	}
-	servedDigest, err := service.ContentBlob(ctx, created.LaunchID, created.Capability, "Pong.wasm")
+	servedDigest, err := service.ContentBlob(ctx, created.LaunchID, created.Capability, input.filename)
 	if err != nil || servedDigest != base64DigestHex(digest) {
 		t.Fatalf("ContentBlob(WASM-4)=%q, %v", servedDigest, err)
 	}
@@ -201,4 +216,21 @@ func waitForWASM4Job(t *testing.T, database *sql.DB, jobID string) {
 		}
 		time.Sleep(10 * time.Millisecond)
 	}
+}
+
+func j2meImportFixture(t *testing.T) []byte {
+	t.Helper()
+	var output bytes.Buffer
+	archive := zip.NewWriter(&output)
+	manifest, err := archive.Create("META-INF/MANIFEST.MF")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := manifest.Write([]byte("Manifest-Version: 1.0\r\nMIDlet-Name: Owned import fixture\r\nMIDlet-Vendor: Retrom\r\nMIDlet-Version: 1.0.0\r\n\r\n")); err != nil {
+		t.Fatal(err)
+	}
+	if err := archive.Close(); err != nil {
+		t.Fatal(err)
+	}
+	return output.Bytes()
 }
