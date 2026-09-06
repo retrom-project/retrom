@@ -612,6 +612,8 @@ make acceptance-case CASE=<case-id>
 - 通过标准：本地目录的产品确认只在 Retrom Dialog 内完成，Chrome / Edge 的目录句柄路径不触发“上传 N 个文件到此网站”的浏览器二次确认；Brave 未开放该 API 时自动回退 `webkitdirectory` 并允许其原生安全确认。两条路径中未确认文件都不进入配置步骤，Dialog 都保留以根目录开头的相对路径并满足焦点圈定与返回焦点；第一批次不物化无需的 member；第二批次不重复 ArchiveEntry，`materialized_blob_id` 只从 NULL 提升一次，物化 Blob 的 size/四种 hash 等于 entry/fixtures manifest，尝试改回 NULL、替换 Blob 或修改 entry hash 均被数据库拒绝。审核前 DOS 目录形成可追溯 source manifest/程序候选和确定性 ValidationFile，GBA 原 ZIP Blob/ArchiveEntry 保留，且没有提前创建 GameFiles。Approve 后 GameFiles 的 DOS_SOURCE/CONTENT 与来源 pair 正确，GameVariant 直接引用 GameFiles并复制已验证派生文件；浏览器启动不临时猜 ZIP 入口，审批事务不读 archive/重新打包。
 - 证据：审核前 Item/Validation/ValidationFile，发布后的 GameFiles 文件表、来源 archive/entry 与物化 Blob hash、实际 GameVariant 对 GameFiles 的引用。
 
+Mega Drive 导入回归另用测试内生成的非游戏 payload，经服务器来源交接导入原始 `.SMD`/`.BIN` 与 ZIP 内唯一 `.SMD`/`.BIN`，均应进入 `genesis_plus_gx` 的普通审核且逻辑文件名、内容 SHA-256 保持不变。content profile 单测同时覆盖 `.smd`/`.bin` 大小写、ZIP/7z 策略与 `.md`/`.smd`/`.bin` 多候选拒绝；此确定性回归只证明导入规则与内容保真，不替代实际 Player 的核心运行验证。
+
 ### ACC-IMP-003：三种 Hash profile 不混用
 
 - 上限：180 秒。

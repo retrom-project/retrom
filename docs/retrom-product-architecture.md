@@ -301,7 +301,7 @@ erDiagram
 | Atari 5200 (`atari5200`) | `a5200` | Atari 5200 游戏 → `a5200` | `.a52`；需要 `5200.rom` |
 | Atari 7800 (`atari7800`) | `prosystem` | Atari 7800 游戏 → `prosystem` | `.a78`；需要 `7800 BIOS (U).rom` |
 | Atari Lynx (`lynx`) | `handy` | Atari Lynx 游戏 → `handy` | `.lnx`；需要 `lynxboot.img` |
-| Mega Drive / Genesis (`megadrive`) | `genesis_plus_gx`、`picodrive`、`genesis_plus_gx_wide` | Mega Drive 游戏 → `genesis_plus_gx` | `.md`；Wide 为可选核心，不另建目录 |
+| Mega Drive / Genesis (`megadrive`) | `genesis_plus_gx`、`picodrive`、`genesis_plus_gx_wide` | Mega Drive 游戏 → `genesis_plus_gx` | `.md`、`.smd`、`.bin`；Wide 为可选核心，不另建目录 |
 | PC Engine (`pce`) | `mednafen_pce` | PC Engine 游戏 → `mednafen_pce` | `.pce` |
 | Neo Geo Pocket / Color (`ngpc`) | `mednafen_ngp` | Neo Geo Pocket 游戏 → `mednafen_ngp` | `.ngp` |
 | Nintendo 64 (`n64`) | `mupen64plus_next`、`parallel_n64` | Nintendo 64 游戏 → `mupen64plus_next` | `.z64`；产品 ID 只使用 `parallel_n64` |
