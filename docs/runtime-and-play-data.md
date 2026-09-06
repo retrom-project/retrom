@@ -81,6 +81,8 @@ Checkpoint 对 Host 是不透明字节。Target declaration 的 `writeFormat`、
 
 `save_states` 只绑定 Profile、Game、checkpoint format、payload、可选截图/DOS 路径/disc index 和来源 Launch，不冻结 Provider 版本或 Variant。恢复时使用游戏当前默认或显式 Core 的 READY Variant；只要当前 Target 的 `readFormats` 包含该格式即可恢复。Provider 升级应继续声明仍受支持的旧格式；删除已被存档引用的可读格式会被安装门禁拒绝。不存在为了恢复而加载旧 Provider 的路径。
 
+Provider 可在存档边界无损压缩完整原生 checkpoint，格式仍由 Target declaration 明确声明；解码后也必须满足大小上限。Host 存储、上传进度与界面显示的存档大小均使用实际 payload 字节数，不推算核心解压后的内存大小。
+
 普通与沉浸模式使用相同的受保护存档 HTTP 端点和 capability cookie；iframe/frame 内的请求通过明确的 credential 策略发送，不能依赖应用页 Cookie 偶然透传。
 
 ## 7. 审核试运行
