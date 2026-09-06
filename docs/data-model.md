@@ -1,10 +1,10 @@
 # Retrom 数据模型
 
-字段、CHECK、FK、索引与 trigger 的逐字节事实源是 `migrations/001_identity.sql` 至 `migrations/011_game_save_sync.sql`；本文只描述稳定领域关系。HTTP 字段以 `api/openapi.yaml` 的统一 bundle 为准。
+字段、CHECK、FK、索引与 trigger 的逐字节事实源是 `migrations/001_identity.sql` 至 `migrations/012_game_save_sync.sql`；本文只描述稳定领域关系。HTTP 字段以 `api/openapi.yaml` 的统一 bundle 为准。
 
 ## 1. 基线
 
-- 001–010 是已验证的 current-state bootstrap 基线。RMS 自动同步需要保留现有游戏和存档，因此从 011 开始采用只追加的兼容向前升级；011 仅添加字段、会话绑定和约束，不重建或删除已有表。每次迁移同时验证空库和含数据的升级路径，不提供降级、回滚、双写或运行时 schema 修补。不兼容的开发库变更仍须单独停机归档并重建。
+- 001–010 是冻结的 current-state bootstrap；011 起可追加兼容扩展，新增表和原子替换领域 trigger，不转换或删除现有 payload 表、不关闭外键。已有且 checksum 完全匹配的 001–010 数据库可原地升级。不兼容的开发库仍须停机归档并使用空数据根重建；不提供降级、回滚、双写或运行时 schema 修补。
 - 业务主键使用 UUIDv7，摘要使用 64 位小写 SHA-256，时刻使用 Unix 毫秒 `INTEGER`。
 - 当前业务状态原位更新并推进 `version`；需要追踪的历史进入 audit、event、job input、来源快照和验证证据，不为 metadata、content、Variant 建平行业务版本树。
 - 数据库不保存 Launch 明文 capability、Cookie、CSRF token、用户主机绝对路径或 Provider 私有实现映射。
@@ -60,6 +60,14 @@ RPG Maker profile 保存实际检测得到的项目 fingerprint、generation、P
 
 审核临时 checkpoint 使用会话级存储，一份 preview 保留当前临时 payload，格式及 Blob 关系明确。恢复 preview 冻结自己的恢复输入，不跟随原 preview 后续覆盖。已关闭会话的临时 checkpoint 可在审核未结束且未到期时用于恢复；过期或审核 payload 释放时清理。临时存档不是审批/升级门槛，不引入原会话、恢复会话或人工确认的附加状态机。
 
+### 批次丢弃与服务器上传归属
+
+`import_batch_discards` 对 `(kind,import_id)` 只保留一个当前处置，kind 为普通导入、Pegasus 或 EmulationStation。`REQUESTED → COMPLETED|FAILED`，失败可回到 REQUESTED；记录请求管理员、错误码和毫秒时间，不增加试玩 revision 或按运行次数累积记录。来源批次由服务校验；请求落库即通过 `discarded_import_jobs` 视图及 trigger 阻止该批次再次发布、重试导入。
+
+`server_import_upload_owners` 将内部 UploadSession 唯一关联到一个来源 Item，与内部上传同事务创建，覆盖“创建内部导入后、尚未交接审核前”的中断和不支持格式分支。UploadSession 删除级联移除此归属；该表仅记录身份，不增加 Blob 引用。旧来源按确定性上传 ID 恢复；旧 Pegasus 随机 ID 仅在完整文件集合、目标和执行时间以及内部 manifest 摘要唯一匹配时恢复，歧义保留数据并报错。
+
+批量处置中的真实待审核 Item 通过正常 Discard 事务生成审核决定。未产生审核的失败来源也可进入 `REVIEW_DISCARDED`，由批次处置作为证据，保留原错误码和详情，不伪造 ReviewEvent。PUBLISHED/SKIPPED_EXISTING 不进入该转换；普通导入被取消的执行项与拒绝文件保留原终态及失败证据。引用释放仍以现有 payload state 和 release job 为唯一事实源。
+
 ## 6. Launch 与资源冻结
 
 `launch_sessions` 保存 Game/Core、稳定 Provider/Target、冻结 `bundle_sha256`、内容类型、依赖 snapshot、兼容状态、可选 save/netplay owner、凭据摘要和生命周期。`launch_content_files` 与 `launch_external_files` 锁定本次内容、BIOS、parent 和 disc Blob；创建后 Game、Variant、DAT、BIOS 或 Provider 当前态变化都不能改写既有 Launch。
@@ -102,9 +110,9 @@ Game 内容替换会立即移除旧 Game-owned 与 Game-runtime-owned 边；BIOS
 
 ### 原生游戏数据存档
 
-`save_states` 的 `data_version` 只随原生数据更新递增，与包含重命名的通用 `version` 分开；`last_synced_at_ms`
-为空表示此前未采用自动覆盖同步，`last_writer_launch_session_id` 关联最近实际写入的 Launch。
-`source_launch_session_id`、ID、名称与创建时间在自动覆盖中保持不变。显示/分页按 `COALESCE(last_synced_at_ms,created_at_ms)`。
+`game_save_versions` 按 `save_state_id` 关联 `save_states`，其 `data_version` 只随原生数据更新递增，与包含重命名的通用 `version` 分开；`last_synced_at_ms`
+为空表示此前未提交原生数据，`last_writer_launch_session_id` 关联最近实际写入的 Launch。
+`source_launch_session_id`、ID、名称与创建时间在确认覆盖中保持不变。显示/分页按 `COALESCE(last_synced_at_ms,created_at_ms)`。
 
 `launch_game_save_bindings` 只绑定声明 `GAME_SAVE` 的 Product Launch，记录目标、预期数据版本、初始累计时长与冻结恢复 Blob。
 无存档启动的绑定目标为空且预期版本为 0，首次同步创建并绑定；目标删除后保留非零版本，以禁止错误重建。

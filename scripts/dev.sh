@@ -272,14 +272,6 @@ if [[ "$mode" == "--stop" ]]; then
   exit 0
 fi
 
-if [[ ! -v RETROM_SERVER_IMPORT_ROOTS ]]; then
-  default_bios_import_root="$repository_root/.dev-data/bios"
-  default_rom_import_root="$repository_root/.dev-data/roms"
-  mkdir -p -- "$default_bios_import_root" "$default_rom_import_root"
-  RETROM_SERVER_IMPORT_ROOTS="$(python3 -c 'import json, sys; print(json.dumps([{"id": "local-bios", "label": "本地 BIOS", "path": sys.argv[1]}, {"id": "local-roms", "label": "本地 ROM", "path": sys.argv[2]}], ensure_ascii=False, separators=(",", ":")))' "$default_bios_import_root" "$default_rom_import_root")"
-  export RETROM_SERVER_IMPORT_ROOTS
-fi
-
 process_start_ticks="$(read_start_ticks "$$")"
 setsid env -u RETROM_MODE -u RETROM_DEV_STATE_DIR go run ./cmd/retrom --mode="$auth_mode" &
 backend_pid=$!

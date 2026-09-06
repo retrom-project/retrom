@@ -301,7 +301,7 @@ erDiagram
 | Atari 5200 (`atari5200`) | `a5200` | Atari 5200 游戏 → `a5200` | `.a52`；需要 `5200.rom` |
 | Atari 7800 (`atari7800`) | `prosystem` | Atari 7800 游戏 → `prosystem` | `.a78`；需要 `7800 BIOS (U).rom` |
 | Atari Lynx (`lynx`) | `handy` | Atari Lynx 游戏 → `handy` | `.lnx`；需要 `lynxboot.img` |
-| Mega Drive / Genesis (`megadrive`) | `genesis_plus_gx`、`picodrive`、`genesis_plus_gx_wide` | Mega Drive 游戏 → `genesis_plus_gx` | `.md`；Wide 为可选核心，不另建目录 |
+| Mega Drive / Genesis (`megadrive`) | `genesis_plus_gx`、`picodrive`、`genesis_plus_gx_wide` | Mega Drive 游戏 → `genesis_plus_gx` | `.md`、`.smd`、`.bin`；Wide 为可选核心，不另建目录 |
 | PC Engine (`pce`) | `mednafen_pce` | PC Engine 游戏 → `mednafen_pce` | `.pce` |
 | Neo Geo Pocket / Color (`ngpc`) | `mednafen_ngp` | Neo Geo Pocket 游戏 → `mednafen_ngp` | `.ngp` |
 | Nintendo 64 (`n64`) | `mupen64plus_next`、`parallel_n64` | Nintendo 64 游戏 → `mupen64plus_next` | `.z64`；产品 ID 只使用 `parallel_n64` |
@@ -388,7 +388,7 @@ flowchart LR
 
 ### 8.2 BIOS 与 DAT
 
-服务器导入是一期管理能力：部署者用 `RETROM_SERVER_IMPORT_ROOTS` 建立只读宿主目录信任边界，浏览器只提交 root ID 与规范相对目录。BIOS 任务冻结当前产品 Core binding 闭包内全部 Provider Target 的完整 catalog，先完整发现和评估，再逐 Requirement 短事务安装；Pegasus 与 EmulationStation 任务都分为受限 metadata/facts 扫描、管理员逐 Collection 显式映射、逐游戏复制/运行检查/审核交接三阶段，不执行来源命令，也不按名称、扩展名或外部系统配置猜测目标游戏目录。EmulationStation 递归发现精确小写 `gamelist.xml`，每份有效文件形成一个 Collection，因此既支持所选目录下多个子目录各有一份清单，也支持单目录一份清单配多份游戏文件。
+服务器导入是一期管理能力：管理员可从服务器根目录浏览、选择服务进程有读取权限的目录，无需配置应用目录白名单；容器内可见范围由部署挂载决定。浏览器提交固定 root ID `filesystem` 与相对 `/` 的规范目录，导入只读取来源，不跟随符号链接或执行来源命令。BIOS 任务冻结当前产品 Core binding 闭包内全部 Provider Target 的完整 catalog，先完整发现和评估，再逐 Requirement 短事务安装；Pegasus 与 EmulationStation 任务都分为受限 metadata/facts 扫描、管理员逐 Collection 显式映射、逐游戏复制/运行检查/审核交接三阶段，不执行来源命令，也不按名称、扩展名或外部系统配置猜测目标游戏目录。EmulationStation 递归发现精确小写 `gamelist.xml`，每份有效文件形成一个 Collection，因此既支持所选目录下多个子目录各有一份清单，也支持单目录一份清单配多份游戏文件。
 
 两类游戏目录 Worker 都只生成普通 `REVIEW_PENDING` 事项，不创建 Game；管理员可在统一审核工作台修复或逐项决定，也可对当前筛选范围启动一次快速审批。快速审批只冻结并处理严格 `READY`、无内容重复、无活动补传且所有当前发布输入一致的条目；截图人工放行、重复内容和任何已漂移条目都不自动发布。每个成功项仍独占一个短发布事务，复用普通 Approve 的 Game/GameFiles/GameVariant/ReviewEvent 与来源聚合规则，并与批次结果原子记账。管理员可在审核详情用独立子窗体尽最大可能运行当前来源：现有 Parent/BIOS 会被锁定交付，缺失依赖被省略；READY 与阻断 Validation 都在通过普通 Player 按需写入截图。当前阻断截图与来源、目标、Provider Target 和 当前校验输入 一致时，可作为管理员逐项放行证据；发布的单机 Variant 保留 override 标记并继续最佳努力交付，Netplay 仍执行严格依赖门禁。外部 source 与原始 metadata 不属于 Retrom 数据根、CAS 或 backup；交接审核后的 ROM、封面和 VIDEO 已进入 CAS/backup，恢复时所有仍依赖外部 source 的任务必须失败收口。已创建的 Launch/Netplay 会话继续引用创建时物化的不可变资源与 Bundle；Game/GameVariant 只表达当前状态。详细领域、协议和页面契约分别见 [`bios-and-arcade.md`](./bios-and-arcade.md)、[`import-and-review.md`](./import-and-review.md)、[`http-api-contract.md`](./http-api-contract.md) 与 [`ui-specification.md`](./ui-specification.md)。
 

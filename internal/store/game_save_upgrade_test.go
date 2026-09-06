@@ -15,7 +15,7 @@ func TestGameSaveUpgradePreservesSavedDataAndBindsRunningLaunches(t *testing.T) 
 	old := openMigrationTestDatabase(t, path)
 	sources, err := migrationSources()
 	testassert.False(t, err != nil, err)
-	for _, source := range sources[:10] {
+	for _, source := range sources[:11] {
 		testassert.False(t, runMigration(t.Context(), old, source, time.Now) != nil, source.name)
 	}
 	seedCurrentRuntimeGraph(t, old)
@@ -42,7 +42,7 @@ func assertUpgradedGameSave(t *testing.T, database *sql.DB) {
 	var name, payload, format string
 	var created, version, dataVersion int64
 	var synced sql.NullInt64
-	err := database.QueryRowContext(t.Context(), `SELECT name,payload_blob_id,checkpoint_format,created_at_ms,version,data_version,last_synced_at_ms FROM save_states WHERE id='current-save'`).Scan(&name, &payload, &format, &created, &version, &dataVersion, &synced)
+	err := database.QueryRowContext(t.Context(), `SELECT name,payload_blob_id,checkpoint_format,created_at_ms,version,data_version,last_synced_at_ms FROM save_states save JOIN game_save_versions native ON native.save_state_id=save.id WHERE save.id='current-save'`).Scan(&name, &payload, &format, &created, &version, &dataVersion, &synced)
 	testassert.False(t, err != nil, err)
 	testassert.True(t, name == "Current save" && payload == "current-save-payload" && format == "state-v1" && created == 1 && version == 1 && dataVersion == 1 && !synced.Valid, "upgrade changed existing save")
 	var target, frozen string

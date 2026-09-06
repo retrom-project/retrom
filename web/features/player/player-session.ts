@@ -187,7 +187,7 @@ function finishStateUpload(
   if (!response.ok) {return rejectSave(params, payload.source === "GAME_SAVE"
     ? "游戏数据保存失败，本地草稿已保留" : "手动存档失败，服务器未创建不完整记录");}
   if (params.envelope.current?.session.purpose === "REVIEW_PREVIEW") {
-    notifyReviewCheckpoint(response.body, params.launchId);
+    notifyReviewCheckpoint(response.body, params.launchId, params.returnTo.current);
   }
   params.setSyncText("已同步"); params.setSyncTone("synced");
   params.showToast(payload.source === "GAME_SAVE" ? "游戏数据已保存" :

@@ -2,6 +2,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { mkdirSync } from "node:fs";
 import path from "node:path";
 import axe from "axe-core";
+import { selectServerSource, serverSourcePath } from "./server-directory-support";
 import {
   expect,
   test,
@@ -178,10 +179,8 @@ async function scanPublicSource(page: Page) {
     name: "从 gamelist.xml 准备审核事项",
   });
   await expect(drawer).toBeVisible();
-  await activateWithKeyboard(
-    drawer.getByRole("button", { name: /^EmulationStationPlayable$/ }),
-  );
-  await expect(drawer).toContainText("Pegasus BIOS / EmulationStationPlayable");
+  await selectServerSource(drawer, "EmulationStationPlayable", activateWithKeyboard);
+  await expect(drawer).toContainText(`服务器文件系统 / ${serverSourcePath("EmulationStationPlayable")}`);
   const created = page.waitForResponse((response) => {
     const url = new URL(response.url());
     return url.pathname === "/api/v1/admin/emulationstation-imports"

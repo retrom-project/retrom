@@ -33,21 +33,21 @@ export type BIOSFilters = {
   quick: BIOSQuickFilter;
 };
 
-const BIOS_BLOCKING = new Set(["MISSING", "MISSING_ENTRY", "INVALID"]);
+const BIOS_BLOCKING = new Set(["MISSING", "INVALID"]);
 
 export function isBIOSBlocking(item: BIOSRequirement) {
   return item.requirementMode !== "OPTIONAL" && BIOS_BLOCKING.has(item.status);
 }
 
 export function isBIOSAttention(item: BIOSRequirement) {
-  return isBIOSBlocking(item) || item.status === "HASH_WARNING";
+  return isBIOSBlocking(item) || ["HASH_WARNING", "MISSING_ENTRY"].includes(item.status);
 }
 
 export function summarizeBIOS(items: BIOSRequirement[]) {
   return {
     total: items.length,
     blocking: items.filter(isBIOSBlocking).length,
-    warnings: items.filter((item) => item.status === "HASH_WARNING").length,
+    warnings: items.filter((item) => ["HASH_WARNING", "MISSING_ENTRY"].includes(item.status)).length,
     ready: items.filter((item) => item.status === "MATCHED" || item.status === "SATISFIED_BY_CONTENT").length,
   };
 }

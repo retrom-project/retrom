@@ -135,7 +135,7 @@
 .import-workflow-chips .is-active { color: var(--purple-dark); border-color: #c9bff4; background: var(--purple-soft); }
 .import-task-list, .review-workflow-list, .review-history-list { overflow-x: auto; display: grid; gap: 10px; }
 .import-task-entry { min-width: 1120px; overflow: hidden; border: 1px solid var(--line); border-radius: 13px; background: white; }
-.import-task-card { min-height: 92px; padding: 14px 16px; display: grid; grid-template-columns: minmax(260px, 1.4fr) 92px minmax(230px, .95fr) minmax(160px, .65fr) 144px; align-items: center; gap: 18px; }
+.import-task-card { min-height: 92px; padding: 14px 16px; display: grid; grid-template-columns: minmax(220px, 1.4fr) 92px minmax(180px, .95fr) minmax(130px, .65fr) 264px; align-items: center; gap: 18px; }
 .import-task-card.has-error { box-shadow: inset 4px 0 #d75562; }
 .import-task-card > .status { justify-self: center; }
 .import-task-main { min-width: 0; }
@@ -153,8 +153,8 @@
 .import-task-next { min-width: 0; display: grid; gap: 3px; }
 .import-task-next strong { font-size: 11px; }
 .import-task-next small { color: var(--muted); overflow-wrap: anywhere; }
-.import-task-actions { min-width: 0; display: flex; justify-content: flex-end; gap: 8px; }
-.import-task-actions .button { min-width: 112px; }
+.import-task-actions { min-width: 0; display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
+.import-task-actions > .button { width: 144px; min-width: 144px; flex: 0 0 144px; white-space: nowrap; }
 .import-task-detail { padding: 14px 16px 16px; border-top: 1px solid var(--line); background: #fbfaf8; }
 .import-task-stages { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; }
 .import-task-stages > div { padding: 9px 10px; display: grid; gap: 2px; border-radius: 8px; background: #eef0f4; }
@@ -230,14 +230,14 @@
 .review-bulk-error { margin: 11px 0 0; color: #a63745; font-size: 12px; }
 .review-bulk-standalone-error { padding: 10px 12px; border: 1px solid #efc5cc; border-radius: 8px; background: #fff7f8; }
 
-.review-workflow-top { display: grid; grid-template-columns: minmax(0, 1fr) 390px; align-items: start; gap: 16px; margin-bottom: 16px; }
+.review-workflow-top { display: grid; grid-template-columns: minmax(0, 1fr) 390px; align-items: stretch; gap: 16px; margin-bottom: 16px; }
 .review-workflow-summary-card, .review-workflow-decision { min-height: 196px; padding: 19px 21px; border: 1px solid var(--line); border-radius: 15px; background: white; }
-.review-workflow-summary-card { min-width: 0; height: 196px; overflow: hidden; display: grid; grid-template-columns: minmax(0, 1fr) minmax(120px, 17%); grid-template-rows: minmax(0, 1fr); align-items: stretch; gap: 20px; background: linear-gradient(120deg, #fff, #faf8ff); }
+.review-workflow-summary-card { min-width: 0; overflow: hidden; display: grid; grid-template-columns: minmax(0, 1fr) minmax(120px, 17%); grid-template-rows: minmax(0, 1fr); align-items: stretch; gap: 20px; background: linear-gradient(120deg, #fff, #faf8ff); }
 .review-workflow-summary-copy { min-width: 0; align-self: center; }
 .review-workflow-summary-card h2 { margin: 11px 0 4px; font-size: 23px; }
 .review-workflow-summary-card p { margin: 0; color: var(--muted); font-size: 12px; }
 .review-workflow-summary-pills { margin-top: 17px; display: flex; flex-wrap: wrap; gap: 7px; }
-.review-runtime-screenshot { min-width: 0; min-height: 0; overflow: hidden; align-self: stretch; display: grid; grid-template-rows: auto minmax(0, 1fr); border: 1px solid #ded9f2; border-radius: 11px; background: #101521; box-shadow: inset 0 0 0 1px rgb(255 255 255 / 3%); }
+.review-runtime-screenshot { min-width: 0; min-height: 0; contain: size; overflow: hidden; align-self: stretch; display: grid; grid-template-rows: auto minmax(0, 1fr); border: 1px solid #ded9f2; border-radius: 11px; background: #101521; box-shadow: inset 0 0 0 1px rgb(255 255 255 / 3%); }
 .review-runtime-screenshot > span { padding: 7px 10px; color: #4d5669; background: #f7f5fd; font-size: 10px; font-weight: 800; }
 .review-runtime-screenshot > img { width: 100%; height: 100%; min-height: 0; display: block; object-fit: contain; background: #070a10; }
 .review-runtime-screenshot > div { min-height: 0; height: 100%; padding: 16px; display: grid; place-content: center; gap: 4px; color: #dce1eb; background: radial-gradient(circle at 50% 30%, #252c3c, #0b0f18 70%); text-align: center; }
@@ -510,7 +510,7 @@
 .game-detail-drawer-row small { margin-top: 3px; color: var(--muted); font-size: 12px; }
 .game-detail-preview { position: fixed; z-index: 140; inset: 0; padding: 24px; display: grid; place-items: center; background: rgb(17 23 39 / 58%); backdrop-filter: blur(3px); }
 .game-detail-preview > section { width: min(920px, 90vw); max-height: 88dvh; padding: 14px; border: 1px solid #343b49; border-radius: 14px; background: #0a0d14; box-shadow: 0 28px 80px rgb(0 0 0 / 42%); }
-.game-detail-preview-image { max-height: calc(88dvh - 70px); display: grid; place-items: center; overflow: hidden; }
+.game-detail-preview-image { position: relative; max-height: calc(88dvh - 70px); display: grid; place-items: center; overflow: hidden; }
 .game-detail-preview-image img { width: auto; max-width: 100%; height: auto; max-height: calc(88dvh - 70px); object-fit: contain; }
 .game-detail-preview footer { margin-top: 10px; display: flex; align-items: center; justify-content: space-between; gap: 12px; color: #b8c0cd; font-size: 11px; }
 .game-detail-preview footer button { min-height: 32px; padding: 0 10px; color: white; border: 1px solid #3b4554; border-radius: 8px; background: #171d29; cursor: pointer; }
@@ -682,3 +682,7 @@
 .save-card.compact time { display: block; margin-top: 3px; color: var(--muted); font-size: 11px; }
 .save-card.compact .save-card-body { padding: 14px; }
 td select, td input:not([type="checkbox"]), td button { min-height: 42px; }
+
+.import-batch-discard { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; min-width: 0; }
+.import-batch-discard > .button { min-width: 88px; white-space: nowrap; flex: 0 0 auto; }
+.import-batch-discard > small { color: var(--danger); }

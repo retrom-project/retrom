@@ -62,7 +62,7 @@ var registry = map[string]Profile{
 	"psx":          raw("psx", ".chd"),
 	"lynx":         single("lynx", ".lnx"),
 	"saturn":       withContentKinds(raw("saturn", ".chd"), ContentKindSingleFile, ContentKindMultiDisc),
-	"megadrive":    single("megadrive", ".md"),
+	"megadrive":    single("megadrive", ".md", ".smd", ".bin"),
 	"n64":          single("n64", ".z64"),
 	"3do":          raw("3do", ".chd"),
 	"atari7800":    single("atari7800", ".a78"),

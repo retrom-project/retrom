@@ -20,6 +20,7 @@ import (
 	"retrom/internal/gamecontent"
 	"retrom/internal/hasheous"
 	"retrom/internal/immersive"
+	"retrom/internal/importdiscard"
 	"retrom/internal/jobs"
 	"retrom/internal/launch"
 	"retrom/internal/libraryimport"
@@ -35,6 +36,7 @@ import (
 	"retrom/internal/runtimelaunch"
 	"retrom/internal/saves"
 	"retrom/internal/serverimport"
+	"retrom/internal/serversource"
 	"retrom/internal/storageanalysis"
 	"retrom/internal/tagging"
 	"retrom/internal/uploads"
@@ -80,6 +82,7 @@ type Server struct {
 	cursors                 *cursor.Codec
 	uploads                 *uploads.Service
 	importer                *libraryimport.Service
+	importDiscards          *importdiscard.Service
 	launcher                *launch.Service
 	jobService              *jobs.Service
 	immersive               *immersive.Service
@@ -182,14 +185,14 @@ func New(
 		blobs,
 		firmwareService,
 		credentials,
-		config.ServerImportRoots,
+		serversource.FilesystemRoots(),
 		now,
 	)
 	serverImportService.Start()
-	pegasusImportService := pegasusimport.New(database, blobs, importer, credentials, config.ServerImportRoots, now)
+	pegasusImportService := pegasusimport.New(database, blobs, importer, credentials, serversource.FilesystemRoots(), now)
 	pegasusImportService.Start()
 	emulationStationImportService := emulationstationimport.New(
-		database, blobs, importer, credentials, config.ServerImportRoots, now,
+		database, blobs, importer, credentials, serversource.FilesystemRoots(), now,
 	)
 	emulationStationImportService.Start()
 	server := &Server{
@@ -227,12 +230,15 @@ func New(
 		netplayObservers: make(map[string]int),
 		runtimeProvider:  http.NotFoundHandler(),
 	}
+	server.importDiscards = importdiscard.New(database, importer, pegasusImportService, emulationStationImportService, now)
+	server.importDiscards.Start()
 	server.idempotencyQueueDrained = sync.NewCond(&server.idempotencyQueueMu)
 	payloadReleaseService.Start()
 	return server
 }
 
 func (server *Server) Close() {
+	server.importDiscards.Close()
 	if server.netplay != nil {
 		server.netplayHub.Close()
 		server.netplay.Close()
@@ -357,6 +363,8 @@ func (server *Server) registerAdminImportRoutes(mux *http.ServeMux) {
 	)
 	mux.HandleFunc("POST /api/v1/admin/server-imports/{serverImportId}/cancel", server.cancelServerImport)
 	mux.HandleFunc("POST /api/v1/admin/server-imports/{serverImportId}/retry", server.retryServerImport)
+	mux.HandleFunc("GET /api/v1/admin/import-batches/{kind}/{importId}/discard", server.getImportBatchDiscard)
+	mux.HandleFunc("POST /api/v1/admin/import-batches/{kind}/{importId}/discard", server.discardImportBatch)
 	mux.HandleFunc("POST /api/v1/admin/pegasus-imports", server.createPegasusImport)
 	mux.HandleFunc("GET /api/v1/admin/pegasus-imports", server.pegasusImportList)
 	mux.HandleFunc("GET /api/v1/admin/pegasus-imports/{pegasusImportId}", server.pegasusImportDetail)
@@ -427,6 +435,7 @@ func (server *Server) registerAdminImportRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/v1/admin/jobs/{jobId}/retry", server.retryJob)
 	mux.HandleFunc("GET /api/v1/admin/reviews", server.reviews)
 	mux.HandleFunc("GET /api/v1/admin/review-bulk-approval-preview", server.reviewBulkPreview)
+	mux.HandleFunc("POST /api/v1/admin/reviews/deduplicate", server.deduplicateReviews)
 	mux.HandleFunc("POST /api/v1/admin/review-bulk-approvals", server.createReviewBulk)
 	mux.HandleFunc("GET /api/v1/admin/review-bulk-approvals/{bulkApprovalId}", server.reviewBulk)
 	mux.HandleFunc("GET /api/v1/admin/review-bulk-approvals/{bulkApprovalId}/items", server.reviewBulkItems)

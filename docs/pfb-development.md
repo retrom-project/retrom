@@ -37,6 +37,8 @@ PFB ID 从逻辑名称确定性派生，因此同一 spec 的稳定 URL 始终�
 
 ## Loose dev provider
 
+每个 PFB 选择一组开发 Provider，未设置时为 `retrom-runtime`。修改 EmulatorJS adapter 时，在该 Retrom worktree 的 `.pfb/workspace/providers/dev/provider-id` 写入 `emulatorjs` 并执行 `pfb-restart`；选择保存在持久 workspace 中，重启时读取。仅支持 `retrom-runtime` 和 `emulatorjs`，不接受任意入口路径。EmulatorJS 直接使用已导入基座的核心资源，仅重新编译对应 client；核对 `dev-provider.json` 的 `providerId` 与 status 的模块摘要后再做浏览器验收。
+
 PFB 启动前，`retrom-runtime/scripts/pfb-provider-watch.mjs --once` 从当前基座 active descriptor 与 integrity 文件读取 asset index/Target declaration，使用 esbuild 只生成自包含 `client.mjs`，并读取 `provider-sources.json` 声明的本地 adapter 资源。所有开发文件的路径、大小、摘要、MIME 与 base64 字节组成一份 `dev-provider.json`；构建完成后原子替换此文件，不保留历史目录。失败构建不改变已发布文件。Go 启动时一次加载并校验完整文件到内存，旧进程继续使用启动时的字节，新进程重启后读取新文件，因此 watcher 与 restart 之间不会出现 module SHA/ETag/响应字节错配。常驻 watcher 监听 `src/`、`assets/`、package 与 provider source 声明。
 
 Go 在启动时验证：descriptor 严格字段、provider/base bundle 身份、路径闭合、排序、size/SHA-256/media type 和内含字节 和所有 override 都属于基座公开文件。开发文件沿原 `/runtime/providers/<provider>/<base-bundle>/...` 路径返回，使用 `Cache-Control: no-store` 与开发 ETag；Launch Envelope 保留基座 bundle/Target declaration，但 `moduleSha256` 使用开发模块摘要。当前阶段 watcher 更新后执行一次 `pfb-restart`，让 Go 重新加载开发文件；无需 `pfb-build`。
@@ -143,3 +145,5 @@ PFB 上顺序验证已含业务数据的扩展。不因验收夹具前置或失�
 - 两个 PFB 的可写路径、Host、Cookie、Launch 与 provider 开发文件 互不影响；
 - legacy migration 幂等且保留源卷，reset 有可恢复归档，remove/destroy 都需要 exact ID；
 - 真实游戏链完成登录、详情、Launch、Provider dispatcher、画面、输入和需要的 checkpoint/恢复。对于 Butterscotch，canvas 必须保持 640×480 backing，并成为 runtime surface 内最大居中的 4:3 矩形。
+
+服务器导入无需配置目录白名单。PFB 将管理工作区 `retrom-project/.dev-data` 只读挂载到 `/server-data`；独立 Retrom checkout 使用自身 `.dev-data`。此目录用于操作者放置 BIOS、Pegasus/gamelist 来源，与每个 PFB 独立的数据库/CAS 分开。来源不进入镜像，也不随 PFB 停止或重建删除。管理员还可浏览容器内其他可读取的普通目录。

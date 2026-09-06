@@ -415,14 +415,16 @@ func attachSaveStates(
 	}
 	placeholders := strings.TrimSuffix(strings.Repeat("?,", len(games)), ",")
 	rows, err := database.QueryContext(ctx, `
-SELECT save.game_id,save.id,save.name,save.created_at_ms,save.last_synced_at_ms,save.payload_size_bytes,save.disc_index,
+SELECT save.game_id,save.id,save.name,save.created_at_ms,native.last_synced_at_ms,
+       save.payload_size_bytes,save.disc_index,
        save.screenshot_blob_id IS NOT NULL
 FROM save_states save
+LEFT JOIN game_save_versions native ON native.save_state_id=save.id
 JOIN save_state_runtime_compatibility compatibility
   ON compatibility.save_state_id=save.id AND compatibility.status='AVAILABLE'
 WHERE save.profile_id=? AND save.deleted_at_ms IS NULL
 AND save.game_id IN (`+placeholders+`)
-ORDER BY save.game_id,COALESCE(save.last_synced_at_ms,save.created_at_ms) DESC,save.id DESC
+ORDER BY save.game_id,COALESCE(native.last_synced_at_ms,save.created_at_ms) DESC,save.id DESC
 `, arguments...)
 	if err != nil {
 		return fmt.Errorf("immersive: query save states: %w", err)

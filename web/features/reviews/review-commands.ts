@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type Dispatch, type SetStateAction } from "react";
+import { useEffect, useState, type Dispatch, type SetStateAction } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/features/auth/auth-provider";
 import { userStorageKey } from "@/features/auth/storage";
@@ -8,6 +8,7 @@ import { queueFlashToast, type ToastMessage } from "@/components/flash-toast";
 import { newUuid } from "@/lib/crypto";
 import { writeHeaders } from "@/lib/api/client";
 import { responseError, uploadOne, waitForJob } from "@/lib/upload";
+import { readReviewPreviewNotification } from "./review-preview-notification";
 import {
   candidateForm, readyCover, scrapeResult,
   type Comparison, type CoverSelection, type DraftPayload, type DuplicateGame, type MetadataForm,
@@ -35,22 +36,18 @@ export function useReviewCommands(params: CommandParams) {
   const { context } = useAuth();
   const [duplicateConfirmation, setDuplicateConfirmation] = useState<DuplicateGame[] | null>(null);
 
-  const previews = useRef(new Map<Window, {id: string; itemId: string}>());
   const [checkpoint, setCheckpoint] = useState<{id: string; itemId: string} | null>(null);
   const restorePreviewId = checkpoint?.itemId === params.review.itemId ? checkpoint.id : null;
   useEffect(() => {
     const receive = (event: MessageEvent<unknown>) => {
-      if (event.origin !== window.location.origin || !event.source || !event.data ||
-        typeof event.data !== "object") {return;}
-      const preview = previews.current.get(event.source as Window);
-      const message = event.data as {type?: string; previewId?: string; importItemId?: string};
-      if (!preview || preview.itemId !== params.review.itemId || message.previewId !== preview.id) {return;}
-      if (message.type === "retrom-review-checkpoint") {
-        setCheckpoint(preview);
-        params.setNotice("试玩存档已保存，可打开新的游戏窗口继续；临时存档到期或审核结束后释放。");
-      } else if (message.type === "retrom-review-screenshot" && message.importItemId === preview.itemId) {
+      const message = readReviewPreviewNotification(event, params.review.itemId);
+      if (!message) {return;}
+      if (message.type === "retrom-review-screenshot") {
         void params.refreshReview().then(() => params.setToast({message: "已更新运行截图", tone: "good"}))
           .catch(() => params.setToast({message: "截图已保存，但审核页刷新失败", tone: "warn"}));
+      } else {
+        setCheckpoint({id: message.previewId, itemId: message.importItemId});
+        params.setNotice("试玩存档已保存，可打开新的游戏窗口继续；临时存档到期或审核结束后释放。");
       }
     };
     window.addEventListener("message", receive);
@@ -131,8 +128,8 @@ export function useReviewCommands(params: CommandParams) {
     if (!popup) {return;}
     const succeeded = await params.run("运行游戏", async () => {
       if (!await params.flushDraft()) {throw new Error("无法保存当前审核内容");}
-      const id = await createPreview(params.review.itemId, popup, restoreFromPreviewId);
-      previews.current.set(popup, {id, itemId: params.review.itemId});
+      await createPreview(params.review.itemId, popup, restoreFromPreviewId);
+      await params.refreshReview().catch(() => params.setToast({message: "游戏已打开，但审核依赖刷新失败，请刷新审核页", tone: "warn"}));
     });
     if (!succeeded && !popup.closed) {popup.close();}
   }

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { ImportBatchDiscard } from "./import-batch-discard";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AppIcon } from "@/components/app-icon";
 import { StatusBadge } from "@/components/ui";
@@ -137,6 +138,7 @@ function TaskStages({ attention, issueCount, stageIndex }: { attention: boolean;
 }
 
 function TaskProblem({ isMultiDisc, item }: { isMultiDisc: boolean; item: ImportListItem }) {
+  if (item.state === "CANCELLED") { return <p>本批次已结束；以下保留原始失败原因。</p>; }
   const summary = importTaskIssueSummary(item);
   if (item.state === "FAILED") {
     return <div className="import-task-problem"><p>{summary}。请根据错误码检查项目结构或归档后重新上传。</p><Link className="button secondary" href="/admin/imports/new">新建导入</Link></div>;
@@ -170,6 +172,7 @@ function TaskDetail({ attention, detail, isMultiDisc, issueCount, item, stageInd
 function TaskNextStep({ attention, item }: { attention: boolean; item: ImportListItem }) {
   let label = "后台会继续推进当前阶段";
   if (attention) {label = importTaskIssueSummary(item);}
+  else if (item.state === "CANCELLED") {label = "本批次已结束";}
   else if (item.state === "REVIEW_PENDING") {label = `${item.reviewPendingItemCount} 个条目等待确认`;}
   else if (item.state === "COMPLETED" && item.alreadyImportedItemCount) {label = `${item.alreadyImportedItemCount} 个条目因游戏文件已导入而跳过`;}
   else if (item.state === "COMPLETED") {label = "已完成本次入库";}
@@ -177,13 +180,22 @@ function TaskNextStep({ attention, item }: { attention: boolean; item: ImportLis
   return <div className="import-task-next"><strong>{heading}</strong><small>{label}</small></div>;
 }
 
-function TaskActions({ expanded, isMultiDisc, issueCount, item, onToggle }: { expanded: boolean; isMultiDisc: boolean; issueCount: number; item: ImportListItem; onToggle: () => void }) {
-  if (item.reviewPendingItemCount) {return <div className="import-task-actions"><Link aria-label="查看待审核" className="button" href={`/admin/reviews?importJobId=${item.id}`}>审核 {item.reviewPendingItemCount} 个条目</Link></div>;}
-  if (issueCount) {return <div className="import-task-actions" />;}
-  if (item.state === "COMPLETED" && item.alreadyImportedItemCount) {return <div className="import-task-actions"><button className="button secondary" type="button" aria-expanded={expanded} onClick={onToggle}>{expanded ? "收起详情" : "查看已跳过"}</button></div>;}
-  if (item.state === "COMPLETED") {return <div className="import-task-actions"><Link className="button secondary" href="/admin/reviews/history">查看结果</Link></div>;}
-  if (!isMultiDisc) {return <div className="import-task-actions"><button className="button secondary" type="button" aria-expanded={expanded} onClick={onToggle}>{expanded ? "收起详情" : "查看进度"}</button></div>;}
-  return <div className="import-task-actions" />;
+function TaskPrimaryAction({ expanded, isMultiDisc, issueCount, item, onToggle }: { expanded: boolean; isMultiDisc: boolean; issueCount: number; item: ImportListItem; onToggle: () => void }) {
+  if (item.reviewPendingItemCount) {return <Link aria-label="查看待审核" className="button" href={`/admin/reviews?importJobId=${item.id}`}>审核 {item.reviewPendingItemCount} 个条目</Link>;}
+  if (issueCount) {return null;}
+  if (item.state === "COMPLETED" && item.alreadyImportedItemCount) {return <button className="button secondary" type="button" aria-expanded={expanded} onClick={onToggle}>{expanded ? "收起详情" : "查看已跳过"}</button>;}
+  if (item.state === "COMPLETED") {return <Link className="button secondary" href="/admin/reviews/history">查看结果</Link>;}
+  if (!isMultiDisc) {return <button className="button secondary" type="button" aria-expanded={expanded} onClick={onToggle}>{expanded ? "收起详情" : "查看进度"}</button>;}
+  return null;
+}
+
+function TaskActions(props: Parameters<typeof TaskPrimaryAction>[0]) {
+  return <div className="import-task-actions">
+    <TaskPrimaryAction {...props} />
+    <ImportBatchDiscard kind="IMPORT" importId={props.item.id} version={props.item.version} onCompleted={() => {
+      window.dispatchEvent(new CustomEvent("retrom:import-batch-discarded", { detail: props.item.id }));
+    }} />
+  </div>;
 }
 
 function ImportTaskEntry({ detail, expanded, item, onToggle, timeZone }: { detail: DetailState | undefined; expanded: boolean; item: ImportListItem; onToggle: () => void; timeZone: string }) {
@@ -280,6 +292,22 @@ export function ImportTaskBoard({ initial, initialQuery = "", initialState = "" 
     const timer = window.setInterval(() => void poll(), 1_000);
     return () => { disposed = true; window.clearInterval(timer); };
   }, [pollingKey]);
+
+  useEffect(() => {
+    const refreshDiscarded = (event: Event) => {
+      if (!(event instanceof CustomEvent) || typeof event.detail !== "string") { return; }
+      const id = event.detail;
+      void fetch(`/api/v1/admin/imports/${encodeURIComponent(id)}`, { cache: "no-store" })
+        .then(async (response) => response.ok ? await response.json() as ImportDetail : null)
+        .then((detail) => {
+          if (!detail) { return; }
+          setItems((current) => current.map((item) => item.id === id ? refreshListItem(item, detail) : item));
+          setDetails((current) => ({ ...current, [id]: { status: "ready", value: detail } }));
+        }).catch(() => setLoadError("丢弃已完成，请刷新查看最新结果"));
+    };
+    window.addEventListener("retrom:import-batch-discarded", refreshDiscarded);
+    return () => window.removeEventListener("retrom:import-batch-discarded", refreshDiscarded);
+  }, []);
 
   async function toggleDetails(item: ImportListItem) {
     if (expandedId === item.id) {

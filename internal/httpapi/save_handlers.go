@@ -84,8 +84,8 @@ func (server *Server) applySaveCursor(values url.Values, filters *saveListFilter
 	if err != nil {
 		return errInvalidCursorPayload
 	}
-	filters.Conditions = append(filters.Conditions, `(COALESCE(s.last_synced_at_ms,s.created_at_ms)<?
- OR (COALESCE(s.last_synced_at_ms,s.created_at_ms)=? AND s.id<?))`)
+	filters.Conditions = append(filters.Conditions, `(COALESCE(native.last_synced_at_ms,s.created_at_ms)<?
+ OR (COALESCE(native.last_synced_at_ms,s.created_at_ms)=? AND s.id<?))`)
 	filters.Arguments = append(filters.Arguments, createdAt, createdAt, payload.ID)
 	return nil
 }
@@ -174,7 +174,7 @@ m.title,
 s.name,
 s.version,
 s.created_at_ms,
-s.last_synced_at_ms,
+native.last_synced_at_ms,
 s.active_duration_ms,
 s.payload_size_bytes,
 source_launch.core_id,
@@ -188,6 +188,7 @@ s.disc_index,
 s.screenshot_blob_id IS NOT NULL,
 runtime_compatibility.status
 FROM save_states s
+LEFT JOIN game_save_versions native ON native.save_state_id=s.id
 JOIN save_state_runtime_compatibility runtime_compatibility
   ON runtime_compatibility.save_state_id=s.id
 JOIN games g ON g.id=s.game_id
@@ -198,7 +199,7 @@ JOIN platform_instances pi ON pi.id=g.platform_instance_id
 JOIN platforms p ON p.id=pi.platform_id
 `,
 		filters.Conditions,
-		` ORDER BY COALESCE(s.last_synced_at_ms,s.created_at_ms) DESC,s.id DESC LIMIT ?`,
+		` ORDER BY COALESCE(native.last_synced_at_ms,s.created_at_ms) DESC,s.id DESC LIMIT ?`,
 	)
 	filters.Arguments = append(filters.Arguments, limit+1)
 	rows, err := server.database.QueryContext(request.Context(), query, filters.Arguments...)

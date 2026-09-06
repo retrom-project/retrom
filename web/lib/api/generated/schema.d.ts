@@ -4,6 +4,26 @@
  */
 
 export interface paths {
+    "/api/v1/admin/import-batches/{kind}/{importId}/discard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                kind: "IMPORT" | "PEGASUS" | "EMULATIONSTATION";
+                importId: string;
+            };
+            cookie?: never;
+        };
+        get: operations["getAdminImportBatchDiscard"];
+        put?: never;
+        /** @description Idempotently stop this batch and discard all unpublished content, including rejected inputs. Published games and shared blobs remain protected. One durable disposition survives page closure and process restarts; failed reconciliation can be retried here. Payload release and delayed GC use their existing workers. */
+        post: operations["postAdminImportBatchDiscard"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/health/live": {
         parameters: {
             query?: never;
@@ -1211,6 +1231,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/reviews/deduplicate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Discards pending reviews matching published content within the filtered scope, at most 50 scanned items per request. Continue with the returned cursor and upper bound until nextAfterItemId is null. Active attachments are skipped; published games are preserved. */
+        post: operations["postAdminReviewDeduplicate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/review-bulk-approval-preview": {
         parameters: {
             query?: never;
@@ -1921,6 +1958,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /** @description 管理员无需配置即可浏览服务进程可访问的文件系统；固定返回 filesystem（/）。 */
         get: operations["getAdminServerImportRoots"];
         put?: never;
         post?: never;
@@ -1939,6 +1977,7 @@ export interface paths {
             };
             cookie?: never;
         };
+        /** @description 从服务器文件系统根目录 / 浏览可读取的直接子目录，path 使用不带前导斜杠的规范相对路径。 */
         get: operations["getAdminServerImportRootDirectories"];
         put?: never;
         post?: never;
@@ -2770,6 +2809,15 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        ImportBatchDiscard: {
+            /** @enum {string} */
+            kind: "IMPORT" | "PEGASUS" | "EMULATIONSTATION";
+            /** Format: uuid */
+            importId: string;
+            /** @enum {string} */
+            state: "AVAILABLE" | "UNAVAILABLE" | "REQUESTED" | "COMPLETED" | "FAILED";
+            errorCode: string | null;
+        };
         DiagnosticsSnapshot: {
             /** @enum {integer} */
             schemaVersion: 2;
@@ -3923,6 +3971,22 @@ export interface components {
             /** Format: uuid */
             platformInstanceId?: string;
             blockerCode?: string;
+        };
+        ReviewDeduplicateRequest: {
+            scope: components["schemas"]["ReviewBulkApprovalScope"];
+            /** Format: uuid */
+            afterItemId?: string;
+            /** Format: uuid */
+            throughItemId?: string;
+        };
+        ReviewDeduplicateResult: {
+            scannedCount: number;
+            discardedCount: number;
+            attachmentActiveCount: number;
+            /** Format: uuid */
+            nextAfterItemId: string | null;
+            /** Format: uuid */
+            throughItemId: string | null;
         };
         ReviewBulkApprovalRequest: {
             scope: components["schemas"]["ReviewBulkApprovalScope"];
@@ -6491,6 +6555,59 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    getAdminImportBatchDiscard: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                kind: "IMPORT" | "PEGASUS" | "EMULATIONSTATION";
+                importId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Current batch disposition; AVAILABLE when not yet requested. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportBatchDiscard"];
+                };
+            };
+        };
+    };
+    postAdminImportBatchDiscard: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                kind: "IMPORT" | "PEGASUS" | "EMULATIONSTATION";
+                importId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description Disposition accepted, already pending or already completed. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportBatchDiscard"];
+                };
+            };
+            409: components["responses"]["JSONResponse"];
+        };
+    };
     getHealthLive: {
         parameters: {
             query?: never;
@@ -7868,6 +7985,32 @@ export interface operations {
         requestBody?: never;
         responses: {
             200: components["responses"]["ReviewQueueListResponse"];
+        };
+    };
+    postAdminReviewDeduplicate: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReviewDeduplicateRequest"];
+            };
+        };
+        responses: {
+            /** @description Committed page counts and continuation bounds. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReviewDeduplicateResult"];
+                };
+            };
         };
     };
     getAdminReviewBulkApprovalPreview: {

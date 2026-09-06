@@ -1,5 +1,6 @@
 .user-admin-page > .feedback-banner { margin-bottom: 14px; }
 .user-filters input.select { width: 100%; }
+.user-filters .filter-summary { height: auto; flex-basis: auto; overflow: visible; }
 .user-table-panel { overflow: hidden; }
 .user-table-wrap { max-width: 100%; overflow: auto; }
 .user-table { min-width: 1060px; width: 100%; border-collapse: separate; border-spacing: 0; }

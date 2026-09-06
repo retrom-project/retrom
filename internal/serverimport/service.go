@@ -18,9 +18,9 @@ import (
 
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
-	"retrom/internal/config"
 	"retrom/internal/firmware"
 	retromruntime "retrom/internal/runtime"
+	"retrom/internal/serversource"
 )
 
 var (
@@ -166,14 +166,14 @@ func New(
 	blobs *blobstore.Store,
 	firmwareService *firmware.Service,
 	credentials *retromruntime.Credentials,
-	configured []config.ServerImportRoot,
+	configured []serversource.Root,
 	now func() time.Time,
 ) *Service {
 	roots := make(map[string]Root, len(configured))
 	for _, configuredRoot := range configured {
-		digest := credentials.ServerImportRootDigest(configuredRoot.ID, configuredRoot.CanonicalPath)
+		digest := credentials.ServerImportRootDigest(configuredRoot.ID, configuredRoot.Path)
 		roots[configuredRoot.ID] = Root{
-			ID: configuredRoot.ID, Label: configuredRoot.Label, path: configuredRoot.CanonicalPath,
+			ID: configuredRoot.ID, Label: configuredRoot.Label, path: configuredRoot.Path,
 			digest: hex.EncodeToString(digest[:]),
 		}
 	}

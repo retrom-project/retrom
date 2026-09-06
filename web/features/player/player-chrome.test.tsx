@@ -388,6 +388,13 @@ describe("PlayerChrome", () => {
     expect(screen.getByText("BIOS 校验值与目录期望不同，但当前允许运行。")).toBeVisible();
     expect(screen.queryByText("游戏已暂停，点击游戏画面继续")).not.toBeInTheDocument();
   });
+
+  it("explains that uploaded BIOS archives with missing entries remain usable", async () => {
+    const user = userEvent.setup();
+    render(<PlayerChrome {...props({ warnings: ["BIOS_MISSING_ENTRY_WARNING"] })} />);
+    await user.click(screen.getByRole("button", { name: "查看运行提醒" }));
+    expect(screen.getByText("BIOS 归档可能缺少内部文件，当前仍允许运行。")).toBeVisible();
+  });
 });
 
 it("explains native save and game-menu restore without promising an execution snapshot", async () => {

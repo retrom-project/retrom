@@ -136,6 +136,7 @@ normalized_path
 	if err := server.database.QueryRowContext(request.Context(), `
 SELECT count(*)
 FROM save_states save
+LEFT JOIN game_save_versions native ON native.save_state_id=save.id
 JOIN save_state_runtime_compatibility compatibility
   ON compatibility.save_state_id=save.id AND compatibility.status='AVAILABLE'
 WHERE save.game_id=?
@@ -178,12 +179,13 @@ func (server *Server) gameRecentSaveStates(
 SELECT s.id,
 s.name,
 s.created_at_ms,
-s.last_synced_at_ms,
+native.last_synced_at_ms,
 source_launch.core_id,
 c.name,
 s.disc_index,
 s.screenshot_blob_id IS NOT NULL
 FROM save_states s
+LEFT JOIN game_save_versions native ON native.save_state_id=s.id
 JOIN launch_sessions source_launch ON source_launch.id=s.source_launch_session_id
 JOIN cores c ON c.id=source_launch.core_id
 JOIN save_state_runtime_compatibility compatibility
@@ -191,7 +193,7 @@ JOIN save_state_runtime_compatibility compatibility
 WHERE s.game_id=?
 AND s.profile_id=?
 AND s.deleted_at_ms IS NULL
-ORDER BY COALESCE(s.last_synced_at_ms,s.created_at_ms) DESC,
+ORDER BY COALESCE(native.last_synced_at_ms,s.created_at_ms) DESC,
 s.id DESC
 LIMIT 8
 `, gameID, profileID)

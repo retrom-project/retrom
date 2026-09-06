@@ -58,7 +58,7 @@ CREATE TABLE runtime_targets(provider_id TEXT,target_id TEXT,checkpoint_json TEX
 CREATE TABLE game_variant_runtime_packs(game_variant_id TEXT,definition_id TEXT,installation_id TEXT);
 CREATE TABLE save_states(id TEXT,game_id TEXT,checkpoint_format TEXT,deleted_at_ms INTEGER,payload_sha256 TEXT,payload_size_bytes INTEGER,source_launch_session_id TEXT);
 CREATE TABLE launch_sessions(id TEXT,game_id TEXT,provider_id TEXT,target_id TEXT,bundle_sha256 TEXT);
-CREATE TABLE rpgmaker_game_profiles(game_id TEXT,generation TEXT);
+CREATE TABLE rpgmaker_game_profiles(game_id TEXT,evidence_generation TEXT);
 CREATE TABLE review_drafts(id TEXT,import_item_id TEXT,version INTEGER,selected_validation_id TEXT,effective_source_snapshot_id TEXT);
 CREATE TABLE review_draft_runtime_pack_selections(review_draft_id TEXT,slot INTEGER,installation_id TEXT);
 CREATE TABLE import_item_core_validations(id TEXT,import_item_id TEXT,source_snapshot_id TEXT,status TEXT,dependency_snapshot_json TEXT);
@@ -167,7 +167,8 @@ def seed_protected_references(database: sqlite3.Connection, observed: dict) -> N
 def seed_review_relations(database: sqlite3.Connection, observed: dict) -> None:
     for index, item in enumerate(observed["reviews"]["published"]):
         variant_id = pack_uuid(260 + index)
-        target_id = "rpgmaker-xp"
+        target_id = {"RPG2000": "rpgmaker-2000", "RPG2003": "rpgmaker-2003", "RPGXP": "rpgmaker-xp",
+                     "RPGVX": "rpgmaker-vx", "RPGVXACE": "rpgmaker-vx-ace"}[item["generation"]]
         database.execute(
             "INSERT OR IGNORE INTO runtime_providers VALUES('retrom-runtime',?)", ("7" * 64,),
         )

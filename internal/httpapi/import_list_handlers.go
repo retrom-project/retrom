@@ -60,6 +60,9 @@ const userVisibleImportJobPredicate = `i.id NOT IN (
  UNION ALL
  SELECT source_item.library_import_job_id FROM emulationstation_import_items source_item
  WHERE source_item.library_import_job_id IS NOT NULL
+ UNION ALL
+ SELECT job.id FROM import_jobs job
+ JOIN server_import_upload_owners owner ON owner.upload_session_id=job.upload_session_id
 )`
 
 const importOverviewSummarySQL = `

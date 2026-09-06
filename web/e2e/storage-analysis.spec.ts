@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import axe from "axe-core";
 import { evidencePath, noPageOverflow } from "./acceptance-support";
+import { seedStorageCleanupCandidate } from "./storage-cleanup-fixture";
 
 const origin = process.env.RETROM_WEB_ORIGIN ?? "http://localhost:4000";
 const categoryOrder = [
@@ -28,6 +29,7 @@ test.beforeEach(async ({ page }) => {
 });
 
 test("ACC-STOR-001 registered CAS analysis is exact, private, responsive, and exposes guarded cleanup", async ({ page }, testInfo) => {
+  await seedStorageCleanupCandidate(page.request, origin);
   const response = await page.request.get("/api/v1/admin/storage-analysis");
   expect(response.status()).toBe(200);
   expect(response.headers()["cache-control"]).toBe("private, no-store");
@@ -82,6 +84,16 @@ test("ACC-STOR-001 registered CAS analysis is exact, private, responsive, and ex
   await page.getByRole("button", { name: "刷新分析" }).click();
   await expect((await refreshResponse).status()).toBe(200);
   await expect(page.getByText(/^统计生成于 /)).toBeVisible();
+  const cleanupButton = page.getByRole("button", { name: "立即清理", exact: true });
+  await expect(cleanupButton).toBeEnabled();
+  await cleanupButton.click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "立即清理", exact: true }).click();
+  await expect(page.getByRole("status")).toHaveText(/立即清理已完成/);
+  await expect(page.getByLabel("清理候选引用量，精确值 0 bytes", { exact: true })).toBeVisible();
+  const candidates = page.locator(".storage-details article").filter({ hasText: "清理候选视图" });
+  await expect(candidates).toContainText("0 个 Blob");
+  await expect(page.getByLabel("等待回收，精确值 0 bytes", { exact: true })).toBeVisible();
+  await expect(cleanupButton).toBeDisabled();
   await page.evaluate(axe.source);
   const serious = await page.evaluate(async () => {
     const result = await window.axe.run(document, { runOnly: { type: "tag", values: ["wcag2a", "wcag2aa"] } });

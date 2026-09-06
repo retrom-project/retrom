@@ -14,6 +14,10 @@ services:
       npm_config_cache: /pfb-workspace/npm-cache
     volumes:
       - type: bind
+        source: ${PFB_SERVER_DATA_ROOT:?}
+        target: /server-data
+        read_only: true
+      - type: bind
         source: ${PFB_RETROM_ROOT:?}
         target: /workspace/retrom
       - type: bind

@@ -132,11 +132,14 @@ VALUES(?,'ons-preview-profile','ons-preview-admin','ONS Admin','ADMIN','ENABLED'
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := service.StoreReviewScreenshot(
+	storedScreenshot, err := service.StoreReviewScreenshot(
 		ctx, preview.PreviewID, preview.Capability, bytes.NewReader(pngBody),
-	); err != nil {
+	)
+	if err != nil {
 		t.Fatal(err)
 	}
+	seedOlderReviewScreenshot(t, database.SQL, storedScreenshot)
+	assertRepeatedPreviewKeepsScreenshot(t, database.SQL, service, importService, actorID, storedScreenshot, pngBody)
 	approved, err := importService.Approve(ctx, itemID, 1)
 	if err != nil {
 		t.Fatalf("Approve(ONS) error = %v", err)

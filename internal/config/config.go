@@ -1,10 +1,8 @@
 package config
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net"
 	"net/netip"
 	"net/url"
@@ -32,7 +30,6 @@ var knownVariables = map[string]struct{}{
 	"RETROM_STARTUP_CHECK_TIMEOUT": {}, "RETROM_LOG_LEVEL": {},
 	"RETROM_MULTI_DISC_IMPORT_ENABLED":    {},
 	"RETROM_PFB_ID":                       {},
-	"RETROM_SERVER_IMPORT_ROOTS":          {},
 	"RETROM_NETPLAY_ENABLED":              {},
 	"RETROM_NETPLAY_MAX_ACTIVE_ROOMS":     {},
 	"RETROM_NETPLAY_ROOM_IDLE_DRAFT_MS":   {},
@@ -62,20 +59,12 @@ type Config struct {
 	StartupCheckTimeout      time.Duration
 	LogLevel                 string
 	MultiDiscImportEnabled   bool
-	ServerImportRoots        []ServerImportRoot
 	NetplayEnabled           bool
 	NetplayMaxActiveRooms    int
 	NetplayRoomIdleDraft     time.Duration
 	NetplayRoomIdleWaiting   time.Duration
 	NetplayReconnectLease    time.Duration
 	PFBID                    string
-}
-
-type ServerImportRoot struct {
-	ID            string `json:"id"`
-	Label         string `json:"label"`
-	Path          string `json:"path"`
-	CanonicalPath string `json:"-"`
 }
 
 type Mode string
@@ -163,7 +152,7 @@ func Load(mode Mode) (Config, error) {
 	if err != nil {
 		return Config{}, err
 	}
-	runtimeOptions, err := loadRuntimeOptions(base.dataDir, base.dependencyRoot)
+	runtimeOptions, err := loadRuntimeOptions()
 	if err != nil {
 		return Config{}, err
 	}
@@ -197,8 +186,7 @@ func Load(mode Mode) (Config, error) {
 		RuntimeTargetCatalogPath: filepath.Join(base.dependencyRoot, "runtime-target-bindings", "v1", "catalog.json"),
 		TrustedProxies:           network.proxies, StartupCheckTimeout: runtimeOptions.startupTimeout,
 		LogLevel: runtimeOptions.logLevel, MultiDiscImportEnabled: runtimeOptions.multiDiscImportEnabled,
-		ServerImportRoots: runtimeOptions.serverImportRoots,
-		NetplayEnabled:    netplay.enabled, NetplayMaxActiveRooms: netplay.maxActiveRooms,
+		NetplayEnabled: netplay.enabled, NetplayMaxActiveRooms: netplay.maxActiveRooms,
 		NetplayRoomIdleDraft:   netplay.roomIdleDraft,
 		NetplayRoomIdleWaiting: netplay.roomIdleWaiting,
 		NetplayReconnectLease:  netplay.reconnectLease,
@@ -374,10 +362,9 @@ type runtimeOptions struct {
 	startupTimeout         time.Duration
 	logLevel               string
 	multiDiscImportEnabled bool
-	serverImportRoots      []ServerImportRoot
 }
 
-func loadRuntimeOptions(dataDir, dependencyRoot string) (runtimeOptions, error) {
+func loadRuntimeOptions() (runtimeOptions, error) {
 	result := runtimeOptions{startupTimeout: 60 * time.Second, logLevel: "info"}
 	var err error
 	if value := os.Getenv("RETROM_STARTUP_CHECK_TIMEOUT"); value != "" {
@@ -394,12 +381,6 @@ func loadRuntimeOptions(dataDir, dependencyRoot string) (runtimeOptions, error) 
 	}
 	result.multiDiscImportEnabled, err = parseStrictBoolean(
 		"RETROM_MULTI_DISC_IMPORT_ENABLED", os.Getenv("RETROM_MULTI_DISC_IMPORT_ENABLED"), false,
-	)
-	if err != nil {
-		return runtimeOptions{}, err
-	}
-	result.serverImportRoots, err = parseServerImportRoots(
-		os.Getenv("RETROM_SERVER_IMPORT_ROOTS"), dataDir, dependencyRoot,
 	)
 	if err != nil {
 		return runtimeOptions{}, err
@@ -471,108 +452,6 @@ func parseFixedMilliseconds(name, raw string, expected int) (time.Duration, erro
 		return 0, fmt.Errorf("%w: %s", errInvalidConfig, name)
 	}
 	return time.Duration(value) * time.Millisecond, nil
-}
-
-// Each branch enforces an independent closed-schema or filesystem boundary invariant.
-func parseServerImportRoots(raw, dataDir, dependencyRoot string) ([]ServerImportRoot, error) {
-	if raw == "" {
-		return []ServerImportRoot{}, nil
-	}
-	decoder := json.NewDecoder(strings.NewReader(raw))
-	decoder.DisallowUnknownFields()
-	var roots []ServerImportRoot
-	if err := decoder.Decode(&roots); err != nil || roots == nil || decoder.More() || len(roots) > 8 {
-		return nil, fmt.Errorf("%w: RETROM_SERVER_IMPORT_ROOTS", errInvalidConfig)
-	}
-	var trailing any
-	if err := decoder.Decode(&trailing); !errors.Is(err, io.EOF) {
-		return nil, fmt.Errorf("%w: RETROM_SERVER_IMPORT_ROOTS", errInvalidConfig)
-	}
-	ids := make(map[string]struct{}, len(roots))
-	labels := make(map[string]struct{}, len(roots))
-	home, _ := os.UserHomeDir()
-	for index := range roots {
-		if err := validateServerImportRoot(
-			&roots[index], roots[:index], ids, labels, home, dataDir, dependencyRoot,
-		); err != nil {
-			return nil, err
-		}
-	}
-	return roots, nil
-}
-
-func validateServerImportRoot(
-	root *ServerImportRoot,
-	previous []ServerImportRoot,
-	ids, labels map[string]struct{},
-	home, dataDir, dependencyRoot string,
-) error {
-	_, duplicateID := ids[root.ID]
-	_, duplicateLabel := labels[root.Label]
-	if !validServerImportRootShape(*root) || duplicateID || duplicateLabel {
-		return fmt.Errorf("%w: RETROM_SERVER_IMPORT_ROOTS", errInvalidConfig)
-	}
-	canonical, err := canonicalDirectoryWithoutSymlinks(root.Path)
-	if err != nil || !validCanonicalImportRoot(canonical, home, dataDir, dependencyRoot) {
-		return fmt.Errorf("%w: RETROM_SERVER_IMPORT_ROOTS", errInvalidConfig)
-	}
-	for _, configured := range previous {
-		if pathsOverlap(canonical, configured.CanonicalPath) {
-			return fmt.Errorf("%w: RETROM_SERVER_IMPORT_ROOTS", errInvalidConfig)
-		}
-	}
-	ids[root.ID], labels[root.Label] = struct{}{}, struct{}{}
-	root.CanonicalPath = canonical
-	return nil
-}
-
-func validServerImportRootShape(root ServerImportRoot) bool {
-	validLabel := root.Label == strings.TrimSpace(root.Label) && len([]rune(root.Label)) >= 1 &&
-		len([]rune(root.Label)) <= 40 && len([]byte(root.Label)) <= 160 && !containsControl(root.Label)
-	validPath := root.Path != "" && filepath.IsAbs(root.Path) && filepath.Clean(root.Path) == root.Path
-	return validServerImportRootID(root.ID) && validLabel && validPath
-}
-
-func validCanonicalImportRoot(canonical, home, dataDir, dependencyRoot string) bool {
-	return canonical != string(filepath.Separator) && canonical != home &&
-		!pathsOverlap(canonical, dataDir) && !pathsOverlap(canonical, dependencyRoot)
-}
-
-func validServerImportRootID(value string) bool {
-	if len(value) < 1 || len(value) > 32 || value[0] < 'a' || value[0] > 'z' {
-		return false
-	}
-	for _, character := range value[1:] {
-		if character != '-' && (character < 'a' || character > 'z') && (character < '0' || character > '9') {
-			return false
-		}
-	}
-	return true
-}
-
-func containsControl(value string) bool {
-	for _, character := range value {
-		if character < 0x20 || character >= 0x7f && character <= 0x9f {
-			return true
-		}
-	}
-	return false
-}
-
-func canonicalDirectoryWithoutSymlinks(path string) (string, error) {
-	info, err := os.Lstat(path)
-	if err != nil || !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
-		return "", errInvalidConfig
-	}
-	canonical, err := filepath.EvalSymlinks(path)
-	if err != nil || canonical != path {
-		return "", errInvalidConfig
-	}
-	return canonical, nil
-}
-
-func pathsOverlap(left, right string) bool {
-	return pathWithin(left, right) || pathWithin(right, left)
 }
 
 func parseStrictBoolean(name, value string, defaultValue bool) (bool, error) {
