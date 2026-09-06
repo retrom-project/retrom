@@ -226,6 +226,8 @@ describe("PlayerChrome", () => {
     const panel = screen.getByRole("complementary", { name: "运行调试信息" });
     expect(trigger).toHaveAttribute("aria-expanded", "true");
     expect(within(panel).getByText("59.9 FPS")).toBeVisible();
+    expect(within(panel).getByText("画面呈现率")).toBeVisible();
+    expect(within(panel).getByText("按核心提交的画面计算；静止或按需重绘时数值可能较低，不代表游戏运行速度。")).toBeVisible();
     expect(within(panel).getByText("4,210")).toBeVisible();
     expect(within(panel).getByText("384 × 224")).toBeVisible();
     expect(within(panel).getByText("COOP/COEP + SAB")).toBeVisible();

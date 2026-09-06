@@ -140,3 +140,5 @@ GAME_SAVE Provider 必须提供 `acknowledgeCheckpoint(checkpoint)`；可用性�
 失败保留完整 payload、截图与幂等键，停止自动重试并显示独立“重试同步”按钮。超时后的重试不重复创建，旧请求重放不覆盖新数据。
 其他 Launch 已更新或用户已删除目标时返回 `SAVE_SYNC_CONFLICT`，停止此 Launch 的同步并明确提示退出后重新选择；禁止静默覆盖。
 正常退出先等候稳定数据与上传完成，失败取消退出。冻结的恢复 Blob 在 Launch 终态释放引用；覆盖后的旧数据走统一 GC 宽限流程。
+
+Player 调试面板的“画面呈现率”由公共 getFrameCount 的增量计算，不代表屏幕刷新率或游戏逻辑速度。按需重绘核心可在游戏画面静止时停止提交帧；Host 不插入重复帧补足 60 FPS，输入与暂停控制继续正常工作。
