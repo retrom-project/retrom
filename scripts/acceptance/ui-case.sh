@@ -68,7 +68,6 @@ printf '\000\000\000\030ftypisom\000\000\000\000isommp42' >"$temporary_root/sour
 "$repository_root/scripts/acceptance/prepare-pegasus-gba-source.sh" "$temporary_root/source/Playable"
 "$repository_root/scripts/acceptance/prepare-emulationstation-gba-source.sh" "$temporary_root/source/EmulationStationPlayable"
 cd "$repository_root"
-RETROM_SERVER_IMPORT_ROOTS="[{\"id\":\"pegasus-bios\",\"label\":\"Pegasus BIOS\",\"path\":\"$temporary_root/source\"}]" \
 setsid make dev \
   RETROM_MODE="test" \
   RETROM_DEV_STATE_DIR="$dev_state" \
@@ -325,6 +324,7 @@ fi
 (cd web && \
   TMPDIR=/tmp \
   RETROM_WEB_ORIGIN="$web_origin" \
+  RETROM_E2E_SERVER_SOURCE="$temporary_root/source" \
   RETROM_E2E_DATABASE="$temporary_root/data/retrom.db" \
   RETROM_NETPLAY_NES_GAME_ID="$(jq -r '.gameId // empty' "$netplay_nes_result" 2>/dev/null || true)" \
   RETROM_NETPLAY_NES_FIXTURE_SHA256="$(jq -r '.fixtureSha256 // empty' "$netplay_nes_result" 2>/dev/null || true)" \

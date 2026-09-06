@@ -255,7 +255,7 @@ export function EmulationStationImportDetailManager({
     onClose={() => setMappingOpen(false)}
     onStarted={setSummary}
   />;
-  return <EmulationStationImportDetailView
+  return <EmulationStationImportDetailView onDiscarded={() => { void Promise.all([requestSummary(), requestItems(filters)]).catch(() => setError("请刷新查看最新任务状态")); }}
     summary={summary}
     items={items}
     nextCursor={nextCursor}

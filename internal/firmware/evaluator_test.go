@@ -19,7 +19,7 @@ func TestStaticRankingNeverLetsSizeBeatExactHash(t *testing.T) {
 	testassert.Falsef(t, testassert.Any(func() bool { return values[0].Method != "EXACT_HASH" }, func() bool { return values[0].Facts.RelativePath != "renamed.bin" }), "winner = %#v", values[0])
 }
 
-func TestDATRankingPrefersLaunchableArchive(t *testing.T) {
+func TestDATRankingPrefersCompleteArchiveWithWarnings(t *testing.T) {
 	t.Parallel()
 	expected := []ExpectedDATEntry{
 		{Name: "a.rom", SizeBytes: 1, CRC32: "a"},
@@ -36,6 +36,7 @@ func TestDATRankingPrefersLaunchableArchive(t *testing.T) {
 			{NormalizedPath: "b.rom", Size: 1, CRC32: "b"},
 		},
 	)
+	testassert.Falsef(t, !partial.Launchable, "uploaded BIOS must remain launchable: %#v", partial)
 	values := []DATEvaluation{partial, warning}
 	SortDAT(values)
 	testassert.Falsef(t, testassert.Any(func() bool { return !values[0].Launchable }, func() bool { return values[0].Method != "DAT_ENTRY_WARNING" }), "winner = %#v", values[0])

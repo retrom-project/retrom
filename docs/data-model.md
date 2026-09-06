@@ -1,10 +1,10 @@
 # Retrom 数据模型
 
-字段、CHECK、FK、索引与 trigger 的逐字节事实源是 `migrations/001_identity.sql` 至 `migrations/010_cross_domain_invariants.sql`；本文只描述稳定领域关系。HTTP 字段以 `api/openapi.yaml` 的统一 bundle 为准。
+字段、CHECK、FK、索引与 trigger 的逐字节事实源是 `migrations/001_identity.sql` 至 `migrations/011_import_batch_discard.sql`；本文只描述稳定领域关系。HTTP 字段以 `api/openapi.yaml` 的统一 bundle 为准。
 
 ## 1. 基线
 
-- 项目尚未发布，001–010 直接创建最终 current-state 模型；不兼容的开发库必须停机归档并使用空数据根重建，不执行旧表转换、兼容回填或 DROP/ALTER 迁移。首次正式发布后才采用只追加的向前升级，不提供降级、回滚、双写或运行时 schema 修补。
+- 001–010 是冻结的 current-state bootstrap；011 起可追加兼容扩展，新增表和原子替换领域 trigger，不转换或删除现有 payload 表、不关闭外键。已有且 checksum 完全匹配的 001–010 数据库可原地升级。不兼容的开发库仍须停机归档并使用空数据根重建；不提供降级、回滚、双写或运行时 schema 修补。
 - 业务主键使用 UUIDv7，摘要使用 64 位小写 SHA-256，时刻使用 Unix 毫秒 `INTEGER`。
 - 当前业务状态原位更新并推进 `version`；需要追踪的历史进入 audit、event、job input、来源快照和验证证据，不为 metadata、content、Variant 建平行业务版本树。
 - 数据库不保存 Launch 明文 capability、Cookie、CSRF token、用户主机绝对路径或 Provider 私有实现映射。
@@ -59,6 +59,14 @@ Upload 的业务用途只区分 `GENERAL/PROJECT/RUNTIME_ASSET_PACK`，并独立
 RPG Maker profile 保存实际检测得到的项目 fingerprint、generation、Provider/Target 和依赖摘要，不保存运行 gate、位置证明或独立验证决定。所有审核通过 `review_preview_sessions` 试运行，来源文件与校验产物分开锁定；`RUNTIME_FILE` 只能引用该审核所选校验的产物或已选运行资源包，不能借试运行读取其他来源的 Blob。
 
 审核临时 checkpoint 使用会话级存储，一份 preview 保留当前临时 payload，格式及 Blob 关系明确。恢复 preview 冻结自己的恢复输入，不跟随原 preview 后续覆盖。已关闭会话的临时 checkpoint 可在审核未结束且未到期时用于恢复；过期或审核 payload 释放时清理。临时存档不是审批/升级门槛，不引入原会话、恢复会话或人工确认的附加状态机。
+
+### 批次丢弃与服务器上传归属
+
+`import_batch_discards` 对 `(kind,import_id)` 只保留一个当前处置，kind 为普通导入、Pegasus 或 EmulationStation。`REQUESTED → COMPLETED|FAILED`，失败可回到 REQUESTED；记录请求管理员、错误码和毫秒时间，不增加试玩 revision 或按运行次数累积记录。来源批次由服务校验；请求落库即通过 `discarded_import_jobs` 视图及 trigger 阻止该批次再次发布、重试导入。
+
+`server_import_upload_owners` 将内部 UploadSession 唯一关联到一个来源 Item，与内部上传同事务创建，覆盖“创建内部导入后、尚未交接审核前”的中断和不支持格式分支。UploadSession 删除级联移除此归属；该表仅记录身份，不增加 Blob 引用。旧来源按确定性上传 ID 恢复；旧 Pegasus 随机 ID 仅在完整文件集合、目标和执行时间以及内部 manifest 摘要唯一匹配时恢复，歧义保留数据并报错。
+
+批量处置中的真实待审核 Item 通过正常 Discard 事务生成审核决定。未产生审核的失败来源也可进入 `REVIEW_DISCARDED`，由批次处置作为证据，保留原错误码和详情，不伪造 ReviewEvent。PUBLISHED/SKIPPED_EXISTING 不进入该转换；普通导入被取消的执行项与拒绝文件保留原终态及失败证据。引用释放仍以现有 payload state 和 release job 为唯一事实源。
 
 ## 6. Launch 与资源冻结
 

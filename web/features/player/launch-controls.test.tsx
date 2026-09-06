@@ -167,6 +167,7 @@ describe("LaunchControls", () => {
       defaultDosEntry={null}
       latestSave={{
         saveStateId: "save-without-shot",
+        sizeBytes: 2048,
         screenshotUrl: null,
         createdAtMs: Date.parse("2026-08-30T12:00:00+08:00"),
         coreId: "mgba",

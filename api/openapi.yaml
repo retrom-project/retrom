@@ -7,6 +7,8 @@ servers:
 security:
   - sessionCookie: []
 paths:
+  /api/v1/admin/import-batches/{kind}/{importId}/discard:
+    $ref: ./domains/imports.yaml#/paths/~1api~1v1~1admin~1import-batches~1{kind}~1{importId}~1discard
   /health/live:
     $ref: ./domains/identity.yaml#/paths/~1health~1live
   /health/ready:
@@ -143,6 +145,8 @@ paths:
     $ref: ./domains/imports.yaml#/paths/~1api~1v1~1admin~1runtime-asset-packs~1installations~1{installationId}
   /api/v1/admin/reviews:
     $ref: ./domains/reviews.yaml#/paths/~1api~1v1~1admin~1reviews
+  /api/v1/admin/reviews/deduplicate:
+    $ref: ./domains/reviews.yaml#/paths/~1api~1v1~1admin~1reviews~1deduplicate
   /api/v1/admin/review-bulk-approval-preview:
     $ref: ./domains/reviews.yaml#/paths/~1api~1v1~1admin~1review-bulk-approval-preview
   /api/v1/admin/review-bulk-approvals:
@@ -320,6 +324,8 @@ components:
     sessionCookie:
       $ref: ./components/common.yaml#/components/securitySchemes/sessionCookie
   schemas:
+    ImportBatchDiscard:
+      $ref: ./domains/imports.yaml#/components/schemas/ImportBatchDiscard
     DiagnosticsSnapshot:
       $ref: ./domains/operations.yaml#/components/schemas/DiagnosticsSnapshot
     DiagnosticsRuntimeProvider:
@@ -568,6 +574,10 @@ components:
       $ref: ./domains/reviews.yaml#/components/schemas/ReviewQueueList
     ReviewBulkApprovalScope:
       $ref: ./domains/reviews.yaml#/components/schemas/ReviewBulkApprovalScope
+    ReviewDeduplicateRequest:
+      $ref: ./domains/reviews.yaml#/components/schemas/ReviewDeduplicateRequest
+    ReviewDeduplicateResult:
+      $ref: ./domains/reviews.yaml#/components/schemas/ReviewDeduplicateResult
     ReviewBulkApprovalRequest:
       $ref: ./domains/reviews.yaml#/components/schemas/ReviewBulkApprovalRequest
     MetadataFields:

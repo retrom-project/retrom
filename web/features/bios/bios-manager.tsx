@@ -22,7 +22,7 @@ const statusLabels: Record<string, string> = {
   MISSING: "缺少文件",
   MISMATCHED: "文件不匹配",
   HASH_WARNING: "校验值不一致",
-  MISSING_ENTRY: "归档内缺少文件",
+  MISSING_ENTRY: "归档缺项（允许使用）",
   OPTIONAL_MISSING: "可选文件未安装",
   INVALID: "文件无效",
   SATISFIED_BY_CONTENT: "由游戏内容满足",
@@ -55,7 +55,7 @@ const entryStatusLabels: Record<ArchiveEntryComparison["status"], string> = {
 
 function tone(status: string): "good" | "warn" | "bad" {
   if (["MATCHED", "SATISFIED_BY_CONTENT"].includes(status)) {return "good";}
-  if (["MISSING", "MISSING_ENTRY", "INVALID"].includes(status)) {return "bad";}
+  if (["MISSING", "INVALID"].includes(status)) {return "bad";}
   return "warn";
 }
 
@@ -122,7 +122,7 @@ function BIOSUsage({ currentLibrary, item }: { currentLibrary: boolean; item: BI
     : "完整核心目录项";
   const detail = item.requirementMode === "OPTIONAL"
     ? "未安装不会作为必需依赖阻断"
-    : item.status === "HASH_WARNING" ? "校验警告允许启动，但建议核对文件" : "启动前会按当前运行方式检查";
+    : ["HASH_WARNING", "MISSING_ENTRY"].includes(item.status) ? "校验警告允许启动，但建议核对文件" : "启动前会按当前运行方式检查";
   return <div className="runtime-usage" role="cell"><strong>{headline}</strong><small>{detail}</small></div>;
 }
 

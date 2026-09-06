@@ -119,7 +119,7 @@ func variantArcadeBIOSDependency(
 		}
 	}
 	validInstallation := row.blobID.Valid && row.installationStatus.Valid &&
-		(row.installationStatus.String == "MATCHED" || row.installationStatus.String == "HASH_WARNING")
+		corevalidation.BIOSInstallationUsable(row.installationStatus.String)
 	return dependency, true, validInstallation, nil
 }
 

@@ -5,6 +5,7 @@ import { AppIcon } from "@/components/app-icon";
 import { LaunchButton } from "@/features/player/launch-button";
 import { formatSaveDuration, saveAvailable, type SaveItem } from "@/features/saves/save-library";
 import { SaveScreenshot } from "@/features/saves/save-screenshot";
+import { SaveSizeLabel } from "@/features/saves/save-size-label";
 import { useSaveTimeFormatter } from "@/features/saves/use-save-time";
 
 function SaveResume({ gameId, save, label, requiresThreads }: { gameId: string; save: SaveItem; label: string; requiresThreads: boolean }) {
@@ -84,6 +85,7 @@ export function GameDetailSaves({ gameId, gameTitle, saves, nowMs, threadCoreIds
           <button className="game-detail-save-media" type="button" aria-label={save.screenshotUrl ? `预览 ${formatTime(save.createdAtMs, nowMs)} 的存档截图` : `${formatTime(save.createdAtMs, nowMs)} 的存档没有截图`} disabled={!save.screenshotUrl} onClick={() => openPreview(save)}>
             {!saveAvailable(save) ? <span className="game-detail-save-blocked">当前不可用</span> : null}
             <SaveScreenshot screenshotUrl={save.screenshotUrl} alt="存档截图" sizes="(min-width: 1800px) 32vw, (min-width: 1600px) 290px, 220px" />
+            <SaveSizeLabel sizeBytes={save.sizeBytes} />
           </button>
           <div className="game-detail-save-body">
             <div className="game-detail-save-title-line">
@@ -128,6 +130,7 @@ export function GameDetailSaves({ gameId, gameTitle, saves, nowMs, threadCoreIds
         {saves.map((save, index) => <article className="game-detail-drawer-row" key={save.saveStateId}>
           <button className="game-detail-drawer-shot" type="button" aria-label={save.screenshotUrl ? `预览 ${formatTime(save.createdAtMs, nowMs)} 的存档截图` : `${formatTime(save.createdAtMs, nowMs)} 的存档没有截图`} disabled={!save.screenshotUrl} onClick={() => openPreview(save)}>
             <SaveScreenshot screenshotUrl={save.screenshotUrl} alt="存档截图" sizes="192px" />
+            <SaveSizeLabel sizeBytes={save.sizeBytes} />
           </button>
           <div><time dateTime={new Date(save.createdAtMs).toISOString()}>{formatTime(save.createdAtMs, nowMs)}</time><small>{save.core.name}{save.discLabel ? ` · ${save.discLabel}` : ""}{index === 0 ? " · 最近" : ""}</small></div>
           <SaveResume gameId={gameId} save={save} requiresThreads={threadCoreIds.includes(save.core.id)} label="▶ 继续" />
@@ -139,7 +142,7 @@ export function GameDetailSaves({ gameId, gameTitle, saves, nowMs, threadCoreIds
       <section role="dialog" aria-modal="true" aria-label="存档截图预览" onKeyDown={(event) => {
         if (event.key === "Tab") { event.preventDefault(); previewCloseRef.current?.focus(); }
       }}>
-        <div className="game-detail-preview-image"><SaveScreenshot screenshotUrl={previewSave.screenshotUrl} alt={`${gameTitle} 存档截图完整预览`} width={1920} height={1080} /></div>
+        <div className="game-detail-preview-image"><SaveScreenshot screenshotUrl={previewSave.screenshotUrl} alt={`${gameTitle} 存档截图完整预览`} width={1920} height={1080} /><SaveSizeLabel sizeBytes={previewSave.sizeBytes} /></div>
         <footer><span>完整截图 · 保持原始画面比例</span><button ref={previewCloseRef} type="button" onClick={() => setPreviewSave(null)}>关闭</button></footer>
       </section>
     </div> : null}

@@ -50,6 +50,7 @@ function exitDescriptionFor(netplay: boolean, saveAvailable: boolean, dosProgram
 }
 
 function warningCopyFor(warnings: string[]) {
+  if (warnings.includes("BIOS_MISSING_ENTRY_WARNING")) {return "BIOS 归档可能缺少内部文件，当前仍允许运行。";}
   return warnings.includes("BIOS_HASH_WARNING")
     ? "BIOS 校验值与目录期望不同，但当前允许运行。"
     : "当前运行环境有需要留意的提示。";

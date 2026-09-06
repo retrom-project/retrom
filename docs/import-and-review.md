@@ -100,6 +100,14 @@ Job 交接只有一条实现路径：`IMPORT_ITEM_PIPELINE` 完成 hash、分组
 
 首个自动 Run 完成时，负责它的 Metadata Job 在同一短事务创建唯一 ReviewDraft、把 Item 转为 REVIEW_PENDING：READY 的默认 CoreValidation 自动写入 `selected_validation_id`，BLOCKED/INCOMPATIBLE 时该字段为空并展示 blocker；候选按第 7 节固定顺序非空时自动选择第一项并复制其 normalized metadata，候选为空时用 primary content 的安全 basename 去掉最后扩展名作为初始 title，其他展示字段为空。DOS 目录使用 common root 最后一段，DOS ZIP 使用 ZIP basename；结果 trim 后若为空或含控制字符则 title 为空并禁用 Approve，不能写“未命名游戏”后误发布。自动初始化不选择尚未完成的媒体，也不写冒充人工操作的 ReviewEvent；候选/Run/Validation 本身已是不可变来源。审核者之后清除 `selected_candidate_id` 只表示改为人工来源，不自动回滚当前字段；字段变化必须由同一次 PATCH 明示并写 ReviewEvent。后续显式重刮削只新增 Run/Candidate，不自动改现有草稿。
 
+### 丢弃本批次未发布内容
+
+普通导入任务、Pegasus 和 EmulationStation 已开始执行的批次均提供一次性批量处置。请求持久化后，后台先停止该批次的在途执行，再通过普通 Discard 丢弃所有待审核项，并收口阻断、失败、取消及未形成审核的输入。正在执行的普通任务在此模式下保留 REVIEW_PENDING，停止执行后逐项记录真实审核决定；已发布或指向已有游戏的条目保留。普通取消功能仍遵循原有语义。
+
+来源结果统一显示“管理员已丢弃”，但原错误码、文件名和错误详情继续可读；普通任务保留拒绝文件与失败执行证据。已丢弃批次不能重新配置、重新执行或发布，重新导入需新建批次。后台按批次身份恢复处置，关闭页面或服务重启不会丢失请求；重复请求不会新增同一审核决定，失败可继续处理。无需额外保存多次运行记录。
+
+待审核之前被拒绝的内部上传也属于本批次占用。引用移除交给既有 PayloadRelease；共享 Game/其他批次的引用和服务器原文件保留，无引用 Blob 按既有 GC 宽限回收。历史内部上传无法唯一确认归属时保留相关文件并报告稳定错误，不能猜测后删除。请求、进度和失败由批次处置 API 提供；统一验证见 [`ACC-STOR-002`](./project-acceptance.md#acc-stor-002批次丢弃与引用释放)。
+
 ## 5. 文件和目录分组
 
 分组输入是 COMPLETE UploadSession 的全部 UploadFile，先按规范 relative path UTF-8 bytes 升序固定顺序。每个文件都必须落到 `SOURCE/IGNORED/REJECTED` 之一并在任务页可见；不能因扩展名不认识就静默丢弃。一期只对规范 basename 恰为 `.DS_Store`、`Thumbs.db` 或以 `._` 开头的已知系统边车文件使用 `IGNORED_SYSTEM_SIDECAR`。其他不属于下表输入的文件标为 `REJECTED/UNSUPPORTED_CONTENT_FORMAT`，使 ImportJob 进入可见的 PARTIAL_FAILURE，不阻止其他合法 Item 进审核。
@@ -116,7 +124,7 @@ Job 交接只有一条实现路径：`IMPORT_ITEM_PIPELINE` 完成 hash、分组
 - 每个 Item 的 `ImportItemSourceFile` 是 source manifest 与 Approve 复制 GameContentFile 的唯一关系来源；`group_key` 使用数据模型的 canonical digest，重试不得因 worker 遍历顺序改变分组。
 - 浏览器目录上传优先从 Retrom 自绘 Dialog 调用 File System Access API 的 `showDirectoryPicker`，递归读取 `FileSystemDirectoryHandle` 并只传递以所选根目录开头的规范相对路径；Chrome / Edge 走该路径时，系统选择完成后不再出现“上传 N 个文件到此网站”的二次确认。Brave 虽基于 Chromium但禁用该 API，因此能力检测失败时回退到 `input[webkitdirectory]` 与 `File.webkitRelativePath`，并接受 Brave 自身不可绕过的原生上传确认。两条路径的选择结果都必须回到同一个 Dialog 展示根目录名、文件数、总大小和相对路径预览，管理员明确点击“使用此目录”后才进入导入配置；取消系统选择、Dialog 取消或 Escape 均不保留待确认文件。
 - 局域网开发允许通过非 localhost 的明文 HTTP 域名访问；该上下文可能只有 `crypto.getRandomValues`，没有 `crypto.randomUUID` 或 `crypto.subtle`。前端必须用 CSPRNG bytes 生成规范小写 UUIDv4，并以经过标准 SHA-256 向量验证的本地实现完成分块 digest fallback；不能降级为 `Math.random`、时间戳、跳过 `Content-Digest` 或把整个文件交给后端代算。
-- 普通用户导入不接受服务器路径；管理员可从部署者 `RETROM_SERVER_IMPORT_ROOTS` allowlist 中选择规范相对目录，分别创建 BIOS、Pegasus 或 EmulationStation 任务。浏览器永远不能提交或读取任意宿主绝对路径。拖放目录仍只是普通浏览器导入的 Chrome 增强能力。
+- 普通用户导入不接受服务器路径；管理员无需配置目录白名单即可从服务进程可读取的文件系统选择目录，分别创建 BIOS、Pegasus 或 EmulationStation 任务。目录浏览固定使用 `filesystem`（`/`）；API 路径为去掉前导 `/` 的规范相对路径。拖放目录仍只是普通浏览器导入的 Chrome 增强能力。
 - Arcade DAT 发现 machine 依赖 disk/CHD 或 Merged ROMset 时保留文件证据并进入带 `UNSUPPORTED_CHD` / `UNSUPPORTED_MERGED_ROMSET` 的待审核 Blocker；这条只约束 Arcade ROMset，不影响 PSX/Saturn/3DO/PC-FX 明确支持的单文件 CHD。
 
 分组与扩展名规则从目标游戏目录的基础平台推导。默认核心是导入流水线唯一自动执行的兼容性目标；一期不得在导入后为其他核心自动投递后台验证。用户在详情页首次显式选择其他核心启动时，才按运行时专题的 `EnsureVariant` 流程按需验证。
@@ -135,7 +143,7 @@ Job 交接只有一条实现路径：`IMPORT_ITEM_PIPELINE` 完成 hash、分组
 | Nintendo DS (`nds`) | 原始 `.nds`；或一个 ZIP/7z | archive 必须恰有一个 `.nds` entry。 |
 | Atari 2600 / 5200 / 7800 | 对应 `.a26/.a52/.a78`；或一个 ZIP/7z | 各目录只接受自己的扩展，唯一成员物化为 raw CONTENT。 |
 | Atari Lynx (`lynx`) | 原始 `.lnx`；或一个 ZIP/7z | archive 必须恰有一个 `.lnx` entry。 |
-| Mega Drive (`megadrive`) | 原始 `.md`；或一个 ZIP/7z | archive 必须恰有一个 `.md` entry。 |
+| Mega Drive (`megadrive`) | 原始 `.md`、`.smd`、`.bin`；或一个 ZIP/7z | archive 必须恰有一个上述扩展的安全 entry；不同扩展的多个 ROM 也属于多候选歧义。保留内容 bytes 与扩展名，`.smd` 由核心解码，不在导入时改名或转换。 |
 | PC Engine (`pce`) | 原始 `.pce`；或一个 ZIP/7z | archive 必须恰有一个 `.pce` entry。 |
 | Neo Geo Pocket (`ngpc`) | 原始 `.ngp`；或一个 ZIP/7z | archive 必须恰有一个 `.ngp` entry。 |
 | Nintendo 64 (`n64`) | 原始 `.z64`；或一个 ZIP/7z | archive 必须恰有一个 `.z64` entry。 |
@@ -334,6 +342,8 @@ ImportItem 进入 `PUBLISHED/DISCARDED/FAILED_FINAL/CANCELLED` 后立即进入�
 
 后台按冻结顺序逐项复用普通 Approve 事务。成功 Item 的 Game/GameFiles/GameVariant/ReviewEvent、普通与对应服务器来源聚合和批次 `PUBLISHED` 结果必须同事务提交；ReviewEvent diff 增加 `approvalMode=QUICK_STRICT_READY` 和 `bulkApprovalId`，不建立第二套发布规则。处理前重复变为 `SKIPPED_DUPLICATE`，版本/Validation/来源漂移为 `SKIPPED_CHANGED`，严格门禁不再满足为 `SKIPPED_NOT_READY`，意外项故障为 `FAILED_FINAL` 并继续剩余项。取消只收口尚未提交的 Item；进程重启恢复未提交项，restore 使遗留批次以 `RESTORE_INTERRUPTED` 失败且不回滚已发布 Game。终态页面清除相关审核队列缓存、刷新列表，并提供逐项结果链接。
 
+“快速去重”由管理员点击后自动丢弃当前 URL 筛选范围内与已发布 Game 内容相同的未决条目，覆盖全部分页。匹配复用普通重复检查：相同基础平台、完整来源文件的角色/Blob/数量一致，多盘还要求盘序一致；标题相同不足以判重。只有待审条目彼此重复但尚无已发布 Game 时不丢弃。正在 Parent/多盘补传的条目暂时跳过。每页最多检查 50 项，在同一事务重查有效来源、已发布匹配和审核版本，调用普通 Discard，写入“快速去重：游戏内容已发布”的 ReviewEvent 原因，并推进普通/服务器来源计数、调度既有 PayloadRelease。已发布 Game 及其引用保持不变。无需新增批次记录或 migration；一次分页失败会回滚该页，先前成功页保留，再次点击可继续处理剩余未决项。关闭页面会停止后续分页请求。
+
 审核详情的来源文件和单个 archive 成员审计预览分别最多渲染前 200 项并显示完整总数。完整清单仍保存在来源证据、参与内容摘要与发布，但不得作为 Client Component 属性重复发送或让数千行 DOM 阻塞审核操作 hydration。
 
 ## 11. API
@@ -370,7 +380,7 @@ Pegasus Item 一旦发布、审核丢弃、跳过、阻断、取消或进入不�
 
 ## 15. EmulationStation 服务器目录导入
 
-EmulationStation import 复用 `RETROM_SERVER_IMPORT_ROOTS`、服务器目录浏览和普通导入主链，不读取 `es_systems.cfg`。扫描从管理员选择的规范相对目录递归发现文件名精确为小写 `gamelist.xml` 的普通文件；不跟随符号链接或跨 root，每份可解析清单形成一个独立 Collection。因而同一入口同时支持两种稳定形态：一个所选目录包含多个子目录、每个子目录各有自己的 `gamelist.xml`；或一个没有子目录的目录只含一份 `gamelist.xml` 与多份游戏文件。其他大小写的清单名不匹配，也不能把父子清单合并为一个 Collection。
+EmulationStation import 复用管理员服务器文件系统浏览和普通导入主链，不读取 `es_systems.cfg`。扫描从管理员选择的规范相对目录递归发现文件名精确为小写 `gamelist.xml` 的普通文件；不跟随符号链接，清单内引用仍限定在所选来源目录内，每份可解析清单形成一个独立 Collection。因而同一入口同时支持两种稳定形态：一个所选目录包含多个子目录、每个子目录各有自己的 `gamelist.xml`；或一个没有子目录的目录只含一份 `gamelist.xml` 与多份游戏文件。其他大小写的清单名不匹配，也不能把父子清单合并为一个 Collection。
 
 XML 必须是严格 UTF-8，可带 UTF-8 BOM，根元素必须是无 namespace 的 `gameList`。DTD、实体声明、外部实体、其他 processing instruction、namespace、非 UTF-8、未知根结构和重复必填字段均 fail closed；解析器只接受受限的 `game` 与已登记纯文本字段。`command/emulator/core` 即使出现也一律忽略，原值不得持久化、返回或记录；`folder` 只计数，`provider` 只保留存在性。每个 `game` 恰有一个非空 `path`，标题缺失时使用内容文件 basename；`players` 仅接受 `N` 或 `N-M` 并取最大值，日期只接受 `YYYYMMDD[THHMMSS]` 或 `DD/MM/YYYY`。`hidden/adult/kidgame` 只是管理员可见来源提示，不改变权限、兼容性或自动发布规则。
 

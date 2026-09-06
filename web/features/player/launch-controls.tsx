@@ -4,6 +4,7 @@ import { useState, useSyncExternalStore } from "react";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { StatusBadge } from "@/components/ui";
 import { SaveScreenshot } from "@/features/saves/save-screenshot";
+import { SaveSizeLabel } from "@/features/saves/save-size-label";
 import { useSaveTimeFormatter } from "@/features/saves/use-save-time";
 import { useAuth } from "@/features/auth/auth-provider";
 import { readPreferredCore, subscribePreferredCores, writePreferredCore } from "./core-preference";
@@ -37,6 +38,7 @@ const coreStatusLabels: Record<CoreOption["status"], string> = {
 
 type LatestSave = {
   saveStateId: string;
+  sizeBytes: number;
   screenshotUrl: string | null;
   createdAtMs: number;
   coreId: string;
@@ -83,7 +85,7 @@ function DOSProgramPicker({ defaultDosEntry, dosEntries, onChange, value }: {
 function LatestSaveCard({ gameId, latestSave, nowMs, requiresThreads }: { gameId: string; latestSave: LatestSave; nowMs: number | undefined; requiresThreads: boolean }) {
   const formatTime = useSaveTimeFormatter();
   return <div className="launch-quick-save">
-    <div><SaveScreenshot screenshotUrl={latestSave.screenshotUrl} alt="最近存档" sizes="126px" /></div>
+    <div><SaveScreenshot screenshotUrl={latestSave.screenshotUrl} alt="最近存档" sizes="126px" /><SaveSizeLabel sizeBytes={latestSave.sizeBytes} /></div>
     <div><strong>最近存档</strong><time dateTime={new Date(latestSave.createdAtMs).toISOString()}>{formatTime(latestSave.createdAtMs, nowMs ?? latestSave.createdAtMs)}</time><small>{latestSave.coreName}{latestSave.discLabel ? ` · ${latestSave.discLabel}` : ""}</small><LaunchButton gameId={gameId} saveStateId={latestSave.saveStateId} requiresThreads={requiresThreads} label="从存档继续" /></div>
   </div>;
 }
@@ -144,7 +146,7 @@ export function LaunchControls({ gameId, coreOptions, dosEntries, defaultDosEntr
   coreOptions: CoreOption[];
   dosEntries: DOSEntry[];
   defaultDosEntry: string | null;
-  latestSave?: { saveStateId: string; screenshotUrl: string | null; createdAtMs: number; coreId: string; coreName: string; discIndex?: number | null; discLabel?: string | null } | null;
+  latestSave?: LatestSave | null;
   nowMs?: number;
 }) {
   const { context } = useAuth();

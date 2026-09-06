@@ -1,4 +1,48 @@
 paths:
+  /api/v1/admin/import-batches/{kind}/{importId}/discard:
+    parameters:
+      - name: kind
+        in: path
+        required: true
+        schema:
+          type: string
+          enum: [IMPORT, PEGASUS, EMULATIONSTATION]
+      - name: importId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      operationId: getAdminImportBatchDiscard
+      responses:
+        '200':
+          description: Current batch disposition; AVAILABLE when not yet requested.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImportBatchDiscard'
+    post:
+      operationId: postAdminImportBatchDiscard
+      description: Idempotently stop this batch and discard all unpublished content, including rejected inputs. Published games and shared blobs remain protected. One durable disposition survives page closure and process restarts; failed reconciliation can be retried here. Payload release and delayed GC use their existing workers.
+      parameters:
+        - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+      responses:
+        '202':
+          description: Disposition accepted, already pending or already completed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImportBatchDiscard'
+        '409':
+          $ref: ../components/common.yaml#/components/responses/JSONResponse
   /api/v1/admin/uploads:
     post:
       operationId: postAdminUpload
@@ -242,6 +286,23 @@ paths:
           $ref: '#/components/responses/PreconditionRequiredResponse'
 components:
   schemas:
+    ImportBatchDiscard:
+      type: object
+      additionalProperties: false
+      required: [kind, importId, state, errorCode]
+      properties:
+        kind:
+          type: string
+          enum: [IMPORT, PEGASUS, EMULATIONSTATION]
+        importId:
+          type: string
+          format: uuid
+        state:
+          type: string
+          enum: [AVAILABLE, UNAVAILABLE, REQUESTED, COMPLETED, FAILED]
+        errorCode:
+          type: string
+          nullable: true
     ImportOverviewSummary:
       type: object
       additionalProperties: false

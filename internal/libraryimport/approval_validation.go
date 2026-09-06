@@ -497,7 +497,7 @@ func screenshotOverrideRuntimeSnapshot(snapshot corevalidation.Snapshot) coreval
 		if dependency.EmulatorPath == nil || dependency.BlobID == nil || dependency.InstallationStatus == nil {
 			continue
 		}
-		if *dependency.InstallationStatus == "MATCHED" || *dependency.InstallationStatus == "HASH_WARNING" {
+		if corevalidation.BIOSInstallationUsable(*dependency.InstallationStatus) {
 			filtered = append(filtered, dependency)
 		}
 	}

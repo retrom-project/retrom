@@ -14,7 +14,7 @@ func TestProfilesAcceptExactCaseInsensitiveExtensions(t *testing.T) {
 		"nes": {"game.nes", "game.UNIF", "disk.FDS"}, "fds": {"disk.fds"}, "snes": {"game.sfc"},
 		"gbc": {"game.gb", "game.GBC"}, "gba": {"game.gba"}, "nds": {"game.nds"},
 		"atari5200": {"game.a52"}, "psx": {"game.chd"}, "lynx": {"game.lnx"},
-		"saturn": {"game.chd"}, "megadrive": {"game.md"}, "n64": {"game.z64"},
+		"saturn": {"game.chd"}, "megadrive": {"game.md", "game.smd", "game.SMD", "game.bin", "game.BIN"}, "n64": {"game.z64"},
 		"3do": {"game.chd"}, "atari7800": {"game.a78"}, "atari2600": {"game.a26"},
 		"pce": {"game.pce"}, "pcfx": {"game.chd"}, "ngpc": {"game.ngp"},
 		"psp": {"game.iso", "game.CSO"}, "virtualboy": {"game.vb"},
@@ -30,6 +30,8 @@ func TestProfilesAcceptExactCaseInsensitiveExtensions(t *testing.T) {
 		{"psp", "game.chd"},
 		{"psp", "game.iso.7z"},
 		{"psx", "game.iso"},
+		{"psx", "game.bin"},
+		{"megadrive", "game.bin.bak"},
 		{"n64", "game.v64"},
 		{"arcade", "game.zip"},
 		{"unknown", "game.gba"},
@@ -48,6 +50,7 @@ func TestSupportedExtensionsCoverEverySeededPlatformWithoutExposingWrappers(t *t
 		"tyranoscript": {".zip", ".7z", ".exe"},
 		"nes":          {".nes", ".unf", ".unif", ".fds"},
 		"wasm4":        {".wasm"},
+		"megadrive":    {".md", ".smd", ".bin"},
 	}
 	for platformID, want := range tests {
 		got := SupportedExtensions(platformID)
@@ -201,5 +204,32 @@ func TestSelectArchivePrimary(t *testing.T) {
 	entries = append(entries, importing.ArchiveEntry{Ordinal: 2, NormalizedPath: "other.nds"})
 	if _, err := SelectArchivePrimary("nds", entries); !errors.Is(err, ErrAmbiguousPrimaryContent) {
 		t.Fatalf("multiple candidates error = %v", err)
+	}
+}
+
+func TestMegaDriveArchiveSelectsROMWithoutGuessingBetweenCandidates(t *testing.T) {
+	t.Parallel()
+	for _, format := range []ArchiveFormat{ArchiveZIP, ArchiveSevenZip} {
+		testassert.Truef(t, AcceptsArchive("megadrive", format), "Mega Drive rejected %s", format)
+	}
+	for _, name := range []string{"Game.SMD", "Game.BIN"} {
+		t.Run(name, func(t *testing.T) {
+			entries := make([]importing.ArchiveEntry, 0, 3)
+			entries = append(entries,
+				importing.ArchiveEntry{Ordinal: 0, NormalizedPath: "README.txt"},
+				importing.ArchiveEntry{Ordinal: 1, NormalizedPath: "folder/" + name},
+			)
+			selected, err := SelectArchivePrimary("megadrive", entries)
+			if err != nil || selected.Ordinal != 1 {
+				t.Fatalf("%s primary = %#v, %v", name, selected, err)
+			}
+			entries = append(entries, importing.ArchiveEntry{Ordinal: 2})
+			for _, other := range []string{"other.md", "other.smd", "other.bin"} {
+				entries[2].NormalizedPath = other
+				if _, err := SelectArchivePrimary("megadrive", entries); !errors.Is(err, ErrAmbiguousPrimaryContent) {
+					t.Fatalf("mixed %s/%s candidates error = %v", name, other, err)
+				}
+			}
+		})
 	}
 }

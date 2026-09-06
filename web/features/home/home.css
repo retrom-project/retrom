@@ -104,10 +104,11 @@
 .home-platform-card { position: relative; min-height: 60px; overflow: hidden; border: 1px solid #e2dfd8; border-radius: 10px; background: #faf9f6; }
 .home-platform-card.is-pinned { border-color: #c9c1f2; background: #faf8ff; }
 .home-platform-card > a { height: 100%; min-height: 60px; padding: 9px 44px 9px 12px; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.home-platform-card > a > span { min-width: 0; }
 .home-platform-card strong, .home-platform-card small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .home-platform-card strong { font-size: 13px; }
 .home-platform-card small { margin-top: 1px; color: var(--muted); font-size: 9px; }
-.home-platform-card code { color: var(--purple-dark); font: 800 10px/1 ui-monospace, monospace; }
+.home-platform-card code { flex: 0 0 auto; color: var(--purple-dark); font: 800 10px/1 ui-monospace, monospace; }
 .home-platform-pin { position: absolute; right: 7px; top: 50%; width: 30px; height: 30px; padding: 0; display: grid; place-items: center; border: 0; border-radius: 8px; color: #8b92a1; background: transparent; cursor: pointer; transform: translateY(-50%); }
 .home-platform-pin:hover, .home-platform-pin[aria-pressed="true"] { color: var(--purple-dark); background: var(--purple-soft); }
 .home-platform-pin span { font-size: 16px; line-height: 1; filter: grayscale(1); opacity: .72; }

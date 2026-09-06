@@ -356,6 +356,7 @@ def _app_environment(root: Path, spec: dict[str, Any], gateway_ip: str) -> dict[
     if spec["runtime"]["mode"] != "branch":
         raise PFBError("PFB_SPEC_INVALID", "runtime-worktree-required")
     generated = _prepare_generated_files(root)
+    _server_data_root(root).mkdir(parents=True, exist_ok=True)
     return {**_minimal_app_environment(root, spec), "PFB_NEXT_ENV_FILE": str(generated / "next-env.d.ts"),
             "PFB_TSCONFIG_FILE": str(generated / "tsconfig.json"), "PFB_GATEWAY_IP": gateway_ip}
 
@@ -367,6 +368,7 @@ def _minimal_app_environment(root: Path, spec: dict[str, Any]) -> dict[str, str]
     formal_git.mkdir(exist_ok=True)
     runtime_git = git_common_dir(runtime_root) if spec["runtime"]["mode"] == "branch" else formal_git
     return {
+        "PFB_SERVER_DATA_ROOT": str(_server_data_root(root)),
         "PFB_RETROM_ROOT": str(root), "PFB_RETROM_GIT_COMMON_DIR": str(git_common_dir(root)),
         "PFB_RUNTIME_ROOT": str(runtime_root), "PFB_RUNTIME_GIT_COMMON_DIR": str(runtime_git),
         "PFB_NEXT_ENV_FILE": str(generated / "next-env.d.ts"), "PFB_TSCONFIG_FILE": str(generated / "tsconfig.json"),
@@ -374,6 +376,15 @@ def _minimal_app_environment(root: Path, spec: dict[str, Any]) -> dict[str, str]
         "PFB_GATEWAY_IP": "172.29.240.2", "PFB_UID": str(os.getuid()), "PFB_GID": str(os.getgid()),
         "PFB_TOOLCHAIN_DIGEST": _toolchain_digest(root),
     }
+
+
+def _server_data_root(root: Path) -> Path:
+    """Share operator import data across named PFBs in a managed workspace."""
+    baseline = git_common_dir(root).parent
+    workspace = baseline.parent.parent
+    if baseline.parent.name == "project" and (workspace / "manifest.yaml").is_file():
+        return workspace / ".dev-data"
+    return root / ".dev-data"
 
 
 def _toolchain_digest(root: Path) -> str:

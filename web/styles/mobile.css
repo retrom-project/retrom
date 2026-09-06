@@ -275,7 +275,7 @@
   .import-task-actions,
   .import-task-problem { align-items: stretch; flex-direction: column; }
   .import-task-actions .button,
-  .import-task-problem .button { width: 100%; min-width: 0; }
+  .import-task-problem .button { width: 100%; min-width: 0; flex-basis: auto; }
   .import-task-stages { overflow-x: auto; grid-template-columns: repeat(6, minmax(108px, 1fr)); }
   .import-task-multidisc > article { grid-template-columns: minmax(0, 1fr); }
   .import-task-no-ignored { justify-self: start; }
