@@ -1,4 +1,3 @@
-.storage-analysis-page { max-width: 1760px; margin-inline: auto; }
 .storage-header-actions { display: flex; gap: 8px; }
 .storage-analysis-page > .feedback-banner { margin: -10px 0 20px; }
 .storage-generated { margin: -20px 0 12px; color: var(--muted); font-size: 12px; text-align: right; }

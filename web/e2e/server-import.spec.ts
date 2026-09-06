@@ -2,6 +2,7 @@ import { mkdirSync } from "node:fs";
 import path from "node:path";
 import axe from "axe-core";
 import { expect, test, type Page, type TestInfo } from "@playwright/test";
+import { selectServerSource, serverSourcePath } from "./server-directory-support";
 import {
   runtimeFrameCount, runtimeResource, runtimeResourceURL, type RuntimeEnvelope,
 } from "./runtime-provider-support";
@@ -45,7 +46,7 @@ async function expectNoSeriousAxeViolations(page: Page) {
 test("ACC-BIOS-006 server import drawer, recovery detail, keyboard and desktop layouts", async ({ page }, testInfo) => {
   await page.goto("/admin/imports/server");
   await expect(page.getByRole("heading", { name: "从服务器目录导入" })).toBeVisible();
-  await expect(page.getByText("Pegasus BIOS", { exact: true }).first()).toBeVisible();
+  await expect(page.getByText("服务器文件系统", { exact: true }).first()).toBeVisible();
   await expectNoPageOverflow(page);
 
   const trigger = page.getByRole("button", { name: "选择目录并开始" });
@@ -54,7 +55,7 @@ test("ACC-BIOS-006 server import drawer, recovery detail, keyboard and desktop l
   const drawer = page.getByRole("dialog", { name: "选择 BIOS 所在目录" });
   await expect(drawer).toBeVisible();
   await expect(page.getByRole("checkbox", { name: /允许使用更优候选替换已有 BIOS/ })).not.toBeChecked();
-  await expect(drawer).not.toContainText("/tmp/");
+  await expect(drawer.getByRole("button", { name: "根目录", exact: true })).toBeDisabled();
   await page.keyboard.press("Shift+Tab");
   expect(await drawer.evaluate((element) => element.contains(document.activeElement))).toBe(true);
   await page.keyboard.press("Escape");
@@ -62,8 +63,8 @@ test("ACC-BIOS-006 server import drawer, recovery detail, keyboard and desktop l
   await expect(trigger).toBeFocused();
 
   await trigger.click();
-  await page.getByRole("button", { name: /^BIOS/ }).click();
-  await expect(drawer.getByText("Pegasus BIOS / BIOS", { exact: true })).toBeVisible();
+  await selectServerSource(drawer, "BIOS");
+  await expect(drawer.getByText(`服务器文件系统 / ${serverSourcePath("BIOS")}`, { exact: true })).toBeVisible();
   await drawer.getByRole("button", { name: "开始异步导入" }).click();
   await expect(page).toHaveURL(/\/admin\/imports\/server\/[0-9a-f-]+$/);
   await expect(page.getByText("已完成", { exact: true }).first()).toBeVisible({ timeout: 30_000 });
@@ -131,7 +132,7 @@ test("ACC-PEG-005 three-step Pegasus import recovers and remains bounded at desk
   await page.goto("/admin/imports/server");
   await expect(page.getByRole("heading", { name: "扫描并导入 BIOS" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "扫描并准备审核事项" })).toBeVisible();
-  await expect(page.getByText("Pegasus BIOS", { exact: true }).first()).toBeVisible();
+  await expect(page.getByText("服务器文件系统", { exact: true }).first()).toBeVisible();
   await expectNoPageOverflow(page);
 
   const trigger = page
@@ -141,8 +142,8 @@ test("ACC-PEG-005 three-step Pegasus import recovers and remains bounded at desk
   let drawer = page.getByRole("dialog", { name: "从 Pegasus 目录准备审核事项" });
   await expect(drawer).toBeVisible();
   await expect(drawer.getByRole("list", { name: "导入步骤" })).toContainText("选择目录");
-  await drawer.getByRole("button", { name: /^Games/ }).click();
-  await expect(drawer).toContainText("Pegasus BIOS / Games");
+  await selectServerSource(drawer, "Games");
+  await expect(drawer).toContainText(`服务器文件系统 / ${serverSourcePath("Games")}`);
   const scanResponse = page.waitForResponse((response) => new URL(response.url()).pathname === "/api/v1/admin/pegasus-imports" && response.request().method() === "POST");
   await drawer.getByRole("button", { name: "扫描此目录" }).click();
   const createdPlan = await (await scanResponse).json() as { id: string };
@@ -286,8 +287,8 @@ test("ACC-PEG-006 project-owned Pegasus GBA source publishes and advances real e
     .getByRole("button", { name: /选择目录并扫描|继续扫描或映射/ })
     .click();
   const drawer = page.getByRole("dialog", { name: "从 Pegasus 目录准备审核事项" });
-  await drawer.getByRole("button", { name: /^Playable/ }).click();
-  await expect(drawer).toContainText("Pegasus BIOS / Playable");
+  await selectServerSource(drawer, "Playable");
+  await expect(drawer).toContainText(`服务器文件系统 / ${serverSourcePath("Playable")}`);
   const scanResponse = page.waitForResponse((response) => new URL(response.url()).pathname === "/api/v1/admin/pegasus-imports" && response.request().method() === "POST");
   await drawer.getByRole("button", { name: "扫描此目录" }).click();
   const plan = await (await scanResponse).json() as { id: string };

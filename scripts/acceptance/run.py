@@ -96,6 +96,7 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
     "ACC-NET-001": (180, "scripts/acceptance/network-boundary.sh"),
     "ACC-DB-001": (120, "go test -tags=integration ./internal/store -run '^Test(Bootstrap|MigrationsCreateCurrent|Schema|FreshSchema|CurrentCrossDomain|CurrentSession)' -count=1"),
     "ACC-DB-002": (120, "go test -tags=integration ./internal/store -run '^Test(CurrentMigration|MigrationPreflight|FailedMigration)' -count=1 && go test -tags=integration ./internal/maintenance -run '^TestBackupRestoreRoundTripAndOnlineRefusal$' -count=1"),
+    "ACC-STOR-002": (180, "go test ./internal/importdiscard ./internal/httpapi -run '^TestDiscard|^TestImportBatchDiscard' -count=1 && cd web && npm exec vitest run features/imports/import-batch-discard.test.tsx"),
     "ACC-CAS-001": (120, "go test ./internal/blobstore -run '^TestPutDeduplicatesConcurrentContent$' -count=1"),
     "ACC-CAS-002": (120, "go test ./internal/blobgc -run '^TestRunOnceHonorsGraceAndConcurrentReference$' -count=1"),
     "ACC-BKP-001": (300, "go test -tags=integration ./internal/maintenance -run '^TestBackupRestoreRoundTripAndOnlineRefusal$' -count=1"),
@@ -209,7 +210,7 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
     "ACC-IMP-001": (180, "go test -tags=integration ./internal/uploads ./internal/libraryimport -run 'TestUploadPartAndFinalization|TestCreateRejectsUnsafeAndDuplicatePaths|TestUploadImportReviewPublishPipeline' -count=1"),
     "ACC-IMP-002": (
         180,
-        "go test -tags=integration ./internal/libraryimport -run 'TestImportGroupsSingleArchiveMemberAndReportsEveryFile|TestDOSDirectoryGroupingProducesDeterministicBundleAndSafePrograms' -count=1",
+        "go test -tags=integration ./internal/libraryimport -run 'TestImportGroupsSingleArchiveMemberAndReportsEveryFile|TestDOSDirectoryGroupingProducesDeterministicBundleAndSafePrograms|TestMegaDriveROMImportPreservesPayloadAndReachesReview' -count=1",
     ),
     "ACC-IMP-003": (
         180,
@@ -238,6 +239,11 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
         "go test -tags=integration ./internal/libraryimport -run '^TestReviewBulkApprovalPublishes(StrictReadyCandidatesAtomically|CurrentTypedArcadeSnapshot)$' -count=1 -timeout=60s && "
         "go test -tags=integration ./internal/maintenance -run '^TestBackupRestoreRoundTripAndOnlineRefusal$' -count=1 -timeout=60s",
     ),
+    "ACC-IMP-010": (
+        180,
+        "go test -tags=integration ./internal/libraryimport ./internal/httpapi -run '^TestReviewDeduplicate' -count=1 -timeout=120s && "
+        "cd web && npm run test -- features/reviews/review-deduplicate.test.tsx",
+    ),
     "ACC-DAT-001": (300, "go test -tags=integration ./internal/arcadedat ./internal/dependencies -run 'TestRealDATStatisticsMatchManifest|TestBootstrapCatalogsMaterializesPinnedDATsIdempotently' -count=1"),
     "ACC-DAT-002": (
         300,
@@ -257,7 +263,7 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
     ),
     "ACC-BIOS-003": (
         120,
-        "go test ./internal/config ./internal/serverimport ./internal/httpapi -run 'TestParseServerImportRootsStrictSchemaAndOverlap|TestRelativePathAndNoFollowDirectoryBoundary|TestServerImportHTTPRootBoundaryAuthorizationAndIdempotency' -count=1",
+        "go test ./internal/config ./internal/serverimport ./internal/httpapi -run 'TestServerFilesystemImportWithoutConfiguration|TestRelativePathAndNoFollowDirectoryBoundary|TestServerImportHTTPRootBoundaryAuthorizationAndIdempotency' -count=1",
     ),
     "ACC-BIOS-004": (
         180,

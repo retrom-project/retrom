@@ -130,11 +130,13 @@ SELECT preview_id FROM isolated_runtime_bootstrap_tickets WHERE preview_id=?
 	if err := jpeg.Encode(&screenshot, canvas, &jpeg.Options{Quality: 80}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := service.StoreReviewScreenshot(
+	storedScreenshot, err := service.StoreReviewScreenshot(
 		ctx, preview.PreviewID, preview.Capability, bytes.NewReader(screenshot.Bytes()),
-	); err != nil {
+	)
+	if err != nil {
 		t.Fatal(err)
 	}
+	assertRepeatedPreviewKeepsScreenshot(t, database.SQL, service, importService, actorID, storedScreenshot, screenshot.Bytes())
 	approved, err := importService.Approve(ctx, itemID, 1)
 	if err != nil {
 		t.Fatalf("Approve(TyranoScript)=%v", err)

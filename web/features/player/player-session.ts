@@ -173,7 +173,7 @@ async function uploadState(payload: RuntimeSavePayload, params: PlayerSessionPar
   }
   if (!response.ok) {return rejectSave(params, "手动存档失败，服务器未创建不完整记录");}
   if (params.envelope.current?.session.purpose === "REVIEW_PREVIEW") {
-    notifyReviewCheckpoint(response.body, params.launchId);
+    notifyReviewCheckpoint(response.body, params.launchId, params.returnTo.current);
   }
   params.setSyncText("已同步"); params.setSyncTone("synced");
   params.showToast(uploadPayload.screenshot.size ? "手动存档和截图已保存" : "手动存档已保存，未附带截图");

@@ -117,9 +117,9 @@ PRAGMA busy_timeout = 5000;
 
 ### 3.1 clean migration lineage
 
-当前未发布基线包含 `001_identity.sql` 至 `010_cross_domain_invariants.sql`，直接创建 current-state Game/File/Variant 和 Provider-owned Target declaration，以及最终的 EmulationStation 状态机、索引与约束。不存在旧 revision 表、转换迁移或外键关闭窗口；每步建表/索引/trigger 与 checksum 记录同事务提交，外键始终开启。`store.Open` 在任何 schema 写入前只读检查 `schema_migrations`，只接受不存在/真正空的数据库、与当前文件逐项同名同 checksum 的有序前缀，以及完整当前 lineage。前缀只用于当前 bootstrap 中断后的续跑，不代表旧开发 schema 的升级兼容。名称或 checksum 漂移、空洞、未知/future 记录、没有 migration 记录却已有业务表统一只读拒绝，不执行运行时修补或迁移文件之外的数据回填。
+冻结的 bootstrap 包含 `001_identity.sql` 至 `010_cross_domain_invariants.sql`，直接创建 current-state Game/File/Variant 和 Provider-owned Target declaration，以及最终的 EmulationStation 状态机、索引与约束。不存在旧 revision 表、转换迁移或外键关闭窗口；每步建表/索引/trigger 与 checksum 记录同事务提交，外键始终开启。`store.Open` 在任何 schema 写入前只读检查 `schema_migrations`，只接受不存在/真正空的数据库、与当前文件逐项同名同 checksum 的有序前缀，以及完整当前 lineage。匹配前缀用于 bootstrap 续跑和明确支持的兼容升级；011 批次丢弃扩展新增身份/处置表并在事务中替换 trigger，可保留现有 001–010 数据。其他旧开发 schema 不因此获得升级兼容。名称或 checksum 漂移、空洞、未知/future 记录、没有 migration 记录却已有业务表统一只读拒绝，不执行运行时修补或迁移文件之外的数据回填。
 
-项目首次发布前遇到不兼容开发数据库，必须停机归档旧数据并使用全新空数据根；PFB 使用 exact ID 的 `pfb-data-reset`，归档整个旧 `data/`，保留 Provider/依赖/构建缓存、ID 和 URL。程序不提供转换器、双写或隐式导入页面，也不得把旧 DB/CAS 拆开混入新库。仓库 `make dev` 的默认根为 `.dev-data/data`；测试与每个验收 Case 使用独立临时 data root 并在结束时删除。首次公开发布后，已发布 migration 才进入只追加纪律。
+项目首次发布前遇到不兼容开发数据库，必须停机归档旧数据并使用全新空数据根；PFB 使用 exact ID 的 `pfb-data-reset`，归档整个旧 `data/`，保留 Provider/依赖/构建缓存、ID 和 URL。程序不提供转换器、双写或隐式导入页面，也不得把旧 DB/CAS 拆开混入新库。仓库 `make dev` 的默认根为 `.dev-data/data`；测试与每个验收 Case 使用独立临时 data root 并在结束时删除。001–010 已冻结；兼容扩展从 011 起只追加，不改写旧 checksum。
 
 ## 4. 表目录
 
@@ -353,6 +353,8 @@ data/
 
 `POST /api/v1/admin/storage-cleanups` 是唯一在线手动回收入口：ADMIN-only，要求 CSRF 与 UUID `Idempotency-Key`，无 body/query，返回本次已推进的 `scheduledBlobCount/scheduledBytes/acceptedAtMs`，不返回 Blob/Job 标识。相同 key 重放原结果；提交成功为 202，后台逐 Blob 执行最终保护复核。明确不在本口径内的项目为 `DATABASE_FILES`、`UPLOAD_PARTS`、`JOB_SCRATCH`、`DEPENDENCY_ROOT`、`FILESYSTEM_OVERHEAD`、`UNREGISTERED_ORPHANS`、`VOLUME_FREE_SPACE`。因此该分析不能回答卷总量、剩余空间或完整磁盘占用，立即清理也不处理这些范围。统一验证为 [`ACC-STOR-001`](./project-acceptance.md#acc-stor-001已登记-cas-容量分析)。
 
+批次丢弃只解除指定导入批次的流程引用，按[导入与审核](./import-and-review.md)收口正在执行和未发布的条目，再投递既有 PAYLOAD_RELEASE。内部上传尚无 ImportJob/consumer 的孤立信封可在该批次停止后删除，CAS bytes 仍由来源引用保护到 release。发布 Game、其他批次及活跃 Launch 的共享引用继续参与保护检查；服务器外部来源文件不删除。完成丢弃不等于磁盘立即腾空，无引用 Blob 沿用默认 7 天 GC 宽限；release 失败仍通过任务中心重试。验证见 [`ACC-STOR-002`](./project-acceptance.md#acc-stor-002批次丢弃与引用释放)。
+
 ## 8. 备份与恢复
 
 一期备份/恢复是显式离线维护命令，不伪装成不存在的 HTTP 管理 API：
@@ -467,7 +469,7 @@ GC 把初始和 effective SourceSnapshot、accepted/retryable Attachment、GameC
 
 服务器导入 root 是 Retrom 数据根之外的只读 source，不进入 backup、CAS 引用根或依赖物化目录。目录浏览、递归扫描和最终复制都逐段使用 Linux `openat`/`O_NOFOLLOW` 与 `fstat`；只接受规范 UTF-8 相对路径，跳过 special file，并防止 symlink/rename 逃逸。发现完成前不创建 Installation；选中候选进入 CAS 前重新打开、重新哈希并重验 archive，变化的 source 以 `SOURCE_CHANGED` 收口。
 
-EmulationStation 递归发现只匹配精确小写 `gamelist.xml`；每个 XML 与其中游戏/媒体路径都保留相对于已配置 root 的规范路径和 no-follow facts，不保存绝对路径。XML、目录 facts、M3U 与媒体/CHD 头在扫描期受独立字节/数量上限约束，完整 ROM 只在 start 后按冻结 manifest 流式复制进 CAS。一个所选目录内的多个子目录清单各自形成 Collection；单目录的一份清单和多文件形成一个 Collection，二者使用同一存储边界。
+EmulationStation 递归发现只匹配精确小写 `gamelist.xml`；每个 XML 与其中游戏/媒体路径都保留相对于服务器根目录 `/` 的规范路径和 no-follow facts，不保存绝对路径。XML、目录 facts、M3U 与媒体/CHD 头在扫描期受独立字节/数量上限约束，完整 ROM 只在 start 后按冻结 manifest 流式复制进 CAS。一个所选目录内的多个子目录清单各自形成 Collection；单目录的一份清单和多文件形成一个 Collection，二者使用同一存储边界。
 
 候选 bytes 可由 SHA-256 CAS 去重；只有 Installation、ImportItem、来源 Item 或 Game 等业务引用保护 Blob，无引用候选由统一 GC 回收。backup 保留 ServerImport/Item/Candidate 审计和已经导入的 CAS bytes，但不打包外部目录。restore 在开放 HTTP 前把所有非终态 `SERVER_BIOS_IMPORT`、`SERVER_PEGASUS_SCAN|IMPORT` 与 `SERVER_EMULATIONSTATION_SCAN|IMPORT` Job 及对应 aggregate 置为不可重试 `FAILED/SERVER_IMPORT_SOURCE_NOT_RESTORED`，即使恢复主机存在同名 root 也不得自动继续。已经进入普通审核或发布 Game 的 CAS 内容继续随完整数据根恢复。
 
@@ -475,7 +477,9 @@ EmulationStation 递归发现只匹配精确小写 `gamelist.xml`；每个 XML �
 
 当前 clean schema 直接创建 review_preview_sessions、review_preview_files 与 review_runtime_screenshots。Preview 冻结来源、当前 Validation、Provider/Target 与实际 Bundle 字节身份；运行内容引用既有 CAS，不复制成假 Game 或用户游玩历史。普通 Player 事件使状态从 CREATED 到 ACTIVE，再到 FINISHED/EXPIRED/REVOKED；终态撤销内容授权。checkpoint 仅有最新 payload/format/time 以及新会话冻结的 restore payload；没有独立 proof 表。bootstrap 有 5 分钟期限，运行授权最长 2 小时；有界 GC 和审核终态 PayloadRelease 清除临时引用。
 
-预览内容、现有依赖、运行截图及临时 checkpoint/restore Blob 边均登记为 protective reference。截图只对仍匹配草稿当前来源、目标平台、Provider Target 和 prepublish input digest 的 Validation 投影；该 Validation 可以是 READY 或阻断状态，后者的当前截图会启用管理员人工放行。重新运行同一 Validation 会原子替换当前截图的 Blob 引用，旧 Blob 随统一 GC 规则回收，不在 HTTP、日志或清单中暴露 Blob ID/hash。完整字段和 trigger 见 [`data-model.md`](./data-model.md)。
+重复试玩相同输入必须复用已有当前 Validation，包括需要人工试玩的 BLOCKED 结果，不因新建运行窗口追加校验记录。审核截图只维护条目的当前结果：成功保存时，在同一事务中清除该条目其他 Validation 的旧截图并覆盖当前截图；新截图校验或保存失败时保留原结果。截图不是不可变历史记录；被替换图片解除引用后由既有 CAS GC 回收。
+
+预览内容、现有依赖、运行截图及临时 checkpoint/restore Blob 边均登记为 protective reference。截图只对仍匹配草稿当前来源、目标平台、Provider Target 和 prepublish input digest 的 Validation 投影；该 Validation 可以是 READY 或阻断状态，后者的当前截图会启用管理员人工放行。在同一 Validation 下再次保存截图会原子替换当前截图的 Blob 引用，旧 Blob 随统一 GC 规则回收，不在 HTTP、日志或清单中暴露 Blob ID/hash。完整字段和 trigger 见 [`data-model.md`](./data-model.md)。
 
 ## 13. 联机持久化与恢复边界
 

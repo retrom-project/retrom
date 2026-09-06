@@ -11,7 +11,7 @@ const stateLabels: Record<ArcadeDependencyNode["state"], string> = {
   MISMATCH: "内容不匹配",
   SATISFIED_EXTERNAL: "已匹配",
   SATISFIED_BY_CONTENT: "由游戏文件满足",
-  HASH_WARNING: "已匹配（有校验警告）",
+  HASH_WARNING: "校验警告（允许运行）",
 };
 
 const progressLabels: Record<string, string> = {

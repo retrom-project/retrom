@@ -108,6 +108,9 @@
 .runtime-dependency-tabs button.is-active { color: var(--purple-dark); background: var(--purple-soft); }
 .runtime-pack-manager { display: grid; gap: 18px; }
 .runtime-pack-intro { padding: 17px 18px; display: flex; justify-content: space-between; align-items: center; gap: 18px; border: 1px solid var(--line); border-radius: 14px; background: white; }
+.runtime-pack-intro > div { min-width: 0; }
+.runtime-pack-intro > .button { flex: 0 0 auto; white-space: nowrap; }
+.runtime-pack-intro > .button svg { width: 18px; height: 18px; flex: 0 0 auto; }
 .runtime-pack-intro h2, .runtime-pack-intro p { margin: 0; }
 .runtime-pack-intro h2 { font-size: 18px; }
 .runtime-pack-intro p { margin-top: 5px; color: var(--muted); font-size: 11px; }

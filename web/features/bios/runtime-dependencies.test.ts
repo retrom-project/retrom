@@ -9,10 +9,10 @@ const bios = (id: string, overrides: Partial<BIOSRequirement> = {}): BIOSRequire
 
 describe("runtime dependency presentation", () => {
   it("only counts required missing BIOS files as blockers", () => {
-    const items = [bios("ready"), bios("missing", { status: "MISSING" }), bios("optional", { requirementMode: "OPTIONAL", status: "OPTIONAL_MISSING" }), bios("warning", { status: "HASH_WARNING" })];
+    const items = [bios("ready"), bios("missing", { status: "MISSING" }), bios("optional", { requirementMode: "OPTIONAL", status: "OPTIONAL_MISSING" }), bios("warning", { status: "HASH_WARNING" }), bios("incomplete", { status: "MISSING_ENTRY" })];
     expect(isBIOSBlocking(items[2])).toBe(false);
-    expect(summarizeBIOS(items)).toEqual({ total: 4, blocking: 1, warnings: 1, ready: 1 });
-    expect(filterBIOS(items, { query: "mGBA", coreId: "", status: "", quick: "ATTENTION" }).map((item) => item.id)).toEqual(["missing", "warning"]);
+    expect(summarizeBIOS(items)).toEqual({ total: 5, blocking: 1, warnings: 2, ready: 1 });
+    expect(filterBIOS(items, { query: "mGBA", coreId: "", status: "", quick: "ATTENTION" }).map((item) => item.id)).toEqual(["missing", "warning", "incomplete"]);
   });
 
   it("filters BIOS by filename, core and requirement mode without changing the source list", () => {

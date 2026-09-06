@@ -496,7 +496,7 @@ func (builder *arcadeGroupBuilder) recordExternalDependency(
 	companion *arcadePreparedArchive,
 ) {
 	missing, mismatched, warnings := matchArcadeRequirements(companion.entryByName, requirements)
-	if len(missing) > 0 || len(mismatched) > 0 && kind == "PARENT" {
+	if kind == "PARENT" && (len(missing) > 0 || len(mismatched) > 0) {
 		builder.missing = append(builder.missing, missing...)
 		builder.mismatched = append(builder.mismatched, mismatched...)
 		builder.status, builder.code = "BLOCKED", "ARCADE_DEPENDENCY_MISMATCH"
@@ -504,8 +504,9 @@ func (builder *arcadeGroupBuilder) recordExternalDependency(
 		return
 	}
 	state := "SATISFIED_EXTERNAL"
-	if len(mismatched) > 0 {
+	if len(missing) > 0 || len(mismatched) > 0 {
 		state = "HASH_WARNING"
+		builder.warnings = append(builder.warnings, missing...)
 		builder.warnings = append(builder.warnings, mismatched...)
 	}
 	builder.warnings = append(builder.warnings, warnings...)
