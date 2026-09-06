@@ -1,3 +1,4 @@
+import { ReviewDeduplicate } from "@/features/reviews/review-deduplicate";
 import { ListFilters } from "@/components/list-filters";
 import { ButtonLink, EmptyState, PageHeader } from "@/components/ui";
 import { scalarSearchParams, withQuery, type ListResponse } from "@/lib/backend";
@@ -12,12 +13,12 @@ export const metadata = { title: "待审核" };
 function sourceContext(values: Record<string, string>) {
   if (values.pegasusImportId) {return {
     sourceImportId: values.pegasusImportId, sourceName: "Pegasus", returnHref: `/admin/imports/server/pegasus/${values.pegasusImportId}`,
-    description: "严格检查通过的游戏可以快速发布；截图放行、重复内容和运行问题仍需逐项处理。",
+    description: "严格检查通过的游戏可以快速发布；重复内容可快速去重，截图放行和运行问题仍需逐项处理。",
     fixedFilters: [{ name: "pegasusImportId", value: values.pegasusImportId }],
   };}
   if (values.emulationStationImportId) {return {
     sourceImportId: values.emulationStationImportId, sourceName: "EmulationStation", returnHref: `/admin/imports/server/emulationstation/${values.emulationStationImportId}`,
-    description: "严格检查通过且没有 hidden/adult 来源标记的游戏可以快速发布；来源标记、重复内容和运行问题仍需逐项处理。",
+    description: "严格检查通过且没有 hidden/adult 来源标记的游戏可以快速发布；重复内容可快速去重，来源标记和运行问题仍需逐项处理。",
     fixedFilters: [{ name: "emulationStationImportId", value: values.emulationStationImportId }],
   };}
   return {
@@ -38,5 +39,5 @@ export default async function ReviewsPage({ searchParams }: { searchParams: Prom
   const queueKey = new URLSearchParams(values).toString();
   const source = sourceContext(values);
   const restoreBulkApprovalId = typeof parameters.bulkApprovalId === "string" ? parameters.bulkApprovalId : undefined;
-  return <div className="import-workflow-page review-workflow-page"><FlashToast /><ReviewQueueRecovery active={staleReview} values={values} /><PageHeader eyebrow={source.sourceImportId ? `${source.sourceName} 导入 / 快速审批` : "游戏入库"} title={source.sourceImportId ? `审核这批 ${source.sourceName} 游戏` : "待审核"} description={source.description} actions={<>{source.returnHref ? <ButtonLink href={source.returnHref} secondary>← 返回 {source.sourceName} 任务</ButtonLink> : null}<ReviewBulkApproval values={values} restoreBulkApprovalId={restoreBulkApprovalId} /><ButtonLink href="/admin/reviews/history" secondary>审核历史</ButtonLink></>} /><div id="review-bulk-status-root" /><ListFilters action="/admin/reviews" placeholder="输入游戏标题、来源文件或标签" values={values} fixedFilters={source.fixedFilters} preserveFixedFiltersOnReset={Boolean(source.sourceImportId)} textFilters={source.sourceImportId ? [] : [{ name: "importJobId", label: "导入批次", placeholder: "输入完整批次编号" }]} filters={[{ name: "tagId", label: "标签", options: [{ value: "", label: "所有标签" }, ...activeTags.map((tag) => ({ value: tag.tagId, label: tag.name }))] }, { name: "blockerCode", label: "运行检查", options: [{ value: "", label: "所有状态" }, { value: "READY", label: "可以发布" }, { value: "DEPENDENCY_MISSING", label: "缺少所需文件" }, { value: "INCOMPATIBLE", label: "当前不兼容" }] }, { name: "sort", label: "排列顺序", options: [{ value: "", label: "等待最久的优先" }, { value: "UPDATED_DESC", label: "最近更新的优先" }] }]} />{queue.items.length === 0 ? <EmptyState title={source.sourceImportId ? "这批游戏已经全部处理" : "待审核队列已清空"} description={source.sourceImportId ? `没有剩余待审核条目；可以返回 ${source.sourceName} 任务查看已发布、已丢弃和异常结果。` : "新导入的游戏完成识别和运行检查后，会进入这里。"} /> : <ReviewQueue key={queueKey} initial={queue} values={values} resetPersisted={staleReview} />}</div>;
+  return <div className="import-workflow-page review-workflow-page"><FlashToast /><ReviewQueueRecovery active={staleReview} values={values} /><PageHeader eyebrow={source.sourceImportId ? `${source.sourceName} 导入 / 快速审批` : "游戏入库"} title={source.sourceImportId ? `审核这批 ${source.sourceName} 游戏` : "待审核"} description={source.description} actions={<>{source.returnHref ? <ButtonLink href={source.returnHref} secondary>← 返回 {source.sourceName} 任务</ButtonLink> : null}<ReviewDeduplicate values={values} /><ReviewBulkApproval values={values} restoreBulkApprovalId={restoreBulkApprovalId} /><ButtonLink href="/admin/reviews/history" secondary>审核历史</ButtonLink></>} /><div id="review-bulk-status-root" /><ListFilters action="/admin/reviews" placeholder="输入游戏标题、来源文件或标签" values={values} fixedFilters={source.fixedFilters} preserveFixedFiltersOnReset={Boolean(source.sourceImportId)} textFilters={source.sourceImportId ? [] : [{ name: "importJobId", label: "导入批次", placeholder: "输入完整批次编号" }]} filters={[{ name: "tagId", label: "标签", options: [{ value: "", label: "所有标签" }, ...activeTags.map((tag) => ({ value: tag.tagId, label: tag.name }))] }, { name: "blockerCode", label: "运行检查", options: [{ value: "", label: "所有状态" }, { value: "READY", label: "可以发布" }, { value: "DEPENDENCY_MISSING", label: "缺少所需文件" }, { value: "INCOMPATIBLE", label: "当前不兼容" }] }, { name: "sort", label: "排列顺序", options: [{ value: "", label: "等待最久的优先" }, { value: "UPDATED_DESC", label: "最近更新的优先" }] }]} />{queue.items.length === 0 ? <EmptyState title={source.sourceImportId ? "这批游戏已经全部处理" : "待审核队列已清空"} description={source.sourceImportId ? `没有剩余待审核条目；可以返回 ${source.sourceName} 任务查看已发布、已丢弃和异常结果。` : "新导入的游戏完成识别和运行检查后，会进入这里。"} /> : <ReviewQueue key={queueKey} initial={queue} values={values} resetPersisted={staleReview} />}</div>;
 }

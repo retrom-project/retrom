@@ -215,7 +215,11 @@ source ImportJob 必须为当前 `PARTIAL_FAILURE`，且至少有一个尚无 re
 
 `POST /api/v1/admin/review-bulk-approvals` 要求 ADMIN、同源/CSRF 与 Idempotency-Key，body 固定为 `{"scope":{...},"scopeDigest":"lowercase-sha256","candidateManifestDigest":"lowercase-sha256"}`。服务端在同一写事务重做预览；digest 不一致返回 `409 REVIEW_BULK_PREVIEW_STALE`，已有 active batch 返回 `409 REVIEW_BULK_APPROVAL_ACTIVE`，零 candidate 返回 `409 REVIEW_BULK_SCOPE_EMPTY`，超过 10,000 返回 `422 REVIEW_BULK_SCOPE_TOO_LARGE`。成功为 `202`，返回 aggregate summary、`ETag: "v1"`，并冻结每项 Review version/Validation/source snapshot 后启动 `REVIEW_BULK_APPROVE` Job。
 
-`GET /api/v1/admin/review-bulk-approvals/{bulkApprovalId}` 返回 aggregate、初始分类和当前结果计数并携带 ETag。`GET .../{bulkApprovalId}/items` 以 opaque cursor、`limit<=50` 和可空 `outcome=PUBLISHED|SKIPPED_DUPLICATE|SKIPPED_CHANGED|SKIPPED_NOT_READY|FAILED_FINAL|CANCELLED` 分页，返回冻结标题/目录、结果码及可空 Game/ReviewEvent 链接。`POST .../{bulkApprovalId}/cancel` 使用 `If-Match`、Idempotency-Key 和 `{"reason":"..."}`，只停止未提交 Item；`POST .../{bulkApprovalId}/retry` 使用当前 ETag、Idempotency-Key 和 `{}`，只接受 `FAILED/REVIEW_BULK_WORKER_UNAVAILABLE`。这两个领域 action 不能替换为通用 Job cancel/retry。所有状态变化均保持已提交 Game 与 ReviewEvent，不提供批次回滚或批量 Discard。
+`GET /api/v1/admin/review-bulk-approvals/{bulkApprovalId}` 返回 aggregate、初始分类和当前结果计数并携带 ETag。`GET .../{bulkApprovalId}/items` 以 opaque cursor、`limit<=50` 和可空 `outcome=PUBLISHED|SKIPPED_DUPLICATE|SKIPPED_CHANGED|SKIPPED_NOT_READY|FAILED_FINAL|CANCELLED` 分页，返回冻结标题/目录、结果码及可空 Game/ReviewEvent 链接。`POST .../{bulkApprovalId}/cancel` 使用 `If-Match`、Idempotency-Key 和 `{"reason":"..."}`，只停止未提交 Item；`POST .../{bulkApprovalId}/retry` 使用当前 ETag、Idempotency-Key 和 `{}`，只接受 `FAILED/REVIEW_BULK_WORKER_UNAVAILABLE`。这两个领域 action 不能替换为通用 Job cancel/retry。所有状态变化均保持已提交 Game 与 ReviewEvent，不提供已发布批次的回滚；待审内容丢弃使用各自独立的丢弃入口。
+
+### 5.1.1 快速去重
+
+`POST /api/v1/admin/reviews/deduplicate` 要求 ADMIN、同源/CSRF 与 Idempotency-Key。严格 JSON body 为 `{scope,afterItemId?,throughItemId?}`；scope 复用快速审批筛选，不接受 sort/cursor/limit，未知字段或非法范围返回 `400`。首请求固定当时待审 Item ID 上界；续页须原样携带上界和返回的 nextAfterItemId，ID 为规范 UUID 且 after 小于 through。服务端每页最多检查 50 个可见未决 Item，在一个事务中按普通内容重复规则重查已发布 Game，并复用 Discard；活动补传跳过。成功 `200` 返回 `{scannedCount,discardedCount,attachmentActiveCount,nextAfterItemId,throughItemId}`，两个 ID 可空；nextAfterItemId 为 null 表示范围已遍历完。客户端连续调用至完成，累计计数并刷新队列；新导入超过初始上界的条目留待下次操作。失败 `500 INTERNAL_ERROR` 回滚该页，已完成页保留；同键同 body 重放原结果，不同键重试不会重复生成丢弃事件。此入口不删除已发布 Game，不创建后台去重 Job 或额外不可变批次记录。
 
 ### 5.2 Arcade Parent Attachment
 

@@ -434,6 +434,7 @@ func (server *Server) registerAdminImportRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/v1/admin/jobs/{jobId}/retry", server.retryJob)
 	mux.HandleFunc("GET /api/v1/admin/reviews", server.reviews)
 	mux.HandleFunc("GET /api/v1/admin/review-bulk-approval-preview", server.reviewBulkPreview)
+	mux.HandleFunc("POST /api/v1/admin/reviews/deduplicate", server.deduplicateReviews)
 	mux.HandleFunc("POST /api/v1/admin/review-bulk-approvals", server.createReviewBulk)
 	mux.HandleFunc("GET /api/v1/admin/review-bulk-approvals/{bulkApprovalId}", server.reviewBulk)
 	mux.HandleFunc("GET /api/v1/admin/review-bulk-approvals/{bulkApprovalId}/items", server.reviewBulkItems)

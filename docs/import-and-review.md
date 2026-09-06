@@ -342,6 +342,8 @@ ImportItem 进入 `PUBLISHED/DISCARDED/FAILED_FINAL/CANCELLED` 后立即进入�
 
 后台按冻结顺序逐项复用普通 Approve 事务。成功 Item 的 Game/GameFiles/GameVariant/ReviewEvent、普通与对应服务器来源聚合和批次 `PUBLISHED` 结果必须同事务提交；ReviewEvent diff 增加 `approvalMode=QUICK_STRICT_READY` 和 `bulkApprovalId`，不建立第二套发布规则。处理前重复变为 `SKIPPED_DUPLICATE`，版本/Validation/来源漂移为 `SKIPPED_CHANGED`，严格门禁不再满足为 `SKIPPED_NOT_READY`，意外项故障为 `FAILED_FINAL` 并继续剩余项。取消只收口尚未提交的 Item；进程重启恢复未提交项，restore 使遗留批次以 `RESTORE_INTERRUPTED` 失败且不回滚已发布 Game。终态页面清除相关审核队列缓存、刷新列表，并提供逐项结果链接。
 
+“快速去重”由管理员点击后自动丢弃当前 URL 筛选范围内与已发布 Game 内容相同的未决条目，覆盖全部分页。匹配复用普通重复检查：相同基础平台、完整来源文件的角色/Blob/数量一致，多盘还要求盘序一致；标题相同不足以判重。只有待审条目彼此重复但尚无已发布 Game 时不丢弃。正在 Parent/多盘补传的条目暂时跳过。每页最多检查 50 项，在同一事务重查有效来源、已发布匹配和审核版本，调用普通 Discard，写入“快速去重：游戏内容已发布”的 ReviewEvent 原因，并推进普通/服务器来源计数、调度既有 PayloadRelease。已发布 Game 及其引用保持不变。无需新增批次记录或 migration；一次分页失败会回滚该页，先前成功页保留，再次点击可继续处理剩余未决项。关闭页面会停止后续分页请求。
+
 审核详情的来源文件和单个 archive 成员审计预览分别最多渲染前 200 项并显示完整总数。完整清单仍保存在来源证据、参与内容摘要与发布，但不得作为 Client Component 属性重复发送或让数千行 DOM 阻塞审核操作 hydration。
 
 ## 11. API

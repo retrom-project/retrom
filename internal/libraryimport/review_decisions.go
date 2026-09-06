@@ -99,6 +99,19 @@ func (service *Service) discard(
 		return DecisionResult{}, fmt.Errorf("libraryimport/review: %w", err)
 	}
 	defer cleanup.Rollback(transaction)
+	result, err := service.discardInTransaction(ctx, transaction, itemID, expectedVersion, reason, batch)
+	if err != nil {
+		return DecisionResult{}, err
+	}
+	if err := transaction.Commit(); err != nil {
+		return DecisionResult{}, fmt.Errorf("libraryimport/review: %w", err)
+	}
+	return result, nil
+}
+
+func (service *Service) discardInTransaction(
+	ctx context.Context, transaction *sql.Tx, itemID string, expectedVersion int64, reason string, batch bool,
+) (DecisionResult, error) {
 	evidence, err := service.loadDiscardEvidence(ctx, transaction, itemID, expectedVersion, batch)
 	if err != nil {
 		return DecisionResult{}, err
@@ -121,9 +134,6 @@ func (service *Service) discard(
 		ctx, transaction, itemID, evidence.importID, payloadrelease.ReasonImportDiscarded, now,
 	); err != nil {
 		return DecisionResult{}, err
-	}
-	if err := transaction.Commit(); err != nil {
-		return DecisionResult{}, fmt.Errorf("libraryimport/review: %w", err)
 	}
 	return DecisionResult{
 		ItemID: itemID, EventID: eventID, Status: "DISCARDED",
