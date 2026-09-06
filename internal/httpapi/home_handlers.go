@@ -253,10 +253,12 @@ s.game_id,
 m.title,
 s.name,
 s.created_at_ms,
+native.last_synced_at_ms,
 s.active_duration_ms,
 s.disc_index,
 s.screenshot_blob_id IS NOT NULL
 FROM save_states s
+LEFT JOIN game_save_versions native ON native.save_state_id=s.id
 JOIN save_state_runtime_compatibility runtime_compatibility
   ON runtime_compatibility.save_state_id=s.id AND runtime_compatibility.status='AVAILABLE'
 JOIN games g ON g.id=s.game_id
@@ -266,7 +268,7 @@ WHERE s.deleted_at_ms IS NULL
 AND s.profile_id=?
 AND g.status='PUBLISHED'
 AND pi.enabled=1
-ORDER BY s.created_at_ms DESC,
+ORDER BY COALESCE(native.last_synced_at_ms,s.created_at_ms) DESC,
 s.id DESC LIMIT 3
 `, profileID)
 	if err != nil {
@@ -277,10 +279,10 @@ s.id DESC LIMIT 3
 	for saveRows.Next() {
 		var saveID, gameID, title, name string
 		var createdAtMS, activeDurationMS int64
-		var discIndex sql.NullInt64
+		var discIndex, lastSynced sql.NullInt64
 		var hasScreenshot bool
 		if err := saveRows.Scan(
-			&saveID, &gameID, &title, &name, &createdAtMS, &activeDurationMS, &discIndex,
+			&saveID, &gameID, &title, &name, &createdAtMS, &lastSynced, &activeDurationMS, &discIndex,
 			&hasScreenshot,
 		); err != nil {
 			return nil, fmt.Errorf("scan recent save: %w", err)
@@ -293,6 +295,7 @@ s.id DESC LIMIT 3
 				"gameTitle":        title,
 				"name":             name,
 				"createdAtMs":      createdAtMS,
+				"lastSyncedAtMs":   nullableInteger(lastSynced),
 				"activeDurationMs": activeDurationMS,
 				"discIndex":        nullableInteger(discIndex),
 				"discLabel":        discLabel(discIndex),
@@ -429,9 +432,11 @@ func (server *Server) featuredSessionSave(
 SELECT save.id,save.created_at_ms,save.active_duration_ms,save.disc_index,
        save.screenshot_blob_id IS NOT NULL
 FROM save_states save
+LEFT JOIN game_save_versions native ON native.save_state_id=save.id
 JOIN save_state_runtime_compatibility compatibility
   ON compatibility.save_state_id=save.id AND compatibility.status='AVAILABLE'
-WHERE save.source_launch_session_id=? AND save.profile_id=? AND save.deleted_at_ms IS NULL
+WHERE COALESCE(native.last_writer_launch_session_id,save.source_launch_session_id)=?
+ AND save.profile_id=? AND save.deleted_at_ms IS NULL
 ORDER BY save.created_at_ms DESC,save.id DESC
 LIMIT 1
 	`, launchID, profileID).Scan(&saveID, &createdAtMS, &activeDurationMS, &discIndex, &hasScreenshot)

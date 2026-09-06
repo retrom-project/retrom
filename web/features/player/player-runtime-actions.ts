@@ -4,6 +4,7 @@ import type {Dispatch, SetStateAction} from "react";
 import {newUuid} from "@/lib/crypto";
 import {writeHeaders} from "@/lib/api/client";
 import type {EmulatorSettingsPanel} from "./emulator-settings";
+import type {GameSaveSync} from "./game-save-sync";
 import {multiDiscPlayerResultCode, type MultiDiscPlayerEvent} from "./multi-disc-telemetry";
 import type {LaunchEnvelopeV1, PlayerRuntimeV1, RuntimeDiscStateV1} from "./runtime/contract";
 import {captureRuntimeSave, setRuntimeVideoMode, setRuntimeVolume, switchRuntimeDisc, type RuntimeSavePayload} from "./runtime/runtime-actions";
@@ -21,6 +22,7 @@ type RuntimeActionParams = {
   manualSaveAvailableRef: Mutable<boolean>;
   dosProgramMenuRef: Mutable<boolean>;
   uploadManualState: (payload: RuntimeSavePayload) => Promise<boolean>;
+  gameSaveSync?: Mutable<GameSaveSync | null>;
   discState: RuntimeDiscStateV1 | null;
   setDiscState: Dispatch<SetStateAction<RuntimeDiscStateV1 | null>>;
   reportPlayerEvent: (event: MultiDiscPlayerEvent) => void;
@@ -43,6 +45,7 @@ type RuntimeActionParams = {
 
 export function usePlayerRuntimeActions(params: RuntimeActionParams) {
   async function saveManualState() {
+    if (params.gameSaveSync?.current) {return false;}
     if (!params.manualSaveAvailableRef.current) {
       params.setSyncText(params.dosProgramMenuRef.current ? "程序菜单模式不可存档" : "当前场景暂不可存档");
       params.setSyncTone("warning");

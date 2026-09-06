@@ -1,6 +1,6 @@
 # Retrom 数据模型
 
-字段、CHECK、FK、索引与 trigger 的逐字节事实源是 `migrations/001_identity.sql` 至 `migrations/011_import_batch_discard.sql`；本文只描述稳定领域关系。HTTP 字段以 `api/openapi.yaml` 的统一 bundle 为准。
+字段、CHECK、FK、索引与 trigger 的逐字节事实源是 `migrations/001_identity.sql` 至 `migrations/012_game_save_sync.sql`；本文只描述稳定领域关系。HTTP 字段以 `api/openapi.yaml` 的统一 bundle 为准。
 
 ## 1. 基线
 
@@ -107,3 +107,16 @@ Game 内容替换会立即移除旧 Game-owned 与 Game-runtime-owned 边；BIOS
 - 来源快照、gate event 和其他证据保持不可变。
 
 新增运行时引用时必须复用稳定 Provider/Target 和既有 Bundle 冻结规则，禁止新增第二套运行选择字段或从 Target ID 推导 Provider 私有实现。
+
+### 原生游戏数据存档
+
+`game_save_versions` 按 `save_state_id` 关联 `save_states`，其 `data_version` 只随原生数据更新递增，与包含重命名的通用 `version` 分开；`last_synced_at_ms`
+为空表示此前未提交原生数据，`last_writer_launch_session_id` 关联最近实际写入的 Launch。
+`source_launch_session_id`、ID、名称与创建时间在确认覆盖中保持不变。显示/分页按 `COALESCE(last_synced_at_ms,created_at_ms)`。
+
+`launch_game_save_bindings` 只绑定声明 `GAME_SAVE` 的 Product Launch，记录目标、预期数据版本、初始累计时长与冻结恢复 Blob。
+无存档启动的绑定目标为空且预期版本为 0，首次同步创建并绑定；目标删除后保留非零版本，以禁止错误重建。
+同一事务比较数据版本并替换完整 payload/截图，其他会话先写入则冲突。冻结恢复 Blob 是保护性引用，终态清除；统一 Blob registry、容量统计与 GC 保护该引用。
+
+浏览器的 GAME_SAVE 草稿不新增服务端数据表。IndexedDB 按账号与 Launch 隔离，保存完整 checkpoint、截图、标题、来源恢复标记、
+更新时间和固定幂等请求；它不参与 Launch 恢复输入。用户确认提交时才通过既有 launch_game_save_bindings 原子更新正式存档。

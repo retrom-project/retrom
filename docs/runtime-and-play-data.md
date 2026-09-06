@@ -71,13 +71,15 @@ Player Host 只消费 `PlayerRuntimeV1` 的标准能力和事件，不按 Provid
 
 Provider 静态文件只从 `/runtime/providers/{providerId}/{bundleSha256}/{runtimePath}` 提供，并同时受 closed allowlist、大小和 SHA-256 约束。游戏、BIOS、parent、多盘、项目文件、运行包和 cart 不属于 Provider Bundle，通过 envelope resources 授权；Provider 不得根据扩展名、标题或 Core 名称猜测输入。
 
-`retrom-runtime` 的 Target 覆盖 EasyRPG、mkxp、MV/MZ、ONS、KiriKiri、Butterscotch、TyranoScript 与 WASM-4。项目可使用 file tree、seekable blob、native web 或 isolated web 资源。MV/MZ bridge 保留 Canvas2D 对非法 `textAlign` 赋值“忽略并保持原值”的浏览器语义；Butterscotch 保留真实 `640×480` backing buffer，但显示尺寸始终按容器等比放大；KiriKiri 在 core `postRun` 后进入可玩状态，checkpoint availability 独立等待书签 API 就绪，其精确的脚本退出 Wasm trap 会转换为一次 `EXIT_REQUESTED`；非匹配 trap 不会被吞掉。所有 Provider 都必须在游戏自身退出时发出标准退出事件，使整个 Player 页面同步关闭。
+`retrom-runtime` 的 Target 覆盖 EasyRPG、mkxp、MV/MZ、ONS、KiriKiri、Butterscotch、TyranoScript、Java ME 与 WASM-4。项目可使用 file tree、seekable blob、native web 或 isolated web 资源。MV/MZ bridge 保留 Canvas2D 对非法 `textAlign` 赋值“忽略并保持原值”的浏览器语义；Butterscotch 保留真实 `640×480` backing buffer，但显示尺寸始终按容器等比放大；KiriKiri 在 core `postRun` 后进入可玩状态，checkpoint availability 独立等待书签 API 就绪，其精确的脚本退出 Wasm trap 会转换为一次 `EXIT_REQUESTED`；非匹配 trap 不会被吞掉。所有 Provider 都必须在游戏自身退出时发出标准退出事件，使整个 Player 页面同步关闭。
 
 独立 origin 的项目按 Launch 使用不同 Host。一次性 bootstrap ticket 和 HttpOnly capability 只授权当前 Launch 的封闭资源；项目脚本不能取得应用 Cookie、普通 API 或其他 Launch 内容。cleanup 撤销 capability、过期 Cookie 并清理对应存储。
 
 ## 6. Checkpoint 与存档
 
 Checkpoint 对 Host 是不透明字节。Target declaration 的 `writeFormat`、`readFormats[]` 和 `maxBytes` 是唯一格式规则。创建存档时，来源 Launch 必须属于同一 Profile/Game 且允许存档，格式必须位于 `readFormats`、大小和 SHA-256 必须闭合；Host 不解析 Provider payload。
+
+checkpoint 可选 `semantics` 声明恢复方式。省略或 `INSTANT` 表示直接恢复执行状态；`GAME_SAVE` 表示游戏原生存档，用户需要先在游戏中完成保存，导入后可能还需通过游戏菜单读档。Player 根据该公共声明展示提示，不按 Core、Target 或格式名称分支。GAME_SAVE 使用公共 availability revision 检测原生数据变化，按当前游玩会话暂存到浏览器，并在退出确认后提交。两种语义共用 Save API、完整性校验、授权与跨 Launch 恢复机制；Provider 必须在启动游戏前导入原生存档并支持读档后的继续输入。RMS 备份不构成即时快照能力，既有即时恢复回归仍保持原断言。
 
 `save_states` 只绑定 Profile、Game、checkpoint format、payload、可选截图/DOS 路径/disc index 和来源 Launch，不冻结 Provider 版本或 Variant。恢复时使用游戏当前默认或显式 Core 的 READY Variant；只要当前 Target 的 `readFormats` 包含该格式即可恢复。Provider 升级应继续声明仍受支持的旧格式；删除已被存档引用的可读格式会被安装门禁拒绝。不存在为了恢复而加载旧 Provider 的路径。
 
@@ -110,3 +112,37 @@ Provider 报告真实 ready/start 后，Host 才创建 PlaySession。heartbeat �
 实现变更必须覆盖：Provider manifest/完整性/升级门禁、47 个 Target 的 binding 闭包、Go 与 TypeScript envelope fixtures、dispatcher 装载与 cleanup、current-state 数据不变量、存档跨 Bundle 读取、内容与 BIOS 替换、普通/沉浸 Player、RPG validation、多盘、Pegasus 与 EmulationStation/gamelist 导入。
 
 标准门禁是 `make api-check`、`make backend-check`、`make web-check`、`make integration-test`、`make data-check` 和 `make pfb-verify`。PFB 使用隔离 worktree、持久 workspace 与稳定 URL；开发期 loose module 只叠加到已验证基座 Bundle，不进入 production lock 或正式镜像。真实样本验收必须走产品上传、审核、发布、启动、存档与退出链路，不能绕过 API 直接写结果。
+
+## Java ME 产品接入
+
+Java ME 目录使用基础平台 `j2me`、稳定核心 `j2me` 和 `retrom-runtime/j2me` Target。
+Host 的 `J2ME_JAR` 检测/交付策略仅接受原始 `.jar`，按 `SINGLE_FILE` 保留完整字节，以 `ROM_BLOB`
+交给 Provider；JAR 自身的 ZIP 容器不会被当作上传包装层解开。审核预览和普通 Launch 经过同一资源与生命周期契约。
+
+该 Target 声明 `checkpoint.semantics=GAME_SAVE`。Player 普通控制栏、退出对话框与沉浸菜单提示先在游戏内
+保存；任意 RMS 数据变化后在浏览器本地暂存，恢复启动后需要从游戏菜单读档。Host 的 Save API 继续接收有格式、上限和 SHA-256
+身份的完整 opaque payload，不解析 RMS、选择 Java 类或保存 VM 内存。原有 Target 缺省即时恢复语义不变。
+
+开发验证需要包含修复的 J2ME core candidate。历史 v0.3.3 资产不包含此次 RMS 与严格静态资源加载修复，
+不得据此声称修复已经发布；发布固定版本与合并是独立交付步骤。
+
+### 原生存档本地草稿与退出确认
+
+GAME_SAVE Provider 通过 availability revision 跟踪所有原生数据变化，不判断哪些 store 是进度。连续写入合并到稳定完整快照。
+Player 在当前账号、Launch 范围内将数据包、截图和固定幂等请求保存到 IndexedDB；正常游玩不会上传或修改正式存档。
+不在本地暂存时调用 acknowledgeCheckpoint，保留启动数据作为比较基准；最终数据回到启动值时清理草稿，不询问保存。
+
+无 saveStateId 的 Launch 必须从空原生数据启动。服务端历史存档、此前本地草稿以及其他运行实例均不能作为隐式恢复输入。
+只有显式选择存档时导入冻结恢复包。本地草稿数据库不向 runtime 提供启动数据，不自动合并、恢复或清除其他 Launch 的草稿。
+
+正常退出先暂停并等候稳定数据。本次有变化时提供“保存并退出 / 不保存并退出 / 继续游戏”。提示必须说明先在游戏内保存，
+平台只提交游戏已写入的数据，不保存当前画面的即时进度，未在游戏内保存可能导致恢复位置与当前画面不同。
+保存成功后才确认 checkpoint、清理草稿并退出；不保存只丢弃本次草稿；继续游戏不上传。上传失败保留草稿和幂等键。
+从已有存档启动时提交更新原存档；无存档启动时提交创建独立存档。payload 与截图原子更新，保留原 ID、名称和创建时间。
+
+异常关闭保留本地草稿，下一次非 Player 页面提示用户处理；当前账号可通过认证的 local-save API 显式提交已结束/到期会话的草稿。
+服务端从原 Launch 取得目标和预期数据版本，其他会话已更新或目标已删除时拒绝覆盖。活跃页面通过本地租约避免被草稿提示并发处理。
+草稿只属于当前浏览器，不承诺跨设备或清理站点数据后的恢复；不会自动载入新的游戏。未确认时不建立服务端草稿或正式存档。
+Review Preview 保持预览范围，不创建 Product 草稿记录或正式存档；即时快照行为不变。
+
+Player 调试面板的“画面呈现率”由公共 getFrameCount 的增量计算，不代表屏幕刷新率或游戏逻辑速度。按需重绘核心可在游戏画面静止时停止提交帧；Host 不插入重复帧补足 60 FPS，输入与暂停控制继续正常工作。

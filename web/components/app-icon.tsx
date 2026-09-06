@@ -1,8 +1,9 @@
 import type { ReactNode, SVGProps } from "react";
 
-export type AppIconName = "home" | "library" | "heart" | "save" | "download" | "plus" | "clock" | "check" | "history" | "list" | "menu" | "chip" | "database" | "storage" | "folder" | "settings" | "arrow-left" | "search" | "pencil" | "x" | "grip" | "pause" | "play" | "eye-off" | "pin" | "gamepad" | "maximize" | "minimize" | "more" | "log-out" | "keyboard" | "warning";
+export type AppIconName = "user" | "home" | "library" | "heart" | "save" | "download" | "plus" | "clock" | "check" | "history" | "list" | "menu" | "chip" | "database" | "storage" | "folder" | "settings" | "filter" | "arrow-left" | "search" | "pencil" | "x" | "grip" | "pause" | "play" | "eye-off" | "pin" | "gamepad" | "maximize" | "minimize" | "more" | "log-out" | "keyboard" | "warning";
 
 const paths: Record<AppIconName, ReactNode> = {
+  user: <><circle cx="12" cy="8" r="4" /><path d="M4 21v-2a8 8 0 0 1 16 0v2" /></>,
   home: <><path d="m3 11 9-8 9 8" /><path d="M5 10v10h14V10M9 20v-6h6v6" /></>,
   library: <><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M8 4v16M16 4v16M3 10h18" /></>,
   heart: <path d="M20.8 5.8a5.2 5.2 0 0 0-7.4 0L12 7.2l-1.4-1.4a5.2 5.2 0 1 0-7.4 7.4L12 22l8.8-8.8a5.2 5.2 0 0 0 0-7.4Z" />,
@@ -21,6 +22,7 @@ const paths: Record<AppIconName, ReactNode> = {
   settings: <><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2h-4V21a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H2.8v-4H3a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1a1.7 1.7 0 0 0 1.9.3A1.7 1.7 0 0 0 10 3V2.8h4V3a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.2v4H21a1.7 1.7 0 0 0-1.6 1Z" /></>,
   "arrow-left": <><path d="m15 18-6-6 6-6" /></>,
   search: <><circle cx="11" cy="11" r="7" /><path d="m20 20-4-4" /></>,
+  filter: <path d="M4 6h16M7 12h10M10 18h4" />,
   pencil: <><path d="m4 20 4.2-1 10.5-10.5a2.1 2.1 0 0 0-3-3L5.2 16Z" /><path d="m14.5 6.7 2.8 2.8" /></>,
   x: <><path d="M6 6l12 12M18 6 6 18" /></>,
   grip: <><circle cx="9" cy="6" r="1" fill="currentColor" stroke="none" /><circle cx="15" cy="6" r="1" fill="currentColor" stroke="none" /><circle cx="9" cy="12" r="1" fill="currentColor" stroke="none" /><circle cx="15" cy="12" r="1" fill="currentColor" stroke="none" /><circle cx="9" cy="18" r="1" fill="currentColor" stroke="none" /><circle cx="15" cy="18" r="1" fill="currentColor" stroke="none" /></>,

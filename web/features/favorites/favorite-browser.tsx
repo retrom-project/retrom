@@ -1,5 +1,7 @@
 "use client";
 
+import { PhoneDisclosure } from "@/features/mobile/phone-layout";
+
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ConfirmDialog } from "@/components/confirm-dialog";
@@ -57,7 +59,7 @@ function FavoriteNavigation({ onChooseScope, onCreate, page, query }: {
       <p className="favorite-rail-label">收藏夹</p>
       {page?.folders.map((folder) => <button className={query.folderId === folder.folderId ? "is-active" : ""} aria-current={query.folderId === folder.folderId ? "page" : undefined} onClick={() => onChooseScope("FOLDER", folder.folderId)} key={folder.folderId}><span aria-hidden="true">▣</span><span>{folder.name}</span><strong>{folder.visibleGameCount}</strong></button>)}
     </nav>
-    <button className="favorite-new-folder" type="button" onClick={onCreate}>＋ 新建收藏夹</button>
+    <button className="favorite-new-folder" type="button" aria-label="新建收藏夹" onClick={onCreate}>＋ 新建收藏夹</button>
   </aside>;
 }
 
@@ -75,8 +77,8 @@ function FavoriteToolbar({ currentCount, onOrganizeUncategorized, onSearch, onTo
   return <>
     <div className="favorite-toolbar" aria-label="收藏筛选">
       <label><span>搜索收藏</span><span className="favorite-search"><AppIcon name="search" /><input type="search" value={search} onChange={(event) => onSearch(event.target.value)} placeholder="输入游戏标题" /></span></label>
-      <label><span>排序方式</span><select value={query.sort} onChange={(event) => onUpdateQuery((current) => ({ ...current, sort: event.target.value as FavoriteQuery["sort"] }))}><option value="FAVORITED_DESC">最近收藏</option><option value="RECENTLY_PLAYED_DESC">最近游玩</option><option value="TITLE_ASC">名称 A–Z</option><option value="RELEASE_YEAR_DESC">发行年份</option></select></label>
-      <button className="button secondary" type="button" aria-pressed={selecting} onClick={onToggleSelecting}>{selecting ? "完成整理" : "批量整理"}</button>
+      <PhoneDisclosure title={selecting ? "正在批量整理" : "整理与排序"}><label><span>排序方式</span><select value={query.sort} onChange={(event) => onUpdateQuery((current) => ({ ...current, sort: event.target.value as FavoriteQuery["sort"] }))}><option value="FAVORITED_DESC">最近收藏</option><option value="RECENTLY_PLAYED_DESC">最近游玩</option><option value="TITLE_ASC">名称 A–Z</option><option value="RELEASE_YEAR_DESC">发行年份</option></select></label>
+      <button className="button secondary" type="button" aria-pressed={selecting} onClick={onToggleSelecting}>{selecting ? "完成整理" : "批量整理"}</button></PhoneDisclosure>
     </div>
     {page ? <div className="favorite-platforms"><span>游戏平台</span><button className={!query.platformId ? "is-active" : ""} aria-pressed={!query.platformId} onClick={() => onUpdateQuery((current) => ({ ...current, platformId: "" }))}>全部 <strong>{currentCount ?? 0}</strong></button>{page.platforms.map((platform) => <button className={query.platformId === platform.id ? "is-active" : ""} aria-pressed={query.platformId === platform.id} onClick={() => onUpdateQuery((current) => ({ ...current, platformId: platform.id }))} key={platform.id}>{platform.name} <strong>{platform.count}</strong></button>)}<span className="favorite-result-count">当前显示 <strong>{page.totalCount}</strong> 款</span>{query.scope === "ALL" && page.summary.uncategorizedCount > 0 ? <button className="favorite-organize-uncategorized" type="button" onClick={onOrganizeUncategorized}>整理未分类游戏</button> : null}</div> : null}
   </>;

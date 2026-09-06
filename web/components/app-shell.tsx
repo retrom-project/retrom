@@ -1,5 +1,8 @@
 "use client";
 
+import { MobileAppFrame } from "@/features/mobile/mobile-app-frame";
+import { usePhoneLayout } from "@/features/mobile/phone-layout";
+import {LocalGameSaveNotice} from "@/features/player/local-game-save-notice";
 import Link, { useLinkStatus } from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
@@ -107,6 +110,7 @@ const exactPageTitles = new Map<string, string>([
   ["/recent", "最近游玩"],
   ["/netplay", "联机游玩"],
   ["/account", "账户设置"],
+  ["/me", "我的"],
   ["/admin/imports/server", "本地扫描"],
   ["/admin/imports/new", "导入游戏"],
   ["/admin/imports/tasks", "任务进度"],
@@ -150,8 +154,8 @@ function usesStandaloneShell(pathname: string) {
 
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
-  if (usesStandaloneShell(pathname)) {return <>{children}</>;}
-  return <StandardAppShell pathname={pathname}>{children}</StandardAppShell>;
+  if (usesStandaloneShell(pathname)) {return <><LocalGameSaveNotice pathname={pathname} />{children}</>;}
+  return <><LocalGameSaveNotice pathname={pathname} /><StandardAppShell pathname={pathname}>{children}</StandardAppShell></>;
 }
 
 function StandardAppShell({ children, pathname }: { children: ReactNode; pathname: string }) {
@@ -221,6 +225,8 @@ function AppFrame({
   accountButtonRef, accountMenuRef, administrator, children, compactPanel, context, health, healthButtonRef,
   logout, moreButtonRef, navigationButtonRef, navigationItems, pathname, section, setCompactPanel, user,
 }: AppFrameProps) {
+  const phone = usePhoneLayout();
+  if (phone) {return <MobileAppFrame pathname={pathname}>{children}</MobileAppFrame>;}
   return (
     <div className="app-frame">
       <DesktopSidebar {...{ accountMenuRef, administrator, health, logout, navigationItems, pathname, user }} />

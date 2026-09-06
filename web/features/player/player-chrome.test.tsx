@@ -57,6 +57,21 @@ function props(overrides: Partial<Parameters<typeof PlayerChrome>[0]> = {}): Par
   };
 }
 
+describe("PlayerChrome touch controls", () => {
+  it("toggles the HUD once for a touch instead of also revealing it on pointer entry", () => {
+    const values = props({ controlsVisible: false });
+    render(<PlayerChrome {...values} />);
+    const handle = screen.getByRole("button", { name: "显示 Player 控制栏" });
+    const enter = new MouseEvent("pointerover", { bubbles: true });
+    Object.defineProperty(enter, "pointerType", { value: "touch" });
+    fireEvent(handle, enter);
+    expect(values.onToggleControls).not.toHaveBeenCalled();
+    fireEvent.click(handle);
+    expect(values.onToggleControls).toHaveBeenCalledOnce();
+  });
+
+});
+
 describe("PlayerChrome", () => {
   it("offers an optional review screenshot through ordinary controls", async () => {
     const onScreenshot = vi.fn();
@@ -226,6 +241,8 @@ describe("PlayerChrome", () => {
     const panel = screen.getByRole("complementary", { name: "运行调试信息" });
     expect(trigger).toHaveAttribute("aria-expanded", "true");
     expect(within(panel).getByText("59.9 FPS")).toBeVisible();
+    expect(within(panel).getByText("画面呈现率")).toBeVisible();
+    expect(within(panel).getByText("按核心提交的画面计算；静止或按需重绘时数值可能较低，不代表游戏运行速度。")).toBeVisible();
     expect(within(panel).getByText("4,210")).toBeVisible();
     expect(within(panel).getByText("384 × 224")).toBeVisible();
     expect(within(panel).getByText("画布分辨率")).toBeVisible();
@@ -394,4 +411,33 @@ describe("PlayerChrome", () => {
     await user.click(screen.getByRole("button", { name: "查看运行提醒" }));
     expect(screen.getByText("BIOS 归档可能缺少内部文件，当前仍允许运行。")).toBeVisible();
   });
+});
+
+it("explains native save and game-menu restore without promising an execution snapshot", async () => {
+  const user = userEvent.setup();
+  const values = props({checkpointSemantics: "GAME_SAVE"});
+  render(<PlayerChrome {...values} />);
+  expect(screen.getByText("游戏数据变化后会暂存在此浏览器")).toBeVisible();
+  expect(screen.getByText(/恢复后请从游戏菜单读档/)).toBeVisible();
+  await user.click(screen.getByRole("button", {name: "返回并退出游戏"}));
+  expect(values.onExit).toHaveBeenCalledOnce();
+  expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+});
+
+it("disables unchanged native saves in the toolbar and exit dialog with a readable status", async () => {
+  const user = userEvent.setup();
+  render(<PlayerChrome {...props({checkpointSemantics: "GAME_SAVE", saveAvailable: false, syncText: "原生存档已同步"})} />);
+  expect(screen.getByRole("button", {name: "创建存档"})).toBeDisabled();
+  expect(screen.getByRole("button", {name: "创建存档"})).toHaveAttribute("title", expect.stringContaining("不保存当前画面的即时进度"));
+  await user.click(screen.getByRole("button", {name: "返回并退出游戏"}));
+  expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+});
+
+it("keeps native creation disabled and exposes a separate sync retry", async () => {
+  const values = props({checkpointSemantics: "GAME_SAVE", saveAvailable: true, nativeRetryAvailable: true, onRetrySync: vi.fn()});
+  render(<PlayerChrome {...values} />);
+  expect(screen.getByRole("button", {name: "创建存档"})).toBeDisabled();
+  await userEvent.setup().click(screen.getByRole("button", {name: "重试暂存"}));
+  expect(values.onRetrySync).toHaveBeenCalledOnce();
+  expect(values.onSave).not.toHaveBeenCalled();
 });
