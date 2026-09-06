@@ -510,7 +510,7 @@
 .game-detail-drawer-row small { margin-top: 3px; color: var(--muted); font-size: 12px; }
 .game-detail-preview { position: fixed; z-index: 140; inset: 0; padding: 24px; display: grid; place-items: center; background: rgb(17 23 39 / 58%); backdrop-filter: blur(3px); }
 .game-detail-preview > section { width: min(920px, 90vw); max-height: 88dvh; padding: 14px; border: 1px solid #343b49; border-radius: 14px; background: #0a0d14; box-shadow: 0 28px 80px rgb(0 0 0 / 42%); }
-.game-detail-preview-image { max-height: calc(88dvh - 70px); display: grid; place-items: center; overflow: hidden; }
+.game-detail-preview-image { position: relative; max-height: calc(88dvh - 70px); display: grid; place-items: center; overflow: hidden; }
 .game-detail-preview-image img { width: auto; max-width: 100%; height: auto; max-height: calc(88dvh - 70px); object-fit: contain; }
 .game-detail-preview footer { margin-top: 10px; display: flex; align-items: center; justify-content: space-between; gap: 12px; color: #b8c0cd; font-size: 11px; }
 .game-detail-preview footer button { min-height: 32px; padding: 0 10px; color: white; border: 1px solid #3b4554; border-radius: 8px; background: #171d29; cursor: pointer; }
