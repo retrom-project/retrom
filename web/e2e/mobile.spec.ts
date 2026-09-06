@@ -58,6 +58,30 @@ async function expectLibraryFilterAlignment(page: Page) {
   expect(Math.abs(icon!.y + icon!.height / 2 - bounds!.y - bounds!.height / 2)).toBeLessThan(1);
 }
 
+async function expectSearchFocus(page: Page, selector: string) {
+  const field = page.locator(selector);
+  const input = field.getByRole("searchbox");
+  await input.focus();
+  await expect(input).toBeFocused();
+  const focus = await field.evaluate((element) => {
+    const input = element.querySelector("input")!;
+    const style = getComputedStyle(element);
+    const bounds = element.getBoundingClientRect();
+    const clips = [];
+    for (let parent = element.parentElement; parent; parent = parent.parentElement) {
+      const parentStyle = getComputedStyle(parent);
+      const parentBounds = parent.getBoundingClientRect();
+      if (parentStyle.overflowX === "hidden" && (bounds.left - 3 < parentBounds.left || bounds.right + 3 > parentBounds.right)) { clips.push(parent.className); }
+      if (parentStyle.overflowY === "hidden" && (bounds.top - 3 < parentBounds.top || bounds.bottom + 3 > parentBounds.bottom)) { clips.push(parent.className); }
+    }
+    return { inputOutline: getComputedStyle(input).outlineStyle, shadow: style.boxShadow, clips };
+  });
+  expect(focus.inputOutline).toBe("none");
+  expect(focus.shadow).not.toBe("none");
+  expect(focus.clips).toEqual([]);
+  await input.blur();
+}
+
 async function expectHomeLaunchPlacement(page: Page) {
   for (const width of [390, 480, 600, 844]) {
     await page.setViewportSize({ width, height: width === 844 ? 390 : 844 });
@@ -127,6 +151,19 @@ test("ACC-MOB-002 user routes, filter sheet, active navigation and accessibility
     await expect(page.locator("main").first()).toBeVisible();
     await expectNoDocumentOverflow(page);
     await expectNoTextArrowsInInteractiveControls(page);
+    if (route === "/" || route === "/library") {
+      await expectSearchFocus(page, route === "/" ? ".phone-home-search" : ".library-search");
+    }
+    if (route === "/library") {
+      const rail = page.locator(".library-platform-row");
+      const indicator = page.locator(".phone-platform-scrollbar");
+      await expect(indicator).toHaveCSS("opacity", "0");
+      if (await rail.evaluate((element) => element.scrollWidth > element.clientWidth)) {
+        await rail.evaluate((element) => element.scrollBy(120, 0));
+        await expect(indicator).toHaveCSS("opacity", "1");
+        await expect(indicator).toHaveCSS("opacity", "0");
+      }
+    }
     const personalOptions = route === "/favorites" ? "整理与排序" : route === "/saves" ? "筛选存档" : route === "/recent" ? "筛选与排序" : null;
     if (personalOptions) {
       const disclosure = page.locator(".phone-disclosure");

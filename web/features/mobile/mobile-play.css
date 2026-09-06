@@ -24,8 +24,9 @@
 /* Home has three tasks: search, continue, and choose a recent game. */
 .phone-home { display: grid; gap: 26px; }
 .phone-home-search { min-width: 0; min-height: 50px; padding: 0 5px 0 14px; display: flex; align-items: center; gap: 8px; border: 1px solid var(--line); border-radius: 14px; background: white; }
+.phone-home-search:focus-within { border-color: var(--purple); box-shadow: 0 0 0 3px rgb(98 80 210 / 12%); }
 .phone-home-search > svg { width: 20px; height: 20px; flex-shrink: 0; color: var(--muted); }
-.phone-home-search input { width: 100%; min-width: 0; padding: 8px 0; border: 0; background: transparent; }
+.phone-home-search input { width: 100%; min-width: 0; padding: 8px 0; border: 0; outline: 0; background: transparent; }
 .phone-home-search button { min-width: 48px; min-height: 44px; border: 0; border-radius: 10px; color: var(--purple-dark); background: var(--purple-soft); font-weight: 750; }
 .phone-continue h1 { margin-bottom: 14px; }
 .phone-continue-card { display: grid; grid-template-columns: minmax(76px, 31%) minmax(0, 1fr); align-items: start; gap: 16px; }
@@ -50,13 +51,17 @@
 .phone-welcome .button { margin-top: 6px; }
 
 /* Search remains visible; metadata stays in the game detail. */
-.phone-app-frame .library-toolbar { padding: 0; border: 0; background: transparent; box-shadow: none; }
+.phone-app-frame .library-toolbar { position: relative; padding: 0; overflow: visible; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
 .phone-app-frame .library-tool-row { display: flex; flex-wrap: nowrap; gap: 8px; }
 .phone-app-frame .library-search { flex: 1; min-width: 0; height: 48px; background: white; border-radius: 12px; }
 .phone-app-frame .library-desktop-filter { display: none; }
 .phone-app-frame .library-mobile-filter-trigger { display: inline-flex; flex: 0 0 48px; width: 48px; height: 48px; min-width: 48px; padding: 0; gap: 0; align-items: center; justify-content: center; border-radius: 12px; box-shadow: none; }
 .phone-app-frame .library-mobile-filter-trigger svg { width: 20px; height: 20px; }
-.phone-app-frame .library-platform-row { margin-top: 12px; padding: 0 0 6px; flex-wrap: nowrap; overflow-x: auto; border: 0; }
+.phone-app-frame .library-platform-row { margin-top: 12px; padding: 0 0 6px; flex-wrap: nowrap; overflow-x: auto; border: 0; scrollbar-width: none; }
+.phone-platform-scrollbar { display: none; }
+.phone-app-frame .phone-platform-scrollbar { position: absolute; display: block; right: 0; bottom: 0; left: 0; height: 3px; opacity: 0; pointer-events: none; }
+.phone-app-frame .phone-platform-scrollbar[data-visible="true"] { opacity: 1; }
+.phone-platform-scrollbar > span { position: absolute; height: 100%; border-radius: 3px; background: #c5bfd8; }
 .phone-app-frame .library-platform-row > button { min-height: 44px; flex-shrink: 0; white-space: nowrap; }
 .phone-app-frame .library-platform-label, .phone-app-frame .library-result-count, .phone-app-frame .library-section-head { display: none; }
 .phone-app-frame .library-game-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px 14px; margin-top: 16px; }

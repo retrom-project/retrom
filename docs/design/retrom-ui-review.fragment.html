@@ -2419,6 +2419,7 @@
     @media(max-width:760px){#retrom-ui-review .rt-rpg-binding,#retrom-ui-review .rt-rpg-pack-summary,#retrom-ui-review .rt-rpg-core-grid{grid-template-columns:1fr}#retrom-ui-review .rt-rpg-pack-row{grid-template-columns:1fr}#retrom-ui-review .rt-rpg-target-head,#retrom-ui-review .rt-rpg-save-naming,#retrom-ui-review .rt-rpg-save-edit{align-items:stretch;flex-direction:column;display:flex}#retrom-ui-review .rt-rpg-save-edit .rt-input{width:100%} }
 
     /* Phone play layout. Desktop, tablet and immersive scenes keep their own rules. */
+    #retrom-ui-review .rt-phone-platform-scrollbar { display: none; }
     #retrom-ui-review .rt-phone-appbar, #retrom-ui-review .rt-phone-home,
     #retrom-ui-review .rt-phone-admin, #retrom-ui-review .rt-phone-launch,
     #retrom-ui-review .rt-phone-filter { display: none; }
@@ -2443,7 +2444,8 @@
       #retrom-ui-review .rt-phone-home { display: grid; gap: 26px; }
       #retrom-ui-review .rt-phone-home h1 { font-size: 24px; margin: 0 0 14px; }
       #retrom-ui-review .rt-phone-search { display: flex; gap: 8px; padding: 4px 5px 4px 14px; border: 1px solid var(--retrom-line); border-radius: 14px; background: white; }
-      #retrom-ui-review .rt-phone-search input { min-width: 0; width: 100%; min-height: 44px; border: 0; background: transparent; font-size: 16px; }
+      #retrom-ui-review .rt-phone-search input { min-width: 0; width: 100%; min-height: 44px; border: 0; outline: 0; background: transparent; font-size: 16px; }
+      #retrom-ui-review .rt-phone-search:focus-within, #retrom-ui-review .rt-library-search:focus-within { border-color: var(--retrom-purple); box-shadow: 0 0 0 3px rgb(98 80 210 / 12%); }
       #retrom-ui-review .rt-phone-search button { min-width: 48px; border: 0; border-radius: 10px; background: #eee9ff; color: #5742ba; font-weight: 700; }
       #retrom-ui-review .rt-phone-continue { display: grid; grid-template-columns: 31% minmax(0,1fr); gap: 16px; align-items: start; }
       #retrom-ui-review .rt-phone-poster { width: 100%; aspect-ratio: 5/7; height: auto; min-height: 0; border: 0; border-radius: 12px; }
@@ -2461,8 +2463,12 @@
       #retrom-ui-review .rt-library-meta, #retrom-ui-review .rt-library-played, #retrom-ui-review .rt-library-body > .rt-tag-list,
       #retrom-ui-review .rt-library-platform-tag, #retrom-ui-review .rt-library-platforms > span,
       #retrom-ui-review .rt-library-tool-row > select { display: none; }
-      #retrom-ui-review .rt-library-tools { padding: 0; border: 0; background: transparent; box-shadow: none; }
+      #retrom-ui-review .rt-library-tools { position: relative; padding: 0; overflow: visible; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
       #retrom-ui-review .rt-library-tool-row { display: flex; gap: 8px; }
+      #retrom-ui-review .rt-library-platforms { scrollbar-width: none; }
+      #retrom-ui-review .rt-phone-platform-scrollbar { display: block; position: absolute; bottom: 0; left: 0; right: 0; height: 3px; opacity: 0; pointer-events: none; }
+      #retrom-ui-review .rt-phone-platform-scrollbar[data-visible="true"] { opacity: 1; }
+      #retrom-ui-review .rt-phone-platform-scrollbar > span { position: absolute; height: 100%; border-radius: 3px; background: #c5bfd8; }
       #retrom-ui-review .rt-library-search { flex: 1; min-width: 0; height: 48px; background: white; border-radius: 12px; }
       #retrom-ui-review .rt-phone-filter { display: inline-flex; flex: 0 0 48px; width: 48px; height: 48px; min-height: 48px; min-width: 48px; padding: 0; gap: 0; align-items: center; justify-content: center; border-radius: 12px; background: white; }
       #retrom-ui-review .rt-phone-filter svg { width: 20px; height: 20px; }
@@ -2785,7 +2791,7 @@
 
       <section class="rt-page" data-page="library">
         <div class="rt-page-head"><div><div class="rt-eyebrow">我的游戏</div><h1>游戏库</h1><p class="rt-subtitle">找到想玩的经典游戏，打开详情后即可使用推荐配置开始游玩。</p></div></div>
-        <section class="rt-library-tools" aria-label="游戏筛选"><div class="rt-library-tool-row"><label class="rt-library-search"><i data-lucide="search" aria-hidden="true"></i><input type="search" placeholder="搜索游戏、平台或标签" aria-label="搜索游戏、平台或标签" data-library-search></label><button type="button" class="rt-button rt-phone-filter" data-phone-filter aria-label="筛选与排序"><i data-lucide="list-filter"></i></button><select class="rt-select" aria-label="游戏集合"><option>所有游戏集合</option><option>FBNeo 游戏</option></select><select class="rt-select" aria-label="标签"><option>所有标签</option><option>双人（2）</option><option>清版动作（1）</option></select><select class="rt-select" aria-label="排列顺序" data-library-sort><option value="recent">最近游玩</option><option value="added">最近加入</option><option value="title">名称 A–Z</option></select></div><div class="rt-library-platforms"><span>游戏平台</span><button type="button" class="rt-library-chip is-active" data-library-platform="">全部 <strong>3</strong></button><button type="button" class="rt-library-chip" data-library-platform="Arcade">Arcade <strong>3</strong></button><span class="rt-library-result">当前显示 <strong data-library-count>3</strong> 款游戏</span></div></section>
+        <section class="rt-library-tools" aria-label="游戏筛选"><div class="rt-library-tool-row"><label class="rt-library-search"><i data-lucide="search" aria-hidden="true"></i><input type="search" placeholder="搜索游戏、平台或标签" aria-label="搜索游戏、平台或标签" data-library-search></label><button type="button" class="rt-button rt-phone-filter" data-phone-filter aria-label="筛选与排序"><i data-lucide="list-filter"></i></button><select class="rt-select" aria-label="游戏集合"><option>所有游戏集合</option><option>FBNeo 游戏</option></select><select class="rt-select" aria-label="标签"><option>所有标签</option><option>双人（2）</option><option>清版动作（1）</option></select><select class="rt-select" aria-label="排列顺序" data-library-sort><option value="recent">最近游玩</option><option value="added">最近加入</option><option value="title">名称 A–Z</option></select></div><div class="rt-library-platforms"><span>游戏平台</span><button type="button" class="rt-library-chip is-active" data-library-platform="">全部 <strong>3</strong></button><button type="button" class="rt-library-chip" data-library-platform="Arcade">Arcade <strong>3</strong></button><span class="rt-library-result">当前显示 <strong data-library-count>3</strong> 款游戏</span></div><div class="rt-phone-platform-scrollbar" aria-hidden="true"><span></span></div></section>
         <div class="rt-library-section-head"><div><h2>所有游戏</h2><p>封面是识别入口；没有封面的游戏也保留清晰的标题与平台信息。</p></div><span class="rt-library-view-hint">卡片视图 · <kbd>/</kbd> 搜索</span></div>
         <div class="rt-library-grid">
           <article class="rt-library-card" data-library-card data-library-title="1941" data-library-platform-name="Arcade" data-library-recent="2" data-library-added="3"><button type="button" class="rt-library-cover" style="background:radial-gradient(circle at 78% 17%,rgb(67 208 218 / .34),transparent 19%),linear-gradient(150deg,#36415f,#111829)" data-open-game="doom" aria-label="查看 1941 详情"><span class="rt-library-platform-tag">ARCADE</span><span class="rt-library-poster"><small>RETROM CLASSICS</small><strong>1941</strong><span>FINALBURN NEO</span></span><span class="rt-library-hover"><span>查看游戏详情</span></span></button><button type="button" class="rt-library-favorite" data-library-favorite aria-label="取消收藏 1941" aria-pressed="true"><i data-lucide="heart" aria-hidden="true"></i></button><span class="rt-library-body"><span class="rt-library-title"><button type="button" data-open-game="doom">1941</button><button type="button" class="rt-library-more" data-open-shared-favorite-manager="1941" aria-label="管理 1941 的收藏夹">•••</button></span><span class="rt-library-meta">Arcade · FBNeo 游戏</span><span class="rt-library-played"><span>最近游玩</span><strong>昨天 21:10</strong></span></span></article>
@@ -3761,6 +3767,20 @@
         else if (scene === 'admin-users') { setMode('admin'); showPage(scene); }
         else { setMode('user'); showPage(scene); }
       }));
+      const phonePlatformRail = root.querySelector('.rt-library-platforms');
+      const phoneScrollIndicator = root.querySelector('.rt-phone-platform-scrollbar');
+      let phoneScrollTimeout;
+      phonePlatformRail.addEventListener('scroll', () => {
+        if (!window.matchMedia('(max-width: 767px), (pointer: coarse) and (max-width: 1023px) and (max-height: 767px)').matches) return;
+        const { clientWidth, scrollWidth, scrollLeft } = phonePlatformRail;
+        if (scrollWidth <= clientWidth) return;
+        const width = clientWidth / scrollWidth * 100;
+        phoneScrollIndicator.firstElementChild.style.width = width + '%';
+        phoneScrollIndicator.firstElementChild.style.left = Math.max(0, Math.min(100 - width, scrollLeft / scrollWidth * 100)) + '%';
+        phoneScrollIndicator.dataset.visible = 'true';
+        clearTimeout(phoneScrollTimeout);
+        phoneScrollTimeout = setTimeout(() => { phoneScrollIndicator.dataset.visible = 'false'; }, 900);
+      });
       root.querySelector('[data-open-immersive-entry]').addEventListener('click', () => showImmersivePage('immersive-entry'));
 
       const userDrawer = root.querySelector('[data-user-drawer]');
