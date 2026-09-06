@@ -245,6 +245,7 @@ describe("PlayerChrome", () => {
     expect(within(panel).getByText("按核心提交的画面计算；静止或按需重绘时数值可能较低，不代表游戏运行速度。")).toBeVisible();
     expect(within(panel).getByText("4,210")).toBeVisible();
     expect(within(panel).getByText("384 × 224")).toBeVisible();
+    expect(within(panel).getByText("画布分辨率")).toBeVisible();
     expect(within(panel).getByText("COOP/COEP + SAB")).toBeVisible();
     await user.click(within(panel).getByRole("button", { name: "关闭调试信息面板" }));
     expect(values.onToggleDebug).toHaveBeenCalledTimes(2);

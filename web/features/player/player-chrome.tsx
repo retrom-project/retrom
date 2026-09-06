@@ -315,7 +315,7 @@ function PlayerDebugPanel({ open, metrics, runtime, runtimeState, paused, netpla
 }
 
 function LiveDebug({ metrics, runningLabel }: { metrics: PlayerDebugMetrics | null; runningLabel: string }) {
-  return <section><h3>实时</h3><dl><div><dt>画面呈现率</dt><dd>{metrics?.fps === null || metrics?.fps === undefined ? "采样中…" : `${metrics.fps.toFixed(1)} FPS`}</dd></div><div><dt>核心帧计数</dt><dd>{metrics?.frameCount === null || metrics?.frameCount === undefined ? "不可用" : metrics.frameCount.toLocaleString("en-US")}</dd></div><div><dt>运行状态</dt><dd>{runningLabel}</dd></div><div><dt>游戏分辨率</dt><dd>{metrics?.canvasWidth && metrics.canvasHeight ? `${metrics.canvasWidth} × ${metrics.canvasHeight}` : "等待画面"}</dd></div></dl><p className="player-debug-note">按核心提交的画面计算；静止或按需重绘时数值可能较低，不代表游戏运行速度。</p></section>;
+  return <section><h3>实时</h3><dl><div><dt>画面呈现率</dt><dd>{metrics?.fps === null || metrics?.fps === undefined ? "采样中…" : `${metrics.fps.toFixed(1)} FPS`}</dd></div><div><dt>核心帧计数</dt><dd>{metrics?.frameCount === null || metrics?.frameCount === undefined ? "不可用" : metrics.frameCount.toLocaleString("en-US")}</dd></div><div><dt>运行状态</dt><dd>{runningLabel}</dd></div><div><dt>画布分辨率</dt><dd>{metrics?.canvasWidth && metrics.canvasHeight ? `${metrics.canvasWidth} × ${metrics.canvasHeight}` : "等待画面"}</dd></div></dl><p className="player-debug-note">按核心提交的画面计算；静止或按需重绘时数值可能较低，不代表游戏运行速度。</p></section>;
 }
 
 function RuntimeDebug({ runtime, coreName, playerNo, ordinaryRpgMaker }: { runtime: PlayerDebugRuntime; coreName: string; playerNo: number | null; ordinaryRpgMaker: boolean }) {
