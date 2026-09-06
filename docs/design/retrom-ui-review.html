@@ -2413,6 +2413,8 @@
     #retrom-ui-review .rt-rpg-pack-summary article { padding:15px;border:1px solid var(--retrom-line);border-radius:13px;background:var(--retrom-panel-raised) }
     #retrom-ui-review .rt-rpg-pack-summary span,#retrom-ui-review .rt-rpg-pack-summary small { display:block;color:var(--retrom-muted) }
     #retrom-ui-review .rt-rpg-pack-summary strong { display:block;margin:4px 0;font-size:22px }
+    #retrom-ui-review .rt-runtime-pack-install-action { flex: 0 0 auto; white-space: nowrap; }
+    #retrom-ui-review .rt-runtime-pack-install-action svg { width: 18px; height: 18px; flex: 0 0 auto; }
     #retrom-ui-review .rt-rpg-core-grid { display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px }
     #retrom-ui-review .rt-rpg-core-card { padding:13px;border:1px solid var(--retrom-line);border-radius:12px;background:var(--retrom-panel) }
     #retrom-ui-review .rt-rpg-core-card header { display:flex;justify-content:space-between;gap:8px;align-items:start }
@@ -3257,7 +3259,7 @@
           &lt;/div&gt;
           &lt;div data-runtime-panel=&quot;rpgmaker&quot; role=&quot;tabpanel&quot; hidden&gt;
             &lt;div class=&quot;rt-rpg-pack-summary&quot;&gt;&lt;article&gt;&lt;span&gt;已登记 Target&lt;/span&gt;&lt;strong&gt;7&lt;/strong&gt;&lt;small&gt;2000 / 2003 / XP / VX / VX Ace / MV / MZ&lt;/small&gt;&lt;/article&gt;&lt;article&gt;&lt;span&gt;缺少运行包&lt;/span&gt;&lt;strong&gt;1&lt;/strong&gt;&lt;small&gt;VX Ace RTP 需要安装&lt;/small&gt;&lt;/article&gt;&lt;article&gt;&lt;span&gt;启动阻断&lt;/span&gt;&lt;strong&gt;1&lt;/strong&gt;&lt;small&gt;按 Provider Target 实时诊断&lt;/small&gt;&lt;/article&gt;&lt;/div&gt;
-            &lt;div class=&quot;rt-section-head&quot;&gt;&lt;div&gt;&lt;h2&gt;RPG Maker Target 诊断&lt;/h2&gt;&lt;p class=&quot;rt-subtitle&quot;&gt;Provider/Target 契约只对管理员展示；普通用户核心选择器不显示这些字段。&lt;/p&gt;&lt;/div&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button rt-button-primary&quot; data-open-rpg-pack-drawer&gt;上传运行包&lt;/button&gt;&lt;/div&gt;
+            &lt;div class=&quot;rt-section-head&quot;&gt;&lt;div&gt;&lt;h2&gt;RPG Maker Target 诊断&lt;/h2&gt;&lt;p class=&quot;rt-subtitle&quot;&gt;Provider/Target 契约只对管理员展示；普通用户核心选择器不显示这些字段。&lt;/p&gt;&lt;/div&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button rt-button-primary rt-runtime-pack-install-action&quot; data-open-rpg-pack-drawer&gt;&lt;i data-lucide=&quot;plus&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;安装运行包&lt;/button&gt;&lt;/div&gt;
             &lt;div class=&quot;rt-rpg-core-grid&quot;&gt;
               &lt;article class=&quot;rt-rpg-core-card&quot;&gt;&lt;header&gt;&lt;strong&gt;RPG Maker 2000&lt;/strong&gt;&lt;span class=&quot;rt-badge rt-badge-green&quot;&gt;可启动&lt;/span&gt;&lt;/header&gt;&lt;small&gt;rpgmaker_2000 · RPG2000_EASYRPG&lt;/small&gt;&lt;code&gt;v0.2.0 · easyrpg-web&lt;/code&gt;&lt;/article&gt;
               &lt;article class=&quot;rt-rpg-core-card&quot;&gt;&lt;header&gt;&lt;strong&gt;RPG Maker 2003&lt;/strong&gt;&lt;span class=&quot;rt-badge rt-badge-green&quot;&gt;可启动&lt;/span&gt;&lt;/header&gt;&lt;small&gt;rpgmaker_2003 · RPG2003_EASYRPG&lt;/small&gt;&lt;code&gt;v0.2.0 · easyrpg-web&lt;/code&gt;&lt;/article&gt;
