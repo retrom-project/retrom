@@ -142,6 +142,7 @@ function useStorageAnalysis() {
   const [refreshing, setRefreshing] = useState(false);
   const [cleanupOpen, setCleanupOpen] = useState(false);
   const [cleaning, setCleaning] = useState(false);
+  const [trackingCleanup, setTrackingCleanup] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   useEffect(() => {
@@ -154,6 +155,41 @@ function useStorageAnalysis() {
     });
     return () => controller.abort();
   }, []);
+  useEffect(() => {
+    if (!trackingCleanup) {return;}
+    const controller = new AbortController();
+    let nextRefresh: ReturnType<typeof setTimeout> | undefined;
+    const deadline = setTimeout(() => {
+      controller.abort();
+      clearTimeout(nextRefresh);
+      setTrackingCleanup(false);
+      setNotice("清理仍在后台执行；自动刷新已暂停，可稍后点击“刷新分析”查看最新结果。");
+    }, 60_000);
+    const update = async () => {
+      try {
+        const value = await fetchSnapshot(controller.signal);
+        if (controller.signal.aborted) {return;}
+        setSnapshot(value);
+        const unreferenced = value.categories.find((category) => category.code === "UNREFERENCED");
+        if (value.details.cleanupCandidates.blobCount === 0 && unreferenced?.blobCount === 0) {
+          setTrackingCleanup(false);
+          setNotice("立即清理已完成，容量分析已更新。");
+        } else {
+          nextRefresh = setTimeout(() => void update(), 2000);
+        }
+      } catch (reason) {
+        if (controller.signal.aborted) {return;}
+        setError(reason instanceof Error ? `清理已提交，但自动刷新失败：${reason.message}` : "清理已提交，但自动刷新失败");
+        setTrackingCleanup(false);
+      }
+    };
+    void update();
+    return () => {
+      controller.abort();
+      clearTimeout(nextRefresh);
+      clearTimeout(deadline);
+    };
+  }, [trackingCleanup]);
   const refresh = async () => {
     setRefreshing(true); setError("");
     try {setSnapshot(await fetchSnapshot());}
@@ -166,10 +202,13 @@ function useStorageAnalysis() {
       const result = await scheduleCleanup();
       setCleanupOpen(false);
       setNotice(result.scheduledBlobCount
-        ? `已安排立即清理 ${result.scheduledBlobCount} 个 Blob（${formatStorageBytes(result.scheduledBytes)}）；后台会逐项复核引用并回收。`
+        ? `已安排立即清理 ${result.scheduledBlobCount} 个 Blob（${formatStorageBytes(result.scheduledBytes)}）；正在自动更新容量分析。`
         : "当前没有仍可立即清理的未引用数据。");
-      try {setSnapshot(await fetchSnapshot());}
-      catch (reason) {setError(reason instanceof Error ? `清理已提交，但刷新分析失败：${reason.message}` : "清理已提交，但刷新分析失败");}
+      if (result.scheduledBlobCount > 0) {setTrackingCleanup(true);}
+      else {
+        try {setSnapshot(await fetchSnapshot());}
+        catch (reason) {setError(reason instanceof Error ? `清理已提交，但刷新分析失败：${reason.message}` : "清理已提交，但刷新分析失败");}
+      }
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "无法开始立即清理");
     } finally {
@@ -177,7 +216,7 @@ function useStorageAnalysis() {
     }
   };
   return {
-    cleanup, cleanupOpen, cleaning, error, loading, notice, refresh, refreshing, setCleanupOpen, snapshot,
+    cleanup, cleanupOpen, cleaning: cleaning || trackingCleanup, error, loading, notice, refresh, refreshing, setCleanupOpen, snapshot,
   };
 }
 
