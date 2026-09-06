@@ -37,7 +37,12 @@ export type RuntimeCheckpointV1 = {
   bytes: Uint8Array;
   metadata: Record<string, unknown> | null;
 };
-export type RuntimeCheckpointAvailabilityV1 = { available: boolean; reason: string | null };
+export type RuntimeCheckpointAvailabilityV1 = {
+  available: boolean;
+  reason: string | null;
+  /** Stable identity of unsynchronized native save content; never changes for identical writes. */
+  revision?: string;
+};
 export type RuntimeDiscStateV1 = { count: number; currentIndex: number; labels: string[] };
 export type RuntimeInputFilterPolicyV1 = { activeGamepadIndex: number | null; suppressInput: boolean };
 
@@ -68,6 +73,8 @@ export interface PlayerRuntimeV1 {
   pause(): Promise<void>;
   resume(): Promise<void>;
   checkpoint(): Promise<RuntimeCheckpointV1>;
+  /** GAME_SAVE: acknowledge this exact payload only after durable Host persistence succeeds. */
+  acknowledgeCheckpoint?(checkpoint: RuntimeCheckpointV1): Promise<void>;
   screenshot(): Promise<Blob>;
   setVolume(value: number): Promise<void>;
   setVideoMode(mode: RuntimeVideoModeV1): Promise<void>;
@@ -190,7 +197,8 @@ export type LaunchEnvelopeV1 = {
     bundleSha256: string;
     targetId: string;
     capabilities: RuntimeCapabilitiesV1;
-    checkpoint: { writeFormat: string; readFormats: string[]; maxBytes: number } | null;
+    // Omitted semantics means INSTANT; GAME_SAVE may require the game's save/load menu.
+    checkpoint: { writeFormat: string; readFormats: string[]; maxBytes: number; semantics?: "INSTANT" | "GAME_SAVE" } | null;
     moduleUrl: string;
     moduleSha256: string;
     runtimeBaseUrl: string;

@@ -31,6 +31,7 @@ type Params = {
   setPaused: Dispatch<SetStateAction<boolean>>;
   exitStrict: () => Promise<void>;
   saveAvailable: boolean;
+  nativeSync?: boolean;
   saveGame: () => Promise<boolean>;
   beforeMenuPause: () => void;
   onFatalError: (message: string) => void;
@@ -105,20 +106,20 @@ export function useImmersivePlayer(params: Params) {
       updateOverlay({ ...current, error: "当前游戏无法创建可恢复存档。", notice: "" });
       return;
     }
-    updateOverlay({ ...current, error: "", notice: "正在创建存档…", pending: true });
+    updateOverlay({ ...current, error: "", notice: params.nativeSync ? "正在同步游戏数据…" : "正在创建存档…", pending: true });
     void saveGame().then((saved) => {
       const latest = overlayRef.current;
       if (latest.kind !== "menu") {return;}
       updateOverlay(saved
-        ? { ...latest, error: "", notice: "存档已创建。", pending: false }
-        : { ...latest, error: "创建存档失败，请重试。", notice: "", pending: false });
+        ? { ...latest, error: "", notice: params.nativeSync ? "游戏数据已同步。" : "存档已创建。", pending: false }
+        : { ...latest, error: params.nativeSync ? "游戏数据同步失败，请重试。" : "创建存档失败，请重试。", notice: "", pending: false });
     }).catch(() => {
       const latest = overlayRef.current;
       if (latest.kind === "menu") {
-        updateOverlay({ ...latest, error: "创建存档失败，请重试。", notice: "", pending: false });
+        updateOverlay({ ...latest, error: params.nativeSync ? "游戏数据同步失败，请重试。" : "创建存档失败，请重试。", notice: "", pending: false });
       }
     });
-  }, [saveAvailable, saveGame, updateOverlay]);
+  }, [params.nativeSync, saveAvailable, saveGame, updateOverlay]);
 
   const runSelectedMenuAction = useCallback(() => {
     const current = overlayRef.current;

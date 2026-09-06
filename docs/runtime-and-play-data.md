@@ -71,13 +71,15 @@ Player Host 只消费 `PlayerRuntimeV1` 的标准能力和事件，不按 Provid
 
 Provider 静态文件只从 `/runtime/providers/{providerId}/{bundleSha256}/{runtimePath}` 提供，并同时受 closed allowlist、大小和 SHA-256 约束。游戏、BIOS、parent、多盘、项目文件、运行包和 cart 不属于 Provider Bundle，通过 envelope resources 授权；Provider 不得根据扩展名、标题或 Core 名称猜测输入。
 
-`retrom-runtime` 的 Target 覆盖 EasyRPG、mkxp、MV/MZ、ONS、KiriKiri、Butterscotch、TyranoScript 与 WASM-4。项目可使用 file tree、seekable blob、native web 或 isolated web 资源。MV/MZ bridge 保留 Canvas2D 对非法 `textAlign` 赋值“忽略并保持原值”的浏览器语义；Butterscotch 保留真实 `640×480` backing buffer，但显示尺寸始终按容器等比放大；KiriKiri 在 core `postRun` 后进入可玩状态，checkpoint availability 独立等待书签 API 就绪，其精确的脚本退出 Wasm trap 会转换为一次 `EXIT_REQUESTED`；非匹配 trap 不会被吞掉。所有 Provider 都必须在游戏自身退出时发出标准退出事件，使整个 Player 页面同步关闭。
+`retrom-runtime` 的 Target 覆盖 EasyRPG、mkxp、MV/MZ、ONS、KiriKiri、Butterscotch、TyranoScript、Java ME 与 WASM-4。项目可使用 file tree、seekable blob、native web 或 isolated web 资源。MV/MZ bridge 保留 Canvas2D 对非法 `textAlign` 赋值“忽略并保持原值”的浏览器语义；Butterscotch 保留真实 `640×480` backing buffer，但显示尺寸始终按容器等比放大；KiriKiri 在 core `postRun` 后进入可玩状态，checkpoint availability 独立等待书签 API 就绪，其精确的脚本退出 Wasm trap 会转换为一次 `EXIT_REQUESTED`；非匹配 trap 不会被吞掉。所有 Provider 都必须在游戏自身退出时发出标准退出事件，使整个 Player 页面同步关闭。
 
 独立 origin 的项目按 Launch 使用不同 Host。一次性 bootstrap ticket 和 HttpOnly capability 只授权当前 Launch 的封闭资源；项目脚本不能取得应用 Cookie、普通 API 或其他 Launch 内容。cleanup 撤销 capability、过期 Cookie 并清理对应存储。
 
 ## 6. Checkpoint 与存档
 
 Checkpoint 对 Host 是不透明字节。Target declaration 的 `writeFormat`、`readFormats[]` 和 `maxBytes` 是唯一格式规则。创建存档时，来源 Launch 必须属于同一 Profile/Game 且允许存档，格式必须位于 `readFormats`、大小和 SHA-256 必须闭合；Host 不解析 Provider payload。
+
+checkpoint 可选 `semantics` 声明恢复方式。省略或 `INSTANT` 表示直接恢复执行状态；`GAME_SAVE` 表示游戏原生存档，用户需要先在游戏中完成保存，导入后可能还需通过游戏菜单读档。Player 根据该公共声明展示提示，不按 Core、Target 或格式名称分支。GAME_SAVE 使用公共 availability revision 检测原生数据变化，按当前游玩存档自动同步并提供独立的失败重试。两种语义共用 Save API、完整性校验、授权与跨 Launch 恢复机制；Provider 必须在启动游戏前导入原生存档并支持读档后的继续输入。RMS 备份不构成即时快照能力，既有即时恢复回归仍保持原断言。
 
 `save_states` 只绑定 Profile、Game、checkpoint format、payload、可选截图/DOS 路径/disc index 和来源 Launch，不冻结 Provider 版本或 Variant。恢复时使用游戏当前默认或显式 Core 的 READY Variant；只要当前 Target 的 `readFormats` 包含该格式即可恢复。Provider 升级应继续声明仍受支持的旧格式；删除已被存档引用的可读格式会被安装门禁拒绝。不存在为了恢复而加载旧 Provider 的路径。
 
@@ -108,3 +110,33 @@ Provider 报告真实 ready/start 后，Host 才创建 PlaySession。heartbeat �
 实现变更必须覆盖：Provider manifest/完整性/升级门禁、47 个 Target 的 binding 闭包、Go 与 TypeScript envelope fixtures、dispatcher 装载与 cleanup、current-state 数据不变量、存档跨 Bundle 读取、内容与 BIOS 替换、普通/沉浸 Player、RPG validation、多盘、Pegasus 与 EmulationStation/gamelist 导入。
 
 标准门禁是 `make api-check`、`make backend-check`、`make web-check`、`make integration-test`、`make data-check` 和 `make pfb-verify`。PFB 使用隔离 worktree、持久 workspace 与稳定 URL；开发期 loose module 只叠加到已验证基座 Bundle，不进入 production lock 或正式镜像。真实样本验收必须走产品上传、审核、发布、启动、存档与退出链路，不能绕过 API 直接写结果。
+
+## Java ME 产品接入
+
+Java ME 目录使用基础平台 `j2me`、稳定核心 `j2me` 和 `retrom-runtime/j2me` Target。
+Host 的 `J2ME_JAR` 检测/交付策略仅接受原始 `.jar`，按 `SINGLE_FILE` 保留完整字节，以 `ROM_BLOB`
+交给 Provider；JAR 自身的 ZIP 容器不会被当作上传包装层解开。审核预览和普通 Launch 经过同一资源与生命周期契约。
+
+该 Target 声明 `checkpoint.semantics=GAME_SAVE`。Player 普通控制栏、退出对话框与沉浸菜单提示先在游戏内
+保存；任意 RMS 数据变化后自动同步，恢复启动后需要从游戏菜单读档。Host 的 Save API 继续接收有格式、上限和 SHA-256
+身份的完整 opaque payload，不解析 RMS、选择 Java 类或保存 VM 内存。原有 Target 缺省即时恢复语义不变。
+
+开发验证需要包含修复的 J2ME core candidate。历史 v0.3.3 资产不包含此次 RMS 与严格静态资源加载修复，
+不得据此声称修复已经发布；发布固定版本与合并是独立交付步骤。
+
+### 原生存档自动同步
+
+GAME_SAVE Provider 必须提供 `acknowledgeCheckpoint(checkpoint)`；可用性中的 `revision` 标识当前实例的
+待同步内容。所有游戏统一跟踪 RMS 数据，不判断哪些 store 是进度：设置、增值商品、空 store 和删除都属于数据变化。
+仅修改时间、计数器等元数据的重复写入不产生 revision。连续写入合并到完整稳定快照；截图表示最近同步时的画面，
+不承诺从截图位置恢复。Player 的“创建存档”始终禁用并展示游戏内保存/读档说明。
+
+无 `saveStateId` 的 Product Launch 从空原生数据启动。首次变化创建一个“自动同步存档”，同一 Launch 后续变化只覆盖
+这一个存档；另一次无存档启动独立创建。选择已有存档时，恢复包在创建 Launch 的事务内冻结，之后的同步更新所选存档。
+更新原子替换 payload 与截图，保留 ID、用户名称和创建时间，推进数据版本及最近同步时间。仅有启动/读取且数据不变时不写入。
+已有即时快照仍手动创建；Review Preview 仍只写自己的临时 checkpoint，不创建 Product 存档。
+
+上传串行化，上传期间的新 revision 在本次完成后继续同步。只有服务端成功后才确认对应 payload；导出本身不确认持久保存。
+失败保留完整 payload、截图与幂等键，停止自动重试并显示独立“重试同步”按钮。超时后的重试不重复创建，旧请求重放不覆盖新数据。
+其他 Launch 已更新或用户已删除目标时返回 `SAVE_SYNC_CONFLICT`，停止此 Launch 的同步并明确提示退出后重新选择；禁止静默覆盖。
+正常退出先等候稳定数据与上传完成，失败取消退出。冻结的恢复 Blob 在 Launch 终态释放引用；覆盖后的旧数据走统一 GC 宽限流程。

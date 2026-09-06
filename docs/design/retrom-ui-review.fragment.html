@@ -2808,6 +2808,15 @@
       </section>
 
       <section class="rt-page" data-page="play">
+        <details class="rt-card" aria-label="原生存档交互状态评审">
+          <summary>原生游戏数据同步（J2ME）</summary>
+          <p>请在游戏内保存，平台会自动同步游戏数据；恢复后请从游戏菜单读档。截图展示最近同步时的画面。从已有存档启动会持续更新该存档；直接开始游戏会建立独立存档。</p>
+          <label>同步状态 <select data-native-sync-demo><option value="ready">已同步</option><option value="empty">尚无数据变化</option><option value="busy">正在同步</option><option value="failed">同步失败</option><option value="conflict">其他会话已更新</option></select></label>
+          <button type="button" class="rt-button" disabled title="此类游戏不支持即时存档，请在游戏内保存">创建存档</button>
+          <span role="status" data-native-sync-status>游戏数据已同步</span>
+          <button type="button" class="rt-button" data-native-sync-retry hidden>重试同步</button>
+          <p>存档卡片显示“自动同步”和最近同步时间，ID、名称和创建时间保留。正常退出等待同步，失败时取消退出；手柄跳过禁用的创建按钮，失败后可选择重试。</p>
+        </details>
         <div class="rt-player-shell">
           <div class="rt-player-orientation-gate" role="dialog" aria-modal="true" aria-labelledby="rt-orientation-title"><div class="rt-player-orientation-card"><i data-lucide="rotate-cw" aria-hidden="true"></i><h2 id="rt-orientation-title">请横屏继续游戏</h2><p>配置已经检查完成。横屏稳定后才会加载游戏内容并开始本次游玩。</p><button type="button" class="rt-player-control">重试全屏与横屏</button></div></div>
           <div class="rt-player-stage"><div class="rt-player-screen" role="img" aria-label="EmulatorJS 游戏画面占位"><span class="rt-player-logo">EMULATORJS</span></div><div class="rt-player-touch-controls" aria-hidden="true"><div class="rt-player-touch-zone rt-player-touch-dpad is-left"></div><div class="rt-player-touch-zone is-right"><span class="rt-player-touch-button is-b">B</span><span class="rt-player-touch-button is-a">A</span></div></div></div>
@@ -3342,6 +3351,15 @@
   <script>
     (() => {
       const root = document.getElementById('retrom-ui-review');
+      const nativeSyncDemo = root.querySelector('[data-native-sync-demo]');
+      function renderNativeSyncDemo() {
+        const messages = {ready:'游戏数据已同步',empty:'尚无游戏数据变化',busy:'正在同步游戏数据…',failed:'游戏数据同步失败，请重试同步',conflict:'存档已被其他会话更新或删除，本次改动未同步。请退出后重新选择存档。'};
+        root.querySelector('[data-native-sync-status]').textContent = messages[nativeSyncDemo.value];
+        root.querySelector('[data-native-sync-retry]').hidden = nativeSyncDemo.value !== 'failed';
+      }
+      nativeSyncDemo.addEventListener('change', renderNativeSyncDemo);
+      root.querySelector('[data-native-sync-retry]').addEventListener('click', () => {nativeSyncDemo.value='ready';renderNativeSyncDemo();});
+
       const app = root.querySelector('.rt-app');
       const modeButton = root.querySelector('#rt-mode-button');
       const modeLabel = root.querySelector('#rt-mode-label');

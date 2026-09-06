@@ -218,3 +218,21 @@
   .player-sync-status.is-busy > i { animation: none; }
 }
 @keyframes spin { to { transform: rotate(360deg); } }
+
+.player-native-save-help {
+  position: absolute;
+  z-index: 30;
+  bottom: 4rem;
+  left: 50%;
+  width: min(90vw, 38rem);
+  transform: translateX(-50%);
+  margin: 0;
+  padding: 0.6rem 1rem;
+  border-radius: 0.5rem;
+  background: rgb(0 0 0 / 80%);
+  color: white;
+  text-align: center;
+  pointer-events: none;
+}
+
+.player-native-save-help button { pointer-events: auto; }

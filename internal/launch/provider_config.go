@@ -641,10 +641,12 @@ WHERE preview.id=?
 	var format, digest string
 	var size int64
 	if err := service.database.QueryRowContext(ctx, `
-SELECT save.checkpoint_format,save.payload_sha256,save.payload_size_bytes
+SELECT save.checkpoint_format,blob.sha256,blob.size_bytes
 FROM save_states save
+LEFT JOIN launch_game_save_bindings binding ON binding.launch_session_id=?
+JOIN blobs blob ON blob.id=COALESCE(binding.restore_payload_blob_id,save.payload_blob_id)
 WHERE save.id=? AND save.deleted_at_ms IS NULL
-	`, source.saveID.String).Scan(&format, &digest, &size); err != nil {
+	`, launchID, source.saveID.String).Scan(&format, &digest, &size); err != nil {
 		return nil, false, ErrCredential
 	}
 	if target.Checkpoint == nil || !slices.Contains(target.Checkpoint.ReadFormats, format) {

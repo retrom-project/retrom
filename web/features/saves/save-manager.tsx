@@ -1,5 +1,7 @@
 "use client";
 
+import {saveDisplayTime} from "@/features/saves/save-library";
+
 import Link from "next/link";
 import type { FormEvent} from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -80,14 +82,14 @@ function SaveCard({
         <button className="icon-button" aria-label="保存名称" title="保存名称" disabled={busy}><AppIcon name="check" /></button>
         <button className="icon-button" type="button" aria-label="取消修改" title="取消修改" disabled={busy} onClick={onCancelEdit}><AppIcon name="x" /></button>
       </form> : <div className="save-library-title-row">
-        <time dateTime={new Date(save.createdAtMs).toISOString()}>{formatTime(save.createdAtMs, nowMs)}</time>
+        <time dateTime={new Date(saveDisplayTime(save)).toISOString()}>{formatTime(saveDisplayTime(save), nowMs)}</time>
         <button className="save-library-menu-button" type="button" aria-label={`存档“${save.name}”的更多操作`} aria-haspopup="menu" aria-expanded={menuOpen} disabled={busy} onClick={onMenu}>•••</button>
         {menuOpen ? <div className="save-library-menu" role="menu">
           <button type="button" role="menuitem" onClick={onEdit}><AppIcon name="pencil" />重命名</button>
           <button className="danger" type="button" role="menuitem" onClick={onDelete}><AppIcon name="x" />删除存档</button>
         </div> : null}
       </div>}
-      <div className="save-library-card-meta"><span>当时已游玩 {formatSaveDuration(save.activeDurationMs)}</span>{save.discLabel ? <span className="save-disc-badge">{save.discLabel}</span> : null}<span>{formatTime(save.createdAtMs, nowMs, false).split(" ")[0]}</span></div>
+      <div className="save-library-card-meta"><span>当时已游玩 {formatSaveDuration(save.activeDurationMs)}</span>{save.discLabel ? <span className="save-disc-badge">{save.discLabel}</span> : null}<span>{formatTime(saveDisplayTime(save), nowMs, false).split(" ")[0]}</span></div>
       {customName ? <p className="save-library-custom-name" title={customName}>{customName}</p> : null}
       {!available ? <p className="save-library-reason" role="alert">{availabilityMessage(save)}</p> : null}
     </div>
@@ -273,7 +275,7 @@ function SaveLatestSection({ hasItems, latest, nowMs }: {
     <div className="save-section-label"><div><h2 id="save-latest-heading">最近保存</h2><p>最近创建的一份可用手动存档</p></div></div>
     <div className="save-latest-card">
       <div className="save-latest-shot"><SaveScreenshot screenshotUrl={latest.screenshotUrl} alt={`${latest.gameTitle} 最近存档画面`} sizes="360px" /></div>
-      <div className="save-latest-copy"><div className="save-latest-kicker"><i />最近保存</div><Link href={`/games/${latest.gameId}`}><h3>{latest.gameTitle}</h3></Link><p>{latest.platform.name} · {latest.core.name}{latest.discLabel ? ` · ${latest.discLabel}` : ""}</p><div className="save-latest-facts"><div><span>保存时间</span><strong>{formatTime(latest.createdAtMs, nowMs)}</strong></div><div><span>当时已游玩</span><strong>{formatSaveDuration(latest.activeDurationMs)}</strong></div><div><span>{latest.discLabel ? "保存位置" : "存档状态"}</span><strong>{latest.discLabel ?? "可以继续"}</strong></div></div></div>
+      <div className="save-latest-copy"><div className="save-latest-kicker"><i />最近保存</div><Link href={`/games/${latest.gameId}`}><h3>{latest.gameTitle}</h3></Link><p>{latest.platform.name} · {latest.core.name}{latest.discLabel ? ` · ${latest.discLabel}` : ""}</p><div className="save-latest-facts"><div><span>保存时间</span><strong>{formatTime(saveDisplayTime(latest), nowMs)}</strong></div><div><span>当时已游玩</span><strong>{formatSaveDuration(latest.activeDurationMs)}</strong></div><div><span>{latest.discLabel ? "保存位置" : "存档状态"}</span><strong>{latest.discLabel ?? "可以继续"}</strong></div></div></div>
       <div className="save-latest-actions"><LaunchButton gameId={latest.gameId} saveStateId={latest.saveStateId} returnTo="/saves" label="从这里继续" /><Link className="button secondary" href={`/games/${latest.gameId}`}>查看游戏详情</Link><small>直接恢复这份手动存档</small></div>
     </div>
   </section>;

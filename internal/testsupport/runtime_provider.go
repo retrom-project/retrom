@@ -213,7 +213,7 @@ func insertFixtureTargets(
 	sort.Strings(keys)
 	for _, key := range keys {
 		binding := targets[key]
-		optionsSchema := fixtureTargetOptionsSchema(binding.TargetID)
+		optionsSchema := fixtureTargetOptionsSchema(binding)
 		capabilities := map[string]any{
 			"pause": true, "screenshot": true, "checkpoint": true, "standardGamepad": true,
 			"frameCounter": true, "volume": true, "discSwitch": binding.TargetID == "yabause",
@@ -324,7 +324,7 @@ func fixtureInputs(binding runtimecatalog.Binding) []map[string]any {
 	return result
 }
 
-func fixtureTargetOptionsSchema(targetID string) map[string]any {
+func fixtureTargetOptionsSchema(binding runtimecatalog.Binding) map[string]any {
 	property := func(properties map[string]any, required ...string) map[string]any {
 		required = append([]string{}, required...)
 		return map[string]any{
@@ -332,19 +332,18 @@ func fixtureTargetOptionsSchema(targetID string) map[string]any {
 			"properties": properties, "required": required,
 		}
 	}
-	switch {
-	case strings.HasPrefix(targetID, "rpgmaker-"):
+	strategy, _ := runtimecatalog.Strategy(binding.DetectorProfile)
+	switch strategy.Options {
+	case runtimecatalog.OptionsNone:
 		return property(map[string]any{})
-	case targetID == "onscripter-yuri":
+	case runtimecatalog.OptionsONS:
 		return property(map[string]any{"scriptEncoding": map[string]any{
 			"type": "string", "enum": []any{"gbk", "sjis", "utf8"},
 		}}, "scriptEncoding")
-	case targetID == "kirikiri2-kag":
+	case runtimecatalog.OptionsKiriKiri:
 		return property(map[string]any{"startupXp3Path": map[string]any{
 			"type": []any{"string", "null"}, "format": "safe-path", "maxLength": int64(240),
 		}}, "startupXp3Path")
-	case targetID == "butterscotch-gamemaker" || targetID == "tyranoscript" || targetID == "wasm4":
-		return property(map[string]any{})
 	default:
 		return property(map[string]any{
 			"dosEntryPath": map[string]any{

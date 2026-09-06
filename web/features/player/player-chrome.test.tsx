@@ -387,3 +387,32 @@ describe("PlayerChrome", () => {
     expect(screen.queryByText("游戏已暂停，点击游戏画面继续")).not.toBeInTheDocument();
   });
 });
+
+it("explains native save and game-menu restore without promising an execution snapshot", async () => {
+  const user = userEvent.setup();
+  render(<PlayerChrome {...props({checkpointSemantics: "GAME_SAVE"})} />);
+  expect(screen.getByText("游戏数据变化后会自动同步")).toBeVisible();
+  expect(screen.getByText(/恢复后请从游戏菜单读档/)).toBeVisible();
+  await user.click(screen.getByRole("button", {name: "返回并退出游戏"}));
+  const dialog = screen.getByRole("alertdialog");
+  expect(dialog).toHaveTextContent("请在游戏内保存");
+  expect(dialog).not.toHaveTextContent("只有点击“创建存档”才会保存当前位置");
+});
+
+it("disables unchanged native saves in the toolbar and exit dialog with a readable status", async () => {
+  const user = userEvent.setup();
+  render(<PlayerChrome {...props({checkpointSemantics: "GAME_SAVE", saveAvailable: false, syncText: "原生存档已同步"})} />);
+  expect(screen.getByRole("button", {name: "创建存档"})).toBeDisabled();
+  expect(screen.getByRole("button", {name: "创建存档"})).toHaveAttribute("title", expect.stringContaining("不支持即时存档"));
+  await user.click(screen.getByRole("button", {name: "返回并退出游戏"}));
+  expect(within(screen.getByRole("alertdialog")).getByRole("button", {name: "创建存档"})).toBeDisabled();
+});
+
+it("keeps native creation disabled and exposes a separate sync retry", async () => {
+  const values = props({checkpointSemantics: "GAME_SAVE", saveAvailable: true, nativeRetryAvailable: true, onRetrySync: vi.fn()});
+  render(<PlayerChrome {...values} />);
+  expect(screen.getByRole("button", {name: "创建存档"})).toBeDisabled();
+  await userEvent.setup().click(screen.getByRole("button", {name: "重试同步"}));
+  expect(values.onRetrySync).toHaveBeenCalledOnce();
+  expect(values.onSave).not.toHaveBeenCalled();
+});

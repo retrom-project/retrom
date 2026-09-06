@@ -49,3 +49,20 @@ describe("ImmersivePlayerMenu", () => {
     expect(content.queryByText("请松开手柄按键…")).toBeNull();
   });
 });
+
+it("explains native save semantics in the controller menu", () => {
+  const view = render(<ImmersivePlayerMenu checkpointSemantics="GAME_SAVE" saveAvailable
+    overlay={{kind: "menu", error: "", notice: "", pending: false, selected: 0}}
+    onCancel={vi.fn()} onConfirm={vi.fn()} onSelect={vi.fn()} />);
+  expect(within(view.container).getByRole("dialog")).toHaveTextContent("请在游戏内保存");
+  expect(within(view.container).getByRole("dialog")).toHaveTextContent("恢复后请从游戏菜单读档");
+});
+
+it("disables unchanged native saves while explaining automatic synchronization", () => {
+  const view = render(<ImmersivePlayerMenu checkpointSemantics="GAME_SAVE" saveAvailable={false} saveStatus="原生存档已同步"
+    overlay={{kind: "menu", error: "", notice: "", pending: false, selected: 0}}
+    onCancel={vi.fn()} onConfirm={vi.fn()} onSelect={vi.fn()} />);
+  expect(within(view.container).getByRole("button", {name: "创建存档"})).toBeDisabled();
+  expect(within(view.container).getByText("原生存档已同步")).toBeVisible();
+  expect(within(view.container).getByRole("dialog")).toHaveTextContent("平台会自动同步游戏数据");
+});

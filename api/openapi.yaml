@@ -1,6 +1,7 @@
 openapi: 3.0.3
 info:
   title: Retrom HTTP API
+  description: Includes launch-bound GAME_SAVE synchronization and native save synchronization timestamps.
   version: 1.0.0
 servers:
   - url: /

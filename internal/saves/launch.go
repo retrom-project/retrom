@@ -98,8 +98,10 @@ FROM launch_sessions launch
 JOIN runtime_targets target ON target.provider_id=launch.provider_id AND target.target_id=launch.target_id
 JOIN save_states save ON save.id=launch.save_state_id AND save.deleted_at_ms IS NULL
  AND save.profile_id=launch.profile_id AND save.game_id=launch.game_id
-JOIN blobs blob ON blob.id=save.payload_blob_id
- AND blob.sha256=save.payload_sha256 AND blob.size_bytes=save.payload_size_bytes
+LEFT JOIN launch_game_save_bindings binding ON binding.launch_session_id=launch.id
+JOIN blobs blob ON blob.id=COALESCE(binding.restore_payload_blob_id,save.payload_blob_id)
+ AND (binding.restore_payload_blob_id IS NOT NULL OR
+ (blob.sha256=save.payload_sha256 AND blob.size_bytes=save.payload_size_bytes))
 WHERE launch.id=? AND EXISTS(
  SELECT 1 FROM json_each(target.checkpoint_json,'$.readFormats') readable
  WHERE readable.type='text' AND readable.value=save.checkpoint_format)

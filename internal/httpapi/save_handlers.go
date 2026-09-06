@@ -84,7 +84,8 @@ func (server *Server) applySaveCursor(values url.Values, filters *saveListFilter
 	if err != nil {
 		return errInvalidCursorPayload
 	}
-	filters.Conditions = append(filters.Conditions, "(s.created_at_ms<? OR (s.created_at_ms=? AND s.id<?))")
+	filters.Conditions = append(filters.Conditions, `(COALESCE(s.last_synced_at_ms,s.created_at_ms)<?
+ OR (COALESCE(s.last_synced_at_ms,s.created_at_ms)=? AND s.id<?))`)
 	filters.Arguments = append(filters.Arguments, createdAt, createdAt, payload.ID)
 	return nil
 }
@@ -96,6 +97,7 @@ type saveListRow struct {
 	version, createdAtMS, activeDurationMS, sizeBytes         int64
 	hasScreenshot                                             bool
 	discIndex                                                 sql.NullInt64
+	lastSyncedAtMS                                            sql.NullInt64
 }
 
 func scanSaveListRows(rows *sql.Rows, capacity int) ([]map[string]any, error) {
@@ -104,7 +106,7 @@ func scanSaveListRows(rows *sql.Rows, capacity int) ([]map[string]any, error) {
 		var row saveListRow
 		if err := rows.Scan(
 			&row.id, &row.gameID, &row.gameTitle, &row.name, &row.version,
-			&row.createdAtMS, &row.activeDurationMS, &row.sizeBytes, &row.coreID, &row.coreName,
+			&row.createdAtMS, &row.lastSyncedAtMS, &row.activeDurationMS, &row.sizeBytes, &row.coreID, &row.coreName,
 			&row.gameStatus, &row.platformID, &row.platformName, &row.instanceID,
 			&row.instanceName, &row.discIndex, &row.hasScreenshot, &row.compatibilityStatus,
 		); err != nil {
@@ -130,7 +132,8 @@ func (row saveListRow) projection() map[string]any {
 	return map[string]any{
 		"saveStateId": row.id, "gameId": row.gameID, "gameTitle": row.gameTitle,
 		"name": row.name, "version": row.version, "createdAtMs": row.createdAtMS,
-		"discIndex": nullableInteger(row.discIndex), "discLabel": discLabel(row.discIndex),
+		"lastSyncedAtMs": nullableInteger(row.lastSyncedAtMS),
+		"discIndex":      nullableInteger(row.discIndex), "discLabel": discLabel(row.discIndex),
 		"activeDurationMs": row.activeDurationMS, "sizeBytes": row.sizeBytes,
 		"screenshotUrl": optionalSaveScreenshotURL(row.id, row.hasScreenshot),
 		"core":          map[string]any{"id": row.coreID, "name": row.coreName},
@@ -171,6 +174,7 @@ m.title,
 s.name,
 s.version,
 s.created_at_ms,
+s.last_synced_at_ms,
 s.active_duration_ms,
 s.payload_size_bytes,
 source_launch.core_id,
@@ -194,7 +198,7 @@ JOIN platform_instances pi ON pi.id=g.platform_instance_id
 JOIN platforms p ON p.id=pi.platform_id
 `,
 		filters.Conditions,
-		` ORDER BY s.created_at_ms DESC,s.id DESC LIMIT ?`,
+		` ORDER BY COALESCE(s.last_synced_at_ms,s.created_at_ms) DESC,s.id DESC LIMIT ?`,
 	)
 	filters.Arguments = append(filters.Arguments, limit+1)
 	rows, err := server.database.QueryContext(request.Context(), query, filters.Arguments...)
@@ -217,6 +221,9 @@ JOIN platforms p ON p.id=pi.platform_id
 		last := items[limit-1]
 		items = items[:limit]
 		createdAtMS, createdOK := last["createdAtMs"].(int64)
+		if synced, ok := last["lastSyncedAtMs"].(int64); ok {
+			createdAtMS = synced
+		}
 		lastID, idOK := last["saveStateId"].(string)
 		if !createdOK || !idOK {
 			writeError(writer, request, http.StatusInternalServerError, "INTERNAL_ERROR", "存档分页投影无效", map[string]any{})

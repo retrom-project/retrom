@@ -2831,6 +2831,15 @@
       &lt;/section&gt;
 
       &lt;section class=&quot;rt-page&quot; data-page=&quot;play&quot;&gt;
+        &lt;details class=&quot;rt-card&quot; aria-label=&quot;原生存档交互状态评审&quot;&gt;
+          &lt;summary&gt;原生游戏数据同步（J2ME）&lt;/summary&gt;
+          &lt;p&gt;请在游戏内保存，平台会自动同步游戏数据；恢复后请从游戏菜单读档。截图展示最近同步时的画面。从已有存档启动会持续更新该存档；直接开始游戏会建立独立存档。&lt;/p&gt;
+          &lt;label&gt;同步状态 &lt;select data-native-sync-demo&gt;&lt;option value=&quot;ready&quot;&gt;已同步&lt;/option&gt;&lt;option value=&quot;empty&quot;&gt;尚无数据变化&lt;/option&gt;&lt;option value=&quot;busy&quot;&gt;正在同步&lt;/option&gt;&lt;option value=&quot;failed&quot;&gt;同步失败&lt;/option&gt;&lt;option value=&quot;conflict&quot;&gt;其他会话已更新&lt;/option&gt;&lt;/select&gt;&lt;/label&gt;
+          &lt;button type=&quot;button&quot; class=&quot;rt-button&quot; disabled title=&quot;此类游戏不支持即时存档，请在游戏内保存&quot;&gt;创建存档&lt;/button&gt;
+          &lt;span role=&quot;status&quot; data-native-sync-status&gt;游戏数据已同步&lt;/span&gt;
+          &lt;button type=&quot;button&quot; class=&quot;rt-button&quot; data-native-sync-retry hidden&gt;重试同步&lt;/button&gt;
+          &lt;p&gt;存档卡片显示“自动同步”和最近同步时间，ID、名称和创建时间保留。正常退出等待同步，失败时取消退出；手柄跳过禁用的创建按钮，失败后可选择重试。&lt;/p&gt;
+        &lt;/details&gt;
         &lt;div class=&quot;rt-player-shell&quot;&gt;
           &lt;div class=&quot;rt-player-orientation-gate&quot; role=&quot;dialog&quot; aria-modal=&quot;true&quot; aria-labelledby=&quot;rt-orientation-title&quot;&gt;&lt;div class=&quot;rt-player-orientation-card&quot;&gt;&lt;i data-lucide=&quot;rotate-cw&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;&lt;h2 id=&quot;rt-orientation-title&quot;&gt;请横屏继续游戏&lt;/h2&gt;&lt;p&gt;配置已经检查完成。横屏稳定后才会加载游戏内容并开始本次游玩。&lt;/p&gt;&lt;button type=&quot;button&quot; class=&quot;rt-player-control&quot;&gt;重试全屏与横屏&lt;/button&gt;&lt;/div&gt;&lt;/div&gt;
           &lt;div class=&quot;rt-player-stage&quot;&gt;&lt;div class=&quot;rt-player-screen&quot; role=&quot;img&quot; aria-label=&quot;EmulatorJS 游戏画面占位&quot;&gt;&lt;span class=&quot;rt-player-logo&quot;&gt;EMULATORJS&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;rt-player-touch-controls&quot; aria-hidden=&quot;true&quot;&gt;&lt;div class=&quot;rt-player-touch-zone rt-player-touch-dpad is-left&quot;&gt;&lt;/div&gt;&lt;div class=&quot;rt-player-touch-zone is-right&quot;&gt;&lt;span class=&quot;rt-player-touch-button is-b&quot;&gt;B&lt;/span&gt;&lt;span class=&quot;rt-player-touch-button is-a&quot;&gt;A&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;
@@ -3365,6 +3374,15 @@
   &lt;script&gt;
     (() =&gt; {
       const root = document.getElementById('retrom-ui-review');
+      const nativeSyncDemo = root.querySelector('[data-native-sync-demo]');
+      function renderNativeSyncDemo() {
+        const messages = {ready:'游戏数据已同步',empty:'尚无游戏数据变化',busy:'正在同步游戏数据…',failed:'游戏数据同步失败，请重试同步',conflict:'存档已被其他会话更新或删除，本次改动未同步。请退出后重新选择存档。'};
+        root.querySelector('[data-native-sync-status]').textContent = messages[nativeSyncDemo.value];
+        root.querySelector('[data-native-sync-retry]').hidden = nativeSyncDemo.value !== 'failed';
+      }
+      nativeSyncDemo.addEventListener('change', renderNativeSyncDemo);
+      root.querySelector('[data-native-sync-retry]').addEventListener('click', () =&gt; {nativeSyncDemo.value='ready';renderNativeSyncDemo();});
+
       const app = root.querySelector('.rt-app');
       const modeButton = root.querySelector('#rt-mode-button');
       const modeLabel = root.querySelector('#rt-mode-label');

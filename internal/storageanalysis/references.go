@@ -30,6 +30,7 @@ var referenceUsage = map[string]usage{
 	"import_item_multidisc_entries.blob_id":                     usageWorkflow,
 	"import_item_validation_files.blob_id":                      usageWorkflow,
 	"review_arcade_parent_attachments.accepted_blob_id":         usageWorkflow,
+	"launch_game_save_bindings.restore_payload_blob_id":         usageRuntime,
 	"launch_content_files.blob_id":                              usageRuntime,
 	"launch_external_files.blob_id":                             usageRuntime,
 	"metadata_provider_responses.raw_response_blob_id":          usageWorkflow,

@@ -423,3 +423,9 @@ Approve 在短事务内重新核对当前 effective source、精确文件、Core
 RPG Maker 项目形状、selected-core/evidence 分层、pack、普通试玩和发布绑定执行 `ACC-RPG-001`–`012`。
 
 本专题统一执行 [一期项目验收规范](./project-acceptance.md) 的 `ACC-IMP-001`–`ACC-IMP-009`、`ACC-PEG-001`–`006` 与 `ACC-ES-001`–`006`；详情媒体执行 `ACC-MEDIA-001`，标签默认值、删除并发和原子发布执行 `ACC-TAG-003`–`004`。游戏目录唯一归属由 `ACC-PLAT-*`、时间与 CAS 约束由 `ACC-DB-*` 和 `ACC-CAS-*` 联合覆盖。流程、通过标准和证据只在统一文档维护。
+
+## Java ME JAR
+
+Java ME 使用普通文件上传和审核流程。目录公开 `.jar` 扩展名，JAR 保持完整原始字节，既不改写 MIDlet
+也不展开为项目文件树。预览与发布后的 Player 均通过 Provider 的 `ROM_BLOB` 输入启动；没有额外的核心选择参数。
+审核应实际启动目标游戏，确认画面与输入，并按 Target 的 `GAME_SAVE` 声明验证原生保存和恢复。
