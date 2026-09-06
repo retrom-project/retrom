@@ -5,7 +5,7 @@ export function CheckpointHelp({semantics, visible, retryAvailable, onRetry}: {
 }) {
   if (semantics !== "GAME_SAVE" || !visible) {return null;}
   return <div className="player-native-save-help"><p>{gameSaveInstructions}</p>
-    {retryAvailable ? <button type="button" className="button" onClick={onRetry}>重试同步</button> : null}</div>;
+    {retryAvailable ? <button type="button" className="button" onClick={onRetry}>重试暂存</button> : null}</div>;
 }
 
 export function NativeSaveToast({visible, semantics, toast, text, tone}: {

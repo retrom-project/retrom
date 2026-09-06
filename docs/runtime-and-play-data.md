@@ -79,7 +79,7 @@ Provider 静态文件只从 `/runtime/providers/{providerId}/{bundleSha256}/{run
 
 Checkpoint 对 Host 是不透明字节。Target declaration 的 `writeFormat`、`readFormats[]` 和 `maxBytes` 是唯一格式规则。创建存档时，来源 Launch 必须属于同一 Profile/Game 且允许存档，格式必须位于 `readFormats`、大小和 SHA-256 必须闭合；Host 不解析 Provider payload。
 
-checkpoint 可选 `semantics` 声明恢复方式。省略或 `INSTANT` 表示直接恢复执行状态；`GAME_SAVE` 表示游戏原生存档，用户需要先在游戏中完成保存，导入后可能还需通过游戏菜单读档。Player 根据该公共声明展示提示，不按 Core、Target 或格式名称分支。GAME_SAVE 使用公共 availability revision 检测原生数据变化，按当前游玩存档自动同步并提供独立的失败重试。两种语义共用 Save API、完整性校验、授权与跨 Launch 恢复机制；Provider 必须在启动游戏前导入原生存档并支持读档后的继续输入。RMS 备份不构成即时快照能力，既有即时恢复回归仍保持原断言。
+checkpoint 可选 `semantics` 声明恢复方式。省略或 `INSTANT` 表示直接恢复执行状态；`GAME_SAVE` 表示游戏原生存档，用户需要先在游戏中完成保存，导入后可能还需通过游戏菜单读档。Player 根据该公共声明展示提示，不按 Core、Target 或格式名称分支。GAME_SAVE 使用公共 availability revision 检测原生数据变化，按当前游玩会话暂存到浏览器，并在退出确认后提交。两种语义共用 Save API、完整性校验、授权与跨 Launch 恢复机制；Provider 必须在启动游戏前导入原生存档并支持读档后的继续输入。RMS 备份不构成即时快照能力，既有即时恢复回归仍保持原断言。
 
 `save_states` 只绑定 Profile、Game、checkpoint format、payload、可选截图/DOS 路径/disc index 和来源 Launch，不冻结 Provider 版本或 Variant。恢复时使用游戏当前默认或显式 Core 的 READY Variant；只要当前 Target 的 `readFormats` 包含该格式即可恢复。Provider 升级应继续声明仍受支持的旧格式；删除已被存档引用的可读格式会被安装门禁拒绝。不存在为了恢复而加载旧 Provider 的路径。
 
@@ -118,27 +118,29 @@ Host 的 `J2ME_JAR` 检测/交付策略仅接受原始 `.jar`，按 `SINGLE_FILE
 交给 Provider；JAR 自身的 ZIP 容器不会被当作上传包装层解开。审核预览和普通 Launch 经过同一资源与生命周期契约。
 
 该 Target 声明 `checkpoint.semantics=GAME_SAVE`。Player 普通控制栏、退出对话框与沉浸菜单提示先在游戏内
-保存；任意 RMS 数据变化后自动同步，恢复启动后需要从游戏菜单读档。Host 的 Save API 继续接收有格式、上限和 SHA-256
+保存；任意 RMS 数据变化后在浏览器本地暂存，恢复启动后需要从游戏菜单读档。Host 的 Save API 继续接收有格式、上限和 SHA-256
 身份的完整 opaque payload，不解析 RMS、选择 Java 类或保存 VM 内存。原有 Target 缺省即时恢复语义不变。
 
 开发验证需要包含修复的 J2ME core candidate。历史 v0.3.3 资产不包含此次 RMS 与严格静态资源加载修复，
 不得据此声称修复已经发布；发布固定版本与合并是独立交付步骤。
 
-### 原生存档自动同步
+### 原生存档本地草稿与退出确认
 
-GAME_SAVE Provider 必须提供 `acknowledgeCheckpoint(checkpoint)`；可用性中的 `revision` 标识当前实例的
-待同步内容。所有游戏统一跟踪 RMS 数据，不判断哪些 store 是进度：设置、增值商品、空 store 和删除都属于数据变化。
-仅修改时间、计数器等元数据的重复写入不产生 revision。连续写入合并到完整稳定快照；截图表示最近同步时的画面，
-不承诺从截图位置恢复。Player 的“创建存档”始终禁用并展示游戏内保存/读档说明。
+GAME_SAVE Provider 通过 availability revision 跟踪所有原生数据变化，不判断哪些 store 是进度。连续写入合并到稳定完整快照。
+Player 在当前账号、Launch 范围内将数据包、截图和固定幂等请求保存到 IndexedDB；正常游玩不会上传或修改正式存档。
+不在本地暂存时调用 acknowledgeCheckpoint，保留启动数据作为比较基准；最终数据回到启动值时清理草稿，不询问保存。
 
-无 `saveStateId` 的 Product Launch 从空原生数据启动。首次变化创建一个“自动同步存档”，同一 Launch 后续变化只覆盖
-这一个存档；另一次无存档启动独立创建。选择已有存档时，恢复包在创建 Launch 的事务内冻结，之后的同步更新所选存档。
-更新原子替换 payload 与截图，保留 ID、用户名称和创建时间，推进数据版本及最近同步时间。仅有启动/读取且数据不变时不写入。
-已有即时快照仍手动创建；Review Preview 仍只写自己的临时 checkpoint，不创建 Product 存档。
+无 saveStateId 的 Launch 必须从空原生数据启动。服务端历史存档、此前本地草稿以及其他运行实例均不能作为隐式恢复输入。
+只有显式选择存档时导入冻结恢复包。本地草稿数据库不向 runtime 提供启动数据，不自动合并、恢复或清除其他 Launch 的草稿。
 
-上传串行化，上传期间的新 revision 在本次完成后继续同步。只有服务端成功后才确认对应 payload；导出本身不确认持久保存。
-失败保留完整 payload、截图与幂等键，停止自动重试并显示独立“重试同步”按钮。超时后的重试不重复创建，旧请求重放不覆盖新数据。
-其他 Launch 已更新或用户已删除目标时返回 `SAVE_SYNC_CONFLICT`，停止此 Launch 的同步并明确提示退出后重新选择；禁止静默覆盖。
-正常退出先等候稳定数据与上传完成，失败取消退出。冻结的恢复 Blob 在 Launch 终态释放引用；覆盖后的旧数据走统一 GC 宽限流程。
+正常退出先暂停并等候稳定数据。本次有变化时提供“保存并退出 / 不保存并退出 / 继续游戏”。提示必须说明先在游戏内保存，
+平台只提交游戏已写入的数据，不保存当前画面的即时进度，未在游戏内保存可能导致恢复位置与当前画面不同。
+保存成功后才确认 checkpoint、清理草稿并退出；不保存只丢弃本次草稿；继续游戏不上传。上传失败保留草稿和幂等键。
+从已有存档启动时提交更新原存档；无存档启动时提交创建独立存档。payload 与截图原子更新，保留原 ID、名称和创建时间。
+
+异常关闭保留本地草稿，下一次非 Player 页面提示用户处理；当前账号可通过认证的 local-save API 显式提交已结束/到期会话的草稿。
+服务端从原 Launch 取得目标和预期数据版本，其他会话已更新或目标已删除时拒绝覆盖。活跃页面通过本地租约避免被草稿提示并发处理。
+草稿只属于当前浏览器，不承诺跨设备或清理站点数据后的恢复；不会自动载入新的游戏。未确认时不建立服务端草稿或正式存档。
+Review Preview 保持预览范围，不创建 Product 草稿记录或正式存档；即时快照行为不变。
 
 Player 调试面板的“画面呈现率”由公共 getFrameCount 的增量计算，不代表屏幕刷新率或游戏逻辑速度。按需重绘核心可在游戏画面静止时停止提交帧；Host 不插入重复帧补足 60 FPS，输入与暂停控制继续正常工作。

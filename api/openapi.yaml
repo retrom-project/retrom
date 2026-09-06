@@ -74,6 +74,8 @@ paths:
     $ref: ./domains/library.yaml#/paths/~1api~1v1~1saves
   /api/v1/saves/{saveStateId}:
     $ref: ./domains/library.yaml#/paths/~1api~1v1~1saves~1{saveStateId}
+  /api/v1/launches/{launchId}/local-save:
+    $ref: ./domains/runtime.yaml#/paths/~1api~1v1~1launches~1{launchId}~1local-save
   /api/v1/launches:
     $ref: ./domains/library.yaml#/paths/~1api~1v1~1launches
   /api/v1/netplay/games:

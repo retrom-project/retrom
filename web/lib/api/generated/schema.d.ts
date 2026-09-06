@@ -564,6 +564,25 @@ export interface paths {
         patch: operations["patchSave"];
         trace?: never;
     };
+    "/api/v1/launches/{launchId}/local-save": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                launchId: components["parameters"]["LaunchID"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Explicitly submits a browser-local GAME_SAVE draft for an owned Product launch. Requires current account authentication and CSRF; ACTIVE, FINISHED and EXPIRED launches are accepted, while revoked, foreign, review and non-native launches are rejected. The server derives the original save binding and expected data version from the launch, never from client metadata. No payload is stored until this request. Existing checkpoint validation, multipart limits, idempotency and stale/deleted-save conflict checks apply. */
+        post: operations["postLocalGameSave"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/launches": {
         parameters: {
             query?: never;
@@ -7102,6 +7121,36 @@ export interface operations {
         requestBody: components["requestBodies"]["RenameSave"];
         responses: {
             200: components["responses"]["JSONResponse"];
+        };
+    };
+    postLocalGameSave: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                launchId: components["parameters"]["LaunchID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /** @description UTF-8 JSON serialized from RuntimeCheckpointMetadata; duplicate or unknown JSON fields are rejected. */
+                    metadata: string;
+                    /** Format: binary */
+                    payload: string;
+                    /** Format: binary */
+                    screenshot?: string;
+                };
+            };
+        };
+        responses: {
+            201: components["responses"]["RuntimeCheckpointCreateResponse"];
+            409: components["responses"]["RpgConflictResponse"];
+            413: components["responses"]["RequestTooLargeResponse"];
+            422: components["responses"]["RpgUnprocessableResponse"];
         };
     };
     postLaunch: {

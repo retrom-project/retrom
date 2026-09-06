@@ -45,7 +45,7 @@ export type PlayerChromeProps = {
 
 function exitDescriptionFor(netplay: boolean, saveAvailable: boolean, dosProgramMenu: boolean, state: ExitSaveState, semantics: CheckpointSemantics) {
   if (netplay) {return "退出会结束所有参与者的本局联机，并返回房间。联机模式不会读取或写入个人存档。";}
-  if (semantics === "GAME_SAVE") {return "游戏内存档会自动同步；尚未在游戏内保存的进度不会保留。";}
+  if (semantics === "GAME_SAVE") {return "请先在游戏内保存，再确认保存并退出；平台不保存当前画面的即时进度。";}
   if (!saveAvailable) {return dosProgramMenu
     ? "当前从 DOS 程序菜单启动，无法创建可恢复存档；直接退出不会保存当前位置。"
     : "当前场景暂时无法创建可恢复存档；直接退出不会保存当前位置。";}
@@ -188,8 +188,9 @@ export function PlayerChrome({
   const warningCopy = warningCopyFor(warnings);
 
   function requestExit() {
-    onPauseForToolbarInteraction();
     setMenuOpen(false);
+    if (checkpointSemantics === "GAME_SAVE") {onExit(); return;}
+    onPauseForToolbarInteraction();
     exitSavePending.current = false;
     setExitSaveState("idle");
     setExitOpen(true);

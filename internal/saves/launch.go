@@ -12,6 +12,7 @@ import (
 const maxStoredCheckpointBytes = int64(256 << 20)
 
 type launchSnapshot struct {
+	localDraft                              bool
 	principalID, profileID, purpose, gameID string
 	providerID, targetID, checkpointFormat  string
 	dosEntry                                sql.NullString
@@ -23,6 +24,17 @@ type launchSnapshot struct {
 }
 
 func (service *Service) launch(ctx context.Context, launchID, capability string) (launchSnapshot, error) {
+	result, err := service.loadLaunch(ctx, launchID)
+	if err != nil {
+		return launchSnapshot{}, err
+	}
+	if !validLaunchAccess(err, capability, result, service.now().UnixMilli()) {
+		return launchSnapshot{}, ErrCredential
+	}
+	return result, nil
+}
+
+func (service *Service) loadLaunch(ctx context.Context, launchID string) (launchSnapshot, error) {
 	var result launchSnapshot
 	var writeFormat sql.NullString
 	var checkpointMaxBytes sql.NullInt64
@@ -59,7 +71,7 @@ WHERE preview.id=?
 		&result.credentialHash, &result.state, &result.hardExpiresAtMS, &writeFormat,
 		&checkpointMaxBytes, &result.contentFormat, &result.discCount, &result.initialDiscIndex,
 	)
-	if !validLaunchAccess(err, capability, result, service.now().UnixMilli()) {
+	if err != nil {
 		return launchSnapshot{}, ErrCredential
 	}
 	if !writeFormat.Valid || !checkpointMaxBytes.Valid || checkpointMaxBytes.Int64 < 1 {

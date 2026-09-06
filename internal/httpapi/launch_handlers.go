@@ -380,6 +380,12 @@ func (server *Server) createSaveState(writer http.ResponseWriter, request *http.
 		key,
 		request,
 	)
+	writeSaveStateResult(writer, request, result, replayed, err)
+}
+
+func writeSaveStateResult(
+	writer http.ResponseWriter, request *http.Request, result saves.ManualResult, replayed bool, err error,
+) {
 	switch {
 	case errors.Is(err, saves.ErrCredential):
 		writeError(writer, request, http.StatusUnauthorized, "LAUNCH_CREDENTIAL_INVALID", "启动会话不可用", map[string]any{})

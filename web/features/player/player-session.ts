@@ -102,7 +102,7 @@ function queueStateUpload(payload: RuntimeSavePayload, params: PlayerSessionPara
   return result.catch((error: unknown) => {
     if (error instanceof GameSaveConflict) {throw error;}
     params.setSaveUploadProgress(null); params.setSyncText("保存失败"); params.setSyncTone("warning");
-    params.showToast(payload.source === "GAME_SAVE" ? "游戏数据同步失败，请重试同步" :
+    params.showToast(payload.source === "GAME_SAVE" ? "游戏数据保存失败，本地草稿已保留" :
       "手动存档上传失败，服务器未创建不完整记录", 4_000);
     return false;
   });
@@ -185,12 +185,12 @@ function finishStateUpload(
 ) {
   if (payload.source === "GAME_SAVE" && response.status === 409 && isGameSaveConflict(response.body)) {throw new GameSaveConflict();}
   if (!response.ok) {return rejectSave(params, payload.source === "GAME_SAVE"
-    ? "游戏数据同步失败，请重试同步" : "手动存档失败，服务器未创建不完整记录");}
+    ? "游戏数据保存失败，本地草稿已保留" : "手动存档失败，服务器未创建不完整记录");}
   if (params.envelope.current?.session.purpose === "REVIEW_PREVIEW") {
     notifyReviewCheckpoint(response.body, params.launchId);
   }
   params.setSyncText("已同步"); params.setSyncTone("synced");
-  params.showToast(payload.source === "GAME_SAVE" ? "游戏数据已自动同步" :
+  params.showToast(payload.source === "GAME_SAVE" ? "游戏数据已保存" :
     screenshotSize ? "手动存档和截图已保存" : "手动存档已保存，未附带截图");
   return true;
 }
@@ -211,7 +211,7 @@ export function createSaveForm(
   const form = new FormData();
   const metadata = {
     checkpointFormat: payload.checkpoint.format,
-    name: payload.source === "GAME_SAVE" ? "自动同步存档" : `手动存档 ${new Date().toLocaleString("zh-CN")}`,
+    name: payload.source === "GAME_SAVE" ? payload.name ?? "游戏内存档" : `手动存档 ${new Date().toLocaleString("zh-CN")}`,
     ...(discIndex === undefined ? {} : { discIndex }),
   };
   form.append("metadata", new Blob([JSON.stringify(metadata)], { type: "application/json" }));

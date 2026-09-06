@@ -1,7 +1,7 @@
 "use client";
 
 import {useRouter} from "next/navigation";
-import {useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type RefObject} from "react";
+import {useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type RefObject, type ReactNode} from "react";
 import {useAuth} from "@/features/auth/auth-provider";
 import {markImmersivePlayerReturn} from "@/features/immersive/active-gamepad";
 import {reportMultiDiscPlayerEvent, type MultiDiscPlayerEvent} from "./multi-disc-telemetry";
@@ -14,6 +14,7 @@ import type {NetplayController} from "./netplay/controller";
 import {usePlayerBootstrap} from "./player-bootstrap";
 import {usePlayerSession} from "./player-session";
 import {NativeSaveToast} from "./checkpoint-help";
+import {useNativeExitDecision} from "./native-exit-dialog";
 import {useGameSaveSync} from "./use-game-save-sync";
 import type {GameSavePresentation} from "./game-save-sync";
 import {usePlayerRuntimeExit} from "./use-player-runtime-exit";
@@ -205,16 +206,18 @@ export function PlayerShell({launchId, experience = "standard"}: {launchId: stri
     setManualSaveAvailable(false); setNativeRetryAvailable(value.retryAvailable); setSyncText(value.text); setSyncTone(value.tone);
   }, []);
   const gameSaveSync = useGameSaveSync(checkpointSemantics === "GAME_SAVE" && state === "running",
-    runtime, uploadManualState, presentGameSave);
+    runtime, uploadManualState, presentGameSave, userId, envelope);
+  const selectedNativeRestore = useCallback(() => Boolean(envelope.current?.restore), []);
+  const nativeExit = useNativeExitDecision(selectedNativeRestore);
   const {exitRuntime, exitImmersiveRuntimeStrict, exitImmersiveAfterProviderExit, exitAfterProviderExit} = usePlayerRuntimeExit(
-    runtimeController, gameSaveSync, exit, exitStrict, exitImmersiveAfterRuntimeExit, showToast);
+    runtimeController, gameSaveSync, exit, exitStrict, exitImmersiveAfterRuntimeExit, showToast, nativeExit.decide);
   const handleRuntimeExitRequested = useRuntimeExitHandler(
     manualSaveAvailableRef, setManualSaveAvailable, setSyncText, setSyncTone,
     experience, exitAfterProviderExit, exitImmersiveAfterProviderExit,
   );
   const handleImmersiveFatal = useCallback((error: string) => {setMessage(error); setState("error");}, []);
   const saveImmersiveGame = useCallback(async () => {
-    if (gameSaveSync.current) {return gameSaveSync.current.save();}
+    if (gameSaveSync.current) {return gameSaveSync.current.retry();}
     const active = runtime.current;
     if (!active || !manualSaveAvailableRef.current) {return false;}
     return uploadManualState(await captureRuntimeSave(active));
@@ -271,7 +274,7 @@ export function PlayerShell({launchId, experience = "standard"}: {launchId: stri
   usePlayerVideoMode(runtime, videoRenderingModeRef, videoRenderingMode);
 
   const chromeProps: PlayerChromeProps = {
-    checkpointSemantics, nativeRetryAvailable, onRetrySync: () => {void gameSaveSync.current?.save();},
+    checkpointSemantics, nativeRetryAvailable, onRetrySync: () => {void gameSaveSync.current?.retry();},
     controlsVisible, running: state === "running", paused, fullscreen, gameTitle, coreName, platformName,
     syncText, syncTone, saveUploadProgress, saveAvailable: manualSaveAvailable, dosProgramMenu, toast, warnings,
     emulatorToolbarOpen, emulatorVolume, emulatorMuted, videoRenderingMode, discSet, discState,
@@ -286,7 +289,7 @@ export function PlayerShell({launchId, experience = "standard"}: {launchId: stri
     onToggleNetplayPause: () => void actions.toggleNetplayPause(), onToggleDebug: toggleDebug,
     onGameSurface: handleGameSurfaceInteraction, onExit: () => void exitRuntime(),
   };
-  return <PlayerShellView experience={experience} immersive={immersive} paused={paused} orientationState={orientationState}
+  return <PlayerShellView nativeExitDialog={nativeExit.dialog} experience={experience} immersive={immersive} paused={paused} orientationState={orientationState}
     chromeProps={chromeProps} stage={stage} state={state} message={message} loadProgress={loadProgress}
     returnTo={playerReturnTo} gameTitle={gameTitle}
     orientationHelp={orientationHelp} orientationButtonRef={orientationButtonRef}
@@ -297,8 +300,8 @@ export function PlayerShell({launchId, experience = "standard"}: {launchId: stri
 
 type ImmersiveController = ReturnType<typeof useImmersivePlayer>;
 
-function PlayerShellView({experience, immersive, paused, orientationState, chromeProps, stage, state, message, loadProgress, returnTo, gameTitle, orientationHelp, orientationButtonRef, onShowControls, onRevealControls, onSurface, onRetryLandscape}: {
-  experience: "standard" | "immersive"; immersive: ImmersiveController; paused: boolean;
+function PlayerShellView({nativeExitDialog, experience, immersive, paused, orientationState, chromeProps, stage, state, message, loadProgress, returnTo, gameTitle, orientationHelp, orientationButtonRef, onShowControls, onRevealControls, onSurface, onRetryLandscape}: {
+  nativeExitDialog: ReactNode; experience: "standard" | "immersive"; immersive: ImmersiveController; paused: boolean;
   orientationState: PlayerOrientationState; chromeProps: PlayerChromeProps; stage: RefObject<HTMLDivElement | null>;
   state: ShellState; message: string; loadProgress: PlayerLoadProgress | null; returnTo: string; gameTitle: string;
   orientationHelp: string; orientationButtonRef: RefObject<HTMLButtonElement | null>;
@@ -310,6 +313,7 @@ function PlayerShellView({experience, immersive, paused, orientationState, chrom
   return <main className={`player-shell${isImmersive ? " is-immersive" : ""}${paused ? " is-paused" : ""}${blocked ? " is-orientation-blocked" : ""}`}
     onKeyDown={(event) => {if (!isImmersive && shouldRevealPlayerControlsForKey(event.key)) {onShowControls();}}}
     onPointerMove={(event) => {if (!isImmersive) {onRevealControls(event.clientY);}}}>
+    {nativeExitDialog}
     {!blocked && !isImmersive ? <PlayerChrome {...chromeProps} /> : null}
     <PlayerStage blocked={blocked} stage={stage} state={state} message={message} loadProgress={loadProgress}
       returnTo={returnTo} immersive={isImmersive} onSurface={isImmersive ? () => undefined : onSurface} />

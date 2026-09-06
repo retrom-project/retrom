@@ -27,6 +27,12 @@ func (service *Service) CreateManual(
 	if err != nil {
 		return ManualResult{}, false, err
 	}
+	return service.createManualForLaunch(ctx, launchID, idempotencyKey, request, launch)
+}
+
+func (service *Service) createManualForLaunch(ctx context.Context, launchID, idempotencyKey string,
+	request *http.Request, launch launchSnapshot,
+) (ManualResult, bool, error) {
 	parsed, err := service.parseManual(request, launch)
 	if err != nil {
 		return ManualResult{}, false, err
@@ -98,6 +104,9 @@ func (service *Service) ensureWritable(
 	var writable int
 	var query string
 	var arguments []any
+	if launch.localDraft {
+		return service.ensureLocalDraftWritable(ctx, transaction, launchID, launch)
+	}
 	if launch.purpose == "PRODUCT" {
 		query = `SELECT count(*) FROM launch_sessions launch JOIN games game ON game.id=launch.game_id
 WHERE launch.id=? AND launch.game_id=? AND launch.state='ACTIVE' AND game.status='PUBLISHED'`

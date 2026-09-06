@@ -109,3 +109,6 @@ Game 内容替换会立即移除旧 Game-owned 与 Game-runtime-owned 边；BIOS
 `launch_game_save_bindings` 只绑定声明 `GAME_SAVE` 的 Product Launch，记录目标、预期数据版本、初始累计时长与冻结恢复 Blob。
 无存档启动的绑定目标为空且预期版本为 0，首次同步创建并绑定；目标删除后保留非零版本，以禁止错误重建。
 同一事务比较数据版本并替换完整 payload/截图，其他会话先写入则冲突。冻结恢复 Blob 是保护性引用，终态清除；统一 Blob registry、容量统计与 GC 保护该引用。
+
+浏览器的 GAME_SAVE 草稿不新增服务端数据表。IndexedDB 按账号与 Launch 隔离，保存完整 checkpoint、截图、标题、来源恢复标记、
+更新时间和固定幂等请求；它不参与 Launch 恢复输入。用户确认提交时才通过既有 launch_game_save_bindings 原子更新正式存档。
