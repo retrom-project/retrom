@@ -388,6 +388,14 @@ make acceptance-case CASE=<case-id>
 - 通过标准：API 只使用 `REGISTERED_CAS_PAYLOAD_V1`，带 `private, no-store`，byte 为无符号十进制字符串；九类按固定顺序含零值，分类 byte/count 之和等于顶层，`protectedBytes + unreferencedBytes = registeredBytes`，同大小不同 Blob 分别计数。保护集合与 GC 使用同一 registry；终态释放前 payload 仍计 workflow，释放后只在没有其他边时进入未引用，独占/共享字节和游戏删除影响摘要逐 Blob 去重且完全一致。封面替换/视频移除后旧 Asset URL 立即 404；ROM/多盘或同 Requirement BIOS 的成功替换同时清理旧运行/存档与旧 durable 边；各自失去最后引用的 Blob 从原分类转入 UNREFERENCED/候选，正常情况下 registered 总量只在宽限期后下降；ADMIN 确认立即清理后，POST 只跳过保留期并返回已调度量，worker 仍逐 Blob 复核保护集合，真正无引用数据收口后 registered/unreferenced/candidate 同步下降，恢复引用的数据不删除。相同 key 只产生一条 `STORAGE_CLEANUP_REQUESTED` 审计并重放原响应，缺 key/CSRF、USER/匿名均失败。完全相同 ROM、多盘或失败替换不得释放 current；不同 Requirement/Provider Target 的 BIOS 继续受保护。受保护 archive 的用途单向传播到 member，无业务根 archive 不反向保护；一个长期用途压过 workflow/runtime，两个长期用途归共享。存档状态/截图和清理候选是去重引用视图，不与分类相加；溢出、registry 新增/删除保护边未同步容量语义、读库失败都 fail closed。其余鉴权、脱敏、交互、响应式和无障碍标准不变。
 - 证据：API JSON 与直接 `SUM(blobs.size_bytes)`/行数对比、registry/分类单元与 SQLite 组合测试输出、鉴权/脱敏矩阵、viewport DOM/axe 断言和当前截图。
 
+### ACC-STOR-002：批次丢弃与引用释放
+
+- 前置：临时 SQLite/CAS、固定 clock 和项目自产的最小文件；不读取操作者游戏。
+- 流程：分别丢弃普通拒绝文件批次、混合已发布/待审核批次、执行中批次与两类服务器来源在审核前失败的批次；恢复处置协调器并重放请求，覆盖旧 Pegasus 内部上传唯一/歧义归属和共享 Blob。调用管理员 HTTP 负向分支，执行前端确认、处理中、刷新与失败重试交互。
+- 通过标准：真实待审核项恰有一个丢弃决定，未产生审核项不伪造事件；原失败证据保留。已发布游戏、其他批次及共享 Blob 保持受保护；拒绝内部上传引用解除并进入既有释放/GC 流程。请求后禁止发布和重试，服务重启可继续，归属歧义不释放文件。匿名/缺少 CSRF/未知字段请求拒绝，未确认不写入，刷新恢复当前处置；全部已发布/丢弃时按钮不可点击，服务端拒绝空处置。
+- 命令：`make acceptance-case CASE=ACC-STOR-002`，硬超时 180 秒。
+- 证据：聚焦服务/HTTP/组件测试日志与 runner report；布局在 PFB 当次人工/浏览器检查中补充 4K 150% 的同一行按钮截图，不将本机截图写入正式文档。
+
 ### ACC-BKP-001：备份与空目录恢复
 
 - 上限：300 秒。
@@ -1960,7 +1968,7 @@ AI Agent 的最终交付摘要必须列出：总结果、失败/阻塞 Case ID�
 | --- | --- |
 | 工程质量与回归 | `ACC-QA-001`–`003` |
 | 镜像、本地开发、PFB、NG/TLS | `ACC-PKG-001`–`003`、`ACC-DEV-001`、`ACC-NET-001`–`002`（`002` 为部署条件 Case）、`ACC-PFB-001`–`012` |
-| SQLite、CAS、容量、备份、安全、API、运维 | `ACC-DB-001`–`002`、`ACC-CAS-001`–`002`、`ACC-STOR-001`、`ACC-BKP-001`、`ACC-SEC-001`–`004`、`ACC-API-001`、`ACC-OPS-001` |
+| SQLite、CAS、容量、备份、安全、API、运维 | `ACC-DB-001`–`002`、`ACC-CAS-001`–`002`、`ACC-STOR-001`–`002`、`ACC-BKP-001`、`ACC-SEC-001`–`004`、`ACC-API-001`、`ACC-OPS-001` |
 | 游戏目录 | `ACC-PLAT-001`–`005` |
 | 游戏管理 | `ACC-GAME-001`–`003` |
 | 导入、Hasheous、审核、任务恢复 | `ACC-IMP-001`–`009` |

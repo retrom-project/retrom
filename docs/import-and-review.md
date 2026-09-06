@@ -100,6 +100,14 @@ Job 交接只有一条实现路径：`IMPORT_ITEM_PIPELINE` 完成 hash、分组
 
 首个自动 Run 完成时，负责它的 Metadata Job 在同一短事务创建唯一 ReviewDraft、把 Item 转为 REVIEW_PENDING：READY 的默认 CoreValidation 自动写入 `selected_validation_id`，BLOCKED/INCOMPATIBLE 时该字段为空并展示 blocker；候选按第 7 节固定顺序非空时自动选择第一项并复制其 normalized metadata，候选为空时用 primary content 的安全 basename 去掉最后扩展名作为初始 title，其他展示字段为空。DOS 目录使用 common root 最后一段，DOS ZIP 使用 ZIP basename；结果 trim 后若为空或含控制字符则 title 为空并禁用 Approve，不能写“未命名游戏”后误发布。自动初始化不选择尚未完成的媒体，也不写冒充人工操作的 ReviewEvent；候选/Run/Validation 本身已是不可变来源。审核者之后清除 `selected_candidate_id` 只表示改为人工来源，不自动回滚当前字段；字段变化必须由同一次 PATCH 明示并写 ReviewEvent。后续显式重刮削只新增 Run/Candidate，不自动改现有草稿。
 
+### 丢弃本批次未发布内容
+
+普通导入任务、Pegasus 和 EmulationStation 已开始执行的批次均提供一次性批量处置。请求持久化后，后台先停止该批次的在途执行，再通过普通 Discard 丢弃所有待审核项，并收口阻断、失败、取消及未形成审核的输入。正在执行的普通任务在此模式下保留 REVIEW_PENDING，停止执行后逐项记录真实审核决定；已发布或指向已有游戏的条目保留。普通取消功能仍遵循原有语义。
+
+来源结果统一显示“管理员已丢弃”，但原错误码、文件名和错误详情继续可读；普通任务保留拒绝文件与失败执行证据。已丢弃批次不能重新配置、重新执行或发布，重新导入需新建批次。后台按批次身份恢复处置，关闭页面或服务重启不会丢失请求；重复请求不会新增同一审核决定，失败可继续处理。无需额外保存多次运行记录。
+
+待审核之前被拒绝的内部上传也属于本批次占用。引用移除交给既有 PayloadRelease；共享 Game/其他批次的引用和服务器原文件保留，无引用 Blob 按既有 GC 宽限回收。历史内部上传无法唯一确认归属时保留相关文件并报告稳定错误，不能猜测后删除。请求、进度和失败由批次处置 API 提供；统一验证见 [`ACC-STOR-002`](./project-acceptance.md#acc-stor-002批次丢弃与引用释放)。
+
 ## 5. 文件和目录分组
 
 分组输入是 COMPLETE UploadSession 的全部 UploadFile，先按规范 relative path UTF-8 bytes 升序固定顺序。每个文件都必须落到 `SOURCE/IGNORED/REJECTED` 之一并在任务页可见；不能因扩展名不认识就静默丢弃。一期只对规范 basename 恰为 `.DS_Store`、`Thumbs.db` 或以 `._` 开头的已知系统边车文件使用 `IGNORED_SYSTEM_SIDECAR`。其他不属于下表输入的文件标为 `REJECTED/UNSUPPORTED_CONTENT_FORMAT`，使 ImportJob 进入可见的 PARTIAL_FAILURE，不阻止其他合法 Item 进审核。

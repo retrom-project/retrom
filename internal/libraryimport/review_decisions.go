@@ -62,13 +62,15 @@ AND state='REVIEW_PENDING'
 UPDATE import_jobs
 SET review_pending_item_count=review_pending_item_count-1,
 discarded_item_count=discarded_item_count+1,
-state=CASE WHEN review_pending_item_count=1
+state=CASE WHEN cancel_requested_at_ms IS NOT NULL THEN state
+WHEN review_pending_item_count=1
 AND rejected_file_count=resolved_rejected_file_count THEN 'COMPLETED'
 WHEN review_pending_item_count=1 THEN 'PARTIAL_FAILURE'
 ELSE state END,
 version=version+1,
 updated_at_ms=?,
-completed_at_ms=CASE WHEN review_pending_item_count=1
+completed_at_ms=CASE WHEN cancel_requested_at_ms IS NOT NULL THEN completed_at_ms
+WHEN review_pending_item_count=1
 AND rejected_file_count=resolved_rejected_file_count THEN ? ELSE NULL END
 WHERE id=? AND review_pending_item_count>0
 `, now, now, importID)
@@ -82,6 +84,12 @@ func (service *Service) Discard(
 	expectedVersion int64,
 	reason string,
 ) (DecisionResult, error) {
+	return service.discard(ctx, itemID, expectedVersion, reason, false)
+}
+
+func (service *Service) discard(
+	ctx context.Context, itemID string, expectedVersion int64, reason string, batch bool,
+) (DecisionResult, error) {
 	reason = strings.TrimSpace(reason)
 	if reason != "" && !validField(reason, 500, true) {
 		return DecisionResult{}, ErrInvalid
@@ -91,7 +99,7 @@ func (service *Service) Discard(
 		return DecisionResult{}, fmt.Errorf("libraryimport/review: %w", err)
 	}
 	defer cleanup.Rollback(transaction)
-	evidence, err := service.loadDiscardEvidence(ctx, transaction, itemID, expectedVersion)
+	evidence, err := service.loadDiscardEvidence(ctx, transaction, itemID, expectedVersion, batch)
 	if err != nil {
 		return DecisionResult{}, err
 	}
@@ -144,6 +152,7 @@ func (service *Service) loadDiscardEvidence(
 	transaction *sql.Tx,
 	itemID string,
 	expectedVersion int64,
+	batch bool,
 ) (discardEvidence, error) {
 	var value discardEvidence
 	err := transaction.QueryRowContext(ctx, `
@@ -156,12 +165,12 @@ JOIN import_jobs j ON j.id=i.import_job_id
 JOIN review_drafts d ON d.import_item_id=i.id
 LEFT JOIN import_item_core_validations v ON v.id=d.selected_validation_id
 WHERE i.id=? AND i.state='REVIEW_PENDING'
-AND (i.review_handoff_kind='DIRECT' OR EXISTS(
+AND (? OR i.review_handoff_kind='DIRECT' OR EXISTS(
   SELECT 1 FROM emulationstation_import_items reserved_source
   WHERE reserved_source.library_import_item_id=i.id
   AND reserved_source.execution_state='REVIEW_PENDING'
 ))
-`, itemID).Scan(
+`, itemID, batch).Scan(
 		&value.draftID, &value.importID, &value.metadataJSON, &value.currentVersion,
 		&value.configSnapshotJSON, &value.validationID,
 		&value.datID, &value.dependencySnapshot, &value.candidateID, &value.coverID,
@@ -404,6 +413,19 @@ func (service *Service) Cancel(
 	expectedVersion int64,
 	reason string,
 ) (CancelResult, bool, error) {
+	return service.cancelImport(ctx, importID, expectedVersion, reason, false)
+}
+
+// CancelForDiscard stops execution but leaves existing reviews for explicit discard events.
+func (service *Service) CancelForDiscard(
+	ctx context.Context, importID string, expectedVersion int64,
+) (CancelResult, bool, error) {
+	return service.cancelImport(ctx, importID, expectedVersion, "丢弃本批次未发布内容", true)
+}
+
+func (service *Service) cancelImport(
+	ctx context.Context, importID string, expectedVersion int64, reason string, preserveReviews bool,
+) (CancelResult, bool, error) {
 	reason = strings.TrimSpace(reason)
 	if reason == "" || !validField(reason, 500, true) {
 		return CancelResult{}, false, ErrInvalid
@@ -417,9 +439,11 @@ func (service *Service) Cancel(
 	if err != nil {
 		return CancelResult{}, false, err
 	}
+	if preserveReviews {
+		evidence.reviewPending = 0
+	}
 	now := service.now().UnixMilli()
-	pending := evidence.running > 0 || evidence.groupState.String == "RUNNING" ||
-		evidence.groupState.String == "CANCEL_REQUESTED"
+	pending := evidence.executionActive()
 	newState := "CANCELLED"
 	if pending {
 		newState = "CANCEL_REQUESTED"
@@ -435,8 +459,8 @@ version=version+1
 WHERE import_job_id=?
 AND state IN ('QUEUED',
 'REVIEW_PENDING',
-'FAILED_RETRYABLE')
-`, now, now, importID); err != nil {
+'FAILED_RETRYABLE') AND (state<>'REVIEW_PENDING' OR ?=0)
+`, now, now, importID, preserveReviews); err != nil {
 		return CancelResult{}, false, fmt.Errorf("libraryimport/review: cancel items: %w", err)
 	}
 	if _, err := transaction.ExecContext(ctx, `
@@ -570,4 +594,9 @@ ORDER BY id
 		return fmt.Errorf("libraryimport/review: schedule cancelled aggregate: %w", err)
 	}
 	return nil
+}
+
+func (evidence cancelImportEvidence) executionActive() bool {
+	return evidence.running > 0 || evidence.groupState.String == "RUNNING" ||
+		evidence.groupState.String == "CANCEL_REQUESTED"
 }
