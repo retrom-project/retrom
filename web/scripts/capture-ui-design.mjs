@@ -5,7 +5,6 @@ import path from "node:path";
 
 const webRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const designRoot = path.resolve(webRoot, "..", "docs", "design");
-const readmeAssetRoot = path.resolve(webRoot, "..", "docs", "readme-assets");
 const documentURL = pathToFileURL(path.join(designRoot, "retrom-ui-review.html"));
 const chromeExecutablePath = process.env.RETROM_CHROME_EXECUTABLE
   ?? path.resolve(webRoot, "..", ".cache", "tools", "retrom-chrome-for-testing");
@@ -102,32 +101,19 @@ const designCaptures = [
   ["retrom-ui-play-landscape-mobile.png", "play", 844, 390]
 ];
 
-const readmeCaptures = [
-  ["home-4k-150.png", "home", 3840, 2160, undefined, readmeAssetRoot],
-  ["player-4k-150.png", "play", 3840, 2160, undefined, readmeAssetRoot],
-];
-
-const captureArguments = process.argv.slice(2);
-const readmeCaptureRequested = captureArguments.includes("--readme");
-const requestedNames = new Set(captureArguments.filter((argument) => argument !== "--readme"));
-if (readmeCaptureRequested && requestedNames.size) {
-  throw new Error("--readme cannot be combined with individual capture names");
-}
-const allCaptures = [...designCaptures, ...readmeCaptures];
-const selectedCaptures = readmeCaptureRequested
-  ? readmeCaptures
-  : requestedNames.size
-    ? allCaptures.filter(([filename]) => requestedNames.has(filename))
-    : designCaptures;
+const requestedNames = new Set(process.argv.slice(2));
+const selectedCaptures = requestedNames.size
+  ? designCaptures.filter(([filename]) => requestedNames.has(filename))
+  : designCaptures;
 if (requestedNames.size && selectedCaptures.length !== requestedNames.size) {
-  const knownNames = new Set(allCaptures.map(([filename]) => filename));
+  const knownNames = new Set(designCaptures.map(([filename]) => filename));
   const unknownNames = [...requestedNames].filter((filename) => !knownNames.has(filename));
   throw new Error(`unknown design capture: ${unknownNames.join(", ")}`);
 }
 
 const browser = await chromium.launch({ executablePath: chromeExecutablePath, headless: true });
 try {
-  for (const [filename, view, width, height, variant, outputRoot = designRoot] of selectedCaptures) {
+  for (const [filename, view, width, height, variant] of selectedCaptures) {
     const isPhysical4K = width === physical4K.width && height === physical4K.height;
     const viewport = isPhysical4K
       ? { width: width / physical4K.scale, height: height / physical4K.scale }
@@ -249,8 +235,8 @@ try {
       await frame.locator("#rt-player-core").evaluate((element) => { element.textContent = "Yabause · Saturn"; });
     }
     await frame.locator("[data-lucide]").first().waitFor({ state: "attached" });
-    await mkdir(outputRoot, { recursive: true });
-    const screenshot = await page.screenshot({ path: path.join(outputRoot, filename) });
+    await mkdir(designRoot, { recursive: true });
+    const screenshot = await page.screenshot({ path: path.join(designRoot, filename) });
     if (isPhysical4K) {
       const actual = { width: screenshot.readUInt32BE(16), height: screenshot.readUInt32BE(20) };
       if (actual.width !== physical4K.width || actual.height !== physical4K.height) {
