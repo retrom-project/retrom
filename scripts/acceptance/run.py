@@ -345,6 +345,10 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
         "-run 'TestContentIdentityUsesBytesAndDOSProjection|TestBundleIdentityIsOrderIndependentAndBindsEveryMember|TestRuntimeContentURLRejectsUnsafeOrNonCanonicalInputs|TestLaunchContentGrantCookieHasRestrictedBrowserScope|TestRuntimeContentGrantsRejectMalformedDuplicateAndUnboundedCookies|TestGameCoverReplacementRetiresOldPayloadAndStagesCapacity|TestGameDetailReturnsCoreValidationChoicesAndDOSPrograms' -count=1 && "
         "go test -tags=integration ./internal/httpapi -run '^TestRuntimeContentIsPrivateImmutableRevalidatesAndRevokes$' -count=1",
     ),
+    "ACC-MOB-001": (120, "scripts/acceptance/ui-case.sh ACC-MOB-001 && .cache/tools/node-v24.18.0-linux-x64/bin/npm --prefix web test -- --run features/mobile/mobile-app-frame.test.tsx"),
+    "ACC-MOB-002": (180, "scripts/acceptance/ui-case.sh ACC-MOB-002 && .cache/tools/node-v24.18.0-linux-x64/bin/npm --prefix web test -- --run features/mobile/mobile-home.test.tsx features/library/library-browser.test.tsx"),
+    "ACC-MOB-003": (180, "scripts/acceptance/ui-case.sh ACC-MOB-003 && .cache/tools/node-v24.18.0-linux-x64/bin/npm --prefix web test -- --run features/player/launch-controls.test.tsx"),
+    "ACC-MOB-004": (240, "scripts/acceptance/ui-case.sh ACC-MOB-004 && .cache/tools/node-v24.18.0-linux-x64/bin/npm --prefix web test -- --run features/mobile/mobile-app-frame.test.tsx"),
     "ACC-MOB-005": (
         180,
         "scripts/acceptance/ui-case.sh ACC-MOB-005 && "

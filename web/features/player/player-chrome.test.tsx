@@ -57,6 +57,21 @@ function props(overrides: Partial<Parameters<typeof PlayerChrome>[0]> = {}): Par
   };
 }
 
+describe("PlayerChrome touch controls", () => {
+  it("toggles the HUD once for a touch instead of also revealing it on pointer entry", () => {
+    const values = props({ controlsVisible: false });
+    render(<PlayerChrome {...values} />);
+    const handle = screen.getByRole("button", { name: "显示 Player 控制栏" });
+    const enter = new MouseEvent("pointerover", { bubbles: true });
+    Object.defineProperty(enter, "pointerType", { value: "touch" });
+    fireEvent(handle, enter);
+    expect(values.onToggleControls).not.toHaveBeenCalled();
+    fireEvent.click(handle);
+    expect(values.onToggleControls).toHaveBeenCalledOnce();
+  });
+
+});
+
 describe("PlayerChrome", () => {
   it("offers an optional review screenshot through ordinary controls", async () => {
     const onScreenshot = vi.fn();

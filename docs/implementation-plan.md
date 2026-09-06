@@ -193,7 +193,7 @@ flowchart LR
 
 范围：先同步架构、HTTP、UI、运行时、依赖、质量、验收契约与 OpenAPI；在 clean migration lineage 的不可变
 Game current metadata 增加受约束 `title_initial` 并闭合导入、管理改名与重刮削写入。增加 Profile 隔离的
-destinations、资料库/收藏夹、平台游戏 cursor 与存档投影。普通首页同时提供显式入口和标准手柄确认；普通
+destinations、资料库/收藏夹、平台游戏 cursor 与存档投影。PC 与平板首页在符合沉浸视口条件时提供显式入口，各端首页支持标准手柄确认；手机不展示显式按钮。普通
 App Shell 之外的 `/immersive` 独立电视 UI 固定先展示全部/最近/收藏/存档，再展示平台，并完成标题排序、
 收藏夹、Y 默认收藏、SaveState 浏览/启动、COVER/VIDEO/description、BGM 和 Select 系统菜单。BGM/游戏两组
 音量偏好只使用版本化 localStorage，不新增服务端偏好表。

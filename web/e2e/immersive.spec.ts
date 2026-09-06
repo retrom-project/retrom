@@ -43,7 +43,7 @@ test.beforeEach(async ({ page }, testInfo) => {
 
 async function claimEntry(page: Page) {
   await page.goto("/");
-  await expect(page.locator(".app-frame")).toBeVisible();
+  await expect(page.locator(".app-frame, .phone-app-frame")).toBeVisible();
   await page.waitForTimeout(250);
   await pressGamepad(page, standardButton.a);
   const dialog = page.getByRole("alertdialog", { name: "进入沉浸模式？" });
