@@ -24,7 +24,7 @@ from pfb.docker import (
 )
 from pfb.errors import PFBError
 from pfb.identity import app_origin, pfb_id, runtime_origin_template, validate_pfb_id, volume_name
-from pfb.registry import empty_registry, locked_registry, register_spec, save_registry
+from pfb.registry import empty_registry, locked_registry, register_spec, save_registry, state_root
 from pfb.source_tree import git_common_dir, source_tree_sha256, worktree_identity
 from pfb.spec import HOST_MODE, validate_spec
 
@@ -146,11 +146,25 @@ class SpecRegistryTests(unittest.TestCase):
             })
 
     def test_registry_is_owner_only_and_canonical(self) -> None:
-        with tempfile.TemporaryDirectory(dir="/tmp") as temporary, mock.patch.dict(os.environ, {"XDG_STATE_HOME": temporary}):
-            with locked_registry() as (registry, path):
+        with tempfile.TemporaryDirectory(dir="/tmp") as temporary, mock.patch(
+            "pfb.registry.state_root", return_value=Path(temporary)
+        ):
+            with locked_registry(Path("/unused")) as (registry, path):
                 save_registry(path, registry)
             self.assertEqual(stat.S_IMODE(path.stat().st_mode), 0o600)
             self.assertEqual(path.read_bytes(), canonical_bytes(empty_registry()) + b"\n")
+
+    def test_shared_state_belongs_to_retrom_project_workspace(self) -> None:
+        workspace = Path("/tmp/retrom-project")
+        baseline = workspace / "project/retrom"
+        with mock.patch("pfb.registry.git_common_dir", return_value=baseline / ".git"), \
+                mock.patch.object(Path, "is_file", return_value=True):
+            self.assertEqual(state_root(Path("/tmp/linked-retrom")), workspace / ".pfb")
+
+    def test_standalone_retrom_uses_ignored_baseline_state(self) -> None:
+        baseline = Path("/tmp/standalone-retrom")
+        with mock.patch("pfb.registry.git_common_dir", return_value=baseline / ".git"):
+            self.assertEqual(state_root(Path("/tmp/linked-retrom")), baseline / ".pfb-shared")
 
 
 class DestructionTests(unittest.TestCase):

@@ -237,12 +237,12 @@ Action 负责 registry 登录和 push，不改变 Make target 的本地构建边
 PFB 是与 `make dev` 并列的本机容器化联调入口。只有 `make pfb-*` 可以管理开发容器、共享网络、共享开发网关和 PFB 状态；它不改变生产双镜像，也不成为 `ci`、`build-images` 或普通 `make dev` 的隐式依赖。
 
 - 每个 PFB 使用同一棵 Retrom/runtime Git worktree、一个应用容器和位于 Retrom worktree `.pfb/workspace/` 下的独立数据、CAS、secret、Provider 开发层、Node、Next 与 Go cache。应用容器不发布宿主端口。
-- 共享网关是宿主唯一的 `127.0.0.1:3000` 监听者。规范应用 origin 为 `http://<pfb-id>.localhost:3000`，规范 runtime origin 为 `http://<launch-id>.rpg.<pfb-id>.localhost:3000`；二者同 site、不同 origin。
+- 共享网关是宿主唯一的 `127.0.0.1:3000` 监听者；registry、锁和生成的 Nginx 配置归根工作区被 Git 忽略的 `.pfb/` 管理，不使用用户全局状态目录。规范应用 origin 为 `http://<pfb-id>.localhost:3000`，规范 runtime origin 为 `http://<launch-id>.rpg.<pfb-id>.localhost:3000`；二者同 site、不同 origin。
 - 裸 `http://localhost:3000` 只对 GET/HEAD 307 到显式选中的 PFB；写方法返回 409。合法 app/runtime Host 经严格解析后映射到 `retrom-pfb-<pfb-id>` Docker 网络别名，未知或畸形 Host 不连接任何上游。
 - 普通 `make dev` 使用宿主 `127.0.0.1:4000`，共享网关使用 `127.0.0.1:3000`，两者必须能够并行运行。全部 PFB 命令与直接 CLI 都拒绝 root/sudo；PFB 应用与共享网关容器显式使用发起命令的普通用户 UID/GID。
 - 网关只信任自己重建的转发头，Go 只信任网关精确 `/32`；网关仅向 app Host 转发页面/API/content/runtime/health，仅向 runtime Host 转发 `/__retrom/*`。
 
-PFB ID 从调用者给出的逻辑名称确定性派生为短 slug 加 SHA-256 前 12 位，必须匹配 `^[a-z0-9](?:[a-z0-9-]{0,22}[a-z0-9])?$`。分支原文不得直接进入 Host、Compose project、网络别名或卷名。全局 registry 只保存非秘密身份、worktree canonical path、状态和唯一 `selectedPfbId`，以 owner-only 文件锁和原子替换更新。
+PFB ID 从调用者给出的逻辑名称确定性派生为短 slug 加 SHA-256 前 12 位，必须匹配 `^[a-z0-9](?:[a-z0-9-]{0,22}[a-z0-9])?$`。分支原文不得直接进入 Host、Compose project、网络别名或卷名。工作区共享 registry 只保存非秘密身份、worktree canonical path、状态和唯一 `selectedPfbId`，以 owner-only 文件锁和原子替换更新。
 
 PFB 命令闭集为 `pfb-init/validate/build/up/use/restart/down/status/logs/verify/core-build/migrate-storage/data-reset/remove/destroy` 和 `pfb-gateway-up/down`。参数错误返回 2，工具链或运行失败返回 1；所有命令失败关闭，不自动操作 Git、不自动删除迁移前旧卷，也不把 Docker socket 挂入应用容器。`pfb-build` 只准备摘要变化的工具链/package依赖/生成代码；`up` 固定 `--no-build`，`restart` 只重启 app，core 只由显式 `core-build CORE=<id>` 触发。源码与 Provider digest 不参与数据兼容性：兼容 migration 原地前进，只有明确的数据语义不兼容才由 exact ID 的 `data-reset` 归档旧数据并新建空根。
 

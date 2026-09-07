@@ -83,7 +83,7 @@ Provider 的 checkpoint 压缩依赖由 `retrom-runtime` 自己固定和审计�
 | `make release-input-digest` | 离线计算依赖专题规定的源码/依赖发布输入指纹，stdout 只输出 64 位小写 SHA-256 | 否 |
 | `make ci` | `quality-structure-check + api-check + backend-check + web-check + integration-test + data-check` | 仅依赖/构建产物与被忽略的 Go 生成物 |
 | `make dev` | 先生成被忽略的 Go API 文件并执行 `prepare-deps + web-install`；设置绝对路径 `RETROM_RUNTIME_DEV_ROOT` 时再应用显式本地 runtime link，随后在宿主机启动 Go/Next.js 并统一处理退出信号；不使用 Docker | 会写本地依赖/开发数据缓存与被忽略的 Go 生成物 |
-| `make pfb-init/validate/status` | 确定性建立或只读检查 PFB ID、严格 spec、registry、worktree、工具链、Chrome、workspace 与 开发 provider 模块摘要；不操作 Git、不启动容器 | `init` 写被忽略的 `.pfb/` 与 owner-only全局 registry，其余只读 |
+| `make pfb-init/validate/status` | 确定性建立或只读检查 PFB ID、严格 spec、registry、worktree、工具链、Chrome、workspace 与 开发 provider 模块摘要；不操作 Git、不启动容器 | `init` 写 worktree `.pfb/` 与根工作区被忽略、owner-only 的 `.pfb/registry-v1.json`，其余只读 |
 | `make pfb-build` | 仅在工具链或 package/API 生成输入变化时准备开发镜像、Node/Go依赖与生成代码；不构建 core、Provider archive、candidate tar或生产镜像 | 写 `.pfb/workspace` 中的可复用开发cache；相同输入幂等复用 |
 | `make pfb-up/use/restart/down/status/logs` | `up` 只执行 Compose `--no-build`，`restart` 只重启 app；管理共享 loopback网关、选择和状态，不运行 `npm ci` 或切换数据 | 写 PFB状态/日志并管理开发容器；workspace、旧卷、URL均保留 |
 | `make pfb-core-build` | 只构建 `CORE=<id>` 精确指定的 core worktree；绝不由 init/build/up/restart 隐式调用 | 写该 PFB workspace 的 core build输出 |

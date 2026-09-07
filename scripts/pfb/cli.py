@@ -100,7 +100,7 @@ def command_init(root: Path, args: argparse.Namespace) -> int:
             raise PFBError("PFB_SPEC_INVALID", "already-initialized")
     save_spec(root, spec)
     write_state(root, spec["id"], "INITIALIZED")
-    with locked_registry() as (registry, path):
+    with locked_registry(root) as (registry, path):
         register_spec(registry, spec)
         save_registry(path, registry)
     _result({"id": spec["id"], "url": app_origin(spec["id"]), "status": "INITIALIZED"})
@@ -136,12 +136,12 @@ def command_build(root: Path, args: argparse.Namespace) -> int:
     try:
         result = build_toolchain(root, spec)
         write_state(root, spec["id"], "READY")
-        _registry_status(spec["id"], "READY")
+        _registry_status(root, spec["id"], "READY")
         _result({"id": spec["id"], "status": "READY", **result})
         return 0
     except (PFBError, CommandFailure) as exc:
         write_state(root, spec["id"], "ERROR", error=str(exc))
-        _registry_status(spec["id"], "ERROR")
+        _registry_status(root, spec["id"], "ERROR")
         raise
 
 
@@ -152,7 +152,7 @@ def command_up(root: Path, args: argparse.Namespace) -> int:
     app_up(root, spec)
     _wait_healthy(compose_project(spec["id"]))
     write_state(root, spec["id"], "RUNNING")
-    _registry_status(spec["id"], "RUNNING")
+    _registry_status(root, spec["id"], "RUNNING")
     if args.select == "true":
         _select_running(root, spec["id"])
     _result({"id": spec["id"], "status": "RUNNING", "url": app_origin(spec["id"])})
@@ -174,7 +174,7 @@ def command_restart(root: Path, args: argparse.Namespace) -> int:
     app_restart(root, spec)
     _wait_healthy(compose_project(spec["id"]))
     write_state(root, spec["id"], "RUNNING")
-    _registry_status(spec["id"], "RUNNING")
+    _registry_status(root, spec["id"], "RUNNING")
     _result({"id": spec["id"], "status": "RUNNING", "url": app_origin(spec["id"])})
     return 0
 
@@ -351,19 +351,19 @@ def command_gateway_down(root: Path, _args: argparse.Namespace) -> int:
 
 
 def _down(root: Path, spec: dict[str, Any]) -> None:
-    with locked_registry() as (registry, path):
+    with locked_registry(root) as (registry, path):
         if registry["selectedPfbId"] == spec["id"]:
             registry["selectedPfbId"] = None
             save_registry(path, registry)
             set_selected(root, None)
     app_down(root, spec)
     write_state(root, spec["id"], "STOPPED")
-    _registry_status(spec["id"], "STOPPED")
+    _registry_status(root, spec["id"], "STOPPED")
 
 
 def _remove_registration(root: Path, spec: dict[str, Any]) -> None:
     app_down(root, spec)
-    with locked_registry() as (registry, path):
+    with locked_registry(root) as (registry, path):
         registry["pfbs"] = [item for item in registry["pfbs"] if item["id"] != spec["id"]]
         if registry["selectedPfbId"] == spec["id"]:
             registry["selectedPfbId"] = None
@@ -398,7 +398,7 @@ def _validate_branch_policy(spec: dict[str, Any]) -> None:
 def _select_running(root: Path, pfb_id_value: str) -> None:
     if not app_container_running(compose_project(pfb_id_value)):
         raise PFBError("PFB_SELECTED_TARGET_UNAVAILABLE")
-    with locked_registry() as (registry, path):
+    with locked_registry(root) as (registry, path):
         entry = registry_entry(registry, pfb_id_value)
         if entry["status"] != "RUNNING":
             raise PFBError("PFB_SELECTED_TARGET_UNAVAILABLE")
@@ -407,8 +407,8 @@ def _select_running(root: Path, pfb_id_value: str) -> None:
     set_selected(root, pfb_id_value)
 
 
-def _registry_status(pfb_id_value: str, status: str) -> None:
-    with locked_registry() as (registry, path):
+def _registry_status(root: Path, pfb_id_value: str, status: str) -> None:
+    with locked_registry(root) as (registry, path):
         registry_entry(registry, pfb_id_value)["status"] = status
         save_registry(path, registry)
 
@@ -428,7 +428,7 @@ def _named_spec(root: Path, name: str) -> dict[str, Any]:
     spec = load_spec(root)
     if spec["name"] != name or spec["id"] != pfb_id(name):
         raise PFBError("PFB_SPEC_INVALID", "name")
-    with locked_registry() as (registry, _path):
+    with locked_registry(root) as (registry, _path):
         entry = registry_entry(registry, spec["id"])
         if entry["retromRoot"] != str(root):
             raise PFBError("PFB_WORKTREE_INVALID", "registry")
