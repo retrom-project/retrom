@@ -19,8 +19,8 @@ import (
 var ErrResultInvalid = errors.New("SCUMMVM_DETECTION_RESULT_INVALID")
 
 var (
-	enginePattern = regexp.MustCompile(`^[a-z0-9_]+$`)
-	gamePattern   = regexp.MustCompile(`^[a-zA-Z0-9_-]+$`)
+	enginePattern = regexp.MustCompile(`^[a-z0-9_]{1,128}$`)
+	gamePattern   = regexp.MustCompile(`^[a-zA-Z0-9_-]{1,128}$`)
 )
 
 type DetectedGame struct {
@@ -108,6 +108,9 @@ func checkedCandidate(detected DetectedGame, tool Tool, sourceDigest string) (Ca
 }
 
 func validHints(detected DetectedGame) bool {
+	if len(detected.Root) > 2048 || len(detected.Language) > 128 || len(detected.Platform) > 128 {
+		return false
+	}
 	for _, value := range []string{
 		detected.Root, detected.Description, detected.PreferredTarget,
 		detected.Language, detected.Platform, detected.Extra, detected.GUIOptions,
@@ -117,7 +120,7 @@ func validHints(detected DetectedGame) bool {
 		}
 	}
 	for key, value := range detected.Config {
-		if key != "filename" || !safeRelative(value) {
+		if key != "filename" || len(value) > 240 || !safeRelative(value) {
 			return false
 		}
 	}

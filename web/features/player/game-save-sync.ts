@@ -88,6 +88,11 @@ export class GameSaveSync {
     } finally {this.committing = false;}
   }
 
+  canCapture(): boolean {
+    return !this.stopped && !this.ended && !this.pending && !this.committing && !this.conflict &&
+      Boolean(this.runtime.getCheckpointAvailability().save?.captureAvailable);
+  }
+
   async capture(): Promise<boolean> {
     if (this.stopped || this.ended || this.pending || this.committing || this.conflict ||
       !this.runtime.getCheckpointAvailability().save?.captureAvailable) {return false;}

@@ -6,8 +6,6 @@ import (
 	"retrom/internal/tyranoscript/detector"
 )
 
-const maximumTyranoScriptProjectFiles = 10_000
-
 func (service *Service) reviewPreviewTyranoScriptContent(
 	ctx context.Context,
 	source reviewPreviewSource,
@@ -17,7 +15,7 @@ func (service *Service) reviewPreviewTyranoScriptContent(
 		return reviewPreviewContentSet{}, ErrReviewPreviewUnavailable
 	}
 	return service.reviewPreviewProjectContent(
-		ctx, source, profile.EntryPath, tyranoScriptProjectFormat, maximumTyranoScriptProjectFiles,
+		ctx, source, profile.EntryPath, tyranoScriptProjectFormat,
 		"TyranoScript",
 	)
 }

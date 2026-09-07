@@ -9,7 +9,7 @@ import (
 	"retrom/internal/contentprofile"
 )
 
-const Version = 9
+const Version = 10
 
 var ErrInvalid = errors.New("PLATFORM_CATALOG_INVALID")
 
@@ -116,6 +116,7 @@ var current = Catalog{Version: Version, Templates: []DirectoryTemplate{
 		Key: "j2me/j2me", PlatformID: "j2me", DefaultCoreID: "j2me",
 		Name: "Java ME 游戏", CatalogOrder: 340,
 	},
+	{Key: "scummvm/scummvm", PlatformID: "scummvm", DefaultCoreID: "scummvm", Name: "ScummVM 游戏", CatalogOrder: 350},
 }}
 
 func Current() Catalog {

@@ -92,3 +92,21 @@ func TestCandidateIdentityChangesWithSourceSnapshot(t *testing.T) {
 		t.Fatalf("stale source selection identity was reused: %v", err)
 	}
 }
+
+func TestDetectionBoundsMatchLaunchOptions(t *testing.T) {
+	for _, change := range []func(*DetectedGame){
+		func(game *DetectedGame) { game.Root = strings.Repeat("x", 2049) },
+		func(game *DetectedGame) { game.GameID = strings.Repeat("x", 129) },
+		func(game *DetectedGame) { game.EngineID = strings.Repeat("x", 129) },
+		func(game *DetectedGame) { game.Language = strings.Repeat("x", 129) },
+		func(game *DetectedGame) { game.Platform = strings.Repeat("x", 129) },
+		func(game *DetectedGame) { game.Config["filename"] = strings.Repeat("x", 241) },
+	} {
+		game := detectedGame("", "en")
+		change(&game)
+		_, err := parseResult(detectorJSON(t, []DetectedGame{game}), Tool{UpstreamCommit: testCommit, Engines: []string{game.EngineID}}, strings.Repeat("a", 64))
+		if !errors.Is(err, ErrResultInvalid) {
+			t.Fatalf("oversized launch hint accepted: %+v", game)
+		}
+	}
+}

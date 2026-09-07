@@ -20,7 +20,7 @@ func (service *Service) reviewPreviewKiriKiriContent(
 		return reviewPreviewContentSet{}, ErrReviewPreviewUnavailable
 	}
 	return service.reviewPreviewProjectContent(
-		ctx, source, profile.MarkerPath, kirikiriProjectFormat, maximumKiriKiriProjectFiles, "KiriKiri",
+		ctx, source, profile.MarkerPath, kirikiriProjectFormat, "KiriKiri",
 	)
 }
 
