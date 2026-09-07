@@ -1919,6 +1919,15 @@ Review 与普通预览会话。`negative-matrix/matrix.json` 必须精确声明 
 - 通过：上述链路全部成功；真实画面非黑屏；静态游戏菜单在第一次摇杆操作后有像素变化，确认/取消分别改变可见状态；Save API 返回 201；恢复包为 `scummvm-save-bundle-v1` 且含有效大小和 SHA-256；两个 Launch ID 不同；没有页面异常或意外原生弹窗。不可用的 CAPTURE、失败的原生读档或超时均为 FAIL，不能退回导出旧数据冒充成功。
 - 证据：当次 `scummvm-product.json` 保存公开语料 SHA、浏览器版本、审核/游戏/存档/Launch 的非秘密 ID、原生包摘要、插件与缓存统计、普通和沉浸式各阶段 RGBA 摘要及截图。不能保存 cookie、capability、宿主语料路径或游戏字节。此 Case 证明 Sky 的代表性链路；不能将其推广为 105 个已构建引擎均经过游戏实测。其他引擎的延迟保存、退出最终写入和游戏内手动读档需分别记录实际验证结果。
 
+### ACC-SCUMMVM-002：ScummVM 延迟保存、原生退出与手动读档
+
+- 输入：官网公开试玩版 `comi-win-small-demo-en.zip`（SCUMM）与 `BASS-Floppy-1.3.zip`（Sky）；分别通过 `RETROM_SCUMMVM_COMI_ARCHIVE` 和 `RETROM_SCUMMVM_SKY_ARCHIVE` 指定已有归档。driver 锁定完整 SHA-256，复用 ACC-SCUMMVM-001 的临时自有标识归档规则，不修改或提交原游戏文件。
+- 上限：600 秒。执行：`make acceptance-case CASE=ACC-SCUMMVM-002`；公共地址、账号、浏览器和 headed/WSL 前置与 ACC-SCUMMVM-001 相同。缺少输入必须先报告 `BLOCKED`。
+- SCUMM 流程：真实导入并在审核试玩中等待可保存场景，发起原生保存，关闭后通过审核页建立不同试玩会话自动恢复；发布后再走 Product Launch 创建原生存档和不同 Launch 恢复。SCUMM 的保存请求由后续引擎循环完成，Save API 必须在完整文件可读后返回 201；恢复时等待准确 slot 的原生读档完成。通过静态原生菜单验证首次左摇杆、A 确认和 Y 取消，网络只能请求选定的 `libscumm.so`。
+- Sky 流程：新导入并发布，完全通过游戏自带菜单输入名称和保存；随后使用游戏自带 Quit 结束核心，Retrom 显示“游戏已结束”并禁用主动创建存档，仍能将最后冻结的文件集合提交为独立存档。不同 Product Launch 恢复后，通过游戏菜单选择并读取该存档，再验证左摇杆、A 和 Y。
+- 通过：两条完整链路均成功，无页面异常或意外原生弹窗；恢复前后的 Launch ID 不同，文件集合与下载包 SHA-256/长度相符；SCUMM 包含准确非空 slot，Sky 的游戏内保存集合保持 `resumeSlot: null` 且保留数据和描述文件，不能猜测最新 slot。Sky 的结束后提交只能导出最终数据，不能重新调用已结束的引擎创建存档。原生菜单确认/取消和手动读档均有可见画面变化，恢复后输入有效。
+- 证据：当次 `scummvm-product.json`、各阶段画面与 RGBA 摘要，包含公开来源 SHA、非秘密审核/游戏/存档/Launch ID、保存耗时、恢复模式、文件数、包摘要与插件响应数。验收可读取自己的恢复包作断言，但不存储其中游戏数据、文件内容、cookie、capability 或宿主来源路径。此 Case 覆盖固定 SCUMM/Sky 样本，不承诺其他引擎与全部版本相同。
+
 ### ACC-BUTTERSCOTCH-001：GameMaker 最小产品闭环
 
 - Fresh 前置：所选输入在当次隔离实例中尚未发布。同一内容已发布时，产品去重会正确跳过 Review，不能把空审核列表当成导入回归，也不得修改游戏 bytes、删除已发布游戏或重建共享 PFB 来规避去重；另用独立隔离验收实例执行本 Case，保留原实例的数据和已有失败证据。

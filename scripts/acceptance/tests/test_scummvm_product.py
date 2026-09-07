@@ -18,9 +18,10 @@ class ScummvmAcceptanceTests(unittest.TestCase):
         module = importlib.util.module_from_spec(spec)
         sys.modules[spec.name] = module
         spec.loader.exec_module(module)
-        self.assertEqual({"ACC-SCUMMVM-001"}, module.SCUMMVM_CASES)
-        self.assertIn("ACC-SCUMMVM-001", module.all_cases())
-        self.assertEqual(600, module.CASE_COMMANDS["ACC-SCUMMVM-001"][0])
+        self.assertEqual({"ACC-SCUMMVM-001", "ACC-SCUMMVM-002"}, module.SCUMMVM_CASES)
+        for case_id in module.SCUMMVM_CASES:
+            self.assertIn(case_id, module.all_cases())
+            self.assertEqual(600, module.CASE_COMMANDS[case_id][0])
 
     def test_retry_archives_the_scummvm_product_evidence(self):
         spec = importlib.util.spec_from_file_location("scummvm_archive", ROOT / "scripts/acceptance/run.py")
@@ -40,12 +41,17 @@ class ScummvmAcceptanceTests(unittest.TestCase):
             self.assertEqual(payload, (case / "attempts/001/scummvm-product.json").read_text())
 
     def test_missing_inputs_block_before_browser_or_game_read(self):
+        for driver in ("scummvm_product.mjs", "scummvm_product_modes.mjs"):
+            with self.subTest(driver=driver):
+                self.assert_missing_inputs(driver)
+
+    def assert_missing_inputs(self, driver):
         with tempfile.TemporaryDirectory() as directory:
             environment = {key: value for key, value in os.environ.items()
                            if not key.startswith("RETROM_ACCEPTANCE_") and not key.startswith("RETROM_SCUMMVM_")}
             environment["RETROM_ACCEPTANCE_CASE_DIR"] = directory
             result = subprocess.run([ROOT / ".cache/tools/node-v24.18.0-linux-x64/bin/node",
-                                     ROOT / "scripts/acceptance/scummvm_product.mjs"],
+                                     ROOT / "scripts/acceptance" / driver],
                                     cwd=ROOT, env=environment, capture_output=True, timeout=10)
             self.assertEqual(3, result.returncode, result.stderr)
             evidence = json.loads((Path(directory) / "scummvm-product.json").read_text())

@@ -78,7 +78,7 @@ production lock 仍只接受已授权的正式 Provider archive、descriptor 和
 
 ScummVM fork 为 `retrom-project/scummvm`，当前构建基线是 `v2026.3.0` /
 `fed42f2068dcafc6aafa1c28c77e4c88def74b66`。核心包同时提供共享 Wasm、105 个稳定一级引擎动态插件、
-支持数据、许可和 Linux x86-64 原生检测器。浏览器只请求选定的引擎插件；其余插件留在 Provider 静态资产中。
+支持数据、许可和 Linux x86-64 原生检测器。浏览器冷启动需要共享 JavaScript/Wasm 主模块，随后只请求选定的引擎插件；其余插件留在 Provider 静态资产中。支持数据随引擎实际打开文件按需读取，不能把插件拆分理解为没有公共启动成本。
 检测器从已验证 Provider 的 integrity 清单定位，启动时校验并复制到数据目录的私有摘要缓存，权限为 0500。
 不会在启动时下载或构建工具；其他服务端架构在匹配工具交付前必须明确拒绝。
 
