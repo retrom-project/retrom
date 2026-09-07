@@ -38,7 +38,7 @@ Provider manifest 的 `providerApiVersion` 在结构层只要求正整数，使�
 
 `emulatorjs` Bundle 从 Retrom 仓库中锁定的 EJS upstream 输入生成，声明 35 个 Target。它独占 EJS core、core options、启动动作、多盘和 8 个联机 profile 的行为映射。
 
-`retrom-runtime` Bundle 从独立仓库生成，声明 12 个 Target。`provider-sources.json` 只记录上游或本地 core 构建来源，不声明 Retrom 路由或产品 binding；Target registry 只存在于 Provider declaration。正式 package 校验 7 个上游输入及其锁定 source/tag/asset，源码构建或缓存复用都必须得到声明的字节。
+`retrom-runtime` Bundle 从独立仓库生成，当前开发声明包含 14 个 Target；生产可用集合以正式 lock 为准。`provider-sources.json` 只记录上游或本地 core 构建来源，不声明 Retrom 路由或产品 binding；Target registry 只存在于 Provider declaration。正式 package 校验声明的上游输入及其锁定 source/tag/asset，源码构建或缓存复用都必须得到声明的字节。
 
 ## 4. Retrom binding catalog
 
@@ -73,6 +73,18 @@ PFB 只消费同一命名 worktree 中的 Retrom 与 `retrom-runtime` 源码，�
 loose descriptor 只能覆盖同一 provider/base bundle 中已有的公开路径，不能注入 Target、改写 Retrom binding、伪造 Release 坐标或替换未知大体积 core。Go 启动逐文件验证 size/SHA-256/media type与内含字节，并只在合法test PFB中接受；release 和普通非 PFB 进程拒绝 `RETROM_PROVIDER_DEV_ROOT`。
 
 production lock 仍只接受已授权的正式 Provider archive、descriptor 和 SHA-256。正式 `provider:build/provider:check/release:build`、release input digest与双镜像不读取 `.pfb/`，也不能消费loose descriptor。PFB产品验证与正式归档/许可/确定性构建是两条互补门禁，PFB PASS不构成发布授权。
+
+### ScummVM 完整开发输入
+
+ScummVM fork 为 `retrom-project/scummvm`，当前构建基线是 `v2026.3.0` /
+`fed42f2068dcafc6aafa1c28c77e4c88def74b66`。核心包同时提供共享 Wasm、105 个稳定一级引擎动态插件、
+支持数据、许可和 Linux x86-64 原生检测器。浏览器只请求选定的引擎插件；其余插件留在 Provider 静态资产中。
+检测器从已验证 Provider 的 integrity 清单定位，启动时校验并复制到数据目录的私有摘要缓存，权限为 0500。
+不会在启动时下载或构建工具；其他服务端架构在匹配工具交付前必须明确拒绝。
+
+未发布的 ScummVM 输入通过 runtime `developmentInputs` 显式登记，仅完整 PFB candidate 构建可消费
+fork 生成的 core candidate 和逐文件摘要。普通构建、正式 release 与 production lock 不接受此输入。
+开发版不伪造远端 tag；发布仍需独立授权，依次发布 fork、固定 runtime 输入、发布 Provider，最后固定 Host 正式 lock 并复验。
 
 ## 7. 镜像与 release input digest
 

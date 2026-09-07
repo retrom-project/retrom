@@ -16,6 +16,7 @@ import { MultiDiscAttachmentDrawer } from "./multi-disc-attachment-drawer";
 import { TagChips, TagPicker, type TagReference } from "@/components/tag-picker";
 import { useReviewAttachments } from "./review-attachments";
 import { useReviewCommands } from "./review-commands";
+import { reviewScummVM, ScummVMSelection } from "./review-scummvm";
 import {RPGDependenciesCard} from "./review-rpg-dependencies";
 import {
   activeAttachmentJobId, compareFields, initialDraftState, initialRuntimeState, reviewCoverPresentation,
@@ -54,13 +55,16 @@ export function ReviewActions({ review, activeTags = [], returnTo = "/admin/revi
   const [multiDisc, setMultiDisc] = useState(initialRuntime.multiDisc);
   const [serverCanApprove, setServerCanApprove] = useState(initialRuntime.canApprove);
   const [runtimeScreenshot, setRuntimeScreenshot] = useState(initialRuntime.runtimeScreenshot);
+  const [scummvmChoice, setScummvmChoice] = useState<{sourceSnapshotId: string; id: string}>();
+  const scummvmCandidateId = scummvmChoice?.sourceSnapshotId === effectiveSourceSnapshotId ? scummvmChoice.id : undefined;
+  const setScummvmCandidateId = (id: string) => setScummvmChoice({sourceSnapshotId: effectiveSourceSnapshotId, id});
   const [rpgMaker, setRPGMaker] = useState(review.rpgMaker ?? null);
   const versionRef = useRef(review.version);
   const latestKeyRef = useRef("");
   const saveQueueRef = useRef<Promise<boolean>>(Promise.resolve(true));
   const serverPayload = withRPGMakerDraft(toPayload(initial.baseMetadata, review.selectedCandidateId, { candidateId: review.selectedAssets.coverCandidateAssetId, uploadedId: initial.cover.uploadedId }, review.selectedAssets.backgroundCandidateAssetId, review.selectedAssets.screenshotCandidateAssetIds, review.defaultDosEntry, initial.tags), review.rpgMaker);
   const lastSavedKeyRef = useRef(JSON.stringify(serverPayload));
-  const draftPayload = useMemo(() => withRPGMakerDraft(toPayload(form, candidateId, cover, backgroundId, screenshotIds, defaultDosEntry, tags), rpgMaker), [form, candidateId, cover, backgroundId, screenshotIds, defaultDosEntry, tags, rpgMaker]);
+  const draftPayload = useMemo(() => ({ ...withRPGMakerDraft(toPayload(form, candidateId, cover, backgroundId, screenshotIds, defaultDosEntry, tags), rpgMaker), ...(scummvmCandidateId ? {scummvmCandidateId} : {}) }), [form, candidateId, cover, backgroundId, screenshotIds, defaultDosEntry, tags, rpgMaker, scummvmCandidateId]);
   const draftKey = useMemo(() => JSON.stringify(draftPayload), [draftPayload]);
   const latestPayloadRef = useRef(draftPayload);
   const validationStatus = currentValidation ? currentValidation.status : null;
@@ -167,9 +171,10 @@ export function ReviewActions({ review, activeTags = [], returnTo = "/admin/revi
   });
 
   const covers = reviewCoverPresentation(review, candidates, uploadedAssets, cover, comparison);
-  const readiness = reviewReadiness(validationStatus, runtimeScreenshot, serverCanApprove, arcadeDependencies?.activeAttachment?.state, multiDisc?.activeAttachment?.state, Boolean(rpgMaker));
+  const scummvm = reviewScummVM(currentValidation, scummvmCandidateId);
+  const readiness = reviewReadiness(validationStatus, runtimeScreenshot, serverCanApprove, arcadeDependencies?.activeAttachment?.state, multiDisc?.activeAttachment?.state, [rpgMaker, scummvm].some(Boolean));
 
-  return <ReviewActionsView model={{ review, activeTags, sourceDisplayName, platformInstanceName, children, form, updateField, candidateId, cover, setCover, defaultDosEntry, setDefaultDosEntry, tags, setTags, busy, saveState, notice, jobProgress, validationStatus, runtimeScreenshot, rpgMaker, setRPGMaker, sourceCover: covers.source, selectedCover: covers.selected, currentCompareCover: covers.currentComparison, nextCompareCover: covers.nextComparison, comparison, setComparison, arcadeDependencies, multiDisc, ...readiness, saveLabel: saveStateLabel(saveState), attachments, commands, toast, setToast }} />;
+  return <ReviewActionsView model={{ review, activeTags, sourceDisplayName, platformInstanceName, children, form, updateField, candidateId, cover, setCover, defaultDosEntry, setDefaultDosEntry, tags, setTags, busy, saveState, notice, jobProgress, validationStatus, runtimeScreenshot, rpgMaker, setRPGMaker, scummvm, setScummvmCandidateId, sourceCover: covers.source, selectedCover: covers.selected, currentCompareCover: covers.currentComparison, nextCompareCover: covers.nextComparison, comparison, setComparison, arcadeDependencies, multiDisc, ...readiness, saveLabel: saveStateLabel(saveState), attachments, commands, toast, setToast }} />;
 }
 
 type ReviewViewModel = {
@@ -178,6 +183,7 @@ type ReviewViewModel = {
   cover: CoverSelection; setCover: Dispatch<SetStateAction<CoverSelection>>; defaultDosEntry: string | null; setDefaultDosEntry: Dispatch<SetStateAction<string | null>>;
   tags: TagReference[]; setTags: Dispatch<SetStateAction<TagReference[]>>; busy: string | null; saveState: "saved" | "pending" | "saving" | "error";
   notice: string; jobProgress: string; validationStatus: string | null; runtimeScreenshot: ReviewWorkspace["runtimeScreenshot"];
+  scummvm: NonNullable<ReviewWorkspace["validation"]>["dependencySnapshot"] | null; setScummvmCandidateId: (id: string) => void;
   rpgMaker: NonNullable<ReviewWorkspace["rpgMaker"]> | null; setRPGMaker: Dispatch<SetStateAction<NonNullable<ReviewWorkspace["rpgMaker"]> | null>>;
   sourceCover: PreviewAsset | null; selectedCover: PreviewAsset | null; currentCompareCover: PreviewAsset | null; nextCompareCover: PreviewAsset | null;
   comparison: Comparison | null; setComparison: Dispatch<SetStateAction<Comparison | null>>; arcadeDependencies: ArcadeDependencies | null; multiDisc: ReviewMultiDisc | null;
@@ -262,7 +268,7 @@ function ReviewColumns({ model }: { model: ReviewViewModel }) {
 }
 
 function RuntimeDependencies({ model }: { model: ReviewViewModel }) {
-  return <div id="review-step-runtime" className="review-workflow-left">{model.rpgMaker ? <RPGDependenciesCard value={model.rpgMaker} disabled={model.busy !== null} onChange={(next) => model.setRPGMaker(next)} /> : null}{model.children}{model.multiDisc ? <MultiDiscReviewCard value={model.multiDisc} disabled={model.busy !== null || model.multiDiscAttachmentActive} progress={model.attachments.multiDiscProgress} onAttach={model.attachments.attachMissingDiscs} onRetry={model.attachments.retryMultiDisc} /> : null}{model.arcadeDependencies ? <ArcadeDependencyCard value={model.arcadeDependencies} disabled={model.busy !== null || model.parentAttachmentActive} progress={model.attachments.parentProgress} onAttach={model.attachments.attachParent} onRetry={model.attachments.retryParent} /> : null}</div>;
+  return <div id="review-step-runtime" className="review-workflow-left">{model.scummvm ? <ScummVMSelection value={model.scummvm} disabled={model.busy !== null} onChange={model.setScummvmCandidateId} /> : null}{model.rpgMaker ? <RPGDependenciesCard value={model.rpgMaker} disabled={model.busy !== null} onChange={(next) => model.setRPGMaker(next)} /> : null}{model.children}{model.multiDisc ? <MultiDiscReviewCard value={model.multiDisc} disabled={model.busy !== null || model.multiDiscAttachmentActive} progress={model.attachments.multiDiscProgress} onAttach={model.attachments.attachMissingDiscs} onRetry={model.attachments.retryMultiDisc} /> : null}{model.arcadeDependencies ? <ArcadeDependencyCard value={model.arcadeDependencies} disabled={model.busy !== null || model.parentAttachmentActive} progress={model.attachments.parentProgress} onAttach={model.attachments.attachParent} onRetry={model.attachments.retryParent} /> : null}</div>;
 }
 
 function MetadataEditor({ model }: { model: ReviewViewModel }) {

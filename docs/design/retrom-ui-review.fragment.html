@@ -2954,6 +2954,7 @@
           <p>请先在游戏内保存，再在退出时选择“存档并退出”。平台只提交游戏已写入的存档数据，不保存当前画面的即时进度；未在游戏内保存时，恢复位置可能与当前画面不同。</p>
           <button type="button" class="rt-button" disabled>创建存档</button>
           <p>游玩期间仅暂存到当前浏览器；无存档启动为空，旧存档和本地草稿均不会自动载入。恢复需从游戏菜单读档。</p>
+          <fieldset><legend>退出时：当前允许主动保存</legend><h3>退出游戏？</h3><p>是否保存当前游戏进度后退出？</p><p>将通过游戏自身的存档功能保存当前进度。保存后会创建一个新的独立存档。</p><button class="rt-button">返回游戏</button><button class="rt-button">直接退出</button><button class="rt-button">存档并退出</button></fieldset>
           <fieldset><legend>退出时：存档数据有变化</legend><p>当前存档数据已发生变更，是否保存存档？</p><p>注意：请确保此次游玩已在游戏中主动执行过“保存游戏”，避免异常数据变更覆盖此前的存档。</p><p>保存将更新启动时选择的存档；无存档启动时创建独立存档。</p><button class="rt-button">返回游戏</button><button class="rt-button">直接退出</button><button class="rt-button">存档并退出</button></fieldset>
           <fieldset><legend>退出时：存档数据无变化</legend><p>此次游玩似乎没有进行过存档操作，是否继续退出？</p><p>注意：为避免游戏进度丢失，请确保在退出前已在游戏中主动保存。</p><button class="rt-button">返回游戏</button><button class="rt-button">继续退出</button></fieldset>
           <fieldset><legend>核心自行结束：最终存档</legend><h3>游戏已结束</h3><p>当前存档数据已发生变更，是否保存存档？</p><p>保存将更新启动时选择的存档；无存档启动时创建独立存档。平台只保存游戏已写入的数据，不保存当前画面的即时进度。</p><button class="rt-button">保留草稿并退出</button><button class="rt-button">直接退出</button><button class="rt-button">存档并退出</button><p>默认保留草稿；浏览器暂存失败时保留弹窗，可重试或直接保存。截图缺失不影响保存有效文件。</p></fieldset>
@@ -3203,6 +3204,9 @@
               <button type="button" class="rt-review-item" data-review-item data-review-position-value="已选 5 / 5" data-review-file="shocktro.zip" data-review-preview="SHOCK TROOPERS" data-review-title="Shock Troopers" data-review-year="1997" data-review-developer="Saurus" data-review-players="1–2" data-review-description="小队深入敌后，营救被绑架的科学家与家人。" data-review-candidate="Shock Troopers" data-review-candidate-meta="World · 1997 · Saurus" data-review-candidate-badge="精确" data-review-validation-status="READY" data-review-validation="✓ 当前目录的游戏文件和运行依赖均已就绪，可以发布">
                 <span class="rt-review-thumb" style="background:var(--retrom-cover-e)">ST</span><span><span class="rt-review-item-title">Shock Troopers</span><span class="rt-review-item-source">shocktro.zip</span><span class="rt-review-item-meta"><span>24.9 MiB · MD5 4c09…a016</span></span></span><span>FBNeo 游戏列表</span><span class="rt-badge rt-badge-green">可以发布</span><span>1 个候选</span><span>9 分钟前</span>
               </button>
+              <button type="button" class="rt-review-item" data-review-item data-review-source="scummvm" data-review-position-value="ScummVM 项目" data-review-file="Adventure Collection.zip" data-review-preview="Adventure Collection" data-review-title="Adventure Collection" data-review-year="" data-review-developer="" data-review-players="1" data-review-description="" data-review-validation-status="BLOCKED" data-review-validation="请选择要运行的游戏版本；运行截图不能代替候选选择。">
+                <span class="rt-review-thumb">SCUMM</span><span><span class="rt-review-item-title">Adventure Collection</span><span class="rt-review-item-source">Adventure Collection.zip</span></span><span>ScummVM 游戏</span><span class="rt-badge rt-badge-amber">选择运行版本</span><span>2 个游戏根目录</span><span>刚刚</span>
+              </button>
               <button type="button" class="rt-review-item" data-review-item data-review-source="emulationstation" data-review-position-value="已选 1 / 1" data-review-file="EmulationStation · nes/gamelist.xml" data-review-preview="FLAGGED ADVENTURE" data-review-title="Flagged Adventure" data-review-year="1991" data-review-developer="Example Studio" data-review-players="1" data-review-description="从 gamelist.xml 读取的受限元信息，等待管理员核对来源标记与媒体。" data-review-candidate="Gamelist 信息" data-review-candidate-meta="NES 清单 · 来源 flag 需核对" data-review-candidate-badge="EmulationStation" data-review-validation-status="READY" data-review-validation="✓ 当前来源文件和运行依赖均已就绪；hidden 来源标记仍需人工决定" hidden>
                 <span class="rt-review-thumb" style="background:var(--retrom-cover-a)">FLAG</span><span><span class="rt-review-item-title">Flagged Adventure <span class="rt-badge rt-badge-purple">EmulationStation · NES 清单</span></span><span class="rt-emulationstation-flags"><small>hidden</small><small>kidgame</small></span><span class="rt-review-item-source">nes/gamelist.xml</span><span class="rt-review-item-meta"><span>4.0 MiB · MD5 8c21…11af</span></span></span><span>NES 游戏</span><span class="rt-badge rt-badge-green">可以发布</span><span>已读取 Gamelist 信息</span><span>刚刚</span>
               </button>
@@ -3213,14 +3217,24 @@
             <button type="button" class="rt-button rt-review-back" data-review-back><i data-lucide="arrow-left" aria-hidden="true"></i>返回待审列表</button>
             <nav class="rt-review-mobile-steps" aria-label="审核步骤"><a href="#">1 来源</a><a href="#">2 检查</a><a href="#">3 发布</a><a href="#">4 决定</a></nav>
             <div class="rt-review-detail-top">
-              <section class="rt-panel rt-review-summary"><div class="rt-review-summary-copy"><span class="rt-badge">来源：<span data-review-file-output>NOeL 3/game.m3u</span></span><h2 data-review-preview-output>NOeL 3</h2><p class="rt-subtitle">目标目录：Saturn 游戏</p><div class="rt-review-summary-status"><span class="rt-badge" data-review-disc-received>已接收 M3U 与 2 张光盘</span><span class="rt-badge rt-badge-amber" data-review-disc-summary-state>缺少光盘 3</span><span class="rt-badge rt-badge-cyan">盘序已锁定</span></div></div><aside class="rt-review-runtime-shot"><span>运行截图</span><div data-review-runtime-shot><strong>等待运行截图</strong><small>运行游戏后自动截取，可作为管理员放行依据</small></div></aside></section>
+              <section class="rt-panel rt-review-summary"><div class="rt-review-summary-copy"><span class="rt-badge">来源：<span data-review-file-output>NOeL 3/game.m3u</span></span><h2 data-review-preview-output>NOeL 3</h2><p class="rt-subtitle" data-review-target-copy>目标目录：Saturn 游戏</p><div class="rt-review-summary-status" data-review-disc-chips><span class="rt-badge" data-review-disc-received>已接收 M3U 与 2 张光盘</span><span class="rt-badge rt-badge-amber" data-review-disc-summary-state>缺少光盘 3</span><span class="rt-badge rt-badge-cyan">盘序已锁定</span></div><div class="rt-review-summary-status" data-review-scummvm-chips hidden><span class="rt-badge">完整项目文件树</span><span class="rt-badge rt-badge-amber" data-scummvm-selection-state>选择运行版本</span></div></div><aside class="rt-review-runtime-shot"><span>运行截图</span><div data-review-runtime-shot><strong>等待运行截图</strong><small>运行游戏后自动截取，可作为管理员放行依据</small></div></aside></section>
               <aside class="rt-panel rt-review-decision"><h2>审核决定</h2><p class="rt-subtitle" data-review-decision-copy>可补齐左侧缺失内容，或运行游戏取得审核截图后人工确认。</p><div class="rt-review-save"><span>实时保存</span><strong>● 已实时保存</strong></div><div class="rt-review-decision-actions"><button type="button" class="rt-button rt-review-run"><i data-lucide="gamepad-2" aria-hidden="true"></i>运行游戏</button></div><div class="rt-review-decision-actions"><button type="button" class="rt-button rt-button-danger"><i data-lucide="archive-x" aria-hidden="true"></i>丢弃条目</button><button type="button" class="rt-button rt-button-primary" data-review-approve disabled><i data-lucide="check" aria-hidden="true"></i>通过并发布</button></div></aside>
             </div>
+            <section class="rt-panel rt-review-file" data-review-scummvm hidden aria-labelledby="rt-scummvm-selection-title">
+              <div class="rt-section-head"><div><h2 id="rt-scummvm-selection-title">ScummVM 游戏识别</h2><p class="rt-subtitle">确认游戏目录、语言和版本后即可运行。多个识别结果需要在审核中选择。</p></div></div>
+              <label class="rt-field"><span class="rt-label">运行版本</span><select class="rt-select" data-scummvm-candidate>
+                <option value="" disabled selected>请选择要运行的游戏版本</option>
+                <option value="sky">Beneath a Steel Sky · Sky · en · pc · v0.0348 Floppy</option>
+                <option value="queen">Flight of the Amazon Queen · Queen · en · pc · Floppy</option>
+                <option value="unknown" disabled>未知游戏版本 · Extra · 未知版本，暂不可运行</option>
+              </select></label>
+            </section>
             <div class="rt-review-detail-columns">
               <div>
-                <section class="rt-panel rt-review-file"><div class="rt-section-head"><div><h2>① 能不能发布？</h2><p class="rt-subtitle">直接展示多盘内容、运行方式和完整性结论。</p></div><span class="rt-badge rt-badge-amber" data-review-capability-state>缺少光盘</span></div><div class="rt-review-capability"><div><strong>内容布局</strong><span>M3U + 3 张 CHD</span></div><div><strong>运行检查</strong><span>Saturn · Yabause</span></div><div><strong>完整性检查</strong><span data-review-completeness>缺少 1 张光盘</span></div></div><div class="rt-validation-box is-warning" data-review-validation-output>! 当前缺少光盘 3；可补齐后重新验证，或运行游戏取得审核截图后人工确认</div></section>
+                <section class="rt-panel rt-review-file"><div class="rt-section-head"><div><h2>① 能不能发布？</h2><p class="rt-subtitle" data-review-layout-copy>直接展示多盘内容、运行方式和完整性结论。</p></div><span class="rt-badge rt-badge-amber" data-review-capability-state>缺少光盘</span></div><div class="rt-review-capability"><div><strong>内容布局</strong><span data-review-layout-value>M3U + 3 张 CHD</span></div><div><strong>运行检查</strong><span data-review-engine-value>Saturn · Yabause</span></div><div><strong>完整性检查</strong><span data-review-completeness>缺少 1 张光盘</span></div></div><div class="rt-validation-box is-warning" data-review-validation-output>! 当前缺少光盘 3；可补齐后重新验证，或运行游戏取得审核截图后人工确认</div></section>
                 <section class="rt-panel rt-review-file rt-review-disc-card" style="margin-top:12px" data-review-disc-card><div class="rt-section-head"><div><h2>多盘内容</h2><p class="rt-subtitle">服务端锁定的来源盘序；缺失盘不会创建占位文件。</p></div><span class="rt-badge rt-badge-amber" data-review-disc-count>2 / 3 张光盘</span></div><div class="rt-disc-list"><div class="rt-disc-row"><strong>光盘 1</strong><span>NOeL 3 (Disc 1).chd</span><code>314.8 MiB</code><span class="rt-badge rt-badge-green">已就绪</span></div><div class="rt-disc-row"><strong>光盘 2</strong><span>NOeL 3 (Disc 2).chd</span><code>213.7 MiB</code><span class="rt-badge rt-badge-green">已就绪</span></div><div class="rt-disc-row"><strong>光盘 3</strong><span>NOeL 3 (Disc 3).chd</span><code data-review-disc-3-size>—</code><span class="rt-badge rt-badge-amber" data-review-disc-3-state>缺失</span></div></div><div class="rt-setting-note" data-review-disc-message>请一次选择当前全部缺失文件：NOeL 3 (Disc 3).chd</div><div class="rt-review-disc-progress" data-review-disc-progress hidden><span class="rt-review-disc-spinner" aria-hidden="true"></span><span>正在校验补充光盘 · Job 0198d2af…</span></div><div class="rt-dialog-actions" data-review-disc-actions><button type="button" class="rt-button rt-button-primary" data-open-disc-drawer>上传全部缺失光盘</button></div></section>
-                <section class="rt-panel rt-review-file" style="margin-top:12px"><div class="rt-section-head"><div><h2>来源文件</h2><p class="rt-subtitle">来源 M3U 只作为审核证据；发布时生成 canonical playlist。</p></div></div><details class="rt-review-file-summary" open><summary><strong>NOeL 3/game.m3u</strong><span>3 行 / 39 bytes</span></summary><div class="rt-archive-list"><div><strong>NOeL 3 (Disc 1).chd</strong><span>314.8 MiB</span><code>51e03bbe</code></div><div><strong>NOeL 3 (Disc 2).chd</strong><span>213.7 MiB</span><code>ef77f3f9</code></div><div data-review-source-disc-3 hidden><strong>NOeL 3 (Disc 3).chd</strong><span>242.3 MiB</span><code>2ad8cbe1</code></div></div></details></section>
+                <section class="rt-panel rt-review-file" style="margin-top:12px" data-review-disc-source><div class="rt-section-head"><div><h2>来源文件</h2><p class="rt-subtitle">来源 M3U 只作为审核证据；发布时生成 canonical playlist。</p></div></div><details class="rt-review-file-summary" open><summary><strong>NOeL 3/game.m3u</strong><span>3 行 / 39 bytes</span></summary><div class="rt-archive-list"><div><strong>NOeL 3 (Disc 1).chd</strong><span>314.8 MiB</span><code>51e03bbe</code></div><div><strong>NOeL 3 (Disc 2).chd</strong><span>213.7 MiB</span><code>ef77f3f9</code></div><div data-review-source-disc-3 hidden><strong>NOeL 3 (Disc 3).chd</strong><span>242.3 MiB</span><code>2ad8cbe1</code></div></div></details></section>
+                <section class="rt-panel rt-review-file" style="margin-top:12px" data-review-scummvm-source hidden><div class="rt-section-head"><div><h2>来源文件</h2><p class="rt-subtitle">保留所有游戏文件、伴随数据和目录结构；检测结果决定运行根目录。</p></div></div><div class="rt-archive-list"><div><strong>Sky/sky.dsk</strong><span>游戏数据</span></div><div><strong>Sky/sky.dnr</strong><span>资源索引</span></div><div><strong>Queen/queen.1</strong><span>游戏数据</span></div></div></section>
               </div>
               <section class="rt-panel rt-review-form"><div class="rt-review-editor-head"><div><h2>② 发布成什么？</h2><p class="rt-subtitle">核对标题、简介、封面和标签；修改会实时保存。</p></div><button type="button" class="rt-button" data-open-compare><i data-lucide="refresh-cw" aria-hidden="true"></i>重新查询游戏信息</button></div><div class="rt-review-metadata"><div class="rt-form-grid"><label class="rt-field rt-field-wide"><span class="rt-label">游戏标题</span><input class="rt-input" data-review-field="title" value="NOeL 3"></label><label class="rt-field rt-field-wide"><span class="rt-label">简介</span><textarea class="rt-textarea" data-review-field="description"></textarea></label><label class="rt-field rt-field-half"><span class="rt-label">开发商</span><input class="rt-input" data-review-field="developer" value=""></label><label class="rt-field rt-field-half"><span class="rt-label">发行商</span><input class="rt-input" value=""></label><label class="rt-field rt-field-third"><span class="rt-label">类型</span><input class="rt-input" value=""></label><label class="rt-field rt-field-third"><span class="rt-label">玩家人数</span><input class="rt-input" data-review-field="players" value="1"></label><label class="rt-field rt-field-third"><span class="rt-label">发行年份</span><input class="rt-input" data-review-field="year" value=""></label><div class="rt-field rt-field-wide"><span class="rt-label">标签</span><div class="rt-tag-picker"><div class="rt-tag-list"><span class="rt-tag-pill">剧情　×</span><span class="rt-tag-pill">多盘　×</span></div><input class="rt-input" placeholder="搜索已建立的标签"><small>已选择 2 / 20 · 与其他草稿字段一起实时保存</small></div></div></div><aside class="rt-review-cover-side"><span class="rt-label">当前封面</span><button type="button" class="rt-review-cover-upload"><span><i data-lucide="upload" aria-hidden="true"></i> 点击封面上传替换</span></button></aside></div></section>
             </div>
@@ -4416,6 +4430,14 @@
       });
       root.addEventListener('retrom:set-disc-state', (event) => setReviewDiscState(event.detail));
 
+      const reviewProjection = [
+        ['[data-review-target-copy]', '目标目录：ScummVM 游戏'],
+        ['[data-review-layout-copy]', '核对完整项目与上游识别结果。'],
+        ['[data-review-layout-value]', '完整项目文件树 · 2 个游戏根目录'],
+        ['[data-review-engine-value]', 'ScummVM · 等待选择运行版本'],
+        ['[data-review-capability-state]', '需要选择'],
+        ['[data-review-completeness]', '已保留完整项目，等待选择游戏根目录'],
+      ].map(([selector, value]) => {const element = root.querySelector(selector); return {element, value, original: element.textContent};});
       root.querySelectorAll('[data-review-item]').forEach((button) => button.addEventListener('click', () => {
         root.querySelector('[data-review-workspace]').classList.add('is-detail-open');
         root.querySelector('[data-review-page-title]').textContent = '审核条目';
@@ -4433,6 +4455,18 @@
         root.querySelector('[data-review-field="developer"]').value = button.dataset.reviewDeveloper;
         root.querySelector('[data-review-field="players"]').value = button.dataset.reviewPlayers;
         root.querySelector('[data-review-field="description"]').value = button.dataset.reviewDescription;
+        const scummvm = button.dataset.reviewSource === 'scummvm';
+        root.querySelector('[data-review-scummvm]').hidden = !scummvm;
+        root.querySelector('[data-scummvm-candidate]').value = '';
+        root.querySelector('[data-review-disc-card]').hidden = scummvm;
+        root.querySelector('[data-review-disc-source]').hidden = scummvm;
+        root.querySelector('[data-review-disc-chips]').hidden = scummvm;
+        root.querySelector('[data-review-scummvm-source]').hidden = !scummvm;
+        root.querySelector('[data-review-scummvm-chips]').hidden = !scummvm;
+        root.querySelector('[data-scummvm-selection-state]').textContent = '选择运行版本';
+        root.querySelector('.rt-review-run').disabled = scummvm;
+        reviewProjection.forEach(({element, value, original}) => {element.textContent = scummvm ? value : original;});
+        root.querySelector('[data-review-decision-copy]').textContent = scummvm ? '请选择要运行的游戏版本。' : '核对运行检查后决定是否发布。';
         const validation = root.querySelector('[data-review-validation-output]');
         validation.textContent = button.dataset.reviewValidation;
         validation.classList.toggle('is-warning', button.dataset.reviewValidationStatus !== 'READY');
@@ -4443,8 +4477,20 @@
         runtimeShot.classList.toggle('is-ready', ready);
         runtimeShot.innerHTML = ready
           ? '<strong>截图已生成 · 5.0s</strong><small>当前平台默认核心实际运行画面</small>'
-          : '<strong>等待运行截图</strong><small>运行游戏后自动截取，可作为管理员放行依据</small>';
+          : scummvm ? '<strong>等待运行截图</strong><small>先选择运行版本，再运行游戏取得截图</small>' : '<strong>等待运行截图</strong><small>运行游戏后自动截取，可作为管理员放行依据</small>';
       }));
+      root.querySelector('[data-scummvm-candidate]').addEventListener('change', (event) => {
+        const selected = event.target.value !== '';
+        root.querySelector('.rt-review-run').disabled = !selected;
+        root.querySelector('[data-scummvm-selection-state]').textContent = selected ? '已选择运行版本' : '选择运行版本';
+        root.querySelector('[data-review-capability-state]').textContent = selected ? '可以发布' : '需要选择';
+        root.querySelector('[data-review-engine-value]').textContent = selected ? `ScummVM · ${event.target.value}` : 'ScummVM · 等待选择运行版本';
+        root.querySelector('[data-review-completeness]').textContent = selected ? '运行根目录与版本已确认' : '等待选择游戏根目录';
+        root.querySelector('[data-review-validation-output]').classList.toggle('is-warning', !selected);
+        root.querySelector('[data-review-approve]').disabled = !selected;
+        root.querySelector('[data-review-decision-copy]').textContent = selected ? '运行检查已经通过，可以发布。' : '请选择要运行的游戏版本。';
+        root.querySelector('[data-review-validation-output]').textContent = selected ? '运行检查已通过 · 已保存所选游戏根目录与版本' : '请选择要运行的游戏版本';
+      });
       root.querySelector('[data-review-back]').addEventListener('click', () => {
         root.querySelector('[data-review-workspace]').classList.remove('is-detail-open');
         root.querySelector('[data-review-page-title]').textContent = '待审核';

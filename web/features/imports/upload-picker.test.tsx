@@ -135,6 +135,31 @@ describe("UploadPicker", () => {
     }));
   });
 
+  it("uses the generic project purpose for ScummVM and disables metadata scraping", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ importJobId: "scummvm-import" }), { status: 202, headers: { "Content-Type": "application/json" } }));
+    vi.stubGlobal("fetch", fetchMock);
+    const user = userEvent.setup();
+    render(<UploadPicker directories={[{
+      id: "scummvm", name: "ScummVM 游戏", platformName: "ScummVM", coreName: "ScummVM",
+      importCapabilities: { contentModes: ["SCUMMVM_PROJECT"], multiDisc: null },
+    }]} />);
+
+    const project = new File(["project"], "game.7z", { type: "application/x-7z-compressed" });
+    await user.upload(screen.getByLabelText("选择导入文件"), project);
+    await user.click(screen.getByRole("button", { name: "下一步" }));
+    await user.selectOptions(screen.getByRole("combobox", { name: "目标游戏目录" }), "scummvm");
+    expect(screen.getByText("ScummVM 项目")).toBeVisible();
+    expect(screen.getByText(/多个识别结果需要在审核中选择/)).toBeVisible();
+    expect(screen.getByLabelText("元信息来源")).toHaveValue("不刮削（ScummVM 项目）");
+    expect(screen.getByLabelText("元信息来源")).toBeDisabled();
+
+    await user.click(screen.getByRole("button", { name: "上传并识别 ScummVM 游戏" }));
+    expect(upload.uploadFiles).toHaveBeenCalledWith(expect.any(Array), expect.any(Function), "PROJECT");
+    expect(fetchMock).toHaveBeenCalledWith("/api/v1/admin/imports", expect.objectContaining({
+      body: JSON.stringify({ uploadId: "rpg-upload", targetPlatformInstanceId: "scummvm", metadataProvider: "NONE", contentMode: "SCUMMVM_PROJECT", tagIds: [] }),
+    }));
+  });
+
   it("uses the generic project purpose for ONS and disables metadata scraping", async () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ importJobId: "ons-import" }), { status: 202, headers: { "Content-Type": "application/json" } }));
     vi.stubGlobal("fetch", fetchMock);

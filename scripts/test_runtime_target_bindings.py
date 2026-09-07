@@ -14,7 +14,7 @@ class RuntimeTargetBindingsTest(unittest.TestCase):
             ROOT / "data/runtime-target-bindings/v1/catalog.json"
         )
         self.assertNotIn("catalogVersion", catalog)
-        self.assertEqual(len(catalog["bindings"]), 48)
+        self.assertEqual(len(catalog["bindings"]), 49)
         self.assertEqual(
             {item["providerId"] for item in catalog["bindings"]},
             {"emulatorjs", "retrom-runtime"},
@@ -31,6 +31,8 @@ class RuntimeTargetBindingsTest(unittest.TestCase):
         self.assertEqual(by_target[("emulatorjs", "gambatte")]["coreId"], "gambatte")
         self.assertEqual(by_target[("emulatorjs", "desmume2015")]["coreId"], "desmume2015")
         self.assertEqual(by_target[("retrom-runtime", "j2me")]["detectorProfile"], "J2ME_JAR")
+        self.assertEqual(by_target[("retrom-runtime", "scummvm")]["detectorProfile"], "SCUMMVM_PROJECT")
+        self.assertEqual(by_target[("retrom-runtime", "scummvm")]["acceptedContentKinds"], ["SCUMMVM_PROJECT"])
         self.assertEqual(by_target[("retrom-runtime", "j2me")]["acceptedContentKinds"], ["SINGLE_FILE"])
         self.assertEqual(
             {item["coreId"] for item in catalog["bindings"] if item["providerId"] == "retrom-runtime" and item["targetId"].startswith("rpgmaker-")},

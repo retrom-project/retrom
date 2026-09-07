@@ -35,6 +35,7 @@ import (
 	"retrom/internal/runtimecatalog"
 	"retrom/internal/runtimelaunch"
 	"retrom/internal/saves"
+	"retrom/internal/scummvm"
 	"retrom/internal/serverimport"
 	"retrom/internal/serversource"
 	"retrom/internal/storageanalysis"
@@ -159,6 +160,7 @@ func New(
 	authenticator Authenticator,
 	accountService *accounts.Service,
 	now func() time.Time,
+	scummVMDetector ...*scummvm.Detector,
 ) *Server {
 	payloadReleaseService, err := payloadrelease.New(database, blobs, now, 7*24*time.Hour)
 	if err != nil {
@@ -172,6 +174,9 @@ func New(
 	importer := libraryimport.New(database, now, scraper).
 		WithBlobStore(blobs).
 		WithMultiDiscImportEnabled(config.MultiDiscImportEnabled)
+	if len(scummVMDetector) > 0 {
+		importer.WithScummVMDetector(scummVMDetector[0])
+	}
 	importer.RecoverImportGroupJobs(context.Background())
 	importer.ResumeParentAttachmentJobs(context.Background())
 	importer.ResumeMultiDiscAttachmentJobs(context.Background())

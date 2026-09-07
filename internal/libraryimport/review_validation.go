@@ -216,6 +216,9 @@ ORDER BY validation.created_at_ms DESC,validation.id DESC LIMIT 1
 }
 
 func (state *draftValidationRefresh) resolveDependencyState() (draftDependencyState, error) {
+	if state.contentKind == "SCUMMVM_PROJECT" {
+		return state.resolveScummVMSelection()
+	}
 	if state.contentKind == "RPG_MAKER_PROJECT" {
 		return state.resolveRPGDependencies()
 	}

@@ -5,8 +5,8 @@ import {useNativeExitDecision} from "./native-exit-dialog";
 
 afterEach(() => {cleanup(); vi.useRealTimers(); vi.unstubAllGlobals();});
 
-function fixture(restored = true, dirty = true, canResume = true) {
-  const native = {retry: vi.fn(async () => true), hasChanges: () => dirty, save: vi.fn(async () => true), discard: vi.fn(async () => undefined)};
+function fixture(restored = true, dirty = true, canResume = true, canCapture = false) {
+  const native = {canCapture: () => canCapture, capture: vi.fn(async () => true), retry: vi.fn(async () => true), hasChanges: () => dirty, save: vi.fn(async () => true), discard: vi.fn(async () => undefined)};
   const completed = vi.fn();
   function Harness() {
     const exit = useNativeExitDecision(() => restored);
@@ -174,4 +174,15 @@ it("retains the final-exit dialog if the local draft cannot be persisted", async
   await f.user.click(screen.getByText("请求退出")); await f.user.click(screen.getByRole("button", {name: "保留草稿并退出"}));
   expect(f.completed).not.toHaveBeenCalled(); expect(screen.getByRole("alert")).toHaveTextContent("草稿尚未存入此浏览器");
   await f.user.click(screen.getByRole("button", {name: "存档并退出"})); expect(f.completed).toHaveBeenCalledWith(true);
+});
+
+it("offers native capture on exit even before any save file exists", async () => {
+  const f = fixture(false, false, true, true);
+  await f.user.click(screen.getByText("请求退出"));
+  expect(screen.getByRole("button", {name: "返回游戏"})).toHaveFocus();
+  expect(screen.getByRole("alertdialog")).toHaveTextContent("游戏自身的存档功能");
+  await f.user.click(screen.getByRole("button", {name: "存档并退出"}));
+  expect(f.native.capture).toHaveBeenCalledOnce();
+  expect(f.native.save).not.toHaveBeenCalled();
+  expect(f.completed).toHaveBeenCalledWith(true);
 });

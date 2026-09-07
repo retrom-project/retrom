@@ -17,7 +17,7 @@ import { directoryPickerAvailable, droppedDirectory, pickDirectory, type PickedD
 
 type ChosenFile = { id: string; file: File; name: string; size: number; path: string };
 type ContentMode = "STANDARD" | "MULTI_DISC" | "RPG_MAKER_PROJECT" | "ONS_PROJECT" |
-  "KIRIKIRI_PROJECT" | "BUTTERSCOTCH_PROJECT" | "TYRANOSCRIPT_PROJECT";
+  "KIRIKIRI_PROJECT" | "BUTTERSCOTCH_PROJECT" | "TYRANOSCRIPT_PROJECT" | "SCUMMVM_PROJECT";
 type Directory = {
   id: string; name: string; platformName: string; coreName: string;
   importCapabilities?: { contentModes: string[]; multiDisc: { maxDiscs: number; maxTotalBytes: number } | null };
@@ -76,14 +76,10 @@ type SourceStepProps = {
 };
 
 function SourceDropZone({ contentMode, onDrop, onPickDirectory, onPickFiles }: Pick<SourceStepProps, "contentMode" | "onDrop" | "onPickDirectory" | "onPickFiles">) {
-  const rpgMaker = contentMode === "RPG_MAKER_PROJECT";
-  const ons = contentMode === "ONS_PROJECT";
-  const kirikiri = contentMode === "KIRIKIRI_PROJECT";
-  const butterscotch = contentMode === "BUTTERSCOTCH_PROJECT";
   const tyranoScript = contentMode === "TYRANOSCRIPT_PROJECT";
-  const project = rpgMaker || ons || kirikiri || butterscotch || tyranoScript;
-  const projectName = rpgMaker ? "RPG Maker" : ons ? "ONS" : kirikiri ? "KiriKiri"
-    : butterscotch ? "GameMaker" : "TyranoScript";
+  const project = isProjectContentMode(contentMode);
+  const names: Partial<Record<ContentMode, string>> = {RPG_MAKER_PROJECT: "RPG Maker", ONS_PROJECT: "ONS", KIRIKIRI_PROJECT: "KiriKiri", BUTTERSCOTCH_PROJECT: "GameMaker", TYRANOSCRIPT_PROJECT: "TyranoScript", SCUMMVM_PROJECT: "ScummVM"};
+  const projectName = names[contentMode];
   const projectHint = tyranoScript ? "只选择一个 ZIP/7z 项目归档、Electron ASAR 分发 ZIP、NW.js EXE，或选择完整项目目录；项目内相对路径会完整保留。" : "只选择一个 ZIP/7z 项目归档，或选择完整项目目录；项目内相对路径会完整保留。";
   const projectPackage = tyranoScript ? "项目包" : "项目归档";
   return <div className="dropzone import-dropzone" onDragOver={(event) => event.preventDefault()} onDrop={(event) => { event.preventDefault(); onDrop(event.dataTransfer.files); }}><div><span aria-hidden="true">⇧</span><h2>{project ? `将 ${projectName} ${projectPackage}或目录拖到这里` : "将游戏文件或目录拖到这里"}</h2><p>{project ? projectHint : "支持普通 ROM、Arcade ZIP、DOS 内容目录、多盘 M3U + CHD、RPG Maker 与 ONS 项目；相对路径会完整保留。"}</p><div className="dropzone-actions"><button className="button" type="button" onClick={onPickFiles}>{project ? `选择${projectPackage}` : "选择文件"}</button><button className="button secondary" type="button" onClick={onPickDirectory}>{project ? "选择项目目录" : "选择目录"}</button></div></div></div>;
@@ -141,6 +137,9 @@ function MultiDiscConfiguration(props: Pick<ConfigStepProps, "contentMode" | "mu
 }
 
 function ProjectConfiguration({ contentMode }: Pick<ConfigStepProps, "contentMode">) {
+  if (contentMode === "SCUMMVM_PROJECT") {
+    return <div className="feedback info" role="status">完整游戏目录或单个 ZIP/7z 会交由 ScummVM 识别；多个识别结果需要在审核中选择。</div>;
+  }
   if (contentMode === "RPG_MAKER_PROJECT") {
     return <div className="feedback info" role="status">整个 RPG Maker 目录或单个 ZIP/7z 会作为一个项目导入；服务端会识别项目版本并选择底层核心。</div>;
   }
@@ -193,6 +192,7 @@ function ConfigStep(props: ConfigStepProps & { sourceIsDirectory: boolean }) {
 function projectSubmitLabel(contentMode: ContentMode) {
   const labels: Partial<Record<ContentMode, string>> = {
     RPG_MAKER_PROJECT: "上传并验证 RPG Maker 项目",
+    SCUMMVM_PROJECT: "上传并识别 ScummVM 游戏",
     ONS_PROJECT: "上传并试运行 ONS 项目",
     KIRIKIRI_PROJECT: "上传并试运行 KiriKiri 项目",
     BUTTERSCOTCH_PROJECT: "上传并试运行 GameMaker 项目",
@@ -265,7 +265,7 @@ function invalidMultiDiscSelection(contentMode: string, sourceType: string, pref
 function isProjectContentMode(contentMode: ContentMode) {
   return contentMode === "RPG_MAKER_PROJECT" || contentMode === "ONS_PROJECT" ||
     contentMode === "KIRIKIRI_PROJECT" || contentMode === "BUTTERSCOTCH_PROJECT" ||
-    contentMode === "TYRANOSCRIPT_PROJECT";
+    contentMode === "TYRANOSCRIPT_PROJECT" || contentMode === "SCUMMVM_PROJECT";
 }
 
 function invalidProjectSelection(contentMode: ContentMode, sourceType: string, files: ChosenFile[]) {
@@ -277,6 +277,7 @@ function invalidProjectSelection(contentMode: ContentMode, sourceType: string, f
 }
 
 function contentModeLabel(contentMode: ContentMode) {
+  if (contentMode === "SCUMMVM_PROJECT") {return "ScummVM 项目";}
   if (contentMode === "MULTI_DISC") {return "多盘 M3U";}
   if (contentMode === "RPG_MAKER_PROJECT") {return "RPG Maker 项目";}
   if (contentMode === "ONS_PROJECT") {return "ONS 项目";}
@@ -329,6 +330,7 @@ function directoryCapabilities(directories: Directory[], target: string) {
 }
 
 function projectContentMode(contentModes: string[]): ContentMode {
+  if (contentModes.includes("SCUMMVM_PROJECT")) {return "SCUMMVM_PROJECT";}
   if (contentModes.includes("RPG_MAKER_PROJECT")) {return "RPG_MAKER_PROJECT";}
   if (contentModes.includes("ONS_PROJECT")) {return "ONS_PROJECT";}
   if (contentModes.includes("KIRIKIRI_PROJECT")) {return "KIRIKIRI_PROJECT";}

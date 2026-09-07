@@ -36,6 +36,7 @@ describe("local native game save drafts", () => {
     f.emit({available: false, reason: "NO_SAVE", save: {capture: "RUNTIME", restore: "AUTOMATIC", captureAvailable: true}});
     expect(f.present).toHaveBeenLastCalledWith(expect.objectContaining({available: true}));
     expect(f.runtime.checkpoint).not.toHaveBeenCalled();
+    expect(f.sync.canCapture()).toBe(true);
     expect(await f.sync.capture()).toBe(true);
     expect(f.runtime.checkpoint).toHaveBeenCalledWith({intent: "CAPTURE"});
     expect(f.upload).toHaveBeenCalledWith(f.store.put.mock.calls[0][0]);
@@ -49,7 +50,7 @@ describe("local native game save drafts", () => {
     f.emit({available: false, reason: "NO_SAVE", save: {capture: "RUNTIME", restore: "AUTOMATIC", captureAvailable: false}});
     expect(await f.sync.capture()).toBe(false);
     f.emit({available: false, reason: "NO_SAVE", save: {capture: "RUNTIME", restore: "AUTOMATIC", captureAvailable: true}});
-    await f.sync.finish(); expect(await f.sync.capture()).toBe(false);
+    await f.sync.finish(); expect(f.sync.canCapture()).toBe(false); expect(await f.sync.capture()).toBe(false);
     expect(f.runtime.checkpoint).not.toHaveBeenCalled(); await f.sync.stop();
   });
   it("captures changed data locally without uploading or changing the launch baseline", async () => {

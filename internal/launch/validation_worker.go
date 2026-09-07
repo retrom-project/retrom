@@ -117,6 +117,9 @@ FROM games game WHERE game.id=? AND game.status='PUBLISHED'
 		currentBIOSDigest != inputs.BIOSDependencyDigest {
 		return variantValidationOutcome{}, errValidationGameChanged
 	}
+	if contentKind == "SCUMMVM_PROJECT" && inputs.ProviderID == "retrom-runtime" && inputs.TargetID == "scummvm" {
+		return service.scummVMValidationOutcome(ctx, inputs)
+	}
 	biosSnapshotJSON, err := biosSnapshot.JSON()
 	if err != nil {
 		return variantValidationOutcome{}, fmt.Errorf("encode validation BIOS snapshot: %w", err)

@@ -5,8 +5,8 @@ import {ConfirmDialog} from "@/components/confirm-dialog";
 import type {GameSaveSync} from "./game-save-sync";
 import {ImmersiveMenuInputReader} from "./immersive-controls";
 
-type ExitDraft = Pick<GameSaveSync, "hasChanges" | "save" | "discard" | "retry">;
-type Decision = {native: ExitDraft; hasChanges: boolean; restored: boolean; canResume: boolean; resolve: (exit: boolean) => void};
+type ExitDraft = Pick<GameSaveSync, "hasChanges" | "save" | "discard" | "retry" | "canCapture" | "capture">;
+type Decision = {native: ExitDraft; hasChanges: boolean; canCapture: boolean; restored: boolean; canResume: boolean; resolve: (exit: boolean) => void};
 
 export function useNativeExitDecision(getRestored: () => boolean) {
   const [decision, setDecision] = useState<Decision | null>(null);
@@ -19,7 +19,8 @@ export function useNativeExitDecision(getRestored: () => boolean) {
   const decide = useCallback((native: ExitDraft, options: {canResume: boolean} = {canResume: true}) => {
     if (pending.current) {return pending.current;}
     pending.current = new Promise<boolean>((resolve) => {
-      active.current = {native, resolve, hasChanges: native.hasChanges(), restored: getRestored(), canResume: options.canResume};
+      const canCapture = options.canResume && native.canCapture();
+      active.current = {native, resolve, canCapture, hasChanges: native.hasChanges() || canCapture, restored: getRestored(), canResume: options.canResume};
       setDecision(active.current); setError(""); setSelected(0);
     });
     return pending.current;
@@ -36,7 +37,7 @@ export function useNativeExitDecision(getRestored: () => boolean) {
       if (choice === 0) {
         if (!await current.native.retry()) {setError("草稿尚未存入此浏览器，请重试或选择存档并退出。"); return;}
       } else if (choice === 2 && current.hasChanges) {
-        if (!await current.native.save()) {setError(current.canResume ? "保存未成功，草稿已保留。可重试，或返回游戏。" : "保存未成功，最终数据已保留。可重试或保留草稿退出。"); return;}
+        if (!await (current.canCapture ? current.native.capture() : current.native.save())) {setError(current.canResume ? "保存未成功，草稿已保留。可重试，或返回游戏。" : "保存未成功，最终数据已保留。可重试或保留草稿退出。"); return;}
       } else if (current.hasChanges) {await current.native.discard();}
       finish(true);
     } catch {setError("操作未完成，本地数据已保留，请重试。");}
@@ -45,12 +46,12 @@ export function useNativeExitDecision(getRestored: () => boolean) {
   const chooseAction = useCallback((choice: number) => {void choose(choice);}, [choose]);
   useEffect(() => () => {active.current?.resolve(false); active.current = null;}, []);
   return {decide, dialog: <NativeExitDialog open={decision !== null} hasChanges={decision?.hasChanges ?? false}
-    restored={decision?.restored ?? false} canResume={decision?.canResume ?? true} busy={busy} error={error}
+    canCapture={decision?.canCapture ?? false} restored={decision?.restored ?? false} canResume={decision?.canResume ?? true} busy={busy} error={error}
     selected={selected} onSelect={setSelected} onChoose={chooseAction} />};
 }
 
-function NativeExitDialog({open, hasChanges, restored, canResume, busy, error, selected, onSelect, onChoose}: {
-  open: boolean; hasChanges: boolean; restored: boolean; canResume: boolean; busy: boolean; error: string; selected: number;
+function NativeExitDialog({open, hasChanges, canCapture, restored, canResume, busy, error, selected, onSelect, onChoose}: {
+  open: boolean; hasChanges: boolean; canCapture: boolean; restored: boolean; canResume: boolean; busy: boolean; error: string; selected: number;
   onSelect: (value: number) => void; onChoose: (value: number) => void;
 }) {
   const root = useRef<HTMLDivElement>(null);
@@ -81,13 +82,13 @@ function NativeExitDialog({open, hasChanges, restored, canResume, busy, error, s
   }, [open, selected]);
   return <div ref={root} className="player-native-exit" role="presentation" onKeyDown={(event) => event.stopPropagation()}>
     <ConfirmDialog open={open} title={canResume ? "退出游戏？" : "游戏已结束"} busy={busy}
-    description={hasChanges ? "当前存档数据已发生变更，是否保存存档？" : "此次游玩似乎没有进行过存档操作，是否继续退出？"}
+    description={canCapture ? "是否保存当前游戏进度后退出？" : hasChanges ? "当前存档数据已发生变更，是否保存存档？" : "此次游玩似乎没有进行过存档操作，是否继续退出？"}
     secondaryLabel={hasChanges ? "直接退出" : undefined} confirmLabel={hasChanges ? "存档并退出" : "继续退出"}
     cancelLabel={canResume ? "返回游戏" : "保留草稿并退出"} onSecondary={() => onChoose(1)} onConfirm={() => onChoose(hasChanges ? 2 : 1)} onCancel={() => onChoose(0)}>
-    <p>{hasChanges ? "注意：请确保此次游玩已在游戏中主动执行过“保存游戏”，避免异常数据变更覆盖此前的存档。"
+    <p>{canCapture ? "将通过游戏自身的存档功能保存当前进度。" : hasChanges ? "注意：请确保此次游玩已在游戏中主动执行过“保存游戏”，避免异常数据变更覆盖此前的存档。"
       : "注意：为避免游戏进度丢失，请确保在退出前已在游戏中主动保存。"}</p>
     {hasChanges ? <p>{restored ? "保存将更新启动时选择的存档。" : "保存后会创建一个新的独立存档。"}
-      平台只保存游戏已写入的数据，不保存当前画面的即时进度。</p> : null}
+      {canCapture ? "存档由游戏自身生成。" : "平台只保存游戏已写入的数据，不保存当前画面的即时进度。"}</p> : null}
     {error ? <p role="alert">{error}</p> : null}
   </ConfirmDialog></div>;
 }

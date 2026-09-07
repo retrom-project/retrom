@@ -37,13 +37,14 @@ type Paths struct {
 // process. It is safe to reconcile and expose only after LoadInstallation
 // returns successfully.
 type Installation struct {
-	Active     runtimebundle.ActiveDescriptor
-	Manifests  map[string]runtimebundle.Manifest
-	Integrity  map[string][]runtimebundle.IntegrityFile
-	Catalog    runtimecatalog.Catalog
-	Projection Projection
-	Handler    http.Handler
-	Builder    *runtimelaunch.Builder
+	installedRoot string
+	Active        runtimebundle.ActiveDescriptor
+	Manifests     map[string]runtimebundle.Manifest
+	Integrity     map[string][]runtimebundle.IntegrityFile
+	Catalog       runtimecatalog.Catalog
+	Projection    Projection
+	Handler       http.Handler
+	Builder       *runtimelaunch.Builder
 }
 
 func LoadInstallation(paths Paths) (Installation, error) {
@@ -93,7 +94,7 @@ func LoadInstallation(paths Paths) (Installation, error) {
 		return Installation{}, err
 	}
 	return Installation{
-		Active: active, Manifests: manifests, Integrity: integrityByProvider,
+		installedRoot: root, Active: active, Manifests: manifests, Integrity: integrityByProvider,
 		Catalog: catalog, Projection: projection, Handler: handler, Builder: builder,
 	}, nil
 }

@@ -175,6 +175,23 @@ Job 交接只有一条实现路径：`IMPORT_ITEM_PIPELINE` 完成 hash、分组
 
 主机/掌机 ZIP 中零个 primary 候选是 `REJECTED/NO_SUPPORTED_CONTENT`，多个是 `REJECTED/AMBIGUOUS_PRIMARY_CONTENT`；两者都不创建 ImportItem，任务页列出文件和重打包/重新上传入口，不能用文件名打破平局，也不能宣称审核页支持一期不存在的“重新归组”。DOS 按上表是有意的多 entry bundle，不应用唯一 ROM entry 限制，但没有任何安全可执行候选时同样以 `REJECTED/NO_DOS_PROGRAM` 处理。Arcade ZIP 按 machine/DAT 规则识别，不应用主机唯一 entry 限制；未命中 DAT 的 archive 为 `REJECTED/ARCADE_MACHINE_NOT_FOUND`，命中但只是未使用依赖的 archive 使用上述独立 reason。
 
+### ScummVM 游戏数据
+
+ScummVM 目录或恰一个 ZIP/7z 输入形成一个 `SCUMMVM_PROJECT`。完整复用上游检测器，
+Host 不维护文件签名、引擎、语言或游戏版本识别库。文件先经过现有归档限额、路径穿越、符号链接、
+Unicode／大小写冲突和大小校验，再从 CAS 校验摘要后物化到私有临时目录，调用与 Web 核心相同基线的原生检测工具。
+临时目录结束后删除；嵌入的游戏资源归档按普通不透明文件保留。
+
+检测结果作为 `kind: SCUMMVM` 的依赖快照写入当前不可变 validation，包含探测版本、来源清单摘要、
+全部候选、相对根目录和所选候选 ID。候选 ID 绑定基线、来源摘要及完整上游结果。唯一可运行候选自动选中；
+同根多版本或多根目录保留歧义，在现有审核草稿中显式选择后才能预览和批准。选择不会丢弃其他来源文件；
+多游戏合集也可拆分后分别导入。未知变体、缺少构建引擎和不支持的游戏保持可见并阻止选择。
+
+`scummvmCandidateId` 只接受当前来源检测结果中的可运行候选。更新仍要求 `If-Match`，并创建新的不可变
+validation，保留旧结果；来源改变后旧候选不能复用。运行截图不能绕过此选择约束。批准将选定快照复制到游戏变体，
+后续重新校验核对来源摘要并保留原始选项。工具超时／失败属于可重试任务故障，不得转成正常空识别结果。
+ScummVM 项目不执行在线哈希刮削；游戏数据 EXE 和附带 `scummvm.ini` 不作为可执行入口或受信配置。
+
 ## 6. 哈希语义
 
 - CAS 去重始终使用原始上传 Blob SHA-256。

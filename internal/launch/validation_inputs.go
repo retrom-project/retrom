@@ -143,6 +143,11 @@ func (service *Service) resolveVariantBIOS(
 	variantID, contentID, providerID, targetID, contentLogicalName string,
 	datID sql.NullString,
 ) (corevalidation.Snapshot, string, string, error) {
+	if providerID == "retrom-runtime" && targetID == "scummvm" {
+		return corevalidation.Snapshot{
+			SchemaVersion: 1, Kind: corevalidation.SnapshotKindStatic, BIOS: []corevalidation.BIOSDependency{},
+		}, "READY", "READY", nil
+	}
 	snapshot, status, code, err := corevalidation.ResolveBIOS(
 		ctx, database, providerID, targetID, contentLogicalName,
 	)

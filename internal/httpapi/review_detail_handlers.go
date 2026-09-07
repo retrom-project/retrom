@@ -145,7 +145,7 @@ func (server *Server) review(writer http.ResponseWriter, request *http.Request) 
 		server.databaseError(writer, request, err)
 		return
 	}
-	canApprove := reviewApproval(&evidence)
+	canApprove := reviewApproval(&evidence, sourceContentKind)
 	reviewTags, err := server.activeReviewTags(request.Context(), itemID)
 	if err != nil {
 		server.databaseError(writer, request, err)
@@ -192,9 +192,10 @@ func reviewDocuments(metadata, sourceManifest string) (any, any) {
 
 func reviewApproval(
 	evidence *reviewEvidence,
+	contentKind string,
 ) bool {
 	gateReviewMultiDiscAttachment(evidence.multiDisc, evidence.validation.stale)
-	return evidence.validation.canApprove || evidence.runtimeScreenshot.value != nil
+	return evidence.validation.canApprove || contentKind != "SCUMMVM_PROJECT" && evidence.runtimeScreenshot.value != nil
 }
 
 type reviewEvidence struct {

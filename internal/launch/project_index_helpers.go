@@ -26,7 +26,6 @@ func (service *Service) reviewPreviewProjectContent(
 	ctx context.Context,
 	source reviewPreviewSource,
 	markerPath, format string,
-	maximumFiles int,
 	diagnosticName string,
 ) (reviewPreviewContentSet, error) {
 	content := reviewPreviewContentSet{Format: format}
@@ -49,7 +48,7 @@ ORDER BY sort_order,logical_name
 	for rows.Next() {
 		file := reviewPreviewFile{Role: "PROJECT_FILE"}
 		if err := rows.Scan(&file.LogicalName, &file.BlobID, &file.SortOrder); err != nil ||
-			len(content.Files) >= maximumFiles {
+			len(content.Files) >= 10_000 {
 			return reviewPreviewContentSet{}, ErrReviewPreviewUnavailable
 		}
 		content.Files = append(content.Files, file)
