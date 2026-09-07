@@ -13,7 +13,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from pfb.common import canonical_bytes
+from pfb.common import canonical_bytes, remove_tree
 from pfb.docker import (
     _runtime_git_mount_arguments,
     app_restart,
@@ -151,6 +151,22 @@ class SpecRegistryTests(unittest.TestCase):
                 save_registry(path, registry)
             self.assertEqual(stat.S_IMODE(path.stat().st_mode), 0o600)
             self.assertEqual(path.read_bytes(), canonical_bytes(empty_registry()) + b"\n")
+
+
+class DestructionTests(unittest.TestCase):
+    def test_generated_state_with_read_only_go_module_cache_is_removed(self) -> None:
+        with tempfile.TemporaryDirectory(dir="/tmp") as temporary:
+            root = Path(temporary) / "retrom"
+            module = root / ".pfb/workspace/go-cache/mod/example.invalid/module@v1.0.0"
+            module.mkdir(parents=True)
+            source = module / "module.go"
+            source.write_text("package module\n", encoding="utf-8")
+            source.chmod(0o444)
+            module.chmod(0o555)
+
+            remove_tree(root / ".pfb")
+
+            self.assertFalse((root / ".pfb").exists())
 
 
 class GatewayContractTests(unittest.TestCase):
