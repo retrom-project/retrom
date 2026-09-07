@@ -16,15 +16,18 @@ function fixture(restored = true, dirty = true) {
   return {native, completed, user: userEvent.setup()};
 }
 
-it("warns to save inside the game first and lets the user continue without uploading", async () => {
+it("warns about overwriting changed data and defaults to returning to the game without uploading", async () => {
   const f = fixture(); await f.user.click(screen.getByText("请求退出"));
   const dialog = screen.getByRole("alertdialog");
-  expect(dialog).toHaveTextContent("请先在游戏内保存");
+  expect(dialog).toHaveTextContent("当前存档数据已发生变更，是否保存存档？");
+  expect(dialog).toHaveTextContent("主动执行过“保存游戏”");
+  expect(dialog).toHaveTextContent("避免异常数据变更覆盖此前的存档");
   expect(dialog).toHaveTextContent("不保存当前画面的即时进度");
-  expect(dialog).toHaveTextContent("恢复位置可能与当前画面不同");
-  expect(dialog).toHaveTextContent("如果误选了“开始新游戏”");
-  expect(screen.getByRole("button", {name: "继续游戏"})).toHaveFocus();
-  await f.user.click(screen.getByRole("button", {name: "继续游戏"}));
+  expect(dialog).toHaveTextContent("保存将更新启动时选择的存档");
+  expect(Array.from(dialog.querySelectorAll("button"), (button) => button.textContent))
+    .toEqual(["返回游戏", "直接退出", "存档并退出"]);
+  expect(screen.getByRole("button", {name: "返回游戏"})).toHaveFocus();
+  await f.user.click(screen.getByRole("button", {name: "返回游戏"}));
   expect(f.completed).toHaveBeenCalledWith(false);
   expect(f.native.save).not.toHaveBeenCalled(); expect(f.native.discard).not.toHaveBeenCalled();
 });
@@ -32,17 +35,17 @@ it("warns to save inside the game first and lets the user continue without uploa
 it("waits for successful save before exiting and retains the dialog on failure", async () => {
   const f = fixture(); f.native.save.mockResolvedValueOnce(false);
   await f.user.click(screen.getByText("请求退出"));
-  await f.user.click(screen.getByRole("button", {name: "保存并退出"}));
+  await f.user.click(screen.getByRole("button", {name: "存档并退出"}));
   expect(screen.getByRole("alert")).toHaveTextContent("草稿已保留");
   expect(f.completed).not.toHaveBeenCalled();
-  await f.user.click(screen.getByRole("button", {name: "保存并退出"}));
+  await f.user.click(screen.getByRole("button", {name: "存档并退出"}));
   expect(f.completed).toHaveBeenCalledWith(true);
 });
 
 it("explicit discard exits without saving", async () => {
   const f = fixture(false); await f.user.click(screen.getByText("请求退出"));
   expect(screen.getByRole("alertdialog")).toHaveTextContent("新的独立存档");
-  await f.user.click(screen.getByRole("button", {name: "不保存并退出"}));
+  await f.user.click(screen.getByRole("button", {name: "直接退出"}));
   expect(f.native.discard).toHaveBeenCalledOnce(); expect(f.native.save).not.toHaveBeenCalled();
   expect(f.completed).toHaveBeenCalledWith(true);
 });
@@ -58,19 +61,39 @@ it("keeps Enter inside the confirmation instead of the underlying immersive menu
   } finally {window.removeEventListener("keydown", menu);}
 });
 
-it("skips the save prompt when data matches startup", async () => {
+it.each([false, true])("asks before exiting unchanged data with restored=%s and defaults to returning", async (restored) => {
+  const f = fixture(restored, false); await f.user.click(screen.getByText("请求退出"));
+  const dialog = screen.getByRole("alertdialog");
+  expect(dialog).toHaveTextContent("此次游玩似乎没有进行过存档操作，是否继续退出？");
+  expect(dialog).toHaveTextContent("为避免游戏进度丢失，请确保在退出前已在游戏中主动保存");
+  expect(Array.from(dialog.querySelectorAll("button"), (button) => button.textContent))
+    .toEqual(["返回游戏", "继续退出"]);
+  expect(screen.getByRole("button", {name: "返回游戏"})).toHaveFocus();
+  expect(f.completed).not.toHaveBeenCalled();
+  await f.user.keyboard("{Enter}");
+  expect(f.completed).toHaveBeenCalledWith(false);
+  expect(f.native.save).not.toHaveBeenCalled(); expect(f.native.discard).not.toHaveBeenCalled();
+});
+
+it("only exits unchanged data after explicit confirmation, without saving", async () => {
   const f = fixture(false, false); await f.user.click(screen.getByText("请求退出"));
-  expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+  await f.user.click(screen.getByRole("button", {name: "继续退出"}));
   expect(f.completed).toHaveBeenCalledWith(true);
+  expect(f.native.save).not.toHaveBeenCalled();
+  expect(f.native.discard).not.toHaveBeenCalled();
 });
 
 it("locks all actions while saving so discard cannot race a commit", async () => {
   const f = fixture(); let finish!: (saved: boolean) => void;
   f.native.save.mockImplementation(() => new Promise<boolean>((resolve) => {finish = resolve;}));
   await f.user.click(screen.getByText("请求退出"));
-  await f.user.click(screen.getByRole("button", {name: "保存并退出"}));
-  expect(screen.getByRole("button", {name: "继续游戏"})).toBeDisabled();
-  expect(screen.getByRole("button", {name: "保存并退出"})).toBeDisabled();
+  await f.user.click(screen.getByRole("button", {name: "存档并退出"}));
+  expect(screen.getByRole("button", {name: "返回游戏"})).toBeDisabled();
+  expect(screen.getByRole("button", {name: "直接退出"})).toBeDisabled();
+  expect(screen.getByRole("button", {name: "处理中…"})).toBeDisabled();
+  expect(f.completed).not.toHaveBeenCalled();
+  await f.user.keyboard("{Escape}");
+  expect(f.completed).not.toHaveBeenCalled();
   await act(async () => {finish(true);});
   expect(f.completed).toHaveBeenCalledOnce();
 });
@@ -84,14 +107,53 @@ it("moves gamepad focus in visual order and lets B continue without discarding",
   fireEvent.click(screen.getByText("请求退出"));
   await act(async () => {await vi.advanceTimersByTimeAsync(180);});
   pressed = 14; await act(async () => {await vi.advanceTimersByTimeAsync(32);});
-  expect(screen.getByRole("button", {name: "保存并退出"})).toHaveFocus();
+  expect(screen.getByRole("button", {name: "存档并退出"})).toHaveFocus();
   pressed = -1; await act(async () => {await vi.advanceTimersByTimeAsync(32);});
   pressed = 15; await act(async () => {await vi.advanceTimersByTimeAsync(32);});
-  expect(screen.getByRole("button", {name: "继续游戏"})).toHaveFocus();
+  expect(screen.getByRole("button", {name: "返回游戏"})).toHaveFocus();
   pressed = -1; await act(async () => {await vi.advanceTimersByTimeAsync(32);});
   pressed = 15; await act(async () => {await vi.advanceTimersByTimeAsync(32);});
-  expect(screen.getByRole("button", {name: "不保存并退出"})).toHaveFocus();
+  expect(screen.getByRole("button", {name: "直接退出"})).toHaveFocus();
   pressed = 1; await act(async () => {await vi.advanceTimersByTimeAsync(32);});
   expect(f.completed).toHaveBeenCalledWith(false);
   expect(f.native.save).not.toHaveBeenCalled(); expect(f.native.discard).not.toHaveBeenCalled();
+});
+
+it("cycles only the two visible actions for unchanged data and confirms exit with gamepad A", async () => {
+  const f = fixture(false, false);
+  let pressed = -1;
+  vi.stubGlobal("navigator", {getGamepads: () => [{connected: true, mapping: "standard", index: 0, axes: [],
+    buttons: Array.from({length: 17}, (_, index) => ({pressed: index === pressed, value: index === pressed ? 1 : 0}))}]});
+  vi.useFakeTimers();
+  fireEvent.click(screen.getByText("请求退出"));
+  await act(async () => {await vi.advanceTimersByTimeAsync(180);});
+  pressed = 14; await act(async () => {await vi.advanceTimersByTimeAsync(32);});
+  expect(screen.getByRole("button", {name: "继续退出"})).toHaveFocus();
+  pressed = -1; await act(async () => {await vi.advanceTimersByTimeAsync(32);});
+  pressed = 14; await act(async () => {await vi.advanceTimersByTimeAsync(32);});
+  expect(screen.getByRole("button", {name: "返回游戏"})).toHaveFocus();
+  pressed = -1; await act(async () => {await vi.advanceTimersByTimeAsync(32);});
+  pressed = 15; await act(async () => {await vi.advanceTimersByTimeAsync(32);});
+  expect(screen.getByRole("button", {name: "继续退出"})).toHaveFocus();
+  pressed = 0; await act(async () => {await vi.advanceTimersByTimeAsync(32);});
+  expect(f.completed).toHaveBeenCalledWith(true);
+  expect(f.native.save).not.toHaveBeenCalled();
+});
+
+it.each([true, false])("Escape returns to the game without saving or discarding when dirty=%s", async (dirty) => {
+  const f = fixture(true, dirty); await f.user.click(screen.getByText("请求退出"));
+  await f.user.keyboard("{Escape}");
+  expect(f.completed).toHaveBeenCalledWith(false);
+  expect(f.native.save).not.toHaveBeenCalled(); expect(f.native.discard).not.toHaveBeenCalled();
+});
+
+it("retains the dialog and local data when discarding fails, then allows retry", async () => {
+  const f = fixture(); f.native.discard.mockRejectedValueOnce(Error("storage unavailable"));
+  await f.user.click(screen.getByText("请求退出"));
+  await f.user.click(screen.getByRole("button", {name: "直接退出"}));
+  expect(screen.getByRole("alert")).toHaveTextContent("本地数据已保留");
+  expect(f.completed).not.toHaveBeenCalled();
+  await f.user.click(screen.getByRole("button", {name: "直接退出"}));
+  expect(f.completed).toHaveBeenCalledWith(true);
+  expect(f.native.save).not.toHaveBeenCalled();
 });

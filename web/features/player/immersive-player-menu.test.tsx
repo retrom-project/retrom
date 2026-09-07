@@ -64,5 +64,5 @@ it("disables unchanged native saves while explaining local drafts", () => {
     onCancel={vi.fn()} onConfirm={vi.fn()} onSelect={vi.fn()} />);
   expect(within(view.container).getByRole("button", {name: "创建存档"})).toBeDisabled();
   expect(within(view.container).getByText("原生存档已同步")).toBeVisible();
-  expect(within(view.container).getByRole("dialog")).toHaveTextContent("再在退出时选择“保存并退出”");
+  expect(within(view.container).getByRole("dialog")).toHaveTextContent("再在退出时选择“存档并退出”");
 });
