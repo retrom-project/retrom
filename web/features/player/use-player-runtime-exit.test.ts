@@ -14,7 +14,7 @@ function fixture(nativeEnabled = true) {
   const exit = vi.fn(async () => undefined), strict = vi.fn(async () => undefined), after = vi.fn(async () => undefined);
   const toast = vi.fn(), decide = vi.fn(async () => true);
   const hook = renderHook(() => usePlayerRuntimeExit(controller, {current: nativeEnabled ? native : null}, exit, strict, after, toast, decide));
-  return {...hook, flush, stop, controllerExit, exit, strict, after, toast, decide, pause, resume};
+  return {...hook, native, flush, stop, controllerExit, exit, strict, after, toast, decide, pause, resume};
 }
 
 describe("native save exit decisions", () => {
@@ -48,4 +48,14 @@ describe("native save exit decisions", () => {
     expect(f.flush).not.toHaveBeenCalled(); expect(f.decide).not.toHaveBeenCalled();
     expect(f.stop).toHaveBeenCalledOnce(); expect(f.exit).toHaveBeenCalledOnce();
   });
+  it.each(["exitAfterProviderExit", "exitImmersiveAfterProviderExit"] as const)("offers final save persistence on %s without calling live core operations", async (action) => {
+    const f = fixture(); const finish = vi.spyOn(f.native, "finish");
+    const final = {checkpoint: {bytes: Uint8Array.of(1), format: "native", metadata: null}, screenshot: null};
+    await act(() => f.result.current[action](final));
+    expect(finish).toHaveBeenCalledWith(final);
+    expect(f.decide).toHaveBeenCalledWith(f.native, {canResume: false});
+    expect(f.pause).not.toHaveBeenCalled(); expect(f.resume).not.toHaveBeenCalled();
+    expect(action === "exitAfterProviderExit" ? f.exit : f.after).toHaveBeenCalledOnce();
+  });
+
 });

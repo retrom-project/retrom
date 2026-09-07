@@ -1,6 +1,7 @@
 "use client";
 
 import {useCallback} from "react";
+import type {RuntimeFinalSnapshotV1} from "./runtime/contract";
 import type {GameSaveSync} from "./game-save-sync";
 import type {RuntimeController} from "./runtime/runtime-controller";
 
@@ -11,7 +12,7 @@ export function usePlayerRuntimeExit(
   exitStrict: () => Promise<void>,
   exitAfterRuntime: () => Promise<void>,
   showToast: (message: string, timeout?: number) => void,
-  decide: (native: GameSaveSync) => Promise<boolean>,
+  decide: (native: GameSaveSync, options?: {canResume: boolean}) => Promise<boolean>,
 ) {
   const exitRuntime = useCallback(async () => {
     try {
@@ -29,25 +30,36 @@ export function usePlayerRuntimeExit(
     await controller.current?.exit();
     await exitStrict();
   }, [controller, nativeSave, exitStrict, decide]);
-  const exitAfterProviderExit = useCallback(async () => {
+  const exitAfterProviderExit = useCallback(async (snapshot?: RuntimeFinalSnapshotV1) => {
+    if (!await finishNativeExit(nativeSave, snapshot, decide)) {return;}
     await nativeSave.current?.stop();
     await controller.current?.exit().catch(() => undefined);
     await exit();
-  }, [controller, nativeSave, exit]);
-  const exitImmersiveAfterProviderExit = useCallback(async () => {
+  }, [controller, nativeSave, exit, decide]);
+  const exitImmersiveAfterProviderExit = useCallback(async (snapshot?: RuntimeFinalSnapshotV1) => {
+    if (!await finishNativeExit(nativeSave, snapshot, decide)) {return;}
     await nativeSave.current?.stop();
     await controller.current?.exit().catch(() => undefined);
     await exitAfterRuntime();
-  }, [controller, nativeSave, exitAfterRuntime]);
+  }, [controller, nativeSave, exitAfterRuntime, decide]);
   return {exitRuntime, exitImmersiveRuntimeStrict, exitImmersiveAfterProviderExit, exitAfterProviderExit};
 }
 
 async function prepareNativeExit(controller: {current: RuntimeController | null}, nativeSave: {current: GameSaveSync | null},
-  decide: (native: GameSaveSync) => Promise<boolean>,
+  decide: (native: GameSaveSync, options?: {canResume: boolean}) => Promise<boolean>,
 ) {
   const native = nativeSave.current;
   if (!native) {return true;}
   await controller.current?.runtime.pause();
   try {await native.flush();} catch { /* The dialog allows retry, discard, or continuing. */ }
   return decide(native);
+}
+
+async function finishNativeExit(nativeSave: {current: GameSaveSync | null}, snapshot: RuntimeFinalSnapshotV1 | undefined,
+  decide: (native: GameSaveSync, options?: {canResume: boolean}) => Promise<boolean>,
+) {
+  const native = nativeSave.current;
+  if (!native) {return true;}
+  await native.finish(snapshot);
+  return !native.hasChanges() || await decide(native, {canResume: false});
 }

@@ -32,8 +32,9 @@ describe("useRuntimeExitHandler", () => {
       { current: true }, vi.fn(), vi.fn(), vi.fn(), "immersive", exit, exitImmersive,
     ));
 
-    act(() => result.current());
-
+    const final = {checkpoint: {bytes: Uint8Array.of(1), format: "native", metadata: null}, screenshot: null};
+    act(() => result.current(final));
+    expect(exitImmersive).toHaveBeenCalledWith(final);
     expect(exitImmersive).toHaveBeenCalledOnce();
     expect(exit).not.toHaveBeenCalled();
   });
