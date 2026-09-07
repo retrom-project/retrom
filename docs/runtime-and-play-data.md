@@ -171,3 +171,5 @@ Provider 使用 `scummvm-save-bundle-v1`（`GAME_SAVE`，上限 64 MiB），原�
 准确的恢复槽位由 Provider 保存于 payload。自动恢复同时要求引擎支持指定存档启动和核心能确认实际读档结果；当前构建已接入 Sky、SCUMM、SCI、Queen、Drascula 的结果通知，其他引擎保留游戏内读档。新 Launch 在运行前导入文件，等待准确槽位的成功通知后才完成运行时装载；失败、槽位不符或 60 秒内未完成均报错，不能静默新开游戏。
 仅收集游戏菜单写入、无法确定准确槽位或游戏不支持自动启动恢复时，完整导入后由用户在游戏菜单读档。
 未选择存档的新 Launch 使用空保存目录。当前不声明 ScummVM 即时内存快照、联机或回滚能力。
+
+代表性产品验收见 [ACC-SCUMMVM-001](./project-acceptance.md#acc-scummvm-001scummvm-原生存档与手柄产品闭环) 与 [ACC-SCUMMVM-002](./project-acceptance.md#acc-scummvm-002scummvm-延迟保存原生退出与手动读档)。构建成功或能力标志不等于全部游戏经过实测。

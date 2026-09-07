@@ -30,7 +30,7 @@ RPG_CASES = {f"ACC-RPG-{number:03d}" for number in range(1, 13)}
 ONS_CASES = {"ACC-ONS-001"}
 KIRIKIRI_CASES = {"ACC-KIRIKIRI-001"}
 BUTTERSCOTCH_CASES = {"ACC-BUTTERSCOTCH-001"}
-SCUMMVM_CASES = {"ACC-SCUMMVM-001"}
+SCUMMVM_CASES = {"ACC-SCUMMVM-001", "ACC-SCUMMVM-002"}
 TYRANOSCRIPT_CASES = {"ACC-TYRANOSCRIPT-001"}
 PROVIDER_CASES = {f"ACC-PROVIDER-{number:03d}" for number in range(1, 9)}
 PRODUCT_CASES = RPG_CASES | ONS_CASES | KIRIKIRI_CASES | BUTTERSCOTCH_CASES | TYRANOSCRIPT_CASES | SCUMMVM_CASES
@@ -486,6 +486,10 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
     "ACC-SCUMMVM-001": (
         600,
         ".cache/tools/node-v24.18.0-linux-x64/bin/node scripts/acceptance/scummvm_product.mjs",
+    ),
+    "ACC-SCUMMVM-002": (
+        600,
+        ".cache/tools/node-v24.18.0-linux-x64/bin/node scripts/acceptance/scummvm_product_modes.mjs",
     ),
     "ACC-BUTTERSCOTCH-001": (
         300,
