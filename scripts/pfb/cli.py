@@ -17,7 +17,7 @@ from typing import Any
 
 from scripts.local_user import LocalUserError, require_local_user
 
-from .common import atomic_json, canonical_bytes, load_json
+from .common import atomic_json, canonical_bytes, load_json, remove_tree
 from .data_reset import reset_workspace_data
 from .docker import (
     app_container_health, app_container_running, app_down, app_logs, app_restart, app_up,
@@ -329,9 +329,13 @@ def command_remove(root: Path, args: argparse.Namespace) -> int:
 def command_destroy(root: Path, args: argparse.Namespace) -> int:
     spec = _confirmed_spec(root, args.pfb, args.confirm)
     _remove_registration(root, spec)
-    shutil.rmtree(root / ".pfb")
+    _destroy_generated_state(root)
     _result({"id": spec["id"], "status": "DESTROYED", "legacyVolumesPreserved": True})
     return 0
+
+
+def _destroy_generated_state(root: Path) -> None:
+    remove_tree(root / ".pfb")
 
 
 def command_gateway_up(root: Path, _args: argparse.Namespace) -> int:

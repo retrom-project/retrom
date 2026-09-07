@@ -5,6 +5,8 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import shutil
+import stat
 import tempfile
 from pathlib import Path
 from typing import Any
@@ -65,6 +67,13 @@ def atomic_bytes(path: Path, value: bytes, mode: int = 0o600) -> None:
             os.close(directory)
     finally:
         temporary.unlink(missing_ok=True)
+
+
+def remove_tree(path: Path) -> None:
+    for directory, _subdirectories, _files in os.walk(path):
+        current = Path(directory)
+        current.chmod(stat.S_IMODE(current.stat().st_mode) | stat.S_IRWXU)
+    shutil.rmtree(path)
 
 
 def strict_object(value: Any, fields: set[str], code: str) -> dict[str, Any]:

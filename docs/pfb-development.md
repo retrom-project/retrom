@@ -119,7 +119,7 @@ backup；然后通过正式 staging/import 校验安装新基座。它不解析�
 `providers/installed/`、core、Node、Next、Go 和 home cache 均保留，不重新下载。只允许停止态和 exact PFB ID；
 不允许把 `.pfb/` 内部状态作为来源或跟随工作区状态路径的符号链接。该操作不是生产升级或回滚机制。
 
-`pfb-down` 只停止并保留全部状态。`pfb-remove ... CONFIRM=<id>` 移除 app 容器和 owner-local registry entry但保留 `.pfb/workspace`，可重新 init 注册。`pfb-destroy ... CONFIRM=<id>` 删除该 Retrom worktree 的整个 `.pfb/`；Git worktree/分支和迁移前旧命名卷仍不删除。根工作区的交互式 `make pfb-remove PFB=<name>` 另负责 clean preflight 后移除 Git worktree。
+`pfb-down` 只停止并保留全部状态。`pfb-remove ... CONFIRM=<id>` 移除 app 容器和 owner-local registry entry但保留 `.pfb/workspace`，可重新 init 注册。`pfb-destroy ... CONFIRM=<id>` 删除该 Retrom worktree 的整个 `.pfb/`；删除时会先恢复 Go 默认生成的只读 module cache 目录的 owner 权限。Git worktree/分支和迁移前旧命名卷仍不删除。根工作区的交互式 `make pfb-remove PFB=<name>` 另负责 clean preflight 后移除 Git worktree。
 
 ## 验证基线
 
