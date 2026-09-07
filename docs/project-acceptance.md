@@ -278,7 +278,7 @@ make acceptance-case CASE=<case-id>
 
 - 上限：120 秒。
 - 执行：`make acceptance-case CASE=ACC-PFB-001`。
-- 通过标准：名称到短 slug+12hex 的向量稳定；unknown field、非法/碰撞ID、symlink/home/root、非worktree与detached HEAD全部以稳定码拒绝；registry采用owner-only锁和原子替换且不保存secret、业务数据或Provider字节。
+- 通过标准：名称到短 slug+12hex 的向量稳定；unknown field、非法/碰撞ID、symlink/home/root、非worktree与detached HEAD全部以稳定码拒绝；registry采用owner-only锁和原子替换且不保存secret、业务数据或Provider字节，并固定归根工作区被忽略的`.pfb/`而不读取用户全局状态目录。
 
 ### ACC-PFB-002：普通 localhost 开发回归与 PFB 端口隔离
 

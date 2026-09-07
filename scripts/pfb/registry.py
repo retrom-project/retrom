@@ -11,6 +11,7 @@ from typing import Any, Iterator
 from .common import atomic_json, load_json
 from .errors import PFBError
 from .identity import compose_project, pfb_id, validate_pfb_id
+from .source_tree import git_common_dir
 
 
 REGISTRY_VERSION = 1
@@ -21,16 +22,17 @@ PFB_STATUSES = {
 }
 
 
-def state_root() -> Path:
-    configured = os.environ.get("XDG_STATE_HOME")
-    base = Path(configured) if configured else Path.home() / ".local/state"
-    if not base.is_absolute():
-        raise PFBError("PFB_SPEC_INVALID", "state-root")
-    return base / "retrom-pfb"
+def state_root(root: Path) -> Path:
+    """Return the repository-owned state shared by every linked PFB worktree."""
+    baseline = git_common_dir(root).parent
+    workspace = baseline.parent.parent
+    if baseline.parent.name == "project" and (workspace / "manifest.yaml").is_file():
+        return workspace / ".pfb"
+    return baseline / ".pfb-shared"
 
 
-def registry_path() -> Path:
-    return state_root() / "registry-v1.json"
+def registry_path(root: Path) -> Path:
+    return state_root(root) / "registry-v1.json"
 
 
 def empty_registry() -> dict[str, Any]:
@@ -43,15 +45,15 @@ def empty_registry() -> dict[str, Any]:
 
 
 @contextmanager
-def locked_registry() -> Iterator[tuple[dict[str, Any], Path]]:
-    root = state_root()
-    root.mkdir(parents=True, exist_ok=True, mode=0o700)
-    os.chmod(root, 0o700)
-    lock_path = root / "registry-v1.lock"
+def locked_registry(root: Path) -> Iterator[tuple[dict[str, Any], Path]]:
+    shared_root = state_root(root)
+    shared_root.mkdir(parents=True, exist_ok=True, mode=0o700)
+    shared_root.chmod(0o700)
+    lock_path = shared_root / "registry-v1.lock"
     with lock_path.open("a+b") as lock:
         os.chmod(lock_path, 0o600)
         fcntl.flock(lock.fileno(), fcntl.LOCK_EX)
-        path = registry_path()
+        path = registry_path(root)
         registry = load_json(path, "PFB_SPEC_INVALID") if path.exists() else empty_registry()
         validate_registry(registry)
         yield registry, path

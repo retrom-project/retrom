@@ -31,7 +31,7 @@ PFB 的稳定状态根固定为当前 Retrom worktree 的：
 └── toolchain.json
 ```
 
-两个 PFB 的上述路径、容器、Compose project、应用 Host、runtime Host、Cookie/Launch capability 均不同；共享的只有只读 Docker 工具链镜像、owner-local registry 和绑定 `127.0.0.1:3000` 的网关。一个 PFB 的 down/restart/reset/remove 不得扫描或修改另一个 PFB 的 workspace、容器或 registry entry。
+两个 PFB 的上述路径、容器、Compose project、应用 Host、runtime Host、Cookie/Launch capability 均不同；共享的只有只读 Docker 工具链镜像、绑定 `127.0.0.1:3000` 的网关，以及根工作区 `retrom-project/.pfb/` 中的 registry、锁与生成的 Nginx 配置。该根目录由 Git 忽略并设为 owner-only，不使用用户全局状态目录；独立 Retrom checkout 则使用其主 checkout 的 `.pfb-shared/`。一个 PFB 的 down/restart/reset/remove 不得扫描或修改另一个 PFB 的 workspace、容器或 registry entry。
 
 PFB ID 从逻辑名称确定性派生，因此同一 spec 的稳定 URL 始终是 `http://<pfb-id>.localhost:3000`；Launch runtime 使用 `http://<launch-id>.rpg.<pfb-id>.localhost:3000`。down/up/restart、源码修改和兼容 migration 都不能改变 ID、URL 或数据根。
 
@@ -119,7 +119,7 @@ backup；然后通过正式 staging/import 校验安装新基座。它不解析�
 `providers/installed/`、core、Node、Next、Go 和 home cache 均保留，不重新下载。只允许停止态和 exact PFB ID；
 不允许把 `.pfb/` 内部状态作为来源或跟随工作区状态路径的符号链接。该操作不是生产升级或回滚机制。
 
-`pfb-down` 只停止并保留全部状态。`pfb-remove ... CONFIRM=<id>` 移除 app 容器和 owner-local registry entry但保留 `.pfb/workspace`，可重新 init 注册。`pfb-destroy ... CONFIRM=<id>` 删除该 Retrom worktree 的整个 `.pfb/`；删除时会先恢复 Go 默认生成的只读 module cache 目录的 owner 权限。Git worktree/分支和迁移前旧命名卷仍不删除。根工作区的交互式 `make pfb-remove PFB=<name>` 另负责 clean preflight 后移除 Git worktree。
+`pfb-down` 只停止并保留全部状态。`pfb-remove ... CONFIRM=<id>` 移除 app 容器和 workspace registry entry但保留 `.pfb/workspace`，可重新 init 注册。`pfb-destroy ... CONFIRM=<id>` 删除该 Retrom worktree 的整个 `.pfb/`；删除时会先恢复 Go 默认生成的只读 module cache 目录的 owner 权限。Git worktree/分支和迁移前旧命名卷仍不删除。根工作区的交互式 `make pfb-remove PFB=<name>` 另负责 clean preflight 后移除 Git worktree。
 
 ## 验证基线
 

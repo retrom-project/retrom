@@ -44,7 +44,7 @@ def gateway_contract(root: Path) -> dict[str, str]:
 
 def gateway_up(root: Path) -> dict[str, Any]:
     contract = gateway_contract(root)
-    with locked_registry() as (registry, path):
+    with locked_registry(root) as (registry, path):
         existing = registry["gateway"]
         if existing is not None and existing != _registry_gateway(contract):
             if any(item["status"] == "RUNNING" for item in registry["pfbs"]):
@@ -53,7 +53,7 @@ def gateway_up(root: Path) -> dict[str, Any]:
         if not container_running(GATEWAY_CONTAINER):
             _check_port_available()
         _ensure_network(contract["subnet"])
-        environment = _gateway_environment(contract)
+        environment = _gateway_environment(root, contract)
         _compose(root / "scripts/pfb/gateway/compose.yaml", ["up", "-d", "--remove-orphans"], environment)
         _verify_gateway_container(contract)
         registry["gateway"] = _registry_gateway(contract)
@@ -63,7 +63,7 @@ def gateway_up(root: Path) -> dict[str, Any]:
 
 def gateway_preflight(root: Path) -> None:
     contract = gateway_contract(root)
-    with locked_registry() as (registry, _path):
+    with locked_registry(root) as (registry, _path):
         existing = registry["gateway"]
         if existing is not None and existing != _registry_gateway(contract):
             raise PFBError("PFB_GATEWAY_VERSION_CONFLICT")
@@ -84,18 +84,18 @@ def gateway_preflight(root: Path) -> None:
 
 
 def gateway_down(root: Path) -> None:
-    with locked_registry() as (registry, path):
+    with locked_registry(root) as (registry, path):
         if any(item["status"] == "RUNNING" for item in registry["pfbs"]):
             raise PFBError("PFB_GATEWAY_VERSION_CONFLICT", "running-pfb")
         contract = gateway_contract(root)
         _compose(root / "scripts/pfb/gateway/compose.yaml", ["down", "--remove-orphans"],
-                 _gateway_environment(contract), allow_failure=True)
+                 _gateway_environment(root, contract), allow_failure=True)
         registry["gateway"] = None
         save_registry(path, registry)
 
 
 def set_selected(root: Path, pfb_id: str | None) -> None:
-    _write_selected(pfb_id)
+    _write_selected(root, pfb_id)
     if container_running(GATEWAY_CONTAINER):
         config = "/etc/nginx/pfb/nginx.conf"
         _run(["docker", "exec", GATEWAY_CONTAINER, "nginx", "-t", "-c", config], "PFB_GATEWAY_VERSION_CONFLICT")
@@ -476,29 +476,29 @@ def _tree_fingerprint(mount: str) -> str:
     return value
 
 
-def _gateway_environment(contract: dict[str, str]) -> dict[str, str]:
-    return {"PFB_GATEWAY_IMAGE": contract["image"], "PFB_GATEWAY_CONFIG_DIR": str(_gateway_state_dir()),
+def _gateway_environment(root: Path, contract: dict[str, str]) -> dict[str, str]:
+    return {"PFB_GATEWAY_IMAGE": contract["image"], "PFB_GATEWAY_CONFIG_DIR": str(_gateway_state_dir(root)),
             "PFB_GATEWAY_IP": contract["gatewayIp"], "PFB_GATEWAY_CONFIG_SHA256": contract["configSha256"],
             "PFB_UID": str(os.getuid()), "PFB_GID": str(os.getgid())}
 
 
 def _ensure_gateway_files(root: Path, selected: str | None) -> None:
-    directory = _gateway_state_dir()
+    directory = _gateway_state_dir(root)
     directory.mkdir(parents=True, exist_ok=True, mode=0o700)
     os.chmod(directory, 0o700)
     atomic_text(directory / "nginx.conf", (root / "scripts/pfb/gateway/nginx.conf").read_text(encoding="utf-8"))
     atomic_text(directory / "proxy.inc", (root / "scripts/pfb/gateway/proxy.inc").read_text(encoding="utf-8"))
-    _write_selected(selected)
+    _write_selected(root, selected)
 
 
-def _write_selected(selected: str | None) -> None:
+def _write_selected(root: Path, selected: str | None) -> None:
     value = f"http://{selected}.localhost:3000" if selected else ""
-    atomic_text(_gateway_state_dir() / "selected.conf", f'set $pfb_selected_origin "{value}";\n')
+    atomic_text(_gateway_state_dir(root) / "selected.conf", f'set $pfb_selected_origin "{value}";\n')
 
 
-def _gateway_state_dir() -> Path:
+def _gateway_state_dir(root: Path) -> Path:
     from .registry import state_root
-    return state_root() / "gateway-v1"
+    return state_root(root) / "gateway-v1"
 
 
 def _registry_gateway(contract: dict[str, str]) -> dict[str, Any]:
