@@ -711,7 +711,7 @@ def archive_previous(case_dir: Path) -> None:
     moved: dict[str, str] = {}
     for name in (
         "result.json", "stdout.log", "network.json", "rpgmaker-product.json", "ons-product.json",
-        "kirikiri-product.json", "butterscotch-product.json", "tyranoscript-product.json",
+        "kirikiri-product.json", "butterscotch-product.json", "tyranoscript-product.json", "scummvm-product.json",
         "rerun-resolution.json",
     ):
         source = case_dir / name

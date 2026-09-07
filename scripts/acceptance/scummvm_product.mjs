@@ -59,7 +59,7 @@ try {
 async function previewScummvm(context, itemId) {
   const reviewPage = await context.newPage();
   await reviewPage.goto(`/admin/reviews/${itemId}`);
-  const selection = reviewPage.getByLabel("运行版本", {exact: true});
+  const selection = reviewPage.getByRole("combobox", {name: /^运行版本/u});
   await expect(selection).toHaveValue(/^[0-9a-f]{64}$/u);
   const candidateId = await selection.inputValue();
   const popup = reviewPage.waitForEvent("popup");
