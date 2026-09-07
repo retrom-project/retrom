@@ -1,6 +1,7 @@
 import {GameSaveConflict} from "./game-save-upload-error";
 import {newUuid} from "@/lib/crypto";
-import type {PlayerRuntimeV1, RuntimeFinalSnapshotV1} from "./runtime/contract";
+import type {PlayerRuntimeV1, RuntimeCheckpointRequestV1, RuntimeFinalSnapshotV1} from "./runtime/contract";
+import type {NativeSaveCapabilities} from "./checkpoint-semantics";
 import {captureRuntimeSave, type RuntimeSavePayload} from "./runtime/runtime-actions";
 import type {GameSaveDraftStore} from "./game-save-draft-store";
 import {prepareManualSaveScreenshot} from "./manual-save-screenshot";
@@ -8,11 +9,11 @@ import {prepareManualSaveScreenshot} from "./manual-save-screenshot";
 type GameSaveRuntime = Pick<PlayerRuntimeV1,
   "checkpoint" | "screenshot" | "acknowledgeCheckpoint" | "subscribe" | "getCheckpointAvailability">;
 export type GameSavePresentation = {
-  available: false; dirty: boolean; retryAvailable: boolean;
+  available: boolean; dirty: boolean; retryAvailable: boolean; save?: NativeSaveCapabilities;
   text: string; tone: "synced" | "busy" | "warning";
 };
 
-/** Capture locally while playing; only save() may submit data to the server. */
+/** Export locally while playing; only explicit save/capture actions submit to the server. */
 export class GameSaveSync {
   private unsubscribe: (() => void) | null = null;
   private pending: Promise<boolean> | null = null;
@@ -87,6 +88,21 @@ export class GameSaveSync {
     } finally {this.committing = false;}
   }
 
+  async capture(): Promise<boolean> {
+    if (this.stopped || this.ended || this.pending || this.committing || this.conflict ||
+      !this.runtime.getCheckpointAvailability().save?.captureAvailable) {return false;}
+    this.committing = true;
+    try {
+      if (!await this.stage({intent: "CAPTURE"})) {return false;}
+      this.attemptedRevision = this.runtime.getCheckpointAvailability().revision;
+      return await this.commitCaptured();
+    } catch (error) {
+      if (error instanceof GameSaveConflict) {this.conflict = error;}
+      this.show(this.conflict?.message ?? "保存失败，本地草稿已保留，请重试", "warning");
+      return false;
+    } finally {this.committing = false; this.refresh();}
+  }
+
   private async commitCaptured(): Promise<boolean> {
   if (!this.captured) {return true;}
   this.show("正在保存游戏数据…", "busy");
@@ -147,12 +163,12 @@ export class GameSaveSync {
     await this.pending;
   }
 
-  private stage(): Promise<boolean> {
+  private stage(request: RuntimeCheckpointRequestV1 = {intent: "EXPORT"}): Promise<boolean> {
     if (this.pending) {return this.pending;}
     this.attemptedRevision = this.runtime.getCheckpointAvailability().revision;
     const pending = Promise.resolve().then(async () => {
       try {
-        const payload = {...await captureRuntimeSave(this.runtime, {intent: "EXPORT"}), source: "GAME_SAVE" as const, requestId: newUuid(), name: `游戏内存档 ${new Date().toLocaleString("zh-CN")}`};
+        const payload = {...await captureRuntimeSave(this.runtime, request), source: "GAME_SAVE" as const, requestId: newUuid(), name: `游戏存档 ${new Date().toLocaleString("zh-CN")}`};
         const image = await prepareManualSaveScreenshot({screenshot: payload.screenshot, format: payload.screenshot.type});
         if (!image) {throw Error("LOCAL_DRAFT_SCREENSHOT_FAILED");}
         payload.screenshot = image.screenshot;
@@ -174,9 +190,10 @@ export class GameSaveSync {
   }
 
   private show(text: string, tone: GameSavePresentation["tone"]) {
-    const availability = this.ended ? {available: false, reason: "NOT_READY"} : this.runtime.getCheckpointAvailability();
-    this.present({available: false, dirty: Boolean(this.captured) || availability.available || availability.reason === "BUSY",
-      retryAvailable: this.failed, text, tone});
+    const availability = this.runtime.getCheckpointAvailability();
+    this.present({available: !this.ended && !this.pending && !this.committing && Boolean(availability.save?.captureAvailable),
+      dirty: Boolean(this.captured) || !this.ended && (availability.available || availability.reason === "BUSY"),
+      retryAvailable: this.failed, save: availability.save, text, tone});
   }
 
   private showFinal() {
