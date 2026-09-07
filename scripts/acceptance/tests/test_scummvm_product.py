@@ -22,6 +22,23 @@ class ScummvmAcceptanceTests(unittest.TestCase):
         self.assertIn("ACC-SCUMMVM-001", module.all_cases())
         self.assertEqual(600, module.CASE_COMMANDS["ACC-SCUMMVM-001"][0])
 
+    def test_retry_archives_the_scummvm_product_evidence(self):
+        spec = importlib.util.spec_from_file_location("scummvm_archive", ROOT / "scripts/acceptance/run.py")
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[spec.name] = module
+        spec.loader.exec_module(module)
+        with tempfile.TemporaryDirectory() as directory:
+            run = Path(directory)
+            case = run / "cases/acc-scummvm-001"
+            case.mkdir(parents=True)
+            (run / "defects.json").write_text("[]")
+            (case / "result.json").write_text(json.dumps({"caseId": "ACC-SCUMMVM-001", "status": "FAIL"}))
+            payload = '{"caseId":"ACC-SCUMMVM-001","status":"FAIL","errorCode":"example"}'
+            (case / "scummvm-product.json").write_text(payload)
+            module.archive_previous(case)
+            self.assertFalse((case / "scummvm-product.json").exists())
+            self.assertEqual(payload, (case / "attempts/001/scummvm-product.json").read_text())
+
     def test_missing_inputs_block_before_browser_or_game_read(self):
         with tempfile.TemporaryDirectory() as directory:
             environment = {key: value for key, value in os.environ.items()
