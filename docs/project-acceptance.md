@@ -1910,6 +1910,15 @@ Review 与普通预览会话。`negative-matrix/matrix.json` 必须精确声明 
 - 能力边界：即时存档是 KAG `saveBookMark/loadBookMark` 的语义存档，保存 `/save` 与 `/savedata` 的确定性文件集合，不是任意 KiriKiri/TJS 游戏的 Wasm 内存快照。无法找到 KAG API、首个可保存标签或唯一启动 XP3 时必须 fail closed，不能生成看似成功但不可恢复的存档。加密来源归档无法在不接收密码的情况下进入安全扫描，服务端以 `ARCHIVE_ENCRYPTED_UNSUPPORTED` 拒绝，验收将该操作者输入记为 `BLOCKED`，不能误记为 core 运行失败；操作者可在仓库外解密后提供新的合法归档。
 - 证据：当次 `result.json`、`kirikiri-product.json`、六张 canvas PNG 与一张沉浸退出菜单 PNG。结构化证据只含非秘密产品 ID、菜单动作、payload kind/size、canvas 尺寸/居中/焦点、非黑像素、RGBA digest、按需加载计数/byte与错误计数，不含归档路径、文件名、游戏 bytes、账号、CSRF、cookie或 Launch capability。本地 `retrom-runtime` 候选 PASS 只允许进入 runtime Release 流程；Release 完成后 Retrom 必须解除本地链接、固定 tag/commit/assets并重跑本 Case。
 
+### ACC-SCUMMVM-001：ScummVM 原生存档与手柄产品闭环
+
+- 输入：ScummVM 官网发布的 `BASS-Floppy-1.3.zip`，通过 `RETROM_SCUMMVM_SKY_ARCHIVE` 指定已有归档；driver 校验其完整 SHA-256，并在临时归档中加入当次自有验收标识文本，保留原游戏文件逐字节不变，避免合法的重复导入跳过流程。上传完成即清理该临时归档。游戏文件不进入仓库、镜像或结构化证据。
+- 上限：600 秒。执行：`RETROM_SCUMMVM_SKY_ARCHIVE=<absolute-public-game-archive> make acceptance-case CASE=ACC-SCUMMVM-001`。需要 `RETROM_ACCEPTANCE_BASE_URL/USERNAME/PASSWORD`、`RETROM_CHROME_EXECUTABLE`；缺失输入在启动浏览器前产生 `BLOCKED`。WSL 的 WebGL 验证可用 `xvfb-run -a env RETROM_ACCEPTANCE_HEADED=1 ...` 运行相同 Case。
+- 步骤：通过实际上传与 `SCUMMVM_PROJECT` 导入，打开审核页确认上游识别的明确候选，运行审核试玩并创建试玩原生存档，然后发布。在游戏页新建 Product Launch，验证左摇杆第一次拨动、A 确认与 Y 取消，创建原生存档并退出；从该存档建立不同 Launch，等待核心实际读档完成，再验证同一组输入。沉浸式从手柄激活、启动到共享菜单存档、退出、不同 Launch 恢复与继续输入重复闭环。
+- 按需加载：网络证据只允许所选 `libsky.so`，首次游戏内容必须出现 Range 分块请求；新 Launch 重新取得 index，但复用已读内容块。引擎插件固定属于同一 Provider Bundle，不能跨构建混用。
+- 通过：上述链路全部成功；真实画面非黑屏；静态游戏菜单在第一次摇杆操作后有像素变化，确认/取消分别改变可见状态；Save API 返回 201；恢复包为 `scummvm-save-bundle-v1` 且含有效大小和 SHA-256；两个 Launch ID 不同；没有页面异常或意外原生弹窗。不可用的 CAPTURE、失败的原生读档或超时均为 FAIL，不能退回导出旧数据冒充成功。
+- 证据：当次 `scummvm-product.json` 保存公开语料 SHA、浏览器版本、审核/游戏/存档/Launch 的非秘密 ID、原生包摘要、插件与缓存统计、普通和沉浸式各阶段 RGBA 摘要及截图。不能保存 cookie、capability、宿主语料路径或游戏字节。此 Case 证明 Sky 的代表性链路；不能将其推广为 105 个已构建引擎均经过游戏实测。其他引擎的延迟保存、退出最终写入和游戏内手动读档需分别记录实际验证结果。
+
 ### ACC-BUTTERSCOTCH-001：GameMaker 最小产品闭环
 
 - Fresh 前置：所选输入在当次隔离实例中尚未发布。同一内容已发布时，产品去重会正确跳过 Review，不能把空审核列表当成导入回归，也不得修改游戏 bytes、删除已发布游戏或重建共享 PFB 来规避去重；另用独立隔离验收实例执行本 Case，保留原实例的数据和已有失败证据。
