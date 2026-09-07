@@ -79,7 +79,11 @@ Provider 静态文件只从 `/runtime/providers/{providerId}/{bundleSha256}/{run
 
 Checkpoint 对 Host 是不透明字节。Target declaration 的 `writeFormat`、`readFormats[]` 和 `maxBytes` 是唯一格式规则。创建存档时，来源 Launch 必须属于同一 Profile/Game 且允许存档，格式必须位于 `readFormats`、大小和 SHA-256 必须闭合；Host 不解析 Provider payload。
 
-checkpoint 可选 `semantics` 声明恢复方式。省略或 `INSTANT` 表示直接恢复执行状态；`GAME_SAVE` 表示游戏原生存档，用户需要先在游戏中完成保存，导入后可能还需通过游戏菜单读档。Player 根据该公共声明展示提示，不按 Core、Target 或格式名称分支。GAME_SAVE 使用公共 availability revision 检测原生数据变化，按当前游玩会话暂存到浏览器，并在退出确认后提交。两种语义共用 Save API、完整性校验、授权与跨 Launch 恢复机制；Provider 必须在启动游戏前导入原生存档并支持读档后的继续输入。RMS 备份不构成即时快照能力，既有即时恢复回归仍保持原断言。
+checkpoint 可选 `semantics` 声明恢复方式。省略或 `INSTANT` 表示直接恢复执行状态；`GAME_SAVE` 表示游戏原生存档；运行时可显式创建新原生存档，也可要求用户在游戏中完成保存，导入后可能还需通过游戏菜单读档。Player 根据该公共声明展示提示，不按 Core、Target 或格式名称分支。GAME_SAVE 使用公共 availability revision 检测原生数据变化，按当前游玩会话暂存到浏览器，并在退出确认后提交。两种语义共用 Save API、完整性校验、授权与跨 Launch 恢复机制；Provider 必须在启动游戏前导入原生存档并支持读档后的继续输入。RMS 备份不构成即时快照能力，既有即时恢复回归仍保持原断言。
+
+GAME_SAVE 的 `availability.save` 可声明两个独立能力轴：`capture=RUNTIME/IN_GAME` 表示由运行时触发保存或由用户在游戏内保存，`restore=AUTOMATIC/IN_GAME` 表示支持指定槽位启动恢复或需要游戏内读档。`captureAvailable` 是当前能否创建新存档，与 `available`（是否存在尚未同步的原生数据）独立；尚无存档或内容已同步时仍可允许创建。`checkpoint({intent:"CAPTURE"})` 明确请求新原生保存；`checkpoint({intent:"EXPORT"})` 只导出已有文件，也是 GAME_SAVE 省略参数时的默认行为。后台同步必须使用 EXPORT。支持自动恢复的运行时也不能为无法确定槽位的文件包猜测槽位，此类包保留游戏内恢复路径。
+
+核心自行退出时，公共 `EXIT_REQUESTED` 可携带 `finalSnapshot={checkpoint,screenshot}`；核心必须先关闭实时 checkpoint，再等原生写流及引擎清理阶段完成，冻结最终文件后交付。截图允许为 `null`。Provider 校验相同 checkpoint 格式和大小上限并复制 payload，立即结束核心；Host 直接保留并持久化最终数据，不再调用已退出实例的 checkpoint 或截图。最终包不需要向已关闭实例确认；活动会话仍仅在 Host 持久化成功后确认精确 payload。原生数据内容相同的重复写入不得改变 revision。
 
 `save_states` 只绑定 Profile、Game、checkpoint format、payload、可选截图/DOS 路径/disc index 和来源 Launch，不冻结 Provider 版本或 Variant。恢复时使用游戏当前默认或显式 Core 的 READY Variant；只要当前 Target 的 `readFormats` 包含该格式即可恢复。Provider 升级应继续声明仍受支持的旧格式；删除已被存档引用的可读格式会被安装门禁拒绝。不存在为了恢复而加载旧 Provider 的路径。
 
