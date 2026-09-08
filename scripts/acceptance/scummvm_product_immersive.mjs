@@ -1,11 +1,13 @@
+import {connectVirtualStandardGamepad} from "./standard_gamepad.mjs";
 import assert from "node:assert/strict";
 import {expect} from "../../web/node_modules/@playwright/test/index.mjs";
 import {gamepad, readyScummvm, skyGamepadProof, skyScene} from "./scummvm_product_controls.mjs";
 
 async function activate(page) {
   await page.bringToFront();
-  await expect(page.locator('[data-immersive-shell="true"] time[datetime]')).toBeVisible();
+  await expect(page.locator('[data-immersive-shell="true"] > header > time[datetime]')).toBeVisible();
   await expect.poll(() => page.evaluate(() => document.hasFocus())).toBe(true);
+  await connectVirtualStandardGamepad(page);
   // Let the hydrated input source observe the released controller before its first press.
   await gamepad(page, {});
   await gamepad(page, {buttons: [0]});
@@ -54,6 +56,7 @@ export async function immersiveScummvm(context, gameId, directory) {
     const restoredLaunchId = await activate(page); assert.notEqual(restoredLaunchId, originalLaunchId);
     const config = await (await context.request.get(`/runtime/launches/${restoredLaunchId}/config`)).json();
     assert.equal(config.restore?.format, "scummvm-save-bundle-v1");
+    await connectVirtualStandardGamepad(page);
     const restoredInput = await skyGamepadProof(page, directory, "immersive-restored");
     await exit(page, await menu(page));
     return {originalLaunchId, restoredLaunchId, saveStateId: saved.saveStateId, input, restoredInput};
