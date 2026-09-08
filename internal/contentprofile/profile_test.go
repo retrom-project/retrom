@@ -52,9 +52,9 @@ func TestNewEmulatorJSTargetsExposeOnlySingleFileFormats(t *testing.T) {
 	t.Parallel()
 	tests := map[string][]string{
 		"zxspectrum":   {".tzx", ".tap", ".z80", ".rzx", ".scl", ".trd"},
-		"c64":          {".d64", ".d6z", ".d71", ".d7z", ".d80", ".d81", ".d82", ".d8z", ".g64", ".g6z", ".g41", ".g4z", ".x64", ".x6z", ".nib", ".nbz", ".d2m", ".d4m", ".t64", ".tap", ".tcrt", ".prg", ".p00", ".crt", ".bin", ".cmd", ".vfl", ".vsf", ".gz", ".20", ".40", ".60", ".a0", ".b0", ".rom"},
-		"c128":         {".d64", ".d6z", ".d71", ".d7z", ".d80", ".d81", ".d82", ".d8z", ".g64", ".g6z", ".g41", ".g4z", ".x64", ".x6z", ".nib", ".nbz", ".d2m", ".d4m", ".t64", ".tap", ".tcrt", ".prg", ".p00", ".crt", ".bin", ".cmd", ".vfl", ".vsf", ".gz", ".20", ".40", ".60", ".a0", ".b0", ".rom"},
-		"vic20":        {".d64", ".d6z", ".d71", ".d7z", ".d80", ".d81", ".d82", ".d8z", ".g64", ".g6z", ".g41", ".g4z", ".x64", ".x6z", ".nib", ".nbz", ".d2m", ".d4m", ".t64", ".tap", ".tcrt", ".prg", ".p00", ".crt", ".bin", ".cmd", ".vfl", ".vsf", ".gz", ".20", ".40", ".60", ".a0", ".b0", ".rom"},
+		"c64":          {".d64", ".d6z", ".d71", ".d7z", ".d80", ".d81", ".d82", ".d8z", ".g64", ".g6z", ".g41", ".g4z", ".x64", ".x6z", ".nib", ".nbz", ".d2m", ".d4m", ".t64", ".tap", ".tcrt", ".prg", ".p00", ".crt", ".bin", ".vsf", ".gz", ".20", ".40", ".60", ".a0", ".b0", ".rom"},
+		"c128":         {".d64", ".d6z", ".d71", ".d7z", ".d80", ".d81", ".d82", ".d8z", ".g64", ".g6z", ".g41", ".g4z", ".x64", ".x6z", ".nib", ".nbz", ".d2m", ".d4m", ".t64", ".tap", ".tcrt", ".prg", ".p00", ".crt", ".bin", ".vsf", ".gz", ".20", ".40", ".60", ".a0", ".b0", ".rom"},
+		"vic20":        {".d64", ".d6z", ".d71", ".d7z", ".d80", ".d81", ".d82", ".d8z", ".g64", ".g6z", ".g41", ".g4z", ".x64", ".x6z", ".nib", ".nbz", ".d2m", ".d4m", ".t64", ".tap", ".tcrt", ".prg", ".p00", ".crt", ".bin", ".vsf", ".gz", ".20", ".40", ".60", ".a0", ".b0", ".rom"},
 		"colecovision": {".col", ".cv", ".bin", ".rom"},
 		"atarijaguar":  {".j64", ".jag", ".rom", ".abs", ".cof", ".bin", ".prg"},
 		"doom":         {".wad", ".iwad"},
@@ -81,6 +81,12 @@ func TestNewEmulatorJSTargetsExposeOnlySingleFileFormats(t *testing.T) {
 	for _, rejected := range []struct{ platform, name string }{
 		{"zxspectrum", "playlist.m3u"},
 		{"c64", "playlist.m3u"},
+		{"c64", "command.cmd"},
+		{"c64", "disks.vfl"},
+		{"c128", "command.cmd"},
+		{"c128", "disks.vfl"},
+		{"vic20", "command.cmd"},
+		{"vic20", "disks.vfl"},
 		{"c128", "playlist.m3u"},
 		{"vic20", "playlist.m3u"},
 		{"doom", "mod.pwad"},
