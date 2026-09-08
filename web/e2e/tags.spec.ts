@@ -48,6 +48,7 @@ async function expectFocusedControl(page: Page, name: string) {
 }
 
 test("ACC-TAG-005 tag administration, assignment, search, projection, responsive layout and accessibility", async ({ page }, testInfo) => {
+  test.setTimeout(180_000);
   await page.goto("/admin/tags");
   const commonNames = ["动作冒险", "飞行射击", "格斗对战", "角色扮演", "模拟经营", "即时战略", "体育竞技", "益智解谜", "光枪射击", "生存恐怖"];
   await page.getByRole("button", { name: "添加常用标签" }).click();

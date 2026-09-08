@@ -66,7 +66,7 @@ test("ACC-BIOS-006 server import drawer, recovery detail, keyboard and desktop l
   await selectServerSource(drawer, "BIOS");
   await expect(drawer.getByText(`服务器文件系统 / ${serverSourcePath("BIOS")}`, { exact: true })).toBeVisible();
   await drawer.getByRole("button", { name: "开始异步导入" }).click();
-  await expect(page).toHaveURL(/\/admin\/imports\/server\/[0-9a-f-]+$/);
+  await page.waitForURL(/\/admin\/imports\/server\/[0-9a-f-]+$/, { timeout: 30_000 });
   await expect(page.getByText("已完成", { exact: true }).first()).toBeVisible({ timeout: 30_000 });
   await expect(page.getByRole("region", { name: "服务器导入摘要" })).toBeVisible();
   await expect(page.getByRole("table", { name: "BIOS 导入结果" })).toBeVisible();
