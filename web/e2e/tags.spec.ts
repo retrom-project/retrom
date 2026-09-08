@@ -1,3 +1,4 @@
+import { expectPhoneAdminNotice } from "./admin-phone-support";
 import { mkdirSync } from "node:fs";
 import path from "node:path";
 import { expect, test, type Page, type TestInfo } from "@playwright/test";
@@ -148,6 +149,13 @@ test("ACC-TAG-005 tag administration, assignment, search, projection, responsive
   for (const viewport of viewports) {
     await page.setViewportSize(viewport);
     await page.goto("/admin/tags");
+    if (viewport.width < 768) {
+      await expectPhoneAdminNotice(page);
+      await expect(page.getByRole("button", { name: "添加常用标签" })).toHaveCount(0);
+      await expectNoOverflow(page);
+      await page.screenshot({ path: evidencePath(testInfo, `tags-${viewport.label}.png`), fullPage: true });
+      continue;
+    }
     await expect(page.getByRole("heading", { name: "标签管理" })).toBeVisible();
     await expect(page.getByRole("rowheader", { name: renamedTagName }).or(page.getByRole("heading", { name: renamedTagName }))).toBeVisible();
     await expectNoOverflow(page);
