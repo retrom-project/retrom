@@ -3,8 +3,8 @@
 | 属性 | 内容 |
 | --- | --- |
 | 文档状态 | 已审定 / 一期实施基线 |
-| 版本 | 1.1 |
-| 日期 | 2026-08-08 |
+| 版本 | 1.2 |
+| 日期 | 2026-09-08 |
 | EmulatorJS 基线 | v4.2.3 |
 
 ## 1. 责任边界
@@ -77,7 +77,7 @@ MD5/CRC 只用于身份识别，不作为安全机制。
 
 ### 3.5 扩展核心
 
-EmulatorJS 4.2.3 manifest 另声明下列 12 个静态 Requirement；精确 size、MD5、SHA-1/SHA-256 与来源版本以 manifest 为机器事实源，不能从本文反向生成 seed。
+EmulatorJS 4.2.3 manifest 另声明下列 14 个静态 Requirement；精确 size、MD5、SHA-1/SHA-256 与来源版本以 manifest 为机器事实源，不能从本文反向生成 seed。
 
 | core | logical name | mode / condition | delivery |
 | --- | --- | --- | --- |
@@ -93,6 +93,8 @@ EmulatorJS 4.2.3 manifest 另声明下列 12 个静态 Requirement；精确 size
 | `opera` | `panafz10.bin` | `REQUIRED` | `BIOS_BUNDLE` |
 | `prosystem` | `7800 BIOS (U).rom` | `REQUIRED` | `BIOS_BUNDLE` |
 | `mednafen_pcfx` | `pcfx.rom` | `REQUIRED` | `BIOS_BUNDLE` |
+| `gearcoleco` | `colecovision.rom` | `REQUIRED` | `BIOS_BUNDLE` |
+| `prboom` | `prboom.wad` | `REQUIRED` | `BIOS_BUNDLE` |
 
 MelonDS 三项必须全部存在才能得到 READY。它们不进入根 BIOS bundle：Variant dependency snapshot 锁定 installation/version/blob/delivery/path，Launch 创建事务复制到 `launch_external_files`，配置只生成三个受 capability 保护的同源 URL。同一 Requirement 切换 active installation 是显式破坏性边界：事务撤销依赖旧 Installation 的 Launch/Play/Netplay，删除其运行 payload 与存档，再释放旧 Installation Blob；新 Launch 必须先以新 BIOS 重验为 READY Variant。外部文件不得在仍运行的 Launch 内静默漂移。
 

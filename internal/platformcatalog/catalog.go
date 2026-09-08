@@ -9,7 +9,7 @@ import (
 	"retrom/internal/contentprofile"
 )
 
-const Version = 11
+const Version = 12
 
 var ErrInvalid = errors.New("PLATFORM_CATALOG_INVALID")
 
@@ -125,6 +125,38 @@ var current = Catalog{Version: Version, Templates: []DirectoryTemplate{
 		Name: "PICO-8 游戏", CatalogOrder: 360,
 	},
 	{Key: "scummvm/scummvm", PlatformID: "scummvm", DefaultCoreID: "scummvm", Name: "ScummVM 游戏", CatalogOrder: 370},
+	{
+		Key: "zxspectrum/fuse", PlatformID: "zxspectrum", DefaultCoreID: "fuse",
+		Name: "ZX Spectrum 游戏", CatalogOrder: 380,
+	},
+	{
+		Key: "c64/vice_x64sc", PlatformID: "c64", DefaultCoreID: "vice_x64sc",
+		Name: "Commodore 64 游戏", CatalogOrder: 390,
+	},
+	{
+		Key: "colecovision/gearcoleco", PlatformID: "colecovision", DefaultCoreID: "gearcoleco",
+		Name: "ColecoVision 游戏", CatalogOrder: 400,
+	},
+	{
+		Key: "atarijaguar/virtualjaguar", PlatformID: "atarijaguar", DefaultCoreID: "virtualjaguar",
+		Name: "Atari Jaguar 游戏", CatalogOrder: 410,
+	},
+	{
+		Key: "doom/prboom", PlatformID: "doom", DefaultCoreID: "prboom",
+		Name: "Doom 游戏", CatalogOrder: 420,
+	},
+	{
+		Key: "c128/vice_x128", PlatformID: "c128", DefaultCoreID: "vice_x128",
+		Name: "Commodore 128 游戏", CatalogOrder: 430,
+	},
+	{
+		Key: "vic20/vice_xvic", PlatformID: "vic20", DefaultCoreID: "vice_xvic",
+		Name: "Commodore VIC-20 游戏", CatalogOrder: 440,
+	},
+	{
+		Key: "amiga/puae", PlatformID: "amiga", DefaultCoreID: "puae",
+		Name: "Commodore Amiga 游戏", CatalogOrder: 450,
+	},
 }}
 
 func Current() Catalog {
