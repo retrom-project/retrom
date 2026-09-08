@@ -37,11 +37,23 @@ export type RuntimeCheckpointV1 = {
   bytes: Uint8Array;
   metadata: Record<string, unknown> | null;
 };
+export type RuntimeCheckpointRequestV1 = {
+  /** GAME_SAVE defaults to EXPORT. CAPTURE explicitly requests a new native save. */
+  intent: "CAPTURE" | "EXPORT";
+};
+export type RuntimeNativeSaveCapabilitiesV1 = {
+  capture: "RUNTIME" | "IN_GAME";
+  restore: "AUTOMATIC" | "IN_GAME";
+  captureAvailable: boolean;
+};
+export type RuntimeFinalSnapshotV1 = {checkpoint: RuntimeCheckpointV1; screenshot: Blob | null};
 export type RuntimeCheckpointAvailabilityV1 = {
   available: boolean;
   reason: string | null;
   /** Stable identity of unsynchronized native save content; never changes for identical writes. */
   revision?: string;
+  /** GAME_SAVE only; independent from whether unsynchronized files are available to export. */
+  save?: RuntimeNativeSaveCapabilitiesV1;
 };
 export type RuntimeDiscStateV1 = { count: number; currentIndex: number; labels: string[] };
 export type RuntimeInputFilterPolicyV1 = { activeGamepadIndex: number | null; suppressInput: boolean };
@@ -51,7 +63,8 @@ export type RuntimeEventV1 =
   | { type: "LOAD_PROGRESS"; loadedBytes: number; totalBytes: number | null }
   | { type: "CHECKPOINT_AVAILABILITY_CHANGED"; availability: RuntimeCheckpointAvailabilityV1 }
   | { type: "DISC_CHANGED"; state: RuntimeDiscStateV1 }
-  | { type: "EXIT_REQUESTED" }
+  /** Live runtime is closing; final files remain usable after exit without another checkpoint call. */
+  | { type: "EXIT_REQUESTED"; finalSnapshot?: RuntimeFinalSnapshotV1 }
   | { type: "FATAL_ERROR"; code: string }
   | { type: "DIAGNOSTIC"; code: string; message: string };
 
@@ -72,7 +85,7 @@ export interface PlayerRuntimeV1 {
   mount(target: HTMLElement): Promise<void>;
   pause(): Promise<void>;
   resume(): Promise<void>;
-  checkpoint(): Promise<RuntimeCheckpointV1>;
+  checkpoint(request?: RuntimeCheckpointRequestV1): Promise<RuntimeCheckpointV1>;
   /** GAME_SAVE: acknowledge this exact payload only after durable Host persistence succeeds. */
   acknowledgeCheckpoint?(checkpoint: RuntimeCheckpointV1): Promise<void>;
   screenshot(): Promise<Blob>;

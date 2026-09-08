@@ -14,7 +14,7 @@ import {useSerializedPlayerBootstrap} from "./player-bootstrap-lifecycle";
 import {productCheckpointPresentation} from "./player-checkpoint-availability";
 import type {PlayerDebugRuntime} from "./player-chrome";
 import type {PlayerLoadProgress} from "./player-loading";
-import type {LaunchEnvelopeV1, PlayerRuntimeV1, RuntimeDiscStateV1, RuntimeEventV1, RuntimeVideoModeV1} from "./runtime/contract";
+import type {LaunchEnvelopeV1, PlayerRuntimeV1, RuntimeDiscStateV1, RuntimeEventV1, RuntimeFinalSnapshotV1, RuntimeVideoModeV1} from "./runtime/contract";
 import {parseLaunchEnvelopeJSON} from "./runtime/envelope";
 import {RuntimeNetplayPortAdapter} from "./runtime/netplay-port-adapter";
 import {mountProviderRuntime, type RuntimeController} from "./runtime/runtime-controller";
@@ -74,7 +74,7 @@ export type PlayerBootstrapParams = {
   onRevealControls: (clientY: number) => void;
   onShowControls: () => void;
   onGameSurface: () => void;
-  onExitRequested: () => void;
+  onExitRequested: (snapshot?: RuntimeFinalSnapshotV1) => void;
   sendEvent: (kind: "start" | "heartbeat" | "finish") => Promise<void>;
 };
 

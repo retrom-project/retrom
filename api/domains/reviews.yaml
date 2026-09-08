@@ -537,6 +537,10 @@ components:
           format: uuid
         metadata:
           $ref: ../components/common.yaml#/components/schemas/MetadataFields
+        scummvmCandidateId:
+          type: string
+          pattern: ^[0-9a-f]{64}$
+          description: Selects one runnable upstream ScummVM candidate from the current immutable source; requires the ordinary review version precondition.
         selectedValidationId:
           type: string
           format: uuid

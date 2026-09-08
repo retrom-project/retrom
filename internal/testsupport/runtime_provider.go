@@ -310,7 +310,7 @@ func fixtureInputs(binding runtimecatalog.Binding) []map[string]any {
 		gameKind = "NATIVE_WEB"
 	case "tyranoscript":
 		gameKind = "ISOLATED_WEB"
-	case "onscripter-yuri", "kirikiri2-kag", "rpgmaker-2000", "rpgmaker-2003":
+	case "scummvm", "onscripter-yuri", "kirikiri2-kag", "rpgmaker-2000", "rpgmaker-2003":
 		gameKind = "FILE_TREE"
 	case "rpgmaker-mv", "rpgmaker-mz":
 		gameKind = "NATIVE_WEB"
@@ -340,6 +340,16 @@ func fixtureTargetOptionsSchema(binding runtimecatalog.Binding) map[string]any {
 		return property(map[string]any{"scriptEncoding": map[string]any{
 			"type": "string", "enum": []any{"gbk", "sjis", "utf8"},
 		}}, "scriptEncoding")
+	case runtimecatalog.OptionsScummVM:
+		properties := map[string]any{}
+		keys := []string{"engineId", "extra", "filename", "gameId", "guiOptions", "language", "platform", "root"}
+		for _, key := range keys {
+			properties[key] = map[string]any{"type": "string", "maxLength": int64(4096)}
+		}
+		properties["filename"] = map[string]any{
+			"type": []any{"string", "null"}, "maxLength": int64(240), "format": "safe-path",
+		}
+		return property(properties, keys...)
 	case runtimecatalog.OptionsKiriKiri:
 		return property(map[string]any{"startupXp3Path": map[string]any{
 			"type": []any{"string", "null"}, "format": "safe-path", "maxLength": int64(240),

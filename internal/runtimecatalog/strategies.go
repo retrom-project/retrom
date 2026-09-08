@@ -9,6 +9,7 @@ type HostStrategy struct {
 }
 
 const (
+	OptionsScummVM  = "SCUMMVM_SELECTION"
 	OptionsNone     = "NONE"
 	OptionsEmulator = "EMULATOR_CONTENT"
 	OptionsONS      = "ONS_SCRIPT"
@@ -16,6 +17,7 @@ const (
 )
 
 var hostStrategies = map[string]HostStrategy{
+	"SCUMMVM_PROJECT":         {"FILE_TREE_PROJECT", OptionsScummVM, []string{"SCUMMVM_PROJECT"}},
 	"EMULATORJS_SINGLE_FILE":  {"EMULATORJS_CONTENT", OptionsEmulator, []string{"SINGLE_FILE"}},
 	"EMULATORJS_DISC_CONTENT": {"EMULATORJS_CONTENT", OptionsEmulator, []string{"MULTI_DISC", "SINGLE_FILE"}},
 	"ARCADE_ROM_SET":          {"EMULATORJS_CONTENT", OptionsEmulator, []string{"SINGLE_FILE"}},

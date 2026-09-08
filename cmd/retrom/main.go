@@ -33,6 +33,7 @@ import (
 	"retrom/internal/processlock"
 	retromruntime "retrom/internal/runtime"
 	"retrom/internal/runtimeprovider"
+	"retrom/internal/scummvm"
 	"retrom/internal/store"
 )
 
@@ -290,7 +291,7 @@ func run(mode config.Mode) error {
 	defer cancelCatalogs()
 	apiServer := httpapi.New(
 		configuration, resources.database.SQL, resources.dependencies, resources.blobs,
-		resources.credentials, accountService, accountService, time.Now,
+		resources.credentials, accountService, accountService, time.Now, resources.scummVMDetector,
 	).WithReadinessDatabase(resources.database.ReadOnly).WithNetplay(netplayService)
 	apiServer.WithRuntimeProvider(
 		resources.runtimeProviders.Catalog,
@@ -325,6 +326,7 @@ type serverResources struct {
 	netplayRegistry    *netplay.Registry
 	netplayCredentials *netplay.Credentials
 	runtimeProviders   runtimeprovider.Installation
+	scummVMDetector    *scummvm.Detector
 }
 
 func (resources *serverResources) close() {
@@ -371,6 +373,12 @@ func bootstrapServerResources(
 	}
 	if err := validateRuntimeProviderSource(configuration, result.runtimeProviders); err != nil {
 		return result, fmt.Errorf("verify runtime provider installation: %w", err)
+	}
+	result.scummVMDetector, err = result.runtimeProviders.ScummVMDetector(
+		filepath.Join(configuration.DataDir, "runtime-tools", "scummvm"),
+	)
+	if err != nil && !errors.Is(err, runtimeprovider.ErrScummVMNotInstalled) {
+		return result, fmt.Errorf("prepare ScummVM detector: %w", err)
 	}
 	if err := openAndBootstrapDatabase(ctx, configuration, &result); err != nil {
 		return result, err

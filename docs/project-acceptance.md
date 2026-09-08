@@ -1910,6 +1910,26 @@ Review 与普通预览会话。`negative-matrix/matrix.json` 必须精确声明 
 - 能力边界：即时存档是 KAG `saveBookMark/loadBookMark` 的语义存档，保存 `/save` 与 `/savedata` 的确定性文件集合，不是任意 KiriKiri/TJS 游戏的 Wasm 内存快照。无法找到 KAG API、首个可保存标签或唯一启动 XP3 时必须 fail closed，不能生成看似成功但不可恢复的存档。加密来源归档无法在不接收密码的情况下进入安全扫描，服务端以 `ARCHIVE_ENCRYPTED_UNSUPPORTED` 拒绝，验收将该操作者输入记为 `BLOCKED`，不能误记为 core 运行失败；操作者可在仓库外解密后提供新的合法归档。
 - 证据：当次 `result.json`、`kirikiri-product.json`、六张 canvas PNG 与一张沉浸退出菜单 PNG。结构化证据只含非秘密产品 ID、菜单动作、payload kind/size、canvas 尺寸/居中/焦点、非黑像素、RGBA digest、按需加载计数/byte与错误计数，不含归档路径、文件名、游戏 bytes、账号、CSRF、cookie或 Launch capability。本地 `retrom-runtime` 候选 PASS 只允许进入 runtime Release 流程；Release 完成后 Retrom 必须解除本地链接、固定 tag/commit/assets并重跑本 Case。
 
+### ACC-SCUMMVM-001：ScummVM 原生存档与手柄产品闭环
+
+- 输入：ScummVM 官网发布的 `BASS-Floppy-1.3.zip`，通过 `RETROM_SCUMMVM_SKY_ARCHIVE` 指定已有归档；driver 校验其完整 SHA-256，并在临时归档中加入当次自有验收标识文本，保留原游戏文件逐字节不变，避免合法的重复导入跳过流程。上传完成即清理该临时归档。游戏文件不进入仓库、镜像或结构化证据。
+- 上限：600 秒。执行：`RETROM_SCUMMVM_SKY_ARCHIVE=<absolute-public-game-archive> make acceptance-case CASE=ACC-SCUMMVM-001`。需要 `RETROM_ACCEPTANCE_BASE_URL/USERNAME/PASSWORD`、`RETROM_CHROME_EXECUTABLE`；缺失输入在启动浏览器前产生 `BLOCKED`。WSL 的 WebGL 验证可用 `xvfb-run -a env RETROM_ACCEPTANCE_HEADED=1 ...` 运行相同 Case。
+- 步骤：通过实际上传与 `SCUMMVM_PROJECT` 导入，打开审核页确认上游识别的明确候选，运行审核试玩并创建试玩原生存档，然后发布。在游戏页新建 Product Launch，验证左摇杆第一次拨动、A 确认与 Y 取消，创建原生存档并退出；从该存档建立不同 Launch，等待核心实际读档完成，再验证同一组输入。沉浸式从手柄激活、启动到共享菜单存档、退出、不同 Launch 恢复与继续输入重复闭环。
+- 按需加载：网络证据只允许所选 `libsky.so`，首次游戏内容必须出现 Range 分块请求；新 Launch 重新取得 index，但复用已读内容块。引擎插件固定属于同一 Provider Bundle，不能跨构建混用。
+- 尺寸与截图：普通 Product Launch 暂停后依次切换 `1920×1080`、`900×600`、`1440×1000` 视口。每次都保持 `PAUSED`，WebGL 绘制区域必须与 canvas backing 尺寸一致；浏览器呈现后读取的原始 canvas PNG 必须有超过 20% 的有效像素，左右边距差小于画布宽度的 5%，上下边距差小于高度的六分之一。随后通过创建存档提交，实际下载的存档截图也须满足同一像素和居中断言，不能只检查文件非空。
+- 通过：上述链路全部成功；真实画面非黑屏；静态游戏菜单在第一次摇杆操作后有像素变化，确认/取消分别改变可见状态；Save API 返回 201；恢复包为 `scummvm-save-bundle-v1` 且含有效大小和 SHA-256；两个 Launch ID 不同；没有页面异常或意外原生弹窗。不可用的 CAPTURE、失败的原生读档或超时均为 FAIL，不能退回导出旧数据冒充成功。
+- 证据：当次 `scummvm-product.json` 保存公开语料 SHA、浏览器版本、审核/游戏/存档/Launch 的非秘密 ID、原生包摘要、插件与缓存统计、普通和沉浸式各阶段 RGBA 摘要及截图。不能保存 cookie、capability、宿主语料路径或游戏字节。此 Case 证明 Sky 的代表性链路；不能将其推广为 105 个已构建引擎均经过游戏实测。其他引擎的延迟保存、退出最终写入和游戏内手动读档需分别记录实际验证结果。
+- 手柄时序回归：首次启动时设备尚未暴露，游戏运行后才发送浏览器连接事件；仅用 Y 跳过开场，再验证左摇杆、A、Y。普通 Product Launch 额外断开重连并重复输入验证，新 Launch 恢复后重新验证设备发现。
+
+### ACC-SCUMMVM-002：ScummVM 延迟保存、原生退出与手动读档
+
+- 输入：官网公开试玩版 `comi-win-small-demo-en.zip`（SCUMM）与 `BASS-Floppy-1.3.zip`（Sky）；分别通过 `RETROM_SCUMMVM_COMI_ARCHIVE` 和 `RETROM_SCUMMVM_SKY_ARCHIVE` 指定已有归档。driver 锁定完整 SHA-256，复用 ACC-SCUMMVM-001 的临时自有标识归档规则，不修改或提交原游戏文件。
+- 上限：600 秒。执行：`make acceptance-case CASE=ACC-SCUMMVM-002`；公共地址、账号、浏览器和 headed/WSL 前置与 ACC-SCUMMVM-001 相同。缺少输入必须先报告 `BLOCKED`。
+- SCUMM 流程：真实导入并在审核试玩中等待可保存场景，发起原生保存，关闭后通过审核页建立不同试玩会话自动恢复；发布后再走 Product Launch 创建原生存档和不同 Launch 恢复。SCUMM 的保存请求由后续引擎循环完成，Save API 必须在完整文件可读后返回 201；恢复时等待准确 slot 的原生读档完成。通过静态原生菜单验证首次左摇杆、A 确认和 Y 取消，网络只能请求选定的 `libscumm.so`。
+- Sky 流程：新导入并发布，完全通过游戏自带菜单输入名称和保存；随后使用游戏自带 Quit 结束核心，Retrom 显示“游戏已结束”并禁用主动创建存档，仍能将最后冻结的文件集合提交为独立存档。不同 Product Launch 恢复后，通过游戏菜单选择并读取该存档，再验证左摇杆、A 和 Y。
+- 通过：两条完整链路均成功，无页面异常或意外原生弹窗；恢复前后的 Launch ID 不同，文件集合与下载包 SHA-256/长度相符；SCUMM 包含准确非空 slot，Sky 的游戏内保存集合保持 `resumeSlot: null` 且保留数据和描述文件，不能猜测最新 slot。Sky 的结束后提交只能导出最终数据，不能重新调用已结束的引擎创建存档。原生菜单确认/取消和手动读档均有可见画面变化，恢复后输入有效。
+- 证据：当次 `scummvm-product.json`、各阶段画面与 RGBA 摘要，包含公开来源 SHA、非秘密审核/游戏/存档/Launch ID、保存耗时、恢复模式、文件数、包摘要与插件响应数。验收可读取自己的恢复包作断言，但不存储其中游戏数据、文件内容、cookie、capability 或宿主来源路径。此 Case 覆盖固定 SCUMM/Sky 样本，不承诺其他引擎与全部版本相同。
+
 ### ACC-BUTTERSCOTCH-001：GameMaker 最小产品闭环
 
 - Fresh 前置：所选输入在当次隔离实例中尚未发布。同一内容已发布时，产品去重会正确跳过 Review，不能把空审核列表当成导入回归，也不得修改游戏 bytes、删除已发布游戏或重建共享 PFB 来规避去重；另用独立隔离验收实例执行本 Case，保留原实例的数据和已有失败证据。
