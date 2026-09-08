@@ -55,7 +55,7 @@ Launch options 按声明绑定的明确接入策略一次组装，再接受 Prov
 
 Go 在签发前验证 envelope 和 Target options；dispatcher 验证 JSON 边界、模块 URL、模块摘要、Provider 身份与 API 版本，然后只调用 `createRuntime(envelope, host)`。Provider 创建入口按自身声明验证外部 Envelope 与 Host，直接构造核心私有的最小类型参数，不再提供单独预检，也不在内部重复验证相同 Envelope 或转换后的通用 config。下载文件、解码 checkpoint、跨 origin 消息仍在各自信任边界校验；任一身份、摘要、schema、资源或能力不一致都 fail closed。
 
-Provider 是核心生命周期的唯一所有者，不包装第二个 controller。公开状态为 `CREATED/MOUNTING/RUNNING/PAUSED/CHECKPOINTING/EXITING/EXITED/FAILED`；暂停、恢复、checkpoint 和控制操作共用一个队列，退出可抢占排队及进行中的操作。启动在 restore、frame 和 core 等异步边界后检查取消，晚到的核心只清理、不重新进入 RUNNING。核心主动退出只发出一次公共退出事件；失败保持 FAILED 终态，退出清理幂等。Host 继续独立负责页面导航、iframe 与授权会话，不承担核心内部状态转换。
+Provider 是核心生命周期的唯一所有者，不包装第二个 controller。公开状态为 `CREATED/MOUNTING/RUNNING/PAUSED/CHECKPOINTING/EXITING/EXITED/FAILED`；暂停、恢复、checkpoint 和控制操作共用一个队列，退出可抢占排队及进行中的操作。启动在 restore、frame 和 core 等异步边界后检查取消，晚到的核心只清理、不重新进入 RUNNING。Provider 若能观察并上报核心主动退出，只发出一次公共退出事件；失败保持 FAILED 终态，退出清理幂等。Host 继续独立负责页面导航、iframe 与授权会话，不承担核心内部状态转换。
 
 ## 4. Provider dispatcher 与渲染隔离
 
@@ -71,7 +71,7 @@ Player Host 只消费 `PlayerRuntimeV1` 的标准能力和事件，不按 Provid
 
 Provider 静态文件只从 `/runtime/providers/{providerId}/{bundleSha256}/{runtimePath}` 提供，并同时受 closed allowlist、大小和 SHA-256 约束。游戏、BIOS、parent、多盘、项目文件、运行包和 cart 不属于 Provider Bundle，通过 envelope resources 授权；Provider 不得根据扩展名、标题或 Core 名称猜测输入。
 
-`retrom-runtime` 的 Target 覆盖 EasyRPG、mkxp、MV/MZ、ONS、KiriKiri、Butterscotch、TyranoScript、Java ME 与 WASM-4。项目可使用 file tree、seekable blob、native web 或 isolated web 资源。MV/MZ bridge 保留 Canvas2D 对非法 `textAlign` 赋值“忽略并保持原值”的浏览器语义；Butterscotch 保留真实 `640×480` backing buffer，但显示尺寸始终按容器等比放大；KiriKiri 在 core `postRun` 后进入可玩状态，checkpoint availability 独立等待书签 API 就绪，其精确的脚本退出 Wasm trap 会转换为一次 `EXIT_REQUESTED`；非匹配 trap 不会被吞掉。所有 Provider 都必须在游戏自身退出时发出标准退出事件，使整个 Player 页面同步关闭。
+`retrom-runtime` 的 Target 覆盖 EasyRPG、mkxp、MV/MZ、ONS、KiriKiri、Butterscotch、TyranoScript、Java ME 与 WASM-4。项目可使用 file tree、seekable blob、native web 或 isolated web 资源。MV/MZ bridge 保留 Canvas2D 对非法 `textAlign` 赋值“忽略并保持原值”的浏览器语义；Butterscotch 保留真实 `640×480` backing buffer，但显示尺寸始终按容器等比放大；KiriKiri 在 core `postRun` 后进入可玩状态，checkpoint availability 独立等待书签 API 就绪，其精确的脚本退出 Wasm trap 会转换为一次 `EXIT_REQUESTED`；非匹配 trap 不会被吞掉。`EXIT_REQUESTED` 是可选生命周期事件，不构成 Provider/Target 准入条件；能够可靠观察游戏自身退出的 Provider 可以发出该事件，使 Player 页面同步关闭，其他会话由 Host 调用 `exit()` 结束。
 
 独立 origin 的项目按 Launch 使用不同 Host。一次性 bootstrap ticket 和 HttpOnly capability 只授权当前 Launch 的封闭资源；项目脚本不能取得应用 Cookie、普通 API 或其他 Launch 内容。cleanup 撤销 capability、过期 Cookie 并清理对应存储。
 
@@ -173,3 +173,13 @@ Provider 使用 `scummvm-save-bundle-v1`（`GAME_SAVE`，上限 64 MiB），原�
 未选择存档的新 Launch 使用空保存目录。当前不声明 ScummVM 即时内存快照、联机或回滚能力。
 
 代表性产品验收见 [ACC-SCUMMVM-001](./project-acceptance.md#acc-scummvm-001scummvm-原生存档与手柄产品闭环) 与 [ACC-SCUMMVM-002](./project-acceptance.md#acc-scummvm-002scummvm-延迟保存原生退出与手动读档)。构建成功或能力标志不等于全部游戏经过实测。
+
+## Fantasy console Provider targets
+
+`retrom-runtime/tic80` 的 checkpoint 为 `tic80-pmem-v1`，上限 1100 bytes（76-byte 身份/完整性头 + 1024-byte pmem），声明 `GAME_SAVE`。
+核心在首帧/BOOT 前导入 pmem；Player 复用原生数据暂存和“存档并退出”流程，只在原生数据变化后生成 revision，上传确认只确认对应快照，不覆盖较新的数据。
+`retrom-runtime/fake08` 使用 `fake08-state-v1`，上限 4,194,380 bytes，声明 `INSTANT`。
+状态含 Lua 执行环境、RAM、音频、帧计数、按键重复状态与 cartdata 文件；核心暂停菜单不允许创建状态。
+两者均为单线程、同源空 iframe、单人标准手柄/键盘方向与动作输入，提供暂停、截图和音量。
+各 Launch 创建独立 WASM heap；退出或取消加载移除帧循环、输入监听及音频节点，不选存档启动不会读取旧游戏状态。
+具体产品通过标准与证据入口只在 [核心验收 Case](./project-acceptance.md#acc-tic-001tic-80-原生数据与真实产品链) 维护。
