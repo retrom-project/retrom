@@ -13,6 +13,8 @@ export async function manualScummvm(context, client, archive, directory) {
   await page.waitForURL(/\/play\//u); await readyScummvm(page); await skyScene(page);
   const originalLaunchId = new URL(page.url()).pathname.split("/").at(-1);
   await gamepad(page, {buttons: [2]}); await pointSky(page, 130, 56); await gamepad(page, {buttons: [0]});
+  // Switching from a controller to text entry requires a real click into the canvas.
+  const entry = await pointSky(page, 130, 20); await page.mouse.click(entry.x, entry.y);
   await page.keyboard.type("Manual save", {delay: 100});
   const entered = await scummvmFrame(page, directory, "manual-entered");
   await pointSky(page, 60, 156); await gamepad(page, {buttons: [0]});
@@ -51,7 +53,9 @@ export async function manualScummvm(context, client, archive, directory) {
 async function pointSky(page, x, y) {
   const bounds = await page.frameLocator("iframe").locator("canvas").boundingBox();
   const scale = Math.min(bounds.width / 320, bounds.height / 240);
-  await page.mouse.move(bounds.x + bounds.width / 2 + (x - 160) * scale,
-    bounds.y + bounds.height / 2 + (y - 100) * scale * 1.2);
+  const point = {x: bounds.x + bounds.width / 2 + (x - 160) * scale,
+    y: bounds.y + bounds.height / 2 + (y - 100) * scale * 1.2};
+  await page.mouse.move(point.x, point.y);
   await page.waitForTimeout(250);
+  return point;
 }
