@@ -12,7 +12,7 @@ import (
 	"retrom/internal/runtimecatalog"
 )
 
-func TestInstalledCandidateBuildsDeterministicEnvelopeForAll47Bindings(t *testing.T) {
+func TestInstalledCandidateBuildsDeterministicEnvelopeForAll56Bindings(t *testing.T) {
 	root := os.Getenv("RETROM_PROVIDER_TEST_ROOT")
 	if root == "" {
 		t.Skip("RETROM_PROVIDER_TEST_ROOT is required for the cross-repository candidate matrix")
@@ -38,7 +38,7 @@ func TestInstalledCandidateBuildsDeterministicEnvelopeForAll47Bindings(t *testin
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(catalog.Bindings) != 47 {
+	if len(catalog.Bindings) != 56 {
 		t.Fatalf("binding count = %d", len(catalog.Bindings))
 	}
 
@@ -93,7 +93,8 @@ func assertCandidateBinding(
 	target := findManifestTarget(t, manifests[binding.ProviderID], binding.TargetID)
 	input := Input{Binding: binding, Session: Session{
 		ID: "018f0f31-26fe-7a31-9d61-4ec92f16d4c3", Purpose: "PRODUCT", Mode: "SINGLE",
-		Title: target.DisplayName, PlatformName: binding.PlatformIDs[0], ReturnTo: "/games/fixture",
+		Title: target.DisplayName, PlatformName: binding.PlatformIDs[0], CoreName: binding.CoreID,
+		ReturnTo: "/games/fixture",
 	}, Resources: resourcesForTarget(target), TargetOptions: optionsForTarget(target.TargetOptionsSchema)}
 	first, err := builder.Build(input)
 	if err != nil {
