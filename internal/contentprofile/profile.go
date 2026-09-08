@@ -77,6 +77,17 @@ var registry = map[string]Profile{
 	"nintendo3ds":  raw("nintendo3ds", ".3ds", ".cci"),
 	"j2me":         raw("j2me", ".jar"),
 	"wasm4":        single("wasm4", ".wasm"),
+	"zxspectrum":   single("zxspectrum", ".tzx", ".tap", ".z80", ".rzx", ".scl", ".trd"),
+	"c64":          single("c64", viceSingleFileExtensions...),
+	"c128":         single("c128", viceSingleFileExtensions...),
+	"vic20":        single("vic20", viceSingleFileExtensions...),
+	"colecovision": single("colecovision", ".col", ".cv", ".bin", ".rom"),
+	"atarijaguar":  single("atarijaguar", ".j64", ".jag", ".rom", ".abs", ".cof", ".bin", ".prg"),
+	"doom":         single("doom", ".wad", ".iwad"),
+	"amiga": single(
+		"amiga", ".adf", ".adz", ".dms", ".fdi", ".ipf", ".raw",
+		".hdf", ".hdz", ".lha", ".chd", ".nrg", ".iso",
+	),
 
 	"rpgmaker":     project("rpgmaker", ContentKindRPGMakerProject),
 	"ons":          project("ons", ContentKindONSProject),
@@ -84,6 +95,13 @@ var registry = map[string]Profile{
 	"butterscotch": project("butterscotch", ContentKindButterscotchProject),
 	"tyranoscript": project("tyranoscript", ContentKindTyranoScriptProject,
 		ArchiveNWJSExecutable, ArchiveElectronASAR),
+}
+
+var viceSingleFileExtensions = []string{
+	".d64", ".d6z", ".d71", ".d7z", ".d80", ".d81", ".d82", ".d8z",
+	".g64", ".g6z", ".g41", ".g4z", ".x64", ".x6z", ".nib", ".nbz",
+	".d2m", ".d4m", ".t64", ".tap", ".tcrt", ".prg", ".p00", ".crt",
+	".bin", ".cmd", ".vfl", ".vsf", ".gz", ".20", ".40", ".60", ".a0", ".b0", ".rom",
 }
 
 var specialPlatformExtensions = map[string][]string{

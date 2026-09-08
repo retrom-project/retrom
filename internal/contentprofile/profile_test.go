@@ -20,6 +20,14 @@ func TestProfilesAcceptExactCaseInsensitiveExtensions(t *testing.T) {
 		"psp": {"game.iso", "game.CSO"}, "virtualboy": {"game.vb"},
 		"wonderswan": {"game.ws", "game.WSC"}, "mastersystem": {"game.sms"},
 		"j2me": {"game.jar", "game.JAR"}, "nintendo3ds": {"game.3ds", "game.CCI"}, "wasm4": {"game.wasm", "game.WASM"},
+		"zxspectrum":   {"game.tzx", "game.TAP", "game.z80", "game.rzx", "game.scl", "game.trd"},
+		"c64":          {"game.d64", "game.PRG", "game.crt", "game.vsf"},
+		"c128":         {"game.d71", "game.D64", "game.prg", "game.vsf"},
+		"vic20":        {"game.prg", "game.D64", "game.tap", "game.crt"},
+		"colecovision": {"game.col", "game.CV", "game.bin", "game.rom"},
+		"atarijaguar":  {"game.j64", "game.JAG", "game.abs", "game.cof", "game.bin", "game.prg"},
+		"doom":         {"game.wad", "game.IWAD"},
+		"amiga":        {"game.adf", "game.ADZ", "game.dms", "game.ipf", "game.hdf", "game.lha", "game.chd", "game.iso"},
 	}
 	for platformID, names := range tests {
 		for _, name := range names {
@@ -37,6 +45,56 @@ func TestProfilesAcceptExactCaseInsensitiveExtensions(t *testing.T) {
 		{"unknown", "game.gba"},
 	} {
 		testassert.CheckFalsef(t, AcceptsRaw(rejected.platform, rejected.name), "AcceptsRaw(%q, %q) = true", rejected.platform, rejected.name)
+	}
+}
+
+func TestNewEmulatorJSTargetsExposeOnlySingleFileFormats(t *testing.T) {
+	t.Parallel()
+	tests := map[string][]string{
+		"zxspectrum":   {".tzx", ".tap", ".z80", ".rzx", ".scl", ".trd"},
+		"c64":          {".d64", ".d6z", ".d71", ".d7z", ".d80", ".d81", ".d82", ".d8z", ".g64", ".g6z", ".g41", ".g4z", ".x64", ".x6z", ".nib", ".nbz", ".d2m", ".d4m", ".t64", ".tap", ".tcrt", ".prg", ".p00", ".crt", ".bin", ".cmd", ".vfl", ".vsf", ".gz", ".20", ".40", ".60", ".a0", ".b0", ".rom"},
+		"c128":         {".d64", ".d6z", ".d71", ".d7z", ".d80", ".d81", ".d82", ".d8z", ".g64", ".g6z", ".g41", ".g4z", ".x64", ".x6z", ".nib", ".nbz", ".d2m", ".d4m", ".t64", ".tap", ".tcrt", ".prg", ".p00", ".crt", ".bin", ".cmd", ".vfl", ".vsf", ".gz", ".20", ".40", ".60", ".a0", ".b0", ".rom"},
+		"vic20":        {".d64", ".d6z", ".d71", ".d7z", ".d80", ".d81", ".d82", ".d8z", ".g64", ".g6z", ".g41", ".g4z", ".x64", ".x6z", ".nib", ".nbz", ".d2m", ".d4m", ".t64", ".tap", ".tcrt", ".prg", ".p00", ".crt", ".bin", ".cmd", ".vfl", ".vsf", ".gz", ".20", ".40", ".60", ".a0", ".b0", ".rom"},
+		"colecovision": {".col", ".cv", ".bin", ".rom"},
+		"atarijaguar":  {".j64", ".jag", ".rom", ".abs", ".cof", ".bin", ".prg"},
+		"doom":         {".wad", ".iwad"},
+		"amiga":        {".adf", ".adz", ".dms", ".fdi", ".ipf", ".raw", ".hdf", ".hdz", ".lha", ".chd", ".nrg", ".iso"},
+	}
+	for platformID, want := range tests {
+		got := SupportedExtensions(platformID)
+		if len(got) != len(want) {
+			t.Fatalf("SupportedExtensions(%q) = %#v, want %#v", platformID, got, want)
+		}
+		for index := range want {
+			if got[index] != want[index] {
+				t.Fatalf("SupportedExtensions(%q) = %#v, want %#v", platformID, got, want)
+			}
+		}
+		profile, ok := ByPlatform(platformID)
+		if !ok || profile.ArchivePolicy != ArchiveSinglePrimary || !AcceptsArchive(platformID, ArchiveZIP) || !AcceptsArchive(platformID, ArchiveSevenZip) {
+			t.Fatalf("single-file profile %q = %#v", platformID, profile)
+		}
+		if !AllowsContentKind(platformID, ContentKindSingleFile) || AllowsContentKind(platformID, ContentKindMultiDisc) {
+			t.Fatalf("platform %q has wrong content kinds %#v", platformID, profile.ContentKinds)
+		}
+	}
+	for _, rejected := range []struct{ platform, name string }{
+		{"zxspectrum", "playlist.m3u"},
+		{"c64", "playlist.m3u"},
+		{"c128", "playlist.m3u"},
+		{"vic20", "playlist.m3u"},
+		{"doom", "mod.pwad"},
+		{"amiga", "game.cue"},
+		{"amiga", "game.ccd"},
+		{"amiga", "game.mds"},
+		{"amiga", "game.uae"},
+		{"amiga", "game.m3u"},
+		{"amiga", "game.slave"},
+		{"amiga", "game.info"},
+	} {
+		if AcceptsRaw(rejected.platform, rejected.name) {
+			t.Errorf("AcceptsRaw(%q, %q) = true", rejected.platform, rejected.name)
+		}
 	}
 }
 

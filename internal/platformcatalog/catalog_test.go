@@ -14,9 +14,36 @@ func TestCurrentCatalogIsValidAndReturnsDeepCopy(t *testing.T) {
 	if err := Validate(catalog); err != nil {
 		t.Fatalf("Validate() error = %v", err)
 	}
-	testassert.Falsef(t, testassert.Any(func() bool { return catalog.Version != 9 }, func() bool { return len(catalog.Templates) != 34 }), "catalog = version:%d templates:%d", catalog.Version, len(catalog.Templates))
+	testassert.Falsef(t, testassert.Any(func() bool { return catalog.Version != 10 }, func() bool { return len(catalog.Templates) != 42 }), "catalog = version:%d templates:%d", catalog.Version, len(catalog.Templates))
 	catalog.Templates[0].Name = "changed"
 	testassert.False(t, Current().Templates[0].Name != "NES 游戏", "Current returned mutable catalog storage")
+}
+
+func TestCatalogContainsNewEmulatorJSSingleFileDirectories(t *testing.T) {
+	t.Parallel()
+	want := map[string]string{
+		"zxspectrum/fuse":           "ZX Spectrum 游戏",
+		"c64/vice_x64sc":            "Commodore 64 游戏",
+		"colecovision/gearcoleco":   "ColecoVision 游戏",
+		"atarijaguar/virtualjaguar": "Atari Jaguar 游戏",
+		"doom/prboom":               "Doom 游戏",
+		"c128/vice_x128":            "Commodore 128 游戏",
+		"vic20/vice_xvic":           "Commodore VIC-20 游戏",
+		"amiga/puae":                "Commodore Amiga 游戏",
+	}
+	for _, template := range Current().Templates {
+		name, ok := want[template.Key]
+		if !ok {
+			continue
+		}
+		if template.Name != name {
+			t.Errorf("template %q name = %q, want %q", template.Key, template.Name, name)
+		}
+		delete(want, template.Key)
+	}
+	for key := range want {
+		t.Errorf("directory template %q is missing", key)
+	}
 }
 
 func TestCatalogContainsWASM4Directory(t *testing.T) {
