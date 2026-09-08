@@ -2033,3 +2033,23 @@ Launch 完成验证。原始 JAR 的 SHA-256 和字节数必须在上传、内�
 6. 异常关闭后同账号看到待处理草稿，显式提交可处理已结束会话；不自动载入新游戏。其他账号不见该草稿，服务端也拒绝越权提交。
 7. 原存档被更新或删除时拒绝旧草稿覆盖，幂等重试不重复创建；保留原 ID、名称和创建时间。
 8. 新 Launch 从保存结果在游戏菜单读档并继续输入；Review Preview 和即时快照保持各自语义。
+
+### ACC-TIC-001：TIC-80 原生数据与真实产品链
+
+- 可选 `RETROM_FANTASY_FIXTURE_ID`（1–64 位小写字母、数字、点或短横线）将稳定标识写入自有卡带注释，便于保留已有游戏与存档后重新验收；公开卡带须选用库中尚未导入的完整文件，不绕过导入去重；如作者发布的是含 `#include` 的源码工程，只允许按原生 include 规则展开，保留作者代码与资源，并记录固定来源 commit、输入文件和输出 SHA-256。
+
+- WSL 无头 Chrome 如在 Canvas 绘制时阻塞，先以 `env -u DISPLAY -u WAYLAND_DISPLAY` 为前缀运行同一验收命令，避免继承 WSL 桌面显示连接；不修改系统环境或使用不同核心资产。
+
+- 硬超时：300 秒。执行 `make acceptance-case CASE=ACC-TIC-001`，或等价的 `timeout 300 .cache/tools/node-v24.18.0-linux-x64/bin/node scripts/acceptance/fantasy_product.mjs tic80`。
+- 输入：`RETROM_ACCEPTANCE_BASE_URL`、`RETROM_ACCEPTANCE_USERNAME`、`RETROM_ACCEPTANCE_PASSWORD`、`RETROM_CHROME_EXECUTABLE`、`RETROM_ACCEPTANCE_CASE_DIR` 和 `RETROM_FANTASY_TEST_CART`（公开下载的 `.tic` 原始卡带）。使用独立 PFB 与尚未导入这些内容的测试资料库。
+- 步骤：生成项目自有位置/pmem 卡带，经上传、导入、审核预览、批准、产品 Launch；用标准手柄移动并由游戏按钮写入 pmem，在 Player 选择“存档并退出”；创建新 Launch 恢复该存档，验证位置相等且输入继续生效；不选择存档重开，确认回到初始位置。外部 `.tic` 同样经审核发布并验证画面与输入。
+- 通过标准：原生数据格式 `tic80-pmem-v1`、GAME_SAVE 语义；保存前后位置精确匹配，新 Launch ID 不同，不选存档不恢复；无浏览器异常。外部游戏只承诺其实际写入 pmem 的数据可保存，不把通关或即时场景恢复当作此 Case 的结论。
+- 证据：`fantasy-product.json`、项目自有卡带和各阶段截图。公开下载游戏不进入 Git 或发布包。
+
+### ACC-PICO-001：FAKE-08 即时状态与真实产品链
+
+- 硬超时：300 秒。执行 `make acceptance-case CASE=ACC-PICO-001`，或等价的 `timeout 300 .cache/tools/node-v24.18.0-linux-x64/bin/node scripts/acceptance/fantasy_product.mjs fake08`。
+- 输入与 ACC-TIC-001 相同，`RETROM_FANTASY_TEST_CART` 使用公开下载的 `.p8` 或 `.p8.png`。
+- 步骤：项目自有位置卡带经导入、审核预览、批准、Launch，用标准手柄移动后创建 checkpoint；退出后新建 Launch 恢复，位置必须相等且继续响应输入；不选择存档重开必须回到初始位置。外部卡带也经过导入、预览、发布、运行、保存和新 Launch 恢复。
+- 通过标准：状态格式 `fake08-state-v1`、INSTANT 语义；新 Launch ID 不同；有可见游戏画面，无浏览器异常。核心构建测试另外验证连续 120 帧的长按/重复按键与 RNG 状态，以及截断/损坏数据拒绝。
+- 证据：`fantasy-product.json`、项目自有卡带和各阶段截图。自动化使用标准映射虚拟手柄，并观察真实 Web Audio 调度缓冲中存在非零音频；不替换音频播放或核心导出。实体手柄、听觉质量与未编译输入设备不在本 Case 证据范围内。
