@@ -21,6 +21,8 @@ var hostStrategies = map[string]HostStrategy{
 	"ARCADE_ROM_SET":          {"EMULATORJS_CONTENT", OptionsEmulator, []string{"SINGLE_FILE"}},
 	"DOS_BUNDLE":              {"EMULATORJS_CONTENT", OptionsEmulator, []string{"DOS_BUNDLE"}},
 	"J2ME_JAR":                {"ROM_BLOB", OptionsNone, []string{"SINGLE_FILE"}},
+	"TIC80_CART":              {"ROM_BLOB", OptionsNone, []string{"SINGLE_FILE"}},
+	"PICO8_CART":              {"ROM_BLOB", OptionsNone, []string{"SINGLE_FILE"}},
 	"WASM4_CART":              {"ROM_BLOB", OptionsNone, []string{"SINGLE_FILE"}},
 	"RPG2000":                 rpgStrategy("FILE_TREE_PROJECT"),
 	"RPG2003":                 rpgStrategy("FILE_TREE_PROJECT"),

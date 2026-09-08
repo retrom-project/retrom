@@ -2,7 +2,6 @@ package contentprofile
 
 import (
 	"errors"
-	"path"
 	"strings"
 
 	"retrom/internal/importing"
@@ -77,6 +76,8 @@ var registry = map[string]Profile{
 	"nintendo3ds":  raw("nintendo3ds", ".3ds", ".cci"),
 	"j2me":         raw("j2me", ".jar"),
 	"wasm4":        single("wasm4", ".wasm"),
+	"tic80":        single("tic80", ".tic"),
+	"pico8":        single("pico8", ".p8", ".p8.png"),
 
 	"rpgmaker":     project("rpgmaker", ContentKindRPGMakerProject),
 	"ons":          project("ons", ContentKindONSProject),
@@ -168,9 +169,9 @@ func AcceptsRaw(platformID, logicalName string) bool {
 	if !ok {
 		return false
 	}
-	extension := strings.ToLower(path.Ext(logicalName))
+	name := strings.ToLower(logicalName)
 	for _, allowed := range profile.Extensions {
-		if extension == allowed {
+		if strings.HasSuffix(name, allowed) {
 			return true
 		}
 	}

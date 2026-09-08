@@ -9,7 +9,7 @@ import (
 	"retrom/internal/contentprofile"
 )
 
-const Version = 9
+const Version = 10
 
 var ErrInvalid = errors.New("PLATFORM_CATALOG_INVALID")
 
@@ -116,6 +116,14 @@ var current = Catalog{Version: Version, Templates: []DirectoryTemplate{
 		Key: "j2me/j2me", PlatformID: "j2me", DefaultCoreID: "j2me",
 		Name: "Java ME 游戏", CatalogOrder: 340,
 	},
+	{
+		Key: "tic80/tic80", PlatformID: "tic80", DefaultCoreID: "tic80",
+		Name: "TIC-80 游戏", CatalogOrder: 350,
+	},
+	{
+		Key: "pico8/fake08", PlatformID: "pico8", DefaultCoreID: "fake08",
+		Name: "PICO-8 游戏", CatalogOrder: 360,
+	},
 }}
 
 func Current() Catalog {
@@ -189,7 +197,13 @@ func validExtensions(extensions []string) bool {
 		if len(extension) < 2 || extension[0] != '.' || extension != strings.ToLower(extension) {
 			return false
 		}
+		if strings.Contains(extension, "..") || strings.HasSuffix(extension, ".") {
+			return false
+		}
 		for _, character := range extension[1:] {
+			if character == '.' {
+				continue
+			}
 			if character < 'a' || character > 'z' {
 				if character < '0' || character > '9' {
 					return false
