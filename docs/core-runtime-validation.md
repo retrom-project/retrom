@@ -77,4 +77,4 @@ PFB只能证明当前worktree、基座Provider与当前开发模块组合的产�
 
 共享运行层改变时至少运行 `ACC-PROVIDER-001..008`、`make web-e2e`、全部已有受影响产品 Case、Provider 仓库全量 lint/typecheck/test/build/package 检查，以及 Retrom 的 API、Go、Web、集成、数据和镜像/PFB 验证。真实硬件兼容结论仍需 Chrome `mapping=standard` 的实体手柄 smoke；自动注入不能替代硬件验收。
 
-EmulatorJS 4.2.3 的恢复就绪以 native serializer 成功返回非空状态为准，不依赖仅供诊断的 frame counter 大于零；写入恢复状态后仍必须等待 native 读档完成信号，不能把超时视为成功。
+EmulatorJS 4.2.3 的恢复就绪以 native serializer 成功返回非空状态为准，不对所有核心统一要求诊断 frame counter 大于零。MAME 2003 Plus 的原生 unserialize 拒绝第零帧，因此该 Target 还必须完成首帧后才能读档；其他核心不继承这个条件。写入恢复状态后仍必须等待 native 读档完成信号，不能把超时视为成功。

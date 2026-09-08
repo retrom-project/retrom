@@ -982,7 +982,7 @@ Mega Drive 导入回归另用测试内生成的非游戏 payload，经服务器�
 
 - 上限：300 秒。执行：`make acceptance-case CASE=ACC-RUN-010`。
 - 流程：使用 acceptance-only 装置登记项目自有 MAME 2003 Plus DAT，将 Child、Parent 与测试 BIOS 经真实产品链路导入、审核、发布并启动，再重复输入反应、存档与两次独立恢复。
-- 通过标准：test-only DAT 不冒充 production baseline；config 精确为 `mame2003_plus-wasm.data`，`parentUrl/biosUrl` 均存在，三路 bytes 与 fixture 一致。项目自有驱动程序产生可见输入反应，native state 不超过 1 MiB，两次恢复 digest 一致；测试 BIOS 不被目标驱动执行。
+- 通过标准：test-only DAT 不冒充 production baseline；config 精确为 `mame2003_plus-wasm.data`，`parentUrl/biosUrl` 均存在，三路 bytes 与 fixture 一致。项目自有驱动程序产生可见输入反应，native state 不超过 1 MiB，两次恢复 digest 一致；恢复实例必须先完成首帧，再调用拒绝第零帧的原生 unserialize。测试 BIOS 不被目标驱动执行。
 - 证据：DAT 分层、产品导入/审核/发布结果、三路 content 摘要、config、state/恢复 digest 与截图。
 
 ### ACC-RUN-011：FBA2012 CPS1 自有 68000 程序单机链路
@@ -1029,7 +1029,7 @@ Mega Drive 导入回归另用测试内生成的非游戏 payload，经服务器�
 - 上限：180 秒。
 - 执行：`make acceptance-case CASE=ACC-SAVE-003`。
 - 流程：分别在已有真实产品覆盖的 NES、FBNeo 与其余选定核心上从普通 Launch 开始，记录 config 与网络请求；持续运行后直接退出，再重新普通启动。随后在同一 Chrome profile 的 `/data/saves` 预置陈旧本地文件并再次普通启动。对每个受测核心只通过“创建存档”生成有效 state 和可选截图，等待上传进度完成，再从该 SaveState 启动并比较保存前后的可辨识位置；MAME 竖屏游戏的带截图分支额外比较 Player 与存档截图方向。对上传失败、空 state、畸形 state 及跨 Target/内容 做负向验证，并证明无截图的合法存档仍可恢复。
-- 通过标准：全部当前 artifact 的 config 不包含自动/持久目录存档字段，Launch 不绑定隐式存档；Player 不监听/上传目录存档，定时运行、直接退出与 `pagehide` 都不产生 SaveState。`saveDatabaseLoaded` 在 start 前清空整个 `/data/saves`，普通开始不从服务端或同浏览器 IDBFS 复活上次位置。只有点击“创建存档”产生 multipart 上传，0–100% 进度保持到 HTTP 成功/失败或网络错误，失败明确提醒且不创建不完整记录。指定存档在 4.2.3 等待 native serializer 成功产生非空状态，不依赖诊断 frame counter 大于零，再以原生 task 成功为 start 门禁；恢复画面/位置与保存点一致，失败必须阻断而不能伪装回到开头。竖屏存档截图与实际显示同向；不同 Provider Target/GameVariant 不串用。数据库、API 和运行时只存在显式 SaveState 能力。
+- 通过标准：全部当前 artifact 的 config 不包含自动/持久目录存档字段，Launch 不绑定隐式存档；Player 不监听/上传目录存档，定时运行、直接退出与 `pagehide` 都不产生 SaveState。`saveDatabaseLoaded` 在 start 前清空整个 `/data/saves`，普通开始不从服务端或同浏览器 IDBFS 复活上次位置。只有点击“创建存档”产生 multipart 上传，0–100% 进度保持到 HTTP 成功/失败或网络错误，失败明确提醒且不创建不完整记录。指定存档在 4.2.3 等待 native serializer 成功产生非空状态，不对所有核心统一要求诊断 frame counter 大于零；MAME 2003 Plus 另须满足 `ACC-RUN-010` 的首帧条件，再以原生 task 成功为 start 门禁；恢复画面/位置与保存点一致，失败必须阻断而不能伪装回到开头。竖屏存档截图与实际显示同向；不同 Provider Target/GameVariant 不串用。数据库、API 和运行时只存在显式 SaveState 能力。
 - 证据：各核心 config/网络请求、普通启动前后画面对比、显式上传进度及成功/失败 UI、state-load 原生日志、恢复位置对比、竖屏截图尺寸/方向、IDBFS 清理与数据库行数。
 
 ### ACC-PLAY-001：有效游玩时长
