@@ -928,7 +928,7 @@ Mega Drive 导入回归另用测试内生成的非游戏 payload，经服务器�
 
 - 上限：180 秒。
 - 前置：当前 PFB 选择修改后的 EmulatorJS 开发 Provider，使用 `scripts/acceptance/http-flow.sh` 在该 PFB 真实上传、导入、审核、发布仓库自有 GBA smoke 程序（标题 Sudoku）。
-- 执行：在已启动且选择 EmulatorJS 开发 Provider 的 PFB Retrom worktree 中执行 `make acceptance-case CASE=ACC-RUN-014`。运行前必须导入与当前 runtime declaration 版本一致的已验证 Provider 基座；发布前可显式导入已校验候选，发布后必须改用正式产物复验。该入口先校验版本，再使用本 PFB spec 的 URL 和前置已准备的自有 fixture，并强制验证输入诊断；普通全仓浏览器测试遇到旧 Provider 时验证未接入降级分支。
+- 执行：在已启动的 PFB Retrom worktree 中执行 `make acceptance-case CASE=ACC-RUN-014`；开发阶段选择 EmulatorJS 开发 Provider，正式产物复验时让 EmulatorJS 使用发布归档。运行前必须导入与当前 runtime declaration 版本一致的已验证 Provider 基座；发布前可显式导入已校验候选，发布后必须改用正式产物复验。该入口先校验版本，再使用本 PFB spec 的 URL 和前置已准备的自有 fixture，并强制验证输入诊断；普通全仓浏览器测试遇到旧 Provider 时验证未接入降级分支。
 - 通过标准：启动真实 Player 后开启诊断，短按键盘和标准手柄均留下按下/松开与输入投递记录，核心帧继续推进；背景 alpha 为 0.62，无 backdrop blur，观察区点击穿透到游戏。蒙层无关闭按钮；顶部按钮重复点击关闭后原 getGamepads 和 simulateInput 函数身份恢复。窄视口仍有顶部入口；更多菜单没有重复调试和快捷键项。核心读取始终显示未接入。
 - 证据：当次 Playwright 报告、蒙层截图、输入记录和失败 trace。纯逻辑另覆盖 observer 不追加轮询、精确调用次数/参数/返回值、异常传播、64 条记录上限和退出清理；隔离 MV/MZ 在最近的 bridge 边界验证按需启停与原输入不变。
 
