@@ -1,6 +1,7 @@
 """PFB input acceptance consumes the previously published public fixture."""
 from pathlib import Path
 import json
+import re
 import shutil
 import subprocess
 import tempfile
@@ -10,6 +11,12 @@ ROOT = Path(__file__).resolve().parents[3]
 
 
 class InputDiagnosticsDriverTests(unittest.TestCase):
+    def test_acceptance_case_identifiers_are_unique_after_integration(self):
+        document = (ROOT / "docs/project-acceptance.md").read_text()
+        identifiers = re.findall(r"^### (ACC-[A-Z]+-[0-9]{3})[：:]", document, re.MULTILINE)
+        self.assertTrue(identifiers)
+        self.assertEqual(len(identifiers), len(set(identifiers)), "Acceptance cases must have unique IDs")
+
     def test_rerun_does_not_republish_an_already_finalized_review(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

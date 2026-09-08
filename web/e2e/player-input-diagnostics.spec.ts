@@ -2,7 +2,7 @@ import {expect, test, type Frame} from "@playwright/test";
 import {installGamepads, setGamepadButtons} from "./immersive-gamepad";
 import {runtimeFrameCount} from "./runtime-provider-support";
 
-test("ACC-RUN-013 input diagnostics preserve live input and restore observers", async ({page}, testInfo) => {
+test("ACC-RUN-014 input diagnostics preserve live input and restore observers", async ({page}, testInfo) => {
   test.setTimeout(180_000);
   await installGamepads(page);
   const origin = process.env.RETROM_WEB_ORIGIN ?? "http://localhost:4000";
