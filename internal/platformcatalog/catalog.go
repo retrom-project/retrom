@@ -9,7 +9,7 @@ import (
 	"retrom/internal/contentprofile"
 )
 
-const Version = 10
+const Version = 11
 
 var ErrInvalid = errors.New("PLATFORM_CATALOG_INVALID")
 
@@ -124,6 +124,7 @@ var current = Catalog{Version: Version, Templates: []DirectoryTemplate{
 		Key: "pico8/fake08", PlatformID: "pico8", DefaultCoreID: "fake08",
 		Name: "PICO-8 游戏", CatalogOrder: 360,
 	},
+	{Key: "scummvm/scummvm", PlatformID: "scummvm", DefaultCoreID: "scummvm", Name: "ScummVM 游戏", CatalogOrder: 370},
 }}
 
 func Current() Catalog {

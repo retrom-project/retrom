@@ -16,10 +16,12 @@ import (
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
 	"retrom/internal/metadatascrape"
+	"retrom/internal/scummvm"
 	"retrom/internal/tagging"
 )
 
 type Service struct {
+	scummVMDetector        *scummvm.Detector
 	database               *sql.DB
 	blobs                  *blobstore.Store
 	now                    func() time.Time

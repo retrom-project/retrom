@@ -664,6 +664,20 @@
       "launchPolicy": "SUPPORTED"
     },
     {
+      "id": "retrom-runtime-scummvm",
+      "coreId": "scummvm",
+      "providerId": "retrom-runtime",
+      "targetId": "scummvm",
+      "platformIds": [
+        "scummvm"
+      ],
+      "acceptedContentKinds": [
+        "SCUMMVM_PROJECT"
+      ],
+      "detectorProfile": "SCUMMVM_PROJECT",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
       "id": "retrom-runtime-tic80",
       "coreId": "tic80",
       "providerId": "retrom-runtime",
@@ -874,6 +888,12 @@
         "id": "saturn",
         "name": "Sega Saturn",
         "sortOrder": 180,
+        "enabled": true
+      },
+      {
+        "id": "scummvm",
+        "name": "ScummVM",
+        "sortOrder": 84,
         "enabled": true
       },
       {
@@ -1100,6 +1120,11 @@
         "enabled": true
       },
       {
+        "id": "scummvm",
+        "name": "ScummVM",
+        "enabled": true
+      },
+      {
         "id": "smsplus",
         "name": "SMS Plus GX",
         "enabled": true
@@ -1142,6 +1167,7 @@
       "MULTI_DISC",
       "ONS_PROJECT",
       "RPG_MAKER_PROJECT",
+      "SCUMMVM_PROJECT",
       "SINGLE_FILE",
       "TYRANOSCRIPT_PROJECT"
     ],

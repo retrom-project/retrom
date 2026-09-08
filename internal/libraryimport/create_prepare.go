@@ -218,6 +218,11 @@ func (service *Service) prepareContent(
 		plan.dispositions, plan.groups, plan.archives, err = service.prepareTyranoScriptProject(
 			ctx, plan.sourceType, plan.files,
 		)
+	case contentcapability.ModeScummVMProject:
+		if plan.target.platformID != "scummvm" {
+			return ErrInvalid
+		}
+		plan.dispositions, plan.groups, plan.archives, err = service.prepareScummVMProject(ctx, plan.sourceType, plan.files)
 	case contentcapability.ModeStandard:
 		plan.dispositions, plan.groups, plan.archives = service.prepareImportFiles(
 			ctx, plan.target.platformID, plan.sourceType, plan.files, plan.datID,

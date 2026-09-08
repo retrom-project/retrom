@@ -73,6 +73,7 @@ describe("PlayerChrome touch controls", () => {
 });
 
 describe("PlayerChrome", () => {
+
   it("offers an optional review screenshot through ordinary controls", async () => {
     const onScreenshot = vi.fn();
     const {rerender} = render(<PlayerChrome {...props({onScreenshot})} />);
@@ -441,3 +442,15 @@ it("keeps native creation disabled and exposes a separate sync retry", async () 
   expect(values.onRetrySync).toHaveBeenCalledOnce();
   expect(values.onSave).not.toHaveBeenCalled();
 });
+
+it("uses per-game native capture and restore capabilities in ordinary controls", () => {
+    const values = props({checkpointSemantics: "GAME_SAVE", nativeSave: {capture: "RUNTIME", restore: "AUTOMATIC", captureAvailable: true}});
+    const view = render(<PlayerChrome {...values} />);
+    expect(screen.getByRole("button", {name: "创建存档"})).toBeEnabled();
+    fireEvent.click(screen.getByRole("button", {name: "创建存档"}));
+    expect(values.onSave).toHaveBeenCalledOnce();
+    expect(screen.getByText(/选择这次创建的存档启动后/)).not.toHaveTextContent("从游戏菜单读档");
+    view.rerender(<PlayerChrome {...values} saveAvailable={false} nativeSave={{capture: "RUNTIME", restore: "IN_GAME", captureAvailable: false}} />);
+    expect(screen.getByRole("button", {name: "创建存档"})).toBeDisabled();
+    expect(screen.getByText(/平台保存游戏原生存档/)).toHaveTextContent("恢复后请从游戏菜单读档");
+  });

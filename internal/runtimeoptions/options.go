@@ -10,6 +10,7 @@ import (
 	onsdetection "retrom/internal/ons/detector"
 	"retrom/internal/runtimebundle"
 	"retrom/internal/runtimecatalog"
+	"retrom/internal/scummvm"
 )
 
 var (
@@ -30,6 +31,9 @@ type strategy struct {
 }
 
 var strategies = map[string]strategy{
+	runtimecatalog.OptionsScummVM: {
+		[]string{"engineId", "gameId", "root", "language", "platform", "extra", "guiOptions", "filename"}, scummVMOptions,
+	},
 	runtimecatalog.OptionsNone:     {[]string{}, emptyOptions},
 	runtimecatalog.OptionsEmulator: {[]string{"dosEntryPath", "initialDiscIndex"}, emulatorOptions},
 	runtimecatalog.OptionsONS:      {[]string{"scriptEncoding"}, onsOptions},
@@ -97,4 +101,24 @@ func kirikiriOptions(input Input) (map[string]any, error) {
 		startup = *profile.StartupXP3Path
 	}
 	return map[string]any{"startupXp3Path": startup}, nil
+}
+
+func scummVMOptions(input Input) (map[string]any, error) {
+	snapshot, err := scummvm.ParseSnapshot(input.DependencySnapshot)
+	if err != nil {
+		return nil, ErrInvalid
+	}
+	candidate, err := snapshot.Selected()
+	if err != nil {
+		return nil, ErrInvalid
+	}
+	var filename any
+	if value, exists := candidate.Config["filename"]; exists {
+		filename = value
+	}
+	return map[string]any{
+		"engineId": candidate.EngineID, "gameId": candidate.GameID, "root": candidate.Root,
+		"language": candidate.Language, "platform": candidate.Platform,
+		"extra": candidate.Extra, "guiOptions": candidate.GUIOptions, "filename": filename,
+	}, nil
 }

@@ -1,10 +1,10 @@
-import {gameSaveInstructions, type CheckpointSemantics} from "./checkpoint-semantics";
+import {nativeSaveInstructions, type NativeSaveCapabilities, type CheckpointSemantics} from "./checkpoint-semantics";
 
-export function CheckpointHelp({semantics, visible, retryAvailable, onRetry}: {
-  semantics: CheckpointSemantics; visible: boolean; retryAvailable?: boolean; onRetry?: () => void;
+export function CheckpointHelp({semantics, save, visible, retryAvailable, onRetry}: {
+  semantics: CheckpointSemantics; save?: NativeSaveCapabilities; visible: boolean; retryAvailable?: boolean; onRetry?: () => void;
 }) {
   if (semantics !== "GAME_SAVE" || !visible) {return null;}
-  return <div className="player-native-save-help"><p>{gameSaveInstructions}</p>
+  return <div className="player-native-save-help"><p>{nativeSaveInstructions(save)}</p>
     {retryAvailable ? <button type="button" className="button" onClick={onRetry}>重试暂存</button> : null}</div>;
 }
 
