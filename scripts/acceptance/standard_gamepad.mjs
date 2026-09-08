@@ -1,6 +1,7 @@
-export async function installVirtualStandardGamepad(context) {
-  await context.addInitScript(() => {
+export async function installVirtualStandardGamepad(context, {connected = true} = {}) {
+  await context.addInitScript((initialConnected) => {
     const state = {
+      connected: initialConnected,
       axes: [0, 0, 0, 0],
       values: Array(17).fill(0),
     };
@@ -11,16 +12,25 @@ export async function installVirtualStandardGamepad(context) {
     }));
     Object.defineProperty(navigator, "getGamepads", {
       configurable: true,
-      value: () => [{
+      value: () => state.connected ? [{
         axes: state.axes, buttons, connected: true,
         id: "Retrom acceptance standard gamepad", index: 0, mapping: "standard", timestamp: performance.now(),
-      }],
+      }] : [null],
     });
     globalThis.__retromTestGamepad = {
+      connected(value) {
+        if (state.connected === value) {return;}
+        const pad = {axes: state.axes, buttons, connected: value,
+          id: "Retrom acceptance standard gamepad", index: 0, mapping: "standard", timestamp: performance.now()};
+        state.connected = value;
+        const event = new Event(value ? "gamepadconnected" : "gamepaddisconnected");
+        Object.defineProperty(event, "gamepad", {value: pad});
+        window.dispatchEvent(event);
+      },
       axis(index, value) {state.axes[index] = value;},
       button(index, pressed) {state.values[index] = pressed ? 1 : 0;},
     };
-  });
+  }, connected);
 }
 
 export async function sendGamepadInput(canvas) {
@@ -37,4 +47,11 @@ export async function sendGamepadInput(canvas) {
     }, input)));
     await page.waitForTimeout(300);
   }
+}
+
+export async function connectVirtualStandardGamepad(page, connected = true) {
+  for (const frame of page.frames()) {
+    await frame.evaluate((value) => globalThis.__retromTestGamepad?.connected(value), connected);
+  }
+  await page.waitForTimeout(500);
 }

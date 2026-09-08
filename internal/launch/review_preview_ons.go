@@ -41,6 +41,9 @@ func (service *Service) ProjectIndex(
 	ctx context.Context,
 	launchID, capability string,
 ) (ProjectIndexView, error) {
+	if index, err := service.scummVMProjectIndex(ctx, launchID, capability); err == nil {
+		return index, nil
+	}
 	if index, err := service.productButterscotchProjectIndex(ctx, launchID, capability); err == nil {
 		return index, nil
 	}

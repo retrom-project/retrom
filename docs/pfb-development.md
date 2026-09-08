@@ -35,6 +35,33 @@ PFB 的稳定状态根固定为当前 Retrom worktree 的：
 
 PFB ID 从逻辑名称确定性派生，因此同一 spec 的稳定 URL 始终是 `http://<pfb-id>.localhost:3000`；Launch runtime 使用 `http://<launch-id>.rpg.<pfb-id>.localhost:3000`。down/up/restart、源码修改和兼容 migration 都不能改变 ID、URL 或数据根。
 
+## 开发源码清单
+
+`workspace/manifest.yaml` 是当前 Retrom 分支的开发仓库清单，`workspace/catalog.py` 提供
+只依赖 Python 标准库的校验接口。清单声明 runtime、core 和 support 的仓库地址、维护分支、
+submodule/shallow 选项和依赖边；`path` 相对于所选 workspace 根，使用 `project/...` 布局。
+它不固定生产 Provider bytes，也不替代现有 release lock。
+
+`retrom-project` 根 `manifest.yaml` 只引导 Retrom。根 `make init` 先克隆 Retrom，再读取
+该 checkout 的清单。`make init PFB=<name> REPOS="retrom-runtime <core-id>"` 先准备 Retrom
+worktree，再读取该 PFB 的清单准备选中源码；`REPOS` 精确选择，不自动展开依赖，Retrom
+始终包含在内，省略时准备全部条目。根 `validate/check/status` 同样支持 `PFB` 或显式
+`RETROM_DIR` 选择标准 worktree；两者同时传入时必须一致。
+
+新增依赖只修改当前 PFB 的 Retrom 清单，补齐依赖边并随集成代码提交，其他 PFB 和基线继续
+使用自己的版本。新 worktree 的基准取自刚 fetch 的维护分支提交，保留 owner checkout 的
+当前分支与工作文件；本次功能分支名及本机绝对路径不得写入清单。共享源码初始化与更新由
+根 `.pfb/sources.lock` 串行化，容器生命周期与普通编辑不需要取得此锁。
+
+`make workspace-check` 离线校验清单 schema、路径、依赖闭包、循环和 runtime release
+仓库覆盖，并运行解析器回归；Retrom 的 `make ci` 包含此项。旧 PFB 先合入清单迁移再使用
+源码准备/校验命令，缺失或无效清单不会回退到基线。状态查询和历史 worktree 清理仍可使用，
+根引导文件保留 `manifest.yaml` 名称以兼容既有共享 registry、网关和导入数据目录发现。
+
+根 `make update` 只更新基线：先预检当前清单，读取待更新 Retrom 提交的新清单，再预检
+两份清单涉及的现有 checkout 和维护分支。通过后才克隆新增仓库并切换现有分支，移除条目
+不会删除历史 checkout。该命令不用于刷新某个 PFB。
+
 ## Loose dev provider
 
 每个 PFB 选择一组开发 Provider，未设置时为 `retrom-runtime`。修改 EmulatorJS adapter 时，在该 Retrom worktree 的 `.pfb/workspace/providers/dev/provider-id` 写入 `emulatorjs` 并执行 `pfb-restart`；选择保存在持久 workspace 中，重启时读取。仅支持 `retrom-runtime` 和 `emulatorjs`，不接受任意入口路径。EmulatorJS 直接使用已导入基座的核心资源，仅重新编译对应 client；核对 `dev-provider.json` 的 `providerId` 与 status 的模块摘要后再做浏览器验收。

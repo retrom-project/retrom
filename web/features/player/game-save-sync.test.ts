@@ -31,6 +31,28 @@ function fixture() {
 const changed = (revision: string): RuntimeCheckpointAvailabilityV1 => ({available: true, reason: null, revision});
 
 describe("local native game save drafts", () => {
+  it("creates and uploads a native save before any file exists only on explicit capture", async () => {
+    const f = fixture();
+    f.emit({available: false, reason: "NO_SAVE", save: {capture: "RUNTIME", restore: "AUTOMATIC", captureAvailable: true}});
+    expect(f.present).toHaveBeenLastCalledWith(expect.objectContaining({available: true}));
+    expect(f.runtime.checkpoint).not.toHaveBeenCalled();
+    expect(f.sync.canCapture()).toBe(true);
+    expect(await f.sync.capture()).toBe(true);
+    expect(f.runtime.checkpoint).toHaveBeenCalledWith({intent: "CAPTURE"});
+    expect(f.upload).toHaveBeenCalledWith(f.store.put.mock.calls[0][0]);
+    expect(f.runtime.acknowledgeCheckpoint).toHaveBeenCalledOnce();
+    await f.sync.stop();
+  });
+
+  it("rejects native capture in blocked scenes and after the engine exits", async () => {
+    const f = fixture();
+    expect(await f.sync.capture()).toBe(false);
+    f.emit({available: false, reason: "NO_SAVE", save: {capture: "RUNTIME", restore: "AUTOMATIC", captureAvailable: false}});
+    expect(await f.sync.capture()).toBe(false);
+    f.emit({available: false, reason: "NO_SAVE", save: {capture: "RUNTIME", restore: "AUTOMATIC", captureAvailable: true}});
+    await f.sync.finish(); expect(f.sync.canCapture()).toBe(false); expect(await f.sync.capture()).toBe(false);
+    expect(f.runtime.checkpoint).not.toHaveBeenCalled(); await f.sync.stop();
+  });
   it("captures changed data locally without uploading or changing the launch baseline", async () => {
     const f = fixture();
     f.emit({available: false, reason: "UNCHANGED"});
@@ -152,4 +174,38 @@ describe("local native game save drafts", () => {
     expect(await f.sync.save()).toBe(true); expect(f.upload).toHaveBeenCalledOnce();
     expect(f.runtime.acknowledgeCheckpoint).toHaveBeenCalledTimes(2); await f.sync.stop();
   });
+  it("exports during synchronization and persists the final payload after native teardown without live APIs", async () => {
+    const f = fixture(); f.emit(changed("1")); await f.sync.flush();
+    expect(f.runtime.checkpoint).toHaveBeenLastCalledWith({intent: "EXPORT"});
+    f.emit({available: false, reason: "NOT_READY"});
+    f.runtime.checkpoint.mockRejectedValue(Error("closed")); f.runtime.screenshot.mockRejectedValue(Error("closed"));
+    const snapshot = {checkpoint: {bytes: Uint8Array.of(9), format: "native-v1", metadata: null}, screenshot: null};
+    const final = f.sync.finish(snapshot); snapshot.checkpoint.bytes[0] = 7; await final;
+    expect([...f.store.put.mock.calls.at(-1)![0].checkpoint.bytes]).toEqual([9]);
+    expect(f.store.put.mock.calls.at(-1)![0].screenshot.size).toBe(0);
+    expect(await f.sync.save()).toBe(true);
+    expect(f.runtime.checkpoint).toHaveBeenCalledOnce(); expect(f.runtime.screenshot).toHaveBeenCalledOnce();
+    expect(f.runtime.acknowledgeCheckpoint).not.toHaveBeenCalled(); await f.sync.stop();
+  });
+
+  it("keeps a final save in memory when local storage fails and lets the user persist it directly", async () => {
+    const f = fixture(); f.store.put.mockRejectedValue(Error("quota"));
+    await f.sync.finish({checkpoint: {bytes: Uint8Array.of(8), format: "native-v1", metadata: null}, screenshot: null});
+    expect(f.sync.hasChanges()).toBe(true);
+    expect(await f.sync.save()).toBe(true); expect(f.upload).toHaveBeenCalledOnce();
+    expect([...f.upload.mock.calls[0][0].checkpoint.bytes]).toEqual([8]);
+    expect(f.runtime.acknowledgeCheckpoint).not.toHaveBeenCalled(); await f.sync.stop();
+  });
+
+  it("serializes a final handoff after an earlier draft write without losing the destructor write", async () => {
+    const f = fixture(); let release!: () => void;
+    f.store.put.mockImplementationOnce(() => new Promise<void>((resolve) => {release = resolve;}));
+    f.emit(changed("1")); await vi.waitFor(() => expect(f.store.put).toHaveBeenCalledOnce());
+    const final = f.sync.finish({checkpoint: {bytes: Uint8Array.of(8), format: "native-v1", metadata: null}, screenshot: null});
+    release(); await final;
+    expect(f.store.put.mock.calls.map(([payload]) => [...payload.checkpoint.bytes])).toEqual([[1], [8]]);
+    expect(await f.sync.save()).toBe(true); expect([...f.upload.mock.calls[0][0].checkpoint.bytes]).toEqual([8]);
+    await f.sync.stop();
+  });
+
 });

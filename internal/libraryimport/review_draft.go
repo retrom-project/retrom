@@ -71,6 +71,7 @@ type SelectedAssets struct {
 }
 
 type DraftPatch struct {
+	ScummVMCandidateID       *string                      `json:"scummvmCandidateId,omitempty"`
 	TargetPlatformInstanceID *string                      `json:"targetPlatformInstanceId,omitempty"`
 	Metadata                 *MetadataPatch               `json:"metadata,omitempty"`
 	SelectedValidationID     *string                      `json:"selectedValidationId,omitempty"`
@@ -163,7 +164,7 @@ func invalidDraftPatch(patch DraftPatch) bool {
 	noChange := patch.TargetPlatformInstanceID == nil && patch.Metadata == nil &&
 		patch.SelectedValidationID == nil && !patch.SelectedCandidateID.present &&
 		patch.SelectedAssets == nil && !patch.DefaultDOSEntry.present && len(patch.TagIDs) == 0 &&
-		patch.RuntimePackSelections == nil && patch.RPGSelfContainedOverride == nil
+		patch.RuntimePackSelections == nil && patch.RPGSelfContainedOverride == nil && patch.ScummVMCandidateID == nil
 	return patch.TagIDs == nil || noChange
 }
 
@@ -204,7 +205,7 @@ func (run *draftPatchRun) applyChanges() error {
 	steps := []func() error{
 		run.applyMetadata, run.applyTarget, run.applySelectedValidation,
 		run.applySelectedCandidate, run.applyDefaultDOSEntry, run.applyRPGMakerBinding,
-		run.refreshValidation,
+		run.refreshValidation, run.applyScummVMSelection,
 		run.applySelectedAssets,
 	}
 	for _, step := range steps {

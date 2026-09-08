@@ -3,6 +3,19 @@ import { describe, expect, it, vi } from "vitest";
 import { ImmersivePlayerMenu } from "./immersive-player-menu";
 
 describe("ImmersivePlayerMenu", () => {
+  it("offers native capture as the controller's save action when the game supports it", () => {
+    const onConfirm = vi.fn();
+    const view = render(<ImmersivePlayerMenu checkpointSemantics="GAME_SAVE" saveAvailable
+      nativeSave={{capture: "RUNTIME", restore: "AUTOMATIC", captureAvailable: true}}
+      overlay={{kind: "menu", error: "", notice: "", pending: false, selected: 1}}
+      onCancel={vi.fn()} onConfirm={onConfirm} onSelect={vi.fn()} />);
+    const content = within(view.container);
+    const button = content.getByRole("button", {name: "创建存档"});
+    expect(button).toBeEnabled(); expect(button).toHaveAttribute("aria-current", "true");
+    fireEvent.click(button); expect(onConfirm).toHaveBeenCalledOnce();
+    expect(content.queryByRole("button", {name: "重试暂存"})).toBeNull();
+    expect(content.getByRole("dialog")).toHaveTextContent("会自动恢复到其记录的位置");
+  });
   it("exposes cancel, save, and exit with stable accessible names", () => {
     const onCancel = vi.fn();
     const onConfirm = vi.fn();

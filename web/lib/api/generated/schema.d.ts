@@ -3897,7 +3897,7 @@ export interface components {
              * @description Omitted requests use STANDARD. For import creation only, STANDARD targeting rpgmaker with one ZIP/7z or a complete directory is normalized to RPG_MAKER_PROJECT before the immutable job snapshot is created.
              * @enum {string}
              */
-            contentMode?: "STANDARD" | "MULTI_DISC" | "RPG_MAKER_PROJECT" | "ONS_PROJECT" | "KIRIKIRI_PROJECT" | "BUTTERSCOTCH_PROJECT" | "TYRANOSCRIPT_PROJECT";
+            contentMode?: "STANDARD" | "MULTI_DISC" | "RPG_MAKER_PROJECT" | "ONS_PROJECT" | "KIRIKIRI_PROJECT" | "BUTTERSCOTCH_PROJECT" | "TYRANOSCRIPT_PROJECT" | "SCUMMVM_PROJECT";
         };
         ReconfigureImportRequest: {
             /** Format: uuid */
@@ -4024,6 +4024,8 @@ export interface components {
             /** Format: uuid */
             targetPlatformInstanceId?: string;
             metadata?: components["schemas"]["MetadataFields"];
+            /** @description Selects one runnable upstream ScummVM candidate from the current immutable source; requires the ordinary review version precondition. */
+            scummvmCandidateId?: string;
             /** Format: uuid */
             selectedValidationId?: string;
             /** Format: uuid */

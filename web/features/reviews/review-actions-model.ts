@@ -1,3 +1,4 @@
+import type { ScummVMReview } from "./review-scummvm";
 import type { TagReference } from "@/components/tag-picker";
 import type { ArcadeDependencies } from "./arcade-dependency-tree";
 
@@ -28,7 +29,7 @@ export type ReviewWorkspace = {
   itemId: string; version: number; platformInstance?: { id: string; name: string }; effectiveSourceSnapshotId?: string; canApprove?: boolean;
   arcadeDependencies?: ArcadeDependencies | null; multiDisc?: ReviewMultiDisc | null;
   metadata: { title: string; description: string; developer: string; publisher: string; genre: string; players: number | null; releaseYear: number | null };
-  validation: { id: string; status: string; compatibilityCode: string } | null;
+  validation: { id: string; status: string; compatibilityCode: string; dependencySnapshot?: ScummVMReview } | null;
   candidates: ReviewCandidate[]; uploadedAssets?: UploadedReviewAsset[];
   sourceMedia?: ReviewSourceMedia | null;
   rpgMaker?: RPGMakerReview | null;
@@ -42,7 +43,7 @@ export type ReviewWorkspace = {
 export type MetadataForm = { title: string; description: string; developer: string; publisher: string; genre: string; players: string; releaseYear: string };
 export type CoverSelection = { candidateId: string | null; uploadedId: string | null };
 export type PreviewAsset = { id: string; url: string; width: number; height: number };
-export type DraftPayload = { metadata: { title: string; description: string; developer: string; publisher: string; genre: string; players: number | null; releaseYear: number | null }; selectedCandidateId: string | null; selectedAssets: { coverCandidateAssetId: string | null; coverUploadedAssetId: string | null; backgroundCandidateAssetId: string | null; screenshotCandidateAssetIds: string[] }; defaultDosEntry: string | null; tagIds: string[]; runtimePackSelections?: Array<{ slot: number; installationId: string }>; rpgSelfContainedOverride?: boolean };
+export type DraftPayload = { metadata: { title: string; description: string; developer: string; publisher: string; genre: string; players: number | null; releaseYear: number | null }; selectedCandidateId: string | null; selectedAssets: { coverCandidateAssetId: string | null; coverUploadedAssetId: string | null; backgroundCandidateAssetId: string | null; screenshotCandidateAssetIds: string[] }; defaultDosEntry: string | null; tagIds: string[]; runtimePackSelections?: Array<{ slot: number; installationId: string }>; rpgSelfContainedOverride?: boolean; scummvmCandidateId?: string };
 export type Comparison = { candidate: ReviewCandidate; current: MetadataForm; next: MetadataForm; currentCover: CoverSelection; nextCover: CoverSelection };
 
 export const compareFields: Array<{ key: keyof MetadataForm; label: string; multiline?: boolean; type?: "number" }> = [

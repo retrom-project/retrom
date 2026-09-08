@@ -6,7 +6,7 @@ import {installVirtualStandardGamepad, sendGamepadInput} from "./standard_gamepa
 test("virtual buttons preserve native prototype accessors and stable references", async () => {
   const realm = {navigator: {}, performance: {now: () => 10}};
   await installVirtualStandardGamepad({
-    async addInitScript(callback) {runInNewContext(`(${callback.toString()})()`, realm);},
+    async addInitScript(callback, connected) {realm.connected = connected; runInNewContext(`(${callback.toString()})(connected)`, realm);},
   });
   const button = realm.navigator.getGamepads()[0].buttons[0];
   assert.equal(Object.hasOwn(button, "pressed"), false);
@@ -45,4 +45,23 @@ test("physical input reaches parent and child realms without forcing focus", asy
       {axis: 1, value: 1}, {axis: 1, value: 0}, {button: 0, pressed: true}, {button: 0, pressed: false},
     ]);
   }
+});
+
+test("late discovery and reconnect emit browser device events around absent slots", async () => {
+  const events = [];
+  const realm = {navigator: {}, performance: {now: () => 10}, Event, window: {dispatchEvent: (event) => events.push(event)}};
+  await installVirtualStandardGamepad({
+    async addInitScript(callback, connected) {
+      realm.connected = connected; runInNewContext(`(${callback.toString()})(connected)`, realm);
+    },
+  }, {connected: false});
+  assert.equal(realm.navigator.getGamepads()[0], null);
+  realm.__retromTestGamepad.connected(true);
+  assert.equal(events[0].type, "gamepadconnected");
+  assert.equal(realm.navigator.getGamepads()[0].connected, true);
+  realm.__retromTestGamepad.connected(false);
+  assert.equal(events[1].type, "gamepaddisconnected");
+  assert.equal(realm.navigator.getGamepads()[0], null);
+  realm.__retromTestGamepad.connected(true);
+  assert.equal(events[2].gamepad.index, 0);
 });

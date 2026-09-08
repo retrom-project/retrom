@@ -19,6 +19,16 @@
 
 Arcade 依赖细节见 [BIOS 与 Arcade DAT](./bios-and-arcade.md)，文件存储见 [存储与数据库设计](./storage-and-database.md)。
 
+ScummVM 使用与浏览器核心同一上游基线的原生检测器，Host 只传输、校验并呈现上游结果，不维护第二份游戏文件名或签名库。
+检测器路径、上游 commit 与可用引擎集合来自已验证的 Provider 安装，不能由上传或 API 请求指定。
+调用方提供本次导入私有、不可变且无符号链接的物化目录；检测结束后清理临时目录。
+进程有 45 秒截止时间，标准输出最多 16 MiB，诊断标准错误最多保留 64 KiB，非零退出、截断、协议错误和基线不匹配都属于检测失败，不能表示为零候选。
+
+检测结果保留所有根目录、语言/平台版本、额外版本说明、GUI options 及上游启动配置。
+候选 ID 包含上游基线、来源摘要和全部检测字段，因此来源替换不能复用旧选择。
+只有唯一且可运行的候选可以自动选择；同目录多版本和多个游戏根目录都须保留歧义。
+未构建的引擎、未知变体、附加内容与不支持的游戏保留明确阻断原因，不静默丢弃，也不由 `--auto-detect` 启动第一项。
+
 ## 2. 任务层级
 
 - `UploadSession/UploadFile/UploadPart`：一次浏览器文件或目录上传及可恢复分块；分块齐备后由 `UPLOAD_FINALIZE` 异步 Job 流式组装、重算 hash 并发布 CAS。
@@ -170,6 +180,23 @@ Job 交接只有一条实现路径：`IMPORT_ITEM_PIPELINE` 完成 hash、分组
 | TyranoScript (`tyranoscript`) | 一个目录树、恰一个安全 ZIP/7z、恰一个包含 Windows EXE 与 `resources/app.asar` 的 Electron 分发 ZIP、恰一个带追加 `package.nw` ZIP 的 Windows NW.js EXE，或恰一个仅包装该 NW.js EXE 与桌面边车的安全 ZIP | 整个规范项目只形成一个 `TYRANOSCRIPT_PROJECT` Item；根目录必须同时存在 `index.html`、`data/scenario/first.ks`、`data/system/Config.tjs`、`tyrano/plugins/kag/kag.js` 与 `tyrano/tyrano.js`。直接或外层 ZIP 中的 NW.js EXE 都先验证 PE 头和追加 ZIP；外层 ZIP 只有恰一个通过该验证的 EXE 时才进入第二层项目扫描，其他桌面边车不进入项目清单。Electron 输入验证完整外层 ZIP 后安全解析 ASAR header，以 64 位 offset 单次顺序流式物化虚拟成员，并按 header 严格映射可选 `app.asar.unpacked` 文件。三条桌面包装路径都复用归档路径、大小、casefold、资源上限与 CAS 校验，桌面程序从不执行。识别结果冻结 marker 与 `TYRANOSCRIPT_RUNTIME_TRIAL_REQUIRED`。审核预览冻结当次全部项目文件，在独立 origin 运行项目自带引擎并注入 `retrom-runtime` bridge；真实 READY 后由管理员按需保存有效画面，才解锁批准。预览仅可创建与恢复会话级临时 checkpoint，不创建持久 SaveState。 |
 
 主机/掌机 ZIP 中零个 primary 候选是 `REJECTED/NO_SUPPORTED_CONTENT`，多个是 `REJECTED/AMBIGUOUS_PRIMARY_CONTENT`；两者都不创建 ImportItem，任务页列出文件和重打包/重新上传入口，不能用文件名打破平局，也不能宣称审核页支持一期不存在的“重新归组”。DOS 按上表是有意的多 entry bundle，不应用唯一 ROM entry 限制，但没有任何安全可执行候选时同样以 `REJECTED/NO_DOS_PROGRAM` 处理。Arcade ZIP 按 machine/DAT 规则识别，不应用主机唯一 entry 限制；未命中 DAT 的 archive 为 `REJECTED/ARCADE_MACHINE_NOT_FOUND`，命中但只是未使用依赖的 archive 使用上述独立 reason。
+
+### ScummVM 游戏数据
+
+ScummVM 目录或恰一个 ZIP/7z 输入形成一个 `SCUMMVM_PROJECT`。完整复用上游检测器，
+Host 不维护文件签名、引擎、语言或游戏版本识别库。文件先经过现有归档限额、路径穿越、符号链接、
+Unicode／大小写冲突和大小校验，再从 CAS 校验摘要后物化到私有临时目录，调用与 Web 核心相同基线的原生检测工具。
+临时目录结束后删除；嵌入的游戏资源归档按普通不透明文件保留。
+
+检测结果作为 `kind: SCUMMVM` 的依赖快照写入当前不可变 validation，包含探测版本、来源清单摘要、
+全部候选、相对根目录和所选候选 ID。候选 ID 绑定基线、来源摘要及完整上游结果。唯一可运行候选自动选中；
+同根多版本或多根目录保留歧义，在现有审核草稿中显式选择后才能预览和批准。选择不会丢弃其他来源文件；
+多游戏合集也可拆分后分别导入。未知变体、缺少构建引擎和不支持的游戏保持可见并阻止选择。
+
+`scummvmCandidateId` 只接受当前来源检测结果中的可运行候选。更新仍要求 `If-Match`，并创建新的不可变
+validation，保留旧结果；来源改变后旧候选不能复用。运行截图不能绕过此选择约束。批准将选定快照复制到游戏变体，
+后续重新校验核对来源摘要并保留原始选项。工具超时／失败属于可重试任务故障，不得转成正常空识别结果。
+ScummVM 项目不执行在线哈希刮削；游戏数据 EXE 和附带 `scummvm.ini` 不作为可执行入口或受信配置。
 
 ## 6. 哈希语义
 
@@ -445,3 +472,13 @@ RPG Maker 项目形状、selected-core/evidence 分层、pack、普通试玩和�
 Java ME 使用普通文件上传和审核流程。目录公开 `.jar` 扩展名，JAR 保持完整原始字节，既不改写 MIDlet
 也不展开为项目文件树。预览与发布后的 Player 均通过 Provider 的 `ROM_BLOB` 输入启动；没有额外的核心选择参数。
 审核应实际启动目标游戏，确认画面与输入，并按 Target 的 `GAME_SAVE` 声明验证原生保存和恢复。
+
+## TIC-80 与 PICO-8 卡带
+
+TIC-80 平台 `tic80` 使用独立核心/Target `tic80`；PICO-8 平台 `pico8` 使用核心/Target `fake08`。
+普通 `GENERAL` 文件上传接受 `.tic`、`.p8`、`.p8.png`（大小写不敏感），普通 `.png` 不作为卡带。
+ZIP/7z 作为单卡带运输格式，只能包含一个匹配的主文件；卡带内部资源不作为项目文件树展开。
+原始字节进入现有 `SINGLE_FILE` 审核与 CAS 流程，通过 `ROM_BLOB` 交给 Provider，运行时逐字节验证 size/SHA-256，最大 4 MiB。
+扩展名只决定导入候选，卡带解析与可运行性仍由审核预览和锁定核心检查；不新增 BIOS、RTP 或数据库内容类型。
+TIC-80 只接受二进制 `.tic`，编译语言能力见核心 `RETROM.md`；不承诺所有上游语言、编辑器或多卡带项目。
+实际产品验证见 [ACC-TIC-001 与 ACC-PICO-001](./project-acceptance.md#acc-tic-001tic-80-原生数据与真实产品链)。

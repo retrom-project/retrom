@@ -16,7 +16,7 @@ import {usePlayerSession} from "./player-session";
 import {NativeSaveToast} from "./checkpoint-help";
 import {useNativeExitDecision} from "./native-exit-dialog";
 import {useGameSaveSync} from "./use-game-save-sync";
-import type {GameSavePresentation} from "./game-save-sync";
+import {useNativeSavePresentation} from "./use-native-save-presentation";
 import {usePlayerRuntimeExit} from "./use-player-runtime-exit";
 import {usePlayerRuntimeActions} from "./player-runtime-actions";
 import {usePlayerOrientationRuntime} from "./player-orientation-runtime";
@@ -66,7 +66,6 @@ export function PlayerShell({launchId, experience = "standard"}: {launchId: stri
   const [syncTone, setSyncTone] = useState<"synced" | "busy" | "warning">("busy");
   const [saveUploadProgress, setSaveUploadProgress] = useState<number | null>(null);
   const [reviewScreenshotAvailable, setReviewScreenshotAvailable] = useState(false);
-  const [nativeRetryAvailable, setNativeRetryAvailable] = useState(false);
   const [manualSaveAvailable, setManualSaveAvailable] = useState(true);
   const [dosProgramMenu, setDosProgramMenu] = useState(false);
   const [gameTitle, setGameTitle] = useState("正在运行的游戏");
@@ -201,10 +200,8 @@ export function PlayerShell({launchId, experience = "standard"}: {launchId: stri
   }), [launchId, replaceImmersiveRoute, showToast]);
   const {sendEvent, uploadManualState, captureReviewScreenshot, exit, exitStrict, exitImmersiveAfterRuntimeExit} = usePlayerSession(sessionParams);
 
-  const presentGameSave = useCallback((value: GameSavePresentation) => {
-    manualSaveAvailableRef.current = value.available;
-    setManualSaveAvailable(false); setNativeRetryAvailable(value.retryAvailable); setSyncText(value.text); setSyncTone(value.tone);
-  }, []);
+  const {nativeSave, nativeRetryAvailable, presentGameSave} = useNativeSavePresentation(
+    manualSaveAvailableRef, setManualSaveAvailable, setSyncText, setSyncTone);
   const gameSaveSync = useGameSaveSync(checkpointSemantics === "GAME_SAVE" && state === "running",
     runtime, uploadManualState, presentGameSave, userId, envelope);
   const selectedNativeRestore = useCallback(() => Boolean(envelope.current?.restore), []);
@@ -217,15 +214,15 @@ export function PlayerShell({launchId, experience = "standard"}: {launchId: stri
   );
   const handleImmersiveFatal = useCallback((error: string) => {setMessage(error); setState("error");}, []);
   const saveImmersiveGame = useCallback(async () => {
-    if (gameSaveSync.current) {return gameSaveSync.current.retry();}
+    if (gameSaveSync.current) {return nativeRetryAvailable ? gameSaveSync.current.retry() : gameSaveSync.current.capture();}
     const active = runtime.current;
     if (!active || !manualSaveAvailableRef.current) {return false;}
     return uploadManualState(await captureRuntimeSave(active));
-  }, [gameSaveSync, uploadManualState]);
+  }, [gameSaveSync, nativeRetryAvailable, uploadManualState]);
   const immersive = useImmersivePlayer({
     enabled: experience === "immersive", runtime, pausedRef, running: state === "running", setPaused,
-    exitStrict: exitImmersiveRuntimeStrict, saveAvailable: checkpointSemantics === "GAME_SAVE" ? nativeRetryAvailable : manualSaveAvailable,
-    nativeSync: checkpointSemantics === "GAME_SAVE",
+    exitStrict: exitImmersiveRuntimeStrict, saveAvailable: manualSaveAvailable || nativeRetryAvailable,
+    nativeSync: checkpointSemantics === "GAME_SAVE" && (nativeRetryAvailable || nativeSave?.capture !== "RUNTIME"),
     saveGame: saveImmersiveGame, beforeMenuPause: () => undefined, onFatalError: handleImmersiveFatal,
   });
   const bootstrapParams = useMemo(() => ({
@@ -274,7 +271,7 @@ export function PlayerShell({launchId, experience = "standard"}: {launchId: stri
   usePlayerVideoMode(runtime, videoRenderingModeRef, videoRenderingMode);
 
   const chromeProps: PlayerChromeProps = {
-    checkpointSemantics, nativeRetryAvailable, onRetrySync: () => {void gameSaveSync.current?.retry();},
+    checkpointSemantics, nativeSave, nativeRetryAvailable, onRetrySync: () => {void gameSaveSync.current?.retry();},
     controlsVisible, running: state === "running", paused, fullscreen, gameTitle, coreName, platformName,
     syncText, syncTone, saveUploadProgress, saveAvailable: manualSaveAvailable, dosProgramMenu, toast, warnings,
     emulatorToolbarOpen, emulatorVolume, emulatorMuted, videoRenderingMode, discSet, discState,
@@ -319,7 +316,7 @@ function PlayerShellView({nativeExitDialog, experience, immersive, paused, orien
       returnTo={returnTo} immersive={isImmersive} onSurface={isImmersive ? () => undefined : onSurface} />
     <NativeSaveToast visible={!blocked && isImmersive} semantics={chromeProps.checkpointSemantics}
       toast={chromeProps.toast} text={chromeProps.syncText} tone={chromeProps.syncTone} />
-    {!blocked && isImmersive ? <ImmersivePlayerMenu checkpointSemantics={chromeProps.checkpointSemantics} saveStatus={chromeProps.syncText} overlay={immersive.overlay} saveAvailable={immersive.saveAvailable}
+    {!blocked && isImmersive ? <ImmersivePlayerMenu nativeSave={chromeProps.nativeSave} nativeRetryAvailable={chromeProps.nativeRetryAvailable} checkpointSemantics={chromeProps.checkpointSemantics} saveStatus={chromeProps.syncText} overlay={immersive.overlay} saveAvailable={immersive.saveAvailable}
       onCancel={immersive.menuCancel} onSelect={immersive.menuSelect} onConfirm={immersive.runSelectedMenuAction} /> : null}
     {blocked ? <OrientationGate state={orientationState} gameTitle={gameTitle} help={orientationHelp}
       buttonRef={orientationButtonRef} onRetry={onRetryLandscape} /> : null}

@@ -20,7 +20,7 @@ func (service *Service) reviewPreviewButterscotchContent(
 		return reviewPreviewContentSet{}, ErrReviewPreviewUnavailable
 	}
 	return service.reviewPreviewProjectContent(
-		ctx, source, profile.MarkerPath, butterscotchProjectFormat, maximumButterscotchProjectFiles,
+		ctx, source, profile.MarkerPath, butterscotchProjectFormat,
 		"Butterscotch",
 	)
 }

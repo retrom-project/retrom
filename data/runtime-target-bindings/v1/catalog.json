@@ -622,6 +622,20 @@
       "launchPolicy": "SUPPORTED"
     },
     {
+      "id": "retrom-runtime-fake08",
+      "coreId": "fake08",
+      "providerId": "retrom-runtime",
+      "targetId": "fake08",
+      "platformIds": [
+        "pico8"
+      ],
+      "acceptedContentKinds": [
+        "SINGLE_FILE"
+      ],
+      "detectorProfile": "PICO8_CART",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
       "id": "retrom-runtime-j2me",
       "coreId": "j2me",
       "providerId": "retrom-runtime",
@@ -759,6 +773,34 @@
         "RPG_MAKER_PROJECT"
       ],
       "detectorProfile": "RPGXP",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
+      "id": "retrom-runtime-scummvm",
+      "coreId": "scummvm",
+      "providerId": "retrom-runtime",
+      "targetId": "scummvm",
+      "platformIds": [
+        "scummvm"
+      ],
+      "acceptedContentKinds": [
+        "SCUMMVM_PROJECT"
+      ],
+      "detectorProfile": "SCUMMVM_PROJECT",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
+      "id": "retrom-runtime-tic80",
+      "coreId": "tic80",
+      "providerId": "retrom-runtime",
+      "targetId": "tic80",
+      "platformIds": [
+        "tic80"
+      ],
+      "acceptedContentKinds": [
+        "SINGLE_FILE"
+      ],
+      "detectorProfile": "TIC80_CART",
       "launchPolicy": "SUPPORTED"
     },
     {
@@ -967,6 +1009,12 @@
         "enabled": true
       },
       {
+        "id": "pico8",
+        "name": "PICO-8",
+        "sortOrder": 84,
+        "enabled": true
+      },
+      {
         "id": "psp",
         "name": "PlayStation Portable",
         "sortOrder": 210,
@@ -991,9 +1039,21 @@
         "enabled": true
       },
       {
+        "id": "scummvm",
+        "name": "ScummVM",
+        "sortOrder": 84,
+        "enabled": true
+      },
+      {
         "id": "snes",
         "name": "SNES",
         "sortOrder": 30,
+        "enabled": true
+      },
+      {
+        "id": "tic80",
+        "name": "TIC-80",
+        "sortOrder": 83,
         "enabled": true
       },
       {
@@ -1067,6 +1127,11 @@
       {
         "id": "dosbox_pure",
         "name": "DOSBox Pure",
+        "enabled": true
+      },
+      {
+        "id": "fake08",
+        "name": "FAKE-08",
         "enabled": true
       },
       {
@@ -1235,6 +1300,11 @@
         "enabled": true
       },
       {
+        "id": "scummvm",
+        "name": "ScummVM",
+        "enabled": true
+      },
+      {
         "id": "smsplus",
         "name": "SMS Plus GX",
         "enabled": true
@@ -1247,6 +1317,11 @@
       {
         "id": "stella2014",
         "name": "Stella 2014",
+        "enabled": true
+      },
+      {
+        "id": "tic80",
+        "name": "TIC-80",
         "enabled": true
       },
       {
@@ -1292,6 +1367,7 @@
       "MULTI_DISC",
       "ONS_PROJECT",
       "RPG_MAKER_PROJECT",
+      "SCUMMVM_PROJECT",
       "SINGLE_FILE",
       "TYRANOSCRIPT_PROJECT"
     ],

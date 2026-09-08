@@ -45,7 +45,7 @@ type RuntimeActionParams = {
 
 export function usePlayerRuntimeActions(params: RuntimeActionParams) {
   async function saveManualState() {
-    if (params.gameSaveSync?.current) {return false;}
+    if (params.gameSaveSync?.current) {return params.gameSaveSync.current.capture();}
     if (!params.manualSaveAvailableRef.current) {
       params.setSyncText(params.dosProgramMenuRef.current ? "程序菜单模式不可存档" : "当前场景暂不可存档");
       params.setSyncTone("warning");
