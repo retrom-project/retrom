@@ -9,6 +9,7 @@ import {isLocalAcceptanceHostname} from "./rpgmaker_url.mjs";
 import {approveScummvm, assertScummvmTraffic, importScummvm, scummvmClient, trackScummvmTraffic} from "./scummvm_product_api.mjs";
 import {captureScummvm, exitScummvm, readyScummvm, scummvmFrame, skyGamepadProof, skyScene} from "./scummvm_product_controls.mjs";
 import {immersiveScummvm} from "./scummvm_product_immersive.mjs";
+import {readableScummvmImage, resizePausedScummvm} from "./scummvm_product_resize.mjs";
 
 const caseId = "ACC-SCUMMVM-001";
 const directory = resolve(process.env.RETROM_ACCEPTANCE_CASE_DIR ?? ".cache/acceptance/scummvm");
@@ -46,7 +47,8 @@ try {
   assert.deepEqual(errors, []);
   write({schemaVersion: 1, caseId, status: "PASS", sourceSha256, browserVersion: browser.version(),
     stages: ["imported", "review-selection", "preview-visible", "published", "native-capture", "fresh-launch-restored",
-      "first-stick-confirm-cancel", "selected-plugin-only", "content-cache-reused", "immersive-save-restore"],
+      "first-stick-confirm-cancel", "selected-plugin-only", "content-cache-reused", "immersive-save-restore",
+      "paused-resize-fitted", "saved-screenshot-readable"],
     itemId: review.itemId, gameId: published.gameId, preview: preview.evidence, product: product.evidence, cache, immersive});
   await context.close();
 } catch (error) {
@@ -85,7 +87,9 @@ async function ordinaryScummvm(context, gameId) {
   await page.waitForURL(/\/play\//u); await readyScummvm(page); await skyScene(page);
   const originalLaunchId = new URL(page.url()).pathname.split("/").at(-1);
   const input = await skyGamepadProof(page, directory, "ordinary-original");
+  const pausedResize = await resizePausedScummvm(page, directory);
   const saved = await captureScummvm(page);
+  const screenshot = await readableScummvmImage(page, `/content/save-states/${saved.saveStateId}/screenshot`);
   await exitScummvm(page); await page.waitForURL(`/games/${gameId}`);
   const first = [...firstTraffic];
   const restoreTraffic = trackScummvmTraffic(page);
@@ -100,7 +104,7 @@ async function ordinaryScummvm(context, gameId) {
   await exitScummvm(page); await page.waitForURL(`/games/${gameId}`); await page.close();
   return {firstTraffic: first, restoreTraffic, evidence: {originalLaunchId, restoredLaunchId,
     saveStateId: saved.saveStateId, restore: {format: config.restore.format, sizeBytes: config.restore.sizeBytes,
-      sha256: config.restore.sha256}, input, restoredInput}};
+      sha256: config.restore.sha256}, input, restoredInput, pausedResize, screenshot}};
 }
 
 function normalizedOrigin(value) {
