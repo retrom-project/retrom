@@ -1,3 +1,4 @@
+import {connectVirtualStandardGamepad} from "./standard_gamepad.mjs";
 import assert from "node:assert/strict";
 import {createHash} from "node:crypto";
 import {createRequire} from "node:module";
@@ -35,9 +36,9 @@ export async function resumeScummvm(page) {
 export async function skyScene(page) {
   await page.bringToFront(); await resumeScummvm(page);
   await page.waitForTimeout(7000);
-  await page.frameLocator("iframe").locator("canvas").click();
-  await page.keyboard.press("Escape"); await page.waitForTimeout(1000);
-  await page.keyboard.press("Escape"); await page.waitForTimeout(1500);
+  await connectVirtualStandardGamepad(page);
+  await gamepad(page, {buttons: [3]}); await page.waitForTimeout(1000);
+  await gamepad(page, {buttons: [3]}); await page.waitForTimeout(1500);
 }
 
 export async function scummvmFrame(page, directory, name) {
