@@ -371,7 +371,7 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
         "go test ./internal/mediaasset ./internal/httpapi -run 'TestInspect|TestGameDetailReturnsCoreValidationChoicesAndDOSPrograms' -count=1 && scripts/acceptance/ui-case.sh ACC-MEDIA-001",
     ),
     "ACC-RUN-001": (180, "go test -tags=integration ./internal/launch -run '^TestPublishedGameLaunchLocksContentAndCredential$' -count=1"),
-    "ACC-RUN-013": (180, "scripts/acceptance/input-diagnostics.sh"),
+    "ACC-RUN-014": (180, "scripts/acceptance/input-diagnostics.sh"),
     "ACC-RUN-002": (180, "scripts/acceptance/ui-case.sh ACC-RUN-002"),
     "ACC-RUN-003": (180, "scripts/acceptance/ui-case.sh ACC-RUN-003"),
     "ACC-RUN-004": (180, "scripts/acceptance/ui-case.sh ACC-RUN-004"),
