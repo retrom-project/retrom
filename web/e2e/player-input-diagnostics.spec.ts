@@ -1,6 +1,7 @@
 import {expect, test, type Frame} from "@playwright/test";
 import {installGamepads, setGamepadButtons} from "./immersive-gamepad";
 import {runtimeFrameCount} from "./runtime-provider-support";
+import {evidencePath} from "./acceptance-support";
 
 test("ACC-RUN-014 input diagnostics preserve live input and restore observers", async ({page}, testInfo) => {
   test.setTimeout(180_000);
@@ -49,7 +50,7 @@ test("ACC-RUN-014 input diagnostics preserve live input and restore observers", 
     return document.elementFromPoint(rect.left + 20, rect.top + 20)?.tagName;
   })).toBe("IFRAME");
   await panel.getByText("最近输入记录", {exact: true}).click();
-  await page.screenshot({path: testInfo.outputPath("input-overlay.png")});
+  await page.screenshot({path: evidencePath(testInfo, "input-overlay.png")});
   await debug.click();
   await expect(panel).toBeHidden();
   expect(await inputRestored(frame)).toBe(true);
