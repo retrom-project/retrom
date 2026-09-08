@@ -94,6 +94,8 @@ docs/         产品、开发、部署与验收文档
 
 需要同时开发多个分支或联调 runtime / core 时，使用 [PFB 开发流程](docs/pfb-development.md)。每个功能分支拥有独立 worktree、持久数据和稳定的本地访问地址。
 
+开发仓库清单由当前 Retrom 分支的 [`workspace/manifest.yaml`](workspace/manifest.yaml) 管理。`retrom-project` 先下载 Retrom，再按该清单准备 runtime、core 与支持仓库；PFB 各自使用自己的清单，新增依赖与集成代码一起提交。清单变更运行 `make workspace-check`，它也属于 CI 门禁。
+
 ## 文档
 
 | 主题 | 入口 |

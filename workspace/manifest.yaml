@@ -1,0 +1,180 @@
+{
+  "schemaVersion": 1,
+  "repositories": [
+    {
+      "id": "retrom-runtime",
+      "path": "project/retrom-runtime",
+      "role": "runtime",
+      "gitlink": "git@github.com:retrom-project/retrom-runtime.git",
+      "defaultBranch": "master",
+      "submodules": false,
+      "dependsOn": [
+        "player",
+        "mkxp-z-libretro-emscripten",
+        "onscripteryuri",
+        "kirikiroid2-web",
+        "butterscotch",
+        "tyranoscript",
+        "j2me-web",
+        "vice-libretro",
+        "virtualjaguar-libretro",
+        "wasm4",
+        "scummvm",
+        "tic80",
+        "fake08"
+      ]
+    },
+    {
+      "id": "player",
+      "path": "project/retrom-core/Player",
+      "role": "core",
+      "gitlink": "git@github.com:retrom-project/Player.git",
+      "defaultBranch": "retrom/0.8.1.1",
+      "submodules": true,
+      "dependsOn": []
+    },
+    {
+      "id": "mkxp-z-libretro-emscripten",
+      "path": "project/retrom-core/mkxp-z-libretro-emscripten",
+      "role": "core",
+      "gitlink": "git@github.com:retrom-project/mkxp-z-libretro-emscripten.git",
+      "defaultBranch": "retrom/f2efc98",
+      "submodules": true,
+      "shallowClone": true,
+      "dependsOn": []
+    },
+    {
+      "id": "onscripteryuri",
+      "path": "project/retrom-core/OnscripterYuri",
+      "role": "core",
+      "gitlink": "git@github.com:retrom-project/OnscripterYuri.git",
+      "defaultBranch": "retrom/0.7.7beta",
+      "submodules": true,
+      "dependsOn": []
+    },
+    {
+      "id": "kirikiroid2-web",
+      "path": "project/retrom-core/kirikiroid2-web",
+      "role": "core",
+      "gitlink": "git@github.com:retrom-project/kirikiroid2-web.git",
+      "defaultBranch": "retrom/g338d2029f169",
+      "submodules": true,
+      "dependsOn": []
+    },
+    {
+      "id": "butterscotch",
+      "path": "project/retrom-core/Butterscotch",
+      "role": "core",
+      "gitlink": "git@github.com:retrom-project/Butterscotch.git",
+      "defaultBranch": "retrom/gae2602f1f83c",
+      "submodules": false,
+      "dependsOn": []
+    },
+    {
+      "id": "tyranoscript",
+      "path": "project/retrom-core/tyranoscript",
+      "role": "core",
+      "gitlink": "git@github.com:retrom-project/tyranoscript.git",
+      "defaultBranch": "retrom/gc8dbfd492afd",
+      "submodules": false,
+      "dependsOn": []
+    },
+    {
+      "id": "j2me-web",
+      "path": "project/retrom-core/j2me-web",
+      "role": "core",
+      "gitlink": "git@github.com:retrom-project/j2me-web.git",
+      "defaultBranch": "main",
+      "submodules": false,
+      "dependsOn": [
+        "minijvm",
+        "freej2me-on-minijvm",
+        "freej2me-plus"
+      ]
+    },
+    {
+      "id": "vice-libretro",
+      "path": "project/retrom-core/vice-libretro",
+      "role": "core",
+      "gitlink": "git@github.com:retrom-project/vice-libretro.git",
+      "defaultBranch": "retrom/g1b4309f4d56d",
+      "submodules": false,
+      "dependsOn": []
+    },
+    {
+      "id": "virtualjaguar-libretro",
+      "path": "project/retrom-core/virtualjaguar-libretro",
+      "role": "core",
+      "gitlink": "git@github.com:retrom-project/virtualjaguar-libretro.git",
+      "defaultBranch": "retrom/3.6.1",
+      "submodules": false,
+      "dependsOn": []
+    },
+    {
+      "id": "scummvm",
+      "path": "project/retrom-core/scummvm",
+      "role": "core",
+      "gitlink": "git@github.com:retrom-project/scummvm.git",
+      "defaultBranch": "retrom/2026.3.0",
+      "submodules": false,
+      "dependsOn": []
+    },
+    {
+      "id": "wasm4",
+      "path": "project/retrom-core/wasm4",
+      "role": "core",
+      "gitlink": "git@github.com:retrom-project/wasm4.git",
+      "defaultBranch": "retrom/gca2600db8de4",
+      "submodules": true,
+      "dependsOn": []
+    },
+    {
+      "id": "tic80",
+      "path": "project/retrom-core/TIC-80",
+      "role": "core",
+      "gitlink": "git@github.com:retrom-project/TIC-80.git",
+      "defaultBranch": "retrom/g4aba09c98f1e",
+      "submodules": true,
+      "dependsOn": []
+    },
+    {
+      "id": "fake08",
+      "path": "project/retrom-core/fake-08",
+      "role": "core",
+      "gitlink": "git@github.com:retrom-project/fake-08.git",
+      "defaultBranch": "retrom/g814991a2571a",
+      "submodules": true,
+      "dependsOn": []
+    },
+    {
+      "id": "minijvm",
+      "path": "project/retrom-other/miniJVM",
+      "role": "support",
+      "gitlink": "git@github.com:retrom-project/miniJVM.git",
+      "defaultBranch": "main",
+      "submodules": false,
+      "dependsOn": []
+    },
+    {
+      "id": "freej2me-on-minijvm",
+      "path": "project/retrom-other/freej2meOnMinijvm",
+      "role": "support",
+      "gitlink": "git@github.com:retrom-project/freej2meOnMinijvm.git",
+      "defaultBranch": "main",
+      "submodules": false,
+      "dependsOn": [
+        "minijvm",
+        "freej2me-plus"
+      ]
+    },
+    {
+      "id": "freej2me-plus",
+      "path": "project/retrom-other/freej2me-plus",
+      "role": "support",
+      "gitlink": "git@github.com:retrom-project/freej2me-plus.git",
+      "defaultBranch": "main",
+      "submodules": false,
+      "dependsOn": []
+    }
+  ]
+}
