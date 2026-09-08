@@ -275,7 +275,7 @@ export function PlayerShell({launchId, experience = "standard"}: {launchId: stri
     controlsVisible, running: state === "running", paused, fullscreen, gameTitle, coreName, platformName,
     syncText, syncTone, saveUploadProgress, saveAvailable: manualSaveAvailable, dosProgramMenu, toast, warnings,
     emulatorToolbarOpen, emulatorVolume, emulatorMuted, videoRenderingMode, discSet, discState,
-    netplayPlayerNo, netplayPaused, debugOpen, debugMetrics, debugRuntime, runtimeState: state,
+    inputRuntime: runtime, netplayPlayerNo, netplayPaused, debugOpen, debugMetrics, debugRuntime, runtimeState: state,
     onHoldControls: holdControls, onReleaseControls: releaseControls, onToggleControls: toggleControls,
     onScreenshot: reviewScreenshotAvailable ? () => void captureReviewScreenshot() : undefined,
     onSave: actions.saveManualState, onPauseForToolbarInteraction: pauseForToolbarInteraction,

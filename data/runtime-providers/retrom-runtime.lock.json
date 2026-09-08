@@ -1,14 +1,14 @@
 {
-  "bundleSha256": "16bcbde4f789996443dfb739ccbbd710ba4b0e1319b6a022d7afc4d5210a29c1",
-  "bundleSizeBytes": 273728475,
-  "bundleUrl": "https://github.com/retrom-project/retrom-runtime/releases/download/v0.21.0/retrom-runtime-provider-0.21.0.tar.gz",
-  "commit": "553df197de7214b024513eafc324a47a9f4b813b",
+  "bundleSha256": "590f67c35c3f5bdc36743cf50387c6b7f18996935069e7d7df242be93e6038ee",
+  "bundleSizeBytes": 273733921,
+  "bundleUrl": "https://github.com/retrom-project/retrom-runtime/releases/download/v0.22.0/retrom-runtime-provider-0.22.0.tar.gz",
+  "commit": "b6d5537d5f952ef6a18e98485760772fed7bee4b",
   "fileCount": 366,
-  "manifestSha256": "c81a25b4320f3f20a6bed1cc8248db63814848bbafae7644efbb0ad24820cb3c",
+  "manifestSha256": "822d5224f0a5281d049d1c0a4052d2b111a2ce1048a3e3c8f68280e5332cfb05",
   "providerId": "retrom-runtime",
-  "providerVersion": "0.21.0",
+  "providerVersion": "0.22.0",
   "repository": "https://github.com/retrom-project/retrom-runtime",
   "schemaVersion": 1,
-  "tag": "v0.21.0",
-  "unpackedSizeBytes": 599930645
+  "tag": "v0.22.0",
+  "unpackedSizeBytes": 599940787
 }
