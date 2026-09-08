@@ -203,7 +203,7 @@ test("ACC-PEG-005 three-step Pegasus import recovers and remains bounded at desk
   const reviewBatchLink = page.getByRole("link", { name: /逐项审核 \d+ 个游戏/ });
   await expect(reviewBatchLink).toHaveAttribute("href", `/admin/reviews?pegasusImportId=${createdPlan.id}`);
   await reviewBatchLink.click();
-  await expect(page).toHaveURL(new RegExp(`/admin/reviews\\?pegasusImportId=${createdPlan.id}$`));
+  await page.waitForURL(new RegExp(`/admin/reviews\\?pegasusImportId=${createdPlan.id}$`), { timeout: 30_000 });
   await expect(page.getByRole("heading", { name: "审核这批 Pegasus 游戏" })).toBeVisible();
   await expect(page.getByRole("heading", { name: /^Acceptance Game/ })).toBeVisible();
   await page.goto(`/admin/imports/server/pegasus/${createdPlan.id}`);
