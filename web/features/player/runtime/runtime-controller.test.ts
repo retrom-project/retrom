@@ -30,6 +30,17 @@ describe("provider runtime controller", () => {
     expect(runtime.unsubscribe).toHaveBeenCalledOnce();
   });
 
+  it("forwards the final snapshot before removing the ended runtime", async () => {
+    const runtime = fixtureRuntime(); const onExitRequested = vi.fn();
+    const controller = await mountProviderRuntime(envelope(), document.createElement("div"), {
+      dispatcher: verifiedDispatcher(), importer: async () => fixtureModule(runtime), onExitRequested,
+    });
+    const finalSnapshot = {checkpoint: {bytes: Uint8Array.of(8), format: "native-v1", metadata: null}, screenshot: null};
+    runtime.emit({type: "EXIT_REQUESTED", finalSnapshot});
+    expect(onExitRequested).toHaveBeenCalledWith(finalSnapshot);
+    await controller.exit(); expect(runtime.exit).toHaveBeenCalledOnce();
+  });
+
   it("exits a created runtime when mount fails", async () => {
     const runtime = fixtureRuntime();
     runtime.mount.mockRejectedValueOnce(new Error("mount failed"));

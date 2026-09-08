@@ -1,6 +1,7 @@
 import type {
   PlayerRuntimeV1,
   RuntimeCheckpointV1,
+  RuntimeCheckpointRequestV1,
   RuntimeDiscStateV1,
   RuntimeVideoModeV1,
 } from "./contract";
@@ -13,8 +14,8 @@ export type RuntimeSavePayload = {
   name?: string;
 };
 
-export async function captureRuntimeSave(runtime: Pick<PlayerRuntimeV1, "checkpoint" | "screenshot">): Promise<RuntimeSavePayload> {
-  const checkpoint = await runtime.checkpoint();
+export async function captureRuntimeSave(runtime: Pick<PlayerRuntimeV1, "checkpoint" | "screenshot">, request?: RuntimeCheckpointRequestV1): Promise<RuntimeSavePayload> {
+  const checkpoint = await runtime.checkpoint(request);
   const screenshot = await runtime.screenshot();
   if (!(checkpoint.bytes instanceof Uint8Array) || checkpoint.bytes.byteLength < 1 ||
       typeof checkpoint.format !== "string" || checkpoint.format.length < 1 ||

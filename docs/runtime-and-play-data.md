@@ -55,7 +55,7 @@ Launch options 按声明绑定的明确接入策略一次组装，再接受 Prov
 
 Go 在签发前验证 envelope 和 Target options；dispatcher 验证 JSON 边界、模块 URL、模块摘要、Provider 身份与 API 版本，然后只调用 `createRuntime(envelope, host)`。Provider 创建入口按自身声明验证外部 Envelope 与 Host，直接构造核心私有的最小类型参数，不再提供单独预检，也不在内部重复验证相同 Envelope 或转换后的通用 config。下载文件、解码 checkpoint、跨 origin 消息仍在各自信任边界校验；任一身份、摘要、schema、资源或能力不一致都 fail closed。
 
-Provider 是核心生命周期的唯一所有者，不包装第二个 controller。公开状态为 `CREATED/MOUNTING/RUNNING/PAUSED/CHECKPOINTING/EXITING/EXITED/FAILED`；暂停、恢复、checkpoint 和控制操作共用一个队列，退出可抢占排队及进行中的操作。启动在 restore、frame 和 core 等异步边界后检查取消，晚到的核心只清理、不重新进入 RUNNING。核心主动退出只发出一次公共退出事件；失败保持 FAILED 终态，退出清理幂等。Host 继续独立负责页面导航、iframe 与授权会话，不承担核心内部状态转换。
+Provider 是核心生命周期的唯一所有者，不包装第二个 controller。公开状态为 `CREATED/MOUNTING/RUNNING/PAUSED/CHECKPOINTING/EXITING/EXITED/FAILED`；暂停、恢复、checkpoint 和控制操作共用一个队列，退出可抢占排队及进行中的操作。启动在 restore、frame 和 core 等异步边界后检查取消，晚到的核心只清理、不重新进入 RUNNING。Provider 若能观察并上报核心主动退出，只发出一次公共退出事件；失败保持 FAILED 终态，退出清理幂等。Host 继续独立负责页面导航、iframe 与授权会话，不承担核心内部状态转换。
 
 ## 4. Provider dispatcher 与渲染隔离
 
@@ -71,7 +71,7 @@ Player Host 只消费 `PlayerRuntimeV1` 的标准能力和事件，不按 Provid
 
 Provider 静态文件只从 `/runtime/providers/{providerId}/{bundleSha256}/{runtimePath}` 提供，并同时受 closed allowlist、大小和 SHA-256 约束。游戏、BIOS、parent、多盘、项目文件、运行包和 cart 不属于 Provider Bundle，通过 envelope resources 授权；Provider 不得根据扩展名、标题或 Core 名称猜测输入。
 
-`retrom-runtime` 的 Target 覆盖 EasyRPG、mkxp、MV/MZ、ONS、KiriKiri、Butterscotch、TyranoScript、Java ME 与 WASM-4。项目可使用 file tree、seekable blob、native web 或 isolated web 资源。MV/MZ bridge 保留 Canvas2D 对非法 `textAlign` 赋值“忽略并保持原值”的浏览器语义；Butterscotch 保留真实 `640×480` backing buffer，但显示尺寸始终按容器等比放大；KiriKiri 在 core `postRun` 后进入可玩状态，checkpoint availability 独立等待书签 API 就绪，其精确的脚本退出 Wasm trap 会转换为一次 `EXIT_REQUESTED`；非匹配 trap 不会被吞掉。所有 Provider 都必须在游戏自身退出时发出标准退出事件，使整个 Player 页面同步关闭。
+`retrom-runtime` 的 Target 覆盖 EasyRPG、mkxp、MV/MZ、ONS、KiriKiri、Butterscotch、TyranoScript、Java ME 与 WASM-4。项目可使用 file tree、seekable blob、native web 或 isolated web 资源。MV/MZ bridge 保留 Canvas2D 对非法 `textAlign` 赋值“忽略并保持原值”的浏览器语义；Butterscotch 保留真实 `640×480` backing buffer，但显示尺寸始终按容器等比放大；KiriKiri 在 core `postRun` 后进入可玩状态，checkpoint availability 独立等待书签 API 就绪，其精确的脚本退出 Wasm trap 会转换为一次 `EXIT_REQUESTED`；非匹配 trap 不会被吞掉。`EXIT_REQUESTED` 是可选生命周期事件，不构成 Provider/Target 准入条件；能够可靠观察游戏自身退出的 Provider 可以发出该事件，使 Player 页面同步关闭，其他会话由 Host 调用 `exit()` 结束。
 
 独立 origin 的项目按 Launch 使用不同 Host。一次性 bootstrap ticket 和 HttpOnly capability 只授权当前 Launch 的封闭资源；项目脚本不能取得应用 Cookie、普通 API 或其他 Launch 内容。cleanup 撤销 capability、过期 Cookie 并清理对应存储。
 
@@ -79,7 +79,11 @@ Provider 静态文件只从 `/runtime/providers/{providerId}/{bundleSha256}/{run
 
 Checkpoint 对 Host 是不透明字节。Target declaration 的 `writeFormat`、`readFormats[]` 和 `maxBytes` 是唯一格式规则。创建存档时，来源 Launch 必须属于同一 Profile/Game 且允许存档，格式必须位于 `readFormats`、大小和 SHA-256 必须闭合；Host 不解析 Provider payload。
 
-checkpoint 可选 `semantics` 声明恢复方式。省略或 `INSTANT` 表示直接恢复执行状态；`GAME_SAVE` 表示游戏原生存档，用户需要先在游戏中完成保存，导入后可能还需通过游戏菜单读档。Player 根据该公共声明展示提示，不按 Core、Target 或格式名称分支。GAME_SAVE 使用公共 availability revision 检测原生数据变化，按当前游玩会话暂存到浏览器，并在退出确认后提交。两种语义共用 Save API、完整性校验、授权与跨 Launch 恢复机制；Provider 必须在启动游戏前导入原生存档并支持读档后的继续输入。RMS 备份不构成即时快照能力，既有即时恢复回归仍保持原断言。
+checkpoint 可选 `semantics` 声明恢复方式。省略或 `INSTANT` 表示直接恢复执行状态；`GAME_SAVE` 表示游戏原生存档；运行时可显式创建新原生存档，也可要求用户在游戏中完成保存，导入后可能还需通过游戏菜单读档。Player 根据该公共声明展示提示，不按 Core、Target 或格式名称分支。GAME_SAVE 使用公共 availability revision 检测原生数据变化，按当前游玩会话暂存到浏览器，并在退出确认后提交。两种语义共用 Save API、完整性校验、授权与跨 Launch 恢复机制；Provider 必须在启动游戏前导入原生存档并支持读档后的继续输入。RMS 备份不构成即时快照能力，既有即时恢复回归仍保持原断言。
+
+GAME_SAVE 的 `availability.save` 可声明两个独立能力轴：`capture=RUNTIME/IN_GAME` 表示由运行时触发保存或由用户在游戏内保存，`restore=AUTOMATIC/IN_GAME` 表示支持指定槽位启动恢复或需要游戏内读档。`captureAvailable` 是当前能否创建新存档，与 `available`（是否存在尚未同步的原生数据）独立；尚无存档或内容已同步时仍可允许创建。`checkpoint({intent:"CAPTURE"})` 明确请求新原生保存；`checkpoint({intent:"EXPORT"})` 只导出已有文件，也是 GAME_SAVE 省略参数时的默认行为。后台同步必须使用 EXPORT。支持自动恢复的运行时也不能为无法确定槽位的文件包猜测槽位，此类包保留游戏内恢复路径。
+
+核心自行退出时，公共 `EXIT_REQUESTED` 可携带 `finalSnapshot={checkpoint,screenshot}`；核心必须先关闭实时 checkpoint，再等原生写流及引擎清理阶段完成，冻结最终文件后交付。截图允许为 `null`。Provider 校验相同 checkpoint 格式和大小上限并复制 payload，立即结束核心；Host 直接保留并持久化最终数据，不再调用已退出实例的 checkpoint 或截图。最终包不需要向已关闭实例确认；活动会话仍仅在 Host 持久化成功后确认精确 payload。原生数据内容相同的重复写入不得改变 revision。
 
 `save_states` 只绑定 Profile、Game、checkpoint format、payload、可选截图/DOS 路径/disc index 和来源 Launch，不冻结 Provider 版本或 Variant。恢复时使用游戏当前默认或显式 Core 的 READY Variant；只要当前 Target 的 `readFormats` 包含该格式即可恢复。Provider 升级应继续声明仍受支持的旧格式；删除已被存档引用的可读格式会被安装门禁拒绝。不存在为了恢复而加载旧 Provider 的路径。
 
@@ -109,7 +113,7 @@ Provider 报告真实 ready/start 后，Host 才创建 PlaySession。heartbeat �
 
 ## 10. 验证与发布门禁
 
-实现变更必须覆盖：Provider manifest/完整性/升级门禁、56 个 Target 的 binding 闭包、Go 与 TypeScript envelope fixtures、dispatcher 装载与 cleanup、current-state 数据不变量、存档跨 Bundle 读取、内容与 BIOS 替换、普通/沉浸 Player、RPG validation、多盘、Pegasus 与 EmulationStation/gamelist 导入。
+实现变更必须覆盖：Provider manifest/完整性/升级门禁、当前 catalog 的 Target binding 闭包、Go 与 TypeScript envelope fixtures、dispatcher 装载与 cleanup、current-state 数据不变量、存档跨 Bundle 读取、内容与 BIOS 替换、普通/沉浸 Player、RPG validation、多盘、Pegasus 与 EmulationStation/gamelist 导入。
 
 标准门禁是 `make api-check`、`make backend-check`、`make web-check`、`make integration-test`、`make data-check` 和 `make pfb-verify`。PFB 使用隔离 worktree、持久 workspace 与稳定 URL；开发期 loose module 只叠加到已验证基座 Bundle，不进入 production lock 或正式镜像。真实样本验收必须走产品上传、审核、发布、启动、存档与退出链路，不能绕过 API 直接写结果。
 
@@ -129,19 +133,20 @@ Host 的 `J2ME_JAR` 检测/交付策略仅接受原始 `.jar`，按 `SINGLE_FILE
 ### 原生存档本地草稿与退出确认
 
 GAME_SAVE Provider 通过 availability revision 跟踪所有原生数据变化，不判断哪些 store 是进度。连续写入合并到稳定完整快照。
-Player 在当前账号、Launch 范围内将数据包、截图和固定幂等请求保存到 IndexedDB；正常游玩不会上传或修改正式存档。
-不在本地暂存时调用 acknowledgeCheckpoint，保留启动数据作为比较基准；最终数据回到启动值时清理草稿，退出时仍提示确认，但不提供保存操作。
+Player 在当前账号、Launch 范围内将数据包、截图和固定幂等请求保存到 IndexedDB；后台同步不会上传或修改正式存档。运行时支持主动保存且当前场景允许时，普通和沉浸菜单的“创建存档”显式请求 CAPTURE，先持久化完整包，再经同一 Save API 提交；成功后确认精确 payload 并移除草稿。未保存、已同步与暂不可保存是独立状态。
+不在本地暂存时调用 acknowledgeCheckpoint，保留启动数据作为比较基准；最终数据回到启动值时清理草稿，退出时仍提示确认。当前具备主动保存能力时仍可创建新的原生存档；没有主动保存能力且数据未变化时不提供保存操作。
 
 无 saveStateId 的 Launch 必须从空原生数据启动。服务端历史存档、此前本地草稿以及其他运行实例均不能作为隐式恢复输入。
 只有显式选择存档时导入冻结恢复包。本地草稿数据库不向 runtime 提供启动数据，不自动合并、恢复或清除其他 Launch 的草稿。
 
-正常退出先暂停并等候稳定数据，按是否相对启动数据发生变化显示确认弹窗。当前仅 J2ME 声明 GAME_SAVE，其他核心的即时快照退出流程不变。
+正常退出先暂停并等候稳定数据，结合实例当前主动保存能力与数据变化显示确认弹窗。没有提供主动保存能力的游戏保留游戏内保存流程；即时快照退出流程不变。
 有变化时提示数据已变更，并提醒用户确保本次在游戏中主动执行过“保存游戏”，避免异常数据变更覆盖此前存档；
-按顺序提供“返回游戏 / 直接退出 / 存档并退出”。无变化时提示本次似乎未进行存档操作，提醒退出前在游戏中主动保存，
+按顺序提供“返回游戏 / 直接退出 / 存档并退出”。没有主动保存能力且无变化时提示本次似乎未进行存档操作，提醒退出前在游戏中主动保存，
 仅提供“返回游戏 / 继续退出”，不创建或更新存档。两种状态均默认聚焦“返回游戏”，键盘与手柄按可见按钮顺序操作。
 普通与沉浸 Player 选择返回时关闭确认、回到游戏；Escape 或手柄 B 等同返回，不上传或丢弃草稿。
-平台只提交游戏已写入的数据，不保存当前画面的即时进度。存档成功后才确认 checkpoint、清理草稿并退出；
+具备主动保存能力时，“存档并退出”先请求引擎创建原生存档；否则只提交游戏已写入的数据。整个流程不序列化模拟器内存。存档成功后才确认 checkpoint、清理草稿并退出；
 直接退出只丢弃本次草稿。上传失败保留草稿和幂等键、保持弹窗并允许重试；保存期间禁用全部操作，防止并发退出。
+核心自行结束时，Player 接收最终存档后仍允许用户保存、直接退出并丢弃草稿，或保留草稿后退出；不显示“返回游戏”，也不调用已结束核心的暂停、截图或 checkpoint。保留草稿必须先确认浏览器持久化成功；本地存储失败时仍保留当前页内存数据，可直接上传或重试。最终存档没有截图时保存有效 payload，并省略截图表单项，不生成占位图片。
 从已有存档启动时提交更新原存档；无存档启动时提交创建独立存档。payload 与截图原子更新，保留原 ID、名称和创建时间。
 
 异常关闭保留本地草稿，下一次非 Player 页面提示用户处理；当前账号可通过认证的 local-save API 显式提交已结束/到期会话的草稿。
@@ -150,3 +155,31 @@ Player 在当前账号、Launch 范围内将数据包、截图和固定幂等请
 Review Preview 保持预览范围，不创建 Product 草稿记录或正式存档；即时快照行为不变。
 
 Player 调试面板的“画面呈现率”由公共 getFrameCount 的增量计算，不代表屏幕刷新率或游戏逻辑速度。按需重绘核心可在游戏画面静止时停止提交帧；Host 不插入重复帧补足 60 FPS，输入与暂停控制继续正常工作。
+
+### ScummVM 项目与原生恢复
+
+`retrom-runtime/scummvm` 消费一份 `game: FILE_TREE`。Launch 冻结审核选定的
+`engineId`、`gameId`、相对 `root`、`language`、`platform`、`extra`、`guiOptions` 与可选
+`filename`；用户标题与会话 ID 不参与 ScummVM 游戏 target 命名。完整来源树保持不变，
+相对 root 只决定本次运行的游戏目录。索引和逐文件内容沿用 Launch capability 与来源摘要授权。
+
+Provider 使用 `scummvm-save-bundle-v1`（`GAME_SAVE`，上限 64 MiB），原生文件集合为不透明 payload。
+运行中的手动保存使用 `CAPTURE`；后台草稿只用 `EXPORT`。正常退出时，如当前游戏仍允许原生保存，
+即使尚未写过存档也提供“存档并退出”，明确调用原生保存后提交。当前场景不允许主动保存时只收集已完成的文件。
+核心自行结束时禁止再调用活跃保存接口，沿用最终快照和本地草稿退出流程。
+
+准确的恢复槽位由 Provider 保存于 payload。自动恢复同时要求引擎支持指定存档启动和核心能确认实际读档结果；当前构建已接入 Sky、SCUMM、SCI、Queen、Drascula 的结果通知，其他引擎保留游戏内读档。新 Launch 在运行前导入文件，等待准确槽位的成功通知后才完成运行时装载；失败、槽位不符或 60 秒内未完成均报错，不能静默新开游戏。
+仅收集游戏菜单写入、无法确定准确槽位或游戏不支持自动启动恢复时，完整导入后由用户在游戏菜单读档。
+未选择存档的新 Launch 使用空保存目录。当前不声明 ScummVM 即时内存快照、联机或回滚能力。
+
+代表性产品验收见 [ACC-SCUMMVM-001](./project-acceptance.md#acc-scummvm-001scummvm-原生存档与手柄产品闭环) 与 [ACC-SCUMMVM-002](./project-acceptance.md#acc-scummvm-002scummvm-延迟保存原生退出与手动读档)。构建成功或能力标志不等于全部游戏经过实测。
+
+## Fantasy console Provider targets
+
+`retrom-runtime/tic80` 的 checkpoint 为 `tic80-pmem-v1`，上限 1100 bytes（76-byte 身份/完整性头 + 1024-byte pmem），声明 `GAME_SAVE`。
+核心在首帧/BOOT 前导入 pmem；Player 复用原生数据暂存和“存档并退出”流程，只在原生数据变化后生成 revision，上传确认只确认对应快照，不覆盖较新的数据。
+`retrom-runtime/fake08` 使用 `fake08-state-v1`，上限 4,194,380 bytes，声明 `INSTANT`。
+状态含 Lua 执行环境、RAM、音频、帧计数、按键重复状态与 cartdata 文件；核心暂停菜单不允许创建状态。
+两者均为单线程、同源空 iframe、单人标准手柄/键盘方向与动作输入，提供暂停、截图和音量。
+各 Launch 创建独立 WASM heap；退出或取消加载移除帧循环、输入监听及音频节点，不选存档启动不会读取旧游戏状态。
+具体产品通过标准与证据入口只在 [核心验收 Case](./project-acceptance.md#acc-tic-001tic-80-原生数据与真实产品链) 维护。

@@ -239,7 +239,12 @@ deps-check:
 release-input-digest:
 	@python3 scripts/release-input-digest.py --versions "$(RETROM_DEPENDENCY_VERSIONS)" --active "$(RETROM_ACTIVE_EMULATORJS_VERSION)"
 
-ci: quality-structure-check api-check backend-check web-check integration-test data-check
+.PHONY: workspace-check
+workspace-check:
+	@python3 workspace/catalog.py
+	@python3 -m unittest discover -s workspace -p 'test_*.py'
+
+ci: workspace-check quality-structure-check api-check backend-check web-check integration-test data-check
 
 require-local-user:
 	@python3 scripts/local_user.py

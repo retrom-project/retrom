@@ -14,7 +14,7 @@ func TestCurrentCatalogIsValidAndReturnsDeepCopy(t *testing.T) {
 	if err := Validate(catalog); err != nil {
 		t.Fatalf("Validate() error = %v", err)
 	}
-	testassert.Falsef(t, testassert.Any(func() bool { return catalog.Version != 10 }, func() bool { return len(catalog.Templates) != 42 }), "catalog = version:%d templates:%d", catalog.Version, len(catalog.Templates))
+	testassert.Falsef(t, testassert.Any(func() bool { return catalog.Version != 12 }, func() bool { return len(catalog.Templates) != 45 }), "catalog = version:%d templates:%d", catalog.Version, len(catalog.Templates))
 	catalog.Templates[0].Name = "changed"
 	testassert.False(t, Current().Templates[0].Name != "NES 游戏", "Current returned mutable catalog storage")
 }
@@ -143,4 +143,16 @@ func TestValidateRejectsDuplicateAndMalformedTemplates(t *testing.T) {
 			t.Fatalf("Validate(%#v) succeeded", catalog)
 		}
 	}
+}
+
+func TestCatalogIncludesScummVMProjectDirectory(t *testing.T) {
+	for _, template := range Current().Templates {
+		if template.Key == "scummvm/scummvm" {
+			if template.PlatformID != "scummvm" || template.DefaultCoreID != "scummvm" {
+				t.Fatal("invalid ScummVM template")
+			}
+			return
+		}
+	}
+	t.Fatal("ScummVM directory is missing")
 }

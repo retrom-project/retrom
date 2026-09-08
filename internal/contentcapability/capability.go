@@ -5,6 +5,7 @@ import (
 )
 
 const (
+	ModeScummVMProject      = string(contentprofile.ContentKindScummVMProject)
 	ModeStandard            = "STANDARD"
 	ModeMultiDisc           = string(contentprofile.ContentKindMultiDisc)
 	ModeRPGMakerProject     = string(contentprofile.ContentKindRPGMakerProject)

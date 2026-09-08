@@ -351,6 +351,8 @@ WHERE import_item_core_validation_id=? AND role='MULTI_DISC_PLAYLIST' AND logica
 		content.Files = files
 	case rpgProjectFormat:
 		return service.reviewPreviewRPGContent(ctx, source)
+	case "SCUMMVM_PROJECT":
+		return service.reviewPreviewScummVMContent(ctx, source)
 	case onsProjectFormat:
 		return service.reviewPreviewONSContent(ctx, source)
 	case kirikiriProjectFormat:

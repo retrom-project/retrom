@@ -6,8 +6,8 @@ import {prepareManualSaveScreenshot} from "./manual-save-screenshot";
 export async function uploadLocalGameSave(draft: GameSaveDraft) {
   const image = await prepareManualSaveScreenshot({screenshot: draft.payload.screenshot,
     format: draft.payload.screenshot.type === "image/jpeg" ? "jpeg" : "png"});
-  if (!image || !draft.payload.requestId) {throw Error("草稿截图不完整，已保留本地数据。");}
-  const body = createSaveForm(draft.payload, image, undefined);
+  if ((!image && draft.payload.screenshot.size > 0) || !draft.payload.requestId) {throw Error("草稿截图不完整，已保留本地数据。");}
+  const body = createSaveForm(draft.payload, image ?? {screenshot: new Blob(), format: "png"}, undefined);
   const response = handleAuthenticationResponse(await fetch(`/api/v1/launches/${draft.launchId}/local-save`, {
     method: "POST", credentials: "same-origin", headers: writeHeaders({"Idempotency-Key": draft.payload.requestId}), body,
   }));

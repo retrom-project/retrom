@@ -9,6 +9,7 @@ type HostStrategy struct {
 }
 
 const (
+	OptionsScummVM  = "SCUMMVM_SELECTION"
 	OptionsNone     = "NONE"
 	OptionsEmulator = "EMULATOR_CONTENT"
 	OptionsONS      = "ONS_SCRIPT"
@@ -16,11 +17,14 @@ const (
 )
 
 var hostStrategies = map[string]HostStrategy{
+	"SCUMMVM_PROJECT":         {"FILE_TREE_PROJECT", OptionsScummVM, []string{"SCUMMVM_PROJECT"}},
 	"EMULATORJS_SINGLE_FILE":  {"EMULATORJS_CONTENT", OptionsEmulator, []string{"SINGLE_FILE"}},
 	"EMULATORJS_DISC_CONTENT": {"EMULATORJS_CONTENT", OptionsEmulator, []string{"MULTI_DISC", "SINGLE_FILE"}},
 	"ARCADE_ROM_SET":          {"EMULATORJS_CONTENT", OptionsEmulator, []string{"SINGLE_FILE"}},
 	"DOS_BUNDLE":              {"EMULATORJS_CONTENT", OptionsEmulator, []string{"DOS_BUNDLE"}},
 	"J2ME_JAR":                {"ROM_BLOB", OptionsNone, []string{"SINGLE_FILE"}},
+	"TIC80_CART":              {"ROM_BLOB", OptionsNone, []string{"SINGLE_FILE"}},
+	"PICO8_CART":              {"ROM_BLOB", OptionsNone, []string{"SINGLE_FILE"}},
 	"WASM4_CART":              {"ROM_BLOB", OptionsNone, []string{"SINGLE_FILE"}},
 	"RPG2000":                 rpgStrategy("FILE_TREE_PROJECT"),
 	"RPG2003":                 rpgStrategy("FILE_TREE_PROJECT"),

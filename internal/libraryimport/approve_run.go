@@ -186,6 +186,9 @@ func (run *approvalRun) resolveServerOrigin() error {
 }
 
 func (run *approvalRun) prepareValidationSnapshot() error {
+	if run.contentKind == "SCUMMVM_PROJECT" {
+		return run.prepareScummVMSelection()
+	}
 	if run.platformID == "rpgmaker" {
 		run.runtimeDependencySnapshotJSON = run.dependencySnapshotJSON
 		return nil

@@ -60,6 +60,14 @@ RPG Maker profile 保存实际检测得到的项目 fingerprint、generation、P
 
 审核临时 checkpoint 使用会话级存储，一份 preview 保留当前临时 payload，格式及 Blob 关系明确。恢复 preview 冻结自己的恢复输入，不跟随原 preview 后续覆盖。已关闭会话的临时 checkpoint 可在审核未结束且未到期时用于恢复；过期或审核 payload 释放时清理。临时存档不是审批/升级门槛，不引入原会话、恢复会话或人工确认的附加状态机。
 
+### ScummVM 检测与选择
+
+`SCUMMVM_PROJECT` 沿用项目来源快照、`PROJECT_FILE`、Validation、ReviewDraft 与当前 Variant，不新增游戏特征库或第二套候选关系表。Validation 的 dependency snapshot 保存 `schemaVersion=1/kind=SCUMMVM`、来源内容摘要、固定检测器上游 commit、完整候选与根目录集合，以及当前 `selectedCandidateId`。候选 ID 由来源摘要和全部有界检测字段计算；客户端不能自行生成或复用另一份来源的 ID。
+
+选择只产生新的不可变 Validation，并在带版本检查的事务中切换 ReviewDraft 当前校验；原检测结果与历史 Validation 不被覆盖。发布复制所选校验到当前 Game Variant，重新验证保留来源匹配的准确选择，不能以通用 BIOS 空结果覆盖 ScummVM 快照。完整项目树保留全部根目录，所选 root 只是启动输入。ScummVM 没有必需的单 `CONTENT` 文件，不进入单 ROM 的 BIOS 哈希解析。
+
+原生存档格式与槽位属于 Provider payload，数据库只记录公共 checkpoint format/大小/摘要；预览存档与正式用户存档继续使用既有 owner、冻结恢复输入和释放规则。
+
 ### 批次丢弃与服务器上传归属
 
 `import_batch_discards` 对 `(kind,import_id)` 只保留一个当前处置，kind 为普通导入、Pegasus 或 EmulationStation。`REQUESTED → COMPLETED|FAILED`，失败可回到 REQUESTED；记录请求管理员、错误码和毫秒时间，不增加试玩 revision 或按运行次数累积记录。来源批次由服务校验；请求落库即通过 `discarded_import_jobs` 视图及 trigger 阻止该批次再次发布、重试导入。

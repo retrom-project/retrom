@@ -2,7 +2,6 @@ package contentprofile
 
 import (
 	"errors"
-	"path"
 	"strings"
 
 	"retrom/internal/importing"
@@ -35,6 +34,7 @@ const (
 	ContentKindKiriKiriProject     ContentKind = "KIRIKIRI_PROJECT"
 	ContentKindButterscotchProject ContentKind = "BUTTERSCOTCH_PROJECT"
 	ContentKindTyranoScriptProject ContentKind = "TYRANOSCRIPT_PROJECT"
+	ContentKindScummVMProject      ContentKind = "SCUMMVM_PROJECT"
 )
 
 var (
@@ -88,7 +88,10 @@ var registry = map[string]Profile{
 		"amiga", ".adf", ".adz", ".dms", ".fdi", ".ipf", ".raw",
 		".hdf", ".hdz", ".lha", ".chd", ".nrg", ".iso",
 	),
+	"tic80": single("tic80", ".tic"),
+	"pico8": single("pico8", ".p8", ".p8.png"),
 
+	"scummvm":      project("scummvm", ContentKindScummVMProject),
 	"rpgmaker":     project("rpgmaker", ContentKindRPGMakerProject),
 	"ons":          project("ons", ContentKindONSProject),
 	"kirikiri":     project("kirikiri", ContentKindKiriKiriProject),
@@ -186,9 +189,9 @@ func AcceptsRaw(platformID, logicalName string) bool {
 	if !ok {
 		return false
 	}
-	extension := strings.ToLower(path.Ext(logicalName))
+	name := strings.ToLower(logicalName)
 	for _, allowed := range profile.Extensions {
-		if extension == allowed {
+		if strings.HasSuffix(name, allowed) {
 			return true
 		}
 	}

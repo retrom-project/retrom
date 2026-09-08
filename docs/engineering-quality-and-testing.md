@@ -81,7 +81,8 @@ Provider 的 checkpoint 压缩依赖由 `retrom-runtime` 自己固定和审计�
 | `RETROM_RUNTIME_DEV_ROOT=/abs/path make retrom-runtime-dev-link` | 构建并链接相邻 `retrom-runtime` checkout 的 library；默认保留正式 core/bridge bytes。联调 fork 核心时，先由对应 fork 生成候选目录，再设置 `RETROM_RUNTIME_DEV_RELEASE_OVERRIDES` 和 `RETROM_RUNTIME_DEV_INCLUDE_ASSETS=true`，且只允许 fresh dev DB | 会改被忽略的 `web/node_modules`，显式含 assets 时还会改 RPG runtime 开发缓存 |
 | `make retrom-runtime-dev-unlink` | 移除本地 runtime override，以固定 manifest 重新物化 aggregate Release 并恢复锁文件声明的 Web package | 会重建被忽略的依赖目录 |
 | `make release-input-digest` | 离线计算依赖专题规定的源码/依赖发布输入指纹，stdout 只输出 64 位小写 SHA-256 | 否 |
-| `make ci` | `quality-structure-check + api-check + backend-check + web-check + integration-test + data-check` | 仅依赖/构建产物与被忽略的 Go 生成物 |
+| `make workspace-check` | 离线校验开发仓库清单、依赖闭包与 runtime 仓库覆盖，并运行清单解析器回归 | 否 |
+| `make ci` | `workspace-check + quality-structure-check + api-check + backend-check + web-check + integration-test + data-check` | 仅依赖/构建产物与被忽略的 Go 生成物 |
 | `make dev` | 先生成被忽略的 Go API 文件并执行 `prepare-deps + web-install`；设置绝对路径 `RETROM_RUNTIME_DEV_ROOT` 时再应用显式本地 runtime link，随后在宿主机启动 Go/Next.js 并统一处理退出信号；不使用 Docker | 会写本地依赖/开发数据缓存与被忽略的 Go 生成物 |
 | `make pfb-init/validate/status` | 确定性建立或只读检查 PFB ID、严格 spec、registry、worktree、工具链、Chrome、workspace 与 开发 provider 模块摘要；不操作 Git、不启动容器 | `init` 写 worktree `.pfb/` 与根工作区被忽略、owner-only 的 `.pfb/registry-v1.json`，其余只读 |
 | `make pfb-build` | 仅在工具链或 package/API 生成输入变化时准备开发镜像、Node/Go依赖与生成代码；不构建 core、Provider archive、candidate tar或生产镜像 | 写 `.pfb/workspace` 中的可复用开发cache；相同输入幂等复用 |
