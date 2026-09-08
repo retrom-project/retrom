@@ -154,6 +154,16 @@ Player 在当前账号、Launch 范围内将数据包、截图和固定幂等请
 草稿只属于当前浏览器，不承诺跨设备或清理站点数据后的恢复；不会自动载入新的游戏。未确认时不建立服务端草稿或正式存档。
 Review Preview 保持预览范围，不创建 Product 草稿记录或正式存档；即时快照行为不变。
 
+PlayerRuntimeV1 可选的 `startInputDiagnostics()` 返回当前会话的有界 `read/clear/stop` 观察接口。
+旧 Provider 无此方法时 Host 显示未接入，不能阻断启动。此扩展不改变 manifest capabilities、Launch Envelope 或 HTTP。
+浏览器事件、runtime 已有 getGamepads 调用返回值和 adapter 的实际投递分别报告 BROWSER/RUNTIME/DELIVERED。
+记录按下、松开、数值变化和按住时长；摇杆诊断值按 0.1 量化，不修改交给游戏的原值。最多观察前四个手柄、每个 32 按钮/8 轴，保留最近 64 条事件，超出明确计数。
+禁止诊断再次调用有状态 filter、额外推进帧、派发输入、暂停/恢复或轮询手柄。关闭时恢复自己的包装函数，若函数已被其他模块替换则停止记录并保留后来的替换。
+EmulatorJS 单机可观察 simulateInput 成功返回；联机不包装该接口，避免把本地采集误报为联机帧执行。
+ONS/KiriKiri 在已有映射派发处报告；MV/MZ 隔离 bridge 按需开启观察，复用现有 STATUS 通道返回有界快照，不增加状态轮询频率。
+无法访问的隔离页面及尚未提供回执的核心明确标为未接入。runtime 未取样时没有手柄记录，不能据此推断物理按键未按下。
+所有当前实现的 coreRead 为 false；已投递不意味着核心已读取，更不意味着剧情可跳过。
+
 Player 调试面板的“画面呈现率”由公共 getFrameCount 的增量计算，不代表屏幕刷新率或游戏逻辑速度。按需重绘核心可在游戏画面静止时停止提交帧；Host 不插入重复帧补足 60 FPS，输入与暂停控制继续正常工作。
 
 ### ScummVM 项目与原生恢复
