@@ -3,8 +3,8 @@
 | 属性 | 内容 |
 | --- | --- |
 | 文档状态 | 已实施 / 一期权威基线 |
-| 版本 | 2.1 |
-| 日期 | 2026-09-04 |
+| 版本 | 2.2 |
+| 日期 | 2026-09-08 |
 
 ## 1. 依赖分层
 
@@ -36,9 +36,9 @@ Provider manifest 的 `providerApiVersion` 在结构层只要求正整数，使�
 
 ## 3. 两个 Provider
 
-`emulatorjs` Bundle 从 Retrom 仓库中锁定的 EJS upstream 输入生成，声明 35 个 Target。它独占 EJS core、core options、启动动作、多盘和 8 个联机 profile 的行为映射。
+`emulatorjs` Bundle 从独立 retrom-runtime 仓库中锁定的 EJS upstream 与 fork Release 输入生成，声明 43 个 Target。它独占 EJS core、core options、启动动作、多盘和 8 个联机 profile 的行为映射。
 
-`retrom-runtime` Bundle 从独立仓库生成，声明 12 个 Target。`provider-sources.json` 只记录上游或本地 core 构建来源，不声明 Retrom 路由或产品 binding；Target registry 只存在于 Provider declaration。正式 package 校验 7 个上游输入及其锁定 source/tag/asset，源码构建或缓存复用都必须得到声明的字节。
+`retrom-runtime` Bundle 从独立仓库生成，声明 13 个 Target。`provider-sources.json` 只记录上游或本地 core 构建来源，不声明 Retrom 路由或产品 binding；Target registry 只存在于 Provider declaration。正式 package 校验 8 个上游输入及其锁定 source/tag/asset，源码构建或缓存复用都必须得到声明的字节。
 
 ## 4. Retrom binding catalog
 
