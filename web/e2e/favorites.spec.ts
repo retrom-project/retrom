@@ -103,12 +103,12 @@ test("ACC-FAV-003 user flow remains consistent across library, detail, folders, 
   await expect(firstMore).toBeFocused();
   await firstMore.click();
   await first.getByRole("menuitem", { name: "管理收藏夹" }).click();
-  await page.getByRole("button", { name: "新建收藏夹", exact: true }).click();
+  await page.getByRole("button", { name: "＋ 新建收藏夹" }).click();
   let nameDialog = page.getByRole("dialog", { name: "新建收藏夹" });
   await nameDialog.getByRole("textbox", { name: "收藏夹名称" }).fill("待通关");
   await nameDialog.getByRole("button", { name: "创建收藏夹" }).click();
   await expect(page.getByRole("checkbox", { name: /待通关/ })).toBeChecked();
-  await page.getByRole("button", { name: "新建收藏夹", exact: true }).click();
+  await page.getByRole("button", { name: "＋ 新建收藏夹" }).click();
   nameDialog = page.getByRole("dialog", { name: "新建收藏夹" });
   await nameDialog.getByRole("textbox", { name: "收藏夹名称" }).fill("RPG");
   await nameDialog.getByRole("button", { name: "创建收藏夹" }).click();
