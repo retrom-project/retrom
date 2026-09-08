@@ -150,3 +150,13 @@ Player 在当前账号、Launch 范围内将数据包、截图和固定幂等请
 Review Preview 保持预览范围，不创建 Product 草稿记录或正式存档；即时快照行为不变。
 
 Player 调试面板的“画面呈现率”由公共 getFrameCount 的增量计算，不代表屏幕刷新率或游戏逻辑速度。按需重绘核心可在游戏画面静止时停止提交帧；Host 不插入重复帧补足 60 FPS，输入与暂停控制继续正常工作。
+
+## Fantasy console Provider targets
+
+`retrom-runtime/tic80` 的 checkpoint 为 `tic80-pmem-v1`，上限 1100 bytes（76-byte 身份/完整性头 + 1024-byte pmem），声明 `GAME_SAVE`。
+核心在首帧/BOOT 前导入 pmem；Player 复用原生数据暂存和“存档并退出”流程，只在原生数据变化后生成 revision，上传确认只确认对应快照，不覆盖较新的数据。
+`retrom-runtime/fake08` 使用 `fake08-state-v1`，上限 4,194,380 bytes，声明 `INSTANT`。
+状态含 Lua 执行环境、RAM、音频、帧计数、按键重复状态与 cartdata 文件；核心暂停菜单不允许创建状态。
+两者均为单线程、同源空 iframe、单人标准手柄/键盘方向与动作输入，提供暂停、截图和音量。
+各 Launch 创建独立 WASM heap；退出或取消加载移除帧循环、输入监听及音频节点，不选存档启动不会读取旧游戏状态。
+具体产品通过标准与证据入口只在 [核心验收 Case](./project-acceptance.md#acc-tic-001tic-80-原生数据与真实产品链) 维护。
