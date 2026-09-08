@@ -3,6 +3,11 @@ import {expect} from "../../web/node_modules/@playwright/test/index.mjs";
 import {gamepad, readyScummvm, skyGamepadProof, skyScene} from "./scummvm_product_controls.mjs";
 
 async function activate(page) {
+  await page.bringToFront();
+  await expect(page.locator('[data-immersive-shell="true"] time[datetime]')).toBeVisible();
+  await expect.poll(() => page.evaluate(() => document.hasFocus())).toBe(true);
+  // Let the hydrated input source observe the released controller before its first press.
+  await gamepad(page, {});
   await gamepad(page, {buttons: [0]});
   await expect(page.locator('[data-immersive-shell="true"]')).toHaveAttribute("data-controller-state", "ready");
   await gamepad(page, {buttons: [0]});
