@@ -32,7 +32,8 @@ KIRIKIRI_CASES = {"ACC-KIRIKIRI-001"}
 BUTTERSCOTCH_CASES = {"ACC-BUTTERSCOTCH-001"}
 TYRANOSCRIPT_CASES = {"ACC-TYRANOSCRIPT-001"}
 PROVIDER_CASES = {f"ACC-PROVIDER-{number:03d}" for number in range(1, 9)}
-PRODUCT_CASES = RPG_CASES | ONS_CASES | KIRIKIRI_CASES | BUTTERSCOTCH_CASES | TYRANOSCRIPT_CASES
+FANTASY_CASES = {"ACC-TIC-001", "ACC-PICO-001"}
+PRODUCT_CASES = FANTASY_CASES | RPG_CASES | ONS_CASES | KIRIKIRI_CASES | BUTTERSCOTCH_CASES | TYRANOSCRIPT_CASES
 
 
 # These commands are intentionally focused. Cases omitted here are emitted as
@@ -267,11 +268,11 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
     ),
     "ACC-BIOS-004": (
         180,
-        "go test ./internal/firmware ./internal/serverimport -run 'TestStaticRankingNeverLetsSizeBeatExactHash|TestDATRankingPrefersLaunchableArchive|TestServerBIOSImportDiscoversAndInstallsExactStaticCandidate' -count=1",
+        "go test ./internal/firmware ./internal/serverimport -run 'TestStaticRankingNeverLetsSizeBeatExactHash|TestDATRankingPrefersCompleteArchiveWithWarnings|TestServerBIOSImportDiscoversAndInstallsExactStaticCandidate' -count=1",
     ),
     "ACC-BIOS-005": (
         180,
-        "go test -race ./internal/firmware ./internal/serverimport -run 'TestStaticRankingNeverLetsSizeBeatExactHash|TestDATRankingPrefersLaunchableArchive|TestServerBIOSImportDiscoversAndInstallsExactStaticCandidate' -count=1",
+        "go test -race ./internal/firmware ./internal/serverimport -run 'TestStaticRankingNeverLetsSizeBeatExactHash|TestDATRankingPrefersCompleteArchiveWithWarnings|TestServerBIOSImportDiscoversAndInstallsExactStaticCandidate' -count=1",
     ),
     "ACC-BIOS-006": (
         300,
@@ -474,6 +475,8 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
         )
         for case_id in RPG_CASES
     },
+    "ACC-TIC-001": (300, ".cache/tools/node-v24.18.0-linux-x64/bin/node scripts/acceptance/fantasy_product.mjs tic80"),
+    "ACC-PICO-001": (300, ".cache/tools/node-v24.18.0-linux-x64/bin/node scripts/acceptance/fantasy_product.mjs fake08"),
     "ACC-ONS-001": (
         300,
         ".cache/tools/node-v24.18.0-linux-x64/bin/node scripts/acceptance/ons_product.mjs",
@@ -706,7 +709,7 @@ def archive_previous(case_dir: Path) -> None:
     moved: dict[str, str] = {}
     for name in (
         "result.json", "stdout.log", "network.json", "rpgmaker-product.json", "ons-product.json",
-        "kirikiri-product.json", "butterscotch-product.json", "tyranoscript-product.json",
+        "kirikiri-product.json", "butterscotch-product.json", "tyranoscript-product.json", "fantasy-product.json",
         "rerun-resolution.json",
     ):
         source = case_dir / name
@@ -971,7 +974,9 @@ def execute_case(case_id: str) -> int:
             reason = "聚焦自动化断言通过" if status == "PASS" else ("命令超时" if timed_out else "聚焦自动化断言失败")
         if case_id in PRODUCT_CASES:
             product_filename = "rpgmaker-product.json"
-            if case_id in ONS_CASES:
+            if case_id in FANTASY_CASES:
+                product_filename = "fantasy-product.json"
+            elif case_id in ONS_CASES:
                 product_filename = "ons-product.json"
             elif case_id in KIRIKIRI_CASES:
                 product_filename = "kirikiri-product.json"
