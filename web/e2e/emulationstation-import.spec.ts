@@ -1,3 +1,4 @@
+import { expectPhoneAdminNotice } from "./admin-phone-support";
 import { createHash, randomUUID } from "node:crypto";
 import { mkdirSync } from "node:fs";
 import path from "node:path";
@@ -213,6 +214,11 @@ async function verifyResponsiveImportExperience(page: Page, testInfo: TestInfo) 
   const projectName = testInfo.project.name;
   if (projectName === "chrome-1280") {
     await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/admin/imports/server");
+    await expectPhoneAdminNotice(page);
+    await expectNoPageOverflow(page);
+    await page.screenshot({ path: evidencePath(testInfo, "emulationstation-phone-notice.png"), fullPage: false });
+    await page.setViewportSize({ width: 768, height: 1024 });
   }
 
   const { drawer, mapping, plan } = await scanPublicSource(page);
@@ -224,21 +230,25 @@ async function verifyResponsiveImportExperience(page: Page, testInfo: TestInfo) 
   await expectNoPageOverflow(page);
   await mapToGBA(drawer, mapping);
   await expectNoSeriousAxeViolations(page);
+  // Full-page capture briefly resizes Chromium to 1x1 and would activate the phone guard.
+  // Capture the live viewport so taking evidence cannot unmount this open drawer.
   const mappingEvidenceName = projectName === "chrome-1280"
-    ? "emulationstation-mobile-mapping.png"
+    ? "emulationstation-tablet-mapping.png"
     : "emulationstation-desktop-mapping.png";
   await page.screenshot({
     path: evidencePath(testInfo, mappingEvidenceName),
-    fullPage: true,
+    fullPage: false,
   });
 
   if (projectName === "chrome-1280") {
+    await expect(drawer).toBeVisible();
     await page.setViewportSize({ width: 1280, height: 800 });
+    await expect(drawer).toBeVisible();
     await expectNoPageOverflow(page);
     await expectNoSeriousAxeViolations(page);
     await page.screenshot({
       path: evidencePath(testInfo, "emulationstation-1280-mapping.png"),
-      fullPage: true,
+      fullPage: false,
     });
   } else if (projectName === "chrome-4k-150") {
     expect(await page.evaluate(() => window.devicePixelRatio)).toBe(1.5);
@@ -269,7 +279,7 @@ async function verifyResponsiveImportExperience(page: Page, testInfo: TestInfo) 
   await expectNoSeriousAxeViolations(page);
   await page.screenshot({
     path: evidencePath(testInfo, "emulationstation-detail.png"),
-    fullPage: true,
+    fullPage: false,
   });
   await activateWithKeyboard(
     page.getByRole("button", { name: "删除计划" }),
@@ -448,7 +458,7 @@ async function verifyFullProductLifecycle(page: Page, testInfo: TestInfo) {
   ).toBeGreaterThan(initialFrame + 30);
   await page.screenshot({
     path: evidencePath(testInfo, "emulationstation-gba-player-running.png"),
-    fullPage: true,
+    fullPage: false,
   });
   await exitRuntimePlayer(page);
 
