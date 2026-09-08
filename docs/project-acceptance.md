@@ -1916,6 +1916,7 @@ Review 与普通预览会话。`negative-matrix/matrix.json` 必须精确声明 
 - 上限：600 秒。执行：`RETROM_SCUMMVM_SKY_ARCHIVE=<absolute-public-game-archive> make acceptance-case CASE=ACC-SCUMMVM-001`。需要 `RETROM_ACCEPTANCE_BASE_URL/USERNAME/PASSWORD`、`RETROM_CHROME_EXECUTABLE`；缺失输入在启动浏览器前产生 `BLOCKED`。WSL 的 WebGL 验证可用 `xvfb-run -a env RETROM_ACCEPTANCE_HEADED=1 ...` 运行相同 Case。
 - 步骤：通过实际上传与 `SCUMMVM_PROJECT` 导入，打开审核页确认上游识别的明确候选，运行审核试玩并创建试玩原生存档，然后发布。在游戏页新建 Product Launch，验证左摇杆第一次拨动、A 确认与 Y 取消，创建原生存档并退出；从该存档建立不同 Launch，等待核心实际读档完成，再验证同一组输入。沉浸式从手柄激活、启动到共享菜单存档、退出、不同 Launch 恢复与继续输入重复闭环。
 - 按需加载：网络证据只允许所选 `libsky.so`，首次游戏内容必须出现 Range 分块请求；新 Launch 重新取得 index，但复用已读内容块。引擎插件固定属于同一 Provider Bundle，不能跨构建混用。
+- 尺寸与截图：普通 Product Launch 暂停后依次切换 `1920×1080`、`900×600`、`1440×1000` 视口。每次都保持 `PAUSED`，WebGL 绘制区域必须与 canvas backing 尺寸一致；浏览器呈现后读取的原始 canvas PNG 必须有超过 20% 的有效像素，左右边距差小于画布宽度的 5%，上下边距差小于高度的六分之一。随后通过创建存档提交，实际下载的存档截图也须满足同一像素和居中断言，不能只检查文件非空。
 - 通过：上述链路全部成功；真实画面非黑屏；静态游戏菜单在第一次摇杆操作后有像素变化，确认/取消分别改变可见状态；Save API 返回 201；恢复包为 `scummvm-save-bundle-v1` 且含有效大小和 SHA-256；两个 Launch ID 不同；没有页面异常或意外原生弹窗。不可用的 CAPTURE、失败的原生读档或超时均为 FAIL，不能退回导出旧数据冒充成功。
 - 证据：当次 `scummvm-product.json` 保存公开语料 SHA、浏览器版本、审核/游戏/存档/Launch 的非秘密 ID、原生包摘要、插件与缓存统计、普通和沉浸式各阶段 RGBA 摘要及截图。不能保存 cookie、capability、宿主语料路径或游戏字节。此 Case 证明 Sky 的代表性链路；不能将其推广为 105 个已构建引擎均经过游戏实测。其他引擎的延迟保存、退出最终写入和游戏内手动读档需分别记录实际验证结果。
 
