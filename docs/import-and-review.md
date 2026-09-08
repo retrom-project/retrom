@@ -466,3 +466,13 @@ RPG Maker 项目形状、selected-core/evidence 分层、pack、普通试玩和�
 Java ME 使用普通文件上传和审核流程。目录公开 `.jar` 扩展名，JAR 保持完整原始字节，既不改写 MIDlet
 也不展开为项目文件树。预览与发布后的 Player 均通过 Provider 的 `ROM_BLOB` 输入启动；没有额外的核心选择参数。
 审核应实际启动目标游戏，确认画面与输入，并按 Target 的 `GAME_SAVE` 声明验证原生保存和恢复。
+
+## TIC-80 与 PICO-8 卡带
+
+TIC-80 平台 `tic80` 使用独立核心/Target `tic80`；PICO-8 平台 `pico8` 使用核心/Target `fake08`。
+普通 `GENERAL` 文件上传接受 `.tic`、`.p8`、`.p8.png`（大小写不敏感），普通 `.png` 不作为卡带。
+ZIP/7z 作为单卡带运输格式，只能包含一个匹配的主文件；卡带内部资源不作为项目文件树展开。
+原始字节进入现有 `SINGLE_FILE` 审核与 CAS 流程，通过 `ROM_BLOB` 交给 Provider，运行时逐字节验证 size/SHA-256，最大 4 MiB。
+扩展名只决定导入候选，卡带解析与可运行性仍由审核预览和锁定核心检查；不新增 BIOS、RTP 或数据库内容类型。
+TIC-80 只接受二进制 `.tic`，编译语言能力见核心 `RETROM.md`；不承诺所有上游语言、编辑器或多卡带项目。
+实际产品验证见 [ACC-TIC-001 与 ACC-PICO-001](./project-acceptance.md#acc-tic-001tic-80-原生数据与真实产品链)。
