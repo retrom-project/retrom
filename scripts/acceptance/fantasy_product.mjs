@@ -16,7 +16,7 @@ const external = process.env.RETROM_FANTASY_TEST_CART;
 const baseUrl = process.env.RETROM_ACCEPTANCE_BASE_URL;
 const missing = [baseUrl, external, process.env.RETROM_CHROME_EXECUTABLE,
   process.env.RETROM_ACCEPTANCE_USERNAME, process.env.RETROM_ACCEPTANCE_PASSWORD].some((value) => !value);
-const evidence = {schemaVersion: 1, caseId, core, status: "FAIL", errors: [], stages: []};
+const evidence = {schemaVersion: 1, caseId, core, fixtureId: process.env.RETROM_FANTASY_FIXTURE_ID ?? "default", status: "FAIL", errors: [], stages: []};
 let browser, proxy;
 try {
   if (missing) {evidence.status = "BLOCKED"; throw Error("FANTASY_ACCEPTANCE_INPUT_REQUIRED");}

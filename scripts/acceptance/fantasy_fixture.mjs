@@ -3,9 +3,12 @@ import {join} from "node:path";
 
 // Owned cartridge source; no downloaded game bytes enter the repository.
 export function createFantasyFixture(core, directory) {
+  const fixtureId = process.env.RETROM_FANTASY_FIXTURE_ID ?? "default";
+  if (!/^[a-z0-9.-]{1,64}$/u.test(fixtureId)) {throw Error("FANTASY_FIXTURE_ID_INVALID");}
+  const marker = `-- retrom fixture ${fixtureId}\n`;
   const filename = join(directory, core === "tic80" ? "retrom-checkpoint.tic" : "retrom-checkpoint.p8");
   if (core === "tic80") {
-    const code = Buffer.from(`function BOOT() x=pmem(0) if x<20 then x=20 end end
+    const code = Buffer.from(`${marker}function BOOT() x=pmem(0) if x<20 then x=20 end end
 function TIC()
  if btn(3) then x=(x+1)%180 end
  if btn(2) then x=(x+179)%180 end
@@ -19,7 +22,7 @@ end
     writeFileSync(filename, `pico-8 cartridge // http://www.pico-8.com
 version 42
 __lua__
-x=20
+${marker}x=20
 function _update60()
  if btn(1) then x=(x+1)%100 end
  if btn(0) then x=(x+99)%100 end

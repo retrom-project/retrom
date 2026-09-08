@@ -2036,6 +2036,8 @@ Launch 完成验证。原始 JAR 的 SHA-256 和字节数必须在上传、内�
 
 ### ACC-TIC-001：TIC-80 原生数据与真实产品链
 
+- 可选 `RETROM_FANTASY_FIXTURE_ID`（1–64 位小写字母、数字、点或短横线）将稳定标识写入自有卡带注释，便于保留已有游戏与存档后重新验收；公开卡带仍须选用库中尚未导入的原始文件，不绕过导入去重。
+
 - WSL 无头 Chrome 如在 Canvas 绘制时阻塞，先以 `env -u DISPLAY -u WAYLAND_DISPLAY` 为前缀运行同一验收命令，避免继承 WSL 桌面显示连接；不修改系统环境或使用不同核心资产。
 
 - 硬超时：300 秒。执行 `make acceptance-case CASE=ACC-TIC-001`，或等价的 `timeout 300 .cache/tools/node-v24.18.0-linux-x64/bin/node scripts/acceptance/fantasy_product.mjs tic80`。
