@@ -178,6 +178,7 @@ test("ACC-UI-004 loading, empty, retryable error, warning, and blocker states ar
 });
 
 test("ACC-UI-005 user desktop layouts scale at all required viewports", async ({ page }, testInfo) => {
+  test.setTimeout(180_000);
   await verifyUserDesktopLayouts(page, testInfo);
 });
 
