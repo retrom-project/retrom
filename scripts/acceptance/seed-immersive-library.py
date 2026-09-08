@@ -118,11 +118,11 @@ def seed_play(
     database.execute(
         """
 INSERT INTO launch_sessions(
- id,profile_id,purpose,game_id,core_id,provider_id,target_id,bundle_sha256,content_kind,
+ id,profile_id,game_id,core_id,provider_id,target_id,bundle_sha256,content_kind,
  dependency_snapshot_json,compatibility_code,return_to,credential_sha256,state,
  bootstrap_expires_at_ms,idle_expires_at_ms,activated_at_ms,finished_at_ms,hard_expires_at_ms,
  created_at_ms,updated_at_ms,version,initial_disc_index,netplay_session_id,netplay_player_no,save_access
-) VALUES(?,?,'PRODUCT',?,?,?,?,?,?,?,?,'/immersive',?,'FINISHED',?,NULL,?,?,?,?,?,1,0,NULL,NULL,'NORMAL')
+) VALUES(?,?,?,?,?,?,?,?,?,?,'/immersive',?,'FINISHED',?,NULL,?,?,?,?,?,1,0,NULL,NULL,'NORMAL')
 """,
         (
             launch_id, profile_id, game_id, base["core_id"], base["provider_id"],
