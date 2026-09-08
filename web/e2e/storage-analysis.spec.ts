@@ -1,3 +1,4 @@
+import { expectPhoneAdminNotice } from "./admin-phone-support";
 import { expect, test } from "@playwright/test";
 import axe from "axe-core";
 import { evidencePath, noPageOverflow } from "./acceptance-support";
@@ -58,6 +59,13 @@ test("ACC-STOR-001 registered CAS analysis is exact, private, responsive, and ex
   for (const viewport of viewports) {
     await page.setViewportSize(viewport);
     await page.goto("/admin/storage");
+    if (viewport.width < 768) {
+      await expectPhoneAdminNotice(page);
+      await expect(page.getByRole("button", { name: "立即清理" })).toHaveCount(0);
+      await noPageOverflow(page);
+      await page.screenshot({ path: evidencePath(testInfo, "storage-phone-notice.png"), fullPage: true });
+      continue;
+    }
     await expect(page.getByRole("heading", { name: "容量分析", exact: true })).toBeVisible();
     await expect(page.getByRole("region", { name: "按用途分析" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "仅计算已登记 CAS payload" })).toBeVisible();

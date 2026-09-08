@@ -385,7 +385,7 @@ make acceptance-case CASE=<case-id>
 - 上限：240 秒。
 - 执行：`make acceptance-case CASE=ACC-STOR-001`。
 - 流程：在隔离空库通过标准导入流写入项目自有 fixture，再加入 durable、非终态 workflow、终态待释放 workflow、runtime、跨长期用途共享、受保护 archive/member、无业务根 archive/member、软删除存档和 GC 候选的确定性小型组合；执行 PayloadRelease 前后分别调用容量 API，再从 ADMIN 打开 `/admin/storage`，确认一次立即清理并等待 worker 收口。以同一幂等 key 重放，再以缺 key、USER/匿名和未知 query 重试，并覆盖既有 viewport、刷新、失败刷新和确认框矩阵。
-- 通过标准：API 只使用 `REGISTERED_CAS_PAYLOAD_V1`，带 `private, no-store`，byte 为无符号十进制字符串；九类按固定顺序含零值，分类 byte/count 之和等于顶层，`protectedBytes + unreferencedBytes = registeredBytes`，同大小不同 Blob 分别计数。保护集合与 GC 使用同一 registry；终态释放前 payload 仍计 workflow，释放后只在没有其他边时进入未引用，独占/共享字节和游戏删除影响摘要逐 Blob 去重且完全一致。封面替换/视频移除后旧 Asset URL 立即 404；ROM/多盘或同 Requirement BIOS 的成功替换同时清理旧运行/存档与旧 durable 边；各自失去最后引用的 Blob 从原分类转入 UNREFERENCED/候选，正常情况下 registered 总量只在宽限期后下降；ADMIN 确认立即清理后，POST 只跳过保留期并返回已调度量，worker 仍逐 Blob 复核保护集合，真正无引用数据收口后 registered/unreferenced/candidate 同步下降，页面每 2 秒自动读取并更新候选数量和容量直到归零，无需手动刷新；处理中不提前清零，失败或 60 秒跟踪超时保留最后快照并提供刷新入口，离开页面取消读取，恢复引用的数据不删除。相同 key 只产生一条 `STORAGE_CLEANUP_REQUESTED` 审计并重放原响应，缺 key/CSRF、USER/匿名均失败。完全相同 ROM、多盘或失败替换不得释放 current；不同 Requirement/Provider Target 的 BIOS 继续受保护。受保护 archive 的用途单向传播到 member，无业务根 archive 不反向保护；一个长期用途压过 workflow/runtime，两个长期用途归共享。存档状态/截图和清理候选是去重引用视图，不与分类相加；溢出、registry 新增/删除保护边未同步容量语义、读库失败都 fail closed。其余鉴权、脱敏、交互、响应式和无障碍标准不变。
+- 通过标准：API 只使用 `REGISTERED_CAS_PAYLOAD_V1`，带 `private, no-store`，byte 为无符号十进制字符串；九类按固定顺序含零值，分类 byte/count 之和等于顶层，`protectedBytes + unreferencedBytes = registeredBytes`，同大小不同 Blob 分别计数。保护集合与 GC 使用同一 registry；终态释放前 payload 仍计 workflow，释放后只在没有其他边时进入未引用，独占/共享字节和游戏删除影响摘要逐 Blob 去重且完全一致。封面替换/视频移除后旧 Asset URL 立即 404；ROM/多盘或同 Requirement BIOS 的成功替换同时清理旧运行/存档与旧 durable 边；各自失去最后引用的 Blob 从原分类转入 UNREFERENCED/候选，正常情况下 registered 总量只在宽限期后下降；ADMIN 确认立即清理后，POST 只跳过保留期并返回已调度量，worker 仍逐 Blob 复核保护集合，真正无引用数据收口后 registered/unreferenced/candidate 同步下降，页面每 2 秒自动读取并更新候选数量和容量直到归零，无需手动刷新；处理中不提前清零，失败或 60 秒跟踪超时保留最后快照并提供刷新入口，离开页面取消读取，恢复引用的数据不删除。相同 key 只产生一条 `STORAGE_CLEANUP_REQUESTED` 审计并重放原响应，缺 key/CSRF、USER/匿名均失败。完全相同 ROM、多盘或失败替换不得释放 current；不同 Requirement/Provider Target 的 BIOS 继续受保护。受保护 archive 的用途单向传播到 member，无业务根 archive 不反向保护；一个长期用途压过 workflow/runtime，两个长期用途归共享。存档状态/截图和清理候选是去重引用视图，不与分类相加；溢出、registry 新增/删除保护边未同步容量语义、读库失败都 fail closed。手机尺寸按统一 App Shell 契约显示电脑管理提示，不挂载清理操作；平板和桌面保持完整容量交互。其余鉴权、脱敏、交互和无障碍标准不变。
 - 证据：API JSON 与直接 `SUM(blobs.size_bytes)`/行数对比、registry/分类单元与 SQLite 组合测试输出、鉴权/脱敏矩阵、viewport DOM/axe 断言和当前截图。
 
 ### ACC-STOR-002：批次丢弃与引用释放
@@ -894,9 +894,9 @@ Mega Drive 导入回归另用测试内生成的非游戏 payload，经服务器�
 
 - 上限：240 秒。
 - 执行：`make acceptance-case CASE=ACC-ES-005`。
-- 流程：在 390×844、1280×800、2560×1440 与物理 4K 150% scale 打开服务器导入页，只用键盘从 EmulationStation 卡选择 Case A 父目录、扫描、关闭 Drawer、从计划详情恢复第二步，为每份有效清单逐项 IMPORT/SKIP 与映射并批量/逐项编辑 Tag，再确认启动。完成后从详情进入 `emulationStationImportId` 限定审核队列，检查 READY、blocker 与 hidden/adult 项、来源媒体和快速审批预览；注入无 root/无 PlatformInstance、invalid Gamelist、library failure、SSE 断线、cancel/retry/delete、loading/empty/error/payload released 状态。
-- 通过标准：BIOS/Pegasus/EmulationStation 三卡等宽等高等权，文案明确只读 `gamelist.xml`、不执行命令/不自动发布。760px Drawer 三步、背景锁定、焦点/滚动/未保存选择行为正确；每份有效 Gamelist 一行，显示目录/清单、game/extension/issue/folder/hidden/adult 且无默认 mapping，第三步显示来源 flag 警告和全量审核边界。详情计数分组、过滤/分页、继续映射、逐行审核/已有 Game/诊断/释放状态可操作；固定审核筛选不可被“清除全部”移除，sourceFlagged 排除解释清楚。四个尺寸 document 零横向溢出，target 至少 44px，键盘顺序、Escape、焦点返回、aria-live、reduced-motion 正确，axe 无 serious/critical。
-- 证据：四尺寸当次截图、Playwright DOM/布局/URL/network、键盘/focus/axe trace、状态与诊断文本断言。
+- 流程：先在 390×844 验证后台提示页不挂载表单与 Drawer，再切到 768×1024、1280×800、2560×1440 与物理 4K 150% scale 打开服务器导入页，只用键盘从 EmulationStation 卡选择 Case A 父目录、扫描、关闭 Drawer、从计划详情恢复第二步，为每份有效清单逐项 IMPORT/SKIP 与映射并批量/逐项编辑 Tag，再确认启动。完成后从详情进入 `emulationStationImportId` 限定审核队列，检查 READY、blocker 与 hidden/adult 项、来源媒体和快速审批预览；注入无 root/无 PlatformInstance、invalid Gamelist、library failure、SSE 断线、cancel/retry/delete、loading/empty/error/payload released 状态。
+- 通过标准：BIOS/Pegasus/EmulationStation 三卡等宽等高等权，文案明确只读 `gamelist.xml`、不执行命令/不自动发布。760px Drawer 三步、背景锁定、焦点/滚动/未保存选择行为正确；每份有效 Gamelist 一行，显示目录/清单、game/extension/issue/folder/hidden/adult 且无默认 mapping，第三步显示来源 flag 警告和全量审核边界。详情计数分组、过滤/分页、继续映射、逐行审核/已有 Game/诊断/释放状态可操作；固定审核筛选不可被“清除全部”移除，sourceFlagged 排除解释清楚。手机提示页及四个管理尺寸 document 零横向溢出，target 至少 44px，键盘顺序、Escape、焦点返回、aria-live、reduced-motion 正确，axe 无 serious/critical。
+- 证据：手机提示页及四个管理尺寸当次截图、Playwright DOM/布局/URL/network、键盘/focus/axe trace、状态与诊断文本断言。
 
 ### ACC-ES-006：自有 GBA 清单全链发布、游玩与删除回归
 
@@ -1258,7 +1258,7 @@ Mega Drive 导入回归另用测试内生成的非游戏 payload，经服务器�
 ### ACC-TAG-005：搜索、展示、响应式与无障碍
 
 - 上限：180 秒。执行：`make acceptance-case CASE=ACC-TAG-005`。
-- 流程：管理员以键盘补齐常用标签并重复执行，再创建/重命名/删除标签，在普通导入、Pegasus mapping、审核和游戏维护入口选择；把 Pegasus Collection TagPicker 滚动到容器边缘后展开并滚动父容器，检查浮动 listbox 的挂载、跟随与上下翻转；在 Library/Admin/Review/Favorite/Recent/Save/Netplay 用名称及精确 Tag URL 搜索，访问详情；标准截图覆盖 390×844、1280×800、2560×1440、物理 4K 150% 和 axe，另保留 3840×2160 CSS ultra-wide 的无溢出检查。
+- 流程：管理员以键盘补齐常用标签并重复执行，再创建/重命名/删除标签，在普通导入、Pegasus mapping、审核和游戏维护入口选择；把 Pegasus Collection TagPicker 滚动到容器边缘后展开并滚动父容器，检查浮动 listbox 的挂载、跟随与上下翻转；在 Library/Admin/Review/Favorite/Recent/Save/Netplay 用名称及精确 Tag URL 搜索，访问详情；390×844 验证后台提示页不挂载标签维护操作；标准截图覆盖该提示页、1280×800、2560×1440、物理 4K 150% 和 axe，另保留 3840×2160 CSS ultra-wide 的无溢出检查。
 - 通过：“添加常用标签”报告新建/已存在数量，列表展示完整模板且第二次执行报告全部存在；`q/tagId` 与其他条件取交集且刷新/前进后退恢复；删除标签立即隐藏，chip 位置、截断、`+N` 朗读和 FavoriteFolder/Tag 分区正确；TagPicker 键盘/20 上限、Drawer/Dialog 焦点与错误保留正确，listbox 在顶层浮动层内保持视口可见且不被任一滚动容器裁剪；所有页面零 document 横向溢出且 axe 无 serious/critical。
 - 证据：route/network/DOM/键盘/focus trace、四 viewport 尺寸和截图、axe report、删除前后搜索/投影摘要。
 
