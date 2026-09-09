@@ -71,7 +71,11 @@ async function open(context, launch) {
   return {page, canvas: await px68kCanvas(page)};
 }
 async function snapshot(opened, name, minimumColors = 4) {
-  const frame = await canvasDigest(opened.canvas);
+  let frame = await canvasDigest(opened.canvas);
+  // Boot and bomb flashes can briefly produce a single-color guest frame.
+  for (let attempt = 0; frame.colors <= minimumColors && attempt < 20; attempt++) {
+    await opened.page.waitForTimeout(100); frame = await canvasDigest(opened.canvas);
+  }
   assert.ok(frame.colors > minimumColors, "PX68K_INPUT_FRAME_EMPTY");
   await opened.canvas.screenshot({path: join(directory, `${name}.png`)});
   evidence[name] = frame;
