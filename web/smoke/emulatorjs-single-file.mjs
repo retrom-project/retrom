@@ -221,8 +221,10 @@ async function save(page) {
 async function exit(page) {
   await page.mouse.move(20, 20);
   await page.getByRole("button", {name: "返回并退出游戏"}).click();
-  const finished = page.waitForResponse((item) => /\/finish$/u.test(item.url()) && item.request().method() === "POST");
-  await page.getByRole("alertdialog", {name: "退出游戏？"}).getByRole("button", {name: "退出游戏", exact: true}).click();
-  if (!(await finished).ok()) {throw new Error("SMOKE_EXIT_FAILED");}
+  const [finished] = await Promise.all([
+    page.waitForResponse((item) => /\/finish$/u.test(item.url()) && item.request().method() === "POST"),
+    page.getByRole("alertdialog", {name: "退出游戏？"}).getByRole("button", {name: "退出游戏", exact: true}).click(),
+  ]);
+  if (!finished.ok()) {throw new Error("SMOKE_EXIT_FAILED");}
   await page.locator(".player-shell").waitFor({state: "detached"});
 }
