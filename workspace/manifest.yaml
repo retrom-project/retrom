@@ -22,6 +22,7 @@
         "scummvm",
         "tic80",
         "fake08",
+        "play",
         "flycast-wasm"
       ]
     },
@@ -175,6 +176,15 @@
       "gitlink": "git@github.com:retrom-project/freej2me-plus.git",
       "defaultBranch": "main",
       "submodules": false,
+      "dependsOn": []
+    },
+    {
+      "id": "play",
+      "path": "project/retrom-core/Play-",
+      "role": "core",
+      "gitlink": "git@github.com:retrom-project/Play-.git",
+      "defaultBranch": "retrom/g83700b2c31e5",
+      "submodules": true,
       "dependsOn": []
     },
     {

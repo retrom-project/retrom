@@ -41,7 +41,7 @@ class CatalogTests(unittest.TestCase):
         self.data["repositories"].append(new)
         with self.assertRaisesRegex(ValueError, "duplicate"):
             self.parse()
-        new.update(id="unused", role="core", path="project/retrom-core/unused", dependsOn=[])
+        new.update(id="unused", path="project/retrom-other/unused", role="support", dependsOn=[])
         with self.assertRaisesRegex(ValueError, "not reachable"):
             self.parse()
 

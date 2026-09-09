@@ -2121,3 +2121,13 @@ Launch 完成验证。原始 JAR 的 SHA-256 和字节数必须在上传、内�
 - 选择一份新压缩存档创建不同 Launch，验证恢复场景及恢复后输入；旧存档仍可恢复。
 - 单元回归覆盖上下文保留属性与清理、旧格式读取、无损往返、gzip 损坏/截断及解压大小上限。
 - 证据按 ACC-FLYCAST-001 保存，仅保留本次非秘密身份、摘要与截图；不覆盖用户原存档。
+
+### ACC-PS2-001：Play! PS2 按需光盘与即时状态
+
+硬超时 600 秒。执行 `make acceptance-case CASE=ACC-PS2-001`，或等价的 `timeout 600 env -u DISPLAY -u WAYLAND_DISPLAY .cache/tools/node-v24.18.0-linux-x64/bin/node scripts/acceptance/play_product.mjs`。
+
+输入为 `RETROM_ACCEPTANCE_BASE_URL`、`RETROM_ACCEPTANCE_USERNAME`、`RETROM_ACCEPTANCE_PASSWORD`、`RETROM_CHROME_EXECUTABLE`、`RETROM_ACCEPTANCE_CASE_DIR`，以及显式授权的 `RETROM_PLAY_PREVIEW_DISC`、`RETROM_PLAY_GAME_ID`、`RETROM_PLAY_SAVE_ID`。先手动创建 PS2/Play! 游戏目录；预览光盘使用尚未发布的 ICO CHD，以免触发已发布内容去重。Product Launch 使用已通过普通导入/批准建立的 Ridge Racer V 游戏和对应的种子存档；种子位于 TEAMNAME ENTRY，名称为空、光标选中 O。种子只用于到达确定的交互状态，测试必须再创建新存档并在不同 Launch 恢复，不能把种子恢复当成保存验证。游戏与存档不进入仓库或发布包。
+
+步骤：上传 ICO CHD、导入并创建新的审核预览，验证帧推进和非空画面，保持该审核项未发布以支持重复验收；已有 Ridge Racer V 游戏用于 Product Launch。种子恢复后通过标准手柄右方向选 P、确认写入 P、取消删除 P，再写入 P；暂停两秒验证帧计数不变，通过公共 Player 创建即时存档。在新 Launch 恢复 P 后取消删除，证明恢复执行状态且输入继续生效。两次无存档启动分别推进至少 900 和 300 帧，第二次不得新增已读光盘块的 Range 请求。记录非零音频调度、截图、Launch ID、存档格式与缓存请求差值。
+
+通过标准：无浏览器异常，`play-state-v1` 新存档在不同 Launch 精确恢复命名状态，方向/确认/取消、暂停、截图、音频与缓存断言通过。证据为 `play-product.json` 与各阶段 PNG。自动化使用标准映射虚拟手柄；实体设备、完整比赛、跨游戏图形兼容性与声音质量不属于该 Case 的通过结论。《Ridge Racer V》上下跳动及三维场景缺失作为已知图形兼容性问题记录，不更改正常核心绑定与启动行为。
