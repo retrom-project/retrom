@@ -482,3 +482,9 @@ ZIP/7z 作为单卡带运输格式，只能包含一个匹配的主文件；卡�
 扩展名只决定导入候选，卡带解析与可运行性仍由审核预览和锁定核心检查；不新增 BIOS、RTP 或数据库内容类型。
 TIC-80 只接受二进制 `.tic`，编译语言能力见核心 `RETROM.md`；不承诺所有上游语言、编辑器或多卡带项目。
 实际产品验证见 [ACC-TIC-001 与 ACC-PICO-001](./project-acceptance.md#acc-tic-001tic-80-原生数据与真实产品链)。
+
+### Play! PS2 单光盘导入
+
+`ps2` 平台的 `play` Core 绑定 `retrom-runtime/play-ps2`，接收单个 `.iso` 或 `.chd` 文件，内容类型为 `SINGLE_FILE`。`OPTICAL_DISC` profile 不接收 BIN/CUE、M3U、多盘包或 ELF，也不创建 BIOS 依赖。导入只确认可交付的文件形状，不等同于 Play! 对该游戏的兼容性保证；管理员通过统一审核预览检查实际运行。推荐模板为“PlayStation 2 游戏”。
+
+Preview 与 Product Launch 都把冻结 Blob 的 SHA-256、准确字节数和不可变内容 URL 放入 `SEEKABLE_BLOB`，声明 `rangeRequired=true`。运行时按需读取光盘，不在启动前完整下载。发布、截图和存档继续走公共产品流程。
