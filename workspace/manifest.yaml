@@ -24,7 +24,8 @@
         "fake08",
         "play",
         "cap32",
-        "crocods"
+        "crocods",
+        "81"
       ]
     },
     {
@@ -202,6 +203,15 @@
       "path": "project/retrom-core/libretro-crocods",
       "role": "core",
       "gitlink": "https://github.com/EmulatorJS/libretro-crocods.git",
+      "defaultBranch": "master",
+      "submodules": false,
+      "dependsOn": []
+    },
+    {
+      "id": "81",
+      "path": "project/retrom-core/81-libretro",
+      "role": "core",
+      "gitlink": "https://github.com/EmulatorJS/81-libretro.git",
       "defaultBranch": "master",
       "submodules": false,
       "dependsOn": []
