@@ -41,6 +41,19 @@ var staticBIOSCatalog = []staticBIOS{
 		sourceURL: "https://docs.libretro.com/library/px68k/",
 	},
 	{
+		coreID: "flycast", logical: "dc_boot.bin", mode: "REQUIRED", size: 2097152,
+		md5: "e10c53c2f8b90bab96ead2d368858623", sha256: "88d6a666495ad14ab5988d8cb730533cfc94ec2cfd53a7eeda14642ab0d4abf9",
+		sourceURL: "https://docs.libretro.com/library/flycast/",
+		delivery:  "EXTERNAL_FILE", emulatorPath: "/dc/dc_boot.bin",
+		options: `{"reicast_hle_bios":"disabled"}`,
+	},
+	{
+		// Flash contains mutable console settings; accept the correct size without a fixed digest.
+		coreID: "flycast", logical: "dc_flash.bin", mode: "REQUIRED", size: 131072,
+		sourceURL: "https://github.com/nasomers/flycast-wasm/tree/v1.0",
+		delivery:  "EXTERNAL_FILE", emulatorPath: "/dc/dc_flash.bin",
+	},
+	{
 		coreID:    "fceumm",
 		logical:   "disksys.rom",
 		mode:      "CONDITIONAL",

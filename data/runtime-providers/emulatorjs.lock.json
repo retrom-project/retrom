@@ -1,14 +1,14 @@
 {
-  "bundleSha256": "e9a79c073a98fd8d22105a5f0f045e664928826c63474758537f5c165c30d8e7",
-  "bundleSizeBytes": 95515622,
-  "bundleUrl": "https://github.com/retrom-project/retrom-runtime/releases/download/v0.23.1/emulatorjs-provider-2.5.0.tar.gz",
-  "commit": "4a955495fc19047ce0442b37fe3b42e217b98b62",
-  "fileCount": 137,
-  "manifestSha256": "d2bc82459f59383de8f5d6d2b69818acad4f0545d7714ee5e309b32317c57631",
+  "bundleSha256": "cdd9c3c838b91753937969290a31a71d99eac1aa001b0b133ce92f4a9f1c1638",
+  "bundleSizeBytes": 99069574,
+  "bundleUrl": "https://github.com/retrom-project/retrom-runtime/releases/download/v0.25.0/emulatorjs-provider-2.6.1.tar.gz",
+  "commit": "19e38810d4d0b1e6d318b08e888efb2a047c0f78",
+  "fileCount": 143,
+  "manifestSha256": "5095dcddc1205fcf9c527a6d97bcca1b386ebd01275b6a18ce55f9d6b99c9a53",
   "providerId": "emulatorjs",
-  "providerVersion": "2.5.0",
+  "providerVersion": "2.6.1",
   "repository": "https://github.com/retrom-project/retrom-runtime",
   "schemaVersion": 1,
-  "tag": "v0.23.1",
-  "unpackedSizeBytes": 98438576
+  "tag": "v0.25.0",
+  "unpackedSizeBytes": 102052447
 }
