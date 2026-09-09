@@ -37,7 +37,8 @@ FANTASY_CASES = {"ACC-TIC-001", "ACC-PICO-001"}
 FLASH_CASES = {"ACC-FLASH-001"}
 MSX_CASES = {"ACC-MSX-001"}
 PS2_CASES = {"ACC-PS2-001"}
-PRODUCT_CASES = MSX_CASES | FLASH_CASES | PS2_CASES | FANTASY_CASES | RPG_CASES | ONS_CASES | KIRIKIRI_CASES | BUTTERSCOTCH_CASES | TYRANOSCRIPT_CASES | SCUMMVM_CASES
+OPENBOR_CASES = {"ACC-OPENBOR-001"}
+PRODUCT_CASES = OPENBOR_CASES | MSX_CASES | FLASH_CASES | PS2_CASES | FANTASY_CASES | RPG_CASES | ONS_CASES | KIRIKIRI_CASES | BUTTERSCOTCH_CASES | TYRANOSCRIPT_CASES | SCUMMVM_CASES
 
 
 # These commands are intentionally focused. Cases omitted here are emitted as
@@ -484,6 +485,7 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
     "ACC-MSX-001": (300, ".cache/tools/node-v24.18.0-linux-x64/bin/node scripts/acceptance/msx_product.mjs"),
     "ACC-FLASH-001": (300, ".cache/tools/node-v24.18.0-linux-x64/bin/node scripts/acceptance/ruffle_product.mjs"),
     "ACC-PS2-001": (600, "env -u DISPLAY -u WAYLAND_DISPLAY .cache/tools/node-v24.18.0-linux-x64/bin/node scripts/acceptance/play_product.mjs"),
+    "ACC-OPENBOR-001": (600, "env -u DISPLAY -u WAYLAND_DISPLAY .cache/tools/node-v24.18.0-linux-x64/bin/node scripts/acceptance/openbor_product.mjs"),
     "ACC-PICO-001": (300, ".cache/tools/node-v24.18.0-linux-x64/bin/node scripts/acceptance/fantasy_product.mjs fake08"),
     "ACC-ONS-001": (
         300,
@@ -726,7 +728,7 @@ def archive_previous(case_dir: Path) -> None:
     for name in (
         "result.json", "stdout.log", "network.json", "rpgmaker-product.json", "ons-product.json",
         "kirikiri-product.json", "butterscotch-product.json", "tyranoscript-product.json", "fantasy-product.json", "scummvm-product.json", "play-product.json",
-        "ruffle-product.json", "rerun-resolution.json",
+        "openbor-product.json", "ruffle-product.json", "rerun-resolution.json",
     ):
         source = case_dir / name
         if source.exists():
@@ -990,7 +992,9 @@ def execute_case(case_id: str) -> int:
             reason = "聚焦自动化断言通过" if status == "PASS" else ("命令超时" if timed_out else "聚焦自动化断言失败")
         if case_id in PRODUCT_CASES:
             product_filename = "rpgmaker-product.json"
-            if case_id in PS2_CASES:
+            if case_id in OPENBOR_CASES:
+                product_filename = "openbor-product.json"
+            elif case_id in PS2_CASES:
                 product_filename = "play-product.json"
             elif case_id in FANTASY_CASES:
                 product_filename = "fantasy-product.json"

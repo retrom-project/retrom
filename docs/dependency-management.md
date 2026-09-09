@@ -40,7 +40,7 @@ Provider manifest 的 `providerApiVersion` 在结构层只要求正整数，使�
 
 `emulatorjs` Bundle 从独立 retrom-runtime 仓库中锁定的 EJS upstream 与 fork Release 输入生成，声明 44 个 Target。它独占 EJS core、core options、启动动作、多盘和 8 个联机 profile 的行为映射。
 
-`retrom-runtime` Bundle 从独立仓库生成，声明包含 ScummVM、TIC-80、FAKE-08、Play! 和 Ruffle 在内的 19 个 Target；生产可用集合以正式 lock 为准。`provider-sources.json` 只记录上游或本地 core 构建来源，不声明 Retrom 路由或产品 binding；Target registry 只存在于 Provider declaration。正式 package 校验声明的上游输入及其锁定 source/tag/asset，源码构建或缓存复用都必须得到声明的字节。
+`retrom-runtime` Bundle 从独立仓库生成，声明包含 ScummVM、TIC-80、FAKE-08、Play! 和 Ruffle 在内的 21 个 Target；生产可用集合以正式 lock 为准。`provider-sources.json` 只记录上游或本地 core 构建来源，不声明 Retrom 路由或产品 binding；Target registry 只存在于 Provider declaration。正式 package 校验声明的上游输入及其锁定 source/tag/asset，源码构建或缓存复用都必须得到声明的字节。
 
 ## 4. Retrom binding catalog
 
@@ -190,6 +190,16 @@ PFB 中显式 `pfb-core-build CORE=flycast`，再由 runtime
 Play! 的核心源码与构建归属为 `retrom-project/Play-`，维护基线为上游 `83700b2c31e593bc94e845b4b31b797be84dda59`，维护分支 `retrom/g83700b2c31e5`。Retrom workspace catalog 将其登记为 runtime 的 `play` 核心依赖。固定 Emscripten 工具链、ABI `play-host-v1`、闭合资产与许可由 fork 管理，annotated `retrom-core-g83700b2c31e5-rN` tag 的工作流发布正式资产。
 
 runtime 通过普通 `upstreamReleases` 固定 Play! tag、commit、metadata 与资产；Retrom 通过正常 Provider Release 锁文件消费它。PS2 核心保持启用，手动创建目录、导入与启动遵循普通核心流程，无实验开关或专用禁用状态；因运行不稳定，不提供推荐目录，具体行为见[游戏目录契约](./platform-instance.md#release-推荐目录-catalog)。候选与本机路径不进入 production lock；后续更新沿用 core → Provider → Host 的正常发布顺序。产品验证见 [ACC-PS2-001](./project-acceptance.md#acc-ps2-001play-ps2-按需光盘与即时状态)。
+
+### OpenBOR 浏览器核心
+
+OpenBOR 的源码与 Emscripten 构建归属 `retrom-project/openbor`，上游基线为
+`DCurrent/openbor@9d81480f8481fbb9e76b0b5f2a5dfa408376761a`，维护分支
+`retrom/g9d81480f8481`。runtime 以 `openbor-host-v1` 消费 fork 输出的 ES module、WASM 和许可。
+runtime 通过 `upstreamReleases` 固定 `retrom-core-g9d81480f8481-r1` 的 commit、元数据、
+资产长度与 SHA-256；Retrom 通过正式 Provider Release 锁文件消费它。PFB 可显式覆盖已声明
+来源的候选资产，验证闭合集合、长度与摘要；未发布候选不能进入正式 Provider Release 或
+production lock。core 源码、工具链和二进制始终由 fork 管理。
 
 ### WebMSX 发布与开发候选
 
