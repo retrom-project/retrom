@@ -60,10 +60,11 @@ async function open(launch) {
   await page.goto(base + launch.playUrl, {waitUntil: "domcontentloaded"});
   await waitForPreviewReady(page);
   let frame;
-  for (const candidate of page.frames()) {
+  for (const candidate of page.frames().filter(candidate => candidate !== page.mainFrame())) {
     if (await candidate.evaluate(() => Boolean(window.EJS_emulator?.gameManager))) {frame = candidate; break;}
   }
   assert.ok(frame, "FLYCAST_NATIVE_INSTANCE_MISSING");
+  await frame.locator("canvas").first().click();
   const config = await page.evaluate(async id => (await fetch(`/runtime/launches/${id}/config`)).json(), launch.launchId ?? launch.previewId);
   assert.equal(config.runtime.targetId, "flycast");
   const disk = config.resources.find(resource => resource.kind === "ROM_BLOB");
@@ -117,14 +118,14 @@ try {
   const client = await fantasyClient(context, base), progress = await prepare(client);
   evidence.gameId = progress.gameId; evidence.gameSha256 = progress.digest;
   const original = await launchCart(client, progress.gameId), first = await open(original);
-  await first.page.waitForTimeout(15000);
-  for (let i = 0; i < 4; i++) {await gamepad(first.page, 9, 200); await first.page.waitForTimeout(2000);}
+  await first.page.waitForTimeout(45000);
+  for (let i = 0; i < 8; i++) {await gamepad(first.page, 9, 200); await first.page.waitForTimeout(3000);}
   await gamepad(first.page, 13, 180); await gamepad(first.page, 0, 200);
   await first.page.waitForTimeout(5000);
   const saved = await save(first, client, progress.gameId, original.launchId);
-  assert.equal(saved.checkpointFormat, "flycast-state-v1-storage-v1");
   evidence.saveStateId = saved.saveStateId; await first.page.close();
   const restored = await launchCart(client, progress.gameId, saved.saveStateId), next = await open(restored);
+  assert.equal(next.config.restore.format, "flycast-state-v1-storage-v1");
   assert.notEqual(restored.launchId, original.launchId);
   const response = await client.raw("GET", next.config.restore.url); assert.equal(response.status(), 200);
   const bytes = await response.body(), raw = gunzipSync(bytes, {maxOutputLength: 256 * 1024 * 1024});
