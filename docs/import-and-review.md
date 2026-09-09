@@ -3,8 +3,8 @@
 | 属性 | 内容 |
 | --- | --- |
 | 文档状态 | 已审定 / 一期实施基线 |
-| 版本 | 1.5 |
-| 日期 | 2026-08-25 |
+| 版本 | 1.6 |
+| 日期 | 2026-09-08 |
 | 元信息源 | Hasheous 公共 Hash Lookup |
 
 ## 1. 边界
@@ -160,6 +160,12 @@ Job 交接只有一条实现路径：`IMPORT_ITEM_PIPELINE` 完成 hash、分组
 | Virtual Boy (`virtualboy`) | 原始 `.vb`；或一个 ZIP/7z | archive 必须恰有一个 `.vb` entry。 |
 | WonderSwan / Color (`wonderswan`) | 原始 `.ws`、`.wsc`；或一个 ZIP/7z | archive 必须恰有一个支持 entry。 |
 | Master System (`mastersystem`) | 原始 `.sms`；或一个 ZIP/7z | archive 必须恰有一个 `.sms` entry；本期不借用 SMS Plus 的其他平台格式扩展产品范围。 |
+| ZX Spectrum (`zxspectrum`) | 原始 `.tzx/.tap/.z80/.rzx/.scl/.trd`；或一个 ZIP/7z | archive 必须恰有一个支持 entry；只发布单文件内容，不接收 M3U 或多盘集合。 |
+| Commodore 64 / 128 / VIC-20 (`c64/c128/vic20`) | 原始 `.d64/.d6z/.d71/.d7z/.d80/.d81/.d82/.d8z/.g64/.g6z/.g41/.g4z/.x64/.x6z/.nib/.nbz/.d2m/.d4m/.t64/.tap/.tcrt/.prg/.p00/.crt/.bin/.vsf/.gz/.20/.40/.60/.a0/.b0/.rom`；或一个 ZIP/7z | 三个平台分别绑定 VICE x64sc/x128/xvic；archive 必须恰有一个支持 entry。CMD/VFL/M3U 引用文件、多文件磁盘集合与换盘不在本期范围。 |
+| ColecoVision (`colecovision`) | 原始 `.col/.cv/.bin/.rom`；或一个 ZIP/7z | archive 必须恰有一个支持 entry；启动要求已安装匹配的 `colecovision.rom`。 |
+| Atari Jaguar (`atarijaguar`) | 原始 `.j64/.jag/.rom/.abs/.cof/.bin/.prg`；或一个 ZIP/7z | archive 必须恰有一个支持 entry；不接收 Jaguar CD 或多文件光盘内容。 |
+| Doom (`doom`) | 原始 `.wad/.iwad`；或一个 ZIP/7z | archive 必须恰有一个 IWAD 游戏内容；启动同时要求已安装 `prboom.wad`。字面扩展 `.pwad` 不接收，PWAD/mod 依赖闭包不在本期范围。 |
+| Amiga (`amiga`) | 原始 `.adf/.adz/.dms/.fdi/.ipf/.raw/.hdf/.hdz/.lha/.chd/.nrg/.iso`；或一个 ZIP/7z | archive 必须恰有一个支持 entry；不接收 `.m3u/.uae/.cue/.ccd/.mds/.slave/.info`，也不拼装伴随文件或切换磁盘。 |
 | PlayStation / 3DO / PC-FX | 对应目录中的单个原始 `.chd` | 不展开、不接受 archive wrapper；不支持 CUE/BIN、M3U、多盘或伴随音轨。 |
 | Saturn | STANDARD 为单个原始 `.chd`；显式 `MULTI_DISC` 为同目录一个 M3U 与其引用的 2–8 个 CHD | 多盘仅对 capability 返回支持的 yabause artifact 开放；不接受跨目录引用、archive wrapper、CUE/BIN 或非 CHD entry。 |
 | PSP (`psp`) | 单个原始 `.iso` 或 `.cso` | 两者均为 `RAW_FILE` CONTENT，直接交给 PPSSPP；服务端不转码，也不接受 `.iso.7z/.cso.7z`。 |

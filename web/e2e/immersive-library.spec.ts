@@ -204,6 +204,10 @@ async function exitPlayer(page: Page, menu: Locator) {
   await pressGamepad(page, standardButton.a);
   expect((await finished).ok()).toBe(true);
   await expect(page).toHaveURL(/\/immersive\/(?:library|platforms)\//);
+  await expect(page.getByRole("listbox", { name: "沉浸游戏列表" })).toBeVisible();
+  await expect(page.getByRole("option", { selected: true })).toBeVisible();
+  // Navigation commits before the new controller consumer finishes its neutral gate.
+  await page.waitForTimeout(180);
 }
 
 async function saves(page: Page) {

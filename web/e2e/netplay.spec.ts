@@ -427,8 +427,11 @@ async function verifyLockstepBufferAdaptation(session: Awaited<ReturnType<typeof
     elevatedBuffer = Math.max(baselineBuffer, ...samples.map((event) => event.inputBufferFrames ?? 1));
     return elevatedBuffer;
   }, { timeout: 30_000 }).toBeGreaterThan(baselineBuffer);
-  const recoveryStartFrame = Math.max(...(await diagnosticEvents(session.guestPage))
-    .filter((event) => event.kind === "lockstep").map((event) => event.frame ?? -1));
+  // Recovery may already be accumulating before the test resets its artificial delay.
+  // Count from the observed buffer increase, not from a later browser poll.
+  const recoveryStartFrame = Math.min(...(await diagnosticEvents(session.guestPage))
+    .filter((event) => event.kind === "lockstep" && (event.frame ?? -1) > delayStartFrame && event.inputBufferFrames === elevatedBuffer)
+    .map((event) => event.frame ?? -1));
   await session.guestPage.evaluate(() => {
     const state = (window as typeof window & { __RETROM_NETPLAY_ACCEPTANCE__?: { delayMS: number } })
       .__RETROM_NETPLAY_ACCEPTANCE__!;
@@ -437,10 +440,8 @@ async function verifyLockstepBufferAdaptation(session: Awaited<ReturnType<typeof
   await setEmulatorDirectionalInput(session.guestPage, false);
   let recoverySamples = 0;
   await expect.poll(async () => {
-    // The boundary sample was already observed when delay was reset and is
-    // the first sample in the controller's consecutive lower-target window.
     const samples = (await diagnosticEvents(session.guestPage)).filter((event) =>
-      event.kind === "lockstep" && (event.frame ?? -1) >= recoveryStartFrame);
+      event.kind === "lockstep" && (event.frame ?? -1) > recoveryStartFrame);
     const recoveredIndex = samples.findIndex((event) => (event.inputBufferFrames ?? 1) < elevatedBuffer);
     recoverySamples = recoveredIndex + 1;
     return recoveredIndex >= 0;
