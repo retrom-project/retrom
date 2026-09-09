@@ -91,6 +91,11 @@ var staticBIOSCatalog = []staticBIOS{
 		sourceURL: "https://docs.libretro.com/library/gambatte/",
 	},
 	{
+		coreID: "gearcoleco", logical: "colecovision.rom", mode: "REQUIRED", size: 8192,
+		md5: "2c66f5911e5b42b8ebe113403548eee7", sha256: "990bf1956f10207d8781b619eb74f89b00d921c8d45c95c334c16c8cceca09ad",
+		sourceURL: "https://docs.libretro.com/library/gearcoleco/",
+	},
+	{
 		coreID:    "gambatte",
 		logical:   "gbc_bios.bin",
 		mode:      "OPTIONAL",
@@ -205,6 +210,11 @@ var staticBIOSCatalog = []staticBIOS{
 		coreID: "prosystem", logical: "7800 BIOS (U).rom", mode: "REQUIRED", size: 4096,
 		md5: "0763f1ffb006ddbe32e52d497ee848ae", sha256: "7d94551defcd8e7b045a34255654d6d169a683f63062d51dee3eedabf2042db0",
 		sourceURL: "https://docs.libretro.com/library/prosystem/",
+	},
+	{
+		coreID: "prboom", logical: "prboom.wad", mode: "REQUIRED", size: 143312,
+		md5: "72ae1b47820fcc93cc0df9c428d0face", sha256: "b4dd3642932193cc42bca0ee98bf30004888ca4850d69e85023b8baacfba1d1d",
+		sourceURL: "https://docs.libretro.com/library/prboom/",
 	},
 	{
 		coreID: "mednafen_pcfx", logical: "pcfx.rom", mode: "REQUIRED", size: 1048576,

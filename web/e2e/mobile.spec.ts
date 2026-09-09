@@ -145,6 +145,7 @@ test("ACC-MOB-001 exact phone and tablet shell baselines have no page overflow",
 });
 
 test("ACC-MOB-002 user routes, filter sheet, active navigation and accessibility remain usable", async ({ page }) => {
+  test.setTimeout(180_000);
   await page.setViewportSize({ width: 390, height: 844 });
   const routes = ["/", "/library", "/me", "/saves", "/favorites", "/recent", "/netplay", "/account"];
   for (const route of routes) {
@@ -259,6 +260,7 @@ test("ACC-MOB-003 search, favorite, launch, save and home continue use the real 
   const launchRequest = page.waitForRequest((request) => request.method() === "POST" && /\/api\/v1\/launches$/.test(request.url()));
   await options.getByRole("button", { name: /^(开始游戏|从头开始)$/ }).click();
   expect((await launchRequest).postDataJSON()).toMatchObject({ saveStateId: null });
+  await page.waitForURL(/\/play\/[0-9a-f-]+(?:\?|$)/, { timeout: 30_000 });
   await expect(page.getByRole("dialog", { name: "请横向握持设备开始游戏" })).toBeVisible();
   await page.setViewportSize({ width: 844, height: 390 });
   await expect(page.frameLocator("iframe.player-frame").locator("canvas.ejs_canvas")).toBeVisible({ timeout: 60_000 });

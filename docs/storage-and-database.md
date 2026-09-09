@@ -494,7 +494,7 @@ Tag 删除是业务软删除，不是存储清理：不得以减小数据库为�
 ## 15. Provider 激活与数据库协调
 
 服务在开放业务路由前先逐字节校验 active descriptor、已安装 Bundle、manifest、module 和所有声明资产，再把两个
-Provider 及 47 个 Target 投影为一个 canonical catalog。协调事务只能整体写入 Provider、Target、binding 和 catalog
+Provider 及 56 个 Target 投影为一个 canonical catalog。协调事务只能整体写入 Provider、Target、binding 和 catalog
 state；任一 Target、Host binding、DAT、BIOS、checkpoint reference 或 netplay reference 不闭合时不得部分激活。
 
 升级只允许 SemVer 增长。事务必须证明所有被 Variant、Validation 和 Netplay 引用的 Target 仍存在，且每个存档的
