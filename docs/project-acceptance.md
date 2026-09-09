@@ -2100,3 +2100,21 @@ Launch 完成验证。原始 JAR 的 SHA-256 和字节数必须在上传、内�
 步骤：上传 ICO CHD、导入并创建新的审核预览，验证帧推进和非空画面，保持该审核项未发布以支持重复验收；已有 Ridge Racer V 游戏用于 Product Launch。种子恢复后通过标准手柄右方向选 P、确认写入 P、取消删除 P，再写入 P；暂停两秒验证帧计数不变，通过公共 Player 创建即时存档。在新 Launch 恢复 P 后取消删除，证明恢复执行状态且输入继续生效。两次无存档启动分别推进至少 900 和 300 帧，第二次不得新增已读光盘块的 Range 请求。记录非零音频调度、截图、Launch ID、存档格式与缓存请求差值。
 
 通过标准：无浏览器异常，`play-state-v1` 新存档在不同 Launch 精确恢复命名状态，方向/确认/取消、暂停、截图、音频与缓存断言通过。证据为 `play-product.json` 与各阶段 PNG。自动化使用标准映射虚拟手柄；实体设备、完整比赛、跨游戏图形兼容性与声音质量不属于该 Case 的通过结论。《Ridge Racer V》上下跳动及三维场景缺失作为已知图形兼容性问题记录，不更改正常核心绑定与启动行为。
+
+
+### ACC-PC98-001：NP2kai PC-98 磁盘与即时状态
+
+以作者公开发布的《囚人へのペル・エム・フル》2025-12-31 HDI 为外部语料，使用
+`scripts/acceptance/pc98_product.mjs` 完成真实上传、导入、审核预览、发布、Product Launch、
+标准手柄方向/确认/取消、暂停截图、创建即时存档、不同 Launch 恢复及恢复后输入。
+菜单图像必须保留所选位置，比较时等待闪烁光标可见，不能将重新开机或仅返回成功状态视为恢复。暂停画面不得为空，
+音频须有非零采样；首次加载须显示确定进度，三个实例的同一磁盘只能请求一次。
+
+运行需要 `RETROM_ACCEPTANCE_BASE_URL`、`RETROM_ACCEPTANCE_USERNAME`、
+`RETROM_ACCEPTANCE_PASSWORD`、`RETROM_CHROME_EXECUTABLE`、`RETROM_PC98_DISC`。
+驱动固定校验 HDI SHA-256 `3bc33e01942b253cef0e19ab2ce6cf4c27befe49a0f4c1e5a021711480c100da`，
+不下载或提交游戏。目标实例中不能已有同平台同内容的已发布游戏；失败后可用
+`RETROM_PC98_REVIEW_ID` 继续同一待审核项，仍完整执行预览至恢复链路。
+硬超时为 600 秒；无输入时输出 BLOCKED。WSL 无头 Chrome 须取消 DISPLAY/WAYLAND_DISPLAY。
+输出 `pc98-product.json` 与普通游戏截图，记录 Provider/模块摘要、内容摘要、会话和存档 ID。
+PFB 候选结果只证明该组合，不代表正式 Release 或实体手柄兼容性。

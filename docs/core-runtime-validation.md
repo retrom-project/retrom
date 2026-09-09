@@ -61,6 +61,15 @@ RPG 世代检测只选择 `retrom-runtime` Provider 内的 Target；用户仍只
 
 Native Web 必须使用每 Launch unique origin，拒绝应用 cookie、普通 API、跨 Launch 项目和 ticket 重放。审核试运行复用普通 Preview/Player 与同一 Provider Module，不包含专用证明协议或发布前置。严格的帧、输入、音频、A/B/C、checkpoint、跨会话恢复与截图断言只由研发验收驱动普通产品操作并从自有 fixture/普通存档读取，规则见项目验收专题。
 
+### PC-98 / NP2kai
+
+`np2kai-pc98` 使用 ROM_BLOB 单文件 HDI/D88，最多 512 MiB；首批游戏验证使用作者公开下载的
+《囚人へのペル・エム・フル》。不包含 BIOS，不声明多软盘切换或其他磁盘格式兼容性。
+固定 fork 负责 Emscripten/SDL 核心与字体、完整组件许可；Provider 负责磁盘校验、OPFS 缓存、
+进度、标准手柄和 `np2kai-state-v1`。状态包含原生 CPU/内存/设备状态及相对只读基盘的磁盘改动，
+总量有界，恢复必须匹配基盘摘要。原生队列接口须同步完成后才能返回，不能提早删除尚未加载的状态文件。
+软件帧缓冲须在暂停时保持可读截图。产品门禁为 `ACC-PC98-001`。
+
 ## 6. 升级验证
 
 Provider 升级必须在同一数据库上顺序启动旧版与更高版本，证明：

@@ -193,3 +193,17 @@ Provider 使用 `scummvm-save-bundle-v1`（`GAME_SAVE`，上限 64 MiB），原�
 两者均为单线程、同源空 iframe、单人标准手柄/键盘方向与动作输入，提供暂停、截图和音量。
 各 Launch 创建独立 WASM heap；退出或取消加载移除帧循环、输入监听及音频节点，不选存档启动不会读取旧游戏状态。
 具体产品通过标准与证据入口只在 [核心验收 Case](./project-acceptance.md#acc-tic-001tic-80-原生数据与真实产品链) 维护。
+
+## PC-98 / NP2kai 开发候选
+
+平台 `pc98`、核心 `np2kai` 绑定 `retrom-runtime/np2kai-pc98`。`PC98_DISK` 策略只接受
+单个 `.hdi` 或 `.d88`，按 `SINGLE_FILE` 保留字节，以 `ROM_BLOB` 交付；Target 不接收私有 options。
+Provider 验证 HDI 几何与 D88 长度，首次完整下载报告进度，并按稳定内容 URL 在 OPFS 复用经过大小和
+SHA-256 校验的不可变镜像。游戏写入只改变本次实例的内存副本。
+
+`np2kai-state-v1` 为即时快照，包含原生执行状态和相对原盘的 64 KiB 块增量；总量上限 384 MiB，
+绑定原盘 SHA-256。不同 Launch 显式恢复时先安装磁盘增量，再加载执行状态。Host 通过公共 checkpoint
+与 Player 控件提供保存、暂停、截图及恢复，不理解 NP2kai 状态。标准手柄覆盖方向、Space 确认、Escape 取消。
+本次候选不开放联机、换盘、音量设置或外置 BIOS；生产 Provider lock 保持已发布版本。
+
+真实产品检查入口为 `ACC-PC98-001`；通过单个游戏不代表全部 PC-98 软件兼容。
