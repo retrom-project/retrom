@@ -9,7 +9,7 @@ import (
 	"retrom/internal/contentprofile"
 )
 
-const Version = 16
+const Version = 17
 
 var ErrInvalid = errors.New("PLATFORM_CATALOG_INVALID")
 
@@ -160,7 +160,8 @@ var current = Catalog{Version: Version, Templates: []DirectoryTemplate{
 		Name: "Commodore Amiga 游戏", CatalogOrder: 450,
 	},
 	{Key: "flash/ruffle", PlatformID: "flash", DefaultCoreID: "ruffle", Name: "Flash 游戏", CatalogOrder: 460},
-	{Key: "x68000/px68k", PlatformID: "x68000", DefaultCoreID: "px68k", Name: "Sharp X68000 游戏", CatalogOrder: 470},
+	{Key: "msx/webmsx", PlatformID: "msx", DefaultCoreID: "webmsx", Name: "MSX 游戏", CatalogOrder: 470},
+	{Key: "x68000/px68k", PlatformID: "x68000", DefaultCoreID: "px68k", Name: "Sharp X68000 游戏", CatalogOrder: 480},
 }}
 
 func Current() Catalog {
