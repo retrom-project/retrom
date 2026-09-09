@@ -309,7 +309,7 @@ erDiagram
 | Commodore PET (`pet`) | `vice_xpet` | Commodore PET 游戏 → `vice_xpet` | 单文件；不开放 M3U/CMD/VFL 引用 |
 | Commodore Plus/4 (`plus4`) | `vice_xplus4` | Commodore Plus/4 游戏 → `vice_xplus4` | 单文件；不提供换盘 |
 | Philips CD-i (`cdi`) | `same_cdi` | Philips CD-i 游戏 → `same_cdi` | 单文件 CHD；需要 Mono-I BIOS 与两个 MCU ROM |
-| Neo Geo Pocket / Color (`ngpc`) | `mednafen_ngp` | Neo Geo Pocket 游戏 → `mednafen_ngp` | `.ngp` |
+| Neo Geo Pocket / Color (`ngpc`) | `mednafen_ngp` | Neo Geo Pocket 游戏 → `mednafen_ngp` | `.ngp`、`.ngc` |
 | Nintendo 64 (`n64`) | `mupen64plus_next`、`parallel_n64` | Nintendo 64 游戏 → `mupen64plus_next` | `.z64`；产品 ID 只使用 `parallel_n64` |
 | PlayStation (`psx`) | `pcsx_rearmed`、`mednafen_psx_hw` | PlayStation 游戏 → `pcsx_rearmed` | 单文件 CHD；后者需要线程且固定 software renderer |
 | Sega Saturn (`saturn`) | `yabause` | Sega Saturn 游戏 → `yabause` | 单文件 CHD |
