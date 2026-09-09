@@ -145,7 +145,7 @@ export async function inspectPreviewCheckpoint(request, status, receipt, preview
 export async function observeFixturePosition(page, generation, observations, checkpoint) {
   if (generation === "RPG2000" || generation === "RPG2003") {
     if (!checkpoint) {throw new Error("RPG_PREVIEW_POSITION_NEEDS_ORDINARY_SAVE");}
-    return readEasyRpgPosition(checkpoint.bytes, generation);
+    return readEasyRpgPosition(checkpoint.bytes, generation, checkpoint.format);
   }
   if (["RPGXP", "RPGVX", "RPGVXACE"].includes(generation)) {
     await resumePreview(page);

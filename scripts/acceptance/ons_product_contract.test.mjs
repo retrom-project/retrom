@@ -52,7 +52,7 @@ function evidence() {
       originalLaunchId: "01a0452f-a9e9-7c54-a65e-c75fc19a473b",
       restoreLaunchId: "01a0452f-bc94-7cc2-8403-4819f3c381e2",
     },
-    checkpoint: { format: "ons-save-bundle-v1", sizeBytes: 36_194 },
+    checkpoint: { format: "ons-save-bundle-v1-storage-v1", sizeBytes: 36_194 },
     loading: {
       schemaVersion: 1,
       sameProjectContentIdentity: true,

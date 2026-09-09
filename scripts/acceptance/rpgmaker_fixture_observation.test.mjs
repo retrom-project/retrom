@@ -1,3 +1,4 @@
+import {gzipSync} from "node:zlib";
 import assert from "node:assert/strict";
 import {createHash} from "node:crypto";
 import test from "node:test";
@@ -77,5 +78,14 @@ test("reads only bounded state emitted by the owned Ruby fixture", () => {
     "RETROM_FIXTURE_STATE_V1:60:1:-1:8:1", "RETROM_FIXTURE_STATE_V1:60:1:99999:8:1",
     "RETROM_FIXTURE_STATE_V1:60:1:12:8:1garbage"]) {
     assert.equal(readRgssFixtureLine(line), null);
+  }
+});
+
+test("reads a single common gzip layer and refuses malformed storage checkpoints", () => {
+  const raw = checkpoint(save(), "RPG2000");
+  const stored = gzipSync(raw);
+  assert.deepEqual(readEasyRpgPosition(stored, "RPG2000", "easyrpg-save-bundle-v1-storage-v1"), readEasyRpgPosition(raw, "RPG2000"));
+  for (const bytes of [stored.subarray(0, -1), gzipSync(stored)]) {
+    assert.throws(() => readEasyRpgPosition(bytes, "RPG2000", "easyrpg-save-bundle-v1-storage-v1"), /RPG_FIXTURE_SAVE_INVALID/);
   }
 });

@@ -43,7 +43,7 @@ function assertIds(value) {
 }
 
 function assertCheckpoint(value) {
-  if (!exactRecord(value, ["format", "sizeBytes"]) || value.format !== "tyranoscript-snapshot-v1" ||
+  if (!exactRecord(value, ["format", "sizeBytes"]) || value.format !== "tyranoscript-snapshot-v1-storage-v1" ||
       !Number.isSafeInteger(value.sizeBytes) || value.sizeBytes < 1 || value.sizeBytes > 32 * 1024 * 1024) {
     throw new Error("TYRANOSCRIPT_ACCEPTANCE_EVIDENCE_INVALID");
   }
