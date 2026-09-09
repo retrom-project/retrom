@@ -191,7 +191,7 @@ Play! 的核心源码与构建归属为 `retrom-project/Play-`，维护基线为
 
 runtime 通过普通 `upstreamReleases` 固定 Play! tag、commit、metadata 与资产；Retrom 通过正常 Provider Release 锁文件消费它。PS2 核心保持启用，手动创建目录、导入与启动遵循普通核心流程，无实验开关或专用禁用状态；因运行不稳定，不提供推荐目录，具体行为见[游戏目录契约](./platform-instance.md#release-推荐目录-catalog)。候选与本机路径不进入 production lock；后续更新沿用 core → Provider → Host 的正常发布顺序。产品验证见 [ACC-PS2-001](./project-acceptance.md#acc-ps2-001play-ps2-按需光盘与即时状态)。
 
-## PX68K PFB 核心输入
+## PX68K 核心输入
 
 PX68K 的维护源为 `retrom-project/px68k-libretro`，基线是
 `uraraworks/px68k-libretro@561dcba6b11d04c9a6d7ca62998d5fb3f544aa49`。
@@ -199,9 +199,9 @@ PX68K 的维护源为 `retrom-project/px68k-libretro`，基线是
 `libretro/px68k-libretro@0ad84d7058a12b7db4f7f7a906e87fad4e2f26f6`
 的存储实现替换，文件范围与原因记录于 core fork 的 `retrom/README.md`。
 
-首轮接入使用显式 core candidate 和 runtime `developmentInputs`，不得伪造 release tag
-或写入 production lock。fork 输出 ES module、Wasm、完整 `LICENSES.txt` 与带文件摘要的
-candidate descriptor；runtime 验证实际文件集合、ABI、大小和 SHA-256，再构建 Provider。
+runtime 固定维护分支的正式 `retrom-core-g561dcba6b11d-r1` Release，验证提交、ABI、
+ES module/Wasm/完整 `LICENSES.txt` 的文件大小与 SHA-256，再构建 Provider。
+PFB 的显式 core candidate 仍验证闭合文件集合与 candidate descriptor；开发覆盖不能进入正式归档或 production lock。
 该核心同时保留 GPL 文本、WinX68k 非商业条款和 FMGen notice；adapter 的 MIT 许可不改变它们。
 
 BIOS 由产品 BIOS 安装链提供：`iplrom.dat`（131072 bytes）和 `cgrom.dat`（786432 bytes），
