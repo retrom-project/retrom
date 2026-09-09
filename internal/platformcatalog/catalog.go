@@ -9,7 +9,7 @@ import (
 	"retrom/internal/contentprofile"
 )
 
-const Version = 14
+const Version = 16
 
 var ErrInvalid = errors.New("PLATFORM_CATALOG_INVALID")
 
@@ -72,6 +72,7 @@ var current = Catalog{Version: Version, Templates: []DirectoryTemplate{
 	},
 	{Key: "psx/pcsx_rearmed", PlatformID: "psx", DefaultCoreID: "pcsx_rearmed", Name: "PlayStation 游戏", CatalogOrder: 190},
 	{Key: "saturn/yabause", PlatformID: "saturn", DefaultCoreID: "yabause", Name: "Sega Saturn 游戏", CatalogOrder: 200},
+	{Key: "dreamcast/flycast", PlatformID: "dreamcast", DefaultCoreID: "flycast", Name: "Dreamcast 游戏", CatalogOrder: 205},
 	{Key: "pcfx/mednafen_pcfx", PlatformID: "pcfx", DefaultCoreID: "mednafen_pcfx", Name: "PC-FX 游戏", CatalogOrder: 210},
 	{Key: "3do/opera", PlatformID: "3do", DefaultCoreID: "opera", Name: "3DO 游戏", CatalogOrder: 220},
 	{Key: "psp/ppsspp", PlatformID: "psp", DefaultCoreID: "ppsspp", Name: "PSP 游戏", CatalogOrder: 230},
@@ -158,7 +159,8 @@ var current = Catalog{Version: Version, Templates: []DirectoryTemplate{
 		Key: "amiga/puae", PlatformID: "amiga", DefaultCoreID: "puae",
 		Name: "Commodore Amiga 游戏", CatalogOrder: 450,
 	},
-	{Key: "x68000/px68k", PlatformID: "x68000", DefaultCoreID: "px68k", Name: "Sharp X68000 游戏", CatalogOrder: 460},
+	{Key: "flash/ruffle", PlatformID: "flash", DefaultCoreID: "ruffle", Name: "Flash 游戏", CatalogOrder: 460},
+	{Key: "x68000/px68k", PlatformID: "x68000", DefaultCoreID: "px68k", Name: "Sharp X68000 游戏", CatalogOrder: 470},
 }}
 
 func Current() Catalog {

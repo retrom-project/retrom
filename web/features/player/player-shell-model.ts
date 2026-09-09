@@ -35,8 +35,10 @@ export function canResumeFromGameSurface(input: {
   running: boolean;
   paused: boolean;
   chromePinned: boolean;
+  source?: "runtime" | "pause-overlay";
 }) {
-  return input.mode === "single" && input.running && input.paused && !input.chromePinned;
+  return input.mode === "single" && input.running && input.paused &&
+    (!input.chromePinned || input.source === "pause-overlay");
 }
 
 export function formatPlayerBytes(bytes: number) {

@@ -16,6 +16,7 @@
         "butterscotch",
         "tyranoscript",
         "j2me-web",
+        "ruffle",
         "vice-libretro",
         "virtualjaguar-libretro",
         "wasm4",
@@ -23,8 +24,19 @@
         "tic80",
         "fake08",
         "play",
+        "flycast-wasm",
         "px68k"
       ]
+    },
+    {
+      "id": "ruffle",
+      "path": "project/retrom-core/ruffle",
+      "role": "core",
+      "gitlink": "git@github.com:retrom-project/ruffle.git",
+      "defaultBranch": "retrom/ge46d1642fb67",
+      "submodules": false,
+      "shallowClone": true,
+      "dependsOn": []
     },
     {
       "id": "player",
@@ -193,6 +205,15 @@
       "role": "core",
       "gitlink": "git@github.com:retrom-project/px68k-libretro.git",
       "defaultBranch": "retrom/g561dcba6b11d",
+      "dependsOn": [],
+      "submodules": false
+    },
+    {
+      "id": "flycast-wasm",
+      "path": "project/retrom-core/flycast-wasm",
+      "role": "core",
+      "gitlink": "git@github.com:retrom-project/flycast-wasm.git",
+      "defaultBranch": "retrom/1.0",
       "submodules": false,
       "dependsOn": []
     }

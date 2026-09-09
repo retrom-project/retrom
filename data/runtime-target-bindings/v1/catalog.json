@@ -143,6 +143,20 @@
       "launchPolicy": "SUPPORTED"
     },
     {
+      "id": "emulatorjs-flycast",
+      "coreId": "flycast",
+      "providerId": "emulatorjs",
+      "targetId": "flycast",
+      "platformIds": [
+        "dreamcast"
+      ],
+      "acceptedContentKinds": [
+        "SINGLE_FILE"
+      ],
+      "detectorProfile": "EMULATORJS_SINGLE_FILE",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
       "id": "emulatorjs-fuse",
       "coreId": "fuse",
       "providerId": "emulatorjs",
@@ -636,6 +650,16 @@
       "launchPolicy": "SUPPORTED"
     },
     {
+      "id": "retrom-runtime-flash-ruffle",
+      "coreId": "ruffle",
+      "providerId": "retrom-runtime",
+      "targetId": "flash-ruffle",
+      "platformIds": ["flash"],
+      "acceptedContentKinds": ["SINGLE_FILE"],
+      "detectorProfile": "FLASH_SWF",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
       "id": "retrom-runtime-j2me",
       "coreId": "j2me",
       "providerId": "retrom-runtime",
@@ -941,9 +965,21 @@
         "enabled": true
       },
       {
+        "id": "dreamcast",
+        "name": "Sega Dreamcast",
+        "sortOrder": 185,
+        "enabled": true
+      },
+      {
         "id": "fds",
         "name": "Famicom Disk System",
         "sortOrder": 20,
+        "enabled": true
+      },
+      {
+        "id": "flash",
+        "name": "Flash",
+        "sortOrder": 86,
         "enabled": true
       },
       {
@@ -1195,6 +1231,11 @@
         "enabled": true
       },
       {
+        "id": "flycast",
+        "name": "Flycast",
+        "enabled": true
+      },
+      {
         "id": "fuse",
         "name": "Fuse",
         "enabled": true
@@ -1347,6 +1388,11 @@
       {
         "id": "rpgmaker",
         "name": "RPG Maker",
+        "enabled": true
+      },
+      {
+        "id": "ruffle",
+        "name": "Ruffle",
         "enabled": true
       },
       {
