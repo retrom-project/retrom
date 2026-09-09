@@ -18,6 +18,7 @@ const (
 
 var hostStrategies = map[string]HostStrategy{
 	"MSX_MEDIA":               {"ROM_BLOB", OptionsNone, []string{"SINGLE_FILE"}},
+	"PX68K_DISK":              {"EMULATORJS_CONTENT", OptionsNone, []string{"SINGLE_FILE"}},
 	"OPTICAL_DISC":            {"ROM_BLOB", OptionsNone, []string{"SINGLE_FILE"}},
 	"SCUMMVM_PROJECT":         {"FILE_TREE_PROJECT", OptionsScummVM, []string{"SCUMMVM_PROJECT"}},
 	"EMULATORJS_SINGLE_FILE":  {"EMULATORJS_CONTENT", OptionsEmulator, []string{"SINGLE_FILE"}},

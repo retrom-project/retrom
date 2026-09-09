@@ -730,6 +730,20 @@
       "launchPolicy": "SUPPORTED"
     },
     {
+      "id": "retrom-runtime-px68k",
+      "coreId": "px68k",
+      "providerId": "retrom-runtime",
+      "targetId": "px68k",
+      "platformIds": [
+        "x68000"
+      ],
+      "acceptedContentKinds": [
+        "SINGLE_FILE"
+      ],
+      "detectorProfile": "PX68K_DISK",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
       "id": "retrom-runtime-rpgmaker-2000",
       "coreId": "rpgmaker",
       "providerId": "retrom-runtime",
@@ -1163,6 +1177,12 @@
         "enabled": true
       },
       {
+        "id": "x68000",
+        "name": "Sharp X68000",
+        "sortOrder": 550,
+        "enabled": true
+      },
+      {
         "id": "zxspectrum",
         "name": "ZX Spectrum",
         "sortOrder": 300,
@@ -1378,6 +1398,11 @@
       {
         "id": "puae",
         "name": "PUAE",
+        "enabled": true
+      },
+      {
+        "id": "px68k",
+        "name": "PX68K",
         "enabled": true
       },
       {
