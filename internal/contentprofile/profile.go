@@ -75,7 +75,7 @@ var registry = map[string]Profile{
 	"pet":          single("pet", viceSingleFileExtensions...),
 	"plus4":        single("plus4", viceSingleFileExtensions...),
 	"pcfx":         raw("pcfx", ".chd"),
-	"ngpc":         single("ngpc", ".ngp"),
+	"ngpc":         single("ngpc", ".ngp", ".ngc"),
 	"psp":          raw("psp", ".iso", ".cso"),
 	"ps2":          raw("ps2", ".iso", ".chd"),
 	"virtualboy":   single("virtualboy", ".vb"),
