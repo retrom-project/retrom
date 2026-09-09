@@ -193,3 +193,17 @@ Provider 使用 `scummvm-save-bundle-v1`（`GAME_SAVE`，上限 64 MiB），原�
 两者均为单线程、同源空 iframe、单人标准手柄/键盘方向与动作输入，提供暂停、截图和音量。
 各 Launch 创建独立 WASM heap；退出或取消加载移除帧循环、输入监听及音频节点，不选存档启动不会读取旧游戏状态。
 具体产品通过标准与证据入口只在 [核心验收 Case](./project-acceptance.md#acc-tic-001tic-80-原生数据与真实产品链) 维护。
+
+### OpenBOR 原生进度
+
+`retrom-runtime/openbor` 使用独立 `openbor-host-v1` 浏览器核心。不可变 PAK 在启动前完整物化，
+提供确定字节进度，并以 4 MiB 分块写入浏览器持久缓存；跨实例复用前校验准确长度和整包摘要。
+存储不可用时回退到网络。当前单包上限为 512 MiB，不声明线程、联机或即时快照。
+
+checkpoint 为 `openbor-game-save-v1`，最大 16 MiB，声明 `GAME_SAVE`、`capture=IN_GAME`、
+`restore=IN_GAME`。它携带游戏内容摘要和核心原生的进度、脚本变量与高分文件，排除按键、显示等配置。
+OpenBOR 在游戏的关卡边界保存；退出时同步的是最近的原生存档点，不能恢复关卡中途的逐帧状态。
+新 Launch 在引擎启动前导入文件，再由玩家通过游戏内 Load Game 读取；未选存档的启动使用空存档目录。
+暂停、截图与标准手柄由同一 Provider adapter 提供，退出释放输入、音频和核心资源。
+
+OpenBOR 的产品通过标准与证据入口见 [ACC-OPENBOR-001](./project-acceptance.md#acc-openbor-001openbor-原生进度与真实产品链)。

@@ -692,6 +692,20 @@
       "launchPolicy": "SUPPORTED"
     },
     {
+      "id": "retrom-runtime-openbor",
+      "coreId": "openbor",
+      "providerId": "retrom-runtime",
+      "targetId": "openbor",
+      "platformIds": [
+        "openbor"
+      ],
+      "acceptedContentKinds": [
+        "SINGLE_FILE"
+      ],
+      "detectorProfile": "OPENBOR_PAK",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
       "id": "retrom-runtime-play",
       "coreId": "play",
       "providerId": "retrom-runtime",
@@ -1031,6 +1045,12 @@
         "enabled": true
       },
       {
+        "id": "openbor",
+        "name": "OpenBOR",
+        "sortOrder": 85,
+        "enabled": true
+      },
+      {
         "id": "pce",
         "name": "PC Engine",
         "sortOrder": 140,
@@ -1297,6 +1317,11 @@
       {
         "id": "onscripter_yuri",
         "name": "ONScripter Yuri",
+        "enabled": true
+      },
+      {
+        "id": "openbor",
+        "name": "OpenBOR",
         "enabled": true
       },
       {
