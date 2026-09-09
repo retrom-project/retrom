@@ -638,7 +638,7 @@ def validate_xp_runtime_trace(value: Any, checkpoint: dict[str, Any], config: di
     if not isinstance(value, dict) or set(value) != {
         "schemaVersion", "checkpointUpload", "oversizeRejection", "threadCapabilityRejections",
     } or value.get("schemaVersion") != 1 or config.get("checkpointMaxBytes") != XP_STATE_BYTES or \
-            config.get("checkpointFormat") != "mkxp-state-compact-v1":
+            config.get("checkpointFormat") not in {"mkxp-state-compact-v1", "mkxp-state-v1-storage-v1"}:
         raise ContractError("RPG_ACCEPTANCE_XP_RUNTIME_TRACE_INVALID")
     upload, oversize, rejections = (
         value.get("checkpointUpload"), value.get("oversizeRejection"), value.get("threadCapabilityRejections"),
@@ -866,7 +866,7 @@ def validate_generation_evidence(
     validate_runtime_environment(payload.get("runtimeEnvironment"), spec, trial)
     if spec.generation in {"RPGXP", "RPGVX", "RPGVXACE"}:
         if config.get("checkpointMaxBytes") != XP_STATE_BYTES or \
-                config.get("checkpointFormat") != "mkxp-state-compact-v1" or \
+                config.get("checkpointFormat") not in {"mkxp-state-compact-v1", "mkxp-state-v1-storage-v1"} or \
                 not valid_compact_mkxp_checkpoint_size(
                     trial["checkpointRoundTrip"].get("sizeBytes"),
                 ):

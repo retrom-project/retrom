@@ -101,7 +101,7 @@ async function ordinaryScummvm(context, gameId) {
   const restoredLaunchId = new URL(page.url()).pathname.split("/").at(-1);
   assert.notEqual(restoredLaunchId, originalLaunchId);
   const config = await (await context.request.get(`/runtime/launches/${restoredLaunchId}/config`)).json();
-  assert.equal(config.restore?.format, "scummvm-save-bundle-v1");
+  assert.equal(config.restore?.format, "scummvm-save-bundle-v1-storage-v1");
   assert(config.restore.sizeBytes > 0 && /^[0-9a-f]{64}$/u.test(config.restore.sha256));
   await connectVirtualStandardGamepad(page);
   const restoredInput = await skyGamepadProof(page, directory, "ordinary-restored");

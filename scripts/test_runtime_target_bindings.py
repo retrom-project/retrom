@@ -14,7 +14,7 @@ class RuntimeTargetBindingsTest(unittest.TestCase):
             ROOT / "data/runtime-target-bindings/v1/catalog.json"
         )
         self.assertNotIn("catalogVersion", catalog)
-        self.assertEqual(len(catalog["bindings"]), 65)
+        self.assertEqual(len(catalog["bindings"]), 66)
         self.assertEqual(
             {item["providerId"] for item in catalog["bindings"]},
             {"emulatorjs", "retrom-runtime"},
@@ -57,6 +57,11 @@ class RuntimeTargetBindingsTest(unittest.TestCase):
         self.assertEqual(by_target[("retrom-runtime", "scummvm")]["detectorProfile"], "SCUMMVM_PROJECT")
         self.assertEqual(by_target[("retrom-runtime", "scummvm")]["acceptedContentKinds"], ["SCUMMVM_PROJECT"])
         self.assertEqual(by_target[("retrom-runtime", "j2me")]["acceptedContentKinds"], ["SINGLE_FILE"])
+        pc98 = by_target[("retrom-runtime", "np2kai-pc98")]
+        self.assertEqual(pc98["coreId"], "np2kai")
+        self.assertEqual(pc98["platformIds"], ["pc98"])
+        self.assertEqual(pc98["detectorProfile"], "PC98_DISK")
+        self.assertEqual(pc98["acceptedContentKinds"], ["SINGLE_FILE"])
         msx = by_target[("retrom-runtime", "msx-webmsx")]
         self.assertEqual(msx["coreId"], "webmsx")
         self.assertEqual(msx["platformIds"], ["msx"])

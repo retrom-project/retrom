@@ -1,3 +1,4 @@
+import {gunzipSync} from "node:zlib";
 // Development-only observations. No production Provider probe or review proof API.
 // LSD layout/encoding: liblcf 92c4450a1bc1acb58bd02bbb99b57e5036919cdf,
 // src/generated/lcf/lsd/chunks.h and src/reader_lcf.cpp:
@@ -6,8 +7,10 @@ import {createHash} from "node:crypto";
 
 const invalid = () => {throw new Error("RPG_FIXTURE_SAVE_INVALID");};
 
-export function readEasyRpgPosition(checkpoint, engine) {
+export function readEasyRpgPosition(checkpoint, engine, format = "easyrpg-save-bundle-v1") {
   try {
+    if (!["easyrpg-save-bundle-v1", "easyrpg-save-bundle-v1-storage-v1"].includes(format)) {invalid();}
+    if (format.endsWith("-storage-v1")) {checkpoint = gunzipSync(checkpoint, {maxOutputLength: 64 * 1024 * 1024});}
     if (!["RPG2000", "RPG2003"].includes(engine) || checkpoint.length < 12 ||
         checkpoint.length > 64 * 1024 * 1024 || checkpoint.subarray(0, 8).toString() !== "RTRPGSV1") {invalid();}
     const manifestSize = checkpoint.readUInt32BE(8);

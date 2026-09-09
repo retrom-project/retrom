@@ -76,7 +76,7 @@ async function verifyCheckpoint(context, client) {
   assert.equal(await playFrames(opened), paused, "PLAY_PAUSE_FAILED");
   await capturePlay(opened, directory, "saved");
   const saved = await saveCart(opened.page, original.launchId, "play");
-  assert.equal(saved.checkpointFormat, "play-state-v1");
+  assert.ok(["play-state-v1", "play-state-v1-storage-v1"].includes(saved.checkpointFormat));
   evidence.audio = await fantasyAudioEvidence(opened.page);
   assert.ok(evidence.audio.nonzeroBuffers > 0, "PLAY_AUDIO_MISSING");
   await opened.page.close();

@@ -1,12 +1,14 @@
 import assert from "node:assert/strict";
 import {createHash} from "node:crypto";
 import {mkdir, readFile, writeFile} from "node:fs/promises";
+import {gunzipSync} from "node:zlib";
 import {createProductClient, singleFile, reviewForImport} from "./rpgmaker_security_upload.mjs";
 import {installVirtualStandardGamepad} from "./standard_gamepad.mjs";
 import {observeOpenBOR, nativeState, assertRobo, spriteX} from "./openbor_observation.mjs";
 import {advanceToNativeSave, enterRobo, pad, saveAndExit, checkPause} from "./openbor_actions.mjs";
 import {observeOpenBORAudio, openborAudio} from "./openbor_audio.mjs";
 import {revealPreviewToolbar} from "./rpgmaker_preview_actions.mjs";
+import {localRpgAcceptanceProxy} from "./rpgmaker_local_proxy.mjs";
 const {chromium} = await import(process.env.RETROM_PLAYWRIGHT_MODULE ?? "../../web/node_modules/playwright/index.mjs");
 const base = process.env.RETROM_ACCEPTANCE_BASE_URL, gameFile = process.env.RETROM_OPENBOR_GAME;
 const output = process.env.RETROM_ACCEPTANCE_CASE_DIR;
@@ -15,33 +17,40 @@ await mkdir(output, {recursive: true});
 const evidence = {schemaVersion: 1, caseId: "ACC-OPENBOR-001", status: "FAIL", errors: [], stages: []};
 const capabilities = {secureContext: true, crossOriginIsolated: true, sharedArrayBuffer: true};
 const sha = bytes => createHash("sha256").update(bytes).digest("hex");
-let browser;
+let browser, proxy;
 try {
   evidence.gameSha256 = sha(await readFile(gameFile));
+  proxy = await localRpgAcceptanceProxy(base);
   browser = await chromium.launch({headless: true, executablePath: process.env.RETROM_CHROME_EXECUTABLE,
     args: ["--host-resolver-rules=MAP *.localhost 127.0.0.1", "--use-angle=swiftshader", "--enable-unsafe-swiftshader"]});
   evidence.browser = browser.version();
-  const context = await browser.newContext({viewport: {width: 1440, height: 1000}});
+  const context = await browser.newContext({viewport: {width: 1440, height: 1000}, ...proxy.contextOptions});
   await installVirtualStandardGamepad(context); await observeOpenBOR(context); await observeOpenBORAudio(context);
   context.setDefaultTimeout(15000);
   const login = await context.request.post(`${base}/api/v1/auth/login`, {headers: {Origin: base},
     data: {username: process.env.RETROM_ACCEPTANCE_USERNAME, password: process.env.RETROM_ACCEPTANCE_PASSWORD}});
   assert.equal(login.status(), 200);
   const client = createProductClient(context, base, (await login.json()).csrfToken);
-  const review = process.env.RETROM_OPENBOR_REVIEW_ID
-    ? await client.json("GET", `/api/v1/admin/reviews/${process.env.RETROM_OPENBOR_REVIEW_ID}`) : await importGame(client);
-  evidence.reviewId = review.itemId;
-  const preview = await client.json("POST", `/api/v1/admin/reviews/${review.itemId}/previews`, {headers: client.writeHeaders(), expected: 201,
-    data: {clientCapabilities: capabilities}});
-  const trial = await open(context, preview, "preview");
-  await enterRobo(trial.page, trial.canvas); const trialState = await nativeState(trial.page);
-  assert.equal(trialState.levels[0], "data/levels/l1s1.txt");
-  await pad(trial.page, 15, 300, 100);
-  await trial.canvas.screenshot({path: `${output}/preview-gameplay.png`}); await trial.page.close();
-  evidence.stages.push(process.env.RETROM_OPENBOR_REVIEW_ID ? "existing-review-preview" : "import-review-preview");
-  const snapshot = await client.raw("GET", `/api/v1/admin/reviews/${review.itemId}`);
-  const approved = process.env.RETROM_OPENBOR_GAME_ID ? {gameId: process.env.RETROM_OPENBOR_GAME_ID} : await client.json("POST", `/api/v1/admin/reviews/${review.itemId}/approve`, {
-    headers: {...client.writeHeaders(), "If-Match": snapshot.headers().etag}, expected: 201, data: {}});
+  let approved;
+  if (process.env.RETROM_OPENBOR_GAME_ID && !process.env.RETROM_OPENBOR_REVIEW_ID) {
+    approved = {gameId: process.env.RETROM_OPENBOR_GAME_ID};
+    evidence.stages.push("reuse-previously-published-game");
+  } else {
+    const review = process.env.RETROM_OPENBOR_REVIEW_ID
+      ? await client.json("GET", `/api/v1/admin/reviews/${process.env.RETROM_OPENBOR_REVIEW_ID}`) : await importGame(client);
+    evidence.reviewId = review.itemId;
+    const preview = await client.json("POST", `/api/v1/admin/reviews/${review.itemId}/previews`, {headers: client.writeHeaders(), expected: 201,
+      data: {clientCapabilities: capabilities}});
+    const trial = await open(context, preview, "preview");
+    await enterRobo(trial.page, trial.canvas); const trialState = await nativeState(trial.page);
+    assert.equal(trialState.levels[0], "data/levels/l1s1.txt");
+    await pad(trial.page, 15, 300, 100);
+    await trial.canvas.screenshot({path: `${output}/preview-gameplay.png`}); await trial.page.close();
+    evidence.stages.push(process.env.RETROM_OPENBOR_REVIEW_ID ? "existing-review-preview" : "import-review-preview");
+    const snapshot = await client.raw("GET", `/api/v1/admin/reviews/${review.itemId}`);
+    approved = process.env.RETROM_OPENBOR_GAME_ID ? {gameId: process.env.RETROM_OPENBOR_GAME_ID} : await client.json("POST", `/api/v1/admin/reviews/${review.itemId}/approve`, {
+      headers: {...client.writeHeaders(), "If-Match": snapshot.headers().etag}, expected: 201, data: {}});
+  }
   evidence.gameId = approved.gameId; evidence.seeded = Boolean(process.env.RETROM_OPENBOR_GAME_ID);
   const original = await launch(client, approved.gameId);
   const playing = await open(context, original, "product");
@@ -60,9 +69,11 @@ try {
   await revealPreviewToolbar(playing.page);
   console.log("toolbar", (await playing.page.locator("body").innerText()).slice(0, 1200));
   const saved = await saveAndExit(playing.page, original.launchId);
-  assert.equal(saved.receipt.checkpointFormat, "openbor-game-save-v1");
-  const decoded = JSON.parse(saved.bytes.toString("utf8")); assert.equal(decoded.identity, evidence.gameSha256);
-  evidence.save = {...saved.receipt, sizeBytes: saved.bytes.length, sha256: sha(saved.bytes)};
+  assert.equal(saved.receipt.checkpointFormat, "openbor-game-save-v1-storage-v1");
+  const nativeBytes = gunzipSync(saved.bytes, {maxOutputLength: 16 * 1024 * 1024});
+  const decoded = JSON.parse(nativeBytes.toString("utf8")); assert.equal(decoded.identity, evidence.gameSha256);
+  assert(saved.bytes.length < nativeBytes.length, "OPENBOR_STORAGE_NOT_COMPRESSED");
+  evidence.save = {...saved.receipt, sizeBytes: saved.bytes.length, nativeBytes: nativeBytes.length, sha256: sha(saved.bytes)};
   await playing.page.close();
   const restored = await launch(client, approved.gameId, saved.receipt.saveStateId);
   assert.notEqual(restored.launchId, original.launchId);
@@ -84,7 +95,7 @@ try {
   assert.equal(evidence.errors.length, 0, "OPENBOR_BROWSER_ERRORS"); evidence.status = "PASS";
 } catch (error) {evidence.errorCode = error.message; process.exitCode = 1;}
 finally {
-  await browser?.close(); await writeFile(`${output}/openbor-product.json`, JSON.stringify(evidence, null, 2));
+  await browser?.close(); await proxy?.close(); await writeFile(`${output}/openbor-product.json`, JSON.stringify(evidence, null, 2));
   console.log(JSON.stringify(evidence));
 }
 async function importGame(client) {

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import {mkdirSync, writeFileSync, readFileSync, existsSync} from "node:fs";
 import {createHash} from "node:crypto";
 import {join, resolve} from "node:path";
+import {gunzipSync} from "node:zlib";
 import {installVirtualStandardGamepad} from "./standard_gamepad.mjs";
 import {observeFantasyAudio, fantasyAudioEvidence} from "./fantasy_fixture.mjs";
 import {fantasyClient, previewCart, approveCart, launchCart, gamepad, saveCart} from "./fantasy_product_client.mjs";
@@ -52,11 +53,13 @@ try {
   evidence.audio = await fantasyAudioEvidence(opened.page);
   assert.ok(evidence.audio.nonzeroBuffers > 0, "PX68K_AUDIO_MISSING");
   const saved = await saveCart(opened.page, launch.launchId, "px68k");
+  assert.equal(saved.checkpointFormat, "px68k-state-v1-storage-v1");
   evidence.saveStateId = saved.saveStateId;
   await opened.page.close(); evidence.stages.push("product-launch-gamepad-audio-save");
   const restored = await launchCart(client, gameId, saved.saveStateId);
   assert.notEqual(restored.launchId, launch.launchId);
   const resumed = await open(context, restored);
+  evidence.storage = await verifyStoredSnapshot(resumed.page, client, restored.launchId);
   await resumed.page.waitForTimeout(2000);
   await gamepad(resumed.page, 14, 800); await gamepad(resumed.page, 0, 400);
   evidence.restored = await canvasDigest(resumed.canvas);
@@ -88,4 +91,26 @@ async function open(context, launch) {
   console.log("PX68K: document loaded");
   try {return {page, canvas: await px68kCanvas(page)};}
   catch (error) {await page.screenshot({path: join(directory, "failed-player.png"), timeout: 10000}); throw error;}
+}
+
+async function verifyStoredSnapshot(page, client, launchId) {
+  const config = await page.evaluate(async id => (await fetch(`/runtime/launches/${id}/config`)).json(), launchId);
+  assert.equal(config.restore.format, "px68k-state-v1-storage-v1");
+  const response = await client.raw("GET", config.restore.url);
+  assert.equal(response.status(), 200);
+  const stored = await response.body();
+  assert.equal(stored.length, config.restore.sizeBytes);
+  assert.equal(createHash("sha256").update(stored).digest("hex"), config.restore.sha256);
+  const raw = gunzipSync(stored, {maxOutputLength: 96 * 1024 * 1024}), entries = [];
+  let offset = 0;
+  while (offset + 30 <= raw.length && raw.readUInt32LE(offset) === 0x04034b50) {
+    assert.equal(raw.readUInt16LE(offset + 8), 0, "PX68K_NESTED_ZIP_COMPRESSION");
+    const size = raw.readUInt32LE(offset + 18), nameLength = raw.readUInt16LE(offset + 26);
+    assert.equal(size, raw.readUInt32LE(offset + 22));
+    entries.push(raw.subarray(offset + 30, offset + 30 + nameLength).toString());
+    offset += 30 + nameLength + raw.readUInt16LE(offset + 28) + size;
+  }
+  assert.ok(entries.includes("state.bin") && entries.includes("manifest.json"), "PX68K_NATIVE_STATE_MISSING");
+  assert.ok(stored.length < raw.length, "PX68K_STORAGE_NOT_COMPRESSED");
+  return {storedBytes: stored.length, nativeBytes: raw.length, sha256: config.restore.sha256, entries, zipMethod: "STORE"};
 }

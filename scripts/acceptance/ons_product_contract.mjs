@@ -56,7 +56,7 @@ function assertIds(value) {
 }
 
 function assertCheckpoint(value) {
-  if (!exactRecord(value, ["format", "sizeBytes"]) || value.format !== "ons-save-bundle-v1" ||
+  if (!exactRecord(value, ["format", "sizeBytes"]) || value.format !== "ons-save-bundle-v1-storage-v1" ||
       !Number.isSafeInteger(value.sizeBytes) || value.sizeBytes < 1 || value.sizeBytes > 64 * 1024 * 1024) {
     throw new Error("ONS_ACCEPTANCE_EVIDENCE_INVALID");
   }
