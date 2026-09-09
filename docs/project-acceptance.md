@@ -6,7 +6,7 @@
 | 版本 | 2.1 |
 | 日期 | 2026-08-25 |
 | 执行者 | AI Agent，必要时由人工复核当前运行生成的画面证据 |
-| 范围 | 工程质量、镜像、本地开发、账户认证与隔离、游戏目录、普通/Pegasus/EmulationStation/RPG Maker/ONS/KiriKiri/GameMaker 导入审核、BIOS/DAT/RPG 资源包、存储、安全、EmulatorJS/retrom-runtime、联机、43 个 EmulatorJS 核与独立 Web runtime 核、PSP ISO/CSO、320px 起的响应式 UI 和 4K UI |
+| 范围 | 工程质量、镜像、本地开发、账户认证与隔离、游戏目录、普通/Pegasus/EmulationStation/RPG Maker/ONS/KiriKiri/GameMaker 导入审核、BIOS/DAT/RPG 资源包、存储、安全、EmulatorJS/retrom-runtime、联机、44 个 EmulatorJS 核与独立 Web runtime 核、PSP ISO/CSO、320px 起的响应式 UI 和 4K UI |
 
 ## 1. 文档职责
 
@@ -19,6 +19,11 @@
 - 有明确的通过/失败边界和本次运行产生的证据；
 - 有硬超时，不允许无限等待、soak、压力测试或依赖长时间观察；
 - 发现 bug 后按工程质量规范先固化回归用例，再重新执行原 Case。
+
+核心的标准手柄最低准入要求为方向移动和确认，取消是可选能力，不能因缺少取消拒绝接入。
+已有可靠取消操作仍按对应样本 Case 回归；宿主菜单正常的 B 返回不受影响。
+同一映射配置内单个按钮只能对应一个具体目标输入，禁止多个键或跨输入类型重复发送，例如 A+Enter、B+Escape。
+输入验收须覆盖目标按下/释放、无额外目标输入与独立真实键盘；不得为补足确认或取消引入重复映射。
 
 支持事实与设计依据仍由以下专题维护：
 
@@ -236,7 +241,7 @@ make acceptance-case CASE=<case-id>
 
 - 上限：900 秒。
 - 执行：`make acceptance-case CASE=ACC-PKG-002`。
-- 流程：runner 记录 `make release-input-digest`，调用 `make build-web-image` 并 inspect `retrom-web:latest`；确认 target 在编译生产代码前执行 `data-check`，检查两个 production Provider lock、Bundle/manifest/module digest 与 56 个 Target binding 闭包，再检查 standalone production 产物、镜像没有创建或声明固定运行用户以及内部 HTTP 入口。最后在临时工作树副本篡改一个 Target declaration digest，运行同一 `data-check` 并要求预期失败；不在主工作树留修改，也不对负向样本再构建镜像。
+- 流程：runner 记录 `make release-input-digest`，调用 `make build-web-image` 并 inspect `retrom-web:latest`；确认 target 在编译生产代码前执行 `data-check`，检查两个 production Provider lock、Bundle/manifest/module digest 与 61 个 Target binding 闭包，再检查 standalone production 产物、镜像没有创建或声明固定运行用户以及内部 HTTP 入口。最后在临时工作树副本篡改一个 Target declaration digest，运行同一 `data-check` 并要求预期失败；不在主工作树留修改，也不对负向样本再构建镜像。
 - 通过标准：默认目标 tag 为 `retrom-web:latest`，image config 的 `User` 为空且 `/etc/passwd` 不含 Retrom 专用账号，运行身份完全由部署编排决定；`io.retrom.release-input-sha256` 等于本次 helper 值；镜像只包含 lock 指定的内容寻址 Provider Bundle，Web 不包含第二份 adapter/core/asset registry，未知 Target、manifest 漂移或无 Module 实现都使临时副本校验失败；镜像没有开发依赖/缓存、内置后端地址、TLS 私钥或用户数据，Cmd 不是 `next dev`。
 - 证据：build log、image inspect/digest 摘要与负向 `data-check` 错误；不启动容器。
 
@@ -697,8 +702,8 @@ Mega Drive 导入回归另用测试内生成的非游戏 payload，经服务器�
 - 上限：300 秒。
 - 前置：计时前已执行一次 `make prepare-deps`，本 Case 期间断网。
 - 执行：`make acceptance-case CASE=ACC-DAT-001`。
-- 流程：runner 先执行 `make data-check` 与 `make deps-check`，验证两个 Provider Bundle/manifest、56 个 Target、产品 Core binding 闭包、PPSSPP assets、mame2003 override、EmulatorJS 来源清单声明的全部许可 component、retrom-runtime aggregate notice/许可/上游源码定位、五份 DAT，以及密码 blocklist manifest、10,000 行 payload 和 MIT 许可；离线重建适用 notice。再用全新临时 SQLite 和真实五份 DAT 断网启动服务，等待 ready 并重启复用；最后运行 Provider schema/Target binding/seed 负向、约束负向与 Git payload 边界检查。
-- 通过标准：离线命令成功，两个 Provider manifest 都通过封闭 schema、canonical digest、Bundle/module digest 和来源身份校验；EmulatorJS Provider 恰声明 43 个 Target，retrom-runtime Provider 恰声明 13 个 Target。每个产品 Core 恰有一个 binding，且 `providerId/targetId/bundleSha256` 与当前 manifest 逐项一致；Retrom Go、Web、DAT 和验收代码中不存在第二份 Provider 私有 adapter/core/route registry，也不存在未知 Target 的默认回退。冷库先 live/`DEPENDENCY_INDEXING`，五个不可取消 bootstrap Job 在事务外解析，最终五个 Arcade Target 各有独立 READY active DAT；重启不重跑 parser。两个 FBA2012 DAT 必须从锁定源码分别完成双生成且 bytes 相同。许可输入逐项命中 size/hash，notice 可重复生成；DAT、Provider/runtime/license/notice payload 均未被 Git 跟踪，独立 runtime 本机物化目录不存在历史版本。整个 Case 断网且启动/解析不尝试 CDN；部署前由 `ACC-PKG-001`–`003` 比较两镜像 release-input digest。
+- 流程：runner 先执行 `make data-check` 与 `make deps-check`，验证两个 Provider Bundle/manifest、61 个 Target、产品 Core binding 闭包、PPSSPP assets、mame2003 override、EmulatorJS 来源清单声明的全部许可 component、retrom-runtime aggregate notice/许可/上游源码定位、五份 DAT，以及密码 blocklist manifest、10,000 行 payload 和 MIT 许可；离线重建适用 notice。再用全新临时 SQLite 和真实五份 DAT 断网启动服务，等待 ready 并重启复用；最后运行 Provider schema/Target binding/seed 负向、约束负向与 Git payload 边界检查。
+- 通过标准：离线命令成功，两个 Provider manifest 都通过封闭 schema、canonical digest、Bundle/module digest 和来源身份校验；EmulatorJS Provider 恰声明 44 个 Target，retrom-runtime Provider 恰声明 18 个 Target。每个产品 Core 恰有一个 binding，且 `providerId/targetId/bundleSha256` 与当前 manifest 逐项一致；Retrom Go、Web、DAT 和验收代码中不存在第二份 Provider 私有 adapter/core/route registry，也不存在未知 Target 的默认回退。冷库先 live/`DEPENDENCY_INDEXING`，五个不可取消 bootstrap Job 在事务外解析，最终五个 Arcade Target 各有独立 READY active DAT；重启不重跑 parser。两个 FBA2012 DAT 必须从锁定源码分别完成双生成且 bytes 相同。许可输入逐项命中 size/hash，notice 可重复生成；DAT、Provider/runtime/license/notice payload 均未被 Git 跟踪，独立 runtime 本机物化目录不存在历史版本。整个 Case 断网且启动/解析不尝试 CDN；部署前由 `ACC-PKG-001`–`003` 比较两镜像 release-input digest。
 - 证据：逐文件校验/统计、DatVersion/Job 状态序列与 parser 调用计数、事务批次摘要、Git 跟踪边界和断网 network log。
 
 ### ACC-DAT-002：Core 隔离与依赖闭包
@@ -918,6 +923,7 @@ Mega Drive 导入回归另用测试内生成的非游戏 payload，经服务器�
 
 ### ACC-RUN-002：一次点击、自动开始与默认全屏
 
+- 暂停回归：保持只读调试面板打开，点击顶部暂停，分别点击暂停画面空白、中央提示与键盘激活“继续游戏”，每次均恢复运行且调试面板/工具栏保持可见；设置、退出确认和联机保护由对应组件/策略测试覆盖。
 - 上限：180 秒。
 - 执行：`make acceptance-case CASE=ACC-RUN-002`。
 - 流程：先用 `testdata/public-roms/gba-smoke/gba-smoke.gba` 经过真实上传、导入、审核和发布建立 mGBA 游戏；在详情点击一次“开始游戏”，记录原始点击、Fullscreen 调用、launch/config 请求、iframe 配置、EmulatorJS network 和 start 事件；运行后读取实际 controls，按 `P` 暂停并再次按 `P` 继续；打开右侧“调试信息”面板并等待两次采样；打开模拟器设置，依次切换画面模式以及 Core/显示面板；再用 `mame2003` override 执行一次短流程。`make web-e2e` 另在物理 4K 150% 项目重复真实 mGBA Player 链路并校验截图像素尺寸。
@@ -1019,7 +1025,7 @@ restart；必须停止 main loop、卸载文件系统并执行延迟清理，最
 - 前置：在目标 PFB 完成真实导入、审核预览和发布，使用操作者已授权的游戏；普通 CI 不读取私有 ROM/BIOS。来源目录只存游戏文件，执行配置与证据位于忽略目录。
 - 等价执行入口：在 `web/` 运行 `node smoke/emulatorjs-single-file.mjs`。环境必须显式提供 `RETROM_WEB_ORIGIN`、`RETROM_SMOKE_USERNAME`、`RETROM_SMOKE_PASSWORD`、`RETROM_CHROME_EXECUTABLE`、`RETROM_SMOKE_OUTPUT` 和 `RETROM_SMOKE_SCENARIO`，凭据不写入命令记录或证据。scenario 是 JSON 数组，每项包含 `coreId`、已发布 `gameId`、`startupMs`、可选的 `restoreSettleMs`（恢复画面稳定等待，默认 1000 毫秒），以及 `beforeSave/afterSave/afterRestore` 三个输入序列；每步包含标准手柄 `buttons` 下标数组、`holdMs` 和 `settleMs`。需要机型或内存扩展的样本可显式提供 `coreOptions`（EmulatorJS 原生设置键值）和 `restartAfterOptions`；脚本等待原生核心消费设置再重启，只用于首次启动，不重置恢复实例。首次启动等待最多 90 秒。普通 B 截图保留暂停提示，另存仅隐藏宿主暂停提示的 `B-save-game.png` 供检查被遮挡的游戏位置。
 - 流程：对 `fuse/vice_x64sc/gearcoleco/virtualjaguar/prboom/vice_x128/vice_xvic/puae` 分别保存初始 A、输入后的 B、继续输入后的 C；显式保存 B，退出并关闭旧页面后创建不同 Launch 恢复 B，再验证后续输入及退出。检查唯一 game resource 是 `ROM_BLOB`，状态格式、大小、内容 SHA 和 Provider 身份一致。
-- 通过标准：复核本次连续截图中方向、确认、取消的游戏响应，以及从 C 恢复到 B 的可见位置/菜单/变量。浏览器看见手柄、帧数增长、状态哈希变化均不能单独作为输入成功。脚本只有在跨 Launch 链路通过后输出 `REVIEW_REQUIRED`；执行者完成画面复核并记录明确的游戏状态变化后才能将该 Target 记为 PASS。缺少游戏内响应、恢复位置错误、恢复后输入失效或原生错误均失败。
+- 通过标准：复核本次连续截图中方向、确认和已实现的可选取消的游戏响应，以及从 C 恢复到 B 的可见位置/菜单/变量。未实现取消不影响准入。浏览器看见手柄、帧数增长、状态哈希变化均不能单独作为输入成功。脚本只有在跨 Launch 链路通过后输出 `REVIEW_REQUIRED`；执行者完成画面复核并记录明确的游戏状态变化后才能将该 Target 记为 PASS。缺少必需游戏内响应、恢复位置错误、恢复后输入失效或原生错误均失败。
 - 证据：逐核 `result.json`、A/B/C/恢复 B 与逐次输入截图、导入/审核/发布记录；记录当前 Provider/Bundle/module digest 与游戏文件 size/SHA。八个候选的 PASS 不替代尚未执行的其他 Target 回归，也不自动授权稳定发布。
 
 ### ACC-SAVE-001：手动状态存档与截图
@@ -1482,7 +1488,7 @@ restart；必须停止 main loop、卸载文件系统并执行延迟清理，最
 ### ACC-IMM-008：adapter、依赖与普通 UI 回归
 
 - 上限：240 秒。执行：`make acceptance-case CASE=ACC-IMM-008`。
-- 流程：校验 EmulatorJS Provider declaration/Bundle/OpenAPI/Host binding 对 43 个 Target 的身份与 manifest digest 完全闭合；运行无重复 registry 扫描、43 Target 配置回归、普通桌面/移动 Player 与已登记联机产品用例。Provider 私有 adapter 版本不得进入 Retrom schema、API 或 Web。
+- 流程：校验 EmulatorJS Provider declaration/Bundle/OpenAPI/Host binding 对 44 个 Target 的身份与 manifest digest 完全闭合；运行无重复 registry 扫描、44 Target 配置回归、普通桌面/移动 Player 与已登记联机产品用例。Provider 私有 adapter 版本不得进入 Retrom schema、API 或 Web。
 - 通过标准：未知或版本不匹配 adapter fail closed；新普通 adapter 在非沉浸分支与前代行为等价且不安装过滤；联机 config/adapter 不接受沉浸参数。既有普通启动、存档、多盘、移动 HUD 和八个联机 profile 不回退。
 - 证据：`data-check/deps-check`、adapter 单测、OpenAPI/schema 检查和既有产品 E2E 结果。
 
@@ -1557,7 +1563,7 @@ ID。没有实体设备时自动化 Case 可以 PASS，但沉浸模式发布验�
 
 ### ACC-PROVIDER-002：Target 与 Host binding 闭包
 
-- 上限：900 秒。证明 43 个 EmulatorJS Target、13 个 retrom-runtime Target、Product Core binding 全量闭合；Target 自带闭合 options schema且进入 manifest digest，Host/数据库/Web 不存在 `optionsKind` 或第二份 Target registry；语义 ID 不带 `_Vn`，真实序列化/checkpoint/hash-domain 格式只通过窄 allowlist 保留版本。
+- 上限：900 秒。证明 44 个 EmulatorJS Target、18 个 retrom-runtime Target、Product Core binding 全量闭合；Target 自带闭合 options schema且进入 manifest digest，Host/数据库/Web 不存在 `optionsKind` 或第二份 Target registry；语义 ID 不带 `_Vn`，真实序列化/checkpoint/hash-domain 格式只通过窄 allowlist 保留版本。
 
 ### ACC-PROVIDER-003：Envelope 与 Dispatcher
 
@@ -1582,7 +1588,7 @@ ID。没有实体设备时自动化 Case 可以 PASS，但沉浸模式发布验�
 
 ### ACC-PROVIDER-008：retrom-runtime 产品闭包
 
-- 上限：900 秒。证明 13 个 Target 的 Product、普通 Review Preview、unique-origin、checkpoint、输入和清理生命周期均由 retrom-runtime Provider 承接。
+- 上限：900 秒。证明 18 个 Target 的 Product、普通 Review Preview、unique-origin、checkpoint、输入和清理生命周期均由 retrom-runtime Provider 承接。
 
 ## 23. RPG Maker 全世代产品链
 
@@ -1965,8 +1971,10 @@ Review 与普通预览会话。`negative-matrix/matrix.json` 必须精确声明 
 ### ACC-TYRANOSCRIPT-001：TyranoScript 最小产品闭环
 
 - 上限：900 秒。执行：`RETROM_TYRANOSCRIPT_SMOKE_ARCHIVE=<absolute-licensed-project-input> make acceptance-case CASE=ACC-TYRANOSCRIPT-001`；输入可为目录、ZIP/7z、包含同级 Windows EXE 与 `resources/app.asar` 的 Electron 分发 ZIP、带追加 `package.nw` ZIP 的 Windows NW.js EXE，或只包装该 NW.js EXE 与桌面边车的安全 ZIP；同时需要公共的 `RETROM_ACCEPTANCE_BASE_URL/USERNAME/PASSWORD` 与 `RETROM_CHROME_EXECUTABLE`，基础地址必须为 HTTPS origin 或 loopback 验收 origin。
-- 流程：经正式 Upload 创建 `TYRANOSCRIPT_PROJECT` Import，等待唯一 Review；打开隔离 Review Preview，等待真实 `#tyrano_base` 可见和按需截图；审核发布后创建 PRODUCT Launch。若启动菜单尚未进入稳定等待标签，自动化只通过真实 DOM 用户手势依次选择第一个可见语言/选项、点击开始按钮并跳过视频或事件层，直到“创建存档”可用；恢复 Launch 已处于稳定标签时不得继续点击或改变场景。随后通过标准手柄 B 键证明 Tyrano gamepad 事件，在稳定等待标签把项目变量写为 B 并创建 `RUNTIME_STATE` checkpoint，再改为 C；关闭原页面，以该存档创建 ID 不同的 PRODUCT Launch，确认恢复的场景、指令位置和变量精确回到 B，再次通过标准手柄 B 键证明恢复后输入。
-- 通过标准：预览、原 Product 和恢复 Product 均使用当前 `TYRANOSCRIPT/tyranoscript-web`；三张真实运行面截图均为非黑有效画面；checkpoint 为 `1..32 MiB` 的 `RUNTIME_STATE`；B、C 和恢复 B 的 marker 明确且恢复场景/指令位置与 B 完全一致；两个 Product Launch ID 不同。至少一次由 Tyrano 引擎发起的 `/__retrom/tyranoscript/data/bgimage/title.jpg` 请求返回 200，全部 Tyrano project/runtime 内容请求没有 4xx/5xx。浏览器无 page error、非预期 console error 或 dialog；沙箱拒绝上游 `visibilitychange` 中 `alert()` 的固定 Chromium 提示单独计数，不作为放宽 iframe 权限或失败依据。
+- 流程：经正式 Upload 创建 `TYRANOSCRIPT_PROJECT` Import，等待唯一 Review；打开隔离 Review Preview，等待真实 `#tyrano_base` 可见和按需截图；审核发布后创建 PRODUCT Launch。若启动菜单尚未进入稳定等待标签，自动化只通过真实 DOM 用户手势依次选择第一个可见语言/选项、点击开始按钮并跳过视频或事件层，直到“创建存档”可用；恢复 Launch 已处于稳定标签时不得继续点击或改变场景。随后通过标准手柄 B 键验证单一输入通路（现代引擎原生 B 事件，旧版兼容层仅 Escape 的按下/释放，不可两者同时出现），在稳定等待标签把项目变量写为 B 并创建 `RUNTIME_STATE` checkpoint，再改为 C；关闭原页面，以该存档创建 ID 不同的 PRODUCT Launch，确认恢复的场景、指令位置和变量精确回到 B，再次通过标准手柄 B 键证明恢复后输入。两个 Product 会话还需通过浏览器真实键盘操作验证 Escape 的按下和释放。
+- 试玩失败后的诊断重试可用 `RETROM_TYRANOSCRIPT_REVIEW_ID` 复用尚未发布的审核项，避免重复上传；此时需关联原始导入记录，重试本身不代表再次验证导入。
+- 同一 Case 可用 `RETROM_ACCEPTANCE_HEADED=1` 与 `xvfb-run -a` 在有头 Chrome 软件渲染环境运行，仍保持 900 秒上限。依赖不在默认目录时，可用 `RETROM_PLAYWRIGHT_MODULE`、`RETROM_SHARP_MODULE` 指定已安装模块的绝对入口路径。输入观察不得屏蔽键盘 Esc 来隐藏重复映射；B 取消可选，但已有取消的实际效果应保留。
+- 通过标准：预览、原 Product 和恢复 Product 均使用当前 `TYRANOSCRIPT/tyranoscript-web`；三张真实运行面截图均为非黑有效画面；checkpoint 为 `1..32 MiB` 的 `RUNTIME_STATE`；B、C 和恢复 B 的 marker 明确且恢复场景/指令位置与 B 完全一致；两个 Product Launch ID 不同。至少一次由 Tyrano 引擎发起的实际游戏资源请求（`/__retrom/tyranoscript/data/`，兼容旧 `project/data/` 路由）返回 200，全部 Tyrano project/runtime 内容请求没有 4xx/5xx。浏览器无 page error、非预期 console error 或 dialog；沙箱拒绝上游 `visibilitychange` 中 `alert()` 的固定 Chromium 提示单独计数，不作为放宽 iframe 权限或失败依据。
 - 能力边界：checkpoint 只在上游定义的稳定等待标签 `text/l/p/s` 可创建，启动过程的瞬时 `bg` 等活动标签不能提前启用存档。直接 NW.js EXE 输入只解析已验证的 PE 后追加 ZIP；ZIP 包装输入先验证整个外层包，再只允许唯一合法 NW.js EXE 的追加 ZIP进入项目；Electron 输入只解析已验证外层 ZIP 中的 ASAR header、packed bytes 与明确登记的 `app.asar.unpacked` 文件。三者都绝不执行原生程序；没有合法包装、存在多个合法 NW.js EXE、路径/offset/size/integrity 不闭合、归档不安全或缺少项目 marker 均 fail closed。Case 只证明锁定 `retrom-runtime` tag 或显式本地候选与当次合法样本的最小兼容性，不扩大为任意 TyranoScript 插件或项目的兼容声明。
 - 证据：当次 `result.json`、`tyranoscript-product.json` 与三张 PNG。结构化证据只含非秘密产品 ID、payload kind/size、B/C/恢复 B 的场景与指令序号、内容身份、资源状态计数、截图尺寸/非黑像素/digest 和浏览器错误计数，不含归档路径、逻辑文件路径、游戏 bytes、账号、CSRF、cookie 或 Launch capability。本地候选 PASS 只允许进入 runtime Release 流程；Release 完成后 Retrom 必须解除本地链接、固定 tag/commit/assets并重跑本 Case。
 
@@ -2097,6 +2105,73 @@ Launch 完成验证。原始 JAR 的 SHA-256 和字节数必须在上传、内�
 - 通过标准：状态格式 `fake08-state-v1`、INSTANT 语义；新 Launch ID 不同；有可见游戏画面，无浏览器异常。核心构建测试另外验证连续 120 帧的长按/重复按键与 RNG 状态，以及截断/损坏数据拒绝。
 - 证据：`fantasy-product.json`、项目自有卡带和各阶段截图。自动化使用标准映射虚拟手柄，并观察真实 Web Audio 调度缓冲中存在非零音频；不替换音频播放或核心导出。实体手柄、听觉质量与未编译输入设备不在本 Case 证据范围内。
 
+### ACC-FLASH-001：Ruffle 单文件与 SharedObject 产品闭环
+
+- 统一入口：`make acceptance-case CASE=ACC-FLASH-001`（先完成 `make acceptance-prepare` 并加载环境）。
+- 硬超时：300 秒。等价命令为 `timeout 300 node scripts/acceptance/ruffle_product.mjs`，使用 PFB 固定 Node 和 Chrome。
+- 输入：`RETROM_ACCEPTANCE_BASE_URL`、`RETROM_ACCEPTANCE_USERNAME`、`RETROM_ACCEPTANCE_PASSWORD`、
+  `RETROM_CHROME_EXECUTABLE`、`RETROM_ACCEPTANCE_CASE_DIR`、`RETROM_RUFFLE_FIXTURE` 与 `RETROM_RUFFLE_GAME`。
+  后者是操作者从作者/开放站点取得的合法单文件 SWF，不能提交游戏文件或由普通 CI 下载它。
+- 自有输入的唯一源为 `scripts/acceptance/ruffle_fixture.as`（MIT）。先设置 `RETROM_RUFFLE_CORE_ROOT`
+  为本 PFB fork，以及 `RETROM_RUFFLE_PLAYERGLOBAL` 为该核心显式构建生成的 `playerglobal_import.abc`，
+  执行 `node scripts/acceptance/build_ruffle_fixture.mjs`。脚本校验固定 ASC 和 import 库摘要，使用 fork 工具链
+  生成 SWF 并验证完整输出 SHA-256；生成物只进入 ignored artifacts，不提交编译器、import 库或第三方二进制片段。
+- 首次在尚未导入相同来源的 PFB 中执行完整上传、导入、审核预览、批准和 Product Launch。
+  手柄右方向改变可见位置，B/Escape 重置，A/Space 触发游戏原生 SharedObject.flush；在普通 Player
+  选择“存档并退出”。不同 Launch ID 恢复后必须看到相同位置并接受新的方向输入，不选择存档启动须回到初始位置。
+- 图像位置断言必须读取核心公开 `captureFrame()` 返回的 PNG，不能只用浏览器截图掩盖 GPU 画布导出空白。
+  从所选存档启动后再次保存必须保留同一个 saveStateId，并以第三次 Launch 验证容器内容已更新；不选存档重开从空数据开始，首次保存必须使用新的 saveStateId。
+  数据类型为 STORAGE 时，退出对话框明确提示可能仅包含设置或统计、不保证恢复关卡进度；真实数据变化仍允许保存，不按游戏做例外。
+  公开游戏也经过审核预览、发布、Launch 和输入，保存各阶段真实截图；不可据此推断所有 Flash API、Stage3D、
+  联网/多文件游戏或实体手柄兼容性。
+- 可选 `RETROM_RUFFLE_OWNED_GAME_ID` 只用于重跑已经过完整导入的自有程序；证据必须明确标记复用现有产品，
+  并与首次完整导入的记录一起保留，不能单独声称重新覆盖了审核链或绕过来源去重。外部游戏使用尚未导入的来源。
+- 外部游戏重跑同理使用 `RETROM_RUFFLE_EXTERNAL_GAME_ID` 并保留首次记录；需要鼠标开始的游戏可设置
+  `RETROM_RUFFLE_START_CLICK=x,y`（画布归一化位置，各值在 0–1），执行真实点击，不调用 ActionScript 私有方法。
+  键盘组合开始可设置 `RETROM_RUFFLE_START_KEYS=x+c`（最多四个小写字母键），不能据此声称仅凭手柄完成启动。
+- 证据为 `ruffle-product.json`、自有生成物和各阶段 PNG；保留旧行为必红的存档、持久缓存、输入释放、
+  取消装载、截图回归。软件渲染必须显式记录，不能作为实体 GPU 性能结论。
+- 布局补充检查：设置同一认证、Chrome、输出目录和 `RETROM_RUFFLE_EXTERNAL_GAME_ID` 后执行
+  `timeout 150 node scripts/acceptance/ruffle_layout_probe.mjs`，记录 Canabalt/Mode 的连续画面与 canvas 尺寸。
+  默认 1280×900 视口下容器必须稳定且强制等比缩放、居中；检查当次截图中的实际画面，不能只以 canvas DOM 尺寸判断填充正确，也不把游戏自带镜头震动当作容器抖动。
+  设置 `RETROM_RUFFLE_DPR=2 RETROM_RUFFLE_RESIZE=1 RETROM_RUFFLE_LAUNCH_UI=1` 补充从详情页点击“开始游戏”自动全屏、
+  工具栏进出全屏以及 1920×1080、900×1280、1280×900 切换；每阶段留整页截图并验证 canvas 铺满当前视口、无额外偏移、backing buffer 等于 CSS 尺寸乘 DPR。
+  每阶段连续检查 12 个动画帧，防止只在单次稳定快照中漏掉布局反复变化。
+- 设置 `RETROM_PLAYER_PAUSE_RESUME=1`，在同一布局补充命令中执行 `ACC-RUN-002` 的共享暂停恢复回归，
+  验证调试面板常开时的画面空白点击、中央提示点击与键盘激活，并留下当次截图及 `surfaceResume` 结果。
+- WSL 无头 Chrome 若连静态页面也无法截图，使用 `env -u DISPLAY -u WAYLAND_DISPLAY` 前缀重跑同一固定浏览器；
+  只清除该次验收进程继承的桌面连接，不修改系统环境。记录浏览器版本和软件渲染，不据此推断用户实体 GPU 表现。
+
+### ACC-FLYCAST-001：Dreamcast CHD、标准手柄与跨 Launch 恢复
+
+- 类型：操作者授权语料的真实 PFB 产品验收；无可再分发 fixture，不加入默认 CI 下载。
+- 上限：每份游戏 600 秒，上传准备单独限时 300 秒。缺少授权 CHD、BIOS 或浏览器时记为 BLOCKED。
+- 执行：在同一 PFB 的真实产品界面或公开 HTTP API 完成下述等价流程；不得使用独立核心示例页。
+- 准备：安装 `dc_boot.bin` 和 `dc_flash.bin`，选择 Dreamcast 推荐目录；上传单文件 CHD，
+  进入审核并启动 Review Preview。记录内容摘要、Provider Bundle/Target 和依赖快照。
+- 流程：验证真实游戏画面和标准 Gamepad API 的 Start、方向及 A/B；保存审核截图并发布。
+  创建普通 Product Launch，在可辨认场景创建非空 `flycast-state-gzip-v1` 即时存档，记录大小/摘要。
+  退出后创建不同 Launch，显式指定该 SaveState；核对恢复到保存场景且方向、确认仍可操作。
+  再创建不指定存档的 Launch，确认正常启动而非隐式恢复。
+- 缓存：同一浏览器上下文第二次启动应命中按内容摘要命名的 OPFS CHD，长度正确，
+  不再请求游戏内容端点；单元测试另覆盖损坏、短读、超限和无 OPFS 的回退。
+- 证据：本次预览、保存、恢复、恢复后输入截图，非秘密 Launch/Save ID、内容/存档摘要、
+  精确 Bundle/Target 和浏览器/GPU。私有游戏、BIOS、授权 URL 与 cookie 不进入 Git 或结构化证据。
+- 通过标准：所有上述步骤完成；只报告所用样本和浏览器。软件 GPU 的帧数只证明运行，不推断实体显卡性能。
+
+
+### ACC-FLYCAST-002：暂停截图与压缩存档回归
+
+- 输入：操作者提供的旧 `flycast-state-v1` 存档及其原游戏，使用同一 PFB 的普通 Product Launch。
+- 上限：600 秒。通过正常详情页恢复旧存档，确认可辨认游戏场景和标准手柄输入。
+- 暂停后等待至少两个浏览器呈现周期再创建存档；在同一可辨认场景重复 5 次正常保存，
+  下载服务端缩略图并核对画面，不得把真实黑色游戏场景当成截图失效。
+- 新存档的 envelope format 必须是 `flycast-state-gzip-v1`，记录实际存储字节数与解压字节数，
+  对同一份 bytes 计算压缩收益；解压后完整摘要与核心原始状态相同。
+- 选择一份新压缩存档创建不同 Launch，验证恢复场景及恢复后输入；旧存档仍可恢复。
+- 单元回归覆盖上下文保留属性与清理、旧格式读取、无损往返、gzip 损坏/截断及解压大小上限。
+- 证据按 ACC-FLYCAST-001 保存，仅保留本次非秘密身份、摘要与截图；不覆盖用户原存档。
+
 ### ACC-PS2-001：Play! PS2 按需光盘与即时状态
 
 硬超时 600 秒。执行 `make acceptance-case CASE=ACC-PS2-001`，或等价的 `timeout 600 env -u DISPLAY -u WAYLAND_DISPLAY .cache/tools/node-v24.18.0-linux-x64/bin/node scripts/acceptance/play_product.mjs`。
@@ -2148,3 +2223,59 @@ PSP 补充场景：同一 Case 的 `scripts/acceptance/psp_checkpoint_storage_pr
 恢复一次 gunzip；普通恢复端点的大小与 SHA-256 匹配，一次解压即为 `RASTATE` v1 / `MEM ` 原生封包，
 体积至少减少一半。保留原存档、上传截图、前后菜单截图及 `psp-checkpoint-storage-product.json`。
 PSP 原生加载完成回执必须启用，不能用取消超时检查或放行未完成恢复代替。
+
+### ACC-MSX-001：WebMSX 单媒体与即时存档产品闭环
+
+- 入口：`make acceptance-case CASE=ACC-MSX-001`；硬超时 300 秒。
+  等价命令是 `env -u DISPLAY -u WAYLAND_DISPLAY timeout 300 node scripts/acceptance/msx_product.mjs`，
+  使用 PFB 固定 Node 和 Chrome；WSL 无头 Chrome 不继承桌面连接。
+- 输入：`RETROM_ACCEPTANCE_BASE_URL`、`RETROM_ACCEPTANCE_USERNAME`、`RETROM_ACCEPTANCE_PASSWORD`、
+  `RETROM_CHROME_EXECUTABLE`、`RETROM_ACCEPTANCE_CASE_DIR`、`RETROM_MSX_FIXTURE` 与 `RETROM_MSX_GAMES`。
+  最后一个变量是操作者授权游戏的绝对路径 JSON 数组，普通 CI 不读取或下载私有游戏。
+- 自有卡带由 `python3 scripts/acceptance/build_msx_fixture.py <输出路径.rom>` 确定性生成；不提交生成物。
+  它只含项目自有 Z80 程序，用可见标记的位置与形状验证输入和恢复，不含 BIOS 或第三方片段。
+- 自有卡带经过上传、导入、审核预览、批准和 Product Launch，标准虚拟手柄方向改变位置、
+  A 改变形状，保留的 B/Escape 操作重置位置。即时存档必须为非空 `webmsx-state-v1`；
+  关闭后以不同 Launch ID 恢复时位置、形状保持一致并继续响应方向。不选存档启动须回到初始状态。
+- 操作者游戏同样经过导入、审核预览、批准和 Launch，等待开机/标题动画后执行真实按键并保存截图。
+  首份游戏另建即时存档，在新的 Launch 中恢复并继续输入。
+- 自有程序另验证独立键盘输入，以及 1280×901、900×1280、1280×900 视口下连续 12 次采样的 4:3 居中布局。
+  分数尺寸不得引发 observer 循环或画面裁切；每个视口保留整页截图。
+- 证据：`msx-product.json` 与各阶段 PNG。缺少必需输入记为 BLOCKED。
+  可选 `RETROM_MSX_EXISTING_GAMES` 为 `{"owned":"游戏 ID","external-0":"游戏 ID"}` 形式的映射，
+  只用于复测已经完整导入发布的同一游戏。证据记录 reused，必须与首次导入/预览/发布证据一起保留，不能声称重新覆盖审核链。
+  此 Case 验证固定 MSX2+ 机器下的所选单卡带，不能推断全部 MSX 软件、turbo R、多盘或实体手柄兼容性。
+
+### ACC-PX68K-001：PX68K 单磁盘产品接入
+
+- 硬超时：300 秒，等价命令 `timeout 300 node scripts/acceptance/px68k_product.mjs`。
+- 显式输入：`RETROM_ACCEPTANCE_BASE_URL`、`RETROM_ACCEPTANCE_USERNAME/PASSWORD`、
+  `RETROM_CHROME_EXECUTABLE`、`RETROM_PX68K_DISK`、`RETROM_PX68K_BIOS_DIR`；
+  `RETROM_ACCEPTANCE_CASE_DIR` 指向被忽略的证据目录。
+  非标准工具布局可用 `RETROM_PLAYWRIGHT_MODULE` 指定已安装 Playwright 的入口。
+  无头 Chrome 在宿主环境无法完成合成/截图时，使用同一 Chrome 的 `RETROM_ACCEPTANCE_HEADED=1`
+  与 `xvfb-run -a`，仍保持 300 秒上限，记录软件渲染环境，不据此推断实体 GPU 性能。
+  完整验收使用尚未导入该游戏的独立测试数据；证据目录的 `product-input.json` 仅用于本次流程的断点重试。
+  本 Case 仅由操作者显式提供合法游戏和 BIOS，不进入常规测试，也不自动下载或搜索私有文件。
+- 通过产品上传安装尚未安装的两项 BIOS；不得替换已有 installation。上传单磁盘、进入审核预览，
+  验证有色画面，然后发布并创建普通 Launch。以标准手柄启动并操作游戏，验证持续帧变化和非零音频。
+- 通过 Player 创建即时存档，在不同 Launch 恢复，再操作并创建另一份存档。
+  保存 `preview.png`、`gameplay.png`、`restored.png` 和 `px68k-product.json`，记录准确 Target/Bundle、
+  内容摘要、游戏/存档 ID、音频与阶段结果。截图需要确认确为可操作游戏场景，不能仅以启动画面通过。
+- 原生 bridge 的日志/帧调度、像素、输入与状态回归运行 core fork 的 `retrom/check.sh`；
+  文件缓存、大小/摘要错误、取消、checkpoint 路径与身份校验、暂停/退出、新实例恢复顺序由 runtime 单测覆盖。
+- 结论只覆盖当次真实样本。单盘成功不代表多盘、D88、全部 HDF 或整个 X68000 游戏库兼容。
+
+### ACC-PX68K-002：PX68K 手柄与键盘输入回归
+
+- 硬超时 300 秒，等价命令 `timeout 300 node scripts/acceptance/px68k_input_product.mjs`。
+  浏览器、认证和证据目录环境变量沿用 `ACC-PX68K-001`。
+  显式提供 `RETROM_PX68K_GAME_ID` 与正在游戏中的 `RETROM_PX68K_SAVE_STATE_ID`；
+  `RETROM_PX68K_REVIEW_ID` 指向保留的未发布审核项，或通过 `RETROM_PX68K_PREVIEW_DISK` 上传另一份尚未导入的磁盘创建审核项。
+  审核项不发布，可供以后重复预览；预览仅等待最多 60 秒确认非空的模拟机启动画面，不要求进入游戏标题，也不推断该磁盘的完整游戏兼容性。
+- 真实审核预览后，从已有游戏存档创建 Product Launch，按标准手柄 Button 1；键盘 Esc 暂停/恢复，方向键移动和 Z 射击。
+  通过 Player 创建存档，在不同 Launch 恢复后重复 Button 1、键盘移动和射击，再创建存档。
+- 自动化结果为 `AWAITING_VISUAL_REVIEW`；必须逐张检查当次截图：Button 1 不出现 PAUSE，Esc 能显示/解除 PAUSE，
+  键盘移动与射击生效，恢复后输入仍生效。通过后在 `px68k-input-product.json` 写入视觉检查结果并将 status 标记为 PASS。
+  调色板循环在暂停时仍可能改变像素，不能仅凭画面摘要不同判断游戏未暂停。本步骤使用《超连射 68K》游戏中的存档；
+  其他样本须有同等明确的动作判据。实体手柄的硬件事件采集不在虚拟标准手柄验收结论内。

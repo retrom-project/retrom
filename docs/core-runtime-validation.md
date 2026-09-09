@@ -24,6 +24,7 @@
 | RPG Maker 2000/2003/XP/VX/VX Ace/MV | `ACC-RPG-002..007` | `testdata/public-roms/rpgmaker-smoke/` | 单一虚拟 Core 选择 retrom-runtime Target，真实地图/输入/音频、A→B→C、跨 Launch 恢复 B |
 | RPG Maker MZ | `ACC-RPG-008` | 操作者合法输入 | 与 MV 相同的 unique-origin、场景、帧、输入和恢复；缺输入时 BLOCKED |
 | ONS、KiriKiri、Butterscotch、TyranoScript | 各自 `ACC-*-001` | 操作者合法输入 | Review Preview、Product、按需内容、checkpoint 和跨 Launch 恢复；结论只覆盖当次样本 |
+| PX68K / X68000 | `ACC-PX68K-001/002` | 操作者显式提供的游戏与 BIOS | 单磁盘导入/审核预览/Launch、标准手柄、独立键盘、音频、即时存档和跨 Launch 恢复；限当次样本 |
 | TIC-80 | `ACC-TIC-001` | 项目自有 pmem 卡带 + 公开 `.tic` | 导入/预览/Launch、原生数据、新实例恢复与输入 |
 | PICO-8 / FAKE-08 | `ACC-PICO-001` | 项目自有卡带 + 公开 `.p8/.p8.png` | 导入/预览/Launch、即时状态、新实例恢复与输入 |
 | WASM-4 | PFB loose开发层产品Case | 锁定上游合法 cart | cart 校验、画面、输入、checkpoint、跨 cart 拒绝和清理 |
@@ -32,6 +33,8 @@
 
 ## 3. 共享验证规则
 
+- 标准手柄最低能力是方向移动和确认；取消可选，缺少取消不能作为拒绝核心接入的理由。已有可靠的取消仍按对应 Case 验证。
+- 同一映射配置中，一个手柄按钮只对应一个具体目标输入；禁止多个键或原生按钮与键盘同时发送，不能为补足确认/取消叠加 A+Enter、B+Escape。真实键盘保持独立；同一目标的按下/释放属于一个输入生命周期。宿主菜单 B 返回不受游戏内可选取消影响。
 - Go 和 TypeScript 必须对同一 Launch Envelope fixtures 得出相同接受/拒绝结果。
 - Provider Module 的 URL、SHA-256、Provider 身份、API 版本与 Bundle 必须一致。
 - `runtime.capabilities` 必须与返回的 `PlayerRuntimeV1` 行为闭合；声明支持却缺方法、未声明却暴露行为均失败。
@@ -41,7 +44,7 @@
 
 ## 4. EmulatorJS 特殊边界
 
-EmulatorJS Provider declaration 是 43 个 Target 的唯一行为 registry。`mame2003` 的 4.2.1 core 覆盖、DOSBox Pure 的 state 修复、线程 core、shader、启动动作、多盘和八个 netplay profile 都封装在该 Provider 中。Retrom 只看 Target declaration 与标准能力，不按 core 名在 Go 或前端复制规则。
+EmulatorJS Provider declaration 是 44 个 Target 的唯一行为 registry。`mame2003` 的 4.2.1 core 覆盖、DOSBox Pure 的 state 修复、线程 core、shader、启动动作、多盘和八个 netplay profile 都封装在该 Provider 中。Retrom 只看 Target declaration 与标准能力，不按 core 名在 Go 或前端复制规则。
 
 新增 `fuse`、`gearcoleco`、`prboom`、`puae`、`vice-x128`、`vice-x64sc`、`vice-xvic` 与 `virtualjaguar` 只声明 `SINGLE_FILE`，`discSwitch=false` 且不开放 netplay。逐核产品验收按 [ACC-RUN-013](./project-acceptance.md#acc-run-013八个-emulatorjs-单文件候选的逐核产品验证) 执行；首次验收可从产品白名单任选一种扩展名，一个 Target 的结果不能替代另一个 Target。
 
@@ -55,7 +58,33 @@ Provider 私有的 PSP 存档读取必须等待原生异步序列化结束，期
 
 指定存档不能在首帧盲目自动加载；Provider 必须等待目标核心可序列化，再执行原生 load 并以明确失败 fail closed。普通开始必须清理浏览器遗留的隐式目录存档，只有用户点击“创建存档”才上传显式 checkpoint。
 
+Dreamcast 通过 `emulatorjs/flycast` Target 接入 nasomers/flycast-wasm 的 WASM JIT，由
+`retrom-project/flycast-wasm` 固定源码构建。首期只接受单文件 `.chd`，使用 WebGL2、
+640×480、无 pthreads；Windows CE/MMU、NAOMI、Atomiswave、多盘与联机不在支持范围。
+BIOS 使用安装快照中的 `/dc/dc_boot.bin` 与 `/dc/dc_flash.bin`，关闭 HLE BIOS。
+标准手柄的 A/B/X/Y 按 Dreamcast 物理位置绑定，方向、摇杆及 L/R 扳机由标准输入表传递。
+
+Provider 在 OPFS 按完整 SHA-256 缓存 CHD，每次命中重新流式校验长度和摘要；不支持 OPFS
+或写入配额不足时回退到经过同样校验的内存 Blob。缓存只保存游戏字节，不保存 Launch URL
+或授权信息。新 Launch 仍须取得当前 envelope grant；清除站点存储会重新下载。
+即时存档写入独立的 `flycast-state-gzip-v1` 格式，完整状态无损压缩后上传；恢复时按声明格式解压，
+压缩前后均遵守 Provider 的大小上限，并继续读取旧 `flycast-state-v1` 存档。恢复等待核心启动完成。
+Flycast 的 iframe 在创建 WebGL 上下文时保留绘图缓冲区，避免浏览器呈现后清空缓冲区，
+使暂停后的 Canvas 截图仍可读取最后画面；退出时恢复该 iframe 的上下文创建方法。
+操作者语料的验收规则见 `ACC-FLYCAST-001`；单个样本结果不能外推为 Dreamcast 全库兼容。
+
 ## 5. retrom-runtime 特殊边界
+
+WebMSX 使用独立 `msx-webmsx` Target，固定 MSX2+ 日本机器，接收单媒体 Blob。
+`webmsx-state-v1` 是绑定游戏摘要的有界即时快照，须通过 `ACC-MSX-001` 的新 Launch 恢复、
+位置/形状保持与恢复后输入断言。截图、审核预览、发布和运行复用公共路径。
+本次先验证所选 MSX1/MSX2 卡带；单个样本不能证明全部磁盘、磁带、turbo R 或多盘软件兼容。
+
+Flash 使用独立 `flash-ruffle` Target。只接收原始单 SWF，SharedObject 是游戏原生存档（`GAME_SAVE`），
+不承诺即时执行快照。`dataKind: STORAGE` 表明其为原生数据容器，可能只有设置或计数，不保证可恢复进度。
+按 `ACC-FLASH-001` 验证自有确定性程序的原生保存、新 Launch 恢复、继续输入与空启动，
+并通过真实公开游戏的导入/预览/发布/启动检查兼容性。GPU 画布截图必须走核心重绘捕获接口，页面截图不能替代
+存档截图能力。未验证的 Stage3D、外部资源、联网和其他 Flash API 不纳入兼容性声明。
 
 RPG 世代检测只选择 `retrom-runtime` Provider 内的 Target；用户仍只看到一个 RPG Maker Core。EasyRPG、mkxp、Native Web、ONS、KiriKiri、Butterscotch、TyranoScript 和 WASM-4 的文件策略、bridge、OPFS/Range、输入和 checkpoint codec 都属于 Provider 私有实现。
 

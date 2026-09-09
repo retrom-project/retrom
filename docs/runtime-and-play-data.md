@@ -65,6 +65,8 @@ Player Host 只消费 `PlayerRuntimeV1` 的标准能力和事件，不按 Provid
 
 从 Host 控制栏或暂停遮罩恢复运行后，Provider 在核心确认恢复且会话仍有效时，把键盘焦点交还游戏 canvas；不暴露 canvas 的隔离项目聚焦其运行窗口。暂停、恢复失败或被退出抢占时不得抢回 Host 焦点。这个行为由两个 Provider 的公共入口实现，不由单个核心或验收脚本补焦点。
 
+Host 区分运行时内部普通点击与暂停遮罩上的明确恢复：前者保留控制区占用保护，后者先由 Chrome 检查设置/退出/换盘阻断，再请求公共 resume；只读调试面板的可见性固定状态不构成恢复阻断。该边界与 Provider/Target 无关，单机运行、暂停状态和联机权限检查仍然有效；回归见 `ACC-RUN-002`。
+
 浏览器开发工具注入的 Web Vitals 脚本不属于游戏运行时。应用 document、Provider 与运行 frame 不拦截或吞掉该脚本的异常，也不修改浏览器性能 API、DevTools 设置或其独立执行上下文。匿名脚本错误必须先按执行上下文、脚本字节与实际堆栈定位，不能因含有 `startTime` 就归因于 Player；诊断与回归边界见工程质量专题第 8.2 节。
 
 ## 5. 资源与项目运行时
@@ -166,6 +168,27 @@ ONS/KiriKiri 在已有映射派发处报告；MV/MZ 隔离 bridge 按需开启�
 
 Player 调试面板的“画面呈现率”由公共 getFrameCount 的增量计算，不代表屏幕刷新率或游戏逻辑速度。按需重绘核心可在游戏画面静止时停止提交帧；Host 不插入重复帧补足 60 FPS，输入与暂停控制继续正常工作。
 
+### Flash 单文件与原生存档
+
+Flash 平台的产品 Core 为 `ruffle`，绑定 `retrom-runtime/flash-ruffle`。`FLASH_SWF` 检测/交付策略
+只接收单个原始 `.swf`，沿用 `SINGLE_FILE`、`ROM_BLOB`、普通审核和共享 Provider dispatcher。
+不接收 EXE projector、AIR、ZIP 项目或依赖外部资源的 Flash 网站；不新增数据库 migration 或 HTTP 旁路。
+
+Provider 在加载前校验 SWF 签名、准确字节数与 SHA-256，文件和头部声明的解压长度均不超过 64 MiB。
+完整内容按摘要复用浏览器持久缓存；缓存失败允许正常网络读取。游戏脚本访问宿主、导航和网络默认禁止。
+核心内存加载使用稳定内容摘要作为 SWF URL 身份，SharedObject 只写入本次实例的宿主存储，不能落入共享 localStorage。
+
+存档为 `ruffle-sharedobjects-v1`、`GAME_SAVE`，编码包上限 8 MiB；它是游戏写出的 SharedObject 原生数据，
+不是即时状态。公共 `availability.save.dataKind=STORAGE` 明确表示持久存储容器；其中可能只有游玩次数、设置或统计，不能保证恢复关卡进度。
+确实写出新数据时仍允许“存档并退出”，不猜测哪些字段是进度、不按游戏建立例外。没有写出数据时不能创建假存档。
+沿用 J2ME 的 GAME_SAVE 生命周期：从已有存档启动后始终更新所选同一存档，保留用户命名；不选存档重新开始才创建新的空容器，首次保存产生新存档。
+恢复包必须在执行 SWF 前导入，普通启动必须从空数据开始。
+画面强制使用 `showAll` 等比缩放和居中对齐，禁止游戏脚本覆盖缩放/对齐策略；保持原始宽高比，不能用拉伸或裁切冒充填满屏幕。
+Ruffle 自行管理响应式 canvas 和 DPI backing buffer；Provider 仅铺满外层 frame，不再次根据变化中的 buffer 宽高比设置 canvas 像素尺寸和偏移。
+该布局所有权是 Provider 内部 adapter 约定，不改变公共 Host 契约，其他固定分辨率核心继续使用既有内接居中布局。
+键盘和鼠标保留原生行为，标准手柄方向/左摇杆映射方向键，A/B/X/Y（south/east/west/north）映射 Space/Escape/X/Enter。
+不同游戏的按键和 Flash API 兼容性仍须单独验证。产品准入与证据规则见 `ACC-FLASH-001`。
+
 ### ScummVM 项目与原生恢复
 
 `retrom-runtime/scummvm` 消费一份 `game: FILE_TREE`。Launch 冻结审核选定的
@@ -217,3 +240,34 @@ Provider 在恢复及原生存档持久化确认前有界解压。核心 adapter
 旧未压缩、PSP gzip 和 mkxp compact 由 Provider 的显式 `readFormats` 兼容读取，不继续写入私有压缩格式。
 压缩前后均受 Target 大小限制，截断、损坏、取消或解压超限均拒绝。旧存档不做后台重写。
 验收入口为 `ACC-SAVE-004`，具体步骤只在项目验收专题维护。
+
+### MSX / WebMSX 即时快照
+
+`webmsx` Core 使用 `retrom-runtime/msx-webmsx` Target 与单个 `game: ROM_BLOB`。
+Provider 校验准确长度及 SHA-256，按内容摘要复用浏览器持久缓存；首次下载报告确定进度，缓存不可用时走正常读取。
+`webmsx-state-v1` 是最大 32 MiB 的 `INSTANT` 快照，包括 CPU、内存、视频、声音与可写媒体的机器状态，
+并绑定游戏摘要。恢复在新机器启动前读取显式快照；不选存档启动不读取 WebMSX 的历史 localStorage。
+暂停、截图、创建存档、退出继续使用共享 Player 和 Provider dispatcher。核心在 iframe 内自行保持 4:3 物理画面，
+响应横竖屏尺寸变化；公共 Provider 不暴露帧计数、音量、联机或多盘能力。固定机器为 MSX2PJ。
+真实产品证据与适用范围见 `ACC-MSX-001`；本地候选不修改正式生产 lock。
+
+## PX68K 单磁盘运行
+
+手柄方向移动与确认按核心最低能力验证，取消可选。同一映射配置内每个手柄按钮仅有一个目标输入，规则见[共享验证规则](./core-runtime-validation.md#3-共享验证规则)。宿主菜单 B 返回与游戏内操作分开处理。
+
+平台 `x68000` / Core `px68k` 绑定 `retrom-runtime/px68k`。Host 的 `PX68K_DISK`
+策略复用已有 BIOS 感知内容装配，无额外 launch options；支持单个 `.dim`、`.xdf`、`.hdf`
+以及仅含一个受支持镜像的 ZIP/7z。多镜像归档保持歧义错误，不将它们自动拼接。
+当前不开放 D88、M3U、多盘切换与联机。
+
+Provider 使用 Musashi Wasm，初始 4 MiB RAM / 10 MHz CPU，由宿主按核心报告帧率逐帧调度。
+键盘方向键、字母、Enter、Escape 和 F1–F12 传入 X68000 键码；点击游戏画面取得键盘焦点。
+标准手柄方向和按钮进入双 joypad，Button 0/1 对应原生 A/B，不额外合成 Enter/Escape；游戏内具体动作由游戏定义。
+键盘方向键及 Z/X 同时模拟第一只 joypad 的方向及 A/B，支持仅接受摇杆的游戏；失焦、暂停和退出时释放键盘操作。
+支持暂停、音量、截图及即时存档 `px68k-state-v1`。
+
+游戏最大 64 MiB；存档压缩与展开数据均有 96 MiB 上限，原生状态最多 32 MiB。
+checkpoint 同时封装机器、磁盘内容、帧计数及游戏摘要；新实例先写入保存的磁盘，再加载机器状态。
+只在明确选择存档时恢复，普通开始使用原始游戏。内存 DIM/XDF 的可写数据及读写位置由核心
+序列化；HDF 的可写文件由 adapter checkpoint 保存。内容缓存命中也校验大小和摘要，损坏命中
+会丢弃并重新获取；退出释放帧调度、输入、声音和原生状态。
