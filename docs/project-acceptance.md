@@ -229,14 +229,14 @@ make acceptance-case CASE=<case-id>
 - 上限：900 秒。
 - 执行：`make build-backend-image`，随后 `docker image inspect retrom:latest`；用 `docker image save` 到验收临时目录检查最终 image layer 文件清单，再以 UID/GID `1000:1000`、只读 rootfs、无网络的一次性容器读取并哈希全部内置依赖，容器不挂载数据卷、不启动 Retrom 服务。
 - 流程：先记录 `make release-input-digest`，只构建根 Dockerfile；检查镜像名、镜像没有创建或声明固定运行用户、HTTP 入口、最终镜像配置/发布输入 label、`THIRD_PARTY_NOTICES`、两个 EmulatorJS manifest 的 38 个许可 component、单一 `retrom-runtime` tag 的 runtime allowlist/许可/notice/上游源码定位、五份 DAT 以及密码 blocklist/许可；从适用 manifest 在验收临时目录重建 notice 并逐字节比较。最后确认所有依赖目录对任意非 root UID 可读、可遍历且不可写，所有依赖文件可读且不可写。
-- 通过标准：默认 target 为 `retrom:latest`，image config 的 `User` 为空且 `/etc/passwd` 不含 Retrom 专用账号，运行身份完全由部署编排决定；`io.retrom.release-input-sha256` 等于包含密码与 runtime manifest digest 的本次 helper 值；所有 runtime/DAT/license/blocklist artifact 命中本地 observed 或固定 manifest 校验。最终文件包含 36 个 EmulatorJS 跨版本 selected core/report 条目（合并为 36 个当前新绑定 artifact）、十条独立 runtime Provider/Target 的当前 tag allowlist payload、aggregate notice/许可、PPSSPP assets、五份 DAT、10,000 行密码 blocklist及 MIT 许可，但不包含 runtime 历史版本目录、RTP、用户 MV/MZ/GameMaker 项目、下载 archive、上游源码树、非 allowlist core、用户数据、缓存、TLS 私钥或开发启动命令；被忽略 payload 未被 Git 跟踪且构建不 push。以部署基线 UID/GID `1000:1000` 运行只读依赖校验时不得出现 `payload unavailable`。
+- 通过标准：默认 target 为 `retrom:latest`，image config 的 `User` 为空且 `/etc/passwd` 不含 Retrom 专用账号，运行身份完全由部署编排决定；`io.retrom.release-input-sha256` 等于包含密码与 runtime manifest digest 的本次 helper 值；所有 runtime/DAT/license/blocklist artifact 命中本地 observed 或固定 manifest 校验。最终文件包含 36 个 EmulatorJS 跨版本 selected core/report 条目（合并为 35 个当前新绑定 artifact）、十条独立 runtime Provider/Target 的当前 tag allowlist payload、aggregate notice/许可、PPSSPP assets、五份 DAT、10,000 行密码 blocklist及 MIT 许可，但不包含 runtime 历史版本目录、RTP、用户 MV/MZ/GameMaker 项目、下载 archive、上游源码树、非 allowlist core、用户数据、缓存、TLS 私钥或开发启动命令；被忽略 payload 未被 Git 跟踪且构建不 push。以部署基线 UID/GID `1000:1000` 运行只读依赖校验时不得出现 `payload unavailable`。
 - 证据：build log、image ID、RepoTags、User、Entrypoint/Cmd、最终 layer 文件/size/permission 清单、Git tracked-file size 检查、artifact 校验摘要和 UID `1000` 只读校验结果；一次性校验容器销毁后不留下容器、网络或 volume。
 
 ### ACC-PKG-002：前端镜像构建
 
 - 上限：900 秒。
 - 执行：`make acceptance-case CASE=ACC-PKG-002`。
-- 流程：runner 记录 `make release-input-digest`，调用 `make build-web-image` 并 inspect `retrom-web:latest`；确认 target 在编译生产代码前执行 `data-check`，检查两个 production Provider lock、Bundle/manifest/module digest 与 56 个 Target binding 闭包，再检查 standalone production 产物、镜像没有创建或声明固定运行用户以及内部 HTTP 入口。最后在临时工作树副本篡改一个 Target declaration digest，运行同一 `data-check` 并要求预期失败；不在主工作树留修改，也不对负向样本再构建镜像。
+- 流程：runner 记录 `make release-input-digest`，调用 `make build-web-image` 并 inspect `retrom-web:latest`；确认 target 在编译生产代码前执行 `data-check`，检查两个 production Provider lock、Bundle/manifest/module digest 与 61 个 Target binding 闭包，再检查 standalone production 产物、镜像没有创建或声明固定运行用户以及内部 HTTP 入口。最后在临时工作树副本篡改一个 Target declaration digest，运行同一 `data-check` 并要求预期失败；不在主工作树留修改，也不对负向样本再构建镜像。
 - 通过标准：默认目标 tag 为 `retrom-web:latest`，image config 的 `User` 为空且 `/etc/passwd` 不含 Retrom 专用账号，运行身份完全由部署编排决定；`io.retrom.release-input-sha256` 等于本次 helper 值；镜像只包含 lock 指定的内容寻址 Provider Bundle，Web 不包含第二份 adapter/core/asset registry，未知 Target、manifest 漂移或无 Module 实现都使临时副本校验失败；镜像没有开发依赖/缓存、内置后端地址、TLS 私钥或用户数据，Cmd 不是 `next dev`。
 - 证据：build log、image inspect/digest 摘要与负向 `data-check` 错误；不启动容器。
 
@@ -697,8 +697,8 @@ Mega Drive 导入回归另用测试内生成的非游戏 payload，经服务器�
 - 上限：300 秒。
 - 前置：计时前已执行一次 `make prepare-deps`，本 Case 期间断网。
 - 执行：`make acceptance-case CASE=ACC-DAT-001`。
-- 流程：runner 先执行 `make data-check` 与 `make deps-check`，验证两个 Provider Bundle/manifest、57 个 Target、产品 Core binding 闭包、PPSSPP assets、mame2003 override、EmulatorJS 来源清单声明的全部许可 component、retrom-runtime aggregate notice/许可/上游源码定位、五份 DAT，以及密码 blocklist manifest、10,000 行 payload 和 MIT 许可；离线重建适用 notice。再用全新临时 SQLite 和真实五份 DAT 断网启动服务，等待 ready 并重启复用；最后运行 Provider schema/Target binding/seed 负向、约束负向与 Git payload 边界检查。
-- 通过标准：离线命令成功，两个 Provider manifest 都通过封闭 schema、canonical digest、Bundle/module digest 和来源身份校验；EmulatorJS Provider 恰声明 44 个 Target，retrom-runtime Provider 恰声明 13 个 Target。每个产品 Core 恰有一个 binding，且 `providerId/targetId/bundleSha256` 与当前 manifest 逐项一致；Retrom Go、Web、DAT 和验收代码中不存在第二份 Provider 私有 adapter/core/route registry，也不存在未知 Target 的默认回退。冷库先 live/`DEPENDENCY_INDEXING`，五个不可取消 bootstrap Job 在事务外解析，最终五个 Arcade Target 各有独立 READY active DAT；重启不重跑 parser。两个 FBA2012 DAT 必须从锁定源码分别完成双生成且 bytes 相同。许可输入逐项命中 size/hash，notice 可重复生成；DAT、Provider/runtime/license/notice payload 均未被 Git 跟踪，独立 runtime 本机物化目录不存在历史版本。整个 Case 断网且启动/解析不尝试 CDN；部署前由 `ACC-PKG-001`–`003` 比较两镜像 release-input digest。
+- 流程：runner 先执行 `make data-check` 与 `make deps-check`，验证两个 Provider Bundle/manifest、61 个 Target、产品 Core binding 闭包、PPSSPP assets、mame2003 override、EmulatorJS 来源清单声明的全部许可 component、retrom-runtime aggregate notice/许可/上游源码定位、五份 DAT，以及密码 blocklist manifest、10,000 行 payload 和 MIT 许可；离线重建适用 notice。再用全新临时 SQLite 和真实五份 DAT 断网启动服务，等待 ready 并重启复用；最后运行 Provider schema/Target binding/seed 负向、约束负向与 Git payload 边界检查。
+- 通过标准：离线命令成功，两个 Provider manifest 都通过封闭 schema、canonical digest、Bundle/module digest 和来源身份校验；EmulatorJS Provider 恰声明 44 个 Target，retrom-runtime Provider 恰声明 17 个 Target。每个产品 Core 恰有一个 binding，且 `providerId/targetId/bundleSha256` 与当前 manifest 逐项一致；Retrom Go、Web、DAT 和验收代码中不存在第二份 Provider 私有 adapter/core/route registry，也不存在未知 Target 的默认回退。冷库先 live/`DEPENDENCY_INDEXING`，五个不可取消 bootstrap Job 在事务外解析，最终五个 Arcade Target 各有独立 READY active DAT；重启不重跑 parser。两个 FBA2012 DAT 必须从锁定源码分别完成双生成且 bytes 相同。许可输入逐项命中 size/hash，notice 可重复生成；DAT、Provider/runtime/license/notice payload 均未被 Git 跟踪，独立 runtime 本机物化目录不存在历史版本。整个 Case 断网且启动/解析不尝试 CDN；部署前由 `ACC-PKG-001`–`003` 比较两镜像 release-input digest。
 - 证据：逐文件校验/统计、DatVersion/Job 状态序列与 parser 调用计数、事务批次摘要、Git 跟踪边界和断网 network log。
 
 ### ACC-DAT-002：Core 隔离与依赖闭包
@@ -1551,7 +1551,7 @@ ID。没有实体设备时自动化 Case 可以 PASS，但沉浸模式发布验�
 
 ### ACC-PROVIDER-002：Target 与 Host binding 闭包
 
-- 上限：900 秒。证明 44 个 EmulatorJS Target、13 个 retrom-runtime Target、Product Core binding 全量闭合；Target 自带闭合 options schema且进入 manifest digest，Host/数据库/Web 不存在 `optionsKind` 或第二份 Target registry；语义 ID 不带 `_Vn`，真实序列化/checkpoint/hash-domain 格式只通过窄 allowlist 保留版本。
+- 上限：900 秒。证明 44 个 EmulatorJS Target、17 个 retrom-runtime Target、Product Core binding 全量闭合；Target 自带闭合 options schema且进入 manifest digest，Host/数据库/Web 不存在 `optionsKind` 或第二份 Target registry；语义 ID 不带 `_Vn`，真实序列化/checkpoint/hash-domain 格式只通过窄 allowlist 保留版本。
 
 ### ACC-PROVIDER-003：Envelope 与 Dispatcher
 

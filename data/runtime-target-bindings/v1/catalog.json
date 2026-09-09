@@ -941,6 +941,12 @@
         "enabled": true
       },
       {
+        "id": "dreamcast",
+        "name": "Sega Dreamcast",
+        "sortOrder": 185,
+        "enabled": true
+      },
+      {
         "id": "fds",
         "name": "Famicom Disk System",
         "sortOrder": 20,
