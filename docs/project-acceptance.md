@@ -2265,6 +2265,8 @@ PSP 原生加载完成回执必须启用，不能用取消超时检查或放行�
 - 通过产品上传安装尚未安装的两项 BIOS；不得替换已有 installation。上传单磁盘、进入审核预览，
   验证有色画面，然后发布并创建普通 Launch。以标准手柄启动并操作游戏，验证持续帧变化和非零音频。
 - 通过 Player 创建即时存档，在不同 Launch 恢复，再操作并创建另一份存档。
+  新存档格式为 `px68k-state-v1-storage-v1`；下载恢复端点字节并核验大小与摘要，解压一次得到原生 ZIP，
+  确认内部条目使用 STORE，避免再次 deflate。记录传输/原生大小与条目名。
   保存 `preview.png`、`gameplay.png`、`restored.png` 和 `px68k-product.json`，记录准确 Target/Bundle、
   内容摘要、游戏/存档 ID、音频与阶段结果。截图需要确认确为可操作游戏场景，不能仅以启动画面通过。
 - 原生 bridge 的日志/帧调度、像素、输入与状态回归运行 core fork 的 `retrom/check.sh`；
