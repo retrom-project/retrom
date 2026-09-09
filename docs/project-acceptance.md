@@ -1552,7 +1552,7 @@ ID。没有实体设备时自动化 Case 可以 PASS，但沉浸模式发布验�
 
 ### ACC-PROVIDER-002：Target 与 Host binding 闭包
 
-- 上限：900 秒。证明 44 个 EmulatorJS Target、17 个 retrom-runtime Target、Product Core binding 全量闭合；Target 自带闭合 options schema且进入 manifest digest，Host/数据库/Web 不存在 `optionsKind` 或第二份 Target registry；语义 ID 不带 `_Vn`，真实序列化/checkpoint/hash-domain 格式只通过窄 allowlist 保留版本。
+- 上限：900 秒。证明 44 个 EmulatorJS Target、18 个 retrom-runtime Target、Product Core binding 全量闭合；Target 自带闭合 options schema且进入 manifest digest，Host/数据库/Web 不存在 `optionsKind` 或第二份 Target registry；语义 ID 不带 `_Vn`，真实序列化/checkpoint/hash-domain 格式只通过窄 allowlist 保留版本。
 
 ### ACC-PROVIDER-003：Envelope 与 Dispatcher
 
@@ -1577,7 +1577,7 @@ ID。没有实体设备时自动化 Case 可以 PASS，但沉浸模式发布验�
 
 ### ACC-PROVIDER-008：retrom-runtime 产品闭包
 
-- 上限：900 秒。证明 13 个 Target 的 Product、普通 Review Preview、unique-origin、checkpoint、输入和清理生命周期均由 retrom-runtime Provider 承接。
+- 上限：900 秒。证明 18 个 Target 的 Product、普通 Review Preview、unique-origin、checkpoint、输入和清理生命周期均由 retrom-runtime Provider 承接。
 
 ## 23. RPG Maker 全世代产品链
 
