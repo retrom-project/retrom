@@ -170,3 +170,9 @@ Flycast 的 workspace 依赖由 Retrom catalog 指向 `retrom-project/flycast-wa
 源码桥接替代预编译 stub，链接拒绝未解析符号并核验 WASM JIT 所需 HEAP 导出；
 核心归档与 Bundle 均携带对应许可。具体源码锁定值以 fork 的构建脚本及 runtime 的
 `provider-sources.json` 为准，BIOS 和游戏不进入候选归档。
+
+### Play! PS2 核心
+
+Play! 的核心源码与构建归属为 `retrom-project/Play-`，维护基线为上游 `83700b2c31e593bc94e845b4b31b797be84dda59`，维护分支 `retrom/g83700b2c31e5`。Retrom workspace catalog 将其登记为 runtime 的 `play` 核心依赖。固定 Emscripten 工具链、ABI `play-host-v1`、闭合资产与许可由 fork 管理，annotated `retrom-core-g83700b2c31e5-rN` tag 的工作流发布正式资产。
+
+runtime 通过普通 `upstreamReleases` 固定 Play! tag、commit、metadata 与资产；Retrom 通过正常 Provider Release 锁文件消费它。PS2 核心保持启用，手动创建目录、导入与启动遵循普通核心流程，无实验开关或专用禁用状态；因运行不稳定，不提供推荐目录，具体行为见[游戏目录契约](./platform-instance.md#release-推荐目录-catalog)。候选与本机路径不进入 production lock；后续更新沿用 core → Provider → Host 的正常发布顺序。产品验证见 [ACC-PS2-001](./project-acceptance.md#acc-ps2-001play-ps2-按需光盘与即时状态)。

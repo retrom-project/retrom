@@ -53,6 +53,11 @@ class RuntimeTargetBindingsTest(unittest.TestCase):
         self.assertEqual(by_target[("retrom-runtime", "scummvm")]["detectorProfile"], "SCUMMVM_PROJECT")
         self.assertEqual(by_target[("retrom-runtime", "scummvm")]["acceptedContentKinds"], ["SCUMMVM_PROJECT"])
         self.assertEqual(by_target[("retrom-runtime", "j2me")]["acceptedContentKinds"], ["SINGLE_FILE"])
+        play = by_target[("retrom-runtime", "play-ps2")]
+        self.assertEqual(play["coreId"], "play")
+        self.assertEqual(play["platformIds"], ["ps2"])
+        self.assertEqual(play["detectorProfile"], "OPTICAL_DISC")
+        self.assertEqual(play["acceptedContentKinds"], ["SINGLE_FILE"])
         self.assertEqual(
             {item["coreId"] for item in catalog["bindings"] if item["providerId"] == "retrom-runtime" and item["targetId"].startswith("rpgmaker-")},
             {"rpgmaker"},
