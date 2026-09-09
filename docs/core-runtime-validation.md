@@ -24,6 +24,7 @@
 | RPG Maker 2000/2003/XP/VX/VX Ace/MV | `ACC-RPG-002..007` | `testdata/public-roms/rpgmaker-smoke/` | 单一虚拟 Core 选择 retrom-runtime Target，真实地图/输入/音频、A→B→C、跨 Launch 恢复 B |
 | RPG Maker MZ | `ACC-RPG-008` | 操作者合法输入 | 与 MV 相同的 unique-origin、场景、帧、输入和恢复；缺输入时 BLOCKED |
 | ONS、KiriKiri、Butterscotch、TyranoScript | 各自 `ACC-*-001` | 操作者合法输入 | Review Preview、Product、按需内容、checkpoint 和跨 Launch 恢复；结论只覆盖当次样本 |
+| PX68K / X68000 | `ACC-PX68K-001/002` | 操作者显式提供的游戏与 BIOS | 单磁盘导入/审核预览/Launch、标准手柄、独立键盘、音频、即时存档和跨 Launch 恢复；限当次样本 |
 | TIC-80 | `ACC-TIC-001` | 项目自有 pmem 卡带 + 公开 `.tic` | 导入/预览/Launch、原生数据、新实例恢复与输入 |
 | PICO-8 / FAKE-08 | `ACC-PICO-001` | 项目自有卡带 + 公开 `.p8/.p8.png` | 导入/预览/Launch、即时状态、新实例恢复与输入 |
 | WASM-4 | PFB loose开发层产品Case | 锁定上游合法 cart | cart 校验、画面、输入、checkpoint、跨 cart 拒绝和清理 |
@@ -32,6 +33,8 @@
 
 ## 3. 共享验证规则
 
+- 标准手柄最低能力是方向移动和确认；取消可选，缺少取消不能作为拒绝核心接入的理由。已有可靠的取消仍按对应 Case 验证。
+- 同一映射配置中，一个手柄按钮只对应一个具体目标输入；禁止多个键或原生按钮与键盘同时发送，不能为补足确认/取消叠加 A+Enter、B+Escape。真实键盘保持独立；同一目标的按下/释放属于一个输入生命周期。宿主菜单 B 返回不受游戏内可选取消影响。
 - Go 和 TypeScript 必须对同一 Launch Envelope fixtures 得出相同接受/拒绝结果。
 - Provider Module 的 URL、SHA-256、Provider 身份、API 版本与 Bundle 必须一致。
 - `runtime.capabilities` 必须与返回的 `PlayerRuntimeV1` 行为闭合；声明支持却缺方法、未声明却暴露行为均失败。

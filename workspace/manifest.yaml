@@ -22,7 +22,8 @@
         "scummvm",
         "tic80",
         "fake08",
-        "play"
+        "play",
+        "px68k"
       ]
     },
     {
@@ -184,6 +185,15 @@
       "gitlink": "git@github.com:retrom-project/Play-.git",
       "defaultBranch": "retrom/g83700b2c31e5",
       "submodules": true,
+      "dependsOn": []
+    },
+    {
+      "id": "px68k",
+      "path": "project/retrom-core/px68k-libretro",
+      "role": "core",
+      "gitlink": "git@github.com:retrom-project/px68k-libretro.git",
+      "defaultBranch": "retrom/g561dcba6b11d",
+      "submodules": false,
       "dependsOn": []
     }
   ]

@@ -17,6 +17,8 @@
 
 Provider Bundle 是 Target 行为的唯一事实源。Retrom 的 binding catalog 与 DAT 只引用稳定 `providerId/targetId` 和 Host 产品策略，不得重新声明入口、能力或引擎映射。Bundle 摘要只由需要重现实例字节的 Launch、Preview 与 Netplay session 冻结。
 
+核心接入的手柄准入要求为方向移动和确认，取消可选；同一映射配置内坚持单按钮单目标，不用原生按钮与键盘重复发送补足确认/取消。输入行为和验证边界统一见[核心运行时验证基线](./core-runtime-validation.md#3-共享验证规则)，已有正常取消及宿主菜单 B 返回保留。
+
 ## 2. Provider Bundle V1
 
 正式和 candidate 产物使用同一个闭合 Bundle V1 schema。Bundle 至少固定：
@@ -161,3 +163,21 @@ Launch、Preview 与 Netplay session 必须用 `bundleSha256` 追溯到精确 Pr
 Play! 的核心源码与构建归属为 `retrom-project/Play-`，维护基线为上游 `83700b2c31e593bc94e845b4b31b797be84dda59`，维护分支 `retrom/g83700b2c31e5`。Retrom workspace catalog 将其登记为 runtime 的 `play` 核心依赖。固定 Emscripten 工具链、ABI `play-host-v1`、闭合资产与许可由 fork 管理，annotated `retrom-core-g83700b2c31e5-rN` tag 的工作流发布正式资产。
 
 runtime 通过普通 `upstreamReleases` 固定 Play! tag、commit、metadata 与资产；Retrom 通过正常 Provider Release 锁文件消费它。PS2 核心保持启用，手动创建目录、导入与启动遵循普通核心流程，无实验开关或专用禁用状态；因运行不稳定，不提供推荐目录，具体行为见[游戏目录契约](./platform-instance.md#release-推荐目录-catalog)。候选与本机路径不进入 production lock；后续更新沿用 core → Provider → Host 的正常发布顺序。产品验证见 [ACC-PS2-001](./project-acceptance.md#acc-ps2-001play-ps2-按需光盘与即时状态)。
+
+## PX68K PFB 核心输入
+
+PX68K 的维护源为 `retrom-project/px68k-libretro`，基线是
+`uraraworks/px68k-libretro@561dcba6b11d04c9a6d7ca62998d5fb3f544aa49`。
+维护分支为 `retrom/g561dcba6b11d`；独立网页的实验性 SCSI 接口以
+`libretro/px68k-libretro@0ad84d7058a12b7db4f7f7a906e87fad4e2f26f6`
+的存储实现替换，文件范围与原因记录于 core fork 的 `retrom/README.md`。
+
+首轮接入使用显式 core candidate 和 runtime `developmentInputs`，不得伪造 release tag
+或写入 production lock。fork 输出 ES module、Wasm、完整 `LICENSES.txt` 与带文件摘要的
+candidate descriptor；runtime 验证实际文件集合、ABI、大小和 SHA-256，再构建 Provider。
+该核心同时保留 GPL 文本、WinX68k 非商业条款和 FMGen notice；adapter 的 MIT 许可不改变它们。
+
+BIOS 由产品 BIOS 安装链提供：`iplrom.dat`（131072 bytes）和 `cgrom.dat`（786432 bytes），
+两者均为 REQUIRED / EXTERNAL_FILE；平台定义中的 SHA-256 与上游 MD5 对应。
+以逐文件 `EXTERNAL_FILE_SET` 交付真实字节长度与摘要，由 adapter 写入 `game/keropi/`。
+游戏与 BIOS 均不进入核心产物、Provider 包或 Git。
