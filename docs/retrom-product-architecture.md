@@ -52,7 +52,7 @@ Retrom 是供用户与可信朋友共享的自托管复古游戏 Web 平台。�
 - 支持安全初始化、邀请注册、账户密码轮换以及管理员维护账号角色与状态。
 - 所有私有游玩、存档和启动数据按账号 Profile 隔离；管理员没有读取他人私有数据的旁路。
 - 可选启用两人异地联机房间；manifest 精确锁定 EmulatorJS 4.2.3 的 FCEUmm、FBNeo、SNES9x、Nestopia、MAME2003、MAME2003 Plus 与 FBA2012 CPS1/CPS2 core profile，覆盖其全部合格 READY 游戏；FCEUmm 使用 prediction/rollback，其余使用严格 lockstep，均只由服务端中继输入和状态，不传输画面或音频。
-- EmulatorJS 候选清单包含 43 个 core；稳定支持范围以已发布 Provider 和逐核产品证据为准。完整平台映射、默认目录与核心清单见第 6 节，证据要求见核心运行时验证基线。
+- EmulatorJS 候选清单包含 44 个 core；稳定支持范围以已发布 Provider 和逐核产品证据为准。完整平台映射、默认目录与核心清单见第 6 节，证据要求见核心运行时验证基线。
 - 正式提供一个 `rpgmaker` 平台和一个用户可见虚拟 Core `rpgmaker`。服务端根据项目的确定性 marker/格式证据选择 2000、2003、XP、VX、VX Ace、MV 或 MZ Provider Target，再由 `retrom-runtime` Provider 执行其私有实现；用户不需要理解 Target 或底层 adapter/core。
 
 一期不包含：
@@ -186,7 +186,7 @@ SaveState 链路，取消与退出都不会自动存档。其余输入仍交给 
 
 ### 3.14 Runtime Provider 与 RPG Maker 虚拟 Core
 
-浏览器运行实现只由两个不可变 Provider Bundle 提供：`emulatorjs` 声明 43 个 Target，`retrom-runtime` 声明 13 个 Target。Provider manifest 是 Target 能力、资源输入、checkpoint 格式和 module 资产的公开唯一声明；Provider 内部可以使用私有 adapter/core，但 Retrom 数据库、Go、OpenAPI、Web 与验收不得复制或依赖该映射。Host 只维护 Product Core 到稳定 `(providerId,targetId)` 的 binding；Launch、Preview 和 Netplay session 才冻结当次 `bundleSha256`。
+浏览器运行实现只由两个不可变 Provider Bundle 提供：`emulatorjs` 声明 44 个 Target，`retrom-runtime` 声明 17 个 Target。Provider manifest 是 Target 能力、资源输入、checkpoint 格式和 module 资产的公开唯一声明；Provider 内部可以使用私有 adapter/core，但 Retrom 数据库、Go、OpenAPI、Web 与验收不得复制或依赖该映射。Host 只维护 Product Core 到稳定 `(providerId,targetId)` 的 binding；Launch、Preview 和 Netplay session 才冻结当次 `bundleSha256`。
 
 所有运行入口共享 `Launch Envelope V1`。Envelope 只包含 session、Provider/Target/Bundle 身份、capabilities、checkpoint declaration、授权 resources、target options、restore、validation 与 netplay；不暴露 Provider 私有实现。每个 Target 在 Provider declaration 中内联闭合 `targetOptionsSchema`；Host 签发前和 Provider Module mount 前分别精确校验，Web dispatcher 只保留 JSON-safe、深度和大小等通用门禁，不维护 `optionsKind` 或 Target 私有字段。Web 的唯一装载入口是共享 Provider dispatcher：它校验 module URL、SHA-256、Provider 身份和 API version，再调用 `createRuntime` 并只向 Player 暴露 `PlayerRuntimeV1`。Player Shell 不按 RPG 世代、引擎或 Target 分支，也不从项目内容重选实现。
 
@@ -210,7 +210,7 @@ flowchart LR
     N -->|HTTP：页面 / _next| W["retrom-web / Next.js + Player Shell"]
     N -->|HTTP：API / content / runtime| S["retrom / Go 模块化单体"]
     W --> PD["Provider dispatcher"]
-    PD --> EP["EmulatorJS Provider · 43 Targets"]
+    PD --> EP["EmulatorJS Provider · 44 Targets"]
     PD --> RP["retrom-runtime Provider · 13 Targets"]
     S --> D["SQLite WAL"]
     S --> B["本地 SHA-256 CAS"]
@@ -421,7 +421,7 @@ flowchart LR
 
 ## 9. 数据与版本基线
 
-- EmulatorJS Provider Bundle 锁定 43 个 Target 的运行资产；各 Target 的具体 EmulatorJS/core 版本与 DAT 绑定由 Provider manifest 和 DAT provenance 共同声明，Host 不再维护第二份 core→asset 映射。精确边界见[核心运行时验证基线](./core-runtime-validation.md)。
+- EmulatorJS Provider Bundle 锁定 44 个 Target 的运行资产；各 Target 的具体 EmulatorJS/core 版本与 DAT 绑定由 Provider manifest 和 DAT provenance 共同声明，Host 不再维护第二份 core→asset 映射。精确边界见[核心运行时验证基线](./core-runtime-validation.md)。
 - 真实 Arcade DAT 在开发、验收和镜像构建前物化到 `data/dat/emulatorjs/4.2.3/`；Git 只保存机器可读 manifest、`SHA256SUMS` 与物化脚本，不提交 50+ MiB payload。同步启动阶段只校验本地依赖并登记解析任务，Worker 可建立数据库索引，但任何启动阶段都不联网下载。
 - SQLite schema 中业务时刻全部为 Unix 毫秒 `INTEGER`；禁止后续 migration 引入 TEXT 时刻字段。
 - 用户上传内容、下载媒体、存档和截图进入运行时 CAS，不提交到代码仓库。
@@ -435,7 +435,7 @@ flowchart LR
 
 ### Phase 0：兼容性闸门
 
-- 锁定 EmulatorJS Provider 的 43 个 Target（包含基础 4.2.3 与定向 4.3.0-pre 实现），每个产品 Core 经其唯一 binding 启动至少一个用户合法提供的测试游戏；固定兼容基线、线程产物、辅助资产与格式矩阵见[核心运行时验证基线](./core-runtime-validation.md)。
+- 锁定 EmulatorJS Provider 的 44 个 Target（包含基础 4.2.3 与定向 4.3.0-pre 实现），每个产品 Core 经其唯一 binding 启动至少一个用户合法提供的测试游戏；固定兼容基线、线程产物、辅助资产与格式矩阵见[核心运行时验证基线](./core-runtime-validation.md)。
 - 验证直接启动、默认全屏、仅用户显式状态存档/截图、指定存档恢复与有效时长心跳。
 - 验证 FBNeo/MAME/FBA2012 Split 与 Full Non-Merged 的 parent/BIOS 加载，及五个独立 DAT。
 - 已确认 Hasheous 的 `POST /api/v1/Lookup/ByHash` 无凭证契约；自动测试使用 fake，上线前只做一次有界 smoke，不能依赖实时命中内容或把限流阈值写死。
@@ -489,7 +489,7 @@ Phase 0 未通过时，不进入大规模业务实现。
 ### Phase 8：Runtime Provider 原子切换
 
 - 以 001–010 直接建库 schema、Provider Bundle/Target catalog、Launch Envelope V1 和共享 dispatcher 同时替换 Host 的旧运行选择路径。
-- EmulatorJS 43 个 Target 与 retrom-runtime 13 个 Target 共享 `PlayerRuntimeV1` 生命周期；RPG MV/MZ 等需要隔离的 Target 仍由 Provider resource 声明 unique origin。
+- EmulatorJS 44 个 Target 与 retrom-runtime 17 个 Target 共享 `PlayerRuntimeV1` 生命周期；RPG MV/MZ 等需要隔离的 Target 仍由 Provider resource 声明 unique origin。
 - 以 `ACC-PROVIDER-001`–`008`、全部直接受影响产品 Case、全量代码/依赖/镜像门禁为退出条件；MZ 合法商业样本继续作为条件性外部产品证据。
 
 ## 11. 统一验收入口

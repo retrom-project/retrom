@@ -22,7 +22,8 @@
         "scummvm",
         "tic80",
         "fake08",
-        "play"
+        "play",
+        "flycast-wasm"
       ]
     },
     {
@@ -184,6 +185,15 @@
       "gitlink": "git@github.com:retrom-project/Play-.git",
       "defaultBranch": "retrom/g83700b2c31e5",
       "submodules": true,
+      "dependsOn": []
+    },
+    {
+      "id": "flycast-wasm",
+      "path": "project/retrom-core/flycast-wasm",
+      "role": "core",
+      "gitlink": "git@github.com:retrom-project/flycast-wasm.git",
+      "defaultBranch": "retrom/1.0",
+      "submodules": false,
       "dependsOn": []
     }
   ]
