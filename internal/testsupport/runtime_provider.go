@@ -304,7 +304,7 @@ func fixtureInputs(binding runtimecatalog.Binding) []map[string]any {
 	switch binding.TargetID {
 	case "wasm4":
 		gameKind = "WASM4_CART"
-	case "rpgmaker-xp", "rpgmaker-vx", "rpgmaker-vx-ace":
+	case "rpgmaker-xp", "rpgmaker-vx", "rpgmaker-vx-ace", "play-ps2":
 		gameKind = "SEEKABLE_BLOB"
 	case "butterscotch-gamemaker":
 		gameKind = "NATIVE_WEB"

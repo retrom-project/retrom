@@ -291,6 +291,9 @@ func (service *Service) providerGameResource(
 	case "FILE_TREE":
 		return service.providerFileTreeResource(ctx, sessionID, capability, kind)
 	case "SEEKABLE_BLOB":
+		if source.contentKind == "SINGLE_FILE" {
+			return providerBlobResource(source, kind, files)
+		}
 		identity, err := service.ProjectContentIdentity(ctx, sessionID, capability)
 		if err != nil {
 			return nil, err
@@ -353,7 +356,8 @@ func providerBlobResource(
 			selected = file
 			break
 		}
-		if kind != "SEEKABLE_BLOB" && !strings.HasPrefix(file.logicalName, "__retrom__/") {
+		if (kind != "SEEKABLE_BLOB" || source.contentKind == "SINGLE_FILE") &&
+			!strings.HasPrefix(file.logicalName, "__retrom__/") {
 			selected = file
 			break
 		}

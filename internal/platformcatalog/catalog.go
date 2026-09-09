@@ -9,7 +9,7 @@ import (
 	"retrom/internal/contentprofile"
 )
 
-const Version = 12
+const Version = 13
 
 var ErrInvalid = errors.New("PLATFORM_CATALOG_INVALID")
 
@@ -75,6 +75,7 @@ var current = Catalog{Version: Version, Templates: []DirectoryTemplate{
 	{Key: "pcfx/mednafen_pcfx", PlatformID: "pcfx", DefaultCoreID: "mednafen_pcfx", Name: "PC-FX 游戏", CatalogOrder: 210},
 	{Key: "3do/opera", PlatformID: "3do", DefaultCoreID: "opera", Name: "3DO 游戏", CatalogOrder: 220},
 	{Key: "psp/ppsspp", PlatformID: "psp", DefaultCoreID: "ppsspp", Name: "PSP 游戏", CatalogOrder: 230},
+	// Play! 目前运行不稳定，因此不提供 ps2/play 推荐目录；用户仍可手动创建 PS2/Play! 游戏目录。
 	{
 		Key: "virtualboy/beetle_vb", PlatformID: "virtualboy", DefaultCoreID: "beetle_vb",
 		Name: "Virtual Boy 游戏", CatalogOrder: 240,
