@@ -2168,3 +2168,25 @@ Launch 完成验证。原始 JAR 的 SHA-256 和字节数必须在上传、内�
 步骤：上传 ICO CHD、导入并创建新的审核预览，验证帧推进和非空画面，保持该审核项未发布以支持重复验收；已有 Ridge Racer V 游戏用于 Product Launch。种子恢复后通过标准手柄右方向选 P、确认写入 P、取消删除 P，再写入 P；暂停两秒验证帧计数不变，通过公共 Player 创建即时存档。在新 Launch 恢复 P 后取消删除，证明恢复执行状态且输入继续生效。两次无存档启动分别推进至少 900 和 300 帧，第二次不得新增已读光盘块的 Range 请求。记录非零音频调度、截图、Launch ID、存档格式与缓存请求差值。
 
 通过标准：无浏览器异常，`play-state-v1` 新存档在不同 Launch 精确恢复命名状态，方向/确认/取消、暂停、截图、音频与缓存断言通过。证据为 `play-product.json` 与各阶段 PNG。自动化使用标准映射虚拟手柄；实体设备、完整比赛、跨游戏图形兼容性与声音质量不属于该 Case 的通过结论。《Ridge Racer V》上下跳动及三维场景缺失作为已知图形兼容性问题记录，不更改正常核心绑定与启动行为。
+
+### ACC-MSX-001：WebMSX 单媒体与即时存档产品闭环
+
+- 入口：`make acceptance-case CASE=ACC-MSX-001`；硬超时 300 秒。
+  等价命令是 `env -u DISPLAY -u WAYLAND_DISPLAY timeout 300 node scripts/acceptance/msx_product.mjs`，
+  使用 PFB 固定 Node 和 Chrome；WSL 无头 Chrome 不继承桌面连接。
+- 输入：`RETROM_ACCEPTANCE_BASE_URL`、`RETROM_ACCEPTANCE_USERNAME`、`RETROM_ACCEPTANCE_PASSWORD`、
+  `RETROM_CHROME_EXECUTABLE`、`RETROM_ACCEPTANCE_CASE_DIR`、`RETROM_MSX_FIXTURE` 与 `RETROM_MSX_GAMES`。
+  最后一个变量是操作者授权游戏的绝对路径 JSON 数组，普通 CI 不读取或下载私有游戏。
+- 自有卡带由 `python3 scripts/acceptance/build_msx_fixture.py <输出路径.rom>` 确定性生成；不提交生成物。
+  它只含项目自有 Z80 程序，用可见标记的位置与形状验证输入和恢复，不含 BIOS 或第三方片段。
+- 自有卡带经过上传、导入、审核预览、批准和 Product Launch，标准虚拟手柄方向改变位置、
+  A 改变形状，保留的 B/Escape 操作重置位置。即时存档必须为非空 `webmsx-state-v1`；
+  关闭后以不同 Launch ID 恢复时位置、形状保持一致并继续响应方向。不选存档启动须回到初始状态。
+- 操作者游戏同样经过导入、审核预览、批准和 Launch，等待开机/标题动画后执行真实按键并保存截图。
+  首份游戏另建即时存档，在新的 Launch 中恢复并继续输入。
+- 自有程序另验证独立键盘输入，以及 1280×901、900×1280、1280×900 视口下连续 12 次采样的 4:3 居中布局。
+  分数尺寸不得引发 observer 循环或画面裁切；每个视口保留整页截图。
+- 证据：`msx-product.json` 与各阶段 PNG。缺少必需输入记为 BLOCKED。
+  可选 `RETROM_MSX_EXISTING_GAMES` 为 `{"owned":"游戏 ID","external-0":"游戏 ID"}` 形式的映射，
+  只用于复测已经完整导入发布的同一游戏。证据记录 reused，必须与首次导入/预览/发布证据一起保留，不能声称重新覆盖审核链。
+  此 Case 验证固定 MSX2+ 机器下的所选单卡带，不能推断全部 MSX 软件、turbo R、多盘或实体手柄兼容性。
