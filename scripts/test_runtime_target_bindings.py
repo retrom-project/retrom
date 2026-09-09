@@ -14,7 +14,7 @@ class RuntimeTargetBindingsTest(unittest.TestCase):
             ROOT / "data/runtime-target-bindings/v1/catalog.json"
         )
         self.assertNotIn("catalogVersion", catalog)
-        self.assertEqual(len(catalog["bindings"]), 60)
+        self.assertEqual(len(catalog["bindings"]), 67)
         self.assertEqual(
             {item["providerId"] for item in catalog["bindings"]},
             {"emulatorjs", "retrom-runtime"},
@@ -31,12 +31,20 @@ class RuntimeTargetBindingsTest(unittest.TestCase):
         self.assertEqual(by_target[("emulatorjs", "gambatte")]["coreId"], "gambatte")
         self.assertEqual(by_target[("emulatorjs", "desmume2015")]["coreId"], "desmume2015")
         expected_single_file_targets = {
+            "81": ("81", ["zx81"]),
+            "cap32": ("cap32", ["amstradcpc"]),
+            "crocods": ("crocods", ["amstradcpc"]),
             "fuse": ("fuse", ["zxspectrum"]),
             "gearcoleco": ("gearcoleco", ["colecovision"]),
+            "mednafen-pce": ("mednafen_pce", ["pce", "pcecd"]),
             "prboom": ("prboom", ["doom"]),
             "puae": ("puae", ["amiga"]),
+            "same-cdi": ("same_cdi", ["cdi"]),
             "vice-x128": ("vice_x128", ["c128"]),
+            "vice-x64": ("vice_x64", ["c64"]),
             "vice-x64sc": ("vice_x64sc", ["c64"]),
+            "vice-xpet": ("vice_xpet", ["pet"]),
+            "vice-xplus4": ("vice_xplus4", ["plus4"]),
             "vice-xvic": ("vice_xvic", ["vic20"]),
             "virtualjaguar": ("virtualjaguar", ["atarijaguar"]),
         }
