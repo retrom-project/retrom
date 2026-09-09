@@ -17,6 +17,8 @@
 
 Provider Bundle 是 Target 行为的唯一事实源。Retrom 的 binding catalog 与 DAT 只引用稳定 `providerId/targetId` 和 Host 产品策略，不得重新声明入口、能力或引擎映射。Bundle 摘要只由需要重现实例字节的 Launch、Preview 与 Netplay session 冻结。
 
+核心接入的手柄准入要求为方向移动和确认，取消可选；同一映射配置内坚持单按钮单目标，不用原生按钮与键盘重复发送补足确认/取消。输入行为和验证边界统一见[核心运行时验证基线](./core-runtime-validation.md#3-共享验证规则)，已有正常取消及宿主菜单 B 返回保留。
+
 ## 2. Provider Bundle V1
 
 正式和 candidate 产物使用同一个闭合 Bundle V1 schema。Bundle 至少固定：
@@ -38,7 +40,7 @@ Provider manifest 的 `providerApiVersion` 在结构层只要求正整数，使�
 
 `emulatorjs` Bundle 从独立 retrom-runtime 仓库中锁定的 EJS upstream 与 fork Release 输入生成，声明 44 个 Target。它独占 EJS core、core options、启动动作、多盘和 8 个联机 profile 的行为映射。
 
-`retrom-runtime` Bundle 从独立仓库生成，声明包含 ScummVM、TIC-80、FAKE-08 和 Play! 在内的 17 个 Target；生产可用集合以正式 lock 为准。`provider-sources.json` 只记录上游或本地 core 构建来源，不声明 Retrom 路由或产品 binding；Target registry 只存在于 Provider declaration。正式 package 校验声明的上游输入及其锁定 source/tag/asset，源码构建或缓存复用都必须得到声明的字节。
+`retrom-runtime` Bundle 从独立仓库生成，声明包含 ScummVM、TIC-80、FAKE-08、Play! 和 Ruffle 在内的 19 个 Target；生产可用集合以正式 lock 为准。`provider-sources.json` 只记录上游或本地 core 构建来源，不声明 Retrom 路由或产品 binding；Target registry 只存在于 Provider declaration。正式 package 校验声明的上游输入及其锁定 source/tag/asset，源码构建或缓存复用都必须得到声明的字节。
 
 ## 4. Retrom binding catalog
 
@@ -150,6 +152,16 @@ Retrom:
 
 Provider archive 必须连续构建两次并比较digest。PFB另执行`pfb-validate/build/up/verify`、loose boundary与`ACC-PROVIDER-001..008`。任何schema、Target数量、binding、digest、许可、来源、PFB/production隔离或只前进规则失败都属于阻断错误。
 
+### Ruffle 发布与开发候选
+
+Ruffle fork 为 `retrom-project/ruffle`，上游基线固定为
+`e46d1642fb67a53b56ffa4b1871cb7c57589e36d`，维护分支为 `retrom/ge46d1642fb67`，`master` 保留上游镜像。
+源码边和维护分支由当前 Retrom `workspace/manifest.yaml` 管理，不进入 workspace 根引导清单。
+fork 显式构建 `ruffle.js`、`core.ruffle.js`、`ruffle.wasm` 和原始许可，输出有界 candidate 文件清单和逐文件 SHA-256。
+runtime 固定消费 fork 的已发布 `retrom-core-ge46d1642fb67-r2` 资产，不编译核心；未发布的本地覆盖只允许用于显式 PFB 候选构建。
+PFB 将完整、已验证 Provider 候选作为不可变基座导入，后续 adapter 修改走 loose watcher；核心字节变化必须显式重建
+并通过更高的 Provider 候选版本重新导入。production lock 只引用正式 runtime Release，发布前仍需固定 fork Release 和完整门禁。
+
 ## 11. 追溯与日志
 
 诊断可以显示 Provider、Bundle、Target、source commit、Release 坐标和验证结果，但不能暴露宿主路径、capability、私有游戏内容或上传 Blob 标识。许可证与 notice 随 Bundle 和镜像分发；应用 HTTP API 不提供任意宿主文件读取。
@@ -186,3 +198,33 @@ OpenBOR 的源码与 Emscripten 构建归属 `retrom-project/openbor`，上游�
 `retrom/g9d81480f8481`。runtime 以 `openbor-host-v1` 消费 fork 输出的 ES module、WASM 和许可。
 PFB 在固定 `developmentInputs` 下验证候选文件的闭合集合、长度与摘要；未发布候选不能进入正式
 Provider Release 或 production lock。core 源码、工具链和二进制始终由 fork 管理。
+
+### WebMSX 发布与开发候选
+
+MSX 接入使用 `retrom-project/WebMSX`，上游基线 v6.0.8 固定为
+`4f4009e86d3e0bb9be7dcd7f0a582b0cd411d660`，维护分支 `retrom/6.0.8`，ABI `webmsx-host-v1`。
+runtime 通过普通 `upstreamReleases` 固定 `retrom-core-6.0.8-r1` 的 commit、ABI、
+`webmsx.js` 和 `UPSTREAM-NOTICE.txt` 的准确大小与 SHA-256，并核对发布元数据。
+Retrom 通过 production lock 消费正式 Provider；`msx-webmsx` Target 对应 `msx`/`webmsx` binding。
+后续核心修改仍在同一 PFB 的 core worktree 显式执行 `pfb-core-build CORE=webmsx`，
+由 fork 输出封闭 candidate 清单；本地覆盖只允许用于 PFB，不能进入正式聚合与锁文件。
+上游固定提交未提供源码头部所指的 `license.txt`，不能标注为 MIT 或 GPL。
+专用 notice 与核心发布元数据保留源码许可和嵌入系统 ROM 分发状态 `UNRESOLVED`；发布不构成授权声明。
+
+## PX68K 核心输入
+
+PX68K 的维护源为 `retrom-project/px68k-libretro`，基线是
+`uraraworks/px68k-libretro@561dcba6b11d04c9a6d7ca62998d5fb3f544aa49`。
+维护分支为 `retrom/g561dcba6b11d`；独立网页的实验性 SCSI 接口以
+`libretro/px68k-libretro@0ad84d7058a12b7db4f7f7a906e87fad4e2f26f6`
+的存储实现替换，文件范围与原因记录于 core fork 的 `retrom/README.md`。
+
+runtime 固定维护分支的正式 `retrom-core-g561dcba6b11d-r1` Release，验证提交、ABI、
+ES module/Wasm/完整 `LICENSES.txt` 的文件大小与 SHA-256，再构建 Provider。
+PFB 的显式 core candidate 仍验证闭合文件集合与 candidate descriptor；开发覆盖不能进入正式归档或 production lock。
+该核心同时保留 GPL 文本、WinX68k 非商业条款和 FMGen notice；adapter 的 MIT 许可不改变它们。
+
+BIOS 由产品 BIOS 安装链提供：`iplrom.dat`（131072 bytes）和 `cgrom.dat`（786432 bytes），
+两者均为 REQUIRED / EXTERNAL_FILE；平台定义中的 SHA-256 与上游 MD5 对应。
+以逐文件 `EXTERNAL_FILE_SET` 交付真实字节长度与摘要，由 adapter 写入 `game/keropi/`。
+游戏与 BIOS 均不进入核心产物、Provider 包或 Git。

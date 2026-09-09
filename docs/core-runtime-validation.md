@@ -24,6 +24,7 @@
 | RPG Maker 2000/2003/XP/VX/VX Ace/MV | `ACC-RPG-002..007` | `testdata/public-roms/rpgmaker-smoke/` | 单一虚拟 Core 选择 retrom-runtime Target，真实地图/输入/音频、A→B→C、跨 Launch 恢复 B |
 | RPG Maker MZ | `ACC-RPG-008` | 操作者合法输入 | 与 MV 相同的 unique-origin、场景、帧、输入和恢复；缺输入时 BLOCKED |
 | ONS、KiriKiri、Butterscotch、TyranoScript | 各自 `ACC-*-001` | 操作者合法输入 | Review Preview、Product、按需内容、checkpoint 和跨 Launch 恢复；结论只覆盖当次样本 |
+| PX68K / X68000 | `ACC-PX68K-001/002` | 操作者显式提供的游戏与 BIOS | 单磁盘导入/审核预览/Launch、标准手柄、独立键盘、音频、即时存档和跨 Launch 恢复；限当次样本 |
 | TIC-80 | `ACC-TIC-001` | 项目自有 pmem 卡带 + 公开 `.tic` | 导入/预览/Launch、原生数据、新实例恢复与输入 |
 | PICO-8 / FAKE-08 | `ACC-PICO-001` | 项目自有卡带 + 公开 `.p8/.p8.png` | 导入/预览/Launch、即时状态、新实例恢复与输入 |
 | WASM-4 | PFB loose开发层产品Case | 锁定上游合法 cart | cart 校验、画面、输入、checkpoint、跨 cart 拒绝和清理 |
@@ -32,6 +33,8 @@
 
 ## 3. 共享验证规则
 
+- 标准手柄最低能力是方向移动和确认；取消可选，缺少取消不能作为拒绝核心接入的理由。已有可靠的取消仍按对应 Case 验证。
+- 同一映射配置中，一个手柄按钮只对应一个具体目标输入；禁止多个键或原生按钮与键盘同时发送，不能为补足确认/取消叠加 A+Enter、B+Escape。真实键盘保持独立；同一目标的按下/释放属于一个输入生命周期。宿主菜单 B 返回不受游戏内可选取消影响。
 - Go 和 TypeScript 必须对同一 Launch Envelope fixtures 得出相同接受/拒绝结果。
 - Provider Module 的 URL、SHA-256、Provider 身份、API 版本与 Bundle 必须一致。
 - `runtime.capabilities` 必须与返回的 `PlayerRuntimeV1` 行为闭合；声明支持却缺方法、未声明却暴露行为均失败。
@@ -71,6 +74,17 @@ Flycast 的 iframe 在创建 WebGL 上下文时保留绘图缓冲区，避免浏
 操作者语料的验收规则见 `ACC-FLYCAST-001`；单个样本结果不能外推为 Dreamcast 全库兼容。
 
 ## 5. retrom-runtime 特殊边界
+
+WebMSX 使用独立 `msx-webmsx` Target，固定 MSX2+ 日本机器，接收单媒体 Blob。
+`webmsx-state-v1` 是绑定游戏摘要的有界即时快照，须通过 `ACC-MSX-001` 的新 Launch 恢复、
+位置/形状保持与恢复后输入断言。截图、审核预览、发布和运行复用公共路径。
+本次先验证所选 MSX1/MSX2 卡带；单个样本不能证明全部磁盘、磁带、turbo R 或多盘软件兼容。
+
+Flash 使用独立 `flash-ruffle` Target。只接收原始单 SWF，SharedObject 是游戏原生存档（`GAME_SAVE`），
+不承诺即时执行快照。`dataKind: STORAGE` 表明其为原生数据容器，可能只有设置或计数，不保证可恢复进度。
+按 `ACC-FLASH-001` 验证自有确定性程序的原生保存、新 Launch 恢复、继续输入与空启动，
+并通过真实公开游戏的导入/预览/发布/启动检查兼容性。GPU 画布截图必须走核心重绘捕获接口，页面截图不能替代
+存档截图能力。未验证的 Stage3D、外部资源、联网和其他 Flash API 不纳入兼容性声明。
 
 RPG 世代检测只选择 `retrom-runtime` Provider 内的 Target；用户仍只看到一个 RPG Maker Core。EasyRPG、mkxp、Native Web、ONS、KiriKiri、Butterscotch、TyranoScript 和 WASM-4 的文件策略、bridge、OPFS/Range、输入和 checkpoint codec 都属于 Provider 私有实现。
 

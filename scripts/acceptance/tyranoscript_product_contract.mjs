@@ -1,3 +1,5 @@
+import {assertTyranoSingleInput} from "./tyranoscript_input.mjs";
+
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
 const digestPattern = /^[0-9a-f]{64}$/u;
 
@@ -9,10 +11,20 @@ export const tyranoScriptProductStages = [
 export function assertTyranoScriptProductEvidence(value) {
   if (!exactRecord(value, [
     "browser", "caseId", "checkpoint", "ids", "resources", "schemaVersion", "screenshots", "stages",
-    "state", "status",
+    "state", "status", "input", "reusedReview",
   ]) || value.schemaVersion !== 1 || value.caseId !== "ACC-TYRANOSCRIPT-001" || value.status !== "PASS" ||
       JSON.stringify(value.stages) !== JSON.stringify(tyranoScriptProductStages)) {
     throw new Error("TYRANOSCRIPT_ACCEPTANCE_EVIDENCE_INVALID");
+  }
+  if (typeof value.reusedReview !== "boolean" || !exactRecord(value.input,
+    ["original", "restored", "originalKeyboard", "restoredKeyboard"])) {
+    throw new Error("TYRANOSCRIPT_ACCEPTANCE_EVIDENCE_INVALID");
+  }
+  for (const key of ["original", "restored"]) {assertTyranoSingleInput(value.input[key]);}
+  for (const key of ["originalKeyboard", "restoredKeyboard"]) {
+    if (JSON.stringify(value.input[key]) !== JSON.stringify([{type:"keydown", key:"Escape"}, {type:"keyup", key:"Escape"}])) {
+      throw new Error("TYRANOSCRIPT_ACCEPTANCE_KEYBOARD_INPUT_UNOBSERVED");
+    }
   }
   assertIds(value.ids);
   assertCheckpoint(value.checkpoint);

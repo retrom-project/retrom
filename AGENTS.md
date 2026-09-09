@@ -24,6 +24,7 @@
 - 根目录 `Dockerfile` 只构建后端镜像 `retrom`，`web/Dockerfile` 只构建前端镜像 `retrom-web`；镜像构建和服务启动是两个独立动作。
 - `docs/` 保存可长期维护的正式契约；设计决策、行为或验收标准变化时必须同步更新。
 - 开发仓库依赖由当前分支的 `workspace/manifest.yaml` 管理。新增核心或调整依赖时，与 Retrom 集成改动一起提交并运行 `make workspace-check`；PFB 使用自身 worktree 的清单，不修改根工作区引导条目或其他分支清单。清单记录维护分支，功能分支与本机路径只进入本地 PFB 状态。
+- 核心手柄准入至少要求方向移动和确认；取消为可选能力，缺少取消不阻断接入，已有正常取消保留。一个手柄按钮在同一映射配置中只能对应一个目标输入，不得同时发送原生按钮和键盘按键来补足确认/取消；真实键盘与宿主菜单 B 返回保持各自职责。具体输入与验收边界见 `docs/core-runtime-validation.md`、`docs/project-acceptance.md`。
 - `data/dat/` 的 Git 内容只保存受版本约束的真实来源 manifest、SHA、DAT/许可物化配方与说明；约 53 MiB DAT、runtime、许可原文和生成 notice 由 `make prepare-deps` 写入被忽略目录，不得提交、手工改写或用 mock 替换。
 - 第三方浏览器核心 fork 的分支与 tag 不在本仓库临场管理：进入 `retrom-project/Player`、
   `retrom-project/mkxp-z-libretro-emscripten`、`retrom-project/OnscripterYuri`、
