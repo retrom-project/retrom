@@ -285,7 +285,7 @@ erDiagram
 
 ## 6. 平台、核心与推荐游戏目录
 
-空库 migration 只写入下表的基础平台与启用关系，最终保持零 PlatformInstance。管理员在管理页显式点击“一键创建推荐目录”后，服务按 `internal/platformcatalog` 中的 42 个 Platform/Core 模板创建当前缺失项，其中 RPG Maker 只有 `rpgmaker/rpgmaker` 一个虚拟核心目录，GameMaker 只有 `butterscotch/butterscotch` 一个目录，WASM-4 只有 `wasm4/wasm4` 一个目录；管理员之后仍可创建、重命名、换核心、停用或软删除空目录。推荐模板不定义 slug 或扩展名：slug 由服务端生成，扩展名只由基础平台的 `contentprofile` 决定。
+空库 migration 只写入下表的基础平台与启用关系，最终保持零 PlatformInstance。管理员在管理页显式点击“一键创建推荐目录”后，服务按 `internal/platformcatalog` 中的 51 个 Platform/Core 模板创建当前缺失项，其中 RPG Maker 只有 `rpgmaker/rpgmaker` 一个虚拟核心目录，GameMaker 只有 `butterscotch/butterscotch` 一个目录，WASM-4 只有 `wasm4/wasm4` 一个目录；管理员之后仍可创建、重命名、换核心、停用或软删除空目录。推荐模板不定义 slug 或扩展名：slug 由服务端生成，扩展名只由基础平台的 `contentprofile` 决定。
 
 | 基础平台（稳定 code） | 启用核心 | 推荐目录 → 默认核心 | 备注 |
 | --- | --- | --- | --- |
@@ -303,6 +303,12 @@ erDiagram
 | Atari Lynx (`lynx`) | `handy` | Atari Lynx 游戏 → `handy` | `.lnx`；需要 `lynxboot.img` |
 | Mega Drive / Genesis (`megadrive`) | `genesis_plus_gx`、`picodrive`、`genesis_plus_gx_wide` | Mega Drive 游戏 → `genesis_plus_gx` | `.md`、`.smd`、`.bin`；Wide 为可选核心，不另建目录 |
 | PC Engine (`pce`) | `mednafen_pce` | PC Engine 游戏 → `mednafen_pce` | `.pce` |
+| PC Engine CD (`pcecd`) | `mednafen_pce` | PC Engine CD 游戏 → `mednafen_pce` | 单文件 CHD；需要 `syscard3.pce`，卡带不受此条件影响 |
+| ZX81 (`zx81`) | `81` | ZX81 游戏 → `81` | `.p/.tzx/.t81` |
+| Amstrad CPC (`amstradcpc`) | `cap32`、`crocods` | Amstrad CPC 游戏 → `cap32` | 两个核心共同接收单文件 `.dsk/.sna` |
+| Commodore PET (`pet`) | `vice_xpet` | Commodore PET 游戏 → `vice_xpet` | 单文件；不开放 M3U/CMD/VFL 引用 |
+| Commodore Plus/4 (`plus4`) | `vice_xplus4` | Commodore Plus/4 游戏 → `vice_xplus4` | 单文件；不提供换盘 |
+| Philips CD-i (`cdi`) | `same_cdi` | Philips CD-i 游戏 → `same_cdi` | 单文件 CHD；需要 Mono-I BIOS 与两个 MCU ROM |
 | Neo Geo Pocket / Color (`ngpc`) | `mednafen_ngp` | Neo Geo Pocket 游戏 → `mednafen_ngp` | `.ngp` |
 | Nintendo 64 (`n64`) | `mupen64plus_next`、`parallel_n64` | Nintendo 64 游戏 → `mupen64plus_next` | `.z64`；产品 ID 只使用 `parallel_n64` |
 | PlayStation (`psx`) | `pcsx_rearmed`、`mednafen_psx_hw` | PlayStation 游戏 → `pcsx_rearmed` | 单文件 CHD；后者需要线程且固定 software renderer |
@@ -317,7 +323,7 @@ erDiagram
 | RPG Maker (`rpgmaker`) | 用户 Core `rpgmaker`；七个世代 Provider Target | RPG Maker 项目 → 服务端检测世代 → 当前 binding 中对应 Target | 一个推荐目录；歧义或未知世代拒绝，不暴露底层 adapter/core |
 | WASM-4 (`wasm4`) | `wasm4` | WASM-4 游戏 → `wasm4` | raw `.wasm` cart，1–65,536 bytes；独立 `WASM4_WEB` runtime，不接受 archive wrapper |
 | ZX Spectrum (`zxspectrum`) | `fuse` | ZX Spectrum 游戏 → `fuse` | 单文件；键盘菜单与 Kempston 手柄 |
-| Commodore 64 (`c64`) | `vice_x64sc` | Commodore 64 游戏 → `vice_x64sc` | 单文件；不接受 CMD/VFL/M3U 引用 |
+| Commodore 64 (`c64`) | `vice_x64sc`、`vice_x64` | Commodore 64 游戏 → `vice_x64sc` | 单文件；不接受 CMD/VFL/M3U 引用 |
 | Commodore 128 (`c128`) | `vice_x128` | Commodore 128 游戏 → `vice_x128` | 单文件；不提供换盘 |
 | Commodore VIC-20 (`vic20`) | `vice_xvic` | Commodore VIC-20 游戏 → `vice_xvic` | 单文件；不提供换盘 |
 | ColecoVision (`colecovision`) | `gearcoleco` | ColecoVision 游戏 → `gearcoleco` | 需要 `colecovision.rom` |

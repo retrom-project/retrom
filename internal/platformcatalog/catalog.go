@@ -9,7 +9,7 @@ import (
 	"retrom/internal/contentprofile"
 )
 
-const Version = 13
+const Version = 14
 
 var ErrInvalid = errors.New("PLATFORM_CATALOG_INVALID")
 
@@ -157,6 +157,30 @@ var current = Catalog{Version: Version, Templates: []DirectoryTemplate{
 	{
 		Key: "amiga/puae", PlatformID: "amiga", DefaultCoreID: "puae",
 		Name: "Commodore Amiga 游戏", CatalogOrder: 450,
+	},
+	{
+		Key: "pcecd/mednafen_pce", PlatformID: "pcecd", DefaultCoreID: "mednafen_pce",
+		Name: "PC Engine CD 游戏", CatalogOrder: 500,
+	},
+	{
+		Key: "zx81/81", PlatformID: "zx81", DefaultCoreID: "81",
+		Name: "ZX81 游戏", CatalogOrder: 510,
+	},
+	{
+		Key: "amstradcpc/cap32", PlatformID: "amstradcpc", DefaultCoreID: "cap32",
+		Name: "Amstrad CPC 游戏", CatalogOrder: 520,
+	},
+	{
+		Key: "pet/vice_xpet", PlatformID: "pet", DefaultCoreID: "vice_xpet",
+		Name: "Commodore PET 游戏", CatalogOrder: 530,
+	},
+	{
+		Key: "plus4/vice_xplus4", PlatformID: "plus4", DefaultCoreID: "vice_xplus4",
+		Name: "Commodore Plus/4 游戏", CatalogOrder: 540,
+	},
+	{
+		Key: "cdi/same_cdi", PlatformID: "cdi", DefaultCoreID: "same_cdi",
+		Name: "Philips CD-i 游戏", CatalogOrder: 550,
 	},
 }}
 

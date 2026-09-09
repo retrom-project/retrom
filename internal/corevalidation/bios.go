@@ -430,6 +430,8 @@ func validSHA256(value string) bool {
 func BIOSApplies(condition, contentName string) bool {
 	extension := strings.ToLower(path.Ext(contentName))
 	switch condition {
+	case "PCE_CD_CONTENT":
+		return extension == ".chd"
 	case "FDS_CONTENT":
 		return extension == ".fds"
 	case "GB_CONTENT":

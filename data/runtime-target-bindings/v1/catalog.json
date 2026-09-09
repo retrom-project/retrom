@@ -2,6 +2,20 @@
   "schemaVersion": 1,
   "bindings": [
     {
+      "id": "emulatorjs-81",
+      "coreId": "81",
+      "providerId": "emulatorjs",
+      "targetId": "81",
+      "platformIds": [
+        "zx81"
+      ],
+      "acceptedContentKinds": [
+        "SINGLE_FILE"
+      ],
+      "detectorProfile": "EMULATORJS_SINGLE_FILE",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
       "id": "emulatorjs-a5200",
       "coreId": "a5200",
       "providerId": "emulatorjs",
@@ -36,6 +50,34 @@
       "targetId": "beetle-vb",
       "platformIds": [
         "virtualboy"
+      ],
+      "acceptedContentKinds": [
+        "SINGLE_FILE"
+      ],
+      "detectorProfile": "EMULATORJS_SINGLE_FILE",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
+      "id": "emulatorjs-cap32",
+      "coreId": "cap32",
+      "providerId": "emulatorjs",
+      "targetId": "cap32",
+      "platformIds": [
+        "amstradcpc"
+      ],
+      "acceptedContentKinds": [
+        "SINGLE_FILE"
+      ],
+      "detectorProfile": "EMULATORJS_SINGLE_FILE",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
+      "id": "emulatorjs-crocods",
+      "coreId": "crocods",
+      "providerId": "emulatorjs",
+      "targetId": "crocods",
+      "platformIds": [
+        "amstradcpc"
       ],
       "acceptedContentKinds": [
         "SINGLE_FILE"
@@ -274,7 +316,8 @@
       "providerId": "emulatorjs",
       "targetId": "mednafen-pce",
       "platformIds": [
-        "pce"
+        "pce",
+        "pcecd"
       ],
       "acceptedContentKinds": [
         "SINGLE_FILE"
@@ -495,6 +538,20 @@
       "launchPolicy": "SUPPORTED"
     },
     {
+      "id": "emulatorjs-same-cdi",
+      "coreId": "same_cdi",
+      "providerId": "emulatorjs",
+      "targetId": "same-cdi",
+      "platformIds": [
+        "cdi"
+      ],
+      "acceptedContentKinds": [
+        "SINGLE_FILE"
+      ],
+      "detectorProfile": "EMULATORJS_SINGLE_FILE",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
       "id": "emulatorjs-smsplus",
       "coreId": "smsplus",
       "providerId": "emulatorjs",
@@ -551,12 +608,54 @@
       "launchPolicy": "SUPPORTED"
     },
     {
+      "id": "emulatorjs-vice-x64",
+      "coreId": "vice_x64",
+      "providerId": "emulatorjs",
+      "targetId": "vice-x64",
+      "platformIds": [
+        "c64"
+      ],
+      "acceptedContentKinds": [
+        "SINGLE_FILE"
+      ],
+      "detectorProfile": "EMULATORJS_SINGLE_FILE",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
       "id": "emulatorjs-vice-x64sc",
       "coreId": "vice_x64sc",
       "providerId": "emulatorjs",
       "targetId": "vice-x64sc",
       "platformIds": [
         "c64"
+      ],
+      "acceptedContentKinds": [
+        "SINGLE_FILE"
+      ],
+      "detectorProfile": "EMULATORJS_SINGLE_FILE",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
+      "id": "emulatorjs-vice-xpet",
+      "coreId": "vice_xpet",
+      "providerId": "emulatorjs",
+      "targetId": "vice-xpet",
+      "platformIds": [
+        "pet"
+      ],
+      "acceptedContentKinds": [
+        "SINGLE_FILE"
+      ],
+      "detectorProfile": "EMULATORJS_SINGLE_FILE",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
+      "id": "emulatorjs-vice-xplus4",
+      "coreId": "vice_xplus4",
+      "providerId": "emulatorjs",
+      "targetId": "vice-xplus4",
+      "platformIds": [
+        "plus4"
       ],
       "acceptedContentKinds": [
         "SINGLE_FILE"
@@ -861,6 +960,12 @@
         "enabled": true
       },
       {
+        "id": "amstradcpc",
+        "name": "Amstrad CPC",
+        "sortOrder": 510,
+        "enabled": true
+      },
+      {
         "id": "arcade",
         "name": "Arcade",
         "sortOrder": 60,
@@ -906,6 +1011,12 @@
         "id": "c64",
         "name": "Commodore 64",
         "sortOrder": 270,
+        "enabled": true
+      },
+      {
+        "id": "cdi",
+        "name": "Philips CD-i",
+        "sortOrder": 540,
         "enabled": true
       },
       {
@@ -1017,15 +1128,33 @@
         "enabled": true
       },
       {
+        "id": "pcecd",
+        "name": "PC Engine CD",
+        "sortOrder": 550,
+        "enabled": true
+      },
+      {
         "id": "pcfx",
         "name": "PC-FX",
         "sortOrder": 190,
         "enabled": true
       },
       {
+        "id": "pet",
+        "name": "Commodore PET",
+        "sortOrder": 520,
+        "enabled": true
+      },
+      {
         "id": "pico8",
         "name": "PICO-8",
         "sortOrder": 84,
+        "enabled": true
+      },
+      {
+        "id": "plus4",
+        "name": "Commodore Plus/4",
+        "sortOrder": 530,
         "enabled": true
       },
       {
@@ -1107,6 +1236,12 @@
         "enabled": true
       },
       {
+        "id": "zx81",
+        "name": "Sinclair ZX81",
+        "sortOrder": 500,
+        "enabled": true
+      },
+      {
         "id": "zxspectrum",
         "name": "ZX Spectrum",
         "sortOrder": 300,
@@ -1114,6 +1249,11 @@
       }
     ],
     "cores": [
+      {
+        "id": "81",
+        "name": "EightyOne",
+        "enabled": true
+      },
       {
         "id": "a5200",
         "name": "Atari800 5200",
@@ -1132,6 +1272,16 @@
       {
         "id": "butterscotch",
         "name": "Butterscotch",
+        "enabled": true
+      },
+      {
+        "id": "cap32",
+        "name": "Caprice32",
+        "enabled": true
+      },
+      {
+        "id": "crocods",
+        "name": "CrocoDS",
         "enabled": true
       },
       {
@@ -1325,6 +1475,11 @@
         "enabled": true
       },
       {
+        "id": "same_cdi",
+        "name": "SAME CD-i",
+        "enabled": true
+      },
+      {
         "id": "scummvm",
         "name": "ScummVM",
         "enabled": true
@@ -1360,8 +1515,23 @@
         "enabled": true
       },
       {
+        "id": "vice_x64",
+        "name": "VICE C64",
+        "enabled": true
+      },
+      {
         "id": "vice_x64sc",
         "name": "VICE x64sc",
+        "enabled": true
+      },
+      {
+        "id": "vice_xpet",
+        "name": "VICE PET",
+        "enabled": true
+      },
+      {
+        "id": "vice_xplus4",
+        "name": "VICE Plus/4",
         "enabled": true
       },
       {

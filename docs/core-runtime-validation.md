@@ -41,7 +41,7 @@
 
 ## 4. EmulatorJS 特殊边界
 
-EmulatorJS Provider declaration 是 43 个 Target 的唯一行为 registry。`mame2003` 的 4.2.1 core 覆盖、DOSBox Pure 的 state 修复、线程 core、shader、启动动作、多盘和八个 netplay profile 都封装在该 Provider 中。Retrom 只看 Target declaration 与标准能力，不按 core 名在 Go 或前端复制规则。
+EmulatorJS Provider declaration 是 50 个 Target 的唯一行为 registry。`mame2003` 的 4.2.1 core 覆盖、DOSBox Pure 的 state 修复、线程 core、shader、启动动作、多盘和八个 netplay profile 都封装在该 Provider 中。Retrom 只看 Target declaration 与标准能力，不按 core 名在 Go 或前端复制规则。
 
 新增 `fuse`、`gearcoleco`、`prboom`、`puae`、`vice-x128`、`vice-x64sc`、`vice-xvic` 与 `virtualjaguar` 只声明 `SINGLE_FILE`，`discSwitch=false` 且不开放 netplay。逐核产品验收按 [ACC-RUN-013](./project-acceptance.md#acc-run-013八个-emulatorjs-单文件候选的逐核产品验证) 执行；首次验收可从产品白名单任选一种扩展名，一个 Target 的结果不能替代另一个 Target。
 
@@ -54,6 +54,8 @@ PSP 优化的定向验证应使用操作者提供的合法样本，通过真实 
 Provider 私有的 PSP 存档读取必须等待原生异步序列化结束，期间不得恢复主循环造成 Asyncify 重入；只释放原生数据 allocation，不释放借用的描述符。压缩格式、画布上限和固定核心版本由 Provider 自己声明，Host 不增加 PSP 分支。
 
 指定存档不能在首帧盲目自动加载；Provider 必须等待目标核心可序列化，再执行原生 load 并以明确失败 fail closed。普通开始必须清理浏览器遗留的隐式目录存档，只有用户点击“创建存档”才上传显式 checkpoint。
+
+新增七个核心和 PC Engine CD 的逐项验收使用 [ACC-RUN-014](./project-acceptance.md#acc-run-014剩余-emulatorjs-核心与-pc-engine-cd-产品验证)。候选声明不代替真实浏览器兼容性证据。
 
 ## 5. retrom-runtime 特殊边界
 
