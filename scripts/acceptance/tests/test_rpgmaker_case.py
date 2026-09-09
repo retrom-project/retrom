@@ -373,6 +373,19 @@ class EvidenceContractTests(unittest.TestCase):
         payload.pop("xpRuntimeTrace")
         rpgmaker.validate_generation_evidence(payload, spec, "a" * 64)
 
+    def test_mkxp_generation_evidence_accepts_shared_gzip_storage(self) -> None:
+        for case_id in ("ACC-RPG-004", "ACC-RPG-005", "ACC-RPG-006"):
+            spec = rpgmaker.GENERATION_CASES[case_id]
+            payload = product_payload(spec, "a" * 64)
+            def replace_formats(value):
+                if isinstance(value, dict):
+                    return {key: replace_formats(item) for key, item in value.items()}
+                if isinstance(value, list):
+                    return [replace_formats(item) for item in value]
+                return "mkxp-state-v1-storage-v1" if value == "mkxp-state-compact-v1" else value
+            with self.subTest(generation=spec.generation):
+                rpgmaker.validate_generation_evidence(replace_formats(payload), spec, "a" * 64)
+
     def test_mkxp_generation_evidence_rejects_an_uncompressed_raw_checkpoint(self) -> None:
         for case_id in ("ACC-RPG-004", "ACC-RPG-005", "ACC-RPG-006"):
             spec = rpgmaker.GENERATION_CASES[case_id]

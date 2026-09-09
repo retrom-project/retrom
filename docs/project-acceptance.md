@@ -2118,3 +2118,19 @@ Launch 完成验证。原始 JAR 的 SHA-256 和字节数必须在上传、内�
 硬超时为 600 秒；无输入时输出 BLOCKED。WSL 无头 Chrome 须取消 DISPLAY/WAYLAND_DISPLAY。
 输出 `pc98-product.json` 与普通游戏截图，记录 Provider/模块摘要、内容摘要、会话和存档 ID。
 PFB 候选结果只证明该组合，不代表正式 Release 或实体手柄兼容性。
+
+
+### ACC-SAVE-004：公共 gzip 存档与旧格式恢复
+
+硬超时 300 秒。运行 `scripts/acceptance/checkpoint_storage_product.mjs`，使用已通过
+`ACC-PC98-001` 的同一游戏和旧 `np2kai-state-v1` 存档。需要普通验收登录变量、
+`RETROM_CHROME_EXECUTABLE`、`RETROM_PC98_GAME_ID` 和 `RETROM_PC98_LEGACY_SAVE_ID`。
+缺少输入输出 BLOCKED；WSL 无头环境取消 DISPLAY/WAYLAND_DISPLAY。
+
+从旧存档创建 Product Launch，验证菜单恢复和方向输入，通过普通 Player 暂停并创建新存档。
+从该新存档创建不同 Launch，验证 `np2kai-state-v1-storage-v1`、相同菜单选中位置与恢复后输入。
+读取普通恢复端点，验证服务端记录的压缩字节大小和 SHA-256；一次标准 gzip 解压后必须直接得到
+`NP2STATE` 原生语义封包，避免双重压缩。该游戏存档须减少至少一半体积。
+保存上传截图与 `checkpoint-storage-product.json`，记录原始/压缩字节数、会话和存档 ID。
+不删除或改写原来的存档；所有新存档统一压缩，不设小文件阈值。PSP gzip 与 mkxp compact 的
+历史编解码、微小存档和有界解压错误由运行时公共边界回归覆盖。

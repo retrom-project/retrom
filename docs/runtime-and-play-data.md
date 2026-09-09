@@ -201,9 +201,19 @@ Provider 使用 `scummvm-save-bundle-v1`（`GAME_SAVE`，上限 64 MiB），原�
 Provider 验证 HDI 几何与 D88 长度，首次完整下载报告进度，并按稳定内容 URL 在 OPFS 复用经过大小和
 SHA-256 校验的不可变镜像。游戏写入只改变本次实例的内存副本。
 
-`np2kai-state-v1` 为即时快照，包含原生执行状态和相对原盘的 64 KiB 块增量；总量上限 384 MiB，
+核心原生封包 `np2kai-state-v1` 为即时快照，包含原生执行状态和相对原盘的 64 KiB 块增量；总量上限 384 MiB，
 绑定原盘 SHA-256。不同 Launch 显式恢复时先安装磁盘增量，再加载执行状态。Host 通过公共 checkpoint
 与 Player 控件提供保存、暂停、截图及恢复，不理解 NP2kai 状态。标准手柄覆盖方向、Space 确认、Escape 取消。
 本次候选不开放联机、换盘、音量设置或外置 BIOS；生产 Provider lock 保持已发布版本。
 
 真实产品检查入口为 `ACC-PC98-001`；通过单个游戏不代表全部 PC-98 软件兼容。
+
+
+### 公共存档压缩
+
+Provider 在交给 Host 前对所有新 checkpoint 执行一次 gzip 压缩，不设大小阈值。
+当前公共格式为原生格式加 `-storage-v1`；Host 对压缩后的字节计算摘要、传输并保存，
+Provider 在恢复及原生存档持久化确认前有界解压。核心 adapter 接收和返回未压缩语义数据。
+旧未压缩、PSP gzip 和 mkxp compact 由 Provider 的显式 `readFormats` 兼容读取，不继续写入私有压缩格式。
+压缩前后均受 Target 大小限制，截断、损坏、取消或解压超限均拒绝。旧存档不做后台重写。
+验收入口为 `ACC-SAVE-004`，具体步骤只在项目验收专题维护。
