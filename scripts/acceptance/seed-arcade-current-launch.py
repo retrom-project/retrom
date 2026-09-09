@@ -3,11 +3,11 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import sqlite3
 import sys
 import time
-import uuid
 from pathlib import Path
 
 
@@ -17,8 +17,9 @@ CORE_TITLES = {
 }
 
 
-def new_id() -> str:
-    return str(uuid.uuid4())
+def fixture_id(core_id: str, role: str) -> str:
+    suffix = hashlib.sha256(f"arcade-current:{core_id}:{role}".encode()).hexdigest()
+    return f"0198ff02-{suffix[:4]}-7{suffix[4:7]}-8{suffix[7:10]}-{suffix[10:22]}"
 
 
 def main() -> None:
@@ -66,7 +67,7 @@ LIMIT 1
     if not {"PARENT", "BIOS_BUNDLE"}.issubset(roles):
         raise SystemExit(f"source Arcade game is missing frozen dependencies: {sorted(roles)}")
 
-    game_id, variant_id = new_id(), new_id()
+    game_id, variant_id = fixture_id(core_id, "game"), fixture_id(core_id, "variant")
     now = int(time.time() * 1000)
     emulator_game_id = connection.execute(
         "SELECT COALESCE(MAX(emulator_game_id),1000)+1 FROM game_variants"

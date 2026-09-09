@@ -93,6 +93,7 @@ function registerRun002(): void {
     const debugPanel = page.getByRole("complementary", { name: "运行调试信息" });
     await expect(debugPanel).toBeVisible();
     await expect(debugPanel.getByText(/^\d+\.\d FPS$/)).toBeVisible({ timeout: 5_000 });
+    await debugPanel.getByText("运行环境与显示", {exact: true}).click();
     await expect(debugPanel.getByText("emulatorjs", { exact: true })).toBeVisible();
     await expect(debugPanel.getByText(configuration.runtime.providerVersion, { exact: true })).toBeVisible();
     expect(configuration.session.coreName).toBe("mGBA");
@@ -100,11 +101,12 @@ function registerRun002(): void {
     await expect(debugPanel.getByText("运行中", { exact: true })).toBeVisible();
     await expect(page.locator(".player-pause-overlay")).not.toHaveClass(/is-visible/);
     await page.screenshot({ path: evidencePath(testInfo, "player-debug.png"), fullPage: true });
-    await debugPanel.getByRole("button", { name: "关闭调试信息面板" }).click();
+    await expect(debugPanel.getByRole("button", { name: "关闭调试信息面板" })).toHaveCount(0);
+    await debugButton.click();
     await expect(page.locator("#player-debug-panel")).toHaveAttribute("aria-hidden", "true");
     await page.mouse.move(20, 20);
     await page.getByRole("button", { name: "更多操作" }).click();
-    await expect(page.getByRole("menuitem", { name: /创建存档/ })).toHaveCount(0);
+    await expect(page.getByRole("menuitem", { name: /创建存档|调试信息|查看快捷键/ })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "创建存档", exact: true })).toBeVisible();
     await page.getByRole("menuitem", { name: "模拟器设置" }).click();
     const renderingToolbar = page.getByRole("region", { name: "模拟器设置工具栏" });
@@ -297,6 +299,7 @@ async function verifyPublicArcadeSmoke(
   await page.mouse.move(20, 20);
   await page.getByRole("button", { name: "调试信息" }).click();
   const debugPanel = page.getByRole("complementary", { name: "运行调试信息" });
+  await debugPanel.getByText("运行环境与显示", {exact: true}).click();
   await expect(debugPanel.getByText(expectation.coreName, { exact: true })).toBeVisible();
   await expect(debugPanel.getByText("运行中", { exact: true })).toBeVisible();
   const fps = debugPanel.getByText(/^\d+\.\d FPS$/);
