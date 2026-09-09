@@ -99,9 +99,12 @@ try {
   const firstLaunch = await launchCart(client, env.RETROM_PSP_GAME_ID, env.RETROM_PSP_SAVE_ID);
   const first = await open(context, firstLaunch);
   const before = await menu(first, "seed-restored");
-  await first.canvas.click(); await gamepad(first.page, 13, 100); await first.page.waitForTimeout(500);
+  // Sky Force clamps its menu at both ends; move inward from the final row.
+  const direction = before.selected === 4 ? 12 : 13;
+  await first.canvas.click(); await gamepad(first.page, direction, 100); await first.page.waitForTimeout(500);
   const moved = await menu(first, "before-save");
-  assert.equal(moved.selected, (before.selected + 1) % 5, "PSP_RESTORED_INPUT_FAILED");
+  evidence.menu = {before, moved};
+  assert.equal(moved.selected, before.selected + (direction === 12 ? -1 : 1), "PSP_RESTORED_INPUT_FAILED");
   await revealPreviewToolbar(first.page);
   await first.page.getByRole("button", {name: "暂停", exact: true}).click();
   const saved = await save(first, client, firstLaunch.launchId);
@@ -122,7 +125,7 @@ try {
   assert.ok(stored.length < native.length / 2);
   const restored = await menu(next, "compressed-restored");
   assert.equal(restored.selected, moved.selected, "PSP_EXECUTION_STATE_NOT_RESTORED");
-  await next.canvas.click(); await gamepad(next.page, 12, 100); await next.page.waitForTimeout(500);
+  await next.canvas.click(); await gamepad(next.page, direction === 12 ? 13 : 12, 100); await next.page.waitForTimeout(500);
   const afterInput = await menu(next, "restored-input");
   assert.equal(afterInput.selected, before.selected);
   const nextCodecs = await codecs(next.page);
