@@ -52,6 +52,7 @@ type Profile struct {
 }
 
 var registry = map[string]Profile{
+	"x68000":       single("x68000", ".dim", ".xdf", ".hdf"),
 	"nes":          single("nes", ".nes", ".unf", ".unif", ".fds"),
 	"fds":          single("fds", ".fds"),
 	"snes":         single("snes", ".sfc", ".smc", ".swc", ".fig"),
@@ -61,6 +62,7 @@ var registry = map[string]Profile{
 	"atari5200":    single("atari5200", ".a52"),
 	"psx":          raw("psx", ".chd"),
 	"lynx":         single("lynx", ".lnx"),
+	"dreamcast":    raw("dreamcast", ".chd"),
 	"saturn":       withContentKinds(raw("saturn", ".chd"), ContentKindSingleFile, ContentKindMultiDisc),
 	"megadrive":    single("megadrive", ".md", ".smd", ".bin"),
 	"n64":          single("n64", ".z64"),
@@ -78,6 +80,8 @@ var registry = map[string]Profile{
 	"mastersystem": single("mastersystem", ".sms"),
 	"nintendo3ds":  raw("nintendo3ds", ".3ds", ".cci"),
 	"j2me":         raw("j2me", ".jar"),
+	"flash":        raw("flash", ".swf"),
+	"msx":          single("msx", ".rom", ".mx1", ".mx2", ".dsk", ".cas"),
 	"wasm4":        single("wasm4", ".wasm"),
 	"zxspectrum":   single("zxspectrum", ".tzx", ".tap", ".z80", ".rzx", ".scl", ".trd"),
 	"c64":          single("c64", viceSingleFileExtensions...),

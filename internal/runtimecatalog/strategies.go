@@ -18,6 +18,9 @@ const (
 
 var hostStrategies = map[string]HostStrategy{
 	"PC98_DISK":               {"ROM_BLOB", OptionsNone, []string{"SINGLE_FILE"}},
+
+	"MSX_MEDIA":               {"ROM_BLOB", OptionsNone, []string{"SINGLE_FILE"}},
+	"PX68K_DISK":              {"EMULATORJS_CONTENT", OptionsNone, []string{"SINGLE_FILE"}},
 	"OPTICAL_DISC":            {"ROM_BLOB", OptionsNone, []string{"SINGLE_FILE"}},
 	"SCUMMVM_PROJECT":         {"FILE_TREE_PROJECT", OptionsScummVM, []string{"SCUMMVM_PROJECT"}},
 	"EMULATORJS_SINGLE_FILE":  {"EMULATORJS_CONTENT", OptionsEmulator, []string{"SINGLE_FILE"}},
@@ -25,6 +28,7 @@ var hostStrategies = map[string]HostStrategy{
 	"ARCADE_ROM_SET":          {"EMULATORJS_CONTENT", OptionsEmulator, []string{"SINGLE_FILE"}},
 	"DOS_BUNDLE":              {"EMULATORJS_CONTENT", OptionsEmulator, []string{"DOS_BUNDLE"}},
 	"J2ME_JAR":                {"ROM_BLOB", OptionsNone, []string{"SINGLE_FILE"}},
+	"FLASH_SWF":               {"ROM_BLOB", OptionsNone, []string{"SINGLE_FILE"}},
 	"TIC80_CART":              {"ROM_BLOB", OptionsNone, []string{"SINGLE_FILE"}},
 	"PICO8_CART":              {"ROM_BLOB", OptionsNone, []string{"SINGLE_FILE"}},
 	"WASM4_CART":              {"ROM_BLOB", OptionsNone, []string{"SINGLE_FILE"}},
