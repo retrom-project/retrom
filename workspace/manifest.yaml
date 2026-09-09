@@ -22,7 +22,8 @@
         "scummvm",
         "tic80",
         "fake08",
-        "play"
+        "play",
+        "cap32"
       ]
     },
     {
@@ -184,6 +185,15 @@
       "gitlink": "git@github.com:retrom-project/Play-.git",
       "defaultBranch": "retrom/g83700b2c31e5",
       "submodules": true,
+      "dependsOn": []
+    },
+    {
+      "id": "cap32",
+      "path": "project/retrom-core/libretro-cap32",
+      "role": "core",
+      "gitlink": "https://github.com/EmulatorJS/libretro-cap32.git",
+      "defaultBranch": "master",
+      "submodules": false,
       "dependsOn": []
     }
   ]
