@@ -932,6 +932,12 @@ Mega Drive 导入回归另用测试内生成的非游戏 payload，经服务器�
 - 通过标准：启动真实 Player 后开启诊断，短按键盘和标准手柄均留下按下/松开与输入投递记录，核心帧继续推进；背景 alpha 为 0.62，无 backdrop blur，观察区点击穿透到游戏。蒙层无关闭按钮；顶部按钮重复点击关闭后原 getGamepads 和 simulateInput 函数身份恢复。窄视口仍有顶部入口；更多菜单没有重复调试和快捷键项。核心读取始终显示未接入。
 - 证据：当次 Playwright 报告、蒙层截图、输入记录和失败 trace。纯逻辑另覆盖 observer 不追加轮询、精确调用次数/参数/返回值、异常传播、64 条记录上限和退出清理；隔离 MV/MZ 在最近的 bridge 边界验证按需启停与原输入不变。
 
+PSP 退出补充场景：`scripts/acceptance/psp_exit_product.mjs` 使用普通验收登录、Chrome、输出目录变量，
+以及 `RETROM_PSP_GAME_ID`、`RETROM_PSP_SAVE_ID`，外层硬超时 180 秒。通过真实 Product Launch 恢复已有
+PSP 存档，进入全屏后从更多菜单打开退出确认，再直接退出。观测固定 EmulatorJS 的实际 native 调用：不能调用
+restart；必须停止 main loop、卸载文件系统并执行延迟清理，最后销毁 iframe、完成 finish 并返回游戏详情。
+不能新建 Launch、重新 start 或产生 SaveState。保存退出前后截图及 `psp-exit-product.json`。
+
 ### ACC-RUN-003：全屏拒绝与深链接恢复
 
 - 上限：180 秒。
@@ -2134,3 +2140,11 @@ PFB 候选结果只证明该组合，不代表正式 Release 或实体手柄兼�
 保存上传截图与 `checkpoint-storage-product.json`，记录原始/压缩字节数、会话和存档 ID。
 不删除或改写原来的存档；所有新存档统一压缩，不设小文件阈值。PSP gzip 与 mkxp compact 的
 历史编解码、微小存档和有界解压错误由运行时公共边界回归覆盖。
+
+PSP 补充场景：同一 Case 的 `scripts/acceptance/psp_checkpoint_storage_product.mjs` 使用
+`RETROM_PSP_GAME_ID` 与 `RETROM_PSP_SAVE_ID`（真实导入并发布的 Sky Force / 傲气雄鹰及其菜单存档），
+其余登录、Chrome 和输出目录变量同上，外层硬超时仍为 300 秒。从该 gzip 存档恢复后移动菜单选项，
+通过 Player 新建存档，再在不同 Launch 恢复到同一选项并继续输入。必须记录公共层保存一次 gzip、
+恢复一次 gunzip；普通恢复端点的大小与 SHA-256 匹配，一次解压即为 `RASTATE` v1 / `MEM ` 原生封包，
+体积至少减少一半。保留原存档、上传截图、前后菜单截图及 `psp-checkpoint-storage-product.json`。
+PSP 原生加载完成回执必须启用，不能用取消超时检查或放行未完成恢复代替。
