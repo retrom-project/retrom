@@ -19,6 +19,15 @@ export async function diagnosticEvents(page: Page) {
   }).__RETROM_NETPLAY_ACCEPTANCE__?.events ?? []));
 }
 
+export async function waitForNetplayStartup({ hostPage, guestPage }: NetplayPages) {
+  await Promise.all([
+    expect(hostPage.locator(".player-loading")).toBeHidden({ timeout: 45_000 }),
+    expect(guestPage.locator(".player-loading")).toBeHidden({ timeout: 45_000 }),
+  ]);
+  await expect.poll(async () => (await diagnosticEvents(hostPage)).filter((event) => event.kind === "epoch").length, { timeout: 45_000 }).toBeGreaterThan(0);
+  await expect.poll(async () => (await diagnosticEvents(guestPage)).filter((event) => event.kind === "epoch").length, { timeout: 45_000 }).toBeGreaterThan(0);
+}
+
 export async function checkpointPair(p1: Page, p2: Page, frame: number, epoch?: number) {
   let pair: { host?: DiagnosticEvent; guest?: DiagnosticEvent } = {};
   await expect.poll(async () => {
