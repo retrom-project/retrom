@@ -26,9 +26,11 @@ for (const item of scenarios) {
   for (const value of [item.startupMs ?? 1000, item.restoreSettleMs ?? 1000]) {
     if (!Number.isInteger(value) || value < 0 || value > 90_000) {throw new Error("SMOKE_WAIT_INVALID");}
   }
-  if (item.coreOptions && (typeof item.coreOptions !== "object" || Array.isArray(item.coreOptions) ||
-    Object.entries(item.coreOptions).some(([key, value]) => !/^[a-z0-9_]+$/u.test(key) || typeof value !== "string"))) {
-    throw new Error("SMOKE_CORE_OPTIONS_INVALID");
+  for (const options of [item.coreOptions, item.restoreCoreOptions]) {
+    if (options && (typeof options !== "object" || Array.isArray(options) ||
+      Object.entries(options).some(([key, value]) => !/^[A-Za-z0-9_]+$/u.test(key) || typeof value !== "string"))) {
+      throw new Error("SMOKE_CORE_OPTIONS_INVALID");
+    }
   }
 }
 await mkdir(output, {recursive: true});
@@ -90,6 +92,9 @@ async function execute(context, scenario, directory, evidence) {
   await page.close();
   page = await context.newPage();
   await launch(page, scenario, csrf, saved, evidence);
+  // Native controller preferences are not part of a game's checkpoint. Apply
+  // only explicitly requested restore settings, without resetting the game.
+  await configureCore(page, {coreOptions: scenario.restoreCoreOptions});
   await page.waitForTimeout(scenario.restoreSettleMs ?? 1000);
   await page.screenshot({path: resolve(directory, "B-restored.png")});
   await inputs(page, scenario.afterRestore, directory, "after-restore");
@@ -162,12 +167,25 @@ async function installPad(context) {
   });
 }
 
-async function inputs(page, sequence, directory, prefix) {
-  for (const [index, step] of sequence.entries()) {
+function validateInputStep(step) {
     if (!Array.isArray(step.buttons) || step.buttons.some((button) => !Number.isInteger(button) || button < 0 || button > 16) ||
       !Number.isInteger(step.holdMs) || step.holdMs < 1 || step.holdMs > 10_000 ||
       !Number.isInteger(step.settleMs) || step.settleMs < 0 || step.settleMs > 30_000) {
       throw new Error("SMOKE_INPUT_INVALID");
+    }
+    if (step.keys !== undefined && (!Array.isArray(step.keys) || step.buttons.length ||
+      step.keys.length > 4 || step.keys.some((key) => typeof key !== "string" || !/^[A-Za-z0-9 /]+$/u.test(key)))) {
+      throw new Error("SMOKE_KEYBOARD_INPUT_INVALID");
+    }
+    return step.keys ?? [];
+}
+
+async function inputs(page, sequence, directory, prefix) {
+  for (const [index, step] of sequence.entries()) {
+    const keys = validateInputStep(step);
+    if (keys.length) {
+      await page.frameLocator("iframe.player-frame").locator("canvas.ejs_canvas").click();
+      for (const key of keys) {await page.keyboard.down(key);}
     }
     await page.evaluate((buttons) => {
       const pad = window.__retromE2EGamepads[0];
@@ -177,6 +195,7 @@ async function inputs(page, sequence, directory, prefix) {
       pad.timestamp += 1;
     }, step.buttons);
     await page.waitForTimeout(step.holdMs);
+    for (const key of keys) {await page.keyboard.up(key);}
     await page.evaluate(() => {
       const pad = window.__retromE2EGamepads[0];
       pad.buttons.forEach((button) => {button.pressed = false; button.touched = false; button.value = 0;});
