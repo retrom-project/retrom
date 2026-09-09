@@ -36,7 +36,8 @@ PROVIDER_CASES = {f"ACC-PROVIDER-{number:03d}" for number in range(1, 9)}
 FANTASY_CASES = {"ACC-TIC-001", "ACC-PICO-001"}
 PS2_CASES = {"ACC-PS2-001"}
 PC98_CASES = {"ACC-PC98-001"}
-PRODUCT_CASES = PC98_CASES | PS2_CASES | FANTASY_CASES | RPG_CASES | ONS_CASES | KIRIKIRI_CASES | BUTTERSCOTCH_CASES | TYRANOSCRIPT_CASES | SCUMMVM_CASES
+STORAGE_CASES = {"ACC-SAVE-004"}
+PRODUCT_CASES = STORAGE_CASES | PC98_CASES | PS2_CASES | FANTASY_CASES | RPG_CASES | ONS_CASES | KIRIKIRI_CASES | BUTTERSCOTCH_CASES | TYRANOSCRIPT_CASES | SCUMMVM_CASES
 
 
 # These commands are intentionally focused. Cases omitted here are emitted as
@@ -480,6 +481,7 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
         for case_id in RPG_CASES
     },
     "ACC-TIC-001": (300, ".cache/tools/node-v24.18.0-linux-x64/bin/node scripts/acceptance/fantasy_product.mjs tic80"),
+    "ACC-SAVE-004": (300, "env -u DISPLAY -u WAYLAND_DISPLAY .cache/tools/node-v24.18.0-linux-x64/bin/node scripts/acceptance/checkpoint_storage_product.mjs"),
     "ACC-PC98-001": (600, "env -u DISPLAY -u WAYLAND_DISPLAY .cache/tools/node-v24.18.0-linux-x64/bin/node scripts/acceptance/pc98_product.mjs"),
     "ACC-PS2-001": (600, "env -u DISPLAY -u WAYLAND_DISPLAY .cache/tools/node-v24.18.0-linux-x64/bin/node scripts/acceptance/play_product.mjs"),
     "ACC-PICO-001": (300, ".cache/tools/node-v24.18.0-linux-x64/bin/node scripts/acceptance/fantasy_product.mjs fake08"),
@@ -723,7 +725,7 @@ def archive_previous(case_dir: Path) -> None:
     moved: dict[str, str] = {}
     for name in (
         "result.json", "stdout.log", "network.json", "rpgmaker-product.json", "ons-product.json",
-        "kirikiri-product.json", "butterscotch-product.json", "tyranoscript-product.json", "fantasy-product.json", "scummvm-product.json", "play-product.json", "pc98-product.json",
+        "kirikiri-product.json", "butterscotch-product.json", "tyranoscript-product.json", "fantasy-product.json", "scummvm-product.json", "play-product.json", "pc98-product.json", "checkpoint-storage-product.json",
         "rerun-resolution.json",
     ):
         source = case_dir / name
@@ -988,7 +990,9 @@ def execute_case(case_id: str) -> int:
             reason = "聚焦自动化断言通过" if status == "PASS" else ("命令超时" if timed_out else "聚焦自动化断言失败")
         if case_id in PRODUCT_CASES:
             product_filename = "rpgmaker-product.json"
-            if case_id in PC98_CASES:
+            if case_id in STORAGE_CASES:
+                product_filename = "checkpoint-storage-product.json"
+            elif case_id in PC98_CASES:
                 product_filename = "pc98-product.json"
             elif case_id in PS2_CASES:
                 product_filename = "play-product.json"

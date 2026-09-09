@@ -86,7 +86,7 @@ async function verifySavedGame(context, client, gameId) {
   const restored = await launchCart(client, gameId, saved.saveStateId);
   assert.notEqual(restored.launchId, launch.launchId);
   const resumed = await openPC98(context, base, restored, evidence);
-  assert.equal(resumed.config.restore.format, "np2kai-state-v1");
+  assert.equal(resumed.config.restore.format, "np2kai-state-v1-storage-v1");
   evidence.checkpoint.format = resumed.config.restore.format;
   await resumed.page.waitForTimeout(500);
   const restoredMenu = await visiblePC98Menu(resumed, directory, "restored");
