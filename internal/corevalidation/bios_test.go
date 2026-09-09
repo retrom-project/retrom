@@ -14,6 +14,9 @@ func TestBIOSAppliesUsesOnlyCanonicalContentSuffix(t *testing.T) {
 		condition, name string
 		want            bool
 	}{
+		{"PCE_CD_CONTENT", "Disc.CHD", true},
+		{"PCE_CD_CONTENT", "Cartridge.pce", false},
+		{"PCE_CD_CONTENT", "Disc.chd.zip", false},
 		{"FDS_CONTENT", "Disk.FDS", true},
 		{"FDS_CONTENT", "Disk.fds.zip", false},
 		{"GB_CONTENT", "Game.dmg", true},
