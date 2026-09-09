@@ -43,7 +43,7 @@ func TestCDRequirementsDoNotBlockPCECartridges(t *testing.T) {
 			}
 			for _, bios := range snapshot.BIOS {
 				if test.target == "same-cdi" && (bios.DeliveryKind != "EXTERNAL_FILE" || bios.EmulatorPath == nil ||
-					!strings.HasPrefix(*bios.EmulatorPath, "/retroarch/userdata/system/same_cdi/bios/cdimono1/")) {
+					!strings.HasPrefix(*bios.EmulatorPath, "/same_cdi/bios/cdimono1/")) {
 					t.Errorf("CD-i BIOS must retain its native firmware path: %#v", bios)
 				}
 			}

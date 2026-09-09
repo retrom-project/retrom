@@ -32,14 +32,14 @@ var staticBIOSCatalog = []staticBIOS{
 		coreID: "same_cdi", logical: "cdi200.rom", mode: "REQUIRED", size: 524288,
 		md5: "2969341396aa61e0143dc2351aaa6ef6", sha256: "24e388c72df21237a89d8d775d41a90208af24c4112c61429b8e47f190ac18c6",
 		sourceURL: "https://docs.libretro.com/library/same_cdi/", delivery: "EXTERNAL_FILE",
-		emulatorPath: "/retroarch/userdata/system/same_cdi/bios/cdimono1/cdi200.rom",
+		emulatorPath: "/same_cdi/bios/cdimono1/cdi200.rom",
 	},
 	{
 		coreID:  "same_cdi",
 		logical: "zx405037p__cdi_servo_2.1__b43t__llek9215.mc68hc705c8a_withtestrom.7201", mode: "REQUIRED", size: 8192,
 		md5: "3e59b8a9a423d3ecd612a32fe4e2d748", sha256: "b467fb3e9bb9e38d195c55116aecd6bc4c8023cdfe4b4d50fd9699139f221b9b",
 		sourceURL: "https://docs.libretro.com/library/same_cdi/", delivery: "EXTERNAL_FILE",
-		emulatorPath: "/retroarch/userdata/system/same_cdi/bios/cdimono1/" +
+		emulatorPath: "/same_cdi/bios/cdimono1/" +
 			"zx405037p__cdi_servo_2.1__b43t__llek9215.mc68hc705c8a_withtestrom.7201",
 	},
 	{
@@ -47,7 +47,7 @@ var staticBIOSCatalog = []staticBIOS{
 		logical: "zx405042p__cdi_slave_2.0__b43t__zzmk9213.mc68hc705c8a_withtestrom.7206", mode: "REQUIRED", size: 8192,
 		md5: "3d20cf7550f1b723158b42a1fd5bac62", sha256: "15794460f2ad630f6dd483a02ef958818c7a5c65f8afe76364bc9ffb7ccad3cc",
 		sourceURL: "https://docs.libretro.com/library/same_cdi/", delivery: "EXTERNAL_FILE",
-		emulatorPath: "/retroarch/userdata/system/same_cdi/bios/cdimono1/" +
+		emulatorPath: "/same_cdi/bios/cdimono1/" +
 			"zx405042p__cdi_slave_2.0__b43t__zzmk9213.mc68hc705c8a_withtestrom.7206",
 	},
 	{
