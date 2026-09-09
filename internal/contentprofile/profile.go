@@ -78,6 +78,7 @@ var registry = map[string]Profile{
 	"mastersystem": single("mastersystem", ".sms"),
 	"nintendo3ds":  raw("nintendo3ds", ".3ds", ".cci"),
 	"j2me":         raw("j2me", ".jar"),
+	"flash":        raw("flash", ".swf"),
 	"wasm4":        single("wasm4", ".wasm"),
 	"zxspectrum":   single("zxspectrum", ".tzx", ".tap", ".z80", ".rzx", ".scl", ".trd"),
 	"c64":          single("c64", viceSingleFileExtensions...),

@@ -9,7 +9,7 @@ import (
 	"retrom/internal/contentprofile"
 )
 
-const Version = 14
+const Version = 15
 
 var ErrInvalid = errors.New("PLATFORM_CATALOG_INVALID")
 
@@ -159,6 +159,7 @@ var current = Catalog{Version: Version, Templates: []DirectoryTemplate{
 		Key: "amiga/puae", PlatformID: "amiga", DefaultCoreID: "puae",
 		Name: "Commodore Amiga 游戏", CatalogOrder: 450,
 	},
+	{Key: "flash/ruffle", PlatformID: "flash", DefaultCoreID: "ruffle", Name: "Flash 游戏", CatalogOrder: 460},
 }}
 
 func Current() Catalog {

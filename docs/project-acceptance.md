@@ -698,7 +698,7 @@ Mega Drive 导入回归另用测试内生成的非游戏 payload，经服务器�
 - 前置：计时前已执行一次 `make prepare-deps`，本 Case 期间断网。
 - 执行：`make acceptance-case CASE=ACC-DAT-001`。
 - 流程：runner 先执行 `make data-check` 与 `make deps-check`，验证两个 Provider Bundle/manifest、61 个 Target、产品 Core binding 闭包、PPSSPP assets、mame2003 override、EmulatorJS 来源清单声明的全部许可 component、retrom-runtime aggregate notice/许可/上游源码定位、五份 DAT，以及密码 blocklist manifest、10,000 行 payload 和 MIT 许可；离线重建适用 notice。再用全新临时 SQLite 和真实五份 DAT 断网启动服务，等待 ready 并重启复用；最后运行 Provider schema/Target binding/seed 负向、约束负向与 Git payload 边界检查。
-- 通过标准：离线命令成功，两个 Provider manifest 都通过封闭 schema、canonical digest、Bundle/module digest 和来源身份校验；EmulatorJS Provider 恰声明 44 个 Target，retrom-runtime Provider 恰声明 17 个 Target。每个产品 Core 恰有一个 binding，且 `providerId/targetId/bundleSha256` 与当前 manifest 逐项一致；Retrom Go、Web、DAT 和验收代码中不存在第二份 Provider 私有 adapter/core/route registry，也不存在未知 Target 的默认回退。冷库先 live/`DEPENDENCY_INDEXING`，五个不可取消 bootstrap Job 在事务外解析，最终五个 Arcade Target 各有独立 READY active DAT；重启不重跑 parser。两个 FBA2012 DAT 必须从锁定源码分别完成双生成且 bytes 相同。许可输入逐项命中 size/hash，notice 可重复生成；DAT、Provider/runtime/license/notice payload 均未被 Git 跟踪，独立 runtime 本机物化目录不存在历史版本。整个 Case 断网且启动/解析不尝试 CDN；部署前由 `ACC-PKG-001`–`003` 比较两镜像 release-input digest。
+- 通过标准：离线命令成功，两个 Provider manifest 都通过封闭 schema、canonical digest、Bundle/module digest 和来源身份校验；EmulatorJS Provider 恰声明 44 个 Target，retrom-runtime Provider 恰声明 18 个 Target。每个产品 Core 恰有一个 binding，且 `providerId/targetId/bundleSha256` 与当前 manifest 逐项一致；Retrom Go、Web、DAT 和验收代码中不存在第二份 Provider 私有 adapter/core/route registry，也不存在未知 Target 的默认回退。冷库先 live/`DEPENDENCY_INDEXING`，五个不可取消 bootstrap Job 在事务外解析，最终五个 Arcade Target 各有独立 READY active DAT；重启不重跑 parser。两个 FBA2012 DAT 必须从锁定源码分别完成双生成且 bytes 相同。许可输入逐项命中 size/hash，notice 可重复生成；DAT、Provider/runtime/license/notice payload 均未被 Git 跟踪，独立 runtime 本机物化目录不存在历史版本。整个 Case 断网且启动/解析不尝试 CDN；部署前由 `ACC-PKG-001`–`003` 比较两镜像 release-input digest。
 - 证据：逐文件校验/统计、DatVersion/Job 状态序列与 parser 调用计数、事务批次摘要、Git 跟踪边界和断网 network log。
 
 ### ACC-DAT-002：Core 隔离与依赖闭包
@@ -918,6 +918,7 @@ Mega Drive 导入回归另用测试内生成的非游戏 payload，经服务器�
 
 ### ACC-RUN-002：一次点击、自动开始与默认全屏
 
+- 暂停回归：保持只读调试面板打开，点击顶部暂停，分别点击暂停画面空白、中央提示与键盘激活“继续游戏”，每次均恢复运行且调试面板/工具栏保持可见；设置、退出确认和联机保护由对应组件/策略测试覆盖。
 - 上限：180 秒。
 - 执行：`make acceptance-case CASE=ACC-RUN-002`。
 - 流程：先用 `testdata/public-roms/gba-smoke/gba-smoke.gba` 经过真实上传、导入、审核和发布建立 mGBA 游戏；在详情点击一次“开始游戏”，记录原始点击、Fullscreen 调用、launch/config 请求、iframe 配置、EmulatorJS network 和 start 事件；运行后读取实际 controls，按 `P` 暂停并再次按 `P` 继续；打开右侧“调试信息”面板并等待两次采样；打开模拟器设置，依次切换画面模式以及 Core/显示面板；再用 `mame2003` override 执行一次短流程。`make web-e2e` 另在物理 4K 150% 项目重复真实 mGBA Player 链路并校验截图像素尺寸。
@@ -1551,7 +1552,7 @@ ID。没有实体设备时自动化 Case 可以 PASS，但沉浸模式发布验�
 
 ### ACC-PROVIDER-002：Target 与 Host binding 闭包
 
-- 上限：900 秒。证明 44 个 EmulatorJS Target、17 个 retrom-runtime Target、Product Core binding 全量闭合；Target 自带闭合 options schema且进入 manifest digest，Host/数据库/Web 不存在 `optionsKind` 或第二份 Target registry；语义 ID 不带 `_Vn`，真实序列化/checkpoint/hash-domain 格式只通过窄 allowlist 保留版本。
+- 上限：900 秒。证明 44 个 EmulatorJS Target、18 个 retrom-runtime Target、Product Core binding 全量闭合；Target 自带闭合 options schema且进入 manifest digest，Host/数据库/Web 不存在 `optionsKind` 或第二份 Target registry；语义 ID 不带 `_Vn`，真实序列化/checkpoint/hash-domain 格式只通过窄 allowlist 保留版本。
 
 ### ACC-PROVIDER-003：Envelope 与 Dispatcher
 
@@ -1576,7 +1577,7 @@ ID。没有实体设备时自动化 Case 可以 PASS，但沉浸模式发布验�
 
 ### ACC-PROVIDER-008：retrom-runtime 产品闭包
 
-- 上限：900 秒。证明 13 个 Target 的 Product、普通 Review Preview、unique-origin、checkpoint、输入和清理生命周期均由 retrom-runtime Provider 承接。
+- 上限：900 秒。证明 18 个 Target 的 Product、普通 Review Preview、unique-origin、checkpoint、输入和清理生命周期均由 retrom-runtime Provider 承接。
 
 ## 23. RPG Maker 全世代产品链
 
@@ -2091,6 +2092,42 @@ Launch 完成验证。原始 JAR 的 SHA-256 和字节数必须在上传、内�
 - 通过标准：状态格式 `fake08-state-v1`、INSTANT 语义；新 Launch ID 不同；有可见游戏画面，无浏览器异常。核心构建测试另外验证连续 120 帧的长按/重复按键与 RNG 状态，以及截断/损坏数据拒绝。
 - 证据：`fantasy-product.json`、项目自有卡带和各阶段截图。自动化使用标准映射虚拟手柄，并观察真实 Web Audio 调度缓冲中存在非零音频；不替换音频播放或核心导出。实体手柄、听觉质量与未编译输入设备不在本 Case 证据范围内。
 
+### ACC-FLASH-001：Ruffle 单文件与 SharedObject 产品闭环
+
+- 统一入口：`make acceptance-case CASE=ACC-FLASH-001`（先完成 `make acceptance-prepare` 并加载环境）。
+- 硬超时：300 秒。等价命令为 `timeout 300 node scripts/acceptance/ruffle_product.mjs`，使用 PFB 固定 Node 和 Chrome。
+- 输入：`RETROM_ACCEPTANCE_BASE_URL`、`RETROM_ACCEPTANCE_USERNAME`、`RETROM_ACCEPTANCE_PASSWORD`、
+  `RETROM_CHROME_EXECUTABLE`、`RETROM_ACCEPTANCE_CASE_DIR`、`RETROM_RUFFLE_FIXTURE` 与 `RETROM_RUFFLE_GAME`。
+  后者是操作者从作者/开放站点取得的合法单文件 SWF，不能提交游戏文件或由普通 CI 下载它。
+- 自有输入的唯一源为 `scripts/acceptance/ruffle_fixture.as`（MIT）。先设置 `RETROM_RUFFLE_CORE_ROOT`
+  为本 PFB fork，以及 `RETROM_RUFFLE_PLAYERGLOBAL` 为该核心显式构建生成的 `playerglobal_import.abc`，
+  执行 `node scripts/acceptance/build_ruffle_fixture.mjs`。脚本校验固定 ASC 和 import 库摘要，使用 fork 工具链
+  生成 SWF 并验证完整输出 SHA-256；生成物只进入 ignored artifacts，不提交编译器、import 库或第三方二进制片段。
+- 首次在尚未导入相同来源的 PFB 中执行完整上传、导入、审核预览、批准和 Product Launch。
+  手柄右方向改变可见位置，B/Escape 重置，A/Space 触发游戏原生 SharedObject.flush；在普通 Player
+  选择“存档并退出”。不同 Launch ID 恢复后必须看到相同位置并接受新的方向输入，不选择存档启动须回到初始位置。
+- 图像位置断言必须读取核心公开 `captureFrame()` 返回的 PNG，不能只用浏览器截图掩盖 GPU 画布导出空白。
+  从所选存档启动后再次保存必须保留同一个 saveStateId，并以第三次 Launch 验证容器内容已更新；不选存档重开从空数据开始，首次保存必须使用新的 saveStateId。
+  数据类型为 STORAGE 时，退出对话框明确提示可能仅包含设置或统计、不保证恢复关卡进度；真实数据变化仍允许保存，不按游戏做例外。
+  公开游戏也经过审核预览、发布、Launch 和输入，保存各阶段真实截图；不可据此推断所有 Flash API、Stage3D、
+  联网/多文件游戏或实体手柄兼容性。
+- 可选 `RETROM_RUFFLE_OWNED_GAME_ID` 只用于重跑已经过完整导入的自有程序；证据必须明确标记复用现有产品，
+  并与首次完整导入的记录一起保留，不能单独声称重新覆盖了审核链或绕过来源去重。外部游戏使用尚未导入的来源。
+- 外部游戏重跑同理使用 `RETROM_RUFFLE_EXTERNAL_GAME_ID` 并保留首次记录；需要鼠标开始的游戏可设置
+  `RETROM_RUFFLE_START_CLICK=x,y`（画布归一化位置，各值在 0–1），执行真实点击，不调用 ActionScript 私有方法。
+  键盘组合开始可设置 `RETROM_RUFFLE_START_KEYS=x+c`（最多四个小写字母键），不能据此声称仅凭手柄完成启动。
+- 证据为 `ruffle-product.json`、自有生成物和各阶段 PNG；保留旧行为必红的存档、持久缓存、输入释放、
+  取消装载、截图回归。软件渲染必须显式记录，不能作为实体 GPU 性能结论。
+- 布局补充检查：设置同一认证、Chrome、输出目录和 `RETROM_RUFFLE_EXTERNAL_GAME_ID` 后执行
+  `timeout 150 node scripts/acceptance/ruffle_layout_probe.mjs`，记录 Canabalt/Mode 的连续画面与 canvas 尺寸。
+  默认 1280×900 视口下容器必须稳定且强制等比缩放、居中；检查当次截图中的实际画面，不能只以 canvas DOM 尺寸判断填充正确，也不把游戏自带镜头震动当作容器抖动。
+  设置 `RETROM_RUFFLE_DPR=2 RETROM_RUFFLE_RESIZE=1 RETROM_RUFFLE_LAUNCH_UI=1` 补充从详情页点击“开始游戏”自动全屏、
+  工具栏进出全屏以及 1920×1080、900×1280、1280×900 切换；每阶段留整页截图并验证 canvas 铺满当前视口、无额外偏移、backing buffer 等于 CSS 尺寸乘 DPR。
+  每阶段连续检查 12 个动画帧，防止只在单次稳定快照中漏掉布局反复变化。
+- 设置 `RETROM_PLAYER_PAUSE_RESUME=1`，在同一布局补充命令中执行 `ACC-RUN-002` 的共享暂停恢复回归，
+  验证调试面板常开时的画面空白点击、中央提示点击与键盘激活，并留下当次截图及 `surfaceResume` 结果。
+- WSL 无头 Chrome 若连静态页面也无法截图，使用 `env -u DISPLAY -u WAYLAND_DISPLAY` 前缀重跑同一固定浏览器；
+  只清除该次验收进程继承的桌面连接，不修改系统环境。记录浏览器版本和软件渲染，不据此推断用户实体 GPU 表现。
 
 ### ACC-FLYCAST-001：Dreamcast CHD、标准手柄与跨 Launch 恢复
 

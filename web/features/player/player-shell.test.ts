@@ -36,6 +36,19 @@ describe("reportsNativeExit", () => {
 });
 
 describe("canResumeFromGameSurface", () => {
+  it("allows explicit pause-overlay activation while read-only chrome stays pinned", () => {
+    expect(canResumeFromGameSurface({mode: "single", running: true, paused: true, chromePinned: true, source: "pause-overlay"}))
+      .toBe(true);
+  });
+
+  it.each([
+    {mode: "netplay" as const, running: true, paused: true},
+    {mode: "single" as const, running: false, paused: true},
+    {mode: "single" as const, running: true, paused: false},
+  ])("does not bypass runtime state for explicit resume: %j", (state) => {
+    expect(canResumeFromGameSurface({...state, chromePinned: true, source: "pause-overlay"})).toBe(false);
+  });
+
   it("does not resume while host chrome owns the interaction", () => {
     expect(canResumeFromGameSurface({mode: "single", running: true, paused: true, chromePinned: true}))
       .toBe(false);
