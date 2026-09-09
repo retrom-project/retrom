@@ -59,7 +59,7 @@ async function open(launch) {
     if (await candidate.evaluate(() => Boolean(window.EJS_emulator?.gameManager))) {frame = candidate; break;}
   }
   assert.ok(frame, "FLYCAST_NATIVE_INSTANCE_MISSING");
-  const config = await page.evaluate(async id => (await fetch(`/runtime/launches/${id}/config`)).json(), launch.launchId);
+  const config = await page.evaluate(async id => (await fetch(`/runtime/launches/${id}/config`)).json(), launch.launchId ?? launch.previewId);
   assert.equal(config.runtime.targetId, "flycast");
   evidence.runtimes.push({providerVersion: config.runtime.providerVersion, bundleSha256: config.runtime.bundleSha256,
     moduleSha256: config.runtime.moduleSha256});
