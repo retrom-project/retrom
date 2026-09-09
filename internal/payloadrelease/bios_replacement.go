@@ -51,7 +51,7 @@ WHERE role='BIOS_BUNDLE' AND blob_id=? AND game_variant_id IN (
 	}
 	if _, err := transaction.ExecContext(ctx, `
 UPDATE game_variants
-SET status='BLOCKED',compatibility_code='LAUNCH_BIOS_MISSING',emulator_game_id=NULL,
+SET status='BLOCKED',compatibility_code='VALIDATION_PENDING',emulator_game_id=NULL,
 version=version+1,updated_at_ms=?
 WHERE EXISTS(SELECT 1 FROM json_each(game_variants.dependency_snapshot_json,'$.bios') dependency
  WHERE json_extract(dependency.value,'$.installationId')=?)

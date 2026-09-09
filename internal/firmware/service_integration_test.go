@@ -264,6 +264,15 @@ func assertFirmwareReplacementLifecycle(
 	lifecycle firmwareReplacementLifecycle,
 ) {
 	t.Helper()
+	var variantStatus, compatibilityCode string
+	if err := database.QueryRowContext(ctx,
+		`SELECT status,compatibility_code FROM game_variants WHERE id=?`, lifecycle.variantID,
+	).Scan(&variantStatus, &compatibilityCode); err != nil {
+		t.Fatal(err)
+	}
+	if variantStatus != "BLOCKED" || compatibilityCode != "VALIDATION_PENDING" {
+		t.Fatalf("replaced BIOS must allow launch revalidation: %s/%s", variantStatus, compatibilityCode)
+	}
 	var variantFiles, saves, launchFiles int
 	var launchState string
 	if err := database.QueryRowContext(ctx, `
