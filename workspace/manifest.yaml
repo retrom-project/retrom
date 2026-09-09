@@ -26,7 +26,8 @@
         "play",
         "flycast-wasm",
         "webmsx",
-        "px68k"
+        "px68k",
+        "openbor"
       ]
     },
     {
@@ -224,6 +225,15 @@
       "role": "core",
       "gitlink": "git@github.com:retrom-project/WebMSX.git",
       "defaultBranch": "retrom/6.0.8",
+      "submodules": false,
+      "dependsOn": []
+    },
+    {
+      "id": "openbor",
+      "path": "project/retrom-core/openbor",
+      "role": "core",
+      "gitlink": "git@github.com:retrom-project/openbor.git",
+      "defaultBranch": "retrom/g9d81480f8481",
       "submodules": false,
       "dependsOn": []
     }
