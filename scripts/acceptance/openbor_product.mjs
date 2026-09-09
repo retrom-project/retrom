@@ -31,20 +31,26 @@ try {
     data: {username: process.env.RETROM_ACCEPTANCE_USERNAME, password: process.env.RETROM_ACCEPTANCE_PASSWORD}});
   assert.equal(login.status(), 200);
   const client = createProductClient(context, base, (await login.json()).csrfToken);
-  const review = process.env.RETROM_OPENBOR_REVIEW_ID
-    ? await client.json("GET", `/api/v1/admin/reviews/${process.env.RETROM_OPENBOR_REVIEW_ID}`) : await importGame(client);
-  evidence.reviewId = review.itemId;
-  const preview = await client.json("POST", `/api/v1/admin/reviews/${review.itemId}/previews`, {headers: client.writeHeaders(), expected: 201,
-    data: {clientCapabilities: capabilities}});
-  const trial = await open(context, preview, "preview");
-  await enterRobo(trial.page, trial.canvas); const trialState = await nativeState(trial.page);
-  assert.equal(trialState.levels[0], "data/levels/l1s1.txt");
-  await pad(trial.page, 15, 300, 100);
-  await trial.canvas.screenshot({path: `${output}/preview-gameplay.png`}); await trial.page.close();
-  evidence.stages.push(process.env.RETROM_OPENBOR_REVIEW_ID ? "existing-review-preview" : "import-review-preview");
-  const snapshot = await client.raw("GET", `/api/v1/admin/reviews/${review.itemId}`);
-  const approved = process.env.RETROM_OPENBOR_GAME_ID ? {gameId: process.env.RETROM_OPENBOR_GAME_ID} : await client.json("POST", `/api/v1/admin/reviews/${review.itemId}/approve`, {
-    headers: {...client.writeHeaders(), "If-Match": snapshot.headers().etag}, expected: 201, data: {}});
+  let approved;
+  if (process.env.RETROM_OPENBOR_GAME_ID && !process.env.RETROM_OPENBOR_REVIEW_ID) {
+    approved = {gameId: process.env.RETROM_OPENBOR_GAME_ID};
+    evidence.stages.push("reuse-previously-published-game");
+  } else {
+    const review = process.env.RETROM_OPENBOR_REVIEW_ID
+      ? await client.json("GET", `/api/v1/admin/reviews/${process.env.RETROM_OPENBOR_REVIEW_ID}`) : await importGame(client);
+    evidence.reviewId = review.itemId;
+    const preview = await client.json("POST", `/api/v1/admin/reviews/${review.itemId}/previews`, {headers: client.writeHeaders(), expected: 201,
+      data: {clientCapabilities: capabilities}});
+    const trial = await open(context, preview, "preview");
+    await enterRobo(trial.page, trial.canvas); const trialState = await nativeState(trial.page);
+    assert.equal(trialState.levels[0], "data/levels/l1s1.txt");
+    await pad(trial.page, 15, 300, 100);
+    await trial.canvas.screenshot({path: `${output}/preview-gameplay.png`}); await trial.page.close();
+    evidence.stages.push(process.env.RETROM_OPENBOR_REVIEW_ID ? "existing-review-preview" : "import-review-preview");
+    const snapshot = await client.raw("GET", `/api/v1/admin/reviews/${review.itemId}`);
+    approved = process.env.RETROM_OPENBOR_GAME_ID ? {gameId: process.env.RETROM_OPENBOR_GAME_ID} : await client.json("POST", `/api/v1/admin/reviews/${review.itemId}/approve`, {
+      headers: {...client.writeHeaders(), "If-Match": snapshot.headers().etag}, expected: 201, data: {}});
+  }
   evidence.gameId = approved.gameId; evidence.seeded = Boolean(process.env.RETROM_OPENBOR_GAME_ID);
   const original = await launch(client, approved.gameId);
   const playing = await open(context, original, "product");
