@@ -2158,6 +2158,11 @@ Launch 完成验证。原始 JAR 的 SHA-256 和字节数必须在上传、内�
 - 证据：本次预览、保存、恢复、恢复后输入截图，非秘密 Launch/Save ID、内容/存档摘要、
   精确 Bundle/Target 和浏览器/GPU。私有游戏、BIOS、授权 URL 与 cookie 不进入 Git 或结构化证据。
 - 通过标准：所有上述步骤完成；只报告所用样本和浏览器。软件 GPU 的帧数只证明运行，不推断实体显卡性能。
+- 压缩专项驱动为 `scripts/acceptance/flycast_storage_product.mjs`，外层硬超时 600 秒；需要普通验收登录变量、
+  `RETROM_CHROME_EXECUTABLE`、`RETROM_FLYCAST_CHD`、`RETROM_FLYCAST_BIOS_DIR` 和 `RETROM_ACCEPTANCE_CASE_DIR`。
+  WSL 无头运行取消 DISPLAY/WAYLAND_DISPLAY。驱动保留上传/发布进度，记录复用情况；单次 gunzip 后的摘要
+  必须等于实际核心保存边界观测到的原始状态摘要，存档体积至少减半。输出 `flycast-storage-product.json`，
+  自动阶段标记 `AWAITING_VISUAL_REVIEW`；检查当次保存、恢复及恢复后输入截图，确认同一场景和可操作状态后才标记 PASS。
 
 
 ### ACC-FLYCAST-002：暂停截图与压缩存档回归
