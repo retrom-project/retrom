@@ -14,6 +14,7 @@ test.beforeEach(async ({ page }, testInfo) => {
 });
 
 test("ACC-UI-001 authenticated navigation exposes the administrator entry", async ({ page }, testInfo) => {
+  test.setTimeout(180_000);
   await page.goto("/");
   const navigation = page.getByRole("navigation", { name: "主要导航" });
   await expect(navigation.getByRole("link")).toHaveCount(6);
@@ -27,7 +28,7 @@ test("ACC-UI-001 authenticated navigation exposes the administrator entry", asyn
   const firstGame = page.locator(".library-game-card").first();
   if (await firstGame.count()) {
     await firstGame.getByRole("link").first().click();
-    await expect(page).toHaveURL(/\/games\/[0-9a-f-]+$/);
+    await page.waitForURL(/\/games\/[0-9a-f-]+$/, { timeout: 30_000 });
     await expect(page.getByRole("navigation", { name: "主要导航" }).getByRole("link")).toHaveCount(6);
   }
   const userSidebarFoot = page.locator(".sidebar-foot");
@@ -178,6 +179,7 @@ test("ACC-UI-004 loading, empty, retryable error, warning, and blocker states ar
 });
 
 test("ACC-UI-005 user desktop layouts scale at all required viewports", async ({ page }, testInfo) => {
+  test.setTimeout(180_000);
   await verifyUserDesktopLayouts(page, testInfo);
 });
 

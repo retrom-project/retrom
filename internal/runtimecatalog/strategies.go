@@ -17,6 +17,7 @@ const (
 )
 
 var hostStrategies = map[string]HostStrategy{
+	"OPTICAL_DISC":            {"ROM_BLOB", OptionsNone, []string{"SINGLE_FILE"}},
 	"SCUMMVM_PROJECT":         {"FILE_TREE_PROJECT", OptionsScummVM, []string{"SCUMMVM_PROJECT"}},
 	"EMULATORJS_SINGLE_FILE":  {"EMULATORJS_CONTENT", OptionsEmulator, []string{"SINGLE_FILE"}},
 	"EMULATORJS_DISC_CONTENT": {"EMULATORJS_CONTENT", OptionsEmulator, []string{"MULTI_DISC", "SINGLE_FILE"}},

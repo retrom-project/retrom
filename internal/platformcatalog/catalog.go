@@ -9,7 +9,7 @@ import (
 	"retrom/internal/contentprofile"
 )
 
-const Version = 12
+const Version = 15
 
 var ErrInvalid = errors.New("PLATFORM_CATALOG_INVALID")
 
@@ -72,9 +72,11 @@ var current = Catalog{Version: Version, Templates: []DirectoryTemplate{
 	},
 	{Key: "psx/pcsx_rearmed", PlatformID: "psx", DefaultCoreID: "pcsx_rearmed", Name: "PlayStation 游戏", CatalogOrder: 190},
 	{Key: "saturn/yabause", PlatformID: "saturn", DefaultCoreID: "yabause", Name: "Sega Saturn 游戏", CatalogOrder: 200},
+	{Key: "dreamcast/flycast", PlatformID: "dreamcast", DefaultCoreID: "flycast", Name: "Dreamcast 游戏", CatalogOrder: 205},
 	{Key: "pcfx/mednafen_pcfx", PlatformID: "pcfx", DefaultCoreID: "mednafen_pcfx", Name: "PC-FX 游戏", CatalogOrder: 210},
 	{Key: "3do/opera", PlatformID: "3do", DefaultCoreID: "opera", Name: "3DO 游戏", CatalogOrder: 220},
 	{Key: "psp/ppsspp", PlatformID: "psp", DefaultCoreID: "ppsspp", Name: "PSP 游戏", CatalogOrder: 230},
+	// Play! 目前运行不稳定，因此不提供 ps2/play 推荐目录；用户仍可手动创建 PS2/Play! 游戏目录。
 	{
 		Key: "virtualboy/beetle_vb", PlatformID: "virtualboy", DefaultCoreID: "beetle_vb",
 		Name: "Virtual Boy 游戏", CatalogOrder: 240,
@@ -125,7 +127,39 @@ var current = Catalog{Version: Version, Templates: []DirectoryTemplate{
 		Name: "PICO-8 游戏", CatalogOrder: 360,
 	},
 	{Key: "scummvm/scummvm", PlatformID: "scummvm", DefaultCoreID: "scummvm", Name: "ScummVM 游戏", CatalogOrder: 370},
-	{Key: "flash/ruffle", PlatformID: "flash", DefaultCoreID: "ruffle", Name: "Flash 游戏", CatalogOrder: 380},
+	{
+		Key: "zxspectrum/fuse", PlatformID: "zxspectrum", DefaultCoreID: "fuse",
+		Name: "ZX Spectrum 游戏", CatalogOrder: 380,
+	},
+	{
+		Key: "c64/vice_x64sc", PlatformID: "c64", DefaultCoreID: "vice_x64sc",
+		Name: "Commodore 64 游戏", CatalogOrder: 390,
+	},
+	{
+		Key: "colecovision/gearcoleco", PlatformID: "colecovision", DefaultCoreID: "gearcoleco",
+		Name: "ColecoVision 游戏", CatalogOrder: 400,
+	},
+	{
+		Key: "atarijaguar/virtualjaguar", PlatformID: "atarijaguar", DefaultCoreID: "virtualjaguar",
+		Name: "Atari Jaguar 游戏", CatalogOrder: 410,
+	},
+	{
+		Key: "doom/prboom", PlatformID: "doom", DefaultCoreID: "prboom",
+		Name: "Doom 游戏", CatalogOrder: 420,
+	},
+	{
+		Key: "c128/vice_x128", PlatformID: "c128", DefaultCoreID: "vice_x128",
+		Name: "Commodore 128 游戏", CatalogOrder: 430,
+	},
+	{
+		Key: "vic20/vice_xvic", PlatformID: "vic20", DefaultCoreID: "vice_xvic",
+		Name: "Commodore VIC-20 游戏", CatalogOrder: 440,
+	},
+	{
+		Key: "amiga/puae", PlatformID: "amiga", DefaultCoreID: "puae",
+		Name: "Commodore Amiga 游戏", CatalogOrder: 450,
+	},
+	{Key: "flash/ruffle", PlatformID: "flash", DefaultCoreID: "ruffle", Name: "Flash 游戏", CatalogOrder: 460},
 }}
 
 func Current() Catalog {

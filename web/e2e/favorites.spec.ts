@@ -194,7 +194,7 @@ test("ACC-FAV-004 favorite states, keyboard semantics and bounded layout hold at
 
   if (testInfo.project.name === "chrome-1280") {
     await page.goto("/favorites");
-    const create = page.getByRole("button", { name: "＋ 新建收藏夹" });
+    const create = page.getByRole("button", { name: "新建收藏夹", exact: true });
     await create.focus();
     await page.keyboard.press("Enter");
     await expect(page.getByRole("textbox", { name: "收藏夹名称" })).toBeFocused();
@@ -265,7 +265,7 @@ test("ACC-FAV-004 favorite states, keyboard semantics and bounded layout hold at
   expect(layout.manageInsideBody).toBe(true);
   expect(layout.toolbarBackground).toBe("rgb(255, 255, 255)");
   expect(layout.summaryBackground).toBe("rgba(0, 0, 0, 0)");
-  await expect(page.getByRole("button", { name: "＋ 新建收藏夹" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "新建收藏夹", exact: true })).toBeVisible();
   if (testInfo.project.name === "chrome-4k-150") {
     expect(layout.controlHeight).toBeGreaterThanOrEqual(42);
     expect(layout.helperFont).toBeGreaterThanOrEqual(12);

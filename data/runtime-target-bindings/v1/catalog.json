@@ -143,12 +143,54 @@
       "launchPolicy": "SUPPORTED"
     },
     {
+      "id": "emulatorjs-flycast",
+      "coreId": "flycast",
+      "providerId": "emulatorjs",
+      "targetId": "flycast",
+      "platformIds": [
+        "dreamcast"
+      ],
+      "acceptedContentKinds": [
+        "SINGLE_FILE"
+      ],
+      "detectorProfile": "EMULATORJS_SINGLE_FILE",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
+      "id": "emulatorjs-fuse",
+      "coreId": "fuse",
+      "providerId": "emulatorjs",
+      "targetId": "fuse",
+      "platformIds": [
+        "zxspectrum"
+      ],
+      "acceptedContentKinds": [
+        "SINGLE_FILE"
+      ],
+      "detectorProfile": "EMULATORJS_SINGLE_FILE",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
       "id": "emulatorjs-gambatte",
       "coreId": "gambatte",
       "providerId": "emulatorjs",
       "targetId": "gambatte",
       "platformIds": [
         "gbc"
+      ],
+      "acceptedContentKinds": [
+        "SINGLE_FILE"
+      ],
+      "detectorProfile": "EMULATORJS_SINGLE_FILE",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
+      "id": "emulatorjs-gearcoleco",
+      "coreId": "gearcoleco",
+      "providerId": "emulatorjs",
+      "targetId": "gearcoleco",
+      "platformIds": [
+        "colecovision"
       ],
       "acceptedContentKinds": [
         "SINGLE_FILE"
@@ -425,12 +467,40 @@
       "launchPolicy": "SUPPORTED"
     },
     {
+      "id": "emulatorjs-prboom",
+      "coreId": "prboom",
+      "providerId": "emulatorjs",
+      "targetId": "prboom",
+      "platformIds": [
+        "doom"
+      ],
+      "acceptedContentKinds": [
+        "SINGLE_FILE"
+      ],
+      "detectorProfile": "EMULATORJS_SINGLE_FILE",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
       "id": "emulatorjs-prosystem",
       "coreId": "prosystem",
       "providerId": "emulatorjs",
       "targetId": "prosystem",
       "platformIds": [
         "atari7800"
+      ],
+      "acceptedContentKinds": [
+        "SINGLE_FILE"
+      ],
+      "detectorProfile": "EMULATORJS_SINGLE_FILE",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
+      "id": "emulatorjs-puae",
+      "coreId": "puae",
+      "providerId": "emulatorjs",
+      "targetId": "puae",
+      "platformIds": [
+        "amiga"
       ],
       "acceptedContentKinds": [
         "SINGLE_FILE"
@@ -473,6 +543,62 @@
       "targetId": "stella2014",
       "platformIds": [
         "atari2600"
+      ],
+      "acceptedContentKinds": [
+        "SINGLE_FILE"
+      ],
+      "detectorProfile": "EMULATORJS_SINGLE_FILE",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
+      "id": "emulatorjs-vice-x128",
+      "coreId": "vice_x128",
+      "providerId": "emulatorjs",
+      "targetId": "vice-x128",
+      "platformIds": [
+        "c128"
+      ],
+      "acceptedContentKinds": [
+        "SINGLE_FILE"
+      ],
+      "detectorProfile": "EMULATORJS_SINGLE_FILE",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
+      "id": "emulatorjs-vice-x64sc",
+      "coreId": "vice_x64sc",
+      "providerId": "emulatorjs",
+      "targetId": "vice-x64sc",
+      "platformIds": [
+        "c64"
+      ],
+      "acceptedContentKinds": [
+        "SINGLE_FILE"
+      ],
+      "detectorProfile": "EMULATORJS_SINGLE_FILE",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
+      "id": "emulatorjs-vice-xvic",
+      "coreId": "vice_xvic",
+      "providerId": "emulatorjs",
+      "targetId": "vice-xvic",
+      "platformIds": [
+        "vic20"
+      ],
+      "acceptedContentKinds": [
+        "SINGLE_FILE"
+      ],
+      "detectorProfile": "EMULATORJS_SINGLE_FILE",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
+      "id": "emulatorjs-virtualjaguar",
+      "coreId": "virtualjaguar",
+      "providerId": "emulatorjs",
+      "targetId": "virtualjaguar",
+      "platformIds": [
+        "atarijaguar"
       ],
       "acceptedContentKinds": [
         "SINGLE_FILE"
@@ -573,6 +699,20 @@
         "ONS_PROJECT"
       ],
       "detectorProfile": "ONS_PROJECT",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
+      "id": "retrom-runtime-play",
+      "coreId": "play",
+      "providerId": "retrom-runtime",
+      "targetId": "play-ps2",
+      "platformIds": [
+        "ps2"
+      ],
+      "acceptedContentKinds": [
+        "SINGLE_FILE"
+      ],
+      "detectorProfile": "OPTICAL_DISC",
       "launchPolicy": "SUPPORTED"
     },
     {
@@ -739,6 +879,12 @@
         "enabled": true
       },
       {
+        "id": "amiga",
+        "name": "Commodore Amiga",
+        "sortOrder": 260,
+        "enabled": true
+      },
+      {
         "id": "arcade",
         "name": "Arcade",
         "sortOrder": 60,
@@ -763,15 +909,51 @@
         "enabled": true
       },
       {
+        "id": "atarijaguar",
+        "name": "Atari Jaguar",
+        "sortOrder": 320,
+        "enabled": true
+      },
+      {
         "id": "butterscotch",
         "name": "GameMaker",
         "sortOrder": 78,
         "enabled": true
       },
       {
+        "id": "c128",
+        "name": "Commodore 128",
+        "sortOrder": 280,
+        "enabled": true
+      },
+      {
+        "id": "c64",
+        "name": "Commodore 64",
+        "sortOrder": 270,
+        "enabled": true
+      },
+      {
+        "id": "colecovision",
+        "name": "ColecoVision",
+        "sortOrder": 310,
+        "enabled": true
+      },
+      {
+        "id": "doom",
+        "name": "Doom",
+        "sortOrder": 330,
+        "enabled": true
+      },
+      {
         "id": "dos",
         "name": "MS-DOS",
         "sortOrder": 70,
+        "enabled": true
+      },
+      {
+        "id": "dreamcast",
+        "name": "Sega Dreamcast",
+        "sortOrder": 185,
         "enabled": true
       },
       {
@@ -883,6 +1065,12 @@
         "enabled": true
       },
       {
+        "id": "ps2",
+        "name": "PlayStation 2",
+        "sortOrder": 205,
+        "enabled": true
+      },
+      {
         "id": "psp",
         "name": "PlayStation Portable",
         "sortOrder": 210,
@@ -931,6 +1119,12 @@
         "enabled": true
       },
       {
+        "id": "vic20",
+        "name": "Commodore VIC-20",
+        "sortOrder": 290,
+        "enabled": true
+      },
+      {
         "id": "virtualboy",
         "name": "Virtual Boy",
         "sortOrder": 220,
@@ -946,6 +1140,12 @@
         "id": "wonderswan",
         "name": "WonderSwan / Color",
         "sortOrder": 230,
+        "enabled": true
+      },
+      {
+        "id": "zxspectrum",
+        "name": "ZX Spectrum",
+        "sortOrder": 300,
         "enabled": true
       }
     ],
@@ -1011,8 +1211,23 @@
         "enabled": true
       },
       {
+        "id": "flycast",
+        "name": "Flycast",
+        "enabled": true
+      },
+      {
+        "id": "fuse",
+        "name": "Fuse",
+        "enabled": true
+      },
+      {
         "id": "gambatte",
         "name": "Gambatte",
+        "enabled": true
+      },
+      {
+        "id": "gearcoleco",
+        "name": "Gearcoleco",
         "enabled": true
       },
       {
@@ -1121,13 +1336,28 @@
         "enabled": true
       },
       {
+        "id": "play",
+        "name": "Play!",
+        "enabled": true
+      },
+      {
         "id": "ppsspp",
         "name": "PPSSPP",
         "enabled": true
       },
       {
+        "id": "prboom",
+        "name": "PrBoom",
+        "enabled": true
+      },
+      {
         "id": "prosystem",
         "name": "ProSystem",
+        "enabled": true
+      },
+      {
+        "id": "puae",
+        "name": "PUAE",
         "enabled": true
       },
       {
@@ -1168,6 +1398,26 @@
       {
         "id": "tyranoscript",
         "name": "TyranoScript",
+        "enabled": true
+      },
+      {
+        "id": "vice_x128",
+        "name": "VICE x128",
+        "enabled": true
+      },
+      {
+        "id": "vice_x64sc",
+        "name": "VICE x64sc",
+        "enabled": true
+      },
+      {
+        "id": "vice_xvic",
+        "name": "VICE xvic",
+        "enabled": true
+      },
+      {
+        "id": "virtualjaguar",
+        "name": "Virtual Jaguar",
         "enabled": true
       },
       {

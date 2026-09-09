@@ -27,6 +27,7 @@ import (
 
 type singleBlobCase struct {
 	platform string
+	core     string
 	target   string
 	kind     string
 	filename string
@@ -35,10 +36,11 @@ type singleBlobCase struct {
 
 func TestSingleBlobReviewPublishesProductLaunch(t *testing.T) {
 	cases := []singleBlobCase{
-		{"wasm4", "wasm4", "WASM4_CART", "Pong.wasm", []byte{0, 0x61, 0x73, 0x6d, 1, 0, 0, 0}},
-		{"j2me", "j2me", "ROM_BLOB", "Sample.jar", j2meImportFixture(t)},
-		{"tic80", "tic80", "ROM_BLOB", "Sample.tic", []byte{17, 0, 0, 0, 5, 7, 0, 0, '-', '-', ' ', 't', 'e', 's', 't'}},
-		{"pico8", "fake08", "ROM_BLOB", "Sample.p8", []byte("pico-8 cartridge // http://www.pico-8.com\nversion 42\n__lua__\nfunction _draw() cls(0) end\n")},
+		{"ps2", "play", "play-ps2", "SEEKABLE_BLOB", "Owned.iso", bytes.Repeat([]byte{1, 2, 3, 4}, 2048)},
+		{"wasm4", "wasm4", "wasm4", "WASM4_CART", "Pong.wasm", []byte{0, 0x61, 0x73, 0x6d, 1, 0, 0, 0}},
+		{"j2me", "j2me", "j2me", "ROM_BLOB", "Sample.jar", j2meImportFixture(t)},
+		{"tic80", "tic80", "tic80", "ROM_BLOB", "Sample.tic", []byte{17, 0, 0, 0, 5, 7, 0, 0, '-', '-', ' ', 't', 'e', 's', 't'}},
+		{"pico8", "fake08", "fake08", "ROM_BLOB", "Sample.p8", []byte("pico-8 cartridge // http://www.pico-8.com\nversion 42\n__lua__\nfunction _draw() cls(0) end\n")},
 	}
 	for _, input := range cases {
 		t.Run(input.platform, func(t *testing.T) { verifySingleBlobReview(t, input) })
@@ -110,13 +112,9 @@ VALUES(?,'wasm4-profile','wasm4-admin','WASM-4 Admin','ADMIN','ENABLED',0,0);
 	waitForWASM4Job(t, database.SQL, jobID)
 
 	importService := libraryimport.New(database.SQL, time.Now)
-	template := input.platform + "/" + input.target
-	if input.platform == "flash" {
-		template = "flash/ruffle"
-	}
 	createdImport, err := importService.Create(ctx, libraryimport.CreateRequest{
 		UploadID:                 upload.ID,
-		TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(t, database.SQL, template),
+		TargetPlatformInstanceID: createSingleBlobDirectory(t, database.SQL, input, actorID),
 		MetadataProvider:         "NONE",
 	})
 	if err != nil {
@@ -196,7 +194,7 @@ VALUES(?,'wasm4-profile','wasm4-admin','WASM-4 Admin','ADMIN','ENABLED',0,0);
 	productRuntime := testsupport.RuntimeEnvelopeObject(t, productEnvelope, "runtime")
 	productCart := testsupport.RuntimeEnvelopeResource(t, productEnvelope, "game")
 	if productSession["purpose"] != "PRODUCT" || productRuntime["targetId"] != input.target ||
-		productCart["sha256"] != base64DigestHex(digest) || productCart["sizeBytes"] != int64(len(cart)) ||
+		productCart["kind"] != input.kind || productCart["sha256"] != base64DigestHex(digest) || productCart["sizeBytes"] != int64(len(cart)) ||
 		productCart["url"] == "" || productEnvelope["restore"] != nil {
 		t.Fatalf("WASM-4 product envelope=%#v", productEnvelope)
 	}
