@@ -55,7 +55,7 @@ Provider 私有的 PSP 存档读取必须等待原生异步序列化结束，期
 
 指定存档不能在首帧盲目自动加载；Provider 必须等待目标核心可序列化，再执行原生 load 并以明确失败 fail closed。普通开始必须清理浏览器遗留的隐式目录存档，只有用户点击“创建存档”才上传显式 checkpoint。
 
-新增七个核心和 PC Engine CD 的逐项验收使用 [ACC-RUN-014](./project-acceptance.md#acc-run-014剩余-emulatorjs-核心与-pc-engine-cd-产品验证)。候选声明不代替真实浏览器兼容性证据。
+新增七个核心和 PC Engine CD 的逐项验收使用 [ACC-RUN-015](./project-acceptance.md#acc-run-015剩余-emulatorjs-核心与-pc-engine-cd-产品验证)。候选声明不代替真实浏览器兼容性证据。
 
 ## 5. retrom-runtime 特殊边界
 
