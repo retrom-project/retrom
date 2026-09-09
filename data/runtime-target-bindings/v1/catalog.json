@@ -688,6 +688,20 @@
       "launchPolicy": "SUPPORTED"
     },
     {
+      "id": "retrom-runtime-msx-webmsx",
+      "coreId": "webmsx",
+      "providerId": "retrom-runtime",
+      "targetId": "msx-webmsx",
+      "platformIds": [
+        "msx"
+      ],
+      "acceptedContentKinds": [
+        "SINGLE_FILE"
+      ],
+      "detectorProfile": "MSX_MEDIA",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
       "id": "retrom-runtime-onscripter-yuri",
       "coreId": "onscripter_yuri",
       "providerId": "retrom-runtime",
@@ -1008,6 +1022,12 @@
         "id": "megadrive",
         "name": "Mega Drive / Genesis",
         "sortOrder": 130,
+        "enabled": true
+      },
+      {
+        "id": "msx",
+        "name": "MSX",
+        "sortOrder": 87,
         "enabled": true
       },
       {
@@ -1423,6 +1443,11 @@
       {
         "id": "wasm4",
         "name": "WASM-4",
+        "enabled": true
+      },
+      {
+        "id": "webmsx",
+        "name": "WebMSX",
         "enabled": true
       },
       {
