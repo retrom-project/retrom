@@ -143,6 +143,20 @@
       "launchPolicy": "SUPPORTED"
     },
     {
+      "id": "emulatorjs-flycast",
+      "coreId": "flycast",
+      "providerId": "emulatorjs",
+      "targetId": "flycast",
+      "platformIds": [
+        "dreamcast"
+      ],
+      "acceptedContentKinds": [
+        "SINGLE_FILE"
+      ],
+      "detectorProfile": "EMULATORJS_SINGLE_FILE",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
       "id": "emulatorjs-gambatte",
       "coreId": "gambatte",
       "providerId": "emulatorjs",
@@ -765,6 +779,12 @@
         "enabled": true
       },
       {
+        "id": "dreamcast",
+        "name": "Sega Dreamcast",
+        "sortOrder": 185,
+        "enabled": true
+      },
+      {
         "id": "fds",
         "name": "Famicom Disk System",
         "sortOrder": 20,
@@ -992,6 +1012,11 @@
       {
         "id": "fceumm",
         "name": "FCEUmm",
+        "enabled": true
+      },
+      {
+        "id": "flycast",
+        "name": "Flycast",
         "enabled": true
       },
       {

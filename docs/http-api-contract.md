@@ -847,7 +847,7 @@ RPG 条目的 Review detail 额外返回可空 `rpgMaker`，包含 `selectedCore
 
 所有 Launch config 都是 `LaunchEnvelopeV1`，Provider 行为由 `runtime.providerId + runtime.targetId + runtime.bundleSha256 + runtime.moduleSha256` 唯一选择。Host 只做 envelope、模块 URL/hash 和能力边界校验，然后调用 Provider Module V1 的 `mount(request)`；它不得认识 EasyRPG、mkxp、MV/MZ、ONS、KiriKiri、Butterscotch、TyranoScript、WASM-4 或任意 EmulatorJS core。Provider Target 私有选项位于 `targetOptions`，内容位于有序 `resources[]`，恢复输入位于 `restore`，联机输入位于 `netplay`。`session.coreName` 是 Host 产品目录冻结的显示名，仅用于界面；它不得替代 `runtime.targetId` 或影响 Provider 选择。PRODUCT 与 REVIEW_PREVIEW 共用同一 envelope，以 `session.purpose` 区分来源 owner，不能产生第二套 config schema。
 
-`retrom-runtime` Provider 的 12 个 Target 负责各自的引擎配置、资源装载、unique-origin bootstrap、输入、截图、checkpoint codec 与清理；EmulatorJS Provider 的 35 个 Target 负责 EJS globals、核心选项、多盘和联机 profile。上述映射只存在于对应 Provider manifest/module。Retrom 仅持久化稳定 Provider/Target 当前投影、资源授权和存档格式；Launch 另外冻结 Bundle 身份与物化资源，不复制 Provider 私有 registry。
+`retrom-runtime` Provider 的 12 个 Target 负责各自的引擎配置、资源装载、unique-origin bootstrap、输入、截图、checkpoint codec 与清理；EmulatorJS Provider 的 36 个 Target 负责 EJS globals、核心选项、多盘和联机 profile。上述映射只存在于对应 Provider manifest/module。Retrom 仅持久化稳定 Provider/Target 当前投影、资源授权和存档格式；Launch 另外冻结 Bundle 身份与物化资源，不复制 Provider 私有 registry。
 
 EasyRPG 与 mkxp 的同源内容端点属于严格 OpenAPI 契约，不能只在 Go router 中注册：
 
