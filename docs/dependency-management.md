@@ -150,6 +150,16 @@ Retrom:
 
 Provider archive 必须连续构建两次并比较digest。PFB另执行`pfb-validate/build/up/verify`、loose boundary与`ACC-PROVIDER-001..008`。任何schema、Target数量、binding、digest、许可、来源、PFB/production隔离或只前进规则失败都属于阻断错误。
 
+### Ruffle 开发候选
+
+Ruffle fork 为 `retrom-project/ruffle`，上游基线固定为
+`e46d1642fb67a53b56ffa4b1871cb7c57589e36d`，维护分支为 `retrom/ge46d1642fb67`，`master` 保留上游镜像。
+源码边和维护分支由当前 Retrom `workspace/manifest.yaml` 管理，不进入 workspace 根引导清单。
+fork 显式构建 `ruffle.js`、`core.ruffle.js`、`ruffle.wasm` 和原始许可，输出有界 candidate 文件清单和逐文件 SHA-256。
+runtime 的 `developmentInputs` 只聚合该候选，不编译核心、不虚构 Release tag；普通/正式构建拒绝未发布来源。
+PFB 将完整、已验证 Provider 候选作为不可变基座导入，后续 adapter 修改走 loose watcher；核心字节变化必须显式重建
+并通过更高的 Provider 候选版本重新导入。production lock 保持不变，正式发布仍需授权、固定 fork Release 和完整门禁。
+
 ## 11. 追溯与日志
 
 诊断可以显示 Provider、Bundle、Target、source commit、Release 坐标和验证结果，但不能暴露宿主路径、capability、私有游戏内容或上传 Blob 标识。许可证与 notice 随 Bundle 和镜像分发；应用 HTTP API 不提供任意宿主文件读取。

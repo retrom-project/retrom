@@ -304,6 +304,44 @@ describe("PlayerChrome", () => {
     expect(calls).toEqual(["pause", "save"]);
   });
 
+});
+
+describe("PlayerChrome explicit resume", () => {
+  it("resumes from the pause overlay with the read-only debug panel still open", async () => {
+    const values = props({paused: true, debugOpen: true});
+    render(<PlayerChrome {...values} />);
+    await userEvent.setup().click(screen.getByRole("button", {name: "继续游戏"}));
+    expect(values.onGameSurface).toHaveBeenCalledOnce();
+    expect(values.onToggleDebug).not.toHaveBeenCalled();
+  });
+
+  it("does not resume through an open settings toolbar", async () => {
+    const values = props({paused: true, emulatorToolbarOpen: true, debugOpen: true});
+    render(<PlayerChrome {...values} />);
+    await userEvent.setup().click(screen.getByRole("button", {name: "继续游戏"}));
+    expect(values.onGameSurface).not.toHaveBeenCalled();
+  });
+
+  it("keeps netplay resume under the session controller", async () => {
+    const values = props({paused: true, netplayPaused: true, netplayPlayerNo: 1});
+    render(<PlayerChrome {...values} />);
+    await userEvent.setup().click(screen.getByRole("button", {name: "继续游戏"}));
+    expect(values.onGameSurface).not.toHaveBeenCalled();
+  });
+
+  it("does not resume behind an exit confirmation", async () => {
+    const values = props({paused: true, debugOpen: true});
+    render(<PlayerChrome {...values} />);
+    const overlay = screen.getByRole("button", {name: "继续游戏"});
+    await userEvent.setup().click(screen.getByRole("button", {name: "返回并退出游戏"}));
+    expect(screen.getByRole("alertdialog", {name: "退出游戏？"})).toBeVisible();
+    fireEvent.click(overlay);
+    expect(values.onGameSurface).not.toHaveBeenCalled();
+  });
+
+});
+
+describe("PlayerChrome settings and exit", () => {
   it("renders the Retrom emulator toolbar without a native exit action", async () => {
     const user = userEvent.setup();
     const values = props({ emulatorToolbarOpen: true });

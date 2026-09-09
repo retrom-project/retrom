@@ -42,6 +42,7 @@ export type RuntimeCheckpointRequestV1 = {
   intent: "CAPTURE" | "EXPORT";
 };
 export type RuntimeNativeSaveCapabilitiesV1 = {
+  dataKind?: "PROGRESS" | "STORAGE";
   capture: "RUNTIME" | "IN_GAME";
   restore: "AUTOMATIC" | "IN_GAME";
   captureAvailable: boolean;

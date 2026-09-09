@@ -55,6 +55,11 @@ Provider 私有的 PSP 存档读取必须等待原生异步序列化结束，期
 
 ## 5. retrom-runtime 特殊边界
 
+Flash 使用独立 `flash-ruffle` Target。只接收原始单 SWF，SharedObject 是游戏原生存档（`GAME_SAVE`），
+不承诺即时执行快照。按 `ACC-FLASH-001` 验证自有确定性程序的原生保存、新 Launch 恢复、继续输入与空启动，
+并通过真实公开游戏的导入/预览/发布/启动检查兼容性。GPU 画布截图必须走核心重绘捕获接口，页面截图不能替代
+存档截图能力。未验证的 Stage3D、外部资源、联网和其他 Flash API 不纳入兼容性声明。
+
 RPG 世代检测只选择 `retrom-runtime` Provider 内的 Target；用户仍只看到一个 RPG Maker Core。EasyRPG、mkxp、Native Web、ONS、KiriKiri、Butterscotch、TyranoScript 和 WASM-4 的文件策略、bridge、OPFS/Range、输入和 checkpoint codec 都属于 Provider 私有实现。
 
 Native Web 必须使用每 Launch unique origin，拒绝应用 cookie、普通 API、跨 Launch 项目和 ticket 重放。审核试运行复用普通 Preview/Player 与同一 Provider Module，不包含专用证明协议或发布前置。严格的帧、输入、音频、A/B/C、checkpoint、跨会话恢复与截图断言只由研发验收驱动普通产品操作并从自有 fixture/普通存档读取，规则见项目验收专题。

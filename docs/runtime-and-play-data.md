@@ -65,6 +65,8 @@ Player Host 只消费 `PlayerRuntimeV1` 的标准能力和事件，不按 Provid
 
 从 Host 控制栏或暂停遮罩恢复运行后，Provider 在核心确认恢复且会话仍有效时，把键盘焦点交还游戏 canvas；不暴露 canvas 的隔离项目聚焦其运行窗口。暂停、恢复失败或被退出抢占时不得抢回 Host 焦点。这个行为由两个 Provider 的公共入口实现，不由单个核心或验收脚本补焦点。
 
+Host 区分运行时内部普通点击与暂停遮罩上的明确恢复：前者保留控制区占用保护，后者先由 Chrome 检查设置/退出/换盘阻断，再请求公共 resume；只读调试面板的可见性固定状态不构成恢复阻断。该边界与 Provider/Target 无关，单机运行、暂停状态和联机权限检查仍然有效；回归见 `ACC-RUN-002`。
+
 浏览器开发工具注入的 Web Vitals 脚本不属于游戏运行时。应用 document、Provider 与运行 frame 不拦截或吞掉该脚本的异常，也不修改浏览器性能 API、DevTools 设置或其独立执行上下文。匿名脚本错误必须先按执行上下文、脚本字节与实际堆栈定位，不能因含有 `startTime` 就归因于 Player；诊断与回归边界见工程质量专题第 8.2 节。
 
 ## 5. 资源与项目运行时
@@ -155,6 +157,27 @@ Player 在当前账号、Launch 范围内将数据包、截图和固定幂等请
 Review Preview 保持预览范围，不创建 Product 草稿记录或正式存档；即时快照行为不变。
 
 Player 调试面板的“画面呈现率”由公共 getFrameCount 的增量计算，不代表屏幕刷新率或游戏逻辑速度。按需重绘核心可在游戏画面静止时停止提交帧；Host 不插入重复帧补足 60 FPS，输入与暂停控制继续正常工作。
+
+### Flash 单文件与原生存档
+
+Flash 平台的产品 Core 为 `ruffle`，绑定 `retrom-runtime/flash-ruffle`。`FLASH_SWF` 检测/交付策略
+只接收单个原始 `.swf`，沿用 `SINGLE_FILE`、`ROM_BLOB`、普通审核和共享 Provider dispatcher。
+不接收 EXE projector、AIR、ZIP 项目或依赖外部资源的 Flash 网站；不新增数据库 migration 或 HTTP 旁路。
+
+Provider 在加载前校验 SWF 签名、准确字节数与 SHA-256，文件和头部声明的解压长度均不超过 64 MiB。
+完整内容按摘要复用浏览器持久缓存；缓存失败允许正常网络读取。游戏脚本访问宿主、导航和网络默认禁止。
+核心内存加载使用稳定内容摘要作为 SWF URL 身份，SharedObject 只写入本次实例的宿主存储，不能落入共享 localStorage。
+
+存档为 `ruffle-sharedobjects-v1`、`GAME_SAVE`，编码包上限 8 MiB；它是游戏写出的 SharedObject 原生数据，
+不是即时状态。公共 `availability.save.dataKind=STORAGE` 明确表示持久存储容器；其中可能只有游玩次数、设置或统计，不能保证恢复关卡进度。
+确实写出新数据时仍允许“存档并退出”，不猜测哪些字段是进度、不按游戏建立例外。没有写出数据时不能创建假存档。
+沿用 J2ME 的 GAME_SAVE 生命周期：从已有存档启动后始终更新所选同一存档，保留用户命名；不选存档重新开始才创建新的空容器，首次保存产生新存档。
+恢复包必须在执行 SWF 前导入，普通启动必须从空数据开始。
+画面强制使用 `showAll` 等比缩放和居中对齐，禁止游戏脚本覆盖缩放/对齐策略；保持原始宽高比，不能用拉伸或裁切冒充填满屏幕。
+Ruffle 自行管理响应式 canvas 和 DPI backing buffer；Provider 仅铺满外层 frame，不再次根据变化中的 buffer 宽高比设置 canvas 像素尺寸和偏移。
+该布局所有权是 Provider 内部 adapter 约定，不改变公共 Host 契约，其他固定分辨率核心继续使用既有内接居中布局。
+键盘和鼠标保留原生行为，标准手柄方向/左摇杆映射方向键，A/B/X/Y（south/east/west/north）映射 Space/Escape/X/Enter。
+不同游戏的按键和 Flash API 兼容性仍须单独验证。产品准入与证据规则见 `ACC-FLASH-001`。
 
 ### ScummVM 项目与原生恢复
 
