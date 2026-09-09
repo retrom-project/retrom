@@ -408,7 +408,9 @@ test("game detail keeps its one-screen hierarchy and opens saves without navigat
     expect(drawerRowLayout.actionWeight).toBeGreaterThanOrEqual(700);
     expect(drawerRowLayout.timeSize).toBeGreaterThanOrEqual(14);
     expect(drawerRowLayout.timeWeight).toBeGreaterThanOrEqual(700);
-    await page.screenshot({ path: testInfo.outputPath("game-detail-save-drawer.png"), fullPage: true });
+    // Full-page capture can transiently resize Chromium to 1x1 and remount the responsive shell.
+    await page.screenshot({ path: testInfo.outputPath("game-detail-save-drawer.png"), fullPage: false });
+    await expect(drawer).toBeVisible();
     await drawer.getByRole("button", { name: /预览.*存档截图/ }).first().click();
     await expect(page.getByRole("dialog", { name: "存档截图预览" })).toBeVisible();
     await page.getByRole("button", { name: "关闭" }).click();

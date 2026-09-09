@@ -61,6 +61,7 @@ var registry = map[string]Profile{
 	"atari5200":    single("atari5200", ".a52"),
 	"psx":          raw("psx", ".chd"),
 	"lynx":         single("lynx", ".lnx"),
+	"dreamcast":    raw("dreamcast", ".chd"),
 	"saturn":       withContentKinds(raw("saturn", ".chd"), ContentKindSingleFile, ContentKindMultiDisc),
 	"megadrive":    single("megadrive", ".md", ".smd", ".bin"),
 	"n64":          single("n64", ".z64"),
@@ -71,6 +72,7 @@ var registry = map[string]Profile{
 	"pcfx":         raw("pcfx", ".chd"),
 	"ngpc":         single("ngpc", ".ngp"),
 	"psp":          raw("psp", ".iso", ".cso"),
+	"ps2":          raw("ps2", ".iso", ".chd"),
 	"virtualboy":   single("virtualboy", ".vb"),
 	"wonderswan":   single("wonderswan", ".ws", ".wsc"),
 	"mastersystem": single("mastersystem", ".sms"),
@@ -78,8 +80,19 @@ var registry = map[string]Profile{
 	"j2me":         raw("j2me", ".jar"),
 	"flash":        raw("flash", ".swf"),
 	"wasm4":        single("wasm4", ".wasm"),
-	"tic80":        single("tic80", ".tic"),
-	"pico8":        single("pico8", ".p8", ".p8.png"),
+	"zxspectrum":   single("zxspectrum", ".tzx", ".tap", ".z80", ".rzx", ".scl", ".trd"),
+	"c64":          single("c64", viceSingleFileExtensions...),
+	"c128":         single("c128", viceSingleFileExtensions...),
+	"vic20":        single("vic20", viceSingleFileExtensions...),
+	"colecovision": single("colecovision", ".col", ".cv", ".bin", ".rom"),
+	"atarijaguar":  single("atarijaguar", ".j64", ".jag", ".rom", ".abs", ".cof", ".bin", ".prg"),
+	"doom":         single("doom", ".wad", ".iwad"),
+	"amiga": single(
+		"amiga", ".adf", ".adz", ".dms", ".fdi", ".ipf", ".raw",
+		".hdf", ".hdz", ".lha", ".chd", ".nrg", ".iso",
+	),
+	"tic80": single("tic80", ".tic"),
+	"pico8": single("pico8", ".p8", ".p8.png"),
 
 	"scummvm":      project("scummvm", ContentKindScummVMProject),
 	"rpgmaker":     project("rpgmaker", ContentKindRPGMakerProject),
@@ -88,6 +101,13 @@ var registry = map[string]Profile{
 	"butterscotch": project("butterscotch", ContentKindButterscotchProject),
 	"tyranoscript": project("tyranoscript", ContentKindTyranoScriptProject,
 		ArchiveNWJSExecutable, ArchiveElectronASAR),
+}
+
+var viceSingleFileExtensions = []string{
+	".d64", ".d6z", ".d71", ".d7z", ".d80", ".d81", ".d82", ".d8z",
+	".g64", ".g6z", ".g41", ".g4z", ".x64", ".x6z", ".nib", ".nbz",
+	".d2m", ".d4m", ".t64", ".tap", ".tcrt", ".prg", ".p00", ".crt",
+	".bin", ".vsf", ".gz", ".20", ".40", ".60", ".a0", ".b0", ".rom",
 }
 
 var specialPlatformExtensions = map[string][]string{

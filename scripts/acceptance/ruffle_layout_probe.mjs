@@ -75,7 +75,7 @@ try {
       assert.equal(playing, !paused, "RUFFLE_PAUSE_RESUME_STATE_MISMATCH");
     });
     await page.screenshot({path: join(directory, "surface-resumed-with-debug.png")});
-    await page.getByRole("button", {name: "关闭调试信息面板"}).click();
+    await page.getByRole("button", {name: "调试信息", exact: true}).click();
     evidence.surfaceResume = "PASS";
   }
   for (let index = 0; index < 8; index++) {
