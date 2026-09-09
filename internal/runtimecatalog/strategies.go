@@ -19,6 +19,7 @@ const (
 var hostStrategies = map[string]HostStrategy{
 	"PC98_DISK": {"ROM_BLOB", OptionsNone, []string{"SINGLE_FILE"}},
 
+	"OPENBOR_PAK":             {"ROM_BLOB", OptionsNone, []string{"SINGLE_FILE"}},
 	"MSX_MEDIA":               {"ROM_BLOB", OptionsNone, []string{"SINGLE_FILE"}},
 	"PX68K_DISK":              {"EMULATORJS_CONTENT", OptionsNone, []string{"SINGLE_FILE"}},
 	"OPTICAL_DISC":            {"ROM_BLOB", OptionsNone, []string{"SINGLE_FILE"}},
