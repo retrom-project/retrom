@@ -156,8 +156,8 @@ Provider archive 必须连续构建两次并比较digest。PFB另执行`pfb-vali
 
 Launch、Preview 与 Netplay session 必须用 `bundleSha256` 追溯到精确 Provider 字节；Validation 与 Variant 使用稳定 Provider/Target 和各自真实输入证据；Save 只保存 checkpoint format，并由恢复时的当前 Target `readFormats` 判定兼容性。
 
-### Play! 开发候选
+### Play! PS2 核心
 
-Play! 的唯一核心源码与构建归属为 `retrom-project/Play-`，维护基线为上游 `83700b2c31e593bc94e845b4b31b797be84dda59`，分支 `retrom/g83700b2c31e5`。Retrom workspace catalog 将其登记为 runtime 的 `play` 核心依赖。固定 Emscripten 工具链、ABI `play-host-v1`、构建入口和许可由 fork 的 `retrom-fork.json` 与候选接口管理。
+Play! 的核心源码与构建归属为 `retrom-project/Play-`，维护基线为上游 `83700b2c31e593bc94e845b4b31b797be84dda59`，维护分支 `retrom/g83700b2c31e5`。Retrom workspace catalog 将其登记为 runtime 的 `play` 核心依赖。固定 Emscripten 工具链、ABI `play-host-v1`、闭合资产与许可由 fork 管理，annotated `retrom-core-g83700b2c31e5-rN` tag 的工作流发布正式资产。
 
-新增 Target 的 PFB 基座必须从显式构建且通过校验的完整 Provider candidate 导入；日常 adapter 更新仍使用 watcher。未发布 Play! 通过 runtime 的 `developmentInputs` 登记固定上游来源，只接受 fork-owned core candidate，正式 Release 必须拒绝该输入。不得将本地 candidate digest、路径或虚构 tag 写入 production lock。发布前须完成统一产品验收并取得发布授权，再固定不可移动 core Release 和 Provider Release。
+runtime 通过普通 `upstreamReleases` 固定 Play! tag、commit、metadata 与资产；Retrom 通过正常 Provider Release 锁文件消费它。PS2 核心保持启用，手动创建目录、导入与启动遵循普通核心流程，无实验开关或专用禁用状态；因运行不稳定，不提供推荐目录，具体行为见[游戏目录契约](./platform-instance.md#release-推荐目录-catalog)。候选与本机路径不进入 production lock；后续更新沿用 core → Provider → Host 的正常发布顺序。产品验证见 [ACC-PS2-001](./project-acceptance.md#acc-ps2-001play-ps2-按需光盘与即时状态)。

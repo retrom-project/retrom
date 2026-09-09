@@ -114,7 +114,7 @@ VALUES(?,'wasm4-profile','wasm4-admin','WASM-4 Admin','ADMIN','ENABLED',0,0);
 	importService := libraryimport.New(database.SQL, time.Now)
 	createdImport, err := importService.Create(ctx, libraryimport.CreateRequest{
 		UploadID:                 upload.ID,
-		TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(t, database.SQL, input.platform+"/"+input.core),
+		TargetPlatformInstanceID: createSingleBlobDirectory(t, database.SQL, input, actorID),
 		MetadataProvider:         "NONE",
 	})
 	if err != nil {
