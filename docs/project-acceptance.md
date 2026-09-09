@@ -2150,7 +2150,7 @@ Launch 完成验证。原始 JAR 的 SHA-256 和字节数必须在上传、内�
 - 准备：安装 `dc_boot.bin` 和 `dc_flash.bin`，选择 Dreamcast 推荐目录；上传单文件 CHD，
   进入审核并启动 Review Preview。记录内容摘要、Provider Bundle/Target 和依赖快照。
 - 流程：验证真实游戏画面和标准 Gamepad API 的 Start、方向及 A/B；保存审核截图并发布。
-  创建普通 Product Launch，在可辨认场景创建非空 `flycast-state-gzip-v1` 即时存档，记录大小/摘要。
+  创建普通 Product Launch，在可辨认场景创建非空 `flycast-state-v1-storage-v1` 即时存档，记录大小/摘要。
   退出后创建不同 Launch，显式指定该 SaveState；核对恢复到保存场景且方向、确认仍可操作。
   再创建不指定存档的 Launch，确认正常启动而非隐式恢复。
 - 缓存：同一浏览器上下文第二次启动应命中按内容摘要命名的 OPFS CHD，长度正确，
@@ -2162,11 +2162,11 @@ Launch 完成验证。原始 JAR 的 SHA-256 和字节数必须在上传、内�
 
 ### ACC-FLYCAST-002：暂停截图与压缩存档回归
 
-- 输入：操作者提供的旧 `flycast-state-v1` 存档及其原游戏，使用同一 PFB 的普通 Product Launch。
+- 输入：操作者提供的旧 `flycast-state-v1` 或 `flycast-state-gzip-v1` 存档及其原游戏，使用同一 PFB 的普通 Product Launch。
 - 上限：600 秒。通过正常详情页恢复旧存档，确认可辨认游戏场景和标准手柄输入。
 - 暂停后等待至少两个浏览器呈现周期再创建存档；在同一可辨认场景重复 5 次正常保存，
   下载服务端缩略图并核对画面，不得把真实黑色游戏场景当成截图失效。
-- 新存档的 envelope format 必须是 `flycast-state-gzip-v1`，记录实际存储字节数与解压字节数，
+- 新存档的 envelope format 必须是 `flycast-state-v1-storage-v1`，记录实际存储字节数与解压字节数，
   对同一份 bytes 计算压缩收益；解压后完整摘要与核心原始状态相同。
 - 选择一份新压缩存档创建不同 Launch，验证恢复场景及恢复后输入；旧存档仍可恢复。
 - 单元回归覆盖上下文保留属性与清理、旧格式读取、无损往返、gzip 损坏/截断及解压大小上限。
@@ -2235,7 +2235,7 @@ PSP 原生加载完成回执必须启用，不能用取消超时检查或放行�
 - 自有卡带由 `python3 scripts/acceptance/build_msx_fixture.py <输出路径.rom>` 确定性生成；不提交生成物。
   它只含项目自有 Z80 程序，用可见标记的位置与形状验证输入和恢复，不含 BIOS 或第三方片段。
 - 自有卡带经过上传、导入、审核预览、批准和 Product Launch，标准虚拟手柄方向改变位置、
-  A 改变形状，保留的 B/Escape 操作重置位置。即时存档必须为非空 `webmsx-state-v1`；
+  A 改变形状，保留的 B/Escape 操作重置位置。即时存档必须为非空 `webmsx-state-v1-storage-v1`；
   关闭后以不同 Launch ID 恢复时位置、形状保持一致并继续响应方向。不选存档启动须回到初始状态。
 - 操作者游戏同样经过导入、审核预览、批准和 Launch，等待开机/标题动画后执行真实按键并保存截图。
   首份游戏另建即时存档，在新的 Launch 中恢复并继续输入。

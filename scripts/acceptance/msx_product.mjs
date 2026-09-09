@@ -67,7 +67,7 @@ async function runExternal(context, client, file, index) {
   const result = {gameId: game.gameId, launchId: launch.launchId};
   if (index === 0) {
     const saved = await saveCart(opened.page, launch.launchId, 'webmsx');
-    assert.equal(saved.checkpointFormat, 'webmsx-state-v1');
+    assert.equal(saved.checkpointFormat, 'webmsx-state-v1-storage-v1');
     await opened.page.close();
     const restored = await launchCart(client, game.gameId, saved.saveStateId);
     assert.notEqual(restored.launchId, launch.launchId);
@@ -149,7 +149,7 @@ async function verifyInstantSave(context, client, gameId) {
   const confirmed = await marker(first.canvas);
   assert.notEqual(beforeConfirm.shape, confirmed.shape, 'MSX_CONFIRM_FAILED');
   const saved = await saveCart(first.page, original.launchId, 'webmsx');
-  assert.equal(saved.checkpointFormat, 'webmsx-state-v1');
+  assert.equal(saved.checkpointFormat, 'webmsx-state-v1-storage-v1');
   await first.page.close();
   const restored = await launchCart(client, gameId, saved.saveStateId);
   assert.notEqual(restored.launchId, original.launchId);

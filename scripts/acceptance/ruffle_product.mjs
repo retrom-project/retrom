@@ -144,7 +144,7 @@ async function verifySave(context, client, gameId) {
   await first.page.waitForTimeout(1500);
   // This helper selects the existing GAME_SAVE exit flow, also used by TIC-80.
   const saved = await saveCart(first.page, original.launchId, "tic80");
-  assert.equal(saved.checkpointFormat, "ruffle-sharedobjects-v1");
+  assert.equal(saved.checkpointFormat, "ruffle-sharedobjects-v1-storage-v1");
   await first.page.close();
   const restored = await launchCart(client, gameId, saved.saveStateId);
   assert.notEqual(restored.launchId, original.launchId);
