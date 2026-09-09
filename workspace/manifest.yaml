@@ -21,7 +21,8 @@
         "wasm4",
         "scummvm",
         "tic80",
-        "fake08"
+        "fake08",
+        "flycast-wasm"
       ]
     },
     {
@@ -173,6 +174,15 @@
       "role": "support",
       "gitlink": "git@github.com:retrom-project/freej2me-plus.git",
       "defaultBranch": "main",
+      "submodules": false,
+      "dependsOn": []
+    },
+    {
+      "id": "flycast-wasm",
+      "path": "project/retrom-core/flycast-wasm",
+      "role": "core",
+      "gitlink": "git@github.com:retrom-project/flycast-wasm.git",
+      "defaultBranch": "retrom/1.0",
       "submodules": false,
       "dependsOn": []
     }

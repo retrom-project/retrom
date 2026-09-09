@@ -41,7 +41,7 @@
 
 ## 4. EmulatorJS 特殊边界
 
-EmulatorJS Provider declaration 是 35 个 Target 的唯一行为 registry。`mame2003` 的 4.2.1 core 覆盖、DOSBox Pure 的 state 修复、线程 core、shader、启动动作、多盘和八个 netplay profile 都封装在该 Provider 中。Retrom 只看 Target declaration 与标准能力，不按 core 名在 Go 或前端复制规则。
+EmulatorJS Provider declaration 是 36 个 Target 的唯一行为 registry。`mame2003` 的 4.2.1 core 覆盖、DOSBox Pure 的 state 修复、线程 core、shader、启动动作、多盘和八个 netplay profile 都封装在该 Provider 中。Retrom 只看 Target declaration 与标准能力，不按 core 名在 Go 或前端复制规则。
 
 Mega Drive 的 Genesis Plus GX、GX Wide 与 PicoDrive 由 Provider 在输入表建立前明确选择 Mega Drive 手柄布局，保留 Start、方向与 A/B/C/X/Y/Z；不能采用多平台核心自动推断出的 Master System 布局。键盘与标准手柄使用同一控制表，原始 `.md`/`.smd` 与归档内成员行为一致。固定 EmulatorJS 4.2.3 的六键布局使用等价的 `segaCD` 输入别名，4.3.0-pre 使用 `segaMD`；这只选择输入布局，不切换运行核心或内容类型。
 
@@ -52,6 +52,21 @@ PSP 优化的定向验证应使用操作者提供的合法样本，通过真实 
 Provider 私有的 PSP 存档读取必须等待原生异步序列化结束，期间不得恢复主循环造成 Asyncify 重入；只释放原生数据 allocation，不释放借用的描述符。压缩格式、画布上限和固定核心版本由 Provider 自己声明，Host 不增加 PSP 分支。
 
 指定存档不能在首帧盲目自动加载；Provider 必须等待目标核心可序列化，再执行原生 load 并以明确失败 fail closed。普通开始必须清理浏览器遗留的隐式目录存档，只有用户点击“创建存档”才上传显式 checkpoint。
+
+Dreamcast 通过 `emulatorjs/flycast` Target 接入 nasomers/flycast-wasm 的 WASM JIT，由
+`retrom-project/flycast-wasm` 固定源码构建。首期只接受单文件 `.chd`，使用 WebGL2、
+640×480、无 pthreads；Windows CE/MMU、NAOMI、Atomiswave、多盘与联机不在支持范围。
+BIOS 使用安装快照中的 `/dc/dc_boot.bin` 与 `/dc/dc_flash.bin`，关闭 HLE BIOS。
+标准手柄的 A/B/X/Y 按 Dreamcast 物理位置绑定，方向、摇杆及 L/R 扳机由标准输入表传递。
+
+Provider 在 OPFS 按完整 SHA-256 缓存 CHD，每次命中重新流式校验长度和摘要；不支持 OPFS
+或写入配额不足时回退到经过同样校验的内存 Blob。缓存只保存游戏字节，不保存 Launch URL
+或授权信息。新 Launch 仍须取得当前 envelope grant；清除站点存储会重新下载。
+即时存档写入独立的 `flycast-state-gzip-v1` 格式，完整状态无损压缩后上传；恢复时按声明格式解压，
+压缩前后均遵守 Provider 的大小上限，并继续读取旧 `flycast-state-v1` 存档。恢复等待核心启动完成。
+Flycast 的 iframe 在创建 WebGL 上下文时保留绘图缓冲区，避免浏览器呈现后清空缓冲区，
+使暂停后的 Canvas 截图仍可读取最后画面；退出时恢复该 iframe 的上下文创建方法。
+操作者语料的验收规则见 `ACC-FLYCAST-001`；单个样本结果不能外推为 Dreamcast 全库兼容。
 
 ## 5. retrom-runtime 特殊边界
 
