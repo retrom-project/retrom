@@ -8,6 +8,7 @@ import {observeOpenBOR, nativeState, assertRobo, spriteX} from "./openbor_observ
 import {advanceToNativeSave, enterRobo, pad, saveAndExit, checkPause} from "./openbor_actions.mjs";
 import {observeOpenBORAudio, openborAudio} from "./openbor_audio.mjs";
 import {revealPreviewToolbar} from "./rpgmaker_preview_actions.mjs";
+import {localRpgAcceptanceProxy} from "./rpgmaker_local_proxy.mjs";
 const {chromium} = await import(process.env.RETROM_PLAYWRIGHT_MODULE ?? "../../web/node_modules/playwright/index.mjs");
 const base = process.env.RETROM_ACCEPTANCE_BASE_URL, gameFile = process.env.RETROM_OPENBOR_GAME;
 const output = process.env.RETROM_ACCEPTANCE_CASE_DIR;
@@ -16,13 +17,14 @@ await mkdir(output, {recursive: true});
 const evidence = {schemaVersion: 1, caseId: "ACC-OPENBOR-001", status: "FAIL", errors: [], stages: []};
 const capabilities = {secureContext: true, crossOriginIsolated: true, sharedArrayBuffer: true};
 const sha = bytes => createHash("sha256").update(bytes).digest("hex");
-let browser;
+let browser, proxy;
 try {
   evidence.gameSha256 = sha(await readFile(gameFile));
+  proxy = await localRpgAcceptanceProxy(base);
   browser = await chromium.launch({headless: true, executablePath: process.env.RETROM_CHROME_EXECUTABLE,
     args: ["--host-resolver-rules=MAP *.localhost 127.0.0.1", "--use-angle=swiftshader", "--enable-unsafe-swiftshader"]});
   evidence.browser = browser.version();
-  const context = await browser.newContext({viewport: {width: 1440, height: 1000}});
+  const context = await browser.newContext({viewport: {width: 1440, height: 1000}, ...proxy.contextOptions});
   await installVirtualStandardGamepad(context); await observeOpenBOR(context); await observeOpenBORAudio(context);
   context.setDefaultTimeout(15000);
   const login = await context.request.post(`${base}/api/v1/auth/login`, {headers: {Origin: base},
@@ -87,7 +89,7 @@ try {
   assert.equal(evidence.errors.length, 0, "OPENBOR_BROWSER_ERRORS"); evidence.status = "PASS";
 } catch (error) {evidence.errorCode = error.message; process.exitCode = 1;}
 finally {
-  await browser?.close(); await writeFile(`${output}/openbor-product.json`, JSON.stringify(evidence, null, 2));
+  await browser?.close(); await proxy?.close(); await writeFile(`${output}/openbor-product.json`, JSON.stringify(evidence, null, 2));
   console.log(JSON.stringify(evidence));
 }
 async function importGame(client) {
