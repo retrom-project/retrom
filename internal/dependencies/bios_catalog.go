@@ -29,6 +29,18 @@ type staticBIOS struct {
 
 var staticBIOSCatalog = []staticBIOS{
 	{
+		delivery: "EXTERNAL_FILE", emulatorPath: "/game/keropi/iplrom.dat",
+		coreID: "px68k", logical: "iplrom.dat", mode: "REQUIRED", size: 131072,
+		md5: "7fd4caabac1d9169e289f0f7bbf71d8e", sha256: "8ead1d0f4ebb9c59a7fa118596f819e191c310442a00c56ab5ec5e9e7a189677",
+		sourceURL: "https://docs.libretro.com/library/px68k/",
+	},
+	{
+		delivery: "EXTERNAL_FILE", emulatorPath: "/game/keropi/cgrom.dat",
+		coreID: "px68k", logical: "cgrom.dat", mode: "REQUIRED", size: 786432,
+		md5: "cb0a5cfcf7247a7eab74bb2716260269", sha256: "c4e47e1480af0b00b330a49650480c8caa34054a6e97db7ae03cbade9890185d",
+		sourceURL: "https://docs.libretro.com/library/px68k/",
+	},
+	{
 		coreID: "flycast", logical: "dc_boot.bin", mode: "REQUIRED", size: 2097152,
 		md5: "e10c53c2f8b90bab96ead2d368858623", sha256: "88d6a666495ad14ab5988d8cb730533cfc94ec2cfd53a7eeda14642ab0d4abf9",
 		sourceURL: "https://docs.libretro.com/library/flycast/",

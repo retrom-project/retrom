@@ -12,7 +12,10 @@ const state = (marker) => ({marker, order: 10, scenario: "first.ks"});
 function evidence() {
   return {
     schemaVersion: 1, caseId: "ACC-TYRANOSCRIPT-001", status: "PASS",
-    stages: [...tyranoScriptProductStages],
+    stages: [...tyranoScriptProductStages], reusedReview: false,
+    input: {original:{gamepad:["B"], keyboard:[]}, restored:{gamepad:["B"], keyboard:[]},
+      originalKeyboard:[{type:"keydown", key:"Escape"}, {type:"keyup", key:"Escape"}],
+      restoredKeyboard:[{type:"keydown", key:"Escape"}, {type:"keyup", key:"Escape"}]},
     ids: {
       importItemId: "01a05123-1234-7123-8123-123456789abc",
       gameId: "01a05123-1234-7123-8123-223456789abc",
@@ -37,6 +40,8 @@ test("accepts the complete TyranoScript product chain", () => {
 
 test("rejects restore, resource, screenshot and browser regressions", () => {
   const invalid = [
+    {...evidence(), input:{...evidence().input, original:{gamepad:["B"], keyboard:evidence().input.originalKeyboard}}},
+    {...evidence(), input:{...evidence().input, restoredKeyboard:[]}},
     {...evidence(), state: {...evidence().state, restoredB: state("C")}},
     {...evidence(), resources: {...evidence().resources, engineAsset200Count: 0}},
     {...evidence(), screenshots: {...evidence().screenshots, restored: {...screenshot, nonBlackPixels: 0}}},

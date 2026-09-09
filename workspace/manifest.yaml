@@ -25,7 +25,8 @@
         "fake08",
         "play",
         "flycast-wasm",
-        "webmsx"
+        "webmsx",
+        "px68k"
       ]
     },
     {
@@ -198,6 +199,15 @@
       "defaultBranch": "retrom/g83700b2c31e5",
       "submodules": true,
       "dependsOn": []
+    },
+    {
+      "id": "px68k",
+      "path": "project/retrom-core/px68k-libretro",
+      "role": "core",
+      "gitlink": "git@github.com:retrom-project/px68k-libretro.git",
+      "defaultBranch": "retrom/g561dcba6b11d",
+      "dependsOn": [],
+      "submodules": false
     },
     {
       "id": "flycast-wasm",

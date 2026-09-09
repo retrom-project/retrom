@@ -52,6 +52,7 @@ type Profile struct {
 }
 
 var registry = map[string]Profile{
+	"x68000":       single("x68000", ".dim", ".xdf", ".hdf"),
 	"nes":          single("nes", ".nes", ".unf", ".unif", ".fds"),
 	"fds":          single("fds", ".fds"),
 	"snes":         single("snes", ".sfc", ".smc", ".swc", ".fig"),

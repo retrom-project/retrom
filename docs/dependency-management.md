@@ -17,6 +17,8 @@
 
 Provider Bundle 是 Target 行为的唯一事实源。Retrom 的 binding catalog 与 DAT 只引用稳定 `providerId/targetId` 和 Host 产品策略，不得重新声明入口、能力或引擎映射。Bundle 摘要只由需要重现实例字节的 Launch、Preview 与 Netplay session 冻结。
 
+核心接入的手柄准入要求为方向移动和确认，取消可选；同一映射配置内坚持单按钮单目标，不用原生按钮与键盘重复发送补足确认/取消。输入行为和验证边界统一见[核心运行时验证基线](./core-runtime-validation.md#3-共享验证规则)，已有正常取消及宿主菜单 B 返回保留。
+
 ## 2. Provider Bundle V1
 
 正式和 candidate 产物使用同一个闭合 Bundle V1 schema。Bundle 至少固定：
@@ -200,3 +202,21 @@ Retrom 通过 production lock 消费正式 Provider；`msx-webmsx` Target 对应
 由 fork 输出封闭 candidate 清单；本地覆盖只允许用于 PFB，不能进入正式聚合与锁文件。
 上游固定提交未提供源码头部所指的 `license.txt`，不能标注为 MIT 或 GPL。
 专用 notice 与核心发布元数据保留源码许可和嵌入系统 ROM 分发状态 `UNRESOLVED`；发布不构成授权声明。
+
+## PX68K 核心输入
+
+PX68K 的维护源为 `retrom-project/px68k-libretro`，基线是
+`uraraworks/px68k-libretro@561dcba6b11d04c9a6d7ca62998d5fb3f544aa49`。
+维护分支为 `retrom/g561dcba6b11d`；独立网页的实验性 SCSI 接口以
+`libretro/px68k-libretro@0ad84d7058a12b7db4f7f7a906e87fad4e2f26f6`
+的存储实现替换，文件范围与原因记录于 core fork 的 `retrom/README.md`。
+
+runtime 固定维护分支的正式 `retrom-core-g561dcba6b11d-r1` Release，验证提交、ABI、
+ES module/Wasm/完整 `LICENSES.txt` 的文件大小与 SHA-256，再构建 Provider。
+PFB 的显式 core candidate 仍验证闭合文件集合与 candidate descriptor；开发覆盖不能进入正式归档或 production lock。
+该核心同时保留 GPL 文本、WinX68k 非商业条款和 FMGen notice；adapter 的 MIT 许可不改变它们。
+
+BIOS 由产品 BIOS 安装链提供：`iplrom.dat`（131072 bytes）和 `cgrom.dat`（786432 bytes），
+两者均为 REQUIRED / EXTERNAL_FILE；平台定义中的 SHA-256 与上游 MD5 对应。
+以逐文件 `EXTERNAL_FILE_SET` 交付真实字节长度与摘要，由 adapter 写入 `game/keropi/`。
+游戏与 BIOS 均不进入核心产物、Provider 包或 Git。
